@@ -227,7 +227,7 @@ const body: PostBody = {
     {"k": "note", "t": "SA-2026-091 — Az érintett ellenőrzéseket a #2338 letiltja, kiadásra vár."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-091-rc-torsion-shear-verification.md", "label": "SA-2026-091", "t": "Érintett modellek és szükséges teendők."},
     {"k": "note", "t": "SA-2026-092 — Az együttes esetet a #2372 letiltja, a metszeteket a #2382 javítja, kiadásra vár."},
-    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-092-section-stress-shear.md", "label": "SA-2026-092", "t": "Érintett modellek és szükséges teendők."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-092-section-stress-shear.md", "label": "SA-2026-092", "t": "A vékony falú cső példájában a vizsgált szál helye a rúd helyi tengelyei szerint y = 0,0995 m, z = 0. A korábbi von Mises-ellenőrzés a csavarónyomaték mindkét előjelénél 7,91 MPa értékkel megfelelt. Ha a nyírófeszültségek erősítik egymást, az előjeles összegzés 11,19 MPa-t ad, ami meghaladja a 9 MPa-os folyáshatárt. Ha kioltják egymást, a feszültség közel nulla, és az ellenőrzés megfelelést mutat."},
     {"k": "note", "t": "SA-2026-093 — Javítva a #2381 módosításban, kiadásra vár."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-093-plane-moving-load-axial-force.md", "label": "SA-2026-093", "t": "Érintett modellek és szükséges teendők."},
     {

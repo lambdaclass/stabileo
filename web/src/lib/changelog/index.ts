@@ -38,7 +38,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       es: {
         title: 'Hormigón, tensiones de sección y cargas móviles',
         items: [
-          'Las tensiones detalladas de sección bloquean el resultado combinado cuando coinciden el corte transversal y el de torsión. Los cortes ahora incluyen ambas componentes transversales al calcular el corte total y von Mises. Volvé a calcular las tensiones afectadas y revisá los informes (SA-2026-092).',
+          'Las tensiones detalladas de sección bloquean el resultado combinado cuando coinciden el corte transversal y el de torsión. Los cortes ahora incluyen ambas componentes transversales al calcular el corte total y von Mises. Volvé a calcular las tensiones afectadas y revisá los informes (SA-2026-092). El ejemplo del aviso indica las coordenadas de la fibra en los ejes locales de la barra y en el dibujo de la sección.',
           'Las cargas móviles planas conservan el salto de esfuerzo axial en cada eje concentrado. Recalculá los diagramas, las envolventes y las líneas de influencia axial afectadas (SA-2026-093).',
           'Las combinaciones 2D y 3D conservan el factor neto al repetir un caso de carga y rechazan la cancelación total. Los análisis de cables y de interacción suelo-estructura rechazan resortes de rigidez no finita. Volvé a ejecutar las combinaciones afectadas.',
           'Los pórticos y las vigas pasan más rápido la comprobación de estabilidad certificada. También se agilizan las combinaciones 3D y se corrige el precondicionador iterativo para placas.',
@@ -55,7 +55,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       en: {
         title: 'Concrete verification, section stress and moving loads',
         items: [
-          'Detailed section stress withholds combined results where torsional and transverse shear coexist. The cuts now include both transverse components in total shear and von Mises. Recompute affected stresses and review the reports (SA-2026-092).',
+          'Detailed section stress withholds combined results where torsional and transverse shear coexist. The cuts now include both transverse components in total shear and von Mises. Recompute affected stresses and review the reports (SA-2026-092). The advisory’s worked example gives the fibre coordinates in both member-local and section-drawing axes.',
           'Plane moving loads preserve the axial force jump at concentrated axles. Recompute affected diagrams, envelopes and axial influence lines (SA-2026-093).',
           '2D and 3D combinations retain the net factor for repeated cases and refuse full cancellation. Cable and soil–structure analyses refuse non-finite spring stiffness. Rerun affected combinations.',
           'Frames and beams pass the certified stability check faster. 3D combination recovery is faster, and the iterative preconditioner for plates was corrected.',
@@ -72,7 +72,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       pt: {
         title: 'Verificação de concreto, tensões na seção e cargas móveis',
         items: [
-          'As tensões detalhadas na seção bloqueiam o resultado combinado onde coexistem cisalhamento transversal e torção. Os cortes agora incluem as duas componentes transversais no cisalhamento total e em von Mises. Recalcule as tensões afetadas e revise os relatórios (SA-2026-092).',
+          'As tensões detalhadas na seção bloqueiam o resultado combinado onde coexistem cisalhamento transversal e torção. Os cortes agora incluem as duas componentes transversais no cisalhamento total e em von Mises. Recalcule as tensões afetadas e revise os relatórios (SA-2026-092). O exemplo do aviso indica as coordenadas da fibra nos eixos locais da barra e no desenho da seção.',
           'As cargas móveis planas preservam o salto da força axial nos eixos concentrados. Recalcule os diagramas, as envoltórias e as linhas de influência axial afetados (SA-2026-093).',
           'As combinações 2D e 3D preservam o fator líquido dos casos repetidos e recusam o cancelamento total. As análises de cabos e de interação solo-estrutura recusam molas com rigidez não finita. Execute novamente as combinações afetadas.',
           'Pórticos e vigas passam mais rapidamente pela verificação certificada de estabilidade. A recuperação das combinações 3D ficou mais rápida e o precondicionador iterativo para placas foi corrigido.',
@@ -89,7 +89,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       de: {
         title: 'Stahlbetonnachweise, Querschnittsspannungen und Wanderlasten',
         items: [
-          'Die detaillierte Querschnittsspannungsauswertung sperrt das kombinierte Ergebnis, wenn Torsions- und Querkraftschub zusammen auftreten. Die Schnitte berücksichtigen nun beide Querkraftkomponenten für Gesamtschub und von Mises. Berechnen Sie betroffene Spannungen neu und prüfen Sie die Berichte (SA-2026-092).',
+          'Die detaillierte Querschnittsspannungsauswertung sperrt das kombinierte Ergebnis, wenn Torsions- und Querkraftschub zusammen auftreten. Die Schnitte berücksichtigen nun beide Querkraftkomponenten für Gesamtschub und von Mises. Berechnen Sie betroffene Spannungen neu und prüfen Sie die Berichte (SA-2026-092). Das Rechenbeispiel im Hinweis nennt die Faserkoordinaten in lokalen Stabachsen und in der Querschnittszeichnung.',
           'Wanderlasten in ebenen Rahmen erhalten den Normalkraftsprung an konzentrierten Achslasten. Berechnen Sie betroffene Diagramme, Einhüllende und Normalkraft-Einflusslinien neu (SA-2026-093).',
           '2D- und 3D-Kombinationen behalten den Nettofaktor wiederholter Lastfälle und lehnen vollständige Aufhebung ab. Seilanalysen und Berechnungen der Boden-Bauwerk-Interaktion lehnen nicht endliche Federsteifigkeiten ab. Führen Sie betroffene Kombinationen erneut aus.',
           'Rahmen und Träger durchlaufen die zertifizierte Stabilitätsprüfung schneller. Die Auswertung von 3D-Kombinationen wurde beschleunigt und der iterative Vorkonditionierer für Platten korrigiert.',
@@ -106,7 +106,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       fr: {
         title: 'Vérification du béton, contraintes de section et charges mobiles',
         items: [
-          'Le calcul détaillé des contraintes de section bloque le résultat combiné lorsque les cisaillements transversal et de torsion coexistent. Les coupes incluent désormais les deux composantes transversales dans le cisaillement total et la contrainte de von Mises. Recalculez les contraintes concernées et révisez les rapports (SA-2026-092).',
+          'Le calcul détaillé des contraintes de section bloque le résultat combiné lorsque les cisaillements transversal et de torsion coexistent. Les coupes incluent désormais les deux composantes transversales dans le cisaillement total et la contrainte de von Mises. Recalculez les contraintes concernées et révisez les rapports (SA-2026-092). L’exemple de l’avis indique les coordonnées de la fibre dans les axes locaux de la barre et dans le dessin de la section.',
           'Les charges mobiles planes conservent le saut d’effort normal au droit des essieux concentrés. Recalculez les diagrammes, les enveloppes et les lignes d’influence de l’effort normal concernés (SA-2026-093).',
           'Les combinaisons 2D et 3D conservent le coefficient net des cas répétés et refusent leur annulation totale. Les analyses de câbles et d’interaction sol-structure refusent les raideurs de ressort non finies. Relancez les combinaisons concernées.',
           'Les portiques et les poutres passent plus rapidement le contrôle de stabilité certifié. La récupération des combinaisons 3D est plus rapide et le préconditionneur itératif pour les plaques a été corrigé.',
@@ -123,7 +123,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       tr: {
         title: 'Betonarme doğrulaması, kesit gerilmeleri ve hareketli yükler',
         items: [
-          'Ayrıntılı kesit gerilmesi hesabı, burulma ve enine kayma birlikte oluştuğunda birleşik sonucu engeller. Kesit çizgilerinde toplam kayma ve von Mises hesabı artık iki enine bileşeni de içerir. Etkilenen gerilmeleri yeniden hesaplayıp raporları inceleyin (SA-2026-092).',
+          'Ayrıntılı kesit gerilmesi hesabı, burulma ve enine kayma birlikte oluştuğunda birleşik sonucu engeller. Kesit çizgilerinde toplam kayma ve von Mises hesabı artık iki enine bileşeni de içerir. Etkilenen gerilmeleri yeniden hesaplayıp raporları inceleyin (SA-2026-092). Duyurudaki örnek, lifin koordinatlarını hem elemanın yerel eksenlerinde hem de kesit çiziminde verir.',
           'Düzlem hareketli yükler, tekil dingil yüklerinde eksenel kuvvet sıçramasını korur. Etkilenen diyagramları, zarfları ve eksenel kuvvet tesir çizgilerini yeniden hesaplayın (SA-2026-093).',
           '2B ve 3B yük birleşimleri tekrarlanan yük durumlarının net katsayısını korur ve tam iptali reddeder. Kablo ve zemin-yapı etkileşimi analizleri sonlu olmayan yay rijitliklerini reddeder. Etkilenen birleşimleri yeniden çalıştırın.',
           'Çerçeveler ve kirişler sertifikalı stabilite kontrolünü daha hızlı geçer. 3B birleşim sonuçlarının hesaplanması hızlandı ve plakalar için iteratif önkoşullandırıcı düzeltildi.',
@@ -140,7 +140,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       hu: {
         title: 'Vasbeton-ellenőrzés, keresztmetszeti feszültségek és mozgó terhek',
         items: [
-          'A részletes keresztmetszeti feszültségszámítás letiltja az együttes eredményt, ha a keresztirányú és a csavarási nyírás egyszerre van jelen. A metszetek mindkét keresztirányú összetevőt figyelembe veszik az eredő nyírófeszültség és a von Mises-feszültség számításakor. Számítsa újra az érintett feszültségeket, és vizsgálja felül a jelentéseket (SA-2026-092).',
+          'A részletes keresztmetszeti feszültségszámítás letiltja az együttes eredményt, ha a keresztirányú és a csavarási nyírás egyszerre van jelen. A metszetek mindkét keresztirányú összetevőt figyelembe veszik az eredő nyírófeszültség és a von Mises-feszültség számításakor. Számítsa újra az érintett feszültségeket, és vizsgálja felül a jelentéseket (SA-2026-092). A közlemény példája a vizsgált szál koordinátáit a rúd helyi tengelyei szerint és a keresztmetszeti rajzon is megadja.',
           'A síkbeli mozgó terhek megőrzik a normálerő ugrását a koncentrált tengelyterheknél. Számítsa újra az érintett ábrákat, burkolókat és normálerő-hatásábrákat (SA-2026-093).',
           'A 2D és 3D kombinációk megtartják az ismételt teheresetek eredő tényezőjét, és elutasítják a teljes kioltást. A kábelek és a talaj-szerkezet kölcsönhatás elemzése elutasítja a nem véges rugómerevséget. Futtassa újra az érintett kombinációkat.',
           'A keretek és gerendák tanúsított stabilitásvizsgálata gyorsabb. A 3D kombinációk eredményeinek számítása is gyorsult, és javítottuk a lemezek iteratív előkondicionálóját.',
@@ -157,7 +157,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       zh: {
         title: '混凝土验算、截面应力与移动荷载',
         items: [
-          '详细截面应力计算在扭转剪应力与横向剪应力同时存在的位置停止给出组合结果。截面剖线上的总剪应力和 von Mises 等效应力现在计入两个横向分量。请重新计算受影响的应力并复核报告（SA-2026-092）。',
+          '详细截面应力计算在扭转剪应力与横向剪应力同时存在的位置停止给出组合结果。截面剖线上的总剪应力和 von Mises 等效应力现在计入两个横向分量。请重新计算受影响的应力并复核报告（SA-2026-092）。公告中的算例同时给出了纤维在杆件局部坐标系和截面图坐标系中的位置。',
           '平面移动荷载保留集中轴载处的轴力突变。请重新计算受影响的内力图、包络和轴力影响线（SA-2026-093）。',
           '2D 和 3D 荷载组合保留重复工况的净系数，并拒绝完全抵消的组合。索分析和土-结构相互作用分析拒绝非有限的弹簧刚度。请重新计算受影响的组合。',
           '框架和梁的认证稳定性校核更快，3D 组合结果恢复也已加快，板分析的迭代预条件器已修正。',

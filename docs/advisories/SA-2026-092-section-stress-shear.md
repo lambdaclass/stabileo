@@ -24,21 +24,46 @@ solved member forces. [Combined shear refusal record](../results-changes/2026-11
 The calculation combined torsional shear in quadrature with transverse
 shear, as though torsion introduced a third perpendicular component. At a
 fibre the shear components add with sign and can reinforce or cancel.
-In #2366, a thin circular hollow section with outer radius 0.100 m and wall
-thickness 0.001 m carried `Vz = 1 kN` and a torque of approximately
-0.201 kN·m, with all other forces zero. At the fibre `y = 0, z = 0.0995 m`,
-the result was 4.57 MPa total shear for either torque sign. Signed addition
-gives 6.46 MPa for the reinforcing sign and approximately zero for the
-cancelling sign. For the reinforcing sign the reported
-von Mises stress was 7.91 MPa against a synthetic yield strength of 9 MPa,
-so it passed. The signed reference gives approximately 11.19 MPa, which
-fails that check. [Issue #2366](https://github.com/lambdaclass/stabileo/issues/2366).
-
 Each cut also dropped the transverse shear component it did not plot when
-it calculated total shear and von Mises. For the same tube with only
-`Vz = 1 kN`, the midpoint of the width cut reported both as zero. The
-selected-fibre calculation at that point gave 3.231245 MPa shear and
-5.596681 MPa von Mises. [Section cut record](../results-changes/2026-11-section-stress-cut-magnitudes.md).
+it calculated total shear and von Mises.
+
+### Thin-tube worked example
+
+Take a circular hollow section with outer radius 0.100 m, wall thickness
+0.001 m and member-local `Vz = +1 kN`. Axial force, the other transverse
+force and both bending moments are zero at the station checked. Use the
+mid-wall fibre at **member-local `y = +0.0995 m, z = 0`**. In the section
+drawing and the WASM fibre arguments this is **`y = 0, z = +0.0995 m`**
+(`yFiber = 0`, `zFiber = 0.0995`). Drawing `y` is section depth
+(member-local `z`) and drawing `z` is section width (member-local `y`).
+The wall tangent at this fibre is parallel to member-local `z`, so the
+torsional and transverse shear contributions are collinear.
+
+The transverse-only WASM query uses the signed Jourawski estimate and gives
++3.231245 MPa in the local `z` direction. To match that magnitude, use Bredt's relation
+`|Mx| = 2 A_m t |τ_Vz|`, where `A_m = π (r − t/2)²` encloses the wall
+midline. This gives `|Mx| ≈ 0.201000 kN·m`. Positive torque about local
+`x` reinforces the transverse shear at the chosen fibre. Reversing the
+torque makes the two contributions cancel.
+
+The table compares the WASM export on `32ca94087` (main immediately before
+#2372) with the signed sum of the same shear components. With zero normal
+stress, von Mises is `√3 × |τ|`. The verdict is the von Mises check at a
+synthetic yield strength of 9 MPa.
+
+| Torque | Old total shear (MPa) | Old von Mises (MPa) | Old verdict | Signed local `z` shear (MPa) | Signed von Mises (MPa) | Signed verdict |
+|---|---:|---:|---|---:|---:|---|
+| Positive (reinforcing) | 4.569671 | 7.914902 | Pass | +6.462490 | 11.193362 | Fail |
+| Negative (cancelling) | 4.569671 | 7.914902 | Pass | ≈0 | ≈0 | Pass |
+
+On main at `35b08a1f0`, the WASM export reports
+`combinedTorsionAndTransverseShear` for both torque signs and withholds
+total shear, the Mohr circle and the failure verdict.
+
+With `Vz = 1 kN` alone, the width-cut midpoint (both drawing coordinates
+zero) previously reported zero total shear and zero von Mises. At the
+same cut sample, current main reports 3.231245 MPa and 5.596681 MPa,
+respectively, matching the selected-point calculation. [Section cut record](../results-changes/2026-11-section-stress-cut-magnitudes.md).
 
 ## How to tell if your model is affected
 
