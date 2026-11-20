@@ -16,7 +16,7 @@ const FRAMES: AxesChoice[] = [
 
 describe('a 2D global member load typed in the user axes', () => {
   for (const frame of FRAMES) {
-    it.skip(`known wrong result: #2399 acts along the direction the user typed, ${JSON.stringify(frame)}`, () => {
+    it(`acts along the direction the user typed, ${JSON.stringify(frame)}`, () => {
       axesStore.choice = frame;
       expect(axesStore.choice).toEqual(frame);
       const sh = along(0).sign, sv = along(2).sign;

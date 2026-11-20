@@ -5,13 +5,13 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
-import tarfile
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 FLAGS = 'web/config/features.json'
 LEGACY_OVERLAY = 'web/config/pro-plates-off.json'
-WASM_DIRS = ('web/src/lib/wasm', 'web/public/research-wasm')
+SOLVER_RUNTIME = ('web/src/lib/wasm/dedaliano_engine.js', 'web/src/lib/wasm/dedaliano_engine_bg.wasm')
+RESEARCH_WASM = 'web/public/research-wasm'
 ENGINE_INPUTS = ('engine/src', 'engine/build.rs', 'engine/Cargo.toml', 'Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', 'scripts/wasm-cached.sh',
                  '.github/scripts/build-research-wasm.sh', 'flake.nix', 'flake.lock')
 
@@ -37,23 +37,21 @@ def changed_paths(base, *paths):
 
 
 def snapshot(base, target, intended):
-    with subprocess.Popen(['git', 'archive', base], cwd=ROOT, stdout=subprocess.PIPE) as archive:
-        with tarfile.open(fileobj=archive.stdout, mode='r|') as tree:
-            tree.extractall(target, filter='data')
-        if archive.wait():
-            raise RuntimeError(f'Cannot extract the production reference at {base}')
+    subprocess.run(['git', 'clone', '--quiet', '--shared', '--no-checkout', str(ROOT), str(target)], check=True)
+    subprocess.run(['git', 'checkout', '--quiet', '--detach', base], cwd=target, check=True)
     if intended:
         patch = git('diff', '--binary', base, '--', *(f':(literal){p}' for p in sorted(intended)))
-        subprocess.run(['git', 'apply', '--binary', '-'], cwd=target, input=patch, check=True,
-                       env={**os.environ, 'GIT_CEILING_DIRECTORIES': str(ROOT)})
+        subprocess.run(['git', 'apply', '--index', '--binary', '-'], cwd=target, input=patch, check=True)
+
+
+def digest(path):
+    with path.open('rb') as source:
+        return hashlib.file_digest(source, 'sha256').digest()
 
 
 def inventory(directory):
-    files = {}
-    for path in directory.rglob('*'):
-        if path.is_file():
-            with path.open('rb') as source:
-                files[path.relative_to(directory).as_posix()] = hashlib.file_digest(source, 'sha256').digest()
+    files = {path.relative_to(directory).as_posix(): digest(path)
+             for path in directory.rglob('*') if path.is_file()}
     if 'index.html' not in files:
         raise RuntimeError(f'Production build at {directory} did not emit index.html')
     return files
@@ -64,11 +62,22 @@ def differences(reference, candidate):
 
 
 def build(checkout, env):
+    wasm_env = {**env, 'STABILEO_GIT_COMMIT': env['GITHUB_SHA'], 'STABILEO_WASM_CACHE': '0',
+                'CARGO_TARGET_DIR': str(checkout / 'target')}
+    for key in ('MAKEFLAGS', 'MFLAGS', 'MAKEOVERRIDES'):
+        wasm_env.pop(key, None)
+    subprocess.run(['make', 'wasm'], cwd=checkout, env=wasm_env, check=True)
+    runtime = {}
+    for name in SOLVER_RUNTIME:
+        artifact = checkout / name
+        if not artifact.is_file() or artifact.stat().st_size == 0:
+            raise RuntimeError(f'WASM build at {checkout} did not emit {name}')
+        runtime[name] = digest(artifact)
+
+    research = ROOT / RESEARCH_WASM
+    if research.is_dir():
+        shutil.copytree(research, checkout / RESEARCH_WASM, dirs_exist_ok=True)
     web = checkout / 'web'
-    for runtime in WASM_DIRS:
-        path = ROOT / runtime
-        if path.is_dir():
-            shutil.copytree(path, checkout / runtime, dirs_exist_ok=True)
     if (ROOT / 'web/package-lock.json').read_bytes() == (web / 'package-lock.json').read_bytes():
         (web / 'node_modules').symlink_to(ROOT / 'web/node_modules', target_is_directory=True)
     else:
@@ -76,7 +85,8 @@ def build(checkout, env):
     git_dir = git('rev-parse', '--absolute-git-dir').decode().strip()
     subprocess.run(['npm', 'run', 'build'], cwd=web,
                    env={**env, 'GIT_DIR': git_dir, 'GIT_WORK_TREE': str(checkout)}, check=True)
-    return inventory(web / 'dist')
+    site = {f'web/dist/{name}': checksum for name, checksum in inventory(web / 'dist').items()}
+    return runtime | site
 
 
 def main():
@@ -84,7 +94,8 @@ def main():
     parser.add_argument('base', nargs='?', default='origin/main')
     parser.add_argument('--required', action='store_true')
     args = parser.parse_args()
-    base = git('merge-base', args.base, 'HEAD').decode().strip()
+    head = git('rev-parse', 'HEAD').decode().strip()
+    base = git('merge-base', args.base, head).decode().strip()
     paths = changed_paths(base)
     before = json.loads(git('show', f'{base}:{FLAGS}'))
     after = json.loads((ROOT / FLAGS).read_text())
@@ -105,7 +116,7 @@ def main():
         work = Path(directory)
         reference, candidate = work / 'reference', work / 'candidate'
         snapshot(base, reference, intended)
-        snapshot(base, candidate, paths)
+        snapshot(head, candidate, changed_paths(head))
         changed = differences(build(reference, env), build(candidate, env))
     if changed:
         artifacts = '\n  '.join(changed[:20])

@@ -7,7 +7,7 @@ import { axisLetter } from '../display';
 
 afterEach(() => axesStore.reset());
 
-it.skip('known wrong result: #2399 known wrong result: #1986 reflected storey-shear columns preserve magnitudes from the actual producer', () => {
+it('known wrong result: #1986 reflected storey-shear columns preserve magnitudes from the actual producer', () => {
   const rows = storeyStiffness([{ level: 3, driftX: -0.01, driftY: 0.02 }], [{ z: 3, fx: -6, fy: 8 }]);
   expect(rows[0]!.shearX).toBe(6);
   const m = {
