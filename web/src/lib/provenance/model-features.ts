@@ -32,10 +32,12 @@ export type AnalysisKind = (typeof ANALYSIS_KINDS)[number];
  */
 export const LEGACY_RECORDED_ANALYSES: readonly AnalysisKind[] = ['linear', 'pdelta', 'modal', 'buckling', 'plastic', 'spectral'];
 
+export const GLOBAL_AXES_EVIDENCE = 'axisNamedLoads';
+
 /** Every feature id a registry entry may name. The registry test fails on any other. */
 export const FEATURE_IDS = [
   'gallery:slab-on-columns:walls', 'example:rc-beam-flexure',
-  'axisNamedLoads',
+  GLOBAL_AXES_EVIDENCE,
   'plane2D', 'space3D', 'members', 'cableMembers', 'contactElements', 'frameMembers', 'trussMembers', 'hinges', 'arcMembers', 'shearAreas', 'thermalAtRelease',
   'steelMembers', 'steelCirsoc301', 'steelTensionWithoutConnection', 'steelDeclaredUnbracedLength', 'steelStaggeredOrUnboltedWebEnd', 'timberOrAluminiumMembers',
   'concreteMembers', 'fiberMembers', 'hognestadFiberMembers', 'cirsoc201', 'aci318', 'footings', 'jointDesigns',
@@ -280,7 +282,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
 
   const axialMembers = new Set(elements.filter((e) => e.type === 'truss' || e.type === 'cable').map((e) => e.id));
   const cases = Array.isArray(s.loadCases) ? s.loadCases : [];
-  if (globalAxes() && cases.some(c => c.axisNamed === true)) f.add('axisNamedLoads');
+  if (globalAxes() && cases.some(c => c.axisNamed === true)) f.add(GLOBAL_AXES_EVIDENCE);
   if (cases.some((c) => c.alternatives?.startsWith('move:'))) f.add('movingLoads');
   if (s.includeSelfWeight || s.analysis?.selfWeight?.length) f.add('selfWeight');
   const caseType = new Map(cases.map((c) => [c.id, c.type]));

@@ -1151,6 +1151,8 @@ const de: Translations = {
   'xls.col.qxj': "Verteilte X-Komponente am Stabende.",
   'xls.col.supportRotation': "Vorgegebene Drehung um diese Achse.",
   'xls.err.axesDisabled': "Diese Arbeitsmappe deklariert ein globales Koordinatensystem. Globale Achsen sind in dieser Version deaktiviert.",
+  'xls.err.duplicatePhysicalColumn': 'Die Spalte für die physikalische Größe {k} ist mehrfach vorhanden.',
+  'xls.err.duplicateLoadSheet': 'Es ist nur ein Blatt mit dem Namen {sheet} zulässig.',
   'xls.err.oneAxesDeclaration': 'Das Blatt Axes muss genau eine Koordinatensystemdeklaration enthalten.',
   'xls.err.loadSheetDisabled': 'Diese Version kann das Blatt {sheet} nicht importieren. Importieren Sie die Arbeitsmappe in einer Version, die diese Lastdaten unterstützt.',
   'xls.err.nodalOutOfPlane': 'Diese Komponente liegt außerhalb der Ebene der Knotenlast. Verwenden Sie nodal3d für räumliche Lasten.',

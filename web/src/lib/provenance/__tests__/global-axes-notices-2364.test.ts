@@ -6,7 +6,6 @@ import { RESULT_CHANGES } from '../full-registry';
 import { modelFeatures, type FeatureSnapshot } from '../model-features';
 import { stampSolve } from '../solve-stamp';
 
-const regression = process.env.RUN_KNOWN_WRONG === '2364' ? it : it.skip;
 const branchIds = ['exact-plane-self-weight', 'fixture-replay-and-framed-import', 'global-axes-inputs', 'workbook-support-rotations'];
 const branchNotices = RESULT_CHANGES.changes.filter(change => branchIds.includes(change.id));
 const versionBefore = Math.min(...branchNotices.map(change => change.resultsVersion)) - 1;
@@ -15,7 +14,7 @@ const histories = ['linear', 'nonlinear'] as const;
 
 afterEach(() => vi.unstubAllGlobals());
 
-regression('known wrong result: #2364 the older #2223 nodal project stays quiet before the planar weight change', () => {
+it('known wrong result: #2364 the older #2223 nodal project stays quiet before the planar weight change', () => {
   const weightNotice = branchNotices.find(change => change.id === 'exact-plane-self-weight')!;
   for (const analysisMode of modes) {
     for (const analysis of histories) {
@@ -32,7 +31,7 @@ regression('known wrong result: #2364 the older #2223 nodal project stays quiet 
   }
 });
 
-regression.each(modes)('known wrong result: #2364 %s notice applicability requires saved global axes use', (analysisMode) => {
+it.each(modes)('known wrong result: #2364 %s notice applicability requires saved global axes use', (analysisMode) => {
   const snapshot: FeatureSnapshot = {
     analysisMode,
     elements: [[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1 }]],
@@ -63,7 +62,7 @@ regression.each(modes)('known wrong result: #2364 %s notice applicability requir
   }
 });
 
-regression('known wrong result: #2364 a recovered global axes notice stays quiet in production', async () => {
+it('known wrong result: #2364 a recovered global axes notice stays quiet in production', async () => {
   vi.stubGlobal('__PUBLIC_FEATURES__', featuresForMode('production'));
   const stamp = { ...stampSolve('linear', null), resultsVersion: versionBefore };
   const store = createRecheckStore();

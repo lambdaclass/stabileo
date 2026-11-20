@@ -4,6 +4,7 @@
   "prs": [2364],
   "area": "analysis",
   "when": {
+    "all": ["axisNamedLoads"],
     "any": ["partialDistributedMemberLoads", "memberThermalLoads"]
   },
   "title": {

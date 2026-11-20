@@ -7146,6 +7146,8 @@ const pt: Translations = {
   'xls.col.qxj': "Componente distribuída X no fim da barra.",
   'xls.col.supportRotation': "Rotação imposta em torno deste eixo.",
   'xls.err.axesDisabled': "Este livro declara um sistema de coordenadas global. Os eixos globais estão desativados nesta versão.",
+  'xls.err.duplicatePhysicalColumn': 'A coluna física {k} aparece mais de uma vez.',
+  'xls.err.duplicateLoadSheet': 'Só é permitida uma folha com o nome {sheet}.',
   'xls.err.oneAxesDeclaration': 'A folha Axes deve conter exatamente uma declaração de referencial.',
   'xls.err.loadSheetDisabled': 'Esta versão não pode importar a folha {sheet}. Importe o livro numa versão compatível com estes dados de carga.',
   'xls.err.nodalOutOfPlane': 'Esta componente está fora do plano da carga nodal. Use nodal3d para cargas espaciais.',

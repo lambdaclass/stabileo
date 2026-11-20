@@ -1151,6 +1151,8 @@ const fr: Translations = {
   'xls.col.qxj': "Composante répartie X à la fin de la barre.",
   'xls.col.supportRotation': "Rotation imposée autour de cet axe.",
   'xls.err.axesDisabled': "Ce classeur déclare un repère global. Les axes globaux sont désactivés dans cette version.",
+  'xls.err.duplicatePhysicalColumn': 'La colonne de grandeur physique {k} apparaît plusieurs fois.',
+  'xls.err.duplicateLoadSheet': 'Une seule feuille nommée {sheet} est autorisée.',
   'xls.err.oneAxesDeclaration': 'La feuille Axes doit contenir exactement une déclaration de repère.',
   'xls.err.loadSheetDisabled': 'Cette version ne peut pas importer la feuille {sheet}. Importez le classeur avec une version qui prend en charge ces données de charge.',
   'xls.err.nodalOutOfPlane': 'Cette composante est hors du plan de la charge nodale. Utilisez nodal3d pour les charges spatiales.',

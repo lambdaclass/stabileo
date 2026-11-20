@@ -1118,6 +1118,8 @@ const tr: Translations = {
   'xls.col.qxj': "Çubuğun sonundaki X yayılı yük bileşeni.",
   'xls.col.supportRotation': "Bu eksen etrafındaki öngörülen dönme.",
   'xls.err.axesDisabled': 'Bu çalışma kitabı bir genel koordinat sistemi bildiriyor. Bu sürümde genel eksenler devre dışı.',
+  'xls.err.duplicatePhysicalColumn': '{k} fiziksel büyüklük sütunu birden fazla kez yer alıyor.',
+  'xls.err.duplicateLoadSheet': '{sheet} adlı yalnızca bir sayfaya izin verilir.',
   'xls.err.oneAxesDeclaration': 'Axes sayfası tam olarak bir koordinat sistemi bildirimi içermelidir.',
   'xls.err.loadSheetDisabled': 'Bu sürüm {sheet} sayfasını içe aktaramıyor. Çalışma kitabını bu yük verilerini destekleyen bir sürümle içe aktarın.',
   'xls.err.nodalOutOfPlane': 'Bu bileşen düğüm yükünün düzlemi dışındadır. Uzaysal yükler için nodal3d kullanın.',

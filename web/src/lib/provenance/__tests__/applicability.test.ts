@@ -1131,17 +1131,22 @@ it.each(['production', 'test'] as const)('#2364 uses stable self-weight and sett
     const changeIds = ['exact-plane-self-weight', 'workbook-support-rotations', 'global-axes-inputs'];
     const relevant = (snapshot: FeatureSnapshot) => ids(snapshot).filter(id => changeIds.includes(id));
 
+    const marked = { ...base, loadCases: [{ id: 1, type: 'D', axisNamed: true }] };
+    const withToggle = { ...marked, includeSelfWeight: true };
+    const withRule = { ...marked, analysis: { selfWeight: [{ caseId: 1, ...GRAVITY_SELF_WEIGHT }] } };
+    const withRotation: FeatureSnapshot = {
+      ...marked, supports: [[1, { nodeId: 1, type: 'fixed', drz: Math.PI / 180 }]],
+    };
+    const axesIds = mode === 'test' ? ['global-axes-inputs'] : [];
     expect(relevant(base)).toEqual([]);
-    expect(relevant({ ...base, includeSelfWeight: true })).toEqual(['exact-plane-self-weight']);
-    expect(relevant({
-      ...base, analysis: { selfWeight: [{ caseId: 1, ...GRAVITY_SELF_WEIGHT }] },
-    })).toEqual(['exact-plane-self-weight']);
-    expect(relevant({
-      ...base, supports: [[1, { nodeId: 1, type: 'fixed', drz: Math.PI / 180 }]],
-    })).toEqual(['workbook-support-rotations']);
-    expect(relevant({
-      ...base, loadCases: [{ id: 1, type: 'D', axisNamed: true }],
-    })).toEqual(mode === 'test' ? ['global-axes-inputs'] : []);
+    expect(modelFeatures(withToggle)).toContain('selfWeight');
+    expect(modelFeatures(withRule)).toContain('selfWeight');
+    expect(modelFeatures(withRotation)).toContain('settlements');
+    expect(modelFeatures(marked)).not.toContain('settlements');
+    expect(relevant(marked)).toEqual(axesIds);
+    expect(relevant(withToggle)).toEqual(mode === 'test' ? [...axesIds, 'exact-plane-self-weight'] : []);
+    expect(relevant(withRule)).toEqual(mode === 'test' ? [...axesIds, 'exact-plane-self-weight'] : []);
+    expect(relevant(withRotation)).toEqual(mode === 'test' ? [...axesIds, 'workbook-support-rotations'] : []);
   } finally {
     vi.unstubAllGlobals();
   }

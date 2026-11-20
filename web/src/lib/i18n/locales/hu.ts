@@ -7,6 +7,8 @@ const hu: Translations = {
   'xls.col.qxj': "Az X irányú megoszló teher a rúd végén.",
   'xls.col.supportRotation': "Előírt elfordulás e tengely körül.",
   'xls.err.axesDisabled': 'Ez a munkafüzet globális koordináta-rendszert ad meg. A globális tengelyek ebben a verzióban ki vannak kapcsolva.',
+  'xls.err.duplicatePhysicalColumn': 'A(z) {k} fizikai mennyiség oszlopa többször szerepel.',
+  'xls.err.duplicateLoadSheet': 'Csak egy {sheet} nevű munkalap engedélyezett.',
   'xls.err.oneAxesDeclaration': 'Az Axes munkalapnak pontosan egy koordináta-rendszert kell megadnia.',
   'xls.err.loadSheetDisabled': 'Ez a verzió nem tudja importálni a következő munkalapot: {sheet}. Importálja a munkafüzetet a terhelési adatokat támogató verzióban.',
   'xls.err.nodalOutOfPlane': 'Ez a komponens a csomóponti teher síkján kívül esik. Térbeli teherhez használja a nodal3d típust.',

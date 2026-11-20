@@ -1499,6 +1499,8 @@ const en: Record<string, string> = {
   'xls.col.qxj': "Distributed X component at the end of the member.",
   'xls.col.supportRotation': "Prescribed rotation about this axis.",
   'xls.err.axesDisabled': "This workbook declares a global coordinate frame. Global axes are disabled in this build.",
+  'xls.err.duplicatePhysicalColumn': 'The physical column {k} appears more than once.',
+  'xls.err.duplicateLoadSheet': 'Only one sheet named {sheet} is allowed.',
   'xls.err.oneAxesDeclaration': 'The Axes sheet must contain exactly one frame declaration.',
   'xls.err.loadSheetDisabled': 'This build cannot import the {sheet} sheet. Import this workbook in a build that supports its load data.',
   'xls.err.nodalOutOfPlane': 'This component is outside the plane for a nodal load. Use nodal3d for spatial loads.',

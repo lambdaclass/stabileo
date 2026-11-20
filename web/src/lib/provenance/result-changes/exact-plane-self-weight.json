@@ -7,6 +7,7 @@
   "area": "analysis",
   "when": {
     "all": [
+      "axisNamedLoads",
       "plane2D",
       "selfWeight"
     ]

@@ -5,7 +5,6 @@ import { modelStore, uiStore } from '../../store';
 import { applyWorkbook, importExcelFile } from '../apply';
 import { parseWorkbook } from '../parse';
 
-const regression = process.env.RUN_KNOWN_WRONG === '2364' ? it : it.skip;
 const axes = { Axes: [['up', 'right', 'hand'], ['+Z', '+X', 'right']] };
 const plane = { Nodes: [['id', 'x', 'z'], [1, 2, 3]] };
 const space = { Nodes: [['id', 'x', 'y', 'z'], [1, 2, 3, 4]] };
@@ -43,7 +42,7 @@ async function importFile(sheets: Record<string, unknown[][]>) {
 }
 
 for (const [entry, install] of [['sheet arrays', applyWorkbook], ['XLSX file', importFile]] as const) {
-  regression.each(types)(`known wrong result: #2364 ${entry} blocks malformed declared $workspace load components`, async ({ workspace, geometry, loadType }) => {
+  it.each(types)(`known wrong result: #2364 ${entry} blocks malformed declared $workspace load components`, async ({ workspace, geometry, loadType }) => {
     const before = priorModel(workspace);
     const workbook = (header: string, value: unknown) => ({
       ...geometry, ...axes, ...cases,
@@ -66,7 +65,7 @@ for (const [entry, install] of [['sheet arrays', applyWorkbook], ['XLSX file', i
     }
   });
 
-  regression.each(types)(`known wrong result: #2364 ${entry} rejects duplicate physical load headers for $workspace`, async ({ workspace, geometry, loadType }) => {
+  it.each(types)(`known wrong result: #2364 ${entry} rejects duplicate physical load headers for $workspace`, async ({ workspace, geometry, loadType }) => {
     const before = priorModel(workspace);
     const workbook = (...components: [string, number][]) => ({
       ...geometry, ...axes, ...cases,
@@ -83,12 +82,14 @@ for (const [entry, install] of [['sheet arrays', applyWorkbook], ['XLSX file', i
     const accepted = await install(workbook([' FY [N] ', fy * 1000]));
     expect(accepted?.problems).toEqual([]);
     expect(accepted?.loaded.nodes).toBe(1);
-    expect(modelStore.loads).toEqual([{ type: loadType, data: expect.objectContaining({ fy, fz: -3 }) }]);
+    expect(accepted?.model.loads).toEqual([{ type: loadType, data: expect.objectContaining({ fy, fz: -3 }) }]);
+    const stored = workspace === '2d' ? { fx: 0, fz: -3, my: 0 } : { fx: 0, fy, fz: -3 };
+    expect(modelStore.loads).toEqual([{ type: loadType, data: expect.objectContaining(stored) }]);
   });
 
-  regression.each(types)(`known wrong result: #2364 ${entry} rejects duplicate prescribed rotation headers for $workspace`, async ({ workspace, geometry, support }) => {
-    const before = priorModel(workspace);
+  it.each(types)(`known wrong result: #2364 ${entry} rejects duplicate prescribed rotation headers for $workspace`, async ({ workspace, geometry, support }) => {
     for (const declaration of [{}, axes]) {
+      const before = priorModel(workspace);
       const duplicate = {
         ...geometry, ...declaration,
         Supports: [['node', 'type', 'dry [deg]', ' DRY [rad] '], [1, support, -180, 0]],
@@ -103,7 +104,6 @@ for (const [entry, install] of [['sheet arrays', applyWorkbook], ['XLSX file', i
       expect(accepted?.problems).toEqual([]);
       expect(accepted?.loaded.nodes).toBe(1);
       expect([...modelStore.supports.values()]).toEqual([expect.objectContaining({ dry: -Math.PI })]);
-      priorModel(workspace);
     }
   });
 
@@ -112,7 +112,7 @@ for (const [entry, install] of [['sheet arrays', applyWorkbook], ['XLSX file', i
     ['SelfWeight', [['source', 'case', 'direction', 'factor', 'scope'], ['case', 1, 'Z', -2, 'all']]],
   ] as const;
   for (const [sheet, data] of loadSheets) {
-    regression.each(types)(`known wrong result: #2364 ${entry} refuses shadowed ${sheet} in $workspace`, async ({ workspace, geometry }) => {
+    it.each(types)(`known wrong result: #2364 ${entry} refuses shadowed ${sheet} in $workspace`, async ({ workspace, geometry }) => {
       const before = priorModel(workspace);
       const rows = data.map(row => [...row]);
       const headerOnly = rows.slice(0, 1);

@@ -206,13 +206,18 @@ const NOT_IMPORTABLE: Record<string, () => string> = {
 };
 
 /** Rows of a sheet, keyed by the columns the format knows. Blank rows dropped. */
-function readSheet(aoa: unknown[][], sheetName: string, problems: RowProblem[]): Row[] {
+function readSheet(aoa: unknown[][], sheetName: string, problems: RowProblem[], declaredAxes = false): Row[] {
   if (aoa.length === 0) return [];
   const header = aoa[0] ?? [];
   const keyAt = header.map(keyFromHeader);
 
   const spec = sheetSpec(sheetName, globalAxes());
   const columns = keyAt.map(k => spec?.columns.find(col => col.key.toLowerCase() === k));
+  const strictNumbers = columns.map(column =>
+    !!column?.strictNumber || (declaredAxes && sheetName === 'Loads' && !!column?.unit),
+  );
+  const physicalKeys = new Set<string>();
+  let ambiguousHeader = false;
   /** Per column: the factor to the format's unit, or null to leave the column out. */
   const factorAt: Array<number | null> = keyAt.map(() => 1);
   if (spec) {
@@ -224,6 +229,14 @@ function readSheet(aoa: unknown[][], sheetName: string, problems: RowProblem[]):
         return;
       }
       const want = column.unit;
+      if (strictNumbers[c] || (declaredAxes && sheetName === 'Supports' && want)) {
+        if (physicalKeys.has(k)) {
+          problems.push({ sheet: sheetName, row: 1, column: k, message: tp('xls.err.duplicatePhysicalColumn', { k }), blocking: true });
+          ambiguousHeader = true;
+          return;
+        }
+        physicalKeys.add(k);
+      }
       const given = unitFromHeader(header[c]);
       if (!want || !given) return;
       const f = unitFactor(want, given);
@@ -231,12 +244,13 @@ function readSheet(aoa: unknown[][], sheetName: string, problems: RowProblem[]):
       if (f === null) {
         problems.push({
           sheet: sheetName, row: 1, column: k, message: tp('xls.err.unitUnknown', { k, u: given, want }),
-          ...(column.strictNumber ? { blocking: true } : {}),
+          ...(strictNumbers[c] ? { blocking: true } : {}),
         });
       }
     });
   }
 
+  if (ambiguousHeader) return [];
   const rows: Row[] = [];
   for (let i = 1; i < aoa.length; i++) {
     const raw = aoa[i] ?? [];
@@ -250,13 +264,14 @@ function readSheet(aoa: unknown[][], sheetName: string, problems: RowProblem[]):
       if (filled) any = true;
       const f = factorAt[c];
       if (f === null) continue;
-      const strict = columns[c]?.strictNumber;
+      const strict = strictNumbers[c];
       const n = f === 1 && !strict ? null : num(v);
-      if (filled && strict && n === null) {
+      const converted = n === null ? null : n * f;
+      if (filled && strict && (converted === null || !Number.isFinite(converted))) {
         problems.push({ sheet: sheetName, row: i + 1, column: k, message: t('xls.err.notANumber'), blocking: true });
         continue;
       }
-      cells[k] = n === null ? v : n * f;
+      cells[k] = converted ?? v;
     }
     if (any) rows.push({ n: i + 1, cells });
   }
@@ -478,15 +493,23 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
   const counts: Record<string, number> = {};
 
   const framedImport = globalAxes();
-  const defined = new Set(SHEETS.map((s) => s.name.toLowerCase()));
-  if (framedImport) for (const name of [AXES_SHEET.toLowerCase(), 'selfweight', 'loaddata']) defined.add(name);
-  const unknownSheets = Object.keys(sheets).filter(
-    (n) => !defined.has(n.trim().toLowerCase()) && n.trim().toLowerCase() !== 'instrucciones',
-  );
+  const loadSheetNames = ['LoadData', 'SelfWeight'];
+  const sheetKey = (name: string) => name.trim().toLowerCase();
+  const defined = new Set(SHEETS.map(s => sheetKey(s.name)));
+  if (framedImport) for (const name of [AXES_SHEET, ...loadSheetNames]) defined.add(sheetKey(name));
+  const names = Object.keys(sheets);
+  const unknownSheets = names.filter(name => !defined.has(sheetKey(name)) && sheetKey(name) !== 'instrucciones');
 
-  /** Find a sheet by the format's name, whatever case the file used. */
+  const matchingSheets = (name: string) => names.filter(candidate => sheetKey(candidate) === sheetKey(name));
+  for (const sheet of [AXES_SHEET, ...loadSheetNames]) {
+    if (matchingSheets(sheet).length <= 1) continue;
+    const message = sheet === AXES_SHEET ? t('xls.err.oneAxesDeclaration') : tp('xls.err.duplicateLoadSheet', { sheet });
+    problems.push({ sheet, row: 1, message, blocking: true });
+  }
+  if (problems.length) return { model, problems, unknownSheets, counts };
+
   const grab = (name: string): unknown[][] => {
-    const hit = Object.keys(sheets).find((k) => k.trim().toLowerCase() === name.toLowerCase());
+    const [hit] = matchingSheets(name);
     return hit ? sheets[hit] : [];
   };
 
@@ -507,17 +530,12 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
    * every row, with missing coordinates filled as zero. A row with neither Y
    * nor Z is invalid; a nonempty coordinate must be numeric.
    */
-  const axesNames = Object.keys(sheets).filter(name => name.trim().toLowerCase() === AXES_SHEET.toLowerCase());
-  if (axesNames.length > 1) {
-    problems.push({ sheet: AXES_SHEET, row: 1, message: t('xls.err.oneAxesDeclaration') });
-    return { model, problems, unknownSheets, counts };
-  }
-  const declaredAxes = axesNames.length === 1;
+  const declaredAxes = matchingSheets(AXES_SHEET).length === 1;
   const frame = declaredAxes ? readAxes(grab(AXES_SHEET), problems) : makeFrame(DEFAULT_AXES);
   if (!frame) return { model, problems, unknownSheets, counts };
   if (!framedImport) {
     if (!frame.identity) problems.push({ sheet: AXES_SHEET, row: 2, message: t('xls.err.axesDisabled') });
-    for (const sheet of ['LoadData', 'SelfWeight']) {
+    for (const sheet of loadSheetNames) {
       const dataRow = grab(sheet).findIndex((row, index) => index > 0 && row.some(cell => str(cell) !== ''));
       if (dataRow !== -1) problems.push({ sheet, row: dataRow + 1, message: tp('xls.err.loadSheetDisabled', { sheet }) });
     }
@@ -718,7 +736,7 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
   let supportId = 1;
   // One support per node: a second row for the same node used to add a second support there.
   const firstSupport = idGuard('Supports', problems);
-  for (const row of readSheet(grab('Supports'), 'Supports', problems)) {
+  for (const row of readSheet(grab('Supports'), 'Supports', problems, declaredAxes)) {
     const nodeId = reqNum(row, 'node', 'Supports', problems);
     const type = reqStr(row, 'type', 'Supports', problems);
     if (nodeId === null || type === null) continue;
@@ -1014,7 +1032,7 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
   // ── Loads ────────────────────────────────────────────────────────
   const elemIds = new Set(model.elements.map((e) => e.id));
   let loadId = 1;
-  for (const row of readSheet(grab('Loads'), 'Loads', problems)) {
+  for (const row of readSheet(grab('Loads'), 'Loads', problems, declaredAxes)) {
     const rawType = str(row.cells.type);
     const type = LOAD_TYPES.find((t) => t.toLowerCase() === rawType.toLowerCase()) as
       | LoadTypeName
