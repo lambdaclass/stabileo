@@ -59,7 +59,7 @@ test('disabled builds load the main solver and results version and the validated
   assert.equal(mesher, readFileSync(new URL('../src/components/pro/ProMesher.svelte', import.meta.url), 'utf8'));
 });
 
-test('mesher translations are lazy in the unified profile and keep main’s dictionaries in production', { skip: 'known wrong result: #2365' }, async () => {
+test('mesher translations are lazy in the unified profile and keep main’s dictionaries in production', async () => {
   const production = featuresForMode('production');
   const locales = ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu'];
   for (const enabled of [true, false]) {
@@ -70,7 +70,7 @@ test('mesher translations are lazy in the unified profile and keep main’s dict
       const app = load('app-i18n');
       const mesher = load('mesher-i18n');
       if (enabled) {
-        assert.doesNotMatch(app, /['"]mesher\./);
+        assert.equal(/['"]mesher\./.test(app), false, 'the unified app dictionary includes mesher keys');
         assert.doesNotMatch(load('public-i18n'), /['"]mesher\./);
         const { default: translations } = await import('data:text/javascript;base64,' + Buffer.from(mesher).toString('base64'));
         assert.deepEqual(Object.keys(translations), locales);

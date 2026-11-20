@@ -59,7 +59,7 @@ describe('the seven-storey building meshed whole', () => {
 });
 
 describe('mesh before analysis', () => {
-  it('meshes the plates that came as one shell per bay, while live calc solves them as they are', async () => {
+  it('reports the incompatible walls when remeshing the coarse gallery building before analysis', async () => {
     await building();
     const all = physicalPlates();
     const coarse = all.filter((p) => coarseAsModelled(p)).map((p) => p.id);
@@ -69,11 +69,14 @@ describe('mesh before analysis', () => {
     meshBeforeAnalysis.value = true;
     const phases = new Set<string>();
     const watch = setInterval(() => { if (meshProgress.now) phases.add(meshProgress.now.phase); }, 0);
-    const r = await preparePlatesForAnalysisAsync();
-    clearInterval(watch);
-    expect(r).toMatchObject({ ok: true, meshed: coarse.length });
+    const r = await preparePlatesForAnalysisAsync().finally(() => clearInterval(watch));
+    const refused = ['M1', 'M2', 'M3', 'M10', 'M11', 'M12'];
+    expect(r).toEqual({ ok: false, reason: 'refused', plates: refused });
+    expect(phases).toEqual(new Set(['planning', 'meshing']));
     expect(meshProgress.now).toBeNull();
-    expect(platesNeedingMesh()).toEqual([]);
+    const after = physicalPlates();
+    const waiting = new Set(platesNeedingMesh());
+    expect(after.filter(p => waiting.has(p.id)).map(p => p.name)).toEqual(refused);
     expect(modelStore.quads.size).toBeGreaterThan(coarse.length * 10);
   }, 300000);
 
