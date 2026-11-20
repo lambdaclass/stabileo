@@ -164,7 +164,7 @@ export const SHEETS: SheetSpec[] = [
       { key: 'E', unit: 'MPa', required: true, helpKey: 'xls.col.E', example: 25000 },
       { key: 'nu', required: true, helpKey: 'xls.col.nu', example: 0.2 },
       { key: 'rho', unit: 'kN/m³', helpKey: 'xls.col.rho', example: 24 },
-      { key: 'fy', unit: 'MPa', helpKey: 'xls.col.fy', example: 420 },
+      { key: 'fy', unit: 'MPa', helpKey: 'xls.col.materialFy', example: 420 },
       /*
        * The two PRO asks of a concrete MIX, and neither had a column: a
        * spreadsheet could describe the whole structure and still arrive

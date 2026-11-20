@@ -173,9 +173,7 @@ describe('the explained document', () => {
     expect(work.kind === 'eq' && work.note && zh[work.note.key]).toContain('投影的相反数');
   });
 
-  const issue2360 = process.env.RUN_KNOWN_WRONG === '2360' ? it : it.skip;
-
-  issue2360('known wrong result: #2360 — the Chinese axial influence document prescribes relative closure', () => {
+  it('#2360 — the Chinese axial influence document prescribes relative closure', () => {
     const target = { kind: 'section', elementId: 1, t: 0.5 } as const;
     const doc = docFor(cantilever(4), 'N', target, { x: 1, z: 0 }, false);
     const release = doc.steps[0].blocks[2];
