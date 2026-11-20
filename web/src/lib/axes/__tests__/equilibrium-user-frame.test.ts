@@ -6,7 +6,7 @@ import * as wasm from '../../engine/wasm-solver';
 import type { AnalysisResults3D, SolverInput3D } from '../../engine/types-3d';
 import { rowsOf } from '../../engine/result-tables';
 import { axesStore } from '../axes.svelte';
-import { allChoices, DEFAULT_AXES, makeFrame } from '../frame';
+import { allChoices, DEFAULT_AXES } from '../frame';
 import { modelLoad3D, userRot, userVec, type UserComponent } from '../display';
 import { nodeShown3D } from '../node-coords';
 
@@ -54,6 +54,7 @@ function solveSecondOrder(input: SolverInput3D): AnalysisResults3D {
 }
 
 function expectEquilibrium(r: AnalysisResults3D, includeMoment: boolean) {
+  const opts = { axes: axesStore.choice };
   const pos = (id: number) => nodeShown3D(modelStore.nodes.get(id)!, false) as V;
   let F: V = [0, 0, 0], M: V = [0, 0, 0];
   for (const [node, dir, v] of TYPED) {
@@ -61,17 +62,20 @@ function expectEquilibrium(r: AnalysisResults3D, includeMoment: boolean) {
     u['xyz'.indexOf(dir[1])] = v;
     if (dir[0] === 'f') { F = add(F, u); M = add(M, cross(pos(node), u)); } else M = add(M, u);
   }
-  for (const row of rowsOf('reactions', r)) {
+  const reactions = rowsOf('reactions', r, opts);
+  for (const row of reactions) {
     const f = row.values.slice(0, 3) as V, m = row.values.slice(3, 6) as V;
     F = add(F, f); M = add(M, add(m, cross(pos(row.entity), f)));
-    const raw = r.reactions.find(x => x.nodeId === row.entity)!;
-    expect(row.values).toEqual([...userVec(raw.fx, raw.fy, raw.fz), ...userRot(raw.mx, raw.my, raw.mz)]);
   }
   for (let i = 0; i < 3; i++) {
     expect(Math.abs(F[i]), `ΣF${'xyz'[i]}`).toBeLessThan(1e-6);
     if (includeMoment) expect(Math.abs(M[i]), `ΣM${'xyz'[i]}`).toBeLessThan(1e-6);
   }
-  const d = rowsOf('displacements', r).find(x => x.entity === 3)!;
+  for (const row of reactions) {
+    const raw = r.reactions.find(x => x.nodeId === row.entity)!;
+    expect(row.values).toEqual([...userVec(raw.fx, raw.fy, raw.fz), ...userRot(raw.mx, raw.my, raw.mz)]);
+  }
+  const d = rowsOf('displacements', r, opts).find(x => x.entity === 3)!;
   const raw = r.displacements.find(x => x.nodeId === 3)!;
   expect(d.values.slice(0, 3)).toEqual(userVec(raw.ux, raw.uy, raw.uz));
   expect(d.values.slice(3, 6)).toEqual(userRot(raw.rx, raw.ry, raw.rz));
@@ -82,12 +86,8 @@ describe.each(['production', 'test'] as const)('a model typed, solved and read b
 
   for (const choice of allChoices()) {
     for (const analysis of ['linear', 'P-Delta'] as const) {
-      const knownWrong = mode === 'test' && analysis === 'P-Delta'
-        && !makeFrame(choice).identity;
-      const run = it.skipIf(knownWrong && process.env.RUN_KNOWN_WRONG !== '2364');
-      const label = knownWrong ? 'known wrong result: #2364 ' : '';
       const check = analysis === 'linear' ? 'balances forces and moments' : 'balances forces and projects second-order moments';
-      run(`${label}${check} in the user frame ${choice.up} ${choice.right} ${choice.hand} (${analysis})`, () => {
+      it(`#2364 ${check} in the user frame ${choice.up} ${choice.right} ${choice.hand} (${analysis})`, () => {
         axesStore.choice = choice;
         expect(axesStore.choice).toEqual(mode === 'production' ? DEFAULT_AXES : choice);
         build();

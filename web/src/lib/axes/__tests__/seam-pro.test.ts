@@ -14,7 +14,7 @@ const SEAM = [
   'components/pro/SupportDofFields.svelte', 'components/pro/ProSupportsTab.svelte', 'components/pro/ProFloorLoadSection.svelte',
   'components/pro/ProAutoLoadsApplying.svelte', 'components/pro/ProAutoLoadsDialog.svelte', 'components/pro/ProWindCasesPanel.svelte',
   'components/pro/ProWindStructure.svelte', 'components/pro/ProDirectAnalysis.svelte', 'components/pro/ProMesher.svelte',
-  'components/pro/ProEditPanel.svelte', 'components/pro/ProMovingLoadsPanel.svelte', 'components/pro/ProSeismicMethod.svelte',
+  'components/pro/ProEditPanel.svelte', 'components/pro/ProMovingLoadsPanel.svelte',
   'components/pro/building/UnderlayRow.svelte', 'components/pro/building/UnderlayConvertDialog.svelte', 'components/pro/building/BuildingTools.svelte',
   'components/pro/building/BuildingRange.svelte', 'components/pro/building/BuildingBeams.svelte', 'components/pro/generators/GeneratorOutput.svelte',
   'components/pro/dynamics/TimeHistoryPanel.svelte', 'components/pro/dynamics/GroundMotionRow.svelte', 'components/pro/nonlinear/PushoverView.svelte',
@@ -41,7 +41,7 @@ describe('PRO screens that name global axes go through the display layer', () =>
       /label: t\('pro\.roller(XZ|XY|YZ)'\)/,
       /dir\.toUpperCase\(\)\}/,
     ];
-    for (const f of SEAM) for (const re of forbidden) expect(read(f), `${f} ${re}`).not.toMatch(re);
+    for (const f of [...SEAM, 'components/pro/ProSeismicMethod.svelte']) for (const re of forbidden) expect(read(f), `${f} ${re}`).not.toMatch(re);
   });
 
   it('the Add load card and the shell form hand the user frame to the builders', () => {

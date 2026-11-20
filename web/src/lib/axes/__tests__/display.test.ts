@@ -64,12 +64,15 @@ describe('screens that show global axes go through the display layer', () => {
     'components/tables/ResultsTable.svelte', 'components/tables/SupportsTable.svelte', 'components/property/NodeDetails.svelte',
     'components/pro/ProNodesTab.svelte', 'components/pro/PlacementHud.svelte', 'components/pro/ProResultsTab.svelte',
     'components/StatusBar.svelte', 'components/ContextMenu.svelte', 'components/floating-tools/ToolLoadOptions.svelte',
-    'lib/engine/result-tables.ts', 'lib/export/excel.ts', 'lib/store/file.ts', 'lib/viewport/draw-entities.ts',
+    'components/pro/ProResultTableModes.svelte', 'lib/engine/result-tables.ts', 'lib/export/excel.ts', 'lib/store/file.ts', 'lib/viewport/draw-entities.ts',
     'lib/viewport3d/axis-gizmo.ts', 'lib/store/support-tool-3d.ts',
   ];
   for (const f of seam) {
     it(`${f} reads the user frame`, () => {
-      expect(read(f)).toMatch(/axes\/(display|axes\.svelte)'/);
+      const seamImport = f === 'lib/engine/result-tables.ts'
+        ? /axes\/result-components'/
+        : /axes\/(display|axes\.svelte)'/;
+      expect(read(f)).toMatch(seamImport);
     });
   }
 

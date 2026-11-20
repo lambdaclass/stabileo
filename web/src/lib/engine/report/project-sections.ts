@@ -53,7 +53,7 @@ export function envelopeSectionHtml(sources: readonly Source[], tr: Tr, heading:
   out.push(`<p class="note">${esc(tr('report.env.basis').replace('{n}', String(sources.length)))}: ${sources.map((s) => esc(s.name)).join(', ')}</p>`);
   const kinds: Array<[TableKind, string]> = [['reactions', tr('report.reactions')], ['forces', tr('report.forces')], ['displacements', tr('report.displacements')]];
   for (const [kind, title] of kinds) {
-    const cols = columnsOf(kind, { resultant: true, axes });
+    const cols = columnsOf(kind, { resultant: true });
     // The extremes along the members, at 13 stations: at the ends alone a simply supported
     // beam's largest moment read 0. The envelope table below stays per member end.
     const summ = summaryRows(kind, sources, { resultant: true, axes, ...(kind === 'forces' ? { stations: 13 } : {}) });

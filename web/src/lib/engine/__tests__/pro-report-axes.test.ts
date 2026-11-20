@@ -6,7 +6,7 @@ import { generateReportHtml, type ReportConfig } from '../pro-report';
 import { printedTables } from '../report/printed-values';
 import { comparePrintedReport } from '../../actions/reproduce';
 import { axesStore } from '../../axes/axes.svelte';
-import { allChoices, makeFrame, pseudoToUser, toUser, type AxesChoice } from '../../axes/frame';
+import { allChoices, DEFAULT_AXES, makeFrame, pseudoToUser, toUser, type AxesChoice } from '../../axes/frame';
 import { withPresentation } from '../../pro/report-export';
 import { t } from '../../i18n';
 import { rowsOf } from '../result-tables';
@@ -84,7 +84,7 @@ it('known wrong result: #2259 SRSS and ABS tables and reports permute component 
       for (const [kind, values] of [['reactions', [1, 2, 3, 4, 5, 6]], ['displacements', [0.001, 0.002, 0.003, 0.004, 0.005, 0.006]]] as const) {
         const want = [...permute([...values.slice(0, 3)]), ...permute([...values.slice(3)])];
         expect(rowsOf(kind, r, { axes })[0]!.values).toEqual(want);
-        expect(rowsOf(kind, r)[0]!.values).toEqual(want);
+        expect(rowsOf(kind, r, { axes: DEFAULT_AXES })[0]!.values).toEqual(values);
         const html = generateReportHtml({ ...base, results: r, config: { ...config(), axes } });
         const table = printedTables(html).find(p => p.key === kind)!;
         expect(table).toBeDefined();
