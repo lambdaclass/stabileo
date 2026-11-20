@@ -9,8 +9,8 @@ export const PLAN_TEXT = 2.5;
 const barLayer = (b: Pick<LineBar, 'kind' | 'face'>): ArmLayer => (b.kind === 'bent' ? 'LEV' : b.face === 'top' ? 'SUP' : 'INF');
 const ALIGN = { start: 'left', middle: 'center', end: 'right' } as const;
 
-export function planLayout(line: LineLayout, cuts: ReadonlyArray<{ x: number; label: string }>, c: PlanCtx, below: number): ElevationLayout {
-  return elevationLayout({ line, X: (x) => (x * K) / c.scale, depth: (k) => (line.spans[k]!.h * K) / c.scale, t: PLAN_TEXT, below: below / c.scale, marks: true, fmt: c.fmt, tr: c.tr, cuts });
+export function planLayout(line: LineLayout, cuts: ReadonlyArray<{ x: number; label: string }>, c: PlanCtx, below: number, above = 0): ElevationLayout {
+  return elevationLayout({ line, X: (x) => (x * K) / c.scale, depth: (k) => (line.spans[k]!.h * K) / c.scale, t: PLAN_TEXT, below: below / c.scale, above: above / c.scale, marks: true, fmt: c.fmt, tr: c.tr, cuts });
 }
 
 function trackLabel(tr: LTrack, c: PlanCtx, ps: Primitive[], dx = 0): void {

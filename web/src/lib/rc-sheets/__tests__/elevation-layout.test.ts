@@ -46,14 +46,23 @@ describe('the elevation\'s annotations', () => {
     }
   });
 
-  it('draws the bars apart clear of the beam, a line and a half of text or more from its faces, and leaves them out when asked', () => {
-    const line = lines.plain, t = 9.5, below = 10, hMax = 84;
-    const at = (tracks?: boolean) => elevationLayout({ line, X: (x) => 56 + x * 50, depth: (k) => (line.spans[k]!.h * hMax) / 0.6, t, below, marks: true, fmt, tr, ...(tracks === undefined ? {} : { tracks }) });
+  it('draws the bars apart clear of the beam and of the columns past it, each labelled on its outer side, and leaves them out when asked', () => {
+    const line = lines.plain, t = 9.5, below = 10, above = 10, hMax = 84;
+    const at = (tracks?: boolean) => elevationLayout({ line, X: (x) => 56 + x * 50, depth: (k) => (line.spans[k]!.h * hMax) / 0.6, t, below, above, marks: true, fmt, tr, ...(tracks === undefined ? {} : { tracks }) });
     const on = at();
     const top = on.tracks.filter((x) => x.bar.face === 'top' && x.bar.kind !== 'bent'), bottom = on.tracks.filter((x) => x.bar.face === 'bottom' && x.bar.kind !== 'bent');
     expect(top.length * bottom.length).toBeGreaterThan(0);
-    for (const x of top) expect(x.y + Math.max(0, ...x.hooks)).toBeLessThanOrEqual(-1.5 * t);
-    for (const x of bottom) expect(x.y + Math.min(0, ...x.hooks)).toBeGreaterThanOrEqual(hMax + below + 1.5 * t);
+    for (const x of top) {
+      expect(x.y + Math.max(0, ...x.hooks, ...x.dims.map((d) => d.y - x.y))).toBeLessThanOrEqual(-above - 1.5 * t);
+      expect(x.label.y).toBeLessThan(x.y);
+    }
+    for (const x of bottom) {
+      expect(x.y + Math.min(0, ...x.hooks, ...x.dims.map((d) => d.y - x.y))).toBeGreaterThanOrEqual(hMax + below + 1.5 * t);
+      expect(x.label.y - x.label.size).toBeGreaterThan(x.y);
+      expect(x.dims.every((d) => d.y < x.y)).toBe(true);
+    }
+    const gap = (face: 'top' | 'bottom') => Math.min(...(face === 'top' ? top.map((x) => -above - (x.y + Math.max(0, ...x.hooks))) : bottom.map((x) => x.y + Math.min(0, ...x.hooks) - hMax - below)));
+    expect(Math.abs(gap('top') - gap('bottom'))).toBeLessThan(1.5 * t);
     const off = at(false);
     expect(off.tracks).toEqual([]);
     expect(off.top).toBeGreaterThan(on.top);

@@ -85,7 +85,7 @@ function elevation(line: LineLayout, cuts: Array<{ x: number; label: string }>, 
     const pts = barPolyline(line, bar, bar.kind === 'continuous' || bar.kind === 'bent' ? 0 : 0.8 * s);
     if (pts.length >= 2) ps.push({ kind: 'polyline', layer: arm(barLayer(bar), bar.bars.dia), points: pts, dia: bar.bars.dia });
   }
-  const lay = planLayout(line, cuts, c, stub);
+  const lay = planLayout(line, cuts, c, stub, STUB_UP);
   const ann = annotationPrimitives(lay, c);
   ps.push(...ann.ps);
   const chain = (-hMax - ann.bottom) / s + 9;
