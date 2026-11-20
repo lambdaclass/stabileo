@@ -21,8 +21,11 @@ it('every snow load piece is retained and a changed load fails comparison', () =
   const members = Object.entries(snapshot.values).filter(([key, value]) =>
     key.startsWith('generatedLoads.item0.distributed.') && key.endsWith('.elementId') && value === 10);
   expect(members).toHaveLength(3);
-  const path = members[0]![0].replace(/elementId$/, 'q');
-  expect(typeof snapshot.values[path]).toBe('number');
-  const changed = { ...snapshot.values, [path]: (snapshot.values[path] as number) * 2 };
-  expect(compareValues(snapshot.values, changed).differs).toBe(true);
+  for (const [key] of members) {
+    const path = key.replace(/elementId$/, 'q');
+    const load = snapshot.values[path];
+    expect(typeof load).toBe('number');
+    const changed = { ...snapshot.values, [path]: (load as number) + 1 };
+    expect(compareValues(snapshot.values, changed).differs).toBe(true);
+  }
 });
