@@ -21,7 +21,8 @@
     "de": "Gesamtschubspannung in den Querschnittsschnitten",
     "fr": "Cisaillement total sur les coupes de contraintes de section",
     "hu": "Teljes nyírófeszültség a keresztmetszeti feszültségdiagramokon",
-    "tr": "Kesit gerilmesi diyagramlarında toplam kayma gerilmesi"
+    "tr": "Kesit gerilmesi diyagramlarında toplam kayma gerilmesi",
+    "zh": "截面应力分布图中的总剪应力"
   },
   "explanation": {
     "en": "Total shear and von Mises on both cuts now account for both transverse shear components.",
@@ -30,7 +31,8 @@
     "de": "Die Gesamtschubspannung und die von-Mises-Spannung berücksichtigen jetzt in beiden Schnitten beide Querkraftschubkomponenten.",
     "fr": "Le cisaillement total et la contrainte de von Mises tiennent désormais compte des deux composantes du cisaillement transversal sur les deux coupes.",
     "hu": "A két diagramon a teljes nyírófeszültség és a von Mises-feszültség most mindkét keresztirányú nyírófeszültség-komponenst figyelembe veszi.",
-    "tr": "Her iki diyagramda toplam kayma ve von Mises gerilmeleri artık iki enine kayma bileşenini de hesaba katıyor."
+    "tr": "Her iki diyagramda toplam kayma ve von Mises gerilmeleri artık iki enine kayma bileşenini de hesaba katıyor.",
+    "zh": "两条截面剖线上的总剪应力和 von Mises 等效应力现均计入两个横向剪应力分量。"
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-section-stress-cut-magnitudes.md",
