@@ -5946,6 +5946,7 @@
       ]
     },
     "src/lib/store/containment-dismissal.svelte.ts": null,
+    "src/lib/store/ded-design-refusals.ts": null,
     "src/lib/store/defined-loads.ts": {
       "source": "0f9a1ca42dab13145684aa68d27116adc94fc1dfd8ddb9b0f8f7c68b872d975f",
       "original": "9461d1d9fdf0b79ebb5460617bd14c5ba250510f04278169a29cd5881a06ecf2",
@@ -6021,6 +6022,119 @@
           1,
           [
             "  if (q && curved) q.curved = true;"
+          ]
+        ]
+      ]
+    },
+    "src/lib/store/file.ts": {
+      "source": "d06e84ae930fda04689ed7dcb8a168a618876a726f9e4f01e0dcdc4dd957932f",
+      "original": "01c5b9233973d02034f9d17a47c4b952f14d7f1b4c1f41e96465314c542e2a01",
+      "changes": [
+        [
+          27,
+          1,
+          []
+        ],
+        [
+          45,
+          1,
+          []
+        ],
+        [
+          58,
+          1,
+          [
+            "export function isNewerFileVersion(version: unknown, newest: string = DEDAL_FILE_VERSION): boolean {"
+          ]
+        ],
+        [
+          277,
+          0,
+          [
+            "/**",
+            " * The project as a `.ded`, serialised COMPACT.",
+            " *",
+            " * ── What the indentation was costing ───────────────────────────────",
+            " *",
+            " * Measured on `pro-edificio-7p` after the whole chain — 203 members solved, designed, detailed,",
+            " * floors designed, about 21 000 bars in the coordinated document:",
+            " *",
+            " *     JSON.stringify(payload, null, 2)   110 341 310 bytes    202 ms",
+            " *     JSON.stringify(payload)             47 783 950 bytes     56 ms",
+            " *",
+            " * Sixty-two megabytes of a hundred-and-ten were spaces and newlines. A detailing document is",
+            " * mostly deeply-nested arrays of numbers, and at that depth `null, 2` spends about twenty bytes",
+            " * of indentation on every six-byte coordinate.",
+            " *",
+            " * ── Why this is safe ───────────────────────────────────────────────",
+            " *",
+            " * Whitespace is not part of the format. `deserializeProject` and `loadFile` both go through",
+            " * `JSON.parse`, which does not care, and every `.ded` ever written — including the committed",
+            " * `rc-footing-cad-poc.ded.json`, which stays pretty-printed on disk — still opens. The change is",
+            " * one-directional and needs no migration: new files are smaller, old files are unaffected.",
+            " *",
+            " * One consequence worth knowing rather than discovering: regenerating that committed fixture",
+            " * (`WRITE_FIXTURE=1`) now writes it on one line, because it is deliberately produced by this",
+            " * same production writer.",
+            " *",
+            " * `saveSession` keeps its indentation. A session is a handful of tab records and is read by",
+            " * people far more often than it is large.",
+            " */"
+          ]
+        ],
+        [
+          278,
+          10,
+          [
+            "  return JSON.stringify(buildProjectFile());"
+          ]
+        ],
+        [
+          302,
+          4,
+          []
+        ],
+        [
+          308,
+          2,
+          [
+            "  if (typeof d.version !== 'string' || !KNOWN_VERSIONS.has(d.version)) return false;"
+          ]
+        ],
+        [
+          313,
+          8,
+          [
+            "  if (!isValidDedalFile({ ...d, version: DEDAL_FILE_VERSION })) return false;",
+            "",
+            "  const data = d as unknown as DedalFile;"
+          ]
+        ],
+        [
+          594,
+          3,
+          []
+        ],
+        [
+          672,
+          1,
+          [
+            "  const newest = isSessionFile(data) ? SESSION_FILE_VERSION : DEDAL_FILE_VERSION;"
+          ]
+        ],
+        [
+          674,
+          1,
+          [
+            "  if (!deserializeProject(text)) throw new Error(t('file.invalidFormat'));"
+          ]
+        ],
+        [
+          719,
+          2,
+          [
+            "    throw newerVersionError(String(version), DEDAL_FILE_VERSION);",
+            "  } else if (deserializeProject(text)) {"
           ]
         ]
       ]
