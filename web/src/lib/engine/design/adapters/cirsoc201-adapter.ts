@@ -19,7 +19,7 @@ import { IncompleteConcurrentDemandError, type IncompleteDemandDiagnostic } from
  *   are NOT comparable with v2 — v1 issued false passes.
  */
 
-import { prepareProvidedReinforcementEvaluator, requiredLd, requiredLdh } from '../../station-design-forces';
+import { prepareProvidedReinforcementRanker, verifyProvidedReinforcement, requiredLd, requiredLdh } from '../../station-design-forces';
 import { concreteBelowTopBars } from '../../../codes/cirsoc201/anchorage';
 import type { ProvidedRebarResult } from '../../station-design-forces';
 import type { ProvidedReinforcement } from '../../../store/model.svelte';
@@ -310,38 +310,29 @@ function makeAdapter(edition: RegulationEdition): DesignCodeAdapter {
 function prepareCirsocEvaluation(ctx: MemberContext, mode: 'verify' | 'rank'): (rebar: ProvidedReinforcement) => ProvidedRebarResult {
   const supportInput = prepareSupportInput(ctx);
   const threading = supportInput ? prepareJointThreading(ctx) : undefined;
-  const evaluate = prepareProvidedReinforcementEvaluator(mode,
-    ctx.elementId,
-    ctx.elementType,
-    ctx.demands,
-    {
-      // Area-based fallbacks are only used when no station data exists; the
-      // capacity path is preferred and is what actually decides the verdict.
-      flexure: { AsReq: 0 },
-      shear: { AvOverS: 0, AvOverSMin: 0 },
+  const autoDesign = { flexure: { AsReq: 0 }, shear: { AvOverS: 0, AvOverSMin: 0 } };
+  const section = {
+    b: ctx.axes.bFlex, h: ctx.axes.hFlex,
+    fc: ctx.material.fc, fy: ctx.material.fy,
+    cover: ctx.material.cover, stirrupDia: ctx.material.stirrupDia,
+  };
+  const options = {
+    axes: ctx.axes,
+    slenderDeltaNs: ctx.slenderDeltaNs * (ctx.slenderDeltaS ?? 1),
+    ...(ctx.torsionStiffness !== undefined ? { torsionStiffness: ctx.torsionStiffness } : {}),
+    ...(ctx.shape ? { shape: ctx.shape } : {}),
+    spacingRule: {
+      edition: ctx.codeEdition,
+      maxAggregateSizeMm: ctx.material.maxAggregateSize.value,
     },
-    {
-      b: ctx.axes.bFlex, h: ctx.axes.hFlex,
-      fc: ctx.material.fc, fy: ctx.material.fy,
-      cover: ctx.material.cover, stirrupDia: ctx.material.stirrupDia,
-    },
-    ctx.stations,
-    ctx.modelData as never,
-    {
-      axes: ctx.axes,
-      // A sway storey's δs magnifies the column's moments too (§6.6.4.6), on top of δns.
-      slenderDeltaNs: ctx.slenderDeltaNs * (ctx.slenderDeltaS ?? 1),
-      ...(ctx.torsionStiffness !== undefined ? { torsionStiffness: ctx.torsionStiffness } : {}),
-      ...(ctx.shape ? { shape: ctx.shape } : {}),
-      spacingRule: {
-        edition: ctx.codeEdition,
-        maxAggregateSizeMm: ctx.material.maxAggregateSize.value,
-      },
-      // Present only after coordination has moved this member's steel. It shifts the
-      // layer centroids and nothing else — the section and its true cover are unchanged.
-      finalGeometry: ctx.finalGeometry,
-    },
-  );
+    finalGeometry: ctx.finalGeometry,
+  };
+  const evaluate = mode === 'rank'
+    ? prepareProvidedReinforcementRanker(ctx.elementId, ctx.elementType, ctx.demands,
+      autoDesign, section, ctx.stations, ctx.modelData, options)
+    : (rebar: ProvidedReinforcement, reach?: ReturnType<typeof bottomReach>) =>
+      verifyProvidedReinforcement(ctx.elementId, ctx.elementType, rebar, ctx.demands,
+        autoDesign, section, ctx.stations, ctx.modelData, reach ? { ...options, bottomReach: reach } : options);
   return (rebar) => {
     const support = supportInput?.(rebar);
     const plan = support ? endSupportPlan(support) : null;

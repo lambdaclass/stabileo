@@ -3464,16 +3464,13 @@ function prepareReinforcementMember(
   return { allTuples: complete.values.map(r => r.demand), critSections };
 }
 
-export function prepareProvidedReinforcementEvaluator(
-  mode: 'verify' | 'rank',
+export function prepareProvidedReinforcementRanker(
   ...[elementId, elementType, demands, autoDesign, section, stationResult, modelData, options]:
     ProvidedReinforcementArgs extends [infer Id, infer Kind, unknown, ...infer Rest] ? [Id, Kind, ...Rest] : never
 ): (provided: ProvidedReinforcement, bottomReach?: NonNullable<ProvidedReinforcementArgs[8]>['bottomReach']) => ProvidedRebarResult {
   let memberData: ReturnType<typeof prepareReinforcementMember> | undefined;
-  const readMemberData = mode === 'rank'
-    ? () => memberData ??= prepareReinforcementMember(elementId, elementType, demands, section, stationResult, modelData)
-    : undefined;
-  return (provided, bottomReach) => evaluateProvidedReinforcement(mode === 'rank', readMemberData,
+  const readMemberData = () => memberData ??= prepareReinforcementMember(elementId, elementType, demands, section, stationResult, modelData);
+  return (provided, bottomReach) => evaluateProvidedReinforcement(true, readMemberData,
     elementId, elementType, provided, demands, autoDesign, section, stationResult, modelData,
     bottomReach ? { ...options, bottomReach } : options);
 }
