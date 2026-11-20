@@ -5846,6 +5846,7 @@
         ]
       ]
     },
+    "src/lib/provenance/result-changes/perforated-plate-grid.json": null,
     "src/lib/provenance/result-changes/plates-coarse-as-modelled-meshed.json": null,
     "src/lib/provenance/result-changes/plates-conforming-batch-mesh.json": null,
     "src/lib/rc-sheets/bars.ts": null,
@@ -6198,7 +6199,7 @@
       ]
     },
     "src/lib/store/physical-plates.ts": {
-      "source": "33b238be848d05b299d3e1c9ae36f9a43ad63a315a99cf7c2eed8d36f3a4fb6c",
+      "source": "8fc845ebc2a1b1756d90b1f707aa8d988df00ca5780acb7637e71ad760394950",
       "original": "8c0e75c857d9259b53eb6624ca8c2da1343e2f02cc512ecf0560f00c985d29f8",
       "changes": [
         [
@@ -6211,6 +6212,14 @@
           1,
           [
             "  arcInterior, circleThrough, DEFAULT_PLATE_MESH, externalFeatures, gridOfSpec, meshQuality, plateGeometry, plateKindOf, plateLoops, plateMeshInput, plateProblem,"
+          ]
+        ],
+        [
+          29,
+          2,
+          [
+            "import type { Vec3 } from '../model/edit/affine';",
+            "import { generateMesh, MAX_MESH_CELLS, type MeshOutput } from '../model/edit/mesher';"
           ]
         ],
         [
@@ -6487,11 +6496,11 @@
         ],
         [
           901,
-          163,
+          210,
           []
         ],
         [
-          1066,
+          1113,
           33,
           [
             "  const report: PlateMeshReport = { plates: 0, cells: 0, refused: [], droppedLocalLoads: 0, keptNodes: 0 };",
@@ -6521,31 +6530,31 @@
           ]
         ],
         [
-          1100,
+          1147,
           32,
           []
         ],
         [
-          1133,
+          1180,
           45,
           [
             "  return report;"
           ]
         ],
         [
-          1203,
+          1250,
           8,
           []
         ],
         [
-          1217,
+          1264,
           2,
           [
             "  const need = platesNeedingMesh();"
           ]
         ],
         [
-          1222,
+          1269,
           21,
           [
             "  const plans = need.map((id) => planPlateMesh(id)).filter((p): p is PlateMeshPlan => !!p);",

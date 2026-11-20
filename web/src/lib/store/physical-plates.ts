@@ -27,12 +27,12 @@ import {
   plateSignature, plateSurfaceOf, type ArcSampler, type MeshQuality, type PlateMeshSpec, type PlateProblem, type PlateSurface,
 } from '../model/physical/plate';
 import { pieceOf } from '../model/curve-entity';
-import type { Vec3 } from '../model/edit/affine';
-import { generateMesh, MAX_MESH_CELLS, type MeshOutput } from '../model/edit/mesher';
+import { cross, type Vec3 } from '../model/edit/affine';
+import { generateMesh, MAX_MESH_CELLS, MAX_MESH_POINTS, type MeshOutput } from '../model/edit/mesher';
 import { frameAlong, gridMesh } from '../model/edit/grid-mesh';
 import { rectGrid } from '../model/edit/rect-grid';
-import { meshStations, sameMeshNode, sharedFrameStations, stationIndex, strictlyOrAt } from '../model/edit/mesh-stations';
-import { applyMesh, regionOccupied } from '../model/edit/mesh-apply';
+import { addedMeshStations, meshStations, sameMeshNode, sharedFrameStations, stationIndex, strictlyOrAt } from '../model/edit/mesh-stations';
+import { applyMesh, regionOccupied, validCells } from '../model/edit/mesh-apply';
 import { weldTolerance } from '../model/weld-tolerance';
 import { mergeCollinear } from '../model/edit/merge-collinear';
 import { addFloorLoadDef, syncDefinedLoads } from './defined-loads';
@@ -902,6 +902,58 @@ export interface PlateMeshReport { plates: number; cells: number; refused: Array
 type ReadyPlateMesh = PlateMeshPlan & { mesh: MeshOutput; input: NonNullable<PlateMeshPlan['input']> };
 const readyPlateMesh = (p: PlateMeshPlan): p is ReadyPlateMesh => !!p.mesh && !!p.input;
 
+type IndexedShell = {
+  id: number | undefined;
+  cells: Vec3[][];
+  stations: ReturnType<typeof stationIndex>;
+};
+
+function sharedStationsFor(drafts: readonly ReadyPlateMesh[], existing: readonly IndexedShell[], frame: ReturnType<typeof stationIndex>) {
+  const planned = drafts.map(({ id, mesh }) => ({
+    id, cells: mesh.cells.map(cell => cell.map(i => mesh.points[i]!)), stations: stationIndex(mesh.points),
+  }));
+  const shells = [...existing, ...planned];
+  const frameStations = sharedFrameStations(frame, shells);
+  return planned.map(({ id, stations }) => {
+    const neighbours = shells.filter(other => other.id !== id && other.stations.overlaps(stations));
+    return (a: Vec3, b: Vec3) => [
+      ...neighbours.flatMap(other => other.stations.between(a, b)), ...frameStations(id, a, b),
+    ];
+  });
+}
+
+function withSharedMesh(p: ReadyPlateMesh, mesh: MeshOutput): ReadyPlateMesh {
+  if (p.mesh === mesh) return p;
+  return { ...p, mesh, cells: mesh.cells.length, quality: meshQuality(mesh), mixed: p.spec.element === 'quad' && !mesh.structured };
+}
+
+function refinePerforatedGrid(p: ReadyPlateMesh, stationsOn: (a: Vec3, b: Vec3) => Vec3[], weld: number): ReadyPlateMesh {
+  const { outer, holes } = p.input;
+  if (!p.mesh.structured || p.spec.element !== 'quad' || !holes.length || outer.kind !== 'polygon') return p;
+  const holePoints = holes.flatMap(hole => hole.kind === 'polygon' ? [hole.points] : []);
+  if (holePoints.length !== holes.length) return p;
+  const stations = addedMeshStations(p.mesh, stationsOn, weld);
+  if (!stations.length) return p;
+  const { plane } = p.mesh;
+  const fixedPoints = [...p.mesh.points, ...stations];
+  const refined = rectGrid({
+    frame: { ...plane, n: cross(plane.u, plane.v) }, outer: outer.points, holes: holePoints,
+    a: p.grid?.cellA ?? p.spec.size, b: p.grid?.cellB ?? p.spec.size, element: 'quad',
+    fixedPoints, maxCells: MAX_MESH_CELLS,
+  });
+  if (!refined || refined.points.length > MAX_MESH_POINTS) return p;
+  const indexed = stationIndex(refined.points);
+  if (!fixedPoints.every(point => indexed.has(point, weld))) return p;
+  const at = (i: number) => {
+    const [x, y, z] = refined.points[i]!;
+    return { x, y, z };
+  };
+  if (refined.cells.some(cell => validCells(cell, at).length !== 1 || cell.some((a, i) =>
+    sameMeshNode(refined.points[a]!, refined.points[cell[(i + 1) % cell.length]!]!, weld),
+  ))) return p;
+  return withSharedMesh(p, refined);
+}
+
 function planConformingMeshes(plans: readonly PlateMeshPlan[], report: PlateMeshReport, forAnalysis: boolean): ReadyPlateMesh[] {
   const requested = new Map(plans.map(p => [p.id, p]));
   const specs = new Map(plans.map(p => [p.id, p.spec]));
@@ -945,19 +997,14 @@ function planConformingMeshes(plans: readonly PlateMeshPlan[], report: PlateMesh
     const frameNodes = memberChains(plateModel(), owned).flat();
     const frame = stationIndex([...new Set(frameNodes)].map(v3).filter((p): p is Vec3 => p !== null));
     const existing = [...untouched].map(([id, cells]) => ({ id, cells, stations: stationIndex(cells.flat()) }));
-    const planned = drafts.map(p => ({ p, stations: stationIndex(p.mesh.points) }));
-    const frameStations = sharedFrameStations(frame, [...existing, ...drafts.map(p => ({
-      id: p.id, cells: p.mesh.cells.map(cell => cell.map(i => p.mesh.points[i]!)),
-    }))]);
+    const preliminary = sharedStationsFor(drafts, existing, frame);
+    const grids = drafts.map((p, i) => refinePerforatedGrid(p, preliminary[i]!, weld));
+    const stationsFor = grids.some((p, i) => p !== drafts[i]) ? sharedStationsFor(grids, existing, frame) : preliminary;
     const final: ReadyPlateMesh[] = [];
-    for (const { p, stations } of planned) {
-      const neighbours = [...planned.filter(other => other.p.id !== p.id), ...existing]
-        .map(other => other.stations).filter(index => index.overlaps(stations));
-      const mesh = meshStations(p.mesh, (a, b) => [
-        ...neighbours.flatMap(index => index.between(a, b)), ...frameStations(p.id, a, b),
-      ], weld);
+    for (const [i, p] of grids.entries()) {
+      const mesh = meshStations(p.mesh, stationsFor[i]!, weld);
       if (!mesh) report.refused.push({ id: p.id, reason: 'cannotMesh' });
-      else final.push(mesh === p.mesh ? p : { ...p, mesh, cells: mesh.cells.length, quality: meshQuality(mesh), mixed: true });
+      else final.push(withSharedMesh(p, mesh));
     }
     if (report.refused.length) return [];
 

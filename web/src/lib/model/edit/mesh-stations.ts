@@ -23,11 +23,25 @@ interface StationIndex {
   bounds: ReadonlyArray<readonly [number, number]>;
   overlaps(other: StationIndex): boolean;
   between(a: Vec3, b: Vec3): Vec3[];
+  has(point: Vec3, weld: number): boolean;
 }
 
 export function stationIndex(points: readonly Vec3[]): StationIndex {
   const sorted = axes.map(axis => [...points].sort((a, b) => a[axis] - b[axis]));
   const bounds = sorted.map((list, axis) => [list[0]?.[axis] ?? Infinity, list.at(-1)?.[axis] ?? -Infinity] as const);
+  const widest = axes.reduce((best, axis) =>
+    bounds[axis]![1] - bounds[axis]![0] > bounds[best]![1] - bounds[best]![0] ? axis : best,
+  );
+  function* range(axis: typeof axes[number], lo: number, hi: number) {
+    const list = sorted[axis]!;
+    let start = 0, end = list.length;
+    while (start < end) {
+      const mid = (start + end) >>> 1;
+      if (list[mid]![axis] < lo) start = mid + 1;
+      else end = mid;
+    }
+    for (let i = start; i < list.length && list[i]![axis] <= hi; i++) yield list[i]!;
+  }
   return {
     overlaps(other: StationIndex) {
       return bounds.every(([lo, hi], axis) => hi + 1e-4 >= other.bounds[axis]![0] && lo - 1e-4 <= other.bounds[axis]![1]);
@@ -35,21 +49,17 @@ export function stationIndex(points: readonly Vec3[]): StationIndex {
     bounds,
     between(a: Vec3, b: Vec3) {
       const axis = axes.reduce((best, k) => Math.abs(b[k] - a[k]) > Math.abs(b[best] - a[best]) ? k : best);
-      const list = sorted[axis]!;
       const lo = Math.min(a[axis], b[axis]) - 1e-4;
       const hi = Math.max(a[axis], b[axis]) + 1e-4;
-      let start = 0, end = list.length;
-      while (start < end) {
-        const mid = (start + end) >>> 1;
-        if (list[mid]![axis] < lo) start = mid + 1;
-        else end = mid;
-      }
       const hits: Vec3[] = [];
-      for (let i = start; i < list.length && list[i]![axis] <= hi; i++) {
-        const p = list[i]!;
-        if (strictlyOrAt(p, a, b, false)) hits.push(p);
-      }
+      for (const p of range(axis, lo, hi)) if (strictlyOrAt(p, a, b, false)) hits.push(p);
       return hits;
+    },
+    has(point: Vec3, weld: number) {
+      for (const p of range(widest, point[widest] - weld, point[widest] + weld)) {
+        if (sameMeshNode(p, point, weld)) return true;
+      }
+      return false;
     },
   };
 }
@@ -101,30 +111,50 @@ function transition(ring: number[], points: readonly Vec3[], normal: Vec3, quads
   return validCells(ring, at).length ? [...cells, ring] : null;
 }
 
-export function meshStations(mesh: MeshOutput, stationsOn: (a: Vec3, b: Vec3) => Vec3[], weld: number): MeshOutput | null {
-  const points = [...mesh.points];
-  const boundary = new Set(mesh.boundary);
-  const edges = new Map<string, number[]>();
+type StationsOnEdge = (a: Vec3, b: Vec3) => Vec3[];
+
+function edgeStations(mesh: MeshOutput, stationsOn: StationsOnEdge, weld: number) {
+  const visited = new Set<string>();
+  const edges = new Map<string, { edge: Edge; stations: Vec3[] }>();
   const add = (edge: Edge) => {
     const [i, j] = edge;
     const key = edgeKey(i, j);
-    if (edges.has(key)) return;
-    const a = points[i]!, b = points[j]!, dir = sub(b, a);
+    if (visited.has(key)) return;
+    visited.add(key);
+    const a = mesh.points[i]!, b = mesh.points[j]!, dir = sub(b, a);
     const stations = stationsOn(a, b)
       .sort((p, q) => dot(sub(p, q), dir) || p[0] - q[0] || p[1] - q[1] || p[2] - q[2]);
-    const interior: number[] = [];
+    const interior: Vec3[] = [];
     let previous = a;
     for (const p of stations) {
       if (sameMeshNode(p, previous, weld) || sameMeshNode(p, b, weld)) continue;
-      const id = points.push(p) - 1;
-      interior.push(id);
-      if (mesh.boundary.has(i) && mesh.boundary.has(j)) boundary.add(id);
+      interior.push(p);
       previous = p;
     }
-    edges.set(key, i < j ? interior : interior.reverse());
+    if (interior.length) edges.set(key, { edge, stations: i < j ? interior : interior.reverse() });
   };
   for (const cell of mesh.cells) cell.forEach((a, i) => add([a, cell[(i + 1) % cell.length]!]));
-  if (points.length === mesh.points.length) return mesh;
+  return edges;
+}
+
+export function addedMeshStations(mesh: MeshOutput, stationsOn: StationsOnEdge, weld: number): Vec3[] {
+  return [...edgeStations(mesh, stationsOn, weld).values()].flatMap(edge => edge.stations);
+}
+
+export function meshStations(mesh: MeshOutput, stationsOn: StationsOnEdge, weld: number): MeshOutput | null {
+  const added = edgeStations(mesh, stationsOn, weld);
+  if (!added.size) return mesh;
+  const points = [...mesh.points];
+  const boundary = new Set(mesh.boundary);
+  const edges = new Map<string, number[]>();
+  for (const [key, { edge: [a, b], stations }] of added) {
+    const onBoundary = mesh.boundary.has(a) && mesh.boundary.has(b);
+    edges.set(key, stations.map(p => {
+      const id = points.push(p) - 1;
+      if (onBoundary) boundary.add(id);
+      return id;
+    }));
+  }
   if (points.length > MAX_MESH_POINTS) return null;
 
   const cells: number[][] = [];
@@ -132,7 +162,7 @@ export function meshStations(mesh: MeshOutput, stationsOn: (a: Vec3, b: Vec3) =>
   for (const cell of mesh.cells) {
     const ring = cell.flatMap((a, i) => {
       const b = cell[(i + 1) % cell.length]!;
-      const interior = edges.get(edgeKey(a, b))!;
+      const interior = edges.get(edgeKey(a, b)) ?? [];
       return [a, ...(a < b ? interior : [...interior].reverse())];
     });
     if (ring.length === cell.length) {

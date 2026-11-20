@@ -6,7 +6,8 @@ import { applyPlateMeshes, applyPlateMeshesAsync, createPlate, physicalPlates, p
 import { ensurePhysicalModel } from '../plates-from-shells';
 import { syncDefinedLoadsForAnalysis } from '../defined-loads';
 import { closePlateHole, cutPlateCells, plateFigure, plateSideShapes, setPlateSideSagitta } from '../plate-shape';
-import { plateArea, plateGeometry, plateLoops } from '../../model/physical/plate';
+import { meshQuality, plateArea, plateGeometry, plateLoops } from '../../model/physical/plate';
+import { DEFAULT_WELD_TOL, setWeldTolerance, weldTolerance } from '../../model/weld-tolerance';
 import type { StructuralGrid } from '../../model/grid';
 
 const grid: StructuralGrid = {
@@ -161,8 +162,14 @@ const batchPaths = [
   ['asynchronous', applyPlateMeshesAsync],
 ] as const;
 
+function shellNodesOn(id: number, onEdge: (node: { x: number; y: number }) => boolean): Set<number> {
+  const { quads = [], plates = [] } = plateEntry(id)!.group.members;
+  const shells = [...quads.map(q => modelStore.quads.get(q)!), ...plates.map(p => modelStore.plates.get(p)!)];
+  return new Set(shells.flatMap(shell => shell.nodes).filter(n => onEdge(modelStore.nodes.get(n)!)));
+}
+
 describe('rectangular holes in the shared-station batch', () => {
-  it.skip.each(batchPaths)('keeps the gallery hole mesh rectangular and conforming (%s) [known wrong result: #2365]', async (_mode, apply) => {
+  it.each(batchPaths)('keeps the gallery hole mesh rectangular and conforming (%s)', async (_mode, apply) => {
     modelStore.clear(); historyStore.clear(); uiStore.analysisMode = 'pro';
     await modelStore.loadExample('pro-edificio-7p');
     ensurePhysicalModel();
@@ -182,14 +189,10 @@ describe('rectangular holes in the shared-station batch', () => {
     expect(applied.surface.meshed!.quality.minAngle).toBeCloseTo(90, 3);
     expect(applied.group.members.plates).toEqual([]);
 
-    const shared = (id: number, x: number) => {
-      const { quads = [], plates = [] } = plateEntry(id)!.group.members;
-      const shells = [...quads.map(q => modelStore.quads.get(q)!), ...plates.map(p => modelStore.plates.get(p)!)];
-      return new Set(shells.flatMap(shell => shell.nodes).filter(n => modelStore.nodes.get(n)!.x === x));
-    };
+    expect(meshQuality(plateFigure(slab.id)!).minAngle).toBeCloseTo(90, 3);
     const left = physicalPlates().find(p => p.name === 'L1')!;
-    const edge = shared(slab.id, 6);
-    expect(edge).toEqual(shared(left.id, 6));
+    const edge = shellNodesOn(slab.id, node => node.x === 6);
+    expect(edge).toEqual(shellNodesOn(left.id, node => node.x === 6));
     expect([...edge].map(n => modelStore.nodes.get(n)!.y)).toContain(0.2);
   });
 
@@ -209,5 +212,39 @@ describe('rectangular holes in the shared-station batch', () => {
     expect(figure.cells.map(cell => cell.map(i => figure.points[i]))).toEqual(
       plan.mesh!.cells.map(cell => cell.map(i => plan.mesh!.points[i])),
     );
+  });
+
+  it.each([false, true])('shares a neighbour station when the grid can absorb it or needs a transition (fits=%s)', fits => {
+    modelStore.clear(); historyStore.clear(); uiStore.analysisMode = 'pro';
+    const originalWeld = weldTolerance();
+    setWeldTolerance(DEFAULT_WELD_TOL / 4);
+    try {
+      const n = (x: number, y: number) => modelStore.addNode(x, y, 0);
+      const a = n(0, 0), b = n(4, 0);
+      const station = n(0.5 + DEFAULT_WELD_TOL * (fits ? 2 : 0.5), 0);
+      const hole = [n(1, 1), n(1, 2), n(2, 2), n(2, 1)];
+      const slab = createPlate({ outline: [a, b, n(4, 4), n(0, 4)], holes: [hole], materialId: 1, thickness: 0.15 });
+      const other = createPlate({ outline: [b, station, a, n(0, -2), n(4, -2)], materialId: 1, thickness: 0.15 });
+      expect(slab).toHaveProperty('id');
+      expect(other).toHaveProperty('id');
+      const { id } = slab as { id: number };
+      const neighbour = (other as { id: number }).id;
+      const plans = [id, neighbour].map(plate => planPlateMesh(plate, { pattern: 'square', followMembers: false, size: plate === id ? 0.5 : 4 })!);
+
+      expect(applyPlateMeshes(plans)).toMatchObject({ plates: 2, refused: [] });
+      const edge = shellNodesOn(id, node => node.y === 0);
+      expect(edge).toContain(station);
+      expect(edge).toEqual(shellNodesOn(neighbour, node => node.y === 0));
+      const figure = plateFigure(id)!;
+      expect(figure.source).toBe('mesh');
+      if (fits) {
+        expect(meshQuality(figure).minAngle).toBeCloseTo(90, 3);
+        expect(figure.cells.every(cell => cell.length === 4)).toBe(true);
+      } else {
+        expect(figure.cells.some(cell => cell.length === 3)).toBe(true);
+      }
+    } finally {
+      setWeldTolerance(originalWeld);
+    }
   });
 });
