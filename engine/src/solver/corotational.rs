@@ -390,11 +390,6 @@ pub fn solve_corotational_2d_by(
     n_increments: usize,
     method: IterationMethod,
 ) -> Result<CorotationalResult, String> {
-    if let IterationMethod::Anderson { depth } = method {
-        if depth == 0 {
-            return Err("Anderson acceleration needs a depth of at least 1".into());
-        }
-    }
     let canonical_input = super::member_loads::plane_input(input);
     let input = canonical_input.as_ref();
 
@@ -415,6 +410,7 @@ pub fn solve_corotational_2d_by(
     if !tolerance.is_finite() || tolerance <= 0.0 {
         return Err("Convergence tolerance must be finite and positive".into());
     }
+    super::nonlinear::validate(method)?;
 
     // The 3D entry point validates; this one did not, and went straight to
     // assembly — where ids are resolved by direct map indexing, so an element
@@ -4098,10 +4094,56 @@ mod shared_driver_equivalence {
         }
     }
 
+    /// Largest difference of a translation, over the largest translation of `b`. Panics unless
+    /// both hold the same nodes in the same order, every component is finite and `b` moved.
+    fn apart_of(a: &[Displacement], b: &[Displacement]) -> f64 {
+        assert!(!b.is_empty() && a.len() == b.len(), "{} displacements against {}", a.len(), b.len());
+        let (mut gap, mut largest) = (0.0f64, 0.0f64);
+        for (x, y) in a.iter().zip(b) {
+            assert_eq!(x.node_id, y.node_id);
+            assert!([x.ux, x.uz, x.ry, y.ux, y.uz, y.ry].iter().all(|v| v.is_finite()), "node {}: {x:?} against {y:?}", x.node_id);
+            gap = gap.max((x.ux - y.ux).abs()).max((x.uz - y.uz).abs());
+            largest = largest.max(y.ux.abs()).max(y.uz.abs());
+        }
+        assert!(largest > 0.0, "the reference did not move");
+        gap / largest
+    }
+
     fn apart(a: &CorotationalResult, b: &CorotationalResult) -> f64 {
-        let largest = b.results.displacements.iter().fold(0.0f64, |m, d| m.max(d.ux.abs()).max(d.uz.abs()));
-        a.results.displacements.iter().zip(&b.results.displacements)
-            .fold(0.0f64, |m, (x, y)| m.max((x.ux - y.ux).abs()).max((x.uz - y.uz).abs())) / largest
+        apart_of(&a.results.displacements, &b.results.displacements)
+    }
+
+    fn moved(node_id: usize, ux: f64, uz: f64) -> Displacement {
+        Displacement { node_id, ux, uz, ry: 0.0 }
+    }
+
+    #[test]
+    fn the_comparison_measures_the_largest_difference_of_complete_finite_results() {
+        let reference = [moved(1, 0.0, 0.0), moved(2, 0.5, -2.0)];
+        assert_eq!(apart_of(&reference, &reference), 0.0);
+        assert_eq!(apart_of(&[moved(1, 0.0, 0.1), moved(2, 0.5, -2.0)], &reference), 0.05);
+        assert_eq!(apart_of(&[moved(1, 0.0, 0.0), moved(2, 0.9, -2.0)], &reference), 0.2);
+    }
+
+    #[test]
+    fn the_comparison_refuses_what_it_cannot_compare() {
+        let reference = vec![moved(1, 0.0, 0.0), moved(2, 0.5, -2.0)];
+        let refused = |a: Vec<Displacement>, b: Vec<Displacement>| std::panic::catch_unwind(move || apart_of(&a, &b)).is_err();
+        assert!(refused(vec![], reference.clone()));
+        assert!(refused(reference[..1].to_vec(), reference.clone()));
+        assert!(refused(reference.clone(), reference[..1].to_vec()));
+        assert!(refused(vec![], vec![]));
+        assert!(refused(vec![moved(1, 0.0, 0.0), moved(3, 0.5, -2.0)], reference.clone()));
+        assert!(refused(vec![moved(2, 0.5, -2.0), moved(1, 0.0, 0.0)], reference.clone()));
+        for bad in [f64::NAN, f64::INFINITY] {
+            assert!(refused(vec![moved(1, 0.0, 0.0), moved(2, bad, -2.0)], reference.clone()));
+            assert!(refused(vec![moved(1, 0.0, bad), moved(2, 0.5, -2.0)], reference.clone()));
+            assert!(refused(reference.clone(), vec![moved(1, 0.0, 0.0), moved(2, 0.5, bad)]));
+            let mut turned = reference.clone();
+            turned[1].ry = bad;
+            assert!(refused(turned, reference.clone()));
+        }
+        assert!(refused(vec![moved(1, 0.0, 0.0), moved(2, 0.0, 0.0)], vec![moved(1, 0.0, 0.0), moved(2, 0.0, 0.0)]));
     }
 
     #[test]
@@ -4157,7 +4199,9 @@ mod shared_driver_equivalence {
             assert!(result.results.displacements.iter().all(|d| d.ux == 0.0 && d.uz == 0.0), "{method:?}");
         }
         let refused = solve_corotational_2d_by(&input, None, 50, 1e-8, 4, IterationMethod::Anderson { depth: 0 });
-        assert_eq!(refused.err().as_deref(), Some("Anderson acceleration needs a depth of at least 1"));
+        assert_eq!(refused.err().as_deref(), Some("Anderson acceleration needs a depth from 1 to 50"));
+        let precedence = solve_corotational_2d_by(&input, None, 0, 1e-8, 4, IterationMethod::Anderson { depth: 0 });
+        assert_eq!(precedence.err().as_deref(), Some("Max iterations must be at least 1"));
     }
 
     #[test]
