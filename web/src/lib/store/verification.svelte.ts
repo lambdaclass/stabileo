@@ -356,7 +356,10 @@ function createVerificationStore() {
     reinforcement?: ProvidedReinforcement,
   ): 'ok' | 'warn' | 'fail' {
     const ctx = withSavedColumns(contexts.get(elementId));
-    const reinf = reinforcement ?? reinforcementProvider?.(elementId);
+    const current = reinforcementProvider?.(elementId);
+    const drawing = current?.[drawnBeamReinforcement];
+    const reinf = reinforcement && drawing
+      ? { ...reinforcement, [drawnBeamReinforcement]: drawing } : reinforcement ?? current;
     if (!ctx || !reinf) return 'fail';
     // Same source as every other design decision: the project's `concrete` role.
     const codeId = regulationsStore.concreteDesignCode();

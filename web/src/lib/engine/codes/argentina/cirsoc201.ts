@@ -12,7 +12,7 @@ import { hasSecondaryShearDemand, type ConcurrentSectionDemand, type ConcurrentD
 
 import { deriveDevelopment, deriveHookedDevelopment, topBarFactor, concreteBelowTopBars } from '../../../codes/cirsoc201/anchorage';
 import type { SolverDiagnostic } from '../../types';
-import { transverseSpacingLimits } from '../../../codes/cirsoc201/transverse-spacing';
+import { checkTransverseSpacing, requiredVsWithConcrete, transverseSpacingLimits } from '../../../codes/cirsoc201/transverse-spacing';
 import { minFlexuralSteelCm2, tensionControlledStrain, COLUMN_STEEL_RATIO, editionCode, shearFy, shearSqrtFc, type Cirsoc201EditionLike } from './cirsoc201-basis';
 import type { RegulationEdition } from '../../../codes/regulation';
 import { evaluateBeamSection } from './cirsoc201-beam-kernel';
@@ -525,7 +525,7 @@ export function checkFlexure(
 // spacing table, whose φVn reaches Vu with at least Av,min. It used to be 2005's
 // (1 + Nu/14Ag)·√f'c/6 with fy uncapped for Vs.
 
-type ShearOptions = { edition?: RegulationEdition; AsTensionCm2?: number };
+type ShearOptions = { edition?: RegulationEdition; AsTensionCm2?: number; primaryBeamSpacing?: boolean };
 type ShearProvision = ({ legs: number } | { secondaryFace: SecondaryShearFace }) & { spacing?: number };
 
 export function checkShear(
@@ -563,7 +563,7 @@ function evaluateShear(
   // The concrete's share with the minimum stirrups present (row (a) of Tabla 22.5.5.1).
   const trial = ask(2, Math.max(0.05, Math.floor((d / 2) * 40) / 40));
   const Vc = trial.shearValid ? trial.Vc / 1e3 : 0;
-  const VsReq = Math.max(0, VuAbs / PHI_SHEAR - Vc);
+  const VsReq = requiredVsWithConcrete(VuAbs, PHI_SHEAR * Vc);
 
   // Table 9.7.6.2.2, through THE one evaluator: the spacing along the member and the legs.
   const table = transverseSpacingLimits('2025', {
@@ -581,7 +581,7 @@ function evaluateShear(
   }
   const concrete = chosen.shearValid ? chosen.Vc / 1000 : 0;
   const phiVc = PHI_SHEAR * concrete;
-  const Vs = Math.max(0, VuAbs / PHI_SHEAR - concrete);
+  const Vs = requiredVsWithConcrete(VuAbs, phiVc);
   { emissions.push(() => steps.push(`φVc (motor, CIRSOC 201-${edition}) = ${phiVc.toFixed(2)} kN`)); }
   { emissions.push(() => steps.push(`Vs,req = ${Vs.toFixed(2)} kN`)); }
   const phiVn = chosen.shearValid ? chosen.phiVn / 1e3 : 0;
@@ -615,11 +615,15 @@ function evaluateShear(
   } else if (ratio > 0.9) {
     status = 'warn';
   }
-  const fixedLegShortfall = edition === '2025' && provision && 'legs' in provision && legs < table.requiredLegs;
+  const fixedTable = edition === '2025' && provision && !secondary ? checkTransverseSpacing(edition, {
+    VsRequired: Vs, bw: b, d, fc, cover, stirrupDiaMm: stirrupBar.diameter,
+  }, { spacing, legs }) : undefined;
+  const fixedLegShortfall = fixedTable && legs < fixedTable.limits.requiredLegs;
+  const fixedAlongShortfall = fixedTable && opts.primaryBeamSpacing && VuAbs > 0 && !fixedTable.alongOk;
   const spacingShortfall = secondary
     ? secondaryShearSpacingShortfall(edition, { ...secondary, spacing }, cover, fc, VuAbs, phiVc)
-    : fixedLegShortfall
-      ? `${legs} stirrup legs provided, ${table.requiredLegs} required (Table 9.7.6.2.2)` : undefined;
+    : fixedLegShortfall ? `${legs} stirrup legs provided, ${fixedTable.limits.requiredLegs} required (Table 9.7.6.2.2)`
+      : fixedAlongShortfall ? `Stirrup spacing exceeds ${(fixedTable.limits.alongMax * 1000).toFixed(1)} mm (Table 9.7.6.2.2)` : undefined;
   if (spacingShortfall) {
     status = 'fail';
     emissions.push(() => steps.push(spacingShortfall));
@@ -640,7 +644,7 @@ function evaluateShear(
     AvOverSMin,
     spacing, stirrupDia: stirrupBar.diameter, stirrupLegs: legs,
     phiVn, ratio, status, steps,
-    ...(fixedLegShortfall ? { refusal: 'diag.rcShearLegs' } : {}),
+    ...(fixedLegShortfall ? { refusal: 'diag.rcShearLegs' } : fixedAlongShortfall ? { refusal: 'diag.rcShearSpacing' } : {}),
   }, () => { steps.length = 0; for (const emit of emissions) emit(); return steps; });
 }
 
@@ -785,7 +789,8 @@ export function checkTorsion(
     : demand.VuSecondary === 0 ? undefined
       : secondary?.kind !== 'secondary-face' ? secondary?.reason ?? 'Requires a resolved secondary shear face'
         : secondary.b !== h || secondary.h !== b || secondary.stirrupDia !== stirrupDia
-          ? 'Secondary shear face does not match the section and cage' : undefined);
+          ? 'Secondary shear face does not match the section and cage' : undefined)
+    ?? (demand.Nu < 0 && !evidence?.evaluatedShear ? 'diag.rcTorsionConcrete' : undefined);
   if (refusal) return { ...fields, phiTn: 0, ratio: Infinity, status: 'fail', refusal, steps: [...steps, refusal] };
 
   steps.push(`Aoh = ${(Aoh * 1e4).toFixed(1)} cm², ph = ${(ph * 100).toFixed(1)} cm`,
@@ -798,8 +803,7 @@ export function checkTorsion(
   if (evidence && combined.refusal) {
     return { ...fields, phiTn: 0, ratio: Infinity, status: 'fail', refusal: combined.refusal, steps: [...steps, combined.refusal] };
   }
-  const r0 = combined.shearSectionRatio, r1 = combined.sectionRatio;
-  const phiTn = r0 >= 1 ? 0 : Tu * Math.sqrt(1 - r0 * r0) / Math.sqrt(Math.max(r1 * r1 - r0 * r0, 1e-30));
+  const phiTn = combined.sectionTorqueCapacity;
   const ratio = phiTn > 0 ? Tu / phiTn : Number.POSITIVE_INFINITY;
   steps.push(`φTn,máx = ${phiTn.toFixed(3)} kN·m con Vu = ${demand.Vu.toFixed(2)} kN${demand.VuSecondary > 0 ? `, Vu,sec = ${demand.VuSecondary.toFixed(2)} kN` : ''} (§22.7.7.1) → Tu/φTn = ${Number.isFinite(ratio) ? ratio.toFixed(3) : '∞'}`);
   const status: VerifStatus = ratio <= 1 + 1e-6 ? 'ok' : 'fail';
@@ -1401,7 +1405,7 @@ export function prepareElementVerification(concurrent: ConcurrentVerificationInp
     }
     const NuShear = input.NuShear ?? input.Nu;
     const transverse = { ...params, stirrupDia: fixed?.shear?.diameter ?? params.stirrupDia };
-    const primaryOptions = { edition, AsTensionCm2: flexure.AsProv };
+    const primaryOptions = { edition, AsTensionCm2: flexure.AsProv, primaryBeamSpacing: input.elementType !== 'column' };
     let shear = evaluateShear(transverse, input.Vu, NuShear, primaryOptions, fixed?.shear);
     const columnDemand = isVertical ? concurrent.demand.amplified(designMu, designMuy ?? 0) : undefined;
     const column = columnDemand ? checkColumn(params, [columnDemand], { edition, fixed: fixed?.column }) : undefined;

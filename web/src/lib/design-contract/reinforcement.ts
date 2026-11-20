@@ -221,7 +221,7 @@ interface DrawnBeamReinforcement {
   stirrups: readonly StirrupInterval[];
   bars: ReadonlyArray<{
     face: 'top' | 'bottom'; row: number; diameter: number; from: number; to: number;
-    seats: number; slots: readonly number[];
+    seats: number; slots: readonly number[]; lapSide?: boolean;
   }>;
 }
 

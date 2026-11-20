@@ -138,8 +138,8 @@ export function drawnBeamEvidence(pieces: { bars: readonly LineBarPiece[]; stirr
     stirrups: pieces.stirrups.filter(({ diameter, legs, spacing }) => Number.isFinite(diameter) && diameter > 0
       && Number.isSafeInteger(legs) && legs > 0 && Number.isFinite(spacing) && spacing > 0)
       .map(zone => ({ ...zone, from: zone.from / length, to: zone.to / length })),
-    bars: pieces.bars.flatMap(({ face, row, diameterMm, from, to, place }) => !place || place.besideMm ? [] : [{
-      face, row, diameter: diameterMm, from: from / length, to: to / length, seats: place.seats, slots: place.slots,
+    bars: pieces.bars.flatMap(({ face, row, diameterMm, from, to, place }) => !place ? [] : [{
+      face, row, diameter: diameterMm, from: from / length, to: to / length, seats: place.seats, slots: place.slots, ...(place.besideMm ? { lapSide: true } : {}),
     }]),
   };
 }

@@ -58,7 +58,7 @@ import {
 } from './generate-column';
 import { candidateClears, generateLayoutCandidates, type KeepOut } from './candidates';
 import { beamGroups, envelopeStations, hoggingAtSupports, resolveTopSteelFor } from './beam-groups';
-import { beamLayoutDomain, beamRow, beamSeat as sharedBeamSeat, besideTailPosts, bendCrossing, columnBarsOf, columnTailPosts, crossingTailPosts, crosstieCentreSides, postsMeet, tailPost, yieldsTo, type TailRow } from './joint-threading';
+import { beamLayoutDomain, beamRow, beamSeat as sharedBeamSeat, besideTailPosts, bendCrossing, columnBarsOf, columnDetailingUnsupported, columnTailPosts, crossingTailPosts, crosstieCentreSides, postsMeet, tailPost, yieldsTo, type TailRow } from './joint-threading';
 import {
   cageKeepOuts, generateColumnCandidates, type ColumnLayoutCandidate,
 } from './column-candidates';
@@ -240,7 +240,9 @@ export type PrerequisiteKind =
   | 'unverifiedMembers'
   | 'noReinforcement'
   | 'noStations'
-  | 'orientationSuspect';
+  | 'orientationSuspect'
+  | 'columnBarLayout'
+  | 'beamColumnBarLayout';
 
 export interface Prerequisite {
   kind: PrerequisiteKind;
@@ -286,6 +288,7 @@ export interface DetailingReadiness {
 export function detailingReadiness(input: {
   contexts: ReadonlyMap<number, MemberContext>;
   outcomes: ReadonlyMap<number, MemberDesignOutcome>;
+  elements?: ReadonlyMap<number, Pick<DetailingModelElement, 'nodeI' | 'nodeJ'>>;
   /**
    * The families the user asked for. Defaults to the frame pair, which is what this function
    * has always detailed.
@@ -312,6 +315,18 @@ export function detailingReadiness(input: {
   const noReinforcement: number[] = [];
   const noStations: number[] = [];
   const suspect: number[] = [];
+  const unsupportedColumns = new Set<number>();
+  const unsupportedColumnNodes = new Set<number>();
+  for (const [id, ctx] of input.contexts) {
+    if (ctx.elementType !== 'column' || !columnDetailingUnsupported(detailableReinforcement(input.outcomes.get(id))?.rebar)) continue;
+    unsupportedColumns.add(id);
+    const element = input.elements?.get(id);
+    if (element) {
+      unsupportedColumnNodes.add(element.nodeI);
+      unsupportedColumnNodes.add(element.nodeJ);
+    }
+  }
+  const unsupportedBeamJoints: number[] = [];
   /**
    * Every member of the model, with the family it belongs to.
    *
@@ -350,6 +365,13 @@ export function detailingReadiness(input: {
       unverified.push(id); continue;
     }
     if (!offered) { noReinforcement.push(id); continue; }
+    if (unsupportedColumns.has(id)) continue;
+    const element = input.elements?.get(id);
+    if (ctx.elementType === 'beam' && element
+      && (unsupportedColumnNodes.has(element.nodeI) || unsupportedColumnNodes.has(element.nodeJ))) {
+      unsupportedBeamJoints.push(id);
+      continue;
+    }
     if (ctx.elementType === 'beam' && !ctx.stations) { noStations.push(id); continue; }
     if (ctx.orientationSuspect) { suspect.push(id); continue; }
     detailable.push(id);
@@ -369,6 +391,8 @@ export function detailingReadiness(input: {
   add('noReinforcement', 'detailing.prereq.noReinforcement', noReinforcement);
   add('noStations', 'detailing.prereq.noStations', noStations);
   add('orientationSuspect', 'detailing.prereq.orientationSuspect', suspect);
+  add('columnBarLayout', 'detailing.skip.columnBarLayout', [...unsupportedColumns]);
+  add('beamColumnBarLayout', 'detailing.skip.beamColumnBarLayout', unsupportedBeamJoints);
 
   return {
     ready: detailable.length > 0,
@@ -431,7 +455,7 @@ function supportKindAt(
 }
 
 /** A designed column's bars (`joint-threading.ts`): one reading for the design and the detailing. */
-const columnBars = (accepted: NonNullable<MemberDesignOutcome['accepted']>) => columnBarsOf(accepted as never);
+const columnBars = columnBarsOf;
 
 // ─── The run ─────────────────────────────────────────────────────
 
@@ -590,7 +614,9 @@ function detailMembers(raw: RunDetailingInput): RunDetailingResult {
   const input = withDesignedStirrups(raw);
   const closureCache = new StirrupClosureCache();
   const readiness = detailingReadiness(input);
-  const skipped: Array<{ elementId: number; key: string }> = [];
+  const skipped = readiness.prerequisites
+    .filter(p => p.kind === 'columnBarLayout' || p.kind === 'beamColumnBarLayout')
+    .flatMap(p => p.elementIds.map(elementId => ({ elementId, key: p.key })));
   if (!readiness.ready) {
     return {
       assemblies: [], readiness, coordination: [], skipped, provisionalMembers: [],
@@ -2409,7 +2435,7 @@ function detailMembers(raw: RunDetailingInput): RunDetailingResult {
       const c = input.elements.get(cid);
       if (!c || (c.nodeI !== nodeId && c.nodeJ !== nodeId)) continue;
       const cctx = input.contexts.get(cid);
-      const bars = columnBars(detailableReinforcement(input.outcomes.get(cid))?.rebar as never);
+      const bars = columnBars(detailableReinforcement(input.outcomes.get(cid))?.rebar);
       if (!cctx || !bars) continue;
       const clear = minClearSpacingColumn(input.edition, { barDiameterMm: bars.diameterMm, maxAggregateSizeMm: input.maxAggregateSizeMm }).minClear;
       // Half the stirrup, and half again for its closing tails, which stand that far out of its

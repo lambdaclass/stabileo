@@ -329,9 +329,8 @@ describe('call-graph: no advertised capability is unreachable', () => {
 });
 
 
-const issue2239 = process.env.RUN_KNOWN_WRONG === '2239' ? it : it.skip;
-issue2239('known wrong result: #2239 detailing refuses to replace mixed column bars with the legacy mirror', () => {
-  const input = scenario({ beamVerified: false });
+it('#2239 detailing refuses to replace mixed column bars with the legacy mirror', () => {
+  const input = scenario();
   const accepted = input.outcomes.get(10)!.accepted!;
   input.outcomes.set(10, {
     ...verifiedColumn(10),
@@ -342,5 +341,21 @@ issue2239('known wrong result: #2239 detailing refuses to replace mixed column b
   });
   const result = runDetailing(input);
   expect.soft(result.skipped).toContainEqual({ elementId: 10, key: 'detailing.skip.columnBarLayout' });
+  expect(result.skipped).toContainEqual({ elementId: 12, key: 'detailing.skip.beamColumnBarLayout' });
+  expect(result.readiness.detailable).toEqual([11]);
+  expect(result.assemblies.flatMap(a => a.bars).some(b => b.ownerElementIds.includes(10))).toBe(false);
   expect(result.skipped.some(row => row.elementId === 11)).toBe(false);
+});
+
+
+it('#2239 physical detailing reads a representable explicit cage without a legacy mirror', () => {
+  const input = scenario({ beamVerified: false });
+  input.outcomes.set(10, {
+    ...verifiedColumn(10),
+    accepted: { column: { cornerDia: 20, faceDia: 16, nBottom: 0, nTop: 0, nLeft: 0, nRight: 0 } },
+  });
+  const result = runDetailing(input);
+  expect(result.skipped.some(row => row.elementId === 10)).toBe(false);
+  const bars = result.assemblies.flatMap(a => a.bars).filter(b => b.role === 'longitudinal' && b.ownerElementIds.includes(10));
+  expect(bars.map(b => b.diameterMm)).toEqual([20, 20, 20, 20]);
 });

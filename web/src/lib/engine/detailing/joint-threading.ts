@@ -26,18 +26,26 @@ export { yieldsTo };
 import { DEFAULT_LIMITS } from './coordination-search';
 import type { RegulationEdition } from '../../codes/regulation';
 import type { ProvidedReinforcement } from '../../design-contract/reinforcement';
+import { resolveColumnReinf } from '../station-design-forces';
 
-/** A designed column's longitudinal bars: how many and of what, as the detailing lays them. */
+export function columnDetailingUnsupported(accepted: ProvidedReinforcement | undefined): boolean {
+  if (!accepted?.column || accepted.shaped) return false;
+  const cage = resolveColumnReinf(accepted.column)!;
+  const uniform = resolveColumnReinf(undefined, { count: cage.totalCount, diameter: cage.cornerDia });
+  return !uniform || (cage.totalCount > 4 && cage.faceDia !== cage.cornerDia)
+    || cage.nBot !== uniform.nBot || cage.nTop !== uniform.nTop
+    || cage.nLeft !== uniform.nLeft || cage.nRight !== uniform.nRight;
+}
+
 export function columnBarsOf(accepted: ProvidedReinforcement | undefined): { count: number; diameterMm: number } | null {
-  if (!accepted) return null;
-  const c = accepted.column as unknown as { totalBars?: number; diameter?: number; barDiameter?: number } | undefined;
-  if (c && typeof c.totalBars === 'number') {
-    const d = c.diameter ?? c.barDiameter;
-    if (c.totalBars > 0 && d) return { count: c.totalBars, diameterMm: d };
+  if (!accepted || columnDetailingUnsupported(accepted)) return null;
+  if (accepted.shaped) return { count: accepted.shaped.count, diameterMm: accepted.shaped.diameter };
+  if (accepted.column) {
+    const cage = resolveColumnReinf(accepted.column)!;
+    return { count: cage.totalCount, diameterMm: cage.cornerDia };
   }
   const l = accepted.longitudinal;
-  if (l && l.count > 0) return { count: l.count, diameterMm: l.diameter };
-  return null;
+  return l && l.count > 0 ? { count: l.count, diameterMm: l.diameter } : null;
 }
 
 /** The member's row of slots: how many, at which bar, and its largest bar. */

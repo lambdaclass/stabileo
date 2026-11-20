@@ -9,6 +9,7 @@ import { describe, it, expect } from 'vitest';
 import { areaAt, barsCarrying, lineLaps, lineMembersOf, lineFromMembers, membersFromLine, type LineMember } from '../beam-line';
 import { drawnBeamReinforcement } from '../../../design-contract/reinforcement';
 import type { BeamLineReinforcement } from '../../../design-contract/beam-line';
+import { mirrorReinforcement } from '../repeated-frames';
 import { seismicFrameChecks, type FrameMember } from '../seismic/frame-checks';
 import { linePieces } from '../../detailing/line-bars';
 import { defaultSeismicDesign } from '../../../model/seismic-design';
@@ -64,8 +65,7 @@ function checkDrawnBeam(drawing: BeamLineReinforcement, forces: Array<{ x: numbe
   }, undefined, { axes: beamAxes, spacingRule: { edition: '2025', maxAggregateSizeMm: 20 } });
 }
 
-const issue2241 = process.env.RUN_KNOWN_WRONG === '2241' ? it : it.skip;
-issue2241('known wrong result: #2241 bars ending inside a span do not strengthen a cut outside their extent', () => {
+it('#2241 bars ending inside a span do not strengthen a cut outside their extent', () => {
   const x = 2;
   const force = 90;
   const leftReaction = force * (longSpan.L - x) / longSpan.L;
@@ -86,11 +86,12 @@ issue2241('known wrong result: #2241 bars ending inside a span do not strengthen
   const flexureAtCut = (model: BeamLineReinforcement) => checkDrawnBeam(model, stations).checks
     .find(row => row.demandCategory === 'My+' && row.stationX === x);
   expect(flexureAtCut({ ...drawing, bars: drawnMainBars })).toMatchObject({ status: 'fail' });
-  expect(flexureAtCut(drawing), 'Only 3Ø16 cross the 120 kN·m cut').toMatchObject({ status: 'fail' });
+  expect(flexureAtCut(drawing), 'Only 3Ø16 cross the 120 kN·m cut').toMatchObject({
+    status: 'fail', ratio: Infinity, limiting: 'unsupportedCheck', description: 'diag.rcDrawnBarExtent',
+  });
 });
 
-const issue2245 = process.env.RUN_KNOWN_WRONG === '2245' ? it : it.skip;
-issue2245('known wrong result: #2245 shear verification retains the weak stirrup interval between samples', () => {
+it('#2245 shear verification retains the weak stirrup interval between samples', () => {
   const drawing: BeamLineReinforcement = {
     version: 1, members: [1], lengths: [longSpan.L], bars: drawnMainBars,
     stirrups: [[0, 1.6, 0.1], [1.6, 2.4, 0.4], [2.4, 6, 0.1]].map(([from, to, spacing], i) =>
@@ -109,7 +110,7 @@ issue2245('known wrong result: #2245 shear verification retains the weak stirrup
   expect(result.checks.find(row => row.demandCategory === 'Vz' && row.stationX === x)).toMatchObject({ status: 'fail' });
 });
 
-issue2245('known wrong result: #2245 a positive-length weak interval at a member boundary remains in the evidence', () => {
+it('#2245 a positive-length weak interval at a member boundary remains in the evidence', () => {
   const boundary = longSpan.L - 0.5e-6;
   const cage = { id: 'dense', from: 0, to: longSpan.L, diameter: 8, legs: 2, spacing: 0.1 };
   const sparse = { ...cage, id: 'sparse', from: boundary, to: 2 * longSpan.L, spacing: 0.4 };
@@ -297,7 +298,7 @@ it('#2310 drawn perimeter verification uses the corner seats occupied at the cut
         bars: [
           bottom!,
           { ...top!, id: 'top-left', to: terminus },
-          { ...top!, id: 'top-right', from: L - terminus },
+          ...(terminus < L ? [{ ...top!, id: 'top-right', from: L - terminus }] : []),
           { ...top!, id: 'top-inner', row: 1, count: 4 },
           { ...top!, id: 'mid-inner', row: 2, from: 2, to: 4 },
         ],
@@ -310,7 +311,8 @@ it('#2310 drawn perimeter verification uses the corner seats occupied at the cut
         .checks.find(row => row.category === 'Torsion Al Span (Vz)');
     };
     expect(check(3 - 1e-5)).toMatchObject({ status: 'fail', ratio: Infinity, description: 'diag.rcTorsionPerimeter' });
-    expect(check(3)).toMatchObject({ status: 'ok' });
+    expect(check(3)).toMatchObject({ status: 'fail', ratio: Infinity, description: 'diag.rcTorsionSplice' });
+    expect(check(L)).toMatchObject({ status: 'ok' });
   }
 });
 
@@ -326,7 +328,7 @@ it('#2310 longitudinal torsion detects a corner gap between samples with continu
       bars: [
         bottom!,
         { ...top!, id: 'top-left', to: end },
-        { ...top!, id: 'top-right', from: restart },
+        ...(end < L ? [{ ...top!, id: 'top-right', from: restart }] : []),
         { ...top!, id: 'top-inner', row: 1, count: 4 },
         { ...top!, id: 'mid-inner', row: 2, from: 2, to: 4 },
       ],
@@ -352,7 +354,10 @@ it('#2310 longitudinal torsion detects a corner gap between samples with continu
     expect.soft(blocked?.stationX).toBeGreaterThan(cut);
     expect.soft(blocked?.stationX).toBeLessThan(restart);
     expect(gap.find(row => row.category === 'Torsion Span (Vz)')).toMatchObject({ status: 'ok' });
-    expect(check(restart, extracted, 6).find(row => row.category === 'Torsion Al Span (Vz)')).toMatchObject({ status: 'ok' });
+    expect(check(restart, extracted, 6).find(row => row.category === 'Torsion Al Span (Vz)')).toMatchObject({
+      status: 'fail', ratio: Infinity, description: 'diag.rcTorsionSplice',
+    });
+    expect(check(L, extracted, 6).find(row => row.category === 'Torsion Al Span (Vz)')).toMatchObject({ status: 'ok' });
     expect(check(cut, extracted, 0).some(row => row.category.startsWith('Torsion'))).toBe(false);
     const phiTth = 0.75 * 0.083 * Math.sqrt(geometry.fc) * 1000
       * (geometry.b * geometry.h) ** 2 / (2 * (geometry.b + geometry.h));
@@ -362,6 +367,35 @@ it('#2310 longitudinal torsion detects a corner gap between samples with continu
     expect(justInside.find(row => row.category === 'Torsion Al Span (Vz)')).toMatchObject({
       status: 'fail', description: 'diag.rcTorsionPerimeter',
     });
-    expect(justOutside.find(row => row.category === 'Torsion Al Span (Vz)')).toMatchObject({ status: 'ok' });
+    expect(justOutside.find(row => row.category === 'Torsion Al Span (Vz)')).toMatchObject({
+      status: 'fail', ratio: Infinity, description: 'diag.rcTorsionSplice',
+    });
+  }
+});
+
+
+it('#2241 tension and compression credit requires drawn steel across the acting interval', () => {
+  const L = longSpan.L;
+  const hoops = { id: 'hoops', from: 0, to: L, diameter: 8, legs: 4, spacing: 0.1 };
+  for (const extracted of [false, true]) for (const reverse of [false, true]) {
+    for (const face of ['bottom', 'top'] as const) {
+      const short = { id: 'extra', face, row: 0, count: 2, diameter: 20, role: 'extra' as const };
+      const check = (from: number, to: number, my: number) => {
+        const drawn = membersFromLine({ version: 1, members: [1], lengths: [L], stirrups: [hoops],
+          bars: [...drawnMainBars, { ...short, from, to }],
+        }, [longSpan]).get(1)!;
+        const stations = [0, 0.5, 1].map(t => ({ x: t * L, t, my, n: 0, mz: 0, vz: 0, vy: 0, torsion: 0 }));
+        const result = { elementId: 1, length: L, stationTs: stations.map(s => s.t), comboResults: [{ comboId: 1, comboName: 'C1', stations }] };
+        return verifyProvidedReinforcement(1, 'beam', reverse ? mirrorReinforcement(drawn) : drawn,
+          extracted ? extractGoverningDemands(result) : undefined, {}, beamConcrete, extracted ? undefined : result,
+          undefined, { axes: beamAxes }).checks;
+      };
+      expect(check(0, L, 20).some(row => row.description === 'diag.rcDrawnBarExtent')).toBe(false);
+      const [from, to] = face === 'bottom' ? [2.5, 3.5] : [0, 3.4];
+      const moment = face === 'top' && reverse ? -20 : 20;
+      expect(check(from!, to!, moment), `${face}, reverse=${reverse}, extracted=${extracted}`).toContainEqual(expect.objectContaining({
+        description: 'diag.rcDrawnBarExtent', ratio: Infinity, status: 'fail', demandCategory: moment > 0 ? 'My+' : 'My-',
+      }));
+    }
   }
 });
