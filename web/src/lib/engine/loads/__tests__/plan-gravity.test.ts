@@ -804,14 +804,17 @@ it('#2299 an independent shell over the bay stays separate from the attached str
   expect(deadLoadKN(plan, model)).toBeCloseTo((2 * 10 + 2) * 6, 10);
 });
 
-function tiedExteriorStripShellBay(useCommonMaster: boolean, dofs?: number[]) {
+function tiedExteriorStripShellBay(useCommonMaster: boolean, dofs?: number[], masterOffset = 0) {
   const model = exteriorStripShellBay([-2, 0, 10], true);
   const strip = model.quads!.get(1)!.nodes;
   const interior = model.quads!.get(2)!.nodes;
   const ties = [[strip[1]!, interior[0]!], [strip[2]!, interior[3]!]] as const;
   model.constraints = [...model.constraints!, ...ties.flatMap(([stripNode, interiorNode], i) => {
     const masterNode = useCommonMaster ? 200 + i : stripNode;
-    if (useCommonMaster) model.nodes.set(masterNode, { ...model.nodes.get(stripNode)!, id: masterNode });
+    if (useCommonMaster) {
+      const seam = model.nodes.get(stripNode)!;
+      model.nodes.set(masterNode, { ...seam, id: masterNode, x: seam.x + masterOffset, z: (seam.z ?? 0) + masterOffset });
+    }
     return (useCommonMaster ? [stripNode, interiorNode] : [interiorNode]).map(slaveNode => ({
       type: 'rigidLink' as const, masterNode, slaveNode, dofs,
     }));
@@ -823,6 +826,11 @@ const allShellDofs = [0, 1, 2, 3, 4, 5];
 
 it('#2299 an offset deck crosses an exterior strip seam tied in all six DOFs', () => {
   checkBlockedGravity(tiedExteriorStripShellBay(false, allShellDofs), { key: 'loadPlan.gravity.offsetShellDeck', params: { id: 2 } });
+});
+
+const issue2347 = process.env.RUN_KNOWN_WRONG === '2347' ? it : it.skip;
+issue2347('known wrong result: #2347 full ties through off-seam masters connect the shell deck', () => {
+  checkBlockedGravity(tiedExteriorStripShellBay(true, allShellDofs, 0.25), { key: 'loadPlan.gravity.offsetShellDeck', params: { id: 2 } });
 });
 
 it('#2299 coincident common masters tie an offset shell seam', () => {
@@ -891,4 +899,19 @@ issue2254('known wrong result: #2254 plan rotation preserves the geodesic dome d
     return surface - line - nodal;
   };
   expect(applied(rotated)).toBeCloseTo(applied(model), 8);
+});
+
+issue2254('known wrong result: #2254 gravity refuses an indeterminate carrier at the beam slope limit', () => {
+  const model = floor(1, 0, Math.sqrt(3), 6);
+  model.nodes.get(2)!.z = 4;
+  const expected = { key: 'loadPlan.gravity.memberSlopeLimit', params: { id: 1 } };
+  for (const mode of ['panels', 'width'] as const) {
+    const gravity = { mode };
+    const plan = buildLoadPlan(planInput(model, { gravity }));
+    expect(plan.outcome).toBe('BLOCKED');
+    expect(plan.blockedKeys).toEqual([expected]);
+    expect(plan).toMatchObject({ cases: [], distributed: [], nodal: [], surface: [], levels: [] });
+    expect(() => gravityLayout(model, { ...gravity, tributaryWidth: 3 })).toThrow(expect.objectContaining(expected));
+    expect(() => roofWeightFor(model, gravity, 3, 1)).toThrow(expect.objectContaining(expected));
+  }
 });
