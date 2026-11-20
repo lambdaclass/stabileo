@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { signedNamesIn } from '../../lib/axes/typed-frame';
   import Hint from './Hint.svelte';
   /**
    * The surface generator (`model/edit/surfaces.ts`): a cylinder, cone, spherical cap or zone,
@@ -50,7 +51,7 @@
 </script>
 
 <div class="sf" data-testid="surfaces">
-  <Hint text={t('surface.hint')} />
+  <Hint text={signedNamesIn(t('surface.hint'))} />
   <label class="sf-row">{t('surface.kind')}
     <select bind:value={kind} data-testid="sf-kind">{#each SURFACE_KINDS as k (k)}<option value={k}>{t(`surface.${k}`)}</option>{/each}</select>
   </label>

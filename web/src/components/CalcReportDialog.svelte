@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { caseNameShown, combinationNameShown } from '../lib/axes/case-names';
   import { modelStore, resultsStore, uiStore, verificationStore } from '../lib/store';
   import {
     openCalcReport, generateCalcReportHtml, DEFAULT_REPORT_CONTENT, RESULT_ROWS,
@@ -102,7 +103,7 @@
       const combo = comboId !== null
         ? modelStore.model.combinations.find(c => c.id === comboId)
         : undefined;
-      return { kind: 'combo', comboName: combo?.name ?? `${t('results.comboFallback')} ${comboId}` };
+      return { kind: 'combo', comboName: (combo ? combinationNameShown(combo) : undefined) ?? `${t('results.comboFallback')} ${comboId}` };
     }
     const caseId = resultsStore.activeCaseId;
     const caseName = caseId !== null ? modelStore.getLoadCaseName(caseId) : undefined;
@@ -177,7 +178,10 @@
       } else if (l.type === 'distributed3d') {
         description = `${t('table.elemLabel')} ${d.elementId}: ${loadComponentsText(l.type, d, us) || t('calcReport.loadZero')}`;
       } else if (l.type === 'pointOnElement') {
-        description = `${t('table.elemLabel')} ${d.elementId}: ${pointOnElementText(d, loadWords, us) || t('calcReport.loadZero')}`;
+        const element = modelStore.elements.get(d.elementId);
+        const ni = element && modelStore.nodes.get(element.nodeI), nj = element && modelStore.nodes.get(element.nodeJ);
+        const memberDirection = [ni && nj ? nj.x - ni.x : 0, ni && nj ? nj.y - ni.y : 0] as const;
+        description = `${t('table.elemLabel')} ${d.elementId}: ${pointOnElementText(d, loadWords, us, memberDirection) || t('calcReport.loadZero')}`;
       } else if (l.type === 'thermal') {
         description = `${t('table.elemLabel')} ${d.elementId}: ${thermalText(d, us, uiStore.analysisMode === 'pro' ? 'pro' : 'basic')}`;
       } else {
@@ -189,7 +193,7 @@
     // Build combination info
     const combinations = (uiStore.showLoadCasePicker ? modelStore.model.combinations : []).map(c => ({
       id: c.id,
-      name: c.name,
+      name: combinationNameShown(c),
       factors: c.factors.map(f => ({
         caseName: modelStore.getLoadCaseName(f.caseId) || `${t('results.caseFallback')} ${f.caseId}`,
         factor: f.factor,
@@ -220,7 +224,7 @@
       sections: [...modelStore.sections.values()],
       supports: [...modelStore.supports.values()],
       loads,
-      loadCases: modelStore.model.loadCases ?? [],
+      loadCases: (modelStore.model.loadCases ?? []).map((c) => ({ ...c, name: caseNameShown(c) })),
       combinations,
       results2D: !is3D ? (resultsStore.results ?? undefined) : undefined,
       results3D: is3D ? (resultsStore.results3D ?? undefined) : undefined,

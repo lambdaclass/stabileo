@@ -28,6 +28,9 @@
 
 import type { ModelSnapshot } from '../../store/history.svelte';
 import { COVERED_FIELDS, DERIVED_SUBFIELDS } from './coverage';
+import { globalAxes } from '../../features';
+import { DEFAULT_AXES, validChoice, type AxesChoice } from '../../axes/frame';
+import { FRAME_NOTE, frameLine, transformSnapshot } from './frame';
 
 export const CODE_VERSION = 1;
 const HEADER = 'stabileo-model';
@@ -50,9 +53,11 @@ function rest(o: Record<string, unknown>, skip: readonly string[]): string {
 const NO_RELEASE = JSON.stringify({ my: false, mz: false, t: false });
 const isNoRelease = (r: unknown) => JSON.stringify(r) === NO_RELEASE;
 
-export function modelToCode(snap: ModelSnapshot): string {
-  const s = snap as unknown as Record<string, any>;
+export function modelToCode(snap: ModelSnapshot, axes?: AxesChoice): string {
+  if (!globalAxes()) axes = undefined;
+  const s = (axes ? transformSnapshot(snap as unknown as Record<string, any>, axes, 'toUser') : snap) as unknown as Record<string, any>;
   const out: string[] = [`${HEADER} ${CODE_VERSION}`];
+  if (axes) out.push(frameLine(axes), FRAME_NOTE);
   const section = (title: string) => { out.push('', `# ${title}`); };
   if (s.name !== undefined) out.push(`name ${lit(s.name)}`);
   if (s.analysisMode !== undefined) out.push(`mode ${s.analysisMode}`);
@@ -206,6 +211,7 @@ export function codeToModel(text: string): ParseResult {
   };
   const lineOf = new Map<string, number>(); // "family:id" → line, for duplicates and references
   let sawHeader = false;
+  let declared: AxesChoice | undefined;
 
   const lines = text.split(/\r?\n/);
   lines.forEach((raw, idx) => {
@@ -270,6 +276,13 @@ export function codeToModel(text: string): ParseResult {
         return;
       }
       case 'axes': { if (pos[0]) s.localAxisConvention = pos[0]; else err('the axis convention is missing'); return; }
+      case 'frame': {
+        if (!globalAxes()) { err('unknown line "frame"'); return; }
+        if (declared) { err('the frame is declared more than once'); return; }
+        const c = { up: fields.up, right: fields.right, hand: fields.hand } as Partial<AxesChoice>;
+        if (validChoice(c)) declared = c; else err('frame needs up, right and hand, e.g. frame up="+Z" right="+X" hand="right", with up and right on different axes');
+        return;
+      }
       case 'material': case 'section': case 'connector': case 'footing': {
         const fam = kw!.text;
         const id = idOf(fam);
@@ -419,5 +432,5 @@ export function codeToModel(text: string): ParseResult {
     soilProfile: Math.max(0, ...((s.geotechnical as { profiles?: Array<{ id: number }> } | undefined)?.profiles ?? []).map((p) => p.id)) + 1,
   };
   for (const k of Object.keys(s)) if (!COVERED_FIELDS.includes(k as never) && k !== 'nextId') delete s[k];
-  return { snapshot: s as Partial<ModelSnapshot>, errors: [] };
+  return { snapshot: (globalAxes() ? transformSnapshot(s, declared ?? DEFAULT_AXES, 'toModel') : s) as Partial<ModelSnapshot>, errors: [] };
 }

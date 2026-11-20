@@ -35,10 +35,13 @@ import { detailingStore } from './detailing.svelte';
 import { currentResultProvenance, provenanceLabels, captureProvenanceToken, provenanceForExport, assertExportCurrent, ExportChangedError, type ProvenanceToken } from './result-provenance';
 import type { ResultProvenance } from '../provenance/result-provenance';
 import { provenanceTextLines } from '../provenance/result-provenance';
+import { axesStore } from '../axes/axes.svelte';
+import { caseNameShown, combinationNameShown } from '../axes/case-names';
 
 function workbookModel(): WorkbookModel {
   const m = modelStore.model;
   return {
+    analysisMode: uiStore.analysisMode,
     nodes: modelStore.nodes, elements: modelStore.elements, supports: modelStore.supports,
     loads: modelStore.loads, materials: modelStore.materials, sections: modelStore.sections,
     quads: modelStore.quads, plates: modelStore.plates, constraints: m.constraints,
@@ -56,8 +59,8 @@ export interface SourcePick { cases?: ReadonlySet<number>; combinations?: Readon
 
 /** Every solved case and combination; the single result on screen when nothing else was solved. */
 function workbookSources(pick: SourcePick = {}): WorkbookSource[] {
-  const caseName = new Map(modelStore.model.loadCases.map((c) => [c.id, c.name]));
-  const comboName = new Map(modelStore.combinations.map((c) => [c.id, c.name]));
+  const caseName = new Map(modelStore.model.loadCases.map((c) => [c.id, caseNameShown(c)]));
+  const comboName = new Map(modelStore.combinations.map((c) => [c.id, combinationNameShown(c)]));
   const out: WorkbookSource[] = [
     ...[...resultsStore.perCase3D].filter(([id]) => !pick.cases || pick.cases.has(id))
       .map(([id, results]) => ({ kind: 'case' as const, id, name: caseName.get(id) ?? String(id), results })),
@@ -117,7 +120,7 @@ export function currentWorkbookParts(stations: StationSpec, opts: WorkbookOption
       stations,
       statics: staticsRows(),
       unstable: unstableCombinations(),
-      comboNames: new Map(modelStore.combinations.map((c) => [c.id, c.name])),
+      comboNames: new Map(modelStore.combinations.map((c) => [c.id, combinationNameShown(c)])),
       deflections: elementStationDeflections,
       shells: { nodes: modelStore.nodes, plates: modelStore.plates, quads: modelStore.quads },
       stressModel: (id) => {
@@ -127,6 +130,7 @@ export function currentWorkbookParts(stations: StationSpec, opts: WorkbookOption
       },
     },
     tr: t,
+    axes: axesStore.choice,
     include: { model: opts.model, results: opts.results, sheets: opts.sheets },
     // The model's specifications, grouped by value as Specifications › List shows them; the
     // fields themselves are already in the Members, Supports and Quads sheets.

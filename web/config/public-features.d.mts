@@ -3,6 +3,7 @@ export type BuildFeatures = Readonly<{
   research: boolean;
   tools: boolean;
   diagramGame: boolean;
+  globalAxes: boolean;
   proPlatesUnified: boolean;
   proRcSheets: boolean;
 }>;

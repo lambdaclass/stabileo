@@ -7,6 +7,7 @@
 </script>
 
 <script lang="ts">
+  import { modelVec } from '../../lib/axes/display';
   import Hint from './Hint.svelte';
   import { modelStore, uiStore } from '../../lib/store';
   import { t, tp } from '../../lib/i18n';

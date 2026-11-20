@@ -41,7 +41,7 @@
     backTitle={fromCatalog ? t('steps.view.backToCatalog') : t('adv.backToList')} onBack={close}
     name={t('steps.catalog.title')} backTestid="fm-back" />
 
-  <StepFrame title={fmStepsStore.showMatrix && r ? t('fm.matrixTitle') : t('steps.m.fm.title')} subtitle={t(r?.is3D ? 'fm.banner3d' : 'fm.banner')}
+  <StepFrame space={r?.is3D ?? false} title={fmStepsStore.showMatrix && r ? t('fm.matrixTitle') : t('steps.m.fm.title')} subtitle={t(r?.is3D ? 'fm.banner3d' : 'fm.banner')}
     step={fmStepsStore.currentStep} {last} onGo={(k) => fmStepsStore.goToStep(k)} showNav={!(fmStepsStore.showMatrix && r)}
     stepTitle={t('fm.step' + fmStepsStore.currentStep + 'Name')} tabTitle={(k) => `${k}. ${t('fm.step' + k + 'Name')}`}
     tabTestid={(k) => `fm-dot-${k}`} headingTestid="fm-step-name" prevTestid="fm-prev" nextTestid="fm-next">

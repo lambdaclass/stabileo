@@ -74,3 +74,7 @@ export function supportConfiguration(
     ...(reference !== undefined ? { dofLocalElementId: reference } : {}),
   };
 }
+
+export function supportIsLocal(support: { dofFrame?: string; dofLocalElementId?: number }): boolean {
+  return support.dofFrame === 'local' || support.dofLocalElementId !== undefined;
+}

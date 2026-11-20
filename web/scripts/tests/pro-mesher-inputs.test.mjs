@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { fileURLToPath } from 'node:url';
 import { chromium, expect } from '@playwright/test';
 import { createServer } from 'vite';
+import { featuresForMode } from '../../config/public-features.mjs';
+import { withProductionFeatures } from '../public-features-test-fixture.mjs';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const fixture = '/scripts/tests/fixtures/pro-mesher-inputs.html';
@@ -128,3 +130,66 @@ test('production imports the IFC wall with its original mesh and fixed base', as
 
   assert.deepEqual(wall, { unified: false, skipped: 0, quads: 18, triangles: 0, base: 7, unsupported: [] });
 });
+
+for (const unified of [false, true]) {
+  test.skip(`known wrong result: #2365 — PRO mesher places circular outlines and holes in the user frame with unified plates ${unified}`, async (t) => {
+    const production = { ...featuresForMode('production'), globalAxes: true, proPlatesUnified: unified };
+    await withProductionFeatures(production, async configFile => {
+      const server = await createServer({ root, configFile, mode: 'production', server: { host: '127.0.0.1', port: 0 }, logLevel: 'error' });
+      await server.listen();
+      try {
+        const browser = await chromium.launch();
+        try {
+          const url = new URL(fixture, server.resolvedUrls.local[0]);
+          async function mesh({ framed, hole }) {
+            const page = await browser.newPage();
+            try {
+              if (framed) {
+                await page.addInitScript(() => localStorage.setItem('stabileo-axes', JSON.stringify({ up: '+Y', right: '+X', hand: 'right' })));
+              }
+              await page.goto(url.href);
+              await expect(page.getByTestId('mesher')).toBeVisible();
+              assert.equal(await page.evaluate(() => window.mesherFixture.unified), unified);
+              if (hole) {
+                await page.getByTestId('ms-outline').fill('1, 2, 3, 4');
+                await page.getByTestId('ms-add-hole').click();
+                await page.getByTestId('ms-hole-center-0').fill(framed ? '3; 0; -3' : '3; 3; 0');
+              } else {
+                await page.getByTestId('ms-circle').check();
+                await page.getByTestId('ms-center').fill(framed ? '7; 2; -8' : '7; 8; 2');
+              }
+              const apply = page.getByTestId('ms-apply');
+              await expect(apply).toBeEnabled();
+              await apply.click();
+              return await page.evaluate(async () => {
+                const { modelStore } = await import('/src/lib/store/index.ts');
+                return [...modelStore.quads.values(), ...modelStore.plates.values()].map(shell =>
+                  shell.nodes.map(id => {
+                    const { x, y, z } = modelStore.nodes.get(id);
+                    return [x, y, z];
+                  })
+                );
+              });
+            } finally {
+              await page.close();
+            }
+          }
+
+          for (const hole of [false, true]) {
+            await t.test(hole ? 'circular hole' : 'circular outline', async () => {
+              const canonical = await mesh({ framed: false, hole });
+              assert.ok(canonical.length > 0);
+              if (!hole) assert.ok(canonical.flat().every(([, , z]) => z === 2));
+              const transformed = await mesh({ framed: true, hole });
+              assert.equal(JSON.stringify(transformed) === JSON.stringify(canonical), true, 'applied cell coordinates differ');
+            });
+          }
+        } finally {
+          await browser.close();
+        }
+      } finally {
+        await server.close();
+      }
+    });
+  });
+}
