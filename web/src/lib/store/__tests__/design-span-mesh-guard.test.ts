@@ -33,9 +33,11 @@
  * follows them through the design's discrete choices (a spacing step, 2 Ø16 against 3 Ø12, where
  * a bar is cut off and the cut-off zone's stirrups, §9.7.3.5(c)).
  */
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, vi } from 'vitest';
 import { modelStore } from '..';
 import { verificationStore } from '../verification.svelte';
+import { designRunStore } from '../design-run.svelte';
+import { DEFAULT_RUN_MS } from '../../engine/design/candidate-search';
 import { markMassKg } from '../../engine/detailing/assembly';
 import { samplePath } from '../../codes/cirsoc201/bar-geometry';
 import type { BarPath } from '../../codes/cirsoc201/bar-geometry';
@@ -344,6 +346,31 @@ function expectRefusedBeams(t: Tally, names: readonly string[]) {
     expect(b.barMass).toBeNull();
   }
 }
+
+it.skipIf(process.env.RUN_KNOWN_WRONG !== '2338').each(['solved', 'prescribed'] as const)(
+  'known wrong result: #2338 — the mesh guard reaches V10 under %s forces after a scheduling delay',
+  (source) => {
+    let prescribed: ReadonlyMap<string, PrescribedForces> | undefined;
+    if (source === 'prescribed') {
+      building(0.5, FRAME);
+      prescribed = forcesByPlace();
+    }
+    const now = performance.now.bind(performance);
+    const clock = vi.spyOn(performance, 'now').mockImplementation(() => {
+      const progress = designRunStore.progress;
+      const beforeLastMember = designRunStore.phase === 'autoDesign' && progress && progress.done === progress.total - 1;
+      return now() + (beforeLastMember ? DEFAULT_RUN_MS + 1 : 0);
+    });
+    try {
+      const t = tally(0.5, prescribed);
+      expectRefusedBeams(t, REFUSED_BEAMS);
+      expect(verificationStore.runSummary).toMatchObject({ aborted: false, notReached: 0 });
+    } finally {
+      clock.mockRestore();
+    }
+  },
+  60_000,
+);
 
 function expectDesignsOrRefusals(t: Tally) {
   for (const [key, value] of Object.entries(t.designs)) {
