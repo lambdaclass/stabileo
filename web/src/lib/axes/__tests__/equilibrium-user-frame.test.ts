@@ -1,10 +1,12 @@
-import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { featuresForMode } from '../../../../config/public-features.mjs';
 import { modelStore } from '../../store/model.svelte';
 import { buildSolverInput3D } from '../../engine/solver-service';
 import * as wasm from '../../engine/wasm-solver';
+import type { AnalysisResults3D, SolverInput3D } from '../../engine/types-3d';
 import { rowsOf } from '../../engine/result-tables';
 import { axesStore } from '../axes.svelte';
-import { allChoices } from '../frame';
+import { allChoices, DEFAULT_AXES, makeFrame } from '../frame';
 import { modelLoad3D, userRot, userVec, type UserComponent } from '../display';
 import { nodeShown3D } from '../node-coords';
 
@@ -13,7 +15,10 @@ beforeAll(async () => {
   expect(wasm.isSolverReady(), 'real WASM solver required').toBe(true);
 });
 beforeEach(() => modelStore.clear());
-afterEach(() => axesStore.reset());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  axesStore.reset();
+});
 
 type V = [number, number, number];
 const cross = (a: V, b: V): V => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
@@ -41,36 +46,59 @@ function build() {
   }
 }
 
-describe('a model typed, solved and read back in the user axes', () => {
+function solveSecondOrder(input: SolverInput3D): AnalysisResults3D {
+  const nonlinear = wasm.solvePDelta3D(input);
+  expect(nonlinear.converged).toBe(true);
+  expect(nonlinear.isStable).toBe(true);
+  return nonlinear.results;
+}
+
+function expectEquilibrium(r: AnalysisResults3D, includeMoment: boolean) {
+  const pos = (id: number) => nodeShown3D(modelStore.nodes.get(id)!, false) as V;
+  let F: V = [0, 0, 0], M: V = [0, 0, 0];
+  for (const [node, dir, v] of TYPED) {
+    const u: V = [0, 0, 0];
+    u['xyz'.indexOf(dir[1])] = v;
+    if (dir[0] === 'f') { F = add(F, u); M = add(M, cross(pos(node), u)); } else M = add(M, u);
+  }
+  for (const row of rowsOf('reactions', r)) {
+    const f = row.values.slice(0, 3) as V, m = row.values.slice(3, 6) as V;
+    F = add(F, f); M = add(M, add(m, cross(pos(row.entity), f)));
+    const raw = r.reactions.find(x => x.nodeId === row.entity)!;
+    expect(row.values).toEqual([...userVec(raw.fx, raw.fy, raw.fz), ...userRot(raw.mx, raw.my, raw.mz)]);
+  }
+  for (let i = 0; i < 3; i++) {
+    expect(Math.abs(F[i]), `ΣF${'xyz'[i]}`).toBeLessThan(1e-6);
+    if (includeMoment) expect(Math.abs(M[i]), `ΣM${'xyz'[i]}`).toBeLessThan(1e-6);
+  }
+  const d = rowsOf('displacements', r).find(x => x.entity === 3)!;
+  const raw = r.displacements.find(x => x.nodeId === 3)!;
+  expect(d.values.slice(0, 3)).toEqual(userVec(raw.ux, raw.uy, raw.uz));
+  expect(d.values.slice(3, 6)).toEqual(userRot(raw.rx, raw.ry, raw.rz));
+}
+
+describe.each(['production', 'test'] as const)('a model typed, solved and read back in the user axes (%s)', (mode) => {
+  beforeEach(() => vi.stubGlobal('__PUBLIC_FEATURES__', featuresForMode(mode)));
+
   for (const choice of allChoices()) {
-    it(`balances forces and moments in the user frame ${choice.up} ${choice.right} ${choice.hand}`, () => {
-      axesStore.choice = choice;
-      build();
-      const input = buildSolverInput3D({
-        nodes: modelStore.nodes, elements: modelStore.elements, supports: modelStore.supports, loads: modelStore.loads,
-        materials: modelStore.materials, sections: modelStore.sections, quads: modelStore.quads, plates: modelStore.plates,
-        constraints: modelStore.constraints, connectors: modelStore.connectors, analysis: modelStore.model.analysis, groups: modelStore.model.groups,
-      } as never, false, false, { expandMemberOffsets: false })!;
-      const r = wasm.solve3D(input as never) as never;
-      const pos = (id: number) => nodeShown3D(modelStore.nodes.get(id)!, false) as V;
-      let F: V = [0, 0, 0], M: V = [0, 0, 0];
-      for (const [node, dir, v] of TYPED) {
-        const u: V = [0, 0, 0];
-        u['xyz'.indexOf(dir[1])] = v;
-        if (dir[0] === 'f') { F = add(F, u); M = add(M, cross(pos(node), u)); } else M = add(M, u);
-      }
-      for (const row of rowsOf('reactions', r)) {
-        const f = row.values.slice(0, 3) as V, m = row.values.slice(3, 6) as V;
-        F = add(F, f); M = add(M, add(m, cross(pos(row.entity), f)));
-      }
-      for (let i = 0; i < 3; i++) {
-        expect(Math.abs(F[i]), `ΣF${'xyz'[i]}`).toBeLessThan(1e-6);
-        expect(Math.abs(M[i]), `ΣM${'xyz'[i]}`).toBeLessThan(1e-6);
-      }
-      const d = rowsOf('displacements', r).find((x) => x.entity === 3)!;
-      const raw = (r as { displacements: Array<{ nodeId: number; ux: number; uy: number; uz: number; rx: number; ry: number; rz: number }> }).displacements.find((x) => x.nodeId === 3)!;
-      expect(d.values.slice(0, 3)).toEqual(userVec(raw.ux, raw.uy, raw.uz));
-      expect(d.values.slice(3, 6)).toEqual(userRot(raw.rx, raw.ry, raw.rz));
-    });
+    for (const analysis of ['linear', 'P-Delta'] as const) {
+      const knownWrong = mode === 'test' && analysis === 'P-Delta'
+        && !makeFrame(choice).identity;
+      const run = it.skipIf(knownWrong && process.env.RUN_KNOWN_WRONG !== '2364');
+      const label = knownWrong ? 'known wrong result: #2364 ' : '';
+      const check = analysis === 'linear' ? 'balances forces and moments' : 'balances forces and projects second-order moments';
+      run(`${label}${check} in the user frame ${choice.up} ${choice.right} ${choice.hand} (${analysis})`, () => {
+        axesStore.choice = choice;
+        expect(axesStore.choice).toEqual(mode === 'production' ? DEFAULT_AXES : choice);
+        build();
+        const input = buildSolverInput3D({
+          nodes: modelStore.nodes, elements: modelStore.elements, supports: modelStore.supports, loads: modelStore.loads,
+          materials: modelStore.materials, sections: modelStore.sections, quads: modelStore.quads, plates: modelStore.plates,
+          constraints: modelStore.constraints, connectors: modelStore.connectors, analysis: modelStore.model.analysis, groups: modelStore.model.groups,
+        } as never, false, false, { expandMemberOffsets: false })!;
+        const r = analysis === 'linear' ? wasm.solve3D(input) : solveSecondOrder(input);
+        expectEquilibrium(r, analysis === 'linear');
+      });
+    }
   }
 });
