@@ -1,3 +1,4 @@
+import { proPlatesSource } from './scripts/pro-plates-source.mjs';
 import { featureDefines, featuresForMode, type BuildFeatures } from './config/public-features.mjs';
 import { defineConfig, searchForWorkspaceRoot, type Plugin, type UserConfig } from 'vite';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
@@ -52,6 +53,10 @@ function publicBuildSwitchesPlugin(featureConfig: unknown) {
     config(_config, { mode, command }) {
       testing = !!process.env.VITEST && command === 'serve';
       features = featuresForMode(testing ? 'test' : mode, featureConfig);
+      if (command === 'build' && mode === 'production' && process.env.VITE_E2E === '1' && featureConfig === undefined) {
+        const { proPlatesUnified, proRcSheets } = featuresForMode('test');
+        features = { ...features, proPlatesUnified, proRcSheets };
+      }
       const define = featureDefines(features, command === 'build');
       if (testing) return { environments: { client: { define } } };
       if (command === 'build' && mode === 'production' && process.env.STABILEO_ROUTE_BUDGET_LEGACY === '1') {
@@ -70,16 +75,20 @@ function publicBuildSwitchesPlugin(featureConfig: unknown) {
   return { plugin, features: () => features, testing: () => testing };
 }
 
-function publicI18nPlugin(features: () => BuildFeatures, eager: () => boolean): Plugin {
+function publicI18nPlugin(features: () => BuildFeatures, eager: () => boolean, read: (path: string) => string): Plugin {
   const id = 'virtual:public-i18n';
   const app = 'virtual:app-i18n';
-  const offered = (code: string) => buildPublicLocales(features().research).some(locale => locale === code);
-  const entries = (loc: string, publicOnly: boolean, watch: (file: string) => void) => {
+  const mesher = 'virtual:mesher-i18n';
+  const locales = () => buildPublicLocales(features().research);
+  const offered = (code: string) => locales().some(locale => locale === code);
+  const entries = (loc: string, dictionary: 'public' | 'app' | 'mesher', watch: (file: string) => void) => {
     const file = resolve(__dirname, 'src/lib/i18n/locales', `${loc}.ts`);
     watch(file);
-    const lines = readFileSync(file, 'utf8').split('\n').filter((l) => {
+    const lines = read(file).split('\n').filter((l) => {
       const m = /^\s*(['"])([^'"]+)\1: /.exec(l);
       if (!m) return false;
+      if (features().proPlatesUnified && m[2].startsWith('mesher.')) return dictionary === 'mesher';
+      if (dictionary === 'mesher') return false;
       if (!eager() && !ADMIN && m[2].startsWith('admin.')) return false;
       if (!eager() && !features().tools && /^(?:advanced\.mohr$|advHelp\.mohr\.|stress\.openMohr$)/.test(m[2])) return false;
       if (!eager() && !ADMIN && !features().accounts && m[2].startsWith('disclaimer.') && m[2] !== 'disclaimer.report') return false;
@@ -87,22 +96,26 @@ function publicI18nPlugin(features: () => BuildFeatures, eager: () => boolean): 
       if (!features().diagramGame && m[2] === 'landing.navGame') return false;
       const publicEntry = PUBLIC_KEY_PREFIXES.some(prefix => m[2].startsWith(prefix))
         && (!/^(?:legal\.|landing\.foot(?:Terms|Privacy|AdCookies)$)/.test(m[2]) || features().accounts);
-      return publicEntry === publicOnly;
+      return publicEntry === (dictionary === 'public');
     });
     return `{\n${lines.join('\n')}\n}`;
   };
   return {
     name: 'public-i18n',
     resolveId(s) {
-      return [id, app].some((v) => s === v || s.startsWith(`${v}/`)) ? '\0' + s : null;
+      return s === mesher || [id, app].some((v) => s === v || s.startsWith(`${v}/`)) ? '\0' + s : null;
     },
     load(resolved) {
       const watch = (f: string) => this.addWatchFile(f);
-      if (resolved.startsWith(`\0${id}/`)) return `export default ${entries(resolved.slice(id.length + 2), true, watch)};\n`;
+      if (resolved === '\0' + mesher && features().proPlatesUnified) {
+        const dictionaries = locales().map(loc => `${loc}: ${entries(loc, 'mesher', watch)}`);
+        return `export default {${dictionaries.join(',')}};\n`;
+      }
+      if (resolved.startsWith(`\0${id}/`)) return `export default ${entries(resolved.slice(id.length + 2), 'public', watch)};\n`;
       if (resolved === `\0${app}` || resolved.startsWith(`\0${app}/`)) {
         const locale = resolved.slice(app.length + 2);
         return (locale ? [locale] : ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu', 'zh'])
-          .map((loc) => `export const ${loc} = ${offered(loc) ? entries(loc, false, watch) : '{}'};\n`).join('');
+          .map((loc) => `export const ${loc} = ${offered(loc) ? entries(loc, 'app', watch) : '{}'};\n`).join('');
       }
       if (resolved !== '\0' + id) return null;
       let out = '';
@@ -113,7 +126,7 @@ function publicI18nPlugin(features: () => BuildFeatures, eager: () => boolean): 
           if (offered(loc)) lazy.push(`${loc}: () => import(${JSON.stringify(`${id}/${loc}`)})`);
           continue;
         }
-        out += `export const ${loc} = ${entries(loc, true, watch)};\n`;
+        out += `export const ${loc} = ${entries(loc, 'public', watch)};\n`;
       }
       return out + `export const loaders = {${lazy.join(', ')}};\n`;
     },
@@ -269,15 +282,18 @@ const preloads = loadedPreloads();
 
 export function createWebConfig(featureConfig?: unknown): UserConfig {
   const switches = publicBuildSwitchesPlugin(featureConfig);
+  const plates = proPlatesSource(() => switches.features().proPlatesUnified);
   return {
     ...baseConfig,
+    worker: { ...baseConfig.worker, plugins: () => [plates.plugin, wasmStubPlugin()] },
     plugins: [
       switches.plugin,
+      plates.plugin,
       researchLocaleBuildPlugin(switches.features),
       preloads.plugin,
       wasmStubPlugin(),
-      publicI18nPlugin(switches.features, switches.testing),
-      resultChangeMetadataPlugin(),
+      publicI18nPlugin(switches.features, switches.testing, plates.read),
+      resultChangeMetadataPlugin(() => switches.features().proPlatesUnified),
       svelte({ preprocess: { markup: ({ content }) => switches.testing() ? { code: content } : prunePublicBuildBranches(content, switches.features()) } }),
       ...(ADMIN ? [adminRootPlugin(), adminPublicAssetsPlugin()] : []),
     ],

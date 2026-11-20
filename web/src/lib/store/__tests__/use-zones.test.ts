@@ -14,7 +14,7 @@
 import { describe, it, expect, beforeEach, beforeAll } from 'vitest';
 import * as wasmSolver from '../../engine/wasm-solver';
 import { historyStore, modelStore, uiStore } from '..';
-import { applyPlateMeshes, createPlate, physicalPlates, planPlateMesh, preparePlatesForAnalysis } from '../physical-plates';
+import { applyPlateMeshes, createPlate, physicalPlates, planPlateMesh, preparePlatesForAnalysis, preparePlatesForAnalysisAsync } from '../physical-plates';
 import { applyZoneLoadPlan, confirmZoneUse, copyZonesToLevels, createUseZone, deleteUseZones, setZoneUse, suggestUse, useZones, zoneLoadPlan } from '../use-zones';
 import { syncDefinedLoadsForAnalysis } from '../defined-loads';
 import { serializeProject, deserializeProject } from '../file';
@@ -216,7 +216,7 @@ describe('use zones over two floors', () => {
     expect(plan.finishNoCase).toEqual([{ zoneId: z1, zone: 'Estar' }]);
   });
 
-  it('puts a zone drawn before its plate is meshed onto the slab, not onto the members', () => {
+  it.each([false, true])('keeps the zone on the slab while joining the balcony edge (async=%s)', async useAsync => {
     modelStore.clear(); historyStore.clear(); uiStore.analysisMode = 'pro';
     floor(3);
     const z1 = zone([[0, 0], [6, 0], [6, 5], [0, 5]], 3, 'Oficina');
@@ -224,8 +224,44 @@ describe('use zones over two floors', () => {
     const plan = zoneLoadPlan()!;
     expect(plan.add.map((i) => i.distribution)).toEqual(['slab']);
     applyZoneLoadPlan(plan);
-    expect(preparePlatesForAnalysis().ok).toBe(true);
+    const preparation = useAsync ? await preparePlatesForAnalysisAsync() : preparePlatesForAnalysis();
+    expect(preparation).toEqual({ ok: true, meshed: 3, cells: modelStore.quads.size + modelStore.plates.size });
+    const shellNodes = (name: string) => {
+      const { members } = physicalPlates().find(p => p.name === name)!.group;
+      return [...(members.quads ?? []).map(id => modelStore.quads.get(id)!.nodes),
+        ...(members.plates ?? []).map(id => modelStore.plates.get(id)!.nodes)];
+    };
+    const balconyNodes = new Set(shellNodes('Bal3').flat());
+    const hangingOnB3 = shellNodes('B3').some(nodes => nodes.some((id, index) => {
+      const a = modelStore.nodes.get(id)!;
+      const b = modelStore.nodes.get(nodes[(index + 1) % nodes.length]!)!;
+      if (Math.abs(a.x - 10) > 1e-6 || Math.abs(b.x - 10) > 1e-6) return false;
+      return [...balconyNodes].some(node => {
+        const p = modelStore.nodes.get(node)!;
+        return Math.abs(p.x - 10) < 1e-6 && p.y > Math.min(a.y, b.y) + 1e-6 && p.y < Math.max(a.y, b.y) - 1e-6;
+      });
+    }));
+    expect(hangingOnB3).toBe(false);
+    const onEdge = (id: number) => Math.abs(modelStore.nodes.get(id)!.x - 10) < 1e-6;
+    const balconyEdge = new Set([...balconyNodes].filter(onEdge));
+    expect(balconyEdge.size).toBeGreaterThan(2);
+    expect(new Set(shellNodes('B3').flat().filter(onEdge))).toEqual(balconyEdge);
     expect(zoneTotals().get(z1)).toBeCloseTo(2.5 * 29, 6);
+    expect(zoneLoadPlan()!.change).toHaveLength(0);
+  });
+
+  it.each([false, true])('automatically meshes a compatible slab and keeps its zone load (async=%s)', async useAsync => {
+    const outline = [[0, 0], [6, 0], [6, 5], [0, 5]].map(([x, y]) => modelStore.addNode(x!, y!, 3));
+    const slab = createPlate({ outline, materialId: 1, thickness: 0.15, name: 'A3' });
+    expect(slab).toMatchObject({ id: expect.any(Number) });
+    const z1 = zone([[0, 0], [6, 0], [6, 5], [0, 5]], 3, 'Oficina');
+    setZoneUse([z1], { occupancy: 'oficina', provenance: 'confirmed' });
+    const plan = zoneLoadPlan()!;
+    expect(plan.add.map((i) => i.distribution)).toEqual(['slab']);
+    applyZoneLoadPlan(plan);
+    const preparation = useAsync ? await preparePlatesForAnalysisAsync() : preparePlatesForAnalysis();
+    expect(preparation).toMatchObject({ ok: true, meshed: 1 });
+    expect(zoneTotals().get(z1)).toBeCloseTo(2.5 * 30, 6);
     expect(zoneLoadPlan()!.change).toHaveLength(0);
   });
 

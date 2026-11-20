@@ -43,14 +43,15 @@ function state() {
   };
 }
 
-const NEWER = /newer version of Stabileo \(file format 3\.0; this version reads up to 2\.0\)/;
+const NEWER = /newer version of Stabileo \(file format 3\.0; this version reads up to 2\.1\)/;
 
 describe('a file from a newer version is refused before anything is changed', () => {
   beforeEach(() => setLocale('en'));
 
   it('compares format versions numerically', () => {
     expect(isNewerFileVersion('3.0')).toBe(true);
-    expect(isNewerFileVersion('2.1')).toBe(true);
+    expect(isNewerFileVersion('2.2')).toBe(true);
+    expect(isNewerFileVersion('2.1')).toBe(false);
     expect(isNewerFileVersion('10.0')).toBe(true);
     expect(isNewerFileVersion('2.0')).toBe(false);
     expect(isNewerFileVersion('1.0')).toBe(false);

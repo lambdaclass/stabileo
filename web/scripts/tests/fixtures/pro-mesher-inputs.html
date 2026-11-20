@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head><meta charset="utf-8"><title>PRO mesher input fixture</title></head>
+  <body>
+    <main></main>
+    <script type="module">
+      import { mount } from 'svelte';
+      import ProMesher from '../../../src/components/pro/ProMesher.svelte';
+      import { modelStore, uiStore } from '../../../src/lib/store';
+      import { setLocale } from '../../../src/lib/i18n';
+      import '../../../src/lib/i18n/full-dictionaries';
+
+      modelStore.clear();
+      uiStore.analysisMode = 'pro';
+      setLocale('en');
+      for (const [x, y] of [[0, 0], [4, 0], [4, 4], [0, 4], [1, 1], [2, 1], [2, 2], [1, 2]]) {
+        modelStore.addNode(x, y, 0);
+      }
+      window.mesherFixture = {
+        unified: __PUBLIC_FEATURES__.proPlatesUnified,
+        area() {
+          const shells = [...modelStore.quads.values(), ...modelStore.plates.values()];
+          const boundary = new Map();
+          for (const shell of shells) {
+            const ids = shell.nodes;
+            for (const [i, a] of ids.entries()) {
+              const b = ids[(i + 1) % ids.length];
+              const key = [Math.min(a, b), Math.max(a, b)].join(',');
+              if (boundary.has(key)) boundary.delete(key);
+              else boundary.set(key, [a, b]);
+            }
+          }
+          let twiceArea = 0;
+          for (const [a, b] of boundary.values()) {
+            const p = modelStore.nodes.get(a);
+            const q = modelStore.nodes.get(b);
+            twiceArea += p.x * q.y - p.y * q.x;
+          }
+          return Math.abs(twiceArea) / 2;
+        },
+      };
+      mount(ProMesher, { target: document.querySelector('main') });
+    </script>
+  </body>
+</html>

@@ -4,12 +4,20 @@ import { promisify } from 'node:util';
 import { readFileSync, rmSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { inflateRawSync } from 'node:zlib';
-import packed from 'virtual:result-change-packed';
-import { RESULT_CHANGES } from '../full-registry';
-import { REGISTRY_LOCALES } from '../registry';
+import { packResultChangeNotices, readProfileResultChanges } from '../../../../scripts/result-change-metadata.mjs';
+import { REGISTRY_LOCALES, type ResultChangeRegistry } from '../registry';
+import { featuresForMode } from '../../../../config/public-features.mjs';
 import { sharedBuild, SHARED_PLAIN_BUILD } from '../../utils/__tests__/shared-build';
 
 const SHARED = sharedBuild(SHARED_PLAIN_BUILD);
+const production = featuresForMode('production');
+const { packed, shipped } = packResultChangeNotices(readProfileResultChanges(production.proPlatesUnified));
+const RESULT_CHANGES: ResultChangeRegistry = shipped;
+
+it('uses the production notice inventory for the build expectation', () => {
+  expect(RESULT_CHANGES.changes.some(change => change.id === 'plates-coarse-as-modelled-meshed'))
+    .toBe(production.proPlatesUnified);
+});
 
 it('loads translated recheck notices outside the static app route closure', async () => {
   const web = resolve(__dirname, '../../../../..', 'web');

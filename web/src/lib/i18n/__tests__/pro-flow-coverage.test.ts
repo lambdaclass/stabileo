@@ -189,6 +189,16 @@ describe('the PRO workflow speaks every language it is offered in', () => {
   });
 });
 
+it('the free and structured PRO mesh summaries preserve both counts in every offered locale', () => {
+  const summaries = ['mesher.summary', 'mesher.summaryStructured'];
+  const missingOrIncomplete = OFFERED_LOCALES.flatMap(locale => summaries.flatMap(key => {
+    const value = dictFor(locale)[key] ?? '';
+    const placeholders = value.match(/\{\w+\}/g)?.sort();
+    return placeholders?.join(' ') === '{cells} {points}' ? [] : [`${locale} ${key}`];
+  }));
+  expect(missingOrIncomplete).toEqual([]);
+});
+
 it('#2319 every shipped dictionary translates the modal generation refusal', () => {
   const key = 'loadPlan.blocked.modalUnavailable';
   const missing = allShippedLocales().filter(locale => !dictFor(locale)[key]?.trim() ||

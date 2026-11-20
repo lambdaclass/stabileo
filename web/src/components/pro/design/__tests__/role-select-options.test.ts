@@ -2,11 +2,16 @@
  * The role selectors of the project regulations (`role-select-options.ts`).
  *
  * A load role lists only the codes with a module to generate with. That filter also took out the
- * code a role was BOUND to when it had none — a Eurocode adapter saved earlier — so the selector
+ * code a role was BOUND to when it had none (here a Eurocode adapter, its module mocked away), so the selector
  * read "— not selected —" over a bound role. And the dead load's typed row had a field with no
  * accessible name.
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+
+vi.mock('../../../../lib/codes/families', async (orig) => {
+  const actual = await orig<typeof import('../../../../lib/codes/families')>();
+  return { ...actual, hasLoadModule: (id: string) => id !== 'en1991-1-4' && id !== 'en1990' && actual.hasLoadModule(id) };
+});
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { roleSelectOptions } from '../role-select-options';
@@ -22,9 +27,9 @@ describe('a load role\'s selector', () => {
     expect(ids('basis', 'en1990')).toContain('en1990 (no module)');
   });
 
-  it('offers only the codes with a module otherwise', () => {
-    expect(ids('wind', 'cirsoc102-2025')).toEqual(['cirsoc102-2025']);
-    expect(ids('wind', null)).toEqual(['cirsoc102-2025']);
+  it('offers only the codes with a module otherwise: every family\'s wind code but the one without', () => {
+    expect(ids('wind', 'cirsoc102-2025')).toEqual(['cirsoc102-2025', 'en1991-1-4-uk', 'asce7-22-wind', 'ts498-1997-wind']);
+    expect(ids('wind', null)).toEqual(ids('wind', 'cirsoc102-2025'));
   });
 
   it('a design role is not filtered, and lists each option once', () => {

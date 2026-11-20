@@ -5,6 +5,7 @@ import { test, expect, loadModel } from './fixtures';
 test.describe('@smoke exporting by what comes out', () => {
   test('four buttons by content; the format is chosen inside each dialog', async ({ pro: page }) => {
     await loadModel(page, 'mat-foundation');
+    await page.evaluate(() => window.__stabileoActions.setMeshBeforeAnalysis(false));
     await page.getByTestId('pr-project').click();
     for (const id of ['pp-export-results', 'pp-export-report', 'pp-export-drawings', 'pp-export-ifc']) await expect(page.getByTestId(id)).toBeEnabled();
     for (const gone of ['project-workbook', 'pp-export-csv', 'pp-export-dxf', 'pp-export-svg', 'pp-export-png', 'pp-export-jpg']) await expect(page.getByTestId(gone)).toHaveCount(0);

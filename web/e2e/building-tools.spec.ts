@@ -52,27 +52,27 @@ test.describe('@smoke building on the grid', () => {
     const census = () => page.evaluate(() => window.__stabileo.modelCensus());
     expect((await census()).elements).toBe(8);
 
-    // The slab waits for its mesh: one shell, the beams whole.
+    // The slab is a plate waiting for its mesh: no shell, the beams whole.
     await page.getByTestId('building-tab-slabs').click();
     await expect(page.getByTestId('building-slab-mesh-solve')).toBeChecked();
     await page.getByTestId('building-place-slabs').click();
     await expect(page.getByTestId('building-result')).toContainText(/1 element/);
     expect((await census()).elements).toBe(8);
     await expect(page.getByTestId('building-slabs-waiting')).toBeVisible();
+    expect(await page.evaluate(() => window.__stabileo.plates())).toMatchObject([{ status: 'unmeshed', shells: 0 }]);
 
     await ribbonCmd(page, 'physical');
     await expect(page.getByTestId('physical-filter-column')).toContainText('4');
     await expect(page.getByTestId('physical-filter-beam')).toContainText('4');
     await expect(page.getByTestId('physical-filter-slab')).toContainText('1');
 
-    // A floor load on the slab goes onto its shells.
+    // A floor load on the slab is kept as the plate's load, which follows its mesh.
     await page.getByTestId('pr-cmd-loads').click();
     await page.getByTestId('load-tab-floor').click();
     await page.getByTestId('fl-target').selectOption({ label: 'Slab · L1' });
     await expect(page.getByTestId('fl-distribution')).toHaveValue('slab');
-    const loadsBefore = (await census()).loads;
     await page.getByTestId('fl-apply').click();
-    expect((await census()).loads).toBeGreaterThan(loadsBefore);
+    await expect.poll(async () => (await page.evaluate(() => window.__stabileo.plates()))[0]?.loads).toBe(1);
     await page.keyboard.press(process.platform === 'darwin' ? 'Meta+z' : 'Control+z');
 
     // The slab undoes on its own.
@@ -80,7 +80,7 @@ test.describe('@smoke building on the grid', () => {
     expect((await census()).elements).toBe(8);
 
     // Placed again and solved: the analysis meshes it (the beams cut where the mesh meets them),
-    // and it goes back to one shell per panel on request.
+    // and its mesh comes out on request.
     await ribbonCmd(page, 'building');
     await page.getByTestId('building-tab-slabs').click();
     await page.getByTestId('building-place-slabs').click();

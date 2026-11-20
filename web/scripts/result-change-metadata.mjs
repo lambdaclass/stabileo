@@ -5,8 +5,20 @@ import { deflateRawSync } from 'node:zlib';
 import { resultChangeLocaleProblems } from './result-changes/locales.mjs';
 import { readRegistry } from './result-changes/registry.mjs';
 
+export function readProfileResultChanges(proPlatesUnified) {
+  return readRegistry(undefined, id => proPlatesUnified || !['plates-coarse-as-modelled-meshed', 'plates-conforming-batch-mesh'].includes(id));
+}
+
+export function packResultChangeNotices(registry) {
+  const problems = registry.changes.flatMap(resultChangeLocaleProblems);
+  if (problems.length) throw new Error(problems.join('\n'));
+  const shipped = { ...registry, changes: registry.changes.map(({ quantities: _, ...change }) => change) };
+  const packed = deflateRawSync(JSON.stringify(shipped), { level: 9 }).toString('base64');
+  return { shipped, packed };
+}
+
 /** @returns {import('vite').Plugin} */
-export function resultChangeMetadataPlugin() {
+export function resultChangeMetadataPlugin(proPlatesUnified = () => true) {
   const ids = ['virtual:result-change-metadata', 'virtual:result-change-packed', 'virtual:result-change-quantities'];
   const dir = fileURLToPath(new URL('../src/lib/provenance/result-changes', import.meta.url));
   return {
@@ -17,12 +29,9 @@ export function resultChangeMetadataPlugin() {
       if (resolved[0] !== '\0' || !ids.includes(id)) return null;
       for (const name of readdirSync(dir)) if (name.endsWith('.json')) this.addWatchFile(join(dir, name));
       /** @type {import('../src/lib/provenance/registry').ResultChangeRegistry} */
-      const registry = readRegistry();
+      const registry = readProfileResultChanges(proPlatesUnified());
       if (id === 'virtual:result-change-packed') {
-        const problems = registry.changes.flatMap(resultChangeLocaleProblems);
-        if (problems.length) throw new Error(problems.join('\n'));
-        const shipped = { ...registry, changes: registry.changes.map(({ quantities: _, ...change }) => change) };
-        const packed = deflateRawSync(JSON.stringify(shipped), { level: 9 }).toString('base64');
+        const { packed } = packResultChangeNotices(registry);
         return `export default ${JSON.stringify(packed)};`;
       }
       if (id === 'virtual:result-change-quantities') {
