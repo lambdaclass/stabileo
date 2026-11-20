@@ -5,6 +5,8 @@ import { modelStore, uiStore } from '../../store';
 import { buildSolverInput3D } from '../../engine/solver-service';
 import { solve3D, solvePDelta3D } from '../../engine/wasm-solver';
 import { modelSheets } from '../../export/workbook-model';
+import { projectWorkbookSheets } from '../../export/project-workbook';
+import { tp } from '../../i18n';
 import { applyWorkbook, importExcelFile, type ImportOutcome } from '../apply';
 import { parseWorkbook } from '../parse';
 import { AXES_SHEET, SHEETS } from '../schema';
@@ -53,6 +55,14 @@ function expectRefusal(outcome: ImportOutcome | null, before: ReturnType<typeof 
   expect(loaded).toEqual({ nodes: 0, elements: 0, sections: 0 });
   expect(modelStore.snapshot()).toEqual(before);
   expect(uiStore.includeSelfWeight).toBe(false);
+}
+
+function responses(input: NonNullable<ReturnType<typeof buildSolverInput3D>>) {
+  const linear = solve3D(input);
+  const pDelta = solvePDelta3D(input);
+  expect(linear.displacements).toHaveLength(2);
+  expect(pDelta.converged).toBe(true);
+  return [linear, pDelta].map(({ displacements, reactions, elementForces }) => ({ displacements, reactions, elementForces }));
 }
 
 const divZero = { t: 'e', v: 0x07 };
@@ -159,13 +169,6 @@ for (const [entry, install] of entries) {
         const roundTrip = await install({ ...book, Supports: supports!.rows });
         expect(roundTrip?.problems).toEqual([]);
         const reimported = buildSolverInput3D(modelStore.model, false)!;
-        const responses = (solverInput: typeof input) => {
-          const linear = solve3D(solverInput);
-          const pDelta = solvePDelta3D(solverInput);
-          expect(linear.displacements).toHaveLength(2);
-          expect(pDelta.converged).toBe(true);
-          return [linear, pDelta].map(({ displacements, reactions, elementForces }) => ({ displacements, reactions, elementForces }));
-        };
         expect(reimported.supports).toEqual(input.supports);
         expect(responses(reimported)).toEqual(responses(input));
       }
@@ -212,4 +215,125 @@ for (const [entry, install] of entries) {
       expect(uiStore.includeSelfWeight).toBe(true);
     }
   });
+}
+
+const roundThree = process.env.RUN_KNOWN_WRONG === '2395' ? it : it.skip;
+
+const declared = { Axes: [['up', 'right', 'hand'], ['+Z', '+X', 'right']] };
+
+for (const [entry, install] of entries) {
+  for (const [mode, nodes] of geometries) {
+    roundThree(`known wrong result: #2395 ${entry} ${mode} requires complete recognized coordinate units`, async () => {
+      for (const framed of [false, true]) {
+        vi.stubGlobal('__PUBLIC_FEATURES__', featuresForMode(framed ? 'development' : 'production'));
+        for (const [index, axis] of nodes.Nodes[0]!.entries()) {
+          if (axis === 'id') continue;
+          const workbook = (header: string, coordinate: number) => {
+            const rows = nodes.Nodes.map(row => [...row]);
+            rows[0]![index] = header;
+            rows[2]![index] = coordinate;
+            return { ...(framed ? declared : {}), Nodes: rows };
+          };
+          const before = priorModel(mode);
+          for (const suffix of [' [mm', ' []', ' [ ]', ' [[mm]', ' [mm] note', ' [mm] [m]', ' [s]']) {
+            const book = workbook(axis + suffix, 4000);
+            const problem = { sheet: 'Nodes', row: 1, column: axis, blocking: true };
+            expectRefusal(await install(book), before, problem);
+            expect(parseWorkbook(book).problems).toEqual([expect.objectContaining(problem)]);
+          }
+          for (const [header, coordinate] of [[axis, 4], [axis + ' [m]', 4], [' ' + axis.toUpperCase() + ' [ mm ] ', 4000]] as const) {
+            const book = workbook(header, coordinate);
+            const outcome = await install(book);
+            const modelAxis = mode === '2d' && axis === 'z' ? 'y' : axis;
+            expect(outcome?.problems).toEqual([]);
+            expect(outcome?.loaded.nodes).toBe(2);
+            expect(outcome?.model.nodes[1]).toMatchObject({ [modelAxis]: 4 });
+          }
+        }
+      }
+    });
+
+    roundThree(`known wrong result: #2395 ${entry} ${mode} refuses populated fields belonging to another load type`, async () => {
+      for (const framed of [false, true]) {
+        vi.stubGlobal('__PUBLIC_FEATURES__', featuresForMode(framed ? 'development' : 'production'));
+        const valid = [
+          { type: 'nodal', node: 2, fz: -3 },
+          ...(mode === '2d' ? [] : [
+            { type: 'nodal3d', node: 2, fz: -3 },
+            { type: 'distributed3d', member: 1, qi: -3, qzi: -2, ...(framed ? { qxi: -1 } : {}) },
+          ]),
+          { type: 'distributed', member: 1, qi: -3, dir: 'global', ...(framed ? { angle: 12 } : {}) },
+          { type: 'pointOnElement', member: 1, p: -3, a: 2, dir: 'local', ...(framed ? { angle: 12, px: -1 } : {}) },
+          { type: 'thermal', member: 1, dt: 3, dtg: 0 },
+        ];
+        const headers = ['type', 'case', ...new Set(valid.flatMap(row => Object.keys(row).filter(key => key !== 'type')))];
+        const workbook = (rows: Array<Record<string, unknown>>) => ({
+          ...nodes, ...member, ...(framed ? declared : {}),
+          Loads: [headers, ...rows.map(row => headers.map(key => key === 'case' ? 1 : row[key] ?? ''))],
+        });
+        for (const row of valid) {
+          const column = row.type.startsWith('nodal') ? 'p' : row.type === 'pointOnElement' ? 'dt' : 'node';
+          const before = priorModel(mode);
+          for (const value of [-7, 0, false]) {
+            const book = workbook([{ ...row, [column]: value }]);
+            const problem = {
+              sheet: 'Loads', row: 2, column, blocking: true, message: tp('xls.err.populatedColumn', { k: column }),
+            };
+            expectRefusal(await install(book), before, problem);
+            expect(parseWorkbook(book).problems).toEqual([problem]);
+          }
+        }
+        const outcome = await install(workbook(valid));
+        expect(outcome?.problems).toEqual([]);
+        expect(outcome?.loaded).toEqual({ nodes: 2, elements: 1, sections: 1 });
+        expect(outcome?.model.loads).toMatchObject([
+          { type: 'nodal', data: { nodeId: 2, fz: -3 } },
+          ...(mode === '2d' ? [] : [
+            { type: 'nodal3d', data: { nodeId: 2, fz: -3 } },
+            { type: 'distributed3d', data: { elementId: 1, qYI: -3, qZI: -2, ...(framed ? { qXI: -1 } : {}) } },
+          ]),
+          { type: 'distributed', data: { elementId: 1, qI: -3, isGlobal: true, ...(framed ? { angle: 12 } : {}) } },
+          { type: 'pointOnElement', data: { elementId: 1, p: -3, a: 2, ...(framed ? { angle: 12, px: -1 } : {}) } },
+          { type: 'thermal', data: { elementId: 1, dtUniform: 3, dtGradient: 0 } },
+        ]);
+        expect(modelStore.loads.map(load => load.type)).toEqual(valid.map(row => row.type));
+      }
+    });
+  }
+
+  for (const mode of ['3d', 'pro'] as const) {
+    for (const [axes, mask] of [
+      [null, [1, 0, 1, 1, 0, 1]],
+      [{ up: '+Y', right: '+X', hand: 'left' }, [1, 1, 0, 1, 1, 0]],
+    ] as const) {
+      roundThree(`known wrong result: #2395 ${entry} ${mode} round trips unsolved restraints with ${axes ? 'permuted' : 'default'} axes`, async () => {
+        vi.stubGlobal('__PUBLIC_FEATURES__', featuresForMode('development'));
+        for (const type of ['custom3d', 'rollerZ']) {
+          priorModel(mode);
+          const original = await install({
+            ...space, ...member,
+            Supports: [['node', 'type', ...flags, 'ky [kN/m]', 'kry [kN·m/rad]'], [1, type, 1, 0, 1, 1, 0, 1, 7, 7]],
+          });
+          expect(original?.problems).toEqual([]);
+          const input = buildSolverInput3D(modelStore.model, false)!;
+          const sheets = projectWorkbookSheets({
+            model: { ...modelStore.model, analysisMode: mode },
+            solved: null, axes, projectName: 'Spatial restraint round trip', tr: key => key,
+            meta: { exported: '', commit: '' }, results: { sources: [], stations: 2, statics: null },
+            include: { results: false, sheets: new Set(['Nodes', 'Members', 'Materials', 'Sections', 'Supports', 'LoadData']) },
+          });
+          const book = Object.fromEntries(sheets.map(sheet => [sheet.name, sheet.rows]));
+          const [header, support] = book.Supports!;
+          expect(flags.map(flag => support![header!.indexOf(flag)])).toEqual(mask);
+          const outcome = await install(book);
+          expect(outcome?.problems).toEqual([]);
+          expect(outcome?.loaded).toEqual({ nodes: 2, elements: 1, sections: 1 });
+          expect(outcome?.model.supports).toEqual(original?.model.supports);
+          const reimported = buildSolverInput3D(modelStore.model, false)!;
+          expect(reimported.supports).toEqual(input.supports);
+          expect(responses(reimported)).toEqual(responses(input));
+        }
+      });
+    }
+  }
 }
