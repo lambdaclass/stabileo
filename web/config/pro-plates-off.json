@@ -3004,7 +3004,7 @@
       ]
     },
     "src/lib/i18n/locales/de.ts": {
-      "source": "9aebd51c7dee6ec42eedb351c3c7aa4ea405ed0b1f1eea85d4dd9bbfdb456dd5",
+      "source": "9a84b6c35dfbce1107c986061a5ed02c4d37efaa91b0c14c92703e1c01615a89",
       "original": "f36761ad363d964198ac94576dcea46b9ae942c94eb650fcf9b5c242e68882c9",
       "changes": [
         [
@@ -3115,6 +3115,20 @@
           0,
           [
             "  'combos.rules.none': 'Noch keine Regeln. Fügen Sie eine hinzu oder beginnen Sie mit CIRSOC 101.',"
+          ]
+        ],
+        [
+          11520,
+          1,
+          [
+            "  'mesher.polygon': 'Polygon',"
+          ]
+        ],
+        [
+          11527,
+          1,
+          [
+            "  'mesher.auto': 'auto',"
           ]
         ],
         [
@@ -3771,7 +3785,7 @@
       ]
     },
     "src/lib/i18n/locales/fr.ts": {
-      "source": "dec8dad373263e32c4a232e16142ee037edc3694bb54317124717bfd780c56ce",
+      "source": "04d3c05aec71c671e3ef647ee89d5cfe89c24eab77b10b1a7c210375a9cd1760",
       "original": "7653af7d2d3efb97b0bc5c42de1f7cf8d469230a46875ff15b738398313d33d4",
       "changes": [
         [
@@ -3875,6 +3889,27 @@
           0,
           [
             "  'combos.rules.none': 'Aucune règle pour l\\'instant. Ajoutez-en une ou partez de CIRSOC 101.',"
+          ]
+        ],
+        [
+          11525,
+          1,
+          [
+            "  'mesher.divisions': 'Divisions',"
+          ]
+        ],
+        [
+          11527,
+          1,
+          [
+            "  'mesher.auto': 'auto',"
+          ]
+        ],
+        [
+          11532,
+          1,
+          [
+            "  'mesher.tris': 'Triangles',"
           ]
         ],
         [
