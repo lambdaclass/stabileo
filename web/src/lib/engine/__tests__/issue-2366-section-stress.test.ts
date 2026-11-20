@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import StressStateDetails from '../../../components/stress/StressStateDetails.svelte';
 import { t } from '../../i18n';
 import type { Section } from '../../store/model.svelte';
-import { analyzeSectionStress3D, analyzeSectionStressFromForces } from '../section-stress-3d';
+import { analyzeSectionStress3D, analyzeSectionStressFromForces, type SectionStressResult3D } from '../section-stress-3d';
 import type { ElementForces3D, SolverInput3D } from '../types-3d';
 import { solve3D, solvePDelta3D } from '../wasm-solver';
 
@@ -31,6 +31,41 @@ function station(vy: number, vz: number, mx: number): ElementForces3D & { pointL
     distributedLoadsY: [], distributedLoadsZ: [],
     pointLoadsX: [], pointLoadsY: [], pointLoadsZ: [],
   };
+}
+
+function cantilever(mx: number): SolverInput3D {
+  return {
+    nodes: new Map([[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: 1, y: 0, z: 0 }]]),
+    materials: new Map([[1, { id: 1, e: 200_000, nu: 0.3 }]]),
+    sections: new Map([[1, { id: 1, a: section.a, iy: inertia, iz: inertia, j: 2 * inertia }]]),
+    elements: new Map([[1, {
+      id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1,
+      localYx: 0, localYy: 1, localYz: 0,
+      releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false,
+      releaseTStart: false, releaseTEnd: false,
+    }]]),
+    supports: new Map([[1, { nodeId: 1, rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true }]]),
+    loads: [{ type: 'nodal', data: { nodeId: 2, fx: -1, fy: 0, fz: 1, mx, my: 0, mz: 0 } }],
+  };
+}
+
+function expectCutMagnitudes(result: SectionStressResult3D) {
+  const centreFactor = radius ** 2 / inertia / 1000;
+  expect(Math.hypot(result.Vy, result.Vz)).toBeGreaterThan(0);
+  for (const [cut, depthCut] of [[result.distributionY, true], [result.distributionZ, false]] as const) {
+    expect(cut).toHaveLength(31);
+    for (const point of cut) {
+      const profile = Math.sqrt(1 - (Math.hypot(point.y, point.z) / radius) ** 2);
+      const tauVy = result.Vy * centreFactor * (depthCut ? 1 : profile);
+      const tauVz = result.Vz * centreFactor * (depthCut ? profile : 1);
+      const expectedTau = Math.hypot(tauVy, tauVz);
+      expect(point.refusal).toBeNull();
+      expect(point.tauVy).toBeCloseTo(depthCut ? 0 : tauVy, 12);
+      expect(point.tauVz).toBeCloseTo(depthCut ? tauVz : 0, 12);
+      expect(point.tauTotal, JSON.stringify(point)).toBeCloseTo(expectedTau, 12);
+      expect(point.vonMises).toBeCloseTo(Math.hypot(point.sigma, Math.sqrt(3) * expectedTau), 12);
+    }
+  }
 }
 
 describe('3D section stress with torsion and transverse shear', () => {
@@ -67,6 +102,12 @@ describe('3D section stress with torsion and transverse shear', () => {
       }
     });
 
+    it(`#2366 ${entry} includes both transverse components in cut magnitudes`, () => {
+      for (const [vy, vz] of [[0, 1], [1, 0], [-1, 1]] as const) {
+        expectCutMagnitudes(analyze(vy, vz, 0, 0, 0));
+      }
+    });
+
     it(`#2366 ${entry} refuses the affected cut pointwise and evaluates a zero-shear edge`, () => {
       const result = analyze(1, 0, torque, 0, radius);
       expect(result.tauTotal).toBe(result.tauTorsion);
@@ -97,20 +138,29 @@ describe('3D section stress with torsion and transverse shear', () => {
     }
   }
 
+  it('#2366 reports full cut magnitudes from linear member forces', () => {
+    const result = solve3D(cantilever(0));
+    expect(result.elementForces).toHaveLength(1);
+    expectCutMagnitudes(analyzeSectionStress3D(result.elementForces[0]!, section, fy, 1, 0, 0));
+  });
+
+  it('#2366 reports full cut magnitudes from P-Delta member forces', () => {
+    const result = solvePDelta3D(cantilever(0), 20, 1e-4);
+    expect(result.converged).toBe(true);
+    expect(result.results.elementForces).toHaveLength(1);
+    expectCutMagnitudes(analyzeSectionStress3D(result.results.elementForces[0]!, section, fy, 1, 0, 0));
+  });
+
+  it('#2366 includes both components of planar shear resolved onto rotated axes', () => {
+    const angle = Math.PI / 4;
+    const result = analyzeSectionStressFromForces(
+      0, Math.sin(angle), Math.cos(angle), 0, -Math.cos(angle), Math.sin(angle), section, fy, 0, 0,
+    );
+    expectCutMagnitudes(result);
+  });
+
   it('#2366 refuses shear from both linear and P-Delta member forces', () => {
-    const input: SolverInput3D = {
-      nodes: new Map([[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: 1, y: 0, z: 0 }]]),
-      materials: new Map([[1, { id: 1, e: 200_000, nu: 0.3 }]]),
-      sections: new Map([[1, { id: 1, a: section.a, iy: inertia, iz: inertia, j: 2 * inertia }]]),
-      elements: new Map([[1, {
-        id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1,
-        localYx: 0, localYy: 1, localYz: 0,
-        releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false,
-        releaseTStart: false, releaseTEnd: false,
-      }]]),
-      supports: new Map([[1, { nodeId: 1, rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true }]]),
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: -1, fy: 0, fz: 1, mx: torque, my: 0, mz: 0 } }],
-    };
+    const input = cantilever(torque);
     const linear = solve3D(input);
     const pdelta = solvePDelta3D(input);
     expect(pdelta.converged).toBe(true);
