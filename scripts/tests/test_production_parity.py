@@ -104,6 +104,54 @@ class ProductionParity(unittest.TestCase):
                 with self.assertRaisesRegex(SystemExit, r'Switch-off production differs[\s\S]*new-dependency.js'):
                     parity.main()
 
+    @unittest.skip('known wrong result: #2399')
+    def test_gate_builds_each_solver_with_its_own_makefile(self):
+        with tempfile.TemporaryDirectory(dir=parity.ROOT) as directory:
+            repo = Path(directory)
+            web = repo / 'web'
+            (web / 'config').mkdir(parents=True)
+            (web / 'package.json').write_text('{"scripts":{"build":"node build.cjs"}}')
+            (web / 'package-lock.json').write_text('{}')
+            (repo / parity.FLAGS).write_text('{"production":{"newFeature":false},"test":{"newFeature":false}}')
+            (web / 'build.cjs').write_text(
+                'const fs = require("node:fs");\n'
+                'fs.mkdirSync("dist");\n'
+                'fs.writeFileSync("dist/index.html", "legacy");\n'
+                'fs.copyFileSync("src/lib/wasm/dedaliano_engine_bg.wasm", "dist/solver.wasm");\n'
+            )
+            makefile = repo / 'Makefile'
+            recipe = (
+                'wasm:\n'
+                '\tmkdir -p web/src/lib/wasm\n'
+                '\tprintf glue > web/src/lib/wasm/dedaliano_engine.js\n'
+                '\tprintf legacy > web/src/lib/wasm/dedaliano_engine_bg.wasm\n'
+            )
+            makefile.write_text(recipe)
+            (repo / '.gitignore').write_text('/web/src/lib/wasm/\n')
+
+            def run(*args):
+                subprocess.run(args, cwd=repo, check=True, stdout=subprocess.DEVNULL)
+
+            run('git', 'init', '--quiet')
+            run('git', 'config', 'user.name', 'Production parity fixture')
+            run('git', 'config', 'user.email', 'parity@example.invalid')
+            run('git', 'add', '.')
+            run('git', 'commit', '--quiet', '-m', 'Published reference with the original solver recipe')
+            base = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=repo).decode().strip()
+            (repo / parity.FLAGS).write_text('{"production":{"newFeature":false},"test":{"newFeature":true}}')
+
+            run('make', 'wasm')
+            with patch.object(parity, 'ROOT', repo), patch('sys.argv', ['check-production-parity.py', base]):
+                parity.main()
+                makefile.write_text(recipe.replace('printf legacy', 'printf changed'))
+                run('make', 'wasm')
+                with self.assertRaisesRegex(SystemExit, r'Switch-off production differs[\s\S]*solver.wasm'):
+                    parity.main()
+                run('git', 'add', 'Makefile')
+                run('git', 'commit', '--quiet', '-m', 'Intentionally change the solver recipe',
+                    '-m', 'Production-Change: Makefile')
+                parity.main()
+
     def test_missing_output_cannot_pass_as_matching(self):
         with tempfile.TemporaryDirectory(dir=parity.ROOT) as directory:
             with self.assertRaisesRegex(RuntimeError, 'did not emit index.html'):
