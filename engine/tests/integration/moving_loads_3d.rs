@@ -825,3 +825,56 @@ fn issue_1782_endpoint_axles_are_carried_by_supports() {
         }
     }
 }
+
+#[test]
+#[ignore = "known wrong result: #1782"]
+fn issue_1782_sampled_axle_at_rounded_support_2d() {
+    use dedaliano_engine::solver::moving_loads::solve_moving_loads_2d;
+    for length in [1.0, 1.0_f64.next_up()] {
+        let mut input = planar_moving_input(0.0);
+        input.solver.nodes.get_mut("2").unwrap().x = length;
+        for support in input.solver.supports.values_mut() {
+            support.support_type = "fixed".into();
+        }
+        input.train.axles[0].offset = 8.0;
+        input.step = Some(length);
+        let e = &solve_moving_loads_2d(&input).unwrap().elements["1"];
+        assert_planar_value(e.v_max_pos, 0.0);
+        assert_planar_value(e.v_max_neg, 0.0);
+
+        input.train.axles[0].offset = 0.0;
+        input.step = Some(length / 2.0);
+        let e = &solve_moving_loads_2d(&input).unwrap().elements["1"];
+        let half_weight = input.train.axles[0].weight / 2.0;
+        assert_planar_value(e.v_max_pos, half_weight);
+        assert_planar_value(e.v_max_neg, -half_weight);
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #1782"]
+fn issue_1782_sampled_axle_at_rounded_support_3d() {
+    use dedaliano_engine::metamorphic::planes::Plane;
+    for length in [1.0, 1.0_f64.next_up()] {
+        let mut input = planar_moving_input(0.0);
+        input.solver.nodes.get_mut("2").unwrap().x = length;
+        for support in input.solver.supports.values_mut() {
+            support.support_type = "fixed".into();
+        }
+        input.train.axles[0].offset = 8.0;
+        input.step = Some(length);
+        let r = solve_moving_loads_3d(&embedded_moving_input(&input, Plane::XZ)).unwrap();
+        let e = &r.elements["1"];
+        for value in [e.vy_max_pos, e.vy_max_neg, e.vz_max_pos, e.vz_max_neg] {
+            assert_planar_value(value, 0.0);
+        }
+
+        input.train.axles[0].offset = 0.0;
+        input.step = Some(length / 2.0);
+        let r = solve_moving_loads_3d(&embedded_moving_input(&input, Plane::XZ)).unwrap();
+        let e = &r.elements["1"];
+        let half_weight = input.train.axles[0].weight / 2.0;
+        assert_planar_value(e.vy_max_pos.max(e.vz_max_pos), half_weight);
+        assert_planar_value(e.vy_max_neg.min(e.vz_max_neg), -half_weight);
+    }
+}

@@ -518,3 +518,23 @@ it('#1782 the planar WASM moving envelope uses the in-member shear at either end
     expect.soft(envelope.vMaxPos).toBeCloseTo(Math.max(want, 0), 12);
   }
 });
+
+it.skip('known wrong result: #1782 — the planar WASM moving sweep resolves an axle at a rounded support', () => {
+  const length = 1 + Number.EPSILON, weight = 40;
+  const solver: SolverInput = {
+    nodes: new Map([[1, { id: 1, x: 0, z: 0 }], [2, { id: 2, x: length, z: 0 }]]),
+    materials: new Map([[1, { id: 1, e: 200000, nu: 0.3 }]]),
+    sections: new Map([[1, { id: 1, a: 0.01, iz: 0.0001 }]]),
+    elements: new Map([[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, sectionId: 1, materialId: 1,
+      hingeStart: false, hingeEnd: false }]]),
+    supports: new Map([[1, { id: 1, nodeId: 1, type: 'fixed' }], [2, { id: 2, nodeId: 2, type: 'fixed' }]]),
+    loads: [],
+  };
+  const run = (offset: number, step: number) => solveMovingLoads({
+    solver, train: { name: 'one axle', axles: [{ offset, weight }] }, step,
+  }).elements['1'];
+  expect.soft(run(8, length).vMaxPos).toBeCloseTo(0, 12);
+  expect.soft(run(8, length).vMaxNeg).toBeCloseTo(0, 12);
+  expect(run(0, length / 2).vMaxPos).toBeCloseTo(weight / 2, 12);
+  expect(run(0, length / 2).vMaxNeg).toBeCloseTo(-weight / 2, 12);
+});
