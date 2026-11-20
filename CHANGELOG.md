@@ -11,6 +11,22 @@ It should capture what changed, not what should be built next.
 
 One file per change in [`changelog.d/`](changelog.d/README.md); `scripts/changelog.py --release` moves them here.
 
+### Added
+
+#### Public Terms of Use, Privacy Policy and results disclaimer
+
+The public build includes the Terms of Use and Privacy Policy pages, links to them in the footer, and the results disclaimer. Sign-in remains disabled (#2358).
+
+### Fixed
+
+#### Safety advisories for 2D free-body end moments and self-weight rules (2026-11-20)
+
+[SA-2026-094](docs/advisories/SA-2026-094-plane-free-body-end-moments.md) covers incorrect global end-moment signs in the 2D free-body inspector. [SA-2026-095](docs/advisories/SA-2026-095-plane-signed-scoped-self-weight.md) covers wrong reactions in 2D projects with signed or scoped self-weight rules and the project-open re-check notice. Revisit affected inspections and analyses, then regenerate and review the affected reports.
+
+#### Clarify the Stabileo 0.6.3 safety guidance
+
+All eight release notes now include saved projects that retain an imported gravity setting with standalone self-weight turned off in the rerun guidance. The notes clarify when to replace generated modal seismic cases, which supports set the static seismic datum, what section shear plots show, what to verify against the actual reinforcement, and when workbook imports or checks are refused (#2400).
+
 ## 0.6.3 (2026-11-20)
 
 Release notes: [`docs/releases/v0.6.3.md`](docs/releases/v0.6.3.md) (also in [Spanish](docs/releases/v0.6.3.es.md), [Portuguese](docs/releases/v0.6.3.pt.md), [German](docs/releases/v0.6.3.de.md), [French](docs/releases/v0.6.3.fr.md), [Turkish](docs/releases/v0.6.3.tr.md), [Hungarian](docs/releases/v0.6.3.hu.md) and [Chinese](docs/releases/v0.6.3.zh.md)).
