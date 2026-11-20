@@ -1,6 +1,7 @@
 import { expect, it } from 'vitest';
 import * as publicEntries from 'virtual:public-i18n';
 import * as appEntries from 'virtual:app-i18n';
+import mesherEntries from 'virtual:mesher-i18n';
 import { de as lazyDe } from 'virtual:app-i18n/de';
 import { fr as lazyFr } from 'virtual:app-i18n/fr';
 import { tr as lazyTr } from 'virtual:app-i18n/tr';
@@ -33,8 +34,11 @@ function expectExactPartition(expected: Translations, ...dictionaries: Translati
   expect(combined).toEqual(expected);
 }
 
-it.skip.each(LOCALES.filter(isComplete))('known wrong result: #2365 %s dictionaries preserve every translation exactly once', locale => {
-  expectExactPartition({ en, es, pt, de, fr, tr, hu }[locale], publicEntries[locale], appEntries[locale]);
+it.each(LOCALES.filter(isComplete))('#2365 %s dictionaries preserve every translation exactly once', locale => {
+  const source = { en, es, pt, de, fr, tr, hu }[locale];
+  const mesher = mesherEntries[locale];
+  expect(mesher).toEqual(Object.fromEntries(Object.entries(source).filter(([key]) => key.startsWith('mesher.'))));
+  expectExactPartition(source, publicEntries[locale], appEntries[locale], mesher);
 });
 
 it.each(LOCALES.filter((l) => !isComplete(l)))('%s, not offered, ships no public or app entries', locale => {
@@ -46,11 +50,11 @@ it.each(LAZY.filter(isComplete))('%s lazy app dictionary shares public strings w
   expect({ de: lazyDe, fr: lazyFr, tr: lazyTr, hu: lazyHu }[locale]).toEqual(appEntries[locale]);
 });
 
-it.skip.each(([
+it.each(([
   ['de', browserDe, fullDe],
   ['fr', browserFr, fullFr],
   ['tr', browserTr, fullTr],
   ['hu', browserHu, fullHu],
-] as const).filter(([locale]) => isComplete(locale)))('known wrong result: #2365 %s browser dictionaries match the Node-compatible full dictionary', (_locale, browser, full) => {
-  expectExactPartition(full, browser);
+] as const).filter(([locale]) => isComplete(locale)))('#2365 %s browser dictionaries match the Node-compatible full dictionary', (locale, browser, full) => {
+  expectExactPartition(full, browser, mesherEntries[locale]);
 });
