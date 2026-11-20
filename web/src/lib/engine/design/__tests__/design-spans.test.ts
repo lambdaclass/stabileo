@@ -88,8 +88,7 @@ describe('design spans', () => {
   });
 });
 
-const issue2238 = process.env.RUN_KNOWN_WRONG === '2238' ? it : it.skip;
-issue2238('known wrong result: #2238 reversing every piece keeps the physical hogging and sagging faces', () => {
+it('#2238 reversing every piece keeps the physical hogging and sagging faces', () => {
   const L = 6;
   const q = 60;
   const moment = (x: number) => q * (x * (L - x) / 2 - L ** 2 / 12);
@@ -124,7 +123,7 @@ issue2238('known wrong result: #2238 reversing every piece keeps the physical ho
   }
 });
 
-issue2238('known wrong result: #2238 a solved fixed beam keeps its governing faces when mesh pieces are reversed', () => {
+it('#2238 a solved fixed beam keeps its governing faces when mesh pieces are reversed', () => {
   const length = 6;
   const q = 60;
   const ts = [0, 0.5, 1];
@@ -164,5 +163,33 @@ issue2238('known wrong result: #2238 a solved fixed beam keeps its governing fac
     const moments = merged!.comboResults[0]!.stations.map(s => s.my);
     expect.soft(Math.min(...moments), directions.join(',')).toBeCloseTo(-q * length ** 2 / 12, 12);
     expect.soft(Math.max(...moments), directions.join(',')).toBeCloseTo(q * length ** 2 / 24, 12);
+  }
+});
+
+it('#2238 rolled and explicitly oriented pieces keep the same demands in the span frame', () => {
+  const angle = Math.PI / 6;
+  const refY = { localYx: 0, localYy: Math.cos(angle), localYz: Math.sin(angle) };
+  for (const reversed of [false, true]) {
+    const structure = model();
+    for (const [k, id] of [1, 2, 3].entries()) {
+      Object.assign(structure.elements.get(id)!, refY, {
+        nodeI: reversed ? k + 1 : k, nodeJ: reversed ? k : k + 1,
+      });
+    }
+    const [span] = designSpans(structure, beams);
+    expect(span).toBeDefined();
+    const stations = (elementId: number): ElementStationResult => ({
+      elementId, length: 1, stationTs: [0, 1],
+      comboResults: [{ comboId: 1, comboName: 'U', stations: [0, 1].map(t => ({
+        t, x: t, n: -4, my: reversed ? -3 : 3, mz: 5, vy: reversed ? -2 : 2, vz: 7, torsion: 1,
+      })) }],
+    });
+    for (const station of mergeSpanStations(structure, span!, stations)!.comboResults[0]!.stations) {
+      for (const [key, value] of Object.entries({ n: -4, my: 3, mz: 5, vy: 2, vz: 7, torsion: 1 })) {
+        expect(station[key as keyof typeof station]).toBeCloseTo(value, 12);
+      }
+    }
+    Object.assign(structure.elements.get(2)!, { localYx: 0, localYy: 0, localYz: 1 });
+    expect(mergeSpanStations(structure, span!, stations)).toBeNull();
   }
 });

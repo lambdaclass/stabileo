@@ -2,7 +2,7 @@
 // Given end forces and distributed load, compute intermediate values
 
 import { computeDeformedShape as wasmComputeDeformedShape } from './wasm-solver';
-import { axialLoadUpTo } from './axial-span-2d';
+import { curveStations, diagramCurvePoints, distributedActionTerms, fullSpanFallback, memberDiagram } from './member-diagram';
 
 export interface DiagramPoint {
   /** Position along element [0, 1] normalized */
@@ -24,56 +24,45 @@ export interface ElementDiagram {
   maxAbsValue: number;
 }
 
-const NUM_POINTS = 21; // number of sampling points per element
+type PlanarKind = 'moment' | 'shear' | 'axial';
 
-/**
- * Build sorted, unique sampling positions (as t ∈ [0,1]) including
- * regular grid points and positions just before/after each point load
- * to capture discontinuities.
- */
-function buildSamplingPositions(
-  length: number,
-  pointLoads: Array<{ a: number; p: number; px?: number; my?: number }>,
-): number[] {
-  const tSet = new Set<number>();
+type PlanarForces = {
+  mStart: number; mEnd: number; vStart: number; vEnd: number; nStart: number; nEnd: number;
+  qI: number; qJ: number; length: number;
+  pointLoads?: Array<{ a: number; p: number; px?: number; my?: number }>;
+  distributedLoads?: Array<{ qI: number; qJ: number; a: number; b: number }>;
+  distributedLoadsX?: Array<{ qI: number; qJ: number; a: number; b: number }>;
+};
 
-  // Regular grid
-  for (let i = 0; i < NUM_POINTS; i++) {
-    tSet.add(i / (NUM_POINTS - 1));
+function planarCurve(kind: PlanarKind, ef: PlanarForces) {
+  const { length } = ef;
+  const points = [...(ef.pointLoads ?? [])].sort((a, b) => a.a - b.a);
+  if (kind === 'axial') {
+    const loads = ef.distributedLoadsX ?? [];
+    const axial = points.filter(p => p.px).map(p => ({ a: p.a, jump: -p.px! }));
+    const pointTotal = axial.reduce((sum, p) => sum - p.jump, 0);
+    const distributedTotal = loads.reduce((sum, load) => sum + distributedActionTerms(load, length)[0], 0);
+    return memberDiagram(length, ef.nStart, ef.nEnd + pointTotal + distributedTotal - ef.nStart, loads, axial, 'force', -1);
   }
-
-  // Add positions around point loads
-  const eps = 1e-6;
-  for (const pl of pointLoads) {
-    const tPl = pl.a / length;
-    if (tPl > eps) tSet.add(tPl - eps);
-    tSet.add(tPl);
-    if (tPl < 1 - eps) tSet.add(tPl + eps);
-  }
-
-  return Array.from(tSet).sort((a, b) => a - b);
+  const loads = fullSpanFallback(length, ef.distributedLoads, ef.qI, ef.qJ);
+  return kind === 'moment'
+    ? memberDiagram(length, ef.mStart, 0, loads,
+      points.map(p => ({ a: p.a, jump: p.my ?? 0, slope: -p.p })), 'moment', -1, -ef.vStart)
+    : memberDiagram(length, ef.vStart, 0, loads, points.map(p => ({ a: p.a, jump: p.p })));
 }
 
-/**
- * Helper: build an ElementDiagram by sampling computeDiagramValueAt at each position.
- */
 function buildDiagram(
-  kind: 'moment' | 'shear' | 'axial',
-  ef: Parameters<typeof computeDiagramValueAt>[2],
+  kind: PlanarKind,
+  ef: PlanarForces,
   nodeIx: number, nodeIy: number,
   nodeJx: number, nodeJy: number,
-  pointLoads: Array<{ a: number; p: number; px?: number; my?: number }>,
 ): ElementDiagram {
-  const positions = kind === 'axial' && !pointLoads.some(pl => pl.px && Math.abs(pl.px) > 1e-15)
-    ? Array.from({ length: NUM_POINTS }, (_, i) => i / (NUM_POINTS - 1))
-    : buildSamplingPositions(ef.length, pointLoads);
-
+  const curve = planarCurve(kind, ef);
   const points: DiagramPoint[] = [];
   let maxVal = -Infinity, minVal = Infinity;
   let maxAbsT = 0, maxAbsValue = 0;
 
-  for (const t of positions) {
-    const value = computeDiagramValueAt(kind, t, ef);
+  for (const { t, value } of diagramCurvePoints(curve, curveStations(curve))) {
     const x = nodeIx + t * (nodeJx - nodeIx);
     const y = nodeIy + t * (nodeJy - nodeIy);
 
@@ -90,17 +79,13 @@ function buildDiagram(
   return { elementId: 0, points, maxValue: maxVal, minValue: minVal, maxAbsT, maxAbsValue };
 }
 
-/**
- * The diagram of one member from its full element forces: partial distributed loads included,
- * at the engine's stations (`diagram_positions_2d`). The canvas draws this one.
- */
 export function computeElementDiagram(
   kind: 'moment' | 'shear' | 'axial',
   ef: Parameters<typeof computeDiagramValueAt>[2],
   nodeIx: number, nodeIy: number,
   nodeJx: number, nodeJy: number,
 ): ElementDiagram {
-  return buildDiagram(kind, ef, nodeIx, nodeIy, nodeJx, nodeJy, ef.pointLoads ?? []);
+  return buildDiagram(kind, ef, nodeIx, nodeIy, nodeJx, nodeJy);
 }
 
 /**
@@ -115,7 +100,7 @@ export function computeMomentDiagram(
   pointLoads: Array<{ a: number; p: number; px?: number; my?: number }> = [],
 ): ElementDiagram {
   const ef = { mStart, mEnd: _mEnd, vStart, vEnd: 0, nStart: 0, nEnd: 0, qI, qJ, length, pointLoads };
-  return buildDiagram('moment', ef, nodeIx, nodeIy, nodeJx, nodeJy, pointLoads);
+  return buildDiagram('moment', ef, nodeIx, nodeIy, nodeJx, nodeJy);
 }
 
 /**
@@ -129,7 +114,7 @@ export function computeShearDiagram(
   pointLoads: Array<{ a: number; p: number; px?: number; my?: number }> = [],
 ): ElementDiagram {
   const ef = { mStart: 0, mEnd: 0, vStart, vEnd: 0, nStart: 0, nEnd: 0, qI, qJ, length, pointLoads };
-  return buildDiagram('shear', ef, nodeIx, nodeIy, nodeJx, nodeJy, pointLoads);
+  return buildDiagram('shear', ef, nodeIx, nodeIy, nodeJx, nodeJy);
 }
 
 /**
@@ -143,98 +128,14 @@ export function computeAxialDiagram(
   pointLoads: Array<{ a: number; p: number; px?: number; my?: number }> = [],
 ): ElementDiagram {
   const ef = { mStart: 0, mEnd: 0, vStart: 0, vEnd: 0, nStart, nEnd, qI: 0, qJ: 0, length, pointLoads };
-  return buildDiagram('axial', ef, nodeIx, nodeIy, nodeJx, nodeJy, pointLoads);
+  return buildDiagram('axial', ef, nodeIx, nodeIy, nodeJx, nodeJy);
 }
 
 /**
  * Compute the value of a diagram (M, V, or N) at a given normalized position t ∈ [0,1]
  */
-export function computeDiagramValueAt(
-  kind: 'moment' | 'shear' | 'axial',
-  t: number,
-  ef: { mStart: number; mEnd: number; vStart: number; vEnd: number; nStart: number; nEnd: number; qI: number; qJ: number; length: number; pointLoads?: Array<{ a: number; p: number; px?: number; my?: number }>; distributedLoads?: Array<{ qI: number; qJ: number; a: number; b: number }>; distributedLoadsX?: Array<{ qI: number; qJ: number; a: number; b: number }> },
-): number {
-  const xi = t * ef.length;
-  const sortedPL = [...(ef.pointLoads ?? [])].sort((a, b) => a.a - b.a);
-
-  // Use distributedLoads array if available (supports partial loads), otherwise fall back to legacy qI/qJ
-  const dLoads = ef.distributedLoads ?? (
-    (Math.abs(ef.qI) > 1e-10 || Math.abs(ef.qJ) > 1e-10)
-      ? [{ qI: ef.qI, qJ: ef.qJ, a: 0, b: ef.length }]
-      : []
-  );
-
-  if (kind === 'moment') {
-    let value = ef.mStart - ef.vStart * xi;
-    // Distributed load contributions: -∫_a^min(xi,b) q(ξ)·(xi-ξ) dξ
-    for (const dl of dLoads) {
-      if (xi > dl.a + 1e-10) {
-        const xEnd = Math.min(xi, dl.b);
-        const s = xEnd - dl.a;
-        const span = dl.b - dl.a;
-        if (span < 1e-12 || s < 1e-12) continue;
-        const dq = (dl.qJ - dl.qI) / span;
-        const d = xi - dl.a;
-        value -= dl.qI * (d * s - s * s / 2) + dq * (d * s * s / 2 - s * s * s / 3);
-      }
-    }
-    for (const pl of sortedPL) {
-      if (pl.a < xi - 1e-10) {
-        value -= pl.p * (xi - pl.a);
-        /*
-         * A couple jumps the diagram by +my. With m(x) = mStart − vStart·x
-         * and a load P entering as −P·(x − a), the equilibrium of the piece
-         * left of x puts a counter-clockwise couple in with a plus: on a
-         * cantilever carrying only a couple the moment has to fall back to
-         * zero past it, and it did not — it doubled.
-         */
-        if (pl.my) value += pl.my;
-      }
-    }
-    return value;
-  } else if (kind === 'shear') {
-    let value = ef.vStart;
-    for (const dl of dLoads) {
-      if (xi > dl.a + 1e-10) {
-        const xEnd = Math.min(xi, dl.b);
-        const s = xEnd - dl.a;
-        const span = dl.b - dl.a;
-        if (span < 1e-12 || s < 1e-12) continue;
-        const dq = (dl.qJ - dl.qI) / span;
-        value += dl.qI * s + dq * s * s / 2;
-      }
-    }
-    for (const pl of sortedPL) {
-      if (pl.a < xi - 1e-10) {
-        value += pl.p;
-      }
-    }
-    return value;
-  } else {
-    /*
-     * An axial point load px (towards J) drops the tension past it by px, a
-     * step. The linear part left between the ends is whatever the step does
-     * not explain (nEnd = nStart − Σpx when nothing else acts). This used to
-     * interpolate from nStart to nEnd across the whole member and then ADD
-     * px past the load, so a cantilever pulled at midspan read 5 → 2.5, a
-     * jump up to 7.5, and 5 again at the free end instead of 5 then 0.
-     *
-     * An axial span load (`distributedLoadsX`, towards J) lowers it by what of the load lies
-     * left of x: linearly under a uniform one, quadratically under a trapezoid, not at all
-     * outside a partial one.
-     */
-    const pxAll = sortedPL.reduce((s, pl) => s + (pl.px ?? 0), 0);
-    const axial = ef.distributedLoadsX ?? [];
-    const qxAll = axial.reduce((s, d) => s + axialLoadUpTo(d, ef.length), 0);
-    let value = ef.nStart + t * (ef.nEnd + pxAll + qxAll - ef.nStart);
-    for (const pl of sortedPL) {
-      if (pl.px && pl.a < xi - 1e-10) {
-        value -= pl.px;
-      }
-    }
-    for (const d of axial) value -= axialLoadUpTo(d, xi);
-    return value;
-  }
+export function computeDiagramValueAt(kind: PlanarKind, t: number, ef: PlanarForces): number {
+  return planarCurve(kind, ef).value({ t });
 }
 
 type PlanarRecoveryRequest = {

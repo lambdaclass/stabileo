@@ -12751,6 +12751,8 @@ const fr: Translations = {
   'figures.axial': 'Effort normal N',
   'figures.deformed': 'Déformée',
   'figures.magnitudes': 'valeurs absolues, sans signe',
+  'solver.diagramExtremaUnavailable': 'Impossible de déterminer les extrema du diagramme de la barre.',
+  'figures.diagramMagnitudeBound': 'Borne supérieure de la valeur absolue',
   'exportResults.withError': 'Le modèle n\'a pas pu être calculé : le classeur ne contient aucun résultat, et sa feuille Résumé explique pourquoi.',
   'exportResults.withErrorCsv': 'Le modèle n\'a pas pu être calculé : le CSV ne contient aucun résultat, et son en-tête explique pourquoi.',
   'excel.resultsBlocked': 'Aucun résultat : corrigez l\'erreur décrite dans la feuille Résumé et exportez de nouveau.',

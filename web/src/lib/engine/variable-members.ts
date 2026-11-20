@@ -405,6 +405,7 @@ function parentForces(m: VariableMember, byId: Map<number, ElementForces3D>, dis
     distributedLoadsY: along((f) => f.distributedLoadsY),
     distributedLoadsZ: along((f) => f.distributedLoadsZ),
     ...xLoads,
+    pointLoadsX: m.pieces.flatMap((p, k) => shift(fs[k]!.pointLoadsX, p.x0)),
     pointLoadsY: m.pieces.flatMap((p, k) => shift(fs[k]!.pointLoadsY, p.x0)),
     pointLoadsZ: m.pieces.flatMap((p, k) => shift(fs[k]!.pointLoadsZ, p.x0)),
     pieces,

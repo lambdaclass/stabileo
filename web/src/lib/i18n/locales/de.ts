@@ -12751,6 +12751,8 @@ const de: Translations = {
   'figures.axial': 'Normalkraft N',
   'figures.deformed': 'Verformungsfigur',
   'figures.magnitudes': 'Beträge ohne Vorzeichen',
+  'solver.diagramExtremaUnavailable': 'Die Extremwerte des Stabdiagramms konnten nicht bestimmt werden.',
+  'figures.diagramMagnitudeBound': 'Obere Schranke für den Betrag',
   'exportResults.withError': 'Das Modell konnte nicht berechnet werden: Die Arbeitsmappe enthält keine Ergebnisse, und ihr Blatt Übersicht erklärt den Grund.',
   'exportResults.withErrorCsv': 'Das Modell konnte nicht berechnet werden: Die CSV-Datei enthält keine Ergebnisse, und ihr Kopf erklärt den Grund.',
   'excel.resultsBlocked': 'Keine Ergebnisse: Beheben Sie den im Blatt Übersicht beschriebenen Fehler und exportieren Sie erneut.',

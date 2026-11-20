@@ -13284,6 +13284,8 @@ const en: Record<string, string> = {
   'figures.axial': 'Axial force N',
   'figures.deformed': 'Deformed shape',
   'figures.magnitudes': 'magnitudes without a sign',
+  'solver.diagramExtremaUnavailable': 'Cannot determine the member diagram extrema.',
+  'figures.diagramMagnitudeBound': 'Upper bound on magnitude',
   'exportResults.withError': 'The model could not be solved: the workbook has no results, and its Summary sheet explains why.',
   'exportResults.withErrorCsv': 'The model could not be solved: the CSV has no results, and its header explains why.',
   'excel.resultsBlocked': 'No results: fix the error described in the Summary sheet and export again.',

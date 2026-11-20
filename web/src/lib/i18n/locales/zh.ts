@@ -12844,6 +12844,8 @@ const zh: Translations = {
   "figures.axial": "轴力 N",
   "figures.deformed": "变形图",
   "figures.magnitudes": "无符号的量值",
+  'solver.diagramExtremaUnavailable': '无法确定杆件内力图的极值。',
+  'figures.diagramMagnitudeBound': '量值上界',
   "exportResults.withError": "模型无法求解：工作簿中没有结果，原因见其 Summary 工作表。",
   "exportResults.withErrorCsv": "模型无法求解：CSV 中没有结果，原因见其表头。",
   "excel.resultsBlocked": "无结果：请修正 Summary 工作表中描述的错误后重新导出。",

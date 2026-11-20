@@ -13273,6 +13273,8 @@ const es: Record<string, string> = {
   'figures.axial': 'Esfuerzo normal N',
   'figures.deformed': 'Deformada',
   'figures.magnitudes': 'magnitudes sin signo',
+  'solver.diagramExtremaUnavailable': 'No se pueden determinar los extremos del diagrama de la barra.',
+  'figures.diagramMagnitudeBound': 'Cota superior de la magnitud',
   'exportResults.withError': 'El modelo no se pudo calcular: el Excel salió sin resultados y la hoja Resumen explica por qué.',
   'exportResults.withErrorCsv': 'El modelo no se pudo calcular: el CSV salió sin resultados y su encabezado explica por qué.',
   'excel.resultsBlocked': 'Sin resultados: resolvé el error descripto en la hoja Resumen y volvé a exportar.',

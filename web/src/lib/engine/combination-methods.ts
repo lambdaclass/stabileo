@@ -1,3 +1,4 @@
+import { fullSpanFallback } from './member-diagram';
 /**
  * What a combination bundle is made of, after the cases are solved:
  *
@@ -166,6 +167,7 @@ function scaledForces(ef: ElementForces3D, f: number): ElementForces3D {
     distributedLoadsY: q(ef.distributedLoadsY), distributedLoadsZ: q(ef.distributedLoadsZ),
     ...(ef.distributedLoadsX ? { distributedLoadsX: q(ef.distributedLoadsX) } : {}),
     pointLoadsY: p(ef.pointLoadsY), pointLoadsZ: p(ef.pointLoadsZ),
+    ...(ef.pointLoadsX ? { pointLoadsX: p(ef.pointLoadsX) } : {}),
     ...(ef.pieces ? { pieces: ef.pieces.map((pc): ResultPiece => ({
       ...pc, forces: scaledForces(pc.forces, f),
       ...(pc.dI ? { dI: scaledRow(pc.dI, f, NODE_KEEP) } : {}),
@@ -239,9 +241,11 @@ function summedForces(parts: ReadonlyArray<{ ef: ElementForces3D; f: number }>):
   });
   return {
     ...ends,
-    distributedLoadsY: scaled.flatMap((e) => e.distributedLoadsY), distributedLoadsZ: scaled.flatMap((e) => e.distributedLoadsZ),
+    distributedLoadsY: scaled.flatMap(e => fullSpanFallback(e.length, e.distributedLoadsY, e.qYI, e.qYJ)),
+    distributedLoadsZ: scaled.flatMap(e => fullSpanFallback(e.length, e.distributedLoadsZ, e.qZI, e.qZJ)),
     distributedLoadsX: scaled.flatMap((e) => e.distributedLoadsX ?? []),
     pointLoadsY: scaled.flatMap((e) => e.pointLoadsY), pointLoadsZ: scaled.flatMap((e) => e.pointLoadsZ),
+    pointLoadsX: scaled.flatMap(e => e.pointLoadsX ?? []),
     pieces, combined: undefined,
   };
 }

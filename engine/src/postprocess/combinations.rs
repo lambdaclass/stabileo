@@ -1,6 +1,7 @@
 use crate::types::*;
-use crate::postprocess::diagrams::{compute_diagram_value_at_sorted, diagram_peak_stations_2d, sorted_point_loads};
-use crate::postprocess::diagrams_3d::evaluate_diagram_3d_at;
+use super::diagram_extrema::{distributed_actions, sort_cuts, uniform_cuts};
+use super::diagrams::{diagram_critical_cuts_2d, evaluate_diagram_cut_2d, sorted_point_loads};
+use super::diagrams_3d::{diagram_critical_cuts_3d, evaluate_diagram_cut_3d};
 use num_rational::BigRational;
 use num_traits::{ToPrimitive, Zero};
 use serde::{Deserialize, Serialize};
@@ -478,7 +479,7 @@ pub(crate) fn combine_results_refs_checked(factors: &[CombinationFactor], cases:
             out.m_end += f * ef.m_end;
             out.q_i += f * ef.q_i;
             out.q_j += f * ef.q_j;
-            for dl in &ef.distributed_loads {
+            for dl in distributed_actions(ef.length, &ef.distributed_loads, ef.q_i, ef.q_j) {
                 out.distributed_loads.push(DistributedLoadInfo {
                     q_i: dl.q_i * f, q_j: dl.q_j * f, a: dl.a, b: dl.b,
                 });
@@ -620,20 +621,20 @@ pub fn compute_envelope(results: &[AnalysisResults]) -> Result<FullEnvelope, Str
                 .map(|res| sorted_point_loads(&res.element_forces[e_idx]))
                 .collect();
 
-            let mut stations: Vec<f64> = (0..N_POINTS).map(|j| j as f64 / (N_POINTS - 1) as f64).collect();
+            let mut stations: Vec<_> = uniform_cuts(N_POINTS).collect();
             for (res, spl) in results.iter().zip(&sorted_pls) {
-                stations.extend(diagram_peak_stations_2d(&res.element_forces[e_idx], kind, spl));
+                stations.extend(diagram_critical_cuts_2d(&res.element_forces[e_idx], kind, spl).map_err(|e| format!("Cannot compute the envelope: {e}"))?);
             }
-            stations.sort_by(|a, b| a.total_cmp(b));
-            stations.dedup_by(|b, a| (*b - *a).abs() <= 1e-12);
+            sort_cuts(&mut stations);
 
-            for t in stations {
+            for cut in stations {
+                let t = cut.t;
                 t_positions.push(t);
                 let mut max_pos = 0.0f64;
                 let mut max_neg = 0.0f64;
 
                 for (r_idx, res) in results.iter().enumerate() {
-                    let val = compute_diagram_value_at_sorted(kind, t, &res.element_forces[e_idx], &sorted_pls[r_idx]);
+                    let val = evaluate_diagram_cut_2d(kind, cut, &res.element_forces[e_idx], &sorted_pls[r_idx]);
                     if !val.is_finite() {
                         return Err(envelope_station_overflow(kind, elem_id, t, r_idx, val));
                     }
@@ -894,13 +895,13 @@ fn combine_resolved_results_3d(
             out.q_yj += f * ef.q_yj;
             out.q_zi += f * ef.q_zi;
             out.q_zj += f * ef.q_zj;
-            for dl in &ef.distributed_loads_y {
+            for dl in distributed_actions(ef.length, &ef.distributed_loads_y, ef.q_yi, ef.q_yj) {
                 out.distributed_loads_y.push(DistributedLoadInfo { q_i: dl.q_i * f, q_j: dl.q_j * f, a: dl.a, b: dl.b });
             }
             for dl in &ef.distributed_loads_x {
                 out.distributed_loads_x.push(DistributedLoadInfo { q_i: dl.q_i * f, q_j: dl.q_j * f, a: dl.a, b: dl.b });
             }
-            for dl in &ef.distributed_loads_z {
+            for dl in distributed_actions(ef.length, &ef.distributed_loads_z, ef.q_zi, ef.q_zj) {
                 out.distributed_loads_z.push(DistributedLoadInfo { q_i: dl.q_i * f, q_j: dl.q_j * f, a: dl.a, b: dl.b });
             }
             for pl in &ef.point_loads_x {
@@ -1041,14 +1042,19 @@ pub(crate) fn compute_envelope_3d_checked(results: &[AnalysisResults3D]) -> Resu
                 .map(|(r_idx, res)| (r_idx, &res.element_forces[e_idx]))
                 .collect();
 
-            for j in 0..N_POINTS {
-                let t = j as f64 / (N_POINTS - 1) as f64;
+            let mut stations: Vec<_> = uniform_cuts(N_POINTS).collect();
+            for &(_, ef) in &element_cases {
+                stations.extend(diagram_critical_cuts_3d(ef, kind).map_err(|e| format!("Cannot compute the envelope: {e}"))?);
+            }
+            sort_cuts(&mut stations);
+            for cut in stations {
+                let t = cut.t;
                 t_positions.push(t);
                 let mut max_pos = 0.0f64;
                 let mut max_neg = 0.0f64;
 
                 for &(r_idx, ef) in &element_cases {
-                    let val = evaluate_diagram_3d_at(ef, kind, t);
+                    let val = evaluate_diagram_cut_3d(ef, kind, cut);
                     if !val.is_finite() {
                         return Err(envelope_station_overflow(kind, elem_id, t, r_idx, val));
                     }

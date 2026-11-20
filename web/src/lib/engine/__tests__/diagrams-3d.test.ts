@@ -13,7 +13,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { computeDiagram3D, computeGlobalMax3D, evaluateDiagramAt, type Diagram3DKind } from '../diagrams-3d';
-import { computeDiagrams3D, computeEnvelope3D, solve3D } from '../wasm-solver';
+import { computeDiagramValueAt3DWasm, computeDiagrams3D, computeEnvelope3D, extractBeamStations3D, solve3D, solvePDelta3D } from '../wasm-solver';
 import type {
   SolverInput3D, SolverNode3D, SolverSection3D, SolverElement3D,
   SolverSupport3D, AnalysisResults3D, ElementForces3D,
@@ -414,24 +414,30 @@ describe('formatDiagramValue3D: the sign a label shows', () => {
   });
 });
 
-const issue2226 = process.env.RUN_KNOWN_WRONG === '2226' ? it : it.skip;
-issue2226('known wrong result: #2226 spatial shear jumps immediately after a concentrated force', () => {
+it('#2226 spatial shear jumps immediately after a concentrated force', () => {
   const length = 3;
-  const station = 1.5;
   const force = 1;
-  const result = solve3D(buildInput(
-    [{ id: 1, x: 0, y: 0, z: 0 }, { id: 2, x: length, y: 0, z: 0 }],
-    [frameElement(1, 1, 2)], [fixedSupport(1)],
-    [{ type: 'pointOnElement', data: { elementId: 1, a: station, py: 0, pz: force } }],
-  ));
-  assertSuccess(result);
-  const endForces = getEF(result, 1);
-  expect(evaluateDiagramAt(endForces, 'shearZ', station / length)).toBeCloseTo(-force, 12);
-  expect(evaluateDiagramAt(endForces, 'shearZ', (station + 5e-11) / length)).toBeCloseTo(0, 12);
+  for (const station of [1.5, length - 5e-11]) {
+    const input = buildInput(
+      [{ id: 1, x: 0, y: 0, z: 0 }, { id: 2, x: length, y: 0, z: 0 }],
+      [frameElement(1, 1, 2)], [fixedSupport(1)],
+      [{ type: 'pointOnElement', data: { elementId: 1, a: station, py: 0, pz: force } }],
+    );
+    const nonlinear = solvePDelta3D(input, 20, 1e-10);
+    expect(nonlinear.converged).toBe(true);
+    for (const result of [solve3D(input), nonlinear.results as AnalysisResults3D]) {
+      assertSuccess(result);
+      const endForces = getEF(result, 1);
+      for (const x of [station - 5e-11, station, station + 5e-11]) {
+        const want = x > station ? 0 : -force;
+        expect.soft(evaluateDiagramAt(endForces, 'shearZ', x / length)).toBeCloseTo(want, 12);
+        expect.soft(computeDiagramValueAt3DWasm('shearZ', x / length, endForces)).toBeCloseTo(want, 12);
+      }
+    }
+  }
 });
 
-const issue2250 = process.env.RUN_KNOWN_WRONG === '2250' ? it : it.skip;
-issue2250('known wrong result: #2250 spatial diagrams and envelopes include the peak inside a partial load', () => {
+it('#2250 spatial diagrams and envelopes include the peak inside a partial load', () => {
   const length = 100;
   const a = 1;
   const b = 2;
@@ -440,11 +446,19 @@ issue2250('known wrong result: #2250 spatial diagrams and envelopes include the 
     [frameElement(1, 1, 2)], [fixedSupport(1)],
     [{ type: 'distributed', data: { elementId: 1, a, b, qYI: 0, qYJ: 0, qZI: 1, qZJ: -1 } }],
   );
-  const result = solve3D(input);
-  assertSuccess(result);
-  const endForces = getEF(result, 1);
+  const nonlinear = solvePDelta3D(input, 20, 1e-10);
+  expect(nonlinear.converged).toBe(true);
   const expected = (b - a) / 4;
-  expect.soft(computeDiagram3D(endForces, 'shearZ').maxAbsValue).toBeCloseTo(expected, 12);
-  expect.soft(computeDiagrams3D(input, result)?.shearZ[0].maxAbsValue).toBeCloseTo(expected, 12);
-  expect.soft(computeEnvelope3D([result])?.shearZ.globalMax).toBeCloseTo(expected, 12);
+  for (const result of [solve3D(input), nonlinear.results as AnalysisResults3D]) {
+    assertSuccess(result);
+    const endForces = getEF(result, 1);
+    expect.soft(computeDiagram3D(endForces, 'shearZ').maxAbsValue).toBeCloseTo(expected, 12);
+    expect.soft(computeDiagrams3D(input, result)?.shearZ[0].maxAbsValue).toBeCloseTo(expected, 12);
+    expect.soft(computeEnvelope3D([result])?.shearZ.globalMax).toBeCloseTo(expected, 12);
+    const stations = extractBeamStations3D({
+      members: [{ elementId: 1, length, sectionId: 1, materialId: 1 }],
+      combinations: [{ comboId: 1, results: result }],
+    });
+    expect.soft(Math.max(...stations.stations.map(s => Math.abs(s.comboForces[0]!.vz)))).toBeCloseTo(expected, 12);
+  }
 });

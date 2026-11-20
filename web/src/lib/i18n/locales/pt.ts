@@ -12926,6 +12926,8 @@ const pt: Translations = {
   'figures.axial': 'Esforço normal N',
   'figures.deformed': 'Deformada',
   'figures.magnitudes': 'magnitudes sem sinal',
+  'solver.diagramExtremaUnavailable': 'Não foi possível determinar os extremos do diagrama da barra.',
+  'figures.diagramMagnitudeBound': 'Limite superior da magnitude',
   'exportResults.withError': 'O modelo não pôde ser calculado: o Excel saiu sem resultados e a planilha Resumo explica o motivo.',
   'exportResults.withErrorCsv': 'O modelo não pôde ser calculado: o CSV saiu sem resultados e o cabeçalho explica o motivo.',
   'excel.resultsBlocked': 'Sem resultados: resolva o erro descrito na planilha Resumo e exporte de novo.',

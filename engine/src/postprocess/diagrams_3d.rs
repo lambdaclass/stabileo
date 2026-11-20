@@ -1,6 +1,6 @@
 use crate::types::*;
 use serde::{Deserialize, Serialize};
-use super::diagrams::build_sampling_positions;
+use super::diagram_extrema::{distributed_actions, Curve, Cut, PointAction, Response};
 
 // ==================== Types ====================
 
@@ -32,18 +32,16 @@ pub struct DiagramResults3D {
     pub torsion: Vec<ElementDiagram3D>,
 }
 
-/// The stations (t ∈ [0, 1]) at which `compute_diagrams_3d` samples diagram
-/// `kind` of one member: a regular grid of 21, plus the position and ±1e-6
-/// neighbours of each point load acting in that diagram's plane.
 pub fn diagram_positions_3d(ef: &ElementForces3D, kind: &str) -> Vec<f64> {
     if let Err(error) = validate_diagram_loads_3d(ef) { panic!("{error}"); }
-    let relevant_pl: &[PointLoadInfo3D] = match kind {
-        "momentZ" | "shearY" => &ef.point_loads_y,
-        "momentY" | "shearZ" => &ef.point_loads_z,
-        "axial" => &ef.point_loads_x,
-        _ => &[],
-    };
-    build_sampling_positions(ef.length, relevant_pl.iter().map(|p| p.a))
+    let mut positions: Vec<_> = spatial_curve(ef, kind).diagram_cuts(21).unwrap_or_else(|error| panic!("{error}")).into_iter().map(|cut| cut.t).collect();
+    positions.dedup();
+    positions
+}
+
+pub(crate) fn diagram_critical_cuts_3d(ef: &ElementForces3D, kind: &str) -> Result<Vec<Cut>, String> {
+    validate_diagram_loads_3d(ef)?;
+    spatial_curve(ef, kind).critical_cuts().map_err(|e| format!("Element {} {kind}: {e}", ef.element_id))
 }
 
 // ==================== Evaluate at t ====================
@@ -66,71 +64,46 @@ pub fn evaluate_diagram_3d_at(
     kind: &str,
     t: f64,
 ) -> f64 {
-    if let Err(error) = validate_diagram_loads_3d(ef) { panic!("{error}"); }
-    let l = ef.length;
-    let x = t * l;
+    evaluate_diagram_cut_3d(ef, kind, Cut::left(t))
+}
 
-    match kind {
-        "momentZ" => {
-            let mut value = ef.mz_start - ef.vy_start * x;
-            for dl in &ef.distributed_loads_y {
-                value -= crate::element::distributed_load_terms(dl.q_i, dl.q_j, dl.a, dl.b, x).1;
-            }
-            for pl in &ef.point_loads_y {
-                if pl.a < x - 1e-10 {
-                    value -= pl.p * (x - pl.a);
-                }
-            }
-            value
-        }
-        "momentY" => {
-            let mut value = ef.my_start + ef.vz_start * x;
-            for dl in &ef.distributed_loads_z {
-                value += crate::element::distributed_load_terms(dl.q_i, dl.q_j, dl.a, dl.b, x).1;
-            }
-            for pl in &ef.point_loads_z {
-                if pl.a < x - 1e-10 {
-                    value += pl.p * (x - pl.a);
-                }
-            }
-            value
-        }
-        "shearY" => {
-            let mut value = ef.vy_start;
-            for dl in &ef.distributed_loads_y {
-                value += crate::element::distributed_load_terms(dl.q_i, dl.q_j, dl.a, dl.b, x).0;
-            }
-            for pl in &ef.point_loads_y {
-                if pl.a < x - 1e-10 { value += pl.p; }
-            }
-            value
-        }
-        "shearZ" => {
-            let mut value = ef.vz_start;
-            for dl in &ef.distributed_loads_z {
-                value += crate::element::distributed_load_terms(dl.q_i, dl.q_j, dl.a, dl.b, x).0;
-            }
-            for pl in &ef.point_loads_z {
-                if pl.a < x - 1e-10 { value += pl.p; }
-            }
-            value
-        }
+pub(crate) fn evaluate_diagram_cut_3d(ef: &ElementForces3D, kind: &str, cut: Cut) -> f64 {
+    if let Err(error) = validate_diagram_loads_3d(ef) { panic!("{error}"); }
+    spatial_curve(ef, kind).value(cut)
+}
+
+fn spatial_curve<'a>(
+    ef: &'a ElementForces3D, kind: &str,
+) -> Curve<impl Iterator<Item = DistributedLoadInfo> + Clone + 'a, impl Iterator<Item = PointAction> + Clone + 'a> {
+    let (start, slope, change, response, loads, qi, qj, points) = match kind {
+        "momentZ" => (ef.mz_start, -ef.vy_start, 0.0, Response::Moment(-1.0),
+            ef.distributed_loads_y.as_slice(), ef.q_yi, ef.q_yj, ef.point_loads_y.as_slice()),
+        "momentY" => (ef.my_start, ef.vz_start, 0.0, Response::Moment(1.0),
+            ef.distributed_loads_z.as_slice(), ef.q_zi, ef.q_zj, ef.point_loads_z.as_slice()),
+        "shearY" => (ef.vy_start, 0.0, 0.0, Response::Force(1.0),
+            ef.distributed_loads_y.as_slice(), ef.q_yi, ef.q_yj, ef.point_loads_y.as_slice()),
+        "shearZ" => (ef.vz_start, 0.0, 0.0, Response::Force(1.0),
+            ef.distributed_loads_z.as_slice(), ef.q_zi, ef.q_zj, ef.point_loads_z.as_slice()),
         "axial" => {
-            if ef.distributed_loads_x.is_empty() && ef.point_loads_x.is_empty() { return ef.n_start + t * (ef.n_end - ef.n_start); }
-            let mut value = ef.n_start;
-            for dl in &ef.distributed_loads_x {
-                let span = dl.b - dl.a;
-                if span <= 0.0 { continue; }
-                let s = (x - dl.a).clamp(0.0, span);
-                value -= dl.q_i * s + (dl.q_j - dl.q_i) * s * s / (2.0 * span);
-            }
-            for pl in &ef.point_loads_x {
-                if pl.a < x - 1e-10 { value -= pl.p; }
-            }
-            value
-        },
-        "torsion" => ef.mx_start + t * (ef.mx_end - ef.mx_start),
-        _ => 0.0,
+            let change = match (ef.distributed_loads_x.is_empty(), ef.point_loads_x.is_empty()) {
+                (true, true) => ef.n_end - ef.n_start,
+                _ => 0.0,
+            };
+            (ef.n_start, 0.0, change, Response::Force(-1.0), ef.distributed_loads_x.as_slice(), 0.0, 0.0, ef.point_loads_x.as_slice())
+        }
+        "torsion" => (ef.mx_start, 0.0, ef.mx_end - ef.mx_start, Response::Force(1.0), &[][..], 0.0, 0.0, &[][..]),
+        _ => (0.0, 0.0, 0.0, Response::Force(1.0), &[][..], 0.0, 0.0, &[][..]),
+    };
+    Curve {
+        length: ef.length, start, change, slope, response,
+        distributed: distributed_actions(ef.length, loads, qi, qj),
+        points: points.iter().filter(|p| p.p != 0.0).map(move |p| {
+            let (jump, slope) = match response {
+                Response::Force(sign) => (sign * p.p, 0.0),
+                Response::Moment(sign) => (0.0, sign * p.p),
+            };
+            PointAction { a: p.a, jump, slope }
+        }),
     }
 }
 
@@ -139,16 +112,22 @@ pub fn evaluate_diagram_3d_at(
 fn compute_single_diagram_3d(
     ef: &ElementForces3D,
     kind: &str,
-) -> ElementDiagram3D {
-    let positions = diagram_positions_3d(ef, kind);
+) -> Result<ElementDiagram3D, String> {
+    validate_diagram_loads_3d(ef)?;
+    let curve = spatial_curve(ef, kind);
 
     let mut points = Vec::new();
     let mut max_val = f64::NEG_INFINITY;
     let mut min_val = f64::INFINITY;
     let mut max_abs_value: f64 = 0.0;
 
-    for &t in &positions {
-        let value = evaluate_diagram_3d_at(ef, kind, t);
+    let cuts = curve.diagram_cuts(21).map_err(|e| format!("Element {} {kind}: {e}", ef.element_id))?;
+    for cut in cuts {
+        let t = cut.t;
+        let value = curve.value(cut);
+        if !value.is_finite() {
+            return Err(format!("Element {} {kind}: non-finite diagram at t={t}", ef.element_id));
+        }
         points.push(DiagramPoint3D { t, value });
         if value > max_val { max_val = value; }
         if value < min_val { min_val = value; }
@@ -157,17 +136,21 @@ fn compute_single_diagram_3d(
         }
     }
 
-    ElementDiagram3D {
+    Ok(ElementDiagram3D {
         element_id: ef.element_id,
         points,
         max_value: max_val,
         min_value: min_val,
         max_abs_value,
-    }
+    })
 }
 
 /// Compute all 3D diagrams for all elements.
 pub fn compute_diagrams_3d(results: &AnalysisResults3D) -> DiagramResults3D {
+    try_compute_diagrams_3d(results).unwrap_or_else(|error| panic!("{error}"))
+}
+
+pub(crate) fn try_compute_diagrams_3d(results: &AnalysisResults3D) -> Result<DiagramResults3D, String> {
     let kinds = ["momentY", "momentZ", "shearY", "shearZ", "axial", "torsion"];
     // Iterate elements outermost so each element's forces stay in cache across
     // all six kinds, instead of six separate passes over the whole vector.
@@ -175,18 +158,18 @@ pub fn compute_diagrams_3d(results: &AnalysisResults3D) -> DiagramResults3D {
         kinds.iter().map(|_| Vec::with_capacity(results.element_forces.len())).collect();
     for ef in &results.element_forces {
         for (k, kind) in kinds.iter().enumerate() {
-            all[k].push(compute_single_diagram_3d(ef, kind));
+            all[k].push(compute_single_diagram_3d(ef, kind)?);
         }
     }
 
-    DiagramResults3D {
+    Ok(DiagramResults3D {
         moment_y: all.remove(0),
         moment_z: all.remove(0),
         shear_y: all.remove(0),
         shear_z: all.remove(0),
         axial: all.remove(0),
         torsion: all.remove(0),
-    }
+    })
 }
 
 pub fn validate_diagram_loads_3d(ef: &ElementForces3D) -> Result<(), String> {

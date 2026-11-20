@@ -1,3 +1,6 @@
+import { criticalDiagramStations3D } from './diagrams-3d';
+import { extractForcesAtStation } from './station-forces';
+import type { DiagramStation } from './member-diagram';
 import { ConcurrentDemand } from './concurrent-demand';
 import { CompleteDemandSet, IncompleteConcurrentDemandError, requireDemandInventories, demandCoverage, memberDemandScope, type DemandCoverage } from './complete-demand-set';
 import { completeResultDemands } from './result-demand-gate';
@@ -110,16 +113,17 @@ function computeStationDemandsWasm(
 ): StationDemandData {
   const numStations = 11;
   const requestedStationTs = Array.from({ length: numStations }, (_, i) => i / (numStations - 1));
-  const loading = new Map([...perCombo3D].map(([id, r]) => [id, new Map(r.elementForces.map(ef => [ef.elementId, ConcurrentDemand.loadingOf(ef)]))]));
+  const forcesByCombo = new Map([...perCombo3D].map(([id, r]) => [id, new Map(r.elementForces.map(ef => [ef.elementId, ef]))]));
   const withLoading = (esr: ElementStationResult): ElementStationResult => {
     const byCombo = new Map<number, ElementStationResult['comboResults'][number]>();
     for (const c of esr.comboResults) if (!byCombo.has(c.comboId)) byCombo.set(c.comboId, c);
     return { ...esr, stationTs: [...new Set([...requestedStationTs, ...esr.stationTs])],
       expectedCombinationIds: Object.freeze(combinations.map(c => c.id)), comboResults: combinations.map(({ id: comboId, name }) => {
       const c = byCombo.get(comboId);
-      const transverseLoading = loading.get(comboId)?.get(esr.elementId);
-      return { comboId, comboName: c?.comboName ?? name ?? `Combo ${comboId}`,
-        stations: transverseLoading ? c?.stations ?? [] : [], transverseLoading };
+      const ef = forcesByCombo.get(comboId)?.get(esr.elementId);
+      const transverseLoading = ef && ConcurrentDemand.loadingOf(ef);
+      const stations = ef && c ? stationsWithExtrema(ef, c.stations) : [];
+      return { comboId, comboName: c?.comboName ?? name ?? `Combo ${comboId}`, stations, transverseLoading };
     }) };
   };
   // Build member list from model
@@ -193,6 +197,14 @@ function computeStationDemandsWasm(
   }
 
   return complete({ demands, stations: stationMap });
+}
+
+function stationsWithExtrema(ef: AnalysisResults3D['elementForces'][number], grid: StationForces[]): StationForces[] {
+  const at = (cut: DiagramStation) => ({ ...extractForcesAtStation(ef, cut), x: cut.t * ef.length });
+  const represented = new Set(grid.map(s => s.t));
+  const cuts = criticalDiagramStations3D(ef).filter(cut => cut.right || !represented.has(cut.t));
+  const base = ef.pieces?.length || ef.combined ? grid.map(({ t }) => at({ t })) : grid;
+  return [...base, ...cuts.map(at)].sort((a, b) => a.t - b.t);
 }
 
 /** Adapt one WASM MemberStationGroup3D → app-side ElementStationResult. */

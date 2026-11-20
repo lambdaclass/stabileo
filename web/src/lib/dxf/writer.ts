@@ -414,7 +414,9 @@ export function writeDxf(model: DxfModel, opts: DxfWriteOptions, tr: (key: strin
           if (Math.abs(dg.maxAbsValue) > 0.02 * gmax) {
             const at = dg.points.find((p) => p.value === dg.maxAbsValue) ?? dg.points[0]!;
             // A moment is printed in the screen's sign; an SRSS or ABS magnitude has none to flip.
-            text(L, tip(at.t, at.value), fmt(isMoment && !r3d.magnitude ? -dg.maxAbsValue : dg.maxAbsValue));
+            const bounded = dg.extrema === 'bounded';
+            const value = fmt(isMoment && !r3d.magnitude && !bounded ? -dg.maxAbsValue : dg.maxAbsValue);
+            text(L, tip(at.t, at.value), bounded ? `${tr('figures.diagramMagnitudeBound')} ${value}` : value);
           }
         }
       }

@@ -12393,6 +12393,8 @@ const hu: Translations = {
   "figures.axial": "Normálerő N",
   "figures.deformed": "Deformált alak",
   "figures.magnitudes": "nagyságok előjel nélkül",
+  'solver.diagramExtremaUnavailable': 'A rúdábra szélsőértékei nem határozhatók meg.',
+  'figures.diagramMagnitudeBound': 'A nagyság felső korlátja',
   "exportResults.withError": "A modellt nem sikerült megoldani: a munkafüzetben nincsenek eredmények, és az Összegzés lapja megmagyarázza, miért.",
   "exportResults.withErrorCsv": "A modellt nem sikerült megoldani: a CSV-ben nincsenek eredmények, és a fejléce megmagyarázza, miért.",
   "excel.resultsBlocked": "Nincsenek eredmények: javítsa ki az Összegzés lapon leírt hibát, és exportáljon újra.",

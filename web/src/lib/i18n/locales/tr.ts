@@ -12760,6 +12760,8 @@ const tr: Translations = {
   'figures.axial': 'Eksenel kuvvet N',
   'figures.deformed': 'Şekil değiştirmiş durum',
   'figures.magnitudes': 'işaretsiz büyüklükler',
+  'solver.diagramExtremaUnavailable': 'Eleman diyagramının uç değerleri belirlenemedi.',
+  'figures.diagramMagnitudeBound': 'Büyüklük için üst sınır',
   'exportResults.withError': 'Model çözülemedi: çalışma kitabında sonuç yok; nedenini Özet sayfası açıklıyor.',
   'exportResults.withErrorCsv': 'Model çözülemedi: CSV\'de sonuç yok; nedenini başlığı açıklıyor.',
   'excel.resultsBlocked': 'Sonuç yok: Özet sayfasında açıklanan hatayı düzeltip yeniden dışa aktarın.',

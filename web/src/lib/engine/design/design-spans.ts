@@ -1,3 +1,4 @@
+import { tp } from '../../i18n';
 import { completeMemberDemands } from '../member-demand-gate';
 import { ConcurrentDemand } from '../concurrent-demand';
 /**
@@ -37,12 +38,13 @@ import {
   computeBeamCriticalSections, extractGoverningDemands,
   type ElementStationResult, type StationForces,
 } from '../station-design-forces';
-import { resolveDesignAxes, uprightBeam } from './design-axes';
+import { resolveDesignAxes } from './design-axes';
 import { declaredContextMembers, type ContextModelData, type MemberContext } from './member-context';
 import type { LimitingConstraint } from './outcome';
 import { spanLateralReading } from '../../model/lateral-system';
 
 type Vec = [number, number, number];
+type SpanAxesModel = Pick<SpanSourceModel, 'nodes' | 'elements' | 'sections'>;
 
 /** The model slice the spans are read from. */
 export interface SpanSourceModel extends Omit<SpanModel, 'nodes' | 'elements'> {
@@ -110,11 +112,10 @@ export function designSpans(
   const out: DesignSpan[] = [];
   for (const span of new Set(all.values())) {
     if (span.elements.length < 2 || !span.elements.every(isBeam)) continue;
-    // Cut where the section, the material, the roll or the physical member changes.
     const sameAs = (a: number, b: number) => {
       const p = model.elements.get(a)!, q = model.elements.get(b)!;
       return p.sectionId === q.sectionId && p.materialId === q.materialId
-        && memberRoll(p, model.sections) === memberRoll(q, model.sections) && groupOf(a) === groupOf(b);
+        && groupOf(a) === groupOf(b);
     };
     let run: number[] = [];
     const flush = () => {
@@ -158,7 +159,7 @@ function laid(model: SpanSourceModel, ids: number[], rev: boolean[], run: number
 const dot = (a: Vec, b: Vec) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 
 /** An element's local axes, as the solve reads them. */
-function axesOf(model: SpanSourceModel, id: number): LocalAxes3D {
+function axesOf(model: SpanAxesModel, id: number): LocalAxes3D {
   const e = model.elements.get(id)!;
   const a = model.nodes.get(e.nodeI)!, b = model.nodes.get(e.nodeJ)!;
   const localY = e.localYx !== undefined && e.localYy !== undefined && e.localYz !== undefined
@@ -166,15 +167,21 @@ function axesOf(model: SpanSourceModel, id: number): LocalAxes3D {
   return computeLocalAxes3D({ id: a.id, ...P(a) }, { id: b.id, ...P(b) }, localY, memberRoll(e, model.sections));
 }
 
-/**
- * The span's local axes: a piece that runs along it lends its own; when every piece runs against
- * it, the first one's turned end for end (x and z reversed, y kept: `flip-members.ts`).
- */
-function spanAxes(model: SpanSourceModel, span: DesignSpan): { ex: Vec; ey: Vec; ez: Vec } {
-  const k = span.reversed.findIndex((r) => !r);
-  const ax = axesOf(model, span.elements[Math.max(0, k)]!);
-  if (k >= 0) return ax;
-  return { ex: ax.ex.map((v) => -v) as Vec, ey: ax.ey, ez: ax.ez.map((v) => -v) as Vec };
+function chordAxes(model: SpanAxesModel, start: number, end: number, sectionUp?: Vec): LocalAxes3D {
+  const i = { id: start, ...P(model.nodes.get(start)!) };
+  const j = { id: end, ...P(model.nodes.get(end)!) };
+  const base = computeLocalAxes3D(i, j);
+  if (!sectionUp) return base;
+  const upProjection = dot(sectionUp, base.ez);
+  const sign = (Math.abs(upProjection) > 1e-10 ? upProjection : dot(sectionUp, base.ey)) < 0 ? -1 : 1;
+  const [x, y, z] = base.ex;
+  const [u, v, w] = sectionUp;
+  return computeLocalAxes3D(i, j, { x: sign * (v * z - w * y), y: sign * (w * x - u * z), z: sign * (u * y - v * x) });
+}
+
+function spanAxes(model: SpanAxesModel, span: DesignSpan): LocalAxes3D | null {
+  const ref = chordAxes(model, span.start, span.end, axesOf(model, span.elements[0]!).ez);
+  return span.elements.every(id => Math.abs(dot(axesOf(model, id).ez, ref.ez)) > 1 - 1e-10) ? ref : null;
 }
 
 /**
@@ -192,6 +199,7 @@ export function mergeSpanStations(
   stationsOf: (id: number) => ElementStationResult | undefined,
 ): ElementStationResult | null {
   const ref = spanAxes(model, span);
+  if (!ref) return null;
   const byCombo = new Map<number, { comboId: number; comboName: string; stations: StationForces[] }>();
   for (const [k, id] of span.elements.entries()) {
     const st = stationsOf(id);
@@ -213,7 +221,8 @@ export function mergeSpanStations(
     }
   }
   const comboResults = [...byCombo.values()].map((c) => ({ ...c, stations: c.stations.sort((a, b) => a.t - b.t) }));
-  const stationTs = [...new Set(comboResults[0]?.stations.map((s) => s.t) ?? [])];
+  const scopes = comboResults.map(c => new Set(c.stations.map(s => s.t)));
+  const stationTs = [...(scopes[0] ?? [])].filter(t => scopes.every(scope => scope.has(t)));
   return { elementId: span.representative, length: span.length, stationTs, comboResults };
 }
 
@@ -226,14 +235,19 @@ export function mergeSpanStations(
  * function only looks at the member and at what meets its two end nodes, so those are what the
  * slice holds.
  */
-export function spanModelData(model: ContextModelData, span: DesignSpan): ContextModelData {
+export function spanModelData(model: ContextModelData, span: DesignSpan, source: SpanAxesModel = model): ContextModelData {
+  const ref = spanAxes(source, span);
+  if (!ref) throw new Error(tp('design.reason.orientationSuspect', { elementId: span.representative }));
+  const [localYx, localYy, localYz] = ref.ey;
   const elements = new Map<number, ContextModelData['elements'] extends Map<number, infer E> ? E : never>();
   for (const e of model.elements.values()) {
     if (e.nodeI === span.start || e.nodeJ === span.start || e.nodeI === span.end || e.nodeJ === span.end) elements.set(e.id, e);
   }
   for (const id of span.elements) {
     const e = model.elements.get(id)!;
-    elements.set(id, { ...e, nodeI: span.start, nodeJ: span.end });
+    const rollAngle = -(source.sections?.get(e.sectionId)?.rotation ?? 0);
+    const chord = { ...e, nodeI: span.start, nodeJ: span.end, localYx, localYy, localYz, rollAngle };
+    elements.set(id, chord);
   }
   return { ...model, elements };
 }
@@ -259,11 +273,20 @@ export function applySpanContexts(
   for (const span of spans) {
     const pieces = span.elements.map((id) => contexts.get(id));
     if (pieces.some((c) => !c || c.elementType !== 'beam' || !c.stations)) continue;
+    const ref = spanAxes(model, span);
+    if (!ref) {
+      for (const c of pieces) {
+        if (!c) continue;
+        contexts.set(c.elementId, { ...c, orientationSuspect: true,
+          blocking: [...new Set<LimitingConstraint>([...c.blocking, 'memberOrientationSuspect'])] });
+      }
+      continue;
+    }
     const rep = contexts.get(span.representative)!;
     const merged = mergeSpanStations(model, span, (id) => contexts.get(id)?.stations);
     if (!merged) continue;
     const demands = extractGoverningDemands(merged);
-    const modelData = spanModelData(rep.modelData, span);
+    const modelData = spanModelData(rep.modelData, span, model);
     const criticalSections = computeBeamCriticalSections(
       span.representative, modelData.nodes, modelData.elements, modelData.sections, modelData.supports,
       { b: rep.section.b, h: rep.section.h, cover: rep.material.cover, stirrupDia: rep.material.stirrupDia },
@@ -279,7 +302,7 @@ export function applySpanContexts(
       demands,
       criticalSections,
       // As `buildMemberContext` reads a piece: the slab takes the in-plane axis of an upright beam with one.
-      axes: resolveDesignAxes('beam', { b: rep.section.b, h: rep.section.h }, demands, { slab: (!!rep.flange || pieces.some((c) => c!.inSlabPlane)) && uprightBeam(rep.modelData.elements.get(span.representative) as { rollAngle?: number } | undefined) }),
+      axes: resolveDesignAxes('beam', { b: rep.section.b, h: rep.section.h }, demands, { slab: (!!rep.flange || pieces.some((c) => c!.inSlabPlane)) && dot(ref.ez, chordAxes(model, span.start, span.end).ez) > Math.cos(5 * Math.PI / 180) }),
       orientationSuspect: pieces.some((c) => c!.orientationSuspect),
       blocking,
       modelData,

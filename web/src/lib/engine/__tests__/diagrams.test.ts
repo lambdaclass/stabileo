@@ -15,6 +15,8 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import { computeDiagramValueAtWasm, computeDiagrams2D, computeEnvelope, extractBeamStations, solve, solvePDelta } from '../wasm-solver';
+import type { AnalysisResults, SolverInput } from '../types';
 import {
   computeElementDiagram,
   computeMomentDiagram,
@@ -379,8 +381,7 @@ describe('a point couple on a member', () => {
   });
 });
 
-const issue2226 = process.env.RUN_KNOWN_WRONG === '2226' ? it : it.skip;
-issue2226('known wrong result: #2226 planar shear and moment jump immediately after a concentrated action', () => {
+it('#2226 planar shear and moment jump immediately after a concentrated action', () => {
   const length = 3;
   const station = 1.5;
   const force = 1;
@@ -397,8 +398,7 @@ issue2226('known wrong result: #2226 planar shear and moment jump immediately af
   expect.soft(computeDiagramValueAt('moment', justAfter, endForces)).toBeCloseTo(0, 12);
 });
 
-const issue2250 = process.env.RUN_KNOWN_WRONG === '2250' ? it : it.skip;
-issue2250('known wrong result: #2250 planar shear diagram includes the peak inside a partial load', () => {
+it('#2250 planar shear diagram includes the peak inside a partial load', () => {
   const length = 100;
   const a = 1;
   const b = 2;
@@ -413,4 +413,57 @@ issue2250('known wrong result: #2250 planar shear diagram includes the peak insi
   const integratedTriangle = (zeroOfLoad - a) * qI / 2;
   expect(computeDiagramValueAt('shear', zeroOfLoad / length, endForces)).toBeCloseTo(integratedTriangle, 12);
   expect(computeElementDiagram('shear', endForces, 0, 0, length, 0).maxAbsValue).toBeCloseTo(integratedTriangle, 12);
+});
+
+it('#2250 planar WASM diagrams, envelopes and default design stations agree on a partial load peak', () => {
+  const length = 100, a = 1, b = 2;
+  const input: SolverInput = {
+    nodes: new Map([[1, { id: 1, x: 0, z: 0 }], [2, { id: 2, x: length, z: 0 }]]),
+    materials: new Map([[1, { id: 1, e: 200000, nu: 0.3 }]]),
+    sections: new Map([[1, { id: 1, a: 0.01, iz: 0.0001 }]]),
+    elements: new Map([[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, sectionId: 1, materialId: 1, hingeStart: false, hingeEnd: false }]]),
+    supports: new Map([[1, { id: 1, nodeId: 1, type: 'fixed' }]]),
+    loads: [{ type: 'distributed', data: { elementId: 1, qI: 1, qJ: -1, a, b } }],
+  };
+  const nonlinear = solvePDelta(input, 20, 1e-10);
+  expect(nonlinear.converged).toBe(true);
+  const expected = (b - a) / 4;
+  for (const result of [solve(input), nonlinear.results as AnalysisResults]) {
+    expect.soft(computeDiagrams2D(input, result).shear[0].maxAbsValue).toBeCloseTo(expected, 12);
+    expect.soft(computeEnvelope([result])?.shear.globalMax).toBeCloseTo(expected, 12);
+    const stations = extractBeamStations({
+      members: [{ elementId: 1, length, sectionId: 1, materialId: 1 }],
+      combinations: [{ comboId: 1, results: result }],
+    });
+    expect.soft(Math.max(...stations.stations.map(s => Math.abs(s.comboForces[0]!.v)))).toBeCloseTo(expected, 12);
+  }
+});
+
+it('#2226 the planar WASM evaluator reads both sides of a solved force and couple', () => {
+  const length = 3;
+  const input: SolverInput = {
+    nodes: new Map([[1, { id: 1, x: 0, z: 0 }], [2, { id: 2, x: length, z: 0 }]]),
+    materials: new Map([[1, { id: 1, e: 200000, nu: 0.3 }]]),
+    sections: new Map([[1, { id: 1, a: 0.01, iz: 0.0001 }]]),
+    elements: new Map([[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, sectionId: 1, materialId: 1, hingeStart: false, hingeEnd: false }]]),
+    supports: new Map([[1, { id: 1, nodeId: 1, type: 'fixed' }]]),
+    loads: [],
+  };
+  for (const a of [1.5, length - 5e-11]) {
+    input.loads = [{ type: 'pointOnElement', data: { elementId: 1, a, p: 1, my: 2 } }];
+    const nonlinear = solvePDelta(input, 20, 1e-10);
+    expect(nonlinear.converged).toBe(true);
+    for (const result of [solve(input), nonlinear.results as AnalysisResults]) {
+      const ef = result.elementForces[0]!;
+      for (const x of [a - 5e-11, a, a + 5e-11]) {
+        const t = x / length;
+        const shear = x > a ? 0 : -1;
+        const moment = x > a ? 0 : -(a - x) - 2;
+        expect.soft(computeDiagramValueAt('shear', t, ef)).toBeCloseTo(shear, 12);
+        expect.soft(computeDiagramValueAt('moment', t, ef)).toBeCloseTo(moment, 12);
+        expect.soft(computeDiagramValueAtWasm('shear', t, ef)).toBeCloseTo(shear, 12);
+        expect.soft(computeDiagramValueAtWasm('moment', t, ef)).toBeCloseTo(moment, 12);
+      }
+    }
+  }
 });

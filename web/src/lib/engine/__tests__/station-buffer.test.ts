@@ -102,3 +102,26 @@ it('falls back only when the compact export is unavailable, and propagates real 
   expect(() => computeStationDemands(perCombo, active, model)).toThrow('station extraction failed');
   expect(grouped).toHaveBeenCalledTimes(1);
 });
+
+it('#2250 both production design station transfers retain the concurrent tuple at the partial-load peak', () => {
+  const length = 100;
+  const ef = {
+    ...force(1, 0), length,
+    distributedLoadsX: [], distributedLoadsY: [],
+    distributedLoadsZ: [{ a: 1, b: 2, qI: 1, qJ: -1 }], pointLoadsY: [], pointLoadsZ: [],
+  };
+  const model = {
+    elements: new Map([[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, sectionId: 1, materialId: 1 }]]),
+    nodes: new Map([[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: length, y: 0, z: 0 }]]),
+  } as AutoVerifyModelData;
+  const combinations = [{ id: 1, name: 'U', factors: [] }];
+  for (const compact of [false, true]) {
+    setCompactStationTransfer(compact);
+    const { stations } = computeStationDemands(new Map([[1, results([ef])]]), combinations, model);
+    const values = stations.get(1)!.comboResults[0]!.stations;
+    const peak = values.reduce((a, b) => a.vz > b.vz ? a : b);
+    expect(peak.t).toBeCloseTo(1.5 / length, 12);
+    expect(peak.vz).toBeCloseTo(0.25, 12);
+    expect(peak.my).toBeCloseTo(1 / 12, 12);
+  }
+});
