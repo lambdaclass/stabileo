@@ -48,7 +48,7 @@ import { jointDesignStore } from '../store/joint-design.svelte';
 import { designRunStore } from '../store/design-run.svelte';
 import { isSolverReady } from '../engine/wasm-solver';
 import { getStructuralSolveCount } from './solve-counter';
-import { runGlobalSolve } from '../engine/live-calc';
+import { runGlobalSolve, type GlobalSolveOutcome } from '../engine/live-calc';
 import { tourStore } from '../store/tour.svelte';
 import {
   liveRebarSceneCensus, liveRebarSceneConflictAt, rebarSceneBuilds, type RebarSceneCensus,
@@ -487,7 +487,7 @@ export interface StabileoTestActions {
   /** Reset the selection between gestures — the position, not the subject. */
   clearSelection(): void;
   /** Runs the same global solve the toolbar button triggers. */
-  solve(): Promise<void>;
+  solve(): Promise<GlobalSolveOutcome>;
   /**
    * Solve the base case on the MAIN THREAD (`modelStore.solve3D`/`solve`) and publish it as a
    * solve does; returns the published results' provenance hash. With `solve()` (the worker pool
@@ -982,7 +982,7 @@ export function installE2EHooks(): void {
     },
     /** Reset the selection between gestures — the position, not the subject. */
     clearSelection: () => { uiStore.clearSelection(); },
-    solve: async () => { await runGlobalSolve(); },
+    solve: () => runGlobalSolve(),
     solveOnMainThread: () => {
       const isPro = uiStore.analysisMode === 'pro';
       if (uiStore.is3DWorkspace) {

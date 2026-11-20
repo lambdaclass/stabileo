@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { test as base, expect, type Page } from '@playwright/test';
+import type { GlobalSolveOutcome } from '../src/lib/engine/live-calc';
 import { plateMeshExample } from '../src/lib/store/__tests__/fixtures/plate-mesh-example';
 
 /**
@@ -177,7 +178,8 @@ export interface TestActions {
   loadModelData(json: Record<string, unknown>): void;
   /** Open a project from its `.ded` JSON, as File → Open does. False when refused. */
   loadProject(file: Record<string, unknown>): boolean;
-  solve(): Promise<void>;
+  solve(): Promise<GlobalSolveOutcome | void>;
+  setMeshBeforeAnalysis?(on: boolean): void;
   openDesignTab(): void;
   computeDemands(): unknown;
   codeCheck(): unknown;
@@ -382,7 +384,14 @@ export async function loadPlateMeshExample(page: Page): Promise<void> {
   await withCrashGuard(page, page.evaluate(model => window.__stabileoActions.loadModelData(model), plateMeshExample()));
 }
 
-export async function loadModel(page: Page, name: string): Promise<number[]> {
+export async function loadModel(
+  page: Page,
+  name: string,
+  { meshBeforeAnalysis }: { meshBeforeAnalysis?: boolean } = {},
+): Promise<number[]> {
+  if (meshBeforeAnalysis !== undefined) {
+    await page.evaluate(on => window.__stabileoActions.setMeshBeforeAnalysis?.(on), meshBeforeAnalysis);
+  }
   await withCrashGuard(page, page.evaluate(async (n) => {
     await window.__stabileoActions.loadExample(n);
   }, name));
@@ -566,18 +575,18 @@ export async function solveModel(page: Page): Promise<void> {
 
   const solved = withCrashGuard(
     page,
-    page.evaluate(async () => { await window.__stabileoActions.solve(); }),
-  ).then(() => 'done' as const);
-  solved.catch(() => { /* reported below, or irrelevant once the page is gone */ });
+    page.evaluate(() => window.__stabileoActions.solve()),
+  );
   let timer: ReturnType<typeof setTimeout> | undefined;
   const deadline = new Promise<'timeout'>((resolve) => {
     timer = setTimeout(() => resolve('timeout'), SOLVE_DEADLINE_MS);
   });
-  const outcome = await Promise.race([solved, deadline]);
-  clearTimeout(timer);
+  const outcome = await Promise.race([solved, deadline]).finally(() => {
+    clearTimeout(timer);
+    page.off('console', onConsole);
+  });
 
   if (outcome === 'timeout') {
-    page.off('console', onConsole);
     const elapsed = Math.round((Date.now() - started) / 1000);
     const fellBack = solveFallbacks.length > 0 || localFallbacks.length > 0;
     throw new Error(
@@ -591,7 +600,7 @@ export async function solveModel(page: Page): Promise<void> {
     );
   }
 
-  page.off('console', onConsole);
+  if (outcome && !outcome.ok) throw new Error(outcome.error);
 
   await expect.poll(() => page.evaluate(() => window.__stabileo.solveCount()), { timeout: 90_000 })
     .toBeGreaterThan(before);

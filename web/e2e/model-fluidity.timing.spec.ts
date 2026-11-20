@@ -32,9 +32,8 @@ async function editTimes(page: Page, n = 8): Promise<number> {
 
 test.describe('@timing model fluidity with design', () => {
   test('a node moved on the detailed 7-storey building, wireframe and physical', async ({ pro: page }) => {
-    test.skip(true, 'known wrong result: #2365');
     test.setTimeout(600_000);
-    await loadModel(page, 'pro-edificio-7p');
+    await loadModel(page, 'pro-edificio-7p', { meshBeforeAnalysis: false });
     const shells = await page.evaluate(() => window.__stabileo.quadIds());
     await designAll(page);
     expect(await page.evaluate(() => window.__stabileo.quadIds()), 'the detailed building uses its original shells').toEqual(shells);

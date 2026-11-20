@@ -6408,9 +6408,16 @@
       ]
     },
     "src/lib/utils/e2e-hooks.ts": {
-      "source": "ae89a652e69e88eb3f8671506656c9dcafab4979908a1cf76cba70aff086caf7",
+      "source": "829cbe025b81efc4c362182fa5cf6801b5d12f0d470d2bb517599d0cfc042e50",
       "original": "d173f818bc01fc59ef673e6d40bea067caa92269466b85a07017673c001d75f5",
       "changes": [
+        [
+          50,
+          1,
+          [
+            "import { runGlobalSolve } from '../engine/live-calc';"
+          ]
+        ],
         [
           64,
           3,
@@ -6421,6 +6428,13 @@
           3,
           [
             "  plates(): Array<{ id: number; name: string; status: string; shells: number; loads: number }>;"
+          ]
+        ],
+        [
+          489,
+          1,
+          [
+            "  solve(): Promise<void>;"
           ]
         ],
         [
@@ -6437,6 +6451,13 @@
           791,
           1,
           []
+        ],
+        [
+          984,
+          1,
+          [
+            "    solve: async () => { await runGlobalSolve(); },"
+          ]
         ],
         [
           1007,
