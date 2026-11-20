@@ -417,11 +417,6 @@ fn corotational_2d(
     method: IterationMethod,
     stepping: LoadStepping,
 ) -> Result<CorotationalResult, String> {
-    if let IterationMethod::Anderson { depth } = method {
-        if depth == 0 {
-            return Err("Anderson acceleration needs a depth of at least 1".into());
-        }
-    }
     let canonical_input = super::member_loads::plane_input(input);
     let input = canonical_input.as_ref();
 
@@ -442,6 +437,7 @@ fn corotational_2d(
     if !tolerance.is_finite() || tolerance <= 0.0 {
         return Err("Convergence tolerance must be finite and positive".into());
     }
+    super::nonlinear::validate(method)?;
 
     // The 3D entry point validates; this one did not, and went straight to
     // assembly — where ids are resolved by direct map indexing, so an element
@@ -1469,17 +1465,6 @@ pub fn compute_corotational_forces(
 // 3D Co-rotational Large Displacement Solver
 // ============================================================
 
-/// Solve a 3D frame using co-rotational large displacement analysis.
-///
-/// Extends the 2D formulation to 3D with:
-/// - Full co-rotational treatment for trusses/cables (exact for any rotation)
-/// - Updated Lagrangian with geometric stiffness for frame elements
-/// - Incremental-iterative loading with Newton-Raphson inner loops
-///
-/// References:
-///   - Crisfield, "Non-linear Finite Element Analysis of Solids and Structures" Vol 1&2
-///   - Battini, "Co-rotational beam elements in instability problems" (2002)
-///   - Przemieniecki, "Theory of Matrix Structural Analysis" (1968)
 struct Corotational3D<'a> {
     input: &'a SolverInput3D,
     dof_num: &'a DofNumbering,
@@ -1697,6 +1682,17 @@ impl super::nonlinear::IncrementalProblem for Corotational3D<'_> {
     }
 }
 
+/// Solve a 3D frame using co-rotational large displacement analysis.
+///
+/// Extends the 2D formulation to 3D with:
+/// - Full co-rotational treatment for trusses/cables (exact for any rotation)
+/// - Updated Lagrangian with geometric stiffness for frame elements
+/// - Incremental-iterative loading with Newton-Raphson inner loops
+///
+/// References:
+///   - Crisfield, "Non-linear Finite Element Analysis of Solids and Structures" Vol 1&2
+///   - Battini, "Co-rotational beam elements in instability problems" (2002)
+///   - Przemieniecki, "Theory of Matrix Structural Analysis" (1968)
 pub fn solve_corotational_3d(
     input: &SolverInput3D,
     max_iter: usize,
@@ -1741,11 +1737,6 @@ fn corotational_3d(
     method: IterationMethod,
     stepping: LoadStepping,
 ) -> Result<CorotationalResult3D, String> {
-    if let IterationMethod::Anderson { depth } = method {
-        if depth == 0 {
-            return Err("Anderson acceleration needs a depth of at least 1".into());
-        }
-    }
     let canonical_input = super::member_loads::space_input(input);
     let input = canonical_input.as_ref();
 
@@ -1761,6 +1752,7 @@ fn corotational_3d(
     if !tolerance.is_finite() || tolerance <= 0.0 {
         return Err("Convergence tolerance must be finite and positive".into());
     }
+    super::nonlinear::validate(method)?;
 
     // Input validation and pre-solve gates
     super::linear::validate_input_3d(input)?;
@@ -4149,10 +4141,56 @@ mod shared_driver_equivalence {
         }
     }
 
+    /// Largest difference of a translation, over the largest translation of `b`. Panics unless
+    /// both hold the same nodes in the same order, every component is finite and `b` moved.
+    fn apart_of(a: &[Displacement], b: &[Displacement]) -> f64 {
+        assert!(!b.is_empty() && a.len() == b.len(), "{} displacements against {}", a.len(), b.len());
+        let (mut gap, mut largest) = (0.0f64, 0.0f64);
+        for (x, y) in a.iter().zip(b) {
+            assert_eq!(x.node_id, y.node_id);
+            assert!([x.ux, x.uz, x.ry, y.ux, y.uz, y.ry].iter().all(|v| v.is_finite()), "node {}: {x:?} against {y:?}", x.node_id);
+            gap = gap.max((x.ux - y.ux).abs()).max((x.uz - y.uz).abs());
+            largest = largest.max(y.ux.abs()).max(y.uz.abs());
+        }
+        assert!(largest > 0.0, "the reference did not move");
+        gap / largest
+    }
+
     fn apart(a: &CorotationalResult, b: &CorotationalResult) -> f64 {
-        let largest = b.results.displacements.iter().fold(0.0f64, |m, d| m.max(d.ux.abs()).max(d.uz.abs()));
-        a.results.displacements.iter().zip(&b.results.displacements)
-            .fold(0.0f64, |m, (x, y)| m.max((x.ux - y.ux).abs()).max((x.uz - y.uz).abs())) / largest
+        apart_of(&a.results.displacements, &b.results.displacements)
+    }
+
+    fn moved(node_id: usize, ux: f64, uz: f64) -> Displacement {
+        Displacement { node_id, ux, uz, ry: 0.0 }
+    }
+
+    #[test]
+    fn the_comparison_measures_the_largest_difference_of_complete_finite_results() {
+        let reference = [moved(1, 0.0, 0.0), moved(2, 0.5, -2.0)];
+        assert_eq!(apart_of(&reference, &reference), 0.0);
+        assert_eq!(apart_of(&[moved(1, 0.0, 0.1), moved(2, 0.5, -2.0)], &reference), 0.05);
+        assert_eq!(apart_of(&[moved(1, 0.0, 0.0), moved(2, 0.9, -2.0)], &reference), 0.2);
+    }
+
+    #[test]
+    fn the_comparison_refuses_what_it_cannot_compare() {
+        let reference = vec![moved(1, 0.0, 0.0), moved(2, 0.5, -2.0)];
+        let refused = |a: Vec<Displacement>, b: Vec<Displacement>| std::panic::catch_unwind(move || apart_of(&a, &b)).is_err();
+        assert!(refused(vec![], reference.clone()));
+        assert!(refused(reference[..1].to_vec(), reference.clone()));
+        assert!(refused(reference.clone(), reference[..1].to_vec()));
+        assert!(refused(vec![], vec![]));
+        assert!(refused(vec![moved(1, 0.0, 0.0), moved(3, 0.5, -2.0)], reference.clone()));
+        assert!(refused(vec![moved(2, 0.5, -2.0), moved(1, 0.0, 0.0)], reference.clone()));
+        for bad in [f64::NAN, f64::INFINITY] {
+            assert!(refused(vec![moved(1, 0.0, 0.0), moved(2, bad, -2.0)], reference.clone()));
+            assert!(refused(vec![moved(1, 0.0, bad), moved(2, 0.5, -2.0)], reference.clone()));
+            assert!(refused(reference.clone(), vec![moved(1, 0.0, 0.0), moved(2, 0.5, bad)]));
+            let mut turned = reference.clone();
+            turned[1].ry = bad;
+            assert!(refused(turned, reference.clone()));
+        }
+        assert!(refused(vec![moved(1, 0.0, 0.0), moved(2, 0.0, 0.0)], vec![moved(1, 0.0, 0.0), moved(2, 0.0, 0.0)]));
     }
 
     #[test]
@@ -4237,7 +4275,9 @@ mod shared_driver_equivalence {
             assert!(result.results.displacements.iter().all(|d| d.ux == 0.0 && d.uz == 0.0), "{method:?}");
         }
         let refused = solve_corotational_2d_by(&input, None, 50, 1e-8, 4, IterationMethod::Anderson { depth: 0 });
-        assert_eq!(refused.err().as_deref(), Some("Anderson acceleration needs a depth of at least 1"));
+        assert_eq!(refused.err().as_deref(), Some("Anderson acceleration needs a depth from 1 to 50"));
+        let precedence = solve_corotational_2d_by(&input, None, 0, 1e-8, 4, IterationMethod::Anderson { depth: 0 });
+        assert_eq!(precedence.err().as_deref(), Some("Max iterations must be at least 1"));
     }
 
     #[test]
@@ -4582,10 +4622,44 @@ mod shared_driver_equivalence_3d {
         assert!(same(&offset, 20, 2, false).is_none());
     }
 
+    /// As the 2D `apart`: panics unless both hold the same nodes in the same order, every
+    /// component is finite and `b` moved.
     fn apart(a: &CorotationalResult3D, b: &CorotationalResult3D) -> f64 {
-        let largest = b.results.displacements.iter().fold(0.0f64, |m, d| m.max(d.ux.abs()).max(d.uy.abs()).max(d.uz.abs()));
-        a.results.displacements.iter().zip(&b.results.displacements)
-            .fold(0.0f64, |m, (x, y)| m.max((x.ux - y.ux).abs()).max((x.uy - y.uy).abs()).max((x.uz - y.uz).abs())) / largest
+        let (a, b) = (&a.results.displacements, &b.results.displacements);
+        assert!(!b.is_empty() && a.len() == b.len(), "{} displacements against {}", a.len(), b.len());
+        let (mut gap, mut largest) = (0.0f64, 0.0f64);
+        for (x, y) in a.iter().zip(b) {
+            assert_eq!(x.node_id, y.node_id);
+            let components = [x.ux, x.uy, x.uz, x.rx, x.ry, x.rz, y.ux, y.uy, y.uz, y.rx, y.ry, y.rz];
+            assert!(components.iter().all(|v| v.is_finite()), "node {}", x.node_id);
+            gap = gap.max((x.ux - y.ux).abs()).max((x.uy - y.uy).abs()).max((x.uz - y.uz).abs());
+            largest = largest.max(y.ux.abs()).max(y.uy.abs()).max(y.uz.abs());
+        }
+        assert!(largest > 0.0, "the reference did not move");
+        gap / largest
+    }
+
+    #[test]
+    fn the_3d_comparison_refuses_what_it_cannot_compare() {
+        let input = frame(4, 0.0, false, 0.05);
+        let solved = solve_corotational_3d(&input, 100, 1e-9, 2, false).unwrap();
+        assert_eq!(apart(&solved, &solved), 0.0);
+        let refused = |change: &dyn Fn(&mut CorotationalResult3D)| {
+            let mut other = solve_corotational_3d(&input, 100, 1e-9, 2, false).unwrap();
+            change(&mut other);
+            let reference = solve_corotational_3d(&input, 100, 1e-9, 2, false).unwrap();
+            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| apart(&other, &reference))).is_err()
+        };
+        assert!(!refused(&|_| {}));
+        assert!(refused(&|r| r.results.displacements.clear()));
+        assert!(refused(&|r| { r.results.displacements.pop(); }));
+        assert!(refused(&|r| r.results.displacements[2].node_id += 100));
+        assert!(refused(&|r| r.results.displacements[2].uy = f64::NAN));
+        assert!(refused(&|r| r.results.displacements[2].rz = f64::INFINITY));
+        let still = solve_corotational_3d(&input, 100, 1e-9, 2, false).unwrap();
+        let mut flat = solve_corotational_3d(&input, 100, 1e-9, 2, false).unwrap();
+        for d in flat.results.displacements.iter_mut() { (d.ux, d.uy, d.uz) = (0.0, 0.0, 0.0); }
+        assert!(std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| apart(&still, &flat))).is_err());
     }
 
     #[test]
@@ -4618,6 +4692,6 @@ mod shared_driver_equivalence_3d {
             }
         }
         let refused = solve_corotational_3d_by(&frame(4, 0.0, false, 0.05), 50, 1e-8, 4, IterationMethod::Anderson { depth: 0 });
-        assert_eq!(refused.err().as_deref(), Some("Anderson acceleration needs a depth of at least 1"));
+        assert_eq!(refused.err().as_deref(), Some("Anderson acceleration needs a depth from 1 to 50"));
     }
 }
