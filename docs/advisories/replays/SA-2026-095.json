@@ -1,0 +1,311 @@
+{
+  "advisory": "SA-2026-095",
+  "fixingPr": 2364,
+  "beforeCommit": "04c610dcc86a36cb20ed0114760cbf0d09a221dd",
+  "afterCommit": "9452c5b7489eac5a13913a55667baad5ea03a49e",
+  "records": [
+    {
+      "scenario": "signed and scoped",
+      "input": {
+        "length": 5,
+        "rho": 20,
+        "area": 0.01,
+        "tipLoads": [],
+        "includeSelfWeight": false,
+        "selfWeight": [
+          {
+            "caseId": 1,
+            "direction": "Z",
+            "factor": 2,
+            "elements": [
+              1
+            ]
+          }
+        ],
+        "dead": {
+          "id": 1,
+          "name": "Dead",
+          "type": "D"
+        },
+        "combination": {
+          "id": 1,
+          "name": "Dead only",
+          "factors": [
+            {
+              "caseId": 1,
+              "factor": 1
+            }
+          ]
+        },
+        "expectedRz": -2
+      },
+      "before": {
+        "standalone": {
+          "rz": 0,
+          "diagnostics": {
+            "assembly": [],
+            "solver": [],
+            "structured": [
+              {
+                "code": "dense_lu",
+                "severity": "info"
+              },
+              {
+                "code": "residual_ok",
+                "severity": "info"
+              },
+              {
+                "code": "residual_ok",
+                "severity": "info"
+              },
+              {
+                "code": "residual_ok",
+                "severity": "info"
+              }
+            ]
+          }
+        },
+        "perCase": {
+          "rz": 1,
+          "diagnostics": {
+            "assembly": [],
+            "solver": [],
+            "structured": [
+              {
+                "code": "dense_lu",
+                "severity": "info"
+              },
+              {
+                "code": "residual_ok",
+                "severity": "info"
+              },
+              {
+                "code": "residual_ok",
+                "severity": "info"
+              },
+              {
+                "code": "residual_ok",
+                "severity": "info"
+              }
+            ]
+          }
+        },
+        "combined": {
+          "rz": 1,
+          "diagnostics": {
+            "assembly": [],
+            "solver": [],
+            "structured": []
+          }
+        }
+      },
+      "after": {
+        "standalone": {
+          "rz": -2,
+          "diagnostics": {
+            "assembly": [],
+            "solver": [],
+            "structured": [
+              {
+                "code": "dense_lu",
+                "severity": "info"
+              },
+              {
+                "code": "residual_ok",
+                "severity": "info"
+              },
+              {
+                "code": "residual_ok",
+                "severity": "info"
+              },
+              {
+                "code": "residual_ok",
+                "severity": "info"
+              }
+            ]
+          }
+        },
+        "perCase": {
+          "rz": -2,
+          "diagnostics": {
+            "assembly": [],
+            "solver": [],
+            "structured": [
+              {
+                "code": "dense_lu",
+                "severity": "info"
+              },
+              {
+                "code": "residual_ok",
+                "severity": "info"
+              },
+              {
+                "code": "residual_ok",
+                "severity": "info"
+              },
+              {
+                "code": "residual_ok",
+                "severity": "info"
+              }
+            ]
+          }
+        },
+        "combined": {
+          "rz": -2,
+          "diagnostics": {
+            "assembly": [],
+            "solver": [],
+            "structured": []
+          }
+        }
+      }
+    },
+    {
+      "scenario": "legacy gravity toggle control",
+      "input": {
+        "length": 5,
+        "rho": 20,
+        "area": 0.01,
+        "tipLoads": [],
+        "includeSelfWeight": true,
+        "selfWeight": null,
+        "dead": {
+          "id": 1,
+          "name": "Dead",
+          "type": "D"
+        },
+        "combination": {
+          "id": 1,
+          "name": "Dead only",
+          "factors": [
+            {
+              "caseId": 1,
+              "factor": 1
+            }
+          ]
+        },
+        "expectedRz": 1
+      },
+      "before": {
+        "standalone": {
+          "rz": 1,
+          "diagnostics": {
+            "assembly": [],
+            "solver": [],
+            "structured": [
+              {
+                "code": "dense_lu",
+                "severity": "info"
+              },
+              {
+                "code": "residual_ok",
+                "severity": "info"
+              },
+              {
+                "code": "residual_ok",
+                "severity": "info"
+              },
+              {
+                "code": "residual_ok",
+                "severity": "info"
+              }
+            ]
+          }
+        },
+        "perCase": {
+          "rz": 1,
+          "diagnostics": {
+            "assembly": [],
+            "solver": [],
+            "structured": [
+              {
+                "code": "dense_lu",
+                "severity": "info"
+              },
+              {
+                "code": "residual_ok",
+                "severity": "info"
+              },
+              {
+                "code": "residual_ok",
+                "severity": "info"
+              },
+              {
+                "code": "residual_ok",
+                "severity": "info"
+              }
+            ]
+          }
+        },
+        "combined": {
+          "rz": 1,
+          "diagnostics": {
+            "assembly": [],
+            "solver": [],
+            "structured": []
+          }
+        }
+      },
+      "after": {
+        "standalone": {
+          "rz": 1,
+          "diagnostics": {
+            "assembly": [],
+            "solver": [],
+            "structured": [
+              {
+                "code": "dense_lu",
+                "severity": "info"
+              },
+              {
+                "code": "residual_ok",
+                "severity": "info"
+              },
+              {
+                "code": "residual_ok",
+                "severity": "info"
+              },
+              {
+                "code": "residual_ok",
+                "severity": "info"
+              }
+            ]
+          }
+        },
+        "perCase": {
+          "rz": 1,
+          "diagnostics": {
+            "assembly": [],
+            "solver": [],
+            "structured": [
+              {
+                "code": "dense_lu",
+                "severity": "info"
+              },
+              {
+                "code": "residual_ok",
+                "severity": "info"
+              },
+              {
+                "code": "residual_ok",
+                "severity": "info"
+              },
+              {
+                "code": "residual_ok",
+                "severity": "info"
+              }
+            ]
+          }
+        },
+        "combined": {
+          "rz": 1,
+          "diagnostics": {
+            "assembly": [],
+            "solver": [],
+            "structured": []
+          }
+        }
+      }
+    }
+  ]
+}
