@@ -15524,7 +15524,7 @@ const es: Record<string, string> = {
   "rcSheets.ec2.v.linkMin": "Cuantía mínima de estribos",
   "rcSheets.ec2.v.punchingLinks": "Hace falta armadura de punzonado: no se dimensiona acá, aumentá el espesor de la losa o agregá armadura",
   "rcSheets.ec2.v.punchingMax": "Punzonado en la cara de la columna",
-  "rcSheets.ec2.v.punchingRho": "Cuantía de armadura superior que necesita la losa en el nudo (en c + 3d a cada lado)",
+  "rcSheets.ec2.v.punchingRho": "Cuantía de armadura superior requerida en la losa en el nudo (promedio en un ancho total de c + 6d en cada dirección, extendido 3d más allá de cada cara de la columna)",
   "rcSheets.ec2.v.skin": "Armadura de piel necesaria (h ≥ 1 m)",
   "rcSheets.ec2.v.torsionCompat": "Torsión de compatibilidad omitida en el estado límite último",
   "rcSheets.ec2.v.torsionMin": "Torsión resistida con armadura mínima",

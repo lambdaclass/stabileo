@@ -34,7 +34,7 @@ it.each(locales)('$lang preserves the UK National Annex altitude term and TBDY c
   expect(dict['loads.tr.seismic.use.assembly']).not.toContain(garage);
 });
 
-it.skip.each([
+it.each([
   ...locales.map(({ lang, dict }) => ({ lang, dict })),
   { lang: 'zh', dict: zh },
 ])('known wrong result: #1928 — $lang gives the whole EC2 punching reinforcement averaging width', ({ dict }) => {

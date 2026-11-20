@@ -15373,7 +15373,7 @@ const de: Translations = {
   "rcSheets.ec2.v.linkMin": "Mindestquerkraftbewehrungsgrad",
   "rcSheets.ec2.v.punchingLinks": "Durchstanzbewehrung erforderlich: hier nicht bemessen, Platte verstärken oder Bewehrung anordnen",
   "rcSheets.ec2.v.punchingMax": "Durchstanzen am Stützenanschnitt",
-  "rcSheets.ec2.v.punchingRho": "Erforderlicher oberer Bewehrungsgrad der Platte am Knoten (innerhalb c + 3d je Seite)",
+  "rcSheets.ec2.v.punchingRho": "Erforderlicher oberer Bewehrungsgrad der Platte am Knoten (Mittelwert über die Gesamtbreite c + 6d in jeder Richtung, jeweils 3d über die Stützenflächen hinaus)",
   "rcSheets.ec2.v.skin": "Oberflächenbewehrung erforderlich (h ≥ 1 m)",
   "rcSheets.ec2.v.torsionCompat": "Verträglichkeitstorsion im Grenzzustand der Tragfähigkeit vernachlässigt",
   "rcSheets.ec2.v.torsionMin": "Torsion mit Mindestbewehrung aufgenommen",

@@ -34,7 +34,7 @@ test('disabled source profile is byte-identical to main for every changed app mo
   assert.equal(on.overrides.size + on.unavailable.size, 0);
 });
 
-test('disabled builds load the main solver entry point and results version', async () => {
+test('disabled builds load the main solver and results version and the validated mesher', async () => {
   const entry = fileURLToPath(new URL('../.pro-plates-off-fixture.mjs', import.meta.url));
   const result = await build({
     root,
@@ -45,13 +45,15 @@ test('disabled builds load the main solver entry point and results version', asy
       load: id => id === '\0' + entry ? `
         import analysis from '/src/lib/engine/live-calc.ts?raw';
         import metadata from 'virtual:result-change-metadata';
-        export default [analysis, metadata.currentResultsVersion];
+        import mesher from '/src/components/pro/ProMesher.svelte?raw';
+        export default [analysis, metadata.currentResultsVersion, mesher];
       ` : null,
     }],
     build: { write: false, lib: { entry, formats: ['es'] } },
   });
   const chunk = (Array.isArray(result) ? result[0] : result).output.find(output => output.type === 'chunk');
-  const { default: [source, version] } = await import('data:text/javascript;base64,' + Buffer.from(chunk.code).toString('base64'));
+  const { default: [source, version, mesher] } = await import('data:text/javascript;base64,' + Buffer.from(chunk.code).toString('base64'));
   assert.equal(source, git('show', `${base}:web/src/lib/engine/live-calc.ts`));
   assert.equal(version, readRegistryAt(base).currentResultsVersion);
+  assert.equal(mesher, readFileSync(new URL('../src/components/pro/ProMesher.svelte', import.meta.url), 'utf8'));
 });

@@ -15373,7 +15373,7 @@ const fr: Translations = {
   "rcSheets.ec2.v.linkMin": "Taux minimal d'armatures d'effort tranchant",
   "rcSheets.ec2.v.punchingLinks": "Armatures de poinçonnement nécessaires : non dimensionnées ici, épaississez la dalle ou ajoutez des armatures",
   "rcSheets.ec2.v.punchingMax": "Poinçonnement au nu du poteau",
-  "rcSheets.ec2.v.punchingRho": "Taux d'armatures supérieures nécessaire dans la dalle au nœud (sur c + 3d de chaque côté)",
+  "rcSheets.ec2.v.punchingRho": "Taux d’armatures supérieures requis dans la dalle au nœud (moyenne sur une largeur totale c + 6d dans chaque direction, en prolongeant de 3d au-delà de chaque face du poteau)",
   "rcSheets.ec2.v.skin": "Armatures de peau nécessaires (h ≥ 1 m)",
   "rcSheets.ec2.v.torsionCompat": "Torsion de compatibilité négligée à l'état limite ultime",
   "rcSheets.ec2.v.torsionMin": "Torsion reprise par les armatures minimales",

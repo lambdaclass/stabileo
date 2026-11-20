@@ -7,7 +7,7 @@ import { createServer } from 'vite';
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const fixture = '/scripts/tests/fixtures/pro-mesher-inputs.html';
 
-test('production PRO mesher validates all drawn boundaries', { skip: 'known wrong result: #1928' }, async (t) => {
+test('production PRO mesher validates all drawn boundaries', async (t) => {
   const server = await createServer({ root, mode: 'production', server: { host: '127.0.0.1', port: 0 }, logLevel: 'error' });
   t.after(() => server.close());
   await server.listen();

@@ -15177,7 +15177,7 @@ const pt: Translations = {
   "rcSheets.ec2.v.linkMin": "Taxa mínima de estribos",
   "rcSheets.ec2.v.punchingLinks": "É necessária armadura de punção: não é dimensionada aqui, aumente a espessura da laje ou adicione armadura",
   "rcSheets.ec2.v.punchingMax": "Punção na face do pilar",
-  "rcSheets.ec2.v.punchingRho": "Taxa de armadura superior que a laje precisa no nó (em c + 3d de cada lado)",
+  "rcSheets.ec2.v.punchingRho": "Taxa de armadura superior necessária na laje no nó (média na largura total de c + 6d em cada direção, estendendo-se 3d além de cada face do pilar)",
   "rcSheets.ec2.v.skin": "Armadura de pele necessária (h ≥ 1 m)",
   "rcSheets.ec2.v.torsionCompat": "Torção de compatibilidade desconsiderada no estado limite último",
   "rcSheets.ec2.v.torsionMin": "Torção resistida com armadura mínima",

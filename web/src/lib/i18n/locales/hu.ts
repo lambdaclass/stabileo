@@ -15097,7 +15097,7 @@ const hu: Translations = {
   "rcSheets.ec2.v.linkMin": "Minimális kengyelezési arány",
   "rcSheets.ec2.v.punchingLinks": "Átszúródási vasalás szükséges: itt nincs méretezve; növelje a födém vastagságát, vagy alkalmazzon vasalást",
   "rcSheets.ec2.v.punchingMax": "Átszúródás az oszlop síkjánál",
-  "rcSheets.ec2.v.punchingRho": "A födém szükséges felső vasalási aránya a csomópontban (mindkét oldalon c + 3d-n belül)",
+  "rcSheets.ec2.v.punchingRho": "A födém szükséges felső vasalási aránya a csomópontban (mindkét irányban c + 6d teljes szélességen átlagolva, az oszlop mindkét oldalán 3d-rel túlnyúlva)",
   "rcSheets.ec2.v.skin": "Oldalvasalás szükséges (h ≥ 1 m)",
   "rcSheets.ec2.v.torsionCompat": "Kompatibilitási csavarás teherbírási határállapotban figyelmen kívül hagyva",
   "rcSheets.ec2.v.torsionMin": "A csavarást minimális vasalás veszi fel",

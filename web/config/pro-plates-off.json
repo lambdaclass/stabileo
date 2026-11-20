@@ -625,7 +625,119 @@
       ]
     },
     "src/components/pro/ProMesher.svelte": {
-      "original": "<script lang=\"ts\">\n  import Hint from './Hint.svelte';\n  /**\n   * The shell mesher (`model/edit/mesher.ts`): an outline through nodes or a circle, holes as\n   * node polygons or circles, divisions and bias per side, quadrilaterals or triangles, and the\n   * mesh drawn flat before it goes in. It replaces the four-corner generator: four nodes are\n   * simply an outline with four sides.\n   */\n  import { modelStore, uiStore } from '../../lib/store';\n  import { t, tp } from '../../lib/i18n';\n  import { generateMesh, type Loop2, type MeshInput, type SideSpec } from '../../lib/model/edit/mesher';\n  import { applyMesh, modelPoints } from '../../lib/model/edit/mesh-apply';\n  import type { Vec3 } from '../../lib/model/edit/affine';\n  import { fromDisplay, unitLabel } from '../../lib/utils/units';\n  import QuantityInput from './loads/QuantityInput.svelte';\n\n  type OuterKind = 'polygon' | 'circle';\n  let outerKind = $state<OuterKind>('polygon');\n  let outlineText = $state('');\n  let circleCenter = $state('0; 0; 0');\n  let circleRadius = $state(3);\n  let holes = $state<Array<{ kind: 'polygon' | 'circle'; nodes: string; center: string; radius: number }>>([]);\n  let size = $state(0.5);\n  let element = $state<'quad' | 'tri'>('quad');\n  let sides = $state<SideSpec[]>([]);\n  let materialId = $state(1);\n  let thickness = $state(0.2);\n  let splitBeams = $state(true);\n  let message = $state<string | null>(null);\n\n  const num = (s: string) => Number(s.trim().replace(',', '.'));\n  const ids = (s: string) => s.split(/[,\\s;]+/).map((x) => Number(x)).filter((x) => Number.isInteger(x) && modelStore.nodes.has(x));\n  const pos = (id: number): Vec3 => { const n = modelStore.nodes.get(id)!; return [n.x, n.y, n.z ?? 0]; };\n  /** A point typed as \"x; y; z\" in the display units, in SI. */\n  const vec = (s: string): Vec3 | null => {\n    const v = s.split(';').map(num);\n    return v.length === 3 && v.every(Number.isFinite) ? (v.map((x) => fromDisplay(x, 'length', uiStore.unitSystem)) as Vec3) : null;\n  };\n  const lenUnit = $derived(unitLabel('length', uiStore.unitSystem));\n\n  function fromSelection() { outlineText = [...uiStore.selectedNodes].join(', '); }\n\n  const outlineIds = $derived(outerKind === 'polygon' ? ids(outlineText) : []);\n  // One row per side; keep what was typed when the outline changes length.\n  $effect(() => {\n    const n = outerKind === 'polygon' ? outlineIds.length : 0;\n    if (sides.length !== n) sides = Array.from({ length: n }, (_, i) => sides[i] ?? {});\n  });\n\n  const input = $derived.by((): MeshInput | null => {\n    let outer: Loop2;\n    if (outerKind === 'polygon') {\n      if (outlineIds.length < 3) return null;\n      outer = { kind: 'polygon', points: outlineIds.map(pos) };\n    } else {\n      const c = vec(circleCenter);\n      if (!c || !(circleRadius > 0)) return null;\n      outer = { kind: 'circle', center: c, radius: circleRadius };\n    }\n    const hs: Loop2[] = [];\n    for (const h of holes) {\n      if (h.kind === 'polygon') { const hi = ids(h.nodes); if (hi.length >= 3) hs.push({ kind: 'polygon', points: hi.map(pos) }); }\n      else { const c = vec(h.center); if (c && h.radius > 0) hs.push({ kind: 'circle', center: c, radius: h.radius }); }\n    }\n    return { outer, holes: hs, size, element, sides: outerKind === 'polygon' ? sides : undefined };\n  });\n  const mesh = $derived(input && size > 0 ? generateMesh({ ...input, fixedPoints: modelPoints() }) : null);\n\n  function apply() {\n    if (!input || !mesh) return;\n    const r = applyMesh(input, { materialId, thickness, splitBeams }, mesh);\n    if (!r) return;\n    if (r.occupied) { message = t('mesher.occupied'); return; }\n    message = tp('mesher.applied', { quads: r.quads.length, plates: r.plates.length, nodes: r.newNodes, split: r.splitCount });\n  }\n\n  // ── Flat preview ──\n  const W = 260, H = 180, PAD = 8;\n  const preview = $derived.by(() => {\n    if (!mesh || mesh.cells.length > 20000) return null;\n    const { o, u, v } = mesh.plane;\n    const p2 = mesh.points.map((p) => { const d = [p[0] - o[0], p[1] - o[1], p[2] - o[2]]; return [d[0]! * u[0] + d[1]! * u[1] + d[2]! * u[2], d[0]! * v[0] + d[1]! * v[1] + d[2]! * v[2]]; });\n    const xs = p2.map((p) => p[0]!), ys = p2.map((p) => p[1]!);\n    const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);\n    const k = Math.min((W - 2 * PAD) / Math.max(x1 - x0, 1e-9), (H - 2 * PAD) / Math.max(y1 - y0, 1e-9));\n    const X = (x: number) => (PAD + (x - x0) * k).toFixed(1), Y = (y: number) => (H - PAD - (y - y0) * k).toFixed(1);\n    return mesh.cells.map((c) => c.map((i, n) => `${n ? 'L' : 'M'}${X(p2[i]![0]!)},${Y(p2[i]![1]!)}`).join('') + 'Z').join('');\n  });\n</script>\n\n<div class=\"ms\" data-testid=\"mesher\">\n  <Hint text={t('mesher.hint')} />\n  <div class=\"ms-row\">\n    <label><input type=\"radio\" bind:group={outerKind} value=\"polygon\" /> {t('mesher.polygon')}</label>\n    <label><input type=\"radio\" bind:group={outerKind} value=\"circle\" data-testid=\"ms-circle\" /> {t('mesher.circle')}</label>\n  </div>\n  {#if outerKind === 'polygon'}\n    <div class=\"ms-row\">\n      <input class=\"ms-wide\" placeholder={t('mesher.outlinePlaceholder')} bind:value={outlineText} data-testid=\"ms-outline\" />\n      <button class=\"pro-btn\" disabled={uiStore.selectedNodes.size < 3} onclick={fromSelection}>{t('mesher.fromSelection')}</button>\n    </div>\n    {#if sides.length > 0}\n      <table class=\"ms-sides\">\n        <thead><tr><th>{t('mesher.side')}</th><th>{t('mesher.divisions')}</th><th>{t('mesher.bias')}</th></tr></thead>\n        <tbody>\n          {#each sides as s, i (i)}\n            <tr>\n              <td>{outlineIds[i]}–{outlineIds[(i + 1) % outlineIds.length]}</td>\n              <td><input type=\"number\" min=\"1\" step=\"1\" placeholder={t('mesher.auto')} value={s.divisions ?? ''} onchange={(e) => { const v = Number(e.currentTarget.value); sides[i] = { ...sides[i], divisions: v >= 1 ? Math.floor(v) : undefined }; }} data-testid=\"ms-div-{i}\" /></td>\n              <td><input type=\"number\" min=\"0.1\" step=\"0.1\" placeholder=\"1\" value={s.bias ?? ''} onchange={(e) => { const v = Number(e.currentTarget.value); sides[i] = { ...sides[i], bias: v > 0 ? v : undefined }; }} /></td>\n            </tr>\n          {/each}\n        </tbody>\n      </table>\n    {/if}\n  {:else}\n    <div class=\"ms-row\">\n      <label>{t('mesher.center')} <input bind:value={circleCenter} placeholder=\"x; y; z\" data-testid=\"ms-center\" /> <span class=\"ms-unit\">{lenUnit}</span></label>\n      <label>R <QuantityInput min={0.1} bind:value={circleRadius} quantity=\"length\" cls=\"ms-num\" testid=\"ms-radius\" /></label>\n    </div>\n  {/if}\n\n  <div class=\"ms-row\"><span>{t('mesher.holes')}</span>\n    <button class=\"pro-btn\" onclick={() => (holes = [...holes, { kind: 'circle', nodes: '', center: '0; 0; 0', radius: 0.5 }])} data-testid=\"ms-add-hole\">+</button>\n  </div>\n  {#each holes as h, i (i)}\n    <div class=\"ms-row ms-hole\">\n      <select bind:value={h.kind}><option value=\"circle\">{t('mesher.circle')}</option><option value=\"polygon\">{t('mesher.polygon')}</option></select>\n      {#if h.kind === 'polygon'}<input class=\"ms-wide\" bind:value={h.nodes} placeholder={t('mesher.outlinePlaceholder')} />\n      {:else}<input bind:value={h.center} placeholder=\"x; y; z\" data-testid=\"ms-hole-center-{i}\" /> <span class=\"ms-unit\">{lenUnit}</span> R <QuantityInput min={0.05} bind:value={h.radius} quantity=\"length\" cls=\"ms-num\" testid=\"ms-hole-r-{i}\" />{/if}\n      <button class=\"pro-btn\" onclick={() => (holes = holes.filter((_, k) => k !== i))}>×</button>\n    </div>\n  {/each}\n\n  <div class=\"ms-row\">\n    <label>{t('mesher.size')} <QuantityInput min={0.05} bind:value={size} quantity=\"length\" cls=\"ms-num\" testid=\"ms-size\" /></label>\n    <select bind:value={element} data-testid=\"ms-element\">\n      <option value=\"quad\">{t('mesher.quads')}</option>\n      <option value=\"tri\">{t('mesher.tris')}</option>\n    </select>\n  </div>\n  <div class=\"ms-row\">\n    <label>{t('pro.thMaterial')} <select bind:value={materialId}>{#each [...modelStore.materials.values()] as m (m.id)}<option value={m.id}>{m.name}</option>{/each}</select></label>\n    <label>{t('pro.thicknessLabel')} <QuantityInput min={0.001} bind:value={thickness} quantity=\"length\" cls=\"ms-num\" /></label>\n  </div>\n  <label class=\"ms-row\"><input type=\"checkbox\" bind:checked={splitBeams} /> {t('pro.meshSplitBeams')}</label>\n\n  {#if mesh}\n    {#if preview}<svg viewBox=\"0 0 {W} {H}\" class=\"ms-preview\" role=\"img\" aria-label={t('mesher.preview')}><path d={preview} /></svg>{/if}\n    <p class=\"ms-hint\" data-testid=\"ms-summary\">{tp(mesh.structured ? 'mesher.summaryStructured' : 'mesher.summary', { cells: mesh.cells.length, points: mesh.points.length })}</p>\n  {:else if input}\n    <p class=\"ms-warn\">{t('mesher.failed')}</p>\n  {/if}\n  <button class=\"pro-btn pro-btn-accent\" disabled={!mesh} onclick={apply} data-testid=\"ms-apply\">{t('pro.generateMesh')}</button>\n  {#if message}<p class=\"ms-hint\" data-testid=\"ms-done\">{message}</p>{/if}\n</div>\n\n<style>\n  .ms { display: flex; flex-direction: column; gap: 5px; font-size: 0.68rem; color: var(--st-text-2); }\n  .ms-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }\n  .ms-row :global(input.ms-num) { width: 60px; }\n  .ms-unit { font-size: 0.66rem; color: var(--st-text-3); }\n  .ms-wide { flex: 1; min-width: 120px; }\n  .ms-hint { margin: 0; font-size: 0.62rem; color: var(--st-text-3); }\n  .ms-warn { margin: 0; font-size: 0.62rem; color: var(--st-warn); }\n  .ms-sides { border-collapse: collapse; font-size: 0.64rem; }\n  .ms-sides th { font-weight: 500; color: var(--st-text-3); text-align: left; padding: 1px 4px; }\n  .ms-sides td { padding: 1px 4px; }\n  .ms-sides input { width: 56px; }\n  .ms-preview { width: 100%; max-width: 300px; background: var(--st-surface-3); border-radius: var(--st-radius); }\n  .ms-preview path { fill: color-mix(in srgb, var(--st-accent) 12%, transparent); stroke: var(--st-accent); stroke-width: 0.6; }\n</style>\n"
+      "source": "17aead3c8d7e329471cab2d93d3b68735f873050554c0450a78f383f0a6aead6",
+      "original": "758a5ab54601ec61960fc949f1cdd6dc76cd7c4695dae2411c2ad2ce098cd3e4",
+      "changes": [
+        [
+          2,
+          0,
+          [
+            "  /**",
+            "   * The shell mesher (`model/edit/mesher.ts`): an outline through nodes or a circle, holes as",
+            "   * node polygons or circles, divisions and bias per side, quadrilaterals or triangles, and the",
+            "   * mesh drawn flat before it goes in. It replaces the four-corner generator: four nodes are",
+            "   * simply an outline with four sides.",
+            "   */"
+          ]
+        ],
+        [
+          8,
+          1,
+          []
+        ],
+        [
+          25,
+          26,
+          [
+            "  const num = (s: string) => Number(s.trim().replace(',', '.'));",
+            "  const ids = (s: string) => s.split(/[,\\s;]+/).map((x) => Number(x)).filter((x) => Number.isInteger(x) && modelStore.nodes.has(x));",
+            "  const pos = (id: number): Vec3 => { const n = modelStore.nodes.get(id)!; return [n.x, n.y, n.z ?? 0]; };",
+            "  /** A point typed as \"x; y; z\" in the display units, in SI. */",
+            "  const vec = (s: string): Vec3 | null => {",
+            "    const v = s.split(';').map(num);",
+            "    return v.length === 3 && v.every(Number.isFinite) ? (v.map((x) => fromDisplay(x, 'length', uiStore.unitSystem)) as Vec3) : null;",
+            "  };"
+          ]
+        ],
+        [
+          55,
+          1,
+          [
+            "  const outlineIds = $derived(outerKind === 'polygon' ? ids(outlineText) : []);",
+            "  // One row per side; keep what was typed when the outline changes length."
+          ]
+        ],
+        [
+          57,
+          2,
+          [
+            "    const n = outerKind === 'polygon' ? outlineIds.length : 0;",
+            "    if (sides.length !== n) sides = Array.from({ length: n }, (_, i) => sides[i] ?? {});"
+          ]
+        ],
+        [
+          62,
+          8,
+          [
+            "    let outer: Loop2;",
+            "    if (outerKind === 'polygon') {",
+            "      if (outlineIds.length < 3) return null;",
+            "      outer = { kind: 'polygon', points: outlineIds.map(pos) };",
+            "    } else {",
+            "      const c = vec(circleCenter);",
+            "      if (!c || !(circleRadius > 0)) return null;",
+            "      outer = { kind: 'circle', center: c, radius: circleRadius };"
+          ]
+        ],
+        [
+          71,
+          1,
+          [
+            "    const hs: Loop2[] = [];",
+            "    for (const h of holes) {",
+            "      if (h.kind === 'polygon') { const hi = ids(h.nodes); if (hi.length >= 3) hs.push({ kind: 'polygon', points: hi.map(pos) }); }",
+            "      else { const c = vec(h.center); if (c && h.radius > 0) hs.push({ kind: 'circle', center: c, radius: h.radius }); }",
+            "    }",
+            "    return { outer, holes: hs, size, element, sides: outerKind === 'polygon' ? sides : undefined };"
+          ]
+        ],
+        [
+          73,
+          7,
+          [
+            "  const mesh = $derived(input && size > 0 ? generateMesh({ ...input, fixedPoints: modelPoints() }) : null);"
+          ]
+        ],
+        [
+          82,
+          2,
+          [
+            "    if (!input || !mesh) return;",
+            "    const r = applyMesh(input, { materialId, thickness, splitBeams }, mesh);"
+          ]
+        ],
+        [
+          89,
+          0,
+          [
+            "  // ── Flat preview ──"
+          ]
+        ],
+        [
+          113,
+          1,
+          [
+            "    {#if sides.length > 0}"
+          ]
+        ],
+        [
+          162,
+          1,
+          [
+            "  {:else if input}"
+          ]
+        ]
+      ]
     },
     "src/components/pro/ProPanel.svelte": {
       "source": "62e3f3482ff1d8271746a855b8b66e4073269422695e4aaddda5a867b13b1895",
@@ -2892,7 +3004,7 @@
       ]
     },
     "src/lib/i18n/locales/de.ts": {
-      "source": "17917484760e3ae639aeaaec4ed27ee97dcc164df6469eec83aa9d310dcf4782",
+      "source": "28d25e225a37ab7caed3b2ba80d6ddd3fef75fbb749a15729d5cfba06dbcf29e",
       "original": "f36761ad363d964198ac94576dcea46b9ae942c94eb650fcf9b5c242e68882c9",
       "changes": [
         [
@@ -3183,7 +3295,7 @@
       ]
     },
     "src/lib/i18n/locales/en.ts": {
-      "source": "bfd1981183acc301347c73bd343cf0e9b98256e19a89c243d0eb5c6b140beeaf",
+      "source": "5ac42f8a39a122526e777603d10321672c56b3b433783d8dd8ce37a05bd38e68",
       "original": "5ae4896ad27c8df0c2406c8891a0dfe4115520f7c5355527978bf8cd030fc6c7",
       "changes": [
         [
@@ -3460,7 +3572,7 @@
       ]
     },
     "src/lib/i18n/locales/es.ts": {
-      "source": "f4a615e3cd4764a5ae3f296d661284a302f115b21790d8c1939ca211d16a1d71",
+      "source": "87e4d93e357787d70e56a0411734c5215b801fb499f4380f516a71a6958eba3c",
       "original": "370029872e749ff45b1a18ebf2b29859d062736fc58d598f83093fa6a9ee6dcd",
       "changes": [
         [
@@ -3737,7 +3849,7 @@
       ]
     },
     "src/lib/i18n/locales/fr.ts": {
-      "source": "e5639792ca75feb3f3b9acdb9c7eef9f036a7b24e17839afa079f041076146c6",
+      "source": "7b3a23e6f665acd1b760c07f4ba10f3ded5d5f07e5a91ceb7868422b84653a68",
       "original": "7653af7d2d3efb97b0bc5c42de1f7cf8d469230a46875ff15b738398313d33d4",
       "changes": [
         [
@@ -4041,7 +4153,7 @@
       ]
     },
     "src/lib/i18n/locales/hu.ts": {
-      "source": "c6b605040479b91e4913d0704c7cf7797928944e2b421d0c6511ac6603e231a4",
+      "source": "ee6ec9bf84491c4c0df52215203eb51e716aff427c48c6e762ca0aa9314220e9",
       "original": "fcaf94069a310517abad2737faa4c9b4be855d4db470730d37d4be8716815fa1",
       "changes": [
         [
@@ -4348,7 +4460,7 @@
       ]
     },
     "src/lib/i18n/locales/pt.ts": {
-      "source": "0cd3761c9b2f6bedb27d34ca2f1e2c81168d9c5a7af8c3f5d4e6f14d09f82225",
+      "source": "d0d5d3e1fbeffc8ebe8e1b999b3961bea965727c5157575ed61f3765c6f6ba83",
       "original": "3c4a1b2a944bbaa5aacf5dc48a694a0626faa088d65b74f8523342c58748fe49",
       "changes": [
         [
@@ -4911,7 +5023,7 @@
       ]
     },
     "src/lib/i18n/locales/tr.ts": {
-      "source": "f1610d1fb4c688de131599f06b3385520aaea1af85ac200b18328c27f81bae22",
+      "source": "f63139b53bab1ccee11f67389e4b6e51076e1bffd5e39a85fa37069646fd2ae3",
       "original": "408ced47251b878a72df2cfedc03150802d49b3d61f9d04b36ceff822ea8f289",
       "changes": [
         [
@@ -5195,7 +5307,7 @@
       ]
     },
     "src/lib/i18n/locales/zh.ts": {
-      "source": "74b8b27b853b0ffe2bc48c7c503e2160d53ec831902c64bd4f44582abf0fea29",
+      "source": "eb32a7c8a1a340d816729593f58bb017c462fab3030590248665fca9428c565b",
       "original": "6bb6f8dce5b13b96a54bb3266af01fb966daca48be24363913ab338e96a38fdc",
       "changes": [
         [
@@ -5211,6 +5323,11 @@
           [
             "  'pro.meshGenerator': '网格生成器',"
           ]
+        ],
+        [
+          3001,
+          1,
+          []
         ]
       ]
     },

@@ -15373,7 +15373,7 @@ const tr: Translations = {
   "rcSheets.ec2.v.linkMin": "En az etriye oranı",
   "rcSheets.ec2.v.punchingLinks": "Zımbalama donatısı gerekli: burada tasarlanmaz, döşemeyi kalınlaştırın veya donatı ekleyin",
   "rcSheets.ec2.v.punchingMax": "Kolon yüzünde zımbalama",
-  "rcSheets.ec2.v.punchingRho": "Düğümde döşemenin ihtiyaç duyduğu üst donatı oranı (her iki yanda c + 3d içinde)",
+  "rcSheets.ec2.v.punchingRho": "Düğümde döşeme için gerekli üst donatı oranı (her doğrultuda toplam c + 6d genişlikte, kolonun her yüzünden 3d dışarı uzanan şeritte ortalama)",
   "rcSheets.ec2.v.skin": "Gövde donatısı gerekli (h ≥ 1 m)",
   "rcSheets.ec2.v.torsionCompat": "Taşıma gücü sınır durumunda uygunluk burulması ihmal edilir",
   "rcSheets.ec2.v.torsionMin": "Burulma en az donatıyla karşılanır",

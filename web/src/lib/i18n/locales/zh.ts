@@ -2999,6 +2999,7 @@ const zh: Translations = {
   'pro.fillet': '角焊缝',
   'pro.groove': '坡口焊',
   'pro.punching': '冲切',
+  "rcSheets.ec2.v.punchingRho": "节点处楼板所需的顶部配筋率（每个方向的平均宽度为 c + 6d，从柱的两侧边缘各向外延伸 3d）",
   'pro.advancedTools': '高级工具',
   'pro.cableTitle': '索分析 (2D)',
   'pro.cableHint': '求解索/仅受拉单元的悬链线平衡。需要自重。',

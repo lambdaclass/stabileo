@@ -20,14 +20,23 @@
         unified: __PUBLIC_FEATURES__.proPlatesUnified,
         area() {
           const shells = [...modelStore.quads.values(), ...modelStore.plates.values()];
-          return shells.reduce((sum, shell) => {
-            const points = shell.nodes.map(id => modelStore.nodes.get(id));
-            const twice = points.reduce((total, p, index) => {
-              const q = points[(index + 1) % points.length];
-              return total + p.x * q.y - p.y * q.x;
-            }, 0);
-            return sum + Math.abs(twice) / 2;
-          }, 0);
+          const boundary = new Map();
+          for (const shell of shells) {
+            const ids = shell.nodes;
+            for (const [i, a] of ids.entries()) {
+              const b = ids[(i + 1) % ids.length];
+              const key = [Math.min(a, b), Math.max(a, b)].join(',');
+              if (boundary.has(key)) boundary.delete(key);
+              else boundary.set(key, [a, b]);
+            }
+          }
+          let twiceArea = 0;
+          for (const [a, b] of boundary.values()) {
+            const p = modelStore.nodes.get(a);
+            const q = modelStore.nodes.get(b);
+            twiceArea += p.x * q.y - p.y * q.x;
+          }
+          return Math.abs(twiceArea) / 2;
         },
       };
       mount(ProMesher, { target: document.querySelector('main') });

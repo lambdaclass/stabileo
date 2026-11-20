@@ -15535,7 +15535,7 @@ const en: Record<string, string> = {
   "rcSheets.ec2.v.linkMin": "Minimum link ratio",
   "rcSheets.ec2.v.punchingLinks": "Punching reinforcement needed: not designed here, thicken the slab or add reinforcement",
   "rcSheets.ec2.v.punchingMax": "Punching at the column face",
-  "rcSheets.ec2.v.punchingRho": "Top steel ratio the slab needs at the joint (within c + 3d each side)",
+  "rcSheets.ec2.v.punchingRho": "Top reinforcement ratio required in the slab at the joint (average over a total width of c + 6d in each direction, extending 3d beyond each column face)",
   "rcSheets.ec2.v.skin": "Skin reinforcement required (h ≥ 1 m)",
   "rcSheets.ec2.v.torsionCompat": "Compatibility torsion left out at the ultimate limit state",
   "rcSheets.ec2.v.torsionMin": "Torsion carried with minimum reinforcement",
