@@ -1,5 +1,5 @@
 {
-  "base": "28228ddd1f28056154902bbb181dc3cc5d50a63d",
+  "base": "04c610dcc86a36cb20ed0114760cbf0d09a221dd",
   "files": {
     "src/App.svelte": {
       "source": "2081370d4f261ca4ed3b07638dfa901d5007fe203ebe2c6286322722a922e13a",
@@ -2352,8 +2352,8 @@
     "src/lib/codes/turkey/ts498-wind.ts": null,
     "src/lib/codes/turkey/ts500-combinations.ts": null,
     "src/lib/engine/codes/argentina/cirsoc201.ts": {
-      "source": "98fd7b2fff10d815f20cbb594f4b36f33dbe87c44b1d6f9b6664d4cbae181926",
-      "original": "9227c31653eaa6a0b703e69bf927cc2218e094f7dd7890a0146ddb0e3757564c",
+      "source": "879e353fd226fe95a8d77a13c49bed39f7ce984a3ca9cd070f34023507634dcc",
+      "original": "dd33d4b3bd30a958e1e1c57ef12dc37e4021698c9e0bc49a71bac820a56f86de",
       "changes": [
         [
           532,
