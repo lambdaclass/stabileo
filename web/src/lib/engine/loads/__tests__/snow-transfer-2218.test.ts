@@ -8,11 +8,11 @@ import { buildLoadPlan } from '../load-plan';
 import { pressure, regulations, snow } from './snow-roof-plane-fixture';
 import { mesh, transform } from './snow-surface-round2-fixture';
 
-function steppedRoof(cuts: number[] = [], upperZ = 5) {
+function steppedRoof(cuts: number[] = [], upperZ = 5, upperRise = 0) {
   const edge = cuts.map(t => [0, 4 * t, 3]);
   return mesh([
     [[0, 0, 3], [7.5, 0, 3], [7.5, 4, 3], [0, 4, 3], ...edge.reverse()],
-    [[-7.5, 0, upperZ], [0, 0, upperZ], [0, 4, upperZ], [-7.5, 4, upperZ]],
+    [[-7.5, 0, upperZ + upperRise], [0, 0, upperZ], [0, 4, upperZ], [-7.5, 4, upperZ + upperRise]],
   ]);
 }
 
@@ -22,6 +22,36 @@ it('#2218 a positive flat-roof step triangle refuses before member transfer', ()
   expect(() => driftAndSlidingLoads(model, layout, {
     pg: 1, balanced: 0.7, pf: 0.7, slippery: false, tributaryWidth: 1,
   })).toThrow('snow.refused.stepDriftTransfer');
+});
+
+const pitchedStep = process.env.RUN_KNOWN_WRONG === '2218' ? it : it.skip;
+
+pitchedStep('known wrong result: #2218 pitching the far upper edge still refuses the same positive step triangle', () => {
+  const model = steppedRoof([], 5, 0.075);
+  const layout = gravityLayout(model, { mode: 'panels', tributaryWidth: 1 });
+  expect(() => driftAndSlidingLoads(model, layout, {
+    pg: 1, balanced: 0.7, pf: 0.7, slippery: false, tributaryWidth: 1,
+  })).toThrow('snow.refused.stepDriftTransfer');
+});
+
+pitchedStep('known wrong result: #2218 pitched steps block snow cases and the load plan', () => {
+  const model = steppedRoof([], 5, 0.075);
+  const gravity = { mode: 'panels' } as const;
+  const config = { ...snow, roofKind: 'mono', slippery: false } as const;
+  const layout = gravityLayout(model, { ...gravity, tributaryWidth: 1 });
+  const direct = snowLoadCases({ model, snow: config, tributaryWidth: 1, layout })!;
+  expect(direct).toMatchObject({ result: { refused: 'snow.refused.stepDriftTransfer' }, cases: [] });
+  expect(direct.flatRoof).toBeUndefined();
+  const plan = buildLoadPlan({
+    model, gravity, regulations: regulations(), dead: [], occupancyKey: 'vivienda', tributaryWidth: 1,
+    reductionElementKind: 'interiorBeam', floorsSupported: 1, applyLiveReduction: false, generateCombinations: true,
+    snow: { ...config, enabled: true, source: 'site' },
+  });
+  expect(plan.outcome).toBe('BLOCKED');
+  const reason = { key: 'snow.refused.stepDriftTransfer' };
+  expect(plan.blockedKeys).toEqual([reason]);
+  expect(teAt(reason, 'en')).not.toBe(reason.key);
+  expect(plan).toMatchObject({ cases: [], distributed: [], nodal: [], surface: [], combinations: [] });
 });
 
 it('#2218 snow cases and the load plan refuse the step triangle', () => {
