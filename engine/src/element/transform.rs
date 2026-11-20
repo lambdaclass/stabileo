@@ -60,8 +60,9 @@ pub fn compute_local_axes_3d(
     // Apply roll angle (rotation about local X)
     let (mut ey, ez) = if let Some(angle_deg) = roll_angle {
         let angle = angle_deg * std::f64::consts::PI / 180.0;
-        let c = angle.cos();
-        let s = angle.sin();
+        // f64::cos/sin call each target's own libm, which round some angles differently.
+        let c = libm::cos(angle);
+        let s = libm::sin(angle);
         let ey_new = [
             c * ey[0] + s * ez[0],
             c * ey[1] + s * ez[1],

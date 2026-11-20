@@ -159,3 +159,20 @@ fn advanced_analyses_are_bit_identical_across_hash_orders() {
         same_every_time::<SolverInput3D, _>(&j3, &format!("3D P-Delta {seed}"), |i| solve_pdelta_3d(i, 30, 1e-8));
     }
 }
+
+/// With f64::cos/sin these roll angles gave different axes on macOS arm64, Linux x86-64 and WASM.
+#[test]
+fn roll_angle_axes_are_the_same_bits_on_every_target() {
+    use dedaliano_engine::element::compute_local_axes_3d;
+    // (roll angle in degrees, ex ey ez) as f64 bit patterns.
+    let cases: [(u64, [u64; 9]); 3] = [
+        (0xc06621021245a793, [0x3fee1a62a68be9a4, 0x3fd20fd4ca53f295, 0x3fc8151bb86fee1d, 0x3fd2f67e7049626c, 0xbfee850c745106dd, 0xbfaa0a96a3debc59, 0x3fc521903be07cb7, 0x3fba851412751e5c, 0xbfef62e80e4e9196]),
+        (0xc065cbdfa994d103, [0x3fee1a62a68be9a4, 0x3fd20fd4ca53f295, 0x3fc8151bb86fee1d, 0x3fd36ecf25f92ecb, 0xbfee553c81cecc04, 0xbfb8a958e1c617c3, 0x3fc35912402e9839, 0x3fc2e982ee63b111, 0xbfef46e7e99fa0ae]),
+        (0xc065b10e9a80753c, [0x3fee1a62a68be9a4, 0x3fd20fd4ca53f295, 0x3fc8151bb86fee1d, 0x3fd3927f82f411a2, 0xbfee42b4032364bc, 0xbfbc51861568a7e6, 0x3fc2c70582ab5994, 0x3fc4af47fc3021aa, 0xbfef3a81e1e83c98]),
+    ];
+    for (roll, want) in cases {
+        let (ex, ey, ez) = compute_local_axes_3d(0.0, 0.0, 0.0, 1.0, 0.3, 0.2, None, None, None, Some(f64::from_bits(roll)), false);
+        let got: Vec<u64> = ex.iter().chain(&ey).chain(&ez).map(|v| v.to_bits()).collect();
+        assert_eq!(got, want, "roll angle {} degrees", f64::from_bits(roll));
+    }
+}

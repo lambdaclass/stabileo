@@ -40,6 +40,9 @@ num-rational = { version = "0.4", default-features = false, features = ["num-big
 num-traits = "0.2"
 num-integer = "0.1"
 
+# The same sin and cos bits on every target. Pure Rust, wasm32-clean, MIT.
+libm = "0.2.16"
+
 # Better panic messages in WASM
 console_error_panic_hook = { version = "0.1", optional = true }
 
