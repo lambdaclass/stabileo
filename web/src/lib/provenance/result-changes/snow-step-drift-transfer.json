@@ -2,7 +2,8 @@
   "id": "snow-step-drift-transfer",
   "date": "2026-11-20",
   "prs": [
-    2218
+    2218,
+    2406
   ],
   "area": "loads",
   "when": {

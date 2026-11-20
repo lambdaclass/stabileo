@@ -14,4 +14,6 @@ The snow planner's on-site step transfer can lose force and eccentric moment whe
 
 Generation blocks when on-site step drift needs member transfer or when applicability cannot be established from the balanced-pressure field. The refusal covers both flat and pitched roofs and returns no snow cases or flat-roof companion. Below-threshold steps still produce balanced snow. The physical transfer remains open. (#2218)
 
+The `snow-roof-step`, `snow-roof-rotation` and `snow-two-pitch` reference cases previously recorded generated snow loads. In PR #2406 all three record the step-drift transfer refusal as their sole result. The load snapshots now capture the same blocking reason reported by snow generation.
+
 Regenerate gravity or snow in affected projects before relying on analysis and design results. Saved loads must be replaced explicitly if generation blocks.
