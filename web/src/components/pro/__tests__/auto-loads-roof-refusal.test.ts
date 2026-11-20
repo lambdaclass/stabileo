@@ -26,7 +26,7 @@ function renderDialog(rise: number) {
   return { id, body: render(ProAutoLoadsDialog, { props: { open: true, onclose: () => {} } }).body };
 }
 
-it.skipIf(process.env.RUN_KNOWN_WRONG !== '2254')('known wrong result: #2254 the dialog shows the carrier slope refusal and withholds the preview', () => {
+it('#2254 the dialog shows the carrier slope refusal and withholds the preview', () => {
   const { body, id } = renderDialog(1);
   const warning = teAt({ key: reason, params: { id } }, 'en');
   expect(warning).not.toBe(reason);
