@@ -189,7 +189,7 @@ describe('the PRO workflow speaks every language it is offered in', () => {
   });
 });
 
-it.skip('known wrong result: #2365 — the free and structured PRO mesh summaries preserve both counts in every offered locale', () => {
+it('the free and structured PRO mesh summaries preserve both counts in every offered locale', () => {
   const summaries = ['mesher.summary', 'mesher.summaryStructured'];
   const missingOrIncomplete = OFFERED_LOCALES.flatMap(locale => summaries.flatMap(key => {
     const value = dictFor(locale)[key] ?? '';
