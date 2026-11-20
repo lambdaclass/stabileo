@@ -248,6 +248,19 @@ function adminRootPlugin(): Plugin {
   };
 }
 
+function previewAuthConfigPlugin(): Plugin {
+  const body = JSON.stringify({ user_login_enabled: false, terms_version: null, usage_telemetry_enabled: false, cloud_projects_enabled: false, save_requires_account: false, google_login: false });
+  return {
+    name: 'preview-auth-config',
+    configurePreviewServer(server) {
+      server.middlewares.use('/api/v1/auth/config', (_req, res) => {
+        res.setHeader('Content-Type', 'application/json');
+        res.end(body);
+      });
+    },
+  };
+}
+
 /** The commit this bundle is built from, for the project workbook's cover (`lib/build-info.ts`). */
 function buildCommit(): string {
   if (process.env.GITHUB_SHA) return process.env.GITHUB_SHA.slice(0, 12);
@@ -285,7 +298,7 @@ export function createWebConfig(featureConfig?: unknown): UserConfig {
       publicI18nPlugin(switches.features, switches.testing),
       resultChangeMetadataPlugin(),
       svelte({ preprocess: { markup: ({ content }) => switches.testing() ? { code: content } : prunePublicBuildBranches(content, switches.features()) } }),
-      ...(ADMIN ? [adminRootPlugin(), adminPublicAssetsPlugin()] : []),
+      ...(ADMIN ? [adminRootPlugin(), adminPublicAssetsPlugin()] : [previewAuthConfigPlugin()]),
     ],
   };
 }

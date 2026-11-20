@@ -32,9 +32,8 @@ dev database.
 **Terminal 3 - Admin site:** `make admin.run` (4001 + INST*10, the staff admin; no WASM build needed)
 
 Account features in the web app are behind the build-time `accounts` flag (on in
-dev, off in production builds until the backend is deployed) and, at runtime,
-behind `user_login_enabled`, which starts off and is turned on from the admin
-site's Settings page.
+dev and in production builds) and, at runtime, behind `user_login_enabled`, which
+starts off and is turned on from the admin site's Settings page.
 
 Every port shifts by `INST * 10` (web 4000, admin 4001, backend 4100 at INST=0),
 and `web/vite.config.ts` and `backend/config/dev.exs` derive theirs from the same

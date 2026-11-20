@@ -58,9 +58,9 @@ test('accounts-on build keeps registration available and consent outside the sta
   assert.deepEqual(modules.filter(id => /\/lib\/tracking\//.test(id)), []);
 });
 
-test('committed production config excludes registration', async () => {
+test('committed production config includes registration', async () => {
   const { manifest, modules } = await landingBuild();
-  assert.equal(manifest['src/components/register/RegisterPage.svelte'], undefined);
+  assert.ok(manifest['src/components/register/RegisterPage.svelte']);
   assert.deepEqual(modules.filter(id => /\/lib\/tracking\//.test(id)), []);
 });
 
