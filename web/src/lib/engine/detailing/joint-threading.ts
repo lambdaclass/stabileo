@@ -382,7 +382,11 @@ export function columnKeepOuts(
   columns: ReadonlyArray<{ b: number; h: number; cover: number; tieDiaMm: number; count: number; diameterMm: number; shift?: { x: number; y: number } }>,
   t: { x: number; y: number }, placement: number,
 ): KeepOut[] {
-  return columnPlan(columns).map((k) => ({ at: k.x * t.x + k.y * t.y, halfWidth: k.diameterMm / 2000 + placement }));
+  return projectColumnPlan(columnPlan(columns), t, placement);
+}
+
+export function projectColumnPlan(plan: ReturnType<typeof columnPlan>, t: { x: number; y: number }, placement: number): KeepOut[] {
+  return plan.map((k) => ({ at: k.x * t.x + k.y * t.y, halfWidth: k.diameterMm / 2000 + placement }));
 }
 
 /**
