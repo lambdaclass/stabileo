@@ -19,6 +19,7 @@ use super::sparse_tangent::{
     cached_symbolic, tangent_free_sparse, tangent_free_sparse_triplets, SparseSymbolicCache,
 };
 use super::time_integration::MAX_DENSE_FALLBACK_DOFS;
+use super::path_following::{solve_by_arc_length, vec_norm, ArcLengthControl, PathProblem};
 
 /// Arc-length analysis input.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -133,6 +134,137 @@ pub fn solve_arc_length_from(input: &ArcLengthInput, start: Option<&super::corot
     Ok(r)
 }
 
+fn set_supports(u: &mut [f64], nf: usize, u_r_start: &[f64], du_support: &[f64], lambda: f64) {
+    for (r, (&u0, &du)) in u_r_start.iter().zip(du_support).enumerate() {
+        u[nf + r] = u0 + lambda * du;
+    }
+}
+
+struct ArcLength2D<'a> {
+    solver: &'a SolverInput,
+    dof_num: &'a DofNumbering,
+    cs: &'a Option<FreeConstraintSystem>,
+    art: &'a [(usize, f64)],
+    its: &'a [InclinedTransformData2D],
+    metric: &'a super::convergence::EquilibriumMetric,
+    sparse: bool,
+    ns: usize,
+    moves_supports: bool,
+    psi2: f64,
+    f_ref: &'a Vec<f64>,
+    f_ref_full: &'a Vec<f64>,
+    f_start: &'a Vec<f64>,
+    f_start_full: &'a Vec<f64>,
+    u_r_start: &'a Vec<f64>,
+    du_support: &'a Vec<f64>,
+    support_direction: &'a Vec<f64>,
+    start_internal: &'a Vec<f64>,
+    u_full: Vec<f64>,
+    sparse_sym_cache: Option<SparseSymbolicCache>,
+    asm_t: Option<TangentAssembly>,
+    residual: Vec<f64>,
+    steps: Vec<EquilibriumStep>,
+}
+
+impl ArcLength2D<'_> {
+    /// dR/dλ: the reference load less the tangent's response to the support
+    /// motion, g = f_ref − K_fr·Δu_r.
+    fn reference(&self, asm_t: &TangentAssembly) -> Vec<f64> {
+        let (n, nf) = (self.dof_num.n_total, self.dof_num.n_free);
+        let support_direction = self.support_direction;
+        let mut g = self.f_ref.clone();
+        if self.moves_supports {
+            if self.sparse {
+                for ((&i, &j), &v) in asm_t.trip_rows.iter().zip(&asm_t.trip_cols).zip(&asm_t.trip_vals) {
+                    if i < nf { g[i] -= v * support_direction[j]; }
+                    if i != j && j < nf { g[j] -= v * support_direction[i]; }
+                }
+            } else {
+                for (i, gi) in g.iter_mut().enumerate() {
+                    *gi -= (0..n).map(|j| asm_t.k_t[i * n + j] * support_direction[j]).sum::<f64>();
+                }
+            }
+        }
+        g
+    }
+
+    fn reduce(&self, v: &Vec<f64>) -> Vec<f64> {
+        if let Some(ref cs) = *self.cs { cs.reduce_vector(v) } else { v.clone() }
+    }
+}
+
+impl PathProblem for ArcLength2D<'_> {
+    fn unknowns(&self) -> usize {
+        self.dof_num.n_free
+    }
+
+    fn load_scale(&self) -> f64 {
+        self.psi2
+    }
+
+    fn linearize_at(&mut self, lambda: f64) {
+        set_supports(&mut self.u_full, self.dof_num.n_free, self.u_r_start, self.du_support, lambda);
+        self.asm_t = Some(assemble_tangent(self.solver, self.dof_num, &self.u_full, self.art, self.sparse, self.its));
+    }
+
+    fn measure(&mut self, lambda: f64) -> f64 {
+        let (n, nf) = (self.dof_num.n_total, self.dof_num.n_free);
+        let (f_start, f_ref, f_start_full, f_ref_full) = (self.f_start, self.f_ref, self.f_start_full, self.f_ref_full);
+        let Some(asm_t) = self.asm_t.as_ref() else { return f64::INFINITY };
+        let f_int_new = &asm_t.f_int;
+
+        let mut residual = vec![0.0; nf];
+        for i in 0..nf {
+            residual[i] = f_start[i] + lambda * f_ref[i] - f_int_new[i];
+        }
+
+        let applied: Vec<f64> = (0..n).map(|i| f_start_full[i] + lambda * f_ref_full[i]).collect();
+        let measure = self.metric.continuation_residual(&residual,&applied,&self.u_full[nf..],f_start_full,self.start_internal,self.cs.as_ref());
+        self.residual = residual;
+        measure
+    }
+
+    fn reference_response(&mut self) -> Result<Vec<f64>, String> {
+        let (n, nf, ns) = (self.dof_num.n_total, self.dof_num.n_free, self.ns);
+        let Some(asm_t) = self.asm_t.take() else { return Err("Arc-length analysis: no tangent assembled".into()) };
+        let tangent = factor_assembled(&asm_t, n, nf, ns, self.cs, &mut self.sparse_sym_cache)?;
+        let du_hat_s = solve_with_tangent(&tangent, &self.reduce(&self.reference(&asm_t)), ns)?;
+        Ok(if let Some(ref cs) = *self.cs { cs.expand_solution(&du_hat_s, MasterMotion::Prescribed(self.du_support)) } else { du_hat_s })
+    }
+
+    fn responses(&mut self) -> Result<(Vec<f64>, Vec<f64>), String> {
+        let (n, nf, ns) = (self.dof_num.n_total, self.dof_num.n_free, self.ns);
+        let Some(asm_t) = self.asm_t.take() else { return Err("Arc-length analysis: no tangent assembled".into()) };
+        let residual = std::mem::take(&mut self.residual);
+        let residual_s = if let Some(ref cs) = *self.cs { cs.reduce_vector(&residual) } else { residual.clone() };
+        let tangent = factor_assembled(&asm_t, n, nf, ns, self.cs, &mut self.sparse_sym_cache)?;
+        let du_r_s = solve_with_tangent(&tangent, &residual_s, ns)?;
+        let du_t_s = solve_with_tangent(&tangent, &self.reduce(&self.reference(&asm_t)), ns)?;
+        let du_r = if let Some(ref cs) = *self.cs { cs.expand_solution(&du_r_s, MasterMotion::Homogeneous) } else { du_r_s };
+        let du_t = if let Some(ref cs) = *self.cs { cs.expand_solution(&du_t_s, MasterMotion::Prescribed(self.du_support)) } else { du_t_s };
+        Ok((du_r, du_t))
+    }
+
+    fn advance(&mut self, step: &[f64]) {
+        for i in 0..self.dof_num.n_free {
+            self.u_full[i] += step[i];
+        }
+    }
+
+    fn record(&mut self, step: usize, lambda: f64, iterations: usize) {
+        let (n, nf) = (self.dof_num.n_total, self.dof_num.n_free);
+        set_supports(&mut self.u_full, nf, self.u_r_start, self.du_support, lambda);
+        self.steps.push(EquilibriumStep {
+            step,
+            load_factor: lambda,
+            control_displacement: self.u_full.get(0).copied().unwrap_or(0.0),
+            converged: true,
+            iterations,
+            displacements: super::linear::build_displacements_2d(self.dof_num, &assembly::to_global(&self.u_full, n, self.its)),
+        });
+    }
+}
+
 fn solve_arc_length_contained(input: &ArcLengthInput, start: Option<&super::corotational::CorotationalStart2D>) -> Result<ArcLengthResult, String> {
     // Assembly resolves ids by direct map indexing: an element naming a
     // node that does not exist panicked there, which in WASM ends the
@@ -166,8 +298,6 @@ fn solve_arc_length_contained(input: &ArcLengthInput, start: Option<&super::coro
     // tangent's sparsity pattern is constant within a solve call, so the
     // symbolic phase is computed once and only the numeric phase repeats
     // per iteration.
-    let mut sparse_sym_cache: Option<SparseSymbolicCache> = None;
-
     // Reference load vector
     // f_ref, the tangent and `u_full` are in the inclined-roller frames the
     // restraints are numbered in (`assemble_tangent` rotates); results are
@@ -177,7 +307,7 @@ fn solve_arc_length_contained(input: &ArcLengthInput, start: Option<&super::coro
     let its = asm.inclined_transforms_2d;
     let f_ref_full = asm.f;
     let f_ref: Vec<f64> = f_ref_full[..nf].to_vec();
-    let (mut u_full, f_start) = match start {
+    let (u_full, f_start) = match start {
         Some(start) => super::corotational::start_state_2d(&input.solver, start, &dof_num)?,
         None => (vec![0.0; n], vec![0.0; n]),
     };
@@ -206,193 +336,45 @@ fn solve_arc_length_contained(input: &ArcLengthInput, start: Option<&super::coro
     // The load-factor term of the arc-length constraint, in force² when there
     // is a reference load and in displacement² when only supports move.
     let psi2 = if f_ref_norm > 0.0 { vec_norm(&f_ref).powi(2) } else { vec_norm(&du_support).powi(2) };
-    let set_supports = |u: &mut [f64], lambda: f64| {
-        for (r, (&u0, &du)) in u_r_start.iter().zip(&du_support).enumerate() {
-            u[nf + r] = u0 + lambda * du;
-        }
+    let mut problem = ArcLength2D {
+        solver: &input.solver,
+        dof_num: &dof_num,
+        cs: &cs,
+        art: &art,
+        its: &its,
+        metric: &metric,
+        sparse,
+        ns,
+        moves_supports,
+        psi2,
+        f_ref: &f_ref,
+        f_ref_full: &f_ref_full,
+        f_start: &f_start,
+        f_start_full: &f_start_full,
+        u_r_start: &u_r_start,
+        du_support: &du_support,
+        support_direction: &support_direction,
+        start_internal: &start_internal,
+        u_full,
+        sparse_sym_cache: None,
+        asm_t: None,
+        residual: Vec::new(),
+        steps: Vec::new(),
     };
-    // dR/dλ: the reference load less the tangent's response to the support
-    // motion, g = f_ref − K_fr·Δu_r.
-    let reference = |asm_t: &TangentAssembly| -> Vec<f64> {
-        let mut g = f_ref.clone();
-        if moves_supports {
-            if sparse {
-                for ((&i, &j), &v) in asm_t.trip_rows.iter().zip(&asm_t.trip_cols).zip(&asm_t.trip_vals) {
-                    if i < nf { g[i] -= v * support_direction[j]; }
-                    if i != j && j < nf { g[j] -= v * support_direction[i]; }
-                }
-            } else {
-                for (i, gi) in g.iter_mut().enumerate() {
-                    *gi -= (0..n).map(|j| asm_t.k_t[i * n + j] * support_direction[j]).sum::<f64>();
-                }
-            }
-        }
-        g
-    };
-    let reduce = |v: &Vec<f64>| if let Some(ref cs) = cs { cs.reduce_vector(v) } else { v.clone() };
-
-    let mut lambda = 0.0_f64;
-    let mut ds = input.initial_ds;
-    let mut steps = Vec::new();
-    let mut total_iters = 0;
-    let mut overall_converged = true;
-
-    // Previous increment direction (for sign determination)
-    let mut prev_delta_u = vec![0.0; nf];
-    let mut prev_delta_lambda = 1.0_f64;
-
-    let mut step = 0;
-    while step < input.max_steps {
-        // Predictor: solve K_T * δu_hat = g
-        set_supports(&mut u_full, lambda);
-        let asm_t = assemble_tangent(&input.solver, &dof_num, &u_full, &art, sparse, &its);
-
-        let du_hat_s = {
-            // New tangent each step: factor once, solve the predictor RHS.
-            let tangent = factor_assembled(&asm_t, n, nf, ns, &cs, &mut sparse_sym_cache)?;
-            solve_with_tangent(&tangent, &reduce(&reference(&asm_t)), ns)?
-        };
-        let du_hat = if let Some(ref cs) = cs { cs.expand_solution(&du_hat_s, MasterMotion::Prescribed(&du_support)) } else { du_hat_s };
-
-        // Determine Δλ from arc-length constraint
-        // ||Δu||² + Δλ² × ||f_ref||² = Δs²
-        let du_hat_norm = vec_norm(&du_hat);
-        let denom = du_hat_norm * du_hat_norm + psi2;
-        let mut delta_lambda = ds / denom.sqrt();
-
-        // Sign: follow previous direction
-        let dot = dot_product(&prev_delta_u, &du_hat) + prev_delta_lambda * delta_lambda * psi2;
-        if dot < 0.0 {
-            delta_lambda = -delta_lambda;
-        }
-
-        // Predictor step
-        let mut delta_u: Vec<f64> = du_hat.iter().map(|&v| delta_lambda * v).collect();
-
-        // Apply predictor
-        for i in 0..nf {
-            u_full[i] += delta_u[i];
-        }
-        lambda += delta_lambda;
-
-        // Corrector: N-R iterations with arc-length constraint
-        let mut step_converged = false;
-        let mut step_iters = 0;
-
-        for _iter in 0..input.max_iter {
-            step_iters += 1;
-            total_iters += 1;
-
-            // Compute residual
-            set_supports(&mut u_full, lambda);
-            let asm_t = assemble_tangent(&input.solver, &dof_num, &u_full, &art, sparse, &its);
-            let f_int_new = &asm_t.f_int;
-
-            let mut residual = vec![0.0; nf];
-            for i in 0..nf {
-                residual[i] = f_start[i] + lambda * f_ref[i] - f_int_new[i];
-            }
-
-            // Check convergence on independent (reduced) DOFs
-            let applied: Vec<f64> = (0..n).map(|i| f_start_full[i] + lambda * f_ref_full[i]).collect();
-            if metric.continuation_residual(&residual,&applied,&u_full[nf..],&f_start_full,&start_internal,cs.as_ref()) < input.tolerance {
-                step_converged = true;
-                break;
-            }
-
-            // Two-system solve with a single factorization per iteration:
-            // K_T * δu_r = R   (residual correction)
-            // K_T * δu_t = f_ref (tangent correction)
-            let residual_s = if let Some(ref cs) = cs { cs.reduce_vector(&residual) } else { residual.clone() };
-            let tangent = factor_assembled(&asm_t, n, nf, ns, &cs, &mut sparse_sym_cache)?;
-            let du_r_s = solve_with_tangent(&tangent, &residual_s, ns)?;
-            let du_t_s = solve_with_tangent(&tangent, &reduce(&reference(&asm_t)), ns)?;
-            let du_r = if let Some(ref cs) = cs { cs.expand_solution(&du_r_s, MasterMotion::Homogeneous) } else { du_r_s };
-            let du_t = if let Some(ref cs) = cs { cs.expand_solution(&du_t_s, MasterMotion::Prescribed(&du_support)) } else { du_t_s };
-
-            // Arc-length constraint: quadratic equation for δλ
-            // a*δλ² + b*δλ + c = 0
-            let a_coeff = dot_product(&du_t, &du_t) + psi2;
-            let b_coeff = 2.0 * (dot_product(&delta_u, &du_t) + dot_product(&du_r, &du_t)
-                + delta_lambda * psi2);
-            let c_coeff = dot_product(&delta_u, &delta_u) + 2.0 * dot_product(&delta_u, &du_r)
-                + dot_product(&du_r, &du_r)
-                + delta_lambda * delta_lambda * psi2
-                - ds * ds;
-
-            let discriminant = b_coeff * b_coeff - 4.0 * a_coeff * c_coeff;
-            let d_lambda = if discriminant >= 0.0 {
-                let sqrt_d = discriminant.sqrt();
-                let root1 = (-b_coeff + sqrt_d) / (2.0 * a_coeff);
-                let root2 = (-b_coeff - sqrt_d) / (2.0 * a_coeff);
-
-                // Choose root that gives positive work (follows the path)
-                let du1: Vec<f64> = (0..nf).map(|i| du_r[i] + root1 * du_t[i]).collect();
-                let du2: Vec<f64> = (0..nf).map(|i| du_r[i] + root2 * du_t[i]).collect();
-                let work1 = dot_product(&delta_u, &du1);
-                let work2 = dot_product(&delta_u, &du2);
-
-                if work1 >= work2 { root1 } else { root2 }
-            } else {
-                // Negative discriminant: use minimum residual approach
-                -b_coeff / (2.0 * a_coeff)
-            };
-
-            // Update
-            for i in 0..nf {
-                let du_i = du_r[i] + d_lambda * du_t[i];
-                u_full[i] += du_i;
-                delta_u[i] += du_i;
-            }
-            lambda += d_lambda;
-            delta_lambda += d_lambda;
-        }
-
-        if !step_converged {
-            // Restore the last converged state FIRST, so that if the retry
-            // budget runs out the final results are built from the last
-            // converged equilibrium state — not from the failed step's
-            // unconverged iterate.
-            for i in 0..nf {
-                u_full[i] -= delta_u[i];
-            }
-            lambda -= delta_lambda;
-
-            // Halve arc-length and retry (don't consume step budget)
-            ds *= 0.5;
-            if ds < input.min_ds {
-                overall_converged = false;
-                break;
-            }
-            continue;
-        }
-
-        // Record converged step
-        step += 1;
-        set_supports(&mut u_full, lambda);
-        steps.push(EquilibriumStep {
-            step,
-            load_factor: lambda,
-            control_displacement: u_full.get(0).copied().unwrap_or(0.0),
-            converged: true,
-            iterations: step_iters,
-            displacements: super::linear::build_displacements_2d(&dof_num, &assembly::to_global(&u_full, n, &its)),
-        });
-
-        // Save direction for next step
-        prev_delta_u = delta_u;
-        prev_delta_lambda = delta_lambda;
-
-        // Adaptive arc-length
-        if step_iters <= input.target_iter / 2 {
-            ds = (ds * 2.0).min(input.max_ds);
-        } else if step_iters > input.target_iter * 2 {
-            ds = (ds * 0.5).max(input.min_ds);
-        }
-    }
+    let outcome = solve_by_arc_length(&mut problem, &ArcLengthControl {
+        max_steps: input.max_steps,
+        max_iter: input.max_iter,
+        tolerance: input.tolerance,
+        initial_ds: input.initial_ds,
+        min_ds: input.min_ds,
+        max_ds: input.max_ds,
+        target_iter: input.target_iter,
+    })?;
+    let ArcLength2D { mut u_full, steps, .. } = problem;
+    let (lambda, overall_converged, total_iters) = (outcome.load_factor, outcome.converged, outcome.iterations);
 
     // Build final results using corotational forces (not linear)
-    set_supports(&mut u_full, lambda);
+    set_supports(&mut u_full, nf, &u_r_start, &du_support, lambda);
     let mut at_state = super::corotational::scaled_loads_2d(&input.solver, lambda);
     if let Some(start) = start {
         at_state.loads.extend(start.input.loads.clone());
@@ -634,13 +616,6 @@ fn solve_displacement_control_contained(input: &DisplacementControlInput) -> Res
 
 // ==================== Helpers ====================
 
-fn vec_norm(v: &[f64]) -> f64 {
-    v.iter().fold(0.0f64, |norm, v| norm.hypot(*v))
-}
-
-fn dot_product(a: &[f64], b: &[f64]) -> f64 {
-    a.iter().zip(b.iter()).map(|(x, y)| x * y).sum()
-}
 
 /// Tangent stiffness factored once, reusable for multiple right-hand sides.
 /// The dense decompositions (Cholesky with LU fallback) match what the
@@ -998,5 +973,330 @@ mod tests {
                 d.ux, d.uz, d.ry, d.node_id
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod shared_driver_equivalence {
+    use super::*;
+    use crate::solver::path_following::dot_product;
+    use std::collections::HashMap;
+
+    fn before_the_shared_driver(input: &ArcLengthInput, start: Option<&crate::solver::corotational::CorotationalStart2D>) -> Result<ArcLengthResult, String> {
+        crate::solver::linear::validate_input_2d(&input.solver)?;
+        crate::solver::feature_gates::refuse_2d(&input.solver, "Arc-length analysis", &[
+            crate::solver::feature_gates::Feature::ThermalLoads,
+        ])?;
+        crate::element::connector::refuse_for_corotational_2d(&input.solver, "Arc-length analysis")?;
+        crate::solver::corotational::refuse_inclined_motion_2d(&input.solver, start.is_some())?;
+
+        let dof_num = DofNumbering::build_2d(&input.solver);
+        if dof_num.n_free == 0 {
+            return Err("No free DOFs".into());
+        }
+
+        let n = dof_num.n_total;
+        let nf = dof_num.n_free;
+
+        let cs = FreeConstraintSystem::build_2d(&input.solver, &dof_num)?;
+        let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
+
+        let sparse = ns >= SPARSE_THRESHOLD;
+
+        let mut sparse_sym_cache: Option<SparseSymbolicCache> = None;
+
+        let asm = assembly::assemble_2d(&input.solver, &dof_num);
+        let art = assembly::artificial_stiffness_entries(&asm);
+        let its = asm.inclined_transforms_2d;
+        let f_ref_full = asm.f;
+        let f_ref: Vec<f64> = f_ref_full[..nf].to_vec();
+        let (mut u_full, f_start) = match start {
+            Some(start) => crate::solver::corotational::start_state_2d(&input.solver, start, &dof_num)?,
+            None => (vec![0.0; n], vec![0.0; n]),
+        };
+        let f_start_full = f_start;
+        let f_start: Vec<f64> = f_start_full[..nf].to_vec();
+        let u_r_start: Vec<f64> = u_full[nf..].to_vec();
+        let du_support = crate::solver::linear::prescribed_displacements_2d(&input.solver, &dof_num);
+        let moves_supports = du_support.iter().any(|&v| v != 0.0);
+        let mut support_direction = vec![0.0; n];
+        support_direction[nf..].copy_from_slice(&du_support);
+        if let Some(ref cs) = cs { cs.impose_motion(&mut support_direction); }
+        let support_extent: Vec<_> = u_r_start.iter().zip(&du_support)
+            .map(|(a,b)|a.abs()+b.abs()).collect();
+        let metric = crate::solver::convergence::EquilibriumMetric::for_2d_with_state(
+            &input.solver, &dof_num, cs.as_ref(), Some(&support_extent), &[],
+        )?;
+        let start_internal = if start.is_some() {
+            crate::solver::corotational::continuation_internal_2d(&input.solver, &dof_num, &u_full, &its, &art)
+        } else {
+            vec![0.0; n]
+        };
+        let f_ref_norm = metric.free_norm(&f_ref, cs.as_ref());
+        if f_ref_norm == 0.0 && !moves_supports {
+            return Err("Zero reference load".into());
+        }
+        let psi2 = if f_ref_norm > 0.0 { vec_norm(&f_ref).powi(2) } else { vec_norm(&du_support).powi(2) };
+        let set_supports = |u: &mut [f64], lambda: f64| {
+            for (r, (&u0, &du)) in u_r_start.iter().zip(&du_support).enumerate() {
+                u[nf + r] = u0 + lambda * du;
+            }
+        };
+        let reference = |asm_t: &TangentAssembly| -> Vec<f64> {
+            let mut g = f_ref.clone();
+            if moves_supports {
+                if sparse {
+                    for ((&i, &j), &v) in asm_t.trip_rows.iter().zip(&asm_t.trip_cols).zip(&asm_t.trip_vals) {
+                        if i < nf { g[i] -= v * support_direction[j]; }
+                        if i != j && j < nf { g[j] -= v * support_direction[i]; }
+                    }
+                } else {
+                    for (i, gi) in g.iter_mut().enumerate() {
+                        *gi -= (0..n).map(|j| asm_t.k_t[i * n + j] * support_direction[j]).sum::<f64>();
+                    }
+                }
+            }
+            g
+        };
+        let reduce = |v: &Vec<f64>| if let Some(ref cs) = cs { cs.reduce_vector(v) } else { v.clone() };
+
+        let mut lambda = 0.0_f64;
+        let mut ds = input.initial_ds;
+        let mut steps = Vec::new();
+        let mut total_iters = 0;
+        let mut overall_converged = true;
+
+        let mut prev_delta_u = vec![0.0; nf];
+        let mut prev_delta_lambda = 1.0_f64;
+
+        let mut step = 0;
+        while step < input.max_steps {
+            set_supports(&mut u_full, lambda);
+            let asm_t = assemble_tangent(&input.solver, &dof_num, &u_full, &art, sparse, &its);
+
+            let du_hat_s = {
+                let tangent = factor_assembled(&asm_t, n, nf, ns, &cs, &mut sparse_sym_cache)?;
+                solve_with_tangent(&tangent, &reduce(&reference(&asm_t)), ns)?
+            };
+            let du_hat = if let Some(ref cs) = cs { cs.expand_solution(&du_hat_s, MasterMotion::Prescribed(&du_support)) } else { du_hat_s };
+
+            let du_hat_norm = vec_norm(&du_hat);
+            let denom = du_hat_norm * du_hat_norm + psi2;
+            let mut delta_lambda = ds / denom.sqrt();
+
+            let dot = dot_product(&prev_delta_u, &du_hat) + prev_delta_lambda * delta_lambda * psi2;
+            if dot < 0.0 {
+                delta_lambda = -delta_lambda;
+            }
+
+            let mut delta_u: Vec<f64> = du_hat.iter().map(|&v| delta_lambda * v).collect();
+
+            for i in 0..nf {
+                u_full[i] += delta_u[i];
+            }
+            lambda += delta_lambda;
+
+            let mut step_converged = false;
+            let mut step_iters = 0;
+
+            for _iter in 0..input.max_iter {
+                step_iters += 1;
+                total_iters += 1;
+
+                set_supports(&mut u_full, lambda);
+                let asm_t = assemble_tangent(&input.solver, &dof_num, &u_full, &art, sparse, &its);
+                let f_int_new = &asm_t.f_int;
+
+                let mut residual = vec![0.0; nf];
+                for i in 0..nf {
+                    residual[i] = f_start[i] + lambda * f_ref[i] - f_int_new[i];
+                }
+
+                let applied: Vec<f64> = (0..n).map(|i| f_start_full[i] + lambda * f_ref_full[i]).collect();
+                if metric.continuation_residual(&residual,&applied,&u_full[nf..],&f_start_full,&start_internal,cs.as_ref()) < input.tolerance {
+                    step_converged = true;
+                    break;
+                }
+
+                let residual_s = if let Some(ref cs) = cs { cs.reduce_vector(&residual) } else { residual.clone() };
+                let tangent = factor_assembled(&asm_t, n, nf, ns, &cs, &mut sparse_sym_cache)?;
+                let du_r_s = solve_with_tangent(&tangent, &residual_s, ns)?;
+                let du_t_s = solve_with_tangent(&tangent, &reduce(&reference(&asm_t)), ns)?;
+                let du_r = if let Some(ref cs) = cs { cs.expand_solution(&du_r_s, MasterMotion::Homogeneous) } else { du_r_s };
+                let du_t = if let Some(ref cs) = cs { cs.expand_solution(&du_t_s, MasterMotion::Prescribed(&du_support)) } else { du_t_s };
+
+                let a_coeff = dot_product(&du_t, &du_t) + psi2;
+                let b_coeff = 2.0 * (dot_product(&delta_u, &du_t) + dot_product(&du_r, &du_t)
+                    + delta_lambda * psi2);
+                let c_coeff = dot_product(&delta_u, &delta_u) + 2.0 * dot_product(&delta_u, &du_r)
+                    + dot_product(&du_r, &du_r)
+                    + delta_lambda * delta_lambda * psi2
+                    - ds * ds;
+
+                let discriminant = b_coeff * b_coeff - 4.0 * a_coeff * c_coeff;
+                let d_lambda = if discriminant >= 0.0 {
+                    let sqrt_d = discriminant.sqrt();
+                    let root1 = (-b_coeff + sqrt_d) / (2.0 * a_coeff);
+                    let root2 = (-b_coeff - sqrt_d) / (2.0 * a_coeff);
+
+                    let du1: Vec<f64> = (0..nf).map(|i| du_r[i] + root1 * du_t[i]).collect();
+                    let du2: Vec<f64> = (0..nf).map(|i| du_r[i] + root2 * du_t[i]).collect();
+                    let work1 = dot_product(&delta_u, &du1);
+                    let work2 = dot_product(&delta_u, &du2);
+
+                    if work1 >= work2 { root1 } else { root2 }
+                } else {
+                    -b_coeff / (2.0 * a_coeff)
+                };
+
+                for i in 0..nf {
+                    let du_i = du_r[i] + d_lambda * du_t[i];
+                    u_full[i] += du_i;
+                    delta_u[i] += du_i;
+                }
+                lambda += d_lambda;
+                delta_lambda += d_lambda;
+            }
+
+            if !step_converged {
+                for i in 0..nf {
+                    u_full[i] -= delta_u[i];
+                }
+                lambda -= delta_lambda;
+
+                ds *= 0.5;
+                if ds < input.min_ds {
+                    overall_converged = false;
+                    break;
+                }
+                continue;
+            }
+
+            step += 1;
+            set_supports(&mut u_full, lambda);
+            steps.push(EquilibriumStep {
+                step,
+                load_factor: lambda,
+                control_displacement: u_full.get(0).copied().unwrap_or(0.0),
+                converged: true,
+                iterations: step_iters,
+                displacements: crate::solver::linear::build_displacements_2d(&dof_num, &assembly::to_global(&u_full, n, &its)),
+            });
+
+            prev_delta_u = delta_u;
+            prev_delta_lambda = delta_lambda;
+
+            if step_iters <= input.target_iter / 2 {
+                ds = (ds * 2.0).min(input.max_ds);
+            } else if step_iters > input.target_iter * 2 {
+                ds = (ds * 0.5).max(input.min_ds);
+            }
+        }
+
+        set_supports(&mut u_full, lambda);
+        let mut at_state = crate::solver::corotational::scaled_loads_2d(&input.solver, lambda);
+        if let Some(start) = start {
+            at_state.loads.extend(start.input.loads.clone());
+        }
+        let results = crate::solver::corotational::build_final_results(&at_state, &dof_num, &u_full, &cs, &its)?;
+
+        Ok(ArcLengthResult {
+            results,
+            steps,
+            final_load_factor: lambda,
+            converged: overall_converged,
+            total_iterations: total_iters,
+        })
+    }
+
+    fn frame(n: usize, rise: f64, far_support: Option<&str>) -> SolverInput {
+        let (mut nodes, mut elements, mut supports) = (HashMap::new(), HashMap::new(), HashMap::new());
+        for i in 0..=n {
+            let t = i as f64 / n as f64;
+            nodes.insert((i + 1).to_string(), SolverNode { id: i + 1, x: 6.0 * t, z: rise * 4.0 * t * (1.0 - t) });
+        }
+        for i in 0..n {
+            elements.insert((i + 1).to_string(), SolverElement {
+                id: i + 1, elem_type: "frame".into(), node_i: i + 1, node_j: i + 2,
+                material_id: 1, section_id: 1, hinge_start: false, hinge_end: false,
+            });
+        }
+        let support = |id: usize, node_id: usize, kind: &str| SolverSupport {
+            id, node_id, support_type: kind.into(), kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: None,
+        };
+        supports.insert("1".into(), support(1, 1, if far_support.is_some() { "pinned" } else { "fixed" }));
+        if let Some(kind) = far_support {
+            supports.insert("2".into(), support(2, n + 1, kind));
+        }
+        let loaded = if far_support.is_some() { n / 2 + 1 } else { n + 1 };
+        SolverInput {
+            solver_options: None, masses: Default::default(), nodes,
+            materials: HashMap::from([("1".to_string(), SolverMaterial { id: 1, e: 200.0, nu: 0.3 })]),
+            sections: HashMap::from([("1".to_string(), SolverSection { id: 1, a: 0.01, iz: 1e-4, as_y: None })]),
+            elements, supports,
+            loads: vec![SolverLoad::Nodal(SolverNodalLoad { node_id: loaded, fx: 0.0, fz: -30.0, my: 0.0 })],
+            constraints: vec![], connectors: HashMap::new(),
+        }
+    }
+
+    fn asked(solver: SolverInput, max_steps: usize, max_iter: usize, initial_ds: f64) -> ArcLengthInput {
+        ArcLengthInput { solver, max_steps, max_iter, tolerance: 1e-8, initial_ds, min_ds: 1e-5, max_ds: 2.0 * initial_ds, target_iter: 5 }
+    }
+
+    fn same(input: &ArcLengthInput, start: Option<&crate::solver::corotational::CorotationalStart2D>) -> Option<ArcLengthResult> {
+        let before = before_the_shared_driver(input, start);
+        let now = solve_arc_length_contained(input, start);
+        match (before, now) {
+            (Ok(before), Ok(now)) => {
+                assert_eq!(format!("{before:?}"), format!("{now:?}"));
+                Some(now)
+            }
+            (Err(before), Err(now)) => {
+                assert_eq!(before, now);
+                None
+            }
+            (before, now) => panic!("{:?} against {:?}", before.map(|r| r.converged), now.map(|r| r.converged)),
+        }
+    }
+
+    #[test]
+    fn the_shared_driver_gives_the_paths_the_loop_gave_bit_for_bit() {
+        let (mut followed, mut cut_short, mut sparse, mut steps) = (0, 0, 0, 0);
+        for n in [2, 6, 14, 30] {
+            for (rise, far_support) in [(0.0, None), (0.3, None), (0.15, Some("pinned")), (0.6, Some("pinned"))] {
+                let solver = frame(n, rise, far_support);
+                if DofNumbering::build_2d(&solver).n_free >= SPARSE_THRESHOLD { sparse += 1; }
+                for (max_steps, max_iter, initial_ds) in [(12, 30, 0.05), (30, 30, 0.2), (8, 2, 0.5), (6, 1, 0.05), (0, 30, 0.1)] {
+                    let Some(result) = same(&asked(solver.clone(), max_steps, max_iter, initial_ds), None) else { continue };
+                    steps += result.steps.len();
+                    if result.converged { followed += 1 } else { cut_short += 1 }
+                }
+            }
+        }
+        assert!(followed >= 30 && cut_short >= 4 && sparse >= 3 && steps >= 300, "{followed} followed, {cut_short} cut short, {sparse} sparse, {steps} steps");
+    }
+
+    #[test]
+    fn moving_supports_a_start_state_and_refusals_go_through_the_shared_driver_unchanged() {
+        for n in [6, 30] {
+            let mut settling = frame(n, 0.3, Some("pinned"));
+            settling.supports.get_mut("2").unwrap().dz = Some(-0.05);
+            assert!(same(&asked(settling.clone(), 10, 30, 0.05), None).is_some());
+            settling.loads.clear();
+            assert!(same(&asked(settling, 10, 30, 0.05), None).is_some());
+
+            let first = frame(n, 0.3, Some("pinned"));
+            let reached = crate::solver::corotational::solve_corotational_2d(&first, 60, 1e-8, 8, false).unwrap();
+            let start = crate::solver::corotational::CorotationalStart2D { input: &first, displacements: &reached.results.displacements };
+            let mut next = frame(n, 0.3, Some("pinned"));
+            next.loads = vec![SolverLoad::Nodal(SolverNodalLoad { node_id: n / 2 + 1, fx: 2.0, fz: -10.0, my: 0.0 })];
+            assert!(same(&asked(next, 10, 30, 0.05), Some(&start)).is_some());
+        }
+        let mut unloaded = frame(6, 0.3, None);
+        unloaded.loads.clear();
+        assert!(same(&asked(unloaded, 10, 30, 0.05), None).is_none());
+        let mut held = frame(1, 0.0, Some("fixed"));
+        held.supports.get_mut("1").unwrap().support_type = "fixed".into();
+        assert!(same(&asked(held, 10, 30, 0.05), None).is_none());
     }
 }
