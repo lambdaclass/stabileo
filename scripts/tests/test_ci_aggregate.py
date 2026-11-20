@@ -43,6 +43,19 @@ class CiAggregate(unittest.TestCase):
         self.assertEqual(len(dependency_list), len(dependencies))
         self.assertEqual(dependencies, jobs - {'ci-ok', 'e2e-flaky', 'e2e-timings', 'timing-budgets-alert'})
 
+    @unittest.skip("known wrong result: #2365")
+    def test_required_web_tests_use_production_and_switch_on_jobs_report_separately(self):
+        workflow = (ROOT / '.github/workflows/ci.yml').read_text().split('\njobs:\n', 1)[1]
+        jobs = dict(re.findall(r'^  ([\w-]+):\n((?:^(?:    .*|)\n)*)', workflow, re.M))
+        for name, target in [('web-unit', 'test.web.unit.production'), ('site-e2e', 'e2e.web.build.production'),
+                             ('e2e', 'e2e.web.smoke.production')]:
+            self.assertIn(f'make {target}', jobs[name])
+            self.assertRegex(jobs['ci-ok'], rf'(?m)^      - {name}$')
+        for name, target in [('web-unit-switch-on', 'test.web.unit.switch-on'), ('e2e-switch-on', 'e2e.web.smoke.switch-on')]:
+            self.assertIn(f'make {target}', jobs[name])
+            self.assertIn("github.event_name == 'pull_request'", jobs[name])
+            self.assertNotRegex(jobs['ci-ok'], rf'(?m)^      - {name}$')
+
     def test_ci_scripts_filter_covers_its_tests_and_inputs(self):
         workflow = (ROOT / '.github/workflows/ci.yml').read_text()
         paths = workflow.split('            ci_scripts:\n', 1)[1].split('\n\n', 1)[0]
