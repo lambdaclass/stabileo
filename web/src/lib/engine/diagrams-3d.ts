@@ -80,17 +80,19 @@ function spatialCurve(ef: ElementForces3D, kind: Diagram3DKind): SpatialCurve {
     const cuts = () => sortedStations(distances().keys());
     const polynomialParts = curves.flatMap(c => c.polynomial ? [{ polynomial: c.polynomial }] : []);
     const exact = polynomialParts.length === curves.length;
+    const combine = (station: DiagramStation) => {
+      distances();
+      const values = curves.map(curve => curve.value(station));
+      return method === 'srss' ? Math.hypot(...values) : values.reduce((sum, value) => sum + Math.abs(value), 0);
+    };
     const magnitudeBound = () => curves.reduce((bound, curve) => addMagnitudeBounds(bound, maxMagnitude(curve)), 0);
     return {
       get cuts() { return cuts(); },
       get cutDistances() { return distances(); },
-      extrema: () => exact ? magnitudeExtrema(polynomialParts, method, distances(), ef.length) : [],
+      extrema: () => exact ? magnitudeExtrema(polynomialParts, method, distances(), ef.length)
+        : curves.flatMap(curve => curve.extrema().map(({ t }) => ({ t, value: combine({ t }), canTransfer: () => false }))),
       ...(!exact ? { magnitudeBound } : {}),
-      value(station) {
-        distances();
-        const values = curves.map(curve => curve.value(station));
-        return method === 'srss' ? Math.hypot(...values) : values.reduce((sum, value) => sum + Math.abs(value), 0);
-      },
+      value: combine,
     };
   }
   if (ef.pieces?.length) {

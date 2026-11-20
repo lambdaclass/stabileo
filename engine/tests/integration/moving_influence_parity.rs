@@ -23,12 +23,26 @@ fn assert_f64_eq(a: f64, b: f64, what: &str) {
     assert!(a == b || (a - b).abs() <= 1e-12 * a.abs().max(b.abs()).max(1.0), "mismatch at {}: {} vs {} (diff {:e})", what, a, b, (a - b).abs());
 }
 
-/// The least and greatest value of a 2D diagram along a member, transcribed from the
-/// envelope rule (#437): the ends, the stations the diagrams sample (every point load among
-/// them) and, for N, where the axial span load changes sign. Uses only the public diagram
-/// evaluation, not the moving-load code.
-fn legacy_range_2d(ef: &ElementForces, kind: &str, start: f64, end: f64) -> (f64, f64) {
+fn member_limits(start: f64, end: f64, length: f64, jumps: impl Iterator<Item = (f64, f64)>) -> (f64, f64) {
+    let mut at_start = 0.0;
+    let mut at_end = 0.0;
+    for (a, jump) in jumps {
+        if a == 0.0 { at_start += jump; }
+        if a == length { at_end += jump; }
+    }
+    let i = start + at_start;
+    let j = end - at_end;
+    (i.min(j), i.max(j))
+}
+
+fn reference_range_2d(ef: &ElementForces, kind: &str, start: f64, end: f64) -> (f64, f64) {
     use dedaliano_engine::postprocess::diagrams::{compute_diagram_value_at, diagram_positions_2d};
+    let jump = |p: &PointLoadInfo| match kind {
+        "axial" => -p.px.unwrap_or(0.0),
+        "shear" => p.p,
+        "moment" => p.my.unwrap_or(0.0),
+        _ => 0.0,
+    };
     let mut ts = diagram_positions_2d(ef, kind);
     if kind == "axial" && ef.length > 0.0 {
         let mut xs = vec![0.0, ef.length];
@@ -45,20 +59,15 @@ fn legacy_range_2d(ef: &ElementForces, kind: &str, start: f64, end: f64) -> (f64
             if q0 * q1 < 0.0 { ts.push((w[0] + (w[1] - w[0]) * q0 / (q0 - q1)) / ef.length); }
         }
     }
-    let (mut lo, mut hi) = (start.min(end), start.max(end));
-    for t in ts {
-        let v = compute_diagram_value_at(kind, t.clamp(0.0, 1.0), ef);
+    let (mut lo, mut hi) = member_limits(start, end, ef.length, ef.point_loads.iter().map(|p| (p.a, jump(p))));
+    for t in ts.into_iter().filter(|&t| t > 0.0 && t < 1.0) {
+        let v = compute_diagram_value_at(kind, t, ef);
         if v.is_finite() { lo = lo.min(v); hi = hi.max(v); }
     }
     for p in &ef.point_loads {
-        if p.a >= ef.length { continue; }
-        let jump = ef.point_loads.iter().filter(|other| other.a == p.a).map(|other| match kind {
-            "axial" => -other.px.unwrap_or(0.0),
-            "shear" => other.p,
-            "moment" => other.my.unwrap_or(0.0),
-            _ => 0.0,
-        }).sum::<f64>();
-        let right = compute_diagram_value_at(kind, p.a / ef.length, ef) + jump;
+        if p.a <= 0.0 || p.a >= ef.length { continue; }
+        let total_jump = ef.point_loads.iter().filter(|other| other.a == p.a).map(jump).sum::<f64>();
+        let right = compute_diagram_value_at(kind, p.a / ef.length, ef) + total_jump;
         lo = lo.min(right);
         hi = hi.max(right);
     }
@@ -571,9 +580,9 @@ fn legacy_moving_2d(input: &MovingLoadInput) -> MovingLoadEnvelope {
         if let Ok(results) = solve_2d(&modified_input) {
             for ef in &results.element_forces {
                 if let Some(env) = envelopes.get_mut(&ef.element_id.to_string()) {
-                    let (m_min, m_max) = legacy_range_2d(ef, "moment", ef.m_start, ef.m_end);
-                    let (v_min, v_max) = legacy_range_2d(ef, "shear", ef.v_start, ef.v_end);
-                    let (n_min, n_max) = legacy_range_2d(ef, "axial", ef.n_start, ef.n_end);
+                    let (m_min, m_max) = reference_range_2d(ef, "moment", ef.m_start, ef.m_end);
+                    let (v_min, v_max) = reference_range_2d(ef, "shear", ef.v_start, ef.v_end);
+                    let (n_min, n_max) = reference_range_2d(ef, "axial", ef.n_start, ef.n_end);
                     env.m_max_pos = env.m_max_pos.max(m_max);
                     env.m_max_neg = env.m_max_neg.min(m_min);
                     env.v_max_pos = env.v_max_pos.max(v_max);
@@ -591,16 +600,18 @@ fn legacy_moving_2d(input: &MovingLoadInput) -> MovingLoadEnvelope {
 
 fn reference_range_3d(ef: &ElementForces3D, kind: &str, start: f64, end: f64) -> (f64, f64) {
     use dedaliano_engine::postprocess::diagrams_3d::{diagram_positions_3d, evaluate_diagram_3d_at};
-    let (mut lo, mut hi) = diagram_positions_3d(ef, kind).into_iter().map(|t| evaluate_diagram_3d_at(ef, kind, t))
-        .fold((start.min(end), start.max(end)), |(lo, hi), value| (lo.min(value), hi.max(value)));
     let (points, sign) = match kind {
         "axial" => (ef.point_loads_x.as_slice(), -1.0),
         "shearY" => (ef.point_loads_y.as_slice(), 1.0),
         "shearZ" => (ef.point_loads_z.as_slice(), 1.0),
         _ => (&[][..], 0.0),
     };
+    let limits = member_limits(start, end, ef.length, points.iter().map(|p| (p.a, sign * p.p)));
+    let (mut lo, mut hi) = diagram_positions_3d(ef, kind).into_iter().filter(|&t| t > 0.0 && t < 1.0)
+        .map(|t| evaluate_diagram_3d_at(ef, kind, t))
+        .fold(limits, |(lo, hi), value| (lo.min(value), hi.max(value)));
     for p in points {
-        if p.a >= ef.length { continue; }
+        if p.a <= 0.0 || p.a >= ef.length { continue; }
         let jump = sign * points.iter().filter(|other| other.a == p.a).map(|other| other.p).sum::<f64>();
         let right = evaluate_diagram_3d_at(ef, kind, p.a / ef.length) + jump;
         lo = lo.min(right);

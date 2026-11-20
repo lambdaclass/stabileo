@@ -107,6 +107,9 @@ it('marks a conservative bound when a magnitude constituent is itself a magnitud
   expect(diagram.maxAbsValue).toBeGreaterThanOrEqual(Math.max(...dense));
   expect(diagram.maxAbsValue).toBeCloseTo(1 + (1 - 0.225 ** 2) * Math.SQRT2, 12);
   expect(computeDiagram3D(inner, 'momentY').extrema).toBeUndefined();
+  const constituentPeak = diagram.points.find(p => Math.abs(p.t - 0.21) < Number.EPSILON);
+  const otherMoment = 1 - (0.66 - 0.21) ** 2;
+  expect(constituentPeak?.value).toBeCloseTo(Math.hypot(1, otherMoment) + 1, 12);
 });
 
 it('refuses distinct axial cuts that share the same floating-point normalized station', () => {
