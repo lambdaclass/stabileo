@@ -141,7 +141,11 @@ function laid(model: SpanSourceModel, ids: number[], rev: boolean[], run: number
     return first === !reversed[k] ? e.nodeI : e.nodeJ;
   };
   let start = endOf(0, true), end = endOf(elements.length - 1, false);
-  if (before(model.nodes.get(end)!, model.nodes.get(start)!)) {
+  const sectionId = model.elements.get(elements[0]!)!.sectionId;
+  const reverseOrder = sectionAllowsSideReflection(model, sectionId)
+    ? before(model.nodes.get(end)!, model.nodes.get(start)!)
+    : reversed[0];
+  if (reverseOrder) {
     elements = [...elements].reverse(); reversed = [...reversed].reverse().map((r) => !r);
     [start, end] = [end, start];
   }
@@ -174,13 +178,17 @@ function halfTurnSymmetric(model: SpanAxesModel, sectionId: number): boolean {
   return shape === undefined || ['rect', 'CHS', 'RHS', 'I', 'H', 'Z'].includes(shape);
 }
 
+function sectionAllowsSideReflection(model: SpanAxesModel, sectionId: number): boolean {
+  const shape = model.sections?.get(sectionId)?.shape;
+  return shape === undefined || ['rect', 'CHS', 'RHS', 'I', 'H', 'T'].includes(shape);
+}
+
 function compatibleSectionAxes(model: SpanAxesModel, sectionId: number, a: LocalAxes3D, b: LocalAxes3D): boolean {
   const depth = dot(a.ez, b.ez);
   const reverse = dot(a.ex, b.ex) < 0;
   const sameDepth = depth > 1 - 1e-10;
-  if (halfTurnSymmetric(model, sectionId)) return sameDepth || (reverse && depth < -1 + 1e-10);
-  const shape = model.sections?.get(sectionId)?.shape;
-  return sameDepth && (shape === 'T' || dot(a.ey, b.ey) > 1 - 1e-10);
+  if (!sectionAllowsSideReflection(model, sectionId)) return sameDepth && dot(a.ey, b.ey) > 1 - 1e-10;
+  return sameDepth || (reverse && halfTurnSymmetric(model, sectionId) && depth < -1 + 1e-10);
 }
 
 function chordAxes(model: SpanAxesModel, start: number, end: number, sectionUp?: Vec, canonicalizeDepth = true): LocalAxes3D {
@@ -200,7 +208,9 @@ function spanAxes(model: SpanAxesModel, span: DesignSpan): LocalAxes3D | null {
   const sectionId = model.elements.get(first)!.sectionId;
   const axes = span.elements.map(id => axesOf(model, id));
   if (axes.some((a, i) => axes.slice(0, i).some(b => !compatibleSectionAxes(model, sectionId, a, b)))) return null;
-  return chordAxes(model, span.start, span.end, axes[0]!.ez, halfTurnSymmetric(model, sectionId));
+  const ref = chordAxes(model, span.start, span.end, axes[0]!.ez, sectionAllowsSideReflection(model, sectionId) && halfTurnSymmetric(model, sectionId));
+  if (!sectionAllowsSideReflection(model, sectionId) && dot(ref.ey, axes[0]!.ey) <= 1 - 1e-10) return null;
+  return ref;
 }
 
 /**

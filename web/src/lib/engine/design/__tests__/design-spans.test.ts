@@ -204,7 +204,7 @@ it('#2238 splits a run at a half turn of the physical section', () => {
   expect(designSpans(structure, beams).map(s => s.elements)).toEqual([[1, 2, 3]]);
 });
 
-it.skip('#2238 preserves both physical section axes when reversed angles share a span', () => {
+it('#2238 preserves both physical section axes when reversed angles share a span', () => {
   const structure = model();
   Object.assign(structure.sections.get(1)!, { shape: 'L' });
   for (const id of [1, 2, 3]) Object.assign(structure.elements.get(id)!, { nodeI: id, nodeJ: id - 1 });
