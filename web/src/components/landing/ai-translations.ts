@@ -92,4 +92,17 @@ export const aiTranslations: Record<string, Translations> = {
     'landingAi.shotAiTitle': 'Javasolja a változtatást; Ön alkalmazza',
     'landingAi.shotAiAlt': 'A Stabileo AI panel: egy természetes nyelvű kérés és az MI által javasolt változtatás, mielőtt alkalmaznák.',
   },
+  zh: {
+    'landingAi.ebAi': 'STABILEO AI',
+    'landingAi.badgeDevPaid': '开发中',
+    'landingAi.aiH': '一个能建立、审查和讲解模型的 AI 助手。',
+    'landingAi.aiP': '用日常语言提问。它使用与您相同的模型和同一个求解器：AI 提出建议，求解器负责计算，由您来决定。设计责任仍由工程师承担。',
+    'landingAi.aiPt1': '根据描述生成模型草稿：梁、桁架和多层框架，支持 2D 和 3D。',
+    'landingAi.aiPt2': '在屏幕上修改模型，并在应用之前显示每一处更改。',
+    'landingAi.aiPt3': '审查已求解的模型：按严重程度列出发现，指出受影响的杆件和需要核对的假定。',
+    'landingAi.aiPt4': '解释求解器的警告，并回答有关结果的问题。',
+    'landingAi.aiStatus': '该面板已在编辑器中，可使用您自己的 Anthropic (Claude) 或 OpenAI 密钥，密钥只保存在您的浏览器中；Stabileo 自己的 AI 服务将在之后推出。',
+    'landingAi.shotAiTitle': '由它提出更改，由您来应用',
+    'landingAi.shotAiAlt': 'Stabileo AI 面板：一条日常语言的请求，以及 AI 在应用之前提出的更改。',
+  },
 };

@@ -1575,6 +1575,7 @@ const es: Record<string, string> = {
   'xls.col.massW': "En weight: el peso hacia abajo, en kN/m sobre barras y en kN/m² sobre losas y pisos; cero o más.",
   'xls.col.massRegion': "En weight: all (todo el modelo), o una caja {\"kind\":\"box\",\"x\":[0,5],\"z\":[2,4]} en m. Vacío es all.",
   'xls.col.fy': 'Fuerza en Y.',
+  'xls.col.materialFy': 'Tensión de fluencia del acero (fy) o resistencia a compresión del hormigón (f′c), en MPa.',
   'xls.col.sectionId': 'Identificador de la sección.',
   'xls.col.sectionName': 'Nombre de un perfil del catálogo (IPE 300, HEB 200…) o el que quieras.',
   'xls.col.shape': 'Forma: rect, I, C, L, tube… Se deduce sola si el nombre está en el catálogo.',

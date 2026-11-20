@@ -74,7 +74,7 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "Bredt est trop faible dans les quatre cas. Pour un tube de 5 mm de paroi et de 50 mm de rayon moyen, que la règle empirique habituelle range encore parmi les parois minces, la contrainte réelle est supérieure de 4,5 % à la contrainte calculée. Avec une paroi de 10 mm, de 8,2 %."
+      "t": "Bredt est trop faible dans les quatre cas. Pour un tube de 5 mm de paroi et de 50 mm de rayon moyen, que la règle empirique habituelle range encore parmi les parois minces, la contrainte réelle est supérieure de 4,7 % à la contrainte calculée. Avec une paroi de 10 mm, de 8,9 %."
     },
     {
       "k": "quote",
