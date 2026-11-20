@@ -62,7 +62,7 @@ describe('the flagship beam lines, as lines', () => {
           ...(bottomExtentRefusals.has(id) ? ['Bottom Span (My+)'] : []),
           ...(secondaryExtentRefusals.has(id) ? ['Secondary shear (Vy)'] : []),
         ].sort();
-        const refusals = drawn.checks.filter(c => c.description === 'diag.rcDrawnBarExtent');
+        const refusals = drawn.checks.filter(c => c.description === 'diag.rcDrawnBarExtent' || c.description === 'diag.rcDrawnCornerSeat');
         expect(refusals.map(c => c.category).sort(), `member ${id}`).toEqual(extentCategories);
         const replaced = new Set(extentCategories.flatMap(category => [category, `${category} ductility`]));
         expect(key(drawn.checks.filter(c => !primaryShear(c))), `member ${id}`).toEqual([
@@ -70,7 +70,8 @@ describe('the flagship beam lines, as lines', () => {
           ...extentCategories.map(category => `${category}|fail|Infinity`),
         ].sort());
         for (const row of refusals) {
-          expect(row).toMatchObject({ limiting: 'unsupportedCheck', stationX: expect.any(Number) });
+          expect(row).toMatchObject({ limiting: 'unsupportedCheck', stationX: expect.any(Number),
+            description: row.category === 'Secondary shear (Vy)' ? 'diag.rcDrawnCornerSeat' : 'diag.rcDrawnBarExtent' });
           expect(original.checks.find(c => c.category === row.category)?.status).toBe('ok');
         }
         if (overallExtentRefusals.has(id)) {

@@ -32,10 +32,11 @@ import { tensionControlledStrain, shearSqrtFc, shearFy, CIRSOC201_DESIGN_EDITION
 
 /** fy as Po reads it, kN/m²: CIRSOC 201-2025 §22.4.2.1 limits it to 500 MPa. */
 import { computeLocalAxes3D, memberRoll } from './local-axes-3d';
-import { memberOffsetAt, type OffsetCarrier } from './member-offsets';
+import { hasMemberOffset, memberOffsetAt, type OffsetCarrier } from './member-offsets';
 import { checkShapedColumn, grossAreaOf, type ColumnShape } from './design/shaped-column';
 import { columnTieSpacing } from '../codes/cirsoc201/transverse-spacing';
-import { seatedLongitudinalHalfExtents } from '../codes/cirsoc201/transverse-cage';
+import { seatedLongitudinalHalfExtents, stirrupBendHoldsBar, stirrupCentrelineHalfExtents } from '../codes/cirsoc201/transverse-cage';
+import { beamBarRowLayout, beamBarSeatDiameter, drawnBeamBarSlot, orderBeamRowSeats } from './detailing/generate-beam';
 import type { ProvidedReinforcement, RebarGroup, RebarLayer, StirrupDef, BeamContinuity, LongBarGroup, ColumnReinforcement } from '../store/model.svelte';
 import {
   layerClearBetween, minClearBetweenLayers, minClearSpacingColumn, minClearSpacingInLayer, stackedLayerDepth,
@@ -1916,7 +1917,7 @@ function evaluateProvidedReinforcement(
   stationResult?: ElementStationResult,
   modelData?: {
     nodes: Map<number, { id: number; x: number; y: number; z?: number }>;
-    elements: Map<number, { id: number; nodeI: number; nodeJ: number; sectionId: number; type: string }>;
+    elements: Map<number, { id: number; nodeI: number; nodeJ: number; sectionId: number; materialId?: number; type: string } & OffsetCarrier>;
     sections: Map<number, { id: number; b?: number; h?: number; shape?: string }>;
     supports: Map<number, { nodeId: number; type: string }>;
   },
@@ -2240,11 +2241,34 @@ function evaluateProvidedReinforcement(
       && !regions?.topStartGroups?.length && !regions?.topEndGroups?.length
       && startOuter?.row === 0 && endOuter?.row === 0 && startOuter.count >= 2 && endOuter.count >= 2
       ? topOuterPair(topStartLayers, topEndLayers) : undefined;
-    const drawnCornersReach = (t: Tuple, diameter: number) => !drawing || [0, 1].every(slot =>
-      drawing.bars.some(bar => bar.face === 'top' && bar.row === 0 && bar.diameter >= diameter
-        && bar.slots.includes(slot) && t.stationT >= bar.from && t.stationT <= bar.to));
-    const cornerCuts = cornerBar && drawnBreaks.length
-      ? cutsAround(drawnBreaks).filter(t => !drawnCornersReach(t, cornerBar.diameterMm)) : [];
+    const cornerCuts = cornerBar && drawnBreaks.length ? cutsAround(drawnBreaks) : [];
+    const seatingSection = { ...section, stirrupDia: beamBarSeatDiameter(section.stirrupDia,
+      regions?.stirrupsSupport, regions?.stirrupsSpan, provided.stirrups) };
+    const cornerRows = drawing && cornerBar && axes.flexure === 'My' ? drawing.bars.flatMap(({ face, row, diameter, from, to, place }) => {
+      if (face !== 'top' || row !== 0 || diameter < cornerBar.diameterMm) return [];
+      const bottomDiameter = regions?.bottomSpan?.diameter ?? provided.bottom?.diameter;
+      if (!bottomDiameter) return [];
+      const minClear = minClearSpacingInLayer(spacingRule.edition, {
+        barDiameterMm: bottomDiameter, maxAggregateSizeMm: spacingRule.maxAggregateSizeMm,
+      }).minClear;
+      const layout = beamBarRowLayout(seatingSection, place.seats, diameter, minClear, minClearBetweenLayers(spacingRule.edition).minClear);
+      const seats = orderBeamRowSeats(layout.slots);
+      const up = seatedLongitudinalHalfExtents(section.b, section.h, section.cover, seatingSection.stirrupDia, diameter).corner.halfUp
+        - (finalGeometry?.topLower ?? 0);
+      return place.slots.flatMap(index => {
+        const slot = drawnBeamBarSlot(seats, index, place);
+        return slot?.base.layer === 0 ? [{ from, to, across: slot.across, up, diameterMm: diameter }] : [];
+      });
+    }) : [];
+    const drawnCornerDepth = (t: Tuple, diameter: number) => {
+      const { halfAcross, halfUp } = stirrupCentrelineHalfExtents(section.b, section.h, section.cover, diameter);
+      const depths = [-1, 1].map(side => Math.max(0, ...cornerRows.filter(bar =>
+        t.stationT >= bar.from && t.stationT <= bar.to && bar.across * side > 0 && bar.up > 0
+        && Math.abs(bar.across) <= halfAcross && bar.up <= halfUp
+        && stirrupBendHoldsBar(bar, side * halfAcross, halfUp, diameter))
+        .map(bar => section.b / 2 + side * bar.across)));
+      return Math.min(...depths);
+    };
     const cases = [...allTuples, ...zoneCuts, ...cornerCuts].filter(t => !isDrawnGap(t) && hasSecondaryShearDemand(V2(t)));
     for (const t of cases) for (const { face: f } of secondaryCagesAt(t)) {
       const demand = Math.abs(V2(t));
@@ -2260,15 +2284,17 @@ function evaluateProvidedReinforcement(
       let capacity = cap.phiVn;
       let shortfall = spacingShortfall;
       let concreteOnly = false;
-      const d = 2 * f.h / 3;
-      if (shortfall && !minShort && cornerBar && f.d >= d) {
+      const depthLimit = 2 * f.h / 3;
+      if (shortfall && !minShort && cornerBar && f.d >= depthLimit) {
+        const cornerDepth = drawing ? drawnCornerDepth(t, f.stirrupDia) : depthLimit;
+        const d = Math.min(depthLimit, cornerDepth || depthLimit);
         const rhoW = rebarGroupArea({ diameter: cornerBar.diameterMm, count: 1 }) * 1e-4 / (f.b * d);
         const concrete = computeShearCapacity(f.stirrupDia, 0, f.spacing, f.b, d, section.fc, section.fy, -t.n,
           { Ag: section.b * section.h, h: f.h, edition: '2025', rhoW, unrounded: true });
         const limit = Math.min(concrete.phiVc, secondaryShearMinimumThreshold('2025', { ...f, d }, section.fc, concrete.phiVc));
         if (concrete.evaluated && demand <= limit) {
-          if (!drawnCornersReach(t, cornerBar.diameterMm)) {
-            worst = governing({ t, demand, capacity: 0, ratio: Infinity, reason: 'diag.rcDrawnBarExtent', refusal: {} }, worst);
+          if (!cornerDepth) {
+            worst = governing({ t, demand, capacity: 0, ratio: Infinity, reason: 'diag.rcDrawnCornerSeat', refusal: {} }, worst);
             continue;
           }
           capacity = concrete.phiVc;
@@ -2415,13 +2441,24 @@ function evaluateProvidedReinforcement(
       || bottomGroups.some(g => hasCutoff(g, 'Start') || hasCutoff(g, 'End'));
     const drawnBars = drawing?.bars;
     const hasBeamTorsion = elementType === 'beam' && allTuples.some(t => t.tq !== 0);
-    const perimeterBars = hasBeamTorsion && drawing ? drawing.bars.filter(bar => !bar.lapSide).map(bar => {
+    const lineCanDevelopBars = hasBeamTorsion && drawing && member?.materialId !== undefined
+      && drawing.lineMembers.includes(elementId) && drawing.lineMembers.every((id, i) => {
+        const next = modelData?.elements.get(id);
+        if (!next || next.sectionId !== member.sectionId || next.materialId !== member.materialId || hasMemberOffset(next)) return false;
+        if (i === 0) return true;
+        const previous = modelData?.elements.get(drawing.lineMembers[i - 1]!);
+        return previous && (next.nodeI === previous.nodeI || next.nodeI === previous.nodeJ
+          || next.nodeJ === previous.nodeI || next.nodeJ === previous.nodeJ);
+      });
+    const perimeterBars = hasBeamTorsion && drawing ? drawing.bars.filter(bar => !bar.place.besideMm).map(bar => {
       const ld = spacingRule.edition === '2025' ? deriveDevelopment({
         diameterMm: bar.diameter, fc: section.fc, fy: section.fy,
         favourableSpacing: false, edition: spacingRule.edition,
         psiT: bar.face === 'top' ? topBarFactor(section.h) : 1,
       }).ldM / drawing.memberLength : Infinity;
-      return { ...bar, developedFrom: bar.from > 0 ? bar.from + ld : bar.from, developedTo: bar.to < 1 ? bar.to - ld : bar.to };
+      const straightFrom = lineCanDevelopBars ? bar.ends.start.straightT : bar.from;
+      const straightTo = lineCanDevelopBars ? bar.ends.end.straightT : bar.to;
+      return { ...bar, developedFrom: Math.max(bar.from, straightFrom + ld), developedTo: Math.min(bar.to, straightTo - ld) };
     }) : undefined;
     const drawnBarCuts = drawnBreaks.length ? cutsAround([tStartEnd, tEndStart, ...drawnBreaks]) : [];
     const cutoffTs = (perimeterBars ? perimeterBars.flatMap(({ from, to, developedFrom, developedTo }) =>
@@ -2443,7 +2480,7 @@ function evaluateProvidedReinforcement(
           if (t < bar.from || t > bar.to) continue;
           const key = keyForBar(bar.face, bar.row, bar.diameter);
           const row = slots.get(key) ?? new Set<number>();
-          for (const slot of bar.slots) row.add(slot);
+          for (const slot of bar.place.slots) row.add(slot);
           slots.set(key, row);
         }
         counts = new Map([...slots].map(([key, row]) => [key, row.size]));
@@ -3027,8 +3064,8 @@ function evaluateProvidedReinforcement(
             if (bar.face !== face || !(t.stationT >= from && t.stationT <= to)) continue;
             const row = rows.get(bar.row) ?? new Map<number, number>();
             rows.set(bar.row, row);
-            for (const slot of bar.slots) row.set(slot, Math.min(row.get(slot) ?? Infinity, bar.diameter));
-            if (bar.row === 0) seats = Math.max(seats, bar.seats);
+            for (const slot of bar.place.slots) row.set(slot, Math.min(row.get(slot) ?? Infinity, bar.diameter));
+            if (bar.row === 0) seats = Math.max(seats, bar.place.seats);
           }
           const areaOf = (diameters: Iterable<number>) =>
             layersTotalArea([...diameters].map(diameter => ({ count: 1, diameter, row: 0 })));

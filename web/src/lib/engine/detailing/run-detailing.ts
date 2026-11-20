@@ -51,7 +51,7 @@ import { developsAtFace } from '../../model/lateral-system';
 import type { MemberContext } from '../design/member-context';
 import { detailableReinforcement, isProvisionalOutcome, type MemberDesignOutcome } from '../design/outcome';
 import {
-  generateBeamBars, type BentUpPolicy, type SupportKind,
+  beamBarSeatDiameter, generateBeamBars, type BentUpPolicy, type SupportKind,
 } from './generate-beam';
 import {
   generateColumnStack, tieSpacing, type ColumnLift, type IncidentBeamAtJoint,
@@ -2600,8 +2600,8 @@ function detailMembers(raw: RunDetailingInput): RunDetailingResult {
         layerRaiseOf.get(id) ?? 0),
       // The bars seat in the stirrups that are laid: the designed ones.
       cover: ctx.material.cover,
-      stirrupDia: designedStirrups
-        ? Math.max(designedStirrups.support.diameter, designedStirrups.span.diameter) : ctx.material.stirrupDia,
+      stirrupDia: beamBarSeatDiameter(ctx.material.stirrupDia, accepted?.regions?.stirrupsSupport,
+        accepted?.regions?.stirrupsSpan, accepted?.stirrups),
       fc: ctx.material.fc, fy: ctx.material.fy,
       maxAggregateSizeMm: input.maxAggregateSizeMm,
       edition: input.edition,

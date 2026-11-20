@@ -286,7 +286,7 @@ export function membersFromLine(line: BeamLineReinforcement, members: readonly L
     const prior = m.reinforcement?.regions?.regionT;
     if (prior !== undefined) regions.regionT = prior;
     const drawn = pieces.get(m.id);
-    out.set(m.id, { regions, [drawnBeamReinforcement]: drawnBeamEvidence(drawn ?? { bars: [], stirrups: [] }, m.L) });
+    out.set(m.id, { regions, [drawnBeamReinforcement]: drawnBeamEvidence(drawn ?? { bars: [], stirrups: [] }, m.L, line.members) });
   });
   return out;
 }

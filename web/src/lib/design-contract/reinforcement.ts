@@ -216,12 +216,26 @@ export interface StirrupInterval extends StirrupDef {
   to: number;
 }
 
+export interface DrawnBarPlacement {
+  seats: number;
+  slots: readonly number[];
+  besideMm?: number;
+  mirrored?: boolean;
+}
+
+export interface DrawnBarEnds {
+  start: { t: number; straightT: number; hook: boolean };
+  end: { t: number; straightT: number; hook: boolean };
+}
+
 interface DrawnBeamReinforcement {
   memberLength: number;
+  lineMembers: readonly number[];
   stirrups: readonly StirrupInterval[];
   bars: ReadonlyArray<{
     face: 'top' | 'bottom'; row: number; diameter: number; from: number; to: number;
-    seats: number; slots: readonly number[]; lapSide?: boolean;
+    ends: DrawnBarEnds;
+    place: DrawnBarPlacement;
   }>;
 }
 

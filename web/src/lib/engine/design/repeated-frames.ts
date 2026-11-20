@@ -1,4 +1,5 @@
 import { drawnBeamReinforcement } from '../../design-contract/reinforcement';
+import { reverseDrawnBarEnds } from '../detailing/line-bars';
 /**
  * Repeated beam lines: the frames of a building that are the same frame again, on another level
  * or another axis. A beam line is a horizontal frame line (`groupByFrameLine`), its members
@@ -112,7 +113,15 @@ export function mirrorReinforcement(r: ProvidedReinforcement): ProvidedReinforce
   const mirrored = walk(r) as ProvidedReinforcement;
   const drawing = r[drawnBeamReinforcement];
   const reverse = <T extends { from: number; to: number }>(piece: T): T => ({ ...piece, from: 1 - piece.to, to: 1 - piece.from });
-  if (drawing) mirrored[drawnBeamReinforcement] = { ...drawing, stirrups: drawing.stirrups.map(reverse), bars: drawing.bars.map(reverse) };
+  if (drawing) mirrored[drawnBeamReinforcement] = {
+    ...drawing,
+    stirrups: drawing.stirrups.map(reverse),
+    bars: drawing.bars.map(bar => ({
+      ...reverse(bar),
+      ends: reverseDrawnBarEnds(bar.ends),
+      place: { ...bar.place, mirrored: !bar.place.mirrored },
+    })),
+  };
   return mirrored;
 }
 
