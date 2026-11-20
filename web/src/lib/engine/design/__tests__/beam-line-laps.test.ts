@@ -7,6 +7,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { areaAt, barsCarrying, lineLaps, lineMembersOf, lineFromMembers, membersFromLine, type LineMember } from '../beam-line';
+import { drawnBeamReinforcement } from '../../../design-contract/reinforcement';
 import type { BeamLineReinforcement } from '../../../design-contract/beam-line';
 import { seismicFrameChecks, type FrameMember } from '../seismic/frame-checks';
 import { linePieces } from '../../detailing/line-bars';
@@ -106,6 +107,21 @@ issue2245('known wrong result: #2245 shear verification retains the weak stirrup
   const moment = (s: number) => 20 - 5 * s + 150 * Math.max(s - 1.9, 0) - 150 * Math.max(s - 2.1, 0);
   const result = checkDrawnBeam(drawing, [0, 1.9, x, 2.1, 6].map(s => ({ x: s, my: moment(s), vz: s === x ? q : -5 })));
   expect(result.checks.find(row => row.demandCategory === 'Vz' && row.stationX === x)).toMatchObject({ status: 'fail' });
+});
+
+issue2245('known wrong result: #2245 a positive-length weak interval at a member boundary remains in the evidence', () => {
+  const boundary = longSpan.L - 0.5e-6;
+  const cage = { id: 'dense', from: 0, to: longSpan.L, diameter: 8, legs: 2, spacing: 0.1 };
+  const sparse = { ...cage, id: 'sparse', from: boundary, to: 2 * longSpan.L, spacing: 0.4 };
+  const drawing: BeamLineReinforcement = {
+    version: 1, members: [1, 2], lengths: [longSpan.L, longSpan.L], bars: drawnMainBars,
+    stirrups: [{ ...cage, to: boundary }, sparse],
+  };
+  const layout = membersFromLine(drawing, [longSpan, { ...longSpan, id: 2 }]).get(1)!;
+  expect(layout[drawnBeamReinforcement]?.stirrups).toEqual([
+    { diameter: 8, legs: 2, spacing: 0.1, from: 0, to: boundary / longSpan.L },
+    { diameter: 8, legs: 2, spacing: 0.4, from: boundary / longSpan.L, to: 1 },
+  ]);
 });
 
 it('#2296 provided shear refuses a cut in a drawn stirrup gap', () => {

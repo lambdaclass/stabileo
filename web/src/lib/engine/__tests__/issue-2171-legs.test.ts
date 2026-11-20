@@ -1078,7 +1078,18 @@ issue2214('known wrong result: #2214 concurrent tension requires row 2 stirrup s
 
 const issue2271 = process.env.RUN_KNOWN_WRONG === '2271' ? it : it.skip;
 issue2271('known wrong result: #2271 the spacing row changes before the uncoupled shear threshold', () => {
-  tensionSpacingWitness(450, 208);
+  const geometry = { ...section, stirrupDia: 12 };
+  const bars = { count: 4, diameter: 25 };
+  const stirrups = { diameter: 12, legs: 4, secondaryLegs: 4, spacing: 0.2 };
+  for (const extracted of [false, true]) {
+    const result = verifyBeamStations(geometry, { top: bars, bottom: bars, stirrups }, 6,
+      [{ name: 'Tension', forces: { n: 600, my: 1, vz: 250, torsion: 0 } }], extracted);
+    expect(result.checks.find(row => row.demandCategory === 'Vz')?.capacity).toBeGreaterThan(250);
+    expect.soft(result.checks.find(row => row.category === 'Shear Span (Vz) s,max')).toMatchObject({
+      status: 'fail', required: 13.9, provided: 20,
+    });
+    expect.soft(result.overallStatus).toBe('fail');
+  }
 });
 
 it('#2296 primary shear refuses when the selected depth overstates the hogging depth', () => {
@@ -1356,5 +1367,59 @@ it('known wrong result: #2338 every credited torsion bar meets the edition diame
     expect.soft(check(10, spacingAtTen * 1.001)).toMatchObject({ status: 'fail', description: 'diag.rcTorsionPerimeter' });
     expect.soft(check(8, 0.06)).toMatchObject({ status: 'fail', description: 'diag.rcTorsionPerimeter' });
     expect(check(8, 0.06, 0)).toBeUndefined();
+  }
+});
+
+
+const issue2349 = process.env.RUN_KNOWN_WRONG === '2349' ? it : it.skip;
+issue2349('known wrong result: #2349 torsion capacity reflects the evaluated concrete limit even below failure', () => {
+  const shear = { diameter: 12, legs: 4, spacing: 0.045 };
+  const geometry = { ...section, stirrupDia: shear.diameter };
+  const fixedBars = { AsProv: 8.044, barDia: 16, barCount: 4, bars: 'provided', isDoublyReinforced: false };
+  const vz = 250, tension = 180;
+  const d = depth(geometry.h, shear.diameter, fixedBars.barDia);
+  const inset = 2 * geometry.cover + shear.diameter / 1000;
+  const aoh = (geometry.b - inset) * (geometry.h - inset);
+  const perimeter = 2 * (geometry.b + geometry.h - 2 * inset);
+  const root = Math.sqrt(geometry.fc);
+  const concreteStress = 0.17 * root * 1000 - tension / (6 * geometry.b * geometry.h);
+  const limit = phi * (concreteStress + 0.66 * root * 1000);
+  const capacity = Math.sqrt(limit ** 2 - (vz / (geometry.b * d)) ** 2) * 1.7 * aoh ** 2 / perimeter;
+  const torsion = 0.8 * capacity;
+  const [entry] = declaredTestDemands([{ comboId: 1, comboName: 'C1',
+    forces: { t: 0.5, x: 2, n: tension, my: 0, mz: 0, vy: 0, vz, torsion } }]);
+  const demand = entry!.section('My');
+  const check = { ...geometry, elementId: 1, elementType: 'beam' as const, edition: '2025' as const, demand };
+  const provision = { shear, flexure: fixedBars, torsion: { AlProv: 100 } };
+  const direct = checkTorsion(geometry, demand, '2025', undefined, {
+    evaluatedShear: { primary: { d, phiVc: phi * concreteStress * geometry.b * d } },
+  });
+  for (const row of [direct, verifyElement(check, provision).torsion, prepareElementVerification(check)(provision).torsion]) {
+    expect.soft(row?.phiTn).toBeCloseTo(capacity, 9);
+  }
+  expect.soft(direct.ratio).toBeCloseTo(0.8, 12);
+  expect(direct.status).toBe('ok');
+});
+
+issue2349('known wrong result: #2349 touching drawn bars cannot verify continuous longitudinal torsion steel', () => {
+  const L = 4;
+  const geometry = { ...section, h: 0.37 };
+  const top = { ...longitudinal, face: 'top' as const, row: 0, role: 'main' as const };
+  const beam = (split: boolean) => membersFromLine({
+    version: 1, members: [1], lengths: [L],
+    bars: [
+      { ...top, id: 'top', from: 0, to: split ? L / 2 : L },
+      ...(split ? [{ ...top, id: 'top-right', from: L / 2, to: L }] : []),
+      { ...top, face: 'bottom', id: 'bottom', from: 0, to: L },
+    ],
+    stirrups: [{ ...cage, spacing: 0.06, id: 'hoops', from: 0, to: L }],
+  }, [{ id: 1, L, tStart: 0.25, tEnd: 0.25, faceStart: 0, faceEnd: 0 }]).get(1)!;
+  for (const extracted of [false, true]) for (const edition of ['2005', '2025'] as const) {
+    const check = (split: boolean, torque: number) => checkReviewBeam(geometry, beam(split), L,
+      [0, 0.4, 0.6, 1].map(t => ({ t, n: 0, my: 0, vy: 0, vz: 0, torsion: torque })), extracted, edition)
+      .find(row => row.category === 'Torsion Al Span (Vz)');
+    expect(check(false, 6)).toMatchObject({ status: 'ok' });
+    expect(check(true, 0.5)).toBeUndefined();
+    expect.soft(check(true, 6)).toMatchObject({ status: 'fail', ratio: Infinity, limiting: 'unsupportedCheck' });
   }
 });

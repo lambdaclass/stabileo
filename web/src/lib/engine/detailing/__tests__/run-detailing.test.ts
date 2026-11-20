@@ -327,3 +327,20 @@ describe('call-graph: no advertised capability is unreachable', () => {
     expect(wf).toContain('detailingStore.generate');
   });
 });
+
+
+const issue2239 = process.env.RUN_KNOWN_WRONG === '2239' ? it : it.skip;
+issue2239('known wrong result: #2239 detailing refuses to replace mixed column bars with the legacy mirror', () => {
+  const input = scenario({ beamVerified: false });
+  const accepted = input.outcomes.get(10)!.accepted!;
+  input.outcomes.set(10, {
+    ...verifiedColumn(10),
+    accepted: { ...accepted,
+      column: { cornerDia: 16, faceDia: 25, nBottom: 1, nTop: 1, nLeft: 0, nRight: 0 },
+      longitudinal: { count: 6, diameter: 16 },
+    },
+  });
+  const result = runDetailing(input);
+  expect.soft(result.skipped).toContainEqual({ elementId: 10, key: 'detailing.skip.columnBarLayout' });
+  expect(result.skipped.some(row => row.elementId === 11)).toBe(false);
+});
