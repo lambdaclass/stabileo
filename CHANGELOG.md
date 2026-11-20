@@ -11,6 +11,10 @@ It should capture what changed, not what should be built next.
 
 One file per change in [`changelog.d/`](changelog.d/README.md); `scripts/changelog.py --release` moves them here.
 
+## 0.6.3 (2026-11-20)
+
+Release notes: [`docs/releases/v0.6.3.md`](docs/releases/v0.6.3.md) (also in [Spanish](docs/releases/v0.6.3.es.md), [Portuguese](docs/releases/v0.6.3.pt.md), [German](docs/releases/v0.6.3.de.md), [French](docs/releases/v0.6.3.fr.md), [Turkish](docs/releases/v0.6.3.tr.md), [Hungarian](docs/releases/v0.6.3.hu.md) and [Chinese](docs/releases/v0.6.3.zh.md)).
+
 ### BREAKING (results)
 
 #### Scale each case once in 3D load combinations (2026-11-19)
@@ -24,6 +28,10 @@ One file per change in [`changelog.d/`](changelog.d/README.md); `scripts/changel
 #### Consistent RC beam-line and member checks (2026-11-20)
 
 CIRSOC primary shear checks use the diameter of the evaluated stirrup in both representations. Support embedment reports the required-to-available length ratio, and a joint layout that clears the column cage reports zero interference (#2338).
+
+#### Honor the standalone gravity toggle after workbook import (#2364)
+
+Turning self-weight off removes standalone gravity from imported models and from saved projects that carry the import setting. Explicit self-weight rules still contribute to their load cases.
 
 #### Refusal for combined torsional and transverse shear
 
@@ -82,6 +90,11 @@ The static period and applicability checks include all structural stories above 
 Transforms refuse an ambiguous memberless 3D roller, and copies that carry a local plane roller require its reference members. Moves and copies are refused if their final geometry would redirect a local plane roller, including after a weld, a repeat link, or a rigid turn without welds. Snapshots preserve the recorded roller type. Selecting an ambiguous 3D Z roller after a snapshot requires explicit restraints (#2289, #2294, #2304).
 
 ### Added
+
+#### Add opt-in global coordinate axes (#1986)
+
+- Add a global coordinate frame for the editor and its model code, workbooks, drawings and reports. The production build keeps it disabled.
+- Preserve load directions, support geometry, draft coordinates and result components across changes to the selected frame.
 
 #### GMRES in the engine's linear algebra (2026-11-19)
 
@@ -156,6 +169,10 @@ The case compares the factor derived from the station diagram of a fixed-end bea
 #### The landing's animated figures keep moving under the mouse (2026-11-18)
 
 Bringing the mouse over a figure on the landing froze it, which read as a broken animation. Each figure now keeps moving; the rotation to the next figure still waits while the mouse is over the drawing, so the one being watched stays on screen. Reduced motion and keyboard focus still hold the figure still.
+
+#### Release guidance for Stabileo 0.6.3
+
+The [release notes](docs/releases/v0.6.3.md) cover safety advisories, affected results, new refusals and the steps for regenerating loads and reviewing reports. The notes are available in all eight release-note languages.
 
 ### Fixed
 
@@ -241,9 +258,33 @@ The flagship detailing test checks the exact lap count for each eligible beam pa
 
 The flagship tests pin the members refused for unsupported shear depth or joint congestion and check that those beams receive no certificate or accepted reinforcement. The browser checks count the refusals without reporting them as verified (#2338).
 
+#### Support hover in the 3D stress view
+
+Keep the 3D stress view responsive when the pointer crosses a support, including in the grid-beams example. Directional support labels follow the active global axes (#2364).
+
+#### Recheck older planar self-weight results (#2364)
+
+Older planar projects with signed, scoped, or multiple self-weight rules now open with a recheck notice even when they use ordinary load case names and global axes are disabled.
+
+#### Chinese text for global-axis result notices
+
+Add Simplified Chinese titles and explanations for four result-change notices so the site can build and saved-project rechecks can load. Complete the Simplified Chinese interface, import diagnostics and influence-line labels added by the integration (#2364).
+
 #### CI timing and layout flakes (2026-11-19)
 
 The Timing Budgets job runs wall-clock browser checks on the dedicated runner for trusted CI runs. Research layout checks wait for the live page, and each of the 32 generated plastic mechanism cases runs under its own test deadline. (#2314, #2311, #2290)
+
+#### Refuse invalid support values in declared workbook frames (#2364)
+
+Malformed stiffnesses, prescribed displacements and support angles, incompatible units, and nonfinite conversions now block import. The diagnostic identifies the row and column, and the open model is preserved.
+
+#### Faster concrete span verification (2026-11-20)
+
+Span code checks reuse deferred report formatting and avoid redundant demand-inventory scans. The preliminary pass sizes the shared cage and leaves diagnostics and detailing to the final check.
+
+#### Report signed end moments in the 2D free-body inspector (#2364)
+
+The global inspector reports the moment that acts on each member end, with the same rotation sense as the diagram. The reported actions balance for members drawn in either direction, including when global axes are enabled and the displayed plane is reflected.
 
 #### Engine benchmarks run to the end again (2026-11-19)
 
@@ -256,6 +297,27 @@ support in its second stage; and every 2D plastic result is withheld while
 known issue #758 is open. The models are now ones the engine solves, the
 plastic benchmark is skipped with a message until the issue is closed, and
 `make test.engine.benches` runs every benchmark once each night.
+
+#### Scope global-axes recheck notices and refuse ambiguous workbook inputs (#2364)
+
+Global-axes recheck notices require saved evidence of feature use. Workbook import refuses invalid physical load fields in declared frames, duplicate physical columns in those frames, duplicate prescribed rotation columns, and duplicate LoadData or SelfWeight sheets. A refusal preserves the open model.
+
+#### Preserve workbook loads and coordinate-frame declarations (#2364)
+
+- Refuse ambiguous coordinate-frame declarations and unsupported workbook load data before applying the model.
+- Keep prescribed support rotations in workbook exports, and use the workbook's declared frame for global results.
+- Apply each 2D self-weight rule's signed factor, direction and member scope in direct and combination solves.
+- Correct the reflected grid elevations, stiffness wizard, influence envelopes and shell point-load sketch.
+
+#### Preserve loads and coordinate conventions across replay and workbook exchange (#2364)
+
+- Preserve partial distributed load spans and thermal load cases when replaying fixtures. Show existing axial distributed loads when the global axes switch is off.
+- Use the export frame for workbook reactions, displacements and their extrema. Convert declared flat support components and refuse out-of-plane supports, unresolved load cases and incompatible standalone gravity rules.
+- Distinguish transverse translation from normal rotation in the stiffness wizard. Preserve spatial coordinates in framed model-code fragments.
+
+#### Refuse workbooks that would lose loads or prescribed rotations (#2364)
+
+Workbook import preserves the current model if a declared planar nodal load has a nonzero out-of-plane component or a prescribed support rotation has an invalid value or incompatible unit.
 
 #### Configure public web features in version control (2026-11-17)
 
@@ -307,9 +369,21 @@ CIRSOC 201 beam torsion cannot be approved from a scalar longitudinal steel area
 The roadmap and website changelog now show that the 0.6.2 fixes shipped.
 The PRO design section links to the remaining 3D design work in the roadmap.
 
+#### Require a coordinate frame when reading result rows (#2364)
+
+Result table readers require an explicit coordinate frame so an equilibrium check cannot silently combine canonical reaction components with loads and coordinates in the user frame.
+
 #### Independent verification for the cable tension advisory (2026-11-20)
 
 Keep cable self-weight in the independent force verification advised by SA-2026-015.
+
+#### Restore the save rejection and account gate tests in CI (#2364)
+
+The save rejection and account gate tests preserve the feature exports used to initialize the axes store, so CI can exercise download error propagation and authorization.
+
+#### Preserve saved-project recheck notices through self-weight migration (#2364)
+
+Migrating legacy self-weight settings preserves the saved notice stamp and features. With global axes off, saved projects use the same notice features as before the global-axes changes.
 
 #### Accidental eccentricity uses the structural plan width (2026-11-18)
 
