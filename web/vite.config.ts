@@ -1,4 +1,4 @@
-import { featureDefines, featuresForMode, type BuildFeatures } from './config/public-features.mjs';
+import { featureDefines, featuresForMode, unitFeatureProfile, type BuildFeatures } from './config/public-features.mjs';
 import { defineConfig, searchForWorkspaceRoot, type Plugin, type UserConfig } from 'vite';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 import { copyFileSync, cpSync, existsSync, readFileSync } from 'fs';
@@ -10,6 +10,7 @@ import { buildPublicLocales } from './src/lib/i18n/offered-research';
 import { resultChangeMetadataPlugin } from './scripts/result-change-metadata.mjs';
 import { prunePublicBuildBranches } from './scripts/prune-public-build-branches.mjs';
 import { researchLocaleBuildPlugin } from './scripts/research-locale-build.mjs';
+import { switchOnUnitFiles } from './scripts/switch-on-unit.mjs';
 import { blogTranslations } from './scripts/blog-translations';
 
 /**
@@ -51,7 +52,10 @@ function publicBuildSwitchesPlugin(featureConfig: unknown) {
     name: 'public-build-switches',
     config(_config, { mode, command }) {
       testing = !!process.env.VITEST && command === 'serve';
-      features = featuresForMode(testing ? 'test' : mode, featureConfig);
+      const profile = testing ? unitFeatureProfile()
+        : command === 'build' && process.env.VITE_E2E === '1' ? process.env.STABILEO_E2E_PROFILE || mode
+        : mode;
+      features = featuresForMode(profile, featureConfig);
       const define = featureDefines(features, command === 'build');
       if (testing) return { environments: { client: { define } } };
       if (command === 'build' && mode === 'production' && process.env.STABILEO_ROUTE_BUDGET_LEGACY === '1') {
@@ -77,16 +81,22 @@ function publicI18nPlugin(features: () => BuildFeatures, eager: () => boolean): 
   const entries = (loc: string, publicOnly: boolean, watch: (file: string) => void) => {
     const file = resolve(__dirname, 'src/lib/i18n/locales', `${loc}.ts`);
     watch(file);
-    const lines = readFileSync(file, 'utf8').split('\n').filter((l) => {
-      const m = /^\s*(['"])([^'"]+)\1: /.exec(l);
-      if (!m) return false;
-      if (!eager() && !ADMIN && m[2].startsWith('admin.')) return false;
-      if (!eager() && !features().tools && /^(?:advanced\.mohr$|advHelp\.mohr\.|stress\.openMohr$)/.test(m[2])) return false;
-      if (!eager() && !ADMIN && !features().accounts && m[2].startsWith('disclaimer.') && m[2] !== 'disclaimer.report') return false;
-      if (!eager() && !ADMIN && !features().accounts && /^(?:account\.|legal\.|cloud\.|feedbackForm\.|usage\.|landing\.foot(?:Terms|Privacy|AdCookies)$)/.test(m[2])) return false;
-      if (!features().diagramGame && m[2] === 'landing.navGame') return false;
-      const publicEntry = PUBLIC_KEY_PREFIXES.some(prefix => m[2].startsWith(prefix))
-        && (!/^(?:legal\.|landing\.foot(?:Terms|Privacy|AdCookies)$)/.test(m[2]) || features().accounts);
+    const pruneEntries = !eager();
+    const { accounts, diagramGame, tools } = features();
+    const lines = readFileSync(file, 'utf8').split('\n').filter((line) => {
+      const key = /^\s*(['"])([^'"]+)\1: /.exec(line)?.[2];
+      if (!key) return false;
+      const publicAccountEntry = /^(?:legal\.|landing\.foot(?:Terms|Privacy|AdCookies)$)/.test(key);
+      if (pruneEntries) {
+        if (!ADMIN && key.startsWith('admin.')) return false;
+        if (!tools && /^(?:advanced\.mohr$|advHelp\.mohr\.|stress\.openMohr$)/.test(key)) return false;
+        if (!ADMIN && !accounts) {
+          if (key.startsWith('disclaimer.') && key !== 'disclaimer.report') return false;
+          if (publicAccountEntry || /^(?:account\.|cloud\.|feedbackForm\.|usage\.)/.test(key)) return false;
+        }
+        if (!diagramGame && key === 'landing.navGame') return false;
+      }
+      const publicEntry = PUBLIC_KEY_PREFIXES.some(prefix => key.startsWith(prefix)) && (!publicAccountEntry || accounts);
       return publicEntry === publicOnly;
     });
     return `{\n${lines.join('\n')}\n}`;
@@ -126,6 +136,8 @@ function publicI18nPlugin(features: () => BuildFeatures, eager: () => boolean): 
 // determinism/ is a Playwright suite of its own (determinism/playwright.config.ts).
 // scripts/*.test.mjs are node:test suites (the Research workflow runs them with node --test).
 const NOT_VITEST = ['**/node_modules/**', '**/dist/**', 'e2e/**', 'determinism/**', '**/.stryker-tmp/**', 'scripts/**/*.test.mjs'];
+
+const EXCLUDED_SWITCH_ON_UNIT_TESTS = process.env.STABILEO_UNIT_PROFILE === 'production' ? switchOnUnitFiles : [];
 
 /**
  * Tests that shell out to a real build or another project script, plus timing budgets
@@ -340,7 +352,8 @@ const baseConfig = defineConfig({
           name: 'unit',
           setupFiles: ['./vitest.setup.ts'],
           // Everything except the production-build tests, which get their own pass.
-          exclude: [...NOT_VITEST, ...PRODUCTION_BUILD_TESTS, ...RESULTS_SNAPSHOT_TESTS],
+          exclude: [...NOT_VITEST, ...PRODUCTION_BUILD_TESTS, ...RESULTS_SNAPSHOT_TESTS, ...EXCLUDED_SWITCH_ON_UNIT_TESTS],
+          ...(process.env.STABILEO_UNIT_PROFILE === 'test' ? { include: switchOnUnitFiles } : {}),
           // THREADS, NOT FORKS — and this is the line that fixed the RPC timeout.
           //
           // `onTaskUpdate` is the worker → coordinator RPC, and birpc gives it a SIXTY

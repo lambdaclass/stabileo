@@ -20,6 +20,7 @@ it('known wrong result: #1986 reflected storey-shear columns preserve magnitudes
   };
   for (const c of allChoices()) {
     axesStore.choice = c;
+    expect(axesStore.choice).toEqual(c);
     const html = renderMemoriaHtml(m as never, new Set(['global', 'global.storeyShear']), { tr: (k) => k, msg: (v) => v.key, fmt: (v, d) => v.toFixed(d) });
     expect(html).toContain(`V${axisLetter(0)} (kN)`);
     expect(html).toContain(`V${axisLetter(1)} (kN)`);

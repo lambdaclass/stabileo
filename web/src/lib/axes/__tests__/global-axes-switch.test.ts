@@ -26,10 +26,11 @@ it('known wrong result: #1986 a production-disabled build ignores a stored or re
 it('the disabled model-code and workbook entry points refuse an explicitly authored custom frame', () => {
   const choice = { up: '-Y', right: '-X', hand: 'left' } as const;
   const snap = modelStore.snapshot();
-  const framed = modelToCode(snap, choice);
-  expect(framed).toContain('frame up=');
-  vi.stubGlobal('__PUBLIC_FEATURES__', featuresForMode('production'));
   try {
+    vi.stubGlobal('__PUBLIC_FEATURES__', featuresForMode('test'));
+    const framed = modelToCode(snap, choice);
+    expect(framed).toContain('frame up=');
+    vi.stubGlobal('__PUBLIC_FEATURES__', featuresForMode('production'));
     expect(modelToCode(snap, choice)).toBe(modelToCode(snap));
     expect(codeToModel(framed).snapshot).toBeNull();
     const canonical = { Nodes: [['id', 'x', 'z'], [1, 2, 3]] };

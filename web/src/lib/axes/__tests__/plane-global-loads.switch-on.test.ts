@@ -18,6 +18,7 @@ describe('a 2D global member load typed in the user axes', () => {
   for (const frame of FRAMES) {
     it(`acts along the direction the user typed, ${JSON.stringify(frame)}`, () => {
       axesStore.choice = frame;
+      expect(axesStore.choice).toEqual(frame);
       const sh = along(0).sign, sv = along(2).sign;
       for (const [base, alpha, v] of [[0, 0, -10], [0, 30, 7], [90, 0, 5], [90, -20, -3]] as const) {
         const typed = base + alpha;
