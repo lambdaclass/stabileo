@@ -69,3 +69,10 @@ describe('the space-workspace check', () => {
     expect(WHICH_MODE.filter((w) => !used.has(w.snippet)).map((w) => `${w.file}: ${w.snippet}`)).toEqual([]);
   });
 });
+
+const issue2370 = process.env.RUN_KNOWN_WRONG === '2370' ? it : it.skip;
+
+issue2370('known wrong result: #2370 the point-load report plane uses geometry tags distinct from workspace modes', () => {
+  const reportLoads = readFileSync(join(SRC, 'lib/engine/calc-report-loads.ts'), 'utf8');
+  expect(reportLoads.match(new RegExp(DIM, 'g')) ?? []).toEqual([]);
+});
