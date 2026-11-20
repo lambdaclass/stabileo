@@ -1211,6 +1211,7 @@ const hu: Translations = {
   "xls.col.massW": "Weight esetén: a lefelé ható súly, kN/m rudakon és kN/m² födémeken és szinteken; nulla vagy több.",
   "xls.col.massRegion": "Weight esetén: all (az egész modell), vagy egy doboz {\"kind\":\"box\",\"x\":[0,5],\"z\":[2,4]} m-ben. Az üres az all-t jelenti.",
   "xls.col.fy": "Erő Y irányban.",
+  "xls.col.materialFy": "Az acél folyáshatára (fy) vagy a beton nyomószilárdsága (f′c), MPa-ban.",
   "xls.col.sectionId": "A keresztmetszet azonosítója.",
   "xls.col.sectionName": "Egy katalógusbeli szelvény neve (IPE 300, HEB 200…) vagy a saját neve.",
   "xls.col.shape": "Alak: rect, I, C, L, tube… A katalógusban szereplő név esetén kikövetkeztetjük.",

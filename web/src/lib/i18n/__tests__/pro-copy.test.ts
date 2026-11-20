@@ -5,7 +5,7 @@ import { POSTS } from '../../blog';
 import { STANDING_PAGES } from '../../blog/pages';
 import { inLocale } from '../../blog/types';
 
-const LOCALES: CopyLocale[] = ['es', 'en', 'pt', 'de', 'fr', 'tr'];
+const LOCALES: CopyLocale[] = ['es', 'en', 'pt', 'de', 'fr', 'tr', 'zh'];
 
 function proPartOfTour(tour: string): string {
   const start = tour.indexOf('PRO</strong>');
@@ -36,6 +36,7 @@ describe('PRO is presented as available', () => {
     expect(unfinishedProClaims('Ver los resultados. PRO está en beta.', 'es', { aboutPro: false })).toEqual(['PRO está en beta.']);
     expect(unfinishedProClaims('Le module PRO est encore en développement.', 'fr', { aboutPro: false })).toHaveLength(1);
     expect(unfinishedProClaims('PRO modu hâlâ geliştirme aşamasında.', 'tr', { aboutPro: false })).toHaveLength(1);
+    expect(unfinishedProClaims('PRO 仍处于开发中。', 'zh', { aboutPro: false })).toHaveLength(1);
     expect(unfinishedProClaims('Die normgemäße Bemessung in PRO ist noch in Entwicklung.', 'de', { aboutPro: false })).toEqual([]);
   });
 });

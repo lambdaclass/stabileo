@@ -31,7 +31,8 @@
     "de": "Momentenverlauf in Bauphasen und kinematische Drehräume",
     "fr": "Historique des moments par phases et sous-espaces de rotation",
     "hu": "Fázisos nyomatéktörténet és kinematikai forgási alterek",
-    "tr": "Aşamalı moment geçmişi ve kinematik dönme alt uzayları"
+    "tr": "Aşamalı moment geçmişi ve kinematik dönme alt uzayları",
+    "zh": "分阶段弯矩历程与运动学转动子空间"
   },
   "explanation": {
     "en": "Staged free-rotation checks now use accumulated loads and refuse moments left unsupported after member removal. Kinematics counts independent rigid-arm translation motions and treats positive springs as restraints independently of stiffness. Elastic solves retain their original conditioning checks. Re-run affected staged and constrained models (#1846, PR #1943).",
@@ -40,7 +41,8 @@
     "de": "Freie Drehungen werden in Bauphasen mit kumulierten Lasten geprüft; nach Stabentfernung ungestützte Momente werden abgelehnt. Die Kinematik zählt unabhängige Starrarmbewegungen und behandelt positive Federn unabhängig von ihrer Steifigkeit als Bindungen. Elastische Löser behalten ihre Konditionsprüfungen. Betroffene Modelle neu berechnen (#1846, PR #1943).",
     "fr": "Les rotations libres par phases sont vérifiées avec les charges cumulées ; les moments sans appui après retrait de barres sont refusés. La cinématique compte les mouvements indépendants des bras rigides et traite les ressorts positifs comme des liaisons quelle que soit leur rigidité. Le calcul élastique conserve ses contrôles de conditionnement. Recalculer les modèles concernés (#1846, PR #1943).",
     "hu": "A fázisos szabadforgás-ellenőrzés az összegzett terheket használja, és elutasítja az elemeltávolítás után megtámasztatlan nyomatékokat. A kinematika a független merevkaros eltolási mozgásokat számolja, és a pozitív rugókat merevségüktől függetlenül megtámasztásnak tekinti. A rugalmas megoldások eredeti kondicionálási ellenőrzései megmaradnak. Futtassa újra az érintett fázisos és kényszeres modelleket (#1846, PR #1943).",
-    "tr": "Aşamalı serbest dönme denetimleri birikmiş yükleri kullanır ve eleman kaldırıldıktan sonra desteksiz kalan momentleri reddeder. Kinematik bağımsız rijit kol hareketlerini sayar ve pozitif yayları rijitlikten bağımsız bağ olarak ele alır. Elastik çözümler mevcut koşullandırma denetimlerini korur. Etkilenen modelleri yeniden çözün (#1846, PR #1943)."
+    "tr": "Aşamalı serbest dönme denetimleri birikmiş yükleri kullanır ve eleman kaldırıldıktan sonra desteksiz kalan momentleri reddeder. Kinematik bağımsız rijit kol hareketlerini sayar ve pozitif yayları rijitlikten bağımsız bağ olarak ele alır. Elastik çözümler mevcut koşullandırma denetimlerini korur. Etkilenen modelleri yeniden çözün (#1846, PR #1943).",
+    "zh": "分阶段自由转动检查现在使用累积荷载，并拒绝杆件移除之后留下的无支撑弯矩。运动学统计独立的刚臂平移运动，并将为正的弹簧视为约束，与其刚度无关。弹性求解保留其原有的条件数检查。请重新运行受影响的分阶段和带约束的模型（#1846，PR #1943）。"
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-staged-moment-subspaces.md",

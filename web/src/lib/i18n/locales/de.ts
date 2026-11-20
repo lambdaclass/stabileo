@@ -1249,6 +1249,7 @@ const de: Translations = {
   'xls.col.massW': "Bei weight: das nach unten wirkende Gewicht, in kN/m auf Stäben und kN/m² auf Platten und Decken; null oder mehr.",
   'xls.col.massRegion': "Bei weight: all (das ganze Modell) oder ein Quader {\"kind\":\"box\",\"x\":[0,5],\"z\":[2,4]} in m. Leer bedeutet all.",
   'xls.col.fy': 'Kraft in Y.',
+  'xls.col.materialFy': 'Streckgrenze des Stahls (fy) oder Druckfestigkeit des Betons (f′c) in MPa.',
   'xls.col.sectionId': 'Querschnittskennung.',
   'xls.col.sectionName': 'Ein Profilname aus dem Katalog (IPE 300, HEB 200…) oder ein eigener.',
   'xls.col.shape': 'Form: rect, I, C, L, tube… Wird abgeleitet, wenn der Name im Katalog steht.',
