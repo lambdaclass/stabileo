@@ -54,6 +54,8 @@ export interface SheetRows {
   slabPlan: LevelPlan[];
   wall: WallRow[];
   punching: PunchingRow[];
+  /** The levels the rows are named by, from the lowest up: what `storeys.ts` reads a member's storey against. */
+  levels?: string[];
   /** The regulation the rows are computed with. */
   code: string;
   /** Where the forces came from: the design combinations, or the result on screen when none is solved. */
@@ -247,6 +249,16 @@ function storeyNamer(): (z: number) => string {
   if (grid.length) return (z) => grid.find((l) => Math.abs(l.z - z) < 0.05)?.name ?? `+${z.toFixed(2)}`;
   const zs = memberElevations();
   return (z) => { const i = zs.findIndex((v) => Math.abs(v - z) < 0.05); return i >= 0 ? defaultLevelName(i) : `+${z.toFixed(2)}`; };
+}
+
+/** The levels' names from the lowest up, those the rows name besides the grid's or the members' by their elevation. */
+function levelsUp(named: Iterable<string | undefined>): string[] {
+  const grid = [...(modelStore.grid?.levels ?? [])].sort((a, b) => a.z - b.z).map((l) => l.name);
+  const known = grid.length ? grid : memberElevations().map((_, i) => defaultLevelName(i));
+  const extra = [...new Set([...named].filter((x): x is string => !!x && !known.includes(x)))];
+  const zOf = (n: string) => (n.startsWith('+') ? Number(n.slice(1)) : NaN);
+  extra.sort((a, b) => (Number.isFinite(zOf(a)) && Number.isFinite(zOf(b)) ? zOf(a) - zOf(b) : a.localeCompare(b, undefined, { numeric: true })));
+  return [...known, ...extra];
 }
 
 function levelName(id: string | undefined, namer: (z: number) => string): string | undefined {
@@ -689,7 +701,7 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
     name: r.name, level: r.level, b: r.b, h: r.h, fc: fcOfElement(groupOf(r.key)?.members.elements?.[0]), tu: Math.max(0, ...r.demand.cases.map((c) => c.tu ?? 0)),
   })));
   const apart = rules.piers ? [] : allPiers;
-  return { beam: sort(beam), line: sort(line), column: sort(withApart(columnsFinal, apart)), slab: sort(slab), slabPlan: slabPlans.sort((a, b) => a.level.localeCompare(b.level, undefined, { numeric: true })), wall: sort(withApart(wall, apart)), punching: sort(punching), code: codeName, basis, combos: sets.length, left };
+  return { beam: sort(beam), line: sort(line), column: sort(withApart(columnsFinal, apart)), slab: sort(slab), slabPlan: slabPlans.sort((a, b) => a.level.localeCompare(b.level, undefined, { numeric: true })), wall: sort(withApart(wall, apart)), punching: sort(punching), levels: levelsUp([...beam, ...columnsFinal, ...slab, ...wall, ...punching].map((r) => r.level)), code: codeName, basis, combos: sets.length, left };
 }
 
 function leftOut(rowKeys: string[], columns: Parameters<typeof sheetsLeftOut>[0]['columns']): LeftOut[] {

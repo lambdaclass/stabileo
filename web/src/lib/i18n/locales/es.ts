@@ -13834,6 +13834,7 @@ const es: Record<string, string> = {
   "rcSheets.v.seisScwb": "Columna fuerte y viga débil",
   "rcSheets.v.seisJoint": "Corte en el nudo",
   "rcSheets.family.punching": "Punzonado",
+  "rcSheets.storey.foundations": "Fundaciones",
   "rcSheets.empty.punching": "No hay uniones losa-columna sin vigas.",
   "rcSheets.g.punching": "Punzonado",
   "rcSheets.s.punchPosition": "Posición",

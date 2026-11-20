@@ -85,11 +85,11 @@ describe('the concrete ghost of the sheets\' bars', () => {
     const drawn = new Set(bars.flatMap((b) => [b.element, ...b.rows]));
     expect(every).toEqual(ghosts.filter((g) => drawn.has(g.element)));
 
-    const level = [...new Set(bars.map((b) => b.level).filter(Boolean))][1]!;
+    const level = [...new Set(bars.map((b) => b.storey).filter(Boolean))][1]!;
     const atLevel = { ...ALL, level };
     const lv = shownGhosts(ghosts, shownBars(bars, atLevel), atLevel);
     expect(lv.length).toBeGreaterThan(0);
-    expect(lv.every((g) => g.level === level)).toBe(true);
+    expect(lv.every((g) => g.storey === level)).toBe(true);
 
     const noSlabs = { ...ALL, families: { ...ALL.families, slab: false } };
     const ns = shownGhosts(ghosts, shownBars(bars, noSlabs), noSlabs);

@@ -1,7 +1,7 @@
 import type { LineLayout } from './beam-line';
 import type { Frame, Rebar3d, Rebar3dFrames, Rebar3dRows, V3 } from './rebar-3d-geometry';
 
-export interface Ghost3d extends Pick<Rebar3d, 'element' | 'rows' | 'family' | 'level'> {
+export interface Ghost3d extends Pick<Rebar3d, 'element' | 'rows' | 'family' | 'level' | 'storey'> {
   frame: Frame;
   from: V3;
   to: V3;

@@ -24,6 +24,7 @@
   import RcRowDetail from './RcRowDetail.svelte';
   import RcVerticalTable from './RcVerticalTable.svelte';
   import { verticalItems } from '../../../lib/rc-sheets/vertical-list';
+  import { levelOfStorey, storeyLabel, storeyOf, storeysUp, type StoreyFamily } from '../../../lib/rc-sheets/storeys';
   import RcScheduleView from './RcScheduleView.svelte';
   import RcPlansExport from './RcPlansExport.svelte';
   import { rebarView, showRebarOf } from '../../../lib/store/rc-rebar-3d.svelte';
@@ -67,9 +68,11 @@
   const tabRows = (k: SheetTab) => (k === 'beam' ? rows.line.map((l) => ({ ...l, family: 'line' as const, status: lineStatus(l) })) : TAB_FAMILIES[k].flatMap((f) => rows[f] as ListRow[])) as ListRow[];
   const all = $derived(tabRows(tab));
   const vlevels = $derived(verticalItems(rows.column, rows.wall).map((it) => (it.kind === 'row' ? it.row.level : it.pier.level) ?? ''));
-  const levels = $derived([...new Set(tab === 'vertical' ? vlevels : all.map((r) => r.level ?? ''))]);
+  const order = $derived(rows.levels ?? []);
+  const storey = (r: { family: StoreyFamily; level?: string }) => storeyOf(r.family, r.level, order);
+  const levels = $derived(storeysUp(tab === 'vertical' ? vlevels : all.map(storey), order));
   const edited = $derived.by(() => { void modelStore.designData; return editedKeys(); });
-  const keep = (r: { key: string; level?: string; status: string }) => (!level || (r.level ?? '') === level) && (!failingOnly || r.status === 'fail') && (!editedOnly || edited.has(r.key));
+  const keep = (r: { key: string; family: StoreyFamily; level?: string; status: string }) => (!level || storey(r) === level) && (!failingOnly || r.status === 'fail') && (!editedOnly || edited.has(r.key));
   const shown = $derived(all.filter(keep));
   const vitems = $derived(tab === 'vertical' ? verticalItems(rows.column, rows.wall, keep) : []);
   const counts = $derived(Object.fromEntries(SHEET_TABS.map((k) => {
@@ -77,9 +80,9 @@
     return [k, { n: list.length, fail: list.filter((r) => r.status === 'fail').length }];
   })) as Record<SheetTab, { n: number; fail: number }>);
   const planFamily = $derived(tab === 'beam' || tab === 'vertical' ? tab : null);
-  const structPlan = $derived(planFamily && structView === 'plan' && level ? structurePlanOf(planFamily, level, rows) : null);
+  const structPlan = $derived(planFamily && structView === 'plan' && level ? structurePlanOf(planFamily, levelOfStorey(planFamily === 'beam' ? 'line' : 'column', level, order) ?? level, rows) : null);
   $effect(() => { if (planFamily && structView === 'plan' && !schedule && !level && levels.length) level = levels[0]!; });
-  const levelPlan = $derived(rows.slabPlan.find((p) => p.level === level) ?? rows.slabPlan[0]);
+  const levelPlan = $derived(rows.slabPlan.find((p) => p.level === levelOfStorey('slab', level, order)) ?? rows.slabPlan[0]);
   const f1 = (v: number) => fmt(v, 1);
   const f2 = (v: number) => fmt(v, 2);
 
@@ -99,7 +102,7 @@
     tab = tabOf(el.family);
     slabView = plan ? 'plan' : 'panels';
     structView = 'list';
-    level = plan ? el.level ?? '' : '';
+    level = plan ? storeyOf('slab', el.level, order) : '';
     openKey = plan ? null : el.key;
     highlight = marks;
     await tick();
@@ -160,7 +163,7 @@
       <label class="rcw-ctl" title={t('rcSheets.col.level')} data-testid="rc-level-filter"><span class="wide">{t('rcSheets.col.level')}</span>
         <select bind:value={level} aria-label={t('rcSheets.col.level')}>
           <option value="">{t('rcSheets.allLevels')}</option>
-          {#each levels as l (l)}<option value={l}>{l || '—'}</option>{/each}
+          {#each levels as l (l)}<option value={l}>{storeyLabel(l, t)}</option>{/each}
         </select>
       </label>
       <label class="rcw-ctl" title={t('rcSheets.onlyFailing')}><input type="checkbox" bind:checked={failingOnly} aria-label={t('rcSheets.onlyFailing')} /> <span class="wide">{t('rcSheets.onlyFailing')}</span><span class="narrow">✗</span></label>
@@ -196,7 +199,7 @@
       {#if tab === 'slab'}
         <div class="rcw-views" role="tablist" aria-label={t('rcSheets.slabView.label')}>
           <button type="button" role="tab" aria-selected={slabView === 'panels'} class:on={slabView === 'panels'} onclick={() => (slabView = 'panels')} data-testid="rc-slab-view-panels">{t('rcSheets.slabView.panels')}</button>
-          <button type="button" role="tab" aria-selected={slabView === 'plan'} class:on={slabView === 'plan'} onclick={() => { slabView = 'plan'; if (!level && levelPlan) level = levelPlan.level; }} disabled={!rows.slabPlan.length} data-testid="rc-slab-view-plan">{t('rcSheets.slabView.plan')}</button>
+          <button type="button" role="tab" aria-selected={slabView === 'plan'} class:on={slabView === 'plan'} onclick={() => { slabView = 'plan'; if (!level && levelPlan) level = storeyOf('slab', levelPlan.level, order); }} disabled={!rows.slabPlan.length} data-testid="rc-slab-view-plan">{t('rcSheets.slabView.plan')}</button>
         </div>
       {/if}
       {#if planFamily}
@@ -228,7 +231,7 @@
           {#each shown as r (r.key)}
             <tr class="row st-{r.status}" class:open={openKey === r.key} class:none={nothingFits(r)} onclick={() => { openKey = openKey === r.key ? null : r.key; highlight = []; }} data-testid="rc-row" data-key={r.key}>
               <td class="nm">{r.name}{#if nothingFits(r)}<span class="tag none" title={t('rcSheets.alt.closest')} data-testid="rc-no-arrangement-tag">✕</span>{:else if !r.isAdopted}<span class="tag" title={t('rcSheets.showingProposal')}>P</span>{:else if edited.has(r.key)}<span class="tag" title={t('rcSheets.editedByHand')} data-testid="rc-edited-tag">✎</span>{/if}</td>
-              <td>{r.level ?? ''}</td>
+              <td>{storeyLabel(storey(r), t)}</td>
               {#if r.family === 'line'}
                 {@const extra = extraBarsText(r, t('rcSheets.line.bentShort'))}
                 <td class="n">{r.spans.length}</td>

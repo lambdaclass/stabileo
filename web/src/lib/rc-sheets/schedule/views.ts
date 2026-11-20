@@ -4,6 +4,7 @@
  * `shapeKey` is (diameter, mandrel, legs and bends), so in every view but the last a bar placed in
  * many elements is one row that lists them. Every view adds up to the schedule's total.
  */
+import { storeyOf, storeysUp } from '../storeys';
 import { developedLength, shapeWeight, type BarShape } from '../shape';
 import { SHEET_FAMILIES, type SheetFamily } from '../types';
 import type { PieceKind } from './pieces';
@@ -45,6 +46,8 @@ export interface ViewGroup extends ViewTotal {
   /** A level's or an element group's name, or Ø and the diameter; a family is named by `family`. */
   title: string;
   family?: SheetFamily;
+  /** The level view's storey, named by `storeyLabel`. */
+  storey?: string;
   dia?: number;
   /** The element view's equal elements. */
   elements?: ElementRef[];
@@ -130,6 +133,10 @@ export function scheduleView(s: BendingSchedule, view: ScheduleView): ScheduleVi
   } else if (view === 'family') {
     const m = merged(s, (e) => e.family);
     groups = SHEET_FAMILIES.filter((f) => m.has(f)).map((f) => group(f, m.get(f)!, { family: f as SheetFamily }));
+  } else if (view === 'level' && s.levels) {
+    const order = s.levels;
+    const m = merged(s, (e) => storeyOf(e.family, e.level, order));
+    groups = storeysUp(m.keys(), order).map((l) => group(`level:${l}`, m.get(l)!, { title: l, storey: l }));
   } else if (view === 'level') {
     const m = merged(s, (e) => e.level ?? '');
     groups = [...m.keys()].sort(levelOrder).map((l) => group(`level:${l}`, m.get(l)!, { title: l }));

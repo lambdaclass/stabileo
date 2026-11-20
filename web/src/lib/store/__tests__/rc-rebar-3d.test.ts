@@ -173,6 +173,12 @@ describe('the sheets\' bars in 3D', () => {
     expect(wallLapsApart(rows, bars)).toBeGreaterThan(100);
     expect(rows.column.filter((c) => c.key.endsWith(':0')).every((c) => !c.lap)).toBe(true);
 
+    const order = rows.levels!;
+    const lowest = order.find((l) => rows.column.some((c) => c.level === l))!, next1 = order[order.indexOf(lowest) + 1]!;
+    const onLowest = shownBars(bars, { row: null, level: lowest, families: { beam: true, column: true, slab: true, wall: true, punching: true } });
+    expect(onLowest.some((b) => b.family === 'column' && b.level === lowest)).toBe(true);
+    expect(onLowest.some((b) => (b.family === 'beam' || b.family === 'slab') && b.level === next1)).toBe(true);
+    expect(onLowest.every((b) => (b.family === 'column' || b.family === 'wall' ? b.level === lowest : b.level === next1))).toBe(true);
     const panel = rows.slab.find((r) => r.name === 'L1') ?? rows.slab[0]!;
     const col = rows.column[0]!;
     const sa: SlabAdopted = { ...panel.adopted, bottomX: { dia: 10, spacing: 0.15 } };

@@ -15087,6 +15087,7 @@ const hu: Translations = {
   "rcSheets.v.seisScwb": "Erős oszlop – gyenge gerenda",
   "rcSheets.v.seisJoint": "Nyírás a csomópontban",
   "rcSheets.family.punching": "Átszúródás",
+  "rcSheets.storey.foundations": "Alapozás",
   "rcSheets.empty.punching": "Nincsenek gerenda nélküli födém–oszlop kapcsolatok.",
   "rcSheets.g.punching": "Átszúródás",
   "rcSheets.s.punchPosition": "Helyzet",
