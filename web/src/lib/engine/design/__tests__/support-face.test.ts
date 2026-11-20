@@ -15,6 +15,7 @@ import { verificationStore } from '../../../store/verification.svelte';
 import * as wasmSolver from '../../wasm-solver';
 import * as anchorage from '../end-support-anchorage';
 import { cirsoc201Adapter } from '../adapters/cirsoc201-adapter';
+import { jointThreading } from '../joint-threading-check';
 
 beforeAll(async () => {
   await new Promise((r) => setTimeout(r, 0));
@@ -50,7 +51,7 @@ function cantilever(roll: number) {
 }
 
 describe('support moments at the column face', () => {
-  it('reuses one support plan for reach and anchorage checks within a verification', () => {
+  it('reuses one support plan for reach, anchorage and hook tails within a verification', () => {
     const b = cantilever(0);
     const column = [...modelStore.elements.keys()].find(id => id !== b)!;
     const ctx = { ...verificationStore.contextFor(b)!, columnBars: new Map([[column, { count: 4, diameterMm: 16 }]]) };
@@ -58,17 +59,29 @@ describe('support moments at the column face', () => {
     const input = anchorage.supportInputOf(ctx, rebar)!;
     const expected = anchorage.endSupportPlan(input);
     expect(anchorage.bottomReach(input, expected)).toEqual(anchorage.bottomReach(input));
+    const threading = jointThreading(ctx, rebar, input);
+    expect(threading.length).toBeGreaterThan(0);
     const spy = vi.spyOn(anchorage, 'endSupportPlan');
+    const tails = vi.spyOn(anchorage, 'hookTails');
     try {
       const result = cirsoc201Adapter.verify(ctx, rebar);
       expect(spy).toHaveBeenCalledTimes(1);
       expect(result.supportAnchorage).toEqual(expected.verdicts);
+      expect(result.jointThreading).toEqual(threading);
+      expect(tails).toHaveBeenCalledTimes(1);
+      expect(tails.mock.calls[0]![2]).toBe(spy.mock.results[0]!.value);
       const changed = structuredClone(rebar);
       changed.regions!.topStart = { count: 2, diameter: 12 };
       changed.regions!.topStartLayers = [{ count: 2, diameter: 12, row: 0 }];
-      cirsoc201Adapter.verify(ctx, changed);
+      const changedResult = cirsoc201Adapter.verify(ctx, changed);
       expect(spy).toHaveBeenCalledTimes(2);
-    } finally { spy.mockRestore(); }
+      expect(tails).toHaveBeenCalledTimes(2);
+      expect(tails.mock.calls[1]![2]).toBe(spy.mock.results[1]!.value);
+      expect(tails.mock.calls[1]![2]).not.toBe(tails.mock.calls[0]![2]);
+      const changedInput = anchorage.supportInputOf(ctx, changed)!;
+      expect(changedResult.supportAnchorage).toEqual(anchorage.endSupportPlan(changedInput).verdicts);
+      expect(changedResult.jointThreading).toEqual(jointThreading(ctx, changed, changedInput));
+    } finally { spy.mockRestore(); tails.mockRestore(); }
   });
   it('the face follows the column extent along the beam, and the hogging is taken there', () => {
     const faces: number[] = [];
