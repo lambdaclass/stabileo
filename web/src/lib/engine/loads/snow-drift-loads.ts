@@ -1,7 +1,7 @@
 import { snowCoordinate, snowRoofSteps, snowRoofSurfaces, roofSurfaceModel } from './snow-roof-surfaces';
 import { gravityLayout, widthSpans, type GravityLayout, type GravityModel } from './plan-gravity';
 import { driftShapeMargins, stepDriftMargins, stepDrift, parapetDrift, slidingSnow, REF_DRIFT, REF_DRIFT_ADJACENT, REF_FIG9, REF_PARAPET, REF_SLIDING, type StepDrift } from '../../codes/cirsoc104/drift';
-import { msg, round, type EngineMessage } from '../../codes/message';
+import { EngineMessageError, msg, round, type EngineMessage } from '../../codes/message';
 import type { ClauseRef } from '../../codes/regulation';
 
 type P2 = [number, number];
@@ -78,6 +78,7 @@ function surcharge(bands: Band[], pt: P2, on: (panel: number) => boolean): numbe
 export interface DriftInputs {
   pg: number;
   balanced: number | ((panel: number, point: P2) => number);
+  balancedConstantOnPlanes?: boolean;
   pf: number;
   pfFor?: (slope: number, W: number) => number;
   slippery: boolean;
@@ -140,6 +141,8 @@ export function snowDriftRefusal(model: GravityModel, layout?: GravityLayout, su
   return undefined;
 }
 
+export const STEP_DRIFT_REFUSAL = 'snow.refused.stepDriftTransfer';
+
 export function driftAndSlidingLoads(model: GravityModel, layout: GravityLayout, i: DriftInputs, surfaceModel = roofSurfaceModel(model)): {
   distributed: SnowSurchargeLoad[]; derivation: EngineMessage[]; refs: ClauseRef[];
 } {
@@ -178,6 +181,16 @@ export function driftAndSlidingLoads(model: GravityModel, layout: GravityLayout,
       return { pg: i.pg, balanced: balanced(L.k, pt), stepHeight: surfaces(U.k).elevation(pt) - surfaces(L.k).elevation(pt), luUpper, luLower };
     };
     const local = (t: number): StepDrift => stepDrift(inputs(t));
+    const flatStep = [L.k, U.k].every(k => surfaces(k).planes.every(plane => plane.gradient.every(value => value === 0)));
+    if (flatStep) {
+      const alongEdge = (pt: P2) => dot(sub(pt, a), line.u);
+      const balancedResolved = typeof i.balanced === 'number' || i.balancedConstantOnPlanes === true;
+      const ranges = surfaceModel.edgeRanges(a, b, layout, () => []);
+      if (!balancedResolved || ranges.some(({ point }) => {
+        const dr = local(alongEdge(point));
+        return dr.applies && dr.pd > 0 && dr.w > 0;
+      })) throw new EngineMessageError(msg(STEP_DRIFT_REFUSAL));
+    }
     const samples = [0, (t1 - t0) / 2, t1 - t0].map(t => ({ t, dr: local(t) }));
 
     for (const { t, dr } of samples) derivation.push(msg(dr.applies ? 'snow.derivation.drift' : 'snow.derivation.noDrift', {
@@ -185,6 +198,7 @@ export function driftAndSlidingLoads(model: GravityModel, layout: GravityLayout,
       lee: round(dr.hdLeeward, 3), wind: round(dr.hdWindward, 3), h: round(dr.height, 3), w: round(dr.w, 2), pd: round(dr.pd, 3),
     }));
     if (refs.length === 0) refs.push(REF_DRIFT, REF_FIG9);
+    if (flatStep) continue;
     bands.push({ margins: (d, t) => [...stepDriftMargins(inputs(t)), ...driftShapeMargins(local(t), inputs(t).stepHeight - local(t).hb, d)], p0: atStep(0), u: line.u, len: t1 - t0, n: line.n,
       on: lower.map(p => p.k), p: (d, t) => {
         const dr = local(t);

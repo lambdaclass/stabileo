@@ -1,0 +1,42 @@
+{
+  "id": "snow-flat-step-drift-transfer",
+  "date": "2026-11-20",
+  "prs": [
+    2218
+  ],
+  "area": "loads",
+  "when": {
+    "all": [
+      "snow",
+      "generatedLoads",
+      "frameMembers"
+    ]
+  },
+  "quantities": [
+    "*",
+    "solve.ok"
+  ],
+  "requiresLoadRegeneration": true,
+  "title": {
+    "en": "Snow generation refuses positive drift transfer between flat roof panels",
+    "es": "La generación de nieve bloquea la transferencia de acumulación entre paños de cubiertas planas",
+    "pt": "A geração de neve recusa a transferência de acumulação entre painéis de coberturas planas",
+    "de": "Schneelasterzeugung sperrt Verwehungslasten zwischen Flachdachfeldern",
+    "fr": "La génération de neige refuse le transfert des congères entre panneaux de toitures plates",
+    "tr": "Kar yükü üretimi düz çatı panelleri arasında kar birikimi aktarımını reddeder",
+    "zh": "雪荷载生成拒绝平屋面板块之间的正积雪荷载传递"
+  },
+  "explanation": {
+    "en": "A positive drift at a step between flat roof panels now blocks snow generation because its member-load transfer could lose force and eccentric moment. Regenerate snow loads and define them explicitly if generation blocks.",
+    "es": "Una acumulación positiva en el escalón entre paños planos bloquea la generación, porque la transferencia a las barras podía perder fuerza y momento excéntrico. Regenere las cargas de nieve y defínalas explícitamente si hay un bloqueo.",
+    "pt": "A acumulação positiva no desnível entre painéis planos bloqueia a geração, pois a transferência às barras podia perder força e momento excêntrico. Gere novamente as cargas de neve e defina-as explicitamente se houver bloqueio.",
+    "de": "Eine Verwehung am Versatz zwischen Flachdachfeldern sperrt die Erzeugung, da bei der Übertragung auf Stäbe Kraft und exzentrisches Moment verloren gehen konnten. Erzeugen Sie Schneelasten neu und geben Sie sie bei einer Sperre explizit an.",
+    "fr": "Une accumulation positive au décrochement entre panneaux plats bloque la génération, car le transfert aux barres pouvait perdre de la force et du moment excentré. Régénérez les charges de neige et définissez-les explicitement en cas de blocage.",
+    "tr": "Düz çatı panelleri arasındaki kot farkında pozitif kar birikimi üretimi engeller. Elemanlara aktarım kuvvet ve eksantrik moment kaybedebiliyordu. Kar yüklerini yeniden üretin ve üretim engellenirse açıkça tanımlayın.",
+    "zh": "平屋面板块高差处若出现正积雪荷载，将阻止雪荷载生成，因为向杆件传递时可能损失力和偏心力矩。请重新生成雪荷载，若生成被阻止，请显式定义雪荷载。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-gravity-carrier-refusals.md",
+    "heading": "Snow generation refuses positive drift transfer between flat roof panels"
+  }
+}

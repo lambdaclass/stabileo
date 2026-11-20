@@ -61,6 +61,21 @@ function stepModel(): GravityModel {
   return { nodes, elements };
 }
 
+function addPitchedSource(model: GravityModel, far: number, eave: number, height: number): void {
+  const nextNode = Math.max(...model.nodes.keys()) + 1;
+  const nextMember = Math.max(...model.elements.keys()) + 1;
+  const points = [[far, 0, height + 0.6], [eave, 0, height], [eave, 6, height], [far, 6, height + 0.6]];
+  const ring = points.map(([x, y, z], i) => {
+    const id = nextNode + i;
+    model.nodes.set(id, { id, x: x!, y: y!, z: z! });
+    return id;
+  });
+  ring.forEach((nodeI, i) => {
+    const id = nextMember + i;
+    model.elements.set(id, { id, nodeI, nodeJ: ring[(i + 1) % ring.length]!, sectionId: 1 });
+  });
+}
+
 const total = (list: Array<{ elementId: number; q: number; qJ?: number; a?: number; b?: number }>) =>
   list.reduce((s, d) => s + ((d.q + (d.qJ ?? d.q)) / 2) * ((d.b ?? 0) - (d.a ?? 0)), 0);
 
@@ -68,7 +83,10 @@ describe('drifts on the model', () => {
   it('a step: the triangle along it, on the lower roof only, about p_d · w / 2 per metre of step', () => {
     const m = stepModel();
     const layout = gravityLayout(m, { mode: 'panels', tributaryWidth: 3 });
-    const out = driftAndSlidingLoads(m, layout, { pg: 1, balanced: 0.7, pf: 0.7, slippery: false, tributaryWidth: 3 });
+    const input = { pg: 1, balanced: 0.7, pf: 0.7, slippery: false, tributaryWidth: 3 };
+    expect(() => driftAndSlidingLoads(m, layout, input)).toThrow('snow.refused.stepDriftTransfer');
+    addPitchedSource(m, 0, 6, 6);
+    const out = driftAndSlidingLoads(m, layout, input);
     expect(out.derivation.some((x) => x.key === 'snow.derivation.drift')).toBe(true);
     for (const d of out.distributed) expect((m.nodes.get(m.elements.get(d.elementId)!.nodeI)!.z)).toBe(3);
     const d = stepDrift({ pg: 1, balanced: 0.7, stepHeight: 3, luUpper: 6, luLower: 6 });
@@ -109,7 +127,10 @@ describe('drifts on the model', () => {
     const separate = new Set(ring([node(8, 0, 3), node(12, 0, 3), node(12, 6, 3), node(8, 6, 3)]));
     const m: GravityModel = { nodes, elements };
     const layout = gravityLayout(m, { mode: 'panels', tributaryWidth: 3 });
-    const out = driftAndSlidingLoads(m, layout, { pg: 1, balanced: 0.7, pf: 0.7, slippery: false, tributaryWidth: 3 });
+    const input = { pg: 1, balanced: 0.7, pf: 0.7, slippery: false, tributaryWidth: 3 };
+    expect(() => driftAndSlidingLoads(m, layout, input)).toThrow('snow.refused.stepDriftTransfer');
+    addPitchedSource(m, -24, 6, 6);
+    const out = driftAndSlidingLoads(m, layout, input);
     const d = out.derivation.find((x) => x.key === 'snow.derivation.drift')!;
     expect(d.params?.w as number).toBeGreaterThan(2);
     expect(out.distributed.length).toBeGreaterThan(0);

@@ -244,6 +244,9 @@ for (const role of ['lower', 'upper'] as const) {
     append(model, mesh([[[-1, 0, z], [0, 0, z], [0, 4, z], [-1, 4, z]]]));
     layout.panels.push({ polygon: [[-1, 0], [0, 0], [0, 4], [-1, 4]], z, roof: true });
     if (role === 'upper') for (const id of [500, 501]) Object.assign(model.nodes.get(id)!, { x: -0.1, z: 1 });
+    expect(() => driftAndSlidingLoads(model, layout, inputs)).toThrow('snow.refused.stepDriftTransfer');
+    for (const node of model.nodes.values()) if (node.id > 1000 && node.x === -1) node.z = z + 0.1;
+    if (role === 'upper') for (const id of [500, 501]) model.nodes.get(id)!.z = 1.01;
     const out = driftAndSlidingLoads(model, layout, inputs);
     const dr = stepDrift({ pg: 1, balanced: 1, stepHeight: 2, luUpper: role === 'lower' ? 1 : 2, luLower: role === 'lower' ? 2 : 1 });
     expect(pressure(out.distributed, 500, 0.5)).toBeCloseTo(dr.pd * (1 - 0.1 / dr.w) * 0.1, 10);

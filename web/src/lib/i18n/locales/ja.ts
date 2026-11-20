@@ -8,6 +8,8 @@ const ja: Translations = {
   'loadPlan.gravity.nonplanarShell': "四辺形 {id} は平面ではありません。重力荷重の被覆計算には平面シェルが必要です。",
   'loadPlan.gravity.overlappingShells': "シェル {first} と {second} が同一平面上で重なっています。重複部分の重力荷重を一方のシェルに割り当てることができません。",
   'loadPlan.gravity.offsetShellDeck': "シェル {id} は、平面投影が重なる位置の異なる梁パネルに剛結されています。面荷重を受ける面を特定できません。",
+  'loadPlan.gravity.memberSlopeLimit': "部材 {id} の勾配は重力荷重を負担する部材の判定限界に近すぎます。荷重を明示的に設定してください。",
+  'snow.refused.stepDriftTransfer': "屋根段差部の吹きだまり荷重を支持部材に確実に伝達できません。積雪荷重を明示的に設定してください。",
   'loadPlan.gravity.unresolvedMember': "部材 {id} はシェルに一部だけ覆われており、パネルからの荷重伝達を特定できません。",
   'loadPlan.gravity.differentDeck': "梁パネルを覆うシェルは、梁パネルと同じデッキに属する必要があります。",
   'loadPlan.gravity.differentSlopedDeck': "梁パネルを覆う傾斜シェルは、梁パネルと同じデッキに属する必要があります。",

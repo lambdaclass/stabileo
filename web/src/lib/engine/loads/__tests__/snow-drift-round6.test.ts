@@ -185,6 +185,8 @@ for (const offset of [-0.01, 0, 0.01]) {
     ]);
     const id = carrier(model, [1.5, 0.5, 4 + offset], [1.5, 1.5, 4 + offset]);
     const layout = layoutFor(model, [panel(0, 1, 0, 2, 3), panel(1, 3, 0, 2, 4 + offset)], id, 1, 'width');
+    expect(() => driftAndSlidingLoads(model, layout, inputs)).toThrow('snow.refused.stepDriftTransfer');
+    for (const node of model.nodes.values()) if (node.x === 3) node.z! += 0.1;
     expect(driftAndSlidingLoads(model, layout, inputs).distributed).toEqual([]);
   });
 }

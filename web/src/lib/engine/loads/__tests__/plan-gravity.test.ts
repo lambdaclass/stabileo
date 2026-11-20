@@ -828,13 +828,24 @@ it('#2299 an offset deck crosses an exterior strip seam tied in all six DOFs', (
   checkBlockedGravity(tiedExteriorStripShellBay(false, allShellDofs), { key: 'loadPlan.gravity.offsetShellDeck', params: { id: 2 } });
 });
 
-const issue2347 = process.env.RUN_KNOWN_WRONG === '2347' ? it : it.skip;
-issue2347('known wrong result: #2347 full ties through off-seam masters connect the shell deck', () => {
+it('#2347 full ties through off-seam masters connect the shell deck', () => {
   checkBlockedGravity(tiedExteriorStripShellBay(true, allShellDofs, 0.25), { key: 'loadPlan.gravity.offsetShellDeck', params: { id: 2 } });
 });
 
 it('#2299 coincident common masters tie an offset shell seam', () => {
   checkBlockedGravity(tiedExteriorStripShellBay(true, allShellDofs), { key: 'loadPlan.gravity.offsetShellDeck', params: { id: 2 } });
+});
+
+it('#2347 a full rigid chain across an offset seam survives plan rotation', () => {
+  const model = tiedExteriorStripShellBay(true, allShellDofs, -0.25);
+  model.constraints = model.constraints!.flatMap(link => {
+    if (link.type !== 'rigidLink' || link.slaveNode !== model.quads!.get(2)!.nodes[0]) return [link];
+    const intermediate = 300;
+    model.nodes.set(intermediate, { id: intermediate, x: -0.5, y: 0, z: 3.25 });
+    return [{ ...link, slaveNode: intermediate }, { ...link, masterNode: intermediate }];
+  });
+  rotatePlan(model, 0.37);
+  checkBlockedGravity(model, { key: 'loadPlan.gravity.offsetShellDeck', params: { id: 2 } });
 });
 
 function checkSeparateStripAndBayLoads(model: LoadModelData) {
@@ -845,6 +856,20 @@ function checkSeparateStripAndBayLoads(model: LoadModelData) {
   );
   expect(deadLoadKN(plan, model)).toBeCloseTo((2 * 10 + 2) * 6, 10);
 }
+
+it('#2347 breaking the full tie to an off-seam master preserves the separate deck loads', () => {
+  const model = tiedExteriorStripShellBay(true, allShellDofs, 0.25);
+  const inner = model.quads!.get(2)!.nodes;
+  model.constraints = model.constraints!.map(link =>
+    link.type === 'rigidLink' && inner.includes(link.slaveNode) ? { ...link, dofs: [0, 1, 2, 3, 4] } : link);
+  checkSeparateStripAndBayLoads(model);
+});
+
+it('#2347 full ties across horizontally separated nodes do not join shell seams', () => {
+  const model = tiedExteriorStripShellBay(true, allShellDofs, 0.25);
+  for (const id of model.quads!.get(2)!.nodes) model.nodes.get(id)!.y += 0.25;
+  checkSeparateStripAndBayLoads(model);
+});
 
 it('#2299 ties with a free rotation preserve separate strip and bay loads', () => {
   for (const dofs of [[0, 1, 2, 3, 4], [0, 1, 2, 3, 4, 4], [], undefined]) {
@@ -871,11 +896,37 @@ it('#2299 a fully tied seam within the bay elevation band keeps the load on the 
   expect(deadLoadKN(plan, model)).toBeCloseTo((10 + 2) * 6, 10);
 });
 
-const issue2254 = process.env.RUN_KNOWN_WRONG === '2254' ? it : it.skip;
-issue2254('known wrong result: #2254 plan rotation preserves the geodesic dome dead-load resultant', async () => {
+function rotatePlan(model: GravityModel, angle: number): void {
+  const cos = Math.cos(angle), sin = Math.sin(angle);
+  for (const node of model.nodes.values()) {
+    const { x, y } = node;
+    node.x = cos * x - sin * y;
+    node.y = sin * x + cos * y;
+  }
+}
+
+function subdivideMembers(model: LoadModelData, cuts: readonly number[]): void {
+  let nodeId = Math.max(...model.nodes.keys()) + 1;
+  let elementId = Math.max(...model.elements.keys()) + 1;
+  for (const element of [...model.elements.values()]) {
+    const a = model.nodes.get(element.nodeI)!, b = model.nodes.get(element.nodeJ)!;
+    let start = a.id;
+    for (const t of cuts) {
+      const id = nodeId++;
+      model.nodes.set(id, { id, x: (1 - t) * a.x + t * b.x, y: (1 - t) * a.y + t * b.y, z: (1 - t) * (a.z ?? 0) + t * (b.z ?? 0) });
+      const next = elementId++;
+      model.elements.set(next, { ...element, id: next, nodeI: start, nodeJ: id });
+      start = id;
+    }
+    model.elements.set(element.id, { ...element, nodeI: start });
+  }
+}
+
+it('#2254 the geodesic dome refuses indeterminate gravity carrier selection in every orientation', async () => {
   const fixture = (await import('../../../templates/fixtures/geodesic-dome.json')).default;
-  const model: LoadModelData = {
+  const base: LoadModelData = {
     ...fixtureModel(fixture),
+    nodes: new Map(fixture.nodes.map(n => [n.id, { ...n }])),
     elements: new Map(fixture.elements.map(e => [e.id, {
       ...e, type: e.type === 'truss' ? 'truss' as const : 'frame' as const,
     }])),
@@ -883,25 +934,22 @@ issue2254('known wrong result: #2254 plan rotation preserves the geodesic dome d
     materials: new Map(fixture.materials.map(m => [m.id, m])),
     loadCases: [{ id: 1, type: 'D', name: 'D' }],
   };
-  const angle = 0.37;
-  const cos = Math.cos(angle);
-  const sin = Math.sin(angle);
-  const rotated = { ...model, nodes: new Map([...model.nodes].map(([id, node]) => [id, {
-    ...node, x: cos * node.x - sin * node.y, y: sin * node.x + cos * node.y,
-  }])) };
-  const applied = (physicalModel: LoadModelData) => {
-    const plan = buildLoadPlan(planInput(physicalModel, { dead: [{ labelKey: 'a', q: 1 }], tributaryWidth: 1,
+  for (const [angle, mirror, cuts] of [
+    [0, false, []], [0.37, false, []], [0.61, true, []], [0, false, [0.125, 0.5, 0.875]],
+  ] as const) {
+    const model = structuredClone(base);
+    if (cuts.length) subdivideMembers(model, cuts);
+    if (mirror) for (const node of model.nodes.values()) node.x *= -1;
+    rotatePlan(model, angle);
+    const plan = buildLoadPlan(planInput(model, { dead: [{ labelKey: 'a', q: 1 }], tributaryWidth: 1,
       gravity: { mode: 'panels', loadEveryPanel: true } }));
-    expect(plan.outcome).toBe('READY');
-    const line = totalKN(plan.distributed.filter(load => load.caseType === 'D'), physicalModel);
-    const surface = surfaceKN(plan.surface.filter(load => load.caseType === 'D'), physicalModel);
-    const nodal = plan.nodal.filter(load => load.caseType === 'D').reduce((sum, load) => sum + load.fz, 0);
-    return surface - line - nodal;
-  };
-  expect(applied(rotated)).toBeCloseTo(applied(model), 8);
+    expect(plan.outcome).toBe('BLOCKED');
+    expect(plan.blockedKeys).toEqual([expect.objectContaining({ key: 'loadPlan.gravity.memberSlopeLimit' })]);
+    expect(plan).toMatchObject({ cases: [], distributed: [], nodal: [], surface: [], levels: [] });
+  }
 });
 
-issue2254('known wrong result: #2254 gravity refuses an indeterminate carrier at the beam slope limit', () => {
+it('#2254 gravity refuses an indeterminate carrier at the beam slope limit', () => {
   const model = floor(1, 0, Math.sqrt(3), 6);
   model.nodes.get(2)!.z = 4;
   const expected = { key: 'loadPlan.gravity.memberSlopeLimit', params: { id: 1 } };
@@ -913,5 +961,39 @@ issue2254('known wrong result: #2254 gravity refuses an indeterminate carrier at
     expect(plan).toMatchObject({ cases: [], distributed: [], nodal: [], surface: [], levels: [] });
     expect(() => gravityLayout(model, { ...gravity, tributaryWidth: 3 })).toThrow(expect.objectContaining(expected));
     expect(() => roofWeightFor(model, gravity, 3, 1)).toThrow(expect.objectContaining(expected));
+  }
+});
+
+it('#2254 clear carrier slopes on both sides of the limit retain their member loads', () => {
+  const limit = Math.sqrt(3);
+  const below = limit + 0.01;
+  const above = limit - 0.01;
+  const width = 3;
+  const q = 2;
+  for (const angle of [0, 0.37]) for (const cuts of [[], [0.17, 0.63]]) {
+    const model = floor(1, 0, below, 6);
+    model.nodes.get(2)!.z = 4;
+    model.nodes.set(3, { id: 3, x: 0, y: 10, z: 3 });
+    model.nodes.set(4, { id: 4, x: above, y: 10, z: 4 });
+    model.elements.set(2, { ...model.elements.get(1)!, id: 2, nodeI: 3, nodeJ: 4, sectionId: 2 });
+    const steep = new Set([2, ...(cuts.length ? [5, 6] : [])]);
+    subdivideMembers(model, cuts);
+    rotatePlan(model, angle);
+    for (const mode of ['panels', 'width'] as const) {
+      const plan = buildLoadPlan(planInput(model, { tributaryWidth: width, gravity: { mode } }));
+      expect(plan.outcome).toBe('READY');
+      const carriers = [...model.elements.keys()].filter(id => !steep.has(id)).sort();
+      const length = Math.hypot(below, 1);
+      for (const [caseType, pressure, frame, carrierLength] of [
+        ['D', q, 'global', length], ['L', plan.factors.occupancy.value, 'projected', below],
+      ] as const) {
+        const loads = plan.distributed.filter(load => load.caseType === caseType);
+        expect(loads.map(load => load.elementId).sort()).toEqual(carriers);
+        for (const load of loads) expect(load).toMatchObject({ q: -pressure * width, frame });
+        expect(totalKN(loads, model)).toBeCloseTo(-pressure * width * carrierLength, 10);
+      }
+      expect(plan.surface).toEqual([]);
+      expect(plan.nodal).toEqual([]);
+    }
   }
 });

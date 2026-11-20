@@ -8,6 +8,8 @@ const id: Translations = {
   'loadPlan.gravity.nonplanarShell': "Segi empat {id} tidak datar. Cakupan cangkang untuk beban gravitasi memerlukan cangkang datar.",
   'loadPlan.gravity.overlappingShells': "Elemen cangkang {first} dan {second} bertumpang tindih pada bidang yang sama. Beban gravitasi di daerah tumpang tindih tidak dapat dialokasikan ke satu cangkang.",
   'loadPlan.gravity.offsetShellDeck': "Cangkang {id} terhubung kaku ke panel balok yang bergeser dan bertumpang tindih dalam denah. Permukaan yang menerima beban bidang tidak dapat ditentukan.",
+  'loadPlan.gravity.memberSlopeLimit': "Batang {id} terlalu dekat dengan batas kemiringan untuk dipastikan sebagai pemikul beban gravitasi. Tetapkan bebannya secara eksplisit.",
+  'snow.refused.stepDriftTransfer': "Pembangkitan beban salju tidak dapat menyalurkan timbunan pada undakan atap ke batang pemikul secara andal. Tetapkan beban salju secara eksplisit.",
   'loadPlan.gravity.unresolvedMember': "Batang {id} hanya tertutup sebagian oleh cangkang dan penyaluran beban panel belum dapat ditentukan.",
   'loadPlan.gravity.differentDeck': "Cangkang yang menutupi panel balok harus berada pada pelat yang sama.",
   'loadPlan.gravity.differentSlopedDeck': "Cangkang miring yang menutupi panel balok harus berada pada pelat yang sama.",
