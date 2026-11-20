@@ -2,7 +2,7 @@ import type { StandingPage } from '../../pages';
 
 const body: StandingPage['i18n']['en'] = {
   "title": "Stabileo 发送哪些匿名使用数据",
-  "description": "Stabileo 发送的匿名使用数据的完整清单、绝不发送的内容，以及如何关闭。",
+  "description": "Stabileo 发送的匿名使用数据的完整清单、绝不发送的内容，以及如何关闭。您可以随时在设置或个人资料中更改。",
   "eyebrow": "隐私",
   "lead": "如果有账户，Stabileo 自创建账户起就会共享匿名使用数据；没有账户时，只有在您选择后才会共享。您可以随时在设置或个人资料中更改。这些数据让我们知道哪些工具在被使用、哪些会出错，以便决定优先改进什么。以下是发送内容的完整清单。",
   "blocks": [

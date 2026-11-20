@@ -2,8 +2,8 @@ import type { StandingPage } from '../../pages';
 import { COMPANY } from '../../pages/legal-company';
 
 const body: StandingPage['i18n']['en'] = {
-  "title": "Stabileo 隐私政策",
-  "description": "Stabileo 处理哪些数据、为什么处理、保存多久，以及如何行使访问、更正和删除的权利。",
+  "title": "Stabileo 结构分析应用隐私政策",
+  "description": "Stabileo 处理哪些数据、为什么处理、保存多久，以及如何行使访问、更正和删除的权利。适用于 stabileo.com。",
   "eyebrow": "法律",
   "lead": "本政策说明您使用 stabileo.com 时，Stabileo SAS 处理哪些个人数据、用于什么目的，以及您如何控制这些数据。本政策自 2026 年 10 月 27 日起适用。",
   "blocks": [
