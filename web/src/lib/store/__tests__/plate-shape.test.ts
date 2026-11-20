@@ -2,7 +2,8 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import * as wasmSolver from '../../engine/wasm-solver';
 import { historyStore, modelStore, uiStore } from '..';
 import { placeFrame, placeSlabs } from '../../model/building/build-on-grid';
-import { createPlate, physicalPlates, plateEntry, plateStatus } from '../physical-plates';
+import { applyPlateMeshes, applyPlateMeshesAsync, createPlate, physicalPlates, planPlateMesh, plateEntry, plateStatus, setPlateLoops } from '../physical-plates';
+import { ensurePhysicalModel } from '../plates-from-shells';
 import { syncDefinedLoadsForAnalysis } from '../defined-loads';
 import { closePlateHole, cutPlateCells, plateFigure, plateSideShapes, setPlateSideSagitta } from '../plate-shape';
 import { plateArea, plateGeometry, plateLoops } from '../../model/physical/plate';
@@ -152,5 +153,61 @@ describe('a side curved by its sagitta', () => {
     const L = plateSideShapes(id)[0]!.length;
     expect(setPlateSideSagitta(id, 0, L / 2)).toBe('tooDeep');
     expect(plateSideShapes(id)[0]!.mid).toBeNull();
+  });
+});
+
+const batchPaths = [
+  ['synchronous', applyPlateMeshes],
+  ['asynchronous', applyPlateMeshesAsync],
+] as const;
+
+describe('rectangular holes in the shared-station batch', () => {
+  it.skip.each(batchPaths)('keeps the gallery hole mesh rectangular and conforming (%s) [known wrong result: #2365]', async (_mode, apply) => {
+    modelStore.clear(); historyStore.clear(); uiStore.analysisMode = 'pro';
+    await modelStore.loadExample('pro-edificio-7p');
+    ensurePhysicalModel();
+    const slab = physicalPlates().filter(p => p.name.startsWith('L'))[1]!;
+    const { outer } = plateLoops(slab.group);
+    const z = modelStore.nodes.get(outer[0]!)!.z;
+    const hole = [[8.5, 2], [8.5, 3.5], [9.5, 3.5], [9.5, 2]].map(([x, y]) => modelStore.addNode(x!, y!, z));
+    expect(setPlateLoops(slab.id, outer, [hole])).toBeNull();
+    const plan = planPlateMesh(slab.id)!;
+    expect(plan.quality?.minAngle).toBeCloseTo(90, 3);
+
+    const report = await apply([plan]);
+    expect(report.refused).toEqual([]);
+    expect(report.plates).toBeGreaterThan(1);
+    const applied = plateEntry(slab.id)!;
+    expect(plateStatus(slab.id)).toBe('current');
+    expect(applied.surface.meshed!.quality.minAngle).toBeCloseTo(90, 3);
+    expect(applied.group.members.plates).toEqual([]);
+
+    const shared = (id: number, x: number) => {
+      const { quads = [], plates = [] } = plateEntry(id)!.group.members;
+      const shells = [...quads.map(q => modelStore.quads.get(q)!), ...plates.map(p => modelStore.plates.get(p)!)];
+      return new Set(shells.flatMap(shell => shell.nodes).filter(n => modelStore.nodes.get(n)!.x === x));
+    };
+    const left = physicalPlates().find(p => p.name === 'L1')!;
+    const edge = shared(slab.id, 6);
+    expect(edge).toEqual(shared(left.id, 6));
+    expect([...edge].map(n => modelStore.nodes.get(n)!.y)).toContain(0.2);
+  });
+
+  it.each(batchPaths)('applies the identical planned cells to an isolated plate with a hole (%s)', async (_mode, apply) => {
+    modelStore.clear(); historyStore.clear(); uiStore.analysisMode = 'pro';
+    const ring = (x0: number, y0: number, x1: number, y1: number) =>
+      [[x0, y0], [x1, y0], [x1, y1], [x0, y1]].map(([x, y]) => modelStore.addNode(x!, y!, 0));
+    const made = createPlate({ outline: ring(0, 0, 6, 5), holes: [ring(2, 2, 4, 3)], materialId: 1, thickness: 0.15 });
+    expect(made).toHaveProperty('id');
+    const { id } = made as { id: number };
+    const plan = planPlateMesh(id)!;
+    expect(plan.quality?.minAngle).toBeCloseTo(90, 3);
+
+    expect(await apply([plan])).toMatchObject({ plates: 1, cells: plan.cells, refused: [] });
+    const figure = plateFigure(id)!;
+    expect(figure.source).toBe('mesh');
+    expect(figure.cells.map(cell => cell.map(i => figure.points[i]))).toEqual(
+      plan.mesh!.cells.map(cell => cell.map(i => plan.mesh!.points[i])),
+    );
   });
 });
