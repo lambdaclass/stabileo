@@ -3,9 +3,9 @@ import { checkTorsion2025, resolveCage, secondaryShearFace } from '../../codes/c
 import type { ProvidedReinforcement } from '../../design-contract/reinforcement';
 import { autoVerifyFromResults } from '../auto-verify';
 import { checkTorsion, prepareElementVerification, verifyElement, type ConcurrentVerificationInput } from '../codes/argentina/cirsoc201';
-import { membersFromLine } from '../design/beam-line';
+import { lineFromMembers, membersFromLine } from '../design/beam-line';
 import type { DesignAxes } from '../design/design-axes';
-import { extractGoverningDemands, verifyProvidedReinforcement } from '../station-design-forces';
+import { extractGoverningDemands, rankProvidedReinforcement, verifyProvidedReinforcement } from '../station-design-forces';
 import type { AnalysisResults, SolverInput } from '../types';
 import type { AnalysisResults3D, SolverInput3D } from '../types-3d';
 import { computeStationDemands, runCirsocDesign, runUnifiedVerification } from '../verification-service';
@@ -1210,6 +1210,60 @@ function checkReviewBeam(
   return verifyProvidedReinforcement(1, 'beam', reinforcement, extracted ? extractGoverningDemands(layout) : undefined,
     {}, geometry, extracted ? undefined : layout, undefined,
     { axes: { ...axes, bFlex: geometry.b, hFlex: geometry.h }, spacingRule: { edition, maxAggregateSizeMm: 20 } }).checks;
+}
+
+const issue2338 = process.env.RUN_KNOWN_WRONG === '2338' ? it : it.skip;
+
+for (const spatial of [false, true]) for (const nonlinear of [false, true]) {
+  issue2338(`known wrong result: #2338 primary shear uses the actual hoop depth (spatial=${spatial}, nonlinear=${nonlinear})`, () => {
+    const L = 4;
+    const nodes = new Map([[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: L, y: 0, z: 0 }]]);
+    const solverModel = { ...model, nodes };
+    const element = model.elements.get(1)!;
+    const solveDemand = (force: number) => {
+      if (spatial) {
+        const solver: SolverInput3D = { ...solverModel,
+          elements: new Map([[1, { ...element, releaseMyStart: false, releaseMyEnd: false,
+            releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }]]),
+          supports: new Map([[1, { nodeId: 1, rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true }]]),
+          loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: 0, fz: -force, mx: 0, my: 0, mz: 0 } }],
+        };
+        return nonlinear ? solvePDelta3D(solver).results : solve3D(solver);
+      }
+      const solver: SolverInput = { ...solverModel,
+        elements: new Map([[1, { ...element, hingeStart: false, hingeEnd: false }]]),
+        nodes: new Map([...nodes].map(([id, { x, z }]) => [id, { id, x, z }])),
+        sections: new Map([[1, { ...model.sections.get(1)!, iz: model.sections.get(1)!.iy }]]),
+        loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: -force, my: 0 } }],
+      };
+      return planarResultForDesign(nonlinear ? solvePDelta(solver).results : solve(solver));
+    };
+
+    for (const [nominal, actual] of [[8, 10], [10, 8], [8, 8]] as const) {
+      const geometry = { ...section, stirrupDia: nominal };
+      const stirrups = { ...cage, diameter: actual, legs: 2 };
+      const member = { id: 1, L, tStart: 0.25, tEnd: 0.25, faceStart: 0, faceEnd: 0,
+        reinforcement: { top: longitudinal, bottom: longitudinal, stirrups } };
+      const drawn = membersFromLine(lineFromMembers([member]), [member]).get(1)!;
+      const capacity = +shearCapacity('2025', section.b, depth(section.h, actual),
+        actual, stirrups.legs, stirrups.spacing).toFixed(2);
+      for (const factor of [0.9, 0.999, 1.001]) {
+        const { demands, stations } = computeStationDemands(new Map([[1, solveDemand(capacity * factor)]]), combos, solverModel);
+        const status = factor > 1 ? 'fail' : factor > 0.95 ? 'warn' : 'ok';
+        const regional = { ...member.reinforcement, regions: { stirrupsSupport: stirrups, stirrupsSpan: stirrups } };
+        for (const reinforcement of [member.reinforcement, regional, drawn]) for (const extracted of [false, true]) {
+          const args = [1, 'beam', reinforcement, extracted ? demands.get(1) : undefined, {}, geometry,
+            extracted ? undefined : stations.get(1), undefined, { axes }] as const;
+          for (const result of [verifyProvidedReinforcement(...args), rankProvidedReinforcement(...args).ranking]) {
+            for (const region of ['Support', 'Span']) {
+              expect.soft(result.checks.find(row => row.category === `Shear ${region} (Vz)`),
+                `nominal Ø${nominal}, actual Ø${actual}, factor ${factor}`).toMatchObject({ capacity, ratio: factor, status });
+            }
+          }
+        }
+      }
+    }
+  });
 }
 
 it('known wrong result: #2338 drawn stirrup strength at both sides of each zone transition', () => {
