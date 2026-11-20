@@ -73,4 +73,15 @@ describe('a wall\'s hoops and the design data\'s least spacing', () => {
     expect(r.seismic!.hoops!.spacing).toBeGreaterThanOrEqual(0.075 - 1e-9);
     expect(r.verifications.some((x) => x.label.startsWith('rcSheets.v.wallTieFloor'))).toBe(false);
   });
+
+  it('fail at 20 cm, where t/3 spaces them under the floor whatever the bars, naming the thickness that clears it', async () => {
+    const { wallRow } = await import('../wall-row');
+    const r = wallRow({ ...demand, thickness: 0.2 }, wctx, undefined, f);
+    expect(r.seismic!.special).toBe(true);
+    const v = r.verifications.find((x) => x.label === 'rcSheets.v.wallTieFloor')!;
+    expect(v.ok).toBe(false);
+    expect(v.demand).toBe('s ≤ t/3 = 6.7 cm → t ≥ 3·7.5 = 22.5 cm');
+    const thick = wallRow({ ...demand, thickness: 0.25 }, wctx, undefined, f);
+    expect(thick.verifications.some((x) => x.label.startsWith('rcSheets.v.wallTieFloor'))).toBe(false);
+  });
 });

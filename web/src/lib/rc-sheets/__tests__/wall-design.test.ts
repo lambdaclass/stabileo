@@ -99,3 +99,17 @@ describe('wall axial-flexural interaction', () => {
     expect(r.pn0).toBeCloseTo((0.85 * 25 * (ag - ast) + 420 * ast) * 1000, 3);
   });
 });
+
+describe('a wall base read from the first row of elements', () => {
+  it('carries each strip\'s shear moment down to the base: a cantilever wall under a top load H has M = H·(hw − z) at z', async () => {
+    const { wallBaseResultants } = await import('../wall-design');
+    const H = 100, hw = 3, t = 0.2, w = 0.5, row = 0.5;
+    const centre = 1;
+    const sigmaAt = (u: number) => (12 * H * (hw - row / 2) * (u - centre)) / (t * 2 ** 3);
+    const strips = [0.25, 0.75, 1.25, 1.75].map((u) => ({ u, width: w, thickness: t, sigma: -sigmaAt(u), tau: H / (t * 2), dz: row / 2 }));
+    const at = wallBaseResultants(strips, centre);
+    const flat = wallBaseResultants(strips.map(({ dz: _, ...s }) => s), centre);
+    expect(at.vu).toBeCloseTo(H, 9);
+    expect(at.mu - flat.mu).toBeCloseTo(H * row / 2, 9);
+  });
+});

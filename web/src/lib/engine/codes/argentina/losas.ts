@@ -123,6 +123,13 @@ export function stripCapacity(AsCm2: number, h: number, d: number, fc: number, f
   return r.flexureValid && Number.isFinite(r.phiMn) ? r.phiMn / 1e3 : 0;
 }
 
+/** The net tensile strain of a 1 m strip with `AsCm2` per metre, and the least a tension-controlled section has (Table 21.2.2). */
+export function stripStrain(AsCm2: number, h: number, d: number, fc: number, fy: number, edition: RegulationEdition): { epsT: number; epsTMin: number } {
+  const r = evaluateBeamSection({ edition, fc: fc * 1e6, fy: fy * 1e6, b: B_UNIT, h, d, As: AsCm2 * 1e-4 });
+  if (!r) throw new Cirsoc201EngineUnavailable('slab strip strain');
+  return { epsT: r.epsilonT, epsTMin: r.epsilonTMin };
+}
+
 /** Select slab rebar: prefer small diameters with good distribution */
 function selectSlabRebar(
   AsReq: number, sepMax: number, minDia: number = 6,

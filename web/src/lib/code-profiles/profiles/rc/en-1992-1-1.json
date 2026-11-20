@@ -31,12 +31,12 @@
     "maxRatio": {"v": 0.04, "unit": "-", "cite": {"clause": "9.2.1.1(3)"}},
     "xuLimit": {
       "unit": "-",
-      "cite": {"clause": "5.5(4)", "label": "xu/d without redistribution, delta = 1"},
+      "cite": {"clause": "5.5(4)", "label": "xu/d without redistribution, delta = 1: (1 - k1)/k2 up to C50/60, (1 - k3)/k4 above at the epsilon_cu2 of C90/105"},
       "interp": "step",
       "axes": [
         {"name": "fckUpTo", "values": [50, 90]}
       ],
-      "values": [0.45, 0.35]
+      "values": [0.45, 0.32]
     },
     "linkMin": {"f": "minLinks.sqrtFc", "k": {"c": 0.08}, "cite": {"clause": "9.2.2(5)"}},
     "linkMaxSpacing": {"v": 0.75, "unit": "-", "cite": {"clause": "9.2.2(6)"}}

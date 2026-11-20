@@ -744,6 +744,9 @@ export const LOAD_TARGET: Record<Load['type'], 'node' | 'member' | 'shell'> = {
 /** The node a load stands on; undefined for one on a member or a shell. */
 export const loadNodeId = (l: Load): number | undefined =>
   LOAD_TARGET[l.type] === 'node' ? (l.data as { nodeId: number }).nodeId : undefined;
+/** Whether a load stands on one of these shells by itself, not on whatever it was put `on`. */
+const onShell = (l: Load, shells: { has(id: number): boolean }): boolean =>
+  LOAD_TARGET[l.type] === 'shell' && shells.has((l.data as { quadId: number }).quadId) && !(l.data as { on?: unknown }).on;
 /** The member a load stands on; undefined for one on a node or a shell. */
 export const loadMemberId = (l: Load): number | undefined =>
   LOAD_TARGET[l.type] === 'member' ? (l.data as { elementId: number }).elementId : undefined;
@@ -1425,6 +1428,8 @@ function createModelStore() {
   // skip their per-call Map / array reassignment while this flag is true;
   // bulkMutate() reassigns everything once at the end.
   let _bulkMutating = false;
+  /** Inside `bulkMutate`: the shells and nodes removed, their loads and group memberships dropped once at the end. */
+  let _bulkGone: { quads: Set<number>; nodes: Set<number> } | null = null;
   let _bulkLoadBuffer: Load[] | null = null;
   let _bulkConstraintBuffer: Constraint3D[] | null = null;
 
@@ -1668,6 +1673,18 @@ function createModelStore() {
       : (cases.find((c) => c.type === 'D') ?? cases[0])?.id;
     if (target === undefined) return undefined;
     return includeSelfWeight ? [{ caseId: target, ...GRAVITY_SELF_WEIGHT }] : [];
+  }
+
+  function dropFromGroups(gone: { quads: ReadonlySet<number>; nodes: ReadonlySet<number> }): void {
+    let touched = false;
+    for (const [gid, g] of model.groups) {
+      const q = g.members.quads, n = g.members.nodes;
+      const qs = q?.some((x) => gone.quads.has(x)), ns = n?.some((x) => gone.nodes.has(x));
+      if (!qs && !ns) continue;
+      model.groups.set(gid, { ...g, members: { ...g.members, ...(qs ? { quads: q!.filter((x) => !gone.quads.has(x)) } : {}), ...(ns ? { nodes: n!.filter((x) => !gone.nodes.has(x)) } : {}) } });
+      touched = true;
+    }
+    if (touched) model.groups = new Map(model.groups);
   }
 
   function replaceInGroups(family: keyof GroupMembers, entityId: number, replacements: number[] = []): void {
@@ -2100,9 +2117,16 @@ function createModelStore() {
       _bulkMutating = true;
       _bulkLoadBuffer = [...model.loads];
       _bulkConstraintBuffer = [...model.constraints];
+      _bulkGone = { quads: new Set(), nodes: new Set() };
       try {
         fn();
       } finally {
+        const gone = _bulkGone;
+        _bulkGone = null;
+        if (gone && (gone.quads.size || gone.nodes.size)) {
+          _bulkLoadBuffer = _bulkLoadBuffer!.filter((l) => !onShell(l, gone.quads) && !gone.nodes.has(loadNodeId(l) ?? NaN));
+          dropFromGroups(gone);
+        }
         const commitLoads = _bulkLoadBuffer!;
         const commitConstraints = _bulkConstraintBuffer!;
         _bulkLoadBuffer = null;
@@ -3056,10 +3080,10 @@ function createModelStore() {
     removeNode(id: number): void {
       if (!_undoBatching) _pushUndo?.();
       model.nodes.delete(id);
-      model.nodes = new Map(model.nodes);
+      if (!_bulkMutating) model.nodes = new Map(model.nodes);
       // Same reasoning as removeElement: node numbers are reused, so a group holding a
       // deleted one would quietly come to mean a different node.
-      replaceInGroups('nodes', id);
+      if (_bulkGone) _bulkGone.nodes.add(id); else replaceInGroups('nodes', id);
       /*
        * Through `removeElement`, not a bare delete. The bare delete left the member's loads,
        * its group membership and a footing's `columnElementId` pointing at an id the next
@@ -3069,17 +3093,15 @@ function createModelStore() {
       const outerBatching = _undoBatching;
       _undoBatching = true;
       try { for (const elemId of attached) this.removeElement(elemId); } finally { _undoBatching = outerBatching; }
-      model.elements = new Map(model.elements);
+      if (!_bulkMutating) model.elements = new Map(model.elements);
       for (const [supId, sup] of model.supports) {
         if (sup.nodeId === id) {
           model.supports.delete(supId);
         }
       }
-      model.supports = new Map(model.supports);
-      // Every load on the node, an imposed displacement too (`LOAD_TARGET`).
-      const keepLoad = (l: Load) => loadNodeId(l) !== id;
-      model.loads = model.loads.filter(keepLoad);
-      if (_bulkLoadBuffer) _bulkLoadBuffer = _bulkLoadBuffer.filter(keepLoad);
+      if (!_bulkMutating) model.supports = new Map(model.supports);
+      // Every load on the node, an imposed displacement too (`LOAD_TARGET`); inside a bulk mutation, at its end.
+      if (!_bulkGone) model.loads = model.loads.filter((l) => loadNodeId(l) !== id);
       // Cascade to connectors/constraints: a dangling node reference is worse
       // than a missing entity — the engine silently skips it (zero stiffness)
       // while the connectivity preflight keeps crediting it as an edge.
@@ -3125,10 +3147,9 @@ function createModelStore() {
           return (c.masterNode === id || c.slaveNode === id) ? null : c;
         })
         .filter((c): c is Constraint3D => c !== null);
-      model.constraints = pruneConstraints(model.constraints);
-      // Inside bulkMutate the commit phase overwrites model.constraints with
-      // the buffer — prune the buffer too or dangling constraints resurrect.
+      // Inside bulkMutate the commit writes the buffer over model.constraints: prune the buffer, or dangling constraints resurrect.
       if (_bulkConstraintBuffer) _bulkConstraintBuffer = pruneConstraints(_bulkConstraintBuffer);
+      else model.constraints = pruneConstraints(model.constraints);
     },
 
     // ── Named groups ────────────────────────────────────────────────
@@ -3342,15 +3363,14 @@ function createModelStore() {
     removeQuad(id: number): void {
       if (!_undoBatching) _pushUndo?.();
       model.quads.delete(id);
+      if (_bulkGone) { _bulkGone.quads.add(id); return; }
       replaceInGroups('quads', id);
       model.quads = new Map(model.quads);
       // Cascade to surface/thermal loads on this quad — otherwise the load
       // dangles (still in the loads table, .ded and URL share) and is silently
       // dropped at solve time (convertSurfaceLoad: `if (!quad) return out`).
-      const keepLoad = (l: Load) =>
-        !((l.type === 'surface3d' || l.type === 'thermalQuad3d') && l.data.quadId === id && !l.data.on);
-      model.loads = model.loads.filter(keepLoad);
-      if (_bulkLoadBuffer) _bulkLoadBuffer = _bulkLoadBuffer.filter(keepLoad);
+      const one = new Set([id]);
+      model.loads = model.loads.filter((l) => !onShell(l, one));
     },
 
     updateQuad(id: number, data: Partial<{ materialId: number; thickness: number }>): void {

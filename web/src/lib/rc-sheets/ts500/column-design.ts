@@ -1,9 +1,9 @@
 import { barArea } from '../bars';
-import { columnArea, columnBars, type ColumnCase, type ColumnContext, type ColumnDemand } from '../column-row';
+import { columnArea, columnBars, tiesClear, type ColumnCase, type ColumnContext, type ColumnDemand } from '../column-row';
 import { ratioOf, type ColumnAdopted } from '../types';
-import { minEccentricity, vcrOf, vmaxOf, type Ts500Mat } from './basis';
+import { TS500_BENDS, minEccentricity, vcrOf, vmaxOf, type Ts500Mat } from './basis';
 import { utilisation, type RectSection } from './biaxial';
-import { heldBars } from '../column-layout';
+import { barClearance, columnLayout, heldBars } from '../column-layout';
 
 export interface AxisResult { k: number; lk: number; lambda: number; lim: number; slender: boolean; m1: number; m2: number; cm: number; nk: number; beta: number; emin: number }
 export interface Tuple { pu: number; mx: number; my: number }
@@ -75,11 +75,13 @@ export function evenLayout(d: ColumnDemand, c: ColumnContext, dia: number, tie: 
   return { corner: dia, nx: n(d.b), dx: dia, ny: n(d.h), dy: dia, tieDia: tie, tieSpacing: 0 };
 }
 
+/** max(1.5·Ø; 40 mm) between every pair of bars, the inner rows' included, every bar inside the tie, and the ties laid round them clear of every bar. */
 export function clearOk(d: ColumnDemand, c: ColumnContext, a: ColumnAdopted): boolean {
   const gap = (side: number, n: number, dia: number) => (side - 2 * coverToBar(c, a.tieDia, a.corner) - (n + 1) * dia / 1000) / (n + 1);
   const min = (dia: number) => Math.max(1.5 * dia / 1000, 0.04);
   const dx = Math.max(a.corner, a.dx), dy = Math.max(a.corner, a.dy);
-  return gap(d.b, a.nx, dx) >= min(dx) - 1e-4 && gap(d.h, a.ny, dy) >= min(dy) - 1e-4;
+  if (!(gap(d.b, a.nx, dx) >= min(dx) - 1e-4 && gap(d.h, a.ny, dy) >= min(dy) - 1e-4)) return false;
+  return (!a.inner || !(a.inner.nx + a.inner.ny) || barClearance(d, columnLayout(d, a, c.cover, c.aggregate).bars, c.cover, a.tieDia, min).ok) && tiesClear(d, a, c.cover, TS500_BENDS, c.aggregate);
 }
 
 export const tieDiaFor = (longDia: number): number => [6, 8, 10, 12].find((x) => x >= longDia / 3 - 1e-9) ?? 12;

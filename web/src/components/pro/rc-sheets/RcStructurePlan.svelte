@@ -4,6 +4,7 @@
   import { scaleBarLength, type PlanItem, type Pt, type StructurePlan } from '../../../lib/rc-sheets/structure-plan';
   import { placeStructureLabels } from '../../../lib/rc-sheets/structure-plan-labels';
   import type { CheckLine } from '../../../lib/rc-sheets/types';
+  import { localizeCriterion } from '../../../lib/rc-sheets/criteria';
 
   let { plan, onopen }: { plan: StructurePlan; onopen: (key: string) => void } = $props();
   const fmt = $derived(makeFmt(decimalFor(i18n.locale)));
@@ -28,12 +29,12 @@
   }));
   const bar = $derived(scaleBarLength(k, 80));
   const checkText = (c: CheckLine | undefined) => (c
-    ? `${t(c.label)}${c.clause ? ` (${c.clause})` : ''}${c.demand ? `: ${c.demand}` : ''}${c.capacity ? ` / ${c.capacity}` : ''}${c.ratio !== undefined && Number.isFinite(c.ratio) ? ` · ${fmt(c.ratio, 2)}` : ''}`
+    ? `${t(c.label)}${c.clause ? ` (${localizeCriterion(c.clause, t)})` : ''}${c.demand ? `: ${c.demand}` : ''}${c.capacity ? ` / ${c.capacity}` : ''}${c.ratio !== undefined && Number.isFinite(c.ratio) ? ` · ${fmt(c.ratio, 2)}` : ''}`
     : t('rcSheets.structPlan.noCheck'));
   const tip = (it: PlanItem) => `${it.name} · ${t(`rcSheets.status.${it.status}`)} — ${checkText(it.check)}`;
   const shown = $derived(plan.items.find((it) => it.key === hovered));
   const onkey = (e: KeyboardEvent, key: string) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onopen(key); } };
-  const family = $derived(t(`rcSheets.family.${plan.family}`));
+  const family = $derived(t(plan.family === 'vertical' ? 'rcSheets.tab.vertical' : `rcSheets.family.${plan.family}`));
 </script>
 
 <figure class="rst" data-testid="rc-struct-plan" data-family={plan.family} data-level={plan.level}>
@@ -66,6 +67,7 @@
               <line x1={sx(s.a[0])} y1={sy(s.a[1])} x2={sx(s.b[0])} y2={sy(s.b[1])} class="beam-axis" />
             {/each}
             {#each it.cuts as c, j (j)}<circle cx={sx(c[0])} cy={sy(c[1])} r="2.2" class="cut" data-testid="rc-struct-cut" />{/each}
+            {#each it.splices as [p, q], j (j)}<line x1={sx(p[0])} y1={sy(p[1])} x2={sx(q[0])} y2={sy(q[1])} class="splice" data-testid="rc-struct-splice" />{/each}
           {:else if it.kind === 'column'}
             <polygon points={pts(it.outline)} class="solid" />
             {#each it.rebars as r, j (j)}<circle cx={sx(r.at[0])} cy={sy(r.at[1])} r={Math.max(1, (r.dia / 2000) * k)} class="rebar" />{/each}
@@ -109,6 +111,7 @@
   .beam { stroke: var(--c); opacity: 0.35; stroke-linecap: butt; }
   .beam-axis { stroke: var(--c); stroke-width: 1.2; }
   .cut { fill: var(--st-surface); stroke: var(--c); stroke-width: 1; }
+  .splice { stroke: var(--c); stroke-width: 1.2; }
   .solid { fill: color-mix(in srgb, var(--c) 35%, transparent); stroke: var(--c); stroke-width: 1.2; }
   .rebar { fill: var(--c); }
   .lbl { font-size: 9px; fill: var(--c); text-anchor: middle; dominant-baseline: central; font-family: var(--st-mono); font-weight: 600; }

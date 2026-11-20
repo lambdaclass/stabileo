@@ -5,7 +5,7 @@
  */
 import { modelStore } from './model.svelte';
 import { verificationStore } from './verification.svelte';
-import { defaultDesignData, migrateDesignData, type DesignKind, type ProjectDesignData, type StoredDesignData } from '../model/design-data';
+import { DERIVED_DESIGN_KEYS, defaultDesignData, migrateDesignData, type DesignKind, type ProjectDesignData, type StoredDesignData } from '../model/design-data';
 import { bump, emptyRevisions } from '../codes/revisions';
 
 /** The design data in force: the project's, or the defaults where it states none. */
@@ -23,7 +23,9 @@ export function setDesignData(next: StoredDesignData | null): void {
 }
 
 export function patchDesignData(patch: Partial<StoredDesignData>): void {
-  setDesignData({ ...storedDesignData(), ...patch });
+  const next: Record<string, unknown> = { ...storedDesignData(), ...patch };
+  for (const k of DERIVED_DESIGN_KEYS) delete next[k];
+  setDesignData(next as StoredDesignData);
 }
 
 /**

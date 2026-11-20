@@ -1,5 +1,5 @@
 import { barArea, groupsArea, groupsLabel, meshLabel, stirrupsLabel } from '../bars';
-import { axialOnlyChecks, type BeamContext, type BeamDemand, type SectionName } from '../beam-row';
+import { axialOnlyChecks, peakSection, type BeamComboForces, type BeamContext, type BeamDemand, type SectionName } from '../beam-row';
 import type { Fmt } from '../format';
 import { check, ratioOf, type BeamAdopted, type CheckLine, type ComboTable, type Signed, type Step, type StepGroup } from '../types';
 import { shearCapacity, xuLimit, type Ec2Set, type Mat } from './basis';
@@ -54,6 +54,10 @@ export function beamCombos(set: Ec2Set, d: BeamDemand, c: BeamContext, a: BeamAd
   const g = geomOf(d), sd = a.stirrups.dia, p = set.p;
   const S = barsAt(a, 'start'), M = barsAt(a, 'span'), E = barsAt(a, 'end');
   const cap = (t: typeof S.top, k: typeof S.top, sag: boolean, n: number) => beamCapacity(g, c.cover, sd, t, k, sag, n, m, p).mrd;
+  const peakCap = (sec: SectionName, sag: boolean, k: BeamComboForces) => {
+    const bars = barsAt(a, sec), n = sec === 'start' ? k.nStart : sec === 'end' ? k.nEnd : k.nSpan;
+    return sag ? cap(bars.bottom, bars.top, true, n) : cap(bars.top, bars.bottom, false, n);
+  };
   const legs = Math.max(1, a.stirrups.legs), ab = barArea(sd);
   const perLegProvided = a.stirrups.spacing > 0 ? ab / a.stirrups.spacing : 0;
   const asl = Math.min(groupsArea(a.bottom), req.top > 0 ? groupsArea(a.top) : groupsArea(a.bottom)) * 1e-4;
@@ -64,8 +68,8 @@ export function beamCombos(set: Ec2Set, d: BeamDemand, c: BeamContext, a: BeamAd
       r(k.mStart, () => cap(S.bottom, S.top, true, k.nStart), () => cap(S.top, S.bottom, false, k.nStart)),
       r(k.mSpan, () => cap(M.bottom, M.top, true, k.nSpan), () => cap(M.top, M.bottom, false, k.nSpan)),
       r(k.mEnd, () => cap(E.bottom, E.top, true, k.nEnd), () => cap(E.top, E.bottom, false, k.nEnd)),
-      ratioOf(k.mPos, cap(M.bottom, M.top, true, k.nSpan)),
-      k.mNeg > 1e-6 ? ratioOf(k.mNeg, Math.min(cap(S.top, S.bottom, false, k.nStart), cap(E.top, E.bottom, false, k.nEnd), cap(M.top, M.bottom, false, k.nSpan))) : 0,
+      ratioOf(k.mPos, peakCap(peakSection(d, k.xPos) ?? 'span', true, k)),
+      k.mNeg > 1e-6 ? ratioOf(k.mNeg, ((sn) => (sn ? peakCap(sn, false, k) : Math.min(cap(S.top, S.bottom, false, k.nStart), cap(E.top, E.bottom, false, k.nEnd), cap(M.top, M.bottom, false, k.nSpan))))(peakSection(d, k.xNeg))) : 0,
     );
     const t = req.compat ? 0 : k.t;
     const torsion = !req.neglect && t > 1e-6;
@@ -194,8 +198,8 @@ function torsionSteps(d: BeamDemand, req: BeamReq, e: BeamEval, a: BeamAdopted, 
 function crackSteps(req: BeamReq, e: BeamEval, f: Fmt): StepGroup {
   const face = (label: string, c: BeamEval['crackBottom']): Step[] => (c.used ? [
     { label, formula: 'σs = fyd·(As,req/As,prov)/γG, γG = 1.35', value: `${f(c.sigma, 0)} MPa` },
-    { label: 'rcSheets.ec2.s.crackSpacing', formula: `s ≤ s,max (Table 7.3N, wk = 0.3 mm)`, value: `${f(c.s, 0)} ≤ ${f(c.sMax, 0)} mm`, ok: c.s <= c.sMax + 1e-6 },
-    { label: 'rcSheets.ec2.s.crackDia', formula: 'Ø ≤ φs*·(fct,eff/2.9)·kc·hcr/(2(h − d)) (Table 7.2N, 7.6N)', value: `Ø${c.dia} ≤ ${f(c.diaMax, 1)} mm`, ok: c.dia <= c.diaMax + 1e-6 },
+    { label: 'rcSheets.ec2.s.crackSpacing', formula: `s ≤ s,max (Tab. 7.3N, wk = 0.3 mm)`, value: `${f(c.s, 0)} ≤ ${f(c.sMax, 0)} mm`, ok: c.s <= c.sMax + 1e-6 },
+    { label: 'rcSheets.ec2.s.crackDia', formula: 'Ø ≤ φs*·(fct,eff/2.9)·kc·hcr/(2(h − d)) (Tab. 7.2N, 7.6N)', value: `Ø${c.dia} ≤ ${f(c.diaMax, 1)} mm`, ok: c.dia <= c.diaMax + 1e-6 },
   ] : []);
   return {
     title: 'rcSheets.ec2.g.crack',

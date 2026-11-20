@@ -8,25 +8,25 @@
  * once, each row from its cache.
  */
 import { i18n } from '../i18n';
+import { criteriaKey } from '../rc-sheets/criteria';
 import { modelStore } from './model.svelte';
 import { resultsStore } from './results.svelte';
 import { nextFrame } from './mesh-progress.svelte';
-import { buildSheetRows, optionsView, rcSheetsData, setSheetCode, sheetCode, sheetRowsSteps, type SheetProgress, type SheetRows } from './rc-sheets.svelte';
+import { buildSheetRows, forgetRedesigners, optionsView, rcSheetsData, setSheetCode, sheetCode, sheetRowsSteps, type SheetProgress, type SheetRows } from './rc-sheets.svelte';
 import type { SheetCode } from '../rc-sheets/types';
 import { designData } from './design-data';
 import { activeResultSet3D } from './active-results';
 import { decimalFor, makeFmt } from '../rc-sheets/format';
 import { sheetsProgress } from './rc-sheets-progress.svelte';
-import { foundationStamp } from './rc-sheets-footings';
 
 /** What the rows were designed from: what makes them out of date when it changes. */
 interface Stamp {
   results: unknown; perCombo: unknown; groups: unknown;
   /** The design data but the bars adopted in the sheets and how their schedule is ordered. */
   design: string;
+  /** What the sheets set row by row: the rows follow it at once. */
   adopted: string;
   locale: string;
-  foundation: string;
 }
 
 export const sheetsRun = $state<{ rows: SheetRows | null; stamp: Stamp | null; readonly progress: SheetProgress | null }>({
@@ -36,18 +36,18 @@ const setProgress = (p: SheetProgress | null) => { sheetsProgress.now = p; };
 
 function stampNow(): Stamp {
   void modelStore.designData;
-  const { adopted, edited: _edited, adoptedCode: _adoptedCode, adoptedSeismic: _adoptedSeismic, adoptedLogic: _adoptedLogic, adoptedBasis: _adoptedBasis, schedule: _schedule, code: _code, ...sheets } = rcSheetsData();
+  const { adopted, bentLines, edited: _edited, adoptedCode: _adoptedCode, adoptedSeismic: _adoptedSeismic, adoptedLogic: _adoptedLogic, adoptedBasis: _adoptedBasis, schedule: _schedule, code: _code, ...sheets } = rcSheetsData();
   // The options as the design reads them: an option stated at its default is no change.
   const { rcSheets: _, designOptions, ...own } = designData();
-  const rest = { ...own, designOptions: optionsView(designOptions) };
+  const rest = { ...own, designOptions: { ...optionsView(designOptions), criteria: criteriaKey(designOptions?.criteria), deflection: designOptions?.deflection ?? null, alternatives: designOptions?.alternatives ?? null } };
   return {
     // The result shown is a view of these, not an input: the combinations', or with none the one set designed.
     results: resultsStore.perCombo3D.size ? resultsStore.perCase3D : activeResultSet3D(), perCombo: resultsStore.perCombo3D, groups: modelStore.model.groups,
-    design: JSON.stringify({ rest, sheets, code: sheetCode() }), adopted: JSON.stringify(adopted ?? null), locale: i18n.locale, foundation: foundationStamp(),
+    design: JSON.stringify({ rest, sheets, code: sheetCode() }), adopted: JSON.stringify({ adopted: adopted ?? null, bentLines }), locale: i18n.locale,
   };
 }
 
-const sameInputs = (a: Stamp, b: Stamp) => a.results === b.results && a.perCombo === b.perCombo && a.groups === b.groups && a.design === b.design && a.foundation === b.foundation;
+const sameInputs = (a: Stamp, b: Stamp) => a.results === b.results && a.perCombo === b.perCombo && a.groups === b.groups && a.design === b.design;
 
 /** The rows were designed and something they were designed from has changed since (reactive). */
 export function sheetsStale(): boolean {
@@ -106,6 +106,7 @@ export async function changeSheetCode(code: SheetCode): Promise<void> {
 export function clearSheets(): void {
   runId++;
   sheetsRun.rows = null; sheetsRun.stamp = null; setProgress(null);
+  forgetRedesigners();
 }
 
 /**

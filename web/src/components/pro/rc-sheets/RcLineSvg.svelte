@@ -1,24 +1,28 @@
 <script lang="ts">
-  import { i18n, t } from '../../../lib/i18n';
+  import { i18n, tp } from '../../../lib/i18n';
   import { decimalFor, makeFmt } from '../../../lib/rc-sheets/format';
-  import { stirrupsLabel } from '../../../lib/rc-sheets/bars';
   import type { LineBar, LineLayout } from '../../../lib/rc-sheets/beam-line';
-  import { barTrace, bentLegs, hookBack, hookTurn, lineSupports, markPlaces, placeLabels, setOut as setOutOf, stirrupPositions } from '../../../lib/rc-sheets/line-geometry';
+  import { barTrace, hookBack, hookTurn, lineSupports, stirrupPositions } from '../../../lib/rc-sheets/line-geometry';
+  import { elevationLayout, textWidth, type LDim, type LText } from '../../../lib/rc-sheets/elevation-layout';
+  import { chartHeight, filled, type ChartKind } from '../../../lib/rc-sheets/line-charts';
+  import RcLineCharts from './RcLineCharts.svelte';
 
-  let { line, marks = false, envelope = false, cuts = [], highlight = [] }: { line: LineLayout; marks?: boolean; envelope?: boolean; cuts?: Array<{ x: number; label: string }>; highlight?: string[] } = $props();
+  let { line, marks = false, envelope = false, chart = 'moment', onBeam = false, cuts = [], highlight = [] }: { line: LineLayout; marks?: boolean; envelope?: boolean; chart?: ChartKind; onBeam?: boolean; cuts?: Array<{ x: number; label: string }>; highlight?: string[] } = $props();
   const hl = (b: LineBar) => highlight.includes(b.mark);
   const fmt = $derived(makeFmt(decimalFor(i18n.locale)));
-  const W = 1200, M = 56, TOP = 40, STUB = 22, ROW = 30;
+  const W = 1200, M = 56, STUB = 10, TXT = 9.5;
   const x0 = $derived(Math.min(0, line.ends.from)), x1 = $derived(Math.max(line.length, line.ends.to));
   const sx = $derived((W - 2 * M) / Math.max(x1 - x0, 1e-6));
   const hMax = $derived(Math.max(...line.spans.map((s) => s.h), 0.1));
   const sy = $derived(84 / hMax);
   const X = (x: number) => M + (x - x0) * sx;
   const supports = $derived(lineSupports(line));
-  const bottomOf = (h: number) => TOP + h * sy;
-  const yBeamBottom = $derived(bottomOf(hMax));
   const coverPx = $derived(Math.max(9, (line.cover + 0.012) * sy));
-  const BELOW = $derived(Math.max(12, ...line.bars.flatMap((b) => [-hookTurn(b, 0), -hookTurn(b, 1)]).map((d) => d * sy - coverPx + 4)));
+  const BELOW = $derived(Math.max(STUB, ...line.bars.flatMap((b) => [-hookTurn(b, 0), -hookTurn(b, 1)]).map((d) => d * sy - coverPx + 4)));
+  const lay = $derived(elevationLayout({ line, X, depth: (k) => line.spans[k]!.h * sy, t: TXT, below: BELOW, above: STUB, marks, fmt, tr: tp, cuts, zeros: onBeam && line.envelope.length > 1, tracks: marks }));
+  const TOP = $derived(8 - lay.top);
+  const yBeamBottom = $derived(TOP + hMax * sy);
+  const bottomOf = (h: number) => TOP + h * sy;
 
   function trace(bar: LineBar): Array<{ x1: number; x2: number; y: number }> {
     if (bar.kind === 'bent') {
@@ -29,80 +33,46 @@
     return barTrace(line, bar).map((g) => ({ x1: X(g.from), x2: X(g.to), y: bar.face === 'top' ? TOP + coverPx + inner : bottomOf(line.spans[g.span]!.h) - coverPx - inner }));
   }
   const hookTo = (bar: LineBar, y: number, end: 0 | 1) => y - hookTurn(bar, end) * sy;
-
-  const MARK_GAP = 17;
-  const marksAlong = $derived.by(() => {
-    const along = markPlaces(line, MARK_GAP / sx, { fixed: cuts.map((c) => c.x), fixedGap: MARK_GAP / sx }), out = new Map<string, { x: number; y: number }>();
-    for (const b of line.bars) {
-      const segs = trace(b), x = along.get(b.mark);
-      if (!segs.length || x === undefined) continue;
-      const mid = segs.reduce((a, c) => (c.x2 - c.x1 > a.x2 - a.x1 ? c : a));
-      out.set(b.mark, { x: X(x), y: b.face === 'top' ? mid.y - 13 : mid.y + 13 });
-    }
-    return out;
-  });
-  /** The zones' stirrup labels, kept off each other and off the cuts' boxes under the beam. */
-  const zoneLabelX = $derived.by(() => {
-    const texts = line.zones.map((z) => stirrupsLabel(z.stirrups));
-    const w = Math.max(40, ...texts.map((x) => 6.2 * x.length));
-    return placeLabels(line.zones.map((z) => X((z.from + z.to) / 2)), w + 6, cuts.map((c) => X(c.x)), w / 2 + 12);
-  });
   const ticks = $derived(stirrupPositions(line, (s) => Math.ceil(5 / sx / Math.max(s, 1e-6)))
     .map((p) => ({ x: X(p.x), y1: TOP + coverPx - 2, y2: bottomOf(line.spans[p.span]!.h) - coverPx + 2 })));
 
-  function setOut(bar: LineBar): [string, string] | null {
-    const so = setOutOf(line, bar);
-    return so ? [fmt(so.d[0]), fmt(so.d[1])] : null;
-  }
-  const ENV_M = 96, ENV_V = 88, ENV_GAP = 18;
-  const yEnv = $derived(yBeamBottom + BELOW + 30);
-  const finite = (v: number) => (Number.isFinite(v) ? v : 0);
+  const yAxisM = $derived(TOP + (hMax * sy) / 2);
   const muTop = $derived(Math.max(1e-6, ...line.envelope.flatMap((e) => [e.pos, e.neg])));
-  const vuTop = $derived(Math.max(1e-6, ...line.shear.flatMap((e) => [e.vPos, e.vNeg])));
-  const mMax = $derived(Math.max(1.25 * muTop, Math.min(1.05 * phiMTop, 3 * muTop))), vMax = $derived(Math.max(1.25 * vuTop, Math.min(1.05 * phiVTop, 3 * vuTop)));
-  const phiMTop = $derived(Math.max(0, ...line.envelope.flatMap((e) => [finite(e.phiPos), finite(e.phiNeg)])));
-  const phiVTop = $derived(Math.max(0, ...line.shear.map((e) => finite(e.phiVn))));
-  const yDimEnvelope = $derived(yV + ENV_V / 2 + 14);
-  const yM = $derived(yEnv + ENV_M / 2);
-  const yV = $derived(yEnv + ENV_M + ENV_GAP + ENV_V / 2);
-  const mY = (m: number) => yM + (m / mMax) * (ENV_M / 2 - 4);
-  const vY = (v: number) => yV - (v / vMax) * (ENV_V / 2 - 4);
-  const path = (pts: Array<[number, number]>) => pts.map(([px, py], i) => `${i ? 'L' : 'M'}${px.toFixed(1)},${py.toFixed(1)}`).join(' ');
-  /** Mu below the axis where it sags and above where it hogs, as it is drawn on the tension side. */
-  const muPos = $derived(path([[X(line.envelope[0]?.x ?? 0), yM], ...line.envelope.map((e) => [X(e.x), mY(e.pos)] as [number, number]), [X(line.envelope[line.envelope.length - 1]?.x ?? 0), yM]]) + ' Z');
-  const muNeg = $derived(path([[X(line.envelope[0]?.x ?? 0), yM], ...line.envelope.map((e) => [X(e.x), mY(-e.neg)] as [number, number]), [X(line.envelope[line.envelope.length - 1]?.x ?? 0), yM]]) + ' Z');
-  /** A capacity line split where it leaves the scale: the part inside drawn, the part outside held at the edge, faint. */
-  function capacity(pts: Array<{ x: number; v: number }>, top: number, toY: (v: number) => number): { inside: string; outside: string } {
-    const inside: string[] = [], outside: string[] = [];
-    let a: Array<[number, number]> = [], b: Array<[number, number]> = [];
-    const flush = () => { if (a.length > 1) inside.push(path(a)); if (b.length > 1) outside.push(path(b)); a = []; b = []; };
-    let was: boolean | null = null;
-    for (const p of pts) {
-      const over = Math.abs(p.v) > top;
-      if (was !== null && over !== was) { const keep = (over ? a : b).at(-1); flush(); if (keep) (over ? b : a).push(keep); }
-      (over ? b : a).push([X(p.x), toY(Math.sign(p.v) * Math.min(Math.abs(p.v), top))]);
-      was = over;
-    }
-    flush();
-    return { inside: inside.join(' '), outside: outside.join(' ') };
-  }
-  const phiPos = $derived(capacity(line.envelope.map((e) => ({ x: e.x, v: finite(e.phiPos) })), mMax, mY));
-  const phiNeg = $derived(capacity(line.envelope.map((e) => ({ x: e.x, v: -finite(e.phiNeg) })), mMax, mY));
-  const vuPos = $derived(path([[X(line.shear[0]?.x ?? 0), yV], ...line.shear.map((e) => [X(e.x), vY(e.vPos)] as [number, number]), [X(line.shear[line.shear.length - 1]?.x ?? 0), yV]]) + ' Z');
-  const vuNeg = $derived(path([[X(line.shear[0]?.x ?? 0), yV], ...line.shear.map((e) => [X(e.x), vY(-e.vNeg)] as [number, number]), [X(line.shear[line.shear.length - 1]?.x ?? 0), yV]]) + ' Z');
-  const phiVPos = $derived(capacity(line.shear.map((e) => ({ x: e.x, v: finite(e.phiVn) })), vMax, vY));
-  const phiVNeg = $derived(capacity(line.shear.map((e) => ({ x: e.x, v: -finite(e.phiVn) })), vMax, vY));
-  const yDim = $derived(envelope && line.envelope.length ? yDimEnvelope + 16 : yBeamBottom + BELOW + 36);
-  const ySchedule = $derived(yDim + 34);
-  const rowTop = $derived(line.bars.reduce<number[]>((acc, b, i) => { acc.push(i ? acc[i - 1]! + (line.bars[i - 1]!.kind === 'bent' ? 2 * ROW : ROW) : 0); return acc; }, []));
-  const H = $derived(ySchedule + line.bars.reduce((acc, b) => acc + (b.kind === 'bent' ? 2 * ROW : ROW), 0) + 8);
+  const onBeamY = (m: number) => yAxisM + (m / muTop) * hMax * sy * 0.62;
+  const muOnBeam = $derived({
+    pos: filled(line.envelope.map((e) => X(e.x)), line.envelope.map((e) => onBeamY(e.pos)), yAxisM),
+    neg: filled(line.envelope.map((e) => X(e.x)), line.envelope.map((e) => onBeamY(-e.neg)), yAxisM),
+  });
+
+  const yLay = (y: number) => TOP + y;
+  const yChart = $derived(TOP + lay.bottom + 22);
+  const showChart = $derived(envelope && (chart === 'steel' ? (line.steel?.length ?? 0) > 1 : line.envelope.length > 0));
+  const yDim = $derived(showChart ? yChart + chartHeight(chart) : TOP + lay.bottom + 16);
+  const H = $derived(yDim + 26);
+  const anchorOf = (q: LText) => q.anchor;
 </script>
+
+{#snippet txt(q: LText, cls: string, testid?: string)}
+  {#if q.leader}<line x1={q.leader[0]} y1={yLay(q.leader[1])} x2={q.leader[2]} y2={yLay(q.leader[3])} class="leader" />{/if}
+  <text x={q.x} y={yLay(q.y)} class="{cls} {anchorOf(q)}" style="font-size: {q.size}px" data-testid={testid}>{q.text}</text>
+{/snippet}
+{#snippet dimension(d: LDim, testid?: string)}
+  <line x1={d.x0} y1={yLay(d.y)} x2={d.x1} y2={yLay(d.y)} class="dimline" />
+  <line x1={d.x0 - 3} y1={yLay(d.y) + 3} x2={d.x0 + 3} y2={yLay(d.y) - 3} class="dimline" />
+  <line x1={d.x1 - 3} y1={yLay(d.y) + 3} x2={d.x1 + 3} y2={yLay(d.y) - 3} class="dimline" />
+  {@render txt(d.text, 'small', testid)}
+{/snippet}
 
 <svg class="rcl" viewBox="0 0 {W} {H}" role="img" aria-label={line.name} data-testid="rc-line-svg">
   {#each supports as xs, j (j)}
     {@const w = Math.max(8, (line.supportWidths[j] || 0.2) * sx)}
     <rect x={X(xs) - w / 2} y={TOP - STUB} width={w} height={yBeamBottom - TOP + STUB + BELOW} class="col" />
-    <line x1={X(xs)} y1={TOP - STUB - 6} x2={X(xs)} y2={yDim + 6} class="axis" />
+    <line x1={X(xs)} y1={yLay(lay.top)} x2={X(xs)} y2={yDim + 6} class="axis" />
+  {/each}
+  {#each lay.posts as p, j (j)}
+    {#if p.rect}<rect x={p.rect.x0} y={yLay(p.rect.y0)} width={p.rect.x1 - p.rect.x0} height={p.rect.y1 - p.rect.y0} class="post" data-testid="rc-line-post" />{/if}
+    {#if p.name}{@render txt(p.name, 'postname')}{/if}
+    {#if p.size}{@render txt(p.size, 'small')}{/if}
   {/each}
   {#each line.spans as s, i (i)}
     <rect x={X(s.x0)} y={TOP} width={(s.x1 - s.x0) * sx} height={s.h * sy} class="beam" />
@@ -123,117 +93,105 @@
     {#if segs.length && bar.hooks[1]}<line x1={segs[segs.length - 1]!.x2} y1={segs[segs.length - 1]!.y} x2={segs[segs.length - 1]!.x2} y2={hookTo(bar, segs[segs.length - 1]!.y, 1)} class="bar {bar.kind}" />{/if}
     {#if segs.length && bar.hook180?.[1]}<line x1={segs[segs.length - 1]!.x2} y1={hookTo(bar, segs[segs.length - 1]!.y, 1)} x2={segs[segs.length - 1]!.x2 + hookBack(bar, 1) * sx} y2={hookTo(bar, segs[segs.length - 1]!.y, 1)} class="bar {bar.kind}" data-testid="rc-hook-180" />{/if}
   {/each}
-  {#if marks}
-    <g data-testid="rc-line-marks">
-      {#each line.bars as bar (bar.mark)}
-        {@const at = marksAlong.get(bar.mark)}
-        {#if at}
-          <circle cx={at.x} cy={at.y} r="7.5" class="mark onbeam {bar.kind}" class:hl={hl(bar)} data-testid={hl(bar) ? 'rc-line-mark-hl' : undefined} data-mark={bar.mark} />
-          <text x={at.x} y={at.y + 3.2} class="markt small-mark">{bar.mark}</text>
-        {/if}
-      {/each}
-    </g>
-  {/if}
-  {#if cuts.length}
-    <g data-testid="rc-line-cuts">
-      {#each cuts as cut, i (i)}
-        <line x1={X(cut.x)} y1={TOP - STUB - 2} x2={X(cut.x)} y2={yBeamBottom + BELOW - 2} class="cut" />
-        <rect x={X(cut.x) - 8} y={TOP - STUB - 16} width="16" height="13" rx="2" class="cutbox" />
-        <text x={X(cut.x)} y={TOP - STUB - 6} class="cutt" data-testid="rc-line-cut">{cut.label}</text>
-        <rect x={X(cut.x) - 8} y={yBeamBottom + BELOW - 2} width="16" height="13" rx="2" class="cutbox" />
-        <text x={X(cut.x)} y={yBeamBottom + BELOW + 8} class="cutt">{cut.label}</text>
-      {/each}
-    </g>
-  {/if}
   {#each line.splices as sp, i (i)}
     {@const sg = line.spans.find((x) => sp.x >= x.x0 - 1e-9 && sp.x <= x.x1 + 1e-9) ?? line.spans[0]!}
     {@const y = sp.face === 'top' ? TOP + coverPx : bottomOf(sg.h) - coverPx}
     <line x1={X(sp.x - sp.length / 2)} y1={y} x2={X(sp.x + sp.length / 2)} y2={y} class="splice" />
-    <text x={X(sp.x)} y={sp.face === 'top' ? y + 14 : y - 7} class="small">{t('rcSheets.line.splice')} {fmt(sp.length * 100, 0)} cm</text>
   {/each}
-  {#each line.zones as z, i (i)}
-    <text x={zoneLabelX[i]} y={yBeamBottom + BELOW + 12} class="small" data-testid="rc-zone-label">{stirrupsLabel(z.stirrups)}</text>
-  {/each}
-
-  {#if envelope && line.envelope.length}
-    <g data-testid="rc-line-envelope">
-      <line x1={X(0)} y1={yM} x2={X(line.length)} y2={yM} class="envaxis" />
-      <path d={muPos} class="mu pos" />
-      <path d={muNeg} class="mu neg" />
-      <path d={phiPos.inside} class="phim" data-testid="rc-env-phimn-pos" />
-      <path d={phiNeg.inside} class="phim" />
-      <path d={phiPos.outside} class="phim off" />
-      <path d={phiNeg.outside} class="phim off" />
-      <text x={M - 6} y={yM - ENV_M / 2 + 10} class="small end">Mu⁻</text>
-      <text x={M - 6} y={yM + ENV_M / 2 - 2} class="small end">Mu⁺</text>
-      <text x={W - M + 4} y={yM - ENV_M / 2 + 10} class="small start">φMn</text>
-      <line x1={X(0)} y1={yV} x2={X(line.length)} y2={yV} class="envaxis" />
-      <path d={vuPos} class="vu" />
-      <path d={vuNeg} class="vu" />
-      <path d={phiVPos.inside + ' ' + phiVNeg.inside} class="phiv" data-testid="rc-env-phivn" />
-      <path d={phiVPos.outside + ' ' + phiVNeg.outside} class="phiv off" />
-      <text x={M - 6} y={yV - ENV_V / 2 + 10} class="small end">Vu</text>
-      <text x={W - M + 4} y={yV - ENV_V / 2 + 10} class="small start">±φVn</text>
-      <text x={W - M + 4} y={yM + 4} class="small start" data-testid="rc-env-mu-scale">{fmt(muTop, 0)} kN·m</text>
-      <text x={W - M + 4} y={yV - 2} class="small start" data-testid="rc-env-vu-scale">{fmt(vuTop, 0)} kN</text>
-      {#if phiMTop > mMax}<text x={W - M + 4} y={yM + ENV_M / 2 - 2} class="small start" data-testid="rc-env-phimn-off">↧ {fmt(phiMTop, 0)} kN·m</text>{/if}
-      {#if phiVTop > vMax}<text x={W - M + 4} y={yV - ENV_V / 2 + 22} class="small start" data-testid="rc-env-phivn-off">↥ {fmt(phiVTop, 0)} kN</text>{/if}
+  {#each lay.splices as q, i (i)}{@render txt(q, 'small', 'rc-splice-label')}{/each}
+  {#if onBeam && line.envelope.length > 1}
+    <g data-testid="rc-line-mu-on-beam">
+      <path d={muOnBeam.pos} class="mu pos" />
+      <path d={muOnBeam.neg} class="mu neg" />
+      {#each lay.zeros as d, i (i)}
+        {@const xz = supports.some((xs) => Math.abs(X(xs) - d.x0) < 0.5) ? d.x1 : d.x0}
+        <line x1={xz} y1={yBeamBottom} x2={xz} y2={yLay(d.y) + 3} class="ext" />
+        {@render dimension(d, 'rc-zero-dim')}
+      {/each}
     </g>
+  {/if}
+  {#if lay.cuts.length}
+    <g data-testid="rc-line-cuts">
+      {#each lay.cuts as cut, i (i)}
+        <line x1={cut.x} y1={yLay(cut.top.y)} x2={cut.x} y2={yLay(cut.bottom.y - cut.bottom.size)} class="cut" />
+        {#each [cut.top, cut.bottom] as q, k (k)}
+          <rect x={q.x - textWidth(q) / 2 - 3.5} y={yLay(q.y) - q.size - 1.5} width={textWidth(q) + 7} height={q.size + 4} rx="2" class="cutbox" />
+          {@render txt(q, 'cutt', k === 0 ? 'rc-line-cut' : undefined)}
+        {/each}
+      {/each}
+    </g>
+  {/if}
+
+  <g data-testid="rc-line-tracks">
+    {#each lay.tracks as tr (tr.bar.mark)}
+      {@const bar = tr.bar}
+      {@const y = yLay(tr.y)}
+      {#if tr.shape}
+        <polyline points={tr.shape.map(([px, py]) => `${px.toFixed(1)},${yLay(py).toFixed(1)}`).join(' ')} class="bar bent" class:hl={hl(bar)} />
+      {:else}
+        <line x1={tr.x0} y1={y} x2={tr.x1} y2={y} class="bar {bar.kind}" class:hl={hl(bar)} data-testid="rc-track" data-mark={bar.mark} />
+        {#if tr.hooks[0]}<polyline points="{tr.x0 + tr.back[0]},{y + tr.hooks[0]} {tr.x0},{y + tr.hooks[0]} {tr.x0},{y}" class="bar {bar.kind}" />{/if}
+        {#if tr.hooks[1]}<polyline points="{tr.x1},{y} {tr.x1},{y + tr.hooks[1]} {tr.x1 + tr.back[1]},{y + tr.hooks[1]}" class="bar {bar.kind}" />{/if}
+      {/if}
+      {@render txt(tr.label, 'lab', 'rc-track-label')}
+      {#each tr.dims as d, i (i)}
+        <line x1={d.x0} y1={y} x2={d.x0} y2={yLay(d.y) + (d.y < tr.y ? -3 : 3)} class="ext" />
+        <line x1={d.x1} y1={y} x2={d.x1} y2={yLay(d.y) + (d.y < tr.y ? -3 : 3)} class="ext" />
+        {@render dimension(d, 'rc-setout')}
+      {/each}
+      {#each tr.legs as q, i (i)}{@render txt(q, 'small', 'rc-bent-leg')}{/each}
+    {/each}
+  </g>
+  {#if marks}
+    <g data-testid="rc-line-marks">
+      {#each lay.tracks.filter((x) => x.bubble) as tr (tr.bar.mark)}
+        <circle cx={tr.bubble!.x} cy={yLay(tr.bubble!.y)} r={tr.bubble!.r} class="mark onbeam {tr.bar.kind}" class:hl={hl(tr.bar)} data-testid={hl(tr.bar) ? 'rc-line-mark-hl' : undefined} data-mark={tr.bar.mark} />
+        <text x={tr.bubble!.x} y={yLay(tr.bubble!.y) + 3.1} class="markt small-mark">{tr.bar.mark}</text>
+      {/each}
+    </g>
+  {/if}
+
+  {#each lay.zoneDims as d, i (i)}{@render dimension(d)}{/each}
+  {#each lay.zones as q, i (i)}{@render txt(q, 'small', 'rc-zone-label')}{/each}
+
+  {#if showChart}
+    <RcLineCharts {line} {X} top={yChart} left={M} right={W - M} kind={chart} {fmt} />
   {/if}
 
   <line x1={X(0)} y1={yDim} x2={X(line.length)} y2={yDim} class="dimline" />
   {#each supports as xs, j (j)}<line x1={X(xs) - 4} y1={yDim + 4} x2={X(xs) + 4} y2={yDim - 4} class="dimline" />{/each}
   {#each line.spans as s, i (i)}
     <text x={X((s.x0 + s.x1) / 2)} y={yDim - 5} class="dim">{fmt(s.x1 - s.x0)}</text>
-    <text x={X((s.x0 + s.x1) / 2)} y={yDim + 14} class="small">{s.name} · {fmt(s.b * 100, 0)}×{fmt(s.h * 100, 0)}</text>
-  {/each}
-
-  {#each line.bars as bar, n (bar.mark)}
-    {@const y = ySchedule + rowTop[n]! + (bar.kind === 'bent' ? ROW : 0) + 16}
-    {@const so = setOut(bar)}
-    <circle cx={M - 26} cy={y} r="9" class="mark {bar.kind}" class:hl={hl(bar)} />
-    <text x={M - 26} y={y + 3.5} class="markt">{bar.mark}</text>
-    {#if bar.kind === 'bent'}
-      {@const base = Math.min(...bar.shape.pts.map((p) => p[1]))}
-      {@const yy = (v: number) => y + 8 - (v - base) * Math.min(sy, 60) * 0.35}
-      <polyline points={bar.shape.pts.map((p) => `${X(p[0]).toFixed(1)},${yy(p[1]).toFixed(1)}`).join(' ')} class="bar bent" />
-      {#each bentLegs(bar) as g, i (i)}
-        <text x={X(g.at[0])} y={yy(g.at[1]) + 12} class="small" data-testid="rc-bent-leg">{fmt(g.length)}</text>
-      {/each}
-    {:else}
-      <line x1={X(bar.from)} y1={y} x2={X(bar.to)} y2={y} class="bar {bar.kind}" />
-      {#if bar.hooks[0]}<line x1={X(bar.from)} y1={y} x2={X(bar.from)} y2={y - Math.sign(hookTurn(bar, 0)) * 8} class="bar {bar.kind}" />{/if}
-      {#if bar.hooks[1]}<line x1={X(bar.to)} y1={y} x2={X(bar.to)} y2={y - Math.sign(hookTurn(bar, 1)) * 8} class="bar {bar.kind}" />{/if}
-    {/if}
-    <text x={X((bar.from + bar.to) / 2)} y={y - 5} class="lab">{bar.bars.count} Ø{bar.bars.dia} · L = {fmt(bar.length)} m</text>
-    {#if so}
-      <text x={X(bar.from) + 3} y={y + 12} class="small start">{so[0]}</text>
-      <text x={X(bar.to) - 3} y={y + 12} class="small end">{so[1]}</text>
-    {/if}
+    <text x={X((s.x0 + s.x1) / 2)} y={yDim + 14} class="small middle">{s.name} · {fmt(s.b * 100, 0)}×{fmt(s.h * 100, 0)}</text>
   {/each}
 </svg>
 
 <style>
   .rcl { width: 100%; height: auto; background: var(--st-surface-2); border: 1px solid var(--st-hair); border-radius: 6px; margin-bottom: 8px; }
-  .beam { fill: rgba(128, 128, 128, 0.08); stroke: var(--st-text-3); stroke-width: 0.8; stroke-dasharray: none; opacity: 0.9; }
+  .beam { fill: rgba(128, 128, 128, 0.08); stroke: var(--st-text-3); stroke-width: 0.8; opacity: 0.9; }
   .col { fill: rgba(128, 128, 128, 0.22); stroke: var(--st-text-3); stroke-width: 0.6; }
+  .post { fill: rgba(128, 128, 128, 0.18); stroke: var(--st-text-3); stroke-width: 0.8; }
   .axis { stroke: var(--st-text-3); stroke-width: 0.6; stroke-dasharray: 6 3 1 3; }
   .stirrup { stroke: var(--st-text-3); stroke-width: 0.7; opacity: 0.7; }
-  .bar { stroke-width: 2.2; fill: none; stroke-linecap: round; }
-  .bar.continuous { stroke: var(--st-text); }
+  .bar { stroke-width: 2.2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+  .bar.continuous { stroke: #6fb3d9; }
   .bar.support { stroke: var(--st-danger); }
   .bar.span { stroke: var(--st-ok); }
   .bar.bent { stroke: #b48cf2; }
   .mark.bent { stroke: #b48cf2; }
   .splice { stroke: var(--st-warn); stroke-width: 4; opacity: 0.6; }
   .dimline { stroke: var(--st-text-3); stroke-width: 0.8; }
+  .ext { stroke: var(--st-text-3); stroke-width: 0.5; stroke-dasharray: 2 2; opacity: 0.8; }
+  .leader { stroke: var(--st-text-3); stroke-width: 0.6; }
   .dim { font-size: 11px; fill: var(--st-text-2); text-anchor: middle; font-family: var(--st-mono); }
-  .lab { font-size: 10.5px; fill: var(--st-text-2); text-anchor: middle; font-family: var(--st-mono); }
-  .small { font-size: 9.5px; fill: var(--st-text-3); text-anchor: middle; font-family: var(--st-mono); }
-  .small.start { text-anchor: start; }
-  .small.end { text-anchor: end; }
+  .lab { fill: var(--st-text-2); font-family: var(--st-mono); }
+  .postname { fill: var(--st-text-2); font-weight: 700; font-family: var(--st-mono); }
+  .small { font-size: 9.5px; fill: var(--st-text-3); font-family: var(--st-mono); }
+  .start { text-anchor: start; }
+  .middle { text-anchor: middle; }
+  .end { text-anchor: end; }
   .mark { fill: none; stroke-width: 1.4; }
-  .mark.continuous { stroke: var(--st-text); }
+  .mark.continuous { stroke: #6fb3d9; }
   .mark.support { stroke: var(--st-danger); }
   .mark.span { stroke: var(--st-ok); }
   .markt { font-size: 10px; font-weight: 700; fill: var(--st-text); text-anchor: middle; font-family: var(--st-mono); }
@@ -243,13 +201,8 @@
   .mark.hl { stroke: var(--st-warn); stroke-width: 2.6; fill: color-mix(in srgb, var(--st-warn) 30%, var(--st-surface-2)); }
   .cut { stroke: #f0b84a; stroke-width: 1; stroke-dasharray: 4 2; }
   .cutbox { fill: var(--st-surface-2); stroke: #f0b84a; stroke-width: 1; }
-  .cutt { font-size: 9.5px; font-weight: 700; fill: #f0b84a; text-anchor: middle; font-family: var(--st-mono); }
-  .envaxis { stroke: var(--st-text-3); stroke-width: 0.7; }
+  .cutt { font-weight: 700; fill: #f0b84a; font-family: var(--st-mono); }
   .mu { stroke: none; }
   .mu.pos { fill: rgba(78, 205, 196, 0.22); }
   .mu.neg { fill: rgba(232, 93, 74, 0.22); }
-  .phim { fill: none; stroke: var(--st-text); stroke-width: 1.3; stroke-dasharray: 5 3; }
-  .vu { fill: rgba(224, 160, 60, 0.25); stroke: none; }
-  .phiv { fill: none; stroke: var(--st-text); stroke-width: 1.3; stroke-dasharray: 5 3; }
-  .phim.off, .phiv.off { opacity: 0.35; stroke-dasharray: 1 4; }
 </style>

@@ -1,16 +1,21 @@
 import { checkWallInPlaneShear, maxWallSpacing, minimumWallRatios, minimumWallThickness, PHI_WALL_SHEAR } from './wall-design';
 import { wallInPlane, wallOutOfPlane } from './wall-member';
 import { shearFy, shearSqrtFc } from '../engine/codes/argentina/cirsoc201-basis';
-import { tensionLap } from './column-row';
+import { compressionLap, tensionLap } from './column-row';
 import { wallSeismic, type WallSeismic } from './wall-seismic';
 import { barArea, roundDown } from './bars';
 import type { Fmt } from './format';
 import { check, ratioOf, type TransverseList, type CheckLine, type ComboTable, type Materials, type RowStatus, type Step, type StepGroup, type WallAdopted, isGenerous } from './types';
+import { critOf, type Criteria } from './criteria';
 
 const EDITION = '2025' as const;
 
-/** At the base of a storey: in-plane axial force (+ compression), moment and shear; out-of-plane moments per metre on the vertical and the horizontal bars. */
-export interface WallComboForces { combo: string; pu: number; mu: number; vu: number; muV: number; muH: number }
+/**
+ * At the base of a storey: in-plane axial force (+ compression), moment and shear; out-of-plane
+ * moments per metre on the vertical and the horizontal bars; and the base's signed resultant in
+ * global axes about the plan origin (`CutForces`), which a pier sums.
+ */
+export interface WallComboForces { combo: string; pu: number; mu: number; vu: number; muV: number; muH: number; global?: import('./piers').CutForces }
 
 export interface WallDemand {
   key: string; name: string; level?: string;
@@ -22,10 +27,23 @@ export interface WallDemand {
   base?: { nodes: number; held: number; unheld?: number[] };
   /** Its base in plan, end to end along its length, m. */
   plan?: { x1: number; y1: number; x2: number; y2: number };
+  /** Its base's elevation, m. */
+  z?: number;
+  /** The nodes along its base cut. */
+  baseNodes?: number[];
   combos: WallComboForces[];
 }
 
-export interface WallContext extends TransverseList { mat: Materials; cover: number; barDia: number; diameters: readonly number[]; seismic?: import('./seismic').Seismic }
+export interface WallContext extends TransverseList {
+  mat: Materials; cover: number; barDia: number; diameters: readonly number[]; seismic?: import('./seismic').Seismic;
+  /** The diameters the meshes choose among, the thinnest whose bars stand no closer than the criterion's spacing; absent, `barDia` and the longitudinal list. */
+  meshDiameters?: readonly number[];
+  criteria?: Criteria;
+  /** The storey below has special boundary elements (chapter 18). */
+  belowSpecial?: boolean;
+  /** A wall of a pier: its in-plane axial force and bending are the pier's, and `boundary` the least end bars the pier asks of it. */
+  pier?: { boundary?: { count: number; diameter: number } };
+}
 
 export interface WallRow {
   family: 'wall';
@@ -47,14 +65,18 @@ export interface WallRow {
   /** Clear cover to the horizontal bars, m, and the tension lap of a horizontal bar, m: what the end U-bars overlap it by. */
   cover: number;
   hLap: number;
-  /** The tension lap of each vertical bar diameter, m: what the bars of the storey above overlap them by. */
-  vLaps?: Array<{ dia: number; lap: number }>;
+  /** The lap of each vertical bar diameter, m, and whether it is a tension lap: what the bars of the storey above overlap them by. */
+  vLaps?: Array<{ dia: number; lap: number; tension?: boolean }>;
   /** Chapter 18, where the sheets apply it. */
   seismic?: WallSeismic;
+  /** The storeys of the same wall below and above it, by key (`wallStacks`): its verticals lap into the one above. */
+  stack?: { below?: string; above?: string };
   /** The stirrups and ties the project allows, mm, which its boundary and cross ties are drawn with. */
   tieDiameters?: readonly number[];
   /** The closest spacing they are placed at, m. */
   minTieSpacing?: number;
+  /** A wall of a pier: the section's check and the columns inside it (`pier-row.ts`). */
+  pier?: import('./pier-row').WallPier;
 }
 
 const rhoOf = (m: { diameter: number; spacing: number }, curtains: number, t: number) => (m.spacing > 0 ? curtains * barArea(m.diameter) * 1e-4 / (m.spacing * t) : 0);
@@ -80,7 +102,7 @@ function evaluate(d: WallDemand, c: WallContext, a: WallAdopted): Eval {
   const sMaxV = shearSteel ? Math.min(s0, d.length / 3) : s0, sMaxH = shearSteel ? Math.min(s0, d.length / 5) : s0;
   const r = { vertical: a.vertical, horizontal: a.horizontal, curtains: a.curtains, ...(a.boundary && a.boundary.count > 0 ? { boundary: a.boundary } : {}) };
   const base = { length: d.length, thickness: d.thickness, cover: c.cover, fc: c.mat.fc, fy: c.mat.fy };
-  const pm = d.combos.map((k) => wallInPlane({ ...base, pu: k.pu, mu: k.mu, r }).utilization);
+  const pm = d.combos.map((k) => (c.pier ? 0 : wallInPlane({ ...base, pu: k.pu, mu: k.mu, r }).utilization));
   const out = d.combos.map((k) => Math.max(0, ...wallOutOfPlane({ ...base, pu: k.pu, muV: k.muV, muH: k.muH, r }).map((x) => x.utilization)));
   const sh = d.combos.map((k) => checkWallInPlaneShear({ length: d.length, thickness: d.thickness, fc: c.mat.fc, vu: k.vu, rhoT, fy: c.mat.fy, edition: EDITION }));
   return {
@@ -100,11 +122,23 @@ export function wallRow(d: WallDemand, c: WallContext, adopted: WallAdopted | un
   const rhoTShear = Math.max(0, vuMax / PHI_WALL_SHEAR - vc) / (shearFy(c.mat.fy) * 1000 * acv);
 
   const meshFor = (dia: number, rho: number, sMax: number) => ({ diameter: dia, spacing: roundDown(Math.max(0.075, Math.min(sMax, curtains * barArea(dia) * 1e-4 / Math.max(rho * d.thickness, 1e-9)))) });
-  const first = evaluate(d, c, { vertical: { diameter: c.barDia, spacing: 0.2 }, horizontal: { diameter: c.barDia, spacing: 0.2 }, curtains });
+  const meshes = c.meshDiameters?.length ? [...c.meshDiameters].sort((p, q) => p - q) : null;
+  const bars = meshes ?? c.diameters;
+  const meshesOf = (dia: number) => {
+    const e0 = evaluate(d, c, { vertical: { diameter: dia, spacing: 0.2 }, horizontal: { diameter: dia, spacing: 0.2 }, curtains });
+    return { vertical: meshFor(dia, e0.rhoLMin, e0.sMaxV), horizontal: meshFor(dia, Math.max(e0.rhoTMin, rhoTShear), e0.sMaxH) };
+  };
+  const roomy = (m: ReturnType<typeof meshesOf>) => Math.min(m.vertical.spacing, m.horizontal.spacing) >= critOf(c).wallMeshSpacing - 1e-9;
+  const firstRoomy = (list: readonly number[]) => {
+    let m = meshesOf(list[0]!);
+    for (const dia of list.slice(1)) { if (roomy(m)) break; m = meshesOf(dia); }
+    return m;
+  };
+  const start = firstRoomy(meshes ?? [c.barDia]);
   let a: WallAdopted = {
-    vertical: meshFor(c.barDia, first.rhoLMin, first.sMaxV),
-    horizontal: meshFor(c.barDia, Math.max(first.rhoTMin, rhoTShear), first.sMaxH),
+    ...start,
     curtains,
+    ...(c.pier?.boundary ? { boundary: c.pier.boundary } : {}),
   };
   let iterations = 0;
   let e = evaluate(d, c, a);
@@ -120,8 +154,8 @@ export function wallRow(d: WallDemand, c: WallContext, adopted: WallAdopted | un
       if (next) a = { ...a, boundary: next };
       else a = { ...a, vertical: { ...a.vertical, spacing: roundDown(Math.max(0.075, a.vertical.spacing - 0.025)) } };
     }
-    if (!e.out.every(ok1) || e.rhoL < e.rhoLMin - 1e-9) a = { ...a, vertical: a.vertical.spacing > 0.1 + 1e-9 ? { ...a.vertical, spacing: roundDown(a.vertical.spacing - 0.025) } : { diameter: nextWallBar(c.diameters, a.vertical.diameter), spacing: a.vertical.spacing } };
-    if (!e.shear.every(ok1) || e.rhoT < e.rhoTMin - 1e-9) a = { ...a, horizontal: a.horizontal.spacing > 0.1 + 1e-9 ? { ...a.horizontal, spacing: roundDown(a.horizontal.spacing - 0.025) } : { diameter: nextWallBar(c.diameters, a.horizontal.diameter), spacing: a.horizontal.spacing } };
+    if (!e.out.every(ok1) || e.rhoL < e.rhoLMin - 1e-9) a = { ...a, vertical: a.vertical.spacing > 0.1 + 1e-9 ? { ...a.vertical, spacing: roundDown(a.vertical.spacing - 0.025) } : { diameter: nextWallBar(bars, a.vertical.diameter), spacing: a.vertical.spacing } };
+    if (!e.shear.every(ok1) || e.rhoT < e.rhoTMin - 1e-9) a = { ...a, horizontal: a.horizontal.spacing > 0.1 + 1e-9 ? { ...a.horizontal, spacing: roundDown(a.horizontal.spacing - 0.025) } : { diameter: nextWallBar(bars, a.horizontal.diameter), spacing: a.horizontal.spacing } };
     e = evaluate(d, c, a);
   }
   const seisOf = (x: WallAdopted) => wallSeismic(d, c, x, d.combos.map((k) => wallInPlane({ length: d.length, thickness: d.thickness, cover: c.cover, fc: c.mat.fc, fy: c.mat.fy, pu: k.pu, mu: k.mu, r: { vertical: x.vertical, horizontal: x.horizontal, curtains: x.curtains, ...(x.boundary && x.boundary.count > 0 ? { boundary: x.boundary } : {}) } }).c), fmt);
@@ -132,7 +166,7 @@ export function wallRow(d: WallDemand, c: WallContext, adopted: WallAdopted | un
     const thinner = ext && ext.diameter < a.vertical.diameter ? 'boundary' : 'vertical';
     const grown = thinner === 'boundary'
       ? { ...a, boundary: { ...ext!, diameter: boundaryBars(c.diameters).sort((p, q) => p - q).find((x) => x > ext!.diameter) ?? ext!.diameter } }
-      : { ...a, vertical: { ...a.vertical, diameter: nextWallBar(c.diameters, a.vertical.diameter) } };
+      : { ...a, vertical: { ...a.vertical, diameter: nextWallBar(bars, a.vertical.diameter) } };
     if (JSON.stringify(grown) === JSON.stringify(a)) break;
     a = grown; iterations++;
     e = evaluate(d, c, a);
@@ -148,7 +182,7 @@ export function wallRow(d: WallDemand, c: WallContext, adopted: WallAdopted | un
   const verifications: CheckLine[] = [
     ...((d.baseElements ?? 2) < 2 ? [check('rcSheets.v.wallMesh', false, { clause: '', demand: String(d.baseElements ?? 0), capacity: '≥ 2' })] : []),
     ...(d.base && d.base.held < d.base.nodes ? [check('rcSheets.v.wallBase', false, { clause: '', demand: `${d.base.held} / ${d.base.nodes}`, capacity: `${d.base.nodes} / ${d.base.nodes}` })] : []),
-    check('rcSheets.v.wallPM', ev.pm.every(ok1), { clause: '§11.5.2, §22.4', demand: d.combos[ipm]?.combo ?? '', ratio: Math.max(0, ...ev.pm) }),
+    ...(c.pier ? [] : [check('rcSheets.v.wallPM', ev.pm.every(ok1), { clause: '§11.5.2, §22.4', demand: d.combos[ipm]?.combo ?? '', ratio: Math.max(0, ...ev.pm) })]),
     check('rcSheets.v.wallShear', ev.shear.every(ok1), { clause: '§11.5.4', demand: `${fmt(vuMax)} kN`, capacity: `${fmt(ev.phiVnMin)} kN`, ratio: Math.max(0, ...ev.shear) }),
     check('rcSheets.v.wallOut', ev.out.every(ok1), { clause: '§11.5.1, §22.2', demand: d.combos[iout]?.combo ?? '', ratio: Math.max(0, ...ev.out) }),
     check('rcSheets.v.wallRhoL', ev.rhoL >= ev.rhoLMin - 1e-9, { clause: '§11.6', demand: `${fmt(ev.rhoLMin * 100, 3)} %`, capacity: `${fmt(ev.rhoL * 100, 3)} %`, ratio: ratioOf(ev.rhoLMin, ev.rhoL) }),
@@ -191,8 +225,8 @@ export function wallRow(d: WallDemand, c: WallContext, adopted: WallAdopted | un
     {
       title: 'rcSheets.g.wallFlexure',
       steps: [
-        { label: 'rcSheets.s.wallBoundary', formula: 'As extremos (Pu, Mu)', value: boundaryLabel },
-        { label: 'rcSheets.s.wallPM', formula: 'φMn(Pu) ≥ Mu', value: `${fmt(Math.max(0, ...ev.pm), 3)} (${d.combos[ipm]?.combo ?? ''})`, ok: ev.pm.every(ok1) },
+        { label: 'rcSheets.s.wallBoundary', formula: 'As,ext (Pu, Mu)', value: boundaryLabel },
+        ...(c.pier ? [] : [{ label: 'rcSheets.s.wallPM', formula: 'φMn(Pu) ≥ Mu', value: `${fmt(Math.max(0, ...ev.pm), 3)} (${d.combos[ipm]?.combo ?? ''})`, ok: ev.pm.every(ok1) }]),
         { label: 'rcSheets.s.wallOut', formula: 'Mv, Mh ≤ φMn (b = 1 m)', value: `${fmt(Math.max(0, ...ev.out), 3)}`, ok: ev.out.every(ok1) },
       ],
     },
@@ -215,12 +249,30 @@ export function wallRow(d: WallDemand, c: WallContext, adopted: WallAdopted | un
     status: allOk ? (generous ? 'warn' : 'ok') : 'fail', generous, steps,
     cover: c.cover,
     hLap: tensionLap(c.mat, ad.horizontal.diameter),
-    vLaps: [...new Set([ad.vertical.diameter, ...(ad.boundary ? [ad.boundary.diameter] : [])])].map((dia) => ({ dia, lap: tensionLap(c.mat, dia) })),
+    vLaps: verticalLaps(c, ad, !!c.seismic || wallInTension(d)),
     ...(seis ? { seismic: seis } : {}),
     ...(c.tieDiameters ? { tieDiameters: c.tieDiameters } : {}),
     ...(c.minTieSpacing !== undefined ? { minTieSpacing: c.minTieSpacing } : {}),
   };
 }
+
+/** Whether any combination pulls an end of the wall's section: its in-plane force less its moment over the section modulus. */
+export const wallInTension = (d: Pick<WallDemand, 'length' | 'thickness' | 'combos'>): boolean =>
+  d.combos.some((k) => k.pu / (d.length * d.thickness) - (6 * Math.abs(k.mu)) / (d.thickness * d.length ** 2) < -1e-9);
+
+/**
+ * The lap of each vertical bar diameter with the storey above, m: §25.5.5.1
+ * in compression (a third longer under 21 MPa), a class B tension lap no shorter where an end is
+ * pulled or chapter 18 applies (§18.10.2.3).
+ */
+export function verticalLaps(c: Pick<WallContext, 'mat'>, ad: WallAdopted, tension: boolean): Array<{ dia: number; lap: number; tension: boolean }> {
+  return [...new Set([ad.vertical.diameter, ...(ad.boundary ? [ad.boundary.diameter] : [])])].map((dia) => ({ dia, lap: verticalLap(c.mat, dia, tension), tension }));
+}
+
+const verticalLap = (mat: Materials, dia: number, tension: boolean): number => {
+  const compression = compressionLap(mat, dia);
+  return tension ? Math.max(tensionLap(mat, dia), compression) : compression;
+};
 
 /** The bars a wall's boundary takes from the project's list, mm: Ø12 to Ø25, or the whole list when none falls there. */
 export const boundaryBars = (list: readonly number[]): number[] => { const own = list.filter((x) => x >= 12 && x <= 25); return own.length ? own : [...list]; };

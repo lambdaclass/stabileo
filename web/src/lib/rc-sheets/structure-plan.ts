@@ -15,16 +15,17 @@ import type { WallRow } from './wall-row';
 import type { LevelPlan, PlanRect } from './slab-plan';
 import type { Box } from './slab-plan-labels';
 import type { CheckLine, ColumnAdopted } from './types';
+import { verticalLevels } from './vertical-list';
 
 export type Pt = [number, number];
-export type StructureFamily = 'beam' | 'column' | 'wall';
-export const STRUCTURE_FAMILIES: readonly StructureFamily[] = ['beam', 'column', 'wall'];
+export type StructureFamily = 'beam' | 'column' | 'wall' | 'vertical';
+export const STRUCTURE_FAMILIES: readonly StructureFamily[] = ['beam', 'vertical'];
 export type PlanStatus = 'ok' | 'warn' | 'fail';
 
 interface ItemBase { key: string; name: string; status: PlanStatus; bars: string; check?: CheckLine }
 
-/** A line of beams: each span from axis to axis with its width, and where a bar is cut, m in plan. */
-export interface PlanBeamItem extends ItemBase { kind: 'beam'; spans: Array<{ a: Pt; b: Pt; width: number }>; cuts: Pt[] }
+/** A line of beams: each span from axis to axis with its width, where a bar is cut, and a tick across the beam where bars are lapped, m in plan. */
+export interface PlanBeamItem extends ItemBase { kind: 'beam'; spans: Array<{ a: Pt; b: Pt; width: number }>; cuts: Pt[]; splices: Array<[Pt, Pt]> }
 /** A column cut at its base: its outline and bars turned as the model turns it. */
 export interface PlanColumnItem extends ItemBase { kind: 'column'; at: Pt; rotDeg: number; b: number; h: number; outline: Pt[]; rebars: Array<{ at: Pt; dia: number }> }
 export interface PlanWallItem extends ItemBase { kind: 'wall'; a: Pt; b: Pt; thickness: number; outline: Pt[] }
@@ -127,16 +128,22 @@ function beamItems(rows: StructureRows, level: string, m: StructureModel, unplac
     });
     if (!drawn.length || drawn.some((d) => !d)) { unplaced.push(line.key); continue; }
     const placed = drawn as Array<{ a: Pt; b: Pt; width: number }>;
+    const spanAt = (x: number) => { const i = axes.slice(1).findIndex((v) => x <= v + 1e-9); return Math.min(placed.length - 1, i < 0 ? placed.length - 1 : i); };
     const along = (x: number): Pt => {
-      const i = axes.slice(1).findIndex((v) => x <= v + 1e-9), k = Math.min(placed.length - 1, i < 0 ? placed.length - 1 : i);
+      const k = spanAt(x);
       const x0 = axes[k] ?? 0, x1 = axes[k + 1] ?? x0 + 1, t = x1 > x0 ? Math.max(0, Math.min(1, (x - x0) / (x1 - x0))) : 0;
       const s = placed[k]!;
       return [s.a[0] + (s.b[0] - s.a[0]) * t, s.a[1] + (s.b[1] - s.a[1]) * t];
     };
+    const across = (x: number): [Pt, Pt] => {
+      const s = placed[spanAt(x)]!, p = along(x), L = Math.hypot(s.b[0] - s.a[0], s.b[1] - s.a[1]) || 1, h = 0.6 * s.width;
+      const n: Pt = [(-(s.b[1] - s.a[1]) / L) * h, ((s.b[0] - s.a[0]) / L) * h];
+      return [[p[0] - n[0], p[1] - n[1]], [p[0] + n[0], p[1] + n[1]]];
+    };
     const checks = [...line.verifications, ...spans.flatMap((r) => r.verifications)];
     out.push({
       kind: 'beam', key: line.key, name: line.name, status: statusOf(lineRowStatus(line, spans)), bars: lineBarsShort(line),
-      check: governingCheck(checks), spans: placed, cuts: line.cutoffs.filter((c) => c.legality !== 'illegal').map((c) => along(c.x)),
+      check: governingCheck(checks), spans: placed, cuts: line.cutoffs.filter((c) => c.legality !== 'illegal').map((c) => along(c.x)), splices: line.splices.map((sp) => across(sp.x)),
     });
   }
   return out;
@@ -148,7 +155,7 @@ function columnItems(rows: StructureRows, level: string, m: StructureModel, unpl
     const node = r.demand.nodes?.bottom, p = node !== undefined ? m.nodes.get(node) : undefined;
     if (!p || node === undefined) { unplaced.push(r.key); continue; }
     const at: Pt = [p.x, p.y], rotDeg = columnRoll(m, node);
-    const rebars = columnSection(r.b, r.h, r.cover, r.adopted).bars.map((x) => ({ at: add(at, rotate([x.x - r.b / 2, x.y - r.h / 2], rotDeg)), dia: x.dia }));
+    const rebars = columnSection(r.b, r.h, r.cover, r.adopted, { aggregate: r.aggregate }).bars.map((x) => ({ at: add(at, rotate([x.x - r.b / 2, x.y - r.h / 2], rotDeg)), dia: x.dia }));
     out.push({ kind: 'column', key: r.key, name: r.name, status: statusOf(r.status), bars: columnBarsShort(r), check: governingCheck(r.verifications), at, rotDeg, b: r.b, h: r.h, outline: sectionOutline(at, r.b, r.h, rotDeg), rebars });
   }
   return out;
@@ -172,6 +179,7 @@ export function itemPoints(it: PlanItem): Pt[] {
 
 /** The levels a family's rows stand on, in the order the list gives them. */
 export function familyLevels(family: StructureFamily, rows: Pick<StructureRows, 'line' | 'column' | 'wall'>): string[] {
+  if (family === 'vertical') return verticalLevels(rows.column, rows.wall);
   const list: ReadonlyArray<{ level?: string }> = family === 'beam' ? rows.line : family === 'column' ? rows.column : rows.wall;
   return [...new Set(list.map((r) => r.level ?? ''))];
 }
@@ -179,7 +187,9 @@ export function familyLevels(family: StructureFamily, rows: Pick<StructureRows, 
 /** The plan of one family on one level, over its level's slabs or, on a level with none, the first level's. Axes run 1 m past what is drawn at both ends. */
 export function structurePlan(family: StructureFamily, level: string, rows: StructureRows, m: StructureModel): StructurePlan {
   const unplaced: string[] = [];
-  const items: PlanItem[] = family === 'beam' ? beamItems(rows, level, m, unplaced) : family === 'column' ? columnItems(rows, level, m, unplaced) : wallItems(rows, level, unplaced);
+  const items: PlanItem[] = family === 'beam' ? beamItems(rows, level, m, unplaced)
+    : family === 'vertical' ? [...wallItems(rows, level, unplaced), ...columnItems(rows, level, m, unplaced)]
+    : family === 'column' ? columnItems(rows, level, m, unplaced) : wallItems(rows, level, unplaced);
   const slabs = (rows.slabPlan.find((p) => p.level === level && p.panels.length) ?? rows.slabPlan.find((p) => p.panels.length))?.panels.map((p) => p.rect) ?? [];
   const pts = [...items.flatMap(itemPoints), ...slabs.flatMap((r) => [[r.x0, r.y0], [r.x1, r.y1]] as Pt[])];
   const inner: Box = pts.length

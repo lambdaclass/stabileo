@@ -42,13 +42,22 @@ export function slabRow(d: SlabDemand, c: SlabContext, adopted: SlabAdopted | un
   };
 
   const guessDia = c.diameters.includes(10) ? 10 : c.diameters.find((x) => x >= 8) ?? 10;
-  const pre = Object.fromEntries(SLAB_FACES.map((f) => [f, reqOf(f, guessDia, guessDia)])) as Record<SlabFace, ReturnType<typeof reqOf>>;
   const sumMin = oneWay ? 0 : mins.sum * d.h * 1e4;
   const shortBottom: SlabFace = mainIsX ? 'bottomX' : 'bottomY';
-  const shortfall = Math.max(0, sumMin - pre.bottomX.asReq - pre.bottomY.asReq);
-  const target = (f: SlabFace) => pre[f].asReq + (f === shortBottom ? shortfall : 0);
-  const meshFor = (f: SlabFace): MeshBars => (target(f) > 0 ? proposeMesh(target(f), pre[f].sMax, c.diameters) : { dia: 0, spacing: 0 });
-  const proposed: SlabAdopted = withBase({ bottomX: meshFor('bottomX'), bottomY: meshFor('bottomY'), topX: meshFor('topX'), topY: meshFor('topY') }, c.base);
+  const proposeWith = (dia: (f: SlabFace) => number): SlabAdopted => {
+    const pre = Object.fromEntries(SLAB_FACES.map((f) => [f, reqOf(f, dia(f.startsWith('bottom') ? 'bottomX' : 'topX'), dia(f.startsWith('bottom') ? 'bottomY' : 'topY'))])) as Record<SlabFace, ReturnType<typeof reqOf>>;
+    const shortfall = Math.max(0, sumMin - pre.bottomX.asReq - pre.bottomY.asReq);
+    const target = (f: SlabFace) => pre[f].asReq + (f === shortBottom ? shortfall : 0);
+    const meshFor = (f: SlabFace): MeshBars => (target(f) > 0 ? proposeMesh(target(f), pre[f].sMax, c.diameters) : { dia: 0, spacing: 0 });
+    return withBase({ bottomX: meshFor('bottomX'), bottomY: meshFor('bottomY'), topX: meshFor('topX'), topY: meshFor('topY') }, c.base);
+  };
+  let proposed = proposeWith(() => guessDia);
+  for (let k = 0; k < 6; k++) {
+    const was = proposed;
+    const next = proposeWith((f) => Math.max(was[f].dia || guessDia, guessDia));
+    proposed = SLAB_FACES.reduce((m, f) => ({ ...m, [f]: meshArea(next[f]) >= meshArea(was[f]) - 1e-9 ? next[f] : was[f] }), was);
+    if (SLAB_FACES.every((f) => proposed[f].dia === was[f].dia && proposed[f].spacing === was[f].spacing)) break;
+  }
   const a = adopted ?? proposed;
 
   const faces = {} as Record<SlabFace, SlabFaceResult>;
@@ -98,7 +107,7 @@ export function slabRow(d: SlabDemand, c: SlabContext, adopted: SlabAdopted | un
         sp.step ?? { label: oneWay ? 'rcSheets.s.oneWay' : 'rcSheets.s.twoWay', formula: 'ℓl/ℓs > 2', value: fmt(short > 0 ? long / short : 0) },
         ...materialSteps(t, fmt),
         oneWay
-          ? { label: U('rcSheets.s.slabMin'), formula: `ρ ≥ ${fmt(mins.main, 3)} (main); As ≥ As,main/5 (distribution); ρ = As/(b·h)`, value: `${fmt(mins.main * d.h * 1e4)} cm²/m` }
+          ? { label: U('rcSheets.s.slabMin'), formula: `ρ ≥ ${fmt(mins.main, 3)}; As⊥ ≥ As/5; ρ = As/(b·h)`, value: `${fmt(mins.main * d.h * 1e4)} cm²/m` }
           : { label: 'rcSheets.s.slabMin', formula: `ρx + ρy ≥ ${fmt(mins.sum, 4)}; ρx, ρy ≥ ${fmt(mins.each, 4)}; ρ = As/(b·h)`, value: `${fmt(sumMin)} · ${fmt(mins.each * d.h * 1e4)} cm²/m` },
         { label: oneWay ? U('rcSheets.s.sMax') : 'rcSheets.s.sMax', formula: oneWay ? 'ℓs ≤ min(1.5·h; 200 mm); ℓl ≤ 300 mm' : 'ℓs ≤ min(1.5·h; 200 mm); ℓl ≤ 250 mm', value: '' },
       ],

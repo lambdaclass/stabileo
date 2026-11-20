@@ -18,7 +18,7 @@ export function sectionPrimitives(d: SectionDrawing, c: PlanCtx, marks?: { top: 
   for (const t of d.ties) ps.push(seg(est, pt(t.x1 * K, t.y1 * K), pt(t.x2 * K, t.y2 * K), d.tieDia));
   for (const t of d.crossties ?? []) {
     ps.push(poly(t.pts));
-    if (t.mark) { const [mx, my] = t.across === 'h' ? [t.pts[1]![0], (t.pts[1]![1] + t.pts[2]![1]) / 2] : [(t.pts[1]![0] + t.pts[2]![0]) / 2, t.pts[1]![1]]; ps.push(label(pt(mx * K + 1.2 * s, my * K + 1.2 * s), t.mark, 2.2)); }
+    if (t.mark) { const [mx, my] = t.across === 'h' ? [t.leg[0][0], (t.leg[0][1] + t.leg[1][1]) / 2] : [(t.leg[0][0] + t.leg[1][0]) / 2, t.leg[0][1]]; ps.push(label(pt(mx * K + 1.2 * s, my * K + 1.2 * s), t.mark, 2.2)); }
   }
   if (d.hoop) {
     ps.push(dim(pt(inset, h - inset), pt(b - inset, h - inset), 5 + inset / s, cm(c.fmt, d.hoop.w)), dim(pt(b - inset, inset), pt(b - inset, h - inset), -(5 + inset / s), cm(c.fmt, d.hoop.h)));

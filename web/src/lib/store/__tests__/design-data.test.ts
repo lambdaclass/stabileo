@@ -5,9 +5,9 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { historyStore, modelStore, resultsStore } from '../index';
 import { verificationStore } from '../verification.svelte';
-import { designData, designContextOptions, patchDesignData, patchOwnDesignData, setDesignData, verifyOptions } from '../design-data';
+import { designData, designContextOptions, patchDesignData, patchOwnDesignData, setDesignData, storedDesignData, verifyOptions } from '../design-data';
 import { setColumnEndZones, setRcOption, setTorsionMode } from '../rc-sheets.svelte';
-import { coversUnderMinimum, concreteFc, defaultDesignData, largestBar, migrateDesignData, migrateStoredDesignData, minimumCover, withCirsocCovers } from '../../model/design-data';
+import { coversUnderMinimum, concreteFc, defaultDesignData, largestBar, migrateDesignData, migrateStoredDesignData, minimumCover, preferredBar, withCirsocCovers } from '../../model/design-data';
 import { buildMemberContext, DEFAULT_REBAR_FY, DEFAULT_STIRRUP_DIA } from '../../engine/design/member-context';
 import { buildRegionOptions } from '../../engine/design/candidate-enumerate-beam';
 import { syntheticBeamContext } from '../../engine/design/__tests__/helpers';
@@ -50,7 +50,7 @@ describe('the project design data', () => {
   });
 
   it('the steel and the covers reach the member contexts, a column\'s and a beam\'s apart', () => {
-    patchDesignData({ rebarFy: 500, stirrupDiaMm: 10, covers: { ...defaultDesignData().covers, beam: 0.03, column: 0.04 } });
+    patchDesignData({ rebarFy: 500, stirrupDiametersMm: [10, 12], covers: { ...defaultDesignData().covers, beam: 0.03, column: 0.04 } });
     const o = designContextOptions();
     const beam = buildMemberContext(2, model, o)!, col = buildMemberContext(1, model, o)!;
     expect(beam.material).toMatchObject({ fy: 500, cover: 0.03, stirrupDia: 10, fc: 30 });
@@ -73,10 +73,21 @@ describe('the project design data', () => {
 
   it('the slab, wall and footing families take the steel, the slab cover and the wall bar, and an f\'c only from concretes', () => {
     modelStore.addMaterial({ name: 'H-25', e: 23500, nu: 0.2, rho: 25, fy: 25, fc: 25 });
-    patchDesignData({ rebarFy: 500, wallBarDiaMm: 10, covers: { ...defaultDesignData().covers, slab: 0.02 } });
+    patchDesignData({ rebarFy: 500, wallDiametersMm: [8, 10], covers: { ...defaultDesignData().covers, slab: 0.02 } });
     // The model's default A36 (fy 250) is not a concrete and does not set f'c.
     expect(resolveConcreteProperties()).toEqual({ fc: 25, fy: 500, cover: 0.02 });
     expect(wallBarDiameterMm()).toBe(10);
+  });
+
+  it('the stirrup and the wall bar a design starts from are read from their lists, never stored: Ø8 and Ø12 where allowed, else the nearest above, else the largest', () => {
+    expect(preferredBar([6, 8, 10, 12], 8)).toBe(8);
+    expect(preferredBar([6, 10, 12], 8)).toBe(10);
+    expect(preferredBar([6], 8)).toBe(6);
+    expect(defaultDesignData()).toMatchObject({ stirrupDiaMm: 8, wallDiametersMm: [8, 10, 12, 16], wallBarDiaMm: 12 });
+    patchDesignData({ stirrupDiametersMm: [10, 12], stirrupDiaMm: 6 } as never);
+    expect(designData().stirrupDiaMm).toBe(10);
+    expect(storedDesignData()).not.toHaveProperty('stirrupDiaMm');
+    expect(migrateDesignData({ wallBarDiaMm: 20, wallDiametersMm: [8, 25, 10] })).toMatchObject({ wallDiametersMm: [8, 10], wallBarDiaMm: 10 });
   });
 
   it('a new footing takes the footing cover', () => {
@@ -97,14 +108,14 @@ describe('the project design data', () => {
   });
 
   it('is saved with the project and carried by an office template', () => {
-    patchDesignData({ rebarFy: 500, wallBarDiaMm: 10 });
+    patchDesignData({ rebarFy: 500, wallDiametersMm: [8, 10] });
     const snap = modelStore.snapshot();
     expect(snap.designData?.rebarFy).toBe(500);
     const tpl = templateFromProject('Oficina');
     modelStore.clear();
     expect(designData().rebarFy).toBe(420);
     applyTemplate(tpl);
-    expect(designData()).toMatchObject({ rebarFy: 500, wallBarDiaMm: 10 });
+    expect(designData()).toMatchObject({ rebarFy: 500, wallDiametersMm: [8, 10], wallBarDiaMm: 10 });
     setDesignData(null);
     expect(designData()).toEqual(defaultDesignData());
   });

@@ -173,6 +173,21 @@ describe('a physical plate', () => {
     expect(plateStatus(id)).toBe('current');
   });
 
+  it('without meshing, solves a plate on its out-of-date mesh and names it, and stops only for a plate with none', () => {
+    const { id } = build();
+    meshBeforeAnalysis.value = true;
+    preparePlatesForAnalysis();
+    const n0 = modelStore.addNode(1, 0, 0), n1 = modelStore.addNode(1, 4, 0);
+    modelStore.addElement(n0, n1);
+    expect(plateStatus(id)).toBe('stale');
+    meshBeforeAnalysis.value = false;
+    const shells = modelStore.quads.size;
+    expect(preparePlatesForAnalysis()).toEqual({ ok: true, meshed: 0, cells: 0, stale: ['L1'] });
+    expect(modelStore.quads.size).toBe(shells);
+    expect(plateStatus(id)).toBe('stale');
+    meshBeforeAnalysis.value = true;
+  });
+
   it('never remeshes before an analysis a plate whose old mesh carries loads put on its elements', () => {
     const { id, corners } = build();
     mesh(id, 1);

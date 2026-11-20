@@ -120,7 +120,7 @@ export function wallRow(d: WallDemand, c: WallContext, adopted: WallAdopted | un
     {
       title: 'rcSheets.g.wallFlexure',
       steps: [
-        { label: 'rcSheets.ts500.s.method', formula: 'εcu = 3 ‰; 0.85·fcd over k1·c; σs = Es·εs ≤ fyd (7.1)', value: '' },
+        { label: 'rcSheets.ts500.s.method', formula: 'εcu = 3 ‰; 0.85·fcd (a = k1·c); σs = Es·εs ≤ fyd (7.1)', value: '' },
         { label: 'rcSheets.s.wallBoundary', formula: 'As (Nd, Md)', value: boundaryLabel },
         { label: 'rcSheets.s.wallPM', formula: 'Mr(Nd) ≥ Md', value: `${fmt(Math.max(0, ...ev.pm), 3)} (${d.combos[ipm]?.combo ?? ''})`, ok: ev.pm.every(ok1) },
         { label: 'rcSheets.s.wallOut', formula: 'Mv, Mh ≤ Mr (b = 1 m)', value: `${fmt(Math.max(0, ...ev.out), 3)}`, ok: ev.out.every(ok1) },

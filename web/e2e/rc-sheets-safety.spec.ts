@@ -38,7 +38,6 @@ test('@smoke the sheets say what they need before they design, and what they lea
   });
   await solveModel(page);
   await expect(page.getByTestId('rc-design')).toBeVisible();
-  await expect(page.getByTestId('rc-sheets-panel')).toContainText('No se dimensiona nada hasta que lo pidas.');
   await expect(page.getByTestId('rc-open-beam')).toHaveCount(0);
   await design(page);
 
@@ -49,8 +48,7 @@ test('@smoke the sheets say what they need before they design, and what they lea
   const rows = left.locator('[data-testid="rc-left-out-row"][data-reason="layout"]');
   expect(await rows.count()).toBeGreaterThan(0);
   for (const text of await rows.allTextContents()) expect(text).toMatch(/^.+ \(.+\): sus barras no forman una columna continua que las planillas puedan armar/);
-  await expect(page.getByTestId('rc-open-column')).toBeDisabled();
-  await expect(page.getByTestId('rc-limits-note')).toContainText('pórtico indesplazable');
+  await expect(page.getByTestId('rc-open-vertical')).toBeDisabled();
 
   await page.getByTestId('rc-open-beam').click();
   await expect(page.getByTestId('rc-sheets-workspace').getByTestId('rc-left-out')).toBeVisible();
@@ -173,6 +171,8 @@ test('@smoke every file that leaves the sheets is recorded, and says when the mo
   await expect(page.getByTestId('rc-stale')).toBeVisible();
   await expect(page.getByTestId('rc-exports-outdated')).toHaveText(/^2 archivos exportados de estas planillas salieron de un estado anterior del modelo/);
   await expect(page.getByTestId('rc-export-workbook')).toBeDisabled();
+  await page.getByTestId('rc-exports-outdated-dismiss').click();
+  await expect(page.getByTestId('rc-exports-outdated')).toHaveCount(0);
   await page.getByTestId('rc-open-beam').click();
   await ws.getByTestId('rc-plans-export').click();
   await expect(dialog.getByTestId('rc-plans-stale')).toBeVisible();

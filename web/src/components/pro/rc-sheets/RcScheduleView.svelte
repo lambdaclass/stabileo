@@ -4,13 +4,15 @@
   import { decimalFor, makeFmt } from '../../../lib/rc-sheets/format';
   import { MARK_SCOPES, type MarkScope } from '../../../lib/rc-sheets/types';
   import { kindKey } from '../../../lib/rc-sheets/schedule/exports';
-  import { SCHEDULE_VIEWS, scheduleView, type BarUse, type ElementRef, type ScheduleView, type ViewGroup, type ViewRow } from '../../../lib/rc-sheets/schedule/views';
+  import { localizeCriterion } from '../../../lib/rc-sheets/criteria';
+  import { SCHEDULE_VIEWS, groupTitle, scheduleView, type BarUse, type ElementRef, type ScheduleView, type ViewGroup, type ViewRow } from '../../../lib/rc-sheets/schedule/views';
   import { downloadSchedule, scheduleSettings, scheduleViewChoice, setScheduleSettings, setScheduleViewChoice, sheetsSchedule } from '../../../lib/store/rc-sheets-schedule';
   import type { SheetRows } from '../../../lib/store/rc-sheets.svelte';
   import { modelStore } from '../../../lib/store';
   import RcBarSketch from './RcBarSketch.svelte';
   import RcExportLog from './RcExportLog.svelte';
   import { sheetsStale } from '../../../lib/store/rc-sheets-view.svelte';
+  import { storeyLabel, storeyOf } from '../../../lib/rc-sheets/storeys';
 
   let { rows, onopen = () => {} }: { rows: SheetRows; onopen?: (el: ElementRef, marks: string[]) => void } = $props();
   const COMPACT = 3;
@@ -47,10 +49,10 @@
     const x = Number((e.currentTarget as HTMLInputElement).value);
     if (Number.isFinite(x)) setScheduleSettings({ waste: x / 100 });
   }
-  const groupTitle = (g: ViewGroup) => (g.family && view === 'family' ? t(`rcSheets.family.${g.family}`) : g.title || '—');
+  const titleOf = (g: ViewGroup) => groupTitle(g, t, view);
   const openUse = (u: BarUse) => onopen(u, u.elevation);
   const rowId = (g: ViewGroup, r: ViewRow) => `${g.id}#${r.key}#${r.marks.join()}`;
-  const levelOf = (u: ElementRef) => (view !== 'level' && u.level && u.level !== u.name ? u.level : '');
+  const levelOf = (u: ElementRef) => (view !== 'level' && u.level && u.level !== u.name ? storeyLabel(storeyOf(u.family, u.level, rows.levels ?? []), t) : '');
 </script>
 
 <section class="rcs-bbs" style="--bbs-bar: {Math.max(0, barH - 8)}px" data-testid="rc-schedule-view" data-view={view}>
@@ -106,7 +108,7 @@
                     <button type="button" class="more" title={t(unfolded.has(g.id) ? 'rcSheets.bbs.showLess' : 'rcSheets.bbs.showAll')} onclick={() => showAll(g.id)}>{unfolded.has(g.id) ? '−' : `+${g.elements.length - COMPACT}`}</button>
                   {/if}
                 {:else}
-                  <button type="button" class="gt" onclick={() => toggle(g.id)}>{groupTitle(g)}</button>
+                  <button type="button" class="gt" onclick={() => toggle(g.id)}>{titleOf(g)}</button>
                 {/if}
                 <small class="dim">({g.rows.length})</small>
                 {#if g.stockBars}<small class="dim"> · {g.stockBars} × {t('rcSheets.bbs.stockBars')}</small>{/if}
@@ -177,7 +179,7 @@
         </tbody>
       </table>
     </div>
-    <p class="dim">{tp('rcSheets.bbs.legsNote', { clause: s.clause })}</p>
+    <p class="dim">{tp('rcSheets.bbs.legsNote', { clause: localizeCriterion(s.clause, t) })}</p>
     {#if s.confirm}<p class="dim warn" data-testid="rc-bbs-confirm">{t(s.confirm)}</p>{/if}
     <RcExportLog />
   {/if}

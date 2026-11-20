@@ -54,15 +54,16 @@ export function shapeWeight(s: BarShape, count = 1): number {
 /**
  * A straight bar from x0 to x1 at height y, with a 90° hook at either end turned `toward`
  * (+1 up, −1 down; one for both ends or each its own); the hook's leg runs the bend radius and its
- * extension past the corner.
+ * extension past the corner, one for both ends or each its own.
  */
-export function hookedStraight(x0: number, x1: number, y: number, dia: number, mandrel: number, hooks: [boolean, boolean], toward: 1 | -1 | [1 | -1, 1 | -1], extension: number): BarShape {
-  const leg = (mandrel + dia / 1000) / 2 + extension;
+export function hookedStraight(x0: number, x1: number, y: number, dia: number, mandrel: number, hooks: [boolean, boolean], toward: 1 | -1 | [1 | -1, 1 | -1], extension: number | [number, number]): BarShape {
+  const [e0, e1] = Array.isArray(extension) ? extension : [extension, extension];
+  const r = (mandrel + dia / 1000) / 2;
   const [t0, t1] = Array.isArray(toward) ? toward : [toward, toward];
   const pts: Array<[number, number]> = [];
-  if (hooks[0]) pts.push([x0, y + t0 * leg]);
+  if (hooks[0]) pts.push([x0, y + t0 * (r + e0)]);
   pts.push([x0, y], [x1, y]);
-  if (hooks[1]) pts.push([x1, y + t1 * leg]);
+  if (hooks[1]) pts.push([x1, y + t1 * (r + e1)]);
   return { pts, mandrel, dia };
 }
 

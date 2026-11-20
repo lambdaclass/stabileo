@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { FOUNDATIONS } from '../../storeys';
 import { closedHoop, hookedStraight, shapeKey, shapeWeight, type BarShape } from '../../shape';
 import { scheduleOf } from '../schedule';
 import type { ScheduleElement } from '../pieces';
@@ -73,6 +74,13 @@ describe('schedule views', () => {
     expect(n2.rows.find((r) => r.key === shapeKey(bar(5)))!.count).toBe(2 + 4 + 4);
     expect(n2.rows.find((r) => r.key === shapeKey(hoop()))!.count).toBe(30 + 40);
     expect(v.groups[1]!.rows.find((r) => r.key === shapeKey(bar(5)))!.count).toBe(3);
+  });
+
+  it('by level, where the levels are known: by storey from the lowest up, a beam in the storey under its floor beside the columns it rests on', () => {
+    const v = scheduleView({ ...s, levels: ['N2', 'N10'] }, 'level');
+    expect(v.groups.map((g) => g.storey)).toEqual([FOUNDATIONS, 'N2', 'N10', '']);
+    expect(v.groups[0]!.rows.find((r) => r.key === shapeKey(bar(5)))!.count).toBe(2);
+    expect(v.groups[1]!.rows.find((r) => r.key === shapeKey(bar(5)))!.count).toBe(4 + 4 + 3);
   });
 
   it('by diameter: one section per Ø with the 12 m bars it is cut from', () => {

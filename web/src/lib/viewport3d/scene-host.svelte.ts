@@ -9,6 +9,7 @@ import type { ViewCategory } from '../store/view-categories.svelte';
 interface Host { scene: THREE.Scene; redraw: () => void }
 
 let host = $state<Host | null>(null);
+let solo = $state(false);
 const toned = new Map<THREE.Object3D, ViewCategory>();
 
 export const sceneHost = {
@@ -18,4 +19,7 @@ export const sceneHost = {
   tone(obj: THREE.Object3D, category: ViewCategory) { toned.set(obj, category); host?.redraw(); },
   release(obj: THREE.Object3D) { toned.delete(obj); },
   get toned(): ReadonlyMap<THREE.Object3D, ViewCategory> { return toned; },
+  /** While on, the viewport draws and picks only the objects marked `userData.solo`; the model and its overlays keep their own state. */
+  get solo() { return solo; },
+  setSolo(on: boolean) { if (solo !== on) { solo = on; host?.redraw(); } },
 };

@@ -16,6 +16,8 @@ import { barArea } from './bars';
 import { tieDiaFor, tieSpacingLimit } from './column-row';
 import type { WallRow } from './wall-row';
 import { allowedTie, tieDiametersOf, type SheetCode } from './types';
+import { inPierColumn, type WallPier } from './pier-row';
+import type { P } from './piers';
 
 export interface WallDetailNote { key: string; clause: string; params?: Record<string, string | number> }
 
@@ -28,6 +30,8 @@ export interface WallDetail {
   /** The zone from each end to past its last boundary bar, its ratio, and its ties when it needs them. */
   boundary: { length: number; rho: number; ties: { dia: number; spacing: number; clause: string; legs?: number } | null; special?: boolean } | null;
   crossTies: { along: number; up: number; dia: number; clause: string } | null;
+  /** The columns of its pier inside it, in the same axes: their bars stand for the wall's there. */
+  columns: WallPier['columns'];
   notes: WallDetailNote[];
 }
 
@@ -36,6 +40,16 @@ const floorTo = (x: number, step: number) => Math.round(Math.max(step, Math.floo
 /** At most `limit`, on the grid of `step` where `step` fits under it, else on 25 mm: never above the limit. */
 const notAbove = (limit: number, step: number) => (step <= limit + 1e-9 ? floorTo(limit, step) : floorTo(limit, 0.025));
 
+export function columnSize(outline: readonly P[]): { b: number; h: number } {
+  const [p0, p1, p2] = outline as [P, P, P];
+  return { b: Math.hypot(p1.x - p0.x, p1.y - p0.y), h: Math.hypot(p2.x - p1.x, p2.y - p1.y) };
+}
+
+export const columnTag = (c: Pick<WallPier['columns'][number], 'name' | 'outline'>): string => {
+  const { b, h } = columnSize(c.outline);
+  return `${c.name} ${Math.round(b * 100)}×${Math.round(h * 100)}`;
+};
+
 export function wallDetail(row: WallRow, code: SheetCode): WallDetail {
   const fam = family(code);
   const a = row.adopted, L = row.length, t = row.thickness, cover = row.cover;
@@ -43,7 +57,8 @@ export function wallDetail(row: WallRow, code: SheetCode): WallDetail {
   const bars = wallVerticalBars(L, t, cover, a);
   const curtains = a.curtains === 2 ? 2 : 1;
   const nDistributed = curtains * Math.max(2, Math.floor(L / a.vertical.spacing) + 1);
-  const verticals = bars.map((b, i) => ({ x: b.x + L / 2, y: b.y + t / 2, dia: i < nDistributed ? a.vertical.diameter : a.boundary!.diameter, boundary: i >= nDistributed }));
+  const verticals = bars.map((b, i) => ({ x: b.x + L / 2, y: b.y + t / 2, dia: i < nDistributed ? a.vertical.diameter : a.boundary!.diameter, boundary: i >= nDistributed }))
+    .filter((v) => !inPierColumn(row.pier, v.x, v.y));
   const hy = curtains === 2 ? [cover + hd / 2, t - cover - hd / 2] : [t / 2];
   const notes: WallDetailNote[] = [];
 
@@ -102,7 +117,15 @@ export function wallDetail(row: WallRow, code: SheetCode): WallDetail {
   } else if (fam === 'aci' && curtains === 2) {
     notes.push({ key: 'rcSheets.wallFig.n.noTies', clause: '§11.7.4.1', params: { rho: (rhoV * 100).toFixed(2) } });
   }
-  return { length: L, thickness: t, cover, verticals, horizontals: { dia: a.horizontal.diameter, spacing: a.horizontal.spacing, y: hy }, ends, boundary, crossTies, notes };
+  const vl = row.vLaps?.find((x) => x.dia === a.vertical.diameter);
+  if (vl && row.stack?.above) {
+    const clause = fam === 'aci' ? (vl.tension ? (seis ? '§25.5.2, §18.10.2.3' : '§25.5.2') : '§25.5.5.1') : fam === 'ec2' ? '8.7.3' : '9.3';
+    notes.push({ key: 'rcSheets.wallFig.n.lapUp', clause, params: { lap: Math.round(vl.lap * 100) } });
+  }
+  const columns = row.pier?.columns ?? [];
+  if (row.pier) notes.push({ key: 'rcSheets.wallFig.n.pier', clause: '§22.4', params: { name: row.pier.name, ratio: row.pier.ratio.toFixed(2) } });
+  for (const c of columns) notes.push({ key: 'rcSheets.wallFig.n.pierColumn', clause: '', params: { name: columnTag(c), bars: c.label, tdia: c.tieDia, ts: Math.round(c.tieSpacing * 1000) / 10 } });
+  return { length: L, thickness: t, cover, verticals, horizontals: { dia: a.horizontal.diameter, spacing: a.horizontal.spacing, y: hy }, ends, boundary, crossTies, columns, notes };
 }
 
 /** Bars at a spacing up a height (or along a length), from half a spacing in; one kept in so many past `maxLines`. */
@@ -110,4 +133,10 @@ export function wallLevels(span: number, s: number, maxLines = Infinity): number
   const n = Math.max(1, Math.floor((span - s / 2) / s) + 1);
   const every = Number.isFinite(maxLines) ? Math.ceil(n / maxLines) : 1;
   return Array.from({ length: Math.ceil(n / every) }, (_, i) => s / 2 + i * every * s);
+}
+
+/** Which way a wall's vertical is cranked in to lap beside the bar above it, along and across the wall: toward the middle plane, or for a single curtain along it toward the wall's middle. */
+export function wallInward(v: { x: number; y: number }, r: Pick<WallRow, 'length' | 'thickness'>): [number, number] {
+  const across = v.y - r.thickness / 2;
+  return Math.abs(across) > 1e-4 ? [0, -Math.sign(across)] : [v.x < r.length / 2 ? 1 : -1, 0];
 }

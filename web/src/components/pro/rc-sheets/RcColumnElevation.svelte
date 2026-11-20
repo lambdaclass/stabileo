@@ -1,9 +1,10 @@
 <script lang="ts">
-  /** A column's storey in elevation: its bars, the lap of the bars from below, every tie where its code puts it, and the zones dimensioned (`rc-sheets/column-ties.ts`). */
+  /** A column's storey in elevation: its bars at the faces, the bars from below cranked in beside them over the lap, every tie where its code puts it, and the zones dimensioned (`rc-sheets/column-ties.ts`). */
   import { t, tp, i18n, tpn } from '../../../lib/i18n';
   import { decimalFor, makeFmt } from '../../../lib/rc-sheets/format';
   import { columnTieLayout, tieSegments, tiesIn } from '../../../lib/rc-sheets/column-ties';
   import type { ColumnRow } from '../../../lib/rc-sheets/column-row';
+  import { CRANK_SLOPE, lapOffset } from '../../../lib/rc-sheets/column-stack';
   import type { SheetCode } from '../../../lib/rc-sheets/types';
 
   let { row, code, endZones = false }: { row: ColumnRow; code: SheetCode; endZones?: boolean } = $props();
@@ -22,6 +23,10 @@
   const Y = (y: number) => PADT + (jt + layout.clear - y) * k;
   const inset = $derived((row.cover + layout.dia / 1000 + row.adopted.corner / 2000) * kx);
   const lapIn = 3;
+  const offCm = $derived(lapOffset(row.adopted.corner, row.adopted.corner) * 100);
+  const step = $derived(row.step && !row.step.dowels ? row.step.offset : 0);
+  const by = $derived(row.step?.dowels ? 0 : step * kx + lapIn);
+  const rise = $derived(row.step?.dowels ? 0 : ((step + offCm / 100 / Math.SQRT2) / CRANK_SLOPE) * k);
   const faceBars = $derived(Array.from({ length: row.adopted.nx }, (_, i) => x0 + inset + ((i + 1) * (w - 2 * inset)) / (row.adopted.nx + 1)));
   const width = $derived(x1 + STUB + 150);
   const kindKey = (kind: string) => `rcSheets.elev.${kind}`;
@@ -40,10 +45,14 @@
     {#if layout.lap}
       {@const lf = layout.lap.from}
       {@const lt = layout.lap.to}
+      {@const end = step > 0 ? 0 : lf}
       {#each [x0 + inset, x1 - inset] as bx, i (i)}
-        <line x1={bx} y1={Y(-jb)} x2={bx} y2={Y(lt)} class="bar below" data-testid="rc-elev-lap-bar" />
-        <line x1={bx + (i ? -lapIn : lapIn)} y1={Y(lf)} x2={bx + (i ? -lapIn : lapIn)} y2={Y(layout.clear + jt)} class="bar" />
+        {@const inward = i ? -1 : 1}
+        {@const low = bx + inward * (lapIn - by)}
+        <polyline points="{low},{Y(-jb)} {low},{Y(end) + rise} {bx + inward * lapIn},{Y(end)} {bx + inward * lapIn},{Y(lt)}" class="bar below" data-testid="rc-elev-lap-bar" />
+        <line x1={bx} y1={Y(lf)} x2={bx} y2={Y(layout.clear + jt)} class="bar" />
       {/each}
+      <text x={x0 + w / 2} y={Y(-jb / 2) + 3} class="lbl small-note">{row.step ? tp(row.step.dowels ? 'rcSheets.elev.dowels' : 'rcSheets.elev.crank', { off: fmt(row.step.offset * 100, 1) }) : tp('rcSheets.elev.lapCrank', { off: fmt(offCm, 1) })}</text>
       <line x1={x0 - 6} y1={Y(lf)} x2={x0 - 6} y2={Y(lt)} class="dimline" />
       <text x={x0 - 10} y={(Y(lf) + Y(lt)) / 2} class="dim lapdim" transform="rotate(-90 {x0 - 10} {(Y(lf) + Y(lt)) / 2})">{tp('rcSheets.elev.lapLength', { l: cm(lt - lf) })}</text>
     {:else}
@@ -88,15 +97,16 @@
   figcaption { font-size: 0.7rem; font-weight: 600; color: var(--st-text-2); }
   .conc { fill: var(--st-surface-3, rgba(128, 128, 128, 0.12)); stroke: var(--st-text-3); stroke-width: 1; }
   .beam { fill: rgba(128, 128, 128, 0.2); stroke: var(--st-text-3); stroke-width: 1; stroke-dasharray: 3 2; }
-  .bar { stroke: var(--st-text); stroke-width: 2.2; }
+  .bar { stroke: #8f9cf5; stroke-width: 2.2; }
   .bar.face { stroke-width: 1.4; stroke-dasharray: 5 3; opacity: 0.7; }
-  .bar.below { stroke: var(--st-text-2); }
+  .bar.below { stroke: var(--st-text-2); fill: none; }
   .tie { stroke: var(--st-accent, #4ecdc4); stroke-width: 1.3; }
   .zone { stroke: var(--st-text-3); stroke-width: 1; }
   .seg-end .zone, .seg-lap .zone, .seg-joint .zone { stroke: var(--st-accent, #4ecdc4); }
   .dimline { stroke: var(--st-text-3); stroke-width: 1; }
   .dim { font-size: 10px; fill: var(--st-text-3); text-anchor: middle; font-family: var(--st-mono); }
   .lbl { font-size: 10px; fill: var(--st-text-2); font-family: var(--st-mono); }
+  .lbl.small-note { font-size: 9px; text-anchor: middle; }
   .lbl.strong { fill: var(--st-text); font-weight: 600; }
   .rce-notes { margin: 0; padding-left: 14px; font-size: 0.66rem; color: var(--st-text-2); font-family: var(--st-mono); max-width: 46ch; }
   .dimnote { color: var(--st-text-3); }

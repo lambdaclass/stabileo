@@ -121,6 +121,7 @@
         <select value={row.adopted.inner?.dia ?? row.adopted.dx} aria-label={t('rcSheets.ed.dia')} onchange={(e) => columnPatch({ inner: { ...row.adopted.inner, nx: row.adopted.inner?.nx ?? 0, ny: row.adopted.inner?.ny ?? 0, dia: num(e) } })}>{#each LONG.filter((d) => d >= 12) as d (d)}<option value={d}>Ø{d}</option>{/each}</select>
         <input type="number" min="1" max="2" step="1" value={row.adopted.inner?.rows ?? 1} aria-label={t('rcSheets.ed.innerRows')} data-testid="rc-col-inner-rows" onchange={(e) => columnPatch({ inner: { nx: row.adopted.inner?.nx ?? 0, ny: row.adopted.inner?.ny ?? 0, dia: row.adopted.inner?.dia ?? row.adopted.dx, rows: Math.min(2, Math.max(1, num(e))) } })} />
       </label>
+      {#if !row.checks.spacingOk}<p class="warn" role="status" data-testid="rc-col-spacing-warn">{t('rcSheets.ed.colSpacingShort')}</p>{/if}
     </fieldset>
     <fieldset>
       <legend>{t('rcSheets.col.ties')}</legend>
@@ -204,5 +205,6 @@
   input, select { font-size: 0.72rem; background: var(--st-surface); color: var(--st-text); border: 1px solid var(--st-hair); border-radius: 4px; padding: 1px 3px; }
   .rce-actions { display: flex; align-items: center; gap: 8px; align-self: center; }
   .hint { font-size: 0.7rem; color: var(--st-text-3); }
+  .warn { margin: 0; max-width: 22em; font-size: 0.7rem; color: var(--st-danger); }
   .rcs-btn { font-size: 0.72rem; border: 1px solid var(--st-hair); background: var(--st-surface-2); color: var(--st-text); border-radius: 4px; padding: 3px 8px; cursor: pointer; }
 </style>

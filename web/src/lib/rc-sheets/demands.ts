@@ -4,14 +4,17 @@ import { woodArmer } from '../engine/wood-armer';
 import { effectiveFlange, type FlangeSide } from '../codes/cirsoc201/effective-flange';
 import { wallBaseResultants } from './wall-design';
 import type { AnalysisResults3D, ElementForces3D } from '../engine/types-3d';
-import type { BeamComboForces, BeamDemand, BeamEnd, SectionEnv } from './beam-row';
-import type { ColumnCase, ColumnDemand } from './column-row';
+import type { BeamComboForces, BeamDemand, BeamEnd, SectionEnv, SupportPost } from './beam-row';
+import type { ColumnCase, ColumnDemand, ColumnSway } from './column-row';
+import type { StoreyStability } from '../engine/design/sway';
 import type { SlabComboForces, SlabDemand, SlabFace } from './slab-row';
 import type { WallComboForces, WallDemand } from './wall-row';
 import type { PunchingDemand } from './punching-row';
 import type { SlabJointForce } from './slab-punching';
 import type { Signed } from './types';
 import type { LevelGeometry, PlanBeam, PlanColumn } from './slab-plan';
+import type { CutForces } from './piers';
+import { computeLocalAxes3D } from '../engine/local-axes-3d';
 
 type Pt = { id: number; x: number; y: number; z?: number };
 type El = { id: number; nodeI: number; nodeJ: number; sectionId: number; type?: string; rollAngle?: number };
@@ -29,6 +32,10 @@ export interface DemandSet {
   deadFactor?: number;
   /** The combination carries an earthquake case. */
   seismic?: boolean;
+  /** Its wind and earthquake cases at their factors, first order: what sways a storey. */
+  lateral?: AnalysisResults3D;
+  /** Where `result` was solved with P-Delta, the same combination first order. */
+  firstOrder?: AnalysisResults3D;
 }
 
 export interface DemandInput {
@@ -48,12 +55,16 @@ export interface DemandInput {
   levelZs?: readonly number[];
   /** Moments at the support faces and shear and torsion at d from them, instead of at the axes. */
   faces?: boolean;
+  /** A column element's storey as read for sway. */
+  storeyOf?: (elementId: number) => StoreyStability | undefined;
   /** Half the support's extent along the beam at an element's end, m. */
   faceOffset?: (elementId: number, end: 'i' | 'j') => number;
   /** The slab beside a beam element as flange sides; given only when beams are designed with the slab as a compression flange (Table 6.3.2.1). */
   flangeSides?: (elementId: number) => readonly FlangeSide[] | undefined;
   /** On how many sides a beam element has slab. */
   slabSides?: (elementId: number) => number;
+  /** A member's local axes as the solve builds them; absent, they are built from its nodes and roll. */
+  axesOf?: (elementId: number) => { ex: V3; ey: V3; ez: V3 } | null;
 }
 
 const zOf = (p: Pt | undefined) => p?.z ?? 0;
@@ -176,17 +187,57 @@ function flangeOf(m: DemandInput, span: Array<{ e: El; forward: boolean }>, bw: 
   return f && f.bf > bw + 1e-6 ? { bf: f.bf, hf: f.hf } : null;
 }
 
-function endOf(m: DemandInput, inc: Map<number, El[]>, mine: ReadonlySet<number>, node: number, half: number): BeamEnd {
+/** The nodes of vertical shells (walls), each with the walls through it: thickness, m, and horizontal direction in plan. */
+function wallNodes(m: DemandInput): Map<number, Array<{ t: number; u: [number, number] }>> {
+  const out = new Map<number, Array<{ t: number; u: [number, number] }>>();
+  for (const map of [m.shells.quads, m.shells.plates]) for (const sh of map?.values() ?? []) {
+    const p = sh.nodes.map((n) => m.nodes.get(n)).filter((q): q is Pt => !!q);
+    if (p.length < 3) continue;
+    const a = [p[1]!.x - p[0]!.x, p[1]!.y - p[0]!.y, zOf(p[1]) - zOf(p[0])], b = [p[2]!.x - p[0]!.x, p[2]!.y - p[0]!.y, zOf(p[2]) - zOf(p[0])];
+    const n = [a[1]! * b[2]! - a[2]! * b[1]!, a[2]! * b[0]! - a[0]! * b[2]!, a[0]! * b[1]! - a[1]! * b[0]!];
+    const ln = Math.hypot(n[0]!, n[1]!, n[2]!);
+    if (!(ln > 0) || Math.abs(n[2]!) / ln > 1 - VERTICAL) continue;
+    const lh = Math.hypot(n[0]!, n[1]!);
+    const wall = { t: sh.thickness, u: [-n[1]! / lh, n[0]! / lh] as [number, number] };
+    for (const nd of sh.nodes) out.set(nd, [...(out.get(nd) ?? []), wall]);
+  }
+  return out;
+}
+
+/** A wall the beam runs into across its plane (not along it) at the node: the beam rests on it as on a column. */
+function wallAcross(m: DemandInput, walls: ReadonlyMap<number, Array<{ t: number; u: [number, number] }>>, node: number, e: El): { t: number } | null {
+  const d = direction(m, e), lh = Math.hypot(d[0], d[1]) || 1;
+  const across = (walls.get(node) ?? []).filter((w) => Math.abs((d[0] * w.u[0] + d[1] * w.u[1]) / lh) < 0.5);
+  return across.length ? { t: Math.max(...across.map((w) => w.t)) } : null;
+}
+
+function endOf(m: DemandInput, inc: Map<number, El[]>, mine: ReadonlySet<number>, node: number, half: number, wall?: { t: number } | null): BeamEnd {
   const others = (inc.get(node) ?? []).filter((o) => !mine.has(o.id));
-  if (others.some((o) => isVertical(m, o))) return { kind: 'column', half };
-  if (m.supportNodes.has(node)) return { kind: 'support', half };
+  const posts = others.filter((o) => isVertical(m, o));
+  if (posts.length) {
+    const up = posts.some((o) => zOf(m.nodes.get(o.nodeI === node ? o.nodeJ : o.nodeI)) > zOf(m.nodes.get(node)) + 1e-6);
+    return { kind: 'column', half, ...(up ? {} : { corner: true }) };
+  }
   const beam = others.find((o) => o.type !== 'truss');
-  if (beam) return { kind: 'beam', half: (m.sections.get(beam.sectionId)?.b ?? 0) / 2 };
+  const crossing = beam ? (m.sections.get(beam.sectionId)?.b ?? 0) / 2 : 0;
+  if (m.supportNodes.has(node)) return { kind: 'support', half: Math.max(half, crossing) };
+  if (wall) return { kind: 'column', half: half > 0 ? half : wall.t / 2 };
+  if (beam) return { kind: 'beam', half: crossing };
   return { kind: 'free', half: 0 };
+}
+
+function postAt(m: DemandInput, inc: Map<number, El[]>, mine: ReadonlySet<number>, node: number, named: ReadonlyMap<number, string>): SupportPost | undefined {
+  const posts = (inc.get(node) ?? []).filter((o) => !mine.has(o.id) && isVertical(m, o));
+  const zn = zOf(m.nodes.get(node));
+  const post = posts.find((o) => zOf(m.nodes.get(o.nodeI === node ? o.nodeJ : o.nodeI)) < zn - 1e-6) ?? posts[0];
+  const sec = post ? m.sections.get(post.sectionId) : undefined;
+  return post && sec?.b && sec?.h ? { name: named.get(post.id) ?? '', b: sec.b, h: sec.h } : undefined;
 }
 
 export function beamDemands(m: DemandInput): BeamDemand[] {
   const inc = incidence(m);
+  const walls = wallNodes(m);
+  const named = new Map(m.groups.filter((g) => g.kind !== 'beam').flatMap((g) => g.elements.map((id) => [id, g.name] as const)));
   const out: BeamDemand[] = [];
   for (const g of m.groups) {
     if (g.kind !== 'beam') continue;
@@ -197,7 +248,7 @@ export function beamDemands(m: DemandInput): BeamDemand[] {
     run.forEach((r, i) => {
       spans[spans.length - 1]!.push(r);
       const end = r.forward ? r.e.nodeJ : r.e.nodeI;
-      const support = m.supportNodes.has(end) || (inc.get(end) ?? []).some((o) => !mine.has(o.id) && isVertical(m, o));
+      const support = m.supportNodes.has(end) || (inc.get(end) ?? []).some((o) => !mine.has(o.id) && isVertical(m, o)) || !!wallAcross(m, walls, end, r.e);
       if (support && i < run.length - 1) spans.push([]);
     });
     spans.forEach((span, k) => {
@@ -215,8 +266,8 @@ export function beamDemands(m: DemandInput): BeamDemand[] {
       const x0 = faceI, x1 = L - faceJ;
       const dv = 0.9 * (turned ? sec.b : sec.h);
       const startNode = span[0]!.forward ? first.nodeI : first.nodeJ, endNode = lastEl.forward ? lastEl.e.nodeJ : lastEl.e.nodeI;
-      const endS = endOf(m, inc, mine, startNode, m.faceOffset?.(first.id, span[0]!.forward ? 'i' : 'j') ?? 0);
-      const endE = endOf(m, inc, mine, endNode, m.faceOffset?.(lastEl.e.id, lastEl.forward ? 'j' : 'i') ?? 0);
+      const endS = endOf(m, inc, mine, startNode, m.faceOffset?.(first.id, span[0]!.forward ? 'i' : 'j') ?? 0, wallAcross(m, walls, startNode, first));
+      const endE = endOf(m, inc, mine, endNode, m.faceOffset?.(lastEl.e.id, lastEl.forward ? 'j' : 'i') ?? 0, wallAcross(m, walls, endNode, lastEl.e));
       const v0 = !m.faces ? 0 : endS.kind === 'beam' ? x0 : Math.min(x0 + dv, L / 2), v1 = !m.faces ? L : endE.kind === 'beam' ? x1 : Math.max(x1 - dv, L / 2);
       let xStar = (x0 + x1) / 2, best = 0;
       stations.forEach((list) => { for (const { x, s } of list) if (x >= x0 - 1e-9 && x <= x1 + 1e-9 && s[flex] > best) { best = s[flex]; xStar = x; } });
@@ -241,11 +292,12 @@ export function beamDemands(m: DemandInput): BeamDemand[] {
         const s0 = at(x0), sm = at(xStar), s1 = at(x1);
         const extra = m.faces ? [{ x: v0, s: at(v0) }, { x: v1, s: at(v1) }] : [];
         take(start, s0[flex], -s0.n, set.name); take(mid, sm[flex], -sm.n, set.name); take(end, s1[flex], -s1.n, set.name);
-        let mPos = 0, mNeg = 0, v = 0, nv = 0, t = 0;
+        let mPos = 0, mNeg = 0, xPos = xStar, xNeg = x0, v = 0, nv = 0, t = 0;
         for (const { x, s } of [...list, ...extra]) {
           const mm = s[flex];
           if (x >= x0 - 1e-9 && x <= x1 + 1e-9) {
-            mPos = Math.max(mPos, mm); mNeg = Math.max(mNeg, -mm);
+            if (mm > mPos) { mPos = mm; xPos = x; }
+            if (-mm > mNeg) { mNeg = -mm; xNeg = x; }
             if (-mm > negAny.value) { negAny = { value: -mm, source: { combo: set.name, x } }; nNegAny = -s.n; }
           }
           if (x < v0 - 1e-9 || x > v1 + 1e-9) continue;
@@ -254,7 +306,7 @@ export function beamDemands(m: DemandInput): BeamDemand[] {
           t = Math.max(t, Math.abs(s.torsion));
           if (Math.abs(s.torsion) > tu.value) tu = { value: Math.abs(s.torsion), source: { combo: set.name, x } };
         }
-        combos.push({ combo: set.name, ...(set.seismic ? { seismic: true } : {}), mStart: s0[flex], mSpan: sm[flex], mEnd: s1[flex], mPos, mNeg, nStart: -s0.n, nSpan: -sm.n, nEnd: -s1.n, v, nV: nv, t });
+        combos.push({ combo: set.name, ...(set.seismic ? { seismic: true } : {}), mStart: s0[flex], mSpan: sm[flex], mEnd: s1[flex], mPos, mNeg, xPos, xNeg, nStart: -s0.n, nSpan: -sm.n, nEnd: -s1.n, v, nV: nv, t });
       });
       out.push({
         key: `beam:${g.id}:${k}`, name: spans.length > 1 ? `${g.name}-${k + 1}` : g.name, level: g.level,
@@ -264,6 +316,7 @@ export function beamDemands(m: DemandInput): BeamDemand[] {
         ...(m.faceOffset ? { supportHalf: { start: m.faceOffset(first.id, span[0]!.forward ? 'i' : 'j'), end: m.faceOffset(lastEl.e.id, lastEl.forward ? 'j' : 'i') } } : {}),
         line: { group: g.id, index: k, spans: spans.length, startNode: span[0]!.forward ? first.nodeI : first.nodeJ, endNode: lastEl.forward ? lastEl.e.nodeJ : lastEl.e.nodeI, lineName: g.name },
         ends: { start: endS, end: endE },
+        ...((ps, pe) => (ps || pe ? { posts: { ...(ps ? { start: ps } : {}), ...(pe ? { end: pe } : {}) } } : {}))(postAt(m, inc, mine, startNode, named), postAt(m, inc, mine, endNode, named)),
         ...(m.slabSides ? { perimeter: span.some(({ e }) => m.slabSides!(e.id) < 2) } : {}),
         env,
         ...((fl) => (fl ? { flange: fl } : {}))(m.flangeSides && !turned ? flangeOf(m, span, sec.b, x1 - x0) : null),
@@ -282,6 +335,25 @@ function slabNodes(m: DemandInput): Set<number> {
     if (Math.max(...zs) - Math.min(...zs) < 1e-3) for (const n of sh.nodes) out.add(n);
   }
   return out;
+}
+
+function axesOf(m: DemandInput, e: El): { ex: V3; ey: V3; ez: V3 } | null {
+  const own = m.axesOf?.(e.id);
+  if (own) return own;
+  const a = m.nodes.get(e.nodeI), b = m.nodes.get(e.nodeJ);
+  if (!a || !b) return null;
+  try { return computeLocalAxes3D({ id: a.id, x: a.x, y: a.y, z: zOf(a) }, { id: b.id, x: b.x, y: b.y, z: zOf(b) }, undefined, e.rollAngle); } catch { return null; }
+}
+
+/**
+ * What the storey below puts on a member at a cut, global axes: the force on the part above (N up
+ * is compression) and its moment about the member's axis there. A station's forces act on the
+ * part beyond it along the member's axis, so a member read downward gives them turned round.
+ */
+function cutOf(f: StationForces, ax: { ex: V3; ey: V3; ez: V3 }, s: 1 | -1): CutForces {
+  const F = [0, 1, 2].map((k) => s * (-f.n * ax.ex[k]! + f.vy * ax.ey[k]! + f.vz * ax.ez[k]!));
+  const H = [0, 1].map((k) => s * (f.torsion * ax.ex[k]! + f.my * ax.ey[k]! + f.mz * ax.ez[k]!));
+  return { n: F[2]!, mx: H[0]!, my: H[1]!, vx: F[0]!, vy: F[1]! };
 }
 
 export function columnDemands(m: DemandInput): ColumnDemand[] {
@@ -315,9 +387,18 @@ export function columnDemands(m: DemandInput): ColumnDemand[] {
       const deadPu = deadBy.reduce((s, by) => s - (at(by.get(bottom.e.id), bottom.forward, 'bottom')?.n ?? 0), 0);
       const cases: ColumnCase[] = [];
       const missing: string[] = [];
+      const endMoments = (r: AnalysisResults3D | undefined) => {
+        if (!r) return undefined;
+        const by = new Map(r.elementForces.map((f) => [f.elementId, f]));
+        const lb = at(by.get(bottom.e.id), bottom.forward, 'bottom'), lt = at(by.get(top.e.id), top.forward, 'top');
+        return lb && lt ? { mxTop: lt.my, mxBot: lb.my, myTop: lt.mz, myBot: lb.mz } : undefined;
+      };
+      const axes = axesOf(m, bottom.e);
+      const pBot = m.nodes.get(nBot);
       for (const set of m.sets) {
         const by = forcesOf(set);
         const b = at(by.get(bottom.e.id), bottom.forward, 'bottom'), t = at(by.get(top.e.id), top.forward, 'top');
+        const lateral = endMoments(set.lateral), first = set.result.secondOrder ? endMoments(set.firstOrder) : undefined;
         if (!b || !t || st.some(({ e }) => !by.has(e.id))) { missing.push(set.name); continue; }
         let vx = 0, vy = 0, tu = 0;
         const stations = runStations(m, st, set);
@@ -330,12 +411,21 @@ export function columnDemands(m: DemandInput): ColumnDemand[] {
           combo: set.name, pu: Math.max(-b.n, -t.n), puMin: Math.min(-b.n, -t.n),
           ...(m.dead?.length && set.deadFactor !== undefined ? { puD: Math.max(0, set.deadFactor * deadPu) } : {}),
           mxTop: t.my, mxBot: b.my, myTop: t.mz, myBot: b.mz, vx, vy, tu,
+          ...(axes ? { base: cutOf(b, axes, bottom.forward ? 1 : -1) } : {}),
           ...(inner.length ? { inner } : {}),
+          ...(lateral ? { sway: lateral } : {}), ...(first ? { first } : {}),
         });
       }
+      const storey = m.storeyOf?.(bottom.e.id);
+      const sway: ColumnSway | undefined = storey ? {
+        Q: storey.Q, ...(storey.combo ? { combo: storey.combo } : {}), ...(m.sets.some((x) => x.result.secondOrder) ? { secondOrder: true } : {}),
+        byCombo: Object.fromEntries([...storey.byCombo].map(([name, r]) => [name, { Q: r.Q, sumPu: r.sumPu, sumPc: r.sumPc }])),
+      } : undefined;
       out.push({
         key: `column:${g.id}:${k}`, name: g.name, level: m.levelAt ? m.levelAt(zOf(m.nodes.get(nBot))) : g.level,
         b: sec.b, h: sec.h, length: L, lu, psiTop, psiBot, cases, nodes: { bottom: nBot, top: nTop }, joints: { bottom: deepest(nBot), top: deepest(nTop) },
+        ...(axes && pBot ? { plan: { x: pBot.x, y: pBot.y, z: zOf(pBot), ey: [axes.ey[0], axes.ey[1]] as [number, number], ez: [axes.ez[0], axes.ez[1]] as [number, number] } } : {}),
+        ...(sway ? { sway } : {}),
         ...(missing.length ? { missing } : {}),
       });
     });
@@ -487,7 +577,7 @@ export function slabDemands(m: DemandInput, thickness: (g: DemandGroup) => numbe
     const fromFace = (c: { x: number; y: number }, axis: 'x' | 'y') =>
       axis === 'x' ? Math.min(c.x - ext.x0 - faces.x0, ext.x1 - faces.x1 - c.x) : Math.min(c.y - ext.y0 - faces.y0, ext.y1 - faces.y1 - c.y);
     const combos: SlabComboForces[] = [];
-    const field = new Map<string, { x: number; y: number; topX: number; topY: number }>();
+    const field = new Map<string, NonNullable<SlabDemand['topField']>[number]>();
     for (const set of m.sets) {
       const c: SlabComboForces = { combo: set.name, bottomX: 0, bottomY: 0, topX: 0, topY: 0, qx: 0, qy: 0 };
       const shears: Array<{ key: string; q: readonly number[] }> = [];
@@ -503,7 +593,7 @@ export function slabDemands(m: DemandInput, thickness: (g: DemandGroup) => numbe
         }
         if (wa.topX > 1e-6 || wa.topY > 1e-6) {
           const ct = centre.get(key);
-          const fe = field.get(key) ?? (ct ? { x: ct.x, y: ct.y, topX: 0, topY: 0 } : undefined);
+          const fe = field.get(key) ?? (ct ? { x: ct.x, y: ct.y, topX: 0, topY: 0, box: boxOf.get(key)! } : undefined);
           if (fe) { fe.topX = Math.max(fe.topX, wa.topX); fe.topY = Math.max(fe.topY, wa.topY); field.set(key, fe); }
         }
         const sh = row.global.shear;
@@ -547,7 +637,7 @@ export function levelGeometry(m: DemandInput, level: string, z: number): LevelGe
     if (isVertical(m, e)) {
       const top = at(a) ? a : at(b) ? b : undefined;
       if (top && !columns.some((k) => Math.hypot(k.x - top.x, k.y - top.y) < 0.05)) columns.push({ x: top.x, y: top.y, b: sec?.b ?? 0.3, h: sec?.h ?? 0.3 });
-    } else if (at(a) && at(b)) beams.push({ x1: a!.x, y1: a!.y, x2: b!.x, y2: b!.y, b: sec?.b ?? 0.2, kind: 'beam' });
+    } else if (at(a) && at(b)) beams.push({ x1: a!.x, y1: a!.y, x2: b!.x, y2: b!.y, b: sec?.b ?? 0.2, ...(sec?.h ? { h: sec.h } : {}), kind: 'beam' });
   }
   const held = [...m.supportNodes].map((n) => m.nodes.get(n)).filter((p): p is Pt => at(p));
   const inLine = new Set<Pt>();
@@ -626,11 +716,12 @@ export function wallDemands(m: DemandInput): WallDemand[] {
       if (!(length > 0) || !(thickness > 0)) continue;
       const keys = new Set(inside.map((x) => x.key));
       const baseNodes = [...new Set(base.flatMap((x) => nodesOf(x.kind, x.id)))].filter((nd) => Math.abs(zOf(m.nodes.get(nd)) - lo) < 1e-3);
-      const held = baseNodes.filter((nd) => m.supportNodes.has(nd) || framed.has(nd) || (shellsAt.get(nd) ?? []).some((x) => !own.has(x.key) && (x.flat || x.minZ < lo - 1e-3)));
+      const held = baseNodes.filter((nd) => m.supportNodes.has(nd) || framed.has(nd) || (shellsAt.get(nd) ?? []).some((x) => x.minZ < lo - 1e-3 || (!own.has(x.key) && x.flat)));
       const baseBy = new Map(base.map((x) => [x.key, x]));
       const combos: WallComboForces[] = [];
       for (const set of m.sets) {
         let muV = 0, muH = 0;
+        const g: CutForces = { n: 0, mx: 0, my: 0, vx: 0, vy: 0 };
         const strips: Parameters<typeof wallBaseResultants>[0][number][] = [];
         for (const row of shellRowsIn(set, m.shells, keys)) {
           const key = `${row.kind === 'quad' ? 'q' : 'p'}${row.id}`;
@@ -640,14 +731,21 @@ export function wallDemands(m: DemandInput): WallDemand[] {
           const b = baseBy.get(key);
           if (!b) continue;
           const bu = b.pts.map(uOf);
-          strips.push({ u: bu.reduce((s, x) => s + x, 0) / bu.length, width: Math.max(...bu) - Math.min(...bu), thickness: row.thickness, sigma: tensorAlong(row.global.stress, v, v), tau: tensorAlong(row.global.stress, u, v) });
+          const width = Math.max(...bu) - Math.min(...bu);
+          const dz = b.pts.reduce((s, p) => s + zOf(p), 0) / b.pts.length - lo;
+          strips.push({ u: bu.reduce((s, x) => s + x, 0) / bu.length, width, thickness: row.thickness, sigma: tensorAlong(row.global.stress, v, v), tau: tensorAlong(row.global.stress, u, v), dz });
+          const A = row.thickness * width, x = b.pts.reduce((s, p) => s + p.x, 0) / b.pts.length, y = b.pts.reduce((s, p) => s + p.y, 0) / b.pts.length;
+          const f = -tensorAlong(row.global.stress, v, v) * A;
+          const vx = -tensorAlong(row.global.stress, [1, 0, 0], v) * A, vy = -tensorAlong(row.global.stress, [0, 1, 0], v) * A;
+          g.n += f; g.mx += f * y - vy * dz; g.my += -f * x + vx * dz;
+          g.vx += vx; g.vy += vy;
         }
         const { pu, mu, vu } = wallBaseResultants(strips, centre);
-        combos.push({ combo: set.name, pu, mu: Math.abs(mu), vu: Math.abs(vu), muV, muH });
+        combos.push({ combo: set.name, pu, mu: Math.abs(mu), vu: Math.abs(vu), muV, muH, global: g });
       }
       out.push({
         key: `wall:${g.id}:${k}`, name: g.name, level: m.levelAt ? m.levelAt(lo) : g.level,
-        length, height: hi - lo, thickness, baseElements: base.length, plan: basePlan(base.flatMap((x) => x.pts), uOf), base: { nodes: baseNodes.length, held: held.length, unheld: baseNodes.filter((nd) => !held.includes(nd)) }, combos,
+        length, height: hi - lo, thickness, baseElements: base.length, plan: basePlan(base.flatMap((x) => x.pts), uOf), z: lo, base: { nodes: baseNodes.length, held: held.length, unheld: baseNodes.filter((nd) => !held.includes(nd)) }, baseNodes, combos,
       });
     }
   }

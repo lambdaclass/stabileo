@@ -1,7 +1,8 @@
 /**
  * A structural wall under chapter 18 (ACI 318-19, CIRSOC 201-2025), at the base of a storey:
  * two curtains where §18.10.2.2 asks, the distributed ratios of §18.10.2.1, special boundary
- * elements by the stress check of §18.10.6.3 with their length and hoops (§18.10.6.4), ties at
+ * elements by the stress check of §18.10.6.3, carried up from the storey below while the stress stays
+ * at 0.15·f'c or more, with their length and hoops (§18.10.6.4), ties at
  * the edges otherwise where the edge ratio exceeds 2.8/fy (§18.10.6.5(a)), and the horizontals
  * anchored round the edge bars where §18.10.6.5(b) asks.
  *
@@ -40,7 +41,7 @@ const floorTo = (x: number, step: number) => Math.round(Math.max(step, Math.floo
 
 export function wallSeismic(
   d: { length: number; height: number; thickness: number; combos: readonly WallComboForces[] },
-  ctx: { mat: { fc: number; fy: number }; cover: number } & TransverseList,
+  ctx: { mat: { fc: number; fy: number }; cover: number; /** The storey below has special boundary elements, which go on up while σ ≥ 0.15·f'c (§18.10.6.3). */ belowSpecial?: boolean } & TransverseList,
   a: WallAdopted, cs: ReadonlyArray<number | undefined>, fmt: Fmt,
 ): WallSeismic {
   const L = d.length, t = d.thickness, fc = ctx.mat.fc, fy = ctx.mat.fy;
@@ -53,7 +54,8 @@ export function wallSeismic(
   const ig = t * L ** 3 / 12;
   const sigmas = d.combos.map((k) => (Math.max(0, k.pu) / acv + Math.abs(k.mu) * (L / 2) / ig) / 1000);
   const sigma = Math.max(0, ...sigmas);
-  const special = sigma >= 0.2 * fc - 1e-9;
+  const carried = !!ctx.belowSpecial && sigma < 0.2 * fc - 1e-9 && sigma >= 0.15 * fc - 1e-9;
+  const special = sigma >= 0.2 * fc - 1e-9 || carried;
   const c = Math.max(0, ...cs.filter((x): x is number => x !== undefined && Number.isFinite(x)));
 
   const ends = a.boundary && a.boundary.count > 0 ? a.boundary.diameter : a.vertical.diameter;
@@ -71,7 +73,7 @@ export function wallSeismic(
     const [name, s] = terms.reduce((w, x) => (x[1] < w[1] ? x : w));
     if (s >= floor - 1e-9) return;
     underFloor = { byBars: name === barTerm };
-    checks.push(check(underFloor.byBars ? 'rcSheets.v.wallTieFloorBars' : 'rcSheets.v.wallTieFloor', false, { clause, demand: `s ≤ ${name} = ${fmt(s * 100, 1)} cm`, capacity: `≥ ${fmt(floor * 100, 1)} cm` }));
+    checks.push(check(underFloor.byBars ? 'rcSheets.v.wallTieFloorBars' : 'rcSheets.v.wallTieFloor', false, { clause, demand: `s ≤ ${name} = ${fmt(s * 100, 1)} cm${name === 't/3' ? ` → t ≥ 3·${fmt(floor * 100, 1)} = ${fmt(3 * floor * 100, 1)} cm` : ''}`, capacity: `≥ ${fmt(floor * 100, 1)} cm` }));
   };
 
   if (special) {
@@ -87,11 +89,13 @@ export function wallSeismic(
     const dia = pool.find(fits);
     hoops = { dia: dia ?? pool.at(-1) ?? tieDiametersOf(ctx).at(-1)!, spacing: sMax, legsAcross, legsAlong, clause: '§18.10.6.4' };
     checks.push(
-      check('rcSheets.v.wallSpecialBoundary', true, { clause: '§18.10.6.3, §18.10.6.4(a)', demand: `σ = ${fmt(sigma)} MPa ≥ 0.2·f'c = ${fmt(0.2 * fc)} MPa`, capacity: `${fmt(boundaryLength * 100, 0)} cm (c = ${fmt(c * 100, 0)} cm)` }),
+      check('rcSheets.v.wallSpecialBoundary', true, { clause: '§18.10.6.3, §18.10.6.4(a)', demand: carried ? `σ = ${fmt(sigma)} MPa ≥ 0.15·f'c = ${fmt(0.15 * fc)} MPa ↓` : `σ = ${fmt(sigma)} MPa ≥ 0.2·f'c = ${fmt(0.2 * fc)} MPa`, capacity: `${fmt(boundaryLength * 100, 0)} cm (c = ${fmt(c * 100, 0)} cm)` }),
       check('rcSheets.v.wallBoundaryAsh', dia !== undefined, { clause: '§18.10.6.4(f)', demand: `Ash/(s·bc) ≥ ${fmt(k * 100, 3)} %`, capacity: dia !== undefined ? `Ø${dia} c/${fmt(sMax * 100, 1)}` : `> ${tieDiametersOf(ctx).map((x) => `Ø${x}`).join(' ')}` }),
     );
     steps.push(
-      { label: 'rcSheets.s.wallSigma', formula: 'σ = Pu/Ag + Mu·(lw/2)/Ig ≥ 0.2·f\'c (§18.10.6.3)', value: `${fmt(sigma)} MPa` },
+      carried
+        ? { label: 'rcSheets.s.wallSigmaCarried', formula: 'σ = Pu/Ag + Mu·(lw/2)/Ig ≥ 0.15·f\'c (§18.10.6.3)', value: `${fmt(sigma)} MPa` }
+        : { label: 'rcSheets.s.wallSigma', formula: 'σ = Pu/Ag + Mu·(lw/2)/Ig ≥ 0.2·f\'c (§18.10.6.3)', value: `${fmt(sigma)} MPa` },
       { label: 'rcSheets.s.wallBoundaryLength', formula: 'max(c − 0.1·lw; c/2) (§18.10.6.4(a))', value: `${fmt(boundaryLength * 100, 0)} cm` },
       { label: 'rcSheets.s.wallBoundaryHoops', formula: 's ≤ min(t/3; 6·db; so), so = 100 + (350 − hx)/3 mm (§18.10.6.4(e))', value: `Ø${hoops.dia} c/${fmt(sMax * 100, 1)}` },
     );

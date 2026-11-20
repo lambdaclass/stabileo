@@ -8,7 +8,7 @@ import { holdWallBasesAndDesign, sheetsSolve, solveAndDesign } from '../rc-sheet
 import type { SheetRow } from '../rc-sheets.svelte';
 
 const wall = (key: string, unheld: number[], status: 'ok' | 'fail' = 'fail') =>
-  ({ family: 'wall', key, status, demand: { thickness: 0.2, base: { nodes: unheld.length + 1, held: 1, unheld } } }) as unknown as SheetRow;
+  ({ family: 'wall', key, status, verifications: unheld.length ? [{ label: 'rcSheets.v.wallBase', ok: false }] : [], demand: { thickness: 0.2, base: { nodes: unheld.length + 1, held: 1, unheld } } }) as unknown as SheetRow;
 
 describe('holding the walls\' bases all along', () => {
   beforeEach(() => { modelStore.clear(); historyStore.clear(); resultsStore.clear(); });
@@ -41,7 +41,7 @@ describe('holding the walls\' bases all along', () => {
     expect(supportWallBases([wall('wall:1:0', [], 'ok'), { family: 'beam', key: 'beam:1', status: 'fail' } as never])).toBe(0);
   });
 
-  it('proposes no thickness for a wall whose base is not held', () => {
+  it('proposes no thickness for a wall that fails only because its base is not held', () => {
     const n = modelStore.addNode(1, 0, 0);
     expect(resizeHints(wall('wall:1:0', [n]))).toEqual([]);
   });

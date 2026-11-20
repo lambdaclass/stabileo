@@ -65,6 +65,8 @@ export function setOut(line: Spans, bar: Pick<LineBar, 'kind' | 'from' | 'to'>):
   if (bar.kind === 'continuous' || bar.kind === 'bent') return null;
   const mid = (bar.from + bar.to) / 2;
   if (bar.kind === 'support') {
+    const over = lineSupports(line).filter((x) => x > bar.from + 1e-6 && x < bar.to - 1e-6);
+    if (over.length > 1) return { axes: [over[0]!, over[over.length - 1]!], d: [over[0]! - bar.from, bar.to - over[over.length - 1]!] };
     const xs = lineSupports(line).reduce((p, q) => (Math.abs(q - mid) < Math.abs(p - mid) ? q : p));
     return { axes: [xs, xs], d: [xs - bar.from, bar.to - xs] };
   }
@@ -94,50 +96,6 @@ export function extraBarsText(line: Pick<LineLayout, 'spans' | 'bars' | 'adopted
     return text ? `${k + 1}: ${text}` : '';
   });
   return { supports: supports.filter(Boolean).join(' · ') || '—', spans: spans.filter(Boolean).join(' · ') || '—' };
-}
-
-/**
- * Labels along one row kept apart: each as near its wanted place as it can stand at least `gap`
- * from the next and `fixedGap` from every fixed thing on the row (a cut, a mark of another row).
- * Returns the places in the order the labels were given.
- */
-export function placeLabels(wanted: readonly number[], gap: number, fixed: readonly number[] = [], fixedGap = gap): number[] {
-  const order = wanted.map((x, i) => ({ x, i })).sort((p, q) => p.x - q.x || p.i - q.i);
-  const out = new Array<number>(wanted.length);
-  let prev = -Infinity;
-  for (const { x, i } of order) {
-    let at = Math.max(x, prev + gap);
-    for (let guard = 0; guard < fixed.length + 1; guard++) {
-      const hit = fixed.find((f) => Math.abs(f - at) < fixedGap - 1e-9);
-      if (hit === undefined) break;
-      const left = hit - fixedGap;
-      at = left >= prev + gap - 1e-9 && x - left <= hit + fixedGap - x ? left : hit + fixedGap;
-    }
-    out[i] = at;
-    prev = at;
-  }
-  return out;
-}
-
-/**
- * Where each bar's mark stands along the line, m: over the middle of its longest piece within
- * `window` (the whole line when absent), the marks of a face at least `gap` apart and `fixedGap`
- * from every `fixed` place (the cuts drawn beside the beam).
- */
-export function markPlaces(line: Spans & Pick<LineLayout, 'bars'>, gap: number, o: { window?: [number, number]; fixed?: readonly number[]; fixedGap?: number } = {}): Map<string, number> {
-  const out = new Map<string, number>();
-  const [w0, w1] = o.window ?? [-Infinity, Infinity];
-  for (const face of ['top', 'bottom'] as const) {
-    const list = line.bars.filter((b) => b.face === face).flatMap((b) => {
-      const t = barTrace(line, b).map((g) => ({ from: Math.max(g.from, w0), to: Math.min(g.to, w1) })).filter((g) => g.to - g.from > 1e-6);
-      if (!t.length) return [];
-      const g = t.reduce((a, c) => (c.to - c.from > a.to - a.from ? c : a));
-      return [{ mark: b.mark, x: (g.from + g.to) / 2 }];
-    });
-    const xs = placeLabels(list.map((m) => m.x), gap, o.fixed ?? [], o.fixedGap ?? gap);
-    list.forEach((m, i) => out.set(m.mark, xs[i]!));
-  }
-  return out;
 }
 
 /** The marks of the bars a face has at x along the line. */

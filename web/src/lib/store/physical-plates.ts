@@ -864,7 +864,7 @@ export function clearPlateMesh(id: number): { removedNodes: number; keptNodes: n
   const owned = new Set(loops.owned);
   let removedNodes = 0, keptNodes = 0;
   const current = physicalPlates().filter((x) => x.id !== id && plateStatus(x.id) === 'current').map((x) => x.id);
-  modelStore.batch(() => {
+  modelStore.bulkMutate(() => {
     untieNodes(owned);
     const spread = new Set(e.surface.meshed?.supported ?? []);
     // A spread support was only given to a node without one, so it is taken back from the user's nodes too, unless edited since.
@@ -919,12 +919,14 @@ function meshingRun(plans: readonly PlateMeshPlan[]) {
     }
     // Every old mesh of the batch goes first: a plate meshed while its neighbour still had the
     // mesh it is about to lose met that mesh's nodes, and each storey of a stack of walls met more.
-    for (const planned of ok) {
-      const e = plateEntry(planned.id);
-      if (!e) continue;
-      report.droppedLocalLoads += planned.localLoads;
-      report.keptNodes += clearPlateMesh(planned.id).keptNodes;
-    }
+    modelStore.bulkMutate(() => {
+      for (const planned of ok) {
+        const e = plateEntry(planned.id);
+        if (!e) continue;
+        report.droppedLocalLoads += planned.localLoads;
+        report.keptNodes += clearPlateMesh(planned.id).keptNodes;
+      }
+    });
   };
   const cellsOf = new Map<number, number>();
   const batch = new Set(ok.map((p) => p.id));
@@ -1089,10 +1091,17 @@ export function deletePlate(id: number): void {
 // ─── Before an analysis ──────────────────────────────────────────
 
 export type PlatePreparation =
-  | { ok: true; meshed: number; cells: number }
+  | { ok: true; meshed: number; cells: number; stale?: string[] }
   | { ok: false; reason: 'needsMesh'; plates: string[] }
   | { ok: false; reason: 'refused'; plates: string[] }
   | { ok: false; reason: 'localLoads'; plates: string[] };
+
+/** Without meshing: a plate with no mesh stops the solve, one whose mesh is out of date solves on it and is named. */
+function unmeshedOrStale(need: number[], names: (ids: number[]) => string[]): PlatePreparation {
+  const missing = need.filter((id) => plateStatus(id) !== 'stale');
+  if (missing.length) return { ok: false, reason: 'needsMesh', plates: names(missing) };
+  return { ok: true, meshed: 0, cells: 0, stale: names(need) };
+}
 
 /**
  * Mesh what an analysis needs and nothing else: the plates with no mesh or an out-of-date one,
@@ -1104,7 +1113,7 @@ export function preparePlatesForAnalysis(): PlatePreparation {
   const need = platesNeedingMesh({ coarse: meshBeforeAnalysis.value });
   if (!need.length) return { ok: true, meshed: 0, cells: 0 };
   const names = (ids: number[]) => ids.map((id) => plateEntry(id)?.name ?? `#${id}`);
-  if (!meshBeforeAnalysis.value) return { ok: false, reason: 'needsMesh', plates: names(need) };
+  if (!meshBeforeAnalysis.value) return unmeshedOrStale(need, names);
   const meshedAgain = new Set(need.flatMap(plateShellKeys));
   const plans = need.map((id) => planPlateMesh(id, undefined, { meshedAgain })).filter((p): p is PlateMeshPlan => !!p);
   // Loads put by hand on the old mesh's elements cannot follow a new mesh: the plate is meshed
@@ -1124,7 +1133,7 @@ export async function preparePlatesForAnalysisAsync(): Promise<PlatePreparation>
   const need = platesNeedingMesh({ coarse: meshBeforeAnalysis.value });
   if (!need.length) return { ok: true, meshed: 0, cells: 0 };
   const names = (ids: number[]) => ids.map((id) => plateEntry(id)?.name ?? `#${id}`);
-  if (!meshBeforeAnalysis.value) return { ok: false, reason: 'needsMesh', plates: names(need) };
+  if (!meshBeforeAnalysis.value) return unmeshedOrStale(need, names);
   try {
     const plans = await planPlateMeshes(need, undefined, { onProgress: (done, total) => setMeshProgress('planning', done, total) });
     if (!plans) return { ok: false, reason: 'refused', plates: names(need) };

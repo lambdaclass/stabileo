@@ -683,7 +683,9 @@ export async function leaveDesign(page: Page): Promise<void> {
  */
 export async function declareBeamsNotLateral(page: Page): Promise<void> {
   await designPlace(page, 'designData');
-  await page.getByTestId('design-data-lateral-beams').selectOption('gravity');
+  const seismic = page.getByTestId('design-options-seismic').first();
+  if (!(await seismic.evaluate((d) => (d as HTMLDetailsElement).open))) await seismic.locator('> summary').click();
+  await seismic.getByTestId('design-data-lateral-beams').selectOption('gravity');
 }
 
 /**

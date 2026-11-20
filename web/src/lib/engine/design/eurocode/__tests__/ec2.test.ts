@@ -60,9 +60,9 @@ describe('EC2 beams', () => {
     expect(d.rows[0]!.derivation!.join(' ')).toContain('compression steel');
   });
 
-  it('the UK National Annex (αcc = 0,85) asks for more steel than the recommended values', () => {
+  it('the UK National Annex (αcc = 0,85; xu/d ≤ 0,6 by its 5.5(4)) asks for more steel than the recommended values', () => {
     const uk = ec2FlexuralSteel(250, 0.3, 0.55, 0.05, 30, 500, EC2_UK);
-    expect(uk.Kp).toBeCloseTo(0.16728, 4);
+    expect(uk.Kp).toBeCloseTo(0.20673, 4);
     expect(uk.as * 1e4).toBeCloseTo(11.8045, 3);
     const d = ec2BeamDesign({ ...beam, MEdPos: 250, VEd: 200, params: EC2_UK });
     expect(d.rows[0]!.code).toBe('bs-en-1992-1-1');

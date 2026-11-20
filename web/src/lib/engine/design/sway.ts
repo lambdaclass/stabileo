@@ -26,6 +26,8 @@ export interface StoreyStability {
   sway: boolean;
   deltaS: number;
   method: 'nonSway' | 'Q' | 'Pc' | 'unstable';
+  /** Each combination's own reading, in the direction where its Q is larger: ΣPu, kN, and ΣPc = Σ π²·0,4·Ec·Ig/(k·lu)², kN. */
+  byCombo: Map<string, { Q: number; direction: 'X' | 'Y'; sumPu: number; sumPc: number }>;
 }
 
 type N = { id: number; x: number; y: number; z?: number };
@@ -46,6 +48,8 @@ export function storeyStability(input: {
   perCombo: ReadonlyMap<number, AnalysisResults3D>;
   comboNames?: ReadonlyMap<number, string>;
   psi?: (columnId: number) => { psiA: number; psiB: number };
+  /** The least sway effective-length factor the design takes (1 by the chart). */
+  kMin?: number;
 }): StoreyStability[] {
   const key = (z: number) => Math.round(z * 1000);
   const storeys = new Map<string, { zLo: number; zHi: number; cols: Array<{ id: number; lo: number; hi: number; lc: number; ex: [number, number, number]; ey: [number, number, number]; ez: [number, number, number]; Ig: number; Ec: number }> }>();
@@ -67,6 +71,12 @@ export function storeyStability(input: {
   const out: StoreyStability[] = [];
   for (const st of storeys.values()) {
     let Q = 0, combo: string | null = null, direction: 'X' | 'Y' | null = null, sumPu = 0;
+    const sumPc = st.cols.reduce((s, c) => {
+      const psi = input.psi?.(c.id) ?? { psiA: 1, psiB: 1 };
+      const k = Math.max(input.kMin ?? 1, swayK(psi.psiA, psi.psiB));
+      return s + (Math.PI ** 2 * 0.4 * c.Ec * c.Ig) / (k * c.lc) ** 2;
+    }, 0);
+    const byCombo: StoreyStability['byCombo'] = new Map();
     for (const [cid, res] of input.perCombo) {
       const forces = new Map(res.elementForces.map((f) => [f.elementId, f]));
       const disp = new Map(res.displacements.map((d) => [d.nodeId, d]));
@@ -84,10 +94,12 @@ export function storeyStability(input: {
       }
       if (n === 0 || !(P > 0)) continue;
       lc /= st.cols.length; dx /= n; dy /= n;
+      const name = input.comboNames?.get(cid) ?? String(cid);
       for (const [V, d, dir] of [[Vx, dx, 'X'], [Vy, dy, 'Y']] as const) {
         if (Math.abs(V) < Math.max(0.5, 1e-3 * P)) continue;
         const q = (P * Math.abs(d)) / (Math.abs(V) * lc);
-        if (q > Q) { Q = q; combo = input.comboNames?.get(cid) ?? String(cid); direction = dir; sumPu = P; }
+        if (q > (byCombo.get(name)?.Q ?? -1)) byCombo.set(name, { Q: q, direction: dir, sumPu: P, sumPc });
+        if (q > Q) { Q = q; combo = name; direction = dir; sumPu = P; }
       }
     }
     const sway = Q > SWAY_Q_LIMIT;
@@ -96,17 +108,12 @@ export function storeyStability(input: {
       const a = Q < 1 ? 1 / (1 - Q) : Number.POSITIVE_INFINITY;
       if (a <= 1.5) { deltaS = a; method = 'Q'; }
       else {
-        const sumPc = st.cols.reduce((s, c) => {
-          const psi = input.psi?.(c.id) ?? { psiA: 1, psiB: 1 };
-          const k = swayK(psi.psiA, psi.psiB);
-          return s + (Math.PI ** 2 * 0.4 * c.Ec * c.Ig) / (k * c.lc) ** 2;
-        }, 0);
         const r = sumPu / (0.75 * sumPc);
         if (r < 1) { deltaS = Math.max(1, 1 / (1 - r)); method = 'Pc'; }
         else { deltaS = Number.POSITIVE_INFINITY; method = 'unstable'; }
       }
     }
-    out.push({ zLo: st.zLo, zHi: st.zHi, columns: st.cols.map((c) => c.id), Q, combo, direction, sway, deltaS, method });
+    out.push({ zLo: st.zLo, zHi: st.zHi, columns: st.cols.map((c) => c.id), Q, combo, direction, sway, deltaS, method, byCombo });
   }
   return out.sort((a, b) => a.zLo - b.zLo);
 }
