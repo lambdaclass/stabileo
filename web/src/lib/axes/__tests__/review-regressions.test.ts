@@ -24,8 +24,8 @@ describe('review regressions', () => {
     const dist = distributedText({ qI: -10, qJ: -10, angle: 30, isGlobal: true }, words);
     expect(dist).toContain('q=10');
     expect(dist).toContain('θ=-30°');
-    expect(pointOnElementText({ a: 1, p: -5, isGlobal: true }, words, 'SI', [1, 0], '2d')).toContain('Pz=5');
-    expect(pointOnElementText({ a: 1, p: -5 }, words, 'SI', [1, 0], '2d')).toContain('P=-5');
+    expect(pointOnElementText({ a: 1, p: -5, isGlobal: true }, words, 'SI', [1, 0], 'planar')).toContain('Pz=5');
+    expect(pointOnElementText({ a: 1, p: -5 }, words, 'SI', [1, 0], 'planar')).toContain('P=-5');
   });
 
   it('the Excel import stores a global plane line load typed in the user axes', () => {

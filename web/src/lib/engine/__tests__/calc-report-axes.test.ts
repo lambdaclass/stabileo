@@ -47,7 +47,7 @@ describe('the calculation report in the user axes', () => {
     expect(loadComponentsText('distributed3d', { qYI: 0, qYJ: 0, qZI: -5, qZJ: -5 })).toContain('qz=-5 → -5');
     axesStore.choice = MIRROR;
     expect(loadComponentsText('nodal', { fx: 3, fz: -10, my: 1 })).toBe('Fx=3 kN, Fy=10 kN, Mz=-1 kN·m');
-    expect(pointOnElementText({ a: 1, p: -5, my: 2 }, { global: 'g', perpendicular: 'p' } as never, 'SI', [1, 0], '2d')).toContain('Mz=-2');
+    expect(pointOnElementText({ a: 1, p: -5, my: 2 }, { global: 'g', perpendicular: 'p' } as never, 'SI', [1, 0], 'planar')).toContain('Mz=-2');
   });
 });
 

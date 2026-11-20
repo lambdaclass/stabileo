@@ -116,16 +116,16 @@ describe('a 2D point load on a member names every component', () => {
     const e = modelStore.addElement(a, b);
     modelStore.addPointLoadOnElement(e, 1.5, -10, { px: 2, my: 5 });
     const l = modelStore.loads.find((x) => x.type === 'pointOnElement')!;
-    expect(pointOnElementText(l.data as never, words, 'SI', [1, 0], '2d')).toBe('P=-10 kN, Px=2 kN, My=5 kN·m, a=1.5 m');
+    expect(pointOnElementText(l.data as never, words, 'SI', [1, 0], 'planar')).toBe('P=-10 kN, Px=2 kN, My=5 kN·m, a=1.5 m');
   });
 
   it('rounded global components include the legacy moment alias and the axes', () => {
-    expect(pointOnElementText({ a: 2 / 3, p: 1 / 3, mz: 1, angle: 45, isGlobal: true }, words, 'SI', [1, 0], '2d'))
+    expect(pointOnElementText({ a: 2 / 3, p: 1 / 3, mz: 1, angle: 45, isGlobal: true }, words, 'SI', [1, 0], 'planar'))
       .toBe('Px=0.2357 kN, Pz=0.2357 kN, My=1 kN·m, a=0.6667 m, global axes');
   });
 
   it('a load with every component zero gives nothing, which the dialog says in words', () => {
-    expect(pointOnElementText({ a: 1, p: 0 }, words, 'SI', [1, 0], '2d')).toBe('');
+    expect(pointOnElementText({ a: 1, p: 0 }, words, 'SI', [1, 0], 'planar')).toBe('');
   });
 });
 
@@ -214,7 +214,7 @@ it('#2370 the Basic and PRO reports project the same valid global point load in 
     const point = { a: 1, p: 0, px: 10, isGlobal: true };
     modelStore.addPointLoadOnElement(member, point.a, point.p, point);
     const words = { global: 'global axes' };
-    const basic = pointOnElementText(point, words, 'SI', [3, 4], '2d');
+    const basic = pointOnElementText(point, words, 'SI', [3, 4], 'planar');
     expect(basic).toBe('Px=6 kN, Pz=8 kN, a=1 m, global axes');
     expect(serializeLoads(() => words.global)[0]!.values).toBe(basic);
   } finally {
@@ -228,10 +228,10 @@ it('#2370 reports a missing projection explicitly when a global point load needs
     uiStore.analysisMode = '2d';
     const point = { a: 1, p: -4, px: 10, isGlobal: true };
     const words = { global: 'global axes' };
-    expect(pointOnElementText(point, words, 'SI', [0, 0], '2d')).toBeNull();
-    expect(pointOnElementText(point, words, 'SI', [0, Infinity], '2d')).toBeNull();
-    expect(pointOnElementText(point, words, 'SI', [Number.MAX_VALUE, Number.MAX_VALUE], '2d')).toBeNull();
-    expect(pointOnElementText({ ...point, px: 0 }, words, 'SI', [0, 0], '2d')).toBe('Pz=-4 kN, a=1 m, global axes');
+    expect(pointOnElementText(point, words, 'SI', [0, 0], 'planar')).toBeNull();
+    expect(pointOnElementText(point, words, 'SI', [0, Infinity], 'planar')).toBeNull();
+    expect(pointOnElementText(point, words, 'SI', [Number.MAX_VALUE, Number.MAX_VALUE], 'planar')).toBeNull();
+    expect(pointOnElementText({ ...point, px: 0 }, words, 'SI', [0, 0], 'planar')).toBe('Pz=-4 kN, a=1 m, global axes');
     modelStore.addPointLoadOnElement(999, point.a, point.p, point);
     expect(serializeLoads(key => key)[0]!.values).toBe('engine.memberLoad.invalidGeometry');
   } finally {

@@ -81,7 +81,7 @@ export function distributedText(
   return `q=${q(shownGlobal(d.qI, d.isGlobal)!)} → ${q(shownGlobal(d.qJ ?? d.qI, d.isGlobal)!)} ${unitLabel('distributedLoad', us)}${range(d, us)}${direction(d, words)}`;
 }
 
-type PointReportPlane = '2d' | '3d-xz' | '3d-xy';
+type PointReportPlane = 'planar' | 'xz' | 'xy';
 type PointReportStyle = 'basic' | 'pro';
 
 export function pointOnElementFormatter(
@@ -92,7 +92,7 @@ export function pointOnElementFormatter(
   frame: AxesFrame = axesStore.frame,
   style: PointReportStyle = 'basic',
 ) {
-  const plane = !is3DWorkspace ? '2d' : shouldEmbedFlat2DModelIn3D(model) ? '3d-xz' : '3d-xy';
+  const plane = !is3DWorkspace ? 'planar' : shouldEmbedFlat2DModelIn3D(model) ? 'xz' : 'xy';
   return (d: PlanePointLoadLike) => {
     const member = model.elements.get(d.elementId);
     const i = member && model.nodes.get(member.nodeI);
@@ -117,10 +117,10 @@ export function pointOnElementText(
   }
 
   const transform = quantityTransform(frame);
-  const projectToXZ = plane !== '3d-xy';
+  const projectToXZ = plane !== 'xy';
   const converted = planePointLoad3D({ elementId: 0, ...d }, ...memberDirection, projectToXZ);
   let moments: Component[];
-  if (plane === '2d') {
+  if (plane === 'planar') {
     const normal = userAxisAlong(frame, 1).name.toLowerCase();
     const rotation = transform.plane({ kind: 'pseudovector', axis: 'rot', value: d.my ?? d.mz ?? 0 });
     moments = [[`M${normal}`, rotation, 'moment']];
