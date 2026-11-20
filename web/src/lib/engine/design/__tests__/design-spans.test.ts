@@ -203,3 +203,11 @@ it('#2238 splits a run at a half turn of the physical section', () => {
   Object.assign(third, { rollAngle: 360 });
   expect(designSpans(structure, beams).map(s => s.elements)).toEqual([[1, 2, 3]]);
 });
+
+it.skip('#2238 preserves both physical section axes when reversed angles share a span', () => {
+  const structure = model();
+  Object.assign(structure.sections.get(1)!, { shape: 'L' });
+  for (const id of [1, 2, 3]) Object.assign(structure.elements.get(id)!, { nodeI: id, nodeJ: id - 1 });
+  const [span] = designSpans(structure, beams);
+  expect(span).toMatchObject({ start: 3, end: 0, elements: [3, 2, 1], reversed: [false, false, false] });
+});
