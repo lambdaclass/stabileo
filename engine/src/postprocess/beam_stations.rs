@@ -1473,3 +1473,62 @@ mod tests {
         }
     }
 }
+
+#[cfg(test)]
+mod round3_tests {
+    use super::*;
+
+    #[test]
+    #[ignore = "known wrong result: #2250"]
+    fn round3_concurrent_stations_validate_cuts_across_components() {
+        let a = 1.75_f64;
+        let adjacent = f64::from_bits(a.to_bits() + 1);
+        let separated = f64::from_bits(a.to_bits() + 2);
+        assert_eq!(a / 3.0, adjacent / 3.0);
+        assert_ne!(a / 3.0, separated / 3.0);
+        for b in [a, separated, adjacent] {
+            let member = BeamMemberInfo { element_id: 1, section_id: 1, material_id: 1, length: 3.0, label: None };
+            let planar = BeamStationInput {
+                members: vec![member.clone()], num_stations: None,
+                combinations: vec![LabeledResults {
+                    combo_id: 1, combo_name: None,
+                    results: serde_json::from_value(serde_json::json!({
+                        "displacements": [], "reactions": [], "elementForces": [{
+                            "elementId": 1, "length": 3.0, "nStart": 0.0, "nEnd": -40.0,
+                            "vStart": 40.0, "vEnd": 0.0, "mStart": 0.0, "mEnd": 0.0,
+                            "qI": 0.0, "qJ": 0.0, "distributedLoads": [],
+                            "pointLoads": [{"a": a, "p": 0.0, "px": 40.0}, {"a": b, "p": -40.0}]
+                        }]
+                    })).unwrap(),
+                }],
+            };
+            let spatial = BeamStationInput3D {
+                members: vec![member], num_stations: None,
+                combinations: vec![LabeledResults3D {
+                    combo_id: 1, combo_name: None,
+                    results: serde_json::from_value(serde_json::json!({
+                        "displacements": [], "reactions": [], "elementForces": [{
+                            "elementId": 1, "length": 3.0, "nStart": 0.0, "nEnd": -40.0,
+                            "vyStart": 0.0, "vyEnd": 0.0, "vzStart": 40.0, "vzEnd": 0.0,
+                            "mxStart": 0.0, "mxEnd": 0.0, "myStart": 0.0, "myEnd": 0.0,
+                            "mzStart": 0.0, "mzEnd": 0.0, "qYI": 0.0, "qYJ": 0.0, "qZI": 0.0, "qZJ": 0.0,
+                            "distributedLoadsY": [], "distributedLoadsZ": [], "pointLoadsY": [],
+                            "pointLoadsX": [{"a": a, "p": 40.0}], "pointLoadsZ": [{"a": b, "p": -40.0}]
+                        }]
+                    })).unwrap(),
+                }],
+            };
+            let planar = try_extract_beam_stations(&planar);
+            let spatial = try_extract_beam_stations_3d(&spatial);
+            if b == adjacent {
+                assert!(planar.unwrap_err().contains("distinct member diagram cuts"));
+                assert!(spatial.unwrap_err().contains("distinct member diagram cuts"));
+            } else {
+                let planar = planar.unwrap();
+                let spatial = spatial.unwrap();
+                assert_eq!(planar.stations.iter().any(|s| s.combo_forces.iter().any(|f| f.n == -40.0 && f.v == 40.0)), b == separated);
+                assert_eq!(spatial.stations.iter().any(|s| s.combo_forces.iter().any(|f| f.n == -40.0 && f.vz == 40.0)), b == separated);
+            }
+        }
+    }
+}

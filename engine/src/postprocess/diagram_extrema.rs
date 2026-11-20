@@ -218,3 +218,28 @@ fn quadratic_roots(cubic: f64, quadratic: f64, linear: f64) -> Result<[f64; 2], 
     let q = -0.5 * (b + discriminant.sqrt().copysign(b));
     Ok([q / a, c / q])
 }
+
+#[cfg(test)]
+mod round3_tests {
+    use super::*;
+
+    #[test]
+    #[ignore = "known wrong result: #2250"]
+    fn round3_shear_peak_uses_interval_local_coordinate() {
+        let a = 1.5_f64;
+        let ulp = f64::from_bits(a.to_bits() + 1) - a;
+        for steps in [3, 6] {
+            let curve = Curve {
+                length: 3.0, start: 0.0, change: 0.0, slope: 0.0,
+                response: Response::Force(1.0),
+                distributed: std::iter::once(DistributedLoadInfo {
+                    a, b: a + f64::from(steps) * ulp, q_i: 1.0 / ulp, q_j: -1.0 / ulp,
+                }),
+                points: std::iter::empty(),
+            };
+            let peak = curve.diagram_cuts(21).unwrap().into_iter()
+                .map(|cut| curve.value(cut)).fold(f64::NEG_INFINITY, f64::max);
+            assert_eq!(peak, f64::from(steps) / 4.0);
+        }
+    }
+}

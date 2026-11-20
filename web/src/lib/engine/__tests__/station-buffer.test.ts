@@ -1,6 +1,6 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import * as wasmSolver from '../wasm-solver';
-import { extractBeamStationBuffer3D, extractBeamStationsGrouped3D } from '../wasm-solver';
+import { computeEnvelope3D, extractBeamStationBuffer3D, extractBeamStationsGrouped3D } from '../wasm-solver';
 import { decodeStationBuffer } from '../station-buffer';
 import { computeStationDemands, setCompactStationTransfer } from '../verification-service';
 import type { ElementForces3D, AnalysisResults3D } from '../types-3d';
@@ -124,4 +124,28 @@ it('#2250 both production design station transfers retain the concurrent tuple a
     expect(peak.vz).toBeCloseTo(0.25, 12);
     expect(peak.my).toBeCloseTo(1 / 12, 12);
   }
+});
+
+const round3 = process.env.RUN_KNOWN_WRONG === '2403' ? it : it.skip;
+
+round3('refuses variable member envelopes whose shared piece IDs represent different cuts', () => {
+  const displacement = (nodeId: number) => ({ nodeId, ux: 0, uy: 0, uz: 0, rx: 0, ry: 0, rz: 0 });
+  const plain = { ...force(1, 0), length: 10, distributedLoadsX: [], distributedLoadsY: [], distributedLoadsZ: [],
+    pointLoadsY: [], pointLoadsZ: [] };
+  const split = (cut: number, shear: number): AnalysisResults3D => ({
+    ...results([{ ...plain, pieces: [
+      { x0: 0, x1: cut, sectionId: 1, dI: displacement(1), dJ: displacement(3), forces: {
+        ...plain, elementId: 2, length: cut, vzStart: shear, vzEnd: shear,
+      } },
+      { x0: cut, x1: plain.length, sectionId: 2, dI: displacement(3), dJ: displacement(2), forces: {
+        ...plain, elementId: 3, length: plain.length - cut,
+      } },
+    ] }]), displacements: [displacement(1), displacement(2)],
+  });
+  for (const layouts of [[split(4, 0), split(6, 40)], [split(6, 40), split(4, 0)]]) {
+    expect.soft(() => computeEnvelope3D(layouts)).toThrow(/extrema/i);
+  }
+  const first = split(4, 0), second = split(4, 40);
+  const envelope = computeEnvelope3D([first, second])?.shearZ.elements.find(e => e.elementId === 1);
+  expect(envelope?.tPositions.filter((t, i) => t === 0.4 && envelope.posValues[i] === 40)).toHaveLength(1);
 });

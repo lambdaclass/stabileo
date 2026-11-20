@@ -157,7 +157,7 @@ for (const spatial of [false, true]) for (const nonlinear of [false, true]) for 
       }
     });
   }
-  for (const t of [0, 0.5, 1]) it(`known wrong result: #2096 station transfer cannot shrink the requested grid at ${t} ${label}`, () => {
+  for (const t of [0, 0.3, 0.5, 1]) it(`known wrong result: #2096 station transfer cannot shrink the requested grid at ${t} ${label}`, () => {
     const raw = solveModel();
     if (compact) {
       const decode = stationBuffer.decodeStationBuffer;

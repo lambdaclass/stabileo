@@ -1,6 +1,7 @@
 import { expect, it } from 'vitest';
 import { computeElementDiagram } from '../diagrams';
 import { computeDiagram3D, type Diagram3DKind } from '../diagrams-3d';
+import { criticalDiagramStations3D } from '../diagrams-3d';
 import type { ElementForces3D } from '../types-3d';
 
 it('covers the dense independent maxima of variable partial loads, forces and couples', () => {
@@ -92,4 +93,29 @@ it('#2250 refuses an interior shear peak when the enclosing normalized cuts are 
   };
   expect(() => diagram(2)).toThrow(/extrema/i);
   expect(diagram(4).maxValue).toBe(1);
+});
+
+const round3 = process.env.RUN_KNOWN_WRONG === '2403' ? it : it.skip;
+
+round3('known wrong result: #2250 preserves an interval-local shear peak in both dimensions and refuses an inexact tuple', () => {
+  const length = 3, a = 1.75, b = a + 6 * Number.EPSILON;
+  const qI = 2 ** 52, qJ = -0.75 * qI;
+  const distributedLoads = [{ a, b, qI, qJ }];
+  const planar = { length, qI: 0, qJ: 0, nStart: 0, nEnd: 0, vStart: 0, vEnd: (b - a) * (qI + qJ) / 2,
+    mStart: 0, mEnd: 0, distributedLoads };
+  const spatial: ElementForces3D = {
+    elementId: 1, length, nStart: 0, nEnd: 0, vyStart: 0, vyEnd: 0, vzStart: planar.vStart, vzEnd: planar.vEnd,
+    mxStart: 0, mxEnd: 0, myStart: 0, myEnd: 0, mzStart: 0, mzEnd: 0,
+    qYI: 0, qYJ: 0, qZI: 0, qZJ: 0, distributedLoadsY: [], distributedLoadsZ: distributedLoads,
+    pointLoadsY: [], pointLoadsZ: [], releaseMyStart: false, releaseMyEnd: false,
+    releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false,
+  };
+  const want = (b - a) * qI * (qI / (qI - qJ)) / 2;
+  expect.soft(want).toBe(12 / 7);
+  expect.soft(computeElementDiagram('shear', planar, 0, 0, length, 0).maxValue).toBeCloseTo(want, 14);
+  expect.soft(computeDiagram3D(spatial, 'shearZ').maxValue).toBeCloseTo(want, 14);
+  expect.soft(() => criticalDiagramStations3D(spatial)).toThrow(/extrema/i);
+  expect(criticalDiagramStations3D({
+    ...spatial, distributedLoadsZ: [{ a: 0, b: length, qI: 1, qJ: -1 }],
+  })).toContainEqual({ t: 0.5 });
 });
