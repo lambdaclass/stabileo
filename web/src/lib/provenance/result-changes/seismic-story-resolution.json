@@ -1,0 +1,40 @@
+{
+  "id": "seismic-story-resolution",
+  "date": "2026-11-20",
+  "prs": [
+    2330,
+    2331,
+    2332
+  ],
+  "area": "loads",
+  "when": {
+    "all": [
+      "generatedSeismicLoads"
+    ]
+  },
+  "requiresLoadRegeneration": true,
+  "title": {
+    "en": "Review earlier generated static seismic loads",
+    "es": "Revisá las cargas sísmicas estáticas generadas anteriormente",
+    "pt": "Revise as cargas sísmicas estáticas geradas anteriormente",
+    "de": "Früher erzeugte statische Erdbebenlasten prüfen",
+    "fr": "Vérifiez les charges sismiques statiques générées précédemment",
+    "tr": "Daha önce üretilen statik deprem yüklerini inceleyin",
+    "zh": "复核以往生成的等效静力地震荷载",
+    "hu": "Ellenőrizze a korábban generált statikus szeizmikus terheket"
+  },
+  "explanation": {
+    "en": "Earlier static seismic generation could infer spurious stories at brace or mesh joints and move rafter inertia to end nodes. Review affected E cases and regenerate them before repeating analyses or design checks.",
+    "es": "La generación sísmica estática anterior podía inferir niveles ficticios en nudos de arriostramiento o de malla y trasladar la inercia de las barras de cubierta a sus extremos. Revisá los casos E afectados y volvé a generarlos antes de repetir los análisis o las verificaciones.",
+    "pt": "A geração sísmica estática anterior podia inferir pavimentos fictícios em nós de contraventamento ou de malha e deslocar a inércia das barras de cobertura para os seus extremos. Revise e gere novamente os casos E afetados antes de repetir análises ou verificações de projeto.",
+    "de": "Die frühere statische Erdbebenlasterzeugung konnte an Aussteifungs- oder Netzknoten fiktive Geschosse ableiten und die Trägheitslasten geneigter Dachträger an deren Endknoten ansetzen. Prüfen Sie betroffene E-Lastfälle und erzeugen Sie sie neu, bevor Sie Analysen oder Nachweise wiederholen.",
+    "fr": "La génération précédente des charges sismiques statiques pouvait déduire des niveaux fictifs aux nœuds de contreventement ou de maillage et reporter l’inertie des éléments inclinés aux extrémités. Vérifiez et régénérez les cas E concernés avant de reprendre les analyses ou les vérifications.",
+    "tr": "Önceki statik deprem yükü üretimi çapraz bağlantılarında veya ağ düğümlerinde gerçekte olmayan katlar oluşturabiliyor ve eğimli çatı elemanlarının atalet yüklerini uç düğümlere taşıyabiliyordu. Analizleri veya tasarım kontrollerini yinelemeden önce etkilenen E yük durumlarını inceleyin ve yeniden üretin.",
+    "zh": "旧版等效静力地震荷载生成器可能在支撑节点或网格节点推断出虚假楼层，并将斜梁的惯性荷载移到端节点。请复核受影响的 E 工况并重新生成，再进行分析或设计验算。",
+    "hu": "A korábbi statikus szeizmikus tehergenerálás fiktív szinteket hozhatott létre merevítési vagy hálócsomópontoknál, és a tetőgerendák tehetetlenségi terhét a végcsomópontokra helyezhette. Az elemzések vagy ellenőrzések megismétlése előtt vizsgálja felül és generálja újra az érintett E tehereseteket."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-seismic-story-resolution.md",
+    "heading": "Static seismic story resolution and inclined member loading"
+  }
+}

@@ -1408,40 +1408,254 @@ for (const surface of ['quads', 'plates'] as const) {
   });
 }
 
-const storyRoundingRegression = process.env.RUN_KNOWN_WRONG === '2331' ? it : it.skip;
-
-storyRoundingRegression('known wrong result: #2331 a translated straight subdivision preserves its story and action', () => {
-  const shift = 1_000_000, length = Math.sqrt(10), weight = length;
-  const model = supportAtZero(mesh([
-    [[shift, 0, 0], [shift + 1 / 3, 0, 1]],
-    [[shift + 1 / 3, 0, 1], [shift + 1, 0, 3]],
-  ]));
+function rakedStoryPlan(shift: number, rotated: boolean, cuts: number[], offset = 0) {
+  const at = (z: number) => {
+    const side = z / 3 + (z === 1 ? offset : 0);
+    return [shift + (rotated ? 0 : side), -shift + (rotated ? side : 0), z];
+  };
+  const model = supportAtZero(mesh(cuts.slice(1).map((z, i) => [at(cuts[i]!), at(z)])));
   model.sections.set(1, { id: 1, a: 0.5 });
   model.materials.set(1, { id: 1, rho: 4 });
-  const options = request(model);
+  const options = request(model, { directions: { x: !rotated, y: rotated } });
   const plan = buildLoadPlan(options);
   const sink = seismicSink();
   INPRES103_SEISMIC.plan(options, plan.seismicModel!, sink);
-  expect.soft(plan.outcome).toBe('READY');
-  expect.soft(plan.seismicModel?.levels.map(l => l.elevation)).toEqual([0, 3]);
-  expect.soft(plan.factors.baseShear?.value).toBeCloseTo(weight, 10);
-  expect.soft(sink.nodal.map(l => l.nodeId)).toEqual([3]);
-  expect.soft(sink.nodal[0]?.fx).toBeCloseTo(weight, 10);
+  return { model, plan, sink };
+}
+
+it('#2331 a translated straight subdivision preserves its story and action', () => {
+  const weight = Math.sqrt(10);
+  for (const shift of [0, 1_000_000]) for (const rotated of [false, true]) for (const cuts of [[0, 3], [0, 1, 3], [0, 1, 1.5, 3]]) {
+    const { model, plan, sink } = rakedStoryPlan(shift, rotated, cuts);
+    const tip = [...model.nodes.values()].find(n => n.z === 3)!.id;
+    expect.soft(plan.outcome).toBe('READY');
+    expect.soft(plan.seismicModel?.levels.map(l => l.elevation)).toEqual([0, 3]);
+    expect.soft(plan.factors.baseShear?.value).toBeCloseTo(weight, 10);
+    expect.soft(sink.nodal.map(l => l.nodeId)).toEqual([tip]);
+    expect.soft(rotated ? sink.nodal[0]?.fy : sink.nodal[0]?.fx).toBeCloseTo(weight, 10);
+  }
 });
 
-const slopedRoofRegression = process.env.RUN_KNOWN_WRONG === '2332' ? it : it.skip;
+it('#2331 refuses a real kink and a subdivision beyond the coordinate precision limit', () => {
+  const cases = [
+    [0, 0.001, 'seismicAmbiguousStory'],
+    [1_000_000, 0.001, 'seismicAmbiguousStory'],
+    [1_000_000_000, 0, 'seismicStoryPrecision'],
+  ] as const;
+  for (const [shift, offset, diagnostic] of cases) {
+    const { plan, sink } = rakedStoryPlan(shift, false, [0, 1, 3], offset);
+    const blockedKeys = [{ key: `loadPlan.blocked.${diagnostic}` }];
+    expect(plan).toMatchObject({ outcome: 'BLOCKED', blockedKeys, cases: [], nodal: [], distributed: [], surface: [], combinations: [] });
+    expect(sink).toMatchObject({ blockedKeys, cases: [], nodal: [], distributed: [], surface: [] });
+  }
+});
 
-slopedRoofRegression('known wrong result: #2332 refuses rafter inertia when its story assignment is ambiguous', () => {
-  const model = supportAtZero(mesh([
-    [[0, 0, 0], [0, 0, 2]], [[4, 0, 0], [4, 0, 2]],
-    [[0, 0, 2], [2, 0, 3]], [[2, 0, 3], [4, 0, 2]],
-  ]));
+it('#2332 refuses rafter inertia when its story assignment is ambiguous', () => {
+  for (const rotated of [false, true]) for (const subdivided of [false, true]) for (const shift of [0, 1_000_000]) {
+    const { plan, sink } = gablePlan(false, rotated, subdivided, shift);
+    const reason = [{ key: 'loadPlan.blocked.seismicAmbiguousStory' }];
+    expect(plan).toMatchObject({
+      outcome: 'BLOCKED', blockedKeys: reason, cases: [], nodal: [], distributed: [], surface: [], combinations: [],
+    });
+    expect(sink).toMatchObject({ blockedKeys: reason, cases: [], nodal: [], distributed: [], surface: [] });
+  }
+});
+
+function gablePlan(evidenced: boolean, rotated: boolean, subdivided: boolean, shift: number, inPlane = false) {
+  const at = (x: number, z: number) => [shift + (rotated ? 0 : x), -shift + (rotated ? x : 0), z];
+  const left = at(0, 2), ridge = at(2, 3), right = at(4, 2);
+  const rafters = subdivided
+    ? [[left, at(1, 2.5)], [at(1, 2.5), ridge], [right, at(3, 2.5)], [at(3, 2.5), ridge]]
+    : [[left, ridge], [right, ridge]];
+  const model = supportAtZero(mesh([[at(0, 0), left], [at(4, 0), right], ...rafters]));
   model.sections.set(1, { id: 1, a: 0.5 });
   model.materials.set(1, { id: 1, rho: 4 });
-  const options = request(model, {}, { generateCombinations: true });
+  model.materials.set(2, { id: 2, rho: 0 });
+  for (const id of [1, 2]) model.elements.get(id)!.materialId = 2;
+  if (evidenced) {
+    const eaves = [...model.nodes.values()].filter(n => n.z === 2);
+    tieFloor(model, eaves[0]!.id, eaves[1]!.id);
+    const apex = [...model.nodes.values()].find(n => n.z === 3)!;
+    const id = model.nodes.size + 1;
+    model.nodes.set(id, { id, x: apex.x + (rotated ? 1 : 0), y: apex.y + (rotated ? 0 : 1), z: apex.z });
+    tieFloor(model, apex.id, id);
+  }
+  const options = request(model, { directions: { x: rotated || inPlane, y: !rotated && !inPlane } }, { generateCombinations: true });
   const plan = buildLoadPlan(options);
   const sink = seismicSink();
   INPRES103_SEISMIC.plan(options, plan.seismicModel!, sink);
-  expect.soft(plan).toMatchObject({ outcome: 'BLOCKED', cases: [], nodal: [], distributed: [], surface: [], combinations: [] });
-  expect.soft(sink).toMatchObject({ cases: [], nodal: [], distributed: [], surface: [] });
+  return { model, plan, sink };
+}
+
+it('#2332 evidenced rafter mass is loaded on each physical story band', () => {
+  const length = Math.sqrt(5);
+  for (const rotated of [false, true]) for (const subdivided of [false, true]) for (const shift of [0, 1_000_000]) {
+    const { model, plan, sink } = gablePlan(true, rotated, subdivided, shift);
+    expect(plan.outcome).toBe('READY');
+    expect(plan.factors.baseShear!.value).toBeCloseTo(4 * length, 10);
+    expect(plan.nodal.filter(l => l.caseType === 'E')).toEqual([]);
+    const loads = plan.distributed.filter(l => l.caseType === 'E');
+    expect(sink.distributed).toEqual(loads.map(load => ({ ...load, caseIndex: 0 })));
+    expect(loads).toHaveLength(4);
+    for (const load of loads) {
+      expect(load.elementId).toBeGreaterThan(2);
+      const element = model.elements.get(load.elementId)!;
+      const start = model.nodes.get(element.nodeI)!.z!;
+      const offset = (start - 2) * length;
+      const a = offset + load.a!, b = offset + load.b!;
+      const lower = a === 0;
+      expect(a).toBeCloseTo(lower ? 0 : length / 2, 10);
+      expect(b).toBeCloseTo(lower ? length / 2 : length, 10);
+      const q = lower ? 2 * (2 * 2 / (2 + 3)) : 2 * (2 * 3 / (2 + 3));
+      expect(load.frame).toBe('global');
+      expect(load.q).toBe(0);
+      expect(rotated ? load.qX : load.qY).toBeCloseTo(q, 10);
+      expect(rotated ? load.qXJ : load.qYJ).toBeCloseTo(q, 10);
+      expect(rotated ? load.qY : load.qX).toBe(0);
+    }
+  }
+});
+
+function rafterBands(length: number) {
+  return [
+    { start: 0, end: length / 2, q: 4 * 2 / (2 + 3) },
+    { start: length / 2, end: length, q: 4 * 3 / (2 + 3) },
+  ];
+}
+
+function rafterAction(length: number, x: number) {
+  let shear = 0, moment = 0, tip = 0;
+  const flexure = (s: number) => length * s ** 3 - s ** 4 / 4;
+  for (const { start, end, q } of rafterBands(length)) {
+    const a = Math.max(start, x);
+    shear += q * Math.max(0, end - a);
+    moment += q * ((end - x) ** 2 - (a - x) ** 2) / 2 * Number(end > a);
+    tip += q * (flexure(end) - flexure(start));
+  }
+  const ei = cantileverSections.materials.get(1)!.e * 1000 * cantileverSections.sections.get(1)!.iz;
+  return { shear, moment, tip: tip / (6 * ei) };
+}
+
+function gableCantilever(rotated: boolean, subdivided: boolean, shift: number, right: boolean, inPlane = false) {
+  const { model, plan } = gablePlan(true, rotated, subdivided, shift, inPlane);
+  const along = (node: { x: number; y: number }) => rotated ? node.y : node.x;
+  const base = [...model.nodes.values()].find(n => n.z === 2 && along(n) === (rotated ? -shift : shift) + (right ? 4 : 0))!.id;
+  const tip = [...model.nodes.values()].find(n => n.z === 3)!.id;
+  const ridge = along(model.nodes.get(tip)!);
+  const members = [...model.elements.values()].filter(e => e.id > 2 && (along(model.nodes.get(e.nodeI)!) > ridge) === right);
+  const loads = appliedSeismicLoads(plan, model).filter(l => l.type === 'distributed3d' && members.some(e => e.id === l.data.elementId));
+  const spatial = spatialCantilever(model, members, !rotated, base, []);
+  const loadModel = { ...spatial, loads } as unknown as ModelData;
+  return { base, tip, spatial: { ...spatial, loads: buildSolverLoads3D(loadModel, loads, false, false) } };
+}
+
+it('#2332 rafter station forces and deflection follow the distributed inertia', () => {
+  const length = Math.sqrt(5);
+  for (const rotated of [false, true]) for (const subdivided of [false, true]) for (const shift of [0, 1_000_000]) {
+    for (const right of [false, true]) {
+      const { spatial, tip } = gableCantilever(rotated, subdivided, shift, right);
+      for (const nonlinear of [false, true]) checkCantileverSolve(spatial, true, nonlinear, raw => {
+        const result = raw as AnalysisResults3D;
+        for (const f of result.elementForces) {
+          const member = spatial.elements.get(f.elementId)!;
+          const offset = (spatial.nodes.get(member.nodeI)!.z - 2) * length;
+          for (const t of [0, 0.2, 0.5, 0.8, 1]) {
+            const { shear, moment } = rafterAction(length, offset + t * f.length);
+            expect.soft(evaluateDiagramAt(f, 'shearY', t)).toBeCloseTo(-shear, 10);
+            expect.soft(evaluateDiagramAt(f, 'momentZ', t)).toBeCloseTo(-moment, 10);
+            expect.soft(evaluateDiagramAt(f, 'torsion', t)).toBeCloseTo(0, 10);
+          }
+        }
+        const d = result.displacements.find(n => n.nodeId === tip)!;
+        expect.soft(rotated ? d.ux : d.uy).toBeCloseTo(rafterAction(length, 0).tip, 10);
+      });
+    }
+  }
+});
+
+it('#2332 refuses a massive slope whose upper attachment has no floor evidence', () => {
+  for (const mass of [0, 4]) {
+    const model = supportAtZero(mesh([
+      [[0, 0, 0], [0, 0, 2]], [[0, 0, 2], [1, 0, 2]], [[0, 0, 2], [-2, 0, 3]],
+    ]));
+    model.sections.set(1, { id: 1, a: 0.5 });
+    model.materials.set(1, { id: 1, rho: 4 });
+    model.materials.set(2, { id: 2, rho: mass });
+    model.elements.get(3)!.materialId = 2;
+    const options = request(model, {}, { generateCombinations: true });
+    const plan = buildLoadPlan(options);
+    const sink = seismicSink();
+    INPRES103_SEISMIC.plan(options, plan.seismicModel!, sink);
+    if (mass > 0) {
+      const reason = [2, 3].map(elevation => ({ key: 'loadPlan.blocked.seismicMass.slopedMember', params: { elevation } }));
+      expect(plan.outcome).toBe('BLOCKED');
+      expect(plan.blockedKeys).toEqual(reason);
+      expect(sink.levelRefusals).toEqual(reason);
+      expect(plan.cases.some(c => c.type === 'E')).toBe(false);
+      expect(sink).toMatchObject({ cases: [], nodal: [], distributed: [], surface: [] });
+      expect(plan.factors.baseShear).toBeUndefined();
+    } else {
+      expect(plan.outcome).toBe('READY');
+      expect(plan.factors.baseShear?.value).toBe(4);
+      expect(sink.distributed).toMatchObject([{ elementId: 2, qX: 2, qXJ: 2, a: 0, b: 1 }]);
+      expect(sink.nodal).toMatchObject([{ nodeId: 2, fx: 2 }]);
+    }
+  }
+});
+
+it('#2332 projected plane solves retain the rafter axial and transverse span loads', () => {
+  const length = Math.sqrt(5), sine = 1 / length, cosine = 2 / length;
+  const section = cantileverSections.sections.get(1)!;
+  const ea = 1000 * cantileverSections.materials.get(1)!.e * section.a;
+  for (const subdivided of [false, true]) for (const shift of [0, 1_000_000]) {
+    const { base, tip, spatial } = gableCantilever(false, subdivided, shift, false, true);
+    const nodes = new Map([...spatial.nodes].map(([id, n]) => [id, { id, x: n.x, z: n.z }]));
+    const elements = new Map([...spatial.elements].map(([id, e]) => [id, {
+      id, nodeI: e.nodeI, nodeJ: e.nodeJ, sectionId: e.sectionId, materialId: e.materialId,
+      type: 'frame' as const, hingeStart: false, hingeEnd: false,
+    }]));
+    const planeLoads: SolverInput['loads'] = [];
+    for (const load of spatial.loads) {
+      if (load.type !== 'distributed') throw new Error('Expected distributed rafter inertia');
+      const { elementId, qXI, qXJ, qZI, qZJ, a, b } = load.data;
+      planeLoads.push({ type: 'axialDistributed', data: { elementId, qI: qXI!, qJ: qXJ!, a, b } });
+      planeLoads.push({ type: 'distributed', data: { elementId, qI: qZI, qJ: qZJ, a, b } });
+    }
+    const plane: SolverInput = {
+      ...cantileverSections, nodes, elements, loads: planeLoads,
+      supports: new Map([[base, { id: base, nodeId: base, type: 'fixed' }]]),
+    };
+    const handLoads: SolverInput['loads'] = [];
+    for (const [elementId, { nodeI, nodeJ }] of elements) {
+      const start = (nodes.get(nodeI)!.z - 2) * length, end = (nodes.get(nodeJ)!.z - 2) * length;
+      for (const band of rafterBands(length)) {
+        const a = Math.max(band.start, start) - start, b = Math.min(band.end, end) - start;
+        if (b <= a) continue;
+        handLoads.push({ type: 'axialDistributed', data: { elementId, qI: band.q * cosine, qJ: band.q * cosine, a, b } });
+        handLoads.push({ type: 'distributed', data: { elementId, qI: -band.q * sine, qJ: -band.q * sine, a, b } });
+      }
+    }
+    for (const nonlinear of [false, true]) {
+      const reference = nonlinear ? solvePDelta({ ...plane, loads: handLoads }) : undefined;
+      if (reference) expect(reference.converged).toBe(true);
+      const nonlinearResponse = reference?.results as ReturnType<typeof solve> | undefined;
+      checkCantileverSolve(plane, false, nonlinear, raw => {
+        const result = raw as ReturnType<typeof solve>;
+        for (const f of result.elementForces) {
+          const member = elements.get(f.elementId)!;
+          const offset = (nodes.get(member.nodeI)!.z - 2) * length;
+          const ref = nonlinearResponse?.elementForces.find(e => e.elementId === f.elementId);
+          for (const t of [0, 0.2, 0.5, 0.8, 1]) {
+            const { shear, moment } = rafterAction(length, offset + t * f.length);
+            expect.soft(computeDiagramValueAt('shear', t, f)).toBeCloseTo(ref ? computeDiagramValueAt('shear', t, ref) : sine * shear, 10);
+            expect.soft(computeDiagramValueAt('moment', t, f)).toBeCloseTo(ref ? computeDiagramValueAt('moment', t, ref) : sine * moment, 10);
+          }
+        }
+        const d = result.displacements.find(n => n.nodeId === tip)!;
+        const ref = nonlinearResponse?.displacements.find(n => n.nodeId === tip);
+        const hand = rafterAction(length, 0);
+        expect.soft(d.ux).toBeCloseTo(ref?.ux ?? sine ** 2 * hand.tip + cosine ** 2 * hand.moment / ea, 10);
+      });
+    }
+  }
 });

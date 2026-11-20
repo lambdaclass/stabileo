@@ -14,11 +14,11 @@ type MassAtNode = LineWeight & { kind: 'nodal'; node: MassNode };
 export type MassShell = { kind: 'shell'; quadId: number; on?: 'plate'; nodes: MassNode[]; density: number };
 export type SeismicMass = MassMember | MassAtNode | MassShell;
 export type SeismicLevel = LevelMass & { mass: SeismicMass[]; planWidth: { x: number; y: number }; snowWeightKN: number; unresolvedWeight: boolean; refusals: Set<MassRefusal> };
-type DatumRefusal = 'seismicBase' | 'seismicSteppedBase' | 'seismicDisconnected' | 'seismicBelowDatum';
+type SeismicGeometryRefusal = 'seismicBase' | 'seismicSteppedBase' | 'seismicDisconnected' | 'seismicBelowDatum' | 'seismicAmbiguousStory' | 'seismicStoryPrecision';
 export type SeismicModel =
   | { levels: SeismicLevel[]; datum: { elevation: number } }
-  | { levels: []; datum: { refusal: DatumRefusal } };
-export type MassRefusal = 'member' | 'shell' | 'panel' | 'eccentric' | 'snow' | 'torsion' | 'weight' | 'storyNode';
+  | { levels: []; datum: { refusal: SeismicGeometryRefusal } };
+export type MassRefusal = 'member' | 'shell' | 'panel' | 'eccentric' | 'snow' | 'torsion' | 'weight' | 'storyNode' | 'slopedMember';
 
 const interpolate = (a: number, b: number, t: number) => a + (b - a) * t;
 type MassSample = (weight: number, x: number, y: number) => void;
@@ -95,7 +95,7 @@ type SupportedSeismicComponent = {
 
 function supportedSeismicComponent(
   model: LoadModelData, nodes: ReadonlyMap<number, MassNode>, segments: StructuralSegment[],
-): SupportedSeismicComponent | { refusal: DatumRefusal } {
+): SupportedSeismicComponent | { refusal: SeismicGeometryRefusal } {
   const first = segments[0]?.[0];
   if (!first) return { refusal: 'seismicBase' };
 
@@ -120,11 +120,15 @@ function supportedSeismicComponent(
     if (constraint.type !== 'diaphragm') continue;
     const { masterNode, slaveNodes } = constraint;
     if (!hasPosition(masterNode)) continue;
+    const plane = constraint.plane?.toUpperCase() || 'XY';
+    const elevation = nodes.get(masterNode)!.z;
     for (const slave of slaveNodes) {
       if (slave === masterNode || !hasPosition(slave)) continue;
       connect(masterNode, slave);
-      storyNodes.add(masterNode);
-      storyNodes.add(slave);
+      if (plane === 'XY' && nodes.get(slave)!.z === elevation) {
+        storyNodes.add(masterNode);
+        storyNodes.add(slave);
+      }
     }
   }
 
@@ -149,6 +153,29 @@ function supportedSeismicComponent(
   const [elevation] = supportElevations;
   if (elevation === undefined) return { refusal: 'seismicBase' };
   return { elevation, nodes: reached, storyNodes, segments };
+}
+
+function lineJoint(a: MassNode, p: MassNode, b: MassNode): 'straight' | 'corner' | 'unresolved' {
+  const chord = [b.x - a.x, b.y - a.y, b.z - a.z];
+  const leg = [p.x - a.x, p.y - a.y, p.z - a.z];
+  const other = [b.x - p.x, b.y - p.y, b.z - p.z];
+  const lengthA = Math.hypot(...leg), lengthB = Math.hypot(...other);
+  const u = leg.map(value => value / lengthA), v = other.map(value => value / lengthB);
+  const cross = Math.hypot(u[1]! * v[2]! - u[2]! * v[1]!, u[2]! * v[0]! - u[0]! * v[2]!, u[0]! * v[1]! - u[1]! * v[0]!);
+  if (cross <= 64 * Number.EPSILON && u.reduce((sum, value, i) => sum + value * v[i]!, 0) > 0) return 'straight';
+
+  const axis = chord.reduce((best, value, i) => Math.abs(value) > Math.abs(chord[best]!) ? i : best, 0);
+  const t = leg[axis]! / chord[axis]!;
+  if (!(0 < t && t < 1)) return 'corner';
+
+  const residual = leg.map((value, i) => i === axis ? 0 : value - t * chord[i]!);
+  const rounding = (['x', 'y', 'z'] as const).map(dir =>
+    (Number.EPSILON / 2) * (Math.abs(p[dir]) + (1 - t) * Math.abs(a[dir]) + t * Math.abs(b[dir])),
+  );
+  const bounds = chord.map((value, i) => i === axis ? 0 : rounding[i]! + Math.abs(value / chord[axis]!) * rounding[axis]!);
+  if (residual.some((value, i) => Math.abs(value) > bounds[i]!)) return 'corner';
+  const localPrecision = Math.sqrt(Number.EPSILON) * Math.min(lengthA, lengthB);
+  return Math.hypot(...bounds) <= localPrecision ? 'straight' : 'unresolved';
 }
 
 export function buildSeismicModel(
@@ -185,36 +212,56 @@ export function buildSeismicModel(
   const component = supportedSeismicComponent(model, nodes, segments);
   if ('refusal' in component) return { levels: [], datum: component };
 
-  const isCollinearSubdivision = (p: MassNode) => {
-    const adjacent = neighbours.get(p.id);
-    if (adjacent?.length !== 2) return false;
-    const a = adjacent[0]!.node, b = adjacent[1]!.node;
-    const u = [a.x - p.x, a.y - p.y, a.z - p.z], v = [b.x - p.x, b.y - p.y, b.z - p.z];
-    const scale = Math.hypot(...u) * Math.hypot(...v);
-    return u.reduce((s, x, i) => s + x * v[i]!, 0) < 0 &&
-      Math.hypot(u[1]! * v[2]! - u[2]! * v[1]!, u[2]! * v[0]! - u[0]! * v[2]!, u[0]! * v[1]! - u[1]! * v[0]!) <= 64 * Number.EPSILON * scale;
-  };
-  const subdivisions = new Set([...nodes.values()].filter(isCollinearSubdivision).map(n => n.id));
-  const storyNodes = new Set([...nodes.values()].filter(n => component.nodes.has(n.id) &&
-    (surfaceNodes.has(n.id) || component.storyNodes.has(n.id) || (neighbours.has(n.id) && !subdivisions.has(n.id))))
-    .map(n => n.id));
-  const attachments = new Map<number, Map<number, MassNode>>();
+  const evidenced = new Set(component.storyNodes);
+  for (const [a, b] of segments) {
+    if (a.z !== b.z) continue;
+    evidenced.add(a.id);
+    evidenced.add(b.id);
+  }
+  const subdivisions = new Set<number>();
+  const storyNodes = new Set(evidenced);
+  for (const [id, adjacent] of neighbours) {
+    const node = nodes.get(id)!;
+    const connected = adjacent.map(edge => edge.node);
+    const joint = connected.length === 2 ? lineJoint(connected[0]!, node, connected[1]!) : 'corner';
+    if (joint === 'straight') subdivisions.add(id);
+    if (evidenced.has(id)) continue;
+    if (joint === 'unresolved') return { levels: [], datum: { refusal: 'seismicStoryPrecision' } };
+    if (joint === 'straight') continue;
+    const below = connected.filter(n => n.z < node.z);
+    const rises = connected.some(n => n.z > node.z);
+    const descendingSlopes = below.filter(n => n.x !== node.x || n.y !== node.y);
+    if (node.z > component.elevation && ((below.length && rises) || descendingSlopes.length >= 2)) {
+      return { levels: [], datum: { refusal: 'seismicAmbiguousStory' } };
+    }
+    storyNodes.add(id);
+  }
+  for (const id of surfaceNodes) if (component.nodes.has(id)) storyNodes.add(id);
+
+  type Run = { atStory: Map<number, MassNode>; loading: 'story' | 'member' | 'unresolvedSlope' };
+  const runs = new Map<number, Run>();
   for (const [id, line] of geometry) {
-    if (line.nodeI.z === line.nodeJ.z || attachments.has(id)) continue;
-    const atStory = new Map<number, MassNode>();
+    if (line.nodeI.z === line.nodeJ.z || runs.has(id)) continue;
+    const run: Run = { atStory: new Map(), loading: 'story' };
     const pending = [line];
+    let low = line.nodeI, high = line.nodeI;
     while (pending.length) {
       const member = pending.pop()!;
-      if (attachments.has(member.elementId)) continue;
-      attachments.set(member.elementId, atStory);
+      if (runs.has(member.elementId)) continue;
+      runs.set(member.elementId, run);
       for (const node of [member.nodeI, member.nodeJ]) {
-        if (storyNodes.has(node.id)) atStory.set(node.z, node);
+        if (node.z < low.z) low = node;
+        if (node.z > high.z) high = node;
+        if (storyNodes.has(node.id)) run.atStory.set(node.z, node);
         if (!subdivisions.has(node.id)) continue;
         for (const { elementId } of neighbours.get(node.id)!) {
           const adjacent = geometry.get(elementId)!;
-          if (!attachments.has(elementId) && adjacent.nodeI.z !== adjacent.nodeJ.z) pending.push(adjacent);
+          if (!runs.has(elementId) && adjacent.nodeI.z !== adjacent.nodeJ.z) pending.push(adjacent);
         }
       }
+    }
+    if (low.z > component.elevation && (low.x !== high.x || low.y !== high.y)) {
+      run.loading = evidenced.has(low.id) && evidenced.has(high.id) ? 'member' : 'unresolvedSlope';
     }
   }
   const byElevation = new Map<number, SeismicLevel>();
@@ -226,8 +273,8 @@ export function buildSeismicModel(
     return byElevation.get(elevation)!;
   };
   let levels: SeismicLevel[];
-  const nearest = (z: number) => levels.reduce<SeismicLevel | undefined>((best, l) =>
-    !best || Math.abs(l.elevation - z) < Math.abs(best.elevation - z) ? l : best, undefined);
+  const nearest = (z: number, offset = 0) => levels.reduce<SeismicLevel | undefined>((best, l) =>
+    !best || Math.abs((l.elevation - z) - offset) < Math.abs((best.elevation - z) - offset) ? l : best, undefined);
   const deny = (l: SeismicLevel, reason: MassRefusal, unresolvedWeight = true) => {
     l.refusals.add(reason);
     if (unresolvedWeight) l.unresolvedWeight = true;
@@ -290,21 +337,29 @@ export function buildSeismicModel(
         record(level(nodeI.z), source, { ...g, kind: 'member', wi, wj, width: strip }, (g.b - g.a) * (wi + wj) / 2);
         return;
       }
-      const atStory = attachments.get(g.elementId)!;
+      const run = runs.get(g.elementId)!;
       const add = (level: SeismicLevel, a: number, b: number, wi: number, wj: number) => {
-        const node = atStory.get(level.elevation);
         const weight = (b - a) * (wi + wj) / 2;
+        if (run.loading === 'unresolvedSlope' && level.elevation > component.elevation && factorOf(source) > 0 && weight > 0) {
+          deny(level, 'slopedMember');
+          return;
+        }
+        if (run.loading === 'member') {
+          record(level, source, { ...g, kind: 'member', a, b, wi, wj, width: strip }, weight);
+          return;
+        }
+        const node = run.atStory.get(level.elevation);
         if (!node && level.elevation > component.elevation && factorOf(source) > 0 && weight > 0) deny(level, 'storyNode', false);
         record(level, source, node ? { ...g, kind: 'nodal', node, a, b, wi, wj, width: strip } : null, weight);
       };
       const dz = nodeJ.z - nodeI.z;
       const cuts = [g.a, g.b, ...levels.slice(1).map((l, i) =>
-        ((l.elevation + levels[i]!.elevation) / 2 - nodeI.z) * length / dz,
+        ((l.elevation - nodeI.z) + (levels[i]!.elevation - nodeI.z)) / 2 * length / dz,
       ).filter(s => s > g.a && s < g.b)].sort((a, b) => a - b);
       const w = (s: number) => interpolate(wi, wj, (s - g.a) / (g.b - g.a));
       for (let k = 1; k < cuts.length; k++) {
         const a = cuts[k - 1]!, b = cuts[k]!;
-        const l = nearest(nodeI.z + dz * (a + b) / (2 * length));
+        const l = nearest(nodeI.z, dz * (a + b) / (2 * length));
         if (l) add(l, a, b, w(a), w(b));
       }
     });

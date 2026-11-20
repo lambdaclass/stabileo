@@ -1,0 +1,11 @@
+# Static seismic story resolution and inclined member loading
+
+Issues #2330, #2331 and #2332. 2026-11-20.
+
+The generator now checks floor evidence before treating a joint between rising and falling members, or a ridge joint between descending inclined members, as a story. An ambiguous joint blocks seismic generation before it can partition the mass or emit a seismic case. Connected supports, horizontal framing and horizontal diaphragms with joints at a common elevation supply story evidence. A brace attached at mid-height without floor evidence can no longer cause the generator to assign seismic weight to that elevation.
+
+The subdivision check uses local member geometry and separately bounds the rounding from storing the input coordinates. A straight 1 m by 3 m raked carrier split at elevation 1 m still has levels at 0 m and 3 m after translating it by one million metres in plan. With a synthetic line weight of 2 kN/m and coefficient of 1, its participating weight and base shear are both √10 kN. The prior plan introduced a level at 1 m and reported a base shear of 5√10/3 kN. The generator refuses when the rounding bound needed to certify the joint exceeds the local geometric precision limit.
+
+An elevated sloped member whose ends have floor evidence receives a distributed seismic load over each participating span within the existing static story bands. For the gable test, each rafter has length √5 m and weight 2 kN/m, with story elevations of 2 m and 3 m. A manual coefficient of 1 gives transverse loads of 1.6 and 2.4 kN/m on the respective lower and upper half-spans, giving a fixed-end bending magnitude of 5.5 kN·m and a tip deflection of 0.000356770833 m for the test cantilever with EI = 20,000 kN·m². Earlier generation could return only end-node actions. An elevated slope with participating mass and unresolved end elevations blocks generation. This change uses the existing static height-band and force rules. Modal generation is covered by the existing [modal refusal](2026-11-seismic-modal-generation.md).
+
+Review affected generated E cases and regenerate them before repeating analyses or design checks. Models with ambiguous stories need an established floor model before they can generate static seismic loads.
