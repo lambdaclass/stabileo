@@ -7,20 +7,13 @@
   import { t, tp, i18n, tpn } from '../../../lib/i18n';
   import { decimalFor, makeFmt } from '../../../lib/rc-sheets/format';
   import type { PunchingFigure } from '../../../lib/rc-sheets/punching-row';
-  import { ringPath, type PlanSide } from '../../../lib/rc-sheets/view-helpers';
+  import { ringPath } from '../../../lib/rc-sheets/view-helpers';
+  import { freeSides } from '../../../lib/rc-sheets/punching-bars';
 
   let { fig, name }: { fig: PunchingFigure; name: string } = $props();
   const fmt = $derived(makeFmt(decimalFor(i18n.locale)));
 
-  type Side = PlanSide;
-  const DIRS: Array<[Side, number]> = [['px', 0], ['py', 90], ['nx', 180], ['ny', 270]];
-  const gap = (a: number, b: number) => { const d = Math.abs((((a - b) % 360) + 360) % 360); return Math.min(d, 360 - d); };
-  /** The sides the slab stops at the column face: the one the free edge faces, or the two of a corner. */
-  const free = $derived.by((): Set<Side> => {
-    if (fig.position === 'interior' || fig.openBearingDeg === null) return new Set();
-    const by = [...DIRS].sort((p, q) => gap(p[1], fig.openBearingDeg!) - gap(q[1], fig.openBearingDeg!));
-    return new Set(by.slice(0, fig.position === 'corner' ? 2 : 1).map((x) => x[0]));
-  });
+  const free = $derived(freeSides(fig));
 
   const SIZE = 250, PAD = 34;
   const bx = $derived(fig.b / 2), by = $derived(fig.h / 2);

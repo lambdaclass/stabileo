@@ -6,7 +6,8 @@
  * beside its bars, hooked into the slab at the top or where the faces step in 75 mm or more, and
  * dowels then),
  * their hoops and cross ties (the inner row's too); slabs each layer's bars; walls their verticals, horizontals, edge
- * U-bars, boundary hoops and cross ties. Mandrels and hooks are the code's (`BendRules`).
+ * U-bars, boundary hoops and cross ties; punching joints their single-leg stirrups (`punching-bars.ts`).
+ * Mandrels and hooks are the code's (`BendRules`).
  */
 import type { LineBar, LineLayout } from '../beam-line';
 import { innerCrossties, type ColumnRow } from '../column-row';
@@ -18,12 +19,14 @@ import { layerPositions } from '../view-helpers';
 import type { LevelPlan, SlabPackage } from '../slab-plan';
 import { wallDetail, wallLevels, type WallDetail } from '../wall-detail';
 import type { WallRow } from '../wall-row';
+import type { PunchingRow } from '../punching-row';
+import { punchingLegs } from '../punching-bars';
 import { rulesFor } from '../codes';
 import { closedHoop, crankedBar, crossTie, developedLength, hookLeg, hookedStraight, uBar, type BarShape, type BendRules } from '../shape';
 import type { SheetCode, SheetFamily, Stirrups } from '../types';
 
 export type PieceKind = LineBar['kind'] | 'stirrup' | 'stirrupTie' | 'hanger' | 'column' | 'cranked' | 'dowel' | 'hoop' | 'crossTie'
-  | 'slabBottom' | 'slabTop' | 'vertical' | 'boundary' | 'horizontal' | 'ubar' | 'wallTie';
+  | 'slabBottom' | 'slabTop' | 'vertical' | 'boundary' | 'horizontal' | 'ubar' | 'wallTie' | 'punchingLeg';
 
 export interface Piece {
   kind: PieceKind;
@@ -35,7 +38,7 @@ export interface Piece {
 
 export interface ScheduleElement { key: string; name: string; level?: string; family: SheetFamily; pieces: Piece[] }
 
-export interface PieceRows { line: LineLayout[]; column: ColumnRow[]; slab: SlabRow[]; wall: WallRow[]; slabPlan?: readonly LevelPlan[] }
+export interface PieceRows { line: LineLayout[]; column: ColumnRow[]; slab: SlabRow[]; wall: WallRow[]; slabPlan?: readonly LevelPlan[]; punching?: readonly PunchingRow[] }
 
 export interface PieceOptions {
   code: SheetCode;
@@ -249,6 +252,17 @@ function levelPieces(plan: LevelPlan): ScheduleElement {
 }
 
 /** Every element's pieces, beams, columns, slabs and walls in that order, each family in the rows' order; a level with a slab plan gives its packages instead of its panels' layers. */
+/** A punching stirrup's leg: through the slab between its top and bottom bars, hooked over both. */
+export const punchingLeg = (r: PunchingRow, o: Pick<PieceOptions, 'slabCover'>, R: BendRules): BarShape | null => {
+  const s = r.figure?.reinforcement;
+  return s ? tieAcross(Math.max(0.05, r.demand.thickness - 2 * o.slabCover), s.legDiameter, R) : null;
+};
+
+function punchingPieces(r: PunchingRow, o: PieceOptions, R: BendRules): ScheduleElement {
+  const shape = punchingLeg(r, o, R);
+  return { key: r.key, name: r.name, ...(r.level !== undefined ? { level: r.level } : {}), family: 'punching', pieces: shape && r.figure ? [{ kind: 'punchingLeg', count: punchingLegs(r.figure).length, shape }] : [] };
+}
+
 export function scheduleElements(rows: PieceRows, o: PieceOptions): ScheduleElement[] {
   const R = rulesFor(o.code).bends;
   const planned = new Set((rows.slabPlan ?? []).filter((p) => p.packages.length).map((p) => p.level));
@@ -259,5 +273,6 @@ export function scheduleElements(rows: PieceRows, o: PieceOptions): ScheduleElem
     ...(rows.slabPlan ?? []).filter((p) => planned.has(p.level)).map(levelPieces),
     ...rows.slab.filter((r) => !inPlan.has(r.key)).map((r) => slabPieces(r, o, R)),
     ...rows.wall.map((r) => wallPieces(rows.wall, r, o, R)),
+    ...(rows.punching ?? []).filter((r) => r.figure?.reinforcement).map((r) => punchingPieces(r, o, R)),
   ].map((e) => ({ ...e, pieces: e.pieces.filter((p) => p.count > 0) }));
 }

@@ -2,6 +2,7 @@ import type { ColumnRow } from './column-row';
 import type { LineLayout } from './beam-line';
 import type { SlabRow } from './slab-row';
 import type { WallRow } from './wall-row';
+import type { PunchingRow } from './punching-row';
 import type { PieceKind, PieceRows } from './schedule/pieces';
 import type { BarShape } from './shape';
 import type { SheetFamily } from './types';
@@ -11,7 +12,7 @@ export type V3 = [number, number, number];
 export interface Frame { o: V3; x: V3; y: V3; z: V3 }
 
 export type RebarTone = 'continuous' | 'support' | 'span' | 'bent' | 'stirrup' | 'column' | 'tie' | 'dowel'
-  | 'bottomX' | 'bottomY' | 'topX' | 'topY' | 'vertical' | 'horizontal' | 'ubar' | 'wallTie';
+  | 'bottomX' | 'bottomY' | 'topX' | 'topY' | 'vertical' | 'horizontal' | 'ubar' | 'wallTie' | 'punching';
 
 export interface Rebar3d {
   element: string;
@@ -32,6 +33,8 @@ export interface Rebar3dFrames {
   column(r: ColumnRow): Frame | null;
   wall(r: WallRow): Frame | null;
   slabSoffit(r: SlabRow): number | null;
+  /** A punching joint: at its node on the slab's mid-plane, axes the plan's. */
+  punching?(r: PunchingRow): Frame | null;
 }
 
 export const at = (f: Frame, x: number, y: number, z: number): V3 => [

@@ -182,7 +182,7 @@ describe('the sheets\' bars in 3D', () => {
     const next = buildSheetRows();
     const moved = sheetBars3d(next);
     coherent(next, moved);
-    const panelBars = shownBars(moved, { row: { key: panel.key, name: panel.name }, level: '', families: { beam: true, column: true, slab: true, wall: true } });
+    const panelBars = shownBars(moved, { row: { key: panel.key, name: panel.name }, level: '', families: { beam: true, column: true, slab: true, wall: true, punching: true } });
     const bx = panelBars.filter((b) => b.tone === 'bottomX');
     expect(bx.length).toBeGreaterThan(0);
     expect(new Set(bx.map((b) => b.dia))).toEqual(new Set([10]));

@@ -7,7 +7,7 @@ export type Host = { scene: THREE.Scene; redraw: () => void };
 export const REBAR_FIXED: Partial<Record<RebarTone, string>> = {
   continuous: '#6fb3d9', column: '#8f9cf5',
   bent: '#b48cf2', bottomX: '#4ecdc4', bottomY: '#5b8def', topX: '#e0a03c', topY: '#d9607a',
-  vertical: '#4ecdc4', horizontal: '#5b8def', ubar: '#e0a03c', wallTie: '#d9607a',
+  vertical: '#4ecdc4', horizontal: '#5b8def', ubar: '#e0a03c', wallTie: '#d9607a', punching: '#c084fc',
 };
 const FIXED = REBAR_FIXED;
 const TOKENS: Partial<Record<RebarTone, [string, string]>> = {

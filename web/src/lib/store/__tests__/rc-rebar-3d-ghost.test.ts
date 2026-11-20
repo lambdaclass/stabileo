@@ -9,7 +9,7 @@ import type { Frame, Rebar3d } from '../../rc-sheets/rebar-3d';
 beforeAll(async () => { await wasmSolver.initSolver(); });
 
 const TOL = 1e-6;
-const ALL = { row: null, level: '', families: { beam: true, column: true, slab: true, wall: true } };
+const ALL = { row: null, level: '', families: { beam: true, column: true, slab: true, wall: true, punching: true } };
 const own = (ghosts: readonly Ghost3d[], key: string, family: Ghost3d['family']) => ghosts.filter((g) => g.element === key && g.family === family);
 const size = (g: Ghost3d) => g.to.map((v, i) => v - g.from[i]!);
 
@@ -77,7 +77,8 @@ describe('the concrete ghost of the sheets\' bars', () => {
     const rows = buildSheetRows();
     const bars = sheetBars3d(rows), ghosts = sheetGhosts3d(rows);
     expect(sheetGhosts3d(rows)).toBe(ghosts);
-    for (const f of REBAR_FAMILIES) expect(ghosts.some((g) => g.family === f), f).toBe(true);
+    for (const f of REBAR_FAMILIES.filter((x) => x !== 'punching')) expect(ghosts.some((g) => g.family === f), f).toBe(true);
+    expect(ghosts.some((g) => g.family === 'punching')).toBe(false);
     oneGhostEach(rows, ghosts, bars);
 
     const every = shownGhosts(ghosts, shownBars(bars, ALL), ALL);
