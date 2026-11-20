@@ -6,7 +6,7 @@ The 2D adapter now passes the exact rules for each load case to the shared load 
 
 For a horizontal cantilever, case weights with unequal factors along X and Z give different reaction components. The adapter regression checks the summed weight calculated from the fixture's density, section area and length. It covers the WASM batch and per-case routes, including duplicate case names, and checks an explicit weight through direct linear and P-Delta solves. The native solver continues to consume the same explicit member load types.
 
-Recompute affected planar results produced from explicitly specified rules. The legacy gravity toggle still applies downward gravity.
+Recompute planar member results that predate this change when the saved model specifies a different direction or factor, a member or group scope, or multiple weight rules. The recheck notice applies with any case names. The legacy gravity toggle still applies downward gravity.
 
 ## Workbook support rotations
 

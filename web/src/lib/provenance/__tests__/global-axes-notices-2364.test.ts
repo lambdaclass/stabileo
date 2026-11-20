@@ -31,7 +31,7 @@ it('known wrong result: #2364 the older #2223 nodal project stays quiet before t
   }
 });
 
-it.each(modes)('known wrong result: #2364 %s notice applicability requires saved global axes use', (analysisMode) => {
+it.each(modes)('known wrong result: #2364 %s global-axes notices require saved global axes use', (analysisMode) => {
   const snapshot: FeatureSnapshot = {
     analysisMode,
     elements: [[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1 }]],
@@ -43,7 +43,7 @@ it.each(modes)('known wrong result: #2364 %s notice applicability requires saved
   const marked = { ...snapshot, loadCases: [{ id: 1, type: 'D', axisNamed: true }] };
   vi.stubGlobal('__PUBLIC_FEATURES__', featuresForMode('test'));
   const markedFeatures = modelFeatures(marked);
-  const expected = branchIds.filter(id => id !== 'exact-plane-self-weight' || analysisMode === '2d');
+  const expected = branchIds.filter(id => id !== 'exact-plane-self-weight');
   for (const analysis of histories) {
     const stamp = { ...stampSolve(analysis, null), resultsVersion: versionBefore };
     const relevant = (project: FeatureSnapshot, evidence?: ReadonlySet<string>) =>

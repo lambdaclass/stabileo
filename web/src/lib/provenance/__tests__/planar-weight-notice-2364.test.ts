@@ -27,8 +27,6 @@ const variantRules: Record<string, SelfWeightLoad[]> = {
   'two conventional rules': [gravity, { ...gravity, caseId: 2 }],
 };
 
-const regression = process.env.RUN_KNOWN_WRONG === '2364' ? it : it.skip;
-
 afterEach(() => vi.unstubAllGlobals());
 
 for (const mode of ['production', 'test'] as const) {
@@ -40,7 +38,7 @@ for (const mode of ['production', 'test'] as const) {
     const beforeRollout = () => ({ ...atRollout(), resultsVersion: notice.resultsVersion - 1 });
 
     for (const [label, selfWeight] of Object.entries(variantRules)) {
-      regression(`known wrong result: #2364 ${mode} ${kind} rechecks ${label} before the planar weight rollout`, () => {
+      it(`#2364 ${mode} ${kind} rechecks ${label} before the planar weight rollout`, () => {
         const snapshot = { ...beam, analysis: { selfWeight } };
         expect(assessProject(snapshot, beforeRollout()).changes).toContainEqual(notice);
         expect(assessProject(snapshot, atRollout()).changes).not.toContainEqual(notice);
@@ -48,7 +46,7 @@ for (const mode of ['production', 'test'] as const) {
       });
     }
 
-    regression(`known wrong result: #2364 ${mode} ${kind} blocks on planar weight when opening and recovering an unread notice`, async () => {
+    it(`#2364 ${mode} ${kind} blocks on planar weight when opening and recovering an unread notice`, async () => {
       const solvedWith = beforeRollout();
       const snapshot = { ...beam, analysis: { selfWeight: variantRules['signed and scoped weight']! }, solvedWith };
       const store = createRecheckStore();

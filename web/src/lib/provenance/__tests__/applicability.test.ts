@@ -1144,8 +1144,8 @@ it.each(['production', 'test'] as const)('#2364 uses stable self-weight and sett
     expect(modelFeatures(withRotation)).toContain('settlements');
     expect(modelFeatures(marked)).not.toContain('settlements');
     expect(relevant(marked)).toEqual(axesIds);
-    expect(relevant(withToggle)).toEqual(mode === 'test' ? [...axesIds, 'exact-plane-self-weight'] : []);
-    expect(relevant(withRule)).toEqual(mode === 'test' ? [...axesIds, 'exact-plane-self-weight'] : []);
+    expect(relevant(withToggle)).toEqual(axesIds);
+    expect(relevant(withRule)).toEqual(axesIds);
     expect(relevant(withRotation)).toEqual(mode === 'test' ? [...axesIds, 'workbook-support-rotations'] : []);
   } finally {
     vi.unstubAllGlobals();
