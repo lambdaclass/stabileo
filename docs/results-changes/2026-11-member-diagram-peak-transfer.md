@@ -1,6 +1,6 @@
 # Member diagram peaks and in-member limits
 
-Diagram extrema are evaluated using their coordinates within the load interval. The normalized station locates the result on the diagram. This preserves the ordinate on intervals where rounding the position to a physical floating-point coordinate would move it appreciably within the interval. When a critical section shares a normalized station with a load boundary, both sections are evaluated through the same recovery path. A distinct recovered force still causes a refusal.
+Diagram extrema are evaluated using their coordinates within the load interval. The normalized station locates the result on the diagram. This preserves the ordinate on intervals where rounding the position to a physical floating-point coordinate would move it appreciably within the interval. When a critical section shares a normalized station with a load boundary, the force change is evaluated over the small interval from the boundary to the critical section and added to the recovered boundary force. A distinct representable force still causes a refusal.
 
 Concurrent station extraction checks the physical identity of cuts across force components and combinations. Distinct load cuts that share a normalized station cause a refusal. The browser also refuses a governing tuple when station transfer would change its extremum. Compact and grouped station transfers must supply the requested grid before the browser adds analytic stations.
 

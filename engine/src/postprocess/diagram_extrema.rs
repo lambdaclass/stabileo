@@ -196,9 +196,15 @@ where
                     let t = lo + (hi - lo) * u;
                     let cut = Cut { t, right: false, location: Location::Interior { start: x0, end: x1, u } };
                     if !(lo < t && t < hi) {
-                        let boundary = if t == lo { Cut::boundary(lo, x0, true) } else { Cut::boundary(hi, x1, false) };
-                        let peak = self.checked_value(cut)?;
-                        if !peak.is_finite() || peak != self.checked_value(boundary)? {
+                        let (boundary, v) = if t == lo {
+                            (Cut::boundary(lo, x0, true), 0.0)
+                        } else {
+                            (Cut::boundary(hi, x1, false), 1.0)
+                        };
+                        let boundary_value = self.checked_value(boundary)?;
+                        let change = (u - v) * (linear + quadratic * (u + v) + cubic * (u * u + u * v + v * v));
+                        let peak = boundary_value + change;
+                        if !peak.is_finite() || peak != boundary_value {
                             return Err("interior member diagram extremum has no distinct normalized station");
                         }
                         continue;
@@ -330,7 +336,6 @@ mod round3_tests {
     }
 
     #[test]
-    #[ignore = "known wrong result: #2250"]
     fn issue_2250_rounded_terminal_shear_uses_interval_change() {
         let loads = [
             DistributedLoadInfo { a: 0.0, b: 2.25, q_i: 0.0, q_j: -5.625 },
