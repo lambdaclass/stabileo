@@ -1154,6 +1154,7 @@ const de: Translations = {
   'xls.err.populatedColumn': 'Spalte {k} enthält Daten, die nicht importiert werden können.',
   'xls.err.unnamedColumn': 'Spalte Nummer {c} enthält Daten ohne Überschrift.',
   'xls.err.cellError': "Die Excel-Zelle {cell} enthält einen Fehler.",
+  'xls.err.coordinateUnitSuffix': 'Verwenden Sie für diese Koordinate {k} oder eine vollständige Einheitenangabe wie in {h}.',
   'xls.err.unitSuffix': "Spalte {k} darf keinen Einheitenzusatz haben.",
   'xls.err.supportRestraintConflict': "Diese Fesselung widerspricht dem Lagertyp {v}.",
   'xls.err.supportCompleteRestraints': "Der Lagertyp {v} erfordert sechs explizite Fesselungsangaben.",

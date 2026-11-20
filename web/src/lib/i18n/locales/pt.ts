@@ -7157,6 +7157,7 @@ const pt: Translations = {
   'xls.err.populatedColumn': 'A coluna {k} contém dados que não podem ser importados.',
   'xls.err.unnamedColumn': 'A coluna número {c} contém dados, mas não tem cabeçalho.',
   'xls.err.cellError': "A célula {cell} do Excel contém um erro.",
+  'xls.err.coordinateUnitSuffix': 'Use {k} ou um sufixo de unidade completo como em {h} para esta coordenada.',
   'xls.err.unitSuffix': "A coluna {k} deve ser indicada sem unidade.",
   'xls.err.supportRestraintConflict': "Este indicador de restrição é incompatível com o tipo de apoio {v}.",
   'xls.err.supportCompleteRestraints': "O tipo de apoio {v} exige seis indicadores de restrição explícitos.",

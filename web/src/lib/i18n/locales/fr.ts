@@ -1154,6 +1154,7 @@ const fr: Translations = {
   'xls.err.populatedColumn': 'La colonne {k} contient des données qui ne peuvent pas être importées.',
   'xls.err.unnamedColumn': 'La colonne numéro {c} contient des données sans en-tête.',
   'xls.err.cellError': "La cellule Excel {cell} contient une erreur.",
+  'xls.err.coordinateUnitSuffix': 'Utilisez {k} ou un suffixe d’unité complet comme dans {h} pour cette coordonnée.',
   'xls.err.unitSuffix': "La colonne {k} doit être indiquée sans unité.",
   'xls.err.supportRestraintConflict': "Ce blocage est incompatible avec le type d’appui {v}.",
   'xls.err.supportCompleteRestraints': "Le type d’appui {v} exige six indicateurs de blocage explicites.",

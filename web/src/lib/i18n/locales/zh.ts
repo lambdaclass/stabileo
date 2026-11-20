@@ -1489,6 +1489,7 @@ const zh: Translations = {
   "xls.err.populatedColumn": "{k} 列包含无法导入的数据。",
   "xls.err.unnamedColumn": "第 {c} 列有数据，但没有列标题。",
   "xls.err.cellError": "Excel 单元格 {cell} 含有错误。",
+  "xls.err.coordinateUnitSuffix": "请为此坐标使用 {k}，或使用像 {h} 这样带有完整单位后缀的列名。",
   "xls.err.unitSuffix": "列 {k} 的名称不得带有单位后缀。",
   "xls.err.supportRestraintConflict": "此约束标志与支座类型 {v} 不一致。",
   "xls.err.supportCompleteRestraints": "支座类型 {v} 要求明确指定全部六个自由度的约束标志。",

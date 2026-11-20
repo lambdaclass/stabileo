@@ -6,7 +6,7 @@ import { buildSolverInput3D } from '../../engine/solver-service';
 import { solve3D, solvePDelta3D } from '../../engine/wasm-solver';
 import { modelSheets } from '../../export/workbook-model';
 import { projectWorkbookSheets } from '../../export/project-workbook';
-import { tp } from '../../i18n';
+import { t, tp } from '../../i18n';
 import { applyWorkbook, importExcelFile, type ImportOutcome } from '../apply';
 import { parseWorkbook } from '../parse';
 import { AXES_SHEET, SHEETS } from '../schema';
@@ -217,17 +217,15 @@ for (const [entry, install] of entries) {
   });
 }
 
-const roundThree = process.env.RUN_KNOWN_WRONG === '2395' ? it : it.skip;
-
 const declared = { Axes: [['up', 'right', 'hand'], ['+Z', '+X', 'right']] };
 
 for (const [entry, install] of entries) {
   for (const [mode, nodes] of geometries) {
-    roundThree(`known wrong result: #2395 ${entry} ${mode} requires complete recognized coordinate units`, async () => {
+    it(`#2395 ${entry} ${mode} requires complete recognized coordinate units`, async () => {
       for (const framed of [false, true]) {
         vi.stubGlobal('__PUBLIC_FEATURES__', featuresForMode(framed ? 'development' : 'production'));
         for (const [index, axis] of nodes.Nodes[0]!.entries()) {
-          if (axis === 'id') continue;
+          if (typeof axis !== 'string' || axis === 'id') continue;
           const workbook = (header: string, coordinate: number) => {
             const rows = nodes.Nodes.map(row => [...row]);
             rows[0]![index] = header;
@@ -253,7 +251,7 @@ for (const [entry, install] of entries) {
       }
     });
 
-    roundThree(`known wrong result: #2395 ${entry} ${mode} refuses populated fields belonging to another load type`, async () => {
+    it(`#2395 ${entry} ${mode} refuses populated fields belonging to another load type`, async () => {
       for (const framed of [false, true]) {
         vi.stubGlobal('__PUBLIC_FEATURES__', featuresForMode(framed ? 'development' : 'production'));
         const valid = [
@@ -276,16 +274,16 @@ for (const [entry, install] of entries) {
           const before = priorModel(mode);
           for (const value of [-7, 0, false]) {
             const book = workbook([{ ...row, [column]: value }]);
-            const problem = {
-              sheet: 'Loads', row: 2, column, blocking: true, message: tp('xls.err.populatedColumn', { k: column }),
-            };
+            const message = framed && value === false && column !== 'node'
+              ? t('xls.err.notANumber') : tp('xls.err.populatedColumn', { k: column });
+            const problem = { sheet: 'Loads', row: 2, column, blocking: true, message };
             expectRefusal(await install(book), before, problem);
             expect(parseWorkbook(book).problems).toEqual([problem]);
           }
         }
         const outcome = await install(workbook(valid));
         expect(outcome?.problems).toEqual([]);
-        expect(outcome?.loaded).toEqual({ nodes: 2, elements: 1, sections: 1 });
+        expect(outcome?.loaded).toEqual({ nodes: 2, elements: 1, sections: 2 });
         expect(outcome?.model.loads).toMatchObject([
           { type: 'nodal', data: { nodeId: 2, fz: -3 } },
           ...(mode === '2d' ? [] : [
@@ -306,7 +304,7 @@ for (const [entry, install] of entries) {
       [null, [1, 0, 1, 1, 0, 1]],
       [{ up: '+Y', right: '+X', hand: 'left' }, [1, 1, 0, 1, 1, 0]],
     ] as const) {
-      roundThree(`known wrong result: #2395 ${entry} ${mode} round trips unsolved restraints with ${axes ? 'permuted' : 'default'} axes`, async () => {
+      it(`#2395 ${entry} ${mode} round trips unsolved restraints with ${axes ? 'permuted' : 'default'} axes`, async () => {
         vi.stubGlobal('__PUBLIC_FEATURES__', featuresForMode('development'));
         for (const type of ['custom3d', 'rollerZ']) {
           priorModel(mode);
@@ -315,19 +313,33 @@ for (const [entry, install] of entries) {
             Supports: [['node', 'type', ...flags, 'ky [kN/m]', 'kry [kN·m/rad]'], [1, type, 1, 0, 1, 1, 0, 1, 7, 7]],
           });
           expect(original?.problems).toEqual([]);
+          expect(original?.loaded).toEqual({ nodes: 2, elements: 1, sections: 2 });
           const input = buildSolverInput3D(modelStore.model, false)!;
+          const model = { ...modelStore.model, analysisMode: mode };
           const sheets = projectWorkbookSheets({
-            model: { ...modelStore.model, analysisMode: mode },
+            model,
             solved: null, axes, projectName: 'Spatial restraint round trip', tr: key => key,
             meta: { exported: '', commit: '' }, results: { sources: [], stations: 2, statics: null },
             include: { results: false, sheets: new Set(['Nodes', 'Members', 'Materials', 'Sections', 'Supports', 'LoadData']) },
           });
           const book = Object.fromEntries(sheets.map(sheet => [sheet.name, sheet.rows]));
-          const [header, support] = book.Supports!;
-          expect(flags.map(flag => support![header!.indexOf(flag)])).toEqual(mask);
+          const flagsIn = ([header, support]: unknown[][]) => flags.map(flag => support![header!.indexOf(flag)]);
+          expect(flagsIn(book.Supports!)).toEqual(mask);
+          const solvedSupportSheet = modelSheets(model, input, name => name === 'Supports', axes).find(sheet => sheet.name === 'Supports')!;
+          expect(flagsIn(solvedSupportSheet.rows)).toEqual(mask);
+
+          const support = [...model.supports.values()][0]!;
+          const localModel = { ...model, supports: new Map([[support.id, { ...support, dofFrame: 'local' as const }]]) };
+          const localSheets = modelSheets(localModel, null, name => name === 'Supports', axes);
+          const localSupports = localSheets.find(sheet => sheet.name === 'Supports')!.rows;
+          expect(flagsIn(localSupports)).toEqual(['', '', '', '', '', '']);
+          expectRefusal(await install({ ...book, Supports: localSupports }), modelStore.snapshot(), {
+            sheet: 'Supports', row: 2, column: 'type',
+          });
+
           const outcome = await install(book);
           expect(outcome?.problems).toEqual([]);
-          expect(outcome?.loaded).toEqual({ nodes: 2, elements: 1, sections: 1 });
+          expect(outcome?.loaded).toEqual(original?.loaded);
           expect(outcome?.model.supports).toEqual(original?.model.supports);
           const reimported = buildSolverInput3D(modelStore.model, false)!;
           expect(reimported.supports).toEqual(input.supports);

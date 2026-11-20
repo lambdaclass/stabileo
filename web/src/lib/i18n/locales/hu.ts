@@ -11,6 +11,7 @@ const hu: Translations = {
   'xls.err.populatedColumn': 'A(z) {k} oszlop nem importálható adatokat tartalmaz.',
   'xls.err.unnamedColumn': 'A(z) {c}. oszlop adatokat tartalmaz, de nincs fejléce.',
   'xls.err.cellError': "A(z) {cell} Excel-cella hibát tartalmaz.",
+  'xls.err.coordinateUnitSuffix': 'Ehhez a koordinátához a(z) {k} fejlécet vagy a(z) {h} szerinti teljes mértékegység-utótagot használja.',
   'xls.err.unitSuffix': "A(z) {k} oszlop neve nem tartalmazhat mértékegységet.",
   'xls.err.supportRestraintConflict': "Ez a megkötés nem egyezik a(z) {v} támasztípussal.",
   'xls.err.supportCompleteRestraints': "A(z) {v} támasztípushoz mind a hat megkötést meg kell adni.",

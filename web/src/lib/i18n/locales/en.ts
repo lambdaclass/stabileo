@@ -1502,6 +1502,7 @@ const en: Record<string, string> = {
   'xls.err.populatedColumn': 'Column {k} contains data that cannot be imported.',
   'xls.err.unnamedColumn': 'Column number {c} contains data but has no header.',
   'xls.err.cellError': "Excel cell {cell} contains an error.",
+  'xls.err.coordinateUnitSuffix': 'Use {k} or a complete unit suffix as in {h} for this coordinate.',
   'xls.err.unitSuffix': "Column {k} must have no unit suffix.",
   'xls.err.supportRestraintConflict': "This restraint flag conflicts with support type {v}.",
   'xls.err.supportCompleteRestraints': "Support type {v} requires six explicit restraint flags.",
