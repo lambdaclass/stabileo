@@ -1,7 +1,7 @@
 import { afterEach, beforeAll, beforeEach, expect, it } from 'vitest';
 import { PLATE_EDGE_TOL } from '../../model/physical/plate-analysis';
 import { modelStore, resultsStore, uiStore } from '../../store';
-import { createPlate, meshBeforeAnalysis, plateStatus, preparePlatesForAnalysis } from '../../store/physical-plates';
+import { addPlateLoad, createPlate, meshBeforeAnalysis, plateStatus, preparePlatesForAnalysis } from '../../store/physical-plates';
 import { runDirectAnalysis } from '../direct-analysis';
 import { runGlobalSolve } from '../live-calc';
 import type { AnalysisResults3D } from '../types-3d';
@@ -73,6 +73,29 @@ const entries = [
   }],
 ] as const;
 
+const staleTest = process.env.RUN_KNOWN_WRONG === '2368' ? it : it.skip;
+const junctionTest = process.env.RUN_KNOWN_WRONG === '2388' ? it : it.skip;
+
+const directEntries = [
+  ...entries,
+  ['advanced input', () => {
+    try { modelStore.buildSolverInput3D(); } catch (error) { return (error as Error).message; }
+    return null;
+  }],
+  ['reproducible input', () => modelStore.singleSolveInput3D(false, false, true)],
+] as const;
+
+for (const [entry, solve] of directEntries) {
+  staleTest(`known wrong result: #2368 the ${entry} entry refuses an old mesh after a valid outline edit`, async () => {
+    editMeshedFloor();
+    expect(await solve()).toEqual(entry === 'reproducible input' ? null : expect.stringContaining('supported floor'));
+  });
+  junctionTest(`known wrong result: #2388 the ${entry} entry refuses duplicate junction endpoints`, async () => {
+    wallSlabJoint('duplicate');
+    expect(await solve()).toEqual(entry === 'reproducible input' ? null : expect.stringMatching(/wall.*slab/i));
+  });
+}
+
 it.each([true, false])('#2368 preparation names the invalid plate with automatic meshing %s', auto => {
   loadedSlab();
   missingFloor();
@@ -117,6 +140,34 @@ function meshPhysicalFloor() {
   return { group, shellIds };
 }
 
+function editMeshedFloor() {
+  const { group, shellIds } = meshPhysicalFloor();
+  const nodes = group.members.nodes!;
+  expect(plateStatus(group.id)).toBe('current');
+  const corner = modelStore.addNode(4, 5, 0);
+  modelStore.setGroupMembers(group.id, { ...group.members, nodes: [nodes[0]!, nodes[1]!, corner, ...nodes.slice(3)] });
+  expect(plateStatus(group.id)).toBe('stale');
+  expect(modelStore.model.groups.get(group.id)?.members.quads).toEqual(shellIds);
+  expect(modelStore.quads.size).toBe(shellIds.length);
+  for (const node of nodes.slice(0, 4)) modelStore.addSupport(node, 'fixed3d');
+  modelStore.addSupport(corner, 'fixed3d');
+  addPlateLoad(group.id, 1, 1);
+  return group.id;
+}
+
+it('#2368 preparation refuses the stale outline with automatic meshing disabled', () => {
+  editMeshedFloor();
+  meshBeforeAnalysis.value = false;
+  expect(preparePlatesForAnalysis()).toEqual({ ok: false, reason: 'needsMesh', plates: ['supported floor'] });
+});
+
+it('#2368 automatic preparation remeshes the edited outline and balances its new area load', async () => {
+  const id = editMeshedFloor();
+  expect(await runGlobalSolve({ directBase: true })).toMatchObject({ ok: true });
+  expect(plateStatus(id)).toBe('current');
+  expect(resultsStore.results3D?.reactions.reduce((sum, support) => sum + support.fz, 0)).toBeCloseTo(4 * (4 + 5) / 2, 8);
+});
+
 it('#2368 refuses a saved plate whose recorded mesh is incomplete', () => {
   const { group, shellIds } = meshPhysicalFloor();
   modelStore.removeQuad(shellIds[0]!);
@@ -138,12 +189,12 @@ it('solves the supported slab and balances its area load in real WASM', async ()
   expectLoadedSlab(resultsStore.results3D);
 });
 
-function wallSlabJoint(stations: 'wall' | 'slab' | 'both' | 'neither' | 'separate', boundary?: number) {
+function wallSlabJoint(stations: 'wall' | 'slab' | 'both' | 'duplicate' | 'neither' | 'separate', boundary?: number) {
   const [a, b, c, d] = loadedSlab();
   const at = (x: number, y: number, z: number) => modelStore.addNode(x, y, z);
-  const m = at(2, 0, boundary ?? 0);
+  const m = at(2, 0, stations === 'duplicate' ? 0 : boundary ?? 0);
   const addQuad = (nodes: [number, number, number, number]) => modelStore.addQuad(nodes, 1, 0.15);
-  if (stations === 'slab' || stations === 'both') {
+  if (stations === 'slab' || stations === 'both' || stations === 'duplicate') {
     modelStore.removeQuad(1);
     const n = at(2, 4, 0);
     modelStore.addSurfaceLoad3D(addQuad([a!, m, n, d!]), 1);
@@ -154,14 +205,39 @@ function wallSlabJoint(stations: 'wall' | 'slab' | 'both' | 'neither' | 'separat
   if (z) modelStore.addElement(boundary === undefined ? a! : d!, p);
   for (const node of [p, q, m]) modelStore.addSupport(node, 'fixed3d');
   const upperA = at(0, 0, 2), upperB = at(4, 0, 2);
-  if (stations === 'wall' || stations === 'both') {
+  if (stations === 'wall' || stations === 'both' || stations === 'duplicate') {
+    const wallM = stations === 'duplicate' ? at(2, 0, z) : m;
     const upperM = at(2, 0, 2);
-    addQuad([p, m, upperM, upperA]);
-    addQuad([m, q, upperB, upperM]);
+    addQuad([p, wallM, upperM, upperA]);
+    addQuad([wallM, q, upperB, upperM]);
   } else {
     addQuad([p, q, upperB, upperA]);
   }
 }
+
+junctionTest('known wrong result: #2388 global analysis refuses duplicate junction endpoints and publishes no results', async () => {
+  wallSlabJoint('duplicate');
+  expect(await runGlobalSolve({ directBase: true })).toEqual({ ok: false, error: expect.stringMatching(/wall.*slab/i) });
+  expect(resultsStore.results3D).toBeNull();
+});
+
+junctionTest('known wrong result: #2388 refuses overlapping endpoints inside the distance limit', () => {
+  wallSlabJoint('duplicate', PLATE_EDGE_TOL / 2);
+  expect(modelStore.solve3D(false, false, true)).toEqual(expect.stringMatching(/wall.*slab/i));
+});
+
+it('#2388 solves independently supported edges beyond the endpoint distance limit', () => {
+  wallSlabJoint('duplicate', PLATE_EDGE_TOL * 2);
+  expectLoadedSlab(modelStore.solve3D(false, false, true));
+});
+
+it('#2388 solves independently supported shells that only touch at a corner', () => {
+  loadedSlab();
+  const wallBase = [modelStore.addNode(-4, 0, 0), modelStore.addNode(0, 0, 0)];
+  for (const node of wallBase) modelStore.addSupport(node, 'fixed3d');
+  modelStore.addQuad([wallBase[0]!, wallBase[1]!, modelStore.addNode(0, 0, 2), modelStore.addNode(-4, 0, 2)], 1, 0.15);
+  expectLoadedSlab(modelStore.solve3D(false, false, true));
+});
 
 it.each(['wall', 'slab'] as const)('#2388 refuses a hanging %s node where the wall meets the slab', async stations => {
   wallSlabJoint(stations);

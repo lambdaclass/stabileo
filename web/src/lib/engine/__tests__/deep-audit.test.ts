@@ -150,6 +150,22 @@ describe('PART A — Advanced 2D diagrams', { timeout: 30_000 }, () => {
   });
 });
 
+const cadJunctionTest = process.env.RUN_KNOWN_WRONG === '2388' ? it : it.skip;
+
+cadJunctionTest('known wrong result: #2388 the CAD architecture fixture solves with finite member diagrams', () => {
+  const { input } = loadAndBuild3D('cad-arch-only-dxf');
+  if (!input) throw new Error('CAD fixture has no 3D solver input');
+  const results = solve3D(input);
+  expect(results.elementForces.length).toBeGreaterThan(0);
+  for (const forces of results.elementForces) {
+    for (const kind of ['momentY', 'momentZ', 'shearY', 'shearZ', 'axial', 'torsion'] as const) {
+      const { points } = computeDiagram3D(forces, kind);
+      expect(points.length).toBeGreaterThan(0);
+      expect(points.every(point => Number.isFinite(point.value))).toBe(true);
+    }
+  }
+});
+
 describe('PART A — Advanced 3D diagrams (all 6 types)', { timeout: 30_000 }, () => {
   const allKinds: Diagram3DKind[] = ['momentY', 'momentZ', 'shearY', 'shearZ', 'axial', 'torsion'];
 
