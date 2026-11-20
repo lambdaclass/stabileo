@@ -32,7 +32,7 @@ export function rebar3d(rows: Rebar3dRows, frames: Rebar3dFrames, o: PieceOption
   for (const r of rows.footing ?? []) out.push(...(r.group ? groupFootingBars3d(r, rows.footing ?? [], rows.column, frames, R) : footingBars3d(r, rows.footing ?? [], rows.column, frames, R)));
   for (const r of rows.punching ?? []) {
     const f = r.figure?.reinforcement ? frames.punching?.(r) : null;
-    if (f) out.push(...punchingBars3d(r, f, o, R));
+    if (f) out.push(...punchingBars3d(r, r.figure!, f, o, R));
   }
   return out;
 }

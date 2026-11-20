@@ -18,6 +18,7 @@
   import ProConcreteByLevel from './ProConcreteByLevel.svelte';
   import DesignOptionsSections from './design/DesignOptionsSections.svelte';
   import { SLAB_BAR_RANGE, TIE_BAR_RANGE, WALL_BAR_RANGE, inRange } from '../../lib/rc-sheets/types';
+  import { SLAB_FACES } from '../../lib/rc-sheets/slab-row';
 
   const d = $derived.by(() => { void modelStore.designData; return designData(); });
   const stated = $derived(modelStore.designData !== undefined);
@@ -34,7 +35,7 @@
     { key: 'wallDiametersMm', id: 'wall', label: 'designData.wallBar', range: WALL_BAR_RANGE },
   ];
   const slabBaseSummary = $derived.by(() => {
-    const on = (['bottomX', 'bottomY', 'topX', 'topY'] as const).flatMap((k) => (d.slabBase?.[k] ? [`${t(`slabEd.key.${k}`)} Ø${d.slabBase[k]!.diameter} c/${d.slabBase[k]!.spacing * 100}`] : []));
+    const on = SLAB_FACES.flatMap((k) => { const v = d.slabBase?.[k]; return v ? [`${t(`slabEd.key.${k}`)} Ø${v.diameter} c/${v.spacing * 100}`] : []; });
     return on.length ? on.join(' · ') : t('designData.slabBaseNone');
   });
   const toggle = (key: ListKey, dia: number) => {
@@ -116,8 +117,8 @@
   <details class="pk-card dd-more" data-testid="design-data-slab-base">
     <summary><span class="dd-h">{t('designData.slabBase')}</span> <span class="dd-sum">{slabBaseSummary}</span></summary>
     <Hint text={t('designData.slabBaseHint')} />
-    {#each ['bottomX', 'bottomY', 'topX', 'topY'] as k}
-      {@const v = d.slabBase?.[k as 'bottomX']}
+    {#each SLAB_FACES as k}
+      {@const v = d.slabBase?.[k]}
       <div class="dd-row">
         <label class="dd-inline"><input type="checkbox" checked={!!v} onchange={(e) => patchDesignData({ slabBase: { ...(d.slabBase ?? {}), [k]: e.currentTarget.checked ? { diameter: 8, spacing: 0.2 } : undefined } })} /> {t(`slabEd.key.${k}`)}</label>
         {#if v}

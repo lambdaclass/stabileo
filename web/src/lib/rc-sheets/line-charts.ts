@@ -9,17 +9,12 @@ export const chartHeight = (kind: ChartKind): number => (kind === 'moment' ? ENV
 
 export const finite = (v: number): number => (Number.isFinite(v) ? v : 0);
 
-/**
- * How far a demand chart reaches: past the demand, and up to the capacity drawn against it while
- * that stays near; far enough for the lowest capacity along the member too, where it is within six
- * times the demand, so a capacity that steps (stirrup zones, bars cut off) is seen stepping.
- */
+/** How far a demand chart reaches: past the demand, and to its lowest capacity where that is within six times the demand, so a capacity that steps is seen stepping. */
 export function chartReach(demand: number, capTop: number, capLow: number): number {
   const low = Number.isFinite(capLow) && 1.1 * capLow <= 6 * demand ? 1.1 * capLow : 3 * demand;
   return Math.max(1.25 * demand, Math.min(1.05 * capTop, Math.max(3 * demand, low)));
 }
 
-/** The least positive value, Infinity where there is none. */
 export const leastPositive = (vs: readonly number[]): number => Math.min(...vs.filter((v) => Number.isFinite(v) && v > 0), Infinity);
 
 export const path = (pts: ReadonlyArray<[number, number]>): string => pts.map(([px, py], i) => `${i ? 'L' : 'M'}${px.toFixed(1)},${py.toFixed(1)}`).join(' ');

@@ -744,6 +744,9 @@ export const LOAD_TARGET: Record<Load['type'], 'node' | 'member' | 'shell'> = {
 /** The node a load stands on; undefined for one on a member or a shell. */
 export const loadNodeId = (l: Load): number | undefined =>
   LOAD_TARGET[l.type] === 'node' ? (l.data as { nodeId: number }).nodeId : undefined;
+/** Whether a load stands on one of these shells by itself, not on whatever it was put `on`. */
+const onShell = (l: Load, shells: { has(id: number): boolean }): boolean =>
+  LOAD_TARGET[l.type] === 'shell' && shells.has((l.data as { quadId: number }).quadId) && !(l.data as { on?: unknown }).on;
 /** The member a load stands on; undefined for one on a node or a shell. */
 export const loadMemberId = (l: Load): number | undefined =>
   LOAD_TARGET[l.type] === 'member' ? (l.data as { elementId: number }).elementId : undefined;
@@ -1672,7 +1675,6 @@ function createModelStore() {
     return includeSelfWeight ? [{ caseId: target, ...GRAVITY_SELF_WEIGHT }] : [];
   }
 
-  /** Every group without these shells and nodes, in one pass. */
   function dropFromGroups(gone: { quads: ReadonlySet<number>; nodes: ReadonlySet<number> }): void {
     let touched = false;
     for (const [gid, g] of model.groups) {
@@ -2122,7 +2124,7 @@ function createModelStore() {
         const gone = _bulkGone;
         _bulkGone = null;
         if (gone && (gone.quads.size || gone.nodes.size)) {
-          _bulkLoadBuffer = _bulkLoadBuffer!.filter((l) => !((l.type === 'surface3d' || l.type === 'thermalQuad3d') && gone.quads.has(l.data.quadId) && !l.data.on) && !gone.nodes.has(loadNodeId(l) ?? NaN));
+          _bulkLoadBuffer = _bulkLoadBuffer!.filter((l) => !onShell(l, gone.quads) && !gone.nodes.has(loadNodeId(l) ?? NaN));
           dropFromGroups(gone);
         }
         const commitLoads = _bulkLoadBuffer!;
@@ -3099,11 +3101,7 @@ function createModelStore() {
       }
       if (!_bulkMutating) model.supports = new Map(model.supports);
       // Every load on the node, an imposed displacement too (`LOAD_TARGET`); inside a bulk mutation, at its end.
-      if (!_bulkGone) {
-        const keepLoad = (l: Load) => loadNodeId(l) !== id;
-        model.loads = model.loads.filter(keepLoad);
-        if (_bulkLoadBuffer) _bulkLoadBuffer = _bulkLoadBuffer.filter(keepLoad);
-      }
+      if (!_bulkGone) model.loads = model.loads.filter((l) => loadNodeId(l) !== id);
       // Cascade to connectors/constraints: a dangling node reference is worse
       // than a missing entity — the engine silently skips it (zero stiffness)
       // while the connectivity preflight keeps crediting it as an edge.
@@ -3149,10 +3147,9 @@ function createModelStore() {
           return (c.masterNode === id || c.slaveNode === id) ? null : c;
         })
         .filter((c): c is Constraint3D => c !== null);
-      model.constraints = pruneConstraints(model.constraints);
-      // Inside bulkMutate the commit phase overwrites model.constraints with
-      // the buffer — prune the buffer too or dangling constraints resurrect.
+      // Inside bulkMutate the commit writes the buffer over model.constraints: prune the buffer, or dangling constraints resurrect.
       if (_bulkConstraintBuffer) _bulkConstraintBuffer = pruneConstraints(_bulkConstraintBuffer);
+      else model.constraints = pruneConstraints(model.constraints);
     },
 
     // ── Named groups ────────────────────────────────────────────────
@@ -3372,10 +3369,8 @@ function createModelStore() {
       // Cascade to surface/thermal loads on this quad — otherwise the load
       // dangles (still in the loads table, .ded and URL share) and is silently
       // dropped at solve time (convertSurfaceLoad: `if (!quad) return out`).
-      const keepLoad = (l: Load) =>
-        !((l.type === 'surface3d' || l.type === 'thermalQuad3d') && l.data.quadId === id && !l.data.on);
-      model.loads = model.loads.filter(keepLoad);
-      if (_bulkLoadBuffer) _bulkLoadBuffer = _bulkLoadBuffer.filter(keepLoad);
+      const one = new Set([id]);
+      model.loads = model.loads.filter((l) => !onShell(l, one));
     },
 
     updateQuad(id: number, data: Partial<{ materialId: number; thickness: number }>): void {

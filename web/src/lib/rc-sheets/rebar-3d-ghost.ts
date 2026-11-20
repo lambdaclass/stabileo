@@ -2,6 +2,7 @@ import { ownStrapResults } from './schedule/pieces';
 import { dropRect } from './footing-punching';
 import type { LineLayout } from './beam-line';
 import type { Frame, Rebar3d, Rebar3dFrames, Rebar3dRows, V3 } from './rebar-3d-geometry';
+import { WORLD } from './rebar-3d-geometry';
 
 export interface Ghost3d extends Pick<Rebar3d, 'element' | 'rows' | 'family' | 'level' | 'storey'> {
   frame: Frame;
@@ -11,7 +12,6 @@ export interface Ghost3d extends Pick<Rebar3d, 'element' | 'rows' | 'family' | '
 
 type Base = Pick<Ghost3d, 'element' | 'rows' | 'family' | 'level'>;
 
-const WORLD: Frame = { o: [0, 0, 0], x: [1, 0, 0], y: [0, 1, 0], z: [0, 0, 1] };
 const levelOf = (level: string | undefined) => (level !== undefined ? { level } : {});
 const solid = (from: V3, to: V3) => from.every((v, i) => to[i]! - v > 1e-9);
 

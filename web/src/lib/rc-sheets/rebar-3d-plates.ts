@@ -6,13 +6,12 @@ import { wallDetail, wallInward } from './wall-detail';
 import { SLAB_FACES, type SlabFace } from './slab-row';
 import { lineBars3d } from './rebar-3d-lines';
 import { ownStrapResults, packageShape, slabLayer, wallAbove, wallGrid, wallHoop, wallHorizontalShapes, wallTie, wallVerticalPieces, type PieceOptions } from './schedule/pieces';
-import { asFoundation, barOf, laid, type Frame, type Rebar3d, type Rebar3dFrames, type Rebar3dRows, type RebarTone } from './rebar-3d-geometry';
+import { asFoundation, barOf, laid, type Frame, type Rebar3d, type Rebar3dFrames, type Rebar3dRows, type RebarTone, WORLD } from './rebar-3d-geometry';
 import type { ColumnRow } from './column-row';
 import type { FootingRow } from './footing-types';
 import type { WallRow } from './wall-row';
 import type { BendRules } from './shape';
 
-const WORLD: Frame = { o: [0, 0, 0], x: [1, 0, 0], y: [0, 1, 0], z: [0, 0, 1] };
 
 const levelOf = (level: string | undefined) => (level !== undefined ? { level } : {});
 

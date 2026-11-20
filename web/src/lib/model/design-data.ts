@@ -157,7 +157,7 @@ export type StoredDesignData = { version: 1 } & Partial<Omit<ProjectDesignData, 
 
 const STATED_BY_DEFAULT = ['rebarGrade', 'rebarFy', 'longDiametersMm', 'stirrupDiametersMm', 'slabDiametersMm', 'wallDiametersMm', 'minTieSpacingMm', 'maxAggregateMm', 'presumedBearingKPa'] as const;
 /** Read from the lists, never stored. */
-const DERIVED = ['stirrupDiaMm', 'wallBarDiaMm'];
+export const DERIVED_DESIGN_KEYS = ['stirrupDiaMm', 'wallBarDiaMm'] as const;
 
 /** Read any stored shape keeping only what it states: the defaults stay out, to be read when the data is. */
 export function migrateStoredDesignData(raw: unknown): StoredDesignData | undefined {
@@ -166,7 +166,7 @@ export function migrateStoredDesignData(raw: unknown): StoredDesignData | undefi
   const full = migrateDesignData(raw);
   const out: Record<string, unknown> = { version: 1 };
   for (const [k, v] of Object.entries(full)) {
-    if (k === 'version' || k === 'covers' || k === 'exposure' || DERIVED.includes(k)) continue;
+    if (k === 'version' || k === 'covers' || k === 'exposure' || (DERIVED_DESIGN_KEYS as readonly string[]).includes(k)) continue;
     if ((STATED_BY_DEFAULT as readonly string[]).includes(k) && !(k in e)) continue;
     out[k] = v;
   }

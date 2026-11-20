@@ -7,7 +7,7 @@
   import { chartHeight, filled, type ChartKind } from '../../../lib/rc-sheets/line-charts';
   import RcLineCharts from './RcLineCharts.svelte';
 
-  let { line, marks = false, envelope = false, chart = 'moment', onBeam = false, cuts = [], highlight = [], foundation = false, tracks = true }: { line: LineLayout; marks?: boolean; envelope?: boolean; chart?: ChartKind; onBeam?: boolean; cuts?: Array<{ x: number; label: string }>; highlight?: string[]; tracks?: boolean; foundation?: boolean } = $props();
+  let { line, marks = false, envelope = false, chart = 'moment', onBeam = false, cuts = [], highlight = [], foundation = false }: { line: LineLayout; marks?: boolean; envelope?: boolean; chart?: ChartKind; onBeam?: boolean; cuts?: Array<{ x: number; label: string }>; highlight?: string[]; foundation?: boolean } = $props();
   const hl = (b: LineBar) => highlight.includes(b.mark);
   const fmt = $derived(makeFmt(decimalFor(i18n.locale)));
   const W = 1200, M = 56, STUB = 10, TXT = 9.5;
@@ -19,7 +19,7 @@
   const supports = $derived(lineSupports(line));
   const coverPx = $derived(Math.max(9, (line.cover + 0.012) * sy));
   const BELOW = $derived(Math.max(STUB, ...line.bars.flatMap((b) => [-hookTurn(b, 0), -hookTurn(b, 1)]).map((d) => d * sy - coverPx + 4)));
-  const lay = $derived(elevationLayout({ line, X, depth: (k) => line.spans[k]!.h * sy, t: TXT, below: BELOW, above: STUB, marks, fmt, tr: tp, cuts, zeros: onBeam && line.envelope.length > 1, tracks }));
+  const lay = $derived(elevationLayout({ line, X, depth: (k) => line.spans[k]!.h * sy, t: TXT, below: BELOW, above: STUB, marks, fmt, tr: tp, cuts, zeros: onBeam && line.envelope.length > 1, tracks: marks }));
   const TOP = $derived(8 - lay.top);
   const yBeamBottom = $derived(TOP + hMax * sy);
   const bottomOf = (h: number) => TOP + h * sy;

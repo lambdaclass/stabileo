@@ -48,7 +48,7 @@
   <label class="rcd-marks"><input type="checkbox" checked={onBeam} onchange={(e) => setOnBeam(e.currentTarget.checked)} data-testid="rc-envelope-beam-toggle" /> {t('rcSheets.line.showOnBeam')}</label>
   <label class="rcd-marks"><input type="checkbox" checked={showCuts} onchange={(e) => setCuts(e.currentTarget.checked)} data-testid="rc-cuts-toggle" /> {t('rcSheets.line.showCuts')}</label>
 </div>
-<RcLineSvg {line} marks={showMarks || highlight.length > 0} {highlight} envelope={showEnvelope} {chart} {onBeam} tracks={showMarks || highlight.length > 0} cuts={showCuts ? sections.flatMap((g) => g.at.map((x) => ({ x, label: g.label }))) : []} />
+<RcLineSvg {line} marks={showMarks || highlight.length > 0} {highlight} envelope={showEnvelope} {chart} {onBeam} cuts={showCuts ? sections.flatMap((g) => g.at.map((x) => ({ x, label: g.label }))) : []} />
 <h5 class="rcd-h">{t('rcSheets.sections')}</h5>
 <div class="rcd-secs">
   {#each sections as g (g.key)}

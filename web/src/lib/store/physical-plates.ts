@@ -1091,16 +1091,11 @@ export function deletePlate(id: number): void {
 // ─── Before an analysis ──────────────────────────────────────────
 
 export type PlatePreparation =
-  | { ok: true; meshed: number; cells: number; /** Plates solved on the mesh they have, out of date: still a mesh, said rather than refused. */ stale?: string[] }
+  | { ok: true; meshed: number; cells: number; stale?: string[] }
   | { ok: false; reason: 'needsMesh'; plates: string[] }
   | { ok: false; reason: 'refused'; plates: string[] }
   | { ok: false; reason: 'localLoads'; plates: string[] };
 
-/**
- * Mesh what an analysis needs and nothing else: the plates with no mesh or an out-of-date one,
- * each at its own settings, as one undo step. With meshing before the analysis turned off, says
- * which plates stop it instead. Runs once per solve, before its inputs are taken.
- */
 /** Without meshing: a plate with no mesh stops the solve, one whose mesh is out of date solves on it and is named. */
 function unmeshedOrStale(need: number[], names: (ids: number[]) => string[]): PlatePreparation {
   const missing = need.filter((id) => plateStatus(id) !== 'stale');
@@ -1108,6 +1103,11 @@ function unmeshedOrStale(need: number[], names: (ids: number[]) => string[]): Pl
   return { ok: true, meshed: 0, cells: 0, stale: names(need) };
 }
 
+/**
+ * Mesh what an analysis needs and nothing else: the plates with no mesh or an out-of-date one,
+ * each at its own settings, as one undo step. With meshing before the analysis turned off, says
+ * which plates stop it instead. Runs once per solve, before its inputs are taken.
+ */
 export function preparePlatesForAnalysis(): PlatePreparation {
   // Plates still on the coarse shells they came with are meshed when asked to; otherwise they solve as they came.
   const need = platesNeedingMesh({ coarse: meshBeforeAnalysis.value });

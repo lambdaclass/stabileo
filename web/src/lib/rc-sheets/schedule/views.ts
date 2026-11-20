@@ -4,7 +4,7 @@
  * `shapeKey` is (diameter, mandrel, legs and bends), so in every view but the last a bar placed in
  * many elements is one row that lists them. Every view adds up to the schedule's total.
  */
-import { storeyOf, storeysUp } from '../storeys';
+import { storeyLabel, storeyOf, storeysUp } from '../storeys';
 import { developedLength, shapeWeight, type BarShape } from '../shape';
 import { SHEET_FAMILIES, type SheetFamily } from '../types';
 import type { PieceKind } from './pieces';
@@ -150,6 +150,10 @@ export function scheduleView(s: BendingSchedule, view: ScheduleView): ScheduleVi
   }
   return { view, groups, total: totals(groups.flatMap((g) => g.rows), s.waste) };
 }
+
+/** A group's heading: its family's name in the family view, its storey's, or its own. */
+export const groupTitle = (g: ViewGroup, tr: (key: string) => string, view?: ScheduleView): string =>
+  (g.family && (view === undefined || view === 'family') ? tr(`rcSheets.family.${g.family}`) : g.storey !== undefined ? storeyLabel(g.storey, tr) : g.title || '—');
 
 /** The elements a row is placed in as a schedule writes them: by name, with the level when they span several. */
 export function usesText(uses: readonly ElementRef[]): string {

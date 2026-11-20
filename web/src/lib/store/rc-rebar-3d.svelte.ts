@@ -7,6 +7,7 @@ import type { SheetRows } from './rc-sheets.svelte';
 import { computeLocalAxes3D, memberRoll } from '../engine/local-axes-3d';
 import { memberOffsetAt } from '../engine/member-offsets';
 import { rebar3d, type Frame, type Rebar3d, type Rebar3dFrames, type V3 } from '../rc-sheets/rebar-3d';
+import { WORLD } from '../rc-sheets/rebar-3d-geometry';
 import { ghost3d, type Ghost3d } from '../rc-sheets/rebar-3d-ghost';
 import type { PieceOptions } from '../rc-sheets/schedule/pieces';
 import type { SheetFamily } from '../rc-sheets/types';
@@ -119,7 +120,7 @@ export function modelFrames(rows: SheetRows): Rebar3dFrames {
     },
     punching(r) {
       const n = modelStore.nodes.get(r.demand.joint.nodeId);
-      return n ? { o: v3(n), x: [1, 0, 0], y: [0, 1, 0], z: [0, 0, 1] } : null;
+      return n ? { ...WORLD, o: v3(n) } : null;
     },
   };
 }
@@ -129,8 +130,10 @@ export const pieceOptions = (rows: SheetRows): PieceOptions => {
   return { code: rowsCode(rows), slabCover: dd.covers.slab, endZones: dd.columnEndZones === true };
 };
 
-const withStoreys = <T extends Pick<Rebar3d, 'family' | 'level' | 'storey'>>(items: T[], rows: Pick<SheetRows, 'levels'>): T[] =>
-  items.map((b) => ({ ...b, storey: storeyOf(b.family, b.level, rows.levels ?? []) }));
+function withStoreys<T extends Pick<Rebar3d, 'family' | 'level' | 'storey'>>(items: T[], rows: Pick<SheetRows, 'levels'>): T[] {
+  for (const b of items) b.storey = storeyOf(b.family, b.level, rows.levels ?? []);
+  return items;
+}
 
 let memo: { rows: SheetRows; key: string; bars: Rebar3d[] } | null = null;
 

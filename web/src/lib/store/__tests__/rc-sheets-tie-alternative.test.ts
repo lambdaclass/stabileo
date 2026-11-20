@@ -62,13 +62,13 @@ describe('stirrups the project does not allow', () => {
     const column = rows.column.find((r) => r.status === 'fail')!;
     expect(column.verifications.filter((v) => !v.ok).map((v) => v.label)).toContain('rcSheets.v.seisColAsh');
     const [first] = alternatives(column);
-    expect(first).toEqual({ kind: 'ties', from: [6], to: 8 });
+    expect(first).toEqual({ kind: 'ties', from: [6], to: 8, list: [6, 8] });
     expect(canApply(column, first!)).toBe(true);
 
     const line = rows.line[0]!;
     const spans = rows.beam.filter((r) => r.demand.line?.group === line.group);
     expect(lineRowStatus(line, spans)).toBe('fail');
-    expect(lineAlternatives(line, spans)[0]).toEqual({ kind: 'ties', from: [6], to: 8 });
+    expect(lineAlternatives(line, spans)[0]).toEqual({ kind: 'ties', from: [6], to: 8, list: [6, 8] });
 
     expect(applyAlternative(column, first!)).toEqual({ name: 'Ø8', created: false, members: 0, plates: 0 });
     expect(designData().stirrupDiametersMm).toEqual([6, 8]);

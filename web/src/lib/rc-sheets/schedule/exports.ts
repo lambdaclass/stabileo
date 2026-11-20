@@ -1,12 +1,11 @@
 /** The bending schedule written out: a workbook sheet, CSV, and BVBS records for bending machines. */
-import { storeyLabel } from '../storeys';
 import { csvCell } from '../../engine/result-query';
 import { safeText, type WorkbookSheet } from '../../export/workbook-cells';
 import { lapLength, legLengths, type BarShape } from '../shape';
 import { bvbsFile, legsOf, type BvbsBar } from './bvbs';
 import type { BendingSchedule, ScheduleRow } from './schedule';
 import type { PieceKind } from './pieces';
-import { SCHEDULE_VIEWS, scheduleView, usesText, type ScheduleView, type ViewGroup } from './views';
+import { groupTitle, SCHEDULE_VIEWS, scheduleView, usesText, type ScheduleView } from './views';
 
 type Tr = (key: string) => string;
 
@@ -54,7 +53,6 @@ function elementTable(s: BendingSchedule, tr: Tr): Array<Array<string | number>>
   return [head, ...body, ...summary(s, tr, { dia: 3, count: 7, length: 10 })];
 }
 
-const groupTitle = (g: ViewGroup, tr: Tr) => (g.family ? tr(`rcSheets.family.${g.family}`) : g.storey !== undefined ? storeyLabel(g.storey, tr) : g.title || '—');
 
 function mergedTable(s: BendingSchedule, view: Exclude<ScheduleView, 'element'>, tr: Tr): Array<Array<string | number>> {
   const bbs = (k: string) => tr(`rcSheets.bbs.${k}`);
