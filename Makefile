@@ -644,6 +644,7 @@ research.wasm: web.deps
 	$(NIX_RUN) research/mechanics/gay-neto-2014/build.sh
 	$(NIX_RUN) research/stability/feher-sipos-varkonyi-2026/build.sh
 	$(NIX_RUN) research/mechanics/heyman-1966/build.sh
+	$(NIX_RUN) research/mechanics/vella-2024/build.sh
 	$(NIX_RUN) research/metamaterials/grossman-2026/wasm/build.sh
 	$(NIX_RUN) research/form-finding/pastrana-2026/wasm/build.sh
 	$(NIX_RUN) research/optimisation/fairclough-2026/wasm/build.sh
@@ -946,6 +947,17 @@ evidence.research.heyman:
 	$(NIX_RUN) cargo run --locked --release --manifest-path $(HEYMAN_DIR)/Cargo.toml --bin replay -- $(HEYMAN_DIR)/reference-results/replay.json
 	$(NIX_RUN) cargo run --locked --release --manifest-path $(HEYMAN_DIR)/Cargo.toml --bin validate -- --write
 	$(NIX_RUN) python3 -c 'import hashlib,json,pathlib; p=pathlib.Path("$(HEYMAN_DIR)/reference-results/MANIFEST.json"); d=json.loads(p.read_text()); d["files_sha256"]={n: hashlib.sha256(p.with_name(n).read_bytes()).hexdigest() for n in d["files_sha256"]}; p.write_text(json.dumps(d,indent=2)+"\n")'
+
+VELLA_DIR = research/mechanics/vella-2024
+.PHONY: test.research.vella evidence.research.vella
+test.research.vella:
+	$(NIX_RUN) cargo test --locked --release --manifest-path $(VELLA_DIR)/Cargo.toml
+	$(NIX_RUN) cargo run --locked --release --manifest-path $(VELLA_DIR)/Cargo.toml --bin validate
+
+evidence.research.vella:
+	$(NIX_RUN) cargo run --locked --release --manifest-path $(VELLA_DIR)/Cargo.toml --bin replay -- $(VELLA_DIR)/reference-results/replay.json
+	$(NIX_RUN) cargo run --locked --release --manifest-path $(VELLA_DIR)/Cargo.toml --bin validate -- --write
+	$(NIX_RUN) python3 -c 'import hashlib,json,pathlib; p=pathlib.Path("$(VELLA_DIR)/reference-results/MANIFEST.json"); d=json.loads(p.read_text()); d["files_sha256"]={n: hashlib.sha256(p.with_name(n).read_bytes()).hexdigest() for n in d["files_sha256"]}; p.write_text(json.dumps(d,indent=2)+"\n")'
 
 .PHONY: test.engine.reactions-wasm
 test.engine.reactions-wasm: wasm

@@ -907,6 +907,52 @@
    "contacts": []
   },
   {
+   "id": "wang-2024",
+   "doi": "10.1103/PhysRevLett.132.267201",
+   "crossref": {
+    "title": "Transient Amplification of Broken Symmetry in Elastic Snap-Through",
+    "authors": [
+     "Qiong Wang",
+     "Andrea Giudici",
+     "Weicheng Huang",
+     "Yuzhe Wang",
+     "Mingchao Liu",
+     "Sameh Tawfick",
+     "Dominic Vella"
+    ],
+    "year": 2024,
+    "venue": "Physical Review Letters"
+   },
+   "area": "metamaterials",
+   "keywords": [
+    "snap-through",
+    "elastica",
+    "symmetry breaking",
+    "nonlinear dynamics",
+    "saddle-node and pitchfork bifurcations"
+   ],
+   "summary": "A steel strip clamped at an angle at both ends has a natural and an inverted shape; when its ends are pulled apart the inverted shape disappears and the strip snaps. Linear stability predicts an asymmetric snap, but experiments and discrete-elastic-rod simulations show that only slow releases amplify a small asymmetry, while fast ones snap symmetrically. A two-mass von Mises truss explains this as a transient passage through a region of state space where the asymmetric stiffness is negative, which fast trajectories skip.",
+   "summary_source": "full-text",
+   "code": [],
+   "data": [],
+   "methods": [
+    "geometrically exact beam",
+    "arc-length continuation",
+    "linear stability",
+    "implicit nonlinear dynamics",
+    "reduced-order toy model"
+   ],
+   "dependencies": [],
+   "complexity": "medium",
+   "relevance": "Snap-through of a clamped strip on production co-rotational frame elements with production arc-length statics and a research HHT-alpha nonlinear time integration; filed under the same area as the catalogue's two other snap-through papers (zmyslony-2026, feher-2026). Reproduced within stated tolerances, with sources in the paper - the shallow-theory numbers (mu_A = 1/4, mu* = 0.247, tau* and the fold), the natural frequency 57.86, the toy model's constants and t_osc, and the rate at which the amplification of Fig. 2c falls below 2 (13 % off). Not reproduced, and listed as failing comparisons in VALIDATION.json - the amplitudes of Fig. 2c, three to eight times lower here between mu_dot = 0.04 and 0.1, and the toy model's critical rate (+9 %). See research/mechanics/vella-2024/README.md.",
+   "status": "interactive",
+   "reproduced_published_results": true,
+   "benchmarks": [],
+   "implementation": "mechanics/vella-2024",
+   "page": "web/src/components/research/vella2024/VellaPage.svelte",
+   "contacts": []
+  },
+  {
    "id": "michell-1904",
    "doi": "10.1080/14786440409463229",
    "crossref": {

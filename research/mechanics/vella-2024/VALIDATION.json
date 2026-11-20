@@ -1,0 +1,651 @@
+{
+  "checks": [
+    {
+      "id": "order-mu-a",
+      "metric": "alpha = pi/12: observed order of convergence of mu_A over 24/48/96 elements, distance from 2",
+      "observed": 0.02890209512052455,
+      "passed": true,
+      "source": "mesh study",
+      "tolerance": 0.2
+    },
+    {
+      "id": "order-mu-star",
+      "metric": "alpha = pi/12: observed order of convergence of mu* over 24/48/96 elements, distance from 2",
+      "observed": 0.03158444417376338,
+      "passed": true,
+      "source": "mesh study",
+      "tolerance": 0.2
+    },
+    {
+      "id": "order-shallow-omega",
+      "metric": "alpha = 0.02: observed order of convergence of the natural frequency, distance from 2",
+      "observed": 0.00469559262464414,
+      "passed": true,
+      "source": "mesh study",
+      "tolerance": 0.2
+    },
+    {
+      "id": "asymmetric-first",
+      "metric": "alpha = pi/12, 96 elements: mu* / mu_A (below 1: the antisymmetric instability comes first)",
+      "observed": 0.987909976108462,
+      "passed": true,
+      "source": "paper p. 2, Fig. 1c",
+      "tolerance": 0.995
+    },
+    {
+      "id": "symmetric-protocol",
+      "metric": "both clamps, no seed, rates 0.01-0.3: largest |theta| (rad), round-off amplified, against a seed of 1e-3",
+      "observed": 2.3761644029013594e-10,
+      "passed": true,
+      "source": "paper p. 2 and p. 14: both ends moved gives no asymmetry",
+      "tolerance": 1e-6
+    },
+    {
+      "id": "slow-amplifies",
+      "metric": "seeded, rates <= 0.01: 1 / least amplification",
+      "observed": 0.029085041813692845,
+      "passed": true,
+      "source": "paper Fig. 2c: large A at slow rates",
+      "tolerance": 0.1
+    },
+    {
+      "id": "fast-symmetric",
+      "metric": "seeded, rates >= 0.3: largest amplification / 2",
+      "observed": 0.7271714918987799,
+      "passed": true,
+      "source": "paper Fig. 2c: A ~ 1 at fast rates",
+      "tolerance": 1.0
+    },
+    {
+      "id": "dt",
+      "metric": "amplification change from dt = 0.005 to 0.0025 T_osc, rates 0.03 and 0.1",
+      "observed": 0.0014113219517295494,
+      "passed": true,
+      "source": "time-step study",
+      "tolerance": 0.02
+    },
+    {
+      "computed": 8.986818915818127,
+      "id": "tau-asymmetric",
+      "metric": "shallow theory: tau* with tan(tau*/2) = tau*/2",
+      "observed": 0.00018108418187345876,
+      "passed": true,
+      "reference": 8.987,
+      "relative": false,
+      "source": "arXiv:2312.13908v2 p. 11",
+      "tolerance": 0.0005
+    },
+    {
+      "computed": 9.203183263885787,
+      "id": "tau-fold",
+      "metric": "shallow theory: tau at the fold of Eq. (S15)",
+      "observed": 0.00018326388578771002,
+      "passed": true,
+      "reference": 9.203,
+      "relative": false,
+      "source": "arXiv:2312.13908v2 p. 11",
+      "tolerance": 0.0005
+    },
+    {
+      "computed": 0.2470500401268646,
+      "id": "mu-star-analytic",
+      "metric": "shallow theory: mu* at the fold of Eq. (S15)",
+      "observed": 0.00005004012686460335,
+      "passed": true,
+      "reference": 0.247,
+      "relative": false,
+      "source": "arXiv:2312.13908v2 p. 2 after Eq. (1); p. 11",
+      "tolerance": 0.0005
+    },
+    {
+      "computed": 0.25000000000000006,
+      "id": "mu-a-analytic",
+      "metric": "shallow theory: mu(tau*) = mu_A",
+      "observed": 5.551115123125783e-17,
+      "passed": true,
+      "reference": 0.25,
+      "relative": false,
+      "source": "arXiv:2312.13908v2 p. 2; Eq. (S17), p. 11",
+      "tolerance": 1e-12
+    },
+    {
+      "computed": 0.2500392870323144,
+      "id": "mu-a-fe",
+      "metric": "FE, alpha = 0.02, L/h = 2e4, Richardson over 24/48/96 elements: mu_A",
+      "observed": 0.00015714812925748944,
+      "passed": true,
+      "reference": 0.25,
+      "relative": true,
+      "source": "arXiv:2312.13908v2 p. 2; Eq. (S17), p. 11",
+      "tolerance": 0.0003
+    },
+    {
+      "computed": 0.2470946996797411,
+      "id": "mu-star-fe",
+      "metric": "FE, alpha = 0.02, L/h = 2e4, Richardson over 24/48/96 elements: mu* against the exact fold of Eq. (S15)",
+      "observed": 0.0001807712836376929,
+      "passed": true,
+      "reference": 0.2470500401268646,
+      "relative": true,
+      "source": "arXiv:2312.13908v2 p. 2 after Eq. (1); p. 11",
+      "tolerance": 0.0003
+    },
+    {
+      "computed": 57.85681696144374,
+      "id": "omega-fe",
+      "metric": "FE, alpha = 0.02, natural state at mu = 1/4: lowest (antisymmetric) frequency against sqrt(3348.04)",
+      "observed": 0.0000938998055944884,
+      "passed": true,
+      "reference": 57.862250215490235,
+      "relative": true,
+      "source": "arXiv:2312.13908v2 p. 12, SM II.D",
+      "tolerance": 0.0003
+    },
+    {
+      "computed": 0.24628000849880738,
+      "id": "toy-mu-star",
+      "metric": "toy model, beta = 0.110, L0C = 0.655: mu*vM (S65)",
+      "observed": 0.0029149453489579757,
+      "passed": true,
+      "reference": 0.247,
+      "relative": true,
+      "source": "arXiv:2312.13908v2 p. 20 (matched to the arch)",
+      "tolerance": 0.005
+    },
+    {
+      "computed": 0.24935153897137197,
+      "id": "toy-mu-a",
+      "metric": "toy model: mu_A^vM",
+      "observed": 0.002593844114512134,
+      "passed": true,
+      "reference": 0.25,
+      "relative": true,
+      "source": "arXiv:2312.13908v2 p. 20 (matched to the arch)",
+      "tolerance": 0.005
+    },
+    {
+      "computed": 0.6628509646686807,
+      "id": "toy-omega-lower",
+      "metric": "toy model at mu = 1/4: lower frequency / t_osc (symmetric by our linearisation)",
+      "observed": 0.0001490353313193804,
+      "passed": true,
+      "reference": 0.663,
+      "relative": false,
+      "source": "arXiv:2312.13908v2 p. 22, labelled omega_A in the text",
+      "tolerance": 0.001
+    },
+    {
+      "computed": 0.7319844044444277,
+      "id": "toy-omega-upper",
+      "metric": "toy model at mu = 1/4: upper frequency / t_osc (antisymmetric)",
+      "observed": 0.002746042991242925,
+      "passed": true,
+      "reference": 0.734,
+      "relative": true,
+      "source": "arXiv:2312.13908v2 p. 22, labelled omega_S in the text",
+      "tolerance": 0.005
+    },
+    {
+      "computed": 9.4790317010705,
+      "id": "toy-t-osc",
+      "metric": "toy model: t_osc = 2 pi / omega_lower (S80)",
+      "observed": 0.00021438230141401782,
+      "passed": true,
+      "reference": 9.477,
+      "relative": true,
+      "source": "arXiv:2312.13908v2 Eq. (S80), p. 22",
+      "tolerance": 0.001
+    },
+    {
+      "computed": 0.16084751836809025,
+      "id": "fig2c-transition",
+      "metric": "Fig. 2c simulations: rate where A first falls below 2 (paper: first digitized point; ours: largest A over twelve seed phases); the paper's points cross A = 2 anywhere between 0.147 and 0.186",
+      "observed": 0.1328974751046348,
+      "passed": true,
+      "reference": 0.1855,
+      "relative": true,
+      "source": "arXiv:2312.13908v2 p. 3, Fig. 2(c), read off the figure (reference/digitize_fig2c.py)",
+      "tolerance": 0.2
+    }
+  ],
+  "differences": {
+    "figure_2c": {
+      "median_abs_error_envelope": 0.3605631885362345,
+      "median_abs_error_one_end": 0.5460165981070113,
+      "ours_envelope_transition": 0.16084751836809025,
+      "ours_one_end_first_rate_below_2": 0.15,
+      "ours_seeded_transition": 0.037846026973291834,
+      "paper_first_rate_below_2": 0.1855,
+      "rows": [
+        {
+          "envelope": 12.1914801254604,
+          "envelope_error": -0.7006021580191454,
+          "one_end": 4.955003447523404,
+          "one_end_error": -0.8783152395008987,
+          "paper": 40.72,
+          "rate": 0.0374
+        },
+        {
+          "envelope": 10.100275558712893,
+          "envelope_error": -0.7161249140328023,
+          "one_end": 5.871401426070813,
+          "one_end_error": -0.834980285945171,
+          "paper": 35.58,
+          "rate": 0.0429
+        },
+        {
+          "envelope": 8.251235486753485,
+          "envelope_error": -0.762280740802262,
+          "one_end": 7.136077912243086,
+          "one_end_error": -0.7944085879503576,
+          "paper": 34.71,
+          "rate": 0.0484
+        },
+        {
+          "envelope": 7.744027225188415,
+          "envelope_error": -0.745429742761722,
+          "one_end": 5.868411484559933,
+          "one_end_error": -0.8070870649388582,
+          "paper": 30.42,
+          "rate": 0.0539
+        },
+        {
+          "envelope": 7.655130700770285,
+          "envelope_error": -0.7162664677253415,
+          "one_end": 4.256858594778469,
+          "one_end_error": -0.842221697747277,
+          "paper": 26.98,
+          "rate": 0.0594
+        },
+        {
+          "envelope": 7.011991973238805,
+          "envelope_error": -0.7494822446145479,
+          "one_end": 3.495573125838316,
+          "one_end_error": -0.8751135003273199,
+          "paper": 27.99,
+          "rate": 0.0646
+        },
+        {
+          "envelope": 6.350529783481668,
+          "envelope_error": -0.6834232411026088,
+          "one_end": 2.897851489049789,
+          "one_end_error": -0.8555408031380962,
+          "paper": 20.06,
+          "rate": 0.0703
+        },
+        {
+          "envelope": 5.841094727583509,
+          "envelope_error": -0.7136718270792397,
+          "one_end": 2.4736840216770304,
+          "one_end_error": -0.8787409793295573,
+          "paper": 20.4,
+          "rate": 0.0755
+        },
+        {
+          "envelope": 5.157495532340044,
+          "envelope_error": -0.6597958092123981,
+          "one_end": 2.2401172582150517,
+          "one_end_error": -0.8522350093525691,
+          "paper": 15.16,
+          "rate": 0.0814
+        },
+        {
+          "envelope": 4.1977846640344785,
+          "envelope_error": -0.7443492896446724,
+          "one_end": 2.4911643226059805,
+          "one_end_error": -0.8482847550179062,
+          "paper": 16.42,
+          "rate": 0.0867
+        },
+        {
+          "envelope": 3.434238065503995,
+          "envelope_error": -0.730859085775549,
+          "one_end": 2.7630202861283797,
+          "one_end_error": -0.7834623600212869,
+          "paper": 12.76,
+          "rate": 0.0922
+        },
+        {
+          "envelope": 2.85197509678003,
+          "envelope_error": -0.7520021654973887,
+          "one_end": 3.040953351787888,
+          "one_end_error": -0.735569273757575,
+          "paper": 11.5,
+          "rate": 0.0976
+        },
+        {
+          "envelope": 2.6829424252638714,
+          "envelope_error": -0.7402766287256659,
+          "one_end": 3.0046533347330637,
+          "one_end_error": -0.7091332686608844,
+          "paper": 10.33,
+          "rate": 0.1033
+        },
+        {
+          "envelope": 2.7606630789182893,
+          "envelope_error": -0.7255802108431124,
+          "one_end": 2.765202409602324,
+          "one_end_error": -0.7251289851289937,
+          "paper": 10.06,
+          "rate": 0.1087
+        },
+        {
+          "envelope": 2.8353105370750002,
+          "envelope_error": -0.5961096101032763,
+          "one_end": 2.5587576485227888,
+          "one_end_error": -0.6355046084725372,
+          "paper": 7.02,
+          "rate": 0.114
+        },
+        {
+          "envelope": 2.9125439977304546,
+          "envelope_error": -0.5797194808469762,
+          "one_end": 2.366384099250732,
+          "one_end_error": -0.6585304330085524,
+          "paper": 6.93,
+          "rate": 0.1196
+        },
+        {
+          "envelope": 2.7795652708504828,
+          "envelope_error": -0.4440869458299035,
+          "one_end": 2.0304059405353905,
+          "one_end_error": -0.593918811892922,
+          "paper": 5.0,
+          "rate": 0.1253
+        },
+        {
+          "envelope": 2.6484747445390773,
+          "envelope_error": -0.637195240474099,
+          "one_end": 1.7531963864255504,
+          "one_end_error": -0.7598361114485548,
+          "paper": 7.3,
+          "rate": 0.1308
+        },
+        {
+          "envelope": 2.5348675895517507,
+          "envelope_error": -0.6008082536138974,
+          "one_end": 1.534527050170905,
+          "one_end_error": -0.7583421968234796,
+          "paper": 6.35,
+          "rate": 0.136
+        },
+        {
+          "envelope": 2.42240993199874,
+          "envelope_error": -0.4340163710283318,
+          "one_end": 1.336877314545798,
+          "one_end_error": -0.6876454872556548,
+          "paper": 4.28,
+          "rate": 0.1416
+        },
+        {
+          "envelope": 2.3243465424233962,
+          "envelope_error": 0.13938556001146862,
+          "one_end": 1.1791230051100483,
+          "one_end_error": -0.42199852690683903,
+          "paper": 2.04,
+          "rate": 0.1469
+        },
+        {
+          "envelope": 2.177358052136819,
+          "envelope_error": -0.3577114890451861,
+          "one_end": 1.0806330683654173,
+          "one_end_error": -0.6812291833730333,
+          "paper": 3.39,
+          "rate": 0.1527
+        },
+        {
+          "envelope": 2.003950854834142,
+          "envelope_error": -0.3757162445999558,
+          "one_end": 1.0471612277116455,
+          "one_end_error": -0.6737815489994874,
+          "paper": 3.21,
+          "rate": 0.1582
+        },
+        {
+          "envelope": 1.8549038739261112,
+          "envelope_error": -0.17191791342584328,
+          "one_end": 1.016922820240295,
+          "one_end_error": -0.5460165981070113,
+          "paper": 2.24,
+          "rate": 0.1635
+        },
+        {
+          "envelope": 1.7211813895519374,
+          "envelope_error": -0.1562836325725797,
+          "one_end": 0.9884812459354686,
+          "one_end_error": -0.5154503696394761,
+          "paper": 2.04,
+          "rate": 0.1688
+        },
+        {
+          "envelope": 1.5858032924301384,
+          "envelope_error": -0.3605631885362345,
+          "one_end": 0.9582530300685356,
+          "one_end_error": -0.613607649165913,
+          "paper": 2.48,
+          "rate": 0.1748
+        },
+        {
+          "envelope": 1.478509537967938,
+          "envelope_error": -0.2857441845565516,
+          "one_end": 0.9331367013224705,
+          "one_end_error": -0.5492093230326229,
+          "paper": 2.07,
+          "rate": 0.1801
+        },
+        {
+          "envelope": 1.379533299779349,
+          "envelope_error": 0.24282279259400807,
+          "one_end": 0.9089430665696931,
+          "one_end_error": -0.181132372459736,
+          "paper": 1.11,
+          "rate": 0.1855
+        },
+        {
+          "envelope": 1.2913307857025629,
+          "envelope_error": -0.28655757695991,
+          "one_end": 0.886457311360168,
+          "one_end_error": -0.5102445793590231,
+          "paper": 1.81,
+          "rate": 0.1908
+        },
+        {
+          "envelope": 1.221157165843269,
+          "envelope_error": 0.09031889807434723,
+          "one_end": 0.8678766725520025,
+          "one_end_error": -0.22511011379285495,
+          "paper": 1.12,
+          "rate": 0.1954
+        },
+        {
+          "envelope": 1.159239471863329,
+          "envelope_error": -0.15383980155961396,
+          "one_end": 0.8485090212160956,
+          "one_end_error": -0.3806503494773025,
+          "paper": 1.37,
+          "rate": 0.2009
+        },
+        {
+          "envelope": 1.1767614385263734,
+          "envelope_error": -0.019365467894688848,
+          "one_end": 0.8391450161422646,
+          "one_end_error": -0.3007124865481129,
+          "paper": 1.2,
+          "rate": 0.2063
+        },
+        {
+          "envelope": 1.194085268827717,
+          "envelope_error": 0.08553206257065171,
+          "one_end": 0.8301223572524111,
+          "one_end_error": -0.24534331158871725,
+          "paper": 1.1,
+          "rate": 0.2117
+        },
+        {
+          "envelope": 1.2115336929287772,
+          "envelope_error": 0.07215371055644004,
+          "one_end": 0.8212621128334655,
+          "one_end_error": -0.2732193691739243,
+          "paper": 1.13,
+          "rate": 0.2172
+        },
+        {
+          "envelope": 1.2284791004525726,
+          "envelope_error": -0.0476906198042073,
+          "one_end": 0.8128672386033184,
+          "one_end_error": -0.3698703576718462,
+          "paper": 1.29,
+          "rate": 0.2226
+        },
+        {
+          "envelope": 1.2452468521555127,
+          "envelope_error": -0.11684620414502644,
+          "one_end": 0.8047563503204098,
+          "one_end_error": -0.42925081537559584,
+          "paper": 1.41,
+          "rate": 0.228
+        },
+        {
+          "envelope": 1.2621487065757304,
+          "envelope_error": -0.006182120806511482,
+          "one_end": 0.7967706421880054,
+          "one_end_error": -0.37262154158424776,
+          "paper": 1.27,
+          "rate": 0.2335
+        },
+        {
+          "envelope": 1.2785758046387259,
+          "envelope_error": 0.02286064371098062,
+          "one_end": 0.7891855322100237,
+          "one_end_error": -0.368651574231981,
+          "paper": 1.25,
+          "rate": 0.2389
+        },
+        {
+          "envelope": 1.2948423763390833,
+          "envelope_error": 0.04422772285409948,
+          "one_end": 0.7818397819954084,
+          "one_end_error": -0.3694840467778965,
+          "paper": 1.24,
+          "rate": 0.2443
+        },
+        {
+          "envelope": 1.3112504064703467,
+          "envelope_error": 0.0747954151396284,
+          "one_end": 0.7745910227606507,
+          "one_end_error": -0.36508932560602403,
+          "paper": 1.22,
+          "rate": 0.2498
+        },
+        {
+          "envelope": 1.3272081119847932,
+          "envelope_error": 0.17452045308388797,
+          "one_end": 0.767690991553409,
+          "one_end_error": -0.32062744110317776,
+          "paper": 1.13,
+          "rate": 0.2552
+        },
+        {
+          "envelope": 1.3430197942920992,
+          "envelope_error": 0.23212825164412765,
+          "one_end": 0.7609949980953026,
+          "one_end_error": -0.30183945128871326,
+          "paper": 1.09,
+          "rate": 0.2606
+        },
+        {
+          "envelope": 1.3589786496281933,
+          "envelope_error": 0.319396747211838,
+          "one_end": 0.7543743255426235,
+          "one_end_error": -0.2675977421916277,
+          "paper": 1.03,
+          "rate": 0.2661
+        },
+        {
+          "envelope": 1.3745085264296133,
+          "envelope_error": 0.22723975574072597,
+          "one_end": 0.7480601983295669,
+          "one_end_error": -0.3320891086343153,
+          "paper": 1.12,
+          "rate": 0.2715
+        },
+        {
+          "envelope": 1.3899047912591664,
+          "envelope_error": 0.26354981023560575,
+          "one_end": 0.7419217286141555,
+          "one_end_error": -0.3255257012598587,
+          "paper": 1.1,
+          "rate": 0.2769
+        },
+        {
+          "envelope": 1.4054526748362983,
+          "envelope_error": 0.36451716003524104,
+          "one_end": 0.7358417009203977,
+          "one_end_error": -0.28559058163068185,
+          "paper": 1.03,
+          "rate": 0.2824
+        },
+        {
+          "envelope": 1.4205904026070053,
+          "envelope_error": 0.37921398311359744,
+          "one_end": 0.7300334487406904,
+          "one_end_error": -0.2912296614168054,
+          "paper": 1.03,
+          "rate": 0.2878
+        },
+        {
+          "envelope": 1.435605239570737,
+          "envelope_error": 0.25930284172871687,
+          "one_end": 0.7243777485799973,
+          "one_end_error": -0.364580922298248,
+          "paper": 1.14,
+          "rate": 0.2932
+        },
+        {
+          "envelope": 1.4507751477319064,
+          "envelope_error": 0.3686557997470814,
+          "one_end": 0.7187671934212071,
+          "one_end_error": -0.3219177420554651,
+          "paper": 1.06,
+          "rate": 0.2987
+        }
+      ]
+    },
+    "toy_critical_rate": {
+      "note": "ours integrates (S84)-(S85) and bisects on whether min f < 0; the paper's 0.0961 comes from the near-saddle-node reduction (S87)-(S92)",
+      "ours": 0.1051508223134337,
+      "paper": 0.0961,
+      "relative": 0.09418129358411753
+    }
+  },
+  "not_reproduced": [
+    {
+      "id": "fig2c-amplitude",
+      "metric": "Fig. 2c simulations, 0.04 <= mu_dot <= 0.1: median |A_ours / A_paper - 1|, our largest A over twelve seed phases (ours lower at every point)",
+      "observed": 0.730859085775549,
+      "passed": false,
+      "source": "arXiv:2312.13908v2 p. 3, Fig. 2(c), read off the figure (reference/digitize_fig2c.py)",
+      "tolerance": 0.25
+    },
+    {
+      "id": "fig2c-amplitude-one-end",
+      "metric": "Fig. 2c simulations, 0.04 <= mu_dot <= 0.1: median |A_ours / A_paper - 1|, our one-clamp protocol from DeltaL/L = 0.2 (ours lower at every point)",
+      "observed": 0.842221697747277,
+      "passed": false,
+      "source": "arXiv:2312.13908v2 p. 3, Fig. 2(c), read off the figure (reference/digitize_fig2c.py)",
+      "tolerance": 0.25
+    },
+    {
+      "computed": 0.1051508223134337,
+      "id": "toy-critical-rate",
+      "metric": "toy model critical rate: |ours / paper - 1|; ours integrates (S84)-(S85) and bisects on whether the trajectory reaches f < 0, the paper's comes from the near-saddle-node reduction (S87)-(S92)",
+      "observed": 0.09418129358411753,
+      "passed": false,
+      "reference": 0.0961,
+      "relative": true,
+      "source": "arXiv:2312.13908v2 p. 4, Fig. 4 caption; 0.096 on p. 25",
+      "tolerance": 0.01
+    }
+  ],
+  "scope": "Production co-rotational statics and research HHT-alpha dynamics of an elastica strip clamped at +/-alpha; the paper's shallow theory, its toy model and its published numbers. No laboratory validation; the paper's DER code is not available and was not run."
+}

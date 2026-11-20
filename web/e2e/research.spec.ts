@@ -5,7 +5,7 @@ import { EXPERIMENTS } from '../src/components/research/experiments';
 import catalog from '../../research/papers.json' with { type: 'json' };
 import type { StabileoTestActions, StabileoTestHooks } from '../src/lib/utils/e2e-hooks';
 
-const AWAITING_REVIEW = new Set(['gay-neto-2014', 'feher-sipos-varkonyi-2026', 'heyman-1966']);
+const AWAITING_REVIEW = new Set(['gay-neto-2014', 'feher-sipos-varkonyi-2026', 'heyman-1966', 'wang-2024']);
 const REVIEW_NOTE = /First version|Primera versión|Primeira versão|Erste Version|Première version|İlk sürüm|review rounds?\b|rondas? de revisión|rodadas? de revisão|Prüfrunden?|cycles? de revue|inceleme turu/;
 
 for (const locale of BUILD_PUBLIC_LOCALES) {

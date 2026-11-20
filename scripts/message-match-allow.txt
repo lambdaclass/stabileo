@@ -135,6 +135,7 @@ engine/src/result_sites/mod.rs: if DIAGNOSTIC_KEYS.contains(&key) { mode |= COLL
 web/src/components/research/andreassen2011/TopoptPage.svelte: if (!/^[a-f0-9]{64}$/.test(manifest.build_id)) throw Error(s.failed);
 web/src/components/research/pastrana2026/FormPage.svelte: <p>{s.formPositionError}: <Sci value={Math.max(...validation.checks.filter(c => c.metric.startsWith('jax_fdm positions')).map(c => c.observed))} /> m;
 web/src/components/research/pastrana2026/FormPage.svelte: {s.formForceError}: <Sci value={Math.max(...validation.checks.filter(c => c.metric.startsWith('jax_fdm tension')).map(c => c.observed))} /> kN.</p>
+web/src/components/research/vella2024/SnapChecks.svelte: const page = (source: string) => source.replace(/^arXiv:2312\.13908v2 /, '').replace(/, read off the figure.*$/, '');
 web/src/lib/cad/draft.ts: if (/replicated across all/i.test(line)) return true;
 web/src/lib/engine/model-sanity.ts: if (typeof v === 'number' && /node/i.test(key)) out.push(v);
 web/src/lib/excel-import/parse.ts: return ['si', 'sí', 'yes', 'y', 'true', 'verdadero', 'x', '1'].includes(v.trim().toLowerCase());

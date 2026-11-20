@@ -147,6 +147,16 @@ export const EXPERIMENTS: Experiment[] = [
     code: 'https://github.com/lambdaclass/stabileo/tree/main/research/mechanics/heyman-1966',
   },
   {
+    paperId: 'wang-2024',
+    path: '/research/mechanics/vella-2024',
+    name: 'Why a snapping strip turns lopsided only when released slowly',
+    hook: 'A steel strip clamped at an angle snaps from its inverted to its natural shape. Pull the ends apart slowly and a tiny asymmetry grows tens of times during the jump; pull fast and it snaps symmetrically.',
+    thumbnail: 'research-thumbs/vella-2024.svg',
+    thumbnailAlt: 'Shapes of the strip from our run: the inverted arch, the lopsided jump and the natural arch',
+    thumbnailQuery: '',
+    code: 'https://github.com/lambdaclass/stabileo/tree/main/research/mechanics/vella-2024',
+  },
+  {
     paperId: 'gay-neto-2014',
     path: '/research/mechanics/gay-neto-2014',
     name: 'A riser lifted off the seabed',

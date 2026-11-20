@@ -151,7 +151,9 @@
     <defs><clipPath id={clipId}><rect x={M.l} y={M.t - 6} width={width - M.l - M.r} height={height - M.t - M.b + 12} /></clipPath></defs>
     <g clip-path="url(#{clipId})">
       {#each ordered as s (s.name)}
-        {#if s.dashed}
+        {#if s.markers}
+          {#each s.points as p, i (i)}<circle cx={sx(p[0])} cy={sy(p[1])} r="3" style:fill={s.color} fill-opacity="0.85" />{/each}
+        {:else if s.dashed}
           <path d={path(s.points)} fill="none" style:stroke={s.color} stroke-width="6" stroke-opacity="0.35" stroke-linecap="round" stroke-linejoin="round" />
         {:else}
           <path d={path(s.points)} fill="none" style:stroke={s.color} stroke-width="1.75" stroke-linejoin="round" />

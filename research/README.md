@@ -28,6 +28,7 @@ The plan every page and contribution follows is [DESIGN.md](DESIGN.md).
 | `stability/ferrari-sigmund-2025/` | Roorda-frame buckling and energy derivatives; Koiter reproduction in progress |
 | `form-finding/pastrana-2026/` | Four-cable forward FDM, pinned jax_fdm comparison and production truss check |
 | `mechanics/biggins-2026/` | Centered curvature-patterned shallow arches, using production frame buckling modes |
+| `mechanics/vella-2024/` | Snap-through of an angle-clamped strip after Wang, …, Vella (2024): production co-rotational statics and arc-length, research HHT-α nonlinear dynamics, rate-dependent symmetry breaking |
 | `optimisation/fairclough-2026/` | One five-node self-weight gridshell from Table 1, externally executed reference and isolated Rust/Clarabel implementation |
 | `benchmarks/macneal-harder-1985/` | Production engine accuracy cases using the shared benchmark page format |
 | `benchmarks/mattiasson-elastica/` | Production corotational cantilever benchmark with provisional reference transcriptions |
