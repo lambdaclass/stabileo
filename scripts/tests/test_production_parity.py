@@ -82,7 +82,7 @@ class ProductionParity(unittest.TestCase):
             (web / 'package.json').write_text('{"scripts":{"build":"node build.cjs"}}')
             (web / 'package-lock.json').write_text('{}')
             (repo / parity.FLAGS).write_text('{"production":{"newFeature":false},"test":{"newFeature":false}}')
-            (repo / 'Makefile').write_text(SOLVER_RECIPE)
+            (repo / 'Makefile').write_text(SOLVER_RECIPE + 'research.wasm: ;\n')
             (web / 'build.cjs').write_text(
                 'const fs = require("node:fs");\n'
                 'const { execFileSync } = require("node:child_process");\n'
@@ -127,7 +127,8 @@ class ProductionParity(unittest.TestCase):
                 'fs.copyFileSync("src/lib/wasm/dedaliano_engine_bg.wasm", "dist/solver.wasm");\n'
             )
             makefile = repo / 'Makefile'
-            makefile.write_text(SOLVER_RECIPE)
+            recipe = SOLVER_RECIPE + 'research.wasm: ;\n'
+            makefile.write_text(recipe)
             (repo / '.gitignore').write_text('/web/src/lib/wasm/\n')
 
             def run(*args):
@@ -144,7 +145,7 @@ class ProductionParity(unittest.TestCase):
             run('make', 'wasm')
             with patch.object(parity, 'ROOT', repo), patch('sys.argv', ['check-production-parity.py', base]):
                 parity.main()
-                makefile.write_text(SOLVER_RECIPE.replace('printf legacy', 'printf changed'))
+                makefile.write_text(recipe.replace('printf legacy', 'printf changed'))
                 run('make', 'wasm')
                 with self.assertRaisesRegex(SystemExit, r'Switch-off production differs[\s\S]*solver.wasm'):
                     parity.main()
@@ -156,8 +157,7 @@ class ProductionParity(unittest.TestCase):
                 with self.assertRaisesRegex(RuntimeError, r'did not emit .*dedaliano_engine_bg.wasm'):
                     parity.main()
 
-    @unittest.skip('known wrong result: #2399')
-    def test_gate_builds_research_wasm_from_each_checkouts_solver_source(self):
+    def test_gate_builds_research_wasm_from_each_checkout(self):
         with tempfile.TemporaryDirectory(dir=parity.ROOT) as directory:
             repo = Path(directory)
             web = repo / 'web'

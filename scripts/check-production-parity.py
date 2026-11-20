@@ -11,7 +11,6 @@ ROOT = Path(__file__).resolve().parents[1]
 FLAGS = 'web/config/features.json'
 LEGACY_OVERLAY = 'web/config/pro-plates-off.json'
 SOLVER_RUNTIME = ('web/src/lib/wasm/dedaliano_engine.js', 'web/src/lib/wasm/dedaliano_engine_bg.wasm')
-RESEARCH_WASM = 'web/public/research-wasm'
 ENGINE_INPUTS = ('engine/src', 'engine/build.rs', 'engine/Cargo.toml', 'Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', 'scripts/wasm-cached.sh',
                  '.github/scripts/build-research-wasm.sh', 'flake.nix', 'flake.lock')
 
@@ -74,14 +73,13 @@ def build(checkout, env):
             raise RuntimeError(f'WASM build at {checkout} did not emit {name}')
         runtime[name] = digest(artifact)
 
-    research = ROOT / RESEARCH_WASM
-    if research.is_dir():
-        shutil.copytree(research, checkout / RESEARCH_WASM, dirs_exist_ok=True)
     web = checkout / 'web'
     if (ROOT / 'web/package-lock.json').read_bytes() == (web / 'package-lock.json').read_bytes():
         (web / 'node_modules').symlink_to(ROOT / 'web/node_modules', target_is_directory=True)
     else:
         subprocess.run(['make', 'web.deps', 'NIX_RUN='], cwd=checkout, check=True)
+    subprocess.run(['make', '--assume-old=web.deps', 'research.wasm'], cwd=checkout,
+                   env={**wasm_env, 'RESEARCH_SKIP_VIEWER': '0'}, check=True)
     git_dir = git('rev-parse', '--absolute-git-dir').decode().strip()
     subprocess.run(['npm', 'run', 'build'], cwd=web,
                    env={**env, 'GIT_DIR': git_dir, 'GIT_WORK_TREE': str(checkout)}, check=True)
@@ -113,11 +111,12 @@ def main():
     for key in ('VITE_E2E', 'VITE_APP_TYPE', 'STABILEO_E2E_PROFILE', 'PRERENDER_ONLY', 'PRERENDER_OUT'):
         env.pop(key, None)
     with tempfile.TemporaryDirectory(prefix='.production-parity-', dir=ROOT) as directory:
-        work = Path(directory)
-        reference, candidate = work / 'reference', work / 'candidate'
-        snapshot(base, reference, intended)
-        snapshot(head, candidate, changed_paths(head))
-        changed = differences(build(reference, env), build(candidate, env))
+        checkout = Path(directory) / 'checkout'
+        snapshot(base, checkout, intended)
+        reference = build(checkout, env)
+        shutil.rmtree(checkout)
+        snapshot(head, checkout, changed_paths(head))
+        changed = differences(reference, build(checkout, env))
     if changed:
         artifacts = '\n  '.join(changed[:20])
         raise SystemExit(f'Switch-off production differs from {base[:12]} plus declared production changes '
