@@ -82,7 +82,7 @@ describe('the span building on the 6 m mesh under the 0,5 m forces: mirror-image
     for (const bottom of [{ count: 3, diameter: 12 }, { count: 2, diameter: 16 }]) {
       const rebar = { ...accepted, regions: { ...accepted.regions, bottomSpanLayers: [{ ...bottom, row: 0 }], bottomSpan: bottom } };
       const al = (id: number) => {
-        const v = cirsoc201Adapter.verify(torsionContexts.get(id)!, { ...rebar, elementId: id });
+        const v = cirsoc201Adapter.verify(torsionContexts.get(id)!, rebar);
         const c = v.checks.find(row => row.category.startsWith('Torsion Al Span'));
         expect(c, `e${id}`).toMatchObject({
           status: 'fail', ratio: Infinity, limiting: 'unsupportedCheck', description: 'diag.rcTorsionPerimeter',
