@@ -256,12 +256,6 @@ fn compute_qy_and_width(z: f64, rs: &ResolvedSection) -> (f64, f64) {
     }
 }
 
-enum StressSample {
-    Fibre,
-    DepthCut,
-    WidthCut,
-}
-
 // ==================== Resolve Section ====================
 
 fn resolve_section_3d(sec: &SectionGeometry) -> ResolvedSection {
@@ -341,17 +335,12 @@ pub fn compute_stress_3d_from_raw(
     let z = z_fiber.unwrap_or(0.0);
     let tau_torsion = torsion_shear(mx, &resolved);
 
-    let stress_at = |y, z, sample| {
+    let stress_at = |y, z| {
         let sigma = biaxial_normal_stress(n, my, mz, resolved.a, resolved.iy, resolved.iz, y, z);
         let tau_vy = shear_stress_width(vy, z, &resolved);
         let tau_vz = shear_stress_depth(vz, y, &resolved);
         let refusal = (tau_torsion != 0.0 && (tau_vy != 0.0 || tau_vz != 0.0))
             .then_some(CombinedStressRefusal::CombinedTorsionAndTransverseShear);
-        let (tau_vy, tau_vz) = match sample {
-            StressSample::Fibre => (tau_vy, tau_vz),
-            StressSample::DepthCut => (0.0, tau_vz),
-            StressSample::WidthCut => (tau_vy, 0.0),
-        };
         let tau_total = refusal.is_none().then(|| {
             (tau_vy * tau_vy + tau_vz * tau_vz + tau_torsion * tau_torsion).sqrt()
         });
@@ -373,18 +362,18 @@ pub fn compute_stress_3d_from_raw(
         .map(|i| {
             let span = resolved.y_max - resolved.y_min;
             let y = resolved.y_min + (i as f64 / (NUM_POINTS_3D - 1) as f64) * span;
-            stress_at(y, 0.0, StressSample::DepthCut)
+            StressPoint3D { tau_vy: 0.0, ..stress_at(y, 0.0) }
         })
         .collect();
     let distribution_z = (0..NUM_POINTS_3D)
         .map(|i| {
             let span = resolved.z_max - resolved.z_min;
             let z = resolved.z_min + (i as f64 / (NUM_POINTS_3D - 1) as f64) * span;
-            stress_at(0.0, z, StressSample::WidthCut)
+            StressPoint3D { tau_vz: 0.0, ..stress_at(0.0, z) }
         })
         .collect();
 
-    let fibre = stress_at(y, z, StressSample::Fibre);
+    let fibre = stress_at(y, z);
     let mohr = fibre.tau_total.map(|tau| compute_mohr_circle(fibre.sigma, tau));
     let failure = fibre.tau_total.map(|tau| check_failure(fibre.sigma, tau, fy));
 
@@ -586,7 +575,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "known wrong result: #2366"]
     fn issue_2366_cut_magnitudes_include_both_transverse_components() {
         for (vy, vz) in [(0.0, 1.0), (1.0, 0.0), (-1.0, 1.0)] {
             let raw = compute_stress_3d_from_raw(0.0, vy, vz, 0.0, 0.0, 0.0, &chs(), Some(FY), Some(0.0), Some(0.0));
@@ -615,7 +603,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "known wrong result: #2366"]
     fn issue_2366_cut_magnitudes_from_linear_and_pdelta_member_forces() {
         let input = cantilever(0.0);
         let linear = crate::solver::linear::solve_3d(&input).unwrap();

@@ -49,8 +49,6 @@ function cantilever(mx: number): SolverInput3D {
   };
 }
 
-const issue2366 = process.env.RUN_KNOWN_WRONG === '2366' ? it : it.skip;
-
 function expectCutMagnitudes(result: SectionStressResult3D) {
   const centreFactor = radius ** 2 / inertia / 1000;
   expect(Math.hypot(result.Vy, result.Vz)).toBeGreaterThan(0);
@@ -104,7 +102,7 @@ describe('3D section stress with torsion and transverse shear', () => {
       }
     });
 
-    issue2366(`known wrong result: #2366 ${entry} includes both transverse components in cut magnitudes`, () => {
+    it(`#2366 ${entry} includes both transverse components in cut magnitudes`, () => {
       for (const [vy, vz] of [[0, 1], [1, 0], [-1, 1]] as const) {
         expectCutMagnitudes(analyze(vy, vz, 0, 0, 0));
       }
@@ -140,20 +138,20 @@ describe('3D section stress with torsion and transverse shear', () => {
     }
   }
 
-  issue2366('known wrong result: #2366 reports full cut magnitudes from linear member forces', () => {
+  it('#2366 reports full cut magnitudes from linear member forces', () => {
     const result = solve3D(cantilever(0));
     expect(result.elementForces).toHaveLength(1);
     expectCutMagnitudes(analyzeSectionStress3D(result.elementForces[0]!, section, fy, 1, 0, 0));
   });
 
-  issue2366('known wrong result: #2366 reports full cut magnitudes from P-Delta member forces', () => {
+  it('#2366 reports full cut magnitudes from P-Delta member forces', () => {
     const result = solvePDelta3D(cantilever(0), 20, 1e-4);
     expect(result.converged).toBe(true);
     expect(result.results.elementForces).toHaveLength(1);
     expectCutMagnitudes(analyzeSectionStress3D(result.results.elementForces[0]!, section, fy, 1, 0, 0));
   });
 
-  issue2366('known wrong result: #2366 includes both components of planar shear resolved onto rotated axes', () => {
+  it('#2366 includes both components of planar shear resolved onto rotated axes', () => {
     const angle = Math.PI / 4;
     const result = analyzeSectionStressFromForces(
       0, Math.sin(angle), Math.cos(angle), 0, -Math.cos(angle), Math.sin(angle), section, fy, 0, 0,
