@@ -71,7 +71,7 @@ for (const nonlinear of [false, true]) {
 for (const nonlinear of [false, true]) {
   it.describe(`@smoke Basic point-couple report (P-Delta=${nonlinear})`, () => {
     for (const isGlobal of [false, true]) {
-      it(`the embedded XZ point couple balances in spatial axes (global=${isGlobal})`, async ({ page }) => {
+      it(`#2370 the embedded XZ point couple balances in spatial axes (global=${isGlobal})`, async ({ page }) => {
         await expectPointCoupleBalance(page, '3d', false, nonlinear, isGlobal, 'y', -5);
       });
 

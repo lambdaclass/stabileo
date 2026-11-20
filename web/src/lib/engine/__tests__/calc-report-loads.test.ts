@@ -11,6 +11,8 @@ import { historyStore } from '../../store/history.svelte';
 import { uiStore } from '../../store';
 import { loadComponentsText, reportNumber, distributedText, pointOnElementText, thermalText } from '../calc-report-loads';
 import { solve, solve3D, solvePDelta, solvePDelta3D } from '../wasm-solver';
+import type { AnalysisResults } from '../types';
+import type { AnalysisResults3D } from '../types-3d';
 import { serializeLoads } from '../pro-report-inputs';
 import { featuresForMode } from '../../../../config/public-features.mjs';
 
@@ -262,7 +264,7 @@ for (const nonlinear of [false, true]) {
   for (const isGlobal of [false, true]) {
     const scenario = `global=${isGlobal}, P-Delta=${nonlinear}`;
 
-    it(`PRO reports the embedded XZ point couple in spatial axes (${scenario})`, () => {
+    it(`#2370 PRO reports the embedded XZ point couple in spatial axes (${scenario})`, () => {
       expectProPointCouple('embedded', isGlobal, nonlinear, 'y', -5, 'z', -5);
     });
 
@@ -271,7 +273,7 @@ for (const nonlinear of [false, true]) {
         expectProPointCouple('native', true, nonlinear, 'z', 5, 'y', -5);
       });
     } else {
-      it(`PRO reports the native XY local point couple about Z (${scenario})`, () => {
+      it(`#2370 PRO reports the native XY local point couple about Z (${scenario})`, () => {
         expectProPointCouple('native', false, nonlinear, 'z', 5, 'y', -5);
       });
     }
@@ -299,7 +301,8 @@ function expectProPointCouple(
       const input = modelStore.buildSolverInput()!;
       const result = nonlinear ? solvePDelta(input) : undefined;
       if (result) expect(result.converged).toBe(true);
-      const { rx, rz, my } = (result?.results ?? solve(input)).reactions.find(r => r.nodeId === i)!;
+      const solved: AnalysisResults = result?.results ?? solve(input);
+      const { rx, rz, my } = solved.reactions.find(r => r.nodeId === i)!;
       expect(rx).toBeCloseTo(0, 10);
       expect(rz).toBeCloseTo(0, 10);
       reactions = [my];
@@ -307,7 +310,8 @@ function expectProPointCouple(
       const input = modelStore.buildSolverInput3D()!;
       const result = nonlinear ? solvePDelta3D(input) : undefined;
       if (result) expect(result.converged).toBe(true);
-      const { fx, fy, fz, mx, my, mz } = (result?.results ?? solve3D(input)).reactions.find(r => r.nodeId === i)!;
+      const solved: AnalysisResults3D = result?.results ?? solve3D(input);
+      const { fx, fy, fz, mx, my, mz } = solved.reactions.find(r => r.nodeId === i)!;
       for (const force of [fx, fy, fz]) expect(force).toBeCloseTo(0, 10);
       reactions = [mx, my, mz];
     }
