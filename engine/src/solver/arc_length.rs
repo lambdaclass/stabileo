@@ -19,7 +19,7 @@ use super::sparse_tangent::{
     cached_symbolic, tangent_free_sparse, tangent_free_sparse_triplets, SparseSymbolicCache,
 };
 use super::time_integration::MAX_DENSE_FALLBACK_DOFS;
-use super::path_following::{solve_by_arc_length, vec_norm, ArcLengthControl, PathProblem};
+use super::path_following::{solve_by_arc_length, solve_by_displacement_control, vec_norm, ArcLengthControl, DisplacementControl, PathProblem};
 
 /// Arc-length analysis input.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -251,14 +251,18 @@ impl PathProblem for ArcLength2D<'_> {
         }
     }
 
-    fn record(&mut self, step: usize, lambda: f64, iterations: usize) {
+    fn unknown(&self, index: usize) -> f64 {
+        self.u_full[index]
+    }
+
+    fn record(&mut self, step: usize, lambda: f64, iterations: usize, converged: bool) {
         let (n, nf) = (self.dof_num.n_total, self.dof_num.n_free);
         set_supports(&mut self.u_full, nf, self.u_r_start, self.du_support, lambda);
         self.steps.push(EquilibriumStep {
             step,
             load_factor: lambda,
             control_displacement: self.u_full.get(0).copied().unwrap_or(0.0),
-            converged: true,
+            converged,
             iterations,
             displacements: super::linear::build_displacements_2d(self.dof_num, &assembly::to_global(&self.u_full, n, self.its)),
         });
@@ -397,6 +401,104 @@ pub fn solve_displacement_control(input: &DisplacementControlInput) -> Result<Di
     Ok(r)
 }
 
+struct DisplacementControl2D<'a> {
+    solver: &'a SolverInput,
+    dof_num: &'a DofNumbering,
+    cs: &'a Option<FreeConstraintSystem>,
+    art: &'a [(usize, f64)],
+    its: &'a [InclinedTransformData2D],
+    metric: &'a super::convergence::EquilibriumMetric,
+    sparse: bool,
+    ns: usize,
+    ctrl: usize,
+    f_ref: &'a Vec<f64>,
+    f_ref_full: &'a Vec<f64>,
+    f_ref_s: &'a Vec<f64>,
+    u_full: Vec<f64>,
+    sparse_sym_cache: Option<SparseSymbolicCache>,
+    asm_t: Option<TangentAssembly>,
+    residual: Vec<f64>,
+    steps: Vec<EquilibriumStep>,
+}
+
+impl PathProblem for DisplacementControl2D<'_> {
+    fn unknowns(&self) -> usize {
+        self.dof_num.n_free
+    }
+
+    fn load_scale(&self) -> f64 {
+        vec_norm(self.f_ref).powi(2)
+    }
+
+    fn linearize_at(&mut self, _: f64) {
+        self.asm_t = Some(assemble_tangent(self.solver, self.dof_num, &self.u_full, self.art, self.sparse, self.its));
+    }
+
+    fn measure(&mut self, lambda: f64) -> f64 {
+        let nf = self.dof_num.n_free;
+        let (f_ref, f_ref_full) = (self.f_ref, self.f_ref_full);
+        let Some(asm_t) = self.asm_t.as_ref() else { return f64::INFINITY };
+        let f_int = &asm_t.f_int;
+
+        let mut residual = vec![0.0; nf];
+        for i in 0..nf {
+            residual[i] = lambda * f_ref[i] - f_int[i];
+        }
+
+        let applied: Vec<f64> = f_ref_full.iter().map(|f| lambda * f).collect();
+        let rel_error = self.metric.relative_residual(&residual, &applied, None, self.cs.as_ref());
+        self.residual = residual;
+        rel_error
+    }
+
+    fn reference_response(&mut self) -> Result<Vec<f64>, String> {
+        let (n, nf, ns) = (self.dof_num.n_total, self.dof_num.n_free, self.ns);
+        let Some(asm_t) = self.asm_t.take() else { return Err("Displacement-control analysis: no tangent assembled".into()) };
+        let tangent = factor_assembled(&asm_t, n, nf, ns, self.cs, &mut self.sparse_sym_cache)?;
+        let du_t_s = solve_with_tangent(&tangent, self.f_ref_s, ns)?;
+        Ok(if let Some(ref cs) = *self.cs { cs.expand_solution(&du_t_s, MasterMotion::Homogeneous) } else { du_t_s })
+    }
+
+    fn responses(&mut self) -> Result<(Vec<f64>, Vec<f64>), String> {
+        let (n, nf, ns) = (self.dof_num.n_total, self.dof_num.n_free, self.ns);
+        let Some(asm_t) = self.asm_t.take() else { return Err("Displacement-control analysis: no tangent assembled".into()) };
+        let residual = std::mem::take(&mut self.residual);
+        let residual_s = if let Some(ref cs) = *self.cs {
+            cs.reduce_vector(&residual)
+        } else {
+            residual
+        };
+        let tangent = factor_assembled(&asm_t, n, nf, ns, self.cs, &mut self.sparse_sym_cache)?;
+        let du_r_s = solve_with_tangent(&tangent, &residual_s, ns)?;
+        let du_t_s = solve_with_tangent(&tangent, self.f_ref_s, ns)?;
+        let du_r = if let Some(ref cs) = *self.cs { cs.expand_solution(&du_r_s, MasterMotion::Homogeneous) } else { du_r_s };
+        let du_t = if let Some(ref cs) = *self.cs { cs.expand_solution(&du_t_s, MasterMotion::Homogeneous) } else { du_t_s };
+        Ok((du_r, du_t))
+    }
+
+    fn advance(&mut self, step: &[f64]) {
+        for i in 0..self.dof_num.n_free {
+            self.u_full[i] += step[i];
+        }
+    }
+
+    fn unknown(&self, index: usize) -> f64 {
+        self.u_full[index]
+    }
+
+    fn record(&mut self, step: usize, lambda: f64, iterations: usize, converged: bool) {
+        let n = self.dof_num.n_total;
+        self.steps.push(EquilibriumStep {
+            step,
+            load_factor: lambda,
+            control_displacement: self.u_full[self.ctrl],
+            converged,
+            iterations,
+            displacements: super::linear::build_displacements_2d(self.dof_num, &assembly::to_global(&self.u_full, n, self.its)),
+        });
+    }
+}
+
 fn solve_displacement_control_contained(input: &DisplacementControlInput) -> Result<DisplacementControlResult, String> {
     // As above: validated before assembly indexes by id.
     super::linear::validate_input_2d(&input.solver)?;
@@ -428,8 +530,6 @@ fn solve_displacement_control_contained(input: &DisplacementControlInput) -> Res
     // tangent's sparsity pattern is constant within a solve call, so the
     // symbolic phase is computed once and only the numeric phase repeats
     // per iteration.
-    let mut sparse_sym_cache: Option<SparseSymbolicCache> = None;
-
     // Find global DOF index for control point
     let control_global = dof_num.map.get(&(input.control_node, input.control_dof))
         .ok_or("Control node/DOF not found in free DOFs")?;
@@ -482,125 +582,34 @@ fn solve_displacement_control_contained(input: &DisplacementControlInput) -> Res
         return Err("Zero reference load".into());
     }
 
-    let mut u_full = vec![0.0; n];
-    let mut lambda = 0.0_f64;
-    let mut steps = Vec::new();
-    let mut total_iters = 0;
-    let mut overall_converged = true;
-
-    let delta_d = input.target_displacement / input.n_steps as f64;
-    // Scale for the displacement side of the convergence test. See the check
-    // itself for why it must be relative.
-    let disp_scale = delta_d.abs();
-    // #174 hoisted a loop-invariant `free_idx` here for the dense
-    // `extract_submatrix` call in the iteration. `factor_assembled` owns that
-    // extraction now and builds the index vector only on the branch that needs
-    // it, so the hoisted copy has no remaining reader.
-
-    for step in 0..input.n_steps {
-        let target_disp = (step + 1) as f64 * delta_d;
-
-        // N-R iterations
-        let mut step_converged = false;
-        let mut step_iters = 0;
-
-        for _iter in 0..input.max_iter {
-            step_iters += 1;
-            total_iters += 1;
-
-            // Compute tangent stiffness and internal forces
-            let asm_t = assemble_tangent(&input.solver, &dof_num, &u_full, &art, sparse, &its);
-            let f_int = &asm_t.f_int;
-
-            // Residual
-            let mut residual = vec![0.0; nf];
-            for i in 0..nf {
-                residual[i] = lambda * f_ref[i] - f_int[i];
-            }
-
-            // Displacement constraint: u[ctrl] = target_disp
-            let disp_error = target_disp - u_full[ctrl];
-
-            // Reduce once. This vector is BOTH what the convergence test has to
-            // measure and the right-hand side the Newton step needs, so computing
-            // it here costs nothing extra and removes a full copy of the residual
-            // on the unconstrained path.
-            //
-            // Measuring the reduced residual is the correctness point. The Newton
-            // step below solves the reduced system (Cᵀ K C, Cᵀ R), so the iteration
-            // drives Cᵀ R to zero — not R. At a constrained equilibrium R equals the
-            // constraint reaction forces and stays nonzero forever, so testing the
-            // full residual meant no constrained model could ever converge: step 1
-            // exhausted max_iter and the whole analysis was truncated after it.
-            // `solve_arc_length` has always reduced here.
-            let applied: Vec<f64> = f_ref_full.iter().map(|f| lambda * f).collect();
-            let rel_error = metric.relative_residual(&residual, &applied, None, cs_dc.as_ref());
-            let residual_s = if let Some(ref cs) = cs_dc {
-                cs.reduce_vector(&residual)
-            } else {
-                residual
-            };
-            // The displacement side is measured RELATIVE to the increment this step
-            // asks for. It used to be `disp_error.abs() < tolerance * 10.0`, which
-            // compares a displacement in model units against the dimensionless
-            // residual tolerance: any step whose increment happened to be smaller
-            // than that figure was declared converged having done no work at all.
-            // With target 1e-7 over 20 steps, 19 of the 20 reported path points sat
-            // at the origin with load factor zero and only the last did anything —
-            // a fabricated equilibrium path from a method whose entire purpose is
-            // to trace the real one.
-            let disp_ok = disp_error.abs() <= input.tolerance * disp_scale;
-            if rel_error < input.tolerance && disp_ok {
-                step_converged = true;
-                break;
-            }
-
-            // Two-system solve with a single factorization per iteration:
-            // K_T * δu_r = R   (residual correction)
-            // K_T * δu_t = f_ref (tangent correction)
-            //
-            // `residual_s` is the reduced residual the convergence test above
-            // already built — the same vector this right-hand side needs. An
-            // earlier version of this branch shadowed it with a second
-            // `cs.reduce_vector(&residual)`, which is the recompute #174
-            // removed; the sparse dispatch below does not need it back.
-            let tangent = factor_assembled(&asm_t, n, nf, ns_dc, &cs_dc, &mut sparse_sym_cache)?;
-            let du_r_s = solve_with_tangent(&tangent, &residual_s, ns_dc)?;
-            let du_t_s = solve_with_tangent(&tangent, &f_ref_s_dc, ns_dc)?;
-            let du_r = if let Some(ref cs) = cs_dc { cs.expand_solution(&du_r_s, MasterMotion::Homogeneous) } else { du_r_s };
-            let du_t = if let Some(ref cs) = cs_dc { cs.expand_solution(&du_t_s, MasterMotion::Homogeneous) } else { du_t_s };
-
-            // Determine δλ from displacement constraint:
-            // (u[ctrl] + δu_r[ctrl] + δλ * δu_t[ctrl]) = target_disp
-            // δλ = (target_disp - u[ctrl] - δu_r[ctrl]) / δu_t[ctrl]
-            let step = (disp_error - du_r[ctrl]) / du_t[ctrl];
-            let d_lambda = if du_t[ctrl] != 0.0 && step.is_finite() {
-                step
-            } else {
-                0.0
-            };
-
-            // Update
-            for i in 0..nf {
-                u_full[i] += du_r[i] + d_lambda * du_t[i];
-            }
-            lambda += d_lambda;
-        }
-
-        steps.push(EquilibriumStep {
-            step: step + 1,
-            load_factor: lambda,
-            control_displacement: u_full[ctrl],
-            converged: step_converged,
-            iterations: step_iters,
-            displacements: super::linear::build_displacements_2d(&dof_num, &assembly::to_global(&u_full, n, &its)),
-        });
-
-        if !step_converged {
-            overall_converged = false;
-            break;
-        }
-    }
+    let mut problem = DisplacementControl2D {
+        solver: &input.solver,
+        dof_num: &dof_num,
+        cs: &cs_dc,
+        art: &art,
+        its: &its,
+        metric: &metric,
+        sparse,
+        ns: ns_dc,
+        ctrl,
+        f_ref: &f_ref,
+        f_ref_full: &f_ref_full,
+        f_ref_s: &f_ref_s_dc,
+        u_full: vec![0.0; n],
+        sparse_sym_cache: None,
+        asm_t: None,
+        residual: Vec::new(),
+        steps: Vec::new(),
+    };
+    let outcome = solve_by_displacement_control(&mut problem, &DisplacementControl {
+        control: ctrl,
+        target: input.target_displacement,
+        n_steps: input.n_steps,
+        max_iter: input.max_iter,
+        tolerance: input.tolerance,
+    })?;
+    let DisplacementControl2D { u_full, steps, .. } = problem;
+    let (lambda, overall_converged, total_iters) = (outcome.load_factor, outcome.converged, outcome.iterations);
 
     let at_state = super::corotational::scaled_loads_2d(&input.solver, lambda);
     let results = super::corotational::build_final_results(&at_state, &dof_num, &u_full, &cs_dc, &its)?;
@@ -1298,5 +1307,211 @@ mod shared_driver_equivalence {
         let mut held = frame(1, 0.0, Some("fixed"));
         held.supports.get_mut("1").unwrap().support_type = "fixed".into();
         assert!(same(&asked(held, 10, 30, 0.05), None).is_none());
+    }
+
+    fn displacement_control_before_the_shared_driver(input: &DisplacementControlInput) -> Result<DisplacementControlResult, String> {
+        crate::solver::linear::validate_input_2d(&input.solver)?;
+        crate::solver::feature_gates::refuse_2d(&input.solver, "Displacement-control analysis", &[
+            crate::solver::feature_gates::Feature::PrescribedDisplacements,
+            crate::solver::feature_gates::Feature::InclinedSupports, crate::solver::feature_gates::Feature::ThermalLoads,
+        ])?;
+        crate::element::connector::refuse_for_corotational_2d(&input.solver, "Displacement-control analysis")?;
+
+        let dof_num = DofNumbering::build_2d(&input.solver);
+        if dof_num.n_free == 0 {
+            return Err("No free DOFs".into());
+        }
+
+        let n = dof_num.n_total;
+        let nf = dof_num.n_free;
+
+        let cs_dc = FreeConstraintSystem::build_2d(&input.solver, &dof_num)?;
+        let metric = crate::solver::convergence::EquilibriumMetric::for_2d(&input.solver, &dof_num, cs_dc.as_ref())?;
+        let ns_dc = cs_dc.as_ref().map_or(nf, |c| c.n_free_indep);
+
+        let sparse = ns_dc >= SPARSE_THRESHOLD;
+
+        let mut sparse_sym_cache: Option<SparseSymbolicCache> = None;
+
+        let control_global = dof_num.map.get(&(input.control_node, input.control_dof))
+            .ok_or("Control node/DOF not found in free DOFs")?;
+        if *control_global >= nf {
+            return Err("Control DOF is restrained".into());
+        }
+        let ctrl = *control_global;
+
+        if input.n_steps == 0 {
+            return Err("Number of displacement steps must be at least 1".into());
+        }
+        if input.max_iter == 0 {
+            return Err("Max iterations must be at least 1".into());
+        }
+        if !input.target_displacement.is_finite() || input.target_displacement == 0.0 {
+            return Err("Target displacement must be finite and non-zero".into());
+        }
+        if !input.tolerance.is_finite() || input.tolerance <= 0.0 {
+            return Err("Convergence tolerance must be finite and positive".into());
+        }
+
+        let asm = assembly::assemble_2d(&input.solver, &dof_num);
+        let art = assembly::artificial_stiffness_entries(&asm);
+        let its = asm.inclined_transforms_2d;
+        let f_ref_full = asm.f;
+        let f_ref: Vec<f64> = f_ref_full[..nf].to_vec();
+        let f_ref_s_dc = if let Some(ref cs) = cs_dc {
+            cs.reduce_vector(&f_ref)
+        } else {
+            f_ref.clone()
+        };
+        let f_ref_norm = metric.free_norm(&f_ref, cs_dc.as_ref());
+        if f_ref_norm == 0.0 {
+            return Err("Zero reference load".into());
+        }
+
+        let mut u_full = vec![0.0; n];
+        let mut lambda = 0.0_f64;
+        let mut steps = Vec::new();
+        let mut total_iters = 0;
+        let mut overall_converged = true;
+
+        let delta_d = input.target_displacement / input.n_steps as f64;
+        let disp_scale = delta_d.abs();
+
+        for step in 0..input.n_steps {
+            let target_disp = (step + 1) as f64 * delta_d;
+
+            let mut step_converged = false;
+            let mut step_iters = 0;
+
+            for _iter in 0..input.max_iter {
+                step_iters += 1;
+                total_iters += 1;
+
+                let asm_t = assemble_tangent(&input.solver, &dof_num, &u_full, &art, sparse, &its);
+                let f_int = &asm_t.f_int;
+
+                let mut residual = vec![0.0; nf];
+                for i in 0..nf {
+                    residual[i] = lambda * f_ref[i] - f_int[i];
+                }
+
+                let disp_error = target_disp - u_full[ctrl];
+
+                let applied: Vec<f64> = f_ref_full.iter().map(|f| lambda * f).collect();
+                let rel_error = metric.relative_residual(&residual, &applied, None, cs_dc.as_ref());
+                let residual_s = if let Some(ref cs) = cs_dc {
+                    cs.reduce_vector(&residual)
+                } else {
+                    residual
+                };
+                let disp_ok = disp_error.abs() <= input.tolerance * disp_scale;
+                if rel_error < input.tolerance && disp_ok {
+                    step_converged = true;
+                    break;
+                }
+
+                let tangent = factor_assembled(&asm_t, n, nf, ns_dc, &cs_dc, &mut sparse_sym_cache)?;
+                let du_r_s = solve_with_tangent(&tangent, &residual_s, ns_dc)?;
+                let du_t_s = solve_with_tangent(&tangent, &f_ref_s_dc, ns_dc)?;
+                let du_r = if let Some(ref cs) = cs_dc { cs.expand_solution(&du_r_s, MasterMotion::Homogeneous) } else { du_r_s };
+                let du_t = if let Some(ref cs) = cs_dc { cs.expand_solution(&du_t_s, MasterMotion::Homogeneous) } else { du_t_s };
+
+                let step = (disp_error - du_r[ctrl]) / du_t[ctrl];
+                let d_lambda = if du_t[ctrl] != 0.0 && step.is_finite() {
+                    step
+                } else {
+                    0.0
+                };
+
+                for i in 0..nf {
+                    u_full[i] += du_r[i] + d_lambda * du_t[i];
+                }
+                lambda += d_lambda;
+            }
+
+            steps.push(EquilibriumStep {
+                step: step + 1,
+                load_factor: lambda,
+                control_displacement: u_full[ctrl],
+                converged: step_converged,
+                iterations: step_iters,
+                displacements: crate::solver::linear::build_displacements_2d(&dof_num, &assembly::to_global(&u_full, n, &its)),
+            });
+
+            if !step_converged {
+                overall_converged = false;
+                break;
+            }
+        }
+
+        let at_state = crate::solver::corotational::scaled_loads_2d(&input.solver, lambda);
+        let results = crate::solver::corotational::build_final_results(&at_state, &dof_num, &u_full, &cs_dc, &its)?;
+
+        Ok(DisplacementControlResult {
+            results,
+            steps,
+            final_load_factor: lambda,
+            converged: overall_converged,
+            total_iterations: total_iters,
+        })
+    }
+    fn driven(solver: SolverInput, control_node: usize, control_dof: usize, target_displacement: f64, n_steps: usize, max_iter: usize) -> DisplacementControlInput {
+        DisplacementControlInput { solver, control_node, control_dof, target_displacement, n_steps, max_iter, tolerance: 1e-8 }
+    }
+
+    fn same_driven(input: &DisplacementControlInput) -> Option<DisplacementControlResult> {
+        let before = displacement_control_before_the_shared_driver(input);
+        let now = solve_displacement_control_contained(input);
+        match (before, now) {
+            (Ok(before), Ok(now)) => {
+                assert_eq!(format!("{before:?}"), format!("{now:?}"));
+                Some(now)
+            }
+            (Err(before), Err(now)) => {
+                assert_eq!(before, now);
+                None
+            }
+            (before, now) => panic!("{:?} against {:?}", before.map(|r| r.converged), now.map(|r| r.converged)),
+        }
+    }
+
+    #[test]
+    fn the_shared_driver_gives_the_driven_paths_the_loop_gave_bit_for_bit() {
+        let (mut reached, mut stopped, mut sparse, mut steps) = (0, 0, 0, 0);
+        for n in [2, 6, 14, 30] {
+            for (rise, far_support) in [(0.0, None), (0.3, None), (0.15, Some("pinned")), (0.6, Some("pinned"))] {
+                let solver = frame(n, rise, far_support);
+                if DofNumbering::build_2d(&solver).n_free >= SPARSE_THRESHOLD { sparse += 1; }
+                let node = if far_support.is_some() { n / 2 + 1 } else { n + 1 };
+                for (dof, target, n_steps, max_iter) in [(1, -0.05, 10, 30), (1, -0.4, 8, 30), (1, 0.02, 5, 30), (2, 0.1, 6, 30), (1, -0.4, 4, 2), (1, -0.05, 3, 1)] {
+                    let Some(result) = same_driven(&driven(solver.clone(), node, dof, target, n_steps, max_iter)) else { continue };
+                    steps += result.steps.len();
+                    if result.converged { reached += 1 } else { stopped += 1 }
+                }
+            }
+        }
+        assert!(reached >= 25 && stopped >= 10 && sparse >= 3 && steps >= 200, "{reached} reached, {stopped} stopped, {sparse} sparse, {steps} steps");
+    }
+
+    #[test]
+    fn refused_displacement_control_is_refused_with_the_same_words() {
+        let solver = frame(6, 0.3, None);
+        for input in [
+            driven(solver.clone(), 7, 1, -0.05, 0, 30),
+            driven(solver.clone(), 7, 1, -0.05, 10, 0),
+            driven(solver.clone(), 7, 1, 0.0, 10, 30),
+            driven(solver.clone(), 7, 1, f64::NAN, 10, 30),
+            driven(solver.clone(), 1, 1, -0.05, 10, 30),
+            driven(solver.clone(), 99, 1, -0.05, 10, 30),
+            driven(solver.clone(), 7, 9, -0.05, 10, 30),
+        ] {
+            assert!(same_driven(&input).is_none());
+        }
+        let mut unloaded = frame(6, 0.3, None);
+        unloaded.loads.clear();
+        assert!(same_driven(&driven(unloaded, 7, 1, -0.05, 10, 30)).is_none());
+        let mut tolerance = driven(solver, 7, 1, -0.05, 10, 30);
+        tolerance.tolerance = 0.0;
+        assert!(same_driven(&tolerance).is_none());
     }
 }

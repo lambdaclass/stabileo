@@ -24,8 +24,10 @@ pub(crate) trait PathProblem {
     /// K⁻¹·r and K⁻¹·(∂r/∂λ), from one factorization.
     fn responses(&mut self) -> Result<(Vec<f64>, Vec<f64>), String>;
     fn advance(&mut self, step: &[f64]);
-    /// The current state converged under `load_factor` as step number `step`.
-    fn record(&mut self, step: usize, load_factor: f64, iterations: usize);
+    /// The current value of unknown `index`.
+    fn unknown(&self, index: usize) -> f64;
+    /// The current state under `load_factor` is step number `step` of the path.
+    fn record(&mut self, step: usize, load_factor: f64, iterations: usize, converged: bool);
 }
 
 pub(crate) struct ArcLengthControl {
@@ -143,7 +145,7 @@ pub(crate) fn solve_by_arc_length<P: PathProblem + ?Sized>(problem: &mut P, cont
         }
 
         step += 1;
-        problem.record(step, lambda, step_iters);
+        problem.record(step, lambda, step_iters, true);
 
         prev_delta_u = delta_u;
         prev_delta_lambda = delta_lambda;
@@ -158,6 +160,72 @@ pub(crate) fn solve_by_arc_length<P: PathProblem + ?Sized>(problem: &mut P, cont
     Ok(PathOutcome { load_factor: lambda, converged: overall_converged, iterations: total_iters, steps: step })
 }
 
+pub(crate) struct DisplacementControl {
+    /// The unknown that is driven.
+    pub control: usize,
+    pub target: f64,
+    pub n_steps: usize,
+    pub max_iter: usize,
+    pub tolerance: f64,
+}
+
+/// Drive unknown `control` to `target` in `n_steps` equal increments, the load factor being
+/// whatever holds it there: the path is followed where the load falls, as long as the driven
+/// unknown keeps growing. A step is converged when the measure is within tolerance and the
+/// unknown within tolerance of its increment. The first step that is not is recorded as
+/// unconverged and ends the solve, at that step's last iterate.
+pub(crate) fn solve_by_displacement_control<P: PathProblem + ?Sized>(problem: &mut P, control: &DisplacementControl) -> Result<PathOutcome, String> {
+    let nf = problem.unknowns();
+    let ctrl = control.control;
+    let mut lambda = 0.0_f64;
+    let mut total_iters = 0;
+    let mut overall_converged = true;
+    let mut taken = 0;
+
+    let delta_d = control.target / control.n_steps as f64;
+    let disp_scale = delta_d.abs();
+
+    for step in 0..control.n_steps {
+        let target_disp = (step + 1) as f64 * delta_d;
+
+        let mut step_converged = false;
+        let mut step_iters = 0;
+
+        for _iter in 0..control.max_iter {
+            step_iters += 1;
+            total_iters += 1;
+
+            problem.linearize_at(lambda);
+            let disp_error = target_disp - problem.unknown(ctrl);
+            let rel_error = problem.measure(lambda);
+            let disp_ok = disp_error.abs() <= control.tolerance * disp_scale;
+            if rel_error < control.tolerance && disp_ok {
+                step_converged = true;
+                break;
+            }
+
+            let (du_r, du_t) = problem.responses()?;
+
+            let step = (disp_error - du_r[ctrl]) / du_t[ctrl];
+            let d_lambda = Some(step).filter(|step| du_t[ctrl] != 0.0 && step.is_finite()).map_or(0.0, |step| step);
+
+            let du: Vec<f64> = (0..nf).map(|i| du_r[i] + d_lambda * du_t[i]).collect();
+            problem.advance(&du);
+            lambda += d_lambda;
+        }
+
+        taken = step + 1;
+        problem.record(taken, lambda, step_iters, step_converged);
+
+        if !step_converged {
+            overall_converged = false;
+            break;
+        }
+    }
+
+    Ok(PathOutcome { load_factor: lambda, converged: overall_converged, iterations: total_iters, steps: taken })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -168,6 +236,7 @@ mod tests {
         residual: f64,
         stiffness: f64,
         path: Vec<(f64, f64)>,
+        unconverged: usize,
         fail_at: Option<usize>,
         solves: usize,
     }
@@ -181,7 +250,7 @@ mod tests {
 
     impl Snap {
         fn new() -> Self {
-            Snap { u: 0.0, residual: 0.0, stiffness: 0.0, path: Vec::new(), fail_at: None, solves: 0 }
+            Snap { u: 0.0, residual: 0.0, stiffness: 0.0, path: Vec::new(), unconverged: 0, fail_at: None, solves: 0 }
         }
     }
 
@@ -216,9 +285,16 @@ mod tests {
         fn advance(&mut self, step: &[f64]) {
             self.u += step[0];
         }
-        fn record(&mut self, step: usize, load_factor: f64, _: usize) {
+        fn unknown(&self, index: usize) -> f64 {
+            assert_eq!(index, 0);
+            self.u
+        }
+        fn record(&mut self, step: usize, load_factor: f64, _: usize, converged: bool) {
             assert_eq!(step, self.path.len() + 1);
             self.path.push((self.u, load_factor));
+            if !converged {
+                self.unconverged += 1;
+            }
         }
     }
 
@@ -319,6 +395,73 @@ mod tests {
         let outcome = solve_by_arc_length(&mut snap, &control(0)).unwrap();
         assert_eq!(outcome, PathOutcome { load_factor: 0.0, converged: true, iterations: 0, steps: 0 });
         assert_eq!(snap.solves, 0);
+    }
+
+    fn driven(target: f64, n_steps: usize, max_iter: usize) -> DisplacementControl {
+        DisplacementControl { control: 0, target, n_steps, max_iter, tolerance: 1e-10 }
+    }
+
+    #[test]
+    fn a_driven_displacement_follows_the_path_down_and_up_again() {
+        let mut snap = Snap::new();
+        let outcome = solve_by_displacement_control(&mut snap, &driven(2.5, 50, 30)).unwrap();
+        assert!(outcome.converged);
+        assert_eq!((outcome.steps, snap.path.len(), snap.unconverged), (50, 50, 0));
+        for (k, &(u, load_factor)) in snap.path.iter().enumerate() {
+            assert!((u - 0.05 * (k + 1) as f64).abs() <= 1e-11, "step {k}: {u}");
+            assert!((load_factor - force(u)).abs() <= 1e-9, "({u}, {load_factor})");
+        }
+        let falling = snap.path.windows(2).filter(|pair| pair[1].1 < pair[0].1).count();
+        assert!(falling >= 10, "{falling} steps with a falling load");
+        assert_eq!(outcome.load_factor, snap.path.last().unwrap().1);
+    }
+
+    #[test]
+    fn a_displacement_can_be_driven_the_other_way() {
+        let mut snap = Snap::new();
+        let outcome = solve_by_displacement_control(&mut snap, &driven(-0.5, 10, 30)).unwrap();
+        assert!(outcome.converged);
+        let (u, load_factor) = *snap.path.last().unwrap();
+        assert!((u + 0.5).abs() <= 1e-11 && (load_factor - force(-0.5)).abs() <= 1e-9);
+    }
+
+    #[test]
+    fn a_step_that_does_not_converge_is_recorded_and_ends_the_solve() {
+        let mut snap = Snap::new();
+        let outcome = solve_by_displacement_control(&mut snap, &driven(2.5, 5, 2)).unwrap();
+        assert!(!outcome.converged);
+        assert_eq!(snap.unconverged, 1);
+        assert_eq!(outcome.steps, snap.path.len());
+        assert!(outcome.steps < 5);
+        assert_eq!(outcome.iterations, 2 * outcome.steps);
+    }
+
+    #[test]
+    fn a_response_that_does_not_move_the_driven_unknown_leaves_the_load_factor() {
+        struct Stuck(Snap);
+        impl PathProblem for Stuck {
+            fn unknowns(&self) -> usize { 1 }
+            fn load_scale(&self) -> f64 { 1.0 }
+            fn linearize_at(&mut self, load_factor: f64) { self.0.linearize_at(load_factor) }
+            fn measure(&mut self, load_factor: f64) -> f64 { self.0.measure(load_factor) }
+            fn reference_response(&mut self) -> Result<Vec<f64>, String> { Ok(vec![0.0]) }
+            fn responses(&mut self) -> Result<(Vec<f64>, Vec<f64>), String> { Ok((vec![0.0], vec![0.0])) }
+            fn advance(&mut self, step: &[f64]) { self.0.advance(step) }
+            fn unknown(&self, index: usize) -> f64 { self.0.unknown(index) }
+            fn record(&mut self, step: usize, load_factor: f64, iterations: usize, converged: bool) { self.0.record(step, load_factor, iterations, converged) }
+        }
+        let mut stuck = Stuck(Snap::new());
+        let outcome = solve_by_displacement_control(&mut stuck, &driven(1.0, 3, 4)).unwrap();
+        assert_eq!(outcome, PathOutcome { load_factor: 0.0, converged: false, iterations: 4, steps: 1 });
+        assert_eq!(stuck.0.u, 0.0);
+    }
+
+    #[test]
+    fn displacement_control_passes_on_errors() {
+        let mut snap = Snap::new();
+        snap.fail_at = Some(3);
+        assert_eq!(solve_by_displacement_control(&mut snap, &driven(2.5, 50, 30)).unwrap_err(), "the tangent cannot be factorized");
+        assert_eq!(snap.solves, 3);
     }
 
     #[test]
