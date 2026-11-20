@@ -78,12 +78,12 @@ describe('certified diagrams, deflections and reactions (2D)', () => {
     const out = certifyLinear2D(frame());
     const ef = out.results.elementForces.find((f) => f.elementId === 2)!;
     const d = computeElementDiagram('moment', ef, 0, 4, 7, 4);
-    for (const p of d.points) expect(p.value).toBeCloseTo(computeDiagramValueAtWasm('moment', p.t, ef)!, 9);
+    for (const p of d.points) expect(p.value).toBeCloseTo(computeDiagramValueAtWasm('moment', p.t, ef, p.right)!, 9);
     const legacy = computeMomentDiagram(ef.mStart, ef.mEnd, ef.vStart, ef.qI, ef.qJ, ef.length, 0, 4, 7, 4, ef.pointLoads);
     expect(Math.abs(legacy.maxAbsValue - d.maxAbsValue)).toBeGreaterThan(1);
   });
 
-  it.skip('known wrong result: #2403 — the WASM point query and canvas distinguish the two sides of a couple', () => {
+  it('known wrong result: #2403 — the WASM point query and canvas distinguish the two sides of a couple', () => {
     const elementForces = certifyLinear2D(frame()).results.elementForces.find(f => f.elementId === 2)!;
     const action = elementForces.pointLoads!.find(p => p.my)!;
     const t = action.a / elementForces.length;
@@ -149,7 +149,7 @@ describe('certified diagrams (3D)', () => {
       expect(Number.isFinite(evaluateDiagramAt(ef, kind, 0.5))).toBe(true);
     }
   });
-  it.skip('known wrong result: #2403 — the spatial WASM query distinguishes the two sides of a point load', () => {
+  it('known wrong result: #2403 — the spatial WASM query distinguishes the two sides of a point load', () => {
     const elementForces = {
       elementId: 1, length: 2, nStart: 0, nEnd: 0, vyStart: 0, vyEnd: 0, vzStart: 4, vzEnd: 1,
       mxStart: 0, mxEnd: 0, myStart: 0, myEnd: 0, mzStart: 0, mzEnd: 0,

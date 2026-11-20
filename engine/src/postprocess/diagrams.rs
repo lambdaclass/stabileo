@@ -123,9 +123,13 @@ pub fn compute_diagram_value_at_sorted(
 }
 
 pub fn checked_diagram_value_2d(kind: &str, t: f64, ef: &ElementForces) -> Result<f64, String> {
+    checked_diagram_limit_2d(kind, t, ef, false)
+}
+
+pub(crate) fn checked_diagram_limit_2d(kind: &str, t: f64, ef: &ElementForces, right: bool) -> Result<f64, String> {
     validate_diagram_input_2d(ef)?;
     check_diagram_kind_2d(kind)?;
-    planar_curve(ef, kind, &sorted_point_loads(ef)).checked_value(Cut::left(t)).map_err(str::to_owned)
+    planar_curve(ef, kind, &sorted_point_loads(ef)).checked_value(Cut::at(t, right)).map_err(str::to_owned)
 }
 
 pub(crate) fn evaluate_diagram_cut_2d(kind: &str, cut: Cut, ef: &ElementForces, sorted_pl: &[PointLoadInfo]) -> f64 {
@@ -139,7 +143,13 @@ pub(crate) fn try_evaluate_diagram_cut_2d(kind: &str, cut: Cut, ef: &ElementForc
 
 pub(crate) fn member_diagram_range_2d(ef: &ElementForces, kind: &str) -> Result<(f64, f64), String> {
     validate_diagram_loads_2d(ef)?;
-    planar_curve(ef, kind, &sorted_point_loads(ef)).interior_range().map_err(str::to_owned)
+    let end = match kind {
+        "moment" => ef.m_end,
+        "shear" => ef.v_end,
+        "axial" => ef.n_end,
+        _ => 0.0,
+    };
+    planar_curve(ef, kind, &sorted_point_loads(ef)).interior_range(end).map_err(str::to_owned)
 }
 
 // ==================== 2D Diagrams ====================

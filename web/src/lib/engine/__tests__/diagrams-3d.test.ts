@@ -556,7 +556,7 @@ it('#1782 the spatial WASM moving envelope uses the in-member shear at either en
   }
 });
 
-it.skip('known wrong result: #1782 — the spatial WASM moving sweep resolves an axle at a rounded support', () => {
+it('known wrong result: #1782 — the spatial WASM moving sweep resolves an axle at a rounded support', () => {
   const length = 1 + Number.EPSILON, weight = 40;
   const solver = buildInput(
     [{ id: 1, x: 0, y: 0, z: 0 }, { id: 2, x: length, y: 0, z: 0 }],
@@ -569,4 +569,8 @@ it.skip('known wrong result: #1782 — the spatial WASM moving sweep resolves an
   expect.soft(run(8, length).vzMaxNeg).toBeCloseTo(0, 12);
   expect(run(0, length / 2).vzMaxPos).toBeCloseTo(weight / 2, 12);
   expect(run(0, length / 2).vzMaxNeg).toBeCloseTo(-weight / 2, 12);
+  const within = run(0, length - 8 * Number.EPSILON);
+  const outside = run(0, length - 9 * Number.EPSILON);
+  expect(within.vzMaxPos - within.vzMaxNeg).toBeCloseTo(0, 12);
+  expect(outside.vzMaxPos - outside.vzMaxNeg).toBeCloseTo(weight, 12);
 });

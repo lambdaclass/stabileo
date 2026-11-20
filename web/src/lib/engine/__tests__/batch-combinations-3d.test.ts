@@ -530,7 +530,7 @@ it('#2292 case-factor resolution preserves exact signed residuals and rounds onc
   }
 });
 
-it.skip.each([
+it.each([
   ['planar linear', 'ex-portal-frame-input.json', compute_envelope_2d, solve_2d, 'vStart', 'moment', 1],
   ['planar P-Delta', 'ex-portal-frame-input.json', compute_envelope_2d,
     (model: object) => JSON.parse(solve_pdelta_2d(JSON.stringify(model), 20, 1e-9)).results, 'vStart', 'moment', 1],

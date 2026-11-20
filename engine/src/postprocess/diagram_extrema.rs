@@ -19,7 +19,11 @@ pub(crate) struct Cut {
 
 impl Cut {
     pub fn left(t: f64) -> Self {
-        Self { t, right: false, location: Location::Grid }
+        Self::at(t, false)
+    }
+
+    pub fn at(t: f64, right: bool) -> Self {
+        Self { t, right, location: Location::Grid }
     }
 
     fn boundary(t: f64, x: f64, right: bool) -> Self {
@@ -213,12 +217,17 @@ where
         Ok(cuts)
     }
 
-    pub fn interior_range(&self) -> Result<(f64, f64), &'static str> {
-        let ends = [Cut::boundary(0.0, 0.0, true), Cut::boundary(1.0, self.length, false)];
+    pub fn interior_range(&self, end: f64) -> Result<(f64, f64), &'static str> {
+        let end_jump = self.points.clone().filter(|p| p.a == self.length).map(|p| p.jump).sum::<f64>();
+        let end_limit = end - end_jump;
+        if !end_limit.is_finite() {
+            return Err("non-finite moving load member diagram");
+        }
         let critical = self.critical_cuts()?;
-        let cuts = ends.into_iter().chain(critical.into_iter().filter(|cut| cut.t > 0.0 && cut.t < 1.0));
-        let mut lo = f64::INFINITY;
-        let mut hi = f64::NEG_INFINITY;
+        let cuts = std::iter::once(Cut::boundary(0.0, 0.0, true))
+            .chain(critical.into_iter().filter(|cut| cut.t > 0.0 && cut.t < 1.0));
+        let mut lo = end_limit;
+        let mut hi = end_limit;
         for cut in cuts {
             let value = self.checked_value(cut)?;
             if !value.is_finite() {

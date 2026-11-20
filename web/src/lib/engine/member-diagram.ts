@@ -162,7 +162,7 @@ export function curveExtrema(curve: DiagramCurve, length: number): DiagramExtrem
   return roots;
 }
 
-export function diagramCurvePoints(curve: Pick<DiagramCurve, 'cuts' | 'value'>, critical: readonly DiagramExtremum[]): { t: number; value: number }[] {
+export function diagramCurvePoints(curve: Pick<DiagramCurve, 'cuts' | 'value'>, critical: readonly DiagramExtremum[]): (DiagramStation & { value: number })[] {
   const jumps = new Map<number, number>();
   for (const t of curve.cuts) {
     if (t === 1) continue;
@@ -181,9 +181,10 @@ export function diagramCurvePoints(curve: Pick<DiagramCurve, 'cuts' | 'value'>, 
     const values = extrema.get(t) ?? [];
     const left = values.length === 0 || boundaries.has(t) ? [curve.value({ t })] : [];
     const right = jumps.get(t);
-    const points = [...left, ...values, ...(right === undefined ? [] : [right])];
-    if (points.some(value => !Number.isFinite(value))) throw unavailableDiagramExtrema();
-    return points.map(value => ({ t, value }));
+    const points: (DiagramStation & { value: number })[] = [...left, ...values].map(value => ({ t, value }));
+    if (right !== undefined) points.push({ t, right: true, value: right });
+    if (points.some(point => !Number.isFinite(point.value))) throw unavailableDiagramExtrema();
+    return points;
   });
 }
 

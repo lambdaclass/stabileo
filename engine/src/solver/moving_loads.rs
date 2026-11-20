@@ -203,14 +203,15 @@ pub fn moving_loads_at_position_2d(
         }
 
         // Find which segment this axle is on
-        if let Some((seg, local_pos)) = find_segment(path, axle_pos) {
+        if let Some((seg, a)) = path.iter().find_map(|seg| {
+            sampled_axle_station(seg.start_pos, seg.end_pos, seg.length, seg.reversed, axle_pos).map(|a| (seg, a))
+        }) {
             // The axle weight acts straight down (−Z). In member axes (local
             // x = (c, s) from node_i to node_j, local y = (−s, c)) that is
             // p = −W·c transverse and px = −W·s axial — for any orientation.
             // The former branch for near-horizontal members used −W·|c|,
             // which pushed the train UP on a member drawn right-to-left
             // (found by the metamorphic mirror check).
-            let a = if seg.reversed { seg.length - local_pos } else { local_pos };
             loads.push(SolverLoad::PointOnElement(SolverPointLoadOnElement {
                 element_id: seg.element_id,
                 a,
@@ -288,14 +289,20 @@ fn auto_detect_path(input: &SolverInput) -> Result<Vec<usize>, String> {
     Ok(elem_list.iter().map(|e| e.id).collect())
 }
 
-fn find_segment<'a>(path: &'a [PathSegment], global_pos: f64) -> Option<(&'a PathSegment, f64)> {
-    for seg in path {
-        if global_pos >= seg.start_pos - 1e-10 && global_pos <= seg.end_pos + 1e-10 {
-            let local = (global_pos - seg.start_pos).max(0.0).min(seg.length);
-            return Some((seg, local));
-        }
+fn sampled_axle_station(start: f64, end: f64, length: f64, reversed: bool, position: f64) -> Option<f64> {
+    if !(position >= start - 1e-10 && position <= end + 1e-10) {
+        return None;
     }
-    None
+    let local = (position - start).max(0.0).min(length);
+    let endpoint_roundoff = 8.0 * f64::EPSILON * length;
+    let station = if local <= endpoint_roundoff {
+        0.0
+    } else if length - local <= endpoint_roundoff {
+        length
+    } else {
+        local
+    };
+    Some(if reversed { length - station } else { station })
 }
 
 /// The permanent loads, all of them: every load in the input is permanent (the train's axle
@@ -530,7 +537,9 @@ pub fn moving_loads_at_position_3d_with_maps(
             continue;
         }
 
-        if let Some((seg, local_pos)) = find_segment_3d(path, axle_pos) {
+        if let Some((seg, a)) = path.iter().find_map(|seg| {
+            sampled_axle_station(seg.start_pos, seg.end_pos, seg.length, seg.reversed, axle_pos).map(|a| (seg, a))
+        }) {
             // Gravity vector in global coordinates
             let (gx, gy, gz) = match gravity {
                 "y" => (0.0, -axle.weight, 0.0),
@@ -557,7 +566,7 @@ pub fn moving_loads_at_position_3d_with_maps(
                 loads.push(SolverLoad3D::PointOnElement(SolverPointLoad3D {
                     px: gx * lex[0] + gy * lex[1] + gz * lex[2],
                     element_id: seg.element_id,
-                    a: if seg.reversed { seg.length - local_pos } else { local_pos },
+                    a,
                     py,
                     pz,
                 }));
@@ -626,16 +635,6 @@ fn auto_detect_path_3d(input: &SolverInput3D) -> Result<Vec<usize>, String> {
         na.x.partial_cmp(&nb.x).unwrap()
     });
     Ok(elem_list.iter().map(|e| e.id).collect())
-}
-
-fn find_segment_3d<'a>(path: &'a [PathSegment3D], global_pos: f64) -> Option<(&'a PathSegment3D, f64)> {
-    for seg in path {
-        if global_pos >= seg.start_pos - 1e-10 && global_pos <= seg.end_pos + 1e-10 {
-            let local = (global_pos - seg.start_pos).max(0.0).min(seg.length);
-            return Some((seg, local));
-        }
-    }
-    None
 }
 
 /// As `base_loads`: every input load is permanent (point loads on members, bimoments and

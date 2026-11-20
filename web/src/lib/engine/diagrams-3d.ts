@@ -8,9 +8,7 @@ import type { ElementForces3D, EnvelopeDiagramData3D } from './types-3d';
 
 export type Diagram3DKind = 'momentY' | 'momentZ' | 'shearY' | 'shearZ' | 'axial' | 'torsion';
 
-export interface DiagramPoint3D {
-  /** Normalized position along element [0, 1] */
-  t: number;
+export interface DiagramPoint3D extends DiagramStation {
   /** Diagram value at this point (kN or kN·m) */
   value: number;
 }

@@ -827,7 +827,6 @@ fn issue_1782_endpoint_axles_are_carried_by_supports() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1782"]
 fn issue_1782_sampled_axle_at_rounded_support_2d() {
     use dedaliano_engine::solver::moving_loads::solve_moving_loads_2d;
     for length in [1.0, 1.0_f64.next_up()] {
@@ -848,11 +847,17 @@ fn issue_1782_sampled_axle_at_rounded_support_2d() {
         let half_weight = input.train.axles[0].weight / 2.0;
         assert_planar_value(e.v_max_pos, half_weight);
         assert_planar_value(e.v_max_neg, -half_weight);
+
+        input.step = Some(length - 8.0 * f64::EPSILON);
+        let e = &solve_moving_loads_2d(&input).unwrap().elements["1"];
+        assert_planar_value(e.v_max_pos - e.v_max_neg, 0.0);
+        input.step = Some(length - 9.0 * f64::EPSILON);
+        let e = &solve_moving_loads_2d(&input).unwrap().elements["1"];
+        assert_planar_value(e.v_max_pos - e.v_max_neg, 2.0 * half_weight);
     }
 }
 
 #[test]
-#[ignore = "known wrong result: #1782"]
 fn issue_1782_sampled_axle_at_rounded_support_3d() {
     use dedaliano_engine::metamorphic::planes::Plane;
     for length in [1.0, 1.0_f64.next_up()] {
@@ -876,5 +881,15 @@ fn issue_1782_sampled_axle_at_rounded_support_3d() {
         let half_weight = input.train.axles[0].weight / 2.0;
         assert_planar_value(e.vy_max_pos.max(e.vz_max_pos), half_weight);
         assert_planar_value(e.vy_max_neg.min(e.vz_max_neg), -half_weight);
+
+        let shear_range = |input: &MovingLoadInput| {
+            let r = solve_moving_loads_3d(&embedded_moving_input(input, Plane::XZ)).unwrap();
+            let e = &r.elements["1"];
+            e.vy_max_pos.max(e.vz_max_pos) - e.vy_max_neg.min(e.vz_max_neg)
+        };
+        input.step = Some(length - 8.0 * f64::EPSILON);
+        assert_planar_value(shear_range(&input), 0.0);
+        input.step = Some(length - 9.0 * f64::EPSILON);
+        assert_planar_value(shear_range(&input), 2.0 * half_weight);
     }
 }

@@ -920,11 +920,13 @@ pub fn compute_diagram_value_at(json: &str) -> Result<f64, JsValue> {
     struct Input {
         kind: String,
         t: f64,
+        #[serde(default)]
+        right: bool,
         element_forces: types::ElementForces,
     }
     let d: Input = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
-    let value = postprocess::diagrams::checked_diagram_value_2d(&d.kind, d.t, &d.element_forces).map_err(|e| JsValue::from_str(&e))?;
+    let value = postprocess::diagrams::checked_diagram_limit_2d(&d.kind, d.t, &d.element_forces, d.right).map_err(|e| JsValue::from_str(&e))?;
     boundary::finite_scalar(value, &d.kind).map_err(|e| JsValue::from_str(&e))
 }
 
@@ -936,11 +938,13 @@ pub fn compute_diagram_value_at_3d(json: &str) -> Result<f64, JsValue> {
     struct Input {
         kind: String,
         t: f64,
+        #[serde(default)]
+        right: bool,
         element_forces: types::ElementForces3D,
     }
     let d: Input = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
-    let value = postprocess::diagrams_3d::checked_diagram_value_3d(&d.element_forces, &d.kind, d.t).map_err(|e| JsValue::from_str(&e))?;
+    let value = postprocess::diagrams_3d::checked_diagram_limit_3d(&d.element_forces, &d.kind, d.t, d.right).map_err(|e| JsValue::from_str(&e))?;
     boundary::finite_scalar(value, &d.kind).map_err(|e| JsValue::from_str(&e))
 }
 

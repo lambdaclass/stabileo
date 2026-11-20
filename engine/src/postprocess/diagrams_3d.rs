@@ -68,9 +68,13 @@ pub fn evaluate_diagram_3d_at(
 }
 
 pub fn checked_diagram_value_3d(ef: &ElementForces3D, kind: &str, t: f64) -> Result<f64, String> {
+    checked_diagram_limit_3d(ef, kind, t, false)
+}
+
+pub(crate) fn checked_diagram_limit_3d(ef: &ElementForces3D, kind: &str, t: f64, right: bool) -> Result<f64, String> {
     validate_diagram_input_3d(ef)?;
     check_diagram_kind_3d(kind)?;
-    spatial_curve(ef, kind).checked_value(Cut::left(t)).map_err(str::to_owned)
+    spatial_curve(ef, kind).checked_value(Cut::at(t, right)).map_err(str::to_owned)
 }
 
 pub(crate) fn evaluate_diagram_cut_3d(ef: &ElementForces3D, kind: &str, cut: Cut) -> f64 {
@@ -84,7 +88,16 @@ pub(crate) fn try_evaluate_diagram_cut_3d(ef: &ElementForces3D, kind: &str, cut:
 
 pub(crate) fn member_diagram_range_3d(ef: &ElementForces3D, kind: &str) -> Result<(f64, f64), String> {
     validate_diagram_loads_3d(ef)?;
-    spatial_curve(ef, kind).interior_range().map_err(str::to_owned)
+    let end = match kind {
+        "momentY" => ef.my_end,
+        "momentZ" => ef.mz_end,
+        "shearY" => ef.vy_end,
+        "shearZ" => ef.vz_end,
+        "axial" => ef.n_end,
+        "torsion" => ef.mx_end,
+        _ => 0.0,
+    };
+    spatial_curve(ef, kind).interior_range(end).map_err(str::to_owned)
 }
 
 fn spatial_curve<'a>(

@@ -1705,15 +1705,15 @@ export function computeDeformedShape(input: any) {
 }
 
 /** Compute 2D diagram value at position t for one element via WASM. Returns null if WASM not available. */
-export function computeDiagramValueAtWasm(kind: string, t: number, elementForces: any): number | null {
+export function computeDiagramValueAtWasm(kind: string, t: number, elementForces: any, right?: boolean): number | null {
   if (!wasmReady || !wasmComputeDiagramValueAt) return null;
-  return wasmComputeDiagramValueAt(JSON.stringify({ kind, t, elementForces }));
+  return wasmComputeDiagramValueAt(JSON.stringify({ kind, t, elementForces, right }));
 }
 
 /** Compute 3D diagram value at position t for one element via WASM. Returns null if WASM not available. */
-export function computeDiagramValueAt3DWasm(kind: string, t: number, elementForces: any): number | null {
+export function computeDiagramValueAt3DWasm(kind: string, t: number, elementForces: any, right?: boolean): number | null {
   if (!wasmReady || !wasmComputeDiagramValueAt3d) return null;
-  return wasmComputeDiagramValueAt3d(JSON.stringify({ kind, t, elementForces }));
+  return wasmComputeDiagramValueAt3d(JSON.stringify({ kind, t, elementForces, right }));
 }
 
 /** Check if WASM solver is ready. */
