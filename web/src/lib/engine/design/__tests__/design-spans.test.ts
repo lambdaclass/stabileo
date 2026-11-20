@@ -193,3 +193,13 @@ it('#2238 rolled and explicitly oriented pieces keep the same demands in the spa
     expect(mergeSpanStations(structure, span!, stations)).toBeNull();
   }
 });
+
+it.skip('#2238 splits a run at a half turn of the physical section', () => {
+  const structure = model();
+  Object.assign(structure.sections.get(1)!, { shape: 't' });
+  const third = structure.elements.get(3)!;
+  Object.assign(third, { rollAngle: 180 });
+  expect(designSpans(structure, beams).map(s => s.elements)).toEqual([[1, 2]]);
+  Object.assign(third, { rollAngle: 360 });
+  expect(designSpans(structure, beams).map(s => s.elements)).toEqual([[1, 2, 3]]);
+});

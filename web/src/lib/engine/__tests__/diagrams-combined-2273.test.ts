@@ -137,3 +137,19 @@ it('refuses aliased normalized jumps across magnitude constituents and retains s
     expect(computeDiagram3D(combined(a), 'axial').maxAbsValue).toBe(1);
   }
 });
+
+it.skip('#2226 refuses ambiguous point queries at either cut side, including across magnitude constituents', () => {
+  const length = 3, a = 1.75, b = a + Number.EPSILON;
+  const leaf = (pointLoadsX: ElementForces3D['pointLoadsX']) => ({ ...empty(), length, pointLoadsX });
+  const pulse = (end: number) => leaf([{ a, p: -2 }, { a: end, p: 2 }]);
+  const combined = (end: number): ElementForces3D => ({
+    ...empty(), length, combined: { method: 'abs', parts: [leaf([{ a, p: -2 }]), leaf([{ a: end, p: 2 }])] },
+  });
+  for (const forces of [pulse(b), combined(b)]) {
+    for (const right of [false, true]) {
+      expect.soft(() => evaluateDiagramAt(forces, 'axial', a / length, right)).toThrow(/extrema/i);
+    }
+  }
+  expect(evaluateDiagramAt(pulse(a + 2 * Number.EPSILON), 'axial', a / length, true)).toBe(2);
+  expect(evaluateDiagramAt(pulse(a), 'axial', a / length, true)).toBe(0);
+});

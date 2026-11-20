@@ -79,3 +79,17 @@ it('covers the dense independent maxima of variable partial loads, forces and co
     }
   }
 });
+
+it.skip('#2250 refuses an interior shear peak when the enclosing normalized cuts are adjacent', () => {
+  const length = 3, a = 1.75;
+  const diagram = (steps: number) => {
+    const b = a + steps * Number.EPSILON;
+    const qI = 2 ** 52, qJ = -qI;
+    return computeElementDiagram('shear', {
+      length, qI: 0, qJ: 0, nStart: 0, nEnd: 0, vStart: 0, vEnd: 0, mStart: 0, mEnd: 0,
+      distributedLoads: [{ a, b, qI, qJ }],
+    }, 0, 0, length, 0);
+  };
+  expect(() => diagram(2)).toThrow(/extrema/i);
+  expect(diagram(4).maxValue).toBe(1);
+});

@@ -715,3 +715,25 @@ fn find_segment_3d<'a>(path: &'a [PathSegment3D], global_pos: f64) -> Option<(&'
 fn base_loads_3d(input: &SolverInput3D) -> Vec<SolverLoad3D> {
     input.loads.clone()
 }
+
+#[cfg(test)]
+mod diagram_limit_tests {
+    use super::*;
+
+    #[test]
+    #[ignore = "known wrong result: #2250"]
+    fn moving_range_keeps_end_forces_and_recovered_tip_limits() {
+        let mut ef: ElementForces3D = serde_json::from_value(serde_json::json!({
+            "elementId": 1, "length": 10.0, "nStart": 0.0, "nEnd": 0.0,
+            "vyStart": 0.0, "vyEnd": 0.0, "vzStart": 0.0, "vzEnd": 0.0,
+            "mxStart": 0.0, "mxEnd": 0.0, "myStart": 50.0, "myEnd": 0.0,
+            "mzStart": 0.0, "mzEnd": 0.0, "qYI": 0.0, "qYJ": 0.0,
+            "qZI": -1.0, "qZJ": -1.0, "distributedLoadsY": [], "distributedLoadsZ": [],
+            "pointLoadsY": [], "pointLoadsZ": [{"a": 10.0, "p": 10.0}]
+        })).unwrap();
+        assert_eq!(diagram_range_3d(&ef, "shearZ", ef.vz_start, ef.vz_end).unwrap(), (-10.0, 0.0));
+        ef.point_loads_z[0].a = f64::from_bits(10.0_f64.to_bits() - 1);
+        let range = diagram_range_3d(&ef, "shearZ", ef.vz_start, ef.vz_end).unwrap();
+        assert!(range.0 > -10.0 && range.0 < -9.0, "{range:?}");
+    }
+}
