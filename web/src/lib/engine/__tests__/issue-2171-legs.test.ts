@@ -5,6 +5,7 @@ import type { ProvidedReinforcement } from '../../design-contract/reinforcement'
 import { autoVerifyFromResults } from '../auto-verify';
 import { checkTorsion, prepareElementVerification, sharedTorsionReinforcement, verifyElement, type ConcurrentVerificationInput } from '../codes/argentina/cirsoc201';
 import { lineFromMembers, membersFromLine } from '../design/beam-line';
+import { mirrorReinforcement } from '../design/repeated-frames';
 import type { DesignAxes } from '../design/design-axes';
 import { extractGoverningDemands, rankProvidedReinforcement, verifyProvidedReinforcement } from '../station-design-forces';
 import type { AnalysisResults, SolverInput } from '../types';
@@ -1531,3 +1532,90 @@ it('#2349 a curtailed perimeter bar requires development beyond the active cut',
     expect(check(ld + 1e-6)).toMatchObject({ status: 'ok' });
   }
 });
+
+const review2398 = process.env.RUN_KNOWN_WRONG === '2398' ? it : it.skip;
+
+for (const extracted of [false, true]) for (const edition of ['2005', '2025'] as const) {
+  review2398(`known wrong result: #2349 drawn torsion development at a shared joint (extracted=${extracted}, edition=${edition})`, () => {
+    const L = 4;
+    const geometry = { ...section, h: 0.37 };
+    const joint = L;
+    const top = { ...longitudinal, face: 'top' as const, row: 0, role: 'main' as const };
+    const member = { id: 1, L, tStart: 0.25, tEnd: 0.25, faceStart: 0, faceEnd: 0 };
+    const ld = deriveDevelopment({ diameterMm: top.diameter, fy: geometry.fy, fc: geometry.fc,
+      favourableSpacing: false, edition: '2025', psiT: topBarFactor(geometry.h) }).ldM;
+    const checks = (overrun: number, reverse: boolean, torque = 6) => {
+      const reinforcement = membersFromLine({
+        version: 1, members: [1, 2], lengths: [L, L],
+        bars: [
+          { ...top, id: 'left', from: 0, to: joint + overrun, hookEnd: true },
+          { ...top, id: 'right', from: joint - overrun, to: 2 * L, hookStart: true },
+          { ...top, face: 'bottom', id: 'bottom', from: 0, to: 2 * L },
+        ],
+        stirrups: [{ ...cage, spacing: 0.06, id: 'hoops', from: 0, to: 2 * L }],
+      }, [member, { ...member, id: 2 }]);
+      return [1, 2].map(id => {
+        const drawing = reinforcement.get(id)!;
+        const t = (id === 1) !== reverse ? 1 : 0;
+        return checkReviewBeam(geometry, reverse ? mirrorReinforcement(drawing) : drawing, L,
+          [{ t, n: 0, my: 0, vy: 0, vz: 0, torsion: torque }], extracted, edition)
+          .find(row => row.category === 'Torsion Al Support (Vz)');
+      });
+    };
+    for (const reverse of [false, true]) {
+      for (const overrun of [0, 0.5e-6]) {
+        for (const row of checks(overrun, reverse)) expect.soft(row).toMatchObject({
+          status: 'fail', ratio: Infinity, limiting: 'unsupportedCheck', description: 'diag.rcTorsionSplice',
+        });
+      }
+      expect(checks(0, reverse, 0.5)).toEqual([undefined, undefined]);
+    }
+    if (edition === '2025') {
+      const developed = (reach: number) => {
+        const reinforcement = membersFromLine({
+          version: 1, members: [1, 2], lengths: [L, L],
+          bars: [
+            { ...top, id: 'top', from: 0, to: joint + reach },
+            { ...top, face: 'bottom', id: 'bottom', from: 0, to: 2 * L },
+          ],
+          stirrups: [{ ...cage, spacing: 0.06, id: 'hoops', from: 0, to: 2 * L }],
+        }, [member, { ...member, id: 2 }]);
+        return checkReviewBeam(geometry, reinforcement.get(1)!, L,
+          [{ t: 1, n: 0, my: 0, vy: 0, vz: 0, torsion: 6 }], extracted, edition)
+          .find(row => row.category === 'Torsion Al Support (Vz)');
+      };
+      expect.soft(developed(ld - 1e-6)).toMatchObject({ status: 'fail', description: 'diag.rcTorsionSplice' });
+      expect(developed(ld + 1e-6)).toMatchObject({ status: 'ok' });
+    }
+  });
+}
+
+for (const extracted of [false, true]) {
+  review2398(`known wrong result: #2171 drawn secondary shear needs occupied corner bends (extracted=${extracted})`, () => {
+    const L = 6;
+    const geometry = { ...section, b: 0.2, h: 0.5, fc: 30, stirrupDia: 6 };
+    const top = { count: 3, diameter: 16, face: 'top' as const, row: 0, role: 'main' as const };
+    const drawing = membersFromLine({
+      version: 1, members: [1], lengths: [L],
+      bars: [
+        { ...top, id: 'seated', from: 0, to: 4 },
+        { ...top, id: 'beside', from: 3, to: L },
+        { ...top, face: 'bottom', id: 'bottom', from: 0, to: L },
+      ],
+      stirrups: [{ diameter: 6, legs: 2, spacing: 0.1, id: 'hoops', from: 0, to: L }],
+    }, [{ id: 1, L, tStart: 0.25, tEnd: 0.25, faceStart: 0, faceEnd: 0 }]).get(1)!;
+    for (const reverse of [false, true]) {
+      const check = (x: number, vy: number) => checkReviewBeam(geometry, reverse ? mirrorReinforcement(drawing) : drawing, L,
+        [{ t: reverse ? 1 - x / L : x / L, n: 0, my: 0, vy, vz: 0, torsion: 0 }], extracted, '2025')
+        .find(row => row.demandCategory === 'Vy');
+      for (const vy of [-10, 10]) {
+        expect(check(2, vy)).toMatchObject({ status: 'ok', description: expect.stringContaining('Concrete-only') });
+        expect(check(3.5, vy)).toMatchObject({ status: 'ok', description: expect.stringContaining('Concrete-only') });
+        expect.soft(check(5, vy)).toMatchObject({
+          status: 'fail', capacity: 0, ratio: Infinity, limiting: 'unsupportedCheck', description: 'diag.rcDrawnBarExtent',
+        });
+      }
+      expect(check(5, 0)).toBeUndefined();
+    }
+  });
+}
