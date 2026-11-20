@@ -68,7 +68,8 @@ const MAX_TRIALS: usize = 6;
 /// work is under `ENOUGH` of what it was. A step that still lowers the energy is taken whole, so
 /// where Newton converges undisturbed this is Newton. Every trial is a linearization and counts
 /// as one; a trial within tolerance ends the increment, and one that leaves the state
-/// non-finite ends it unconverged.
+/// non-finite ends it unconverged. When the trials run out past the point of no work, the
+/// iteration goes on from the last one that still lowered the energy.
 ///
 /// The measure is not the merit: a full step of a slender frame raises the residual norm a
 /// thousandfold on the way to the solution, and backtracking on it crawls.
@@ -136,8 +137,13 @@ impl Iteration for NewtonLineSearch {
                         high_work = work;
                     }
                 }
-                if !(work.is_finite() && found.measure.is_finite()) && *spent < budget {
+                let lost = !(work.is_finite() && found.measure.is_finite());
+                let past = lost || work < -ENOUGH * start_work;
+                if past && (low > 0.0 || lost) && *spent < budget {
                     (found, work) = trial(problem, if low > 0.0 { low } else { 0.1 * high }, spent)?;
+                    if found.measure < tolerance && !found.forced {
+                        return Ok(true);
+                    }
                 }
             }
             if !found.measure.is_finite() || (searching && !work.is_finite()) {
@@ -346,6 +352,7 @@ mod tests {
         linearizations: usize,
         tangents: usize,
         trace: Vec<f64>,
+        corrected_from: Vec<f64>,
     }
 
     fn stiffening(u: f64) -> (f64, f64) {
@@ -366,7 +373,7 @@ mod tests {
             Chain {
                 law, coupling, load: load.to_vec(), u: vec![0.0; n], committed: vec![0.0; n], target: vec![0.0; n],
                 residual: vec![0.0; n], tangent: Vec::new(), lagged: None, owed: false, fail_at: None,
-                linearizations: 0, tangents: 0, trace: Vec::new(),
+                linearizations: 0, tangents: 0, trace: Vec::new(), corrected_from: Vec::new(),
             }
         }
 
@@ -421,6 +428,7 @@ mod tests {
             Ok(Linearization { measure, forced: std::mem::take(&mut self.owed) })
         }
         fn correction(&mut self, lag_tangent: bool) -> Result<Vec<f64>, String> {
+            self.corrected_from.push(self.u[0]);
             let tangent = match &self.lagged {
                 Some(kept) if lag_tangent => kept.clone(),
                 _ => {
@@ -681,6 +689,32 @@ mod tests {
         assert!(!outcome.converged);
         assert!(searched.linearizations < 30, "{}", searched.linearizations);
         assert_eq!(searched.u, vec![1.0]);
+    }
+
+    #[test]
+    fn a_search_that_runs_out_of_trials_goes_on_from_a_point_that_lowered_the_energy() {
+        fn wall_at(wall: f64) -> fn(f64) -> (f64, f64) {
+            match (wall * 100.0).round() as usize {
+                12 => |u| if u >= 0.12 { (u + 100.0, 1.0) } else { (u, 1.0) },
+                17 => |u| if u >= 0.17 { (u + 100.0, 1.0) } else { (u, 1.0) },
+                23 => |u| if u >= 0.23 { (u + 100.0, 1.0) } else { (u, 1.0) },
+                26 => |u| if u >= 0.26 { (u + 100.0, 1.0) } else { (u, 1.0) },
+                29 => |u| if u >= 0.29 { (u + 100.0, 1.0) } else { (u, 1.0) },
+                33 => |u| if u >= 0.33 { (u + 100.0, 1.0) } else { (u, 1.0) },
+                37 => |u| if u >= 0.37 { (u + 100.0, 1.0) } else { (u, 1.0) },
+                _ => |u| if u >= 0.41 { (u + 100.0, 1.0) } else { (u, 1.0) },
+            }
+        }
+        let mut past_the_wall = 0;
+        for wall in [0.12, 0.17, 0.23, 0.26, 0.29, 0.33, 0.37, 0.41] {
+            let mut searched = Chain::spring(wall_at(wall), 2.0);
+            searched.begin_increment(1.0);
+            let mut spent = 0;
+            NewtonLineSearch.converge(&mut searched, 1e-12, 9, &mut spent).unwrap();
+            assert!(spent <= 9);
+            past_the_wall += searched.corrected_from.iter().filter(|u| **u >= wall).count();
+        }
+        assert_eq!(past_the_wall, 0);
     }
 
     #[test]
