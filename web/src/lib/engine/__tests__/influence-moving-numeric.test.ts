@@ -154,9 +154,7 @@ describe('moving loads', () => {
   });
 });
 
-const issue2375 = process.env.RUN_KNOWN_WRONG === '2375' ? it : it.skip;
-
-issue2375('known wrong result: #2375 — both plane sweeps retain the axial jump at an interior axle', async () => {
+it('#2375 — both plane sweeps retain the axial jump at an interior axle', async () => {
   const solver = solverBeam(4);
   solver.nodes.set(2, { id: 2, x: 0, z: 4 });
   solver.supports.delete(2);
@@ -177,7 +175,7 @@ issue2375('known wrong result: #2375 — both plane sweeps retain the axial jump
   }
 });
 
-issue2375('known wrong result: #2375 — an inclined frame axle retains both force components', () => {
+it('#2375 — an inclined frame axle retains both force components', () => {
   const solver = solverBeam(5);
   solver.nodes.set(2, { id: 2, x: 3, z: 4 });
   solver.supports.delete(2);

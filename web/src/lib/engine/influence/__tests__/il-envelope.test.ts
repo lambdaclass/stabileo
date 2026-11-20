@@ -150,9 +150,7 @@ describe('the envelope along the members', () => {
   });
 });
 
-const issue2375 = process.env.RUN_KNOWN_WRONG === '2375' ? it : it.skip;
-
-issue2375('known wrong result: #2375 — plane axial influence readings retain both sides of the jump', () => {
+it('#2375 — plane axial influence readings retain both sides of the jump', () => {
   const model = cantilever(4);
   const unit = unitSolver(buildSolverInput2D(model, false)!);
   const line = computeInfluenceLine(model, 'N', undefined, 1, 0.5, 20, 'horizontal');
@@ -177,7 +175,7 @@ issue2375('known wrong result: #2375 — plane axial influence readings retain b
   }
 });
 
-issue2375('known wrong result: #2375 — axial influence envelopes find both extrema at an interior section', () => {
+it('#2375 — axial influence envelopes find both extrema at an interior section', () => {
   const model = planeModel([[1, 0, 0], [2, 4, 0]], [[1, 1, 2]], [[1, 'fixed'], [2, 'fixed']]);
   const unit = unitSolver(buildSolverInput2D(model, false)!);
   const line = computeInfluenceLine(model, 'N', undefined, 1, 0.5, 20, 'horizontal');
