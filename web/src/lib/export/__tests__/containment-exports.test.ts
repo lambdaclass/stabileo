@@ -329,9 +329,7 @@ it('a warned SVG with a tiny coordinate system is enlarged so its warnings stay 
   expect(Number(nested[1]) + Number(nested[3])).toBeCloseTo(h, 6);
 });
 
-const issue2409 = process.env.RUN_KNOWN_WRONG === '2409' ? it : it.skip;
-
-issue2409('known wrong result: #2409 an unmeshed plate allows model-only workbook exports', async () => {
+it('#2409 an unmeshed plate allows model-only workbook exports', async () => {
   const { createPlate } = await import('../../store/physical-plates');
   const outline = [[0, 0], [4, 0], [4, 4], [0, 4]].map(([x, y]) => modelStore.addNode(x!, y!, 0));
   expect(createPlate({ outline, name: 'Draft slab', materialId: 1, thickness: 0.15 })).toHaveProperty('id');
@@ -346,4 +344,11 @@ issue2409('known wrong result: #2409 an unmeshed plate allows model-only workboo
   const zipped = unzipSync(new Uint8Array(await output.blobs[0]!.arrayBuffer()));
   const groups = Object.entries(zipped).find(([name]) => name.endsWith('-Groups.csv'));
   expect(strFromU8(groups![1])).toContain('Draft slab');
+  expect(() => currentWorkbookSheets(2)).toThrow(/Draft slab/);
+  const toast = vi.spyOn(uiStore, 'toast');
+  await expect(downloadProjectWorkbook(2)).resolves.toBeUndefined();
+  await expect(downloadProjectCsv(2)).resolves.toBeUndefined();
+  expect(toast.mock.calls).toEqual([[expect.stringContaining('Draft slab'), 'error'], [expect.stringContaining('Draft slab'), 'error']]);
+  expect(workbooksSaved()).toBe(1);
+  expect(output.blobs).toHaveLength(1);
 });

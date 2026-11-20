@@ -1,6 +1,6 @@
 import { modelStore, uiStore } from './index';
 import { t } from '../i18n';
-import { errorText } from '../utils/error-text';
+import { PlateAnalysisError } from '../engine/plate-analysis-refusal';
 import { modelHasMemberOffsets } from '../engine/member-offsets';
 import { modelHasShellOffsets } from '../engine/shell-offsets';
 import { withMassSource, densitiesFor } from '../engine/dynamics/mass-source-model';
@@ -36,7 +36,8 @@ export function planModalResult(plan: WindModalLoads, liveParticipation: number)
   try {
     input = modelStore.buildSolverInput3D(uiStore.includeSelfWeight, leftHand, { expandMemberOffsets: false });
   } catch (error) {
-    return { error: errorText(error, t('error.unknown')) };
+    if (error instanceof PlateAnalysisError) return { error: error.message };
+    throw error;
   }
   if (!input) return { error: 'empty' };
   const md = {

@@ -4,18 +4,22 @@ PRO refuses analysis when a physical plate has an invalid definition or missing 
 
 On the previous production path, issue #2368's supported slab carried a uniform 1 kN/m² load over 4 × 4 m. After a corner edit made the second plate, “missing floor,” invalid, preparation reported success with zero plates meshed. The solver returned the loaded slab's 16 kN vertical reaction and omitted the invalid plate. The same model now refuses before producing results and names “missing floor.”
 
-A wall node inside a slab element edge is a separate degree of freedom unless the mesh or a suitable constraint couples it to the slab. PRO now checks shell edges in both directions and refuses a wall–slab junction with an interior node missing from the other mesh. It also refuses overlapping wall and slab edges with coincident endpoints that have different node IDs. It identifies the plates by name where available and by shell identifier on an ungrouped mesh.
+PRO checks wall and slab shell edges in both directions. Analysis requires either shared vertices or direct linear MPC equations that match the edge interpolation for all three translations and all three rotations. The same check applies at overlapping endpoints with different node IDs. A diaphragm alone does not provide that compatibility. The refusal identifies the plates by name where available and by shell identifier on an ungrouped mesh.
 
-The seven-storey gallery example, `pro-edificio-7p`, previously used 77 quads. Node 121 lay at 5/12 of slab edge (13, 14). Node 130 lay at 5/12 of (58, 59). Those wall nodes had no vertical displacement compatibility with the slab edge despite the floor diaphragms. Comparing the wall's vertical displacement with interpolation from the old slab edge gives gaps of −0.189385 mm at node 121 and +0.262410 mm at node 130.
+The seven-storey gallery example, `pro-edificio-7p`, previously used 77 quads. Node 121 lay at 5/12 of slab edge (13, 14). Node 130 lay at 5/12 of (58, 59). Comparing vertical displacements on either side of the old junction gave gaps of −0.189385 mm at node 121 and +0.262410 mm at node 130.
 
-The revised gallery mesh replaces the core-adjacent slab quad on each storey with three quads through the existing wall stations. It shares the wall node IDs with the slab, retains the in-plane diaphragms, and removes the 21 rigid links that previously attached those wall stations to floor corners. The resulting mesh has 91 quads and retains the previous area loads and self-weight. Both WASM solves applied −15,579.25 kN of vertical load and produced +15,579.25 kN of vertical reaction to the precision shown.
+The gallery now uses 105 rectangular slab quads and the existing 21 wall quads. The core stations extend as two mesh lines through each slab. The slab, core walls and intersected beams use the same nodes, and the subdivided slab bays remain single physical design panels. In-plane diaphragms include the new slab nodes. The 21 old rigid links to the floor corners were removed. The applied area in each load case, frame cross-sections, wall geometry, gravity load and combinations are preserved. In the standalone linear WASM comparison, the vertical support reaction sum is +15,579.25 kN before and after.
 
 | Node | Previous vertical displacement (mm) | Revised vertical displacement (mm) |
 | --- | ---: | ---: |
-| 121 | −0.682413 | −0.777763 |
-| 130 | −0.979471 | −1.170607 |
+| 121 | −0.682413 | −0.846148 |
+| 130 | −0.979471 | −1.208955 |
 
-The old edge interpolation is inapplicable after the subdivision. The revised slab and wall share one vertical displacement at each of these nodes. The comparison used standalone linear WASM with the gallery's self-weight setting. Wall design demand changes were not measured.
+Each wall station now has one vertical displacement shared with the slab. The rectangular mesh passes both signed linear and P-Delta combinations. An intermediate mesh with skewed MITC4 cells was withheld by the distortion guard for P-Delta combinations. The guard and its limits are unchanged.
+
+The gallery's design scene contains 7,960 column ties and crossties, 1,091 beam transverse pieces, 14,768 slab bars and 357 wall bars. The connected mesh redistributes the member demands. Of the 168 beam elements, 105 have an explicit design refusal in the scene test. The design leaves those beams bare and reports the reasons. Two-dimensional analysis and native solver formulations are unchanged.
+
+For new CAD drafts with slab meshing enabled, axis-aligned wall runs set the slab mesh lines and the wall quads are cut at the resulting slab stations. The fixed-division two-storey test draft now has 38 slab quads and 8 wall quads. Its opening, applied surface pressure and beam count are preserved. Fixed-division and target-size with zero-size fallback both recover a 290 kN vertical support reaction from the same explicit area loads. The wall mesh still has one row of shells per storey. In the previous target-size draft, slab node 19 moved −0.592267 mm relative to the interpolation along wall quad 59. The revised draft uses a common node there.
 
 The architecture-only CAD gallery draft, `cad-arch-only-dxf`, had a slab node 266 halfway along the unsplit top edge of wall quad 601 between nodes 2 and 13. The draft now splits the six end-wall bays at slab and beam stations on each storey. The walls and slabs share those IDs, and six new fixed nodes preserve the fixed wall base edges. The 600 slab quads, explicit area loads, 1,000 frame members and load combinations are retained. The mesh now has 720 quads and 800 nodes.
 

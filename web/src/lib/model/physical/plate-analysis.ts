@@ -1,3 +1,4 @@
+import type { Constraint3D, LinearMpcConstraint } from '../../engine/types-3d';
 import { dot, type Vec3 } from '../edit/affine';
 import { pieceOf, type PieceModel } from '../curve-entity';
 import {
@@ -5,7 +6,7 @@ import {
   plateProblem, plateSignature, plateSurfaceOf, type ArcSampler, type PlateMeshSpec,
 } from './plate';
 
-type Shell = { id: number; nodes: readonly number[] };
+type Shell = { id: number; nodes: readonly number[]; curved?: boolean };
 type PlateGroup = {
   id: number;
   name?: string;
@@ -17,13 +18,14 @@ export type PlateAnalysisModel = PieceModel & {
   quads?: ReadonlyMap<number, Shell>;
   plates?: ReadonlyMap<number, Shell>;
   materials?: ReadonlyMap<number, unknown>;
+  constraints?: readonly (Constraint3D | Record<string, unknown>)[];
 };
 
 function invalidPlateDefinition(model: PlateAnalysisModel, group: PlateGroup): boolean {
   const surface = plateSurfaceOf(group);
   if (!surface || !surface.loops.every(n => Number.isInteger(n) && n >= 3)) return true;
   const loopNodes = surface.loops.reduce((sum, n) => sum + n, 0);
-  const nodes = group.members.nodes;
+  const nodes = group.members?.nodes;
   if (!Array.isArray(nodes) || loopNodes > nodes.length
     || (surface.arcMids !== undefined && (!Array.isArray(surface.arcMids)
       || surface.arcMids.some(n => !Number.isInteger(n) || n < 0 || n >= loopNodes)))
@@ -77,7 +79,7 @@ export function plateMeshFeatures(model: PlateAnalysisModel, group: PlateGroup, 
   const mine = new Set(loops.owned);
   const owned = new Set<number>();
   for (const g of model.groups?.values() ?? []) {
-    if (Array.isArray(g.members.nodes)) for (const n of plateLoops(g).owned) owned.add(n);
+    if (Array.isArray(g.members?.nodes)) for (const n of plateLoops(g).owned) owned.add(n);
   }
   const neighbours = new Set<number>();
   for (const [shells, members] of [[model.quads, group.members.quads], [model.plates, group.members.plates]] as const) {
@@ -95,7 +97,7 @@ export type PlateStatus = 'unmeshed' | 'current' | 'stale' | 'invalid';
 export function plateStatusOf(model: PlateAnalysisModel, group: PlateGroup): PlateStatus {
   const surface = plateSurfaceOf(group);
   if (!surface) return 'invalid';
-  const { quads = [], plates = [] } = group.members;
+  const { quads = [], plates = [] } = group.members ?? {};
   if (!Array.isArray(quads) || !Array.isArray(plates)
     || quads.some(id => !model.quads?.has(id)) || plates.some(id => !model.plates?.has(id))) return 'invalid';
   const count = quads.length + plates.length;
@@ -122,10 +124,10 @@ export function physicalPlateProblems(model: PlateAnalysisModel) {
 export const PLATE_EDGE_TOL = 1e-7;
 const axes = [0, 1, 2] as const;
 type Axis = typeof axes[number];
-type Vertex = { id: number; point: Vec3; shell: string };
+type Vertex = { id: number; point: Vec3; shell: string; curved?: boolean };
 type Cell = { key: string; vertices: Vertex[] };
 
-type Station = Vertex & { incident: Array<{ point: Vec3; shell: string }> };
+type Station = Vertex & { incident: Array<{ point: Vec3; shell: string; curved?: boolean }> };
 
 function stationIndex(cells: Cell[]) {
   const byNode = new Map<number, Station>();
@@ -138,7 +140,7 @@ function stationIndex(cells: Cell[]) {
       }
       const prev = vertices[(i + vertices.length - 1) % vertices.length]!;
       const next = vertices[(i + 1) % vertices.length]!;
-      station.incident.push({ point: prev.point, shell: key }, { point: next.point, shell: key });
+      station.incident.push({ point: prev.point, shell: key, curved: prev.curved }, { point: next.point, shell: key, curved: next.curved });
     }
   }
   return axes.map(axis => [...byNode.values()].sort((a, b) => a.point[axis] - b.point[axis]));
@@ -161,10 +163,49 @@ const norm = (p: Vec3) => Math.hypot(p[0], p[1], p[2]);
 const lineDistance = (p: Vec3, direction: Vec3, t: number) =>
   Math.hypot(p[0] - t * direction[0], p[1] - t * direction[1], p[2] - t * direction[2]);
 
-function unmatchedVertex(cell: Cell, stations: Station[][]): Vertex | undefined {
+type EdgeEquations = Map<number, LinearMpcConstraint['terms'][]>;
+
+function edgeEquations(constraints: PlateAnalysisModel['constraints']): EdgeEquations {
+  const byNode: EdgeEquations = new Map();
+  for (const constraint of constraints ?? []) {
+    if (constraint?.type !== 'linearMPC' || !Array.isArray(constraint.terms)) continue;
+    const terms = constraint.terms as LinearMpcConstraint['terms'];
+    if ((terms.length !== 2 && terms.length !== 3)
+      || terms.some(term => !term || !Number.isInteger(term.nodeId) || term.dof !== terms[0]?.dof
+        || !Number.isFinite(term.coefficient) || term.coefficient === 0)
+      || new Set(terms.map(term => term.nodeId)).size !== terms.length) continue;
+    for (const { nodeId } of terms) {
+      const atNode = byNode.get(nodeId);
+      if (atNode) atNode.push(terms);
+      else byNode.set(nodeId, [terms]);
+    }
+  }
+  return byNode;
+}
+
+function tiedToEdge(equations: EdgeEquations, station: Vertex, a: Vertex, b: Vertex, t: number): boolean {
+  const rows = equations.get(station.id);
+  if (!rows || station.curved || a.curved || b.curved
+    || !axes.every(axis => station.point[axis] === a.point[axis] + t * (b.point[axis] - a.point[axis]))) return false;
+  const weights = new Map<number, number>();
+  if (t !== 1) weights.set(a.id, 1 - t);
+  if (t !== 0) weights.set(b.id, t);
+  const matched = new Set<number>();
+  for (const terms of rows) {
+    if (terms.length !== weights.size + 1) continue;
+    const dependent = terms.find(term => term.nodeId === station.id)!;
+    if (terms.every(term => term === dependent || -term.coefficient / dependent.coefficient === weights.get(term.nodeId))) {
+      matched.add(dependent.dof);
+    }
+  }
+  return [0, 1, 2, 3, 4, 5].every(dof => matched.has(dof));
+}
+
+function unmatchedVertex(cell: Cell, stations: Station[][], equations: EdgeEquations): Vertex | undefined {
   const ids = new Set(cell.vertices.map(v => v.id));
   for (const [i, vertex] of cell.vertices.entries()) {
-    const a = vertex.point, b = cell.vertices[(i + 1) % cell.vertices.length]!.point;
+    const end = cell.vertices[(i + 1) % cell.vertices.length]!;
+    const a = vertex.point, b = end.point;
     const v = sub(b, a);
     const length2 = dot(v, v);
     if (!(length2 > 0)) continue;
@@ -180,7 +221,10 @@ function unmatchedVertex(cell: Cell, stations: Station[][]): Vertex | undefined 
       if (ids.has(station.id) || axes.some(axis => station.point[axis] < min[axis]! || station.point[axis] > max[axis]!)) continue;
       const p = sub(station.point, a);
       const t = dot(p, v) / length2;
-      if (t > 0 && t < 1 && lineDistance(p, v, t) <= PLATE_EDGE_TOL) return station;
+      if (t > 0 && t < 1 && lineDistance(p, v, t) <= PLATE_EDGE_TOL) {
+        if (!tiedToEdge(equations, station, vertex, end, t)) return station;
+        continue;
+      }
       if (norm(p) > PLATE_EDGE_TOL && norm(sub(station.point, b)) > PLATE_EDGE_TOL) continue;
       const overlap = station.incident.find(({ point }) => {
         const other = sub(point, a);
@@ -188,7 +232,10 @@ function unmatchedVertex(cell: Cell, stations: Station[][]): Vertex | undefined 
         return Math.max(0, Math.min(t, u)) < Math.min(1, Math.max(t, u))
           && lineDistance(other, v, u) <= PLATE_EDGE_TOL;
       });
-      if (overlap) return { ...station, shell: overlap.shell };
+      if (overlap) {
+        const coincident = { ...station, shell: overlap.shell, curved: overlap.curved };
+        if (!tiedToEdge(equations, coincident, vertex, end, t < 0.5 ? 0 : 1)) return coincident;
+      }
     }
   }
   return undefined;
@@ -202,7 +249,7 @@ export function nonconformingWallSlab(model: PlateAnalysisModel): { wall: string
       const vertices: Vertex[] = [];
       for (const id of shell.nodes) {
         const node = model.nodes.get(id);
-        if (node) vertices.push({ id, point: [node.x, node.y, node.z ?? 0], shell: key });
+        if (node) vertices.push({ id, point: [node.x, node.y, node.z ?? 0], shell: key, curved: shell.curved });
       }
       if (vertices.length !== shell.nodes.length) continue;
       const frame = frameOfLoop(vertices.map(v => v.point));
@@ -210,17 +257,18 @@ export function nonconformingWallSlab(model: PlateAnalysisModel): { wall: string
     }
   }
   if (!cells.slab.length || !cells.wall.length) return null;
+  const equations = edgeEquations(model.constraints);
   const names = new Map<string, string>();
   const label = (key: string) => names.get(key) ?? key;
   for (const group of model.groups?.values() ?? []) {
     if (!group.name || !plateSurfaceOf(group)) continue;
-    for (const id of group.members.quads ?? []) names.set(`q${id}`, group.name);
-    for (const id of group.members.plates ?? []) names.set(`p${id}`, group.name);
+    for (const id of group.members?.quads ?? []) names.set(`q${id}`, group.name);
+    for (const id of group.members?.plates ?? []) names.set(`p${id}`, group.name);
   }
   for (const [edge, vertex] of [['slab', 'wall'], ['wall', 'slab']] as const) {
     const stations = stationIndex(cells[vertex]);
     for (const cell of cells[edge]) {
-      const hanging = unmatchedVertex(cell, stations);
+      const hanging = unmatchedVertex(cell, stations, equations);
       if (hanging) {
         const edgeName = label(cell.key), vertexName = label(hanging.shell);
         return edge === 'slab'

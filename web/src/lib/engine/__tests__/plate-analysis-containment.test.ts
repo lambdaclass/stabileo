@@ -291,10 +291,19 @@ it('#2388 the seven-storey gallery slabs share the reported wall stations and so
   uiStore.includeSelfWeight = true;
   await modelStore.loadExample('pro-edificio-7p');
   expect(preparePlatesForAnalysis()).toEqual({ ok: true, meshed: 0, cells: 0 });
-  expect(modelStore.quads.size).toBe(91);
+  expect(modelStore.quads.size).toBe(126);
   const answer = modelStore.solve3D(true, false, true);
   if (!answer || typeof answer === 'string') throw new Error(String(answer));
   expect(answer).toHaveProperty('equilibrium.equilibriumOk', true);
+  for (const shell of modelStore.quads.values()) {
+    const points = shell.nodes.map(id => modelStore.nodes.get(id)!);
+    const dimensions = (['x', 'y', 'z'] as const).map(axis => new Set(points.map(n => n[axis])).size);
+    expect(dimensions.sort()).toEqual([1, 2, 2]);
+    for (const [i, a] of points.entries()) {
+      const b = points[(i + 1) % points.length]!;
+      expect([a.x !== b.x, a.y !== b.y, a.z !== b.z].filter(Boolean)).toHaveLength(1);
+    }
+  }
   for (let floor = 0; floor < 7; floor++) {
     const corner = 13 + 15 * floor;
     const [wallX, center, wallY] = [121, 122, 123].map(id => id + 3 * floor);
@@ -304,27 +313,38 @@ it('#2388 the seven-storey gallery slabs share the reported wall stations and so
       const i = cell.nodes.indexOf(id);
       return [cell.nodes[(i + 1) % cell.nodes.length], cell.nodes[(i + cell.nodes.length - 1) % cell.nodes.length]];
     }));
+    const { z } = modelStore.nodes.get(corner)!;
+    const nodeAt = (x: number, y: number) =>
+      [...modelStore.nodes.values()].find(n => n.x === x && n.y === y && n.z === z)!.id;
+    const east = nodeAt(6, 2.5), north = nodeAt(2.5, 5);
     expect(edges(wallX!)).toEqual(new Set([corner, corner + 1, center]));
     expect(edges(wallY!)).toEqual(new Set([corner, corner + 5, center]));
-    expect(edges(center!)).toEqual(new Set([wallX, wallY, corner + 6]));
+    expect(edges(center!)).toEqual(new Set([wallX, wallY, east, north]));
+    expect([...modelStore.elements.values()].filter(e => [e.nodeI, e.nodeJ].includes(east))).toHaveLength(2);
+    expect([...modelStore.elements.values()].filter(e => [e.nodeI, e.nodeJ].includes(north))).toHaveLength(2);
     for (const id of [wallX, center, wallY]) expect(Number.isFinite(answer.displacements.find(d => d.nodeId === id)?.uz)).toBe(true);
   }
 });
 
-const issue2409 = process.env.RUN_KNOWN_WRONG === '2409' ? it : it.skip;
-
-issue2409.each(['linear', 'pdelta'] as const)('known wrong result: #2409 gallery admits signed %s combinations', async method => {
+it.each(['linear', 'pdelta'] as const)('#2409 gallery admits signed %s combinations', async method => {
   await modelStore.loadExample('pro-edificio-7p');
   modelStore.setAnalysis({ perCombination: method });
-  const answer = await modelStore.solveCombinations3DParallel(true, false, true);
-  if (!answer || typeof answer === 'string') throw new Error(String(answer));
-  expect([...answer.perCombo.keys()]).toEqual(modelStore.model.combinations.map(c => c.id));
+  const ids = modelStore.model.combinations.map(c => c.id);
+  for (const answer of [
+    modelStore.solveCombinations3D(true, false, true),
+    await modelStore.solveCombinations3DParallel(true, false, true),
+  ]) {
+    if (!answer || typeof answer === 'string') throw new Error(String(answer));
+    expect([...answer.perCombo.keys()]).toEqual(ids);
+  }
 });
 
 function constrainedWallJoint(dofs: readonly number[], weights: readonly [number, number]) {
   wallSlabJoint('wall');
   const [a, b] = modelStore.quads.get(1)!.nodes;
   const wallNode = modelStore.quads.get(2)!.nodes[1]!;
+  const support = [...modelStore.supports.values()].find(s => s.nodeId === wallNode)!;
+  modelStore.removeSupport(support.id);
   for (const dof of dofs) {
     modelStore.addConstraint({
       type: 'linearMPC', terms: [
@@ -334,9 +354,10 @@ function constrainedWallJoint(dofs: readonly number[], weights: readonly [number
       ],
     });
   }
+  return wallNode;
 }
 
-issue2409.each(entries)('known wrong result: #2409 the %s entry accepts a fully tied shell edge', async (_entry, solve) => {
+it.each(entries)('#2409 the %s entry accepts a fully tied shell edge', async (_entry, solve) => {
   constrainedWallJoint([0, 1, 2, 3, 4, 5], [0.5, 0.5]);
   const answer = await solve();
   expect(answer, String(answer)).not.toBeNull();
@@ -349,4 +370,30 @@ it.each([
 ] as const)('#2388 refuses a shell edge with incomplete or incorrect compatibility (%j, %j)', (dofs, weights) => {
   constrainedWallJoint(dofs, weights);
   expect(modelStore.solve3D(false, false, true)).toEqual(expect.stringMatching(/wall.*slab/i));
+});
+
+it('#2409 propagates a load through the interpolated wall station in the global solve', async () => {
+  const wallNode = constrainedWallJoint([0, 1, 2, 3, 4, 5], [0.5, 0.5]);
+  modelStore.addNodalLoad3D(wallNode, 0, 0, -1, 0, 0, 0);
+  expect(modelStore.buildSolverInput3D()?.constraints).toHaveLength(6);
+  expect(modelStore.singleSolveInput3D(false, false, true)?.wire()).toHaveProperty('constraints', expect.arrayContaining(modelStore.constraints));
+  expect(await runGlobalSolve({ directBase: true })).toMatchObject({ ok: true });
+  const result = resultsStore.results3D!;
+  expect(result.displacements.find(d => d.nodeId === wallNode)?.uz).toBeCloseTo(0, 12);
+  expect(result.reactions.reduce((sum, support) => sum + support.fz, 0)).toBeCloseTo(4 * 4 + 1, 8);
+});
+
+it('#2409 accepts complete direct MPC ties at coincident shell endpoints', () => {
+  wallSlabJoint('duplicate');
+  const slabNode = modelStore.quads.get(2)!.nodes[1]!;
+  const wallNode = modelStore.quads.get(4)!.nodes[1]!;
+  for (const dof of [0, 1, 2, 3, 4, 5]) {
+    modelStore.addConstraint({
+      type: 'linearMPC', terms: [
+        { nodeId: slabNode, dof, coefficient: -1 },
+        { nodeId: wallNode, dof, coefficient: 1 },
+      ],
+    });
+  }
+  expectLoadedSlab(modelStore.solve3D(false, false, true));
 });

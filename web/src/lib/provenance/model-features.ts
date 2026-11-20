@@ -195,7 +195,7 @@ function isStandardGravityRule(rule: unknown): boolean {
 
 function plateAnalysisModel(s: FeatureSnapshot): PlateAnalysisModel {
   const shells = (entries: Entries<ShellSnapshot>) => new Map((entries ?? []).flatMap(([id, shell]) =>
-    Array.isArray(shell?.nodes) ? [[id, { id, nodes: shell.nodes }]] as const : []));
+    Array.isArray(shell?.nodes) ? [[id, { id, nodes: shell.nodes, curved: shell.curved }]] as const : []));
   const groups: NonNullable<PlateAnalysisModel['groups']> = new Map((s.groups ?? []).flatMap(([id, group]) => {
     if (!group?.data || typeof group.data !== 'object') return [];
     return [[id, { id, name: group.name, members: group.members ?? {}, data: group.data as Record<string, unknown> }]] as const;
@@ -206,6 +206,7 @@ function plateAnalysisModel(s: FeatureSnapshot): PlateAnalysisModel {
     materials: s.materials && new Map(s.materials),
     plates: shells(s.plates),
     quads: shells(s.quads),
+    constraints: s.constraints,
     groups,
   };
 }
