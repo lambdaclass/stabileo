@@ -12,6 +12,7 @@ import { ensurePhysicalModel } from '../plates-from-shells';
 import { syncDefinedLoadsForAnalysis } from '../defined-loads';
 import { meshBeforeAnalysis } from '../mesh-policy.svelte';
 import { meshProgress } from '../mesh-progress.svelte';
+import { meshWallsForSheets, wallsToMeshForSheets } from '../rc-sheets.svelte';
 import { meshPlatesInModel } from '../mesh-apply';
 import { plateMeshExample } from './fixtures/plate-mesh-example';
 
@@ -50,17 +51,31 @@ describe('the seven-storey building meshed whole', () => {
     const r = await applyPlateMeshesAsync(plans, (done) => seen.push(done), 1);
     expect(seen.length).toBeGreaterThan(2);
     expect(seen.at(-1)).toBe(plans.length);
-    const sliced = modelStore.quads.size;
+    const sliced = modelStore.quads.size + modelStore.plates.size;
     historyStore.undo();
     expect(modelStore.quads.size).toBe(before);
     applyPlateMeshes(plans.map((p) => planPlateMesh(p.id, p.spec)!));
-    expect(modelStore.quads.size).toBe(sliced);
+    expect(modelStore.quads.size + modelStore.plates.size).toBe(sliced);
     expect(r.cells).toBe(sliced);
   }, 300000);
 });
 
 describe('mesh before analysis', () => {
-  it('reports the incompatible walls when remeshing the coarse gallery building before analysis', async () => {
+  it.each([false, true])('meshes every wall of the seven-storey example before analysis (async=%s)', async asynchronous => {
+    await building();
+    const walls = physicalPlates().filter(p => p.physical.kind === 'wall');
+    expect(walls.map(p => p.name)).toEqual(expect.arrayContaining(['M1', 'M2', 'M3', 'M10', 'M11', 'M12']));
+    meshBeforeAnalysis.value = true;
+    const result = asynchronous ? await preparePlatesForAnalysisAsync() : preparePlatesForAnalysis();
+    expect(result).toMatchObject({ ok: true });
+    expect(platesNeedingMesh()).toEqual([]);
+    for (const wall of walls) {
+      expect(plateStatus(wall.id), wall.name).toBe('current');
+      expect(cellsOf(wall.name), wall.name).toBeGreaterThan(1);
+    }
+  });
+
+  it('reports progress and finishes with every coarse gallery plate current', async () => {
     await building();
     const all = physicalPlates();
     const coarse = all.filter((p) => coarseAsModelled(p)).map((p) => p.id);
@@ -71,35 +86,48 @@ describe('mesh before analysis', () => {
     const phases = new Set<string>();
     const watch = setInterval(() => { if (meshProgress.now) phases.add(meshProgress.now.phase); }, 0);
     const r = await preparePlatesForAnalysisAsync().finally(() => clearInterval(watch));
-    const refused = ['M1', 'M2', 'M3', 'M10', 'M11', 'M12'];
-    expect(r).toEqual({ ok: false, reason: 'refused', plates: refused });
+    expect(r).toEqual({ ok: true, meshed: all.length, cells: modelStore.quads.size + modelStore.plates.size });
     expect(phases).toEqual(new Set(['planning', 'meshing']));
     expect(meshProgress.now).toBeNull();
-    const after = physicalPlates();
-    const waiting = new Set(platesNeedingMesh());
-    expect(after.filter(p => waiting.has(p.id)).map(p => p.name)).toEqual(refused);
+    expect(platesNeedingMesh()).toEqual([]);
     expect(modelStore.quads.size).toBeGreaterThan(coarse.length * 10);
   }, 300000);
 
-  it.each([false, true])('blocks analysis after a partial remesh leaves original shell edges hanging (async=%s)', async asynchronous => {
+  it.each([false, true])('makes a partial slab remesh conforming before it is applied (async=%s)', async asynchronous => {
     await building();
     const [first, second, neighbour] = physicalPlates().filter(plate => plate.name.startsWith('L'));
-    const original = neighbour!.group.members.quads;
+    const original = [...neighbour!.group.members.quads!];
     const plans = [first!, second!].map(plate => planPlateMesh(plate.id, { size: 0.5 })!);
     const report = asynchronous ? await applyPlateMeshesAsync(plans) : applyPlateMeshes(plans);
-    expect(report).toMatchObject({ plates: 2, refused: [] });
+    expect(report.refused).toEqual([]);
+    expect(report.plates).toBeGreaterThan(2);
     expect(plateStatus(first!.id)).toBe('current');
     expect(plateStatus(second!.id)).toBe('current');
-    expect(physicalPlates().find(plate => plate.id === neighbour!.id)!.group.members.quads).toEqual(original);
-    expect(plateStatus(neighbour!.id)).toBe('stale');
+    expect(plateStatus(neighbour!.id)).toBe('current');
+    expect(physicalPlates().find(plate => plate.id === neighbour!.id)!.group.members.quads).not.toEqual(original);
     meshBeforeAnalysis.value = false;
     try {
       const result = asynchronous ? await preparePlatesForAnalysisAsync() : preparePlatesForAnalysis();
-      expect(result).toMatchObject({ ok: false, reason: 'needsMesh', plates: expect.arrayContaining([neighbour!.name]) });
+      expect(result).toEqual({ ok: true, meshed: 0, cells: 0 });
     } finally {
       meshBeforeAnalysis.value = true;
     }
   });
+
+  it('leaves no adjacent slab stale after the RC sheets wall remesh', async () => {
+    await building();
+    meshBeforeAnalysis.value = false;
+    try {
+      const walls = wallsToMeshForSheets();
+      expect(walls).toHaveLength(21);
+      expect(meshWallsForSheets()).toBe(walls.length);
+      expect(wallsToMeshForSheets()).toEqual([]);
+      expect(platesNeedingMesh({ coarse: false }).map(id => physicalPlates().find(p => p.id === id)?.name)).toEqual([]);
+      expect(preparePlatesForAnalysis()).toEqual({ ok: true, meshed: 0, cells: 0 });
+    } finally {
+      meshBeforeAnalysis.value = true;
+    }
+  }, 300000);
 
   it('turned off, solves those plates as they came instead of stopping', async () => {
     await building();

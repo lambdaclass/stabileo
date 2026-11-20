@@ -216,7 +216,7 @@ describe('use zones over two floors', () => {
     expect(plan.finishNoCase).toEqual([{ zoneId: z1, zone: 'Estar' }]);
   });
 
-  it.each([false, true])('keeps the zone on the slab and refuses the incompatible balcony edge (async=%s)', async useAsync => {
+  it.each([false, true])('keeps the zone on the slab while joining the balcony edge (async=%s)', async useAsync => {
     modelStore.clear(); historyStore.clear(); uiStore.analysisMode = 'pro';
     floor(3);
     const z1 = zone([[0, 0], [6, 0], [6, 5], [0, 5]], 3, 'Oficina');
@@ -225,7 +225,7 @@ describe('use zones over two floors', () => {
     expect(plan.add.map((i) => i.distribution)).toEqual(['slab']);
     applyZoneLoadPlan(plan);
     const preparation = useAsync ? await preparePlatesForAnalysisAsync() : preparePlatesForAnalysis();
-    expect(preparation).toEqual({ ok: false, reason: 'refused', plates: ['B3'] });
+    expect(preparation).toEqual({ ok: true, meshed: 3, cells: modelStore.quads.size + modelStore.plates.size });
     const shellNodes = (name: string) => {
       const { members } = physicalPlates().find(p => p.name === name)!.group;
       return [...(members.quads ?? []).map(id => modelStore.quads.get(id)!.nodes),
@@ -241,7 +241,11 @@ describe('use zones over two floors', () => {
         return Math.abs(p.x - 10) < 1e-6 && p.y > Math.min(a.y, b.y) + 1e-6 && p.y < Math.max(a.y, b.y) - 1e-6;
       });
     }));
-    expect(hangingOnB3).toBe(true);
+    expect(hangingOnB3).toBe(false);
+    const onEdge = (id: number) => Math.abs(modelStore.nodes.get(id)!.x - 10) < 1e-6;
+    const balconyEdge = new Set([...balconyNodes].filter(onEdge));
+    expect(balconyEdge.size).toBeGreaterThan(2);
+    expect(new Set(shellNodes('B3').flat().filter(onEdge))).toEqual(balconyEdge);
     expect(zoneTotals().get(z1)).toBeCloseTo(2.5 * 29, 6);
     expect(zoneLoadPlan()!.change).toHaveLength(0);
   });

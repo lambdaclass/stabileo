@@ -248,7 +248,10 @@ describe('a physical plate', () => {
     const B = (createPlate({ outline: [a1, b1, b2, a2], materialId: 1, thickness: 0.2 }) as { id: number }).id;
     const shared = () => {
       const on = (q: { nodes: number[] }) => q.nodes.filter((id) => Math.abs(modelStore.nodes.get(id)!.x - 4) < 1e-9);
-      const of = (id: number) => new Set((modelStore.model.groups.get(id)!.members.quads ?? []).flatMap((q) => on(modelStore.quads.get(q)!)));
+      const of = (id: number) => {
+        const { quads = [], plates = [] } = modelStore.model.groups.get(id)!.members;
+        return new Set([...quads.flatMap(q => on(modelStore.quads.get(q)!)), ...plates.flatMap(p => on(modelStore.plates.get(p)!))]);
+      };
       return { a: [...of(A)].sort(), b: [...of(B)].sort() };
     };
     applyPlateMeshes([planPlateMesh(A, { size: 0.5, element: 'quad', followMembers: true })!, planPlateMesh(B, { size: 0.8, element: 'quad', followMembers: true })!]);
@@ -258,6 +261,33 @@ describe('a physical plate', () => {
     applyPlateMeshes([planPlateMesh(B, { size: 0.3, element: 'quad', followMembers: true })!]);
     expect(shared().a).toEqual(shared().b);
     expect([plateStatus(A), plateStatus(B)]).toEqual(['current', 'current']);
+  });
+
+  it.each([false, true])('shares a frame station between three incident plates (reverse=%s)', reverse => {
+    modelStore.clear(); historyStore.clear(); uiStore.analysisMode = 'pro';
+    const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(4, 0, 0);
+    const station = modelStore.addNode(1.1, 0, 0);
+    modelStore.addElement(a, station);
+    modelStore.addElement(station, b);
+    const ids = [[0, 3], [3, 0], [-3, 0]].map(([y, z]) => {
+      const c = modelStore.addNode(4, y!, z!), d = modelStore.addNode(0, y!, z!);
+      return (createPlate({ outline: [a, b, c, d], materialId: 1, thickness: 0.2 }) as { id: number }).id;
+    });
+    const plans = ids.map((id, i) => planPlateMesh(id, { size: [0.5, 0.9, 1.2][i]!, followMembers: false })!);
+    const report = applyPlateMeshes(reverse ? plans.reverse() : plans);
+    expect(report).toMatchObject({ plates: ids.length, refused: [] });
+    const stations = ids.map(id => {
+      const { quads = [], plates = [] } = modelStore.model.groups.get(id)!.members;
+      const shells = [...quads.map(q => modelStore.quads.get(q)!), ...plates.map(p => modelStore.plates.get(p)!)];
+      return new Set(shells.flatMap(shell => shell.nodes).filter(id => {
+        const p = modelStore.nodes.get(id)!;
+        return p.y === 0 && (p.z ?? 0) === 0;
+      }));
+    });
+    expect(stations[0]).toContain(station);
+    expect(stations[1]).toEqual(stations[0]);
+    expect(stations[2]).toEqual(stations[0]);
+    expect(ids.map(plateStatus)).toEqual(['current', 'current', 'current']);
   });
 
   it('keeps the loads of the members its mesh cuts, on their pieces', async () => {

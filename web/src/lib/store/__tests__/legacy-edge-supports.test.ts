@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import * as wasmSolver from '../../engine/wasm-solver';
 import { historyStore, modelStore, resultsStore, uiStore } from '..';
-import { createPlate, holdPlateSides, physicalPlates, plateEntry, preparePlatesForAnalysis } from '../physical-plates';
+import { createPlate, holdPlateSides, physicalPlates, plateEntry, platesNeedingMesh, preparePlatesForAnalysis } from '../physical-plates';
 import { ensurePhysicalModel, ensurePlates } from '../plates-from-shells';
 import { meshBeforeAnalysis } from '../mesh-policy.svelte';
 import { deserializeProject, serializeProject } from '../file';
@@ -22,7 +22,7 @@ function wallOnTwoPoints() {
 }
 
 describe('a model that comes in', () => {
-  it('keeps the gallery DXF supports as modelled and refuses incompatible automatic remeshing', async () => {
+  it('keeps the gallery DXF supports as modelled and meshes the plates conformingly', async () => {
     fresh();
     await PRO_EXAMPLES.find((e) => e.id === 'cad-arch-only-dxf')!.load();
     ensurePhysicalModel();
@@ -32,9 +32,9 @@ describe('a model that comes in', () => {
     expect(preparePlatesForAnalysis()).toEqual({ ok: true, meshed: 0, cells: 0 });
     meshBeforeAnalysis.value = true;
     expect(preparePlatesForAnalysis()).toEqual({
-      ok: false, reason: 'refused',
-      plates: ['M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'L1', 'L2', 'L3', 'L13', 'L14', 'L15'],
+      ok: true, meshed: physicalPlates().length, cells: modelStore.quads.size + modelStore.plates.size,
     });
+    expect(platesNeedingMesh()).toEqual([]);
     expect([...modelStore.supports.values()]).toEqual(supports);
   }, 600_000);
 

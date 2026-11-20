@@ -2,9 +2,10 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { build, resolveConfig } from 'vite';
-import { readProPlatesProfile } from './pro-plates-source.mjs';
+import { proPlatesSource, readProPlatesProfile } from './pro-plates-source.mjs';
 import { readRegistryAt } from './result-changes/registry.mjs';
 import { featuresForMode } from '../config/public-features.mjs';
 import { withProductionFeatures } from './public-features-test-fixture.mjs';
@@ -33,6 +34,24 @@ test('disabled source profile is byte-identical to main for every changed app mo
   }
   assert.equal(git('diff', '--name-only', base, '--', '../engine'), '');
   assert.equal(on.overrides.size + on.unavailable.size, 0);
+});
+
+test('production with unified plates off uses the shared portable project codec', async () => {
+  const config = await resolveConfig({ root }, 'build', 'production');
+  const loader = config.plugins.find(plugin => plugin.name === 'pro-plates-source');
+  const resolveSource = proPlatesSource(() => false);
+  const context = {
+    addWatchFile() {},
+    error(message) { throw new Error(message); },
+  };
+  loader.buildStart.call(context);
+  for (const path of ['src/lib/store/file.ts', 'src/lib/store/ded-design-refusals.ts']) {
+    const absolute = resolve(root, path);
+    const current = readFileSync(absolute, 'utf8');
+    const active = loader.load.call(context, absolute) ?? current;
+    assert.equal(active === current, true, path);
+    assert.equal(resolveSource.read(absolute) === current, true, path);
+  }
 });
 
 test('disabled builds load the main solver and results version and the validated mesher', async () => {

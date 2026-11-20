@@ -31,7 +31,7 @@
   let solving = $state(false);
   const wallsToMesh = $derived.by(() => { void modelStore.modelVersion; void modelStore.model.groups; return wallsToMeshForSheets().length; });
   async function meshWalls() {
-    meshWallsForSheets();
+    if (!meshWallsForSheets()) return;
     solving = true;
     try { await runGlobalSolve(); }
     catch (err) { uiStore.toast(err instanceof Error ? err.message : String(err), 'error'); }

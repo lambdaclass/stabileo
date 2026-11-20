@@ -1,5 +1,5 @@
 {
-  "base": "35b08a1f0224b8e42551d88e5df4173e685942ca",
+  "base": "04c610dcc86a36cb20ed0114760cbf0d09a221dd",
   "files": {
     "src/App.svelte": {
       "source": "2081370d4f261ca4ed3b07638dfa901d5007fe203ebe2c6286322722a922e13a",
@@ -2352,8 +2352,8 @@
     "src/lib/codes/turkey/ts498-wind.ts": null,
     "src/lib/codes/turkey/ts500-combinations.ts": null,
     "src/lib/engine/codes/argentina/cirsoc201.ts": {
-      "source": "98fd7b2fff10d815f20cbb594f4b36f33dbe87c44b1d6f9b6664d4cbae181926",
-      "original": "9227c31653eaa6a0b703e69bf927cc2218e094f7dd7890a0146ddb0e3757564c",
+      "source": "879e353fd226fe95a8d77a13c49bed39f7ce984a3ca9cd070f34023507634dcc",
+      "original": "dd33d4b3bd30a958e1e1c57ef12dc37e4021698c9e0bc49a71bac820a56f86de",
       "changes": [
         [
           532,
@@ -5634,6 +5634,27 @@
         ]
       ]
     },
+    "src/lib/model/edit/mesh-apply.ts": {
+      "source": "22516b179bf474c27009372bfe01285e7c974cd1c51c1f3e57e05f3d5ae93137",
+      "original": "8820270e9909275fe16213942037a5d86a04ad8621284471373252095fcf180a",
+      "changes": [
+        [
+          32,
+          1,
+          [
+            "export function regionOccupied(input: MeshInput, plane: MeshOutput['plane'], exceptQuad?: number): boolean {"
+          ]
+        ],
+        [
+          53,
+          2,
+          [
+            "    if (shell.nodes.length === 4 && shell.id === exceptQuad) continue;"
+          ]
+        ]
+      ]
+    },
+    "src/lib/model/edit/mesh-stations.ts": null,
     "src/lib/model/edit/rect-grid.ts": null,
     "src/lib/model/foundation/generate.ts": {
       "source": "d63a64a3df31155864496ae4f7395e2f5216eb3719248a0550bd0407e80d91bc",
@@ -5779,7 +5800,7 @@
       ]
     },
     "src/lib/provenance/model-features.ts": {
-      "source": "6b78d0b2ffc906d162034c353b9dcea67379b84ca24092c7a103e5eafc218f4e",
+      "source": "17d4c7b9fb30fc5421d0e04debcc46fbc4a9d008386e17a111c647ecc595cda4",
       "original": "2ba340a48e9efd5d6a79d625328869a3c158c9866c92186bed41725076cdf1a0",
       "changes": [
         [
@@ -5820,12 +5841,13 @@
         ],
         [
           277,
-          11,
+          12,
           []
         ]
       ]
     },
     "src/lib/provenance/result-changes/plates-coarse-as-modelled-meshed.json": null,
+    "src/lib/provenance/result-changes/plates-conforming-batch-mesh.json": null,
     "src/lib/rc-sheets/bars.ts": null,
     "src/lib/rc-sheets/beam-line.ts": null,
     "src/lib/rc-sheets/beam-row.ts": null,
@@ -5924,6 +5946,7 @@
       ]
     },
     "src/lib/store/containment-dismissal.svelte.ts": null,
+    "src/lib/store/ded-design-refusals.ts": null,
     "src/lib/store/defined-loads.ts": {
       "source": "0f9a1ca42dab13145684aa68d27116adc94fc1dfd8ddb9b0f8f7c68b872d975f",
       "original": "9461d1d9fdf0b79ebb5460617bd14c5ba250510f04278169a29cd5881a06ecf2",
@@ -6003,6 +6026,119 @@
         ]
       ]
     },
+    "src/lib/store/file.ts": {
+      "source": "d06e84ae930fda04689ed7dcb8a168a618876a726f9e4f01e0dcdc4dd957932f",
+      "original": "01c5b9233973d02034f9d17a47c4b952f14d7f1b4c1f41e96465314c542e2a01",
+      "changes": [
+        [
+          27,
+          1,
+          []
+        ],
+        [
+          45,
+          1,
+          []
+        ],
+        [
+          58,
+          1,
+          [
+            "export function isNewerFileVersion(version: unknown, newest: string = DEDAL_FILE_VERSION): boolean {"
+          ]
+        ],
+        [
+          277,
+          0,
+          [
+            "/**",
+            " * The project as a `.ded`, serialised COMPACT.",
+            " *",
+            " * ── What the indentation was costing ───────────────────────────────",
+            " *",
+            " * Measured on `pro-edificio-7p` after the whole chain — 203 members solved, designed, detailed,",
+            " * floors designed, about 21 000 bars in the coordinated document:",
+            " *",
+            " *     JSON.stringify(payload, null, 2)   110 341 310 bytes    202 ms",
+            " *     JSON.stringify(payload)             47 783 950 bytes     56 ms",
+            " *",
+            " * Sixty-two megabytes of a hundred-and-ten were spaces and newlines. A detailing document is",
+            " * mostly deeply-nested arrays of numbers, and at that depth `null, 2` spends about twenty bytes",
+            " * of indentation on every six-byte coordinate.",
+            " *",
+            " * ── Why this is safe ───────────────────────────────────────────────",
+            " *",
+            " * Whitespace is not part of the format. `deserializeProject` and `loadFile` both go through",
+            " * `JSON.parse`, which does not care, and every `.ded` ever written — including the committed",
+            " * `rc-footing-cad-poc.ded.json`, which stays pretty-printed on disk — still opens. The change is",
+            " * one-directional and needs no migration: new files are smaller, old files are unaffected.",
+            " *",
+            " * One consequence worth knowing rather than discovering: regenerating that committed fixture",
+            " * (`WRITE_FIXTURE=1`) now writes it on one line, because it is deliberately produced by this",
+            " * same production writer.",
+            " *",
+            " * `saveSession` keeps its indentation. A session is a handful of tab records and is read by",
+            " * people far more often than it is large.",
+            " */"
+          ]
+        ],
+        [
+          278,
+          10,
+          [
+            "  return JSON.stringify(buildProjectFile());"
+          ]
+        ],
+        [
+          302,
+          4,
+          []
+        ],
+        [
+          308,
+          2,
+          [
+            "  if (typeof d.version !== 'string' || !KNOWN_VERSIONS.has(d.version)) return false;"
+          ]
+        ],
+        [
+          313,
+          8,
+          [
+            "  if (!isValidDedalFile({ ...d, version: DEDAL_FILE_VERSION })) return false;",
+            "",
+            "  const data = d as unknown as DedalFile;"
+          ]
+        ],
+        [
+          594,
+          3,
+          []
+        ],
+        [
+          672,
+          1,
+          [
+            "  const newest = isSessionFile(data) ? SESSION_FILE_VERSION : DEDAL_FILE_VERSION;"
+          ]
+        ],
+        [
+          674,
+          1,
+          [
+            "  if (!deserializeProject(text)) throw new Error(t('file.invalidFormat'));"
+          ]
+        ],
+        [
+          719,
+          2,
+          [
+            "    throw newerVersionError(String(version), DEDAL_FILE_VERSION);",
+            "  } else if (deserializeProject(text)) {"
+          ]
+        ]
+      ]
+    },
     "src/lib/store/floor-load-request.svelte.ts": null,
     "src/lib/store/load-ops.ts": {
       "source": "d840db30016693b114b6066d83ae8bfeaec7dd0a459a956ef04cde04658319c4",
@@ -6062,7 +6198,7 @@
       ]
     },
     "src/lib/store/physical-plates.ts": {
-      "source": "1de71131faf6efa287e4996035d7573d13a4b9c13ec974d16fc1619a3041d131",
+      "source": "33b238be848d05b299d3e1c9ae36f9a43ad63a315a99cf7c2eed8d36f3a4fb6c",
       "original": "8c0e75c857d9259b53eb6624ca8c2da1343e2f02cc512ecf0560f00c985d29f8",
       "changes": [
         [
@@ -6079,23 +6215,25 @@
         ],
         [
           32,
-          1,
-          []
+          4,
+          [
+            "import { applyMesh } from '../model/edit/mesh-apply';"
+          ]
         ],
         [
-          35,
+          37,
           1,
           [
             "import { addFloorLoadDef } from './defined-loads';"
           ]
         ],
         [
-          38,
+          40,
           2,
           []
         ],
         [
-          41,
+          43,
           5,
           [
             "import type { FloorLoadDef } from '../model/loads/floor-definitions';",
@@ -6103,12 +6241,14 @@
           ]
         ],
         [
-          131,
-          16,
-          []
+          133,
+          17,
+          [
+            "function featuresOf(e: PlateEntry, spec: PlateMeshSpec = e.surface.mesh) {"
+          ]
         ],
         [
-          152,
+          154,
           4,
           [
             "  const owned = new Set<number>();",
@@ -6117,7 +6257,7 @@
           ]
         ],
         [
-          157,
+          159,
           1,
           [
             "  for (const q of modelStore.quads.values()) if (!myShells.has(`q${q.id}`)) q.nodes.forEach((n) => neighbours.add(n));",
@@ -6125,21 +6265,21 @@
           ]
         ],
         [
-          159,
+          161,
           125,
           [
             "  return { geo, features: externalFeatures(plateModel(), geo, owned, loopNodes, { mine, neighbours }) };"
           ]
         ],
         [
-          302,
+          304,
           1,
           [
             "    else s = plateSignature(f.geo, e.surface.mesh, f.features) === e.surface.meshed.signature ? 'current' : 'stale';"
           ]
         ],
         [
-          308,
+          310,
           32,
           [
             "/** The plates whose mesh is missing or out of date. */",
@@ -6148,24 +6288,24 @@
           ]
         ],
         [
-          350,
+          352,
           2,
           []
         ],
         [
-          370,
+          372,
           20,
           []
         ],
         [
-          397,
+          399,
           2,
           [
             "  const surface: PlateSurface = { loops: [p.outline.length, ...holes.map((h) => h.length)], materialId: p.materialId, thickness: p.thickness, mesh: { ...(p.mesh ?? DEFAULT_PLATE_MESH) }, ...(arcs.arcMids.length ? { arcMids: arcs.arcMids } : {}) };"
           ]
         ],
         [
-          401,
+          403,
           3,
           [
             "  const physical: PhysicalData & { surface: PlateSurface } = { kind: plateKindOf(geo), provenance: 'declared', surface };",
@@ -6176,24 +6316,24 @@
           ]
         ],
         [
-          414,
+          416,
           14,
           []
         ],
         [
-          475,
+          477,
           11,
           [
             "  const problem = plateProblem(plateModel(), loops.outer, holes, outerArcs);"
           ]
         ],
         [
-          487,
+          489,
           2,
           []
         ],
         [
-          490,
+          492,
           5,
           [
             "    modelStore.setGroupMembers(id, { ...e.group.members, nodes: [...loops.outer, ...holes.flat(), ...loops.owned] });",
@@ -6201,12 +6341,12 @@
           ]
         ],
         [
-          548,
+          550,
           16,
           []
         ],
         [
-          567,
+          569,
           1,
           [
             "  const def: FloorLoadDef = { caseId, q, target: { by: 'group', groupId: id }, distribution: 'slab' };",
@@ -6214,22 +6354,22 @@
           ]
         ],
         [
-          600,
+          602,
           5,
           []
         ],
         [
-          620,
+          622,
           33,
           []
         ],
         [
-          654,
+          656,
           1,
           []
         ],
         [
-          658,
+          660,
           2,
           [
             "    const d = l.data as { quadId: number; on?: string; fromDef?: number };",
@@ -6237,19 +6377,19 @@
           ]
         ],
         [
-          683,
+          685,
           1,
           []
         ],
         [
-          686,
+          688,
           1,
           [
             "    const plan = planPlateMesh(ids[i]!, spec);"
           ]
         ],
         [
-          689,
+          691,
           1,
           [
             "    // Give the page a frame between plates, so a long batch can be watched and stopped.",
@@ -6257,101 +6397,108 @@
           ]
         ],
         [
-          694,
+          696,
           5,
           []
         ],
         [
-          700,
+          702,
           1,
           [
             "export function planPlateMesh(id: number, specOverride?: Partial<PlateMeshSpec>): PlateMeshPlan | null {"
           ]
         ],
         [
-          703,
+          705,
           1,
           [
             "  const spec = { ...e.surface.mesh, ...(specOverride ?? {}) };"
           ]
         ],
         [
-          708,
+          707,
+          1,
+          [
+            "  const f = featuresOf(e, spec);"
+          ]
+        ],
+        [
+          710,
           12,
           [
             "  const signature = plateSignature(f.geo, spec, f.features);"
           ]
         ],
         [
-          723,
+          725,
           0,
           [
             "  const grid = gridOfSpec(spec);"
           ]
         ],
         [
-          725,
+          727,
           7,
           []
         ],
         [
-          739,
+          741,
           1,
           [
             "    return { ...base, mesh, cells: mesh.cells.length, quality: meshQuality(mesh), signature, input, mixed: bandCells > 0, grid: { gridCells, bandCells, cellA, cellB } };"
           ]
         ],
         [
-          741,
+          743,
           2,
           [
             "  const mesh = generateMesh(input);"
           ]
         ],
         [
-          746,
-          102,
+          748,
+          92,
           []
         ],
         [
-          868,
+          855,
+          4,
+          []
+        ],
+        [
+          864,
           1,
           []
         ],
         [
-          870,
+          866,
           9,
           []
         ],
         [
-          881,
+          877,
           1,
           []
         ],
         [
-          894,
+          890,
           5,
           []
         ],
         [
-          905,
-          119,
+          901,
+          163,
           []
         ],
         [
-          1026,
-          6,
+          1066,
+          33,
           [
             "  const report: PlateMeshReport = { plates: 0, cells: 0, refused: [], droppedLocalLoads: 0, keptNodes: 0 };",
             "  const ok = plans.filter((p) => p.mesh && p.input);",
             "  for (const p of plans) if (!p.mesh) report.refused.push({ id: p.id, reason: p.refused ?? 'cannotMesh' });",
-            "  if (!ok.length) return report;"
-          ]
-        ],
-        [
-          1033,
-          2,
-          [
+            "  if (!ok.length) return report;",
+            "  modelStore.batch(() => {",
             "    for (const [k, planned] of ok.entries()) {",
             "      // After the first, each plate is planned again on the model as it now is, so it meets the",
             "      // meshes just put in beside it.",
@@ -6370,31 +6517,35 @@
             "      modelStore.setGroupMembers(p.id, { ...g.members, nodes: [...loops.outer, ...loops.holes.flat(), ...created], quads: r.quads, plates: r.plates });",
             "      writeSurface(p.id, (s) => ({ ...s, mesh: p.spec, meshed: { signature: p.signature, cells: r.quads.length + r.plates.length, quality: p.quality! } }));",
             "      report.plates++;",
-            "      report.cells += r.quads.length + r.plates.length;",
-            "    }"
+            "      report.cells += r.quads.length + r.plates.length;"
           ]
         ],
         [
-          1036,
-          105,
+          1100,
+          32,
+          []
+        ],
+        [
+          1133,
+          45,
           [
             "  return report;"
           ]
         ],
         [
-          1166,
+          1203,
           8,
           []
         ],
         [
-          1180,
+          1217,
           2,
           [
             "  const need = platesNeedingMesh();"
           ]
         ],
         [
-          1185,
+          1222,
           21,
           [
             "  const plans = need.map((id) => planPlateMesh(id)).filter((p): p is PlateMeshPlan => !!p);",

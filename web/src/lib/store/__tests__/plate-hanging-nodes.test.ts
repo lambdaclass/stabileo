@@ -4,7 +4,8 @@
  */
 import { describe, it, expect } from 'vitest';
 import { historyStore, modelStore, uiStore } from '..';
-import { adoptCurrentMesh, applyPlateMeshes, applyPlateMeshesAsync, coarseAsModelled, createPlate, physicalPlates, planPlateMesh, plateEntry, plateStatus, platesNeedingMesh, preparePlatesForAnalysis, preparePlatesForAnalysisAsync, setPlateMeshSpec } from '../physical-plates';
+import { adoptCurrentMesh, applyPlateMeshes, coarseAsModelled, createPlate, physicalPlates, planPlateMesh, plateEntry, plateStatus, platesNeedingMesh, preparePlatesForAnalysis, preparePlatesForAnalysisAsync, setPlateMeshSpec } from '../physical-plates';
+import { applyMesh } from '../../model/edit/mesh-apply';
 import { platesFromShells } from '../plates-from-shells';
 import { meshBeforeAnalysis } from '../mesh-policy.svelte';
 
@@ -19,6 +20,14 @@ function besideShells(xs: number[]): { below: number; above: number } {
   for (const n of outline.slice(2)) modelStore.addSupport(n, 'pinned3d');
   const above = (createPlate({ outline, materialId: 1, thickness: 0.15 }) as { id: number }).id;
   return { below: below!, above };
+}
+
+function meshOutsidePlateBatch(above: number): void {
+  const plan = planPlateMesh(above, { size: 0.5, element: 'quad' })!;
+  const mesh = applyMesh(plan.input!, { materialId: 1, thickness: 0.15, splitBeams: true }, plan.mesh)!;
+  const group = plateEntry(above)!.group;
+  modelStore.setGroupMembers(above, { ...group.members, quads: mesh.quads, plates: mesh.plates });
+  adoptCurrentMesh(above);
 }
 
 const shared = () => [...new Set([...modelStore.quads.values()].flatMap((q) => q.nodes))]
@@ -45,26 +54,23 @@ describe('a plate meshed on a grid beside another plate\'s shells', () => {
 });
 
 describe('a plate meshed beside one shell', () => {
-  it('leaves that shell\'s plate waiting for a mesh, which the analysis gives it to meet the new nodes', () => {
+  it('meshes the coarse neighbour in the same operation', () => {
     const { below, above } = besideShells([0, 4]);
     setPlateMeshSpec([below], { size: 3 });
     adoptCurrentMesh(below);
     expect(plateStatus(below)).toBe('current');
     expect(coarseAsModelled(plateEntry(below)!)).toBe(false);
-    applyPlateMeshes([planPlateMesh(above, { size: 0.5, element: 'quad' })!]);
-    expect(hanging(below)).toBe(true);
-    expect(plateStatus(below)).toBe('stale');
-    meshBeforeAnalysis.value = true;
-    expect(preparePlatesForAnalysis()).toMatchObject({ ok: true });
+    expect(applyPlateMeshes([planPlateMesh(above, { size: 0.5, element: 'quad' })!])).toMatchObject({ plates: 2, refused: [] });
     expect(hanging(below)).toBe(false);
     expect(plateStatus(below)).toBe('current');
     expect(plateStatus(above)).toBe('current');
+    expect(preparePlatesForAnalysis()).toEqual({ ok: true, meshed: 0, cells: 0 });
   });
 
   it.each([
     ['synchronous', preparePlatesForAnalysis],
     ['asynchronous', preparePlatesForAnalysisAsync],
-  ] as const)('meshes a neighbour made stale during the same analysis preparation (%s)', async (_mode, prepare) => {
+  ] as const)('includes a coarse neighbour before meshing for analysis (%s)', async (_mode, prepare) => {
     const { below, above } = besideShells([0, 4]);
     setPlateMeshSpec([below], { size: 3 });
     adoptCurrentMesh(below);
@@ -83,7 +89,7 @@ describe('a plate meshed beside one shell', () => {
   it.each([
     ['synchronous', preparePlatesForAnalysis],
     ['asynchronous', preparePlatesForAnalysisAsync],
-  ] as const)('refuses a newly stale neighbour with local shell loads (%s)', async (_mode, prepare) => {
+  ] as const)('refuses before changing a neighbour with local shell loads (%s)', async (_mode, prepare) => {
     const { below, above } = besideShells([0, 4]);
     setPlateMeshSpec([below], { size: 3 });
     adoptCurrentMesh(below);
@@ -95,13 +101,14 @@ describe('a plate meshed beside one shell', () => {
     expect(await prepare()).toEqual({ ok: false, reason: 'localLoads', plates: [plateEntry(below)!.name] });
     expect(modelStore.loads).toEqual(loads);
     expect(plateEntry(below)!.group.members.quads).toEqual([quad]);
-    expect(hanging(below)).toBe(true);
+    expect(hanging(below)).toBe(false);
+    expect(plateStatus(above)).toBe('unmeshed');
   });
 
   it('marks a coarse shell that gains a hanging node stale', () => {
     const { below, above } = besideShells([0, 4]);
     expect(coarseAsModelled(plateEntry(below)!)).toBe(true);
-    applyPlateMeshes([planPlateMesh(above, { size: 0.5, element: 'quad' })!]);
+    meshOutsidePlateBatch(above);
     expect(plateStatus(below)).toBe('stale');
     expect(platesNeedingMesh()).toEqual([below]);
   });
@@ -109,9 +116,7 @@ describe('a plate meshed beside one shell', () => {
 
 it.each([false, true])('#1928 blocks analysis of a hanging edge with automatic meshing off (async=%s)', async (async) => {
   const { below, above } = besideShells([0, 4]);
-  const plan = planPlateMesh(above, { size: 0.5, element: 'quad' })!;
-  const result = async ? await applyPlateMeshesAsync([plan]) : applyPlateMeshes([plan]);
-  expect(result.plates).toBe(1);
+  meshOutsidePlateBatch(above);
   expect(hanging(below)).toBe(true);
   meshBeforeAnalysis.value = false;
   try {
@@ -127,9 +132,7 @@ it.each([false, true])('#1928 blocks hanging nodes even when the existing plate 
   setPlateMeshSpec([below], { followMembers: false });
   adoptCurrentMesh(below);
   expect(plateStatus(below)).toBe('current');
-  const plan = planPlateMesh(above, { size: 0.5, element: 'quad' })!;
-  const result = async ? await applyPlateMeshesAsync([plan]) : applyPlateMeshes([plan]);
-  expect(result.plates).toBe(1);
+  meshOutsidePlateBatch(above);
   expect(hanging(below)).toBe(true);
   meshBeforeAnalysis.value = false;
   try {
