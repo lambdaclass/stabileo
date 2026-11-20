@@ -83,7 +83,6 @@ test.describe('@smoke design data with design off', () => {
     await expect(ws.getByTestId('rc-checks').first()).toContainText('§18.7.5');
     await page.keyboard.press('Escape');
     const seismic = page.getByTestId('rc-seismic-data');
-    await seismic.locator('> summary').click();
     const overstrength = seismic.getByTestId('seismic-overstrength');
     await overstrength.fill('1.4');
     await overstrength.dispatchEvent('change');

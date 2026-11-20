@@ -10,7 +10,7 @@ import { catalogueGradeFamily } from '../engine/steel/grade-family';
 import { applyPlateMeshes, clearPlateMesh, physicalPlates, planPlateMesh, plateShellKeys, plateStatus, setPlateMeshSpec, type PlateMeshPlan } from './physical-plates';
 import { designData, patchOwnDesignData, setDesignData, storedDesignData } from './design-data';
 import { activePerCombo3D, activeResultSet3D } from './active-results';
-import { seismicCaseIds, seismicSettings } from './seismic-design.svelte';
+import { hasSeismicLoads, seismicCaseIds, seismicSettings } from './seismic-design.svelte';
 import { DESIGN_OPTION_FLAGS, readDeflectionSettings, type AlternativeOptions, type DeflectionSettings, type DesignOptionFlag, type DesignOptions } from '../rc-sheets/design-options';
 import { defaultLevelName } from '../model/grid';
 import { computeJointPsiFromModel } from '../engine/codes/argentina/cirsoc201';
@@ -83,6 +83,13 @@ export function rcSheetsData(): RcSheetsData {
 }
 
 const seismicIn = (d: Pick<RcSheetsData, 'seismic'>, code: SheetCode): boolean => d.seismic === true && rulesFor(code).seismic;
+
+/** Chapter 18 against the model's loads: recommended where a seismic case carries loads and it is off, questioned where it is on with none; nothing under a code the sheets have no such chapter for. */
+export function seismicAdvice(): 'recommend' | 'withoutLoads' | null {
+  if (!rulesFor(sheetCode()).seismic) return null;
+  const on = rcSheetsData().seismic === true, loads = hasSeismicLoads();
+  return loads && !on ? 'recommend' : on && !loads ? 'withoutLoads' : null;
+}
 
 /** The design data the proposals read, as one string: another one proposes other bars. */
 export function proposalBasis(dd: ProjectDesignData = designData()): string {
@@ -399,8 +406,8 @@ export function meshWallsForSheets(): number {
   return meshed;
 }
 
-/** What a row is designed again with besides its demand: another concrete, MPa. */
-export interface RedesignWith { fc?: number }
+/** What a row is designed again with besides its demand: another concrete, MPa, or other diameters allowed for its stirrups and ties, mm. */
+export interface RedesignWith { fc?: number; ties?: readonly number[] }
 /** A row designed again from its demand with other dimensions or concrete, its context as the last build had it; by row key. */
 export type Redesign = (demand: never, o?: RedesignWith) => SheetRow;
 const redesigners = new Map<string, Redesign>();
@@ -422,7 +429,8 @@ export function forgetRedesigners(): void {
   rowFc.clear();
 }
 
-const withFc = <C extends { mat: { fc: number; fy: number } }>(ctx: C, o?: RedesignWith): C => (o?.fc ? { ...ctx, mat: { ...ctx.mat, fc: o.fc } } : ctx);
+const withFc = <C extends { mat: { fc: number; fy: number } }>(ctx: C, o?: RedesignWith): C =>
+  (o?.fc || o?.ties ? { ...ctx, ...(o.fc ? { mat: { ...ctx.mat, fc: o.fc } } : {}), ...(o.ties ? { tieDiameters: o.ties } : {}) } : ctx);
 
 import type { SheetProgress } from './rc-sheets-progress.svelte';
 export type { SheetProgress };

@@ -3,7 +3,8 @@
  * section of the new size, its plates the new thickness, or both a material of the new concrete.
  * A section or material others use is never changed: one of that size or strength is reused when
  * the model has it, else one is made, named after the row. The results go with the change (every
- * model edit clears them), so nothing reads as verified until the model is solved again.
+ * model edit clears them), so nothing reads as verified until the model is solved again. A stirrup
+ * diameter allowed is the project's design data, not the model: the sheets design again with it.
  */
 import { modelStore, type Material, type Section } from './model.svelte';
 import { plateOfShell, setPlateProperties } from './physical-plates';
@@ -11,6 +12,7 @@ import { rectJ } from '../cad/draft';
 import { concreteClassOf, concreteModulus } from '../rc-sheets/concrete-classes';
 import { sheetCode, type SheetRow } from './rc-sheets.svelte';
 import { storeyMembers, type Alternative } from './rc-sheets-resize';
+import { patchDesignData } from './design-data';
 import type { LineLayout } from '../rc-sheets/beam-line';
 
 /** What applying did: the section or material assigned, whether it was made for it, and how many members and plates took it. */
@@ -37,6 +39,7 @@ function targetsOf(row: SheetRow | LineLayout, alt: Alternative): { members: num
 
 /** Whether the sheets can apply it themselves: a capital, a drop panel or a column grown for punching is changed in the model by hand. */
 export function canApply(row: SheetRow | LineLayout, alt: Alternative): boolean {
+  if (alt.kind === 'ties') return true;
   const t = targetsOf(row, alt);
   return t.members.length + t.plates.length > 0;
 }
@@ -66,6 +69,10 @@ function materialFor(old: Material | undefined, fc: number): { id: number; name:
  * Null when there is nothing to apply it to.
  */
 export function applyAlternative(row: SheetRow | LineLayout, alt: Alternative): Applied | null {
+  if (alt.kind === 'ties') {
+    patchDesignData({ stirrupDiametersMm: [...new Set([...alt.from, alt.to])].sort((p, q) => p - q) });
+    return { name: `Ø${alt.to}`, created: false, members: 0, plates: 0 };
+  }
   const { members, plates } = targetsOf(row, alt);
   if (!members.length && !plates.length) return null;
   let out: Applied | null = null;

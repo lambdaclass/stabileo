@@ -6,6 +6,7 @@
   import { designSheets, followSheetEdits, sheetsRun, sheetsStale } from '../../../lib/store/rc-sheets-view.svelte';
   import RcSheetsProgress from './RcSheetsProgress.svelte';
   import RcCoversNotice from './RcCoversNotice.svelte';
+  import RcSeismicNotice from './RcSeismicNotice.svelte';
   import RcLeftOut from './RcLeftOut.svelte';
   import { uiStore } from '../../../lib/store';
   import { decimalFor, makeFmt } from '../../../lib/rc-sheets/format';
@@ -178,6 +179,7 @@
   {/if}
   <div class="rcw-body">
     <RcCoversNotice />
+    <RcSeismicNotice />
     {#if sheetsRun.rows && !schedule}<RcLeftOut left={rows.left ?? []} />{/if}
     {#if sheetsRun.progress}
       <div class="rcw-empty"><RcSheetsProgress progress={sheetsRun.progress} /></div>
