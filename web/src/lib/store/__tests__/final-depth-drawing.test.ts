@@ -6,7 +6,7 @@ import type { MemberContext } from '../../engine/design/member-context';
 import { extractGoverningDemands, type ElementStationResult } from '../../engine/station-design-forces';
 import { computeStationDemands } from '../../engine/verification-service';
 import { solve, solve3D, solvePDelta, solvePDelta3D } from '../../engine/wasm-solver';
-import type { SolverInput } from '../../engine/types';
+import type { AnalysisResults, SolverInput } from '../../engine/types';
 import type { AnalysisResults3D, SolverInput3D } from '../../engine/types-3d';
 import { regulationsStore } from '../regulations.svelte';
 import { verificationStore } from '../verification.svelte';
@@ -59,10 +59,8 @@ afterEach(() => {
   verificationStore.clear();
 });
 
-const finalDepth = process.env.RUN_KNOWN_WRONG === '2398' ? it : it.skip;
-
 for (const extracted of [false, true]) {
-  finalDepth(`known wrong result: #2398 final depth uses the override bar extent (extracted=${extracted})`, () => {
+  it(`#2398 final depth uses the override bar extent (extracted=${extracted})`, () => {
     const stations: ElementStationResult = { elementId: 1, length: L, stationTs: [0.5], comboResults: [{
       comboId: 1, comboName: 'C1', stations: [{ t: 0.5, x: L / 2, my: 0, mz: 0, n: 0, vy: 0, vz: 0, torsion: 6 }],
     }] };
@@ -99,7 +97,7 @@ function solveCantilever(spatial: boolean, nonlinear: boolean): AnalysisResults3
     sections: new Map([[1, { ...shape, iz: shape.iy }]]),
     loads: [{ type: 'nodal', data: { nodeId: j.id, fx: 0, fz: -1, my: 0 } }],
   };
-  const raw = nonlinear ? solvePDelta(input).results : solve(input);
+  const raw: AnalysisResults = nonlinear ? solvePDelta(input).results : solve(input);
   return {
     displacements: [],
     reactions: [],
@@ -115,7 +113,7 @@ function solveCantilever(spatial: boolean, nonlinear: boolean): AnalysisResults3
 }
 
 for (const spatial of [false, true]) for (const nonlinear of [false, true]) {
-  finalDepth(`known wrong result: #2398 final depth uses the solved drawing extent (spatial=${spatial}, nonlinear=${nonlinear})`, () => {
+  it(`#2398 final depth uses the solved drawing extent (spatial=${spatial}, nonlinear=${nonlinear})`, () => {
     const raw = solveCantilever(spatial, nonlinear);
     const stations = computeStationDemands(new Map([[1, raw]]), [{ id: 1, name: 'C1', factors: [] }], model).stations.get(1)!;
     const full = reinforcement(L);
