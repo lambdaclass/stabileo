@@ -3,8 +3,6 @@ import { test as it, expect, CURRENT_STAMP, type Page } from './fixtures';
 type Mode = '2d' | '3d';
 type Vector = [number, number, number];
 
-const runReproducer = process.env.RUN_KNOWN_WRONG === '2370' ? it : it.skip;
-
 async function openCantilever(page: Page, mode: Mode, force: Vector, couple: Vector) {
   await page.goto('/app/basic?e2e=1');
   const loaded = await page.evaluate(({ mode, force, couple, stamp }) => {
@@ -40,7 +38,7 @@ async function reactionRow(page: Page, mode: Mode) {
 }
 
 it.describe('@smoke Basic reaction display equilibrium', () => {
-  runReproducer('known wrong result: #2370 the 3D reaction table balances all three applied tip couples', async ({ page }) => {
+  it('#2370 the 3D reaction table balances all three applied tip couples', async ({ page }) => {
     const couple: Vector = [2, -3, 4];
     await openCantilever(page, '3d', [0, 0, 0], couple);
     await page.getByTestId('rb-cmd-solve').click();
@@ -52,7 +50,6 @@ it.describe('@smoke Basic reaction display equilibrium', () => {
   for (const mode of ['2d', '3d'] as const) {
     for (const nonlinear of [false, true]) {
       it(`#2370 all ${mode} reaction columns balance the applied force and couple (P-Delta=${nonlinear})`, async ({ page }) => {
-        it.skip(mode === '3d' && process.env.RUN_KNOWN_WRONG !== '2370', 'known wrong result: #2370');
         const force: Vector = [nonlinear ? 0 : 5, mode === '3d' ? 2 : 0, -3];
         const couple: Vector = [mode === '3d' ? 2 : 0, -3, mode === '3d' ? 4 : 0];
         await openCantilever(page, mode, force, couple);

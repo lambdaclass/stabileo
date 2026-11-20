@@ -177,9 +177,7 @@ describe('the load list follows the report units', () => {
   });
 });
 
-const runReproducer = process.env.RUN_KNOWN_WRONG === '2370' ? it : it.skip;
-
-runReproducer('known wrong result: #2370 the PRO report resolves a global planar point load with member-local axial force', () => {
+it('#2370 the PRO report resolves a global planar point load with member-local axial force', () => {
   vi.stubGlobal('__PUBLIC_FEATURES__', featuresForMode('production'));
   try {
     uiStore.analysisMode = '2d';
@@ -199,6 +197,61 @@ runReproducer('known wrong result: #2370 the PRO report resolves a global planar
     expect(values[1]).not.toContain('θ=');
     expect(values[2]).toContain('Pz=-4 kN');
     expect(values.every(value => value.includes('report.loadGlobal'))).toBe(true);
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
+
+it('#2370 the Basic and PRO reports project the same valid global point load in production', () => {
+  vi.stubGlobal('__PUBLIC_FEATURES__', featuresForMode('production'));
+  try {
+    uiStore.analysisMode = '2d';
+    const i = modelStore.addNode(0, 0), j = modelStore.addNode(3, 4);
+    const member = modelStore.addElement(i, j);
+    const point = { a: 1, p: 0, px: 10, isGlobal: true };
+    modelStore.addPointLoadOnElement(member, point.a, point.p, point);
+    const words = { global: 'global axes' };
+    const basic = pointOnElementText(point, words, 'SI', [3, 4]);
+    expect(basic).toBe('Px=6 kN, Pz=8 kN, a=1 m, global axes');
+    expect(serializeLoads(() => words.global)[0]!.values).toBe(basic);
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
+
+it('#2370 reports a missing projection explicitly when a global point load needs the member direction', () => {
+  vi.stubGlobal('__PUBLIC_FEATURES__', featuresForMode('production'));
+  try {
+    uiStore.analysisMode = '2d';
+    const point = { a: 1, p: -4, px: 10, isGlobal: true };
+    const words = { global: 'global axes' };
+    expect(pointOnElementText(point, words, 'SI', [0, 0])).toBeNull();
+    expect(pointOnElementText(point, words, 'SI', [0, Infinity])).toBeNull();
+    expect(pointOnElementText(point, words, 'SI', [Number.MAX_VALUE, Number.MAX_VALUE])).toBeNull();
+    expect(pointOnElementText({ ...point, px: 0 }, words, 'SI', [0, 0])).toBe('Pz=-4 kN, a=1 m, global axes');
+    modelStore.addPointLoadOnElement(999, point.a, point.p, point);
+    expect(serializeLoads(key => key)[0]!.values).toBe('engine.memberLoad.invalidGeometry');
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
+
+it('#2370 a legacy planar point load in a native spatial model uses the solver XY plane', () => {
+  vi.stubGlobal('__PUBLIC_FEATURES__', featuresForMode('production'));
+  try {
+    uiStore.analysisMode = 'pro';
+    const i = modelStore.addNode(0, 0, 0), j = modelStore.addNode(0, 4, 0);
+    const member = modelStore.addElement(i, j, 'frame');
+    modelStore.addSupport(i, 'fixed3d');
+    modelStore.addPointLoadOnElement(member, 1, 0, { px: 10, isGlobal: true });
+    const result = modelStore.solve3D(false, false, true);
+    if (!result || typeof result === 'string') throw new Error(`Solve returned ${result}`);
+    const row = serializeLoads(key => key)[0]!.values;
+    expect(row).toBe('Py=10 kN, a=1 m, report.loadGlobal');
+    const forceY = Number(row.match(/Py=([^ ]+)/)?.[1]);
+    const reaction = result.reactions.find(r => r.nodeId === i)!;
+    expect([reaction.fx, reaction.fz, reaction.mx, reaction.my, reaction.mz].map(value => value + 0)).toEqual([0, 0, 0, 0, 0]);
+    expect(reaction.fy + forceY).toBeCloseTo(0, 10);
   } finally {
     vi.unstubAllGlobals();
   }

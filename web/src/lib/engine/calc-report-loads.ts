@@ -8,6 +8,9 @@
  */
 
 import { planePointLoad3D } from './member-point-loads';
+import { axesStore } from '../axes/axes.svelte';
+import { userAxisAlong, type AxesFrame } from '../axes/frame';
+import { quantityTransform } from '../axes/quantity-transform';
 import { toDisplay, unitLabel, type Quantity, type UnitSystem } from '../utils/units';
 import { planeGlobalAngle, planeGlobalValue, twoD, userRot, userVec } from '../axes/display';
 
@@ -85,20 +88,30 @@ export function pointOnElementText(
   d: { a: number; p: number; px?: number; my?: number; mz?: number; angle?: number; isGlobal?: boolean },
   words: MemberLoadWords,
   us: UnitSystem = 'SI',
-  memberDirection: readonly [dx: number, dz: number],
-): string {
+  memberDirection: readonly [dx: number, dPlan: number],
+  frame: AxesFrame = axesStore.frame,
+  projectToXZ = true,
+): string | null {
+  const transform = quantityTransform(frame);
+  const normalAxis = projectToXZ ? 1 : 2;
   const couple = d.my ?? d.mz;
-  if (!__PUBLIC_FEATURES__.globalAxes) {
-    const comps = named([['P', d.p, 'force'], ['Px', d.px, 'force'], ['My', couple, 'moment']], us);
-    return comps.length ? `${comps.join(', ')}, a=${val(d.a, 'length', us)} ${unitLabel('length', us)}${direction(d, words)}` : '';
+  const normal = userAxisAlong(frame, normalAxis).name.toLowerCase();
+  const moment = projectToXZ
+    ? transform.plane({ kind: 'pseudovector', axis: 'rot', value: couple ?? 0 })
+    : transform.component(normalAxis, couple ?? 0, 'pseudovector').value;
+  const moments: Component = [`M${normal}`, moment, 'moment'];
+  let forces: Component[] = [['P', d.p, 'force'], ['Px', d.px, 'force']];
+  if (d.isGlobal) {
+    const length = Math.hypot(...memberDirection);
+    if (d.px && !(length > 0 && Number.isFinite(length))) return null;
+    const force = planePointLoad3D({ ...d, elementId: 0 }, ...memberDirection, projectToXZ);
+    const horizontal = transform.component(0, force.px ?? 0, 'vector');
+    const vertical = transform.component(projectToXZ ? 2 : 1, projectToXZ ? force.pz : force.py, 'vector');
+    forces = [horizontal, vertical].map(({ name, value }) => [`P${name.toLowerCase()}`, value, 'force']);
   }
-  if (d.isGlobal && d.px && !(Math.hypot(...memberDirection) > 0 && memberDirection.every(Number.isFinite))) throw new Error('A global axial point-load report requires a finite nonzero member direction');
-  const force = d.isGlobal ? planePointLoad3D({ ...d, elementId: 0 }, memberDirection[0], memberDirection[1], true) : undefined;
-  const forces: Component[] = force
-    ? [[`P${twoD.horizontal.toLowerCase()}`, twoD.x(force.px ?? 0) + 0, 'force'], [`P${twoD.vertical.toLowerCase()}`, twoD.z(force.pz) + 0, 'force']]
-    : [['P', d.p, 'force'], ['Px', d.px, 'force']];
-  const comps = named([...forces, [`M${twoD.normal.toLowerCase()}`, couple === undefined ? undefined : twoD.rot(couple) + 0, 'moment']], us);
-  return comps.length ? `${comps.join(', ')}, a=${val(d.a, 'length', us)} ${unitLabel('length', us)}${d.isGlobal ? `, ${words.global}` : direction(d, words)}` : '';
+  const comps = named([...forces, moments], us);
+  const position = `a=${val(d.a, 'length', us)} ${unitLabel('length', us)}`;
+  return comps.length ? `${comps.join(', ')}, ${position}${d.isGlobal ? `, ${words.global}` : direction(d, words)}` : '';
 }
 
 /**

@@ -5,7 +5,6 @@ import DespieceInspector from '../../../components/DespieceInspector.svelte';
 import { modelStore, resultsStore, uiStore } from '../../store';
 import { solvePDelta3D } from '../../engine/wasm-solver';
 
-const runReproducer = process.env.RUN_KNOWN_WRONG === '2370' ? it : it.skip;
 type Vector = [number, number, number];
 
 beforeEach(() => {
@@ -53,7 +52,7 @@ function readInspector(type: 'node' | 'member', id: number) {
 
 const globalLabels = ['Fx (kN)', 'Fy (kN)', 'Fz (kN)', 'Mx (kN·m)', 'My (kN·m)', 'Mz (kN·m)'];
 
-runReproducer('known wrong result: #2370 the spatial inspector shows torsion on a Y-aligned member under global My', () => {
+it('#2370 the spatial inspector shows torsion on a Y-aligned member under global My', () => {
   const { fixed, member } = cantilever([0, 0, 0], [0, -7, 0], false);
   for (const output of [readInspector('member', member), readInspector('node', fixed)]) {
     expect.soft(output.labels).toEqual(globalLabels);
@@ -61,7 +60,7 @@ runReproducer('known wrong result: #2370 the spatial inspector shows torsion on 
   }
 });
 
-runReproducer('known wrong result: #2370 every spatial end-action column balances its joint and member', () => {
+it('#2370 every spatial end-action column balances its joint and member', () => {
   for (const nonlinear of [false, true]) {
     modelStore.clear();
     const force: Vector = [-3, nonlinear ? 0 : 5, 2], couple: Vector = [2, -3, 4];

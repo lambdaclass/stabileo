@@ -181,7 +181,8 @@
         const element = modelStore.elements.get(d.elementId);
         const ni = element && modelStore.nodes.get(element.nodeI), nj = element && modelStore.nodes.get(element.nodeJ);
         const memberDirection = [ni && nj ? nj.x - ni.x : 0, ni && nj ? nj.y - ni.y : 0] as const;
-        description = `${t('table.elemLabel')} ${d.elementId}: ${pointOnElementText(d, loadWords, us, memberDirection) || t('calcReport.loadZero')}`;
+        const text = pointOnElementText(d, loadWords, us, memberDirection);
+        description = `${t('table.elemLabel')} ${d.elementId}: ${text === null ? t('engine.memberLoad.invalidGeometry') : text || t('calcReport.loadZero')}`;
       } else if (l.type === 'thermal') {
         description = `${t('table.elemLabel')} ${d.elementId}: ${thermalText(d, us, uiStore.analysisMode === 'pro' ? 'pro' : 'basic')}`;
       } else {

@@ -36,7 +36,8 @@ import { findBehaviour } from '../codes/cirsoc103/behaviour';
 import type { DestinationGroup } from '../codes/cirsoc103/spectrum';
 import { shouldEmbedFlat2DModelIn3D } from './solver-service';
 import { activePerCombo3D } from '../store/active-results';
-import { modelStore, resultsStore } from '../store';
+import { modelStore, resultsStore, uiStore } from '../store';
+import { pointOnElementText } from './calc-report-loads';
 import { i18n } from '../i18n';
 import type { ReportData, ReportConfig } from './pro-report';
 import { projectQuantities } from './quantities';
@@ -66,19 +67,21 @@ type Translate = (key: string) => string;
  * listed as many blank lines as the model had loads.
  */
 const PLANE_LOADS = new Set(['nodal', 'distributed', 'pointOnElement', 'thermal']);
+const resolvesGlobalPoint = (l: Load) => l.type === 'pointOnElement' && l.data.isGlobal;
 
 function loadsIn(axes: AxesChoice): Load[] {
   const loads = modelStore.model.loads;
   if (makeFrame(axes).identity) return loads;
-  const plane = transformSnapshot({ analysisMode: '2d', loads: loads.filter((l) => PLANE_LOADS.has(l.type)) }, axes, 'toUser').loads as Load[];
+  const plane = transformSnapshot({ analysisMode: '2d', loads: loads.filter((l) => PLANE_LOADS.has(l.type) && !resolvesGlobalPoint(l)) }, axes, 'toUser').loads as Load[];
   const space = transformSnapshot({ analysisMode: 'pro', loads: loads.filter((l) => !PLANE_LOADS.has(l.type)) }, axes, 'toUser').loads as Load[];
   let p = 0, q = 0;
-  return loads.map((l) => (PLANE_LOADS.has(l.type) ? plane[p++]! : space[q++]!));
+  return loads.map((l) => resolvesGlobalPoint(l) ? l : PLANE_LOADS.has(l.type) ? plane[p++]! : space[q++]!);
 }
 
 export function serializeLoads(t: Translate, axes: AxesChoice = DEFAULT_AXES): NonNullable<ReportData['loads']> {
   const loads: NonNullable<ReportData['loads']> = [];
   const frame = makeFrame(axes);
+  const projectToXZ = !uiStore.is3DWorkspace || shouldEmbedFlat2DModelIn3D(modelStore.model);
   const h = userAxisAlong(frame, 0).name, v = userAxisAlong(frame, 2).name, nrm = userAxisAlong(frame, 1).name;
   /** A component to four significant figures, never "-0". */
   const n = (v: number) => { const r = +v.toPrecision(4); return Object.is(r, -0) ? '0' : String(r); };
@@ -112,7 +115,17 @@ export function serializeLoads(t: Translate, axes: AxesChoice = DEFAULT_AXES): N
       case 'pointOnElement': {
         const d = load.data;
         tipo = t('file.loadPointOnElement'); destino = `${t('report.loadMember')} ${d.elementId}`;
-        valores = `${parts('kN', [['P', d.p], ['Px', d.px]])}${Math.abs(d.my ?? d.mz ?? 0) > 1e-12 ? `, M${nrm.toLowerCase()}=${n(d.my ?? d.mz!)} kN·m` : ''}, a=${n(d.a)} m` + turn(d);
+        if (d.isGlobal) {
+          const element = modelStore.elements.get(d.elementId);
+          const i = element && modelStore.nodes.get(element.nodeI);
+          const j = element && modelStore.nodes.get(element.nodeJ);
+          const direction = i && j ? [j.x - i.x, j.y - i.y] as const : [0, 0] as const;
+          const global = t('report.loadGlobal');
+          const text = pointOnElementText(d, { global }, 'SI', direction, frame, projectToXZ);
+          valores = text === null ? t('engine.memberLoad.invalidGeometry') : text || `0 kN, a=${n(d.a)} m, ${global}`;
+        } else {
+          valores = `${parts('kN', [['P', d.p], ['Px', d.px]])}${Math.abs(d.my ?? d.mz ?? 0) > 1e-12 ? `, M${nrm.toLowerCase()}=${n(d.my ?? d.mz!)} kN·m` : ''}, a=${n(d.a)} m` + turn(d);
+        }
         break;
       }
       case 'thermal': {

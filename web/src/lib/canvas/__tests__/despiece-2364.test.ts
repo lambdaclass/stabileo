@@ -102,9 +102,7 @@ it.each(['production', 'test'] as const)('keeps a pure axial cantilever in equil
   expect(moment.value).toBeCloseTo(0, 6);
 });
 
-const runReproducer = process.env.RUN_KNOWN_WRONG === '2370' ? it : it.skip;
-
-runReproducer('known wrong result: #2370 every signed planar node-side label agrees with its reversed glyph', () => {
+it('#2370 every signed planar node-side label agrees with its reversed glyph', () => {
   vi.stubGlobal('__PUBLIC_FEATURES__', featuresForMode('production'));
   uiStore.analysisMode = '2d';
   modelStore.clear();

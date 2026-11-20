@@ -163,7 +163,7 @@
         <tbody>
           {#each resultsStore.results3D.reactions as r}
             {@const f = components.vec(r.fx, r.fy, r.fz)}
-            {@const m = components.rot(r.mx, r.my, r.mz, -1)}
+            {@const m = components.rot(r.mx, r.my, r.mz)}
             <tr>
               <td class="id-cell">{r.nodeId}</td>
               {#each f as c}<td class="num">{frc(c)}</td>{/each}
