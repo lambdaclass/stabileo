@@ -1,4 +1,9 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import type { AnalysisResults } from '../../engine/types';
+import type { AnalysisResults3D } from '../../engine/types-3d';
+import type { PDeltaResult, PDeltaResult3D } from '../../engine/result-types';
+import { initSolver, solvePDelta, solvePDelta3D } from '../../engine/wasm-solver';
 import type { MemberDesignOutcome } from '../../engine/design/outcome';
 import { buildProjectFile, deserializeProject, loadFile, loadProject, serializeProject } from '../file';
 import { expandDesignRefusals, MAX_EXPANDED_REFUSAL_CHARS } from '../ded-design-refusals';
@@ -41,7 +46,42 @@ const openers = [
   }],
 ] as const;
 
+function structuralResults(result: AnalysisResults | AnalysisResults3D | string | null) {
+  if (!result || typeof result === 'string') throw new Error(String(result));
+  expect(result.displacements.length).toBeGreaterThan(0);
+  const { timings: _timings, ...values } = result;
+  return values;
+}
+
+function solveSavedModel() {
+  const is2D = uiStore.analysisMode === '2d';
+  const weight = uiStore.includeSelfWeight;
+  const linear = structuralResults(is2D ? modelStore.solve(weight) : modelStore.solve3D(weight));
+  let nonlinear: PDeltaResult | PDeltaResult3D;
+  if (is2D) {
+    const input = modelStore.buildSolverInput(weight);
+    if (!input) throw new Error('Missing 2D solver input');
+    nonlinear = solvePDelta(input);
+  } else {
+    const input = modelStore.buildSolverInput3D(weight, false, { basic: true });
+    if (!input) throw new Error('Missing 3D solver input');
+    nonlinear = solvePDelta3D(input);
+  }
+  expect(nonlinear.isStable).toBe(true);
+  expect(nonlinear.converged).toBe(true);
+  return {
+    linear,
+    nonlinear: {
+      ...nonlinear,
+      results: structuralResults(nonlinear.results),
+      linearResults: structuralResults(nonlinear.linearResults),
+    },
+  };
+}
+
 describe('#2365 shared refusal evidence in portable projects', () => {
+  beforeAll(async () => { await initSolver(); });
+
   beforeEach(() => {
     modelStore.clear();
     historyStore.clear();
@@ -74,6 +114,30 @@ describe('#2365 shared refusal evidence in portable projects', () => {
     await open(saved);
     for (const outcome of outcomes) expect(storedRefusal(outcome.elementId)).toEqual(outcome);
   });
+
+  for (const [mode, example] of [['2d', 'continuous-beam'], ['3d', '3d-portal-frame']] as const) {
+    it.each(openers)(`%s preserves ${mode} linear and P-Delta results across 2.0 and 2.1`, async (_name, open) => {
+      const legacy = readFileSync(new URL(`../../../../legacy-projects/v0.2.0/${example}.ded`, import.meta.url), 'utf8');
+      expect(JSON.parse(legacy).version).toBe('2.0');
+      await open(legacy);
+      expect(uiStore.analysisMode).toBe(mode);
+      expect(JSON.parse(serializeProject()).version).toBe('2.0');
+      const before = solveSavedModel();
+      const evidence = 'Shared refusal for split pieces'.repeat(128);
+      const members = [...modelStore.elements.keys()].slice(0, 2);
+      expect(members).toHaveLength(2);
+      const refusals = members.map(id => refusal(id, evidence));
+      recordRefusals(refusals);
+      const compact = serializeProject();
+      expect(JSON.parse(compact).version).toBe('2.1');
+      modelStore.clear();
+
+      await open(compact);
+      expect(uiStore.analysisMode).toBe(mode);
+      expect(solveSavedModel()).toEqual(before);
+      for (const outcome of refusals) expect(storedRefusal(outcome.elementId)).toEqual(outcome);
+    });
+  }
 
   it.each([
     ['an unknown record', (file: ReturnType<typeof JSON.parse>) => { file.snapshot.detailing.designRefusals.members[0][1] = 99; }],
