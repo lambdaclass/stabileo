@@ -15,7 +15,8 @@ import { ROLLED_BEAMS } from '../../engine/detailing/__tests__/helpers/workspace
 describe('the run reports what happened, family by family', () => {
   it('counts processed, designed, refused and not-modelled members', async () => {
     await ready('pro-edificio-7p', ROLLED_BEAMS);
-    const report = designRunStore.designFamilies(['column', 'beam', 'slab', 'wall']);
+    const report = designRunStore.designFamilies(['column', 'beam', 'slab', 'wall'], { maxRunMs: 180_000 });
+    expect(verificationStore.runSummary?.aborted).toBe(false);
 
     // The corrected shell drilling term removes the committed building's spurious
     // biaxial refusals. Roll five beams to exercise real secondary-axis refusals.
