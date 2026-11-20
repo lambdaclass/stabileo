@@ -15,8 +15,8 @@ export const withCriterion = (clause?: string): string => (clause ? `${clause}; 
 export const localizeCriterion = (s: string | undefined, tr: (key: string) => string): string =>
   s ? s.split(CRITERION).join(tr('rcSheets.criterion')) : '';
 
-export type CriterionFamily = 'beam' | 'column' | 'slab' | 'footing';
-export const CRITERION_FAMILIES: readonly CriterionFamily[] = ['beam', 'column', 'slab', 'footing'];
+export type CriterionFamily = 'beam' | 'column' | 'slab' | 'wall' | 'footing';
+export const CRITERION_FAMILIES: readonly CriterionFamily[] = ['beam', 'column', 'slab', 'wall', 'footing'];
 
 /**
  * One criterion: its family, its default and range as stated, the unit it is stated in, an
@@ -48,6 +48,7 @@ export const CRITERIA = {
   slabBendOneWay: { family: 'slab', value: 7, min: 5, max: 12, step: 0.5, unit: '', prefix: 'ln/', digits: 1 },
   slabBendTwoWay: { family: 'slab', value: 8, min: 5, max: 12, step: 0.5, unit: '', prefix: 'ln/', digits: 1 },
   slabMinThickness: { ...cm(8, 5, 30), family: 'slab' },
+  wallMeshSpacing: { ...cm(15, 10, 30, 2.5), family: 'wall', digits: 1 },
   footingTieMaxLoad: { family: 'footing', value: 1200, min: 100, max: 10000, step: 50, unit: 'kN' },
   footingTieMinArm: { family: 'footing', value: 1.5, min: 0.5, max: 6, step: 0.1, unit: 'm', digits: 2 },
   footingTieOffset: { family: 'footing', value: 4, min: 2, max: 10, step: 0.5, unit: '', prefix: 'e ≤ H/', digits: 1 },

@@ -1,9 +1,10 @@
 <script lang="ts">
   /**
    * The choices the design takes before it starts, in the design data: the analysis assumptions
-   * (moments at the faces, the slab as a flange, torsion), the detailing (bent-up bars in beams and
-   * slabs, denser column ends, the closest stirrup spacing), chapter 18 beside the seismic data and
-   * what a member with no reinforcement for its section and concrete is offered instead.
+   * (moments at the faces, the slab as a flange, torsion), the lateral system and chapter 18 with
+   * the seismic data, the detailing (bent-up bars in beams and slabs, denser column ends, the
+   * closest stirrup spacing), the deflections with their limits, and what a member with no
+   * reinforcement for its section and concrete is offered instead.
    * Each says the clause it applies under the code the sheets design to, and why it does not apply
    * where it does not.
    */
@@ -22,6 +23,8 @@
   import type { TorsionMode } from '../../../lib/rc-sheets/types';
   import SeismicEditor from '../desk/seismic/SeismicEditor.svelte';
   import PropertyLinesPicker from './PropertyLinesPicker.svelte';
+  import ProDeflectionLimits from '../ProDeflectionLimits.svelte';
+  import { setBeamsLateral } from '../../../lib/store/lateral-system';
   import StabileoCriteria from './StabileoCriteria.svelte';
   import { PROPERTY_SIDES } from '../../../lib/model/foundation/edges';
 
@@ -82,6 +85,32 @@
   </div>
 </details>
 
+<details class="pk-card do" data-testid="design-options-seismic">
+  <summary><span class="do-h">{t('designData.seismicSection')}</span> <span class="do-sum" data-testid="design-options-seismic-summary">{summary(['seismic'], advice === 'recommend' ? [t('designData.seismic.recommended')] : [])}</span></summary>
+  <div class="do-opt" data-testid="design-data-lateral">
+    <span class="do-inline do-label">{t('lateral.title')}</span>
+    <label class="do-inline">{t('lateral.beams')}
+      <select value={d.lateralSystem?.beams ?? ''} onchange={(e) => { const v = e.currentTarget.value; setBeamsLateral(v === 'lateral' || v === 'gravity' ? v : null); }} data-testid="design-data-lateral-beams">
+        <option value="">{t('lateral.option.undeclared')}</option>
+        <option value="lateral">{t('lateral.option.lateral')}</option>
+        <option value="gravity">{t('lateral.option.gravity')}</option>
+      </select>
+    </label>
+    <Hint text={t('lateral.projectHint')} />
+  </div>
+  {#if advice}<p class="do-advice" class:warn={advice === 'recommend'} data-testid="dd-seismic-advice" data-advice={advice}>{t(`rcSheets.seismicAdvice.${advice}`)}</p>{/if}
+  {@render option('seismic')}
+  {#if live('seismic')}
+    <div class="do-sub" data-testid="dd-seismic-rules">
+      <span class="do-inline">{t('designData.seismic.rules')}</span>
+      <ul class="do-rules">{#each SEISMIC_RULES as k (k)}<li>{t(`designData.seismic.rule.${k}`)}</li>{/each}</ul>
+    </div>
+    <div class="do-sub" data-testid="rc-seismic-data">
+      <SeismicEditor />
+    </div>
+  {/if}
+</details>
+
 <details class="pk-card do" data-testid="design-options-detailing">
   <summary><span class="do-h">{t('designData.detailing')}</span> <span class="do-sum" data-testid="design-options-detailing-summary">{summary(DETAILING, [`s ≥ ${fmt(d.minTieSpacingMm / 10, Number.isInteger(d.minTieSpacingMm / 10) ? 0 : 1)} cm`, `dagg ${fmt(d.maxAggregateMm, 0)} mm`])}</span></summary>
   {@render option('bentBars')}
@@ -139,6 +168,9 @@
   <div class="do-opt">
     <label class="do-chk"><input type="checkbox" checked={defl.always === true} onchange={(e) => setDeflectionSettings({ always: e.currentTarget.checked ? true : undefined })} data-testid="dd-defl-always" /> <span>{t('designData.deflectionAlways')}</span></label>
   </div>
+  <div class="do-sub" data-testid="design-data-deflection-limits">
+    <ProDeflectionLimits />
+  </div>
 </details>
 
 <details class="pk-card do" data-testid="design-options-foundations">
@@ -189,20 +221,7 @@
 
 <StabileoCriteria />
 
-<details class="pk-card do" data-testid="design-options-seismic">
-  <summary><span class="do-h">{t('designData.seismicSection')}</span> <span class="do-sum" data-testid="design-options-seismic-summary">{summary(['seismic'], advice === 'recommend' ? [t('designData.seismic.recommended')] : [])}</span></summary>
-  {#if advice}<p class="do-advice" class:warn={advice === 'recommend'} data-testid="dd-seismic-advice" data-advice={advice}>{t(`rcSheets.seismicAdvice.${advice}`)}</p>{/if}
-  {@render option('seismic')}
-  {#if live('seismic')}
-    <div class="do-sub" data-testid="dd-seismic-rules">
-      <span class="do-inline">{t('designData.seismic.rules')}</span>
-      <ul class="do-rules">{#each SEISMIC_RULES as k (k)}<li>{t(`designData.seismic.rule.${k}`)}</li>{/each}</ul>
-    </div>
-    <div class="do-sub" data-testid="rc-seismic-data">
-      <SeismicEditor />
-    </div>
-  {/if}
-</details>
+
 
 <style>
   .do > summary { cursor: pointer; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; }
@@ -220,5 +239,6 @@
   .do-cls { display: inline-flex; align-items: center; gap: 3px; font-size: 0.68rem; color: var(--st-text-2); }
   .do-advice { margin: 6px 0 2px; font-size: 0.7rem; line-height: 1.4; color: var(--st-text-2); }
   .do-advice.warn { color: var(--st-warn); }
+  .do-label { font-weight: 600; color: var(--st-text); }
   .do-rules { margin: 2px 0 0; padding-left: 2.2em; font-size: 0.68rem; line-height: 1.45; color: var(--st-text-2); }
 </style>

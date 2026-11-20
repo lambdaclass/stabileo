@@ -67,13 +67,10 @@ test.describe('@smoke design data with design off', () => {
     await cover.fill('35');
     await cover.dispatchEvent('change');
     await expect.poll(() => page.evaluate(() => window.__stabileo.serializeProject())).toMatch(/"beam":0\.035\b/);
-    await expect(page.getByTestId('rc-dd-summary')).toContainText('35 mm');
 
     await page.getByTestId('rc-design').click();
     await expect(page.getByTestId('rc-open-vertical')).toBeEnabled({ timeout: 120_000 }); // slow-ok: the sheets design every member and combination before the families open
-    const before = await page.getByTestId('rc-dd-summary').textContent();
     await setDesignOption(page, 'seismic');
-    await expect(page.getByTestId('rc-dd-summary')).not.toHaveText(before ?? '');
     await expect(page.getByTestId('rc-stale')).toBeVisible();
     await page.getByTestId('rc-redesign').click();
     await expect(page.getByTestId('rc-stale')).toHaveCount(0, { timeout: 120_000 }); // slow-ok: chapter 18 designs every column against the joints' beams again

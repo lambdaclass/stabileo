@@ -108,7 +108,7 @@ export function seismicAdvice(): 'recommend' | 'withoutLoads' | null {
 export function proposalBasis(dd: ProjectDesignData = designData()): string {
   return JSON.stringify({
     fy: dd.rebarFy, stirrup: dd.stirrupDiaMm, covers: dd.covers, control: dd.executionControl !== false, long: dd.longDiametersMm, ties: dd.stirrupDiametersMm,
-    slab: dd.slabDiametersMm, floor: dd.minTieSpacingMm, aggregate: dd.maxAggregateMm, wall: dd.wallBarDiaMm, byElement: dd.coverByElement ?? null, slabBase: dd.slabBase ?? null,
+    slab: dd.slabDiametersMm, floor: dd.minTieSpacingMm, aggregate: dd.maxAggregateMm, wall: dd.wallDiametersMm, byElement: dd.coverByElement ?? null, slabBase: dd.slabBase ?? null,
     options: optionsView(dd.designOptions), ends: dd.columnEndZones === true, lateral: dd.lateralSystem ?? null, deflection: dd.designOptions?.deflection ?? null, bearing: dd.presumedBearingKPa, ...(dd.presumedPile ? { pile: dd.presumedPile } : {}), lines: dd.propertyLines ?? null,
     ...((k) => (k ? { criteria: k } : {}))(criteriaKey(dd.designOptions?.criteria)),
   });
@@ -639,7 +639,7 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
     const g = groupOf(d.key);
     const stack = wallStack.get(d.key);
     const belowSpecial = !!stack?.below && wallDone.get(stack.below)?.seismic?.special === true;
-    return { mat: { fc: fcOfShells(g?.members.quads ?? [], g?.members.plates ?? []), fy }, cover: dd.covers.wall, barDia: dd.wallBarDiaMm, diameters: dd.longDiametersMm, ...ties, ...(seismic ? { seismic } : {}), ...(belowSpecial ? { belowSpecial } : {}) };
+    return { mat: { fc: fcOfShells(g?.members.quads ?? [], g?.members.plates ?? []), fy }, cover: dd.covers.wall, barDia: dd.wallBarDiaMm, meshDiameters: dd.wallDiametersMm, diameters: dd.longDiametersMm, criteria: crit, ...ties, ...(seismic ? { seismic } : {}), ...(belowSpecial ? { belowSpecial } : {}) };
   };
   const pierHooks: PierHooks = {
     fmt, fy, diameters: dd.longDiametersMm,

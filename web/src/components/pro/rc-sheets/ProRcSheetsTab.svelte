@@ -1,6 +1,5 @@
 <script lang="ts">
-  import { t, tp, tpn, i18n } from '../../../lib/i18n';
-  import { decimalFor, makeFmt } from '../../../lib/rc-sheets/format';
+  import { t, tp, tpn } from '../../../lib/i18n';
   import { modelStore, resultsStore } from '../../../lib/store';
   import { downloadRcSheets, meshWallsForSheets, rcSheetsData, sheetsHavePhysical, wallsToMeshForSheets, type SheetRow } from '../../../lib/store/rc-sheets.svelte';
   import { uiStore } from '../../../lib/store/ui.svelte';
@@ -9,8 +8,6 @@
   import RcSheetsProgress from './RcSheetsProgress.svelte';
   import RcCoversNotice from './RcCoversNotice.svelte';
   import { SHEET_TABS, TAB_FAMILIES, type SheetTab } from '../../../lib/rc-sheets/types';
-  import { DESIGN_OPTION_FLAGS, optionRule } from '../../../lib/rc-sheets/design-options';
-  import { tick } from 'svelte';
   import RcLeftOut from './RcLeftOut.svelte';
   import RcExportLog from './RcExportLog.svelte';
   import RcSheetsWorkspace from './RcSheetsWorkspace.svelte';
@@ -19,8 +16,8 @@
   import { SHEET_CODES } from '../../../lib/rc-sheets/types';
   import { sheetCode } from '../../../lib/store/rc-sheets.svelte';
   import { rulesFor } from '../../../lib/rc-sheets/codes';
-  import { designData } from '../../../lib/store/design-data';
   import ProDesignDataPanel from '../ProDesignDataPanel.svelte';
+  import Icon from '../../ribbon/Icon.svelte';
 
   let open = $state(false);
   const code = $derived.by(() => { void modelStore.designData; return sheetCode(); });
@@ -31,21 +28,7 @@
   followSheetEdits();
   const rows = $derived(solved && hasPhysical ? sheetsRun.rows : null);
   const stale = $derived(sheetsStale());
-  const dd = $derived.by(() => { void modelStore.designData; return designData(); });
   const seismicOn = $derived.by(() => { void modelStore.designData; return rcSheetsData().seismic === true && rulesFor(code).seismic; });
-  /** The design data the sheets design with, in one line: covers, the stirrup lists' floor, torsion and the options on under this code. */
-  const ddLine = $derived.by(() => {
-    void modelStore.designData;
-    const o = rcSheetsData();
-    const on = [...DESIGN_OPTION_FLAGS.filter((k) => o[k] && !optionRule(k, code).off), ...(dd.columnEndZones && !optionRule('endZones', code).off ? ['endZones'] : [])];
-    return [
-      tp('building.general.moreSummary', { c: Math.round(dd.covers.beam * 1000), e: t(`designData.exp.${dd.exposure.beam}`) }),
-      `s ≥ ${makeFmt(decimalFor(i18n.locale))(dd.minTieSpacingMm / 10, Number.isInteger(dd.minTieSpacingMm / 10) ? 0 : 1)} cm`, t(`designData.opt.short.torsion.${o.torsion}`), ...on.map((k) => t(`designData.opt.short.${k}`)),
-    ].join(' · ');
-  });
-  let ddOpen = $state(false);
-  let ddBox = $state<HTMLDetailsElement | null>(null);
-  async function editDesignData() { ddOpen = true; await tick(); ddBox?.scrollIntoView({ block: 'start', behavior: 'smooth' }); }
   const stat = (list: SheetRow[]) => ({ n: list.length, ok: list.filter((r) => r.status !== 'fail').length, fail: list.filter((r) => r.status === 'fail').length });
 
   function openAt(k: SheetTab) { tab = k; open = true; }
@@ -61,7 +44,8 @@
 </script>
 
 <div class="rcp" data-testid="rc-sheets-panel">
-  <p class="rcp-intro">{tp('rcSheets.desc', { code: SHEET_CODES[code].name })}</p>
+  <div class="rcp-code" data-testid="rc-panel-code"><RcCodePicker /></div>
+  <p class="rcp-intro" data-testid="rc-code-desc">{tp('rcSheets.desc', { code: SHEET_CODES[code].name })}</p>
   <RcCoversNotice />
   <RcExportLog compact />
 
@@ -78,8 +62,6 @@
       <p class="rcp-basis warn">{tpn('rcSheets.wallsToMesh', wallsToMesh)}</p>
       <button type="button" class="rcs-btn" onclick={meshWalls} disabled={solving} data-testid="rc-mesh-walls">{t('rcSheets.meshWalls')}</button>
     {/if}
-    <div data-testid="rc-panel-code"><RcCodePicker /></div>
-    <p class="rcp-note">{t('rcSheets.designHint')}</p>
     <button type="button" class="rcs-btn primary" onclick={designSheets} disabled={solving} data-testid="rc-design">{t('rcSheets.design')}</button>
   {:else}
     {#if wallsToMesh > 0}
@@ -90,8 +72,6 @@
       <p class="rcp-basis warn" data-testid="rc-stale">{t('rcSheets.stale')}</p>
       <button type="button" class="rcs-btn primary" onclick={designSheets} data-testid="rc-redesign">{t('rcSheets.redesign')}</button>
     {/if}
-    <div data-testid="rc-panel-code"><RcCodePicker /></div>
-    <p class="rcp-note">{t('rcSheets.codeHint')}</p>
     <p class="rcp-basis" class:warn={rows.basis !== 'combinations'}>
       {rows.basis === 'combinations' ? tpn('rcSheets.basis.combinations', rows.combos) : t(`rcSheets.basis.${rows.basis}`)}
     </p>
@@ -112,13 +92,10 @@
       <button type="button" class="rcs-btn" onclick={() => downloadRcSheets(rows, t)} disabled={stale} title={stale ? t('rcSheets.exportStale') : undefined} data-testid="rc-export-workbook">{t('rcSheets.export')}</button>
     </div>
     <RcRebar3d {rows} />
-    <p class="rcp-note" data-testid="rc-scope-note">{t('rcSheets.scopeNote')}</p>
-    <p class="rcp-note" data-testid="rc-limits-note">{t('rcSheets.limits')}</p>
     {#if seismicOn}<p class="rcp-note">{t('rcSheets.scopeNoteSeismic')}</p>{/if}
   {/if}
-  <p class="rcp-dd" data-testid="rc-dd-summary"><span>{t('designData.title')}: {ddLine}</span> <button type="button" class="rcp-link" onclick={editDesignData} data-testid="rc-dd-edit">{t('rcSheets.ddEdit')}</button></p>
-  <details class="rcp-more" bind:open={ddOpen} bind:this={ddBox} data-testid="rc-design-data">
-    <summary>{t('designData.title')}</summary>
+  <details class="rcp-more" data-testid="rc-design-data">
+    <summary class="rcp-dd-btn" title={t('rcSheets.ddEdit')} data-testid="rc-dd-edit"><Icon name="settings" size={14} /><span>{t('designData.title')}</span><span class="rcp-dd-caret" aria-hidden="true">›</span></summary>
     <ProDesignDataPanel />
   </details>
 </div>
@@ -140,10 +117,14 @@
   .rcp-fams button:disabled { opacity: 0.55; cursor: default; }
   .cnt { color: var(--st-text-3); font-size: 0.7rem; }
   .rcp-actions { display: flex; gap: 6px; }
-  .rcp-more { border-top: 1px solid var(--st-hair); padding-top: 6px; }
-  .rcp-more > summary { cursor: pointer; font-size: 0.74rem; color: var(--st-text); }
-  .rcp-dd { margin: 0; font-size: 0.7rem; line-height: 1.45; color: var(--st-text-2); }
-  .rcp-link { border: none; background: none; padding: 0; color: var(--st-accent, var(--st-text)); text-decoration: underline; cursor: pointer; font-size: 0.7rem; }
+  .rcp-more { border-top: 1px solid var(--st-hair); padding-top: 8px; }
+  .rcp-dd-btn { list-style: none; display: flex; align-items: center; gap: 7px; padding: 6px 10px; border: 1px solid var(--st-hair-strong); border-radius: var(--st-radius); background: var(--st-surface-2); color: var(--st-text); font-size: 0.76rem; font-weight: 500; cursor: pointer; }
+  .rcp-dd-btn::-webkit-details-marker { display: none; }
+  .rcp-dd-btn:hover { border-color: var(--st-accent); }
+  .rcp-dd-btn:focus-visible { outline: 2px solid var(--st-focus); outline-offset: 2px; }
+  .rcp-dd-caret { margin-left: auto; color: var(--st-text-3); transition: transform 0.15s; }
+  .rcp-more[open] > .rcp-dd-btn { border-color: var(--st-accent); }
+  .rcp-more[open] .rcp-dd-caret { transform: rotate(90deg); }
   .rcs-btn { font-size: 0.74rem; border: 1px solid var(--st-hair); background: var(--st-surface-2); color: var(--st-text); border-radius: 4px; padding: 4px 10px; cursor: pointer; }
   .rcs-btn.primary { background: var(--st-accent, var(--st-surface-3)); color: var(--st-on-accent, var(--st-text)); }
 </style>

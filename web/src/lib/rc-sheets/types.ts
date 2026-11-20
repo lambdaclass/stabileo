@@ -28,6 +28,8 @@ export const BEAM_BAR_RANGE = { min: 10, max: 25 } as const;
 export const COLUMN_BAR_RANGE = { min: 12, max: 32 } as const;
 /** The diameters a project may allow for stirrups, hoops and ties, mm. */
 export const TIE_BAR_RANGE = { min: 6, max: 16 } as const;
+/** The diameters a project may allow for a wall's meshes, mm. */
+export const WALL_BAR_RANGE = { min: 8, max: 20 } as const;
 export const FOOTING_BAR_RANGE = { min: 10, max: 25 } as const;
 export const inRange = (dia: number, r: { min: number; max: number }): boolean => dia >= r.min && dia <= r.max;
 
@@ -144,7 +146,7 @@ export interface RcSheetsData {
 export type StoredRcSheets = Omit<RcSheetsData, 'torsion' | 'faces' | 'flange' | 'seismic' | 'bentBars' | 'slabBentBars'>;
 
 /** Raised whenever what the proposals propose changes, so the proposals adopted before it are proposed again. */
-export const RC_SHEETS_LOGIC = 26;
+export const RC_SHEETS_LOGIC = 27;
 
 export const defaultRcSheetsData = (): RcSheetsData => ({ version: 1, torsion: 'equilibrium', adopted: {} });
 
