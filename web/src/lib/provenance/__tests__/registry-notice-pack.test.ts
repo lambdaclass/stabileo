@@ -15,7 +15,7 @@ function packNotice(change: ResultChange) {
   return load.call({ addWatchFile: vi.fn() } as ThisParameterType<typeof load>, '\0virtual:result-change-packed');
 }
 
-it.skip('known wrong result: #2360 — refuses to pack a notice without its Chinese title or explanation', () => {
+it('refuses to pack a notice without its Chinese title or explanation', () => {
   const title: Partial<Localised> = { ...entry.title };
   delete title.zh;
   const explanation = { ...entry.explanation, zh: ' ' };

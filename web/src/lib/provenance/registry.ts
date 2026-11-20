@@ -15,8 +15,9 @@
 import { researchBuilt } from '../features';
 import metadata from 'virtual:result-change-metadata';
 import { conditionGroups } from '../../../scripts/results-snapshot/applicability.mjs';
+import { REGISTRY_LOCALES, resultChangeLocaleProblems } from '../../../scripts/result-changes/locales.mjs';
 
-export const REGISTRY_LOCALES = ['en', 'es', 'pt', 'de', 'fr', 'tr', 'zh'] as const;
+export { REGISTRY_LOCALES };
 export type RegistryLocale = (typeof REGISTRY_LOCALES)[number];
 export type Localised = Record<RegistryLocale, string> & { hu?: string };
 
@@ -134,10 +135,7 @@ export function validateRegistry(r: ResultChangeRegistry, knownFeatures: Readonl
     if (!/^\d{4}-\d{2}-\d{2}$/.test(c.date)) problems.push(`${where}: date must be YYYY-MM-DD`);
     if (!Array.isArray(c.prs) || c.prs.some(pr => !Number.isInteger(pr) || pr <= 0)) problems.push(`${where}: prs must be a list of positive integer issue or PR numbers`);
     if (!['analysis', 'design', 'loads'].includes(c.area)) problems.push(`${where}: unknown area ${c.area}`);
-    for (const loc of REGISTRY_LOCALES) {
-      if (!c.title?.[loc]?.trim()) problems.push(`${where}: missing title.${loc}`);
-      if (!c.explanation?.[loc]?.trim()) problems.push(`${where}: missing explanation.${loc}`);
-    }
+    problems.push(...resultChangeLocaleProblems(c));
     if (!c.changelog?.file || !c.changelog?.heading) problems.push(`${where}: missing changelog link`);
     if (c.quantities !== undefined && (!Array.isArray(c.quantities) || c.quantities.length === 0
       || c.quantities.some((q) => typeof q === 'string' ? !QUANTITY.test(q)
