@@ -31,7 +31,9 @@ import type { Vec3 } from '../model/edit/affine';
 import { generateMesh, MAX_MESH_CELLS, type MeshOutput } from '../model/edit/mesher';
 import { frameAlong, gridMesh } from '../model/edit/grid-mesh';
 import { rectGrid } from '../model/edit/rect-grid';
-import { applyMesh } from '../model/edit/mesh-apply';
+import { meshStations, sameMeshNode, sharedFrameStations, stationIndex, strictlyOrAt } from '../model/edit/mesh-stations';
+import { applyMesh, regionOccupied } from '../model/edit/mesh-apply';
+import { weldTolerance } from '../model/weld-tolerance';
 import { mergeCollinear } from '../model/edit/merge-collinear';
 import { addFloorLoadDef, syncDefinedLoads } from './defined-loads';
 import { constraintNodes } from '../engine/steel/unbraced-length';
@@ -145,7 +147,7 @@ function sharedFeatures() {
   return sharedMemo;
 }
 
-function featuresOf(e: PlateEntry, spec: PlateMeshSpec = e.surface.mesh) {
+function featuresOf(e: PlateEntry, spec: PlateMeshSpec = e.surface.mesh, replaced?: ReadonlyMap<number, number>) {
   const geo = plateGeometry(plateModel(), e.group, meshSampler(spec.size));
   if (!geo) return null;
   const loops = plateLoops(e.group);
@@ -155,7 +157,7 @@ function featuresOf(e: PlateEntry, spec: PlateMeshSpec = e.surface.mesh) {
   for (const q of e.group.members.quads ?? []) for (const n of modelStore.quads.get(q)?.nodes ?? []) inMine.set(n, (inMine.get(n) ?? 0) + 1);
   for (const p of e.group.members.plates ?? []) for (const n of modelStore.plates.get(p)?.nodes ?? []) inMine.set(n, (inMine.get(n) ?? 0) + 1);
   const neighbours = new Set<number>();
-  for (const [n, c] of shellNodes) if (c > (inMine.get(n) ?? 0)) neighbours.add(n);
+  for (const [n, c] of shellNodes) if (c > (replaced?.get(n) ?? inMine.get(n) ?? 0)) neighbours.add(n);
   const loopNodes = new Set([...loops.outer, ...loops.holes.flat()]);
   const at = (n: number): Vec3 | null => { const p = modelStore.nodes.get(n); return p ? [p.x, p.y, p.z ?? 0] : null; };
   return { geo, features: externalFeatures(plateModel(), geo, owned, loopNodes, { mine, neighbours, chains }), neighbourAt: (n: number) => (neighbours.has(n) ? at(n) : null), neighbours };
@@ -698,12 +700,12 @@ function planPlateMeshesNow(ids: readonly number[]): PlateMeshPlan[] {
 }
 
 /** One plate's plan, synchronously. */
-export function planPlateMesh(id: number, specOverride?: Partial<PlateMeshSpec>, opts: { meshedAgain?: ReadonlySet<string> } = {}): PlateMeshPlan | null {
+export function planPlateMesh(id: number, specOverride?: Partial<PlateMeshSpec>, opts: { meshedAgain?: ReadonlySet<string>; replaced?: ReadonlyMap<number, number> } = {}): PlateMeshPlan | null {
   const e = plateEntry(id);
   if (!e) return null;
   const spec = specOf(e, specOverride);
   const base = { id, name: e.name, spec, localLoads: localLoadsOn(e), keptNodes: keptMeshNodes(e) };
-  const f = featuresOf(e, spec);
+  const f = featuresOf(e, spec, opts.replaced);
   if (!f) return { ...base, mesh: null, refused: 'invalid', cells: 0, quality: null, signature: '', input: null, mixed: false };
   const input = plateMeshInput(f.geo, spec, f.features);
   const signature = signatureOf(e, f, spec);
@@ -752,16 +754,6 @@ const v3 = (n: number): Vec3 | null => { const p = modelStore.nodes.get(n); retu
 
 function onLoops(loops: readonly (readonly Vec3[])[], p: Vec3): boolean {
   return loops.some((l) => l.some((a, i) => strictlyOrAt(p, a, l[(i + 1) % l.length]!, true)));
-}
-
-function strictlyOrAt(p: Vec3, a: Vec3, b: Vec3, ends: boolean): boolean {
-  const ab: Vec3 = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], L2 = ab[0] * ab[0] + ab[1] * ab[1] + ab[2] * ab[2];
-  if (L2 < 1e-18) return false;
-  const t = ((p[0] - a[0]) * ab[0] + (p[1] - a[1]) * ab[1] + (p[2] - a[2]) * ab[2]) / L2;
-  const off = Math.hypot(p[0] - a[0] - ab[0] * t, p[1] - a[1] - ab[1] * t, p[2] - a[2] - ab[2] * t);
-  if (off > 1e-4) return false;
-  const tol = 1e-6 / Math.sqrt(L2);
-  return ends ? t >= -tol && t <= 1 + tol : t > tol && t < 1 - tol;
 }
 
 const hangsOn = (points: readonly Vec3[], edges: ReadonlyArray<readonly [Vec3, Vec3]>) =>
@@ -861,12 +853,16 @@ function plateAreaEstimate(geo: NonNullable<ReturnType<typeof plateGeometry>>, s
  * area loads. One undo step with the caller's.
  */
 export function clearPlateMesh(id: number): { removedNodes: number; keptNodes: number } {
+  return removePlateMesh(id);
+}
+
+function removePlateMesh(id: number, updateNeighbours = true): { removedNodes: number; keptNodes: number } {
   const e = plateEntry(id);
   if (!e) return { removedNodes: 0, keptNodes: 0 };
   const loops = plateLoops(e.group);
   const owned = new Set(loops.owned);
   let removedNodes = 0, keptNodes = 0;
-  const current = physicalPlates().filter((x) => x.id !== id && plateStatus(x.id) === 'current').map((x) => x.id);
+  const current = updateNeighbours ? physicalPlates().filter((x) => x.id !== id && plateStatus(x.id) === 'current').map((x) => x.id) : [];
   modelStore.batch(() => {
     untieNodes(owned);
     const spread = new Set(e.surface.meshed?.supportIds ?? []);
@@ -903,36 +899,95 @@ export function clearPlateMesh(id: number): { removedNodes: number; keptNodes: n
 
 export interface PlateMeshReport { plates: number; cells: number; refused: Array<{ id: number; reason: string }>; droppedLocalLoads: number; keptNodes: number }
 
-/**
- * A batch of planned meshes put in, in three parts: the old meshes out, each plate meshed against
- * the meshes put in before it, and the neighbours and loads brought up to date. `applyPlateMeshes`
- * runs them as one step; `applyPlateMeshesAsync` gives the page a frame between plates.
- */
+type ReadyPlateMesh = PlateMeshPlan & { mesh: MeshOutput; input: NonNullable<PlateMeshPlan['input']> };
+const readyPlateMesh = (p: PlateMeshPlan): p is ReadyPlateMesh => !!p.mesh && !!p.input;
+
+function planConformingMeshes(plans: readonly PlateMeshPlan[], report: PlateMeshReport, forAnalysis: boolean): ReadyPlateMesh[] {
+  const requested = new Map(plans.map(p => [p.id, p]));
+  const specs = new Map(plans.map(p => [p.id, p.spec]));
+  const entries = physicalPlates();
+  const shellOwners = new Map(entries.flatMap(e => plateShellKeys(e.id).map(key => [key, e.id] as const)));
+  const shells = [
+    ...[...modelStore.quads.values()].map(shell => ({ key: `q${shell.id}`, nodes: shell.nodes })),
+    ...[...modelStore.plates.values()].map(shell => ({ key: `p${shell.id}`, nodes: shell.nodes })),
+  ];
+  const weld = weldTolerance();
+  while (specs.size) {
+    const replaced = new Map<number, number>();
+    const meshedAgain = new Set<string>();
+    const untouched = new Map<number | undefined, Vec3[][]>();
+    for (const { key, nodes } of shells) {
+      const owner = shellOwners.get(key);
+      if (owner !== undefined && specs.has(owner)) {
+        meshedAgain.add(key);
+        for (const id of nodes) replaced.set(id, (replaced.get(id) ?? 0) + 1);
+      } else {
+        const points = nodes.map(v3);
+        if (points.every((p): p is Vec3 => p !== null)) {
+          const cells = untouched.get(owner) ?? [];
+          cells.push(points);
+          untouched.set(owner, cells);
+        }
+      }
+    }
+    const drafts: ReadyPlateMesh[] = [];
+    for (const [id, spec] of specs) {
+      const p = planPlateMesh(id, spec, { meshedAgain, replaced });
+      if (!p || !readyPlateMesh(p)) report.refused.push({ id, reason: p?.refused ?? 'cannotMesh' });
+      else if (p.localLoads && (forAnalysis || !requested.has(id))) report.refused.push({ id, reason: 'localLoads' });
+      else if (p.localLoads > (requested.get(id)?.localLoads ?? 0)) report.refused.push({ id, reason: 'interrupted' });
+      else if (regionOccupied(p.input, p.mesh.plane, undefined, meshedAgain)) report.refused.push({ id, reason: 'occupied' });
+      else drafts.push(p);
+    }
+    if (report.refused.length) return [];
+
+    const owned = new Set(entries.filter(e => specs.has(e.id)).flatMap(e => plateLoops(e.group).owned));
+    const frameNodes = memberChains(plateModel(), owned).flat();
+    const frame = stationIndex([...new Set(frameNodes)].map(v3).filter((p): p is Vec3 => p !== null));
+    const existing = [...untouched].map(([id, cells]) => ({ id, cells, stations: stationIndex(cells.flat()) }));
+    const planned = drafts.map(p => ({ p, stations: stationIndex(p.mesh.points) }));
+    const frameStations = sharedFrameStations(frame, [...existing, ...drafts.map(p => ({
+      id: p.id, cells: p.mesh.cells.map(cell => cell.map(i => p.mesh.points[i]!)),
+    }))]);
+    const final: ReadyPlateMesh[] = [];
+    for (const { p, stations } of planned) {
+      const neighbours = [...planned.filter(other => other.p.id !== p.id), ...existing]
+        .map(other => other.stations).filter(index => index.overlaps(stations));
+      const mesh = meshStations(p.mesh, (a, b) => [
+        ...neighbours.flatMap(index => index.between(a, b)), ...frameStations(p.id, a, b),
+      ], weld);
+      if (!mesh) report.refused.push({ id: p.id, reason: 'cannotMesh' });
+      else final.push(mesh === p.mesh ? p : { ...p, mesh, cells: mesh.cells.length, quality: meshQuality(mesh), mixed: true });
+    }
+    if (report.refused.length) return [];
+
+    const finalStations = final.map(p => ({ id: p.id, stations: stationIndex(p.mesh.points) }));
+    let expanded = false;
+    for (const { id, cells, stations } of existing) {
+      for (const candidate of finalStations) {
+        if (!stations.overlaps(candidate.stations) || !cells.some(cell => cell.some((a, i) => {
+          const b = cell[(i + 1) % cell.length]!;
+          return candidate.stations.between(a, b).some(p => !sameMeshNode(p, a, weld) && !sameMeshNode(p, b, weld));
+        }))) continue;
+        const e = id === undefined ? null : plateEntry(id);
+        if (!e) report.refused.push({ id: candidate.id, reason: 'cannotMesh' });
+        else if (localLoadsOn(e)) report.refused.push({ id: e.id, reason: 'localLoads' });
+        else {
+          specs.set(e.id, specOf(e));
+          expanded = true;
+        }
+        break;
+      }
+    }
+    if (report.refused.length) return [];
+    if (!expanded) return final;
+  }
+  return [];
+}
+
 function meshingRun(plans: readonly PlateMeshPlan[], forAnalysis = false) {
   const report: PlateMeshReport = { plates: 0, cells: 0, refused: [], droppedLocalLoads: 0, keptNodes: 0 };
-  const ok: PlateMeshPlan[] = [];
-  const attempted = new Set<number>();
-  let wave: number[] = [];
-  const addWave = (next: readonly PlateMeshPlan[]) => {
-    if (forAnalysis) {
-      const loaded = next.filter((p) => p.localLoads > 0);
-      if (loaded.length) {
-        for (const p of loaded) report.refused.push({ id: p.id, reason: 'localLoads' });
-        return;
-      }
-    }
-    wave = [];
-    for (const p of next) {
-      if (!p.mesh || !p.input) {
-        report.refused.push({ id: p.id, reason: p.refused ?? 'cannotMesh' });
-        continue;
-      }
-      wave.push(p.id);
-      attempted.add(p.id);
-      ok.push(p);
-    }
-  };
-  addWave(plans);
+  const ok = planConformingMeshes(plans, report, forAnalysis);
   const current = ok.length ? physicalPlates().filter((e) => plateStatus(e.id) === 'current').map((e) => e.id) : [];
   const meshed: number[] = [];
   let loadDefsChanged = false;
@@ -946,18 +1001,15 @@ function meshingRun(plans: readonly PlateMeshPlan[], forAnalysis = false) {
     }
     loadDefsChanged ||= plateLoadDefs(e.id).length > 0;
     report.droppedLocalLoads += planned.localLoads;
-    report.keptNodes += clearPlateMesh(planned.id).keptNodes;
+    report.keptNodes += removePlateMesh(planned.id, false).keptNodes;
   };
   const cellsOf = new Map<number, number>();
-  const meshOne = (planned: PlateMeshPlan) => {
-    // Planned again on the model as it now is, so it meets the meshes just put in beside it.
-    const p = planPlateMesh(planned.id, planned.spec, { meshedAgain: new Set(wave.flatMap(plateShellKeys)) }) ?? planned;
-    if (!p.mesh || !p.input) { report.refused.push({ id: p.id, reason: p.refused ?? 'cannotMesh' }); return; }
+  const meshOne = (p: ReadyPlateMesh) => {
     const e = plateEntry(p.id);
     if (!e) return;
     const before = new Set(modelStore.nodes.keys());
     const fp = p.footprints;
-    const r = applyMesh(p.input!, { materialId: e.surface.materialId, thickness: e.surface.thickness, splitBeams: p.spec.followMembers, ...(fp ? { splitAt: outsideFootprints(fp.columns, fp.z) } : {}) }, p.mesh!);
+    const r = applyMesh(p.input, { materialId: e.surface.materialId, thickness: e.surface.thickness, splitBeams: p.spec.followMembers, ...(fp ? { splitAt: outsideFootprints(fp.columns, fp.z) } : {}) }, p.mesh);
     if (!r || r.occupied) { report.refused.push({ id: p.id, reason: 'occupied' }); return; }
     const created = [...new Set(r.nodeIds)].filter((n) => !before.has(n));
     if (fp) tieFootprints(new Set(r.nodeIds), fp.columns);
@@ -981,8 +1033,8 @@ function meshingRun(plans: readonly PlateMeshPlan[], forAnalysis = false) {
     if (!meshed.includes(p.id)) meshed.push(p.id);
   };
   let sprung = 0;
-  const finish = (waveDone: boolean) => {
-    for (const id of new Set([...current, ...meshed])) {
+  const finish = (finished: boolean) => {
+    if (finished) for (const id of new Set([...current, ...meshed])) {
       if (plateStatus(id) !== 'stale') continue;
       const e = plateEntry(id);
       if (e && !meshHangsNeighbours(e)) adoptCurrentMesh(id);
@@ -992,18 +1044,6 @@ function meshingRun(plans: readonly PlateMeshPlan[], forAnalysis = false) {
     const springy = meshed.slice(sprung).filter((id) => plateEntry(id)?.surface.springs);
     sprung = meshed.length;
     if (springy.length) respring(springy);
-    if (waveDone && forAnalysis && !report.refused.length) {
-      const next = platesNeedingMesh({ coarse: false }).filter((id) => !attempted.has(id));
-      if (next.length) addWave(planPlateMeshesNow(next));
-    }
-  };
-  const applyWave = (from: number) => {
-    const pending = ok.slice(from);
-    const byShell = shellAreaLoads();
-    for (const p of pending) clear(p, byShell);
-    for (const p of pending) meshOne(p);
-    finish(true);
-    return from + pending.length;
   };
   const applySlice = (from: number, sliceMs: number) => {
     const end = performance.now() + sliceMs;
@@ -1019,7 +1059,7 @@ function meshingRun(plans: readonly PlateMeshPlan[], forAnalysis = false) {
   };
   const asPlanned = () => ok.every((p) => { const e = plateEntry(p.id); return !e || localLoadsOn(e) <= p.localLoads; });
   const refuseAll = () => { for (const p of ok) report.refused.push({ id: p.id, reason: 'interrupted' }); return report; };
-  return { report, ok, applyWave, applySlice, asPlanned, refuseAll };
+  return { report, ok, applySlice, asPlanned, refuseAll };
 }
 
 /** Put the planned meshes in, replacing each plate's old one, as one undo step. */
@@ -1030,10 +1070,7 @@ export function applyPlateMeshes(plans: readonly PlateMeshPlan[]): PlateMeshRepo
 function applyMeshingRun(run: ReturnType<typeof meshingRun>): PlateMeshReport {
   if (!run.ok.length) return run.report;
   if (!run.asPlanned()) return run.refuseAll();
-  modelStore.batch(() => {
-    let done = 0;
-    while (done < run.ok.length) done = run.applyWave(done);
-  });
+  modelStore.batch(() => run.applySlice(0, Infinity));
   return run.report;
 }
 

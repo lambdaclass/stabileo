@@ -6,7 +6,7 @@ import { resultChangeLocaleProblems } from './result-changes/locales.mjs';
 import { readRegistry } from './result-changes/registry.mjs';
 
 export function readProfileResultChanges(proPlatesUnified) {
-  return readRegistry(undefined, id => proPlatesUnified || id !== 'plates-coarse-as-modelled-meshed');
+  return readRegistry(undefined, id => proPlatesUnified || !['plates-coarse-as-modelled-meshed', 'plates-conforming-batch-mesh'].includes(id));
 }
 
 export function packResultChangeNotices(registry) {

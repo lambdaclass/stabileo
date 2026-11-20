@@ -1,10 +1,12 @@
+import { tp } from '../i18n';
+import { uiStore } from './ui.svelte';
 import { modelStore } from './model.svelte';
 import { loadFamilyOfRegulations, type LoadFamilyChoice } from '../codes/families/stacks';
 import { regulationsStore } from './regulations.svelte';
 import { rulesFor } from '../rc-sheets/codes';
 import { resultsStore } from './results.svelte';
 import { physicalGroups, physicalThickness } from './physical';
-import { applyPlateMeshes, clearPlateMesh, physicalPlates, planPlateMesh, plateShellKeys, plateStatus, setPlateMeshSpec, type PlateMeshPlan } from './physical-plates';
+import { applyPlateMeshes, physicalPlates, planPlateMesh, plateEntry, plateShellKeys, plateStatus, type PlateMeshPlan } from './physical-plates';
 import { designData, patchOwnDesignData, setDesignData } from './design-data';
 import { activePerCombo3D, activeResultSet3D } from './active-results';
 import { seismicCaseIds, seismicSettings } from './seismic-design.svelte';
@@ -221,18 +223,16 @@ export function wallsToMeshForSheets(): number[] {
 export function meshWallsForSheets(): number {
   const ids = wallsToMeshForSheets();
   if (!ids.length) return 0;
-  let meshed = 0;
-  modelStore.batch(() => {
-    for (const id of ids) {
-      const e = physicalPlates().find((p) => p.id === id);
-      if (e && e.surface.mesh.size > WALL_MESH_SIZE) setPlateMeshSpec([id], { size: WALL_MESH_SIZE });
-      if (plateShellKeys(id).length === 1) clearPlateMesh(id);
-    }
-    const meshedAgain = new Set(ids.flatMap(plateShellKeys));
-    const plans = ids.map((id) => planPlateMesh(id, undefined, { meshedAgain })).filter((p): p is PlateMeshPlan => !!p && p.localLoads === 0);
-    meshed = applyPlateMeshes(plans).plates;
-  });
-  return meshed;
+  const meshedAgain = new Set(ids.flatMap(plateShellKeys));
+  const plans = ids.map(id => {
+    const wall = plateEntry(id);
+    return wall ? planPlateMesh(id, { size: Math.min(wall.surface.mesh.size, WALL_MESH_SIZE) }, { meshedAgain }) : null;
+  }).filter((p): p is PlateMeshPlan => !!p && p.localLoads === 0);
+  const report = applyPlateMeshes(plans);
+  if (report.refused.length) uiStore.toast(tp('plates.meshRefusedSome', { n: report.refused.length }), 'error');
+  if (!report.plates) return 0;
+  const pending = new Set(wallsToMeshForSheets());
+  return plans.filter(p => !pending.has(p.id)).length;
 }
 
 /** A row designed again from its demand with other dimensions, its context as the last build had it; by row key. */

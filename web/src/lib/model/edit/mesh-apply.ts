@@ -30,7 +30,7 @@ export interface MeshApplyResult {
  * outline, outside every hole, and on the region's plane. `exceptQuad` is a quad about to be
  * replaced by the mesh, which does not count.
  */
-export function regionOccupied(input: MeshInput, plane: MeshOutput['plane'], exceptQuad?: number): boolean {
+export function regionOccupied(input: MeshInput, plane: MeshOutput['plane'], exceptQuad?: number, exceptShells?: ReadonlySet<string>): boolean {
   const n: Vec3 = [
     plane.u[1] * plane.v[2] - plane.u[2] * plane.v[1],
     plane.u[2] * plane.v[0] - plane.u[0] * plane.v[2],
@@ -51,7 +51,8 @@ export function regionOccupied(input: MeshInput, plane: MeshOutput['plane'], exc
   };
   const tol = 1e-3;
   for (const shell of [...modelStore.quads.values(), ...modelStore.plates.values()]) {
-    if (shell.nodes.length === 4 && shell.id === exceptQuad) continue;
+    const quad = shell.nodes.length === 4;
+    if ((quad && shell.id === exceptQuad) || exceptShells?.has(`${quad ? 'q' : 'p'}${shell.id}`)) continue;
     const ps = shell.nodes.map((id) => modelStore.nodes.get(id));
     if (ps.some((p) => !p)) continue;
     const pts = ps.map((p): Vec3 => [p!.x, p!.y, p!.z ?? 0]);
