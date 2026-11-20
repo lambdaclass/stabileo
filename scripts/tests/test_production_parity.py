@@ -156,6 +156,52 @@ class ProductionParity(unittest.TestCase):
                 with self.assertRaisesRegex(RuntimeError, r'did not emit .*dedaliano_engine_bg.wasm'):
                     parity.main()
 
+    @unittest.skip('known wrong result: #2399')
+    def test_gate_builds_research_wasm_from_each_checkouts_solver_source(self):
+        with tempfile.TemporaryDirectory(dir=parity.ROOT) as directory:
+            repo = Path(directory)
+            web = repo / 'web'
+            source = repo / 'research/example/src/lib.rs'
+            source.parent.mkdir(parents=True)
+            source.write_text('pub fn solve() -> i32 { 1 }\n')
+            (web / 'config').mkdir(parents=True)
+            (web / 'package.json').write_text('{"scripts":{"build":"node build.cjs"}}')
+            (web / 'package-lock.json').write_text('{}')
+            (repo / parity.FLAGS).write_text('{"production":{"newFeature":false},"test":{"newFeature":false}}')
+            (repo / '.gitignore').write_text('/web/public/research-wasm/\n')
+            (repo / 'Makefile').write_text(SOLVER_RECIPE +
+                'research.wasm:\n'
+                '\tmkdir -p web/public/research-wasm/example\n'
+                '\tcp research/example/src/lib.rs web/public/research-wasm/example/solver_bg.wasm\n'
+            )
+            (web / 'build.cjs').write_text(
+                'const fs = require("node:fs");\n'
+                'fs.mkdirSync("dist");\n'
+                'fs.writeFileSync("dist/index.html", "legacy");\n'
+                'fs.cpSync("public/research-wasm", "dist/research-wasm", { recursive: true });\n'
+            )
+
+            def run(*args):
+                subprocess.run(args, cwd=repo, check=True, stdout=subprocess.DEVNULL)
+
+            run('git', 'init', '--quiet')
+            run('git', 'config', 'user.name', 'Production parity fixture')
+            run('git', 'config', 'user.email', 'parity@example.invalid')
+            run('git', 'add', '.')
+            run('git', 'commit', '--quiet', '-m', 'Published reference with the original research solver')
+            base = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=repo).decode().strip()
+            run('make', 'research.wasm')
+            with patch.object(parity, 'ROOT', repo), patch('sys.argv', ['check-production-parity.py', base, '--required']):
+                parity.main()
+                source.write_text('pub fn solve() -> i32 { 2 }\n')
+                run('make', 'research.wasm')
+                with self.assertRaisesRegex(SystemExit, r'Switch-off production differs[\s\S]*research-wasm/example/solver_bg.wasm'):
+                    parity.main()
+                run('git', 'add', str(source.relative_to(repo)))
+                run('git', 'commit', '--quiet', '-m', 'Intentionally change the research solver',
+                    '-m', 'Production-Change: research/example/src/lib.rs')
+                parity.main()
+
     def test_missing_output_cannot_pass_as_matching(self):
         with tempfile.TemporaryDirectory(dir=parity.ROOT) as directory:
             with self.assertRaisesRegex(RuntimeError, 'did not emit index.html'):
