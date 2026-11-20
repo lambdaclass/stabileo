@@ -267,8 +267,8 @@ describe('RC design baseline — the flagship frame, member by member', () => {
      * contour credits what the Bresler estimate did not. No verdict moved.
      */
     const withSettledSeatLimits = [
-      [[174, 175, 193, 194, 195], 'anchorage,congestion'],
-      [[176, 325], 'congestion'],
+      [[174, 175, 193, 194], 'anchorage,congestion'],
+      [[176, 195, 325], 'congestion'],
       [[201, 202, 205, 206, 224, 225, 228, 229, 232, 233], 'anchorage'],
     ] as const;
     const baselineLines = new Map(lines.map((line) => [Number(line.split('|', 1)[0]), line]));

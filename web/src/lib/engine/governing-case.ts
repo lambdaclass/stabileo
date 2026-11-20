@@ -42,13 +42,16 @@ const ENDS_2D = {
 export type Component3D = keyof typeof ENDS_3D;
 export type Component2D = keyof typeof ENDS_2D;
 
+type Magnitude = { value: number; bounded?: true };
+
 const peak = (...values: number[]): number => Math.max(...values.map(Math.abs));
 
 /** The largest magnitude of the component anywhere along the member, its interior included. */
-export function governingMagnitude3D(ef: ElementForces3D, component: Component3D): number {
+export function governingMagnitude3D(ef: ElementForces3D, component: Component3D): Magnitude {
   const [s, e] = ENDS_3D[component];
   const d = computeDiagram3D(ef, component);
-  return peak(ef[s] as number, ef[e] as number, d.maxValue, d.minValue);
+  const value = peak(ef[s] as number, ef[e] as number, d.maxValue, d.minValue);
+  return d.extrema === 'bounded' ? { value, bounded: true } : { value };
 }
 
 export function peakAlong(kind: Component2D, ef: ElementForces): number {
@@ -65,17 +68,19 @@ function governing<E extends { elementId: number }, C extends string>(
   perCombo: Map<number, { elementForces: E[] }>,
   comboNames: Map<number, string>,
   components: readonly C[],
-  magnitude: (ef: E, component: C) => number,
+  magnitude: (ef: E, component: C) => Magnitude,
 ): Map<number, Partial<Record<C, GoverningComboRef>>> {
-  const best = new Map<number, Map<C, { value: number; comboId: number }>>();
+  const best = new Map<number, Map<C, Magnitude & { comboId: number }>>();
   for (const [comboId, results] of perCombo) {
     for (const ef of results.elementForces) {
-      const cur = best.get(ef.elementId) ?? new Map<C, { value: number; comboId: number }>();
+      const cur = best.get(ef.elementId) ?? new Map<C, Magnitude & { comboId: number }>();
       best.set(ef.elementId, cur);
       for (const c of components) {
-        const value = magnitude(ef, c);
+        const next = magnitude(ef, c);
         const held = cur.get(c);
-        if (!held || value > held.value) cur.set(c, { value, comboId });
+        if (!held || next.value > held.value || (next.value === held.value && held.bounded && !next.bounded)) {
+          cur.set(c, { ...next, comboId });
+        }
       }
     }
   }
@@ -84,7 +89,7 @@ function governing<E extends { elementId: number }, C extends string>(
     const out: Partial<Record<C, GoverningComboRef>> = {};
     for (const c of components) {
       const b = cur.get(c);
-      out[c] = b && b.value > 0
+      out[c] = b && !b.bounded && b.value > 0
         ? { comboId: b.comboId, comboName: comboNames.get(b.comboId) ?? `Combo ${b.comboId}`, value: b.value }
         : undefined;
     }
@@ -104,5 +109,5 @@ export function computeGoverning2D(
   perCombo: Map<number, AnalysisResults>,
   comboNames: Map<number, string>,
 ): Map<number, GoverningPerElement> {
-  return governing(perCombo, comboNames, Object.keys(ENDS_2D) as Component2D[], governingMagnitude2D);
+  return governing(perCombo, comboNames, Object.keys(ENDS_2D) as Component2D[], (ef, component) => ({ value: governingMagnitude2D(ef, component) }));
 }

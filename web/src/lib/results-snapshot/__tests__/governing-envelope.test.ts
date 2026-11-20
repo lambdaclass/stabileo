@@ -44,13 +44,13 @@ describe('the governing value of each member is its envelope peak', () => {
   });
 });
 
-it.skip('#2250 records a single analytic moment peak for the mat envelope and its governing case', () => {
+it('#2250 records a single analytic moment peak for the mat envelope and its governing case', () => {
   const { values } = JSON.parse(readFileSync(new URL('pro-mat-foundation.json', SNAPSHOT_DIR), 'utf8')) as { values: Values };
   const moment = (id: number) => values[`envelope.momentY[e${id}]`] as Record<string, number>;
   const governing = (id: number) => (values[`envelope.governing[e${id}]`] as Record<string, number>)['momentY.value'];
   expect.soft(governing(26)).toBe(Math.max(...Object.values(moment(26)).map(Math.abs)));
   const row = moment(108);
-  const [left, center, right] = [11, 12, 14].map(i => row[`posValues[${i}]`]!);
+  const [left, center, right] = [11, 13, 14].map(i => row[`posValues[${i}]`]!);
   const peak = center - (right - left) ** 2 / (8 * (left + right - 2 * center));
   expect.soft(Math.max(...Object.values(row))).toBeCloseTo(peak, 7);
   expect(governing(108)).toBe(Math.max(...Object.values(row)));

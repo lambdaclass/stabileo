@@ -96,6 +96,7 @@
   import { setCameraProbe, setWorldProjector } from '../lib/viewport3d/camera-probe';
   import { updateGrid as _updateGrid, gridLayout, gridKey, createFatAxes as _createFatAxes, addAxisLabels as _addAxisLabels } from '../lib/viewport3d/grid';
   import { syncNodes as _syncNodes, syncElements as _syncElements, syncSupports as _syncSupports, syncLoads as _syncLoads, syncShells as _syncShells, syncSelection as _syncSelection, syncLocalAxes as _syncLocalAxes, syncMemberOffsets as _syncMemberOffsets, syncShellOffsets as _syncShellOffsets, applyElementVisibility, type SceneSyncContext } from '../lib/viewport3d/scene-sync';
+  import { DIAGRAM_EXTREMA_UNAVAILABLE } from '../lib/engine/member-diagram';
   import { syncDeformed as _syncDeformed, syncDiagrams3D as _syncDiagrams3D, syncColorMap3D as _syncColorMap3D, syncVerificationLabels as _syncVerificationLabels, syncReactions as _syncReactions, syncConstraintForces as _syncConstraintForces, syncLabels3D as _syncLabels3D, DIAGRAM_3D_TYPES, type ResultsSyncContext } from '../lib/viewport3d/results-sync';
   import { applyLowDetail, isHeavyModel } from '../lib/viewport3d/lod';
   import { meshHidden } from '../lib/viewport3d/shell-members';
@@ -1451,7 +1452,12 @@
     deformedGroup = resultsCtx.deformedGroup;
   }
   function syncDiagrams3D() {
-    _syncDiagrams3D(resultsCtx);
+    try {
+      _syncDiagrams3D(resultsCtx);
+    } catch (error) {
+      if (!(error instanceof Error) || error.message !== DIAGRAM_EXTREMA_UNAVAILABLE) throw error;
+      uiStore.toast(t(DIAGRAM_EXTREMA_UNAVAILABLE), 'error');
+    }
   }
   function syncColorMap3D() {
     _syncColorMap3D(resultsCtx);

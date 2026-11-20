@@ -53,7 +53,7 @@ export interface SpanSourceModel extends Omit<SpanModel, 'nodes' | 'elements'> {
     id: number; nodeI: number; nodeJ: number; type: string; sectionId: number; materialId: number;
     rollAngle?: number; localYx?: number; localYy?: number; localYz?: number;
   }>;
-  sections?: ReadonlyMap<number, { rotation?: number }>;
+  sections?: ReadonlyMap<number, { rotation?: number; shape?: string }>;
 }
 
 /** A beam span of two or more elements, laid from its start node to its end node. */
@@ -115,15 +115,17 @@ export function designSpans(
     const sameAs = (a: number, b: number) => {
       const p = model.elements.get(a)!, q = model.elements.get(b)!;
       return p.sectionId === q.sectionId && p.materialId === q.materialId
-        && groupOf(a) === groupOf(b);
+        && groupOf(a) === groupOf(b)
+        && compatibleSectionAxes(model, p.sectionId, axes.get(a)!, axes.get(b)!);
     };
+    const axes = new Map(span.elements.map(id => [id, axesOf(model, id)]));
     let run: number[] = [];
     const flush = () => {
       if (run.length >= 2) out.push(laid(model, span.elements, span.reversed, run));
       run = [];
     };
     span.elements.forEach((id, k) => {
-      if (k > 0 && !sameAs(span.elements[k - 1]!, id)) flush();
+      if (run.some(i => !sameAs(span.elements[i]!, id))) flush();
       run.push(k);
     });
     flush();
@@ -167,21 +169,38 @@ function axesOf(model: SpanAxesModel, id: number): LocalAxes3D {
   return computeLocalAxes3D({ id: a.id, ...P(a) }, { id: b.id, ...P(b) }, localY, memberRoll(e, model.sections));
 }
 
-function chordAxes(model: SpanAxesModel, start: number, end: number, sectionUp?: Vec): LocalAxes3D {
+function halfTurnSymmetric(model: SpanAxesModel, sectionId: number): boolean {
+  const shape = model.sections?.get(sectionId)?.shape;
+  return shape === undefined || ['rect', 'CHS', 'RHS', 'I', 'H', 'Z'].includes(shape);
+}
+
+function compatibleSectionAxes(model: SpanAxesModel, sectionId: number, a: LocalAxes3D, b: LocalAxes3D): boolean {
+  const depth = dot(a.ez, b.ez);
+  const reverse = dot(a.ex, b.ex) < 0;
+  const sameDepth = depth > 1 - 1e-10;
+  if (halfTurnSymmetric(model, sectionId)) return sameDepth || (reverse && depth < -1 + 1e-10);
+  const shape = model.sections?.get(sectionId)?.shape;
+  return sameDepth && (shape === 'T' || dot(a.ey, b.ey) > 1 - 1e-10);
+}
+
+function chordAxes(model: SpanAxesModel, start: number, end: number, sectionUp?: Vec, canonicalizeDepth = true): LocalAxes3D {
   const i = { id: start, ...P(model.nodes.get(start)!) };
   const j = { id: end, ...P(model.nodes.get(end)!) };
   const base = computeLocalAxes3D(i, j);
   if (!sectionUp) return base;
   const upProjection = dot(sectionUp, base.ez);
-  const sign = (Math.abs(upProjection) > 1e-10 ? upProjection : dot(sectionUp, base.ey)) < 0 ? -1 : 1;
+  const sign = canonicalizeDepth && (Math.abs(upProjection) > 1e-10 ? upProjection : dot(sectionUp, base.ey)) < 0 ? -1 : 1;
   const [x, y, z] = base.ex;
   const [u, v, w] = sectionUp;
   return computeLocalAxes3D(i, j, { x: sign * (v * z - w * y), y: sign * (w * x - u * z), z: sign * (u * y - v * x) });
 }
 
 function spanAxes(model: SpanAxesModel, span: DesignSpan): LocalAxes3D | null {
-  const ref = chordAxes(model, span.start, span.end, axesOf(model, span.elements[0]!).ez);
-  return span.elements.every(id => Math.abs(dot(axesOf(model, id).ez, ref.ez)) > 1 - 1e-10) ? ref : null;
+  const first = span.elements[0]!;
+  const sectionId = model.elements.get(first)!.sectionId;
+  const axes = span.elements.map(id => axesOf(model, id));
+  if (axes.some((a, i) => axes.slice(0, i).some(b => !compatibleSectionAxes(model, sectionId, a, b)))) return null;
+  return chordAxes(model, span.start, span.end, axes[0]!.ez, halfTurnSymmetric(model, sectionId));
 }
 
 /**

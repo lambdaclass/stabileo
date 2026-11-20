@@ -138,7 +138,7 @@ it('refuses aliased normalized jumps across magnitude constituents and retains s
   }
 });
 
-it.skip('#2226 refuses ambiguous point queries at either cut side, including across magnitude constituents', () => {
+it('#2226 refuses ambiguous point queries at either cut side, including across magnitude constituents', () => {
   const length = 3, a = 1.75, b = a + Number.EPSILON;
   const leaf = (pointLoadsX: ElementForces3D['pointLoadsX']) => ({ ...empty(), length, pointLoadsX });
   const pulse = (end: number) => leaf([{ a, p: -2 }, { a: end, p: 2 }]);

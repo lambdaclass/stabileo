@@ -467,3 +467,17 @@ it('#2226 the planar WASM evaluator reads both sides of a solved force and coupl
     }
   }
 });
+
+it('#2226 refuses aliased axial cuts in planar web and WASM queries', () => {
+  const length = 3, a = 1.75;
+  const ef = {
+    elementId: 1, length, qI: 0, qJ: 0, nStart: 0, nEnd: 0, vStart: 0, vEnd: 0, mStart: 0, mEnd: 0,
+    distributedLoads: [], hingeStart: false, hingeEnd: false,
+    pointLoads: [{ a, p: 0, px: -2 }, { a: a + Number.EPSILON, p: 0, px: 2 }],
+  };
+  expect(() => computeDiagramValueAt('axial', a / length, ef)).toThrow(/extrema/i);
+  expect(() => computeDiagramValueAtWasm('axial', a / length, ef)).toThrow(/normalized station/i);
+  ef.pointLoads[1]!.a = a + 2 * Number.EPSILON;
+  expect(computeDiagramValueAtWasm('axial', a / length, ef)).toBe(0);
+  expect(computeDiagramValueAtWasm('axial', ef.pointLoads[1]!.a / length, ef)).toBe(2);
+});

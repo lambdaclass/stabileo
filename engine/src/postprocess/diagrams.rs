@@ -57,7 +57,7 @@ fn planar_curve<'a>(
             let (jump, slope) = match kind {
                 0 => (p.my.into_iter().sum(), -p.p),
                 1 => (p.p, 0.0),
-                2 => (p.px?, 0.0),
+                2 => (-p.px?, 0.0),
                 _ => return None,
             };
             (jump != 0.0 || slope != 0.0).then_some(PointAction { a: p.a, jump, slope })
@@ -120,6 +120,12 @@ pub fn compute_diagram_value_at_sorted(
     sorted_pl: &[PointLoadInfo],
 ) -> f64 {
     evaluate_diagram_cut_2d(kind, Cut::left(t), ef, sorted_pl)
+}
+
+pub fn checked_diagram_value_2d(kind: &str, t: f64, ef: &ElementForces) -> Result<f64, String> {
+    validate_diagram_input_2d(ef)?;
+    check_diagram_kind_2d(kind)?;
+    planar_curve(ef, kind, &sorted_point_loads(ef)).checked_value(Cut::left(t)).map_err(str::to_owned)
 }
 
 pub(crate) fn evaluate_diagram_cut_2d(kind: &str, cut: Cut, ef: &ElementForces, sorted_pl: &[PointLoadInfo]) -> f64 {

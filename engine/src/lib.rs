@@ -924,9 +924,8 @@ pub fn compute_diagram_value_at(json: &str) -> Result<f64, JsValue> {
     }
     let d: Input = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
-    postprocess::diagrams::validate_diagram_input_2d(&d.element_forces).map_err(|e| JsValue::from_str(&e))?;
-    postprocess::diagrams::check_diagram_kind_2d(&d.kind).map_err(|e| JsValue::from_str(&e))?;
-    boundary::finite_scalar(postprocess::diagrams::compute_diagram_value_at(&d.kind, d.t, &d.element_forces), &d.kind).map_err(|e| JsValue::from_str(&e))
+    let value = postprocess::diagrams::checked_diagram_value_2d(&d.kind, d.t, &d.element_forces).map_err(|e| JsValue::from_str(&e))?;
+    boundary::finite_scalar(value, &d.kind).map_err(|e| JsValue::from_str(&e))
 }
 
 /// Compute 3D diagram value at position t for one element. JSON: { kind, t, elementForces }
@@ -941,9 +940,8 @@ pub fn compute_diagram_value_at_3d(json: &str) -> Result<f64, JsValue> {
     }
     let d: Input = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
-    postprocess::diagrams_3d::validate_diagram_input_3d(&d.element_forces).map_err(|e| JsValue::from_str(&e))?;
-    postprocess::diagrams_3d::check_diagram_kind_3d(&d.kind).map_err(|e| JsValue::from_str(&e))?;
-    boundary::finite_scalar(postprocess::diagrams_3d::evaluate_diagram_3d_at(&d.element_forces, &d.kind, d.t), &d.kind).map_err(|e| JsValue::from_str(&e))
+    let value = postprocess::diagrams_3d::checked_diagram_value_3d(&d.element_forces, &d.kind, d.t).map_err(|e| JsValue::from_str(&e))?;
+    boundary::finite_scalar(value, &d.kind).map_err(|e| JsValue::from_str(&e))
 }
 
 // ==================== Multi-Case Load Combinations ====================

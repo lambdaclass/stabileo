@@ -297,32 +297,8 @@ fn find_segment<'a>(path: &'a [PathSegment], global_pos: f64) -> Option<(&'a Pat
     None
 }
 
-fn point_at_member_end(a: f64, end: f64, length: f64) -> bool {
-    (a - end).abs() <= 8.0 * f64::EPSILON * length
-}
-
 fn diagram_range_2d(ef: &ElementForces, kind: &str, start: f64, end: f64) -> Result<(f64, f64), String> {
     use crate::postprocess::diagrams::{diagram_critical_cuts_2d, evaluate_diagram_cut_2d, sorted_point_loads};
-    let endpoint_jump = |x: f64| -> f64 {
-        ef.point_loads.iter().filter(|p| point_at_member_end(p.a, x, ef.length)).map(|p| match kind {
-            "axial" => -p.px.unwrap_or(0.0),
-            "shear" => p.p,
-            _ => 0.0,
-        }).sum()
-    };
-    let start_jump = endpoint_jump(0.0);
-    let end_jump = endpoint_jump(ef.length);
-    if start_jump != 0.0 || end_jump != 0.0 {
-        let (start, end) = (start + start_jump, end - end_jump);
-        let mut interior = ef.clone();
-        match kind {
-            "axial" => { interior.n_start = start; interior.n_end = end; },
-            "shear" => { interior.v_start = start; interior.v_end = end; },
-            _ => unreachable!(),
-        }
-        interior.point_loads.retain(|p| !point_at_member_end(p.a, 0.0, ef.length) && !point_at_member_end(p.a, ef.length, ef.length));
-        return diagram_range_2d(&interior, kind, start, end);
-    }
     let points = sorted_point_loads(ef);
     let cuts = diagram_critical_cuts_2d(ef, kind, &points)?;
     diagram_range(start, end, cuts.into_iter().map(|cut| evaluate_diagram_cut_2d(kind, cut, ef, &points)))
@@ -342,32 +318,8 @@ fn diagram_range(start: f64, end: f64, values: impl Iterator<Item = f64>) -> Res
 
 fn diagram_range_3d(ef: &ElementForces3D, kind: &str, start: f64, end: f64) -> Result<(f64, f64), String> {
     use crate::postprocess::diagrams_3d::{diagram_critical_cuts_3d, evaluate_diagram_cut_3d};
-    let points_and_sign = match kind {
-        "shearY" => Some((&ef.point_loads_y, 1.0)),
-        "shearZ" => Some((&ef.point_loads_z, 1.0)),
-        "axial" => Some((&ef.point_loads_x, -1.0)),
-        _ => None,
-    };
-    if let Some((points, sign)) = points_and_sign {
-        let start_jump = sign * points.iter().filter(|p| point_at_member_end(p.a, 0.0, ef.length)).map(|p| p.p).sum::<f64>();
-        let end_jump = sign * points.iter().filter(|p| point_at_member_end(p.a, ef.length, ef.length)).map(|p| p.p).sum::<f64>();
-        if start_jump != 0.0 || end_jump != 0.0 {
-            let (start, end) = (start + start_jump, end - end_jump);
-            let mut interior = ef.clone();
-            let points = match kind {
-                "axial" => { interior.n_start = start; interior.n_end = end; &mut interior.point_loads_x },
-                "shearY" => { interior.vy_start = start; interior.vy_end = end; &mut interior.point_loads_y },
-                "shearZ" => { interior.vz_start = start; interior.vz_end = end; &mut interior.point_loads_z },
-                _ => unreachable!(),
-            };
-            points.retain(|p| !point_at_member_end(p.a, 0.0, ef.length) && !point_at_member_end(p.a, ef.length, ef.length));
-            return diagram_range_3d(&interior, kind, start, end);
-        }
-    }
     let cuts = diagram_critical_cuts_3d(ef, kind)?;
-    diagram_range(start, end, cuts.into_iter().map(|cut| {
-        if cut.t == 0.0 { start } else if cut.t == 1.0 { end } else { evaluate_diagram_cut_3d(ef, kind, cut) }
-    }))
+    diagram_range(start, end, cuts.into_iter().map(|cut| evaluate_diagram_cut_3d(ef, kind, cut)))
 }
 
 /// The permanent loads, all of them: every load in the input is permanent (the train's axle
@@ -721,7 +673,6 @@ mod diagram_limit_tests {
     use super::*;
 
     #[test]
-    #[ignore = "known wrong result: #2250"]
     fn moving_range_keeps_end_forces_and_recovered_tip_limits() {
         let mut ef: ElementForces3D = serde_json::from_value(serde_json::json!({
             "elementId": 1, "length": 10.0, "nStart": 0.0, "nEnd": 0.0,

@@ -67,6 +67,12 @@ pub fn evaluate_diagram_3d_at(
     evaluate_diagram_cut_3d(ef, kind, Cut::left(t))
 }
 
+pub fn checked_diagram_value_3d(ef: &ElementForces3D, kind: &str, t: f64) -> Result<f64, String> {
+    validate_diagram_input_3d(ef)?;
+    check_diagram_kind_3d(kind)?;
+    spatial_curve(ef, kind).checked_value(Cut::left(t)).map_err(str::to_owned)
+}
+
 pub(crate) fn evaluate_diagram_cut_3d(ef: &ElementForces3D, kind: &str, cut: Cut) -> f64 {
     if let Err(error) = validate_diagram_loads_3d(ef) { panic!("{error}"); }
     spatial_curve(ef, kind).value(cut)

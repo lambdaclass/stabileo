@@ -70,7 +70,18 @@ where
     P: Iterator<Item = PointAction> + Clone,
 {
     pub fn value(&self, cut: Cut) -> f64 {
-        let x = cut.t * self.length;
+        self.checked_value(cut).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    pub fn checked_value(&self, cut: Cut) -> Result<f64, &'static str> {
+        let mut hits = self.action_distances().filter(|a| a / self.length == cut.t);
+        let exact = hits.next();
+        if let Some(x) = exact {
+            if hits.any(|a| a != x) || (cut.t == 0.0 && x != 0.0) || (cut.t == 1.0 && x != self.length) {
+                return Err("distinct member diagram cuts share a normalized station");
+            }
+        }
+        let x = exact.unwrap_or(cut.t * self.length);
         let mut value = self.start + self.slope * x + self.change * cut.t;
         for d in self.distributed.clone() {
             let (force, moment) = distributed_load_terms(d.q_i, d.q_j, d.a, d.b, x);
@@ -88,36 +99,51 @@ where
                 value += p.jump;
             }
         }
-        value
+        Ok(value)
     }
 
-    pub fn critical_cuts(&self) -> Result<Vec<Cut>, &'static str> {
+    fn action_distances(&self) -> impl Iterator<Item = f64> + '_ {
+        self.distributed.clone().flat_map(|d| [d.a, d.b]).chain(self.points.clone().map(|p| p.a))
+    }
+
+    fn boundaries(&self) -> Result<Vec<f64>, &'static str> {
         if !(self.length > 0.0 && self.length.is_finite()) {
             return Err("invalid member diagram length");
         }
-        let at = |x: f64| (x + 0.0) / self.length;
         let mut distances = vec![0.0, self.length];
-        distances.extend(self.distributed.clone().flat_map(|d| [d.a, d.b]));
-        distances.extend(self.points.clone().map(|p| p.a));
-        distances.retain(|x| (0.0..=self.length).contains(x));
+        distances.extend(self.action_distances().filter(|x| (0.0..=self.length).contains(x)));
         distances.sort_by(f64::total_cmp);
         distances.dedup();
-        let boundaries: Vec<_> = distances.into_iter().map(at).collect();
-        if boundaries.windows(2).any(|w| w[0] == w[1]) {
+        if distances.windows(2).any(|w| w[0] / self.length == w[1] / self.length) {
             return Err("distinct member diagram cuts share a normalized station");
         }
+        Ok(distances)
+    }
+
+    pub fn critical_cuts(&self) -> Result<Vec<Cut>, &'static str> {
+        let at = |x: f64| (x + 0.0) / self.length;
+        let boundaries = self.boundaries()?;
         let mut cuts = Vec::new();
         for &t in &boundaries {
-            cuts.push(Cut::left(t));
+            cuts.push(Cut::left(at(t)));
         }
         cuts.extend(self.points.clone().filter(|p| p.jump != 0.0).map(|p| at(p.a))
             .filter(|t| (0.0..1.0).contains(t)).map(Cut::right));
         for segment in boundaries.windows(2) {
-            let [lo, hi] = [segment[0], segment[1]];
-            let [linear, quadratic, cubic] = self.segment_change(lo, hi);
+            let [x0, x1] = [segment[0], segment[1]];
+            let [lo, hi] = [at(x0), at(x1)];
+            let [linear, quadratic, cubic] = self.segment_change(x0, x1);
             for u in quadratic_roots(cubic, quadratic, linear)? {
                 if u > 0.0 && u < 1.0 {
-                    cuts.push(Cut::left(lo + (hi - lo) * u));
+                    let t = lo + (hi - lo) * u;
+                    if !(lo < t && t < hi) {
+                        let base = self.value(Cut::right(lo));
+                        let value = |x| base + x * (linear + x * (quadratic + x * cubic));
+                        if value(u) != value(if t == lo { 0.0 } else { 1.0 }) {
+                            return Err("interior member diagram extremum has no distinct normalized station");
+                        }
+                    }
+                    cuts.push(Cut::left(t));
                 }
             }
         }
@@ -132,15 +158,13 @@ where
         Ok(cuts)
     }
 
-    fn segment_change(&self, lo: f64, hi: f64) -> [f64; 3] {
-        let at = |x: f64| (x + 0.0) / self.length;
-        let x = lo * self.length;
-        let width = (hi - lo) * self.length;
-        let mut linear = self.slope * width + self.change * (hi - lo);
+    fn segment_change(&self, x: f64, end: f64) -> [f64; 3] {
+        let width = end - x;
+        let mut linear = self.slope * width + self.change * (width / self.length);
         let mut quadratic = 0.0;
         let mut cubic = 0.0;
         for p in self.points.clone() {
-            if p.slope != 0.0 && at(p.a) <= lo {
+            if p.slope != 0.0 && p.a <= x {
                 linear += p.slope * width;
             }
         }
@@ -152,11 +176,11 @@ where
                     sign
                 }
             };
-            if lo < at(d.a) || lo >= at(d.b) {
+            if x < d.a || x >= d.b {
                 continue;
             }
             let span = d.b - d.a;
-            let u = if lo == at(d.a) { 0.0 } else { (x - d.a) / span };
+            let u = (x - d.a) / span;
             let initial = (sign * width) * (d.q_i * (1.0 - u) + d.q_j * u);
             let fraction = width / span;
             let delta = (sign * width) * (d.q_j * fraction) - (sign * width) * (d.q_i * fraction);

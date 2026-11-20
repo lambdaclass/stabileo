@@ -13,7 +13,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { computeDiagram3D, computeGlobalMax3D, evaluateDiagramAt, type Diagram3DKind } from '../diagrams-3d';
-import { computeDiagramValueAt3DWasm, computeDiagrams3D, computeEnvelope3D, extractBeamStations3D, solve3D, solvePDelta3D } from '../wasm-solver';
+import { computeDiagramValueAt3DWasm, computeDiagrams3D, computeEnvelope3D, extractBeamStations3D, solve3D, solveMovingLoads3D, solvePDelta3D } from '../wasm-solver';
 import type {
   SolverInput3D, SolverNode3D, SolverSection3D, SolverElement3D,
   SolverSupport3D, AnalysisResults3D, ElementForces3D,
@@ -461,4 +461,57 @@ it('#2250 spatial diagrams and envelopes include the peak inside a partial load'
     });
     expect.soft(Math.max(...stations.stations.map(s => Math.abs(s.comboForces[0]!.vz)))).toBeCloseTo(expected, 12);
   }
+});
+
+it('#2250 refuses a spatial shear peak whose cuts leave no normalized station for its root', () => {
+  const length = 3, a = 1.75, qI = 2 ** 52;
+  const input = buildInput(
+    [{ id: 1, x: 0, y: 0, z: 0 }, { id: 2, x: length, y: 0, z: 0 }],
+    [frameElement(1, 1, 2)], [fixedSupport(1)],
+  );
+  const result = solve3D(input);
+  assertSuccess(result);
+  const ef = getEF(result, 1);
+  ef.distributedLoadsZ = [{ a, b: a + 2 * Number.EPSILON, qI, qJ: -qI }];
+  expect(() => computeDiagram3D(ef, 'shearZ')).toThrow(/extrema/i);
+  expect(() => computeDiagrams3D(input, result)).toThrow(/relative geometry limit/i);
+  ef.distributedLoadsZ[0]!.b = a + 4 * Number.EPSILON;
+  expect(computeDiagram3D(ef, 'shearZ').maxValue).toBe(1);
+});
+
+it('#2226 refuses aliased axial cuts in the spatial WASM query for linear and P-Delta results', () => {
+  const length = 3, a = 1.75;
+  const input = buildInput(
+    [{ id: 1, x: 0, y: 0, z: 0 }, { id: 2, x: length, y: 0, z: 0 }],
+    [frameElement(1, 1, 2)], [fixedSupport(1)],
+  );
+  const nonlinear = solvePDelta3D(input, 20, 1e-10);
+  expect(nonlinear.converged).toBe(true);
+  for (const result of [solve3D(input), nonlinear.results as AnalysisResults3D]) {
+    assertSuccess(result);
+    const ef = getEF(result, 1);
+    ef.pointLoadsX = [{ a, p: -2 }, { a: a + Number.EPSILON, p: 2 }];
+    expect(() => computeDiagramValueAt3DWasm('axial', a / length, ef)).toThrow(/normalized station/i);
+    ef.pointLoadsX[1]!.a = a + 2 * Number.EPSILON;
+    expect(computeDiagramValueAt3DWasm('axial', a / length, ef)).toBe(0);
+    expect(computeDiagramValueAt3DWasm('axial', ef.pointLoadsX[1]!.a / length, ef)).toBe(2);
+  }
+});
+
+it('#2250 the WASM moving envelope includes the inside limit beside a retained tip load', () => {
+  const length = 10, intensity = -1, tip = -length * intensity;
+  const input = buildInput(
+    [{ id: 1, x: 0, y: 0, z: 0 }, { id: 2, x: length, y: 0, z: 0 }],
+    [frameElement(1, 1, 2)], [fixedSupport(1)],
+    [{ type: 'distributed', data: { elementId: 1, qYI: 0, qYJ: 0, qZI: intensity, qZJ: intensity } },
+      { type: 'pointOnElement', data: { elementId: 1, a: length, py: 0, pz: tip } }],
+  );
+  const result = solve3D(input);
+  assertSuccess(result);
+  const ef = getEF(result, 1);
+  expect(ef.vzStart).toBeCloseTo(0, 12);
+  expect(ef.vzEnd).toBeCloseTo(0, 12);
+  const moving = solveMovingLoads3D({ solver: input, train: { name: 'static control', axles: [] }, step: length });
+  expect(moving.elements['1'].vzMaxNeg).toBeCloseTo(intensity * length, 12);
+  expect(moving.elements['1'].vzMaxPos).toBeCloseTo(0, 12);
 });

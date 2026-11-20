@@ -32,7 +32,7 @@ describe('governing combination over the whole member', () => {
     const loaded = simplySupported3D(-10);
     const midspan = peakOf(computeDiagram3D(loaded, 'momentY'));
     expect(midspan).toBeCloseTo(20, 9);
-    expect(governingMagnitude3D(loaded, 'momentY')).toBe(midspan);
+    expect(governingMagnitude3D(loaded, 'momentY')).toEqual({ value: midspan });
     const endHeavy = ef3d({ myStart: 12, myEnd: -12 });
     const g = computeGoverning3D(new Map([[1, results3D([endHeavy])], [2, results3D([loaded])]]), new Map([[1, 'ends'], [2, 'span']]));
     expect(g.get(1)?.momentY).toEqual({ comboId: 2, comboName: 'span', value: midspan });
@@ -59,7 +59,7 @@ describe('governing combination over the whole member', () => {
   });
 });
 
-it.skip('#2273 withholds an exact governing claim if a possible winner has only a bound', () => {
+it('#2273 withholds an exact governing claim if a possible winner has only a bound', () => {
   const pulse = (a: number, b: number) => ef3d({ pointLoadsX: [{ a, p: -10 }, { a: b, p: 10 }] });
   const magnitude = (parts: ElementForces3D[]) => ef3d({ combined: { method: 'abs', parts } });
   const first = pulse(0.5, 1.5), second = pulse(2, 3);
