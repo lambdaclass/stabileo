@@ -5861,7 +5861,7 @@
       ]
     },
     "src/lib/store/physical-plates.ts": {
-      "source": "4fe00f9d3e3a82754103572899225cc8c327cf11323d4fd53c663e9657b20dc6",
+      "source": "1de71131faf6efa287e4996035d7573d13a4b9c13ec974d16fc1619a3041d131",
       "original": "8c0e75c857d9259b53eb6624ca8c2da1343e2f02cc512ecf0560f00c985d29f8",
       "changes": [
         [
@@ -6056,91 +6056,101 @@
           ]
         ],
         [
-          695,
+          694,
+          5,
+          []
+        ],
+        [
+          700,
           1,
           [
             "export function planPlateMesh(id: number, specOverride?: Partial<PlateMeshSpec>): PlateMeshPlan | null {"
           ]
         ],
         [
-          698,
+          703,
           1,
           [
             "  const spec = { ...e.surface.mesh, ...(specOverride ?? {}) };"
           ]
         ],
         [
-          703,
+          708,
           12,
           [
             "  const signature = plateSignature(f.geo, spec, f.features);"
           ]
         ],
         [
-          718,
+          723,
           0,
           [
             "  const grid = gridOfSpec(spec);"
           ]
         ],
         [
-          720,
+          725,
           7,
           []
         ],
         [
-          734,
+          739,
           1,
           [
             "    return { ...base, mesh, cells: mesh.cells.length, quality: meshQuality(mesh), signature, input, mixed: bandCells > 0, grid: { gridCells, bandCells, cellA, cellB } };"
           ]
         ],
         [
-          736,
+          741,
           2,
           [
             "  const mesh = generateMesh(input);"
           ]
         ],
         [
-          741,
+          746,
           102,
           []
         ],
         [
-          863,
+          868,
           1,
           []
         ],
         [
-          865,
+          870,
           9,
           []
         ],
         [
-          876,
+          881,
           1,
           []
         ],
         [
-          889,
+          894,
           5,
           []
         ],
         [
-          900,
+          905,
+          119,
+          []
+        ],
+        [
+          1026,
           6,
           [
-            "/** Put the planned meshes in, replacing each plate's old one, as one undo step. */",
-            "export function applyPlateMeshes(plans: readonly PlateMeshPlan[]): PlateMeshReport {"
+            "  const report: PlateMeshReport = { plates: 0, cells: 0, refused: [], droppedLocalLoads: 0, keptNodes: 0 };",
+            "  const ok = plans.filter((p) => p.mesh && p.input);",
+            "  for (const p of plans) if (!p.mesh) report.refused.push({ id: p.id, reason: p.refused ?? 'cannotMesh' });",
+            "  if (!ok.length) return report;"
           ]
         ],
         [
-          909,
-          10,
+          1033,
+          2,
           [
-            "  if (!ok.length) return report;",
-            "  modelStore.batch(() => {",
             "    for (const [k, planned] of ok.entries()) {",
             "      // After the first, each plate is planned again on the model as it now is, so it meets the",
             "      // meshes just put in beside it.",
@@ -6159,44 +6169,39 @@
             "      modelStore.setGroupMembers(p.id, { ...g.members, nodes: [...loops.outer, ...loops.holes.flat(), ...created], quads: r.quads, plates: r.plates });",
             "      writeSurface(p.id, (s) => ({ ...s, mesh: p.spec, meshed: { signature: p.signature, cells: r.quads.length + r.plates.length, quality: p.quality! } }));",
             "      report.plates++;",
-            "      report.cells += r.quads.length + r.plates.length;"
+            "      report.cells += r.quads.length + r.plates.length;",
+            "    }"
           ]
         ],
         [
-          920,
-          134,
-          []
-        ],
-        [
-          1055,
-          45,
+          1036,
+          105,
           [
             "  return report;"
           ]
         ],
         [
-          1125,
-          6,
+          1166,
+          8,
           []
         ],
         [
-          1137,
+          1180,
           2,
           [
             "  const need = platesNeedingMesh();"
           ]
         ],
         [
-          1142,
-          2,
+          1185,
+          21,
           [
-            "  const plans = need.map((id) => planPlateMesh(id)).filter((p): p is PlateMeshPlan => !!p);"
-          ]
-        ],
-        [
-          1149,
-          22,
-          [
+            "  const plans = need.map((id) => planPlateMesh(id)).filter((p): p is PlateMeshPlan => !!p);",
+            "  // Loads put by hand on the old mesh's elements cannot follow a new mesh: the plate is meshed",
+            "  // from its panel, whose plan lists them, never here where they would vanish unseen.",
+            "  const loaded = plans.filter((p) => p.localLoads > 0);",
+            "  if (loaded.length) return { ok: false, reason: 'localLoads', plates: names(loaded.map((p) => p.id)) };",
+            "  const r = applyPlateMeshes(plans);",
             "  if (r.refused.length) return { ok: false, reason: 'refused', plates: names(r.refused.map((x) => x.id)) };",
             "  return { ok: true, meshed: r.plates, cells: r.cells };"
           ]

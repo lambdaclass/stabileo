@@ -61,10 +61,10 @@ describe('a plate meshed beside one shell', () => {
     expect(plateStatus(above)).toBe('current');
   });
 
-  it.skip.each([
+  it.each([
     ['synchronous', preparePlatesForAnalysis],
     ['asynchronous', preparePlatesForAnalysisAsync],
-  ] as const)('meshes a neighbour made stale during the same analysis preparation (%s) [known wrong result: #2365]', async (_mode, prepare) => {
+  ] as const)('meshes a neighbour made stale during the same analysis preparation (%s)', async (_mode, prepare) => {
     const { below, above } = besideShells([0, 4]);
     setPlateMeshSpec([below], { size: 3 });
     adoptCurrentMesh(below);
@@ -80,10 +80,10 @@ describe('a plate meshed beside one shell', () => {
     expect(plateStatus(above)).toBe('unmeshed');
   });
 
-  it.skip.each([
+  it.each([
     ['synchronous', preparePlatesForAnalysis],
     ['asynchronous', preparePlatesForAnalysisAsync],
-  ] as const)('refuses a newly stale neighbour with local shell loads (%s) [known wrong result: #2365]', async (_mode, prepare) => {
+  ] as const)('refuses a newly stale neighbour with local shell loads (%s)', async (_mode, prepare) => {
     const { below, above } = besideShells([0, 4]);
     setPlateMeshSpec([below], { size: 3 });
     adoptCurrentMesh(below);

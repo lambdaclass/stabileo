@@ -692,6 +692,11 @@ export async function planPlateMeshes(ids: readonly number[], spec?: Partial<Pla
   return out;
 }
 
+function planPlateMeshesNow(ids: readonly number[]): PlateMeshPlan[] {
+  const meshedAgain = new Set(ids.flatMap(plateShellKeys));
+  return ids.map((id) => planPlateMesh(id, undefined, { meshedAgain })).filter((plan): plan is PlateMeshPlan => !!plan);
+}
+
 /** One plate's plan, synchronously. */
 export function planPlateMesh(id: number, specOverride?: Partial<PlateMeshSpec>, opts: { meshedAgain?: ReadonlySet<string> } = {}): PlateMeshPlan | null {
   const e = plateEntry(id);
@@ -903,10 +908,31 @@ export interface PlateMeshReport { plates: number; cells: number; refused: Array
  * the meshes put in before it, and the neighbours and loads brought up to date. `applyPlateMeshes`
  * runs them as one step; `applyPlateMeshesAsync` gives the page a frame between plates.
  */
-function meshingRun(plans: readonly PlateMeshPlan[]) {
+function meshingRun(plans: readonly PlateMeshPlan[], forAnalysis = false) {
   const report: PlateMeshReport = { plates: 0, cells: 0, refused: [], droppedLocalLoads: 0, keptNodes: 0 };
-  const ok = plans.filter((p) => p.mesh && p.input);
-  for (const p of plans) if (!p.mesh) report.refused.push({ id: p.id, reason: p.refused ?? 'cannotMesh' });
+  const ok: PlateMeshPlan[] = [];
+  const attempted = new Set<number>();
+  let wave: number[] = [];
+  const addWave = (next: readonly PlateMeshPlan[]) => {
+    if (forAnalysis) {
+      const loaded = next.filter((p) => p.localLoads > 0);
+      if (loaded.length) {
+        for (const p of loaded) report.refused.push({ id: p.id, reason: 'localLoads' });
+        return;
+      }
+    }
+    wave = [];
+    for (const p of next) {
+      if (!p.mesh || !p.input) {
+        report.refused.push({ id: p.id, reason: p.refused ?? 'cannotMesh' });
+        continue;
+      }
+      wave.push(p.id);
+      attempted.add(p.id);
+      ok.push(p);
+    }
+  };
+  addWave(plans);
   const current = ok.length ? physicalPlates().filter((e) => plateStatus(e.id) === 'current').map((e) => e.id) : [];
   const meshed: number[] = [];
   let loadDefsChanged = false;
@@ -922,15 +948,10 @@ function meshingRun(plans: readonly PlateMeshPlan[]) {
     report.droppedLocalLoads += planned.localLoads;
     report.keptNodes += clearPlateMesh(planned.id).keptNodes;
   };
-  const begin = () => {
-    const byShell = shellAreaLoads();
-    for (const p of ok) clear(p, byShell);
-  };
   const cellsOf = new Map<number, number>();
-  const batch = new Set(ok.map((p) => p.id));
   const meshOne = (planned: PlateMeshPlan) => {
     // Planned again on the model as it now is, so it meets the meshes just put in beside it.
-    const p = planPlateMesh(planned.id, planned.spec, { meshedAgain: new Set([...batch].flatMap(plateShellKeys)) }) ?? planned;
+    const p = planPlateMesh(planned.id, planned.spec, { meshedAgain: new Set(wave.flatMap(plateShellKeys)) }) ?? planned;
     if (!p.mesh || !p.input) { report.refused.push({ id: p.id, reason: p.refused ?? 'cannotMesh' }); return; }
     const e = plateEntry(p.id);
     if (!e) return;
@@ -960,7 +981,7 @@ function meshingRun(plans: readonly PlateMeshPlan[]) {
     if (!meshed.includes(p.id)) meshed.push(p.id);
   };
   let sprung = 0;
-  const finish = () => {
+  const finish = (waveDone: boolean) => {
     for (const id of new Set([...current, ...meshed])) {
       if (plateStatus(id) !== 'stale') continue;
       const e = plateEntry(id);
@@ -971,6 +992,18 @@ function meshingRun(plans: readonly PlateMeshPlan[]) {
     const springy = meshed.slice(sprung).filter((id) => plateEntry(id)?.surface.springs);
     sprung = meshed.length;
     if (springy.length) respring(springy);
+    if (waveDone && forAnalysis && !report.refused.length) {
+      const next = platesNeedingMesh({ coarse: false }).filter((id) => !attempted.has(id));
+      if (next.length) addWave(planPlateMeshesNow(next));
+    }
+  };
+  const applyWave = (from: number) => {
+    const pending = ok.slice(from);
+    const byShell = shellAreaLoads();
+    for (const p of pending) clear(p, byShell);
+    for (const p of pending) meshOne(p);
+    finish(true);
+    return from + pending.length;
   };
   const applySlice = (from: number, sliceMs: number) => {
     const end = performance.now() + sliceMs;
@@ -981,20 +1014,26 @@ function meshingRun(plans: readonly PlateMeshPlan[]) {
       clear(p, byShell);
       meshOne(p);
     } while (done < ok.length && performance.now() < end);
-    finish();
+    finish(done === ok.length);
     return done;
   };
   const asPlanned = () => ok.every((p) => { const e = plateEntry(p.id); return !e || localLoadsOn(e) <= p.localLoads; });
   const refuseAll = () => { for (const p of ok) report.refused.push({ id: p.id, reason: 'interrupted' }); return report; };
-  return { report, ok, begin, meshOne, finish, applySlice, asPlanned, refuseAll };
+  return { report, ok, applyWave, applySlice, asPlanned, refuseAll };
 }
 
 /** Put the planned meshes in, replacing each plate's old one, as one undo step. */
 export function applyPlateMeshes(plans: readonly PlateMeshPlan[]): PlateMeshReport {
-  const run = meshingRun(plans);
+  return applyMeshingRun(meshingRun(plans));
+}
+
+function applyMeshingRun(run: ReturnType<typeof meshingRun>): PlateMeshReport {
   if (!run.ok.length) return run.report;
   if (!run.asPlanned()) return run.refuseAll();
-  modelStore.batch(() => { run.begin(); for (const p of run.ok) run.meshOne(p); run.finish(); });
+  modelStore.batch(() => {
+    let done = 0;
+    while (done < run.ok.length) done = run.applyWave(done);
+  });
   return run.report;
 }
 
@@ -1003,9 +1042,11 @@ export function applyPlateMeshes(plans: readonly PlateMeshPlan[]): PlateMeshRepo
  * to draw `onProgress` (plates done of the total).
  */
 export async function applyPlateMeshesAsync(plans: readonly PlateMeshPlan[], onProgress?: (done: number, total: number) => void, sliceMs = 120): Promise<PlateMeshReport> {
-  const run = meshingRun(plans);
+  return applyMeshingRunAsync(meshingRun(plans), onProgress, sliceMs);
+}
+
+async function applyMeshingRunAsync(run: ReturnType<typeof meshingRun>, onProgress?: (done: number, total: number) => void, sliceMs = 120): Promise<PlateMeshReport> {
   if (!run.ok.length) return run.report;
-  const total = run.ok.length;
   let done = 0;
   const revision = () => [
     historyStore.lastStep, modelStore.modelVersion, modelStore.model.groups, modelStore.nodes,
@@ -1013,8 +1054,8 @@ export async function applyPlateMeshesAsync(plans: readonly PlateMeshPlan[], onP
     modelStore.model.constraints,
   ];
   let before = revision();
-  onProgress?.(0, total);
-  while (done < total) {
+  onProgress?.(0, run.ok.length);
+  while (done < run.ok.length) {
     await nextFrame();
     if (revision().some((value, index) => value !== before[index])) {
       for (const p of run.ok.slice(done)) run.report.refused.push({ id: p.id, reason: 'interrupted' });
@@ -1025,7 +1066,7 @@ export async function applyPlateMeshesAsync(plans: readonly PlateMeshPlan[], onP
     if (done === 0) modelStore.batch(apply);
     else modelStore.amendLastStep(apply);
     before = revision();
-    onProgress?.(done, total);
+    onProgress?.(done, run.ok.length);
   }
   return run.report;
 }
@@ -1124,6 +1165,8 @@ export type PlatePreparation =
   | { ok: false; reason: 'localLoads'; plates: string[] };
 
 function checkPreparedPlates(report: PlateMeshReport): PlatePreparation {
+  const loaded = report.refused.filter(({ reason }) => reason === 'localLoads');
+  if (loaded.length) return { ok: false, reason: 'localLoads', plates: loaded.map(({ id }) => plateEntry(id)?.name ?? `#${id}`) };
   const incomplete = new Set([...report.refused.map(({ id }) => id), ...platesNeedingMesh({ coarse: false })]);
   if (incomplete.size) return { ok: false, reason: 'refused', plates: [...incomplete].map(id => plateEntry(id)?.name ?? `#${id}`) };
   return { ok: true, meshed: report.plates, cells: report.cells };
@@ -1140,13 +1183,7 @@ export function preparePlatesForAnalysis(): PlatePreparation {
   if (!need.length) return { ok: true, meshed: 0, cells: 0 };
   const names = (ids: number[]) => ids.map((id) => plateEntry(id)?.name ?? `#${id}`);
   if (!meshBeforeAnalysis.value) return { ok: false, reason: 'needsMesh', plates: names(need) };
-  const meshedAgain = new Set(need.flatMap(plateShellKeys));
-  const plans = need.map((id) => planPlateMesh(id, undefined, { meshedAgain })).filter((p): p is PlateMeshPlan => !!p);
-  // Loads put by hand on the old mesh's elements cannot follow a new mesh: the plate is meshed
-  // from its panel, whose plan lists them, never here where they would vanish unseen.
-  const loaded = plans.filter((p) => p.localLoads > 0);
-  if (loaded.length) return { ok: false, reason: 'localLoads', plates: names(loaded.map((p) => p.id)) };
-  const r = applyPlateMeshes(plans);
+  const r = applyMeshingRun(meshingRun(planPlateMeshesNow(need), true));
   return checkPreparedPlates(r);
 }
 
@@ -1162,9 +1199,7 @@ export async function preparePlatesForAnalysisAsync(): Promise<PlatePreparation>
   try {
     const plans = await planPlateMeshes(need, undefined, { onProgress: (done, total) => setMeshProgress('planning', done, total) });
     if (!plans) return { ok: false, reason: 'refused', plates: names(need) };
-    const loaded = plans.filter((p) => p.localLoads > 0);
-    if (loaded.length) return { ok: false, reason: 'localLoads', plates: names(loaded.map((p) => p.id)) };
-    const r = await applyPlateMeshesAsync(plans, (done, total) => setMeshProgress('meshing', done, total));
+    const r = await applyMeshingRunAsync(meshingRun(plans, true), (done, total) => setMeshProgress('meshing', done, total));
     return checkPreparedPlates(r);
   } finally {
     endMeshProgress();

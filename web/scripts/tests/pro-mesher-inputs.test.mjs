@@ -86,3 +86,45 @@ test('production PRO mesher validates all drawn boundaries', async (t) => {
     }
   });
 });
+
+test('production imports the IFC wall with its original mesh and fixed base', async (t) => {
+  const server = await createServer({ root, mode: 'production', server: { host: '127.0.0.1', port: 0 }, logLevel: 'error' });
+  t.after(() => server.close());
+  await server.listen();
+  const browser = await chromium.launch();
+  t.after(() => browser.close());
+  const page = await browser.newPage();
+  await page.goto(new URL(fixture, server.resolvedUrls.local[0]).href);
+  await expect(page.getByTestId('mesher')).toBeVisible();
+
+  const wall = await page.evaluate(async () => {
+    const { parseIfc } = await import('/src/lib/ifc/ifc-parser.ts');
+    const { IFC_IMPORT_DEFAULTS, replaceWithIfcBuilding } = await import('/src/lib/ifc/ifc-import.ts');
+    const { BUILDING_IFC } = await import('/src/lib/ifc/__tests__/building-ifc.ts');
+    const { modelStore } = await import('/src/lib/store/index.ts');
+
+    const read = await parseIfc(new TextEncoder().encode(BUILDING_IFC).buffer);
+    const building = replaceWithIfcBuilding(read, IFC_IMPORT_DEFAULTS, 'Edificio');
+    const group = [...modelStore.model.groups.values()].find(group => group.name === 'M1');
+    const quads = group.members.quads ?? [];
+    const plates = group.members.plates ?? [];
+    const nodes = new Set([
+      ...quads.flatMap(id => modelStore.quads.get(id).nodes),
+      ...plates.flatMap(id => modelStore.plates.get(id).nodes),
+    ]);
+    const zOf = id => modelStore.nodes.get(id).z ?? 0;
+    const zMin = Math.min(...[...nodes].map(zOf));
+    const base = [...nodes].filter(id => Math.abs(zOf(id) - zMin) < 1e-6);
+    const held = new Set([...modelStore.supports.values()].filter(support => support.type === 'fixed3d').map(support => support.nodeId));
+    return {
+      unified: window.mesherFixture.unified,
+      skipped: building.skipped,
+      quads: quads.length,
+      triangles: plates.length,
+      base: base.length,
+      unsupported: base.filter(id => !held.has(id)),
+    };
+  });
+
+  assert.deepEqual(wall, { unified: false, skipped: 0, quads: 18, triangles: 0, base: 7, unsupported: [] });
+});
