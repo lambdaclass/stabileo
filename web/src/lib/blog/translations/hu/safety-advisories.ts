@@ -224,6 +224,12 @@ const body: PostBody = {
     },
     {"k": "note", "t": "SA-2026-090 — Javítva a 0.6.2 verzióban."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/results-changes/2026-11-gravity-core.md#width-mode-level-mass-follows-loaded-carriers", "label": "SA-2026-090", "t": "Érintett modellek és szükséges teendők."},
+    {"k": "note", "t": "SA-2026-091 — Az érintett ellenőrzéseket a #2338 letiltja, kiadásra vár."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-091-rc-torsion-shear-verification.md", "label": "SA-2026-091", "t": "Érintett modellek és szükséges teendők."},
+    {"k": "note", "t": "SA-2026-092 — Az együttes esetet a #2372 letiltja, a metszeteket a #2382 javítja, kiadásra vár."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-092-section-stress-shear.md", "label": "SA-2026-092", "t": "A vékony falú cső példájában a vizsgált szál helye a rúd helyi tengelyei szerint y = 0,0995 m, z = 0. A korábbi számítás szerint az eredő nyírófeszültség 4,5697 MPa, a von Mises-feszültség 7,9149 MPa volt, és az ellenőrzés a csavarónyomaték mindkét előjelénél megfelelést jelzett. Ha az összetevők erősítik egymást, a nyírófeszültségek előjeles összege 6,4625 MPa. A hozzá tartozó 11,1934 MPa-os von Mises-feszültség meghaladja a 9 MPa-os folyáshatárt. Ha az összetevők kioltják egymást, a von Mises-feszültség közel nulla, és az ellenőrzés megfelelést mutat."},
+    {"k": "note", "t": "SA-2026-093 — Javítva a #2381 módosításban, kiadásra vár."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-093-plane-moving-load-axial-force.md", "label": "SA-2026-093", "t": "Érintett modellek és szükséges teendők."},
     {
       "k": "img",
       "base": "blog/recheck-stale",
@@ -739,7 +745,10 @@ const body: PostBody = {
           "Magas",
           "Javítva a 0.6.2 verzióban"
         ],
-        ["SA-2026-090", "Szélességalapú módban a szintterület és a szeizmikus súly eltérhetett a generált rúdterhektől, mert csomóponti kiterjedést használt vagy zárt tartományt igényelt. Most a terhelt rudak hatásterületeit használja. Generálja újra a gravitációs terveket, szeizmikus súlyokat és terheket, majd ismételje meg a kapcsolódó elemzéseket, kombinációkat és ellenőrzéseket. A mentett terhek újraszámítása nem javítja a szeizmikus hatásokat (#2269). (#2210)", "—", "Javítva a 0.6.2 verzióban"]
+        ["SA-2026-090", "Szélességalapú módban a szintterület és a szeizmikus súly eltérhetett a generált rúdterhektől, mert csomóponti kiterjedést használt vagy zárt tartományt igényelt. Most a terhelt rudak hatásterületeit használja. Generálja újra a gravitációs terveket, szeizmikus súlyokat és terheket, majd ismételje meg a kapcsolódó elemzéseket, kombinációkat és ellenőrzéseket. A mentett terhek újraszámítása nem javítja a szeizmikus hatásokat (#2269). (#2210)", "—", "Javítva a 0.6.2 verzióban"],
+        ["SA-2026-091", "A vasbeton nyírási, csavarási és szeizmikus kengyelellenőrzései a vasalás igazolása nélkül is megfelelhettek. Futtassa újra a tanúsított méretezéseket, és vizsgálja felül a mértékadó metszeteket, vasalási terveket és jelentéseket.", "Magas", "Az érintett ellenőrzéseket a #2338 letiltja, kiadásra vár"],
+        ["SA-2026-092", "A részletes keresztmetszeti feszültségszámítás alábecsülhette az eredő nyírófeszültséget és a von Mises-feszültséget, és megfelelést jelezhetett. Számítsa újra az érintett feszültségeket, és vizsgálja felül az ábrákat, ellenőrzéseket és jelentéseket.", "Magas", "Az együttes esetet a #2372 letiltja, a metszeteket a #2382 javítja, kiadásra vár"],
+        ["SA-2026-093", "A síkbeli mozgó terhek elsimíthatták a normálerő ugrásait a koncentrált tengelyterheknél. Számítsa újra az érintett burkolókat és normálerő-hatásábrákat, és vizsgálja felül az azokon alapuló jelentéseket.", "Magas", "Javítva a #2381 módosításban, kiadásra vár"]
       ]
     },
     {

@@ -19,7 +19,7 @@ const REPO = 'https://github.com/lambdaclass/stabileo/blob/main/docs/advisories'
 export const safetyAdvisories: Post = {
   slug: 'safety-advisories',
   date: '2026-10-20',
-  updated: '2026-11-18',
+  updated: '2026-11-20',
   order: 7,
   authors: ['Federico Carrone'],
   tagKeys: ['blog.tag.safety', 'blog.tag.verification'],
@@ -87,6 +87,12 @@ export const safetyAdvisories: Post = {
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-089-roller-z-fixed.md", "label": "SA-2026-089", "t": "Datos afectados y acciones necesarias."},
         {"k": "note", "t": "SA-2026-090 — Corregido en 0.6.2."},
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/results-changes/2026-11-gravity-core.md#width-mode-level-mass-follows-loaded-carriers", "label": "SA-2026-090", "t": "Datos afectados y acciones necesarias."},
+        {"k": "note", "t": "SA-2026-091 — Contención en #2338, pendiente de versión."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-091-rc-torsion-shear-verification.md", "label": "SA-2026-091", "t": "Datos afectados y acciones necesarias."},
+        {"k": "note", "t": "SA-2026-092 — Caso combinado bloqueado en #2372 y cortes corregidos en #2382, pendientes de versión."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-092-section-stress-shear.md", "label": "SA-2026-092", "t": "El ejemplo del tubo de pared delgada ubica la fibra en los ejes locales de la barra (y = 0,0995 m, z = 0). El cálculo anterior daba 4,5697 MPa de corte total y 7,9149 MPa de tensión de von Mises, y la verificación se cumplía para ambos signos del momento torsor. Cuando las contribuciones se refuerzan, la suma con signo de las tensiones de corte es de 6,4625 MPa. La tensión de von Mises correspondiente es de 11,1934 MPa y supera el límite de fluencia de 9 MPa. Cuando las contribuciones se cancelan, la tensión de von Mises es casi nula y la verificación se cumple."},
+        {"k": "note", "t": "SA-2026-093 — Corregido en #2381, pendiente de versión."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-093-plane-moving-load-axial-force.md", "label": "SA-2026-093", "t": "Datos afectados y acciones necesarias."},
         { k: 'img', base: 'blog/recheck-stale', w: 1600, h: 1000, alt: 'Stabileo PRO con un pórtico de hormigón guardado antes de que los resultados tuvieran versión. Un aviso abajo indica que los resultados están desactualizados porque el proyecto se resolvió con una versión anterior y 19 cambios registrados lo afectan, con los botones para ver qué cambió y volver a calcular.', caption: 'Cómo llega una corrección a un proyecto guardado: hasta que se resuelve de nuevo, sus resultados quedan marcados como desactualizados, con los cambios que lo afectan a un clic.' },
 
         { k: 'h', t: 'Resumen' },
@@ -184,6 +190,9 @@ export const safetyAdvisories: Post = {
             ["SA-2026-088", "Los diagramas ABS y SRSS incluyen los extremos de la función combinada entre límites de carga. Repita combinaciones, diagramas y verificaciones dependientes (#2273).", "—", "Corregido en 0.6.2"],
             ["SA-2026-089", "Un apoyo 3D rollerZ o custom3d sin restricciones explícitas, o un tipo de apoyo desconocido, se analizaba como totalmente empotrado sin advertencia. Revisá las restricciones previstas para los apoyos y repetí el análisis, las combinaciones y el diseño. (#2276).", "Alta", "Corregido en 0.6.2"],
             ["SA-2026-090", "El área por nivel y el peso sísmico en modo ancho podían diferir de las cargas de barra generadas al usar la extensión de los nodos o exigir una región cerrada. Ahora usan las áreas tributarias de los elementos cargados. Regenerá los planes gravitatorios, pesos y cargas sísmicas, y repetí los análisis, combinaciones y verificaciones dependientes. Recalcular las cargas guardadas no corrige las acciones sísmicas (#2269). (#2210)", "—", "Corregido en 0.6.2"],
+            ["SA-2026-091", "Los chequeos de corte, torsión y estribos sísmicos podían pasar sin respaldo en la armadura. Volvé a verificar los diseños certificados y revisá las secciones, los planos de armadura y los informes.", "Alta", "Contención en #2338, pendiente de versión"],
+            ["SA-2026-092", "La evaluación detallada de tensiones podía subestimar el corte total y von Mises y dar un resultado favorable. Recalculá las tensiones afectadas y revisá los diagramas, las verificaciones y los informes.", "Alta", "Caso combinado bloqueado en #2372 y cortes corregidos en #2382, pendientes de versión"],
+            ["SA-2026-093", "Las cargas móviles planas podían suavizar el salto de esfuerzo axial en un eje concentrado. Recalculá las envolventes y las líneas de influencia axial y revisá los informes que las usaron.", "Alta", "Corregido en #2381, pendiente de versión"]
           ],
         },
         {
@@ -426,6 +435,12 @@ export const safetyAdvisories: Post = {
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-089-roller-z-fixed.md", "label": "SA-2026-089", "t": "Affected inputs and user action."},
         {"k": "note", "t": "SA-2026-090 — Fixed in 0.6.2."},
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/results-changes/2026-11-gravity-core.md#width-mode-level-mass-follows-loaded-carriers", "label": "SA-2026-090", "t": "Affected inputs and user action."},
+        {"k": "note", "t": "SA-2026-091 — Contained in #2338, pending release."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-091-rc-torsion-shear-verification.md", "label": "SA-2026-091", "t": "Affected inputs and user action."},
+        {"k": "note", "t": "SA-2026-092 — Combined case refused in #2372 and cuts corrected in #2382, pending release."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-092-section-stress-shear.md", "label": "SA-2026-092", "t": "The thin-tube example locates the fibre in member-local axes (y = 0.0995 m, z = 0). The old calculation gave 4.5697 MPa total shear and 7.9149 MPa von Mises, and the check passed for both torque signs. When the shear contributions reinforce, the signed shear sum is 6.4625 MPa. The corresponding von Mises stress is 11.1934 MPa, which exceeds the 9 MPa yield strength. When the contributions cancel, the von Mises stress is near zero and the check passes."},
+        {"k": "note", "t": "SA-2026-093 — Fixed in #2381, pending release."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-093-plane-moving-load-axial-force.md", "label": "SA-2026-093", "t": "Affected inputs and user action."},
         { k: 'img', base: 'blog/recheck-stale', w: 1600, h: 1000, alt: 'Stabileo PRO with a concrete frame saved before results were versioned. A banner at the bottom reads “Results stale: this project was last solved with an older version, and 19 registered changes concern it”, with the buttons “What changed” and “Re-run”.', caption: 'How a fix reaches a saved project: until it is solved again, its results stay marked stale, with the changes that concern it one click away.' },
 
         { k: 'h', t: 'Summary' },
@@ -523,6 +538,9 @@ export const safetyAdvisories: Post = {
             ["SA-2026-088", "ABS and SRSS member diagrams include extrema of the combined function between load boundaries. Rerun combinations, diagrams and dependent checks (#2273).", "—", "Fixed in 0.6.2"],
             ["SA-2026-089", "A 3D rollerZ or custom3d support without explicit restraints, or an unknown support type, was analysed as fully fixed without a warning. Review the intended support restraints, then rerun analysis, combinations and design. (#2276).", "High", "Fixed in 0.6.2"],
             ["SA-2026-090", "Width-mode level area and seismic weight could disagree with generated member loads because they used node extents or required a closed region. They now use the tributary areas of the loaded carriers. Regenerate gravity plans, seismic weights and seismic loads, then rerun dependent analyses, combinations and design checks. Re-solving stored loads alone does not correct seismic actions (#2269). (#2210)", "—", "Fixed in 0.6.2"],
+            ["SA-2026-091", "Concrete shear, torsion and seismic hoop checks could pass without reinforcement evidence. Rerun certified designs and review the governing cuts, reinforcement drawings and reports.", "High", "Contained in #2338, pending release"],
+            ["SA-2026-092", "Detailed section stress could understate total shear and von Mises and return a pass. Recompute affected stresses and review the diagrams, checks and reports.", "High", "Combined case refused in #2372 and cuts corrected in #2382, pending release"],
+            ["SA-2026-093", "Plane moving loads could smear axial force jumps at concentrated axles. Rerun the affected envelopes and axial influence lines and review the reports that relied on them.", "High", "Fixed in #2381, pending release"]
           ],
         },
         {
@@ -765,6 +783,12 @@ export const safetyAdvisories: Post = {
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-089-roller-z-fixed.md", "label": "SA-2026-089", "t": "Entradas afetadas e ações necessárias."},
         {"k": "note", "t": "SA-2026-090 — Corrigido em 0.6.2."},
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/results-changes/2026-11-gravity-core.md#width-mode-level-mass-follows-loaded-carriers", "label": "SA-2026-090", "t": "Entradas afetadas e ações necessárias."},
+        {"k": "note", "t": "SA-2026-091 — Contido em #2338, aguardando lançamento."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-091-rc-torsion-shear-verification.md", "label": "SA-2026-091", "t": "Entradas afetadas e ações necessárias."},
+        {"k": "note", "t": "SA-2026-092 — Caso combinado bloqueado em #2372 e cortes corrigidos em #2382, aguardando lançamento."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-092-section-stress-shear.md", "label": "SA-2026-092", "t": "O exemplo do tubo de parede fina localiza a fibra nos eixos locais da barra (y = 0,0995 m, z = 0). O cálculo anterior dava 4,5697 MPa de tensão de cisalhamento total e 7,9149 MPa de tensão de von Mises, e o resultado atendia à verificação para ambos os sinais do torque. Quando as contribuições se reforçam, a soma com sinal das tensões de cisalhamento é de 6,4625 MPa. A tensão de von Mises correspondente é de 11,1934 MPa e supera o limite de escoamento de 9 MPa. Quando as contribuições se cancelam, a tensão de von Mises é praticamente zero e o resultado atende à verificação."},
+        {"k": "note", "t": "SA-2026-093 — Corrigido em #2381, aguardando lançamento."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-093-plane-moving-load-axial-force.md", "label": "SA-2026-093", "t": "Entradas afetadas e ações necessárias."},
         { k: 'img', base: 'blog/recheck-stale', w: 1600, h: 1000, alt: 'Stabileo PRO com um pórtico de concreto salvo antes de os resultados terem versão. Um aviso embaixo indica que os resultados estão desatualizados porque o projeto foi resolvido com uma versão anterior e 19 mudanças registradas o afetam, com os botões para ver o que mudou e recalcular.', caption: 'Como uma correção chega a um projeto salvo: até ser resolvido de novo, seus resultados ficam marcados como desatualizados, com as mudanças que o afetam a um clique.' },
 
         { k: 'h', t: 'Resumo' },
@@ -862,6 +886,9 @@ export const safetyAdvisories: Post = {
             ["SA-2026-088", "Os diagramas ABS e SRSS incluem os extremos da função combinada entre limites de carga. Refaça combinações, diagramas e verificações dependentes (#2273).", "—", "Corrigido em 0.6.2"],
             ["SA-2026-089", "Um apoio 3D rollerZ ou custom3d sem restrições explícitas, ou um tipo de apoio desconhecido, era analisado como totalmente engastado sem aviso. Revise as restrições previstas para os apoios e repita a análise, as combinações e o dimensionamento. (#2276).", "Alta", "Corrigido em 0.6.2"],
             ["SA-2026-090", "A área por nível e o peso sísmico no modo largura podiam divergir das cargas de barra geradas por usarem a extensão dos nós ou exigirem uma região fechada. Agora usam as áreas tributárias dos elementos carregados. Gere novamente planos gravitacionais, pesos e cargas sísmicas e refaça análises, combinações e verificações dependentes. Recalcular cargas salvas não corrige as ações sísmicas (#2269). (#2210)", "—", "Corrigido em 0.6.2"],
+            ["SA-2026-091", "Verificações de cisalhamento, torção e estribos sísmicos podiam ser aprovadas sem comprovação da armadura. Verifique novamente os dimensionamentos certificados e revise as seções críticas, os desenhos de armadura e os relatórios.", "Alta", "Contido em #2338, aguardando lançamento"],
+            ["SA-2026-092", "O cálculo detalhado de tensões podia subestimar o cisalhamento total e a tensão de von Mises e indicar aprovação. Recalcule as tensões afetadas e revise os diagramas, as verificações e os relatórios.", "Alta", "Caso combinado bloqueado em #2372 e cortes corrigidos em #2382, aguardando lançamento"],
+            ["SA-2026-093", "As cargas móveis planas podiam suavizar os saltos de força axial nos eixos concentrados. Recalcule as envoltórias e linhas de influência axial afetadas e revise os relatórios que as utilizaram.", "Alta", "Corrigido em #2381, aguardando lançamento"]
           ],
         },
         {

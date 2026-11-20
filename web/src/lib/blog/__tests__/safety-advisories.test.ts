@@ -12,7 +12,7 @@ describe('safety-advisories SA-2026-061', () => {
     const text = readFileSync(advisoryUrl, 'utf8');
     const draftDate = text.match(/\| Status \| Draft (\d{4}-\d{2}-\d{2});/)?.[1];
     expect(draftDate).toBe('2026-11-12');
-    expect(findPost('safety-advisories')!.updated).toBe('2026-11-18');
+    expect(findPost('safety-advisories')!.updated).toBe('2026-11-20');
   });
 
   it.each<[PublicLocale, string, string]>([
@@ -32,7 +32,7 @@ describe('safety-advisories SA-2026-061', () => {
     expect(rows).toHaveLength(1);
     expect(rows[0]!.slice(2)).toEqual([severity, status]);
     expect(blocks.some((b) => b.k === 'note' && b.t === `SA-2026-061 — ${status}.`)).toBe(true);
-    expect(post.updated).toBe('2026-11-18');
+    expect(post.updated).toBe('2026-11-20');
   });
 
   it.each([2, 3])('known wrong result: #1952 — %iD determined replay retains answers without withholding notices', dim => {
@@ -104,5 +104,25 @@ describe('safety-advisories SA-2026-061', () => {
     expect(text).toContain('not uniformly diagnostic-free');
     expect(text).toContain('not recovery of total dynamic forces');
     expect(text).toContain('replays/SA-2026-061.json');
+  });
+});
+
+describe('safety-advisories SA-2026-092', () => {
+  it.each<[PublicLocale, string, string, string]>([
+    ['en', '4.5697 MPa total shear and 7.9149 MPa von Mises', 'signed shear sum is 6.4625 MPa', 'von Mises stress is 11.1934 MPa, which exceeds the 9 MPa yield strength'],
+    ['es', '4,5697 MPa de corte total y 7,9149 MPa de tensión de von Mises', 'suma con signo de las tensiones de corte es de 6,4625 MPa', 'tensión de von Mises correspondiente es de 11,1934 MPa y supera el límite de fluencia de 9 MPa'],
+    ['pt', '4,5697 MPa de tensão de cisalhamento total e 7,9149 MPa de tensão de von Mises', 'soma com sinal das tensões de cisalhamento é de 6,4625 MPa', 'tensão de von Mises correspondente é de 11,1934 MPa e supera o limite de escoamento de 9 MPa'],
+    ['de', '4,5697 MPa Gesamtschubspannung und 7,9149 MPa von-Mises-Spannung', 'vorzeichenrichtige Summe der Schubspannungen 6,4625 MPa', 'zugehörige von-Mises-Spannung von 11,1934 MPa überschreitet die Streckgrenze von 9 MPa'],
+    ['fr', '4,5697 MPa de cisaillement total et 7,9149 MPa de contrainte de von Mises', 'somme algébrique des contraintes de cisaillement vaut 6,4625 MPa', 'contrainte de von Mises correspondante vaut 11,1934 MPa et dépasse la limite d’élasticité de 9 MPa'],
+    ['tr', 'toplam kayma gerilmesini 4,5697 MPa, von Mises gerilmesini 7,9149 MPa', 'kayma gerilmelerinin işaretli toplamı 6,4625 MPa', 'karşılık gelen von Mises gerilmesi 11,1934 MPa olup 9 MPa akma sınırını aşar'],
+    ['hu', 'eredő nyírófeszültség 4,5697 MPa, a von Mises-feszültség 7,9149 MPa', 'nyírófeszültségek előjeles összege 6,4625 MPa', 'hozzá tartozó 11,1934 MPa-os von Mises-feszültség meghaladja a 9 MPa-os folyáshatárt'],
+    ['zh', '总剪应力为 4.5697 MPa，von Mises 等效应力为 7.9149 MPa', '剪应力的带符号和为 6.4625 MPa', '对应的 von Mises 等效应力为 11.1934 MPa，超过 9 MPa 的屈服强度'],
+  ])('known wrong result: #2366 — %s compares von Mises stress with yield strength', (locale, oldStresses, signedShear, vonMisesVersusYield) => {
+    const post = findPost('safety-advisories')!;
+    const workedExample = post.i18n[locale]?.blocks.find(b => b.k === 'ext' && b.label === 'SA-2026-092');
+    if (workedExample?.k !== 'ext') throw new Error(`${locale}: missing thin-tube example`);
+    expect(workedExample.t).toContain(signedShear);
+    expect(workedExample.t).toContain(vonMisesVersusYield);
+    expect(workedExample.t).toContain(oldStresses);
   });
 });
