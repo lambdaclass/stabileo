@@ -86,7 +86,9 @@ function sectionsSheet(m: WorkbookModel, solved: SolverInput3D | null): Workbook
   return { name: 'Sections', rows };
 }
 
-function supportsSheet(m: WorkbookModel, solved: SolverInput3D | null, f: AxesFrame | null): WorkbookSheet {
+function supportsSheet(
+  m: WorkbookModel, modelSupports: WorkbookModel['supports'], solved: SolverInput3D | null, f: AxesFrame | null,
+): WorkbookSheet {
   const rows: WorkbookSheet['rows'] = [[
     'node', 'type', 'angle [°]', 'kx [kN/m]', 'ky [kN/m]', 'kz [kN/m]', 'krx [kN·m/rad]', 'kry [kN·m/rad]', 'krz [kN·m/rad]', 'dx [m]', 'dy [m]', 'dz [m]',
     ...SUPPORT_RESTRAINT_COLUMNS, 'uplift', 'drx [rad]', 'dry [rad]', 'drz [rad]', headerFor(PLANE_SPRING_ROTATION),
@@ -94,13 +96,16 @@ function supportsSheet(m: WorkbookModel, solved: SolverInput3D | null, f: AxesFr
   const plane = f && isPlaneWorkbook(m) ? planeSigns(f) : null;
   const planeSprings = plane && f ? planeSpringColumns(f) : null;
   const byNode = new Map([...(solved?.supports.values() ?? [])].map((s) => [s.nodeId, s]));
-  const solvedFlags = (v: [boolean, boolean, boolean]) => f ? flagsToUser(f, v) : v;
-  for (const s of [...m.supports.values()].sort((a, c) => a.nodeId - c.nodeId || a.id - c.id)) {
-    const mask = supportIsLocal(s) ? undefined : s.dofRestraints;
+  const workbookFlags = (v: readonly [boolean | undefined, boolean | undefined, boolean | undefined]) =>
+    f ? flagsToUser(f, v) : v;
+  for (const [id, s] of [...m.supports].sort(([, a], [, c]) => a.nodeId - c.nodeId || a.id - c.id)) {
+    const modelSupport = modelSupports.get(id)!;
+    const mask = supportIsLocal(modelSupport) ? undefined : modelSupport.dofRestraints;
     const r = byNode.get(s.nodeId);
-    const restraints = mask
-      ? [mask.tx, mask.ty, mask.tz, mask.rx, mask.ry, mask.rz].map(flag => typeof flag === 'boolean' ? b(flag) : '')
-      : r ? [...solvedFlags([r.rx, r.ry, r.rz]), ...solvedFlags([r.rrx, r.rry, r.rrz])].map(b) : null;
+    const restraints = [
+      ...workbookFlags(mask ? [mask.tx, mask.ty, mask.tz] : [r?.rx, r?.ry, r?.rz]),
+      ...workbookFlags(mask ? [mask.rx, mask.ry, mask.rz] : [r?.rrx, r?.rry, r?.rrz]),
+    ].map(flag => typeof flag === 'boolean' ? b(flag) : '');
     const unframedPlaneSpring = !f && s.type === 'spring' && !s.dofRestraints;
     let spring = [opt(s.kx), opt(s.ky), opt(unframedPlaneSpring ? undefined : s.kz)];
     let rotationalSpring = [opt(s.krx), opt(s.kry), opt(s.krz)];
@@ -113,7 +118,7 @@ function supportsSheet(m: WorkbookModel, solved: SolverInput3D | null, f: AxesFr
     const rotation = plane ? AXIS_NAMES.map(axis => opt(axis === plane.n ? s.dry ?? s.drz : undefined)) : [opt(s.drx), opt(s.dry), opt(s.drz)];
     rows.push([
       s.nodeId, f ? supportTypeIn(f, s.type, plane === null) : s.type, opt(s.angle), ...spring, ...rotationalSpring, ...settlement,
-      ...(restraints ?? ['', '', '', '', '', '']), b(s.uplift), ...rotation, opt(unframedPlaneSpring ? s.kz : undefined),
+      ...restraints, b(s.uplift), ...rotation, opt(unframedPlaneSpring ? s.kz : undefined),
     ]);
   }
   return { name: 'Supports', rows };
@@ -243,7 +248,7 @@ export function modelSheets(model: WorkbookModel, solved: SolverInput3D | null, 
   const plane = f && isPlaneWorkbook(m) ? planeSigns(f) : null;
   const all: Array<[string, () => WorkbookSheet | WorkbookSheet[] | null]> = [
     ['Nodes', () => nodesSheet(m, plane)], ['Members', () => membersSheet(m)], ['Materials', () => materialsSheet(m)],
-    ['Sections', () => sectionsSheet(m, solved)], ['Supports', () => supportsSheet(m, solved, f)],
+    ['Sections', () => sectionsSheet(m, solved)], ['Supports', () => supportsSheet(m, model.supports, solved, f)],
     ['Shells', () => shellSheets(m)], ['LoadCases', () => casesSheet(m, f)], ['LoadData', () => loadsSheet(m)],
     ['SelfWeight', () => selfWeightSheet(model, f)], ['Combinations', () => combinationsSheet(m, f)],
     ['Constraints', () => constraintsSheet(m)], ['PointMasses', () => pointMassesSheet(m)],

@@ -62,7 +62,8 @@ function responses(input: NonNullable<ReturnType<typeof buildSolverInput3D>>) {
   const pDelta = solvePDelta3D(input);
   expect(linear.displacements).toHaveLength(2);
   expect(pDelta.converged).toBe(true);
-  return [linear, pDelta].map(({ displacements, reactions, elementForces }) => ({ displacements, reactions, elementForces }));
+  expect(pDelta.results.displacements).toHaveLength(2);
+  return [linear, pDelta.results].map(({ displacements, reactions, elementForces }) => ({ displacements, reactions, elementForces }));
 }
 
 const divZero = { t: 'e', v: 0x07 };
@@ -350,7 +351,6 @@ for (const [entry, install] of entries) {
   }
 }
 
-const finalRegression = process.env.RUN_KNOWN_WRONG === '2395' ? it : it.skip;
 const cyclicAxes = { up: '+Y', right: '+Z', hand: 'right' } as const;
 
 function planeResponses(input: NonNullable<ReturnType<typeof buildSolverInput2D>>) {
@@ -358,11 +358,12 @@ function planeResponses(input: NonNullable<ReturnType<typeof buildSolverInput2D>
   const pDelta = solvePDelta(input);
   expect(linear.displacements).toHaveLength(2);
   expect(pDelta.converged).toBe(true);
-  return [linear, pDelta].map(({ displacements, reactions, elementForces }) => ({ displacements, reactions, elementForces }));
+  expect(pDelta.results.displacements).toHaveLength(2);
+  return [linear, pDelta.results].map(({ displacements, reactions, elementForces }) => ({ displacements, reactions, elementForces }));
 }
 
 for (const [entry, install] of entries) {
-  finalRegression(`known wrong result: #2395 ${entry} exports planar restraint triplets in workbook axes`, async () => {
+  it(`#2395 ${entry} exports planar restraint triplets in workbook axes`, async () => {
     vi.stubGlobal('__PUBLIC_FEATURES__', featuresForMode('development'));
     priorModel('2d');
     const original = await install({
@@ -408,7 +409,7 @@ for (const [entry, install] of entries) {
   });
 
   for (const [mode, nodes] of geometries) {
-    finalRegression(`known wrong result: #2395 ${entry} ${mode} requires a complete kr unit suffix`, async () => {
+    it(`#2395 ${entry} ${mode} requires a complete kr unit suffix`, async () => {
       for (const featureMode of ['production', 'development'] as const) {
         vi.stubGlobal('__PUBLIC_FEATURES__', featuresForMode(featureMode));
         const book = (header: string, value: number) => ({
@@ -430,7 +431,7 @@ for (const [entry, install] of entries) {
       }
     });
 
-    finalRegression(`known wrong result: #2395 ${entry} ${mode} requires headers on a populated Loads sheet`, async () => {
+    it(`#2395 ${entry} ${mode} requires headers on a populated Loads sheet`, async () => {
       for (const featureMode of ['production', 'development'] as const) {
         vi.stubGlobal('__PUBLIC_FEATURES__', featuresForMode(featureMode));
         const before = priorModel(mode);
@@ -465,7 +466,7 @@ for (const [entry, install] of entries) {
   }
 }
 
-finalRegression('known wrong result: #2395 recognized populated sheets require their declared headers', () => {
+it('#2395 recognized populated sheets require their declared headers', () => {
   vi.stubGlobal('__PUBLIC_FEATURES__', featuresForMode('development'));
   for (const { name, columns } of SHEETS) {
     const required = columns.filter(column => column.required).map(column => column.key.toLowerCase());

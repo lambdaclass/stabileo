@@ -440,20 +440,20 @@ export const AXES_SHEET = 'Axes';
 
 export const LOAD_DATA_COLUMNS: readonly string[] = ['load', 'case', 'type', 'node', 'member', 'shell', 'field', 'value', 'unit'];
 
-type ImportColumn = Pick<ColumnSpec, 'key' | 'unit' | 'strictNumber' | 'strictUnit'> & { bareHeader?: true };
+type ImportColumn = Pick<ColumnSpec, 'key' | 'unit' | 'required' | 'strictNumber' | 'strictUnit'> & { bareHeader?: true };
 
 const extraSheets: Record<string, readonly ImportColumn[]> = {
-  [AXES_SHEET]: [{ key: 'up' }, { key: 'right' }, { key: 'hand' }],
+  [AXES_SHEET]: [{ key: 'up', required: true }, { key: 'right', required: true }, { key: 'hand', required: true }],
   LoadData: LOAD_DATA_COLUMNS.map(key => ({ key })),
   SelfWeight: [
-    { key: 'source' }, { key: 'case' }, { key: 'direction' }, { key: 'factor', bareHeader: true },
-    { key: 'scope' }, { key: 'members' }, { key: 'group' },
+    { key: 'source', required: true }, { key: 'case' }, { key: 'direction', required: true },
+    { key: 'factor', required: true, bareHeader: true }, { key: 'scope', required: true }, { key: 'members' }, { key: 'group' },
   ],
 };
 
 export const IMPORT_SHEET_NAMES = [...SHEETS.map(sheet => sheet.name), ...Object.keys(extraSheets)];
 
-export const PLANE_SPRING_ROTATION = { key: 'kr', unit: 'kN·m/rad', strictNumber: true } as const;
+export const PLANE_SPRING_ROTATION = { key: 'kr', unit: 'kN·m/rad', strictNumber: true, strictUnit: true } as const;
 
 export const SUPPORT_RESTRAINT_COLUMNS = [
   'restrainedUx', 'restrainedUy', 'restrainedUz', 'restrainedRx', 'restrainedRy', 'restrainedRz',

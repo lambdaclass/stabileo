@@ -203,7 +203,10 @@ function isRedundantReportCell(sheet: string, key: string, value: unknown, hinge
   return sheet === 'Combinations' && key === 'id';
 }
 
-function readSheet(aoa: unknown[][], sheet: string, problems: RowProblem[], declaredAxes = false): Row[] {
+function readSheet(
+  aoa: unknown[][], sheet: string, problems: RowProblem[],
+  { declaredAxes = false, along = 'x' }: { declaredAxes?: boolean; along?: string } = {},
+): Row[] {
   if (aoa.length === 0) return [];
   const header = aoa[0] ?? [];
   const body = aoa.slice(1);
@@ -228,7 +231,7 @@ function readSheet(aoa: unknown[][], sheet: string, problems: RowProblem[], decl
     const given = unitFromHeader(header[index], !!column.strictUnit);
     if (column.strictUnit && given === null && str(header[index]).toLowerCase() !== key) {
       problems.push({
-        sheet, row: 1, column: key, message: tp('xls.err.coordinateUnitSuffix', { k: key, h: headerFor(column) }), blocking: true,
+        sheet, row: 1, column: key, message: tp('xls.err.completeUnitSuffix', { k: key, h: headerFor(column) }), blocking: true,
       });
       return [];
     }
@@ -243,6 +246,17 @@ function readSheet(aoa: unknown[][], sheet: string, problems: RowProblem[], decl
     }
     return [{ key, index, strictNumber, factor }];
   });
+  if (problems.slice(start).some(problem => problem.blocking)) return [];
+
+  const populated = aoa.some(row => row?.some(cell => str(cell) !== ''));
+  if (!populated) return [];
+  for (const column of columns.values()) {
+    if (!column.required) continue;
+    const key = sheet === 'Nodes' && column.key === 'x' ? along : column.key.toLowerCase();
+    if (!seen.has(key)) {
+      problems.push({ sheet, row: 1, column: key, message: tp('xls.err.missingHeader', { k: key }), blocking: true });
+    }
+  }
   if (problems.slice(start).some(problem => problem.blocking)) return [];
 
   const ignoredColumns = new Set<number>();
@@ -277,9 +291,11 @@ function readSheet(aoa: unknown[][], sheet: string, problems: RowProblem[], decl
     }
     rows.push({ n: row, cells });
   }
-  if (sheet === 'LoadData' && body.length
-    && (header.length !== LOAD_DATA_COLUMNS.length || header.some(value => !LOAD_DATA_COLUMNS.includes(str(value).toLowerCase())))) {
-    problems.push({ sheet, row: 1, message: t('xls.err.loadDataColumns'), blocking: true });
+  if (sheet === 'LoadData') {
+    const labels = new Set(header.map(cell => str(cell).toLowerCase()));
+    if (header.length !== LOAD_DATA_COLUMNS.length || !LOAD_DATA_COLUMNS.every(key => labels.has(key))) {
+      problems.push({ sheet, row: 1, message: t('xls.err.loadDataColumns'), blocking: true });
+    }
   }
   return rows;
 }
@@ -622,7 +638,7 @@ export function parseWorkbookSheets(
     if (problems.length) return { model, problems, unknownSheets, counts };
   }
   const { along, depth, height } = coordinateColumns(frame);
-  const nodeRows = readSheet(grab('Nodes'), 'Nodes', problems);
+  const nodeRows = readSheet(grab('Nodes'), 'Nodes', problems, { along });
   if (nodeRows.length === 0 && problems.some(problem => problem.blocking)) return { model, problems, unknownSheets, counts };
   const flatFromZ = nodeRows.every((row) => str(row.cells[depth]) === '');
   const firstNode = idGuard('Nodes', problems);
@@ -808,7 +824,7 @@ export function parseWorkbookSheets(
   const supports: { row: Row; support: ImportedSupport }[] = [];
   // One support per node: a second row for the same node used to add a second support there.
   const firstSupport = idGuard('Supports', problems);
-  for (const row of readSheet(grab('Supports'), 'Supports', problems, declaredAxes)) {
+  for (const row of readSheet(grab('Supports'), 'Supports', problems, { declaredAxes })) {
     const nodeId = reqNum(row, 'node', 'Supports', problems);
     const type = reqStr(row, 'type', 'Supports', problems);
     if (nodeId === null || type === null) continue;
@@ -1109,7 +1125,7 @@ export function parseWorkbookSheets(
   const elemIds = new Set(model.elements.map((e) => e.id));
   let loadId = 1;
   const loads = grab('Loads');
-  for (const row of readSheet(loads, 'Loads', problems, declaredAxes)) {
+  for (const row of readSheet(loads, 'Loads', problems, { declaredAxes })) {
     const rawType = str(row.cells.type);
     const type = LOAD_TYPES.find((t) => t.toLowerCase() === rawType.toLowerCase());
     if (!type) {
