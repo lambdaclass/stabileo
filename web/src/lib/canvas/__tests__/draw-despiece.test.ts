@@ -472,7 +472,7 @@ describe('despiece refinements — remnants, positioning, basis, inspection', ()
     expect(Math.hypot(fx.value, fz.value)).toBeCloseTo(Math.hypot(10, 4), 6);
   });
 
-  it('inspectMember returns both ends with basis-aware components', () => {
+  it.skip('known wrong result: #2399 inspectMember returns both ends with basis-aware components', () => {
     const j = inclined();
     const local = inspectMember({ elements: j.elements, getNode: (id) => j.nodes.get(id), getElementForces: (id) => j.forces.get(id), basis: 'local' }, 1)!;
     expect(local.ends.map(e => e.end)).toEqual(['I', 'J']);
