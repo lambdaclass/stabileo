@@ -7,6 +7,7 @@
 </script>
 
 <script lang="ts">
+  import { modelVec } from '../../lib/axes/display';
   import Hint from './Hint.svelte';
   import { modelStore, uiStore } from '../../lib/store';
   import { t, tp } from '../../lib/i18n';
@@ -53,7 +54,7 @@
     const [x, y, z, ...extra] = text.split(';').map(parseDecimal);
     if (x == null || y == null || z == null || extra.length || !Number.isFinite(radius) || radius <= 0) return null;
     const length = (value: number) => fromDisplay(value, 'length', uiStore.unitSystem);
-    const center: Vec3 = [length(x), length(y), length(z)];
+    const center = modelVec(length(x), length(y), length(z)) as Vec3;
     return { kind: 'circle', center, radius };
   }
 

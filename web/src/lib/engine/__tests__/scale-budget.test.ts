@@ -15,6 +15,7 @@ import { describe, it, expect, beforeAll } from 'vitest';
 const canvasStub = { width: 0, height: 0, getContext: () => ({ fillStyle: '', font: '', textAlign: 'center', textBaseline: 'middle', fillText: () => {}, measureText: () => ({ width: 10 }) }) };
 if (typeof document === 'undefined') Object.defineProperty(globalThis, 'document', { value: { createElement: () => canvasStub }, configurable: true });
 
+import { DEFAULT_AXES } from '../../axes/frame';
 import { modelStore } from '../../store/model.svelte';
 import { uiStore } from '../../store/ui.svelte';
 import '../../store/index';
@@ -77,12 +78,13 @@ describe('at about 5 000 members', () => {
 
   it('the result tables, every view across the combinations', () => {
     const t0 = performance.now();
+    const opts = { axes: DEFAULT_AXES, resultant: true };
     for (const kind of ['reactions', 'forces', 'displacements'] as const) {
-      allRows(kind, sources, { resultant: true }, 'entity');
-      summaryRows(kind, sources, { resultant: true });
-      envelopeRows(kind, sources, { resultant: true });
+      allRows(kind, sources, opts, 'entity');
+      summaryRows(kind, sources, opts);
+      envelopeRows(kind, sources, opts);
     }
-    rowsOf('forces', sources[0]!.results, { stations: 5 });
+    rowsOf('forces', sources[0]!.results, { axes: DEFAULT_AXES, stations: 5 });
     MEASURED.tables = performance.now() - t0;
     if (assertBudget(MEASURED.tables, BUDGET.tables, 'scale: the result tables')) expect(MEASURED.tables).toBeLessThan(BUDGET.tables);
   });

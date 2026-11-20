@@ -3,6 +3,7 @@
     "accounts": false,
     "research": true,
     "tools": true,
+    "globalAxes": false,
     "diagramGame": false,
     "proPlatesUnified": false,
     "proRcSheets": false
@@ -11,6 +12,7 @@
     "accounts": true,
     "research": true,
     "tools": true,
+    "globalAxes": true,
     "diagramGame": true,
     "proPlatesUnified": true,
     "proRcSheets": false
@@ -19,6 +21,7 @@
     "accounts": true,
     "research": true,
     "tools": true,
+    "globalAxes": true,
     "diagramGame": true,
     "proPlatesUnified": true,
     "proRcSheets": true

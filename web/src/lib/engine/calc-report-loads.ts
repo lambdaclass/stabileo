@@ -7,7 +7,9 @@
  * aliases reported a 10 kN load with a 5 kN·m moment as no load at all.
  */
 
+import { planePointLoad3D } from './member-point-loads';
 import { toDisplay, unitLabel, type Quantity, type UnitSystem } from '../utils/units';
+import { planeGlobalAngle, planeGlobalValue, twoD, userRot, userVec } from '../axes/display';
 
 /** Four significant figures, and never «-0». */
 export function reportNumber(v: number): string {
@@ -55,8 +57,11 @@ export interface MemberLoadWords { global: string }
 
 /** «, θ=30°» when the load is turned from its base direction, and the axes when they are global. */
 function direction(d: { angle?: number; isGlobal?: boolean }, words: MemberLoadWords): string {
-  return (nonZero(d.angle) ? `, θ=${reportNumber(d.angle)}°` : '') + (d.isGlobal ? `, ${words.global}` : '');
+  const angle = d.isGlobal && d.angle !== undefined ? planeGlobalAngle(d.angle) + 0 : d.angle;
+  return (nonZero(angle) ? `, θ=${reportNumber(angle)}°` : '') + (d.isGlobal ? `, ${words.global}` : '');
 }
+
+const shownGlobal = (v: number | undefined, isGlobal?: boolean) => (v !== undefined && isGlobal ? planeGlobalValue(v) + 0 : v);
 
 /**
  * A 2D line load: both ends, its range when partial, its angle and its axes. The angle and the
@@ -68,7 +73,7 @@ export function distributedText(
   us: UnitSystem = 'SI',
 ): string {
   const q = (v: number) => val(v, 'distributedLoad', us);
-  return `q=${q(d.qI)} → ${q(d.qJ ?? d.qI)} ${unitLabel('distributedLoad', us)}${range(d, us)}${direction(d, words)}`;
+  return `q=${q(shownGlobal(d.qI, d.isGlobal)!)} → ${q(shownGlobal(d.qJ ?? d.qI, d.isGlobal)!)} ${unitLabel('distributedLoad', us)}${range(d, us)}${direction(d, words)}`;
 }
 
 /**
@@ -80,9 +85,20 @@ export function pointOnElementText(
   d: { a: number; p: number; px?: number; my?: number; mz?: number; angle?: number; isGlobal?: boolean },
   words: MemberLoadWords,
   us: UnitSystem = 'SI',
+  memberDirection: readonly [dx: number, dz: number],
 ): string {
-  const comps = named([['P', d.p, 'force'], ['Px', d.px, 'force'], ['My', d.my ?? d.mz, 'moment']], us);
-  return comps.length ? `${comps.join(', ')}, a=${val(d.a, 'length', us)} ${unitLabel('length', us)}${direction(d, words)}` : '';
+  const couple = d.my ?? d.mz;
+  if (!__PUBLIC_FEATURES__.globalAxes) {
+    const comps = named([['P', d.p, 'force'], ['Px', d.px, 'force'], ['My', couple, 'moment']], us);
+    return comps.length ? `${comps.join(', ')}, a=${val(d.a, 'length', us)} ${unitLabel('length', us)}${direction(d, words)}` : '';
+  }
+  if (d.isGlobal && d.px && !(Math.hypot(...memberDirection) > 0 && memberDirection.every(Number.isFinite))) throw new Error('A global axial point-load report requires a finite nonzero member direction');
+  const force = d.isGlobal ? planePointLoad3D({ ...d, elementId: 0 }, memberDirection[0], memberDirection[1], true) : undefined;
+  const forces: Component[] = force
+    ? [[`P${twoD.horizontal.toLowerCase()}`, twoD.x(force.px ?? 0) + 0, 'force'], [`P${twoD.vertical.toLowerCase()}`, twoD.z(force.pz) + 0, 'force']]
+    : [['P', d.p, 'force'], ['Px', d.px, 'force']];
+  const comps = named([...forces, [`M${twoD.normal.toLowerCase()}`, couple === undefined ? undefined : twoD.rot(couple) + 0, 'moment']], us);
+  return comps.length ? `${comps.join(', ')}, a=${val(d.a, 'length', us)} ${unitLabel('length', us)}${d.isGlobal ? `, ${words.global}` : direction(d, words)}` : '';
 }
 
 /**
@@ -92,17 +108,26 @@ export function pointOnElementText(
 export function loadComponentsText(type: string, d: Record<string, any>, us: UnitSystem = 'SI'): string {
   if (type === 'nodal') {
     // The 2D plane is XZ: the store's names, with the legacy aliases as a fallback for old data.
-    return named([['Fx', d.fx, 'force'], ['Fz', d.fz ?? d.fy, 'force'], ['My', d.my ?? d.mz, 'moment']], us).join(', ');
+    const opt = (v: number | undefined, f: (x: number) => number) => (v === undefined ? undefined : f(v) + 0);
+    const lower = (s: string) => s.toLowerCase();
+    return named([
+      [`F${lower(twoD.horizontal)}`, opt(d.fx, twoD.x), 'force'], [`F${lower(twoD.vertical)}`, opt(d.fz ?? d.fy, twoD.z), 'force'],
+      [`M${lower(twoD.normal)}`, opt(d.my ?? d.mz, twoD.rot), 'moment'],
+    ], us).join(', ');
   }
   if (type === 'nodal3d') {
+    const [fx, fy, fz] = userVec(d.fx ?? 0, d.fy ?? 0, d.fz ?? 0), [mx, my, mz] = userRot(d.mx ?? 0, d.my ?? 0, d.mz ?? 0);
     return named([
-      ['Fx', d.fx, 'force'], ['Fy', d.fy, 'force'], ['Fz', d.fz, 'force'],
-      ['Mx', d.mx, 'moment'], ['My', d.my, 'moment'], ['Mz', d.mz, 'moment'],
+      ['Fx', fx + 0, 'force'], ['Fy', fy + 0, 'force'], ['Fz', fz + 0, 'force'],
+      ['Mx', mx + 0, 'moment'], ['My', my + 0, 'moment'], ['Mz', mz + 0, 'moment'],
     ], us).join(', ');
   }
   if (type === 'distributed3d') {
-    const ax = d.frame === 'global' || d.frame === 'projected' ? ['X', 'Y', 'Z'] : ['x', 'y', 'z'];
-    const comps = [...line(ax[0]!, d.qXI, d.qXJ, us), ...line(ax[1]!, d.qYI, d.qYJ, us), ...line(ax[2]!, d.qZI, d.qZJ, us)];
+    const global = d.frame === 'global' || d.frame === 'projected';
+    const ax = global ? ['X', 'Y', 'Z'] : ['x', 'y', 'z'];
+    const [xi, yi, zi] = global ? userVec(d.qXI ?? 0, d.qYI ?? 0, d.qZI ?? 0) : [d.qXI, d.qYI, d.qZI];
+    const [xj, yj, zj] = global ? userVec(d.qXJ ?? d.qXI ?? 0, d.qYJ ?? d.qYI ?? 0, d.qZJ ?? d.qZI ?? 0) : [d.qXJ, d.qYJ, d.qZJ];
+    const comps = [...line(ax[0]!, xi, xj, us), ...line(ax[1]!, yi, yj, us), ...line(ax[2]!, zi, zj, us)];
     return comps.length ? comps.join(', ') + range(d, us) : '';
   }
   return '';

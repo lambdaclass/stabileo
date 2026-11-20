@@ -4,7 +4,7 @@ import config from '../config/features.json' with { type: 'json' };
 
 const root = resolve(import.meta.dirname, '..');
 
-export const disabledFeatures = { accounts: false, research: false, tools: false, diagramGame: false, proPlatesUnified: false, proRcSheets: false };
+export const disabledFeatures = { accounts: false, research: false, tools: false, diagramGame: false, globalAxes: false, proPlatesUnified: false, proRcSheets: false };
 
 export async function withFeatureConfig(config, run) {
   const directory = mkdtempSync(resolve(root, 'scripts/.public-features-'));

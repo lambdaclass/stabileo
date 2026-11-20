@@ -1,3 +1,5 @@
+import { userAxisAlong, type AxesFrame } from '../axes/frame';
+
 /**
  * What a Stabileo workbook contains, declared once.
  *
@@ -39,6 +41,7 @@ export interface ColumnSpec {
   unit?: string;
   /** A row missing this is an error, not a default. */
   required?: boolean;
+  strictNumber?: boolean;
   /** One line, in the instructions sheet. Translated at render time. */
   helpKey: string;
   /** Shown in the example row, so the shape of a valid value is visible. */
@@ -235,6 +238,7 @@ export const SHEETS: SheetSpec[] = [
       { key: 'dx', unit: 'm', helpKey: 'xls.col.dx', example: '' },
       { key: 'dy', unit: 'm', helpKey: 'xls.col.dy', example: '' },
       { key: 'dz', unit: 'm', helpKey: 'xls.col.dz', example: '' },
+      ...['x', 'y', 'z'].map(axis => ({ key: 'dr' + axis, unit: 'rad', strictNumber: true, helpKey: 'xls.col.supportRotation', example: '' })),
     ],
     examples: [
       [1, 'fixed', '', '', '', '', '', '', '', '', '', ''],
@@ -430,12 +434,26 @@ export const SHEETS: SheetSpec[] = [
   },
 ];
 
+/** The axes the coordinates, global loads and supports are written in; absent, the model's own. */
+export const AXES_SHEET = 'Axes';
+
 /** The sheet a reader sees first. Not data — prose, in their language. */
 export const INSTRUCTIONS_SHEET = 'Instrucciones';
 
 /** Look a sheet up by its stable name. */
-export function sheetSpec(name: string): SheetSpec | undefined {
-  return SHEETS.find((s) => s.name.toLowerCase() === name.trim().toLowerCase());
+const frameColumns: Record<string, ColumnSpec[]> = {
+  Loads: [
+    { key: 'angle', unit: '°', helpKey: 'xls.col.loadAngle', example: '' },
+    { key: 'px', unit: 'kN', helpKey: 'xls.col.axialPoint', example: '' },
+    { key: 'qxi', unit: 'kN/m', helpKey: 'xls.col.qxi', example: '' },
+    { key: 'qxj', unit: 'kN/m', helpKey: 'xls.col.qxj', example: '' },
+  ],
+};
+
+export function sheetSpec(name: string, framed = false): SheetSpec | undefined {
+  const sheet = SHEETS.find((s) => s.name.toLowerCase() === name.trim().toLowerCase());
+  const extra = framed && sheet ? frameColumns[sheet.name] : undefined;
+  return sheet && extra ? { ...sheet, columns: [...sheet.columns, ...extra] } : sheet;
 }
 
 /**
@@ -454,4 +472,9 @@ export function keyFromHeader(header: unknown): string | null {
   if (typeof header !== 'string') return null;
   const base = header.split('[')[0].trim().toLowerCase();
   return base.length > 0 ? base : null;
+}
+
+export function coordinateColumns(frame: AxesFrame): { along: string; depth: string; height: string } {
+  const name = (index: number) => userAxisAlong(frame, index).name.toLowerCase();
+  return { along: name(0), depth: name(1), height: name(2) };
 }

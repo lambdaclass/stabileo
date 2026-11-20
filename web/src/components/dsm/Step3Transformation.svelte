@@ -4,6 +4,8 @@
   import { t } from '../../lib/i18n';
   import { dsmStepsStore } from '../../lib/store';
   import MatrixDisplay from './MatrixDisplay.svelte';
+  import { axesStore } from '../../lib/axes/axes.svelte';
+  import { dsmPlaneSigns } from '../../lib/axes/dsm-frame';
 
   let { data, editable = false }: { data: DSMStepData; editable?: boolean } = $props();
 
@@ -20,6 +22,11 @@
 
   const cosVal = $derived(elem ? Math.cos(elem.angle).toFixed(4) : '0');
   const sinVal = $derived(elem ? Math.sin(elem.angle).toFixed(4) : '0');
+  const signs = $derived(dsmPlaneSigns(axesStore.frame));
+  const mirrored = $derived(signs.transverse < 0);
+  const ms = $derived(mirrored ? 's' : '-s');
+  const pc = $derived(mirrored ? '-c' : 'c');
+  const one = $derived(String(signs.sr));
 </script>
 
 <div class="step">
@@ -52,9 +59,9 @@
       </div>
 
       {#if elem.type === 'frame'}
-        <FitMath tex={`[T] = \\begin{bmatrix} c & s & 0 & 0 & 0 & 0 \\\\ -s & c & 0 & 0 & 0 & 0 \\\\ 0 & 0 & 1 & 0 & 0 & 0 \\\\ 0 & 0 & 0 & c & s & 0 \\\\ 0 & 0 & 0 & -s & c & 0 \\\\ 0 & 0 & 0 & 0 & 0 & 1 \\end{bmatrix}`} narrow />
+        <FitMath tex={`[T] = \\begin{bmatrix} c & s & 0 & 0 & 0 & 0 \\\\ ${ms} & ${pc} & 0 & 0 & 0 & 0 \\\\ 0 & 0 & ${one} & 0 & 0 & 0 \\\\ 0 & 0 & 0 & c & s & 0 \\\\ 0 & 0 & 0 & ${ms} & ${pc} & 0 \\\\ 0 & 0 & 0 & 0 & 0 & ${one} \\end{bmatrix}`} narrow />
       {:else}
-        <FitMath tex={`[T] = \\begin{bmatrix} c & s & 0 & 0 \\\\ -s & c & 0 & 0 \\\\ 0 & 0 & c & s \\\\ 0 & 0 & -s & c \\end{bmatrix}`} narrow />
+        <FitMath tex={`[T] = \\begin{bmatrix} c & s & 0 & 0 \\\\ ${ms} & ${pc} & 0 & 0 \\\\ 0 & 0 & c & s \\\\ 0 & 0 & ${ms} & ${pc} \\end{bmatrix}`} narrow />
       {/if}
     {/if}
 

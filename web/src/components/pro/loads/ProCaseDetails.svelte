@@ -1,4 +1,7 @@
 <script lang="ts">
+  import { caseNameShown } from '../../../lib/axes/case-names';
+  import { signedAxisText } from '../../../lib/axes/typed-frame';
+  import { modelAxisOf } from '../../../lib/axes/display';
   import Hint from '../Hint.svelte';
   /**
    * One case's composition and how it is solved (`engine/case-effects.ts`,
@@ -125,7 +128,7 @@
     <div class="cd-row">
       <!-- A refused change is put back: the field showed a value the case never took. -->
       <select value={inc.caseId} onchange={(e) => { if (!setInclude(i, { caseId: Number(e.currentTarget.value) })) e.currentTarget.value = String(inc.caseId); }} data-testid="cd-inc-case-{i}">
-        {#each choicesFor(inc.caseId) as c (c.id)}<option value={c.id}>{c.type ? `${c.type} · ` : ''}{c.name}</option>{/each}
+        {#each choicesFor(inc.caseId) as c (c.id)}<option value={c.id}>{c.type ? `${c.type} · ` : ''}{caseNameShown(c)}</option>{/each}
       </select>
       <span>×</span>
       <input type="text" class="cd-num" value={String(inc.factor)} onchange={(e) => { const v = parseDecimal(e.currentTarget.value); if (v === null || !setInclude(i, { factor: v })) e.currentTarget.value = String(inc.factor); }} data-testid="cd-inc-factor-{i}" />
@@ -152,12 +155,12 @@
       <label>{t('caseDetails.source')}
         <select value={notional?.sourceCaseId ?? ''} onchange={(e) => { if (!setNotional({ sourceCaseId: Number(e.currentTarget.value) })) e.currentTarget.value = String(notional?.sourceCaseId ?? ''); }} data-testid="cd-not-source">
           {#if !notional}<option value="">—</option>{/if}
-          {#each sources as c (c.id)}<option value={c.id}>{c.type ? `${c.type} · ` : ''}{c.name}</option>{/each}
+          {#each sources as c (c.id)}<option value={c.id}>{c.type ? `${c.type} · ` : ''}{caseNameShown(c)}</option>{/each}
         </select>
       </label>
       <label>{t('caseDetails.ratio')} <input type="text" class="cd-num" value={String(notional?.ratio ?? 0.002)} onchange={(e) => { const v = parseDecimal(e.currentTarget.value); if (v === null || !setNotional({ ratio: v })) e.currentTarget.value = String(notional?.ratio ?? 0.002); }} data-testid="cd-not-ratio" /></label>
       <select value={notional?.dir ?? '+X'} onchange={(e) => { if (!setNotional({ dir: e.currentTarget.value as '+X' })) e.currentTarget.value = notional?.dir ?? '+X'; }} data-testid="cd-not-dir">
-        {#each ['+X', '-X', '+Y', '-Y'] as d (d)}<option value={d}>{d}</option>{/each}
+        {#each ['+X', '-X', '+Y', '-Y'] as d (d)}<option value={d}>{signedAxisText(d)}</option>{/each}
       </select>
     </div>
     <Hint text={t('caseDetails.notionalHint')} />
@@ -180,8 +183,10 @@
         <label>{t('spectralCase.scale')} <input type="text" class="cd-num" value={String(sp.scale)} onchange={(e) => { const v = num(e.currentTarget.value); if (v !== null) setSpectral({ scale: v }); }} data-testid="cd-spec-scale" /></label>
       </div>
       <div class="cd-row">
-        {#each ['x', 'y', 'z'] as a (a)}
-          <label>{a.toUpperCase()} <input type="text" class="cd-num" value={String(sp.factors[a as 'x'])} onchange={(e) => { const v = num(e.currentTarget.value); if (v !== null) setSpectral({ factors: { ...sp.factors, [a]: v } }); }} data-testid="cd-spec-f{a}" /></label>
+        {#each (['X', 'Y', 'Z'] as const) as u (u)}
+          {@const axis = modelAxisOf(u)}
+          {@const key = (['x', 'y', 'z'] as const)[axis.index]}
+          <label>{u} <input type="text" class="cd-num" value={String(axis.sign * sp.factors[key])} onchange={(e) => { const v = num(e.currentTarget.value); if (v !== null) setSpectral({ factors: { ...sp.factors, [key]: axis.sign * v } }); }} data-testid="cd-spec-f{u.toLowerCase()}" /></label>
         {/each}
         <!-- How the directions add, quantity by quantity (`spectral-case.ts` `directionCombine`). -->
         <label>{t('spectralCase.directions')}
@@ -192,7 +197,7 @@
         </label>
       </div>
       {#if staleScale !== null}
-        <p class="cd-warn" data-testid="cd-spec-scale-stale">{tp('spectralCase.scaleStale', { name: lc.name, scale: sp.scale, code: staleScale })}
+        <p class="cd-warn" data-testid="cd-spec-scale-stale">{tp('spectralCase.scaleStale', { name: caseNameShown(lc), scale: sp.scale, code: staleScale })}
           <button class="pk-btn" onclick={() => setSpectral({ scale: staleScale! })} data-testid="cd-spec-scale-use">{tp('spectralCase.scaleUse', { code: staleScale })}</button></p>
       {/if}
       <Hint text={t('spectralCase.hint')} />

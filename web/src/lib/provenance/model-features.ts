@@ -19,6 +19,8 @@ import { materialFamilyOf } from '../engine/steel/material-family';
 import { catalogueGradeFamily } from '../engine/steel/grade-family';
 import { is3DWorkspace } from '../utils/workspace';
 import { DEFAULT_PLATE_MESH } from '../model/physical/plate';
+import { globalAxes } from '../features';
+import { GRAVITY_SELF_WEIGHT, type SelfWeightLoad } from '../engine/analysis-settings';
 import { isBareCustom3D, isBareRollerZ, isPlaneRoller, isSupportType } from '../model/support-types';
 
 export const ANALYSIS_KINDS = [
@@ -32,9 +34,12 @@ export type AnalysisKind = (typeof ANALYSIS_KINDS)[number];
  */
 export const LEGACY_RECORDED_ANALYSES: readonly AnalysisKind[] = ['linear', 'pdelta', 'modal', 'buckling', 'plastic', 'spectral'];
 
+export const GLOBAL_AXES_EVIDENCE = 'axisNamedLoads';
+
 /** Every feature id a registry entry may name. The registry test fails on any other. */
 export const FEATURE_IDS = [
   'gallery:slab-on-columns:walls', 'example:rc-beam-flexure',
+  GLOBAL_AXES_EVIDENCE,
   'plane2D', 'space3D', 'members', 'cableMembers', 'contactElements', 'frameMembers', 'trussMembers', 'hinges', 'arcMembers', 'shearAreas', 'thermalAtRelease',
   'steelMembers', 'steelCirsoc301', 'steelTensionWithoutConnection', 'steelDeclaredUnbracedLength', 'steelStaggeredOrUnboltedWebEnd', 'timberOrAluminiumMembers',
   'concreteMembers', 'fiberMembers', 'hognestadFiberMembers', 'cirsoc201', 'aci318', 'footings', 'jointDesigns',
@@ -43,7 +48,7 @@ export const FEATURE_IDS = [
   'connectors', 'connectorsWithShear', 'pathAnalysis',
   'stagedConstruction', 'generatedStructures', 'nodalMoments', 'trussMemberLoads', 'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'generatedLoads', 'generatedWindLoads', 'generatedSeismicLoads', 'unverifiedGeneratedSeismicLoads',
   'generatedWidthGravity', 'generatedPanelGravityShells', 'memberFloorZones', 'magnitudeCombinations',
-  'partialDistributedMemberLoads', 'distributedMemberLoads', 'selfWeight', 'nodalForces', 'forceSummaryResults',
+  'partialDistributedMemberLoads', 'distributedMemberLoads', 'selfWeight', 'nonstandardPlanarSelfWeight', 'standaloneGravityToggleOff', 'nodalForces', 'forceSummaryResults',
   'ssiHistory', 'movingLoads', 'combinations', 'cirsocCombinations', 'seismic', 'snow', 'wind', 'timeHistorySpec',
   'superposedCombinations', 'repeatedCombinationCases',
   ...ANALYSIS_KINDS.map((k) => `analysis:${k}` as const),
@@ -86,7 +91,7 @@ interface FeatureSnapshotFields {
   fiberSections?: Record<string, { materials?: Array<{ type?: string }> }>;
   supports?: Entries<Sup>;
   loads?: Array<{ type: string; data?: Record<string, unknown> }>;
-  loadCases?: Array<{ id: number; type?: string; spectral?: unknown; alternatives?: string }>;
+  loadCases?: Array<{ id: number; type?: string; spectral?: unknown; alternatives?: string; axisNamed?: boolean }>;
   combinations?: unknown[];
   combinationRules?: unknown[];
   solidShells?: Entries<unknown>;
@@ -104,7 +109,7 @@ interface FeatureSnapshotFields {
   regulations?: { roles?: Record<string, { adapterId?: string | null; settings?: Record<string, unknown> } | undefined> };
   dynamics?: { timeHistory?: unknown; spectra?: unknown[] };
   massSource?: unknown;
-  analysis?: { selfWeight?: unknown[] };
+  analysis?: { selfWeight?: unknown[]; standaloneSelfWeight?: string };
   includeSelfWeight?: boolean;
   designData?: {
     loadBasis?: { resultsVersion?: unknown; derivation?: Array<{ key?: string }>; seismic?: unknown }; site?: { phases?: unknown[] };
@@ -204,6 +209,13 @@ export function loadsGeneratedWith(s: FeatureSnapshot): number {
 }
 
 export const UNVERIFIED_SEISMIC_FEATURE = 'unverifiedGeneratedSeismicLoads';
+
+function isStandardGravityRule(rule: unknown): boolean {
+  if (rule === null || typeof rule !== 'object') return false;
+  const { direction, factor, elements, groupId } = rule as Partial<SelfWeightLoad>;
+  return direction === GRAVITY_SELF_WEIGHT.direction && factor === GRAVITY_SELF_WEIGHT.factor
+    && elements === undefined && groupId === undefined;
+}
 
 /** The features of one saved model. */
 export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set<FeatureId> {
@@ -319,8 +331,18 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
 
   const axialMembers = new Set(elements.filter((e) => e.type === 'truss' || e.type === 'cable').map((e) => e.id));
   const cases = Array.isArray(s.loadCases) ? s.loadCases : [];
+  if (globalAxes() && cases.some(c => c.axisNamed === true)) f.add(GLOBAL_AXES_EVIDENCE);
   if (cases.some((c) => c.alternatives?.startsWith('move:'))) f.add('movingLoads');
   if (s.includeSelfWeight || s.analysis?.selfWeight?.length) f.add('selfWeight');
+  if (s.analysis?.standaloneSelfWeight === 'gravity' && s.includeSelfWeight !== true &&
+      (elements.length || quads.length || values(s.plates).length)) {
+    f.add('standaloneGravityToggleOff');
+  }
+  const weightRules = s.analysis?.selfWeight;
+  if (f.has('plane2D') && elements.length && Array.isArray(weightRules) &&
+      (weightRules.length > 1 || weightRules.some(rule => !isStandardGravityRule(rule)))) {
+    f.add('nonstandardPlanarSelfWeight');
+  }
   const caseType = new Map(cases.map((c) => [c.id, c.type]));
   const loadBasis = s.designData?.loadBasis;
   const loadNoteKeys = new Set(Array.isArray(loadBasis?.derivation) ? loadBasis.derivation.map(n => n?.key) : []);

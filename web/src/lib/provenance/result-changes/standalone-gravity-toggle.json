@@ -1,0 +1,34 @@
+{
+  "id": "standalone-gravity-toggle",
+  "date": "2026-11-20",
+  "prs": [2364],
+  "area": "analysis",
+  "when": {
+    "all": ["standaloneGravityToggleOff"]
+  },
+  "quantities": ["*", "solve.ok"],
+  "title": {
+    "en": "Standalone gravity toggle",
+    "es": "Interruptor del peso propio en el cálculo único",
+    "pt": "Controle de peso próprio na análise única",
+    "de": "Eigengewichtsschalter für Einzelberechnungen",
+    "fr": "Activation du poids propre en calcul unique",
+    "tr": "Tekil çözümde öz ağırlık anahtarı",
+    "hu": "Önsúlykapcsoló az önálló számításban",
+    "zh": "单次求解的自重开关"
+  },
+  "explanation": {
+    "en": "An imported standalone gravity setting now honors the self-weight toggle. Recompute results obtained with the toggle off.",
+    "es": "El peso propio importado para un cálculo único ahora respeta el interruptor de peso propio. Vuelva a calcular los resultados obtenidos con el interruptor desactivado.",
+    "pt": "O peso próprio importado para uma análise única agora respeita o controle de peso próprio. Recalcule os resultados obtidos com o controle desativado.",
+    "de": "Die importierte Eigengewichtseinstellung für Einzelberechnungen berücksichtigt jetzt den Eigengewichtsschalter. Berechnen Sie Ergebnisse mit ausgeschaltetem Eigengewicht erneut.",
+    "fr": "Le réglage de poids propre importé pour un calcul unique respecte désormais la commande de poids propre. Recalculez les résultats obtenus avec la commande désactivée.",
+    "tr": "İçe aktarılan tekil çözüm öz ağırlık ayarı artık öz ağırlık anahtarına uyar. Anahtar kapalıyken alınan sonuçları yeniden hesaplayın.",
+    "hu": "Az importált önsúlybeállítás az önálló számításban most követi az önsúlykapcsoló állását. Számítsa újra a kikapcsolt állásban kapott eredményeket.",
+    "zh": "导入的单次求解自重设置现在遵循自重开关。请重新计算关闭自重开关时得到的结果。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-standalone-gravity-toggle.md",
+    "heading": "Standalone gravity toggle"
+  }
+}
