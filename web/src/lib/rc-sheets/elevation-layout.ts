@@ -28,7 +28,9 @@ export interface ElevationInput {
   X: (x: number) => number;
   depth: (span: number) => number;
   t: number;
+  /** How far the columns are drawn below and above the beam. */
   below: number;
+  above?: number;
   marks: boolean;
   fmt: Fmt; tr: Tr;
   cuts?: ReadonlyArray<{ x: number; label: string }>;
@@ -177,10 +179,15 @@ function trackOf(inp: ElevationInput, bar: LineBar): { track: LTrack; lo: number
     }
     dims.forEach((d) => { d.from = 0; });
   }
-  const boxes = [textBox(label), ...(bubble ? [bubbleBox(bubble)] : []), ...dims.map((d) => textBox(d.text)), ...legs.map(textBox)];
-  const ys = [...boxes.flatMap((b) => [b.y0, b.y1]), ...hooks, ...dims.map((d) => d.y), ...(shape ?? []).map((q) => q[1])];
+  const below = bar.kind !== 'bent' && bar.face === 'bottom';
+  const flip = (q: LText): LText => (below ? { ...q, y: q.size - q.y } : q);
+  const lab = flip(label), bub = bubble && below ? { ...bubble, y: -bubble.y } : bubble;
+  const ds = below ? dims.map((d) => ({ ...d, y: -d.y, text: flip(d.text) })) : dims;
+  const boxes = [textBox(lab), ...(bub ? [bubbleBox(bub)] : []), ...ds.map((d) => textBox(d.text)), ...legs.map(textBox)];
+  const ys = [...boxes.flatMap((b) => [b.y0, b.y1]), ...hooks, ...ds.map((d) => d.y), ...(shape ?? []).map((q) => q[1])];
   const xs = [x0, x1, x0 + back[0], x1 + back[1], ...boxes.flatMap((b) => [b.x0, b.x1])];
-  return { track: { bar, y: 0, x0, x1, label, bubble, dims, legs, hooks, back, ...(shape ? { shape } : {}) }, lo: Math.min(...ys, -1.5 * t), hi: Math.max(...ys, 0.5 * t), x0: Math.min(...xs), x1: Math.max(...xs) };
+  const [least, most] = below ? [-0.5 * t, 1.5 * t] : [-1.5 * t, 0.5 * t];
+  return { track: { bar, y: 0, x0, x1, label: lab, bubble: bub, dims: ds, legs, hooks, back, ...(shape ? { shape } : {}) }, lo: Math.min(...ys, least), hi: Math.max(...ys, most), x0: Math.min(...xs), x1: Math.max(...xs) };
 }
 
 function moveTrack(tr: LTrack, dy: number): LTrack {
@@ -206,7 +213,7 @@ export function elevationLayout(inp: ElevationInput): ElevationLayout {
 
   const built = inp.tracks === false ? [] : line.bars.map((b) => trackOf(inp, b));
   const tracks: LTrack[] = [];
-  let top = -cutRow - TRACK_GAP * t, bottom = hMax + inp.below + cutRow + TRACK_GAP * t;
+  let top = -(inp.above ?? 0) - cutRow - TRACK_GAP * t, bottom = hMax + inp.below + cutRow + TRACK_GAP * t;
   for (const face of ['top', 'bottom'] as const) {
     const mine = built.filter((x) => (x.track.bar.kind === 'bent' ? 'bottom' : x.track.bar.face) === face);
     const rows = packTracks(mine.map((x) => ({ x0: x.x0, x1: x.x1, order: trackOrder(x.track.bar) })), 0.8 * t);

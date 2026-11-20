@@ -4,7 +4,7 @@
   import { t } from '../../../lib/i18n';
   import type { Fmt } from '../../../lib/rc-sheets/format';
   import type { LineLayout } from '../../../lib/rc-sheets/beam-line';
-  import { ENV_GAP, ENV_M, ENV_S, ENV_V, LEGEND, capacityPath, filled, finite, steelChart, type ChartKind } from '../../../lib/rc-sheets/line-charts';
+  import { ENV_GAP, ENV_M, ENV_S, ENV_V, LEGEND, capacityPath, chartReach, filled, finite, leastPositive, steelChart, type ChartKind } from '../../../lib/rc-sheets/line-charts';
 
   let { line, X, top, left, right, kind, fmt }: { line: LineLayout; X: (x: number) => number; top: number; left: number; right: number; kind: ChartKind; fmt: Fmt } = $props();
 
@@ -12,8 +12,8 @@
   const vuTop = $derived(Math.max(1e-6, ...line.shear.flatMap((e) => [e.vPos, e.vNeg])));
   const phiMTop = $derived(Math.max(0, ...line.envelope.flatMap((e) => [finite(e.phiPos), finite(e.phiNeg)])));
   const phiVTop = $derived(Math.max(0, ...line.shear.map((e) => finite(e.phiVn))));
-  const mMax = $derived(Math.max(1.25 * muTop, Math.min(1.05 * phiMTop, 3 * muTop)));
-  const vMax = $derived(Math.max(1.25 * vuTop, Math.min(1.05 * phiVTop, 3 * vuTop)));
+  const mMax = $derived(chartReach(muTop, phiMTop, leastPositive(line.envelope.flatMap((e) => [e.phiPos, e.phiNeg]))));
+  const vMax = $derived(chartReach(vuTop, phiVTop, leastPositive(line.shear.filter((e) => e.checked !== false).map((e) => e.phiVn))));
   const yM = $derived(top + ENV_M / 2);
   const yV = $derived(top + ENV_M + ENV_GAP + ENV_V / 2);
   const mY = (m: number) => yM + (m / mMax) * (ENV_M / 2 - 4);

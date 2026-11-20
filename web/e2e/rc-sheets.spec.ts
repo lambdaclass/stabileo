@@ -85,12 +85,14 @@ test('@slow the reinforcement sheets design beams, columns, slabs and walls of a
 
   await first.click();
   await expect(ws.getByTestId('rc-line-svg')).toBeVisible();
-  // The bars' marks of the schedule stand on the elevation and beside each section, and go away together.
+  // The bars drawn apart and the schedule's marks on them and beside each section go away together.
   await expect(ws.getByTestId('rc-line-marks')).toContainText('A');
   await expect(ws.getByTestId('rc-section-marks').first()).toContainText('A');
+  await expect(ws.getByTestId('rc-track').first()).toBeVisible();
   await ws.getByTestId('rc-marks-toggle').uncheck();
   await expect(ws.getByTestId('rc-line-marks')).toHaveCount(0);
   await expect(ws.getByTestId('rc-section-marks')).toHaveCount(0);
+  await expect(ws.getByTestId('rc-track')).toHaveCount(0);
   await ws.getByTestId('rc-marks-toggle').check();
   await expect(ws.getByTestId('rc-line-envelope')).toBeVisible();
   await expect(ws.getByTestId('rc-env-phivn')).toHaveAttribute('d', /^(M[\d.]+,[\d.]+( L[\d.]+,[\d.]+)+ ?)+$/);

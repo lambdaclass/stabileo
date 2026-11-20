@@ -19,7 +19,7 @@
   const supports = $derived(lineSupports(line));
   const coverPx = $derived(Math.max(9, (line.cover + 0.012) * sy));
   const BELOW = $derived(Math.max(STUB, ...line.bars.flatMap((b) => [-hookTurn(b, 0), -hookTurn(b, 1)]).map((d) => d * sy - coverPx + 4)));
-  const lay = $derived(elevationLayout({ line, X, depth: (k) => line.spans[k]!.h * sy, t: TXT, below: BELOW, marks, fmt, tr: tp, cuts, zeros: onBeam && line.envelope.length > 1, tracks }));
+  const lay = $derived(elevationLayout({ line, X, depth: (k) => line.spans[k]!.h * sy, t: TXT, below: BELOW, above: STUB, marks, fmt, tr: tp, cuts, zeros: onBeam && line.envelope.length > 1, tracks }));
   const TOP = $derived(8 - lay.top);
   const yBeamBottom = $derived(TOP + hMax * sy);
   const bottomOf = (h: number) => TOP + h * sy;
@@ -135,8 +135,8 @@
       {/if}
       {@render txt(tr.label, 'lab', 'rc-track-label')}
       {#each tr.dims as d, i (i)}
-        <line x1={d.x0} y1={y} x2={d.x0} y2={yLay(d.y) + 3} class="ext" />
-        <line x1={d.x1} y1={y} x2={d.x1} y2={yLay(d.y) + 3} class="ext" />
+        <line x1={d.x0} y1={y} x2={d.x0} y2={yLay(d.y) + (d.y < tr.y ? -3 : 3)} class="ext" />
+        <line x1={d.x1} y1={y} x2={d.x1} y2={yLay(d.y) + (d.y < tr.y ? -3 : 3)} class="ext" />
         {@render dimension(d, 'rc-setout')}
       {/each}
       {#each tr.legs as q, i (i)}{@render txt(q, 'small', 'rc-bent-leg')}{/each}
