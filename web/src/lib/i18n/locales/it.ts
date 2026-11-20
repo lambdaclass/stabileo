@@ -1370,7 +1370,8 @@ const it: Translations = {
   // ─── Stress State Details ───
   'stress.stressState': 'Stato tensionale',
   'stress.sigmaBiaxHelp': 'Tensione normale biassiale (Navier):\\nσ = N/A + Mz·y/Iz - My·z/Iy\\n\\nPositivo = trazione (rosso)\\nNegativo = compressione (blu)\\n\\nDipende dalla fibra selezionata (y, z).',
-  'stress.tauTotalHelp': 'Tensione tangenziale totale combinata:\\nτ = √(τVy² + τVz² + τT²)\\n\\nInclude il taglio da Vy (piano XY), Vz (piano XZ) e torsione.',
+  'stress.tauTotalHelp': 'Modulo della tensione tangenziale dovuta al solo taglio trasversale o alla sola torsione.',
+  'stress.combinedShearRefused': 'La tensione tangenziale combinata, le tensioni derivate e l’esito della verifica non sono disponibili dove coesistono taglio trasversale e taglio da torsione.',
   'stress.vonMisesHelp': 'Criterio di Von Mises (energia di distorsione):\\nσvm = √(σ² + 3τ²)\\n\\nPreferito per acciaio e metalli duttili.\\nLa percentuale indica l\'utilizzo della capacità fy.',
   'stress.trescaHelp': 'Criterio di Tresca (massima tensione tangenziale):\\nτmax = √((σ/2)² + τ²)\\n\\n~15% conservativo rispetto a Von Mises.\\nEquivalente: 2τmax ≤ fy',
   'stress.rankineHelp': 'Criterio di Rankine (massima tensione normale):\\nmax(|σ₁|, |σ₃|) ≤ fy\\n\\nAppropiato per materiali fragili (calcestruzzo, roccia).\\nPer l\'acciaio, preferire Von Mises.',

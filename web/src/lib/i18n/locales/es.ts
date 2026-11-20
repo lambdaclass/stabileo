@@ -3364,7 +3364,8 @@ const es: Record<string, string> = {
   // ─── Stress State Details ───
   'stress.stressState': 'Estado tensional',
   'stress.sigmaBiaxHelp': 'Tensión normal biaxial (Navier):\nσ = N/A − My·y/Iy + Mz·z/Iz\n\nPositiva = tracción (rojo)\nNegativa = compresión (azul)\n\nDepende de la fibra (y, z) seleccionada.',
-  'stress.tauTotalHelp': 'Tensión tangencial total combinada:\nτ = √(τVy² + τVz² + τT²)\n\nIncluye corte por Vy (plano XY), Vz (plano XZ) y torsión.',
+  'stress.tauTotalHelp': 'Magnitud del corte transversal solo o del corte por torsión solo.',
+  'stress.combinedShearRefused': 'El corte por torsión y el corte transversal coinciden. Se omiten los resultados de tensión combinada.',
   'stress.vonMisesHelp': 'Criterio de Von Mises (energía de distorsión):\nσvm = √(σ² + 3τ²)\n\nPreferido para acero y metales dúctiles.\nEl porcentaje indica uso de la capacidad fy.',
   'stress.trescaHelp': 'Criterio de Tresca (máx. tensión tangencial):\nτmax = √((σ/2)² + τ²)\n\nConservador ~15% respecto a Von Mises.\nEquivalente: 2τmax ≤ fy',
   'stress.rankineHelp': 'Criterio de Rankine (máx. tensión normal):\nmax(|σ₁|, |σ₃|) ≤ fy\n\nApropiado para materiales frágiles (hormigón, roca).\nPara acero, preferir Von Mises.',
