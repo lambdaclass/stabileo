@@ -5,7 +5,7 @@ import type { JSONModel } from '../templates/load-fixture';
 import type { AxesFrame } from '../axes/frame';
 import { transformSnapshot } from '../model/code/frame';
 import { loadFieldUnit } from '../model/load-field-unit';
-import type { RowProblem } from './parse';
+import type { Row, RowProblem } from './parse';
 import { unguardText } from '../export/workbook-cells';
 
 const specs: Record<string, { required: string[]; optional?: string[]; boolean?: string[]; frame?: string[]; target: 'nodeId' | 'elementId' }> = {
@@ -18,24 +18,16 @@ const specs: Record<string, { required: string[]; optional?: string[]; boolean?:
 };
 
 export function readLoadData(
-  rows: unknown[][], frame: AxesFrame, mode: '2d' | 'pro', model: JSONModel, problems: RowProblem[],
+  rows: Row[], frame: AxesFrame, mode: '2d' | 'pro', model: JSONModel, problems: RowProblem[],
   unitFactor: (wanted: string, given: string) => number | null,
 ): JSONModel['loads'] {
-  if (rows.length < 2) return [];
-  const headers = rows[0]!.map(h => String(h).trim().toLowerCase());
-  const fail = (row: number, message: string) => problems.push({ sheet: 'LoadData', row, message });
-  const columns = ['load', 'case', 'type', 'node', 'member', 'shell', 'field', 'value', 'unit'];
-  if (headers.length !== columns.length || columns.some(c => headers.filter(h => h === c).length !== 1)) {
-    fail(1, 'LoadData requires one of each exported column.');
-    return [];
-  }
+  const fail = (row: number, message: string) => problems.push({ sheet: 'LoadData', row, message, blocking: true });
   const numberCell = (value: unknown): number => typeof value === 'number' ? value : typeof value === 'string' ? parseDecimal(value) ?? NaN : NaN;
   const groups = new Map<string, { row: number; metadata: string; type: string; data: Record<string, unknown>; fields: Set<string>; invalid: boolean }>();
   const nodes = new Set(model.nodes.map(n => n.id)), members = new Set(model.elements.map(e => e.id));
   const cases = new Set((model.loadCases?.length ? model.loadCases : defaultLoadCases()).map(c => c.id));
-  for (const [index, row] of rows.entries()) {
-    if (index === 0 || row.every(v => v === '' || v === null || v === undefined)) continue;
-    const cell = (key: string) => row[headers.indexOf(key)];
+  for (const row of rows) {
+    const cell = (key: string) => row.cells[key];
     const text = (key: string) => unguardText(String(cell(key) ?? '')).trim();
     const defaultCase = text('case') === '';
     const id = numberCell(cell('load')), caseId = defaultCase ? 1 : numberCell(cell('case')), type = text('type');
@@ -45,10 +37,10 @@ export function readLoadData(
     const key = String(id);
     let group = groups.get(key);
     if (!group) {
-      group = { row: index + 1, metadata, type, data: { id, ...(defaultCase ? {} : { caseId }), ...(spec ? { [spec.target]: target } : {}) }, fields: new Set(), invalid: false };
+      group = { row: row.n, metadata, type, data: { id, ...(defaultCase ? {} : { caseId }), ...(spec ? { [spec.target]: target } : {}) }, fields: new Set(), invalid: false };
       groups.set(key, group);
     }
-    const reject = (message: string) => { group!.invalid = true; fail(index + 1, message); };
+    const reject = (message: string) => { group!.invalid = true; fail(row.n, message); };
     if (!Number.isSafeInteger(id) || id <= 0) { reject(t('xls.err.loadDataId')); continue; }
     if (!Number.isSafeInteger(caseId) || caseId <= 0) { reject(t('xls.err.loadDataCaseId')); continue; }
     if (!cases.has(caseId)) { reject(tp('xls.err.caseMissing', { id: caseId })); continue; }
