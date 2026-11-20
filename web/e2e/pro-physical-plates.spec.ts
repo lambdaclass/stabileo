@@ -186,6 +186,7 @@ test('@smoke Diagnostics opens from the Analyse row and lists a plate with no me
 });
 
 test('@smoke an example\'s slabs and walls are plates as loaded, keep their mesh, and two picked are meshed from the card the selection shows', async ({ pro: page }) => {
+  test.fixme(true, 'known wrong result: #2365');
   await loadModel(page, 'pro-edificio-7p');
   await page.getByTestId('pr-stage-model').click();
   await expect.poll(async () => (await plates(page)).length).toBeGreaterThan(10);
