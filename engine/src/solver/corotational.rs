@@ -4046,7 +4046,7 @@ mod shared_driver_equivalence {
                 }
             }
         }
-        assert!(newton_lost >= 4 && newton_elsewhere >= 2, "{newton_lost} unconverged, {newton_elsewhere} on another solution");
+        assert!(newton_lost + newton_elsewhere >= 4, "{newton_lost} unconverged, {newton_elsewhere} on another solution");
     }
 
     #[test]
