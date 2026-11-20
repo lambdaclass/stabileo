@@ -2133,7 +2133,7 @@ const ja: Translations = {
   // ─── Modal Analysis ───
   'modal.noFreeDofs': '自由な自由度がありません',
   'modal.modelTooLarge': 'モーダル解析にはモデルが大きすぎます（最大約500自由度）',
-  'modal.noDensity': '密度が割り当てられた材料がありません。モーダル解析には材料に密度（kg/m³）を割り当ててください。',
+  'modal.noDensity': '単位体積重量が設定された材料がありません。モード解析を行うには、材料の単位体積重量（kN/m³）を入力してください。',
   'modal.zeroMassMatrix': '質量マトリックスがゼロ — 材料に密度を割り当ててください',
   'modal.choleskyError': '質量マトリックスのコレスキー分解に失敗しました',
   'modal.noModesFound': '有効なモードが見つかりませんでした',

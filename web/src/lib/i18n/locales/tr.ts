@@ -3800,7 +3800,7 @@ const tr: Translations = {
   // ─── Modal Analysis ───
   'modal.noFreeDofs': 'Serbest serbestlik derecesi yok',
   'modal.modelTooLarge': 'Model modal analiz için çok büyük (en fazla ~3000 serbest SD)',
-  'modal.noDensity': 'Hiçbir malzemeye yoğunluk atanmamış. Modal analiz için malzemelere yoğunluk (kg/m³) atayın.',
+  'modal.noDensity': 'Hiçbir malzemenin birim hacim ağırlığı belirtilmemiş. Modal analiz için malzemelerin birim hacim ağırlığını (kN/m³) girin.',
   'modal.zeroMassMatrix': 'Kütle matrisi sıfır; malzemelere yoğunluk atayın',
   'modal.choleskyError': 'Kütle matrisinin Cholesky ayrıştırması başarısız oldu',
   'modal.noModesFound': 'Geçerli mod bulunamadı',

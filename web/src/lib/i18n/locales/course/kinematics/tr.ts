@@ -55,7 +55,7 @@ const words: Translations = {
   'course.kinematics.gic.cmp.equal': 'İki yöntem de aynı sayıda denklem gerektiriyor: {gh}.',
 
   'course.kinematics.dm.intro': 'Bilinmeyenler düğümlerin yer değiştirmeleridir: dönmeler ve ötelemeler. Hepsi hayali tutucularla kilitlenir, yükler bu hâlde çözülür (durum 0), sonra her bilinmeyene ayrı ayrı birim değer verilir (durum 1…n). Hayali tutucuların sonunda kuvvet taşımaması koşulu K·D = −R⁰ sistemini verir.',
-  'course.kinematics.dm.introStates': 'Her durumda çubuklar uçlarından ankastre, mafsallı oldukları yerde ise mafsallı gibi çalışır; bu yüzden momentleri bilinen katsayılardan gelir: bir dönme için 4EI/L ve 2EI/L, eksene dik bir öteleme için 6EI/L², diğer uç mafsallıysa 3EI/L ve bir uzama için EA/L.',
+  'course.kinematics.dm.introStates': 'Her durumda çubuklar uçlarından ankastre, mafsallı oldukları yerde ise mafsallı gibi çalışır; bu yüzden momentleri bilinen katsayılardan gelir: bir dönme için 4EI/L ve 2EI/L, eksene dik bir öteleme için 6EI/L², diğer uç mafsallıysa 3EI/L. Eksenel şekil değiştirme hesaba katıldığında eksenel kuvvet N = (EA/L)·ΔL, ΔL uzamasından hesaplanır.',
   'course.kinematics.dm.introRigid': 'Çubuklar eksenel rijit kabul edilir: boylarını korurlar. Pandül çubuklar ise EA/L eksenel yayları gibi uzar.',
   'course.kinematics.dm.introAxial': 'Çubukların EA/L eksenel rijitliği vardır: uzayabilirler ve her düğümün her serbest ötelemesi bir bilinmeyendir. Böylece sonuç matris çözümüyle örtüşür.',
   'course.kinematics.dm.membersCaption': 'Çubuklar: boy ve rijitlikler.',

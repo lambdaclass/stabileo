@@ -3984,7 +3984,7 @@ const zh: Translations = {
   "pdelta.linearSolveError": "初始线性求解出错",
   "modal.noFreeDofs": "没有自由的自由度",
   "modal.modelTooLarge": "模型过大，无法进行模态分析（最多约 3000 个自由自由度）",
-  "modal.noDensity": "没有任何材料设置了密度。请为材料设置密度（kg/m³）以进行模态分析。",
+  "modal.noDensity": "尚未为任何材料设置重度。请为材料输入重度（kN/m³），以进行模态分析。",
   "modal.zeroMassMatrix": "质量矩阵为零，请为材料设置密度",
   "modal.choleskyError": "质量矩阵的 Cholesky 分解失败",
   "modal.noModesFound": "未找到有效模态",

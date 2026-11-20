@@ -2131,7 +2131,7 @@ const it: Translations = {
   // ─── Modal Analysis ───
   'modal.noFreeDofs': 'Nessun grado di libertà libero',
   'modal.modelTooLarge': 'Modello troppo grande per l\'analisi modale (max ~500 GDL liberi)',
-  'modal.noDensity': 'Nessun materiale ha la densità assegnata. Assegnare la densità (kg/m³) ai materiali per l\'analisi modale.',
+  'modal.noDensity': 'Per nessun materiale è stato specificato il peso per unità di volume. Per l’analisi modale, inserire il peso per unità di volume (kN/m³) dei materiali.',
   'modal.zeroMassMatrix': 'La matrice di massa è nulla — assegnare la densità ai materiali',
   'modal.choleskyError': 'Decomposizione di Cholesky della matrice di massa fallita',
   'modal.noModesFound': 'Nessun modo valido trovato',

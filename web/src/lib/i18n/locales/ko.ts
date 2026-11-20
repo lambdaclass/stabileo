@@ -2130,7 +2130,7 @@ const ko: Translations = {
   // ─── Modal Analysis ───
   'modal.noFreeDofs': '자유 자유도가 없습니다',
   'modal.modelTooLarge': '모달 해석에 모델이 너무 큽니다 (최대 ~500 자유 DOF)',
-  'modal.noDensity': '어떤 재료에도 밀도가 할당되지 않았습니다. 모달 해석을 위해 재료에 밀도(kg/m³)를 할당하세요.',
+  'modal.noDensity': '단위중량이 지정된 재료가 없습니다. 모달 해석을 위해 재료의 단위중량(kN/m³)을 입력하세요.',
   'modal.zeroMassMatrix': '질량 행렬이 0입니다 — 재료에 밀도를 할당하세요',
   'modal.choleskyError': '질량 행렬의 촐레스키 분해 실패',
   'modal.noModesFound': '유효한 모드를 찾을 수 없습니다',

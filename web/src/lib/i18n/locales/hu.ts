@@ -3610,7 +3610,7 @@ const hu: Translations = {
   "pdelta.linearSolveError": "Hiba a kezdeti lineáris megoldásban",
   "modal.noFreeDofs": "Nincs szabad szabadságfok",
   "modal.modelTooLarge": "A modell túl nagy a modális analízishez (legfeljebb ~3000 szabad szabadságfok)",
-  "modal.noDensity": "Egyetlen anyaghoz sincs sűrűség rendelve. A modális analízishez rendeljen sűrűséget (kg/m³) az anyagokhoz.",
+  "modal.noDensity": "Egyetlen anyag térfogatsúlya sincs megadva. A modális analízishez adja meg az anyagok térfogatsúlyát (kN/m³).",
   "modal.zeroMassMatrix": "A tömegmátrix nulla: rendeljen sűrűséget az anyagokhoz",
   "modal.choleskyError": "A tömegmátrix Cholesky-felbontása nem sikerült",
   "modal.noModesFound": "Nem található érvényes rezgésalak",

@@ -21,7 +21,7 @@ const words: Translations = {
   'course.plastic.req.mechanisms': 'Es gibt {n} unabhängige Mechanismen; von Hand rechnet man mit höchstens {max}.',
 
   'course.plastic.doc.assumptions': 'Starr-plastischer Werkstoff: Jeder Querschnitt bleibt starr, bis sein Moment Mp erreicht; dann verdreht er sich frei, ohne dass das Moment weiter steigt (Fließgelenk). Vernachlässigt werden die Interaktion mit Normal- und Querkraft, Effekte zweiter Ordnung und die Entlastung von Gelenken.',
-  'course.plastic.doc.signs': 'Momente sind positiv, wenn sie die Unterseite des Stabs ziehen, gelesen vom Anfangs- zum Endknoten (lokale −y-Seite). Eine Gelenkverdrehung θ ist positiv, wenn der Stab so knickt, wie ihn ein positives Moment biegen würde; in jedem Gelenk ist M·θ die aufgenommene Arbeit.',
+  'course.plastic.doc.signs': 'In dieser ebenen plastischen Berechnung verläuft die lokale x-Achse vom Anfangs- zum Endknoten. Die lokale y-Achse entsteht durch Drehen der x-Achse um 90° gegen den Uhrzeigersinn. Ein positives Moment zieht an der lokalen −y-Seite, die bei einem von links nach rechts gezeichneten Balken der lokalen −z-Seite in der Lektion zu Einflusslinien entspricht. Eine Gelenkverdrehung θ ist positiv, wenn der Stab so knickt, wie ihn ein positives Moment biegen würde; in jedem Gelenk ist M·θ die aufgenommene Arbeit.',
   'course.plastic.doc.mpCaption': 'Plastisches Moment jedes Stabs, Mp = fy·Zp.',
   'course.plastic.doc.gh': 'Grad der statischen Unbestimmtheit',
   'course.plastic.doc.axialRedundant': '{s} dieser Unbekannten wirken nicht an der Biegung mit (eine Normalkraft, die kein Mechanismus aktiviert). Zum Zählen der Mechanismen gilt GH = {gh}.',
