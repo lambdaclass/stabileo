@@ -1585,6 +1585,7 @@ const en: Record<string, string> = {
   'xls.col.massW': "On weight: the downward weight, in kN/m on members and kN/m² on slabs and floors; zero or more.",
   'xls.col.massRegion': "On weight: all (the whole model), or a box {\"kind\":\"box\",\"x\":[0,5],\"z\":[2,4]} in m. Blank means all.",
   'xls.col.fy': 'Force along Y.',
+  'xls.col.materialFy': 'Yield strength for steel (fy) or compressive strength for concrete (f′c), in MPa.',
   'xls.col.sectionId': 'Section identifier.',
   'xls.col.sectionName': 'A catalog profile name (IPE 300, HEB 200…) or one of your own.',
   'xls.col.shape': 'Shape: rect, I, C, L, tube… Inferred when the name is in the catalog.',

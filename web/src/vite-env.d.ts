@@ -9,7 +9,8 @@ declare module 'virtual:public-i18n' {
   export const fr: Record<string, string>;
   export const tr: Record<string, string>;
   export const hu: Record<string, string>;
-  export const loaders: Partial<Record<'es' | 'pt' | 'de' | 'fr' | 'tr' | 'hu', () => Promise<{ default: Record<string, string> }>>>;
+  export const zh: Record<string, string>;
+  export const loaders: Partial<Record<'es' | 'pt' | 'de' | 'fr' | 'tr' | 'hu' | 'zh', () => Promise<{ default: Record<string, string> }>>>;
 }
 
 declare module 'virtual:app-i18n' {
@@ -20,6 +21,7 @@ declare module 'virtual:app-i18n' {
   export const fr: Record<string, string>;
   export const tr: Record<string, string>;
   export const hu: Record<string, string>;
+  export const zh: Record<string, string>;
 }
 
 declare module 'virtual:app-i18n/de' {
@@ -33,6 +35,9 @@ declare module 'virtual:app-i18n/tr' {
 }
 declare module 'virtual:app-i18n/hu' {
   export const hu: Record<string, string>;
+}
+declare module 'virtual:app-i18n/zh' {
+  export const zh: Record<string, string>;
 }
 
 declare module 'virtual:mesher-i18n' {

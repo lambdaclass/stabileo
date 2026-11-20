@@ -11,6 +11,7 @@
     "pt": "As combinações 3D aplicam uma vez o fator líquido de cada caso",
     "de": "3D-Kombinationen wenden den Nettofaktor jedes Lastfalls einmal an",
     "fr": "Les combinaisons 3D appliquent une fois le coefficient net de chaque cas",
+    "zh": "三维荷载组合对每个工况只应用一次净系数",
     "hu": "A 3D kombinációk minden tehereset nettó tényezőjét egyszer alkalmazzák",
     "tr": "3B birleşimler her yük durumunun net katsayısını bir kez uygular"
   },
@@ -20,6 +21,7 @@
     "pt": "As combinações 3D agora somam os fatores repetidos de cada caso antes de os aplicar. O arredondamento podia eliminar ou alterar uma contribuição. Recalcule e reveja as combinações afetadas.",
     "de": "3D-Kombinationen summieren wiederholte Faktoren eines Lastfalls jetzt, bevor sie diese anwenden. Durch Rundung konnte ein Beitrag entfallen oder verändert werden. Berechnen und prüfen Sie die betroffenen Kombinationen erneut.",
     "fr": "Les combinaisons 3D effectuent désormais la somme des coefficients répétés de chaque cas avant de les appliquer. L’arrondi pouvait supprimer ou modifier une contribution. Recalculez et vérifiez les combinaisons concernées.",
+    "zh": "三维荷载组合现在先对重复工况的系数求和，再应用合计系数。此前，舍入可能抵消或改变某个工况的贡献。请重新计算并检查受影响的组合。",
     "hu": "A 3D kombinációk alkalmazás előtt összegzik az ismétlődő tehereset-tényezőket. A kerekítés korábban eltüntethetett vagy módosíthatott egy hozzájárulást. Számítsa újra és ellenőrizze az érintett kombinációkat.",
     "tr": "3B birleşimler artık aynı yük durumunun yinelenen katsayılarını uygulamadan önce toplar. Yuvarlama bir katkıyı silebiliyor veya değiştirebiliyordu. Etkilenen birleşimleri yeniden hesaplayıp inceleyin."
   },

@@ -1246,6 +1246,7 @@ const tr: Translations = {
   'xls.col.massW': "weight satırında: aşağı yönlü ağırlık, çubuklarda kN/m, döşeme ve katlarda kN/m²; sıfır veya daha fazla.",
   'xls.col.massRegion': "weight satırında: all (tüm model) ya da m cinsinden bir kutu {\"kind\":\"box\",\"x\":[0,5],\"z\":[2,4]}. Boş, all demektir.",
   'xls.col.fy': 'Y doğrultusunda kuvvet.',
+  'xls.col.materialFy': 'Çeliğin akma dayanımı (fy) veya betonun basınç dayanımı (f′c), MPa cinsinden.',
   'xls.col.sectionId': 'Kesit tanımlayıcısı.',
   'xls.col.sectionName': 'Bir katalog profil adı (IPE 300, HEB 200…) veya kendi adınız.',
   'xls.col.shape': 'Şekil: rect, I, C, L, tube… Ad katalogda varsa çıkarılır.',

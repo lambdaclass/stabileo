@@ -61,7 +61,7 @@ test('disabled builds load the main solver and results version and the validated
 
 test('mesher translations are lazy in the unified profile and keep main’s dictionaries in production', async () => {
   const production = featuresForMode('production');
-  const locales = ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu'];
+  const locales = ['en', 'es', 'pt', 'de', 'fr', 'tr', 'zh', 'hu'];
   for (const enabled of [true, false]) {
     await withProductionFeatures({ ...production, proPlatesUnified: enabled }, async configFile => {
       const config = await resolveConfig({ root, configFile }, 'build', 'production');

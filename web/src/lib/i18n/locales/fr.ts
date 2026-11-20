@@ -1237,6 +1237,7 @@ const fr: Translations = {
   'xls.col.massW': "Sur weight : le poids vers le bas, en kN/m sur les barres et en kN/m² sur les dalles et planchers ; zéro ou plus.",
   'xls.col.massRegion': "Sur weight : all (tout le modèle), ou une boîte {\"kind\":\"box\",\"x\":[0,5],\"z\":[2,4]} en m. Vide vaut all.",
   'xls.col.fy': 'Force selon Y.',
+  'xls.col.materialFy': 'Limite d’élasticité de l’acier (fy) ou résistance à la compression du béton (f′c), en MPa.',
   'xls.col.sectionId': 'Identifiant de la section.',
   'xls.col.sectionName': 'Le nom d\'un profilé du catalogue (IPE 300, HEB 200…) ou un nom de votre choix.',
   'xls.col.shape': 'Forme : rect, I, C, L, tube… Déduite si le nom figure dans le catalogue.',

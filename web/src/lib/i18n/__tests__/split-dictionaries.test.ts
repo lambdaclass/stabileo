@@ -6,6 +6,7 @@ import { de as lazyDe } from 'virtual:app-i18n/de';
 import { fr as lazyFr } from 'virtual:app-i18n/fr';
 import { tr as lazyTr } from 'virtual:app-i18n/tr';
 import { hu as lazyHu } from 'virtual:app-i18n/hu';
+import { zh as lazyZh } from 'virtual:app-i18n/zh';
 import en from '../locales/en';
 import es from '../locales/es';
 import pt from '../locales/pt';
@@ -13,6 +14,7 @@ import de from '../locales/de';
 import fr from '../locales/fr';
 import tr from '../locales/tr';
 import hu from '../locales/hu';
+import zh from '../locales/zh';
 import browserDe from '../locales/browser/de';
 import fullDe from '../locales/full/de';
 import browserFr from '../locales/browser/fr';
@@ -21,11 +23,13 @@ import browserTr from '../locales/browser/tr';
 import fullTr from '../locales/full/tr';
 import browserHu from '../locales/browser/hu';
 import fullHu from '../locales/full/hu';
+import browserZh from '../locales/browser/zh';
+import fullZh from '../locales/full/zh';
 import { isComplete } from '../offered';
 import type { Translations } from '../types';
 
-const LOCALES = ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu'] as const;
-const LAZY = ['de', 'fr', 'tr', 'hu'] as const;
+const LOCALES = ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu', 'zh'] as const;
+const LAZY = ['de', 'fr', 'tr', 'hu', 'zh'] as const;
 
 function expectExactPartition(expected: Translations, ...dictionaries: Translations[]) {
   const entries = dictionaries.flatMap(dictionary => Object.entries(dictionary));
@@ -35,7 +39,7 @@ function expectExactPartition(expected: Translations, ...dictionaries: Translati
 }
 
 it.each(LOCALES.filter(isComplete))('#2365 %s dictionaries preserve every translation exactly once', locale => {
-  const source = { en, es, pt, de, fr, tr, hu }[locale];
+  const source = { en, es, pt, de, fr, tr, hu, zh }[locale];
   const mesher = mesherEntries[locale];
   expect(mesher).toEqual(Object.fromEntries(Object.entries(source).filter(([key]) => key.startsWith('mesher.'))));
   expectExactPartition(source, publicEntries[locale], appEntries[locale], mesher);
@@ -47,7 +51,7 @@ it.each(LOCALES.filter((l) => !isComplete(l)))('%s, not offered, ships no public
 });
 
 it.each(LAZY.filter(isComplete))('%s lazy app dictionary shares public strings without dropping app translations', locale => {
-  expect({ de: lazyDe, fr: lazyFr, tr: lazyTr, hu: lazyHu }[locale]).toEqual(appEntries[locale]);
+  expect({ de: lazyDe, fr: lazyFr, tr: lazyTr, hu: lazyHu, zh: lazyZh }[locale]).toEqual(appEntries[locale]);
 });
 
 it.each(([
@@ -55,6 +59,7 @@ it.each(([
   ['fr', browserFr, fullFr],
   ['tr', browserTr, fullTr],
   ['hu', browserHu, fullHu],
+  ['zh', browserZh, fullZh],
 ] as const).filter(([locale]) => isComplete(locale)))('#2365 %s browser dictionaries match the Node-compatible full dictionary', (locale, browser, full) => {
   expectExactPartition(full, browser, mesherEntries[locale]);
 });

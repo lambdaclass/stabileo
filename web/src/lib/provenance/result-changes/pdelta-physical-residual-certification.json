@@ -29,7 +29,8 @@
     "de": "P-Delta prüft das physikalische freie Residuum",
     "fr": "P-Delta vérifie le résidu libre physique",
     "hu": "A P-Delta ellenőrzi a fizikai szabad maradékot",
-    "tr": "P-Delta fiziksel serbest artığı denetler"
+    "tr": "P-Delta fiziksel serbest artığı denetler",
+    "zh": "P-Delta 检查物理自由残差"
   },
   "explanation": {
     "en": "P-Delta equilibrium diagnostics now use the same physical forces as reactions, excluding artificial stiffness. Opposite lost moments cannot cancel in a global balance and certify a nonzero physical free residual. Re-check saved P-Delta equilibrium diagnostics (#1952).",
@@ -38,7 +39,8 @@
     "de": "P-Delta-Gleichgewichtsdiagnosen verwenden dieselben physikalischen Kräfte wie die Reaktionen, ohne künstliche Steifigkeit. Entgegengesetzte verlorene Momente können sich nicht in der globalen Bilanz aufheben und ein von null verschiedenes physikalisches freies Residuum bestätigen. Prüfen Sie gespeicherte P-Delta-Diagnosen (#1952).",
     "fr": "Les diagnostics P-Delta utilisent les mêmes forces physiques que les réactions, sans rigidité artificielle. Des moments opposés perdus ne peuvent pas se compenser dans le bilan global et certifier un résidu libre physique non nul. Revérifiez les diagnostics P-Delta enregistrés (#1952).",
     "hu": "A P-Delta egyensúlyi diagnosztikája a reakciókkal azonos fizikai erőket használja, mesterséges merevség nélkül. Az ellentétes elveszett nyomatékok nem olthatják ki egymást a globális egyensúlyban, tanúsítva egy nem nulla fizikai szabad maradékot. Ellenőrizze újra a mentett P-Delta egyensúlyi diagnosztikát (#1952).",
-    "tr": "P-Delta denge tanıları tepkilerle aynı fiziksel kuvvetleri kullanır, yapay rijitliği dışlar. Kaybolan zıt momentler global dengede birbirini götürerek sıfır olmayan fiziksel serbest artığı doğrulayamaz. Kayıtlı P-Delta tanılarını yeniden denetleyin (#1952)."
+    "tr": "P-Delta denge tanıları tepkilerle aynı fiziksel kuvvetleri kullanır, yapay rijitliği dışlar. Kaybolan zıt momentler global dengede birbirini götürerek sıfır olmayan fiziksel serbest artığı doğrulayamaz. Kayıtlı P-Delta tanılarını yeniden denetleyin (#1952).",
+    "zh": "P-Delta 平衡诊断现在使用与反力相同的物理力，不含人为刚度。相反的损失力矩在整体平衡中不能相互抵消，从而掩盖非零的物理自由残差。请重新核对已保存的 P-Delta 平衡诊断（#1952）。"
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-pdelta-and-staged-history-certification.md",

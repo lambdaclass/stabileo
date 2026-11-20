@@ -44,6 +44,7 @@ export const ADVISORIES: readonly Advisory[] = [
       fr: 'l\'analyse harmonique',
       tr: 'harmonik analiz',
       hu: 'harmonikus analízis',
+      zh: '谐响应分析',
     },
     title: {
       en: 'Harmonic analysis chose between modal superposition and the direct solve per load: superposition and reciprocity failed, and responses were off by up to 107 % at a node.',
@@ -53,6 +54,7 @@ export const ADVISORIES: readonly Advisory[] = [
       fr: 'L\'analyse harmonique choisissait entre superposition modale et résolution directe selon la charge : la superposition et la réciprocité échouaient, et les réponses s\'écartaient jusqu\'à 107 % en un nœud.',
       tr: 'Harmonik analiz modal süperpozisyon ile doğrudan çözüm arasında yüke göre seçim yapıyordu: süperpozisyon ve karşılıklılık bozuluyor, yanıtlar bir düğümde %107\'ye kadar sapıyordu.',
       hu: 'A harmonikus analízis terhenként választott a modális szuperpozíció és a közvetlen megoldás között: a szuperpozíció és a reciprocitás nem teljesült, és a válaszok egy csomópontban akár 107%-kal is eltértek.',
+      zh: '谐响应分析按每个荷载在模态叠加与直接求解之间选择：叠加性和互易性均不成立，某个节点处的响应偏差最高达 107 %。',
     },
   },
   {
@@ -71,6 +73,7 @@ export const ADVISORIES: readonly Advisory[] = [
       fr: 'un cas de charge imposant un déplacement d\'appui',
       tr: 'mesnet yer değiştirmesi zorlayan bir yük durumu',
       hu: 'egy támaszelmozdulást előíró tehereset',
+      zh: '一个施加了支座位移的荷载工况',
     },
     title: {
       en: 'In a model with shells, a load case that imposed a support displacement lost all of its shell stresses, and its combinations and envelopes summed only the other cases\' shell stresses: the combined shell stresses could be unconservative, without a warning.',
@@ -80,6 +83,7 @@ export const ADVISORIES: readonly Advisory[] = [
       fr: 'Dans un modèle avec coques, un cas de charge imposant un déplacement d\'appui perdait toutes ses contraintes de coque, et ses combinaisons et enveloppes ne sommaient que celles des autres cas : les contraintes de coque combinées pouvaient être du côté de l\'insécurité, sans avertissement.',
       tr: 'Kabuklu bir modelde mesnet yer değiştirmesi zorlayan bir yük durumu tüm kabuk gerilmelerini kaybediyor, kombinasyonları ve zarfları yalnızca diğer durumların kabuk gerilmelerini topluyordu: birleşik kabuk gerilmeleri uyarı vermeden güvensiz tarafta kalabiliyordu.',
       hu: 'Héjakat tartalmazó modellben a támaszelmozdulást előíró tehereset elvesztette összes héjfeszültségét, kombinációi és burkolói pedig csak a többi tehereset héjfeszültségeit összegezték: a kombinált héjfeszültségek figyelmeztetés nélkül a biztonság kárára tévedhettek.',
+      zh: '在带壳的模型中，施加了支座位移的荷载工况丢失了其全部壳应力，其组合和包络只对其他工况的壳应力求和：组合后的壳应力可能偏不安全，且没有任何警告。',
     },
   },
   {
@@ -100,6 +104,7 @@ export const ADVISORIES: readonly Advisory[] = [
       fr: 'La vérification des petits déplacements ignorait la pente due à l\'effort tranchant d\'une barre et la courbure thermique à une extrémité libérée : une travée tournant de plus de 0,1 rad n\'était pas signalée.',
       tr: 'Küçük yer değiştirme kontrolü bir çubuğun kayma eğimini ve serbest bırakılmış bir uçtaki ısıl eğriliği atlıyordu: 0,1 rad\'dan fazla dönen bir açıklık için uyarı verilmiyordu.',
       hu: 'A kis elmozdulások ellenőrzése figyelmen kívül hagyta a rúd nyírásból adódó hajlásszögét és a felszabadított végnél fellépő hőmérsékleti görbületet: a 0,1 rad-nál jobban elforduló támaszközre nem érkezett figyelmeztetés.',
+      zh: '小位移检查遗漏了杆件的剪切斜率以及杆端释放处的温度曲率：跨度转角超过 0.1 rad 时没有给出警告。',
     },
   },
 ];
