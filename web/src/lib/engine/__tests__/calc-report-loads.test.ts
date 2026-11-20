@@ -114,16 +114,16 @@ describe('a 2D point load on a member names every component', () => {
     const e = modelStore.addElement(a, b);
     modelStore.addPointLoadOnElement(e, 1.5, -10, { px: 2, my: 5 });
     const l = modelStore.loads.find((x) => x.type === 'pointOnElement')!;
-    expect(pointOnElementText(l.data as never, words, 'SI', [1, 0], true)).toBe('P=-10 kN, Px=2 kN, My=5 kN·m, a=1.5 m');
+    expect(pointOnElementText(l.data as never, words, 'SI', [1, 0], '2d')).toBe('P=-10 kN, Px=2 kN, My=5 kN·m, a=1.5 m');
   });
 
   it('rounded global components include the legacy moment alias and the axes', () => {
-    expect(pointOnElementText({ a: 2 / 3, p: 1 / 3, mz: 1, angle: 45, isGlobal: true }, words, 'SI', [1, 0], true))
+    expect(pointOnElementText({ a: 2 / 3, p: 1 / 3, mz: 1, angle: 45, isGlobal: true }, words, 'SI', [1, 0], '2d'))
       .toBe('Px=0.2357 kN, Pz=0.2357 kN, My=1 kN·m, a=0.6667 m, global axes');
   });
 
   it('a load with every component zero gives nothing, which the dialog says in words', () => {
-    expect(pointOnElementText({ a: 1, p: 0 }, words, 'SI', [1, 0], true)).toBe('');
+    expect(pointOnElementText({ a: 1, p: 0 }, words, 'SI', [1, 0], '2d')).toBe('');
   });
 });
 
@@ -212,7 +212,7 @@ it('#2370 the Basic and PRO reports project the same valid global point load in 
     const point = { a: 1, p: 0, px: 10, isGlobal: true };
     modelStore.addPointLoadOnElement(member, point.a, point.p, point);
     const words = { global: 'global axes' };
-    const basic = pointOnElementText(point, words, 'SI', [3, 4], true);
+    const basic = pointOnElementText(point, words, 'SI', [3, 4], '2d');
     expect(basic).toBe('Px=6 kN, Pz=8 kN, a=1 m, global axes');
     expect(serializeLoads(() => words.global)[0]!.values).toBe(basic);
   } finally {
@@ -226,10 +226,10 @@ it('#2370 reports a missing projection explicitly when a global point load needs
     uiStore.analysisMode = '2d';
     const point = { a: 1, p: -4, px: 10, isGlobal: true };
     const words = { global: 'global axes' };
-    expect(pointOnElementText(point, words, 'SI', [0, 0], true)).toBeNull();
-    expect(pointOnElementText(point, words, 'SI', [0, Infinity], true)).toBeNull();
-    expect(pointOnElementText(point, words, 'SI', [Number.MAX_VALUE, Number.MAX_VALUE], true)).toBeNull();
-    expect(pointOnElementText({ ...point, px: 0 }, words, 'SI', [0, 0], true)).toBe('Pz=-4 kN, a=1 m, global axes');
+    expect(pointOnElementText(point, words, 'SI', [0, 0], '2d')).toBeNull();
+    expect(pointOnElementText(point, words, 'SI', [0, Infinity], '2d')).toBeNull();
+    expect(pointOnElementText(point, words, 'SI', [Number.MAX_VALUE, Number.MAX_VALUE], '2d')).toBeNull();
+    expect(pointOnElementText({ ...point, px: 0 }, words, 'SI', [0, 0], '2d')).toBe('Pz=-4 kN, a=1 m, global axes');
     modelStore.addPointLoadOnElement(999, point.a, point.p, point);
     expect(serializeLoads(key => key)[0]!.values).toBe('engine.memberLoad.invalidGeometry');
   } finally {
@@ -258,13 +258,11 @@ it('#2370 a legacy planar point load in a native spatial model uses the solver X
   }
 });
 
-const issue2370 = process.env.RUN_KNOWN_WRONG === '2370' ? it : it.skip;
-
 for (const nonlinear of [false, true]) {
   for (const isGlobal of [false, true]) {
     const scenario = `global=${isGlobal}, P-Delta=${nonlinear}`;
 
-    issue2370(`known wrong result: #2370 PRO reports the embedded XZ point couple in spatial axes (${scenario})`, () => {
+    it(`PRO reports the embedded XZ point couple in spatial axes (${scenario})`, () => {
       expectProPointCouple('embedded', isGlobal, nonlinear, 'y', -5, 'z', -5);
     });
 
@@ -273,7 +271,7 @@ for (const nonlinear of [false, true]) {
         expectProPointCouple('native', true, nonlinear, 'z', 5, 'y', -5);
       });
     } else {
-      issue2370(`known wrong result: #2370 PRO reports the native XY local point couple about Z (${scenario})`, () => {
+      it(`PRO reports the native XY local point couple about Z (${scenario})`, () => {
         expectProPointCouple('native', false, nonlinear, 'z', 5, 'y', -5);
       });
     }

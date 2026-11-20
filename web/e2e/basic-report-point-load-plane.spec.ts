@@ -68,12 +68,10 @@ for (const nonlinear of [false, true]) {
   });
 }
 
-const issue2370 = process.env.RUN_KNOWN_WRONG === '2370' ? it : it.skip;
-
 for (const nonlinear of [false, true]) {
   it.describe(`@smoke Basic point-couple report (P-Delta=${nonlinear})`, () => {
     for (const isGlobal of [false, true]) {
-      issue2370(`known wrong result: #2370 the embedded XZ point couple balances in spatial axes (global=${isGlobal})`, async ({ page }) => {
+      it(`the embedded XZ point couple balances in spatial axes (global=${isGlobal})`, async ({ page }) => {
         await expectPointCoupleBalance(page, '3d', false, nonlinear, isGlobal, 'y', -5);
       });
 

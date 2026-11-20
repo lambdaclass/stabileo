@@ -11,7 +11,7 @@ import { planePointLoad3D, type PlanePointLoadLike } from './member-point-loads'
 import { shouldEmbedFlat2DModelIn3D } from './model-embedding';
 import type { ModelData } from './solver-service';
 import { axesStore } from '../axes/axes.svelte';
-import { userAxisAlong, type AxesFrame } from '../axes/frame';
+import { AXIS_NAMES, userAxisAlong, type AxesFrame } from '../axes/frame';
 import { quantityTransform } from '../axes/quantity-transform';
 import { toDisplay, unitLabel, type Quantity, type UnitSystem } from '../utils/units';
 import { planeGlobalAngle, planeGlobalValue, twoD, userRot, userVec } from '../axes/display';
@@ -33,8 +33,8 @@ const val = (v: number, q: Quantity, us: UnitSystem) => reportNumber(toDisplay(v
 
 type Component = [name: string, value: number | undefined, q: Quantity];
 
-const named = (comps: Component[], us: UnitSystem) =>
-  comps.filter(([, v]) => nonZero(v)).map(([k, v, q]) => `${k}=${val(v!, q, us)} ${unitLabel(q, us)}`);
+const named = (comps: Component[], us: UnitSystem, includeUnits = true) =>
+  comps.filter(([, v]) => nonZero(v)).map(([k, v, q]) => `${k}=${val(v!, q, us)}${includeUnits ? ` ${unitLabel(q, us)}` : ''}`);
 
 /**
  * A line load from I to J, kept when EITHER end carries load: a triangular load starting at
@@ -81,55 +81,70 @@ export function distributedText(
   return `q=${q(shownGlobal(d.qI, d.isGlobal)!)} → ${q(shownGlobal(d.qJ ?? d.qI, d.isGlobal)!)} ${unitLabel('distributedLoad', us)}${range(d, us)}${direction(d, words)}`;
 }
 
+type PointReportPlane = '2d' | '3d-xz' | '3d-xy';
+type PointReportStyle = 'basic' | 'pro';
+
 export function pointOnElementFormatter(
   model: ModelData,
   is3DWorkspace: boolean,
   words: MemberLoadWords,
   us: UnitSystem,
   frame: AxesFrame = axesStore.frame,
+  style: PointReportStyle = 'basic',
 ) {
-  const projectToXZ = !is3DWorkspace || shouldEmbedFlat2DModelIn3D(model);
+  const plane = !is3DWorkspace ? '2d' : shouldEmbedFlat2DModelIn3D(model) ? '3d-xz' : '3d-xy';
   return (d: PlanePointLoadLike) => {
     const member = model.elements.get(d.elementId);
     const i = member && model.nodes.get(member.nodeI);
     const j = member && model.nodes.get(member.nodeJ);
     const direction = i && j ? [j.x - i.x, j.y - i.y] as const : [0, 0] as const;
-    return pointOnElementText(d, words, us, direction, projectToXZ, frame);
+    return pointOnElementText(d, words, us, direction, plane, frame, style);
   };
 }
 
-/**
- * A 2D point load on a member: P, and the axial force and moment it may carry with it (the
- * moment under its legacy alias for old data), then where it sits. '' when every component is
- * zero, which the caller says in words.
- */
 export function pointOnElementText(
-  d: { a: number; p: number; px?: number; my?: number; mz?: number; angle?: number; isGlobal?: boolean },
+  d: Omit<PlanePointLoadLike, 'elementId'>,
   words: MemberLoadWords,
-  us: UnitSystem = 'SI',
+  us: UnitSystem,
   memberDirection: readonly [dx: number, dPlan: number],
-  projectToXZ: boolean,
+  plane: PointReportPlane,
   frame: AxesFrame = axesStore.frame,
+  style: PointReportStyle = 'basic',
 ): string | null {
+  if (d.isGlobal && d.px) {
+    const length = Math.hypot(...memberDirection);
+    if (!(length > 0 && Number.isFinite(length))) return null;
+  }
+
   const transform = quantityTransform(frame);
-  const normalAxis = projectToXZ ? 1 : 2;
-  const couple = d.my ?? d.mz;
-  const normal = userAxisAlong(frame, normalAxis).name.toLowerCase();
-  const moment = projectToXZ
-    ? transform.plane({ kind: 'pseudovector', axis: 'rot', value: couple ?? 0 })
-    : transform.component(normalAxis, couple ?? 0, 'pseudovector').value;
-  const moments: Component = [`M${normal}`, moment, 'moment'];
+  const projectToXZ = plane !== '3d-xy';
+  const converted = planePointLoad3D({ elementId: 0, ...d }, ...memberDirection, projectToXZ);
+  let moments: Component[];
+  if (plane === '2d') {
+    const normal = userAxisAlong(frame, 1).name.toLowerCase();
+    const rotation = transform.plane({ kind: 'pseudovector', axis: 'rot', value: d.my ?? d.mz ?? 0 });
+    moments = [[`M${normal}`, rotation, 'moment']];
+  } else {
+    const values = transform.triple({
+      kind: 'pseudovector',
+      values: [converted.mx ?? 0, converted.my ?? 0, converted.mz ?? 0],
+    });
+    moments = AXIS_NAMES.map((axis, index) => [`M${axis.toLowerCase()}`, values[index], 'moment']);
+  }
+
   let forces: Component[] = [['P', d.p, 'force'], ['Px', d.px, 'force']];
   if (d.isGlobal) {
-    const length = Math.hypot(...memberDirection);
-    if (d.px && !(length > 0 && Number.isFinite(length))) return null;
-    const force = planePointLoad3D({ ...d, elementId: 0 }, ...memberDirection, projectToXZ);
-    const horizontal = transform.component(0, force.px ?? 0, 'vector');
-    const vertical = transform.component(projectToXZ ? 2 : 1, projectToXZ ? force.pz : force.py, 'vector');
+    const horizontal = transform.component(0, converted.px ?? 0, 'vector');
+    const vertical = transform.component(projectToXZ ? 2 : 1, projectToXZ ? converted.pz : converted.py, 'vector');
     forces = [horizontal, vertical].map(({ name, value }) => [`P${name.toLowerCase()}`, value, 'force']);
   }
-  const comps = named([...forces, moments], us);
   const position = `a=${val(d.a, 'length', us)} ${unitLabel('length', us)}`;
+  if (style === 'pro' && !d.isGlobal) {
+    const force = named(forces, us, false).join(', ') || '0';
+    const angle = d.angle ? `, θ=${reportNumber(d.angle)}°` : '';
+    return [`${force} ${unitLabel('force', us)}`, ...named(moments, us), position].join(', ') + angle;
+  }
+  const comps = named([...forces, ...moments], us);
   return comps.length ? `${comps.join(', ')}, ${position}${d.isGlobal ? `, ${words.global}` : direction(d, words)}` : '';
 }
 

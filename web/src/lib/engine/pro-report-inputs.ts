@@ -66,23 +66,23 @@ type Translate = (key: string) => string;
  * ones, which are all a PRO model carries, used to fall through as empty rows, so the report
  * listed as many blank lines as the model had loads.
  */
-const PLANE_LOADS = new Set(['nodal', 'distributed', 'pointOnElement', 'thermal']);
-const resolvesGlobalPoint = (l: Load) => l.type === 'pointOnElement' && l.data.isGlobal;
+const PLANE_LOADS = new Set(['nodal', 'distributed', 'thermal']);
 
 function loadsIn(axes: AxesChoice): Load[] {
   const loads = modelStore.model.loads;
   if (makeFrame(axes).identity) return loads;
-  const plane = transformSnapshot({ analysisMode: '2d', loads: loads.filter((l) => PLANE_LOADS.has(l.type) && !resolvesGlobalPoint(l)) }, axes, 'toUser').loads as Load[];
-  const space = transformSnapshot({ analysisMode: 'pro', loads: loads.filter((l) => !PLANE_LOADS.has(l.type)) }, axes, 'toUser').loads as Load[];
+  const snapshotLoads = loads.filter((l) => l.type !== 'pointOnElement');
+  const plane = transformSnapshot({ analysisMode: '2d', loads: snapshotLoads.filter((l) => PLANE_LOADS.has(l.type)) }, axes, 'toUser').loads as Load[];
+  const space = transformSnapshot({ analysisMode: 'pro', loads: snapshotLoads.filter((l) => !PLANE_LOADS.has(l.type)) }, axes, 'toUser').loads as Load[];
   let p = 0, q = 0;
-  return loads.map((l) => resolvesGlobalPoint(l) ? l : PLANE_LOADS.has(l.type) ? plane[p++]! : space[q++]!);
+  return loads.map((l) => l.type === 'pointOnElement' ? l : PLANE_LOADS.has(l.type) ? plane[p++]! : space[q++]!);
 }
 
 export function serializeLoads(t: Translate, axes: AxesChoice = DEFAULT_AXES): NonNullable<ReportData['loads']> {
   const loads: NonNullable<ReportData['loads']> = [];
   const frame = makeFrame(axes);
   const global = t('report.loadGlobal');
-  const pointText = pointOnElementFormatter(modelStore.model, uiStore.is3DWorkspace, { global }, 'SI', frame);
+  const pointText = pointOnElementFormatter(modelStore.model, uiStore.is3DWorkspace, { global }, 'SI', frame, 'pro');
   const h = userAxisAlong(frame, 0).name, v = userAxisAlong(frame, 2).name, nrm = userAxisAlong(frame, 1).name;
   /** A component to four significant figures, never "-0". */
   const n = (v: number) => { const r = +v.toPrecision(4); return Object.is(r, -0) ? '0' : String(r); };
@@ -116,12 +116,8 @@ export function serializeLoads(t: Translate, axes: AxesChoice = DEFAULT_AXES): N
       case 'pointOnElement': {
         const d = load.data;
         tipo = t('file.loadPointOnElement'); destino = `${t('report.loadMember')} ${d.elementId}`;
-        if (d.isGlobal) {
-          const text = pointText(d);
-          valores = text === null ? t('engine.memberLoad.invalidGeometry') : text || `0 kN, a=${n(d.a)} m, ${global}`;
-        } else {
-          valores = `${parts('kN', [['P', d.p], ['Px', d.px]])}${Math.abs(d.my ?? d.mz ?? 0) > 1e-12 ? `, M${nrm.toLowerCase()}=${n(d.my ?? d.mz!)} kN·m` : ''}, a=${n(d.a)} m` + turn(d);
-        }
+        const text = pointText(d);
+        valores = text === null ? t('engine.memberLoad.invalidGeometry') : text || `0 kN, a=${n(d.a)} m, ${global}`;
         break;
       }
       case 'thermal': {
