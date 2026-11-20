@@ -2,12 +2,14 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { adoptStoredProject, buildProjectFile, deserializeProject, onProjectOpened } from '../file';
 import { modelStore } from '../model.svelte';
 import { uiStore } from '../ui.svelte';
-import { recheckStore } from '../recheck.svelte';
+import { createRecheckStore, recheckStore } from '../recheck.svelte';
 import { tabManager } from '../tabs.svelte';
 import { migrateSelfWeightIfNeeded } from '../self-weight-migration';
 import { compressSnapshot, loadFromShareLink, loadFromURLHash } from '../../utils/url-sharing';
 import { GRAVITY_SELF_WEIGHT, type SelfWeightLoad } from '../../engine/analysis-settings';
 import { deflateSync, inflateSync } from 'fflate';
+import { featuresForMode } from '../../../../config/public-features.mjs';
+import { unknownStamp } from '../../provenance/solve-stamp';
 import '../index';
 
 vi.mock('../../provenance/applicability', () => ({
@@ -125,3 +127,28 @@ for (const mode of ['2d', '3d'] as const) {
     expect(recheckStore.stale).toBe(true);
   });
 }
+
+const noticeParity = process.env.RUN_KNOWN_WRONG === '2364' ? it : it.skip;
+noticeParity('known wrong result: #2364 saves the same notice stamp and features as main with global axes off', () => {
+  vi.stubGlobal('__PUBLIC_FEATURES__', featuresForMode('production'));
+  const stamp = unknownStamp();
+  const store = createRecheckStore();
+  store.openProject({
+    solvedWith: stamp,
+    supports: [[1, { nodeId: 1, type: 'fixed', drz: Math.PI / 180 }]],
+    loadCases: [{ id: 1, type: 'D', axisNamed: true }],
+    analysis: { selfWeight: [{ caseId: 1, ...GRAVITY_SELF_WEIGHT }] },
+  }, '2d');
+
+  expect(store.captureNotice()).toEqual({
+    stamp,
+    features: [
+      'forceSummaryResults', 'plane2D', 'settlements', 'selfWeight',
+      'analysis:linear', 'analysis:pdelta', 'analysis:modal', 'analysis:buckling',
+      'analysis:spectral', 'analysis:timeHistory', 'analysis:plastic', 'analysis:nonlinear',
+      'analysis:harmonic', 'analysis:ssi',
+    ],
+  });
+  expect(store.stale).toBe(true);
+  expect(store.noticeOpen).toBe(true);
+});
