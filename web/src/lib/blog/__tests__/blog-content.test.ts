@@ -433,8 +433,11 @@ describe('the safety-advisories post quotes the advisories', () => {
       zh: '已在 0.6.2 中修复',
     };
     const fixedIds = fixed.map(({ id }) => id).sort();
-    const november20 = readdirSync(directory).filter(file => /^SA-2026-09[123]-/.test(file));
-    expect(november20.map(file => file.slice(0, 11)).sort()).toEqual(['SA-2026-091', 'SA-2026-092', 'SA-2026-093']);
+    const november20 = readdirSync(directory).filter(file => /^SA-2026-09[1-5]-/.test(file));
+    expect(november20.map(file => file.slice(0, 11)).sort()).toEqual(['SA-2026-091', 'SA-2026-092', 'SA-2026-093', 'SA-2026-094', 'SA-2026-095']);
+    for (const file of november20) {
+      expect(index).toContain(`| [${file.slice(0, 11)}](${file}) |`);
+    }
 
     for (const locale of new Set<PublicLocale>([...REQUIRED, 'hu'])) {
       const body = post!.i18n[locale] ?? (locale === 'hu' ? huAdvisories : undefined);
