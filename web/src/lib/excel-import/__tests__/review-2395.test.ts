@@ -3,14 +3,21 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { featuresForMode } from '../../../../config/public-features.mjs';
 import { modelStore, uiStore } from '../../store';
 import { buildSolverInput3D } from '../../engine/solver-service';
+import { solve3D, solvePDelta3D } from '../../engine/wasm-solver';
+import { modelSheets } from '../../export/workbook-model';
 import { applyWorkbook, importExcelFile, type ImportOutcome } from '../apply';
 import { parseWorkbook } from '../parse';
 import { AXES_SHEET, SHEETS } from '../schema';
 
-const knownWrong = process.env.RUN_KNOWN_WRONG === '2395' ? it : it.skip;
 const plane = { Nodes: [['id', 'x', 'z'], [1, 0, 0], [2, 4, 3]] };
 const space = { Nodes: [['id', 'x', 'y', 'z'], [1, 0, 0, 0], [2, 4, 2, 3]] };
 const geometries = [['2d', plane], ['3d', space], ['pro', space]] as const;
+const member = {
+  Materials: [['id', 'name', 'E [MPa]', 'nu'], [1, 'Material', 200000, 0.3]],
+  Sections: [['id', 'name'], [1, 'IPE 300']],
+  Members: [['id', 'type', 'nodeI', 'nodeJ', 'material', 'section'], [1, 'frame', 1, 2, 1, 1]],
+  Loads: [['type', 'case', 'node', 'fz'], ['nodal3d', 1, 2, -3]],
+};
 const originalMode = uiStore.analysisMode;
 const originalSelfWeight = uiStore.includeSelfWeight;
 
@@ -21,12 +28,13 @@ afterEach(() => {
   uiStore.includeSelfWeight = originalSelfWeight;
 });
 
-async function importFile(sheets: Record<string, unknown[][]>) {
+async function importFile(sheets: Record<string, unknown[][]>, bookType: 'xlsx' | 'biff8' = 'xlsx') {
   const book = XLSX.utils.book_new();
   for (const [name, rows] of Object.entries(sheets)) {
     XLSX.utils.book_append_sheet(book, XLSX.utils.aoa_to_sheet(rows), name);
   }
-  return importExcelFile(new File([XLSX.write(book, { type: 'array', bookType: 'xlsx' })], 'model.xlsx'));
+  const filename = bookType === 'xlsx' ? 'model.xlsx' : 'model.xls';
+  return importExcelFile(new File([XLSX.write(book, { type: 'array', bookType })], filename));
 }
 
 function priorModel(mode: '2d' | '3d' | 'pro') {
@@ -50,26 +58,28 @@ function expectRefusal(outcome: ImportOutcome | null, before: ReturnType<typeof 
 const divZero = { t: 'e', v: 0x07 };
 const nullError = { t: 'e', v: 0x00 };
 
-knownWrong('known wrong result: #2395 XLSX spring stiffness errors block model replacement', async () => {
+it('#2395 XLSX spring stiffness errors block model replacement', async () => {
   vi.stubGlobal('__PUBLIC_FEATURES__', featuresForMode('production'));
   for (const [mode, nodes] of geometries) {
-    const before = priorModel(mode);
     const workbook = (kx: unknown) => ({
       ...nodes, Supports: [['node', 'type', 'kx [kN/m]'], [], [1, mode === '2d' ? 'spring' : 'spring3d', kx]],
     });
-    for (const cell of [divZero, { ...divZero, f: '1/0' }, nullError]) {
-      expectRefusal(await importFile(workbook(cell)), before, { sheet: 'Supports', row: 3, column: 'C' });
-    }
-    for (const value of ['', 0, { t: 'n', v: 7, f: '3+4' }]) {
-      const outcome = await importFile(workbook(value));
-      expect(outcome?.problems).toEqual([]);
-      expect(outcome?.loaded.nodes).toBe(2);
-      expect([...modelStore.supports.values()][0]?.kx).toBe(value === '' ? undefined : typeof value === 'number' ? value : value.v);
+    for (const bookType of ['xlsx', 'biff8'] as const) {
+      const before = priorModel(mode);
+      for (const cell of [divZero, { ...divZero, f: '1/0' }, nullError]) {
+        expectRefusal(await importFile(workbook(cell), bookType), before, { sheet: 'Supports', row: 3, column: 'C' });
+      }
+      for (const [cell, stiffness] of [['', undefined], [0, 0], [{ t: 'n', v: 7, f: '3+4' }, 7]] as const) {
+        const outcome = await importFile(workbook(cell), bookType);
+        expect(outcome?.problems).toEqual([]);
+        expect(outcome?.loaded.nodes).toBe(2);
+        expect([...modelStore.supports.values()][0]?.kx).toBe(stiffness);
+      }
     }
   }
 });
 
-knownWrong('known wrong result: #2395 XLSX rejects error cells anywhere on an imported sheet', async () => {
+it('#2395 XLSX rejects error cells anywhere on an imported sheet', async () => {
   vi.stubGlobal('__PUBLIC_FEATURES__', featuresForMode('production'));
   for (const sheet of [...SHEETS.map(spec => spec.name), AXES_SHEET, 'LoadData', 'SelfWeight']) {
     const name = sheet === 'Nodes' ? sheet : ` ${sheet.toLowerCase()} `;
@@ -89,8 +99,13 @@ knownWrong('known wrong result: #2395 XLSX rejects error cells anywhere on an im
 });
 
 const flags = ['restrainedUx', 'restrainedUy', 'restrainedUz', 'restrainedRx', 'restrainedRy', 'restrainedRz'];
-for (const [entry, install] of [['arrays', applyWorkbook], ['XLSX', importFile]] as const) {
-  knownWrong(`known wrong result: #2395 ${entry} refuses restraint flags inconsistent with the support type`, async () => {
+const entries = [
+  ['arrays', applyWorkbook],
+  ['XLSX', importFile],
+  ['XLS', (book: Record<string, unknown[][]>) => importFile(book, 'biff8')],
+] as const;
+for (const [entry, install] of entries) {
+  it(`#2395 ${entry} refuses restraint flags inconsistent with the support type`, async () => {
     vi.stubGlobal('__PUBLIC_FEATURES__', featuresForMode('production'));
     for (const [mode, nodes] of geometries) {
       const workbook = (column: string, flag: unknown) => ({
@@ -119,26 +134,40 @@ for (const [entry, install] of [['arrays', applyWorkbook], ['XLSX', importFile]]
     expect(embedded?.model.supports).toEqual([{ id: 1, nodeId: 1, type: 'pinned' }]);
   });
 
-  knownWrong(`known wrong result: #2395 ${entry} preserves a complete spatial restraint override`, async () => {
+  it(`#2395 ${entry} preserves a complete spatial restraint override`, async () => {
     vi.stubGlobal('__PUBLIC_FEATURES__', featuresForMode('production'));
     const workbook = (type: string, ...mask: unknown[]) => ({
       ...space, Supports: [['node', 'type', ...flags, 'kry [kN·m/rad]'], [1, type, ...mask]],
     });
     for (const mode of ['3d', 'pro'] as const) {
-      const before = priorModel(mode);
       for (const type of ['custom3d', 'rollerZ']) {
+        const before = priorModel(mode);
         for (const mask of [[1, 1, 1, 1, 0], [1, 1, 1, 1, 0, '']]) {
           expectRefusal(await install(workbook(type, ...mask)), before, { sheet: 'Supports', row: 2, column: 'type' });
         }
-        const complete = await install(workbook(type, 1, 1, 1, 1, 0, 1, 7));
+        const book = { ...workbook(type, 1, 1, 1, 1, 0, 1, 7), ...member };
+        const complete = await install(book);
         expect(complete?.problems).toEqual([]);
         expect([...modelStore.supports.values()]).toEqual([expect.objectContaining({
           type, dofRestraints: { tx: true, ty: true, tz: true, rx: true, ry: false, rz: true }, kry: 7,
         })]);
-        expect(buildSolverInput3D(modelStore.model, false)?.supports.get(1)).toMatchObject({
+        const input = buildSolverInput3D(modelStore.model, false)!;
+        expect(input.supports.get(1)).toMatchObject({
           rx: true, ry: true, rz: true, rrx: true, rry: false, rrz: true, kry: 7,
         });
-        expect(priorModel(mode)).toEqual(before);
+        const [supports] = modelSheets(modelStore.model, input, name => name === 'Supports');
+        const roundTrip = await install({ ...book, Supports: supports!.rows });
+        expect(roundTrip?.problems).toEqual([]);
+        const reimported = buildSolverInput3D(modelStore.model, false)!;
+        const responses = (solverInput: typeof input) => {
+          const linear = solve3D(solverInput);
+          const pDelta = solvePDelta3D(solverInput);
+          expect(linear.displacements).toHaveLength(2);
+          expect(pDelta.converged).toBe(true);
+          return [linear, pDelta].map(({ displacements, reactions, elementForces }) => ({ displacements, reactions, elementForces }));
+        };
+        expect(reimported.supports).toEqual(input.supports);
+        expect(responses(reimported)).toEqual(responses(input));
       }
     }
     const before = priorModel('2d');
@@ -158,7 +187,7 @@ for (const [entry, install] of [['arrays', applyWorkbook], ['XLSX', importFile]]
     })]);
   });
 
-  knownWrong(`known wrong result: #2395 ${entry} rejects a unit suffix on a dimensionless SelfWeight factor`, async () => {
+  it(`#2395 ${entry} rejects a unit suffix on a dimensionless SelfWeight factor`, async () => {
     vi.stubGlobal('__PUBLIC_FEATURES__', featuresForMode('development'));
     for (const [mode, nodes] of geometries) {
       const before = priorModel(mode);

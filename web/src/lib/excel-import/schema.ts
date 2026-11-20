@@ -440,22 +440,31 @@ export const AXES_SHEET = 'Axes';
 
 export const LOAD_DATA_COLUMNS: readonly string[] = ['load', 'case', 'type', 'node', 'member', 'shell', 'field', 'value', 'unit'];
 
-const extraSheets: Record<string, readonly string[]> = {
-  [AXES_SHEET]: ['up', 'right', 'hand'],
-  LoadData: LOAD_DATA_COLUMNS,
-  SelfWeight: ['source', 'case', 'direction', 'factor', 'scope', 'members', 'group'],
+type ImportColumn = Pick<ColumnSpec, 'key' | 'unit' | 'strictNumber' | 'strictUnit'> & { bareHeader?: true };
+
+const extraSheets: Record<string, readonly ImportColumn[]> = {
+  [AXES_SHEET]: [{ key: 'up' }, { key: 'right' }, { key: 'hand' }],
+  LoadData: LOAD_DATA_COLUMNS.map(key => ({ key })),
+  SelfWeight: [
+    { key: 'source' }, { key: 'case' }, { key: 'direction' }, { key: 'factor', bareHeader: true },
+    { key: 'scope' }, { key: 'members' }, { key: 'group' },
+  ],
 };
 
 export const IMPORT_SHEET_NAMES = [...SHEETS.map(sheet => sheet.name), ...Object.keys(extraSheets)];
 
-type ImportColumn = Pick<ColumnSpec, 'key' | 'unit' | 'strictNumber' | 'strictUnit'>;
-
 export const PLANE_SPRING_ROTATION = { key: 'kr', unit: 'kN·m/rad', strictNumber: true } as const;
 
+export const SUPPORT_RESTRAINT_COLUMNS = [
+  'restrainedUx', 'restrainedUy', 'restrainedUz', 'restrainedRx', 'restrainedRy', 'restrainedRz',
+] as const;
+
 export function importColumns(name: string, framed: boolean): readonly ImportColumn[] {
-  if (Object.hasOwn(extraSheets, name)) return extraSheets[name]!.map(key => ({ key }));
+  if (Object.hasOwn(extraSheets, name)) return extraSheets[name]!;
   const columns = sheetSpec(name, framed)!.columns;
-  return name === 'Supports' ? [...columns, PLANE_SPRING_ROTATION] : columns;
+  return name === 'Supports'
+    ? [...columns, PLANE_SPRING_ROTATION, ...SUPPORT_RESTRAINT_COLUMNS.map(key => ({ key, bareHeader: true as const }))]
+    : columns;
 }
 
 /** The sheet a reader sees first. Not data — prose, in their language. */

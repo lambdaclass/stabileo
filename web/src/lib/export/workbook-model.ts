@@ -15,7 +15,7 @@ import type { MassSource, PointMass } from '../engine/dynamics/mass-source';
 import { safeText, type WorkbookSheet } from './workbook-cells';
 import { AXIS_NAMES, planeSigns, supportTypeIn, type AxesChoice, type AxesFrame } from '../axes/frame';
 import { axisToUser, boxToUser, flagsToUser, isPlaneWorkbook, modelToUser, workbookFrame } from './workbook-frame';
-import { AXES_SHEET, LOAD_DATA_COLUMNS, PLANE_SPRING_ROTATION, headerFor, planeSpringColumns } from '../excel-import/schema';
+import { AXES_SHEET, LOAD_DATA_COLUMNS, PLANE_SPRING_ROTATION, SUPPORT_RESTRAINT_COLUMNS, headerFor, planeSpringColumns } from '../excel-import/schema';
 import { caseNameIn, combinationNameIn } from '../axes/case-names';
 
 export interface WorkbookModel extends ModelData {
@@ -88,7 +88,7 @@ function sectionsSheet(m: WorkbookModel, solved: SolverInput3D | null): Workbook
 function supportsSheet(m: WorkbookModel, solved: SolverInput3D | null, f: AxesFrame | null): WorkbookSheet {
   const rows: WorkbookSheet['rows'] = [[
     'node', 'type', 'angle [°]', 'kx [kN/m]', 'ky [kN/m]', 'kz [kN/m]', 'krx [kN·m/rad]', 'kry [kN·m/rad]', 'krz [kN·m/rad]', 'dx [m]', 'dy [m]', 'dz [m]',
-    'restrainedUx', 'restrainedUy', 'restrainedUz', 'restrainedRx', 'restrainedRy', 'restrainedRz', 'uplift', 'drx [rad]', 'dry [rad]', 'drz [rad]', headerFor(PLANE_SPRING_ROTATION),
+    ...SUPPORT_RESTRAINT_COLUMNS, 'uplift', 'drx [rad]', 'dry [rad]', 'drz [rad]', headerFor(PLANE_SPRING_ROTATION),
   ]];
   const plane = f && isPlaneWorkbook(m) ? planeSigns(f) : null;
   const planeSprings = plane && f ? planeSpringColumns(f) : null;

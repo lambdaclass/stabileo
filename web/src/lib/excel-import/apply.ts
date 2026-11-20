@@ -18,7 +18,7 @@
  */
 
 import { modelStore, uiStore } from '../store';
-import { t } from '../i18n';
+import { t, tp } from '../i18n';
 import { shouldProjectModelToXZ } from '../geometry/coordinate-system';
 import { fixtureLoadCases, loadFixture } from '../templates/load-fixture';
 import { defaultCombinations, defaultLoadCases } from '../model/default-loads';
@@ -145,9 +145,22 @@ export async function importExcelFile(file: File): Promise<ImportOutcome | null>
 
   const bytes = new Uint8Array(await file.arrayBuffer());
   checkWorkbookArchive(bytes);
-  const wb = XLSX.read(bytes, { type: 'array' });
-  return installWorkbook(parseWorkbookSheets(wb.SheetNames, name =>
-    XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, defval: '', blankrows: false }) as unknown[][],
+  const wb = XLSX.read(bytes, { type: 'array', dense: false });
+  return installWorkbook(parseWorkbookSheets(
+    wb.SheetNames,
+    name => XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, defval: '', blankrows: false }),
+    name => {
+      const worksheet = wb.Sheets[name];
+      for (const address of Object.keys(worksheet ?? {})) {
+        if (address.startsWith('!') || worksheet[address]?.t !== 'e') continue;
+        const { r, c } = XLSX.utils.decode_cell(address);
+        return {
+          row: r + 1, column: XLSX.utils.encode_col(c),
+          message: tp('xls.err.cellError', { cell: address }),
+        };
+      }
+      return undefined;
+    },
   ));
 }
 

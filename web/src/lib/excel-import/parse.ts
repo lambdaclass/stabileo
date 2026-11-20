@@ -29,11 +29,15 @@ import type { JSONModel } from '../templates/load-fixture';
 import { defaultLoadCases } from '../model/default-loads';
 import { profileByName as catalogueProfile, profileToSectionFull } from '../data/steel-profiles';
 import { t, tp } from '../i18n';
-import { AXES_SHEET, IMPORT_SHEET_NAMES, INSTRUCTIONS_SHEET, LOAD_DATA_COLUMNS, PLANE_SPRING_ROTATION, coordinateColumns, importColumns, keyFromHeader, planeSpringColumns, LOAD_TYPES, type LoadTypeName } from './schema';
+import { AXES_SHEET, IMPORT_SHEET_NAMES, INSTRUCTIONS_SHEET, LOAD_DATA_COLUMNS, PLANE_SPRING_ROTATION, SUPPORT_RESTRAINT_COLUMNS, coordinateColumns, importColumns, keyFromHeader, planeSpringColumns, LOAD_TYPES, type LoadTypeName } from './schema';
 import { unguardText } from '../export/workbook-cells';
 import { massPresetById, type MassPresetParamValue } from '../engine/dynamics/mass-presets';
 import type { MassSource, MassSourceFactor, MassWeight } from '../engine/dynamics/mass-source';
 import { DEFAULT_AXES, makeFrame, relabelAxesWith, supportTypeToModel, userAxisAlong, validChoice, type AxesFrame } from '../axes/frame';
+
+import { shouldProjectModelToXZ } from '../geometry/coordinate-system';
+import { dofRestraintsOfType3D } from '../model/support-3d';
+import { SUPPORT_TYPES, type SupportType } from '../model/support-types';
 
 const DEFAULT_CASE_IDS = new Set(defaultLoadCases().map((c) => c.id));
 
@@ -172,17 +176,6 @@ function str(v: unknown): string {
 }
 
 /*
- * The support types the store accepts (model.svelte.ts), minus `custom3d`,
- * which a single cell cannot describe. Matched case-insensitively and written
- * back in canonical casing, so "rollerx" imports and "rollerX" is what the
- * solver sees.
- */
-const SUPPORT_TYPES = [
-  'fixed', 'pinned', 'rollerX', 'rollerY', 'rollerZ', 'spring',
-  'fixed3d', 'pinned3d', 'rollerXZ', 'rollerXY', 'rollerYZ', 'spring3d',
-] as const;
-
-/*
  * Load types the format knows but cannot deliver yet, with the reason a
  * reader can act on. Kept out of the "unknown type" error on purpose: the
  * type EXISTS in the model, the import path is what is missing, and those
@@ -201,10 +194,7 @@ function isRedundantReportCell(sheet: string, key: string, value: unknown, hinge
     if (['releasestartmy', 'releaseendmy', 'releasestartt', 'releaseendt'].includes(key)) return num(value) === 0;
     if (key === 'releasestartmz' || key === 'releaseendmz') return num(value) === Number(truthy(hinge));
   }
-  if (sheet === 'Supports') {
-    if (/^restrained[ur][xyz]$/.test(key)) return true;
-    if (key === 'uplift') return num(value) === 0;
-  }
+  if (sheet === 'Supports' && key === 'uplift') return num(value) === 0;
   return sheet === 'Combinations' && key === 'id';
 }
 
@@ -225,6 +215,10 @@ function readSheet(aoa: unknown[][], sheet: string, problems: RowProblem[], decl
     seen.add(key);
     const column = columns.get(key);
     if (!column) return [];
+    if (column.bareHeader && str(header[index]).toLowerCase() !== key) {
+      problems.push({ sheet, row: 1, column: key, message: tp('xls.err.unitSuffix', { k: key }), blocking: true });
+      return [];
+    }
     const strictNumber = !!column.strictNumber || (declaredAxes && !!column.unit);
     const given = unitFromHeader(header[index]);
     const factor = column.unit && given ? unitFactor(column.unit, given) : 1;
@@ -416,6 +410,52 @@ function readMassSource(rows: Row[], caseIds: ReadonlySet<number>, problems: Row
   return preset ? { kind: 'preset', presetId, params, ...withW } : { kind: 'custom', factors, ...withW };
 }
 
+type ImportedSupport = JSONModel['supports'][number] & { type: SupportType };
+
+function applySupportRestraints(
+  row: Row, support: ImportedSupport, frame: AxesFrame, embeddedPlane: boolean, flatFromZ: boolean, problems: RowProblem[],
+): boolean {
+  const type = str(row.cells.type);
+  const reject = (column: string, message: string) => problems.push({ sheet: 'Supports', row: row.n, column, message, blocking: true });
+  const flags = SUPPORT_RESTRAINT_COLUMNS.map(key => {
+    const column = key.toLowerCase();
+    const cell = row.cells[column];
+    if (str(cell) === '') return undefined;
+    const flag = yesNoBlank(cell);
+    if (flag === null) reject(column, t('xls.err.yesNo'));
+    return flag;
+  });
+  if (flags.includes(null)) return false;
+
+  if (support.type === 'custom3d' || (support.type === 'rollerZ' && !embeddedPlane)) {
+    if (flatFromZ) {
+      reject('type', t('xls.err.supportOutOfPlane'));
+      return false;
+    }
+    if (!flags.every((flag): flag is boolean => typeof flag === 'boolean')) {
+      reject('type', tp('xls.err.supportCompleteRestraints', { v: type }));
+      return false;
+    }
+    const transform = quantityTransform(frame, 'toModel');
+    const [tx, ty, tz] = transform.permute([flags[0]!, flags[1]!, flags[2]!]);
+    const [rx, ry, rz] = transform.permute([flags[3]!, flags[4]!, flags[5]!]);
+    support.dofRestraints = { tx, ty, tz, rx, ry, rz };
+    return true;
+  }
+
+  if (flags.every(flag => flag === undefined)) return true;
+  const { tx, ty, tz, rx, ry, rz } = dofRestraintsOfType3D(support.type, embeddedPlane);
+  const transform = quantityTransform(frame);
+  const expected = [...transform.permute([tx, ty, tz]), ...transform.permute([rx, ry, rz])];
+  let consistent = true;
+  for (const [index, flag] of flags.entries()) {
+    if (flag === undefined || flag === expected[index]) continue;
+    reject(SUPPORT_RESTRAINT_COLUMNS[index]!.toLowerCase(), tp('xls.err.supportRestraintConflict', { v: type }));
+    consistent = false;
+  }
+  return consistent;
+}
+
 const SUPPORT_COMPONENTS = ['kx', 'ky', 'kz', 'krx', 'kry', 'krz', 'dx', 'dy', 'dz', 'drx', 'dry', 'drz'] as const;
 
 function planeSupportToModel(f: AxesFrame, s: Record<string, number>, row: number, problems: RowProblem[]): boolean {
@@ -501,7 +541,11 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
   return parseWorkbookSheets(Object.keys(sheets), name => sheets[name]!);
 }
 
-export function parseWorkbookSheets(names: readonly string[], read: (name: string) => unknown[][]): ParseResult {
+export function parseWorkbookSheets(
+  names: readonly string[],
+  read: (name: string) => unknown[][],
+  check?: (name: string) => Omit<RowProblem, 'sheet' | 'blocking'> | undefined,
+): ParseResult {
   const problems: RowProblem[] = [];
   const model = EMPTY_MODEL();
   const counts: Record<string, number> = {};
@@ -525,6 +569,13 @@ export function parseWorkbookSheets(names: readonly string[], read: (name: strin
     }
   }
   if (problems.length) return { model, problems, unknownSheets, counts };
+  if (check) {
+    for (const [sheet, name] of sheetIndex) {
+      const problem = check(name);
+      if (problem) problems.push({ ...problem, sheet, blocking: true });
+    }
+    if (problems.length) return { model, problems, unknownSheets, counts };
+  }
 
   const grab = (sheet: string): unknown[][] => {
     const name = sheetIndex.get(sheet);
@@ -745,16 +796,7 @@ export function parseWorkbookSheets(names: readonly string[], read: (name: strin
   counts.Members = model.elements.length;
 
   // ── Supports ─────────────────────────────────────────────────────
-  /*
-   * The type is checked against the store's own set, case-insensitively —
-   * and this is the check the whole file exists for. The solver's restraint
-   * switch ends in `default: return false`, so an unrecognised type is a
-   * support that restrains NOTHING: "Fixed" with a capital, or "empotrado"
-   * from someone working in the Spanish UI, imports as a mechanism with the
-   * report saying success. `custom3d` is refused rather than misread: its
-   * restraints live in per-DOF fields a single cell cannot carry.
-   */
-  let supportId = 1;
+  const supports: { row: Row; support: ImportedSupport }[] = [];
   // One support per node: a second row for the same node used to add a second support there.
   const firstSupport = idGuard('Supports', problems);
   for (const row of readSheet(grab('Supports'), 'Supports', problems, declaredAxes)) {
@@ -763,10 +805,6 @@ export function parseWorkbookSheets(names: readonly string[], read: (name: strin
     if (nodeId === null || type === null) continue;
     if (!nodeIds.has(nodeId)) {
       problems.push({ sheet: 'Supports', row: row.n, message: tp('xls.err.nodeMissing', { id: nodeId }) });
-      continue;
-    }
-    if (type.toLowerCase() === 'custom3d') {
-      problems.push({ sheet: 'Supports', row: row.n, column: 'type', message: t('xls.err.custom3d') });
       continue;
     }
     const canonical = SUPPORT_TYPES.find((s) => s.toLowerCase() === type.toLowerCase());
@@ -805,10 +843,9 @@ export function parseWorkbookSheets(names: readonly string[], read: (name: strin
     }
     if (declaredAxes && flatFromZ && !planeSupportToModel(frame, extra, row.n, problems)) continue;
     if (!flatFromZ && !frame.identity) spatialSupportToModel(frame, extra);
-    const modelType = frame.identity ? canonical : supportTypeToModel(frame, canonical);
-    model.supports.push({ id: supportId++, nodeId, type: modelType, ...extra });
+    const typeInModel = supportTypeToModel(frame, canonical) as SupportType;
+    supports.push({ row, support: { id: supports.length + 1, nodeId, type: typeInModel, ...extra } });
   }
-  counts.Supports = model.supports.length;
 
   // ── Load cases ───────────────────────────────────────────────────
   const firstCase = idGuard('LoadCases', problems);
@@ -1264,6 +1301,15 @@ export function parseWorkbookSheets(names: readonly string[], read: (name: strin
     }
   }
   counts.Loads = model.loads.length;
+
+  const embeddedPlane = shouldProjectModelToXZ({
+    nodes: model.nodes, supports: supports.map(({ support }) => support), loads: model.loads,
+    plateCount: model.plates.length, quadCount: model.quads.length,
+  });
+  model.supports = supports
+    .filter(({ row, support }) => applySupportRestraints(row, support, frame, embeddedPlane, flatFromZ, problems))
+    .map(({ support }) => support);
+  counts.Supports = model.supports.length;
 
   return { model, problems, unknownSheets, counts };
 }
