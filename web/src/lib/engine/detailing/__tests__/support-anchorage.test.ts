@@ -66,6 +66,16 @@ describe('a bar end in an end support', () => {
     expect(r3(p.availableHooked)).toBe(0.291);
   });
 
+  it('reads the crossing bars the support has now, not the ones it had when first planned', () => {
+    const crossing = [{ at: 0.02, diameterMm: 16 }];
+    const support = cage({ crossing });
+    expect(r3(planSupportEnd(support, bar())!.availableHooked)).toBe(0.311);
+    crossing.push({ at: 0.1, diameterMm: 16 });
+    expect(r3(planSupportEnd(support, bar())!.availableHooked)).toBe(0.291);
+    crossing[1] = { at: 0.06, diameterMm: 16 };
+    expect(r3(planSupportEnd(support, bar())!.availableHooked)).toBe(0.311);
+  });
+
   it('positive steel owes the face §9.7.3.8\'s 150 mm and stops there, straight or hooked', () => {
     const straight = planSupportEnd(cage(), bar({ need: 'embed' }))!;
     // 0,15 past the face is 0,05 short of the node; the outer face is 0,25 beyond.
