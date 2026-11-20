@@ -803,7 +803,7 @@ const body: PostBody = {
       "k": "ul",
       "items": [
         "Wie Sie es erkennen: Das Modell hat Stäbe mit dem Verhalten „Seil“, ihr Material hat eine Dichte, und das Seil ist nicht der einzige Lastpfad.",
-        "Was zu tun ist: Prüfen Sie die maßgebenden Seil- und Verankerungskräfte von Hand, oder berechnen Sie ohne Dichte im Seilmaterial (ohne Gewicht war das Gesetz richtig); sobald die Korrektur veröffentlicht ist, berechnen Sie neu.",
+        "Was zu tun ist: Prüfen Sie die maßgebenden Seil- und Verankerungskräfte unabhängig und berücksichtigen Sie dabei das Eigengewicht des Seils. Rechnen Sie mit einer korrigierten Version erneut.",
         "Status: behoben in 0.3.0. Die Seilberechnung löst jetzt das Sehnengesetz selbst mit einer Newton-Iteration."
       ]
     },

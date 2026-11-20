@@ -803,7 +803,7 @@ const body: PostBody = {
       "k": "ul",
       "items": [
         "Nasıl anlarsınız: modelde “kablo” davranışlı çubuklar vardır, bunların malzemesinin yoğunluğu tanımlıdır ve kablo tek yük aktarım yolu değildir.",
-        "Ne yapmalı: belirleyici kablo ve ankraj kuvvetlerini elle kontrol edin ya da kablo malzemesinde yoğunluk olmadan çözün (ağırlık olmadan bağıntı doğruydu); düzeltme yayımlandıktan sonra yeniden çalıştırın.",
+        "Ne yapmalı: Belirleyici kablo ve ankraj kuvvetlerini kablonun öz ağırlığını hesaba katarak bağımsız olarak doğrulayın. Analizi düzeltilmiş bir sürümle yeniden çalıştırın.",
         "Durum: 0.3.0'da düzeltildi. Kablo analizi artık kord bağıntısının kendisini Newton iterasyonuyla çözüyor."
       ]
     },
