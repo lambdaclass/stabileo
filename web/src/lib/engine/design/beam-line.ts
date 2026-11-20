@@ -74,7 +74,7 @@ const nextId = (p: string) => `${p}${Date.now().toString(36)}${(++seq).toString(
 export function memberStirrupZones(stirrups: readonly BeamStirrupZone[], offset: number, length: number, forward = true) {
   return stirrups.flatMap(({ from, to, diameter, legs, spacing }) => {
     const start = Math.max(0, from - offset), end = Math.min(length, to - offset);
-    if (end - start < EPS) return [];
+    if (!(end > start)) return [];
     return [{ from: forward ? start : length - end, to: forward ? end : length - start, diameter, legs, spacing }];
   }).sort((a, b) => a.from - b.from);
 }
@@ -87,7 +87,7 @@ export function lineFromMembers(members: readonly LineMember[]): BeamLineReinfor
   const skin: Record<string, { diameter: number; spacing: number }> = {};
   let n = 0;
   const bar = (b: Omit<BeamLineBar, 'id'>) => bars.push({ ...b, id: `b${++n}` });
-  const zone = (from: number, to: number, s?: StirrupDef) => { if (s && to > from + EPS) stirrups.push({ id: `z${stirrups.length + 1}`, from, to, diameter: s.diameter, legs: s.legs, spacing: s.spacing }); };
+  const zone = (from: number, to: number, s?: StirrupDef) => { if (s && to > from) stirrups.push({ id: `z${stirrups.length + 1}`, from, to, diameter: s.diameter, legs: s.legs, spacing: s.spacing }); };
 
   members.forEach((m, k) => {
     const r = m.reinforcement;
@@ -146,13 +146,13 @@ function mergeOverSupports(bars: BeamLineBar[]): BeamLineBar[] {
   return out;
 }
 
-const sameZone = (p: BeamStirrupZone, q: BeamStirrupZone) => p.diameter === q.diameter && p.legs === q.legs && Math.abs(p.spacing - q.spacing) < EPS;
+const sameZone = (p: BeamStirrupZone, q: BeamStirrupZone) => p.diameter === q.diameter && p.legs === q.legs && p.spacing === q.spacing;
 
 function mergeZones(zs: BeamStirrupZone[]): BeamStirrupZone[] {
   const out: BeamStirrupZone[] = [];
   for (const z of [...zs].sort((p, q) => p.from - q.from)) {
     const last = out[out.length - 1];
-    if (last && sameZone(last, z) && Math.abs(last.to - z.from) < EPS) out[out.length - 1] = { ...last, to: z.to };
+    if (last && sameZone(last, z) && last.to === z.from) out[out.length - 1] = { ...last, to: z.to };
     else out.push({ ...z });
   }
   return out;
@@ -286,7 +286,7 @@ export function membersFromLine(line: BeamLineReinforcement, members: readonly L
     const prior = m.reinforcement?.regions?.regionT;
     if (prior !== undefined) regions.regionT = prior;
     const drawn = pieces.get(m.id);
-    out.set(m.id, { regions, [drawnBeamReinforcement]: drawnBeamEvidence(drawn ?? { bars: [], stirrups: [] }, m.L) });
+    out.set(m.id, { regions, [drawnBeamReinforcement]: drawnBeamEvidence(drawn ?? { bars: [], stirrups: [] }, m.L, line.members) });
   });
   return out;
 }
