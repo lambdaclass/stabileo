@@ -52,7 +52,7 @@ const words: Translations = {
   "course.kinematics.gic.cmp.disp": "此处位移法需要的方程较少：{gic} 对 {gh}。",
   "course.kinematics.gic.cmp.equal": "两种方法需要的方程数相同：{gh}。",
   "course.kinematics.dm.intro": "未知量是结点位移：转角和线位移。先用虚拟约束将它们全部锁定，据此求解荷载（状态 0），再逐个给每个未知量单位值（状态 1…n）。令虚拟约束最终不受力，即得方程组 K·D = −R⁰。",
-  "course.kinematics.dm.introStates": "在每个状态中，杆件按两端固定、或在铰接处按铰接处理，因此其弯矩由已知系数给出：转角为 4EI/L 和 2EI/L，横向线位移为 6EI/L²，远端为铰时为 3EI/L，伸长为 EA/L。",
+  "course.kinematics.dm.introStates": "在每个状态中，杆件按两端固定、或在铰接处按铰接处理，因此其弯矩由已知系数给出：转角为 4EI/L 和 2EI/L，横向线位移为 6EI/L²，远端为铰时为 3EI/L。计入轴向变形时，轴力 N = (EA/L)·ΔL，其中 ΔL 为杆件伸长量。",
   "course.kinematics.dm.introRigid": "杆件按轴向刚性处理：保持长度不变。而二力杆像轴向弹簧 EA/L 一样伸长。",
   "course.kinematics.dm.introAxial": "杆件具有轴向刚度 EA/L：可以伸长，每个结点的每个自由线位移都是未知量。此时结果与矩阵法一致。",
   "course.kinematics.dm.membersCaption": "杆件：长度与刚度。",

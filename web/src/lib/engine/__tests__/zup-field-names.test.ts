@@ -194,7 +194,7 @@ describe('Bug 2: 3D self-weight must apply gravity to fz (not fy)', () => {
 
     expect(loads.length).toBe(3);
     for (const load of loads) {
-      expect(load.type).toBe('nodal');
+      if (load.type !== 'nodal') throw new Error('Expected a nodal load');
       // Gravity must be in fz (downward = negative Z in Z-up)
       expect(load.data.fz).toBeLessThan(0);
       // fy must be zero — gravity does NOT act sideways
@@ -221,6 +221,7 @@ describe('Bug 2: 3D self-weight must apply gravity to fz (not fy)', () => {
 
     expect(loads.length).toBe(4);
     for (const load of loads) {
+      if (load.type !== 'nodal') throw new Error('Expected a nodal load');
       expect(load.data.fz).toBeLessThan(0);
       expect(load.data.fy).toBe(0);
     }
@@ -243,6 +244,7 @@ describe('Bug 2: 3D self-weight must apply gravity to fz (not fy)', () => {
 
     expect(loads.length).toBe(4);
     for (const load of loads) {
+      if (load.type !== 'nodal') throw new Error('Expected a nodal load');
       // Pressure on horizontal surface acts in Z
       expect(load.data.fz).not.toBe(0);
       expect(load.data.fy).toBe(0);

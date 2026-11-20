@@ -19,6 +19,7 @@ export interface RenderContext {
   fmt: (v: number, digits: number) => string;
 }
 
+const textOrDiagnostic = (s: string, c: RenderContext) => s.startsWith('diag.') ? c.tr(s) : s;
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const CODE_NAME: Record<string, string> = { 'cirsoc-201': 'CIRSOC 201', 'cirsoc-301': 'CIRSOC 301', 'cirsoc-601': 'CIRSOC 601', 'cirsoc-303': 'CIRSOC 303', 'en-1999-1-1': 'EN 1999-1-1', 'aisc-360': 'AISC 360', 'cirsoc-101': 'CIRSOC 101', 'cirsoc-102': 'CIRSOC 102', 'cirsoc-103': 'INPRES-CIRSOC 103', 'inpres-cirsoc-103-ii': 'INPRES-CIRSOC 103 II', 'inpres-cirsoc-103-iii': 'INPRES-CIRSOC 103 III', 'nds': 'NDS', 'en-1993-1-2': 'EN 1993-1-2', 'fema-356': 'FEMA 356', 'aci-318': 'ACI 318', 'en-1992-1-1': 'EN 1992-1-1', 'bs-en-1992-1-1': 'BS EN 1992-1-1', 'en-1993-1-1': 'EN 1993-1-1', 'bs-en-1993-1-1': 'BS EN 1993-1-1' };
 /** References of the project's own, named in the memoria's language. */
@@ -40,7 +41,7 @@ export function renderFicha(r: CheckRow, c: RenderContext): string {
   const eta = r.ratio === null ? '' : Number.isFinite(r.ratio) ? c.fmt(r.ratio, 3) : '∞';
   const head = `<h5>${esc(title)} <span class="clause">(${esc(ref(r, c.tr))})</span></h5>`;
   if (r.status === 'unsupported' || r.status === 'notVerified') {
-    return `<section class="ficha ${r.status}">${head}<p>${esc(c.tr(`memo.ficha.${r.status}`))}${r.formula ? `: ${esc(r.formula)}` : ''}</p></section>`;
+    return `<section class="ficha ${r.status}">${head}<p>${esc(c.tr(`memo.ficha.${r.status}`))}${r.formula ? `: ${esc(textOrDiagnostic(r.formula, c))}` : ''}</p></section>`;
   }
   const where = r.combination || r.location
     ? `<p class="where">${esc(c.tr('memo.ficha.governs', { location: r.location ?? '—', combination: r.combination ?? '—' }))}</p>` : '';
@@ -48,7 +49,7 @@ export function renderFicha(r: CheckRow, c: RenderContext): string {
     ? table([c.tr('memo.ficha.symbol'), c.tr('memo.ficha.value'), c.tr('memo.ficha.unit'), c.tr('memo.ficha.source')],
       r.inputs.map((i) => [`<b>${esc(i.symbol)}</b>${i.description ? ` <span class="muted">${esc(i.description)}</span>` : ''}`,
         typeof i.value === 'number' ? c.fmt(i.value, Math.abs(i.value) >= 100 ? 1 : 3) : esc(i.value), esc(i.unit ?? ''), esc(i.clause ?? '')]), 'glossary') : '';
-  const working = r.derivation?.length ? `<details open><summary>${esc(c.tr('memo.ficha.working'))}</summary><pre>${esc(r.derivation.join('\n'))}</pre></details>` : '';
+  const working = r.derivation?.length ? `<details open><summary>${esc(c.tr('memo.ficha.working'))}</summary><pre>${esc(r.derivation.map(step => textOrDiagnostic(step, c)).join('\n'))}</pre></details>` : '';
   return `<section class="ficha ${r.status}">${head}
 <p>${esc(c.tr('memo.ficha.mustHold'))}</p>
 <div class="hold ${r.status}"><span class="formula">${esc(r.formula ?? '—')}</span>${eta ? `<span class="eta">η = <b>${eta}</b> ${MARK[r.status]}</span>` : `<span class="eta">${MARK[r.status]}</span>`}</div>
@@ -72,7 +73,7 @@ export function familySummary(els: readonly MemoriaElement[], c: RenderContext, 
       const rs = e.rows.filter((r) => (r.titleKey ? `${r.titleKey}|${r.clause ?? ''}` : r.title) === col.key);
       if (rs.length === 0) return `N.P.<sup>${note(c.tr('memo.np.absent', { check: col.title }))}</sup>`;
       const worst = rs.reduce((a, b) => ((b.ratio ?? -1) > (a.ratio ?? -1) ? b : a));
-      if (worst.status === 'unsupported' || worst.status === 'notVerified') return `N.E.<sup>${note(`${col.title}: ${worst.formula ?? c.tr('memo.ficha.unsupported')}`)}</sup>`;
+      if (worst.status === 'unsupported' || worst.status === 'notVerified') return `N.E.<sup>${note(`${col.title}: ${worst.formula ? textOrDiagnostic(worst.formula, c) : c.tr('memo.ficha.unsupported')}`)}</sup>`;
       return worst.ratio === null ? MARK[worst.status] : `<span class="s-${worst.status}">η = ${Number.isFinite(worst.ratio) ? c.fmt(worst.ratio, 2) : '∞'}</span>`;
     });
     const ratios = e.rows.map((r) => r.ratio).filter((x): x is number => x !== null);

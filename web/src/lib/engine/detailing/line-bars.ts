@@ -22,7 +22,8 @@
  * Pure: no store, no runes.
  */
 import type { BeamLineBar, BeamLineReinforcement, BeamStirrupZone } from '../../design-contract/beam-line';
-import { lineLaps, type LineLap } from '../design/beam-line';
+import { drawnBeamReinforcement, type ProvidedReinforcement, type StirrupInterval } from '../../design-contract/reinforcement';
+import { lineLaps, memberStirrupZones, type LineLap } from '../design/beam-line';
 
 export { lineLaps };
 
@@ -55,7 +56,7 @@ export interface LineBarPiece {
   place?: { seats: number; slots: number[]; besideMm?: number; mirrored?: boolean };
 }
 
-export interface LineStirrupPiece { from: number; to: number; diameter: number; legs: number; spacing: number }
+export type LineStirrupPiece = StirrupInterval;
 
 export type { LineLap };
 
@@ -90,14 +91,7 @@ export function linePieces(
       };
       bars.push(fwd ? piece : mirrorPiece(piece, L));
     }
-    const stirrups: LineStirrupPiece[] = [];
-    for (const z of line.stirrups) {
-      const s = Math.max(a, z.from), e = Math.min(b, z.to);
-      if (e - s < EPS) continue;
-      const p = { from: s - a, to: e - a, diameter: z.diameter, legs: z.legs, spacing: z.spacing };
-      stirrups.push(fwd ? p : { ...p, from: L - p.to, to: L - p.from });
-    }
-    out.set(id, { bars, stirrups: stirrups.sort((p, q) => p.from - q.from) });
+    out.set(id, { bars, stirrups: memberStirrupZones(line.stirrups, a, L, fwd) });
   });
   return out;
 }
@@ -115,7 +109,7 @@ function linePlaces(line: BeamLineReinforcement, laps: readonly LineLap[]): Map<
   const lapped = (p: BeamLineBar, q: BeamLineBar) => laps.some((l) => (l.a === p.id && l.b === q.id) || (l.a === q.id && l.b === p.id));
   const keys = [...new Set(line.bars.map((b) => `${b.face}|${b.row}`))];
   for (const key of keys) {
-    const row = line.bars.filter((b) => `${b.face}|${b.row}` === key)
+    const row = line.bars.filter((b) => `${b.face}|${b.row}` === key && Number.isSafeInteger(b.count) && b.count > 0)
       .sort((p, q) => (q.to - q.from) - (p.to - p.from) || p.from - q.from || p.id.localeCompare(q.id));
     const seated: Array<{ bar: BeamLineBar; slots: number[]; beside: boolean }> = [];
     for (const b of row) {
@@ -136,6 +130,18 @@ function linePlaces(line: BeamLineReinforcement, laps: readonly LineLap[]): Map<
     }
   }
   return out;
+}
+
+export function drawnBeamEvidence(pieces: { bars: readonly LineBarPiece[]; stirrups: readonly LineStirrupPiece[] }, length: number): NonNullable<ProvidedReinforcement[typeof drawnBeamReinforcement]> {
+  return {
+    memberLength: length,
+    stirrups: pieces.stirrups.filter(({ diameter, legs, spacing }) => Number.isFinite(diameter) && diameter > 0
+      && Number.isSafeInteger(legs) && legs > 0 && Number.isFinite(spacing) && spacing > 0)
+      .map(zone => ({ ...zone, from: zone.from / length, to: zone.to / length })),
+    bars: pieces.bars.flatMap(({ face, row, diameterMm, from, to, place }) => !place || place.besideMm ? [] : [{
+      face, row, diameter: diameterMm, from: from / length, to: to / length, seats: place.seats, slots: place.slots,
+    }]),
+  };
 }
 
 function mirrorPiece(p: LineBarPiece, L: number): LineBarPiece {

@@ -113,13 +113,14 @@ describe('the indicator: how the slab is joined to the columns, and the share th
 interface Readings {
   verdict: string;
   /** Design members on a floor with a point joint (a span's pieces are one). */
-  pointJoints: number;
+  pointJoints: number[];
   readiness: string;
   /** The readiness the same document reads with the joint verdict left out: what it read before it existed. */
   readinessWithout: string;
   banner: string;
   summaryKey: string;
   openIssues: number;
+  pointJointIssueMembers: number[];
   certificates: number;
   desk: { ok: number; d124: number };
   memoria: number;
@@ -133,7 +134,7 @@ interface Readings {
 
 function read(doc: DocumentModel): Readings {
   const v = currentSlabColumnJoint();
-  const flagged = new Set(v.pointJoints.map((m) => m.elementId));
+  const jointIssues = (doc.openIssues ?? []).filter((i) => i.key.startsWith('slabColumnJoint.'));
   const desk = deskMembers().filter((m) => verificationStore.contextFor(m.id));
   const mem = memoriaInput(tr, 'es');
   const [elements] = designSheets(tr, 'es');
@@ -141,12 +142,13 @@ function read(doc: DocumentModel): Readings {
   const unflagged = doc.certificates.map((c) => ({ ...c, loadSplit: undefined }));
   return {
     verdict: v.verdict,
-    pointJoints: flagged.size,
+    pointJoints: v.pointJoints.map((m) => m.elementId),
     readiness: doc.readiness,
     readinessWithout: documentReadiness({ assemblies: doc.assemblies, certificates: unflagged }),
     banner: readinessBanner(doc, 'es'),
     summaryKey: doc.summary.key,
-    openIssues: (doc.openIssues ?? []).filter((i) => i.key.startsWith('slabColumnJoint.')).length,
+    openIssues: jointIssues.length,
+    pointJointIssueMembers: jointIssues.flatMap((i) => i.elementIds).sort((a, b) => a - b),
     certificates: doc.certificates.filter((c) => c.loadSplit === 'notEstablished').length,
     desk: { ok: desk.filter((m) => m.status === 'ok').length, d124: desk.filter((m) => m.codes.includes('D124')).length },
     memoria: mem.elements.filter((e) => e.rows.some((r) => r.titleKey === 'check.slabColumnJoint' && r.status === 'unsupported')).length,
@@ -160,6 +162,12 @@ function read(doc: DocumentModel): Readings {
 describe('the span building on 40 × 40 columns: a point joint on every mesh, and every reader says which claim is withheld', () => {
   const MESHES = [6, 2, 1, 0.5] as const;
   const r = new Map<number, Readings>();
+  const reportCounts = {
+    6: { pieces: 26, certificates: 26, share: '100' },
+    2: { pieces: 54, certificates: 18, share: '102,3' },
+    1: { pieces: 90, certificates: 22, share: '58,3' },
+    0.5: { pieces: 168, certificates: 32, share: '14,9' },
+  };
   const paths = new Map<number, ReturnType<typeof currentFloorPaths>>();
   let before: Readings | null = null;
   const progress: boolean[] = [];
@@ -200,19 +208,18 @@ describe('the span building on 40 × 40 columns: a point joint on every mesh, an
       const x = r.get(m)!;
       expect(x.verdict, `mesh ${m}`).toBe('pointJoint');
       // 14 spans and 12 columns.
-      expect(x.pointJoints, `mesh ${m}`).toBe(26);
+      expect(x.pointJoints.length, `mesh ${m}`).toBe(26);
       // The memoria and the certificates list a span's pieces; the desk (`member-names.ts`) and the
       // IFC one member per span, 26; the memoria's 12 joints read the beams' end forces and are
       // held too.
-      const pieces = x.certificates;
+      const { pieces, certificates } = reportCounts[m];
       expect(x.desk, `mesh ${m}: desk`).toEqual({ ok: 0, d124: 26 });
       expect(x.memoria, `mesh ${m}: memoria`).toBe(pieces + 12);
       expect(x.workbookOk, `mesh ${m}: workbook`).toBe(0);
       expect(x.ifc, `mesh ${m}: IFC`).toEqual({ joint: 26, satisfies: 0 });
-      expect(x.openIssues, `mesh ${m}: open issues`).toBe(26);
+      expect(x.certificates, `mesh ${m}: certificates`).toBe(certificates);
       expect(x.constructible, `mesh ${m}: assemblies`).toBe(0);
     }
-    expect(MESHES.map((m) => r.get(m)!.certificates)).toEqual([26, 54, 90, 168]);
   });
 
   it('(a) the share is measured on the load the slab carries: direct + jumps is the slab\'s applied load in its combination', () => {
@@ -229,9 +236,21 @@ describe('the span building on 40 × 40 columns: a point joint on every mesh, an
       const x = r.get(m)!;
       expect(x.readiness, `mesh ${m}`).toBe('REVIEW_DRAFT');
       expect(x.summaryKey).toBe('detailing.document.slabColumnPointJoint');
-      expect(x.banner).toMatch(/^BORRADOR DE REVISIÓN — UNIÓN LOSA-COLUMNA EN UN SOLO NUDO EN 26 MIEMBRO\(S\): REPARTO DE LA CARGA DE LA LOSA ENTRE VIGAS Y COLUMNAS NO ESTABLECIDO \(CON ESTA MALLA VA DIRECTO A LAS COLUMNAS EL [\d,]+ %\) — /);
       expect(x.banner).toMatch(/NO APTO PARA CONSTRUCCIÓN/);
       expect(x.banner).not.toMatch(/VALIDAD|PUEDEN TOMAR/);
+    }
+  });
+
+  it('#2338 the document reports all 26 point joints even when reinforcement verification is refused', () => {
+    for (const m of MESHES) {
+      const x = r.get(m)!;
+      expect.soft(x.openIssues, `mesh ${m}: open issues`).toBe(26);
+      expect.soft(x.pointJointIssueMembers, `mesh ${m}: members named in the issues`).toEqual(x.pointJoints);
+      const { share } = reportCounts[m];
+      expect.soft(x.banner.startsWith(
+        'BORRADOR DE REVISIÓN — UNIÓN LOSA-COLUMNA EN UN SOLO NUDO EN 26 MIEMBRO(S): '
+        + `REPARTO DE LA CARGA DE LA LOSA ENTRE VIGAS Y COLUMNAS NO ESTABLECIDO (CON ESTA MALLA VA DIRECTO A LAS COLUMNAS EL ${share} %) — `,
+      ), `mesh ${m}: banner`).toBe(true);
     }
   });
 
@@ -265,7 +284,7 @@ describe('the span building with each column\'s section tied to the slab (0,2 m)
     const x = read(doc);
     if (PRINT) console.log(`TIED: ${JSON.stringify(x)}`);
     expect(x.verdict).toBe('sectionRepresented');
-    expect([x.pointJoints, x.desk.d124, x.memoria, x.ifc.joint, x.certificates, x.openIssues]).toEqual([0, 0, 0, 0, 0, 0]);
+    expect([x.pointJoints.length, x.desk.d124, x.memoria, x.ifc.joint, x.certificates, x.openIssues]).toEqual([0, 0, 0, 0, 0, 0]);
     expect(x.summaryKey).not.toBe('detailing.document.slabColumnPointJoint');
     expect(x.readiness).toBe(x.readinessWithout);
   }, 300_000);
@@ -291,7 +310,7 @@ describe('qa-8: no slab, the indicator does not apply and nothing changes', () =
     if (PRINT) console.log(`QA-8: ${JSON.stringify(x)}`);
     expect([...verificationStore.contexts.values()].map((c) => c.slabColumnJoint?.verdict)).toEqual(Array(8).fill('notApplicable'));
     expect(x.verdict).toBe('notApplicable');
-    expect([x.pointJoints, x.desk.d124, x.memoria, x.ifc.joint, x.certificates, x.openIssues]).toEqual([0, 0, 0, 0, 0, 0]);
+    expect([x.pointJoints.length, x.desk.d124, x.memoria, x.ifc.joint, x.certificates, x.openIssues]).toEqual([0, 0, 0, 0, 0, 0]);
     expect(x.readiness).toBe(x.readinessWithout);
     expect(doc.slabColumnJoint?.verdict).toBe('notApplicable');
   });

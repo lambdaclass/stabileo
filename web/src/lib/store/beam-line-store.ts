@@ -11,12 +11,12 @@ import { storedDecisions } from './design-decisions';
 import { framesOf, modelBeamLines, copyFrame } from './frame-equalize';
 import { rebarHash } from '../engine/design/rebar-hash';
 import { lineFromMembers, lineMembersOf, memberCuts, membersFromLine, memberOffsets, type LineMember, type MemberCuts } from '../engine/design/beam-line';
-import { lineLaps, linePieces, type LineBarPiece, type LineLap, type LineStirrupPiece } from '../engine/detailing/line-bars';
+import { drawnBeamEvidence, lineLaps, linePieces, type LineBarPiece, type LineLap, type LineStirrupPiece } from '../engine/detailing/line-bars';
 import { mirrorReinforcement, type BeamLine } from '../engine/design/repeated-frames';
 import { lineKey, type BeamLineReinforcement } from '../design-contract/beam-line';
 import { designLength, withSpanPieces } from './design-spans-store';
 import { lineAxis } from './line-axis';
-import type { ProvidedReinforcement } from '../design-contract/reinforcement';
+import { drawnBeamReinforcement, type ProvidedReinforcement } from '../design-contract/reinforcement';
 import type { ProvidedRebarResult } from '../engine/station-design-forces';
 
 const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v));
@@ -201,6 +201,17 @@ export function savedMemberCuts(): Map<number, MemberCuts> {
   return out;
 }
 
+const savedPiecesCache = new WeakMap<BeamLineReinforcement, { orientation: string; pieces: ReturnType<typeof linePieces> }>();
+
+function savedPieces(line: BeamLineReinforcement, forward: readonly boolean[]) {
+  const orientation = forward.join(',');
+  const cached = savedPiecesCache.get(line);
+  if (cached?.orientation === orientation) return cached.pieces;
+  const pieces = linePieces(line, forward);
+  savedPiecesCache.set(line, { orientation, pieces });
+  return pieces;
+}
+
 /**
  * Every saved line that still stands for its members, as the detailing lays it: each member's
  * bars and stirrups exactly as drawn (`line-bars.ts`), and each drawn lap with the member that
@@ -216,7 +227,7 @@ export function savedLinePieces(): {
   for (const l of modelBeamLines()) {
     const saved = storedLine(l);
     if (!saved) continue;
-    for (const [id, p] of linePieces(saved, l.forward)) pieces.set(id, p);
+    for (const [id, p] of savedPieces(saved, l.forward)) pieces.set(id, p);
     const X = memberOffsets(saved);
     for (const lap of lineLaps(saved)) {
       const mid = (lap.from + lap.to) / 2;
@@ -225,6 +236,16 @@ export function savedLinePieces(): {
     }
   }
   return { pieces, laps };
+}
+
+export function withSavedBeamEvidence(id: number, reinforcement: ProvidedReinforcement | undefined): ProvidedReinforcement | undefined {
+  if (!reinforcement || !Object.values(storedDecisions().lines ?? {}).some(line => line.members.includes(id))) return reinforcement;
+  const frame = framesOf(id);
+  const saved = frame && storedLine(frame.line);
+  if (!saved) return reinforcement;
+  const length = saved.lengths[saved.members.indexOf(id)]!;
+  const pieces = savedPieces(saved, frame.line.forward).get(id);
+  return pieces ? { ...reinforcement, [drawnBeamReinforcement]: drawnBeamEvidence(pieces, length) } : reinforcement;
 }
 
 /** The cross-sections placed on saved lines, each at its point in the model (`DocumentModel.sectionCuts`). */

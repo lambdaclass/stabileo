@@ -53,7 +53,7 @@ const summary = (v: { checks: Array<{ category: string; status: string; ratio: n
   v.checks.map((c) => `${c.category}|${c.status}|${c.ratio}`).sort();
 
 describe('a beam line as bars along it', () => {
-  it('reads its members and projects back to the same checks', () => {
+  it('known wrong result: #2338 reads its members and projects back to the same checks', () => {
     const line = designed();
     const ms = lineMembers(line);
     const model = lineFromMembers(ms);
@@ -61,13 +61,20 @@ describe('a beam line as bars along it', () => {
     // Two spans, 5 and 4 m: the top bars over the middle column are one bar when both sides agree.
     const back = membersFromLine(model, ms);
     const a = designRunStore.currentAdapter()!;
+    const draft = checkDraft(line, model);
     for (const m of ms) {
       const ctx = verificationStore.contextFor(m.id)!;
       const own = a.verify(ctx, m.reinforcement!);
       const trip = a.verify(ctx, back.get(m.id)!);
-      expect(summary(trip)).toEqual(summary(own));
+      expect.soft(summary(trip)).toEqual(summary(own));
+      expect.soft(summary(draft.get(m.id)!)).toEqual(summary(own));
+      for (const result of [own, trip, draft.get(m.id)!]) {
+        expect.soft(result.checks).toContainEqual(expect.objectContaining({
+          category: 'Bars through the joint (start)', status: 'ok', ratio: 0,
+        }));
+        expect.soft(result.checks.filter(row => row.status === 'ok' && !Number.isFinite(row.ratio))).toEqual([]);
+      }
     }
-    const draft = checkDraft(line, model);
     expect([...draft.keys()].sort()).toEqual([...line.members].sort());
   });
 

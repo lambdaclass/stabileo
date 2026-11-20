@@ -1,3 +1,4 @@
+import { axialStrainEnergy } from './strain-energy-label';
 import type { Translations } from '../../types';
 import course from '../course/zh';
 
@@ -610,7 +611,7 @@ const stepsZh: Translations = {
   "steps.deformation.axialOffNote": "与矩阵法的差异来自略去了轴向项，而矩阵法是包含轴向项的。",
   "steps.m.virtualWork.opt.axial.label": "计入轴向项 (N·n·L/EA)",
   "steps.m.virtualWork.opt.axial.help": "开启时，位移加上轴力的贡献，结果与同样包含轴向项的矩阵法一致，这是更精确的选择。手算通常忽略它，因为在框架和梁中它相对于弯曲很小；关闭它可查看该经典解法及其带来的变化。",
-  "steps.m.castigliano.opt.axial.label": "计入轴向项 (N²/2EA)",
+  "steps.m.castigliano.opt.axial.label": `计入轴向应变能 (${axialStrainEnergy})`,
   "steps.m.castigliano.opt.axial.help": "开启时，应变能加上轴力的贡献，结果与同样包含轴向项的矩阵法一致，这是更精确的选择。手算通常忽略它，因为在框架和梁中它相对于弯曲很小；关闭它可查看该经典解法及其带来的变化。",
   "steps.m.castigliano.coefCaptionOff": "仅含各杆件的弯曲项。单位：m/kN、rad/kN 或 rad/(kN·m)，取决于多余未知力。",
   "steps.m.castigliano.reactionsLead": "反力由基本结构的反力与多余未知力叠加得到：",

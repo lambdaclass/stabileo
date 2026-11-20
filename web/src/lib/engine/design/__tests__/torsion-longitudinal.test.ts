@@ -48,20 +48,56 @@ const reinf: ProvidedReinforcement = {
   regions: { bottomSpan: { count: 4, diameter: 16 }, topStart: { count: 2, diameter: 16 }, topEnd: { count: 2, diameter: 16 }, stirrupsSpan: { diameter: 8, legs: 2, spacing: 0.1 }, stirrupsSupport: { diameter: 8, legs: 2, spacing: 0.1 } },
 };
 
+const section = { b: 0.2, h: 0.5, fc: 30, fy: 420, cover: 0.025, stirrupDia: 8 };
+
+function verify(h: number, demand: ElementStationResult) {
+  return verifyProvidedReinforcement(
+    1, 'beam', reinf, undefined, { flexure: { AsReq: 0 }, shear: { AvOverS: 0, AvOverSMin: 0 } },
+    { ...section, h }, demand, undefined, { axes: { ...axes, hFlex: h } },
+  );
+}
+
 describe('torsion longitudinal steel at every section where Tu ≥ φ·Tth (§9.6.4.1, §9.5.4.3)', () => {
+  it('refuses the original deep section without longitudinal side bars', () => {
+    const res = verify(section.h, stations);
+    expect(res.checks.find(c => c.category === 'Torsion Al Span (Vz)')).toMatchObject({
+      comboName: 'C1', stationX: 0.3 * stations.length, status: 'fail',
+      ratio: Infinity, description: 'diag.rcTorsionPerimeter',
+    });
+    expect(res.checks.find(c => c.category === 'Torsion Span (Vz)')!.comboName).toBe('C1');
+  });
+
   it('a smaller Tu above φ·Tth with its own Mu governs; one below it does not count', () => {
-    const res = verifyProvidedReinforcement(
-      1, 'beam', reinf, undefined, { flexure: { AsReq: 0 }, shear: { AvOverS: 0, AvOverSMin: 0 } },
-      { b: 0.2, h: 0.5, fc: 30, fy: 420, cover: 0.025, stirrupDia: 8 }, stations, undefined, { axes },
-    );
-    const al = res.checks.find((c) => c.category.startsWith('Torsion Al Span'))!;
+    const h = 0.36;
+    const span = {
+      ...stations,
+      comboResults: [
+        combo(1, 'C1', [20, 40, 9], [22, 30, 9]),
+        combo(2, 'C2', [68, 5, 2], [72, 5, 2]),
+        combo(3, 'C3', [72, 5, 1], [76, 5, 1]),
+      ],
+    };
+    const { b, fc, fy, cover, stirrupDia } = section;
+    const x1 = b - 2 * cover - stirrupDia / 1000;
+    const y1 = h - 2 * cover - stirrupDia / 1000;
+    const phiThreshold = 0.75 * 0.083 * Math.sqrt(fc) * (b * h) ** 2 / (2 * (b + h)) * 1000;
+    expect(2).toBeGreaterThan(phiThreshold);
+    expect(1).toBeLessThan(phiThreshold);
+    const torsionAreaPerLength = 2 / (0.75 * 2 * 0.85 * x1 * y1 * fy * 1000);
+    const alMin = 0.42 * Math.sqrt(fc) * b * h / fy
+      - Math.max(torsionAreaPerLength, 0.175 * b / fy) * 2 * (x1 + y1);
+    const d = h - cover - stirrupDia / 1000 - 0.016 / 2;
+    const required = (72 / (0.9 * fy * 1000 * 0.9 * d) + alMin / 2) * 1e4;
+    const provided = 4 * Math.PI * (0.016 / 2) ** 2 * 1e4;
+
+    const res = verify(h, span);
+    const al = res.checks.find(c => c.category === 'Torsion Al Span (Vz)')!;
     expect([al.comboName, al.stationX, al.status]).toEqual(['C2', 3, 'fail']);
-    expect(al.required!).toBeCloseTo(8.30, 2);
-    expect(al.provided!).toBeCloseTo(8.04, 2);
-    expect(al.ratio).toBeCloseTo(1.032, 2);
+    expect(al.required!).toBeCloseTo(required, 2);
+    expect(al.provided!).toBeCloseTo(provided, 2);
+    expect(al.ratio).toBeCloseTo(required / provided, 2);
     expect(al.description).toContain('cara inferior');
     expect(al.description).toContain('Al,min §9.6.4.3');
-    // The stirrups are still read at the tuple that governs them.
-    expect(res.checks.find((c) => c.category === 'Torsion Span (Vz)')!.comboName).toBe('C1');
+    expect(res.checks.find(c => c.category === 'Torsion Span (Vz)')!.comboName).toBe('C1');
   });
 });

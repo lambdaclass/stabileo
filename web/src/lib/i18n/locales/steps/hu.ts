@@ -1,3 +1,4 @@
+import { axialStrainEnergy } from './strain-energy-label';
 import type { Translations } from '../../types';
 import course from '../course/hu';
 
@@ -607,7 +608,7 @@ const stepsHu: Translations = {
   "steps.deformation.axialOffNote": "A mátrixmódszertől való eltérés a tengelyirányú tag elhagyásából ered, amelyet a mátrixmódszer figyelembe vesz.",
   "steps.m.virtualWork.opt.axial.label": "A tengelyirányú tag figyelembe vétele (N·n·L/EA)",
   "steps.m.virtualWork.opt.axial.help": "Bekapcsolva az elmozdulás a normálerő hozzájárulásával is bővül, és az eredmény megegyezik a mátrixmódszerével, amely ezt is figyelembe veszi. Ez a pontosabb választás. A kézi megoldások általában elhanyagolják, mert keretekben és gerendákban a hajlításhoz képest kicsi; kapcsolja ki, hogy lássa ezt a klasszikus megoldást, és azt, hogy mennyit változtat.",
-  "steps.m.castigliano.opt.axial.label": "A tengelyirányú tag figyelembe vétele (N²/2EA)",
+  "steps.m.castigliano.opt.axial.label": `A tengelyirányú alakváltozási energia figyelembevétele (${axialStrainEnergy})`,
   "steps.m.castigliano.opt.axial.help": "Bekapcsolva az alakváltozási energia a normálerő hozzájárulásával is bővül, és az eredmény megegyezik a mátrixmódszerével, amely ezt is figyelembe veszi. Ez a pontosabb választás. A kézi megoldások általában elhanyagolják, mert keretekben és gerendákban a hajlításhoz képest kicsi; kapcsolja ki, hogy lássa ezt a klasszikus megoldást, és azt, hogy mennyit változtat.",
   "steps.m.castigliano.coefCaptionOff": "Csak az egyes rudak hajlítási tagja. Mértékegységek: m/kN, rad/kN vagy rad/(kN·m), a határozatlan erőktől függően.",
   "steps.m.castigliano.reactionsLead": "A támaszerők, az alaprendszer és a határozatlan erők támaszerőinek szuperpozíciójával:",

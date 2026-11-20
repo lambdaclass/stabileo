@@ -424,6 +424,12 @@ export function memoriaInput(tr: Tr, locale: string): MemoriaInput {
     const held = holds.map((h) => holdText(h, tr));
     // A design read on results that have since changed is open, as the screen shows it: never «Cumple».
     if (verdict.status === 'stale') held.push(holdText({ key: 'verdict.hold.stale' }, tr));
+    if (own && verdict.status === 'unavailable' && !held.length) {
+      const baseline = verificationStore.designMap.get(id);
+      const reason = baseline?.status === 'fail' && baseline.governingCheck.startsWith('diag.')
+        ? baseline.governingCheck : 'design.status.unavailable';
+      held.push(tr(reason));
+    }
     if (held.length) el.heldBy = held;
   }
 
