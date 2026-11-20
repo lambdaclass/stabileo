@@ -27,6 +27,8 @@ import { resolveSectionState } from '../state';
 import { analyzeSectionStressFromForces } from '../../engine/section-stress-3d';
 import type { Section } from '../../store/model.svelte';
 
+const issue2366 = process.env.RUN_KNOWN_WRONG === '2366' ? it : it.skip;
+
 function sec(over: Partial<Section>): Section {
   const s = { id: 1, name: '', a: 0.08, iy: 1.0667e-3, iz: 2.667e-4, ...over } as Section;
   s.canonical = resolveSectionState(s, { torsion: true });
@@ -133,6 +135,16 @@ describe('a transverse load off the shear centre twists the member', () => {
     }
     for (const sample of centered.distributionZ) {
       expect(sample).toMatchObject({ refusal: null, tauTotal: 0 });
+    }
+  });
+
+  issue2366('known wrong result: #2366 includes centred planar shear in the width cut diagnostics', () => {
+    const centered = toDiagram(rect(), resolveEccentric({ vz: 100, at: [0, 0] }).forces, [0.05, 0]);
+    expect(centered.tauVzAtFiber).toBeGreaterThan(0);
+    for (const sample of centered.distributionZ) {
+      expect(sample).toMatchObject({ refusal: null, tauVz: 0 });
+      expect(sample.tauTotal, JSON.stringify(sample)).toBeCloseTo(centered.tauVzAtFiber, 12);
+      expect(sample.vonMises).toBeCloseTo(centered.failure!.vonMises, 12);
     }
   });
 
