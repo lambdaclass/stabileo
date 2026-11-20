@@ -9,20 +9,24 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { flagshipDetailing } from './helpers/flagship';
+import { flagshipDetailing, flagshipRun } from './helpers/flagship';
 
 describe('detailing output volume', () => {
   it('produces bars in proportion to the members detailed, not a token few', () => {
     const r = flagshipDetailing();
     const bars = r.assemblies.reduce((n, a) => n + a.bars.length, 0);
-    const members = new Set(r.assemblies.flatMap((a) => a.elementIds)).size;
+    const members = new Set(r.assemblies.flatMap((a) => a.elementIds));
+    const { summary } = flagshipRun();
+    const expectedMembers = new Set([...summary.outcomes.values()]
+      .filter((outcome) => outcome.outcome === 'VERIFIED' || outcome.outcome === 'PROVISIONAL_BIAXIAL')
+      .map((outcome) => outcome.elementId));
+    expect(members).toEqual(expectedMembers);
 
     // A beam yields bottom runners plus top bars at two supports; a column lift yields its
     // longitudinal cage. Fewer than two bars per member means most members never reached
     // the generator — which is exactly what "114 bars for 408 members" was telling us.
-    expect(members).toBeGreaterThan(300);
-    expect(bars / members,
-      `${bars} bars across ${members} members is too few to be a real cage`)
+    expect(bars / members.size,
+      `${bars} bars across ${members.size} members is too few to be a real cage`)
       .toBeGreaterThan(2);
   }, 300_000);
 

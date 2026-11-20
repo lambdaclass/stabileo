@@ -7,10 +7,10 @@
  * member verifies; each physical column keeps one section from bottom to top; the changes are
  * reported with their reason; and one undo puts every section back.
  */
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, vi } from 'vitest';
 import { historyStore, modelStore } from '..';
 import { verificationStore } from '../verification.svelte';
-import { building } from './span-fixture';
+import { building, withZeroBeamTorque } from './span-fixture';
 import { designWithResizing, plannedGrowth, RESIZE_STEP_M } from '../design-resize';
 import { physicalGroups } from '../physical';
 import * as wasmSolver from '../../engine/wasm-solver';
@@ -26,18 +26,26 @@ const sectionOf = (id: number) => modelStore.sections.get(modelStore.elements.ge
 const outcomes = () => [...verificationStore.contexts.values()].map((c) => verificationStore.outcomeFor(c.elementId)?.outcome);
 
 describe('«Size» on the span fixture at 30×30', () => {
-  it('grows the columns the beams cannot anchor in until every member verifies, as one undo step', async () => {
-    building(1);
+  it('grows the columns until every member verifies under prescribed zero beam torque, as one undo step', async () => {
+    building(1, { prescribedZeroBeamTorque: true, surfaceLoadFactor: 0.5 });
     const before = new Map([...modelStore.elements.values()].map((e) => [e.id, e.sectionId]));
     const phases: string[] = [];
-    const run = await designWithResizing({ edited: 'overwrite', steel: false }, { progress: (p) => phases.push(`${p.phase}${p.round}`) });
+    const solve = modelStore.solveCombinations3D.bind(modelStore);
+    const combinationSolve = vi.spyOn(modelStore, 'solveCombinations3D').mockImplementation((...args) => {
+      const result = solve(...args);
+      return !result || typeof result === 'string' ? result : { ...result, perCombo: withZeroBeamTorque(result.perCombo) };
+    });
+    const run = await designWithResizing({ edited: 'overwrite', steel: false }, {
+      progress: (p) => phases.push(`${p.phase}${p.round}`),
+    }).finally(() => combinationSolve.mockRestore());
 
     expect(run.stopped).toBe('verified');
     expect(run.rounds).toBeGreaterThan(0);
     expect(phases[0]).toBe('design0');
     expect(phases).toContain('resize1');
     // Every member verifies, and nothing is left to grow.
-    expect(outcomes().every((o) => o === 'VERIFIED' || o === 'PROVISIONAL_BIAXIAL')).toBe(true);
+    const refused = [...verificationStore.runSummary!.outcomes.values()].filter(o => o.outcome !== 'VERIFIED' && o.outcome !== 'PROVISIONAL_BIAXIAL');
+    expect(outcomes().every((o) => o === 'VERIFIED' || o === 'PROVISIONAL_BIAXIAL'), JSON.stringify(refused.map(o => [o.elementId, o.outcome, o.limiting, o.reasons.map(r => r.key)]))).toBe(true);
     expect(plannedGrowth()).toEqual([]);
 
     // The changes: columns, for the anchorage of the beams framing in, 5 cm a round.

@@ -124,7 +124,7 @@ export function jointThreading(ctx: MemberContext, rebar: ProvidedReinforcement,
 export function jointThreadingChecks(verdicts: readonly JointThreadingVerdict[]): ProvidedRebarCheck[] {
   return verdicts.map((v) => ({
     category: `Bars through the joint (${v.end})`, demandCategory: null,
-    status: v.ok ? 'ok' : 'fail', ratio: Number.NaN,
+    status: v.ok ? 'ok' : 'fail', ratio: v.ok ? 0 : Number.POSITIVE_INFINITY,
     unit: 'mm', method: 'area', tuplesChecked: 0,
     description: v.ok
       ? `${v.slots} slots Ø${v.rowDia} pass the ${v.columnBars} column bars`

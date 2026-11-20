@@ -26,7 +26,7 @@
  *
  * `SPAN_TRACE_PRINT=1` prints the trace as the report tables.
  */
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, vi } from 'vitest';
 import { modelStore } from '..';
 import { verificationStore } from '../verification.svelte';
 import { rebarHash } from '../../engine/design/rebar-hash';
@@ -37,8 +37,9 @@ import type { BarEndAnchorage, BarPath } from '../../codes/cirsoc201/bar-geometr
 import type { SpanRef } from '../../engine/design/design-spans';
 import type { DocumentModel } from '../../engine/detailing/document-model';
 import * as wasmSolver from '../../engine/wasm-solver';
-import { assemblyLabel, beamOnAxis1AtN1, building, designAndDocument, printedSchedule, type PhysicalBeam } from './span-fixture';
-import '../../engine/design/adapters/cirsoc201-adapter';
+import { assemblyLabel, beamOnAxis1AtN1, building, designAndDocument, designAndDocumentUnder, forcesByPlace, printedSchedule, type PhysicalBeam } from './span-fixture';
+import { cirsoc201Adapter2025 } from '../../engine/design/adapters/cirsoc201-adapter';
+import { computeCandidateCost } from '../../engine/design/objective';
 import '../../engine/design/adapters/unsupported-adapter';
 
 beforeAll(async () => {
@@ -136,11 +137,48 @@ describe('trace of one physical beam: the X beam on axis 1 at N1, slab mesh 1 m'
   let t: ReturnType<typeof traceOf>;
   let beam: PhysicalBeam;
   let doc: DocumentModel;
+  let solvedOutcomes: ReturnType<typeof verificationStore.outcomeFor>[];
+  let solvedBars: number;
 
   beforeAll(() => {
     building(1, { columnSide: 0.4 });
-    doc = designAndDocument();
+    const solvedDocument = designAndDocument();
     beam = beamOnAxis1AtN1();
+    const members = new Set(beam.elements);
+    solvedOutcomes = beam.elements.map(id => verificationStore.outcomeFor(id));
+    solvedBars = solvedDocument.assemblies.flatMap(a => a.bars)
+      .filter(bar => bar.ownerElementIds.length > 0 && bar.ownerElementIds.every(id => members.has(id))).length;
+    const forces = forcesByPlace(false);
+    for (const data of forces.values()) {
+      if (verificationStore.contextFor(data.stations.elementId)?.elementType !== 'beam') continue;
+      for (const combo of data.stations.comboResults) for (const station of combo.stations) station.torsion = 0;
+    }
+    const createGenerator = cirsoc201Adapter2025.createGenerator.bind(cirsoc201Adapter2025);
+    const prescribedCages = vi.spyOn(cirsoc201Adapter2025, 'createGenerator').mockImplementation(ctx => {
+      const cage = TRACE_CAGES.find(([id]) => id === ctx.elementId);
+      if (ctx.elementType !== 'beam' || !cage) return createGenerator(ctx);
+      const [, bottomCount, bottomDiameter, topCount, topDiameter, spacing] = cage;
+      const bottom = { count: bottomCount, diameter: bottomDiameter };
+      const top = { count: topCount, diameter: topDiameter };
+      const stirrups = { diameter: 6, legs: 2, spacing };
+      const reinforcement = { regions: {
+        bottomSpan: bottom, topStart: top, topEnd: top,
+        bottomSpanLayers: [{ ...bottom, row: 0 }], topStartLayers: [{ ...top, row: 0 }], topEndLayers: [{ ...top, row: 0 }],
+        stirrupsSupport: stirrups, stirrupsSpan: stirrups,
+      } };
+      const cost = computeCandidateCost(reinforcement, { L: ctx.L, layoutIssues: 0, arrangements: 1, spacings: [spacing] });
+      let produced = 0;
+      return {
+        next() { return produced++ === 0 ? { reinforcement, meta: { index: 1, cost, label: 'prescribed cage' } } : null; },
+        get envelopeExhausted() { return produced > 0; },
+        get produced() { return Math.min(1, produced); },
+      };
+    });
+    try {
+      doc = designAndDocumentUnder(forces);
+    } finally {
+      prescribedCages.mockRestore();
+    }
     t = traceOf(beam, doc);
     if (!PRINT) return;
     console.log(`BEAM ${beam.name} (group ${beam.id}) pieces ${beam.elements.join(',')}`);
@@ -158,6 +196,17 @@ describe('trace of one physical beam: the X beam on axis 1 at N1, slab mesh 1 m'
     for (const [z, xs] of zones) { const u = [...xs].sort((a, b) => a - b); const gaps = u.slice(1).map((v, i) => v - u[i]!); console.log(`ZONE ${z} n=${u.length} [${r3(u[0]!)}, ${r3(u[u.length - 1]!)}] gap ${r3(Math.min(...gaps))}..${r3(Math.max(...gaps))} Ø${[...new Set(t.stirrups.filter((s) => s.b.zoneId === z).map((s) => s.b.diameterMm))]}`); }
     console.log('OPEN', JSON.stringify((doc.openIssues ?? []).filter((i) => i.elementIds.some((id) => beam.elements.includes(id))).map((i) => [i.key, i.params?.bar, i.params?.end, i.params?.available, i.params?.required])));
   }, 120_000);
+
+  it('#2310 refuses both spans under the solved slab torque without verified side bars', () => {
+    expect(solvedOutcomes).toHaveLength(12);
+    expect(solvedBars).toBe(0);
+    for (const outcome of solvedOutcomes) {
+      expect(outcome?.outcome).toBe('SEARCH_EXHAUSTED');
+      expect(outcome?.provisional?.verdict.checks).toContainEqual(expect.objectContaining({
+        description: 'diag.rcTorsionPerimeter', ratio: Infinity, status: 'fail',
+      }));
+    }
+  });
 
   it('the physical member and its two spans, each with its six 1 m pieces', () => {
     expect(beam.name).toBe('V2');
@@ -212,7 +261,7 @@ describe('trace of one physical beam: the X beam on axis 1 at N1, slab mesh 1 m'
     }
   });
 
-  it('the designed steel, its regions, and the verifier reading the anchorage along the span', () => {
+  it('the prescribed cages, their regions, and the verified anchorage along the span', () => {
     const steel = t.spans.map((p) => {
       const g = p.reinf.regions!;
       return [p.span.label, g.bottomSpan, g.topStart, g.topEnd, g.stirrupsSupport, g.stirrupsSpan, [p.regions.start, p.regions.span, p.regions.end].map(r3)];
@@ -390,6 +439,22 @@ const EXPECTED_BARS: unknown[] = [
   ['e49-topJ-1', 'B14', 'top', 12, 1.837, 10.436, 12.063, null, ['end', 'hook', 0.311, 'ldh', 0.221, 0.089, [90, 0.072, 0.144, 0.305]]],
   ['e49-topJ-3', 'B13', 'top', 12, 1.78, 10.436, 12.006, null, ['end', 'hook', 0.254, 'ldh', 0.221, 0.146, [90, 0.072, 0.144, 0.248]]],
 ];
+const TRACE_CAGES = [
+  [27, 2, 16, 3, 12, 0.1],
+  [32, 4, 12, 4, 12, 0.1],
+  [38, 4, 12, 4, 12, 0.1],
+  [44, 4, 10, 4, 10, 0.2],
+  [49, 4, 12, 4, 12, 0.1],
+  [55, 4, 12, 4, 12, 0.1],
+  [61, 2, 16, 3, 12, 0.1],
+  [66, 2, 16, 4, 10, 0.1],
+  [71, 3, 16, 3, 16, 0.1],
+  [77, 3, 16, 3, 16, 0.1],
+  [83, 2, 16, 3, 12, 0.175],
+  [88, 3, 16, 3, 16, 0.1],
+  [94, 3, 16, 3, 16, 0.1],
+  [100, 2, 16, 4, 10, 0.1],
+] as const;
 const EXPECTED_MASS = 101.326;
 /** Zone, Ø, stations, first and last station (m from A), widest spacing. */
 // The first stirrup at each support stands 13 mm inside the face (`stirrupInsetI`): its legs keep
