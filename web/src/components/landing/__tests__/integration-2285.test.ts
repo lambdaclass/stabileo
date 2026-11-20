@@ -31,6 +31,7 @@ const terms = {
   fr: { compression: 'En compression' },
   tr: { compression: 'Basınç' },
   hu: { compression: 'Nyomás' },
+  zh: { compression: '受压' },
 };
 
 function caption(html: string) {

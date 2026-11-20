@@ -74,7 +74,7 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "Bredt mind a négy esetben alulbecsül. Egy 5 mm-es falú, 50 mm közepes sugarú csőnél, amely a szokásos ökölszabály szerint még vékony falúnak számít, a tényleges feszültség 4,5 %-kal nagyobb a számítottnál. 10 mm-es falnál 8,2 %-kal."
+      "t": "Bredt mind a négy esetben alulbecsül. Egy 5 mm-es falú, 50 mm közepes sugarú csőnél, amely a szokásos ökölszabály szerint még vékony falúnak számít, a tényleges feszültség 4,7 %-kal nagyobb a számítottnál. 10 mm-es falnál 8,9 %-kal."
     },
     {
       "k": "quote",

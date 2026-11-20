@@ -138,7 +138,7 @@ async function expectLinks(page: Page, path: string, locale: Locale) {
     ...writtenIn(path).map((l) => `${l} ${ORIGIN}/${l}${canonicalPath}`),
     // x-default follows the page, not the home page.
     `x-default ${ORIGIN}/en${canonicalPath}`,
-  ]);
+  ].sort());
 }
 
 test.describe('@smoke prerender', () => {

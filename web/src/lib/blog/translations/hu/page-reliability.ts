@@ -4,7 +4,7 @@ const body: StandingPage['i18n']['en'] = {
   "title": "Mennyire megbízható a Stabileo? Hogyan ellenőrizzük az eredményeit",
   "description": "A Stabileo eredményeinek ellenőrzése: hét másik VEM-program, publikált példák, Leanben bizonyított hibakorlátok, nyilvános figyelmeztetések és ezek határai.",
   "eyebrow": "Megbízhatóság",
-  "lead": "A Stabileo eredményeit öt, egymástól független módon ellenőrizzük, köztük hét másik végeselemes programmal való összevetéssel és olyan hibakorlátokkal, amelyek matematikai magja Leanben bizonyított. A már használatban lévő eredményeket esetleg érintő hibákat biztonsági figyelmeztetésként tesszük közzé (néhány megállapítás osztályozása még folyik, nyilvánosan), és mind a huszonnégy közzétett figyelmeztetésben leírt hiba javítva van (az utolsó négy a 0.4.0-s verzióban). Mint minden számítóprogram, a modelljét nem ellenőrzi: a terhek, a támaszok és az idealizálás a mérnök döntései.",
+  "lead": "A Stabileo eredményeit öt, egymástól független módon ellenőrizzük, köztük hét másik végeselemes programmal való összevetéssel és olyan hibakorlátokkal, amelyek matematikai magja Leanben bizonyított. A már használatban lévő eredményeket esetleg érintő hibákat biztonsági figyelmeztetésként tesszük közzé (néhány megállapítás osztályozása még folyik, nyilvánosan), és az alábbi lista mutatja, melyik hiba van javítva és melyik verzióban. Mint minden számítóprogram, a modelljét nem ellenőrzi: a terhek, a támaszok és az idealizálás a mérnök döntései.",
   "blocks": [
     {
       "k": "h",

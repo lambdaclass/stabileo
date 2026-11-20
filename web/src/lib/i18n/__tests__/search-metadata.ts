@@ -19,6 +19,7 @@ type Page = { url: string; locale: string; path: string; html: string; head: str
 
 const decode = (s: string) =>
   s.replace(/&nbsp;/g, ' ').replace(/&quot;/g, '"').replace(/&#39;|&#x27;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+const width = (s: string) => s.length + (s.match(/[\p{Script=Han}\u3000-\u303f\uff00-\uffef]/gu)?.length ?? 0);
 const stripTags = (s: string) => decode(s.replace(/<[^>]+>/g, '')).replace(/\s+/g, ' ').trim();
 
 function graphOf(page: Page): Node[] {
@@ -68,9 +69,10 @@ export function searchMetadataSuite(dist: string) {
         const out: string[] = [];
         if ((p.head.match(/<title>/g) ?? []).length !== 1) out.push(`${p.url}: ${(p.head.match(/<title>/g) ?? []).length} <title> elements`);
         if ((p.head.match(/<meta name="description"/g) ?? []).length !== 1) out.push(`${p.url}: not exactly one meta description`);
-        const t = title(p).length, d = description(p).length;
-        if (t < 25 || t > 120) out.push(`${p.url}: title is ${t} characters: ${title(p)}`);
-        if (d < 90 || d > 300) out.push(`${p.url}: description is ${d} characters: ${description(p)}`);
+        // Measured in the width a result page gives it: a Chinese character takes the room of two Latin letters.
+        const t = width(title(p)), d = width(description(p));
+        if (t < 25 || t > 120) out.push(`${p.url}: title is ${t} characters wide: ${title(p)}`);
+        if (d < 90 || d > 300) out.push(`${p.url}: description is ${d} characters wide: ${description(p)}`);
         return out;
       });
       expect(problems, report(problems)).toEqual([]);
@@ -139,6 +141,7 @@ export function searchMetadataSuite(dist: string) {
         fr: ['logiciel open source d’ingénierie des structures'],
         tr: ['açık kaynaklı yapı mühendisliği yazılımı'],
         hu: ['nyílt forráskódú szerkezettervező szoftver'],
+        zh: ['开源结构工程软件'],
       };
       const aiInDevelopment: Record<string, string> = {
         en: 'AI assistant in development',
@@ -148,6 +151,7 @@ export function searchMetadataSuite(dist: string) {
         fr: 'assistant IA en développement',
         tr: 'geliştirilmekte olan yapay zekâ asistanı',
         hu: 'AI-asszisztens fejlesztés alatt áll',
+        zh: 'AI 助手开发中',
       };
       const problems = ownPages()
         .filter((p) => p.path === '/' || p.path === '/tools')
