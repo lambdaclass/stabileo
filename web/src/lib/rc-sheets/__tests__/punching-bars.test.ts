@@ -44,7 +44,7 @@ describe('a punching joint\'s stirrups as bars', () => {
     expect(el).toMatchObject({ key: row.key, family: 'punching', pieces: [{ kind: 'punchingLeg', count: legs.length }] });
     expect(el!.pieces[0]!.shape.dia).toBe(s.legDiameter);
 
-    const bars = punchingBars3d(row, { o: [3, 3, 3], x: [1, 0, 0], y: [0, 1, 0], z: [0, 0, 1] }, o, rulesFor(o.code).bends);
+    const bars = punchingBars3d(row, fig, { o: [3, 3, 3], x: [1, 0, 0], y: [0, 1, 0], z: [0, 0, 1] }, o, rulesFor(o.code).bends);
     expect(bars.length).toBe(legs.length);
     for (const b of bars) {
       const zs = b.segments.flat().map((p) => p[2]);

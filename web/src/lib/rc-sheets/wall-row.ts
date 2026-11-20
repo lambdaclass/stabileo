@@ -129,7 +129,12 @@ export function wallRow(d: WallDemand, c: WallContext, adopted: WallAdopted | un
     return { vertical: meshFor(dia, e0.rhoLMin, e0.sMaxV), horizontal: meshFor(dia, Math.max(e0.rhoTMin, rhoTShear), e0.sMaxH) };
   };
   const roomy = (m: ReturnType<typeof meshesOf>) => Math.min(m.vertical.spacing, m.horizontal.spacing) >= critOf(c).wallMeshSpacing - 1e-9;
-  const start = meshes ? meshes.map(meshesOf).find(roomy) ?? meshesOf(meshes.at(-1)!) : meshesOf(c.barDia);
+  const firstRoomy = (list: readonly number[]) => {
+    let m = meshesOf(list[0]!);
+    for (const dia of list.slice(1)) { if (roomy(m)) break; m = meshesOf(dia); }
+    return m;
+  };
+  const start = firstRoomy(meshes ?? [c.barDia]);
   let a: WallAdopted = {
     ...start,
     curtains,

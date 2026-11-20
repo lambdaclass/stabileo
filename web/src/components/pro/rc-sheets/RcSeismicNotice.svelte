@@ -1,9 +1,8 @@
 <script lang="ts">
   import { t } from '../../../lib/i18n';
-  import { modelStore } from '../../../lib/store';
   import { seismicAdvice, setRcOption } from '../../../lib/store/rc-sheets.svelte';
 
-  const advice = $derived.by(() => { void modelStore.designData; void modelStore.model.loadCases; void modelStore.model.loads; return seismicAdvice(); });
+  const advice = $derived(seismicAdvice());
 </script>
 
 {#if advice}

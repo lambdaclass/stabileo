@@ -70,7 +70,7 @@ function materialFor(old: Material | undefined, fc: number): { id: number; name:
  */
 export function applyAlternative(row: SheetRow | LineLayout, alt: Alternative): Applied | null {
   if (alt.kind === 'ties') {
-    patchDesignData({ stirrupDiametersMm: [...new Set([...alt.from, alt.to])].sort((p, q) => p - q) });
+    patchDesignData({ stirrupDiametersMm: alt.list });
     return { name: `Ø${alt.to}`, created: false, members: 0, plates: 0 };
   }
   const { members, plates } = targetsOf(row, alt);

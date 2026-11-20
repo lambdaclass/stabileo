@@ -12,6 +12,7 @@
   import { materialFamilyOf } from '../../lib/engine/steel/material-family';
   import { catalogueGradeFamily } from '../../lib/engine/steel/grade-family';
   import { runGlobalSolve } from '../../lib/engine/live-calc';
+  import { errorText } from '../../lib/utils/error-text';
 
   const KINDS = DESIGN_KINDS.filter((k): k is Exclude<DesignKind, 'footing'> => k !== 'footing');
   const concretes = $derived([...modelStore.materials.values()].filter((m) => materialFamilyOf(m, catalogueGradeFamily).family === 'concrete'));
@@ -23,14 +24,14 @@
   const any = $derived(KINDS.some((k) => chosen[k]));
   function assign() {
     let n = 0;
-    for (const k of KINDS) if (chosen[k]) n += assignConcrete(k, chosen[k]!, level || undefined);
+    modelStore.bulkMutate(() => { for (const k of KINDS) if (chosen[k]) n += assignConcrete(k, chosen[k]!, level || undefined); });
     assigned = n;
     chosen = {};
   }
   async function solve() {
     solving = true;
     try { await runGlobalSolve(); assigned = null; }
-    catch (err) { uiStore.toast(err instanceof Error ? err.message : String(err), 'error'); }
+    catch (err) { uiStore.toast(errorText(err, String(err)), 'error'); }
     finally { solving = false; }
   }
 </script>

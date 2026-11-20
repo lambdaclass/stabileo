@@ -12,7 +12,7 @@ import { designData, patchOwnDesignData, setDesignData, storedDesignData } from 
 import { activePerCombo3D, activeResultSet3D } from './active-results';
 import { hasSeismicLoads, seismicCaseIds, seismicSettings } from './seismic-design.svelte';
 import { DESIGN_OPTION_FLAGS, readDeflectionSettings, type AlternativeOptions, type DeflectionSettings, type DesignOptionFlag, type DesignOptions } from '../rc-sheets/design-options';
-import { defaultLevelName } from '../model/grid';
+import { defaultLevelName, sortedLevels } from '../model/grid';
 import { computeJointPsiFromModel } from '../engine/codes/argentina/cirsoc201';
 import { computeBeamCriticalSections } from '../engine/station-design-forces';
 import { beamFlangeSides } from '../engine/design/beam-flange';
@@ -88,6 +88,7 @@ const seismicIn = (d: Pick<RcSheetsData, 'seismic'>, code: SheetCode): boolean =
 
 /** Chapter 18 against the model's loads: recommended where a seismic case carries loads and it is off, questioned where it is on with none; nothing under a code the sheets have no such chapter for. */
 export function seismicAdvice(): 'recommend' | 'withoutLoads' | null {
+  void modelStore.designData; void modelStore.model.loadCases; void modelStore.model.loads;
   if (!rulesFor(sheetCode()).seismic) return null;
   const on = rcSheetsData().seismic === true, loads = hasSeismicLoads();
   return loads && !on ? 'recommend' : on && !loads ? 'withoutLoads' : null;
@@ -253,7 +254,7 @@ function storeyNamer(): (z: number) => string {
 
 /** The levels' names from the lowest up, those the rows name besides the grid's or the members' by their elevation. */
 function levelsUp(named: Iterable<string | undefined>): string[] {
-  const grid = [...(modelStore.grid?.levels ?? [])].sort((a, b) => a.z - b.z).map((l) => l.name);
+  const grid = sortedLevels(modelStore.grid).map((l) => l.name);
   const known = grid.length ? grid : memberElevations().map((_, i) => defaultLevelName(i));
   const extra = [...new Set([...named].filter((x): x is string => !!x && !known.includes(x)))];
   const zOf = (n: string) => (n.startsWith('+') ? Number(n.slice(1)) : NaN);
@@ -441,8 +442,8 @@ export function forgetRedesigners(): void {
   rowFc.clear();
 }
 
-const withFc = <C extends { mat: { fc: number; fy: number } }>(ctx: C, o?: RedesignWith): C =>
-  (o?.fc || o?.ties ? { ...ctx, ...(o.fc ? { mat: { ...ctx.mat, fc: o.fc } } : {}), ...(o.ties ? { tieDiameters: o.ties } : {}) } : ctx);
+const withRedesign = <C extends { mat: { fc: number; fy: number } }>(ctx: C, o?: RedesignWith): C =>
+  ({ ...ctx, ...(o?.fc ? { mat: { ...ctx.mat, fc: o.fc } } : {}), ...(o?.ties ? { tieDiameters: o.ties } : {}) });
 
 import type { SheetProgress } from './rc-sheets-progress.svelte';
 export type { SheetProgress };
@@ -554,16 +555,16 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
     rowFc.set(`line:${g}`, ctx.mat.fc);
     lineRedesigners.set(g, (o) => {
       const ds = sortedRows.map((r) => ({ ...r.demand, ...(o.b ? { b: o.b } : {}), ...(o.h ? { h: o.h } : {}) }));
-      const props = ds.map((d) => rules.beamRow(d, withFc(beamCtx(d), o), undefined, fmt));
-      const lay = withMissingForces(rules.beamLine(props, withFc(ctx, o), undefined, fmt), ds.flatMap((d) => d.missing ?? []));
-      const spans = ds.map((d, k) => withMissingForces(rules.beamRow(d, withFc(beamCtx(d), o), lay.spanAdopted[k], fmt), d.missing));
+      const props = ds.map((d) => rules.beamRow(d, withRedesign(beamCtx(d), o), undefined, fmt));
+      const lay = withMissingForces(rules.beamLine(props, withRedesign(ctx, o), undefined, fmt), ds.flatMap((d) => d.missing ?? []));
+      const spans = ds.map((d, k) => withMissingForces(rules.beamRow(d, withRedesign(beamCtx(d), o), lay.spanAdopted[k], fmt), d.missing));
       return { line: lay, spans, status: lineRowStatus(lay, spans) };
     });
   }
   const beam: BeamRow[] = [];
   for (const d of D.beams) {
     const ctx = beamCtx(d);
-    redesigners.set(d.key, ((x: typeof d, o?: RedesignWith) => withMissingForces(rules.beamRow(x, withFc(ctx, o), undefined, fmt), x.missing)) as Redesign);
+    redesigners.set(d.key, ((x: typeof d, o?: RedesignWith) => withMissingForces(rules.beamRow(x, withRedesign(ctx, o), undefined, fmt), x.missing)) as Redesign);
     rowFc.set(d.key, ctx.mat.fc);
     const own = adoptedNow[d.key] as BeamAdopted | undefined;
     const a = own ?? derived.get(d.key);
@@ -582,7 +583,7 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
     const stack: StackPlace = prev ? stackOver(prev, d) : {};
     const row = withMissingForces(withLapFit(cached(d, [code, ctx, a, dec, stack], () => rules.columnRow(d, ctx, a, fmt, stack)), code, fmt), d.missing);
     rowFc.set(d.key, ctx.mat.fc);
-    redesigners.set(d.key, ((x: typeof d, o?: RedesignWith) => withMissingForces(withLapFit(rules.columnRow(x, withFc(ctx, o), undefined, fmt, stack), code, fmt), x.missing)) as Redesign);
+    redesigners.set(d.key, ((x: typeof d, o?: RedesignWith) => withMissingForces(withLapFit(rules.columnRow(x, withRedesign(ctx, o), undefined, fmt, stack), code, fmt), x.missing)) as Redesign);
     below.set(g, row);
     return row;
   };
@@ -601,7 +602,7 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
     const g = groupOf(d.key);
     const ctx = { mat: { fc: fcOfShells(g?.members.quads ?? [], g?.members.plates ?? []), fy }, cover: dd.covers.slab, diameters: slabBars, ...slabBase, ...defl, criteria: crit };
     const a = adoptedNow[d.key] as SlabAdopted | undefined;
-    redesigners.set(d.key, ((x: typeof d, o?: RedesignWith) => rules.slabRow(x, withFc(ctx, o), undefined, fmt)) as Redesign);
+    redesigners.set(d.key, ((x: typeof d, o?: RedesignWith) => rules.slabRow(x, withRedesign(ctx, o), undefined, fmt)) as Redesign);
     rowFc.set(d.key, ctx.mat.fc);
     slab.push(cached(d, [code, ctx, a, dec], () => rules.slabRow(d, ctx, a, fmt)));
     yield step();
@@ -621,7 +622,7 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
     const g = groupOf(d.key);
     const ctx = { mat: { fc: fcOfShells(g?.members.quads ?? [], g?.members.plates ?? []), fy }, cover: dd.covers.slab, diameters: slabBars, ...slabBase, ...defl, span: { kind: 'cantilever' as const, dir: k.dir, length: k.length }, criteria: crit };
     const a = adoptedNow[d.key] as SlabAdopted | undefined;
-    redesigners.set(d.key, ((x: typeof d, o?: RedesignWith) => rules.slabRow(x, withFc(ctx, o), undefined, fmt)) as Redesign);
+    redesigners.set(d.key, ((x: typeof d, o?: RedesignWith) => rules.slabRow(x, withRedesign(ctx, o), undefined, fmt)) as Redesign);
     rowFc.set(d.key, ctx.mat.fc);
     slab[i] = cached(d, [code, ctx, a, dec], () => rules.slabRow(d, ctx, a, fmt));
     spanned.add(r.level ?? '');
@@ -656,7 +657,7 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
           const stack = wallStack.get(leg.key);
           const placed = legOfPier(stack ? { ...leg, stack } : leg, design, fmt);
           const legCtx = { ...wallCtxOf(leg.demand), pier: {} };
-          redesigners.set(leg.key, ((x: typeof d, o?: RedesignWith) => rules.wallRow(x, withFc(legCtx, o), undefined, fmt)) as Redesign);
+          redesigners.set(leg.key, ((x: typeof d, o?: RedesignWith) => rules.wallRow(x, withRedesign(legCtx, o), undefined, fmt)) as Redesign);
           rowFc.set(leg.key, legCtx.mat.fc);
           wallDone.set(leg.key, placed);
           wall.push(placed);
@@ -668,7 +669,7 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
     const ctx = wallCtxOf(d);
     const stack = wallStack.get(d.key);
     const a = adoptedNow[d.key] as WallAdopted | undefined;
-    redesigners.set(d.key, ((x: typeof d, o?: RedesignWith) => rules.wallRow(x, withFc(ctx, o), undefined, fmt)) as Redesign);
+    redesigners.set(d.key, ((x: typeof d, o?: RedesignWith) => rules.wallRow(x, withRedesign(ctx, o), undefined, fmt)) as Redesign);
     rowFc.set(d.key, ctx.mat.fc);
     const row = cached(d, [code, ctx, a, dec], () => rules.wallRow(d, ctx, a, fmt));
     const placed = stack ? { ...row, stack } : row;

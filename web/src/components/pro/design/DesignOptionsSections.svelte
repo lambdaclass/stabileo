@@ -47,7 +47,7 @@
   };
   const ANALYSIS: DesignOptionFlag[] = ['faces', 'flange'];
   const DETAILING: Array<DesignOptionFlag | 'endZones'> = ['bentBars', 'slabBentBars', 'endZones'];
-  const advice = $derived.by(() => { void modelStore.designData; void modelStore.model.loadCases; void modelStore.model.loads; return seismicAdvice(); });
+  const advice = $derived(seismicAdvice());
   const SEISMIC_RULES = ['capacity', 'hoops', 'confinement', 'joints', 'laps', 'walls'] as const;
   const alt = $derived(d.designOptions?.alternatives ?? {});
   const classes = $derived(concreteClasses(code));
@@ -198,8 +198,6 @@
 </details>
 
 <StabileoCriteria />
-
-
 
 <style>
   .do > summary { cursor: pointer; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; }

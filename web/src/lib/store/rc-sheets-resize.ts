@@ -271,7 +271,9 @@ export function noArrangement(row: SheetRow | LineLayout, spans: readonly BeamRo
 export type Alternative =
   | { kind: 'section'; what: ResizeWhat | 'beam'; from: number[]; to: number[] }
   | { kind: 'concrete'; from: number; to: number; name: string }
-  | { kind: 'ties'; from: number[]; to: number };
+  | { kind: 'ties'; from: number[]; to: number; list: number[] };
+
+const tiesAlternative = (k: { dia: number; list: number[] }): Alternative => ({ kind: 'ties', from: designData().stirrupDiametersMm, to: k.dia, list: k.list });
 
 /** The stirrup and tie diameters the project does not allow yet, smallest first, each with the list it would make. */
 export function widerTieLists(): Array<{ dia: number; list: number[] }> {
@@ -330,7 +332,7 @@ export function alternatives(row: SheetRow, fc = concreteOfRow(row.key)): Altern
   const stronger = fc !== undefined ? strongerConcretes(fc).find((k) => passes(redesign(demand as never, { fc: k.fc }))) : undefined;
   if (stronger && fc !== undefined) out.push({ kind: 'concrete', from: fc, to: stronger.fc, name: stronger.name });
   const ties = row.family === 'beam' || row.family === 'column' || row.family === 'wall' ? widerTieLists().find((k) => passes(redesign(demand as never, { ties: k.list }))) : undefined;
-  if (ties) out.unshift({ kind: 'ties', from: designData().stirrupDiametersMm, to: ties.dia });
+  if (ties) out.unshift(tiesAlternative(ties));
   return out;
 }
 
@@ -342,12 +344,12 @@ export function lineAlternatives(line: LineLayout, spans: readonly BeamRow[], fc
   const b0 = Math.max(...spans.map((s) => s.b)), h0 = Math.max(...spans.map((s) => s.h));
   const out: Alternative[] = [];
   const own = spans.map((s) => ({ s, redo: redesignerOf(s.key) })).filter((x) => x.redo && passes(x.redo(x.s.demand as never)) === false);
-  const alone = (o: { b?: number; h?: number; fc?: number; ties?: number[] }) => own.every(({ s, redo }) => passes(redo!({ ...s.demand, ...(o.b ? { b: o.b, h: o.h } : {}) } as never, o.fc || o.ties ? { ...(o.fc ? { fc: o.fc } : {}), ...(o.ties ? { ties: o.ties } : {}) } : undefined)));
+  const alone = (o: { b?: number; h?: number; fc?: number; ties?: number[] }) => own.every(({ s, redo }) => passes(redo!({ ...s.demand, ...(o.b ? { b: o.b, h: o.h } : {}) } as never, { fc: o.fc, ties: o.ties })));
   const to = beamSections(b0, h0).find(([b, h]) => alone({ b, h }) && redesign({ b, h }).status !== 'fail');
   if (to) out.push({ kind: 'section', what: 'beam', from: [b0, h0], to });
   const stronger = fc !== undefined ? strongerConcretes(fc).find((k) => alone({ fc: k.fc }) && redesign({ fc: k.fc }).status !== 'fail') : undefined;
   if (stronger && fc !== undefined) out.push({ kind: 'concrete', from: fc, to: stronger.fc, name: stronger.name });
   const ties = widerTieLists().find((k) => alone({ ties: k.list }) && redesign({ ties: k.list }).status !== 'fail');
-  if (ties) out.unshift({ kind: 'ties', from: designData().stirrupDiametersMm, to: ties.dia });
+  if (ties) out.unshift(tiesAlternative(ties));
   return out;
 }

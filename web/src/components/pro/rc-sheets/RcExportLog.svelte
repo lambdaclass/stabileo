@@ -7,9 +7,10 @@
   let { compact = false }: { compact?: boolean } = $props();
   const SHOWN = 8;
   const records = $derived.by(() => { void modelStore.designData; return sheetsExports(); });
-  const outdated = $derived(records.filter((r) => !r.current).length);
+  const old = $derived(records.filter((r) => !r.current));
+  const outdated = $derived(old.length);
   const DISMISS_KEY = 'stabileo-rc-exports-dismissed';
-  const signature = $derived(records.filter((r) => !r.current).map((r) => `${r.filename}@${r.at}`).join('|'));
+  const signature = $derived(old.map((r) => `${r.filename}@${r.at}`).join('|'));
   let dismissed = $state((() => { try { return sessionStorage.getItem(DISMISS_KEY) ?? ''; } catch { return ''; } })());
   function dismiss() { dismissed = signature; try { sessionStorage.setItem(DISMISS_KEY, signature); } catch { /* lasts while the panel is open */ } }
   const when = (at: string) => { const d = new Date(at); return Number.isNaN(d.getTime()) ? at : d.toLocaleString(i18n.locale, { dateStyle: 'short', timeStyle: 'short' }); };

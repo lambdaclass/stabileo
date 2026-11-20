@@ -11,6 +11,8 @@ export type V3 = [number, number, number];
 
 export interface Frame { o: V3; x: V3; y: V3; z: V3 }
 
+export const WORLD: Frame = { o: [0, 0, 0], x: [1, 0, 0], y: [0, 1, 0], z: [0, 0, 1] };
+
 export type RebarTone = 'continuous' | 'support' | 'span' | 'bent' | 'stirrup' | 'column' | 'tie' | 'dowel'
   | 'bottomX' | 'bottomY' | 'topX' | 'topY' | 'vertical' | 'horizontal' | 'ubar' | 'wallTie' | 'punching';
 

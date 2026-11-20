@@ -19,7 +19,7 @@ import { layerPositions } from '../view-helpers';
 import type { LevelPlan, SlabPackage } from '../slab-plan';
 import { wallDetail, wallLevels, type WallDetail } from '../wall-detail';
 import type { WallRow } from '../wall-row';
-import type { PunchingRow } from '../punching-row';
+import type { PunchingFigure, PunchingRow } from '../punching-row';
 import { punchingLegs } from '../punching-bars';
 import { rulesFor } from '../codes';
 import { closedHoop, crankedBar, crossTie, developedLength, hookLeg, hookedStraight, uBar, type BarShape, type BendRules } from '../shape';
@@ -252,14 +252,12 @@ function levelPieces(plan: LevelPlan): ScheduleElement {
 }
 
 /** A punching stirrup's leg: through the slab between its top and bottom bars, hooked over both. */
-export const punchingLeg = (r: PunchingRow, o: Pick<PieceOptions, 'slabCover'>, R: BendRules): BarShape | null => {
-  const s = r.figure?.reinforcement;
-  return s ? tieAcross(Math.max(0.05, r.demand.thickness - 2 * o.slabCover), s.legDiameter, R) : null;
-};
+export const punchingLegLength = (r: PunchingRow, o: Pick<PieceOptions, 'slabCover'>): number => Math.max(0.05, r.demand.thickness - 2 * o.slabCover);
 
-function punchingPieces(r: PunchingRow, o: PieceOptions, R: BendRules): ScheduleElement {
-  const shape = punchingLeg(r, o, R);
-  return { key: r.key, name: r.name, ...(r.level !== undefined ? { level: r.level } : {}), family: 'punching', pieces: shape && r.figure ? [{ kind: 'punchingLeg', count: punchingLegs(r.figure).length, shape }] : [] };
+export const punchingLeg = (r: PunchingRow, legDiameter: number, o: Pick<PieceOptions, 'slabCover'>, R: BendRules): BarShape => tieAcross(punchingLegLength(r, o), legDiameter, R);
+
+function punchingPieces(r: PunchingRow, fig: PunchingFigure, o: PieceOptions, R: BendRules): ScheduleElement {
+  return { key: r.key, name: r.name, ...(r.level !== undefined ? { level: r.level } : {}), family: 'punching', pieces: [{ kind: 'punchingLeg', count: punchingLegs(fig).length, shape: punchingLeg(r, fig.reinforcement!.legDiameter, o, R) }] };
 }
 
 /** Every element's pieces, beams, columns, slabs, walls and punching joints in that order, each family in the rows' order; a level with a slab plan gives its packages instead of its panels' layers. */
@@ -273,6 +271,6 @@ export function scheduleElements(rows: PieceRows, o: PieceOptions): ScheduleElem
     ...(rows.slabPlan ?? []).filter((p) => planned.has(p.level)).map(levelPieces),
     ...rows.slab.filter((r) => !inPlan.has(r.key)).map((r) => slabPieces(r, o, R)),
     ...rows.wall.map((r) => wallPieces(rows.wall, r, o, R)),
-    ...(rows.punching ?? []).filter((r) => r.figure?.reinforcement).map((r) => punchingPieces(r, o, R)),
+    ...(rows.punching ?? []).flatMap((r) => (r.figure?.reinforcement ? [punchingPieces(r, r.figure, o, R)] : [])),
   ].map((e) => ({ ...e, pieces: e.pieces.filter((p) => p.count > 0) }));
 }
