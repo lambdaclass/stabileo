@@ -73,9 +73,6 @@ const entries = [
   }],
 ] as const;
 
-const staleTest = process.env.RUN_KNOWN_WRONG === '2368' ? it : it.skip;
-const junctionTest = process.env.RUN_KNOWN_WRONG === '2388' ? it : it.skip;
-
 const directEntries = [
   ...entries,
   ['advanced input', () => {
@@ -86,11 +83,11 @@ const directEntries = [
 ] as const;
 
 for (const [entry, solve] of directEntries) {
-  staleTest(`known wrong result: #2368 the ${entry} entry refuses an old mesh after a valid outline edit`, async () => {
+  it(`#2368 the ${entry} entry refuses an old mesh after a valid outline edit`, async () => {
     editMeshedFloor();
     expect(await solve()).toEqual(entry === 'reproducible input' ? null : expect.stringContaining('supported floor'));
   });
-  junctionTest(`known wrong result: #2388 the ${entry} entry refuses duplicate junction endpoints`, async () => {
+  it(`#2388 the ${entry} entry refuses duplicate junction endpoints`, async () => {
     wallSlabJoint('duplicate');
     expect(await solve()).toEqual(entry === 'reproducible input' ? null : expect.stringMatching(/wall.*slab/i));
   });
@@ -215,13 +212,13 @@ function wallSlabJoint(stations: 'wall' | 'slab' | 'both' | 'duplicate' | 'neith
   }
 }
 
-junctionTest('known wrong result: #2388 global analysis refuses duplicate junction endpoints and publishes no results', async () => {
+it('#2388 global analysis refuses duplicate junction endpoints and publishes no results', async () => {
   wallSlabJoint('duplicate');
   expect(await runGlobalSolve({ directBase: true })).toEqual({ ok: false, error: expect.stringMatching(/wall.*slab/i) });
   expect(resultsStore.results3D).toBeNull();
 });
 
-junctionTest('known wrong result: #2388 refuses overlapping endpoints inside the distance limit', () => {
+it('#2388 refuses overlapping endpoints inside the distance limit', () => {
   wallSlabJoint('duplicate', PLATE_EDGE_TOL / 2);
   expect(modelStore.solve3D(false, false, true)).toEqual(expect.stringMatching(/wall.*slab/i));
 });
@@ -231,10 +228,11 @@ it('#2388 solves independently supported edges beyond the endpoint distance limi
   expectLoadedSlab(modelStore.solve3D(false, false, true));
 });
 
-it('#2388 solves independently supported shells that only touch at a corner', () => {
-  loadedSlab();
+it('#2388 solves shells with only point contact and a separate frame connection', () => {
+  const [a] = loadedSlab();
   const wallBase = [modelStore.addNode(-4, 0, 0), modelStore.addNode(0, 0, 0)];
   for (const node of wallBase) modelStore.addSupport(node, 'fixed3d');
+  modelStore.addElement(a!, wallBase[0]!);
   modelStore.addQuad([wallBase[0]!, wallBase[1]!, modelStore.addNode(0, 0, 2), modelStore.addNode(-4, 0, 2)], 1, 0.15);
   expectLoadedSlab(modelStore.solve3D(false, false, true));
 });

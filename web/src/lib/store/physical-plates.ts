@@ -1,4 +1,4 @@
-import { invalidPlateDefinition, physicalPlateProblems } from '../model/physical/plate-analysis';
+import { arcEdgeBetween as modelArcEdgeBetween, physicalPlateProblems, plateMeshFeatures, plateStatusOf, type PlateStatus } from '../model/physical/plate-analysis';
 import { wallSlabRefusal } from '../engine/plate-analysis-refusal';
 /**
  * Physical plates in the model (`model/physical/plate.ts`): made from an outline, meshed on demand
@@ -24,11 +24,9 @@ import { modelStore } from './model.svelte';
 import { uiStore } from './ui.svelte';
 import { physicalDataOf, type PhysicalData } from '../model/physical';
 import {
-  arcInterior, circleThrough, DEFAULT_PLATE_MESH, externalFeatures, gridOfSpec, meshQuality, plateGeometry, plateKindOf, plateLoops, plateMeshInput, plateProblem,
-  plateSignature, plateSurfaceOf, type ArcSampler, type MeshQuality, type PlateMeshSpec, type PlateProblem, type PlateSurface,
+  DEFAULT_PLATE_MESH, gridOfSpec, meshQuality, plateGeometry, plateKindOf, plateLoops, plateMeshInput, plateProblem,
+  plateSignature, plateSurfaceOf, type MeshQuality, type PlateMeshSpec, type PlateProblem, type PlateSurface,
 } from '../model/physical/plate';
-import { pieceOf } from '../model/curve-entity';
-import type { Vec3 } from '../model/edit/affine';
 import { generateMesh, MAX_MESH_CELLS, type MeshOutput } from '../model/edit/mesher';
 import { frameAlong, gridMesh } from '../model/edit/grid-mesh';
 import { applyMesh } from '../model/edit/mesh-apply';
@@ -40,7 +38,7 @@ export { meshBeforeAnalysis };
 import type { FloorLoadDef } from '../model/loads/floor-definitions';
 import type { ModelGroup } from './model.svelte';
 
-export type PlateStatus = 'unmeshed' | 'current' | 'stale' | 'invalid';
+export type { PlateStatus };
 
 export interface PlateEntry { id: number; name: string; group: ModelGroup; physical: PhysicalData; surface: PlateSurface }
 
@@ -80,65 +78,7 @@ uiStore.setPlateShellResolver(plateShellKeys);
 
 const plateModel = () => ({ nodes: modelStore.nodes, elements: modelStore.elements });
 
-/**
- * A curved member running from node a to node b, as its nodes in order from a, or null. What a
- * plate's curved side between the same nodes follows, so the two share their nodes.
- */
-export function arcEdgeBetween(a: number, b: number): { arcId: number; nodes: number[] } | null {
-  const seen = new Set<number>();
-  for (const e of modelStore.elements.values()) {
-    if (!e.arc || seen.has(e.arc.id)) continue;
-    seen.add(e.arc.id);
-    const p = pieceOf(modelStore.model as never, e.id);
-    if (!p || p.kind !== 'arc') continue;
-    if (!((p.start === a && p.end === b) || (p.start === b && p.end === a))) continue;
-    const nodes = [p.start];
-    for (const seg of p.segments) { const x = modelStore.elements.get(seg.elementId)!; nodes.push(seg.reversed ? x.nodeI : x.nodeJ); }
-    return { arcId: e.arc.id, nodes: p.start === a ? nodes : nodes.reverse() };
-  }
-  return null;
-}
-
-/**
- * How a mesh draws a curved side: through the nodes of the curved member on it, when one runs
- * between its ends along the same circle, so plate and member share them; otherwise in pieces of
- * the element size.
- */
-function meshSampler(size: number): ArcSampler {
-  return (a, mid, b) => {
-    const ci = circleThrough(a.p, mid.p, b.p);
-    if (!ci) return [];
-    const edge = arcEdgeBetween(a.id, b.id);
-    if (edge) {
-      const pts = edge.nodes.slice(1, -1).map((id) => { const n = modelStore.nodes.get(id)!; return [n.x, n.y, n.z ?? 0] as Vec3; });
-      const onCircle = pts.every((q) => Math.abs(Math.hypot(q[0] - ci.c[0], q[1] - ci.c[1], q[2] - ci.c[2]) - ci.r) < 1e-3);
-      if (pts.length && onCircle) return pts;
-    }
-    return arcInterior(a.p, mid.p, b.p, Math.max(2, Math.ceil((ci.r * ci.sweep) / size)));
-  };
-}
-
-/**
- * What a plate's mesh has to meet. Members are read whole through the nodes every plate's mesh
- * created, so meshing one plate never puts its neighbours out of date; the nodes of the other
- * shells on its outline are points the mesh passes through, so neighbouring meshes meet node to
- * node.
- */
-function featuresOf(e: PlateEntry, spec: PlateMeshSpec = e.surface.mesh) {
-  if (invalidPlateDefinition(modelStore.model, e.group)) return null;
-  const geo = plateGeometry(plateModel(), e.group, meshSampler(spec.size));
-  if (!geo) return null;
-  const loops = plateLoops(e.group);
-  const mine = new Set(loops.owned);
-  const owned = new Set<number>();
-  for (const g of modelStore.model.groups.values()) if (plateSurfaceOf(g)) for (const n of plateLoops(g).owned) owned.add(n);
-  const myShells = new Set([...(e.group.members.quads ?? []).map((q) => `q${q}`), ...(e.group.members.plates ?? []).map((p) => `p${p}`)]);
-  const neighbours = new Set<number>();
-  for (const q of modelStore.quads.values()) if (!myShells.has(`q${q.id}`)) q.nodes.forEach((n) => neighbours.add(n));
-  for (const p of modelStore.plates.values()) if (!myShells.has(`p${p.id}`)) p.nodes.forEach((n) => neighbours.add(n));
-  const loopNodes = new Set([...loops.outer, ...loops.holes.flat()]);
-  return { geo, features: externalFeatures(plateModel(), geo, owned, loopNodes, { mine, neighbours }) };
-}
+export const arcEdgeBetween = (a: number, b: number) => modelArcEdgeBetween(modelStore.model, a, b);
 
 let statusMemo: { version: number; groups: unknown; map: Map<number, PlateStatus> } | null = null;
 
@@ -149,15 +89,7 @@ export function plateStatus(id: number): PlateStatus {
   const hit = statusMemo.map.get(id);
   if (hit) return hit;
   const e = plateEntry(id);
-  let s: PlateStatus;
-  if (!e) s = 'invalid';
-  else {
-    const f = featuresOf(e);
-    const shells = (e.group.members.quads?.length ?? 0) + (e.group.members.plates?.length ?? 0);
-    if (!f) s = 'invalid';
-    else if (!e.surface.meshed || shells === 0) s = 'unmeshed';
-    else s = plateSignature(f.geo, e.surface.mesh, f.features) === e.surface.meshed.signature ? 'current' : 'stale';
-  }
+  const s = e ? plateStatusOf(modelStore.model, e.group) : 'invalid';
   statusMemo.map.set(id, s);
   return s;
 }
@@ -421,7 +353,7 @@ export function planPlateMesh(id: number, specOverride?: Partial<PlateMeshSpec>)
   if (!e) return null;
   const spec = { ...e.surface.mesh, ...(specOverride ?? {}) };
   const base = { id, name: e.name, spec, localLoads: localLoadsOn(e), keptNodes: keptMeshNodes(e) };
-  const f = featuresOf(e, spec);
+  const f = plateMeshFeatures(modelStore.model, e.group, spec);
   if (!f) return { ...base, mesh: null, refused: 'invalid', cells: 0, quality: null, signature: '', input: null, mixed: false };
   const input = plateMeshInput(f.geo, spec, f.features);
   const signature = plateSignature(f.geo, spec, f.features);
@@ -546,17 +478,18 @@ export type PlatePreparation =
  * which plates stop it instead. Runs once per solve, before its inputs are taken.
  */
 export function preparePlatesForAnalysis(): PlatePreparation {
-  const { invalid } = physicalPlateProblems(modelStore.model);
+  const { invalid, needsMesh } = physicalPlateProblems(modelStore.model);
   if (invalid.length) return { ok: false, reason: 'invalid', plates: invalid };
   const checked = (meshed: number, cells: number): PlatePreparation => {
     if (meshed) {
-      const { invalid, unmeshed } = physicalPlateProblems(modelStore.model);
-      if (invalid.length || unmeshed.length) return { ok: false, reason: 'invalid', plates: [...invalid, ...unmeshed] };
+      const { invalid, needsMesh } = physicalPlateProblems(modelStore.model);
+      if (invalid.length) return { ok: false, reason: 'invalid', plates: invalid };
+      if (needsMesh.length) return { ok: false, reason: 'needsMesh', plates: needsMesh.map(p => p.name) };
     }
     const error = wallSlabRefusal(modelStore.model);
     return error ? { ok: false, reason: 'wallSlab', error } : { ok: true, meshed, cells };
   };
-  const need = platesNeedingMesh();
+  const need = needsMesh.map(p => p.id);
   if (!need.length) return checked(0, 0);
   const names = (ids: number[]) => ids.map((id) => plateEntry(id)?.name ?? `#${id}`);
   if (!meshBeforeAnalysis.value) return { ok: false, reason: 'needsMesh', plates: names(need) };

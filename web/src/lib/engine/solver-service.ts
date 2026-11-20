@@ -1760,10 +1760,23 @@ export function withoutSpringsOnRestrained<T extends Record<string, unknown>>(su
   return out as T;
 }
 
-export function buildSolverInput3D(...args: Parameters<typeof buildValidatedSolverInput3D>): SolverInput3D | null {
-  const error = plateAnalysisRefusal(args[0]);
+function assertPlateAnalysisReady(model: ModelData): void {
+  const error = plateAnalysisRefusal(model);
   if (error) throw new PlateAnalysisError(error);
+}
+
+export function buildSolverInput3D(...args: Parameters<typeof buildValidatedSolverInput3D>): SolverInput3D | null {
+  assertPlateAnalysisReady(args[0]);
   return buildValidatedSolverInput3D(...args);
+}
+
+export function prepareSolverInput3D(model: ModelData, leftHand: boolean) {
+  assertPlateAnalysisReady(model);
+  const solvable = solvableModel(model);
+  return {
+    model: solvable,
+    build: (loads: Load[]) => buildValidatedSolverInput3D({ ...solvable, loads }, false, leftHand),
+  };
 }
 
 function buildValidatedSolverInput3D(

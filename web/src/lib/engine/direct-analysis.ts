@@ -35,8 +35,7 @@ import type { ModelData } from './solver-service';
 import { requireCableAnalysis } from './analysis-validity';
 import { materialFamilyOf } from './steel/material-family';
 import { catalogueGradeFamily } from './steel/grade-family';
-import { buildSolverInput3D, caseSolverLoads3D, comboSolverLoads3D, imposedRefusal, loadRefusal, resolveCombinationFactors, orphanLoadRefusal } from './solver-service';
-import { solvableModel } from './member-behaviour';
+import { prepareSolverInput3D, caseSolverLoads3D, comboSolverLoads3D, imposedRefusal, loadRefusal, resolveCombinationFactors, orphanLoadRefusal } from './solver-service';
 import { casesWithDisplacements, imposedOf } from './case-displacements';
 import { collapseVariableResults, variableExpansionFor } from './variable-members';
 import type { LoadCase, LoadCombination } from '../store/model.svelte';
@@ -252,12 +251,13 @@ export async function runDirectAnalysis(
    */
   const refused = orphanLoadRefusal(model) ?? imposedRefusal(model);
   if (refused) return refused;
-  const solvable = solvableModel(model);
+  const prepared = prepareSolverInput3D(model, leftHand);
+  const solvable = prepared.model;
   const expansion = variableExpansionFor(model);
   let base: SolverInput3D | null;
   let caseLoads: Map<number, SolverLoad3D[]>;
   try {
-    base = buildSolverInput3D({ ...solvable, loads: [] }, false, leftHand);
+    base = prepared.build([]);
     caseLoads = caseSolverLoads3D(solvable, loadCases, opts.includeSelfWeight, leftHand);
   } catch (err) {
     const said = loadRefusal(err);
@@ -312,7 +312,7 @@ export async function runDirectAnalysis(
     const factorOf = (c: number) => combo.factors.find((f) => f.caseId === c)?.factor ?? 0;
     const imposedHere = [...imposedCases].some((c) => factorOf(c) !== 0);
     if (loads.length === 0 && !imposedHere) return;
-    const on = imposedHere ? buildSolverInput3D({ ...solvable, loads: imposedOf(solvable.loads, factorOf) }, false, leftHand) : base;
+    const on = imposedHere ? prepared.build(imposedOf(solvable.loads, factorOf)) : base;
     if (!on) return;
     const share = new Map<number, number>();
     for (const f of combo.factors) notionalIn(f.caseId, f.factor, share, new Set());

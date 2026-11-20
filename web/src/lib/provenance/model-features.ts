@@ -15,6 +15,7 @@ import { hasModalSeismicDerivation } from '../engine/loads/seismic-generation';
  *
  * Pure: no store, no runes.
  */
+import type { ArcSpec } from '../model/curved-member';
 import { plateAnalysisIssue, type PlateAnalysisModel } from '../model/physical/plate-analysis';
 import { materialFamilyOf } from '../engine/steel/material-family';
 import { catalogueGradeFamily } from '../engine/steel/grade-family';
@@ -67,7 +68,7 @@ interface Elem {
   unbracedLength?: number;
   bracing?: { top?: readonly unknown[]; bottom?: readonly unknown[] };
   /** Set on the members of a curve drawn as one (`lib/model/curved-member.ts`). */
-  arc?: unknown;
+  arc?: { id: number; spec: ArcSpec };
   /** Insertion offsets at the two ends, global m (`model/element-3d-metadata.ts`). */
   offset?: { i?: Offset3; j?: Offset3 };
 }

@@ -150,10 +150,10 @@ describe('PART A — Advanced 2D diagrams', { timeout: 30_000 }, () => {
   });
 });
 
-const cadJunctionTest = process.env.RUN_KNOWN_WRONG === '2388' ? it : it.skip;
-
-cadJunctionTest('known wrong result: #2388 the CAD architecture fixture solves with finite member diagrams', () => {
-  const { input } = loadAndBuild3D('cad-arch-only-dxf');
+it('#2388 the CAD architecture fixture solves with finite member diagrams', () => {
+  const { input, model } = loadAndBuild3D('cad-arch-only-dxf');
+  expect(model.quads.get(3).nodes).toContain(266);
+  expect(model.quads.get(601).nodes).toContain(266);
   if (!input) throw new Error('CAD fixture has no 3D solver input');
   const results = solve3D(input);
   expect(results.elementForces.length).toBeGreaterThan(0);

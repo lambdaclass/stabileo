@@ -180,7 +180,7 @@ export const PRO_EXAMPLES: readonly ProExample[] = [
   // ── From CAD ── their dead load holds the slab's weight, and their provenance lists the
   // combinations they were drafted with.
   entry({ id: 'cad-arch-structure-dxf', source: 'fixture', group: 'cad', tags: ['pro.tagRC', 'pro.tagCad'], stats: { nodes: 1681, members: 840, shells: 870 }, selfWeight: 'none', combinations: 'own' }),
-  entry({ id: 'cad-arch-only-dxf', source: 'fixture', group: 'cad', tags: ['pro.tagRC', 'pro.tagCad'], stats: { nodes: 794, members: 1000, shells: 660 }, selfWeight: 'none', combinations: 'own' }),
+  entry({ id: 'cad-arch-only-dxf', source: 'fixture', group: 'cad', tags: ['pro.tagRC', 'pro.tagCad'], stats: { nodes: 800, members: 1000, shells: 720 }, selfWeight: 'none', combinations: 'own' }),
 
   // ── Sheds and industrial buildings ──
   entry({ id: 'pro-simple-shed', source: 'code', group: 'industrial', tags: ['pro.tagSteel', 'pro.tagWind'], stats: { nodes: 80, members: 197 }, selfWeight: 'all', combinations: 'regulation' }),
