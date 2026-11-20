@@ -38,7 +38,7 @@ it.each<[PublicLocale | 'hu', string, string]>([
     expect(blocks.some(b => b.k === 'ext' && b.label === id && b.href.endsWith(`/docs/advisories/${id}-${slug}.md`))).toBe(true);
     expect(notice.explanation[locale]).toContain(id);
   }
-  expect(post.updated).toBe('2026-11-18');
+  expect(post.updated).toBe('2026-11-20');
   expect(table.rows.some(r => /^SA-2026-07[6-8]$/.test(r[0]!) && r[1]!.includes('#2206'))).toBe(false);
 });
 

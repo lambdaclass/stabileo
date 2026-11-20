@@ -11,6 +11,406 @@ It should capture what changed, not what should be built next.
 
 One file per change in [`changelog.d/`](changelog.d/README.md); `scripts/changelog.py --release` moves them here.
 
+### BREAKING (results)
+
+#### Scale each case once in 3D load combinations (2026-11-19)
+
+3D combination analysis uses the net factor for each repeated load case. P-Delta, nonlinear solves and direct analysis apply that factor once to the case's loads and imposed displacements. Named SRSS, ABS and spectral combinations use the same net factors. Re-run affected combinations (#2292).
+
+#### Resolve repeated load case factors exactly (2026-11-19)
+
+2D and 3D combination analysis sum each case's repeated factors exactly before rounding the net factor. A nonzero residual is retained, and combinations whose nonzero factors cancel for every case are refused. Re-run affected combinations (#2292).
+
+#### Consistent RC beam-line and member checks (2026-11-20)
+
+CIRSOC primary shear checks use the diameter of the evaluated stirrup in both representations. Support embedment reports the required-to-available length ratio, and a joint layout that clears the column cage reports zero interference (#2338).
+
+#### Refusal for combined torsional and transverse shear
+
+Detailed section stress now withholds combined shear, derived stresses and pass/fail when torsional and transverse shear are both nonzero at the evaluated fibre or cut sample. Both cuts evaluate the transverse component perpendicular to the cut for this check. Individual stress components remain available. See [the results change](docs/results-changes/2026-11-combined-section-shear-refusal.md) (#2366).
+
+#### Full shear magnitudes on section stress cuts
+
+Detailed biaxial section stress now includes both transverse shear components in total shear and von Mises on the depth and width cuts. Plotted shear remains projected onto each cut. See [the results change](docs/results-changes/2026-11-section-stress-cut-magnitudes.md) (#2366).
+
+#### Concentrated axial forces in plane moving loads (2026-11-20)
+
+Preserve axial force jumps at concentrated loads in plane moving-load diagrams and envelopes and in axial influence lines (#2375).
+
+#### Gravity generation requires unambiguous shell coverage
+
+Panel-mode gravity generation blocks coplanar shell overlaps and overlapping beam panels rigidly linked to offset shell decks, including through common masters and connections at the edge of a meshed deck whose faces share nodes or are joined by fully tied coincident seams. Regenerate gravity in affected projects before relying on analysis or design results. (#2284, #2299)
+
+#### Static seismic loads require a common elevation at connected supports
+
+Only supports connected to participating seismic mass through members or shells set the static seismic datum. Generation stops when those supports span different elevations. Regenerate affected E cases before repeating analyses and design checks. (#2316)
+
+#### Static seismic loads require a single supported structure
+
+Seismic mass, plan width and the support datum now use one structure connected by members, shells, plates or rigid-floor diaphragms. The planner refuses disconnected geometry. Regenerate affected E cases before repeating analyses and design checks. (#2316)
+
+#### Seismic mass retains diaphragm-defined stories
+
+Seismic load generation retains intermediate floors defined by rigid diaphragms, even when their columns are collinear and there are no beams or shells at the floor. Regenerate affected seismic load cases before repeating analyses and design checks. (#2316)
+
+#### Static seismic generation requires finite shell corners
+
+Static seismic generation blocks when a shell or plate corner is missing or has a non-finite coordinate. Repair the geometry, regenerate affected seismic cases and repeat the analyses and design checks that use them. (#2316)
+
+#### Static seismic forces act at story levels
+
+Static seismic story forces now act at the story nodes in proportion to their tributary seismic mass. The loads preserve story shear, overturning and the plan moment about the mass centroid. A model with participating mass below its support datum is refused. Regenerate affected E cases before repeating analyses, combinations and design checks. (#2316)
+
+#### Static seismic inertia stays on story-level members and shells
+
+Static seismic generation now applies inertia from mass at a story elevation as distributed loading on its members and surfaces. Mass tributary to a story from above or below still loads that story's attachment nodes. The 45° case is refused when medium or extreme accidental torsion is selected. Regenerate affected E loads and repeat analyses, combinations and design checks. (#2316)
+
+#### Static seismic loads preserve story overturning
+
+Static seismic carrier loads preserve each story force and its overturning moment at the story elevation. The planner refuses a story when its carriers cannot represent the required action. Regenerate affected E cases before repeating analyses and design checks. Projects with unverified legacy E loads retain their regeneration notice after wind generation or a new solve. (#2316)
+
+#### Static seismic loads use the lowest support elevation
+
+The static seismic planner measures story heights from the lowest support. Moving the model vertically preserves the seismic weight, base shear and member loads. Regenerate affected E cases before repeating analyses and design checks. (#2316)
+
+#### Static seismic loads account for zero-weight structural geometry
+
+The static period and applicability checks include all structural stories above the lowest support. Static generation refuses member offsets in the seismic footprint, including offsets on members with zero weight. Regenerate affected E cases before repeating analysis and design checks. (#2316)
+
+#### Block edits that can change a roller’s restrained axes (2026-11-19)
+
+Transforms refuse an ambiguous memberless 3D roller, and copies that carry a local plane roller require its reference members. Moves and copies are refused if their final geometry would redirect a local plane roller, including after a weld, a repeat link, or a rigid turn without welds. Snapshots preserve the recorded roller type. Selecting an ambiguous 3D Z roller after a snapshot requires explicit restraints (#2289, #2294, #2304).
+
+### Added
+
+#### GMRES in the engine's linear algebra (2026-11-19)
+
+`linalg::gmres_solve` solves a general square system by restarted GMRES with a
+right preconditioner: unsymmetric or indefinite systems, which the conjugate
+gradient solver cannot take. It reports the residual recomputed from the
+solution and stops unconverged on a step limit, a stagnating restart or a
+non-finite number. No analysis uses it yet.
+
+#### Simplified Chinese is offered as the eighth language (2026-11-16)
+
+The app (Basic, PRO, steel, the step-by-step documents and the course), the landing, the blog and
+standing pages, Research, the tools, the examples, the diagram game, the changelog, the release
+notes and every result-change record are written in Simplified Chinese. A browser set to any
+Chinese variant (`zh`, `zh-CN`, `zh-TW`, `zh-Hant`) opens in it, and the public pages are published
+under `/zh/`. Results do not change. A native review by structural engineers is still pending.
+
+### Changed
+
+#### Distinguish capped and uncapped CIRSOC 201-2005 torsion verdicts (2026-11-18)
+
+The opt-in torsion case now uses a cage that fails at the 420 MPa yield cap and passes with uncapped 500 MPa steel. The reviewed beam checks also use controls for the wider-face torsion minimum, concurrent axial tension in spacing checks, and bars outside the checked section.
+
+#### Signed out, the project panel says what needs an account, and /register uses the landing's hero (2026-11-18)
+
+With saving behind an account, the project panel now shows, before any click, that saving, opening, sharing, importing and exporting need one: those buttons are dimmed under a notice, and the file row carries a "Continue with Google" button. The top bar shows a short line beside Sign in. /register's hero has the landing's rotating figures, its two feature lines no longer run together, and the brand in its header leads to the landing instead of scrolling the page.
+
+#### Add an opt-in check for non-finite spring stiffness in advanced solver inputs (2026-11-18)
+
+The synchronous cable and soil–structure interaction cases require rejection of non-finite stiffness before serialization (#2292).
+
+#### Add an opt-in check for copying a local bearing without its member (2026-11-18)
+
+The copied bearing must preserve its physical restraint or report that its reference frame is unavailable (#2294).
+
+#### Add opt-in checks for concrete design and detailing (2026-11-18)
+
+The cases cover reinforcement layout and schedules, concurrent design forces, shear and torsion, seismic detailing, and the reuse of final-geometry verification.
+
+#### Add opt-in regression tests for member diagrams (2026-11-18)
+
+The tests pin concentrated-load jumps and the peak shear inside a partial load against section equilibrium (#2226, #2250).
+
+#### Add opt-in checks for Eurocode 2 provided reinforcement (2026-11-18)
+
+The cases require the verifier to read both sides of a concentrated action and respect the extent of span bars (#2240, #2246).
+
+#### Add an opt-in check for gravity loading under plan rotation (2026-11-18)
+
+The geodesic dome example checks that rotating the complete model preserves the applied dead-load resultant (#2254).
+
+#### Add an opt-in check for gravity conservation at an uncovered roof edge (2026-11-18)
+
+The retained load is checked against the unsnapped edges of the tributary strip (#2260).
+
+#### Add opt-in regression tests for load planning (2026-11-18)
+
+The tests exercise a flat-ridge snow cap, subdivision in seismic loading, and duplicate loading of shell-supported areas (#2202, #2208, #2209, #2284, #2299).
+
+#### Add opt-in regression tests for model editing and import (2026-11-18)
+
+The tests cover axial load direction on reversal, native roller persistence and unrecognised DXF support labels (#2268, #2278, #2304).
+
+#### Add opt-in checks for native analysis results (2026-11-18)
+
+The cases cover collapse under unequal capacity scales, symmetry in a ground-motion history, reactions to small prescribed motion, and force equilibrium after cancellation (#1453, #2125, #2227, #2262).
+
+#### Add an opt-in check for the steel moment-gradient factor (2026-11-18)
+
+The case compares the factor derived from the station diagram of a fixed-end beam with its analytical quarter-point moments (#2247).
+
+#### The landing's animated figures keep moving under the mouse (2026-11-18)
+
+Bringing the mouse over a figure on the landing froze it, which read as a broken animation. Each figure now keeps moving; the rotation to the next figure still waits while the mouse is over the drawing, so the one being watched stays on screen. Reduced motion and keyboard focus still hold the figure still.
+
+### Fixed
+
+#### Safety advisories for concrete verification, section stress and moving loads (2026-11-20)
+
+[SA-2026-091](docs/advisories/SA-2026-091-rc-torsion-shear-verification.md) covers blocked concrete shear, torsion and seismic hoop checks. [SA-2026-092](docs/advisories/SA-2026-092-section-stress-shear.md) explains the combined shear refusal and corrected section stress cuts. [SA-2026-093](docs/advisories/SA-2026-093-plane-moving-load-axial-force.md) covers axial force jumps in plane moving loads and influence lines. Re-run affected checks and analyses and review the reports that depend on them.
+
+#### Safety advisory status across release languages (2026-11-18)
+
+All seven safety-advisories posts list every advisory in their summary tables and show the same fixes shipped in 0.6.2. The Hungarian post also carries the advisory descriptions and links added on main.
+
+#### Advisory locale coverage in CI (2026-11-18)
+
+- Check each public advisory locale exactly once, including Hungarian, with either research setting.
+- Verify the release article and its metadata against the languages published with each research setting.
+
+#### Keep production feature configuration out of browser bundles and restore diagram viewBoxes (2026-11-18)
+
+- Inline the resolved feature switches and omit account and tracking code when the accounts switch is off.
+- Load shared viewer translations with the pages that use the viewer.
+- Give tool charts and sketches viewBoxes that match the coordinates of their result diagrams.
+
+#### Public site tests follow the build settings (2026-11-18)
+
+- Check the exact footer and header links and published languages for the configured build. Check optional pages and bundled sign-in and game UI against the same settings.
+
+#### Hungarian landing figure descriptions match English (2026-11-18)
+
+- Align the Hungarian hero titles and descriptions with the figures in the English copy.
+- Check translation parity for Hungarian even when the research switch hides it.
+
+#### Hungarian research viewer keyboard help (2026-11-18)
+
+- Keep keyboard instructions in Hungarian on research pages and mark Navier’s benchmark equation as language-independent.
+- Load the configured feature switches in responsive browser checks.
+
+#### Public header checks in CI (2026-11-18)
+
+- Check the exact public header links at desktop and mobile widths using the build's tools and diagram game settings.
+
+#### Restore production route budget comparisons and Hungarian locale coverage (2026-11-17)
+
+- Measure the same production routes on both sides of the feature configuration migration.
+- Translate the notice for incomplete station forces under active combinations into Hungarian.
+
+#### Translate scalar viewer keyboard help (2026-11-18)
+
+- Load keyboard help with the scalar viewer and include its dictionary in Basic mode translation coverage.
+
+#### Keep Shauer fracture charts readable on phones and tablets (2026-11-18)
+
+- Keep the Force and Convergence charts at stable heights so their labels remain readable when switching tabs or resizing the page.
+
+#### Keep calculator editor links tied to the current model (2026-11-18)
+
+- Show Open in Stabileo once the current calculator model is ready to open, and withdraw the link while updated inputs are being solved or refused.
+
+#### Refuse non-finite support springs and fully cancelled combinations (2026-11-19)
+
+Cable and soil–structure interaction now refuse non-finite spring stiffness before encoding the input. Load combinations are refused when repeated case factors cancel every nonzero contribution (#2292).
+
+#### Check generated seismic loads on their physical carriers in browser tests (#2316)
+
+The drift and modal-refusal browser tests now verify the static case names and check distributed beam loads, shell traction, and story nodal loads on the modeled floor.
+
+#### Check RC containment across the web test fixtures (2026-11-20)
+
+The concurrent RC test asserts the existing torsion-depth refusal and checks the exact utilisation for supported demand tuples. The span, deep-beam and flagship tests exercise anchorage, splices, resizing and skin reinforcement on supported inputs and check that refused cages receive no certificate. The beam-line test preserves exact regional round trips and checks that the drawn hoop transitions block certification when minimum shear reinforcement is missing (#2338).
+
+#### Check flagship lap coverage after RC refusals in CI (2026-11-20)
+
+The flagship detailing test checks the exact lap count for each eligible beam pair and verifies that refused members have no laps, bar ownership, or approved assembly. Assembly coverage also checks the exact set of verified and provisional members (#2338).
+
+#### Check flagship RC design refusals in CI (2026-11-20)
+
+The flagship tests pin the members refused for unsupported shear depth or joint congestion and check that those beams receive no certificate or accepted reinforcement. The browser checks count the refusals without reporting them as verified (#2338).
+
+#### CI timing and layout flakes (2026-11-19)
+
+The Timing Budgets job runs wall-clock browser checks on the dedicated runner for trusted CI runs. Research layout checks wait for the live page, and each of the 32 generated plastic mechanism cases runs under its own test deadline. (#2314, #2311, #2290)
+
+#### Engine benchmarks run to the end again (2026-11-19)
+
+Nine benchmark groups in four of the five engine bench files stopped at a
+model the engine now refuses, and took the rest of their file with them. The
+benchmark plates were pinned at one corner only and so free to turn in their
+plane; the cable model was a chain of links with nothing to hold its shape; the
+2,000-element beam is past the conditioning limit; the staged model added a
+support in its second stage; and every 2D plastic result is withheld while
+known issue #758 is open. The models are now ones the engine solves, the
+plastic benchmark is skipped with a message until the issue is closed, and
+`make test.engine.benches` runs every benchmark once each night.
+
+#### Configure public web features in version control (2026-11-17)
+
+- Enable research and tools in production, with accounts and the diagram game disabled.
+- Read public feature settings from a validated JSON file so missing deployment variables cannot expose account UI.
+
+#### Check seismic hoops against the drawing and preserve RC refusals (2026-11-19)
+
+RC frame checks use the diameter, leg count and spacing of drawn hoops throughout each credited end zone. Concrete member exports retain a code-check refusal even when deflection passes.
+
+#### Verify RC beam strength at drawn cage transitions and bar cutoffs (2026-11-19)
+
+CIRSOC beam checks use each drawn stirrup zone at the sections it covers and include both cages at a transition. Interpolated bar cutoffs can govern torsion strength. Longitudinal torsion bars must meet the edition’s minimum diameter.
+
+#### Check how lateral design readers report refused RC spans (2026-11-19)
+
+Web Unit checks the exact torsion-perimeter and shear-depth refusals in the lateral design fixture. It verifies that affected spans have no certificate or drawn bars and that the desk, memoria, IFC and workbook withhold approval.
+
+#### Keep the RC slab mesh guard independent of runner speed (2026-11-20)
+
+Mesh comparisons now require a complete design run and use a deterministic clock for design in the test. The guard still checks the exact torsion refusal for each affected beam and checks the scheduled mass of the beams that can be detailed.
+
+#### Reuse the uncut design in the RC numbering test (2026-11-20)
+
+The mesh guard solves and designs the uncut model once under the prescribed forces. Its numbering test reuses that design and checks the same detailing output under all three numberings within the existing deadline.
+
+#### Verify RC beam certificates against settled crossing seats (2026-11-19)
+
+Automatic design verifies each selected cage against the settled crossing seats before certification and repeats verification when a refusal removes a seat. Exhausted beam designs report the blocking diagnostic and leave their reinforcement quantities unavailable.
+
+#### Withhold RC beam certificates when the selected cage has unsupported shear depth (2026-11-19)
+
+The automatic design run reports the shear-depth refusal, retains exhausted searches, and rechecks surviving beams against the resulting crossing seats.
+
+#### Exercise RC span reuse with exact zero-shear demands (2026-11-20)
+
+The RC span-reuse test now prescribes zero shear for a cantilever loaded by an end couple, so solver roundoff cannot trigger the torsion-depth refusal before the test reaches the certificate hold. The project recheck test preserves the upstream notice assertions and checks the four RC notices explicitly.
+
+#### Block unverified concrete shear, torsion, and seismic hoop checks (2026-11-19)
+
+CIRSOC 201 verification blocks torsion and shear results when the section limit relies on overstated concrete strength or effective depth, when longitudinal torsion bars end or lack verified perimeter coverage, or when a drawn shear section has no stirrups. Fixed cages report a detailing shortfall using their declared legs. CIRSOC 201-2005 section torsion refuses reinforcement above the supported yield limit. Seismic beam checks use the continuous dense hoop zones at both ends of the drawing.
+
+#### Verify concrete reinforcement at the sections it reaches (2026-11-19)
+
+CIRSOC 201 beam torsion cannot be approved from a scalar longitudinal steel area. Verification blocks longitudinal torsion where perimeter bars end between sampled sections, even with continuous stirrups. It also blocks drawn stirrup gaps under either shear axis or active torsion, including gaps between sampled sections. Seismic beam checks measure dense hoop coverage from the support faces.
+
+#### Correct the 0.6.2 release status and PRO design link (2026-11-19)
+
+The roadmap and website changelog now show that the 0.6.2 fixes shipped.
+The PRO design section links to the remaining 3D design work in the roadmap.
+
+#### Independent verification for the cable tension advisory (2026-11-20)
+
+Keep cable self-weight in the independent force verification advised by SA-2026-015.
+
+#### Accidental eccentricity uses the structural plan width (2026-11-18)
+
+Accidental eccentricity uses the structural plan width, including massless framing. Regenerate affected seismic load cases before repeating analyses and design checks. (#2316)
+
+#### Seismic load generation smoke tests (2026-11-18)
+
+The browser tests check static seismic loading on frame and shell carriers, refusal of floor loads requiring unsupported eccentric member loading, and the modal generation refusal. (#2316, #2319)
+
+#### Reachable story drift controls (2026-11-18)
+
+The Pro Results panel scrolls as one pane, keeping the story drift controls and tables reachable when Result Checks opens a warning. (#2316)
+
+#### Static seismic member loads and modal generation refusal (2026-11-19)
+
+Static equivalent seismic forces follow the mass on each carrier as member and shell loads. Modal seismic load generation is temporarily unavailable because its force distribution can give incorrect member forces and deflections. Use the static method where applicable. (#2208, #2209, #2316, #2319)
+
+#### Review saved modal seismic loads (2026-11-19)
+
+Opening a project flags earlier generated seismic loads when their static origin cannot be verified. Review or replace those loads before repeating analyses and design checks. (#2319)
+
+#### Support-relative seismic preview stories
+
+The seismic load preview shows the stories used by the static planner and measures their heights from the lowest support. (#2316)
+
+#### Document static and modal seismic load generation defects (2026-11-19)
+
+[SA-2026-086](docs/advisories/SA-2026-086-seismic-static-story-forces.md) requires regenerating affected static seismic loads and rerunning analyses and designs. [SA-2026-087](docs/advisories/SA-2026-087-seismic-modal-load-generation.md) covers the modal generation refusal and asks users to replace earlier loads using the static method where applicable or wait for #2319. (#2316)
+
+#### Keep wind levels independent and preserve snow refusals
+
+- Preserve the wind plan's level weights when generating static seismic loads, and report missing physical or flat-roof snow in Apply even when the plan also contains an unverified seismic case. (#2316, #2233)
+
+#### The incomplete Cholesky preconditioner works on plates (2026-11-19)
+
+On a shell model the shifted incomplete Cholesky preconditioner overflowed and
+returned NaN, so a solve that asked for the conjugate gradient method fell back
+to the Jacobi preconditioner. When the factor overflows it is now rebuilt on the
+matrix scaled to a unit diagonal, with a small diagonal shift and ten extra
+entries per column. On a 50x50 plate the conjugate gradient solve takes 48
+iterations instead of Jacobi's 495, and 75 ms against 152 ms. Models where the
+preconditioner already worked get the same factor as before. The default
+direct solver is not affected.
+
+#### Preserve slab-column point-joint notices when reinforcement verification is refused (2026-11-19)
+
+The document lists every member flagged for a slab-column point joint and includes them all in the review banner, even when reinforcement verification withholds their steel certificates.
+
+#### Engineering explanations in Simplified Chinese (2026-11-19)
+
+Corrected signs, moment arms, units and formulas in the stress panel, worked steel checks, course and analysis steps, research controls, blog examples and result-change notices. The numerical calculations are unchanged.
+
+#### Engineering guidance across translations (2026-11-20)
+
+The modal analysis warning now gives material unit weight in kN/m³. The beam, frame and influence-line tools explain the cut-face directions of positive shear. The course and worked steps clarify how damping controls transient decay, how the planar plastic axes relate to the influence-line axes, how elongation gives axial force, and how Castigliano's method integrates axial strain energy along a member.
+
+#### Simplified Chinese engineering and verification guidance (2026-11-20)
+
+Corrected rotation labels, 3D bending signs, workbook material strength help, and explanations for dynamics, influence lines, steel calculations, and frame walkthroughs. Clarified the torsion comparison, safety advisory guidance and release notices.
+
+#### Chinese landing and engineering help (2026-11-19)
+
+Translated the 3D design roadmap link and corrected the Chinese explanations of T-beam minimum reinforcement, section fibre axes, fixed-end equilibrium, stiffness ratios and the Müller–Breslau sign convention.
+
+#### Chinese release notice validation (2026-11-20)
+
+The Chinese release notes check requires one matching notice each for results versions 91 and 93, with the expected title and section link on the same row.
+
+#### Chinese section-stress recheck notice (2026-11-20)
+
+The recheck notice about shear and von Mises stress on section cuts appears in Simplified Chinese. Builds refuse to package notices with missing translations for a supported product language.
+
+### Performance
+
+#### Name a number's path only when it is refused (2026-11-19)
+
+Two checks wrote text for every value they passed. The non-finite audit
+formatted the path of every field and array element it visited, and the
+diagram evaluator formatted its member's name before validating the member's
+load intervals, at every station of every diagram. Both now keep what they
+would name and write it only in the refusal. Every value is still audited and
+every interval still validated, and the refusals read as before. A solve with
+35 combinations on a 203-member building takes 141 ms where it took 239.
+
+#### Apply sparse Cholesky updates a stretch of rows at a time (2026-11-18)
+
+The sparse factorization subtracted each earlier supernode's contribution one
+entry at a time through two index lists, which was 85 to 90 % of its time. The
+rows an update touches come in contiguous stretches, so each stretch is now
+subtracted as one pass over adjacent memory. Every entry receives the same
+subtractions in the same order and the factor is bit-identical. A 136,000
+unknown plate factors in 1.4 s where it took 6.6, and a 92,000 unknown
+building frame in 62 s where it took 170.
+
+#### Factor Cholesky panels one column at a time (2026-11-19)
+
+Reduce factorization time for wide supernodes while preserving per-entry arithmetic order, pivot checks, and numerical results.
+
+#### Frames and beams pass the stability check without the iterative estimate (2026-11-19)
+
+A linear solve above 64 unknowns first proves its stiffness is well enough
+conditioned. The quick proof (two factorizations) only tried a condition number
+of 1e6, which slabs meet and ordinary frames and beams do not, so those fell
+back to an iterative estimate that took most of the solve. The quick proof now
+also tries 1e8 and 1e10, with a factor of 8 in hand on the limits so that it
+accepts nothing the estimate would refuse. A 100-storey 2D frame solves in
+15 ms instead of 46 ms, a 20-storey 3D frame in 6.4 ms instead of 11.6 ms and a
+64-element beam in 0.8 ms instead of 15.6 ms. Results are unchanged.
+
 ## 0.6.2 (2026-11-18)
 
 Release notes: [`docs/releases/v0.6.2.md`](docs/releases/v0.6.2.md) (also in [Spanish](docs/releases/v0.6.2.es.md), [Portuguese](docs/releases/v0.6.2.pt.md), [German](docs/releases/v0.6.2.de.md), [French](docs/releases/v0.6.2.fr.md), [Turkish](docs/releases/v0.6.2.tr.md) and [Hungarian](docs/releases/v0.6.2.hu.md)).

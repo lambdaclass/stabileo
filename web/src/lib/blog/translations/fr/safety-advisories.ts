@@ -80,6 +80,12 @@ const body: PostBody = {
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-089-roller-z-fixed.md", "label": "SA-2026-089", "t": "Données concernées et actions requises."},
     {"k": "note", "t": "SA-2026-090 — Corrigé dans 0.6.2."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/results-changes/2026-11-gravity-core.md#width-mode-level-mass-follows-loaded-carriers", "label": "SA-2026-090", "t": "Données concernées et actions requises."},
+    {"k": "note", "t": "SA-2026-091 — Cas concernés bloqués dans #2338, publication en attente."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-091-rc-torsion-shear-verification.md", "label": "SA-2026-091", "t": "Données concernées et actions requises."},
+    {"k": "note", "t": "SA-2026-092 — Cas combiné bloqué dans #2372 et coupes corrigées dans #2382, publication en attente."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-092-section-stress-shear.md", "label": "SA-2026-092", "t": "Données concernées et actions requises."},
+    {"k": "note", "t": "SA-2026-093 — Corrigé dans #2381, publication en attente."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-093-plane-moving-load-axial-force.md", "label": "SA-2026-093", "t": "Données concernées et actions requises."},
     {"k": "img", "base": "blog/recheck-stale", "w": 1600, "h": 1000, "alt": "Stabileo PRO avec un portique en béton enregistré avant que les résultats soient versionnés. Un bandeau en bas indique des résultats périmés : le projet a été résolu avec une version antérieure et 19 changements enregistrés le concernent, avec les boutons pour voir ce qui a changé et relancer le calcul.", "caption": "Comment une correction atteint un projet enregistré : tant qu’il n’est pas recalculé, ses résultats restent marqués périmés, et les changements qui le concernent sont à un clic."},
     {
       "k": "h",
@@ -479,6 +485,9 @@ const body: PostBody = {
         ["SA-2026-088", "Les diagrammes ABS et SRSS incluent les extrema de la fonction combinée entre les limites de charge. Relancez combinaisons, diagrammes et vérifications associées (#2273).", "—", "Corrigé dans 0.6.2"],
         ["SA-2026-089", "Un appui 3D rollerZ ou custom3d sans blocages explicites, ou un type d’appui inconnu, était analysé comme entièrement encastré sans avertissement. Vérifiez les blocages prévus aux appuis, puis relancez l’analyse, les combinaisons et le dimensionnement. (#2276).", "Élevée", "Corrigé dans 0.6.2"],
         ["SA-2026-090", "La surface par niveau et le poids sismique en mode largeur pouvaient différer des charges de barre générées en utilisant l’emprise des nœuds ou en exigeant une région fermée. Ils utilisent désormais les surfaces tributaires des barres chargées. Régénérez les plans gravitaires, poids et charges sismiques, puis relancez analyses, combinaisons et vérifications dépendantes. Recalculer les charges enregistrées ne corrige pas les actions sismiques (#2269). (#2210)", "—", "Corrigé dans 0.6.2"],
+        ["SA-2026-091", "Les vérifications du cisaillement, de la torsion et des cadres parasismiques du béton armé pouvaient être validées sans justification du ferraillage. Relancez les dimensionnements certifiés et révisez les sections critiques, les plans de ferraillage et les rapports.", "Élevée", "Cas concernés bloqués dans #2338, publication en attente"],
+        ["SA-2026-092", "Le calcul détaillé des contraintes pouvait sous-estimer le cisaillement total et la contrainte de von Mises et conclure à la conformité. Recalculez les contraintes concernées et révisez les diagrammes, les vérifications et les rapports.", "Élevée", "Cas combiné bloqué dans #2372 et coupes corrigées dans #2382, publication en attente"],
+        ["SA-2026-093", "Les charges mobiles planes pouvaient lisser les sauts d’effort normal au droit des essieux concentrés. Recalculez les enveloppes et les lignes d’influence de l’effort normal concernées, puis révisez les rapports qui les utilisaient.", "Élevée", "Corrigé dans #2381, publication en attente"]
       ]
     },
     {
