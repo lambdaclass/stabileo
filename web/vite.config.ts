@@ -81,16 +81,22 @@ function publicI18nPlugin(features: () => BuildFeatures, eager: () => boolean): 
   const entries = (loc: string, publicOnly: boolean, watch: (file: string) => void) => {
     const file = resolve(__dirname, 'src/lib/i18n/locales', `${loc}.ts`);
     watch(file);
-    const lines = readFileSync(file, 'utf8').split('\n').filter((l) => {
-      const m = /^\s*(['"])([^'"]+)\1: /.exec(l);
-      if (!m) return false;
-      if (!eager() && !ADMIN && m[2].startsWith('admin.')) return false;
-      if (!eager() && !features().tools && /^(?:advanced\.mohr$|advHelp\.mohr\.|stress\.openMohr$)/.test(m[2])) return false;
-      if (!eager() && !ADMIN && !features().accounts && m[2].startsWith('disclaimer.') && m[2] !== 'disclaimer.report') return false;
-      if (!eager() && !ADMIN && !features().accounts && /^(?:account\.|legal\.|cloud\.|feedbackForm\.|usage\.|landing\.foot(?:Terms|Privacy|AdCookies)$)/.test(m[2])) return false;
-      if (!features().diagramGame && m[2] === 'landing.navGame') return false;
-      const publicEntry = PUBLIC_KEY_PREFIXES.some(prefix => m[2].startsWith(prefix))
-        && (!/^(?:legal\.|landing\.foot(?:Terms|Privacy|AdCookies)$)/.test(m[2]) || features().accounts);
+    const pruneEntries = !eager();
+    const { accounts, diagramGame, tools } = features();
+    const lines = readFileSync(file, 'utf8').split('\n').filter((line) => {
+      const key = /^\s*(['"])([^'"]+)\1: /.exec(line)?.[2];
+      if (!key) return false;
+      const publicAccountEntry = /^(?:legal\.|landing\.foot(?:Terms|Privacy|AdCookies)$)/.test(key);
+      if (pruneEntries) {
+        if (!ADMIN && key.startsWith('admin.')) return false;
+        if (!tools && /^(?:advanced\.mohr$|advHelp\.mohr\.|stress\.openMohr$)/.test(key)) return false;
+        if (!ADMIN && !accounts) {
+          if (key.startsWith('disclaimer.') && key !== 'disclaimer.report') return false;
+          if (publicAccountEntry || /^(?:account\.|cloud\.|feedbackForm\.|usage\.)/.test(key)) return false;
+        }
+        if (!diagramGame && key === 'landing.navGame') return false;
+      }
+      const publicEntry = PUBLIC_KEY_PREFIXES.some(prefix => key.startsWith(prefix)) && (!publicAccountEntry || accounts);
       return publicEntry === publicOnly;
     });
     return `{\n${lines.join('\n')}\n}`;

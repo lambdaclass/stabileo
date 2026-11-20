@@ -29,7 +29,7 @@ import { isComplete } from '../offered';
 const LOCALES = ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu', 'zh'] as const;
 const LAZY = ['de', 'fr', 'tr', 'hu', 'zh'] as const;
 
-it.skip('known wrong result: #2399 retains the diagram-game navigation label in the eager dictionary', () => {
+it('#2399 retains the diagram-game navigation label in the eager dictionary', () => {
   expect(publicEntries.en['landing.navGame']).toBe(en['landing.navGame']);
 });
 
