@@ -13,7 +13,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { computeDiagram3D, computeGlobalMax3D, evaluateDiagramAt, type Diagram3DKind } from '../diagrams-3d';
-import { solve3D } from '../wasm-solver';
+import { computeDiagrams3D, computeEnvelope3D, solve3D } from '../wasm-solver';
 import type {
   SolverInput3D, SolverNode3D, SolverSection3D, SolverElement3D,
   SolverSupport3D, AnalysisResults3D, ElementForces3D,
@@ -428,4 +428,23 @@ issue2226('known wrong result: #2226 spatial shear jumps immediately after a con
   const endForces = getEF(result, 1);
   expect(evaluateDiagramAt(endForces, 'shearZ', station / length)).toBeCloseTo(-force, 12);
   expect(evaluateDiagramAt(endForces, 'shearZ', (station + 5e-11) / length)).toBeCloseTo(0, 12);
+});
+
+const issue2250 = process.env.RUN_KNOWN_WRONG === '2250' ? it : it.skip;
+issue2250('known wrong result: #2250 spatial diagrams and envelopes include the peak inside a partial load', () => {
+  const length = 100;
+  const a = 1;
+  const b = 2;
+  const input = buildInput(
+    [{ id: 1, x: 0, y: 0, z: 0 }, { id: 2, x: length, y: 0, z: 0 }],
+    [frameElement(1, 1, 2)], [fixedSupport(1)],
+    [{ type: 'distributed', data: { elementId: 1, a, b, qYI: 0, qYJ: 0, qZI: 1, qZJ: -1 } }],
+  );
+  const result = solve3D(input);
+  assertSuccess(result);
+  const endForces = getEF(result, 1);
+  const expected = (b - a) / 4;
+  expect.soft(computeDiagram3D(endForces, 'shearZ').maxAbsValue).toBeCloseTo(expected, 12);
+  expect.soft(computeDiagrams3D(input, result)?.shearZ[0].maxAbsValue).toBeCloseTo(expected, 12);
+  expect.soft(computeEnvelope3D([result])?.shearZ.globalMax).toBeCloseTo(expected, 12);
 });

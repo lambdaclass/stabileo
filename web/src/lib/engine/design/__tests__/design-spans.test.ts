@@ -4,6 +4,9 @@
  */
 import { describe, it, expect } from 'vitest';
 import { designSpans, mergeSpanStations, spanModelData, type SpanSourceModel } from '../design-spans';
+import { evaluateDiagramAt } from '../../diagrams-3d';
+import { solve3D } from '../../wasm-solver';
+import type { SolverInput3D } from '../../types-3d';
 import { computeLocalAxes3D } from '../../local-axes-3d';
 import { computeBeamCriticalSections, type ElementStationResult } from '../../station-design-forces';
 
@@ -118,5 +121,48 @@ issue2238('known wrong result: #2238 reversing every piece keeps the physical ho
     for (const x of [0, L / 2, L]) {
       expect.soft(stations.find(s => s.x === x)?.my, `x = ${x} m, reversed = ${reversed}`).toBeCloseTo(moment(x), 12);
     }
+  }
+});
+
+issue2238('known wrong result: #2238 a solved fixed beam keeps its governing faces when mesh pieces are reversed', () => {
+  const length = 6;
+  const q = 60;
+  const ts = [0, 0.5, 1];
+  for (const directions of [[false, false, false], [false, true, false], [true, true, true]]) {
+    const structure = model();
+    for (const node of structure.nodes.values()) node.x *= 2;
+    for (const [k, reversed] of directions.entries()) {
+      const member = structure.elements.get(k + 1)!;
+      member.nodeI = reversed ? k + 1 : k;
+      member.nodeJ = reversed ? k : k + 1;
+    }
+    const [span] = designSpans(structure, beams);
+    const input: SolverInput3D = {
+      nodes: new Map([...structure.nodes].filter(([id]) => id <= 3).map(([id, n]) => [id, { ...n, z: n.z ?? 0 }])),
+      elements: new Map([...structure.elements].filter(([id]) => beams(id)).map(([id, e]) => [id, {
+        ...e, type: 'frame', releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false,
+        releaseMzEnd: false, releaseTStart: false, releaseTEnd: false,
+      }])),
+      materials: new Map([[1, { id: 1, e: 30000, nu: 0.2 }]]),
+      sections: new Map([[1, { id: 1, a: 0.3 * 0.5, iy: 0.3 * 0.5 ** 3 / 12, iz: 0.5 * 0.3 ** 3 / 12, j: 0.002 }]]),
+      supports: new Map([0, 3].map(nodeId => [nodeId, { nodeId, rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true }])),
+      loads: [1, 2, 3].map(elementId => ({ type: 'distributed', data: { elementId, qYI: 0, qYJ: 0, qZI: -q, qZJ: -q } })),
+    };
+    const result = solve3D(input);
+    if (typeof result === 'string') throw new Error(result);
+    const merged = mergeSpanStations(structure, span!, elementId => {
+      const ef = result.elementForces.find(f => f.elementId === elementId)!;
+      return {
+        elementId, length: ef.length, stationTs: ts,
+        comboResults: [{ comboId: 1, comboName: 'U', stations: ts.map(t => ({
+          t, x: t * ef.length, n: evaluateDiagramAt(ef, 'axial', t), vy: evaluateDiagramAt(ef, 'shearY', t),
+          vz: evaluateDiagramAt(ef, 'shearZ', t), my: evaluateDiagramAt(ef, 'momentY', t),
+          mz: evaluateDiagramAt(ef, 'momentZ', t), torsion: evaluateDiagramAt(ef, 'torsion', t),
+        })) }],
+      };
+    });
+    const moments = merged!.comboResults[0]!.stations.map(s => s.my);
+    expect.soft(Math.min(...moments), directions.join(',')).toBeCloseTo(-q * length ** 2 / 12, 12);
+    expect.soft(Math.max(...moments), directions.join(',')).toBeCloseTo(q * length ** 2 / 24, 12);
   }
 });

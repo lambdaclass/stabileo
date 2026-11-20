@@ -63,3 +63,34 @@ it('a monotone combination peaks at its end', () => {
   const forces = { ...empty(), mxStart: 1, mxEnd: 2 };
   expect(computeDiagram3D({ ...empty(), combined: { method: 'abs', parts: [forces] } }, 'torsion').maxValue).toBe(2);
 });
+
+const issue2273 = process.env.RUN_KNOWN_WRONG === '2273' ? it : it.skip;
+issue2273('known wrong result: #2273 ABS includes the governing station when a constituent uses full-span intensities', () => {
+  const parts = [0.21, 0.66].map(a => ({ ...parabola(a, 'momentY'), distributedLoadsZ: [], qZI: -2, qZJ: -2 }));
+  const forces = { ...empty(), combined: { method: 'abs' as const, parts } };
+  const expected = 2 * (1 - 0.225 ** 2);
+  expect(computeDiagram3D(forces, 'momentY').maxAbsValue).toBeCloseTo(expected, 12);
+});
+
+const issue2252 = process.env.RUN_KNOWN_WRONG === '2252' ? it : it.skip;
+issue2252('known wrong result: #2252 SRSS finds the interior peak of the combined spatial response', () => {
+  for (const explicit of [false, true]) {
+    const parts = [4.2, 5.2].map(c => ({
+      ...empty(), length: 10, myStart: 25 - c * c, vzStart: 2 * c, qZI: -2, qZJ: -2,
+      distributedLoadsZ: explicit ? [{ a: 0, b: 10, qI: -2, qJ: -2 }] : [],
+    }));
+    const forces = { ...empty(), length: 10, combined: { method: 'srss' as const, parts } };
+    const expected = Math.SQRT2 * (25 - 0.5 ** 2);
+    expect.soft(computeDiagram3D(forces, 'momentY').maxAbsValue, `explicit loads: ${explicit}`).toBeCloseTo(expected, 12);
+    expect.soft(computeDiagram3D(forces, 'momentY').points.some(p => Math.abs(p.t - 0.47) < 1e-10)).toBe(true);
+  }
+});
+
+issue2273('known wrong result: #2273 ABS includes an axial peak between consecutive point loads', () => {
+  const pulse = { ...empty(), pointLoadsX: [{ a: 0.431, p: -2 }, { a: 0.432, p: 2 }] };
+  const baseline = { ...empty(), nStart: 1, nEnd: 1 };
+  const forces = { ...empty(), combined: { method: 'abs' as const, parts: [baseline, pulse] } };
+  const diagram = computeDiagram3D(forces, 'axial');
+  expect(diagram.maxAbsValue).toBe(3);
+  expect(diagram.points.filter(p => p.t === 0.431).map(p => p.value)).toEqual([1, 3]);
+});

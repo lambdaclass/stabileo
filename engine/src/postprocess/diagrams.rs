@@ -764,6 +764,78 @@ pub fn compute_member_displacements_2d(
 mod tests {
     use super::*;
 
+    fn diagram_issue_models(length: f64, planar: serde_json::Value, spatial: serde_json::Value) -> (SolverInput, SolverInput3D) {
+        let input = serde_json::json!({
+            "nodes": {"1":{"id":1,"x":0,"z":0}, "2":{"id":2,"x":length,"z":0}},
+            "materials": {"1":{"id":1,"e":200000,"nu":0.3}},
+            "sections": {"1":{"id":1,"a":0.01,"iy":0.0001,"iz":0.0001,"j":0.0001}},
+            "elements": {"1":{"id":1,"type":"frame","nodeI":1,"nodeJ":2,"materialId":1,"sectionId":1}},
+            "supports": {"1":{"id":1,"nodeId":1,"type":"fixed","rx":true,"ry":true,"rz":true,"rrx":true,"rry":true,"rrz":true}},
+            "loads": [planar]
+        });
+        let planar = serde_json::from_value(input.clone()).unwrap();
+        let mut input = input;
+        input["loads"][0] = spatial;
+        input["nodes"]["1"]["y"] = 0.into();
+        input["nodes"]["2"]["y"] = 0.into();
+        (planar, serde_json::from_value(input).unwrap())
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #2250"]
+    fn issue_2250_diagram_extrema_partial_load() {
+        use crate::postprocess::{combinations, diagrams_3d};
+        let (plane, space) = diagram_issue_models(
+            100.0,
+            serde_json::json!({"type":"distributed","data":{"elementId":1,"a":1,"b":2,"qI":1,"qJ":-1}}),
+            serde_json::json!({"type":"distributed","data":{"elementId":1,"a":1,"b":2,"qYI":0,"qYJ":0,"qZI":1,"qZJ":-1}}),
+        );
+        let expected = (2.0 - 1.0) / 4.0;
+        let pn = crate::solver::pdelta::solve_pdelta_2d(&plane, 20, 1e-10).unwrap();
+        let sn = crate::solver::pdelta::solve_pdelta_3d(&space, 20, 1e-10).unwrap();
+        assert!(pn.converged && sn.converged);
+        let plane_results = [crate::solver::linear::solve_2d(&plane).unwrap(), pn.results];
+        let space_results = [crate::solver::linear::solve_3d(&space).unwrap(), sn.results];
+        let mut measured = Vec::new();
+        for (rp, rs) in plane_results.iter().zip(&space_results) {
+            measured.extend([
+                compute_diagrams_2d(&plane, rp).shear[0].max_abs_value,
+                diagrams_3d::compute_diagrams_3d(rs).shear_z[0].max_abs_value,
+                combinations::compute_envelope(std::slice::from_ref(rp)).unwrap().shear.global_max,
+                combinations::compute_envelope_3d(std::slice::from_ref(rs)).unwrap().shear_z.global_max,
+            ]);
+        }
+        assert!(measured.iter().all(|v| (v.abs() - expected).abs() < 1e-12), "expected {expected}, got {measured:?}");
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #2226"]
+    fn issue_2226_diagram_extrema_concentrated_jump() {
+        use crate::postprocess::diagrams_3d::evaluate_diagram_3d_at;
+        let mut measured = Vec::new();
+        for a in [1.5, 3.0 - 5e-11] {
+            let (plane, space) = diagram_issue_models(
+                3.0,
+                serde_json::json!({"type":"pointOnElement","data":{"elementId":1,"a":a,"p":1,"my":2}}),
+                serde_json::json!({"type":"pointOnElement","data":{"elementId":1,"a":a,"py":0,"pz":1}}),
+            );
+            let rp = crate::solver::linear::solve_2d(&plane).unwrap();
+            let rs = crate::solver::linear::solve_3d(&space).unwrap();
+            let rp = &rp.element_forces[0];
+            let rs = &rs.element_forces[0];
+            let before = a / 3.0;
+            let after = (a + 5e-11) / 3.0;
+            assert!((compute_diagram_value_at("shear", before, rp) + 1.0).abs() < 1e-12);
+            assert!((evaluate_diagram_3d_at(rs, "shearZ", before) + 1.0).abs() < 1e-12);
+            measured.extend([
+                compute_diagram_value_at("shear", after, rp),
+                compute_diagram_value_at("moment", after, rp),
+                evaluate_diagram_3d_at(rs, "shearZ", after),
+            ]);
+        }
+        assert!(measured.iter().all(|v| v.abs() < 1e-12), "expected zero after the load, got {measured:?}");
+    }
+
     fn shape(
         ends: [f64; 4], hinges: (bool, bool), ei: f64, gas: Option<f64>,
         pts: &[(f64, f64)], dist: &[(f64, f64, f64, f64)], l: f64,
