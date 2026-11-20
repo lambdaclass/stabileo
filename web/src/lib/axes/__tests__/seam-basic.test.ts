@@ -124,7 +124,7 @@ describe('names and values of the Basic screens under a frame with Y up, Z to th
     const plain = inspectMember(args, 1)!.ends[0]!.components;
     axesStore.choice = { ...ODD };
     const shown = inspectMember(args, 1)!.ends[0]!.components;
-    expect(shown.map((c) => c.label)).toEqual(['Fz', 'Fy', 'M']);
+    expect(shown.map((c) => c.label)).toEqual(['Fz', 'Fy', 'Mx']);
     expect(shown[0]!.value).toBeCloseTo(-plain[0]!.value);
     expect(shown[1]!.value).toBeCloseTo(plain[1]!.value);
     const fb = freeBodyActions2D({

@@ -36,7 +36,7 @@ it('known wrong result: #1986 T108 end actions agree between member and node ins
     const local = { ...args, basis: 'local' } as const;
     expect(inspectMember(global, 1)?.ends.map(e => e.components[2])).toEqual([
       { label: `M${plane2D(makeFrame(choice)).normal.name.toLowerCase()}`, value: p.sr * 10 },
-      { label: `M${plane2D(makeFrame(choice)).normal.name.toLowerCase()}`, value: p.sr * 5 },
+      { label: `M${plane2D(makeFrame(choice)).normal.name.toLowerCase()}`, value: -p.sr * 5 },
     ]);
     expect(inspectNode(global, 1).actions[0]?.components[2]?.value).toBe(p.sr * 10);
     expect(inspectNode(local, 1).actions[0]?.components[2]).toEqual({ label: 'M', value: 10 });

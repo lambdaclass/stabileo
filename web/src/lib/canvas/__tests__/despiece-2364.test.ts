@@ -7,8 +7,6 @@ import { modelStore, resultsStore, uiStore } from '../../store';
 import { inspectMember, inspectNode } from '../draw-despiece';
 import { freeBodyActions2D } from '../free-body-2d';
 
-const issue2364 = process.env.RUN_KNOWN_WRONG === '2364' ? it : it.skip;
-
 afterEach(() => {
   vi.unstubAllGlobals();
   axesStore.reset();
@@ -56,8 +54,8 @@ const cases = (['production', 'test'] as const).flatMap(mode =>
   ),
 );
 
-issue2364.each(cases)(
-  'known wrong result: #2364 global end actions balance and match glyphs ($mode, nonlinear=$nonlinear, vertical=$vertical, reversed=$reversed)',
+it.each(cases)(
+  '#2364 global end actions balance and match glyphs ($mode, nonlinear=$nonlinear, vertical=$vertical, reversed=$reversed)',
   ({ mode, nonlinear, vertical, reversed }) => {
     vi.stubGlobal('__PUBLIC_FEATURES__', featuresForMode(mode));
     const { element, fixed, tip, x, z, fx, fz, couple, args } = cantilever(vertical, reversed, nonlinear);

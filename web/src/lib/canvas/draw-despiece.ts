@@ -88,24 +88,24 @@ export function memberAxes(ni: DespieceNode, nj: DespieceNode): { ux: number; uy
 
 type Axes = { ux: number; uy: number; px: number; py: number; zs: 1 | -1 };
 
-/**
- * World vector of the end action ON the member: (−N·x̂ + V·ẑ_drawn)·towardJ.
- * N is axis-independent; V is in the drawn axes, so it rides the drawn z.
- */
-function endActionVector(ax: Axes, towardJ: 1 | -1, n: number, v: number): { fx: number; fy: number } {
-  const vz = v * ax.zs;
-  return { fx: (-ax.ux * n + ax.px * vz) * towardJ, fy: (-ax.uy * n + ax.py * vz) * towardJ };
+function memberEnd(ax: Axes, forces: DespieceElementForces, end: 'I' | 'J') {
+  const [n, v, m, towardJ] = end === 'I'
+    ? [forces.nStart, forces.vStart, forces.mStart, 1]
+    : [forces.nEnd, forces.vEnd, forces.mEnd, -1];
+  const transverseFace = ax.zs * towardJ;
+  const axial = -n * towardJ;
+  const shear = v * transverseFace;
+  return {
+    n, v, m, towardJ, transverseFace,
+    action: {
+      fx: ax.ux * axial + ax.px * shear,
+      fz: ax.uy * axial + ax.py * shear,
+      moment: m * transverseFace,
+    },
+  };
 }
 
-/**
- * Sense of the end moment acting ON the member. The engine's +M acts CCW at I
- * and CW at J; a drawn-axes M is zs times the engine's. So the member-side glyph
- * is CCW when zs·m·towardJ > 0 — the sense of the support reaction at a fixed
- * end, and opposite at the two ends of a member bent one way (fixed-fixed).
- */
-export function endMomentCcw(ax: Pick<Axes, 'zs'>, towardJ: 1 | -1, m: number): boolean {
-  return ax.zs * m * towardJ > 0;
-}
+type MemberEnd = ReturnType<typeof memberEnd>;
 
 /**
  * Shrink a member toward its own midpoint by fraction `g` (0..~0.28) at each end,
@@ -173,32 +173,29 @@ interface ComputeArgs {
 
 interface ForceComp { label: string; key: string; value: number; dirx: number; diry: number; }
 
-/** End force components in the requested basis (world-space direction, sign baked in). */
-function forceComponents(
-  ax: Axes, towardJ: 1 | -1, n: number, v: number, basis: DespieceBasis,
-): ForceComp[] {
-  // FREE-BODY END-FACE CONVENTION. ElementForces are internal DIAGRAM values
-  // (section stress resultants): for a member I→J, axial is the same sign at both
-  // ends, but shear is opposite-signed at the two ends (e.g. SS beam vStart=+wL/2,
-  // vEnd=−wL/2). The member-side end ACTION is the diagram-assembled local vector
-  // multiplied by `towardJ` (+1 at I, −1 at J), which encodes the opposite outward
-  // face normals at the two cuts. With that single factor:
-  //   • axial (same-sign values)  → points OUT of both ends for tension;
-  //   • shear (opposite-sign vals) → points the SAME physical way at both ends
-  //     (e.g. both up under gravity ⇒ the separated member is in equilibrium).
-  // Per the requested convention: at I, Qz>0 → +drawn z; at J, Qz>0 → −drawn z.
-  // The drawn z is zs times the solver's perpendicular (see endActionVector).
+function forceComponents(ax: Axes, end: MemberEnd, basis: DespieceBasis): ForceComp[] {
   if (basis === 'global') {
-    const { fx, fy: fz } = endActionVector(ax, towardJ, n, v);
+    const { fx, fz } = end.action;
     return [
       { label: TWO_D_NODAL_LOAD_LABELS.horizontal, key: 'Fx', value: twoD.x(fx), dirx: Math.sign(fx) || 1, diry: 0 },
       { label: TWO_D_NODAL_LOAD_LABELS.vertical, key: 'Fz', value: twoD.z(fz), dirx: 0, diry: Math.sign(fz) || 1 },
     ];
   }
+  const { n, v, towardJ, transverseFace } = end;
+  const axial = -Math.sign(n) * towardJ;
+  const shear = Math.sign(v) * transverseFace;
   return [
-    { label: 'N', key: 'N', value: n, dirx: -ax.ux * Math.sign(n) * towardJ, diry: -ax.uy * Math.sign(n) * towardJ },
-    { label: 'V', key: 'V', value: v, dirx: ax.px * ax.zs * Math.sign(v) * towardJ, diry: ax.py * ax.zs * Math.sign(v) * towardJ },
+    { label: 'N', key: 'N', value: n, dirx: ax.ux * axial, diry: ax.uy * axial },
+    { label: 'V', key: 'V', value: v, dirx: ax.px * shear, diry: ax.py * shear },
   ];
+}
+
+function momentComponent(end: MemberEnd, basis: DespieceBasis): { label: string; value: number } {
+  if (basis === 'local') return { label: 'M', value: end.m };
+  return {
+    label: __PUBLIC_FEATURES__.globalAxes ? TWO_D_NODAL_LOAD_LABELS.moment : 'M',
+    value: twoD.rot(end.action.moment),
+  };
 }
 
 /**
@@ -223,43 +220,41 @@ export function computeDespieceVectors(args: ComputeArgs): DespieceVector[] {
     if (ax.len < 1e-9) continue;
     const { i: aI, j: aJ } = shrinkMember(ni, nj, sep);
 
-    const ends: Array<['I' | 'J', number, DespieceNode, DespieceNode, 1 | -1, number, number, number]> = [
-      ['I', el.nodeI, ni, aI, 1, ef.nStart, ef.vStart, ef.mStart],
-      ['J', el.nodeJ, nj, aJ, -1, ef.nEnd, ef.vEnd, ef.mEnd],
-    ];
-    for (const [end, nodeId, node, memberEnd, towardJ, n, v, m] of ends) {
-      const glen = Math.hypot(memberEnd.x - node.x, memberEnd.y - node.y) || 1;
-      const ugx = (memberEnd.x - node.x) / glen, ugy = (memberEnd.y - node.y) / glen; // node → member end
+    const ends = [
+      { end: 'I', nodeId: el.nodeI, node: ni, memberEndPoint: aI },
+      { end: 'J', nodeId: el.nodeJ, node: nj, memberEndPoint: aJ },
+    ] as const;
+    for (const { end, nodeId, node, memberEndPoint } of ends) {
+      const member = memberEnd(ax, ef, end);
+      const glen = Math.hypot(memberEndPoint.x - node.x, memberEndPoint.y - node.y) || 1;
+      const ugx = (memberEndPoint.x - node.x) / glen, ugy = (memberEndPoint.y - node.y) / glen; // node → member end
       const nodeAnchor = { x: node.x + ugx * glen * NODE_ANCHOR_FRAC, y: node.y + ugy * glen * NODE_ANCHOR_FRAC };
       // Outward (toward the gap) for each side: member-end → node, and node → away from member.
-      const mOutx = -ax.ux * towardJ, mOuty = -ax.uy * towardJ;
+      const mOutx = -ax.ux * member.towardJ, mOuty = -ax.uy * member.towardJ;
       const nOutx = -ugx, nOuty = -ugy;
 
       // Resultant mode: ONE composed force vector (N+V) instead of separate
       // components; the moment stays a single arc → the end shows 2 glyphs.
       const comps: ForceComp[] = resultant
         ? (() => {
-            const { fx, fy } = endActionVector(ax, towardJ, n, v);
-            const mag = Math.hypot(fx, fy);
-            return mag > 1e-6 ? [{ label: 'F', key: 'F', value: mag, dirx: fx / mag, diry: fy / mag }] : [];
+            const { fx, fz } = member.action;
+            const mag = Math.hypot(fx, fz);
+            return mag > 1e-6 ? [{ label: 'F', key: 'F', value: mag, dirx: fx / mag, diry: fz / mag }] : [];
           })()
-        : forceComponents(ax, towardJ, n, v, basis);
+        : forceComponents(ax, member, basis);
       for (const c of comps) {
         if (Math.abs(c.value) <= 1e-6) continue;
         const color = c.label === 'V' ? COL.shear : COL.axial;
-        if (wantMember) out.push({ side: 'member', glyph: 'force', origin: memberEnd, dirx: c.dirx, diry: c.diry, outx: mOutx, outy: mOuty, perpSign: 1, value: c.value, labelText: `${c.label} ${fmt(c.value, 'force')}`, color, elementId: el.id, end, nodeId, component: c.key });
+        if (wantMember) out.push({ side: 'member', glyph: 'force', origin: memberEndPoint, dirx: c.dirx, diry: c.diry, outx: mOutx, outy: mOuty, perpSign: 1, value: c.value, labelText: `${c.label} ${fmt(c.value, 'force')}`, color, elementId: el.id, end, nodeId, component: c.key });
         if (wantNode) out.push({ side: 'node', glyph: 'force', origin: nodeAnchor, dirx: -c.dirx, diry: -c.diry, outx: nOutx, outy: nOuty, perpSign: -1, value: c.value, labelText: labelNode ? `${c.label} ${fmt(c.value, 'force')}` : '', color, elementId: el.id, end, nodeId, component: c.key });
       }
 
-      if (Math.abs(m) > 1e-6) {
-        // Per-end face convention (endMomentCcw): for a member drawn along the
-        // solver axis a positive end moment acts CCW at I and CW at J (same
-        // bending ⇒ opposite glyph sense at the two faces, so the separated member
-        // balances); a member drawn against it flips both. Node-side is the
-        // equal/opposite action on the joint.
-        const memberCcw = endMomentCcw(ax, towardJ, m);
-        if (wantMember) out.push({ side: 'member', glyph: 'moment', origin: memberEnd, ccw: memberCcw, value: m, labelText: `M ${fmt(m, 'moment')}`, color: COL.moment, elementId: el.id, end, nodeId, component: 'M' });
-        if (wantNode) out.push({ side: 'node', glyph: 'moment', origin: nodeAnchor, ccw: !memberCcw, value: m, labelText: labelNode ? `M ${fmt(m, 'moment')}` : '', color: COL.moment, elementId: el.id, end, nodeId, component: 'M' });
+      if (Math.abs(member.action.moment) > 1e-6) {
+        const moment = momentComponent(member, basis);
+        const memberCcw = member.action.moment > 0;
+        const labelText = `${moment.label} ${fmt(moment.value, 'moment')}`;
+        if (wantMember) out.push({ side: 'member', glyph: 'moment', origin: memberEndPoint, ccw: memberCcw, value: moment.value, labelText, color: COL.moment, elementId: el.id, end, nodeId, component: 'M' });
+        if (wantNode) out.push({ side: 'node', glyph: 'moment', origin: nodeAnchor, ccw: !memberCcw, value: moment.value, labelText: labelNode ? labelText : '', color: COL.moment, elementId: el.id, end, nodeId, component: 'M' });
       }
     }
   }
@@ -382,19 +377,8 @@ export function distributedResultantForces(
 
 export interface DespieceEndAction {
   elementId: number; end: 'I' | 'J'; nodeId: number;
+  action: MemberEnd['action'];
   components: Array<{ label: string; value: number }>;
-}
-
-function endComponents(
-  ax: Axes, towardJ: 1 | -1, n: number, v: number, m: number, basis: DespieceBasis,
-): Array<{ label: string; value: number }> {
-  if (basis === 'global') {
-    // Use the SAME decomposition as the drawn arrows (forceComponents,
-    // endActionVector), so the inspected value always agrees with the arrow.
-    const { fx, fy: fz } = endActionVector(ax, towardJ, n, v);
-    return [{ label: TWO_D_NODAL_LOAD_LABELS.horizontal, value: twoD.x(fx) }, { label: TWO_D_NODAL_LOAD_LABELS.vertical, value: twoD.z(fz) }, { label: __PUBLIC_FEATURES__.globalAxes ? TWO_D_NODAL_LOAD_LABELS.moment : 'M', value: twoD.rot(m) }];
-  }
-  return [{ label: 'N', value: n }, { label: 'V', value: v }, { label: 'M', value: m }];
 }
 
 type InspectArgs = Pick<ComputeArgs, 'elements' | 'getNode' | 'getElementForces' | 'basis'>;
@@ -404,9 +388,13 @@ function endActionFor(args: InspectArgs, el: DespieceElement, end: 'I' | 'J'): D
   const ef = args.getElementForces(el.id);
   if (!ni || !nj || !ef) return null;
   const ax = memberAxes(ni, nj);
-  const [towardJ, n, v, m, nodeId]: [1 | -1, number, number, number, number] =
-    end === 'I' ? [1, ef.nStart, ef.vStart, ef.mStart, el.nodeI] : [-1, ef.nEnd, ef.vEnd, ef.mEnd, el.nodeJ];
-  return { elementId: el.id, end, nodeId, components: endComponents(ax, towardJ, n, v, m, args.basis) };
+  const member = memberEnd(ax, ef, end);
+  const forces = forceComponents(ax, member, args.basis).map(({ label, value }) => ({ label, value }));
+  return {
+    elementId: el.id, end, nodeId: end === 'I' ? el.nodeI : el.nodeJ,
+    action: member.action,
+    components: [...forces, momentComponent(member, args.basis)],
+  };
 }
 
 /** Both end actions (I and J) of one member. */
