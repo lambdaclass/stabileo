@@ -11,8 +11,8 @@ import { ghost3d, type Ghost3d } from '../rc-sheets/rebar-3d-ghost';
 import type { PieceOptions } from '../rc-sheets/schedule/pieces';
 import type { SheetFamily } from '../rc-sheets/types';
 
-export type Rebar3dFamily = Exclude<SheetFamily, 'punching'>;
-export const REBAR_FAMILIES: readonly Rebar3dFamily[] = ['beam', 'column', 'slab', 'wall', 'footing'];
+export type Rebar3dFamily = SheetFamily;
+export const REBAR_FAMILIES: readonly Rebar3dFamily[] = ['beam', 'column', 'slab', 'wall', 'punching', 'footing'];
 
 const GHOST_KEY = 'stabileo-rc-rebar-3d-ghost';
 
@@ -25,7 +25,7 @@ export function saveGhostPreference(on: boolean): void {
 }
 
 export const rebarView = $state<{ on: boolean; row: { key: string; name: string; keys?: readonly string[] } | null; level: string; families: Record<Rebar3dFamily, boolean>; ghost: boolean }>({
-  on: false, row: null, level: '', families: { beam: true, column: true, slab: true, wall: true, footing: true }, ghost: readGhostPreference(),
+  on: false, row: null, level: '', families: { beam: true, column: true, slab: true, wall: true, footing: true, punching: true }, ghost: readGhostPreference(),
 });
 
 export function showRebarOf(row: { key: string; name: string; keys?: readonly string[] }): void {
@@ -116,6 +116,10 @@ export function modelFrames(rows: SheetRows): Rebar3dFrames {
     slabSoffit(r) {
       return r.demand.bounds ? r.demand.bounds.z - r.h / 2 : null;
     },
+    punching(r) {
+      const n = modelStore.nodes.get(r.demand.joint.nodeId);
+      return n ? { o: v3(n), x: [1, 0, 0], y: [0, 1, 0], z: [0, 0, 1] } : null;
+    },
   };
 }
 
@@ -149,7 +153,7 @@ export function shownBars<T extends Shown>(bars: readonly T[], v: ViewFilter): T
     const keys = v.row.keys ?? [v.row.key];
     return bars.filter((b) => keys.some((k) => b.rows.includes(k) || b.element === k));
   }
-  return bars.filter((b) => b.family !== 'punching' && v.families[b.family] && (!v.level || (b.level ?? '') === v.level));
+  return bars.filter((b) => v.families[b.family] && (!v.level || (b.level ?? '') === v.level));
 }
 
 export function shownGhosts(ghosts: readonly Ghost3d[], bars: readonly Shown[], v: ViewFilter): Ghost3d[] {
