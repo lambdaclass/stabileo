@@ -19,7 +19,8 @@ test('@slow the sheets\' bars in 3D: every element, one row\'s from the workspac
   await expect(solo).toHaveCount(0);
 
   const panel = page.getByTestId('rc-rebar-3d');
-  await panel.getByTestId('rc-rebar-3d-toggle').check();
+  await panel.getByTestId('rc-rebar-3d-toggle').click();
+  await expect(panel.getByTestId('rc-rebar-3d-toggle')).toHaveAttribute('aria-pressed', 'true');
   const count = async () => Number((await panel.getByTestId('rc-rebar-3d-count').textContent())!.replace(/\D/g, ''));
   await expect.poll(count).toBeGreaterThan(10_000);
   const everything = await count();
@@ -33,11 +34,13 @@ test('@slow the sheets\' bars in 3D: every element, one row\'s from the workspac
   expect(await page.evaluate(() => window.__stabileo.selection())).toEqual([...ids].sort((a, b) => a - b));
   await ghost.uncheck();
   await page.screenshot({ path: test.info().outputPath('rebar-3d-ghost-off.png') });
-  await panel.getByTestId('rc-rebar-3d-toggle').uncheck();
+  await panel.getByTestId('rc-rebar-3d-toggle').click();
+  await expect(panel.getByTestId('rc-rebar-3d-toggle')).toHaveAttribute('aria-pressed', 'false');
   await expect(solo).toHaveCount(0);
   expect(await page.evaluate(() => window.__stabileo.selection())).toEqual([...ids].sort((a, b) => a - b));
   expect(await page.evaluate(() => window.__stabileo.undoCount())).toBe(undos);
-  await panel.getByTestId('rc-rebar-3d-toggle').check();
+  await panel.getByTestId('rc-rebar-3d-toggle').click();
+  await expect(panel.getByTestId('rc-rebar-3d-toggle')).toHaveAttribute('aria-pressed', 'true');
   await expect(ghost).not.toBeChecked();
   expect(await page.evaluate(() => localStorage.getItem('stabileo-rc-rebar-3d-ghost'))).toBe('0');
   await ghost.check();
@@ -59,7 +62,8 @@ test('@slow the sheets\' bars in 3D: every element, one row\'s from the workspac
 
   await panel.getByTestId('rc-rebar-3d-all').click();
   await expect.poll(count).toBe(everything);
-  await panel.getByTestId('rc-rebar-3d-toggle').uncheck();
+  await panel.getByTestId('rc-rebar-3d-toggle').click();
+  await expect(panel.getByTestId('rc-rebar-3d-toggle')).toHaveAttribute('aria-pressed', 'false');
   await expect(panel.getByTestId('rc-rebar-3d-count')).toHaveCount(0);
   await expect(solo).toHaveCount(0);
 });

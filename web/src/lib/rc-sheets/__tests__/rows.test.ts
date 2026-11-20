@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { criteriaOf } from '../criteria';
 import { beamRow, type BeamDemand, type SectionEnv } from '../beam-row';
 import { beamLine } from '../beam-line';
 import { columnRow, columnArea, columnSplice, type ColumnDemand } from '../column-row';
@@ -376,6 +377,16 @@ describe('wall row', () => {
     const r = wallRow(wall, ctx, undefined, f);
     const bare = wallRow(wall, ctx, { ...r.proposed, boundary: { count: 0, diameter: 16 } }, f);
     expect(ok(bare, 'rcSheets.v.wallPM')).toBe(false);
+  });
+
+  it('meshes with the thinnest allowed diameter whose bars stand the criterion\'s spacing apart or more, the thickest where none does', () => {
+    const at = (meshDiameters: number[], wallMeshSpacing?: number) => wallRow(wall, { ...ctx, meshDiameters, ...(wallMeshSpacing ? { criteria: { ...criteriaOf(), wallMeshSpacing } } : {}) }, undefined, f).proposed;
+    const mesh = at([8, 10, 12, 16]);
+    expect(Math.min(mesh.vertical.spacing, mesh.horizontal.spacing)).toBeGreaterThanOrEqual(0.15 - 1e-9);
+    const thinner = [8, 10, 12, 16].filter((x) => x < mesh.vertical.diameter);
+    for (const dia of thinner) { const m = at([dia]); expect(Math.min(m.vertical.spacing, m.horizontal.spacing)).toBeLessThan(0.15); }
+    expect(at([8, 10, 12, 16], 0.3).vertical.diameter).toBe(16);
+    expect(at([8]).vertical.diameter).toBe(8);
   });
 
   it('asks two curtains past 25 cm and horizontal steel for a large in-plane shear', () => {

@@ -6,6 +6,7 @@
   import { sceneHost } from '../../../lib/viewport3d/scene-host.svelte';
   import { createRebarLayer } from '../../../lib/three/rebar-3d-layer';
   import { createGhostLayer } from '../../../lib/three/rebar-ghost-layer';
+  import Icon from '../../ribbon/Icon.svelte';
 
   let { rows }: { rows: SheetRows | null } = $props();
 
@@ -37,11 +38,11 @@
 </script>
 
 <div class="r3d" data-testid="rc-rebar-3d">
-  <label class="r3d-on">
-    <input type="checkbox" bind:checked={rebarView.on} disabled={!rows} data-testid="rc-rebar-3d-toggle" />
-    <span>{t('rcSheets.r3d.show')}</span>
+  <button type="button" class="r3d-btn" class:on={rebarView.on} aria-pressed={rebarView.on} disabled={!rows} onclick={() => (rebarView.on = !rebarView.on)} data-testid="rc-rebar-3d-toggle">
+    <Icon name="view3d" size={18} />
+    <span>{t(rebarView.on ? 'rcSheets.r3d.hide' : 'rcSheets.r3d.show')}</span>
     {#if rebarView.on}<span class="r3d-n" data-testid="rc-rebar-3d-count">{tpn('rcSheets.r3d.bars', shown.length)}</span>{/if}
-  </label>
+  </button>
   {#if rebarView.on}
     <fieldset>
       <legend>{t('rcSheets.r3d.scope')}</legend>
@@ -75,8 +76,12 @@
 
 <style>
   .r3d { display: flex; flex-direction: column; gap: 6px; }
-  .r3d-on { display: flex; align-items: center; gap: 6px; font-size: 0.76rem; color: var(--st-text); cursor: pointer; }
-  .r3d-n { margin-left: auto; font-size: 0.7rem; color: var(--st-text-3); font-family: var(--st-mono); }
+  .r3d-btn { display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 12px; border: 1px solid var(--st-accent); border-radius: var(--st-radius); background: var(--st-surface-2); color: var(--st-text); font: inherit; font-size: 0.8rem; font-weight: 600; cursor: pointer; }
+  .r3d-btn:hover:not(:disabled) { background: var(--st-surface-3); }
+  .r3d-btn.on { background: var(--st-accent); color: #fff; }
+  .r3d-btn:disabled { opacity: 0.55; cursor: default; border-color: var(--st-hair-strong); }
+  .r3d-btn:focus-visible { outline: 2px solid var(--st-focus); outline-offset: 2px; }
+  .r3d-n { margin-left: auto; font-size: 0.7rem; font-weight: 400; opacity: 0.85; font-family: var(--st-mono); }
   fieldset { border: 1px solid var(--st-hair); border-radius: 6px; padding: 4px 8px 6px; margin: 0; display: flex; flex-direction: column; gap: 4px; }
   legend { font-size: 0.66rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--st-text-2); padding: 0 4px; }
   .r3d-row { display: flex; justify-content: space-between; gap: 8px; font-size: 0.74rem; color: var(--st-text); }

@@ -23,7 +23,8 @@ export function setDesignData(next: StoredDesignData | null): void {
 }
 
 export function patchDesignData(patch: Partial<StoredDesignData>): void {
-  setDesignData({ ...storedDesignData(), ...patch });
+  const { stirrupDiaMm: _s, wallBarDiaMm: _w, ...next } = { ...storedDesignData(), ...patch };
+  setDesignData(next);
 }
 
 /**

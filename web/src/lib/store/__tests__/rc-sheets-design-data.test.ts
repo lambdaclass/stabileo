@@ -107,10 +107,12 @@ describe('the project\'s design data in the sheets', () => {
     expect(after.beam[0]!.req.bottom).toBeLessThan(before.beam[0]!.req.bottom);
   });
 
-  it('stirrupDiaMm: the beams take the default stirrup', () => {
+  it('stirrupDiametersMm: the beams start from Ø8 where it is allowed, else from the nearest allowed above it, and a stated starting stirrup is no longer read', () => {
     frame();
     expect(lineStirrups(buildSheetRows()).every((s) => s.dia === 8)).toBe(true);
-    patchDesignData({ stirrupDiaMm: 10 });
+    patchDesignData({ stirrupDiaMm: 10 } as never);
+    expect(lineStirrups(buildSheetRows()).every((s) => s.dia === 8)).toBe(true);
+    patchDesignData({ stirrupDiametersMm: [6, 10, 12] });
     expect(lineStirrups(buildSheetRows()).every((s) => s.dia === 10)).toBe(true);
   });
 
@@ -207,13 +209,14 @@ describe('the project\'s design data in the sheets', () => {
     expect(after.every((r) => r.status !== 'fail')).toBe(true);
   });
 
-  it('wallBarDiaMm and stirrupDiametersMm: a wall\'s bars and the ties its detail draws', async () => {
+  it('wallDiametersMm and stirrupDiametersMm: a wall\'s bars come from its list and the ties its detail draws from theirs', async () => {
     wall();
     const { wallDetail } = await import('../../rc-sheets/wall-detail');
-    expect(buildSheetRows().wall[0]!.adopted.vertical.diameter).toBe(12);
-    patchDesignData({ wallBarDiaMm: 10, stirrupDiametersMm: [10, 12] });
+    expect([8, 10, 12, 16]).toContain(buildSheetRows().wall[0]!.adopted.vertical.diameter);
+    patchDesignData({ wallDiametersMm: [16], stirrupDiametersMm: [10, 12] });
     const w = buildSheetRows().wall[0]!;
-    expect(w.adopted.vertical.diameter).toBe(10);
+    expect(w.adopted.vertical.diameter).toBe(16);
+    expect(w.adopted.horizontal.diameter).toBe(16);
     const det = wallDetail(w, 'cirsoc201-2025');
     for (const d of [det.boundary?.ties?.dia, det.crossTies?.dia]) if (d !== undefined) expect(d).toBeGreaterThanOrEqual(10);
   });

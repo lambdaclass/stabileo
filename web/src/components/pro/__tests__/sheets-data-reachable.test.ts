@@ -18,11 +18,11 @@ describe('the data the sheets read is editable whenever the sheets are reachable
     expect(s).not.toMatch(/designInPro/);
   });
 
-  it('the sheets\' panel says the design data in one line with a link that opens them, and keeps no option of its own', () => {
+  it('the sheets\' panel opens the design data from one button, without restating them, and keeps no option of its own', () => {
     const s = src('rc-sheets/ProRcSheetsTab.svelte');
     expect(s).toContain('<ProDesignDataPanel />');
-    expect(s).toContain('data-testid="rc-dd-summary"');
-    expect(s).toContain('data-testid="rc-dd-edit"');
+    expect(s).not.toContain('rc-dd-summary');
+    expect(s).toMatch(/<summary class="rcp-dd-btn"[^>]*data-testid="rc-dd-edit"><Icon name="settings"/);
     expect(s).not.toMatch(/rc-opt-|setRcOption|setTorsionMode|setColumnEndZones/);
     expect(s).not.toMatch(/designInPro/);
   });

@@ -9,7 +9,7 @@
  * CIRSOC 201-2025 Table 20.5.1.3.1 is known for it: a cover under it is said, and a click sets
  * every cover to it.
  */
-import { AGGREGATE_RANGE, BEAM_BAR_RANGE, COLUMN_BAR_RANGE, DEFAULT_AGGREGATE_MM, DEFAULT_MIN_TIE_SPACING, SHEET_CODE_LIST, SLAB_BAR_RANGE, SLAB_MESH_DIAMETERS, inRange, type SheetCode } from '../rc-sheets/types';
+import { AGGREGATE_RANGE, BEAM_BAR_RANGE, COLUMN_BAR_RANGE, DEFAULT_AGGREGATE_MM, DEFAULT_MIN_TIE_SPACING, SHEET_CODE_LIST, SLAB_BAR_RANGE, SLAB_MESH_DIAMETERS, WALL_BAR_RANGE, inRange, type SheetCode } from '../rc-sheets/types';
 import { migrateSeismicDesign } from './seismic-design';
 import { migrateDesignOptions } from '../rc-sheets/design-options';
 import { migrateLateralSystem } from './lateral-system';
@@ -44,7 +44,7 @@ export interface ProjectDesignData {
   /** Reinforcing steel: its name and its specified yield strength, MPa. */
   rebarGrade: string;
   rebarFy: number;
-  /** The stirrup or tie diameter the cover-to-centroid arithmetic assumes, mm. */
+  /** The stirrup or tie a design starts from, mm: read from `stirrupDiametersMm` (`preferredBar`), never stated. */
   stirrupDiaMm: number;
   /** Clear cover to the outermost bar, m, by kind of element. */
   covers: Record<DesignKind, number>;
@@ -60,7 +60,9 @@ export interface ProjectDesignData {
   minTieSpacingMm: number;
   /** The nominal size of the largest aggregate, mm: the 4/3·dagg of the clear spacing between bars (§25.2.1, §25.2.3; dg in EN 1992 8.2(2)). */
   maxAggregateMm: number;
-  /** The diameter of a wall's vertical and horizontal bars, mm. */
+  /** The diameters a wall's meshes may choose from, mm, within `WALL_BAR_RANGE`. */
+  wallDiametersMm: number[];
+  /** The wall bar a design without the list reads, mm: from `wallDiametersMm` (`preferredBar`), never stated. */
   wallBarDiaMm: number;
   /**
    * Denser ties at both ends of every column, also where no seismic rule asks for them: over
@@ -143,7 +145,9 @@ export interface ProjectDesignData {
 export type StoredDesignData = { version: 1 } & Partial<Omit<ProjectDesignData, 'version' | 'covers' | 'exposure'>>
   & { covers?: Partial<Record<DesignKind, number>>; exposure?: Partial<Record<DesignKind, Exposure>> };
 
-const STATED_BY_DEFAULT = ['rebarGrade', 'rebarFy', 'stirrupDiaMm', 'longDiametersMm', 'stirrupDiametersMm', 'slabDiametersMm', 'minTieSpacingMm', 'maxAggregateMm', 'wallBarDiaMm'] as const;
+const STATED_BY_DEFAULT = ['rebarGrade', 'rebarFy', 'longDiametersMm', 'stirrupDiametersMm', 'slabDiametersMm', 'wallDiametersMm', 'minTieSpacingMm', 'maxAggregateMm'] as const;
+/** Read from the lists, never stored. */
+const DERIVED = ['stirrupDiaMm', 'wallBarDiaMm'];
 
 /** Read any stored shape keeping only what it states: the defaults stay out, to be read when the data is. */
 export function migrateStoredDesignData(raw: unknown): StoredDesignData | undefined {
@@ -152,7 +156,7 @@ export function migrateStoredDesignData(raw: unknown): StoredDesignData | undefi
   const full = migrateDesignData(raw);
   const out: Record<string, unknown> = { version: 1 };
   for (const [k, v] of Object.entries(full)) {
-    if (k === 'version' || k === 'covers' || k === 'exposure') continue;
+    if (k === 'version' || k === 'covers' || k === 'exposure' || DERIVED.includes(k)) continue;
     if ((STATED_BY_DEFAULT as readonly string[]).includes(k) && !(k in e)) continue;
     out[k] = v;
   }
@@ -170,19 +174,25 @@ export const MIN_TIE_SPACING_RANGE = { min: 25, max: 150 } as const;
 /** Every diameter the bar table knows, mm. */
 export const BAR_DIAMETERS_MM: readonly number[] = REBAR_DB.map((r) => r.diameter);
 
+/** The bar of a list a design starts from: `usual` where the list has it, else the nearest above, else the largest. */
+export const preferredBar = (list: readonly number[], usual: number): number =>
+  list.includes(usual) ? usual : [...list].sort((p, q) => p - q).find((x) => x > usual) ?? Math.max(...list);
+
 export function defaultDesignData(): ProjectDesignData {
+  const stirrups = BAR_DIAMETERS_MM.filter((d) => d <= 12), walls = BAR_DIAMETERS_MM.filter((d) => inRange(d, WALL_BAR_RANGE) && d <= 16);
   return {
     version: 1,
     rebarGrade: 'ADN 420', rebarFy: 420,
-    stirrupDiaMm: 8,
+    stirrupDiaMm: preferredBar(stirrups, 8),
     covers: { beam: 0.03, column: 0.03, slab: 0.025, wall: 0.025, footing: 0.055 },
     exposure: { beam: 'interior', column: 'interior', slab: 'interior', wall: 'interior', footing: 'ground' },
     longDiametersMm: BAR_DIAMETERS_MM.filter((d) => d >= 10),
-    stirrupDiametersMm: BAR_DIAMETERS_MM.filter((d) => d <= 12),
+    stirrupDiametersMm: stirrups,
     slabDiametersMm: [...SLAB_MESH_DIAMETERS],
     minTieSpacingMm: DEFAULT_MIN_TIE_SPACING * 1000,
     maxAggregateMm: DEFAULT_AGGREGATE_MM,
-    wallBarDiaMm: 12,
+    wallDiametersMm: walls,
+    wallBarDiaMm: preferredBar(walls, 12),
   };
 }
 
@@ -201,7 +211,7 @@ export const minimumCoverFor = (d: ProjectDesignData, kind: DesignKind): number 
 
 /** The largest bar a kind of element takes under these data, mm: from the bars its rows choose among, not another family's. */
 export function largestBar(d: ProjectDesignData, kind: DesignKind): number {
-  if (kind === 'wall') return d.wallBarDiaMm;
+  if (kind === 'wall') return Math.max(...d.wallDiametersMm);
   if (kind === 'slab') return Math.max(...d.slabDiametersMm);
   const range = kind === 'beam' ? BEAM_BAR_RANGE : kind === 'column' ? COLUMN_BAR_RANGE : null;
   const own = range ? d.longDiametersMm.filter((x) => inRange(x, range)) : d.longDiametersMm;
@@ -251,19 +261,22 @@ export function migrateDesignData(raw: unknown): ProjectDesignData {
     const o = (v && typeof v === 'object' ? v : {}) as Record<string, unknown>;
     return Object.fromEntries(DESIGN_KINDS.map((k) => [k, ok(o[k]) ? o[k] : fb[k]])) as Record<DesignKind, T>;
   };
+  const stirrups = known(e.stirrupDiametersMm, def.stirrupDiametersMm);
+  const walls = known(Array.isArray(e.wallDiametersMm) ? e.wallDiametersMm.filter((x) => inRange(x as number, WALL_BAR_RANGE)) : undefined, def.wallDiametersMm);
   return {
     version: 1,
     rebarGrade: typeof e.rebarGrade === 'string' && e.rebarGrade ? e.rebarGrade : def.rebarGrade,
     rebarFy: pos(e.rebarFy, def.rebarFy),
-    stirrupDiaMm: BAR_DIAMETERS_MM.includes(e.stirrupDiaMm as number) ? (e.stirrupDiaMm as number) : def.stirrupDiaMm,
+    stirrupDiaMm: preferredBar(stirrups, 8),
     covers: byKind(e.covers, def.covers, (x): x is number => typeof x === 'number' && Number.isFinite(x) && x >= 0),
     exposure: byKind(e.exposure, def.exposure, (x): x is Exposure => x === 'interior' || x === 'exterior' || x === 'ground'),
     longDiametersMm: known(e.longDiametersMm, def.longDiametersMm),
-    stirrupDiametersMm: known(e.stirrupDiametersMm, def.stirrupDiametersMm),
+    stirrupDiametersMm: stirrups,
     slabDiametersMm: known(Array.isArray(e.slabDiametersMm) ? e.slabDiametersMm.filter((x) => inRange(x as number, SLAB_BAR_RANGE)) : undefined, def.slabDiametersMm),
     minTieSpacingMm: typeof e.minTieSpacingMm === 'number' && Number.isFinite(e.minTieSpacingMm) && e.minTieSpacingMm >= MIN_TIE_SPACING_RANGE.min && e.minTieSpacingMm <= MIN_TIE_SPACING_RANGE.max ? e.minTieSpacingMm : def.minTieSpacingMm,
     maxAggregateMm: typeof e.maxAggregateMm === 'number' && Number.isFinite(e.maxAggregateMm) && e.maxAggregateMm >= AGGREGATE_RANGE.min && e.maxAggregateMm <= AGGREGATE_RANGE.max ? e.maxAggregateMm : def.maxAggregateMm,
-    wallBarDiaMm: BAR_DIAMETERS_MM.includes(e.wallBarDiaMm as number) ? (e.wallBarDiaMm as number) : def.wallBarDiaMm,
+    wallDiametersMm: walls,
+    wallBarDiaMm: preferredBar(walls, 12),
     ...(e.columnEndZones === true ? { columnEndZones: true } : {}),
     ...((o) => (o ? { designOptions: o } : {}))(migrateDesignOptions(e.designOptions, e.rcSheets)),
     ...(e.executionControl === false ? { executionControl: false as const } : {}),

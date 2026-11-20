@@ -15,8 +15,8 @@ export const withCriterion = (clause?: string): string => (clause ? `${clause}; 
 export const localizeCriterion = (s: string | undefined, tr: (key: string) => string): string =>
   s ? s.split(CRITERION).join(tr('rcSheets.criterion')) : '';
 
-export type CriterionFamily = 'beam' | 'column' | 'slab';
-export const CRITERION_FAMILIES: readonly CriterionFamily[] = ['beam', 'column', 'slab'];
+export type CriterionFamily = 'beam' | 'column' | 'slab' | 'wall';
+export const CRITERION_FAMILIES: readonly CriterionFamily[] = ['beam', 'column', 'slab', 'wall'];
 
 /**
  * One criterion: its family, its default and range as stated, the unit it is stated in, an
@@ -48,6 +48,7 @@ export const CRITERIA = {
   slabBendOneWay: { family: 'slab', value: 7, min: 5, max: 12, step: 0.5, unit: '', prefix: 'ln/', digits: 1 },
   slabBendTwoWay: { family: 'slab', value: 8, min: 5, max: 12, step: 0.5, unit: '', prefix: 'ln/', digits: 1 },
   slabMinThickness: { ...cm(8, 5, 30), family: 'slab' },
+  wallMeshSpacing: { ...cm(15, 10, 30, 2.5), family: 'wall', digits: 1 },
 } as const satisfies Record<string, CriterionSpec>;
 
 export type CriterionId = keyof typeof CRITERIA;

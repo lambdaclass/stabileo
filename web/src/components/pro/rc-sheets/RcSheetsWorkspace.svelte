@@ -187,7 +187,6 @@
       <p class="rcw-empty" data-testid="rc-not-solved">{t(sheetsSolve.busy ? 'rcSheets.solving' : 'rcSheets.solveFirst')}</p>
       <button type="button" class="rcs-btn primary" onclick={() => solveAndDesign()} disabled={sheetsSolve.busy} data-testid="rc-solve-design">{t('rcSheets.solveAndDesign')}</button>
     {:else if !sheetsRun.rows}
-      <p class="rcw-empty" data-testid="rc-not-designed">{t('rcSheets.designHint')}</p>
       <button type="button" class="rcs-btn primary" onclick={designSheets} data-testid="rc-design">{t('rcSheets.design')}</button>
     {:else if schedule}
       <RcScheduleView {rows} onopen={openFromSchedule} />
@@ -282,7 +281,6 @@
         </tbody>
       </table>
       {/if}
-      <p class="rcw-note">{t('rcSheets.scopeNote')}</p>
     {/if}
   </div>
 </div>
@@ -345,7 +343,6 @@
   tr.detail td { white-space: normal; padding: 8px; background: var(--st-surface); }
   .rcw-detail { position: sticky; left: 8px; max-width: calc(100vw - 48px); min-width: 0; }
   tr.detail :global(.rce) { margin-bottom: 8px; }
-  .rcw-note { font-size: 0.7rem; color: var(--st-text-3); margin-top: 8px; max-width: 90ch; }
   .rcw-views { display: flex; gap: 2px; margin-bottom: 6px; }
   .rcw-views button { border: 1px solid var(--st-hair); background: var(--st-surface-2); color: var(--st-text-2); border-radius: 4px; padding: 3px 10px; font-size: 0.74rem; cursor: pointer; }
   .rcw-views button.on { background: var(--st-accent, var(--st-surface-3)); color: var(--st-on-accent, var(--st-text)); }
