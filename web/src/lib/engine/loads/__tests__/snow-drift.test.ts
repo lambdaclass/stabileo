@@ -80,20 +80,13 @@ const total = (list: Array<{ elementId: number; q: number; qJ?: number; a?: numb
   list.reduce((s, d) => s + ((d.q + (d.qJ ?? d.q)) / 2) * ((d.b ?? 0) - (d.a ?? 0)), 0);
 
 describe('drifts on the model', () => {
-  it('a step: the triangle along it, on the lower roof only, about p_d · w / 2 per metre of step', () => {
+  it('a positive step drift refuses on both flat and pitched roofs', () => {
     const m = stepModel();
     const layout = gravityLayout(m, { mode: 'panels', tributaryWidth: 3 });
     const input = { pg: 1, balanced: 0.7, pf: 0.7, slippery: false, tributaryWidth: 3 };
     expect(() => driftAndSlidingLoads(m, layout, input)).toThrow('snow.refused.stepDriftTransfer');
     addPitchedSource(m, 0, 6, 6);
-    const out = driftAndSlidingLoads(m, layout, input);
-    expect(out.derivation.some((x) => x.key === 'snow.derivation.drift')).toBe(true);
-    for (const d of out.distributed) expect((m.nodes.get(m.elements.get(d.elementId)!.nodeI)!.z)).toBe(3);
-    const d = stepDrift({ pg: 1, balanced: 0.7, stepHeight: 3, luUpper: 6, luLower: 6 });
-    // The tributary strips read the triangle at their middle: within a fifth of the exact total.
-    const exact = (d.pd * d.w / 2) * 6;
-    expect(-total(out.distributed)).toBeGreaterThan(exact * 0.8);
-    expect(-total(out.distributed)).toBeLessThan(exact * 1.2);
+    expect(() => driftAndSlidingLoads(m, layout, input)).toThrow('snow.refused.stepDriftTransfer');
   });
 
   it('snow slides off a smooth higher roof whose eave stands over the lower roof', () => {
@@ -114,7 +107,7 @@ describe('drifts on the model', () => {
     expect(-total(out.distributed)).toBeLessThan(1.68 * 6 * 1.2);
   });
 
-  it('the drift stays on the lower roof: a separate roof of the same level within w takes none of it', () => {
+  it('a separate roof within the drift width cannot bypass the step refusal', () => {
     // Upper roof at +6 m over x −24–6 (l_u = 30 m, w ≈ 3,7 m); lower roof at +3 m over x 6–7; a
     // separate roof at +3 m over x 8–12, a metre away, not joined to it.
     const nodes = new Map<number, { id: number; x: number; y: number; z?: number }>();
@@ -124,16 +117,12 @@ describe('drifts on the model', () => {
     const ring = (c: number[]) => { const ids: number[] = []; for (let i = 0; i < c.length; i++) { ids.push(e); elements.set(e, { id: e++, nodeI: c[i]!, nodeJ: c[(i + 1) % c.length]!, sectionId: 1 }); } return ids; };
     ring([node(-24, 0, 6), node(6, 0, 6), node(6, 6, 6), node(-24, 6, 6)]);
     ring([node(6, 0, 3), node(7, 0, 3), node(7, 6, 3), node(6, 6, 3)]);
-    const separate = new Set(ring([node(8, 0, 3), node(12, 0, 3), node(12, 6, 3), node(8, 6, 3)]));
+    ring([node(8, 0, 3), node(12, 0, 3), node(12, 6, 3), node(8, 6, 3)]);
     const m: GravityModel = { nodes, elements };
     const layout = gravityLayout(m, { mode: 'panels', tributaryWidth: 3 });
     const input = { pg: 1, balanced: 0.7, pf: 0.7, slippery: false, tributaryWidth: 3 };
     expect(() => driftAndSlidingLoads(m, layout, input)).toThrow('snow.refused.stepDriftTransfer');
     addPitchedSource(m, -24, 6, 6);
-    const out = driftAndSlidingLoads(m, layout, input);
-    const d = out.derivation.find((x) => x.key === 'snow.derivation.drift')!;
-    expect(d.params?.w as number).toBeGreaterThan(2);
-    expect(out.distributed.length).toBeGreaterThan(0);
-    expect(out.distributed.filter((x) => separate.has(x.elementId))).toEqual([]);
+    expect(() => driftAndSlidingLoads(m, layout, input)).toThrow('snow.refused.stepDriftTransfer');
   });
 });

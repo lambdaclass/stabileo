@@ -857,14 +857,24 @@ function checkSeparateStripAndBayLoads(model: LoadModelData) {
   expect(deadLoadKN(plan, model)).toBeCloseTo((2 * 10 + 2) * 6, 10);
 }
 
-const seamRoundoff = process.env.RUN_KNOWN_WRONG === '2347' ? it : it.skip;
-
-seamRoundoff('known wrong result: #2347 one ULP at a fully tied seam still blocks duplicate gravity', () => {
+it('#2347 one ULP at a fully tied seam still blocks duplicate gravity', () => {
   for (const useCommonMaster of [false, true]) {
     const model = tiedExteriorStripShellBay(useCommonMaster, allShellDofs, 0.25);
     for (const id of model.quads!.get(2)!.nodes) model.nodes.get(id)!.z! += 2 ** -51;
     checkBlockedGravity(model, { key: 'loadPlan.gravity.offsetShellDeck', params: { id: 2 } });
   }
+});
+
+it('#2347 a fully tied seam joins just inside the physical point tolerance', () => {
+  const model = tiedExteriorStripShellBay(true, allShellDofs, 0.25);
+  for (const id of model.quads!.get(2)!.nodes) model.nodes.get(id)!.z! += 0.999e-8;
+  checkBlockedGravity(model, { key: 'loadPlan.gravity.offsetShellDeck', params: { id: 2 } });
+});
+
+it('#2347 a fully tied seam just outside the physical point tolerance preserves separate deck loads', () => {
+  const model = tiedExteriorStripShellBay(true, allShellDofs, 0.25);
+  for (const id of model.quads!.get(2)!.nodes) model.nodes.get(id)!.z! += 1.001e-8;
+  checkSeparateStripAndBayLoads(model);
 });
 
 it('#2347 breaking the full tie to an off-seam master preserves the separate deck loads', () => {

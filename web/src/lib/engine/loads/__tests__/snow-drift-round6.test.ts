@@ -73,10 +73,10 @@ for (const mode of ['width', 'pieces'] as const) for (const angle of [0, Math.PI
     const x = mode === 'width' ? 1.6 : 1.5;
     const model = mesh([
       [[0, 0, 3], [3, 0, 3.03], [3, 2, 3.03], [0, 2, 3]],
-      [[-6, 0, 4.2], [0, 0, 3.6], [0, 2, 3.6], [-6, 2, 4.2]],
+      [[-6, 0, 3.8], [0, 0, 3.2], [0, 2, 3.2], [-6, 2, 3.8]],
     ]);
     const id = carrier(model, [x, 0.5, 3 + 0.01 * x], [x, 1.5, 3 + 0.01 * x]);
-    const panels = [panel(0, 1.5, 0, 2, 3), panel(1.5, 3, 0, 2, 3.015), panel(-6, 0, 0, 2, 3.6)];
+    const panels = [panel(0, 1.5, 0, 2, 3), panel(1.5, 3, 0, 2, 3.015), panel(-6, 0, 0, 2, 3.2)];
     transform(model, angle, 1, mirror); rotatePanels(panels, angle, mirror);
     const layout = layoutFor(model, panels, id, 1, mode);
     expect(sliding(model, layout, id)).toBeCloseTo(0.4 * 6 / 4.5 * 0.2, 9);
@@ -130,10 +130,10 @@ for (const [lo, hi, expected] of [[-1, 3, 1], [0, 2, 1], [0.25, 1.75, 1], [-1, 1
   knownWrong(`known wrong result: #2095 round6 eave overlap ${lo} ${hi} ${mode} ${angle} ${mirror}`, () => {
     const model = mesh([
       [[0, 0, 3], [3, 0, 3], [3, 2, 3], [0, 2, 3]],
-      [[-6, lo, 4.2], [0, lo, 3.6], [0, hi, 3.6], [-6, hi, 4.2]],
+      [[-6, lo, 3.8], [0, lo, 3.2], [0, hi, 3.2], [-6, hi, 3.8]],
     ]);
     const id = carrier(model, [0.5, 0.4, 3], [1.5, 0.4, 3]);
-    const panels = [panel(0, 3, 0.4, 2, 3), panel(-6, 0, lo, hi, 3.6)];
+    const panels = [panel(0, 3, 0.4, 2, 3), panel(-6, 0, lo, hi, 3.2)];
     transform(model, angle, 1, mirror); rotatePanels(panels, angle, mirror);
     const layout = layoutFor(model, panels, id, 0, mode);
     if (expected && (lo !== 0.4 || hi !== 2)) {
@@ -150,7 +150,7 @@ for (const [lo, hi, expected] of [[-1, 3, 1], [0, 2, 1], [0.25, 1.75, 1], [-1, 1
 }
 
 for (const mode of ['width', 'pieces'] as const) {
-  it(`round6 drift crosses continuous pitched panels ${mode}`, () => {
+  it(`round6 drift refuses across continuous pitched panels ${mode}`, () => {
     const x = mode === 'width' ? 1.6 : 1.5;
     const model = mesh([
       [[0, 0, 3], [30, 0, 3.3], [30, 2, 3.3], [0, 2, 3]],
@@ -159,10 +159,7 @@ for (const mode of ['width', 'pieces'] as const) {
     const id = carrier(model, [x, 0.5, 3 + 0.01 * x], [x, 1.5, 3 + 0.01 * x]);
     const panels = [panel(0, 1.5, 0, 2, 3), panel(1.5, 30, 0, 2, 3.015), panel(-30, 0, 0, 2, 6)];
     const layout = layoutFor(model, panels, id, 1, mode);
-    const out = driftAndSlidingLoads(model, layout, inputs);
-    const dr = stepDrift({ pg: 1, balanced: 0.7, stepHeight: 3, luUpper: 30, luLower: 30 });
-    const integral = mode === 'width' ? 0.2 * (1 - x / dr.w) : 0.2 - ((x + 0.2) ** 2 - x ** 2) / (2 * dr.w);
-    expect(pressure(out.distributed, id, 0.5)).toBeCloseTo(dr.pd * integral, 9);
+    expect(() => driftAndSlidingLoads(model, layout, inputs)).toThrow('snow.refused.stepDriftTransfer');
   });
 }
 
@@ -187,7 +184,7 @@ for (const offset of [-0.01, 0, 0.01]) {
     const layout = layoutFor(model, [panel(0, 1, 0, 2, 3), panel(1, 3, 0, 2, 4 + offset)], id, 1, 'width');
     expect(() => driftAndSlidingLoads(model, layout, inputs)).toThrow('snow.refused.stepDriftTransfer');
     for (const node of model.nodes.values()) if (node.x === 3) node.z! += 0.1;
-    expect(driftAndSlidingLoads(model, layout, inputs).distributed).toEqual([]);
+    expect(() => driftAndSlidingLoads(model, layout, inputs)).toThrow('snow.refused.stepDriftTransfer');
   });
 }
 
@@ -224,10 +221,10 @@ for (const [overhang, refused] of [[0.009, false], [0.011, true]] as const) {
     const lo = 0.4 - overhang, hi = 2 + overhang;
     const model = mesh([
       [[0, 0, 3], [3, 0, 3], [3, 2, 3], [0, 2, 3]],
-      [[-6, lo, 4.2], [0, lo, 3.6], [0, hi, 3.6], [-6, hi, 4.2]],
+      [[-6, lo, 3.8], [0, lo, 3.2], [0, hi, 3.2], [-6, hi, 3.8]],
     ]);
     const id = carrier(model, [0.5, 0.4, 3], [1.5, 0.4, 3]);
-    const layout = layoutFor(model, [panel(0, 3, 0.4, 2, 3), panel(-6, 0, lo, hi, 3.6)], id, 0, 'width');
+    const layout = layoutFor(model, [panel(0, 3, 0.4, 2, 3), panel(-6, 0, lo, hi, 3.2)], id, 0, 'width');
     if (refused) {
       expect(() => driftAndSlidingLoads(model, layout, inputs)).toThrow('snow.refused.slidingOverlap');
       publicSnow({ model, layout, snow, tributaryWidth: 0.2 }, 'snow.refused.slidingOverlap');

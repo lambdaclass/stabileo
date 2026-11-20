@@ -238,7 +238,7 @@ function append(model: Model, extra: Model) {
 }
 
 for (const role of ['lower', 'upper'] as const) {
-  it(`round9 valley cannot extend the ${role} step fetch`, () => {
+  it(`round9 valley cannot bypass refusal at the ${role} step`, () => {
     const { model, layout } = valley();
     const z = role === 'lower' ? 5 : 1;
     append(model, mesh([[[-1, 0, z], [0, 0, z], [0, 4, z], [-1, 4, z]]]));
@@ -247,17 +247,17 @@ for (const role of ['lower', 'upper'] as const) {
     expect(() => driftAndSlidingLoads(model, layout, inputs)).toThrow('snow.refused.stepDriftTransfer');
     for (const node of model.nodes.values()) if (node.id > 1000 && node.x === -1) node.z = z + 0.1;
     if (role === 'upper') for (const id of [500, 501]) model.nodes.get(id)!.z = 1.01;
-    const out = driftAndSlidingLoads(model, layout, inputs);
-    const dr = stepDrift({ pg: 1, balanced: 1, stepHeight: 2, luUpper: role === 'lower' ? 1 : 2, luLower: role === 'lower' ? 2 : 1 });
-    expect(pressure(out.distributed, 500, 0.5)).toBeCloseTo(dr.pd * (1 - 0.1 / dr.w) * 0.1, 10);
-    expect(publicSnow(model, layout, { ...snow, slippery: false, roofKind: 'mono' }).result.refused).toBeUndefined();
+    expect(() => driftAndSlidingLoads(model, layout, inputs)).toThrow('snow.refused.stepDriftTransfer');
+    expect(publicSnow(model, layout, { ...snow, slippery: false, roofKind: 'mono' })).toMatchObject({
+      result: { refused: 'snow.refused.stepDriftTransfer' }, cases: [],
+    });
   });
 }
 
 it('round9 sliding stays on the continuous receiving roof', () => {
   const { model, layout } = valley();
-  append(model, mesh([[[-6, 0, 4.2], [0, 0, 3.6], [0, 4, 3.6], [-6, 4, 4.2]]]));
-  layout.panels.push({ polygon: [[-6, 0], [0, 0], [0, 4], [-6, 4]], z: 3.6, roof: true });
+  append(model, mesh([[[-6, 0, 3.7], [0, 0, 3.1], [0, 4, 3.1], [-6, 4, 3.7]]]));
+  layout.panels.push({ polygon: [[-6, 0], [0, 0], [0, 4], [-6, 4]], z: 3.1, roof: true });
   for (const [id, y] of [[600, 1.5], [601, 2.5]]) model.nodes.set(id!, { id: id!, x: 2.1, y: y!, z: 3 - 0.2 * (4 - y!) / 3 });
   model.elements.set(600, { id: 600, nodeI: 600, nodeJ: 601, sectionId: 1, materialId: 1 });
   const length = Math.hypot(1, 0.2 / 3);

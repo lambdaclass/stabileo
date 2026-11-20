@@ -1,8 +1,10 @@
+import { stepDrift } from '../../../codes/cirsoc104/drift';
 import { snowDensity } from '../../../codes/cirsoc104/snow';
 import { teAt } from '../../../i18n/engine-text';
 import { expect, it } from 'vitest';
 import { driftAndSlidingLoads } from '../snow-drift-loads';
 import { gravityLayout } from '../plan-gravity';
+import { snowRoofSteps } from '../snow-roof-surfaces';
 import { snowLoadCases } from '../snow-loads';
 import { buildLoadPlan } from '../load-plan';
 import { pressure, regulations, snow } from './snow-roof-plane-fixture';
@@ -24,18 +26,21 @@ it('#2218 a positive flat-roof step triangle refuses before member transfer', ()
   })).toThrow('snow.refused.stepDriftTransfer');
 });
 
-const pitchedStep = process.env.RUN_KNOWN_WRONG === '2218' ? it : it.skip;
-
-pitchedStep('known wrong result: #2218 pitching the far upper edge still refuses the same positive step triangle', () => {
-  const model = steppedRoof([], 5, 0.075);
-  const layout = gravityLayout(model, { mode: 'panels', tributaryWidth: 1 });
-  expect(() => driftAndSlidingLoads(model, layout, {
-    pg: 1, balanced: 0.7, pf: 0.7, slippery: false, tributaryWidth: 1,
-  })).toThrow('snow.refused.stepDriftTransfer');
+it('#2218 pitching the far upper edge still refuses the same positive step triangle', () => {
+  for (const upperRise of [0.00025, 0.075]) {
+    const model = steppedRoof([], 5, upperRise);
+    const panels = gravityLayout(steppedRoof(), { mode: 'panels', tributaryWidth: 1 });
+    expect(snowRoofSteps(model, panels)).toHaveLength(1);
+    for (const layout of [panels, { ...gravityLayout(model, { mode: 'width', tributaryWidth: 1 }), panels: panels.panels }]) {
+      expect(() => driftAndSlidingLoads(model, layout, {
+        pg: 1, balanced: 0.7, pf: 0.7, slippery: false, tributaryWidth: 1,
+      })).toThrow('snow.refused.stepDriftTransfer');
+    }
+  }
 });
 
-pitchedStep('known wrong result: #2218 pitched steps block snow cases and the load plan', () => {
-  const model = steppedRoof([], 5, 0.075);
+it('#2218 pitched steps block snow cases and the load plan', () => {
+  const model = steppedRoof([], 5, 0.00025);
   const gravity = { mode: 'panels' } as const;
   const config = { ...snow, roofKind: 'mono', slippery: false } as const;
   const layout = gravityLayout(model, { ...gravity, tributaryWidth: 1 });
@@ -132,4 +137,42 @@ it('#2218 a varying pressure with unresolved drift applicability blocks at a fla
     pg: 1, balanced: (_, [, y]) => y > 0.3 && y < 0.4 ? 0.5 : 0.7,
     pf: 0.7, slippery: false, tributaryWidth: 1,
   })).toThrow('snow.refused.stepDriftTransfer');
+});
+
+it('#2218 shallow pitched steps below the threshold produce no transferred surcharge', () => {
+  const balanced = 0.7;
+  const hb = balanced / snowDensity(1);
+  const model = steppedRoof([], 3 + 1.199 * hb, 0.00025);
+  const layout = gravityLayout(model, { mode: 'panels', tributaryWidth: 1 });
+  expect(snowRoofSteps(model, layout)).toHaveLength(1);
+  const result = driftAndSlidingLoads(model, layout, { pg: 1, balanced, pf: balanced, slippery: false, tributaryWidth: 1 });
+  expect(result.distributed).toEqual([]);
+  expect(result.derivation.filter(d => d.key !== 'snow.derivation.noSliding').map(d => d.key)).toEqual(Array(3).fill('snow.derivation.noDrift'));
+});
+
+it('#2218 flat and pitched fixtures share the physical triangle oracle', () => {
+  const { pd, w } = stepDrift({ pg: 1, balanced: 0.7, stepHeight: 2, luUpper: 7.5, luLower: 7.5 });
+  const force = 4 * pd * w / 2;
+  expect(force).toBeCloseTo(3.049542288, 10);
+  expect(force * w / 3).toBeCloseTo(1.549167482304, 10);
+  expect(force * 2).toBeCloseTo(6.099084576, 10);
+});
+
+const transferOracle = process.env.RUN_KNOWN_WRONG === '2218' ? it : it.skip;
+
+transferOracle('known wrong result: #2218 the step triangle retains force and both physical first moments', () => {
+  const model = steppedRoof();
+  const layout = gravityLayout(model, { mode: 'panels', tributaryWidth: 1 });
+  const out = driftAndSlidingLoads(model, layout, { pg: 1, balanced: 0.7, pf: 0.7, slippery: false, tributaryWidth: 1 });
+  const actual = out.distributed.reduce((v, d) => {
+    const e = model.elements.get(d.elementId)!, a = model.nodes.get(e.nodeI)!, b = model.nodes.get(e.nodeJ)!;
+    const L = Math.hypot(b.x - a.x, b.y - a.y), lo = d.a ?? 0, hi = d.b ?? L;
+    const q0 = -d.q, q1 = -(d.qJ ?? d.q), F = (hi - lo) * (q0 + q1) / 2;
+    const first = (hi - lo) ** 2 * (q0 + 2 * q1) / 6;
+    return [v[0]! + F, v[1]! + (a.x + (b.x - a.x) * lo / L) * F + (b.x - a.x) / L * first,
+      v[2]! + (a.y + (b.y - a.y) * lo / L) * F + (b.y - a.y) / L * first];
+  }, [0, 0, 0]);
+  expect(actual[0]).toBeCloseTo(3.049542288, 10);
+  expect(actual[1]).toBeCloseTo(1.549167482304, 10);
+  expect(actual[2]).toBeCloseTo(6.099084576, 10);
 });

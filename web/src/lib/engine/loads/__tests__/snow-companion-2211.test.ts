@@ -29,12 +29,11 @@ import { snowLoadCases } from '../snow-loads';
 import { gravityLayout } from '../plan-gravity';
 import { resolveMassFactors } from '../../dynamics/mass-source';
 
-const companionAtLimit = process.env.RUN_KNOWN_WRONG === '2211' ? it : it.skip;
-
 for (const angle of [0, 0.37]) for (const mirror of [-1, 1]) for (const reverse of [false, true]) {
-  companionAtLimit(`known wrong result: #2211 flat companions retain each carrier response across rotation, reversal and subdivision ${angle} ${mirror} ${reverse}`, () => {
+  it(`#2211 flat companions retain each carrier response across rotation, reversal and subdivision ${angle} ${mirror} ${reverse}`, () => {
     for (const slope of [0, 4.999, 5.001, 14.999, 15, 20, 30]) for (const count of [1, 3]) {
-      const rise = 10 * Math.tan(slope * Math.PI / 180);
+      const carrierSlope = slope === 30 ? 29.999 : slope;
+      const rise = 10 * Math.tan(carrierSlope * Math.PI / 180);
       const base = mesh([[[0, 0, 3], [10, 0, 3 + rise]]]);
       const { model, segments } = remeshSnowRoof(base, new Map([[1, count]]));
       if (reverse) for (const e of model.elements.values()) [e.nodeI, e.nodeJ] = [e.nodeJ, e.nodeI];
@@ -70,6 +69,15 @@ for (const angle of [0, 0.37]) for (const mirror of [-1, 1]) for (const reverse 
     }
   });
 }
+
+it('#2254 projected and width snow refuse a 30 degree carrier at the gravity slope limit', () => {
+  const model = mesh([[[0, 0, 3], [10, 0, 3 + 10 * Math.tan(30 * Math.PI / 180)]]]);
+  const expected = expect.objectContaining({ key: 'loadPlan.gravity.memberSlopeLimit', params: { id: 1 } });
+  expect(() => snowLoadCases({
+    model, snow: { ...snow, roofKind: 'mono', roofSlopeDeg: 30 }, tributaryWidth: 1,
+  })).toThrow(expected);
+  expect(() => gravityLayout(model, { mode: 'width', tributaryWidth: 1 })).toThrow(expected);
+});
 
 it('#2211 a flat-roof term selects only pf while principal snow and seismic mass retain physical snow', () => {
   const specs = generateCombinations({ present: { L: true, Lr: false, S: true, R: false, W: true, E: true, F: false, H: false }, seismicCompanions: { f2: 0.7 }, notActing: false });

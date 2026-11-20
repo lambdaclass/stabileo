@@ -1,3 +1,4 @@
+import { stepDrift } from '../../../codes/cirsoc104/drift';
 import { transverseSnowLoads } from './snow-roof-plane-fixture';
 import { expect, it } from 'vitest';
 import { snow, run, pressure, skewRoof, regulations } from './snow-roof-plane-fixture';
@@ -19,11 +20,10 @@ function transformed(model: ReturnType<typeof stepRoof>, angle: number, mirror: 
   return model;
 }
 
-function required(ps: number, height: number, distance = 0.1) {
-  const gamma = 0.426 + 2.2, hb = ps / gamma, hc = Math.max(0, height - hb), hd = 0.381;
-  const width = Math.min(hd <= hc ? 4 * hd : 4 * hd ** 2 / hc, 8 * hc);
-  return ps + (hc / hb < 0.2 || distance > width ? 0 : gamma * Math.min(hd, hc) * (1 - distance / width));
-}
+const refusesStep = (out: ReturnType<typeof run>) => {
+  expect(out).toMatchObject({ result: { refused: 'snow.refused.stepDriftTransfer' }, cases: [] });
+  expect(out.flatRoof).toBeUndefined();
+};
 
 for (const angle of [0, 0.37, -0.8, 1.1, Math.PI / 2, Math.PI]) for (const mirror of [1, -1]) for (const shift of [0, 1]) {
   it(`pitched receiver loads are rigid-plan invariant: ${angle}, mirror ${mirror}, shift ${shift}`, () => {
@@ -32,9 +32,7 @@ for (const angle of [0, 0.37, -0.8, 1.1, Math.PI / 2, Math.PI]) for (const mirro
     const ps = (70 - 20) / 65;
     expect(out.result.pf).toBeCloseTo(1, 12);
     expect(out.geometry.W).toBeCloseTo(1, 9);
-    expect(pressure(out.cases[0]!.distributed, 500)).toBeCloseTo(required(ps, 0.45), 9);
-    const x = 0.5 / Math.cos(20 * Math.PI / 180);
-    expect(pressure(out.cases[0]!.distributed, 500, x)).toBeCloseTo(required(ps, 0.45 - 0.5 * Math.tan(20 * Math.PI / 180)), 9);
+    refusesStep(out);
     const width = run(model, 'width');
     expect(pressure(width.cases[0]!.distributed, 500)).toBeCloseTo(ps, 9);
     const projected = snowLoadCases({ model, snow, tributaryWidth: 1 })!;
@@ -54,8 +52,11 @@ for (const heightRatio of [1.199, 1.201]) for (const angle of [0, 0.37]) {
   it(`receiving snow depth bounds the low-step exemption: ${heightRatio}, rotation ${angle}`, () => {
     const ps = (70 - 20) / 65, hb = ps / (0.426 + 2.2), height = heightRatio * hb;
     const out = run(stepRoof(20, 20, height, angle));
-    expect(pressure(out.cases[0]!.distributed, 500)).toBeCloseTo(required(ps, height), 9);
-    expect(out.derivation.some(d => d.key === 'snow.derivation.drift')).toBe(heightRatio > 1.2);
+    if (heightRatio > 1.2) refusesStep(out);
+    else {
+      expect(pressure(out.cases[0]!.distributed, 500)).toBeCloseTo(ps, 9);
+      expect(out.derivation.some(d => d.key === 'snow.derivation.drift')).toBe(false);
+    }
   });
 }
 
@@ -63,7 +64,12 @@ for (const factor of [0.999, 1.001]) {
   it(`drift is capped on the correct side of hc = hd: ${factor}`, () => {
     const ps = (70 - 20) / 65, height = ps / (0.426 + 2.2) + 0.381 * factor;
     const out = run(stepRoof(20, 0, height));
-    expect(pressure(out.cases[0]!.distributed, 500)).toBeCloseTo(required(ps, height), 9);
+    refusesStep(out);
+    const drift = stepDrift({ pg: 1, balanced: ps, stepHeight: height, luUpper: 6, luLower: 6 });
+    const hc = height - ps / (0.426 + 2.2);
+    expect(drift.pd * (1 - 0.1 / drift.w)).toBeCloseTo(
+      (0.426 + 2.2) * Math.min(0.381, hc) * (1 - 0.1 / Math.min(0.381 <= hc ? 4 * 0.381 : 4 * 0.381 ** 2 / hc, 8 * hc)), 9,
+    );
   });
 }
 
@@ -95,9 +101,14 @@ for (const mode of ['panels', 'width'] as const) {
     const model = stepRoof(20, 0, 0.45, 0.37);
     const plan = buildLoadPlan({ regulations: regulations(), dead: [], occupancyKey: 'vivienda', reductionElementKind: 'interiorBeam', floorsSupported: 1, applyLiveReduction: false, generateCombinations: true, model,
       gravity: { mode }, tributaryWidth: 1, snow: { ...snow, enabled: true, source: 'site' } });
+    if (mode === 'panels') {
+      refusesStep(run(model));
+      expect(plan).toMatchObject({ outcome: 'BLOCKED', blockedKeys: [{ key: 'snow.refused.stepDriftTransfer' }], cases: [], distributed: [] });
+      return;
+    }
     expect(plan.outcome).toBe('READY');
     const index = plan.cases.findIndex(c => c.type === 'S');
-    const direct = mode === 'panels' ? run(model) : snowLoadCases({ model, snow, tributaryWidth: 1 })!;
+    const direct = snowLoadCases({ model, snow, tributaryWidth: 1 })!;
     expect(pressure(plan.distributed.filter(d => d.caseIndex === index), 500)).toBeCloseTo(pressure(direct.cases[0]!.distributed, 500), 9);
   });
 }
@@ -127,7 +138,8 @@ function compareCases(actual: ReturnType<typeof run>, expected: ReturnType<typeo
 
 for (const angle of [0.37, -0.8, 1.1, Math.PI / 2]) {
   it(`every generated step-roof load survives rotation ${angle}`, () => {
-    compareCases(run(stepRoof(20, 0, 0.45, angle)), run());
+    const height = 1.199 * (70 - 20) / (65 * (0.426 + 2.2));
+    compareCases(run(stepRoof(20, 20, height, angle)), run(stepRoof(20, 20, height)));
   });
   it(`all partial snow patterns use roof axes at rotation ${angle}`, () => {
     const base = auditRoof('gable', 5);
@@ -159,9 +171,7 @@ for (const height of [0.099, 0.101]) {
     const model = stepRoof(20, 20, height);
     const layout = gravityLayout(model, { mode: 'panels', tributaryWidth: 1 });
     const out = snowLoadCases({ model, snow: { ...snow, pg: 0.1 }, layout, tributaryWidth: 1 })!;
-    const ps = 0.1 * (70 - 20) / 65, gamma = 0.426 * 0.1 + 2.2, hc = height - ps / gamma;
-    const width = Math.min(4 * 0.269 ** 2 / hc, 8 * hc);
-    expect(pressure(out.cases[0]!.distributed, 500)).toBeCloseTo(ps + gamma * hc * (1 - 0.1 / width), 9);
+    refusesStep(out);
   });
 }
 
@@ -180,7 +190,7 @@ for (const unrelated of [false, true]) for (const height of [0.2, 0.6]) {
     source(0, 3 + height);
     if (unrelated) source(-30, 8);
     const layout = gravityLayout(model, { mode: 'panels', tributaryWidth: 1 });
-    const input = { pg: 1, balanced: (70 - 20) / 65, pf: 1, tributaryWidth: 1 };
+    const input = { pg: 1, balanced: 2, pf: 1, tributaryWidth: 1 };
     if (height === 0.2) {
       expect(() => driftAndSlidingLoads(model, layout, { ...input, slippery: true })).toThrow('snow.refused.roofPlane');
       expect(run(model).result.refused).toBe('snow.refused.roofPlane');
@@ -207,10 +217,7 @@ for (const angle of [0.37, 1.1, Math.PI / 2]) {
 
 it('equally pitched surfaces across a step remain separate planes', () => {
   const model = stepRoof(20, 20, 0.45, 0.37);
-  const out = run(model);
-  const want = required((70 - 20) / 65, 0.45);
-  expect(pressure(out.cases[0]!.distributed, 500)).toBeCloseTo(want, 9);
-  expect(pressure(out.cases[0]!.distributed, 500, 0.5 / Math.cos(20 * Math.PI / 180))).toBeCloseTo(want, 9);
+  refusesStep(run(model));
 });
 
 it('a pitched source supplies local heights above a flat receiver', () => {
@@ -218,7 +225,7 @@ it('a pitched source supplies local heights above a flat receiver', () => {
   model.nodes.set(500, { id: 500, x: 0.1, y: 0.75, z: 3 });
   model.nodes.set(501, { id: 501, x: 1.1, y: 0.75, z: 3 });
   model.elements.set(500, { id: 500, nodeI: 500, nodeJ: 501, sectionId: 1, materialId: 1 });
-  expect(pressure(run(model).cases[0]!.distributed, 500)).toBeCloseTo(required(1, 0.45 + 0.75 * Math.tan(20 * Math.PI / 180)), 9);
+  refusesStep(run(model));
 });
 
 for (const side of [-1, 1]) for (const angle of [0, 0.37]) {
@@ -239,16 +246,15 @@ for (const side of [-1, 1]) for (const angle of [0, 0.37]) {
 
 for (const mirror of [1, -1]) {
   it(`the full generated load list is invariant under translation and mirror ${mirror}`, () => {
-    compareCases(run(transformed(stepRoof(), 0.37, mirror, 1)), run());
+    const height = 1.199 * (70 - 20) / (65 * (0.426 + 2.2));
+    compareCases(run(transformed(stepRoof(20, 20, height), 0.37, mirror, 1)), run(stepRoof(20, 20, height)));
   });
 }
 
-it('selecting the receiving roof keeps drift from the unselected source', () => {
+it('selecting the receiving roof still refuses drift from the unselected source', () => {
   const model = stepRoof(20, 20, 0.45, 0.37);
   const selected = [...model.elements.keys()].filter(id => id < 100 || id >= 500);
   const layout = gravityLayout(model, { mode: 'panels', tributaryWidth: 1 });
   const out = snowLoadCases({ model, snow: { ...snow, roof: selected }, layout, tributaryWidth: 1 })!;
-  expect(out.result.refused).toBeUndefined();
-  expect(pressure(out.cases[0]!.distributed, 500)).toBeCloseTo(required((70 - 20) / 65, 0.45), 9);
-  expect(out.cases[0]!.distributed.every(d => selected.includes(d.elementId))).toBe(true);
+  refusesStep(out);
 });

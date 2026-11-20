@@ -37,7 +37,7 @@
  * Pure: no store.
  */
 import { assertDisjointShells, footprintsOverlap, planarShell, refuseGravityGeometry, ringArea, type ShellPlane, type UncoveredStrips } from './gravity-shell-partition';
-import { physicalRoofRuns, snowCoordinate } from './physical-roof-geometry';
+import { physicalRoofRuns, samePhysicalPoint, snowCoordinate } from './physical-roof-geometry';
 import polygonClipping, { type Polygon } from 'polygon-clipping';
 import { physicalFloorLoad as floorLoad, type FloorBeam, type FloorPanel, type SideStretch } from './floor-loads';
 import { EngineMessageError, msg, round, type EngineMessage } from '../../codes/message';
@@ -644,17 +644,18 @@ function connectedShellGroups(carriers: ShellCarrier[], components = new NodeCom
 
 function shellSeamComponents(model: GravityModel, carriers: ShellCarrier[], fullMotion: NodeComponents): NodeComponents {
   const seams = new NodeComponents();
-  const anchors = new Map<number, Map<string, number>>();
+  const anchors = new Map<number, Set<number>>();
   for (const shell of carriers) for (const id of shell.nodes) {
     if (!fullMotion.has(id)) continue;
     const root = fullMotion.root(id);
-    const { x, y, z } = model.nodes.get(id)!;
-    const position = `${x},${y},${z ?? 0}`;
-    const byPosition = anchors.get(root) ?? new Map<string, number>();
-    const other = byPosition.get(position);
-    if (other === undefined) byPosition.set(position, id);
-    else seams.join(id, other);
-    anchors.set(root, byPosition);
+    const component = anchors.get(root) ?? new Set<number>();
+    if (component.has(id)) continue;
+    const point = model.nodes.get(id)!;
+    for (const other of component) {
+      if (samePhysicalPoint(point, model.nodes.get(other)!)) seams.join(id, other);
+    }
+    component.add(id);
+    anchors.set(root, component);
   }
   return seams;
 }
