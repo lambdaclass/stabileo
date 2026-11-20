@@ -7,7 +7,9 @@
  * aliases reported a 10 kN load with a 5 kN·m moment as no load at all.
  */
 
-import { planePointLoad3D } from './member-point-loads';
+import { planePointLoad3D, type PlanePointLoadLike } from './member-point-loads';
+import { shouldEmbedFlat2DModelIn3D } from './model-embedding';
+import type { ModelData } from './solver-service';
 import { axesStore } from '../axes/axes.svelte';
 import { userAxisAlong, type AxesFrame } from '../axes/frame';
 import { quantityTransform } from '../axes/quantity-transform';
@@ -79,6 +81,23 @@ export function distributedText(
   return `q=${q(shownGlobal(d.qI, d.isGlobal)!)} → ${q(shownGlobal(d.qJ ?? d.qI, d.isGlobal)!)} ${unitLabel('distributedLoad', us)}${range(d, us)}${direction(d, words)}`;
 }
 
+export function pointOnElementFormatter(
+  model: ModelData,
+  is3DWorkspace: boolean,
+  words: MemberLoadWords,
+  us: UnitSystem,
+  frame: AxesFrame = axesStore.frame,
+) {
+  const projectToXZ = !is3DWorkspace || shouldEmbedFlat2DModelIn3D(model);
+  return (d: PlanePointLoadLike) => {
+    const member = model.elements.get(d.elementId);
+    const i = member && model.nodes.get(member.nodeI);
+    const j = member && model.nodes.get(member.nodeJ);
+    const direction = i && j ? [j.x - i.x, j.y - i.y] as const : [0, 0] as const;
+    return pointOnElementText(d, words, us, direction, projectToXZ, frame);
+  };
+}
+
 /**
  * A 2D point load on a member: P, and the axial force and moment it may carry with it (the
  * moment under its legacy alias for old data), then where it sits. '' when every component is
@@ -89,8 +108,8 @@ export function pointOnElementText(
   words: MemberLoadWords,
   us: UnitSystem = 'SI',
   memberDirection: readonly [dx: number, dPlan: number],
+  projectToXZ: boolean,
   frame: AxesFrame = axesStore.frame,
-  projectToXZ = true,
 ): string | null {
   const transform = quantityTransform(frame);
   const normalAxis = projectToXZ ? 1 : 2;

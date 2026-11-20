@@ -37,7 +37,7 @@ import type { DestinationGroup } from '../codes/cirsoc103/spectrum';
 import { shouldEmbedFlat2DModelIn3D } from './solver-service';
 import { activePerCombo3D } from '../store/active-results';
 import { modelStore, resultsStore, uiStore } from '../store';
-import { pointOnElementText } from './calc-report-loads';
+import { pointOnElementFormatter } from './calc-report-loads';
 import { i18n } from '../i18n';
 import type { ReportData, ReportConfig } from './pro-report';
 import { projectQuantities } from './quantities';
@@ -81,7 +81,8 @@ function loadsIn(axes: AxesChoice): Load[] {
 export function serializeLoads(t: Translate, axes: AxesChoice = DEFAULT_AXES): NonNullable<ReportData['loads']> {
   const loads: NonNullable<ReportData['loads']> = [];
   const frame = makeFrame(axes);
-  const projectToXZ = !uiStore.is3DWorkspace || shouldEmbedFlat2DModelIn3D(modelStore.model);
+  const global = t('report.loadGlobal');
+  const pointText = pointOnElementFormatter(modelStore.model, uiStore.is3DWorkspace, { global }, 'SI', frame);
   const h = userAxisAlong(frame, 0).name, v = userAxisAlong(frame, 2).name, nrm = userAxisAlong(frame, 1).name;
   /** A component to four significant figures, never "-0". */
   const n = (v: number) => { const r = +v.toPrecision(4); return Object.is(r, -0) ? '0' : String(r); };
@@ -116,12 +117,7 @@ export function serializeLoads(t: Translate, axes: AxesChoice = DEFAULT_AXES): N
         const d = load.data;
         tipo = t('file.loadPointOnElement'); destino = `${t('report.loadMember')} ${d.elementId}`;
         if (d.isGlobal) {
-          const element = modelStore.elements.get(d.elementId);
-          const i = element && modelStore.nodes.get(element.nodeI);
-          const j = element && modelStore.nodes.get(element.nodeJ);
-          const direction = i && j ? [j.x - i.x, j.y - i.y] as const : [0, 0] as const;
-          const global = t('report.loadGlobal');
-          const text = pointOnElementText(d, { global }, 'SI', direction, frame, projectToXZ);
+          const text = pointText(d);
           valores = text === null ? t('engine.memberLoad.invalidGeometry') : text || `0 kN, a=${n(d.a)} m, ${global}`;
         } else {
           valores = `${parts('kN', [['P', d.p], ['Px', d.px]])}${Math.abs(d.my ?? d.mz ?? 0) > 1e-12 ? `, M${nrm.toLowerCase()}=${n(d.my ?? d.mz!)} kN·m` : ''}, a=${n(d.a)} m` + turn(d);

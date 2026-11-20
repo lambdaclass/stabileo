@@ -13,7 +13,7 @@
   import { reportFigures } from '../lib/export/report-figures';
   import { DEFAULT_FIGURE_OPTIONS, type FigureOptions } from '../lib/export/view-figure';
   import type { InkStyle } from '../lib/export/paper-ink';
-  import { loadComponentsText, distributedText, pointOnElementText, thermalText } from '../lib/engine/calc-report-loads';
+  import { loadComponentsText, distributedText, pointOnElementFormatter, thermalText } from '../lib/engine/calc-report-loads';
   import { t, tp, i18n } from '../lib/i18n';
   import { shouldProjectModelToXZ } from '../lib/geometry/coordinate-system';
   import { captureProvenanceToken, provenanceForExport, provenanceLabels, ensureEngineHashes } from '../lib/store/result-provenance';
@@ -164,6 +164,7 @@
     const loadWords = { global: t('report.loadGlobal') };
     // The report is written in the units chosen in Settings; the model stays in SI.
     const us = uiStore.unitSystem;
+    const pointText = pointOnElementFormatter(modelStore.model, is3D, loadWords, us);
     const loads = modelStore.loads.map((l) => {
       const d = l.data as any;
       let description = '';
@@ -178,10 +179,7 @@
       } else if (l.type === 'distributed3d') {
         description = `${t('table.elemLabel')} ${d.elementId}: ${loadComponentsText(l.type, d, us) || t('calcReport.loadZero')}`;
       } else if (l.type === 'pointOnElement') {
-        const element = modelStore.elements.get(d.elementId);
-        const ni = element && modelStore.nodes.get(element.nodeI), nj = element && modelStore.nodes.get(element.nodeJ);
-        const memberDirection = [ni && nj ? nj.x - ni.x : 0, ni && nj ? nj.y - ni.y : 0] as const;
-        const text = pointOnElementText(d, loadWords, us, memberDirection);
+        const text = pointText(l.data);
         description = `${t('table.elemLabel')} ${d.elementId}: ${text === null ? t('engine.memberLoad.invalidGeometry') : text || t('calcReport.loadZero')}`;
       } else if (l.type === 'thermal') {
         description = `${t('table.elemLabel')} ${d.elementId}: ${thermalText(d, us, uiStore.analysisMode === 'pro' ? 'pro' : 'basic')}`;

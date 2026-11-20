@@ -50,11 +50,9 @@ async function expectPointLoadInSolverPlane(report: Page, axis: 'y' | 'z', mode:
   await expect(load.locator('td').nth(2)).toHaveText(`Member 1: P${axis}=10 kN, a=1 m, global axes`, { timeout: 2000 });
 }
 
-const regression = process.env.RUN_KNOWN_WRONG === '2370' ? it : it.skip;
-
 for (const nonlinear of [false, true]) {
   it.describe(`@smoke Basic point-load report (P-Delta=${nonlinear})`, () => {
-    regression('known wrong result: #2370 a legacy axial point load on a native spatial Y member reports Py', async ({ page }) => {
+    it('#2370 a legacy axial point load on a native spatial Y member reports Py', async ({ page }) => {
       await openPointLoadedCantilever(page, '3d', true);
       await expectPointLoadInSolverPlane(await openReport(page, nonlinear), 'y', '3d');
     });
