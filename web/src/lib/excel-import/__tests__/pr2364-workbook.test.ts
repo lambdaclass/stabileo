@@ -200,7 +200,7 @@ it('known wrong result: #1986 standalone gravity can accompany only the legacy c
   expect(parseWorkbook(workbook(['case', 1, 'X', 2, 'all'])).problems).toEqual([]);
 });
 
-it.skip('known wrong result: #2364 a declared plane nodal row with a nonzero normal component cannot replace a model', () => {
+it('#2364 a declared plane nodal row with a nonzero normal component cannot replace a model', () => {
   for (const [build, choice, workspace] of [
     ['production', DEFAULT_AXES, '2d'],
     ['production', DEFAULT_AXES, '3d'],
@@ -242,7 +242,7 @@ it.skip('known wrong result: #2364 a declared plane nodal row with a nonzero nor
   }
 });
 
-it.skip('known wrong result: #2364 malformed prescribed rotations cannot replace a model', () => {
+it('#2364 malformed prescribed rotations cannot replace a model', () => {
   for (const [build, flat] of [['production', true], ['production', false], ['development', false]] as const) {
     vi.stubGlobal('__PUBLIC_FEATURES__', featuresForMode(build));
     uiStore.analysisMode = flat ? '2d' : 'pro';
@@ -251,7 +251,8 @@ it.skip('known wrong result: #2364 malformed prescribed rotations cannot replace
     const before = modelStore.snapshot();
     const base = flat ? nodes : { Nodes: [['id', 'x', 'y', 'z'], [1, 2, 3, 4]] };
     const type = flat ? 'fixed' : 'fixed3d';
-    for (const declaration of [{}, { Axes: axes(DEFAULT_AXES) }]) {
+    const declarations: Record<string, unknown[][]>[] = [{}, { Axes: axes(DEFAULT_AXES) }];
+    for (const declaration of declarations) {
       for (const column of ['drx', 'dry', 'drz']) {
         const workbook = { ...base, ...declaration, Supports: [['node', 'type', column], [1, type, 'bad']] };
         const outcome = applyWorkbook(workbook);
@@ -265,7 +266,7 @@ it.skip('known wrong result: #2364 malformed prescribed rotations cannot replace
   }
 });
 
-it.skip('known wrong result: #2364 incompatible prescribed rotation units cannot replace a model', () => {
+it('#2364 incompatible prescribed rotation units cannot replace a model', () => {
   for (const workspace of ['2d', 'pro'] as const) {
     vi.stubGlobal('__PUBLIC_FEATURES__', featuresForMode('production'));
     uiStore.analysisMode = workspace;
@@ -294,7 +295,7 @@ it.skip('known wrong result: #2364 incompatible prescribed rotation units cannot
   }
 });
 
-it.skip('known wrong result: #2364 workbook file import refuses a partially invalid load or prescribed rotation', async () => {
+it('#2364 workbook file import refuses a partially invalid load or prescribed rotation', async () => {
   vi.stubGlobal('__PUBLIC_FEATURES__', featuresForMode('production'));
   uiStore.analysisMode = '2d';
   modelStore.addNode(17, 21);

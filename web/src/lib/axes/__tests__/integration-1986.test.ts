@@ -8,6 +8,7 @@ import { verticalCoordIn } from '../typed-frame';
 import { ilText, ilSignReversed } from '../user-names';
 import { componentShown, redundantText } from '../../../components/fm/fm-text';
 import { parseWorkbook } from '../../excel-import/parse';
+import { t } from '../../i18n';
 import { AXES_SHEET, SHEETS, headerFor } from '../../excel-import/schema';
 import { buildTemplateWorkbook } from '../../excel-import/template';
 import * as XLSX from 'xlsx';
@@ -177,5 +178,8 @@ it('a force along the normal of a declared 2D workbook is never read as vertical
     Nodes: [head('Nodes'), row('Nodes', { id: 1, y: 2, z: -3 })],
     Loads: [['type', 'case', 'node', 'fx [kN]'], ['nodal', 1, 1, 8]],
   });
-  expect(r.model.loads[0]?.data.fz).toBe(0);
+  expect(r.problems).toEqual([
+    { sheet: 'Loads', row: 2, column: 'fx', message: t('xls.err.nodalOutOfPlane'), blocking: true },
+  ]);
+  expect(r.model.loads).toEqual([]);
 });

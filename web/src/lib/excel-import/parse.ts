@@ -212,23 +212,27 @@ function readSheet(aoa: unknown[][], sheetName: string, problems: RowProblem[]):
   const keyAt = header.map(keyFromHeader);
 
   const spec = sheetSpec(sheetName, globalAxes());
+  const columns = keyAt.map(k => spec?.columns.find(col => col.key.toLowerCase() === k));
   /** Per column: the factor to the format's unit, or null to leave the column out. */
   const factorAt: Array<number | null> = keyAt.map(() => 1);
   if (spec) {
-    const known = new Set(spec.columns.map((c) => c.key.toLowerCase()));
     keyAt.forEach((k, c) => {
       if (!k) return;
-      if (!known.has(k)) {
+      const column = columns[c];
+      if (!column) {
         problems.push({ sheet: sheetName, row: 1, column: k, message: tp('xls.err.unknownColumn', { k }) });
         return;
       }
-      const want = spec.columns.find((col) => col.key.toLowerCase() === k)!.unit;
+      const want = column.unit;
       const given = unitFromHeader(header[c]);
       if (!want || !given) return;
       const f = unitFactor(want, given);
       factorAt[c] = f;
       if (f === null) {
-        problems.push({ sheet: sheetName, row: 1, column: k, message: tp('xls.err.unitUnknown', { k, u: given, want }) });
+        problems.push({
+          sheet: sheetName, row: 1, column: k, message: tp('xls.err.unitUnknown', { k, u: given, want }),
+          ...(column.strictNumber ? { blocking: true } : {}),
+        });
       }
     });
   }
@@ -242,10 +246,16 @@ function readSheet(aoa: unknown[][], sheetName: string, problems: RowProblem[]):
       const k = keyAt[c];
       if (!k) continue;
       const v = raw[c];
-      if (v !== undefined && v !== null && String(v).trim() !== '') any = true;
+      const filled = str(v) !== '';
+      if (filled) any = true;
       const f = factorAt[c];
       if (f === null) continue;
-      const n = f === 1 ? null : num(v);
+      const strict = columns[c]?.strictNumber;
+      const n = f === 1 && !strict ? null : num(v);
+      if (filled && strict && n === null) {
+        problems.push({ sheet: sheetName, row: i + 1, column: k, message: t('xls.err.notANumber'), blocking: true });
+        continue;
+      }
       cells[k] = n === null ? v : n * f;
     }
     if (any) rows.push({ n: i + 1, cells });
@@ -1075,7 +1085,7 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
         const outside = [[fy, 'f' + userName(1)], [mx, 'm' + userName(0)], [mz, 'm' + userName(2)]] as const;
         const invalid = outside.filter(([value]) => value !== 0);
         if (invalid.length) {
-          for (const [, column] of invalid) problems.push({ sheet: 'Loads', row: row.n, column, message: t('xls.err.nodalOutOfPlane') });
+          for (const [, column] of invalid) problems.push({ sheet: 'Loads', row: row.n, column, message: t('xls.err.nodalOutOfPlane'), blocking: true });
           continue;
         }
         const planeMoment = quantityTransform(frame, 'toModel').plane({

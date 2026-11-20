@@ -41,6 +41,7 @@ export interface ColumnSpec {
   unit?: string;
   /** A row missing this is an error, not a default. */
   required?: boolean;
+  strictNumber?: boolean;
   /** One line, in the instructions sheet. Translated at render time. */
   helpKey: string;
   /** Shown in the example row, so the shape of a valid value is visible. */
@@ -237,7 +238,7 @@ export const SHEETS: SheetSpec[] = [
       { key: 'dx', unit: 'm', helpKey: 'xls.col.dx', example: '' },
       { key: 'dy', unit: 'm', helpKey: 'xls.col.dy', example: '' },
       { key: 'dz', unit: 'm', helpKey: 'xls.col.dz', example: '' },
-      ...['x', 'y', 'z'].map(axis => ({ key: 'dr' + axis, unit: 'rad', helpKey: 'xls.col.supportRotation', example: '' })),
+      ...['x', 'y', 'z'].map(axis => ({ key: 'dr' + axis, unit: 'rad', strictNumber: true, helpKey: 'xls.col.supportRotation', example: '' })),
     ],
     examples: [
       [1, 'fixed', '', '', '', '', '', '', '', '', '', ''],
