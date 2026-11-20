@@ -404,9 +404,7 @@ describe('pairCompatible reads the relation, not just the geometry', () => {
   });
 });
 
-const issue2338 = process.env.RUN_KNOWN_WRONG === '2338' ? it : it.skip;
-
-issue2338('known wrong result: #2338 joint rows distinguish exact clearance from interference', () => {
+it('known wrong result: #2338 joint rows distinguish exact clearance from interference', () => {
   const diameter = 16;
   const domain = candidates(2, diameter, 0.2);
   expect(domain.length).toBeGreaterThan(0);

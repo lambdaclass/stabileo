@@ -53,8 +53,7 @@ const summary = (v: { checks: Array<{ category: string; status: string; ratio: n
   v.checks.map((c) => `${c.category}|${c.status}|${c.ratio}`).sort();
 
 describe('a beam line as bars along it', () => {
-  const issue2338 = process.env.RUN_KNOWN_WRONG === '2338' ? it : it.skip;
-  issue2338('known wrong result: #2338 reads its members and projects back to the same checks', () => {
+  it('known wrong result: #2338 reads its members and projects back to the same checks', () => {
     const line = designed();
     const ms = lineMembers(line);
     const model = lineFromMembers(ms);

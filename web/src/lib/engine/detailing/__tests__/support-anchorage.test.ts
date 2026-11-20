@@ -216,9 +216,7 @@ issue2249('known wrong result: #2249 a station at moment zero still triggers inf
   expect(check([[2.9, -10], [3, 0], [3.1, 10]])).toMatchObject([verdict]);
 });
 
-const issue2338 = process.env.RUN_KNOWN_WRONG === '2338' ? it : it.skip;
-
-issue2338('known wrong result: #2338 embedment rows report the checked length ratio', () => {
+it('known wrong result: #2338 embedment rows report the checked length ratio', () => {
   const support = cage();
   const faceAtLimit = support.face + (SUPPORT_EMBED_M - support.face - supportPlanes(support).straight) / 2;
   for (const change of [-0.001, 0, 0.001]) {

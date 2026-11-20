@@ -2829,7 +2829,7 @@ function evaluateProvidedReinforcement(
         // compression took the tension branch (Vc reduced to 0 → gross false
         // failures) and tension the enhancement branch (Vc inflated → unsafe).
         for (const stir of stirrups) {
-          const depth = stirrupCoverage && bottomLayers.length ? d + (section.stirrupDia - stir.diameter) / 1000 : d;
+          const depth = bottomLayers.length ? d + (section.stirrupDia - stir.diameter) / 1000 : d;
           const rhoW = depth === d ? ss.rhoW : ss.rhoW * d / depth;
           const cap = computeShearCapacity(stir.diameter, stir.legs, stir.spacing, section.b, depth, section.fc, section.fy, -t.n,
             { Ag: section.b * section.h, rhoW, h: section.h, edition: spacingRule.edition });

@@ -1212,10 +1212,8 @@ function checkReviewBeam(
     { axes: { ...axes, bFlex: geometry.b, hFlex: geometry.h }, spacingRule: { edition, maxAggregateSizeMm: 20 } }).checks;
 }
 
-const issue2338 = process.env.RUN_KNOWN_WRONG === '2338' ? it : it.skip;
-
 for (const spatial of [false, true]) for (const nonlinear of [false, true]) {
-  issue2338(`known wrong result: #2338 primary shear uses the actual hoop depth (spatial=${spatial}, nonlinear=${nonlinear})`, () => {
+  it(`known wrong result: #2338 primary shear uses the actual hoop depth (spatial=${spatial}, nonlinear=${nonlinear})`, () => {
     const L = 4;
     const nodes = new Map([[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: L, y: 0, z: 0 }]]);
     const solverModel = { ...model, nodes };
