@@ -144,7 +144,12 @@ export function combinedTransverseMinimum(edition: RegulationEdition, bw: number
   return coefficient * bw / shearFy(fyt);
 }
 
-export interface TorsionInput {
+export interface TorsionSectionEvidence {
+  evaluatedShear?: { primary: EvaluatedTorsionShear; secondary?: EvaluatedTorsionShear };
+  primaryDepthLimit?: number;
+}
+
+export interface TorsionInput extends TorsionSectionEvidence {
   b: number; h: number; d: number; dSecondary: number | SecondaryShearResolution;
   /** Clear cover to the stirrup, m, and the stirrup's diameter, mm. */
   cover: number; stirrupDiaMm: number;
@@ -155,6 +160,8 @@ export interface TorsionInput {
   /** The stirrups there are: diameter, mm; legs; spacing, m. */
   stirrup?: StirrupDeclaration | CageResolution;
 }
+
+type EvaluatedTorsionShear = { phiVc: number; d: number };
 
 export interface TorsionCheck {
   /** φ·Tth, kN·m: below it torsion may be neglected. */
@@ -227,13 +234,14 @@ export function checkTorsion2025(input: TorsionInput): TorsionCheck {
   const vc = 0.17 * sqLim * 1000; // Vc / (bw·d), kN/m²
   const shearStress = Math.max(Vu / (i.b * d), VuSecondary === 0 ? 0 : VuSecondary / (i.h * dSecondary));
   const shearSectionRatio = Math.hypot(shearStress, 0) / (PHI * (vc + 0.66 * sq * 1000));
-  const lhs = Math.hypot(shearStress, (Tu * ph) / (1.7 * Aoh * Aoh));
+  const torsionStress = (Tu * ph) / (1.7 * Aoh * Aoh);
+  const lhs = Math.hypot(shearStress, torsionStress);
   const sectionRatio = lhs / (PHI * (vc + 0.66 * sq * 1000));
   const AtOverS = Tu / (PHI * 2 * Ao * i.fyt * 1000);
   const outerLegProvided = cage.kind === 'closed-rectangle'
     ? providedTorsionStirrups({ ...cage, legs: cage.primaryLegs }).outerLegProvided : 0;
   const face = (width: number, height: number, depth: number, shear: number, legs: number, rhoW = 0) => {
-    const concrete = !neglect && !activationRefusal && cage.kind === 'closed-rectangle' && shear !== 0
+    const concrete = !neglect && !activationRefusal && cage.kind === 'closed-rectangle' && (shear !== 0 || i.demand.Nu < 0)
       ? evaluateBeamSection({
         edition, fc: i.fc * 1e6, fy: input.fy * 1e6, fyt: input.fyt * 1e6,
         b: width, h: height, d: depth, Ag: Acp, As: rhoW * width * depth,
@@ -243,7 +251,8 @@ export function checkTorsion2025(input: TorsionInput): TorsionCheck {
       ? torsionShearReserve(shear, PHI * concrete.Vc / 1000, depth, i.fyt) : Infinity;
     const required = Math.max(reserve + 2 * AtOverS, combinedTransverseMinimum(edition, width, i.fc, input.fyt));
     const provided = legs * outerLegProvided;
-    return { required, provided, ratio: provided > 0 ? required / provided : Infinity };
+    return { required, provided, ratio: provided > 0 ? required / provided : Infinity,
+      evaluated: concrete ? { phiVc: concrete.shearValid ? PHI * concrete.Vc / 1000 : NaN, d: depth } : undefined };
   };
   const primary = face(i.b, i.h, d, Vu, cage.kind === 'closed-rectangle' ? cage.primaryLegs : 0, i.rhoW?.primary);
   const secondary = VuSecondary > 0 && dSecondary > 0
@@ -256,11 +265,22 @@ export function checkTorsion2025(input: TorsionInput): TorsionCheck {
   const Al = AtOverS * ph * (i.fyt / i.fy);
   const AlMin = Math.max(0, (0.42 * sq * Acp) / i.fy - Math.max(AtOverS, (0.175 * i.b) / i.fyt) * ph * (i.fyt / i.fy));
   const sMax = Math.min(ph / 8, 0.3);
+  const refusesConcrete = (width: number, shear: number, evaluated: EvaluatedTorsionShear | undefined) => {
+    if (!evaluated || (shear === 0 && i.demand.Nu >= 0) || sectionRatio > 1 + 1e-6) return false;
+    const actual = evaluated.phiVc / (PHI * width * evaluated.d);
+    const limit = PHI * (actual + 0.66 * sq * 1000);
+    return !Number.isFinite(actual)
+      || (actual < vc && Math.hypot(shear / (width * evaluated.d), torsionStress) > limit);
+  };
+  const concreteRefusal = !neglect && (refusesConcrete(i.b, Vu, i.evaluatedShear?.primary ?? primary.evaluated)
+    || refusesConcrete(i.h, VuSecondary, i.evaluatedShear?.secondary ?? secondary?.evaluated));
   const invalidGeometry = ![d, x1, y1].every(v => Number.isFinite(v) && v > 0)
     || (VuSecondary !== 0 && !(Number.isFinite(dSecondary) && dSecondary > 0));
-  const refusal = activationRefusal ?? (cage.kind === 'refusal' ? cage.reason
-    : VuSecondary > 0 && secondaryFace?.kind === 'refusal' ? secondaryFace.reason
-      : invalidGeometry ? 'Invalid stirrup cage geometry' : undefined);
+  const sectionRefusal = Vu !== 0 && i.primaryDepthLimit !== undefined && i.d > i.primaryDepthLimit
+    ? 'diag.rcTorsionDepth' : concreteRefusal ? 'diag.rcTorsionConcrete' : undefined;
+  const cageRefusal = cage.kind === 'refusal' && (i.stirrup || !i.evaluatedShear) ? cage.reason : undefined;
+  const refusal = activationRefusal ?? cageRefusal ?? (VuSecondary > 0 && secondaryFace?.kind === 'refusal' ? secondaryFace.reason
+    : invalidGeometry ? 'Invalid stirrup cage geometry' : sectionRefusal);
   const ratios = neglect ? [0] : [
     sectionRatio,
     governing.ratio,

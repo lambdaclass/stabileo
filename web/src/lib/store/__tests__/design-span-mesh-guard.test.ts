@@ -33,15 +33,18 @@
  * follows them through the design's discrete choices (a spacing step, 2 Ø16 against 3 Ø12, where
  * a bar is cut off and the cut-off zone's stirrups, §9.7.3.5(c)).
  */
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, vi } from 'vitest';
 import { modelStore } from '..';
 import { verificationStore } from '../verification.svelte';
+import { designRunStore } from '../design-run.svelte';
+import { DEFAULT_RUN_MS } from '../../engine/design/candidate-search';
 import { markMassKg } from '../../engine/detailing/assembly';
 import { samplePath } from '../../codes/cirsoc201/bar-geometry';
 import type { BarPath } from '../../codes/cirsoc201/bar-geometry';
 import type { DocumentModel } from '../../engine/detailing/document-model';
 import { runDetailing } from '../../engine/detailing/run-detailing';
 import type { MemberContext } from '../../engine/design/member-context';
+import { detailableReinforcement, type MemberDesignOutcome } from '../../engine/design/outcome';
 import { currentConcreteEdition, resolveAggregate, resolveSpacingMargin } from '../detailing-project-inputs';
 import * as wasmSolver from '../../engine/wasm-solver';
 import {
@@ -51,13 +54,20 @@ import {
 import '../../engine/design/adapters/cirsoc201-adapter';
 import '../../engine/design/adapters/unsupported-adapter';
 
+vi.mock(import('../../engine/design/candidate-search'), async (importOriginal) => {
+  const actual = await importOriginal();
+  const runDesign: typeof actual.runDesign = (adapter, contexts, options) =>
+    actual.runDesign(adapter, contexts, { ...options, clock: () => 0 });
+  return { ...actual, runDesign };
+});
+
 beforeAll(async () => {
   await new Promise((r) => setTimeout(r, 0));
   expect(wasmSolver.isSolverReady(), 'real WASM solver required').toBe(true);
 });
 
 const PRINT = !!process.env.SPAN_TRACE_PRINT;
-const r1 = (v: number) => Math.round(v * 10) / 10;
+const r1 = (v: number | null) => v === null ? null : Math.round(v * 10) / 10;
 
 interface BeamTally {
   name: string;
@@ -69,9 +79,10 @@ interface BeamTally {
   /** Rows of the planilla holding a bar of the beam. */
   rows: number;
   /** Σ of the beam's part of each row, kg. */
-  mass: number;
+  mass: number | null;
   /** The same bars weighed one by one at their exact cutting length, kg. */
-  barMass: number;
+  barMass: number | null;
+  refusals: MemberDesignOutcome[];
   /** Its marks as the schedule lists them: letter, Ø, cutting length, shape, use, its bars in it. */
   marks: string[];
   /** Its stirrups and ties: Ø and where each stands along the beam, mm. */
@@ -103,6 +114,7 @@ interface Tally {
   validity: string[];
   /** Every design member's reinforcement and outcome, by place (`designPlace`). */
   designs: Record<string, string>;
+  refusedDesigns: Map<string, MemberDesignOutcome>;
   /** The forces the design read, by place: the solve's, or the ones prescribed. */
   forces: Map<string, PrescribedForces>;
 }
@@ -120,10 +132,18 @@ const FRAME = { columnSide: 0.4 } as const;
 function tally(mesh: number, prescribed?: ReadonlyMap<string, PrescribedForces>): Tally {
   building(mesh, FRAME);
   const doc: DocumentModel = prescribed ? designAndDocumentUnder(prescribed) : designAndDocument();
+  expect(verificationStore.runSummary, `complete design at mesh ${mesh}`).toMatchObject({
+    aborted: false, notReached: 0,
+  });
   const forces = new Map(prescribed ?? forcesByPlace(false));
   const designs: Record<string, string> = {};
+  const refusedDesigns = new Map<string, MemberDesignOutcome>();
   for (const c of verificationStore.contexts.values()) {
-    designs[`${c.elementType} ${designPlace(c)}`] = `${verificationStore.outcomeFor(c.elementId)?.outcome} ${JSON.stringify(modelStore.elements.get(c.elementId)?.reinforcement ?? null)}`;
+    const key = `${c.elementType} ${designPlace(c)}`;
+    const outcome = verificationStore.outcomeFor(c.elementId);
+    if (!outcome) throw new Error(`Missing design outcome for ${key} at mesh ${mesh}`);
+    designs[key] = `${outcome.outcome} ${JSON.stringify(modelStore.elements.get(c.elementId)?.reinforcement ?? null)}`;
+    if (c.elementType === 'beam' && !detailableReinforcement(outcome)) refusedDesigns.set(key, outcome);
   }
   const problems: string[] = [];
   const beams = [...verificationStore.contexts.values()].filter((c) => c.elementType === 'beam').map((c) => c.elementId);
@@ -282,6 +302,8 @@ function tally(mesh: number, prescribed?: ReadonlyMap<string, PrescribedForces>)
       const gap = Math.max(0, ...xs.slice(1).map((v, i) => v - xs[i]!));
       if (gap > widest + 0.002) validity.push(`${z}: stirrups ${gap.toFixed(3)} apart, designed ${widest}`);
     }
+    const refusals = pb.elements.map((id) => verificationStore.outcomeFor(id))
+      .filter((outcome): outcome is MemberDesignOutcome => !!outcome && !detailableReinforcement(outcome));
     const ids = new Set(own.map((x) => x.b.id));
     const shares = doc.assemblies.flatMap((a) => a.source.marks.filter((m) => m.barIds.some((id) => ids.has(id))).map((m) => m.massKg * m.barIds.filter((id) => ids.has(id)).length / m.quantity));
     const marks = doc.assemblies.flatMap((a) => a.source.marks.filter((m) => m.barIds.some((id) => ids.has(id)))
@@ -299,17 +321,78 @@ function tally(mesh: number, prescribed?: ReadonlyMap<string, PrescribedForces>)
       longitudinal: own.filter((x) => x.b.role === 'longitudinal').length,
       stirrups: own.filter((x) => x.b.role !== 'longitudinal').length,
       rows: shares.length,
-      mass: shares.reduce((s, v) => s + v, 0),
-      barMass: own.reduce((s, { b }) => s + markMassKg(b.diameterMm, b.cuttingLength, 1), 0),
+      mass: refusals.length ? null : shares.reduce((s, v) => s + v, 0),
+      barMass: refusals.length ? null : own.reduce((s, { b }) => s + markMassKg(b.diameterMm, b.cuttingLength, 1), 0),
+      refusals,
       marks, stirrupsAt, longitudinalAt,
     };
   });
   const bars = doc.assemblies.reduce((n, a) => n + a.bars.length, 0);
-  return { mesh, pieces: beams.length, designMembers, spans: spans.size, beams: tallies, bars, partition, problems, ends: Object.fromEntries([...tallyEnds].sort()), coverReported, clashes: clashListed.size, readiness: doc.readiness, validity, designs, forces };
+  return { mesh, pieces: beams.length, designMembers, spans: spans.size, beams: tallies, bars, partition, problems, ends: Object.fromEntries([...tallyEnds].sort()), coverReported, clashes: clashListed.size, readiness: doc.readiness, validity, designs, refusedDesigns, forces };
 }
 
 const MESHES = [1, 0.5, 2, 6] as const;
-const sum = (xs: readonly BeamTally[], k: 'longitudinal' | 'stirrups' | 'mass') => xs.reduce((s, b) => s + b[k], 0);
+const sum = (xs: readonly BeamTally[], k: 'longitudinal' | 'stirrups') => xs.reduce((s, b) => s + b[k], 0);
+const REFUSED_BEAMS = ['V1', 'V2', 'V3', 'V5', 'V6', 'V7', 'V8', 'V10'];
+
+function expectTorsionRefusal(outcome: MemberDesignOutcome) {
+  expect(outcome.outcome).toBe('SEARCH_EXHAUSTED');
+  expect(outcome.limiting).toEqual(['unsupportedCheck']);
+  expect(outcome.reasons).toContainEqual({ key: 'diag.rcTorsionPerimeter' });
+  expect(outcome.provisional?.verdict.checks).toContainEqual(expect.objectContaining({
+    description: 'diag.rcTorsionPerimeter', status: 'fail',
+  }));
+  expect(outcome.accepted).toBeUndefined();
+  expect(outcome.certificate).toBeUndefined();
+}
+
+function expectRefusedBeams(t: Tally, names: readonly string[]) {
+  expect(t.beams.filter((b) => b.refusals.length).map((b) => b.name), `mesh ${t.mesh}`).toEqual(names);
+  for (const b of t.beams) {
+    if (!b.refusals.length) continue;
+    expect(b.refusals).toHaveLength(b.pieces);
+    for (const refusal of b.refusals) expectTorsionRefusal(refusal);
+    expect([b.longitudinal, b.stirrups, b.rows]).toEqual([0, 0, 0]);
+    expect(b.mass).toBeNull();
+    expect(b.barMass).toBeNull();
+  }
+}
+
+it.each(['solved', 'prescribed'] as const)(
+  '#2338: the mesh guard reaches V10 under %s forces after a scheduling delay',
+  (source) => {
+    let prescribed: ReadonlyMap<string, PrescribedForces> | undefined;
+    if (source === 'prescribed') {
+      building(0.5, FRAME);
+      prescribed = forcesByPlace();
+    }
+    const now = performance.now.bind(performance);
+    const clock = vi.spyOn(performance, 'now').mockImplementation(() => {
+      const progress = designRunStore.progress;
+      const beforeLastMember = designRunStore.phase === 'autoDesign' && progress && progress.done === progress.total - 1;
+      return now() + (beforeLastMember ? DEFAULT_RUN_MS + 1 : 0);
+    });
+    try {
+      const t = tally(0.5, prescribed);
+      expectRefusedBeams(t, REFUSED_BEAMS);
+    } finally {
+      clock.mockRestore();
+    }
+  },
+  60_000,
+);
+
+function expectDesignsOrRefusals(t: Tally) {
+  for (const [key, value] of Object.entries(t.designs)) {
+    const refusal = t.refusedDesigns.get(key);
+    if (refusal) {
+      expectTorsionRefusal(refusal);
+      expect(value, key).toBe('SEARCH_EXHAUSTED null');
+    } else {
+      expect(value, key).not.toMatch(/ null$/);
+    }
+  }
+}
 
 describe('the same building designed and detailed under four slab meshes', () => {
   const t = new Map<number, Tally>();
@@ -323,8 +406,10 @@ describe('the same building designed and detailed under four slab meshes', () =>
       for (const [k, vs] of kinds) console.log('VALIDITY', x.mesh, vs.length, k, '| e.g.', vs[0]);
       console.log(`  ends ${JSON.stringify(x.ends)} cover-reported ${x.coverReported} readiness ${x.readiness}`);
       console.log(`MESH ${x.mesh}: pieces ${x.pieces}, design members ${x.designMembers}, spans ${x.spans}, bars ${x.bars} = beams ${x.partition.beams} + joints ${x.partition.joints} + columns ${x.partition.others}, problems ${x.problems.length}`);
-      for (const b of x.beams) console.log(`  ${b.name}: pieces ${b.pieces} spans ${b.spans} long ${b.longitudinal} stirrups ${b.stirrups} rows ${b.rows} mass ${r1(b.mass)} (bars ${r1(b.barMass)})`);
-      console.log(`  beams: longitudinal ${sum(x.beams, 'longitudinal')}, stirrups ${sum(x.beams, 'stirrups')}, mass ${r1(sum(x.beams, 'mass'))} kg`);
+      for (const b of x.beams) console.log(`  ${b.name}: pieces ${b.pieces} spans ${b.spans} long ${b.longitudinal} stirrups ${b.stirrups} rows ${b.rows} mass ${r1(b.mass) ?? 'unavailable'} (bars ${r1(b.barMass) ?? 'unavailable'})`);
+      const mass = x.beams.reduce<number | null>((total, b) =>
+        total === null || b.mass === null ? null : total + b.mass, 0);
+      console.log(`  beams: longitudinal ${sum(x.beams, 'longitudinal')}, stirrups ${sum(x.beams, 'stirrups')}, mass ${r1(mass) ?? 'unavailable'}`);
     }
   }, 300_000);
 
@@ -347,10 +432,18 @@ describe('the same building designed and detailed under four slab meshes', () =>
   });
 
   it('each beam\'s mass is the sum of its rows, and its bars weighed one by one', () => {
-    for (const m of MESHES) for (const b of t.get(m)!.beams) {
-      // The rows round the cutting length to the centimetre the planilla prints: 0,5 % covers
-      // ±5 mm on the shortest bar a beam has (a 1,35 m stirrup).
-      expect(Math.abs(b.mass - b.barMass) / b.barMass, `${b.name} at ${m} m`).toBeLessThan(0.005);
+    for (const m of MESHES) {
+      const x = t.get(m)!;
+      expectRefusedBeams(x, m === 6 ? [] : REFUSED_BEAMS);
+      for (const b of x.beams) {
+        if (b.refusals.length) continue;
+        const label = `${b.name} at ${m} m`;
+        expect(b.mass, label).toBeGreaterThan(0);
+        expect(b.barMass, label).toBeGreaterThan(0);
+        // The rows round the cutting length to the centimetre the planilla prints: 0,5 % covers
+        // ±5 mm on the shortest bar a beam has (a 1,35 m stirrup).
+        expect(Math.abs(b.mass! - b.barMass!) / b.barMass!, label).toBeLessThan(0.005);
+      }
     }
   });
 
@@ -406,16 +499,16 @@ describe('the same building designed and detailed under four slab meshes', () =>
  * (`design-anchorage-coherence.test.ts`).
  */
 const EXPECTED_ENDS: unknown[] = [
-  [1, { 'end/hook': 70, 'end/straight': 40 }, 0],
-  [0.5, { 'end/hook': 68, 'end/straight': 40 }, 0],
-  [2, { 'end/hook': 62, 'end/straight': 40 }, 0],
+  [1, { 'end/hook': 14, 'end/straight': 8 }, 0],
+  [0.5, { 'end/hook': 16, 'end/straight': 8 }, 0],
+  [2, { 'end/hook': 14, 'end/straight': 8 }, 0],
   [6, { 'end/hook': 80, 'end/straight': 40 }, 0],
 ];
 
 /** What a beam's schedule is, mesh-free: everything but where its longitudinal bars lie. */
 const schedule = (x: Tally) => x.beams.map((b) => ({
   name: b.name, longitudinal: b.longitudinal, stirrups: b.stirrups, rows: b.rows,
-  mass: Math.round(b.mass * 1e6) / 1e6, marks: b.marks,
+  mass: b.mass === null ? null : Math.round(b.mass * 1e6) / 1e6, marks: b.marks,
 }));
 
 describe('the same forces under the four meshes: the same design, the same schedule', () => {
@@ -426,7 +519,8 @@ describe('the same forces under the four meshes: the same design, the same sched
   beforeAll(() => {
     building(0.5, FRAME);
     const forces = forcesByPlace();
-    for (const m of MESHES) t.set(m, tally(m, forces));
+    for (const m of MESHES.filter((mesh) => mesh !== 6)) t.set(m, tally(m, forces));
+    t.set(6, tally(6, forces));
     if (!PRINT) return;
     for (const x of t.values()) {
       console.log(`PRESCRIBED ${x.mesh}: ` + x.beams.map((b) => `${b.name} ${b.stirrups}/${b.longitudinal}/${r1(b.mass)}`).join(' '));
@@ -438,13 +532,14 @@ describe('the same forces under the four meshes: the same design, the same sched
     const at1 = t.get(1)!.designs;
     expect(Object.keys(at1)).toHaveLength(26);
     // Every member designed: equal and absent would say nothing.
-    for (const [k, v] of Object.entries(at1)) expect(v, k).not.toMatch(/ null$/);
+    expectDesignsOrRefusals(t.get(1)!);
     for (const m of MESHES) expect(t.get(m)!.designs, `mesh ${m}`).toEqual(at1);
   });
 
   it('every beam gets the same marks, cutting lengths, bar and stirrup counts and mass', () => {
-    // Every beam has its cage: equal and empty would say nothing.
+    for (const m of MESHES) expectRefusedBeams(t.get(m)!, REFUSED_BEAMS);
     for (const b of t.get(1)!.beams) {
+      if (b.refusals.length) continue;
       expect(b.longitudinal, b.name).toBeGreaterThan(0);
       expect(b.stirrups, b.name).toBeGreaterThan(0);
     }
@@ -484,13 +579,25 @@ describe('the same forces under the four meshes: the same design, the same sched
     // numbered above every column (the order the cut meshes give: their spans are new pieces),
     // and with every column above every beam. The bars, read back under the model's own ids,
     // are the same three times.
-    building(6, FRAME);
-    designAndDocumentUnder(t.get(6)!.forces);
-    const kinds = new Map([...verificationStore.contexts.values()].map((c) => [c.elementId, c.elementType]));
+    const contexts = [...verificationStore.contexts.values()];
+    const beams = contexts.filter((c) => c.elementType === 'beam');
+    expect(beams).toHaveLength(t.get(6)!.pieces);
+    expect(beams.some((c) => c.span)).toBe(false);
+    const kinds = new Map(contexts.map((c) => [c.elementId, c.elementType]));
     const asIs = detailNumbered(() => 0);
-    // Every beam has longitudinal bars: equal and empty would say nothing.
     for (const [id, k] of kinds) {
-      if (k === 'beam') expect(asIs.some((l) => l.startsWith('longitudinal') && new RegExp(`[[,]${id}[\\],]`).test(l)), `beam ${id}`).toBe(true);
+      if (k !== 'beam') continue;
+      const outcome = verificationStore.outcomeFor(id);
+      const hasBars = asIs.some((line) => {
+        const owners = /^longitudinal \S+ \S+ \[([\d,]+)\] /.exec(line)?.[1];
+        return owners?.split(',').includes(String(id));
+      });
+      if (outcome && !detailableReinforcement(outcome)) {
+        expectTorsionRefusal(outcome);
+        expect(hasBars, `beam ${id}`).toBe(false);
+      } else {
+        expect(hasBars, `beam ${id}`).toBe(true);
+      }
     }
     expect(detailNumbered((id) => (kinds.get(id) === 'beam' ? 1000 : 0))).toEqual(asIs);
     expect(detailNumbered((id) => (kinds.get(id) === 'beam' ? 0 : 1000))).toEqual(asIs);
@@ -516,7 +623,9 @@ describe('the steel is the forces\': each mesh\'s forces give its steel on anoth
 
   it('the same reinforcement on every member and the same schedule on every beam', () => {
     for (const m of MESHES) {
-      for (const [k, v] of Object.entries(own.get(m)!.designs)) expect(v, `${k} at ${m} m`).not.toMatch(/ null$/);
+      expectDesignsOrRefusals(own.get(m)!);
+      expectDesignsOrRefusals(on1.get(m)!);
+      expectRefusedBeams(on1.get(m)!, m === 6 ? [] : REFUSED_BEAMS);
       expect(on1.get(m)!.designs, `forces of ${m} m on the 1 m model`).toEqual(own.get(m)!.designs);
       expect(schedule(on1.get(m)!), `forces of ${m} m on the 1 m model`).toEqual(schedule(own.get(m)!));
     }

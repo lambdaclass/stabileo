@@ -1,5 +1,5 @@
 {
-  "base": "2e4f202b069f28855a5fbb314a00bd4db6f1e6d5",
+  "base": "35b08a1f0224b8e42551d88e5df4173e685942ca",
   "files": {
     "src/App.svelte": {
       "source": "2081370d4f261ca4ed3b07638dfa901d5007fe203ebe2c6286322722a922e13a",
@@ -2352,8 +2352,8 @@
     "src/lib/codes/turkey/ts498-wind.ts": null,
     "src/lib/codes/turkey/ts500-combinations.ts": null,
     "src/lib/engine/codes/argentina/cirsoc201.ts": {
-      "source": "47ef6056b90784709091d0dbe8946724c6f61b78c7ce8ce828410bac1a58f2c9",
-      "original": "f80a1a8a3ae2ca339ba71e22236ca4a22a0c9ce1d1b8c582d11f2303bea4fe41",
+      "source": "98fd7b2fff10d815f20cbb594f4b36f33dbe87c44b1d6f9b6664d4cbae181926",
+      "original": "9227c31653eaa6a0b703e69bf927cc2218e094f7dd7890a0146ddb0e3757564c",
       "changes": [
         [
           532,
@@ -2989,18 +2989,18 @@
       ]
     },
     "src/lib/i18n/locales/ar.ts": {
-      "source": "c865574671f7280c7cbc964555721a34ef53462d8c00a1496180100a6f5055b0",
-      "original": "a705272ea8d615d5b7600d6c41befa363f1f89bb0f93eebf64bf293550059de1",
+      "source": "36fd0a8a2ae264234ca0f6f94fdf268b98aff01e25fbd14aca1f261227bc385b",
+      "original": "d0f73d3dddea8a9c1b97aac11949b65cf9e74749cbb756f83cccb076183f7565",
       "changes": [
         [
-          2629,
+          2638,
           0,
           [
             "  'pro.nPlatesQuads': '{plates} لوحة، {quads} رباعي',"
           ]
         ],
         [
-          2631,
+          2640,
           0,
           [
             "  'pro.meshGenerator': 'مولد الشبكة',"
@@ -3009,8 +3009,8 @@
       ]
     },
     "src/lib/i18n/locales/de.ts": {
-      "source": "a591cd4884c31f3839c0782252b383fefdc9995abe6f72976796ce53ef8a0463",
-      "original": "922d9760d4d279bc9d04b677cc6012f9a7940d6c0b9136cc9f8262638ef450fa",
+      "source": "6730de74019ea167b362c406c6fed7be7009579b07e56fcba7a036054781c2cd",
+      "original": "f568d7fbe1d94186b7c5ddd0d1a0a9badaa1f731a8ce3fa5ff435e40e9eb1c6e",
       "changes": [
         [
           15,
@@ -3018,33 +3018,33 @@
           []
         ],
         [
-          4855,
+          4863,
           1,
           []
         ],
         [
-          4960,
+          4968,
           0,
           [
             "  'pro.curvedShellHint': 'Diese vier Knoten liegen {mm} mm außerhalb einer Ebene. Eben berechnet geht die Krümmung verloren – aktivieren Sie „Gekrümmte Schale“, um sie zu erhalten.',"
           ]
         ],
         [
-          5141,
+          5149,
           0,
           [
             "  'pro.nPlatesQuads': '{plates} Dreiecke, {quads} Vierecke',"
           ]
         ],
         [
-          5143,
+          5151,
           0,
           [
             "  'pro.meshGenerator': 'Netzgenerator',"
           ]
         ],
         [
-          5150,
+          5158,
           0,
           [
             "  'pro.shellInfoTitle': 'Wie Schalen verbunden sind und Lasten übertragen',",
@@ -3055,14 +3055,14 @@
           ]
         ],
         [
-          5151,
+          5159,
           0,
           [
             "  'pro.shellWarnDisconnected': '{n} Schale(n) haben eine Ecke, die mit nichts anderem verbunden ist (kein Balken, kein Auflager, keine andere Schale). Dort kann keine Last übertragen werden – fügen Sie einen gemeinsamen Knoten oder ein Auflager hinzu oder vernetzen Sie so, dass die Kanten Balkenknoten teilen.',"
           ]
         ],
         [
-          5995,
+          6003,
           1,
           [
             "  'physical.explain': 'Was jede Gruppe von Stäben und Schalen ist: Durchlaufträger, mehrgeschossige Stützen, Decken, Wände, Verbände. Die Bemessung liest die Art von hier. Aus der Geometrie Abgeleitetes ist markiert; korrigieren Sie es, wird es zu „festgelegt“.',",
@@ -3070,35 +3070,35 @@
           ]
         ],
         [
-          7639,
+          7647,
           1,
           [
             "  'loads.cirsoc101.reduction.applied': 'K_LL·A_t = {kll} × {at} = {kllAt} m². L = {lo} (0.25 + 4.57/√{kllAt}) = {raw} kN/m².',"
           ]
         ],
         [
-          7685,
+          7693,
           1,
           [
             "  'loadPlan.derivation.adjacentSpans': 'Lasten beiderseits eines Auflagers (Kommentar zu §4.3.3): {n} Anordnungen, die beiden Felder neben einer Rasterlinie belastet und darüber hinaus jedes zweite Feld ({x} Linien in X und {y} in Y).',"
           ]
         ],
         [
-          11051,
+          11059,
           0,
           [
             "  'combos.rules.seed': 'Mit CIRSOC 101 beginnen',"
           ]
         ],
         [
-          11058,
+          11066,
           1,
           [
             "  'batch.shells': 'Gruppenbearbeitung: {n} Schalen',"
           ]
         ],
         [
-          11096,
+          11104,
           0,
           [
             "  'quickEdit.meshSize': 'Elementgröße',",
@@ -3108,7 +3108,7 @@
           ]
         ],
         [
-          11157,
+          11165,
           2,
           [
             "  'autoLoad.roof.maintenance': 'Nur Wartung (Lr, §4.8.1)',",
@@ -3116,49 +3116,49 @@
           ]
         ],
         [
-          11195,
+          11203,
           0,
           [
             "  'combos.rules.none': 'Noch keine Regeln. Fügen Sie eine hinzu oder beginnen Sie mit CIRSOC 101.',"
           ]
         ],
         [
-          11522,
+          11530,
           1,
           [
             "  'mesher.polygon': 'Polygon',"
           ]
         ],
         [
-          11529,
+          11537,
           1,
           [
             "  'mesher.auto': 'auto',"
           ]
         ],
         [
-          13563,
+          13571,
           1,
           [
             "  'desk.prep.existingHint': 'Für ein bereits erstelltes statisches Modell: Seine physischen Bauteile (Balken, Stützen, Decken, Wände) werden erkannt und die für die Bemessung nötigen Daten ergänzt.',"
           ]
         ],
         [
-          13566,
+          13574,
           0,
           [
             "  'desk.prep.recognize': 'Physische Bauteile erkennen',"
           ]
         ],
         [
-          13577,
+          13585,
           0,
           [
             "  'desk.prep.miss.pieces': 'Die physischen Bauteile fehlen: Erkennen Sie sie aus dem statischen Modell.',"
           ]
         ],
         [
-          13967,
+          13975,
           3,
           [
             "  'building.slabs.meshedCount': '{n} Decken wurden bei der Berechnung vernetzt.',",
@@ -3167,17 +3167,17 @@
           ]
         ],
         [
-          14096,
+          14104,
           7,
           []
         ],
         [
-          14106,
+          14114,
           48,
           []
         ],
         [
-          14165,
+          14173,
           0,
           [
             "  'plates.status.unmeshed': 'kein Netz',",
@@ -3188,7 +3188,7 @@
           ]
         ],
         [
-          14171,
+          14179,
           0,
           [
             "  'plates.removeHole': 'Loch entfernen',",
@@ -3198,49 +3198,49 @@
           ]
         ],
         [
-          14188,
+          14196,
           0,
           [
             "  'plates.planning': 'Vorbereitung {done} von {total}…',"
           ]
         ],
         [
-          14193,
+          14201,
           0,
           [
             "  'plates.qualityCell': 'min. Winkel {angle}°, {poor} schlecht',"
           ]
         ],
         [
-          14203,
+          14211,
           0,
           [
             "  'plates.planTotal': '{cells} Elemente insgesamt, von {size} {unit}. Schlechte Qualität: ein Winkel unter {angle}° oder sehr ungleiche Seiten.',"
           ]
         ],
         [
-          14209,
+          14217,
           0,
           [
             "  'plates.listTitle': 'Physische Platten ({n})',"
           ]
         ],
         [
-          14210,
+          14218,
           0,
           [
             "  'plates.nElements': '{n} Elemente',"
           ]
         ],
         [
-          14214,
+          14222,
           1,
           [
             "  'plates.meshBeforeAnalysisHint': 'Vor jeder Berechnung werden nur die Platten ohne Netz oder mit veraltetem Netz vernetzt, mit ihren eigenen Einstellungen. Ausgeschaltet bricht die Berechnung ab und nennt sie.',"
           ]
         ],
         [
-          14267,
+          14275,
           0,
           [
             "  'plates.sideFollows': 'gekrümmt, folgt gekrümmtem Stab {id}',",
@@ -3248,48 +3248,48 @@
           ]
         ],
         [
-          14268,
+          14276,
           0,
           [
             "  'plates.sideThrough': 'Durchgangsknoten',"
           ]
         ],
         [
-          14269,
+          14277,
           0,
           [
             "  'plates.sideCurved': 'Seite gekrümmt. Das Netz ist veraltet, bis Sie erneut vernetzen.',"
           ]
         ],
         [
-          14407,
+          14415,
           0,
           [
             "  'plates.sidesSummary': '{n}, {curved} gekrümmt',"
           ]
         ],
         [
-          14411,
+          14419,
           1,
           [
             "  'plates.showMeshHint': 'Ausgeschaltet wird jede vernetzte Platte als Bauteil (ihr Umriss) gezeichnet. Nur die Darstellung ändert sich: Auswahl und Ergebnisse bleiben, wie sie sind.',"
           ]
         ],
         [
-          14529,
+          14537,
           4,
           []
         ],
         [
-          14994,
+          15002,
           1058,
           []
         ]
       ]
     },
     "src/lib/i18n/locales/en.ts": {
-      "source": "cbaf34529f41a4521e568fd4719d675a5acb720eaa4836b003882763fa5202b0",
-      "original": "ca076c7929071c1e2b29e58e84a8756a69b566b455c283e3288ffa309072bc0e",
+      "source": "15665ed73b904c68f6130080750e2f6879e8cf54191be69d18d4a2a8889b247a",
+      "original": "31bf1fb1383e91c0a3a2d98db9d4b6277faee72fe8fbaec6cb492388276b0ba6",
       "changes": [
         [
           13,
@@ -3302,33 +3302,33 @@
           []
         ],
         [
-          5307,
+          5315,
           1,
           []
         ],
         [
-          5412,
+          5420,
           0,
           [
             "  'pro.curvedShellHint': 'These four nodes are {mm} mm out of plane. Solved flat, the curvature is lost — tick Curved shell to keep it.',"
           ]
         ],
         [
-          5593,
+          5601,
           0,
           [
             "  'pro.nPlatesQuads': '{plates} triangles, {quads} quads',"
           ]
         ],
         [
-          5595,
+          5603,
           0,
           [
             "  'pro.meshGenerator': 'Mesh generator',"
           ]
         ],
         [
-          5602,
+          5610,
           0,
           [
             "  'pro.shellInfoTitle': 'How shells connect & transfer load',",
@@ -3339,14 +3339,14 @@
           ]
         ],
         [
-          5603,
+          5611,
           0,
           [
             "  'pro.shellWarnDisconnected': '{n} shell(s) have a corner attached to nothing else (no beam, support, or other shell). Load cannot transfer there — add a shared node or support, or mesh so edges share beam nodes.',"
           ]
         ],
         [
-          6447,
+          6455,
           1,
           [
             "  'physical.explain': 'What each set of bars and shells is: continuous beams, multistory columns, slabs, walls, braces. Design reads the kind from here. What was inferred from the geometry is marked; correct it and it becomes declared.',",
@@ -3354,21 +3354,21 @@
           ]
         ],
         [
-          11591,
+          11599,
           0,
           [
             "  'combos.rules.seed': 'Start from CIRSOC 101',"
           ]
         ],
         [
-          11598,
+          11606,
           1,
           [
             "  'batch.shells': 'Group editing: {n} shells',"
           ]
         ],
         [
-          11636,
+          11644,
           0,
           [
             "  'quickEdit.meshSize': 'Element size',",
@@ -3378,7 +3378,7 @@
           ]
         ],
         [
-          11697,
+          11705,
           2,
           [
             "  'autoLoad.roof.maintenance': \"Maintenance only (Lr, §4.8.1)\",",
@@ -3386,35 +3386,35 @@
           ]
         ],
         [
-          11735,
+          11743,
           0,
           [
             "  'combos.rules.none': 'No rules yet. Add one or start from CIRSOC 101.',"
           ]
         ],
         [
-          14100,
+          14108,
           1,
           [
             "  'desk.prep.existingHint': \"For an analytical model already built: its physical pieces (beams, columns, slabs, walls) are recognized and the data design needs is completed.\","
           ]
         ],
         [
-          14103,
+          14111,
           0,
           [
             "  'desk.prep.recognize': \"Recognize physical pieces\","
           ]
         ],
         [
-          14114,
+          14122,
           0,
           [
             "  'desk.prep.miss.pieces': \"The physical pieces are missing: recognize them from the analytical model.\","
           ]
         ],
         [
-          14503,
+          14511,
           3,
           [
             "  \"building.slabs.meshedCount\": \"{n} slabs were meshed by the analysis.\",",
@@ -3423,17 +3423,17 @@
           ]
         ],
         [
-          14631,
+          14639,
           7,
           []
         ],
         [
-          14641,
+          14649,
           48,
           []
         ],
         [
-          14700,
+          14708,
           0,
           [
             "  \"plates.status.unmeshed\": \"no mesh\",",
@@ -3444,7 +3444,7 @@
           ]
         ],
         [
-          14706,
+          14714,
           0,
           [
             "  \"plates.removeHole\": \"Remove hole\",",
@@ -3454,49 +3454,49 @@
           ]
         ],
         [
-          14723,
+          14731,
           0,
           [
             "  \"plates.planning\": \"Planning {done} of {total}…\","
           ]
         ],
         [
-          14728,
+          14736,
           0,
           [
             "  \"plates.qualityCell\": \"min. angle {angle}°, {poor} poor\","
           ]
         ],
         [
-          14738,
+          14746,
           0,
           [
             "  \"plates.planTotal\": \"{cells} elements in all, of {size} {unit}. Poor quality: an angle under {angle}° or very unequal sides.\","
           ]
         ],
         [
-          14744,
+          14752,
           0,
           [
             "  \"plates.listTitle\": \"Physical plates ({n})\","
           ]
         ],
         [
-          14745,
+          14753,
           0,
           [
             "  \"plates.nElements\": \"{n} elements\","
           ]
         ],
         [
-          14749,
+          14757,
           1,
           [
             "  \"plates.meshBeforeAnalysisHint\": \"Before each analysis only the plates with no mesh or an out-of-date one are meshed, at their own settings. Off, the analysis stops and names them.\","
           ]
         ],
         [
-          14802,
+          14810,
           0,
           [
             "  \"plates.sideFollows\": \"curved, follows curved member {id}\",",
@@ -3504,43 +3504,43 @@
           ]
         ],
         [
-          14803,
+          14811,
           0,
           [
             "  \"plates.sideThrough\": \"node it passes\","
           ]
         ],
         [
-          14804,
+          14812,
           0,
           [
             "  \"plates.sideCurved\": \"Side curved. The mesh is out of date until you mesh again.\","
           ]
         ],
         [
-          14942,
+          14950,
           0,
           [
             "  \"plates.sidesSummary\": \"{n}, {curved} curved\","
           ]
         ],
         [
-          14946,
+          14954,
           1,
           [
             "  \"plates.showMeshHint\": \"Off, each meshed plate is drawn as the piece (its outline). Only the drawing changes: picking and results stay as they are.\","
           ]
         ],
         [
-          15154,
+          15162,
           1060,
           []
         ]
       ]
     },
     "src/lib/i18n/locales/es.ts": {
-      "source": "b7d014f93baee9698e541d9247945fae311e601f1eab7466d950fb9f0474476d",
-      "original": "72fee488f4baface33ed21a1f5c503dc9475f20554f8aa0546b3a23c1739e44f",
+      "source": "5d6d76818e78fef4e17275acbb1a000be1fbe7960bfa7d7507c3d3c46743cf92",
+      "original": "3fb54bf8f645e71731fe638d24c99c3ffd62faa8834815f16d247c8d66b628c8",
       "changes": [
         [
           13,
@@ -3553,33 +3553,33 @@
           []
         ],
         [
-          5300,
+          5308,
           1,
           []
         ],
         [
-          5405,
+          5413,
           0,
           [
             "  'pro.curvedShellHint': 'Estos cuatro nodos están {mm} mm fuera de plano. Resuelta plana, la curvatura se pierde — tildá Cáscara para conservarla.',"
           ]
         ],
         [
-          5586,
+          5594,
           0,
           [
             "  'pro.nPlatesQuads': '{plates} placas, {quads} quads',"
           ]
         ],
         [
-          5588,
+          5596,
           0,
           [
             "  'pro.meshGenerator': 'Generador de malla',"
           ]
         ],
         [
-          5595,
+          5603,
           0,
           [
             "  'pro.shellInfoTitle': 'Cómo conectan las losas/muros y transfieren carga',",
@@ -3590,14 +3590,14 @@
           ]
         ],
         [
-          5596,
+          5604,
           0,
           [
             "  'pro.shellWarnDisconnected': '{n} losa(s)/muro(s) tienen una esquina sin conexión a nada más (ni viga, ni apoyo, ni otra losa). Ahí no se transfiere carga — agregá un nodo compartido o apoyo, o mallá para que los bordes compartan nodos con la viga.',"
           ]
         ],
         [
-          6440,
+          6448,
           1,
           [
             "  'physical.explain': 'Qué es cada conjunto de barras y placas: vigas continuas, columnas de varios pisos, losas, tabiques, riostras. El diseño lee el tipo de acá. Lo inferido de la geometría se marca; corregilo y queda declarado.',",
@@ -3605,21 +3605,21 @@
           ]
         ],
         [
-          11580,
+          11588,
           0,
           [
             "  'combos.rules.seed': 'Partir de CIRSOC 101',"
           ]
         ],
         [
-          11587,
+          11595,
           1,
           [
             "  'batch.shells': 'Edición en grupo: {n} placas',"
           ]
         ],
         [
-          11625,
+          11633,
           0,
           [
             "  'quickEdit.meshSize': 'Tamaño del elemento',",
@@ -3629,7 +3629,7 @@
           ]
         ],
         [
-          11686,
+          11694,
           2,
           [
             "  'autoLoad.roof.maintenance': \"Sólo mantenimiento (Lr, §4.8.1)\",",
@@ -3637,35 +3637,35 @@
           ]
         ],
         [
-          11724,
+          11732,
           0,
           [
             "  'combos.rules.none': 'Sin reglas todavía. Agregá una o partí de CIRSOC 101.',"
           ]
         ],
         [
-          14089,
+          14097,
           1,
           [
             "  'desk.prep.existingHint': \"Para un modelo analítico ya armado: se reconocen sus piezas físicas (vigas, columnas, losas, tabiques) y se completan los datos que el diseño necesita.\","
           ]
         ],
         [
-          14092,
+          14100,
           0,
           [
             "  'desk.prep.recognize': \"Reconocer piezas físicas\","
           ]
         ],
         [
-          14103,
+          14111,
           0,
           [
             "  'desk.prep.miss.pieces': \"Faltan las piezas físicas: reconocelas desde el modelo analítico.\","
           ]
         ],
         [
-          14492,
+          14500,
           3,
           [
             "  \"building.slabs.meshedCount\": \"{n} losas quedaron malladas por el cálculo.\",",
@@ -3674,17 +3674,17 @@
           ]
         ],
         [
-          14620,
+          14628,
           7,
           []
         ],
         [
-          14630,
+          14638,
           48,
           []
         ],
         [
-          14689,
+          14697,
           0,
           [
             "  \"plates.status.unmeshed\": \"sin malla\",",
@@ -3695,7 +3695,7 @@
           ]
         ],
         [
-          14695,
+          14703,
           0,
           [
             "  \"plates.removeHole\": \"Quitar hueco\",",
@@ -3705,49 +3705,49 @@
           ]
         ],
         [
-          14712,
+          14720,
           0,
           [
             "  \"plates.planning\": \"Preparando {done} de {total}…\","
           ]
         ],
         [
-          14717,
+          14725,
           0,
           [
             "  \"plates.qualityCell\": \"ángulo mín. {angle}°, {poor} bajos\","
           ]
         ],
         [
-          14727,
+          14735,
           0,
           [
             "  \"plates.planTotal\": \"{cells} elementos en total, de {size} {unit}. Calidad baja: ángulo menor a {angle}° o lados muy desparejos.\","
           ]
         ],
         [
-          14733,
+          14741,
           0,
           [
             "  \"plates.listTitle\": \"Placas físicas ({n})\","
           ]
         ],
         [
-          14734,
+          14742,
           0,
           [
             "  \"plates.nElements\": \"{n} elementos\","
           ]
         ],
         [
-          14738,
+          14746,
           1,
           [
             "  \"plates.meshBeforeAnalysisHint\": \"Antes de cada cálculo se mallan sólo las placas sin malla o con malla desactualizada, con su configuración. Apagado, el cálculo se detiene y las nombra.\","
           ]
         ],
         [
-          14791,
+          14799,
           0,
           [
             "  \"plates.sideFollows\": \"curvo, sigue a la viga curva {id}\",",
@@ -3755,43 +3755,43 @@
           ]
         ],
         [
-          14792,
+          14800,
           0,
           [
             "  \"plates.sideThrough\": \"nodo de paso\","
           ]
         ],
         [
-          14793,
+          14801,
           0,
           [
             "  \"plates.sideCurved\": \"Lado curvado. La malla queda desactualizada hasta que la rehagas.\","
           ]
         ],
         [
-          14931,
+          14939,
           0,
           [
             "  \"plates.sidesSummary\": \"{n}, {curved} curvos\","
           ]
         ],
         [
-          14935,
+          14943,
           1,
           [
             "  \"plates.showMeshHint\": \"Apagado, cada placa mallada se dibuja como pieza (su contorno). Sólo cambia el dibujo: la selección y los resultados siguen igual.\","
           ]
         ],
         [
-          15143,
+          15151,
           1060,
           []
         ]
       ]
     },
     "src/lib/i18n/locales/fr.ts": {
-      "source": "9a8420d993bd62581e9902dd91ea6d89045ea8722094316a8c1f19853adc06c7",
-      "original": "7f17411a0ca403529bd39c396c4445aca5569fcc8f6a261e098389cd2b4408b0",
+      "source": "d7633faf89d43496b00f7fd539a1872d509992dad6acb39193310ef10b05dfee",
+      "original": "16a9c0fd381c9d7eafef4d529eff6dc53ade40c98e2911e9efdf7d380bb1120d",
       "changes": [
         [
           15,
@@ -3799,33 +3799,33 @@
           []
         ],
         [
-          4855,
+          4863,
           1,
           []
         ],
         [
-          4960,
+          4968,
           0,
           [
             "  'pro.curvedShellHint': 'Ces quatre nœuds sont à {mm} mm hors plan. Calculée plane, la courbure est perdue ; cochez Coque courbe pour la conserver.',"
           ]
         ],
         [
-          5141,
+          5149,
           0,
           [
             "  'pro.nPlatesQuads': '{plates} triangles, {quads} quadrangles',"
           ]
         ],
         [
-          5143,
+          5151,
           0,
           [
             "  'pro.meshGenerator': 'Générateur de maillage',"
           ]
         ],
         [
-          5150,
+          5158,
           0,
           [
             "  'pro.shellInfoTitle': 'Comment les coques se connectent et transmettent les charges',",
@@ -3836,14 +3836,14 @@
           ]
         ],
         [
-          5151,
+          5159,
           0,
           [
             "  'pro.shellWarnDisconnected': '{n} coque(s) ont un sommet relié à rien d\\'autre (ni poutre, ni appui, ni autre coque). La charge ne peut pas s\\'y transmettre : ajoutez un nœud partagé ou un appui, ou maillez pour que les bords partagent les nœuds des poutres.',"
           ]
         ],
         [
-          5995,
+          6003,
           1,
           [
             "  'physical.explain': 'Ce qu\\'est chaque ensemble de barres et de coques : poutres continues, poteaux sur plusieurs niveaux, dalles, voiles, contreventements. Le dimensionnement lit le type ici. Ce qui a été déduit de la géométrie est signalé ; corrigez-le et il devient déclaré.',",
@@ -3851,28 +3851,28 @@
           ]
         ],
         [
-          7639,
+          7647,
           1,
           [
             "  'loads.cirsoc101.reduction.applied': 'K_LL·A_t = {kll} × {at} = {kllAt} m². L = {lo} (0.25 + 4.57/√{kllAt}) = {raw} kN/m².',"
           ]
         ],
         [
-          11051,
+          11059,
           0,
           [
             "  'combos.rules.seed': 'Partir de CIRSOC 101',"
           ]
         ],
         [
-          11058,
+          11066,
           1,
           [
             "  'batch.shells': 'Édition groupée : {n} coques',"
           ]
         ],
         [
-          11096,
+          11104,
           0,
           [
             "  'quickEdit.meshSize': 'Taille d\\'élément',",
@@ -3882,7 +3882,7 @@
           ]
         ],
         [
-          11157,
+          11165,
           2,
           [
             "  'autoLoad.roof.maintenance': 'Entretien seulement (Lr, §4.8.1)',",
@@ -3890,56 +3890,56 @@
           ]
         ],
         [
-          11195,
+          11203,
           0,
           [
             "  'combos.rules.none': 'Aucune règle pour l\\'instant. Ajoutez-en une ou partez de CIRSOC 101.',"
           ]
         ],
         [
-          11527,
+          11535,
           1,
           [
             "  'mesher.divisions': 'Divisions',"
           ]
         ],
         [
-          11529,
+          11537,
           1,
           [
             "  'mesher.auto': 'auto',"
           ]
         ],
         [
-          11534,
+          11542,
           1,
           [
             "  'mesher.tris': 'Triangles',"
           ]
         ],
         [
-          13563,
+          13571,
           1,
           [
             "  'desk.prep.existingHint': 'Pour un modèle analytique déjà construit : ses pièces physiques (poutres, poteaux, dalles, voiles) sont reconnues et les données dont le dimensionnement a besoin sont complétées.',"
           ]
         ],
         [
-          13566,
+          13574,
           0,
           [
             "  'desk.prep.recognize': 'Reconnaître les pièces physiques',"
           ]
         ],
         [
-          13577,
+          13585,
           0,
           [
             "  'desk.prep.miss.pieces': 'Les pièces physiques manquent : reconnaissez-les à partir du modèle analytique.',"
           ]
         ],
         [
-          13967,
+          13975,
           3,
           [
             "  'building.slabs.meshedCount': '{n} dalles ont été maillées par le calcul.',",
@@ -3948,17 +3948,17 @@
           ]
         ],
         [
-          14096,
+          14104,
           7,
           []
         ],
         [
-          14106,
+          14114,
           48,
           []
         ],
         [
-          14165,
+          14173,
           0,
           [
             "  'plates.status.unmeshed': 'sans maillage',",
@@ -3969,7 +3969,7 @@
           ]
         ],
         [
-          14171,
+          14179,
           0,
           [
             "  'plates.removeHole': 'Retirer le trou',",
@@ -3979,49 +3979,49 @@
           ]
         ],
         [
-          14188,
+          14196,
           0,
           [
             "  'plates.planning': 'Préparation {done} sur {total}…',"
           ]
         ],
         [
-          14193,
+          14201,
           0,
           [
             "  'plates.qualityCell': 'angle min. {angle}°, {poor} mauvais',"
           ]
         ],
         [
-          14203,
+          14211,
           0,
           [
             "  'plates.planTotal': '{cells} éléments au total, de {size} {unit}. Mauvaise qualité : un angle inférieur à {angle}° ou des côtés très inégaux.',"
           ]
         ],
         [
-          14209,
+          14217,
           0,
           [
             "  'plates.listTitle': 'Plaques physiques ({n})',"
           ]
         ],
         [
-          14210,
+          14218,
           0,
           [
             "  'plates.nElements': '{n} éléments',"
           ]
         ],
         [
-          14214,
+          14222,
           1,
           [
             "  'plates.meshBeforeAnalysisHint': 'Avant chaque calcul, seules les plaques sans maillage ou au maillage obsolète sont maillées, avec leurs propres paramètres. Désactivé, le calcul s\\'arrête et les nomme.',"
           ]
         ],
         [
-          14267,
+          14275,
           0,
           [
             "  'plates.sideFollows': 'courbe, suit la barre courbe {id}',",
@@ -4029,58 +4029,58 @@
           ]
         ],
         [
-          14268,
+          14276,
           0,
           [
             "  'plates.sideThrough': 'nœud de passage',"
           ]
         ],
         [
-          14269,
+          14277,
           0,
           [
             "  'plates.sideCurved': 'Côté courbé. Le maillage reste obsolète jusqu\\'à ce que vous remailliez.',"
           ]
         ],
         [
-          14407,
+          14415,
           0,
           [
             "  'plates.sidesSummary': '{n}, {curved} courbes',"
           ]
         ],
         [
-          14411,
+          14419,
           1,
           [
             "  'plates.showMeshHint': 'Désactivé, chaque plaque maillée est dessinée comme pièce (son contour). Seul le dessin change : la sélection et les résultats restent identiques.',"
           ]
         ],
         [
-          14529,
+          14537,
           4,
           []
         ],
         [
-          14994,
+          15002,
           1058,
           []
         ]
       ]
     },
     "src/lib/i18n/locales/hi.ts": {
-      "source": "9c4b6d1a75998c3f7216eda12c2be881115a597759ecf565cac57f39dd5efed2",
-      "original": "cd2168882bd5da932645910ae2c5e0f8174af756b0d6e98fc6a2481fff9e5be8",
+      "source": "c7e8113b038ceb9e30ccef2cb09e3fba1a03d940f3d6778f10087c183551fd6f",
+      "original": "bfd5266a394784efd9084da000acb5a43a0c3ad2514dc04157ba1a71f29d9964",
       "changes": [
         [
-          2728,
+          2737,
           0,
           [
             "  'pro.nPlatesQuads': '{plates} प्लेट, {quads} क्वाड',"
           ]
         ],
         [
-          2730,
+          2739,
           0,
           [
             "  'pro.meshGenerator': 'जाल जनरेटर',"
@@ -4089,8 +4089,8 @@
       ]
     },
     "src/lib/i18n/locales/hu.ts": {
-      "source": "ebcd77fa6f108e7b1c523da0243207732f2504352bd2ba5ae260c421f6e38b18",
-      "original": "fad71b6917fe6b984ca11a5503561f510441fe7f20cb661a783ee4ab0515841b",
+      "source": "1845428e3e5355c2983d00f8826be9dea70de75427503b367e075062e65bcad8",
+      "original": "00d437c2438c439a06ba4a9050d120a8c288e2f688b90c1915f6512d8cdc8b69",
       "changes": [
         [
           15,
@@ -4098,28 +4098,28 @@
           []
         ],
         [
-          4736,
+          4744,
           0,
           [
             "  \"pro.curvedShellHint\": \"Ez a négy csomópont {mm} mm-rel kívül esik a síkon. Síkként megoldva a görbület elvész – a megtartásához jelölje be a Görbült héj négyzetet.\","
           ]
         ],
         [
-          4911,
+          4919,
           0,
           [
             "  \"pro.nPlatesQuads\": \"{plates} háromszög, {quads} négyszög\","
           ]
         ],
         [
-          4913,
+          4921,
           0,
           [
             "  \"pro.meshGenerator\": \"Hálógenerátor\","
           ]
         ],
         [
-          4920,
+          4928,
           0,
           [
             "  \"pro.shellInfoTitle\": \"Hogyan kapcsolódnak a héjak és adják át a terhet\",",
@@ -4130,35 +4130,35 @@
           ]
         ],
         [
-          4921,
+          4929,
           0,
           [
             "  \"pro.shellWarnDisconnected\": \"{n} héj egyik sarka semmi máshoz nincs kapcsolva (sem gerendához, sem támaszhoz, sem másik héjhoz). Ott a teher nem adódhat át – adjon hozzá közös csomópontot vagy támaszt, vagy úgy hálózzon, hogy az élek közös csomópontokat használjanak a gerendákkal.\","
           ]
         ],
         [
-          5756,
+          5764,
           0,
           [
             "  \"physical.recognize\": \"Elemek felismerése\","
           ]
         ],
         [
-          7375,
+          7383,
           1,
           [
             "  \"loads.cirsoc101.reduction.applied\": \"K_LL·A_t = {kll} × {at} = {kllAt} m². L = {lo} (0.25 + 4.57/√{kllAt}) = {raw} kN/m².\","
           ]
         ],
         [
-          10739,
+          10747,
           0,
           [
             "  \"combos.rules.seed\": \"Kezdés a CIRSOC 101-ből\","
           ]
         ],
         [
-          10784,
+          10792,
           0,
           [
             "  \"quickEdit.meshSize\": \"Elemméret\",",
@@ -4168,28 +4168,28 @@
           ]
         ],
         [
-          10883,
+          10891,
           0,
           [
             "  \"combos.rules.none\": \"Még nincsenek szabályok. Adjon hozzá egyet, vagy kezdje a CIRSOC 101-ből.\","
           ]
         ],
         [
-          13246,
+          13254,
           0,
           [
             "  \"desk.prep.recognize\": \"Fizikai elemek felismerése\","
           ]
         ],
         [
-          13257,
+          13265,
           0,
           [
             "  \"desk.prep.miss.pieces\": \"A fizikai elemek hiányoznak: ismerje fel őket az analitikus modellből.\","
           ]
         ],
         [
-          13777,
+          13785,
           0,
           [
             "  \"plates.status.unmeshed\": \"nincs háló\",",
@@ -4200,7 +4200,7 @@
           ]
         ],
         [
-          13783,
+          13791,
           0,
           [
             "  \"plates.removeHole\": \"Lyuk eltávolítása\",",
@@ -4210,49 +4210,49 @@
           ]
         ],
         [
-          13800,
+          13808,
           0,
           [
             "  \"plates.planning\": \"Tervezés: {done} / {total}…\","
           ]
         ],
         [
-          13805,
+          13813,
           0,
           [
             "  \"plates.qualityCell\": \"legkisebb szög {angle}°, {poor} gyenge\","
           ]
         ],
         [
-          13815,
+          13823,
           0,
           [
             "  \"plates.planTotal\": \"Összesen {cells} elem, {size} {unit} méretű. Gyenge minőség: {angle}°-nál kisebb szög vagy nagyon egyenlőtlen oldalak.\","
           ]
         ],
         [
-          13821,
+          13829,
           0,
           [
             "  \"plates.listTitle\": \"Fizikai lemezek ({n})\","
           ]
         ],
         [
-          13822,
+          13830,
           0,
           [
             "  \"plates.nElements\": \"{n} elem\","
           ]
         ],
         [
-          13826,
+          13834,
           1,
           [
             "  \"plates.meshBeforeAnalysisHint\": \"Minden analízis előtt csak azok a lemezek hálózódnak, amelyeknek nincs hálójuk vagy elavult, a saját beállításaikkal. Kikapcsolva az analízis megáll, és megnevezi őket.\","
           ]
         ],
         [
-          13879,
+          13887,
           0,
           [
             "  \"plates.sideFollows\": \"íves, követi a(z) {id} íves rudat\",",
@@ -4260,28 +4260,28 @@
           ]
         ],
         [
-          13880,
+          13888,
           0,
           [
             "  \"plates.sideThrough\": \"csomópont, amelyen átmegy\","
           ]
         ],
         [
-          13881,
+          13889,
           0,
           [
             "  \"plates.sideCurved\": \"Az oldal íves. A háló elavult, amíg újra nem hálózza.\","
           ]
         ],
         [
-          14019,
+          14027,
           0,
           [
             "  \"plates.sidesSummary\": \"{n}, ebből {curved} íves\","
           ]
         ],
         [
-          14650,
+          14658,
           1119,
           [
             "  \"edu.game.hint\": \"Játék: egy szerkezet, három ábra, és csak az egyik helyes.\""
@@ -4290,18 +4290,18 @@
       ]
     },
     "src/lib/i18n/locales/id.ts": {
-      "source": "29460d044921470891ce15f6a85d81153e95366cdcfdade0043ec1f7781c1105",
-      "original": "d3e28b929a2d0ddca7e3d4e83464ff0455485b4a4c28ba0d0a34d156081d6ca5",
+      "source": "60dfa6112ef408d8eeb582c5df5133382e11813aace8a5abfe37e7fa05803bb6",
+      "original": "753f971ed6b25da188cafbbc4fed619e0031c96d9e0bfec59601170d87bd9400",
       "changes": [
         [
-          2766,
+          2775,
           0,
           [
             "  'pro.nPlatesQuads': '{plates} pelat, {quads} quad',"
           ]
         ],
         [
-          2768,
+          2777,
           0,
           [
             "  'pro.meshGenerator': 'Generator mesh',"
@@ -4310,18 +4310,18 @@
       ]
     },
     "src/lib/i18n/locales/it.ts": {
-      "source": "fce5cf94d920776f7568690031a7c576bd7b5da594cf206240d84487f070a4a5",
-      "original": "8cda9f66af46e44a25a98aa4f92201924f60dae21258650ebb04b4634fe63b7a",
+      "source": "415f67ea4af09e509bdf58af8061326230182fba752ea37211dcab3edeb9513a",
+      "original": "e29b296bd98eef2c2f5cbfed218b7bee1ccb8685c2424e16a5f81034ab45266c",
       "changes": [
         [
-          2781,
+          2790,
           0,
           [
             "  'pro.nPlatesQuads': '{plates} piastre, {quads} quad',"
           ]
         ],
         [
-          2783,
+          2792,
           0,
           [
             "  'pro.meshGenerator': 'Generatore di mesh',"
@@ -4330,18 +4330,18 @@
       ]
     },
     "src/lib/i18n/locales/ja.ts": {
-      "source": "39835b68218f39ea44f2eae129ee0263a2319d36f11a734706b7622dcc38faf1",
-      "original": "2583c92822e208eafbbcb76a28410ab35db68153576213e15a00d7a013c18dd4",
+      "source": "b9922a3511c59d0fbc64fe68f5c365c0a32ade1f754e5e96a174002ba90a14a3",
+      "original": "57a8008b65f3d7bfa470482b74bc8ac5e6583ce6346a33393091361aa28ecd50",
       "changes": [
         [
-          2627,
+          2636,
           0,
           [
             "  'pro.nPlatesQuads': '{plates} プレート、{quads} クワッド',"
           ]
         ],
         [
-          2629,
+          2638,
           0,
           [
             "  'pro.meshGenerator': 'メッシュジェネレーター',"
@@ -4350,18 +4350,18 @@
       ]
     },
     "src/lib/i18n/locales/ko.ts": {
-      "source": "f9a679b78c2212b64009ac54f58b35bef0a9220be3d24f71aa4e6cd7da3bc3e4",
-      "original": "5b1af198d64cfa3676b04986d9270caa80fb922bc1882c67708b5fd529cfc697",
+      "source": "bc29f011dab8d9ea899e99130ae741e7ffa2db9dfe2a8ab001e77db06032700e",
+      "original": "c3fed81e8d2b5c3863956b6bd73feb51fe50cfade3974354c2dcd0830932f6e1",
       "changes": [
         [
-          2767,
+          2776,
           0,
           [
             "  'pro.nPlatesQuads': '{plates}개 판, {quads}개 사각형',"
           ]
         ],
         [
-          2769,
+          2778,
           0,
           [
             "  'pro.meshGenerator': '메쉬 생성기',"
@@ -4370,8 +4370,8 @@
       ]
     },
     "src/lib/i18n/locales/pt.ts": {
-      "source": "2b26ec13640a223a80a0b2aad0b65a68ea2c20153a6efe02f9684caf4e8ccc4e",
-      "original": "145a40bc0f269675d51f2a8e5060c1689ca9cb9fc182e5b44d303b8cedc59c55",
+      "source": "bf623f173cc4f359c0bc8bef67d81eb02560cc5e9ce1c3249151d3d720d458d0",
+      "original": "0ee2d2411da5e7a4f5273107ff61c30f224dcd06ef59447f0c4579a84bb97c2f",
       "changes": [
         [
           14,
@@ -4384,26 +4384,26 @@
           []
         ],
         [
-          5124,
+          5132,
           1,
           []
         ],
         [
-          5295,
+          5303,
           0,
           [
             "  'pro.meshGenerator': 'Gerador de malha',"
           ]
         ],
         [
-          5308,
+          5316,
           0,
           [
             "  'pro.nPlatesQuads': '{plates} placas, {quads} quads',"
           ]
         ],
         [
-          5499,
+          5507,
           0,
           [
             "  'pro.shellInfoMesh': 'Gerar malha subdivide a laje/parede em quads menores, criando MAIS nós de laje ao longo de cada borda.',",
@@ -4414,14 +4414,14 @@
           ]
         ],
         [
-          5513,
+          5521,
           0,
           [
             "  'pro.shellWarnDisconnected': '{n} laje(s)/parede(s) têm um canto sem conexão com nada (nem viga, nem apoio, nem outra laje). Ali não se transfere carga — adicione um nó compartilhado ou apoio, ou gere malha para que as bordas compartilhem nós com a viga.',"
           ]
         ],
         [
-          5908,
+          5916,
           1,
           [
             "  'physical.explain': 'O que é cada conjunto de barras e placas: vigas contínuas, pilares de vários pavimentos, lajes, paredes, contraventamentos. O dimensionamento lê o tipo daqui. O que foi inferido da geometria fica marcado; corrija e passa a declarado.',",
@@ -4429,28 +4429,28 @@
           ]
         ],
         [
-          6739,
+          6747,
           0,
           [
             "  'pro.curvedShellHint': 'Estes quatro nós estão {mm} mm fora do plano. Resolvida plana, a curvatura se perde — marque Casca para mantê-la.',"
           ]
         ],
         [
-          10952,
+          10960,
           0,
           [
             "  'combos.rules.seed': 'Partir da CIRSOC 101',"
           ]
         ],
         [
-          10959,
+          10967,
           1,
           [
             "  'batch.shells': 'Edição em grupo: {n} placas',"
           ]
         ],
         [
-          10997,
+          11005,
           0,
           [
             "  'quickEdit.meshSize': 'Tamanho do elemento',",
@@ -4460,7 +4460,7 @@
           ]
         ],
         [
-          11058,
+          11066,
           2,
           [
             "  'autoLoad.roof.maintenance': \"Só manutenção (Lr, §4.8.1)\",",
@@ -4468,35 +4468,35 @@
           ]
         ],
         [
-          11096,
+          11104,
           0,
           [
             "  'combos.rules.none': 'Ainda sem regras. Adicione uma ou parta da CIRSOC 101.',"
           ]
         ],
         [
-          13742,
+          13750,
           1,
           [
             "  'desk.prep.existingHint': \"Para um modelo analítico já montado: as peças físicas (vigas, pilares, lajes, paredes) são reconhecidas e os dados de que o dimensionamento precisa são completados.\","
           ]
         ],
         [
-          13745,
+          13753,
           0,
           [
             "  'desk.prep.recognize': \"Reconhecer peças físicas\","
           ]
         ],
         [
-          13756,
+          13764,
           0,
           [
             "  'desk.prep.miss.pieces': \"Faltam as peças físicas: reconheça-as a partir do modelo analítico.\","
           ]
         ],
         [
-          14145,
+          14153,
           3,
           [
             "  \"building.slabs.meshedCount\": \"{n} lajes ficaram com malha pelo cálculo.\",",
@@ -4505,17 +4505,17 @@
           ]
         ],
         [
-          14273,
+          14281,
           7,
           []
         ],
         [
-          14283,
+          14291,
           48,
           []
         ],
         [
-          14342,
+          14350,
           0,
           [
             "  \"plates.status.unmeshed\": \"sem malha\",",
@@ -4526,7 +4526,7 @@
           ]
         ],
         [
-          14348,
+          14356,
           0,
           [
             "  \"plates.removeHole\": \"Remover furo\",",
@@ -4536,49 +4536,49 @@
           ]
         ],
         [
-          14365,
+          14373,
           0,
           [
             "  \"plates.planning\": \"Preparando {done} de {total}…\","
           ]
         ],
         [
-          14370,
+          14378,
           0,
           [
             "  \"plates.qualityCell\": \"ângulo mín. {angle}°, {poor} baixos\","
           ]
         ],
         [
-          14380,
+          14388,
           0,
           [
             "  \"plates.planTotal\": \"{cells} elementos no total, de {size} {unit}. Baixa qualidade: ângulo menor que {angle}° ou lados muito desiguais.\","
           ]
         ],
         [
-          14386,
+          14394,
           0,
           [
             "  \"plates.listTitle\": \"Placas físicas ({n})\","
           ]
         ],
         [
-          14387,
+          14395,
           0,
           [
             "  \"plates.nElements\": \"{n} elementos\","
           ]
         ],
         [
-          14391,
+          14399,
           1,
           [
             "  \"plates.meshBeforeAnalysisHint\": \"Antes de cada cálculo são malhadas só as placas sem malha ou com malha desatualizada, com sua configuração. Desligado, o cálculo para e as nomeia.\","
           ]
         ],
         [
-          14444,
+          14452,
           0,
           [
             "  \"plates.sideFollows\": \"curvo, segue a viga curva {id}\",",
@@ -4586,53 +4586,53 @@
           ]
         ],
         [
-          14445,
+          14453,
           0,
           [
             "  \"plates.sideThrough\": \"nó de passagem\","
           ]
         ],
         [
-          14446,
+          14454,
           0,
           [
             "  \"plates.sideCurved\": \"Lado curvado. A malha fica desatualizada até você malhar de novo.\","
           ]
         ],
         [
-          14584,
+          14592,
           0,
           [
             "  \"plates.sidesSummary\": \"{n}, {curved} curvos\","
           ]
         ],
         [
-          14588,
+          14596,
           1,
           [
             "  \"plates.showMeshHint\": \"Desligado, cada placa malhada é desenhada como peça (seu contorno). Só muda o desenho: a seleção e os resultados continuam iguais.\","
           ]
         ],
         [
-          14796,
+          14804,
           1060,
           []
         ]
       ]
     },
     "src/lib/i18n/locales/ru.ts": {
-      "source": "7055961831a884812e78599c8c358d0f146b6da54bd62a70ead9f182aeca8a1c",
-      "original": "0a2abe4380d3a574e38c98bad3930f63aa1d41836a67ad9a69f6207b6ccbee2a",
+      "source": "af9b926890e12341f93b24eebcb565e8065690826c8cd61f079594f1d9eb30c0",
+      "original": "435f6145f80892ee41d91b433a47d5e71ff6211f8b86a3dbbe24bb9f5dca4180",
       "changes": [
         [
-          2772,
+          2781,
           0,
           [
             "  'pro.nPlatesQuads': '{plates} пластин, {quads} четырёхугольников',"
           ]
         ],
         [
-          2774,
+          2783,
           0,
           [
             "  'pro.meshGenerator': 'Генератор сетки',"
@@ -4907,8 +4907,8 @@
       ]
     },
     "src/lib/i18n/locales/tr.ts": {
-      "source": "59c045c9cbfc60f13ab6bc0d080ba2b71c7c260684b5c4ed37c1dbd5d7744903",
-      "original": "059bf6698479e729f7aab3535b3d5866b8bd26843431407a220b7914388779ee",
+      "source": "97c862197cac9e895cdb4a2ae7c6e383fae450c32b65b7f932c7396d8ebc4dc5",
+      "original": "af7abb8c55f87b1350a8af1da0d17666020ceb9c450062e506ee688b01c8849b",
       "changes": [
         [
           15,
@@ -4916,33 +4916,33 @@
           []
         ],
         [
-          4864,
+          4872,
           1,
           []
         ],
         [
-          4969,
+          4977,
           0,
           [
             "  'pro.curvedShellHint': 'Bu dört düğüm düzlemin {mm} mm dışında. Düz çözülürse eğrilik kaybolur; korumak için Eğri kabuk\\'u işaretleyin.',"
           ]
         ],
         [
-          5150,
+          5158,
           0,
           [
             "  'pro.nPlatesQuads': '{plates} üçgen, {quads} dörtgen',"
           ]
         ],
         [
-          5152,
+          5160,
           0,
           [
             "  'pro.meshGenerator': 'Ağ oluşturucu',"
           ]
         ],
         [
-          5159,
+          5167,
           0,
           [
             "  'pro.shellInfoTitle': 'Kabuklar nasıl bağlanır ve yük aktarır',",
@@ -4953,14 +4953,14 @@
           ]
         ],
         [
-          5160,
+          5168,
           0,
           [
             "  'pro.shellWarnDisconnected': '{n} kabuğun başka hiçbir şeye (kiriş, mesnet veya başka kabuk) bağlı olmayan bir köşesi var. Yük orada aktarılamaz; ortak bir düğüm veya mesnet ekleyin ya da ağı kenarlar kiriş düğümlerini paylaşacak şekilde oluşturun.',"
           ]
         ],
         [
-          6004,
+          6012,
           1,
           [
             "  'physical.explain': 'Her çubuk ve kabuk kümesinin ne olduğu: sürekli kirişler, çok katlı kolonlar, döşemeler, perdeler, çaprazlar. Tasarım türü buradan okur. Geometriden çıkarılanlar işaretlenir; düzeltirseniz belirtilmiş olur.',",
@@ -4968,28 +4968,28 @@
           ]
         ],
         [
-          7648,
+          7656,
           1,
           [
             "  'loads.cirsoc101.reduction.applied': 'K_LL·A_t = {kll} × {at} = {kllAt} m². L = {lo} (0.25 + 4.57/√{kllAt}) = {raw} kN/m².',"
           ]
         ],
         [
-          11060,
+          11068,
           0,
           [
             "  'combos.rules.seed': 'CIRSOC 101\\'den başla',"
           ]
         ],
         [
-          11067,
+          11075,
           1,
           [
             "  'batch.shells': 'Grup düzenleme: {n} kabuk',"
           ]
         ],
         [
-          11105,
+          11113,
           0,
           [
             "  'quickEdit.meshSize': 'Eleman boyutu',",
@@ -4999,7 +4999,7 @@
           ]
         ],
         [
-          11166,
+          11174,
           2,
           [
             "  'autoLoad.roof.maintenance': 'Yalnızca bakım (Lr, §4.8.1)',",
@@ -5007,35 +5007,35 @@
           ]
         ],
         [
-          11204,
+          11212,
           0,
           [
             "  'combos.rules.none': 'Henüz kural yok. Bir kural ekleyin veya CIRSOC 101\\'den başlayın.',"
           ]
         ],
         [
-          13572,
+          13580,
           1,
           [
             "  'desk.prep.existingHint': 'Önceden kurulmuş bir analitik model için: fiziksel parçaları (kirişler, kolonlar, döşemeler, perdeler) tanınır ve tasarımın ihtiyaç duyduğu veriler tamamlanır.',"
           ]
         ],
         [
-          13575,
+          13583,
           0,
           [
             "  'desk.prep.recognize': 'Fiziksel parçaları tanı',"
           ]
         ],
         [
-          13586,
+          13594,
           0,
           [
             "  'desk.prep.miss.pieces': 'Fiziksel parçalar eksik: bunları analitik modelden tanıtın.',"
           ]
         ],
         [
-          13976,
+          13984,
           3,
           [
             "  'building.slabs.meshedCount': '{n} döşemenin ağı analiz tarafından oluşturuldu.',",
@@ -5044,17 +5044,17 @@
           ]
         ],
         [
-          14096,
+          14104,
           7,
           []
         ],
         [
-          14106,
+          14114,
           48,
           []
         ],
         [
-          14165,
+          14173,
           0,
           [
             "  'plates.status.unmeshed': 'ağ yok',",
@@ -5065,7 +5065,7 @@
           ]
         ],
         [
-          14171,
+          14179,
           0,
           [
             "  'plates.removeHole': 'Boşluğu kaldır',",
@@ -5075,49 +5075,49 @@
           ]
         ],
         [
-          14188,
+          14196,
           0,
           [
             "  'plates.planning': 'Hazırlanıyor {done} / {total}…',"
           ]
         ],
         [
-          14193,
+          14201,
           0,
           [
             "  'plates.qualityCell': 'en küçük açı {angle}°, {poor} düşük',"
           ]
         ],
         [
-          14203,
+          14211,
           0,
           [
             "  'plates.planTotal': 'Toplam {cells} eleman, {size} {unit} boyutunda. Düşük kalite: {angle}°\\'den küçük bir açı veya çok farklı kenarlar.',"
           ]
         ],
         [
-          14209,
+          14217,
           0,
           [
             "  'plates.listTitle': 'Fiziksel plaklar ({n})',"
           ]
         ],
         [
-          14210,
+          14218,
           0,
           [
             "  'plates.nElements': '{n} eleman',"
           ]
         ],
         [
-          14214,
+          14222,
           1,
           [
             "  'plates.meshBeforeAnalysisHint': 'Her analizden önce yalnızca ağı olmayan veya ağı güncel olmayan plakların ağı, kendi ayarlarıyla oluşturulur. Kapalıyken analiz durur ve bu plakları adlarıyla bildirir.',"
           ]
         ],
         [
-          14267,
+          14275,
           0,
           [
             "  'plates.sideFollows': 'eğrisel, {id} eğrisel çubuğunu izler',",
@@ -5125,72 +5125,72 @@
           ]
         ],
         [
-          14268,
+          14276,
           0,
           [
             "  'plates.sideThrough': 'geçtiği düğüm',"
           ]
         ],
         [
-          14269,
+          14277,
           0,
           [
             "  'plates.sideCurved': 'Kenar eğildi. Ağ yeniden oluşturulana kadar güncel değil.',"
           ]
         ],
         [
-          14407,
+          14415,
           0,
           [
             "  'plates.sidesSummary': '{n}, {curved} eğrisel',"
           ]
         ],
         [
-          14411,
+          14419,
           1,
           [
             "  'plates.showMeshHint': 'Kapalıyken ağı oluşturulmuş her plak parça olarak (konturuyla) çizilir. Yalnızca çizim değişir: seçim ve sonuçlar aynı kalır.',"
           ]
         ],
         [
-          14529,
+          14537,
           4,
           []
         ],
         [
-          14994,
+          15002,
           1058,
           []
         ]
       ]
     },
     "src/lib/i18n/locales/zh.ts": {
-      "source": "ba7f47de0631fb6b62b8e0b75973f18252c349ea7835f8a09d30799621cadaea",
-      "original": "d599971297f586f1aa272aa7ea9017191124d24992a343ce046ffc58bc0dab40",
+      "source": "50d1b7dddaa155a56993b1bbf2b3aa51e48d0be58aa2ce56a6bdb30d99a410f4",
+      "original": "b5a0b396423dc3eedea573134fc2766046a21e0474e804c6b66db53b09d6e747",
       "changes": [
         [
-          5151,
+          5159,
           1,
           [
             "  \"pro.curvedShellHint\": \"这四个节点偏离平面 {mm} mm。按平面求解会丢失曲率，请勾选「曲面壳」以保留。\","
           ]
         ],
         [
-          5327,
+          5335,
           1,
           [
             "  \"pro.nPlatesQuads\": \"{plates} 个三角形，{quads} 个四边形\","
           ]
         ],
         [
-          5330,
+          5338,
           1,
           [
             "  \"pro.meshGenerator\": \"网格生成器\","
           ]
         ],
         [
-          5338,
+          5346,
           1,
           [
             "  \"pro.shellInfoTitle\": \"壳如何连接并传递荷载\",",
@@ -5201,14 +5201,14 @@
           ]
         ],
         [
-          5340,
+          5348,
           1,
           [
             "  \"pro.shellWarnDisconnected\": \"有 {n} 个壳的某个角点未与任何其他构件相连（没有梁、支座或其他壳）。荷载无法在该处传递：请添加共用节点或支座，或划分网格使各边与梁共用节点。\","
           ]
         ],
         [
-          6174,
+          6182,
           2,
           [
             "  \"physical.explain\": \"每组杆件和壳是什么：连续梁、多层柱、楼板、墙、支撑。设计从此处读取类型。根据几何推断出的内容会有标记；修改后即成为已声明。\",",
@@ -5216,21 +5216,21 @@
           ]
         ],
         [
-          11152,
+          11160,
           1,
           [
             "  \"combos.rules.seed\": \"从 CIRSOC 101 开始\","
           ]
         ],
         [
-          11160,
+          11168,
           1,
           [
             "  \"batch.shells\": \"批量编辑：{n} 个壳\","
           ]
         ],
         [
-          11198,
+          11206,
           1,
           [
             "  \"quickEdit.meshSize\": \"单元尺寸\",",
@@ -5240,7 +5240,7 @@
           ]
         ],
         [
-          11260,
+          11268,
           2,
           [
             "  \"autoLoad.roof.maintenance\": \"仅检修（Lr，§4.8.1）\",",
@@ -5248,35 +5248,35 @@
           ]
         ],
         [
-          11298,
+          11306,
           1,
           [
             "  \"combos.rules.none\": \"尚无规则。请添加一条，或从 CIRSOC 101 开始。\","
           ]
         ],
         [
-          13659,
+          13667,
           1,
           [
             "  \"desk.prep.existingHint\": \"适用于已建好的分析模型：识别其实体构件（梁、柱、楼板、墙），并补全设计所需的数据。\","
           ]
         ],
         [
-          13662,
+          13670,
           1,
           [
             "  \"desk.prep.recognize\": \"识别实体构件\","
           ]
         ],
         [
-          13674,
+          13682,
           1,
           [
             "  \"desk.prep.miss.pieces\": \"缺少实体构件：请从分析模型中识别它们。\","
           ]
         ],
         [
-          14063,
+          14071,
           3,
           [
             "  \"building.slabs.meshedCount\": \"分析已为 {n} 块楼板划分网格。\",",
@@ -5285,7 +5285,7 @@
           ]
         ],
         [
-          14204,
+          14212,
           1,
           [
             "  \"plates.status.unmeshed\": \"无网格\",",
@@ -5296,7 +5296,7 @@
           ]
         ],
         [
-          14211,
+          14219,
           1,
           [
             "  \"plates.removeHole\": \"删除洞口\",",
@@ -5306,49 +5306,49 @@
           ]
         ],
         [
-          14229,
+          14237,
           1,
           [
             "  \"plates.planning\": \"正在规划 {done} / {total}…\","
           ]
         ],
         [
-          14235,
+          14243,
           1,
           [
             "  \"plates.qualityCell\": \"最小角 {angle}°，{poor} 个较差\","
           ]
         ],
         [
-          14246,
+          14254,
           1,
           [
             "  \"plates.planTotal\": \"共 {cells} 个单元，尺寸 {size} {unit}。质量较差：夹角小于 {angle}° 或边长相差悬殊。\","
           ]
         ],
         [
-          14253,
+          14261,
           1,
           [
             "  \"plates.listTitle\": \"实体板（{n}）\","
           ]
         ],
         [
-          14255,
+          14263,
           1,
           [
             "  \"plates.nElements\": \"{n} 个单元\","
           ]
         ],
         [
-          14260,
+          14268,
           1,
           [
             "  \"plates.meshBeforeAnalysisHint\": \"每次分析前，仅对没有网格或网格已过期的板按其各自的设置划分网格。关闭后，分析将停止并指出这些板。\","
           ]
         ],
         [
-          14313,
+          14321,
           1,
           [
             "  \"plates.sideFollows\": \"曲线，跟随曲线杆件 {id}\",",
@@ -5356,35 +5356,35 @@
           ]
         ],
         [
-          14315,
+          14323,
           1,
           [
             "  \"plates.sideThrough\": \"经过的节点\","
           ]
         ],
         [
-          14317,
+          14325,
           1,
           [
             "  \"plates.sideCurved\": \"边已改为曲线。重新划分网格之前，网格已过期。\","
           ]
         ],
         [
-          14456,
+          14464,
           1,
           [
             "  \"plates.sidesSummary\": \"{n}，其中 {curved} 个为曲边\","
           ]
         ],
         [
-          14461,
+          14469,
           1,
           [
             "  \"plates.showMeshHint\": \"关闭时，每块已划分网格的板按整体（其轮廓）绘制。只改变绘制效果，拾取和结果不变。\","
           ]
         ],
         [
-          14674,
+          14682,
           1121,
           []
         ]

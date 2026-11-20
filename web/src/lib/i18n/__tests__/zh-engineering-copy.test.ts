@@ -1,5 +1,11 @@
 import { readFileSync } from 'node:fs';
 import { expect, it } from 'vitest';
+import { DEFAULT_BATCH } from '../../../components/tools/batch';
+import { batchTranslations } from '../../../components/tools/batch-i18n';
+import { calculateBatch } from '../../../components/tools/batch-solve';
+import { EXAMPLE } from '../../../components/tools/calculators';
+import { calculate } from '../../../components/tools/solve';
+import { toolTranslations } from '../../../components/tools/translations';
 import { STRINGS } from '../../../components/research/i18n';
 import reliability from '../../blog/translations/zh/page-reliability';
 import torsion from '../../blog/translations/zh/torsion-bredt-saint-venant';
@@ -8,8 +14,10 @@ import { sheetSpec } from '../../excel-import/schema';
 import bars from '../../blog/translations/zh/bars-or-finite-elements';
 import determinism from '../../blog/translations/zh/the-determinism-boundary';
 import { changes } from '../../provenance/result-changes/numbered.json';
+import { ALL_DICTS } from '../locales/all';
 import dynamics from '../locales/course/dynamics/zh';
 import influence from '../locales/course/influence/zh';
+import kinematics from '../locales/course/kinematics/zh';
 import plastic from '../locales/course/plastic/zh';
 import steel from '../locales/steel/zh';
 import steps from '../locales/steps/zh';
@@ -170,4 +178,79 @@ it('#2360 — concentrated live load guidance formats the advisory reference for
   const description = advisory.blocks.flatMap(block => block.k === 'table' ? block.rows : [])
     .find(columns => columns[0] === 'SA-2026-083')?.[1];
   expect.soft(description).toMatch(/^SA-2026-083：CIRSOC 101 自动荷载生成/);
+});
+
+it('#2384 — the modal warning uses the material unit weight', () => {
+  const unit = sheetSpec('Materials')!.columns.find(column => column.key === 'rho')!.unit;
+  expect(unit).toBe('kN/m³');
+  expect.soft(zh['modal.noDensity']).toMatch(/重度.*重度/);
+  expect.soft(ALL_DICTS.en['modal.noDensity']).toMatch(/unit weight.*unit weight/);
+  for (const [locale, copy] of Object.entries(ALL_DICTS)) {
+    expect.soft(copy['modal.noDensity'], locale).toContain(unit);
+    expect.soft(copy['modal.noDensity'], locale).not.toMatch(/(?:kg|кг)\/m³|кг\/м³/);
+  }
+});
+
+it('#2384 — the beam, frame and influence tools describe the signed shear on both cut faces', async () => {
+  const beam = await calculate('simply-supported-beam', EXAMPLE);
+  const [beamX, beamV] = beam.charts.shear.find(([x]) => x > 0)!;
+  expect(beamX).toBeLessThan(EXAMPLE.length / 2);
+  expect(beamV).toBeCloseTo(EXAMPLE.load * (EXAMPLE.length / 2 - beamX), 6);
+
+  const portalInput = { ...DEFAULT_BATCH, horizontal: 0 };
+  const portal = await calculateBatch('portal-frame', portalInput);
+  const [portalX, portalV] = portal.charts.shear.find(({ name }) => name === '2')!.points.find(([x]) => x > 0)!;
+  expect(portalV).toBeCloseTo(portalInput.load * (portalInput.length / 2 - portalX), 6);
+
+  const influenceInput = { ...DEFAULT_BATCH, quantity: 'shear' as const };
+  const line = await calculateBatch('influence-line', influenceInput);
+  const [leftX, leftV] = line.influence.find(([x]) => x > 0 && x < influenceInput.position)!;
+  const [rightX, rightV] = line.influence.find(([x]) => x > influenceInput.position && x < influenceInput.length)!;
+  expect(leftV).toBeCloseTo(-leftX / influenceInput.length, 6);
+  expect(rightV).toBeCloseTo(1 - rightX / influenceInput.length, 6);
+
+  for (const copy of [
+    toolTranslations.zh['tools.signConvention'],
+    batchTranslations.zh['tools.batch.signConvention'],
+    batchTranslations.zh['tools.batch.influenceSign'],
+  ]) {
+    expect.soft(copy).toMatch(/左段切面向下.*右段切面向上/);
+  }
+  for (const copy of [
+    toolTranslations.en['tools.signConvention'],
+    batchTranslations.en['tools.batch.signConvention'],
+    batchTranslations.en['tools.batch.influenceSign'],
+  ]) {
+    expect.soft(copy).toMatch(/downward on the cut face of the left segment.*upward on the cut face of the right segment/);
+  }
+});
+
+it('#2384 — underdamped settling depends on the permitted residual amplitude', () => {
+  const key = 'course.dynamics.sdof.total.why';
+  expect.soft(dynamics[key]).toMatch(/e\^\(−ξωt\).*允许的残余幅值比例.*ln\(1\/ε\)\/\(ξω\)/);
+  expect.soft(dynamics[key]).not.toContain('经过几个周期后只剩稳态');
+  expect.soft(ALL_DICTS.en[key]).toMatch(/e\^\(−ξωt\).*acceptable residual amplitude.*ln\(1\/ε\)\/\(ξω\)/);
+  expect.soft(ALL_DICTS.en[key]).not.toContain('after a few cycles');
+});
+
+it('#2384 — the plastic lesson defines its axis and reconciles the influence-line axis', () => {
+  const key = 'course.plastic.doc.signs';
+  expect.soft(plastic[key]).toMatch(/局部 x 轴.*起始节点.*终止节点.*局部 y 轴.*逆时针.*局部 −y.*从左向右.*局部 −z/);
+  expect.soft(ALL_DICTS.en[key]).toMatch(/local x.*start node.*end node.*local y.*counterclockwise.*local −y.*from left to right.*local −z/);
+  expect(influence['course.influence.doc.sign.M']).toMatch(/局部 −z.*受拉时为正/);
+});
+
+it('#2384 — axial stiffness times elongation gives axial force', () => {
+  const key = 'course.kinematics.dm.introStates';
+  expect.soft(kinematics[key]).toMatch(/弯矩[^。]*。[^。]*轴力 N = \(EA\/L\)·ΔL.*伸长/);
+  expect.soft(ALL_DICTS.en[key]).toMatch(/moments[^.]*\. [^.]*axial force N = \(EA\/L\)·ΔL.*elongation/);
+});
+
+it('#2384 — the Castigliano option integrates axial strain energy along the member', () => {
+  const key = 'steps.m.castigliano.opt.axial.label';
+  expect.soft(steps[key]).toContain('轴向应变能');
+  expect.soft(ALL_DICTS.en[key]).toContain('axial strain energy');
+  for (const [locale, copy] of Object.entries(ALL_DICTS)) {
+    if (key in copy) expect.soft(copy[key], locale).toContain('∫ N²/(2EA) dx');
+  }
 });
