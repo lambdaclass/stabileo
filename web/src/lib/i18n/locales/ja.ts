@@ -1378,7 +1378,8 @@ const ja: Translations = {
   // ─── Stress State Details ───
   'stress.stressState': '応力状態',
   'stress.sigmaBiaxHelp': '二軸垂直応力（ナビエ）：\nσ = N/A + Mz·y/Iz - My·z/Iy\n\n正 = 引張（赤）\n負 = 圧縮（青）\n\n選択した繊維（y, z）に依存します。',
-  'stress.tauTotalHelp': '合計せん断応力：\nτ = √(τVy² + τVz² + τT²)\n\nVy（XY面）、Vz（XZ面）、ねじりによるせん断を含みます。',
+  'stress.tauTotalHelp': '横せん断のみ、またはねじりによるせん断のみの応力の大きさ。',
+  'stress.combinedShearRefused': 'ねじりと横せん断によるせん断応力がともにゼロでない箇所では、合成せん断応力、派生する応力、および合否判定を表示できません。',
   'stress.vonMisesHelp': 'フォンミーゼス基準（ひずみエネルギー）：\nσvm = √(σ² + 3τ²)\n\n鋼および延性金属に推奨。\nパーセントはfy容量の使用率を示します。',
   'stress.trescaHelp': 'トレスカ基準（最大せん断応力）：\nτmax = √((σ/2)² + τ²)\n\nフォンミーゼスより約15%保守的。\n等価：2τmax ≤ fy',
   'stress.rankineHelp': 'ランキン基準（最大垂直応力）：\nmax(|σ₁|, |σ₃|) ≤ fy\n\n脆性材料（コンクリート、岩石）に適切。\n鋼にはフォンミーゼスを推奨。',

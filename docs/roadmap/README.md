@@ -13,8 +13,8 @@ silent wrong results down to (g) growth and SaaS; sections 3 to 6 follow the sam
 measurable exit criteria, and the metrics behind them are regenerated on the
 [verification dashboard](../../testing/docs/DASHBOARD.md).
 
-As of **2026-11-18**, release **0.6.1** is out with SA-2026-064 through SA-2026-068.
-The follow-on fixes are done on main and await **0.6.2**:
+Release **0.6.1** shipped with SA-2026-064 through SA-2026-068. The follow-on fixes shipped
+in [**0.6.2**](../releases/v0.6.2.md) on **2026-11-18**:
 [#2142](https://github.com/lambdaclass/stabileo/issues/2142) in
 [#2169](https://github.com/lambdaclass/stabileo/pull/2169),
 [#2143](https://github.com/lambdaclass/stabileo/issues/2143) in
@@ -34,7 +34,7 @@ cover support restraints, gravity loads, combinations and concrete detailing. Th
 [design and load audit](PRODUCT_ROADMAP.md#design-and-load-audit-active-work-2026-11-18)
 has the issue and fix map. The general **under audit** notice is on main in [#2228](https://github.com/lambdaclass/stabileo/pull/2228).
 
-- Done on main: narrow member loads and force balance in [#2223](https://github.com/lambdaclass/stabileo/pull/2223), gravity transfer, seismic
+- Shipped in 0.6.2: narrow member loads and force balance in [#2223](https://github.com/lambdaclass/stabileo/pull/2223), gravity transfer, seismic
   mass and combined diagram peaks in [#2282](https://github.com/lambdaclass/stabileo/pull/2282), and ambiguous or unknown 3D supports in [#2277](https://github.com/lambdaclass/stabileo/pull/2277).
   Regenerate affected gravity and seismic loads. Confirm the intended 3D support restraints
   and rerun affected analyses, combinations and design checks.
@@ -42,7 +42,7 @@ has the issue and fix map. The general **under audit** notice is on main in [#22
 - Done on main: Heyman’s masonry arch experiment in [#2257](https://github.com/lambdaclass/stabileo/pull/2257), along with [#2272](https://github.com/lambdaclass/stabileo/pull/2272), [#2288](https://github.com/lambdaclass/stabileo/pull/2288)
   and [#2305](https://github.com/lambdaclass/stabileo/pull/2305). The [other follow-ups](PRODUCT_ROADMAP.md#other-follow-ups) include the completed
   steel Memoria item [#2303](https://github.com/lambdaclass/stabileo/issues/2303).
-- In flight: secondary stirrup legs [#2171](https://github.com/lambdaclass/stabileo/issues/2171) in [#2198](https://github.com/lambdaclass/stabileo/pull/2198). Release 0.6.2 is in preparation.
+- Shipped in 0.6.2: the secondary stirrup leg fix [#2171](https://github.com/lambdaclass/stabileo/issues/2171). Re-run affected concrete member designs. [SA-2026-075](../advisories/SA-2026-075-cirsoc201-secondary-stirrup-legs.md)
 - Wave 1 open findings: [#2202](https://github.com/lambdaclass/stabileo/issues/2202) (conservative), [#2208](https://github.com/lambdaclass/stabileo/issues/2208), [#2209](https://github.com/lambdaclass/stabileo/issues/2209), [#2212](https://github.com/lambdaclass/stabileo/issues/2212),
   [#2213](https://github.com/lambdaclass/stabileo/issues/2213), [#2214](https://github.com/lambdaclass/stabileo/issues/2214), [#2215](https://github.com/lambdaclass/stabileo/issues/2215), [#2216](https://github.com/lambdaclass/stabileo/issues/2216), [#2217](https://github.com/lambdaclass/stabileo/issues/2217), [#2218](https://github.com/lambdaclass/stabileo/issues/2218) and [#2225](https://github.com/lambdaclass/stabileo/issues/2225).
 - Wave 2 open findings, in audit harm order:
@@ -136,7 +136,7 @@ order and dates its historical cause-count snapshot separately; the dashboard ha
 
 | Document | Answers | Status | Owner |
 |---|---|---|---|
-| [PRODUCT_ROADMAP.md](PRODUCT_ROADMAP.md) | What we build and in what order; **the backlog with issue links and exit criteria** | Current (2026-11-18): 0.6.1 released; 0.6.2 in preparation; recent load, diagram and support fixes on main; November 17–18 soundness findings tracked | Federico Carrone |
+| [PRODUCT_ROADMAP.md](PRODUCT_ROADMAP.md) | What we build and in what order; **the backlog with issue links and exit criteria** | Current (2026-11-18). Release 0.6.2 shipped with load, diagram and support fixes. The November 17–18 soundness findings are tracked here. | Federico Carrone |
 | [testing/ROADMAP.md](../../testing/ROADMAP.md) | Testing and verification backlog, solver proofs, prevention and CI feedback; follows PRODUCT_ROADMAP “Priority now” item 6 | Current | Maintainers |
 | [SOLVER_ROADMAP.md](SOLVER_ROADMAP.md) | Solver mechanics, numerical methods, long-term solver sequence (Steps 1–14+) | Long-term sequence current; its "Where we are" and "Wave 1" sections predate v0.2.0 (see the note at its top) | Diego K (last editor) |
 | [../../research/DESIGN.md](../../research/DESIGN.md) | Stabileo Research: what it is, its rules, the engine-benchmarks track and the ordered paper queue (summary in PRODUCT_ROADMAP "Stabileo Research") | Current (2026-10-29) | Federico Carrone |

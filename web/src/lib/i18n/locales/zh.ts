@@ -1370,7 +1370,8 @@ const zh: Translations = {
   // ─── Stress State Details ───
   'stress.stressState': '应力状态',
   'stress.sigmaBiaxHelp': '双向弯曲正应力（Navier 公式）：\nσ = N/A + Mz·y/Iz - My·z/Iy\n\n正值 = 拉力（红色）\n负值 = 压力（蓝色）\n\n取决于所选纤维位置 (y, z)。',
-  'stress.tauTotalHelp': '组合剪应力总值：\nτ = √(τVy² + τVz² + τT²)\n\n包括 Vy 剪力（XY 平面）、Vz 剪力（XZ 平面）和扭转。',
+  'stress.tauTotalHelp': '仅有横向剪应力或仅有扭转剪应力时的应力大小。',
+  'stress.combinedShearRefused': '在扭转剪应力和横向剪应力均不为零的位置，无法提供合成剪应力、派生应力及验算结论。',
   'stress.vonMisesHelp': 'Von Mises 准则（畸变能）：\nσvm = √(σ² + 3τ²)\n\n适用于钢材和延性金属。\n百分比表示 fy 的利用率。',
   'stress.trescaHelp': 'Tresca 准则（最大剪应力）：\nτmax = √((σ/2)² + τ²)\n\n比 Von Mises 保守约 15%。\n等效条件：2τmax ≤ fy',
   'stress.rankineHelp': 'Rankine 准则（最大正应力）：\nmax(|σ₁|, |σ₃|) ≤ fy\n\n适用于脆性材料（混凝土、岩石）。\n钢材建议使用 Von Mises。',

@@ -17,6 +17,8 @@ import {
   shearStress,
   normalStress,
   computeStressDistribution,
+  type FailureCheck,
+  type MohrCircle,
   type ResolvedSection,
   type SectionStressResult,
 } from '../../section-stress';
@@ -26,7 +28,6 @@ import {
   interpolateForces3D,
   type NeutralAxisInfo,
   type SectionStressResult3D,
-  type StressPoint3D,
 } from '../../section-stress-3d';
 
 /**
@@ -253,6 +254,18 @@ function buildSamplingZ(rs: ResolvedSection): number[] {
   return positions;
 }
 
+type OracleStressPoint = Omit<SectionStressResult3D['distributionY'][number], 'refusal' | 'tauTotal' | 'vonMises'> & {
+  vonMises: number;
+};
+
+type OracleStressResult = Omit<SectionStressResult3D, 'refusal' | 'tauTotal' | 'mohr' | 'failure' | 'distributionY' | 'distributionZ'> & {
+  tauTotal: number;
+  mohr: MohrCircle;
+  failure: FailureCheck;
+  distributionY: OracleStressPoint[];
+  distributionZ: OracleStressPoint[];
+};
+
 /** The biaxial analysis from forces, in TypeScript: what the 3D panel used to compute without the engine. */
 export function analyzeSectionStressFromForcesOracle(
   N: number, Vy: number, Vz: number, Mx: number, My: number, Mz: number,
@@ -260,7 +273,7 @@ export function analyzeSectionStressFromForcesOracle(
   fy: number | undefined,
   yFiber?: number,
   zFiber?: number,
-): SectionStressResult3D {
+): OracleStressResult {
   const resolved = resolveSectionGeometryLegacy(sec);
   const halfH = resolved.h / 2;
 
@@ -274,7 +287,7 @@ export function analyzeSectionStressFromForcesOracle(
   const yPositions = buildSamplingY(resolved);
   // distributionY = cut along the DEPTH (y, ±h/2). The shear physically present on this cut
   // is the vertical shear Vz (paired with My / depth bending), via the strong-axis Jourawski.
-  const distributionY: StressPoint3D[] = yPositions.map(y => {
+  const distributionY: OracleStressPoint[] = yPositions.map(y => {
     const sigma = normalStress3D(N, Mz, My, resolved.a, Iz, Iy, y, 0);
     const tauVy = 0;
     const tauVz = shearStress(Vz, y, resolved); // strong-axis Jourawski over depth (uses rs.iy)
@@ -287,7 +300,7 @@ export function analyzeSectionStressFromForcesOracle(
   const zPositions = buildSamplingZ(resolved);
   // distributionZ = cut along the WIDTH (z, ±b/2). The shear here is the lateral shear Vy
   // (paired with Mz / width bending), via the weak-axis Jourawski (uses Iz).
-  const distributionZ: StressPoint3D[] = zPositions.map(z => {
+  const distributionZ: OracleStressPoint[] = zPositions.map(z => {
     const sigma = normalStress3D(N, Mz, My, resolved.a, Iz, Iy, 0, z);
     const tauVy = shearStressWeakAxis(Vy, z, resolved, Iz); // weak-axis Jourawski over width
     const tauVz = 0;
@@ -333,7 +346,7 @@ export function analyzeSectionStress3DOracle(
   t: number,
   yFiber?: number,
   zFiber?: number,
-): SectionStressResult3D {
+): OracleStressResult {
   const { N, Vy, Vz, Mx, My, Mz } = interpolateForces3D(ef, t);
   return analyzeSectionStressFromForcesOracle(N, Vy, Vz, Mx, My, Mz, sec, fy, yFiber, zFiber);
 }
