@@ -139,3 +139,23 @@ export const hu = {
   "scalarViewer.editorNote": "A kísérletek szerkesztőben való megnyitása a kutatási móddal érkezik",
   "scalarViewer.keyboard": "Billentyűzet: a nyilak mozgatják a nézetet, a Shift+nyilak 3D-ben forgatnak, a + és a - nagyít, a 0 vagy a Home a nézethez igazít",
 } satisfies ViewerStrings;
+
+export const zh = {
+  "scalarViewer.view": "视图",
+  "scalarViewer.viewOptions": "视图选项",
+  "scalarViewer.close": "关闭",
+  "scalarViewer.fit": "缩放至全部",
+  "scalarViewer.plan": "2D（平面，锁定轨道）",
+  "scalarViewer.orbit": "3D（轨道）",
+  "scalarViewer.switchProjection": "在平面视图和 3D 轨道视图之间切换",
+  "scalarViewer.viewer": "Stabileo 查看器",
+  "scalarViewer.position": "位置：",
+  "scalarViewer.zoom": "缩放：",
+  "scalarViewer.model": "模型：",
+  "scalarViewer.bars": "{nodes} 个节点，{cells} 根杆件",
+  "scalarViewer.elements": "{nodes} 个节点，{cells} 个单元",
+  "scalarViewer.openEditor": "在编辑器中打开",
+  "scalarViewer.soon": "（即将推出）",
+  "scalarViewer.editorNote": "在编辑器中打开实验将随研究模式提供",
+  "scalarViewer.keyboard": "键盘：方向键平移，Shift+方向键在 3D 中旋转，+ 和 - 缩放，0 或 Home 缩放至全部",
+} satisfies ViewerStrings;

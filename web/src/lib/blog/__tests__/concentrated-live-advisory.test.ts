@@ -17,6 +17,7 @@ const locales: [PublicLocale, string, string][] = [
   ['fr', 'Élevée', 'Corrigé dans 0.6.2'],
   ['tr', 'Yüksek', '0.6.2 sürümünde düzeltildi'],
   ['hu', 'Magas', 'Javítva a 0.6.2 verzióban'],
+  ['zh', '高', '已在 0.6.2 中修复'],
 ];
 
 it('#2207 covers every public advisory locale', () => {
@@ -31,7 +32,7 @@ it.each(locales)('#2207 %s lists the assigned advisory and manual review action'
   expect(rows).toHaveLength(1);
   expect(rows[0]!.slice(2)).toEqual([severity, status]);
   expect(rows[0]![1]).toBe(`${notice.explanation[locale]} (#2207).`);
-  expect(blocks.some(b => b.k === 'note' && b.t === `${advisoryId} — ${status}.`)).toBe(true);
+  expect(blocks.some(b => b.k === 'note' && b.t === `${advisoryId} — ${status}${locale === 'zh' ? '。' : '.'}`)).toBe(true);
   expect(blocks.some(b => b.k === 'ext' && b.label === advisoryId && b.href.endsWith(`/docs/advisories/${filename}`))).toBe(true);
   expect(notice.explanation[locale]).toContain(advisoryId);
   expect(notice.prs).toEqual([2236]);

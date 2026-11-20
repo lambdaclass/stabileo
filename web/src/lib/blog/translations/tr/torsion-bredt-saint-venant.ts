@@ -74,7 +74,7 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "Bredt dört durumun hepsinde düşük kalıyor. Alışılmış pratik kurala göre hâlâ ince cidarlı sayılan, 5 mm cidarlı ve 50 mm ortalama yarıçaplı bir boruda gerçek gerilme hesaplanandan %4,5 daha yüksektir. 10 mm cidarla %8,2."
+      "t": "Bredt dört durumun hepsinde düşük kalıyor. Alışılmış pratik kurala göre hâlâ ince cidarlı sayılan, 5 mm cidarlı ve 50 mm ortalama yarıçaplı bir boruda gerçek gerilme hesaplanandan %4,7 daha yüksektir. 10 mm cidarla %8,9."
     },
     {
       "k": "quote",

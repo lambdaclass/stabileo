@@ -1064,7 +1064,7 @@ const body: PostBody = {
       "k": "ul",
       "items": [
         "Hogyan derül ki: a modellben „kötél” viselkedésű rudak vannak, az anyaguknak van sűrűsége, és nem a kötél az egyetlen teherút.",
-        "Mi a teendő: ellenőrizze kézzel a mértékadó kötél- és lehorgonyzási erőket, vagy számítson a kötél anyagának sűrűsége nélkül (súly nélkül a törvény helyes volt); a javítás közzététele után futtassa újra.",
+        "Mi a teendő: Független számítással ellenőrizze a mértékadó kötél- és lehorgonyzási erőket a kötél önsúlyának figyelembevételével. Futtassa újra a számítást egy javított verzióval.",
         "Állapot: javítva a 0.3.0-s verzióban. A kötélszámítás most magát a húrtörvényt oldja meg Newton-iterációval."
       ]
     },

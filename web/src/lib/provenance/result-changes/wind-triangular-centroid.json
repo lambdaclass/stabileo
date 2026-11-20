@@ -21,6 +21,7 @@
     "de": "Dreieckige Windsymmetrie und Torsionsübertragung je Höhenband",
     "fr": "Symétrie triangulaire du vent et transfert de torsion par bande",
     "hu": "Háromszög szélteher-szimmetria és sávonkénti csavarási támogatás",
+    "zh": "三角形风荷载对称性与高度带扭矩支承",
     "tr": "Üçgen rüzgâr simetrisi ve bant bazında burulma desteği"
   },
   "explanation": {
@@ -30,6 +31,7 @@
     "de": "Nicht zusammengeführte Builds von PR #2220 konnten die Druckresultierende auf dreieckigen Grundrissen unbemerkt falsch platzieren und darstellbare exzentrische Lasten über einem unbelasteten Höhenband ohne Torsionsübertragung ablehnen. Dreiecke müssen nun zur Windrichtung symmetrisch sein. Die Torsionsübertragung bleibt je Stablastabschnitt erhalten; unbelastete Abschnitte deaktivieren keine unterstützten Abschnitte. W/Wa neu erzeugen und Analysen, Kombinationen und Nachweise wiederholen (#2220).",
     "fr": "Les versions non fusionnées de la PR #2220 pouvaient déplacer silencieusement la résultante de pression sur les plans triangulaires et refuser des charges excentrées représentables au-dessus d’une bande non chargée sans transfert de torsion. La symétrie par rapport à la direction du vent est désormais exigée. Le transfert de torsion est conservé par segment de charge ; les segments non chargés ne désactivent pas les segments pris en charge. Régénérez W/Wa et relancez analyses, combinaisons et vérifications (#2220).",
     "hu": "A még nem egyesített #2220 PR háromszög alaprajznál figyelmeztetés nélkül rossz helyre tehette a nyomás eredőjét, és elutasíthatta az ábrázolható excentrikus terheket egy terheletlen, csavarást nem támogató sáv fölött. A háromszögeknek most a szélirányra szimmetrikusnak kell lenniük. A csavarási támogatás rúdszakaszonként megmarad; a terheletlen szakaszok nem tiltják le a támogatott szakaszokat. Állítsa elő újra a W/Wa terheket, majd ismételje meg az elemzéseket, kombinációkat és ellenőrzéseket (#2220).",
+    "zh": "尚未合并的 PR #2220 构建，可能在三角形平面上静默地放错压力合力的位置，并拒绝无荷载、无支承高度带上方可表示的偏心荷载。三角形平面现在要求关于风向对称。扭矩支承随各杆件荷载段确定；无荷载、无支承的段不会使有支承的段失效。请重新生成 W 和 Wa，然后重新运行分析、组合和设计验算。（#2220）",
     "tr": "Birleştirilmemiş PR #2220 sürümleri üçgen planlarda basınç bileşkesini uyarı vermeden yanlış konumlandırabiliyor ve yüksüz, burulmayı desteklemeyen bir bandın üzerindeki temsil edilebilir eksantrik yükleri reddedebiliyordu. Üçgen planların artık rüzgâr yönüne göre simetrik olması gerekir. Burulma desteği her çubuk yük parçasında korunur; yüksüz parçalar desteklenen parçaları devre dışı bırakmaz. W/Wa yüklerini yeniden üretip analiz, birleşim ve kontrolleri tekrarlayın (#2220)."
   },
   "changelog": {

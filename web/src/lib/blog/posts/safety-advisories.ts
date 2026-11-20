@@ -279,7 +279,7 @@ export const safetyAdvisories: Post = {
           k: 'ul',
           items: [
             'Cómo saber si te afecta: el modelo tiene barras con comportamiento «cable», su material tiene densidad y el cable no es el único camino de la carga.',
-            'Qué hacer: verificá a mano las tracciones de cables y anclajes que gobiernan, o resolvé sin densidad en el material del cable (sin peso la ley era correcta); con la corrección publicada, volvé a resolver.',
+            'Qué hacer: verificá por separado las fuerzas determinantes de los cables y sus anclajes, incluyendo el peso propio del cable. Volvé a resolver con la versión corregida.',
             'Estado: corregido en la versión 0.3.0. El cálculo de cables ahora resuelve por Newton la ley de la cuerda misma.',
           ],
         },
@@ -618,7 +618,7 @@ export const safetyAdvisories: Post = {
           k: 'ul',
           items: [
             'How to tell: the model has members with the "cable" behaviour, their material has a density, and the cable is not the only load path.',
-            'What to do: check the governing cable and anchorage forces by hand, or solve without density on the cable material (without weight the law was right); once the fix is published, re-run.',
+            'What to do: independently verify the governing cable and anchorage forces with the cable self-weight included. Re-run the analysis in a fixed version.',
             'Status: fixed in 0.3.0. The cable analysis now solves the chord law itself by Newton iteration.',
           ],
         },
@@ -957,7 +957,7 @@ export const safetyAdvisories: Post = {
           k: 'ul',
           items: [
             'Como saber se afeta você: o modelo tem barras com comportamento «cabo», o material delas tem densidade e o cabo não é o único caminho da carga.',
-            'O que fazer: confira à mão as trações de cabos e ancoragens que governam, ou resolva sem densidade no material do cabo (sem peso a lei estava certa); com a correção publicada, resolva de novo.',
+            'O que fazer: verifique de forma independente os esforços determinantes nos cabos e nas ancoragens, incluindo o peso próprio do cabo. Refaça a análise com uma versão corrigida.',
             'Estado: corrigido na versão 0.3.0. A análise de cabos agora resolve a própria lei da corda por Newton.',
           ],
         },

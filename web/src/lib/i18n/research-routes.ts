@@ -2,8 +2,8 @@ import { publicLocaleEnabled, publicFeatures, researchBuilt, type PublicFeatures
 
 export { RESEARCH_GALLERY, isResearchRoute } from './research-path';
 
-const ALL = ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu'] as const;
-const BASE = ['en', 'es', 'pt', 'hu'] as const;
+const ALL = ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu', 'zh'] as const;
+const BASE = ['en', 'es', 'pt', 'hu', 'zh'] as const;
 
 /** The languages each research page is written in; `research-locales.test.ts` holds this to every page's own dictionaries. */
 const PUBLISHED: Record<string, readonly string[]> = {

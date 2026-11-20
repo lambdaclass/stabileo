@@ -283,5 +283,45 @@ const hu: Strings = {
   wholeLine: 'a teljes vezeték',
 };
 
-export const translations: Record<string, Strings> = { en, es, pt, de, fr, tr, hu };
+const zh: Strings = {
+  title: riserTitle.zh,
+  lead: riserHook.zh,
+  model: '模型',
+  theory: '几何精确的杆：每个截面可自由移动和转动，能量取决于在截面自身坐标系中度量的拉伸、剪切、弯曲和扭转。采用带两个高斯点的三节点单元。海床是刚性平面，在每个节点处用罚弹簧顶回，并考虑库仑摩擦。',
+  method: '我们读取参考代码自己的输入文件，并求解同样的三个静力步：含接触的自重、1 MN 的水平拉力，然后将自由端抬起 186 m。求解器是一个新的 Rust crate，为本页编译为 WASM。其切线刚度由对单元能量二次求导得到，因此牛顿法呈二次收敛。',
+  comparison: '在第 3 步结束时，我们将全部 134 个单元的弯矩和剪力，与参考代码教程指南中存储的数值比较。触底点和悬挂形状也与弹性悬链线核对。一根 1 m 的悬臂梁（教程 1）单独检验梁单元。',
+  limits: '仅限静力：不含海流、波浪或拖曳荷载，也不含管线之间的接触。与参考代码一致只是数值上的一致；它不是试验，也不是设计验算。',
+  checks: '验证与来源',
+  checkLabels: {
+    'T1 tip X and Z at t = 0.1 … 1.0 vs reference Figure 1-6 [m, max abs]': '悬臂梁：末端的端点 X、Z (m)',
+    'T1 tip at t = 1, 5 elements vs Reissner rod boundary-value solution [m, max abs]': '悬臂梁，5 个单元：端点 X、Z (m)',
+    'T1 tip at t = 1, 40 elements vs Reissner rod boundary-value solution [m, max abs]': '悬臂梁，40 个单元：端点 X、Z (m)',
+    'T16 step 3: M(e1) per element vs reference Figure 16-12 data [N·m, max abs over 134 elements]': '立管：逐单元弯矩对比（最大绝对差，N·m）',
+    'T16 step 3: V(e2) per element vs reference Figure 16-13 data [N, max abs over 134 elements]': '立管：逐单元剪力对比（最大绝对差，N）',
+    'T16 step 3: touchdown (moment at half its plateau) vs reference data [m]': '立管：触底点（沿管线 m）',
+    'T16 step 3: touchdown, last node on the seabed vs elastic catenary [m of line]': '立管：触底点（沿管线 m）',
+    'T16 step 3: suspended shape vs elastic catenary hung from the computed fairlead [m, max distance]': '立管：悬挂形状 (m)',
+  } as Record<string, string>,
+  riser: '立管', forces: '内力', cantilever: '悬臂梁',
+  pull: '水平拉力', lift: '自由端抬升', friction: '海床摩擦系数 μ',
+  run: '实时重新计算', stop: '停止', restart: '重新开始',
+  computing: '正在用 Stabileo 计算…（需几秒）',
+  caseLabel: '工况',
+  error: '求解器无法加载或未能完成。之前的结果仍可使用。',
+  ours: 'Stabileo', reference: '参考代码，第 3 步结束时', figure: '参考代码，图 1-6',
+  moment: '弯矩 M(e1)', shear: '剪力 V(e2)', length: '沿管线的位置 (m)', time: '荷载系数',
+  tipX: '端点 X (m)', tipZ: '端点 Z (m)',
+  steps: ['海床上的自重', '水平拉力', '自由端抬升'],
+  fairlead: '自由端', touchdown: '触底点（沿管线）', anchor: '锚固处的拉力',
+  defaults: '参考值对应教程自己的参数（1 MN，186 m，μ = 0.2）。',
+  coordinates: '真实比例，x 沿海床，z 向上，单位为 m。颜色：弯矩。',
+  cantileverNote: '一根 1 m 的悬臂梁，端部受 1000 N 的横向力，分十个增量施加。',
+  inputs: '输入文件', code: '参考代码 (BSD-3-Clause)',
+  tableIntro: '我们没有与文章中的图比较：我们无法获取全文。参考值包括随 GIRAFFE（作者的代码）发布的结果、悬臂梁的独立精确解，以及立管的解析悬链线。差异取所有比较对象中的最大值：悬臂梁十个增量与图的比较，立管 134 个单元的弯矩和剪力，以及管线整个悬挂部分。',
+  table: { quantity: '量', reference: '参考值', ours: 'Stabileo', difference: '最大差异', tolerance: '容差' },
+  sources: { figure: 'GIRAFFE，其指南中的图 1-6', exact: '杆的精确解，独立', giraffe: 'GIRAFFE，教程 16 的结果', catenary: '解析弹性悬链线' } as Record<string, string>,
+  wholeLine: '整条管线',
+};
+
+export const translations: Record<string, Strings> = { en, es, pt, de, fr, tr, hu, zh };
 export const riserStrings = (): Strings => translations[publicI18n.locale] ?? en;

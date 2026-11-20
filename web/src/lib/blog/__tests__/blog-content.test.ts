@@ -430,6 +430,7 @@ describe('the safety-advisories post quotes the advisories', () => {
       fr: 'Corrigé dans 0.6.2',
       tr: '0.6.2 sürümünde düzeltildi',
       hu: 'Javítva a 0.6.2 verzióban',
+      zh: '已在 0.6.2 中修复',
     };
     const fixedIds = fixed.map(({ id }) => id).sort();
 
@@ -445,7 +446,7 @@ describe('the safety-advisories post quotes the advisories', () => {
         const status = fixedStatuses[locale];
         expect(summary.rows.find((r) => r[0] === id)?.[3], `${locale}: ${id} status`).toBe(status);
         expect(blocks.filter((b) => b.k === 'note' && b.t.startsWith(`${id} — `)), `${locale}: ${id} note`)
-          .toEqual([{ k: 'note', t: `${id} — ${status}.` }]);
+          .toEqual([{ k: 'note', t: `${id} — ${status}${locale === 'zh' ? '。' : '.'}` }]);
         expect(blocks.filter((b) => b.k === 'ext' && b.label === id), `${locale}: ${id} evidence`)
           .toEqual([expect.objectContaining({ href: `https://github.com/lambdaclass/stabileo/blob/main/docs/${evidence}` })]);
       }

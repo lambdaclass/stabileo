@@ -3,7 +3,7 @@ import { RESULT_CHANGES } from '../full-registry';
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
-import { validateRegistry, githubSlug, changelogUrl, conditionGroups, type ResultChangeRegistry } from '../registry';
+import { REGISTRY_LOCALES, validateRegistry, githubSlug, changelogUrl, conditionGroups, type ResultChangeRegistry } from '../registry';
 import { FEATURE_IDS } from '../model-features';
 import { readRegistry } from '../../../../scripts/result-changes/registry.mjs';
 
@@ -27,7 +27,7 @@ describe('result-change registry', () => {
     expect(RESULT_CHANGES).toEqual({ ...registry, changes: registry.changes.map(({ quantities: _, ...c }) => c) });
   });
 
-  it('is well formed: ids, versions, six languages, known features, quantities', () => {
+  it('is well formed: ids, versions, required languages, known features, quantities', () => {
     expect(validateRegistry(RESULT_CHANGES, new Set(FEATURE_IDS))).toEqual([]);
     expect(validateRegistry(source(), new Set(FEATURE_IDS))).toEqual([]);
   });
@@ -62,7 +62,7 @@ describe('result-change registry', () => {
     expect(problems).toContain(`change x: resultsVersion ${nextVersion} outside 1..${RESULT_CHANGES.currentResultsVersion}`);
   });
 
-  it.each(['en', 'es', 'pt', 'de', 'fr', 'tr'] as const)('refuses an entry without its %s title or explanation', (locale) => {
+  it.each(REGISTRY_LOCALES)('refuses an entry without its %s title or explanation', (locale) => {
     const entry = RESULT_CHANGES.changes[0];
     const title = { ...entry.title, [locale]: ' ' };
     const explanation: Partial<typeof entry.explanation> = { ...entry.explanation };

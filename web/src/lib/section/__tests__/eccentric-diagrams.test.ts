@@ -131,8 +131,15 @@ describe('a transverse load off the shear centre twists the member', () => {
     for (const sample of offset.distributionZ) {
       expect(sample).toMatchObject({ refusal: offset.refusal, tauTotal: null, vonMises: null });
     }
+  });
+
+  it('#2366 includes centred planar shear in the width cut diagnostics', () => {
+    const centered = toDiagram(rect(), resolveEccentric({ vz: 100, at: [0, 0] }).forces, [0.05, 0]);
+    expect(centered.tauVzAtFiber).toBeGreaterThan(0);
     for (const sample of centered.distributionZ) {
-      expect(sample).toMatchObject({ refusal: null, tauTotal: 0 });
+      expect(sample).toMatchObject({ refusal: null, tauVz: 0 });
+      expect(sample.tauTotal, JSON.stringify(sample)).toBeCloseTo(centered.tauVzAtFiber, 12);
+      expect(sample.vonMises).toBeCloseTo(centered.failure!.vonMises, 12);
     }
   });
 

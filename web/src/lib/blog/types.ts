@@ -150,8 +150,12 @@ export function wordCount(body: PostBody, linkTitle?: (slug: string) => string |
     else if (b.k === 'photo') parts.push(b.caption);
     else parts.push(b.caption, ...b.head, ...b.rows.flat());
   }
-  return parts.join(' ').split(/\s+/).filter(Boolean).length;
+  const text = parts.join(' ');
+  const han = text.match(/\p{Script=Han}/gu)?.length ?? 0;
+  return text.replace(/\p{Script=Han}+/gu, ' ').split(/\s+/).filter(Boolean).length + Math.round(han / HAN_PER_WORD);
 }
+
+const HAN_PER_WORD = 2;
 
 /** Reading time in whole minutes, never zero. 200 wpm, the usual estimate. */
 export function readingMinutes(body: PostBody, linkTitle?: (slug: string) => string | undefined): number {
