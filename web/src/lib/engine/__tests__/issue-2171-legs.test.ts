@@ -92,7 +92,7 @@ it('known wrong result: #2171 fixed cage uses the declared primary count', () =>
   expect(out.shear.status).toBe('fail');
 });
 
-it.skip('span torsion sizing leaves primary and secondary shear report steps deferred', () => {
+it('span torsion sizing leaves primary and secondary shear report steps deferred', () => {
   const value = verifyElement(input(40, 30, '2025'));
   expect(value.torsion).toMatchObject({ neglect: false });
   expect(value.torsion?.refusal).toBeUndefined();
