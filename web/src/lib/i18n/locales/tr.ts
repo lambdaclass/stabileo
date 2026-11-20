@@ -3013,7 +3013,8 @@ const tr: Translations = {
   // ─── Stress State Details ───
   'stress.stressState': 'Gerilme durumu',
   'stress.sigmaBiaxHelp': 'İki eksenli normal gerilme (Navier):\nσ = N/A − My·y/Iy + Mz·z/Iz\n\nPozitif = çekme (kırmızı)\nNegatif = basınç (mavi)\n\nSeçilen life (y, z) bağlıdır.',
-  'stress.tauTotalHelp': 'Toplam bileşik kayma gerilmesi:\nτ = √(τVy² + τVz² + τT²)\n\nVy (XY düzlemi), Vz (XZ düzlemi) ve burulmadan gelen kaymayı içerir.',
+  'stress.tauTotalHelp': 'Yalnızca enine kayma veya yalnızca burulma kaynaklı kayma gerilmesinin büyüklüğü.',
+  'stress.combinedShearRefused': 'Burulma ve enine kayma aynı noktada oluşuyor. Birleşik gerilme sonuçları gösterilmiyor.',
   'stress.vonMisesHelp': 'Von Mises kriteri (biçim değiştirme enerjisi):\nσvm = √(σ² + 3τ²)\n\nÇelik ve sünek metaller için tercih edilir.\nYüzde, fy kapasitesinin kullanımını gösterir.',
   'stress.trescaHelp': 'Tresca kriteri (maks. kayma gerilmesi):\nτmax = √((σ/2)² + τ²)\n\nVon Mises\'e göre ~%15 güvenli tarafta.\nEşdeğer: 2τmax ≤ fy',
   'stress.rankineHelp': 'Rankine kriteri (maks. normal gerilme):\nmax(|σ₁|, |σ₃|) ≤ fy\n\nGevrek malzemeler (beton, kaya) için uygundur.\nÇelik için Von Mises tercih edin.',

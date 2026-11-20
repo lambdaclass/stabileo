@@ -17,7 +17,8 @@ import zh from '../locales/zh';
 
 const copyCases: [string, string | undefined, RegExp][] = [
   ['biaxial bending lever arms', zh['stress.sigmaBiaxHelp'], /Mz·y\/Iz − My·z\/Iy/],
-  ['signed shear superposition', zh['stress.tauTotalHelp'], /\(τVy \+ τTy\)² \+ \(τVz \+ τTz\)²/],
+  ['single-source shear magnitude', zh['stress.tauTotalHelp'], /仅有横向剪应力或仅有扭转剪应力时的应力大小/],
+  ['combined shear refusal', zh['stress.combinedShearRefused'], /扭转剪应力和横向剪应力均不为零.*无法提供合成剪应力、派生应力及验算结论/],
   ['I/H kern shape label', zh['stress.coreHexagonal'], /^菱形$/],
   ['I/H kern outer fibers', zh['stress.ccIHNote'], /菱形.*I<sub>z<\/sub>\/\(A·h\/2\).*I<sub>y<\/sub>\/\(A·b\/2\)/],
   ['honeycomb half-distance', STRINGS.zh.springsCornerDistance, /相对角点间距的一半/],

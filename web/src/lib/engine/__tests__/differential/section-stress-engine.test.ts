@@ -17,7 +17,7 @@ vi.mock('../../wasm-solver', async (orig) => {
 });
 
 import { analyzeSectionStress } from '../../section-stress';
-import { analyzeSectionStress3D, analyzeSectionStressFromForces } from '../../section-stress-3d';
+import { analyzeSectionStress3D, analyzeSectionStressFromForces, type SectionStressResult3D } from '../../section-stress-3d';
 import { EngineUnavailableError } from '../../engine-unavailable';
 import { analyzeSectionStressOracle, analyzeSectionStress3DOracle, analyzeSectionStressFromForcesOracle } from './section-stress-oracle';
 import type { Section } from '../../../store/model.svelte';
@@ -28,6 +28,17 @@ import type { ElementForces } from '../../types';
 // torsion or shear stress of a few nPa that the oracle carries as rounding noise.
 const close = (a: number, b: number, scale: number) =>
   expect(Math.abs(a - b), `${a} vs ${b}`).toBeLessThanOrEqual(Math.max(1e-9 * Math.max(1, Math.abs(scale)), 1e-6));
+
+function checkCombinedStress(result: SectionStressResult3D, vonMises: number, scale: number) {
+  if (result.tauTorsion !== 0 && (result.tauVyAtFiber !== 0 || result.tauVzAtFiber !== 0)) {
+    expect(result).toMatchObject({
+      refusal: 'combinedTorsionAndTransverseShear', tauTotal: null, mohr: null, failure: null,
+    });
+  } else {
+    expect(result.refusal).toBeNull();
+    close(result.failure?.vonMises ?? NaN, vonMises, scale);
+  }
+}
 
 /** Doubly symmetric sections, each with every dimension the resolver reads, so nothing is guessed. */
 const section = fc.oneof(
@@ -85,7 +96,7 @@ describe('section stresses: engine against the TypeScript oracle', () => {
       close(Math.abs(e.tauVzAtFiber), Math.abs(o.tauVzAtFiber), scale);
       close(Math.abs(e.tauVyAtFiber), Math.abs(o.tauVyAtFiber), scale);
       close(Math.abs(e.tauTorsion), Math.abs(o.tauTorsion), scale);
-      close(e.failure.vonMises, o.failure.vonMises, scale);
+      checkCombinedStress(e, o.failure.vonMises, scale);
       compared++;
     }), { numRuns: 2000, seed: 321 });
     expect(compared).toBe(2000);
@@ -99,7 +110,7 @@ describe('section stresses: engine against the TypeScript oracle', () => {
       const scale = Math.max(Math.abs(o.N), Math.abs(o.My), Math.abs(o.Mz), Math.abs(o.sigmaAtFiber), 1);
       for (const k of ['N', 'Vy', 'Vz', 'Mx', 'My', 'Mz'] as const) close(e[k], o[k], scale);
       close(e.sigmaAtFiber, o.sigmaAtFiber, scale);
-      close(e.failure.vonMises, o.failure.vonMises, scale);
+      checkCombinedStress(e, o.failure.vonMises, scale);
     }), { numRuns: 1000, seed: 322 });
   }, 120_000);
 
