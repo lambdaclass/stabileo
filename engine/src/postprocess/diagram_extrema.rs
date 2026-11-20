@@ -194,15 +194,16 @@ where
             for u in quadratic_roots(cubic, quadratic, linear)? {
                 if u > 0.0 && u < 1.0 {
                     let t = lo + (hi - lo) * u;
+                    let cut = Cut { t, right: false, location: Location::Interior { start: x0, end: x1, u } };
                     if !(lo < t && t < hi) {
-                        let base = self.checked_value(Cut::boundary(lo, x0, true))?;
-                        let value = |x| base + x * (linear + x * (quadratic + x * cubic));
-                        if value(u) != value(if t == lo { 0.0 } else { 1.0 }) {
+                        let boundary = if t == lo { Cut::boundary(lo, x0, true) } else { Cut::boundary(hi, x1, false) };
+                        let peak = self.checked_value(cut)?;
+                        if !peak.is_finite() || peak != self.checked_value(boundary)? {
                             return Err("interior member diagram extremum has no distinct normalized station");
                         }
                         continue;
                     }
-                    cuts.push(Cut { t, right: false, location: Location::Interior { start: x0, end: x1, u } });
+                    cuts.push(cut);
                 }
             }
         }
@@ -308,7 +309,7 @@ mod round3_tests {
     fn round3_shear_peak_uses_interval_local_coordinate() {
         let a = 1.5_f64;
         let ulp = f64::from_bits(a.to_bits() + 1) - a;
-        for steps in [3, 6] {
+        for steps in [2, 3, 6] {
             let curve = Curve {
                 length: 3.0, start: 0.0, change: 0.0, slope: 0.0,
                 response: Response::Force(1.0),
@@ -317,7 +318,12 @@ mod round3_tests {
                 }),
                 points: std::iter::empty(),
             };
-            let peak = curve.diagram_cuts(21).unwrap().into_iter()
+            let cuts = curve.diagram_cuts(21);
+            if steps == 2 {
+                assert_eq!(cuts.unwrap_err(), "interior member diagram extremum has no distinct normalized station");
+                continue;
+            }
+            let peak = cuts.unwrap().into_iter()
                 .map(|cut| curve.checked_value(cut).unwrap()).fold(f64::NEG_INFINITY, f64::max);
             assert_eq!(peak, f64::from(steps) / 4.0);
         }

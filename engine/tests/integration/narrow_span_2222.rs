@@ -659,7 +659,6 @@ fn check_saved_diagrams_2223(uniform: bool) {
 }
 
 #[test]
-#[ignore = "known wrong result: #2250"]
 fn issue_2250_near_balanced_trapezoid_keeps_its_envelope() {
     let input: SolverInput3D = serde_json::from_value(serde_json::json!({
         "nodes": {"1": {"id": 1, "x": 0, "y": 0, "z": 0}, "2": {"id": 2, "x": 10, "y": 0, "z": 0}},

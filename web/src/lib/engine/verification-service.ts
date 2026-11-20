@@ -113,19 +113,6 @@ function computeStationDemandsWasm(
 ): StationDemandData {
   const numStations = 11;
   const requestedStationTs = Array.from({ length: numStations }, (_, i) => i / (numStations - 1));
-  const forcesByCombo = new Map([...perCombo3D].map(([id, r]) => [id, new Map(r.elementForces.map(ef => [ef.elementId, ef]))]));
-  const withLoading = (esr: ElementStationResult): ElementStationResult => {
-    const byCombo = new Map<number, ElementStationResult['comboResults'][number]>();
-    for (const c of esr.comboResults) if (!byCombo.has(c.comboId)) byCombo.set(c.comboId, c);
-    return { ...esr, stationTs: [...new Set([...requestedStationTs, ...esr.stationTs])],
-      expectedCombinationIds: Object.freeze(combinations.map(c => c.id)), comboResults: combinations.map(({ id: comboId, name }) => {
-      const c = byCombo.get(comboId);
-      const ef = forcesByCombo.get(comboId)?.get(esr.elementId);
-      const transverseLoading = ef && ConcurrentDemand.loadingOf(ef);
-      const stations = ef && c ? stationsWithExtrema(ef, c.stations) : [];
-      return { comboId, comboName: c?.comboName ?? name ?? `Combo ${comboId}`, stations, transverseLoading };
-    }) };
-  };
   // Build member list from model
   const members: Array<{ elementId: number; sectionId: number; materialId: number; length: number }> = [];
   for (const [id, elem] of model.elements) {
@@ -139,19 +126,40 @@ function computeStationDemandsWasm(
     members.push({ elementId: id, sectionId: elem.sectionId, materialId: elem.materialId, length: L });
   }
 
+  if (members.length === 0) return { demands: new Map(), stations: new Map() };
+
+  const forcesByCombo = new Map([...perCombo3D].map(([id, r]) => [id, new Map(r.elementForces.map(ef => [ef.elementId, ef]))]));
+  const expectedCombinationIds = Object.freeze(combinations.map(c => c.id));
+  const gridMembers = members.map(({ elementId }) => ({ elementId, stationTs: requestedStationTs }));
   const complete = (data: StationDemandData): StationDemandData => {
-    const rows = [...data.stations.values()];
+    const grid: { elementId: number; comboId: number; stationT: number }[] = [];
+    const indexed = [...data.stations.values()].map(row => {
+      const byCombo = new Map<number, ElementStationResult['comboResults'][number]>();
+      for (const c of row.comboResults) {
+        const { comboId, stations } = c;
+        if (!byCombo.has(comboId)) byCombo.set(comboId, c);
+        for (const { t } of stations) grid.push({ elementId: row.elementId, comboId, stationT: t });
+      }
+      return { row, byCombo };
+    });
     CompleteDemandSet.require({
-      combinations: combinations.map(({ id: comboId, name: comboName }) => ({
-        comboId, comboName,
-        members: members.map(({ elementId }) => ({ elementId, stationTs: requestedStationTs })),
-      })),
-    }, rows.flatMap(member => member.comboResults.flatMap(combo =>
-      combo.stations.map(station => ({ elementId: member.elementId, comboId: combo.comboId, stationT: station.t })))));
-    for (const row of rows) data.stations.set(row.elementId, withLoading(row));
+      combinations: combinations.map(({ id: comboId, name: comboName }) => ({ comboId, comboName, members: gridMembers })),
+    }, grid);
+
+    for (const { row, byCombo } of indexed) {
+      const comboResults = combinations.map(({ id: comboId, name }) => {
+        const c = byCombo.get(comboId);
+        const ef = forcesByCombo.get(comboId)?.get(row.elementId);
+        const transverseLoading = ef && ConcurrentDemand.loadingOf(ef);
+        const stations = ef && c ? stationsWithExtrema(ef, c.stations) : [];
+        return { comboId, comboName: c?.comboName ?? name ?? `Combo ${comboId}`, stations, transverseLoading };
+      });
+      const stationTs = [...new Set([...requestedStationTs, ...row.stationTs])];
+      data.stations.set(row.elementId, { ...row, stationTs, expectedCombinationIds, comboResults });
+    }
 
     const inventory = ConcurrentDemand.inventoryForStations(members.map(member => data.stations.get(member.elementId) ?? {
-      elementId: member.elementId, length: member.length, expectedCombinationIds: combinations.map(c => c.id),
+      elementId: member.elementId, length: member.length, expectedCombinationIds,
       stationTs: requestedStationTs, comboResults: [],
     }));
     const checked = CompleteDemandSet.require(inventory.scope, [...data.stations.values()].flatMap(esr => esr.comboResults.flatMap(c =>
