@@ -21,7 +21,7 @@
   import ProConcreteByLevel from './ProConcreteByLevel.svelte';
   import DesignOptionsSections from './design/DesignOptionsSections.svelte';
   import { setBeamsLateral } from '../../lib/store/lateral-system';
-  import { SLAB_BAR_RANGE, inRange } from '../../lib/rc-sheets/types';
+  import { SLAB_BAR_RANGE, TIE_BAR_RANGE, inRange } from '../../lib/rc-sheets/types';
 
   const d = $derived.by(() => { void modelStore.designData; return designData(); });
   const stated = $derived(modelStore.designData !== undefined);
@@ -64,7 +64,7 @@
       <label class="dd-inline">fy <input type="number" min="200" step="10" value={d.rebarFy} onchange={(e) => patchDesignData({ rebarFy: Number(e.currentTarget.value) || d.rebarFy })} data-testid="design-data-fy" /> MPa</label>
       <label class="dd-inline">{t('designData.stirrup')}
         <select value={d.stirrupDiaMm} onchange={(e) => patchDesignData({ stirrupDiaMm: Number(e.currentTarget.value) })} data-testid="design-data-stirrup">
-          {#each BAR_DIAMETERS_MM.filter((x) => x <= 16) as dia}<option value={dia}>Ø{dia}</option>{/each}
+          {#each BAR_DIAMETERS_MM.filter((x) => inRange(x, TIE_BAR_RANGE)) as dia}<option value={dia}>Ø{dia}</option>{/each}
         </select>
       </label>
     </div>
@@ -107,7 +107,7 @@
     </div>
     <div class="dd-sub">{t('designData.stirrups')}</div>
     <div class="dd-chips">
-      {#each BAR_DIAMETERS_MM.filter((x) => x <= 16) as dia}
+      {#each BAR_DIAMETERS_MM.filter((x) => inRange(x, TIE_BAR_RANGE)) as dia}
         <button class="dd-chip" class:on={d.stirrupDiametersMm.includes(dia)} aria-pressed={d.stirrupDiametersMm.includes(dia)} onclick={() => toggle('stirrupDiametersMm', dia)} data-testid="design-data-ties-{dia}">Ø{dia}</button>
       {/each}
     </div>

@@ -20,7 +20,8 @@ import type { BeamRow } from '../rc-sheets/beam-row';
 import type { ColumnRow } from '../rc-sheets/column-row';
 import type { WallRow } from '../rc-sheets/wall-row';
 import type { LineLayout } from '../rc-sheets/beam-line';
-import type { CheckLine } from '../rc-sheets/types';
+import { inRange, TIE_BAR_RANGE, type CheckLine } from '../rc-sheets/types';
+import { BAR_DIAMETERS_MM } from '../model/design-data';
 import type { FootingRow } from '../rc-sheets/footing-types';
 import { onlyOverlaps } from '../rc-sheets/footing-overlaps';
 import type { Redesign } from './rc-sheets.svelte';
@@ -275,7 +276,8 @@ export function noArrangement(row: SheetRow | LineLayout, spans: readonly BeamRo
 export type Alternative =
   | { kind: 'section'; what: ResizeWhat | 'beam'; from: number[]; to: number[] }
   | { kind: 'concrete'; from: number; to: number; name: string }
-  | { kind: 'footing'; what: FootingAlternative };
+  | { kind: 'footing'; what: FootingAlternative }
+  | { kind: 'ties'; from: number[]; to: number };
 
 /**
  * What a footing with no proposal that verifies is offered: another balance of its offset, tried
@@ -284,6 +286,12 @@ export type Alternative =
  * allowable pressure than the one presumed.
  */
 export type FootingAlternative = 'strap' | 'tie' | 'eccentric' | 'mat' | 'soil';
+
+/** The stirrup and tie diameters the project does not allow yet, smallest first, each with the list it would make. */
+export function widerTieLists(): Array<{ dia: number; list: number[] }> {
+  const now = designData().stirrupDiametersMm;
+  return BAR_DIAMETERS_MM.filter((x) => inRange(x, TIE_BAR_RANGE) && !now.includes(x)).map((dia) => ({ dia, list: [...now, dia].sort((p, q) => p - q) }));
+}
 
 /**
  * The beam sections a row is tried at, smallest depth first, by the Stabileo criteria (FIUBA §3.1):
@@ -336,6 +344,8 @@ export function alternatives(row: SheetRow, fc = concreteOfRow(row.key)): Altern
   const demand = row.demand;
   const stronger = fc !== undefined ? strongerConcretes(fc).find((k) => passes(redesign(demand as never, { fc: k.fc }))) : undefined;
   if (stronger && fc !== undefined) out.push({ kind: 'concrete', from: fc, to: stronger.fc, name: stronger.name });
+  const ties = row.family === 'beam' || row.family === 'column' || row.family === 'wall' ? widerTieLists().find((k) => passes(redesign(demand as never, { ties: k.list }))) : undefined;
+  if (ties) out.unshift({ kind: 'ties', from: designData().stirrupDiametersMm, to: ties.dia });
   return out;
 }
 
@@ -359,10 +369,12 @@ export function lineAlternatives(line: LineLayout, spans: readonly BeamRow[], fc
   const b0 = Math.max(...spans.map((s) => s.b)), h0 = Math.max(...spans.map((s) => s.h));
   const out: Alternative[] = [];
   const own = spans.map((s) => ({ s, redo: redesignerOf(s.key) })).filter((x) => x.redo && passes(x.redo(x.s.demand as never)) === false);
-  const alone = (o: { b?: number; h?: number; fc?: number }) => own.every(({ s, redo }) => passes(redo!({ ...s.demand, ...(o.b ? { b: o.b, h: o.h } : {}) } as never, o.fc ? { fc: o.fc } : undefined)));
+  const alone = (o: { b?: number; h?: number; fc?: number; ties?: number[] }) => own.every(({ s, redo }) => passes(redo!({ ...s.demand, ...(o.b ? { b: o.b, h: o.h } : {}) } as never, o.fc || o.ties ? { ...(o.fc ? { fc: o.fc } : {}), ...(o.ties ? { ties: o.ties } : {}) } : undefined)));
   const to = beamSections(b0, h0).find(([b, h]) => alone({ b, h }) && redesign({ b, h }).status !== 'fail');
   if (to) out.push({ kind: 'section', what: 'beam', from: [b0, h0], to });
   const stronger = fc !== undefined ? strongerConcretes(fc).find((k) => alone({ fc: k.fc }) && redesign({ fc: k.fc }).status !== 'fail') : undefined;
   if (stronger && fc !== undefined) out.push({ kind: 'concrete', from: fc, to: stronger.fc, name: stronger.name });
+  const ties = widerTieLists().find((k) => alone({ ties: k.list }) && redesign({ ties: k.list }).status !== 'fail');
+  if (ties) out.unshift({ kind: 'ties', from: designData().stirrupDiametersMm, to: ties.dia });
   return out;
 }

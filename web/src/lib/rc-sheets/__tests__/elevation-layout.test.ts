@@ -2,9 +2,9 @@ import { describe, it, expect } from 'vitest';
 import { beamRow, type BeamDemand, type SectionEnv } from '../beam-row';
 import { beamLine, type LineLayout } from '../beam-line';
 import { lineSupports, setOut } from '../line-geometry';
-import { zeroMoments } from '../elevation-layout';
+import { elevationLayout, zeroMoments } from '../elevation-layout';
 import { makeFmt } from '../format';
-import { overlapping, planOverlapping, screenLayout, zoneCounts } from './elevation-checks';
+import { fmt, overlapping, planOverlapping, screenLayout, tr, zoneCounts } from './elevation-checks';
 
 const env = (x: number, pos: number, neg: number): SectionEnv => ({ x, pos: { value: pos, source: { combo: 'U', x } }, neg: { value: neg, source: { combo: 'U', x } }, nPos: 0, nNeg: 0 });
 const base = { mat: { fc: 25, fy: 420 }, cover: 0.025, stirrupDia: 8, diameters: [10, 12, 16, 20, 25], torsion: 'equilibrium' as const };
@@ -44,6 +44,20 @@ describe('the elevation\'s annotations', () => {
         expect(plan.pairs, `${name} 1:${scale}`).toEqual([]);
       }
     }
+  });
+
+  it('draws the bars apart clear of the beam, a line and a half of text or more from its faces, and leaves them out when asked', () => {
+    const line = lines.plain, t = 9.5, below = 10, hMax = 84;
+    const at = (tracks?: boolean) => elevationLayout({ line, X: (x) => 56 + x * 50, depth: (k) => (line.spans[k]!.h * hMax) / 0.6, t, below, marks: true, fmt, tr, ...(tracks === undefined ? {} : { tracks }) });
+    const on = at();
+    const top = on.tracks.filter((x) => x.bar.face === 'top' && x.bar.kind !== 'bent'), bottom = on.tracks.filter((x) => x.bar.face === 'bottom' && x.bar.kind !== 'bent');
+    expect(top.length * bottom.length).toBeGreaterThan(0);
+    for (const x of top) expect(x.y + Math.max(0, ...x.hooks)).toBeLessThanOrEqual(-1.5 * t);
+    for (const x of bottom) expect(x.y + Math.min(0, ...x.hooks)).toBeGreaterThanOrEqual(hMax + below + 1.5 * t);
+    const off = at(false);
+    expect(off.tracks).toEqual([]);
+    expect(off.top).toBeGreaterThan(on.top);
+    expect(off.bottom).toBeLessThan(on.bottom);
   });
 
   it('labels each bar once on its own track at its real extent, as count, diameter and length in centimetres', () => {

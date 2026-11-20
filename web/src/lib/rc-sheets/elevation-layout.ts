@@ -33,7 +33,12 @@ export interface ElevationInput {
   fmt: Fmt; tr: Tr;
   cuts?: ReadonlyArray<{ x: number; label: string }>;
   zeros?: boolean;
+  /** The bars drawn apart above and below the beam, each with its shape and length; on unless false. */
+  tracks?: boolean;
 }
+
+/** Between the beam and the first bar drawn apart from it, in text heights. */
+const TRACK_GAP = 1.6;
 
 const CHAR = 0.6;
 export const textWidth = (t: Pick<LText, 'text' | 'size'>): number => t.text.length * t.size * CHAR;
@@ -199,9 +204,9 @@ export function elevationLayout(inp: ElevationInput): ElevationLayout {
   }
   for (const c of inp.cuts ?? []) placer.take({ x0: X(c.x) - 0.5, y0: 0, x1: X(c.x) + 0.5, y1: hMax });
 
-  const built = line.bars.map((b) => trackOf(inp, b));
+  const built = inp.tracks === false ? [] : line.bars.map((b) => trackOf(inp, b));
   const tracks: LTrack[] = [];
-  let top = -cutRow - 0.4 * t, bottom = hMax + inp.below + cutRow + 0.4 * t;
+  let top = -cutRow - TRACK_GAP * t, bottom = hMax + inp.below + cutRow + TRACK_GAP * t;
   for (const face of ['top', 'bottom'] as const) {
     const mine = built.filter((x) => (x.track.bar.kind === 'bent' ? 'bottom' : x.track.bar.face) === face);
     const rows = packTracks(mine.map((x) => ({ x0: x.x0, x1: x.x1, order: trackOrder(x.track.bar) })), 0.8 * t);

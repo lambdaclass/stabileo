@@ -12,7 +12,7 @@
   import { decimalFor, makeFmt } from '../../../lib/rc-sheets/format';
   import { modelStore } from '../../../lib/store';
   import { designData, patchDesignData } from '../../../lib/store/design-data';
-  import { rcSheetsData, setAlternativeOptions, setColumnEndZones, setDeflectionSettings, setRcOption, setTorsionMode, sheetCode } from '../../../lib/store/rc-sheets.svelte';
+  import { rcSheetsData, seismicAdvice, setAlternativeOptions, setColumnEndZones, setDeflectionSettings, setRcOption, setTorsionMode, sheetCode } from '../../../lib/store/rc-sheets.svelte';
   import { DEFLECTION_SUPPORTS, LOAD_MONTHS, optionRule, type DeflectionSupport, type DesignOptionFlag, type DesignOptionKey, type LoadMonths } from '../../../lib/rc-sheets/design-options';
   import { DEFAULT_CREEP, DEFAULT_MONTHS, DEFAULT_SUPPORTS } from '../../../lib/rc-sheets/deflection';
   import { MIN_TIE_SPACING_RANGE, PRESUMED_BEARING_RANGE, FOUNDING_RANGE } from '../../../lib/model/design-data';
@@ -46,6 +46,8 @@
   };
   const ANALYSIS: DesignOptionFlag[] = ['faces', 'flange'];
   const DETAILING: Array<DesignOptionFlag | 'endZones'> = ['bentBars', 'slabBentBars', 'endZones'];
+  const advice = $derived.by(() => { void modelStore.designData; void modelStore.model.loadCases; void modelStore.model.loads; return seismicAdvice(); });
+  const SEISMIC_RULES = ['capacity', 'hoops', 'confinement', 'joints', 'laps', 'walls'] as const;
   const alt = $derived(d.designOptions?.alternatives ?? {});
   const classes = $derived(concreteClasses(code));
   const fcMax = $derived(alt.fcMax ?? DEFAULT_FC_MAX);
@@ -188,13 +190,17 @@
 <StabileoCriteria />
 
 <details class="pk-card do" data-testid="design-options-seismic">
-  <summary><span class="do-h">{t('designData.seismicSection')}</span> <span class="do-sum" data-testid="design-options-seismic-summary">{summary(['seismic'])}</span></summary>
+  <summary><span class="do-h">{t('designData.seismicSection')}</span> <span class="do-sum" data-testid="design-options-seismic-summary">{summary(['seismic'], advice === 'recommend' ? [t('designData.seismic.recommended')] : [])}</span></summary>
+  {#if advice}<p class="do-advice" class:warn={advice === 'recommend'} data-testid="dd-seismic-advice" data-advice={advice}>{t(`rcSheets.seismicAdvice.${advice}`)}</p>{/if}
   {@render option('seismic')}
   {#if live('seismic')}
-    <details class="do-sub" data-testid="rc-seismic-data">
-      <summary>{t('rcSheets.seismicData')}</summary>
+    <div class="do-sub" data-testid="dd-seismic-rules">
+      <span class="do-inline">{t('designData.seismic.rules')}</span>
+      <ul class="do-rules">{#each SEISMIC_RULES as k (k)}<li>{t(`designData.seismic.rule.${k}`)}</li>{/each}</ul>
+    </div>
+    <div class="do-sub" data-testid="rc-seismic-data">
       <SeismicEditor />
-    </details>
+    </div>
   {/if}
 </details>
 
@@ -212,5 +218,7 @@
   .do-sub { margin-top: 6px; }
   .do-classes { display: flex; flex-wrap: wrap; gap: 2px 10px; padding-left: 20px; }
   .do-cls { display: inline-flex; align-items: center; gap: 3px; font-size: 0.68rem; color: var(--st-text-2); }
-  .do-sub > summary { cursor: pointer; font-size: 0.72rem; }
+  .do-advice { margin: 6px 0 2px; font-size: 0.7rem; line-height: 1.4; color: var(--st-text-2); }
+  .do-advice.warn { color: var(--st-warn); }
+  .do-rules { margin: 2px 0 0; padding-left: 2.2em; font-size: 0.68rem; line-height: 1.45; color: var(--st-text-2); }
 </style>

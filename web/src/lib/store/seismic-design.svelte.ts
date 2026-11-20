@@ -47,6 +47,11 @@ export function seismicComboIds(): Set<number> {
   return new Set(activeCombinations().filter((c) => c.factors.some((f) => e.has(f.caseId) && f.factor !== 0)).map((c) => c.id));
 }
 export const isSeismicProject = (): boolean => seismicCaseIds().size > 0;
+/** Whether a seismic case carries loads: the empty earthquake case every new model lists is not one. */
+export function hasSeismicLoads(): boolean {
+  const e = seismicCaseIds();
+  return e.size > 0 && modelStore.model.loads.some((l) => e.has((l.data as { caseId?: number }).caseId ?? 1));
+}
 
 const P = (id: number) => modelStore.model.nodes.get(id);
 

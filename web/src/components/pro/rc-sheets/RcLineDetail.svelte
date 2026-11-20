@@ -31,6 +31,9 @@
   const CUTS_KEY = 'stabileo-rc-cuts';
   let showCuts = $state((() => { try { return localStorage.getItem(CUTS_KEY) !== '0'; } catch { return true; } })());
   function setCuts(on: boolean) { showCuts = on; try { localStorage.setItem(CUTS_KEY, on ? '1' : '0'); } catch { /* lasts the session */ } }
+  const TRACKS_KEY = 'stabileo-rc-tracks';
+  let showTracks = $state((() => { try { return localStorage.getItem(TRACKS_KEY) !== '0'; } catch { return true; } })());
+  function setTracks(on: boolean) { showTracks = on; try { localStorage.setItem(TRACKS_KEY, on ? '1' : '0'); } catch { /* lasts the session */ } }
   const kind = (k: string) => t(`rcSheets.line.kind.${k}`);
   const sections = $derived(lineSections(line, spans, fmt, showMarks));
 </script>
@@ -39,6 +42,7 @@
 <RcLineEditor {line} />
 {#each line.bentNotes as n, i (i)}<p class="rcd-note" data-testid="rc-line-bent-note" data-reason={n.reason}>{tp(`rcSheets.line.noBent.${n.reason}`, { span: n.span !== undefined ? line.spans[n.span]?.name ?? '' : '', clause: n.clause ?? '' })}</p>{/each}
 <div class="rcd-toggles">
+  <label class="rcd-marks"><input type="checkbox" checked={showTracks} onchange={(e) => setTracks(e.currentTarget.checked)} data-testid="rc-tracks-toggle" /> {t('rcSheets.line.showTracks')}</label>
   <label class="rcd-marks"><input type="checkbox" checked={showMarks} onchange={(e) => setMarks(e.currentTarget.checked)} data-testid="rc-marks-toggle" /> {t('rcSheets.line.showMarks')}</label>
   <label class="rcd-marks"><input type="checkbox" checked={showEnvelope} onchange={(e) => setEnvelope(e.currentTarget.checked)} data-testid="rc-envelope-toggle" /> {t('rcSheets.line.showEnvelope')}</label>
   <select class="rcd-chart" value={chart} disabled={!showEnvelope} onchange={(e) => setChart(e.currentTarget.value as ChartKind)} aria-label={t('rcSheets.line.showEnvelope')} data-testid="rc-chart-kind">
@@ -48,7 +52,7 @@
   <label class="rcd-marks"><input type="checkbox" checked={onBeam} onchange={(e) => setOnBeam(e.currentTarget.checked)} data-testid="rc-envelope-beam-toggle" /> {t('rcSheets.line.showOnBeam')}</label>
   <label class="rcd-marks"><input type="checkbox" checked={showCuts} onchange={(e) => setCuts(e.currentTarget.checked)} data-testid="rc-cuts-toggle" /> {t('rcSheets.line.showCuts')}</label>
 </div>
-<RcLineSvg {line} marks={showMarks || highlight.length > 0} {highlight} envelope={showEnvelope} {chart} {onBeam} cuts={showCuts ? sections.flatMap((g) => g.at.map((x) => ({ x, label: g.label }))) : []} />
+<RcLineSvg {line} marks={showMarks || highlight.length > 0} {highlight} envelope={showEnvelope} {chart} {onBeam} tracks={showTracks} cuts={showCuts ? sections.flatMap((g) => g.at.map((x) => ({ x, label: g.label }))) : []} />
 <h5 class="rcd-h">{t('rcSheets.sections')}</h5>
 <div class="rcd-secs">
   {#each sections as g (g.key)}

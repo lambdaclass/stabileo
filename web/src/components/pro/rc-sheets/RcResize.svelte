@@ -44,7 +44,7 @@
   function apply(a: Alternative) {
     const done = applyAlternative(row, a);
     if (!done) return;
-    uiStore.toast(tp('rcSheets.alt.applied', { name: done.name, n: done.members + done.plates }), 'success');
+    uiStore.toast(a.kind === 'ties' ? tp('rcSheets.alt.tiesApplied', { name: done.name }) : tp('rcSheets.alt.applied', { name: done.name, n: done.members + done.plates }), 'success');
     onleave();
   }
 
@@ -74,7 +74,9 @@
   {#if none && hints !== null}
     {#each alts as a, i (i)}
       <span class="alt" data-testid="rc-alternative" data-kind={a.kind}>
-        <span class="hint grow">{a.kind === 'concrete'
+        <span class="hint grow">{a.kind === 'ties'
+          ? tp('rcSheets.alt.ties', { to: `Ø${a.to}`, from: a.from.map((x) => `Ø${x}`).join(', ') })
+          : a.kind === 'concrete'
           ? tp('rcSheets.alt.concrete', { name: a.name, to: fmt(a.to, 0), from: fmt(a.from, 0) })
           : a.kind === 'footing' ? t(`rcSheets.alt.footing.${a.what}`)
           : tp(`rcSheets.alt.section.${a.what}`, { from: cm(a.from), to: cm(a.to) })}</span>
