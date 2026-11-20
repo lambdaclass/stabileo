@@ -1,0 +1,494 @@
+{
+  "advisory": "SA-2026-094",
+  "fixingPr": 2364,
+  "beforeCommit": "04c610dcc86a36cb20ed0114760cbf0d09a221dd",
+  "afterCommit": "9452c5b7489eac5a13913a55667baad5ea03a49e",
+  "records": [
+    {
+      "scenario": "transverse load and tip couple",
+      "input": {
+        "length": 4,
+        "tip": {
+          "id": 1,
+          "nodeId": 2,
+          "fx": 0,
+          "fz": -10,
+          "my": 3
+        }
+      },
+      "before": {
+        "inspector": [
+          [
+            {
+              "label": "Fx",
+              "value": 0
+            },
+            {
+              "label": "Fz",
+              "value": 9.99999999999999
+            },
+            {
+              "label": "M",
+              "value": 36.99999999999997
+            }
+          ],
+          [
+            {
+              "label": "Fx",
+              "value": 0
+            },
+            {
+              "label": "Fz",
+              "value": -9.99999999999999
+            },
+            {
+              "label": "M",
+              "value": -2.999999999999986
+            }
+          ]
+        ],
+        "nodeInspector": [
+          [
+            {
+              "label": "Fx",
+              "value": 0
+            },
+            {
+              "label": "Fz",
+              "value": 9.99999999999999
+            },
+            {
+              "label": "M",
+              "value": 36.99999999999997
+            }
+          ],
+          [
+            {
+              "label": "Fx",
+              "value": 0
+            },
+            {
+              "label": "Fz",
+              "value": -9.99999999999999
+            },
+            {
+              "label": "M",
+              "value": -2.999999999999986
+            }
+          ]
+        ],
+        "glyphMoments": [
+          36.99999999999997,
+          2.999999999999986
+        ],
+        "residual": -5.999999999999972,
+        "reactions": [
+          {
+            "nodeId": 1,
+            "rx": 0,
+            "rz": 9.99999999999999,
+            "my": 36.99999999999997
+          }
+        ],
+        "elementForces": [
+          {
+            "elementId": 1,
+            "nStart": 0,
+            "nEnd": 0,
+            "vStart": 9.99999999999999,
+            "vEnd": 9.99999999999999,
+            "mStart": 36.99999999999997,
+            "mEnd": -2.999999999999986,
+            "length": 4,
+            "qI": 0,
+            "qJ": 0,
+            "pointLoads": [],
+            "distributedLoads": [],
+            "hingeStart": false,
+            "hingeEnd": false
+          }
+        ],
+        "diagnostics": {
+          "assembly": [],
+          "solver": [],
+          "structured": [
+            {
+              "code": "dense_lu",
+              "severity": "info"
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info"
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info"
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info"
+            }
+          ]
+        }
+      },
+      "after": {
+        "inspector": [
+          [
+            {
+              "label": "Fx",
+              "value": 0
+            },
+            {
+              "label": "Fz",
+              "value": 9.99999999999999
+            },
+            {
+              "label": "M",
+              "value": 36.99999999999997
+            }
+          ],
+          [
+            {
+              "label": "Fx",
+              "value": 0
+            },
+            {
+              "label": "Fz",
+              "value": -9.99999999999999
+            },
+            {
+              "label": "M",
+              "value": 2.999999999999986
+            }
+          ]
+        ],
+        "nodeInspector": [
+          [
+            {
+              "label": "Fx",
+              "value": 0
+            },
+            {
+              "label": "Fz",
+              "value": 9.99999999999999
+            },
+            {
+              "label": "M",
+              "value": 36.99999999999997
+            }
+          ],
+          [
+            {
+              "label": "Fx",
+              "value": 0
+            },
+            {
+              "label": "Fz",
+              "value": -9.99999999999999
+            },
+            {
+              "label": "M",
+              "value": 2.999999999999986
+            }
+          ]
+        ],
+        "glyphMoments": [
+          36.99999999999997,
+          2.999999999999986
+        ],
+        "residual": 0,
+        "reactions": [
+          {
+            "nodeId": 1,
+            "rx": 0,
+            "rz": 9.99999999999999,
+            "my": 36.99999999999997
+          }
+        ],
+        "elementForces": [
+          {
+            "elementId": 1,
+            "nStart": 0,
+            "nEnd": 0,
+            "vStart": 9.99999999999999,
+            "vEnd": 9.99999999999999,
+            "mStart": 36.99999999999997,
+            "mEnd": -2.999999999999986,
+            "length": 4,
+            "qI": 0,
+            "qJ": 0,
+            "pointLoads": [],
+            "distributedLoads": [],
+            "hingeStart": false,
+            "hingeEnd": false
+          }
+        ],
+        "diagnostics": {
+          "assembly": [],
+          "solver": [],
+          "structured": [
+            {
+              "code": "dense_lu",
+              "severity": "info"
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info"
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info"
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "scenario": "pure axial control",
+      "input": {
+        "length": 4,
+        "tip": {
+          "id": 1,
+          "nodeId": 2,
+          "fx": 10,
+          "fz": 0,
+          "my": 0
+        }
+      },
+      "before": {
+        "inspector": [
+          [
+            {
+              "label": "Fx",
+              "value": -9.999999999999998
+            },
+            {
+              "label": "Fz",
+              "value": 0
+            },
+            {
+              "label": "M",
+              "value": 0
+            }
+          ],
+          [
+            {
+              "label": "Fx",
+              "value": 9.999999999999998
+            },
+            {
+              "label": "Fz",
+              "value": 0
+            },
+            {
+              "label": "M",
+              "value": 0
+            }
+          ]
+        ],
+        "nodeInspector": [
+          [
+            {
+              "label": "Fx",
+              "value": -9.999999999999998
+            },
+            {
+              "label": "Fz",
+              "value": 0
+            },
+            {
+              "label": "M",
+              "value": 0
+            }
+          ],
+          [
+            {
+              "label": "Fx",
+              "value": 9.999999999999998
+            },
+            {
+              "label": "Fz",
+              "value": 0
+            },
+            {
+              "label": "M",
+              "value": 0
+            }
+          ]
+        ],
+        "glyphMoments": [
+          0,
+          0
+        ],
+        "residual": 0,
+        "reactions": [
+          {
+            "nodeId": 1,
+            "rx": -9.999999999999998,
+            "rz": 0,
+            "my": 0
+          }
+        ],
+        "elementForces": [
+          {
+            "elementId": 1,
+            "nStart": 9.999999999999998,
+            "nEnd": 9.999999999999998,
+            "vStart": 0,
+            "vEnd": 0,
+            "mStart": 0,
+            "mEnd": 0,
+            "length": 4,
+            "qI": 0,
+            "qJ": 0,
+            "pointLoads": [],
+            "distributedLoads": [],
+            "hingeStart": false,
+            "hingeEnd": false
+          }
+        ],
+        "diagnostics": {
+          "assembly": [],
+          "solver": [],
+          "structured": [
+            {
+              "code": "dense_lu",
+              "severity": "info"
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info"
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info"
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info"
+            }
+          ]
+        }
+      },
+      "after": {
+        "inspector": [
+          [
+            {
+              "label": "Fx",
+              "value": -9.999999999999998
+            },
+            {
+              "label": "Fz",
+              "value": 0
+            },
+            {
+              "label": "M",
+              "value": 0
+            }
+          ],
+          [
+            {
+              "label": "Fx",
+              "value": 9.999999999999998
+            },
+            {
+              "label": "Fz",
+              "value": 0
+            },
+            {
+              "label": "M",
+              "value": 0
+            }
+          ]
+        ],
+        "nodeInspector": [
+          [
+            {
+              "label": "Fx",
+              "value": -9.999999999999998
+            },
+            {
+              "label": "Fz",
+              "value": 0
+            },
+            {
+              "label": "M",
+              "value": 0
+            }
+          ],
+          [
+            {
+              "label": "Fx",
+              "value": 9.999999999999998
+            },
+            {
+              "label": "Fz",
+              "value": 0
+            },
+            {
+              "label": "M",
+              "value": 0
+            }
+          ]
+        ],
+        "glyphMoments": [
+          0,
+          0
+        ],
+        "residual": 0,
+        "reactions": [
+          {
+            "nodeId": 1,
+            "rx": -9.999999999999998,
+            "rz": 0,
+            "my": 0
+          }
+        ],
+        "elementForces": [
+          {
+            "elementId": 1,
+            "nStart": 9.999999999999998,
+            "nEnd": 9.999999999999998,
+            "vStart": 0,
+            "vEnd": 0,
+            "mStart": 0,
+            "mEnd": 0,
+            "length": 4,
+            "qI": 0,
+            "qJ": 0,
+            "pointLoads": [],
+            "distributedLoads": [],
+            "hingeStart": false,
+            "hingeEnd": false
+          }
+        ],
+        "diagnostics": {
+          "assembly": [],
+          "solver": [],
+          "structured": [
+            {
+              "code": "dense_lu",
+              "severity": "info"
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info"
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info"
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}
