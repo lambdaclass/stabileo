@@ -1940,3 +1940,61 @@ it('#2373 drawn hogging shear cannot credit the sagging steel ratio', () => {
     expect.soft(check(4)).toMatchObject({ status: 'ok' });
   }
 });
+
+const overlappingShear = process.env.RUN_KNOWN_WRONG === '2373' ? it : it.skip;
+
+overlappingShear('known wrong result: #2373 drawn hogging shear can verify mixed tension bars across overlapping layouts', () => {
+  const L = 4;
+  const member = { id: 1, L, tStart: 0.25, tEnd: 0.25, faceStart: 0, faceEnd: 0 };
+  const specimen = (count: number, row: number, overlap: boolean, diameter = 14, hoopSpacing = 0.45, lap = false) => membersFromLine({
+    version: 1, members: [1], lengths: [L],
+    bars: [
+      { id: 'start', face: 'top', row: 0, count: 2, diameter: 16, role: 'support', from: 0, to: lap ? 0.65 * L : L },
+      { id: 'end', face: 'top', row, count, diameter, role: 'support', from: (overlap ? 0.35 : 0.55) * L, to: (lap ? 1 : 0.65) * L },
+      { id: 'bottom', face: 'bottom', row: 0, count: 3, diameter: 16, role: 'main', from: 0, to: L },
+    ],
+    stirrups: [{ id: 'hoops', diameter: 8, legs: 2, spacing: hoopSpacing, from: 0, to: L }],
+  }, [member]).get(1)!;
+
+  const nodes = new Map([[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: L, y: 0, z: 0 }]]);
+  const structure = { ...model, nodes };
+  const element = model.elements.get(1)!;
+  const cuts = [{ t: 0.5, n: 0, my: -15, vy: 0, vz: 10, torsion: 0 }];
+  for (const spatial of [false, true]) for (const nonlinear of [false, true]) {
+    let result: AnalysisResults3D;
+    if (spatial) {
+      const solver: SolverInput3D = { ...structure,
+        elements: new Map([[1, { ...element, releaseMyStart: false, releaseMyEnd: false,
+          releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }]]),
+        supports: new Map([[1, { nodeId: 1, rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true }]]),
+        loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: 0, fz: -10, mx: 0, my: 0, mz: 0 } }],
+      };
+      result = nonlinear ? solvePDelta3D(solver).results : solve3D(solver);
+    } else {
+      const solver: SolverInput = { ...structure,
+        elements: new Map([[1, { ...element, hingeStart: false, hingeEnd: false }]]),
+        nodes: new Map([...nodes].map(([id, { x, z }]) => [id, { id, x, z }])),
+        sections: new Map([[1, { ...model.sections.get(1)!, iz: model.sections.get(1)!.iy }]]),
+        loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: 10, my: 0 } }],
+      };
+      result = planarResultForDesign(nonlinear ? solvePDelta(solver).results : solve(solver));
+    }
+    const cut = computeStationDemands(new Map([[1, result]]), combos, structure).stations.get(1)!
+      .comboResults[0]!.stations.find(station => station.t === 0.5)!;
+    expect(cut.my, `spatial=${spatial}, nonlinear=${nonlinear}`).toBeLessThan(0);
+    expect(Math.abs(cut.vz)).toBeCloseTo(10, 9);
+    cuts.push(cut);
+  }
+  for (const cut of cuts) for (const extracted of [false, true]) {
+    const check = (r: ProvidedReinforcement) => checkReviewBeam(section, r, L,
+      [cut], extracted, '2025')
+      .find(row => row.category === 'Shear Span (Vz)');
+    expect.soft(check(specimen(2, 0, true))).toMatchObject({ status: 'ok' });
+    expect.soft(check(specimen(1, 0, true))).toMatchObject({ status: 'fail', description: 'diag.rcShearTensionSteel' });
+    expect.soft(check(specimen(2, 0, false))).toMatchObject({ status: 'fail', description: 'diag.rcShearTensionSteel' });
+    expect.soft(check(specimen(2, 1, true))).toMatchObject({ status: 'fail', ratio: Infinity, description: 'diag.rcShearDepth' });
+    expect.soft(check(specimen(1, 0, true, 16))).toMatchObject({ status: 'ok' });
+    expect.soft(check(specimen(2, 0, true, 14, 0.45, true))).toMatchObject({ status: 'fail', description: 'diag.rcShearTensionSteel' });
+    expect.soft(check(specimen(1, 0, true, 14, 0.15))).toMatchObject({ status: 'ok' });
+  }
+});
