@@ -66,13 +66,13 @@ describe('two prerenders of one build are byte-identical (#875)', () => {
     expect(differing, differing.map(difference).join('\n')).toEqual([]);
   });
 
-  it('known wrong result: #2365 — captures completed Mattiasson results when the solver starts late', async () => {
-    const out = mkdtempSync(join(WEB_ROOT, '.dist-mattiasson-'));
+  async function withDelayedSolver(pages: string[], check: (html: (locale: string, path: string) => string) => void) {
+    const out = mkdtempSync(join(WEB_ROOT, '.dist-live-benchmarks-'));
     try {
       cpSync(FIRST, out, { recursive: true });
       const delaySolver = `<script>
         document.currentScript.remove();
-        if (location.pathname.endsWith('${MATTIASSON}/')) {
+        if (location.pathname.includes('/research/benchmarks/')) {
           const fetchResource = window.fetch.bind(window);
           window.fetch = async (...args) => {
             const response = await fetchResource(...args);
@@ -85,14 +85,30 @@ describe('two prerenders of one build are byte-identical (#875)', () => {
         }
       </script>`;
       writeFileSync(join(out, 'index.html'), entry.replace('<head>', `<head>${delaySolver}`));
-      await prerender(out, '4', [MATTIASSON]);
-      for (const locale of ['en', 'tr', 'zh']) {
-        const html = readFileSync(join(out, locale, MATTIASSON, 'index.html'), 'utf8');
-        expect(html, locale).toMatch(/data-testid="mattiasson-summary"[^>]*>[^<]*5\/5/);
-      }
+      await prerender(out, '4', pages);
+      check((locale, path) => readFileSync(join(out, locale, path, 'index.html'), 'utf8'));
     } finally {
       rmSync(out, { recursive: true });
     }
+  }
+
+  it('known wrong result: #2365 — captures completed Mattiasson results when the solver starts late', async () => {
+    await withDelayedSolver([MATTIASSON], html => {
+      for (const locale of ['en', 'tr', 'zh']) {
+        expect(html(locale, MATTIASSON), locale).toMatch(/data-testid="mattiasson-summary"[^>]*>[^<]*5\/5/);
+      }
+    });
+  }, 300_000);
+
+  it.skip('known wrong result: #2365 — waits for the other research benchmarks that compute on page load', async () => {
+    const shell = '/research/benchmarks/shell-obstacle-course';
+    const macneal = '/research/benchmarks/macneal-harder-1985';
+    const plastic = '/research/benchmarks/plastic-collapse';
+    await withDelayedSolver([shell, macneal, plastic], html => {
+      expect(html('en', shell)).toMatch(/data-testid="shell-summary"[^>]*>Finest selected meshes passing: \d+\/3/);
+      expect(html('en', macneal)).toContain('data-testid="summary-frame"');
+      expect(html('en', plastic)).toMatch(/data-testid="source"[^>]*>Live computation/);
+    });
   }, 300_000);
 
   it('the pinned star count reached the header instead of a per-page fetch', () => {
