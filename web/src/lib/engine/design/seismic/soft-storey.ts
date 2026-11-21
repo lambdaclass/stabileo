@@ -10,7 +10,8 @@
  * marked storey in the combinations that carry the earthquake, by member kind.
  */
 import type { SoftKind, SoftStoreys } from '../../../model/seismic-design';
-import type { ElementStationResult, ElementDesignDemands } from '../../station-design-forces';
+import type { ElementDesignDemands } from '../../station-design-forces';
+import type { CompleteSeismicStations } from './demand-scope';
 
 export interface StoreyStiffness {
   level: number; levelName?: string;
@@ -53,23 +54,18 @@ export function storeyOf(levels: readonly number[], zTop: number): number | null
   return hit ?? null;
 }
 
-/**
- * Amplify a member's design forces in place: moments by `moment`, shears by `shear`, only in the
- * combinations `seismic` names. Returns whether anything changed.
- */
 export function amplify(
-  stations: ElementStationResult | undefined, demands: ElementDesignDemands | undefined,
-  seismic: ReadonlySet<number>, factor: { moment: number; shear: number },
+  stations: CompleteSeismicStations, demands: ElementDesignDemands | undefined,
+  factor: { moment: number; shear: number },
 ): boolean {
-  if ((factor.moment === 1 && factor.shear === 1) || seismic.size === 0) return false;
+  if (factor.moment === 1 && factor.shear === 1) return false;
   let changed = false;
-  for (const c of stations?.comboResults ?? []) {
-    if (!seismic.has(c.comboId)) continue;
+  for (const c of stations.groups) {
     c.stations = c.stations.map((s) => ({ ...s, my: s.my * factor.moment, mz: s.mz * factor.moment, vy: s.vy * factor.shear, vz: s.vz * factor.shear }));
     changed = true;
   }
   for (const d of demands?.demands ?? []) {
-    if (!seismic.has(d.comboId)) continue;
+    if (!stations.hasCombination(d.comboId)) continue;
     const f = d.category.startsWith('M') ? factor.moment : d.category.startsWith('V') ? factor.shear : 1;
     d.value *= f; d.absValue *= f;
     d.forces = { ...d.forces, my: d.forces.my * factor.moment, mz: d.forces.mz * factor.moment, vy: d.forces.vy * factor.shear, vz: d.forces.vz * factor.shear };

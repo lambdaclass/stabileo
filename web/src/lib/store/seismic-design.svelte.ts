@@ -15,11 +15,13 @@ import { classifyElement } from '../engine/codes/argentina/cirsoc201';
 import { materialFamilyOf } from '../engine/steel/material-family';
 import { catalogueGradeFamily } from '../engine/steel/grade-family';
 import { storyDrifts } from '../engine/story-drift';
+import { isDesigned } from '../engine/design/behaviour-demands';
 import { columnSectionOf } from '../engine/design/column-interaction';
 import { seismicRoles } from '../engine/design/seismic/classify';
 import { declareLateral, lateralResolver, setMemberLateral } from './lateral-system';
-import { amplify, storeyOf, storeyStiffness, type StoreyStiffness } from '../engine/design/seismic/soft-storey';
+import { amplify, softFactor, storeyOf, storeyStiffness, type StoreyStiffness } from '../engine/design/seismic/soft-storey';
 import { beamSteel, seismicFrameChecks, type FrameMember, type SeismicReport } from '../engine/design/seismic/frame-checks';
+import { CompleteSeismicStations, seismicDemandScope, type SeismicDemandRefusal } from '../engine/design/seismic/demand-scope';
 import { hoopSpacingFor } from '../engine/design/seismic/capacity';
 import { defaultSeismicDesign, type SeismicCategory, type SeismicDesignSettings, type SeismicRole, type SoftKind } from '../model/seismic-design';
 import type { MemberContext } from '../engine/design/member-context';
@@ -44,8 +46,7 @@ export const patchSeismic = (p: Partial<SeismicDesignSettings>): void => patchDe
 
 export const seismicCaseIds = (): Set<number> => new Set(modelStore.model.loadCases.filter((c) => c.type === 'E').map((c) => c.id));
 export function seismicComboIds(): Set<number> {
-  const e = seismicCaseIds();
-  return new Set(activeCombinations().filter((c) => c.factors.some((f) => e.has(f.caseId) && f.factor !== 0)).map((c) => c.id));
+  return new Set(seismicDemandScope(seismicCaseIds(), activeCombinations()).combinations.map(c => c.id));
 }
 export const isSeismicProject = (): boolean => seismicCaseIds().size > 0;
 
@@ -144,26 +145,30 @@ export function modelStoreyStiffness(): StoreyStiffness[] {
   return [];
 }
 
-/** Multiply the design forces of the members of the marked storeys, in the seismic combinations. */
-export function applySoftStoreys(contexts: ReadonlyMap<number, MemberContext>): number {
+export function applySoftStoreys(contexts: ReadonlyMap<number, MemberContext>): SeismicDemandRefusal | null {
   const s = seismicSettings().softStoreys;
-  if (!s.levels.length) return 0;
-  const combos = seismicComboIds();
-  let n = 0;
+  const cases = seismicCaseIds();
+  if (!s.levels.length || !cases.size) return null;
+  const scope = seismicDemandScope(cases, activeCombinations());
   for (const ctx of contexts.values()) {
     const e = modelStore.model.elements.get(ctx.elementId);
-    if (!e) continue;
+    if (!e || !isDesigned(e.behaviour)) continue;
     const top = Math.max(P(e.nodeI)?.z ?? 0, P(e.nodeJ)?.z ?? 0);
     if (storeyOf(s.levels, top) === null) continue;
     const kind: SoftKind = ctx.elementType === 'column' ? 'column' : ctx.elementType === 'wall' ? 'wall' : 'beam';
-    if (amplify(ctx.stations, ctx.demands, combos, { moment: s.moment[kind], shear: s.shear[kind] })) n++;
+    const factor = softFactor(s, kind);
+    if (factor.moment === 1 && factor.shear === 1) continue;
+    const stations = CompleteSeismicStations.read(scope, ctx.stations);
+    if (typeof stations === 'string') return stations;
+    amplify(stations, ctx.demands, factor);
   }
-  return n;
+  return null;
 }
 
 /** The frame as the checks read it, from the design contexts and the bars in the model. */
 function frameInput(): FrameMember[] {
-  const { roles } = seismicRoleReadings(), combos = seismicComboIds();
+  const { roles } = seismicRoleReadings();
+  const scope = seismicDemandScope(seismicCaseIds(), activeCombinations());
   const cases = new Map(modelStore.model.loadCases.map((c) => [c.id, c.type]));
   const out: FrameMember[] = [];
   const drawnStirrups = savedLinePieces().pieces;
@@ -188,6 +193,15 @@ function frameInput(): FrameMember[] {
       b: ctx.axes.bFlex || ctx.section.b, h: ctx.axes.hFlex || ctx.section.h, cover: ctx.material.cover, fc: ctx.material.fc, fy: ctx.material.fy,
       stirrupDia: ctx.material.stirrupDia, r,
     };
+    if (role === 'secondary') {
+      out.push(base);
+      continue;
+    }
+    const stations = CompleteSeismicStations.read(scope, ctx.stations);
+    if (typeof stations === 'string') {
+      out.push({ ...base, demandRefusal: stations });
+      continue;
+    }
     if (ctx.elementType === 'beam') {
       // Gravity shear at the ends, 1,2D + L, from the cases.
       const vg: [number, number] = [0, 0];
@@ -210,12 +224,11 @@ function frameInput(): FrameMember[] {
       out.push({ ...base, criticalSections: ctx.criticalSections, drawnStirrups: drawnStirrups.get(e.id)?.stirrups, faceHalf: [ctx.criticalSections?.start.halfDepth ?? 0, ctx.criticalSections?.end.halfDepth ?? 0], vg: [Math.abs(vg[0]), Math.abs(vg[1])], slabTop: [slab, slab] });
     } else {
       const ps: number[] = [], vs: number[] = [];
-      for (const c of ctx.stations?.comboResults ?? []) {
-        if (combos.size && !combos.has(c.comboId)) continue;
+      for (const c of stations.groups) {
         for (const s of c.stations) { ps.push(-s.n); vs.push(Math.hypot(s.vy, s.vz)); }
       }
       const sec = columnSectionOf(ctx, r);
-      out.push({ ...base, b: ctx.section.b, h: ctx.section.h, ...(sec ? { section: sec } : {}), axial: { min: ps.length ? Math.min(...ps) : 0, max: ps.length ? Math.max(...ps) : 0 }, vu: vs.length ? Math.max(...vs) : 0 });
+      out.push({ ...base, b: ctx.section.b, h: ctx.section.h, ...(sec ? { section: sec } : {}), axial: { min: Math.min(...ps), max: Math.max(...ps) }, vu: Math.max(...vs) });
     }
   }
   return out;
@@ -241,7 +254,7 @@ export function applySeismicDetailing(): { beams: number; columns: number } {
   const writes = new Map<number, ProvidedReinforcement>();
   const ctxs = verificationStore.contexts;
   for (const m of rep.members) {
-    if (m.ok || m.role !== 'primary') continue;
+    if (m.ok || m.refusal || m.role !== 'primary') continue;
     const r0 = getReinforcement(m.id), ctx = ctxs.get(m.id);
     if (!r0 || !ctx) continue;
     const r: ProvidedReinforcement = JSON.parse(JSON.stringify(r0));

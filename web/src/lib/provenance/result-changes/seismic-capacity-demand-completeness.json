@@ -1,0 +1,42 @@
+{
+  "id": "seismic-capacity-demand-completeness",
+  "date": "2026-11-21",
+  "prs": [],
+  "area": "design",
+  "when": {
+    "all": [
+      "space3D",
+      "frameMembers",
+      "concreteMembers",
+      "combinations"
+    ]
+  },
+  "quantities": [
+    "member",
+    "rc"
+  ],
+  "title": {
+    "en": "Complete demand for seismic capacity checks",
+    "es": "Demanda completa para la verificación sísmica por capacidad",
+    "pt": "Solicitações completas para a verificação sísmica por capacidade",
+    "de": "Vollständige Schnittgrößen für seismische Kapazitätsprüfungen",
+    "fr": "Sollicitations complètes pour les vérifications sismiques en capacité",
+    "hu": "Teljes igénybevételek a szeizmikus kapacitásvizsgálathoz",
+    "tr": "Deprem kapasite kontrolleri için eksiksiz talepler",
+    "zh": "抗震承载力验算要求完整的内力"
+  },
+  "explanation": {
+    "en": "Seismic capacity checks now withhold member and joint assessments unless every earthquake case contributes to an active combination and every required seismic combination has all its station forces. Review earlier assessments and rerun the checks with complete seismic demand.",
+    "es": "Las verificaciones sísmicas por capacidad se suspenden cuando algún caso sísmico no contribuye a una combinación activa o faltan esfuerzos por estación en alguna combinación sísmica requerida. Revisá las evaluaciones anteriores y repetí las verificaciones con la demanda sísmica completa.",
+    "pt": "As verificações sísmicas por capacidade são suspensas se algum caso sísmico não contribuir para uma combinação ativa ou se faltarem esforços em estações de uma combinação sísmica obrigatória. Revise as avaliações anteriores e repita as verificações com as solicitações sísmicas completas.",
+    "de": "Die seismische Kapazitätsprüfung für Bauteile und Knoten wird ausgesetzt, wenn ein Erdbebenlastfall zu keiner aktiven Kombination beiträgt oder an Auswertestellen einer erforderlichen Kombination Schnittgrößen fehlen. Prüfen Sie frühere Bewertungen und wiederholen Sie die Prüfungen mit vollständigen seismischen Schnittgrößen.",
+    "fr": "Les vérifications sismiques en capacité des éléments et des nœuds sont suspendues si un cas sismique ne contribue à aucune combinaison active ou s’il manque des efforts à des stations d’une combinaison requise. Réexaminez les évaluations précédentes et relancez les vérifications avec les sollicitations sismiques complètes.",
+    "hu": "A rudak és csomópontok szeizmikus kapacitásvizsgálata elmarad, ha egy szeizmikus tehereset egyik aktív kombinációhoz sem járul hozzá, vagy egy kötelező kombinációban hiányoznak állomási igénybevételek. Tekintse át a korábbi értékeléseket, és futtassa újra a vizsgálatot a teljes szeizmikus igénybevételekkel.",
+    "tr": "Bir deprem yük durumu hiçbir etkin birleşime katkı vermiyorsa veya gerekli bir birleşimde istasyon kesit tesirleri eksikse eleman ve birleşim noktası kapasite kontrolleri durdurulur. Önceki değerlendirmeleri gözden geçirin ve eksiksiz deprem talepleriyle kontrolleri yeniden çalıştırın.",
+    "zh": "如果有地震工况未计入任何启用的荷载组合，或某个必需的地震组合缺少测站内力，则不出具构件和节点抗震承载力验算结论。请复核先前的结论，并在地震内力齐全后重新验算。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-seismic-capacity-demand-completeness.md",
+    "heading": "Complete demand for seismic capacity checks"
+  }
+}

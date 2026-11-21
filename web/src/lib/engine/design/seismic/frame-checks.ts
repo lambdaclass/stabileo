@@ -18,6 +18,7 @@ import type { LineStirrupPiece } from '../../detailing/line-bars';
 import { drawnBeamReinforcement, type LongBarGroup, type ProvidedReinforcement, type RebarGroup, type RebarLayer } from '../../../design-contract/reinforcement';
 import type { SeismicDesignSettings, SeismicRole } from '../../../model/seismic-design';
 import { layersTotalArea, resolveBarGroups, resolveLayers, resolveColumnReinf } from '../../station-design-forces';
+import type { SeismicDemandRefusal } from './demand-scope';
 import type { Bar, Outline } from '../../codes/argentina/cirsoc201-section';
 import {
   beamCapacityShear, columnCapacityShear, columnConfinement, nominalMomentAt, probableMoment,
@@ -41,26 +42,38 @@ export interface FrameMember {
   drawnStirrups?: readonly LineStirrupPiece[];
   /** Columns: factored axial over the seismic combinations (compression positive), and the analysis shear. */
   axial?: { min: number; max: number }; vu?: number;
+  demandRefusal?: SeismicDemandRefusal;
 }
 
-export interface MemberSeismic {
+type Refused = { ok: false; refusal: SeismicDemandRefusal };
+
+interface MemberSeismicIdentity {
   id: number; kind: 'beam' | 'column'; role: SeismicRole;
   /** Checked as primary because no role was declared (`FrameMember.assumed`). */
   assumed?: boolean;
+  issues: string[];
+}
+
+export type MemberSeismic = MemberSeismicIdentity & ((Refused & {
+  shear?: never; beam?: never; confinement?: never;
+}) | {
+  refusal?: never;
   shear?: { ve: number; phiVn: number; utilization: number; vcZero: boolean };
   beam?: BeamCapacityResult;
   confinement?: ReturnType<typeof columnConfinement>;
   ok: boolean;
-  /** i18n keys of what fails. */
-  issues: string[];
-}
+});
 
-export interface JointSeismic {
-  nodeId: number; direction: 'X' | 'Y'; columns: number[]; beams: number[];
+type JointSeismicIdentity = { nodeId: number; direction: 'X' | 'Y'; columns: number[]; beams: number[] };
+
+export type JointSeismic = JointSeismicIdentity & ((Refused & {
+  strongColumn?: never; shear?: never;
+}) | {
+  refusal?: never;
   strongColumn: ReturnType<typeof strongColumn> & { roof: boolean };
   shear: ReturnType<typeof seismicJointShear> & { confinement: JointConfinementKind };
   ok: boolean;
-}
+});
 
 export interface SeismicReport { members: MemberSeismic[]; joints: JointSeismic[] }
 
@@ -81,6 +94,10 @@ const beamDepths = (m: FrameMember, dia: number) => {
   return { d: m.h - m.cover - (st + dia / 2) / 1000, dPrime: m.cover + (st + dia / 2) / 1000 };
 };
 
+function refusedMember(m: FrameMember, refusal: SeismicDemandRefusal): MemberSeismic {
+  return { id: m.id, kind: m.kind, role: m.role, ...(m.assumed ? { assumed: true } : {}), ok: false, refusal, issues: [refusal] };
+}
+
 export function seismicFrameChecks(i: { nodes: ReadonlyMap<number, P>; members: readonly FrameMember[]; settings: SeismicDesignSettings }): SeismicReport {
   const { settings: s } = i;
   const members: MemberSeismic[] = [];
@@ -91,6 +108,7 @@ export function seismicFrameChecks(i: { nodes: ReadonlyMap<number, P>; members: 
   const beamOut = new Map<number, { mprNeg: [number, number]; mprPos: [number, number]; mnNeg: [number, number]; mnPos: [number, number]; top: [number, number]; bottom: number }>();
   for (const m of i.members) {
     if (m.kind !== 'beam') continue;
+    if (m.demandRefusal) { members.push(refusedMember(m, m.demandRefusal)); continue; }
     if (m.role !== 'primary' || !m.r) { members.push({ id: m.id, kind: 'beam', role: m.role, ...(m.assumed ? { assumed: true } : {}), ok: true, issues: [] }); continue; }
     const st = beamSteel(m.r), { d, dPrime } = beamDepths(m, st.minDia);
     const hoopDef = m.r.regions?.stirrupsSupport ?? m.r.stirrups ?? { diameter: m.stirrupDia, legs: 2, spacing: 0.2 };
@@ -147,24 +165,40 @@ export function seismicFrameChecks(i: { nodes: ReadonlyMap<number, P>; members: 
     return pick === 'least' ? Math.min(a, b) : Math.max(a, b);
   };
   for (const m of i.members) {
-    if (m.kind !== 'column' || !m.section) continue;
+    if (m.kind !== 'column' || m.demandRefusal || !m.section) continue;
     const ax = m.axial ?? { min: 0, max: 0 };
     colMn.set(m.id, { least: Math.min(mnOf(m, m.fy, ax.min, 'least'), mnOf(m, m.fy, ax.max, 'least')), most: Math.max(mnOf(m, s.overstrength * m.fy, ax.min, 'most'), mnOf(m, s.overstrength * m.fy, ax.max, 'most')) });
   }
   const joints: JointSeismic[] = [];
   const fromBeamsAt = new Map<string, number>();
+  const columnRefusals = new Map<number, SeismicDemandRefusal>();
   for (const [node, beams] of beamsAt) {
     const cols = (colsAt.get(node) ?? []).filter((c) => byId.get(c)!.role === 'primary');
     if (cols.length === 0) continue;
     const p = i.nodes.get(node)!;
     for (const dir of ['X', 'Y'] as const) {
       const along = beams.filter((b) => {
-        const m = byId.get(b)!; if (m.role !== 'primary' || !beamOut.has(b)) return false;
+        const m = byId.get(b)!; if (m.role !== 'primary' || !m.r) return false;
         const o = i.nodes.get(m.nodeI === node ? m.nodeJ : m.nodeI)!;
         return dir === 'X' ? Math.abs(o.x - p.x) > Math.abs(o.y - p.y) : Math.abs(o.y - p.y) >= Math.abs(o.x - p.x);
       });
       if (along.length === 0) continue;
       const endOf = (b: number) => (byId.get(b)!.nodeI === node ? 0 : 1);
+      const identity = { nodeId: node, direction: dir, columns: cols, beams: along };
+      const beamRefusal = along.map(b => byId.get(b)!.demandRefusal).find(reason => reason !== undefined);
+      if (beamRefusal) {
+        for (const c of cols) columnRefusals.set(c, beamRefusal);
+        joints.push({ ...identity, ok: false, refusal: beamRefusal });
+        continue;
+      }
+      const prNeg = along.map((b) => beamOut.get(b)!.mprNeg[endOf(b)]), prPos = along.map((b) => beamOut.get(b)!.mprPos[endOf(b)]);
+      const sumPr = along.length === 1 ? Math.max(prNeg[0]!, prPos[0]!) : Math.max(prNeg[0]! + prPos[1]!, prPos[0]! + prNeg[1]!);
+      for (const c of cols) fromBeamsAt.set(`${c}:${node}`, Math.max(fromBeamsAt.get(`${c}:${node}`) ?? 0, sumPr / cols.length));
+      const columnRefusal = cols.map(c => byId.get(c)!.demandRefusal).find(reason => reason !== undefined);
+      if (columnRefusal) {
+        joints.push({ ...identity, ok: false, refusal: columnRefusal });
+        continue;
+      }
       // One beam hogging (its negative, with slab) and the other sagging: the larger pairing.
       const neg = along.map((b) => beamOut.get(b)!.mnNeg[endOf(b)]), pos = along.map((b) => beamOut.get(b)!.mnPos[endOf(b)]);
       const sumBeams = along.length === 1 ? Math.max(neg[0]!, pos[0]!) : Math.max(neg[0]! + pos[1]!, pos[0]! + neg[1]!);
@@ -173,9 +207,6 @@ export function seismicFrameChecks(i: { nodes: ReadonlyMap<number, P>; members: 
       const roof = !cols.some((c) => Math.min(z(byId.get(c)!.nodeI), z(byId.get(c)!.nodeJ)) >= (p.z ?? 0) - 1e-6);
       const sc0 = strongColumn({ columns: cols.map((c) => colMn.get(c)?.least ?? 0), beams: [sumBeams], ratio: s.strongColumn });
       const sc = roof ? { ...sc0, ok: true, roof: true } : { ...sc0, roof: false };
-      const prNeg = along.map((b) => beamOut.get(b)!.mprNeg[endOf(b)]), prPos = along.map((b) => beamOut.get(b)!.mprPos[endOf(b)]);
-      const sumPr = along.length === 1 ? Math.max(prNeg[0]!, prPos[0]!) : Math.max(prNeg[0]! + prPos[1]!, prPos[0]! + prNeg[1]!);
-      for (const c of cols) fromBeamsAt.set(`${c}:${node}`, Math.max(fromBeamsAt.get(`${c}:${node}`) ?? 0, sumPr / cols.length));
       const top = along.map((b) => beamOut.get(b)!.top[endOf(b)]), bot = along.map((b) => beamOut.get(b)!.bottom);
       const pair = along.length === 1 ? { t: top[0]!, b: 0 } : top[0]! + bot[1]! >= top[1]! + bot[0]! ? { t: top[0]!, b: bot[1]! } : { t: top[1]!, b: bot[0]! };
       const heights = cols.map((c) => byId.get(c)!.L);
@@ -185,13 +216,15 @@ export function seismicFrameChecks(i: { nodes: ReadonlyMap<number, P>; members: 
       const opposite = along.length === 2;
       const confinement: JointConfinementKind = faces >= 4 ? 'fourFaces' : faces === 3 || opposite ? 'threeOrOpposite' : 'other';
       const sh = seismicJointShear({ fc: col.fc, fy: col.fy, overstrength: s.overstrength, topOneSide: pair.t, bottomOtherSide: pair.b, columnShear: vcol, aj: col.b * col.h, confinement });
-      joints.push({ nodeId: node, direction: dir, columns: cols, beams: along, strongColumn: sc, shear: { ...sh, confinement }, ok: sc.ok && sh.utilization <= 1 + 1e-9 });
+      joints.push({ ...identity, strongColumn: sc, shear: { ...sh, confinement }, ok: sc.ok && sh.utilization <= 1 + 1e-9 });
     }
   }
 
   // ── Columns ──
   for (const m of i.members) {
     if (m.kind !== 'column') continue;
+    const refusal = m.demandRefusal ?? columnRefusals.get(m.id);
+    if (refusal) { members.push(refusedMember(m, refusal)); continue; }
     if (m.role !== 'primary' || !m.r || !m.section) { members.push({ id: m.id, kind: 'column', role: m.role, ...(m.assumed ? { assumed: true } : {}), ok: true, issues: [] }); continue; }
     const [lo, hi] = z(m.nodeI) <= z(m.nodeJ) ? [m.nodeI, m.nodeJ] : [m.nodeJ, m.nodeI];
     const beamH = Math.max(0, ...(beamsAt.get(hi) ?? []).map((b) => byId.get(b)!.h));

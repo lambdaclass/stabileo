@@ -7,7 +7,6 @@ import { seismicJointCheckRows, seismicMemberCheckRows } from '../../engine/desi
 import { isSolverReady } from '../../engine/wasm-solver';
 import '../../engine/design/adapters/cirsoc201-adapter';
 
-const issue2442 = process.env.RUN_KNOWN_WRONG === '2442' ? it : it.skip;
 
 beforeAll(async () => {
   await new Promise(resolve => setTimeout(resolve, 0));
@@ -107,7 +106,7 @@ const uncombinedCase = 'seisDes.issue.uncombinedCase';
 const noSeismicCombinations = 'seisDes.issue.noSeismicCombinations';
 
 for (const analysis of ['linear', 'pdelta'] as const) for (const geometry of ['planar', 'spatial'] as const) {
-  issue2442(`known wrong result: #2442 ${analysis} ${geometry} refuses a named combination with a missing governing station`, () => {
+  it(`#2442 ${analysis} ${geometry} refuses a named combination with a missing governing station`, () => {
     const { column, read } = portal(analysis, geometry, 'covered');
     const complete = read();
     expect(complete.member?.ok).toBe(true);
@@ -141,7 +140,7 @@ for (const analysis of ['linear', 'pdelta'] as const) for (const geometry of ['p
     ['gravity', noSeismicCombinations], ['uncombined', uncombinedCase],
     ['partially covered', uncombinedCase], ['zero factor', uncombinedCase],
   ] as const) {
-    issue2442(`known wrong result: #2442 ${analysis} ${geometry} refuses ${scenario} seismic demand`, () => {
+    it(`#2442 ${analysis} ${geometry} refuses ${scenario} seismic demand`, () => {
       const { column, read } = portal(analysis, geometry, scenario);
       expect(verificationStore.contextFor(column)?.stations?.comboResults.length).toBeGreaterThan(0);
       expect(seismicComboIds().size).toBe(scenario === 'partially covered' ? 2 : 0);
@@ -153,7 +152,7 @@ for (const analysis of ['linear', 'pdelta'] as const) for (const geometry of ['p
   }
 }
 
-issue2442('known wrong result: #2442 withholds a beam and its joints when a named combination is absent', () => {
+it('#2442 withholds a beam and its joints when a named combination is absent', () => {
   const { beam, read } = portal('linear', 'spatial', 'covered');
   const complete = read();
   expect(complete.beam?.shear?.ve).toBeGreaterThan(0);
@@ -175,13 +174,13 @@ issue2442('known wrong result: #2442 withholds a beam and its joints when a name
   }
 });
 
-issue2442('known wrong result: #2442 refuses soft-storey design when an earthquake case has no combination', () => {
+it('#2442 refuses soft-storey design when an earthquake case has no combination', () => {
   portal('linear', 'planar', 'uncombined');
   patchSeismic({ softStoreys: { ...seismicSettings().softStoreys, levels: [3] } });
   expect(designRunStore.computeDemands()).toMatchObject({ ok: false, reasonKey: uncombinedCase });
 });
 
-issue2442('known wrong result: #2442 publishes refusal rows without numerical seismic assessments', () => {
+it('#2442 publishes refusal rows without numerical seismic assessments', () => {
   const { read } = portal('linear', 'planar', 'gravity');
   const result = read();
   for (const rows of [seismicMemberCheckRows(result.member!), seismicJointCheckRows(result.joint!)]) {
