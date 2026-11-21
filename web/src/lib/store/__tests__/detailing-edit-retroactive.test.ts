@@ -164,7 +164,7 @@ describe('undoing an edit is an edit', () => {
   });
 });
 
-it.fails('known wrong result: #2443 reuses frozen detailing geometry through snapshot and restore', () => {
+it('reuses frozen detailing geometry through snapshot and restore', () => {
   const bars = modelStore.model.detailing!.assemblies[0].bars;
   const snapshot = modelStore.snapshot();
   expect(snapshot.detailing!.assemblies[0].bars).toBe(bars);
