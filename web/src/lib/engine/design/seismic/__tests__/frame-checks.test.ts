@@ -176,8 +176,7 @@ it('#2216 does not compute a joint from an incomplete subset of its primary memb
   expect(checked.members.every(m => m.shear && !m.refusal)).toBe(true);
 });
 
-const round2 = process.env.RUN_KNOWN_WRONG === '2216' ? it : it.skip;
-round2('known wrong result: #2216 incomplete joints keep each applicable summary row', () => {
+it('#2216 incomplete joints keep each applicable summary row', () => {
   const frameNodes = new Map([...nodes, [5, { x: 0, y: 0, z: 6 }], [6, { x: 6, y: 0, z: 6 }]]);
   const upperBeam = { ...beam, id: 6, nodeI: 5, nodeJ: 6 };
   const run = (lower: FrameMember, upper: FrameMember) => seismicFrameChecks({

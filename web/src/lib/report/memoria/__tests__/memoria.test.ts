@@ -227,8 +227,7 @@ it('#2355 a primary shear refusal shares the shear column and renders a translat
   }
 });
 
-const round2 = process.env.RUN_KNOWN_WRONG === '2355' ? it : it.skip;
-round2('known wrong result: #2355 a shear refusal without a clause governs the strength summary', () => {
+it('#2355 a shear refusal without a clause governs the strength summary', () => {
   const rows = concreteCheckRows({ elementId: 1, elementType: 'beam', hasProvided: true,
     overallStatus: 'fail', worstUtilization: Infinity, checkedAxes: ['Vz'], strengthCheckCount: 2,
     checks: [
@@ -247,6 +246,6 @@ round2('known wrong result: #2355 a shear refusal without a clause governs the s
   expect(render([rows[0]!])).toContain('<span class="s-ok">η = 0.42</span>');
 });
 
-round2('known wrong result: #2355 the German shear refusal says the check remains unverified', () => {
+it('#2355 the German shear refusal says the check remains unverified', () => {
   expect(de['diag.rcShearCutoff']).toContain('Der Querkraftnachweis konnte nicht geführt werden');
 });

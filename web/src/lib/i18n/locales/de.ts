@@ -4056,7 +4056,7 @@ const de: Translations = {
   'diag.rcShearLegs': "Der Querkraftnachweis ist nicht erbracht: Die vorhandene Bewehrung hat weniger Bügelschenkel als konstruktiv erforderlich.",
   'diag.rcShearGap': "In einem Querschnitt ohne Querbewehrung können keine Bügel angerechnet werden.",
   'diag.rcShearDepth': "Der Querkraftnachweis ist nicht erbracht: Die statische Nutzhöhe im Feld überschätzt die Nutzhöhe der Zugbewehrung an diesem Querschnitt.",
-  "diag.rcShearCutoff": "Der Querkraftnachweis entfällt, weil die für die statische Nutzhöhe angesetzte obere Bewehrung diesen Schnitt nicht erreicht.",
+  "diag.rcShearCutoff": "Der Querkraftnachweis konnte nicht geführt werden, weil die für die statische Nutzhöhe angesetzte obere Bewehrung diesen Schnitt nicht erreicht.",
   'diag.verifWarnTorsion': 'Torsionsnachweis nahe am Grenzwert',
   'diag.verifFailBiaxial': 'Biaxialer Nachweis NICHT erfüllt',
   'diag.verifWarnBiaxial': 'Biaxialer Nachweis nahe am Grenzwert',

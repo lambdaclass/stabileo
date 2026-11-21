@@ -421,10 +421,16 @@ export function faceRowDiameters(layers: readonly RebarLayer[], pair?: OuterPair
  * @param stirrupDia Stirrup diameter (mm)
  */
 export function layerCentroid(layers: RebarLayer[], cover: number, stirrupDia: number, pair?: OuterPair): number {
+  return seatedLayerCentroid(layers, faceRowDiameters(layers, pair), cover, stirrupDia, CIRSOC201_DESIGN_EDITION, pair);
+}
+
+function seatedLayerCentroid(
+  layers: readonly RebarLayer[], rows: readonly (readonly number[])[],
+  cover: number, stirrupDia: number, edition: RegulationEdition, pair?: OuterPair,
+): number {
   if (layers.length === 0) return cover + (stirrupDia / 1000) + 0.008;
   const stirDia_m = stirrupDia / 1000;
   const seat = (dMm: number) => cover + stirDia_m + dMm / 2000;
-  const rows = faceRowDiameters(layers, pair);
   let pairLeft = pair && pair.diameterMm > 0 ? pair.count : 0;
   let sumAd = 0;
   let sumA = 0;
@@ -435,7 +441,7 @@ export function layerCentroid(layers: RebarLayer[], cover: number, stirrupDia: n
     const asPair = layer.row === 0 ? Math.min(pairLeft, layer.count) : 0;
     pairLeft -= asPair;
     if (asPair > 0) sumAd += perBar * asPair * seat(pair!.diameterMm);
-    const distFromFace = stackedLayerDepth(rows, layer.row, layer.diameter, seat);
+    const distFromFace = stackedLayerDepth(rows, layer.row, layer.diameter, seat, edition);
     sumAd += perBar * (layer.count - asPair) * distFromFace;
     sumA += area;
   }
@@ -2117,8 +2123,8 @@ function evaluateProvidedReinforcement(
   const drawnBreaks = drawing?.bars.flatMap(({ from, to }) => [from, to]).filter(t => t > 0 && t < 1) ?? [];
   const stirrupCoverage = drawing?.stirrups.filter(({ from, to }) =>
     Number.isFinite(from) && Number.isFinite(to) && from < to).sort((a, b) => a.from - b.from);
-  const stirrupsAt = (t: Tuple) => stirrupCoverage?.filter(({ from, to }) =>
-    from <= t.stationT + 1e-9 && to >= t.stationT - 1e-9);
+  const stirrupsAtT = (t: number) => stirrupCoverage?.filter(({ from, to }) => from <= t + 1e-9 && to >= t - 1e-9);
+  const stirrupsAt = (t: Tuple) => stirrupsAtT(t.stationT);
   const zoneCuts = stirrupCoverage
     ? interpolateCuts([...new Set(stirrupCoverage.flatMap(({ from, to }) => [from, to]))].sort((a, b) => a - b))
     : [];
@@ -2357,10 +2363,10 @@ function evaluateProvidedReinforcement(
       layerCentroid(bottomLayers, section.cover, section.stirrupDia) + bottomShift;
     // A support's top layers hold the continuous pair, at the larger of the two supports' bars,
     // and a second layer steps from it as the detailing lays it (`layerCentroid`).
-    const topStartCentroid =
-      layerCentroid(topStartLayers, section.cover, section.stirrupDia, topOuterPair(topStartLayers, topEndLayers)) + topShift;
-    const topEndCentroid =
-      layerCentroid(topEndLayers, section.cover, section.stirrupDia, topOuterPair(topEndLayers, topStartLayers)) + topShift;
+    const topStartPair = topOuterPair(topStartLayers, topEndLayers);
+    const topEndPair = topOuterPair(topEndLayers, topStartLayers);
+    const topStartCentroid = layerCentroid(topStartLayers, section.cover, section.stirrupDia, topStartPair) + topShift;
+    const topEndCentroid = layerCentroid(topEndLayers, section.cover, section.stirrupDia, topEndPair) + topShift;
 
     const dBottom = section.h - bottomCentroid;
     const dTopStart = section.h - topStartCentroid;
@@ -2884,7 +2890,8 @@ function evaluateProvidedReinforcement(
     // ρw of the tension steel in each region, for row (c): the top at the supports (the smaller
     // end, conservatively), the bottom along the span.
     const rhoOf = (cm2: number) => cm2 / (section.b * d * 1e4);
-    const rhoSupport = rhoOf(Math.min(layersTotalArea(topStartLayers), layersTotalArea(topEndLayers)));
+    const supportShearArea = Math.min(layersTotalArea(topStartLayers), layersTotalArea(topEndLayers));
+    const rhoSupport = rhoOf(supportShearArea);
     const rhoSpan = rhoOf(layersTotalArea(bottomLayers));
     const startDepth = topStartLayers.length ? dTopStart : Infinity;
     const endDepth = topEndLayers.length ? dTopEnd : Infinity;
@@ -2896,26 +2903,64 @@ function evaluateProvidedReinforcement(
     const topEndExtent = endCoverage.reduce((start, { group, from }) =>
       layersTotalArea(group.layers) > 0 ? Math.max(start, from) : start, 0);
     const variesTopLayout = elementType === 'beam' && (drawnBars !== undefined || topStartExtent < 1 || topEndExtent > 0);
-    const sustainedHoggingLayout = (t: number) => {
+    const topLayoutAt = (t: number) => {
       const atStart = t <= tStartEnd, atEnd = t >= tEndStart;
-      const usesStart = !atEnd || atStart, usesEnd = !atStart || atEnd;
+      return { usesStart: !atEnd || atStart, usesEnd: !atStart || atEnd, support: atStart || atEnd };
+    };
+    const sustainedHoggingLayout = (t: number) => {
+      const { usesStart, usesEnd } = topLayoutAt(t);
       if (drawnBars) {
         return (!usesStart || layersAreDrawn('top', topStartLayers, t))
           && (!usesEnd || layersAreDrawn('top', topEndLayers, t));
       }
       return (!usesStart || t <= topStartExtent) && (!usesEnd || t >= topEndExtent);
     };
+    const drawnTop = drawnBars?.filter(bar => bar.face === 'top').map(bar => ({
+      from: bar.from, to: bar.to, layer: { row: bar.row, count: bar.place.slots.length, diameter: bar.diameter },
+    }));
+    const startRows = variesTopLayout && !drawnTop
+      ? faceRowDiameters(topStartGroups.flatMap(({ layers }) => layers), topStartPair) : [];
+    const endRows = variesTopLayout && !drawnTop
+      ? faceRowDiameters(topEndGroups.flatMap(({ layers }) => layers), topEndPair) : [];
+    const drawnTopRows = drawnTop && faceRowDiameters(drawnTop.map(({ layer }) => layer));
+    const cutoffDepthAt = (t: number): 'regional' | 'adequate' | 'unsupported' => {
+      if (!variesTopLayout || sustainedHoggingLayout(t)) return 'regional';
+      const { usesStart, usesEnd, support } = topLayoutAt(t);
+      const layouts = drawnTop && drawnTopRows ? [{
+        layers: drawnTop.filter(({ from, to }) => from <= t && t <= to).map(({ layer }) => layer),
+        rows: drawnTopRows, pair: undefined,
+      }] : [
+        ...(usesStart ? [{ layers: startCoverage.filter(({ to }) => t <= to).flatMap(({ group }) => group.layers),
+          rows: startRows, pair: topStartPair }] : []),
+        ...(usesEnd ? [{ layers: endCoverage.filter(({ from }) => t >= from).flatMap(({ group }) => group.layers),
+          rows: endRows, pair: topEndPair }] : []),
+      ];
+      const active = layouts.filter(({ layers }) => layersTotalArea(layers) > 0);
+      if (!active.length) return 'unsupported';
+      const stirrups = stirrupsAtT(t) ?? [support ? stirSupport : stirSpan];
+      const largestStirrup = Math.max(section.stirrupDia, ...stirrups.map(stir => stir?.diameter ?? section.stirrupDia));
+      const required = bottomLayers.length ? d : d + (largestStirrup - section.stirrupDia) / 1000;
+      const adequate = active.every(({ layers, rows, pair }) => {
+        const deepestRow = Math.max(...layers.map(({ row }) => row));
+        if (rows.slice(0, deepestRow + 1).some(row => !row.length)) return false;
+        const inset = seatedLayerCentroid(layers, rows, section.cover, section.stirrupDia, spacingRule.edition, pair);
+        const depth = section.h - (inset + topShift);
+        return Number.isFinite(depth) && depth >= required && (!support || layersTotalArea(layers) >= supportShearArea);
+      });
+      return adequate ? 'adequate' : 'unsupported';
+    };
     const shearDepthIntervals: Array<{ from: number; to: number; support: boolean }> = [];
     if (variesTopLayout) {
       const extents = drawnBars
         ? drawnBars.filter(bar => bar.face === 'top').flatMap(({ from, to }) => [from, to])
-        : [topStartExtent, topEndExtent];
-      const breaks = [...new Set([0, tStartEnd, tEndStart, 1, ...extents]
+        : [...startCoverage.map(({ to }) => to), ...endCoverage.map(({ from }) => from)];
+      const cageExtents = bottomLayers.length ? [] : stirrupCoverage?.flatMap(({ from, to }) => [from, to]) ?? [];
+      const breaks = [...new Set([0, tStartEnd, tEndStart, 1, ...extents, ...cageExtents]
         .filter(t => t >= 0 && t <= 1))].sort((a, b) => a - b);
       for (let i = 1; i < breaks.length; i++) {
         const from = breaks[i - 1]!, to = breaks[i]!;
         const mid = (from + to) / 2;
-        if (!sustainedHoggingLayout(mid)) shearDepthIntervals.push({ from, to, support: mid <= tStartEnd || mid >= tEndStart });
+        if (cutoffDepthAt(mid) === 'unsupported') shearDepthIntervals.push({ from, to, support: mid <= tStartEnd || mid >= tEndStart });
       }
     }
     const shearDemandLimit = 0.001;
@@ -2942,7 +2987,7 @@ function evaluateProvidedReinforcement(
             cuts.sort((u, v) => u - v);
             for (let k = 1; k < cuts.length; k++) {
               const t = a.interpolate(b, from + (to - from) * (cuts[k - 1]! + cuts[k]!) / 2);
-              if (activeHoggingShear(t) && !sustainedHoggingLayout(t.stationT)) return t;
+              if (activeHoggingShear(t) && cutoffDepthAt(t.stationT) === 'unsupported') return t;
             }
           }
         }
@@ -2986,7 +3031,7 @@ function evaluateProvidedReinforcement(
         ? { reason: 'diag.rcDrawnBarExtent', Vu: Math.abs(V(missingDrawnBars)), t: missingDrawnBars } : undefined;
       const cuts = new Set([...ss.tuples, ...gapCuts.filter(inRegion), ...zoneCuts.filter(inRegion)]);
       if (variesTopLayout && !refusal) {
-        const unresolved = [...cuts].find(t => activeHoggingShear(t) && !sustainedHoggingLayout(t.stationT))
+        const unresolved = [...cuts].find(t => activeHoggingShear(t) && cutoffDepthAt(t.stationT) === 'unsupported')
           ?? shearCutoffWitness(support);
         if (unresolved) refusal = { reason: 'diag.rcShearCutoff', Vu: Math.abs(V(unresolved)), t: unresolved };
       }
@@ -3003,7 +3048,9 @@ function evaluateProvidedReinforcement(
           if (!refusal) refusal = { reason: 'diag.rcDrawnBarExtent', Vu, t };
           continue;
         }
-        if (!forSelection && tensionDepth(t) < d) {
+        const cutDepth = activeHoggingShear(t) ? cutoffDepthAt(t.stationT) : 'regional';
+        if (cutDepth === 'unsupported') continue;
+        if (!forSelection && cutDepth === 'regional' && tensionDepth(t) < d) {
           if (!refusal) refusal = { reason: 'diag.rcShearDepth', Vu, t };
           continue;
         }

@@ -60,7 +60,7 @@ export type JointSeismic = {
 } & (
   | { ok: boolean; strongColumn: ReturnType<typeof strongColumn> & { roof: boolean };
       shear: ReturnType<typeof seismicJointShear> & { confinement: JointConfinementKind }; refusal?: never }
-  | { ok: false; refusal: string; strongColumn?: never; shear?: never }
+  | { ok: false; refusal: string; roof: boolean; strongColumn?: never; shear?: never }
 );
 
 export interface SeismicReport { members: MemberSeismic[]; joints: JointSeismic[] }
@@ -235,17 +235,17 @@ export function seismicFrameChecks(i: { nodes: ReadonlyMap<number, P>; members: 
         return dir === 'X' ? Math.abs(o.x - p.x) > Math.abs(o.y - p.y) : Math.abs(o.y - p.y) >= Math.abs(o.x - p.x);
       });
       if (along.length === 0) continue;
+      // At the roof no column continues upward: a hinge in the column there forms no storey
+      // mechanism, so the strong-column rule is not asked for.
+      const roof = !cols.some((c) => Math.min(z(byId.get(c)!.nodeI), z(byId.get(c)!.nodeJ)) >= (p.z ?? 0) - 1e-6);
       if (along.some(b => !beamOut.has(b)) || cols.some(c => !columns.has(c))) {
-        joints.push({ nodeId: node, direction: dir, columns: cols, beams: along, ok: false, refusal: 'seisDes.issue.incompleteJoint' });
+        joints.push({ nodeId: node, direction: dir, columns: cols, beams: along, roof, ok: false, refusal: 'seisDes.issue.incompleteJoint' });
         continue;
       }
       const endOf = (b: number) => (byId.get(b)!.nodeI === node ? 0 : 1);
       // One beam hogging (its negative, with slab) and the other sagging: the larger pairing.
       const neg = along.map((b) => beamOut.get(b)!.mnNeg[endOf(b)]), pos = along.map((b) => beamOut.get(b)!.mnPos[endOf(b)]);
       const sumBeams = along.length === 1 ? Math.max(neg[0]!, pos[0]!) : Math.max(neg[0]! + pos[1]!, pos[0]! + neg[1]!);
-      // At the roof no column continues upward: a hinge in the column there forms no storey
-      // mechanism, so the strong-column rule is not asked for.
-      const roof = !cols.some((c) => Math.min(z(byId.get(c)!.nodeI), z(byId.get(c)!.nodeJ)) >= (p.z ?? 0) - 1e-6);
       const sc0 = strongColumn({ columns: cols.map((c) => columns.get(c)!.least), beams: [sumBeams], ratio: s.strongColumn });
       const sc = roof ? { ...sc0, ok: true, roof: true } : { ...sc0, roof: false };
       const prNeg = along.map((b) => beamOut.get(b)!.mprNeg[endOf(b)]), prPos = along.map((b) => beamOut.get(b)!.mprPos[endOf(b)]);

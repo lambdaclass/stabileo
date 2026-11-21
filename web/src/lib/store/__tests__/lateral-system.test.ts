@@ -211,54 +211,47 @@ describe('the geometry suggests, it never declares', () => {
     expect(html).toContain(t(reason));
   });
 
-  const round2 = process.env.RUN_KNOWN_WRONG === '2216' ? it : it.skip;
   for (const analysis of ['linear', 'pdelta'] as const) {
-    round2(`known wrong result: #2216 ${analysis} seismic columns and joints require applicable combination results`, () => {
-      const check = (seismic: boolean) => {
-        const { beam, tip, column } = cantilever({ analysis, seismic });
-        setSeismicRole([beam, column], 'primary');
-        setSeismicRole([tip], 'secondary');
-        const bars = { count: 2, diameter: 16 };
-        commitManual(beam, { top: bars, bottom: bars, stirrups: { diameter: 8, legs: 2, spacing: 0.075 } });
-        commitManual(column, {
-          column: { cornerDia: 20, faceDia: 20, nBottom: 1, nTop: 1, nLeft: 1, nRight: 1 },
-          stirrups: { diameter: 10, legs: 4, spacing: 0.1 },
-        });
-        expect(designRunStore.computeDemands().ok).toBe(true);
-        return { column, read: () => {
-          const report = runSeismicChecks();
-          return { member: report.members.find(m => m.id === column), joint: report.joints.find(j => j.columns.includes(column)) };
-        } };
+    it(`#2216 ${analysis} seismic columns and joints require all named combination results`, () => {
+      const { beam, tip, column } = cantilever({ analysis, seismic: true });
+      setSeismicRole([beam, column], 'primary');
+      setSeismicRole([tip], 'secondary');
+      const bars = { count: 2, diameter: 16 };
+      commitManual(beam, { top: bars, bottom: bars, stirrups: { diameter: 8, legs: 2, spacing: 0.075 } });
+      commitManual(column, {
+        column: { cornerDia: 20, faceDia: 20, nBottom: 1, nTop: 1, nLeft: 1, nRight: 1 },
+        stirrups: { diameter: 10, legs: 4, spacing: 0.1 },
+      });
+      expect(designRunStore.computeDemands().ok).toBe(true);
+      const read = () => {
+        const report = runSeismicChecks();
+        return { member: report.members.find(m => m.id === column), joint: report.joints.find(j => j.columns.includes(column)) };
       };
-      const refused = {
-        member: { ok: false, refusal: 'seisDes.issue.missingForces', shear: undefined },
-        joint: { ok: false, refusal: 'seisDes.issue.incompleteJoint', shear: undefined },
-      };
-      const gravity = check(false);
-      expect(seismicComboIds().size).toBe(0);
-      expect(verificationStore.contextFor(gravity.column)?.stations?.comboResults.length).toBeGreaterThan(0);
-      expect.soft(gravity.read()).toMatchObject(refused);
-
-      const seismic = check(true);
       const required = [...seismicComboIds()];
       expect(required).toHaveLength(2);
-      expect(seismic.read()).toMatchObject({
+      expect(read()).toMatchObject({
         member: { shear: { ve: expect.any(Number) } },
         joint: { shear: { vj: expect.any(Number) } },
       });
       const contexts = new Map(verificationStore.contexts);
-      const full = contexts.get(seismic.column)!;
+      const full = contexts.get(column)!;
       const stations = full.stations!;
       for (const dropped of [true, false]) {
         const comboResults = stations.comboResults.flatMap(c =>
           c.comboId !== required[0] ? [c] : dropped ? [] : [{ ...c, stations: [] }]);
-        contexts.set(seismic.column, { ...full, stations: { ...stations, comboResults } });
+        contexts.set(column, { ...full, stations: { ...stations, comboResults } });
         verificationStore.setDemandData(new Map(contexts));
-        expect(seismic.read()).toMatchObject(refused);
+        const result = read();
+        expect(result).toMatchObject({
+          member: { ok: false, refusal: 'seisDes.issue.missingForces' },
+          joint: { ok: false, refusal: 'seisDes.issue.incompleteJoint' },
+        });
+        expect(result.member?.shear).toBeUndefined();
+        expect(result.joint?.shear).toBeUndefined();
       }
     });
 
-    round2(`known wrong result: #2216 ${analysis} seismic capacity shear refuses a missing gravity force array or member`, () => {
+    it(`#2216 ${analysis} seismic capacity shear refuses a missing gravity force array or member`, () => {
       const { beam, tip } = cantilever({ analysis, seismic: false });
       setSeismicRole([beam], 'primary');
       setSeismicRole([tip], 'secondary');

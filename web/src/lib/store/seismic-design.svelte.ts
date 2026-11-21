@@ -167,7 +167,7 @@ function frameInput(): FrameMember[] {
   const perCase = resultsStore.perCase3D;
   const gravityCases = modelStore.model.loadCases.filter(c => c.type === 'D' || c.type === 'L')
     .map(c => ({ factor: c.type === 'D' ? 1.2 : 1,
-      forces: new Map(perCase.get(c.id)?.elementForces.map(f => [f.elementId, f])) }));
+      forces: new Map(perCase.get(c.id)?.elementForces?.map(f => [f.elementId, f])) }));
   const out: FrameMember[] = [];
   const drawnStirrups = savedLinePieces().pieces;
   const quads = [...modelStore.quads.values()] as Array<{ nodes: number[]; thickness: number }>;

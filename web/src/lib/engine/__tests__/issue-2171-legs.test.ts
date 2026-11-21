@@ -1872,9 +1872,8 @@ for (const spatial of [false, true]) for (const nonlinear of [false, true]) {
   });
 }
 
-const round2 = process.env.RUN_KNOWN_WRONG === '2355' ? it : it.skip;
 for (const spatial of [false, true]) for (const nonlinear of [false, true]) {
-  round2(`known wrong result: #2355 retained outer bars establish hogging shear depth (spatial=${spatial}, nonlinear=${nonlinear})`, () => {
+  it(`#2355 retained outer bars establish hogging shear depth (spatial=${spatial}, nonlinear=${nonlinear})`, () => {
     const L = 4;
     const { run, solvedModel } = solvedVerdictBeam(spatial, nonlinear, section, L);
     const calc = (fz: number) => computeStationDemands(new Map([[1, run(0, fz, 0)]]), combos, solvedModel);
@@ -1883,6 +1882,7 @@ for (const spatial of [false, true]) for (const nonlinear of [false, true]) {
     expect(hogging.stations.get(1)!.comboResults[0]!.stations[0]!.my).toBeLessThan(0);
     const outer = { count: 3, diameter: 16, row: 0 };
     const inner = { ...outer, count: 2, row: 1 };
+    const bottom = [outer, { ...inner, count: outer.count }];
     const cage = { diameter: 8, legs: 4, spacing: 0.1 };
     const check = (cut: 'inner' | 'outer' | 'both', drawn: boolean, extracted: boolean) => {
       const runs = (layer: typeof outer, isCut: boolean) => isCut ? [
@@ -1898,13 +1898,13 @@ for (const spatial of [false, true]) for (const nonlinear of [false, true]) {
         bars: [
           ...[...runs(outer, outerCut), ...runs(inner, innerCut)]
             .map(bar => ({ ...bar, face: 'top' as const, role: 'main' as const })),
-          { ...outer, id: 'bottom', face: 'bottom', role: 'main', from: 0, to: L },
+          ...bottom.map(layer => ({ ...layer, id: `bottom-${layer.row}`, face: 'bottom' as const, role: 'main' as const, from: 0, to: L })),
         ],
         stirrups: [{ ...cage, id: 'cage', from: 0, to: L }],
       }, [{ id: 1, L, tStart: 0.25, tEnd: 0.25, faceStart: 0, faceEnd: 0 }]).get(1)! : {
         stirrups: cage,
         regions: {
-          bottomSpanLayers: [outer], topStartLayers: [outer, inner], topEndLayers: [outer, inner],
+          bottomSpanLayers: bottom, topStartLayers: [outer, inner], topEndLayers: [outer, inner],
           topStartGroups: [group(outer, outerCut, 'End'), group(inner, innerCut, 'End')],
           topEndGroups: [group(outer, outerCut, 'Start'), group(inner, innerCut, 'Start')],
         },
@@ -1916,7 +1916,7 @@ for (const spatial of [false, true]) for (const nonlinear of [false, true]) {
     };
     for (const drawn of [false, true]) for (const extracted of [false, true]) {
       for (const supported of check('inner', drawn, extracted)) {
-        expect.soft(supported).toMatchObject({ status: 'ok', capacity: expect.any(Number) });
+        expect.soft(supported, `drawn=${drawn}, extracted=${extracted}, result=${supported?.description}`).toMatchObject({ status: 'ok', capacity: expect.any(Number) });
       }
       for (const cut of ['outer', 'both'] as const) for (const refused of check(cut, drawn, extracted)) {
         expect.soft(refused).toMatchObject({ status: 'fail', ratio: Infinity, description: 'diag.rcShearCutoff' });

@@ -57,6 +57,8 @@ export function renderFicha(r: CheckRow, c: RenderContext): string {
 ${where}${inputs}${working}</section>`;
 }
 
+const summaryCheckKey = (r: CheckRow) => r.titleKey ? `${r.titleKey}|${r.clause ?? ''}` : r.title;
+
 /** The summary of one family: one row per element, one column per check, «N.P.» numbered below. */
 export function familySummary(els: readonly MemoriaElement[], c: RenderContext, family = ''): string {
   // Metallic results are calculated, never presented as verified.
@@ -64,14 +66,14 @@ export function familySummary(els: readonly MemoriaElement[], c: RenderContext, 
   if (els.length === 0) return '';
   const cols: Array<{ key: string; head: string; title: string }> = [];
   for (const e of els) for (const r of e.rows) {
-    const key = r.titleKey ? `${r.titleKey}|${r.clause ?? ''}` : r.title;
+    const key = summaryCheckKey(r);
     if (!cols.some((x) => x.key === key)) cols.push({ key, head: r.clause ?? String(cols.length + 1), title: r.titleKey ? c.tr(r.titleKey) : r.title });
   }
   const reasons: string[] = [];
   const note = (s: string) => { let i = reasons.indexOf(s); if (i < 0) { reasons.push(s); i = reasons.length - 1; } return i + 1; };
   const rows = els.map((e) => {
     const cells = cols.map((col) => {
-      const rs = e.rows.filter((r) => (r.titleKey ? `${r.titleKey}|${r.clause ?? ''}` : r.title) === col.key);
+      const rs = e.rows.filter((r) => summaryCheckKey(r) === col.key);
       if (rs.length === 0) return `N.P.<sup>${note(c.tr('memo.np.absent', { check: col.title }))}</sup>`;
       const refusals = rs.filter(r => r.status === 'unsupported' || r.status === 'notVerified');
       if (refusals.length) {

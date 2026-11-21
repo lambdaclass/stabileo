@@ -23,6 +23,11 @@ describe('the flagship beam lines, as lines', () => {
     const bottomExtentRefusals = new Set([363, 365, 366, 368, 369, 371, 372, 374, 375, 377, 381, 385, 389, 393]);
     const secondaryExtentRefusals = new Set([363, 365, 366, 368, 369, 371, 372, 374, 375, 377]);
     const overallExtentRefusals = new Set([378, 381, 382, 385, 386, 389, 390, 393]);
+    const spanShearRatios = new Map([
+      ...[363, 366, 369, 372, 375].map(id => [id, 0.651] as const),
+      ...[365, 368, 371, 374, 377].map(id => [id, 0.782] as const),
+      ...[...overallExtentRefusals].map(id => [id, 0.388] as const),
+    ]);
     const primaryShear = (row: { category: string }) => /^Shear (Support|Span) \(Vz\)/.test(row.category);
     const key = (checks: Array<{ category: string; status: string; ratio: number }>) =>
       checks.map(c => `${c.category}|${c.status}|${c.ratio}`).sort();
@@ -81,10 +86,12 @@ describe('the flagship beam lines, as lines', () => {
         }
         const prescribed = original.checks.filter(primaryShear);
         const projected = drawn.checks.filter(primaryShear);
-        const cutoffRows = projected.filter(row => row.description === 'diag.rcShearCutoff');
-        expect(cutoffRows, `member ${id}`).toEqual(topExtentRefusals.has(id) ? [expect.objectContaining({
-          category: 'Shear Span (Vz)', status: 'fail', ratio: Infinity, limiting: 'unsupportedCheck',
-        })] : []);
+        expect(projected.filter(row => row.description === 'diag.rcShearCutoff'), `member ${id}`).toEqual([]);
+        if (topExtentRefusals.has(id)) {
+          expect(projected.find(row => row.category === 'Shear Span (Vz)'), `member ${id}`).toMatchObject({
+            status: 'ok', limiting: 'shear', ratio: spanShearRatios.get(id),
+          });
+        }
         if (JSON.stringify(key(projected)) !== JSON.stringify(key(prescribed))) transitioned.push(id);
         for (const row of prescribed) {
           const corresponding = projected.find(c => c.category === row.category);
@@ -108,7 +115,7 @@ describe('the flagship beam lines, as lines', () => {
     expect(lines.flatMap(line => line.members).length).toBeGreaterThan(200);
     expect(checked).toHaveLength(139);
     expect(withheld.sort((a, b) => a - b)).toEqual(FLAGSHIP_GRAVITY_SHEAR_DEPTH_REFUSALS);
-    expect(transitioned).toHaveLength(115);
+    expect(transitioned).toHaveLength(107);
     expect(minimumShortfalls).toHaveLength(52);
   }, 300_000);
 });

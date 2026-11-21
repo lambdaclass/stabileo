@@ -68,11 +68,10 @@ describe('a beam line as bars along it', () => {
       const trip = a.verify(ctx, back.get(m.id)!);
       const curtailed = m.id === ms[1]!.id;
       const refused = curtailed ? ['Bottom Span (My+)', 'Top Span (My-)'] : [];
-      const cutoff = curtailed ? ['Shear Span (Vz)'] : [];
-      const replaced = new Set([...refused.flatMap(category => [category, `${category} ductility`]), ...cutoff]);
+      const replaced = new Set(refused.flatMap(category => [category, `${category} ductility`]));
       const expected = [
         ...summary({ checks: own.checks.filter(row => !replaced.has(row.category)) }),
-        ...[...refused, ...cutoff].map(category => `${category}|fail|Infinity`),
+        ...refused.map(category => `${category}|fail|Infinity`),
       ].sort();
       if (curtailed) expect(own.checks).toContainEqual(expect.objectContaining({
         category: 'Shear Span (Vz)', status: 'ok', ratio: 0.165,
@@ -81,8 +80,7 @@ describe('a beam line as bars along it', () => {
         expect.soft(summary(checked), `member ${m.id}`).toEqual(expected);
         expect.soft(checked.checks.filter(row => row.description === 'diag.rcDrawnBarExtent').map(row => row.category).sort())
           .toEqual(refused);
-        expect.soft(checked.checks.filter(row => row.description === 'diag.rcShearCutoff')).toEqual(cutoff.map(category =>
-          expect.objectContaining({ category, status: 'fail', ratio: Infinity, limiting: 'unsupportedCheck' })));
+        expect.soft(checked.checks.filter(row => row.description === 'diag.rcShearCutoff')).toEqual([]);
       }
       for (const result of [own, trip, draft.get(m.id)!]) {
         expect.soft(result.checks).toContainEqual(expect.objectContaining({
