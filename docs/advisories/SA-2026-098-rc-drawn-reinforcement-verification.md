@@ -41,8 +41,11 @@ stirrup bends.
 Review earlier passing checks on fixed or edited reinforcement. Look for
 axial tension with shear, moment sign changes at zero-valued stations,
 short bars, lap and cutoff zones, changes in the stirrup cage, or smaller
-bars in end layers. Compare the generated column cage and lap schedule
-with the specified face and corner bars.
+bars in end layers. Review torsion checks that credited inadequately
+developed perimeter bars and concrete-only secondary shear checks that
+passed without verifying qualifying bars at both stirrup bends. Compare
+the generated column cage and lap schedule with the specified face and
+corner bars.
 
 ## Fixed in
 

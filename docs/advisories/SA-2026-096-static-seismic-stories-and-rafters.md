@@ -54,6 +54,10 @@ can be established.
 Regenerate the cases in 0.6.3. If generation refuses or an upgrade is
 unavailable, use independently verified seismic load cases that account
 for the physical storeys, participating mass and inertia along the rafters.
+Even when regeneration succeeds, independently verify roof force for very
+thin mass bands and base shear for nearly coincident torsion carriers. Use
+independently verified explicit load cases for these conditions as described
+in [SA-2026-086](SA-2026-086-seismic-static-story-forces.md).
 
 ## What to do with results you already have
 

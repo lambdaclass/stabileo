@@ -34,9 +34,10 @@ value for the wrong degree of freedom and in the wrong units.
 
 Compare the original workbook and imported model. Look for repeated
 sheet names or column headers, missing headers, unsupported fields on
-load rows, out-of-plane couples in 2D and support restraints that differ
-from the original. In an old export from a 2D model, check any populated
-`kz [kN/m]` spring entry against the rotational spring in the original model.
+load rows, moments about axes lying in the 2D model plane, and support
+restraints that differ from the original. In an old export from a 2D
+model, check any populated `kz [kN/m]` spring entry against the rotational
+spring in the original model.
 
 ## Fixed in
 
