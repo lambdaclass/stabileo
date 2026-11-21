@@ -2209,9 +2209,8 @@ for (const mode of curtailedShearModes) {
   it(`#2434 bounds shear when distributed loading curves the hogging transition (${mode})`, () => checkRowCShear(mode, true));
 }
 
-const curvedCutoffReproducer = process.env.RUN_KNOWN_WRONG === '2434' ? it : it.skip;
 for (const mode of curtailedShearModes) for (const face of ['top', 'bottom'] as const) {
-  curvedCutoffReproducer(`known wrong result: #2434 refuses a ${face}-bar cutoff inside the curved moment transition (${mode})`, () => {
+  it(`#2434 refuses a ${face}-bar cutoff inside the curved moment transition (${mode})`, () => {
     const L = 4, left = 0.4, right = 0.5;
     const sign = face === 'top' ? 1 : -1;
     const regionT = face === 'top' ? 0.25 : 0.49;
