@@ -155,14 +155,14 @@ function spatialCurve(ef: ElementForces3D, kind: Diagram3DKind): SpatialCurve {
   };
 }
 
-export function criticalDiagramStations3D(ef: ElementForces3D, purpose: 'diagram' | 'design' = 'diagram'): DiagramStation[] {
+export function criticalDiagramStations3D(ef: ElementForces3D, purpose: 'diagram' | 'concrete-design' = 'diagram'): DiagramStation[] {
   const curves = diagramKinds.map(kind => ({ kind, curve: spatialCurve(ef, kind) }));
   if (curves.some(({ curve }) => curve.magnitudeBound)) throw unavailableDiagramExtrema();
   const cuts = joinedCutDistances(curves.map(({ curve }) => curve.cutDistances));
   const extrema = curves.flatMap(({ kind, curve }) => {
     const peaks = [...indexDiagramExtrema(curve.extrema()).values()];
     if (peaks.some(peak => cuts.has(peak.t) || !peak.canTransfer(peak.t))) throw unavailableDiagramExtrema();
-    return purpose === 'design' && usesSampledBending(ef, kind) ? [] : peaks;
+    return purpose === 'concrete-design' && usesSampledBending(ef, kind) ? [] : peaks;
   });
   return sortedStations([...cuts.keys(), ...extrema.map(peak => peak.t)]).flatMap(t => {
     const left = { t };

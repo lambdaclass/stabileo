@@ -215,9 +215,8 @@ describe('steelSegmentDiagram — the stitched segment diagram', () => {
   });
 });
 
-const curvedSegmentRegression = process.env.RUN_KNOWN_WRONG === '2403' ? it : it.skip;
 for (const el2Reversed of [false, true]) {
-  curvedSegmentRegression(`known wrong result: #2403 recovers Cb quarter moments inside an unequal chain reversed=${el2Reversed}`, () => {
+  it(`known wrong result: #2403 recovers Cb quarter moments inside an unequal chain reversed=${el2Reversed}`, () => {
     const model = chainModel({ el2Reversed });
     model.nodes.get(2)!.x = 2;
     const moment = (x: number) => 5 + x * (4 - x);

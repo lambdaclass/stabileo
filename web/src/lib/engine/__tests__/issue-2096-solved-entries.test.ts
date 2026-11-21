@@ -24,9 +24,8 @@ const model = {
   supports: new Map([[1, { id: 1, nodeId: 1, type: 'fixed' }]]),
 } satisfies AutoVerifyModelData;
 afterEach(() => { setCompactStationTransfer(true); vi.restoreAllMocks(); });
-const steelExtremum = process.env.RUN_KNOWN_WRONG === '2403' ? it : it.skip;
 for (const spatial of [false, true]) for (const nonlinear of [false, true]) for (const compact of [false, true]) {
-  const solveModel = (source = model, transverse?: { qI: number; qJ: number }) => {
+  const solveModel = (source: Omit<typeof model, 'materials'> & Pick<SolverInput3D, 'materials'> = model, transverse?: { qI: number; qJ: number }) => {
     const loadedNode = Math.max(...source.nodes.keys());
     const solver: SolverInput3D = { ...source,
       elements: new Map([...source.elements].map(([id, e]) => [id, { ...e, type: 'frame' as const, releaseMyStart: false, releaseMyEnd: false,
@@ -75,7 +74,7 @@ for (const spatial of [false, true]) for (const nonlinear of [false, true]) for 
       expect(rows).toEqual(uniform ? result.stationTs : [...result.stationTs, ...extra].sort((a, b) => a - b));
     });
   }
-  steelExtremum(`known wrong result: #2403 retains the smooth steel bending peak ${label}`, () => {
+  it(`known wrong result: #2403 retains the smooth steel bending peak ${label}`, () => {
     const beam = { ...model, nodes: new Map([
       [1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: 4, y: 0, z: 0 }],
     ]), materials: new Map([[1, { id: 1, name: 'F-24', fy: 235, e: 200000, nu: 0.3 }]]) };

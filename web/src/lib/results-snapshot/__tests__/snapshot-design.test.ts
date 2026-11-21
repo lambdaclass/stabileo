@@ -32,12 +32,11 @@ it('design-rc-qa-diagnostic e26 records the positive moment at its stationary po
   expect(saved[`posValues[${peakIndex}]`]).toBeCloseTo(magnitude, 8);
 });
 
-const exactSteelGradient = process.env.RUN_KNOWN_WRONG === '2403' ? it : it.skip;
 for (const [name, members] of [
   ['design-steel-3d-portal-frame', [[7, 3], [8, 3]]],
   ['design-steel-3d-tower', [[10, 2], [12, 3], [14, 2], [15, 2], [16, 3]]],
 ] as const) {
-  exactSteelGradient(`known wrong result: #2403 ${name} uses equilibrium moments for Cb`, async () => {
+  it(`known wrong result: #2403 ${name} uses equilibrium moments for Cb`, async () => {
     await capture(CORPUS.find(c => c.name === name)!);
     for (const [id, comboId] of members) {
       const force = activePerCombo3D().get(comboId)!.elementForces.find(ef => ef.elementId === id)!;

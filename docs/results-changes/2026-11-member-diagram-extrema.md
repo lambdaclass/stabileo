@@ -12,7 +12,7 @@ The 100 m cantilever with a linear load from +1 to −1 over [1, 2] has a peak s
 
 ## Design
 
-Member design includes force tuples at load boundaries, both sides of jumps and analytic extrema. For uniform loads over a single member’s full length, smooth bending extrema in a load direction without concentrated actions use the requested bending grid for design. Analytic diagram extrema in that direction remain available and are still subject to the station transfer checks. The full-precision baseline for all 408 members of the flagship concrete frame matches main. A beam span uses a single upright section frame along its chord. Pieces that run the other way are transformed to the same frame, including reversal of the section-cut direction. Incompatible section axes block span design.
+Member design includes force tuples at load boundaries, both sides of jumps and analytic extrema. For uniform loads over a single concrete member’s full length, smooth bending extrema in a load direction without concentrated actions use the requested bending grid for design. Analytic diagram extrema in that direction remain available and are still subject to the station transfer checks. The full-precision baseline for all 408 members of the flagship concrete frame matches main. A beam span uses a single upright section frame along its chord. Pieces that run the other way are transformed to the same frame, including reversal of the section-cut direction. Incompatible section axes block span design.
 
 The fixed-ended three-piece beam in #2238 has support moments of −qL²/12 and a midspan moment of +qL²/24 under the issue's uniform downward load. Both signs are recovered with forward, mixed or reversed pieces, so the support demand stays on the top face.
 
