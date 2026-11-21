@@ -31,8 +31,6 @@ import { detailingStore } from '../detailing.svelte';
 import { verificationStore } from '../verification.svelte';
 import type { DetailingAssembly } from '../../engine/detailing/assembly';
 import { DETAILING_SCHEMA_VERSION } from '../../engine/detailing/assembly';
-import { buildStraightBarWithHooks } from '../../codes/cirsoc201/bar-geometry';
-import { buildSceneModel } from '../../engine/detailing/scene-model';
 
 /** Two members on two levels, so an edit to one can be shown NOT to touch the other. */
 let beamA = 0;
@@ -162,49 +160,4 @@ describe('undoing an edit is an edit', () => {
       api.setReinforcement(beamA, { bottom: { count: 6, diameter: 20 } }));
     expect(persisted('level-3')!.detailingRevision).toBe(afterEdit + 1);
   });
-});
-
-it('publishes reusable detailing snapshots and projects their replacement on the next open', () => {
-  const bar = buildStraightBarWithHooks({
-    id: 'span-bottom', diameterMm: 16, role: 'longitudinal', ownerElementIds: [beamA],
-    start: { x: 0, y: 0, z: 3 }, end: { x: 6, y: 0, z: 3 },
-    axis: { x: 1, y: 0, z: 0 }, hookNormal: { x: 0, y: 0, z: 1 },
-  });
-  const at = '2026-11-21T00:00:00Z';
-  const left = { ...assembly('level-3', [beamA]), bars: [bar] };
-  const right = assembly('level-6', [beamB]);
-  detailingStore.setAssemblies([left, right]);
-
-  const first = detailingStore.buildDocument({ author: 'test', at })!;
-  const firstScene = buildSceneModel(first);
-  const kept = first.assemblies[1].source;
-  const stored = modelStore.model.detailing!;
-  expect(first.assemblies[0].bars).toEqual([bar]);
-  expect(Object.isFrozen(stored.assemblies)).toBe(true);
-  expect(Object.isFrozen(first.assemblies[0].bars[0].segments[0].start)).toBe(true);
-  expect(first.assemblies[0].bars[0]).not.toBe(bar);
-
-  const reopened = detailingStore.buildDocument({ author: 'test', at })!;
-  expect(reopened).toEqual(first);
-  expect(reopened.assemblies[0].source).toBe(first.assemblies[0].source);
-  expect(buildSceneModel(reopened)).toEqual(firstScene);
-
-  const moved = buildStraightBarWithHooks({
-    id: bar.id, diameterMm: bar.diameterMm, role: bar.role, ownerElementIds: [beamA],
-    start: { x: 0, y: 1, z: 3 }, end: { x: 6, y: 1, z: 3 },
-    axis: { x: 1, y: 0, z: 0 }, hookNormal: { x: 0, y: 0, z: 1 },
-  });
-  detailingStore.setAssemblies([{ ...stored.assemblies[0], bars: [moved] }, kept]);
-  const next = detailingStore.buildDocument({ author: 'test', at })!;
-  expect(next.assemblies[1].source).toBe(kept);
-  expect(next.assemblies[0].bars).toEqual([moved]);
-  expect(buildSceneModel(next).bars[0].polyline).toEqual([
-    { x: 0, y: 1, z: 3 }, { x: 6, y: 1, z: 3 },
-  ]);
-  expect(buildSceneModel(first)).toEqual(firstScene);
-
-  modelStore.restore(modelStore.snapshot());
-  const restored = detailingStore.buildDocument({ author: 'test', at })!;
-  expect(Object.isFrozen(restored.assemblies[0].bars[0].segments[0].start)).toBe(true);
-  expect(buildSceneModel(restored)).toEqual(buildSceneModel(next));
 });

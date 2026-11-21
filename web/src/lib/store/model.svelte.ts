@@ -1126,18 +1126,6 @@ function copyDetailing(d: DetailingStore | undefined): DetailingStore {
 /** For the tests that compare a snapshot's cost before and after: forget the copies made. */
 export function forgetDetailingCopies(): void { detailingCopies = new WeakMap(); }
 
-const publishedDetailing = new WeakSet<object>();
-
-function ownDetailing<T>(value: T): T {
-  if (value === null || typeof value !== 'object' || publishedDetailing.has(value)) return value;
-  const copy = Array.isArray(value)
-    ? value.map(ownDetailing)
-    : Object.fromEntries(Object.entries(value).map(([key, child]) => [key, ownDetailing(child)]));
-  Object.freeze(copy);
-  publishedDetailing.add(copy);
-  return copy as T;
-}
-
 function createModelStore() {
   /**
    * Where the project's own history comes from when a snapshot is taken.
@@ -1160,7 +1148,6 @@ function createModelStore() {
   const canonicalLoadMy = (load: Partial<NodalLoad>): number => load.my ?? load.mz ?? 0;
   const canonicalPointMoment = (load: Partial<PointLoadOnElement>): number | undefined => load.my ?? load.mz;
 
-  let detailing = $state.raw<DetailingStore | undefined>(ownDetailing(emptyDetailingStore()));
   let model = $state<StructureModel>({
     name: t('tabBar.newStructure'),
     nodes: new Map(),
@@ -1188,8 +1175,7 @@ function createModelStore() {
     footingMatPreferences: defaultFootingMatPreferences(),
     localAxisConvention: 'zUpStrongAxis',
     codeSettings: defaultCodeSettings(),
-    get detailing() { return detailing; },
-    set detailing(value) { detailing = ownDetailing(value); },
+    detailing: emptyDetailingStore(),
   });
 
   let lastKinematicResult = $state<KinematicResult | null>(null);
