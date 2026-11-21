@@ -1,0 +1,19 @@
+{
+ "release": "v0.6.2",
+ "date": "2026-11-18",
+ "commit": "ea10aff517",
+ "values": {
+  "safety_open": "258",
+  "rust_share": "71.8 %",
+  "ts_high_safety": "84 modules, 35827 lines",
+  "certified_analyses": "11 of 27 (40.7 %)",
+  "certified_design": "8 of 16 (50.0 %)",
+  "acceptance_refs": "105",
+  "mutation_rust": "not yet measured",
+  "mutation_ts": "not yet measured",
+  "coverage_lines": "not yet measured",
+  "differential_compared": "not yet measured",
+  "fuzz_execs": "not yet measured",
+  "fm_bad": "0"
+ }
+}
