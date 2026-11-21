@@ -103,6 +103,23 @@ it('#2216 missing primary reinforcement cannot pass a seismic member check', () 
   expect(seismicMemberCheckRows(secondary)).toHaveLength(0);
 });
 
+const refusedCapacityShear = process.env.RUN_KNOWN_WRONG === '2216' ? it : it.skip;
+refusedCapacityShear('known wrong result: #2216 round 4 capacity shear keeps its report row when primary forces are missing', () => {
+  const primaryColumn = column(1, 1, 2);
+  const members = [{ ...beam, vg: undefined }, { ...primaryColumn, axial: undefined, vu: undefined }];
+  for (const member of members) {
+    const read = (input: FrameMember) => seismicMemberCheckRows(seismicFrameChecks({
+      nodes, members: [input], settings: defaultSeismicDesign(),
+    }).members[0]!);
+    expect.soft(read(member)).toContainEqual(expect.objectContaining({
+      titleKey: 'check.seismic.shear', clause: '18.1', status: 'notVerified', ratio: null,
+    }));
+    const complete = read(member.kind === 'beam' ? beam : primaryColumn);
+    expect(complete.find(row => row.titleKey === 'check.seismic.shear')?.inputs).toHaveLength(2);
+    expect(read({ ...member, role: 'secondary' })).toEqual([]);
+  }
+});
+
 it('#2217 layered bars and grouped bars require the same hoop spacing', () => {
   const largest = { count: 4, diameter: 25 };
   const smallest = { count: 4, diameter: 10 };
