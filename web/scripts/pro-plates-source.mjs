@@ -13,8 +13,12 @@ const sharedProductionSources = new Set([
 const relativePath = path => relative(root, path).split(sep).join('/');
 const sha = source => createHash('sha256').update(source).digest('hex');
 
+export function readProPlatesManifest() {
+  return JSON.parse(readFileSync(manifestPath, 'utf8'));
+}
+
 export function readProPlatesProfile(enabled) {
-  const files = enabled ? {} : JSON.parse(readFileSync(manifestPath, 'utf8')).files;
+  const files = enabled ? {} : readProPlatesManifest().files;
   const overrides = new Map();
   const unavailable = new Set();
   const restored = new Set();

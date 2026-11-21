@@ -1,8 +1,10 @@
+import base64
 import difflib
 import hashlib
 import json
 import subprocess
 import sys
+import zlib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -47,7 +49,18 @@ def main(base):
             if op != 'equal'
         ]
         entries[name] = {'source': sha(current), 'original': sha(before), 'changes': changes}
-    data = {'base': git('rev-parse', base).decode().strip(), 'files': entries}
+    registry = subprocess.check_output([
+        'node', '--input-type=module', '-e',
+        "import { readRegistryAt } from './web/scripts/result-changes/registry.mjs';"
+        "const registry = readRegistryAt(process.argv[1]);"
+        "if (!registry) throw new Error('Missing base results registry');"
+        "process.stdout.write(JSON.stringify(registry));", base,
+    ], cwd=ROOT)
+    data = {
+        'base': git('rev-parse', base).decode().strip(),
+        'resultsRegistry': base64.b64encode(zlib.compress(registry, level=9)).decode(),
+        'files': entries,
+    }
     OUT.write_text(json.dumps(data, ensure_ascii=False, indent=2) + '\n')
 
 

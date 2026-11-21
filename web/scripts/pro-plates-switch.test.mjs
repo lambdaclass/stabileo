@@ -55,7 +55,7 @@ test('production with unified plates off uses the shared portable project codec'
   }
 });
 
-test('production keeps the complete pinned results registry #2365', { skip: 'known wrong result: #2365' }, () => {
+test('production keeps the complete pinned results registry #2365', () => {
   assert.deepEqual(readProfileResultChanges(false), readRegistryAt(base));
 });
 

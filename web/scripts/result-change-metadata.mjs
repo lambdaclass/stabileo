@@ -1,12 +1,15 @@
 import { readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { deflateRawSync } from 'node:zlib';
+import { deflateRawSync, inflateSync } from 'node:zlib';
+import { readProPlatesManifest } from './pro-plates-source.mjs';
 import { resultChangeLocaleProblems } from './result-changes/locales.mjs';
 import { readRegistry } from './result-changes/registry.mjs';
 
 export function readProfileResultChanges(proPlatesUnified) {
-  return readRegistry(undefined, id => proPlatesUnified || !['plates-coarse-as-modelled-meshed', 'plates-conforming-batch-mesh', 'perforated-plate-grid'].includes(id));
+  if (proPlatesUnified) return readRegistry();
+  const { resultsRegistry } = readProPlatesManifest();
+  return JSON.parse(inflateSync(Buffer.from(resultsRegistry, 'base64')).toString('utf8'));
 }
 
 export function packResultChangeNotices(registry) {
@@ -27,9 +30,14 @@ export function resultChangeMetadataPlugin(proPlatesUnified = () => true) {
     load(resolved) {
       const id = resolved.slice(1).split('?')[0];
       if (resolved[0] !== '\0' || !ids.includes(id)) return null;
-      for (const name of readdirSync(dir)) if (name.endsWith('.json')) this.addWatchFile(join(dir, name));
+      const unified = proPlatesUnified();
+      if (unified) {
+        for (const name of readdirSync(dir)) if (name.endsWith('.json')) this.addWatchFile(join(dir, name));
+      } else {
+        this.addWatchFile(fileURLToPath(new URL('../config/pro-plates-off.json', import.meta.url)));
+      }
       /** @type {import('../src/lib/provenance/registry').ResultChangeRegistry} */
-      const registry = readProfileResultChanges(proPlatesUnified());
+      const registry = readProfileResultChanges(unified);
       if (id === 'virtual:result-change-packed') {
         const { packed } = packResultChangeNotices(registry);
         return `export default ${JSON.stringify(packed)};`;
