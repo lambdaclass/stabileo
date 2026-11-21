@@ -224,8 +224,8 @@ fn dense_largest_mu(k: &CscMatrix, b: &CscMatrix) -> Option<f64> {
         beta.push(bnext);
         q.push(w.iter().map(|x| x / bnext).collect());
     }
-    let mu = last.max(0.0);
-    mu.is_finite().then_some(mu)
+    if !last.is_finite() { return None; }
+    Some(if last > 0.0 { last } else { 0.0 })
 }
 
 /// Per member, the axial force that is round-off: 100 ε times the magnitudes N = EA·δ/L is
