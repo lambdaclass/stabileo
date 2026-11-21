@@ -5,7 +5,7 @@ import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import { REGISTRY_LOCALES, validateRegistry, githubSlug, changelogUrl, conditionGroups, type ResultChangeRegistry } from '../registry';
 import { FEATURE_IDS } from '../model-features';
-import { readRegistry } from '../../../../scripts/result-changes/registry.mjs';
+import { readProfileResultChanges } from '../../../../scripts/result-change-metadata.mjs';
 
 const repo = resolve(__dirname, '../../../../..');
 
@@ -18,13 +18,14 @@ describe('result-change registry', () => {
     expect(JSON.stringify(metadata)).not.toContain('title');
   });
 
-  const source = (): ResultChangeRegistry => readRegistry();
+  const source = (): ResultChangeRegistry => readProfileResultChanges(__PUBLIC_FEATURES__.proPlatesUnified);
 
-  it('decodes the complete source registry except the test-only quantities', () => {
+  it('decodes the complete registry for the active profile except the test-only quantities', () => {
     const registry = source();
     expect(registry.changes.some((c) => c.quantities)).toBe(true);
     expect(RESULT_CHANGES.changes.some((c) => 'quantities' in c)).toBe(false);
     expect(RESULT_CHANGES).toEqual({ ...registry, changes: registry.changes.map(({ quantities: _, ...c }) => c) });
+    expect(RESULT_CHANGES.changes.some((c) => c.id === 'perforated-plate-grid')).toBe(__PUBLIC_FEATURES__.proPlatesUnified);
   });
 
   it('is well formed: ids, versions, required languages, known features, quantities', () => {
