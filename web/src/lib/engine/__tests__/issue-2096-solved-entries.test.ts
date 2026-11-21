@@ -1,4 +1,5 @@
 import { completeResultDemands } from '../result-demand-gate';
+import { criticalDiagramStations3D } from '../diagrams-3d';
 import { extractGoverningDemands } from '../station-design-forces';
 import { expect, it, afterEach, vi } from 'vitest';
 import * as wasmSolver from '../wasm-solver';
@@ -24,7 +25,7 @@ const model = {
 } satisfies AutoVerifyModelData;
 afterEach(() => { setCompactStationTransfer(true); vi.restoreAllMocks(); });
 for (const spatial of [false, true]) for (const nonlinear of [false, true]) for (const compact of [false, true]) {
-  const solveModel = (source = model) => {
+  const solveModel = (source = model, transverse?: { qI: number; qJ: number }) => {
     const loadedNode = Math.max(...source.nodes.keys());
     const solver: SolverInput3D = { ...source,
       elements: new Map([...source.elements].map(([id, e]) => [id, { ...e, type: 'frame' as const, releaseMyStart: false, releaseMyEnd: false,
@@ -32,6 +33,9 @@ for (const spatial of [false, true]) for (const nonlinear of [false, true]) for 
       supports: new Map([[1, { nodeId: 1, rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true }]]),
       loads: [{ type: 'nodal', data: { nodeId: loadedNode, fx: 1, fy: spatial ? 1 : 0, fz: -10, mx: 0, my: 0, mz: 0 } }],
     };
+    if (transverse) solver.loads.push({ type: 'distributed', data: {
+      elementId: 1, qYI: 0, qYJ: 0, qZI: transverse.qI, qZJ: transverse.qJ,
+    } });
     setCompactStationTransfer(compact);
     if (spatial) return nonlinear ? solvePDelta3D(solver).results : solve3D(solver);
     const planar: SolverInput = { nodes: new Map([...source.nodes].map(([id, n]) => [id, { id, x: n.x, z: n.z }])),
@@ -39,6 +43,7 @@ for (const spatial of [false, true]) for (const nonlinear of [false, true]) for 
       elements: new Map([...source.elements].map(([id, e]) => [id, { ...e, type: 'frame', hingeStart: false, hingeEnd: false }])),
       supports: new Map([[1, { id: 1, nodeId: 1, type: 'fixed' }]]),
       loads: [{ type: 'nodal', data: { nodeId: loadedNode, fx: 1, fz: -10, my: 0 } }] };
+    if (transverse) planar.loads.push({ type: 'distributed', data: { elementId: 1, ...transverse } });
     const raw: AnalysisResults = nonlinear ? solvePDelta(planar).results : solve(planar);
     return { ...raw,
       displacements: raw.displacements.map(d => ({ ...d, uy: 0, rx: 0, rz: 0 })),
@@ -54,6 +59,23 @@ for (const spatial of [false, true]) for (const nonlinear of [false, true]) for 
   };
   const combinations = [{ id: 1, name: 'C1', factors: [] }, { id: 2, name: 'C2', factors: [] }];
   const label = `spatial=${spatial} nonlinear=${nonlinear} compact=${compact}`;
+  const flagshipGrid = process.env.RUN_KNOWN_WRONG === '2403' ? it : it.skip;
+  for (const uniform of [true, false]) {
+    const test = uniform ? flagshipGrid : it;
+    test(`#2403 preserves the design grid for ${uniform ? 'uniform' : 'varying'} full-length bending loads ${label}`, () => {
+      const beam = { ...model, nodes: new Map([
+        [1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: 4, y: 0, z: 0 }],
+      ]) };
+      const raw = solveModel(beam, { qI: 4, qJ: uniform ? 4 : 6 });
+      const { stations } = computeStationDemands(new Map([[1, raw]]), combinations.slice(0, 1), beam);
+      const result = stations.get(1)!;
+      const extra = criticalDiagramStations3D(raw.elementForces[0]!).map(cut => cut.t)
+        .filter(t => !result.stationTs.includes(t));
+      expect(extra).toHaveLength(1);
+      const rows = result.comboResults[0]!.stations.map(row => row.t);
+      expect(rows).toEqual(uniform ? result.stationTs : [...result.stationTs, ...extra].sort((a, b) => a - b));
+    });
+  }
   it(`known wrong result: #2096 round3 dispatch preserves per-combination stations ${label}`, () => {
     const raw = solveModel();
     const data = computeStationDemands(new Map([[1, raw], [2, raw]]), combinations, model);
