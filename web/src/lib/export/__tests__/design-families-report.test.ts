@@ -6,6 +6,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { MessageChannel } from 'node:worker_threads';
 import { DEFAULT_RUN_MS } from '../../engine/design/candidate-search';
+import type { FamilyCertificate, FamilyRevisionVector, FloorFamilyDesignRecord } from '../../engine/detailing/family-record';
 import { designRunStore } from '../../store/design-run.svelte';
 import { detailingStore } from '../../store/detailing.svelte';
 import { verificationStore } from '../../store/verification.svelte';
@@ -18,10 +19,36 @@ function designOutput() {
   expect(summary).toMatchObject({ aborted: false, notReached: 0 });
   const doc = detailingStore.buildDocument({ author: 'test', at: '2026-10-11T00:00:00Z' });
   expect(doc).toBeTruthy();
+  const demandRevision = verificationStore.demandRevision;
+  const relativeRevisions = (revisions: FamilyRevisionVector) => ({
+    ...revisions, entity: revisions.entity - demandRevision,
+  });
+  const normalizeCertificate = (certificate: FamilyCertificate) => ({
+    ...certificate, revisions: relativeRevisions(certificate.revisions),
+  });
+  const normalizeRecord = (record: FloorFamilyDesignRecord) => ({
+    ...record,
+    revisions: relativeRevisions(record.revisions),
+    certificate: normalizeCertificate(record.certificate),
+  });
   return {
     outcomes: [...summary!.outcomes.values()].map(({ elementId, outcome, accepted, provisional, limiting, reasons }) =>
       ({ elementId, outcome, accepted, provisional, limiting, reasons })),
-    assemblies: doc!.assemblies.map(({ id, state, bars }) => ({ id, state, bars })),
+    assemblies: doc!.assemblies.map((assembly) => ({
+      ...assembly,
+      families: assembly.families.map(normalizeRecord),
+      familyCertificates: assembly.familyCertificates.map((entry) => ({
+        ...entry, certificate: normalizeCertificate(entry.certificate),
+      })),
+      source: {
+        ...assembly.source,
+        demandRevision: assembly.source.demandRevision - demandRevision,
+        ...(assembly.source.families && { families: assembly.source.families.map(normalizeRecord) }),
+        ...(assembly.source.familyCertificates && {
+          familyCertificates: assembly.source.familyCertificates.map(normalizeCertificate),
+        }),
+      },
+    })),
   };
 }
 
@@ -96,7 +123,7 @@ describe('the run reports what happened, family by family', () => {
         const frameReport = await designFamiliesWithWorkerYields(frame);
         expect(received).toBe(true);
         const floorReport = await designFamiliesWithWorkerYields(floors);
-        expect(designOutput()).toEqual(expected);
+        expect(designOutput()).toStrictEqual(expected);
         expect(frameReport.ok).toBe(synchronous.ok);
         expect(floorReport.ok).toBe(synchronous.ok);
         for (const family of frame) expect(familyOf(frameReport, family)).toEqual(familyOf(synchronous, family));

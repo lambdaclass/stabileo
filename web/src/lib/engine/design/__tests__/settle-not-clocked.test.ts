@@ -13,9 +13,9 @@
  * the member loop's last member, inside the settle.
  */
 import { describe, it, expect } from 'vitest';
-import { runWithWorkerYields } from '../../../../__tests__/worker-yield';
+import { runBetweenWorkerTurns, runWithWorkerYields } from '../../../../__tests__/worker-yield';
 import frame from '../../../templates/fixtures/rc-design-frame.json';
-import { runDesignSteps } from '../candidate-search';
+import { runDesign, runDesignSteps } from '../candidate-search';
 import { cirsoc201Adapter } from '../adapters/cirsoc201-adapter';
 import { rebarHash } from '../rebar-hash';
 import { detailableReinforcement, type DesignRunSummary } from '../outcome';
@@ -33,7 +33,7 @@ describe('the settle after the member loop', () => {
     // The complete run, and where its member loop ended on the counter.
     const a = counter();
     let loopEnd = 0;
-    const complete = await runWithWorkerYields(runDesignSteps(cirsoc201Adapter, solved.contexts.values(), {
+    const complete = await runBetweenWorkerTurns(() => runDesign(cirsoc201Adapter, solved.contexts.values(), {
       clock: a.clock, maxRunMs: Number.POSITIVE_INFINITY, progressEvery: 1,
       onProgress: (p) => { if (p.done === p.total) loopEnd = a.now(); },
     }));
