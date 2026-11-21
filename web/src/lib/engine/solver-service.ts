@@ -1,6 +1,6 @@
-import { accountingCaseFactors, accountingProjection, accountingSource, scenarioSurfaceAdjustment } from './accounting-source';
+import { accountingCaseSources, accountingProjection, accountingSource, copyAccountingLoad, type AccountingCaseSources } from './accounting-source';
 import type { Wrench } from './accounting-math';
-import { accountCombination, accountLoads2D, accountLoads3D, loadCaseBatches } from './load-accounting';
+import { accountCombination, accountLoads2D, loadAccounting3D, loadCaseBatches } from './load-accounting';
 import { accountPlateGeometry, SolveAccountingError } from './plate-accounting';
 import { shouldEmbedFlat2DModelIn3D } from './model-embedding';
 export { shouldEmbedFlat2DModelIn3D } from './model-embedding';
@@ -115,7 +115,7 @@ function thermalDepths(model: ModelData, elementId: number, embedded: boolean | 
 export interface ModelData {
   [accountingSource]?: ModelData;
   [accountingProjection]?: { plane: 'xz' | 'yz'; source: ModelData };
-  [accountingCaseFactors]?: ReadonlyMap<number, ReadonlyMap<number, number>>;
+  [accountingCaseSources]?: AccountingCaseSources;
   nodes: Map<number, Node>;
   elements: Map<number, Element>;
   supports: Map<number, Support>;
@@ -139,19 +139,17 @@ function snapshotMap<T>(map: ReadonlyMap<number, T>): Map<number, T> {
 
 function snapshotNonlinearModel(model: ModelData): ModelData {
   const snapshot = Object.fromEntries(Object.entries(model).map(([key, value]) => [key,
-    value instanceof Map ? snapshotMap(value) : plainDeepCopy(value),
+    key === 'loads' ? model.loads.map(copyAccountingLoad) : value instanceof Map ? snapshotMap(value) : plainDeepCopy(value),
   ])) as unknown as ModelData;
-  const factors = model[accountingCaseFactors];
-  if (factors) snapshot[accountingCaseFactors] = new Map([...factors].map(([id, terms]) => [id, new Map(terms)]));
+  const cases = model[accountingCaseSources];
+  if (cases) snapshot[accountingCaseSources] = {
+    authored: new Map([...cases.authored].map(([id, loads]) => [id, loads.map(copyAccountingLoad)])),
+    generated: new Map([...cases.generated].map(([id, loads]) => [id, loads.map(copyAccountingLoad)])),
+    cases: snapshotMap(cases.cases),
+    targets: new Set(cases.targets),
+  };
   const source = model[accountingSource];
   if (source) snapshot[accountingSource] = snapshotNonlinearModel(source);
-  for (const [i, load] of model.loads.entries()) {
-    const copy = snapshot.loads[i];
-    if (load.type === 'surface3d' && copy?.type === 'surface3d') {
-      const adjustment = load.data[scenarioSurfaceAdjustment];
-      if (adjustment) copy.data[scenarioSurfaceAdjustment] = plainDeepCopy(adjustment);
-    }
-  }
   return snapshot;
 }
 
@@ -278,10 +276,15 @@ function buildSolverSupports2D(model: ModelData): Map<number, any> {
  *  identical per-case loads on the wire. */
 class PlaneSelfWeightError extends Error {}
 
-function buildSolverLoads2D(model: ModelData, input: SolverInput, loads: Load[], weights: readonly SelfWeightLoad[]): SolverInput['loads'] {
+function buildSolverLoads2D(
+  model: ModelData, input: SolverInput, loads: Load[], weights: readonly SelfWeightLoad[], caseIds?: readonly number[],
+): SolverInput['loads'] {
+  const projection = model[accountingProjection];
+  const originals = loadCaseBatches(projection?.source.loads.filter(load => load.type.endsWith('3d')) ?? []);
+  const batches = loadCaseBatches(loads, caseIds ?? [...originals.keys()]);
   const { loads: checked, cases } = accountAssembly<SolverInput['loads'][number]>(record => convertSolverLoads2D(model, loads, weights, record));
-  for (const [caseId, entered] of loadCaseBatches(loads)) {
-    accountLoads2D(model, input, entered, cases.get(caseId) ?? [], caseId);
+  for (const [caseId, entered] of batches) {
+    accountLoads2D(model, input, entered, cases.get(caseId) ?? [], caseId, originals.get(caseId) ?? []);
   }
   return checked;
 }
@@ -934,6 +937,7 @@ function prepareSolve2D(
   model: ModelData,
   weights: readonly SelfWeightLoad[],
   onKinematic?: (k: KinematicResult | null) => void,
+  caseIds?: readonly number[],
 ): Solve2DPreparation | string | null {
   if (model.nodes.size < 2 || model.elements.size < 1) {
     return t('svc.needNodesAndElements');
@@ -972,7 +976,7 @@ function prepareSolve2D(
 
   // Build solver loads array (shared with the multi-case combo path)
   let input: SolverInput;
-  try { input = { ...frame, loads: buildSolverLoads2D(model, frame, model.loads, weights) }; }
+  try { input = { ...frame, loads: buildSolverLoads2D(model, frame, model.loads, weights, caseIds) }; }
   catch (error) {
     const refusal = loadRefusal(error);
     if (refusal) return refusal;
@@ -1152,8 +1156,9 @@ function solveWithWeights2D(
   model: ModelData,
   weights: readonly SelfWeightLoad[],
   onKinematic?: (k: KinematicResult | null) => void,
+  caseIds?: readonly number[],
 ): AnalysisResults | string | null {
-  const prep = prepareSolve2D(model, weights, onKinematic);
+  const prep = prepareSolve2D(model, weights, onKinematic, caseIds);
   if (prep === null || typeof prep === 'string') return prep;
 
   try {
@@ -1305,7 +1310,7 @@ export function solveCombinations2D(
   // Through the same solve as the load cases (validateAndSolve2D): sliding joints expanded,
   // helper nodes pruned, the model checks run. A bare solve of the input treated a sliding
   // joint as rigid, so the settlement acted on a different structure than the loads.
-  const settlement = solveWithWeights2D({ ...model, loads: [] }, []);
+  const settlement = solveWithWeights2D({ ...model, loads: [] }, [], undefined, []);
   if (!settlement) return t('svc.emptyModel');
   if (typeof settlement === 'string') return t('svc.errorInCase').replace('{n}', t('svc.settlementCase')).replace('{err}', settlement);
   return addSettlementCase2D(solved, settlement, combinations) ?? t('svc.envelopeError');
@@ -1356,7 +1361,7 @@ function solveCombinations2DCore(
   for (const lc of loadCases) {
     const caseLoads = model.loads.filter(l => (l.data.caseId ?? 1) === lc.id);
     try {
-      const loads = buildSolverLoads2D(model, baseInput, caseLoads, selfWeightFor(model, lc, includeSelfWeight));
+      const loads = buildSolverLoads2D(model, baseInput, caseLoads, selfWeightFor(model, lc, includeSelfWeight), [lc.id]);
       mcLoadCases.push({ name: lc.name, loads });
     } catch (error) {
       const refusal = loadRefusal(error);
@@ -1442,7 +1447,7 @@ function solveCombinations2DFallback(
   for (const lc of loadCases) {
     // Filter loads for this case instead of mutating model.loads
     const caseModel: ModelData = { ...model, loads: model.loads.filter(l => (l.data.caseId ?? 1) === lc.id) };
-    const result = solveWithWeights2D(caseModel, selfWeightFor(model, lc, includeSelfWeight));
+    const result = solveWithWeights2D(caseModel, selfWeightFor(model, lc, includeSelfWeight), undefined, [lc.id]);
     if (typeof result === 'string') {
       return t('svc.errorInCase').replace('{n}', lc.name).replace('{err}', localizeEngineText(result));
     }
@@ -1846,25 +1851,16 @@ export function withoutSpringsOnRestrained<T extends Record<string, unknown>>(su
 function checkedSolverLoads3D(
   model: ModelData, input: SolverInput3D, loads: Load[], weights: boolean | SelfWeightLoad[], leftHand: boolean,
   plateCases: boolean | readonly number[],
-  plates = accountPlateGeometry(model[accountingSource] ?? model, input),
+  accounting = loadAccounting3D(model, input, shouldEmbedFlat2DModelIn3D(model), leftHand,
+    accountPlateGeometry(model[accountingSource] ?? model, input), plateCases !== false),
   checkedCase?: (caseId: number, loads: readonly SolverLoad3D[], totals: Wrench) => void,
 ): SolverLoad3D[] {
   const { loads: checked, cases: assembledByCase } = accountAssembly<SolverLoad3D>(record =>
     buildSolverLoads3D(model, loads, weights, leftHand, { record }));
-  const embedded = shouldEmbedFlat2DModelIn3D(model);
-  const cases = plateCases === true ? model[accountingCaseFactors] ? [...model[accountingCaseFactors].keys()]
-    : [...(model.groups?.values() ?? [])].flatMap(group => {
-    const caseId = group.data?.caseId;
-    return group.kind === 'floorLoad' && typeof caseId === 'number' ? [caseId] : [];
-  }) : plateCases || [];
-  const source = (plateCases === false ? undefined : model[accountingSource]) ?? model;
-  const authored = source === model ? null : loadCaseBatches(source.loads);
-  const selectedCases = plateCases === true && authored ? [...cases, ...authored.keys()] : cases;
-  for (const [caseId, entered] of loadCaseBatches(loads, selectedCases)) {
-    const plateMeasures = plateCases === true || cases.includes(caseId) ? plates : new Map();
+  const selected = plateCases === true ? [...accounting.cases] : plateCases || [];
+  for (const [caseId, entered] of loadCaseBatches(loads, selected)) {
     const assembled = assembledByCase.get(caseId) ?? [];
-    const totals = accountLoads3D(source, input, authored ? (authored.get(caseId) ?? []) : entered,
-      assembled, caseId, embedded, leftHand, plateMeasures);
+    const totals = accounting.verify(caseId, entered, assembled);
     checkedCase?.(caseId, assembled, totals);
   }
   return checked;
@@ -3159,13 +3155,14 @@ export function caseSolverLoads3D(
   const caseLoads = new Map<number, SolverLoad3D[]>();
   input ??= buildSolverInput3D({ ...model, loads: [] }, [], leftHand, { plateCases: false }) ?? undefined;
   if (!input) return caseLoads;
-  const plates = accountPlateGeometry(model[accountingSource] ?? model, input);
+  const accounting = loadAccounting3D(model, input, shouldEmbedFlat2DModelIn3D(model), leftHand,
+    accountPlateGeometry(model[accountingSource] ?? model, input), true);
   const enteredByCase = loadCaseBatches(model.loads);
   const entered = new Map<number, Wrench>();
   const authored = new WeakSet<SolverLoad3D>();
   for (const lc of loadCases) {
     const loads = enteredByCase.get(lc.id) ?? [];
-    caseLoads.set(lc.id, checkedSolverLoads3D(model, input, loads, selfWeightFor(model, lc, includeSelfWeight), leftHand, [lc.id], plates,
+    caseLoads.set(lc.id, checkedSolverLoads3D(model, input, loads, selfWeightFor(model, lc, includeSelfWeight), leftHand, [lc.id], accounting,
       (id, assembled, totals) => {
         entered.set(id, totals);
         for (const load of assembled) authored.add(load);

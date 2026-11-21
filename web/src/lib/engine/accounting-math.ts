@@ -52,6 +52,13 @@ export class Wrench {
     this.momentScale.add(momentScale);
   }
 
+  addScaled(other: Wrench, factor: number): void {
+    const { force, moment } = other.resultants;
+    const magnitude = Math.abs(factor);
+    this.addTotals(mul(force, factor), mul(moment, factor),
+      other.forceScale.value * magnitude, other.momentScale.value * magnitude);
+  }
+
   get resultants(): { force: Vector; moment: Vector } {
     const c = this.components.map(component => component.value);
     return { force: [c[0]!, c[1]!, c[2]!], moment: [c[3]!, c[4]!, c[5]!] };

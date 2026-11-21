@@ -1,4 +1,4 @@
-import { accountingCaseFactors, accountingProjection, scenarioSurfaceAdjustment } from './accounting-source';
+import { accountingCaseSources, accountingProjection, accountingSource, scenarioSurfaceAdjustment } from './accounting-source';
 import { tp } from '../i18n';
 import type { Load, PointLoadOnElement } from '../store/model.svelte';
 import type { FloorLoadDef } from '../model/loads/floor-definitions';
@@ -6,7 +6,7 @@ import type { ModelData } from './solver-service';
 import type { SolverInput, SolverLoad } from './types';
 import type { SolverInput3D, SolverLoad3D } from './types-3d';
 import { computeLocalAxes3D, memberRoll, type LocalAxes3D } from './local-axes-3d';
-import { memberReferenceLine } from './member-offsets';
+import { memberFrame3D } from './member-loads';
 import { transverseSign } from './transverse-sign-2d';
 import { add, agrees, cross, norm, mul, sub, unit, xyz, zero, Wrench, type Vector } from './accounting-math';
 import { accountSurface } from './surface-accounting';
@@ -122,8 +122,9 @@ function enteredLoads(model: ModelData, loads: readonly Load[], frame: Frame, le
     const originalI = model.nodes.get(member.nodeI), originalJ = model.nodes.get(member.nodeJ);
     if (!originalI || !originalJ) unsupported(model, caseId, load.type, d.id);
     const drawnChord = sub(xyz(originalJ), xyz(originalI));
-    const offset = frame === 'space' && member.offset ? memberReferenceLine(member, originalI, originalJ, model.sections) : null;
-    const start = offset ? xyz(offset.i) : at(member.nodeI), end = offset ? xyz(offset.j) : at(member.nodeJ);
+    const spatial = frame === 'space' ? memberFrame3D(model, member) : null;
+    if (frame === 'space' && !spatial) unsupported(model, caseId, load.type, d.id);
+    const start = spatial?.ni ?? at(member.nodeI), end = spatial?.nj ?? at(member.nodeJ);
     const axis = unit(sub(end, start)), length = norm(sub(end, start));
     if (!(length > 0)) unsupported(model, caseId, load.type, d.id);
 
@@ -148,7 +149,7 @@ function enteredLoads(model: ModelData, loads: readonly Load[], frame: Frame, le
       continue;
     }
 
-    const axes = basis(start, end, member.id, frame === 'xz' ? {} : member, memberRoll(member, model.sections));
+    const axes = spatial?.ax ?? basis(start, end, member.id, {}, memberRoll(member, model.sections));
     const local = (x: number, y: number, z: number) => localVector(axes, x, leftHand ? -y : y, z);
     if (load.type === 'pointOnElement3d') {
       const d = load.data;
@@ -276,12 +277,12 @@ function toWorld(wrench: Wrench, plane: 'xz' | 'yz', origin: Vector): Wrench {
   return world;
 }
 
-export function accountLoads2D(model: ModelData, input: SolverInput, loads: readonly Load[], assembled: readonly SolverLoad[], caseId: number): void {
+export function accountLoads2D(
+  model: ModelData, input: SolverInput, loads: readonly Load[], assembled: readonly SolverLoad[],
+  caseId: number, originals: readonly Load[],
+): void {
   const wire = assembled2D(model, input, assembled, caseId);
   const projection = model[accountingProjection];
-  const selected = projection ? new Set(loads.map(l => l.data.id)) : null;
-  const originals = projection?.source.loads.filter(l =>
-    (l.data.caseId ?? 1) === caseId && selected!.has(l.data.id) && l.type.endsWith('3d')) ?? [];
   if (!projection || !originals.length) {
     compare(caseLabel(model, caseId), enteredLoads(model, loads, 'xy', false, caseId, new Set()), wire);
     return;
@@ -297,29 +298,63 @@ export function accountLoads2D(model: ModelData, input: SolverInput, loads: read
   compare(caseLabel(model, caseId), expected, toWorld(wire, projection.plane, origin));
 }
 
-export function accountLoads3D(
-  model: ModelData, input: SolverInput3D, loads: readonly Load[], assembled: readonly SolverLoad3D[],
-  caseId: number, embedded: boolean, leftHand: boolean, plates: ReadonlyMap<number, PlateMeasure>,
-): Wrench {
-  const definitions = new Set<number>();
-  const pressures: Array<{ plate: PlateMeasure; q: number }> = [];
-  for (const [id, group] of model.groups ?? []) {
+export function loadAccounting3D(
+  model: ModelData, input: SolverInput3D, embedded: boolean, leftHand: boolean,
+  plates: ReadonlyMap<number, PlateMeasure>, checkAuthored: boolean,
+) {
+  const source = (checkAuthored ? model[accountingSource] : undefined) ?? model;
+  const effects = checkAuthored ? model[accountingCaseSources] : undefined;
+  const authored = effects?.authored ?? loadCaseBatches(source.loads);
+  const pressures = new Map<number, Array<{ id: number; plate: PlateMeasure; q: number }>>();
+  for (const [id, group] of source.groups ?? []) {
     if (group.kind !== 'floorLoad') continue;
     const d = group.data as unknown as FloorLoadDef | undefined;
     if (!d || d.distribution !== 'slab' || d.target.by !== 'group') continue;
     const plate = plates.get(d.target.groupId);
     if (!plate) continue;
-    const allTerms = model[accountingCaseFactors];
-    const factor = allTerms ? (allTerms.get(caseId)?.get(d.caseId) ?? 0) : d.caseId === caseId ? 1 : 0;
-    if (factor === 0 && !allTerms?.get(caseId)?.has(d.caseId)) continue;
-    definitions.add(id);
-    pressures.push({ plate, q: factor * d.q * (d.perPlanArea ? Math.abs(plate.normal[2]) : 1) });
+    const batch = pressures.get(d.caseId) ?? [];
+    batch.push({ id, plate, q: d.q * (d.perPlanArea ? Math.abs(plate.normal[2]) : 1) });
+    pressures.set(d.caseId, batch);
   }
-  const entered = enteredLoads(model, loads, embedded ? 'xz' : 'space', leftHand, caseId, definitions);
-  for (const { plate, q } of pressures) entered.apply(plate.centroid, [0, 0, -q * plate.area]);
-  const label = [caseLabel(model, caseId), ...pressures.map(({ plate }) => plate.name)].join(' · ');
-  compare(label, entered, assembled3D(model, input, assembled, caseId));
-  return entered;
+
+  const frame = embedded ? 'xz' : 'space';
+  const cache = new Map<number, { totals: Wrench; names: Set<string> }>();
+  const expected = (caseId: number): { totals: Wrench; names: Set<string> } => {
+    const cached = cache.get(caseId);
+    if (cached) return cached;
+    const batch = pressures.get(caseId) ?? [];
+    const definitions = new Set(batch.map(({ id }) => id));
+    const totals = enteredLoads(source, authored.get(caseId) ?? [], frame, leftHand, caseId, definitions);
+    const names = new Set(batch.map(({ plate }) => plate.name));
+    for (const { plate, q } of batch) totals.apply(plate.centroid, [0, 0, -q * plate.area]);
+    const rule = effects?.cases.get(caseId);
+    const result = new Wrench();
+    result.addScaled(totals, rule?.ratio ?? 1);
+    const generated = effects?.generated.get(caseId);
+    if (generated) result.addScaled(enteredLoads(source, generated, frame, leftHand, caseId, definitions), 1);
+    for (const { caseId: from, factor } of rule?.includes ?? []) {
+      const part = expected(from);
+      result.addScaled(part.totals, factor);
+      for (const name of part.names) names.add(name);
+    }
+    const entry = { totals: result, names };
+    cache.set(caseId, entry);
+    return entry;
+  };
+
+  return {
+    cases: effects?.targets ?? new Set([...authored.keys(), ...pressures.keys()]),
+    verify(caseId: number, loads: readonly Load[], assembled: readonly SolverLoad3D[]): Wrench {
+      const { totals, names } = !checkAuthored
+        ? { totals: enteredLoads(model, loads, frame, leftHand, caseId, new Set()), names: [] }
+        : effects && !effects.targets.has(caseId)
+          ? { totals: new Wrench(), names: [] }
+          : expected(caseId);
+      const label = [caseLabel(model, caseId), ...names].join(' · ');
+      compare(label, totals, assembled3D(model, input, assembled, caseId));
+      return totals;
+    },
+  };
 }
 
 export function accountCombination(
@@ -327,10 +362,6 @@ export function accountCombination(
   terms: ReadonlyArray<{ factor: number; totals: Wrench }>,
 ): void {
   const entered = new Wrench();
-  for (const { factor, totals } of terms) {
-    const { force, moment } = totals.resultants;
-    entered.addTotals(mul(force, factor), mul(moment, factor),
-      totals.forceScale.value * Math.abs(factor), totals.momentScale.value * Math.abs(factor));
-  }
+  for (const { factor, totals } of terms) entered.addScaled(totals, factor);
   compare(`#${id} (${name})`, entered, assembled3D(model, input, loads, id));
 }

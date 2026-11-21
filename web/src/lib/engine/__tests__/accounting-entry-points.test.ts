@@ -128,6 +128,8 @@ it('keeps WASM structural entry points and raw load conversion in the audited ca
   ]);
   const service = readFileSync(`${root}/lib/engine/solver-service.ts`, 'utf8');
   expect(service).toMatch(/function buildSolverLoads2D[\s\S]*?accountLoads2D\(/);
-  expect(service).toMatch(/function checkedSolverLoads3D[\s\S]*?accountLoads3D\(/);
+  const checked3D = service.match(/function checkedSolverLoads3D\([\s\S]*?\n\}/)?.[0];
+  expect(checked3D).toMatch(/\bloadAccounting3D\(/);
+  expect(checked3D).toMatch(/\baccounting\.verify\(/);
   expect(service).toMatch(/function caseSolverLoads3D[\s\S]*?checkedSolverLoads3D\(/);
 });

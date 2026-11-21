@@ -53,7 +53,7 @@ export const FEATURE_IDS = [
   'generatedWidthGravity', 'generatedPanelGravityShells', 'memberFloorZones', 'magnitudeCombinations',
   'partialDistributedMemberLoads', 'distributedMemberLoads', 'spatialDistributedLoadOrientation', 'unplaceablePlanarPointLoads', 'planarStartCoupleWithoutProjection', 'legacyPlanarPointCoupleAliases', 'selfWeight', 'nonstandardPlanarSelfWeight', 'standaloneGravityToggleOff', 'nodalForces', 'forceSummaryResults',
   'ssiHistory', 'movingLoads', 'combinations', 'cirsocCombinations', 'seismic', 'snow', 'wind', 'timeHistorySpec',
-  'superposedCombinations', 'repeatedCombinationCases',
+  'superposedCombinations', 'repeatedCombinationCases', 'staticCaseEffects', 'projectedSpatialLoads', 'offsetMemberLoadFrame',
   ...ANALYSIS_KINDS.map((k) => `analysis:${k}` as const),
 ] as const;
 export type FeatureId = (typeof FEATURE_IDS)[number];
@@ -96,7 +96,10 @@ interface FeatureSnapshotFields {
   fiberSections?: Record<string, { materials?: Array<{ type?: string }> }>;
   supports?: Entries<Sup>;
   loads?: Array<{ type: string; data?: Record<string, unknown> }>;
-  loadCases?: Array<{ id: number; type?: string; spectral?: unknown; alternatives?: string; axisNamed?: boolean }>;
+  loadCases?: Array<{
+    id: number; type?: string; spectral?: unknown; alternatives?: string; axisNamed?: boolean;
+    includes?: ReadonlyArray<{ factor: number }>; reduction?: { ratio: number };
+  }>;
   combinations?: unknown[];
   combinationRules?: unknown[];
   solidShells?: Entries<unknown>;
@@ -336,6 +339,9 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
       (weightRules.length > 1 || weightRules.some(rule => !isStandardGravityRule(rule)))) {
     f.add('nonstandardPlanarSelfWeight');
   }
+  if (f.has('space3D') && cases.some(c => c.includes?.some(term => nonZero(term.factor)) || (c.reduction && c.reduction.ratio !== 1))) {
+    f.add('staticCaseEffects');
+  }
   const caseType = new Map(cases.map((c) => [c.id, c.type]));
   const loadBasis = s.designData?.loadBasis;
   const loadNoteKeys = new Set(Array.isArray(loadBasis?.derivation) ? loadBasis.derivation.map(n => n?.key) : []);
@@ -346,6 +352,13 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   for (const l of Array.isArray(s.loads) ? s.loads : []) {
     const t = l.type ?? '';
     const d = l.data ?? {};
+    if (f.has('plane2D') && elements.length > 0 && ['nodal3d', 'distributed3d', 'pointOnElement3d', 'surface3d'].includes(t)) {
+      f.add('projectedSpatialLoads');
+    }
+    if (f.has('space3D') && (t === 'distributed3d' || t === 'pointOnElement3d') && (d.frame === undefined || d.frame === 'local')) {
+      const offset = elementById.get(d.elementId as number)?.offset;
+      if (offsetMoves(offset?.i) || offsetMoves(offset?.j)) f.add('offsetMemberLoadFrame');
+    }
     if (/^nodal/.test(t) && ['fx', 'fy', 'fz'].some((key) => typeof d[key] === 'number' && d[key] !== 0)) f.add('nodalForces');
     if (/^nodal/.test(t) && ['mx', 'my', 'mz'].some((key) => typeof d[key] === 'number' && d[key] !== 0)) f.add('nodalMoments');
     if (/^(distributed|axialDistributed|pointOnElement|thermal)/.test(t)) {

@@ -16,7 +16,6 @@ import {
 } from '../physical-plates';
 
 const fault = vi.hoisted(() => ({ dropMemberLoad: false, scaleCaseLoad: 1 }));
-const issue2470 = process.env.RUN_KNOWN_WRONG === '2470' ? it : it.skip;
 
 vi.mock('../../model/loads/load-magnitudes', async importOriginal => {
   const original = await importOriginal<typeof import('../../model/loads/load-magnitudes')>();
@@ -280,7 +279,7 @@ async function outcome(solve: () => unknown) {
 }
 
 for (const plane of ['xz', 'yz'] as const) {
-  issue2470.each([false, true])('#2470 detects a row lost in planar projection to ' + plane + ' (partial batch: %s)', async partial => {
+  it.each([false, true])('#2470 detects a row lost in planar projection to ' + plane + ' (partial batch: %s)', async partial => {
     cantilever('2d');
     const model = modelStore.model;
     const tip = [...model.nodes.keys()].at(-1)!;
@@ -317,7 +316,7 @@ for (const plane of ['xz', 'yz'] as const) {
   });
 }
 
-issue2470.each([
+it.each([
   { kind: 'nodal', multiplier: 0, applied: 0 },
   { kind: 'member', multiplier: 2, applied: -12 },
 ])('#2470 refuses a $kind load changed by case expansion', async ({ kind, multiplier, applied }) => {
@@ -337,7 +336,6 @@ issue2470.each([
   const paths = {
     linear: () => modelStore.solve3D(false, false, true),
     async: () => modelStore.solve3DAsync(false, false, true),
-    input: () => modelStore.singleSolveInput3D(false, false, true),
     combinations: () => modelStore.solveCombinations3D(false, false, true),
     parallel: () => modelStore.solveCombinations3DParallel(false, false, true),
     direct: () => runDirectAnalysis(model, model.loadCases, model.combinations, { includeSelfWeight: false }),
@@ -346,6 +344,7 @@ issue2470.each([
   for (const [path, solve] of Object.entries(paths)) {
     expect.soft(await outcome(solve), path).toEqual(diagnostic);
   }
+  expect.soft(modelStore.singleSolveInput3D(false, false, true), 'input').toBeNull();
   modelStore.setAnalysis({ perCombination: 'pdelta' });
   expect.soft(await outcome(() => modelStore.solveCombinations3D(false, false, true)), 'pdelta').toEqual(diagnostic);
   expect.soft(await outcome(() => modelStore.solveCombinations3DParallel(false, false, true)), 'pdelta parallel').toEqual(diagnostic);
