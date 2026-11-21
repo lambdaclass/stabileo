@@ -14273,6 +14273,8 @@ const de: Translations = {
   'plates.refused.invalid': 'ungültiger Umriss',
   'plates.refused.tooManyCells': 'zu viele Elemente bei dieser Größe',
   'plates.refused.cannotMesh': 'der Netzgenerator kann diesen Umriss nicht vernetzen',
+  "plates.remeshAmbiguousSweep": "Der Kreisbogen am Rand von {name} ist nicht eindeutig. Prüfen Sie vor der Neuvernetzung den Zwischenpunkt und gekrümmte Stäbe zwischen den Endpunkten.",
+  "plates.remeshShellEdits": "Das Netz von {name} kann nicht ersetzt werden, weil Änderungen am Schalenversatz oder an der Schalenkrümmung nicht exakt übertragen werden können.",
   'plates.refused.occupied': 'dort liegen bereits Schalenelemente',
   'plates.localLoadsWarn': '{n} von Hand auf Elemente des aktuellen Netzes gesetzte Lasten werden nicht übernommen; setzen Sie sie auf die Platte.',
   'plates.keptNodesNote': '{n} Knoten des aktuellen Netzes bleiben, weil etwas anderes sie verwendet, und das neue Netz verläuft durch sie.',

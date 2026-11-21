@@ -14793,6 +14793,8 @@ const es: Record<string, string> = {
   "plates.refused.invalid": "contorno inválido",
   "plates.refused.tooManyCells": "demasiados elementos para este tamaño",
   "plates.refused.cannotMesh": "el mallador no puede con este contorno",
+  "plates.remeshAmbiguousSweep": "El borde curvo de {name} tiene un arco ambiguo. Revisá el punto intermedio y las barras curvas entre sus extremos antes de remallar.",
+  "plates.remeshShellEdits": "No se puede reemplazar la malla de {name} porque no es posible conservar con exactitud los cambios de desplazamiento de la superficie media o de curvatura de sus elementos.",
   "plates.refused.occupied": "ya hay elementos de placa en esa zona",
   "plates.localLoadsWarn": "{n} cargas puestas a mano sobre elementos de la malla actual no pasan a la nueva; cargalas sobre la placa.",
   "plates.keptNodesNote": "{n} nodos de la malla actual quedan porque otra cosa los usa, y la malla nueva pasa por ellos.",

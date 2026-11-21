@@ -14273,6 +14273,8 @@ const tr: Translations = {
   'plates.refused.invalid': 'geçersiz kontur',
   'plates.refused.tooManyCells': 'bu boyutta çok fazla eleman',
   'plates.refused.cannotMesh': 'ağ oluşturucu bu konturun ağını oluşturamıyor',
+  "plates.remeshAmbiguousSweep": "{name} plakasının eğri kenarındaki yay belirsiz. Ağı yenilemeden önce ara noktayı ve uç noktalar arasındaki eğri çubukları kontrol edin.",
+  "plates.remeshShellEdits": "{name} plakasının ağı değiştirilemiyor, çünkü kabuk ofseti veya eğrilik düzenlemeleri yeni ağa bire bir aktarılamıyor.",
   'plates.refused.occupied': 'orada zaten kabuk elemanlar var',
   'plates.localLoadsWarn': 'Mevcut ağın elemanlarına elle konan {n} yük yeni ağa aktarılmaz; bunları plağa koyun.',
   'plates.keptNodesNote': 'Mevcut ağın {n} düğümü, başka bir şey kullandığı için yerinde kalır ve yeni ağ bunlardan geçer.',

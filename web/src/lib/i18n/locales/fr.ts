@@ -14273,6 +14273,8 @@ const fr: Translations = {
   'plates.refused.invalid': 'contour invalide',
   'plates.refused.tooManyCells': 'trop d\'éléments pour cette taille',
   'plates.refused.cannotMesh': 'le mailleur ne peut pas mailler ce contour',
+  "plates.remeshAmbiguousSweep": "L’arc du bord courbe de {name} est ambigu. Vérifiez le point intermédiaire et les barres courbes entre ses extrémités avant de remailler.",
+  "plates.remeshShellEdits": "Le maillage de {name} ne peut pas être remplacé, car les modifications de l’excentrement ou de la courbure des coques ne peuvent pas être transférées à l’identique.",
   'plates.refused.occupied': 'des éléments de coque s\'y trouvent déjà',
   'plates.localLoadsWarn': '{n} charges posées à la main sur des éléments du maillage actuel ne sont pas reportées ; posez-les sur la plaque.',
   'plates.keptNodesNote': '{n} nœuds du maillage actuel sont conservés car autre chose les utilise, et le nouveau maillage passe par eux.',

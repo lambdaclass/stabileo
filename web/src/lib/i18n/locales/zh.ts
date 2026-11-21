@@ -14360,6 +14360,8 @@ const zh: Translations = {
   "plates.refused.invalid": "轮廓无效",
   "plates.refused.tooManyCells": "在此尺寸下单元过多",
   "plates.refused.cannotMesh": "网格生成器无法对该轮廓划分网格",
+  "plates.remeshAmbiguousSweep": "{name} 的曲线边界无法确定应采用哪段圆弧。重新划分网格前，请检查中间点及两端之间的曲线构件。",
+  "plates.remeshShellEdits": "无法替换 {name} 的网格，因为壳单元的偏置或曲率修改无法精确转移。",
   "plates.refused.occupied": "该处已有壳单元",
   "plates.localLoadsWarn": "在当前网格的单元上手工施加的 {n} 项荷载不会沿用；请将其施加在板上。",
   "plates.keptNodesNote": "当前网格的 {n} 个节点因被其他对象使用而保留，新网格将穿过它们。",

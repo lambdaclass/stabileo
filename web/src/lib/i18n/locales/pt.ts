@@ -14446,6 +14446,8 @@ const pt: Translations = {
   "plates.refused.invalid": "contorno inválido",
   "plates.refused.tooManyCells": "elementos demais para este tamanho",
   "plates.refused.cannotMesh": "o malhador não consegue com este contorno",
+  "plates.remeshAmbiguousSweep": "A borda curva de {name} tem um arco ambíguo. Verifique o ponto intermediário e as barras curvas entre as extremidades antes de remalhar.",
+  "plates.remeshShellEdits": "A malha de {name} não pode ser substituída porque as alterações de excentricidade ou curvatura das cascas não podem ser transferidas com exatidão.",
   "plates.refused.occupied": "já há elementos de placa nessa região",
   "plates.localLoadsWarn": "{n} cargas colocadas à mão em elementos da malha atual não passam para a nova; aplique-as na placa.",
   "plates.keptNodesNote": "{n} nós da malha atual permanecem porque outra coisa os usa, e a nova malha passa por eles.",

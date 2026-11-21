@@ -1,9 +1,9 @@
 import type { Constraint3D, LinearMpcConstraint } from '../../engine/types-3d';
-import { dot, type Vec3 } from '../edit/affine';
+import { cross, dot, type Vec3 } from '../edit/affine';
 import { pieceOf, type PieceModel } from '../curve-entity';
 import {
   arcInterior, circleThrough, externalFeatures, frameOfLoop, plateGeometry, plateKindOf, plateLoops,
-  plateProblem, plateSignature, plateSurfaceOf, type ArcSampler, type PlateMeshSpec,
+  PLANE_TOL, plateProblem, plateSignature, plateSurfaceOf, type ArcSampler, type PlateMeshSpec,
 } from './plate';
 
 type Shell = { id: number; nodes: readonly number[]; curved?: boolean };
@@ -36,7 +36,7 @@ function invalidPlateDefinition(model: PlateAnalysisModel, group: PlateGroup): b
   return plateProblem(model, outer, holes, surface.arcMids) !== null;
 }
 
-export function arcEdgeBetween(model: PieceModel, a: number, b: number): { arcId: number; nodes: number[] } | null {
+function* arcEdgesBetween(model: PieceModel, a: number, b: number): Generator<{ arcId: number; nodes: number[] }> {
   const seen = new Set<number>();
   for (const e of model.elements.values()) {
     if (!e.arc || seen.has(e.arc.id)) continue;
@@ -49,32 +49,56 @@ export function arcEdgeBetween(model: PieceModel, a: number, b: number): { arcId
       const element = model.elements.get(segment.elementId)!;
       nodes.push(segment.reversed ? element.nodeI : element.nodeJ);
     }
-    return { arcId: e.arc.id, nodes: p.start === a ? nodes : nodes.reverse() };
+    yield { arcId: e.arc.id, nodes: p.start === a ? nodes : nodes.reverse() };
   }
-  return null;
+}
+
+export function arcEdgeBetween(model: PieceModel, a: number, b: number) {
+  return arcEdgesBetween(model, a, b).next().value ?? null;
 }
 
 function meshSampler(model: PieceModel, size: number): ArcSampler {
   return (a, mid, b) => {
     const ci = circleThrough(a.p, mid.p, b.p);
-    if (!ci) return [];
-    const edge = arcEdgeBetween(model, a.id, b.id);
-    if (edge) {
+    if (!ci || !Number.isFinite(ci.r) || !(ci.sweep > 0 && ci.sweep < 2 * Math.PI)) return null;
+    const chord = sub(b.p, a.p);
+    const length = norm(chord);
+    const side = (p: Vec3) => dot(cross(chord, sub(p, a.p)), ci.n) / length;
+    const midSide = side(mid.p);
+    if (!(Math.abs(midSide) > PLANE_TOL)) return null;
+    const start = sub(a.p, ci.c);
+    for (const edge of arcEdgesBetween(model, a.id, b.id)) {
       const pts = edge.nodes.slice(1, -1).map((id): Vec3 => {
         const node = model.nodes.get(id)!;
         return [node.x, node.y, node.z ?? 0];
       });
-      const onCircle = pts.every((q) => Math.abs(Math.hypot(q[0] - ci.c[0], q[1] - ci.c[1], q[2] - ci.c[2]) - ci.r) < 1e-3);
-      if (pts.length && onCircle) return pts;
+      if (!pts.length || !pts.every(p => {
+        const r = sub(p, ci.c);
+        return Math.abs(dot(r, ci.n)) <= PLANE_TOL && Math.abs(norm(r) - ci.r) < PLANE_TOL;
+      })) continue;
+
+      const sides = pts.map(p => Math.sign(midSide) * side(p));
+      if (sides.every(distance => distance < -PLANE_TOL)) continue;
+      if (!sides.every(distance => distance > PLANE_TOL)) return null;
+
+      let previous = 0;
+      for (const p of pts) {
+        const radial = sub(p, ci.c);
+        const angle = Math.atan2(dot(cross(start, radial), ci.n), dot(start, radial));
+        const station = angle < 0 ? angle + 2 * Math.PI : angle;
+        if (!(station > previous && station < ci.sweep)) return null;
+        previous = station;
+      }
+      return pts;
     }
     return arcInterior(a.p, mid.p, b.p, Math.max(2, Math.ceil((ci.r * ci.sweep) / size)));
   };
 }
 
 export function plateMeshFeatures(model: PlateAnalysisModel, group: PlateGroup, spec: PlateMeshSpec) {
-  if (invalidPlateDefinition(model, group)) return null;
+  if (invalidPlateDefinition(model, group)) return { refused: 'invalid' as const };
   const geo = plateGeometry(model, group, meshSampler(model, spec.size));
-  if (!geo) return null;
+  if (!geo) return { refused: 'ambiguousSweep' as const };
   const loops = plateLoops(group);
   const mine = new Set(loops.owned);
   const owned = new Set<number>();
@@ -94,7 +118,7 @@ export function plateMeshFeatures(model: PlateAnalysisModel, group: PlateGroup, 
 
 export type PlateStatus = 'unmeshed' | 'current' | 'stale' | 'invalid';
 
-export function plateStatusOf(model: PlateAnalysisModel, group: PlateGroup): PlateStatus {
+function plateMeshStatus(model: PlateAnalysisModel, group: PlateGroup): PlateStatus | 'ambiguousSweep' {
   const surface = plateSurfaceOf(group);
   if (!surface) return 'invalid';
   const { quads = [], plates = [] } = group.members ?? {};
@@ -103,22 +127,29 @@ export function plateStatusOf(model: PlateAnalysisModel, group: PlateGroup): Pla
   const count = quads.length + plates.length;
   if (surface.meshed && surface.meshed.cells !== count) return 'invalid';
   const mesh = plateMeshFeatures(model, group, surface.mesh);
-  if (!mesh) return 'invalid';
+  if (mesh.refused) return mesh.refused;
   if (!count || !surface.meshed) return 'unmeshed';
   return plateSignature(mesh.geo, surface.mesh, mesh.features) === surface.meshed.signature ? 'current' : 'stale';
 }
 
+export function plateStatusOf(model: PlateAnalysisModel, group: PlateGroup): PlateStatus {
+  const status = plateMeshStatus(model, group);
+  return status === 'ambiguousSweep' ? 'invalid' : status;
+}
+
 export function physicalPlateProblems(model: PlateAnalysisModel) {
   const invalid: string[] = [];
+  const ambiguousSweep: string[] = [];
   const needsMesh: Array<{ id: number; name: string; status: 'stale' | 'unmeshed' }> = [];
   for (const group of model.groups?.values() ?? []) {
     if (group.data?.surface === undefined) continue;
     const name = group.name ?? `#${group.id}`;
-    const status = plateStatusOf(model, group);
+    const status = plateMeshStatus(model, group);
+    if (status === 'ambiguousSweep') ambiguousSweep.push(name);
     if (status === 'invalid') invalid.push(name);
     if (status === 'stale' || status === 'unmeshed') needsMesh.push({ id: group.id, name, status });
   }
-  return { invalid, needsMesh };
+  return { invalid, ambiguousSweep, needsMesh };
 }
 
 export const PLATE_EDGE_TOL = 1e-7;
@@ -282,7 +313,8 @@ export function nonconformingWallSlab(model: PlateAnalysisModel): { wall: string
 
 export function plateAnalysisIssue(model: PlateAnalysisModel) {
   if (!model.quads && !model.plates) return null;
-  const { invalid, needsMesh } = physicalPlateProblems(model);
+  const { invalid, ambiguousSweep, needsMesh } = physicalPlateProblems(model);
+  if (ambiguousSweep.length) return { kind: 'ambiguousSweep' as const, names: ambiguousSweep };
   if (invalid.length) return { kind: 'invalid' as const, names: invalid };
   const joint = nonconformingWallSlab(model);
   if (joint) return { kind: 'wallSlab' as const, joint };
