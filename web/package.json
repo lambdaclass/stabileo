@@ -46,7 +46,7 @@
     "@playwright/test": "1.60.0",
     "@stryker-mutator/core": "^8.7.1",
     "@stryker-mutator/vitest-runner": "^8.7.1",
-    "@sveltejs/vite-plugin-svelte": "^5.0.3",
+    "@sveltejs/vite-plugin-svelte": "^7.3.1",
     "@types/lz-string": "^1.5.0",
     "@types/node": "^25.5.0",
     "@types/three": "^0.186.0",
