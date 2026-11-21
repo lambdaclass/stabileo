@@ -215,9 +215,15 @@ describe('steelSegmentDiagram — the stitched segment diagram', () => {
   });
 });
 
-for (const el2Reversed of [false, true]) {
-  it(`known wrong result: #2403 recovers Cb quarter moments inside an unequal chain reversed=${el2Reversed}`, () => {
+const incompleteSolvedGradient = process.env.RUN_KNOWN_WRONG === '2403' ? it : it.skip;
+for (const [el2Reversed, mixed] of [[false, false], [true, false], [false, true]]) {
+  const test = mixed ? incompleteSolvedGradient : it;
+  test(`known wrong result: #2403 uses only supported Cb on an unequal chain reversed=${el2Reversed} mixed=${mixed}`, () => {
     const model = chainModel({ el2Reversed });
+    if (mixed) {
+      model.materials.set(2, { id: 2, name: 'H30', fc: 30, fy: 30, e: 25000 });
+      model.elements.get(2)!.materialId = 2;
+    }
     model.nodes.get(2)!.x = 2;
     const moment = (x: number) => 5 + x * (4 - x);
     const raw = resultsFor(el2Reversed);
@@ -238,10 +244,13 @@ for (const el2Reversed of [false, true]) {
     const checks = runSteelVerification(raw, model, demands, stations, lengths);
     const max = moment(2);
     const cb = 12.5 * max / (2.5 * max + 3 * moment(1.5) + 4 * moment(3) + 3 * Math.abs(moment(4.5)));
-    expect(checks).toHaveLength(2);
+    expect(checks).toHaveLength(mixed ? 1 : 2);
     for (const check of checks) {
       expect(check.inputs!.length).toBeGreaterThan(0);
-      for (const input of check.inputs!) expect(input.Cb).toBeCloseTo(cb, 12);
+      for (const input of check.inputs!) {
+        if (mixed) expect(input.Cb).toBeUndefined();
+        else expect(input.Cb).toBeCloseTo(cb, 12);
+      }
     }
   });
 }
