@@ -1,24 +1,37 @@
 //! The incremental-iterative driver the nonlinear analyses share. An analysis describes itself as
-//! an [`IncrementalProblem`]; how its increments are converged is an [`Iteration`], of which
-//! [`Newton`] is the first.
+//! an [`IncrementalProblem`]; how its increments are converged is an [`Iteration`]: [`Newton`],
+//! [`NewtonLineSearch`] or [`Anderson`].
+
+use super::adaptive_stepping::{AdaptiveStepper, StepAction};
 
 pub(crate) struct Linearization {
     /// What the analysis compares with its tolerance.
     pub measure: f64,
-    /// A correction is owed whatever the measure says (a support step not yet applied).
+    /// A correction is owed whatever the measure says (a support step not yet applied), and it
+    /// has to be taken whole.
     pub forced: bool,
 }
 
+/// `correction` answers for the last `linearize` and may be asked once for it: linearize again
+/// after the state changes.
 pub(crate) trait IncrementalProblem {
     /// Set the loads and prescribed motion of the increment that ends at `load_factor`.
     fn begin_increment(&mut self, load_factor: f64);
     /// Residual and tangent at the current state.
     fn linearize(&mut self) -> Result<Linearization, String>;
-    /// Apply the correction of the last linearization. With `lag_tangent` the problem may answer
-    /// with the tangent it factorized first in this increment.
-    fn correct(&mut self, lag_tangent: bool) -> Result<(), String>;
-    /// The current state converged: it is the one to return to.
-    fn commit(&mut self);
+    /// The correction of the last linearization, over the unknowns `state` returns. With
+    /// `lag_tangent` the problem may answer with the tangent it factorized first in this increment.
+    fn correction(&mut self, lag_tangent: bool) -> Result<Vec<f64>, String>;
+    /// Add `step` to the state, with whatever a forced correction owes.
+    fn advance(&mut self, step: &[f64]);
+    fn state(&self) -> Vec<f64>;
+    /// Work of the last linearization's residual on `step`: positive while moving along `step`
+    /// still lowers the potential energy.
+    fn work(&self, step: &[f64]) -> f64;
+    /// Not for a forced correction: what it owes is only applied by `advance`.
+    fn set_state(&mut self, state: &[f64]);
+    /// The current state converged: it is the one to return to. An error ends the solve.
+    fn commit(&mut self) -> Result<(), String>;
     /// Return to the last committed state.
     fn rollback(&mut self);
 }
@@ -42,10 +55,247 @@ impl Iteration for Newton {
             if at.measure < tolerance && !at.forced {
                 return Ok(true);
             }
-            problem.correct(self.lag_tangent)?;
+            let step = problem.correction(self.lag_tangent)?;
+            problem.advance(&step);
         }
         Ok(false)
     }
+}
+
+const ENOUGH: f64 = 0.8;
+const MAX_TRIALS: usize = 6;
+
+/// Newton-Raphson with the line search of structural mechanics (Crisfield, vol. 1, 9.2): the
+/// step is scaled toward the point where the residual does no work on it, and taken once that
+/// work is under `ENOUGH` of what it was. A step that still lowers the energy is taken whole, so
+/// where Newton converges undisturbed this is Newton. Every trial is a linearization and counts
+/// as one; a trial within tolerance ends the increment, and one that leaves the state
+/// non-finite ends it unconverged. When the trials run out past the point of no work, the
+/// iteration goes on from the last one that still lowered the energy.
+///
+/// The measure is not the merit: a full step of a slender frame raises the residual norm a
+/// thousandfold on the way to the solution, and backtracking on it crawls.
+pub(crate) struct NewtonLineSearch;
+
+impl Iteration for NewtonLineSearch {
+    fn converge<P: IncrementalProblem + ?Sized>(&self, problem: &mut P, tolerance: f64, max_iter: usize, spent: &mut usize) -> Result<bool, String> {
+        let budget = *spent + max_iter;
+        if max_iter == 0 {
+            return Ok(false);
+        }
+        *spent += 1;
+        let mut at = problem.linearize()?;
+        loop {
+            if at.measure < tolerance && !at.forced {
+                return Ok(true);
+            }
+            if *spent >= budget {
+                return Ok(false);
+            }
+            let step = problem.correction(false)?;
+            let start_work = problem.work(&step);
+            if at.forced {
+                problem.advance(&step);
+                *spent += 1;
+                at = problem.linearize()?;
+                continue;
+            }
+            let origin = problem.state();
+            let trial = |problem: &mut P, alpha: f64, spent: &mut usize| -> Result<(Linearization, f64), String> {
+                let state: Vec<f64> = origin.iter().zip(&step).map(|(x, d)| x + alpha * d).collect();
+                problem.set_state(&state);
+                *spent += 1;
+                let found = problem.linearize()?;
+                let work = problem.work(&step);
+                Ok((found, work))
+            };
+            let (mut found, mut work) = trial(problem, 1.0, spent)?;
+            if found.measure < tolerance && !found.forced {
+                return Ok(true);
+            }
+            let searching = start_work.is_finite() && start_work > 0.0;
+            if searching {
+                let (mut low, mut low_work, mut high, mut high_work) = (0.0, start_work, 1.0, work);
+                for _ in 1..MAX_TRIALS {
+                    let overshot = !high_work.is_finite() || high_work < -ENOUGH * start_work;
+                    if !overshot || *spent >= budget {
+                        break;
+                    }
+                    let beyond = if high_work.is_finite() { high_work } else { -start_work };
+                    let secant = low + (high - low) * low_work / (low_work - beyond);
+                    let alpha = secant.clamp(low + 0.1 * (high - low), high - 0.1 * (high - low));
+                    (found, work) = trial(problem, alpha, spent)?;
+                    if found.measure < tolerance && !found.forced {
+                        return Ok(true);
+                    }
+                    if work.is_finite() && work.abs() <= ENOUGH * start_work {
+                        break;
+                    }
+                    if work.is_finite() && work > 0.0 {
+                        low = alpha;
+                        low_work = work;
+                    } else {
+                        high = alpha;
+                        high_work = work;
+                    }
+                }
+                let lost = !(work.is_finite() && found.measure.is_finite());
+                let past = lost || work < -ENOUGH * start_work;
+                if past && (low > 0.0 || lost) && *spent < budget {
+                    (found, work) = trial(problem, if low > 0.0 { low } else { 0.1 * high }, spent)?;
+                    if found.measure < tolerance && !found.forced {
+                        return Ok(true);
+                    }
+                }
+            }
+            if !found.measure.is_finite() || (searching && !work.is_finite()) {
+                problem.set_state(&origin);
+                return Ok(false);
+            }
+            at = found;
+        }
+    }
+}
+
+/// Anderson acceleration of the corrections (Walker and Ni's form, mixing 1): the next state is
+/// the one that would cancel a least-squares combination of the last `depth` corrections. With
+/// a lagged tangent it recovers much of Newton's speed from one factorization per increment.
+/// Depth 0 is the plain iteration.
+pub(crate) struct Anderson {
+    pub depth: usize,
+    pub lag_tangent: bool,
+}
+
+impl Iteration for Anderson {
+    fn converge<P: IncrementalProblem + ?Sized>(&self, problem: &mut P, tolerance: f64, max_iter: usize, spent: &mut usize) -> Result<bool, String> {
+        let mut previous: Option<(Vec<f64>, Vec<f64>)> = None;
+        let mut history: Vec<(Vec<f64>, Vec<f64>)> = Vec::new();
+        for _ in 0..max_iter {
+            *spent += 1;
+            let at = problem.linearize()?;
+            if at.measure < tolerance && !at.forced {
+                return Ok(true);
+            }
+            let correction = problem.correction(self.lag_tangent)?;
+            if at.forced {
+                problem.advance(&correction);
+                previous = None;
+                history.clear();
+                continue;
+            }
+            let state = problem.state();
+            if let Some((last_state, last_correction)) = previous.take() {
+                if history.len() == self.depth && !history.is_empty() {
+                    history.remove(0);
+                }
+                if self.depth > 0 {
+                    history.push((
+                        state.iter().zip(&last_state).map(|(a, b)| a - b).collect(),
+                        correction.iter().zip(&last_correction).map(|(a, b)| a - b).collect(),
+                    ));
+                }
+            }
+            let next = match mixed(&state, &correction, &history) {
+                Some(next) => next,
+                None => {
+                    history.clear();
+                    state.iter().zip(&correction).map(|(x, f)| x + f).collect()
+                }
+            };
+            problem.set_state(&next);
+            previous = Some((state, correction));
+        }
+        Ok(false)
+    }
+}
+
+const LONGEST_MIX: f64 = 1e3;
+pub(crate) const MAX_ANDERSON_DEPTH: usize = 50;
+
+/// The Anderson state from `state`, its correction and the history of differences. `None`
+/// when the differences are dependent to rounding, or the mixed step is non-finite or more than
+/// `LONGEST_MIX` times the correction: weights from nearly dependent differences can throw the
+/// state far enough for the next tangent to be singular.
+fn mixed(state: &[f64], correction: &[f64], history: &[(Vec<f64>, Vec<f64>)]) -> Option<Vec<f64>> {
+    let differences: Vec<&[f64]> = history.iter().map(|(_, df)| df.as_slice()).collect();
+    let weights = least_squares(&differences, correction)?;
+    let mut step = correction.to_vec();
+    for (weight, (dx, df)) in weights.iter().zip(history) {
+        for ((value, a), b) in step.iter_mut().zip(dx).zip(df) {
+            *value -= weight * (a + b);
+        }
+    }
+    let longest = |v: &[f64]| v.iter().fold(0.0f64, |m, x| m.max(x.abs()));
+    if step.iter().any(|v| !v.is_finite()) || longest(&step) > LONGEST_MIX * longest(correction) {
+        return None;
+    }
+    Some(state.iter().zip(&step).map(|(x, d)| x + d).collect())
+}
+
+/// Refuses an iteration method the driver cannot run as asked.
+pub(crate) fn validate(method: IterationMethod) -> Result<(), String> {
+    match method {
+        IterationMethod::Anderson { depth } if depth == 0 || depth > MAX_ANDERSON_DEPTH => {
+            Err(format!("Anderson acceleration needs a depth from 1 to {MAX_ANDERSON_DEPTH}"))
+        }
+        _ => Ok(()),
+    }
+}
+
+/// The weights minimizing ‖target − Σ wᵢ·columnᵢ‖, by the normal equations with pivoting.
+/// `None` when the columns are dependent to rounding, which is the sign to drop them.
+fn least_squares(columns: &[&[f64]], target: &[f64]) -> Option<Vec<f64>> {
+    let m = columns.len();
+    let dot = |a: &[f64], b: &[f64]| a.iter().zip(b).map(|(x, y)| x * y).sum::<f64>();
+    let mut a: Vec<Vec<f64>> = (0..m).map(|i| (0..m).map(|j| dot(columns[i], columns[j])).collect()).collect();
+    let mut b: Vec<f64> = (0..m).map(|i| dot(columns[i], target)).collect();
+    let scale = (0..m).fold(0.0f64, |largest, i| largest.max(a[i][i]));
+    for k in 0..m {
+        let pivot = (k..m).fold(k, |best, i| if a[i][k].abs() > a[best][k].abs() { i } else { best });
+        if !a[pivot][k].is_finite() || a[pivot][k].abs() <= 1e-12 * scale {
+            return None;
+        }
+        a.swap(k, pivot);
+        b.swap(k, pivot);
+        for i in k + 1..m {
+            let factor = a[i][k] / a[k][k];
+            for j in k..m {
+                a[i][j] -= factor * a[k][j];
+            }
+            b[i] -= factor * b[k];
+        }
+    }
+    let mut weights = vec![0.0; m];
+    for k in (0..m).rev() {
+        let known: f64 = (k + 1..m).map(|j| a[k][j] * weights[j]).sum();
+        weights[k] = (b[k] - known) / a[k][k];
+    }
+    Some(weights)
+}
+
+/// How the increments of a nonlinear analysis are converged.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum IterationMethod {
+    /// Newton-Raphson with a new tangent every iteration.
+    Newton,
+    /// The tangent of each increment's first iteration, kept for the increment.
+    ModifiedNewton,
+    /// Newton-Raphson with a backtracking line search.
+    NewtonLineSearch,
+    /// Modified Newton accelerated by Anderson mixing over the last `depth` corrections, from 1
+    /// to 50.
+    Anderson { depth: usize },
+}
+
+/// How the load is brought from zero to its full value.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum LoadStepping {
+    /// The number of increments asked for, all equal.
+    Equal,
+    /// Starting from that size: an increment that does not converge is retried at half the
+    /// size, down to a hundredth of the first; one that converges easily doubles the next, up
+    /// to four times the first.
+    Adaptive,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -54,6 +304,8 @@ pub(crate) struct Outcome {
     pub converged: bool,
     /// Load factor of the last increment that converged; zero when none did.
     pub load_factor: f64,
+    /// Increments that converged.
+    pub increments: usize,
 }
 
 /// Apply the load in `n_increments` equal steps. An increment that does not converge ends the
@@ -65,7 +317,7 @@ pub(crate) fn solve_by_load_increments<P: IncrementalProblem + ?Sized, I: Iterat
     tolerance: f64,
     max_iter: usize,
 ) -> Result<Outcome, String> {
-    let mut outcome = Outcome { iterations: 0, converged: true, load_factor: 0.0 };
+    let mut outcome = Outcome { iterations: 0, converged: true, load_factor: 0.0, increments: 0 };
     for increment in 1..=n_increments {
         let load_factor = increment as f64 / n_increments as f64;
         problem.begin_increment(load_factor);
@@ -74,51 +326,167 @@ pub(crate) fn solve_by_load_increments<P: IncrementalProblem + ?Sized, I: Iterat
             problem.rollback();
             break;
         }
-        problem.commit();
+        problem.commit()?;
         outcome.load_factor = load_factor;
+        outcome.increments += 1;
     }
     Ok(outcome)
+}
+
+const FULL_LOAD_SLACK: f64 = 1e-12;
+
+/// Apply the load in increments whose size follows how they converge ([`LoadStepping::Adaptive`]).
+/// The solve ends unconverged, at the last increment that converged, when an increment a
+/// hundredth of the first size still does not. An increment whose iteration fails with an error
+/// (a tangent that cannot be factorized, typically) is retried smaller like one that does not
+/// converge; the error is returned only when the smallest increment still raises it.
+pub(crate) fn solve_by_adaptive_increments<P: IncrementalProblem + ?Sized, I: Iteration>(
+    problem: &mut P,
+    iteration: &I,
+    n_increments: usize,
+    tolerance: f64,
+    max_iter: usize,
+) -> Result<Outcome, String> {
+    let mut outcome = Outcome { iterations: 0, converged: true, load_factor: 0.0, increments: 0 };
+    if n_increments == 0 {
+        return Ok(outcome);
+    }
+    let mut stepper = AdaptiveStepper::from_n_increments(n_increments);
+    while let Some(target) = stepper.next_increment() {
+        let load_factor = if target >= 1.0 - FULL_LOAD_SLACK { 1.0 } else { target };
+        problem.begin_increment(load_factor);
+        let before = outcome.iterations;
+        let attempt = iteration.converge(problem, tolerance, max_iter, &mut outcome.iterations);
+        let converged = attempt == Ok(true);
+        if converged {
+            problem.commit()?;
+            outcome.load_factor = load_factor;
+            outcome.increments += 1;
+        } else {
+            problem.rollback();
+        }
+        if stepper.report_convergence(converged, outcome.iterations - before) == StepAction::Abort {
+            attempt?;
+            outcome.converged = false;
+            break;
+        }
+    }
+    outcome.converged = outcome.converged && outcome.load_factor == 1.0;
+    Ok(outcome)
+}
+
+#[cfg(test)]
+pub(crate) fn solve_by_load_increments_with<P: IncrementalProblem + ?Sized>(
+    problem: &mut P,
+    method: IterationMethod,
+    n_increments: usize,
+    tolerance: f64,
+    max_iter: usize,
+) -> Result<Outcome, String> {
+    solve_stepped(problem, method, LoadStepping::Equal, n_increments, tolerance, max_iter)
+}
+
+pub(crate) fn solve_stepped<P: IncrementalProblem + ?Sized>(
+    problem: &mut P,
+    method: IterationMethod,
+    stepping: LoadStepping,
+    n_increments: usize,
+    tolerance: f64,
+    max_iter: usize,
+) -> Result<Outcome, String> {
+    fn run<P: IncrementalProblem + ?Sized, I: Iteration>(problem: &mut P, iteration: &I, stepping: LoadStepping, n_increments: usize, tolerance: f64, max_iter: usize) -> Result<Outcome, String> {
+        match stepping {
+            LoadStepping::Equal => solve_by_load_increments(problem, iteration, n_increments, tolerance, max_iter),
+            LoadStepping::Adaptive => solve_by_adaptive_increments(problem, iteration, n_increments, tolerance, max_iter),
+        }
+    }
+    match method {
+        IterationMethod::Newton => run(problem, &Newton { lag_tangent: false }, stepping, n_increments, tolerance, max_iter),
+        IterationMethod::ModifiedNewton => run(problem, &Newton { lag_tangent: true }, stepping, n_increments, tolerance, max_iter),
+        IterationMethod::NewtonLineSearch => run(problem, &NewtonLineSearch, stepping, n_increments, tolerance, max_iter),
+        IterationMethod::Anderson { depth } => run(problem, &Anderson { depth, lag_tangent: true }, stepping, n_increments, tolerance, max_iter),
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    /// One unknown: u + stiffening·u³ = load_factor·load.
-    struct Spring {
-        load: f64,
-        stiffening: f64,
-        u: f64,
-        committed: f64,
-        target: f64,
-        residual: f64,
-        tangent: f64,
-        lagged: Option<f64>,
+    /// Unknowns coupled in a chain: forceᵢ(u) = law(uᵢ) + coupling·(2uᵢ − uᵢ₋₁ − uᵢ₊₁) = load_factor·loadᵢ.
+    struct Chain {
+        law: fn(f64) -> (f64, f64),
+        coupling: f64,
+        load: Vec<f64>,
+        u: Vec<f64>,
+        committed: Vec<f64>,
+        target: Vec<f64>,
+        residual: Vec<f64>,
+        tangent: Vec<Vec<f64>>,
+        lagged: Option<Vec<Vec<f64>>>,
         owed: bool,
+        refuse_commit: bool,
         fail_at: Option<usize>,
         linearizations: usize,
         tangents: usize,
         trace: Vec<f64>,
+        corrected_from: Vec<f64>,
     }
 
-    impl Spring {
-        fn new(load: f64, stiffening: f64) -> Self {
-            Spring { load, stiffening, u: 0.0, committed: 0.0, target: 0.0, residual: 0.0, tangent: 0.0, lagged: None, owed: false, fail_at: None, linearizations: 0, tangents: 0, trace: Vec::new() }
-        }
+    fn stiffening(u: f64) -> (f64, f64) {
+        (u + 2.0 * u * u * u, 1.0 + 6.0 * u * u)
+    }
 
-        fn exact(&self, load_factor: f64) -> f64 {
-            let (mut lo, mut hi) = (0.0, load_factor * self.load);
-            for _ in 0..200 {
-                let mid = 0.5 * (lo + hi);
-                if mid + self.stiffening * mid * mid * mid < load_factor * self.load { lo = mid } else { hi = mid }
+    fn mild(u: f64) -> (f64, f64) {
+        (u + 0.1 * u * u * u, 1.0 + 0.3 * u * u)
+    }
+
+    fn softening(u: f64) -> (f64, f64) {
+        (u.atan(), 1.0 / (1.0 + u * u))
+    }
+
+    fn yielding(u: f64) -> (f64, f64) {
+        (u.atan(), (1.0 / (1.0 + u * u)).max(1e-3))
+    }
+
+    impl Chain {
+        fn new(law: fn(f64) -> (f64, f64), coupling: f64, load: &[f64]) -> Self {
+            let n = load.len();
+            Chain {
+                law, coupling, load: load.to_vec(), u: vec![0.0; n], committed: vec![0.0; n], target: vec![0.0; n],
+                residual: vec![0.0; n], tangent: Vec::new(), lagged: None, owed: false, refuse_commit: false, fail_at: None,
+                linearizations: 0, tangents: 0, trace: Vec::new(), corrected_from: Vec::new(),
             }
-            0.5 * (lo + hi)
+        }
+
+        fn spring(law: fn(f64) -> (f64, f64), load: f64) -> Self {
+            Chain::new(law, 0.0, &[load])
+        }
+
+        fn starting_at(mut self, u: &[f64]) -> Self {
+            self.u = u.to_vec();
+            self.committed = u.to_vec();
+            self
+        }
+
+        fn unbalance(&self, load_factor: f64) -> f64 {
+            let n = self.u.len();
+            (0..n).map(|i| {
+                let neighbours = if i > 0 { self.u[i - 1] } else { 0.0 } + if i + 1 < n { self.u[i + 1] } else { 0.0 };
+                let force = (self.law)(self.u[i]).0 + self.coupling * (2.0 * self.u[i] - neighbours);
+                (load_factor * self.load[i] - force).abs()
+            }).fold(0.0, f64::max)
         }
     }
 
-    impl IncrementalProblem for Spring {
+    fn solve_dense(a: &[Vec<f64>], b: &[f64]) -> Result<Vec<f64>, String> {
+        let columns: Vec<Vec<f64>> = (0..b.len()).map(|j| a.iter().map(|row| row[j]).collect()).collect();
+        let refs: Vec<&[f64]> = columns.iter().map(|c| c.as_slice()).collect();
+        least_squares(&refs, b).ok_or_else(|| "the tangent is singular".to_string())
+    }
+
+    impl IncrementalProblem for Chain {
         fn begin_increment(&mut self, load_factor: f64) {
-            self.target = load_factor * self.load;
+            self.target = self.load.iter().map(|p| load_factor * p).collect();
             self.lagged = None;
         }
         fn linearize(&mut self) -> Result<Linearization, String> {
@@ -126,48 +494,73 @@ mod tests {
             if self.fail_at == Some(self.linearizations) {
                 return Err("the tangent is singular".into());
             }
-            self.residual = self.target - (self.u + self.stiffening * self.u.powi(3));
-            self.tangent = 1.0 + 3.0 * self.stiffening * self.u * self.u;
-            self.trace.push(self.residual.abs());
-            Ok(Linearization { measure: self.residual.abs(), forced: std::mem::take(&mut self.owed) })
+            let n = self.u.len();
+            self.tangent = vec![vec![0.0; n]; n];
+            for i in 0..n {
+                let (force, stiffness) = (self.law)(self.u[i]);
+                let neighbours = if i > 0 { self.u[i - 1] } else { 0.0 } + if i + 1 < n { self.u[i + 1] } else { 0.0 };
+                self.residual[i] = self.target[i] - force - self.coupling * (2.0 * self.u[i] - neighbours);
+                self.tangent[i][i] = stiffness + 2.0 * self.coupling;
+                if i > 0 { self.tangent[i][i - 1] = -self.coupling; }
+                if i + 1 < n { self.tangent[i][i + 1] = -self.coupling; }
+            }
+            let measure = self.residual.iter().map(|r| r * r).sum::<f64>().sqrt();
+            self.trace.push(measure);
+            Ok(Linearization { measure, forced: std::mem::take(&mut self.owed) })
         }
-        fn correct(&mut self, lag_tangent: bool) -> Result<(), String> {
-            let tangent = match self.lagged {
-                Some(kept) if lag_tangent => kept,
+        fn correction(&mut self, lag_tangent: bool) -> Result<Vec<f64>, String> {
+            self.corrected_from.push(self.u[0]);
+            let tangent = match &self.lagged {
+                Some(kept) if lag_tangent => kept.clone(),
                 _ => {
                     self.tangents += 1;
-                    self.lagged = Some(self.tangent);
-                    self.tangent
+                    self.lagged = Some(self.tangent.clone());
+                    self.tangent.clone()
                 }
             };
-            self.u += self.residual / tangent;
+            solve_dense(&tangent, &self.residual)
+        }
+        fn advance(&mut self, step: &[f64]) {
+            self.u.iter_mut().zip(step).for_each(|(u, s)| *u += s);
+        }
+        fn state(&self) -> Vec<f64> {
+            self.u.clone()
+        }
+        fn work(&self, step: &[f64]) -> f64 {
+            self.residual.iter().zip(step).map(|(r, d)| r * d).sum()
+        }
+        fn set_state(&mut self, state: &[f64]) {
+            self.u.copy_from_slice(state);
+        }
+        fn commit(&mut self) -> Result<(), String> {
+            self.committed = self.u.clone();
+            if self.refuse_commit {
+                return Err("the state left its branch".into());
+            }
             Ok(())
         }
-        fn commit(&mut self) {
-            self.committed = self.u;
-        }
         fn rollback(&mut self) {
-            self.u = self.committed;
+            self.u = self.committed.clone();
         }
     }
 
     #[test]
     fn newton_reaches_the_solution_and_counts_its_linearizations() {
         for n_increments in [1, 4, 10] {
-            let mut spring = Spring::new(30.0, 2.0);
+            let mut spring = Chain::spring(stiffening, 30.0);
             let outcome = solve_by_load_increments(&mut spring, &Newton { lag_tangent: false }, n_increments, 1e-10, 50).unwrap();
             assert!(outcome.converged);
             assert_eq!(outcome.load_factor, 1.0);
             assert_eq!(outcome.iterations, spring.linearizations);
             assert_eq!(spring.tangents, spring.linearizations - n_increments);
-            assert!((spring.u - spring.exact(1.0)).abs() <= 1e-10);
+            assert!(spring.unbalance(1.0) <= 1e-10);
             assert_eq!(spring.u, spring.committed);
         }
     }
 
     #[test]
     fn newton_converges_quadratically_near_the_solution() {
-        let mut spring = Spring::new(30.0, 2.0);
+        let mut spring = Chain::spring(stiffening, 30.0);
         solve_by_load_increments(&mut spring, &Newton { lag_tangent: false }, 1, 1e-12, 50).unwrap();
         let tail: Vec<f64> = spring.trace.iter().copied().filter(|r| *r < 1e-1 && *r > 1e-13).collect();
         assert!(tail.len() >= 2, "{:?}", spring.trace);
@@ -178,64 +571,337 @@ mod tests {
 
     #[test]
     fn a_lagged_tangent_reaches_the_same_solution_with_one_tangent_per_increment() {
-        let mut full = Spring::new(2.0, 0.1);
-        let mut lagged = Spring::new(2.0, 0.1);
+        let mut full = Chain::spring(mild, 2.0);
+        let mut lagged = Chain::spring(mild, 2.0);
         let plain = solve_by_load_increments(&mut full, &Newton { lag_tangent: false }, 6, 1e-10, 400).unwrap();
         let modified = solve_by_load_increments(&mut lagged, &Newton { lag_tangent: true }, 6, 1e-10, 400).unwrap();
         assert!(plain.converged && modified.converged);
         assert_eq!(lagged.tangents, 6);
         assert!(modified.iterations > plain.iterations);
-        assert!((lagged.u - full.u).abs() <= 1e-9);
+        assert!((lagged.u[0] - full.u[0]).abs() <= 1e-9);
     }
 
     #[test]
     fn an_increment_that_does_not_converge_leaves_the_last_one_that_did() {
-        let mut spring = Spring::new(30.0, 2.0);
-        let outcome = solve_by_load_increments(&mut spring, &Newton { lag_tangent: false }, 1, 1e-10, 2).unwrap();
-        assert_eq!(outcome, Outcome { iterations: 2, converged: false, load_factor: 0.0 });
-        assert_eq!(spring.u, 0.0);
+        for method in [IterationMethod::Newton, IterationMethod::NewtonLineSearch, IterationMethod::Anderson { depth: 2 }] {
+            let mut spring = Chain::spring(stiffening, 30.0);
+            let outcome = solve_by_load_increments_with(&mut spring, method, 1, 1e-10, 2).unwrap();
+            assert_eq!((outcome.converged, outcome.load_factor), (false, 0.0), "{method:?}");
+            assert_eq!(spring.u, vec![0.0], "{method:?}");
+        }
 
-        let mut reference = Spring::new(2.0, 0.1);
-        let whole = solve_by_load_increments(&mut reference, &Newton { lag_tangent: true }, 4, 1e-10, 400).unwrap();
-        assert!(whole.converged);
         let per_increment = {
-            let mut one = Spring::new(2.0, 0.1);
+            let mut one = Chain::spring(mild, 2.0);
             let mut spent = 0;
             one.begin_increment(0.25);
             assert!(Newton { lag_tangent: true }.converge(&mut one, 1e-10, 400, &mut spent).unwrap());
             spent
         };
-        let mut spring = Spring::new(2.0, 0.1);
+        let mut spring = Chain::spring(mild, 2.0);
         let outcome = solve_by_load_increments(&mut spring, &Newton { lag_tangent: true }, 4, 1e-10, per_increment).unwrap();
         assert!(!outcome.converged);
         assert!(outcome.load_factor >= 0.25 && outcome.load_factor < 1.0);
-        assert!((spring.u - spring.exact(outcome.load_factor)).abs() <= 1e-9);
+        assert!(spring.unbalance(outcome.load_factor) <= 1e-9);
         assert_eq!(spring.u, spring.committed);
     }
 
     #[test]
-    fn a_forced_correction_is_made_even_at_a_converged_state() {
-        let mut spring = Spring::new(0.0, 2.0);
-        spring.owed = true;
-        let outcome = solve_by_load_increments(&mut spring, &Newton { lag_tangent: false }, 1, 1e-10, 50).unwrap();
-        assert_eq!(outcome, Outcome { iterations: 2, converged: true, load_factor: 1.0 });
-        assert_eq!(spring.tangents, 1);
+    fn a_forced_correction_is_made_whole_even_at_a_converged_state() {
+        for method in [IterationMethod::Newton, IterationMethod::ModifiedNewton, IterationMethod::NewtonLineSearch, IterationMethod::Anderson { depth: 3 }] {
+            let mut spring = Chain::spring(stiffening, 0.0);
+            spring.owed = true;
+            let outcome = solve_by_load_increments_with(&mut spring, method, 1, 1e-10, 50).unwrap();
+            assert_eq!(outcome, Outcome { iterations: 2, converged: true, load_factor: 1.0, increments: 1 }, "{method:?}");
+            assert_eq!(spring.tangents, 1, "{method:?}");
+        }
     }
 
     #[test]
     fn an_error_of_the_problem_ends_the_solve() {
-        let mut spring = Spring::new(30.0, 2.0);
-        spring.fail_at = Some(3);
-        let error = solve_by_load_increments(&mut spring, &Newton { lag_tangent: false }, 2, 1e-10, 50).unwrap_err();
-        assert_eq!(error, "the tangent is singular");
-        assert_eq!(spring.linearizations, 3);
+        for (method, fail_at) in [(IterationMethod::Newton, 3), (IterationMethod::NewtonLineSearch, 1), (IterationMethod::NewtonLineSearch, 2), (IterationMethod::NewtonLineSearch, 3), (IterationMethod::Anderson { depth: 2 }, 3)] {
+            let mut spring = Chain::spring(stiffening, 30.0);
+            spring.fail_at = Some(fail_at);
+            let error = solve_by_load_increments_with(&mut spring, method, 2, 1e-10, 50).unwrap_err();
+            assert_eq!(error, "the tangent is singular", "{method:?}");
+            assert_eq!(spring.linearizations, fail_at, "{method:?}");
+        }
     }
 
     #[test]
-    fn no_increments_do_nothing() {
-        let mut spring = Spring::new(30.0, 2.0);
-        let outcome = solve_by_load_increments(&mut spring, &Newton { lag_tangent: false }, 0, 1e-10, 50).unwrap();
-        assert_eq!(outcome, Outcome { iterations: 0, converged: true, load_factor: 0.0 });
-        assert_eq!(spring.linearizations, 0);
+    fn an_error_on_commit_ends_the_solve() {
+        let mut spring = Chain::spring(mild, 2.0);
+        spring.refuse_commit = true;
+        let error = solve_by_load_increments(&mut spring, &Newton { lag_tangent: false }, 3, 1e-10, 50).unwrap_err();
+        assert_eq!(error, "the state left its branch");
+        assert!(spring.unbalance(1.0 / 3.0) <= 1e-10);
+    }
+
+    #[test]
+    fn adaptive_steps_reach_the_full_load_where_equal_ones_give_up() {
+        for method in [IterationMethod::Newton, IterationMethod::NewtonLineSearch] {
+            let mut equal = Chain::spring(stiffening, 30.0);
+            let given_up = solve_stepped(&mut equal, method, LoadStepping::Equal, 2, 1e-10, 6).unwrap();
+            assert!(!given_up.converged, "{method:?}");
+            let mut adaptive = Chain::spring(stiffening, 30.0);
+            let outcome = solve_stepped(&mut adaptive, method, LoadStepping::Adaptive, 2, 1e-10, 6).unwrap();
+            assert!(outcome.converged, "{method:?}");
+            assert_eq!(outcome.load_factor, 1.0);
+            assert!(outcome.increments > 2);
+            assert!(adaptive.unbalance(1.0) <= 1e-10);
+            assert_eq!(adaptive.u, adaptive.committed);
+            assert_eq!(outcome.iterations, adaptive.linearizations);
+        }
+    }
+
+    #[test]
+    fn adaptive_steps_grow_while_convergence_is_easy() {
+        let mut equal = Chain::spring(mild, 0.02);
+        let mut adaptive = Chain::spring(mild, 0.02);
+        let plain = solve_stepped(&mut equal, IterationMethod::Newton, LoadStepping::Equal, 16, 1e-6, 20).unwrap();
+        let outcome = solve_stepped(&mut adaptive, IterationMethod::Newton, LoadStepping::Adaptive, 16, 1e-6, 20).unwrap();
+        assert!(plain.converged && outcome.converged);
+        assert_eq!(plain.increments, 16);
+        assert!(outcome.increments < 16 && outcome.increments >= 4, "{}", outcome.increments);
+        assert_eq!(outcome.load_factor, 1.0);
+        assert!((adaptive.u[0] - equal.u[0]).abs() <= 1e-6);
+    }
+
+    #[test]
+    fn adaptive_steps_stop_at_the_load_the_structure_cannot_pass() {
+        let capacity = std::f64::consts::FRAC_PI_2 / 2.0;
+        let mut spring = Chain::spring(yielding, 2.0);
+        let outcome = solve_stepped(&mut spring, IterationMethod::Newton, LoadStepping::Adaptive, 4, 1e-9, 60).unwrap();
+        assert!(!outcome.converged);
+        assert!(outcome.load_factor < capacity && outcome.load_factor > 0.6 * capacity, "{}", outcome.load_factor);
+        assert!(spring.unbalance(outcome.load_factor) <= 1e-9);
+        assert_eq!(spring.u, spring.committed);
+
+        let mut stuck = Chain::spring(stiffening, 30.0);
+        let outcome = solve_stepped(&mut stuck, IterationMethod::Newton, LoadStepping::Adaptive, 4, 1e-10, 1).unwrap();
+        assert_eq!((outcome.converged, outcome.load_factor, outcome.increments), (false, 0.0, 0));
+        assert_eq!(stuck.u, vec![0.0]);
+    }
+
+    #[test]
+    fn adaptive_steps_end_exactly_at_the_full_load() {
+        for n_increments in [1, 3, 6, 7, 10, 13, 49] {
+            let mut spring = Chain::spring(mild, 2.0);
+            let outcome = solve_stepped(&mut spring, IterationMethod::Newton, LoadStepping::Adaptive, n_increments, 1e-10, 50).unwrap();
+            assert!(outcome.converged, "{n_increments}");
+            assert_eq!(outcome.load_factor, 1.0, "{n_increments}");
+            assert!(spring.unbalance(1.0) <= 1e-10, "{n_increments}");
+        }
+    }
+
+    #[test]
+    fn adaptive_steps_pass_on_errors_and_do_nothing_without_increments() {
+        let mut spring = Chain::spring(mild, 2.0);
+        spring.fail_at = Some(2);
+        let recovered = solve_stepped(&mut spring, IterationMethod::Newton, LoadStepping::Adaptive, 2, 1e-10, 9).unwrap();
+        assert!(recovered.converged && recovered.load_factor == 1.0);
+        assert!(spring.unbalance(1.0) <= 1e-10);
+
+        let mut broken = Chain::spring(softening, 0.0).starting_at(&[1e9]);
+        assert_eq!(solve_stepped(&mut broken, IterationMethod::Newton, LoadStepping::Adaptive, 2, 1e-10, 9).unwrap_err(), "the tangent is singular");
+        assert_eq!(broken.u, vec![1e9]);
+        let mut refused = Chain::spring(mild, 2.0);
+        refused.refuse_commit = true;
+        assert_eq!(solve_stepped(&mut refused, IterationMethod::Newton, LoadStepping::Adaptive, 2, 1e-10, 50).unwrap_err(), "the state left its branch");
+        let mut idle = Chain::spring(mild, 2.0);
+        let outcome = solve_stepped(&mut idle, IterationMethod::Newton, LoadStepping::Adaptive, 0, 1e-10, 50).unwrap();
+        assert_eq!(outcome, Outcome { iterations: 0, converged: true, load_factor: 0.0, increments: 0 });
+    }
+
+    #[test]
+    fn no_increments_or_no_iterations_do_nothing() {
+        for method in [IterationMethod::Newton, IterationMethod::NewtonLineSearch, IterationMethod::Anderson { depth: 2 }] {
+            let mut spring = Chain::spring(stiffening, 30.0);
+            let outcome = solve_by_load_increments_with(&mut spring, method, 0, 1e-10, 50).unwrap();
+            assert_eq!(outcome, Outcome { iterations: 0, converged: true, load_factor: 0.0, increments: 0 });
+            let outcome = solve_by_load_increments_with(&mut spring, method, 3, 1e-10, 0).unwrap();
+            assert_eq!(outcome, Outcome { iterations: 0, converged: false, load_factor: 0.0, increments: 0 });
+            assert_eq!(spring.linearizations, 0);
+        }
+    }
+
+    #[test]
+    fn the_line_search_converges_where_the_full_newton_step_runs_away() {
+        let from = [3.0];
+        let mut plain = Chain::spring(softening, 0.0).starting_at(&from);
+        let ran_away = solve_by_load_increments(&mut plain, &Newton { lag_tangent: false }, 1, 1e-10, 30);
+        assert!(!ran_away.is_ok_and(|outcome| outcome.converged));
+        assert!(plain.trace.last().unwrap() > &1.5);
+
+        let mut searched = Chain::spring(softening, 0.0).starting_at(&from);
+        let outcome = solve_by_load_increments(&mut searched, &NewtonLineSearch, 1, 1e-10, 60).unwrap();
+        assert!(outcome.converged);
+        assert!(searched.u[0].abs() <= 1e-9);
+        assert_eq!(outcome.iterations, searched.linearizations);
+        let accepted: Vec<f64> = searched.trace.clone();
+        assert!(accepted.last().unwrap() < accepted.first().unwrap());
+    }
+
+    #[test]
+    fn the_line_search_takes_the_full_step_where_newton_already_converges() {
+        let load = [4.0, -1.0, 2.5, 0.5];
+        let mut plain = Chain::new(mild, 0.7, &load);
+        let mut searched = Chain::new(mild, 0.7, &load);
+        let newton = solve_by_load_increments(&mut plain, &Newton { lag_tangent: false }, 3, 1e-11, 50).unwrap();
+        let outcome = solve_by_load_increments(&mut searched, &NewtonLineSearch, 3, 1e-11, 50).unwrap();
+        assert!(newton.converged && outcome.converged);
+        assert_eq!(plain.u, searched.u);
+        assert_eq!(newton.iterations, outcome.iterations);
+        assert_eq!(plain.tangents, searched.tangents);
+    }
+
+    #[test]
+    fn the_line_search_stays_within_its_budget_of_linearizations() {
+        for budget in 1..12 {
+            let mut searched = Chain::spring(softening, 0.0).starting_at(&[3.0]);
+            let outcome = solve_by_load_increments(&mut searched, &NewtonLineSearch, 1, 1e-14, budget).unwrap();
+            assert!(searched.linearizations <= budget, "{budget}: {}", searched.linearizations);
+            assert_eq!(outcome.iterations, searched.linearizations);
+            if !outcome.converged {
+                assert_eq!(searched.u, vec![3.0]);
+            }
+        }
+    }
+
+    #[test]
+    fn anderson_needs_one_tangent_per_increment_and_fewer_iterations_than_modified_newton() {
+        let load = [4.0, -1.0, 2.5, 0.5, 3.0];
+        for n_increments in [1, 3] {
+            let mut modified = Chain::new(mild, 0.7, &load);
+            let plain = solve_by_load_increments(&mut modified, &Newton { lag_tangent: true }, n_increments, 1e-10, 2000).unwrap();
+            assert!(plain.converged);
+            let mut newton = Chain::new(mild, 0.7, &load);
+            solve_by_load_increments(&mut newton, &Newton { lag_tangent: false }, n_increments, 1e-12, 200).unwrap();
+            for depth in [1, 3, 5] {
+                let mut accelerated = Chain::new(mild, 0.7, &load);
+                let outcome = solve_by_load_increments(&mut accelerated, &Anderson { depth, lag_tangent: true }, n_increments, 1e-10, 2000).unwrap();
+                assert!(outcome.converged, "depth {depth}");
+                assert_eq!(accelerated.tangents, n_increments);
+                assert!(accelerated.unbalance(1.0) <= 1e-9);
+                for (got, want) in accelerated.u.iter().zip(&newton.u) {
+                    assert!((got - want).abs() <= 1e-8, "depth {depth}: {got} vs {want}");
+                }
+                assert!(outcome.iterations < plain.iterations, "depth {depth}: {} against {}", outcome.iterations, plain.iterations);
+            }
+        }
+    }
+
+    #[test]
+    fn anderson_of_depth_zero_is_the_plain_iteration() {
+        let load = [4.0, -1.0, 2.5];
+        let mut modified = Chain::new(mild, 0.7, &load);
+        let mut flat = Chain::new(mild, 0.7, &load);
+        let plain = solve_by_load_increments(&mut modified, &Newton { lag_tangent: true }, 2, 1e-10, 500).unwrap();
+        let outcome = solve_by_load_increments(&mut flat, &Anderson { depth: 0, lag_tangent: true }, 2, 1e-10, 500).unwrap();
+        assert!(plain.converged);
+        assert_eq!(plain, outcome);
+        assert_eq!(modified.u, flat.u);
+    }
+
+    #[test]
+    fn anderson_with_one_unknown_is_the_secant_method() {
+        let mut spring = Chain::spring(mild, 4.0);
+        let outcome = solve_by_load_increments(&mut spring, &Anderson { depth: 1, lag_tangent: true }, 1, 1e-12, 200).unwrap();
+        assert!(outcome.converged);
+        let tail: Vec<f64> = spring.trace.iter().copied().filter(|r| *r < 1e-2 && *r > 1e-13).collect();
+        assert!(tail.len() >= 2 && tail.windows(2).all(|pair| pair[1] <= 0.1 * pair[0]), "{:?}", spring.trace);
+        let mut modified = Chain::spring(mild, 4.0);
+        let plain = solve_by_load_increments(&mut modified, &Newton { lag_tangent: true }, 1, 1e-12, 2000).unwrap();
+        assert!(!plain.converged, "modified Newton oscillates on this spring: {}", plain.iterations);
+        assert!(outcome.iterations <= 12, "{}", outcome.iterations);
+    }
+
+    #[test]
+    fn a_mix_far_longer_than_the_correction_is_not_taken() {
+        let (state, correction) = ([1.0, 2.0], [0.1, -0.2]);
+        let sound = vec![(vec![0.3, 0.1], vec![-0.05, 0.02])];
+        let taken = mixed(&state, &correction, &sound).expect("a mix of ordinary length");
+        assert!(taken.iter().all(|v| v.is_finite()));
+        assert_eq!(mixed(&state, &correction, &[]), Some(vec![1.1, 1.8]));
+
+        let thrown = vec![(vec![5e6, -1e7], vec![1e-4, -2e-4])];
+        assert_eq!(mixed(&state, &correction, &thrown), None);
+        let dependent = vec![(vec![0.3, 0.1], vec![1.0, 2.0]), (vec![0.1, 0.3], vec![1.0, 2.0])];
+        assert_eq!(mixed(&state, &correction, &dependent), None);
+        let poisoned = vec![(vec![f64::INFINITY, 0.1], vec![-0.05, 0.02])];
+        assert_eq!(mixed(&state, &correction, &poisoned), None);
+    }
+
+    #[test]
+    fn a_depth_the_driver_cannot_run_is_refused() {
+        for depth in [0, MAX_ANDERSON_DEPTH + 1, usize::MAX] {
+            assert_eq!(validate(IterationMethod::Anderson { depth }).unwrap_err(), "Anderson acceleration needs a depth from 1 to 50");
+        }
+        for method in [IterationMethod::Anderson { depth: 1 }, IterationMethod::Anderson { depth: MAX_ANDERSON_DEPTH }, IterationMethod::Newton, IterationMethod::ModifiedNewton, IterationMethod::NewtonLineSearch] {
+            assert_eq!(validate(method), Ok(()));
+        }
+    }
+
+    #[test]
+    fn a_trial_within_tolerance_ends_the_increment_whatever_its_work() {
+        let mut searched = Chain::spring(softening, 0.0).starting_at(&[0.5]);
+        let outcome = solve_by_load_increments(&mut searched, &NewtonLineSearch, 1, 0.2, 2).unwrap();
+        assert_eq!(outcome, Outcome { iterations: 2, converged: true, load_factor: 1.0, increments: 1 });
+        assert!(searched.unbalance(1.0) < 0.2);
+    }
+
+    #[test]
+    fn a_step_that_leaves_the_state_non_finite_ends_the_increment_unconverged() {
+        fn blowing(u: f64) -> (f64, f64) {
+            if u.abs() > 2.0 { (f64::NAN, 1.0) } else { (-u, -1.0) }
+        }
+        let mut searched = Chain::spring(blowing, 5.0).starting_at(&[1.0]);
+        let outcome = solve_by_load_increments(&mut searched, &NewtonLineSearch, 1, 1e-10, 30).unwrap();
+        assert!(!outcome.converged);
+        assert!(searched.linearizations < 30, "{}", searched.linearizations);
+        assert_eq!(searched.u, vec![1.0]);
+    }
+
+    #[test]
+    fn a_search_that_runs_out_of_trials_goes_on_from_a_point_that_lowered_the_energy() {
+        fn wall_at(wall: f64) -> fn(f64) -> (f64, f64) {
+            match (wall * 100.0).round() as usize {
+                12 => |u| if u >= 0.12 { (u + 100.0, 1.0) } else { (u, 1.0) },
+                17 => |u| if u >= 0.17 { (u + 100.0, 1.0) } else { (u, 1.0) },
+                23 => |u| if u >= 0.23 { (u + 100.0, 1.0) } else { (u, 1.0) },
+                26 => |u| if u >= 0.26 { (u + 100.0, 1.0) } else { (u, 1.0) },
+                29 => |u| if u >= 0.29 { (u + 100.0, 1.0) } else { (u, 1.0) },
+                33 => |u| if u >= 0.33 { (u + 100.0, 1.0) } else { (u, 1.0) },
+                37 => |u| if u >= 0.37 { (u + 100.0, 1.0) } else { (u, 1.0) },
+                _ => |u| if u >= 0.41 { (u + 100.0, 1.0) } else { (u, 1.0) },
+            }
+        }
+        let mut past_the_wall = 0;
+        for wall in [0.12, 0.17, 0.23, 0.26, 0.29, 0.33, 0.37, 0.41] {
+            let mut searched = Chain::spring(wall_at(wall), 2.0);
+            searched.begin_increment(1.0);
+            let mut spent = 0;
+            NewtonLineSearch.converge(&mut searched, 1e-12, 9, &mut spent).unwrap();
+            assert!(spent <= 9);
+            past_the_wall += searched.corrected_from.iter().filter(|u| **u >= wall).count();
+        }
+        assert_eq!(past_the_wall, 0);
+    }
+
+    #[test]
+    fn least_squares_solves_and_refuses_dependent_columns() {
+        let (a, b, c) = ([1.0, 0.0, 2.0], [0.0, 1.0, 1.0], [1.0, 1.0, 0.0]);
+        let target: Vec<f64> = (0..3).map(|i| 2.0 * a[i] - 3.0 * b[i] + 0.5 * c[i]).collect();
+        let weights = least_squares(&[&a, &b, &c], &target).unwrap();
+        for (got, want) in weights.iter().zip([2.0, -3.0, 0.5]) {
+            assert!((got - want).abs() <= 1e-12);
+        }
+        let projected = least_squares(&[&a, &b], &[1.0, 1.0, 1.0]).unwrap();
+        let rest: Vec<f64> = (0..3).map(|i| 1.0 - projected[0] * a[i] - projected[1] * b[i]).collect();
+        assert!(rest.iter().zip(&a).map(|(x, y)| x * y).sum::<f64>().abs() <= 1e-12);
+        assert!(rest.iter().zip(&b).map(|(x, y)| x * y).sum::<f64>().abs() <= 1e-12);
+        assert_eq!(least_squares(&[&a, &a], &target), None);
+        assert_eq!(least_squares(&[&[0.0, 0.0, 0.0]], &target), None);
+        assert_eq!(least_squares(&[&[f64::NAN, 0.0, 0.0]], &target), None);
+        assert_eq!(least_squares(&[], &target), Some(vec![]));
     }
 }
