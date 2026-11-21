@@ -1,3 +1,4 @@
+import { planarPointMoment, planarPointMomentWithoutProjection, planarPointProjectionTooShort } from '../engine/planar-point-load';
 import { hasModalSeismicDerivation } from '../engine/loads/seismic-generation';
 /**
  * Which features a saved model has, for deciding which registered result changes concern it.
@@ -50,7 +51,7 @@ export const FEATURE_IDS = [
   'connectors', 'connectorsWithShear', 'pathAnalysis',
   'stagedConstruction', 'generatedStructures', 'nodalMoments', 'trussMemberLoads', 'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'generatedLoads', 'generatedWindLoads', 'generatedSeismicLoads', 'unverifiedGeneratedSeismicLoads',
   'generatedWidthGravity', 'generatedPanelGravityShells', 'memberFloorZones', 'magnitudeCombinations',
-  'partialDistributedMemberLoads', 'distributedMemberLoads', 'selfWeight', 'nonstandardPlanarSelfWeight', 'standaloneGravityToggleOff', 'nodalForces', 'forceSummaryResults',
+  'partialDistributedMemberLoads', 'distributedMemberLoads', 'spatialDistributedLoadOrientation', 'unplaceablePlanarPointLoads', 'planarStartCoupleWithoutProjection', 'legacyPlanarPointCoupleAliases', 'selfWeight', 'nonstandardPlanarSelfWeight', 'standaloneGravityToggleOff', 'nodalForces', 'forceSummaryResults',
   'ssiHistory', 'movingLoads', 'combinations', 'cirsocCombinations', 'seismic', 'snow', 'wind', 'timeHistorySpec',
   'superposedCombinations', 'repeatedCombinationCases',
   ...ANALYSIS_KINDS.map((k) => `analysis:${k}` as const),
@@ -356,6 +357,8 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   if (connectors.length) f.add('connectors');
   if (connectors.some((c) => positive(c.kShear) || positive(c.kShearZ))) f.add('connectorsWithShear');
 
+  const elementById = new Map(elements.map(e => [e.id, e]));
+  const nodeById = new Map(Array.isArray(s.nodes) ? s.nodes : []);
   const axialMembers = new Set(elements.filter((e) => e.type === 'truss' || e.type === 'cable').map((e) => e.id));
   const cases = Array.isArray(s.loadCases) ? s.loadCases : [];
   if (globalAxes() && cases.some(c => c.axisNamed === true)) f.add(GLOBAL_AXES_EVIDENCE);
@@ -387,6 +390,21 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
       if (axialMembers.has(d.elementId as number)) f.add('trussMemberLoads');
     }
     if (t.startsWith('distributed')) f.add('distributedMemberLoads');
+    const fixedLoadFrame = d.frame === 'global' || d.frame === 'projected';
+    if (t === 'distributed3d' && (nonZero(d.qXI) || nonZero(d.qXJ)
+        || (fixedLoadFrame && [d.qYI, d.qYJ, d.qZI, d.qZJ].some(nonZero)))) {
+      f.add('spatialDistributedLoadOrientation');
+    }
+    if (t === 'pointOnElement') {
+      if (nonZero(d.mz) || planarPointMoment(d) === null) f.add('legacyPlanarPointCoupleAliases');
+      const e = elementById.get(d.elementId as number);
+      const i = e && nodeById.get(e.nodeI), j = e && nodeById.get(e.nodeJ);
+      if (i && j && (i.z ?? 0) !== (j.z ?? 0) && planarPointProjectionTooShort(j.x - i.x, j.y - i.y)) {
+        const moment = planarPointMomentWithoutProjection(d, d.a);
+        if (moment === null) f.add('unplaceablePlanarPointLoads');
+        else if (moment !== 0) f.add('planarStartCoupleWithoutProjection');
+      }
+    }
     const partialDistributed = t.startsWith('distributed') && (positive(d.a) || d.b !== undefined);
     if (partialDistributed) f.add('partialDistributedMemberLoads');
     if (t.startsWith('pointOnElement') || partialDistributed) f.add('pointOrPartialMemberLoads');

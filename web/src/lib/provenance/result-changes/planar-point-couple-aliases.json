@@ -1,0 +1,41 @@
+{
+  "id": "planar-point-couple-aliases",
+  "date": "2026-11-21",
+  "prs": [],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "legacyPlanarPointCoupleAliases"
+    ]
+  },
+  "quantities": [
+    "solve.ok",
+    "displacements",
+    "reactions",
+    "elementForces"
+  ],
+  "title": {
+    "en": "Legacy planar point-couple aliases",
+    "es": "Campos históricos de pares puntuales planos",
+    "pt": "Campos antigos de binários pontuais planos",
+    "de": "Legacy-Felder für ebene Einzelmomente",
+    "fr": "Anciens champs des couples ponctuels plans",
+    "hu": "Síkbeli pontnyomatékok régi mezői",
+    "tr": "Düzlemsel noktasal momentlerin eski alanları",
+    "zh": "旧版平面集中力偶的别名字段"
+  },
+  "explanation": {
+    "en": "A planar point couple now uses the nonzero moment field when its other alias is zero. Conflicting or invalid values stop the solve. Rerun affected analyses.",
+    "es": "Un par puntual plano usa el campo de momento no nulo cuando el otro es cero. Los valores incompatibles o no válidos detienen el análisis. Volvé a ejecutar los análisis afectados.",
+    "pt": "Um binário pontual plano usa o campo de momento não nulo quando o outro é zero. Valores incompatíveis ou inválidos interrompem a análise. Execute novamente as análises afetadas.",
+    "de": "Ein ebenes Einzelmoment verwendet das von null verschiedene Momentenfeld, wenn das andere null ist. Widersprüchliche oder ungültige Werte stoppen die Berechnung. Führen Sie betroffene Analysen erneut aus.",
+    "fr": "Un couple ponctuel plan utilise le champ de moment non nul lorsque l’autre est nul. Les valeurs incompatibles ou invalides arrêtent le calcul. Relancez les analyses concernées.",
+    "hu": "A síkbeli pontnyomaték a nem nulla mező értékét használja, ha a másik nulla. Az ütköző vagy érvénytelen értékek leállítják a számítást. Futtassa újra az érintett elemzéseket.",
+    "tr": "Düzlemsel noktasal moment, alanlardan biri sıfırsa sıfır olmayan değeri kullanır. Çelişkili veya geçersiz değerler çözümü durdurur. Etkilenen analizleri yeniden çalıştırın.",
+    "zh": "平面集中力偶的一个力矩字段为零时，采用另一个字段的非零值。字段值冲突或无效时停止求解。请重新运行受影响的分析。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-planar-point-couple-aliases.md",
+    "heading": "Legacy planar point-couple aliases"
+  }
+}
