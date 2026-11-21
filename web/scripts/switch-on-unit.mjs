@@ -29,6 +29,7 @@ export const switchOnUnitFiles = [
 ];
 
 export const sharedSwitchOnUnitFiles = [
+  'src/lib/i18n/__tests__/engine-purity.test.ts',
   'src/lib/i18n/__tests__/pro-flow-coverage.test.ts',
   'src/lib/i18n/__tests__/split-dictionaries.test.ts',
   'src/lib/export/__tests__/export-provenance.test.ts',

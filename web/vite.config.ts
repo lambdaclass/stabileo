@@ -147,6 +147,7 @@ function publicI18nPlugin(features: () => BuildFeatures, eager: () => boolean, r
 const NOT_VITEST = ['**/node_modules/**', '**/dist/**', 'e2e/**', 'determinism/**', '**/.stryker-tmp/**', 'scripts/**/*.test.mjs'];
 
 const EXCLUDED_SWITCH_ON_UNIT_TESTS = process.env.STABILEO_UNIT_PROFILE === 'production' ? switchOnUnitFiles : [];
+const INCLUDED_SWITCH_ON_UNIT_TESTS = [...switchOnUnitFiles, ...sharedSwitchOnUnitFiles];
 
 /**
  * Tests that shell out to a real build or another project script, plus timing budgets
@@ -365,7 +366,7 @@ const baseConfig = defineConfig({
           setupFiles: ['./vitest.setup.ts'],
           // Everything except the production-build tests, which get their own pass.
           exclude: [...NOT_VITEST, ...PRODUCTION_BUILD_TESTS, ...RESULTS_SNAPSHOT_TESTS, ...EXCLUDED_SWITCH_ON_UNIT_TESTS],
-          ...(process.env.STABILEO_UNIT_PROFILE === 'test' ? { include: [...switchOnUnitFiles, ...sharedSwitchOnUnitFiles] } : {}),
+          ...(process.env.STABILEO_UNIT_PROFILE === 'test' ? { include: INCLUDED_SWITCH_ON_UNIT_TESTS } : {}),
           // THREADS, NOT FORKS — and this is the line that fixed the RPC timeout.
           //
           // `onTaskUpdate` is the worker → coordinator RPC, and birpc gives it a SIXTY

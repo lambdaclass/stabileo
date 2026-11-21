@@ -32,17 +32,10 @@
  * family and piece names live, and it is invisible to a naive `grep`.
  */
 import { describe, it, expect } from 'vitest';
-import { readdirSync, statSync } from 'node:fs';
-import { join, relative } from 'node:path';
-import { proPlatesSource, readProPlatesProfile } from '../../../../scripts/pro-plates-source.mjs';
+import { join } from 'node:path';
+import { SOURCE_ROOT as SRC, profileSourceFiles, readProfileSource } from './profile-sources';
 import { allDictFor as dictFor, allShippedLocales, completeLocales } from '../locales/all';
 const OFFERED_LOCALES = completeLocales();
-
-const SRC = new URL('../../..', import.meta.url).pathname;
-const unified = __PUBLIC_FEATURES__.proPlatesUnified;
-const profile = proPlatesSource(() => unified);
-const { unavailable, restored } = readProPlatesProfile(unified);
-const sourcePath = (file: string) => `src/${relative(SRC, file)}`;
 
 /**
  * The modules that produce what a PRO user reads.
@@ -59,29 +52,12 @@ const PRO_DIRS = [
   'lib/export',
 ];
 
-function walk(dir: string): string[] {
-  const out: string[] = [];
-  for (const name of readdirSync(dir)) {
-    const full = join(dir, name);
-    if (statSync(full).isDirectory()) {
-      if (name === '__tests__' || name === '__fixtures__') continue;
-      out.push(...walk(full));
-    } else if (name.endsWith('.ts') || name.endsWith('.svelte')) {
-      out.push(full);
-    }
-  }
-  return out;
-}
-
-const files = [
-  ...PRO_DIRS.flatMap(dir => walk(join(SRC, dir))).filter(file => !unavailable.has(sourcePath(file))),
-  ...[...restored].filter(path => PRO_DIRS.some(dir => path.startsWith(`src/${dir}/`))).map(path => join(SRC, path.slice(4))),
-];
+const files = profileSourceFiles(PRO_DIRS, /\.(?:ts|svelte)$/);
 
 const staticKeys = new Set<string>();
 const dynamicPrefixes = new Set<string>();
 for (const file of files) {
-  const src = profile.read(file);
+  const src = readProfileSource(file);
   for (const m of src.matchAll(/\bt[ep]?\(\s*'([^']+)'/g)) staticKeys.add(m[1]);
   for (const m of src.matchAll(/(?:labelKey|titleKey|key|reasonKey|refusedKey)\s*:\s*'([a-z][\w.]*\.[\w.]+)'/gi)) {
     staticKeys.add(m[1]);
@@ -127,7 +103,7 @@ describe('the PRO workflow speaks every language it is offered in', () => {
     it(`declares no key twice in ${locale}`, () => {
       // The dictionaries are object literals: a repeated key is silently the last one, so the
       // translation someone wrote can be shadowed by an older one with no error anywhere.
-      const src = profile.read(join(SRC, `lib/i18n/locales/${locale}.ts`));
+      const src = readProfileSource(join(SRC, `lib/i18n/locales/${locale}.ts`));
       const seen = new Set<string>();
       const dupes = new Set<string>();
       for (const m of src.matchAll(/^\s*'([^']+)'\s*:/gm)) {
