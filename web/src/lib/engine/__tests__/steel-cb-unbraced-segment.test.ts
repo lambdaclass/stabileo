@@ -228,7 +228,10 @@ for (const el2Reversed of [false, true]) {
       const end = ef.elementId === 1 ? 2 : reverse ? 2 : 6;
       const sign = reverse ? -1 : 1;
       Object.assign(ef, { length: Math.abs(end - start), myStart: sign * moment(start), myEnd: sign * moment(end),
-        vzStart: 4 - 2 * start, vzEnd: 4 - 2 * end, qYI: 0, qYJ: 0, qZI: -2 * sign, qZJ: -2 * sign });
+        vzStart: 4 - 2 * start, vzEnd: 4 - 2 * end, qYI: 0, qYJ: 0, qZI: -2 * sign, qZJ: -2 * sign,
+        distributedLoadsY: [], distributedLoadsZ: [], pointLoadsY: [], pointLoadsZ: [],
+        releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false,
+        releaseTStart: false, releaseTEnd: false });
     }
     const lengths = memberLengths(model);
     expect(lengths.get(2)?.chain).toEqual([1, 2]);
