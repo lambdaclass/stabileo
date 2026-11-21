@@ -215,10 +215,8 @@ describe('steelSegmentDiagram — the stitched segment diagram', () => {
   });
 });
 
-const incompleteSolvedGradient = process.env.RUN_KNOWN_WRONG === '2403' ? it : it.skip;
-for (const [el2Reversed, mixed] of [[false, false], [true, false], [false, true]]) {
-  const test = mixed ? incompleteSolvedGradient : it;
-  test(`known wrong result: #2403 uses only supported Cb on an unequal chain reversed=${el2Reversed} mixed=${mixed}`, () => {
+for (const [el2Reversed, mixed] of [[false, false], [true, false], [false, true]] as const) {
+  it(`known wrong result: #2403 uses only supported Cb on an unequal chain reversed=${el2Reversed} mixed=${mixed}`, () => {
     const model = chainModel({ el2Reversed });
     if (mixed) {
       model.materials.set(2, { id: 2, name: 'H30', fc: 30, fy: 30, e: 25000 });
@@ -247,6 +245,7 @@ for (const [el2Reversed, mixed] of [[false, false], [true, false], [false, true]
     expect(checks).toHaveLength(mixed ? 1 : 2);
     for (const check of checks) {
       expect(check.inputs!.length).toBeGreaterThan(0);
+      if (mixed) expect(cbOf(check)).toBe(1);
       for (const input of check.inputs!) {
         if (mixed) expect(input.Cb).toBeUndefined();
         else expect(input.Cb).toBeCloseTo(cb, 12);

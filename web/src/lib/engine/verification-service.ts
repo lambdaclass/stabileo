@@ -791,7 +791,10 @@ export function steelSegmentDiagram(
   for (const [id, count] of counts) if (count !== elems.length) byCombo.delete(id);
   const momentReaders = new Map<number, MomentReader>();
   for (const [id, pieces] of pieceReaders) {
-    if (pieces.length !== elems.length) continue;
+    if (pieces.length !== elems.length) {
+      byCombo.delete(id);
+      continue;
+    }
     momentReaders.set(id, (t, right) => (pieces.find(p => right ? t < p.end : t <= p.end) ?? pieces.at(-1)!).read(t, right));
   }
   return { stations, ...window, byCombo, momentReaders, extent };
