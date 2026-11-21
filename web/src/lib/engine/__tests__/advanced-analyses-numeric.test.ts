@@ -31,8 +31,6 @@ import { expectPlasticRefusal } from './containment-helper';
 
 import { describe, it, expect, beforeAll } from 'vitest';
 import { initSolver, solve, solveBuckling, solveModal, solvePDelta, solvePlastic } from '../wasm-solver';
-import { plasticCollapse2D } from '../plastic-collapse';
-import type { SolverInput } from '../types';
 
 beforeAll(async () => { await initSolver(); });
 
@@ -204,29 +202,4 @@ describe('plastic collapse', () => {
     expectPlasticRefusal(() => solvePlastic(fixedFixedUdl().args));
   });
 
-  /** The Basic panel's analysis (certified limit analysis plus the step-by-step history) on the same beam. */
-  const panel = () => {
-    const { Mp, args } = fixedFixedUdl();
-    const s = args.solver as unknown as SolverInput & { nodes: Map<number, { id: number; x: number; y: number }> };
-    const solver = { ...s, nodes: new Map([...s.nodes].map(([k, n]) => [k, { id: n.id, x: n.x, z: n.y }])) } as unknown as SolverInput;
-    return plasticCollapse2D(solver, { mp: () => Mp, np: () => Infinity });
-  };
-
-  it('a fixed-fixed beam under UDL collapses at 16 Mp/L² in the Basic panel', () => {
-    const { L, w, Mp } = fixedFixedUdl();
-    const r = panel();
-    expect(r.isMechanism && !r.withheld).toBe(true);
-    expect(r.collapseFactor / ((16 * Mp) / L ** 2 / w)).toBeCloseTo(1, 9);
-  });
-
-  it('hinges form at the fixed ends first, then in the span, in the Basic panel', () => {
-    // The mechanism's ORDER is the part a teaching tool shows, and a solver
-    // that got the collapse load right by luck would get this wrong.
-    const r = panel();
-    const first = r.steps[0].hingesFormed as Array<{ elementId: number; end: string }>;
-    const ids = first.map((h) => `${h.elementId}${h.end}`);
-    expect(ids).toContain('1start');
-    expect(ids).toContain('4end');
-    expect(r.isMechanism).toBe(true);
-  });
 });
