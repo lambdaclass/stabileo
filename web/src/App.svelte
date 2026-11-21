@@ -1150,7 +1150,7 @@
     // finishes, because losing one of those to a 30 s window is losing the run.
     autosaveInterval = setInterval(() => {
       void requestAutosave('timer');
-      if (!uiStore.embedMode && !uiStore.viewerMode && !examLock.holdsWorkspace) saveWorkspaceToLocalStorage();
+      if (!uiStore.embedMode && !uiStore.viewerMode) saveWorkspaceToLocalStorage();
     }, 30_000);
 
     // Mobile responsive: track window width
@@ -1217,7 +1217,7 @@
 
     return () => {
       stopUsageTracking();
-      if (!uiStore.embedMode && !uiStore.viewerMode && !examLock.holdsWorkspace) saveWorkspaceToLocalStorage();
+      if (!uiStore.embedMode && !uiStore.viewerMode) saveWorkspaceToLocalStorage();
       if (autosaveInterval) clearInterval(autosaveInterval);
       window.removeEventListener('resize', onResize);
       window.removeEventListener('stabileo-export-png', handleExportPNG);

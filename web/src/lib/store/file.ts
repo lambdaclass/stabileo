@@ -878,6 +878,7 @@ import type { ResultProvenance } from '../provenance/result-provenance';
 import { provenanceTextLines } from '../provenance/result-provenance';
 import { askAboutOverlapsInModel } from '../model/edit/connection-questions';
 import { viewVisibility } from './view-state.svelte';
+import { examLock } from './exam-lock.svelte';
 
 // ─── Export Excel ────────────────────────────────────────────────
 
@@ -1250,7 +1251,7 @@ function withdrawWorkspace(): void {
  * workspace. True when the save was written or is under way; `saveWorkspaceSettled` waits for it.
  */
 export function saveWorkspaceToLocalStorage(): boolean {
-  if (workspaceOverwriteHeld || workspaceRestorePending) return false;
+  if (workspaceOverwriteHeld || workspaceRestorePending || examLock.holdsWorkspace) return false;
   const gen = ++saveGen;
   const staged: StagedDetailing[] = [];
   let text: string;
