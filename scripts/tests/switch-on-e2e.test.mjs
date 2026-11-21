@@ -8,8 +8,10 @@ import { fileURLToPath } from 'node:url';
 const web = fileURLToPath(new URL('../../web/', import.meta.url));
 const collector = 'scripts/run-switch-on-e2e.mjs';
 const playwright = 'node_modules/@playwright/test/cli.js';
+const expectedSpecsFile = 'config/switch-on-e2e-specs.json';
+const knownWrong = { skip: 'known wrong result: #2436' };
 
-function fixture(t, specs, { config = '', sameProfiles = false } = {}) {
+function fixture(t, specs, { config = '', sameProfiles = false, expectedSpecs = [] } = {}) {
   const cwd = mkdtempSync(resolve(web, '.switch-on-collector-'));
   t.after(() => rmSync(cwd, { recursive: true, force: true }));
   for (const subdir of ['config', 'scripts', 'e2e']) mkdirSync(resolve(cwd, subdir));
@@ -19,6 +21,7 @@ function fixture(t, specs, { config = '', sameProfiles = false } = {}) {
   const production = { accounts: true, research: true, tools: true, diagramGame: false, globalAxes: false };
   const enabled = { ...production, globalAxes: !sameProfiles };
   writeFileSync(resolve(cwd, 'config/features.json'), JSON.stringify({ production, test: enabled, development: enabled }));
+  writeFileSync(resolve(cwd, expectedSpecsFile), JSON.stringify(expectedSpecs));
   symlinkSync(resolve(web, 'node_modules'), resolve(cwd, 'node_modules'), 'dir');
   writeFileSync(resolve(cwd, 'playwright.config.ts'), `export default { testDir: './e2e', ${config} };`);
   for (const [file, contents] of Object.entries(specs)) {
@@ -81,12 +84,49 @@ test('refuses a tagged spec when no tagged case is active even if an untagged ca
 });
 
 test('refuses a tagged spec omitted from the Playwright report', t => {
+  const file = 'nested/omitted.spec.ts';
   const result = collect(fixture(t, {
-    'nested/omitted.spec.ts': "test('omitted', { 'tag': '@switch-on' }, () => {});",
+    [file]: "test('omitted', { 'tag': '@switch-on' }, () => {});",
     'ordinary.spec.ts': "test('always enabled', () => {});",
-  }, { config: "testIgnore: '**/omitted.spec.ts'" }));
+  }, { config: "testIgnore: '**/omitted.spec.ts'", expectedSpecs: [file] }));
   assert.equal(result.status, 1, result.stdout + result.stderr);
   assert.match(result.stderr, /No active @switch-on cases were collected from: e2e\/nested\/omitted\.spec\.ts/);
+});
+
+test('ignores switch-on text in an ordinary assertion', knownWrong, t => {
+  const file = 'tagged.spec.ts';
+  const options = fixture(t, {
+    [file]: "test('switch-on case', { tag: '@switch-on' }, () => {});",
+    'ordinary.spec.ts': `
+      import { expect } from '@playwright/test';
+      test('displays the label', () => {
+        const label = '@switch-on';
+        expect(label).toBe('@switch-on');
+      });
+    `,
+  });
+  assertSelected(collect(options), [file]);
+});
+
+test('requires a declared spec with an imported tag to contribute an active case', knownWrong, t => {
+  const file = 'imported-tag.spec.ts';
+  const specs = {
+    [file]: `
+      import { SWITCH_ON_TAG } from './tags';
+      test('switch-on case', { tag: SWITCH_ON_TAG }, () => {});
+    `,
+    'tags.ts': "export const SWITCH_ON_TAG = '@switch-on';",
+    'ordinary.spec.ts': "test('always enabled', () => {});",
+  };
+  const expectedSpecs = [file];
+  assertSelected(collect(fixture(t, specs, { expectedSpecs })), [file]);
+
+  const result = collect(fixture(t, specs, {
+    config: "testIgnore: '**/imported-tag.spec.ts'",
+    expectedSpecs,
+  }));
+  assert.equal(result.status, 1, result.stdout + result.stderr);
+  assert.match(result.stderr, /No active @switch-on cases were collected from: e2e\/imported-tag\.spec\.ts/);
 });
 
 test('keeps profile-only selection and allows explicit files', t => {
