@@ -19,7 +19,7 @@ const REPO = 'https://github.com/lambdaclass/stabileo/blob/main/docs/advisories'
 export const safetyAdvisories: Post = {
   slug: 'safety-advisories',
   date: '2026-10-20',
-  updated: '2026-11-20',
+  updated: '2026-11-21',
   order: 7,
   authors: ['Federico Carrone'],
   tagKeys: ['blog.tag.safety', 'blog.tag.verification'],
@@ -97,6 +97,14 @@ export const safetyAdvisories: Post = {
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-094-plane-free-body-end-moments.md", "label": "SA-2026-094", "t": "Datos afectados y acciones necesarias."},
         {"k": "note", "t": "SA-2026-095 — Corregido en #2364, pendiente de versión."},
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-095-plane-signed-scoped-self-weight.md", "label": "SA-2026-095", "t": "Datos afectados y acciones necesarias."},
+        {"k": "note", "t": "SA-2026-096 — Corregido en 0.6.3."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-096-static-seismic-stories-and-rafters.md", "label": "SA-2026-096", "t": "Datos afectados y acciones necesarias."},
+        {"k": "note", "t": "SA-2026-097 — Corregido en 0.6.3."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-097-workbook-inputs-and-plane-springs.md", "label": "SA-2026-097", "t": "Datos afectados y acciones necesarias."},
+        {"k": "note", "t": "SA-2026-098 — Corregido en 0.6.3."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-098-rc-drawn-reinforcement-verification.md", "label": "SA-2026-098", "t": "Datos afectados y acciones necesarias."},
+        {"k": "note", "t": "SA-2026-099 — Contenido en 0.6.3."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-099-gravity-and-roof-step-loads.md", "label": "SA-2026-099", "t": "Datos afectados y acciones necesarias."},
         { k: 'img', base: 'blog/recheck-stale', w: 1600, h: 1000, alt: 'Stabileo PRO con un pórtico de hormigón guardado antes de que los resultados tuvieran versión. Un aviso abajo indica que los resultados están desactualizados porque el proyecto se resolvió con una versión anterior y 19 cambios registrados lo afectan, con los botones para ver qué cambió y volver a calcular.', caption: 'Cómo llega una corrección a un proyecto guardado: hasta que se resuelve de nuevo, sus resultados quedan marcados como desactualizados, con los cambios que lo afectan a un clic.' },
 
         { k: 'h', t: 'Resumen' },
@@ -198,7 +206,11 @@ export const safetyAdvisories: Post = {
             ["SA-2026-092", "La evaluación detallada de tensiones podía subestimar el corte total y von Mises y dar un resultado favorable. Recalculá las tensiones afectadas y revisá los diagramas, las verificaciones y los informes.", "Alta", "Caso combinado bloqueado en #2372 y cortes corregidos en #2382, pendientes de versión"],
             ["SA-2026-093", "Las cargas móviles planas podían suavizar el salto de esfuerzo axial en un eje concentrado. Recalculá las envolventes y las líneas de influencia axial y revisá los informes que las usaron.", "Alta", "Corregido en #2381, pendiente de versión"],
             ["SA-2026-094", "El inspector de cuerpo libre 2D podía mostrar con el signo incorrecto los momentos globales en los extremos de las barras. Los resultados del análisis eran correctos. Volvé a inspeccionar las barras y regenerá y revisá los informes afectados.", "Media", "Corregido en #2364, pendiente de versión"],
-            ["SA-2026-095", "Los proyectos 2D guardados con reglas de peso propio con signo o limitadas a ciertas barras podían dar reacciones incorrectas sin aviso. Al abrir un proyecto afectado, un aviso pide volver a calcular. Recalculá y regenerá y revisá los informes afectados.", "Alta", "Corregido en #2364, pendiente de versión"]
+            ["SA-2026-095", "Los proyectos 2D guardados con reglas de peso propio con signo o limitadas a ciertas barras podían dar reacciones incorrectas sin aviso. Al abrir un proyecto afectado, un aviso pide volver a calcular. Recalculá y regenerá y revisá los informes afectados.", "Alta", "Corregido en #2364, pendiente de versión"],
+            ["SA-2026-096", "La generación sísmica estática podía contar nudos de arriostramiento o de malla como pisos y concentrar la inercia de las barras de cubierta en sus extremos. Revisá las cotas de los pisos y las cargas sobre esas barras. Regenerá los casos antes de repetir el análisis y las verificaciones.", "Alta", "Corregido en 0.6.3"],
+            ["SA-2026-097", "La importación de planillas podía omitir datos del modelo y la exportación 2D podía rotular un resorte rotacional como traslacional. Compará el modelo importado con la planilla original, corregila y volvé a importarla. Verificá apoyos y cargas, repetí los análisis afectados y regenerá las exportaciones.", "Alta", "Corregido en 0.6.3"],
+            ["SA-2026-098", "Las verificaciones de hormigón podían aceptar estribos demasiado separados o contar armadura ausente en la sección. Los planos de columnas podían indicar diámetros incorrectos. Volvé a verificar la armadura provista con las solicitaciones concurrentes y revisá los planos, planillas e informes afectados.", "Alta", "Corregido en 0.6.3"],
+            ["SA-2026-099", "La generación gravitatoria podía cargar dos veces áreas de placas y vigas o cambiar qué barras reciben carga al rotar o subdividir. La transferencia de nieve en escalones de cubierta podía perder fuerza y momento. Regenerá las cargas y usá casos verificados de forma independiente cuando la generación se bloquee.", "Alta", "Contenido en 0.6.3"]
           ],
         },
         {
@@ -451,6 +463,14 @@ export const safetyAdvisories: Post = {
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-094-plane-free-body-end-moments.md", "label": "SA-2026-094", "t": "Affected inputs and user action."},
         {"k": "note", "t": "SA-2026-095 — Fixed in #2364, pending release."},
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-095-plane-signed-scoped-self-weight.md", "label": "SA-2026-095", "t": "Affected inputs and user action."},
+        {"k": "note", "t": "SA-2026-096 — Fixed in 0.6.3."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-096-static-seismic-stories-and-rafters.md", "label": "SA-2026-096", "t": "Affected inputs and user action."},
+        {"k": "note", "t": "SA-2026-097 — Fixed in 0.6.3."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-097-workbook-inputs-and-plane-springs.md", "label": "SA-2026-097", "t": "Affected inputs and user action."},
+        {"k": "note", "t": "SA-2026-098 — Fixed in 0.6.3."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-098-rc-drawn-reinforcement-verification.md", "label": "SA-2026-098", "t": "Affected inputs and user action."},
+        {"k": "note", "t": "SA-2026-099 — Contained in 0.6.3."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-099-gravity-and-roof-step-loads.md", "label": "SA-2026-099", "t": "Affected inputs and user action."},
         { k: 'img', base: 'blog/recheck-stale', w: 1600, h: 1000, alt: 'Stabileo PRO with a concrete frame saved before results were versioned. A banner at the bottom reads “Results stale: this project was last solved with an older version, and 19 registered changes concern it”, with the buttons “What changed” and “Re-run”.', caption: 'How a fix reaches a saved project: until it is solved again, its results stay marked stale, with the changes that concern it one click away.' },
 
         { k: 'h', t: 'Summary' },
@@ -552,7 +572,11 @@ export const safetyAdvisories: Post = {
             ["SA-2026-092", "Detailed section stress could understate total shear and von Mises and return a pass. Recompute affected stresses and review the diagrams, checks and reports.", "High", "Combined case refused in #2372 and cuts corrected in #2382, pending release"],
             ["SA-2026-093", "Plane moving loads could smear axial force jumps at concentrated axles. Rerun the affected envelopes and axial influence lines and review the reports that relied on them.", "High", "Fixed in #2381, pending release"],
             ["SA-2026-094", "The 2D free-body inspector could show global member-end moments with the wrong sign. Analysis results were unaffected. Inspect the members again, and regenerate and review affected reports.", "Medium", "Fixed in #2364, pending release"],
-            ["SA-2026-095", "Saved 2D projects with signed or scoped self-weight rules could return wrong reactions without warning. A recheck notice appears when affected projects are opened. Recompute the results, then regenerate and review affected reports.", "High", "Fixed in #2364, pending release"]
+            ["SA-2026-095", "Saved 2D projects with signed or scoped self-weight rules could return wrong reactions without warning. A recheck notice appears when affected projects are opened. Recompute the results, then regenerate and review affected reports.", "High", "Fixed in #2364, pending release"],
+            ["SA-2026-096", "Static seismic generation could count brace or mesh joints as storeys and put rafter inertia at end nodes. Check floor elevations and rafter loading. Regenerate the cases before rerunning analysis and design checks.", "High", "Fixed in 0.6.3"],
+            ["SA-2026-097", "Workbook import could omit model data and 2D exports could label a rotational spring as translational. Compare the imported model with the original workbook. Correct and reimport it, verify the supports and loads, then rerun affected analyses and regenerate exports.", "High", "Fixed in 0.6.3"],
+            ["SA-2026-098", "Concrete checks could accept excessive stirrup spacing or credit reinforcement absent at the section. Column drawings could show the wrong bar diameters. Recheck against the provided reinforcement and concurrent demands, then review the affected drawings, schedules and reports.", "High", "Fixed in 0.6.3"],
+            ["SA-2026-099", "Gravity generation could load shell and beam areas twice or change carrier assignments after rotation or subdivision. Roof-step snow transfer could lose force and moment. Regenerate the loads and use independently verified cases wherever generation refuses.", "High", "Contained in 0.6.3"]
           ],
         },
         {
@@ -805,6 +829,14 @@ export const safetyAdvisories: Post = {
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-094-plane-free-body-end-moments.md", "label": "SA-2026-094", "t": "Entradas afetadas e ações necessárias."},
         {"k": "note", "t": "SA-2026-095 — Corrigido em #2364, aguardando lançamento."},
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-095-plane-signed-scoped-self-weight.md", "label": "SA-2026-095", "t": "Entradas afetadas e ações necessárias."},
+        {"k": "note", "t": "SA-2026-096 — Corrigido em 0.6.3."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-096-static-seismic-stories-and-rafters.md", "label": "SA-2026-096", "t": "Entradas afetadas e ações necessárias."},
+        {"k": "note", "t": "SA-2026-097 — Corrigido em 0.6.3."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-097-workbook-inputs-and-plane-springs.md", "label": "SA-2026-097", "t": "Entradas afetadas e ações necessárias."},
+        {"k": "note", "t": "SA-2026-098 — Corrigido em 0.6.3."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-098-rc-drawn-reinforcement-verification.md", "label": "SA-2026-098", "t": "Entradas afetadas e ações necessárias."},
+        {"k": "note", "t": "SA-2026-099 — Contido em 0.6.3."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-099-gravity-and-roof-step-loads.md", "label": "SA-2026-099", "t": "Entradas afetadas e ações necessárias."},
         { k: 'img', base: 'blog/recheck-stale', w: 1600, h: 1000, alt: 'Stabileo PRO com um pórtico de concreto salvo antes de os resultados terem versão. Um aviso embaixo indica que os resultados estão desatualizados porque o projeto foi resolvido com uma versão anterior e 19 mudanças registradas o afetam, com os botões para ver o que mudou e recalcular.', caption: 'Como uma correção chega a um projeto salvo: até ser resolvido de novo, seus resultados ficam marcados como desatualizados, com as mudanças que o afetam a um clique.' },
 
         { k: 'h', t: 'Resumo' },
@@ -906,7 +938,11 @@ export const safetyAdvisories: Post = {
             ["SA-2026-092", "O cálculo detalhado de tensões podia subestimar o cisalhamento total e a tensão de von Mises e indicar aprovação. Recalcule as tensões afetadas e revise os diagramas, as verificações e os relatórios.", "Alta", "Caso combinado bloqueado em #2372 e cortes corrigidos em #2382, aguardando lançamento"],
             ["SA-2026-093", "As cargas móveis planas podiam suavizar os saltos de força axial nos eixos concentrados. Recalcule as envoltórias e linhas de influência axial afetadas e revise os relatórios que as utilizaram.", "Alta", "Corrigido em #2381, aguardando lançamento"],
             ["SA-2026-094", "O inspetor de corpo livre 2D podia mostrar com o sinal errado os momentos globais nas extremidades das barras. Os resultados da análise não foram afetados. Inspecione novamente as barras, regenere e revise os relatórios afetados.", "Média", "Corrigido em #2364, aguardando lançamento"],
-            ["SA-2026-095", "Projetos 2D salvos com regras de peso próprio com sinal ou restritas a certas barras podiam retornar reações incorretas sem aviso. A abertura de um projeto afetado agora exibe um aviso para recalcular. Recalcule os resultados, regenere e revise os relatórios afetados.", "Alta", "Corrigido em #2364, aguardando lançamento"]
+            ["SA-2026-095", "Projetos 2D salvos com regras de peso próprio com sinal ou restritas a certas barras podiam retornar reações incorretas sem aviso. A abertura de um projeto afetado agora exibe um aviso para recalcular. Recalcule os resultados, regenere e revise os relatórios afetados.", "Alta", "Corrigido em #2364, aguardando lançamento"],
+            ["SA-2026-096", "A geração sísmica estática podia contar nós de contraventamento ou de malha como pavimentos e concentrar a inércia das barras de cobertura nas extremidades. Confira as cotas dos pavimentos e as cargas nas barras. Gere novamente os casos antes de repetir a análise e as verificações.", "Alta", "Corrigido em 0.6.3"],
+            ["SA-2026-097", "A importação de planilhas podia omitir dados do modelo e a exportação 2D podia identificar uma mola rotacional como translacional. Compare o modelo importado com a planilha original, corrija e importe novamente. Confira apoios e cargas, repita as análises afetadas e gere novamente as exportações.", "Alta", "Corrigido em 0.6.3"],
+            ["SA-2026-098", "As verificações de concreto podiam aceitar estribos muito espaçados ou considerar armadura ausente na seção. Os desenhos de pilares podiam apresentar diâmetros incorretos. Verifique novamente a armadura fornecida com as solicitações simultâneas e revise os desenhos, quadros de armaduras e relatórios afetados.", "Alta", "Corrigido em 0.6.3"],
+            ["SA-2026-099", "A geração de cargas gravitacionais podia carregar duas vezes áreas de cascas e vigas ou mudar os elementos carregados após rotação ou subdivisão. A transferência de neve em desníveis de cobertura podia perder força e momento. Gere novamente as cargas e use casos verificados de forma independente quando houver bloqueio.", "Alta", "Contido em 0.6.3"]
           ],
         },
         {

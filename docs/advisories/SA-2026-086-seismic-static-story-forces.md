@@ -83,18 +83,14 @@ accidental torsion the available carriers cannot represent. A 45° case with
 medium or extreme torsional irregularity blocks the requested plan. Connected
 massless framing can contribute to the plan width used for accidental eccentricity.
 
-The following defects are still open.
+[SA-2026-096](SA-2026-096-static-seismic-stories-and-rafters.md) covers
+the additional static seismic fixes in 0.6.3 for connected X-brace
+intersections, subdivisions of inclined members, and rafter inertia.
 
-- A connected X-brace intersection can create a fictitious story, misallocate
-  seismic weight and change story forces and base shear. [#2330](https://github.com/lambdaclass/stabileo/issues/2330)
-- Far from the origin, coordinate rounding can turn a subdivision joint on a
-  straight member into a story and redistribute its seismic mass and forces. [#2331](https://github.com/lambdaclass/stabileo/issues/2331)
-- On sloped roofs, rafter inertia can reach only the eave and ridge nodes.
-  Story shear can agree while rafter bending from inertia along the span is
-  missing. [#2332](https://github.com/lambdaclass/stabileo/issues/2332)
-- Rounding can assign a very thin mass band to the base and drop its roof
-  force. Very large opposing torsion forces on nearly coincident carriers can
-  also round away the translational force and produce the wrong base shear. [#2334](https://github.com/lambdaclass/stabileo/issues/2334)
+Rounding can still assign a very thin mass band to the base and drop
+its roof force. Very large opposing torsion forces on nearly coincident
+carriers can also round away the translational force and produce the
+wrong base shear. [#2334](https://github.com/lambdaclass/stabileo/issues/2334)
 
 ## Workaround
 
