@@ -3,7 +3,7 @@
 // using equilibrium equations with distributed and point loads.
 
 import { type UnitSystem, formatDiagramValue } from '../utils/units';
-import { addMagnitudeBounds, checkedCurveValue, curveExtrema, diagramCurvePoints, fullSpanFallback, indexDiagramExtrema, magnitudeExtrema, memberDiagram, sortedStations, unavailableDiagramExtrema, type DiagramCurve, type DiagramExtremum, type DiagramStation } from './member-diagram';
+import { addMagnitudeBounds, checkedCurveValue, diagramCurvePoints, fullSpanFallback, indexDiagramExtrema, memberDiagram, prepareCurveExtrema, prepareMagnitudeExtrema, sortedStations, unavailableDiagramExtrema, type DiagramCurve, type DiagramExtremum, type DiagramStation } from './member-diagram';
 import type { ElementForces3D, EnvelopeDiagramData3D } from './types-3d';
 
 export type Diagram3DKind = 'momentY' | 'momentZ' | 'shearY' | 'shearZ' | 'axial' | 'torsion';
@@ -98,8 +98,8 @@ function spatialCurve(ef: ElementForces3D, kind: Diagram3DKind): SpatialCurve {
     return {
       get cuts() { return cuts(); },
       get cutDistances() { return distances(); },
-      extrema: at => exact ? magnitudeExtrema(polynomialParts, method, distances(), ef.length, at)
-        : curves.flatMap(curve => curve.extrema().map(({ t }) => ({ t, value: combine({ t }), canTransfer: () => false }))),
+      extrema: exact ? prepareMagnitudeExtrema(polynomialParts, method, distances, ef.length)
+        : () => curves.flatMap(curve => curve.extrema().map(({ t }) => ({ t, value: combine({ t }), canTransfer: () => false }))),
       ...(!exact ? { magnitudeBound } : {}),
       value: combine,
     };
@@ -126,11 +126,12 @@ function spatialCurve(ef: ElementForces3D, kind: Diagram3DKind): SpatialCurve {
     let cutDistances: Map<number, number> | undefined;
     const distances = () => cutDistances ??= joinedCutDistances(pieces.map(p =>
       new Map([...p.cutMap()].map(([t, local]) => [t, p.distance(local)]))));
+    let extrema: DiagramExtremum[] | undefined;
     return {
       magnitudeBound,
       get cuts() { return sortedStations(this.cutDistances.keys()); },
       get cutDistances() { return distances(); },
-      extrema: () => pieces.flatMap(p => p.curve.extrema().map(peak => {
+      extrema: () => extrema ??= pieces.flatMap(p => p.curve.extrema().map(peak => {
         const t = p.parent(peak.t);
         if (p.cutMap().has(t)) throw unavailableDiagramExtrema();
         return { t, value: peak.value, canTransfer: station => p === pieceAt({ t: station }) && peak.canTransfer(p.local(station)) };
@@ -151,7 +152,7 @@ function spatialCurve(ef: ElementForces3D, kind: Diagram3DKind): SpatialCurve {
   return {
     get cuts() { return curve.cuts; },
     get cutDistances() { return curve.cutDistances; },
-    value: curve.value, polynomial: curve.polynomial, extrema: at => curveExtrema(curve, ef.length, at),
+    value: curve.value, polynomial: curve.polynomial, extrema: prepareCurveExtrema(curve, ef.length),
   };
 }
 
@@ -255,9 +256,18 @@ export function getDiagramLocalDirection(kind: Diagram3DKind): 'y' | 'z' {
  * Uses analytical equilibrium equations.
  */
 export function evaluateDiagramAt(ef: ElementForces3D, kind: Diagram3DKind, t: number, right = false): number {
+  return evaluateSpatialCurve(spatialCurve(ef, kind), { t, right });
+}
+
+export function prepareDiagramEvaluator3D(ef: ElementForces3D, kind: Diagram3DKind): (t: number, right?: boolean) => number {
   const curve = spatialCurve(ef, kind);
-  const station = { t, right };
-  return curve.magnitudeBound ? curve.value(station) : checkedCurveValue(curve, station, indexDiagramExtrema(curve.extrema(t)));
+  return (t, right = false) => evaluateSpatialCurve(curve, { t, right });
+}
+
+function evaluateSpatialCurve(curve: SpatialCurve, station: DiagramStation): number {
+  if (curve.magnitudeBound) return curve.value(station);
+  const extrema = curve.extrema(station.t);
+  return extrema.length === 0 ? curve.value(station) : checkedCurveValue(curve, station, indexDiagramExtrema(extrema));
 }
 
 /** Format a 3D diagram value for display.

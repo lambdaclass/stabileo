@@ -158,21 +158,44 @@ function diagramExtremum(
   return { t, value, canTransfer };
 }
 
-export function curveExtrema(curve: DiagramCurve, length: number, at?: number): DiagramExtremum[] {
-  if (!curve.hasDistributedActions) return [];
-  const roots: DiagramExtremum[] = [];
-  const cuts = [...curve.cutDistances.entries()];
-  for (let k = 1; k < cuts.length; k++) {
-    const [lo, x0] = cuts[k - 1]!, [hi, x1] = cuts[k]!;
-    if (at !== undefined && !(lo < at && at < hi)) continue;
-    const polynomial = curve.polynomial(lo, hi);
-    for (const u of polynomialRootCandidates(polynomialDerivative(polynomial))) {
-      if (u <= 0 || u >= 1) continue;
-      const point = diagramExtremum(lo, hi, u, x0, x1, length, [polynomial], ([value]) => value!, at);
-      if (point) roots.push(point);
+interface ExtremaInterval {
+  polynomials: number[][];
+  roots: number[];
+}
+
+function prepareIntervalExtrema(
+  getCuts: () => [number, number][], length: number, combine: (values: number[]) => number,
+  prepare: (lo: number, hi: number, x0: number, x1: number) => ExtremaInterval,
+): (at?: number) => DiagramExtremum[] {
+  let cuts: [number, number][] | undefined;
+  const intervals: ExtremaInterval[] = [];
+  return at => {
+    cuts ??= getCuts();
+    const extrema: DiagramExtremum[] = [];
+    for (let k = 1; k < cuts.length; k++) {
+      const [lo, x0] = cuts[k - 1]!, [hi, x1] = cuts[k]!;
+      if (!(hi > lo) || (at !== undefined && !(lo < at && at < hi))) continue;
+      const { polynomials, roots } = intervals[k] ??= prepare(lo, hi, x0, x1);
+      for (const u of roots) {
+        const point = diagramExtremum(lo, hi, u, x0, x1, length, polynomials, combine, at);
+        if (point) extrema.push(point);
+      }
     }
-  }
-  return roots;
+    return extrema;
+  };
+}
+
+export function prepareCurveExtrema(curve: DiagramCurve, length: number): (at?: number) => DiagramExtremum[] {
+  if (!curve.hasDistributedActions) return () => [];
+  return prepareIntervalExtrema(() => [...curve.cutDistances], length, ([value]) => value!, (lo, hi) => {
+    const polynomial = curve.polynomial(lo, hi);
+    const roots = polynomialRootCandidates(polynomialDerivative(polynomial)).filter(u => u > 0 && u < 1);
+    return { polynomials: [polynomial], roots };
+  });
+}
+
+export function curveExtrema(curve: DiagramCurve, length: number, at?: number): DiagramExtremum[] {
+  return prepareCurveExtrema(curve, length)(at);
 }
 
 export function indexDiagramExtrema(critical: readonly DiagramExtremum[]): Map<number, DiagramExtremum> {
@@ -272,30 +295,26 @@ function polynomialRootCandidates(coefficients: readonly number[], lo = 0, hi = 
   return [...new Set(roots)].sort((a, b) => a - b);
 }
 
-export function magnitudeExtrema(parts: readonly Pick<DiagramCurve, 'polynomial'>[], method: 'abs' | 'srss', distances: ReadonlyMap<number, number>, length: number, at?: number): DiagramExtremum[] {
-  const cuts = sortedStations(distances.keys());
-  const extrema: DiagramExtremum[] = [];
+export function prepareMagnitudeExtrema(
+  parts: readonly Pick<DiagramCurve, 'polynomial'>[], method: 'abs' | 'srss',
+  distances: () => ReadonlyMap<number, number>, length: number,
+): (at?: number) => DiagramExtremum[] {
   const combine = (values: number[]) => method === 'srss' ? Math.hypot(...values) : values.reduce((sum, v) => sum + Math.abs(v), 0);
-  for (let k = 0; k + 1 < cuts.length; k++) {
-    const lo = cuts[k]!, hi = cuts[k + 1]!, width = hi - lo;
-    if (!(width > 0) || (at !== undefined && !(lo < at && at < hi))) continue;
-    const polynomials = parts.map(part => part.polynomial(lo, hi, distances.get(lo), distances.get(hi)));
+  const cuts = () => [...distances()].sort(([a], [b]) => a - b);
+  return prepareIntervalExtrema(cuts, length, combine, (lo, hi, x0, x1) => {
+    const polynomials = parts.map(part => part.polynomial(lo, hi, x0, x1));
     const scale = polynomials.reduce((max, p) => Math.max(max, ...p.map(Math.abs)), 0);
     if (!Number.isFinite(scale)) throw unavailableDiagramExtrema();
-    if (scale === 0) continue;
+    if (scale === 0) return { polynomials, roots: [] };
     const normalized = polynomials.map(p => p.map(c => c / scale));
-    const add = (u: number) => {
-      if (u === 0 || u === 1) return;
-      const point = diagramExtremum(lo, hi, u, distances.get(lo)!, distances.get(hi)!, length, polynomials, combine, at);
-      if (point) extrema.push(point);
-    };
+    const roots: number[] = [];
     if (method === 'srss') {
       const squared = Array<number>(7).fill(0);
       for (const p of normalized) p.forEach((a, i) => p.forEach((b, j) => { squared[i + j] += a * b; }));
-      for (const u of polynomialRootCandidates(polynomialDerivative(squared))) add(u);
+      roots.push(...polynomialRootCandidates(polynomialDerivative(squared)));
     } else {
       const zeros = [...new Set([0, 1, ...normalized.flatMap(p => polynomialRootCandidates(p))])].sort((a, b) => a - b);
-      for (const u of zeros) add(u);
+      for (const u of zeros) roots.push(u);
       for (let j = 0; j + 1 < zeros.length; j++) {
         const a = zeros[j]!, b = zeros[j + 1]!;
         const sum = Array<number>(4).fill(0);
@@ -303,9 +322,9 @@ export function magnitudeExtrema(parts: readonly Pick<DiagramCurve, 'polynomial'
           const sign = polynomialValue(p, a + (b - a) / 2) < 0 ? -1 : 1;
           p.forEach((c, i) => { sum[i] += sign * c; });
         }
-        for (const u of polynomialRootCandidates(polynomialDerivative(sum), a, b)) add(u);
+        for (const u of polynomialRootCandidates(polynomialDerivative(sum), a, b)) roots.push(u);
       }
     }
-  }
-  return extrema;
+    return { polynomials, roots: roots.filter(u => u !== 0 && u !== 1) };
+  });
 }
