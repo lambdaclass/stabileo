@@ -251,6 +251,9 @@ fn evidence(s: &Study, root: &Path) -> Result<(Value, Value), String> {
 /// Linear interpolation of an eigenvalue between branch points 0.002 αL apart: README, Tolerances.
 const CROSSING_TOLERANCE: f64 = 1e-4;
 
+/// Post-jump Newton failures counted over the study: README, Tolerances.
+const TRUNCATION_BAND: f64 = 2.0;
+
 /// The bands are justified in the README (Evidence); `passed` and every non-number must match exactly.
 fn compare(a: &Value, b: &Value, path: &str, band: Option<f64>, out: &mut Vec<String>) {
     match (a, b) {
@@ -280,7 +283,11 @@ fn compare(a: &Value, b: &Value, path: &str, band: Option<f64>, out: &mut Vec<St
                     }
                     continue;
                 }
-                let band = if k == "observed" { observed_band } else { spectrum_band(x, y, k) };
+                let band = match k.as_str() {
+                    "observed" => observed_band,
+                    "truncated_runs" => Some(TRUNCATION_BAND),
+                    _ => spectrum_band(x, y, k),
+                };
                 compare(v, &y[k], &path, band, out);
             }
         }
@@ -402,6 +409,15 @@ mod tests {
         let h = zero_crossing(&branch, |p| p.spectrum.omega2_antisymmetric).unwrap();
         assert!((h - (-0.145)).abs() < 1e-15, "{h}");
         assert!(zero_crossing(&branch[..2], |p| p.spectrum.omega2_antisymmetric).is_err());
+    }
+
+    #[test]
+    fn truncated_runs_may_differ_by_the_band_only() {
+        let count = |n: usize| json!({"dynamics": {"runs": 707, "truncated_runs": n}});
+        assert!(stale(&count(8), &count(9)).is_empty());
+        assert!(stale(&count(11), &count(9)).is_empty());
+        assert_eq!(stale(&count(12), &count(9)).len(), 1);
+        assert_eq!(stale(&json!({"dynamics": {"runs": 706, "truncated_runs": 9}}), &count(9)).len(), 1);
     }
 
     #[test]

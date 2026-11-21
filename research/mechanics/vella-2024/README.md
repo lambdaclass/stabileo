@@ -169,9 +169,10 @@ shows for the toy model, so only the envelope is a fair comparison. Row-by-row n
 
 A at a single phase is sensitive to anything that shifts the phase of the antisymmetric oscillation
 when the strip reaches the amplification region (mesh, start); the largest A over phase is stable to
-3 % in mesh and Δt. Nine of the 707 dynamic runs of the study stopped early, after their jump
-had ended, where Newton failed on 2⁸ substeps of the post-snap ringing; the amplification had
-been measured, and a failure before the jump ends stops the study with an error.
+3 % in mesh and Δt. Nine of the 707 dynamic runs of the study stopped early on macOS, eight on
+Linux CI, after their jump had ended, where Newton failed on 2⁸ substeps of the post-snap ringing;
+the amplification had been measured, and a failure before the jump ends stops the study with an
+error.
 
 
 ### Toy model
@@ -266,7 +267,14 @@ The catalogue area is `metamaterials`, the area of the catalogue's two other sna
     drift through d₁ and d₂, plus 10⁻¹² relative; the mesh values themselves are compared under
     the usual band, so a stale order with unchanged inputs still fails.
 
-  The verdicts themselves, the counts of points and every non-number must match exactly.
+  - The number of runs stopped early (`truncated_runs`) counts Newton solves of the post-snap
+    ringing that sit at the edge of convergence, so whether one of them converges is decided by
+    round-off: it was 9 on macOS and 8 on Linux CI, with every other number of the study inside
+    its band. It enters no reported number, since each of those runs had already measured its
+    jump, and it may differ by 2.
+
+  The verdicts themselves, the counts of points and runs, and every other non-number must match
+  exactly.
 
 ## Reproduce
 
