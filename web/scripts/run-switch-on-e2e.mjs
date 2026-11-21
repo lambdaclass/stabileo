@@ -1,6 +1,13 @@
 import { execFileSync, spawnSync } from 'node:child_process';
+import { globSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import ts from 'typescript';
 import { featuresForMode } from '../config/public-features.mjs';
 
+const switchOnTag = '@switch-on';
+const reportedTag = switchOnTag.slice(1);
+const e2eDir = fileURLToPath(new URL('../e2e/', import.meta.url));
 const cli = new URL('../node_modules/@playwright/test/cli.js', import.meta.url);
 const run = (args, env = process.env) => execFileSync(process.execPath, [cli.pathname, 'test', ...args], {
   encoding: 'utf8', env, maxBuffer: 32 * 1024 * 1024,
@@ -17,7 +24,7 @@ function inventory(profile) {
       const title = [...parents, suite.title, spec.title];
       for (const entry of spec.tests) {
         const id = JSON.stringify([path, title, entry.projectName]);
-        tests.set(id, { path, active: entry.expectedStatus !== 'skipped', tagged: spec.tags?.includes('@switch-on') });
+        tests.set(id, { path, active: entry.expectedStatus !== 'skipped', tagged: spec.tags?.includes(reportedTag) });
       }
     }
     for (const child of suite.suites ?? []) collect(child, path, [...parents, suite.title]);
@@ -26,16 +33,42 @@ function inventory(profile) {
   return tests;
 }
 
-const list = process.argv.includes('--list');
-let files = process.argv.slice(2).filter(arg => arg !== '--list');
-const production = featuresForMode('production');
-const enabled = featuresForMode('test');
-if (!files.length && Object.keys(production).some(key => production[key] !== enabled[key])) {
-  const off = inventory('production');
-  files = [...new Set([...inventory('test')].flatMap(([id, entry]) =>
-    entry.active && (!off.get(id)?.active || entry.tagged) ? [`e2e/${entry.path}`] : [],
-  ))].sort();
+function declaredSwitchOnSpecs() {
+  function hasTag(node) {
+    if (ts.isStringLiteralLike(node) && node.text.match(/@\S+/g)?.includes(switchOnTag)) return true;
+    return ts.forEachChild(node, hasTag);
+  }
+
+  return globSync('**/*.{spec,test}.?(c|m)[jt]s?(x)', { cwd: e2eDir }).filter(path => {
+    const source = ts.createSourceFile(path, readFileSync(join(e2eDir, path), 'utf8'), ts.ScriptTarget.Latest);
+    return hasTag(source);
+  });
 }
+
+function selectSwitchOnFiles() {
+  const production = featuresForMode('production');
+  const enabled = featuresForMode('test');
+  const profilesDiffer = Object.keys(production).some(key => production[key] !== enabled[key]);
+  const off = profilesDiffer ? inventory('production') : undefined;
+  const declared = new Set(declaredSwitchOnSpecs());
+  const activeTagged = new Set();
+  const selected = new Set();
+  for (const [id, { path, active, tagged }] of inventory('test')) {
+    if (tagged) declared.add(path);
+    if (!active) continue;
+    if (tagged) activeTagged.add(path);
+    if (tagged || (off && !off.get(id)?.active)) selected.add(path);
+  }
+  const missing = [...declared].filter(path => !activeTagged.has(path)).sort();
+  if (missing.length) {
+    throw new Error(`No active ${switchOnTag} cases were collected from: ${missing.map(path => `e2e/${path}`).join(', ')}`);
+  }
+  return [...selected].sort().map(path => `e2e/${path}`);
+}
+
+const list = process.argv.includes('--list');
+const requested = process.argv.slice(2).filter(arg => arg !== '--list');
+const files = requested.length ? requested : selectSwitchOnFiles();
 
 if (files.length) console.log(`Switch-on E2E specs: ${files.join(', ')}`);
 else console.log('No additional E2E tests are selected by the test profile.');

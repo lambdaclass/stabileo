@@ -8,7 +8,6 @@ import { fileURLToPath } from 'node:url';
 const web = fileURLToPath(new URL('../../web/', import.meta.url));
 const collector = 'scripts/run-switch-on-e2e.mjs';
 const playwright = 'node_modules/@playwright/test/cli.js';
-const knownWrong = { skip: 'known wrong result: #2399' };
 
 function fixture(t, specs, { config = '', sameProfiles = false } = {}) {
   const cwd = mkdtempSync(resolve(web, '.switch-on-collector-'));
@@ -39,7 +38,7 @@ function assertSelected(result, files) {
   assert.equal(result.stdout.trim(), `Switch-on E2E specs: ${files.map(file => `e2e/${file}`).sort().join(', ')}`);
 }
 
-test('collects every switch-on case reported by Playwright', knownWrong, t => {
+test('collects every switch-on case reported by Playwright', t => {
   const files = {
     'grid-placement.spec.ts': "test('grid placement', { tag: '@switch-on' }, () => {});",
     'nested/quad-quick-edit.spec.ts': "test('quad quick edit', { tag: ['@smoke', '@switch-on'] }, () => {});",
@@ -61,14 +60,14 @@ test('collects every switch-on case reported by Playwright', knownWrong, t => {
   assertSelected(collect(options), tagged);
 });
 
-test('collects title tags even when the profiles have identical switches', knownWrong, t => {
+test('collects title tags even when the profiles have identical switches', t => {
   const file = 'title-tag.spec.ts';
   assertSelected(collect(fixture(t, {
     [file]: "test('@switch-on enabled', () => {});",
   }, { sameProfiles: true })), [file]);
 });
 
-test('refuses a tagged spec when no tagged case is active even if an untagged case is switch-on', knownWrong, t => {
+test('refuses a tagged spec when no tagged case is active even if an untagged case is switch-on', t => {
   const file = 'skipped.spec.ts';
   const result = collect(fixture(t, {
     [file]: `
@@ -81,7 +80,7 @@ test('refuses a tagged spec when no tagged case is active even if an untagged ca
   assert.match(result.stderr, /No active @switch-on cases were collected from: e2e\/skipped\.spec\.ts/);
 });
 
-test('refuses a tagged spec omitted from the Playwright report', knownWrong, t => {
+test('refuses a tagged spec omitted from the Playwright report', t => {
   const result = collect(fixture(t, {
     'nested/omitted.spec.ts': "test('omitted', { 'tag': '@switch-on' }, () => {});",
     'ordinary.spec.ts': "test('always enabled', () => {});",
