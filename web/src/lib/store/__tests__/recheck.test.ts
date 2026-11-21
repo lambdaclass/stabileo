@@ -426,7 +426,7 @@ describe('edited projects with older provenance', () => {
     expect(combined.stale).toBe(true);
     const allChanges = store.assessment?.changes ?? [];
     expect(allChanges?.filter(c => c.id === 'compensated-applied-force-totals')).toHaveLength(1);
-    const rcNoticeIds = ['rc-beam-line-check-parity', 'rc-detailing-verification', 'rc-drawn-hoop-verification', 'rc-drawn-joint-and-corner-verification', 'rc-drawn-station-checks', 'rc-final-depth-drawing', 'rc-settled-seat-certification', 'rc-torsion-shear-containment'];
+    const rcNoticeIds = ['rc-beam-line-check-parity', 'rc-detailing-verification', 'rc-drawn-hoop-verification', 'rc-drawn-joint-and-corner-verification', 'rc-drawn-station-checks', 'rc-final-depth-drawing', 'rc-settled-seat-certification', 'rc-torsion-evidence', 'rc-torsion-shear-containment'];
     const rcNotices = new Set(rcNoticeIds);
     expect(allChanges.filter(c => rcNotices.has(c.id)).map(c => c.id).sort()).toEqual(rcNoticeIds);
     {

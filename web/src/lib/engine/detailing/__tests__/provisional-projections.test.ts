@@ -100,7 +100,7 @@ describe('a provisional proposal, across every projection', { timeout: 30_000 },
       expect(outcome.certificate, `member ${id}`).toBeUndefined();
       return outcome;
     });
-    expect(refused.filter(o => o.limiting.some(l => l === 'congestion' || l === 'anchorage'))).toHaveLength(96);
+    expect(refused.filter(o => o.limiting.some(l => l === 'congestion' || l === 'anchorage'))).toHaveLength(104);
   });
 
   it('gives the workspace a state that is neither modelled nor a refusal', () => {

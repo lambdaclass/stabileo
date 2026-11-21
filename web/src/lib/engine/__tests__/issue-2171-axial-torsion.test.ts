@@ -56,7 +56,7 @@ const inset = 2 * section.cover + stirrups.diameter / 1000;
 const Aoh = (section.b - inset) * (section.h - inset);
 const ph = 2 * (section.b + section.h - 2 * inset);
 const spacingRatio = +(stirrups.spacing / (ph / 8)).toFixed(3);
-const directGeometry = { ...section, d: section.h - 0.041, dSecondary: section.b - 0.041,
+const directGeometry = { ...section, d: section.h - 0.041,
   fyt: section.fy, stirrupDiaMm: stirrups.diameter, stirrup: stirrups };
 
 for (const edition of ['2005', '2025'] as const) {

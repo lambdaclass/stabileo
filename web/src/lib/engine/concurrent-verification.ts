@@ -74,7 +74,7 @@ function verifyConcurrentCases(complete: CompleteDemandSet<{ elementId: number; 
   const flexure = Object.assign(verificationCheckFields(maxFlexure), { AsComp: maxCompression.AsComp, barCountComp: maxCompression.barCountComp,
     barDiaComp: maxCompression.barDiaComp, barsComp: maxCompression.barsComp, isDoublyReinforced: maxCompression.isDoublyReinforced });
   const { shear, requirements } = sharedTorsionReinforcement(preliminary, first.edition ?? '2025');
-  const fixed = prepared.map(verify => verify({ column: fixedColumn, flexure, shear }));
+  const fixed = prepared.map(verify => verify({ column: fixedColumn, flexure, shear }, 'verify-sized-cage'));
   const used = new Set<number>();
   const checked = new Map<number, ElementVerification>();
   const checks = inputs.map((i, index) => {
