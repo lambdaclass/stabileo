@@ -88,15 +88,16 @@ export function memberAxes(ni: DespieceNode, nj: DespieceNode): { ux: number; uy
 
 type Axes = { ux: number; uy: number; px: number; py: number; zs: 1 | -1 };
 
-function memberEnd(ax: Axes, forces: DespieceElementForces, end: 'I' | 'J') {
+function memberEnd(ax: Axes, forces: DespieceElementForces, end: 'I' | 'J', side: 'member' | 'node') {
   const [n, v, m, towardJ] = end === 'I'
     ? [forces.nStart, forces.vStart, forces.mStart, 1]
     : [forces.nEnd, forces.vEnd, forces.mEnd, -1];
-  const transverseFace = ax.zs * towardJ;
-  const axial = -n * towardJ;
+  const axialFace = side === 'member' ? towardJ : -towardJ;
+  const transverseFace = ax.zs * axialFace;
+  const axial = -n * axialFace;
   const shear = v * transverseFace;
   return {
-    n, v, m, towardJ, transverseFace,
+    n, v, m, axialFace, transverseFace,
     action: {
       fx: ax.ux * axial + ax.px * shear,
       fz: ax.uy * axial + ax.py * shear,
@@ -181,8 +182,8 @@ function forceComponents(ax: Axes, end: MemberEnd, basis: DespieceBasis): ForceC
       { label: TWO_D_NODAL_LOAD_LABELS.vertical, key: 'Fz', value: twoD.z(fz), dirx: 0, diry: Math.sign(fz) || 1 },
     ];
   }
-  const { n, v, towardJ, transverseFace } = end;
-  const axial = -Math.sign(n) * towardJ;
+  const { n, v, axialFace, transverseFace } = end;
+  const axial = -Math.sign(n) * axialFace;
   const shear = Math.sign(v) * transverseFace;
   return [
     { label: 'N', key: 'N', value: n, dirx: ax.ux * axial, diry: ax.uy * axial },
@@ -208,9 +209,8 @@ export function computeDespieceVectors(args: ComputeArgs): DespieceVector[] {
   const { elements, getNode, getElementForces, reactions, sep, vectorMode, basis, showReactions, resultant, fmt } = args;
   const out: DespieceVector[] = [];
   if (sep <= 0.05) return out;
-  const wantMember = vectorMode !== 'nodes';
-  const wantNode = vectorMode !== 'members';
-  const labelNode = vectorMode === 'nodes';
+  const sides = vectorMode === 'all' ? ['member', 'node'] as const
+    : [vectorMode === 'nodes' ? 'node' : 'member'] as const;
 
   for (const el of elements) {
     const ni = getNode(el.nodeI), nj = getNode(el.nodeJ);
@@ -225,36 +225,44 @@ export function computeDespieceVectors(args: ComputeArgs): DespieceVector[] {
       { end: 'J', nodeId: el.nodeJ, node: nj, memberEndPoint: aJ },
     ] as const;
     for (const { end, nodeId, node, memberEndPoint } of ends) {
-      const member = memberEnd(ax, ef, end);
       const glen = Math.hypot(memberEndPoint.x - node.x, memberEndPoint.y - node.y) || 1;
-      const ugx = (memberEndPoint.x - node.x) / glen, ugy = (memberEndPoint.y - node.y) / glen; // node → member end
+      const ugx = (memberEndPoint.x - node.x) / glen, ugy = (memberEndPoint.y - node.y) / glen;
       const nodeAnchor = { x: node.x + ugx * glen * NODE_ANCHOR_FRAC, y: node.y + ugy * glen * NODE_ANCHOR_FRAC };
-      // Outward (toward the gap) for each side: member-end → node, and node → away from member.
-      const mOutx = -ax.ux * member.towardJ, mOuty = -ax.uy * member.towardJ;
-      const nOutx = -ugx, nOuty = -ugy;
 
-      // Resultant mode: ONE composed force vector (N+V) instead of separate
-      // components; the moment stays a single arc → the end shows 2 glyphs.
-      const comps: ForceComp[] = resultant
-        ? (() => {
-            const { fx, fz } = member.action;
-            const mag = Math.hypot(fx, fz);
-            return mag > 1e-6 ? [{ label: 'F', key: 'F', value: mag, dirx: fx / mag, diry: fz / mag }] : [];
-          })()
-        : forceComponents(ax, member, basis);
-      for (const c of comps) {
-        if (Math.abs(c.value) <= 1e-6) continue;
-        const color = c.label === 'V' ? COL.shear : COL.axial;
-        if (wantMember) out.push({ side: 'member', glyph: 'force', origin: memberEndPoint, dirx: c.dirx, diry: c.diry, outx: mOutx, outy: mOuty, perpSign: 1, value: c.value, labelText: `${c.label} ${fmt(c.value, 'force')}`, color, elementId: el.id, end, nodeId, component: c.key });
-        if (wantNode) out.push({ side: 'node', glyph: 'force', origin: nodeAnchor, dirx: -c.dirx, diry: -c.diry, outx: nOutx, outy: nOuty, perpSign: -1, value: c.value, labelText: labelNode ? `${c.label} ${fmt(c.value, 'force')}` : '', color, elementId: el.id, end, nodeId, component: c.key });
-      }
+      for (const side of sides) {
+        const action = memberEnd(ax, ef, end, side);
+        const onMember = side === 'member';
+        const anchor = {
+          side, elementId: el.id, end, nodeId,
+          origin: onMember ? memberEndPoint : nodeAnchor,
+        };
+        const label = onMember || vectorMode === 'nodes';
+        const { fx, fz, moment } = action.action;
+        const mag = resultant ? Math.hypot(fx, fz) : 0;
+        const comps: ForceComp[] = resultant
+          ? mag > 1e-6 ? [{ label: 'F', key: 'F', value: mag, dirx: fx / mag, diry: fz / mag }] : []
+          : forceComponents(ax, action, basis);
 
-      if (Math.abs(member.action.moment) > 1e-6) {
-        const moment = momentComponent(member, basis);
-        const memberCcw = member.action.moment > 0;
-        const labelText = `${moment.label} ${fmt(moment.value, 'moment')}`;
-        if (wantMember) out.push({ side: 'member', glyph: 'moment', origin: memberEndPoint, ccw: memberCcw, value: moment.value, labelText, color: COL.moment, elementId: el.id, end, nodeId, component: 'M' });
-        if (wantNode) out.push({ side: 'node', glyph: 'moment', origin: nodeAnchor, ccw: !memberCcw, value: moment.value, labelText: labelNode ? labelText : '', color: COL.moment, elementId: el.id, end, nodeId, component: 'M' });
+        for (const c of comps) {
+          if (Math.abs(c.value) <= 1e-6) continue;
+          out.push({
+            ...anchor, glyph: 'force', dirx: c.dirx, diry: c.diry,
+            outx: onMember ? -ax.ux * action.axialFace : -ugx,
+            outy: onMember ? -ax.uy * action.axialFace : -ugy,
+            perpSign: onMember ? 1 : -1,
+            value: c.value, labelText: label ? `${c.label} ${fmt(c.value, 'force')}` : '',
+            color: c.label === 'V' ? COL.shear : COL.axial, component: c.key,
+          });
+        }
+
+        if (Math.abs(moment) > 1e-6) {
+          const { label: name, value } = momentComponent(action, basis);
+          out.push({
+            ...anchor, glyph: 'moment', ccw: moment > 0, value,
+            labelText: label ? `${name} ${fmt(value, 'moment')}` : '',
+            color: COL.moment, component: 'M',
+          });
+        }
       }
     }
   }
@@ -388,7 +396,7 @@ function endActionFor(args: InspectArgs, el: DespieceElement, end: 'I' | 'J'): D
   const ef = args.getElementForces(el.id);
   if (!ni || !nj || !ef) return null;
   const ax = memberAxes(ni, nj);
-  const member = memberEnd(ax, ef, end);
+  const member = memberEnd(ax, ef, end, 'member');
   const forces = forceComponents(ax, member, args.basis).map(({ label, value }) => ({ label, value }));
   return {
     elementId: el.id, end, nodeId: end === 'I' ? el.nodeI : el.nodeJ,
