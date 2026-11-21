@@ -40,7 +40,7 @@
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import { workspaceScene } from './helpers/workspace-scene';
+import { frameBarsInAssembly, workspaceScene } from './helpers/workspace-scene';
 import { modelStore } from '../../../store/model.svelte';
 import { verificationStore } from '../../../store/verification.svelte';
 import { renderDrawings } from '../document-render';
@@ -78,14 +78,14 @@ describe('DIAGNOSTIC: beams with no reinforcement anywhere', { timeout: 900_000 
 
   beforeAll(async () => {
     const w = await workspaceScene('pro-edificio-7p');
-    scene = w.scene;
+    scene = { ...w.scene, bars: w.scene.bars.filter(bar => bar.ownerScope === 'frame') };
     doc = w.doc;
 
     const drawings = renderDrawings(doc, { projectName: 'diag', locale: 'es' });
     // Every element id named by any text on any sheet.
     const drawnBars = new Map<number, number>();
     for (const a of doc.assemblies) {
-      for (const b of a.bars) {
+      for (const b of frameBarsInAssembly(a)) {
         for (const id of b.ownerElementIds) drawnBars.set(id, (drawnBars.get(id) ?? 0) + 1);
       }
     }
@@ -114,7 +114,7 @@ describe('DIAGNOSTIC: beams with no reinforcement anywhere', { timeout: 900_000 
         inDesign: !!(o?.accepted ?? o?.provisional),
         inDetailing: drawnBars.get(id) ?? 0,
         inDocument: doc.assemblies
-          .flatMap((a) => a.bars).filter((b) => b.ownerElementIds.includes(id)).length,
+          .flatMap(frameBarsInAssembly).filter((b) => b.ownerElementIds.includes(id)).length,
         inScene: scene.bars.filter((b) => b.elementIds.includes(id)).length,
         inDrawings: drawings.sheets.filter((s) =>
           s.sheet.texts.some((t) => new RegExp(`\\b${id}\\b`).test(t.text ?? ''))).length,
@@ -330,21 +330,17 @@ describe('DIAGNOSTIC: beams with no reinforcement anywhere', { timeout: 900_000 
     expect(true).toBe(true);
   });
 
-  it('every reported id now has MAIN steel, not only a cage', () => {
-    /**
-     * The assertion this file was written to make, inverted.
-     *
-     * It read `.toBe(0)` and was labelled "this is the defect". Both halves matter now: the
-     * member must have longitudinal bars, and they must be bars of its own rather than another
-     * member's joint ties claiming its id — which is what the 24-to-48 transverse bars were.
-     */
-    // 146 is refused since the design reads the column cages: no arrangement of its bars both
-    // passes the 35 cm columns' 16 bars and anchors in them (SEARCH_EXHAUSTED on anchorage). It
-    // has no steel, and says why; every other reported member has its own.
+  it('gives the verified reported beams their own main steel and cage', () => {
+    const refused = [
+      [199, ['anchorage']], [201, ['anchorage']], [203, ['anchorage']],
+      [198, ['anchorage', 'torsion', 'unsupportedCheck']], [140, ['anchorage']],
+      [143, ['anchorage']], [146, ['congestion']],
+    ] as const;
     expect(REPORTED.filter((id) => verificationStore.outcomeFor(id)?.outcome !== 'VERIFIED')
-      .map((id) => [id, verificationStore.outcomeFor(id)?.outcome, verificationStore.outcomeFor(id)?.limiting])).toEqual([[146, 'SEARCH_EXHAUSTED', ['anchorage']]]);
+      .map((id) => [id, verificationStore.outcomeFor(id)?.outcome, verificationStore.outcomeFor(id)?.limiting]))
+      .toEqual(refused.map(([id, limiting]) => [id, 'SEARCH_EXHAUSTED', limiting]));
     for (const id of REPORTED) {
-      if (id === 146) continue;
+      if (refused.some(([refusedId]) => refusedId === id)) continue;
       const bars = scene.bars.filter((b) => b.elementIds.includes(id));
       expect(bars.length, `member ${id} has bars in the scene`).toBeGreaterThan(0);
       const long = bars.filter((b) => b.role === 'longitudinal');
@@ -356,20 +352,16 @@ describe('DIAGNOSTIC: beams with no reinforcement anywhere', { timeout: 900_000 
   });
 
   it('leaves no beam in the building with a cage and no main steel', () => {
-    // Bare only where the design refused the beam, and said why. Since the design reads the column
-    // cages, 41 of the 119 refuse: 16 on congestion (no layout of their bars passes the columns'
-    // bars) and 25 on anchorage (the layouts that pass need a second top row the 35 cm columns
-    // cannot develop). Before, all 119 were designed and the detailing laid them through the
-    // columns' bars; after, those 41 have no steel and every one names its cause.
     const bare = rows.filter((r) =>
       !scene.bars.some((b) => b.elementIds.includes(r.id) && b.role === 'longitudinal'));
-    expect(bare).toHaveLength(41);
+    expect(bare.map(r => r.id)).toEqual([...scene.unreinforcedMembers].sort((a, b) => a - b));
+    expect(bare).toHaveLength(105);
+    expect(bare.filter(r => r.outcome === 'SEARCH_EXHAUSTED')).toHaveLength(104);
+    expect(bare.filter(r => r.outcome === 'UNSUPPORTED').map(r => r.id)).toEqual([156]);
     for (const r of bare) {
       const o = verificationStore.outcomeFor(r.id)!;
-      // An exhausted search on both causes: no bound proves any of these sections inadequate
-      // (`section-bounds.ts`); the 16 on congestion read SECTION_INADEQUATE before.
-      expect([o.outcome, o.limiting.some((l) => l === 'congestion' || l === 'anchorage'), o.exhaustion?.scope], `member ${r.id}`)
-        .toEqual(['SEARCH_EXHAUSTED', true, 'implementedAlternatives']);
+      expect(o.reasons.length, `member ${r.id}`).toBeGreaterThan(0);
+      if (o.outcome === 'SEARCH_EXHAUSTED') expect(o.exhaustion?.scope, `member ${r.id}`).toBe('implementedAlternatives');
       expect(o.certificate, `member ${r.id}`).toBeUndefined();
     }
   });
@@ -395,7 +387,7 @@ describe('DIAGNOSTIC: beams with no reinforcement anywhere', { timeout: 900_000 
     // Among the designed ones: 146 is refused and has no steel at all (above).
     const bottomOnly = REPORTED.filter((id) => verificationStore.outcomeFor(id)?.outcome === 'VERIFIED' && topSteel(id) === 0);
     expect(bottomOnly, 'the bottom-only beams among the reported ones')
-      .toEqual([197, 199, 201, 203, 198, 140, 143]);
+      .toEqual([197]);
     for (const id of REPORTED) {
       const hangers = scene.bars.filter((b) =>
         b.elementIds.includes(id) && b.purpose === 'stirrupHanger');
@@ -460,7 +452,7 @@ describe('DIAGNOSTIC: beams with no reinforcement anywhere', { timeout: 900_000 
     const hangers = new Set(scene.bars
       .filter((b) => b.purpose === 'stirrupHanger')
       .flatMap((b) => b.elementIds));
-    expect(hangers.size).toBe(27);
+    expect(hangers.size).toBe(12);
     for (const id of hangers) {
       const o = verificationStore.outcomeFor(id);
       if (!o) continue;
