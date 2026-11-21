@@ -90,6 +90,14 @@ const body: PostBody = {
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-094-plane-free-body-end-moments.md", "label": "SA-2026-094", "t": "Etkilenen girdiler ve yapılacak işlemler."},
     {"k": "note", "t": "SA-2026-095 — #2364 ile düzeltildi, sürüm bekleniyor."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-095-plane-signed-scoped-self-weight.md", "label": "SA-2026-095", "t": "Etkilenen girdiler ve yapılacak işlemler."},
+    {"k": "note", "t": "SA-2026-096 — 0.6.3 sürümünde düzeltildi."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-096-static-seismic-stories-and-rafters.md", "label": "SA-2026-096", "t": "Etkilenen girdiler ve gerekli işlemler."},
+    {"k": "note", "t": "SA-2026-097 — 0.6.3 sürümünde düzeltildi."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-097-workbook-inputs-and-plane-springs.md", "label": "SA-2026-097", "t": "Etkilenen girdiler ve gerekli işlemler."},
+    {"k": "note", "t": "SA-2026-098 — 0.6.3 sürümünde düzeltildi."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-098-rc-drawn-reinforcement-verification.md", "label": "SA-2026-098", "t": "Etkilenen girdiler ve gerekli işlemler."},
+    {"k": "note", "t": "SA-2026-099 — 0.6.3 sürümünde engellendi."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-099-gravity-and-roof-step-loads.md", "label": "SA-2026-099", "t": "Etkilenen girdiler ve gerekli işlemler."},
     {"k": "img", "base": "blog/recheck-stale", "w": 1600, "h": 1000, "alt": "Sonuçlar sürümlenmeden önce kaydedilmiş bir betonarme çerçeve ile Stabileo PRO. Alttaki bir şerit, projenin eski bir sürümle çözüldüğünü ve kayıtlı 19 değişikliğin onu ilgilendirdiğini, yani sonuçların eskidiğini söylüyor; yanında neyin değiştiğini görme ve yeniden çözme düğmeleri var.", "caption": "Bir düzeltme kayıtlı bir projeye böyle ulaşır: yeniden çözülene kadar sonuçları eskimiş olarak işaretli kalır ve onu ilgilendiren değişiklikler bir tık uzaktadır."},
     {
       "k": "h",
@@ -493,7 +501,11 @@ const body: PostBody = {
         ["SA-2026-092", "Ayrıntılı kesit gerilmesi hesabı toplam kayma ve von Mises gerilmelerini düşük gösterip uygunluk sonucu verebiliyordu. Etkilenen gerilmeleri yeniden hesaplayın ve diyagramları, kontrolleri ve raporları inceleyin.", "Yüksek", "Birleşik durum #2372 ile engellendi, kesit çizgileri #2382 ile düzeltildi, sürüm bekleniyor"],
         ["SA-2026-093", "Düzlem hareketli yükler, tekil dingil yüklerindeki eksenel kuvvet sıçramalarını yayabiliyordu. Etkilenen zarfları ve eksenel kuvvet tesir çizgilerini yeniden hesaplayıp ilgili raporları inceleyin.", "Yüksek", "#2381 ile düzeltildi, sürüm bekleniyor"],
         ["SA-2026-094", "2B serbest cisim inceleyicisi, global eksenlerdeki eleman uç momentlerini yanlış işaretle gösterebiliyordu. Analiz sonuçları etkilenmedi. Elemanları yeniden inceleyin, etkilenen raporları yeniden oluşturup gözden geçirin.", "Orta", "#2364 ile düzeltildi, sürüm bekleniyor"],
-        ["SA-2026-095", "İşaretli veya belirli elemanlarla sınırlı öz ağırlık kuralları içeren kayıtlı 2B projeler, uyarı vermeden yanlış mesnet tepkileri döndürebiliyordu. Etkilenen bir proje açıldığında yeniden hesaplama bildirimi gösterilir. Sonuçları yeniden hesaplayın, etkilenen raporları yeniden oluşturup gözden geçirin.", "Yüksek", "#2364 ile düzeltildi, sürüm bekleniyor"]
+        ["SA-2026-095", "İşaretli veya belirli elemanlarla sınırlı öz ağırlık kuralları içeren kayıtlı 2B projeler, uyarı vermeden yanlış mesnet tepkileri döndürebiliyordu. Etkilenen bir proje açıldığında yeniden hesaplama bildirimi gösterilir. Sonuçları yeniden hesaplayın, etkilenen raporları yeniden oluşturup gözden geçirin.", "Yüksek", "#2364 ile düzeltildi, sürüm bekleniyor"],
+        ["SA-2026-096", "Statik deprem yükü üretimi, çapraz veya ağ düğümlerini kat sayabiliyor ve çatı elemanlarının atalet yükünü uç düğümlere uygulayabiliyordu. Kat kotlarını ve çatı elemanlarının yüklerini kontrol edin. Analiz ve tasarım kontrollerini yinelemeden önce yük durumlarını yeniden üretin.", "Yüksek", "0.6.3 sürümünde düzeltildi"],
+        ["SA-2026-097", "Çalışma kitabı içe aktarılırken model verileri atlanabiliyor, 2B dışa aktarımda dönme yayı öteleme yayı olarak etiketlenebiliyordu. İçe aktarılan modeli özgün çalışma kitabıyla karşılaştırın, dosyayı düzeltip yeniden içe aktarın. Mesnetleri ve yükleri doğrulayın, etkilenen analizleri ve dışa aktarımları yineleyin.", "Yüksek", "0.6.3 sürümünde düzeltildi"],
+        ["SA-2026-098", "Betonarme kontrolleri aşırı etriye aralığını kabul edebiliyor veya kesitte bulunmayan donatıyı hesaba katabiliyordu. Kolon çizimlerinde yanlış donatı çapları gösterilebiliyordu. Belirtilen donatıyı eşzamanlı iç kuvvetlerle yeniden kontrol edin ve etkilenen çizimleri, donatı listelerini ve raporları inceleyin.", "Yüksek", "0.6.3 sürümünde düzeltildi"],
+        ["SA-2026-099", "Yerçekimi yükü üretimi kabuk ve kiriş alanlarını iki kez yükleyebiliyor veya plan dönüşü ya da bölme sonrasında yük taşıyan elemanları değiştirebiliyordu. Çatı kot farkındaki kar birikiminin aktarımında kuvvet ve moment kaybı olabiliyordu. Yükleri yeniden üretin ve üretim engellenirse bağımsız olarak doğrulanmış yük durumlarını kullanın.", "Yüksek", "0.6.3 sürümünde engellendi"]
       ]
     },
     {

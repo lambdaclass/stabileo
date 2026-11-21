@@ -106,6 +106,7 @@ export interface DesignCodeAdapter {
 
   /** THE authority. The same function the UI renders. */
   verify(ctx: MemberContext, rebar: ProvidedReinforcement): ProvidedRebarResult;
+  prepareCandidateRanker?(ctx: MemberContext): (rebar: ProvidedReinforcement) => ProvidedRebarResult;
   rankCandidate?(ctx: MemberContext, rebar: ProvidedReinforcement): { ranking: ProvidedRebarResult };
 
   classifyFailure(v: ProvidedRebarResult, ctx: MemberContext): LimitingConstraint[];

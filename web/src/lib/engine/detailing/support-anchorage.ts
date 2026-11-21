@@ -201,15 +201,25 @@ export function supportPlanes(cage: SupportCage): { straight: number; hook: numb
 
 /** The end of a bar in a support, and what it develops there. Null with no column geometry. */
 export function planSupportEnd(cage: SupportCage, bar: SupportBar): SupportEndPlan | null {
-  if (!(cage.face > 0)) return null;
+  return prepareSupportEnd(cage)(bar);
+}
+
+export function prepareSupportEnd(cage: SupportCage): (bar: SupportBar) => SupportEndPlan | null {
+  if (!(cage.face > 0)) return () => null;
+  const planes = supportPlanes(cage);
+  const crossing = [...(cage.crossing ?? [])].sort((p, q) => q.at - p.at);
+  return (bar) => planAtSupportEnd(cage, bar, planes, crossing);
+}
+
+function planAtSupportEnd(cage: SupportCage, bar: SupportBar, planes: ReturnType<typeof supportPlanes>,
+  crossing: readonly CrossingSeat[],
+): SupportEndPlan {
   const face = cage.face;
   const far = cage.far ?? face;
   const db = bar.diameterMm / 1000;
-  const planes = supportPlanes(cage);
   const straightLimit = planes.straight - bar.inboard;
   // The tail's centre, inboard past every crossing corner bar it would pass through; rows nest
   // `inboard` inside the outer row's tail, wherever that ended.
-  const crossing = [...(cage.crossing ?? [])].sort((p, q) => q.at - p.at);
   const clear = (x: number) => {
     for (const c of crossing) {
       if (c.face && bar.position && c.face !== bar.position) continue;
