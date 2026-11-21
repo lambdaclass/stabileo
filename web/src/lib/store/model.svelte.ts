@@ -1096,44 +1096,72 @@ const VIEW_CHANNEL_FIELDS = ['views', 'grid', 'notes', 'underlays', 'designData'
 const isDefinedLoadData = (l: Load | undefined): boolean => (l?.data as { fromDef?: number } | undefined)?.fromDef !== undefined;
 
 
-const detailingCopies = new WeakMap<object, object>();
-const publishedDetailing = new WeakSet<object>();
-
-function ownDetailing<T>(value: T, copyRoot = false): T {
-  if (value === null || typeof value !== 'object') return value;
-  if (!copyRoot && publishedDetailing.has(value)) return value;
-  let copy: object;
-  if (Array.isArray(value)) {
-    copy = value.map((child) => ownDetailing(child));
-  } else {
-    const fields = value as Record<string, unknown>;
-    const owned: Record<string, unknown> = {};
-    for (const key of Object.keys(fields)) {
-      const child = ownDetailing(fields[key]);
-      if (key === '__proto__') {
-        Object.defineProperty(owned, key, { value: child, enumerable: true });
-      } else {
-        owned[key] = child;
-      }
-    }
-    copy = owned;
+class FrozenPlainObject {
+  constructor(value: object) {
+    return Object.freeze(value);
   }
-  Object.freeze(copy);
-  publishedDetailing.add(copy);
-  return copy as T;
 }
 
-function captureDetailing(detailing: DetailingStore | undefined): DetailingStore {
-  if (!detailing) return ownDetailing(emptyDetailingStore());
-  const parts = Object.entries(detailing).map(([key, value]) => {
-    if (value === null || typeof value !== 'object') return [key, value];
-    const cached = detailingCopies.get(value);
-    if (cached !== undefined) return [key, cached];
-    const copy = ownDetailing<object>(value, true);
-    detailingCopies.set(value, copy);
-    return [key, copy];
-  });
-  return ownDetailing(Object.fromEntries(parts)) as DetailingStore;
+class PublishedDetailingBranch extends FrozenPlainObject {
+  #published = true;
+
+  static has(value: unknown): boolean {
+    return value !== null && typeof value === 'object' && #published in value;
+  }
+
+  static publish(value: object): void {
+    new PublishedDetailingBranch(value);
+  }
+}
+
+const restoredDetailing = new WeakMap<DetailingStore, DetailingStore>();
+
+function ownDetailing<T>(value: T): T {
+  if (value === null || typeof value !== 'object' || PublishedDetailingBranch.has(value)) return value;
+
+  const copies = new Map<object, object>();
+  function copyBranch(branch: object): object {
+    if (PublishedDetailingBranch.has(branch)) return branch;
+    const existing = copies.get(branch);
+    if (existing !== undefined) return existing;
+
+    let copy: object;
+    if (Array.isArray(branch)) {
+      copy = branch.map(copyValue);
+    } else {
+      const fields = branch as Record<string, unknown>;
+      const owned: Record<string, unknown> = {};
+      for (const key of Object.keys(fields)) {
+        const child = copyValue(fields[key]);
+        if (key === '__proto__') {
+          Object.defineProperty(owned, key, { value: child, enumerable: true });
+        } else {
+          owned[key] = child;
+        }
+      }
+      copy = owned;
+    }
+    PublishedDetailingBranch.publish(copy);
+    copies.set(branch, copy);
+    return copy;
+  }
+  function copyValue(child: unknown): unknown {
+    return child !== null && typeof child === 'object' ? copyBranch(child) : child;
+  }
+  return copyBranch(value) as T;
+}
+
+const emptyPublishedDetailing = ownDetailing(emptyDetailingStore());
+
+function restoreDetailing(saved: DetailingStore | undefined): DetailingStore {
+  if (saved === undefined) return emptyPublishedDetailing;
+  const existing = restoredDetailing.get(saved);
+  if (existing !== undefined) return existing;
+
+  const restored = ownDetailing(migrateDetailingStore(saved).store);
+  restoredDetailing.set(restored, restored);
+  if (PublishedDetailingBranch.has(saved)) restoredDetailing.set(saved, restored);
+  return restored;
 }
 
 function createModelStore() {
@@ -1161,7 +1189,7 @@ function createModelStore() {
     return moment === null ? { ...data } : { ...data, my: moment };
   }
 
-  let detailing = $state.raw<DetailingStore | undefined>(ownDetailing(emptyDetailingStore()));
+  let detailing = $state.raw<DetailingStore | undefined>(emptyPublishedDetailing);
   let model = $state<StructureModel>({
     name: t('tabBar.newStructure'),
     nodes: new Map(),
@@ -2187,8 +2215,6 @@ function createModelStore() {
     snapshot(): ModelSnapshot {
       // $state.snapshot() is the official Svelte 5 API to deeply unwrap reactive proxies
       // into plain JavaScript objects. This avoids all proxy-related serialization issues.
-      // The detailing is left out of it and copied once per version (`detailingSnapshot`): it is
-      // the largest part of a detailed project and an edit never changes it in place.
       const snap = $state.snapshot({ ...model, detailing: undefined }) as unknown as ReturnType<typeof $state.snapshot<typeof model>>;
       const snapId = $state.snapshot(nextId);
       const result: ModelSnapshot = {
@@ -2290,7 +2316,7 @@ function createModelStore() {
         codeSettings: snap.codeSettings
           ? (JSON.parse(JSON.stringify(snap.codeSettings)) as ProjectCodeSettings)
           : defaultCodeSettings(),
-        detailing: captureDetailing(model.detailing),
+        detailing: detailing ?? emptyPublishedDetailing,
         // Both of these were declared on StructureModel AND on ModelSnapshot and
         // emitted by neither, so the regulation stack and the revision vector were
         // dropped by every path that goes through snapshot(): .ded save, undo/redo,
@@ -2390,7 +2416,7 @@ function createModelStore() {
       // `hydrateProjectProvenance`, which file-open and tab-activation call.
       const { detailing: savedDetailing, ...modelFields } = rawSnapshot;
       const s = plainDeepCopy(modelFields);
-      const restoredDetailing = ownDetailing(migrateDetailingStore(savedDetailing).store);
+      const migratedDetailing = restoreDetailing(savedDetailing);
       modelVersion++;
       _onMutation?.();
       if (s.name) model.name = s.name;
@@ -2542,7 +2568,7 @@ function createModelStore() {
       // Migration is deliberate, not a fallback: a project with no settings is stamped
       // CIRSOC 201-2005, the edition its stored results were actually checked against.
       model.codeSettings = migrateCodeSettings(s.codeSettings).settings;
-      model.detailing = restoredDetailing;
+      model.detailing = migratedDetailing;
       // `migrateRegulations` was written, unit-tested and never called from anywhere in
       // production. Calling it here is what makes a stored regulation stack survive a
       // save/open, an undo and a tab switch, and what upgrades a v1 (CIRSOC-specific)

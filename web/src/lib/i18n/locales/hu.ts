@@ -3800,6 +3800,8 @@ const hu: Translations = {
   "diag.verifFailTorsion": "A csavarási ellenőrzés NEM FELEL MEG",
   'diag.rcTorsionConcrete': "A csavarás nincs igazolva: a nyírás és csavarás együttes határértéke túlbecsüli a beton számított nyírási ellenállását.",
   'diag.rcTorsionDepth': "A csavarás nincs igazolva: a figyelembe vett hatásos magasság túl nagy a hosszirányú vasaláshoz.",
+  "diag.rcTorsionSecondaryFace": "A csavarás nincs igazolva: az egyidejű másodlagos nyíráshoz szükséges hatásos magasságot meghatározó rudak helyzete nem igazolt.",
+  "diag.rcShearTensionSteel": "A nyírás nincs igazolva: a szelvény húzott oldalán lévő rudak nem igazolják az ellenőrzésben figyelembe vett acélterületet.",
   'diag.rcTorsionPerimeter': "A csavarási hosszvasalás nincs igazolva: a kengyel kerülete mentén a rudak elrendezése nem igazolt.",
   'diag.rcTorsionCutoff': "A csavarási hosszvasalás nincs igazolva: a számítás a rudakat a végükön túl is figyelembe venné.",
   "diag.rcDrawnBarExtent": "A hajlítás vagy a nyírás a szakasz vasalásával nem igazolható, mert a számítás a hosszirányú rudakat a megrajzolt végükön túl is figyelembe veszi.",

@@ -184,13 +184,13 @@ describe('the 7-storey building is more than column longitudinals', () => {
     expect(Object.fromEntries(reasons)).toEqual({
       'anchorage': 20,
       'anchorage,congestion': 5,
-      'anchorage,torsion,unsupportedCheck': 32,
-      'anchorage,unsupportedCheck': 8,
+      'anchorage,minSteel,unsupportedCheck': 33,
+      'anchorage,shear,unsupportedCheck': 1,
+      'anchorage,unsupportedCheck': 15,
       'biaxial': 1,
       'congestion': 26,
-      'congestion,minSteel,unsupportedCheck': 5,
-      'minSteel,unsupportedCheck': 8,
-      'shear,torsion,unsupportedCheck': 1,
+      'congestion,minSteel,unsupportedCheck': 4,
+      'minSteel,unsupportedCheck': 1,
     });
     // And the building as committed names none.
     expect(built.scene.provisionalMembers).toEqual([]);

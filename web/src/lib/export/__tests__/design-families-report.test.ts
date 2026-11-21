@@ -153,7 +153,7 @@ describe('the run reports what happened, family by family', () => {
     const onTheCage = outcomes.filter(([, o]) => o.outcome !== 'VERIFIED' && o.outcome !== 'PROVISIONAL_BIAXIAL'
       && o.limiting.some(l => l === 'congestion' || l === 'anchorage'));
     const provisional = outcomes.filter(([, o]) => o.outcome === 'PROVISIONAL_BIAXIAL');
-    expect(onTheCage).toHaveLength(96);
+    expect(onTheCage).toHaveLength(104);
     expect(provisional).toHaveLength(3);
     for (const [id] of provisional) expect(ROLLED_BEAMS.rollBeams.ids).toContain(id);
     expect(beams).toMatchObject({ processed: 168, refused: 109, designed: 59, notModelled: 0 });

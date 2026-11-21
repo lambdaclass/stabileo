@@ -4483,6 +4483,8 @@ const en: Record<string, string> = {
   'diag.verifFailTorsion': 'Torsion check FAILED',
   'diag.rcTorsionConcrete': "Torsion is not verified: the combined shear and torsion limit overestimates the evaluated concrete shear strength.",
   'diag.rcTorsionDepth': "Torsion is not verified: the effective depth used is too large for the longitudinal reinforcement.",
+  "diag.rcTorsionSecondaryFace": "Torsion is not verified: the bar positions needed to establish the effective depth for concurrent secondary shear are unconfirmed.",
+  "diag.rcShearTensionSteel": "Shear is not verified: the bars on the tension face at this section do not substantiate the steel area used in the check.",
   'diag.rcTorsionPerimeter': "Longitudinal torsion is not verified: the bar layout around the stirrup perimeter has not been established.",
   'diag.rcTorsionCutoff': "Longitudinal torsion is not verified: the check would count bars beyond their cutoff.",
   "diag.rcDrawnBarExtent": "Flexure or shear cannot be verified with the regional layout because it credits longitudinal bars beyond their drawn ends.",
