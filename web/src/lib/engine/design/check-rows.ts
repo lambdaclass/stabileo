@@ -66,6 +66,7 @@ const namedClause = (s: string) => /(?:Table|Tabla)\s+([\d.]+)/.exec(s)?.[0] ?? 
  */
 export function concreteCheckRows(p: ProvidedRebarResult, edition: string = CIRSOC201_DESIGN_EDITION): CheckRow[] {
   return p.checks.map((c) => {
+    const shearRefused = c.limiting === 'unsupportedCheck' && (c.demandCategory === 'Vy' || c.demandCategory === 'Vz');
     const spec = c.limiting && c.limiting !== 'unsupportedCheck' ? CONCRETE[c.limiting] : undefined;
     // A wall's own minimum (`wall-minimum-steel.ts`) names Tabla 11.6.1 or §11.6.2 in its category.
     const wallMin = c.limiting === 'minSteel' ? /\((11\.6\.[12])\)$/.exec(c.category)?.[1] : undefined;
@@ -81,7 +82,7 @@ export function concreteCheckRows(p: ProvidedRebarResult, edition: string = CIRS
       code: 'cirsoc-201', edition,
       ...(clause ? { clause } : {}),
       title: c.category,
-      ...(c.limiting ? { titleKey: `check.rc.${c.limiting}` } : {}),
+      ...(c.limiting ? { titleKey: `check.rc.${shearRefused ? 'shear' : c.limiting}` } : {}),
       // The inequality; a provision this app does not evaluate states what it left out.
       formula: spec?.formula ?? (c.description || undefined),
       inputs,

@@ -173,6 +173,10 @@ const u3 = (u: number) => (Number.isFinite(u) ? u.toFixed(3) : '∞');
 
 /** The capacity checks of a member of a seismic frame: capacity shear and detailing, as substitutes. */
 export function seismicMemberCheckRows(m: MemberSeismic): CheckRow[] {
+  if (m.refusal) return [row({
+    key: 'check.seismic.detailing', title: 'Seismic detailing', clause: '18.1',
+    formula: m.refusal, inputs: [], ratio: null, status: 'notVerified',
+  })];
   const out: CheckRow[] = [];
   const beam = m.kind === 'beam';
   if (m.shear) {
@@ -193,6 +197,10 @@ export function seismicMemberCheckRows(m: MemberSeismic): CheckRow[] {
 
 /** A joint of a seismic frame: strong column and joint shear, as substitutes. */
 export function seismicJointCheckRows(j: JointSeismic): CheckRow[] {
+  if (j.refusal !== undefined) return [row({
+    key: 'check.seismic.jointShear', title: 'Joint shear', clause: '18.1',
+    formula: j.refusal, inputs: [], ratio: null, status: 'notVerified', location: j.direction,
+  })];
   const sc = j.strongColumn, sh = j.shear;
   return [
     substitute({

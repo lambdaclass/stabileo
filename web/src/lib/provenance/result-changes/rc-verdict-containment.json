@@ -1,0 +1,32 @@
+{
+  "id": "rc-verdict-containment",
+  "date": "2026-11-21",
+  "prs": [],
+  "area": "design",
+  "when": {
+    "all": ["concreteMembers", "cirsoc201"]
+  },
+  "title": {
+    "en": "Reinforced concrete verdict containment",
+    "es": "Verificaciones incompletas de hormigón armado",
+    "pt": "Verificações incompletas de concreto armado",
+    "de": "Unvollständige Stahlbetonnachweise",
+    "fr": "Vérifications incomplètes du béton armé",
+    "tr": "Eksik betonarme kontrolleri",
+    "zh": "钢筋混凝土未完成验算"
+  },
+  "explanation": {
+    "en": "Beam ductility uses the axial force at the same cut and combination. Beam shear and seismic checks are withheld when the bar extent or other required inputs cannot be established. Seismic hoop length is measured from the support face. The report summary shows unevaluated checks and their reasons.",
+    "es": "La ductilidad de la viga usa el esfuerzo axial en la misma sección y combinación. El corte de vigas y las verificaciones sísmicas quedan sin evaluar si no se puede determinar el alcance de las barras u otros datos necesarios. La longitud de estribado sísmico se mide desde la cara del apoyo. El resumen indica las verificaciones no evaluadas y sus motivos.",
+    "pt": "A ductilidade da viga usa a força axial na mesma seção e combinação. A verificação de cisalhamento de vigas e as verificações sísmicas ficam sem avaliação se faltarem dados sobre os trechos das barras ou outras informações necessárias. O comprimento dos estribos sísmicos é medido a partir da face do apoio. O resumo exibe as verificações não avaliadas e seus motivos.",
+    "de": "Der Duktilitätsnachweis verwendet die Normalkraft im selben Schnitt und in derselben Kombination. Querkraft- und Erdbebennachweise bleiben offen, wenn die Stabverläufe oder andere erforderliche Angaben fehlen. Die Bügelzone wird ab der Auflagerkante gemessen. Die Berichtszusammenfassung nennt offene Nachweise und ihre Gründe.",
+    "fr": "La ductilité de la poutre utilise l’effort normal à la même section et dans la même combinaison. Les vérifications du cisaillement et les vérifications sismiques restent ouvertes lorsque le tracé des barres ou d’autres données nécessaires sont inconnus. La longueur de la zone d’étriers est mesurée depuis la face de l’appui. Le résumé indique les vérifications non effectuées et leurs raisons.",
+    "tr": "Kiriş süneklik kontrolü aynı kesit ve kombinasyondaki eksenel kuvveti kullanır. Donatı sınırları veya gerekli diğer veriler belirlenemediğinde kiriş kesme ve deprem kontrolleri sonuçlandırılmaz. Deprem etriye bölgesi mesnet yüzünden ölçülür. Rapor özeti sonuçlandırılmayan kontrolleri ve nedenlerini gösterir.",
+    "zh": "梁延性验算采用同一截面和组合的轴力。无法确定钢筋延伸范围或其他必要输入时，暂停梁受剪及抗震验算。抗震箍筋区长度从支承面量起。报告摘要显示未完成的验算及原因。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-rc-verdict-containment.md",
+    "heading": "Reinforced concrete verdict containment (2026-11-21)"
+  },
+  "quantities": ["rc"]
+}

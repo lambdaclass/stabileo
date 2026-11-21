@@ -1038,8 +1038,7 @@ function verifyBeamStations(
     { axes: { ...axes, bFlex: geometry.b, hFlex: geometry.h }, spacingRule: { edition: '2025', maxAggregateSizeMm: 20 } });
 }
 
-const issue2213 = process.env.RUN_KNOWN_WRONG === '2213' ? it : it.skip;
-issue2213('known wrong result: #2213 compression in another combination cannot waive the ductility check', () => {
+it('#2213 compression in another combination cannot waive the ductility check', () => {
   const geometry = { ...section, h: 0.35, fy: 500 };
   const steel = {
     top: { count: 4, diameter: 25 }, bottom: { count: 2, diameter: 16 },
@@ -1745,8 +1744,7 @@ it('#2296 a stirrup gap at the loaded cut is already rejected on main', () => {
   }
 });
 
-const issue2355 = process.env.RUN_KNOWN_WRONG === '2355' ? it : it.skip;
-issue2355('known wrong result: #2355 span shear cannot credit top layers terminated before the loaded cut', () => {
+it('#2355 span shear cannot credit top layers terminated before the loaded cut', () => {
   const L = 4;
   const outer = { count: 3, diameter: 16, row: 0 };
   const inner = { count: 2, diameter: 16, row: 1 };
@@ -1770,5 +1768,139 @@ issue2355('known wrong result: #2355 span shear cannot credit top layers termina
     expect.soft(check(0.99, -20, extracted)).toMatchObject({ status: 'fail', ratio: Infinity, limiting: 'unsupportedCheck' });
     expect.soft(check(1.01, -20, extracted)).toMatchObject({ capacity: expect.any(Number), status: 'ok' });
     expect.soft(check(0.99, 20, extracted)).toMatchObject({ capacity: expect.any(Number), status: 'ok' });
+  }
+});
+
+function solvedVerdictBeam(spatial: boolean, nonlinear: boolean, geometry: typeof section, L: number) {
+  const nodes = new Map([[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: L, y: 0, z: 0 }]]);
+  const element = model.elements.get(1)!;
+  const iz = geometry.b * geometry.h ** 3 / 12;
+  const a = geometry.b * geometry.h;
+  const sec = { ...model.sections.get(1)!, ...geometry, a, iy: iz, iz };
+  const solvedModel = { ...model, nodes, sections: new Map([[1, sec]]) };
+  const run = (fx: number, fz: number, my: number) => {
+    if (spatial) {
+      const solver: SolverInput3D = {
+        ...solvedModel,
+        elements: new Map([[1, { ...element, releaseMyStart: false, releaseMyEnd: false,
+          releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }]]),
+        supports: new Map([[1, { nodeId: 1, rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true }]]),
+        loads: [{ type: 'nodal', data: { nodeId: 2, fx, fy: 0, fz, mx: 0, my, mz: 0 } }],
+      };
+      return nonlinear ? solvePDelta3D(solver).results : solve3D(solver);
+    }
+    const solver: SolverInput = {
+      ...solvedModel,
+      nodes: new Map([...nodes].map(([id, { x, z }]) => [id, { id, x, z }])),
+      elements: new Map([[1, { ...element, hingeStart: false, hingeEnd: false }]]),
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx, fz, my } }],
+    };
+    return planarResultForDesign(nonlinear ? solvePDelta(solver).results : solve(solver));
+  };
+  return { run, solvedModel };
+}
+
+for (const spatial of [false, true]) for (const nonlinear of [false, true]) {
+  const mode = `${spatial ? '3D' : '2D'} ${nonlinear ? 'P-Delta' : 'linear'}`;
+  it(`#2213 ${mode} keeps ductility separate from the strength envelope for either bending sign`, () => {
+    const geometry = { ...section, h: 0.35, fy: 500 };
+    const { run, solvedModel } = solvedVerdictBeam(spatial, nonlinear, geometry, 12);
+    const large = { count: 4, diameter: 25 }, small = { count: 2, diameter: 16 };
+    const stirrups = { diameter: 8, legs: 2, spacing: 0.1 };
+    for (const sign of [-1, 1]) {
+      const scenarios = [{ id: 1, name: 'Bending', factors: [] }, { id: 2, name: 'Compression and bending', factors: [] }];
+      const { demands, stations } = computeStationDemands(new Map([
+        [1, run(0, 0, sign * 50)], [2, run(-263, 0, sign * 170)],
+      ]), scenarios, solvedModel);
+      const first = stations.get(1)!.comboResults.find(c => c.comboId === 1)!.stations[0]!;
+      expect(Math.abs(first.my)).toBeCloseTo(50, 8);
+      const top = first.my < 0 ? large : small, bottom = first.my < 0 ? small : large;
+      const rowLabel = first.my < 0 ? 'Top Start (My-)' : 'Bottom Span (My+)';
+      for (const extracted of [false, true]) {
+        const args = [1, 'beam', { top, bottom, stirrups }, extracted ? demands.get(1) : undefined, {}, geometry,
+          extracted ? undefined : stations.get(1), undefined, { axes }] as const;
+        for (const report of [verifyProvidedReinforcement(...args), rankProvidedReinforcement(...args).ranking]) {
+          expect.soft(report.checks.find(row => row.category === rowLabel)?.comboName).toBe('Compression and bending');
+          expect.soft(report.checks.find(row => row.category === `${rowLabel} ductility`)).toMatchObject({
+            status: 'fail', comboName: 'Bending',
+          });
+        }
+      }
+    }
+  });
+
+  it(`#2355 ${mode} primary shear refuses a drawn outer-row gap between solved cuts`, () => {
+    const L = 4;
+    const { run, solvedModel } = solvedVerdictBeam(spatial, nonlinear, section, L);
+    const calc = (fz: number) => computeStationDemands(new Map([[1, run(0, fz, 0)]]), combos, solvedModel);
+    const isHogging = (result: ReturnType<typeof calc>) => result.stations.get(1)!.comboResults[0]!.stations[0]!.my < 0;
+    const up = calc(40);
+    const hogging = isHogging(up) ? up : calc(-40);
+    expect(isHogging(hogging)).toBe(true);
+    const cuts = hogging.stations.get(1)!.stationTs.filter(t => t > 0.25 && t < 0.75);
+    const a = cuts[0]! * L, b = cuts[1]! * L;
+    const gapStart = (2 * a + b) / 3, gapEnd = (a + 2 * b) / 3;
+    const outer = { count: 3, diameter: 16, face: 'top' as const, role: 'main' as const, row: 0 };
+    const inner = { ...outer, count: 2, row: 1 };
+    const bottom = { ...outer, face: 'bottom' as const };
+    const cage = { diameter: 8, legs: 4, spacing: 0.1 };
+    const provided = (gap: boolean) => membersFromLine({
+      version: 1, members: [1], lengths: [L],
+      bars: [
+        { ...outer, id: 'outer-start', from: 0, to: gap ? gapStart : L },
+        ...(gap ? [{ ...outer, id: 'outer-end', from: gapEnd, to: L }] : []),
+        { ...inner, id: 'inner', from: 0, to: L },
+        { ...bottom, id: 'bottom', from: 0, to: L },
+        { ...inner, face: 'bottom', id: 'bottom-inner', from: 0, to: L },
+      ],
+      stirrups: [{ ...cage, id: 'cage', from: 0, to: L }],
+    }, [{ id: 1, L, tStart: 0.25, tEnd: 0.25, faceStart: 0, faceEnd: 0 }]).get(1)!;
+    for (const extracted of [false, true]) for (const gap of [false, true]) {
+      const args = [1, 'beam', provided(gap), extracted ? hogging.demands.get(1) : undefined, {}, section,
+        extracted ? undefined : hogging.stations.get(1), undefined, { axes }] as const;
+      for (const report of [verifyProvidedReinforcement(...args), rankProvidedReinforcement(...args).ranking]) {
+        const row = report.checks.find(row => row.category === 'Shear Span (Vz)');
+        if (gap) {
+          expect.soft(row).toMatchObject({ status: 'fail', ratio: Infinity, limiting: 'unsupportedCheck', description: 'diag.rcShearCutoff' });
+          expect.soft(row?.stationX).toBeGreaterThan(gapStart);
+          expect.soft(row?.stationX).toBeLessThan(gapEnd);
+        } else {
+          expect.soft(row).toMatchObject({ status: 'ok', capacity: expect.any(Number) });
+        }
+      }
+    }
+  });
+}
+
+it('#2355 withholds shear when hogging and shear overlap only inside a top-bar gap', () => {
+  const L = 4, left = 0.4, right = 0.6;
+  const outer = { count: 3, diameter: 16, row: 0, face: 'top' as const, role: 'main' as const };
+  const inner = { ...outer, row: 1, count: 2 };
+  const hoops = { diameter: 8, legs: 4, spacing: 0.1 };
+  const provided = membersFromLine({
+    version: 1, members: [1], lengths: [L],
+    bars: [
+      { ...outer, id: 'start', from: 0, to: left * L },
+      { ...outer, id: 'end', from: right * L, to: L },
+      { ...inner, id: 'inner', from: 0, to: L },
+      { ...outer, face: 'bottom', id: 'bottom', from: 0, to: L },
+    ],
+    stirrups: [{ ...hoops, id: 'hoops', from: 0, to: L }],
+  }, [{ id: 1, L, tStart: 0.25, tEnd: 0.25, faceStart: 0, faceEnd: 0 }]).get(1)!;
+  const check = (overlap: boolean, extracted: boolean) =>
+    checkReviewBeam(section, provided, L, [
+      { t: 0, my: 20, vz: 0 },
+      { t: left, my: 20, vz: 40 },
+      ...(!overlap ? [{ t: 0.5, my: 7.5, vz: 0 }] : []),
+      { t: right, my: -5, vz: 0 },
+      { t: 1, my: -5, vz: 0 },
+    ].map(t => ({ ...t, n: 0, vy: 0, torsion: 0 })), extracted, '2025')
+      .find(row => row.category === 'Shear Span (Vz)');
+  for (const extracted of [false, true]) {
+    const refused = check(true, extracted);
+    expect(refused).toMatchObject({ status: 'fail', ratio: Infinity, description: 'diag.rcShearCutoff' });
+    expect(refused?.stationX).toBeGreaterThan(0.5 * L);
+    expect(refused?.stationX).toBeLessThan(right * L);
+    expect(check(false, extracted)).toMatchObject({ status: 'ok', demand: 40 });
   }
 });

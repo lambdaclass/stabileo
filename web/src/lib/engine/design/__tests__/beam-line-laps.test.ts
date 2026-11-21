@@ -164,7 +164,7 @@ it('#2302 seismic verification blocks a reopened beam line with a short dense ca
   expect(drawing.stirrups.find(zone => zone.from === 0 && zone.spacing === dense.spacing)?.to).toBeLessThan(seismicLength);
   const frame = {
     ...source, ...beamConcrete, b: 0.2, h: height, id: 1, kind: 'beam' as const, role: 'primary' as const,
-    nodeI: 1, nodeJ: 2, faceHalf: [0.2, 0.2] as [number, number], r: source.reinforcement,
+    nodeI: 1, nodeJ: 2, vg: [0, 0] as [number, number], faceHalf: [0.2, 0.2] as [number, number], r: source.reinforcement,
   };
   const check = (tCritShear: number) => seismicFrameChecks({
     nodes: new Map(), settings: defaultSeismicDesign(),
@@ -224,7 +224,7 @@ it('#2302 hoops inside either support do not count toward the dense zone', () =>
   const bars = { count: 2, diameter: 16 };
   const frame = {
     ...beamConcrete, b: 0.2, h, L, id: 1, kind: 'beam' as const, role: 'primary' as const,
-    nodeI: 1, nodeJ: 2, faceHalf,
+    nodeI: 1, nodeJ: 2, vg: [0, 0] as [number, number], faceHalf,
     r: { top: bars, bottom: bars, regions: { regionT: required / L, stirrupsSupport: dense } },
   };
   const check = (from: number, to: number) => seismicFrameChecks({
@@ -263,7 +263,7 @@ it.each([
     expect(r.regions?.stirrupsSupport).toEqual(dense);
     const frame: FrameMember = {
       ...beamConcrete, b: 0.2, h, L, id: member.id, kind: 'beam', role: 'primary', nodeI: 1, nodeJ: 2,
-      r, faceHalf: [member.faceStart, member.faceEnd],
+      r, faceHalf: [member.faceStart, member.faceEnd], vg: [0, 0],
       criticalSections: {
         start: { tCritShear: (member.faceStart + 2 * h) / L, tFace: member.faceStart / L, source: 'column' },
         end: { tCritShear: (member.faceEnd + 2 * h) / L, tFace: member.faceEnd / L, source: 'column' },

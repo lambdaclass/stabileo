@@ -12,7 +12,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { beamSteel, seismicFrameChecks, type FrameMember } from '../frame-checks';
-import { seismicMemberCheckRows } from '../../check-rows-families';
+import { seismicJointCheckRows, seismicMemberCheckRows } from '../../check-rows-families';
 import { probableMoment } from '../capacity';
 import { defaultSeismicDesign } from '../../../../model/seismic-design';
 
@@ -50,15 +50,15 @@ describe('a seismic portal by hand', () => {
 
   it('checks each column-top joint with the beam yielding at λo·fy', () => {
     const j = r.joints.find((x) => x.nodeId === 2 && x.direction === 'X')!;
-    expect(j.shear.T).toBeCloseTo(494.6, 0);
+    expect(j.shear!.T).toBeCloseTo(494.6, 0);
     const mpr = Math.max(b.beam!.mprNeg[0], b.beam!.mprPos[0]);
-    expect(j.shear.vj).toBeCloseTo(494.6 - mpr / 3, 0);
-    expect(j.shear.confinement).toBe('other');
-    expect(j.shear.phiVn).toBeCloseTo(1062.5, 6);
-    expect(j.strongColumn.required).toBeCloseTo(1.2 * j.strongColumn.sumBeams, 9);
+    expect(j.shear!.vj).toBeCloseTo(494.6 - mpr / 3, 0);
+    expect(j.shear!.confinement).toBe('other');
+    expect(j.shear!.phiVn).toBeCloseTo(1062.5, 6);
+    expect(j.strongColumn!.required).toBeCloseTo(1.2 * j.strongColumn!.sumBeams, 9);
     // A one-storey portal: its joints are at the roof, where the strong-column rule is not asked.
-    expect(j.strongColumn.roof).toBe(true);
-    expect(j.strongColumn.ok).toBe(true);
+    expect(j.strongColumn!.roof).toBe(true);
+    expect(j.strongColumn!.ok).toBe(true);
   });
 
   it('confines the column over lo at so with Ash', () => {
@@ -76,8 +76,7 @@ describe('a seismic portal by hand', () => {
   });
 });
 
-const issue2216 = process.env.RUN_KNOWN_WRONG === '2216' ? it : it.skip;
-issue2216('known wrong result: #2216 missing primary reinforcement cannot pass a seismic member check', () => {
+it('#2216 missing primary reinforcement cannot pass a seismic member check', () => {
   const primaryBeam = { ...beam, L: 8, b: 0.4, h: 0.8, vg: [0, 0] as [number, number] };
   const primaryColumn = column(1, 1, 2);
   const missing = [
@@ -85,6 +84,7 @@ issue2216('known wrong result: #2216 missing primary reinforcement cannot pass a
     { ...primaryBeam, r: {} },
     { ...primaryColumn, r: undefined, section: undefined },
     { ...primaryColumn, section: undefined },
+    { ...primaryColumn, r: { stirrups: primaryColumn.r!.stirrups! } },
     { ...primaryColumn, axial: undefined, vu: undefined },
     { ...primaryBeam, vg: undefined },
   ];
@@ -134,8 +134,7 @@ it('#2217 every regional layer or group participates in the smallest-bar limit',
 });
 
 
-const issue2351 = process.env.RUN_KNOWN_WRONG === '2351' ? it : it.skip;
-issue2351('known wrong result: #2351 hoop zone starts at either support face without faceHalf', () => {
+it('#2351 hoop zone starts at either support face without faceHalf', () => {
   const L = 5, h = 0.5, face = 0.2, required = 2 * h;
   const bars = { count: 2, diameter: 16 };
   const hoops = { diameter: 8, legs: 2, spacing: 0.075 };
@@ -157,4 +156,22 @@ issue2351('known wrong result: #2351 hoop zone starts at either support face wit
   const unknown = check(full, full, false);
   expect.soft(unknown).toMatchObject({ ok: false, issues: [expect.stringMatching(/^seisDes[.]issue[.]/)] });
   expect.soft(unknown.shear).toBeUndefined();
+});
+
+
+it('#2216 does not compute a joint from an incomplete subset of its primary members', () => {
+  const settings = defaultSeismicDesign();
+  const c1 = column(1, 1, 2);
+  for (const members of [[c1, { ...beam, r: undefined }], [{ ...c1, section: undefined }, beam]]) {
+    const report = seismicFrameChecks({ nodes, members, settings });
+    const joint = report.joints.find(j => j.nodeId === 2 && j.direction === 'X')!;
+    expect(joint).toMatchObject({ ok: false, refusal: 'seisDes.issue.incompleteJoint' });
+    expect(joint.shear).toBeUndefined();
+    expect(seismicJointCheckRows(joint)).toContainEqual(expect.objectContaining({
+      status: 'notVerified', formula: 'seisDes.issue.incompleteJoint',
+    }));
+  }
+  const checked = seismicFrameChecks({ nodes, members: [c1, beam], settings });
+  expect(checked.joints.find(j => j.nodeId === 2)).toMatchObject({ shear: { vj: expect.any(Number) } });
+  expect(checked.members.every(m => m.shear && !m.refusal)).toBe(true);
 });

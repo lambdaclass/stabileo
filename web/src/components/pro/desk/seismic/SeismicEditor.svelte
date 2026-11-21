@@ -20,7 +20,7 @@
   const seismic = $derived.by(() => { void modelStore.model.loadCases; return isSeismicProject(); });
   const storeys = $derived.by(() => { void modelStore.model.loads; return modelStoreyStiffness(); });
   const rep = $derived(seismicState.report);
-  const failing = $derived(rep ? rep.members.filter((m) => !m.ok) : []);
+  const failing = $derived(rep ? rep.members.filter((m) => m.role === 'primary' && !m.ok) : []);
   const badJoints = $derived(rep ? rep.joints.filter((j) => !j.ok) : []);
   let note = $state<string | null>(null);
   const KINDS: SoftKind[] = ['column', 'beam', 'wall'];
@@ -86,7 +86,7 @@
     <h5>{t('seisDes.checks')}</h5>
     <div class="se-row">
       <button onclick={() => runSeismicChecks()} data-testid="seismic-run">{t('seisDes.run')}</button>
-      <button disabled={!rep || failing.length === 0} onclick={() => { const r = applySeismicDetailing(); note = tp('seisDes.detailed', { beams: r.beams, columns: r.columns }); }} data-testid="seismic-apply">{t('seisDes.apply')}</button>
+      <button disabled={!failing.some(m => !m.refusal)} onclick={() => { const r = applySeismicDetailing(); note = tp('seisDes.detailed', { beams: r.beams, columns: r.columns }); }} data-testid="seismic-apply">{t('seisDes.apply')}</button>
     </div>
     {#if note}<p class="se-hint" role="status" data-testid="seismic-note">{note}</p>{/if}
     {#if rep}
@@ -96,7 +96,7 @@
         {#each failing as m (m.id)}<tr><td>{t(`seisDes.kind.${m.kind}`)} {m.id}</td><td class="num">{m.shear ? `${m.shear.ve.toFixed(0)} / ${m.shear.phiVn.toFixed(0)}` : '—'}</td><td>{m.issues.map((k) => t(k)).join(' · ')}</td></tr>{/each}
       </tbody></table>{/if}
       {#if badJoints.length}<table class="se-t" data-testid="seismic-joints"><thead><tr><th>{t('seisDes.joint')}</th><th>ΣMc / 1,2ΣMb</th><th>Vj / φVn</th></tr></thead><tbody>
-        {#each badJoints as j (`${j.nodeId}-${j.direction}`)}<tr><td>N{j.nodeId} {j.direction}</td><td class="num" class:bad={!j.strongColumn.ok}>{j.strongColumn.roof ? t('seisDes.roof') : `${j.strongColumn.sumColumns.toFixed(0)} / ${j.strongColumn.required.toFixed(0)}`}</td><td class="num" class:bad={j.shear.utilization > 1}>{j.shear.vj.toFixed(0)} / {j.shear.phiVn.toFixed(0)} ({fmt(j.shear.utilization)})</td></tr>{/each}
+        {#each badJoints as j (`${j.nodeId}-${j.direction}`)}<tr><td>N{j.nodeId} {j.direction}</td>{#if j.refusal !== undefined}<td colspan="2">{t(j.refusal)}</td>{:else}<td class="num" class:bad={!j.strongColumn.ok}>{j.strongColumn.roof ? t('seisDes.roof') : `${j.strongColumn.sumColumns.toFixed(0)} / ${j.strongColumn.required.toFixed(0)}`}</td><td class="num" class:bad={j.shear.utilization > 1}>{j.shear.vj.toFixed(0)} / {j.shear.phiVn.toFixed(0)} ({fmt(j.shear.utilization)})</td>{/if}</tr>{/each}
       </tbody></table><Hint text={t('seisDes.jointsHint')} />{/if}
     {/if}
   </section>

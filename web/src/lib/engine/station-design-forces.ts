@@ -1980,21 +1980,12 @@ function evaluateProvidedReinforcement(
     checks.push({ ...rest, ratio: +utilization.toFixed(3), status: utilizationStatus(utilization) });
   };
 
-  /*
-   * Ductility of a flexural member: CIRSOC 201-2025 9.3.3.1 wants a beam with Pu < 0,10·f'c·Ag
-   * tension-controlled (εt ≥ εty + 0,003); 2005 asked for εt ≥ 0,004 (10.3.5). The φ ramp only
-   * lowers the strength of an over-reinforced section, it does not make it acceptable, and this
-   * verifier never asked. The axial force used is the largest compression the member sees.
-   */
-  const allTuplesMaxCompression = () => allTuples.reduce((m, t) => Math.max(m, -t.n), 0);
-  let maxCompressionCache: number | null = null;
   const pushDuctility = (
     label: string, demandCategory: ProvidedRebarCheck['demandCategory'], range: [number, number],
-    cap: { epsilonT: number; epsilonTMin: number }, comboName: string, stationX: number,
+    result: { t: ConcurrentDemand; cap: FlexureCapacity; utilization: number } | undefined,
   ) => {
-    maxCompressionCache ??= allTuplesMaxCompression();
-    if (!section || maxCompressionCache >= 0.10 * section.fc * 1000 * section.b * section.h) return;
-    const utilization = cap.epsilonT > 0 ? cap.epsilonTMin / cap.epsilonT : Number.POSITIVE_INFINITY;
+    if (!result) return;
+    const { t: { comboName, stationX }, cap, utilization } = result;
     pushStrength({
       category: `${label} ductility`, demandCategory,
       demand: +cap.epsilonTMin.toFixed(5), capacity: +cap.epsilonT.toFixed(5), utilization,
@@ -2096,6 +2087,8 @@ function evaluateProvidedReinforcement(
     if (flange && sign === 1 && byAxial.has(0)) byAxial.set(0, flexCap(tensArea, d, compArea, dPrime, true));
     let demand: { Mu: number; comboName: string; stationX: number; Nu: number } | null = null;
     let cap: FlexureCapacity | null = null;
+    let ductility: { t: Tuple; cap: FlexureCapacity; utilization: number } | undefined;
+    const axialLimit = 0.10 * section!.fc * 1000 * section!.b * section!.h;
     let util = -1;
     for (const t of acting) {
       const Mu = Math.abs(M(t));
@@ -2107,8 +2100,12 @@ function evaluateProvidedReinforcement(
         demand = { Mu, comboName: t.comboName, stationX: t.stationX, Nu: key };
         cap = c;
       }
+      if (c && (spacingRule.edition === '2005' ? -t.n < axialLimit : -t.n <= axialLimit)) {
+        const utilization = c.epsilonT > 0 ? c.epsilonTMin / c.epsilonT : Number.POSITIVE_INFINITY;
+        if (!ductility || utilization > ductility.utilization) ductility = { t, cap: c, utilization };
+      }
     }
-    return { demand: demand!, cap };
+    return { demand: demand!, cap, ductility };
   };
   const V = (t: Tuple) => tupleShear(t, axes.shear);
   const V2 = (t: Tuple) => tupleShear(t, axes.secondaryShear);
@@ -2680,8 +2677,7 @@ function evaluateProvidedReinforcement(
         comboName: worstDemand.comboName, stationX: worstDemand.stationX,
         limiting: 'flexure',
       });
-      pushDuctility(rs.label, rs.sign === 1 ? axes.sagCategory : axes.hogCategory, rs.range, cap,
-        worstDemand.comboName, worstDemand.stationX);
+      pushDuctility(rs.label, rs.sign === 1 ? axes.sagCategory : axes.hogCategory, rs.range, gov.ductility);
 
       // ── §9.6.1: the minimum top steel at a support that hogs, on the web. §9.6.1.3 waives it where
       // the bars give a third more than the moment asks; As,req ≈ As·Mu/φMn, which Mn's concavity
@@ -2822,7 +2818,7 @@ function evaluateProvidedReinforcement(
         comboName: worstDemand.comboName, stationX: worstDemand.stationX,
         limiting: 'flexure',
       });
-      pushDuctility(os.label, demandCat, os.range, cap, worstDemand.comboName, worstDemand.stationX);
+      pushDuctility(os.label, demandCat, os.range, gov.ductility);
     }
 
     // ── Skin reinforcement of a deep beam (§9.7.2.3): both side faces, spaced by §24.3.2 ──
@@ -2895,6 +2891,64 @@ function evaluateProvidedReinforcement(
     const tensionDepth = (t: Tuple) => elementType === 'beam' && M(t) < -0.001
       ? (t.stationT <= tStartEnd ? startDepth : t.stationT >= tEndStart ? endDepth : Math.min(startDepth, endDepth))
       : Infinity;
+    const topStartExtent = startCoverage.reduce((end, { group, to }) =>
+      layersTotalArea(group.layers) > 0 ? Math.min(end, to) : end, 1);
+    const topEndExtent = endCoverage.reduce((start, { group, from }) =>
+      layersTotalArea(group.layers) > 0 ? Math.max(start, from) : start, 0);
+    const variesTopLayout = elementType === 'beam' && (drawnBars !== undefined || topStartExtent < 1 || topEndExtent > 0);
+    const sustainedHoggingLayout = (t: number) => {
+      const atStart = t <= tStartEnd, atEnd = t >= tEndStart;
+      const usesStart = !atEnd || atStart, usesEnd = !atStart || atEnd;
+      if (drawnBars) {
+        return (!usesStart || layersAreDrawn('top', topStartLayers, t))
+          && (!usesEnd || layersAreDrawn('top', topEndLayers, t));
+      }
+      return (!usesStart || t <= topStartExtent) && (!usesEnd || t >= topEndExtent);
+    };
+    const shearDepthIntervals: Array<{ from: number; to: number; support: boolean }> = [];
+    if (variesTopLayout) {
+      const extents = drawnBars
+        ? drawnBars.filter(bar => bar.face === 'top').flatMap(({ from, to }) => [from, to])
+        : [topStartExtent, topEndExtent];
+      const breaks = [...new Set([0, tStartEnd, tEndStart, 1, ...extents]
+        .filter(t => t >= 0 && t <= 1))].sort((a, b) => a - b);
+      for (let i = 1; i < breaks.length; i++) {
+        const from = breaks[i - 1]!, to = breaks[i]!;
+        const mid = (from + to) / 2;
+        if (!sustainedHoggingLayout(mid)) shearDepthIntervals.push({ from, to, support: mid <= tStartEnd || mid >= tEndStart });
+      }
+    }
+    const shearDemandLimit = 0.001;
+    const activeHoggingShear = (t: Tuple) => Math.abs(V(t)) >= shearDemandLimit && M(t) < -shearDemandLimit;
+    const shearCutoffWitness = (support: boolean): Tuple | undefined => {
+      const intervals = shearDepthIntervals.filter(interval => interval.support === support);
+      if (!intervals.length) return undefined;
+      for (const combo of stationCombos()) {
+        let start = 0;
+        for (let i = 1; i < combo.length; i++) {
+          const a = combo[i - 1]!, b = combo[i]!;
+          while (start < intervals.length && intervals[start]!.to <= a.stationT) start++;
+          for (let j = start; j < intervals.length && intervals[j]!.from < b.stationT; j++) {
+            const interval = intervals[j]!;
+            const from = Math.max(a.stationT, interval.from), to = Math.min(b.stationT, interval.to);
+            if (from >= to) continue;
+            const left = a.interpolate(b, from), right = a.interpolate(b, to);
+            const cuts = [0, 1];
+            for (const [u, v] of [[M(left) + shearDemandLimit, M(right) + shearDemandLimit],
+              [V(left) - shearDemandLimit, V(right) - shearDemandLimit],
+              [V(left) + shearDemandLimit, V(right) + shearDemandLimit]] as const) {
+              if ((u < 0 && v > 0) || (u > 0 && v < 0)) cuts.push(u / (u - v));
+            }
+            cuts.sort((u, v) => u - v);
+            for (let k = 1; k < cuts.length; k++) {
+              const t = a.interpolate(b, from + (to - from) * (cuts[k - 1]! + cuts[k]!) / 2);
+              if (activeHoggingShear(t) && !sustainedHoggingLayout(t.stationT)) return t;
+            }
+          }
+        }
+      }
+      return undefined;
+    };
     const shearSpecs: Array<{ label: string; stir: StirrupDef | undefined; tuples: Tuple[]; range: [number, number]; rhoW: number }> = [
       { label: `Shear Support (${axes.shear})`, stir: stirSupport, tuples: [...startTuples, ...endTuples], range: [0, tStartEnd], rhoW: rhoSupport },
       { label: `Shear Span (${axes.shear})`, stir: stirSpan, tuples: spanTuples, range: [tStartEnd, tEndStart], rhoW: rhoSpan },
@@ -2931,6 +2985,11 @@ function evaluateProvidedReinforcement(
       let refusal: { reason: string; Vu: number; t: Tuple; missing?: true } | undefined = missingDrawnBars
         ? { reason: 'diag.rcDrawnBarExtent', Vu: Math.abs(V(missingDrawnBars)), t: missingDrawnBars } : undefined;
       const cuts = new Set([...ss.tuples, ...gapCuts.filter(inRegion), ...zoneCuts.filter(inRegion)]);
+      if (variesTopLayout && !refusal) {
+        const unresolved = [...cuts].find(t => activeHoggingShear(t) && !sustainedHoggingLayout(t.stationT))
+          ?? shearCutoffWitness(support);
+        if (unresolved) refusal = { reason: 'diag.rcShearCutoff', Vu: Math.abs(V(unresolved)), t: unresolved };
+      }
       for (const t of cuts) {
         const Vu = Math.abs(V(t));
         if (Vu < 0.001) continue;

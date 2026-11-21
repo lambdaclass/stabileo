@@ -19,7 +19,7 @@ export interface RenderContext {
   fmt: (v: number, digits: number) => string;
 }
 
-const textOrDiagnostic = (s: string, c: RenderContext) => s.startsWith('diag.') ? c.tr(s) : s;
+const textOrDiagnostic = (s: string, c: RenderContext) => s.startsWith('diag.') || s.startsWith('seisDes.issue.') ? c.tr(s) : s;
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const CODE_NAME: Record<string, string> = { 'cirsoc-201': 'CIRSOC 201', 'cirsoc-301': 'CIRSOC 301', 'cirsoc-601': 'CIRSOC 601', 'cirsoc-303': 'CIRSOC 303', 'en-1999-1-1': 'EN 1999-1-1', 'aisc-360': 'AISC 360', 'cirsoc-101': 'CIRSOC 101', 'cirsoc-102': 'CIRSOC 102', 'cirsoc-103': 'INPRES-CIRSOC 103', 'inpres-cirsoc-103-ii': 'INPRES-CIRSOC 103 II', 'inpres-cirsoc-103-iii': 'INPRES-CIRSOC 103 III', 'nds': 'NDS', 'en-1993-1-2': 'EN 1993-1-2', 'fema-356': 'FEMA 356', 'aci-318': 'ACI 318', 'en-1992-1-1': 'EN 1992-1-1', 'bs-en-1992-1-1': 'BS EN 1992-1-1', 'en-1993-1-1': 'EN 1993-1-1', 'bs-en-1993-1-1': 'BS EN 1993-1-1' };
 /** References of the project's own, named in the memoria's language. */
@@ -28,6 +28,7 @@ const codeName = (c: string, tr?: RenderContext['tr']) => (tr && OWN_CODES.has(c
 const ref = (r: { code: string; edition?: string; clause?: string }, tr?: RenderContext['tr']) => `${codeName(r.code, tr)}${r.edition ? `-${r.edition}` : ''}${r.clause ? `, ${r.clause}` : ''}`;
 const clauseRef = (r: ClauseRef) => `${codeName(r.regulation)}-${r.edition} ${r.clause}`;
 
+const SEVERITY: Record<DesignStatus, number> = { ok: 0, nearLimit: 1, fail: 2, notVerified: 3, unsupported: 3 };
 const MARK: Record<DesignStatus, string> = { ok: '✓', nearLimit: '✓', fail: '✗', notVerified: '—', unsupported: '—' };
 
 function table(head: string[], rows: string[][], cls = ''): string {
@@ -72,8 +73,15 @@ export function familySummary(els: readonly MemoriaElement[], c: RenderContext, 
     const cells = cols.map((col) => {
       const rs = e.rows.filter((r) => (r.titleKey ? `${r.titleKey}|${r.clause ?? ''}` : r.title) === col.key);
       if (rs.length === 0) return `N.P.<sup>${note(c.tr('memo.np.absent', { check: col.title }))}</sup>`;
-      const worst = rs.reduce((a, b) => ((b.ratio ?? -1) > (a.ratio ?? -1) ? b : a));
-      if (worst.status === 'unsupported' || worst.status === 'notVerified') return `N.E.<sup>${note(`${col.title}: ${worst.formula ? textOrDiagnostic(worst.formula, c) : c.tr('memo.ficha.unsupported')}`)}</sup>`;
+      const refusals = rs.filter(r => r.status === 'unsupported' || r.status === 'notVerified');
+      if (refusals.length) {
+        const why = [...new Set(refusals.map(r => r.formula ? textOrDiagnostic(r.formula, c) : c.tr(`memo.ficha.${r.status}`)))];
+        return `N.E.<sup>${note(`${col.title}: ${why.join(' · ')}`)}</sup>`;
+      }
+      const worst = rs.reduce((a, b) => {
+        const byStatus = SEVERITY[b.status] - SEVERITY[a.status];
+        return (byStatus || (b.ratio ?? -1) - (a.ratio ?? -1)) > 0 ? b : a;
+      });
       return worst.ratio === null ? MARK[worst.status] : `<span class="s-${worst.status}">η = ${Number.isFinite(worst.ratio) ? c.fmt(worst.ratio, 2) : '∞'}</span>`;
     });
     const ratios = e.rows.map((r) => r.ratio).filter((x): x is number => x !== null);

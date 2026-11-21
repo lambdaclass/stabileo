@@ -15,7 +15,7 @@
  */
 import { lineFromMembers, lineMembersOf, type LineMemberSource } from '../beam-line';
 import type { LineStirrupPiece } from '../../detailing/line-bars';
-import { drawnBeamReinforcement, type LongBarGroup, type ProvidedReinforcement, type RebarGroup, type RebarLayer } from '../../../design-contract/reinforcement';
+import { drawnBeamReinforcement, type LongBarGroup, type ProvidedReinforcement, type RebarGroup, type RebarLayer, type StirrupDef } from '../../../design-contract/reinforcement';
 import type { SeismicDesignSettings, SeismicRole } from '../../../model/seismic-design';
 import { layersTotalArea, resolveBarGroups, resolveLayers, resolveColumnReinf } from '../../station-design-forces';
 import type { Bar, Outline } from '../../codes/argentina/cirsoc201-section';
@@ -25,6 +25,7 @@ import {
 } from './capacity';
 
 type P = { x: number; y: number; z?: number };
+type CriticalEnd = NonNullable<LineMemberSource['criticalSections']>['start'] & { halfDepth?: number };
 
 export interface FrameMember {
   id: number; kind: 'beam' | 'column'; role: SeismicRole;
@@ -37,30 +38,30 @@ export interface FrameMember {
   section?: { outline: Outline; bars: Bar[] };
   /** Beams: half the column depth at each end, m; gravity shear at each end, kN; slab bars in the flange, cm². */
   faceHalf?: [number, number]; vg?: [number, number]; slabTop?: [number, number];
-  criticalSections?: LineMemberSource['criticalSections'];
+  criticalSections?: { start: CriticalEnd; end: CriticalEnd };
   drawnStirrups?: readonly LineStirrupPiece[];
   /** Columns: factored axial over the seismic combinations (compression positive), and the analysis shear. */
   axial?: { min: number; max: number }; vu?: number;
 }
 
-export interface MemberSeismic {
-  id: number; kind: 'beam' | 'column'; role: SeismicRole;
-  /** Checked as primary because no role was declared (`FrameMember.assumed`). */
-  assumed?: boolean;
-  shear?: { ve: number; phiVn: number; utilization: number; vcZero: boolean };
-  beam?: BeamCapacityResult;
-  confinement?: ReturnType<typeof columnConfinement>;
-  ok: boolean;
-  /** i18n keys of what fails. */
-  issues: string[];
-}
+type SeismicShear = { ve: number; phiVn: number; utilization: number; vcZero: boolean };
 
-export interface JointSeismic {
+export type MemberSeismic = {
+  id: number; kind: 'beam' | 'column'; assumed?: boolean;
+} & (
+  | { role: 'primary'; ok: boolean; issues: string[]; shear: SeismicShear; beam?: BeamCapacityResult;
+      confinement?: ReturnType<typeof columnConfinement>; refusal?: never }
+  | { role: 'primary'; ok: false; issues: [string]; refusal: string; shear?: never; beam?: never; confinement?: never }
+  | { role: 'secondary'; ok?: never; issues: []; refusal?: never; shear?: never; beam?: never; confinement?: never }
+);
+
+export type JointSeismic = {
   nodeId: number; direction: 'X' | 'Y'; columns: number[]; beams: number[];
-  strongColumn: ReturnType<typeof strongColumn> & { roof: boolean };
-  shear: ReturnType<typeof seismicJointShear> & { confinement: JointConfinementKind };
-  ok: boolean;
-}
+} & (
+  | { ok: boolean; strongColumn: ReturnType<typeof strongColumn> & { roof: boolean };
+      shear: ReturnType<typeof seismicJointShear> & { confinement: JointConfinementKind }; refusal?: never }
+  | { ok: false; refusal: string; strongColumn?: never; shear?: never }
+);
 
 export interface SeismicReport { members: MemberSeismic[]; joints: JointSeismic[] }
 
@@ -81,19 +82,74 @@ const beamDepths = (m: FrameMember, dia: number) => {
   return { d: m.h - m.cover - (st + dia / 2) / 1000, dPrime: m.cover + (st + dia / 2) / 1000 };
 };
 
+function supportFaces(m: FrameMember): [number, number] | undefined {
+  const distance = (end: CriticalEnd | undefined, explicit: number | undefined) => {
+    if (end?.source === 'column' || end?.source === 'wall') return end.halfDepth ?? end.tFace * m.L;
+    return explicit ?? (end?.source === 'support' ? 0 : NaN);
+  };
+  const start = distance(m.criticalSections?.start, m.faceHalf?.[0]);
+  const end = distance(m.criticalSections?.end, m.faceHalf?.[1]);
+  if (!Number.isFinite(start) || !Number.isFinite(end) || start < 0 || end < 0 || start + end >= m.L) return;
+  return [start, end];
+}
+
+function validHoops(hoops: StirrupDef | undefined): hoops is StirrupDef {
+  return !!hoops && Number.isFinite(hoops.diameter) && hoops.diameter > 0 && Number.isFinite(hoops.spacing)
+    && hoops.spacing > 0 && Number.isSafeInteger(hoops.legs) && hoops.legs > 0;
+}
+
 export function seismicFrameChecks(i: { nodes: ReadonlyMap<number, P>; members: readonly FrameMember[]; settings: SeismicDesignSettings }): SeismicReport {
   const { settings: s } = i;
-  const members: MemberSeismic[] = [];
+  const memberResults = new Map<number, MemberSeismic>();
   const byId = new Map(i.members.map((m) => [m.id, m]));
   const z = (n: number) => i.nodes.get(n)?.z ?? 0;
+
+  const identity = (m: FrameMember) => ({ id: m.id, kind: m.kind, ...(m.assumed ? { assumed: true } : {}) });
+  const refuse = (m: FrameMember, refusal: string) => {
+    memberResults.set(m.id, { ...identity(m), role: 'primary', ok: false, issues: [refusal], refusal });
+  };
+  const eligible = (m: FrameMember): m is FrameMember & { r: ProvidedReinforcement } => {
+    if (m.role === 'secondary') {
+      memberResults.set(m.id, { ...identity(m), role: 'secondary', issues: [] });
+      return false;
+    }
+    if (!m.r) {
+      refuse(m, 'seisDes.issue.missingReinforcement');
+      return false;
+    }
+    if (![m.L, m.b, m.h, m.fc, m.fy].every(v => Number.isFinite(v) && v > 0)
+      || !Number.isFinite(m.cover) || m.cover < 0 || 2 * m.cover >= Math.min(m.b, m.h)) {
+      refuse(m, 'seisDes.issue.missingSection');
+      return false;
+    }
+    return true;
+  };
 
   // ── Beams ──
   const beamOut = new Map<number, { mprNeg: [number, number]; mprPos: [number, number]; mnNeg: [number, number]; mnPos: [number, number]; top: [number, number]; bottom: number }>();
   for (const m of i.members) {
     if (m.kind !== 'beam') continue;
-    if (m.role !== 'primary' || !m.r) { members.push({ id: m.id, kind: 'beam', role: m.role, ...(m.assumed ? { assumed: true } : {}), ok: true, issues: [] }); continue; }
-    const st = beamSteel(m.r), { d, dPrime } = beamDepths(m, st.minDia);
-    const hoopDef = m.r.regions?.stirrupsSupport ?? m.r.stirrups ?? { diameter: m.stirrupDia, legs: 2, spacing: 0.2 };
+    if (!eligible(m)) continue;
+    const st = beamSteel(m.r);
+    const hoopDef = m.r.regions?.stirrupsSupport ?? m.r.stirrups;
+    if (![...st.top, st.bottom].every(a => Number.isFinite(a) && a > 0) || !validHoops(hoopDef)) {
+      refuse(m, 'seisDes.issue.missingReinforcement');
+      continue;
+    }
+    const faces = supportFaces(m);
+    if (!faces) {
+      refuse(m, 'seisDes.issue.missingSupportFaces');
+      continue;
+    }
+    if (!m.vg || !Number.isFinite(m.vg[0]) || !Number.isFinite(m.vg[1])) {
+      refuse(m, 'seisDes.issue.missingForces');
+      continue;
+    }
+    const { d, dPrime } = beamDepths(m, st.minDia);
+    if (!(d > 0 && dPrime > 0)) {
+      refuse(m, 'seisDes.issue.missingSection');
+      continue;
+    }
     const drawing = m.r[drawnBeamReinforcement];
     const hoopZones = m.drawnStirrups ?? drawing?.stirrups.map(zone => ({
       ...zone, from: zone.from * drawing.memberLength, to: zone.to * drawing.memberLength,
@@ -103,7 +159,7 @@ export function seismicFrameChecks(i: { nodes: ReadonlyMap<number, P>; members: 
       && Number.isFinite(z.spacing) && z.spacing > 0 && z.spacing <= hoopDef.spacing
       && Number.isFinite(z.diameter) && z.diameter > 0 && z.diameter === hoopDef.diameter
       && Number.isSafeInteger(z.legs) && z.legs > 0 && z.legs >= hoopDef.legs);
-    const [faceI, faceJ] = m.faceHalf ?? [0, 0];
+    const [faceI, faceJ] = faces;
     const clearLength = m.L - faceI - faceJ;
     const continuousLength = (zones: Pick<LineStirrupPiece, 'from' | 'to'>[], face: number) => {
       let end = face;
@@ -114,16 +170,14 @@ export function seismicFrameChecks(i: { nodes: ReadonlyMap<number, P>; members: 
       return end - face;
     };
     const declaredLength = (m.r.regions?.regionT ?? 0.25) * m.L;
-    const zone = Number.isFinite(clearLength) && clearLength > 0 && faceI >= 0 && faceJ >= 0
-      ? Math.min(declaredLength, clearLength, continuousLength(matching, faceI),
-        continuousLength(matching.map(z => ({ from: m.L - z.to, to: m.L - z.from })), faceJ))
-      : 0;
+    const zone = Math.min(declaredLength, clearLength, continuousLength(matching, faceI),
+      continuousLength(matching.map(z => ({ from: m.L - z.to, to: m.L - z.from })), faceJ));
     const ln = Math.max(0.1, clearLength);
     const slab = s.slabFlange ? m.slabTop ?? [0, 0] : [0, 0] as [number, number];
     const r = beamCapacityShear({
       b: m.b, h: m.h, d, dPrime, fc: m.fc, fy: m.fy, fyt: m.fy,
       ends: [{ top: st.top[0], bottom: st.bottom }, { top: st.top[1], bottom: st.bottom }], slabTop: slab,
-      ln, vg: m.vg ?? [0, 0], hoops: { ...hoopDef, length: zone }, longMinDiaMm: st.minDia, overstrength: s.overstrength,
+      ln, vg: m.vg, hoops: { ...hoopDef, length: zone }, longMinDiaMm: st.minDia, overstrength: s.overstrength,
     });
     const mn = (t: number, c: number) => probableMoment(m.b, d, dPrime, m.fc, m.fy, 1, t, c);
     beamOut.set(m.id, {
@@ -131,7 +185,7 @@ export function seismicFrameChecks(i: { nodes: ReadonlyMap<number, P>; members: 
       mnNeg: [mn(st.top[0] + slab[0], st.bottom), mn(st.top[1] + slab[1], st.bottom)], mnPos: [mn(st.bottom, st.top[0]), mn(st.bottom, st.top[1])],
     });
     const issues = [...(r.utilization > 1 + 1e-9 ? ['seisDes.issue.beamShear'] : []), ...(!r.hoops.spacingOk ? ['seisDes.issue.hoopSpacing'] : []), ...(!r.hoops.lengthOk ? ['seisDes.issue.hoopZone'] : [])];
-    members.push({ id: m.id, kind: 'beam', role: 'primary', ...(m.assumed ? { assumed: true } : {}), beam: r, shear: { ve: r.ve, phiVn: r.phiVn, utilization: r.utilization, vcZero: r.vcZero }, ok: issues.length === 0, issues });
+    memberResults.set(m.id, { id: m.id, kind: 'beam', role: 'primary', ...(m.assumed ? { assumed: true } : {}), beam: r, shear: { ve: r.ve, phiVn: r.phiVn, utilization: r.utilization, vcZero: r.vcZero }, ok: issues.length === 0, issues });
   }
 
   // ── Joints: column tops where primary beams frame in ──
@@ -140,16 +194,33 @@ export function seismicFrameChecks(i: { nodes: ReadonlyMap<number, P>; members: 
     const map = m.kind === 'beam' ? beamsAt : colsAt;
     map.set(n, [...(map.get(n) ?? []), m.id]);
   }
-  const colMn = new Map<number, { least: number; most: number }>();
-  const mnOf = (m: FrameMember, fy: number, P: number, pick: 'least' | 'most') => {
-    if (!m.section) return 0;
-    const a = nominalMomentAt(m.section.outline, m.section.bars, m.fc, fy, Math.PI / 2, P), b = nominalMomentAt(m.section.outline, m.section.bars, m.fc, fy, 0, P);
-    return pick === 'least' ? Math.min(a, b) : Math.max(a, b);
-  };
+  const columns = new Map<number, {
+    m: FrameMember & { r: ProvidedReinforcement }; ties: StirrupDef;
+    axial: NonNullable<FrameMember['axial']>; vu: number; least: number; most: number;
+    col: ReturnType<typeof resolveColumnReinf>;
+  }>();
   for (const m of i.members) {
-    if (m.kind !== 'column' || !m.section) continue;
-    const ax = m.axial ?? { min: 0, max: 0 };
-    colMn.set(m.id, { least: Math.min(mnOf(m, m.fy, ax.min, 'least'), mnOf(m, m.fy, ax.max, 'least')), most: Math.max(mnOf(m, s.overstrength * m.fy, ax.min, 'most'), mnOf(m, s.overstrength * m.fy, ax.max, 'most')) });
+    if (m.kind !== 'column' || !eligible(m)) continue;
+    const { section, axial, vu } = m;
+    const ties = m.r.stirrups;
+    if (!section || !section.bars.length
+      || !section.bars.every(b => Number.isFinite(b.area) && b.area > 0 && Number.isFinite(b.x) && Number.isFinite(b.y))) {
+      refuse(m, 'seisDes.issue.missingSection');
+      continue;
+    }
+    const col = resolveColumnReinf(m.r.column, m.r.longitudinal);
+    if (!validHoops(ties) || (!col && !m.r.shaped)) {
+      refuse(m, 'seisDes.issue.missingReinforcement');
+      continue;
+    }
+    if (!axial || !Number.isFinite(axial.min) || !Number.isFinite(axial.max) || axial.min > axial.max
+      || vu === undefined || !Number.isFinite(vu) || vu < 0) {
+      refuse(m, 'seisDes.issue.missingForces');
+      continue;
+    }
+    const moments = (fy: number) => [axial.min, axial.max].flatMap(p => [0, Math.PI / 2]
+      .map(angle => nominalMomentAt(section.outline, section.bars, m.fc, fy, angle, p)));
+    columns.set(m.id, { m, col, ties, axial, vu, least: Math.min(...moments(m.fy)), most: Math.max(...moments(s.overstrength * m.fy)) });
   }
   const joints: JointSeismic[] = [];
   const fromBeamsAt = new Map<string, number>();
@@ -159,11 +230,15 @@ export function seismicFrameChecks(i: { nodes: ReadonlyMap<number, P>; members: 
     const p = i.nodes.get(node)!;
     for (const dir of ['X', 'Y'] as const) {
       const along = beams.filter((b) => {
-        const m = byId.get(b)!; if (m.role !== 'primary' || !beamOut.has(b)) return false;
+        const m = byId.get(b)!; if (m.role !== 'primary') return false;
         const o = i.nodes.get(m.nodeI === node ? m.nodeJ : m.nodeI)!;
         return dir === 'X' ? Math.abs(o.x - p.x) > Math.abs(o.y - p.y) : Math.abs(o.y - p.y) >= Math.abs(o.x - p.x);
       });
       if (along.length === 0) continue;
+      if (along.some(b => !beamOut.has(b)) || cols.some(c => !columns.has(c))) {
+        joints.push({ nodeId: node, direction: dir, columns: cols, beams: along, ok: false, refusal: 'seisDes.issue.incompleteJoint' });
+        continue;
+      }
       const endOf = (b: number) => (byId.get(b)!.nodeI === node ? 0 : 1);
       // One beam hogging (its negative, with slab) and the other sagging: the larger pairing.
       const neg = along.map((b) => beamOut.get(b)!.mnNeg[endOf(b)]), pos = along.map((b) => beamOut.get(b)!.mnPos[endOf(b)]);
@@ -171,7 +246,7 @@ export function seismicFrameChecks(i: { nodes: ReadonlyMap<number, P>; members: 
       // At the roof no column continues upward: a hinge in the column there forms no storey
       // mechanism, so the strong-column rule is not asked for.
       const roof = !cols.some((c) => Math.min(z(byId.get(c)!.nodeI), z(byId.get(c)!.nodeJ)) >= (p.z ?? 0) - 1e-6);
-      const sc0 = strongColumn({ columns: cols.map((c) => colMn.get(c)?.least ?? 0), beams: [sumBeams], ratio: s.strongColumn });
+      const sc0 = strongColumn({ columns: cols.map((c) => columns.get(c)!.least), beams: [sumBeams], ratio: s.strongColumn });
       const sc = roof ? { ...sc0, ok: true, roof: true } : { ...sc0, roof: false };
       const prNeg = along.map((b) => beamOut.get(b)!.mprNeg[endOf(b)]), prPos = along.map((b) => beamOut.get(b)!.mprPos[endOf(b)]);
       const sumPr = along.length === 1 ? Math.max(prNeg[0]!, prPos[0]!) : Math.max(prNeg[0]! + prPos[1]!, prPos[0]! + prNeg[1]!);
@@ -190,20 +265,15 @@ export function seismicFrameChecks(i: { nodes: ReadonlyMap<number, P>; members: 
   }
 
   // ── Columns ──
-  for (const m of i.members) {
-    if (m.kind !== 'column') continue;
-    if (m.role !== 'primary' || !m.r || !m.section) { members.push({ id: m.id, kind: 'column', role: m.role, ...(m.assumed ? { assumed: true } : {}), ok: true, issues: [] }); continue; }
+  for (const { m, col, ties, axial, vu, most: mpr } of columns.values()) {
     const [lo, hi] = z(m.nodeI) <= z(m.nodeJ) ? [m.nodeI, m.nodeJ] : [m.nodeJ, m.nodeI];
     const beamH = Math.max(0, ...(beamsAt.get(hi) ?? []).map((b) => byId.get(b)!.h));
     const lu = Math.max(0.3, m.L - beamH);
-    const ties = m.r.stirrups ?? { diameter: m.stirrupDia, legs: 2, spacing: 0.2 };
     const zones = m.r.tieZones ?? { endLength: 0, endSpacing: ties.spacing };
-    const mpr = colMn.get(m.id)?.most ?? 0;
     const fb: [number, number] | undefined = fromBeamsAt.has(`${m.id}:${hi}`) || fromBeamsAt.has(`${m.id}:${lo}`)
       ? [fromBeamsAt.get(`${m.id}:${hi}`) ?? mpr, fromBeamsAt.get(`${m.id}:${lo}`) ?? mpr] : undefined;
     const d = Math.max(m.b, m.h) - m.cover - (ties.diameter + 16) / 1000;
-    const sh = columnCapacityShear({ b: Math.min(m.b, m.h), h: Math.max(m.b, m.h), d, fc: m.fc, fyt: m.fy, mpr: [mpr, mpr], ...(fb ? { fromBeams: fb } : {}), lu, vu: m.vu ?? 0, pu: m.axial?.min ?? 0, ties: { diameter: ties.diameter, legs: ties.legs, spacing: Math.min(ties.spacing, zones.endSpacing) } });
-    const col = resolveColumnReinf(m.r.column, m.r.longitudinal);
+    const sh = columnCapacityShear({ b: Math.min(m.b, m.h), h: Math.max(m.b, m.h), d, fc: m.fc, fyt: m.fy, mpr: [mpr, mpr], ...(fb ? { fromBeams: fb } : {}), lu, vu, pu: axial.min, ties: { diameter: ties.diameter, legs: ties.legs, spacing: Math.min(ties.spacing, zones.endSpacing) } });
     const perFace = m.r.column ? Math.max(m.r.column.nBottom, m.r.column.nTop, m.r.column.nLeft, m.r.column.nRight) : 1;
     const hx = (Math.max(m.b, m.h) - 2 * m.cover) / (perFace + 1);
     const conf = columnConfinement({
@@ -215,7 +285,10 @@ export function seismicFrameChecks(i: { nodes: ReadonlyMap<number, P>; members: 
       ...(sh.utilization > 1 + 1e-9 ? ['seisDes.issue.columnShear'] : []),
       ...(!conf.lengthOk ? ['seisDes.issue.confinedLength'] : []), ...(!conf.spacingOk ? ['seisDes.issue.confinedSpacing'] : []), ...(!conf.ashOk ? ['seisDes.issue.ash'] : []),
     ];
-    members.push({ id: m.id, kind: 'column', role: 'primary', ...(m.assumed ? { assumed: true } : {}), shear: { ve: sh.ve, phiVn: sh.phiVn, utilization: sh.utilization, vcZero: sh.vcZero }, confinement: conf, ok: issues.length === 0, issues });
+    memberResults.set(m.id, { id: m.id, kind: 'column', role: 'primary', ...(m.assumed ? { assumed: true } : {}), shear: { ve: sh.ve, phiVn: sh.phiVn, utilization: sh.utilization, vcZero: sh.vcZero }, confinement: conf, ok: issues.length === 0, issues });
   }
+  const members = (['beam', 'column'] as const).flatMap(kind => i.members
+    .filter(m => m.kind === kind)
+    .map(m => memberResults.get(m.id)!));
   return { members, joints };
 }

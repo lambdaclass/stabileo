@@ -81,6 +81,10 @@ describe('the flagship beam lines, as lines', () => {
         }
         const prescribed = original.checks.filter(primaryShear);
         const projected = drawn.checks.filter(primaryShear);
+        const cutoffRows = projected.filter(row => row.description === 'diag.rcShearCutoff');
+        expect(cutoffRows, `member ${id}`).toEqual(topExtentRefusals.has(id) ? [expect.objectContaining({
+          category: 'Shear Span (Vz)', status: 'fail', ratio: Infinity, limiting: 'unsupportedCheck',
+        })] : []);
         if (JSON.stringify(key(projected)) !== JSON.stringify(key(prescribed))) transitioned.push(id);
         for (const row of prescribed) {
           const corresponding = projected.find(c => c.category === row.category);
@@ -104,7 +108,7 @@ describe('the flagship beam lines, as lines', () => {
     expect(lines.flatMap(line => line.members).length).toBeGreaterThan(200);
     expect(checked).toHaveLength(139);
     expect(withheld.sort((a, b) => a - b)).toEqual(FLAGSHIP_GRAVITY_SHEAR_DEPTH_REFUSALS);
-    expect(transitioned).toHaveLength(107);
+    expect(transitioned).toHaveLength(115);
     expect(minimumShortfalls).toHaveLength(52);
   }, 300_000);
 });

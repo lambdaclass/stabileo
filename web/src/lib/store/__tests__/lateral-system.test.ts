@@ -5,6 +5,9 @@
  * the seismic classifier's guess from the geometry is offered and never read as one.
  */
 import { describe, it, expect, beforeEach, beforeAll } from 'vitest';
+import { render } from 'svelte/server';
+import SeismicEditor from '../../../components/pro/desk/seismic/SeismicEditor.svelte';
+import { t } from '../../i18n';
 import { historyStore, modelStore, resultsStore } from '..';
 import { verificationStore } from '../verification.svelte';
 import { designRunStore } from '../design-run.svelte';
@@ -12,6 +15,7 @@ import { designData, setDesignData } from '../design-data';
 import { physicalGroups } from '../physical';
 import { planRecognition, applyRecognition } from '../physical-recognition';
 import { groupReferences } from '../group-references';
+import { commitManual } from '../rebar-edit';
 import { lateralData, lateralReadingFor, setBeamsLateral, setMemberLateral } from '../lateral-system';
 import { seismicRoleReadings, setSeismicRole, suggestedSeismicRoles, runSeismicChecks, adoptSuggestedRoles } from '../seismic-design.svelte';
 import { acceptAutosavePayload, buildProjectFile, deserializeProject, serializeProject } from '../file';
@@ -181,6 +185,40 @@ describe('the geometry suggests, it never declares', () => {
     const rep = runSeismicChecks();
     expect(rep.members.filter((m) => m.kind === 'beam').map((m) => [m.id, m.role, m.assumed === true]).sort())
       .toEqual([[beam, 'primary', true], [tip, 'primary', true]].sort());
+  });
+
+  it('#2216 shows the missing reinforcement in the seismic editor for a declared primary member', () => {
+    const { beam, tip } = cantilever();
+    setSeismicRole([beam], 'primary');
+    setSeismicRole([tip], 'secondary');
+    expect(designRunStore.computeDemands().ok).toBe(true);
+    const report = runSeismicChecks();
+    const reason = 'seisDes.issue.missingReinforcement';
+    expect(report.members.find(m => m.id === beam)).toMatchObject({ role: 'primary', ok: false, refusal: reason });
+    expect(report.members.find(m => m.id === tip)).toMatchObject({ role: 'secondary', issues: [] });
+    const html = render(SeismicEditor).body;
+    expect(html).toContain('data-testid="seismic-failing"');
+    expect(html).toContain(t(reason));
+  });
+
+  it('#2216 seismic capacity shear needs the end forces from each gravity case', () => {
+    const { beam, tip } = cantilever();
+    setSeismicRole([beam], 'primary');
+    setSeismicRole([tip], 'secondary');
+    expect(designRunStore.computeDemands().ok).toBe(true);
+    const bars = { count: 2, diameter: 16 };
+    commitManual(beam, { top: bars, bottom: bars, stirrups: { diameter: 8, legs: 2, spacing: 0.075 } });
+    const get = () => runSeismicChecks().members.find(m => m.id === beam)!;
+    expect(get().shear?.ve).toBeGreaterThan(0);
+
+    const cases = new Map(resultsStore.perCase3D);
+    const dead = modelStore.loadCases.find(c => c.type === 'D')!.id;
+    const solved = cases.get(dead)!;
+    cases.set(dead, { ...solved, elementForces: solved.elementForces.filter(f => f.elementId !== beam) });
+    resultsStore.setCombinationResults3D(cases, new Map(resultsStore.perCombo3D), resultsStore.envelope3D!);
+    expect(designRunStore.computeDemands().ok).toBe(true);
+    expect(get()).toMatchObject({ ok: false, refusal: 'seisDes.issue.missingForces' });
+    expect(get().shear).toBeUndefined();
   });
 
   it('adopted on purpose, the suggestion becomes a declaration, and the design reads it', () => {
