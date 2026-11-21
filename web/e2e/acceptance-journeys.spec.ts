@@ -1,3 +1,4 @@
+import { BUILD_FEATURES } from './build-features';
 import { dwellingFloorLoads } from './load-generator-inputs';
 /**
  * Acceptance of the two PRO journeys on one comparable building (two bays of 6 m by one of 5 m,
@@ -331,8 +332,10 @@ test.describe('@slow acceptance of the two journeys', () => {
     await step(page, j, 'recognise', async () => {
       await page.getByTestId('pr-stage-model').click();
       await ribbonCmd(page, 'physical');
-      await page.getByTestId('physical-recognize').click();
-      await page.getByTestId('recognition-apply').click();
+      if (!BUILD_FEATURES.proPlatesUnified) {
+        await page.getByTestId('physical-recognize').click();
+        await page.getByTestId('recognition-apply').click();
+      }
       await expect(page.getByTestId('physical-table')).toBeVisible();
       return physical(page);
     });

@@ -1,12 +1,27 @@
 import { readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { deflateRawSync } from 'node:zlib';
+import { deflateRawSync, inflateSync } from 'node:zlib';
+import { readProPlatesManifest } from './pro-plates-source.mjs';
 import { resultChangeLocaleProblems } from './result-changes/locales.mjs';
 import { readRegistry } from './result-changes/registry.mjs';
 
+export function readProfileResultChanges(proPlatesUnified) {
+  if (proPlatesUnified) return readRegistry();
+  const { resultsRegistry } = readProPlatesManifest();
+  return JSON.parse(inflateSync(Buffer.from(resultsRegistry, 'base64')).toString('utf8'));
+}
+
+export function packResultChangeNotices(registry) {
+  const problems = registry.changes.flatMap(resultChangeLocaleProblems);
+  if (problems.length) throw new Error(problems.join('\n'));
+  const shipped = { ...registry, changes: registry.changes.map(({ quantities: _, ...change }) => change) };
+  const packed = deflateRawSync(JSON.stringify(shipped), { level: 9 }).toString('base64');
+  return { shipped, packed };
+}
+
 /** @returns {import('vite').Plugin} */
-export function resultChangeMetadataPlugin() {
+export function resultChangeMetadataPlugin(proPlatesUnified = () => true) {
   const ids = ['virtual:result-change-metadata', 'virtual:result-change-packed', 'virtual:result-change-quantities'];
   const dir = fileURLToPath(new URL('../src/lib/provenance/result-changes', import.meta.url));
   return {
@@ -15,14 +30,16 @@ export function resultChangeMetadataPlugin() {
     load(resolved) {
       const id = resolved.slice(1).split('?')[0];
       if (resolved[0] !== '\0' || !ids.includes(id)) return null;
-      for (const name of readdirSync(dir)) if (name.endsWith('.json')) this.addWatchFile(join(dir, name));
+      const unified = proPlatesUnified();
+      if (unified) {
+        for (const name of readdirSync(dir)) if (name.endsWith('.json')) this.addWatchFile(join(dir, name));
+      } else {
+        this.addWatchFile(fileURLToPath(new URL('../config/pro-plates-off.json', import.meta.url)));
+      }
       /** @type {import('../src/lib/provenance/registry').ResultChangeRegistry} */
-      const registry = readRegistry();
+      const registry = readProfileResultChanges(unified);
       if (id === 'virtual:result-change-packed') {
-        const problems = registry.changes.flatMap(resultChangeLocaleProblems);
-        if (problems.length) throw new Error(problems.join('\n'));
-        const shipped = { ...registry, changes: registry.changes.map(({ quantities: _, ...change }) => change) };
-        const packed = deflateRawSync(JSON.stringify(shipped), { level: 9 }).toString('base64');
+        const { packed } = packResultChangeNotices(registry);
         return `export default ${JSON.stringify(packed)};`;
       }
       if (id === 'virtual:result-change-quantities') {
