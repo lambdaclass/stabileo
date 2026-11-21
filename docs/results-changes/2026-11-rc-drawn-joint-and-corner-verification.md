@@ -1,0 +1,7 @@
+# Drawn RC beam bar development and corner seats
+
+CIRSOC 201 drawn beam verification can now withhold longitudinal torsion approval near a bar end. The drawing projection retains each whole bar's ends in member coordinates, separately from the part shown inside the member. The station check applies the existing 2025 conservative straight-development length to both ends. A run may supply straight length across a joint when the connected line has matching sections and materials and no member offsets. A drawn hook, an unverified splice, and an extension outside the beam line provide no additional development credit. Drawn perimeter development remains unsupported for the 2005 edition.
+
+In a two-member witness, both sides of a shared joint previously passed longitudinal torsion with a utilization of 0.243 when independent top bars touched or reached just past the joint. Both sides now return a blocking development refusal. In the 2025 witness a continuous bar with verified straight reach clears that check on the developed side of the limit.
+
+The concrete-only secondary shear check now resolves the transverse positions from the same seats and lap offsets as physical detailing. Both top hoop bends must hold qualifying bars. The lesser effective depth from the two positions bounds the existing concrete-only calculation. In the lap witness, a region containing only the displaced half previously reported 26.12 kN of concrete-only capacity and passed a 10 kN demand. It now refuses that check. The seated region with the same demand continues to pass.

@@ -34,12 +34,12 @@ const demand = (primary: number, secondary: number, torque: number, axis: 'My' |
     vy: axis === 'My' ? secondary : primary, vz: axis === 'My' ? primary : secondary, torsion: torque } },
 ])[0]!.section(axis);
 
-function reference(primary: number, secondary: number, torque: number, longitudinalDiameter = 16, diameter = p.stirrupDia) {
+function reference(primary: number, secondary: number, torque: number, longitudinalDiameter = 16, diameter = p.stirrupDia, concreteCoefficient = 0.17) {
   const { b, h } = p;
   const x = b - 2 * p.cover - diameter / 1000;
   const y = h - 2 * p.cover - diameter / 1000;
   const Aoh = x * y, ph = 2 * (x + y);
-  const limit = 0.75 * (0.17 * Math.sqrt(p.fc) + 0.66 * Math.sqrt(p.fc)) * 1000;
+  const limit = 0.75 * (concreteCoefficient * Math.sqrt(p.fc) + 0.66 * Math.sqrt(p.fc)) * 1000;
   const v = Math.max(Math.abs(primary) / (b * depth(h, diameter)), Math.abs(secondary) / (h * depth(b, diameter, longitudinalDiameter)));
   const torsionPerUnit = ph / (1.7 * Aoh ** 2);
   const capacity = v >= limit ? 0 : Math.sqrt(limit ** 2 - v ** 2) / torsionPerUnit;
@@ -49,7 +49,7 @@ function reference(primary: number, secondary: number, torque: number, longitudi
 
 for (const edition of ['2005', '2025'] as const) {
   it(`exact column witness ${edition}: ${clause}`, () => {
-    const d = demand(0, 100, 57), expected = reference(0, 100, 57, selectedBarDiameter('column'));
+    const d = demand(0, 100, 57), expected = reference(0, 100, 57, selectedBarDiameter('column'), p.stirrupDia, edition === '2005' ? 1 / 6 : 0.17);
     expect(expected.sectionRatio).toBeGreaterThan(1);
     expect(expected.ratio).toBeGreaterThan(1);
     const v = verifyElement({ ...p, edition, elementId: 1, elementType: 'column', demand: d }, fixed);
@@ -84,13 +84,17 @@ for (const edition of ['2005', '2025'] as const) {
               : concreteRefusal ? 'diag.rcTorsionConcrete'
                 : fixedWall ? 'diag.rcTorsionPerimeter' : undefined;
           if (refusal) {
-            expectRefusal(t, refusal, refusal === 'diag.rcTorsionPerimeter' ? expected.phiTn : 0);
+            const sectionCapacity = edition === '2005'
+              ? reference(primary, secondary, torque, diameter, p.stirrupDia, 1 / 6).phiTn : expected.phiTn;
+            expectRefusal(t, refusal, refusal === 'diag.rcTorsionPerimeter' ? sectionCapacity : 0);
             expect(v?.overallStatus).toBe('fail');
           }
           const evaluated = refusal ? sectionOnly(input.demand, edition, diameter) : t;
           expect(evaluated.refusal).toBeUndefined();
-          expect(evaluated.phiTn).toBeCloseTo(expected.phiTn, 11);
-          expect(evaluated.ratio).toBeCloseTo(expected.ratio, 12);
+          const verifiedLimit = entry !== 'torsion' && !refusal && edition === '2005'
+            ? reference(primary, secondary, torque, diameter, p.stirrupDia, 1 / 6) : expected;
+          expect(evaluated.phiTn).toBeCloseTo(verifiedLimit.phiTn, 11);
+          expect(evaluated.ratio).toBeCloseTo(verifiedLimit.ratio, 12);
           if (factor > 1) {
             expect(evaluated.status).toBe('fail');
             if (v) expect(v.overallStatus).toBe('fail');
@@ -99,24 +103,27 @@ for (const edition of ['2005', '2025'] as const) {
           }
         });
       }
-      it(`zero secondary shear preserves main ${edition} ${axis} ${elementType} ${entry}`, () => {
+      it(`zero secondary shear retains the primary section limit ${edition} ${axis} ${elementType} ${entry}`, () => {
         const input = { ...p, edition, elementId: 1, elementType, demand: demand(100, 0, 30, axis) };
         const v = entry === 'direct' ? verifyElement(input, fixed) : entry === 'prepared' ? prepareElementVerification(input)(fixed)
           : entry === 'concurrent' ? verifyConcurrentElement([input]) : undefined;
         if (entry !== 'torsion') expect(v?.torsion).toBeDefined();
         const t = entry === 'torsion' ? checkTorsion(p, input.demand, edition, torsionFace) : v!.torsion!;
-        const { steps: _steps, status: _status, ...baseline } = main.results[edition].control.torsion;
+        const { steps: _steps, status: _status, phiTn, ratio, ...baseline } = main.results[edition].control.torsion;
         const refusal = entry !== 'torsion' && elementType === 'beam' ? 'diag.rcTorsionDepth'
           : (entry === 'direct' || entry === 'prepared') && elementType === 'wall' ? 'diag.rcTorsionPerimeter' : undefined;
         if (refusal) {
-          expectRefusal(t, refusal, refusal === 'diag.rcTorsionPerimeter' ? baseline.phiTn : 0);
+          expectRefusal(t, refusal, refusal === 'diag.rcTorsionPerimeter' ? reference(100, 0, 30, 16, p.stirrupDia, edition === '2005' ? 1 / 6 : 0.17).phiTn : 0);
           expect(v?.overallStatus).toBe('fail');
         }
         const evaluated = refusal ? sectionOnly(input.demand, edition, 16) : t;
         expect(evaluated.refusal).toBeUndefined();
-        expect(evaluated).toMatchObject(baseline);
-        expect(evaluated.phiTn).toBeCloseTo(reference(100, 0, 30).phiTn, 11);
-        expect(evaluated.ratio).toBeCloseTo(reference(100, 0, 30).ratio, 12);
+        const verifiedLimit = entry !== 'torsion' && !refusal && edition === '2005'
+          ? reference(100, 0, 30, 16, p.stirrupDia, 1 / 6) : undefined;
+        expect(evaluated).toMatchObject(verifiedLimit ? baseline : { ...baseline, phiTn, ratio });
+        const expected = verifiedLimit ?? reference(100, 0, 30);
+        expect(evaluated.phiTn).toBeCloseTo(expected.phiTn, 11);
+        expect(evaluated.ratio).toBeCloseTo(expected.ratio, 12);
         expect(evaluated.status).not.toBe('fail');
       });
     }

@@ -19,6 +19,10 @@ describe('the flagship beam lines, as lines', () => {
     const withheld: number[] = [];
     const transitioned: number[] = [];
     const minimumShortfalls: number[] = [];
+    const topExtentRefusals = new Set([363, 365, 366, 368, 369, 371, 372, 374, 375, 377, 378, 381, 382, 385, 386, 389, 390, 393]);
+    const bottomExtentRefusals = new Set([363, 365, 366, 368, 369, 371, 372, 374, 375, 377, 381, 385, 389, 393]);
+    const secondaryExtentRefusals = new Set([363, 365, 366, 368, 369, 371, 372, 374, 375, 377]);
+    const overallExtentRefusals = new Set([378, 381, 382, 385, 386, 389, 390, 393]);
     const primaryShear = (row: { category: string }) => /^Shear (Support|Span) \(Vz\)/.test(row.category);
     const key = (checks: Array<{ category: string; status: string; ratio: number }>) =>
       checks.map(c => `${c.category}|${c.status}|${c.ratio}`).sort();
@@ -53,8 +57,28 @@ describe('the flagship beam lines, as lines', () => {
         const regionRoundTrip = cirsoc201Adapter.verify(ctx, regional);
         const drawn = cirsoc201Adapter.verify(ctx, turned);
         expect(key(regionRoundTrip.checks), `member ${id}`).toEqual(key(original.checks));
-        expect(key(drawn.checks.filter(c => !primaryShear(c))), `member ${id}`)
-          .toEqual(key(original.checks.filter(c => !primaryShear(c))));
+        const extentCategories = [
+          ...(topExtentRefusals.has(id) ? ['Top Span (My-)'] : []),
+          ...(bottomExtentRefusals.has(id) ? ['Bottom Span (My+)'] : []),
+          ...(secondaryExtentRefusals.has(id) ? ['Secondary shear (Vy)'] : []),
+        ].sort();
+        const refusals = drawn.checks.filter(c => c.description === 'diag.rcDrawnBarExtent' || c.description === 'diag.rcDrawnCornerSeat');
+        expect(refusals.map(c => c.category).sort(), `member ${id}`).toEqual(extentCategories);
+        const replaced = new Set(extentCategories.flatMap(category => [category, `${category} ductility`]));
+        expect(key(drawn.checks.filter(c => !primaryShear(c))), `member ${id}`).toEqual([
+          ...key(original.checks.filter(c => !primaryShear(c) && !replaced.has(c.category))),
+          ...extentCategories.map(category => `${category}|fail|Infinity`),
+        ].sort());
+        for (const row of refusals) {
+          expect(row).toMatchObject({ limiting: 'unsupportedCheck', stationX: expect.any(Number),
+            description: row.category === 'Secondary shear (Vy)' ? 'diag.rcDrawnCornerSeat' : 'diag.rcDrawnBarExtent' });
+          expect(original.checks.find(c => c.category === row.category)?.status).toBe('ok');
+        }
+        if (overallExtentRefusals.has(id)) {
+          expect(original.overallStatus).toBe('ok');
+          expect(drawn.overallStatus).toBe('fail');
+          expect(outcomeFromProvided(cirsoc201Adapter, ctx, turned, drawn)).toBeNull();
+        }
         const prescribed = original.checks.filter(primaryShear);
         const projected = drawn.checks.filter(primaryShear);
         if (JSON.stringify(key(projected)) !== JSON.stringify(key(prescribed))) transitioned.push(id);

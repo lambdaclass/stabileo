@@ -380,19 +380,35 @@ export function inflectionChecks(input: EndSupportInput & {
   const mKey = axes.flexure === 'My' ? 'my' : 'mz';
   const vKey = axes.shear === 'Vz' ? 'vz' : 'vy';
   const sag = axes.sagCategory.endsWith('+') ? 1 : -1;
-  let worst: { limit: number; x: number; combo: string; vu: number; mn: number } | null = null;
+  const governing: { root?: { limit: number; x: number; combo: string; vu: number; mn: number } } = {};
   for (const cr of stations.comboResults) {
     const st = [...cr.stations].sort((p, q) => p.x - q.x);
-    for (let i = 1; i < st.length; i++) {
-      const m0 = st[i - 1]![mKey] * sag, m1 = st[i]![mKey] * sag;
-      if (!(m0 * m1 < 0)) continue;
-      const w = Math.abs(m0) / (Math.abs(m0) + Math.abs(m1));
-      const vu = Math.abs(st[i - 1]![vKey] + (st[i]![vKey] - st[i - 1]![vKey]) * w);
+    const consider = (x: number, vu: number) => {
       const r = inflectionAnchorage({ ld, asCm2, fy: section.fy, fc: section.fc, b: section.b, d, diameterMm: dia, vu });
-      if (!worst || r.limit < worst.limit) worst = { limit: r.limit, x: st[i - 1]!.x + (st[i]!.x - st[i - 1]!.x) * w, combo: cr.comboName, vu, mn: r.mnKNm };
+      if (!governing.root || r.limit < governing.root.limit) governing.root = { limit: r.limit, x, combo: cr.comboName, vu, mn: r.mnKNm };
+    };
+    let previous = -1;
+    for (let i = 0; i < st.length; i++) {
+      const current = st[i]!;
+      const m1 = current[mKey] * sag;
+      if (m1 === 0) continue;
+      const before = st[previous];
+      const m0 = before && before[mKey] * sag;
+      if (before && m0 !== undefined && Math.sign(m0) !== Math.sign(m1) && before.x < current.x) {
+        if (i === previous + 1) {
+          const w = Math.abs(m0) / (Math.abs(m0) + Math.abs(m1));
+          consider(before.x + (current.x - before.x) * w, Math.abs(before[vKey] + (current[vKey] - before[vKey]) * w));
+        } else {
+          for (const zero of st.slice(previous + 1, i)) {
+            if (zero.x > before.x && zero.x < current.x) consider(zero.x, Math.abs(zero[vKey]));
+          }
+        }
+      }
+      previous = i;
     }
   }
   const out: ProvidedRebarCheck[] = [];
+  const worst = governing.root;
   if (worst) {
     out.push({
       category: 'Anchorage at inflection (§9.7.3.8.3)', demandCategory: null,

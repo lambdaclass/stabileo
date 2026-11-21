@@ -42,8 +42,8 @@ export function is3DSupportType(type: SupportType): boolean {
 }
 
 /** The degrees of freedom a named 3D support type holds (the solver's own mapping). */
-export function dofRestraintsOfType3D(type: SupportType): Record<Dof3D, boolean> {
-  const d = supportDofs3D({ type } as Support);
+export function dofRestraintsOfType3D(type: SupportType, embeddedPlane = false): Record<Dof3D, boolean> {
+  const d = supportDofs3D({ type } as Support, embeddedPlane);
   return { tx: d.rx, ty: d.ry, tz: d.rz, rx: d.rrx, ry: d.rry, rz: d.rrz };
 }
 
