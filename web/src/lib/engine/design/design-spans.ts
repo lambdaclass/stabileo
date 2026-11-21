@@ -235,9 +235,13 @@ export function mergeSpanStations(
   const declaredPieces: { elementId: number; stationTs: number[] }[] = [];
   const spanGrid = new Set<number>();
   const rows: ScopedDemand[] = [];
+  let hasPieceWithoutStations = false;
   for (const [k, id] of span.elements.entries()) {
     const st = stationsOf(id);
-    if (!st || st.comboResults.length === 0) return null;
+    if (!st || (st.stationTs.length === 0 && st.comboResults.length === 0)) {
+      hasPieceWithoutStations = true;
+      continue;
+    }
     const ax = axesOf(model, id), L = span.lengths[k]!, off = span.offsets[k]!;
     const spanX = (t: number) => off + L * (span.reversed[k] ? 1 - t : t);
     if (st.stationTs.length) declaredPieces.push({ elementId: id, stationTs: st.stationTs });
@@ -261,10 +265,12 @@ export function mergeSpanStations(
     }
   }
   CompleteDemandSet.require({
+    missingMembers: expectedCombinationIds.size === 0 ? declaredPieces.map(piece => piece.elementId) : [],
     combinations: [...expectedCombinationIds].map(comboId => ({
       comboId, comboName: byCombo.get(comboId)?.comboName, members: declaredPieces,
     })),
   }, rows);
+  if (hasPieceWithoutStations) return null;
   const comboResults = [...byCombo.values()].map((c) => ({ ...c, stations: c.stations.sort((a, b) => a.t - b.t) }));
   const stationTs = [...spanGrid].sort((a, b) => a - b);
   return { elementId: span.representative, length: span.length, stationTs, comboResults };

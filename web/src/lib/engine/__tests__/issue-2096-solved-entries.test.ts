@@ -23,7 +23,6 @@ const model = {
   supports: new Map([[1, { id: 1, nodeId: 1, type: 'fixed' }]]),
 } satisfies AutoVerifyModelData;
 afterEach(() => { setCompactStationTransfer(true); vi.restoreAllMocks(); });
-const issue2403 = process.env.RUN_KNOWN_WRONG === '2403' ? it : it.skip;
 for (const spatial of [false, true]) for (const nonlinear of [false, true]) for (const compact of [false, true]) {
   const solveModel = (source = model) => {
     const loadedNode = Math.max(...source.nodes.keys());
@@ -118,7 +117,7 @@ for (const spatial of [false, true]) for (const nonlinear of [false, true]) for 
       extractGoverningDemands(merged);
     }).toThrow(expect.objectContaining({ code: 'incomplete-concurrent-demand' }));
   });
-  issue2403(`known wrong result: #2403 refuses a solved span piece with its only combination removed ${label}`, () => {
+  it(`#2403 refuses a solved span piece with its only combination removed ${label}`, () => {
     const spanModel = beamSpanModel();
     const raw = solveModel(spanModel);
     const { stations, demands } = computeStationDemands(new Map([[1, raw]]), combinations.slice(0, 1), spanModel);

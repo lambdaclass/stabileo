@@ -80,14 +80,12 @@ it('#2403 refuses to publish grouped contexts when a combination lacks the middl
   expect(contexts.get(2)?.span).toBeUndefined();
 });
 
-const issue2403 = process.env.RUN_KNOWN_WRONG === '2403' ? it : it.skip;
-
 function singleCombinationStations(elementId: number): ElementStationResult {
   const source = pieceStations(elementId);
   return { ...source, comboResults: source.comboResults.filter(c => c.comboId === 2) };
 }
 
-issue2403('known wrong result: #2403 refuses when one piece loses its only combination', () => {
+it('#2403 refuses when one piece loses its only combination', () => {
   const complete = mergeSpanStations(structure, span, singleCombinationStations)!;
   expect(extractGoverningDemands(complete).demands.find(d => d.category === 'My+')).toMatchObject({
     comboId: 2, stationT: governingStation, value: load.get(2)! * length ** 2 / 8,
@@ -104,7 +102,7 @@ issue2403('known wrong result: #2403 refuses when one piece loses its only combi
   }));
 });
 
-issue2403('known wrong result: #2403 refuses declared grids when every piece loses its only combination', () => {
+it('#2403 refuses declared grids when every piece loses its only combination', () => {
   expect(() => mergeSpanStations(structure, span, id => ({
     ...singleCombinationStations(id), comboResults: [],
   }))).toThrow(expect.objectContaining({

@@ -3432,6 +3432,7 @@ const ja: Translations = {
   'design.error.solveFirst': '設計応力を計算するには、まずモデルを解析してください。',
   'design.error.noCombinations': '設計の前に少なくとも1つの荷重組み合わせを定義してください。',
   'design.error.noDemands': '現在の結果から設計応力を抽出できませんでした。',
+  'design.error.incompleteSpanStations': '設計には、各梁スパンのすべての評価点で、有効なすべての荷重組合せに対する断面力が必要です。',
   'design.error.noLinearCombination': '有効な線形組合せがありません。SRSS・ABS 組合せは符号のない大きさで、設計には使いません。線形組合せを有効にしてください。',
   'design.error.combinationsUnsolved': '組合せは定義されていますが、どれにも結果がないため、係数を掛けていない荷重しかなく、それでは何も設計しません。組合せを含む完全な計算で結果が得られるか、除外された理由が示されます。',
   'design.error.noAdapter': '選択した規準に対応するアダプタが登録されていません。',
