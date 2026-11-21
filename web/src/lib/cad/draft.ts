@@ -40,6 +40,7 @@ import { findCoincidentNode, beamThrough } from '../engine/mesh-weld';
 import { buildBilinearQuadGrid, sanitizeDivisions, MAX_DIVISIONS_PER_AXIS } from '../engine/shell-mesh-gen';
 import type { ModelSnapshot } from '../store/history.svelte';
 import type { ModelProvenance } from '../model/provenance';
+import { PLATE_EDGE_TOL } from '../model/physical/plate-analysis';
 
 const NO_RELEASE = { my: false, mz: false, t: false };
 
@@ -532,7 +533,16 @@ export function generateRcDraft(
     if (Math.abs(seg.a.x - seg.b.x) <= axisTol) addAxis(axisX, (seg.a.x + seg.b.x) / 2);
     else if (Math.abs(seg.a.y - seg.b.y) <= axisTol) addAxis(axisY, (seg.a.y + seg.b.y) / 2);
   }
-  const forcedX = [...axisX], forcedY = [...axisY];
+  const wallXs: number[] = [], wallYs: number[] = [];
+  const wallRuns = plan.walls.flatMap(wall => splitSegmentsAtPoints([wall], columnPts, tol)
+    .map(run => ({ ...wall, ...run })));
+  for (const { a: start, b: end } of wallRuns) {
+    if (start.x !== end.x && start.y !== end.y) continue;
+    wallXs.push(start.x, end.x);
+    wallYs.push(start.y, end.y);
+  }
+  const forcedX = [...(a.meshSlabs ? wallXs : []), ...(meshMode === 'targetSize' ? axisX : [])];
+  const forcedY = [...(a.meshSlabs ? wallYs : []), ...(meshMode === 'targetSize' ? axisY : [])];
   let meshSlivers = 0;
   /** Spans a small target would have cut finer than the mesher's cap. */
   let meshCapped = 0;
@@ -543,10 +553,7 @@ export function generateRcDraft(
     const res = generateStructuredMesh({
       panel, containment: outline, openings: ops,
       mode: meshMode, targetSize: effTarget, fixedNx: fixedN, fixedNy: fixedN,
-      // Structural-line forcing is a target-size feature; legacy fixed mode
-      // keeps its even subdivisions + opening edges only (backward compatible).
-      forcedX: meshMode === 'targetSize' ? forcedX : [],
-      forcedY: meshMode === 'targetSize' ? forcedY : [],
+      forcedX, forcedY,
       snapTolerance: tol,
     });
     for (const cell of res.cells) emitCell(cell, z, thickness);
@@ -675,19 +682,16 @@ export function generateRcDraft(
   }
 
   // ── Walls / tabiques ──────────────────────────────────────
-  // One quad per story per wall run (coarse, stated in assumptions). Wall
-  // centerlines are split at column points so corners weld to column nodes.
   const wallQuadStart = b.quads.length;
-  const wallSegs = plan.walls.map((w) => ({ a: w.a, b: w.b, thickness: w.thickness }));
-  const wallRuns = splitSegmentsAtPoints(wallSegs, columnPts, tol).map((seg) => {
-    // Recover specs from the source wall containing this run (midpoint test).
-    const mid = { x: (seg.a.x + seg.b.x) / 2, y: (seg.a.y + seg.b.y) / 2 };
-    const src = plan.walls.find((w) =>
-      pointOnSegment(mid, w.a, w.b, tol, 0) !== null || dist(w.a, mid) <= tol || dist(w.b, mid) <= tol);
-    return { ...seg, thickness: src?.thickness, mark: src?.mark, specSource: src?.specSource };
-  });
+  const slabNodeIds = new Set(b.quads.flatMap(q => q.nodes));
+  const slabStations = new Map<string, CadPt>();
+  for (const n of b.nodes) {
+    if (slabNodeIds.has(n.id)) slabStations.set(`${n.x}|${n.y}`, n);
+  }
+  const stations = [...slabStations.values()];
   let wallScheduleHits = 0;
   for (const run of wallRuns) {
+    const segments = splitSegmentsAtPoints([run], stations, PLATE_EDGE_TOL);
     for (let k = 0; k < a.nFloors; k++) {
       const r = resolveSection(
         'wall', run.mark, k + 1, schedules,
@@ -698,11 +702,13 @@ export function generateRcDraft(
       if (r.source === 'schedule') wallScheduleHits++;
       const t = r.t ?? a.wallThickness;
       const z0 = levels[k], z1 = levels[k + 1];
-      const n0 = b.node(run.a.x, run.a.y, z0);
-      const n1 = b.node(run.b.x, run.b.y, z0);
-      const n2 = b.node(run.b.x, run.b.y, z1);
-      const n3 = b.node(run.a.x, run.a.y, z1);
-      b.quad([n0, n1, n2, n3], t);
+      for (const { a: start, b: end } of segments) {
+        const n0 = b.node(start.x, start.y, z0);
+        const n1 = b.node(end.x, end.y, z0);
+        const n2 = b.node(end.x, end.y, z1);
+        const n3 = b.node(start.x, start.y, z1);
+        b.quad([n0, n1, n2, n3], t);
+      }
     }
   }
   const wallQuadCount = b.quads.length - wallQuadStart;

@@ -9,6 +9,7 @@ import { createHash } from 'node:crypto';
 import { modelStore } from '../../store/model.svelte';
 import { detailingStore } from '../../store/detailing.svelte';
 import { designRunStore } from '../../store/design-run.svelte';
+import { verificationStore } from '../../store/verification.svelte';
 import { ready, familiesWithSteel } from './design-families-fixture';
 
 // ─── Equivalence and idempotence ─────────────────────────────────
@@ -22,7 +23,8 @@ describe('the global command is the individual commands', () => {
      * the two must land on the same families with the same bar counts.
      */
     await ready('pro-edificio-7p');
-    designRunStore.designFamilies(['column', 'beam', 'slab', 'wall']);
+    designRunStore.designFamilies(['column', 'beam', 'slab', 'wall'], { maxRunMs: 180_000 });
+    expect(verificationStore.runSummary?.aborted).toBe(false);
     const viaGlobal = (modelStore.model.detailing?.assemblies ?? [])
       .flatMap((a) => a.bars).length;
     const globalFamilies = [...familiesWithSteel()].sort();
@@ -36,7 +38,8 @@ describe('the global command is the individual commands', () => {
 
     await ready('pro-edificio-7p');
     const generate = vi.spyOn(detailingStore, 'generate');
-    designRunStore.designAll();
+    designRunStore.designAll({ maxRunMs: 180_000 });
+    expect(verificationStore.runSummary?.aborted).toBe(false);
     expect(generate).toHaveBeenCalledTimes(1);
     detailingStore.generate({ verifierId: 'cirsoc201.provided.v2.2025' });
     detailingStore.generateFloors({ verifierId: 'cirsoc201.provided.v2.2025', families: ['slab', 'wall'] });

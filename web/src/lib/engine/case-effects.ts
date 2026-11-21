@@ -21,9 +21,8 @@ import type { Load, LoadCase } from '../store/model.svelte';
 import type { SelfWeightLoad } from './analysis-settings';
 import { GRAVITY_SELF_WEIGHT } from './analysis-settings';
 import { scaledLoad } from '../model/loads/load-magnitudes';
-import { buildSolverInput3D, buildSolverLoads3D, type ModelData } from './solver-service';
+import { prepareSolverInput3D, buildSolverLoads3D, type ModelData } from './solver-service';
 import { nodeGravity, notionalLoads } from './direct-analysis';
-import { solvableModel } from './member-behaviour';
 import { isCompositeCase } from './loads/combination-cases';
 import { variableExpansionFor } from './variable-members';
 import { caseReductionRefusal } from './loads/case-reduction';
@@ -168,8 +167,9 @@ export function withCaseEffects<M extends ModelData>(model: M, cases: readonly C
  */
 function sourceGravity(model: ModelData, srcLoads: Load[], srcRows: SelfWeightLoad[], leftHand: boolean): Map<number, number> | null {
   const of = { ...model, loads: srcLoads, analysis: { ...(model.analysis ?? {}), selfWeight: srcRows } } as ModelData;
-  const solvable = solvableModel(of);
-  const base = buildSolverInput3D({ ...solvable, loads: [] }, false, leftHand);
+  const prepared = prepareSolverInput3D(of, leftHand);
+  const { model: solvable } = prepared;
+  const base = prepared.build([]);
   if (!base) return null;
   const { gravity } = nodeGravity(base, buildSolverLoads3D(solvable, solvable.loads, solvable.analysis?.selfWeight ?? [], leftHand), leftHand);
   const exp = variableExpansionFor(of);
