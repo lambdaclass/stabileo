@@ -118,11 +118,12 @@ test.describe('@smoke PRO click selection and the quick editor', () => {
     });
   }
 
-  test("the shells list edits a quad's nodes, and refuses three", async ({ pro: page }) => {
+  const shellEditTags = BUILD_FEATURES.proPlatesUnified ? { tag: '@switch-on' as const } : {};
+  test("the shells list edits a quad's nodes, and refuses three", shellEditTags, async ({ pro: page }) => {
     await loadModel(page, 'mat-foundation');
     await page.getByTestId('pr-stage-model').click();
     await page.getByTestId('pr-cmd-shells').click();
-    await page.getByTestId('plates-scope-element').click();
+    if (BUILD_FEATURES.proPlatesUnified) await page.getByTestId('plates-scope-element').click();
     const q = (await page.evaluate(() => window.__stabileo.entityData('setting', 'quads') as Array<[number, { nodes: number[] }]>))[0]!;
     const input = page.getByTestId(`plate-nodes-q${q[0]}`);
     const [a, b, c, d] = q[1].nodes;
