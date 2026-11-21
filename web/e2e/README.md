@@ -18,8 +18,9 @@ and their other tests stay in their original suites.
 ## Switch-on cases
 
 When adding `@switch-on` cases, list the spec path relative to `web/e2e/` in
-`../config/switch-on-e2e-specs.json`. Collection fails if Playwright excludes a
-listed spec or reports zero active `@switch-on` cases for it in the test profile.
+`../config/switch-on-e2e-specs.json`. Collection fails if either Playwright profile
+reports a tagged spec missing from the registry. Every listed spec must contribute
+an active `@switch-on` case in the test profile.
 
 ## Quarantine: `@flaky`
 

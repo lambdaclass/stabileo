@@ -50,7 +50,7 @@ test('collects every switch-on case reported by Playwright', t => {
   const options = fixture(t, {
     ...files,
     'production.spec.ts': "test('always enabled', { tag: '@switch-on-extra' }, () => {});",
-  });
+  }, { expectedSpecs: Object.keys(files) });
   const report = JSON.parse(execFileSync(process.execPath, [playwright, 'test', '--list', '--reporter=json'], options));
   const tagged = report.suites.flatMap(function taggedFiles(suite) {
     return [
@@ -66,11 +66,11 @@ test('collects title tags even when the profiles have identical switches', t => 
   const file = 'title-tag.spec.ts';
   assertSelected(collect(fixture(t, {
     [file]: "test('@switch-on enabled', () => {});",
-  }, { sameProfiles: true })), [file]);
+  }, { sameProfiles: true, expectedSpecs: [file] })), [file]);
 });
 
 for (const [profile, sameProfiles] of [['test', false], ['production', false], ['production', true]]) {
-  test(`refuses an unregistered spec tagged only in the ${profile} profile (${sameProfiles ? 'identical' : 'different'} switches)`, { skip: 'known wrong result: #2436' }, t => {
+  test(`refuses an unregistered spec tagged only in the ${profile} profile (${sameProfiles ? 'identical' : 'different'} switches)`, t => {
     const file = 'unregistered.spec.ts';
     const result = collect(fixture(t, {
       [file]: `
@@ -93,7 +93,7 @@ test('refuses a tagged spec when no tagged case is active even if an untagged ca
       test('profile-only', () => {});
       test.skip(process.env.STABILEO_E2E_PROFILE === 'production');
     `,
-  }));
+  }, { expectedSpecs: [file] }));
   assert.equal(result.status, 1, result.stdout + result.stderr);
   assert.match(result.stderr, /No active @switch-on cases were collected from: e2e\/skipped\.spec\.ts/);
 });
@@ -119,7 +119,7 @@ test('ignores switch-on text in an ordinary assertion', t => {
         expect(label).toBe('@switch-on');
       });
     `,
-  });
+  }, { expectedSpecs: [file] });
   assertSelected(collect(options), [file]);
 });
 

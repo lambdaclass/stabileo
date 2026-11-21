@@ -185,7 +185,7 @@ test-changed:
 check.quick:
 	BASE=$(BASE) scripts/check-quick.sh
 
-check.fast:
+check.fast: web/node_modules/@playwright/test/cli.js
 	$(MAKE) -j5 --output-sync=target lint.repo check.changelog check.issue-reproducers check.fail-closed typecheck.web test.web.fast test.ci-scripts check.web.production-parity
 
 test.web.fast:
@@ -559,8 +559,11 @@ test.reproducers.published:
 check.issue-reproducers:
 	$(if $(BODY),,body=$$(git log --format=%B "$(or $(BASE),origin/main)..$(or $(HEAD),HEAD)") && printf '%s\n' "$$body" | )python3 -I scripts/issue-reproducers.py flip-check --base "$(or $(BASE),origin/main)" --head "$(or $(HEAD),HEAD)" --body-file "$(or $(BODY),/dev/stdin)" $(if $(LABELS),--labels-json "$(LABELS)")
 
+web/node_modules/@playwright/test/cli.js: web/package.json web/package-lock.json
+	$(SUBMAKE) web.deps
+
 .PHONY: test.switch-on-e2e
-test.switch-on-e2e:
+test.switch-on-e2e: web/node_modules/@playwright/test/cli.js
 	$(NIX_RUN) node --test scripts/tests/switch-on-e2e.test.mjs
 
 test.nightly-scripts:
