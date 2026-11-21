@@ -90,14 +90,28 @@ impl Strip {
 }
 
 /// Node-major displacement vector [ux0, uz0, θ0, ux1, …]; θ is the anticlockwise tangent angle.
-pub fn to_vector(n: usize, displacements: &[Displacement]) -> Vec<f64> {
+/// Refuses a result that misses a node, repeats one, names one outside the strip or carries a
+/// non-finite value.
+pub fn to_vector(n: usize, displacements: &[Displacement]) -> Result<Vec<f64>, String> {
     let mut q = vec![0.0; DOFS * (n + 1)];
+    let mut seen = vec![false; n + 1];
     for d in displacements {
-        q[DOFS * d.node_id] = d.ux;
-        q[DOFS * d.node_id + 1] = d.uz;
-        q[DOFS * d.node_id + 2] = d.ry;
+        let i = d.node_id;
+        if i > n || seen[i] {
+            return Err(format!("solver result: node {i} is outside the strip or repeated"));
+        }
+        if ![d.ux, d.uz, d.ry].iter().all(|v| v.is_finite()) {
+            return Err(format!("solver result: node {i} has a non-finite displacement"));
+        }
+        seen[i] = true;
+        q[DOFS * i] = d.ux;
+        q[DOFS * i + 1] = d.uz;
+        q[DOFS * i + 2] = d.ry;
     }
-    q
+    if let Some(i) = seen.iter().position(|s| !s) {
+        return Err(format!("solver result: node {i} is missing"));
+    }
+    Ok(q)
 }
 
 pub fn to_displacements(q: &[f64]) -> Vec<Displacement> {
@@ -183,4 +197,25 @@ pub fn mass_band(n: usize) -> Vec<(usize, usize, f64)> {
         }
     }
     m
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn rows(ids: &[usize]) -> Vec<Displacement> {
+        ids.iter().map(|&i| Displacement { node_id: i, ux: 0.1 * i as f64, uz: -0.2, ry: 0.3 }).collect()
+    }
+
+    #[test]
+    fn to_vector_needs_one_finite_row_per_node() {
+        let q = to_vector(2, &rows(&[2, 0, 1])).unwrap();
+        assert_eq!(q, vec![0.0, -0.2, 0.3, 0.1, -0.2, 0.3, 0.2, -0.2, 0.3]);
+        assert!(to_vector(2, &rows(&[0, 2])).unwrap_err().contains("node 1 is missing"));
+        assert!(to_vector(2, &rows(&[0, 1, 1, 2])).is_err());
+        assert!(to_vector(2, &rows(&[0, 1, 2, 3])).is_err());
+        let mut bad = rows(&[0, 1, 2]);
+        bad[1].uz = f64::NAN;
+        assert!(to_vector(2, &bad).unwrap_err().contains("non-finite"));
+    }
 }

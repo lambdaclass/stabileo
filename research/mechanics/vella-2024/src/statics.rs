@@ -33,7 +33,7 @@ fn reach(strip: &Strip, from: &Equilibrium, from_input: &SolverInput, to: Clamps
     if !r.converged {
         return Err(format!("no equilibrium reached at {to:?}"));
     }
-    Ok((Equilibrium { clamps: to, q: to_vector(strip.n, &r.results.displacements) }, input))
+    Ok((Equilibrium { clamps: to, q: to_vector(strip.n, &r.results.displacements)? }, input))
 }
 
 /// The natural state at end-shortening `shortening`: the clamps are turned to ±α while the
@@ -52,7 +52,7 @@ pub fn natural(strip: &Strip, shortening: f64) -> Result<Equilibrium, String> {
         if !r.converged {
             return Err("the clamps could not be turned".into());
         }
-        q = to_vector(n, &r.results.displacements);
+        q = to_vector(n, &r.results.displacements)?;
         input = next;
     }
     let arc = -q[DOFS * n];
@@ -129,7 +129,7 @@ fn arc_length(strip: &Strip, from: &Equilibrium, pattern: Clamps, stiffness: f64
             right: from.clamps.right + lambda * pattern.right,
             load: from.clamps.load + lambda * pattern.load,
         };
-        let raw = Equilibrium { clamps, q: to_vector(strip.n, &step.displacements) };
+        let raw = Equilibrium { clamps, q: to_vector(strip.n, &step.displacements)? };
         let free = if pattern.load != 0.0 { Free::Load } else { Free::Shortening };
         let s = match at_height(strip, &mut polisher, &raw, raw.height(strip), free) {
             Ok(s) => s,
