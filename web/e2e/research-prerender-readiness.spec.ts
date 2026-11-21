@@ -8,7 +8,7 @@ const benchmarks = [
 ] as const;
 
 for (const [benchmark, summaryId] of benchmarks) {
-  test.skip(`@smoke prerender waits for ${benchmark} results (known wrong result: #2365)`, async ({ page }) => {
+  test(`@smoke prerender waits for ${benchmark} results`, async ({ page }) => {
     let release = () => {};
     const engine = new Promise<void>(resolve => { release = resolve; });
     await page.route(/dedaliano_engine_bg[^/]*\.wasm$/, async route => {
