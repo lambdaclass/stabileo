@@ -228,13 +228,13 @@ test.engine.targeted:
 
 .PHONY: engine.nonlinear-opt-in
 engine.nonlinear-opt-in:
-@set -eu; \
-checkout=$$(mktemp -d "$(CURDIR)/.nonlinear-opt-in.XXXXXX"); \
-git clone --quiet --shared --no-checkout "$(CURDIR)" "$$checkout"; \
-git -C "$$checkout" checkout --quiet --detach "$$(git rev-parse HEAD)"; \
-git -C "$$checkout" apply --index engine/experimental/nonlinear.patch; \
+	@set -eu; \
+	checkout=$$(mktemp -d "$(CURDIR)/.nonlinear-opt-in.XXXXXX"); \
+	git clone --quiet --shared --no-checkout "$(CURDIR)" "$$checkout"; \
+	git -C "$$checkout" checkout --quiet --detach "$$(git rev-parse HEAD)"; \
+	git -C "$$checkout" apply --index engine/experimental/nonlinear.patch; \
 	git -C "$$checkout" commit --quiet -S -m "Enable the experimental nonlinear solver drivers"; \
-printf '%s\n' "$$checkout"
+	printf '%s\n' "$$checkout"
 
 NEWMARK_DIR = $(CURDIR)/research/benchmarks/newmark-1959
 research.newmark.replay:
