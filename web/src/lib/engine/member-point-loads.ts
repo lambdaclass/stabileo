@@ -24,7 +24,7 @@ import { tp } from '../i18n';
 import type { SolverLoad3D } from './types-3d';
 import { dot, type MemberAxes, type MemberRef, type Vec3 } from './member-loads';
 import { transverseSign } from './transverse-sign-2d';
-import { planarPointMoment, type PlanarPointMomentFields } from './planar-point-load';
+import { planarNodalMoment, planarPointMoment, type PlanarMomentFields } from './planar-point-load';
 
 export type PointFrame = 'local' | 'global';
 
@@ -143,13 +143,21 @@ export interface PlanePointLoadLike {
   isGlobal?: boolean;
 }
 
-export class PlanarPointMomentError extends Error {}
+export class PlanarLoadMomentError extends Error {}
 
-export function requirePlanarPointMoment(d: PlanarPointMomentFields & Pick<PlanePointLoadLike, 'id' | 'elementId' | typeof planarPointOrigin>): number | undefined {
+export function requirePlanarNodalMoment(fields: PlanarMomentFields & { id?: number; nodeId: number }): number {
+  const moment = planarNodalMoment(fields);
+  if (moment === null) {
+    throw new PlanarLoadMomentError(tp('svc.planarNodalLoadMomentAliases', { load: fields.id ?? '—', n: fields.nodeId }));
+  }
+  return moment ?? 0;
+}
+
+export function requirePlanarPointMoment(d: PlanarMomentFields & Pick<PlanePointLoadLike, 'id' | 'elementId' | typeof planarPointOrigin>): number | undefined {
   const moment = planarPointMoment(d);
   if (moment === null) {
     const origin = d[planarPointOrigin];
-    throw new PlanarPointMomentError(tp('svc.planarPointLoadMomentAliases', {
+    throw new PlanarLoadMomentError(tp('svc.planarPointLoadMomentAliases', {
       load: origin?.loadId ?? d.id ?? '—', n: origin?.elementId ?? d.elementId,
     }));
   }
