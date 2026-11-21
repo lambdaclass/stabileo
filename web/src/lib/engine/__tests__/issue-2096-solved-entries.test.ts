@@ -13,7 +13,7 @@ import { AISC360, EC3 } from '../design/other-codes/steel-codes';
 import { ACI318, EC2 } from '../design/other-codes/concrete-codes';
 import { AISI_S100 } from '../design/other-codes/cfs-code';
 import { buildAllMemberContexts } from '../design/member-context';
-import { applySpanContexts } from '../design/design-spans';
+import { applySpanContexts, designSpans, mergeSpanStations } from '../design/design-spans';
 
 const model = {
   elements: new Map([[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, sectionId: 1, materialId: 1 }]]),
@@ -23,6 +23,7 @@ const model = {
   supports: new Map([[1, { id: 1, nodeId: 1, type: 'fixed' }]]),
 } satisfies AutoVerifyModelData;
 afterEach(() => { setCompactStationTransfer(true); vi.restoreAllMocks(); });
+const issue2403 = process.env.RUN_KNOWN_WRONG === '2403' ? it : it.skip;
 for (const spatial of [false, true]) for (const nonlinear of [false, true]) for (const compact of [false, true]) {
   const solveModel = (source = model) => {
     const loadedNode = Math.max(...source.nodes.keys());
@@ -90,6 +91,30 @@ for (const spatial of [false, true]) for (const nonlinear of [false, true]) for 
         expect.objectContaining({ code: 'missing-station', elementId: 1, comboId: 1, stationT: extra }),
       ]),
     }));
+  });
+  issue2403(`known wrong result: #2403 refuses a missing design-span station after a solve ${label}`, () => {
+    const spanModel = {
+      ...model,
+      nodes: new Map([1, 2, 3].map(id => [id, { id, x: 2 * (id - 1), y: 0, z: 0 }])),
+      elements: new Map([1, 2].map(id => [id, { ...model.elements.get(1)!, id, nodeI: id, nodeJ: id + 1 }])),
+    };
+    const raw = solveModel(spanModel);
+    const data = computeStationDemands(new Map([[1, raw], [2, raw]]), combinations, spanModel);
+    const [span] = designSpans(spanModel, () => true);
+    expect(span?.elements).toEqual([1, 2]);
+    const complete = mergeSpanStations(spanModel, span!, id => data.stations.get(id))!;
+    expect(complete.stationTs).toContain(0.75);
+    expect(extractGoverningDemands(complete).concurrent).toEqual(expect.arrayContaining([
+      expect.objectContaining({ comboId: 2, stationT: 0.75 }),
+    ]));
+
+    const source = data.stations.get(2)!;
+    data.stations.set(2, { ...source, comboResults: source.comboResults.map(c => c.comboId === 2
+      ? { ...c, stations: c.stations.filter(s => s.t !== 0.5) } : c) });
+    expect(() => {
+      const merged = mergeSpanStations(spanModel, span!, id => data.stations.get(id))!;
+      extractGoverningDemands(merged);
+    }).toThrow(expect.objectContaining({ code: 'incomplete-concurrent-demand' }));
   });
   for (const entry of ['auto', 'unified', 'design'] as const) it(`known wrong result: #2096 complete grouped span reaches ${entry} ${label}`, () => {
     const spanModel = { ...model,
