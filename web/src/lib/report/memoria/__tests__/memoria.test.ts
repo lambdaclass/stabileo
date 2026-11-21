@@ -15,6 +15,7 @@ import type { CheckRow } from '../../../design-contract';
 import es from '../../../i18n/locales/es';
 import en from '../../../i18n/locales/en';
 import pt from '../../../i18n/locales/pt';
+import de from '../../../i18n/locales/de';
 
 const LIMITING = ['flexure', 'shear', 'axialFlexure', 'biaxial', 'torsion', 'barFit', 'barSpacing', 'anchorage', 'minSteel', 'maxSteel', 'tieSpacing', 'congestion', 'cover'] as const;
 const check = (limiting: string, extra = {}) => ({ category: `c-${limiting}`, demandCategory: null, demand: 80, capacity: 100, ratio: 0.8, status: 'ok', unit: 'kN·m', method: 'capacity', tuplesChecked: 1, description: '4 Ø16 → φMn = 100 kN·m', comboName: 'U1', stationX: 2.4, limiting, ...extra });
@@ -224,4 +225,28 @@ it('#2355 a primary shear refusal shares the shear column and renders a translat
     expect(summary).not.toContain('<span class="s-ok">η = 0.42</span>');
     expect(renderFicha(rows[1]!, c)).toContain(locale[refusal]);
   }
+});
+
+const round2 = process.env.RUN_KNOWN_WRONG === '2355' ? it : it.skip;
+round2('known wrong result: #2355 a shear refusal without a clause governs the strength summary', () => {
+  const rows = concreteCheckRows({ elementId: 1, elementType: 'beam', hasProvided: true,
+    overallStatus: 'fail', worstUtilization: Infinity, checkedAxes: ['Vz'], strengthCheckCount: 2,
+    checks: [
+      check('shear', { category: 'Shear Support (Vz)', demandCategory: 'Vz', ratio: 0.42 }),
+      check('unsupportedCheck', { category: 'Unverified cut (Vz)', demandCategory: 'Vz', status: 'fail', ratio: Infinity, description: 'diag.rcShearCutoff' }),
+    ],
+  } as never);
+  expect(rows[0]?.clause).toBe('22.5');
+  const element = input().elements.find(e => e.family === 'beam')!;
+  const render = (checks: CheckRow[]) => familySummary([{ ...element, rows: checks }], ctx(), 'beam');
+  for (const order of [rows, [...rows].reverse()]) {
+    const summary = render(order);
+    expect.soft(summary).toContain('N.E.');
+    expect.soft(summary).not.toContain('<span class="s-ok">η = 0.42</span>');
+  }
+  expect(render([rows[0]!])).toContain('<span class="s-ok">η = 0.42</span>');
+});
+
+round2('known wrong result: #2355 the German shear refusal says the check remains unverified', () => {
+  expect(de['diag.rcShearCutoff']).toContain('Der Querkraftnachweis konnte nicht geführt werden');
 });

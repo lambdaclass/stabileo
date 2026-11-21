@@ -17,7 +17,7 @@ import { planRecognition, applyRecognition } from '../physical-recognition';
 import { groupReferences } from '../group-references';
 import { commitManual } from '../rebar-edit';
 import { lateralData, lateralReadingFor, setBeamsLateral, setMemberLateral } from '../lateral-system';
-import { seismicRoleReadings, setSeismicRole, suggestedSeismicRoles, runSeismicChecks, adoptSuggestedRoles } from '../seismic-design.svelte';
+import { seismicRoleReadings, setSeismicRole, suggestedSeismicRoles, runSeismicChecks, adoptSuggestedRoles, seismicComboIds } from '../seismic-design.svelte';
 import { acceptAutosavePayload, buildProjectFile, deserializeProject, serializeProject } from '../file';
 import { placeFrame } from '../../model/building/build-on-grid';
 import { defaultDesignData } from '../../model/design-data';
@@ -152,24 +152,34 @@ describe('the geometry suggests, it never declares', () => {
   });
 
   /** A 6 m beam between two 40×40 columns and a 1,5 m cantilever past one of them, solved. */
-  function cantilever(): { beam: number; tip: number } {
+  function cantilever(options?: { analysis: 'linear' | 'pdelta'; seismic: boolean }): { beam: number; tip: number; column: number } {
     modelStore.clear(); historyStore.clear(); resultsStore.clear(); verificationStore.clear();
     const mat = modelStore.addMaterial({ name: 'H-30', e: 27500, nu: 0.2, rho: 25, fy: 30, fc: 30 } as never);
     const col = modelStore.addSection({ name: 'Rect 40x40 cm', a: 0.16, iy: 0.00213, iz: 0.00213, j: 0.0036, b: 0.4, h: 0.4, shape: 'rect' } as never);
     const bm = modelStore.addSection({ name: 'Rect 20x50 cm', a: 0.1, iy: 0.00208, iz: 0.000333, j: 0.00093, b: 0.2, h: 0.5, shape: 'rect' } as never);
     const n = [modelStore.addNode(0, 0, 0), modelStore.addNode(0, 0, 3), modelStore.addNode(6, 0, 3), modelStore.addNode(6, 0, 0), modelStore.addNode(7.5, 0, 3)];
     const el = (a: number, b: number, s: number) => { const id = modelStore.addElement(a, b, 'frame'); modelStore.updateElementSection(id, s); modelStore.updateElementMaterial(id, mat); return id; };
-    el(n[0]!, n[1]!, col); el(n[3]!, n[2]!, col);
+    const column = el(n[0]!, n[1]!, col); el(n[3]!, n[2]!, col);
     const beam = el(n[1]!, n[2]!, bm), tip = el(n[2]!, n[4]!, bm);
     modelStore.addSupport(n[0]!, 'fixed3d'); modelStore.addSupport(n[3]!, 'fixed3d');
     for (const id of [beam, tip]) {
       modelStore.addDistributedLoad3D(id, 0, 0, -15, -15, undefined, undefined, 1, { frame: 'global' });
       modelStore.addDistributedLoad3D(id, 0, 0, -6, -6, undefined, undefined, 2, { frame: 'global' });
     }
+    if (options) {
+      modelStore.setAnalysis({ perCombination: options.analysis });
+      for (const id of seismicComboIds()) modelStore.removeCombination(id);
+      if (options.seismic) {
+        const east = modelStore.addLoadCase('Seismic X', 'E');
+        modelStore.addNodalLoad3D(n[1]!, 10, 0, 0, 0, 0, 0, east);
+        modelStore.addCombination('Seismic +X', [{ caseId: 1, factor: 1 }, { caseId: east, factor: 1 }]);
+        modelStore.addCombination('Seismic -X', [{ caseId: 1, factor: 1 }, { caseId: east, factor: -1 }]);
+      }
+    }
     const combo = modelStore.solveCombinations3D(true, false, true);
     if (!combo || typeof combo === 'string') throw new Error(String(combo));
     resultsStore.setCombinationResults3D(combo.perCase, combo.perCombo, combo.envelope);
-    return { beam, tip };
+    return { beam, tip, column };
   }
 
   it('a cantilever the geometry calls secondary is read primary and not declared, by the design and the seismic checks', () => {
@@ -201,25 +211,75 @@ describe('the geometry suggests, it never declares', () => {
     expect(html).toContain(t(reason));
   });
 
-  it('#2216 seismic capacity shear needs the end forces from each gravity case', () => {
-    const { beam, tip } = cantilever();
-    setSeismicRole([beam], 'primary');
-    setSeismicRole([tip], 'secondary');
-    expect(designRunStore.computeDemands().ok).toBe(true);
-    const bars = { count: 2, diameter: 16 };
-    commitManual(beam, { top: bars, bottom: bars, stirrups: { diameter: 8, legs: 2, spacing: 0.075 } });
-    const get = () => runSeismicChecks().members.find(m => m.id === beam)!;
-    expect(get().shear?.ve).toBeGreaterThan(0);
+  const round2 = process.env.RUN_KNOWN_WRONG === '2216' ? it : it.skip;
+  for (const analysis of ['linear', 'pdelta'] as const) {
+    round2(`known wrong result: #2216 ${analysis} seismic columns and joints require applicable combination results`, () => {
+      const check = (seismic: boolean) => {
+        const { beam, tip, column } = cantilever({ analysis, seismic });
+        setSeismicRole([beam, column], 'primary');
+        setSeismicRole([tip], 'secondary');
+        const bars = { count: 2, diameter: 16 };
+        commitManual(beam, { top: bars, bottom: bars, stirrups: { diameter: 8, legs: 2, spacing: 0.075 } });
+        commitManual(column, {
+          column: { cornerDia: 20, faceDia: 20, nBottom: 1, nTop: 1, nLeft: 1, nRight: 1 },
+          stirrups: { diameter: 10, legs: 4, spacing: 0.1 },
+        });
+        expect(designRunStore.computeDemands().ok).toBe(true);
+        return { column, read: () => {
+          const report = runSeismicChecks();
+          return { member: report.members.find(m => m.id === column), joint: report.joints.find(j => j.columns.includes(column)) };
+        } };
+      };
+      const refused = {
+        member: { ok: false, refusal: 'seisDes.issue.missingForces', shear: undefined },
+        joint: { ok: false, refusal: 'seisDes.issue.incompleteJoint', shear: undefined },
+      };
+      const gravity = check(false);
+      expect(seismicComboIds().size).toBe(0);
+      expect(verificationStore.contextFor(gravity.column)?.stations?.comboResults.length).toBeGreaterThan(0);
+      expect.soft(gravity.read()).toMatchObject(refused);
 
-    const cases = new Map(resultsStore.perCase3D);
-    const dead = modelStore.loadCases.find(c => c.type === 'D')!.id;
-    const solved = cases.get(dead)!;
-    cases.set(dead, { ...solved, elementForces: solved.elementForces.filter(f => f.elementId !== beam) });
-    resultsStore.setCombinationResults3D(cases, new Map(resultsStore.perCombo3D), resultsStore.envelope3D!);
-    expect(designRunStore.computeDemands().ok).toBe(true);
-    expect(get()).toMatchObject({ ok: false, refusal: 'seisDes.issue.missingForces' });
-    expect(get().shear).toBeUndefined();
-  });
+      const seismic = check(true);
+      const required = [...seismicComboIds()];
+      expect(required).toHaveLength(2);
+      expect(seismic.read()).toMatchObject({
+        member: { shear: { ve: expect.any(Number) } },
+        joint: { shear: { vj: expect.any(Number) } },
+      });
+      const contexts = new Map(verificationStore.contexts);
+      const full = contexts.get(seismic.column)!;
+      const stations = full.stations!;
+      for (const dropped of [true, false]) {
+        const comboResults = stations.comboResults.flatMap(c =>
+          c.comboId !== required[0] ? [c] : dropped ? [] : [{ ...c, stations: [] }]);
+        contexts.set(seismic.column, { ...full, stations: { ...stations, comboResults } });
+        verificationStore.setDemandData(new Map(contexts));
+        expect(seismic.read()).toMatchObject(refused);
+      }
+    });
+
+    round2(`known wrong result: #2216 ${analysis} seismic capacity shear refuses a missing gravity force array or member`, () => {
+      const { beam, tip } = cantilever({ analysis, seismic: false });
+      setSeismicRole([beam], 'primary');
+      setSeismicRole([tip], 'secondary');
+      expect(designRunStore.computeDemands().ok).toBe(true);
+      const bars = { count: 2, diameter: 16 };
+      commitManual(beam, { top: bars, bottom: bars, stirrups: { diameter: 8, legs: 2, spacing: 0.075 } });
+      const get = () => runSeismicChecks().members.find(m => m.id === beam)!;
+      expect(get().shear?.ve).toBeGreaterThan(0);
+
+      const cases = new Map(resultsStore.perCase3D);
+      const dead = modelStore.loadCases.find(c => c.type === 'D')!.id;
+      const solved = cases.get(dead)!;
+      for (const elementForces of [solved.elementForces.filter(f => f.elementId !== beam), undefined]) {
+        cases.set(dead, { ...solved, elementForces } as typeof solved);
+        resultsStore.setCombinationResults3D(cases, new Map(resultsStore.perCombo3D), resultsStore.envelope3D!);
+        expect(designRunStore.computeDemands().ok).toBe(true);
+        expect(get()).toMatchObject({ ok: false, refusal: 'seisDes.issue.missingForces' });
+        expect(get().shear).toBeUndefined();
+      }
+    });
+  }
 
   it('adopted on purpose, the suggestion becomes a declaration, and the design reads it', () => {
     const { beam, tip } = cantilever();

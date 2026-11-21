@@ -175,3 +175,26 @@ it('#2216 does not compute a joint from an incomplete subset of its primary memb
   expect(checked.joints.find(j => j.nodeId === 2)).toMatchObject({ shear: { vj: expect.any(Number) } });
   expect(checked.members.every(m => m.shear && !m.refusal)).toBe(true);
 });
+
+const round2 = process.env.RUN_KNOWN_WRONG === '2216' ? it : it.skip;
+round2('known wrong result: #2216 incomplete joints keep each applicable summary row', () => {
+  const frameNodes = new Map([...nodes, [5, { x: 0, y: 0, z: 6 }], [6, { x: 6, y: 0, z: 6 }]]);
+  const upperBeam = { ...beam, id: 6, nodeI: 5, nodeJ: 6 };
+  const run = (lower: FrameMember, upper: FrameMember) => seismicFrameChecks({
+    nodes: frameNodes, settings: defaultSeismicDesign(),
+    members: [column(1, 1, 2), column(2, 3, 4), column(4, 2, 5), column(5, 4, 6), lower, upper],
+  }).joints;
+  const complete = run(beam, upperBeam).find(j => j.nodeId === 2)!;
+  expect(complete.strongColumn).toMatchObject({ roof: false, ok: true });
+  const summaryKeys = (joint: typeof complete) => seismicJointCheckRows(joint).map(r => [r.titleKey, r.clause]);
+  const incomplete = run({ ...beam, r: undefined }, { ...upperBeam, r: undefined });
+  const lower = incomplete.find(j => j.nodeId === 2)!;
+  const roof = incomplete.find(j => j.nodeId === 5)!;
+  expect.soft(summaryKeys(lower)).toEqual(summaryKeys(complete));
+  expect.soft(summaryKeys(roof)).toEqual([['check.seismic.jointShear', '18.1']]);
+  for (const joint of [lower, roof]) {
+    for (const row of seismicJointCheckRows(joint)) {
+      expect.soft(row).toMatchObject({ status: 'notVerified', ratio: null, formula: 'seisDes.issue.incompleteJoint' });
+    }
+  }
+});
