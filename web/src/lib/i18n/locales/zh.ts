@@ -4257,6 +4257,8 @@ const zh: Translations = {
   "diag.verifFailTorsion": "受扭验算未通过",
   'diag.rcTorsionConcrete': "扭转未验算：剪扭组合限值高估了已评估的混凝土抗剪承载力。",
   'diag.rcTorsionDepth': "扭转未验算：采用的有效高度相对于纵向钢筋布置偏大。",
+  "diag.rcTorsionSecondaryFace": "受扭未验算：尚未确认用于确定同时作用的次向剪力有效高度的钢筋位置。",
+  "diag.rcShearTensionSteel": "受剪未验算：该截面受拉面的钢筋无法证实验算采用的钢筋面积。",
   'diag.rcTorsionPerimeter': "纵向抗扭钢筋未验算：箍筋周边的钢筋布置未经确认。",
   'diag.rcTorsionCutoff': "纵向抗扭钢筋未验算：计算将计入截断点以外的钢筋。",
   "diag.rcDrawnBarExtent": "分区配筋计入了超出图示端点的纵筋，因此无法验算弯曲或受剪。",

@@ -270,17 +270,20 @@ describe('a beam cut by the slab mesh is designed as its span', () => {
     expect(got.length).toBe(ref.length);
     got.forEach((combo, k) => combo.forEach((st, i) => st.forEach((v, j) => expect(v).toBeCloseTo(ref[k]![i]![j]!, 6))));
     designRunStore.designFamilies(['column', 'beam']);
+    expect(verificationStore.runSummary).toMatchObject({ aborted: false, notReached: 0 });
     const verified = [44, 45, 46, 47, 48, 83, 84, 85, 86, 87];
     expect(beamIds().filter(id => verificationStore.outcomeFor(id)?.outcome === 'VERIFIED')).toEqual(verified);
     const owners = new Set((modelStore.model.detailing?.assemblies ?? []).flatMap(a => a.bars.flatMap(b => b.ownerElementIds)));
     for (const id of beamIds().filter(id => !verified.includes(id))) {
       const outcome = verificationStore.outcomeFor(id);
       expect(outcome, `piece ${id}`).toMatchObject({
-        outcome: 'SEARCH_EXHAUSTED', limiting: ['unsupportedCheck'],
+        outcome: 'SEARCH_EXHAUSTED', limiting: ['minSteel', 'unsupportedCheck'],
       });
-      expect(outcome?.provisional?.verdict.checks, `piece ${id}`).toContainEqual(expect.objectContaining({
-        status: 'fail', description: 'diag.rcTorsionPerimeter',
-      }));
+      for (const description of ['diag.rcTorsionPerimeter', 'diag.rcTorsionSecondaryFace']) {
+        expect(outcome?.provisional?.verdict.checks, `piece ${id}`).toContainEqual(expect.objectContaining({
+          status: 'fail', description, ratio: Infinity,
+        }));
+      }
       expect(outcome?.certificate, `piece ${id}`).toBeUndefined();
       expect(owners.has(id), `piece ${id} has beam-owned steel`).toBe(false);
     }

@@ -2201,10 +2201,8 @@ function evaluateProvidedReinforcement(
   };
   const atTorsion = (t: Tuple, d: number, primaryRhoW: number, primaryDepthLimit?: number) => secondaryCagesAt(t).flatMap(({ cage, face }) => {
     if (!section || t.tq === 0) return [];
-    const depth = drawnCages && cage.kind === 'closed-rectangle' ? d + (section.stirrupDia - cage.diameter) / 1000 : d;
-    const rhoW = depth === d ? primaryRhoW : primaryRhoW * d / depth;
     const r = checkTorsion2025({ ...section, d, dSecondary: face, stirrupDiaMm: section.stirrupDia, fyt: section.fy,
-      demand: t.section(axes.flexure), stirrup: cage, edition: spacingRule.edition, rhoW: { primary: rhoW }, primaryDepthLimit });
+      demand: t.section(axes.flexure), stirrup: cage, edition: spacingRule.edition, primarySteelAreaM2: primaryRhoW * section.b * d, primaryDepthLimit });
     const gap = isDrawnGap(t);
     const missing = gap || (cage.kind === 'refusal' && cage.missing === true);
     if (gap && !r.neglect) return [{ r: { ...r, ratio: Infinity, refusal: 'diag.rcShearGap' }, t, missing, cage }];
@@ -2316,7 +2314,7 @@ function evaluateProvidedReinforcement(
       checkedAxes.add(axes.secondaryShear);
       pushStrength({
         category: `${elementType === 'column' ? 'Ties' : 'Secondary shear'} (${axes.secondaryShear})`, demandCategory: axes.secondaryShear,
-        demand: +worst.demand.toFixed(2), capacity: +worst.capacity.toFixed(2), utilization: worst.ratio, unit: 'kN',
+        demand: worst.demand, capacity: +worst.capacity.toFixed(2), utilization: worst.ratio, unit: 'kN',
         method: 'capacity', tuplesChecked: cases.length, description: worst.reason, comboName: worst.t.comboName, stationX: worst.t.stationX,
         limiting: worst.refusal && !worst.refusal.missing ? 'unsupportedCheck' : 'shear',
         ...(worst.refusal?.missing ? { missingReinforcement: true } : {}),
@@ -2914,6 +2912,36 @@ function evaluateProvidedReinforcement(
     const minShearThreshold = (phiVc: number, depth: number) => (spacingRule.edition === '2005'
       ? 0.5 * phiVc
       : 0.75 * 0.085 * shearSqrtFc(section.fc) * section.b * depth * 1000);
+    const supportAt = (position: number) => position <= tStartEnd || position >= tEndStart;
+    const shearEvidenceCuts: Tuple[] = [];
+    if (elementType === 'beam' && !forSelection && (drawing || Math.min(startDepth, endDepth) < d)) {
+      const sampledDepthRefusal = new Set(allTuples.filter(t => Math.abs(V(t)) >= 0.001 && tensionDepth(t) < d)
+        .map(t => supportAt(t.stationT)));
+      const evidenceBreaks = [tStartEnd, tEndStart, ...drawnBreaks];
+      if (drawing) evidenceBreaks.push(...(stirrupCoverage?.flatMap(({ from, to }) => [from, to]) ?? []));
+      const intervalsToCheck = drawing || sampledDepthRefusal.size < 2 ? stationCombos() : [];
+      for (const combo of intervalsToCheck) for (let i = 1; i < combo.length; i++) {
+        const a = combo[i - 1]!, b = combo[i]!;
+        const momentStart = M(a), momentEnd = M(b);
+        if (Math.min(momentStart, momentEnd) >= -0.001 && (!drawing || Math.max(momentStart, momentEnd) <= 0.001)) continue;
+        const shearStart = V(a), shearEnd = V(b);
+        if (Math.max(Math.abs(shearStart), Math.abs(shearEnd)) < 0.001) continue;
+        const crossing = (start: number, end: number, value: number) =>
+          a.stationT + (b.stationT - a.stationT) * ((value - start) / (end - start));
+        const breaks = [...evidenceBreaks, crossing(momentStart, momentEnd, -0.001), crossing(momentStart, momentEnd, 0.001),
+          crossing(shearStart, shearEnd, -0.001), crossing(shearStart, shearEnd, 0.001)]
+          .filter(t => a.stationT < t && t < b.stationT).sort((x, y) => x - y);
+        let previous = a.stationT;
+        for (const end of [...breaks, b.stationT]) {
+          const t = (previous + end) / 2;
+          if (previous < t && t < end && (drawing || !sampledDepthRefusal.has(supportAt(t)))) {
+            const cut = a.interpolate(b, t);
+            if (Math.abs(V(cut)) >= 0.001 && (drawing || tensionDepth(cut) < d)) shearEvidenceCuts.push(cut);
+          }
+          previous = end;
+        }
+      }
+    }
     for (const ss of shearSpecs) {
       type ShearAtStation = { ratio: number; Vu: number; phiVn: number; comboName: string; stationX: number; stir: StirrupDef; depth: number };
       let worst: ShearAtStation | undefined;
@@ -2922,14 +2950,40 @@ function evaluateProvidedReinforcement(
       let minShort: { Vu: number; threshold: number; AvMin: number; Av: number; stir: StirrupDef; comboName: string; stationX: number } | null = null;
       let count = 0;
       const support = ss === shearSpecs[0];
-      const inRegion = (t: Tuple) => (t.stationT <= tStartEnd || t.stationT >= tEndStart) === support;
-      const drawSupportsShear = (t: Tuple) => {
-        const layers = support ? (t.stationT <= tStartEnd ? topStartLayers : topEndLayers) : bottomLayers;
-        return layersAreDrawn(support ? 'top' : 'bottom', layers, t.stationT);
+      const inRegion = (t: Tuple) => supportAt(t.stationT) === support;
+      const shearAtCage = (t: Tuple, stir: StirrupDef) => {
+        const depth = bottomLayers.length ? d + (section.stirrupDia - stir.diameter) / 1000 : d;
+        const rhoW = depth === d ? ss.rhoW : ss.rhoW * d / depth;
+        const capacity = computeShearCapacity(stir.diameter, stir.legs, stir.spacing, section.b, depth, section.fc, section.fy, -t.n,
+          { Ag: section.b * section.h, rhoW, h: section.h, edition: spacingRule.edition, unrounded: true });
+        return { depth, capacity };
       };
-      const missingDrawnBars = drawnBarCuts.find(t => inRegion(t) && Math.abs(V(t)) >= 0.001 && !drawSupportsShear(t));
-      let refusal: { reason: string; Vu: number; t: Tuple; missing?: true } | undefined = missingDrawnBars
-        ? { reason: 'diag.rcDrawnBarExtent', Vu: Math.abs(V(missingDrawnBars)), t: missingDrawnBars } : undefined;
+      const shearEvidenceRefusal = (t: Tuple, stirrups = stirrupsAt(t) ?? (ss.stir ? [ss.stir] : [])) => {
+        const supportTop = t.stationT <= tStartEnd ? topStartLayers : topEndLayers;
+        const regionalLayers = support ? supportTop : bottomLayers;
+        const regionalFace = support ? 'top' : 'bottom';
+        if (!layersAreDrawn(regionalFace, regionalLayers, t.stationT)) return 'diag.rcDrawnBarExtent';
+        if (forSelection) return undefined;
+        if (tensionDepth(t) < d) return 'diag.rcShearDepth';
+        if (!drawnBars || elementType !== 'beam' || spacingRule.edition !== '2025') return undefined;
+        const moment = M(t);
+        const tensionFace = moment < -0.001 ? 'top' : moment > 0.001 ? 'bottom' : regionalFace;
+        if (tensionFace === regionalFace) return undefined;
+        const candidates = tensionFace === 'bottom' ? [bottomLayers] : [topStartLayers, topEndLayers];
+        const credited = support ? Math.min(layersTotalArea(topStartLayers), layersTotalArea(topEndLayers)) : layersTotalArea(bottomLayers);
+        const supported = candidates.some(layers => layersTotalArea(layers) >= credited
+          && layersAreDrawn(tensionFace, layers, t.stationT));
+        return !supported && stirrups.some(stir => shearAtCage(t, stir).capacity.avBelowMin)
+          ? 'diag.rcShearTensionSteel' : undefined;
+      };
+      let refusal: { reason: string; Vu: number; t: Tuple; missing?: true } | undefined;
+      const evidenceCuts = [...drawnBarCuts, ...shearEvidenceCuts].filter(inRegion);
+      for (const t of evidenceCuts) {
+        const Vu = Math.abs(V(t));
+        if (Vu < 0.001) continue;
+        const reason = shearEvidenceRefusal(t);
+        if (reason && !refusal) refusal = { reason, Vu, t };
+      }
       const cuts = new Set([...ss.tuples, ...gapCuts.filter(inRegion), ...zoneCuts.filter(inRegion)]);
       for (const t of cuts) {
         const Vu = Math.abs(V(t));
@@ -2940,33 +2994,29 @@ function evaluateProvidedReinforcement(
           if (!refusal?.missing || Vu > refusal.Vu) refusal = { reason: 'diag.rcShearGap', Vu, t, missing: true };
           continue;
         }
-        if (!drawSupportsShear(t)) {
-          if (!refusal) refusal = { reason: 'diag.rcDrawnBarExtent', Vu, t };
-          continue;
-        }
-        if (!forSelection && tensionDepth(t) < d) {
-          if (!refusal) refusal = { reason: 'diag.rcShearDepth', Vu, t };
-          continue;
+        const reason = shearEvidenceRefusal(t, stirrups);
+        if (reason) {
+          if (!refusal) refusal = { reason, Vu, t };
+          if (reason !== 'diag.rcShearTensionSteel') continue;
         }
         // Solver convention is + = tension; computeShearCapacity expects
         // + = compression (CIRSOC enhancement) — pass -t.n. Previously
         // compression took the tension branch (Vc reduced to 0 → gross false
         // failures) and tension the enhancement branch (Vc inflated → unsafe).
         for (const stir of stirrups) {
-          const depth = bottomLayers.length ? d + (section.stirrupDia - stir.diameter) / 1000 : d;
-          const rhoW = depth === d ? ss.rhoW : ss.rhoW * d / depth;
-          const cap = computeShearCapacity(stir.diameter, stir.legs, stir.spacing, section.b, depth, section.fc, section.fy, -t.n,
-            { Ag: section.b * section.h, rhoW, h: section.h, edition: spacingRule.edition, unrounded: true });
-          const phiVn = +cap.phiVn.toFixed(2);
-          const ratio = phiVn > 1e-6 ? Vu / phiVn : Number.POSITIVE_INFINITY;
-          const result = { ratio, Vu, phiVn, comboName: t.comboName, stationX: t.stationX, stir, depth };
-          if (!worst || ratio > worst.ratio) worst = result;
-          const VsRequired = requiredVsWithConcrete(Vu, cap.phiVc);
-          const previous = spacingDemand.get(stir);
-          if (!previous || VsRequired > previous.VsRequired) spacingDemand.set(stir, { ...result, VsRequired });
+          const { depth, capacity: cap } = shearAtCage(t, stir);
+          if (!reason) {
+            const phiVn = +cap.phiVn.toFixed(2);
+            const ratio = phiVn > 1e-6 ? Vu / phiVn : Number.POSITIVE_INFINITY;
+            const result = { ratio, Vu, phiVn, comboName: t.comboName, stationX: t.stationX, stir, depth };
+            if (!worst || ratio > worst.ratio) worst = result;
+            const VsRequired = requiredVsWithConcrete(Vu, cap.phiVc);
+            const previous = spacingDemand.get(stir);
+            if (!previous || VsRequired > previous.VsRequired) spacingDemand.set(stir, { ...result, VsRequired });
+          }
           const Av = stir.legs * rebarSpec(stir.diameter).area;
           const phiVc = +cap.phiVc.toFixed(2);
-          if (shallowBeam && cap.evaluated && cap.avBelowMin && Vu > phiVc + 1e-9
+          if (!reason && shallowBeam && cap.evaluated && cap.avBelowMin && Vu > phiVc + 1e-9
             && (!held || Vu / Math.max(phiVc, 1e-9) > held.Vu / Math.max(held.phiVc, 1e-9))) {
             held = {
               region: ss.label, Vu: +Vu.toFixed(2), phiVc,
@@ -3123,13 +3173,14 @@ function evaluateProvidedReinforcement(
         };
         let evaluated = 0;
         const torsionCuts = new Set([...cuts, ...longitudinalCuts.filter(inRegion)]);
+        const canCheckLongitudinal = (x: TorsionAtStation) => !x.r.refusal || x.r.refusal === 'diag.rcTorsionSecondaryFace';
         for (const t of torsionCuts) {
           if (isDrawnGap(t) && torsionActivation(section, spacingRule.edition, t.section(axes.flexure)).neglect) continue;
           const active = atTorsion(t, d, ss.rhoW, tensionDepth(t));
-          if (active.some(x => !x.r.refusal)) evaluated++;
+          if (active.some(canCheckLongitudinal)) evaluated++;
           for (const x of active) {
-            if (governsTorsion(x, tw)) tw = x;
-            if (x.r.refusal || elementType === 'wall') continue;
+            if (!(forSelection && x.r.refusal === 'diag.rcTorsionSecondaryFace') && governsTorsion(x, tw)) tw = x;
+            if (!canCheckLongitudinal(x) || elementType === 'wall') continue;
             checkLongitudinalEvidence(x);
             if (longitudinalRefusal) continue;
             const need = longitudinalNeed(x);
@@ -3543,7 +3594,7 @@ function evaluateProvidedReinforcement(
       pushTorsion(worst, 'Torsion ties', allTuples.length);
       if (!worst.r.refusal) pushStrength({
         category: 'Torsion longitudinal steel', demandCategory: null, utilization: Infinity, unit: 'cm²',
-        method: 'area', tuplesChecked: allTuples.length, description: 'Column longitudinal torsion steel is not verified',
+        method: 'area', tuplesChecked: allTuples.length, description: 'diag.rcTorsionPerimeter',
         comboName: worst.t.comboName, stationX: worst.t.stationX, limiting: 'unsupportedCheck',
       });
     }

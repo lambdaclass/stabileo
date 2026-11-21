@@ -337,11 +337,13 @@ const REFUSED_BEAMS = ['V1', 'V2', 'V3', 'V5', 'V6', 'V7', 'V8', 'V10'];
 
 function expectTorsionRefusal(outcome: MemberDesignOutcome) {
   expect(outcome.outcome).toBe('SEARCH_EXHAUSTED');
-  expect(outcome.limiting).toEqual(['unsupportedCheck']);
-  expect(outcome.reasons).toContainEqual({ key: 'diag.rcTorsionPerimeter' });
-  expect(outcome.provisional?.verdict.checks).toContainEqual(expect.objectContaining({
-    description: 'diag.rcTorsionPerimeter', status: 'fail',
-  }));
+  expect(outcome.limiting).toEqual(['minSteel', 'unsupportedCheck']);
+  for (const key of ['diag.rcTorsionPerimeter', 'diag.rcTorsionSecondaryFace']) {
+    expect(outcome.reasons).toContainEqual({ key });
+    expect(outcome.provisional?.verdict.checks).toContainEqual(expect.objectContaining({
+      description: key, status: 'fail', ratio: Infinity,
+    }));
+  }
   expect(outcome.accepted).toBeUndefined();
   expect(outcome.certificate).toBeUndefined();
 }
