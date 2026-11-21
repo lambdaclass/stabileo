@@ -1,3 +1,6 @@
+import { computeDiagram3D } from './diagrams-3d';
+import { unavailableDiagramExtrema } from './member-diagram';
+import { collapseVariableEnvelope, reexpandVariableResults, sameVariableLayout } from './variable-member-results';
 import { registerMemberIntervalKernel } from './member-interval-kernel';
 import { CodedRefusal, asCodedRefusal, isContainmentRefusal, refusedWithCode } from './containment-error';
 import { element3DToWire, results3DFromWasm, resultsFromWasm, type AnalysisResultsWire, type AnalysisResults3DWire, load3DToWire, loadToWire, materialToWire, node3DToWire, nodeToWire, section3DToWire, sectionToWire, support3DToWire, supportToWire, type Element3DWire, type ElasticMaterialWire, type ElasticSection3DWire, type ElasticSectionWire, type Load3DWire, type LoadWire, type Node3DWire, type NodeWire, type Support3DWire, type SupportWire } from './unit-types';
@@ -1573,7 +1576,18 @@ export function computeEnvelope3D(results: AnalysisResults3D[]): FullEnvelope3D 
   if (!wasmReady || !wasmComputeEnvelope3d) throw new Error('WASM solver not initialized.');
   if (results.length === 0) return null;
   // Solver output — no guard (see combineResults).
-  return wasmComputeEnvelope3d(results);
+  if (results.some(r => r.magnitude || r.elementForces.some(f => f.combined))) throw unavailableDiagramExtrema();
+  if (!results.some(r => r.elementForces.some(f => f.pieces?.length))) return wasmComputeEnvelope3d(results);
+  const expanded = results.map(reexpandVariableResults);
+  if (expanded.some(r => r.results.elementForces.some(f => f.pieces?.length))) throw unavailableDiagramExtrema();
+  const reference = expanded[0]!;
+  if (!reference.exp) throw unavailableDiagramExtrema();
+  const layout = reference.exp;
+  const lengths = new Map(reference.results.elementForces.map(ef => [ef.elementId, ef.length]));
+  if (expanded.some(({ results, exp }) => !sameVariableLayout(layout, exp) ||
+    results.elementForces.some(ef => lengths.get(ef.elementId) !== ef.length))) throw unavailableDiagramExtrema();
+  const raw = wasmComputeEnvelope3d(expanded.map(r => r.results));
+  return raw && collapseVariableEnvelope(raw, layout);
 }
 
 // ─── Influence Lines ─────────────────────────────────────────────
@@ -1658,20 +1672,13 @@ export function computeDiagrams2D(input: SolverInput, results: AnalysisResults) 
 }
 
 /** Compute 3D diagrams (My, Mz, Vy, Vz, N, T) via WASM. */
-export function computeDiagrams3D(input: SolverInput3D, results: AnalysisResults3D) {
+export function computeDiagrams3D(_input: SolverInput3D, results: AnalysisResults3D) {
   if (!wasmReady || !wasmComputeDiagrams3d) throw new Error('WASM solver not initialized.');
-  const payload = JSON.stringify({
-    input: {
-      nodes: mapToObj(input.nodes),
-      materials: mapToObj(input.materials),
-      sections: mapToObj(input.sections),
-      elements: mapToObj(input.elements),
-      supports: mapToObj(input.supports),
-      loads: input.loads,
-    },
-    results,
-  });
-  return JSON.parse(wasmComputeDiagrams3d(payload));
+  if (results.elementForces.some(f => f.combined || f.pieces?.length)) {
+    return Object.fromEntries(['momentY', 'momentZ', 'shearY', 'shearZ', 'axial', 'torsion'].map(kind =>
+      [kind, results.elementForces.map(ef => computeDiagram3D(ef, kind as Parameters<typeof computeDiagram3D>[1]))]));
+  }
+  return JSON.parse(wasmComputeDiagrams3d(JSON.stringify(results)));
 }
 
 /** Compute deformed shape for one element via WASM. */
@@ -1698,15 +1705,15 @@ export function computeDeformedShape(input: any) {
 }
 
 /** Compute 2D diagram value at position t for one element via WASM. Returns null if WASM not available. */
-export function computeDiagramValueAtWasm(kind: string, t: number, elementForces: any): number | null {
+export function computeDiagramValueAtWasm(kind: string, t: number, elementForces: any, right?: boolean): number | null {
   if (!wasmReady || !wasmComputeDiagramValueAt) return null;
-  return wasmComputeDiagramValueAt(JSON.stringify({ kind, t, elementForces }));
+  return wasmComputeDiagramValueAt(JSON.stringify({ kind, t, elementForces, right }));
 }
 
 /** Compute 3D diagram value at position t for one element via WASM. Returns null if WASM not available. */
-export function computeDiagramValueAt3DWasm(kind: string, t: number, elementForces: any): number | null {
+export function computeDiagramValueAt3DWasm(kind: string, t: number, elementForces: any, right?: boolean): number | null {
   if (!wasmReady || !wasmComputeDiagramValueAt3d) return null;
-  return wasmComputeDiagramValueAt3d(JSON.stringify({ kind, t, elementForces }));
+  return wasmComputeDiagramValueAt3d(JSON.stringify({ kind, t, elementForces, right }));
 }
 
 /** Check if WASM solver is ready. */

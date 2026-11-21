@@ -12,6 +12,7 @@
  */
 import { isMessage, type EngineMessage } from '../codes/message';
 import { AMBIGUOUS_ROLLER_Z } from '../engine/support-dofs-3d';
+import { DIAGRAM_EXTREMA_UNAVAILABLE } from '../engine/member-diagram';
 import type { StructuredDiagnostic } from '../engine/types';
 import { i18n, tAt } from './store.svelte';
 import { axesStore } from '../axes/axes.svelte';
@@ -104,6 +105,12 @@ export function formatCombinationLabel(
  * they appear in a message; anything else is left as it is.
  */
 const ENGINE_SENTENCES: ReadonlyArray<[string, string]> = [
+  [DIAGRAM_EXTREMA_UNAVAILABLE, DIAGRAM_EXTREMA_UNAVAILABLE],
+  ['distinct member diagram cuts share a normalized station', DIAGRAM_EXTREMA_UNAVAILABLE],
+  ['interior member diagram extremum has no distinct normalized station', DIAGRAM_EXTREMA_UNAVAILABLE],
+  ['member diagram extrema cannot be evaluated at the requested station', DIAGRAM_EXTREMA_UNAVAILABLE],
+  ['non-finite member diagram polynomial', DIAGRAM_EXTREMA_UNAVAILABLE],
+  ['non-finite moving load member diagram', DIAGRAM_EXTREMA_UNAVAILABLE],
   ['Repeated load case factors cancel to zero in this combination.', 'svc.engine.cancelledCombination'],
   [AMBIGUOUS_ROLLER_Z, 'svc.engine.ambiguousRollerZ'],
   ['exact plastic LP resource budget exceeded', 'plasticDiag.resourceBudget'],

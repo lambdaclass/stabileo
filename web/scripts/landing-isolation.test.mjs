@@ -81,3 +81,28 @@ test('research-on landing keeps publication policy and the Hungarian public dict
   assert.ok(modules.some(id => id.endsWith('/lib/i18n/published.ts')));
   assert.ok(emittedModules.includes('\0virtual:public-i18n/hu'));
 });
+
+test('the examples worker builds without browser dictionaries', async () => {
+  const root = resolve(import.meta.dirname, '..');
+  await build({
+    configFile: false,
+    root,
+    logLevel: 'error',
+    plugins: [{
+      name: 'examples-worker-engine-stub',
+      resolveId(id) {
+        if (id.endsWith('dedaliano_engine_bg.wasm?url')) return '\0worker-wasm';
+        if (id.endsWith('dedaliano_engine.js')) return '\0worker-engine';
+      },
+      load(id) {
+        if (id === '\0worker-wasm') return 'export default "data:application/wasm;base64,AGFzbQEAAAA="';
+        if (id === '\0worker-engine') return 'export function initSync() {}';
+      },
+    }],
+    build: {
+      target: 'esnext',
+      write: false,
+      lib: { entry: resolve(root, 'src/components/examples/run.worker.ts'), formats: ['es'], fileName: 'worker' },
+    },
+  });
+});

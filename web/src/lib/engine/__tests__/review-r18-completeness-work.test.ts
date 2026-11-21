@@ -81,3 +81,16 @@ function hasCompleteTuples(tuples: readonly { comboId: number }[] | undefined, r
     return false;
   }
 }
+
+for (const compact of [false, true]) {
+  it(`known wrong result: #2080 a transfer with no designed members has no required grid (compact=${compact})`, () => {
+    setCompactStationTransfer(compact);
+    const inactive = {
+      ...model,
+      elements: new Map([...model.elements].map(([id, element]) => [id, { ...element, behaviour: 'inactive' as const }])),
+    };
+    const data = computeStationDemands(new Map([[1, raw]]), active(1), inactive);
+    expect(data.stations.size).toBe(0);
+    expect(data.demands.size).toBe(0);
+  });
+}

@@ -44,7 +44,7 @@ import { resultComponents } from '../axes/result-components';
 import { axesStore } from '../axes/axes.svelte';
 import type { AnalysisResults3D } from './types-3d';
 import {
-  buildCriticalStations, extractForcesAtStation, type StationForces,
+  criticalForceStations, extractForcesAtStation, type StationForces,
 } from './station-forces';
 import {
   RC_FORCES_SECTIONS, rcResolveStations, rcForcesSheets,
@@ -262,8 +262,7 @@ function stationRows(
   for (const b of blocks) {
     for (const ef of b.results.elementForces) {
       if (want && !want.has(ef.elementId)) continue;
-      const critical = buildCriticalStations(ef);
-      const ts = raw ? critical : rcResolveStations(cfg.stationMode, critical);
+      const ts = raw || cfg.stationMode === 'critical' ? criticalForceStations(ef) : rcResolveStations(cfg.stationMode, []);
       for (const tv of ts) {
         const s: StationForces = extractForcesAtStation(ef, tv);
         rows.push([

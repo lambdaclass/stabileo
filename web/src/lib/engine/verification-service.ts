@@ -1,3 +1,6 @@
+import { criticalDiagramStations3D, evaluateDiagramAt } from './diagrams-3d';
+import { extractForcesAtStation } from './station-forces';
+import type { DiagramStation } from './member-diagram';
 import { ConcurrentDemand } from './concurrent-demand';
 import { CompleteDemandSet, IncompleteConcurrentDemandError, requireDemandInventories, demandCoverage, memberDemandScope, type DemandCoverage } from './complete-demand-set';
 import { completeResultDemands } from './result-demand-gate';
@@ -47,7 +50,7 @@ import { angleSection, type AngleCompressionInput } from './steel/angle-section'
 import { engineGateSteelCases, type SteelEngineRecheck } from './codes/argentina/cirsoc301-engine-gate';
 import { flangeUnbracedLength, type SteelBracing } from './steel/unbraced-length';
 import { steelCheckerFor } from './steel/member-checkers';
-import { cirsoc301InputsAvailable, momentGradient, type StationMoment } from './steel/moment-gradient';
+import { cirsoc301InputsAvailable, momentGradient, momentGradientStations, type MomentReader, type StationMoment } from './steel/moment-gradient';
 import { memberNetArea, memberEndsFor, type MemberEnd, type TensionSectionInput } from './steel/tension-connection';
 import type { GoverningPerElement3D } from './governing-case';
 import type { MemberDesignResult, DesignCheckSummary } from './design-check-results';
@@ -110,18 +113,6 @@ function computeStationDemandsWasm(
 ): StationDemandData {
   const numStations = 11;
   const requestedStationTs = Array.from({ length: numStations }, (_, i) => i / (numStations - 1));
-  const loading = new Map([...perCombo3D].map(([id, r]) => [id, new Map(r.elementForces.map(ef => [ef.elementId, ConcurrentDemand.loadingOf(ef)]))]));
-  const withLoading = (esr: ElementStationResult): ElementStationResult => {
-    const byCombo = new Map<number, ElementStationResult['comboResults'][number]>();
-    for (const c of esr.comboResults) if (!byCombo.has(c.comboId)) byCombo.set(c.comboId, c);
-    return { ...esr, stationTs: [...new Set([...requestedStationTs, ...esr.stationTs])],
-      expectedCombinationIds: Object.freeze(combinations.map(c => c.id)), comboResults: combinations.map(({ id: comboId, name }) => {
-      const c = byCombo.get(comboId);
-      const transverseLoading = loading.get(comboId)?.get(esr.elementId);
-      return { comboId, comboName: c?.comboName ?? name ?? `Combo ${comboId}`,
-        stations: transverseLoading ? c?.stations ?? [] : [], transverseLoading };
-    }) };
-  };
   // Build member list from model
   const members: Array<{ elementId: number; sectionId: number; materialId: number; length: number }> = [];
   for (const [id, elem] of model.elements) {
@@ -135,9 +126,45 @@ function computeStationDemandsWasm(
     members.push({ elementId: id, sectionId: elem.sectionId, materialId: elem.materialId, length: L });
   }
 
+  if (members.length === 0) return { demands: new Map(), stations: new Map() };
+
+  const forcesByCombo = new Map([...perCombo3D].map(([id, r]) => [id, new Map(r.elementForces.map(ef => [ef.elementId, ef]))]));
+  const expectedCombinationIds = Object.freeze(combinations.map(c => c.id));
+  const gridMembers = members.map(({ elementId }) => ({ elementId, stationTs: requestedStationTs }));
   const complete = (data: StationDemandData): StationDemandData => {
+    const grid: { elementId: number; comboId: number; stationT: number }[] = [];
+    const indexed = [...data.stations.values()].map(row => {
+      const byCombo = new Map<number, ElementStationResult['comboResults'][number]>();
+      for (const c of row.comboResults) {
+        const { comboId, stations } = c;
+        if (!byCombo.has(comboId)) byCombo.set(comboId, c);
+        for (const { t } of stations) grid.push({ elementId: row.elementId, comboId, stationT: t });
+      }
+      return { row, byCombo };
+    });
+    CompleteDemandSet.require({
+      combinations: combinations.map(({ id: comboId, name: comboName }) => ({ comboId, comboName, members: gridMembers })),
+    }, grid);
+
+    for (const { row, byCombo } of indexed) {
+      const element = model.elements.get(row.elementId);
+      const material = element && model.materials?.get(element.materialId);
+      const purpose = materialFamilyOf(material, catalogueGradeFamily).family === 'concrete'
+        ? 'concrete-design' : 'diagram';
+      const comboResults = combinations.map(({ id: comboId, name }) => {
+        const c = byCombo.get(comboId);
+        const ef = forcesByCombo.get(comboId)?.get(row.elementId);
+        const transverseLoading = ef && ConcurrentDemand.loadingOf(ef);
+        const stations = ef && c ? stationsWithExtrema(ef, c.stations, purpose) : [];
+        return { comboId, comboName: c?.comboName ?? name ?? `Combo ${comboId}`, stations, transverseLoading,
+          ...(purpose === 'diagram' && ef ? { diagramForces: ef } : {}) };
+      });
+      const stationTs = [...new Set([...requestedStationTs, ...row.stationTs])];
+      data.stations.set(row.elementId, { ...row, stationTs, expectedCombinationIds, comboResults });
+    }
+
     const inventory = ConcurrentDemand.inventoryForStations(members.map(member => data.stations.get(member.elementId) ?? {
-      elementId: member.elementId, length: member.length, expectedCombinationIds: combinations.map(c => c.id),
+      elementId: member.elementId, length: member.length, expectedCombinationIds,
       stationTs: requestedStationTs, comboResults: [],
     }));
     const checked = CompleteDemandSet.require(inventory.scope, [...data.stations.values()].flatMap(esr => esr.comboResults.flatMap(c =>
@@ -162,11 +189,7 @@ function computeStationDemandsWasm(
     if (buffer) {
       const stations = new Map<number, ElementStationResult>();
       const demands = new Map<number, ElementDesignDemands>();
-      for (const decoded of decodeStationBuffer(buffer, comboNameMap)) {
-        const esr = withLoading(decoded);
-        stations.set(esr.elementId, esr);
-
-      }
+      for (const row of decodeStationBuffer(buffer, comboNameMap)) stations.set(row.elementId, row);
       return complete({ demands, stations });
     }
   }
@@ -187,12 +210,22 @@ function computeStationDemandsWasm(
   const stationMap = new Map<number, ElementStationResult>();
 
   for (const member of grouped.members) {
-    const esr = withLoading(wasmMemberToStationResult(member, comboNameMap));
-    stationMap.set(member.memberId, esr);
-
+    stationMap.set(member.memberId, wasmMemberToStationResult(member, comboNameMap));
   }
 
   return complete({ demands, stations: stationMap });
+}
+
+function stationsWithExtrema(
+  ef: AnalysisResults3D['elementForces'][number],
+  grid: StationForces[],
+  purpose: Parameters<typeof criticalDiagramStations3D>[1],
+): StationForces[] {
+  const at = (cut: DiagramStation) => ({ ...extractForcesAtStation(ef, cut), x: cut.t * ef.length });
+  const represented = new Set(grid.map(s => s.t));
+  const cuts = criticalDiagramStations3D(ef, purpose).filter(cut => cut.right || !represented.has(cut.t));
+  const base = ef.pieces?.length || ef.combined ? grid.map(({ t }) => at({ t })) : grid;
+  return [...base, ...cuts.map(at)].sort((a, b) => a.t - b.t);
 }
 
 /** Adapt one WASM MemberStationGroup3D → app-side ElementStationResult. */
@@ -553,6 +586,7 @@ export interface SteelMemberDemand {
   /** Strong-axis |M| envelope per station, for F.1.1. Empty: Cb = 1. */
   diagram: StationMoment[];
   diagrams?: ReadonlyMap<number, StationMoment[]>;
+  momentReaders?: ReadonlyMap<number, MomentReader>;
   diagramLength?: number;
   /**
    * The forces that act TOGETHER, one per combination and station: the interaction (H.1) is
@@ -611,11 +645,15 @@ export function steelDemandOf(
     list.push({ t: d.stationT, m: d.forces.my });
     diagrams.set(d.comboId, list);
   }
+  const momentReaders = new Map<number, MomentReader>();
+  for (const { comboId, diagramForces } of stations?.comboResults ?? []) {
+    if (diagramForces) momentReaders.set(comboId, (t, right) => evaluateDiagramAt(diagramForces, 'momentY', t, right));
+  }
   const byAxis = sd
     ? { VuStrong: sd.demands.find((d) => d.category === 'Vz')?.absValue ?? 0, VuWeak: sd.demands.find((d) => d.category === 'Vy')?.absValue ?? 0,
       MuStrongPos: sd.demands.find((d) => d.category === 'My+')?.absValue ?? 0, MuStrongNeg: sd.demands.find((d) => d.category === 'My-')?.absValue ?? 0 }
     : { VuStrong: Math.max(Math.abs(ef.vzStart), Math.abs(ef.vzEnd)), VuWeak: Math.max(Math.abs(ef.vyStart), Math.abs(ef.vyEnd)) };
-  return { memberId: ef.elementId, Nc, Nt, MuStrong, MuWeak, Vu, ...byAxis, diagram, diagrams, diagramLength: stations?.length ?? ef.length, concurrent, ...(tuples ? { tuples } : {}), ...(governing ? { governing } : {}) };
+  return { memberId: ef.elementId, Nc, Nt, MuStrong, MuWeak, Vu, ...byAxis, diagram, diagrams, momentReaders, diagramLength: stations?.length ?? ef.length, concurrent, ...(tuples ? { tuples } : {}), ...(governing ? { governing } : {}) };
 }
 
 function stationMomentEnvelope(stations: ElementStationResult): StationMoment[] {
@@ -661,6 +699,7 @@ function stationMomentEnvelope(stations: ElementStationResult): StationMoment[] 
  */
 export interface SteelSegmentDiagram {
   byCombo?: ReadonlyMap<number, StationMoment[]>;
+  momentReaders?: ReadonlyMap<number, MomentReader>;
   stations: StationMoment[];
   tStart: number;
   tEnd: number;
@@ -704,6 +743,7 @@ export function steelSegmentDiagram(
   const stations: StationMoment[] = [];
   const byCombo = new Map<number, StationMoment[]>();
   const counts = new Map<number, number>();
+  const pieceReaders = new Map<number, { end: number; read: MomentReader }[]>();
   let prefix = 0;
   let selfStart = 0;
   let selfLen = 0;
@@ -729,6 +769,18 @@ export function steelSegmentDiagram(
       list.push(...c.stations.map(s => ({ t: (prefix + (reversed ? 1 - s.t : s.t) * e.L) / total, m: reversed ? -s.my : s.my })));
       byCombo.set(c.comboId, list);
       counts.set(c.comboId, (counts.get(c.comboId) ?? 0) + 1);
+      const forces = c.diagramForces;
+      if (forces) {
+        const offset = prefix;
+        const start = offset / total, end = (offset + e.L) / total;
+        const pieces = pieceReaders.get(c.comboId) ?? [];
+        pieces.push({ end, read(t, right) {
+          const u = t === start ? 0 : t === end ? 1 : (t * total - offset) / e.L;
+          const m = evaluateDiagramAt(forces, 'momentY', reversed ? 1 - u : u, reversed !== right);
+          return reversed ? -m : m;
+        } });
+        pieceReaders.set(c.comboId, pieces);
+      }
     }
     if (e.id === elementId) { selfStart = prefix; selfLen = e.L; }
     prefix += e.L;
@@ -737,7 +789,15 @@ export function steelSegmentDiagram(
   const extent = { length: total, center: (selfStart + selfLen / 2) / total };
   const window = steelMomentWindow(lengths.Lb, extent) ?? { tStart: 0, tEnd: 1 };
   for (const [id, count] of counts) if (count !== elems.length) byCombo.delete(id);
-  return { stations, ...window, byCombo, extent };
+  const momentReaders = new Map<number, MomentReader>();
+  for (const [id, pieces] of pieceReaders) {
+    if (pieces.length !== elems.length) {
+      byCombo.delete(id);
+      continue;
+    }
+    momentReaders.set(id, (t, right) => (pieces.find(p => right ? t < p.end : t <= p.end) ?? pieces.at(-1)!).read(t, right));
+  }
+  return { stations, ...window, byCombo, momentReaders, extent };
 }
 
 /** The largest utilisation of a steel verification, over every limit state it ran. */
@@ -971,8 +1031,14 @@ function checkCompleteSteelMember(
     const key = `${d.comboId}|${own.Lb}|${windows.map(w => `${w.tStart}:${w.tEnd}`).join(',')}`;
     if (!cb.has(key)) {
       const stations = segment ? segment.byCombo?.get(d.comboId) ?? [] : demand.diagrams?.get(d.comboId) ?? [];
-      const factors = windows.map(window => cirsoc301InputsAvailable() ? momentGradient({ stations, ...window,
-        shape: section.shape, cantileverFreeEnd: lengths.freeEnd === true }) : undefined);
+      const read = (segment ? segment.momentReaders : demand.momentReaders)?.get(d.comboId);
+      const factors = windows.map(window => {
+        if (!cirsoc301InputsAvailable()) return undefined;
+        const cantileverFreeEnd = lengths.freeEnd === true;
+        const ordinates = read && !cantileverFreeEnd
+          ? momentGradientStations(stations, read, window.tStart, window.tEnd) : stations;
+        return momentGradient({ stations: ordinates, ...window, shape: section.shape, cantileverFreeEnd });
+      });
       cb.set(key, factors.length && factors.every(g => g?.basis === 'computed') ? Math.min(...factors.map(g => g!.cb)) : undefined);
     }
     const factor = cb.get(key);

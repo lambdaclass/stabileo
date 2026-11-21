@@ -3,7 +3,7 @@
 import { transverseSign } from '../engine/transverse-sign-2d';
 import type { AnalysisResults, EnvelopeDiagramData } from '../engine/types';
 import { createLabelCollector, type LabelCollector } from './label-layout';
-import { computeElementDiagram, computeDiagramValueAt, type ElementDiagram } from '../engine/diagrams';
+import { computeElementDiagram, prepareDiagramValueAt, type ElementDiagram } from '../engine/diagrams';
 import { type UnitSystem, formatDiagramValue, toDisplay } from '../utils/units';
 import { formatBound } from '../utils/certificate-format';
 
@@ -60,8 +60,9 @@ export function computeDiagramGlobalMax(results: AnalysisResults, kind: DiagramK
       sampleTs.push(tPl);
       if (tPl < 1 - 1e-6) sampleTs.push(tPl + 1e-6);
     }
+    const valueAt = prepareDiagramValueAt(kind, ef);
     for (const t of sampleTs) {
-      const val = Math.abs(computeDiagramValueAt(kind, t, ef));
+      const val = Math.abs(valueAt(t));
       if (val > globalMax) globalMax = val;
     }
   }

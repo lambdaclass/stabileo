@@ -8,7 +8,7 @@
 import {
   STRUCTURAL_BUNDLE_VERSION, type BundleMaterial, type BundleStation, type BundleUnits, type StructuralBundle,
 } from '../design-contract/bundle';
-import { buildCriticalStations, extractForcesAtStation } from './station-forces';
+import { criticalForceStations, extractForcesAtStation } from './station-forces';
 import { materialFamilyOf } from '../model/material-family';
 import { catalogueGradeFamily } from '../model/grade-family';
 import type { AnalysisResults3D } from './types-3d';
@@ -84,7 +84,7 @@ export function buildStructuralBundle(src: BundleSource): StructuralBundle {
       const ef = src.perCombo.get(c.id)!.elementForces.find((f) => f.elementId === e.id);
       if (!ef) continue;
       length = ef.length;
-      stations[c.id] = buildCriticalStations(ef).map((t) => {
+      stations[c.id] = criticalForceStations(ef).map((t) => {
         const s = extractForcesAtStation(ef, t);
         return { t: s.t, x: s.x, n: s.n, vy: s.vy, vz: s.vz, my: s.my, mz: s.mz, torsion: s.torsion };
       });
