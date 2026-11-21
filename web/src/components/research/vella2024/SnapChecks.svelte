@@ -30,7 +30,7 @@
 {#if sensitivity.length}
   <div class="table-scroll">
     <table class="checks sensitivity">
-      <thead><tr><th scope="col">{s.sensitivityTable.setting}</th><th scope="col">{s.sensitivityTable.value}</th>{#each rates as r}<th scope="col">A, µ̇ = {num(r, { sig: 2 })}</th><th scope="col">{s.envelopeColumn}</th>{/each}</tr></thead>
+      <thead><tr><th scope="col">{s.sensitivityTable.setting}</th><th scope="col">{s.sensitivityTable.value}</th>{#each rates as r}<th scope="col">A, |µ̇| = {num(r, { sig: 2 })}</th><th scope="col">{s.envelopeColumn}</th>{/each}</tr></thead>
       <tbody>
         {#each parameters as p}
           {#each sensitivity.filter(x => x.parameter === p && x.rate === rates[0]) as row}

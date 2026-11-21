@@ -97,7 +97,7 @@
   const meshEnvelopeChange = Math.abs(sens('n', 0.03).find(x => x.value === 96)!.envelope / sens('n', 0.03).find(x => x.value === 48)!.envelope - 1);
   const changes = $derived.by(() => {
     const list: string[] = [];
-    if (settings.rate !== PAPER.rate) list.push(`µ̇ = ${num(settings.rate, { sig: 3 })}`);
+    if (settings.rate !== PAPER.rate) list.push(`|µ̇| = ${num(settings.rate, { sig: 3 })}`);
     if (settings.imperfection !== PAPER.imperfection) list.push(`θ₀ = ${num(settings.imperfection, { sig: 2 })}`);
     if (settings.alpha !== PAPER.alpha) list.push(`α = ${num(settings.alpha, { dp: 2 })}`);
     if (settings.oneEnd !== PAPER.oneEnd) list.push(settings.oneEnd ? s.protocols.one : s.protocols.both);
@@ -236,7 +236,7 @@
       <PaneTabs label={s.tabsLabel} tabs={[{ id: 'snap', label: s.tabs.snap }, { id: 'stability', label: s.tabs.stability }, { id: 'rates', label: s.tabs.rates }]}
         bind:active={() => tab, setTab} oninteract={() => playback.interact()} />
       <p class="source">{source === 'replay' ? shared.replaySource : shared.liveSource}</p>
-      <p class="caption">{s.computedWith}: µ̇ = {num(run.settings.rate, { sig: 3 })}, α = {degrees(run.settings.alpha)}, {(run.settings.oneEnd ? s.protocols.one : `${s.protocols.both}, θ₀ = ${num(run.settings.imperfection, { sig: 2 })}`).toLocaleLowerCase(publicI18n.locale)}, {run.settings.n} {s.elements}</p>
+      <p class="caption">{s.computedWith}: |µ̇| = {num(run.settings.rate, { sig: 3 })}, α = {degrees(run.settings.alpha)}, {(run.settings.oneEnd ? s.protocols.one : `${s.protocols.both}, θ₀ = ${num(run.settings.imperfection, { sig: 2 })}`).toLocaleLowerCase(publicI18n.locale)}, {run.settings.n} {s.elements}</p>
       {#if stale}<p class="result-stale" role="status">{s.stale}</p>{/if}
       <div id={`rs-panel-${tab}`} role="tabpanel" aria-labelledby={`rs-tab-${tab}`}>
         <StabileoViewer plane="elevation" editorButton={false} xy={geometry.xy} cells={geometry.cells} cellSize={2} {values} {displacement} deformScale={1}

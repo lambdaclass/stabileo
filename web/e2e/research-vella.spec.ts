@@ -30,7 +30,7 @@ test('@smoke research snap-through: a fast live release snaps symmetrically, and
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto(PAGE);
   const app = page.locator('.snap-app');
-  await page.getByRole('button', { name: 'Try µ̇ = 0.3' }).click();
+  await page.getByRole('button', { name: 'Try |µ̇| = 0.3' }).click();
   await expect(app).toHaveAttribute('data-source', 'live', { timeout: 60000 }); // slow-ok: the WASM worker traces the static path and integrates the snap in the browser.
   await expect(app).toHaveAttribute('data-rate', '0.3');
   await expect(app).toHaveAttribute('data-symmetric', 'true');
