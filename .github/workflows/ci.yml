@@ -236,6 +236,7 @@ jobs:
               - 'flake.nix'
               - 'flake.lock'
               - 'web/package-lock.json'
+              - 'web/scripts/run-switch-on-e2e.mjs'
       - name: Was this tree already tested in the merge queue
         id: tested
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
