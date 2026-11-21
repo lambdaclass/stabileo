@@ -85,7 +85,9 @@ metamorphic and differential tests; this layer has had almost none. The order be
    3. **Verdicts only from complete evidence.** A pass requires a record proving every required
       combination, station and reinforcement layer was present. A record with missing evidence
       can only produce a refusal ([#2442](https://github.com/lambdaclass/stabileo/issues/2442),
-      [#2355](https://github.com/lambdaclass/stabileo/issues/2355)).
+      [#2355](https://github.com/lambdaclass/stabileo/issues/2355)). This is part of Bautista's design
+      work; the reproducers are in draft PRs [#2434](https://github.com/lambdaclass/stabileo/pull/2434)
+      and [#2465](https://github.com/lambdaclass/stabileo/pull/2465).
    4. **One canonical model, and invariance on every transformation.** Load, restore and import
       go through one parser that produces a single canonical form. It refuses conflicting fields
       such as the `my`/`mz` aliases. Each night, compare solves across a corpus of saved projects
