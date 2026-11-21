@@ -204,18 +204,18 @@ pub struct RatePoint {
     pub theta_during: f64,
 }
 
-fn rate_point(sim: &Simulation, envelope: f64) -> RatePoint {
-    let o = &sim.outcome;
-    RatePoint {
+fn rate_point(sim: &Simulation, envelope: f64) -> Result<RatePoint, String> {
+    let j = sim.outcome.jump()?;
+    Ok(RatePoint {
         rate: sim.settings.rate,
-        amplification: o.amplification,
-        amplification_from_mu_a: o.amplification_from_mu_a,
+        amplification: j.amplification,
+        amplification_from_mu_a: j.amplification_from_mu_a,
         envelope,
-        t_snap: o.t_snap,
-        mu_snap: o.mu_snap,
-        theta_before: o.theta_before,
-        theta_during: o.theta_during,
-    }
+        t_snap: j.t_snap,
+        mu_snap: j.mu_snap,
+        theta_before: sim.outcome.theta_before,
+        theta_during: j.theta_during,
+    })
 }
 
 static RUNS: AtomicUsize = AtomicUsize::new(0);
@@ -223,6 +223,7 @@ static TRUNCATED: AtomicUsize = AtomicUsize::new(0);
 
 fn run(settings: &Settings, prepared: &(Equilibrium, Critical)) -> Result<Simulation, String> {
     let sim = simulate(settings, &prepared.0, prepared.1.mu_star, prepared.1.mu_a, &mut |_| false)?;
+    sim.outcome.jump().map_err(|e| format!("{e} (µ̇ = {}, phase {})", settings.rate, settings.phase))?;
     RUNS.fetch_add(1, Ordering::Relaxed);
     if sim.outcome.truncated {
         TRUNCATED.fetch_add(1, Ordering::Relaxed);
@@ -233,10 +234,10 @@ fn run(settings: &Settings, prepared: &(Equilibrium, Critical)) -> Result<Simula
 /// The run at the seed's phase 0 and the largest amplification over PHASES phases.
 fn envelope(settings: &Settings, prepared: &(Equilibrium, Critical)) -> Result<(Simulation, f64), String> {
     let first = run(settings, prepared)?;
-    let mut best = first.outcome.amplification;
+    let mut best = first.outcome.jump()?.amplification;
     for k in 1..PHASES {
         let s = Settings { phase: 2.0 * PI * k as f64 / PHASES as f64, ..*settings };
-        best = best.max(run(&s, prepared)?.outcome.amplification);
+        best = best.max(run(&s, prepared)?.outcome.jump()?.amplification);
     }
     Ok((first, best))
 }
@@ -303,14 +304,14 @@ pub fn dynamics() -> Result<Dynamics, String> {
     let mut seeded = vec![];
     for &rate in &RATES {
         let (first, best) = envelope(&Settings { rate, ..base }, &prepared)?;
-        seeded.push(rate_point(&first, best));
+        seeded.push(rate_point(&first, best)?);
     }
     let one_end_start = 0.2 / (PAPER_ALPHA * PAPER_ALPHA);
     let far = prepare(&strip, one_end_start)?;
     let mut one_end = vec![];
     for &rate in &RATES {
         let s = Settings { rate, start: one_end_start, one_end: true, imperfection: 0.0, ..base };
-        one_end.push(rate_point(&run(&s, &far)?, f64::NAN));
+        one_end.push(rate_point(&run(&s, &far)?, f64::NAN)?);
     }
     let mut unseeded = vec![];
     for rate in [0.01, 0.03, 0.1, 0.3] {
@@ -319,36 +320,30 @@ pub fn dynamics() -> Result<Dynamics, String> {
         unseeded.push([rate, worst]);
     }
     let mut sensitivity = vec![];
-    let mut add = |parameter: &str, value: f64, (sim, envelope): &(Simulation, f64)| {
-        sensitivity.push(Sensitivity {
-            parameter: parameter.into(),
-            value,
-            rate: sim.settings.rate,
-            amplification: sim.outcome.amplification,
-            envelope: *envelope,
-            t_snap: sim.outcome.t_snap,
-            mu_snap: sim.outcome.mu_snap,
-        })
+    let mut add = |parameter: &str, value: f64, (sim, envelope): &(Simulation, f64)| -> Result<(), String> {
+        let j = sim.outcome.jump()?;
+        sensitivity.push(Sensitivity { parameter: parameter.into(), value, rate: sim.settings.rate, amplification: j.amplification, envelope: *envelope, t_snap: j.t_snap, mu_snap: j.mu_snap });
+        Ok(())
     };
     for rate in [0.03, 0.1] {
         for dt in [0.02, 0.01, 0.005, 0.0025] {
-            add("dt", dt, &envelope(&Settings { rate, dt, ..base }, &prepared)?);
+            add("dt", dt, &envelope(&Settings { rate, dt, ..base }, &prepared)?)?;
         }
         for hht in [-0.05, -0.1, -0.2, -0.3] {
-            add("hht", hht, &envelope(&Settings { rate, hht, ..base }, &prepared)?);
+            add("hht", hht, &envelope(&Settings { rate, hht, ..base }, &prepared)?)?;
         }
         for seed in [1e-4, 3e-4, 1e-3, 3e-3, 1e-2] {
-            add("imperfection", seed, &envelope(&Settings { rate, imperfection: seed, ..base }, &prepared)?);
+            add("imperfection", seed, &envelope(&Settings { rate, imperfection: seed, ..base }, &prepared)?)?;
         }
         for n in [24, 48, 96] {
             let s = Settings { rate, n, ..base };
             let p = if n == MESH { prepared.clone() } else { prepare(&s.strip(), START)? };
-            add("n", n as f64, &envelope(&s, &p)?);
+            add("n", n as f64, &envelope(&s, &p)?)?;
         }
         for start in [0.4, 0.6, 1.0, one_end_start] {
             let s = Settings { rate, start, ..base };
             let p = if start == START { prepared.clone() } else if start == one_end_start { far.clone() } else { prepare(&strip, start)? };
-            add("start", start, &envelope(&s, &p)?);
+            add("start", start, &envelope(&s, &p)?)?;
         }
     }
     let mut figure_2a = vec![];
@@ -362,7 +357,7 @@ pub fn dynamics() -> Result<Dynamics, String> {
             rate,
             travel_mm: sim.trace.mu.iter().map(|mu| (far.1.mu_star - mu) * a2l_mm).collect(),
             trace: sim.trace.clone(),
-            amplification: sim.outcome.amplification,
+            amplification: sim.outcome.jump()?.amplification,
         });
     }
     Ok(Dynamics {

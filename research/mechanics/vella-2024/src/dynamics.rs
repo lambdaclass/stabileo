@@ -70,26 +70,58 @@ impl Settings {
     }
 }
 
-/// End motion: shortening removed so far, its rate and its acceleration at time t (in t*). The
-/// clamp accelerates uniformly over `ramp`, moves at `speed`, and from `stop` decelerates
-/// uniformly over `ramp` to rest.
-fn travel(speed: f64, ramp: f64, stop: f64, t: f64) -> (f64, f64, f64) {
-    let a = if ramp > 0.0 { speed / ramp } else { 0.0 };
-    let cruise = |t: f64| if ramp > 0.0 && t < ramp { (0.5 * a * t * t, a * t, a) } else { (speed * (t - 0.5 * ramp), speed, 0.0) };
-    if t <= stop {
-        return cruise(t);
+/// End motion: the clamp accelerates uniformly over `ramp`, moves at `speed`, and from `stop`
+/// decelerates uniformly over `ramp` to rest; with `ramp` = 0 its velocity jumps at 0 and at `stop`.
+#[derive(Clone, Copy, Debug)]
+struct Profile {
+    speed: f64,
+    ramp: f64,
+    stop: f64,
+}
+
+impl Profile {
+    fn acceleration(&self) -> f64 {
+        if self.ramp > 0.0 { self.speed / self.ramp } else { 0.0 }
     }
-    let (d0, v0, _) = cruise(stop);
-    let tau = t - stop;
-    if ramp > 0.0 && v0 > 0.0 {
-        let decel = a;
-        let end = v0 / decel;
-        if tau < end {
-            return (d0 + v0 * tau - 0.5 * decel * tau * tau, v0 - decel * tau, -decel);
-        }
-        return (d0 + 0.5 * v0 * end, 0.0, 0.0);
+
+    fn speed_at_stop(&self) -> f64 {
+        if self.ramp > 0.0 { self.speed * (self.stop / self.ramp).min(1.0) } else { self.speed }
     }
-    (d0, 0.0, 0.0)
+
+    fn braking(&self) -> f64 {
+        if self.ramp > 0.0 { self.speed_at_stop() / self.acceleration() } else { 0.0 }
+    }
+
+    /// Instants where the clamp's acceleration or (zero ramp) velocity changes.
+    fn transitions(&self) -> [f64; 4] {
+        [0.0, self.ramp, self.stop, self.stop + self.braking()]
+    }
+
+    /// Shortening removed so far, its rate and its acceleration at t (in t*); at a transition
+    /// `before` gives the limit from below.
+    fn at(&self, t: f64, before: bool) -> (f64, f64, f64) {
+        let (speed, ramp, stop) = (self.speed, self.ramp, self.stop);
+        let a = self.acceleration();
+        let past = |b: f64| if before { t > b } else { t >= b };
+        let removed = |t: f64| if ramp > 0.0 && t < ramp { 0.5 * a * t * t } else { speed * (t - 0.5 * ramp) };
+        let (v0, braking) = (self.speed_at_stop(), self.braking());
+        let d = if t <= stop {
+            removed(t)
+        } else {
+            let tau = (t - stop).min(braking);
+            removed(stop) + v0 * tau - 0.5 * a * tau * tau
+        };
+        let (v, acc) = if !past(0.0) {
+            (0.0, 0.0)
+        } else if !past(stop) {
+            if ramp > 0.0 && !past(ramp) { (a * t, a) } else { (speed, 0.0) }
+        } else if past(stop + braking) {
+            (0.0, 0.0)
+        } else {
+            (v0 - a * (t - stop), -a)
+        };
+        (d, v, acc)
+    }
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -116,27 +148,51 @@ pub struct Trace {
     pub height: Vec<f64>,
 }
 
+/// Every jump-only value is `Some` exactly when `snapped`: the midpoint crossed the clamps' line
+/// and its first height maximum after the crossing was observed.
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Outcome {
     pub snapped: bool,
     /// Time of the first upward crossing of the midpoint through z = 0, from µ = µ*, in T_osc.
-    pub t_snap: f64,
-    pub mu_snap: f64,
+    pub t_snap: Option<f64>,
+    pub mu_snap: Option<f64>,
     /// End of the jump: the first maximum of the midpoint height after the crossing.
-    pub t_end: f64,
+    pub t_end: Option<f64>,
     /// max |θ| before t = 0 and during the jump (0 < t ≤ t_end).
     pub theta_before: f64,
-    pub theta_during: f64,
+    pub theta_during: Option<f64>,
     /// Eq. (2): theta_during / theta_before.
-    pub amplification: f64,
+    pub amplification: Option<f64>,
     /// The same with t = 0 at µ = µ_A instead of µ*.
-    pub amplification_from_mu_a: f64,
+    pub amplification_from_mu_a: Option<f64>,
+    /// Steps of length dt; substeps (motion transitions, halving) are not counted.
     pub steps: usize,
     pub newton_iterations: usize,
-    /// The run stopped early, after the jump, where Newton failed even on 2⁸ substeps; what
-    /// Eq. (2) needs was already computed.
+    /// The run stopped early, after the jump had ended, where Newton failed even on 2⁸
+    /// substeps.
     pub truncated: bool,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct Jump {
+    pub t_snap: f64,
+    pub mu_snap: f64,
+    pub t_end: f64,
+    pub theta_during: f64,
+    pub amplification: f64,
+    pub amplification_from_mu_a: f64,
+}
+
+impl Outcome {
+    pub fn jump(&self) -> Result<Jump, String> {
+        match (self.t_snap, self.mu_snap, self.t_end, self.theta_during, self.amplification, self.amplification_from_mu_a) {
+            (Some(t_snap), Some(mu_snap), Some(t_end), Some(theta_during), Some(amplification), Some(amplification_from_mu_a)) if self.snapped => {
+                Ok(Jump { t_snap, mu_snap, t_end, theta_during, amplification, amplification_from_mu_a })
+            }
+            _ => Err("the strip did not snap".into()),
+        }
+    }
 }
 
 pub struct Simulation {
@@ -151,6 +207,8 @@ struct Sample {
     mu: f64,
     theta: f64,
     height: f64,
+    /// The step of length dt this sample ends or lies in (0 for the start).
+    step: usize,
 }
 
 fn frame(strip: &Strip, q: &[f64], t: f64, mu: f64) -> Frame {
@@ -181,36 +239,59 @@ fn plausible(old: &[f64], new: &[f64], n: usize) -> bool {
 }
 
 struct Motion {
-    speed: f64,
-    ramp: f64,
-    stop: f64,
+    profile: Profile,
     one_end: bool,
     left: f64,
     right: f64,
 }
 
 impl Motion {
-    fn travel(&self, t: f64) -> (f64, f64, f64) {
-        travel(self.speed, self.ramp, self.stop, t)
+    /// Clamp velocities and accelerations (left, right) at t; `before` as in `Profile::at`.
+    fn kinematics(&self, t: f64, before: bool) -> ([f64; 2], [f64; 2]) {
+        let (_, v, a) = self.profile.at(t, before);
+        if self.one_end { ([-v, 0.0], [-a, 0.0]) } else { ([-0.5 * v, 0.5 * v], [-0.5 * a, 0.5 * a]) }
     }
 
-    /// Sets the clamp positions at time t and returns their accelerations (left, right).
-    fn set(&self, q: &mut [f64], n: usize, t: f64) -> [f64; 2] {
-        let (d, _, a) = self.travel(t);
+    /// Sets the clamp positions at time t.
+    fn set(&self, q: &mut [f64], n: usize, t: f64) {
+        let (d, _, _) = self.profile.at(t, true);
         if self.one_end {
             q[0] = self.left - d;
             q[DOFS * n] = -self.right;
-            [-a, 0.0]
         } else {
             q[0] = self.left - 0.5 * d;
             q[DOFS * n] = -(self.right - 0.5 * d);
-            [-0.5 * a, 0.5 * a]
         }
     }
 
-    fn velocities(&self, t: f64) -> [f64; 2] {
-        let (_, v, _) = self.travel(t);
-        if self.one_end { [-v, 0.0] } else { [-0.5 * v, 0.5 * v] }
+    /// The first transition strictly inside (a, b), leaving no substep shorter than `margin`.
+    fn transition_in(&self, a: f64, b: f64, margin: f64) -> Option<f64> {
+        self.profile.transitions().into_iter().filter(|&tau| tau.is_finite() && tau > a + margin && tau < b - margin).min_by(f64::total_cmp)
+    }
+
+    /// Where a step from t0 meant to end at t1 ends: on the first transition within `margin` of
+    /// t1, or a jump that rounding puts inside the step is lost.
+    fn snap(&self, t0: f64, t1: f64, margin: f64) -> f64 {
+        self.profile.transitions().into_iter().filter(|&tau| (tau - t1).abs() <= margin && tau > t0 + 0.5 * margin).min_by(f64::total_cmp).unwrap_or(t1)
+    }
+
+    /// The instant whose limit from above holds just after t: transitions closer than `margin`
+    /// after t are merged into t, since a substep that short would be lost to round-off in
+    /// Newmark's acceleration (q₁ − q̃)/(βh²).
+    fn merged(&self, t: f64, margin: f64) -> f64 {
+        self.profile.transitions().into_iter().filter(|&tau| tau >= t && tau <= t + margin).fold(t, f64::max)
+    }
+}
+
+enum Halt {
+    /// Newton failed on the smallest substep starting at this time.
+    Newton(f64),
+    Error(String),
+}
+
+impl From<String> for Halt {
+    fn from(e: String) -> Self {
+        Halt::Error(e)
     }
 }
 
@@ -225,6 +306,8 @@ struct Integrator {
     gamma: f64,
     floor: f64,
     increment: f64,
+    /// Shortest substep at a motion transition (10⁻³ dt).
+    margin: f64,
     assembler: Assembler,
     mass: Vec<Vec<(usize, f64)>>,
     motion: Motion,
@@ -243,12 +326,14 @@ impl Integrator {
         (DOFS..DOFS * self.n).contains(&i)
     }
 
-    /// One step of length h from t; on failure the state is left unchanged.
-    fn step(&mut self, t: f64, h: f64) -> Result<bool, String> {
+    /// One step from t to `end`; on failure the state is left unchanged.
+    fn step(&mut self, t: f64, end: f64) -> Result<bool, String> {
         let (n, beta) = (self.n, self.beta);
+        let h = end - t;
         let size = self.q.len();
         let mut q1 = self.q.clone();
-        let ends = self.motion.set(&mut q1, n, t + h);
+        self.motion.set(&mut q1, n, end);
+        let (velocities, ends) = self.motion.kinematics(end, true);
         let predicted: Vec<f64> = (0..size).map(|i| self.q[i] + h * self.v[i] + h * h * (0.5 - beta) * self.acc[i]).collect();
         for i in DOFS..DOFS * n {
             q1[i] = if i % DOFS == 2 { self.q[i] } else { predicted[i] + beta * h * h * self.acc[i] };
@@ -314,25 +399,82 @@ impl Integrator {
             a1[i] = (q1[i] - predicted[i]) / (beta * h * h);
             self.v[i] += h * ((1.0 - gamma) * self.acc[i] + gamma * a1[i]);
         }
-        let [vl, vr] = self.motion.velocities(t + h);
-        self.v[0] = vl;
-        self.v[DOFS * n] = vr;
+        self.v[0] = velocities[0];
+        self.v[DOFS * n] = velocities[1];
         self.acc = a1;
         self.q = q1;
         self.f_old.copy_from_slice(&self.force);
         Ok(true)
     }
 
-    /// Advances by h, halving the step where Newton fails (up to 2⁸ substeps).
-    fn advance(&mut self, t: f64, h: f64, depth: u32) -> Result<(), String> {
-        if self.step(t, h)? {
-            return Ok(());
+    /// Brings the clamps to their velocities and accelerations just after t. A jump Δ in a
+    /// prescribed clamp velocity is an impulse: with the consistent mass the free DOFs take
+    /// M_ff Δv_f = −M_fc Δv_c, and likewise for a jump in acceleration.
+    fn jump(&mut self, t: f64) -> Result<(), String> {
+        let n = self.n;
+        let clamps = [0, DOFS * n];
+        let (v, a) = self.motion.kinematics(self.motion.merged(t, self.margin), false);
+        for (state, target) in [(0, v), (1, a)] {
+            let current = if state == 0 { &self.v } else { &self.acc };
+            let delta = [target[0] - current[clamps[0]], target[1] - current[clamps[1]]];
+            if delta == [0.0, 0.0] {
+                continue;
+            }
+            let nf = DOFS * (n - 1);
+            let mut m = Band::new(nf, 2 * DOFS - 1);
+            let mut rhs = vec![0.0; nf];
+            for i in DOFS..DOFS * n {
+                let r = i - DOFS;
+                if i % DOFS == 2 {
+                    m.add(r, r, 1.0);
+                    continue;
+                }
+                for &(j, w) in &self.mass[i] {
+                    if let Some(k) = clamps.iter().position(|&c| c == j) {
+                        rhs[r] -= w * delta[k];
+                    } else if self.free(j) {
+                        m.add(r, j - DOFS, w);
+                    }
+                }
+            }
+            m.solve(&mut rhs)?;
+            let x = if state == 0 { &mut self.v } else { &mut self.acc };
+            for i in (DOFS..DOFS * n).filter(|i| i % DOFS != 2) {
+                x[i] += rhs[i - DOFS];
+            }
+            x[clamps[0]] = target[0];
+            x[clamps[1]] = target[1];
         }
-        if depth >= 8 {
-            return Err("Newton did not converge".into());
+        Ok(())
+    }
+
+    /// Advances from t by about h, in substeps split at the motion's transitions and halved where
+    /// Newton fails (down to h/2⁸), and returns the time reached: t + h, or a transition within
+    /// `margin` of it. `accepted` sees the state after every accepted substep, at its end time,
+    /// and may change the motion from that instant on.
+    fn advance(&mut self, t: f64, h: f64, accepted: &mut dyn FnMut(&mut Integrator, f64) -> Result<(), String>) -> Result<f64, Halt> {
+        let margin = self.margin;
+        let mut now = t;
+        let mut pending = vec![(t + h, 0u32)];
+        while let Some((t1, depth)) = pending.pop() {
+            if let Some(tau) = self.motion.transition_in(now, t1, margin) {
+                pending.push((t1, depth));
+                pending.push((tau, depth));
+                continue;
+            }
+            let end = self.motion.snap(now, t1, margin);
+            if self.step(now, end)? {
+                now = end;
+                self.jump(now)?;
+                accepted(self, now)?;
+            } else if depth >= 8 {
+                return Err(Halt::Newton(now));
+            } else {
+                pending.push((t1, depth + 1));
+                pending.push((0.5 * (now + t1), depth + 1));
+            }
         }
-        self.advance(t, 0.5 * h, depth + 1)?;
-        self.advance(t + 0.5 * h, 0.5 * h, depth + 1)
+        Ok(now)
     }
 }
 
@@ -344,36 +486,18 @@ pub fn simulate(settings: &Settings, start: &Equilibrium, mu_star: f64, mu_a: f6
     integrate(settings, start, mu_star, mu_a, cancel).map_err(|e| format!("{e} (µ̇ = {}, one end: {}, seed {}, phase {}, n {})", settings.rate, settings.one_end, settings.imperfection, settings.phase, settings.n))
 }
 
-fn integrate(settings: &Settings, start: &Equilibrium, mu_star: f64, mu_a: f64, cancel: &mut dyn FnMut(f64) -> bool) -> Result<Simulation, String> {
+/// Time the clamps may rest after braking without the jump ending, in T_osc.
+const REST: f64 = 20.0;
+
+fn integrator(settings: &Settings, start: &Equilibrium, profile: Profile) -> Result<Integrator, String> {
     let strip = settings.strip();
     let n = strip.n;
     let size = DOFS * (n + 1);
-    let a2 = strip.alpha * strip.alpha;
-    let speed = settings.rate * a2 / T_OSC;
-    let ramp = settings.ramp * T_OSC;
-    let dt = settings.dt * T_OSC;
-    let s0 = start.clamps.shortening();
     let mut mass = vec![vec![]; size];
     for (i, j, v) in mass_band(n) {
         mass[i].push((j, v));
     }
-    let motion = Motion { speed, ramp, stop: f64::INFINITY, one_end: settings.one_end, left: start.clamps.left, right: start.clamps.right };
-    let mu_at = |t: f64, stop: f64| (s0 - travel(speed, ramp, stop, t).0) / a2;
-    let when = |target: f64| {
-        let (mut lo, mut hi) = (0.0, 1.0);
-        while mu_at(hi, f64::INFINITY) > target {
-            hi *= 2.0;
-        }
-        for _ in 0..200 {
-            let m = 0.5 * (lo + hi);
-            if mu_at(m, f64::INFINITY) > target { lo = m } else { hi = m }
-        }
-        0.5 * (lo + hi)
-    };
-    let t_star = when(mu_star);
-    let t_a = when(mu_a);
-    let clock = |t: f64| (t - t_star) / T_OSC;
-
+    let motion = Motion { profile, one_end: settings.one_end, left: start.clamps.left, right: start.clamps.right };
     let mut assembler = Assembler::new(&strip);
     let mut q = start.q.clone();
     let mut v = vec![0.0; size];
@@ -389,10 +513,8 @@ fn integrate(settings: &Settings, start: &Equilibrium, mu_star: f64, mu_a: f64, 
         v[0] = 0.0;
         v[DOFS * n] = 0.0;
     }
+    motion.set(&mut q, n, 0.0);
     let mut acc = vec![0.0; size];
-    let ends0 = motion.set(&mut q, n, 0.0);
-    acc[0] = ends0[0];
-    acc[DOFS * n] = ends0[1];
     let mut force = vec![0.0; size];
     assembler.assemble(&q, &mut force, |_, _, _| {});
     let nf = DOFS * (n - 1);
@@ -409,8 +531,6 @@ fn integrate(settings: &Settings, start: &Equilibrium, mu_star: f64, mu_a: f64, 
             for &(j, w) in &mass[i] {
                 if (DOFS..DOFS * n).contains(&j) {
                     m.add(r, j - DOFS, w);
-                } else {
-                    rhs[r] -= w * acc[j];
                 }
             }
         }
@@ -427,6 +547,7 @@ fn integrate(settings: &Settings, start: &Equilibrium, mu_star: f64, mu_a: f64, 
         gamma: 0.5 - alpha,
         floor: 1e-8 * strip.alpha + 1e-14 * strip.axial_stiffness(),
         increment: 1e-11 * strip.alpha,
+        margin: 1e-3 * settings.dt * T_OSC,
         assembler,
         mass,
         motion,
@@ -439,72 +560,117 @@ fn integrate(settings: &Settings, start: &Equilibrium, mu_star: f64, mu_a: f64, 
         residual: vec![0.0; nf],
         iterations: 0,
     };
+    integrator.jump(0.0)?;
+    Ok(integrator)
+}
 
+fn integrate(settings: &Settings, start: &Equilibrium, mu_star: f64, mu_a: f64, cancel: &mut dyn FnMut(f64) -> bool) -> Result<Simulation, String> {
+    let strip = settings.strip();
+    let a2 = strip.alpha * strip.alpha;
+    let free = Profile { speed: settings.rate * a2 / T_OSC, ramp: settings.ramp * T_OSC, stop: f64::INFINITY };
+    let dt = settings.dt * T_OSC;
+    let s0 = start.clamps.shortening();
+    let mu_at = |t: f64, profile: &Profile| (s0 - profile.at(t, true).0) / a2;
+    let when = |target: f64| {
+        let (mut lo, mut hi) = (0.0, 1.0);
+        while mu_at(hi, &free) > target {
+            hi *= 2.0;
+        }
+        for _ in 0..200 {
+            let m = 0.5 * (lo + hi);
+            if mu_at(m, &free) > target { lo = m } else { hi = m }
+        }
+        0.5 * (lo + hi)
+    };
+    let t_star = when(mu_star);
+    let t_a = when(mu_a);
+    let clock = |t: f64| (t - t_star) / T_OSC;
+
+    let mut integrator = integrator(settings, start, free)?;
     let mid = strip.mid();
-    let mut samples: Vec<Sample> = vec![];
     let fine = (0.125 / settings.dt).round().max(1.0) as usize;
     let coarse = (((settings.start - mu_star) / settings.rate) / 60.0).max(0.125);
-    let mut frames: Vec<Frame> = vec![frame(&strip, &integrator.q, clock(0.0), mu_at(0.0, f64::INFINITY))];
+    let mut frames: Vec<Frame> = vec![frame(&strip, &integrator.q, clock(0.0), mu_at(0.0, &free))];
     let mut recent: std::collections::VecDeque<Frame> = Default::default();
     let keep = 48;
-    let mut snapped = false;
+    let mut samples = vec![Sample { t: clock(0.0), mu: mu_at(0.0, &free), theta: integrator.q[DOFS * mid + 2], height: integrator.q[DOFS * mid + 1], step: 0 }];
+    let mut crossed = false;
+    let mut ended = false;
     let mut end_time = f64::INFINITY;
     let mut truncated = false;
     let mut t = 0.0;
     let mut step = 0usize;
-    samples.push(Sample { t: clock(0.0), mu: mu_at(0.0, f64::INFINITY), theta: integrator.q[DOFS * mid + 2], height: integrator.q[DOFS * mid + 1] });
     while t < end_time {
         if step > 3_000_000 {
             return Err("too many steps".into());
         }
-        if cancel(mu_at(t, integrator.motion.stop)) {
+        if cancel(mu_at(t, &integrator.motion.profile)) {
             return Err("stopped".into());
         }
-        if let Err(e) = integrator.advance(t, dt, 0) {
-            if integrator.motion.stop.is_finite() {
+        let after = settings.after * T_OSC;
+        let result = integrator.advance(t, dt, &mut |integrator, now| {
+            let q = &integrator.q;
+            let (theta, height) = (q[DOFS * mid + 2], q[DOFS * mid + 1]);
+            let falling = samples.last().is_some_and(|last| height < last.height);
+            let mu = mu_at(now, &integrator.motion.profile);
+            samples.push(Sample { t: clock(now), mu, theta, height, step: step + 1 });
+            crossed |= height > 0.0;
+            if crossed && falling && !ended {
+                ended = true;
+                end_time = now + after;
+            }
+            if integrator.motion.profile.stop.is_infinite() && (ended || mu <= STOPPER) {
+                integrator.motion.profile.stop = now;
+                integrator.jump(now)?;
+            }
+            Ok(())
+        });
+        match result {
+            Ok(reached) => t = reached,
+            Err(Halt::Newton(_)) if ended => {
                 truncated = true;
                 break;
             }
-            let q = &integrator.q;
-            return Err(format!("{e} at t = {:.4} T_osc (µ {:.4}, h {:.4})", clock(t + dt), mu_at(t, integrator.motion.stop), q[DOFS * mid + 1]));
+            Err(Halt::Newton(at)) => {
+                let q = &integrator.q;
+                return Err(format!("Newton did not converge at t = {:.4} T_osc (µ {:.4}, h {:.4}){}", clock(at), mu_at(at, &integrator.motion.profile), q[DOFS * mid + 1], if crossed { ", during the jump" } else { "" }));
+            }
+            Err(Halt::Error(e)) => return Err(e),
         }
-        t += dt;
         step += 1;
-        let q = &integrator.q;
-        let mu = mu_at(t, integrator.motion.stop);
-        let (theta, height) = (q[DOFS * mid + 2], q[DOFS * mid + 1]);
-        let rising = samples.last().is_some_and(|last| height >= last.height);
-        samples.push(Sample { t: clock(t), mu, theta, height });
         if step.is_multiple_of(fine) {
-            recent.push_back(frame(&strip, q, clock(t), mu));
-            if !snapped && recent.len() > keep {
+            let mu = mu_at(t, &integrator.motion.profile);
+            recent.push_back(frame(&strip, &integrator.q, clock(t), mu));
+            if !crossed && recent.len() > keep {
                 let old = recent.pop_front().unwrap();
                 if frames.last().is_none_or(|f| old.t - f.t >= coarse) {
                     frames.push(old);
                 }
             }
         }
-        if !snapped && height > 0.0 {
-            snapped = true;
-        }
-        let jump_over = snapped && !rising;
-        if integrator.motion.stop.is_infinite() && (jump_over || mu <= STOPPER) {
-            integrator.motion.stop = t;
-            end_time = t + settings.after * T_OSC;
+        let profile = integrator.motion.profile;
+        if !ended && t > profile.stop + profile.braking() + REST * T_OSC {
+            if crossed {
+                return Err("the jump did not end while the clamps were at rest".into());
+            }
+            break;
         }
     }
     frames.extend(recent);
 
-    let mut outcome = outcome(&samples, clock(t_a), step, integrator.iterations);
+    let mut outcome = outcome(&samples, clock(t_a), step, integrator.iterations)?;
     outcome.truncated = truncated;
-    let trace = bin(&samples, 1500);
+    let trace = bin(&samples, 1500, step);
     Ok(Simulation { settings: *settings, frames, trace, outcome })
 }
 
-fn bin(samples: &[Sample], count: usize) -> Trace {
-    let per = samples.len().div_ceil(count).max(1);
+/// At most `count` bins of whole steps of length dt, so that the trace does not depend on how
+/// many substeps a step took.
+fn bin(samples: &[Sample], count: usize, steps: usize) -> Trace {
+    let per = steps.div_ceil(count).max(1);
+    let group = |s: &Sample| s.step.saturating_sub(1) / per;
     let mut trace = Trace::default();
-    for chunk in samples.chunks(per) {
+    for chunk in samples.chunk_by(|a, b| group(a) == group(b)) {
         let last = chunk.last().unwrap();
         trace.t.push(last.t);
         trace.mu.push(last.mu);
@@ -515,39 +681,166 @@ fn bin(samples: &[Sample], count: usize) -> Trace {
     trace
 }
 
-fn outcome(samples: &[Sample], t_a: f64, steps: usize, newton_iterations: usize) -> Outcome {
-    let crossing = samples.iter().position(|s| s.height > 0.0);
-    let (snapped, t_snap, mu_snap, end) = match crossing {
-        Some(k) => {
-            let mut e = k;
-            while e + 1 < samples.len() && samples[e + 1].height >= samples[e].height {
-                e += 1;
-            }
-            (true, samples[k].t, samples[k].mu, e)
-        }
-        None => (false, f64::NAN, f64::NAN, samples.len() - 1),
-    };
-    let t_end = samples[end].t;
-    let max_abs = |from: f64, to: f64| samples.iter().filter(|s| s.t > from && s.t <= to).map(|s| s.theta.abs()).fold(0.0, f64::max);
+fn outcome(samples: &[Sample], t_a: f64, steps: usize, newton_iterations: usize) -> Result<Outcome, String> {
     let before = samples.iter().filter(|s| s.t < 0.0).map(|s| s.theta.abs()).fold(0.0, f64::max);
-    let during = max_abs(0.0, t_end);
-    let before_a = samples.iter().filter(|s| s.t < t_a).map(|s| s.theta.abs()).fold(0.0, f64::max);
-    let during_a = max_abs(t_a, t_end);
-    Outcome {
-        snapped,
-        t_snap,
-        mu_snap,
-        t_end,
+    let mut outcome = Outcome {
+        snapped: false,
+        t_snap: None,
+        mu_snap: None,
+        t_end: None,
         theta_before: before,
-        theta_during: during,
-        amplification: during / before,
-        amplification_from_mu_a: during_a / before_a,
+        theta_during: None,
+        amplification: None,
+        amplification_from_mu_a: None,
         steps,
         newton_iterations,
         truncated: false,
+    };
+    let Some(k) = samples.iter().position(|s| s.height > 0.0) else {
+        return Ok(outcome);
+    };
+    let mut e = k;
+    while e + 1 < samples.len() && samples[e + 1].height >= samples[e].height {
+        e += 1;
     }
+    if e + 1 == samples.len() {
+        return Err("the midpoint height had not passed its first maximum after the crossing".into());
+    }
+    let t_end = samples[e].t;
+    let max_abs = |from: f64| samples.iter().filter(|s| s.t > from && s.t <= t_end).map(|s| s.theta.abs()).fold(0.0, f64::max);
+    let during = max_abs(0.0);
+    let before_a = samples.iter().filter(|s| s.t < t_a).map(|s| s.theta.abs()).fold(0.0, f64::max);
+    outcome.snapped = true;
+    outcome.t_snap = Some(samples[k].t);
+    outcome.mu_snap = Some(samples[k].mu);
+    outcome.t_end = Some(t_end);
+    outcome.theta_during = Some(during);
+    outcome.amplification = Some(during / before);
+    outcome.amplification_from_mu_a = Some(max_abs(t_a) / before_a);
+    Ok(outcome)
 }
 
 pub fn start_clamps(strip: &Strip, mu0: f64) -> Clamps {
     Clamps::symmetric(mu0 * strip.alpha * strip.alpha)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::statics::{invert, natural};
+
+    fn start() -> (Settings, Equilibrium) {
+        let s = Settings { alpha: 0.26, n: 8, slenderness: 2126.0, rate: 0.05, start: 0.6, one_end: true, ramp: 0.0, imperfection: 0.0, phase: 0.0, dt: 0.005, hht: -0.1, after: 0.5 };
+        let strip = s.strip();
+        let up = natural(&strip, s.start * s.alpha * s.alpha).unwrap();
+        (s, invert(&strip, &up, false).unwrap().1)
+    }
+
+    fn free_rows(it: &Integrator, x: &[f64]) -> Vec<f64> {
+        (DOFS..DOFS * it.n).filter(|i| i % DOFS != 2).map(|i| it.mass[i].iter().map(|&(j, w)| w * x[j]).sum()).collect()
+    }
+
+    #[test]
+    fn the_profile_moves_continuously_and_jumps_only_at_its_transitions() {
+        let p = Profile { speed: 2.0, ramp: 0.5, stop: 3.0 };
+        for tau in p.transitions() {
+            let (d0, v0, _) = p.at(tau, true);
+            let (d1, v1, _) = p.at(tau, false);
+            assert!((d0 - d1).abs() < 1e-15 && (v0 - v1).abs() < 1e-15, "{tau}");
+        }
+        assert_eq!((p.at(0.0, true).2, p.at(0.0, false).2), (0.0, 4.0));
+        assert_eq!((p.at(0.5, true).2, p.at(0.5, false).2), (4.0, 0.0));
+        assert_eq!((p.at(3.0, true).2, p.at(3.0, false).2), (0.0, -4.0));
+        assert_eq!((p.at(3.5, true).2, p.at(3.5, false)), (-4.0, (6.0, 0.0, 0.0)));
+        let z = Profile { speed: 2.0, ramp: 0.0, stop: 3.0 };
+        assert_eq!((z.at(0.0, true).1, z.at(0.0, false).1), (0.0, 2.0));
+        assert_eq!((z.at(3.0, true).1, z.at(3.0, false).1), (2.0, 0.0));
+        assert_eq!(z.at(5.0, false), (6.0, 0.0, 0.0));
+    }
+
+    #[test]
+    fn a_clamp_launched_without_a_ramp_gives_the_free_nodes_its_impulse() {
+        let (s, eq) = start();
+        let it = integrator(&s, &eq, Profile { speed: 1.0, ramp: 0.0, stop: f64::INFINITY }).unwrap();
+        assert_eq!(it.v[0], -1.0);
+        let momentum = free_rows(&it, &it.v);
+        assert!(momentum.iter().all(|p| p.abs() < 1e-14), "{momentum:?}");
+        let decay = it.v[DOFS] / it.v[0];
+        assert!((decay + (2.0 - 3f64.sqrt())).abs() < 1e-3, "the consistent mass's response decays by −(2 − √3) per node: {decay}");
+    }
+
+    #[test]
+    fn steps_end_on_the_transitions_and_an_acceleration_jump_keeps_equilibrium() {
+        let (s, eq) = start();
+        let dt = s.dt * T_OSC;
+        let profile = Profile { speed: 1.0, ramp: 0.3 * dt, stop: 2.4 * dt };
+        let mut it = integrator(&s, &eq, profile).unwrap();
+        let mut times = vec![];
+        let mut t = 0.0;
+        for _ in 0..4 {
+            t = it
+                .advance(t, dt, &mut |_, now| {
+                    times.push(now);
+                    Ok(())
+                })
+                .map_err(|_| "step failed")
+                .unwrap();
+        }
+        for tau in [profile.ramp, profile.stop, profile.stop + profile.braking()] {
+            assert!(times.contains(&tau), "no substep ends at {} dt: {times:?}", tau / dt);
+        }
+        let mut it = integrator(&s, &eq, profile).unwrap();
+        assert!(it.step(0.0, profile.ramp).unwrap());
+        let before = free_rows(&it, &it.acc);
+        it.jump(profile.ramp).unwrap();
+        let after = free_rows(&it, &it.acc);
+        assert_eq!(it.acc[0], 0.0);
+        let kick = profile.acceleration() * it.mass[DOFS].iter().find(|&&(j, _)| j == 0).unwrap().1;
+        let change = before.iter().zip(&after).fold(0.0f64, |m, (a, b)| m.max((a - b).abs()));
+        assert!(change < 1e-9 * kick, "the free rows' inertia moved by {change} against a clamp kick of {kick}");
+    }
+
+    #[test]
+    fn braking_on_a_step_boundary_is_not_lost_to_rounding() {
+        let (s, eq) = start();
+        let dt = s.dt * T_OSC;
+        let mut it = integrator(&s, &eq, Profile { speed: 1.0, ramp: 0.0, stop: 3.0 * dt }).unwrap();
+        let mut t = 0.0;
+        for _ in 0..2 {
+            t = it.advance(t, dt, &mut |_, _| Ok(())).map_err(|_| "step failed").unwrap();
+        }
+        let mut probe = integrator(&s, &eq, Profile { speed: 1.0, ramp: 0.0, stop: f64::INFINITY }).unwrap();
+        probe.q.clone_from(&it.q);
+        probe.v.clone_from(&it.v);
+        probe.acc.clone_from(&it.acc);
+        probe.f_old.clone_from(&it.f_old);
+        assert!(probe.step(t, 3.0 * dt).unwrap());
+        let moving = probe.v.clone();
+        t = it.advance(t, dt, &mut |_, _| Ok(())).map_err(|_| "step failed").unwrap();
+        assert_eq!(t, 3.0 * dt);
+        assert_eq!(it.v[0], 0.0);
+        let delta: Vec<f64> = it.v.iter().zip(&moving).map(|(a, b)| a - b).collect();
+        let momentum = free_rows(&it, &delta);
+        assert!(momentum.iter().all(|p| p.abs() < 1e-12), "the stop's impulse is in the free nodes: {momentum:?}");
+        assert!(delta[DOFS] < 0.0, "{}", delta[DOFS]);
+    }
+
+    #[test]
+    fn a_zero_ramp_approaches_short_ramps_once_the_axial_ringing_has_decayed() {
+        let (s, eq) = start();
+        let dt = s.dt * T_OSC;
+        let transverse = |ramp: f64| {
+            let mut it = integrator(&s, &eq, Profile { speed: 1.0, ramp, stop: 3.0 * dt }).unwrap();
+            let mut t = 0.0;
+            for _ in 0..60 {
+                t = it.advance(t, dt, &mut |_, _| Ok(())).map_err(|_| "step failed").unwrap();
+            }
+            it.v.iter().skip(1).step_by(DOFS).copied().collect::<Vec<f64>>()
+        };
+        let sharp = transverse(0.0);
+        let gap = |ramp: f64| transverse(ramp).iter().zip(&sharp).fold(0.0f64, |m, (a, b)| m.max((a - b).abs()));
+        let scale = sharp.iter().fold(0.0f64, |m, v| m.max(v.abs()));
+        let (short, long) = (gap(0.003 * dt), gap(0.1 * dt));
+        assert!(short < 0.05 * scale && short < long, "{short} and {long} against {scale}");
+    }
 }
