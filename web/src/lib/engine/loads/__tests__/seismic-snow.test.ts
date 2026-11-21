@@ -15,7 +15,7 @@ import { bindRole, defaultRegulations, type ProjectRegulations } from '../../../
 function shed(): LoadModelData {
   const nodes = new Map([
     [1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: 16, y: 0, z: 0 }],
-    [3, { id: 3, x: 0, y: 0, z: 5 }], [4, { id: 4, x: 16, y: 0, z: 5 }], [5, { id: 5, x: 8, y: 0, z: 7 }],
+    [3, { id: 3, x: 0, y: 0, z: 5 }], [4, { id: 4, x: 16, y: 0, z: 5 }], [5, { id: 5, x: 8, y: 0, z: 7 }], [6, { id: 6, x: 8, y: 1, z: 7 }],
   ]);
   const elements = new Map([
     [1, { id: 1, nodeI: 1, nodeJ: 3, sectionId: 1, materialId: 1 }],
@@ -26,6 +26,10 @@ function shed(): LoadModelData {
   return {
     nodes, elements, supports: new Map([[1, { nodeId: 1 }], [2, { nodeId: 2 }]]), sections: new Map([[1, { id: 1, a: 0.005 }]]), materials: new Map([[1, { id: 1, rho: 78.5 }]]),
     loadCases: [{ id: 1, type: 'D', name: 'D' }],
+    constraints: [
+      { type: 'diaphragm', masterNode: 3, slaveNodes: [4], plane: 'XY' },
+      { type: 'diaphragm', masterNode: 5, slaveNodes: [6], plane: 'XY' },
+    ],
   };
 }
 const snow = { pg: 1.5, terrain: 'C' as const, exposure: 'partial' as const, thermal: 'normal' as const, category: 'II' as const, roofKind: 'gable' as const, slippery: false };

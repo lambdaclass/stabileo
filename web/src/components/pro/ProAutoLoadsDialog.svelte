@@ -181,10 +181,17 @@
   /** CIRSOC 102's editions in the catalogue, the ones without their text included. */
   const windEditions = allOptionsForRole('wind').filter((o) => o.regulation === 'cirsoc-102');
   let snowCfg = $state<SnowConfig>(start.snowCfg);
-  const snowRoof = $derived.by(() => {
-    const g = roofGeometry({ nodes: modelStore.nodes, elements: modelStore.elements } as never);
-    return g ? { slopeDeg: g.slopeDeg, W: g.W } : null;
+  const roofReadout = $derived.by(() => {
+    try {
+      const geometry = roofGeometry({ nodes: modelStore.nodes, elements: modelStore.elements });
+      return { geometry, refusal: null };
+    } catch (error) {
+      const refusal = engineFailureMessage(error);
+      if (!refusal) throw error;
+      return { geometry: null, refusal };
+    }
   });
+  const snowRoof = $derived(roofReadout.geometry);
   let seismicZone = $state<SeismicZone>(start.seismicZone);
   let siteClass = $state<SiteClass>(start.siteClass);
   let destinationGroup = $state<DestinationGroup>(start.destinationGroup);
@@ -380,6 +387,10 @@
   // reopening, after any edit to the model, and Apply would commit it: closing drops it.
   $effect(() => {
     if (!open) untrack(() => { plan = null; delta = null; applyError = null; });
+    else if (roofReadout.refusal) untrack(() => {
+      if (working) working.cancelled = true;
+      plan = null; delta = null; applyError = null;
+    });
   });
 
   function windStructurePlan(): NonNullable<LoadPlanInput['wind']>['structure'] {
@@ -765,6 +776,11 @@
       <button class="al-close" onclick={onclose} aria-label={t('report.cancel')}>&times;</button>
     </div>
 
+    {#if roofReadout.refusal}
+      <div class="al-pane-body">
+        <p class="al-error" role="alert" data-testid="al-roof-geometry-refused">{te(roofReadout.refusal)}</p>
+      </div>
+    {:else}
     <div class="al-main">
       <!-- The actions, each with what it comes to: the left column of the section selector. -->
       <nav class="al-nav" aria-label={t('autoLoad.nav.label')}>
@@ -1307,6 +1323,7 @@
                 disabled={plan.outcome !== 'READY' || !!working} data-testid="al-apply">{t('autoLoad.apply')}</button>
       {/if}
     </div>
+    {/if}
   </div>
 </div>
 {/if}

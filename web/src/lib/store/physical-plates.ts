@@ -873,18 +873,22 @@ function removePlateMesh(id: number, updateNeighbours = true): { removedNodes: n
       const given = spread.has(sp.id) ? sideTypeAt(e.surface.edgeSupports, sp.nodeId) : undefined;
       if (given !== undefined && plainSupport(sp.nodeId) === given) modelStore.removeSupport(sp.id);
     }
-    for (const q of e.group.members.quads ?? []) if (modelStore.quads.has(q)) modelStore.removeQuad(q);
-    for (const p of e.group.members.plates ?? []) if (modelStore.plates.has(p)) modelStore.removePlate(p);
+    if (e.group.members.quads?.length || e.group.members.plates?.length) modelStore.bulkMutate(() => {
+      for (const q of e.group.members.quads ?? []) if (modelStore.quads.has(q)) modelStore.removeQuad(q);
+      for (const p of e.group.members.plates ?? []) if (modelStore.plates.has(p)) modelStore.removePlate(p);
+    });
     respringAt(springNodes);
     // The members the mesh cut, whole again where the cut node is the mesh's and holds nothing else.
     const cut = [...modelStore.elements.values()].filter((el) => owned.has(el.nodeI) || owned.has(el.nodeJ)).map((el) => el.id);
     if (cut.length) removedNodes += mergeCollinear(cut).removedNodes;
     const h = held(id);
-    for (const n of owned) {
-      if (!modelStore.nodes.has(n)) continue;
-      if (h.has(n)) { keptNodes++; continue; }
-      modelStore.removeNode(n); removedNodes++;
-    }
+    if (owned.size) modelStore.bulkMutate(() => {
+      for (const n of owned) {
+        if (!modelStore.nodes.has(n)) continue;
+        if (h.has(n)) { keptNodes++; continue; }
+        modelStore.removeNode(n); removedNodes++;
+      }
+    });
     const g = modelStore.model.groups.get(id)!;
     modelStore.setGroupMembers(id, { ...g.members, nodes: [...loops.outer, ...loops.holes.flat()], quads: [], plates: [] });
     writeSurface(id, (s) => { const { meshed: _m, ...rest } = s; return rest; });

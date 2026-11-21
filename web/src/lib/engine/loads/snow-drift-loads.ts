@@ -1,7 +1,7 @@
 import { snowCoordinate, snowRoofSteps, snowRoofSurfaces, roofSurfaceModel } from './snow-roof-surfaces';
 import { gravityLayout, widthSpans, type GravityLayout, type GravityModel } from './plan-gravity';
 import { driftShapeMargins, stepDriftMargins, stepDrift, parapetDrift, slidingSnow, REF_DRIFT, REF_DRIFT_ADJACENT, REF_FIG9, REF_PARAPET, REF_SLIDING, type StepDrift } from '../../codes/cirsoc104/drift';
-import { msg, round, type EngineMessage } from '../../codes/message';
+import { EngineMessageError, msg, round, type EngineMessage } from '../../codes/message';
 import type { ClauseRef } from '../../codes/regulation';
 
 type P2 = [number, number];
@@ -78,6 +78,7 @@ function surcharge(bands: Band[], pt: P2, on: (panel: number) => boolean): numbe
 export interface DriftInputs {
   pg: number;
   balanced: number | ((panel: number, point: P2) => number);
+  balancedConstantOnPlanes?: boolean;
   pf: number;
   pfFor?: (slope: number, W: number) => number;
   slippery: boolean;
@@ -140,6 +141,8 @@ export function snowDriftRefusal(model: GravityModel, layout?: GravityLayout, su
   return undefined;
 }
 
+export const STEP_DRIFT_REFUSAL = 'snow.refused.stepDriftTransfer';
+
 export function driftAndSlidingLoads(model: GravityModel, layout: GravityLayout, i: DriftInputs, surfaceModel = roofSurfaceModel(model)): {
   distributed: SnowSurchargeLoad[]; derivation: EngineMessage[]; refs: ClauseRef[];
 } {
@@ -168,28 +171,31 @@ export function driftAndSlidingLoads(model: GravityModel, layout: GravityLayout,
     const L = roofs.find(p => p.k === step.lower)!, U = roofs.find(p => p.k === step.upper)!;
     const { a, b } = step;
     const line = lineInto(a, b, L.polygon);
-    const t0 = 0, t1 = line.len;
-    const lower = roofOf(L.k);
     const reach = (group: typeof roofs, sign: number) => Math.max(0, ...group.flatMap((p) => p.polygon.map((v) => sign * dot(sub(v, a), line.n))));
-    const atStep = (t: number): P2 => [a[0] + line.u[0] * (t0 + t), a[1] + line.u[1] * (t0 + t)];
-    const luUpper = reach(roofOf(U.k), -1), luLower = reach(lower, 1);
-    const inputs = (t: number) => {
-      const pt = atStep(t);
-      return { pg: i.pg, balanced: balanced(L.k, pt), stepHeight: surfaces(U.k).elevation(pt) - surfaces(L.k).elevation(pt), luUpper, luLower };
+    const luUpper = reach(roofOf(U.k), -1), luLower = reach(roofOf(L.k), 1);
+    const inputs = (pt: P2) => ({
+      pg: i.pg, balanced: balanced(L.k, pt), stepHeight: surfaces(U.k).elevation(pt) - surfaces(L.k).elevation(pt), luUpper, luLower,
+    });
+    if (typeof i.balanced !== 'number' && i.balancedConstantOnPlanes !== true) {
+      throw new EngineMessageError(msg(STEP_DRIFT_REFUSAL));
+    }
+    const stepWithoutTransfer = (pt: P2): StepDrift => {
+      const dr = stepDrift(inputs(pt));
+      if (!Number.isFinite(dr.hb) || !Number.isFinite(dr.hc) || !Number.isFinite(dr.pd) || !Number.isFinite(dr.w)
+        || (dr.applies && dr.pd > 0 && dr.w > 0)) throw new EngineMessageError(msg(STEP_DRIFT_REFUSAL));
+      return dr;
     };
-    const local = (t: number): StepDrift => stepDrift(inputs(t));
-    const samples = [0, (t1 - t0) / 2, t1 - t0].map(t => ({ t, dr: local(t) }));
-
-    for (const { t, dr } of samples) derivation.push(msg(dr.applies ? 'snow.derivation.drift' : 'snow.derivation.noDrift', {
-      z: round(surfaces(L.k).elevation(atStep(t)), 2), up: round(surfaces(U.k).elevation(atStep(t)), 2), hb: round(dr.hb, 3), hc: round(dr.hc, 3),
-      lee: round(dr.hdLeeward, 3), wind: round(dr.hdWindward, 3), h: round(dr.height, 3), w: round(dr.w, 2), pd: round(dr.pd, 3),
-    }));
+    const ranges = surfaceModel.edgeRanges(a, b, layout, pt => stepDriftMargins(inputs(pt)));
+    for (const { point } of ranges) stepWithoutTransfer(point);
+    const samples: P2[] = [a, [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], b];
+    for (const pt of samples) {
+      const dr = stepWithoutTransfer(pt);
+      derivation.push(msg(dr.applies ? 'snow.derivation.drift' : 'snow.derivation.noDrift', {
+        z: round(surfaces(L.k).elevation(pt), 2), up: round(surfaces(U.k).elevation(pt), 2), hb: round(dr.hb, 3), hc: round(dr.hc, 3),
+        lee: round(dr.hdLeeward, 3), wind: round(dr.hdWindward, 3), h: round(dr.height, 3), w: round(dr.w, 2), pd: round(dr.pd, 3),
+      }));
+    }
     if (refs.length === 0) refs.push(REF_DRIFT, REF_FIG9);
-    bands.push({ margins: (d, t) => [...stepDriftMargins(inputs(t)), ...driftShapeMargins(local(t), inputs(t).stepHeight - local(t).hb, d)], p0: atStep(0), u: line.u, len: t1 - t0, n: line.n,
-      on: lower.map(p => p.k), p: (d, t) => {
-        const dr = local(t);
-        return dr.applies && d <= dr.w ? dr.pd * (1 - d / dr.w) : 0;
-      } });
   }
   const inside = (pt: P2, poly: P2[]) => {
     let c = false;

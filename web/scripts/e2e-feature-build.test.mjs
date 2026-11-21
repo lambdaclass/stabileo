@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { build } from 'vite';
+import { build, resolveConfig } from 'vite';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { execFileSync } from 'node:child_process';
@@ -34,6 +34,36 @@ for (const features of [config.production, disabledFeatures, all(true)]) {
     } finally {
       if (previous.VITE_E2E === undefined) delete process.env.VITE_E2E;
       else process.env.VITE_E2E = previous.VITE_E2E;
+    }
+  });
+}
+
+for (const profile of ['production', 'test']) {
+  test(`E2E Vite, prerender and Playwright use the same ${profile} profile`, async () => {
+    const prior = { profile: process.env.STABILEO_E2E_PROFILE, e2e: process.env.VITE_E2E };
+    const folder = mkdtempSync(resolve(root, '.e2e-feature-test-'));
+    const artifact = new URL(`file://${folder}/e2e-features.json`);
+    try {
+      process.env.STABILEO_E2E_PROFILE = profile;
+      process.env.VITE_E2E = '1';
+      const vite = await resolveConfig({ root, logLevel: 'silent' }, 'build', 'production');
+      assert.deepEqual(JSON.parse(vite.define.__PUBLIC_FEATURES__), config[profile]);
+      assert.deepEqual(buildPublicFeatures(), config[profile]);
+      assert.deepEqual(e2eBuildFeatures(false), config[profile]);
+      writeFileSync(artifact, JSON.stringify(config[profile]));
+      assert.deepEqual(e2eBuildFeatures(true, artifact), config[profile]);
+      writeFileSync(artifact, JSON.stringify({ ...config[profile], accounts: !config[profile].accounts }));
+      assert.throws(() => e2eBuildFeatures(true, artifact), /do not match/);
+      delete process.env.VITE_E2E;
+      const production = await resolveConfig({ root, logLevel: 'silent' }, 'build', 'production');
+      assert.deepEqual(JSON.parse(production.define.__PUBLIC_FEATURES__), config.production);
+      assert.deepEqual(buildPublicFeatures(), config.production);
+    } finally {
+      if (prior.profile === undefined) delete process.env.STABILEO_E2E_PROFILE;
+      else process.env.STABILEO_E2E_PROFILE = prior.profile;
+      if (prior.e2e === undefined) delete process.env.VITE_E2E;
+      else process.env.VITE_E2E = prior.e2e;
+      rmSync(folder, { recursive: true });
     }
   });
 }

@@ -302,7 +302,7 @@ export async function capture(c: SnapshotCase, opts: { afterOpen?: () => void; f
 }
 
 export async function openedFeatures(c: SnapshotCase, fixture?: unknown): Promise<string[]> {
-  if ('snowRoof' in c.source) return ['snow', 'members', 'space3D', 'generatedLoads'];
+  if ('snowRoof' in c.source) return ['snow', 'members', 'frameMembers', 'space3D', 'generatedLoads'];
   reset(c);
   await open(c, fixture);
   const features: string[] = [...modelFeatures(modelStore.snapshot(), { analysisMode: c.workspace, analysesRun: ['linear', ...(c.advanced ?? [])], analysesRecorded: ANALYSIS_KINDS })];

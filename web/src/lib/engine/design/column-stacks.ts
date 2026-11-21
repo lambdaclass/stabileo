@@ -4,7 +4,8 @@
  * sections, heights and plan rotation in the same order; equalizing a group gives each lift the
  * heaviest reinforcement any stack of the group has at that lift.
  */
-import type { ProvidedReinforcement } from '../../design-contract/reinforcement';
+import type { ProvidedReinforcement, RebarGroup } from '../../design-contract/reinforcement';
+import { resolveColumnReinf } from '../station-design-forces';
 
 export interface StackLift { id: number; zLo: number; zHi: number; sectionId: number }
 export interface ColumnStack { key: string; x: number; y: number; lifts: StackLift[]; signature: string[] }
@@ -42,16 +43,18 @@ export function repeatedStacks(stacks: readonly ColumnStack[]): ColumnStack[][] 
   return [...by.values()].filter((g) => g.length > 1);
 }
 
-/** The longitudinal steel of a column's bars, cm². */
-export function columnSteel(r: ProvidedReinforcement | undefined): number {
-  if (!r) return 0;
-  const a = (n: number, d: number) => n * Math.PI * d * d / 400;
-  if (r.shaped) return a(r.shaped.count, r.shaped.diameter);
-  if (r.column) {
-    const c = r.column;
-    return a(4, c.cornerDia) + a(c.nBottom + c.nTop + c.nLeft + c.nRight, c.faceDia);
+function columnBarGroups(r: ProvidedReinforcement): RebarGroup[] {
+  if (r.shaped) return [r.shaped];
+  if (!r.column) return r.longitudinal ? [r.longitudinal] : [];
+  const cage = resolveColumnReinf(r.column)!;
+  if (cage.faceDia === cage.cornerDia || cage.totalCount === 4) {
+    return [{ count: cage.totalCount, diameter: cage.cornerDia }];
   }
-  return r.longitudinal ? a(r.longitudinal.count, r.longitudinal.diameter) : 0;
+  return [{ count: 4, diameter: cage.cornerDia }, { count: cage.totalCount - 4, diameter: cage.faceDia }];
+}
+
+export function columnSteel(r: ProvidedReinforcement | undefined): number {
+  return r ? columnBarGroups(r).reduce((sum, { count, diameter }) => sum + count * Math.PI * diameter ** 2 / 400, 0) : 0;
 }
 
 /** Per lift index, the stack lift with the most steel and the others to write it to. */
@@ -72,10 +75,9 @@ export function liftBreakdown(lift: { zLo: number; zHi: number }, r: ProvidedRei
   if (!r) return [];
   const H = lift.zHi - lift.zLo;
   const out: Array<{ what: 'long' | 'tie'; count: number; diameter: number; length: number }> = [];
-  const long = r.shaped ? { n: r.shaped.count, d: r.shaped.diameter } : r.column
-    ? { n: 4 + r.column.nBottom + r.column.nTop + r.column.nLeft + r.column.nRight, d: r.column.cornerDia }
-    : r.longitudinal ? { n: r.longitudinal.count, d: r.longitudinal.diameter } : null;
-  if (long) out.push({ what: 'long', count: long.n, diameter: long.d, length: +(H + lap(long.d)).toFixed(2) });
+  for (const { count, diameter } of columnBarGroups(r)) {
+    out.push({ what: 'long', count, diameter, length: +(H + lap(diameter)).toFixed(2) });
+  }
   const s = r.stirrups;
   if (s) {
     const z = r.tieZones;

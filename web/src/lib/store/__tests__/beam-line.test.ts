@@ -53,7 +53,7 @@ const summary = (v: { checks: Array<{ category: string; status: string; ratio: n
   v.checks.map((c) => `${c.category}|${c.status}|${c.ratio}`).sort();
 
 describe('a beam line as bars along it', () => {
-  it('known wrong result: #2338 reads its members and projects back to the same checks', () => {
+  it('#2338 retains matching regional checks and refuses drawn bar credit beyond the extent', () => {
     const line = designed();
     const ms = lineMembers(line);
     const model = lineFromMembers(ms);
@@ -66,8 +66,17 @@ describe('a beam line as bars along it', () => {
       const ctx = verificationStore.contextFor(m.id)!;
       const own = a.verify(ctx, m.reinforcement!);
       const trip = a.verify(ctx, back.get(m.id)!);
-      expect.soft(summary(trip)).toEqual(summary(own));
-      expect.soft(summary(draft.get(m.id)!)).toEqual(summary(own));
+      const refused = m.id === ms[1]!.id ? ['Bottom Span (My+)', 'Top Span (My-)'] : [];
+      const replaced = new Set(refused.flatMap(category => [category, `${category} ductility`]));
+      const expected = [
+        ...summary({ checks: own.checks.filter(row => !replaced.has(row.category)) }),
+        ...refused.map(category => `${category}|fail|Infinity`),
+      ].sort();
+      for (const checked of [trip, draft.get(m.id)!]) {
+        expect.soft(summary(checked), `member ${m.id}`).toEqual(expected);
+        expect.soft(checked.checks.filter(row => row.description === 'diag.rcDrawnBarExtent').map(row => row.category).sort())
+          .toEqual(refused);
+      }
       for (const result of [own, trip, draft.get(m.id)!]) {
         expect.soft(result.checks).toContainEqual(expect.objectContaining({
           category: 'Bars through the joint (start)', status: 'ok', ratio: 0,
@@ -168,4 +177,22 @@ describe('predefined spans', () => {
     expect(bottom[0]!.count * bottom[0]!.diameter ** 2).toBe(heaviest);
     expect(splitSpans(u, 1).spans).toEqual([]);
   });
+});
+
+
+it('#2241 a saved draw and a final-depth override both refuse credit beyond the short bar', () => {
+  const line = designed();
+  const [member] = lineMembers(line);
+  const L = member!.L;
+  const mid = (member!.tStart * L + L - member!.tEnd * L) / 2;
+  const model = addBar(lineFromMembers(lineMembers(line)), {
+    face: 'bottom', row: 1, count: 2, diameter: 12, from: mid - L / 100, to: mid + L / 100, role: 'extra',
+  });
+  const refusal = expect.objectContaining({ description: 'diag.rcDrawnBarExtent', status: 'fail', ratio: Infinity });
+  expect(checkDraft(line, model).get(member!.id)?.checks).toContainEqual(refusal);
+  saveLine(line, model);
+  expect(verificationStore.providedFor(member!.id)?.checks).toContainEqual(refusal);
+  const regionalOverride = modelStore.elements.get(member!.id)!.reinforcement!;
+  const final = { bottomRaise: 0, topLower: 0, depthTolerance: 0 };
+  expect(verificationStore.reverifyAtFinalDepth(member!.id, final, regionalOverride)).toBe('fail');
 });

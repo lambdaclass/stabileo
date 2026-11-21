@@ -186,11 +186,15 @@ check.quick:
 	BASE=$(BASE) scripts/check-quick.sh
 
 check.fast:
-	$(MAKE) -j5 --output-sync=target lint.repo check.changelog check.issue-reproducers check.fail-closed typecheck.web test.web.fast test.ci-scripts test.web.pro-plates-switch
+	$(MAKE) -j5 --output-sync=target lint.repo check.changelog check.issue-reproducers check.fail-closed typecheck.web test.web.fast test.ci-scripts check.web.production-parity test.web.pro-plates-switch
 
 test.web.fast:
-	$(MAKE) test.web.unit UNIT_AREA= SHARD= FILTER= FILE='src/lib/i18n/__tests__/locale-coverage.test.ts src/lib/i18n/__tests__/split-dictionaries.test.ts src/lib/i18n/__tests__/engine-purity.test.ts src/lib/utils/__tests__/harness-architecture.test.ts src/lib/store/__tests__/recheck.test.ts src/lib/legacy-projects/__tests__/judge.test.ts'
-	$(MAKE) test.web.unit UNIT_AREA= SHARD= FILE=src/lib/blog/__tests__/blog-content.test.ts FILTER='lists every advisory'
+	$(MAKE) test.web.unit.production UNIT_AREA= SHARD= FILTER= FILE='src/lib/i18n/__tests__/locale-coverage.test.ts src/lib/i18n/__tests__/split-dictionaries.test.ts src/lib/i18n/__tests__/engine-purity.test.ts src/lib/utils/__tests__/harness-architecture.test.ts src/lib/store/__tests__/recheck.test.ts src/lib/legacy-projects/__tests__/judge.test.ts'
+	$(MAKE) test.web.unit.production UNIT_AREA= SHARD= FILE=src/lib/blog/__tests__/blog-content.test.ts FILTER='lists every advisory'
+
+.PHONY: check.web.production-parity
+check.web.production-parity:
+	$(NIX_RUN) python3 -B scripts/check-production-parity.py $(BASE) $(if $(REQUIRE_PARITY),--required)
 
 check.fail-closed:
 	python3 -B -I scripts/check-fail-closed.py
@@ -372,8 +376,12 @@ typecheck.web.units:
 typecheck.web.svelte:
 	$(NIX_RUN) bash -c "cd web && npm run check:gate"
 
-test.web.unit:
-	$(NIX_RUN) bash -c "cd web && npx vitest run --project unit $${UNIT_AREA:+src/components/$$UNIT_AREA src/lib/$$UNIT_AREA} $(FILE) $(if $(FILTER),-t '$(FILTER)') $(if $(SHARD),--shard=$(SHARD)) $(if $(BAIL),--bail=$(BAIL)) $(if $(VITEST_WORKERS),--maxWorkers=$(VITEST_WORKERS))"
+.PHONY: test.web.unit.production test.web.unit.switch-on
+test.web.unit.production: UNIT_PROFILE = production
+test.web.unit.switch-on: UNIT_PROFILE = test
+
+test.web.unit test.web.unit.production test.web.unit.switch-on:
+	$(NIX_RUN) env STABILEO_UNIT_PROFILE=$(UNIT_PROFILE) bash -c "cd web && npx vitest run --project unit $${UNIT_AREA:+src/components/$$UNIT_AREA src/lib/$$UNIT_AREA} $(FILE) $(if $(FILTER),-t '$(FILTER)') $(if $(SHARD),--shard=$(SHARD)) $(if $(BAIL),--bail=$(BAIL)) $(if $(VITEST_WORKERS),--maxWorkers=$(VITEST_WORKERS))"
 
 test.web.build: web.build.tested
 	$(MAKE) test.web.build.shared
@@ -383,9 +391,11 @@ test.web.build: web.build.tested
 web.build.tested:
 	$(NIX_RUN) bash -c 'cd web && $(PLAYWRIGHT_INSTALL) chromium && stamp=$$(node scripts/build-stamp.mjs) && rm -f dist.source-stamp .dist-shared.source-stamp && npm run build && npx tsx scripts/translation-gate.ts dist && npx vite build --manifest --outDir .dist-shared --emptyOutDir --logLevel error && node scripts/build-stamp.mjs --seal dist "$$stamp" && node scripts/build-stamp.mjs --seal .dist-shared "$$stamp"'
 
+test.web.build.shared: export STABILEO_UNIT_PROFILE = production
 test.web.build.shared:
 	$(NIX_RUN) bash -c 'cd web && STABILEO_BUILD_ENV_STAMP=$$(node scripts/build-stamp.mjs --env) STABILEO_SHARED_BUILD=.dist-shared STABILEO_SHARED_PRERENDERED_BUILD=dist NO_WALL_CLOCK=$(NO_WALL_CLOCK) npx vitest run --project build $(FILE)'
 
+test.web.timing: export STABILEO_UNIT_PROFILE = production
 test.web.timing:
 	$(NIX_RUN) bash -c "cd web && npx vitest run --project build src/lib/engine/__tests__/scale-budget.test.ts $(if $(VITEST_WORKERS),--maxWorkers=$(VITEST_WORKERS))"
 
@@ -408,11 +418,13 @@ check.web.route-size:
 
 # The results snapshot gate (#716, testing/docs/PROVENANCE.md): the reference corpus solved
 # through the app's path and compared with web/results-snapshots/. Needs make wasm and web.deps.
+test.web.results: export STABILEO_UNIT_PROFILE = production
 test.web.results:
 	$(NIX_RUN) bash -c "cd web && npx vitest run --project results $(FILE) $(if $(FILTER),-t '$(FILTER)')"
 
 ## Regenerate web/results-snapshots/ after a DELIBERATE result change, then register it:
 ## an entry in web/src/lib/provenance/result-changes/ and a "BREAKING (results)" fragment.
+snapshots-update: export STABILEO_UNIT_PROFILE = production
 snapshots-update:
 	$(NIX_RUN) bash -c "cd web && RESULTS_SNAPSHOT_UPDATE=1 npx vitest run --project results $(FILE) $(if $(FILTER),-t '$(FILTER)')"
 
@@ -431,13 +443,22 @@ e2e.web.setup:
 
 # The site the e2e suites test with E2E_PREBUILT=1: VITE_E2E=1 compiles the read-only test hooks in,
 # and web/playwright.config.ts refuses a prebuilt dist without the marker. Needs make e2e.web.setup.
-e2e.web.build: test.web.e2e-features
-	$(NIX_RUN) bash -c 'cd web && VITE_E2E=1 npm run build && echo "VITE_E2E=1 build of $${GITHUB_SHA:-$$(git rev-parse HEAD)}" > dist/e2e-build.txt'
+.PHONY: e2e.web.build.production e2e.web.build.switch-on e2e.web.smoke.production e2e.web.smoke.switch-on
+e2e.web.build.production e2e.web.smoke.production: E2E_PROFILE = production
+e2e.web.build.switch-on e2e.web.smoke.switch-on: E2E_PROFILE = test
+
+e2e.web.build e2e.web.build.production: | test.web.e2e-features
+
+e2e.web.build e2e.web.build.production e2e.web.build.switch-on:
+	$(NIX_RUN) env STABILEO_E2E_PROFILE=$(or $(E2E_PROFILE),$(STABILEO_E2E_PROFILE)) bash -c 'cd web && VITE_E2E=1 npm run build && echo "VITE_E2E=1 build of $${GITHUB_SHA:-$$(git rev-parse HEAD)}" > dist/e2e-build.txt'
 
 # SHARD=i/n picks whole spec files balanced by measured duration (web/scripts/e2e-shard.mjs).
 # `@flaky` tests are quarantined (web/e2e/README.md): left out here, run by e2e.web.flaky.
-e2e.web.smoke:
-	$(NIX_RUN) bash -c 'cd web && E2E_JSON_REPORT=e2e/.results/smoke.json npx playwright test --grep @smoke --grep-invert "@flaky|@timing" $(FILE) $(if $(SHARD),$$(node scripts/e2e-shard.mjs $(subst /, ,$(SHARD))))'
+e2e.web.smoke e2e.web.smoke.production:
+	$(NIX_RUN) env STABILEO_E2E_PROFILE=$(or $(E2E_PROFILE),$(STABILEO_E2E_PROFILE)) bash -c 'cd web && E2E_JSON_REPORT=e2e/.results/smoke.json npx playwright test --grep @smoke --grep-invert "@flaky|@timing" $(FILE) $(if $(SHARD),$$(node scripts/e2e-shard.mjs $(subst /, ,$(SHARD))))'
+
+e2e.web.smoke.switch-on:
+	$(NIX_RUN) env STABILEO_E2E_PROFILE=$(or $(E2E_PROFILE),$(STABILEO_E2E_PROFILE)) bash -c 'cd web && node scripts/run-switch-on-e2e.mjs $(FILE)'
 
 e2e.web.slow:
 	$(NIX_RUN) bash -c 'cd web && $(if $(SHARD),files=$$(node scripts/e2e-shard.mjs --suite slow $(subst /, ,$(SHARD))) && if [ -z "$$files" ]; then exit 0; fi && )E2E_JSON_REPORT=e2e/.results/slow.json npx playwright test --grep "@slow" --grep-invert "visual baselines|@flaky|@timing" $(if $(SHARD),$$files) $(FILE)'
@@ -566,6 +587,7 @@ test.ci-scripts: test.testing-move test.testing-map test.replay-steel-cb test.re
 	python3 -B -I scripts/tests/test_roadmap_inflight.py
 	python3 -B -I scripts/tests/test_research_host_cache.py
 	python3 -B -I scripts/tests/test_ci_aggregate.py
+	python3 -B -I scripts/tests/test_production_parity.py
 	python3 -B -I scripts/tests/test_full_history_checkouts.py
 	python3 -B -I scripts/tests/test_ci_selection.py
 	python3 -B -I scripts/tests/test_check_wall_clock_tests.py
@@ -1282,7 +1304,7 @@ test.web.tool-current-result-2099:
 
 .PHONY: test.web.e2e-features
 test.web.e2e-features:
-	$(NIX_RUN) bash -c 'cd web && node --experimental-strip-types --test scripts/e2e-feature-build.test.mjs'
+	$(NIX_RUN) bash -c 'cd web && env -u STABILEO_E2E_PROFILE node --experimental-strip-types --test scripts/e2e-feature-build.test.mjs'
 
 .PHONY: replay.advisory.steel-cb
 replay.advisory.steel-cb:

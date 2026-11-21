@@ -40,3 +40,7 @@ export function featureDefines(features, inline = true) {
   }
   return defines;
 }
+
+export function unitFeatureProfile() {
+  return process.env.STABILEO_UNIT_PROFILE || 'test';
+}

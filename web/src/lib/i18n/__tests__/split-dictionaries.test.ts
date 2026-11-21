@@ -1,7 +1,6 @@
 import { expect, it } from 'vitest';
 import * as publicEntries from 'virtual:public-i18n';
 import * as appEntries from 'virtual:app-i18n';
-import mesherEntries from 'virtual:mesher-i18n';
 import { de as lazyDe } from 'virtual:app-i18n/de';
 import { fr as lazyFr } from 'virtual:app-i18n/fr';
 import { tr as lazyTr } from 'virtual:app-i18n/tr';
@@ -31,6 +30,16 @@ import type { Translations } from '../types';
 const LOCALES = ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu', 'zh'] as const;
 const LAZY = ['de', 'fr', 'tr', 'hu', 'zh'] as const;
 
+async function mesherDictionary(locale: typeof LOCALES[number]): Promise<Translations> {
+  if (!__PUBLIC_FEATURES__.proPlatesUnified) return {};
+  const { default: dictionaries } = await import('virtual:mesher-i18n');
+  return dictionaries[locale];
+}
+
+it('#2399 retains the diagram-game navigation label in the eager dictionary', () => {
+  expect(publicEntries.en['landing.navGame']).toBe(en['landing.navGame']);
+});
+
 function expectExactPartition(expected: Translations, ...dictionaries: Translations[]) {
   const entries = dictionaries.flatMap(dictionary => Object.entries(dictionary));
   const combined = Object.fromEntries(entries);
@@ -38,10 +47,12 @@ function expectExactPartition(expected: Translations, ...dictionaries: Translati
   expect(combined).toEqual(expected);
 }
 
-it.each(LOCALES.filter(isComplete))('#2365 %s dictionaries preserve every translation exactly once', locale => {
+it.each(LOCALES.filter(isComplete))('#2365 %s dictionaries preserve every translation exactly once', async locale => {
   const source = { en, es, pt, de, fr, tr, hu, zh }[locale];
-  const mesher = mesherEntries[locale];
-  expect(mesher).toEqual(Object.fromEntries(Object.entries(source).filter(([key]) => key.startsWith('mesher.'))));
+  const mesher = await mesherDictionary(locale);
+  if (__PUBLIC_FEATURES__.proPlatesUnified) {
+    expect(mesher).toEqual(Object.fromEntries(Object.entries(source).filter(([key]) => key.startsWith('mesher.'))));
+  }
   expectExactPartition(source, publicEntries[locale], appEntries[locale], mesher);
 });
 
@@ -60,6 +71,6 @@ it.each(([
   ['tr', browserTr, fullTr],
   ['hu', browserHu, fullHu],
   ['zh', browserZh, fullZh],
-] as const).filter(([locale]) => isComplete(locale)))('#2365 %s browser dictionaries match the Node-compatible full dictionary', (locale, browser, full) => {
-  expectExactPartition(full, browser, mesherEntries[locale]);
+] as const).filter(([locale]) => isComplete(locale)))('#2365 %s browser dictionaries match the Node-compatible full dictionary', async (locale, browser, full) => {
+  expectExactPartition(full, browser, await mesherDictionary(locale));
 });

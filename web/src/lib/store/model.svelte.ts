@@ -3072,7 +3072,7 @@ function createModelStore() {
     removeNode(id: number): void {
       if (!_undoBatching) _pushUndo?.();
       model.nodes.delete(id);
-      model.nodes = new Map(model.nodes);
+      if (!_bulkMutating) model.nodes = new Map(model.nodes);
       // Same reasoning as removeElement: node numbers are reused, so a group holding a
       // deleted one would quietly come to mean a different node.
       replaceInGroups('nodes', id);
@@ -3085,13 +3085,13 @@ function createModelStore() {
       const outerBatching = _undoBatching;
       _undoBatching = true;
       try { for (const elemId of attached) this.removeElement(elemId); } finally { _undoBatching = outerBatching; }
-      model.elements = new Map(model.elements);
+      if (!_bulkMutating) model.elements = new Map(model.elements);
       for (const [supId, sup] of model.supports) {
         if (sup.nodeId === id) {
           model.supports.delete(supId);
         }
       }
-      model.supports = new Map(model.supports);
+      if (!_bulkMutating) model.supports = new Map(model.supports);
       // Every load on the node, an imposed displacement too (`LOAD_TARGET`).
       const keepLoad = (l: Load) => loadNodeId(l) !== id;
       model.loads = model.loads.filter(keepLoad);
@@ -3326,7 +3326,7 @@ function createModelStore() {
       if (!_undoBatching) _pushUndo?.();
       model.plates.delete(id);
       replaceInGroups('plates', id);
-      model.plates = new Map(model.plates);
+      if (!_bulkMutating) model.plates = new Map(model.plates);
       // The loads on it go with it, as a quad's do.
       const keepLoad = (l: Load) =>
         !((l.type === 'surface3d' || l.type === 'thermalQuad3d') && l.data.quadId === id && l.data.on === 'plate');
@@ -3359,7 +3359,7 @@ function createModelStore() {
       if (!_undoBatching) _pushUndo?.();
       model.quads.delete(id);
       replaceInGroups('quads', id);
-      model.quads = new Map(model.quads);
+      if (!_bulkMutating) model.quads = new Map(model.quads);
       // Cascade to surface/thermal loads on this quad — otherwise the load
       // dangles (still in the loads table, .ded and URL share) and is silently
       // dropped at solve time (convertSurfaceLoad: `if (!quad) return out`).

@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { modelToCode, codeToModel } from '../format';
 import { transformSnapshot } from '../frame';
 import { allChoices, makeFrame, pseudoToUser, toUser, type AxesChoice } from '../../../axes/frame';
@@ -56,19 +56,26 @@ const strip = (o: unknown) => JSON.parse(JSON.stringify(o));
 
 describe('model code carries every global direction in the user axes', () => {
   it('round-trips loads, supports, members, shells and constraints in all 48 frames', () => {
-    const snap = spaceSnapshot();
-    for (const c of allChoices()) {
-      const back = transformSnapshot(transformSnapshot(strip(snap), c, 'toUser'), c, 'toModel');
-      for (const k of ['nodes', 'elements', 'quads', 'supports', 'loads', 'constraints']) {
-        expect(back[k], `${k} ${JSON.stringify(c)}`).toEqual(snap[k]);
+    vi.stubGlobal('__PUBLIC_FEATURES__', { ...__PUBLIC_FEATURES__, globalAxes: true });
+    try {
+      const snap = spaceSnapshot();
+      for (const c of allChoices()) {
+        const back = transformSnapshot(transformSnapshot(strip(snap), c, 'toUser'), c, 'toModel');
+        for (const k of ['nodes', 'elements', 'quads', 'supports', 'loads', 'constraints']) {
+          expect(back[k], `${k} ${JSON.stringify(c)}`).toEqual(snap[k]);
+        }
+        const code = modelToCode(strip(snap) as never, c);
+        expect(code).toContain('frame up=');
+        const r = codeToModel(code);
+        expect(r.errors).toEqual([]);
+        const s = r.snapshot as Record<string, any>;
+        expect(s.loads, JSON.stringify(c)).toEqual(snap.loads);
+        expect(s.constraints, JSON.stringify(c)).toEqual(snap.constraints);
+        expect(s.supports, JSON.stringify(c)).toEqual(snap.supports);
+        expect(s.quads, JSON.stringify(c)).toEqual(snap.quads);
       }
-      const r = codeToModel(modelToCode(strip(snap) as never, c));
-      expect(r.errors).toEqual([]);
-      const s = r.snapshot as Record<string, any>;
-      expect(s.loads, JSON.stringify(c)).toEqual(snap.loads);
-      expect(s.constraints, JSON.stringify(c)).toEqual(snap.constraints);
-      expect(s.supports, JSON.stringify(c)).toEqual(snap.supports);
-      expect(s.quads, JSON.stringify(c)).toEqual(snap.quads);
+    } finally {
+      vi.unstubAllGlobals();
     }
   });
 
