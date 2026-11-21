@@ -51,6 +51,10 @@ test('production source access uses the pinned main modules', () => {
   assert.equal(on.read(codec), readFileSync(codec, 'utf8'));
 });
 
+test('research build identity sees main’s shared viewer sources', { skip: 'known wrong result: #2365' }, () => {
+  assert.equal(git('diff', '--name-status', base, '--', 'src/components/research', 'src/components/viewport'), '');
+});
+
 test('production keeps the complete pinned results registry #2365', () => {
   assert.deepEqual(readProfileResultChanges(false), readRegistryAt(base));
 });
