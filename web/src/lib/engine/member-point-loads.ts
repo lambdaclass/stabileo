@@ -20,9 +20,11 @@
  *
  * Local y is the displayed axis, which the left-handed convention flips (`member-loads.ts`).
  */
+import { tp } from '../i18n';
 import type { SolverLoad3D } from './types-3d';
 import { dot, type MemberAxes, type MemberRef, type Vec3 } from './member-loads';
 import { transverseSign } from './transverse-sign-2d';
+import { planarPointMoment, type PlanarPointMomentFields } from './planar-point-load';
 
 export type PointFrame = 'local' | 'global';
 
@@ -129,6 +131,7 @@ export const planarPointOrigin = Symbol();
 
 /** A plane model's point load on a member, as drawn: across it (or at an angle), with an axial part and a couple. */
 export interface PlanePointLoadLike {
+  id?: number;
   [planarPointOrigin]?: { a: number; nodeI: number; loadId: number; elementId: number; shortProjection: boolean };
   elementId: number;
   a: number;
@@ -140,19 +143,16 @@ export interface PlanePointLoadLike {
   isGlobal?: boolean;
 }
 
-export function planarPointProjectionTooShort(dx: number, dPlan: number): boolean {
-  return Math.hypot(dx, dPlan) < 1e-10;
-}
+export class PlanarPointMomentError extends Error {}
 
-export function planarPointMomentWithoutProjection(
-  d: { p?: unknown; px?: unknown; my?: unknown; mz?: unknown },
-  a: unknown,
-): number | null {
-  if ((d.p ?? 0) !== 0 || (d.px ?? 0) !== 0) return null;
-  if ((d.my ?? 0) === 0 && (d.mz ?? 0) === 0) return 0;
-  const moment = d.my ?? d.mz;
-  if (a !== 0 || typeof moment !== 'number' || !Number.isFinite(moment)) return null;
-  if ((d.mz ?? 0) !== 0 && d.mz !== moment) return null;
+export function requirePlanarPointMoment(d: PlanarPointMomentFields & Pick<PlanePointLoadLike, 'id' | 'elementId' | typeof planarPointOrigin>): number | undefined {
+  const moment = planarPointMoment(d);
+  if (moment === null) {
+    const origin = d[planarPointOrigin];
+    throw new PlanarPointMomentError(tp('svc.planarPointLoadMomentAliases', {
+      load: origin?.loadId ?? d.id ?? '—', n: origin?.elementId ?? d.elementId,
+    }));
+  }
   return moment;
 }
 
@@ -169,6 +169,7 @@ export function planarMoment3D(moment: number, project2DToXZ: boolean) {
  * to be dropped, and the axial part lumped at the member's ends.
  */
 export function planePointLoad3D(d: PlanePointLoadLike, dx: number, dPlan: number, project2DToXZ: boolean): PointLoad3DLike {
+  const moment = requirePlanarPointMoment(d) ?? 0;
   const L = Math.hypot(dx, dPlan);
   const c = L > 0 ? dx / L : 1, s = L > 0 ? dPlan / L : 0;
   const ang = ((d.angle ?? 0) * Math.PI) / 180;
@@ -185,7 +186,7 @@ export function planePointLoad3D(d: PlanePointLoadLike, dx: number, dPlan: numbe
   return {
     elementId: d.elementId, a: d.a, frame: 'global', px: gx,
     py: project2DToXZ ? 0 : gv, pz: project2DToXZ ? gv : 0,
-    ...planarMoment3D(d.my ?? d.mz ?? 0, project2DToXZ),
+    ...planarMoment3D(moment, project2DToXZ),
   };
 }
 

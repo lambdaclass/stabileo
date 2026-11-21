@@ -49,7 +49,8 @@ import { enrichComboShellStresses, envelopeShellStresses } from './shell-combos'
 import { axialShares, combineShares, giveBackAxialShares } from './axial-shares';
 import { addSettlementCase, addSettlementCase2D, hasSettlement, withoutSettlement, SETTLEMENT_CASE_ID } from './settlement-case';
 import { memberAlphaOf, thermalAlphaOf, ENGINE_ALPHA } from './thermal-alpha';
-import { pointToSolver, pointToEnds, PointLoadNeedsCut, planePointLoad3D, pointWithCoupleToEnds, planarMoment3D, planarPointMomentWithoutProjection, planarPointProjectionTooShort, planarPointOrigin, type PlanePointLoadLike } from './member-point-loads';
+import { pointToSolver, pointToEnds, PointLoadNeedsCut, planePointLoad3D, pointWithCoupleToEnds, planarMoment3D, planarPointOrigin, requirePlanarPointMoment, PlanarPointMomentError, type PlanePointLoadLike } from './member-point-loads';
+import { planarPointMomentWithoutProjection, planarPointProjectionTooShort } from './planar-point-load';
 import { prestressToSolver } from './prestress';
 import { hasCaseDisplacements, imposedOf, imposedUnsupported, supportsWithImposed, casesWithDisplacements } from './case-displacements';
 import { constraintsTo2D } from './constraint-2d-remap';
@@ -311,11 +312,12 @@ function buildSolverLoads2D(model: ModelData, loads: Load[], weights: readonly S
       });
     } else if (l.type === 'pointOnElement') {
       const d = l.data as PointLoadOnElement;
+      const pointMy = requirePlanarPointMoment(d);
       const angle = d.angle ?? 0;
       const isGlobal = d.isGlobal ?? false;
 
       if (angle === 0 && !isGlobal) {
-        solverLoads.push({ type: 'pointOnElement' as const, data: { elementId: d.elementId, a: d.a, p: sOf(d.elementId) * d.p, px: d.px, my: d.my ?? d.mz } });
+        solverLoads.push({ type: 'pointOnElement' as const, data: { elementId: d.elementId, a: d.a, p: sOf(d.elementId) * d.p, px: d.px, my: pointMy } });
       } else {
         const elem = model.elements.get(d.elementId);
         if (!elem) continue;
@@ -344,7 +346,6 @@ function buildSolverLoads2D(model: ModelData, loads: Load[], weights: readonly S
 
         // The axial force and the moment given alongside it are local and unaffected by the
         // angle; the load's own axial part joins that axial force, at the load's point.
-        const pointMy = d.my ?? d.mz;
         const px = (d.px ?? 0) + (Math.abs(pAxial) > 1e-10 ? pAxial : 0);
         const p = Math.abs(pPerp) > 1e-10 ? pPerp : 0;
         if (p !== 0 || px !== 0 || (pointMy !== undefined && pointMy !== 0)) {
@@ -1572,7 +1573,7 @@ export function buildSolverLoads3D(
     } else if (l.type === 'pointOnElement') {
       // A plane point load in the space axes (`planePointLoad3D`), then as a space one: its
       // couple, and its interior axial part, at the node the solve cut there.
-      const d: PlanePointLoadLike & Pick<PointLoadOnElement, 'id'> = l.data;
+      const d: PlanePointLoadLike = l.data;
       const elem = model.elements.get(d.elementId);
       const ni = elem && model.nodes.get(elem.nodeI), nj = elem && model.nodes.get(elem.nodeJ);
       const m = refOf(d.elementId);
@@ -1582,8 +1583,9 @@ export function buildSolverLoads3D(
       if (origin?.shortProjection || planarPointProjectionTooShort(dx, dPlan)) {
         const moment = planarPointMomentWithoutProjection(d, origin?.a ?? d.a);
         if (moment === null) {
+          requirePlanarPointMoment(d);
           throw new PlanarPointLoadProjectionError(tp('svc.planarPointLoadNoProjection', {
-            load: origin?.loadId ?? d.id, n: origin?.elementId ?? d.elementId,
+            load: origin?.loadId ?? l.data.id, n: origin?.elementId ?? d.elementId,
           }));
         }
         if (moment !== 0) {
@@ -2029,7 +2031,7 @@ function buildSolveInput3D(...args: Parameters<typeof buildValidatedSolverInput3
 /** A load the solve cannot place, said by name: a moment on a member that takes no bending. */
 export function loadRefusal(err: unknown): string | null {
   if (err instanceof MemberLoadIntervalError) return err.message;
-  if (err instanceof PlaneSelfWeightError || err instanceof PlanarPointLoadProjectionError) return err.message;
+  if (err instanceof PlaneSelfWeightError || err instanceof PlanarPointLoadProjectionError || err instanceof PlanarPointMomentError) return err.message;
   return err instanceof PointLoadNeedsCut ? tp('svc.pointMomentOnTruss', { n: err.elementId }) : null;
 }
 

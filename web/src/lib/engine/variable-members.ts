@@ -60,7 +60,8 @@ import { segmentBounds, segmentFields, splitElementLoads, memberLoadGeometry } f
 import { variableSectionPlan, isVariableMember as solvedAsVariable } from '../section/variable';
 import { eiOf, type ElementEI } from './member-deflection';
 import { memberFrame3D, takesNoBending, type Vec3 } from './member-loads';
-import { pointNeedsCut, planePointLoad3D, POINT_END_TOL, planarPointProjectionTooShort, planarPointOrigin } from './member-point-loads';
+import { pointNeedsCut, planePointLoad3D, POINT_END_TOL, planarPointOrigin } from './member-point-loads';
+import { planarPointMoment, planarPointProjectionTooShort } from './planar-point-load';
 import { hasMemberOffset } from './member-offsets';
 import { globalAxis, CONNECTOR_ROT } from './expand-semi-rigid-3d';
 
@@ -140,6 +141,7 @@ function loadCuts(model: ModelData): Map<number, number[]> {
     // of the analysis carries none.
     if (!e || takesNoBending(e) || e.behaviour === 'inactive') continue;
     if (l.type === 'pointOnElement') {
+      if (planarPointMoment(l.data) === null) continue;
       // A plane model's point load (an embedded plane model): its couple and its axial part, in
       // the plane, as the solve reads them (`planePointLoad3D`).
       const ni = model.nodes.get(e.nodeI), nj = model.nodes.get(e.nodeJ);

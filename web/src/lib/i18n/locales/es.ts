@@ -12697,6 +12697,7 @@ const es: Record<string, string> = {
   'edit.refused.prestress': '{n} uniones se mantuvieron: una barra ahí lleva un cable de pretensado, y el cable de dos barras no es una sola parábola.',
   'svc.pointMomentOnTruss': 'La barra {n} no toma flexión (es reticulada o de un solo sentido) y lleva un momento concentrado. Pasá el momento a un nodo o cambiá el tipo de barra.',
   'svc.planarPointLoadNoProjection': 'La carga puntual plana {load} no se puede aplicar porque la barra {n} no tiene una proyección utilizable en el plano de la carga. Reemplazala por una carga puntual 3D sobre la barra.',
+  'svc.planarPointLoadMomentAliases': 'La carga puntual plana {load} de la barra {n} tiene campos de momento (my y mz) incompatibles o no válidos. Ingresá un único momento finito.',
   'svc.loadOnMissingMember': 'La carga {load} está en la barra {n}, que el modelo no tiene. Borrá la carga o ponela en una barra.',
   'svc.loadOnMissingNode': 'La carga {load} está en el nodo {n}, que el modelo no tiene. Borrá la carga o ponela en un nodo.',
   'svc.imposedUnsupported': 'Un desplazamiento impuesto necesita un apoyo que restrinja esa dirección en ejes globales. Nodos sin ese apoyo: {list}.',

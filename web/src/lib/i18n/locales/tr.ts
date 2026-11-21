@@ -12183,6 +12183,7 @@ const tr: Translations = {
   'edit.refused.prestress': '{n} ara düğüm korundu: oradaki bir çubuk öngerme kablosu taşıyor ve iki çubuğun kabloları tek bir parabol oluşturmaz.',
   'svc.pointMomentOnTruss': '{n} numaralı çubuk eğilme almaz (kafes veya tek yönlü çubuk) ve tekil moment taşıyor. Momenti bir düğüme taşıyın veya çubuğun türünü değiştirin.',
   'svc.planarPointLoadNoProjection': '{load} numaralı düzlemsel nokta yükü uygulanamaz çünkü {n} numaralı çubuğun yük düzleminde kullanılabilir bir izdüşümü yok. Bunun yerine çubuğa 3B nokta yükü uygulayın.',
+  "svc.planarPointLoadMomentAliases": "{n} numaralı çubuktaki {load} numaralı düzlemsel nokta yükünün moment alanları (my ve mz) çelişkili veya geçersiz. Tek bir sonlu moment girin.",
   'svc.loadOnMissingMember': 'Yük {load}, modelde bulunmayan {n} numaralı çubuk üzerinde. Yükü silin veya bir çubuğa yerleştirin.',
   'svc.loadOnMissingNode': 'Yük {load}, modelde bulunmayan {n} numaralı düğüm üzerinde. Yükü silin veya bir düğüme yerleştirin.',
   'svc.imposedUnsupported': 'Zorlanmış yer değiştirme, o doğrultuyu global eksenlerde tutan bir mesnet gerektirir. Böyle bir mesneti olmayan düğümler: {list}.',

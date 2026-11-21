@@ -121,9 +121,10 @@ for (const mode of modes) {
   });
 }
 
-it('#2411 refuses a start couple masked by a zero my field', () => {
-  const { member } = verticalMember(0, { my: 0, mz: couple });
-  expect(validateAndSolve3D(modelStore.model)).toBe(refusal(member));
+it('#2411 refuses a start couple with conflicting nonzero aliases on a short projection', () => {
+  const { member } = verticalMember(0, { my: -couple, mz: couple });
+  const reason = t('svc.planarPointLoadMomentAliases').replace('{load}', '1').replace('{n}', String(member));
+  expect(validateAndSolve3D(modelStore.model)).toBe(reason);
 });
 
 it('#2411 refuses a short-projection interior couple even when the solve cuts the member there', () => {

@@ -1,5 +1,6 @@
 import { beforeEach, expect, it } from 'vitest';
 import { t } from '../../i18n';
+import { modelFeatures } from '../../provenance/model-features';
 import { modelStore, uiStore } from '../../store';
 import { pointOnElementText } from '../calc-report-loads';
 import { computeDiagramValueAt } from '../diagrams';
@@ -14,7 +15,6 @@ import type { AnalysisResults } from '../types';
 import type { AnalysisResults3D } from '../types-3d';
 import { solvePDelta } from '../wasm-solver';
 
-const issue2411 = process.env.RUN_KNOWN_WRONG === '2411' ? it : it.skip;
 const couple = 5;
 const loadCase = { id: 1, name: 'Couple', type: 'D' as const };
 const combination = { id: 1, name: 'Couple', factors: [{ caseId: loadCase.id, factor: 1 }] };
@@ -75,7 +75,7 @@ async function spaceSolves() {
 }
 
 for (const mode of ['space', 'embedded', 'nonlinear', 'pdelta'] as const) {
-  issue2411(`known wrong result: #2411 retains the usable-projection moment jump with my: 0 (${mode})`, async () => {
+  it(`#2411 retains the usable-projection moment jump with my: 0 (${mode})`, async () => {
     const member = cantilever(mode);
     for (const [path, result] of Object.entries(await spaceSolves())) {
       expect.soft(spaceJump(result, member, mode === 'embedded' ? 'momentY' : 'momentZ'), path).toBeCloseTo(couple, 4);
@@ -84,7 +84,7 @@ for (const mode of ['space', 'embedded', 'nonlinear', 'pdelta'] as const) {
 }
 
 for (const angle of [0, 30]) {
-  issue2411(`known wrong result: #2411 retains the planar moment jump with my: 0 (angle=${angle})`, async () => {
+  it(`#2411 retains the planar moment jump with my: 0 (angle=${angle})`, async () => {
     const member = cantilever('plane', 0, couple, angle);
     const model = modelStore.model;
     const input = buildSolverInput2D(model)!;
@@ -100,11 +100,11 @@ for (const angle of [0, 30]) {
 }
 
 function conflict(member: number) {
-  return `Planar point load 1 on member ${member} has conflicting or invalid moment aliases (my and mz). Enter one finite moment.`;
+  return t('svc.planarPointLoadMomentAliases').replace('{load}', '1').replace('{n}', String(member));
 }
 
 for (const mode of ['space', 'nonlinear', 'pdelta'] as const) {
-  issue2411(`known wrong result: #2411 refuses conflicting nonzero aliases (${mode})`, async () => {
+  it(`#2411 refuses conflicting nonzero aliases (${mode})`, async () => {
     const member = cantilever(mode, couple, -couple);
     const model = modelStore.model;
     const refusal = conflict(member);
@@ -116,7 +116,7 @@ for (const mode of ['space', 'nonlinear', 'pdelta'] as const) {
   });
 }
 
-issue2411('known wrong result: #2411 refuses conflicting nonzero aliases in plane solves', async () => {
+it('#2411 refuses conflicting nonzero aliases in plane solves', async () => {
   const member = cantilever('plane', couple, -couple);
   const model = modelStore.model;
   const refusal = conflict(member);
@@ -139,17 +139,23 @@ it('#2411 retains the moment jump for equal nonzero aliases and for a zero legac
   expect(spaceJump(validateAndSolve3D(modelStore.model), member, 'momentZ')).toBeCloseTo(couple, 4);
 });
 
-issue2411('known wrong result: #2411 preserves the legacy moment through load creation and snapshot restore', () => {
+it('#2411 preserves the legacy moment through load creation and snapshot restore', () => {
   const member = cantilever('space');
   const snapshot = modelStore.snapshot();
-  modelStore.restore(snapshot);
+  expect.soft(modelFeatures(snapshot).has('legacyPlanarPointCoupleAliases')).toBe(true);
+  modelStore.restore({
+    ...snapshot,
+    loads: snapshot.loads.map(load => ({ ...load, data: { ...load.data, my: 0 } })),
+  });
   expect.soft(spaceJump(validateAndSolve3D(modelStore.model), member, 'momentZ'), 'restored').toBeCloseTo(couple, 4);
+  modelStore.restore(snapshot);
+  expect.soft(spaceJump(validateAndSolve3D(modelStore.model), member, 'momentZ'), 'round trip').toBeCloseTo(couple, 4);
   modelStore.model.loads = [];
   modelStore.addPointLoadOnElement(member, 1, 0, { my: 0, mz: couple });
   expect.soft(spaceJump(validateAndSolve3D(modelStore.model), member, 'momentZ'), 'created').toBeCloseTo(couple, 4);
 });
 
-issue2411('known wrong result: #2411 resolves a masked pure couple at the authored start without a projection', () => {
+it('#2411 resolves a masked pure couple at the authored start without a projection', () => {
   const member = cantilever('space');
   const element = modelStore.model.elements.get(member)!;
   const tip = modelStore.model.nodes.get(element.nodeJ)!;
@@ -162,7 +168,7 @@ issue2411('known wrong result: #2411 resolves a masked pure couple at the author
   expect(typeof result === 'string' ? result : result?.reactions.find(r => r.nodeId === element.nodeI)?.mz).toBe(-couple);
 });
 
-issue2411('known wrong result: #2411 preserves conflicting aliases through snapshot restore', () => {
+it('#2411 preserves conflicting aliases through snapshot restore', () => {
   const member = cantilever('space', couple, -couple);
   modelStore.restore(modelStore.snapshot());
   const result = validateAndSolve3D(modelStore.model);
@@ -170,7 +176,7 @@ issue2411('known wrong result: #2411 preserves conflicting aliases through snaps
 });
 
 for (const plane of ['planar', 'xy', 'xz'] as const) {
-  issue2411(`known wrong result: #2411 the calculation report reads the same couple as assembly (${plane})`, () => {
+  it(`#2411 the calculation report reads the same couple as assembly (${plane})`, () => {
     const format = (my: number, mz?: number) => pointOnElementText({ a: 1, p: 0, my, mz },
       { global: 'global' }, 'SI', [2, 0], plane);
     const canonical = format(couple);
