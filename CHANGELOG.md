@@ -11,21 +11,133 @@ It should capture what changed, not what should be built next.
 
 One file per change in [`changelog.d/`](changelog.d/README.md); `scripts/changelog.py --release` moves them here.
 
-### Added
+## 0.6.4 (2026-11-21)
 
-#### Public Terms of Use, Privacy Policy and results disclaimer
+Release notes: [`docs/releases/v0.6.4.md`](docs/releases/v0.6.4.md) (also in [Spanish](docs/releases/v0.6.4.es.md), [Portuguese](docs/releases/v0.6.4.pt.md), [German](docs/releases/v0.6.4.de.md), [French](docs/releases/v0.6.4.fr.md), [Turkish](docs/releases/v0.6.4.tr.md), [Hungarian](docs/releases/v0.6.4.hu.md) and [Chinese](docs/releases/v0.6.4.zh.md)).
 
-The public build includes the Terms of Use and Privacy Policy pages, links to them in the footer, and the results disclaimer. Sign-in remains disabled (#2358).
+### BREAKING (results)
+
+#### Refuse omitted plates and hanging wall–slab nodes in PRO (#2368, #2376, #2388)
+
+Analysis stops and names invalid physical plates or wall–slab junctions with unshared edge nodes. The mesh generator requires every outline and hole field to be valid before Apply is enabled. The seven-storey gallery example has a conforming slab mesh at the core, which changes its displacements and internal forces.
+
+#### Keep gallery combinations and mesh CAD wall junctions (#2409)
+
+The seven-storey gallery now uses rectangular slabs with shared nodes at the core walls and along the subdivided beams. Signed combinations reach design and detailing again. New meshed CAD drafts put slab and wall stations at the same nodes. Direct constraints that enforce full shell-edge interpolation are accepted, and model-only workbooks can export a plate before meshing.
+
+#### Refuse stale plate meshes and uncoupled wall–slab endpoints in PRO (#2409)
+
+Direct and advanced analysis now stop when a plate's mesh is out of date, including after an outline edit that leaves the old shell IDs in place. A wall and slab must share node IDs at coincident endpoints along overlapping edges. The architecture-only DXF example now shares these nodes and produces revised displacements and member forces.
+
+#### Apply planar start couples and refuse ambiguous loads on short projections
+
+Spatial analysis applies a pure, unambiguous legacy planar couple at the start node even when the member projection is too short. Both moment aliases are checked for activity before assembly can omit a legacy load, and combination preparation expands the cases needed for the solve. See [the results changes](docs/results-changes/2026-11-planar-start-couples.md). (#2411)
+
+#### Resolve legacy planar point-couple aliases before assembly
+
+Planar point couples use the nonzero alias when the other field is zero. Conflicting or invalid values stop analysis with a translated refusal. See [the results changes](docs/results-changes/2026-11-planar-point-couple-aliases.md). (#2411)
+
+#### Complete station grids for design spans (2026-11-21)
+
+Beam-span design refuses incomplete combination results when a declared piece station has no force tuple, including when the piece has lost its only combination. Combination-specific extrema remain available to design.
+
+#### Diagram section limits and governing claims (2026-11-20)
+
+Moving-load envelopes include recovered member-end limits, axial diagram jumps follow equilibrium, and unrepresentable extrema and ambiguous point queries are refused. Nested magnitude bounds cannot govern as attained peaks. Design spans separate incompatible section orientations.
+
+#### Refuse ambiguous diagram stations (2026-11-21)
+
+Point queries refuse when a normalized station cannot reproduce its analytic peak. Envelopes refuse when a peak and a jump occupy the same normalized station at different physical positions. Plots refuse different ordinates mapped to one station.
+
+#### Member diagrams use load boundaries and analytic extrema (2026-11-20)
+
+Diagrams and envelopes include interior extrema and both sides of concentrated actions. Design retains both sides of concentrated actions and adds interior extrema for varying loads. ABS and SRSS combinations include peaks between constituent stations, and reversed span pieces keep the physical top and bottom bending demands (#2226, #2238, #2250, #2252, #2273).
+
+#### Member diagram peaks and in-member limits (2026-11-20)
+
+Member diagrams keep the force at the analytic peak. Moving-load envelopes use the inside limits at both ends. Design station transfers refuse ambiguous force tuples, and variable-member envelopes refuse incompatible piece layouts.
+
+#### Preserve spatial distributed loads on member reversal and refuse unplaceable planar point loads
+
+Reversing a member now preserves the direction and endpoint profile of its distributed loads. Spatial analysis stops if a legacy planar point load cannot be placed without a usable member projection in the load plane. Review the loads on previously reversed members and replace any refused planar point loads with explicitly oriented spatial loads before rerunning analysis. See [the results changes](docs/results-changes/2026-11-member-load-orientation.md). (#2268, #2411)
+
+#### Moving axles at rounded member ends (2026-11-20)
+
+Planar and spatial moving-load sweeps retain the in-member force limits at member ends when axle positions round near a joint. Case envelopes identify the result and member when a diagram overflows. Diagram points retain the side of a force jump.
+
+Diagram recovery accepts a rounded extremum when it has the same recovered ordinate as its boundary. An indistinguishable station with a different ordinate still causes a refusal.
+
+#### Refuse CIRSOC torsion and shear checks with missing reinforcement evidence (2026-11-21)
+
+Active CIRSOC 201-2025 torsion checks the transverse steel minimum in both directions. Active pure torsion uses the evaluated concrete section limit when a cage is available. Fixed cages require longitudinal perimeter evidence. Beam and wall torsion with concurrent secondary shear requires a supported effective depth. Drawn bars cannot contribute development across joints with unconfirmed matching seats, and primary shear checks for section evidence between sampled stations.
+
+#### Use equilibrium moments in steel design (2026-11-21)
+
+Steel checks and profile searches retain off-grid bending peaks under uniform loads and read the moment-gradient inputs at the ends and quarter points of the unbraced segment from the solved diagram. Rerun steel design and review the governing demands and checks.
+
+The shed calculation report reflects the corrected rafter strength and interaction ratio.
+
+### Changed
+
+#### Prioritize work that prevents recurring wrong results
+
+The product roadmap puts independent load and plate area checks first. It also records plans for exact internal-force functions, complete design evidence and one canonical model with checks across transformations.
+
+#### Document the risk of setting a restored planar point couple to zero
+
+A previous moment can remain active after a zero edit. Inspect both moment fields in affected saved loads, clear the stale field and verify the moment jump and reactions before using the solution. [#2459](https://github.com/lambdaclass/stabileo/issues/2459)
 
 ### Fixed
 
-#### Safety advisories for 2D free-body end moments and self-weight rules (2026-11-20)
+#### Safety advisories for results in 0.6.3 (2026-11-21)
 
-[SA-2026-094](docs/advisories/SA-2026-094-plane-free-body-end-moments.md) covers incorrect global end-moment signs in the 2D free-body inspector. [SA-2026-095](docs/advisories/SA-2026-095-plane-signed-scoped-self-weight.md) covers wrong reactions in 2D projects with signed or scoped self-weight rules and the project-open re-check notice. Revisit affected inspections and analyses, then regenerate and review the affected reports.
+[SA-2026-100](docs/advisories/SA-2026-100-result-display-signs.md) covers incorrect reaction and free-body readouts and point-load report axes. [SA-2026-101](docs/advisories/SA-2026-101-plate-analysis-conformity.md) covers omitted plates, malformed mesher inputs and disconnected wall–slab junctions. [SA-2026-102](docs/advisories/SA-2026-102-diagram-extrema-and-span-demands.md) covers wrong member diagram peaks and design demands. [SA-2026-103](docs/advisories/SA-2026-103-rc-torsion-evidence.md) covers concrete torsion and shear verdicts based on insufficient evidence. [SA-2026-104](docs/advisories/SA-2026-104-member-load-reversal-and-planar-couples.md) covers redirected distributed loads and omitted planar point couples. The corrections and refusals in 0.6.4 address the cases described in these advisories. Follow the applicable advisories before relying on earlier results.
 
-#### Clarify the Stabileo 0.6.3 safety guidance
+#### Document affected results and rechecks in Stabileo 0.6.4
 
-All eight release notes now include saved projects that retain an imported gravity setting with standalone self-weight turned off in the rerun guidance. The notes clarify when to replace generated modal seismic cases, which supports set the static seismic datum, what section shear plots show, what to verify against the actual reinforcement, and when workbook imports or checks are refused (#2400).
+The release notes in all eight languages link SA-2026-100 through SA-2026-104 and explain which models to repair, which analyses and checks to rerun, and which results and reports to review. They also identify the remaining risk when zeroing a restored legacy planar point couple.
+
+#### AI key settings meet the 44 px tap target minimum (2026-11-21)
+
+Provider buttons, the key field and key actions have a 44 CSS px minimum in both dimensions. The mobile sheet keeps those dimensions as it slides into view.
+
+#### Preserve the declared bending grid under uniform member loads (2026-11-21)
+
+Concrete members under full-length uniform bending loads use the requested design stations. The flagship concrete frame retains its full-precision design results. Diagram displays and peak queries still recover analytic extrema.
+
+#### Verify drawn CIRSOC shear steel across overlapping layouts
+
+CIRSOC 201-2025 shear verification can use distinct tension bars present at the same cut to substantiate the credited steel area. The drawn bars must also substantiate the effective depth used in the check.
+
+#### Wait for initial research benchmark results before prerendering (2026-11-21)
+
+Prerendering waits for the Mattiasson elastica, MacNeal–Harder and shell obstacle-course benchmark runs to finish. The published pages capture the completed result or its reported refusal.
+
+#### Reaction moments and load directions in result displays (2026-11-20)
+
+The Basic 3D Reactions table uses the solver's global moment signs. Global free-body inspection expresses spatial end moments in global axes, and signed planar node-side labels follow the directions of their arrows. Reports resolve the axial part of a global planar point load along the member before printing its global force components. The Basic and PRO reports use the solver’s plane when naming these force components in spatial models. Both reports use the solver’s spatial moment vector for legacy point couples, including the negative Y sign in XZ embeddings and the Z axis in native XY models.
+
+Basic and PRO use the shared workspace dimension check to select the point-load report plane.
+
+### Performance
+
+#### Faster reports on large models (2026-11-21)
+
+Result tables and report summaries reuse each member's prepared force diagrams across stations in the same result set. The station values, extrema checks and printed results stay the same.
+
+#### Faster opening of the 3-D reinforcement workspace (2026-11-21)
+
+The workspace reads published detailing without deep reactive wrapping. Each open still builds a current document and draws the full cage with the selected layers.
+
+#### Faster restore and save for large reinforcement workspaces (2026-11-21)
+
+Workspace restore and capture reuse immutable reinforcement geometry, reducing the cost of saving a detailed building and switching between its tabs.
+
+#### Save and restore large reinforcement workspaces faster (2026-11-21)
+
+Workspace snapshots reuse immutable detailing. Restoring imported detailing copies each shared part once and avoids the growing registry of frozen objects that slowed repeated restores.
+
+Moving concrete retires the previous detailing document and marks its bars out of date. Undo and redo restore the detailing that goes with the corresponding concrete geometry.
 
 ## 0.6.3 (2026-11-20)
 
@@ -119,6 +231,10 @@ Transforms refuse an ambiguous memberless 3D roller, and copies that carry a loc
 
 ### Added
 
+#### Public Terms of Use, Privacy Policy and results disclaimer
+
+The public build includes the Terms of Use and Privacy Policy pages, links to them in the footer, and the results disclaimer. Sign-in remains disabled (#2358).
+
 #### Add opt-in global coordinate axes (#1986)
 
 - Add a global coordinate frame for the editor and its model code, workbooks, drawings and reports. The production build keeps it disabled.
@@ -203,6 +319,24 @@ Bringing the mouse over a figure on the landing froze it, which read as a broken
 The [release notes](docs/releases/v0.6.3.md) cover safety advisories, affected results, new refusals and the steps for regenerating loads and reviewing reports. The notes are available in all eight release-note languages.
 
 ### Fixed
+
+#### Clarify regeneration, workbook import and beam verification guidance for 0.6.3
+
+The release notes explain how to handle saved loads when generation is blocked and which workbooks to re-export. The release notes and site changelog identify rejected planar-load moment components in workbook axes and clarify the requirements for concrete-only secondary shear and final-depth verification. (#2413)
+
+#### Clarify the Stabileo 0.6.3 safety guidance
+
+All eight release notes now include saved projects that retain an imported gravity setting with standalone self-weight turned off in the rerun guidance. The notes clarify when to replace generated modal seismic cases, which supports set the static seismic datum, what section shear plots show, what to verify against the actual reinforcement, and when workbook imports or checks are refused (#2400).
+
+#### Safety advisories for automatic loads, workbooks and concrete detailing (2026-11-21)
+
+[SA-2026-096](docs/advisories/SA-2026-096-static-seismic-stories-and-rafters.md) covers incorrect static seismic storeys and rafter load placement. [SA-2026-097](docs/advisories/SA-2026-097-workbook-inputs-and-plane-springs.md) covers silent workbook data loss and mislabeled planar rotational springs. [SA-2026-098](docs/advisories/SA-2026-098-rc-drawn-reinforcement-verification.md) covers unconservative concrete verification and incorrect column bar detailing. [SA-2026-099](docs/advisories/SA-2026-099-gravity-and-roof-step-loads.md) covers incorrect generated gravity and roof-step snow loads. Follow the advisory for each affected project before relying on existing results.
+
+The advisories also describe independent roof-force and base-shear checks after successful seismic regeneration, identify unsupported 2D moment axes in workbooks, and include perimeter-bar development and stirrup-bend checks when reviewing earlier concrete design results.
+
+#### Safety advisories for 2D free-body end moments and self-weight rules (2026-11-20)
+
+[SA-2026-094](docs/advisories/SA-2026-094-plane-free-body-end-moments.md) covers incorrect global end-moment signs in the 2D free-body inspector. [SA-2026-095](docs/advisories/SA-2026-095-plane-signed-scoped-self-weight.md) covers wrong reactions in 2D projects with signed or scoped self-weight rules and the project-open re-check notice. Revisit affected inspections and analyses, then regenerate and review the affected reports.
 
 #### Verify concurrent spacing and withhold unsupported RC detailing results (2026-11-20)
 
@@ -513,6 +647,10 @@ The Chinese release notes check requires one matching notice each for results ve
 The recheck notice about shear and von Mises stress on section cuts appears in Simplified Chinese. Builds refuse to package notices with missing translations for a supported product language.
 
 ### Performance
+
+#### Faster automatic concrete design (2026-11-20)
+
+Automatic design reuses verified demand inventories, support plans and identical joint layout checks while ranking reinforcement candidates. Automatic design returns the same member-by-member results for the 408-member example.
 
 #### Clear plate meshes faster and share the 2D co-rotational driver
 
