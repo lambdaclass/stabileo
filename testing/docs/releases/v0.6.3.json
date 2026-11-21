@@ -1,0 +1,19 @@
+{
+ "release": "v0.6.3",
+ "date": "2026-11-21",
+ "commit": "6c83c80954",
+ "values": {
+  "safety_open": "299",
+  "rust_share": "71.9 %",
+  "ts_high_safety": "83 modules, 36441 lines",
+  "certified_analyses": "11 of 27 (40.7 %)",
+  "certified_design": "8 of 16 (50.0 %)",
+  "acceptance_refs": "105",
+  "mutation_rust": "not yet measured",
+  "mutation_ts": "not yet measured",
+  "coverage_lines": "93.7 %",
+  "differential_compared": "not yet measured",
+  "fuzz_execs": "not yet measured",
+  "fm_bad": "0"
+ }
+}
