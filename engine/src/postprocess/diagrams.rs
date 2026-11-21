@@ -655,6 +655,93 @@ mod tests {
         (planar, serde_json::from_value(input).unwrap())
     }
 
+
+    fn round5_diagram_results() -> (SolverInput, [(AnalysisResults, AnalysisResults3D); 2]) {
+        let (plane, space) = diagram_issue_models(
+            3.0,
+            serde_json::json!({"type":"distributed","data":{"elementId":1,"qI":0,"qJ":0}}),
+            serde_json::json!({"type":"distributed","data":{"elementId":1,"qYI":0,"qYJ":0,"qZI":0,"qZJ":0}}),
+        );
+        let planar = crate::solver::pdelta::solve_pdelta_2d(&plane, 20, 1e-10).unwrap();
+        let spatial = crate::solver::pdelta::solve_pdelta_3d(&space, 20, 1e-10).unwrap();
+        assert!(planar.converged && spatial.converged);
+        let linear = (
+            crate::solver::linear::solve_2d(&plane).unwrap(),
+            crate::solver::linear::solve_3d(&space).unwrap(),
+        );
+        (plane, [linear, (planar.results, spatial.results)])
+    }
+
+    fn round5_shear_peak(a: f64, b: f64, q: f64) -> (DistributedLoadInfo, f64, f64) {
+        let t = a / 3.0 + (b / 3.0 - a / 3.0) / 2.0;
+        (DistributedLoadInfo { a, b, q_i: q, q_j: -q }, t, (b - a) * q / 4.0)
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #2250"]
+    fn round5a_point_queries_at_analytic_shear_peaks() {
+        use crate::postprocess::diagrams_3d::{checked_diagram_value_3d, compute_diagrams_3d};
+        let a = 1.5;
+        let (load, t, want) = round5_shear_peak(a, a + 1_351_081.0 * f64::EPSILON, 2.0_f64.powi(32));
+        let (control, exact_t, exact_peak) = round5_shear_peak(a, 2.25, 4.0);
+        let (input, results) = round5_diagram_results();
+        let mut observed = Vec::new();
+        for (mut planar, mut spatial) in results {
+            planar.element_forces[0].distributed_loads = vec![load.clone()];
+            spatial.element_forces[0].distributed_loads_z = vec![load.clone()];
+            assert_eq!(compute_diagrams_2d(&input, &planar).shear[0].max_value, want);
+            assert_eq!(compute_diagrams_3d(&spatial).shear_z[0].max_value, want);
+            observed.push(checked_diagram_value_2d("shear", t, &planar.element_forces[0]));
+            observed.push(checked_diagram_value_3d(&spatial.element_forces[0], "shearZ", t));
+
+            planar.element_forces[0].distributed_loads = vec![control.clone()];
+            spatial.element_forces[0].distributed_loads_z = vec![control.clone()];
+            assert_eq!(checked_diagram_value_2d("shear", exact_t, &planar.element_forces[0]), Ok(exact_peak));
+            assert_eq!(checked_diagram_value_3d(&spatial.element_forces[0], "shearZ", exact_t), Ok(exact_peak));
+        }
+        assert!(observed.iter().all(|value| matches!(value, Err(reason) if reason.contains("extremum"))), "{observed:?}");
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #2226"]
+    fn round5b_envelopes_with_a_jump_at_another_cases_peak_station() {
+        use crate::postprocess::combinations::{compute_envelope, compute_envelope_3d};
+        let a = 1.5;
+        let (load, t, _) = round5_shear_peak(a, a + 1_351_081.0 * f64::EPSILON, 2.0_f64.powi(32));
+        let exact = round5_shear_peak(1.5, 2.25, 4.0);
+        let (_, results) = round5_diagram_results();
+        let mut observed = Vec::new();
+        for (planar, spatial) in results {
+            let envelope_at = |load: &DistributedLoadInfo, a: f64, t: f64| {
+                let mut peak = planar.clone();
+                peak.element_forces[0].distributed_loads = vec![load.clone()];
+                let mut jump = planar.clone();
+                jump.element_forces[0].point_loads = vec![PointLoadInfo { a, p: 10.0, px: None, my: None }];
+                let plane = compute_envelope(&[peak, jump]).map(|envelope| envelope.shear);
+                let mut peak = spatial.clone();
+                peak.element_forces[0].distributed_loads_z = vec![load.clone()];
+                let mut jump = spatial.clone();
+                jump.element_forces[0].point_loads_z = vec![PointLoadInfo3D { a, p: 10.0 }];
+                let space = compute_envelope_3d(&[peak, jump]).map(|envelope| envelope.shear_z);
+                [plane, space].map(|result| result.map(|diagram| {
+                    let element = &diagram.elements[0];
+                    element.t_positions.iter().zip(&element.pos_values)
+                        .filter_map(|(&station, &force)| (station == t).then_some(force)).collect::<Vec<_>>()
+                }))
+            };
+            observed.extend(envelope_at(&load, 3.0 * t, t));
+            let [plane, space] = envelope_at(&load, (3.0 * t).next_down(), t);
+            for envelope in [plane, space] {
+                assert_eq!(envelope.unwrap(), vec![10.0]);
+            }
+            let [plane, space] = envelope_at(&exact.0, 3.0 * exact.1, exact.1);
+            for envelope in [plane, space] {
+                assert_eq!(envelope.unwrap(), vec![exact.2, 10.0]);
+            }
+        }
+        assert!(observed.iter().all(|value| matches!(value, Err(reason) if reason.contains("normalized station"))), "{observed:?}");
+    }
+
     #[test]
     fn issue_2250_diagram_extrema_partial_load() {
         use crate::postprocess::{combinations, diagrams_3d};
