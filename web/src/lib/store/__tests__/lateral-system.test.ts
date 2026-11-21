@@ -260,8 +260,8 @@ describe('the geometry suggests, it never declares', () => {
       }
     });
 
-    const truncatedSeismic = process.env.RUN_KNOWN_WRONG === '2442' ? it : it.skip;
-    truncatedSeismic(`known wrong result: #2442 round 4 ${analysis} seismic columns and joints refuse a missing governing station`, () => {
+    const incompleteSeismic = process.env.RUN_KNOWN_WRONG === '2442' ? it : it.skip;
+    incompleteSeismic(`known wrong result: #2442 round 4 ${analysis} seismic columns and joints refuse a missing governing station`, () => {
       const portal = cantilever({ analysis, seismic: true, columnLoad: 160 });
       const read = reinforcedPortal(portal);
       const complete = read();
@@ -290,11 +290,10 @@ describe('the geometry suggests, it never declares', () => {
       });
     });
 
-    const orphanSeismic = process.env.RUN_KNOWN_WRONG === '2442' ? it : it.skip;
-    orphanSeismic(`known wrong result: #2442 round 4 ${analysis} seismic columns and joints refuse an uncombined earthquake case`, () => {
+    incompleteSeismic(`known wrong result: #2442 round 4 ${analysis} seismic columns and joints refuse an uncombined earthquake case`, () => {
       const portal = cantilever({ analysis, seismic: false, orphanEarthquake: true });
       const read = reinforcedPortal(portal);
-      expect(modelStore.loadCases.filter(c => c.type === 'E')).toHaveLength(1);
+      expect(modelStore.loadCases).toContainEqual(expect.objectContaining({ name: 'Seismic X', type: 'E' }));
       expect(seismicComboIds().size).toBe(0);
       expect(verificationStore.contextFor(portal.column)!.stations!.comboResults.length).toBeGreaterThan(0);
       const result = read();

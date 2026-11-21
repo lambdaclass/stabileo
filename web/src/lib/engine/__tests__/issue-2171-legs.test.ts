@@ -1816,14 +1816,17 @@ function solvedVerdictBeam(spatial: boolean, nonlinear: boolean, geometry: typeo
   const a = geometry.b * geometry.h;
   const sec = { ...model.sections.get(1)!, ...geometry, a, iy: iz, iz };
   const solvedModel = { ...model, nodes, sections: new Map([[1, sec]]) };
-  const run = (fx: number, fz: number, my: number) => {
+  const run = (fx: number, fz: number, my: number, load?: { a: number; b: number; q: number }) => {
     if (spatial) {
       const solver: SolverInput3D = {
         ...solvedModel,
         elements: new Map([[1, { ...element, releaseMyStart: false, releaseMyEnd: false,
           releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }]]),
         supports: new Map([[1, { nodeId: 1, rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true }]]),
-        loads: [{ type: 'nodal', data: { nodeId: 2, fx, fy: 0, fz, mx: 0, my, mz: 0 } }],
+        loads: [
+          { type: 'nodal', data: { nodeId: 2, fx, fy: 0, fz, mx: 0, my, mz: 0 } },
+          ...(load ? [{ type: 'distributed' as const, data: { elementId: 1, a: load.a, b: load.b, qYI: 0, qYJ: 0, qZI: load.q, qZJ: load.q } }] : []),
+        ],
       };
       return nonlinear ? solvePDelta3D(solver).results : solve3D(solver);
     }
@@ -1831,7 +1834,10 @@ function solvedVerdictBeam(spatial: boolean, nonlinear: boolean, geometry: typeo
       ...solvedModel,
       nodes: new Map([...nodes].map(([id, { x, z }]) => [id, { id, x, z }])),
       elements: new Map([[1, { ...element, hingeStart: false, hingeEnd: false }]]),
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx, fz, my } }],
+      loads: [
+        { type: 'nodal', data: { nodeId: 2, fx, fz, my } },
+        ...(load ? [{ type: 'distributed' as const, data: { elementId: 1, a: load.a, b: load.b, qI: load.q, qJ: load.q } }] : []),
+      ],
     };
     return planarResultForDesign(nonlinear ? solvePDelta(solver).results : solve(solver));
   };
@@ -2049,12 +2055,9 @@ for (const spatial of [false, true]) for (const nonlinear of [false, true]) {
 }
 
 const round4Shear = process.env.RUN_KNOWN_WRONG === '2355' ? it : it.skip;
-const continuousShear = process.env.RUN_KNOWN_WRONG === '2434' ? it : it.skip;
-
-for (const continuous of [false, true]) {
-  const regression = continuous ? continuousShear : round4Shear;
-  const issue = continuous ? 2434 : 2355;
-  regression(`known wrong result: #${issue} round 4 row (c) uses the tension steel ${continuous ? 'in a continuous layout' : 'inside a curtailed interval'}`, () => {
+for (const mode of ['station tuples', '2D linear', '2D P-Delta', '3D linear', '3D P-Delta', 'continuous layout'] as const) {
+  const continuous = mode === 'continuous layout';
+  round4Shear(`known wrong result: #2355 round 4 row (c) uses the tension steel in a ${continuous ? mode : `curtailed interval (${mode})`}`, () => {
     const L = 4, left = 0.4, right = 0.6;
     const outer = { count: 2, diameter: 16, row: 0 };
     const inner = { ...outer, count: 4, row: 1 };
@@ -2071,7 +2074,25 @@ for (const continuous of [false, true]) {
     expect(section.h - layerCentroid([outer, inner], section.cover, hoops.diameter)).toBeLessThan(d);
     expect(section.h - layerCentroid([outer], section.cover, hoops.diameter)).toBeGreaterThan(d);
 
-    const high = (retained.phiVn + credited.phiVn) / 2;
+    const high = retained.phiVn + 0.48 * (credited.phiVn - retained.phiVn);
+    const solver = mode === 'station tuples' || continuous ? undefined
+      : solvedVerdictBeam(mode.startsWith('3D'), mode.endsWith('P-Delta'), section, L);
+    const solveCuts = (hogging: boolean, force: number) => {
+      if (!solver) return;
+      const end = 0.5;
+      const load = { a: left * L, b: end * L, q: force / ((end - left) * L) };
+      const calc = (my: number) => computeStationDemands(new Map([[1, solver.run(0, 0, my, load)]]), combos, solver.solvedModel);
+      const at = (value: ReturnType<typeof calc>, t: number) => value.stations.get(1)!.comboResults[0]!.stations.find(s => s.t === t)!;
+      let base = calc(0);
+      if (at(base, left).my < at(base, end).my) {
+        load.q *= -1;
+        base = calc(0);
+      }
+      const ml = at(base, left).my;
+      const change = at(calc(1), left).my - ml;
+      const target = hogging ? 0.005 : ml - at(base, end).my + 1;
+      return calc((target - ml) / change);
+    };
     for (const drawn of [false, true]) for (const extracted of [false, true]) {
       const top = continuous ? [outer] : [outer, inner];
       const provided: ProvidedReinforcement = drawn ? membersFromLine({
@@ -2103,9 +2124,17 @@ for (const continuous of [false, true]) {
           { t: right, my: hogging ? -1 : 1, vz: 0 },
           { t: 1, my: hogging ? -1 : 1, vz: 0 },
         ].map(s => ({ ...s, x: s.t * L, n: 0, mz: 0, vy: 0, torsion: 0 }));
-        const layout = { elementId: 1, length: L, stationTs: stations.map(s => s.t),
+        const solved = solveCuts(hogging, force);
+        const layout = solved?.stations.get(1) ?? { elementId: 1, length: L, stationTs: stations.map(s => s.t),
           comboResults: [{ comboId: 1, comboName: 'Review', stations }] };
-        const args = [1, 'beam', provided, extracted ? extractGoverningDemands(layout) : undefined, {}, section,
+        const cuts = layout.comboResults[0]!.stations;
+        const a = cuts.find(s => s.t === left)!, b = cuts.find(s => s.t > left)!;
+        expect(Math.abs(a.vz)).toBeCloseTo(force, 8);
+        expect(b.vz).toBeCloseTo(0, 8);
+        if (!continuous) expect(a.my).toBeGreaterThan(-0.001);
+        if (hogging) expect(b.my).toBeLessThan(-0.001);
+        const demands = solved?.demands.get(1) ?? extractGoverningDemands(layout);
+        const args = [1, 'beam', provided, extracted ? demands : undefined, {}, section,
           extracted ? undefined : layout, undefined, { axes, spacingRule: { edition: '2025', maxAggregateSizeMm: 20 } }] as const;
         const [id, kind, rebar, ...data] = args;
         const reports = [verifyProvidedReinforcement(...args), rankProvidedReinforcement(...args).ranking,
@@ -2116,8 +2145,9 @@ for (const continuous of [false, true]) {
           if (drawn && hogging && index === 0) {
             expect.soft(row, context).toMatchObject({ status: 'fail', capacity: 0, ratio: Infinity, description: 'diag.rcShearTensionSteel' });
           } else if (hogging && force === high) {
-            const fraction = continuous ? 0 : (momentAtLeft + 0.001) / (momentAtLeft + 1);
-            const demand = force * (1 - fraction);
+            const fraction = continuous ? 0 : (a.my + 0.001) / (a.my - b.my);
+            const demand = Math.abs(a.vz + (b.vz - a.vz) * fraction);
+            expect(demand).toBeGreaterThan(retained.phiVn);
             expect.soft(row, context).toMatchObject({
               status: 'fail', demand: +demand.toFixed(2), capacity: retained.phiVn, ratio: +(demand / retained.phiVn).toFixed(3),
             });
