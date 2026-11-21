@@ -71,14 +71,16 @@ function expectRefusals(doc: DocumentModel, role: 'undeclared' | 'gravity') {
     }
 
     refusedSpans.add(rep);
-    const reason = shearDepth ? 'diag.rcShearDepth' : 'diag.rcTorsionPerimeter';
+    const reasons = shearDepth ? ['diag.rcShearDepth'] : ['diag.rcTorsionPerimeter', 'diag.rcTorsionSecondaryFace'];
     const where = `e${id} in span ${rep}`;
     expect(outcome.outcome, where).toBe(shearDepth ? 'UNSUPPORTED' : 'SEARCH_EXHAUSTED');
-    expect(outcome.limiting, where).toEqual(['unsupportedCheck']);
-    expect(outcome.reasons, where).toContainEqual({ key: reason });
-    expect(outcome.provisional?.verdict.checks, where).toContainEqual(expect.objectContaining({
-      status: 'fail', limiting: 'unsupportedCheck', description: reason,
-    }));
+    expect(outcome.limiting, where).toEqual(shearDepth ? ['unsupportedCheck'] : ['minSteel', 'unsupportedCheck']);
+    for (const reason of reasons) {
+      expect(outcome.reasons, where).toContainEqual({ key: reason });
+      expect(outcome.provisional?.verdict.checks, where).toContainEqual(expect.objectContaining({
+        status: 'fail', limiting: 'unsupportedCheck', description: reason, ratio: Infinity,
+      }));
+    }
     expect(outcome.accepted, where).toBeUndefined();
     expect(outcome.certificate, where).toBeUndefined();
     expect(outcome.finalGeometryCertificate, where).toBeUndefined();
@@ -93,7 +95,7 @@ function expectRefusals(doc: DocumentModel, role: 'undeclared' | 'gravity') {
     const row = el.rows.find((r) => r.titleKey === titleKey);
     expect(row, where).toMatchObject({
       status: shearDepth ? 'notVerified' : 'fail',
-      derivation: expect.arrayContaining([reason]),
+      derivation: expect.arrayContaining(reasons),
     });
     expect(memoElementState(el), where).toBe(shearDepth ? 'open' : 'fail');
     expect(ifc.find((m) => m.id === c.span!.key)?.props?.DesignState, where)
@@ -128,7 +130,7 @@ describe('the span fixture at 40×40, its beams\' role not declared', () => {
 
   it('designs one span as part of the system with its bottom ends developing fy', () => {
     expect(beamCtxs().every((c) => c.lateral?.role === 'undeclared')).toBe(true);
-    expect(spanOutcomes()).toEqual({ VERIFIED: 1, 'SEARCH_EXHAUSTED unsupportedCheck': 12, 'UNSUPPORTED unsupportedCheck': 1 });
+    expect(spanOutcomes()).toEqual({ VERIFIED: 1, 'SEARCH_EXHAUSTED minSteel unsupportedCheck': 12, 'UNSUPPORTED unsupportedCheck': 1 });
     expect([...bottomRules()].sort()).toEqual(['ldh']);
   });
 
@@ -169,7 +171,7 @@ describe('the same building, its beams declared outside the system', () => {
 
   it('designs two spans with bottom ends cut 150 mm past the face and reports the declared role', () => {
     expect(beamCtxs().every((c) => c.lateral?.role === 'gravity' && c.lateral.source === 'project')).toBe(true);
-    expect(spanOutcomes()).toEqual({ VERIFIED: 2, 'SEARCH_EXHAUSTED unsupportedCheck': 12 });
+    expect(spanOutcomes()).toEqual({ VERIFIED: 2, 'SEARCH_EXHAUSTED minSteel unsupportedCheck': 12 });
     expect([...bottomRules()]).toEqual(['9.7.3.8.2']);
     const designed = beamCtxs().filter((c) => verificationStore.providedFor(c.elementId)?.supportAnchorage
       ?.some((v) => v.position === 'bottom' && v.support === 'end'));

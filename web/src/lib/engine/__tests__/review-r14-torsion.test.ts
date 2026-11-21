@@ -36,12 +36,9 @@ for (const edition of ['2005', '2025'] as const) for (const axis of ['My', 'Mz']
       const need = checkTorsion(params, i.demand, edition);
       const fixed = { shear: { spacing: 0.05, legs: 2 }, torsion: { AlProv: need.AlReq * factor } };
       const v = entry === 'direct' ? verifyElement(i, fixed) : prepareElementVerification(i)(fixed);
-      if (elementType === 'column') {
-        expect(v.torsion).toMatchObject({ AlProv: fixed.torsion.AlProv });
-        expect(v.torsion!.status === 'fail').toBe(factor < 1);
-      } else {
-        expect(v.torsion).toMatchObject({ status: 'fail', refusal: 'diag.rcTorsionPerimeter', longitudinalProvision: 'not-checked' });
-      }
+      expect(v.torsion).toMatchObject({ status: 'fail', refusal: 'diag.rcTorsionPerimeter', longitudinalProvision: 'not-checked',
+        ratio: Infinity, AlReq: need.AlReq });
+      expect(v.torsion?.AlProv).toBeUndefined();
       expect(v.torsion).toHaveProperty('reinforcementRatio');
     });
   }

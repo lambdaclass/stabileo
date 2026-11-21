@@ -119,7 +119,7 @@ describe('concurrent design demands #1316', () => {
       expect(face.kind).toBe('secondary-face');
       const expectedTorsion = own.map(s => checkTorsion(params, extractGoverningDemands(stations([[s]])).concurrent![0]!.section(v.flexureAxis!), '2025', face).ratio);
       if (beam) {
-        const refusal = 'diag.rcTorsionDepth';
+        const refusal = 'diag.rcTorsionSecondaryFace';
         const failure = { code: 'VERIF_FAIL_TORSION', severity: 'error', message: refusal };
         expect(v.flexure.barDia).toBeGreaterThan(16);
         expect(v.torsion).toMatchObject({ Tu: a.torsion, neglect: false, phiTn: 0, ratio: Infinity, status: 'fail', refusal });

@@ -207,25 +207,26 @@ it('#2355 refused rows govern the report cell and retain their reasons', () => {
 });
 
 
-it('#2355 a primary shear refusal shares the shear column and renders a translated reason', () => {
-  const refusal = 'diag.rcShearCutoff';
-  const element = input().elements.find(e => e.family === 'beam')!;
-  const rows = concreteCheckRows({ elementId: 1, elementType: 'beam', hasProvided: true,
-    overallStatus: 'fail', worstUtilization: Infinity, checkedAxes: ['Vz'], strengthCheckCount: 2,
-    checks: [
-      check('shear', { category: 'Shear Support (Vz)', demandCategory: 'Vz', ratio: 0.42 }),
-      check('unsupportedCheck', { category: 'Shear Span (Vz)', demandCategory: 'Vz', status: 'fail', ratio: Infinity, description: refusal }),
-    ],
-  } as never);
-  for (const locale of [en, es, pt]) {
-    const c = { ...ctx(), tr: (key: string) => (locale as Record<string, string>)[key] ?? key };
-    const summary = familySummary([{ ...element, rows }], c, 'beam');
-    expect(summary).toContain('N.E.');
-    expect(summary).toContain(locale[refusal]);
-    expect(summary).not.toContain('<span class="s-ok">η = 0.42</span>');
-    expect(renderFicha(rows[1]!, c)).toContain(locale[refusal]);
-  }
-});
+it.each(['diag.rcShearCutoff', 'diag.rcShearTensionSteel'] as const)(
+  '#2355 / #2373 %s shares the shear column and renders a translated reason', (refusal) => {
+    const element = input().elements.find(e => e.family === 'beam')!;
+    const rows = concreteCheckRows({ elementId: 1, elementType: 'beam', hasProvided: true,
+      overallStatus: 'fail', worstUtilization: Infinity, checkedAxes: ['Vz'], strengthCheckCount: 2,
+      checks: [
+        check('shear', { category: 'Shear Support (Vz)', demandCategory: 'Vz', ratio: 0.42 }),
+        check('unsupportedCheck', { category: 'Shear Span (Vz)', demandCategory: 'Vz', status: 'fail', ratio: Infinity, description: refusal }),
+      ],
+    } as never);
+    for (const locale of [en, es, pt]) {
+      const c = { ...ctx(), tr: (key: string) => (locale as Record<string, string>)[key] ?? key };
+      const summary = familySummary([{ ...element, rows }], c, 'beam');
+      expect(summary).toContain('N.E.');
+      expect(summary).toContain(locale[refusal]);
+      expect(summary).not.toContain('<span class="s-ok">η = 0.42</span>');
+      expect(renderFicha(rows[1]!, c)).toContain(locale[refusal]);
+    }
+  },
+);
 
 it('#2355 a shear refusal without a clause governs the strength summary', () => {
   const rows = concreteCheckRows({ elementId: 1, elementType: 'beam', hasProvided: true,

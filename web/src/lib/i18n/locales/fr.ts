@@ -4046,6 +4046,8 @@ const fr: Translations = {
   'diag.verifFailTorsion': 'Vérification en torsion NON CONFORME',
   'diag.rcTorsionConcrete': "La torsion n’est pas vérifiée : la limite combinée cisaillement-torsion surestime la résistance au cisaillement du béton évaluée.",
   'diag.rcTorsionDepth': "La torsion n’est pas vérifiée : la hauteur utile retenue est trop grande pour les armatures longitudinales.",
+  "diag.rcTorsionSecondaryFace": "La torsion n’est pas vérifiée : la position des barres nécessaire pour établir la hauteur utile sous l’effort tranchant secondaire concomitant reste à confirmer.",
+  "diag.rcShearTensionSteel": "L’effort tranchant n’est pas vérifié : les barres sur la face tendue de cette section ne justifient pas la section d’acier utilisée.",
   'diag.rcTorsionPerimeter': "Les armatures longitudinales de torsion ne sont pas vérifiées : la répartition des barres sur le périmètre du cadre reste à établir.",
   'diag.rcTorsionCutoff': "Les armatures longitudinales de torsion ne sont pas vérifiées : le calcul compterait des barres au-delà de leur arrêt.",
   "diag.rcDrawnBarExtent": "La flexion ou le cisaillement ne peut pas être vérifié avec les armatures de la zone, car des barres longitudinales sont comptées au-delà de leurs extrémités dessinées.",

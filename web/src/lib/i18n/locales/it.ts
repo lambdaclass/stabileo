@@ -2389,6 +2389,8 @@ const it: Translations = {
   'diag.verifFailTorsion': 'Verifica a torsione NON soddisfatta',
   'diag.rcTorsionConcrete': "La torsione non è verificata: il limite di taglio e torsione sovrastima la resistenza a taglio valutata del calcestruzzo.",
   'diag.rcTorsionDepth': "La torsione non è verificata: l’altezza utile adottata è eccessiva per l’armatura longitudinale.",
+  "diag.rcTorsionSecondaryFace": "La torsione non è verificata: la posizione delle barre necessaria per determinare l’altezza utile a taglio secondario concomitante non è confermata.",
+  "diag.rcShearTensionSteel": "Il taglio non è verificato: le barre sul lato teso della sezione non giustificano l’area di acciaio adottata.",
   'diag.rcTorsionPerimeter': "L’armatura longitudinale a torsione non è verificata: manca la conferma della disposizione delle barre sul perimetro della staffa.",
   'diag.rcTorsionCutoff': "L’armatura longitudinale a torsione non è verificata: il calcolo conterebbe barre oltre la loro interruzione.",
   'diag.rcTorsionYield': "La torsione secondo CIRSOC 201-2005 non è verificata con armature aventi tensione di snervamento superiore a 420 MPa.",

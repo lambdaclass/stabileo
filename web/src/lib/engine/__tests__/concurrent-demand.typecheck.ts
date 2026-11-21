@@ -17,7 +17,7 @@ export const envelopeCannotReachSteelVerifier: Assert<Refuses<SteelVerificationI
 
 export const scalarTorsionCannotReachSection: Assert<Refuses<{ Vu: number; Tu: number }, TorsionInput['demand']>> = true;
 export const partialTorsionCannotReachSection: Assert<Refuses<Pick<ConcurrentSectionDemand, 'Vu' | 'Tu'>, TorsionInput['demand']>> = true;
-export const secondaryDepthIsRequired: Assert<Refuses<Omit<TorsionInput, 'dSecondary'>, TorsionInput>> = true;
+export const numericSecondaryDepthIsRefused: Assert<Refuses<number, TorsionInput['dSecondary']>> = true;
 import type { CompleteDemandSet, ScopedDemand, DemandScope, DemandInventory } from '../complete-demand-set';
 import type { CompleteMemberContexts } from '../member-demand-gate';
 import type { MemberContext } from '../design/other-codes/types';

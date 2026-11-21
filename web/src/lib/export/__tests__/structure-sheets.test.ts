@@ -6,6 +6,7 @@
  * what stops a level plan quietly gathering two storeys.
  */
 import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
+import { designFamiliesWithWorkerYields } from './design-families-fixture';
 import { setImmediate as yieldToEventLoop } from 'node:timers/promises';
 import { modelStore } from '../../store/model.svelte';
 import { resultsStore } from '../../store/results.svelte';
@@ -41,10 +42,10 @@ async function build7p(variant?: Variant) {
   const r = solved as { perCase: Map<number, never>; perCombo: Map<number, never>; envelope: never };
   await yieldToEventLoop();
   resultsStore.setCombinationResults3D(r.perCase as never, r.perCombo as never, r.envelope as never);
-  designRunStore.designFamilies(['column', 'beam'],
+  await designFamiliesWithWorkerYields(['column', 'beam'],
     { verifierId: 'cirsoc201.provided.v2.2025' });
   await yieldToEventLoop();
-  designRunStore.designFamilies(['slab', 'wall'],
+  await designFamiliesWithWorkerYields(['slab', 'wall'],
     { verifierId: 'cirsoc201.provided.v2.2025' });
   await yieldToEventLoop();
   const doc = detailingStore.buildDocument({ author: 's', at: '2026-08-09T00:00:00Z' })!;

@@ -2373,6 +2373,8 @@ const id: Translations = {
   'diag.verifFailTorsion': 'Pemeriksaan torsi GAGAL',
   'diag.rcTorsionConcrete': "Torsi belum terverifikasi: batas gabungan geser dan torsi melebihkan kuat geser beton hasil evaluasi.",
   'diag.rcTorsionDepth': "Torsi belum terverifikasi: tinggi efektif yang digunakan terlalu besar untuk tulangan longitudinal.",
+  "diag.rcTorsionSecondaryFace": "Torsi belum terverifikasi karena posisi batang untuk menentukan tinggi efektif terhadap geser sekunder yang bekerja bersamaan belum dipastikan.",
+  "diag.rcShearTensionSteel": "Geser belum terverifikasi karena batang pada sisi tarik penampang ini tidak membuktikan luas tulangan yang digunakan dalam pemeriksaan.",
   'diag.rcTorsionPerimeter': "Tulangan longitudinal untuk torsi belum terverifikasi: susunan batang di sekeliling sengkang belum dibuktikan.",
   'diag.rcTorsionCutoff': "Tulangan longitudinal untuk torsi belum terverifikasi: perhitungan akan memperhitungkan batang melewati titik penghentiannya.",
   'diag.rcTorsionYield': "Torsi menurut CIRSOC 201-2005 belum terverifikasi untuk tulangan dengan kuat leleh di atas 420 MPa.",

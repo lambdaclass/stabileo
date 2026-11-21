@@ -19,6 +19,7 @@
  */
 
 import { expect } from 'vitest';
+import { yieldToEventLoop } from '../../../../../__tests__/worker-yield';
 import { modelStore } from '../../../../store/model.svelte';
 import { resultsStore } from '../../../../store/results.svelte';
 import { detailingStore } from '../../../../store/detailing.svelte';
@@ -93,7 +94,7 @@ export function frameBarsInAssembly(assembly: DocumentAssembly) {
  * loop reaches the poll phase where the message is read; an immediate runs after it.
  */
 export function turn(): Promise<void> {
-  return new Promise((resolve) => setImmediate(resolve));
+  return yieldToEventLoop();
 }
 
 async function compute(example: string, variant?: Variant): Promise<WorkspaceScene> {
@@ -116,6 +117,7 @@ async function compute(example: string, variant?: Variant): Promise<WorkspaceSce
   resultsStore.setCombinationResults3D(r.perCase, r.perCombo, r.envelope);
 
   designRunStore.computeDemands();
+  await turn();
   designRunStore.runCodeCheck();
   await turn();
   designRunStore.designAll({ maxRunMs: 180_000 });

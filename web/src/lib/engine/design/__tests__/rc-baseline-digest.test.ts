@@ -78,12 +78,19 @@ describe('RC design baseline — the flagship frame, member by member', () => {
     const outcomes = [...summary.outcomes.values()]
       .sort((a, b) => a.elementId - b.elementId)
       .map(({ searchStats, ...outcome }) => outcome);
-    const result = JSON.stringify(outcomes, (_key, value: unknown) => {
-      if (typeof value !== 'number') return value;
-      if (Object.is(value, -0)) return { number: '-0' };
-      return Number.isFinite(value) ? value : { number: String(value) };
-    });
-    expect(createHash('sha256').update(result).digest('hex')).toBe('d08232bdc92fac65edcc4e08020d85612b75d9b8c705fa3c5ff5fced6c7c0fdf');
+    const digest = (restoreSecondaryShearRounding: boolean) => {
+      const result = JSON.stringify(outcomes, function (this: { category?: string }, key, value: unknown) {
+        if (typeof value !== 'number') return value;
+        if (restoreSecondaryShearRounding && key === 'demand' && this.category === 'Secondary shear (Vy)') {
+          return +value.toFixed(2);
+        }
+        if (Object.is(value, -0)) return { number: '-0' };
+        return Number.isFinite(value) ? value : { number: String(value) };
+      });
+      return createHash('sha256').update(result).digest('hex');
+    };
+    expect(digest(false), 'raw secondary shear demand').toBe('a10546bb373605dad5299073385df5fb135f4d283743d0e0397f06440614dd16');
+    expect(digest(true), 'RC verdict baseline with its secondary shear rounding').toBe('d08232bdc92fac65edcc4e08020d85612b75d9b8c705fa3c5ff5fced6c7c0fdf');
   });
 
   it('#2338 shear-depth containment never reopens an exhausted flagship search', () => {
