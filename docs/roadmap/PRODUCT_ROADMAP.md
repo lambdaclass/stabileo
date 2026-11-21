@@ -24,7 +24,7 @@ keeps a curated defect list. Ergodic Group backs and publishes Stabileo.
   history goes to `CHANGELOG.md` and the website changelog. Sections 2 to 4 are rewritten when an item lands; sections 5 to 7 change rarely. The
   in-flight table in section 2 is generated: run `make roadmap.inflight` and commit the result.
 
-## 2. Now: soundness first (updated 2026-11-18)
+## 2. Now: soundness first (updated 2026-11-21)
 
 ### Overall order
 
@@ -62,31 +62,62 @@ metamorphic and differential tests; this layer has had almost none. The order be
    The **under audit** notice for generated loads and concrete design is on main in
    [#2228](https://github.com/lambdaclass/stabileo/pull/2228). Each reported wrong result still
    needs its own correction or refusal.
-2. **Review affected designs after the RC containment.** [#2338](https://github.com/lambdaclass/stabileo/pull/2338)
+2. **Remove the classes behind the 2026-11-21 findings** (user-approved 2026-11-21).
+   Almost all the recent wrong results came from the code that feeds the solver or reads its
+   results. Four patterns recur.
+
+   1. **Independent load and geometry accounting on every solve** (first, in progress).
+      Before each solve, use a separate simple path to compute each load case's total force and
+      moment and each plate's area from the model as entered. Compare them with what was assembled
+      into the solver and refuse on a mismatch. This catches dropped or stale couples
+      ([#2411](https://github.com/lambdaclass/stabileo/issues/2411),
+      [#2459](https://github.com/lambdaclass/stabileo/issues/2459)) and plate area changes during
+      remesh ([#2460](https://github.com/lambdaclass/stabileo/issues/2460)). Plate edits lost during
+      remesh can also preserve area ([#2461](https://github.com/lambdaclass/stabileo/issues/2461)).
+      Include those cases in the transformation checks below. Load-generation tests still compare
+      member loads and internal forces.
+   2. **Exact internal-force functions instead of station samples.** The engine returns each
+      frame element's internal forces as exact piecewise functions of its loads. Diagrams and
+      design use them to find maxima and sign changes exactly. This addresses missed diagram peaks
+      ([#2403](https://github.com/lambdaclass/stabileo/pull/2403)) and shear cuts at moment transitions
+      ([#2434](https://github.com/lambdaclass/stabileo/pull/2434),
+      [#2463](https://github.com/lambdaclass/stabileo/issues/2463)).
+   3. **Verdicts only from complete evidence.** A pass requires a record proving every required
+      combination, station and reinforcement layer was present. A record with missing evidence
+      can only produce a refusal ([#2442](https://github.com/lambdaclass/stabileo/issues/2442),
+      [#2355](https://github.com/lambdaclass/stabileo/issues/2355)).
+   4. **One canonical model, and invariance on every transformation.** Load, restore and import
+      go through one parser that produces a single canonical form. It refuses conflicting fields
+      such as the `my`/`mz` aliases. Each night, compare solves across a corpus of saved projects
+      before and after remesh, member reversal, rotation, restore and save/open.
+
+   Items 2 to 4 are part of moving design and loads to Rust and Option B, the shared 2D/3D kernel.
+   Item 1 proceeds independently.
+3. **Review affected designs after the RC containment.** [#2338](https://github.com/lambdaclass/stabileo/pull/2338)
    blocks shear, torsion and seismic hoop checks where the evidence is insufficient.
    Re-run previously certified designs and review the governing cuts and drawings.
    [SA-2026-091](../advisories/SA-2026-091-rc-torsion-shear-verification.md) gives the affected
    checks and follow-up. The underlying design fixes remain open. The 0.6.2 results changes
    shipped on 2026-11-18. See the [release notes](../releases/v0.6.2.md) for earlier re-checks.
    Simplified Chinese shipped in [#2360](https://github.com/lambdaclass/stabileo/pull/2360).
-3. **Audit the design and load layer.** Wave 1 has reported the load-generation and concrete
+4. **Audit the design and load layer.** Wave 1 has reported the load-generation and concrete
    findings below; keep each open until its correction or justified refusal is verified.
    Wave 2 covers design dispatch, steel welds and Cb, detailing and EC2.
    Cover CIRSOC 201, 301 and 104, EC3 and the other-code dispatcher, and every load generator. Each check gets an independent
    worked example from a published source, both sides of every limit, and a negative case.
-4. **Invariance tests for design and loads, run nightly.** Transforming a model into a physically
+5. **Invariance tests for design and loads, run nightly.** Transforming a model into a physically
    equivalent one must give equivalent answers: relabelling nodes, members or combinations and
    reordering combinations leave every design ratio and generated load unchanged; a change of units
    converts them exactly; rotating, translating or mirroring the whole model together with its
    load-defining directions (wind, seismic, gravity) transforms load components accordingly and
    leaves design ratios unchanged. Gravity-type loads such as snow do not depend on the building's
    plan orientation. The solver already runs these relations; the design layer must too.
-5. **Keep design completeness mandatory.** The shared gate for
+6. **Keep design completeness mandatory.** The shared gate for
    [#2096](https://github.com/lambdaclass/stabileo/issues/2096) is done in
    [#2173](https://github.com/lambdaclass/stabileo/pull/2173): missing combinations, members and
    declared stations refuse before design or certification. Audit every new dispatcher and
    demand adapter against that invariant; complete inputs must retain their answers.
-6. **One testing system, in `testing/`, with its own roadmap.** Phases 1 and 2 are done in
+7. **One testing system, in `testing/`, with its own roadmap.** Phases 1 and 2 are done in
    [#2165](https://github.com/lambdaclass/stabileo/pull/2165) and
    [#2167](https://github.com/lambdaclass/stabileo/pull/2167): standalone differential, symbolic,
    fuzz and nightly tools, verification documents and the testing backlog now live there.
@@ -117,10 +148,10 @@ metamorphic and differential tests; this layer has had almost none. The order be
    - **Fault injection** (NaN, infinity, solver failure, missing engine, out of memory) must refuse,
      never fall back silently ([#394](https://github.com/lambdaclass/stabileo/issues/394)), and
      full condition coverage for certificates, design checks and the completeness gate.
-7. **Triage the nightly candidates.** The November 15 snapshot had 112 open wrong-result
+8. **Triage the nightly candidates.** The November 15 snapshot had 112 open wrong-result
    candidates from nightly runs; earlier batches collapsed to a few root causes. Each one closes with a fix, a refusal, a
    duplicate link, or evidence that the oracle was wrong.
-8. **Remaining engine audits:**
+9. **Remaining engine audits:**
    - [#458](https://github.com/lambdaclass/stabileo/issues/458) and
      [#762](https://github.com/lambdaclass/stabileo/issues/762): replay against the linear
      stability gate ([#1753](https://github.com/lambdaclass/stabileo/pull/1753)).
@@ -141,25 +172,25 @@ metamorphic and differential tests; this layer has had almost none. The order be
    - Older findings with no containment yet (MITC9 on twisted coarse meshes, CIRSOC 201
      `flexure_at`, Muy not amplified for slender columns, edge-beam slab torque): section 3,
      "Older wrong-result findings".
-9. **Follow-ups:** [#2077](https://github.com/lambdaclass/stabileo/issues/2077),
-   [#2078](https://github.com/lambdaclass/stabileo/issues/2078),
-   [#2073](https://github.com/lambdaclass/stabileo/issues/2073) and
-   [#2085](https://github.com/lambdaclass/stabileo/issues/2085). Also the regression-audit replay
-   of [#1946](https://github.com/lambdaclass/stabileo/pull/1946) and the deferred reviews
-   [#1997](https://github.com/lambdaclass/stabileo/issues/1997) to
-   [#2002](https://github.com/lambdaclass/stabileo/issues/2002). A candidate closes only with a
-   correct answer or a justified refusal; a warning alone does not establish correctness.
-10. **Conservative false refusals,** kept visible behind the wrong results above:
-   [#1951](https://github.com/lambdaclass/stabileo/issues/1951) and
-   [#1956](https://github.com/lambdaclass/stabileo/issues/1956).
-   [#1996](https://github.com/lambdaclass/stabileo/issues/1996) is decided: staged removal of a
-   loaded member keeps refusing.
-11. **Plastic collapse invariance:** [#1040](https://github.com/lambdaclass/stabileo/issues/1040)
-   and [#972](https://github.com/lambdaclass/stabileo/issues/972). The reported factors were
-   slightly conservative, not unsafe. The exact-bounds approach in
-   [#2084](https://github.com/lambdaclass/stabileo/pull/2084) is parked because it made the check
-   about three times slower and refused PRO examples that solve today; it needs a new approach.
-12. **Remove whole classes of defects:**
+10. **Follow-ups:** [#2077](https://github.com/lambdaclass/stabileo/issues/2077),
+    [#2078](https://github.com/lambdaclass/stabileo/issues/2078),
+    [#2073](https://github.com/lambdaclass/stabileo/issues/2073) and
+    [#2085](https://github.com/lambdaclass/stabileo/issues/2085). Also the regression-audit replay
+    of [#1946](https://github.com/lambdaclass/stabileo/pull/1946) and the deferred reviews
+    [#1997](https://github.com/lambdaclass/stabileo/issues/1997) to
+    [#2002](https://github.com/lambdaclass/stabileo/issues/2002). A candidate closes only with a
+    correct answer or a justified refusal; a warning alone does not establish correctness.
+11. **Conservative false refusals,** kept visible behind the wrong results above:
+    [#1951](https://github.com/lambdaclass/stabileo/issues/1951) and
+    [#1956](https://github.com/lambdaclass/stabileo/issues/1956).
+    [#1996](https://github.com/lambdaclass/stabileo/issues/1996) is decided: staged removal of a
+    loaded member keeps refusing.
+12. **Plastic collapse invariance:** [#1040](https://github.com/lambdaclass/stabileo/issues/1040)
+    and [#972](https://github.com/lambdaclass/stabileo/issues/972). The reported factors were
+    slightly conservative, not unsafe. The exact-bounds approach in
+    [#2084](https://github.com/lambdaclass/stabileo/pull/2084) is parked because it made the check
+    about three times slower and refused PRO examples that solve today; it needs a new approach.
+13. **Remove whole classes of defects:**
     - one shared bounded-arithmetic layer for every rounding certificate and admission check;
     - required test helpers, plus a lint against vacuous checks: assert counts before values, and
       outcomes before diagnostics;
@@ -173,7 +204,7 @@ metamorphic and differential tests; this layer has had almost none. The order be
     - nightly bug finding on a dedicated machine, with a liveness check from outside that machine
       that alerts when a night is missed;
     - a release after each advisory.
-13. **Move the design and load layer from TypeScript to Rust, then prove its core properties.**
+14. **Move the design and load layer from TypeScript to Rust, then prove its core properties.**
     The recent design, load and result-recovery defects show the gap outside the engine's
     certificates, fuzzing and Kani harnesses. Shared Rust interior recovery has landed in
     [#2170](https://github.com/lambdaclass/stabileo/pull/2170). Continue in this order:
@@ -184,7 +215,7 @@ metamorphic and differential tests; this layer has had almost none. The order be
     ([#392](https://github.com/lambdaclass/stabileo/issues/392)); with no silent TypeScript
     fallback ([#394](https://github.com/lambdaclass/stabileo/issues/394)). Each moved piece gets the
     formal checks listed under [testing/ROADMAP.md, Solver and proof depth item 1](../../testing/ROADMAP.md#solver-and-proof-depth).
-14. **How changes land:**
+15. **How changes land:**
     - every pull request, from any author, gets both reviews when it opens, not only inside a
       later integration;
     - a pull request that changes shared model paths (meshing, supports, loads, design dispatch) is
@@ -192,7 +223,7 @@ metamorphic and differential tests; this layer has had almost none. The order be
     - a soundness pull request changes one root cause; when reviews keep finding new defects, the
       proven part ships and the rest splits off;
     - pull requests stay small: one root cause, one advisory.
-15. **Before switching on features that ship off:**
+16. **Before switching on features that ship off:**
     - [#2161](https://github.com/lambdaclass/stabileo/issues/2161) closes before the Tools or
       legal switches turn on (Mohr precision near hydrostatic stress, a plot tick hang, legal-link
       locales);
@@ -201,10 +232,10 @@ metamorphic and differential tests; this layer has had almost none. The order be
       are in flight behind switches that are off in production.
     - [#1929](https://github.com/lambdaclass/stabileo/pull/1929) stays held until its review
       findings are fixed.
-16. **Shell formulation fixes:** turn the MITC4 and MITC9 warnings and refusals
+17. **Shell formulation fixes:** turn the MITC4 and MITC9 warnings and refusals
     ([#798](https://github.com/lambdaclass/stabileo/issues/798),
     [#1057](https://github.com/lambdaclass/stabileo/issues/1057)) into correct answers.
-17. **Then unify 2D and 3D.** The design inventory and projection plan are in
+18. **Then unify 2D and 3D.** The design inventory and projection plan are in
     [#1781](https://github.com/lambdaclass/stabileo/pull/1781). Don't merge a broad kernel change
     ahead of the bug fixes and their regression evidence.
 
@@ -473,6 +504,8 @@ wrong-result-candidate --limit 1000 --json number`. It is the replay inventory, 
 count or the sum of cause rows. The live cause links include subsequent closures and new findings.
 
 ### In flight
+
+- **Independent load and geometry accounting on every solve.** In progress.
 
 The open pull requests into main, apart from Dependabot updates, rewritten by `make roadmap.inflight`.
 
