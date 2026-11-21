@@ -362,6 +362,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
     }
     if (t === 'nodal' && planarNodalMoment(d) === null) f.add('invalidPlanarNodalMomentAliases');
     if (t === 'pointOnElement') {
+      if (planarPointMoment(d) === null) f.add('legacyPlanarPointCoupleAliases');
       const e = elementById.get(d.elementId as number);
       const i = e && nodeById.get(e.nodeI), j = e && nodeById.get(e.nodeJ);
       if (i && j && (i.z ?? 0) !== (j.z ?? 0) && planarPointProjectionTooShort(j.x - i.x, j.y - i.y)) {

@@ -1191,11 +1191,16 @@ function createModelStore() {
 
   function copyPersistedLoad({ type, data }: { type: string; data: object }): ModelSnapshot['loads'][number] {
     const copy: Record<string, unknown> = { ...data };
+    if (type !== 'nodal' && type !== 'pointOnElement') return { type, data: copy };
+    for (const field of ['my', 'mz']) {
+      const value = copy[field];
+      if (value === null || (typeof value === 'number' && !Number.isFinite(value))) copy[field] = 'NaN';
+    }
     if (type === 'nodal') {
       copy.fz = canonicalLoadFz(copy);
       const moment = planarNodalMoment(copy);
       if (moment !== null) writePlanarMoment(copy, moment ?? 0);
-    } else if (type === 'pointOnElement') {
+    } else {
       const moment = planarPointMoment(copy);
       if (moment !== null) writePlanarMoment(copy, moment);
     }

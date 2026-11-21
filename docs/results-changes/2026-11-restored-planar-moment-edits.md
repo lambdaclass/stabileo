@@ -6,6 +6,8 @@ Restoring or saving a planar point couple or nodal moment keeps a single `my` fi
 
 An empty or invalid edit preserves the original load. Analysis still refuses a conflicting record, and a valid single-field record keeps its previous moment. Enter a finite value to replace the stored moment, including an explicit zero to clear it.
 
+Opening a project with an overflowing planar moment, such as a JSON value of `1e400`, previously stopped analysis. Saving could turn the field into `null`. After reopening, analysis could succeed with the couple missing. Restoring now keeps an explicit invalid value through save and reopen, and analysis identifies the affected load until a finite moment is entered. An existing `null` moment field triggers the same refusal because the original value cannot be recovered. Omitted moment fields retain their usual meaning.
+
 For projects saved after a zero edit in an affected version, the stored fields can be identical to valid legacy input with one nonzero alias. Check the intended load, re-enter its moment, and rerun the affected analyses and downstream design checks.
 
 [Issue #2459](https://github.com/lambdaclass/stabileo/issues/2459)

@@ -11,6 +11,7 @@ import type { AnalysisResults } from '../../engine/types';
 import type { AnalysisResults3D } from '../../engine/types-3d';
 import { solvePDelta } from '../../engine/wasm-solver';
 import { t } from '../../i18n';
+import { modelFeatures } from '../../provenance/model-features';
 import { historyStore, modelStore, uiStore } from '..';
 import { deserializeProject, loadFile, loadProject, serializeProject } from '../file';
 import { recheckStore } from '../recheck.svelte';
@@ -312,14 +313,12 @@ for (const mode of ['2d', '3d'] as const) {
   }
 }
 
-const knownWrong = process.env.RUN_KNOWN_WRONG === '2459' ? it : it.skip;
-
 for (const mode of ['2d', '3d', 'pro', 'pdelta'] as const) {
   for (const type of ['pointOnElement', 'nodal'] as const) {
     for (const [field, input] of [
       ['my', '1e400'], ['mz', '-1e400'], ['my', 'null'], ['mz', 'null'], ['my', NaN], ['mz', NaN],
     ] as const) {
-      knownWrong(`known wrong result: #2459 keeps invalid ${type} ${field}=${input} refusing after save and reopen (${mode})`, async () => {
+      it(`#2459 keeps invalid ${type} ${field}=${input} refusing after save and reopen (${mode})`, async () => {
         const member = cantilever(mode);
         const nodeId = modelStore.model.elements.get(member)!.nodeJ;
         const fields = type === 'pointOnElement' ? { elementId: member, a: position, p: 0 } : { nodeId, fx: 0, fz: 0 };
@@ -354,6 +353,9 @@ for (const mode of ['2d', '3d', 'pro', 'pdelta'] as const) {
 
         expect(hasNonlinearBehaviour(modelStore.model)).toBe(mode === 'pro');
         await expectRefusal('opened');
+        expect.soft(modelFeatures(modelStore.snapshot(), { storedLoads: project.snapshot.loads })).toContain(
+          type === 'pointOnElement' ? 'legacyPlanarPointCoupleAliases' : 'invalidPlanarNodalMomentAliases',
+        );
         const saved = serializeProject();
         expect.soft(JSON.parse(saved).snapshot.loads[0].data).toStrictEqual(modelStore.snapshot().loads[0]?.data);
         expect(deserializeProject(saved)).toBe(true);
