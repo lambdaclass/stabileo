@@ -7132,6 +7132,7 @@ const hu: Translations = {
   "design.error.solveFirst": "A méretezési igénybevételek kiszámításához először számítsa ki a modellt.",
   "design.error.noCombinations": "Méretezés előtt adjon meg legalább egy teherkombinációt.",
   "design.error.noDemands": "A jelenlegi eredményekből nem nyerhetők ki méretezési igénybevételek.",
+  "design.error.incompleteSpanStations": "A méretezéshez minden gerendamező állomásain szükség van az összes aktív kombináció metszeti igénybevételeire.",
   "design.error.noLinearCombination": "Nincs aktív lineáris kombináció: az SRSS és az ABS kombinációk előjel nélküli nagyságok, és nem méretezhetők rájuk. Aktiváljon egy lineáris kombinációt.",
   "design.error.combinationsUnsolved": "A kombinációk meg vannak adva, de egyikhez sincs eredmény, így csak a tényezővel nem szorzott terhek állnak rendelkezésre, és azokra nem történik méretezés. A kombinációkkal végzett teljes számítás megadja az eredményeket, vagy megmondja, miért hagyta ki őket.",
   "design.error.noAdapter": "A kiválasztott előíráshoz nincs méretezési szabvány-illesztő regisztrálva.",

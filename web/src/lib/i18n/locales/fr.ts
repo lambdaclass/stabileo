@@ -7430,6 +7430,7 @@ const fr: Translations = {
   'design.error.solveFirst': 'Calculez d\'abord le modèle pour obtenir les sollicitations de dimensionnement.',
   'design.error.noCombinations': 'Définissez au moins une combinaison de charges avant de dimensionner.',
   'design.error.noDemands': 'Aucune sollicitation de dimensionnement n\'a pu être extraite des résultats actuels.',
+  'design.error.incompleteSpanStations': 'Le dimensionnement exige les efforts aux stations de chaque travée de poutre pour toutes les combinaisons actives.',
   'design.error.noLinearCombination': 'Aucune combinaison linéaire n\'est active : les combinaisons SRSS et ABS sont des grandeurs sans signe et ne servent pas au dimensionnement. Activez une combinaison linéaire.',
   'design.error.combinationsUnsolved': 'Des combinaisons sont définies et aucune n\'a de résultats : il n\'y a donc que les charges non pondérées, et rien n\'est dimensionné avec elles. Un calcul complet avec les combinaisons donne leurs résultats, ou indique pourquoi il les a écartées.',
   'design.error.noAdapter': 'Aucun adaptateur de norme n\'est enregistré pour la norme sélectionnée.',

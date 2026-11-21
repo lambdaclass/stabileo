@@ -7439,6 +7439,7 @@ const tr: Translations = {
   'design.error.solveFirst': 'Tasarım tesirlerini hesaplamak için önce modeli çözün.',
   'design.error.noCombinations': 'Tasarlamadan önce en az bir yük kombinasyonu tanımlayın.',
   'design.error.noDemands': 'Mevcut sonuçlardan tasarım tesiri çıkarılamadı.',
+  'design.error.incompleteSpanStations': 'Tasarım için her kiriş açıklığındaki istasyonlarda tüm etkin birleşimlerin kesit tesirleri gereklidir.',
   'design.error.noLinearCombination': 'Etkin doğrusal kombinasyon yok: SRSS ve ABS kombinasyonları işaretsiz büyüklüklerdir ve tasarımda kullanılmaz. Doğrusal bir kombinasyonu etkinleştirin.',
   'design.error.combinationsUnsolved': 'Kombinasyonlar tanımlı ama hiçbirinin sonucu yok; yalnızca katsayısız yükler var ve bunlarla hiçbir şey tasarlanmıyor. Kombinasyonlarla tam bir çözüm sonuçlarını verir veya onları neden dışarıda bıraktığını söyler.',
   'design.error.noAdapter': 'Seçili yönetmelik için kayıtlı bir tasarım yönetmeliği bağdaştırıcısı yok.',

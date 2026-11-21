@@ -7594,6 +7594,7 @@ const zh: Translations = {
   "design.error.solveFirst": "请先求解模型以计算设计内力需求。",
   "design.error.noCombinations": "设计前请至少定义一个荷载组合。",
   "design.error.noDemands": "无法从当前结果中提取设计内力需求。",
+  "design.error.incompleteSpanStations": "设计需要每个梁跨各测站在所有启用组合下的内力。",
   "design.error.noLinearCombination": "没有启用任何线性组合：SRSS 和 ABS 组合是不带符号的量值，不用于设计。请启用一个线性组合。",
   "design.error.combinationsUnsolved": "已定义荷载组合，但均无结果，因此只有未乘系数的荷载，无法据此进行设计。使用这些组合进行完整求解后会给出结果，或说明将其排除的原因。",
   "design.error.noAdapter": "所选规范没有注册设计规范适配器。",

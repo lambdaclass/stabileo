@@ -7889,6 +7889,7 @@ const en: Record<string, string> = {
   'design.error.solveFirst': 'Solve the model first to compute design demands.',
   'design.error.noCombinations': 'Define at least one load combination before designing.',
   'design.error.noDemands': 'No design demands could be extracted from the current results.',
+  'design.error.incompleteSpanStations': 'Design requires station forces for every active combination along each beam span.',
   'design.error.noLinearCombination': 'No linear combination is active: SRSS and ABS combinations are magnitudes without a sign and are not designed for. Activate a linear combination.',
   'design.error.combinationsUnsolved': 'Combinations are defined and none of them has results, so there are only the unfactored loads, and nothing is designed over them. A full solve with the combinations gives their results, or says why it left them out.',
   'design.error.noAdapter': 'No design-code adapter is registered for the selected code.',

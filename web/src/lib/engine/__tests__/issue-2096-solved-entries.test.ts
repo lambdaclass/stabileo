@@ -23,7 +23,6 @@ const model = {
   supports: new Map([[1, { id: 1, nodeId: 1, type: 'fixed' }]]),
 } satisfies AutoVerifyModelData;
 afterEach(() => { setCompactStationTransfer(true); vi.restoreAllMocks(); });
-const issue2403 = process.env.RUN_KNOWN_WRONG === '2403' ? it : it.skip;
 for (const spatial of [false, true]) for (const nonlinear of [false, true]) for (const compact of [false, true]) {
   const solveModel = (source = model) => {
     const loadedNode = Math.max(...source.nodes.keys());
@@ -92,9 +91,10 @@ for (const spatial of [false, true]) for (const nonlinear of [false, true]) for 
       ]),
     }));
   });
-  issue2403(`known wrong result: #2403 refuses a missing design-span station after a solve ${label}`, () => {
+  it(`#2403 refuses a missing design-span station after a solve ${label}`, () => {
     const spanModel = {
       ...model,
+      sections: new Map([...model.sections].map(([id, section]) => [id, { ...section, rotation: 0 }])),
       nodes: new Map([1, 2, 3].map(id => [id, { id, x: 2 * (id - 1), y: 0, z: 0 }])),
       elements: new Map([1, 2].map(id => [id, { ...model.elements.get(1)!, id, nodeI: id, nodeJ: id + 1 }])),
     };

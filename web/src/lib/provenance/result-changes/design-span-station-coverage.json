@@ -1,0 +1,41 @@
+{
+  "id": "design-span-station-coverage",
+  "date": "2026-11-21",
+  "prs": [
+    2403
+  ],
+  "area": "design",
+  "when": {
+    "any": [
+      "concreteMembers"
+    ]
+  },
+  "quantities": [
+    "member",
+    "rc"
+  ],
+  "title": {
+    "en": "Complete station grids for design spans",
+    "es": "Grillas completas de estaciones para el diseño de vanos",
+    "pt": "Malhas completas de estações para o dimensionamento de vãos",
+    "de": "Vollständige Stationsraster für die Trägerbemessung",
+    "fr": "Grilles de stations complètes pour le dimensionnement des travées",
+    "tr": "Açıklık tasarımı için eksiksiz istasyon ağı",
+    "zh": "跨段设计要求完整的测站网格",
+    "hu": "Teljes állomásrács a gerendamezők méretezéséhez"
+  },
+  "explanation": {
+    "en": "Beam-span design requires every active combination to supply forces at each declared station. Missing station forces stop design.",
+    "es": "El diseño de vanos de vigas requiere esfuerzos en cada estación declarada para todas las combinaciones activas. Si faltan esfuerzos en alguna estación, el diseño se detiene.",
+    "pt": "O dimensionamento de vãos de vigas exige esforços em cada estação declarada para todas as combinações ativas. A falta de esforços numa estação interrompe o dimensionamento.",
+    "de": "Für die Bemessung von Trägerfeldern müssen für jede aktive Kombination Schnittgrößen an allen deklarierten Stationen vorliegen. Bei fehlenden Schnittgrößen wird die Bemessung abgebrochen.",
+    "fr": "Le dimensionnement des travées exige les efforts à chaque station déclarée pour toutes les combinaisons actives. Des efforts manquants interrompent le dimensionnement.",
+    "tr": "Kiriş açıklığı tasarımı, her etkin birleşim için beyan edilen tüm istasyonlarda kesit tesirlerini gerektirir. Eksik kesit tesirleri tasarımı durdurur.",
+    "zh": "梁跨设计要求每个启用组合在所有声明的测站上提供内力。测站内力缺失时，设计将停止。",
+    "hu": "A gerendamezők méretezéséhez minden megadott állomáson szükség van az összes aktív kombináció igénybevételeire. Hiányzó igénybevételek esetén a méretezés leáll."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-design-span-station-coverage.md",
+    "heading": "Complete station grids for design spans"
+  }
+}

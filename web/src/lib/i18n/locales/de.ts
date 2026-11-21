@@ -7430,6 +7430,7 @@ const de: Translations = {
   'design.error.solveFirst': 'Berechnen Sie zuerst das Modell, um die Bemessungsschnittgrößen zu ermitteln.',
   'design.error.noCombinations': 'Definieren Sie mindestens eine Lastkombination, bevor Sie bemessen.',
   'design.error.noDemands': 'Aus den aktuellen Ergebnissen konnten keine Bemessungsschnittgrößen ermittelt werden.',
+  'design.error.incompleteSpanStations': 'Für die Bemessung werden an den Stationen jedes Trägerfelds Schnittgrößen für alle aktiven Kombinationen benötigt.',
   'design.error.noLinearCombination': 'Keine lineare Kombination ist aktiv: SRSS- und ABS-Kombinationen sind Beträge ohne Vorzeichen und werden nicht für die Bemessung verwendet. Aktivieren Sie eine lineare Kombination.',
   'design.error.combinationsUnsolved': 'Es sind Kombinationen definiert, aber keine hat Ergebnisse; es gibt also nur die Lasten ohne Teilsicherheitsbeiwerte, und damit wird nichts bemessen. Eine vollständige Berechnung mit den Kombinationen liefert ihre Ergebnisse oder gibt an, warum sie ausgelassen wurden.',
   'design.error.noAdapter': 'Für die gewählte Norm ist kein Bemessungsadapter registriert.',

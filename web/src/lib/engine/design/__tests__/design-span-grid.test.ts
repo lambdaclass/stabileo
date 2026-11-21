@@ -9,7 +9,7 @@ const structure = {
   elements: new Map([1, 2, 3].map(id => [id, { id, nodeI: id - 1, nodeJ: id, type: 'frame', sectionId: 1, materialId: 1 }])),
   supports: new Map([0, 3].map(nodeId => [nodeId, { nodeId, type: 'pinned' }])),
   materials: new Map([[1, { id: 1, name: 'Concrete', fc: 30 }]]),
-  sections: new Map([[1, { id: 1, name: 'Beam', b: 0.3, h: 0.5 }]]),
+  sections: new Map([[1, { id: 1, name: 'Beam', b: 0.3, h: 0.5, rotation: 0 }]]),
 };
 
 const span = designSpans(structure, () => true)[0]!;
@@ -41,10 +41,8 @@ it('reports the governing moment with both combination grids complete', () => {
   });
 });
 
-const issue2403 = process.env.RUN_KNOWN_WRONG === '2403' ? it : it.skip;
-
 for (const omittedCombo of [1, 2]) {
-  issue2403(`known wrong result: #2403 refuses a declared midspan omission from combination ${omittedCombo}`, () => {
+  it(`#2403 refuses a declared midspan omission from combination ${omittedCombo}`, () => {
     expect(() => {
       const merged = mergeSpanStations(structure, span, id => pieceStations(id, omittedCombo))!;
       extractGoverningDemands(merged);
@@ -57,7 +55,7 @@ for (const omittedCombo of [1, 2]) {
   });
 }
 
-issue2403('known wrong result: #2403 refuses a missing piece endpoint even when the adjacent piece supplies the same span station', () => {
+it('#2403 refuses a missing piece endpoint even when the adjacent piece supplies the same span station', () => {
   expect(() => {
     const merged = mergeSpanStations(structure, span, id => pieceStations(id, 2, 0))!;
     extractGoverningDemands(merged);
@@ -69,7 +67,7 @@ issue2403('known wrong result: #2403 refuses a missing piece endpoint even when 
   }));
 });
 
-issue2403('known wrong result: #2403 refuses to publish grouped contexts when a combination lacks the middle piece grid', () => {
+it('#2403 refuses to publish grouped contexts when a combination lacks the middle piece grid', () => {
   const stations = new Map(span.elements.map(id => {
     const source = pieceStations(id);
     return [id, id === 2 ? { ...source, comboResults: source.comboResults.filter(c => c.comboId !== 2) } : source];

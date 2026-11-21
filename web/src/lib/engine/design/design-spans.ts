@@ -1,4 +1,5 @@
 import { tp } from '../../i18n';
+import { CompleteDemandSet, type ScopedDemand } from '../complete-demand-set';
 import { completeMemberDemands } from '../member-demand-gate';
 import { ConcurrentDemand } from '../concurrent-demand';
 /**
@@ -230,28 +231,42 @@ export function mergeSpanStations(
   const ref = spanAxes(model, span);
   if (!ref) return null;
   const byCombo = new Map<number, { comboId: number; comboName: string; stations: StationForces[] }>();
+  const expectedCombinationIds = new Set<number>();
+  const declaredPieces: { elementId: number; stationTs: number[] }[] = [];
+  const spanGrid = new Set<number>();
+  const rows: ScopedDemand[] = [];
   for (const [k, id] of span.elements.entries()) {
     const st = stationsOf(id);
     if (!st || st.comboResults.length === 0) return null;
     const ax = axesOf(model, id), L = span.lengths[k]!, off = span.offsets[k]!;
+    const spanX = (t: number) => off + L * (span.reversed[k] ? 1 - t : t);
+    if (st.stationTs.length) declaredPieces.push({ elementId: id, stationTs: st.stationTs });
+    for (const t of st.stationTs) spanGrid.add(spanX(t) / span.length);
+    for (const comboId of st.expectedCombinationIds ?? []) expectedCombinationIds.add(comboId);
     const s = Math.sign(dot(ax.ex, ref.ex)) || 1;
     // Rows: the span's axes in the piece's (R_span·R_pieceᵀ), times s.
     const T = [ref.ex, ref.ey, ref.ez].map((r) => [dot(r, ax.ex), dot(r, ax.ey), dot(r, ax.ez)].map((v) => s * v));
     const turn = (a: number, b: number, c: number) => T.map((row) => row[0]! * a + row[1]! * b + row[2]! * c);
     for (const cr of st.comboResults) {
+      expectedCombinationIds.add(cr.comboId);
       const acc = byCombo.get(cr.comboId) ?? { comboId: cr.comboId, comboName: cr.comboName, stations: [] };
       for (const f of cr.stations) {
-        const along = span.reversed[k] ? L * (1 - f.t) : L * f.t;
+        rows.push({ elementId: id, comboId: cr.comboId, stationT: f.t });
+        const x = spanX(f.t);
         const [n, vy, vz] = turn(f.n, f.vy, f.vz);
         const [torsion, my, mz] = turn(f.torsion, f.my, f.mz);
-        acc.stations.push({ t: (off + along) / span.length, x: off + along, n: n!, vy: vy!, vz: vz!, my: my!, mz: mz!, torsion: torsion! });
+        acc.stations.push({ t: x / span.length, x, n: n!, vy: vy!, vz: vz!, my: my!, mz: mz!, torsion: torsion! });
       }
       byCombo.set(cr.comboId, acc);
     }
   }
+  CompleteDemandSet.require({
+    combinations: [...expectedCombinationIds].map(comboId => ({
+      comboId, comboName: byCombo.get(comboId)?.comboName, members: declaredPieces,
+    })),
+  }, rows);
   const comboResults = [...byCombo.values()].map((c) => ({ ...c, stations: c.stations.sort((a, b) => a.t - b.t) }));
-  const scopes = comboResults.map(c => new Set(c.stations.map(s => s.t)));
-  const stationTs = [...(scopes[0] ?? [])].filter(t => scopes.every(scope => scope.has(t)));
+  const stationTs = [...spanGrid].sort((a, b) => a - b);
   return { elementId: span.representative, length: span.length, stationTs, comboResults };
 }
 
