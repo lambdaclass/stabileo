@@ -21,7 +21,7 @@ function cantilevers(length: number): [SolverInput, SolverInput3D] {
     nodes: new Map([[1, { id: 1, x: 0, z: 0 }], [2, { id: 2, x: length, z: 0 }]]),
     materials: new Map([[1, { id: 1, e: 200000, nu: 0.3 }]]),
     sections: new Map([[1, { id: 1, a: 0.01, iz: 0.0001 }]]),
-    elements: new Map([[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1 }]]),
+    elements: new Map([[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }]]),
     supports: new Map([[1, { id: 1, nodeId: 1, type: 'fixed' }]]),
     loads: [],
   };
