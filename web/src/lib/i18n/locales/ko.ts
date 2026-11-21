@@ -3465,6 +3465,7 @@ const ko: Translations = {
   'design.error.solveFirst': '설계 응력을 계산하려면 먼저 모델을 해석하세요.',
   'design.error.noCombinations': '설계 전에 최소 하나의 하중 조합을 정의하세요.',
   'design.error.noDemands': '현재 결과에서 설계 응력을 추출할 수 없습니다.',
+  'design.error.incompleteSpanStations': '설계하려면 모든 보 경간의 각 평가 지점에서 활성화된 모든 하중 조합에 대한 단면력이 필요합니다.',
   'design.error.noLinearCombination': '활성화된 선형 조합이 없습니다. SRSS 및 ABS 조합은 부호 없는 크기이며 설계에 사용되지 않습니다. 선형 조합을 활성화하세요.',
   'design.error.combinationsUnsolved': '조합이 정의되어 있지만 어느 것에도 결과가 없어 계수를 곱하지 않은 하중뿐이며, 이것으로는 아무것도 설계하지 않습니다. 조합을 포함한 전체 해석이 결과를 주거나, 조합을 제외한 이유를 알려 줍니다.',
   'design.error.noAdapter': '선택한 규준에 등록된 설계 어댑터가 없습니다.',

@@ -1,0 +1,32 @@
+{
+  "id": "steel-diagram-moment-gradient",
+  "date": "2026-11-21",
+  "prs": [2403],
+  "area": "design",
+  "when": { "any": ["steelMembers"] },
+  "quantities": ["steel", "member"],
+  "title": {
+    "en": "Equilibrium moments in steel design",
+    "es": "Momentos de equilibrio en el diseño de acero",
+    "pt": "Momentos de equilíbrio no dimensionamento de aço",
+    "de": "Gleichgewichtsmomente bei der Stahlbemessung",
+    "fr": "Moments d’équilibre pour le dimensionnement de l’acier",
+    "tr": "Çelik tasarımında denge momentleri",
+    "zh": "钢结构设计采用平衡弯矩",
+    "hu": "Egyensúlyi nyomatékok az acélméretezésben"
+  },
+  "explanation": {
+    "en": "Steel checks include bending peaks between regular stations and use the solved moments at the ends and quarter points of each known unbraced segment for Cb. Rerun steel design and review the governing checks.",
+    "es": "Las verificaciones de acero incluyen los máximos de flexión entre estaciones regulares. Para Cb usan los momentos de la solución en los extremos y cuartos de cada tramo sin arriostrar conocido. Repita el diseño y revise las verificaciones determinantes.",
+    "pt": "As verificações de aço incluem os picos de flexão entre estações regulares. Para Cb usam os momentos da análise nas extremidades e nos quartos de cada trecho destravado conhecido. Refaça o dimensionamento e revise as verificações determinantes.",
+    "de": "Die Stahlbemessung berücksichtigt Biegespitzen zwischen den regulären Stationen. Für Cb verwendet sie die berechneten Momente an den Enden und Viertelpunkten jedes bekannten ungestützten Abschnitts. Führen Sie die Bemessung erneut aus und prüfen Sie die maßgebenden Nachweise.",
+    "fr": "Les vérifications de l’acier incluent les pics de flexion entre les stations régulières. Pour Cb, elles utilisent les moments calculés aux extrémités et aux quarts de chaque tronçon non maintenu connu. Relancez le dimensionnement et revoyez les vérifications déterminantes.",
+    "tr": "Çelik kontrolleri düzenli istasyonlar arasındaki eğilme tepe değerlerini içerir. Cb için konumu bilinen her yanal mesnetsiz parçanın uç ve çeyrek noktalarındaki analiz momentleri kullanılır. Çelik tasarımını yeniden çalıştırın ve belirleyici kontrolleri inceleyin.",
+    "zh": "钢构件验算计入常规计算站之间的弯矩峰值。计算 Cb 时采用每个已知无侧向支撑段端点和四分点处的分析弯矩。请重新运行钢结构设计并复核控制验算。",
+    "hu": "Az acélellenőrzések figyelembe veszik a szabályos állomások közötti hajlítási csúcsokat. A Cb számítás az ismert oldalirányban meg nem támasztott szakaszok végein és negyedpontjain számított nyomatékokat használja. Futtassa újra az acélméretezést, és ellenőrizze a mértékadó eredményeket."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-steel-diagram-moment-gradient.md",
+    "heading": "Steel design uses equilibrium moments for bending and Cb"
+  }
+}

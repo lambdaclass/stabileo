@@ -845,9 +845,11 @@ pub fn validate_member_load_interval(member: impl std::fmt::Display, length: f64
 }
 
 pub(crate) fn distributed_load_terms(q_i: f64, q_j: f64, a: f64, b: f64, x: f64) -> (f64, f64) {
-    if b <= a || x <= a { return (0.0, 0.0); }
-    let span = b - a;
-    let d = x - a;
+    distributed_load_terms_at_distance(q_i, q_j, b - a, x - a)
+}
+
+pub(crate) fn distributed_load_terms_at_distance(q_i: f64, q_j: f64, span: f64, d: f64) -> (f64, f64) {
+    if span <= 0.0 || d <= 0.0 { return (0.0, 0.0); }
     let s = d.min(span);
     if q_i == q_j {
         let rectangle = d * s;

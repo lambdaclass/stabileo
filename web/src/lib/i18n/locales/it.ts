@@ -3479,6 +3479,7 @@ const it: Translations = {
   'design.error.solveFirst': 'Calcola prima il modello per ottenere le sollecitazioni di progetto.',
   'design.error.noCombinations': 'Definisci almeno una combinazione di carico prima di progettare.',
   'design.error.noDemands': 'Non è stato possibile estrarre sollecitazioni di progetto dai risultati attuali.',
+  'design.error.incompleteSpanStations': 'Il dimensionamento richiede le sollecitazioni in ogni stazione di ciascuna campata della trave per tutte le combinazioni di carico attive.',
   'design.error.noLinearCombination': 'Nessuna combinazione lineare è attiva: le combinazioni SRSS e ABS sono grandezze senza segno e non si usano per il progetto. Attiva una combinazione lineare.',
   'design.error.combinationsUnsolved': 'Ci sono combinazioni definite e nessuna ha risultati, quindi ci sono solo i carichi non fattorizzati, e con quelli non si progetta nulla. Un calcolo completo con le combinazioni ne dà i risultati, o dice perché le ha escluse.',
   'design.error.noAdapter': 'Nessun adattatore normativo è registrato per il codice selezionato.',
