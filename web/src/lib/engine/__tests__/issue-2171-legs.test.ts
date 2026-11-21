@@ -1927,10 +1927,8 @@ for (const spatial of [false, true]) for (const nonlinear of [false, true]) {
   });
 }
 
-const issue2355Round3 = process.env.RUN_KNOWN_WRONG === '2355' ? it : it.skip;
-
 for (const spatial of [false, true]) for (const nonlinear of [false, true]) {
-  issue2355Round3(`known wrong result: #2355 row (c) uses the steel present at the hogging span cut (spatial=${spatial}, nonlinear=${nonlinear})`, () => {
+  it(`#2355 row (c) uses the steel present at the hogging span cut (spatial=${spatial}, nonlinear=${nonlinear})`, () => {
     const L = 4;
     const outer = { count: 2, diameter: 16, row: 0 };
     const inner = { ...outer, count: 4, row: 1 };
@@ -1957,14 +1955,15 @@ for (const spatial of [false, true]) for (const nonlinear of [false, true]) {
 
     for (const drawn of [false, true]) for (const extracted of [false, true]) {
       const check = (hogging: boolean, spanForce: number, cut: readonly [number, number]) => {
+        const drawnInner = cut[0] === 1 ? inner : { ...inner, count: 1 };
         const input = spanForce === force ? (hogging === hoggingUp ? up : down)
           : calc(hogging === hoggingUp ? spanForce : -spanForce);
         const provided: ProvidedReinforcement = drawn ? membersFromLine({
           version: 1, members: [1], lengths: [L],
           bars: [
             { ...outer, id: 'top', face: 'top', role: 'main', from: 0, to: L },
-            { ...inner, id: 'top-start', face: 'top', role: 'main', from: 0, to: cut[0] },
-            { ...inner, id: 'top-end', face: 'top', role: 'main', from: cut[1], to: L },
+            { ...drawnInner, id: 'top-start', face: 'top', role: 'main', from: 0, to: cut[0] },
+            { ...drawnInner, id: 'top-end', face: 'top', role: 'main', from: cut[1], to: L },
             ...bottom.map(layer => ({ ...layer, id: `bottom-${layer.row}`, face: 'bottom' as const, role: 'main' as const, from: 0, to: L })),
           ],
           stirrups: [{ ...hoops, id: 'stirrups', from: 0, to: L }],
@@ -1985,7 +1984,8 @@ for (const spatial of [false, true]) for (const nonlinear of [false, true]) {
       };
       for (const [hogging, demand, expected, status] of [
         [true, force, retained, 'fail'],
-        [true, retained.phiVn - 1, retained, 'ok'],
+        [true, retained.phiVn - 1, retained, 'warn'],
+        [true, retained.phiVn * 0.9, retained, 'ok'],
         [false, force, credited, 'ok'],
       ] as const) {
         const cutouts = drawn ? [[1, 3], [1.3, 1.5]] as const : [[1, 3]] as const;
