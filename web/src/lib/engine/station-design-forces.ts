@@ -1904,6 +1904,7 @@ export function prepareColumnCapacity(input: ColumnCapacitySection,
  */
 function evaluateProvidedReinforcement(
   forSelection: boolean,
+  readMemberData: (() => ReturnType<typeof prepareReinforcementMember>) | undefined,
   elementId: number,
   elementType: 'beam' | 'column' | 'wall',
   provided: ProvidedReinforcement | undefined,
@@ -1959,12 +1960,8 @@ function evaluateProvidedReinforcement(
     worstUtilization: 0, checkedAxes: [], strengthCheckCount: 0,
   });
   if (!provided) return emptyResult('none');
-  const suppliedTuples = stationResult ? ConcurrentDemand.fromStations(stationResult) : demands?.concurrent;
-  requireDemandInventories(suppliedTuples ?? [], elementId);
-  const coverage = demandCoverage({ combinationIds: [...(demands?.expectedCombinationIds ?? []), ...(demands?.demands.map(d => d.comboId) ?? [])],
-    stationTs: demands?.stationTs ?? stationResult?.stationTs }, suppliedTuples);
-  const complete = CompleteDemandSet.require(memberDemandScope([{ elementId, ...coverage }]),
-    (suppliedTuples ?? []).map(demand => ({ elementId, comboId: demand.comboId, stationT: demand.stationT, demand, inventory: demand.inventory })), undefined, [elementId]);
+  const { allTuples, critSections } = readMemberData?.()
+    ?? prepareReinforcementMember(elementId, elementType, demands, section, stationResult, modelData);
 
   const checks: ProvidedRebarCheck[] = [];
   const checkedAxes = new Set<string>();
@@ -2005,15 +2002,6 @@ function evaluateProvidedReinforcement(
     });
   };
 
-  // Compute geometry-aware critical sections for beams
-  let critSections: BeamCriticalSections | undefined;
-  if ((elementType === 'beam' || elementType === 'wall') && section && modelData) {
-    critSections = computeBeamCriticalSections(
-      elementId, modelData.nodes, modelData.elements, modelData.sections, modelData.supports,
-      { b: section.b, h: section.h, cover: section.cover, stirrupDia: section.stirrupDia },
-    ) ?? undefined;
-  }
-
   /*
    * A beam cast with its slab bends as a T or an L when its top is in compression: the block
    * sits in the flange while it fits (the rectangle of width bf, compression steel included),
@@ -2036,9 +2024,7 @@ function evaluateProvidedReinforcement(
     return { ...wide, phiMn: t.phiMn, a: t.a, c: t.c, phi: t.phi, epsilonT: t.epsilonT, isDoubly: false, compYields: false };
   };
 
-  // Collect ALL force tuples from station × combo results for sweeping
   type Tuple = ConcurrentDemand;
-  const allTuples = complete.values.map(r => r.demand);
   let orderedCombos: Tuple[][] | undefined;
   const stationCombos = () => {
     if (orderedCombos) return orderedCombos;
@@ -3591,12 +3577,47 @@ export function transverseSpacingFor(
   });
 }
 
-type ProvidedReinforcementArgs = Parameters<typeof evaluateProvidedReinforcement> extends [boolean, ...infer Args] ? Args : never;
+type ProvidedReinforcementArgs =
+  Parameters<typeof evaluateProvidedReinforcement> extends [boolean, unknown, ...infer Args] ? Args : never;
+
+function prepareReinforcementMember(
+  elementId: ProvidedReinforcementArgs[0], elementType: ProvidedReinforcementArgs[1],
+  demands: ProvidedReinforcementArgs[3], section: ProvidedReinforcementArgs[5],
+  stationResult: ProvidedReinforcementArgs[6], modelData: ProvidedReinforcementArgs[7],
+) {
+  const suppliedTuples = stationResult ? ConcurrentDemand.fromStations(stationResult) : demands?.concurrent;
+  requireDemandInventories(suppliedTuples ?? [], elementId);
+  const coverage = demandCoverage({ combinationIds: [...(demands?.expectedCombinationIds ?? []), ...(demands?.demands.map(d => d.comboId) ?? [])],
+    stationTs: demands?.stationTs ?? stationResult?.stationTs }, suppliedTuples);
+  const complete = CompleteDemandSet.require(memberDemandScope([{ elementId, ...coverage }]),
+    (suppliedTuples ?? []).map(demand => ({ elementId, comboId: demand.comboId, stationT: demand.stationT, demand, inventory: demand.inventory })), undefined, [elementId]);
+
+  let critSections: BeamCriticalSections | undefined;
+  if ((elementType === 'beam' || elementType === 'wall') && section && modelData) {
+    critSections = computeBeamCriticalSections(
+      elementId, modelData.nodes, modelData.elements, modelData.sections, modelData.supports,
+      { b: section.b, h: section.h, cover: section.cover, stirrupDia: section.stirrupDia },
+    ) ?? undefined;
+  }
+
+  return { allTuples: complete.values.map(r => r.demand), critSections };
+}
+
+export function prepareProvidedReinforcementRanker(
+  ...[elementId, elementType, demands, autoDesign, section, stationResult, modelData, options]:
+    ProvidedReinforcementArgs extends [infer Id, infer Kind, unknown, ...infer Rest] ? [Id, Kind, ...Rest] : never
+): (provided: ProvidedReinforcement, bottomReach?: NonNullable<ProvidedReinforcementArgs[8]>['bottomReach']) => ProvidedRebarResult {
+  let memberData: ReturnType<typeof prepareReinforcementMember> | undefined;
+  const readMemberData = () => memberData ??= prepareReinforcementMember(elementId, elementType, demands, section, stationResult, modelData);
+  return (provided, bottomReach) => evaluateProvidedReinforcement(true, readMemberData,
+    elementId, elementType, provided, demands, autoDesign, section, stationResult, modelData,
+    bottomReach ? { ...options, bottomReach } : options);
+}
 
 export function verifyProvidedReinforcement(...args: ProvidedReinforcementArgs): ProvidedRebarResult {
-  return evaluateProvidedReinforcement(false, ...args);
+  return evaluateProvidedReinforcement(false, undefined, ...args);
 }
 
 export function rankProvidedReinforcement(...args: ProvidedReinforcementArgs): { ranking: ProvidedRebarResult } {
-  return { ranking: evaluateProvidedReinforcement(true, ...args) };
+  return { ranking: evaluateProvidedReinforcement(true, undefined, ...args) };
 }
