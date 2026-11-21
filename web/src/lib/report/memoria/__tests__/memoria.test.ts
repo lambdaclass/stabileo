@@ -44,7 +44,7 @@ function everyRow(): CheckRow[] {
     mat: { x: { Mu: 60, d: 0.42, diameterMm: 12, asGoverning: 8e-4, asProvided: 9e-4, barCount: 8, governingClause: '13.3.3.1' }, y: { Mu: 55, d: 0.41, diameterMm: 12, asGoverning: 7e-4, asProvided: 9e-4, barCount: 8, governingClause: '' } } } as never));
   rows.push(...jointShearCheckRows({ nodeId: 3, columnId: 2, direction: 'X', combo: 'U1', check: { status: 'OK', Vu: 200, phiVn: 500, utilization: 0.4, refs: [] } } as never));
   rows.push(...seismicMemberCheckRows({ id: 1, kind: 'beam', role: 'primary', shear: { ve: 100, phiVn: 150, utilization: 0.67, vcZero: true }, ok: true, issues: [] } as never));
-  rows.push(...seismicMemberCheckRows({ id: 2, kind: 'column', role: 'primary', ok: false, issues: ['seisDes.issue.x'] } as never));
+  rows.push(...seismicMemberCheckRows({ id: 2, kind: 'column', role: 'primary', ok: false, refusal: 'seisDes.issue.missingForces', issues: ['seisDes.issue.missingForces'] }));
   rows.push(...seismicJointCheckRows({ nodeId: 3, direction: 'X', columns: [], beams: [], ok: true,
     strongColumn: { sumColumns: 300, sumBeams: 200, required: 240, utilization: 0.8, ok: true, roof: false }, shear: { T: 500, vj: 400, phiVn: 900, utilization: 0.44, confinement: 'interior' } } as never));
   return rows;

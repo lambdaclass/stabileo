@@ -176,25 +176,22 @@ const u3 = (u: number) => (Number.isFinite(u) ? u.toFixed(3) : '∞');
 
 /** The capacity checks of a member of a seismic frame: capacity shear and detailing, as substitutes. */
 export function seismicMemberCheckRows(m: MemberSeismic): CheckRow[] {
+  if (m.role === 'secondary') return [];
   if (m.refusal !== undefined) return [SEISMIC_SHEAR, SEISMIC_DETAILING].map(check => row({
     ...check, clause: SEISMIC_CLAUSE, formula: m.refusal, inputs: [], ratio: null, status: 'notVerified',
   }));
-  const out: CheckRow[] = [];
   const beam = m.kind === 'beam';
-  if (m.shear) {
-    out.push(substitute({
+  return [
+    substitute({
       ...SEISMIC_SHEAR, aci: beam ? '§18.6.5' : '§18.7.6', formula: 'Ve ≤ φ·Vn',
       inputs: [inp('Ve', m.shear.ve, 'kN'), inp('φVn', m.shear.phiVn, 'kN')],
       result: `Ve/φVn = ${u3(m.shear.utilization)}${m.shear.vcZero ? `, Vc = 0 (${beam ? '§18.6.5.2' : '§18.7.6.2'})` : ''}`,
-    }));
-  }
-  if (m.role === 'primary' && (m.shear || m.issues.length)) {
-    out.push(substitute({
+    }),
+    substitute({
       ...SEISMIC_DETAILING, aci: beam ? '§18.6.4' : '§18.7.5', formula: beam ? 'hoops over 2h at s ≤ min(d/4; 6·db; 150 mm)' : 'lo, so and Ash',
       inputs: [], result: m.issues.length ? `${m.issues.length} rule(s) not met, listed below` : 'every rule met', extra: m.issues,
-    }));
-  }
-  return out;
+    }),
+  ];
 }
 
 /** A joint of a seismic frame: strong column and joint shear, as substitutes. */
