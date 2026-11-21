@@ -2811,6 +2811,9 @@ fn issue_1753_three_hinge_arch_snapshot_preserves_exact_statics_and_current_warn
         node["z"] = node["y"].take();
         node.as_object_mut().unwrap().remove("y");
     }
+    for material in fixture["materials"].as_array_mut().unwrap() {
+        material["e"] = (material["e"].as_f64().unwrap() * 1000.0).into();
+    }
     for field in ["nodes", "materials", "sections", "elements", "supports"] {
         fixture[field] = fixture[field].as_array().unwrap().iter()
             .map(|entry| (entry["id"].to_string(), entry.clone()))
