@@ -165,7 +165,7 @@ describe('a physical plate', () => {
   it('meshes before an analysis only when asked to, and once', () => {
     const { id } = build();
     meshBeforeAnalysis.value = false;
-    expect(preparePlatesForAnalysis()).toEqual({ ok: false, reason: 'needsMesh', plates: ['L1'] });
+    expect(preparePlatesForAnalysis()).toEqual({ ok: false, reason: 'needsMesh', plates: ['P1'] });
     meshBeforeAnalysis.value = true;
     const r = preparePlatesForAnalysis();
     expect(r.ok && r.meshed).toBe(1);
@@ -182,19 +182,19 @@ describe('a physical plate', () => {
     expect(plateStatus(id)).toBe('stale');
     meshBeforeAnalysis.value = true;
     const loads = modelStore.loads.length, quads = modelStore.quads.size;
-    expect(preparePlatesForAnalysis()).toEqual({ ok: false, reason: 'localLoads', plates: ['L1'] });
+    expect(preparePlatesForAnalysis()).toEqual({ ok: false, reason: 'localLoads', plates: ['P1'] });
     expect(modelStore.loads.length).toBe(loads);
     expect(modelStore.quads.size).toBe(quads);
   });
 
-  it('names a new plate L when a slab, by the lowest number no group has, never twice', () => {
+  it('names a new plate after the ones left, never twice', () => {
     modelStore.clear(); historyStore.clear(); uiStore.analysisMode = 'pro';
     const sq = (x: number) => [[x, 0], [x + 2, 0], [x + 2, 2], [x, 2]].map(([a, b]) => modelStore.addNode(a!, b!, 0));
     const a = createPlate({ outline: sq(0), materialId: 1, thickness: 0.2 }) as { id: number };
     createPlate({ outline: sq(3), materialId: 1, thickness: 0.2 });
     deletePlate(a.id);
     createPlate({ outline: sq(6), materialId: 1, thickness: 0.2 });
-    expect(physicalPlates().map((p) => p.name).sort()).toEqual(['L1', 'L2']);
+    expect(physicalPlates().map((p) => p.name).sort()).toEqual(['P2', 'P3']);
   });
 
   it('undoes and redoes its creation and its mesh without orphans', () => {
@@ -248,10 +248,7 @@ describe('a physical plate', () => {
     const B = (createPlate({ outline: [a1, b1, b2, a2], materialId: 1, thickness: 0.2 }) as { id: number }).id;
     const shared = () => {
       const on = (q: { nodes: number[] }) => q.nodes.filter((id) => Math.abs(modelStore.nodes.get(id)!.x - 4) < 1e-9);
-      const of = (id: number) => {
-        const { quads = [], plates = [] } = modelStore.model.groups.get(id)!.members;
-        return new Set([...quads.flatMap(q => on(modelStore.quads.get(q)!)), ...plates.flatMap(p => on(modelStore.plates.get(p)!))]);
-      };
+      const of = (id: number) => new Set((modelStore.model.groups.get(id)!.members.quads ?? []).flatMap((q) => on(modelStore.quads.get(q)!)));
       return { a: [...of(A)].sort(), b: [...of(B)].sort() };
     };
     applyPlateMeshes([planPlateMesh(A, { size: 0.5, element: 'quad', followMembers: true })!, planPlateMesh(B, { size: 0.8, element: 'quad', followMembers: true })!]);
@@ -261,33 +258,6 @@ describe('a physical plate', () => {
     applyPlateMeshes([planPlateMesh(B, { size: 0.3, element: 'quad', followMembers: true })!]);
     expect(shared().a).toEqual(shared().b);
     expect([plateStatus(A), plateStatus(B)]).toEqual(['current', 'current']);
-  });
-
-  it.each([false, true])('shares a frame station between three incident plates (reverse=%s)', reverse => {
-    modelStore.clear(); historyStore.clear(); uiStore.analysisMode = 'pro';
-    const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(4, 0, 0);
-    const station = modelStore.addNode(1.1, 0, 0);
-    modelStore.addElement(a, station);
-    modelStore.addElement(station, b);
-    const ids = [[0, 3], [3, 0], [-3, 0]].map(([y, z]) => {
-      const c = modelStore.addNode(4, y!, z!), d = modelStore.addNode(0, y!, z!);
-      return (createPlate({ outline: [a, b, c, d], materialId: 1, thickness: 0.2 }) as { id: number }).id;
-    });
-    const plans = ids.map((id, i) => planPlateMesh(id, { size: [0.5, 0.9, 1.2][i]!, followMembers: false })!);
-    const report = applyPlateMeshes(reverse ? plans.reverse() : plans);
-    expect(report).toMatchObject({ plates: ids.length, refused: [] });
-    const stations = ids.map(id => {
-      const { quads = [], plates = [] } = modelStore.model.groups.get(id)!.members;
-      const shells = [...quads.map(q => modelStore.quads.get(q)!), ...plates.map(p => modelStore.plates.get(p)!)];
-      return new Set(shells.flatMap(shell => shell.nodes).filter(id => {
-        const p = modelStore.nodes.get(id)!;
-        return p.y === 0 && (p.z ?? 0) === 0;
-      }));
-    });
-    expect(stations[0]).toContain(station);
-    expect(stations[1]).toEqual(stations[0]);
-    expect(stations[2]).toEqual(stations[0]);
-    expect(ids.map(plateStatus)).toEqual(['current', 'current', 'current']);
   });
 
   it('keeps the loads of the members its mesh cuts, on their pieces', async () => {

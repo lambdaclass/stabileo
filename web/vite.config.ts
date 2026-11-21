@@ -11,7 +11,7 @@ import { buildPublicLocales } from './src/lib/i18n/offered-research';
 import { resultChangeMetadataPlugin } from './scripts/result-change-metadata.mjs';
 import { prunePublicBuildBranches } from './scripts/prune-public-build-branches.mjs';
 import { researchLocaleBuildPlugin } from './scripts/research-locale-build.mjs';
-import { switchOnUnitFiles } from './scripts/switch-on-unit.mjs';
+import { sharedSwitchOnUnitFiles, switchOnUnitFiles } from './scripts/switch-on-unit.mjs';
 import { blogTranslations } from './scripts/blog-translations';
 
 /**
@@ -365,7 +365,7 @@ const baseConfig = defineConfig({
           setupFiles: ['./vitest.setup.ts'],
           // Everything except the production-build tests, which get their own pass.
           exclude: [...NOT_VITEST, ...PRODUCTION_BUILD_TESTS, ...RESULTS_SNAPSHOT_TESTS, ...EXCLUDED_SWITCH_ON_UNIT_TESTS],
-          ...(process.env.STABILEO_UNIT_PROFILE === 'test' ? { include: switchOnUnitFiles } : {}),
+          ...(process.env.STABILEO_UNIT_PROFILE === 'test' ? { include: [...switchOnUnitFiles, ...sharedSwitchOnUnitFiles] } : {}),
           // THREADS, NOT FORKS — and this is the line that fixed the RPC timeout.
           //
           // `onTaskUpdate` is the worker → coordinator RPC, and birpc gives it a SIXTY

@@ -32,12 +32,17 @@
  * family and piece names live, and it is invisible to a naive `grep`.
  */
 import { describe, it, expect } from 'vitest';
-import { readFileSync, readdirSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { readdirSync, statSync } from 'node:fs';
+import { join, relative } from 'node:path';
+import { proPlatesSource, readProPlatesProfile } from '../../../../scripts/pro-plates-source.mjs';
 import { allDictFor as dictFor, allShippedLocales, completeLocales } from '../locales/all';
 const OFFERED_LOCALES = completeLocales();
 
 const SRC = new URL('../../..', import.meta.url).pathname;
+const unified = __PUBLIC_FEATURES__.proPlatesUnified;
+const profile = proPlatesSource(() => unified);
+const { unavailable, restored } = readProPlatesProfile(unified);
+const sourcePath = (file: string) => `src/${relative(SRC, file)}`;
 
 /**
  * The modules that produce what a PRO user reads.
@@ -68,12 +73,15 @@ function walk(dir: string): string[] {
   return out;
 }
 
-const files = PRO_DIRS.flatMap((d) => walk(join(SRC, d)));
+const files = [
+  ...PRO_DIRS.flatMap(dir => walk(join(SRC, dir))).filter(file => !unavailable.has(sourcePath(file))),
+  ...[...restored].filter(path => PRO_DIRS.some(dir => path.startsWith(`src/${dir}/`))).map(path => join(SRC, path.slice(4))),
+];
 
 const staticKeys = new Set<string>();
 const dynamicPrefixes = new Set<string>();
 for (const file of files) {
-  const src = readFileSync(file, 'utf8');
+  const src = profile.read(file);
   for (const m of src.matchAll(/\bt[ep]?\(\s*'([^']+)'/g)) staticKeys.add(m[1]);
   for (const m of src.matchAll(/(?:labelKey|titleKey|key|reasonKey|refusedKey)\s*:\s*'([a-z][\w.]*\.[\w.]+)'/gi)) {
     staticKeys.add(m[1]);
@@ -119,7 +127,7 @@ describe('the PRO workflow speaks every language it is offered in', () => {
     it(`declares no key twice in ${locale}`, () => {
       // The dictionaries are object literals: a repeated key is silently the last one, so the
       // translation someone wrote can be shadowed by an older one with no error anywhere.
-      const src = readFileSync(join(SRC, `lib/i18n/locales/${locale}.ts`), 'utf8');
+      const src = profile.read(join(SRC, `lib/i18n/locales/${locale}.ts`));
       const seen = new Set<string>();
       const dupes = new Set<string>();
       for (const m of src.matchAll(/^\s*'([^']+)'\s*:/gm)) {

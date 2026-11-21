@@ -121,7 +121,9 @@ describe('#2365 shared refusal evidence in portable projects', () => {
 
   const frames = [
     { frame: 'canonical axes', choice: DEFAULT_AXES },
-    { frame: 'reflected axes', choice: { up: '-Y', right: '-X', hand: 'left' } satisfies AxesChoice },
+    ...(__PUBLIC_FEATURES__.globalAxes ? [
+      { frame: 'reflected axes', choice: { up: '-Y', right: '-X', hand: 'left' } satisfies AxesChoice },
+    ] : []),
   ];
   const framedOpeners = frames.flatMap(({ frame, choice }) =>
     openers.map(([opener, open]) => ({ opener, open, frame, choice })),
