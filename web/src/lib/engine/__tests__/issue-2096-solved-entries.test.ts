@@ -23,6 +23,7 @@ const model = {
   supports: new Map([[1, { id: 1, nodeId: 1, type: 'fixed' }]]),
 } satisfies AutoVerifyModelData;
 afterEach(() => { setCompactStationTransfer(true); vi.restoreAllMocks(); });
+const issue2403 = process.env.RUN_KNOWN_WRONG === '2403' ? it : it.skip;
 for (const spatial of [false, true]) for (const nonlinear of [false, true]) for (const compact of [false, true]) {
   const solveModel = (source = model) => {
     const loadedNode = Math.max(...source.nodes.keys());
@@ -91,13 +92,14 @@ for (const spatial of [false, true]) for (const nonlinear of [false, true]) for 
       ]),
     }));
   });
-  it(`#2403 refuses a missing design-span station after a solve ${label}`, () => {
-    const spanModel = {
+  const beamSpanModel = () => ({
       ...model,
       sections: new Map([...model.sections].map(([id, section]) => [id, { ...section, rotation: 0 }])),
       nodes: new Map([1, 2, 3].map(id => [id, { id, x: 2 * (id - 1), y: 0, z: 0 }])),
       elements: new Map([1, 2].map(id => [id, { ...model.elements.get(1)!, id, nodeI: id, nodeJ: id + 1 }])),
-    };
+  });
+  it(`#2403 refuses a missing design-span station after a solve ${label}`, () => {
+    const spanModel = beamSpanModel();
     const raw = solveModel(spanModel);
     const data = computeStationDemands(new Map([[1, raw], [2, raw]]), combinations, spanModel);
     const [span] = designSpans(spanModel, () => true);
@@ -115,6 +117,30 @@ for (const spatial of [false, true]) for (const nonlinear of [false, true]) for 
       const merged = mergeSpanStations(spanModel, span!, id => data.stations.get(id))!;
       extractGoverningDemands(merged);
     }).toThrow(expect.objectContaining({ code: 'incomplete-concurrent-demand' }));
+  });
+  issue2403(`known wrong result: #2403 refuses a solved span piece with its only combination removed ${label}`, () => {
+    const spanModel = beamSpanModel();
+    const raw = solveModel(spanModel);
+    const { stations, demands } = computeStationDemands(new Map([[1, raw]]), combinations.slice(0, 1), spanModel);
+    const [span] = designSpans(spanModel, () => true);
+    expect(span?.elements).toEqual([1, 2]);
+    const complete = mergeSpanStations(spanModel, span!, id => stations.get(id))!;
+    expect(complete.comboResults.map(c => c.comboId)).toEqual([1]);
+    expect(complete.stationTs).toContain(0.75);
+
+    const source = stations.get(2)!;
+    stations.set(2, { ...source, comboResults: [] });
+    const contexts = buildAllMemberContexts(spanModel, { stations, demands });
+    expect(() => applySpanContexts(contexts, spanModel, [span!])).toThrow(expect.objectContaining({
+      code: 'incomplete-concurrent-demand',
+    }));
+    expect(contexts.get(2)?.span).toBeUndefined();
+    expect(() => mergeSpanStations(spanModel, span!, id => stations.get(id))).toThrow(expect.objectContaining({
+      code: 'incomplete-concurrent-demand',
+      diagnostics: expect.arrayContaining([
+        expect.objectContaining({ code: 'missing-member', elementId: 2, comboId: 1 }),
+      ]),
+    }));
   });
   for (const entry of ['auto', 'unified', 'design'] as const) it(`known wrong result: #2096 complete grouped span reaches ${entry} ${label}`, () => {
     const spanModel = { ...model,

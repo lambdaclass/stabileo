@@ -80,6 +80,63 @@ it('#2403 refuses to publish grouped contexts when a combination lacks the middl
   expect(contexts.get(2)?.span).toBeUndefined();
 });
 
+const issue2403 = process.env.RUN_KNOWN_WRONG === '2403' ? it : it.skip;
+
+function singleCombinationStations(elementId: number): ElementStationResult {
+  const source = pieceStations(elementId);
+  return { ...source, comboResults: source.comboResults.filter(c => c.comboId === 2) };
+}
+
+issue2403('known wrong result: #2403 refuses when one piece loses its only combination', () => {
+  const complete = mergeSpanStations(structure, span, singleCombinationStations)!;
+  expect(extractGoverningDemands(complete).demands.find(d => d.category === 'My+')).toMatchObject({
+    comboId: 2, stationT: governingStation, value: load.get(2)! * length ** 2 / 8,
+  });
+
+  expect(() => mergeSpanStations(structure, span, id => {
+    const source = singleCombinationStations(id);
+    return id === 2 ? { ...source, comboResults: [] } : source;
+  })).toThrow(expect.objectContaining({
+    code: 'incomplete-concurrent-demand',
+    diagnostics: expect.arrayContaining([
+      expect.objectContaining({ code: 'missing-member', elementId: 2, comboId: 2 }),
+    ]),
+  }));
+});
+
+issue2403('known wrong result: #2403 refuses declared grids when every piece loses its only combination', () => {
+  expect(() => mergeSpanStations(structure, span, id => ({
+    ...singleCombinationStations(id), comboResults: [],
+  }))).toThrow(expect.objectContaining({
+    code: 'incomplete-concurrent-demand',
+    diagnostics: expect.arrayContaining([
+      expect.objectContaining({ code: 'missing-scope', elementId: 2 }),
+    ]),
+  }));
+});
+
+it('#2403 leaves an ungroupable span without a grid or combinations on one piece', () => {
+  expect(mergeSpanStations(structure, span, id => {
+    const source = singleCombinationStations(id);
+    return id === 2 ? { ...source, stationTs: [], comboResults: [] } : source;
+  })).toBeNull();
+});
+
+it('#2403 refuses to publish grouped contexts after a piece loses its only combination', () => {
+  const stations = new Map(span.elements.map(id => [id, singleCombinationStations(id)]));
+  const demands = new Map([...stations].map(([id, source]) => [id, extractGoverningDemands(source)]));
+  const complete = buildAllMemberContexts(structure, { stations, demands });
+  expect(applySpanContexts(complete, structure, [span])).toEqual([span]);
+  expect(complete.get(2)?.span?.key).toBe(span.key);
+
+  stations.set(2, { ...stations.get(2)!, comboResults: [] });
+  const incomplete = buildAllMemberContexts(structure, { stations, demands });
+  expect(() => applySpanContexts(incomplete, structure, [span])).toThrow(expect.objectContaining({
+    code: 'incomplete-concurrent-demand',
+  }));
+  expect(incomplete.get(2)?.span).toBeUndefined();
+});
+
 it('retains a combination-specific station outside the declared span grid', () => {
   const merged = mergeSpanStations(structure, span, id => {
     const source = pieceStations(id, 1);
