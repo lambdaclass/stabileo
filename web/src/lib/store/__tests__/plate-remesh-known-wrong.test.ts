@@ -18,7 +18,7 @@ it.skip('known wrong result: #2365 — remeshing a plate respects its specified 
   expect(createArc(a, { x: 2, y: 2, z: 0 }, b, 4)).toHaveLength(4);
   const plate = createPlate({ outline: [a, mid, b, c, d], arcMids: [1], followArcs: false, materialId: 1, thickness: 0.2 });
   if (!('id' in plate)) throw new Error(JSON.stringify(plate));
-  const plan = planPlateMesh(plate.id, { size: 1, element: 'tri', followMembers: true })!;
+  const plan = planPlateMesh(plate.id, { size: 1, element: 'tri', followMembers: false })!;
   const result = applyPlateMeshes([plan]);
   expect(result.refused).toEqual([]);
   expect(result.plates).toBe(1);
