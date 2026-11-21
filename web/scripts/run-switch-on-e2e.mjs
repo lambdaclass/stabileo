@@ -1,13 +1,9 @@
 import { execFileSync, spawnSync } from 'node:child_process';
-import { globSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import ts from 'typescript';
 import { featuresForMode } from '../config/public-features.mjs';
+import expectedTaggedSpecs from '../config/switch-on-e2e-specs.json' with { type: 'json' };
 
 const switchOnTag = '@switch-on';
 const reportedTag = switchOnTag.slice(1);
-const e2eDir = fileURLToPath(new URL('../e2e/', import.meta.url));
 const cli = new URL('../node_modules/@playwright/test/cli.js', import.meta.url);
 const run = (args, env = process.env) => execFileSync(process.execPath, [cli.pathname, 'test', ...args], {
   encoding: 'utf8', env, maxBuffer: 32 * 1024 * 1024,
@@ -33,33 +29,21 @@ function inventory(profile) {
   return tests;
 }
 
-function declaredSwitchOnSpecs() {
-  function hasTag(node) {
-    if (ts.isStringLiteralLike(node) && node.text.match(/@\S+/g)?.includes(switchOnTag)) return true;
-    return ts.forEachChild(node, hasTag);
-  }
-
-  return globSync('**/*.{spec,test}.?(c|m)[jt]s?(x)', { cwd: e2eDir }).filter(path => {
-    const source = ts.createSourceFile(path, readFileSync(join(e2eDir, path), 'utf8'), ts.ScriptTarget.Latest);
-    return hasTag(source);
-  });
-}
-
 function selectSwitchOnFiles() {
   const production = featuresForMode('production');
   const enabled = featuresForMode('test');
   const profilesDiffer = Object.keys(production).some(key => production[key] !== enabled[key]);
   const off = profilesDiffer ? inventory('production') : undefined;
-  const declared = new Set(declaredSwitchOnSpecs());
+  const expected = new Set(expectedTaggedSpecs);
   const activeTagged = new Set();
   const selected = new Set();
   for (const [id, { path, active, tagged }] of inventory('test')) {
-    if (tagged) declared.add(path);
+    if (tagged) expected.add(path);
     if (!active) continue;
     if (tagged) activeTagged.add(path);
     if (tagged || (off && !off.get(id)?.active)) selected.add(path);
   }
-  const missing = [...declared].filter(path => !activeTagged.has(path)).sort();
+  const missing = [...expected].filter(path => !activeTagged.has(path)).sort();
   if (missing.length) {
     throw new Error(`No active ${switchOnTag} cases were collected from: ${missing.map(path => `e2e/${path}`).join(', ')}`);
   }

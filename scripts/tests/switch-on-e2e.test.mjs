@@ -9,7 +9,6 @@ const web = fileURLToPath(new URL('../../web/', import.meta.url));
 const collector = 'scripts/run-switch-on-e2e.mjs';
 const playwright = 'node_modules/@playwright/test/cli.js';
 const expectedSpecsFile = 'config/switch-on-e2e-specs.json';
-const knownWrong = { skip: 'known wrong result: #2436' };
 
 function fixture(t, specs, { config = '', sameProfiles = false, expectedSpecs = [] } = {}) {
   const cwd = mkdtempSync(resolve(web, '.switch-on-collector-'));
@@ -93,7 +92,7 @@ test('refuses a tagged spec omitted from the Playwright report', t => {
   assert.match(result.stderr, /No active @switch-on cases were collected from: e2e\/nested\/omitted\.spec\.ts/);
 });
 
-test('ignores switch-on text in an ordinary assertion', knownWrong, t => {
+test('ignores switch-on text in an ordinary assertion', t => {
   const file = 'tagged.spec.ts';
   const options = fixture(t, {
     [file]: "test('switch-on case', { tag: '@switch-on' }, () => {});",
@@ -108,7 +107,7 @@ test('ignores switch-on text in an ordinary assertion', knownWrong, t => {
   assertSelected(collect(options), [file]);
 });
 
-test('requires a declared spec with an imported tag to contribute an active case', knownWrong, t => {
+test('requires a declared spec with an imported tag to contribute an active case', t => {
   const file = 'imported-tag.spec.ts';
   const specs = {
     [file]: `

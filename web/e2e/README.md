@@ -15,6 +15,12 @@ Tag wall-clock budget tests with `@timing`. Name files containing only these tes
 `*.timing.spec.ts` so shared shards omit them. Mixed files keep their regular names
 and their other tests stay in their original suites.
 
+## Switch-on cases
+
+When adding `@switch-on` cases, list the spec path relative to `web/e2e/` in
+`../config/switch-on-e2e-specs.json`. Collection fails if Playwright excludes a
+listed spec or reports zero active `@switch-on` cases for it in the test profile.
+
 ## Quarantine: `@flaky`
 
 A test that fails intermittently on CI, and whose cause is not found and fixed on the spot, can be
