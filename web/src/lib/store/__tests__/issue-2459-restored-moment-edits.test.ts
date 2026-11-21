@@ -252,6 +252,69 @@ for (const mode of ['2d', '3d'] as const) {
   }
 }
 
+const knownWrong2459 = process.env.RUN_KNOWN_WRONG === '2459' ? it : it.skip;
+const ignored2459 = 'known wrong result: #2459';
+
+function openLegacyMoment(member: number, type: 'pointOnElement' | 'nodal', conflict: boolean) {
+  const nodeId = modelStore.model.elements.get(member)!.nodeJ;
+  const fields = type === 'pointOnElement' ? { elementId: member, a: position, p: 0 } : { nodeId, fx: 0, fz: 0 };
+  const moments = conflict ? { my: legacyMoment, mz: -legacyMoment } : { mz: legacyMoment };
+  openLegacyFile(type, { ...fields, ...moments, caseId: loadCase.id });
+  historyStore.clear();
+  const key = type === 'pointOnElement' ? 'svc.planarPointLoadMomentAliases' : 'svc.planarNodalLoadMomentAliases';
+  return t(key).replace('{load}', String(loadId)).replace('{n}', String(type === 'pointOnElement' ? member : nodeId));
+}
+
+for (const mode of ['2d', '3d', 'pro', 'pdelta'] as const) {
+  for (const type of ['pointOnElement', 'nodal'] as const) {
+    for (const conflict of [true, false]) {
+      knownWrong2459(`${ignored2459} an empty ${type} moment edit preserves the restored load (${mode}, conflict=${conflict})`, async () => {
+        const member = cantilever(mode);
+        const refusal = openLegacyMoment(member, type, conflict);
+        const root = modelStore.model.elements.get(member)!.nodeI;
+        modelStore.addNodalLoad(root, 1, 0, 0, loadCase.id);
+        historyStore.clear();
+        const original = { ...modelStore.loads[0]!.data };
+        const read = async () => mode === '2d'
+          ? Object.entries({ ...await planeSolves(), store: modelStore.solve(), storeAsync: await modelStore.solveAsync() })
+            .map(([path, result]) => [path, planeMoment(result, member, before)] as const)
+          : Object.entries(await spaceSolves()).map(([path, result]) => [path, spaceMoment(result, member, before)] as const);
+
+        expect.soft(modelStore.updateLoad(loadId, { my: null })).toBe(false);
+        expect.soft(modelStore.loads[0]?.data).toStrictEqual(original);
+        expect.soft(historyStore.canUndo).toBe(false);
+        for (const [path, result] of await read()) {
+          if (conflict) expect.soft(result, path).toEqual(expect.stringContaining(refusal));
+          else expect.soft(result, path).toBeCloseTo(legacyMoment, 4);
+        }
+        if (conflict && mode === '2d') expect.soft(() => buildSolverInput2D(modelStore.model)).toThrow(refusal);
+
+        expect(modelStore.updateLoad(loadId, { my: 3 })).toBe(true);
+        expectCanonicalMoment(3);
+        for (const [path, result] of await read()) expect.soft(result, path).toBeCloseTo(3, 4);
+      });
+    }
+  }
+}
+
+for (const mode of ['2d', '3d'] as const) {
+  for (const type of ['pointOnElement', 'nodal'] as const) {
+    knownWrong2459(`${ignored2459} invalid ${type} moment values reject the entire patch (${mode})`, () => {
+      const member = cantilever(mode);
+      for (const conflict of [true, false]) {
+        for (const value of [undefined, NaN, '', Infinity, -Infinity]) {
+          openLegacyMoment(member, type, conflict);
+          const original = { ...modelStore.loads[0]!.data };
+          const input = `my=${JSON.stringify(String(value))}, conflict=${conflict}`;
+          expect.soft(modelStore.updateLoad(loadId, { my: value, caseId: loadCase.id + 1 }), input).toBe(false);
+          expect.soft(modelStore.loads[0]?.data, input).toStrictEqual(original);
+          expect.soft(historyStore.canUndo, input).toBe(false);
+        }
+      }
+    });
+  }
+}
+
 it('#2459 preserves result-change applicability when opening and resaving a legacy couple', async () => {
   const member = cantilever('3d');
   const file = JSON.parse(serializeProject());
