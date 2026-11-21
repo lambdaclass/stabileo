@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { cpSync, readFileSync, readdirSync, rmSync, statSync } from 'node:fs';
+import { cpSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join, relative, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -9,6 +9,7 @@ const execFileAsync = promisify(execFile);
 const WEB_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..');
 const FIRST = resolve(WEB_ROOT, '.dist-reproducible-a');
 const SECOND = resolve(WEB_ROOT, '.dist-reproducible-b');
+const MATTIASSON = '/research/benchmarks/mattiasson-elastica';
 const PAGES = ['/', '/research/fracture/shauer-2025', '/research/benchmarks/newmark-1959', '/research/form-finding/pastrana-2026', '/tools/simply-supported-beam'];
 
 function files(root: string): string[] {
@@ -26,20 +27,23 @@ function difference(path: string): string {
   return `${path}: first difference at byte ${offset} (sizes ${a.length} and ${b.length})\n  concurrency 1: ${context(a)}\n  concurrency 4: ${context(b)}`;
 }
 
-async function prerender(out: string, concurrency: string) {
+async function prerender(out: string, concurrency: string, pages = PAGES) {
   await execFileAsync('npx', ['tsx', 'scripts/prerender.ts'], {
     cwd: WEB_ROOT,
     timeout: 300_000,
     maxBuffer: 32 * 1024 * 1024,
-    env: { ...process.env, PRERENDER_OUT: out, PRERENDER_ONLY: PAGES.join(','), PRERENDER_GITHUB_STARS: '1234', PRERENDER_CONCURRENCY: concurrency },
+    env: { ...process.env, PRERENDER_OUT: out, PRERENDER_ONLY: pages.join(','), PRERENDER_GITHUB_STARS: '1234', PRERENDER_CONCURRENCY: concurrency },
   });
 }
 
 describe('two prerenders of one build are byte-identical (#875)', () => {
+  let entry: string;
+
   beforeAll(async () => {
     await execFileAsync('npx', ['vite', 'build', '--outDir', relative(WEB_ROOT, FIRST), '--emptyOutDir', '--logLevel', 'error'], {
       cwd: WEB_ROOT, timeout: 300_000, maxBuffer: 32 * 1024 * 1024,
     });
+    entry = readFileSync(join(FIRST, 'index.html'), 'utf8');
     cpSync(FIRST, SECOND, { recursive: true });
     await prerender(FIRST, '1');
     await prerender(SECOND, '4');
@@ -61,6 +65,35 @@ describe('two prerenders of one build are byte-identical (#875)', () => {
     const differing = files(FIRST).filter((path) => !readFileSync(join(FIRST, path)).equals(readFileSync(join(SECOND, path))));
     expect(differing, differing.map(difference).join('\n')).toEqual([]);
   });
+
+  it.skip('known wrong result: #2365 — captures completed Mattiasson results when the solver starts late', async () => {
+    const out = mkdtempSync(join(WEB_ROOT, '.dist-mattiasson-'));
+    try {
+      cpSync(FIRST, out, { recursive: true });
+      const delaySolver = `<script>
+        document.currentScript.remove();
+        if (location.pathname.endsWith('${MATTIASSON}/')) {
+          const fetchResource = window.fetch.bind(window);
+          window.fetch = async (...args) => {
+            const response = await fetchResource(...args);
+            if (/dedaliano_engine_bg-.*\\.wasm$/.test(response.url)) {
+              await response.clone().arrayBuffer();
+              await new Promise(resolve => setTimeout(resolve, 3000));
+            }
+            return response;
+          };
+        }
+      </script>`;
+      writeFileSync(join(out, 'index.html'), entry.replace('<head>', `<head>${delaySolver}`));
+      await prerender(out, '4', [MATTIASSON]);
+      for (const locale of ['en', 'tr', 'zh']) {
+        const html = readFileSync(join(out, locale, MATTIASSON, 'index.html'), 'utf8');
+        expect(html, locale).toMatch(/data-testid="mattiasson-summary"[^>]*>[^<]*5\/5/);
+      }
+    } finally {
+      rmSync(out, { recursive: true });
+    }
+  }, 300_000);
 
   it('the pinned star count reached the header instead of a per-page fetch', () => {
     expect(readFileSync(join(FIRST, 'en/index.html'), 'utf8')).toMatch(/>1\.2k</);
