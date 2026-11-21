@@ -1,4 +1,5 @@
 import { arcEdgeBetween as modelArcEdgeBetween, physicalPlateProblems, plateMeshFeatures, plateStatusOf, type PlateStatus } from '../model/physical/plate-analysis';
+import { tp } from '../i18n';
 import { wallSlabRefusal } from '../engine/plate-analysis-refusal';
 /**
  * Physical plates in the model (`model/physical/plate.ts`): made from an outline, meshed on demand
@@ -419,7 +420,15 @@ export function clearPlateMesh(id: number): { removedNodes: number; keptNodes: n
   return { removedNodes, keptNodes };
 }
 
-export interface PlateMeshReport { plates: number; cells: number; refused: Array<{ id: number; reason: string }>; droppedLocalLoads: number; keptNodes: number }
+export function plateMeshEditRefusal(id: number): string | null {
+  const entry = plateEntry(id);
+  if (!entry) return null;
+  const offset = (entry.group.members.plates ?? []).some(id => modelStore.plates.get(id)?.offset)
+    || (entry.group.members.quads ?? []).some(id => modelStore.quads.get(id)?.offset || modelStore.quads.get(id)?.curved);
+  return offset ? tp('svc.accountingShellEdits', { plate: entry.name }) : null;
+}
+
+export interface PlateMeshReport { plates: number; cells: number; refused: Array<{ id: number; reason: string; message?: string }>; droppedLocalLoads: number; keptNodes: number }
 
 /** Put the planned meshes in, replacing each plate's old one, as one undo step. */
 export function applyPlateMeshes(plans: readonly PlateMeshPlan[]): PlateMeshReport {
@@ -435,6 +444,8 @@ export function applyPlateMeshes(plans: readonly PlateMeshPlan[]): PlateMeshRepo
       if (!p?.mesh || !p.input) { report.refused.push({ id: planned.id, reason: p?.refused ?? 'cannotMesh' }); continue; }
       const e = plateEntry(p.id);
       if (!e) { report.refused.push({ id: p.id, reason: 'invalid' }); continue; }
+      const edited = plateMeshEditRefusal(p.id);
+      if (edited) { report.refused.push({ id: p.id, reason: 'shellEdits', message: edited }); continue; }
       report.droppedLocalLoads += p.localLoads;
       report.keptNodes += clearPlateMesh(p.id).keptNodes;
       const before = new Set(modelStore.nodes.keys());
@@ -472,7 +483,7 @@ export function deletePlate(id: number): void {
 export type PlatePreparation =
   | { ok: true; meshed: number; cells: number }
   | { ok: false; reason: 'needsMesh' | 'invalid'; plates: string[] }
-  | { ok: false; reason: 'wallSlab'; error: string }
+  | { ok: false; reason: 'wallSlab' | 'shellEdits'; error: string }
   | { ok: false; reason: 'refused'; plates: string[] }
   | { ok: false; reason: 'localLoads'; plates: string[] };
 
@@ -499,6 +510,8 @@ export function preparePlatesForAnalysis(): PlatePreparation {
   if (!meshBeforeAnalysis.value) return { ok: false, reason: 'needsMesh', plates: names(need) };
   const plans: PlateMeshPlan[] = [];
   for (const id of need) {
+    const edited = plateMeshEditRefusal(id);
+    if (edited) return { ok: false, reason: 'shellEdits', error: edited };
     const plan = planPlateMesh(id);
     if (!plan) return { ok: false, reason: 'invalid', plates: names([id]) };
     plans.push(plan);

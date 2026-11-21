@@ -1,6 +1,11 @@
 import type { Translations } from '../types';
 
 const ko: Translations = {
+  'svc.accountingMismatch': "해석을 거부했습니다. 하중 케이스 {case}, 성분 {component}. 입력값 {entered}, 조립값 {assembled}.",
+  'svc.accountingUnsupported': "해석을 거부했습니다. 하중 케이스 {case}의 {kind} {id}에 대한 힘과 모멘트를 집계할 수 없습니다.",
+  'svc.accountingArea': "해석을 거부했습니다. 솔버의 판 {plate} 면적 또는 경계가 다릅니다. 지정 면적 {entered}, 조립 면적 {assembled}.",
+  'svc.accountingSweep': "해석을 거부했습니다. 솔버의 판 {plate} 곡선 모서리 경로가 다릅니다. 지정 면적 {entered}, 조립 면적 {assembled}.",
+  'svc.accountingShellEdits': "판 {plate}의 메시를 다시 생성하면 셸 오프셋 또는 곡률 편집이 사라지므로 실행할 수 없습니다.",
   'loadPlan.gravity.coveragePrecision': "쉘 피복 좌표가 지원되는 부재 구간 정밀도를 초과합니다.",
   'loadPlan.gravity.partitionFailed': "쉘 투영 영역을 분할하지 못했습니다: {detail}",
   'loadPlan.gravity.unsupportedStrips': "부분 쉘 피복에서는 띠가 직사각형 보 패널의 마주 보는 지지부 사이 전 경간에 걸쳐야 합니다.",

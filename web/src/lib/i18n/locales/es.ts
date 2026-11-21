@@ -1,4 +1,9 @@
 const es: Record<string, string> = {
+  'svc.accountingMismatch': "Análisis rechazado. Caso de carga {case}, {component}. Valor ingresado {entered}, valor ensamblado {assembled}.",
+  'svc.accountingUnsupported': "Análisis rechazado. En el caso de carga {case} no se pueden contabilizar las fuerzas ni los momentos de {kind} {id}.",
+  'svc.accountingArea': "Análisis rechazado. La placa {plate} tiene otra área o contorno en el solver. Área especificada {entered}, área ensamblada {assembled}.",
+  'svc.accountingSweep': "Análisis rechazado. La placa {plate} tiene otro recorrido de borde curvo en el solver. Área especificada {entered}, área ensamblada {assembled}.",
+  'svc.accountingShellEdits': "No se puede volver a mallar la placa {plate} porque se perdería una excentricidad o un cambio de curvatura de un elemento de lámina.",
   'engine.memberLoad.geometryOrdering': "Orden geométrico no válido del miembro generado",
   'engine.memberLoad.geometryLine': "La geometría del miembro generado se aparta de la línea de origen",
   'engine.memberLoad.invalidGeometry': "Geometría no válida del miembro generado",

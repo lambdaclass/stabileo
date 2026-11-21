@@ -288,13 +288,13 @@ export async function runDirectAnalysis(
     if (imposed) return imposed;
     prepared = prepareSolverInput3D(model, leftHand);
     base = prepared.build([]);
-    caseLoads = caseSolverLoads3D(prepared.model, loadCases.filter(c => caseIds.has(c.id)), opts.includeSelfWeight, leftHand);
+    if (!base) return 'empty';
+    caseLoads = caseSolverLoads3D(prepared.model, loadCases.filter(c => caseIds.has(c.id)), opts.includeSelfWeight, leftHand, base);
   } catch (err) {
     const said = loadRefusal(err);
     if (said) return said;
     throw err;
   }
-  if (!base) return 'empty';
   const solvable = prepared.model;
   const expansion = variableExpansionFor(model);
   requireCableAnalysis(base.elements.values());

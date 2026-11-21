@@ -1,3 +1,4 @@
+import { accountingSource } from './accounting-source';
 /**
  * What a member or a support does beyond the linear, stored on it and honoured by every solve.
  *
@@ -71,7 +72,8 @@ export function solvableModel<M extends ModelData>(model: M): M {
   // Variable members become chains of prismatic pieces for the solve (`variable-members.ts`).
   // Ids counted from the model given, so a reader of the results can plan the same expansion from
   // it (`variableExpansionFor`).
-  return expandVariableMembers(pruneModel(model, true), model);
+  const solved = expandVariableMembers(pruneModel(model, true), model);
+  return solved === model || solved[accountingSource] ? solved : { ...solved, [accountingSource]: model };
 }
 
 function pruneModel<M extends ModelData>(model: M, dropLoose: boolean): M {

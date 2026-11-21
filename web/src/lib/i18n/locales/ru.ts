@@ -1,6 +1,11 @@
 import type { Translations } from '../types';
 
 const ru: Translations = {
+  'svc.accountingMismatch': "Расчёт отклонён. Нагружение {case}, компонент {component}. Задано {entered}, собрано {assembled}.",
+  'svc.accountingUnsupported': "Расчёт отклонён. Нельзя учесть силы и моменты {kind} {id} в нагружении {case}.",
+  'svc.accountingArea': "Расчёт отклонён. Площадь или контур плиты {plate} в расчётной модели отличаются. Заданная площадь {entered}, собранная площадь {assembled}.",
+  'svc.accountingSweep': "Расчёт отклонён. Дуга края плиты {plate} в расчётной модели проходит иначе. Заданная площадь {entered}, собранная площадь {assembled}.",
+  'svc.accountingShellEdits': "Нельзя перестроить сетку плиты {plate}, поскольку будет потеряно смещение или изменение кривизны оболочки.",
   'loadPlan.gravity.coveragePrecision': "Координаты покрытия оболочками выходят за пределы поддерживаемой точности интервалов на стержнях.",
   'loadPlan.gravity.partitionFailed': "Не удалось разбить проекцию оболочек: {detail}",
   'loadPlan.gravity.unsupportedStrips': "При частичном покрытии оболочками полосы должны занимать весь пролёт между противоположными балками прямоугольной ячейки.",

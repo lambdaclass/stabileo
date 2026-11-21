@@ -1,5 +1,10 @@
 import type { Translations } from '../types';
 const hi: Translations = {
+  'svc.accountingMismatch': "विश्लेषण अस्वीकृत। भार प्रकरण {case}, घटक {component}। दर्ज मान {entered}, संयोजित मान {assembled}।",
+  'svc.accountingUnsupported': "विश्लेषण अस्वीकृत। भार प्रकरण {case} में {kind} {id} के बलों और आघूर्णों का लेखा संभव नहीं है।",
+  'svc.accountingArea': "विश्लेषण अस्वीकृत। सॉल्वर में प्लेट {plate} का क्षेत्रफल या सीमा अलग है। निर्दिष्ट क्षेत्रफल {entered}, संयोजित क्षेत्रफल {assembled}।",
+  'svc.accountingSweep': "विश्लेषण अस्वीकृत। सॉल्वर में प्लेट {plate} के वक्र किनारे का चाप अलग है। निर्दिष्ट क्षेत्रफल {entered}, संयोजित क्षेत्रफल {assembled}।",
+  'svc.accountingShellEdits': "प्लेट {plate} की जाली दोबारा नहीं बन सकती क्योंकि शेल का ऑफसेट या वक्रता में किया गया बदलाव हट जाएगा।",
   'loadPlan.gravity.coveragePrecision': "शेल आवरण के निर्देशांक सदस्य खंडों की समर्थित सटीकता सीमा से बाहर हैं।",
   'loadPlan.gravity.partitionFailed': "शेल के प्रक्षेपित क्षेत्र का विभाजन विफल रहा: {detail}",
   'loadPlan.gravity.unsupportedStrips': "आंशिक शेल आवरण में पट्टियाँ आयताकार बीम पैनल के विपरीत धारकों के बीच पूरे स्पैन तक होनी चाहिए।",

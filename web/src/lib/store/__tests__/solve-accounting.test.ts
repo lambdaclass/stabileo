@@ -1,9 +1,11 @@
 import { beforeEach, expect, it, vi } from 'vitest';
 import { runDirectAnalysis } from '../../engine/direct-analysis';
-import { runGlobalSolve } from '../../engine/live-calc';
+import { agrees, roundoff } from '../../engine/accounting-math';
+import { runGlobalSolve, runLiveCalc } from '../../engine/live-calc';
 import { solveBuckling, solveBuckling3D, solveModal, solveModal3D, solvePDelta, solvePDelta3D } from '../../engine/wasm-solver';
 import { modelStore, resultsStore, uiStore } from '..';
-import { createArc } from '../curved-members';
+import { createArc, remakeArc } from '../curved-members';
+import { whatIf } from '../whatif.svelte';
 import { syncDefinedLoadsForAnalysis } from '../defined-loads';
 import {
   addPlateLoad, applyPlateMeshes, createPlate, meshBeforeAnalysis, planPlateMesh, plateEntry, setPlateMeshSpec,
@@ -19,9 +21,6 @@ vi.mock('../../engine/member-loads', async importOriginal => {
   };
 });
 
-const issue2459 = process.env.RUN_KNOWN_WRONG === '2459' ? it : it.skip;
-const issue2460 = process.env.RUN_KNOWN_WRONG === '2460' ? it : it.skip;
-const issue2461 = process.env.RUN_KNOWN_WRONG === '2461' ? it : it.skip;
 
 beforeEach(() => {
   modelStore.clear();
@@ -53,7 +52,7 @@ async function refusal(solve: () => unknown) {
 }
 
 for (const mode of ['2d', '3d'] as const) {
-  issue2459(`known wrong result: #2459 refuses a restored couple edited to zero in ${mode}`, async () => {
+  it(`#2459 refuses a restored couple edited to zero in ${mode}`, async () => {
     const member = cantilever(mode);
     const snapshot = modelStore.snapshot();
     modelStore.restore({
@@ -64,7 +63,7 @@ for (const mode of ['2d', '3d'] as const) {
     expect(modelStore.updateLoad(1, { my: 0 })).toBe(true);
 
     const model = modelStore.model;
-    const densities = new Map([...model.materials].map(([id, material]) => [id, material.density]));
+    const densities = new Map([...model.materials].map(([id, material]) => [id, material.rho]));
     const paths = mode === '2d' ? {
       linear: () => modelStore.solve(),
       async: () => modelStore.solveAsync(),
@@ -83,30 +82,30 @@ for (const mode of ['2d', '3d'] as const) {
       direct: () => runDirectAnalysis(model, model.loadCases, model.combinations, { includeSelfWeight: false }),
     };
     for (const [path, solve] of Object.entries(paths)) {
-      expect.soft(await refusal(solve), path).toEqual(expect.stringMatching(/case.*1.*moment/i));
+      expect.soft(await refusal(solve), path).toEqual(expect.stringMatching(/case.*1.*M[xyz].*0.*5/i));
     }
   });
 }
 
-function floor(curved = false) {
+function floor(curved = false, side = 2, holes: number[][] = []) {
   const a = modelStore.addNode(0, 0, 0);
   const b = modelStore.addNode(4, 0, 0);
   const c = modelStore.addNode(4, 5, 0);
   const d = modelStore.addNode(0, 5, 0);
   for (const node of [a, b, c, d]) modelStore.addSupport(node, 'fixed3d');
   const mid = curved ? modelStore.addNode(2, -2, 0) : undefined;
-  if (curved) createArc(a, { x: 2, y: 2, z: 0 }, b, 4);
+  const members = curved ? createArc(a, { x: 2, y: side, z: 0 }, b, 4) : [];
   const plate = createPlate({
     name: 'Test floor', outline: mid === undefined ? [a, b, c, d] : [a, mid, b, c, d],
-    arcMids: mid === undefined ? undefined : [1], materialId: 1, thickness: 0.2, followArcs: false,
+    holes, arcMids: mid === undefined ? undefined : [1], materialId: 1, thickness: 0.2, followArcs: false,
     mesh: { size: curved ? 1 : 2, element: curved ? 'tri' : 'quad', followMembers: false },
   });
   if (!('id' in plate)) throw new Error(plate.problem);
   addPlateLoad(plate.id, 1, 1);
-  return plate.id;
+  return { id: plate.id, members };
 }
 
-issue2460('known wrong result: #2460 automatic solve refuses the complementary plate sweep', async () => {
+it('#2460 automatic solve refuses the complementary plate sweep', async () => {
   floor(true);
   expect(await runGlobalSolve({ directBase: true })).toMatchObject({
     ok: false, error: expect.stringMatching(/Test floor.*sweep/i),
@@ -114,15 +113,15 @@ issue2460('known wrong result: #2460 automatic solve refuses the complementary p
   expect(resultsStore.results3D).toBeNull();
 });
 
-issue2460('known wrong result: #2460 direct solve refuses the complementary plate sweep', () => {
-  const id = floor(true);
+it('#2460 direct solve refuses the complementary plate sweep', () => {
+  const { id } = floor(true);
   expect(applyPlateMeshes([planPlateMesh(id)!]).plates).toBe(1);
   syncDefinedLoadsForAnalysis();
   expect(modelStore.solve3D(false, false, true)).toEqual(expect.stringMatching(/Test floor.*sweep/i));
 });
 
-issue2461('known wrong result: #2461 automatic remesh refuses to discard a shell offset', async () => {
-  const id = floor();
+it('#2461 automatic remesh refuses to discard a shell offset', async () => {
+  const { id } = floor();
   expect(applyPlateMeshes([planPlateMesh(id)!]).plates).toBe(1);
   const shell = plateEntry(id)!.group.members.quads![0]!;
   modelStore.setShellOffset('quad', shell, { frame: 'local', x: 0, y: 0, z: 0.1 });
@@ -134,9 +133,8 @@ issue2461('known wrong result: #2461 automatic remesh refuses to discard a shell
   expect(resultsStore.results3D).toBeNull();
 });
 
-const droppedLoadTest = process.env.RUN_KNOWN_WRONG === 'accounting' ? it : it.skip;
 
-droppedLoadTest('refuses a distributed member load lost in assembly', () => {
+it('refuses a distributed member load lost in assembly', () => {
   const member = cantilever('3d');
   const model = modelStore.model;
   model.loads.push({ type: 'distributed3d', data: {
@@ -147,4 +145,116 @@ droppedLoadTest('refuses a distributed member load lost in assembly', () => {
   expect(result.reactions[0]?.fz).toBeCloseTo(6, 12);
   fault.dropMemberLoad = true;
   expect(modelStore.solve3D()).toEqual(expect.stringMatching(/case.*1.*Fz.*-6.*0/i));
+});
+
+it('#2460 solves the declared sweep with an opening', () => {
+  const hole = [[1, 1], [2, 1], [2, 2], [1, 2]].map(([x, y]) => modelStore.addNode(x!, y!, 0));
+  const { id } = floor(true, -2, [hole]);
+  expect(applyPlateMeshes([planPlateMesh(id)!]).plates).toBe(1);
+  syncDefinedLoadsForAnalysis();
+  const result = modelStore.solve3D(false, false, true);
+  if (!result || typeof result === 'string') throw new Error(String(result));
+  const pressureArea = (4 * 5) - 1 + (4 * 2 * Math.sin(Math.PI / 4));
+  expect(result.reactions.reduce((sum, r) => sum + r.fz, 0)).toBeCloseTo(pressureArea, 8);
+});
+
+it('refuses missing materialized pressure on a valid plate', () => {
+  const { id } = floor();
+  expect(applyPlateMeshes([planPlateMesh(id)!]).plates).toBe(1);
+  syncDefinedLoadsForAnalysis();
+  expect(modelStore.loads.some(load => load.type === 'surface3d')).toBe(true);
+  modelStore.replaceLoads([]);
+  expect(modelStore.solve3D(false, false, true)).toEqual(expect.stringMatching(/case.*1.*Test floor.*Fz.*-20.*0/i));
+});
+
+it('#2461 blocks manual replacement and leaves an edited mesh solvable', () => {
+  const { id } = floor();
+  expect(applyPlateMeshes([planPlateMesh(id)!]).plates).toBe(1);
+  const shell = plateEntry(id)!.group.members.quads![0]!;
+  const plan = planPlateMesh(id, { size: 1 })!;
+  modelStore.setShellOffset('quad', shell, { frame: 'local', x: 0, y: 0, z: 0.1 });
+  expect(applyPlateMeshes([plan]).refused).toEqual([{ id, reason: 'shellEdits', message: expect.stringMatching(/Test floor.*offset/i) }]);
+  syncDefinedLoadsForAnalysis();
+  expect(modelStore.solve3D(false, false, true)).toMatchObject({ reactions: expect.any(Array) });
+  modelStore.setShellOffset('quad', shell, undefined);
+  expect(applyPlateMeshes([plan]).plates).toBe(1);
+  syncDefinedLoadsForAnalysis();
+  expect(modelStore.solve3D(false, false, true)).toMatchObject({ reactions: expect.any(Array) });
+});
+
+it('#2461 refuses arc replacement that would remove a shell edit', () => {
+  const { id, members } = floor(true, -2);
+  expect(applyPlateMeshes([planPlateMesh(id)!]).plates).toBe(1);
+  const shell = plateEntry(id)!.group.members.plates![0]!;
+  modelStore.setShellOffset('plate', shell, { frame: 'local', x: 0, y: 0, z: 0.1 });
+  const arcId = modelStore.elements.get(members[0]!)!.arc!.id;
+  const snapshot = modelStore.snapshot();
+  expect(remakeArc(arcId, { segments: 8 })).toBeNull();
+  expect(modelStore.snapshot()).toEqual(snapshot);
+});
+
+it('blocks a lost case load before dispatched combinations or live results', async () => {
+  const member = cantilever('3d');
+  uiStore.analysisMode = 'pro';
+  modelStore.model.loads.push({ type: 'distributed3d', data: {
+    id: 1, elementId: member, qYI: 0, qYJ: 0, qZI: -2, qZJ: -4, frame: 'global', caseId: 1,
+  } }, { type: 'distributed3d', data: {
+    id: 2, elementId: member, qYI: 0, qYJ: 0, qZI: 2, qZJ: 4, frame: 'global', caseId: 2,
+  } });
+  fault.dropMemberLoad = true;
+  const diagnostic = expect.stringMatching(/case.*1.*Fz.*-6.*0/i);
+  expect(modelStore.solveCombinations3D(false, false, true)).toEqual(diagnostic);
+  expect(await modelStore.solveCombinations3DParallel(false, false, true)).toEqual(diagnostic);
+  modelStore.setAnalysis({ perCombination: 'pdelta' });
+  expect(modelStore.solveCombinations3D(false, false, true)).toEqual(diagnostic);
+  await runLiveCalc('pro', uiStore.axisConvention3D);
+  expect(resultsStore.results3D).toBeNull();
+});
+
+it('accepts the roundoff boundary and refuses just beyond it', () => {
+  expect(agrees(0, roundoff, 1)).toBe(true);
+  expect(agrees(0, roundoff + Number.EPSILON, 1)).toBe(false);
+  expect(agrees(0, Number.MIN_VALUE, 0)).toBe(false);
+});
+
+it('refuses force lost before the XZ solver builder and solves an in-plane control', () => {
+  const member = cantilever('3d');
+  const node = modelStore.elements.get(member)!.nodeJ;
+  const load = modelStore.addNodalLoad3D(node, 0, 0, -2, 0, 0, 0, 1);
+  const result = modelStore.solve(false, 'xz');
+  if (!result || typeof result === 'string') throw new Error(String(result));
+  expect(result.reactions[0]?.rz).toBeCloseTo(2, 12);
+  expect(modelStore.updateLoad(load, { fy: 3 })).toBe(true);
+  expect(modelStore.solve(false, 'xz')).toEqual(expect.stringMatching(/case.*1.*Fy.*3.*0/i));
+});
+
+it.each([false, true])('accounts for a what-if plate pressure change with nonlinear supports %s', async nonlinear => {
+  const { id } = floor();
+  expect(applyPlateMeshes([planPlateMesh(id)!]).plates).toBe(1);
+  syncDefinedLoadsForAnalysis();
+  if (nonlinear) modelStore.updateSupport(modelStore.model.supports.keys().next().value!, { uplift: true });
+  const index = modelStore.loads.findIndex(load => load.type === 'surface3d');
+  expect(index).toBeGreaterThanOrEqual(0);
+  const area = (() => {
+    const load = modelStore.loads[index]!;
+    if (load.type !== 'surface3d') throw new Error(load.type);
+    const map = load.data.on === 'plate' ? modelStore.plates : modelStore.quads;
+    const corners = map.get(load.data.quadId)!.nodes.map(id => modelStore.nodes.get(id)!);
+    return Math.abs(corners.reduce((sum, a, i) => {
+      const b = corners[(i + 1) % corners.length]!;
+      return sum + a.x * b.y - a.y * b.x;
+    }, 0)) / 2;
+  })();
+  vi.useFakeTimers();
+  try {
+    whatIf.open();
+    whatIf.setLoadFactor(index, 0.5);
+    await vi.advanceTimersByTimeAsync(60);
+    const result = await modelStore.solve3DAsync(false, false, true);
+    if (!result || typeof result === 'string') throw new Error(String(result));
+    expect(result.reactions.reduce((sum, r) => sum + r.fz, 0)).toBeCloseTo(20 - area / 2, 8);
+  } finally {
+    whatIf.abandon();
+    vi.useRealTimers();
+  }
 });

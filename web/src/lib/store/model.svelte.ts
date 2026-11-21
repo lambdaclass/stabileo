@@ -1,3 +1,4 @@
+import { accountingProjection, scenarioSurfaceAdjustment } from '../engine/accounting-source';
 import { globalAxes } from '../features';
 import type { SupportType } from '../model/support-types';
 import { caseNameShown, combinationNameShown } from '../axes/case-names';
@@ -578,6 +579,7 @@ export interface PointLoadOnElement {
   px?: number; // kN (axial, local coords — positive = tension toward J)
   my?: number; // kN·m (moment at position a — positive = CCW)
   mz?: number; // legacy alias
+  enteredZeroMoment?: true;
   caseId?: number;
   angle?: number;     // degrees, rotation from base direction (default 0)
   isGlobal?: boolean; // false=local coords (default), true=global coords
@@ -682,6 +684,7 @@ export interface NodeDisplacement3D {
 }
 
 export interface SurfaceLoad3D {
+  [scenarioSurfaceAdjustment]?: SurfaceLoad3D;
   id: number;
   /** The shell it acts on: a quad, or a triangular plate when `on` says so. */
   quadId: number;
@@ -1292,17 +1295,17 @@ function createModelStore() {
    * into the 2D convention (x=horizontal, y=vertical) for the given plane.
    * The returned object is a shallow copy safe for passing to solver functions.
    */
-  function remapModelForPlane(plane: DrawPlane, includeSelfWeight = false): { nodes: Map<number, Node>; elements: typeof model.elements; supports: typeof model.supports; loads: typeof model.loads; materials: typeof model.materials; sections: typeof model.sections; connectors?: typeof model.connectors; constraints?: typeof model.constraints; analysis?: { selfWeight: SelfWeightLoad[] } } | string {
+  function remapModelForPlane(plane: DrawPlane, includeSelfWeight = false): ModelData | string {
     // Only Basic's self-weight rule rides along: which case carries it.
     const sw = basicSelfWeight(includeSelfWeight);
     const analysis = sw ? { selfWeight: sw } : undefined;
+    const { nodes, elements, supports, loads, loadCases, materials, sections, connectors } = model;
+    const source = { nodes, elements, supports, loads, loadCases, materials, sections, connectors, analysis, plates: model.plates, quads: model.quads };
     const constraints = plane === 'xy' ? model.constraints : constraintsInXZ(plane, model.constraints);
     if (constraintsCoupledAcrossPlane(constraints).length > 0) return t('svc.constraintsCoupled');
     if (plane !== 'xy' && constraintsAcrossDepth(plane, model.constraints, (id) => model.nodes.get(id)).length > 0) return t('svc.constraintsCoupled');
     if (plane === 'xy') {
-      return { nodes: model.nodes, elements: model.elements, supports: model.supports,
-        loads: model.loads, materials: model.materials, sections: model.sections,
-        connectors: model.connectors, constraints, analysis };
+      return { ...source, constraints };
     }
 
     // Remap nodes into the selected 2D plane
@@ -1367,9 +1370,8 @@ function createModelStore() {
     });
 
     // Connectors are pure node-id + stiffness pairs — no geometry to remap.
-    return { nodes: remappedNodes, elements: model.elements, supports: remappedSupports,
-      loads: remappedLoads, materials: model.materials, sections: model.sections,
-      connectors: model.connectors, constraints, analysis };
+    return { ...source, nodes: remappedNodes, supports: remappedSupports, loads: remappedLoads,
+      constraints, [accountingProjection]: { plane, source } };
   }
 
   let nextId = $state({
@@ -3824,7 +3826,11 @@ function createModelStore() {
         if (data.a !== undefined) d.a = data.a as number;
         if (data.p !== undefined) d.p = data.p as number;
         if (data.px !== undefined) d.px = (data.px as number) || undefined;
-        if (data.my !== undefined) d.my = (data.my as number) || undefined;
+        if (data.my !== undefined) {
+          d.my = (data.my as number) || undefined;
+          if (data.my === 0 && d.mz) d.enteredZeroMoment = true;
+          else delete d.enteredZeroMoment;
+        }
         if (data.angle !== undefined) d.angle = data.angle as number;
         if (data.isGlobal !== undefined) d.isGlobal = data.isGlobal as boolean;
       } else if (load.type === 'thermal') {
@@ -4600,7 +4606,7 @@ function createModelStore() {
       const loads = model.loads.filter((l) => (opts.caseDisplacements || l.type !== 'displacement3d') && !(opts.uncut && l.type === 'pointOnElement3d'));
       return buildSolverInput3DFn(
         { nodes: model.nodes, elements: model.elements, supports: model.supports,
-          loads, materials: model.materials, sections: model.sections, analysis: analysisFor(!opts.basic, includeSelfWeight), groups: model.groups,
+          loads, loadCases: model.loadCases, materials: model.materials, sections: model.sections, analysis: analysisFor(!opts.basic, includeSelfWeight), groups: model.groups,
           plates: model.plates, quads: model.quads,
           constraints: model.constraints, connectors: model.connectors },
         includeSelfWeight, leftHand, opts,
@@ -4616,7 +4622,7 @@ function createModelStore() {
       // Every load once, as the cases say they are solved (`case-effects.ts` `singleSolveModel`).
       return validateAndSolve3D(
         singleSolveModel({ nodes: model.nodes, elements: model.elements, supports: model.supports,
-          loads: model.loads, materials: model.materials, sections: model.sections, analysis: analysisFor(isPro, includeSelfWeight), groups: model.groups,
+          loads: model.loads, loadCases: model.loadCases, materials: model.materials, sections: model.sections, analysis: analysisFor(isPro, includeSelfWeight), groups: model.groups,
           plates: isPro ? model.plates : undefined,
           quads: isPro ? model.quads : undefined,
           constraints: isPro ? model.constraints : undefined,
@@ -4632,7 +4638,7 @@ function createModelStore() {
       if (this.hasSlidingJoints()) return null;
       return linearSolveInput3D(
         singleSolveModel({ nodes: model.nodes, elements: model.elements, supports: model.supports,
-          loads: model.loads, materials: model.materials, sections: model.sections, analysis: analysisFor(isPro, includeSelfWeight), groups: model.groups,
+          loads: model.loads, loadCases: model.loadCases, materials: model.materials, sections: model.sections, analysis: analysisFor(isPro, includeSelfWeight), groups: model.groups,
           plates: isPro ? model.plates : undefined,
           quads: isPro ? model.quads : undefined,
           constraints: isPro ? model.constraints : undefined,
@@ -4646,7 +4652,7 @@ function createModelStore() {
       try {
         return await validateAndSolve3DAsync(
           singleSolveModel({ nodes: model.nodes, elements: model.elements, supports: model.supports,
-            loads: model.loads, materials: model.materials, sections: model.sections, analysis: analysisFor(isPro, includeSelfWeight), groups: model.groups,
+            loads: model.loads, loadCases: model.loadCases, materials: model.materials, sections: model.sections, analysis: analysisFor(isPro, includeSelfWeight), groups: model.groups,
             plates: isPro ? model.plates : undefined,
             quads: isPro ? model.quads : undefined,
             constraints: isPro ? model.constraints : undefined,
@@ -4669,7 +4675,7 @@ function createModelStore() {
       try {
         r = solveCombinations3DFn(
           { nodes: model.nodes, elements: model.elements, supports: model.supports,
-            loads: model.loads, materials: model.materials, sections: model.sections, analysis: analysisFor(isPro, includeSelfWeight), groups: model.groups,
+            loads: model.loads, loadCases: model.loadCases, materials: model.materials, sections: model.sections, analysis: analysisFor(isPro, includeSelfWeight), groups: model.groups,
             plates: isPro ? model.plates : undefined,
             quads: isPro ? model.quads : undefined,
             constraints: isPro ? model.constraints : undefined,
@@ -4694,7 +4700,7 @@ function createModelStore() {
       try {
         r = await solveCombinations3DParallelFn(
           { nodes: model.nodes, elements: model.elements, supports: model.supports,
-            loads: model.loads, materials: model.materials, sections: model.sections, analysis: analysisFor(isPro, includeSelfWeight), groups: model.groups,
+            loads: model.loads, loadCases: model.loadCases, materials: model.materials, sections: model.sections, analysis: analysisFor(isPro, includeSelfWeight), groups: model.groups,
             plates: isPro ? model.plates : undefined,
             quads: isPro ? model.quads : undefined,
             constraints: isPro ? model.constraints : undefined,

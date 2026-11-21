@@ -1,3 +1,4 @@
+import { accountingCaseFactors } from './accounting-source';
 /**
  * The loads each case carries when solved, from what the model states about the case:
  *
@@ -138,6 +139,7 @@ export function withCaseEffects<M extends ModelData>(
   const own = new Map<number, Load[]>();
   for (const l of model.loads) { const c = l.data.caseId ?? 1; (own.get(c) ?? own.set(c, []).get(c)!).push(l); }
   const loads = new Map<number, Load[]>();
+  const authoredTerms = new Map<number, Map<number, number>>();
   let nextId = Math.max(0, ...model.loads.map((l) => l.data.id)) + 1;
   const fresh = (l: Load, caseId: number, k: number): Load => {
     const s = k === 1 ? l : scaledLoad(l, k);
@@ -148,6 +150,7 @@ export function withCaseEffects<M extends ModelData>(
     if (required && !required.has(id)) continue;
     const c = byId.get(id)!;
     const k = ratioOf(c);
+    const terms = new Map([[id, k]]);
     const list = (own.get(id) ?? []).map((l) => (k === 1 ? l : fresh(l, id, k)));
     const swRows = [...(rows.get(id) ?? [])];
     if (c.notional && !looped.has(id)) {
@@ -164,10 +167,14 @@ export function withCaseEffects<M extends ModelData>(
     if (!looped.has(id)) {
       for (const inc of c.includes ?? []) {
         if (!byId.has(inc.caseId) || inc.factor === 0) continue;
+        for (const [source, factor] of authoredTerms.get(inc.caseId) ?? [[inc.caseId, 1]]) {
+          terms.set(source, (terms.get(source) ?? 0) + factor * inc.factor);
+        }
         for (const l of loads.get(inc.caseId) ?? own.get(inc.caseId) ?? []) list.push(fresh(l, id, inc.factor));
         for (const r of rows.get(inc.caseId) ?? []) swRows.push({ ...r, caseId: id, factor: r.factor * inc.factor });
       }
     }
+    authoredTerms.set(id, terms);
     loads.set(id, list);
     rows.set(id, swRows);
   }
@@ -176,6 +183,7 @@ export function withCaseEffects<M extends ModelData>(
   const orphan = model.loads.filter((l) => !byId.has(l.data.caseId ?? 1));
   return {
     ...model,
+    [accountingCaseFactors]: new Map([...authoredTerms].filter(([id]) => inScope(id))),
     loads: [...orphan, ...order.filter(inScope).flatMap(id => loads.get(id) ?? [])],
     analysis: { ...(model.analysis ?? {}), selfWeight: [...rows.entries()].filter(([id]) => inScope(id)).flatMap(([, own]) => own) },
   };
@@ -276,9 +284,13 @@ export function singleSolveModel<M extends ModelData>(model: M, cases: readonly 
   // Loads, and rows, of a case id the model has no case for are kept as they are.
   const loads: Load[] = model.loads.filter((l) => !byId.has(l.data.caseId ?? 1));
   const rows: SelfWeightLoad[] = (stated ?? []).filter((r) => !byId.has(r.caseId));
+  const authoredTerms = new Map<number, Map<number, number>>();
   for (const [as, terms] of singleSolveTerms(cases)) {
+    const bySource = new Map<number, number>();
+    authoredTerms.set(as, bySource);
     for (const { caseId, factor } of terms) {
       const k = factor * ratioOf(byId.get(caseId)!);
+      bySource.set(caseId, (bySource.get(caseId) ?? 0) + k);
       for (const l of own.get(caseId) ?? []) {
         if (k === 1 && caseId === as) { loads.push(l); continue; }
         const s = scaledLoad(l, k);
@@ -287,7 +299,7 @@ export function singleSolveModel<M extends ModelData>(model: M, cases: readonly 
       for (const r of stated ?? []) if (r.caseId === caseId) rows.push({ ...r, caseId: as, factor: r.factor * factor });
     }
   }
-  return { ...model, loads, ...(stated ? { analysis: { ...model.analysis, selfWeight: rows } } : {}) };
+  return { ...model, [accountingCaseFactors]: authoredTerms, loads, ...(stated ? { analysis: { ...model.analysis, selfWeight: rows } } : {}) };
 }
 
 /**

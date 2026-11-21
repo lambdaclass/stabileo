@@ -20,7 +20,7 @@
  */
 import { modelStore } from './model.svelte';
 import { uiStore } from './ui.svelte';
-import { clearPlateMesh, physicalPlates } from './physical-plates';
+import { clearPlateMesh, physicalPlates, plateMeshEditRefusal } from './physical-plates';
 import { plateLoops } from '../model/physical/plate';
 import { arcMembers, pieceOf, type Piece } from '../model/curve-entity';
 import { arcThroughThree, buildArc, NODE_MERGE_TOL, type ArcSpec, type Vec3 } from '../model/curved-member';
@@ -139,6 +139,10 @@ export function remakeArc(arcId: number, change: ArcRemake): { members: number[]
   // arc, and its shells would keep the old nodes in the model. They are meshed again on demand.
   const arcNodes = new Set(arcMembers(modelStore.model as never, arcId).flatMap((id) => { const e = modelStore.elements.get(id)!; return [e.nodeI, e.nodeJ]; }));
   const onArc = physicalPlates().filter((pl) => [...(pl.group.members.quads ?? []).map((q) => modelStore.quads.get(q)?.nodes ?? []), ...(pl.group.members.plates ?? []).map((q) => modelStore.plates.get(q)?.nodes ?? [])].some((ns) => ns.some((n) => arcNodes.has(n))));
+  for (const plate of onArc) {
+    const refusal = plateMeshEditRefusal(plate.id);
+    if (refusal) { uiStore.toast(refusal, 'error'); return null; }
+  }
   let result: ReturnType<typeof remakeArcNow> = null;
   modelStore.batch(() => {
     for (const pl of onArc) clearPlateMesh(pl.id);

@@ -1,3 +1,7 @@
+import { accountingCaseFactors, accountingProjection, accountingSource, scenarioSurfaceAdjustment } from './accounting-source';
+import type { Wrench } from './accounting-math';
+import { accountCombination, accountLoads2D, accountLoads3D, loadCaseBatches } from './load-accounting';
+import { accountPlateGeometry, SolveAccountingError } from './plate-accounting';
 import { shouldEmbedFlat2DModelIn3D } from './model-embedding';
 export { shouldEmbedFlat2DModelIn3D } from './model-embedding';
 import { MemberLoadIntervalError, validateMemberLoadInterval } from './member-span-loads';
@@ -109,10 +113,14 @@ function thermalDepths(model: ModelData, elementId: number, embedded: boolean | 
 // ─── ModelData interface ──────────────────────────────────────────
 
 export interface ModelData {
+  [accountingSource]?: ModelData;
+  [accountingProjection]?: { plane: 'xz' | 'yz'; source: ModelData };
+  [accountingCaseFactors]?: ReadonlyMap<number, ReadonlyMap<number, number>>;
   nodes: Map<number, Node>;
   elements: Map<number, Element>;
   supports: Map<number, Support>;
   loads: Load[];
+  loadCases?: readonly LoadCase[];
   materials: Map<number, Material>;
   sections: Map<number, Section>;
   plates?: Map<number, { id: number; nodes: [number, number, number]; materialId: number; thickness: number }>;
@@ -122,7 +130,7 @@ export interface ModelData {
   /** The project's analysis rules (`analysis-settings.ts`). Absent: the older ones. */
   analysis?: import('./analysis-settings').AnalysisSettings;
   /** Named groups, for a self-weight load that covers a group. */
-  groups?: Map<number, { id: number; name?: string; members: { nodes?: number[]; elements?: number[]; plates?: number[]; quads?: number[] }; data?: Record<string, unknown> }>;
+  groups?: Map<number, { id: number; name?: string; kind?: string; members: { nodes?: number[]; elements?: number[]; plates?: number[]; quads?: number[] }; data?: Record<string, unknown> }>;
 }
 
 function snapshotMap<T>(map: ReadonlyMap<number, T>): Map<number, T> {
@@ -130,9 +138,21 @@ function snapshotMap<T>(map: ReadonlyMap<number, T>): Map<number, T> {
 }
 
 function snapshotNonlinearModel(model: ModelData): ModelData {
-  return Object.fromEntries(Object.entries(model).map(([key, value]) => [key,
+  const snapshot = Object.fromEntries(Object.entries(model).map(([key, value]) => [key,
     value instanceof Map ? snapshotMap(value) : plainDeepCopy(value),
   ])) as unknown as ModelData;
+  const factors = model[accountingCaseFactors];
+  if (factors) snapshot[accountingCaseFactors] = new Map([...factors].map(([id, terms]) => [id, new Map(terms)]));
+  const source = model[accountingSource];
+  if (source) snapshot[accountingSource] = snapshotNonlinearModel(source);
+  for (const [i, load] of model.loads.entries()) {
+    const copy = snapshot.loads[i];
+    if (load.type === 'surface3d' && copy?.type === 'surface3d') {
+      const adjustment = load.data[scenarioSurfaceAdjustment];
+      if (adjustment) copy.data[scenarioSurfaceAdjustment] = plainDeepCopy(adjustment);
+    }
+  }
+  return snapshot;
 }
 
 function missingCombinationCaseRefusal(
@@ -258,7 +278,35 @@ function buildSolverSupports2D(model: ModelData): Map<number, any> {
  *  identical per-case loads on the wire. */
 class PlaneSelfWeightError extends Error {}
 
-function buildSolverLoads2D(model: ModelData, loads: Load[], weights: readonly SelfWeightLoad[]): SolverInput['loads'] {
+function buildSolverLoads2D(model: ModelData, input: SolverInput, loads: Load[], weights: readonly SelfWeightLoad[]): SolverInput['loads'] {
+  const { loads: checked, cases } = accountAssembly<SolverInput['loads'][number]>(record => convertSolverLoads2D(model, loads, weights, record));
+  for (const [caseId, entered] of loadCaseBatches(loads)) {
+    accountLoads2D(model, input, entered, cases.get(caseId) ?? [], caseId);
+  }
+  return checked;
+}
+
+type RecordLoadCase<T> = (caseId: number | null, loads: readonly T[]) => void;
+
+function accountAssembly<T extends object>(assemble: (record: RecordLoadCase<T>) => T[]) {
+  const caseOf = new WeakMap<T, number | null>();
+  const loads = assemble((caseId, batch) => { for (const load of batch) caseOf.set(load, caseId); });
+  const cases = new Map<number, T[]>();
+  for (const [i, load] of loads.entries()) {
+    const id = caseOf.get(load);
+    if (id === null) continue;
+    if (id === undefined) throw new SolveAccountingError(tp('svc.accountingUnsupported', { case: '—', kind: 'wire', id: i + 1 }));
+    const batch = cases.get(id);
+    if (batch) batch.push(load);
+    else cases.set(id, [load]);
+  }
+  return { loads, cases };
+}
+
+function convertSolverLoads2D(
+  model: ModelData, loads: Load[], weights: readonly SelfWeightLoad[],
+  record: RecordLoadCase<SolverInput['loads'][number]>,
+): SolverInput['loads'] {
   /*
    * One builder for every 2D path. The linear solve and the combinations had
    * their own, which passed a distributed or point load's value straight to
@@ -287,8 +335,12 @@ function buildSolverLoads2D(model: ModelData, loads: Load[], weights: readonly S
   };
 
   for (const l of loads) {
+    const emit = (...batch: SolverInput['loads']) => {
+      record(l.data.caseId ?? 1, batch);
+      for (const load of batch) solverLoads.push(load);
+    };
     if (l.type === 'nodal') {
-      solverLoads.push({
+      emit({
         type: 'nodal' as const,
         data: { nodeId: l.data.nodeId, fx: l.data.fx, fz: l.data.fz ?? l.data.fy, my: l.data.my ?? l.data.mz },
       });
@@ -300,7 +352,7 @@ function buildSolverLoads2D(model: ModelData, loads: Load[], weights: readonly S
       const known = thermalAlphaOfElement(model, d.elementId);
       const alpha = known ?? (d.dtUniform || d.dtGradient ? undefined : ENGINE_ALPHA);
       const depth = d.dtGradient ? thermalDepths(model, d.elementId, 'plane').z : undefined;
-      solverLoads.push({
+      emit({
         type: 'thermal' as const,
         data: {
           elementId: d.elementId,
@@ -317,7 +369,7 @@ function buildSolverLoads2D(model: ModelData, loads: Load[], weights: readonly S
       const isGlobal = d.isGlobal ?? false;
 
       if (angle === 0 && !isGlobal) {
-        solverLoads.push({ type: 'pointOnElement' as const, data: { elementId: d.elementId, a: d.a, p: sOf(d.elementId) * d.p, px: d.px, my: pointMy } });
+        emit({ type: 'pointOnElement' as const, data: { elementId: d.elementId, a: d.a, p: sOf(d.elementId) * d.p, px: d.px, my: pointMy } });
       } else {
         const elem = model.elements.get(d.elementId);
         if (!elem) continue;
@@ -349,7 +401,7 @@ function buildSolverLoads2D(model: ModelData, loads: Load[], weights: readonly S
         const px = (d.px ?? 0) + (Math.abs(pAxial) > 1e-10 ? pAxial : 0);
         const p = Math.abs(pPerp) > 1e-10 ? pPerp : 0;
         if (p !== 0 || px !== 0 || (pointMy !== undefined && pointMy !== 0)) {
-          solverLoads.push({ type: 'pointOnElement' as const, data: { elementId: d.elementId, a: d.a, p, ...(px !== 0 ? { px } : {}), ...(pointMy ? { my: pointMy } : {}) } });
+          emit({ type: 'pointOnElement' as const, data: { elementId: d.elementId, a: d.a, p, ...(px !== 0 ? { px } : {}), ...(pointMy ? { my: pointMy } : {}) } });
         }
       }
     } else if (l.type === 'distributed') {
@@ -366,7 +418,7 @@ function buildSolverLoads2D(model: ModelData, loads: Load[], weights: readonly S
 
       if (angle === 0 && !isGlobal) {
         const sd = sOf(d.elementId);
-        solverLoads.push({ type: 'distributed' as const, data: { elementId: d.elementId, qI: sd * d.qI, qJ: sd * d.qJ, a: d.a, b: d.b } });
+        emit({ type: 'distributed' as const, data: { elementId: d.elementId, qI: sd * d.qI, qJ: sd * d.qJ, a: d.a, b: d.b } });
       } else {
         const elem = model.elements.get(d.elementId);
         if (!elem) continue;
@@ -400,15 +452,16 @@ function buildSolverLoads2D(model: ModelData, loads: Load[], weights: readonly S
         }
 
         if (Math.abs(qIPerpLocal) > 1e-10 || Math.abs(qJPerpLocal) > 1e-10) {
-          solverLoads.push({ type: 'distributed' as const, data: { elementId: d.elementId, qI: qIPerpLocal, qJ: qJPerpLocal, a: d.a, b: d.b } });
+          emit({ type: 'distributed' as const, data: { elementId: d.elementId, qI: qIPerpLocal, qJ: qJPerpLocal, a: d.a, b: d.b } });
         }
         if (Math.abs(qIAxialLocal) > 1e-10 || Math.abs(qJAxialLocal) > 1e-10) {
-          solverLoads.push({ type: 'axialDistributed' as const, data: { elementId: d.elementId, qI: qIAxialLocal, qJ: qJAxialLocal, a: d.a, b: d.b } });
+          emit({ type: 'axialDistributed' as const, data: { elementId: d.elementId, qI: qIAxialLocal, qJ: qJAxialLocal, a: d.a, b: d.b } });
         }
       }
     }
   }
 
+  const firstGeneratedLoad = solverLoads.length;
   const sectionWeight = createSectionWeight(model.materials);
   for (const weight of weights) {
     if (!Number.isFinite(weight.factor)) throw new PlaneSelfWeightError(t('svc.selfWeightNonFinite'));
@@ -438,6 +491,7 @@ function buildSolverLoads2D(model: ModelData, loads: Load[], weights: readonly S
     }
   }
 
+  record(null, solverLoads.slice(firstGeneratedLoad));
   return solverLoads;
 }
 
@@ -918,7 +972,7 @@ function prepareSolve2D(
 
   // Build solver loads array (shared with the multi-case combo path)
   let input: SolverInput;
-  try { input = { ...frame, loads: buildSolverLoads2D(model, model.loads, weights) }; }
+  try { input = { ...frame, loads: buildSolverLoads2D(model, frame, model.loads, weights) }; }
   catch (error) {
     const refusal = loadRefusal(error);
     if (refusal) return refusal;
@@ -1222,7 +1276,9 @@ export async function validateAndSolve2DAsync(
 export function buildSolverInput2D(model: ModelData, includeSelfWeight = false): SolverInput | null {
   if (model.nodes.size < 2 || model.elements.size < 1 || model.supports.size < 1) return null;
   // The same builder as every 2D path, material α included (buildSolverLoads2D).
-  return { ...solverFrame2D(model), loads: buildSolverLoads2D(model, model.loads, selfWeightFor(model, null, includeSelfWeight)) };
+  const input = solverFrame2D(model);
+  input.loads = buildSolverLoads2D(model, input, model.loads, selfWeightFor(model, null, includeSelfWeight));
+  return input;
 }
 
 // ─── 2D: solveCombinations2D ─────────────────────────────────────
@@ -1300,7 +1356,7 @@ function solveCombinations2DCore(
   for (const lc of loadCases) {
     const caseLoads = model.loads.filter(l => (l.data.caseId ?? 1) === lc.id);
     try {
-      const loads = buildSolverLoads2D(model, caseLoads, selfWeightFor(model, lc, includeSelfWeight));
+      const loads = buildSolverLoads2D(model, baseInput, caseLoads, selfWeightFor(model, lc, includeSelfWeight));
       mcLoadCases.push({ name: lc.name, loads });
     } catch (error) {
       const refusal = loadRefusal(error);
@@ -1473,7 +1529,7 @@ class PlanarPointLoadProjectionError extends Error {}
 export function buildSolverLoads3D(
   model: ModelData, loads: Load[], selfWeight: boolean | SelfWeightLoad[], userLeftHand: boolean,
   /** A reader of where forces are (a mass source): an interior moment or axial force with no cut is lumped, not refused. */
-  opts: { forcesOnly?: boolean } = {},
+  opts: { forcesOnly?: boolean; record?: RecordLoadCase<SolverLoad3D> } = {},
 ): SolverLoad3D[] {
   const leftHand = false;
   const solverLoads: SolverLoad3D[] = [];
@@ -1484,14 +1540,20 @@ export function buildSolverLoads3D(
   // included: the cuts skip those, so their loads must not need one (`member-loads.ts`).
   const axialMember = (id: number) => memberTakesNoBending(model.elements.get(id));
 
+  const truss = (id: number) => takesNoBending(id) ? refOf(id) : null;
   for (const l of loads) {
+    const emit = (...batch: SolverLoad3D[]) => {
+      const assembled = transverseToNodes(batch, truss);
+      opts.record?.(l.data.caseId ?? 1, assembled);
+      for (const load of assembled) solverLoads.push(load);
+    };
     if (l.type === 'nodal') {
       const vertical = get2DDisplayNodalLoadVertical(l.data);
       const moment = get2DDisplayNodalLoadMoment(l.data);
       // Standing in X–Z the plane is a reflection of the drawn X–Y one, (x, y) → (x, 0, y): a
       // counter-clockwise couple as drawn is about −Y there, as the reactions read (embedded My is
       // the plane's with its sign turned). It went in as +Y, the mirror image of the load drawn.
-      solverLoads.push({
+      emit({
         type: 'nodal',
         data: project2DToXZ
           ? { nodeId: l.data.nodeId, fx: l.data.fx, fy: 0, fz: vertical, mx: 0, my: -moment, mz: 0 }
@@ -1499,7 +1561,7 @@ export function buildSolverLoads3D(
       });
     } else if (l.type === 'nodal3d') {
       const d = l.data as NodalLoad3D;
-      solverLoads.push({
+      emit({
         type: 'nodal',
         data: { nodeId: d.nodeId, fx: d.fx, fy: d.fy, fz: d.fz, mx: d.mx, my: d.my, mz: d.mz },
       });
@@ -1557,7 +1619,7 @@ export function buildSolverLoads3D(
       // (qX) along the span, so N varies as the load says. As loads at the end nodes it left the
       // member a constant N, the average of its true end values.
       if ([projI.qY, projJ.qY, projI.qZ, projJ.qZ, projI.qAxial, projJ.qAxial].some((v) => Math.abs(v) > 1e-10)) {
-        solverLoads.push({
+        emit({
           type: 'distributed',
           data: { elementId: d.elementId, qXI: projI.qAxial, qXJ: projJ.qAxial, qYI: projI.qY, qYJ: projJ.qY, qZI: projI.qZ, qZJ: projJ.qZ, a: d.a, b: d.b },
         });
@@ -1569,7 +1631,7 @@ export function buildSolverLoads3D(
       if (!m) continue;
       validateMemberLoadInterval(d.elementId, d.a ?? 0, d.b ?? m.axes.L, m.axes.L, m.points);
       const g = distributedGlobalEnds(d, m.axes, userLeftHand);
-      solverLoads.push(...globalDistributedToSolver(m, g.gI, g.gJ, g.a, g.b));
+      emit(...globalDistributedToSolver(m, g.gI, g.gJ, g.a, g.b));
     } else if (l.type === 'pointOnElement') {
       // A plane point load in the space axes (`planePointLoad3D`), then as a space one: its
       // couple, and its interior axial part, at the node the solve cut there.
@@ -1589,7 +1651,7 @@ export function buildSolverLoads3D(
           }));
         }
         if (moment !== 0) {
-          solverLoads.push({
+          emit({
             type: 'nodal',
             data: { nodeId: origin?.nodeI ?? m.nodeI, fx: 0, fy: 0, fz: 0, ...planarMoment3D(moment, project2DToXZ) },
           });
@@ -1597,7 +1659,7 @@ export function buildSolverLoads3D(
         continue;
       }
       const p3 = planePointLoad3D(d, dx, dPlan, project2DToXZ);
-      solverLoads.push(...(axialMember(d.elementId) ? pointWithCoupleToEnds(m, p3, userLeftHand) : pointToSolver(m, p3, userLeftHand, opts.forcesOnly)));
+      emit(...(axialMember(d.elementId) ? pointWithCoupleToEnds(m, p3, userLeftHand) : pointToSolver(m, p3, userLeftHand, opts.forcesOnly)));
     } else if (l.type === 'pointOnElement3d') {
       // Its force and moment, local or global; inside the span an axial part or a moment sits on
       // the node the solve cut there (`member-point-loads.ts`).
@@ -1606,9 +1668,9 @@ export function buildSolverLoads3D(
       if (!m) continue;
       if (axialMember(d.elementId)) {
         if ([d.mx, d.my, d.mz].some((v) => v)) throw new PointLoadNeedsCut(d.elementId);
-        solverLoads.push(...pointToEnds(m, d, userLeftHand));
+        emit(...pointToEnds(m, d, userLeftHand));
       } else {
-        solverLoads.push(...pointToSolver(m, d, userLeftHand, opts.forcesOnly));
+        emit(...pointToSolver(m, d, userLeftHand, opts.forcesOnly));
       }
     } else if (l.type === 'prestress3d') {
       // A tendon, as its equivalent loads (`prestress.ts`). A member that takes no bending takes
@@ -1616,16 +1678,16 @@ export function buildSolverLoads3D(
       const d = l.data as PrestressLoad3D;
       const m = refOf(d.elementId);
       if (!m) continue;
-      solverLoads.push(...(axialMember(d.elementId) ? prestressToSolver(m, { ...d, eI: 0, eM: 0, eJ: 0 }) : prestressToSolver(m, d)));
+      emit(...(axialMember(d.elementId) ? prestressToSolver(m, { ...d, eI: 0, eM: 0, eJ: 0 }) : prestressToSolver(m, d)));
     } else if (l.type === 'surface3d') {
-      solverLoads.push(...convertSurfaceLoad(l.data as SurfaceLoad3D, model.quads, model.nodes, model.plates));
+      emit(...convertSurfaceLoad(l.data as SurfaceLoad3D, model.quads, model.nodes, model.plates));
     } else if (l.type === 'thermal') {
       const d = l.data as ThermalLoad;
       // The material's own α and the member's real depths, on a space model and an embedded plane
       // one alike (#407).
       const alpha = thermalAlphaOfElement(model, d.elementId);
       const depth = thermalDepths(model, d.elementId, project2DToXZ);
-      solverLoads.push({
+      emit({
         type: 'thermal' as const,
         data: {
           elementId: d.elementId,
@@ -1656,23 +1718,27 @@ export function buildSolverLoads3D(
       });
       if (d.strain) {
         // An initial strain, ε/α with the α it is sent with: exact, and independent of the material's.
-        solverLoads.push({ type: 'thermal' as const, data: { elementId: d.elementId, dtUniform: d.strain / ENGINE_ALPHA, dtGradientY: 0, dtGradientZ: 0, alpha: ENGINE_ALPHA } });
+        emit({ type: 'thermal' as const, data: { elementId: d.elementId, dtUniform: d.strain / ENGINE_ALPHA, dtGradientY: 0, dtGradientZ: 0, alpha: ENGINE_ALPHA } });
       }
     } else if (l.type === 'thermalQuad3d') {
       const tq = l.data as ThermalLoadQuad3D;
       const quad = tq.on === 'plate' ? model.plates?.get(tq.quadId) : model.quads?.get(tq.quadId);
       const curved = tq.on !== 'plate' && !!model.quads?.get(tq.quadId)?.curved;
-      solverLoads.push(...convertThermalQuadLoad(tq, thermalAlphaOf(quad ? model.materials.get(quad.materialId) : undefined), curved));
+      emit(...convertThermalQuadLoad(tq, thermalAlphaOf(quad ? model.materials.get(quad.materialId) : undefined), curved));
     }
   }
 
   // Self-weight: a member load along the member, and the corners' shares on a shell.
   const selfWeightLoads = Array.isArray(selfWeight) ? selfWeight : selfWeightFor(model, null, selfWeight);
-  if (selfWeightLoads.length) solverLoads.push(...selfWeightSolverLoads(model, selfWeightLoads, refOf, takesNoBending));
+  if (selfWeightLoads.length) {
+    const generated = transverseToNodes(selfWeightSolverLoads(model, selfWeightLoads, refOf, takesNoBending), truss);
+    opts.record?.(null, generated);
+    for (const load of generated) solverLoads.push(load);
+  }
 
   // A truss takes no bending, and the engine drops a transverse load on one: its end nodes take
   // the simply supported reactions instead.
-  return transverseToNodes(solverLoads, (id) => (takesNoBending(id) ? refOf(id) : null));
+  return solverLoads;
 }
 
 /**
@@ -1777,6 +1843,33 @@ export function withoutSpringsOnRestrained<T extends Record<string, unknown>>(su
   return out as T;
 }
 
+function checkedSolverLoads3D(
+  model: ModelData, input: SolverInput3D, loads: Load[], weights: boolean | SelfWeightLoad[], leftHand: boolean,
+  plateCases: boolean | readonly number[],
+  plates = accountPlateGeometry(model[accountingSource] ?? model, input),
+  checkedCase?: (caseId: number, loads: readonly SolverLoad3D[], totals: Wrench) => void,
+): SolverLoad3D[] {
+  const { loads: checked, cases: assembledByCase } = accountAssembly<SolverLoad3D>(record =>
+    buildSolverLoads3D(model, loads, weights, leftHand, { record }));
+  const embedded = shouldEmbedFlat2DModelIn3D(model);
+  const cases = plateCases === true ? model[accountingCaseFactors] ? [...model[accountingCaseFactors].keys()]
+    : [...(model.groups?.values() ?? [])].flatMap(group => {
+    const caseId = group.data?.caseId;
+    return group.kind === 'floorLoad' && typeof caseId === 'number' ? [caseId] : [];
+  }) : plateCases || [];
+  const source = (plateCases === false ? undefined : model[accountingSource]) ?? model;
+  const authored = source === model ? null : loadCaseBatches(source.loads);
+  const selectedCases = plateCases === true && authored ? [...cases, ...authored.keys()] : cases;
+  for (const [caseId, entered] of loadCaseBatches(loads, selectedCases)) {
+    const plateMeasures = plateCases === true || cases.includes(caseId) ? plates : new Map();
+    const assembled = assembledByCase.get(caseId) ?? [];
+    const totals = accountLoads3D(source, input, authored ? (authored.get(caseId) ?? []) : entered,
+      assembled, caseId, embedded, leftHand, plateMeasures);
+    checkedCase?.(caseId, assembled, totals);
+  }
+  return checked;
+}
+
 function assertPlateAnalysisReady(model: ModelData): void {
   const error = plateAnalysisRefusal(model);
   if (error) throw new PlateAnalysisError(error);
@@ -1792,7 +1885,7 @@ export function prepareSolverInput3D(model: ModelData, leftHand: boolean) {
   const solvable = solvableModel(model);
   return {
     model: solvable,
-    build: (loads: Load[]) => buildValidatedSolverInput3D({ ...solvable, loads }, false, leftHand),
+    build: (loads: Load[]) => buildValidatedSolverInput3D({ ...solvable, loads }, [], leftHand, { plateCases: false }),
   };
 }
 
@@ -1801,7 +1894,7 @@ function buildValidatedSolverInput3D(
   /** A boolean for a solve of every load; a case's own self-weight loads for a case. */
   includeSelfWeight: boolean | SelfWeightLoad[] = false,
   userLeftHand = false,
-  opts: { expandMemberOffsets?: boolean } = {},
+  opts: { expandMemberOffsets?: boolean; plateCases?: boolean | readonly number[] } = {},
 ): SolverInput3D | null {
   model = solvableModel(model);
   if (model.nodes.size < 2 || !hasLoadCarrying3D(model) || model.supports.size < 1) return null;
@@ -1809,7 +1902,6 @@ function buildValidatedSolverInput3D(
   // The displacements its loads impose, on the supports that restrain them (`case-displacements.ts`).
   if (hasCaseDisplacements(model.loads)) model = { ...model, supports: supportsWithImposed(model.supports, imposedOf(model.loads)) };
   const project2DToXZ = shouldEmbedFlat2DModelIn3D(model);
-  const solverLoads = buildSolverLoads3D(model, model.loads, includeSelfWeight, userLeftHand);
 
   const input: SolverInput3D = {
     nodes: new Map(Array.from(model.nodes.entries()).map(([id, n]) => [id, mapModelNodeToSolver3D(n, project2DToXZ)])),
@@ -1944,7 +2036,7 @@ function buildValidatedSolverInput3D(
       }
       return supMap;
     })(),
-    loads: solverLoads,
+    loads: [],
     plates: model.plates ? new Map(Array.from(model.plates.entries()).map(([id, p]) => [id, { id: p.id, nodes: p.nodes, materialId: p.materialId, thickness: p.thickness }])) : new Map(),
     // Flat MITC4 quads vs. degenerated-continuum curved shells (split by the
     // `curved` flag; both keyed by their own id, stresses return in quadStresses).
@@ -2006,6 +2098,7 @@ function buildValidatedSolverInput3D(
    * member end releases its moments — get the vanishing spring the plane
    * solver already gives them. See `orphan-rotations-3d.ts`.
    */
+  input.loads = checkedSolverLoads3D(model, input, model.loads, includeSelfWeight, userLeftHand, opts.plateCases ?? true);
   stabiliseOrphanRotations3D(input);
 
   return input;
@@ -2030,7 +2123,7 @@ function buildSolveInput3D(...args: Parameters<typeof buildValidatedSolverInput3
 
 /** A load the solve cannot place, said by name: a moment on a member that takes no bending. */
 export function loadRefusal(err: unknown): string | null {
-  if (err instanceof MemberLoadIntervalError) return err.message;
+  if (err instanceof MemberLoadIntervalError || err instanceof SolveAccountingError) return err.message;
   if (err instanceof PlaneSelfWeightError || err instanceof PlanarPointLoadProjectionError || err instanceof PlanarPointMomentError) return err.message;
   return err instanceof PointLoadNeedsCut ? tp('svc.pointMomentOnTruss', { n: err.elementId }) : null;
 }
@@ -2463,7 +2556,7 @@ type Bundle3D = { perCase: Map<number, AnalysisResults3D>; perCombo: Map<number,
  * the structure without prescribed displacements.
  */
 function withSettlementCase(solved: Bundle3D, model: ModelData, combinations: LoadCombination[], leftHand: boolean): Bundle3D | string {
-  const input = buildSolveInput3D({ ...model, loads: [] }, [], leftHand);
+  const input = buildSolveInput3D({ ...model, loads: [] }, [], leftHand, { plateCases: false });
   if (!input) return t('svc.emptyModel');
   if (typeof input === 'string') return input;
   let settlement: AnalysisResults3D | string;
@@ -2619,7 +2712,7 @@ function withCaseDisplacements(solved: Bundle3D, model: ModelData, combinations:
   const perCase = new Map(solved.perCase);
   for (const c of casesWithDisplacements(model.loads)) {
     const own = model.loads.filter((l) => l.type === 'displacement3d' && (l.data.caseId ?? 1) === c);
-    const input = buildSolveInput3D({ ...free, loads: own }, [], leftHand);
+    const input = buildSolveInput3D({ ...free, loads: own }, [], leftHand, { plateCases: false });
     if (!input) return t('svc.emptyModel');
     if (typeof input === 'string') return input;
     let r: AnalysisResults3D | string;
@@ -2658,7 +2751,7 @@ function solveCombinations3DCore(
   const hasShells = (model.quads?.size ?? 0) > 0 || (model.plates?.size ?? 0) > 0;
 
   // Build base solver input once (structural data without loads)
-  const baseInput = buildSolveInput3D({ ...model, loads: [] }, [], leftHand);
+  const baseInput = buildSolveInput3D({ ...model, loads: [] }, [], leftHand, { plateCases: false });
   if (!baseInput) return t('svc.emptyModel');
   if (typeof baseInput === 'string') return baseInput;
   const unheld = unheldMomentRefusal3D({ ...baseInput, loads: buildSolverLoads3D(model, model.loads, false, leftHand) });
@@ -2674,11 +2767,9 @@ function solveCombinations3DCore(
    * to one case at a time without a word. Each goes to the engine under its id.
    */
   const caseKey = (id: number) => `case#${id}`;
-  for (const lc of loadCases) {
-    const caseLoads = model.loads.filter(l => (l.data.caseId ?? 1) === lc.id);
-    const loads = buildSolverLoads3D(model, caseLoads, selfWeightFor(model, lc, includeSelfWeight), leftHand);
-    mcLoadCases.push({ name: caseKey(lc.id), loads });
-    caseNameToId.set(caseKey(lc.id), lc.id);
+  for (const [caseId, loads] of caseSolverLoads3D(model, loadCases, includeSelfWeight, leftHand, baseInput)) {
+    mcLoadCases.push({ name: caseKey(caseId), loads });
+    caseNameToId.set(caseKey(caseId), caseId);
   }
 
   if (mcLoadCases.length === 0) return t('svc.noLoadsApplied');
@@ -2779,7 +2870,7 @@ function solveCombinations3DFallback(
 
   for (const lc of loadCases) {
     const caseModel: ModelData = { ...model, loads: model.loads.filter(l => (l.data.caseId ?? 1) === lc.id) };
-    const input = buildValidatedSolverInput3D(caseModel, selfWeightFor(model, lc, includeSelfWeight), leftHand);
+    const input = buildValidatedSolverInput3D(caseModel, selfWeightFor(model, lc, includeSelfWeight), leftHand, { plateCases: [lc.id] });
     if (!input) continue;
     try {
       const result = solve3DEngine(input);
@@ -2876,21 +2967,21 @@ function* nonlinearCombinationSteps(
   const method = model.analysis?.combinationMethod ?? 'solveEach';
   const settled = hasSettlement(model.supports.values());
   const free = settled ? { ...model, supports: withoutSettlement(model.supports) } : model;
-  const base = buildSolveInput3D({ ...free, loads: [] }, [], leftHand);
+  const base = buildSolveInput3D({ ...free, loads: [] }, [], leftHand, { plateCases: false });
   if (typeof base === 'string') return base;
-  const baseSettled = settled ? buildSolveInput3D({ ...model, loads: [] }, [], leftHand) : base;
+  const baseSettled = settled ? buildSolveInput3D({ ...model, loads: [] }, [], leftHand, { plateCases: false }) : base;
   if (typeof baseSettled === 'string') return baseSettled;
   if (!base || !baseSettled) return t('svc.emptyModel');
   const unheld = unheldMomentRefusal3D({ ...base, loads: buildSolverLoads3D(model, model.loads, [], leftHand) });
   if (unheld) return unheld;
   const hasShells = (model.quads?.size ?? 0) > 0 || (model.plates?.size ?? 0) > 0;
-  const caseLoads = caseSolverLoads3D(model, loadCases, includeSelfWeight, leftHand);
+  const caseLoads = caseSolverLoads3D(model, loadCases, includeSelfWeight, leftHand, base);
   // A case's imposed displacements go on the supports of the structure it is solved on, times its
   // factor in a combination solved whole (`case-displacements.ts`).
   const imposedCases = casesWithDisplacements(model.loads);
   const withImposed = (on: SolverInput3D, from: ModelData, factorOf: (caseId: number) => number): SolverInput3D | string => {
     if (imposedCases.size === 0) return on;
-    const b = buildSolveInput3D({ ...from, loads: imposedOf(model.loads, factorOf) }, [], leftHand);
+    const b = buildSolveInput3D({ ...from, loads: imposedOf(model.loads, factorOf) }, [], leftHand, { plateCases: false });
     return b ?? t('svc.emptyModel');
   };
   const run = function* (on: SolverInput3D, loads: SolverLoad3D[]): Generator<SolverInput3D, AnalysisResults3D, Awaited<ReturnType<typeof solveNonlinear3DAsync>>> {
@@ -2962,7 +3053,7 @@ function solveCombinations3DPDelta(
 ): Bundle3D | string | null {
   const settled = hasSettlement(model.supports.values());
   const free = settled ? { ...model, supports: withoutSettlement(model.supports) } : model;
-  const base = buildSolveInput3D({ ...model, loads: [] }, [], leftHand);
+  const base = buildSolveInput3D({ ...model, loads: [] }, [], leftHand, { plateCases: false });
   if (typeof base === 'string') return base;
   if (!base) return t('svc.emptyModel');
   const imposedCases = casesWithDisplacements(model.loads);
@@ -2984,7 +3075,7 @@ function solveCombinations3DPDelta(
     linear = withIt;
   }
   const hasShells = (model.quads?.size ?? 0) > 0 || (model.plates?.size ?? 0) > 0;
-  const caseLoads = caseSolverLoads3D(model, loadCases, includeSelfWeight, leftHand);
+  const caseLoads = caseSolverLoads3D(model, loadCases, includeSelfWeight, leftHand, base);
   const perCombo = new Map<number, AnalysisResults3D>();
   // No second-order equilibrium at its load: like the direct analysis, it publishes no forces. The
   // engine gives up on such a combination with the first-order results, which would otherwise
@@ -2996,7 +3087,7 @@ function solveCombinations3DPDelta(
       const factorOf = (c: number) => combo.factors.find((f) => f.caseId === c)?.factor ?? 0;
       const imposedHere = [...imposedCases].some((c) => factorOf(c) !== 0);
       if (loads.length === 0 && !settled && !imposedHere) continue;
-      const on = imposedHere ? buildSolveInput3D({ ...model, loads: imposedOf(model.loads, factorOf) }, [], leftHand) : base;
+      const on = imposedHere ? buildSolveInput3D({ ...model, loads: imposedOf(model.loads, factorOf) }, [], leftHand, { plateCases: false }) : base;
       if (!on) return t('svc.emptyModel');
       if (typeof on === 'string') return on;
       const full = { ...on, loads };
@@ -3052,23 +3143,55 @@ function superposedReport(
   };
 }
 
+const combinationAccounting = new WeakMap<ReadonlyMap<number, SolverLoad3D[]>, {
+  model: ModelData;
+  input: SolverInput3D;
+  entered: Map<number, Wrench>;
+  authored: WeakSet<SolverLoad3D>;
+}>();
+
 /** Each case's solver loads, self-weight in the dead-load cases when asked for. */
 export function caseSolverLoads3D(
-  model: ModelData, loadCases: LoadCase[], includeSelfWeight: boolean, leftHand: boolean,
+  model: ModelData, loadCases: LoadCase[], includeSelfWeight: boolean, leftHand: boolean, input?: SolverInput3D,
 ): Map<number, SolverLoad3D[]> {
   // On the members the solver input has: a variable member's loads are its pieces' (idempotent).
   model = solvableModel(model);
   const caseLoads = new Map<number, SolverLoad3D[]>();
+  input ??= buildSolverInput3D({ ...model, loads: [] }, [], leftHand, { plateCases: false }) ?? undefined;
+  if (!input) return caseLoads;
+  const plates = accountPlateGeometry(model[accountingSource] ?? model, input);
+  const enteredByCase = loadCaseBatches(model.loads);
+  const entered = new Map<number, Wrench>();
+  const authored = new WeakSet<SolverLoad3D>();
   for (const lc of loadCases) {
-    const loads = model.loads.filter((l) => (l.data.caseId ?? 1) === lc.id);
-    caseLoads.set(lc.id, buildSolverLoads3D(model, loads, selfWeightFor(model, lc, includeSelfWeight), leftHand));
+    const loads = enteredByCase.get(lc.id) ?? [];
+    caseLoads.set(lc.id, checkedSolverLoads3D(model, input, loads, selfWeightFor(model, lc, includeSelfWeight), leftHand, [lc.id], plates,
+      (id, assembled, totals) => {
+        entered.set(id, totals);
+        for (const load of assembled) authored.add(load);
+      }));
   }
+  combinationAccounting.set(caseLoads, { model, input, entered, authored });
   return caseLoads;
 }
 
 /** A combination's own factored loads, for an analysis that cannot superpose. */
 export function comboSolverLoads3D(combo: LoadCombination, caseLoads: Map<number, SolverLoad3D[]>): SolverLoad3D[] {
-  return netCombinationFactors(combo.factors).flatMap((f) => (caseLoads.get(f.caseId) ?? []).map((l) => scaleSolverLoad(l, f.factor)));
+  const factors = netCombinationFactors(combo.factors);
+  const audit = combinationAccounting.get(caseLoads);
+  const assembled: SolverLoad3D[] = [];
+  const terms: Array<{ factor: number; totals: Wrench }> = [];
+  const loads = factors.flatMap(({ caseId, factor }) => {
+    const totals = audit?.entered.get(caseId);
+    if (totals) terms.push({ factor, totals });
+    return (caseLoads.get(caseId) ?? []).map(load => {
+      const scaled = scaleSolverLoad(load, factor);
+      if (audit?.authored.has(load)) assembled.push(scaled);
+      return scaled;
+    });
+  });
+  if (audit) accountCombination(audit.model, audit.input, combo.id, combo.name, assembled, terms);
+  return loads;
 }
 
 /**
@@ -3153,7 +3276,7 @@ async function solveCombinations3DParallelCore(
   const hasShells = (model.quads?.size ?? 0) > 0 || (model.plates?.size ?? 0) > 0;
 
   // Build base solver input once (structural data without loads)
-  const baseInput = buildSolveInput3D({ ...model, loads: [] }, [], leftHand);
+  const baseInput = buildSolveInput3D({ ...model, loads: [] }, [], leftHand, { plateCases: false });
   if (!baseInput) return t('svc.emptyModel');
   if (typeof baseInput === 'string') return baseInput;
   const unheld = unheldMomentRefusal3D({ ...baseInput, loads: buildSolverLoads3D(model, model.loads, false, leftHand) });
@@ -3168,12 +3291,10 @@ async function solveCombinations3DParallelCore(
   // no JSON.stringify per case)
   const caseInputs: Array<{ caseId: number; caseName: string; input: Record<string, any> }> = [];
 
-  for (const lc of loadCases) {
-    const caseLoads = model.loads.filter(l => (l.data.caseId ?? 1) === lc.id);
-    const loads = buildSolverLoads3D(model, caseLoads, selfWeightFor(model, lc, includeSelfWeight), leftHand);
+  for (const [caseId, loads] of caseSolverLoads3D(model, loadCases, includeSelfWeight, leftHand, baseInput)) {
     // Create full solver input with this case's loads
     const fullInput = { ...baseWire, loads };
-    caseInputs.push({ caseId: lc.id, caseName: lc.name, input: fullInput });
+    caseInputs.push({ caseId, caseName: loadCases.find(c => c.id === caseId)!.name, input: fullInput });
   }
 
   if (caseInputs.length === 0) return t('svc.noLoadsApplied');

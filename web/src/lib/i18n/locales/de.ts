@@ -1,6 +1,11 @@
 import type { Translations } from '../types';
 
 const de: Translations = {
+  'svc.accountingMismatch': "Berechnung abgelehnt. Lastfall {case}, {component}. Eingegeben {entered}, assembliert {assembled}.",
+  'svc.accountingUnsupported': "Berechnung abgelehnt. Kräfte und Momente von {kind} {id} im Lastfall {case} können nicht bilanziert werden.",
+  'svc.accountingArea': "Berechnung abgelehnt. Platte {plate} hat eine andere Fläche oder Begrenzung im Rechenmodell. Vorgegebene Fläche {entered}, assemblierte Fläche {assembled}.",
+  'svc.accountingSweep': "Berechnung abgelehnt. Platte {plate} hat einen anderen Bogenverlauf im Rechenmodell. Vorgegebene Fläche {entered}, assemblierte Fläche {assembled}.",
+  'svc.accountingShellEdits': "Platte {plate} kann nicht neu vernetzt werden, da ein Schalenversatz oder eine Änderung der Schalenkrümmung verloren ginge.",
   'engine.memberLoad.geometryOrdering': "Ungültige geometrische Reihenfolge des erzeugten Stabs",
   'engine.memberLoad.geometryLine': "Die erzeugte Stabgeometrie verlässt die Ursprungslinie",
   'engine.memberLoad.invalidGeometry': "Ungültige Geometrie des erzeugten Stabs",

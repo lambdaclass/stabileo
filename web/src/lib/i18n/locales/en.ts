@@ -1,4 +1,9 @@
 const en: Record<string, string> = {
+  'svc.accountingMismatch': "Analysis refused. Load case {case}, {component}. Entered {entered}, assembled {assembled}.",
+  'svc.accountingUnsupported': "Analysis refused. Load case {case} includes {kind} {id}, whose forces and moments cannot be accounted for.",
+  'svc.accountingArea': "Analysis refused. Plate {plate} has a different area or boundary in the solver. Specified area {entered}, assembled area {assembled}.",
+  'svc.accountingSweep': "Analysis refused. Plate {plate} has a different curved-edge sweep in the solver. Specified area {entered}, assembled area {assembled}.",
+  'svc.accountingShellEdits': "Plate {plate} cannot be remeshed because doing so would discard a shell offset or curved-shell edit.",
   'engine.memberLoad.geometryOrdering': "Invalid generated member geometry ordering",
   'engine.memberLoad.geometryLine': "Generated member geometry leaves the source line",
   'engine.memberLoad.invalidGeometry': "Invalid generated member geometry",

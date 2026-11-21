@@ -57,6 +57,7 @@
     uiStore.selectPlates(ids);
     result = tp('plates.meshApplied', { plates: r.plates, cells: r.cells })
       + (r.refused.length ? ' ' + tp('plates.meshRefusedSome', { n: r.refused.length }) : '')
+      + r.refused.flatMap(refusal => refusal.message ? [' ' + refusal.message] : []).join('')
       + (r.droppedLocalLoads ? ' ' + tp('plates.localLoadsDropped', { n: r.droppedLocalLoads }) : '');
     plans = null;
     if (!r.refused.length) onclose();
