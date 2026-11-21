@@ -54,9 +54,9 @@ fn evidence(s: &Study, root: &Path) -> (Value, Value) {
         published("omega-fe", "FE, alpha = 0.02, natural state at mu = 1/4: lowest (antisymmetric) frequency against sqrt(3348.04)", omega_published, s.shallow.omega.value, true, 3e-4, &src("shallow", "lambda2_natural_mu_quarter")),
         published("toy-mu-star", "toy model, beta = 0.110, L0C = 0.655: mu*vM (S65)", pv("toy", "mu_star"), toy.mu_star, true, 5e-3, &src("toy", "mu_star")),
         published("toy-mu-a", "toy model: mu_A^vM", pv("toy", "mu_a"), toy.mu_a, true, 5e-3, &src("toy", "mu_a")),
-        published("toy-omega-lower", "toy model at mu = 1/4: lower frequency / t_osc (symmetric by our linearisation)", pv("toy", "omega_lower_over_t_osc"), toy.omega_symmetric, false, 1e-3, &src("toy", "omega_lower_over_t_osc")),
-        published("toy-omega-upper", "toy model at mu = 1/4: upper frequency / t_osc (antisymmetric)", pv("toy", "omega_upper_over_t_osc"), toy.omega_antisymmetric, true, 5e-3, &src("toy", "omega_upper_over_t_osc")),
-        published("toy-t-osc", "toy model: t_osc = 2 pi / omega_lower (S80)", pv("toy", "t_osc"), toy.t_osc, true, 1e-3, &src("toy", "t_osc")),
+        published("toy-omega-lower", "toy model at mu = 1/4: lower angular frequency omega sqrt(m/k)/alpha, dimensionless (printed omega_A/t_osc; symmetric by our linearisation)", pv("toy", "omega_lower"), toy.omega_symmetric, false, 1e-3, &src("toy", "omega_lower")),
+        published("toy-omega-upper", "toy model at mu = 1/4: upper angular frequency omega sqrt(m/k)/alpha, dimensionless (printed omega_S/t_osc; antisymmetric)", pv("toy", "omega_upper"), toy.omega_antisymmetric, true, 5e-3, &src("toy", "omega_upper")),
+        published("toy-t-osc", "toy model: t_osc = 2 pi / omega_lower (S80), in units of sqrt(m/k)/alpha", pv("toy", "t_osc"), toy.t_osc, true, 1e-3, &src("toy", "t_osc")),
     ];
     let d = &s.dynamics;
     let order = |e: f64| (e - 2.0).abs();

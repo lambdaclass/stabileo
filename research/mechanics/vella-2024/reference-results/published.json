@@ -27,9 +27,9 @@
     "l0c": {"value": 0.655, "source": "p. 20"},
     "mu_star": {"value": 0.247, "source": "p. 20 (matched to the arch)"},
     "mu_a": {"value": 0.25, "source": "p. 20 (matched to the arch)"},
-    "omega_lower_over_t_osc": {"value": 0.663, "source": "p. 22, labelled omega_A in the text"},
-    "omega_upper_over_t_osc": {"value": 0.734, "source": "p. 22, labelled omega_S in the text"},
-    "t_osc": {"value": 9.477, "source": "Eq. (S80), p. 22"},
+    "omega_lower": {"value": 0.663, "unit": "alpha sqrt(k/m), the inverse of the time scale of (S72)", "source": "p. 22, printed as omega_A/t_osc"},
+    "omega_upper": {"value": 0.734, "unit": "alpha sqrt(k/m)", "source": "p. 22, printed as omega_S/t_osc"},
+    "t_osc": {"value": 9.477, "unit": "sqrt(m/k)/alpha", "source": "Eq. (S80), p. 22"},
     "critical_rate": {"value": 0.0961, "source": "p. 4, Fig. 4 caption; 0.096 on p. 25"}
   },
   "figure_2a_rates_m_s": {"slow": 0.0018, "fast": 0.2466, "source": "p. 3, Fig. 2 caption"},

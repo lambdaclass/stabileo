@@ -81,8 +81,9 @@ impl Toy {
         0.5 * (a + b)
     }
 
-    /// Frequencies about the natural state, divided by t_osc, from (S73)–(S75):
-    /// (ω_S/t_osc)² = ½ ∂²Ũ/∂ψ_S², (ω_A/t_osc)² = 2 f.
+    /// Angular frequencies about the natural state in units of α√(k/m), the inverse of the time
+    /// scale of (S72) (printed ω/t_osc in (S78)–(S80)), from (S73)–(S75): ω_S² = ½ ∂²Ũ/∂ψ_S²,
+    /// ω_A² = 2 f.
     pub fn frequencies(&self, mu: f64) -> (f64, f64) {
         let psi = self.equilibrium(mu, false).unwrap();
         let s = 0.5 * (self.a2 - self.a3 * mu + 3.0 * self.a4 * psi * psi);
@@ -90,7 +91,7 @@ impl Toy {
         (s.sqrt(), a.sqrt())
     }
 
-    /// t_osc = 2π/ω with ω the lower natural frequency at µ = ¼ (S80).
+    /// t_osc = 2π/ω with ω the lower natural frequency at µ = ¼ (S80), in units of √(m/k)/α.
     pub fn t_osc(&self) -> f64 {
         let (s, a) = self.frequencies(0.25);
         2.0 * std::f64::consts::PI / s.min(a)
