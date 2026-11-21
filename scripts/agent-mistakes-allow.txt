@@ -623,16 +623,12 @@ test-skip web/src/lib/data/__tests__/en-hem-angles.test.ts: d('sourced HE M and 
 test-skip web/src/lib/data/__tests__/pro-examples-solve.test.ts: it.skip('solves every combination its card builds (skipped: #798 SH-MITC4-DISTORTION withholds its distorted shell mesh)', solvesAndCloses, 600_000)
 
 ## The #758 containment withholds this 2D plastic result; this existing numerical test remains parked.
-test-skip web/src/lib/engine/__tests__/advanced-analyses-numeric.test.ts: it.skip('a fixed-fixed beam under UDL collapses at 16 Mp/L² (skipped: #758 PL-2D-INVARIANCE withholds the 2D plastic result)')
 
 ## The #758 containment withholds this 2D plastic result; this existing numerical test remains parked.
-test-skip web/src/lib/engine/__tests__/advanced-analyses-numeric.test.ts: it.skip('hinges form at the fixed ends first, then in the span (skipped: #758 PL-2D-INVARIANCE withholds the 2D plastic result)')
 
 ## The #758 containment withholds this 2D plastic result; this existing numerical test remains parked.
-test-skip web/src/lib/engine/__tests__/plastic-moments-rotation.test.ts: it.skip('plastic collapse of the rotated cantilever: first hinge at λ = fy·Zp,weak/(P·L) (skipped: #758 PL-2D-INVARIANCE withholds the 2D plastic result)')
 
 ## The #758 containment withholds this 2D plastic result; this existing numerical test remains parked.
-test-skip web/src/lib/engine/__tests__/plastic-moments.test.ts: it.skip('the cantilever-point example: first hinge at λ = Mp/(PL) (skipped: #758 PL-2D-INVARIANCE withholds the 2D plastic result)')
 
 ## Existing mechanism regression is parked pending the pre-solve kinematic mechanism check.
 test-skip web/src/lib/engine/__tests__/solver-mechanism.test.ts: it.skip('overhinged node: double-hinged elem + single-hinged elem at same node → mechanism')
@@ -647,13 +643,10 @@ test-skip web/src/lib/engine/__tests__/split-element.test.ts: it.skip('double hi
 test-skip web/src/lib/engine/__tests__/split-element.test.ts: it.skip('single hinge at internal collinear node of simply-supported beam: mechanism')
 
 ## The #758 containment withholds this 2D plastic result; this existing numerical test remains parked.
-test-skip web/src/lib/engine/__tests__/thermal-advanced-closed-forms.test.ts: it.skip(`fixed-fixed beam, central load, ${label}: λ = 8Mp/(PL) (skipped: #758 PL-2D-INVARIANCE withholds the 2D plastic result)`)
 
 ## The #758 containment withholds this 2D plastic result; this existing numerical test remains parked.
-test-skip web/src/lib/engine/__tests__/thermal-audit.test.ts: it.skip('plastic, plane: collapse at 8Mp/(PL), with a gradient on one half (skipped: #758 PL-2D-INVARIANCE withholds the 2D plastic result)')
 
 ## The #758 containment withholds this 2D plastic result; this existing numerical test remains parked.
-test-skip web/src/lib/engine/__tests__/thermal-audit.test.ts: it.skip('plastic, plane: collapse at 8Mp/(PL), with a uniform ΔT or a gradient on both halves (skipped: #758 PL-2D-INVARIANCE withholds the 2D plastic result)')
 
 ## Needs a compatible WASM section export; vitest.setup.ts fails the CI run when that export is absent.
 test-skip web/src/lib/profiles/__tests__/csv-sections.test.ts: (hasCanonicalGeometryExport() ? describe : describe.skip)('a row named like a catalogue profile') via hasCanonicalGeometryExport() ? describe : describe.skip
