@@ -3783,6 +3783,10 @@ function createModelStore() {
       if (!load) return false;
       // A floor-load definition's load is edited through the definition (`removeLoad`).
       if (isDefinedLoadData(load)) return false;
+      const editsPlanarMoment = (load.type === 'nodal' || load.type === 'pointOnElement') && 'my' in data;
+      const moment = data.my;
+      const finiteMoment = typeof moment === 'number' && Number.isFinite(moment);
+      if (editsPlanarMoment && !finiteMoment) return false;
       if ((load.type === 'distributed3d' || load.type === 'pointOnElement3d')
         && !editKeepsPlace(load, data, loadedLength(model as never, load.data.elementId))) return false;
       if (!_undoBatching) _pushUndo?.();
@@ -3794,9 +3798,7 @@ function createModelStore() {
       if (data.caseId !== undefined) {
         (load.data as any).caseId = data.caseId as number | undefined;
       }
-      if ((load.type === 'nodal' || load.type === 'pointOnElement') && data.my !== undefined) {
-        writePlanarMoment(load.data, data.my as number);
-      }
+      if (editsPlanarMoment && finiteMoment) writePlanarMoment(load.data, moment);
       if (load.type === 'nodal') {
         const d = load.data as NodalLoad;
         if (data.fx !== undefined) d.fx = data.fx as number;

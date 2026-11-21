@@ -2,4 +2,4 @@
 
 #### Apply edits to restored planar moments
 
-Edits to restored planar point couples and nodal moments now replace the stored moment. Records with genuinely conflicting aliases stop analysis until the moment is specified. [Results change](../docs/results-changes/2026-11-restored-planar-moment-edits.md) (#2459)
+Finite edits to restored planar point couples and nodal moments replace the stored moment. Empty or invalid edits preserve the original load. Conflicting aliases stop analysis until a finite moment is entered. [Results change](../docs/results-changes/2026-11-restored-planar-moment-edits.md) (#2459)

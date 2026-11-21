@@ -252,9 +252,6 @@ for (const mode of ['2d', '3d'] as const) {
   }
 }
 
-const knownWrong2459 = process.env.RUN_KNOWN_WRONG === '2459' ? it : it.skip;
-const ignored2459 = 'known wrong result: #2459';
-
 function openLegacyMoment(member: number, type: 'pointOnElement' | 'nodal', conflict: boolean) {
   const nodeId = modelStore.model.elements.get(member)!.nodeJ;
   const fields = type === 'pointOnElement' ? { elementId: member, a: position, p: 0 } : { nodeId, fx: 0, fz: 0 };
@@ -268,7 +265,7 @@ function openLegacyMoment(member: number, type: 'pointOnElement' | 'nodal', conf
 for (const mode of ['2d', '3d', 'pro', 'pdelta'] as const) {
   for (const type of ['pointOnElement', 'nodal'] as const) {
     for (const conflict of [true, false]) {
-      knownWrong2459(`${ignored2459} an empty ${type} moment edit preserves the restored load (${mode}, conflict=${conflict})`, async () => {
+      it(`#2459 an empty ${type} moment edit preserves the restored load (${mode}, conflict=${conflict})`, async () => {
         const member = cantilever(mode);
         const refusal = openLegacyMoment(member, type, conflict);
         const root = modelStore.model.elements.get(member)!.nodeI;
@@ -299,7 +296,7 @@ for (const mode of ['2d', '3d', 'pro', 'pdelta'] as const) {
 
 for (const mode of ['2d', '3d'] as const) {
   for (const type of ['pointOnElement', 'nodal'] as const) {
-    knownWrong2459(`${ignored2459} invalid ${type} moment values reject the entire patch (${mode})`, () => {
+    it(`#2459 invalid ${type} moment values reject the entire patch (${mode})`, () => {
       const member = cantilever(mode);
       for (const conflict of [true, false]) {
         for (const value of [undefined, NaN, '', Infinity, -Infinity]) {

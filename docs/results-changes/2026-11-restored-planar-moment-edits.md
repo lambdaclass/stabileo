@@ -4,6 +4,8 @@ A legacy planar point couple with only `mz: 5` could be restored into two moment
 
 Restoring or saving a planar point couple or nodal moment keeps a single `my` field for the effective moment. Undo and redo use the same representation. Two different nonzero values are preserved and block analysis until the intended moment is entered. This also prevents a legacy nodal record with genuinely conflicting values from solving with an arbitrary choice.
 
+An empty or invalid edit preserves the original load. Analysis still refuses a conflicting record, and a valid single-field record keeps its previous moment. Enter a finite value to replace the stored moment, including an explicit zero to clear it.
+
 For projects saved after a zero edit in an affected version, the stored fields can be identical to valid legacy input with one nonzero alias. Check the intended load, re-enter its moment, and rerun the affected analyses and downstream design checks.
 
 [Issue #2459](https://github.com/lambdaclass/stabileo/issues/2459)
