@@ -959,8 +959,10 @@
     if (canvas) downloadCanvasPNG(canvas, embed);
   }
 
+  let examDrawerShown = false;
   $effect(() => {
-    if (examLock.room && uiStore.isMobile && !uiStore.rightDrawerOpen) uiStore.rightDrawerOpen = true;
+    if (!examLock.room) { examDrawerShown = false; return; }
+    if (uiStore.isMobile && !examDrawerShown) { uiStore.rightDrawerOpen = true; examDrawerShown = true; }
   });
 
   /** A structure handed over from an exam's results opens in a tab of its own, after the reader's tabs are back. */

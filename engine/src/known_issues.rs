@@ -1200,14 +1200,8 @@ fn is_dynamic(analysis: Analysis) -> bool {
     matches!(analysis, Analysis::Modal | Analysis::TimeHistory | Analysis::Harmonic)
 }
 
-/// The radius of gyration over member length, r/L, above which omitting bending rotary inertia
-/// overestimates a member's bending frequencies by more than 1 %. Rotary inertia ρ·I·θ̈ alone (the
-/// Rayleigh beam) lowers the frequencies of a simply supported member to
-/// ω_n = ω_n,EB / √(1 + (nπ·r/L)²) (Rayleigh, Theory of Sound, 1877, §186; Timoshenko, Phil. Mag. 41,
-/// 1921; Han, Benaroya & Wei, J. Sound Vib. 225(5), 1999, eq. 39 with the shear terms dropped), an
-/// overestimate of about ½(nπ·r/L)² when it is left out. For the member's first mode that stays under
-/// 1 % while (π·r/L)² ≤ 0.02, r/L ≤ √0.02/π = 0.045: L/h ≥ 6.4 for a rectangle (r = h/√12). Shear
-/// deformation, which the stiffness carries when a shear area is given, is not part of this gap.
+/// r/L above which leaving out rotary inertia overestimates the first bending frequency by more than 1 %:
+/// ω/ω_EB = 1/√(1 + (π·r/L)²).
 pub const ROTARY_INERTIA_DEPTH: f64 = 0.045;
 
 /// cos 30°: a curved beam's segments (18° each for a half circle in the default 10) stay one member
