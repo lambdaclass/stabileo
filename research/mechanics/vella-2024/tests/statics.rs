@@ -38,7 +38,7 @@ fn the_inverted_state_loses_stability_to_an_antisymmetric_mode_before_its_fold()
     assert!(c.mu_a > c.mu_star + 0.002, "{c:?}");
     let between = path.states.iter().find(|s| {
         let mu = s.clamps.shortening() / a2;
-        mu < c.mu_a - 1e-4 && mu > c.mu_star + 1e-4 && s.height(&strip) < c.height_star
+        mu < c.mu_a - 1e-4 && mu > c.mu_star + 1e-4 && s.height(&strip) / alpha < c.height_star
     });
     let between = settle(&strip, &mut Assembler::new(&strip), between.unwrap()).unwrap();
     let mut assembler = Assembler::new(&strip);

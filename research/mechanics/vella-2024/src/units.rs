@@ -25,13 +25,18 @@ impl Strip {
         self.length * self.length / self.thickness * (12.0 * self.density / self.modulus).sqrt()
     }
 
-    /// |µ̇| per |ΔL̇| (s/m): one unit of µ̇ is a change of µ by one in T_osc·t*.
+    /// T_osc in s: the unit of every time the dynamics reports (t / T_osc).
+    pub fn t_osc(&self) -> f64 {
+        T_OSC * self.time_unit()
+    }
+
+    /// |µ̇| per |ΔL̇| (s/m): one unit of |µ̇| is a decrease of µ by one in T_osc·t*.
     pub fn rate_factor(&self, alpha: f64) -> f64 {
-        T_OSC * self.time_unit() / (alpha * alpha * self.length)
+        self.t_osc() / (alpha * alpha * self.length)
     }
 
     /// The clamp's acceleration time (s) in units of T_osc.
     pub fn ramp(&self, seconds: f64) -> f64 {
-        seconds / (T_OSC * self.time_unit())
+        seconds / self.t_osc()
     }
 }

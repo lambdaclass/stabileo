@@ -258,7 +258,9 @@ pub struct Sensitivity {
 pub struct Figure2a {
     pub rate_m_s: f64,
     pub rate: f64,
-    /// −tΔL̇ in mm (zero at µ = µ*) and the binned midpoint angle.
+    /// The trace's times in s (trace.t is in T_osc; t = 0 at µ = µ*), and the clamp's travel
+    /// −tΔL̇ in mm, zero at µ = µ*.
+    pub time_s: Vec<f64>,
     pub travel_mm: Vec<f64>,
     pub trace: Trace,
     pub amplification: f64,
@@ -355,6 +357,7 @@ pub fn dynamics() -> Result<Dynamics, String> {
         figure_2a.push(Figure2a {
             rate_m_s,
             rate,
+            time_s: sim.trace.t.iter().map(|t| t * SIMULATIONS.t_osc()).collect(),
             travel_mm: sim.trace.mu.iter().map(|mu| (far.1.mu_star - mu) * a2l_mm).collect(),
             trace: sim.trace.clone(),
             amplification: sim.outcome.jump()?.amplification,
@@ -401,8 +404,12 @@ pub fn toy() -> ToyResults {
 
 #[derive(Clone, Debug, Serialize)]
 pub struct Units {
+    /// t* in s.
     pub time_unit_simulations: f64,
     pub time_unit_experiments: f64,
+    /// T_osc = 0.108 t* in s: the unit of the dynamics' times.
+    pub t_osc_simulations: f64,
+    pub t_osc_experiments: f64,
     pub rate_factor_simulations: f64,
     pub rate_factor_experiments: f64,
     pub ramp: f64,
@@ -440,6 +447,8 @@ pub fn study() -> Result<Study, String> {
         units: Units {
             time_unit_simulations: SIMULATIONS.time_unit(),
             time_unit_experiments: EXPERIMENTS.time_unit(),
+            t_osc_simulations: SIMULATIONS.t_osc(),
+            t_osc_experiments: EXPERIMENTS.t_osc(),
             rate_factor_simulations: SIMULATIONS.rate_factor(PAPER_ALPHA),
             rate_factor_experiments: EXPERIMENTS.rate_factor(PAPER_ALPHA),
             ramp: SIMULATIONS.ramp(0.01),

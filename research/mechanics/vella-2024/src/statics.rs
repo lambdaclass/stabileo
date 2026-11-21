@@ -319,6 +319,7 @@ fn converge(strip: &Strip, assembler: &mut Assembler, state: &Equilibrium, contr
 pub struct Critical {
     pub mu_a: f64,
     pub mu_star: f64,
+    /// Midpoint heights at µ_A and µ*, in αL like the branches of `study::Diagram`.
     pub height_a: f64,
     pub height_star: f64,
     /// The symmetric equilibrium at µ_A, from its stable side.
@@ -365,7 +366,7 @@ pub fn critical(strip: &Strip, inverted: &Equilibrium) -> Result<(Critical, Path
         if stable_in(&next.q, -1.0) { stable = next } else { unstable_h = h }
     }
     let mu_a = stable.clamps.shortening() / a2;
-    let height_a = stable.height(strip);
+    let height_a = stable.height(strip) / strip.alpha;
 
     let invphi = 0.5 * (5f64.sqrt() - 1.0);
     let (mut a, mut b) = (coarse.states[k - 1].height(strip), coarse.states[k + 1].height(strip));
@@ -397,6 +398,6 @@ pub fn critical(strip: &Strip, inverted: &Equilibrium) -> Result<(Critical, Path
     }
     let h_star = 0.5 * (a + b);
     let star = eval(h_star, &mut near)?;
-    let critical = Critical { mu_a, mu_star: star / a2, height_a, height_star: h_star, state_a: stable.q.clone() };
+    let critical = Critical { mu_a, mu_star: star / a2, height_a, height_star: h_star / strip.alpha, state_a: stable.q.clone() };
     Ok((critical, coarse))
 }

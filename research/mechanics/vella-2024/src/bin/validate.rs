@@ -1,5 +1,5 @@
 use serde_json::{json, Map, Value};
-use snap_symmetry_vella_2024::study::{study, Study, ASYMMETRIC};
+use snap_symmetry_vella_2024::study::{study, BranchPoint, Study, ASYMMETRIC, PHASES, RATES};
 use std::{fs, path::Path};
 
 fn check(id: &str, metric: &str, observed: f64, tolerance: f64, source: &str) -> Value {
@@ -33,11 +33,105 @@ fn figure_2c(root: &Path) -> Vec<(f64, f64)> {
         .collect()
 }
 
+/// The values of an expected, non-empty group of runs, refused if any is missing or not finite.
+fn finite(values: &[f64], what: &str) -> Result<Vec<f64>, String> {
+    if values.is_empty() {
+        return Err(format!("{what}: no runs"));
+    }
+    if let Some(v) = values.iter().find(|v| !v.is_finite()) {
+        return Err(format!("{what}: non-finite value {v}"));
+    }
+    Ok(values.to_vec())
+}
+
+fn largest(values: &[f64], what: &str) -> Result<f64, String> {
+    Ok(finite(values, what)?.into_iter().fold(f64::NEG_INFINITY, f64::max))
+}
+
+fn least(values: &[f64], what: &str) -> Result<f64, String> {
+    Ok(finite(values, what)?.into_iter().fold(f64::INFINITY, f64::min))
+}
+
+/// Every run the checks reduce over is present, snapped (its jump metrics are finite) and
+/// finite before anything is reduced.
+fn complete(s: &Study) -> Result<(), String> {
+    let d = &s.dynamics;
+    for (name, points) in [("seeded", &d.seeded), ("one_end", &d.one_end)] {
+        let rates: Vec<f64> = points.iter().map(|p| p.rate).collect();
+        if rates != RATES {
+            return Err(format!("{name}: rates {rates:?}, expected {RATES:?}"));
+        }
+        for p in points.iter() {
+            finite(&[p.amplification, p.amplification_from_mu_a, p.t_snap, p.mu_snap, p.theta_before, p.theta_during], &format!("{name} at {}", p.rate))?;
+            if name == "seeded" {
+                finite(&[p.envelope], &format!("seeded envelope at {}", p.rate))?;
+            }
+        }
+    }
+    let unseeded: Vec<f64> = d.unseeded.iter().map(|u| u[0]).collect();
+    if unseeded != [0.01, 0.03, 0.1, 0.3] {
+        return Err(format!("unseeded: rates {unseeded:?}"));
+    }
+    finite(&d.unseeded.iter().map(|u| u[1]).collect::<Vec<_>>(), "unseeded")?;
+    let expected: [(&str, usize); 5] = [("dt", 4), ("hht", 4), ("imperfection", 5), ("n", 3), ("start", 4)];
+    for rate in [0.03, 0.1] {
+        for (parameter, count) in expected {
+            let rows: Vec<_> = d.sensitivity.iter().filter(|x| x.parameter == parameter && x.rate == rate).collect();
+            if rows.len() != count {
+                return Err(format!("sensitivity {parameter} at {rate}: {} runs, expected {count}", rows.len()));
+            }
+            for x in rows {
+                finite(&[x.value, x.amplification, x.envelope, x.t_snap, x.mu_snap], &format!("sensitivity {parameter} = {} at {rate}", x.value))?;
+            }
+        }
+    }
+    if d.sensitivity.len() != 2 * expected.iter().map(|e| e.1).sum::<usize>() {
+        return Err(format!("sensitivity: {} runs", d.sensitivity.len()));
+    }
+    if d.figure_2a.len() != 2 {
+        return Err("figure 2a: two runs expected".into());
+    }
+    let seeded_runs = RATES.len() * PHASES + 2 * expected.iter().map(|e| e.1).sum::<usize>() * PHASES;
+    let others = RATES.len() + d.unseeded.len() + d.figure_2a.len();
+    if d.runs != seeded_runs + others {
+        return Err(format!("{} dynamic runs, expected {}", d.runs, seeded_runs + others));
+    }
+    Ok(())
+}
+
+/// Midpoint height (in αL) where `value` first changes sign from positive to non-positive along
+/// the branch, interpolated linearly between the two branch points around it.
+fn zero_crossing(branch: &[BranchPoint], value: impl Fn(&BranchPoint) -> f64) -> Result<f64, String> {
+    branch
+        .windows(2)
+        .find(|w| value(&w[0]) > 0.0 && value(&w[1]) <= 0.0)
+        .map(|w| {
+            let (a, b) = (value(&w[0]), value(&w[1]));
+            w[0].height + (w[1].height - w[0].height) * a / (a - b)
+        })
+        .ok_or_else(|| "no sign change along the inverted branch".into())
+}
+
+/// |slope of travel against time on the constant-speed part before µ* (−1 ≤ t/T_osc ≤ 0) / the
+/// run's |ΔL̇| − 1|, over both Fig. 2a runs.
+fn figure_2a_rate(s: &Study) -> Result<f64, String> {
+    let mut worst = 0.0f64;
+    for f in &s.dynamics.figure_2a {
+        let window: Vec<usize> = (0..f.trace.t.len()).filter(|&i| (-1.0..=0.0).contains(&f.trace.t[i])).collect();
+        let (&a, &b) = window.first().zip(window.last()).filter(|(a, b)| a < b).ok_or("figure 2a: no constant-speed window")?;
+        let slope = (f.travel_mm[b] - f.travel_mm[a]) * 1e-3 / (f.time_s[b] - f.time_s[a]);
+        worst = worst.max((slope / f.rate_m_s - 1.0).abs());
+    }
+    finite(&[worst], "figure 2a rate")?;
+    Ok(worst)
+}
+
 fn first_below(points: &[(f64, f64)], level: f64) -> f64 {
     points.iter().find(|p| p.1 < level).map(|p| p.0).unwrap_or(f64::NAN)
 }
 
-fn evidence(s: &Study, root: &Path) -> (Value, Value) {
+fn evidence(s: &Study, root: &Path) -> Result<(Value, Value), String> {
+    complete(s)?;
     let p: Value = serde_json::from_str(&fs::read_to_string(root.join("reference-results/published.json")).unwrap()).unwrap();
     let pv = |a: &str, b: &str| p[a][b]["value"].as_f64().unwrap();
     let src = |a: &str, b: &str| format!("arXiv:2312.13908v2 {}", p[a][b]["source"].as_str().unwrap());
@@ -63,18 +157,21 @@ fn evidence(s: &Study, root: &Path) -> (Value, Value) {
     let sens = |parameter: &str, rate: f64| -> Vec<(f64, f64)> {
         d.sensitivity.iter().filter(|x| x.parameter == parameter && x.rate == rate).map(|x| (x.value, x.amplification)).collect()
     };
-    let dt_change = [0.03, 0.1]
-        .iter()
-        .map(|&r| {
-            let v = sens("dt", r);
-            let a = v.iter().find(|x| x.0 == 0.005).unwrap().1;
-            let b = v.iter().find(|x| x.0 == 0.0025).unwrap().1;
-            (a / b - 1.0).abs()
-        })
-        .fold(0.0, f64::max);
-    let slow = d.seeded.iter().filter(|x| x.rate <= 0.01).map(|x| x.amplification).fold(f64::INFINITY, f64::min);
-    let fast = d.seeded.iter().filter(|x| x.rate >= 0.3).map(|x| x.amplification).fold(0.0, f64::max);
-    let unseeded = d.unseeded.iter().map(|x| x[1]).fold(0.0, f64::max);
+    let mut dt_changes = vec![];
+    for r in [0.03, 0.1] {
+        let v = sens("dt", r);
+        let at = |dt: f64| v.iter().find(|x| x.0 == dt).map(|x| x.1).ok_or(format!("no dt = {dt} run at {r}"));
+        dt_changes.push((at(0.005)? / at(0.0025)? - 1.0).abs());
+    }
+    let dt_change = largest(&dt_changes, "dt change")?;
+    let slow = least(&d.seeded.iter().filter(|x| x.rate <= 0.01).map(|x| x.amplification).collect::<Vec<_>>(), "slow seeded runs")?;
+    let fast = largest(&d.seeded.iter().filter(|x| x.rate >= 0.3).map(|x| x.amplification).collect::<Vec<_>>(), "fast seeded runs")?;
+    let unseeded = largest(&d.unseeded.iter().map(|x| x[1].abs()).collect::<Vec<_>>(), "unseeded runs")?;
+    let diagram = &s.diagram;
+    let height_a = zero_crossing(&diagram.inverted, |p| p.spectrum.omega2_antisymmetric)?;
+    let height_fold = zero_crossing(&diagram.inverted, |p| p.spectrum.omega2_symmetric)?;
+    let heights = largest(&[(height_a - diagram.critical.height_a).abs(), (height_fold - diagram.critical.height_star).abs()], "critical heights")?;
+    let rate_units = figure_2a_rate(s)?;
     let mut checks = vec![
         check("order-mu-a", "alpha = pi/12: observed order of convergence of mu_A over 24/48/96 elements, distance from 2", order(s.paper.mu_a.order), 0.2, "mesh study"),
         check("order-mu-star", "alpha = pi/12: observed order of convergence of mu* over 24/48/96 elements, distance from 2", order(s.paper.mu_star.order), 0.2, "mesh study"),
@@ -84,6 +181,8 @@ fn evidence(s: &Study, root: &Path) -> (Value, Value) {
         check("slow-amplifies", "seeded, rates <= 0.01: 1 / least amplification", 1.0 / slow, 0.1, "paper Fig. 2c: large A at slow rates"),
         check("fast-symmetric", "seeded, rates >= 0.3: largest amplification / 2", fast / ASYMMETRIC, 1.0, "paper Fig. 2c: A ~ 1 at fast rates"),
         check("dt", "amplification change from dt = 0.005 to 0.0025 T_osc, rates 0.03 and 0.1", dt_change, 0.02, "time-step study"),
+        check("critical-heights", "alpha = pi/12, 48 elements: |h_A - h where omega2_antisymmetric crosses zero| and |h* - h where omega2_symmetric crosses zero| along the drawn inverted branch, in alpha L (linear interpolation between points 0.002 apart)", heights, CROSSING_TOLERANCE, "diagram"),
+        check("fig2a-rate", "Fig. 2a runs: |slope of travel_mm against time_s for -1 <= t/T_osc <= 0 / rate_m_s - 1|", rate_units, 1e-9, "units"),
     ];
     let figure = figure_2c(root);
     let one_end: Vec<(f64, f64)> = d.one_end.iter().map(|x| (x.rate, x.amplification)).collect();
@@ -146,8 +245,11 @@ fn evidence(s: &Study, root: &Path) -> (Value, Value) {
         "differences": differences,
         "scope": "Production co-rotational statics and research HHT-alpha dynamics of an elastica strip clamped at +/-alpha; the paper's shallow theory, its toy model and its published numbers. No laboratory validation; the paper's DER code is not available and was not run.",
     });
-    (validation, json!({"checks": published_checks}))
+    Ok((validation, json!({"checks": published_checks})))
 }
+
+/// Linear interpolation of an eigenvalue between branch points 0.002 αL apart: README, Tolerances.
+const CROSSING_TOLERANCE: f64 = 1e-4;
 
 /// The bands are justified in the README (Evidence); `passed` and every non-number must match exactly.
 fn compare(a: &Value, b: &Value, path: &str, band: Option<f64>, out: &mut Vec<String>) {
@@ -230,7 +332,7 @@ fn main() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let write = std::env::args().any(|a| a == "--write");
     let s = study().expect("the study runs");
-    let (validation, published) = evidence(&s, root);
+    let (validation, published) = evidence(&s, root).expect("the evidence is complete");
     let files = [
         ("reference-results/study.json", serde_json::to_value(&s).unwrap()),
         ("VALIDATION.json", validation),
@@ -281,6 +383,25 @@ mod tests {
         let mut edited = stored.clone();
         edited["omega"]["order"] = json!(stored["omega"]["order"].as_f64().unwrap() + 1e-9);
         assert_eq!(stale(&edited, &stored).len(), 1);
+    }
+
+    #[test]
+    fn reductions_refuse_missing_and_non_finite_runs() {
+        assert_eq!(largest(&[1.0, 3.0, 2.0], "x"), Ok(3.0));
+        assert_eq!(least(&[1.0, 3.0, 2.0], "x"), Ok(1.0));
+        assert!(largest(&[0.01, f64::NAN, 0.001], "x").is_err());
+        assert!(least(&[f64::INFINITY], "x").is_err());
+        assert!(least(&[], "slow").unwrap_err().contains("no runs"));
+    }
+
+    #[test]
+    fn critical_heights_are_read_where_the_eigenvalue_changes_sign() {
+        use snap_symmetry_vella_2024::spectrum::Spectrum;
+        let point = |height: f64, omega2_antisymmetric: f64| BranchPoint { mu: 0.3, height, spectrum: Spectrum { omega2_antisymmetric, ..Spectrum::default() } };
+        let branch = [point(-0.2, 5.0), point(-0.15, 1.0), point(-0.13, -3.0), point(-0.1, -4.0)];
+        let h = zero_crossing(&branch, |p| p.spectrum.omega2_antisymmetric).unwrap();
+        assert!((h - (-0.145)).abs() < 1e-15, "{h}");
+        assert!(zero_crossing(&branch[..2], |p| p.spectrum.omega2_antisymmetric).is_err());
     }
 
     #[test]
