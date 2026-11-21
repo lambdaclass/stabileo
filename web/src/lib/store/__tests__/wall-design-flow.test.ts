@@ -59,10 +59,17 @@ function publish(sigma = 1000) {
   );
 }
 
+const issue2409 = process.env.RUN_KNOWN_WRONG === '2409' ? it : it.skip;
+
 describe('a wall designed as a member', () => {
   const opening = { offset: 1.5, width: 1, sill: 0.9, height: 1.2 };
 
-  it('its paved wall and slab meshes are withheld while SH-MITC4-DISTORTION (#798) is open', () => {
+  it('refuses the wall and slab when their junction stations differ', () => {
+    build(opening);
+    expect(modelStore.solveCombinations3D(false, false, true)).toEqual(expect.stringMatching(/wall.*slab.*shared nodes/i));
+  });
+
+  issue2409('known wrong result: #2409 its paved wall and slab meshes are withheld while SH-MITC4-DISTORTION (#798) is open', () => {
     build(opening);
     expectMembraneRefusal(() => modelStore.solveCombinations3D(false, false, true));
   });
