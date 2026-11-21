@@ -59,7 +59,6 @@ class ProductionParity(unittest.TestCase):
             self.assertEqual((reference / carried.name).read_text(), 'intended')
             self.assertFalse((reference / added.name).exists())
 
-    @unittest.skip("known wrong result: #2365")
     def test_build_reads_its_checkout_history(self):
         with tempfile.TemporaryDirectory(dir=parity.ROOT) as directory:
             repo = Path(directory)

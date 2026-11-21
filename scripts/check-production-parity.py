@@ -80,9 +80,8 @@ def build(checkout, env):
         subprocess.run(['make', 'web.deps', 'NIX_RUN='], cwd=checkout, check=True)
     subprocess.run(['make', '--assume-old=web.deps', 'research.wasm'], cwd=checkout,
                    env={**wasm_env, 'RESEARCH_SKIP_VIEWER': '0'}, check=True)
-    git_dir = git('rev-parse', '--absolute-git-dir').decode().strip()
     subprocess.run(['npm', 'run', 'build'], cwd=web,
-                   env={**env, 'GIT_DIR': git_dir, 'GIT_WORK_TREE': str(checkout)}, check=True)
+                   env={**env, 'GIT_DIR': str(checkout / '.git'), 'GIT_WORK_TREE': str(checkout)}, check=True)
     site = {f'web/dist/{name}': checksum for name, checksum in inventory(web / 'dist').items()}
     return runtime | site
 
