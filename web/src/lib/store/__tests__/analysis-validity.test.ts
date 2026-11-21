@@ -38,7 +38,7 @@ import { slabColumnJoints, floorPaths, type JointMember } from '../../engine/des
 import { solveCombinations3D, validateAndSolve3D } from '../../engine/solver-service';
 import * as wasmSolver from '../../engine/wasm-solver';
 import qa8 from '../../templates/fixtures/rc-design-qa-8.json';
-import { building, designAndDocument } from './span-fixture';
+import { building, designAndDocumentWithWorkerYields } from './span-fixture';
 import '../../engine/design/adapters/cirsoc201-adapter';
 import '../../engine/design/adapters/unsupported-adapter';
 
@@ -132,12 +132,16 @@ interface Readings {
   floors: string;
 }
 
-function read(doc: DocumentModel): Readings {
+async function read(doc: DocumentModel): Promise<Readings> {
   const v = currentSlabColumnJoint();
   const jointIssues = (doc.openIssues ?? []).filter((i) => i.key.startsWith('slabColumnJoint.'));
+  await yieldToEventLoop();
   const desk = deskMembers().filter((m) => verificationStore.contextFor(m.id));
+  await yieldToEventLoop();
   const mem = memoriaInput(tr, 'es');
+  await yieldToEventLoop();
   const [elements] = designSheets(tr, 'es');
+  await yieldToEventLoop();
   const ifc = projectIfcInput(tr, 'es', 'p').members;
   const unflagged = doc.certificates.map((c) => ({ ...c, loadSplit: undefined }));
   return {
@@ -181,14 +185,14 @@ describe('the span building on 40 × 40 columns: a point joint on every mesh, an
       delivered = false;
       setImmediate(() => { delivered = true; });
       building(m, { columnSide: 0.4 });
-      r.set(m, read(designAndDocument()));
+      r.set(m, await read(await designAndDocumentWithWorkerYields()));
       paths.set(m, currentFloorPaths());
       if (m !== 6) continue;
       // The same run with the verdict left out of the contexts, detailed and documented again:
       // what every reader said before the indicator existed.
       for (const c of verificationStore.contexts.values()) delete (c as { slabColumnJoint?: unknown }).slabColumnJoint;
       detailingStore.generate({});
-      before = read(detailingStore.buildDocument({ author: 'test', at: '2026-10-11T00:00:00Z' })!);
+      before = await read(detailingStore.buildDocument({ author: 'test', at: '2026-10-11T00:00:00Z' })!);
     }
     resultsStore.clear();
     await yieldToEventLoop();
@@ -280,8 +284,8 @@ describe('the span building with each column\'s section tied to the slab (0,2 m)
   it('no point joint, no notice, no memoria row, no IFC property, no open issue; the document is not held by it', async () => {
     building(0.2, { columnSide: 0.4, footprint: true });
     await yieldToEventLoop();
-    const doc = designAndDocument();
-    const x = read(doc);
+    const doc = await designAndDocumentWithWorkerYields();
+    const x = await read(doc);
     if (PRINT) console.log(`TIED: ${JSON.stringify(x)}`);
     expect(x.verdict).toBe('sectionRepresented');
     expect([x.pointJoints.length, x.desk.d124, x.memoria, x.ifc.joint, x.certificates, x.openIssues]).toEqual([0, 0, 0, 0, 0, 0]);
@@ -305,8 +309,8 @@ describe('qa-8: no slab, the indicator does not apply and nothing changes', () =
     await yieldToEventLoop();
     resultsStore.setResults3D(validateAndSolve3D(modelStore.model as never, true, false) as never);
     resultsStore.setCombinationResults3D(combo.perCase, combo.perCombo, combo.envelope);
-    const doc = designAndDocument();
-    const x = read(doc);
+    const doc = await designAndDocumentWithWorkerYields();
+    const x = await read(doc);
     if (PRINT) console.log(`QA-8: ${JSON.stringify(x)}`);
     expect([...verificationStore.contexts.values()].map((c) => c.slabColumnJoint?.verdict)).toEqual(Array(8).fill('notApplicable'));
     expect(x.verdict).toBe('notApplicable');

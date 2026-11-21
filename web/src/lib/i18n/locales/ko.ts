@@ -2377,6 +2377,8 @@ const ko: Translations = {
   'diag.verifFailTorsion': '비틀림 검증 실패',
   'diag.rcTorsionConcrete': "비틀림이 검증되지 않았습니다. 전단과 비틀림의 조합 한계가 평가된 콘크리트 전단강도를 과대평가합니다.",
   'diag.rcTorsionDepth': "비틀림이 검증되지 않았습니다. 사용한 유효 깊이가 종방향 철근 배치에 비해 너무 큽니다.",
+  "diag.rcTorsionSecondaryFace": "비틀림이 검증되지 않았습니다. 동시에 작용하는 이차 전단의 유효 깊이를 결정하는 철근 위치가 확인되지 않았습니다.",
+  "diag.rcShearTensionSteel": "전단이 검증되지 않았습니다. 이 단면의 인장면 철근으로는 검토에 사용한 철근 면적을 입증할 수 없습니다.",
   'diag.rcTorsionPerimeter': "비틀림 종방향 철근이 검증되지 않았습니다. 스터럽 둘레의 철근 배치가 확인되지 않았습니다.",
   'diag.rcTorsionCutoff': "비틀림 종방향 철근이 검증되지 않았습니다. 계산에서 철근의 절단점 너머까지 철근을 고려하게 됩니다.",
   'diag.rcTorsionYield': "항복강도가 420 MPa를 초과하는 철근은 CIRSOC 201-2005에 따른 비틀림을 검증할 수 없습니다.",

@@ -139,16 +139,38 @@ function linePlaces(line: BeamLineReinforcement, laps: readonly LineLap[]): Map<
 }
 
 export function drawnBeamEvidence(
-  pieces: { bars: readonly LineBarPiece[]; stirrups: readonly LineStirrupPiece[] }, length: number, lineMembers: readonly number[],
+  members: ReadonlyMap<number, { bars: readonly LineBarPiece[]; stirrups: readonly LineStirrupPiece[] }>,
+  id: number, line: BeamLineReinforcement, forward: boolean, memberLength?: number,
 ): NonNullable<ProvidedReinforcement[typeof drawnBeamReinforcement]> {
+  const index = line.members.indexOf(id);
+  const length = memberLength ?? line.lengths[index]!;
+  const pieces = members.get(id);
+  const uniformDiameter = (memberIndex: number) => {
+    const stirrups = members.get(line.members[memberIndex]!)?.stirrups;
+    const diameter = stirrups?.[0]?.diameter;
+    return diameter !== undefined && Number.isFinite(diameter) && diameter > 0 && stirrups?.every(s => s.diameter === diameter)
+      ? diameter : undefined;
+  };
+  let before = 0, after = 0;
+  const diameter = uniformDiameter(index);
+  if (diameter !== undefined) {
+    for (let i = index - 1; i >= 0 && uniformDiameter(i) === diameter; i--) before += line.lengths[i]!;
+    for (let i = index + 1; i < line.members.length && uniformDiameter(i) === diameter; i++) after += line.lengths[i]!;
+  }
+  const firstSeat = -(forward ? before : after) / length;
+  const lastSeat = 1 + (forward ? after : before) / length;
   return {
     memberLength: length,
-    lineMembers,
-    stirrups: pieces.stirrups.filter(({ diameter, legs, spacing }) => Number.isFinite(diameter) && diameter > 0
+    lineMembers: line.members,
+    stirrups: (pieces?.stirrups ?? []).filter(({ diameter, legs, spacing }) => Number.isFinite(diameter) && diameter > 0
       && Number.isSafeInteger(legs) && legs > 0 && Number.isFinite(spacing) && spacing > 0)
       .map(zone => ({ ...zone, from: zone.from / length, to: zone.to / length })),
-    bars: pieces.bars.flatMap(({ face, row, diameterMm, from, to, drawnEnds, place }) => !place ? [] : [{
-      face, row, diameter: diameterMm, from: from / length, to: to / length, ends: drawnEnds, place,
+    bars: (pieces?.bars ?? []).flatMap(({ face, row, diameterMm, from, to, drawnEnds, place }) => !place ? [] : [{
+      face, row, diameter: diameterMm, from: from / length, to: to / length, place,
+      ends: {
+        start: { ...drawnEnds.start, straightT: Math.max(firstSeat, drawnEnds.start.straightT) },
+        end: { ...drawnEnds.end, straightT: Math.min(lastSeat, drawnEnds.end.straightT) },
+      },
     }]),
   };
 }

@@ -2376,6 +2376,8 @@ const ja: Translations = {
   'diag.verifFailTorsion': 'ねじり検定 不合格',
   'diag.rcTorsionConcrete': "ねじりは未検証です。せん断とねじりの組合せ限界が、評価されたコンクリートのせん断耐力を過大に見積もっています。",
   'diag.rcTorsionDepth': "ねじりは未検証です。採用した有効せいは主筋の配置に対して過大です。",
+  "diag.rcTorsionSecondaryFace": "ねじりは未検証です。同時に作用する副方向せん断の有効せいを決める鉄筋位置が確認されていません。",
+  "diag.rcShearTensionSteel": "せん断は未検証です。この断面の引張側の鉄筋では、照査に用いた鉄筋断面積を確認できません。",
   'diag.rcTorsionPerimeter': "ねじり用軸方向鉄筋は未検証です。あばら筋の周囲に沿った鉄筋配置が確認されていません。",
   'diag.rcTorsionCutoff': "ねじり用軸方向鉄筋は未検証です。計算では鉄筋の終端を超えて鉄筋が算入されます。",
   'diag.rcTorsionYield': "降伏強度が420 MPaを超える鉄筋については、CIRSOC 201-2005に基づくねじりの照査はできません。",
