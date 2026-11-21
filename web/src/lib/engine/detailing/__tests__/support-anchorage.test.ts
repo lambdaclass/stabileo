@@ -184,8 +184,7 @@ describe('§9.7.3.8.3 at a point of inflection', () => {
   });
 });
 
-const issue2249 = process.env.RUN_KNOWN_WRONG === '2249' ? it : it.skip;
-issue2249('known wrong result: #2249 a station at moment zero still triggers inflection anchorage', () => {
+it('#2249 a station at moment zero still triggers inflection anchorage', () => {
   const section = { b: 0.3, h: 0.2, fc: 30, fy: 420, cover: 0.025, stirrupDia: 8 };
   const L = 6;
   const diameter = 16;
@@ -195,10 +194,15 @@ issue2249('known wrong result: #2249 a station at moment zero still triggers inf
     bFlex: section.b, hFlex: section.h, biaxial: false, sagCategory: 'My+', hogCategory: 'My-',
     basis: 'stress-proxy', secondaryRatio: 0,
   } as const;
-  const check = (samples: Array<[number, number]>) => {
-    const stations = samples.map(([x, my]) => ({ x, t: x / L, my, mz: 0, vz: 100, vy: 0, n: 0, torsion: 0 }));
+  const check = (samples: Array<[number, number, number?]>, reverseAxis = false) => {
+    const stations = samples.map(([x, m, v = 100]) => ({
+      x, t: x / L, my: reverseAxis ? 0 : m, mz: reverseAxis ? -m : 0,
+      vz: reverseAxis ? 0 : v, vy: reverseAxis ? -v : 0, n: 0, torsion: 0,
+    }));
+    const selectedAxes = reverseAxis ? { ...axes, flexure: 'Mz', shear: 'Vy', secondaryFlexure: 'My', secondaryShear: 'Vz',
+      sagCategory: 'Mz-', hogCategory: 'Mz+' } as const : axes;
     return inflectionChecks({
-      section, L, axes, rebar: { bottom: { count: 3, diameter } }, edition: '2025',
+      section, L, axes: selectedAxes, rebar: { bottom: { count: 3, diameter } }, edition: '2025',
       seat: { stirrupDiaMm: 8, maxAggregateSizeMm: 20 }, cages: { start: end, end },
       stations: { elementId: 1, length: L, stationTs: stations.map(s => s.t), comboResults: [{ comboId: 1, comboName: 'C1', stations }] },
     });
@@ -213,7 +217,16 @@ issue2249('known wrong result: #2249 a station at moment zero still triggers inf
   const verdict = { stationX: 3, status: 'fail' };
   expect(check([[2.9, -10], [3.1, 10]])).toMatchObject([verdict]);
   expect(check([[2.9, 10], [3.1, 10]])).toEqual([]);
-  expect(check([[2.9, -10], [3, 0], [3.1, 10]])).toMatchObject([verdict]);
+  for (const reverseAxis of [false, true]) {
+    expect(check([[2.9, -10], [3, 0], [3.1, 10]], reverseAxis)).toMatchObject([verdict]);
+    expect(check([[2.9, 10], [3, 0, 25], [3.05, 0, 100], [3.1, -10]], reverseAxis))
+      .toMatchObject([{ ...verdict, stationX: 3.05 }]);
+    expect(check([[0, 0], [3, -10], [L, 0]], reverseAxis)).toEqual([]);
+    expect(check([[2.9, 10], [3, 0], [3.1, 10]], reverseAxis)).toEqual([]);
+    expect(check([[3, -10], [3, 10]], reverseAxis)).toEqual([]);
+    expect(check([[2.9, -10, 25], [3, 0, 25], [3.1, 10, 25]], reverseAxis))
+      .toMatchObject([{ ...verdict, status: 'ok' }]);
+  }
 });
 
 it('known wrong result: #2338 embedment rows report the checked length ratio', () => {

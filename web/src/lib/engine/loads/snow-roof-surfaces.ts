@@ -1,4 +1,4 @@
-import { physicalRoofRuns, snowCoordinate, sameSnowPoint, collinearSnowMembers, connectedSnowMembers } from './physical-roof-geometry';
+import { physicalRoofRuns, snowCoordinate, samePhysicalPoint, collinearSnowMembers, connectedSnowMembers } from './physical-roof-geometry';
 export { snowCoordinate } from './physical-roof-geometry';
 import { roofMembers, type WindModel } from './wind-cases';
 import { beamLike, type GravityLayout } from './plan-gravity';
@@ -240,7 +240,7 @@ export function roofSurfaceModel(model: WindModel, only?: ReadonlySet<number>) {
   const parent = roof.map((_, k) => k);
   const root = (k: number): number => parent[k] === k ? k : (parent[k] = root(parent[k]!));
   for (let a = 0; a < roof.length; a++) for (let b = a + 1; b < roof.length; b++) {
-    if ([roof[a]!.a, roof[a]!.b].some(p => [roof[b]!.a, roof[b]!.b].some(q => sameSnowPoint(p, q)))) parent[root(a)] = root(b);
+    if ([roof[a]!.a, roof[a]!.b].some(p => [roof[b]!.a, roof[b]!.b].some(q => samePhysicalPoint(p, q)))) parent[root(a)] = root(b);
   }
   const component = new Map(roof.map((m, k) => [m.id, root(k)]));
   const sloped = roof.filter(m => Math.abs(m.dz) > 1e-8 * m.lh);
@@ -559,7 +559,7 @@ export function roofSurfaceModel(model: WindModel, only?: ReadonlySet<number>) {
     }
     return true;
   };
-  const profilePoints = runs.flatMap(r => [r.a, r.b]).filter((p, k, all) => !all.slice(0, k).some(q => sameSnowPoint(p, q)));
+  const profilePoints = runs.flatMap(r => [r.a, r.b]).filter((p, k, all) => !all.slice(0, k).some(q => samePhysicalPoint(p, q)));
   const runAtMember = new Map(runs.flatMap(r => [...r.members].map(id => [id, r] as const)));
   const allocationRunAtMember = new Map(physicalRoofRuns(roof).flatMap(r => [...r.members].map(id => [id, r] as const)));
   const geometry = (() : RoofGeometry | null => {

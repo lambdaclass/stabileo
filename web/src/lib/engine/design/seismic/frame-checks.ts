@@ -15,9 +15,9 @@
  */
 import { lineFromMembers, lineMembersOf, type LineMemberSource } from '../beam-line';
 import type { LineStirrupPiece } from '../../detailing/line-bars';
-import { drawnBeamReinforcement, type ProvidedReinforcement } from '../../../design-contract/reinforcement';
+import { drawnBeamReinforcement, type LongBarGroup, type ProvidedReinforcement, type RebarGroup, type RebarLayer } from '../../../design-contract/reinforcement';
 import type { SeismicDesignSettings, SeismicRole } from '../../../model/seismic-design';
-import { layersTotalArea, resolveLayers, resolveColumnReinf } from '../../station-design-forces';
+import { layersTotalArea, resolveBarGroups, resolveLayers, resolveColumnReinf } from '../../station-design-forces';
 import type { Bar, Outline } from '../../codes/argentina/cirsoc201-section';
 import {
   beamCapacityShear, columnCapacityShear, columnConfinement, nominalMomentAt, probableMoment,
@@ -64,17 +64,16 @@ export interface JointSeismic {
 
 export interface SeismicReport { members: MemberSeismic[]; joints: JointSeismic[] }
 
-const groupArea = (g?: { count: number; diameter: number }) => (g ? layersTotalArea(resolveLayers(undefined, g)) : 0);
-
-/** A beam's top steel at each end and bottom steel, cm², and its thinnest bar, mm. */
 export function beamSteel(r: ProvidedReinforcement | undefined): { top: [number, number]; bottom: number; minDia: number } {
   const g = r?.regions;
-  const topI = g ? layersTotalArea(resolveLayers(g.topStartLayers, g.topStart)) : groupArea(r?.top);
-  const topJ = g ? layersTotalArea(resolveLayers(g.topEndLayers, g.topEnd)) : groupArea(r?.top);
-  const bottom = g ? layersTotalArea(resolveLayers(g.bottomSpanLayers, g.bottomSpan)) : groupArea(r?.bottom);
-  const dias = [g?.topStart, g?.topEnd, g?.bottomSpan, r?.top, r?.bottom, ...(g?.topStartLayers ?? []), ...(g?.bottomSpanLayers ?? [])]
-    .filter((x): x is { count: number; diameter: number } => !!x && x.count > 0).map((x) => x.diameter);
-  return { top: [topI || (g ? groupArea(r?.top) : 0), topJ || (g ? groupArea(r?.top) : 0)], bottom: bottom || groupArea(r?.bottom), minDia: dias.length ? Math.min(...dias) : 12 };
+  const faceLayers = (groups?: LongBarGroup[], layers?: RebarLayer[], bars?: RebarGroup) =>
+    resolveBarGroups(groups, resolveLayers(layers, bars), true, true).flatMap(group => group.layers);
+  const topI = faceLayers(g?.topStartGroups, g?.topStartLayers, g?.topStart ?? r?.top);
+  const topJ = faceLayers(g?.topEndGroups, g?.topEndLayers, g?.topEnd ?? r?.top);
+  const bottom = faceLayers(g?.bottomGroups, g?.bottomSpanLayers, g?.bottomSpan ?? r?.bottom);
+  const diameters = [...topI, ...topJ, ...bottom].filter(bar => bar.count > 0).map(bar => bar.diameter);
+  return { top: [layersTotalArea(topI), layersTotalArea(topJ)], bottom: layersTotalArea(bottom),
+    minDia: diameters.length ? Math.min(...diameters) : 12 };
 }
 
 const beamDepths = (m: FrameMember, dia: number) => {

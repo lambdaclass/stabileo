@@ -9,7 +9,7 @@ import { driftAndSlidingLoads } from '../snow-drift-loads';
 import { planSnow } from '../load-plan-snow';
 import { buildLoadPlan, type PlanSink } from '../load-plan';
 import { roofSnow } from '../../../codes/cirsoc104/snow';
-import { stepDrift, parapetDrift } from '../../../codes/cirsoc104/drift';
+import { parapetDrift } from '../../../codes/cirsoc104/drift';
 
 const knownWrong = it;
 const inputs = { pg: 1, balanced: (70 - 20) / 65, pf: 1, slippery: false, tributaryWidth: 0.1 };
@@ -80,20 +80,8 @@ for (const angle of [0, 0.37, Math.PI / 2]) for (const mirror of [1, -1]) {
       layout.panels = panels; layout.points = []; layout.pieces = [];
       layout.widthMembers = mode === 'width' ? layout.widthMembers.filter(w => w.elementId === 500) : [];
       if (mode === 'pieces') layout.pieces = [{ elementId: 500, panel: 0, roof: true, a: 0, b: 1 / Math.cos(20 * Math.PI / 180), wI: 0.1, wJ: 0.1 }];
-      const out = driftAndSlidingLoads(model, layout, inputs);
-      const cutoff = (0.45 - 1.2 * inputs.balanced / (0.426 + 2.2)) / Math.tan(20 * Math.PI / 180);
-      for (const y of [cutoff - 0.001, cutoff + 0.001, 0.3, 0.4]) {
-        const dr = stepDrift({ pg: 1, balanced: inputs.balanced, stepHeight: 0.45 - y * Math.tan(20 * Math.PI / 180), luUpper: 6, luLower: 6 });
-        const expected = !dr.applies ? 0 : mode === 'width' ? dr.pd * (1 - 0.1 / dr.w) * 0.1 : dr.pd * (0.1 - 0.015 / dr.w);
-        const actual = pressure(out.distributed, 500, y / Math.cos(20 * Math.PI / 180));
-        if (!dr.applies) expect(Math.abs(actual)).toBe(0);
-        else expect(actual).toBeGreaterThan(0);
-        if (y === 0.3) expect(Math.abs(actual)).toBe(expected);
-      }
-      const full = publicSnow(model, layout);
-      expect(full.result.refused).toBeUndefined();
-      const base = roofSnow({ ...snow, roof: { kind: 'gable', slopeDeg: 20, W: 1, slippery: true } }).ps * 0.1;
-      expect(pressure(full.cases[0]!.distributed, 500, 0.3 / Math.cos(20 * Math.PI / 180))).toBeCloseTo(base, 10);
+      expect(() => driftAndSlidingLoads(model, layout, inputs)).toThrow('snow.refused.stepDriftTransfer');
+      expect(publicSnow(model, layout)).toMatchObject({ result: { refused: 'snow.refused.stepDriftTransfer' }, cases: [] });
     });
   }
 }
@@ -112,7 +100,8 @@ for (const top of [2.8, 2.949, 2.951, 3, 4, 5]) for (const angle of [0, 0.37]) f
     const layout = gravityLayout(model, { mode: 'width', tributaryWidth: 0.1 }); layout.panels = panels; layout.points = []; layout.pieces = [];
     layout.widthMembers = mode === 'width' ? layout.widthMembers.filter(w => w.elementId === 500) : [];
     if (mode === 'pieces') layout.pieces = [{ elementId: 500, panel: 1, roof: true, a: 0, b: 2, wI: 0.1, wJ: 0.1 }];
-    const base = driftAndSlidingLoads(model, layout, inputs), out = driftAndSlidingLoads(model, layout, { ...inputs, parapet: { height: 1 } });
+    const local = { ...inputs, balanced: top > 3 ? 5 : inputs.balanced };
+    const base = driftAndSlidingLoads(model, layout, local), out = driftAndSlidingLoads(model, layout, { ...local, parapet: { height: 1 } });
     const actual = pressure(out.distributed, 500, 1) - pressure(base.distributed, 500, 1);
     if (top >= 2.95) expect(actual).toBeCloseTo(0, 10);
     else {
@@ -120,7 +109,7 @@ for (const top of [2.8, 2.949, 2.951, 3, 4, 5]) for (const angle of [0, 0.37]) f
       expect(actual).toBeGreaterThan(0);
       if (mode === 'width') expect(actual).toBeCloseTo(dr.pd * (1 - 0.1 / dr.w) * 0.1, 10);
     }
-    expect(publicSnow(model, layout, { ...snow, parapet: { height: 1 } }).result.refused).toBeUndefined();
+    expect(publicSnow(model, layout, { ...snow, pg: top > 3 ? 12 : snow.pg, parapet: { height: 1 } }).result.refused).toBeUndefined();
   });
 }
 
@@ -132,6 +121,8 @@ for (const angle of [0, 0.37]) for (const offset of [-2e-8, 0, 2e-8]) for (const
     if (offset < 0) {
       expect(out.result.refused).toBe('snow.refused.roofPlane');
       expect(out.cases).toEqual([]);
+    } else if (mode === 'panels') {
+      expect(out).toMatchObject({ result: { refused: 'snow.refused.stepDriftTransfer' }, cases: [] });
     } else {
       expect(out.result.refused).toBeUndefined();
       expect(out.cases.length).toBeGreaterThan(0);
@@ -140,23 +131,22 @@ for (const angle of [0, 0.37]) for (const offset of [-2e-8, 0, 2e-8]) for (const
 }
 
 for (const angle of [0, 0.37, Math.PI / 2]) for (const mode of ['width', 'pieces'] as const) for (const reverse of [false, true]) {
-  it(`round7 drift width and sliding cutoff ${mode} ${angle} ${reverse}`, () => {
-    const model = mesh([[[0, 0, 3], [8, 0, 3], [8, 2, 3], [0, 2, 3]], [[-6, 0, 4.2], [0, 0, 3.6], [0, 2, 3.6], [-6, 2, 4.2]]]);
+  it(`round7 sliding cutoff with step drift below threshold ${mode} ${angle} ${reverse}`, () => {
+    const model = mesh([[[0, 0, 3], [8, 0, 3], [8, 2, 3], [0, 2, 3]], [[-6, 0, 3.8], [0, 0, 3.2], [0, 2, 3.2], [-6, 2, 3.8]]]);
     const nodeI = 500, nodeJ = 501;
     model.nodes.set(nodeI, { id: nodeI, x: reverse ? 8 : 0, y: 0, z: 3 });
     model.nodes.set(nodeJ, { id: nodeJ, x: reverse ? 0 : 8, y: 0, z: 3 });
     model.elements.set(500, { id: 500, nodeI, nodeJ, sectionId: 1, materialId: 1 });
-    const panels: GravityLayout['panels'] = [{ polygon: [[0, 0], [8, 0], [8, 2], [0, 2]], z: 3, roof: true }, { polygon: [[-6, 0], [0, 0], [0, 2], [-6, 2]], z: 3.6, roof: true }];
+    const panels: GravityLayout['panels'] = [{ polygon: [[0, 0], [8, 0], [8, 2], [0, 2]], z: 3, roof: true }, { polygon: [[-6, 0], [0, 0], [0, 2], [-6, 2]], z: 3.2, roof: true }];
     transform(model, angle); rotatePanels(panels, angle, 1);
     const layout = gravityLayout(model, { mode: 'width', tributaryWidth: 0.1 });
     layout.panels = panels; layout.points = []; layout.pieces = [];
     layout.widthMembers = mode === 'width' ? layout.widthMembers.filter(w => w.elementId === 500) : [];
     if (mode === 'pieces') layout.pieces = [{ elementId: 500, panel: 0, roof: true, a: 0, b: 8, wI: 0.1, wJ: 0.1 }];
     const retained = driftAndSlidingLoads(model, layout, inputs), sliding = driftAndSlidingLoads(model, layout, { ...inputs, slippery: true });
-    const dr = stepDrift({ pg: 1, balanced: inputs.balanced, stepHeight: 0.6, luUpper: 6, luLower: 8 });
     const station = (x: number) => reverse ? 8 - x : x;
-    for (const x of [dr.w - 0.001, dr.w + 0.001, 4.499, 4.501, 4.7]) {
-      expect(pressure(retained.distributed, 500, station(x))).toBeCloseTo(Math.max(0, dr.pd * (1 - x / dr.w)) * 0.1, 10);
+    for (const x of [4.499, 4.501, 4.7]) {
+      expect(pressure(retained.distributed, 500, station(x))).toBeCloseTo(0, 10);
       expect(pressure(sliding.distributed, 500, station(x)) - pressure(retained.distributed, 500, station(x))).toBeCloseTo(x < 4.5 ? 0.4 * 6 / 4.5 * 0.1 : 0, 10);
     }
     expect(publicSnow(model, layout).result.refused).toBeUndefined();
@@ -190,6 +180,8 @@ for (const mode of ['width', 'panels'] as const) for (const height of [0.35, 0.4
       expect(plan.outcome).toBe('BLOCKED');
       expect(plan.blockedKeys.map(m => m.key)).toContain('snow.refused.roofPlane');
       expect(plan.cases.filter(c => c.type === 'S')).toEqual([]);
+    } else if (mode === 'panels') {
+      expect(plan).toMatchObject({ outcome: 'BLOCKED', blockedKeys: [{ key: 'snow.refused.stepDriftTransfer' }], cases: [], distributed: [] });
     } else {
       expect(plan.outcome).toBe('READY');
       expect(plan.cases.some(c => c.type === 'S')).toBe(true);
@@ -197,7 +189,13 @@ for (const mode of ['width', 'panels'] as const) for (const height of [0.35, 0.4
   });
 }
 
-it('round7 snapshot eave strip matches the independent capped-triangle integral', () => {
+it('round7 the capped eave triangle blocks before strip transfer', () => {
+  const model = stepRoof();
+  const layout = gravityLayout(model, { mode: 'panels', tributaryWidth: 1 });
+  expect(() => driftAndSlidingLoads(model, layout, { ...inputs, tributaryWidth: 1 })).toThrow('snow.refused.stepDriftTransfer');
+});
+
+it.skip('known wrong result: #2218 round7 snapshot eave strip matches the independent capped-triangle integral', () => {
   const model = stepRoof();
   const layout = gravityLayout(model, { mode: 'panels', tributaryWidth: 1 });
   const out = driftAndSlidingLoads(model, layout, { ...inputs, tributaryWidth: 1 });

@@ -5,7 +5,7 @@
  * names (fy, mz) when the store writes fx, fz, my; and a line load dropped when its I end was
  * zero, which is every triangular load that starts at nothing.
  */
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { modelStore } from '../../store/model.svelte';
 import { historyStore } from '../../store/history.svelte';
 import { uiStore } from '../../store';
@@ -116,8 +116,13 @@ describe('a 2D point load on a member names every component', () => {
   });
 
   it('rounded global components include the legacy moment alias and the axes', () => {
-    expect(pointOnElementText({ a: 2 / 3, p: 1 / 3, mz: 1, angle: 45, isGlobal: true }, words, 'SI', [1, 0]))
-      .toBe('Px=0.2357 kN, Pz=0.2357 kN, My=1 kN·m, a=0.6667 m, global axes');
+    vi.stubGlobal('__PUBLIC_FEATURES__', { ...__PUBLIC_FEATURES__, globalAxes: true });
+    try {
+      expect(pointOnElementText({ a: 2 / 3, p: 1 / 3, mz: 1, angle: 45, isGlobal: true }, words, 'SI', [1, 0]))
+        .toBe('Px=0.2357 kN, Pz=0.2357 kN, My=1 kN·m, a=0.6667 m, global axes');
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it('a load with every component zero gives nothing, which the dialog says in words', () => {
