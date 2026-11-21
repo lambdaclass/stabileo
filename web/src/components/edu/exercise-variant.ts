@@ -53,7 +53,7 @@ export function formatParam(v: number): string {
 export function fillText(text: string, values: Record<string, number>): string {
   if (!text.includes('{')) return text;
   return text.replace(/\{([A-Za-z_][A-Za-z0-9_]*)\}/g, (m, name: string) =>
-    name in values ? formatParam(values[name]!) : m);
+    Object.hasOwn(values, name) ? formatParam(values[name]!) : m);
 }
 
 /** A statement as the exercise list shows it, before any student has a variant: each parameter reads as its range. */

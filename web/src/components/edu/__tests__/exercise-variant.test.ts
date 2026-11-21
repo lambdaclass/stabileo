@@ -151,4 +151,8 @@ describe('lintVariants', () => {
       .toBe('L = 6 m · q = 4 kN/m · Support B: Pinned support');
     expect(fillText('{L} and {L}', { L: 2.5 })).toBe('2.5 and 2.5');
   });
+
+  it('fills only the parameters it was given, never what every object inherits', () => {
+    expect(fillText('{constructor} {toString} {L}', { L: 3 })).toBe('{constructor} {toString} 3');
+  });
 });
