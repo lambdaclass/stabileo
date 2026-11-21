@@ -87,7 +87,7 @@ function spatialCurve(ef: ElementForces3D, kind: Diagram3DKind): SpatialCurve {
     return {
       get cuts() { return cuts(); },
       get cutDistances() { return distances(); },
-      extrema: () => exact ? magnitudeExtrema(polynomialParts, method, distances(), ef.length)
+      extrema: at => exact ? magnitudeExtrema(polynomialParts, method, distances(), ef.length, at)
         : curves.flatMap(curve => curve.extrema().map(({ t }) => ({ t, value: combine({ t }), canTransfer: () => false }))),
       ...(!exact ? { magnitudeBound } : {}),
       value: combine,

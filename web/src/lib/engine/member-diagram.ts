@@ -133,8 +133,10 @@ function diagramExtremum(
   lo: number, hi: number, u: number, x0: number, x1: number, length: number,
   polynomials: readonly number[][],
   combine: (values: number[]) => number,
+  at?: number,
 ): DiagramExtremum | undefined {
   const t = lo + (hi - lo) * u;
+  if (at !== undefined && t !== at) return undefined;
   const ordinates = polynomials.map(p => polynomialValue(p, u));
   const value = combine(ordinates);
   if (!Number.isFinite(value)) throw unavailableDiagramExtrema();
@@ -166,7 +168,7 @@ export function curveExtrema(curve: DiagramCurve, length: number, at?: number): 
     const polynomial = curve.polynomial(lo, hi);
     for (const u of polynomialRootCandidates(polynomialDerivative(polynomial))) {
       if (u <= 0 || u >= 1) continue;
-      const point = diagramExtremum(lo, hi, u, x0, x1, length, [polynomial], ([value]) => value!);
+      const point = diagramExtremum(lo, hi, u, x0, x1, length, [polynomial], ([value]) => value!, at);
       if (point) roots.push(point);
     }
   }
@@ -270,13 +272,13 @@ function polynomialRootCandidates(coefficients: readonly number[], lo = 0, hi = 
   return [...new Set(roots)].sort((a, b) => a - b);
 }
 
-export function magnitudeExtrema(parts: readonly Pick<DiagramCurve, 'polynomial'>[], method: 'abs' | 'srss', distances: ReadonlyMap<number, number>, length: number): DiagramExtremum[] {
+export function magnitudeExtrema(parts: readonly Pick<DiagramCurve, 'polynomial'>[], method: 'abs' | 'srss', distances: ReadonlyMap<number, number>, length: number, at?: number): DiagramExtremum[] {
   const cuts = sortedStations(distances.keys());
   const extrema: DiagramExtremum[] = [];
   const combine = (values: number[]) => method === 'srss' ? Math.hypot(...values) : values.reduce((sum, v) => sum + Math.abs(v), 0);
   for (let k = 0; k + 1 < cuts.length; k++) {
     const lo = cuts[k]!, hi = cuts[k + 1]!, width = hi - lo;
-    if (!(width > 0)) continue;
+    if (!(width > 0) || (at !== undefined && !(lo < at && at < hi))) continue;
     const polynomials = parts.map(part => part.polynomial(lo, hi, distances.get(lo), distances.get(hi)));
     const scale = polynomials.reduce((max, p) => Math.max(max, ...p.map(Math.abs)), 0);
     if (!Number.isFinite(scale)) throw unavailableDiagramExtrema();
@@ -284,7 +286,7 @@ export function magnitudeExtrema(parts: readonly Pick<DiagramCurve, 'polynomial'
     const normalized = polynomials.map(p => p.map(c => c / scale));
     const add = (u: number) => {
       if (u === 0 || u === 1) return;
-      const point = diagramExtremum(lo, hi, u, distances.get(lo)!, distances.get(hi)!, length, polynomials, combine);
+      const point = diagramExtremum(lo, hi, u, distances.get(lo)!, distances.get(hi)!, length, polynomials, combine, at);
       if (point) extrema.push(point);
     };
     if (method === 'srss') {
