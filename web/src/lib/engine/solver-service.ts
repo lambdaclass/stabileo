@@ -7,6 +7,7 @@ import { isContainmentRefusal } from './containment-error';
 // Solver service — pure functions extracted from model.svelte.ts
 // Each function takes a ModelData parameter instead of accessing reactive store state.
 
+import { PlateAnalysisError, plateAnalysisRefusal } from './plate-analysis-refusal';
 import { withCaseEffects } from './case-effects';
 import { casesToSolve, finishBundle, magnitudeRefusal, spectralRefusal } from './combination-methods';
 import { isMagnitudeCombination } from './result-scopes';
@@ -120,7 +121,7 @@ export interface ModelData {
   /** The project's analysis rules (`analysis-settings.ts`). Absent: the older ones. */
   analysis?: import('./analysis-settings').AnalysisSettings;
   /** Named groups, for a self-weight load that covers a group. */
-  groups?: Map<number, { id: number; members: { elements?: number[]; plates?: number[]; quads?: number[] } }>;
+  groups?: Map<number, { id: number; name?: string; members: { nodes?: number[]; elements?: number[]; plates?: number[]; quads?: number[] }; data?: Record<string, unknown> }>;
 }
 
 function snapshotMap<T>(map: ReadonlyMap<number, T>): Map<number, T> {
@@ -1759,7 +1760,26 @@ export function withoutSpringsOnRestrained<T extends Record<string, unknown>>(su
   return out as T;
 }
 
-export function buildSolverInput3D(
+function assertPlateAnalysisReady(model: ModelData): void {
+  const error = plateAnalysisRefusal(model);
+  if (error) throw new PlateAnalysisError(error);
+}
+
+export function buildSolverInput3D(...args: Parameters<typeof buildValidatedSolverInput3D>): SolverInput3D | null {
+  assertPlateAnalysisReady(args[0]);
+  return buildValidatedSolverInput3D(...args);
+}
+
+export function prepareSolverInput3D(model: ModelData, leftHand: boolean) {
+  assertPlateAnalysisReady(model);
+  const solvable = solvableModel(model);
+  return {
+    model: solvable,
+    build: (loads: Load[]) => buildValidatedSolverInput3D({ ...solvable, loads }, false, leftHand),
+  };
+}
+
+function buildValidatedSolverInput3D(
   model: ModelData,
   /** A boolean for a solve of every load; a case's own self-weight loads for a case. */
   includeSelfWeight: boolean | SelfWeightLoad[] = false,
@@ -1979,9 +1999,9 @@ export function buildSolverInput3D(
  * back as the solve's error message, as every other refusal does, rather than as an exception
  * thrown past the solve's own error handling.
  */
-function buildSolveInput3D(...args: Parameters<typeof buildSolverInput3D>): SolverInput3D | string | null {
+function buildSolveInput3D(...args: Parameters<typeof buildValidatedSolverInput3D>): SolverInput3D | string | null {
   try {
-    return buildSolverInput3D(...args);
+    return buildValidatedSolverInput3D(...args);
   } catch (err) {
     if (err instanceof SupportMappingError) return localizeEngineText(err.message);
     const said = loadRefusal(err);
@@ -2034,8 +2054,8 @@ function prepareSolve3D(model: ModelData, includeSelfWeight = false, leftHand = 
   // route through here exactly once) so browser tests can assert that a
   // reinforcement-only edit triggers none. Not part of the solver.
   if (countSolve) noteStructuralSolve();
-  const orphan = orphanLoadRefusal(model);
-  if (orphan) return orphan;
+  const refusal = plateAnalysisRefusal(model) ?? orphanLoadRefusal(model);
+  if (refusal) return refusal;
   // Checked on what the engine will see: inactive members and the nodes nothing holds are out.
   // A variable member is its pieces there; a refusal names the member and the model's nodes.
   const pieces = variableExpansionFor(model);
@@ -2487,6 +2507,11 @@ function magnitudeRefusal3D(model: ModelData, combinations: LoadCombination[], l
  */
 const magnitudeOptions = (model: ModelData) => ({ firstOrder: model.analysis?.perCombination === 'pdelta', plates: model.plates });
 
+function combinationPreflight3D(model: ModelData, loadCases: readonly LoadCase[], combinations: LoadCombination[]) {
+  return plateAnalysisRefusal(model) ?? missingCombinationCaseRefusal(loadCases.map(({ id }) => id), combinations)
+    ?? orphanLoadRefusal(model) ?? imposedRefusal(model);
+}
+
 export function solveCombinations3D(
   model: ModelData,
   loadCases: LoadCase[],
@@ -2496,8 +2521,7 @@ export function solveCombinations3D(
   /** The spectral cases' results (`store/spectral-cases.ts`), by case id. */
   spectral?: Map<number, AnalysisResults3D>,
 ): Bundle3D | string | null {
-  const refused = missingCombinationCaseRefusal(loadCases.map(({ id }) => id), combinations)
-    ?? orphanLoadRefusal(model) ?? imposedRefusal(model);
+  const refused = combinationPreflight3D(model, loadCases, combinations);
   if (refused) return refused;
   // Each case with its composition, notional loads and reduction written out (`case-effects.ts`);
   // only the cases listed or taken by a combination solved (`combination-methods.ts`).
@@ -2730,7 +2754,7 @@ function solveCombinations3DFallback(
 
   for (const lc of loadCases) {
     const caseModel: ModelData = { ...model, loads: model.loads.filter(l => (l.data.caseId ?? 1) === lc.id) };
-    const input = buildSolverInput3D(caseModel, selfWeightFor(model, lc, includeSelfWeight), leftHand);
+    const input = buildValidatedSolverInput3D(caseModel, selfWeightFor(model, lc, includeSelfWeight), leftHand);
     if (!input) continue;
     try {
       const result = solve3DEngine(input);
@@ -3064,8 +3088,7 @@ export async function solveCombinations3DParallel(
     combinations = plainDeepCopy(combinations);
     spectral = spectral && snapshotMap(spectral);
   }
-  const refused = missingCombinationCaseRefusal(loadCases.map(({ id }) => id), combinations)
-    ?? orphanLoadRefusal(model) ?? imposedRefusal(model);
+  const refused = combinationPreflight3D(model, loadCases, combinations);
   if (refused) return refused;
   model = withCaseEffects(model, loadCases, { includeSelfWeight, leftHand });
   const solving = casesToSolve(loadCases, combinations);

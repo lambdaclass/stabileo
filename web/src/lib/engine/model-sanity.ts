@@ -21,6 +21,7 @@
  *
  * Pure apart from the WASM call: the stores are read by the caller.
  */
+import { PlateAnalysisError } from './plate-analysis-refusal';
 import { buildSolverInput3D, shouldEmbedFlat2DModelIn3D, type ModelData } from './solver-service';
 import { withCaseEffects, singleSolveModel } from './case-effects';
 import { appliedResultant } from './statics-check';
@@ -101,7 +102,13 @@ function constraintNodes(c: unknown): number[] {
  */
 export function buildSanityInput(ctx: SanityContext): { input: unknown; shellKeys: string[] } | null {
   const { model } = ctx;
-  const si = buildSolverInput3D(model, false, ctx.leftHand);
+  let si;
+  try {
+    si = buildSolverInput3D(model, false, ctx.leftHand);
+  } catch (error) {
+    if (error instanceof PlateAnalysisError) return null;
+    throw error;
+  }
   if (!si) return null;
   const shellKeys: string[] = [];
   const shells: unknown[] = [];

@@ -21,6 +21,8 @@
 // Deterministic: same DXF input → same fixture output (timestamp pinned).
 
 import { readFileSync, writeFileSync } from 'fs';
+import { CAD_END_WALLS_ASSUMPTION, conformCadEndWalls } from './conform-cad-end-walls';
+import { t } from '../src/lib/i18n';
 import { parseCadDxf } from '../src/lib/cad/parse';
 import { suggestLayerMappings, extractArchPlan } from '../src/lib/cad/classify';
 import { generateRcDraft } from '../src/lib/cad/draft';
@@ -270,7 +272,12 @@ function snapshotToFixture(snap: ModelSnapshot, name: string) {
     ...LOAD_ASSUMPTIONS,
   );
 
+  const assumptions = draft.snapshot.provenance!.assumptions;
+  const coarseWallAssumption = assumptions.indexOf(t('cad.assume.walls'));
+  if (coarseWallAssumption === -1) throw new Error('Missing end-wall assumption');
+  assumptions[coarseWallAssumption] = CAD_END_WALLS_ASSUMPTION;
   const fixture = snapshotToFixture(draft.snapshot, 'Architecture without structure DXF (CAD draft)');
+  conformCadEndWalls(fixture);
   writeFileSync(`${OUT_DIR}/cad-arch-only-dxf.json`, JSON.stringify(fixture) + '\n');
   console.log('[V2] counts:', JSON.stringify(draft.counts));
   console.log('[V2] warnings:', JSON.stringify(draft.warnings));

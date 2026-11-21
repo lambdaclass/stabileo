@@ -1,5 +1,6 @@
 import { modelStore, uiStore } from './index';
 import { t } from '../i18n';
+import { PlateAnalysisError } from '../engine/plate-analysis-refusal';
 import { modelHasMemberOffsets } from '../engine/member-offsets';
 import { modelHasShellOffsets } from '../engine/shell-offsets';
 import { withMassSource, densitiesFor } from '../engine/dynamics/mass-source-model';
@@ -31,7 +32,13 @@ export function planModalResult(plan: WindModalLoads, liveParticipation: number)
     loads.push({ type: 'surface3d', data: { id: id++, quadId: s.quadId, q: s.q, caseId: s.caseType === 'D' ? DEAD : LIVE } });
   }
   const leftHand = uiStore.axisConvention3D === 'leftHand';
-  const input = modelStore.buildSolverInput3D(uiStore.includeSelfWeight, leftHand, { expandMemberOffsets: false });
+  let input;
+  try {
+    input = modelStore.buildSolverInput3D(uiStore.includeSelfWeight, leftHand, { expandMemberOffsets: false });
+  } catch (error) {
+    if (error instanceof PlateAnalysisError) return { error: error.message };
+    throw error;
+  }
   if (!input) return { error: 'empty' };
   const md = {
     nodes: modelStore.nodes, elements: modelStore.elements, supports: modelStore.supports,
