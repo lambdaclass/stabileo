@@ -3930,7 +3930,8 @@
          phone also draws the bottom bar — PRO and Education, the two modes
          that are not Basic — so the offset is unconditional here.
       */
-      bottom: var(--st-bar-h);
+      --st-sheet-bottom: var(--st-bar-h);
+      bottom: var(--st-sheet-bottom);
       left: 0;
       right: 0;
       width: 100%;
@@ -3940,7 +3941,7 @@
       border-left: none;
       border-top: 1px solid var(--st-hair-strong);
       border-radius: 12px 12px 0 0;
-      animation-name: sheet-slide-up;
+      animation-name: st-sheet-slide-up;
     }
 
     /*
@@ -3996,11 +3997,6 @@
       line-height: 1;
       cursor: pointer;
       touch-action: manipulation;
-    }
-
-    @keyframes sheet-slide-up {
-      from { transform: translateY(100%); }
-      to { transform: translateY(0); }
     }
   }
 
