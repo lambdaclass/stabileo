@@ -15,14 +15,18 @@ import {
   addPlateLoad, applyPlateMeshes, createPlate, meshBeforeAnalysis, planPlateMesh, plateEntry, setPlateMeshSpec,
 } from '../physical-plates';
 
-const fault = vi.hoisted(() => ({ dropMemberLoad: false, scaleCaseLoad: 1 }));
+const fault = vi.hoisted(() => ({ dropMemberLoad: false, scaleCaseLoad: 1, momentDelta: 0 }));
 
 vi.mock('../../model/loads/load-magnitudes', async importOriginal => {
   const original = await importOriginal<typeof import('../../model/loads/load-magnitudes')>();
   return {
     ...original,
-    scaledLoad: (load: Parameters<typeof original.scaledLoad>[0], factor: number) =>
-      original.scaledLoad(load, factor * fault.scaleCaseLoad),
+    scaledLoad: (load: Parameters<typeof original.scaledLoad>[0], factor: number) => {
+      const scaled = original.scaledLoad(load, factor * fault.scaleCaseLoad);
+      return scaled.type === 'nodal3d' && load.data.id === 2
+        ? { ...scaled, data: { ...scaled.data, mx: scaled.data.mx + fault.momentDelta } }
+        : scaled;
+    },
   };
 });
 vi.mock('../../engine/member-loads', async importOriginal => {
@@ -44,6 +48,7 @@ beforeEach(() => {
   meshBeforeAnalysis.value = true;
   fault.dropMemberLoad = false;
   fault.scaleCaseLoad = 1;
+  fault.momentDelta = 0;
 });
 
 function cantilever(mode: '2d' | '3d') {
@@ -351,4 +356,101 @@ it.each([
   modelStore.updateSupport(model.supports.keys().next().value!, { uplift: true });
   expect.soft(await outcome(() => modelStore.solve3DAsync(false, false, true)), 'nonlinear single').toEqual(diagnostic);
   expect.soft(await outcome(() => modelStore.solveCombinations3DParallel(false, false, true)), 'nonlinear combinations').toEqual(diagnostic);
+});
+
+const issue2470 = process.env.RUN_KNOWN_WRONG === '2470' ? it : it.skip;
+
+issue2470.each([false, true])('accounts for the active structure (reference case: %s) [known wrong result: #2470]', async reference => {
+  const active = cantilever('3d');
+  const model = modelStore.model;
+  const { nodeI: root, nodeJ: tip } = model.elements.get(active)!;
+  const end = modelStore.addNode(0, 2, 0);
+  const inactive = modelStore.addElement(root, end);
+  const loadCase = reference ? modelStore.addLoadCase('Reference', 'L') : 1;
+  if (reference) {
+    modelStore.updateLoadCaseFields(loadCase, { reference: true });
+    modelStore.updateLoadCaseFields(1, { includes: [{ caseId: loadCase, factor: 1.5 }] });
+  }
+  model.loads.push(
+    { type: 'nodal3d', data: { id: 1, nodeId: tip, fx: 0, fy: 0, fz: -2, mx: 0, my: 0, mz: 0, caseId: loadCase } },
+    { type: 'nodal3d', data: { id: 2, nodeId: end, fx: 0, fy: 0, fz: -4, mx: 0, my: 0, mz: 0, caseId: loadCase } },
+    { type: 'distributed3d', data: { id: 3, elementId: inactive, qYI: 0, qYJ: 0, qZI: -3, qZJ: -3, frame: 'global', caseId: loadCase } },
+  );
+
+  const factor = reference ? 1.5 : 1;
+  expect(modelStore.solve3D(false, false, true)).toMatchObject({ reactions: [expect.objectContaining({ fz: expect.closeTo(12 * factor, 12) })] });
+  modelStore.updateElement(inactive, { behaviour: 'inactive' });
+  for (const nonlinear of [false, true]) {
+    if (nonlinear) modelStore.updateSupport(model.supports.keys().next().value!, { uplift: true });
+    const expected = { reactions: [expect.objectContaining({ fz: expect.closeTo(2 * factor, 12) })] };
+    expect.soft(modelStore.solve3D(false, false, true), 'single').toMatchObject(expected);
+    expect.soft(await modelStore.solve3DAsync(false, false, true), 'async single').toMatchObject(expected);
+    const bundles = [
+      modelStore.solveCombinations3D(false, false, true),
+      await modelStore.solveCombinations3DParallel(false, false, true),
+    ];
+    for (const bundle of bundles) {
+      expect.soft(bundle).toMatchObject({ perCombo: expect.any(Map) });
+      if (bundle && typeof bundle !== 'string') expect.soft(bundle.perCombo.values().next().value).toMatchObject(expected);
+    }
+  }
+});
+
+issue2470.each(['xz', 'yz'] as const)('refuses a small spatial couple lost in %s projection [known wrong result: #2470]', async plane => {
+  cantilever('3d');
+  const model = modelStore.model;
+  for (const [id, node] of model.nodes) {
+    model.nodes.set(id, plane === 'xz'
+      ? { ...node, x: 2 ** 20 + node.x, y: 2 }
+      : { ...node, x: 2, y: 2 ** 20 + node.x });
+  }
+  const tip = [...model.nodes.keys()].at(-1)!;
+  const load = modelStore.addNodalLoad3D(tip, 0, 0, -(2 ** 20), 0, 0, 0, 1);
+  expect(modelStore.solve(false, plane)).toMatchObject({ reactions: [expect.objectContaining({ rz: expect.closeTo(2 ** 20, 7) })] });
+  const moment = plane === 'xz' ? 'mx' : 'my';
+  expect(modelStore.updateLoad(load, { [moment]: 2 ** -8 })).toBe(true);
+  const paths = {
+    linear: () => modelStore.solve(false, plane),
+    async: () => modelStore.solveAsync(false, plane),
+    combinations: () => modelStore.solveCombinations(false, plane),
+    pdelta: () => solvePDelta(modelStore.buildSolverInput(false, plane)!),
+  };
+  const diagnostic = expect.stringMatching(new RegExp('case.*1.*' + moment, 'i'));
+  for (const [path, solve] of Object.entries(paths)) expect.soft(await outcome(solve), path).toEqual(diagnostic);
+});
+
+issue2470('checks a stale spatial moment at its own roundoff boundary [known wrong result: #2470]', async () => {
+  cantilever('3d');
+  const model = modelStore.model;
+  for (const [id, node] of model.nodes) model.nodes.set(id, { ...node, x: 2 ** 20 + node.x });
+  const tip = [...model.nodes.keys()].at(-1)!;
+  const source = modelStore.addLoadCase('Reference', 'L');
+  modelStore.updateLoadCaseFields(source, { reference: true });
+  modelStore.updateLoadCaseFields(1, { includes: [{ caseId: source, factor: 1 }] });
+  model.loads.push(
+    { type: 'nodal3d', data: { id: 1, nodeId: tip, fx: 0, fy: 0, fz: -(2 ** 20), mx: 0, my: 0, mz: 0, caseId: 1 } },
+    { type: 'nodal3d', data: { id: 2, nodeId: tip, fx: 0, fy: 0, fz: 0, mx: 1, my: 0, mz: 0, caseId: source } },
+    { type: 'nodal3d', data: { id: 3, nodeId: tip, fx: 0, fy: 0, fz: 0, mx: -1, my: 0, mz: 0, caseId: source } },
+  );
+  const solve = () => modelStore.solve3D(false, false, true);
+  expect(solve()).toMatchObject({ reactions: [expect.objectContaining({ fz: expect.closeTo(2 ** 20, 7), mx: 0 })] });
+  fault.momentDelta = 2 * roundoff;
+  expect(solve()).toMatchObject({ reactions: expect.any(Array) });
+  fault.momentDelta += Number.EPSILON;
+  const paths = {
+    linear: solve,
+    async: () => modelStore.solve3DAsync(false, false, true),
+    combinations: () => modelStore.solveCombinations3D(false, false, true),
+    parallel: () => modelStore.solveCombinations3DParallel(false, false, true),
+    direct: () => runDirectAnalysis(model, model.loadCases, model.combinations, { includeSelfWeight: false }),
+  };
+  const diagnostic = expect.stringMatching(/case.*1.*Mx/i);
+  for (const [path, run] of Object.entries(paths)) expect.soft(await outcome(run), path).toEqual(diagnostic);
+  expect.soft(modelStore.singleSolveInput3D(false, false, true), 'input').toBeNull();
+  modelStore.setAnalysis({ perCombination: 'pdelta' });
+  expect.soft(await outcome(paths.combinations), 'pdelta').toEqual(diagnostic);
+  expect.soft(await outcome(paths.parallel), 'pdelta parallel').toEqual(diagnostic);
+  modelStore.updateSupport(model.supports.keys().next().value!, { uplift: true });
+  expect.soft(await outcome(paths.async), 'nonlinear single').toEqual(diagnostic);
+  expect.soft(await outcome(paths.parallel), 'nonlinear combinations').toEqual(diagnostic);
 });
