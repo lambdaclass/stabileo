@@ -85,7 +85,7 @@
       ]
     },
     "src/components/Viewport3D.svelte": {
-      "source": "1b96d5e20866ebd6cc8846e3fe248efb4910987c0eac161c9b2a4dee03657f54",
+      "source": "d62344749ba26fb9eaa416ae3330f7f26fd29487ed547e4612b9a43e968e442e",
       "original": "9850e1522e4a68faa04c91ed58cca39a19d075cfe8643219a2c6060836ded5a1",
       "changes": [
         [
@@ -2049,6 +2049,7 @@
         ]
       ]
     },
+    "src/components/pro/plates/PlateSelectionCard.svelte": null,
     "src/components/pro/plates/PlateShapeDialog.svelte": null,
     "src/components/pro/plates/plate-state.ts": null,
     "src/components/pro/rc-sheets/ProRcSheetsTab.svelte": null,
@@ -2114,7 +2115,6 @@
         ]
       ]
     },
-    "src/components/viewport/PlateSelectionCard.svelte": null,
     "src/lib/codes/asce7/combinations.ts": null,
     "src/lib/codes/asce7/family.ts": null,
     "src/lib/codes/asce7/inputs.ts": null,

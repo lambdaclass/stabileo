@@ -4,7 +4,7 @@
   import { is3DWorkspace } from '../lib/utils/workspace';
   import { displayUnits, fmtCoord, unitQ } from '../lib/store/display-units.svelte';
   import QuickInfoCard from './viewport/QuickInfoCard.svelte';
-  import PlateSelectionCard from './viewport/PlateSelectionCard.svelte';
+  import PlateSelectionCard from './pro/plates/PlateSelectionCard.svelte';
   import { syncViewOverlays } from '../lib/viewport3d/view-overlays';
   import { deformedView } from '../lib/store/deformed-view.svelte';
   import { focusNodeIds } from '../lib/model/select-like';

@@ -51,7 +51,7 @@ test('production source access uses the pinned main modules', () => {
   assert.equal(on.read(codec), readFileSync(codec, 'utf8'));
 });
 
-test('research build identity sees main’s shared viewer sources', { skip: 'known wrong result: #2365' }, () => {
+test('research build identity sees main’s shared viewer sources', () => {
   assert.equal(git('diff', '--name-status', base, '--', 'src/components/research', 'src/components/viewport'), '');
 });
 

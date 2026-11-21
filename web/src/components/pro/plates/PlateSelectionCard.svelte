@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { modelStore, uiStore } from '../../lib/store';
-  import { t } from '../../lib/i18n';
-  import { plateEntry } from '../../lib/store/physical-plates';
-  import PlateMeshDialog from '../pro/plates/PlateMeshDialog.svelte';
+  import { modelStore, uiStore } from '../../../lib/store';
+  import { t } from '../../../lib/i18n';
+  import { plateEntry } from '../../../lib/store/physical-plates';
+  import PlateMeshDialog from './PlateMeshDialog.svelte';
 
   const entries = $derived.by(() => {
     void modelStore.model.groups;
