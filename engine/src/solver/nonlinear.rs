@@ -2,6 +2,8 @@
 //! an [`IncrementalProblem`]; how its increments are converged is an [`Iteration`]: [`Newton`],
 //! [`NewtonLineSearch`] or [`Anderson`].
 
+use super::adaptive_stepping::{AdaptiveStepper, StepAction};
+
 pub(crate) struct Linearization {
     /// What the analysis compares with its tolerance.
     pub measure: f64,
@@ -285,12 +287,25 @@ pub enum IterationMethod {
     Anderson { depth: usize },
 }
 
+/// How the load is brought from zero to its full value.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum LoadStepping {
+    /// The number of increments asked for, all equal.
+    Equal,
+    /// Starting from that size: an increment that does not converge is retried at half the
+    /// size, down to a hundredth of the first; one that converges easily doubles the next, up
+    /// to four times the first.
+    Adaptive,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) struct Outcome {
     pub iterations: usize,
     pub converged: bool,
     /// Load factor of the last increment that converged; zero when none did.
     pub load_factor: f64,
+    /// Increments that converged.
+    pub increments: usize,
 }
 
 /// Apply the load in `n_increments` equal steps. An increment that does not converge ends the
@@ -302,7 +317,7 @@ pub(crate) fn solve_by_load_increments<P: IncrementalProblem + ?Sized, I: Iterat
     tolerance: f64,
     max_iter: usize,
 ) -> Result<Outcome, String> {
-    let mut outcome = Outcome { iterations: 0, converged: true, load_factor: 0.0 };
+    let mut outcome = Outcome { iterations: 0, converged: true, load_factor: 0.0, increments: 0 };
     for increment in 1..=n_increments {
         let load_factor = increment as f64 / n_increments as f64;
         problem.begin_increment(load_factor);
@@ -313,10 +328,54 @@ pub(crate) fn solve_by_load_increments<P: IncrementalProblem + ?Sized, I: Iterat
         }
         problem.commit()?;
         outcome.load_factor = load_factor;
+        outcome.increments += 1;
     }
     Ok(outcome)
 }
 
+const FULL_LOAD_SLACK: f64 = 1e-12;
+
+/// Apply the load in increments whose size follows how they converge ([`LoadStepping::Adaptive`]).
+/// The solve ends unconverged, at the last increment that converged, when an increment a
+/// hundredth of the first size still does not. An increment whose iteration fails with an error
+/// (a tangent that cannot be factorized, typically) is retried smaller like one that does not
+/// converge; the error is returned only when the smallest increment still raises it.
+pub(crate) fn solve_by_adaptive_increments<P: IncrementalProblem + ?Sized, I: Iteration>(
+    problem: &mut P,
+    iteration: &I,
+    n_increments: usize,
+    tolerance: f64,
+    max_iter: usize,
+) -> Result<Outcome, String> {
+    let mut outcome = Outcome { iterations: 0, converged: true, load_factor: 0.0, increments: 0 };
+    if n_increments == 0 {
+        return Ok(outcome);
+    }
+    let mut stepper = AdaptiveStepper::from_n_increments(n_increments);
+    while let Some(target) = stepper.next_increment() {
+        let load_factor = if target >= 1.0 - FULL_LOAD_SLACK { 1.0 } else { target };
+        problem.begin_increment(load_factor);
+        let before = outcome.iterations;
+        let attempt = iteration.converge(problem, tolerance, max_iter, &mut outcome.iterations);
+        let converged = attempt == Ok(true);
+        if converged {
+            problem.commit()?;
+            outcome.load_factor = load_factor;
+            outcome.increments += 1;
+        } else {
+            problem.rollback();
+        }
+        if stepper.report_convergence(converged, outcome.iterations - before) == StepAction::Abort {
+            attempt?;
+            outcome.converged = false;
+            break;
+        }
+    }
+    outcome.converged = outcome.converged && outcome.load_factor == 1.0;
+    Ok(outcome)
+}
+
+#[cfg(test)]
 pub(crate) fn solve_by_load_increments_with<P: IncrementalProblem + ?Sized>(
     problem: &mut P,
     method: IterationMethod,
@@ -324,11 +383,28 @@ pub(crate) fn solve_by_load_increments_with<P: IncrementalProblem + ?Sized>(
     tolerance: f64,
     max_iter: usize,
 ) -> Result<Outcome, String> {
+    solve_stepped(problem, method, LoadStepping::Equal, n_increments, tolerance, max_iter)
+}
+
+pub(crate) fn solve_stepped<P: IncrementalProblem + ?Sized>(
+    problem: &mut P,
+    method: IterationMethod,
+    stepping: LoadStepping,
+    n_increments: usize,
+    tolerance: f64,
+    max_iter: usize,
+) -> Result<Outcome, String> {
+    fn run<P: IncrementalProblem + ?Sized, I: Iteration>(problem: &mut P, iteration: &I, stepping: LoadStepping, n_increments: usize, tolerance: f64, max_iter: usize) -> Result<Outcome, String> {
+        match stepping {
+            LoadStepping::Equal => solve_by_load_increments(problem, iteration, n_increments, tolerance, max_iter),
+            LoadStepping::Adaptive => solve_by_adaptive_increments(problem, iteration, n_increments, tolerance, max_iter),
+        }
+    }
     match method {
-        IterationMethod::Newton => solve_by_load_increments(problem, &Newton { lag_tangent: false }, n_increments, tolerance, max_iter),
-        IterationMethod::ModifiedNewton => solve_by_load_increments(problem, &Newton { lag_tangent: true }, n_increments, tolerance, max_iter),
-        IterationMethod::NewtonLineSearch => solve_by_load_increments(problem, &NewtonLineSearch, n_increments, tolerance, max_iter),
-        IterationMethod::Anderson { depth } => solve_by_load_increments(problem, &Anderson { depth, lag_tangent: true }, n_increments, tolerance, max_iter),
+        IterationMethod::Newton => run(problem, &Newton { lag_tangent: false }, stepping, n_increments, tolerance, max_iter),
+        IterationMethod::ModifiedNewton => run(problem, &Newton { lag_tangent: true }, stepping, n_increments, tolerance, max_iter),
+        IterationMethod::NewtonLineSearch => run(problem, &NewtonLineSearch, stepping, n_increments, tolerance, max_iter),
+        IterationMethod::Anderson { depth } => run(problem, &Anderson { depth, lag_tangent: true }, stepping, n_increments, tolerance, max_iter),
     }
 }
 
@@ -366,6 +442,10 @@ mod tests {
 
     fn softening(u: f64) -> (f64, f64) {
         (u.atan(), 1.0 / (1.0 + u * u))
+    }
+
+    fn yielding(u: f64) -> (f64, f64) {
+        (u.atan(), (1.0 / (1.0 + u * u)).max(1e-3))
     }
 
     impl Chain {
@@ -531,7 +611,7 @@ mod tests {
             let mut spring = Chain::spring(stiffening, 0.0);
             spring.owed = true;
             let outcome = solve_by_load_increments_with(&mut spring, method, 1, 1e-10, 50).unwrap();
-            assert_eq!(outcome, Outcome { iterations: 2, converged: true, load_factor: 1.0 }, "{method:?}");
+            assert_eq!(outcome, Outcome { iterations: 2, converged: true, load_factor: 1.0, increments: 1 }, "{method:?}");
             assert_eq!(spring.tangents, 1, "{method:?}");
         }
     }
@@ -557,13 +637,89 @@ mod tests {
     }
 
     #[test]
+    fn adaptive_steps_reach_the_full_load_where_equal_ones_give_up() {
+        for method in [IterationMethod::Newton, IterationMethod::NewtonLineSearch] {
+            let mut equal = Chain::spring(stiffening, 30.0);
+            let given_up = solve_stepped(&mut equal, method, LoadStepping::Equal, 2, 1e-10, 6).unwrap();
+            assert!(!given_up.converged, "{method:?}");
+            let mut adaptive = Chain::spring(stiffening, 30.0);
+            let outcome = solve_stepped(&mut adaptive, method, LoadStepping::Adaptive, 2, 1e-10, 6).unwrap();
+            assert!(outcome.converged, "{method:?}");
+            assert_eq!(outcome.load_factor, 1.0);
+            assert!(outcome.increments > 2);
+            assert!(adaptive.unbalance(1.0) <= 1e-10);
+            assert_eq!(adaptive.u, adaptive.committed);
+            assert_eq!(outcome.iterations, adaptive.linearizations);
+        }
+    }
+
+    #[test]
+    fn adaptive_steps_grow_while_convergence_is_easy() {
+        let mut equal = Chain::spring(mild, 0.02);
+        let mut adaptive = Chain::spring(mild, 0.02);
+        let plain = solve_stepped(&mut equal, IterationMethod::Newton, LoadStepping::Equal, 16, 1e-6, 20).unwrap();
+        let outcome = solve_stepped(&mut adaptive, IterationMethod::Newton, LoadStepping::Adaptive, 16, 1e-6, 20).unwrap();
+        assert!(plain.converged && outcome.converged);
+        assert_eq!(plain.increments, 16);
+        assert!(outcome.increments < 16 && outcome.increments >= 4, "{}", outcome.increments);
+        assert_eq!(outcome.load_factor, 1.0);
+        assert!((adaptive.u[0] - equal.u[0]).abs() <= 1e-6);
+    }
+
+    #[test]
+    fn adaptive_steps_stop_at_the_load_the_structure_cannot_pass() {
+        let capacity = std::f64::consts::FRAC_PI_2 / 2.0;
+        let mut spring = Chain::spring(yielding, 2.0);
+        let outcome = solve_stepped(&mut spring, IterationMethod::Newton, LoadStepping::Adaptive, 4, 1e-9, 60).unwrap();
+        assert!(!outcome.converged);
+        assert!(outcome.load_factor < capacity && outcome.load_factor > 0.6 * capacity, "{}", outcome.load_factor);
+        assert!(spring.unbalance(outcome.load_factor) <= 1e-9);
+        assert_eq!(spring.u, spring.committed);
+
+        let mut stuck = Chain::spring(stiffening, 30.0);
+        let outcome = solve_stepped(&mut stuck, IterationMethod::Newton, LoadStepping::Adaptive, 4, 1e-10, 1).unwrap();
+        assert_eq!((outcome.converged, outcome.load_factor, outcome.increments), (false, 0.0, 0));
+        assert_eq!(stuck.u, vec![0.0]);
+    }
+
+    #[test]
+    fn adaptive_steps_end_exactly_at_the_full_load() {
+        for n_increments in [1, 3, 6, 7, 10, 13, 49] {
+            let mut spring = Chain::spring(mild, 2.0);
+            let outcome = solve_stepped(&mut spring, IterationMethod::Newton, LoadStepping::Adaptive, n_increments, 1e-10, 50).unwrap();
+            assert!(outcome.converged, "{n_increments}");
+            assert_eq!(outcome.load_factor, 1.0, "{n_increments}");
+            assert!(spring.unbalance(1.0) <= 1e-10, "{n_increments}");
+        }
+    }
+
+    #[test]
+    fn adaptive_steps_pass_on_errors_and_do_nothing_without_increments() {
+        let mut spring = Chain::spring(mild, 2.0);
+        spring.fail_at = Some(2);
+        let recovered = solve_stepped(&mut spring, IterationMethod::Newton, LoadStepping::Adaptive, 2, 1e-10, 9).unwrap();
+        assert!(recovered.converged && recovered.load_factor == 1.0);
+        assert!(spring.unbalance(1.0) <= 1e-10);
+
+        let mut broken = Chain::spring(softening, 0.0).starting_at(&[1e9]);
+        assert_eq!(solve_stepped(&mut broken, IterationMethod::Newton, LoadStepping::Adaptive, 2, 1e-10, 9).unwrap_err(), "the tangent is singular");
+        assert_eq!(broken.u, vec![1e9]);
+        let mut refused = Chain::spring(mild, 2.0);
+        refused.refuse_commit = true;
+        assert_eq!(solve_stepped(&mut refused, IterationMethod::Newton, LoadStepping::Adaptive, 2, 1e-10, 50).unwrap_err(), "the state left its branch");
+        let mut idle = Chain::spring(mild, 2.0);
+        let outcome = solve_stepped(&mut idle, IterationMethod::Newton, LoadStepping::Adaptive, 0, 1e-10, 50).unwrap();
+        assert_eq!(outcome, Outcome { iterations: 0, converged: true, load_factor: 0.0, increments: 0 });
+    }
+
+    #[test]
     fn no_increments_or_no_iterations_do_nothing() {
         for method in [IterationMethod::Newton, IterationMethod::NewtonLineSearch, IterationMethod::Anderson { depth: 2 }] {
             let mut spring = Chain::spring(stiffening, 30.0);
             let outcome = solve_by_load_increments_with(&mut spring, method, 0, 1e-10, 50).unwrap();
-            assert_eq!(outcome, Outcome { iterations: 0, converged: true, load_factor: 0.0 });
+            assert_eq!(outcome, Outcome { iterations: 0, converged: true, load_factor: 0.0, increments: 0 });
             let outcome = solve_by_load_increments_with(&mut spring, method, 3, 1e-10, 0).unwrap();
-            assert_eq!(outcome, Outcome { iterations: 0, converged: false, load_factor: 0.0 });
+            assert_eq!(outcome, Outcome { iterations: 0, converged: false, load_factor: 0.0, increments: 0 });
             assert_eq!(spring.linearizations, 0);
         }
     }
@@ -689,7 +845,7 @@ mod tests {
     fn a_trial_within_tolerance_ends_the_increment_whatever_its_work() {
         let mut searched = Chain::spring(softening, 0.0).starting_at(&[0.5]);
         let outcome = solve_by_load_increments(&mut searched, &NewtonLineSearch, 1, 0.2, 2).unwrap();
-        assert_eq!(outcome, Outcome { iterations: 2, converged: true, load_factor: 1.0 });
+        assert_eq!(outcome, Outcome { iterations: 2, converged: true, load_factor: 1.0, increments: 1 });
         assert!(searched.unbalance(1.0) < 0.2);
     }
 
