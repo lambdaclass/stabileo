@@ -1,6 +1,7 @@
 import { expect, it } from 'vitest';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import { setImmediate } from 'node:timers/promises';
 import { readFileSync, rmSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { inflateRawSync } from 'node:zlib';
@@ -57,6 +58,7 @@ it('loads translated recheck notices outside the static app route closure', asyn
     expect(JSON.parse(inflateRawSync(Buffer.from(emitted!, 'base64')).toString('utf8'))).toEqual(RESULT_CHANGES);
     expect(allProduct.split(packed).length - 1).toBe(1);
     for (const change of RESULT_CHANGES.changes) {
+      await setImmediate();
       const entry = `id:${JSON.stringify(change.id)},resultsVersion:${change.resultsVersion}`;
       expect(allProduct.includes(entry), `duplicate registry entry: ${change.id}`).toBe(false);
       expect(initial.includes(entry), `eager registry entry: ${change.id}`).toBe(false);
