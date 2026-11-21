@@ -3,10 +3,15 @@
  * full text one click on its button away, and closed for good until it says something else.
  */
 import { test, expect } from './fixtures';
+import { BUILD_FEATURES } from './build-features';
 
 test.use({ viewport: { width: 1440, height: 900 } });
 
-test('@smoke on a desktop the second-order notice is one line and opens on a click', async ({ page }) => {
+const title = BUILD_FEATURES.proPlatesUnified
+  ? '@smoke on a desktop the second-order notice is one line and opens on a click'
+  : '@smoke the production desktop shows the second-order notice';
+
+test(title, async ({ page }) => {
   await page.goto('/app/basic?e2e=1');
   await page.waitForFunction(() => !!window.__stabileoActions, null, { timeout: 30_000 });
   await page.evaluate(() => window.__stabileoActions.loadExample('portal-frame'));
@@ -15,6 +20,12 @@ test('@smoke on a desktop the second-order notice is one line and opens on a cli
   const notice = page.getByTestId('containment-notice');
   await expect(notice).toContainText('#1551', { timeout: 30_000 });
   const toggle = page.getByTestId('containment-toggle');
+  if (!BUILD_FEATURES.proPlatesUnified) {
+    await expect(notice).toBeVisible();
+    await expect(notice.locator('p').filter({ hasText: '#1551' })).toBeVisible();
+    await expect(toggle).toBeHidden();
+    return;
+  }
   await expect(toggle).toBeVisible();
   await expect(toggle).toHaveAttribute('aria-expanded', 'false');
   expect((await notice.boundingBox())!.height).toBeLessThan(40);
