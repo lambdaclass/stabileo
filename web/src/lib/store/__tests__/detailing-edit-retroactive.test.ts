@@ -174,6 +174,33 @@ it('reuses frozen detailing geometry through snapshot and restore', () => {
   expect(modelStore.model.detailing!.assemblies[0].bars).toBe(bars);
 });
 
+it.fails('known wrong result: #2444 captures and restores normalized detailing by reference', () => {
+  modelStore.restore(modelStore.snapshot());
+  const published = modelStore.model.detailing;
+  const snapshot = modelStore.snapshot();
+  expect(snapshot.detailing).toBe(published);
+
+  modelStore.restore(snapshot);
+  expect(modelStore.model.detailing).toBe(published);
+});
+
+it.fails('known wrong result: #2444 copies a shared detailing branch once per import', () => {
+  const snapshot = modelStore.snapshot();
+  const imported = structuredClone(snapshot.detailing!);
+  const trace = imported.assemblies[0].provenance.trace;
+  imported.assemblies[1].provenance.trace = trace;
+
+  modelStore.restore({ ...snapshot, detailing: imported });
+  const [first, second] = modelStore.snapshot().detailing!.assemblies;
+  expect(first.provenance.trace).toBe(second.provenance.trace);
+  expect(Object.isFrozen(first.provenance.trace)).toBe(true);
+  trace.push('external edit');
+  expect(first.provenance.trace).toEqual([]);
+
+  modelStore.restore({ ...snapshot, detailing: imported });
+  expect(modelStore.snapshot().detailing!.assemblies[0].provenance.trace).toEqual(['external edit']);
+});
+
 it('owns nested detailing restored from a shallow-frozen import', () => {
   const snapshot = modelStore.snapshot();
   const imported = Object.freeze(structuredClone(snapshot.detailing!));
