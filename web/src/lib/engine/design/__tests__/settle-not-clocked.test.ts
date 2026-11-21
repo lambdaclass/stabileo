@@ -13,9 +13,9 @@
  * the member loop's last member, inside the settle.
  */
 import { describe, it, expect } from 'vitest';
-import { setImmediate as yieldToEventLoop } from 'node:timers/promises';
+import { runWithWorkerYields } from '../../../../__tests__/worker-yield';
 import frame from '../../../templates/fixtures/rc-design-frame.json';
-import { runDesign, runDesignSteps } from '../candidate-search';
+import { runDesignSteps } from '../candidate-search';
 import { cirsoc201Adapter } from '../adapters/cirsoc201-adapter';
 import { rebarHash } from '../rebar-hash';
 import { detailableReinforcement, type DesignRunSummary } from '../outcome';
@@ -33,10 +33,10 @@ describe('the settle after the member loop', () => {
     // The complete run, and where its member loop ended on the counter.
     const a = counter();
     let loopEnd = 0;
-    const complete = runDesign(cirsoc201Adapter, solved.contexts.values(), {
+    const complete = await runWithWorkerYields(runDesignSteps(cirsoc201Adapter, solved.contexts.values(), {
       clock: a.clock, maxRunMs: Number.POSITIVE_INFINITY, progressEvery: 1,
       onProgress: (p) => { if (p.done === p.total) loopEnd = a.now(); },
-    });
+    }));
     expect(complete.aborted).toBe(false);
     expect(loopEnd).toBeGreaterThan(0);
     // The settle did work after the loop: there is something for a cap to cut.
@@ -44,13 +44,9 @@ describe('the settle after the member loop', () => {
 
     // The same run with the cap just past the loop's end.
     const b = counter();
-    const steps = runDesignSteps(cirsoc201Adapter, solved.contexts.values(), { clock: b.clock, maxRunMs: loopEnd + 1 });
-    let step = steps.next();
-    while (!step.done) {
-      await yieldToEventLoop();
-      step = steps.next();
-    }
-    const capped = step.value;
+    const capped = await runWithWorkerYields(
+      runDesignSteps(cirsoc201Adapter, solved.contexts.values(), { clock: b.clock, maxRunMs: loopEnd + 1 }),
+    );
     expect(capped.aborted).toBe(false);
     expect(capped.notReached).toBe(0);
     expect(verdicts(capped)).toEqual(verdicts(complete));

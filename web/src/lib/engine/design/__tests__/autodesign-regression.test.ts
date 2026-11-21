@@ -57,7 +57,7 @@
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import { setImmediate as yieldToEventLoop } from 'node:timers/promises';
+import { runWithWorkerYields, yieldToEventLoop } from '../../../../__tests__/worker-yield';
 import frame from '../../../templates/fixtures/rc-design-frame.json';
 import qa8 from '../../../templates/fixtures/rc-design-qa-8.json';
 import { runDesign, runDesignSteps, designMember } from '../candidate-search';
@@ -83,8 +83,10 @@ describe('flagship 408-member RC frame designs completely', () => {
     expect(solved.orientationIssues).toEqual([]);
   });
 
-  it('certifies supported members and reports the exact shear, congestion and biaxial outcomes', () => {
-    const s = runDesign(cirsoc201Adapter, solved.contexts.values(), { maxRunMs: 120_000 });
+  it('certifies supported members and reports the exact shear, congestion and biaxial outcomes', async () => {
+    const s = await runWithWorkerYields(
+      runDesignSteps(cirsoc201Adapter, solved.contexts.values(), { maxRunMs: 120_000 }),
+    );
     expect(s.total).toBe(408);
     // 13 BEAM-Y members carry Mz/Vy secondary demand above the 10% biaxial
     // threshold; this verifier only checks the primary axis for beams, so it
@@ -229,13 +231,9 @@ describe('honest refusal when the model is broken', () => {
     await yieldToEventLoop();
     expect(solved.orientationSuspect.size).toBe(120);
 
-    const steps = runDesignSteps(cirsoc201Adapter, solved.contexts.values(), { maxRunMs: 180_000 });
-    let step = steps.next();
-    while (!step.done) {
-      await yieldToEventLoop();
-      step = steps.next();
-    }
-    const s = step.value;
+    const s = await runWithWorkerYields(
+      runDesignSteps(cirsoc201Adapter, solved.contexts.values(), { maxRunMs: 180_000 }),
+    );
     // Not one of the suspect members may be certified.
     for (const id of solved.orientationSuspect) {
       const o = s.outcomes.get(id)!;

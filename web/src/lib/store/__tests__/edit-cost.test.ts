@@ -10,7 +10,7 @@
  *    concrete, and is rebuilt by one that does.
  */
 import { describe, it, expect } from 'vitest';
-import { workspaceScene } from '../../engine/detailing/__tests__/helpers/workspace-scene';
+import { workspaceScene, turn } from '../../engine/detailing/__tests__/helpers/workspace-scene';
 import { modelStore } from '../model.svelte';
 import { historyStore } from '../history.svelte';
 import { projectPhysicalFrame } from '../physical-frame';
@@ -47,7 +47,10 @@ describe('editing a detailed building', () => {
     expect(m.nodes.get(id)!.x).toBeCloseTo(p.x, 9);
     expect(m.detailing!.assemblies).not.toBe(s1.detailing!.assemblies);
     // Every field of every assembly comes back: the label key, the gate's verdict, the blockers.
-    expect(firstDifference(canon(m.detailing!.assemblies), canon(s1.detailing!.assemblies))).toBe('');
+    await turn();
+    const restored = canon(m.detailing!.assemblies);
+    await turn();
+    expect(firstDifference(restored, canon(s1.detailing!.assemblies))).toBe('');
 
     // The frame: kept while nothing changes and across an edit that moves no concrete.
     const f1 = projectPhysicalFrame();

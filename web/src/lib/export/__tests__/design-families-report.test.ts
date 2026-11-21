@@ -5,17 +5,16 @@
 
 import { describe, it, expect, vi } from 'vitest';
 import { MessageChannel } from 'node:worker_threads';
-import { designRunStore } from '../../store/design-run.svelte';
 import { detailingStore } from '../../store/detailing.svelte';
 import { verificationStore } from '../../store/verification.svelte';
 import { DESIGN_FAMILIES, totalsOf } from '../../engine/design/design-families';
-import { ready, familyOf, designFamiliesThenTurn } from './design-families-fixture';
+import { ready, familyOf, designFamiliesWithWorkerYields } from './design-families-fixture';
 import { ROLLED_BEAMS } from '../../engine/detailing/__tests__/helpers/workspace-scene';
 
 // ─── The report ──────────────────────────────────────────────────
 
 describe('the run reports what happened, family by family', () => {
-  it.skip('handles a worker message between frame detailing and floor design', async () => {
+  it('handles a worker message between frame detailing and floor design', async () => {
     await ready('rc-qa-diagnostic');
     const { port1, port2 } = new MessageChannel();
     let received = false;
@@ -34,7 +33,7 @@ describe('the run reports what happened, family by family', () => {
     });
 
     try {
-      await designFamiliesThenTurn(['column', 'beam', 'slab']);
+      await designFamiliesWithWorkerYields(['column', 'beam', 'slab']);
       expect(frame).toHaveBeenCalledTimes(1);
       expect(floors).toHaveBeenCalledTimes(1);
       expect(receivedBeforeFloors).toBe(true);
@@ -48,7 +47,7 @@ describe('the run reports what happened, family by family', () => {
 
   it('counts processed, designed, refused and not-modelled members', async () => {
     await ready('pro-edificio-7p', ROLLED_BEAMS);
-    const report = designRunStore.designFamilies(['column', 'beam', 'slab', 'wall']);
+    const report = await designFamiliesWithWorkerYields(['column', 'beam', 'slab', 'wall']);
 
     // The corrected shell drilling term removes the committed building's spurious
     // biaxial refusals. Roll five beams to exercise real secondary-axis refusals.
@@ -76,7 +75,7 @@ describe('the run reports what happened, family by family', () => {
 
   it('lists the families in selector order, whatever order they ran in', async () => {
     await ready('rc-qa-diagnostic');
-    const report = designRunStore.designFamilies(['slab', 'column']);
+    const report = await designFamiliesWithWorkerYields(['slab', 'column']);
     expect(report.families.map((f) => f.family)).toEqual([...DESIGN_FAMILIES]);
   }, 300_000);
 });

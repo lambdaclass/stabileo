@@ -9,6 +9,7 @@
  * with its reasons, while the model is still the one it was reached on.
  */
 import { describe, it, expect, beforeAll } from 'vitest';
+import { runWithWorkerYields } from '../../../__tests__/worker-yield';
 import { modelStore } from '../model.svelte';
 import { resultsStore } from '../results.svelte';
 import { verificationStore } from '../verification.svelte';
@@ -53,7 +54,7 @@ beforeAll(async () => {
   await new Promise((r) => setTimeout(r, 0));
   expect(wasmSolver.isSolverReady(), 'real WASM solver required').toBe(true);
   building(1);
-  designRunStore.designFamilies(['column', 'beam']);
+  await runWithWorkerYields(designRunStore.designFamiliesSteps(['column', 'beam']));
   before = readRefusals();
   saved = serializeProject();
 }, 600_000);
@@ -117,7 +118,7 @@ describe('«design all» after a reopen', () => {
     expect(columns.every((c) => !!modelStore.elements.get(c.elementId)?.reinforcement
       && verificationStore.outcomeFor(c.elementId) === undefined)).toBe(true);
 
-    expect(designRunStore.designAll().ok).toBe(true);
+    expect((await runWithWorkerYields(designRunStore.designAllSteps())).ok).toBe(true);
     expect(columns.filter((c) => verificationStore.outcomeFor(c.elementId) === undefined).map((c) => c.elementId)).toEqual([]);
     expect(readRefusals()).toEqual(before);
   }, 600_000);

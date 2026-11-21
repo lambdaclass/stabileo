@@ -8,7 +8,8 @@
  * run on separate workers.
  */
 import { expect } from 'vitest';
-import { applyVariant, turn, type Variant } from '../../engine/detailing/__tests__/helpers/workspace-scene';
+import { runWithWorkerYields, yieldToEventLoop } from '../../../__tests__/worker-yield';
+import { applyVariant, type Variant } from '../../engine/detailing/__tests__/helpers/workspace-scene';
 import { modelStore } from '../../store/model.svelte';
 import { resultsStore } from '../../store/results.svelte';
 import { detailingStore } from '../../store/detailing.svelte';
@@ -35,14 +36,14 @@ export async function ready(example: string, variant?: Variant) {
   const solved = await modelStore.solveCombinations3DParallel(true, false, true);
   const r = solved as { perCase: Map<number, never>; perCombo: Map<number, never>; envelope: never };
   resultsStore.setCombinationResults3D(r.perCase as never, r.perCombo as never, r.envelope as never);
-  await turn();
+  await yieldToEventLoop();
 }
 
-/** A design run, then a turn of the event loop (`turn` says why). */
-export async function designFamiliesThenTurn(families: DesignFamily[]): Promise<DesignRunReport> {
-  const report = designRunStore.designFamilies(families);
-  await turn();
-  return report;
+export function designFamiliesWithWorkerYields(
+  families: DesignFamily[],
+  options?: Parameters<typeof designRunStore.designFamilies>[1],
+): Promise<DesignRunReport> {
+  return runWithWorkerYields(designRunStore.designFamiliesSteps(families, options));
 }
 
 export function familyOf(report: DesignRunReport, f: DesignFamily) {
