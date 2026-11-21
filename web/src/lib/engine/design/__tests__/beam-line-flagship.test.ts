@@ -23,9 +23,9 @@ describe('the flagship beam lines, as lines', () => {
     const bottomExtentRefusals = new Set([363, 365, 366, 368, 369, 371, 372, 374, 375, 377, 381, 385, 389, 393]);
     const secondaryExtentRefusals = new Set([363, 365, 366, 368, 369, 371, 372, 374, 375, 377]);
     const overallExtentRefusals = new Set([378, 381, 382, 385, 386, 389, 390, 393]);
+    const spanMinimumShortfalls = new Set([363, 366, 369, 372, 375]);
     const spanShearRatios = new Map([
-      ...[363, 366, 369, 372, 375].map(id => [id, 0.651] as const),
-      ...[365, 368, 371, 374, 377].map(id => [id, 0.782] as const),
+      ...[...spanMinimumShortfalls, 365, 368, 371, 374, 377].map(id => [id, 0.782] as const),
       ...[...overallExtentRefusals].map(id => [id, 0.388] as const),
     ]);
     const primaryShear = (row: { category: string }) => /^Shear (Support|Span) \(Vz\)/.test(row.category);
@@ -99,10 +99,18 @@ describe('the flagship beam lines, as lines', () => {
           expect(corresponding!.ratio, `member ${id} ${row.category}`).toBeGreaterThanOrEqual(row.ratio);
         }
         const added = projected.filter(c => !prescribed.some(r => r.category === c.category));
-        if (added.length) {
-          expect(added, `member ${id}`).toHaveLength(1);
-          expect(added[0]!.category, `member ${id}`).toContain('Av,min §9.6.3.1');
-          expect(added[0], `member ${id}`).toMatchObject({ status: 'fail', ratio: 1.546, limiting: 'shear' });
+        const extraSpanRow = spanMinimumShortfalls.has(id);
+        if (added.length || extraSpanRow) {
+          expect(added, `member ${id}`).toHaveLength(extraSpanRow ? 2 : 1);
+          if (extraSpanRow) {
+            expect(added.map(row => row.category).sort(), `member ${id}`).toEqual([
+              'Shear Span (Vz) Av,min §9.6.3.1', 'Shear Support (Vz) Av,min §9.6.3.1',
+            ]);
+          }
+          for (const row of added) {
+            expect(row.category, `member ${id}`).toContain('Av,min §9.6.3.1');
+            expect(row, `member ${id}`).toMatchObject({ status: 'fail', ratio: 1.546, limiting: 'shear' });
+          }
           expect(outcomeFromProvided(cirsoc201Adapter, ctx, turned, drawn), `member ${id}`).toBeNull();
           minimumShortfalls.push(id);
         }
