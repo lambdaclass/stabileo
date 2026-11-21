@@ -3,17 +3,16 @@ import { runGlobalSolve } from '../../engine/live-calc';
 import { runDirectAnalysis } from '../../engine/direct-analysis';
 import type { AnalysisResults3D } from '../../engine/types-3d';
 import { initSolver } from '../../engine/wasm-solver';
-import { PLANE_TOL, type PlateMeshSpec } from '../../model/physical/plate';
+import { PLANE_TOL, plateLoops, type PlateMeshSpec } from '../../model/physical/plate';
+import { weldTolerance } from '../../model/weld-tolerance';
 import { historyStore, modelStore, resultsStore, uiStore } from '..';
 import { createArc, remakeArc } from '../curved-members';
+import { centerlineInput } from '../dynamic-input';
 import { syncDefinedLoadsForAnalysis } from '../defined-loads';
 import {
   addPlateLoad, applyPlateMeshes, createPlate, meshBeforeAnalysis, planPlateMesh,
   planPlateMeshes, plateEntry, plateStatus, setPlateMeshSpec,
 } from '../physical-plates';
-
-const sweepTest = process.env.RUN_KNOWN_WRONG === '2460' ? it : it.skip;
-const editTest = process.env.RUN_KNOWN_WRONG === '2461' ? it : it.skip;
 
 beforeAll(async () => { await initSolver(); });
 beforeEach(() => {
@@ -58,7 +57,7 @@ const peakUz = (result: AnalysisResults3D) => Math.max(...result.displacements.m
 const arcArea = (segments: number) => segments * 2 * Math.sin(Math.PI / segments);
 
 for (const follow of [false, true]) {
-  sweepTest(`known wrong result: #2460 manual remesh follows the declared semicircle with member following ${follow}`, async () => {
+  it(`#2460 manual remesh follows the declared semicircle with member following ${follow}`, async () => {
     const { id } = arcFloor(1, -1, follow);
     const plans = await planPlateMeshes([id]);
     expect(plans).toHaveLength(1);
@@ -69,7 +68,7 @@ for (const follow of [false, true]) {
   });
 }
 
-sweepTest('known wrong result: #2460 automatic remesh balances the specified sweep pressure', async () => {
+it('#2460 automatic remesh balances the specified sweep pressure', async () => {
   const { id } = arcFloor(1);
   expect(await runGlobalSolve({ directBase: true })).toMatchObject({ ok: true });
   expect(plateStatus(id)).toBe('current');
@@ -88,14 +87,14 @@ const directEntries = [
     return runDirectAnalysis(model, model.loadCases, model.combinations, { includeSelfWeight: false });
   }],
   ['advanced input', () => {
-    try { modelStore.buildSolverInput3D(); } catch (error) { return (error as Error).message; }
+    try { centerlineInput({ caseDisplacements: true }); } catch (error) { return (error as Error).message; }
     return null;
   }],
   ['reproducible input', () => modelStore.singleSolveInput3D(false, false, true)],
 ] as const;
 
 for (const [entry, solve] of directEntries) {
-  sweepTest(`known wrong result: #2460 the ${entry} entry rejects a saved complementary mesh`, async () => {
+  it(`#2460 the ${entry} entry rejects a saved complementary mesh`, async () => {
     const { id, mid } = arcFloor(1, 1);
     expect(applyPlateMeshes([planPlateMesh(id)!]).plates).toBe(1);
     syncDefinedLoadsForAnalysis();
@@ -117,22 +116,29 @@ for (const memberSide of [0, -1] as const) {
   });
 }
 
-sweepTest('known wrong result: #2460 ambiguous member samples refuse remesh without replacing the old mesh', async () => {
+it('#2460 ambiguous member samples refuse remesh without replacing the old mesh', async () => {
   const { id, members } = arcFloor(-1);
   expect(applyPlateMeshes([planPlateMesh(id)!]).plates).toBe(1);
+  const beforeEdit = planPlateMesh(id)!;
+  expect(beforeEdit.mesh).toBeTruthy();
   const station = modelStore.elements.get(members[0]!)!.nodeJ;
   const y = -PLANE_TOL / 2;
   modelStore.updateNode(station, 2 - Math.sqrt(4 - y * y), y, 0);
   const snapshot = modelStore.snapshot();
+  const version = modelStore.modelVersion;
   const plan = planPlateMesh(id)!;
-  expect(applyPlateMeshes([plan])).toMatchObject({ plates: 0, refused: [{ id, reason: 'ambiguousSweep' }] });
+  expect(plan).toMatchObject({ mesh: null, refused: 'ambiguousSweep' });
+  for (const preview of [beforeEdit, plan]) {
+    expect(applyPlateMeshes([preview])).toMatchObject({ plates: 0, refused: [{ id, reason: 'ambiguousSweep' }] });
+  }
+  expect(modelStore.modelVersion).toBe(version);
   expect(modelStore.snapshot()).toEqual(snapshot);
   expect(await runGlobalSolve({ directBase: true })).toEqual({ ok: false, error: expect.stringMatching(/Test floor.*sweep/i) });
   expect(resultsStore.results3D).toBeNull();
   expect(modelStore.snapshot()).toEqual(snapshot);
 });
 
-sweepTest('known wrong result: #2460 member stations spanning both sweeps refuse remesh', () => {
+it('#2460 member stations spanning both sweeps refuse remesh', () => {
   const { id, members } = arcFloor(-1);
   const station = modelStore.elements.get(members[1]!)!.nodeJ;
   modelStore.updateNode(station, 2, 2, 0);
@@ -160,7 +166,7 @@ const offset = { frame: 'local', x: 0, y: 0, z: 0.1 } as const;
 const quads = (id: number) => (plateEntry(id)!.group.members.quads ?? []).map(shell => modelStore.quads.get(shell)!);
 
 for (const field of ['offset', 'curved'] as const) {
-  editTest(`known wrong result: #2461 exact remesh preserves one quad's ${field} and its solved displacement`, () => {
+  it(`#2461 exact remesh preserves one quad's ${field} and its solved displacement`, () => {
     const id = squareFloor();
     const original = quads(id)[0]!;
     const coords = (nodes: readonly number[]) => nodes.map(n => modelStore.nodes.get(n)).map(p => [p!.x, p!.y, p!.z ?? 0]);
@@ -179,7 +185,7 @@ for (const field of ['offset', 'curved'] as const) {
     expect(coords(edited[0]!.nodes)).toEqual(corners);
   });
 
-  editTest(`known wrong result: #2461 a different mesh refuses a quad's ${field} edit without changing the model`, async () => {
+  it(`#2461 a different mesh refuses a quad's ${field} edit without changing the model`, async () => {
     const id = squareFloor();
     const original = quads(id)[0]!;
     if (field === 'offset') modelStore.setShellOffset('quad', original.id, offset);
@@ -187,15 +193,18 @@ for (const field of ['offset', 'curved'] as const) {
     syncDefinedLoadsForAnalysis();
     const before = peakUz(answer());
     const snapshot = modelStore.snapshot();
+    const version = modelStore.modelVersion;
     const plans = await planPlateMeshes([id], { size: 1 });
+    expect(plans).toMatchObject([{ name: 'Test floor', mesh: null, refused: 'shellEdits' }]);
     expect(applyPlateMeshes(plans!)).toMatchObject({ plates: 0, refused: [{ id, reason: 'shellEdits' }] });
+    expect(modelStore.modelVersion).toBe(version);
     expect(modelStore.snapshot()).toEqual(snapshot);
     expect(plateStatus(id)).toBe('current');
     expect(peakUz(answer())).toBeCloseTo(before, 12);
   });
 }
 
-editTest('known wrong result: #2461 automatic remesh refuses an unmapped triangle offset and withholds results', async () => {
+it('#2461 automatic remesh refuses an unmapped triangle offset and withholds results', async () => {
   const id = squareFloor('tri');
   expect(await runGlobalSolve({ directBase: true })).toMatchObject({ ok: true });
   expect(reaction(answer(resultsStore.results3D))).toBeCloseTo(16, 8);
@@ -209,7 +218,7 @@ editTest('known wrong result: #2461 automatic remesh refuses an unmapped triangl
   expect(plateStatus(id)).toBe('stale');
 });
 
-editTest('known wrong result: #2461 apply rechecks a shell edit made after preview', () => {
+it('#2461 apply rechecks a shell edit made after preview', () => {
   const id = squareFloor();
   const plan = planPlateMesh(id, { size: 1 })!;
   expect(plan.mesh).toBeTruthy();
@@ -219,7 +228,7 @@ editTest('known wrong result: #2461 apply rechecks a shell edit made after previ
   expect(modelStore.snapshot()).toEqual(snapshot);
 });
 
-editTest('known wrong result: #2461 remaking a member cannot clear a plate with shell edits', () => {
+it('#2461 remaking a member cannot clear a plate with shell edits', () => {
   const { id, members } = arcFloor(1, 1);
   expect(applyPlateMeshes([planPlateMesh(id)!]).plates).toBe(1);
   const shell = plateEntry(id)!.group.members.plates![0]!;
@@ -227,6 +236,34 @@ editTest('known wrong result: #2461 remaking a member cannot clear a plate with 
   const arc = modelStore.elements.get(members[0]!)!.arc!;
   const snapshot = modelStore.snapshot();
   expect(remakeArc(arc.id, { segments: 8 })).toMatchObject({ refused: ['Test floor'] });
+  expect(modelStore.snapshot()).toEqual(snapshot);
+});
+
+it('#2461 a triangle offset and its solved displacement survive an exact remesh', () => {
+  const id = squareFloor('tri');
+  const triangles = () => plateEntry(id)!.group.members.plates!.map(n => modelStore.plates.get(n)!);
+  const original = triangles()[0]!;
+  modelStore.setShellOffset('plate', original.id, offset);
+  syncDefinedLoadsForAnalysis();
+  const before = peakUz(answer());
+  expect(before).toBeGreaterThan(0);
+  expect(applyPlateMeshes([planPlateMesh(id)!])).toMatchObject({ plates: 1, refused: [] });
+  syncDefinedLoadsForAnalysis();
+  expect(peakUz(answer())).toBeCloseTo(before, 12);
+  const edited = triangles().filter(shell => shell.offset !== undefined);
+  expect(edited).toHaveLength(1);
+  expect(edited[0]).toMatchObject({ nodes: original.nodes, offset });
+});
+
+it('#2461 refuses to make an inexact match by snapping to a shifted old mesh node', () => {
+  const id = squareFloor();
+  const shell = quads(id)[0]!;
+  modelStore.setShellOffset('quad', shell.id, offset);
+  const owned = new Set(plateLoops(plateEntry(id)!.group).owned);
+  const node = modelStore.nodes.get(shell.nodes.find(n => owned.has(n))!)!;
+  modelStore.updateNode(node.id, node.x + weldTolerance() / 2, node.y, node.z);
+  const snapshot = modelStore.snapshot();
+  expect(applyPlateMeshes([planPlateMesh(id)!])).toMatchObject({ plates: 0, refused: [{ id, reason: 'shellEdits' }] });
   expect(modelStore.snapshot()).toEqual(snapshot);
 });
 

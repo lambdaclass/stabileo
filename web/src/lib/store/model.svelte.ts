@@ -3343,10 +3343,10 @@ function createModelStore() {
       this.batch(run); // batch() pushes a single undo step
     },
 
-    addPlate(nodes: [number, number, number], materialId: number, thickness: number): number {
+    addPlate(nodes: [number, number, number], materialId: number, thickness: number, metadata?: Pick<Plate, 'offset'>): number {
       if (!_undoBatching) _pushUndo?.();
       const id = nextId.plate++;
-      model.plates.set(id, { id, nodes, materialId, thickness });
+      model.plates.set(id, { id, nodes, materialId, thickness, ...(metadata?.offset ? { offset: { ...metadata.offset } } : {}) });
       if (!_bulkMutating) model.plates = new Map(model.plates);
       return id;
     },
@@ -3376,10 +3376,14 @@ function createModelStore() {
       model.plates = new Map(model.plates);
     },
 
-    addQuad(nodes: [number, number, number, number], materialId: number, thickness: number): number {
+    addQuad(nodes: [number, number, number, number], materialId: number, thickness: number, metadata?: Pick<Quad, 'offset' | 'curved'>): number {
       if (!_undoBatching) _pushUndo?.();
       const id = nextId.quad++;
-      model.quads.set(id, { id, nodes, materialId, thickness });
+      model.quads.set(id, {
+        id, nodes, materialId, thickness,
+        ...(metadata?.offset ? { offset: { ...metadata.offset } } : {}),
+        ...(metadata?.curved ? { curved: true } : {}),
+      });
       if (!_bulkMutating) model.quads = new Map(model.quads);
       return id;
     },

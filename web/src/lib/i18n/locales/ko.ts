@@ -1,6 +1,8 @@
 import type { Translations } from '../types';
 
 const ko: Translations = {
+  "plates.remeshAmbiguousSweep": "{name}의 곡선 경계에서 사용할 원호 구간이 불분명합니다. 메시를 다시 생성하기 전에 중간점과 두 끝점 사이의 곡선 부재를 확인하세요.",
+  "plates.remeshShellEdits": "셸 요소의 오프셋 또는 곡률 변경을 정확히 옮길 수 없어 {name}의 메시를 교체할 수 없습니다.",
   'loadPlan.gravity.coveragePrecision': "쉘 피복 좌표가 지원되는 부재 구간 정밀도를 초과합니다.",
   'loadPlan.gravity.partitionFailed': "쉘 투영 영역을 분할하지 못했습니다: {detail}",
   'loadPlan.gravity.unsupportedStrips': "부분 쉘 피복에서는 띠가 직사각형 보 패널의 마주 보는 지지부 사이 전 경간에 걸쳐야 합니다.",

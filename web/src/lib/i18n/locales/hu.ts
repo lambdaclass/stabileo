@@ -13897,6 +13897,8 @@ const hu: Translations = {
   "plates.refused.invalid": "érvénytelen körvonal",
   "plates.refused.tooManyCells": "túl sok elem ezen a méreten",
   "plates.refused.cannotMesh": "a hálózó nem tudja hálózni ezt a körvonalat",
+  "plates.remeshAmbiguousSweep": "A(z) {name} görbe peremének köríve nem egyértelmű. Újrahálózás előtt ellenőrizze a közbenső pontot és a végpontok közötti íves rudakat.",
+  "plates.remeshShellEdits": "A(z) {name} hálója nem cserélhető le, mert a héjelemek eltolásának vagy görbületének módosításai nem vihetők át pontosan.",
   "plates.refused.occupied": "ott már vannak héjelemek",
   "plates.localLoadsWarn": "{n} teher, amelyet kézzel tettek az aktuális háló elemeire, nem kerül át; tegye őket a lemezre.",
   "plates.keptNodesNote": "Az aktuális háló {n} csomópontja megmarad, mert valami más használja, és az új háló átmegy rajtuk.",

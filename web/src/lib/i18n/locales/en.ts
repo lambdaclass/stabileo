@@ -14803,6 +14803,8 @@ const en: Record<string, string> = {
   "plates.refused.invalid": "invalid outline",
   "plates.refused.tooManyCells": "too many elements at this size",
   "plates.refused.cannotMesh": "the mesher cannot mesh this outline",
+  "plates.remeshAmbiguousSweep": "The curved boundary of {name} has an ambiguous sweep. Check the midpoint and any curved member between its endpoints before remeshing.",
+  "plates.remeshShellEdits": "The mesh of {name} cannot be replaced because its shell offset or curvature edits cannot be carried over exactly.",
   "plates.refused.occupied": "shell elements already lie there",
   "plates.localLoadsWarn": "{n} loads put by hand on elements of the current mesh do not carry over; put them on the plate.",
   "plates.keptNodesNote": "{n} nodes of the current mesh stay because something else uses them, and the new mesh passes through them.",
