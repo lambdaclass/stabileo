@@ -5693,7 +5693,7 @@
       ]
     },
     "src/lib/provenance/model-features.ts": {
-      "source": "b714736a026b116f6412205b36905b6cc0262666ade32a7a19a80e4619de0173",
+      "source": "eea3bf34f7ac752f7013e8a11d85fd29f12b473f97e2012b2a3f7e1b0623d5ea",
       "original": "a01b051cfc12db1f12938b70856119d7bd8c410b5b39e93a3f321a3d031b11f6",
       "changes": [
         [
@@ -5709,31 +5709,26 @@
           ]
         ],
         [
-          87,
-          1,
-          []
-        ],
-        [
-          108,
+          107,
           6,
           [
             "  groups?: Entries<{ name?: string; kind?: string; data?: unknown; members?: { nodes?: number[]; quads?: number[]; plates?: number[] } }>;"
           ]
         ],
         [
-          119,
+          118,
           4,
           [
             "  designData?: { loadBasis?: { resultsVersion?: unknown; derivation?: Array<{ key?: string }>; seismic?: unknown }; site?: { phases?: unknown[] } };"
           ]
         ],
         [
-          151,
+          150,
           20,
           []
         ],
         [
-          317,
+          316,
           12,
           []
         ]

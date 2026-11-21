@@ -85,7 +85,6 @@ type ShellSnapshot = { id?: number; nodes?: number[]; curved?: boolean; offset?:
 
 interface FeatureSnapshotFields {
   analysisMode?: string;
-  nodes?: Entries<{ x?: number; y?: number; z?: number }>;
   gapElements?: unknown[];
   nodeToSurfacePairs?: unknown[];
   upliftSupports?: unknown[];
