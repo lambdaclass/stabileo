@@ -53,7 +53,7 @@ export const FEATURE_IDS = [
   'generatedWidthGravity', 'generatedPanelGravityShells', 'memberFloorZones', 'magnitudeCombinations',
   'partialDistributedMemberLoads', 'distributedMemberLoads', 'spatialDistributedLoadOrientation', 'unplaceablePlanarPointLoads', 'planarStartCoupleWithoutProjection', 'legacyPlanarPointCoupleAliases', 'selfWeight', 'nonstandardPlanarSelfWeight', 'standaloneGravityToggleOff', 'nodalForces', 'forceSummaryResults',
   'ssiHistory', 'movingLoads', 'combinations', 'cirsocCombinations', 'seismic', 'snow', 'wind', 'timeHistorySpec',
-  'superposedCombinations', 'repeatedCombinationCases', 'staticCaseEffects', 'projectedSpatialLoads', 'offsetMemberLoadFrame',
+  'superposedCombinations', 'repeatedCombinationCases', 'staticCaseEffects', 'projectedSpatialLoads', 'offsetMemberLoadFrame', 'inactiveSpatialMembers',
   ...ANALYSIS_KINDS.map((k) => `analysis:${k}` as const),
 ] as const;
 export type FeatureId = (typeof FEATURE_IDS)[number];
@@ -323,6 +323,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   if (connectors.length) f.add('connectors');
   if (connectors.some((c) => positive(c.kShear) || positive(c.kShearZ))) f.add('connectorsWithShear');
 
+  if (f.has('space3D') && elements.some(e => e.behaviour === 'inactive')) f.add('inactiveSpatialMembers');
   const elementById = new Map(elements.map(e => [e.id, e]));
   const nodeById = new Map(Array.isArray(s.nodes) ? s.nodes : []);
   const axialMembers = new Set(elements.filter((e) => e.type === 'truss' || e.type === 'cable').map((e) => e.id));

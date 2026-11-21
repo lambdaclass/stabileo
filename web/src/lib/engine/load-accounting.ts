@@ -8,7 +8,7 @@ import type { SolverInput3D, SolverLoad3D } from './types-3d';
 import { computeLocalAxes3D, memberRoll, type LocalAxes3D } from './local-axes-3d';
 import { memberFrame3D } from './member-loads';
 import { transverseSign } from './transverse-sign-2d';
-import { add, agrees, cross, norm, mul, sub, unit, xyz, zero, Wrench, type Vector } from './accounting-math';
+import { add, agrees, norm, mul, sub, unit, xyz, zero, Wrench, type Vector } from './accounting-math';
 import { accountSurface } from './surface-accounting';
 import { SolveAccountingError, type PlateMeasure } from './plate-accounting';
 
@@ -28,12 +28,9 @@ function unsupported(model: ModelData, caseId: number, kind: string, id: number)
 
 function compare(label: string, entered: Wrench, assembled: Wrench): void {
   for (let i = 0; i < components.length; i++) {
-    const a = entered.components[i]!.value, b = assembled.components[i]!.value;
-    const scale = i < 3
-      ? Math.max(entered.forceScale.value, assembled.forceScale.value)
-      : Math.max(entered.momentScale.value, assembled.momentScale.value);
-    if (!agrees(a, b, scale)) throw new SolveAccountingError(tp('svc.accountingMismatch', {
-      case: label, component: components[i]!, entered: a, assembled: b,
+    const a = entered.component(i), b = assembled.component(i);
+    if (!agrees(a.value, b.value, Math.max(a.scale, b.scale))) throw new SolveAccountingError(tp('svc.accountingMismatch', {
+      case: label, component: components[i]!, entered: a.value, assembled: b.value,
     }));
   }
 }
@@ -267,16 +264,6 @@ export function loadCaseBatches(loads: readonly Load[], caseIds: readonly number
   return cases;
 }
 
-function toWorld(wrench: Wrench, plane: 'xz' | 'yz', origin: Vector): Wrench {
-  const rotate = ([x, y, z]: Vector): Vector => plane === 'xz' ? [x, -z, y] : [z, x, y];
-  const { force, moment } = wrench.resultants;
-  const worldForce = rotate(force);
-  const world = new Wrench();
-  world.addTotals(worldForce, add(rotate(moment), cross(origin, worldForce)),
-    wrench.forceScale.value, wrench.momentScale.value + norm(origin) * wrench.forceScale.value);
-  return world;
-}
-
 export function accountLoads2D(
   model: ModelData, input: SolverInput, loads: readonly Load[], assembled: readonly SolverLoad[],
   caseId: number, originals: readonly Load[],
@@ -292,10 +279,9 @@ export function accountLoads2D(
   const spatial = enteredLoads(projection.source, originals, 'space', false, caseId, new Set());
   const location = projection.source.nodes.values().next().value;
   const origin: Vector = projection.plane === 'xz' ? [0, location?.y ?? 0, 0] : [location?.x ?? 0, 0, 0];
-  const expected = toWorld(planar, projection.plane, origin);
-  const { force, moment } = spatial.resultants;
-  expected.addTotals(force, moment, spatial.forceScale.value, spatial.momentScale.value);
-  compare(caseLabel(model, caseId), expected, toWorld(wire, projection.plane, origin));
+  const expected = planar.toWorld(projection.plane, origin);
+  expected.addScaled(spatial, 1);
+  compare(caseLabel(model, caseId), expected, wire.toWorld(projection.plane, origin));
 }
 
 export function loadAccounting3D(

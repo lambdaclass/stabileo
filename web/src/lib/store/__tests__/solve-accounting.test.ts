@@ -358,11 +358,10 @@ it.each([
   expect.soft(await outcome(() => modelStore.solveCombinations3DParallel(false, false, true)), 'nonlinear combinations').toEqual(diagnostic);
 });
 
-const issue2470 = process.env.RUN_KNOWN_WRONG === '2470' ? it : it.skip;
-
-issue2470.each([false, true])('accounts for the active structure (reference case: %s) [known wrong result: #2470]', async reference => {
+it.each([false, true])('accounts for the active structure (reference case: %s) (#2470)', async reference => {
   const active = cantilever('3d');
   const model = modelStore.model;
+  const combination = model.combinations.at(-1)!;
   const { nodeI: root, nodeJ: tip } = model.elements.get(active)!;
   const end = modelStore.addNode(0, 2, 0);
   const inactive = modelStore.addElement(root, end);
@@ -391,12 +390,12 @@ issue2470.each([false, true])('accounts for the active structure (reference case
     ];
     for (const bundle of bundles) {
       expect.soft(bundle).toMatchObject({ perCombo: expect.any(Map) });
-      if (bundle && typeof bundle !== 'string') expect.soft(bundle.perCombo.values().next().value).toMatchObject(expected);
+      if (bundle && typeof bundle !== 'string') expect.soft(bundle.perCombo.get(combination.id)).toMatchObject(expected);
     }
   }
 });
 
-issue2470.each(['xz', 'yz'] as const)('refuses a small spatial couple lost in %s projection [known wrong result: #2470]', async plane => {
+it.each(['xz', 'yz'] as const)('refuses a small spatial couple lost in %s projection (#2470)', async plane => {
   cantilever('3d');
   const model = modelStore.model;
   for (const [id, node] of model.nodes) {
@@ -419,18 +418,18 @@ issue2470.each(['xz', 'yz'] as const)('refuses a small spatial couple lost in %s
   for (const [path, solve] of Object.entries(paths)) expect.soft(await outcome(solve), path).toEqual(diagnostic);
 });
 
-issue2470('checks a stale spatial moment at its own roundoff boundary [known wrong result: #2470]', async () => {
+it('checks a stale spatial moment at its own roundoff boundary (#2470)', async () => {
   cantilever('3d');
   const model = modelStore.model;
   for (const [id, node] of model.nodes) model.nodes.set(id, { ...node, x: 2 ** 20 + node.x });
   const tip = [...model.nodes.keys()].at(-1)!;
   const source = modelStore.addLoadCase('Reference', 'L');
   modelStore.updateLoadCaseFields(source, { reference: true });
-  modelStore.updateLoadCaseFields(1, { includes: [{ caseId: source, factor: 1 }] });
+  modelStore.updateLoadCaseFields(1, { includes: [{ caseId: source, factor: 2 }] });
   model.loads.push(
     { type: 'nodal3d', data: { id: 1, nodeId: tip, fx: 0, fy: 0, fz: -(2 ** 20), mx: 0, my: 0, mz: 0, caseId: 1 } },
-    { type: 'nodal3d', data: { id: 2, nodeId: tip, fx: 0, fy: 0, fz: 0, mx: 1, my: 0, mz: 0, caseId: source } },
-    { type: 'nodal3d', data: { id: 3, nodeId: tip, fx: 0, fy: 0, fz: 0, mx: -1, my: 0, mz: 0, caseId: source } },
+    { type: 'nodal3d', data: { id: 2, nodeId: tip, fx: 0, fy: 0, fz: 0, mx: 0.5, my: 0, mz: 0, caseId: source } },
+    { type: 'nodal3d', data: { id: 3, nodeId: tip, fx: 0, fy: 0, fz: 0, mx: -0.5, my: 0, mz: 0, caseId: source } },
   );
   const solve = () => modelStore.solve3D(false, false, true);
   expect(solve()).toMatchObject({ reactions: [expect.objectContaining({ fz: expect.closeTo(2 ** 20, 7), mx: 0 })] });
