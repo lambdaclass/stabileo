@@ -1,0 +1,31 @@
+{
+  "id": "rc-final-depth-drawing",
+  "date": "2026-11-20",
+  "prs": [2398],
+  "area": "design",
+  "when": {
+    "all": ["concreteMembers", "cirsoc201"]
+  },
+  "title": {
+    "en": "Final-depth verification of replacement beam drawings",
+    "es": "Verificación de planos de vigas modificados con la altura útil final",
+    "pt": "Verificação de desenhos revisados de vigas com a altura útil final",
+    "de": "Nachweis geänderter Balkenbewehrungspläne mit endgültiger Nutzhöhe",
+    "fr": "Vérification des plans de poutres révisés avec la hauteur utile finale",
+    "tr": "Güncellenen kiriş çizimlerinin nihai faydalı yükseklikle doğrulanması",
+    "zh": "采用最终有效高度验算修订后的梁详图"
+  },
+  "explanation": {
+    "en": "The final-depth check uses the bar extents in the replacement beam drawing when supplied. Regional-only replacements use the saved drawing.",
+    "es": "La verificación con la altura útil final usa los tramos de las barras del plano modificado cuando se proporciona. Los cambios que solo definen la armadura por regiones usan el plano guardado.",
+    "pt": "A verificação com a altura útil final usa os trechos das barras do desenho revisado quando fornecido. Alterações apenas na armadura por região usam o desenho salvo.",
+    "de": "Der Nachweis mit endgültiger Nutzhöhe verwendet die Stabverläufe des geänderten Bewehrungsplans, sofern dieser vorliegt. Bei Änderungen nur an der bereichsweisen Bewehrung gilt der gespeicherte Plan.",
+    "fr": "La vérification avec la hauteur utile finale utilise les longueurs des barres du plan révisé s’il est fourni. Une modification limitée au ferraillage par zone utilise le plan enregistré.",
+    "tr": "Nihai faydalı yükseklik kontrolü, varsa güncellenen kiriş çizimindeki donatı çubuğu sınırlarını kullanır. Yalnızca bölgesel donatı değişikliklerinde kayıtlı çizim kullanılır.",
+    "zh": "如提供修订后的梁详图，最终有效高度验算采用该图中的钢筋覆盖范围。仅修改分区配筋时，验算采用已保存的详图。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-rc-final-depth-drawing.md",
+    "heading": "Final-depth verification of replacement beam drawings"
+  }
+}

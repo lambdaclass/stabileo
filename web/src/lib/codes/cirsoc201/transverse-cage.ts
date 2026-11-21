@@ -420,6 +420,16 @@ export function cornerSeatHold(stirrupDiaMm: number, barDiaMm: number): number {
   return Math.max(0, Math.sqrt(Math.max(0, reach * reach - inset * inset)) - inset);
 }
 
+export function stirrupBendHoldsBar(
+  bar: Pick<LongitudinalBarRef, 'across' | 'up' | 'diameterMm'>,
+  acrossOffset: number, upOffset: number, stirrupDiaMm: number,
+  bendCentrelineRadius = centrelineRadius(minMandrelDiameter(stirrupDiaMm, 'transverse').value, stirrupDiaMm),
+  tolerance = CORNER_SEAT_TOLERANCE,
+): boolean {
+  return Math.hypot(bar.across - acrossOffset, bar.up - upOffset)
+    <= bendCentrelineRadius + stirrupDiaMm / 2000 + tolerance + bar.diameterMm / 2000;
+}
+
 function barAtCorner(
   bars: readonly LongitudinalBarRef[],
   acrossOffset: number, upOffset: number,
@@ -436,10 +446,9 @@ function barAtCorner(
   // leg centreline; a flat 5 mm tolerance failed for the same reason. Neither cage was wrong —
   // the check was.
   let best: { id: string; d: number } | null = null;
-  const reachBase = bendCentrelineRadius + stirrupDiaMm / 2000 + tolerance;
   for (const bar of bars) {
     const d = Math.hypot(bar.across - acrossOffset, bar.up - upOffset);
-    if (d <= reachBase + bar.diameterMm / 2000 && (best === null || d < best.d)) {
+    if ((best === null || d < best.d) && stirrupBendHoldsBar(bar, acrossOffset, upOffset, stirrupDiaMm, bendCentrelineRadius, tolerance)) {
       best = { id: bar.id, d };
     }
   }

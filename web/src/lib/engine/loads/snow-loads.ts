@@ -1,10 +1,10 @@
 import { roofMembers, type WindModel } from './wind-cases';
 import { onSnowRoof, roofSurfaceModel, SNOW_INTENSITY_RELATIVE_ERROR, type SnowPlane, type RoofGeometry } from './snow-roof-surfaces';
 import type { GravityLayout, GravityModel } from './plan-gravity';
-import { driftAndSlidingLoads, snowDriftRefusal } from './snow-drift-loads';
+import { driftAndSlidingLoads, snowDriftRefusal, STEP_DRIFT_REFUSAL } from './snow-drift-loads';
 import { layoutSpans, layoutUnits, partialSnowPatterns } from './plan-spans';
 import { shapedSnow } from './snow-shapes';
-import { msg, round, type EngineMessage } from '../../codes/message';
+import { EngineMessageError, msg, round, type EngineMessage } from '../../codes/message';
 import type { ClauseRef } from '../../codes/regulation';
 import { roofSnow, type SnowInputs, type SnowResult } from '../../codes/cirsoc104/snow';
 import { clause } from '../../codes/regulation';
@@ -206,10 +206,20 @@ export function snowLoadCases(input: SnowCasesInput): {
     ...on((id, u) => balancedOf(id, u)),
   }];
   if (layout) {
-    const extra = driftAndSlidingLoads(input.model as GravityModel, layout, {
-      pg: input.snow.pg, balanced: (panel, pt) => shaped ? shaped.balanced(roofPoint({ x: pt[0], y: pt[1] })) + result.rainOnSnow : localResult(driftSurfaces.panel(panel, layout).planeAt(pt)).ps, pf: result.pf, pfFor: (slope, W) => surfaceAt(slope, W).pf, slippery: input.snow.slippery,
-      tributaryWidth: input.tributaryWidth, parapet: input.snow.parapet, adjacent: input.snow.adjacent,
-    }, driftSurfaces);
+    let extra: ReturnType<typeof driftAndSlidingLoads>;
+    try {
+      extra = driftAndSlidingLoads(input.model as GravityModel, layout, {
+        pg: input.snow.pg,
+        balanced: (panel, pt) => shaped ? shaped.balanced(roofPoint({ x: pt[0], y: pt[1] })) + result.rainOnSnow : localResult(driftSurfaces.panel(panel, layout).planeAt(pt)).ps,
+        balancedConstantOnPlanes: !shaped || kind === 'multiple',
+        pf: result.pf, pfFor: (slope, W) => surfaceAt(slope, W).pf, slippery: input.snow.slippery,
+        tributaryWidth: input.tributaryWidth, parapet: input.snow.parapet, adjacent: input.snow.adjacent,
+      }, driftSurfaces);
+    } catch (err) {
+      if (!(err instanceof EngineMessageError) || err.key !== STEP_DRIFT_REFUSAL) throw err;
+      result.refused = err.key;
+      return { result, geometry, cases: [], derivation: [], refs: [], surfaces: [] };
+    }
     cases[0]!.distributed.push(...extra.distributed.filter(d => !only || only.has(d.elementId)));
     derivation.push(...extra.derivation);
     refs.push(...extra.refs);
