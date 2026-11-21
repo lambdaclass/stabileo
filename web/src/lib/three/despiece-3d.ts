@@ -79,9 +79,9 @@ function end3DComponents(
   n: number, vy: number, vz: number, mx: number, my: number, mz: number, basis: DespieceBasis,
 ): Array<{ label: string; value: number }> {
   if (basis === 'global') {
-    // The same end action the arrows draw (memberEndAction3D).
-    const f = memberEndAction3D(ex, ey, ez, axialOut, n, vy, vz, mx, my, mz).force;
-    return [...userVecParts('F', f).map((c) => ({ label: c.name, value: c.value })), { label: 'My', value: my }, { label: 'Mz', value: mz }, { label: 'T', value: mx }];
+    const { force, moment } = memberEndAction3D(ex, ey, ez, axialOut, n, vy, vz, mx, my, mz);
+    return [...userVecParts('F', force), ...userVecParts('M', moment, true)]
+      .map(({ name, value }) => ({ label: name, value }));
   }
   return [{ label: 'N', value: n }, { label: 'Vy', value: vy }, { label: 'Vz', value: vz }, { label: 'My', value: my }, { label: 'Mz', value: mz }, { label: 'T', value: mx }];
 }
