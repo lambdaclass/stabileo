@@ -234,6 +234,14 @@ const body: PostBody = {
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-094-plane-free-body-end-moments.md", "label": "SA-2026-094", "t": "Érintett modellek és szükséges teendők."},
     {"k": "note", "t": "SA-2026-095 — Javítva a #2364 módosításban, kiadásra vár."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-095-plane-signed-scoped-self-weight.md", "label": "SA-2026-095", "t": "Érintett modellek és szükséges teendők."},
+    {"k": "note", "t": "SA-2026-096 — Javítva a 0.6.3 verzióban."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-096-static-seismic-stories-and-rafters.md", "label": "SA-2026-096", "t": "Érintett modellek és szükséges teendők."},
+    {"k": "note", "t": "SA-2026-097 — Javítva a 0.6.3 verzióban."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-097-workbook-inputs-and-plane-springs.md", "label": "SA-2026-097", "t": "Érintett modellek és szükséges teendők."},
+    {"k": "note", "t": "SA-2026-098 — Javítva a 0.6.3 verzióban."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-098-rc-drawn-reinforcement-verification.md", "label": "SA-2026-098", "t": "Érintett modellek és szükséges teendők."},
+    {"k": "note", "t": "SA-2026-099 — Letiltással kezelve a 0.6.3 verzióban."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-099-gravity-and-roof-step-loads.md", "label": "SA-2026-099", "t": "Érintett modellek és szükséges teendők."},
     {
       "k": "img",
       "base": "blog/recheck-stale",
@@ -754,7 +762,11 @@ const body: PostBody = {
         ["SA-2026-092", "A részletes keresztmetszeti feszültségszámítás alábecsülhette az eredő nyírófeszültséget és a von Mises-feszültséget, és megfelelést jelezhetett. Számítsa újra az érintett feszültségeket, és vizsgálja felül az ábrákat, ellenőrzéseket és jelentéseket.", "Magas", "Az együttes esetet a #2372 letiltja, a metszeteket a #2382 javítja, kiadásra vár"],
         ["SA-2026-093", "A síkbeli mozgó terhek elsimíthatták a normálerő ugrásait a koncentrált tengelyterheknél. Számítsa újra az érintett burkolókat és normálerő-hatásábrákat, és vizsgálja felül az azokon alapuló jelentéseket.", "Magas", "Javítva a #2381 módosításban, kiadásra vár"],
         ["SA-2026-094", "A 2D szabadtestábra vizsgálója hibás előjellel jeleníthette meg a globális rúdvégi nyomatékokat. A számítási eredményeket ez nem érintette. Vizsgálja meg ismét a rudakat, majd készítse el újra és ellenőrizze az érintett jelentéseket.", "Közepes", "Javítva a #2364 módosításban, kiadásra vár"],
-        ["SA-2026-095", "Az előjeles vagy meghatározott rudakra korlátozott önsúlyszabályokat tartalmazó mentett 2D projektek figyelmeztetés nélkül hibás támaszreakciókat adhattak. Az érintett projektek megnyitásakor értesítés kéri az újraszámítást. Számítsa újra az eredményeket, majd készítse el újra és ellenőrizze az érintett jelentéseket.", "Magas", "Javítva a #2364 módosításban, kiadásra vár"]
+        ["SA-2026-095", "Az előjeles vagy meghatározott rudakra korlátozott önsúlyszabályokat tartalmazó mentett 2D projektek figyelmeztetés nélkül hibás támaszreakciókat adhattak. Az érintett projektek megnyitásakor értesítés kéri az újraszámítást. Számítsa újra az eredményeket, majd készítse el újra és ellenőrizze az érintett jelentéseket.", "Magas", "Javítva a #2364 módosításban, kiadásra vár"],
+        ["SA-2026-096", "A statikus földrengésteher előállítása merevítési vagy hálócsomópontokat emeletnek vehetett, és a tetőrudak tehetetlenségi terhét a rúdvégekre helyezhette. Ellenőrizze a födémszinteket és a tetőrudak terhelését. Az elemzés és a méretezési ellenőrzések megismétlése előtt hozza létre újra a tehereseteket.", "Magas", "Javítva a 0.6.3 verzióban"],
+        ["SA-2026-097", "A munkafüzet importálásakor modelladatok maradhattak ki, a 2D export pedig egy forgási rugót eltolódási rugóként jelölhetett. Hasonlítsa össze az importált modellt az eredeti munkafüzettel, majd javítsa és importálja újra. Ellenőrizze a támaszokat és a terheket, majd ismételje meg az érintett számításokat és exportokat.", "Magas", "Javítva a 0.6.3 verzióban"],
+        ["SA-2026-098", "A vasbeton-ellenőrzés túl nagy kengyeltávolságot fogadhatott el, vagy a vizsgált szelvényben hiányzó vasalást vehetett figyelembe. Az oszloprajzokon hibás rúdátmérők jelenhettek meg. Ellenőrizze újból a megadott vasalást az egyidejű igénybevételekkel, majd vizsgálja át az érintett rajzokat, vasalási kimutatásokat és jelentéseket.", "Magas", "Javítva a 0.6.3 verzióban"],
+        ["SA-2026-099", "A gravitációs terhek előállítása kétszer terhelhetett egy héj- és gerendamezőt, vagy elforgatás, illetve felosztás után megváltoztathatta a terhelt rudak kijelölését. A tetőlépcsőnél felhalmozódó hó terhének átadása erőt és nyomatékot veszíthetett. Hozza létre újra a terheket, és letiltás esetén használjon függetlenül ellenőrzött tehereseteket.", "Magas", "Letiltással kezelve a 0.6.3 verzióban"]
       ]
     },
     {

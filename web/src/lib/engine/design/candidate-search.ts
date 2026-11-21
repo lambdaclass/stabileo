@@ -18,7 +18,7 @@ import { beamCornerRecord, columnCageDia, type BeamCornerRecord } from './end-su
 import { columnBarsOf } from '../detailing/joint-threading';
 import type { DesignCodeAdapter } from './code-adapter';
 import type { MemberContext } from './member-context';
-import type { Candidate, CandidateFeedback } from './candidate-generator';
+import type { CandidateFeedback } from './candidate-generator';
 import { compareCandidates, compareFailures, computeCandidateCost, STANDARD_LONG_DIAS } from './objective';
 import type { ProvidedReinforcement } from '../../store/model.svelte';
 import type { ProvidedRebarResult } from '../station-design-forces';
@@ -61,12 +61,10 @@ export function budgetFor(ctx: MemberContext): SearchBudget {
 export type Clock = () => number;
 const defaultClock: Clock = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
 
-function rankCandidate(adapter: DesignCodeAdapter, ctx: MemberContext, rebar: ProvidedReinforcement): ProvidedRebarResult {
-  return adapter.rankCandidate?.(ctx, rebar).ranking ?? adapter.verify(ctx, rebar);
-}
-
-function attemptFrom(adapter: DesignCodeAdapter, ctx: MemberContext, c: Candidate): DesignAttempt {
-  return designAttempt(adapter, ctx, c.reinforcement, c.meta.cost, rankCandidate(adapter, ctx, c.reinforcement));
+function candidateRanker(adapter: DesignCodeAdapter, ctx: MemberContext): (rebar: ProvidedReinforcement) => ProvidedRebarResult {
+  const rank = adapter.rankCandidate?.bind(adapter);
+  if (rank) return (rebar) => rank(ctx, rebar).ranking;
+  return adapter.prepareCandidateRanker?.(ctx) ?? ((rebar) => adapter.verify(ctx, rebar));
 }
 
 /** True when a verdict is a genuine pass under the approved convention. */
@@ -294,12 +292,13 @@ function selectMember(
   let truncated = false;
   let feedback: CandidateFeedback | null = null;
 
+  const rank = candidateRanker(adapter, ctx);
   for (;;) {
     if (tried >= budget.maxCandidates || verifierCalls >= budget.maxVerifierCalls) { truncated = true; break; }
     const cand = gen.next(feedback);
     if (!cand) break;
     tried++;
-    const attempt = attemptFrom(adapter, ctx, cand);
+    const attempt = designAttempt(adapter, ctx, cand.reinforcement, cand.meta.cost, rank(cand.reinforcement));
     verifierCalls++;
     if (isPassingVerdict(attempt)) {
       passing.push({ attempt, index: cand.meta.index, cost: attempt.cost });
@@ -328,7 +327,7 @@ function selectMember(
     // A bottom group that anchors into its support only with a hook gets the hook (§25.4.3).
     const done = completeAnchorage(adapter, ctx, win.candidate, win.verdict,
       (v) => isPassingVerdict({ ...win, verdict: v, worstUtilization: v.worstUtilization }),
-      (context, rebar) => rankCandidate(adapter, context, rebar));
+      (_context, rebar) => rank(rebar));
     if (done.verified) verifierCalls++;
     return {
       ...base, outcome: 'SELECTED', candidate: done.reinf, cost: win.cost,
@@ -344,7 +343,7 @@ function selectMember(
   if (limiting.length === 0) limiting.push('searchBudget');
 
   let provisional = bestFailure?.attempt;
-  if (provisional && adapter.rankCandidate) {
+  if (provisional && (adapter.prepareCandidateRanker || adapter.rankCandidate)) {
     const { candidate, cost } = provisional;
     provisional = designAttempt(adapter, ctx, candidate, cost, adapter.verify(ctx, candidate));
   }
@@ -770,7 +769,7 @@ function* settleCrossingSeats(
       const x = outcomes[i]!;
       if (x.elementType !== 'beam' || x.outcome !== 'SELECTED') continue;
       const rebar = selectedReinforcement(x);
-      if (!rebar || rankCandidate(adapter, withSeats(list[i]!), rebar).overallStatus !== 'fail') continue;
+      if (!rebar || candidateRanker(adapter, withSeats(list[i]!))(rebar).overallStatus !== 'fail') continue;
       if (o.cancelled()) return false;
       const again = selectMember(adapter, withSeats(list[i]!), { budget: o.budget, clock: o.clock });
       outcomes[i] = again;
