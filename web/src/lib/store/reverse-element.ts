@@ -23,7 +23,7 @@
  * Checked by solving before and after: same reactions, same displacements.
  */
 import type { Element, Load } from './model.svelte';
-import { reversePointLoad, carryThermal, carryPrestress } from '../model/loads/member-load-carry';
+import { reverseDistributedLoad, reversePointLoad, carryThermal, carryPrestress } from '../model/loads/member-load-carry';
 import { hasExplicitLocalY } from '../model/element-3d-metadata';
 
 interface ReversibleModel {
@@ -112,15 +112,8 @@ export function reverseElementInModel(model: ReversibleModel, id: number, is3D =
           data: { ...p, a: L - p.a, ...(angle !== undefined ? { angle } : {}), ...(p.px !== undefined ? { px: -p.px } : {}) },
         };
       }
-      case 'distributed3d': {
-        const q = l.data;
-        const sy = explicitY ? 1 : -1, sz = explicitY ? -1 : 1;
-        const { a: _a, b: _b, ...rest } = q;
-        return {
-          type: 'distributed3d',
-          data: { ...rest, qYI: sy * q.qYJ, qYJ: sy * q.qYI, qZI: sz * q.qZJ, qZJ: sz * q.qZI, ...span(q.a, q.b) },
-        };
-      }
+      case 'distributed3d':
+        return { type: 'distributed3d', data: reverseDistributedLoad(l.data, L, explicitY ? { sy: 1, sz: -1 } : { sy: -1, sz: 1 }) };
       case 'pointOnElement3d': {
         const sy = explicitY ? 1 : -1, sz = explicitY ? -1 : 1;
         return { type: 'pointOnElement3d', data: reversePointLoad(l.data, L, { sy, sz }) };

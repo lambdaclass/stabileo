@@ -1,0 +1,39 @@
+{
+  "id": "planar-point-load-projection-refusal",
+  "date": "2026-11-21",
+  "prs": [],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "space3D",
+      "unplaceablePlanarPointLoads"
+    ]
+  },
+  "quantities": [
+    "solve.ok"
+  ],
+  "title": {
+    "en": "Planar point loads without a usable member projection",
+    "es": "Cargas puntuales planas sin una proyección utilizable de la barra",
+    "pt": "Cargas pontuais planas sem projeção utilizável da barra",
+    "de": "Ebene Einzellasten ohne nutzbare Stabprojektion",
+    "fr": "Charges ponctuelles planes sans projection exploitable de la barre",
+    "hu": "Síkbeli pontszerű terhek használható rúdvetület nélkül",
+    "tr": "Kullanılabilir çubuk izdüşümü olmayan düzlemsel nokta yükleri",
+    "zh": "杆件无可用投影时的平面集中荷载"
+  },
+  "explanation": {
+    "en": "Analysis refuses nonzero legacy planar point loads if the member has no usable projection in the load plane. Replace refused loads with explicitly oriented 3D point loads before rerunning analysis.",
+    "es": "El análisis rechaza cargas puntuales planas antiguas no nulas si la barra no tiene una proyección utilizable en el plano de la carga. Reemplazá las cargas rechazadas por cargas puntuales 3D con orientación explícita antes de recalcular.",
+    "pt": "A análise recusa cargas pontuais planas antigas não nulas se a barra não tiver uma projeção utilizável no plano da carga. Substitua as cargas recusadas por cargas pontuais 3D com orientação explícita antes de recalcular.",
+    "de": "Die Analyse lehnt alte ebene Einzellasten ungleich null ab, wenn der Stab keine nutzbare Projektion in der Lastebene hat. Ersetzen Sie abgelehnte Lasten vor der erneuten Berechnung durch eindeutig ausgerichtete räumliche Einzellasten.",
+    "fr": "Le calcul refuse les anciennes charges ponctuelles planes non nulles si la barre ne possède pas de projection exploitable dans le plan de la charge. Remplacez les charges refusées par des charges ponctuelles 3D à orientation explicite avant de relancer le calcul.",
+    "hu": "A számítás elutasítja a régi, nem nulla síkbeli pontszerű terheket, ha a rúdnak nincs használható vetülete a teher síkjában. Újraszámítás előtt az elutasított terheket váltsa ki egyértelmű irányú 3D pontszerű terhekkel.",
+    "tr": "Çubuğun yük düzleminde kullanılabilir bir izdüşümü yoksa analiz sıfırdan farklı eski düzlemsel nokta yüklerini reddeder. Analizi yenilemeden önce reddedilen yükleri yönü açıkça belirtilmiş 3B nokta yükleriyle değiştirin.",
+    "zh": "若杆件在荷载平面内没有可用投影，分析会拒绝旧版非零平面集中荷载。重新计算前，请将被拒绝的荷载改为方向明确的三维集中荷载。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-member-load-orientation.md",
+    "heading": "Spatial member loads on reversal and planar projection"
+  }
+}

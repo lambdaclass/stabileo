@@ -238,8 +238,6 @@ export async function runDirectAnalysis(
   if (plateRefusal) return plateRefusal;
   const resolved = resolveCombinationFactors(combinations);
   if (typeof resolved === 'string') return resolved;
-  // Each case with what it takes in, its notional loads and its reduction (`case-effects.ts`).
-  model = withCaseEffects(model, loadCases, { includeSelfWeight: opts.includeSelfWeight, leftHand: opts.leftHand ?? false });
   const settings = { ...(opts.settings ?? DEFAULT_DIRECT_SETTINGS) };
   const run = opts.run ?? mainThreadPDelta;
   const leftHand = opts.leftHand ?? false;
@@ -249,22 +247,24 @@ export async function runDirectAnalysis(
    * inside a span (`variable-members.ts`), so the base is built from the same expanded model as the
    * loads, and the results read back as one member each. Its refusals are the linear solve's.
    */
-  const refused = orphanLoadRefusal(model) ?? imposedRefusal(model);
-  if (refused) return refused;
-  const prepared = prepareSolverInput3D(model, leftHand);
-  const solvable = prepared.model;
-  const expansion = variableExpansionFor(model);
+  let prepared: ReturnType<typeof prepareSolverInput3D>;
   let base: SolverInput3D | null;
   let caseLoads: Map<number, SolverLoad3D[]>;
   try {
+    model = withCaseEffects(model, loadCases, { includeSelfWeight: opts.includeSelfWeight, leftHand });
+    const refused = orphanLoadRefusal(model) ?? imposedRefusal(model);
+    if (refused) return refused;
+    prepared = prepareSolverInput3D(model, leftHand);
     base = prepared.build([]);
-    caseLoads = caseSolverLoads3D(solvable, loadCases, opts.includeSelfWeight, leftHand);
+    caseLoads = caseSolverLoads3D(prepared.model, loadCases, opts.includeSelfWeight, leftHand);
   } catch (err) {
     const said = loadRefusal(err);
     if (said) return said;
     throw err;
   }
   if (!base) return 'empty';
+  const solvable = prepared.model;
+  const expansion = variableExpansionFor(model);
   requireCableAnalysis(base.elements.values());
   // A case's imposed displacements go on the supports, times the case's factor in each combination
   // (`case-displacements.ts`), as P-Delta per combination puts them.

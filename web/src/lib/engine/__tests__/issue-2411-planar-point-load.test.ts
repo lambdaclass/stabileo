@@ -1,5 +1,6 @@
 import { beforeEach, expect, it } from 'vitest';
 import { t } from '../../i18n';
+import { modelFeatures } from '../../provenance/model-features';
 import { modelStore, uiStore } from '../../store';
 import { runDirectAnalysis } from '../direct-analysis';
 import type { AnalysisResults } from '../types';
@@ -12,7 +13,6 @@ import {
 } from '../solver-service';
 import { solvePDelta, solvePDelta3D } from '../wasm-solver';
 
-const issue2411 = process.env.RUN_KNOWN_WRONG === '2411' ? it : it.skip;
 const loadCase = { id: 1, name: 'Applied couple', type: 'D' as const };
 const combination = { id: 1, name: 'Applied couple only', factors: [{ caseId: loadCase.id, factor: 1 }] };
 const couple = 5;
@@ -48,13 +48,14 @@ function refusal(member: number) {
 }
 
 for (const nonlinear of [false, true]) {
-  issue2411(`known wrong result: #2411 refuses a legacy planar couple on a global-Z member (nonlinear=${nonlinear})`, async () => {
+  it(`#2411 refuses a legacy planar couple on a global-Z member (nonlinear=${nonlinear})`, async () => {
     if (nonlinear) uiStore.analysisMode = 'pro';
     const { member } = cantilever(0, 0, length, nonlinear);
     legacyPoint(member, { a: 1, p: 0, mz: couple });
     const model = modelStore.model;
     const reason = refusal(member);
     expect(hasNonlinearBehaviour(model)).toBe(nonlinear);
+    expect(modelFeatures(modelStore.snapshot()).has('unplaceablePlanarPointLoads')).toBe(true);
     expect.soft(validateAndSolve3D(model)).toBe(reason);
     expect.soft(await validateAndSolve3DAsync(model)).toBe(reason);
     expect.soft(solveCombinations3D(model, [loadCase], [combination])).toBe(reason);
@@ -66,7 +67,7 @@ for (const nonlinear of [false, true]) {
   });
 }
 
-issue2411('known wrong result: #2411 refuses the dropped couple before P-Delta can solve', async () => {
+it('#2411 refuses the dropped couple before P-Delta can solve', async () => {
   const { root, member } = cantilever(0, 0, length);
   legacyPoint(member, { a: 1, p: 0, mz: couple });
   modelStore.addNodalLoad3D(root, 1, 0, 0, 0, 0, 0, loadCase.id);
@@ -82,7 +83,7 @@ issue2411('known wrong result: #2411 refuses the dropped couple before P-Delta c
   }
 });
 
-issue2411('known wrong result: #2411 returns the load refusal when preparing a notional case', async () => {
+it('#2411 returns the load refusal when preparing a notional case', async () => {
   const { root, member } = cantilever(0, 0, length);
   legacyPoint(member, { a: 1, p: 0, mz: couple });
   modelStore.addNodalLoad3D(root, 0, 0, -1, 0, 0, 0, loadCase.id);
@@ -97,7 +98,7 @@ issue2411('known wrong result: #2411 returns the load refusal when preparing a n
 });
 
 for (const data of [{ p: 0, my: couple }, { p: 0, px: 1 }, { p: 1 }]) {
-  issue2411(`known wrong result: #2411 refuses an active planar point action below the projection limit ${JSON.stringify(data)}`, () => {
+  it(`#2411 refuses an active planar point action below the projection limit ${JSON.stringify(data)}`, () => {
     const { member } = cantilever(projectionLimit / 2, 0, length);
     legacyPoint(member, { a: 0, ...data });
     expect(validateAndSolve3D(modelStore.model)).toBe(refusal(member));
@@ -108,6 +109,7 @@ for (const x of [projectionLimit, 2 * projectionLimit]) {
   it(`#2411 applies a planar end couple when the member projection is ${x}`, () => {
     const { root, member } = cantilever(x, 0, length);
     legacyPoint(member, { a: 0, p: 0, mz: couple });
+    expect(modelFeatures(modelStore.snapshot()).has('unplaceablePlanarPointLoads')).toBe(false);
     const result = validateAndSolve3D(modelStore.model);
     if (!result || typeof result === 'string') throw new Error(String(result));
     expect(result.reactions.find(r => r.nodeId === root)?.mz).toBeCloseTo(-couple, 12);
@@ -117,6 +119,7 @@ for (const x of [projectionLimit, 2 * projectionLimit]) {
 it('#2411 allows an empty planar point record on a global-Z member', () => {
   const { root, member } = cantilever(0, 0, length);
   legacyPoint(member, { a: 1, p: 0, my: 0, mz: 0, px: 0 });
+  expect(modelFeatures(modelStore.snapshot()).has('unplaceablePlanarPointLoads')).toBe(false);
   const result = validateAndSolve3D(modelStore.model);
   if (!result || typeof result === 'string') throw new Error(String(result));
   expect(result.reactions.find(r => r.nodeId === root)).toMatchObject({ mx: 0, my: 0, mz: 0 });

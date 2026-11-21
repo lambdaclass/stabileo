@@ -7,6 +7,7 @@ import { historyStore, modelStore, uiStore } from '..';
 import { buildSolverInput2D, buildSolverInput3D, validateAndSolve2D, validateAndSolve3D } from '../../engine/solver-service';
 import { solvePDelta, solvePDelta3D } from '../../engine/wasm-solver';
 import { flipMembers } from '../../model/edit/flip-members';
+import { modelFeatures } from '../../provenance/model-features';
 import type { AnalysisResults } from '../../engine/types';
 import type { AnalysisResults3D } from '../../engine/types-3d';
 
@@ -136,9 +137,8 @@ describe('reverseElement', () => {
   });
 });
 
-const issue2268 = process.env.RUN_KNOWN_WRONG === '2268' ? it : it.skip;
 for (const [qI, qJ] of [[2, 2], [2, 5]] as const) {
-  issue2268(`known wrong result: #2268 a reversed member preserves the physical axial load ${qI} to ${qJ}`, () => {
+  it(`#2268 a reversed member preserves the physical axial load ${qI} to ${qJ}`, () => {
     uiStore.analysisMode = '3d';
     const length = 4;
     const root = modelStore.addNode(0, 0, 0);
@@ -210,9 +210,10 @@ function expectAxial(
 }
 
 for (const [qI, qJ] of [[2, 2], [2, 5]] as const) {
-  issue2268(`known wrong result: #2268 preserves a spatial axial load over a partial span ${qI} to ${qJ}`, () => {
+  it(`#2268 preserves a spatial axial load over a partial span ${qI} to ${qJ}`, () => {
     const { root, member } = axialModel('3d');
     modelStore.addDistributedLoad3D(member, 0, 0, 0, 0, a, b, undefined, { qXI: qI, qXJ: qJ });
+    expect(modelFeatures(modelStore.snapshot()).has('spatialDistributedLoadOrientation')).toBe(true);
     expectAxial(root, member, '3d', qI, qJ, false);
     modelStore.reverseElement(member);
     expectAxial(root, member, '3d', qI, qJ, true);
@@ -236,7 +237,7 @@ for (const [qI, qJ] of [[2, 2], [2, 5]] as const) {
 }
 
 for (const frame of ['global', 'projected'] as const) {
-  issue2268(`known wrong result: #2268 reverses the span profile in the fixed ${frame} frame`, () => {
+  it(`#2268 reverses the span profile in the fixed ${frame} frame`, () => {
     uiStore.analysisMode = '3d';
     const root = modelStore.addNode(0, 0, 0);
     const tip = modelStore.addNode(4, 0, 3);
@@ -258,7 +259,7 @@ for (const frame of ['global', 'projected'] as const) {
   });
 }
 
-issue2268('known wrong result: #2268 reverses a one-sided axial profile from a saved model', () => {
+it('#2268 reverses a one-sided axial profile from a saved model', () => {
   const { root, member } = axialModel('3d');
   modelStore.model.loads = [{
     type: 'distributed3d', data: { id: 1, elementId: member, qYI: 0, qYJ: 0, qZI: 0, qZJ: 0, qXJ: 5, a, b },

@@ -137,6 +137,14 @@ export interface PlanePointLoadLike {
   isGlobal?: boolean;
 }
 
+export function planarPointProjectionTooShort(dx: number, dPlan: number): boolean {
+  return Math.hypot(dx, dPlan) < 1e-10;
+}
+
+export function planarPointHasAction(d: { p?: unknown; px?: unknown; my?: unknown; mz?: unknown }): boolean {
+  return (d.p ?? 0) !== 0 || (d.px ?? 0) !== 0 || (d.my ?? d.mz ?? 0) !== 0;
+}
+
 /**
  * A plane point load in the space solve's global axes, as the solve of an embedded plane model
  * reads it: the force in the member's plane, its axial part and the couple about the plane's
