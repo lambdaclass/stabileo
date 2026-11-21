@@ -12,7 +12,7 @@ import type { AnalysisResults3D } from '../../engine/types-3d';
 import { solvePDelta } from '../../engine/wasm-solver';
 import { t } from '../../i18n';
 import { historyStore, modelStore, uiStore } from '..';
-import { deserializeProject, serializeProject } from '../file';
+import { deserializeProject, loadFile, loadProject, serializeProject } from '../file';
 import { recheckStore } from '../recheck.svelte';
 
 const loadCase = { id: 1, name: 'Couple', type: 'D' as const };
@@ -309,6 +309,67 @@ for (const mode of ['2d', '3d'] as const) {
         }
       }
     });
+  }
+}
+
+const knownWrong = process.env.RUN_KNOWN_WRONG === '2459' ? it : it.skip;
+
+for (const mode of ['2d', '3d', 'pro', 'pdelta'] as const) {
+  for (const type of ['pointOnElement', 'nodal'] as const) {
+    for (const [field, input] of [
+      ['my', '1e400'], ['mz', '-1e400'], ['my', 'null'], ['mz', 'null'], ['my', NaN], ['mz', NaN],
+    ] as const) {
+      knownWrong(`known wrong result: #2459 keeps invalid ${type} ${field}=${input} refusing after save and reopen (${mode})`, async () => {
+        const member = cantilever(mode);
+        const nodeId = modelStore.model.elements.get(member)!.nodeJ;
+        const fields = type === 'pointOnElement' ? { elementId: member, a: position, p: 0 } : { nodeId, fx: 0, fz: 0 };
+        const project = JSON.parse(serializeProject());
+        if (field === 'mz') project.version = '1.0';
+        const otherAlias = field === 'my' ? 'mz' : 'my';
+        const data = { id: loadId, caseId: loadCase.id, ...fields };
+        project.snapshot.loads = [{ type, data: {
+          ...data, ...(input === 'null' ? { [otherAlias]: legacyMoment } : {}), [field]: input,
+        } }];
+        if (typeof input === 'number') {
+          modelStore.restore(project.snapshot);
+        } else {
+          const file = new File([JSON.stringify(project).replace(JSON.stringify(input), input)], 'invalid-moment.ded');
+          if (input === 'null') await loadFile(file);
+          else await loadProject(file);
+        }
+
+        const key = type === 'pointOnElement' ? 'svc.planarPointLoadMomentAliases' : 'svc.planarNodalLoadMomentAliases';
+        const refusal = t(key).replace('{load}', String(loadId))
+          .replace('{n}', String(type === 'pointOnElement' ? member : nodeId));
+        async function expectRefusal(stage: string) {
+          const readings = mode === '2d'
+            ? Object.entries({ ...await planeSolves(), store: modelStore.solve(), storeAsync: await modelStore.solveAsync() })
+              .map(([path, result]) => [path, planeMoment(result, member, before)] as const)
+            : Object.entries(await spaceSolves()).map(([path, result]) => [path, spaceMoment(result, member, before)] as const);
+          for (const [path, moment] of readings) {
+            expect.soft(moment, `${stage}, ${path}`).toEqual(expect.stringContaining(refusal));
+          }
+          if (mode === '2d') expect.soft(() => buildSolverInput2D(modelStore.model), stage).toThrow(refusal);
+        }
+
+        expect(hasNonlinearBehaviour(modelStore.model)).toBe(mode === 'pro');
+        await expectRefusal('opened');
+        const saved = serializeProject();
+        expect.soft(JSON.parse(saved).snapshot.loads[0].data).toStrictEqual(modelStore.snapshot().loads[0]?.data);
+        expect(deserializeProject(saved)).toBe(true);
+        await expectRefusal('reopened');
+
+        const readMoment = () => mode === '2d'
+          ? planeMoment(validateAndSolve2D(modelStore.model), member, before)
+          : spaceMoment(validateAndSolve3D(modelStore.model), member, before);
+        expect(modelStore.updateLoad(loadId, { my: legacyMoment })).toBe(true);
+        expect.soft(readMoment()).toBeCloseTo(legacyMoment, 4);
+
+        project.snapshot.loads = [{ type, data }];
+        expect(deserializeProject(JSON.stringify(project))).toBe(true);
+        expect.soft(readMoment()).toBe(0);
+      });
+    }
   }
 }
 
