@@ -64,7 +64,7 @@ describe('the run reports what happened, family by family', () => {
   meshGuard('known wrong result: #2338: concurrent worker scheduling preserves the full design and detailing', async () => {
     const frame: DesignFamily[] = ['column', 'beam'];
     const floors: DesignFamily[] = ['slab'];
-    await ready('rc-qa-diagnostic');
+    await ready('rc-qa-diagnostic-shells');
     const clock = vi.spyOn(performance, 'now').mockReturnValue(0);
     const { port1, port2 } = new MessageChannel();
 
@@ -75,7 +75,7 @@ describe('the run reports what happened, family by family', () => {
       expect(familyOf(synchronous, 'slab').processed).toBeGreaterThan(0);
       const expected = designOutput();
 
-      await ready('rc-qa-diagnostic');
+      await ready('rc-qa-diagnostic-shells');
       let posted = false;
       let received = false;
       port1.once('message', () => {
