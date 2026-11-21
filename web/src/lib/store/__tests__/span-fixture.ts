@@ -16,6 +16,7 @@ import { completeMemberDemands } from '../../engine/member-demand-gate';
  * for columns that hold the beams' hooks, `columnSide: 0.4`.
  */
 import { expect } from 'vitest';
+import { runBetweenWorkerTurns } from '../../../__tests__/worker-yield';
 import { historyStore, modelStore, resultsStore, uiStore } from '..';
 import { designRunStore } from '../design-run.svelte';
 import { verificationStore } from '../verification.svelte';
@@ -131,6 +132,15 @@ export function tieColumnFootprints(side: number): number {
 /** Design columns and beams, detail them and build the document the sheets print. */
 export function designAndDocument(): DocumentModel {
   designRunStore.designFamilies(['column', 'beam']);
+  return buildTestDocument();
+}
+
+export async function designAndDocumentWithWorkerYields(): Promise<DocumentModel> {
+  await runBetweenWorkerTurns(() => designRunStore.designFamilies(['column', 'beam']));
+  return buildTestDocument();
+}
+
+function buildTestDocument(): DocumentModel {
   const doc = detailingStore.buildDocument({ author: 'test', at: '2026-10-11T00:00:00Z' });
   expect(doc, 'document built').toBeTruthy();
   return doc!;
