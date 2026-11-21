@@ -14,6 +14,8 @@ import { describe, it, expect } from 'vitest';
 import { beamSteel, seismicFrameChecks, type FrameMember } from '../frame-checks';
 import { seismicJointCheckRows, seismicMemberCheckRows } from '../../check-rows-families';
 import { probableMoment } from '../capacity';
+import { familySummary, renderFicha } from '../../../../report/memoria/render';
+import en from '../../../../i18n/locales/en';
 import { defaultSeismicDesign } from '../../../../model/seismic-design';
 
 const nodes = new Map([[1, { x: 0, y: 0, z: 0 }], [2, { x: 0, y: 0, z: 3 }], [3, { x: 6, y: 0, z: 0 }], [4, { x: 6, y: 0, z: 3 }]]);
@@ -103,20 +105,33 @@ it('#2216 missing primary reinforcement cannot pass a seismic member check', () 
   expect(seismicMemberCheckRows(secondary)).toHaveLength(0);
 });
 
-const refusedCapacityShear = process.env.RUN_KNOWN_WRONG === '2216' ? it : it.skip;
-refusedCapacityShear('known wrong result: #2216 round 4 capacity shear keeps its report row when primary forces are missing', () => {
+it('#2216 round 4 capacity shear keeps its report row when primary forces are missing', () => {
   const primaryColumn = column(1, 1, 2);
   const members = [{ ...beam, vg: undefined }, { ...primaryColumn, axial: undefined, vu: undefined }];
   for (const member of members) {
     const read = (input: FrameMember) => seismicMemberCheckRows(seismicFrameChecks({
       nodes, members: [input], settings: defaultSeismicDesign(),
     }).members[0]!);
-    expect.soft(read(member)).toContainEqual(expect.objectContaining({
-      titleKey: 'check.seismic.shear', clause: '18.1', status: 'notVerified', ratio: null,
-    }));
+    const rows = read(member);
+    const reason = 'seisDes.issue.missingForces';
+    const shear = rows.find(row => row.titleKey === 'check.seismic.shear')!;
+    expect(shear).toMatchObject({ clause: '18.1', status: 'notVerified', ratio: null, formula: reason, inputs: [] });
+    expect(rows.map(row => row.titleKey)).toEqual(['check.seismic.shear', 'check.seismic.detailing']);
     const complete = read(member.kind === 'beam' ? beam : primaryColumn);
     expect(complete.find(row => row.titleKey === 'check.seismic.shear')?.inputs).toHaveLength(2);
     expect(read({ ...member, role: 'secondary' })).toEqual([]);
+    const context = { tr: (key: string) => (en as Record<string, string>)[key] ?? key,
+      msg: (message: { key: string }) => message.key, fmt: (value: number, decimals: number) => value.toFixed(decimals) };
+    const refused = { id: 'refused', family: member.kind, name: 'Refused', data: [], notes: [], rows };
+    const checked = { ...refused, id: 'checked', name: 'Checked', rows: complete };
+    for (const members of [[refused], [refused, checked], [checked, refused]]) {
+      const summary = familySummary(members, context);
+      expect(summary).toContain(en['check.seismic.shear']);
+      expect(summary).toMatch(/<td>Refused<\/td><td>N\.E\.<sup>\d+<\/sup><\/td><td>N\.E\./);
+      expect(summary).not.toContain('N.P.');
+      expect(summary).toContain(en[reason]);
+    }
+    expect(renderFicha(shear, context)).toContain(en[reason]);
   }
 });
 

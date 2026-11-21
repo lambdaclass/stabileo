@@ -1,0 +1,30 @@
+{
+  "id": "rc-shear-moment-crossings",
+  "date": "2026-11-21",
+  "prs": [2434],
+  "area": "design",
+  "when": { "all": ["concreteMembers", "cirsoc201"] },
+  "quantities": ["rc"],
+  "title": {
+    "en": "Curtailed beam shear at moment transitions",
+    "es": "Corte de vigas con barras interrumpidas en cambios de signo del momento",
+    "pt": "Cisalhamento em vigas com barras interrompidas nas mudanças de sinal do momento",
+    "de": "Querkraft in Balken mit abgestufter Bewehrung am Momentenvorzeichenwechsel",
+    "fr": "Cisaillement des poutres avec arrêts de barres aux changements de signe du moment",
+    "tr": "Moment işareti değişimlerinde donatısı sonlandırılmış kirişlerin kesme kontrolü",
+    "zh": "钢筋截断梁在弯矩变号处的受剪验算"
+  },
+  "explanation": {
+    "en": "For beams with curtailed bars, a cut between solver stations can now govern span shear where the top bars enter tension. The report also gives the reason for unevaluated capacity shear in primary seismic members.",
+    "es": "En vigas con barras interrumpidas, una sección entre estaciones de cálculo puede gobernar el corte del tramo donde las barras superiores entran en tracción. El informe indica el motivo cuando queda sin evaluar el corte por capacidad de un elemento sísmico primario.",
+    "pt": "Em vigas com barras interrompidas, uma seção entre estações de cálculo pode governar o cisalhamento do vão onde as barras superiores entram em tração. O relatório indica o motivo quando o cisalhamento por capacidade de um elemento sísmico primário fica sem avaliação.",
+    "de": "Bei Balken mit abgestufter Bewehrung kann ein Schnitt zwischen Berechnungsstationen für die Feldquerkraft maßgebend werden, wenn die oberen Stäbe auf Zug beansprucht werden. Der Bericht nennt auch den Grund für offene Querkraftnachweise im Rahmen der Kapazitätsbemessung primärer Erdbebenbauteile.",
+    "fr": "Pour les poutres avec arrêts de barres, une section entre points de calcul peut gouverner le cisaillement en travée lorsque les barres supérieures entrent en traction. Le rapport indique aussi la raison pour laquelle le cisaillement de capacité des éléments sismiques primaires reste non évalué.",
+    "tr": "Donatısı sonlandırılmış kirişlerde, üst donatının çekmeye geçtiği yerde hesap istasyonları arasındaki bir kesit açıklık kesmesini belirleyebilir. Rapor, birincil deprem elemanlarında kapasiteye göre kesme kontrolü sonuçlandırılamadığında gerekçeyi de gösterir.",
+    "zh": "对有钢筋截断的梁，上部钢筋进入受拉时，求解测站之间的截面可能控制跨内受剪验算。报告也会说明主要抗震构件的能力设计剪力验算未完成的原因。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-rc-shear-moment-crossings.md",
+    "heading": "Curtailed beam shear at moment transitions (2026-11-21)"
+  }
+}

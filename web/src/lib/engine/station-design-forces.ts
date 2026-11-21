@@ -2033,11 +2033,11 @@ function evaluateProvidedReinforcement(
     }
     return orderedCombos = [...byCombo.values()].map(combo => combo.sort((a, b) => a.stationT - b.stationT));
   };
-  const interpolateCuts = (positions: readonly number[]) => {
+  const interpolateCuts = (positions: readonly number[] | ((combo: readonly Tuple[]) => readonly number[])) => {
     const cuts: Tuple[] = [];
     for (const combo of stationCombos()) {
       let hi = 1;
-      for (const t of positions) {
+      for (const t of typeof positions === 'function' ? positions(combo) : positions) {
         while (hi < combo.length && combo[hi]!.stationT < t) hi++;
         const a = combo[hi - 1], b = combo[hi];
         if (a && b && a.stationT < t && t < b.stationT) cuts.push(a.interpolate(b, t));
@@ -2045,14 +2045,17 @@ function evaluateProvidedReinforcement(
     }
     return cuts;
   };
-  const cutsAround = (breaks: number[]) => {
-    const interior = [...new Set([0, 1, ...breaks].filter(t => t >= 0 && t <= 1))].sort((a, b) => a - b);
-    return interpolateCuts([...new Set(interior.flatMap((t, i) => {
-      const from = interior[i - 1];
-      if (from === undefined) return [t];
-      const step = Math.min((t - from) / 3, Number.EPSILON);
-      return [from + step, (from + t) / 2, t - step, t];
-    }))].sort((a, b) => a - b));
+  const cutsAround = (breaks: number[], comboBreaks?: (combo: readonly Tuple[]) => number[]) => {
+    const positions = (extra: readonly number[]) => {
+      const interior = [...new Set([0, 1, ...breaks, ...extra].filter(t => t >= 0 && t <= 1))].sort((a, b) => a - b);
+      return [...new Set(interior.flatMap((t, i) => {
+        const from = interior[i - 1];
+        if (from === undefined) return [t];
+        const step = Math.min((t - from) / 3, Number.EPSILON);
+        return [from + step, (from + t) / 2, t - step, t];
+      }))].sort((a, b) => a - b);
+    };
+    return interpolateCuts(comboBreaks ? combo => positions(comboBreaks(combo)) : positions([]));
   };
   const hasTuples = allTuples.length > 0;
   const M = (t: Tuple) => tupleMoment(t, axes.flexure);
@@ -2997,6 +3000,17 @@ function evaluateProvidedReinforcement(
     }
     const shearDemandLimit = 0.001;
     const activeHoggingShear = (t: Tuple) => Math.abs(V(t)) >= shearDemandLimit && M(t) < -shearDemandLimit;
+    const thresholdFraction = (a: number, b: number, limit: number) =>
+      (a < limit) !== (b < limit) ? (limit - a) / (b - a) : undefined;
+    const momentThresholds = (combo: readonly Tuple[]) => {
+      const positions: number[] = [];
+      for (let i = 1; i < combo.length; i++) {
+        const a = combo[i - 1]!, b = combo[i]!;
+        const fraction = thresholdFraction(M(a), M(b), -shearDemandLimit);
+        if (fraction !== undefined) positions.push(a.stationT + fraction * (b.stationT - a.stationT));
+      }
+      return positions;
+    };
     const retainedSpanCuts = () => {
       if (spacingRule.edition !== '2025' || !shearLayoutBreaks.some(t => t > 0 && t < 1)) return [];
       const candidates = stirrupCoverage ?? (stirSpan ? [stirSpan] : []);
@@ -3004,8 +3018,8 @@ function evaluateProvidedReinforcement(
         computeShearCapacity(stir.diameter, stir.legs, stir.spacing, section.b, d, section.fc, section.fy, 0,
           { Ag: section.b * section.h, h: section.h, edition: spacingRule.edition }).avBelowMin));
       if (!rowCCages.size) return [];
-      return cutsAround([tStartEnd, tEndStart, ...shearLayoutBreaks]).filter(t =>
-        t.stationT > tStartEnd && t.stationT < tEndStart && activeHoggingShear(t)
+      return cutsAround([tStartEnd, tEndStart, ...shearLayoutBreaks], momentThresholds).filter(t =>
+        t.stationT > tStartEnd && t.stationT < tEndStart && Math.abs(V(t)) >= shearDemandLimit
         && (stirrupsAt(t) ?? (stirSpan ? [stirSpan] : [])).some(stir => rowCCages.has(stir))
         && typeof hoggingLayoutAt(t.stationT) === 'object');
     };
@@ -3023,10 +3037,9 @@ function evaluateProvidedReinforcement(
             if (from >= to) continue;
             const left = a.interpolate(b, from), right = a.interpolate(b, to);
             const cuts = [0, 1];
-            for (const [u, v] of [[M(left) + shearDemandLimit, M(right) + shearDemandLimit],
-              [V(left) - shearDemandLimit, V(right) - shearDemandLimit],
-              [V(left) + shearDemandLimit, V(right) + shearDemandLimit]] as const) {
-              if ((u < 0 && v > 0) || (u > 0 && v < 0)) cuts.push(u / (u - v));
+            for (const fraction of [thresholdFraction(M(left), M(right), -shearDemandLimit),
+              thresholdFraction(V(left), V(right), shearDemandLimit), thresholdFraction(V(left), V(right), -shearDemandLimit)]) {
+              if (fraction !== undefined && fraction > 0 && fraction < 1) cuts.push(fraction);
             }
             cuts.sort((u, v) => u - v);
             for (let k = 1; k < cuts.length; k++) {

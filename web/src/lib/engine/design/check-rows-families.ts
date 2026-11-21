@@ -167,6 +167,8 @@ export function jointShearCheckRows(j: JointResult, edition = '2025'): CheckRow[
  */
 const SEISMIC_SUBSTITUTE = 'substitute: ACI 318-19 chapter 18; CIRSOC 201-2025 §18.1 requires INPRES-CIRSOC 103 Parte II 2026, not in the repository: not verified';
 const SEISMIC_CLAUSE = '18.1';
+const SEISMIC_SHEAR = { key: 'check.seismic.shear', title: 'Capacity shear' };
+const SEISMIC_DETAILING = { key: 'check.seismic.detailing', title: 'Seismic detailing' };
 const substitute = (p: { key: string; title: string; aci: string; formula: string; inputs: CheckInput[]; result: string; location?: string; extra?: readonly string[] }): CheckRow =>
   row({ key: p.key, title: p.title, clause: SEISMIC_CLAUSE, formula: p.formula, inputs: p.inputs, ratio: null, status: 'notVerified',
     ...(p.location ? { location: p.location } : {}), derivation: [SEISMIC_SUBSTITUTE, `ACI 318-19 ${p.aci}: ${p.result}`, ...(p.extra ?? [])] });
@@ -174,22 +176,21 @@ const u3 = (u: number) => (Number.isFinite(u) ? u.toFixed(3) : '∞');
 
 /** The capacity checks of a member of a seismic frame: capacity shear and detailing, as substitutes. */
 export function seismicMemberCheckRows(m: MemberSeismic): CheckRow[] {
-  if (m.refusal) return [row({
-    key: 'check.seismic.detailing', title: 'Seismic detailing', clause: SEISMIC_CLAUSE,
-    formula: m.refusal, inputs: [], ratio: null, status: 'notVerified',
-  })];
+  if (m.refusal !== undefined) return [SEISMIC_SHEAR, SEISMIC_DETAILING].map(check => row({
+    ...check, clause: SEISMIC_CLAUSE, formula: m.refusal, inputs: [], ratio: null, status: 'notVerified',
+  }));
   const out: CheckRow[] = [];
   const beam = m.kind === 'beam';
   if (m.shear) {
     out.push(substitute({
-      key: 'check.seismic.shear', title: 'Capacity shear', aci: beam ? '§18.6.5' : '§18.7.6', formula: 'Ve ≤ φ·Vn',
+      ...SEISMIC_SHEAR, aci: beam ? '§18.6.5' : '§18.7.6', formula: 'Ve ≤ φ·Vn',
       inputs: [inp('Ve', m.shear.ve, 'kN'), inp('φVn', m.shear.phiVn, 'kN')],
       result: `Ve/φVn = ${u3(m.shear.utilization)}${m.shear.vcZero ? `, Vc = 0 (${beam ? '§18.6.5.2' : '§18.7.6.2'})` : ''}`,
     }));
   }
   if (m.role === 'primary' && (m.shear || m.issues.length)) {
     out.push(substitute({
-      key: 'check.seismic.detailing', title: 'Seismic detailing', aci: beam ? '§18.6.4' : '§18.7.5', formula: beam ? 'hoops over 2h at s ≤ min(d/4; 6·db; 150 mm)' : 'lo, so and Ash',
+      ...SEISMIC_DETAILING, aci: beam ? '§18.6.4' : '§18.7.5', formula: beam ? 'hoops over 2h at s ≤ min(d/4; 6·db; 150 mm)' : 'lo, so and Ash',
       inputs: [], result: m.issues.length ? `${m.issues.length} rule(s) not met, listed below` : 'every rule met', extra: m.issues,
     }));
   }
