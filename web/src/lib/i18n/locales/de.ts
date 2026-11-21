@@ -12175,6 +12175,8 @@ const de: Translations = {
   'viewport3d.pointLoadOnMemberApplied': 'Einzellast auf Stab {id} aufgebracht',
   'edit.refused.prestress': '{n} Verbindungen wurden beibehalten: Ein Stab dort führt ein Spannglied, und die Spannglieder zweier Stäbe bilden keine gemeinsame Parabel.',
   'svc.pointMomentOnTruss': 'Stab {n} nimmt keine Biegung auf (Fachwerkstab oder einseitig wirkender Stab) und trägt ein Einzelmoment. Verschieben Sie das Moment auf einen Knoten oder ändern Sie den Stabtyp.',
+  'svc.planarPointLoadNoProjection': 'Die ebene Einzellast {load} kann nicht angesetzt werden, weil Stab {n} keine nutzbare Projektion in der Lastebene hat. Ersetzen Sie sie durch eine räumliche Einzellast am Stab.',
+  "svc.planarPointLoadMomentAliases": "Die ebene Einzellast {load} an Stab {n} hat widersprüchliche oder ungültige Momentenfelder (my und mz). Geben Sie ein einziges endliches Moment ein.",
   'svc.loadOnMissingMember': 'Last {load} liegt auf Stab {n}, den das Modell nicht hat. Löschen Sie die Last oder setzen Sie sie auf einen Stab.',
   'svc.loadOnMissingNode': 'Last {load} liegt auf Knoten {n}, den das Modell nicht hat. Löschen Sie die Last oder setzen Sie sie auf einen Knoten.',
   'svc.imposedUnsupported': 'Eine eingeprägte Verschiebung erfordert ein Auflager, das diese Richtung in globalen Achsen festhält. Knoten ohne ein solches: {list}.',

@@ -99,10 +99,34 @@ export function addsLoop(cases: readonly CaseLike[], id: number, patch: Partial<
  * The model with every case's loads as solved. `includeSelfWeight` is the older switch, read only
  * when the model states no self-weight rows (`self-weight.ts`).
  */
-export function withCaseEffects<M extends ModelData>(model: M, cases: readonly CaseLike[], opts: { includeSelfWeight: boolean; leftHand: boolean }): M {
-  if (!hasCaseEffects(cases)) return model;
+export function withCaseEffects<M extends ModelData>(
+  model: M, cases: readonly CaseLike[], opts: { includeSelfWeight: boolean; leftHand: boolean },
+  caseIds?: ReadonlySet<number>,
+): M {
+  const scope = caseIds && cases.some(c => !caseIds.has(c.id)) ? caseIds : undefined;
+  const hasEffects = hasCaseEffects(cases);
+  if (!scope && !hasEffects) return model;
+  const byId = new Map(cases.map(c => [c.id, c]));
+  const inScope = (id: number) => !scope || scope.has(id) || !byId.has(id);
+  if (!hasEffects) {
+    return { ...model, loads: model.loads.filter(l => inScope(l.data.caseId ?? 1)) };
+  }
   const { order, looped } = caseOrder(cases);
-  const byId = new Map(cases.map((c) => [c.id, c]));
+  const required = scope && new Set(scope);
+  if (required) {
+    const pending = [...required];
+    for (const id of pending) {
+      const c = byId.get(id);
+      if (!c || looped.has(id)) continue;
+      const deps = (c.includes ?? []).filter(inc => inc.factor !== 0).map(inc => inc.caseId);
+      if (c.notional) deps.push(c.notional.sourceCaseId);
+      for (const dep of deps) {
+        if (required.has(dep)) continue;
+        required.add(dep);
+        pending.push(dep);
+      }
+    }
+  }
 
   // The self-weight rows, written out: the older switch puts gravity on every dead-load case,
   // not on a composite one typed D, which has it through the cases it takes in.
@@ -121,6 +145,7 @@ export function withCaseEffects<M extends ModelData>(model: M, cases: readonly C
   };
 
   for (const id of order) {
+    if (required && !required.has(id)) continue;
     const c = byId.get(id)!;
     const k = ratioOf(c);
     const list = (own.get(id) ?? []).map((l) => (k === 1 ? l : fresh(l, id, k)));
@@ -151,8 +176,8 @@ export function withCaseEffects<M extends ModelData>(model: M, cases: readonly C
   const orphan = model.loads.filter((l) => !byId.has(l.data.caseId ?? 1));
   return {
     ...model,
-    loads: [...orphan, ...order.flatMap((id) => loads.get(id) ?? [])],
-    analysis: { ...(model.analysis ?? {}), selfWeight: [...rows.values()].flat() },
+    loads: [...orphan, ...order.filter(inScope).flatMap(id => loads.get(id) ?? [])],
+    analysis: { ...(model.analysis ?? {}), selfWeight: [...rows.entries()].filter(([id]) => inScope(id)).flatMap(([, own]) => own) },
   };
 }
 

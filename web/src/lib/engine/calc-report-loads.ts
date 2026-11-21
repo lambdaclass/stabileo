@@ -8,6 +8,7 @@
  */
 
 import { planePointLoad3D, type PlanePointLoadLike } from './member-point-loads';
+import { planarPointMoment } from './planar-point-load';
 import { shouldEmbedFlat2DModelIn3D } from './model-embedding';
 import type { ModelData } from './solver-service';
 import { axesStore } from '../axes/axes.svelte';
@@ -116,13 +117,15 @@ export function pointOnElementText(
     if (!(length > 0 && Number.isFinite(length))) return null;
   }
 
+  const moment = planarPointMoment(d);
+  if (moment === null) return null;
   const transform = quantityTransform(frame);
   const projectToXZ = plane !== 'xy';
   const converted = planePointLoad3D({ elementId: 0, ...d }, ...memberDirection, projectToXZ);
   let moments: Component[];
   if (plane === 'planar') {
     const normal = userAxisAlong(frame, 1).name.toLowerCase();
-    const rotation = transform.plane({ kind: 'pseudovector', axis: 'rot', value: d.my ?? d.mz ?? 0 });
+    const rotation = transform.plane({ kind: 'pseudovector', axis: 'rot', value: moment ?? 0 });
     moments = [[`M${normal}`, rotation, 'moment']];
   } else {
     const values = transform.triple({
