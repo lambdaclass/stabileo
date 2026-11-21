@@ -2057,6 +2057,37 @@ for (const spatial of [false, true]) for (const nonlinear of [false, true]) {
 
 const curtailedShearModes = ['station tuples', '2D linear', '2D P-Delta', '3D linear', '3D P-Delta'] as const;
 
+const curvedShearCrossing = 0.1;
+const curvedShearChord = 1 - (1 - curvedShearCrossing) ** 2;
+
+function curtailedShearSolver(mode: typeof curtailedShearModes[number], L: number, left: number, curvedTransition: boolean, face: 'top' | 'bottom' = 'top') {
+  const threshold = -0.001;
+  const chordFraction = curvedShearChord;
+  const solver = mode === 'station tuples' ? undefined
+    : solvedVerdictBeam(mode.startsWith('3D'), mode.endsWith('P-Delta'), section, L);
+  return (hogging: boolean, force: number) => {
+    if (!solver) return;
+    const end = 0.5;
+    const load = { a: left * L, b: end * L, q: force / ((end - left) * L) };
+    const calc = (my: number) => {
+      const result = solver.run(0, 0, my, load);
+      return { ...computeStationDemands(new Map([[1, result]]), combos, solver.solvedModel), result };
+    };
+    const at = (value: ReturnType<typeof calc>, t: number) => value.stations.get(1)!.comboResults[0]!.stations.find(s => s.t === t)!;
+    let base = calc(0);
+    const sign = face === 'top' ? 1 : -1;
+    if (sign * (at(base, left).my - at(base, end).my) < 0) {
+      load.q *= -1;
+      base = calc(0);
+    }
+    const ml = at(base, left).my;
+    const change = at(calc(1), left).my - ml;
+    const drop = sign * (ml - at(base, end).my);
+    const target = hogging ? (curvedTransition ? threshold + chordFraction * drop : 0.005) : drop + 1;
+    return calc((sign * target - ml) / change);
+  };
+}
+
 function checkRowCShear(mode: typeof curtailedShearModes[number] | 'continuous layout', curvedTransition = false) {
   const continuous = mode === 'continuous layout';
   const L = 4, left = 0.4, right = 0.6;
@@ -2075,35 +2106,14 @@ function checkRowCShear(mode: typeof curtailedShearModes[number] | 'continuous l
   expect(section.h - layerCentroid([outer, inner], section.cover, hoops.diameter)).toBeLessThan(d);
   expect(section.h - layerCentroid([outer], section.cover, hoops.diameter)).toBeGreaterThan(d);
 
-  const crossingFraction = 0.1;
-  const chordFraction = 1 - (1 - crossingFraction) ** 2;
+  const crossingFraction = curvedShearCrossing;
+  const chordFraction = curvedShearChord;
   const lower = retained.phiVn / (1 - crossingFraction);
   const upper = Math.min(credited.phiVn, retained.phiVn / (1 - chordFraction));
   const high = curvedTransition ? lower + 0.25 * (upper - lower)
     : retained.phiVn + 0.48 * (credited.phiVn - retained.phiVn);
   const threshold = -0.001;
-  const solver = mode === 'station tuples' || continuous ? undefined
-    : solvedVerdictBeam(mode.startsWith('3D'), mode.endsWith('P-Delta'), section, L);
-  const solveCuts = (hogging: boolean, force: number) => {
-    if (!solver) return;
-    const end = 0.5;
-    const load = { a: left * L, b: end * L, q: force / ((end - left) * L) };
-    const calc = (my: number) => {
-      const result = solver.run(0, 0, my, load);
-      return { ...computeStationDemands(new Map([[1, result]]), combos, solver.solvedModel), result };
-    };
-    const at = (value: ReturnType<typeof calc>, t: number) => value.stations.get(1)!.comboResults[0]!.stations.find(s => s.t === t)!;
-    let base = calc(0);
-    if (at(base, left).my < at(base, end).my) {
-      load.q *= -1;
-      base = calc(0);
-    }
-    const ml = at(base, left).my;
-    const change = at(calc(1), left).my - ml;
-    const drop = ml - at(base, end).my;
-    const target = hogging ? (curvedTransition ? threshold + chordFraction * drop : 0.005) : drop + 1;
-    return calc((target - ml) / change);
-  };
+  const solveCuts = curtailedShearSolver(continuous ? 'station tuples' : mode, L, left, curvedTransition);
   for (const drawn of [false, true]) for (const extracted of [false, true]) {
     const top = continuous ? [outer] : [outer, inner];
     const provided: ProvidedReinforcement = drawn ? membersFromLine({
@@ -2197,6 +2207,104 @@ for (const mode of curtailedShearModes) {
 
 for (const mode of curtailedShearModes) {
   it(`#2434 bounds shear when distributed loading curves the hogging transition (${mode})`, () => checkRowCShear(mode, true));
+}
+
+const curvedCutoffReproducer = process.env.RUN_KNOWN_WRONG === '2434' ? it : it.skip;
+for (const mode of curtailedShearModes) for (const face of ['top', 'bottom'] as const) {
+  curvedCutoffReproducer(`known wrong result: #2434 refuses a ${face}-bar cutoff inside the curved moment transition (${mode})`, () => {
+    const L = 4, left = 0.4, right = 0.5;
+    const sign = face === 'top' ? 1 : -1;
+    const regionT = face === 'top' ? 0.25 : 0.49;
+    const outer = { count: 3, diameter: 16, row: 0 };
+    const inner = { ...outer, count: 2, row: 1 };
+    const layers = [outer, inner];
+    const hoops = { diameter: 8, legs: 2, spacing: 0.6 };
+    const d = section.h - layerCentroid(layers, section.cover, hoops.diameter);
+    const capacity = (bars: typeof layers) => computeShearCapacity(hoops.diameter, hoops.legs, hoops.spacing,
+      section.b, d, section.fc, section.fy, 0,
+      { Ag: section.b * section.h, h: section.h, rhoW: layersTotalArea(bars) / (section.b * d * 1e4), edition: '2025' });
+    const retained = capacity([{ ...outer, count: 2 }]).phiVn;
+    const lower = retained / (1 - curvedShearCrossing);
+    const upper = Math.min(capacity(layers).phiVn, retained / (1 - curvedShearChord));
+    const force = lower + 0.25 * (upper - lower);
+    const drop = force * (right - left) * L / 2;
+    const momentAtLeft = -0.001 + curvedShearChord * drop;
+    const momentAtRight = momentAtLeft - drop;
+    const stations = [
+      { t: 0, my: momentAtLeft, vz: 0 },
+      { t: left, my: momentAtLeft, vz: force },
+      { t: right, my: momentAtRight, vz: 0 },
+      { t: 1, my: momentAtRight, vz: 0 },
+    ].map(s => ({ ...s, x: s.t * L, my: sign * s.my, vz: sign * s.vz, n: 0, mz: 0, vy: 0, torsion: 0 }));
+    const solved = curtailedShearSolver(mode, L, left, true, face)(true, force);
+    const layout = solved?.stations.get(1) ?? { elementId: 1, length: L, stationTs: stations.map(s => s.t),
+      comboResults: [{ comboId: 1, comboName: 'Review', stations }] };
+    const cuts = layout.comboResults[0]!.stations;
+    const a = cuts.find(s => s.t === left)!, b = cuts.find(s => s.t > left)!;
+    expect(Math.abs(a.vz)).toBeCloseTo(force, 8);
+    expect(b.vz).toBeCloseTo(0, 8);
+    expect(b.t).toBe(right);
+    expect((a.my + sign * 0.001) / (a.my - b.my)).toBeCloseTo(curvedShearChord, 8);
+    if (solved) {
+      const element = solved.result.elementForces.find(ef => ef.elementId === 1)!;
+      const crossing = extractForcesAtStation(element, left + curvedShearCrossing * (right - left));
+      expect(crossing.my).toBeCloseTo(-sign * 0.001, 8);
+      expect(Math.abs(crossing.vz)).toBeCloseTo(force * (1 - curvedShearCrossing), 8);
+    }
+
+    const demands = solved?.demands.get(1) ?? extractGoverningDemands(layout);
+    const region = face === 'top' ? 'Span' : 'Support';
+    const reason = face === 'top' ? 'diag.rcShearCutoff' : 'diag.rcShearTensionSteel';
+    for (const [from, to] of [[-0.09, -0.05], [0.05, 0.09], [0.12, 0.17], [0.21, 0.24], [0, 0]] as const) {
+      const fromT = left + from * (right - left), toT = left + to * (right - left);
+      const gap = from !== to, refused = gap && from > 0;
+      for (const drawn of [false, true]) {
+        const provided: ProvidedReinforcement = drawn ? membersFromLine({
+          version: 1, members: [1], lengths: [L],
+          bars: (['top', 'bottom'] as const).flatMap(side => layers.flatMap(layer => {
+            const bar = { ...layer, face: side, role: 'main' as const, id: `${side}-${layer.row}` };
+            return side === face && gap ? [
+              { ...bar, from: 0, to: fromT * L },
+              { ...bar, id: `${bar.id}-end`, from: toT * L, to: L },
+            ] : [{ ...bar, from: 0, to: L }];
+          })),
+          stirrups: [{ ...hoops, id: 'hoops', from: 0, to: L }],
+        }, [{ id: 1, L, tStart: regionT, tEnd: regionT, faceStart: 0, faceEnd: 0,
+          reinforcement: { regions: { regionT } } }]).get(1)! : {
+          stirrups: hoops,
+          regions: {
+            regionT, bottomSpanLayers: layers, topStartLayers: layers, topEndLayers: layers,
+            ...(face === 'top' && gap ? {
+              topStartGroups: [{ layers, extensionEnd: (fromT - regionT) * L }],
+              topEndGroups: [{ layers, extensionStart: (1 - regionT - toT) * L }],
+            } : {}),
+            ...(face === 'bottom' && gap ? {
+              bottomGroups: [{ layers, extensionStart: (regionT - toT) * L }],
+            } : {}),
+          },
+        };
+        for (const extracted of [false, true]) {
+          const args = [1, 'beam', provided, extracted ? demands : undefined, {}, section,
+            extracted ? undefined : layout, undefined, { axes, spacingRule: { edition: '2025', maxAggregateSizeMm: 20 } }] as const;
+          const [id, kind, rebar, ...data] = args;
+          const reports = [verifyProvidedReinforcement(...args), rankProvidedReinforcement(...args).ranking,
+            prepareProvidedReinforcementRanker(id, kind, ...data)(rebar)];
+          for (const [entry, report] of reports.entries()) {
+            const row = report.checks.find(r => r.category === `Shear ${region} (Vz)`);
+            const context = `drawn=${drawn}, extracted=${extracted}, entry=${entry}, gap=[${from}, ${to}]`;
+            if (refused) {
+              expect.soft(row, context).toMatchObject({ status: 'fail', capacity: 0, ratio: Infinity,
+                limiting: 'unsupportedCheck', description: reason });
+              expect.soft(row?.stationX, context).toBeGreaterThan((face === 'bottom' && !drawn ? left : fromT) * L);
+              expect.soft(row?.stationX, context).toBeLessThan(toT * L);
+            } else {
+              expect.soft(row, context).toMatchObject({ status: 'ok', demand: +force.toFixed(2), capacity: capacity(layers).phiVn });
+            }
+          }
+        }
+      }
+    }
+  });
 }
 
 const continuousShear = process.env.RUN_KNOWN_WRONG === '2355' ? it : it.skip;
