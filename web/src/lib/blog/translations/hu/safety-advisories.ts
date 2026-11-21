@@ -242,6 +242,16 @@ const body: PostBody = {
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-098-rc-drawn-reinforcement-verification.md", "label": "SA-2026-098", "t": "Érintett modellek és szükséges teendők."},
     {"k": "note", "t": "SA-2026-099 — Letiltással kezelve a 0.6.3 verzióban."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-099-gravity-and-roof-step-loads.md", "label": "SA-2026-099", "t": "Érintett modellek és szükséges teendők."},
+    {"k": "note", "t": "SA-2026-100 — Következő kiadás (0.6.4)."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-100-result-display-signs.md", "label": "SA-2026-100", "t": "Érintett bemenetek és szükséges teendők."},
+    {"k": "note", "t": "SA-2026-101 — Következő kiadás (0.6.4)."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-101-plate-analysis-conformity.md", "label": "SA-2026-101", "t": "Érintett bemenetek és szükséges teendők."},
+    {"k": "note", "t": "SA-2026-102 — Következő kiadás (0.6.4)."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-102-diagram-extrema-and-span-demands.md", "label": "SA-2026-102", "t": "Érintett bemenetek és szükséges teendők."},
+    {"k": "note", "t": "SA-2026-103 — Következő kiadás (0.6.4)."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-103-rc-torsion-evidence.md", "label": "SA-2026-103", "t": "Érintett bemenetek és szükséges teendők."},
+    {"k": "note", "t": "SA-2026-104 — Következő kiadás (0.6.4)."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-104-member-load-reversal-and-planar-couples.md", "label": "SA-2026-104", "t": "Érintett bemenetek és szükséges teendők."},
     {
       "k": "img",
       "base": "blog/recheck-stale",
@@ -766,7 +776,12 @@ const body: PostBody = {
         ["SA-2026-096", "A statikus földrengésteher előállítása merevítési vagy hálócsomópontokat emeletnek vehetett, és a tetőrudak tehetetlenségi terhét a rúdvégekre helyezhette. Ellenőrizze a födémszinteket és a tetőrudak terhelését. Az elemzés és a méretezési ellenőrzések megismétlése előtt hozza létre újra a tehereseteket.", "Magas", "Javítva a 0.6.3 verzióban"],
         ["SA-2026-097", "A munkafüzet importálásakor modelladatok maradhattak ki, a 2D export pedig egy forgási rugót eltolódási rugóként jelölhetett. Hasonlítsa össze az importált modellt az eredeti munkafüzettel, majd javítsa és importálja újra. Ellenőrizze a támaszokat és a terheket, majd ismételje meg az érintett számításokat és exportokat.", "Magas", "Javítva a 0.6.3 verzióban"],
         ["SA-2026-098", "A vasbeton-ellenőrzés túl nagy kengyeltávolságot fogadhatott el, vagy a vizsgált szelvényben hiányzó vasalást vehetett figyelembe. Az oszloprajzokon hibás rúdátmérők jelenhettek meg. Ellenőrizze újból a megadott vasalást az egyidejű igénybevételekkel, majd vizsgálja át az érintett rajzokat, vasalási kimutatásokat és jelentéseket.", "Magas", "Javítva a 0.6.3 verzióban"],
-        ["SA-2026-099", "A gravitációs terhek előállítása kétszer terhelhetett egy héj- és gerendamezőt, vagy elforgatás, illetve felosztás után megváltoztathatta a terhelt rudak kijelölését. A tetőlépcsőnél felhalmozódó hó terhének átadása erőt és nyomatékot veszíthetett. Hozza létre újra a terheket, és letiltás esetén használjon függetlenül ellenőrzött tehereseteket.", "Magas", "Letiltással kezelve a 0.6.3 verzióban"]
+        ["SA-2026-099", "A gravitációs terhek előállítása kétszer terhelhetett egy héj- és gerendamezőt, vagy elforgatás, illetve felosztás után megváltoztathatta a terhelt rudak kijelölését. A tetőlépcsőnél felhalmozódó hó terhének átadása erőt és nyomatékot veszíthetett. Hozza létre újra a terheket, és letiltás esetén használjon függetlenül ellenőrzött tehereseteket.", "Magas", "Letiltással kezelve a 0.6.3 verzióban"],
+        ["SA-2026-100", "A támasznyomatékok, a szabadtestábrák és a pontterhek listái hibás előjelet vagy tengelyt mutathattak. Ellenőrizze az értékeket az egyensúly és a terhek iránya alapján. Vizsgálja meg újra az érintett eredményeket, és készítse el újra a jelentéseket.", "Közepes", "Következő kiadás (0.6.4)"],
+        ["SA-2026-101", "A PRO kihagyott lemezekkel, hiányos adatokból készült hálókkal vagy csatlakozás nélküli fal–födém kapcsolatokkal is számolhatott. Hasonlítsa össze a hálót a tervezett geometriával, javítsa az érintett lemezeket és csatlakozásokat, majd ismételje meg a számítást és a méretezési ellenőrzéseket.", "Magas", "Következő kiadás (0.6.4)"],
+        ["SA-2026-102", "Az ábrák hibás csúcsértékeket vagy igénybevételeket adhattak koncentrált hatások közelében, a megfordított rúdszakaszok pedig felcserélhették a vasbeton ellenőrzött oldalait. Ellenőrizze a mértékadó igénybevételeket, a vasalás oldalát és az acélszerkezetek nyomatékgradiensének adatait. Ismételje meg az érintett számításokat és ellenőrzéseket.", "Magas", "Következő kiadás (0.6.4)"],
+        ["SA-2026-103", "A vasbeton csavarási és nyírási ellenőrzései elégtelen keresztirányú vasalást fogadhattak el, vagy nem igazolt kerületi, illetve húzott betonacélt vehettek figyelembe. Ismételje meg az ellenőrzéseket a tényleges vasalással és az egyidejű igénybevételekkel, majd vizsgálja felül a jelentéseket.", "Magas", "Következő kiadás (0.6.4)"],
+        ["SA-2026-104", "A rudak megfordítása módosíthatta a megoszló terhek irányát, és a számítás kihagyhatta a régi síkbeli koncentrált nyomatékokat. Ellenőrizze a mentett teherirányokat, végértékeket és nyomatékmezőket. Javítsa a terheket, és ismételje meg az érintett számításokat és méretezési ellenőrzéseket.", "Magas", "Következő kiadás (0.6.4)"]
       ]
     },
     {

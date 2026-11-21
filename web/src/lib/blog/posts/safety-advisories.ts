@@ -105,6 +105,16 @@ export const safetyAdvisories: Post = {
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-098-rc-drawn-reinforcement-verification.md", "label": "SA-2026-098", "t": "Datos afectados y acciones necesarias."},
         {"k": "note", "t": "SA-2026-099 — Contenido en 0.6.3."},
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-099-gravity-and-roof-step-loads.md", "label": "SA-2026-099", "t": "Datos afectados y acciones necesarias."},
+        {"k": "note", "t": "SA-2026-100 — Próxima versión (0.6.4)."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-100-result-display-signs.md", "label": "SA-2026-100", "t": "Entradas afectadas y acciones necesarias."},
+        {"k": "note", "t": "SA-2026-101 — Próxima versión (0.6.4)."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-101-plate-analysis-conformity.md", "label": "SA-2026-101", "t": "Entradas afectadas y acciones necesarias."},
+        {"k": "note", "t": "SA-2026-102 — Próxima versión (0.6.4)."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-102-diagram-extrema-and-span-demands.md", "label": "SA-2026-102", "t": "Entradas afectadas y acciones necesarias."},
+        {"k": "note", "t": "SA-2026-103 — Próxima versión (0.6.4)."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-103-rc-torsion-evidence.md", "label": "SA-2026-103", "t": "Entradas afectadas y acciones necesarias."},
+        {"k": "note", "t": "SA-2026-104 — Próxima versión (0.6.4)."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-104-member-load-reversal-and-planar-couples.md", "label": "SA-2026-104", "t": "Entradas afectadas y acciones necesarias."},
         { k: 'img', base: 'blog/recheck-stale', w: 1600, h: 1000, alt: 'Stabileo PRO con un pórtico de hormigón guardado antes de que los resultados tuvieran versión. Un aviso abajo indica que los resultados están desactualizados porque el proyecto se resolvió con una versión anterior y 19 cambios registrados lo afectan, con los botones para ver qué cambió y volver a calcular.', caption: 'Cómo llega una corrección a un proyecto guardado: hasta que se resuelve de nuevo, sus resultados quedan marcados como desactualizados, con los cambios que lo afectan a un clic.' },
 
         { k: 'h', t: 'Resumen' },
@@ -210,7 +220,12 @@ export const safetyAdvisories: Post = {
             ["SA-2026-096", "La generación sísmica estática podía contar nudos de arriostramiento o de malla como pisos y concentrar la inercia de las barras de cubierta en sus extremos. Revisá las cotas de los pisos y las cargas sobre esas barras. Regenerá los casos antes de repetir el análisis y las verificaciones.", "Alta", "Corregido en 0.6.3"],
             ["SA-2026-097", "La importación de planillas podía omitir datos del modelo y la exportación 2D podía rotular un resorte rotacional como traslacional. Compará el modelo importado con la planilla original, corregila y volvé a importarla. Verificá apoyos y cargas, repetí los análisis afectados y regenerá las exportaciones.", "Alta", "Corregido en 0.6.3"],
             ["SA-2026-098", "Las verificaciones de hormigón podían aceptar estribos demasiado separados o contar armadura ausente en la sección. Los planos de columnas podían indicar diámetros incorrectos. Volvé a verificar la armadura provista con las solicitaciones concurrentes y revisá los planos, planillas e informes afectados.", "Alta", "Corregido en 0.6.3"],
-            ["SA-2026-099", "La generación gravitatoria podía cargar dos veces áreas de placas y vigas o cambiar qué barras reciben carga al rotar o subdividir. La transferencia de nieve en escalones de cubierta podía perder fuerza y momento. Regenerá las cargas y usá casos verificados de forma independiente cuando la generación se bloquee.", "Alta", "Contenido en 0.6.3"]
+            ["SA-2026-099", "La generación gravitatoria podía cargar dos veces áreas de placas y vigas o cambiar qué barras reciben carga al rotar o subdividir. La transferencia de nieve en escalones de cubierta podía perder fuerza y momento. Regenerá las cargas y usá casos verificados de forma independiente cuando la generación se bloquee.", "Alta", "Contenido en 0.6.3"],
+            ["SA-2026-100", "Los momentos de reacción, las lecturas de cuerpo libre y las listas de cargas puntuales podían mostrar signos o ejes incorrectos. Contrastá los valores con el equilibrio y las direcciones de las cargas. Volvé a inspeccionar los resultados y a generar los informes afectados.", "Media", "Próxima versión (0.6.4)"],
+            ["SA-2026-101", "PRO podía calcular con placas omitidas, mallas basadas en datos incompletos o uniones muro–losa desconectadas. Compará la malla con la geometría prevista, corregí las placas y uniones afectadas y repetí el análisis y las verificaciones.", "Alta", "Próxima versión (0.6.4)"],
+            ["SA-2026-102", "Los diagramas podían dar máximos incorrectos o esfuerzos erróneos junto a acciones concentradas, y los tramos con piezas invertidas podían intercambiar las caras de verificación del hormigón armado. Revisá los esfuerzos determinantes, las caras de armadura y los datos del gradiente de momentos en acero. Repetí los análisis y las verificaciones afectados.", "Alta", "Próxima versión (0.6.4)"],
+            ["SA-2026-103", "Las verificaciones de torsión y corte en hormigón podían aceptar armadura transversal insuficiente o contar barras perimetrales o traccionadas sin verificar. Repetí la verificación con la armadura real y los esfuerzos concurrentes. Revisá los informes afectados.", "Alta", "Próxima versión (0.6.4)"],
+            ["SA-2026-104", "Invertir barras podía cambiar la dirección de las cargas distribuidas y el análisis podía omitir momentos puntuales de registros planos antiguos. Revisá las direcciones, las intensidades en los extremos y los campos de momento guardados. Corregí las cargas y repetí los análisis y las verificaciones afectados.", "Alta", "Próxima versión (0.6.4)"]
           ],
         },
         {
@@ -471,6 +486,16 @@ export const safetyAdvisories: Post = {
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-098-rc-drawn-reinforcement-verification.md", "label": "SA-2026-098", "t": "Affected inputs and user action."},
         {"k": "note", "t": "SA-2026-099 — Contained in 0.6.3."},
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-099-gravity-and-roof-step-loads.md", "label": "SA-2026-099", "t": "Affected inputs and user action."},
+        {"k": "note", "t": "SA-2026-100 — Next release (0.6.4)."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-100-result-display-signs.md", "label": "SA-2026-100", "t": "Affected inputs and user action."},
+        {"k": "note", "t": "SA-2026-101 — Next release (0.6.4)."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-101-plate-analysis-conformity.md", "label": "SA-2026-101", "t": "Affected inputs and user action."},
+        {"k": "note", "t": "SA-2026-102 — Next release (0.6.4)."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-102-diagram-extrema-and-span-demands.md", "label": "SA-2026-102", "t": "Affected inputs and user action."},
+        {"k": "note", "t": "SA-2026-103 — Next release (0.6.4)."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-103-rc-torsion-evidence.md", "label": "SA-2026-103", "t": "Affected inputs and user action."},
+        {"k": "note", "t": "SA-2026-104 — Next release (0.6.4)."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-104-member-load-reversal-and-planar-couples.md", "label": "SA-2026-104", "t": "Affected inputs and user action."},
         { k: 'img', base: 'blog/recheck-stale', w: 1600, h: 1000, alt: 'Stabileo PRO with a concrete frame saved before results were versioned. A banner at the bottom reads “Results stale: this project was last solved with an older version, and 19 registered changes concern it”, with the buttons “What changed” and “Re-run”.', caption: 'How a fix reaches a saved project: until it is solved again, its results stay marked stale, with the changes that concern it one click away.' },
 
         { k: 'h', t: 'Summary' },
@@ -576,7 +601,12 @@ export const safetyAdvisories: Post = {
             ["SA-2026-096", "Static seismic generation could count brace or mesh joints as storeys and put rafter inertia at end nodes. Check floor elevations and rafter loading. Regenerate the cases before rerunning analysis and design checks.", "High", "Fixed in 0.6.3"],
             ["SA-2026-097", "Workbook import could omit model data and 2D exports could label a rotational spring as translational. Compare the imported model with the original workbook. Correct and reimport it, verify the supports and loads, then rerun affected analyses and regenerate exports.", "High", "Fixed in 0.6.3"],
             ["SA-2026-098", "Concrete checks could accept excessive stirrup spacing or credit reinforcement absent at the section. Column drawings could show the wrong bar diameters. Recheck against the provided reinforcement and concurrent demands, then review the affected drawings, schedules and reports.", "High", "Fixed in 0.6.3"],
-            ["SA-2026-099", "Gravity generation could load shell and beam areas twice or change carrier assignments after rotation or subdivision. Roof-step snow transfer could lose force and moment. Regenerate the loads and use independently verified cases wherever generation refuses.", "High", "Contained in 0.6.3"]
+            ["SA-2026-099", "Gravity generation could load shell and beam areas twice or change carrier assignments after rotation or subdivision. Roof-step snow transfer could lose force and moment. Regenerate the loads and use independently verified cases wherever generation refuses.", "High", "Contained in 0.6.3"],
+            ["SA-2026-100", "Reaction moments, free-body readouts and point-load listings could show the wrong signs or axes. Verify the displayed values against equilibrium and the intended load directions. Reinspect the affected results and regenerate reports.", "Medium", "Next release (0.6.4)"],
+            ["SA-2026-101", "PRO could solve with omitted plates, meshes based on incomplete input or disconnected wall–slab joints. Compare the mesh with the intended geometry, repair the affected plates and junctions, and rerun analysis and design checks.", "High", "Next release (0.6.4)"],
+            ["SA-2026-102", "Diagrams could give wrong peaks or section forces near concentrated actions, and reversed span pieces could swap concrete design faces. Check governing forces, reinforcement faces and steel moment-gradient inputs. Rerun affected analyses and checks.", "High", "Next release (0.6.4)"],
+            ["SA-2026-103", "Concrete torsion and shear checks could accept insufficient transverse steel or credit unverified perimeter or tension bars. Repeat verification using the actual reinforcement and concurrent demands, and review affected reports.", "High", "Next release (0.6.4)"],
+            ["SA-2026-104", "Reversing members could redirect distributed loads, and analysis could omit legacy planar point couples. Check saved load directions, end ordinates and couple fields. Repair the loads and rerun affected analyses and design checks.", "High", "Next release (0.6.4)"]
           ],
         },
         {
@@ -837,6 +867,16 @@ export const safetyAdvisories: Post = {
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-098-rc-drawn-reinforcement-verification.md", "label": "SA-2026-098", "t": "Entradas afetadas e ações necessárias."},
         {"k": "note", "t": "SA-2026-099 — Contido em 0.6.3."},
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-099-gravity-and-roof-step-loads.md", "label": "SA-2026-099", "t": "Entradas afetadas e ações necessárias."},
+        {"k": "note", "t": "SA-2026-100 — Próxima versão (0.6.4)."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-100-result-display-signs.md", "label": "SA-2026-100", "t": "Entradas afetadas e ações necessárias."},
+        {"k": "note", "t": "SA-2026-101 — Próxima versão (0.6.4)."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-101-plate-analysis-conformity.md", "label": "SA-2026-101", "t": "Entradas afetadas e ações necessárias."},
+        {"k": "note", "t": "SA-2026-102 — Próxima versão (0.6.4)."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-102-diagram-extrema-and-span-demands.md", "label": "SA-2026-102", "t": "Entradas afetadas e ações necessárias."},
+        {"k": "note", "t": "SA-2026-103 — Próxima versão (0.6.4)."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-103-rc-torsion-evidence.md", "label": "SA-2026-103", "t": "Entradas afetadas e ações necessárias."},
+        {"k": "note", "t": "SA-2026-104 — Próxima versão (0.6.4)."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-104-member-load-reversal-and-planar-couples.md", "label": "SA-2026-104", "t": "Entradas afetadas e ações necessárias."},
         { k: 'img', base: 'blog/recheck-stale', w: 1600, h: 1000, alt: 'Stabileo PRO com um pórtico de concreto salvo antes de os resultados terem versão. Um aviso embaixo indica que os resultados estão desatualizados porque o projeto foi resolvido com uma versão anterior e 19 mudanças registradas o afetam, com os botões para ver o que mudou e recalcular.', caption: 'Como uma correção chega a um projeto salvo: até ser resolvido de novo, seus resultados ficam marcados como desatualizados, com as mudanças que o afetam a um clique.' },
 
         { k: 'h', t: 'Resumo' },
@@ -942,7 +982,12 @@ export const safetyAdvisories: Post = {
             ["SA-2026-096", "A geração sísmica estática podia contar nós de contraventamento ou de malha como pavimentos e concentrar a inércia das barras de cobertura nas extremidades. Confira as cotas dos pavimentos e as cargas nas barras. Gere novamente os casos antes de repetir a análise e as verificações.", "Alta", "Corrigido em 0.6.3"],
             ["SA-2026-097", "A importação de planilhas podia omitir dados do modelo e a exportação 2D podia identificar uma mola rotacional como translacional. Compare o modelo importado com a planilha original, corrija e importe novamente. Confira apoios e cargas, repita as análises afetadas e gere novamente as exportações.", "Alta", "Corrigido em 0.6.3"],
             ["SA-2026-098", "As verificações de concreto podiam aceitar estribos muito espaçados ou considerar armadura ausente na seção. Os desenhos de pilares podiam apresentar diâmetros incorretos. Verifique novamente a armadura fornecida com as solicitações simultâneas e revise os desenhos, quadros de armaduras e relatórios afetados.", "Alta", "Corrigido em 0.6.3"],
-            ["SA-2026-099", "A geração de cargas gravitacionais podia carregar duas vezes áreas de cascas e vigas ou mudar os elementos carregados após rotação ou subdivisão. A transferência de neve em desníveis de cobertura podia perder força e momento. Gere novamente as cargas e use casos verificados de forma independente quando houver bloqueio.", "Alta", "Contido em 0.6.3"]
+            ["SA-2026-099", "A geração de cargas gravitacionais podia carregar duas vezes áreas de cascas e vigas ou mudar os elementos carregados após rotação ou subdivisão. A transferência de neve em desníveis de cobertura podia perder força e momento. Gere novamente as cargas e use casos verificados de forma independente quando houver bloqueio.", "Alta", "Contido em 0.6.3"],
+            ["SA-2026-100", "Momentos de reação, leituras de corpo livre e listas de cargas pontuais podiam exibir sinais ou eixos incorretos. Confira os valores pelo equilíbrio e pelas direções das cargas. Revise os resultados e gere novamente os relatórios afetados.", "Média", "Próxima versão (0.6.4)"],
+            ["SA-2026-101", "O PRO podia calcular com placas omitidas, malhas feitas com entradas incompletas ou ligações entre paredes e lajes desconectadas. Compare a malha com a geometria pretendida, corrija as placas e ligações afetadas e refaça a análise e as verificações.", "Alta", "Próxima versão (0.6.4)"],
+            ["SA-2026-102", "Os diagramas podiam indicar picos ou esforços incorretos perto de ações concentradas, e trechos invertidos podiam trocar as faces verificadas no concreto. Confira os esforços determinantes, as faces das armaduras e os dados de gradiente de momentos no aço. Refaça as análises e verificações afetadas.", "Alta", "Próxima versão (0.6.4)"],
+            ["SA-2026-103", "As verificações de torção e cisalhamento no concreto podiam aceitar armadura transversal insuficiente ou considerar barras perimetrais ou tracionadas sem comprovação. Refaça a verificação com a armadura existente e os esforços simultâneos. Revise os relatórios afetados.", "Alta", "Próxima versão (0.6.4)"],
+            ["SA-2026-104", "Inverter barras podia mudar a direção das cargas distribuídas, e a análise podia omitir momentos pontuais planos de registros antigos. Confira as direções, os valores nas extremidades e os campos de momento salvos. Corrija as cargas e refaça as análises e verificações afetadas.", "Alta", "Próxima versão (0.6.4)"]
           ],
         },
         {
