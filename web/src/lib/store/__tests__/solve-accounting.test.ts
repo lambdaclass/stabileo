@@ -1,4 +1,8 @@
 import { beforeEach, expect, it, vi } from 'vitest';
+import { accountingProjection } from '../../engine/accounting-source';
+import {
+  buildSolverInput2D, solveCombinations2D, validateAndSolve2D, validateAndSolve2DAsync, type ModelData,
+} from '../../engine/solver-service';
 import { runDirectAnalysis } from '../../engine/direct-analysis';
 import { agrees, roundoff } from '../../engine/accounting-math';
 import { runGlobalSolve, runLiveCalc } from '../../engine/live-calc';
@@ -11,7 +15,17 @@ import {
   addPlateLoad, applyPlateMeshes, createPlate, meshBeforeAnalysis, planPlateMesh, plateEntry, setPlateMeshSpec,
 } from '../physical-plates';
 
-const fault = vi.hoisted(() => ({ dropMemberLoad: false }));
+const fault = vi.hoisted(() => ({ dropMemberLoad: false, scaleCaseLoad: 1 }));
+const issue2470 = process.env.RUN_KNOWN_WRONG === '2470' ? it : it.skip;
+
+vi.mock('../../model/loads/load-magnitudes', async importOriginal => {
+  const original = await importOriginal<typeof import('../../model/loads/load-magnitudes')>();
+  return {
+    ...original,
+    scaledLoad: (load: Parameters<typeof original.scaledLoad>[0], factor: number) =>
+      original.scaledLoad(load, factor * fault.scaleCaseLoad),
+  };
+});
 vi.mock('../../engine/member-loads', async importOriginal => {
   const original = await importOriginal<typeof import('../../engine/member-loads')>();
   return {
@@ -30,6 +44,7 @@ beforeEach(() => {
   uiStore.includeSelfWeight = false;
   meshBeforeAnalysis.value = true;
   fault.dropMemberLoad = false;
+  fault.scaleCaseLoad = 1;
 });
 
 function cantilever(mode: '2d' | '3d') {
@@ -257,4 +272,84 @@ it.each([false, true])('accounts for a what-if plate pressure change with nonlin
     whatIf.abandon();
     vi.useRealTimers();
   }
+});
+
+async function outcome(solve: () => unknown) {
+  const result = await refusal(solve);
+  return result && typeof result === 'object' ? 'returned a result' : result;
+}
+
+for (const plane of ['xz', 'yz'] as const) {
+  issue2470.each([false, true])('#2470 detects a row lost in planar projection to ' + plane + ' (partial batch: %s)', async partial => {
+    cantilever('2d');
+    const model = modelStore.model;
+    const tip = [...model.nodes.keys()].at(-1)!;
+    const cases = [{ id: 1, name: 'A', type: 'D' }, { id: 2, name: 'B', type: 'L' }];
+    const kept = { type: 'nodal' as const, data: { id: 2, nodeId: tip, fx: 0, fz: -2, my: 0, caseId: partial ? 1 : 2 } };
+    const source: ModelData = {
+      ...model,
+      nodes: new Map([...model.nodes].map(([id, node]) => [id, plane === 'xz' ? node : { ...node, x: 0, y: node.x }])),
+      loads: [
+        { type: 'nodal3d', data: { id: 1, nodeId: tip, fx: 0, fy: 0, fz: -3, mx: 0, my: 0, mz: 0, caseId: 1 } },
+        { type: 'nodal3d', data: { ...kept.data, fy: 0, mx: 0, mz: 0 } },
+      ],
+      loadCases: cases,
+    };
+    const projected: ModelData = { ...model, loads: [kept], loadCases: cases, [accountingProjection]: { plane, source } };
+    const combos = [{ id: 1, name: 'A only', factors: [{ caseId: 1, factor: 1 }] }];
+    const paths = {
+      linear: () => validateAndSolve2D(projected),
+      async: () => validateAndSolve2DAsync(projected),
+      pdelta: () => solvePDelta(buildSolverInput2D(projected)!),
+      batch: () => solveCombinations2D(projected, cases, combos),
+      fallback: () => solveCombinations2D(projected, cases.map(c => ({ ...c, name: 'A' })), combos),
+    };
+    const amounts = partial ? '-5.*-2' : '-3.*0';
+    for (const [path, solve] of Object.entries(paths)) {
+      expect.soft(await outcome(solve), path).toEqual(expect.stringMatching(new RegExp('case.*1.*Fz.*' + amounts, 'i')));
+    }
+    if (!partial) {
+      const onlyKept = [{ id: 3, name: 'B only', factors: [{ caseId: 2, factor: 1 }] }];
+      expect(solveCombinations2D(projected, [cases[1]!], onlyKept)).toMatchObject({ perCase: expect.any(Map) });
+    }
+    const complete: ModelData = { ...projected, loads: [{ ...kept, data: { ...kept.data, id: 1, fz: -3, caseId: 1 } }, kept] };
+    expect(validateAndSolve2D(complete)).toMatchObject({ reactions: expect.any(Array) });
+  });
+}
+
+issue2470.each([
+  { kind: 'nodal', multiplier: 0, applied: 0 },
+  { kind: 'member', multiplier: 2, applied: -12 },
+])('#2470 refuses a $kind load changed by case expansion', async ({ kind, multiplier, applied }) => {
+  const member = cantilever('3d');
+  const model = modelStore.model;
+  const source = modelStore.addLoadCase('Source', 'L');
+  const tip = [...model.nodes.keys()].at(-1)!;
+  modelStore.updateLoadCaseFields(source, { reference: true });
+  modelStore.updateLoadCaseFields(1, { includes: [{ caseId: source, factor: 1.5 }] });
+  model.loads.push(kind === 'nodal'
+    ? { type: 'nodal3d', data: { id: 1, nodeId: tip, fx: 0, fy: 0, fz: -4, mx: 0, my: 0, mz: 0, caseId: source } }
+    : { type: 'distributed3d', data: { id: 1, elementId: member, qYI: 0, qYJ: 0, qZI: -2, qZJ: -2, frame: 'global', caseId: source } });
+
+  expect(modelStore.solve3D(false, false, true)).toMatchObject({ reactions: [expect.objectContaining({ fz: 6 })] });
+  expect(modelStore.solveCombinations3D(false, false, true)).toMatchObject({ perCase: expect.any(Map) });
+  fault.scaleCaseLoad = multiplier;
+  const paths = {
+    linear: () => modelStore.solve3D(false, false, true),
+    async: () => modelStore.solve3DAsync(false, false, true),
+    input: () => modelStore.singleSolveInput3D(false, false, true),
+    combinations: () => modelStore.solveCombinations3D(false, false, true),
+    parallel: () => modelStore.solveCombinations3DParallel(false, false, true),
+    direct: () => runDirectAnalysis(model, model.loadCases, model.combinations, { includeSelfWeight: false }),
+  };
+  const diagnostic = expect.stringMatching(new RegExp('case.*1.*Fz.*-6.*' + applied, 'i'));
+  for (const [path, solve] of Object.entries(paths)) {
+    expect.soft(await outcome(solve), path).toEqual(diagnostic);
+  }
+  modelStore.setAnalysis({ perCombination: 'pdelta' });
+  expect.soft(await outcome(() => modelStore.solveCombinations3D(false, false, true)), 'pdelta').toEqual(diagnostic);
+  expect.soft(await outcome(() => modelStore.solveCombinations3DParallel(false, false, true)), 'pdelta parallel').toEqual(diagnostic);
+  modelStore.updateSupport(model.supports.keys().next().value!, { uplift: true });
+  expect.soft(await outcome(() => modelStore.solve3DAsync(false, false, true)), 'nonlinear single').toEqual(diagnostic);
+  expect.soft(await outcome(() => modelStore.solveCombinations3DParallel(false, false, true)), 'nonlinear combinations').toEqual(diagnostic);
 });
