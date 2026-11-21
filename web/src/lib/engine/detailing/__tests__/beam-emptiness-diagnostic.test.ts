@@ -333,12 +333,15 @@ describe('DIAGNOSTIC: beams with no reinforcement anywhere', { timeout: 900_000 
   it('gives the verified reported beams their own main steel and cage', () => {
     const refused = [
       [199, ['anchorage']], [201, ['anchorage']], [203, ['anchorage']],
-      [198, ['anchorage', 'torsion', 'unsupportedCheck']], [140, ['anchorage']],
+      [198, ['anchorage', 'minSteel', 'unsupportedCheck']], [140, ['anchorage']],
       [143, ['anchorage']], [146, ['congestion']],
     ] as const;
     expect(REPORTED.filter((id) => verificationStore.outcomeFor(id)?.outcome !== 'VERIFIED')
       .map((id) => [id, verificationStore.outcomeFor(id)?.outcome, verificationStore.outcomeFor(id)?.limiting]))
       .toEqual(refused.map(([id, limiting]) => [id, 'SEARCH_EXHAUSTED', limiting]));
+    const beam198 = verificationStore.outcomeFor(198)!;
+    expect(beam198.reasons.filter(reason => reason.key.startsWith('diag.rcTorsion')).map(reason => reason.key).sort())
+      .toEqual(['diag.rcTorsionPerimeter', 'diag.rcTorsionSecondaryFace']);
     for (const id of REPORTED) {
       if (refused.some(([refusedId]) => refusedId === id)) continue;
       const bars = scene.bars.filter((b) => b.elementIds.includes(id));

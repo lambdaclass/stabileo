@@ -1,7 +1,7 @@
 {
   "id": "rc-torsion-evidence",
   "date": "2026-11-21",
-  "prs": [],
+  "prs": [2433],
   "area": "design",
   "when": {
     "all": [

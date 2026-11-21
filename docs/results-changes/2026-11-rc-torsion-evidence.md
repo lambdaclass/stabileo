@@ -9,4 +9,19 @@
 
 In the 408-member flagship, automatic design retains its member-by-member verdicts. The stored secondary shear demand retains its full precision in 122 rows. Verifying the accepted reinforcement as drawn withholds the span shear check for 105 beams. Forty previously passing drawn member verdicts now refuse because their active tension face cannot substantiate the credited steel area.
 
+## Seven-storey gallery example after #2409
+
+The remeshed building processes 168 beams. Compared with main at `0c0413a9e`, every beam retains its design verdict and certificate status. The verified and provisional reinforcement candidates are identical. The committed building has 63 designed and 105 refused beams. The test variant with five rolled beams has 59 verified beams, three biaxial proposals and 106 other refusals. The design-family report counts proposals as refusals, giving 109.
+
+The search retains a different failed candidate for some beams when torsion with concurrent secondary shear requires resolved secondary-face geometry. The selected failures show `diag.rcTorsionSecondaryFace` and `diag.rcTorsionPerimeter` at the support and in the span. The limiting labels describe the retained search candidate.
+
+| Rolled variant | Change in limiting labels | Member evidence |
+| --- | --- | --- |
+| Scene completeness | 32 move from anchorage, torsion and unsupported check to anchorage, minimum steel and unsupported check. | The search retains different failing reinforcement after the secondary-face refusal. Beam 198 is one of these members. |
+| Scene completeness | Beam 190 moves from congestion, minimum steel and unsupported check to anchorage, minimum steel and unsupported check. | The retained candidate fails start anchorage where the prior candidate failed joint threading. |
+| Scene completeness and provisional projections | Seven move from minimum steel and unsupported check to anchorage and unsupported check. | Beams 91, 118, 127, 136, 145, 206 and 219 retain the torsion refusals with anchorage as the other search limit. |
+| Scene completeness and provisional projections | Beam 88 moves from shear, torsion and unsupported check to anchorage, shear and unsupported check. | The retained candidate adds the anchorage limit. The secondary shear failure remains, with explicit torsion evidence refusals. |
+
+The provisional-projection test therefore counts 104 of the 106 bare beams with an anchorage or congestion limit, up from 96. The design-family report counts the same eight additions to that group and retains its exact family totals. In the unrolled building, the beam-detailing diagnostic now checks beam 198 for minimum steel in its retained search limits and for both torsion refusal diagnostics. It still requires the three verified beams from the original report to carry their own main steel and cage.
+
 Affected projects should be reverified. The analysis forces are unchanged.
