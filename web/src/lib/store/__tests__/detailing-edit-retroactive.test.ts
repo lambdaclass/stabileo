@@ -164,6 +164,29 @@ describe('undoing an edit is an edit', () => {
   });
 });
 
+it('reuses frozen detailing geometry through snapshot and restore', () => {
+  const bars = modelStore.model.detailing!.assemblies[0].bars;
+  const snapshot = modelStore.snapshot();
+  expect(snapshot.detailing!.assemblies[0].bars).toBe(bars);
+  expect(() => { snapshot.detailing!.assemblies = []; }).toThrow(TypeError);
+
+  modelStore.restore(snapshot);
+  expect(modelStore.model.detailing!.assemblies[0].bars).toBe(bars);
+});
+
+it('owns nested detailing restored from a shallow-frozen import', () => {
+  const snapshot = modelStore.snapshot();
+  const imported = Object.freeze(structuredClone(snapshot.detailing!));
+  const trace = imported.assemblies[0].provenance.trace;
+
+  modelStore.restore({ ...snapshot, detailing: imported });
+  trace.push('changed after restore');
+
+  const restored = modelStore.model.detailing!.assemblies[0].provenance.trace;
+  expect(restored).toEqual([]);
+  expect(Object.isFrozen(restored)).toBe(true);
+});
+
 it('publishes reusable detailing snapshots and projects their replacement on the next open', () => {
   const bar = buildStraightBarWithHooks({
     id: 'span-bottom', diameterMm: 16, role: 'longitudinal', ownerElementIds: [beamA],
@@ -189,6 +212,7 @@ it('publishes reusable detailing snapshots and projects their replacement on the
   expect(reopened.assemblies[0].source).toBe(first.assemblies[0].source);
   expect(buildSceneModel(reopened)).toEqual(firstScene);
 
+  const beforeMove = modelStore.snapshot();
   const moved = buildStraightBarWithHooks({
     id: bar.id, diameterMm: bar.diameterMm, role: bar.role, ownerElementIds: [beamA],
     start: { x: 0, y: 1, z: 3 }, end: { x: 6, y: 1, z: 3 },
@@ -203,8 +227,12 @@ it('publishes reusable detailing snapshots and projects their replacement on the
   ]);
   expect(buildSceneModel(first)).toEqual(firstScene);
 
-  modelStore.restore(modelStore.snapshot());
+  modelStore.restore(beforeMove);
   const restored = detailingStore.buildDocument({ author: 'test', at })!;
   expect(Object.isFrozen(restored.assemblies[0].bars[0].segments[0].start)).toBe(true);
-  expect(buildSceneModel(restored)).toEqual(buildSceneModel(next));
+  const restoredScene = buildSceneModel(restored);
+  expect(restoredScene.bars[0].polyline).toEqual([
+    { x: 0, y: 0, z: 3 }, { x: 6, y: 0, z: 3 },
+  ]);
+  expect(restoredScene).toEqual(firstScene);
 });
