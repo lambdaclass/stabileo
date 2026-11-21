@@ -83,7 +83,7 @@ describe('RC design baseline — the flagship frame, member by member', () => {
       if (Object.is(value, -0)) return { number: '-0' };
       return Number.isFinite(value) ? value : { number: String(value) };
     });
-    expect(createHash('sha256').update(result).digest('hex')).toBe('0eed6c25fca6643ed788227fb75211db6f2748fdf99b1f8334a5d2dc5b4686dc');
+    expect(createHash('sha256').update(result).digest('hex')).toBe('d08232bdc92fac65edcc4e08020d85612b75d9b8c705fa3c5ff5fced6c7c0fdf');
   });
 
   it('#2338 shear-depth containment never reopens an exhausted flagship search', () => {

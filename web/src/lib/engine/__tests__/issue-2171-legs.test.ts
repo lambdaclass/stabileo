@@ -8,7 +8,7 @@ import { checkTorsion, prepareElementVerification, sharedTorsionReinforcement, v
 import { lineFromMembers, membersFromLine } from '../design/beam-line';
 import { mirrorReinforcement } from '../design/repeated-frames';
 import type { DesignAxes } from '../design/design-axes';
-import { extractGoverningDemands, rankProvidedReinforcement, verifyProvidedReinforcement } from '../station-design-forces';
+import { extractGoverningDemands, prepareProvidedReinforcementRanker, rankProvidedReinforcement, verifyProvidedReinforcement } from '../station-design-forces';
 import type { AnalysisResults, SolverInput } from '../types';
 import type { AnalysisResults3D, SolverInput3D } from '../types-3d';
 import { computeStationDemands, runCirsocDesign, runUnifiedVerification } from '../verification-service';
@@ -1911,7 +1911,9 @@ for (const spatial of [false, true]) for (const nonlinear of [false, true]) {
       };
       const args = [1, 'beam', provided, extracted ? hogging.demands.get(1) : undefined, {}, section,
         extracted ? undefined : hogging.stations.get(1), undefined, { axes }] as const;
-      return [verifyProvidedReinforcement(...args), rankProvidedReinforcement(...args).ranking]
+      const [id, kind, rebar, ...memberData] = args;
+      const prepared = prepareProvidedReinforcementRanker(id, kind, ...memberData);
+      return [verifyProvidedReinforcement(...args), rankProvidedReinforcement(...args).ranking, prepared(rebar)]
         .map(report => report.checks.find(row => row.category === 'Shear Span (Vz)'));
     };
     for (const drawn of [false, true]) for (const extracted of [false, true]) {
