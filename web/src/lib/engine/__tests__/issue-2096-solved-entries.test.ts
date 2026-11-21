@@ -59,10 +59,8 @@ for (const spatial of [false, true]) for (const nonlinear of [false, true]) for 
   };
   const combinations = [{ id: 1, name: 'C1', factors: [] }, { id: 2, name: 'C2', factors: [] }];
   const label = `spatial=${spatial} nonlinear=${nonlinear} compact=${compact}`;
-  const flagshipGrid = process.env.RUN_KNOWN_WRONG === '2403' ? it : it.skip;
   for (const uniform of [true, false]) {
-    const test = uniform ? flagshipGrid : it;
-    test(`#2403 preserves the design grid for ${uniform ? 'uniform' : 'varying'} full-length bending loads ${label}`, () => {
+    it(`#2403 ${uniform ? 'preserves the uniform bending grid' : 'includes the varying-load bending peak'} for full-length bending loads ${label}`, () => {
       const beam = { ...model, nodes: new Map([
         [1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: 4, y: 0, z: 0 }],
       ]) };

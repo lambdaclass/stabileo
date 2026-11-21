@@ -214,7 +214,7 @@ function computeStationDemandsWasm(
 function stationsWithExtrema(ef: AnalysisResults3D['elementForces'][number], grid: StationForces[]): StationForces[] {
   const at = (cut: DiagramStation) => ({ ...extractForcesAtStation(ef, cut), x: cut.t * ef.length });
   const represented = new Set(grid.map(s => s.t));
-  const cuts = criticalDiagramStations3D(ef).filter(cut => cut.right || !represented.has(cut.t));
+  const cuts = criticalDiagramStations3D(ef, 'design').filter(cut => cut.right || !represented.has(cut.t));
   const base = ef.pieces?.length || ef.combined ? grid.map(({ t }) => at({ t })) : grid;
   return [...base, ...cuts.map(at)].sort((a, b) => a.t - b.t);
 }

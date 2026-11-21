@@ -29,14 +29,14 @@
     "hu": "Rúdszélsőértékek és keresztmetszeti oldalak a méretezésben"
   },
   "explanation": {
-    "en": "Member checks include concurrent forces at diagram extrema. Reversed beam pieces retain the top and bottom bending demands. Rerun design and review the governing demands and checks.",
-    "es": "Las verificaciones incluyen los esfuerzos simultáneos en los extremos de los diagramas. Los tramos invertidos conservan las demandas de flexión de ambas caras. Repita el diseño y revise las verificaciones determinantes.",
-    "pt": "As verificações incluem esforços simultâneos nos extremos dos diagramas. Trechos invertidos mantêm as demandas de flexão das faces superior e inferior. Refaça o dimensionamento e revise as verificações determinantes.",
-    "de": "Die Nachweise berücksichtigen gleichzeitige Schnittgrößen an den Diagrammextrema. Umgekehrt gerichtete Trägersegmente behalten die Biegebeanspruchung der oberen und unteren Seite. Bemessung erneut ausführen und maßgebende Nachweise prüfen.",
-    "fr": "Les vérifications incluent les efforts concomitants aux extrema des diagrammes. Les tronçons inversés conservent la flexion des faces supérieure et inférieure. Relancez le dimensionnement et vérifiez les contrôles déterminants.",
-    "tr": "Eleman kontrolleri diyagramın uç değerlerindeki eşzamanlı kuvvetleri içerir. Ters yönlü kiriş parçaları üst ve alt yüzlerdeki eğilme taleplerini korur. Tasarımı yineleyin ve belirleyici kontrolleri inceleyin.",
-    "zh": "杆件验算计入内力图极值处同时发生的内力。梁段反向后仍保留顶部和底部的弯矩需求。请重新设计并复核控制内力和验算结果。",
-    "hu": "A rúdellenőrzések az ábra szélsőértékeinél egyidejű igénybevételeket veszik figyelembe. A fordított gerendaszakaszok megtartják a felső és alsó oldal hajlítási igénybevételeit. Futtassa újra a méretezést, és ellenőrizze a mértékadó eredményeket."
+    "en": "Member checks include concurrent forces at load boundaries and at diagram extrema for varying loads. Reversed beam pieces retain the top and bottom bending demands. Rerun design and review the governing demands and checks.",
+    "es": "Las verificaciones incluyen los esfuerzos simultáneos en los límites de las cargas y en los extremos de los diagramas con cargas variables. Los tramos invertidos conservan las demandas de flexión de ambas caras. Repita el diseño y revise las verificaciones determinantes.",
+    "pt": "As verificações incluem esforços simultâneos nos limites das cargas e nos extremos dos diagramas com cargas variáveis. Trechos invertidos mantêm as demandas de flexão das faces superior e inferior. Refaça o dimensionamento e revise as verificações determinantes.",
+    "de": "Die Nachweise berücksichtigen gleichzeitige Schnittgrößen an den Lastgrenzen und bei veränderlichen Lasten an den Diagrammextrema. Umgekehrt gerichtete Trägersegmente behalten die Biegebeanspruchung der oberen und unteren Seite. Bemessung erneut ausführen und maßgebende Nachweise prüfen.",
+    "fr": "Les vérifications incluent les efforts concomitants aux limites des charges et aux extrema des diagrammes pour les charges variables. Les tronçons inversés conservent la flexion des faces supérieure et inférieure. Relancez le dimensionnement et vérifiez les contrôles déterminants.",
+    "tr": "Eleman kontrolleri, yük sınırlarındaki ve değişken yükler için diyagram uç değerlerindeki eşzamanlı kuvvetleri içerir. Ters yönlü kiriş parçaları üst ve alt yüzlerdeki eğilme taleplerini korur. Tasarımı yineleyin ve belirleyici kontrolleri inceleyin.",
+    "zh": "杆件验算计入荷载边界处及变化荷载产生的内力图极值处的同步内力。梁段反向后仍保留顶部和底部的弯矩需求。请重新设计并复核控制内力和验算结果。",
+    "hu": "A rúdellenőrzések a terhek határain, változó terhek esetén pedig az ábrák szélsőértékeinél fellépő egyidejű igénybevételeket veszik figyelembe. A fordított gerendaszakaszok megtartják a felső és alsó oldal hajlítási igénybevételeit. Futtassa újra a méretezést, és ellenőrizze a mértékadó eredményeket."
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-member-diagram-extrema.md",

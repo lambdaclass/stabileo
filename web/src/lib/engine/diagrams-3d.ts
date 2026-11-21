@@ -35,6 +35,19 @@ function maxMagnitude(curve: SpatialCurve): number {
   return diagramCurvePoints(curve, curve.extrema()).reduce((max, p) => Math.max(max, Math.abs(p.value)), 0);
 }
 
+function transverseActions(ef: ElementForces3D, aboutY: boolean) {
+  const loads = aboutY ? fullSpanFallback(ef.length, ef.distributedLoadsZ, ef.qZI, ef.qZJ)
+    : fullSpanFallback(ef.length, ef.distributedLoadsY, ef.qYI, ef.qYJ);
+  const points = (aboutY ? ef.pointLoadsZ : ef.pointLoadsY) ?? [];
+  return { loads, points };
+}
+
+function usesSampledBending(ef: ElementForces3D, kind: Diagram3DKind): boolean {
+  if (ef.combined || ef.pieces?.length || (kind !== 'momentY' && kind !== 'momentZ')) return false;
+  const { loads, points } = transverseActions(ef, kind === 'momentY');
+  return points.length === 0 && loads.every(d => d.a === 0 && d.b === ef.length && d.qI === d.qJ);
+}
+
 function leafCurve(ef: ElementForces3D, kind: Diagram3DKind): DiagramCurve {
   const L = ef.length;
   if (kind === 'axial') {
@@ -45,9 +58,7 @@ function leafCurve(ef: ElementForces3D, kind: Diagram3DKind): DiagramCurve {
   }
   if (kind === 'torsion') return memberDiagram(L, ef.mxStart, ef.mxEnd - ef.mxStart, [], []);
   const aboutY = kind === 'momentY' || kind === 'shearZ';
-  const loads = aboutY ? fullSpanFallback(L, ef.distributedLoadsZ, ef.qZI, ef.qZJ)
-    : fullSpanFallback(L, ef.distributedLoadsY, ef.qYI, ef.qYJ);
-  const points = (aboutY ? ef.pointLoadsZ : ef.pointLoadsY) ?? [];
+  const { loads, points } = transverseActions(ef, aboutY);
   const shear = aboutY ? ef.vzStart : ef.vyStart;
   if (kind === 'shearY' || kind === 'shearZ') {
     return memberDiagram(L, shear, 0, loads, points.map(p => ({ a: p.a, jump: p.p })));
@@ -144,16 +155,19 @@ function spatialCurve(ef: ElementForces3D, kind: Diagram3DKind): SpatialCurve {
   };
 }
 
-export function criticalDiagramStations3D(ef: ElementForces3D): DiagramStation[] {
-  const curves = diagramKinds.map(kind => spatialCurve(ef, kind));
-  if (curves.some(curve => curve.magnitudeBound)) throw unavailableDiagramExtrema();
-  const cuts = joinedCutDistances(curves.map(curve => curve.cutDistances));
-  const extrema = curves.flatMap(curve => [...indexDiagramExtrema(curve.extrema()).values()]);
-  if (extrema.some(peak => cuts.has(peak.t) || !peak.canTransfer(peak.t))) throw unavailableDiagramExtrema();
+export function criticalDiagramStations3D(ef: ElementForces3D, purpose: 'diagram' | 'design' = 'diagram'): DiagramStation[] {
+  const curves = diagramKinds.map(kind => ({ kind, curve: spatialCurve(ef, kind) }));
+  if (curves.some(({ curve }) => curve.magnitudeBound)) throw unavailableDiagramExtrema();
+  const cuts = joinedCutDistances(curves.map(({ curve }) => curve.cutDistances));
+  const extrema = curves.flatMap(({ kind, curve }) => {
+    const peaks = [...indexDiagramExtrema(curve.extrema()).values()];
+    if (peaks.some(peak => cuts.has(peak.t) || !peak.canTransfer(peak.t))) throw unavailableDiagramExtrema();
+    return purpose === 'design' && usesSampledBending(ef, kind) ? [] : peaks;
+  });
   return sortedStations([...cuts.keys(), ...extrema.map(peak => peak.t)]).flatMap(t => {
     const left = { t };
     const right = { t, right: true };
-    return t < 1 && cuts.has(t) && curves.some(curve => curve.value(left) !== curve.value(right)) ? [left, right] : [left];
+    return t < 1 && cuts.has(t) && curves.some(({ curve }) => curve.value(left) !== curve.value(right)) ? [left, right] : [left];
   });
 }
 
