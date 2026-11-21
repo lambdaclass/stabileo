@@ -71,6 +71,7 @@ help:
 	@echo "Testing:"
 	@echo "  make test           - Engine, backend and web tests"
 	@echo "  make test.engine    - Rust engine tests"
+	@echo "  make engine.nonlinear-opt-in - Prepare an isolated checkout with the experimental nonlinear drivers"
 	@echo "  make test.backend   - Elixir backend tests"
 	@echo "  make test.backend.file FILE=apps/... - One backend test file or dir"
 	@echo "  make test.web       - Web (Vitest) tests"
@@ -224,6 +225,16 @@ audit.810.run:
 
 test.engine.targeted:
 	$(NIX_RUN) cargo test -p dedaliano-engine --test $(TEST) $(FILTER) -- --nocapture $(if $(IGNORED),--ignored)
+
+.PHONY: engine.nonlinear-opt-in
+engine.nonlinear-opt-in:
+@set -eu; \
+checkout=$$(mktemp -d "$(CURDIR)/.nonlinear-opt-in.XXXXXX"); \
+git clone --quiet --shared --no-checkout "$(CURDIR)" "$$checkout"; \
+git -C "$$checkout" checkout --quiet --detach "$$(git rev-parse HEAD)"; \
+git -C "$$checkout" apply --index engine/experimental/nonlinear.patch; \
+	git -C "$$checkout" commit --quiet -S -m "Enable the experimental nonlinear solver drivers"; \
+printf '%s\n' "$$checkout"
 
 NEWMARK_DIR = $(CURDIR)/research/benchmarks/newmark-1959
 research.newmark.replay:

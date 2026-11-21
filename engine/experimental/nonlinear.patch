@@ -1,0 +1,3896 @@
+diff --git a/engine/src/solver/arc_length.rs b/engine/src/solver/arc_length.rs
+index 19f34eae32e24d3d7aa8805276a08ea15d9ca66e..9d3422fe0c2747e2ee870b4eef912052adb2a222 100644
+--- a/engine/src/solver/arc_length.rs
++++ b/engine/src/solver/arc_length.rs
+@@ -19,6 +19,7 @@ use super::sparse_tangent::{
+     cached_symbolic, tangent_free_sparse, tangent_free_sparse_triplets, SparseSymbolicCache,
+ };
+ use super::time_integration::MAX_DENSE_FALLBACK_DOFS;
++use super::path_following::{solve_by_arc_length, solve_by_displacement_control, vec_norm, ArcLengthControl, DisplacementControl, PathProblem};
+
+ /// Arc-length analysis input.
+ #[derive(Debug, Clone, Serialize, Deserialize)]
+@@ -133,6 +134,141 @@ pub fn solve_arc_length_from(input: &ArcLengthInput, start: Option<&super::corot
+     Ok(r)
+ }
+
++fn set_supports(u: &mut [f64], nf: usize, u_r_start: &[f64], du_support: &[f64], lambda: f64) {
++    for (r, (&u0, &du)) in u_r_start.iter().zip(du_support).enumerate() {
++        u[nf + r] = u0 + lambda * du;
++    }
++}
++
++struct ArcLength2D<'a> {
++    solver: &'a SolverInput,
++    dof_num: &'a DofNumbering,
++    cs: &'a Option<FreeConstraintSystem>,
++    art: &'a [(usize, f64)],
++    its: &'a [InclinedTransformData2D],
++    metric: &'a super::convergence::EquilibriumMetric,
++    sparse: bool,
++    ns: usize,
++    moves_supports: bool,
++    psi2: f64,
++    f_ref: &'a Vec<f64>,
++    f_ref_full: &'a Vec<f64>,
++    f_start: &'a Vec<f64>,
++    f_start_full: &'a Vec<f64>,
++    u_r_start: &'a Vec<f64>,
++    du_support: &'a Vec<f64>,
++    support_direction: &'a Vec<f64>,
++    start_internal: &'a Vec<f64>,
++    u_full: Vec<f64>,
++    sparse_sym_cache: Option<SparseSymbolicCache>,
++    asm_t: Option<TangentAssembly>,
++    residual: Vec<f64>,
++    steps: Vec<EquilibriumStep>,
++}
++
++impl ArcLength2D<'_> {
++    /// dR/dλ: the reference load less the tangent's response to the support
++    /// motion, g = f_ref − K_fr·Δu_r.
++    fn reference(&self, asm_t: &TangentAssembly) -> Vec<f64> {
++        let (n, nf) = (self.dof_num.n_total, self.dof_num.n_free);
++        let support_direction = self.support_direction;
++        let mut g = self.f_ref.clone();
++        if self.moves_supports {
++            if self.sparse {
++                for ((&i, &j), &v) in asm_t.trip_rows.iter().zip(&asm_t.trip_cols).zip(&asm_t.trip_vals) {
++                    if i < nf { g[i] -= v * support_direction[j]; }
++                    if i != j && j < nf { g[j] -= v * support_direction[i]; }
++                }
++            } else {
++                for (i, gi) in g.iter_mut().enumerate() {
++                    *gi -= (0..n).map(|j| asm_t.k_t[i * n + j] * support_direction[j]).sum::<f64>();
++                }
++            }
++        }
++        g
++    }
++
++    fn reduce(&self, v: &Vec<f64>) -> Vec<f64> {
++        if let Some(ref cs) = *self.cs { cs.reduce_vector(v) } else { v.clone() }
++    }
++}
++
++impl PathProblem for ArcLength2D<'_> {
++    fn unknowns(&self) -> usize {
++        self.dof_num.n_free
++    }
++
++    fn load_scale(&self) -> f64 {
++        self.psi2
++    }
++
++    fn linearize_at(&mut self, lambda: f64) {
++        set_supports(&mut self.u_full, self.dof_num.n_free, self.u_r_start, self.du_support, lambda);
++        self.asm_t = Some(assemble_tangent(self.solver, self.dof_num, &self.u_full, self.art, self.sparse, self.its));
++    }
++
++    fn measure(&mut self, lambda: f64) -> f64 {
++        let (n, nf) = (self.dof_num.n_total, self.dof_num.n_free);
++        let (f_start, f_ref, f_start_full, f_ref_full) = (self.f_start, self.f_ref, self.f_start_full, self.f_ref_full);
++        let Some(asm_t) = self.asm_t.as_ref() else { return f64::INFINITY };
++        let f_int_new = &asm_t.f_int;
++
++        let mut residual = vec![0.0; nf];
++        for i in 0..nf {
++            residual[i] = f_start[i] + lambda * f_ref[i] - f_int_new[i];
++        }
++
++        let applied: Vec<f64> = (0..n).map(|i| f_start_full[i] + lambda * f_ref_full[i]).collect();
++        let measure = self.metric.continuation_residual(&residual,&applied,&self.u_full[nf..],f_start_full,self.start_internal,self.cs.as_ref());
++        self.residual = residual;
++        measure
++    }
++
++    fn reference_response(&mut self) -> Result<Vec<f64>, String> {
++        let (n, nf, ns) = (self.dof_num.n_total, self.dof_num.n_free, self.ns);
++        let Some(asm_t) = self.asm_t.take() else { return Err("Arc-length analysis: no tangent assembled".into()) };
++        let tangent = factor_assembled(&asm_t, n, nf, ns, self.cs, &mut self.sparse_sym_cache)?;
++        let du_hat_s = solve_with_tangent(&tangent, &self.reduce(&self.reference(&asm_t)), ns)?;
++        Ok(if let Some(ref cs) = *self.cs { cs.expand_solution(&du_hat_s, MasterMotion::Prescribed(self.du_support)) } else { du_hat_s })
++    }
++
++    fn responses(&mut self) -> Result<(Vec<f64>, Vec<f64>), String> {
++        let (n, nf, ns) = (self.dof_num.n_total, self.dof_num.n_free, self.ns);
++        let Some(asm_t) = self.asm_t.take() else { return Err("Arc-length analysis: no tangent assembled".into()) };
++        let residual = std::mem::take(&mut self.residual);
++        let residual_s = if let Some(ref cs) = *self.cs { cs.reduce_vector(&residual) } else { residual.clone() };
++        let tangent = factor_assembled(&asm_t, n, nf, ns, self.cs, &mut self.sparse_sym_cache)?;
++        let du_r_s = solve_with_tangent(&tangent, &residual_s, ns)?;
++        let du_t_s = solve_with_tangent(&tangent, &self.reduce(&self.reference(&asm_t)), ns)?;
++        let du_r = if let Some(ref cs) = *self.cs { cs.expand_solution(&du_r_s, MasterMotion::Homogeneous) } else { du_r_s };
++        let du_t = if let Some(ref cs) = *self.cs { cs.expand_solution(&du_t_s, MasterMotion::Prescribed(self.du_support)) } else { du_t_s };
++        Ok((du_r, du_t))
++    }
++
++    fn advance(&mut self, step: &[f64]) {
++        for i in 0..self.dof_num.n_free {
++            self.u_full[i] += step[i];
++        }
++    }
++
++    fn unknown(&self, index: usize) -> f64 {
++        self.u_full[index]
++    }
++
++    fn record(&mut self, step: usize, lambda: f64, iterations: usize, converged: bool) {
++        let (n, nf) = (self.dof_num.n_total, self.dof_num.n_free);
++        set_supports(&mut self.u_full, nf, self.u_r_start, self.du_support, lambda);
++        self.steps.push(EquilibriumStep {
++            step,
++            load_factor: lambda,
++            control_displacement: self.u_full.get(0).copied().unwrap_or(0.0),
++            converged,
++            iterations,
++            displacements: super::linear::build_displacements_2d(self.dof_num, &assembly::to_global(&self.u_full, n, self.its)),
++        });
++    }
++}
++
+ fn solve_arc_length_contained(input: &ArcLengthInput, start: Option<&super::corotational::CorotationalStart2D>) -> Result<ArcLengthResult, String> {
+     // Assembly resolves ids by direct map indexing: an element naming a
+     // node that does not exist panicked there, which in WASM ends the
+@@ -166,8 +302,6 @@ fn solve_arc_length_contained(input: &ArcLengthInput, start: Option<&super::coro
+     // tangent's sparsity pattern is constant within a solve call, so the
+     // symbolic phase is computed once and only the numeric phase repeats
+     // per iteration.
+-    let mut sparse_sym_cache: Option<SparseSymbolicCache> = None;
+-
+     // Reference load vector
+     // f_ref, the tangent and `u_full` are in the inclined-roller frames the
+     // restraints are numbered in (`assemble_tangent` rotates); results are
+@@ -177,7 +311,7 @@ fn solve_arc_length_contained(input: &ArcLengthInput, start: Option<&super::coro
+     let its = asm.inclined_transforms_2d;
+     let f_ref_full = asm.f;
+     let f_ref: Vec<f64> = f_ref_full[..nf].to_vec();
+-    let (mut u_full, f_start) = match start {
++    let (u_full, f_start) = match start {
+         Some(start) => super::corotational::start_state_2d(&input.solver, start, &dof_num)?,
+         None => (vec![0.0; n], vec![0.0; n]),
+     };
+@@ -206,193 +340,45 @@ fn solve_arc_length_contained(input: &ArcLengthInput, start: Option<&super::coro
+     // The load-factor term of the arc-length constraint, in force² when there
+     // is a reference load and in displacement² when only supports move.
+     let psi2 = if f_ref_norm > 0.0 { vec_norm(&f_ref).powi(2) } else { vec_norm(&du_support).powi(2) };
+-    let set_supports = |u: &mut [f64], lambda: f64| {
+-        for (r, (&u0, &du)) in u_r_start.iter().zip(&du_support).enumerate() {
+-            u[nf + r] = u0 + lambda * du;
+-        }
++    let mut problem = ArcLength2D {
++        solver: &input.solver,
++        dof_num: &dof_num,
++        cs: &cs,
++        art: &art,
++        its: &its,
++        metric: &metric,
++        sparse,
++        ns,
++        moves_supports,
++        psi2,
++        f_ref: &f_ref,
++        f_ref_full: &f_ref_full,
++        f_start: &f_start,
++        f_start_full: &f_start_full,
++        u_r_start: &u_r_start,
++        du_support: &du_support,
++        support_direction: &support_direction,
++        start_internal: &start_internal,
++        u_full,
++        sparse_sym_cache: None,
++        asm_t: None,
++        residual: Vec::new(),
++        steps: Vec::new(),
+     };
+-    // dR/dλ: the reference load less the tangent's response to the support
+-    // motion, g = f_ref − K_fr·Δu_r.
+-    let reference = |asm_t: &TangentAssembly| -> Vec<f64> {
+-        let mut g = f_ref.clone();
+-        if moves_supports {
+-            if sparse {
+-                for ((&i, &j), &v) in asm_t.trip_rows.iter().zip(&asm_t.trip_cols).zip(&asm_t.trip_vals) {
+-                    if i < nf { g[i] -= v * support_direction[j]; }
+-                    if i != j && j < nf { g[j] -= v * support_direction[i]; }
+-                }
+-            } else {
+-                for (i, gi) in g.iter_mut().enumerate() {
+-                    *gi -= (0..n).map(|j| asm_t.k_t[i * n + j] * support_direction[j]).sum::<f64>();
+-                }
+-            }
+-        }
+-        g
+-    };
+-    let reduce = |v: &Vec<f64>| if let Some(ref cs) = cs { cs.reduce_vector(v) } else { v.clone() };
+-
+-    let mut lambda = 0.0_f64;
+-    let mut ds = input.initial_ds;
+-    let mut steps = Vec::new();
+-    let mut total_iters = 0;
+-    let mut overall_converged = true;
+-
+-    // Previous increment direction (for sign determination)
+-    let mut prev_delta_u = vec![0.0; nf];
+-    let mut prev_delta_lambda = 1.0_f64;
+-
+-    let mut step = 0;
+-    while step < input.max_steps {
+-        // Predictor: solve K_T * δu_hat = g
+-        set_supports(&mut u_full, lambda);
+-        let asm_t = assemble_tangent(&input.solver, &dof_num, &u_full, &art, sparse, &its);
+-
+-        let du_hat_s = {
+-            // New tangent each step: factor once, solve the predictor RHS.
+-            let tangent = factor_assembled(&asm_t, n, nf, ns, &cs, &mut sparse_sym_cache)?;
+-            solve_with_tangent(&tangent, &reduce(&reference(&asm_t)), ns)?
+-        };
+-        let du_hat = if let Some(ref cs) = cs { cs.expand_solution(&du_hat_s, MasterMotion::Prescribed(&du_support)) } else { du_hat_s };
+-
+-        // Determine Δλ from arc-length constraint
+-        // ||Δu||² + Δλ² × ||f_ref||² = Δs²
+-        let du_hat_norm = vec_norm(&du_hat);
+-        let denom = du_hat_norm * du_hat_norm + psi2;
+-        let mut delta_lambda = ds / denom.sqrt();
+-
+-        // Sign: follow previous direction
+-        let dot = dot_product(&prev_delta_u, &du_hat) + prev_delta_lambda * delta_lambda * psi2;
+-        if dot < 0.0 {
+-            delta_lambda = -delta_lambda;
+-        }
+-
+-        // Predictor step
+-        let mut delta_u: Vec<f64> = du_hat.iter().map(|&v| delta_lambda * v).collect();
+-
+-        // Apply predictor
+-        for i in 0..nf {
+-            u_full[i] += delta_u[i];
+-        }
+-        lambda += delta_lambda;
+-
+-        // Corrector: N-R iterations with arc-length constraint
+-        let mut step_converged = false;
+-        let mut step_iters = 0;
+-
+-        for _iter in 0..input.max_iter {
+-            step_iters += 1;
+-            total_iters += 1;
+-
+-            // Compute residual
+-            set_supports(&mut u_full, lambda);
+-            let asm_t = assemble_tangent(&input.solver, &dof_num, &u_full, &art, sparse, &its);
+-            let f_int_new = &asm_t.f_int;
+-
+-            let mut residual = vec![0.0; nf];
+-            for i in 0..nf {
+-                residual[i] = f_start[i] + lambda * f_ref[i] - f_int_new[i];
+-            }
+-
+-            // Check convergence on independent (reduced) DOFs
+-            let applied: Vec<f64> = (0..n).map(|i| f_start_full[i] + lambda * f_ref_full[i]).collect();
+-            if metric.continuation_residual(&residual,&applied,&u_full[nf..],&f_start_full,&start_internal,cs.as_ref()) < input.tolerance {
+-                step_converged = true;
+-                break;
+-            }
+-
+-            // Two-system solve with a single factorization per iteration:
+-            // K_T * δu_r = R   (residual correction)
+-            // K_T * δu_t = f_ref (tangent correction)
+-            let residual_s = if let Some(ref cs) = cs { cs.reduce_vector(&residual) } else { residual.clone() };
+-            let tangent = factor_assembled(&asm_t, n, nf, ns, &cs, &mut sparse_sym_cache)?;
+-            let du_r_s = solve_with_tangent(&tangent, &residual_s, ns)?;
+-            let du_t_s = solve_with_tangent(&tangent, &reduce(&reference(&asm_t)), ns)?;
+-            let du_r = if let Some(ref cs) = cs { cs.expand_solution(&du_r_s, MasterMotion::Homogeneous) } else { du_r_s };
+-            let du_t = if let Some(ref cs) = cs { cs.expand_solution(&du_t_s, MasterMotion::Prescribed(&du_support)) } else { du_t_s };
+-
+-            // Arc-length constraint: quadratic equation for δλ
+-            // a*δλ² + b*δλ + c = 0
+-            let a_coeff = dot_product(&du_t, &du_t) + psi2;
+-            let b_coeff = 2.0 * (dot_product(&delta_u, &du_t) + dot_product(&du_r, &du_t)
+-                + delta_lambda * psi2);
+-            let c_coeff = dot_product(&delta_u, &delta_u) + 2.0 * dot_product(&delta_u, &du_r)
+-                + dot_product(&du_r, &du_r)
+-                + delta_lambda * delta_lambda * psi2
+-                - ds * ds;
+-
+-            let discriminant = b_coeff * b_coeff - 4.0 * a_coeff * c_coeff;
+-            let d_lambda = if discriminant >= 0.0 {
+-                let sqrt_d = discriminant.sqrt();
+-                let root1 = (-b_coeff + sqrt_d) / (2.0 * a_coeff);
+-                let root2 = (-b_coeff - sqrt_d) / (2.0 * a_coeff);
+-
+-                // Choose root that gives positive work (follows the path)
+-                let du1: Vec<f64> = (0..nf).map(|i| du_r[i] + root1 * du_t[i]).collect();
+-                let du2: Vec<f64> = (0..nf).map(|i| du_r[i] + root2 * du_t[i]).collect();
+-                let work1 = dot_product(&delta_u, &du1);
+-                let work2 = dot_product(&delta_u, &du2);
+-
+-                if work1 >= work2 { root1 } else { root2 }
+-            } else {
+-                // Negative discriminant: use minimum residual approach
+-                -b_coeff / (2.0 * a_coeff)
+-            };
+-
+-            // Update
+-            for i in 0..nf {
+-                let du_i = du_r[i] + d_lambda * du_t[i];
+-                u_full[i] += du_i;
+-                delta_u[i] += du_i;
+-            }
+-            lambda += d_lambda;
+-            delta_lambda += d_lambda;
+-        }
+-
+-        if !step_converged {
+-            // Restore the last converged state FIRST, so that if the retry
+-            // budget runs out the final results are built from the last
+-            // converged equilibrium state — not from the failed step's
+-            // unconverged iterate.
+-            for i in 0..nf {
+-                u_full[i] -= delta_u[i];
+-            }
+-            lambda -= delta_lambda;
+-
+-            // Halve arc-length and retry (don't consume step budget)
+-            ds *= 0.5;
+-            if ds < input.min_ds {
+-                overall_converged = false;
+-                break;
+-            }
+-            continue;
+-        }
+-
+-        // Record converged step
+-        step += 1;
+-        set_supports(&mut u_full, lambda);
+-        steps.push(EquilibriumStep {
+-            step,
+-            load_factor: lambda,
+-            control_displacement: u_full.get(0).copied().unwrap_or(0.0),
+-            converged: true,
+-            iterations: step_iters,
+-            displacements: super::linear::build_displacements_2d(&dof_num, &assembly::to_global(&u_full, n, &its)),
+-        });
+-
+-        // Save direction for next step
+-        prev_delta_u = delta_u;
+-        prev_delta_lambda = delta_lambda;
+-
+-        // Adaptive arc-length
+-        if step_iters <= input.target_iter / 2 {
+-            ds = (ds * 2.0).min(input.max_ds);
+-        } else if step_iters > input.target_iter * 2 {
+-            ds = (ds * 0.5).max(input.min_ds);
+-        }
+-    }
++    let outcome = solve_by_arc_length(&mut problem, &ArcLengthControl {
++        max_steps: input.max_steps,
++        max_iter: input.max_iter,
++        tolerance: input.tolerance,
++        initial_ds: input.initial_ds,
++        min_ds: input.min_ds,
++        max_ds: input.max_ds,
++        target_iter: input.target_iter,
++    })?;
++    let ArcLength2D { mut u_full, steps, .. } = problem;
++    let (lambda, overall_converged, total_iters) = (outcome.load_factor, outcome.converged, outcome.iterations);
+
+     // Build final results using corotational forces (not linear)
+-    set_supports(&mut u_full, lambda);
++    set_supports(&mut u_full, nf, &u_r_start, &du_support, lambda);
+     let mut at_state = super::corotational::scaled_loads_2d(&input.solver, lambda);
+     if let Some(start) = start {
+         at_state.loads.extend(start.input.loads.clone());
+@@ -415,6 +401,104 @@ pub fn solve_displacement_control(input: &DisplacementControlInput) -> Result<Di
+     Ok(r)
+ }
+
++struct DisplacementControl2D<'a> {
++    solver: &'a SolverInput,
++    dof_num: &'a DofNumbering,
++    cs: &'a Option<FreeConstraintSystem>,
++    art: &'a [(usize, f64)],
++    its: &'a [InclinedTransformData2D],
++    metric: &'a super::convergence::EquilibriumMetric,
++    sparse: bool,
++    ns: usize,
++    ctrl: usize,
++    f_ref: &'a Vec<f64>,
++    f_ref_full: &'a Vec<f64>,
++    f_ref_s: &'a Vec<f64>,
++    u_full: Vec<f64>,
++    sparse_sym_cache: Option<SparseSymbolicCache>,
++    asm_t: Option<TangentAssembly>,
++    residual: Vec<f64>,
++    steps: Vec<EquilibriumStep>,
++}
++
++impl PathProblem for DisplacementControl2D<'_> {
++    fn unknowns(&self) -> usize {
++        self.dof_num.n_free
++    }
++
++    fn load_scale(&self) -> f64 {
++        vec_norm(self.f_ref).powi(2)
++    }
++
++    fn linearize_at(&mut self, _: f64) {
++        self.asm_t = Some(assemble_tangent(self.solver, self.dof_num, &self.u_full, self.art, self.sparse, self.its));
++    }
++
++    fn measure(&mut self, lambda: f64) -> f64 {
++        let nf = self.dof_num.n_free;
++        let (f_ref, f_ref_full) = (self.f_ref, self.f_ref_full);
++        let Some(asm_t) = self.asm_t.as_ref() else { return f64::INFINITY };
++        let f_int = &asm_t.f_int;
++
++        let mut residual = vec![0.0; nf];
++        for i in 0..nf {
++            residual[i] = lambda * f_ref[i] - f_int[i];
++        }
++
++        let applied: Vec<f64> = f_ref_full.iter().map(|f| lambda * f).collect();
++        let rel_error = self.metric.relative_residual(&residual, &applied, None, self.cs.as_ref());
++        self.residual = residual;
++        rel_error
++    }
++
++    fn reference_response(&mut self) -> Result<Vec<f64>, String> {
++        let (n, nf, ns) = (self.dof_num.n_total, self.dof_num.n_free, self.ns);
++        let Some(asm_t) = self.asm_t.take() else { return Err("Displacement-control analysis: no tangent assembled".into()) };
++        let tangent = factor_assembled(&asm_t, n, nf, ns, self.cs, &mut self.sparse_sym_cache)?;
++        let du_t_s = solve_with_tangent(&tangent, self.f_ref_s, ns)?;
++        Ok(if let Some(ref cs) = *self.cs { cs.expand_solution(&du_t_s, MasterMotion::Homogeneous) } else { du_t_s })
++    }
++
++    fn responses(&mut self) -> Result<(Vec<f64>, Vec<f64>), String> {
++        let (n, nf, ns) = (self.dof_num.n_total, self.dof_num.n_free, self.ns);
++        let Some(asm_t) = self.asm_t.take() else { return Err("Displacement-control analysis: no tangent assembled".into()) };
++        let residual = std::mem::take(&mut self.residual);
++        let residual_s = if let Some(ref cs) = *self.cs {
++            cs.reduce_vector(&residual)
++        } else {
++            residual
++        };
++        let tangent = factor_assembled(&asm_t, n, nf, ns, self.cs, &mut self.sparse_sym_cache)?;
++        let du_r_s = solve_with_tangent(&tangent, &residual_s, ns)?;
++        let du_t_s = solve_with_tangent(&tangent, self.f_ref_s, ns)?;
++        let du_r = if let Some(ref cs) = *self.cs { cs.expand_solution(&du_r_s, MasterMotion::Homogeneous) } else { du_r_s };
++        let du_t = if let Some(ref cs) = *self.cs { cs.expand_solution(&du_t_s, MasterMotion::Homogeneous) } else { du_t_s };
++        Ok((du_r, du_t))
++    }
++
++    fn advance(&mut self, step: &[f64]) {
++        for i in 0..self.dof_num.n_free {
++            self.u_full[i] += step[i];
++        }
++    }
++
++    fn unknown(&self, index: usize) -> f64 {
++        self.u_full[index]
++    }
++
++    fn record(&mut self, step: usize, lambda: f64, iterations: usize, converged: bool) {
++        let n = self.dof_num.n_total;
++        self.steps.push(EquilibriumStep {
++            step,
++            load_factor: lambda,
++            control_displacement: self.u_full[self.ctrl],
++            converged,
++            iterations,
++            displacements: super::linear::build_displacements_2d(self.dof_num, &assembly::to_global(&self.u_full, n, self.its)),
++        });
++    }
++}
++
+ fn solve_displacement_control_contained(input: &DisplacementControlInput) -> Result<DisplacementControlResult, String> {
+     // As above: validated before assembly indexes by id.
+     super::linear::validate_input_2d(&input.solver)?;
+@@ -446,8 +530,6 @@ fn solve_displacement_control_contained(input: &DisplacementControlInput) -> Res
+     // tangent's sparsity pattern is constant within a solve call, so the
+     // symbolic phase is computed once and only the numeric phase repeats
+     // per iteration.
+-    let mut sparse_sym_cache: Option<SparseSymbolicCache> = None;
+-
+     // Find global DOF index for control point
+     let control_global = dof_num.map.get(&(input.control_node, input.control_dof))
+         .ok_or("Control node/DOF not found in free DOFs")?;
+@@ -500,125 +582,34 @@ fn solve_displacement_control_contained(input: &DisplacementControlInput) -> Res
+         return Err("Zero reference load".into());
+     }
+
+-    let mut u_full = vec![0.0; n];
+-    let mut lambda = 0.0_f64;
+-    let mut steps = Vec::new();
+-    let mut total_iters = 0;
+-    let mut overall_converged = true;
+-
+-    let delta_d = input.target_displacement / input.n_steps as f64;
+-    // Scale for the displacement side of the convergence test. See the check
+-    // itself for why it must be relative.
+-    let disp_scale = delta_d.abs();
+-    // #174 hoisted a loop-invariant `free_idx` here for the dense
+-    // `extract_submatrix` call in the iteration. `factor_assembled` owns that
+-    // extraction now and builds the index vector only on the branch that needs
+-    // it, so the hoisted copy has no remaining reader.
+-
+-    for step in 0..input.n_steps {
+-        let target_disp = (step + 1) as f64 * delta_d;
+-
+-        // N-R iterations
+-        let mut step_converged = false;
+-        let mut step_iters = 0;
+-
+-        for _iter in 0..input.max_iter {
+-            step_iters += 1;
+-            total_iters += 1;
+-
+-            // Compute tangent stiffness and internal forces
+-            let asm_t = assemble_tangent(&input.solver, &dof_num, &u_full, &art, sparse, &its);
+-            let f_int = &asm_t.f_int;
+-
+-            // Residual
+-            let mut residual = vec![0.0; nf];
+-            for i in 0..nf {
+-                residual[i] = lambda * f_ref[i] - f_int[i];
+-            }
+-
+-            // Displacement constraint: u[ctrl] = target_disp
+-            let disp_error = target_disp - u_full[ctrl];
+-
+-            // Reduce once. This vector is BOTH what the convergence test has to
+-            // measure and the right-hand side the Newton step needs, so computing
+-            // it here costs nothing extra and removes a full copy of the residual
+-            // on the unconstrained path.
+-            //
+-            // Measuring the reduced residual is the correctness point. The Newton
+-            // step below solves the reduced system (Cᵀ K C, Cᵀ R), so the iteration
+-            // drives Cᵀ R to zero — not R. At a constrained equilibrium R equals the
+-            // constraint reaction forces and stays nonzero forever, so testing the
+-            // full residual meant no constrained model could ever converge: step 1
+-            // exhausted max_iter and the whole analysis was truncated after it.
+-            // `solve_arc_length` has always reduced here.
+-            let applied: Vec<f64> = f_ref_full.iter().map(|f| lambda * f).collect();
+-            let rel_error = metric.relative_residual(&residual, &applied, None, cs_dc.as_ref());
+-            let residual_s = if let Some(ref cs) = cs_dc {
+-                cs.reduce_vector(&residual)
+-            } else {
+-                residual
+-            };
+-            // The displacement side is measured RELATIVE to the increment this step
+-            // asks for. It used to be `disp_error.abs() < tolerance * 10.0`, which
+-            // compares a displacement in model units against the dimensionless
+-            // residual tolerance: any step whose increment happened to be smaller
+-            // than that figure was declared converged having done no work at all.
+-            // With target 1e-7 over 20 steps, 19 of the 20 reported path points sat
+-            // at the origin with load factor zero and only the last did anything —
+-            // a fabricated equilibrium path from a method whose entire purpose is
+-            // to trace the real one.
+-            let disp_ok = disp_error.abs() <= input.tolerance * disp_scale;
+-            if rel_error < input.tolerance && disp_ok {
+-                step_converged = true;
+-                break;
+-            }
+-
+-            // Two-system solve with a single factorization per iteration:
+-            // K_T * δu_r = R   (residual correction)
+-            // K_T * δu_t = f_ref (tangent correction)
+-            //
+-            // `residual_s` is the reduced residual the convergence test above
+-            // already built — the same vector this right-hand side needs. An
+-            // earlier version of this branch shadowed it with a second
+-            // `cs.reduce_vector(&residual)`, which is the recompute #174
+-            // removed; the sparse dispatch below does not need it back.
+-            let tangent = factor_assembled(&asm_t, n, nf, ns_dc, &cs_dc, &mut sparse_sym_cache)?;
+-            let du_r_s = solve_with_tangent(&tangent, &residual_s, ns_dc)?;
+-            let du_t_s = solve_with_tangent(&tangent, &f_ref_s_dc, ns_dc)?;
+-            let du_r = if let Some(ref cs) = cs_dc { cs.expand_solution(&du_r_s, MasterMotion::Homogeneous) } else { du_r_s };
+-            let du_t = if let Some(ref cs) = cs_dc { cs.expand_solution(&du_t_s, MasterMotion::Homogeneous) } else { du_t_s };
+-
+-            // Determine δλ from displacement constraint:
+-            // (u[ctrl] + δu_r[ctrl] + δλ * δu_t[ctrl]) = target_disp
+-            // δλ = (target_disp - u[ctrl] - δu_r[ctrl]) / δu_t[ctrl]
+-            let step = (disp_error - du_r[ctrl]) / du_t[ctrl];
+-            let d_lambda = if du_t[ctrl] != 0.0 && step.is_finite() {
+-                step
+-            } else {
+-                0.0
+-            };
+-
+-            // Update
+-            for i in 0..nf {
+-                u_full[i] += du_r[i] + d_lambda * du_t[i];
+-            }
+-            lambda += d_lambda;
+-        }
+-
+-        steps.push(EquilibriumStep {
+-            step: step + 1,
+-            load_factor: lambda,
+-            control_displacement: u_full[ctrl],
+-            converged: step_converged,
+-            iterations: step_iters,
+-            displacements: super::linear::build_displacements_2d(&dof_num, &assembly::to_global(&u_full, n, &its)),
+-        });
+-
+-        if !step_converged {
+-            overall_converged = false;
+-            break;
+-        }
+-    }
++    let mut problem = DisplacementControl2D {
++        solver: &input.solver,
++        dof_num: &dof_num,
++        cs: &cs_dc,
++        art: &art,
++        its: &its,
++        metric: &metric,
++        sparse,
++        ns: ns_dc,
++        ctrl,
++        f_ref: &f_ref,
++        f_ref_full: &f_ref_full,
++        f_ref_s: &f_ref_s_dc,
++        u_full: vec![0.0; n],
++        sparse_sym_cache: None,
++        asm_t: None,
++        residual: Vec::new(),
++        steps: Vec::new(),
++    };
++    let outcome = solve_by_displacement_control(&mut problem, &DisplacementControl {
++        control: ctrl,
++        target: input.target_displacement,
++        n_steps: input.n_steps,
++        max_iter: input.max_iter,
++        tolerance: input.tolerance,
++    })?;
++    let DisplacementControl2D { u_full, steps, .. } = problem;
++    let (lambda, overall_converged, total_iters) = (outcome.load_factor, outcome.converged, outcome.iterations);
+
+     let at_state = super::corotational::scaled_loads_2d(&input.solver, lambda);
+     let results = super::corotational::build_final_results(&at_state, &dof_num, &u_full, &cs_dc, &its)?;
+@@ -634,13 +625,6 @@ fn solve_displacement_control_contained(input: &DisplacementControlInput) -> Res
+
+ // ==================== Helpers ====================
+
+-fn vec_norm(v: &[f64]) -> f64 {
+-    v.iter().fold(0.0f64, |norm, v| norm.hypot(*v))
+-}
+-
+-fn dot_product(a: &[f64], b: &[f64]) -> f64 {
+-    a.iter().zip(b.iter()).map(|(x, y)| x * y).sum()
+-}
+
+ /// Tangent stiffness factored once, reusable for multiple right-hand sides.
+ /// The dense decompositions (Cholesky with LU fallback) match what the
+@@ -1000,3 +984,534 @@ mod tests {
+         }
+     }
+ }
++
++#[cfg(test)]
++mod shared_driver_equivalence {
++    use super::*;
++    use crate::solver::path_following::dot_product;
++    use std::collections::HashMap;
++
++    fn before_the_shared_driver(input: &ArcLengthInput, start: Option<&crate::solver::corotational::CorotationalStart2D>) -> Result<ArcLengthResult, String> {
++        crate::solver::linear::validate_input_2d(&input.solver)?;
++        crate::solver::feature_gates::refuse_2d(&input.solver, "Arc-length analysis", &[
++            crate::solver::feature_gates::Feature::ThermalLoads,
++        ])?;
++        crate::element::connector::refuse_for_corotational_2d(&input.solver, "Arc-length analysis")?;
++        crate::solver::corotational::refuse_inclined_motion_2d(&input.solver, start.is_some())?;
++
++        let dof_num = DofNumbering::build_2d(&input.solver);
++        if dof_num.n_free == 0 {
++            return Err("No free DOFs".into());
++        }
++
++        let n = dof_num.n_total;
++        let nf = dof_num.n_free;
++
++        let cs = FreeConstraintSystem::build_2d(&input.solver, &dof_num)?;
++        let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
++
++        let sparse = ns >= SPARSE_THRESHOLD;
++
++        let mut sparse_sym_cache: Option<SparseSymbolicCache> = None;
++
++        let asm = assembly::assemble_2d(&input.solver, &dof_num);
++        let art = assembly::artificial_stiffness_entries(&asm);
++        let its = asm.inclined_transforms_2d;
++        let f_ref_full = asm.f;
++        let f_ref: Vec<f64> = f_ref_full[..nf].to_vec();
++        let (mut u_full, f_start) = match start {
++            Some(start) => crate::solver::corotational::start_state_2d(&input.solver, start, &dof_num)?,
++            None => (vec![0.0; n], vec![0.0; n]),
++        };
++        let f_start_full = f_start;
++        let f_start: Vec<f64> = f_start_full[..nf].to_vec();
++        let u_r_start: Vec<f64> = u_full[nf..].to_vec();
++        let du_support = crate::solver::linear::prescribed_displacements_2d(&input.solver, &dof_num);
++        let moves_supports = du_support.iter().any(|&v| v != 0.0);
++        let mut support_direction = vec![0.0; n];
++        support_direction[nf..].copy_from_slice(&du_support);
++        if let Some(ref cs) = cs { cs.impose_motion(&mut support_direction); }
++        let support_extent: Vec<_> = u_r_start.iter().zip(&du_support)
++            .map(|(a,b)|a.abs()+b.abs()).collect();
++        let metric = crate::solver::convergence::EquilibriumMetric::for_2d_with_state(
++            &input.solver, &dof_num, cs.as_ref(), Some(&support_extent), &[],
++        )?;
++        let start_internal = if start.is_some() {
++            crate::solver::corotational::continuation_internal_2d(&input.solver, &dof_num, &u_full, &its, &art)
++        } else {
++            vec![0.0; n]
++        };
++        let f_ref_norm = metric.free_norm(&f_ref, cs.as_ref());
++        if f_ref_norm == 0.0 && !moves_supports {
++            return Err("Zero reference load".into());
++        }
++        let psi2 = if f_ref_norm > 0.0 { vec_norm(&f_ref).powi(2) } else { vec_norm(&du_support).powi(2) };
++        let set_supports = |u: &mut [f64], lambda: f64| {
++            for (r, (&u0, &du)) in u_r_start.iter().zip(&du_support).enumerate() {
++                u[nf + r] = u0 + lambda * du;
++            }
++        };
++        let reference = |asm_t: &TangentAssembly| -> Vec<f64> {
++            let mut g = f_ref.clone();
++            if moves_supports {
++                if sparse {
++                    for ((&i, &j), &v) in asm_t.trip_rows.iter().zip(&asm_t.trip_cols).zip(&asm_t.trip_vals) {
++                        if i < nf { g[i] -= v * support_direction[j]; }
++                        if i != j && j < nf { g[j] -= v * support_direction[i]; }
++                    }
++                } else {
++                    for (i, gi) in g.iter_mut().enumerate() {
++                        *gi -= (0..n).map(|j| asm_t.k_t[i * n + j] * support_direction[j]).sum::<f64>();
++                    }
++                }
++            }
++            g
++        };
++        let reduce = |v: &Vec<f64>| if let Some(ref cs) = cs { cs.reduce_vector(v) } else { v.clone() };
++
++        let mut lambda = 0.0_f64;
++        let mut ds = input.initial_ds;
++        let mut steps = Vec::new();
++        let mut total_iters = 0;
++        let mut overall_converged = true;
++
++        let mut prev_delta_u = vec![0.0; nf];
++        let mut prev_delta_lambda = 1.0_f64;
++
++        let mut step = 0;
++        while step < input.max_steps {
++            set_supports(&mut u_full, lambda);
++            let asm_t = assemble_tangent(&input.solver, &dof_num, &u_full, &art, sparse, &its);
++
++            let du_hat_s = {
++                let tangent = factor_assembled(&asm_t, n, nf, ns, &cs, &mut sparse_sym_cache)?;
++                solve_with_tangent(&tangent, &reduce(&reference(&asm_t)), ns)?
++            };
++            let du_hat = if let Some(ref cs) = cs { cs.expand_solution(&du_hat_s, MasterMotion::Prescribed(&du_support)) } else { du_hat_s };
++
++            let du_hat_norm = vec_norm(&du_hat);
++            let denom = du_hat_norm * du_hat_norm + psi2;
++            let mut delta_lambda = ds / denom.sqrt();
++
++            let dot = dot_product(&prev_delta_u, &du_hat) + prev_delta_lambda * delta_lambda * psi2;
++            if dot < 0.0 {
++                delta_lambda = -delta_lambda;
++            }
++
++            let mut delta_u: Vec<f64> = du_hat.iter().map(|&v| delta_lambda * v).collect();
++
++            for i in 0..nf {
++                u_full[i] += delta_u[i];
++            }
++            lambda += delta_lambda;
++
++            let mut step_converged = false;
++            let mut step_iters = 0;
++
++            for _iter in 0..input.max_iter {
++                step_iters += 1;
++                total_iters += 1;
++
++                set_supports(&mut u_full, lambda);
++                let asm_t = assemble_tangent(&input.solver, &dof_num, &u_full, &art, sparse, &its);
++                let f_int_new = &asm_t.f_int;
++
++                let mut residual = vec![0.0; nf];
++                for i in 0..nf {
++                    residual[i] = f_start[i] + lambda * f_ref[i] - f_int_new[i];
++                }
++
++                let applied: Vec<f64> = (0..n).map(|i| f_start_full[i] + lambda * f_ref_full[i]).collect();
++                if metric.continuation_residual(&residual,&applied,&u_full[nf..],&f_start_full,&start_internal,cs.as_ref()) < input.tolerance {
++                    step_converged = true;
++                    break;
++                }
++
++                let residual_s = if let Some(ref cs) = cs { cs.reduce_vector(&residual) } else { residual.clone() };
++                let tangent = factor_assembled(&asm_t, n, nf, ns, &cs, &mut sparse_sym_cache)?;
++                let du_r_s = solve_with_tangent(&tangent, &residual_s, ns)?;
++                let du_t_s = solve_with_tangent(&tangent, &reduce(&reference(&asm_t)), ns)?;
++                let du_r = if let Some(ref cs) = cs { cs.expand_solution(&du_r_s, MasterMotion::Homogeneous) } else { du_r_s };
++                let du_t = if let Some(ref cs) = cs { cs.expand_solution(&du_t_s, MasterMotion::Prescribed(&du_support)) } else { du_t_s };
++
++                let a_coeff = dot_product(&du_t, &du_t) + psi2;
++                let b_coeff = 2.0 * (dot_product(&delta_u, &du_t) + dot_product(&du_r, &du_t)
++                    + delta_lambda * psi2);
++                let c_coeff = dot_product(&delta_u, &delta_u) + 2.0 * dot_product(&delta_u, &du_r)
++                    + dot_product(&du_r, &du_r)
++                    + delta_lambda * delta_lambda * psi2
++                    - ds * ds;
++
++                let discriminant = b_coeff * b_coeff - 4.0 * a_coeff * c_coeff;
++                let d_lambda = if discriminant >= 0.0 {
++                    let sqrt_d = discriminant.sqrt();
++                    let root1 = (-b_coeff + sqrt_d) / (2.0 * a_coeff);
++                    let root2 = (-b_coeff - sqrt_d) / (2.0 * a_coeff);
++
++                    let du1: Vec<f64> = (0..nf).map(|i| du_r[i] + root1 * du_t[i]).collect();
++                    let du2: Vec<f64> = (0..nf).map(|i| du_r[i] + root2 * du_t[i]).collect();
++                    let work1 = dot_product(&delta_u, &du1);
++                    let work2 = dot_product(&delta_u, &du2);
++
++                    if work1 >= work2 { root1 } else { root2 }
++                } else {
++                    -b_coeff / (2.0 * a_coeff)
++                };
++
++                for i in 0..nf {
++                    let du_i = du_r[i] + d_lambda * du_t[i];
++                    u_full[i] += du_i;
++                    delta_u[i] += du_i;
++                }
++                lambda += d_lambda;
++                delta_lambda += d_lambda;
++            }
++
++            if !step_converged {
++                for i in 0..nf {
++                    u_full[i] -= delta_u[i];
++                }
++                lambda -= delta_lambda;
++
++                ds *= 0.5;
++                if ds < input.min_ds {
++                    overall_converged = false;
++                    break;
++                }
++                continue;
++            }
++
++            step += 1;
++            set_supports(&mut u_full, lambda);
++            steps.push(EquilibriumStep {
++                step,
++                load_factor: lambda,
++                control_displacement: u_full.get(0).copied().unwrap_or(0.0),
++                converged: true,
++                iterations: step_iters,
++                displacements: crate::solver::linear::build_displacements_2d(&dof_num, &assembly::to_global(&u_full, n, &its)),
++            });
++
++            prev_delta_u = delta_u;
++            prev_delta_lambda = delta_lambda;
++
++            if step_iters <= input.target_iter / 2 {
++                ds = (ds * 2.0).min(input.max_ds);
++            } else if step_iters > input.target_iter * 2 {
++                ds = (ds * 0.5).max(input.min_ds);
++            }
++        }
++
++        set_supports(&mut u_full, lambda);
++        let mut at_state = crate::solver::corotational::scaled_loads_2d(&input.solver, lambda);
++        if let Some(start) = start {
++            at_state.loads.extend(start.input.loads.clone());
++        }
++        let results = crate::solver::corotational::build_final_results(&at_state, &dof_num, &u_full, &cs, &its)?;
++
++        Ok(ArcLengthResult {
++            results,
++            steps,
++            final_load_factor: lambda,
++            converged: overall_converged,
++            total_iterations: total_iters,
++        })
++    }
++
++    fn frame(n: usize, rise: f64, far_support: Option<&str>) -> SolverInput {
++        let (mut nodes, mut elements, mut supports) = (HashMap::new(), HashMap::new(), HashMap::new());
++        for i in 0..=n {
++            let t = i as f64 / n as f64;
++            nodes.insert((i + 1).to_string(), SolverNode { id: i + 1, x: 6.0 * t, z: rise * 4.0 * t * (1.0 - t) });
++        }
++        for i in 0..n {
++            elements.insert((i + 1).to_string(), SolverElement {
++                id: i + 1, elem_type: "frame".into(), node_i: i + 1, node_j: i + 2,
++                material_id: 1, section_id: 1, hinge_start: false, hinge_end: false,
++            });
++        }
++        let support = |id: usize, node_id: usize, kind: &str| SolverSupport {
++            id, node_id, support_type: kind.into(), kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: None,
++        };
++        supports.insert("1".into(), support(1, 1, if far_support.is_some() { "pinned" } else { "fixed" }));
++        if let Some(kind) = far_support {
++            supports.insert("2".into(), support(2, n + 1, kind));
++        }
++        let loaded = if far_support.is_some() { n / 2 + 1 } else { n + 1 };
++        SolverInput {
++            solver_options: None, masses: Default::default(), nodes,
++            materials: HashMap::from([("1".to_string(), SolverMaterial { id: 1, e: 200.0, nu: 0.3 })]),
++            sections: HashMap::from([("1".to_string(), SolverSection { id: 1, a: 0.01, iz: 1e-4, as_y: None })]),
++            elements, supports,
++            loads: vec![SolverLoad::Nodal(SolverNodalLoad { node_id: loaded, fx: 0.0, fz: -30.0, my: 0.0 })],
++            constraints: vec![], connectors: HashMap::new(),
++        }
++    }
++
++    fn asked(solver: SolverInput, max_steps: usize, max_iter: usize, initial_ds: f64) -> ArcLengthInput {
++        ArcLengthInput { solver, max_steps, max_iter, tolerance: 1e-8, initial_ds, min_ds: 1e-5, max_ds: 2.0 * initial_ds, target_iter: 5 }
++    }
++
++    fn same(input: &ArcLengthInput, start: Option<&crate::solver::corotational::CorotationalStart2D>) -> Option<ArcLengthResult> {
++        let before = before_the_shared_driver(input, start);
++        let now = solve_arc_length_contained(input, start);
++        match (before, now) {
++            (Ok(before), Ok(now)) => {
++                assert_eq!(format!("{before:?}"), format!("{now:?}"));
++                Some(now)
++            }
++            (Err(before), Err(now)) => {
++                assert_eq!(before, now);
++                None
++            }
++            (before, now) => panic!("{:?} against {:?}", before.map(|r| r.converged), now.map(|r| r.converged)),
++        }
++    }
++
++    #[test]
++    fn the_shared_driver_gives_the_paths_the_loop_gave_bit_for_bit() {
++        let (mut followed, mut cut_short, mut sparse, mut steps) = (0, 0, 0, 0);
++        for n in [2, 6, 14, 30] {
++            for (rise, far_support) in [(0.0, None), (0.3, None), (0.15, Some("pinned")), (0.6, Some("pinned"))] {
++                let solver = frame(n, rise, far_support);
++                if DofNumbering::build_2d(&solver).n_free >= SPARSE_THRESHOLD { sparse += 1; }
++                for (max_steps, max_iter, initial_ds) in [(12, 30, 0.05), (30, 30, 0.2), (8, 2, 0.5), (6, 1, 0.05), (0, 30, 0.1)] {
++                    let Some(result) = same(&asked(solver.clone(), max_steps, max_iter, initial_ds), None) else { continue };
++                    steps += result.steps.len();
++                    if result.converged { followed += 1 } else { cut_short += 1 }
++                }
++            }
++        }
++        assert!(followed >= 30 && cut_short >= 4 && sparse >= 3 && steps >= 300, "{followed} followed, {cut_short} cut short, {sparse} sparse, {steps} steps");
++    }
++
++    #[test]
++    fn moving_supports_a_start_state_and_refusals_go_through_the_shared_driver_unchanged() {
++        for n in [6, 30] {
++            let mut settling = frame(n, 0.3, Some("pinned"));
++            settling.supports.get_mut("2").unwrap().dz = Some(-0.05);
++            assert!(same(&asked(settling.clone(), 10, 30, 0.05), None).is_some());
++            settling.loads.clear();
++            assert!(same(&asked(settling, 10, 30, 0.05), None).is_some());
++
++            let first = frame(n, 0.3, Some("pinned"));
++            let reached = crate::solver::corotational::solve_corotational_2d(&first, 60, 1e-8, 8, false).unwrap();
++            let start = crate::solver::corotational::CorotationalStart2D { input: &first, displacements: &reached.results.displacements };
++            let mut next = frame(n, 0.3, Some("pinned"));
++            next.loads = vec![SolverLoad::Nodal(SolverNodalLoad { node_id: n / 2 + 1, fx: 2.0, fz: -10.0, my: 0.0 })];
++            assert!(same(&asked(next, 10, 30, 0.05), Some(&start)).is_some());
++        }
++        let mut unloaded = frame(6, 0.3, None);
++        unloaded.loads.clear();
++        assert!(same(&asked(unloaded, 10, 30, 0.05), None).is_none());
++        let mut held = frame(1, 0.0, Some("fixed"));
++        held.supports.get_mut("1").unwrap().support_type = "fixed".into();
++        assert!(same(&asked(held, 10, 30, 0.05), None).is_none());
++    }
++
++    fn displacement_control_before_the_shared_driver(input: &DisplacementControlInput) -> Result<DisplacementControlResult, String> {
++        crate::solver::linear::validate_input_2d(&input.solver)?;
++        crate::solver::feature_gates::refuse_2d(&input.solver, "Displacement-control analysis", &[
++            crate::solver::feature_gates::Feature::PrescribedDisplacements,
++            crate::solver::feature_gates::Feature::InclinedSupports, crate::solver::feature_gates::Feature::ThermalLoads,
++        ])?;
++        crate::element::connector::refuse_for_corotational_2d(&input.solver, "Displacement-control analysis")?;
++
++        let dof_num = DofNumbering::build_2d(&input.solver);
++        if dof_num.n_free == 0 {
++            return Err("No free DOFs".into());
++        }
++
++        let n = dof_num.n_total;
++        let nf = dof_num.n_free;
++
++        let cs_dc = FreeConstraintSystem::build_2d(&input.solver, &dof_num)?;
++        let metric = crate::solver::convergence::EquilibriumMetric::for_2d(&input.solver, &dof_num, cs_dc.as_ref())?;
++        let ns_dc = cs_dc.as_ref().map_or(nf, |c| c.n_free_indep);
++
++        let sparse = ns_dc >= SPARSE_THRESHOLD;
++
++        let mut sparse_sym_cache: Option<SparseSymbolicCache> = None;
++
++        let control_global = dof_num.map.get(&(input.control_node, input.control_dof))
++            .ok_or("Control node/DOF not found in free DOFs")?;
++        if *control_global >= nf {
++            return Err("Control DOF is restrained".into());
++        }
++        let ctrl = *control_global;
++
++        if input.n_steps == 0 {
++            return Err("Number of displacement steps must be at least 1".into());
++        }
++        if input.max_iter == 0 {
++            return Err("Max iterations must be at least 1".into());
++        }
++        if !input.target_displacement.is_finite() || input.target_displacement == 0.0 {
++            return Err("Target displacement must be finite and non-zero".into());
++        }
++        if !input.tolerance.is_finite() || input.tolerance <= 0.0 {
++            return Err("Convergence tolerance must be finite and positive".into());
++        }
++
++        let asm = assembly::assemble_2d(&input.solver, &dof_num);
++        let art = assembly::artificial_stiffness_entries(&asm);
++        let its = asm.inclined_transforms_2d;
++        let f_ref_full = asm.f;
++        let f_ref: Vec<f64> = f_ref_full[..nf].to_vec();
++        let f_ref_s_dc = if let Some(ref cs) = cs_dc {
++            cs.reduce_vector(&f_ref)
++        } else {
++            f_ref.clone()
++        };
++        let f_ref_norm = metric.free_norm(&f_ref, cs_dc.as_ref());
++        if f_ref_norm == 0.0 {
++            return Err("Zero reference load".into());
++        }
++
++        let mut u_full = vec![0.0; n];
++        let mut lambda = 0.0_f64;
++        let mut steps = Vec::new();
++        let mut total_iters = 0;
++        let mut overall_converged = true;
++
++        let delta_d = input.target_displacement / input.n_steps as f64;
++        let disp_scale = delta_d.abs();
++
++        for step in 0..input.n_steps {
++            let target_disp = (step + 1) as f64 * delta_d;
++
++            let mut step_converged = false;
++            let mut step_iters = 0;
++
++            for _iter in 0..input.max_iter {
++                step_iters += 1;
++                total_iters += 1;
++
++                let asm_t = assemble_tangent(&input.solver, &dof_num, &u_full, &art, sparse, &its);
++                let f_int = &asm_t.f_int;
++
++                let mut residual = vec![0.0; nf];
++                for i in 0..nf {
++                    residual[i] = lambda * f_ref[i] - f_int[i];
++                }
++
++                let disp_error = target_disp - u_full[ctrl];
++
++                let applied: Vec<f64> = f_ref_full.iter().map(|f| lambda * f).collect();
++                let rel_error = metric.relative_residual(&residual, &applied, None, cs_dc.as_ref());
++                let residual_s = if let Some(ref cs) = cs_dc {
++                    cs.reduce_vector(&residual)
++                } else {
++                    residual
++                };
++                let disp_ok = disp_error.abs() <= input.tolerance * disp_scale;
++                if rel_error < input.tolerance && disp_ok {
++                    step_converged = true;
++                    break;
++                }
++
++                let tangent = factor_assembled(&asm_t, n, nf, ns_dc, &cs_dc, &mut sparse_sym_cache)?;
++                let du_r_s = solve_with_tangent(&tangent, &residual_s, ns_dc)?;
++                let du_t_s = solve_with_tangent(&tangent, &f_ref_s_dc, ns_dc)?;
++                let du_r = if let Some(ref cs) = cs_dc { cs.expand_solution(&du_r_s, MasterMotion::Homogeneous) } else { du_r_s };
++                let du_t = if let Some(ref cs) = cs_dc { cs.expand_solution(&du_t_s, MasterMotion::Homogeneous) } else { du_t_s };
++
++                let step = (disp_error - du_r[ctrl]) / du_t[ctrl];
++                let d_lambda = if du_t[ctrl] != 0.0 && step.is_finite() {
++                    step
++                } else {
++                    0.0
++                };
++
++                for i in 0..nf {
++                    u_full[i] += du_r[i] + d_lambda * du_t[i];
++                }
++                lambda += d_lambda;
++            }
++
++            steps.push(EquilibriumStep {
++                step: step + 1,
++                load_factor: lambda,
++                control_displacement: u_full[ctrl],
++                converged: step_converged,
++                iterations: step_iters,
++                displacements: crate::solver::linear::build_displacements_2d(&dof_num, &assembly::to_global(&u_full, n, &its)),
++            });
++
++            if !step_converged {
++                overall_converged = false;
++                break;
++            }
++        }
++
++        let at_state = crate::solver::corotational::scaled_loads_2d(&input.solver, lambda);
++        let results = crate::solver::corotational::build_final_results(&at_state, &dof_num, &u_full, &cs_dc, &its)?;
++
++        Ok(DisplacementControlResult {
++            results,
++            steps,
++            final_load_factor: lambda,
++            converged: overall_converged,
++            total_iterations: total_iters,
++        })
++    }
++    fn driven(solver: SolverInput, control_node: usize, control_dof: usize, target_displacement: f64, n_steps: usize, max_iter: usize) -> DisplacementControlInput {
++        DisplacementControlInput { solver, control_node, control_dof, target_displacement, n_steps, max_iter, tolerance: 1e-8 }
++    }
++
++    fn same_driven(input: &DisplacementControlInput) -> Option<DisplacementControlResult> {
++        let before = displacement_control_before_the_shared_driver(input);
++        let now = solve_displacement_control_contained(input);
++        match (before, now) {
++            (Ok(before), Ok(now)) => {
++                assert_eq!(format!("{before:?}"), format!("{now:?}"));
++                Some(now)
++            }
++            (Err(before), Err(now)) => {
++                assert_eq!(before, now);
++                None
++            }
++            (before, now) => panic!("{:?} against {:?}", before.map(|r| r.converged), now.map(|r| r.converged)),
++        }
++    }
++
++    #[test]
++    fn the_shared_driver_gives_the_driven_paths_the_loop_gave_bit_for_bit() {
++        let (mut reached, mut stopped, mut sparse, mut steps) = (0, 0, 0, 0);
++        for n in [2, 6, 14, 30] {
++            for (rise, far_support) in [(0.0, None), (0.3, None), (0.15, Some("pinned")), (0.6, Some("pinned"))] {
++                let solver = frame(n, rise, far_support);
++                if DofNumbering::build_2d(&solver).n_free >= SPARSE_THRESHOLD { sparse += 1; }
++                let node = if far_support.is_some() { n / 2 + 1 } else { n + 1 };
++                for (dof, target, n_steps, max_iter) in [(1, -0.05, 10, 30), (1, -0.4, 8, 30), (1, 0.02, 5, 30), (2, 0.1, 6, 30), (1, -0.4, 4, 2), (1, -0.05, 3, 1)] {
++                    let Some(result) = same_driven(&driven(solver.clone(), node, dof, target, n_steps, max_iter)) else { continue };
++                    steps += result.steps.len();
++                    if result.converged { reached += 1 } else { stopped += 1 }
++                }
++            }
++        }
++        assert!(reached >= 25 && stopped >= 10 && sparse >= 3 && steps >= 200, "{reached} reached, {stopped} stopped, {sparse} sparse, {steps} steps");
++    }
++
++    #[test]
++    fn refused_displacement_control_is_refused_with_the_same_words() {
++        let solver = frame(6, 0.3, None);
++        for input in [
++            driven(solver.clone(), 7, 1, -0.05, 0, 30),
++            driven(solver.clone(), 7, 1, -0.05, 10, 0),
++            driven(solver.clone(), 7, 1, 0.0, 10, 30),
++            driven(solver.clone(), 7, 1, f64::NAN, 10, 30),
++            driven(solver.clone(), 1, 1, -0.05, 10, 30),
++            driven(solver.clone(), 99, 1, -0.05, 10, 30),
++            driven(solver.clone(), 7, 9, -0.05, 10, 30),
++        ] {
++            assert!(same_driven(&input).is_none());
++        }
++        let mut unloaded = frame(6, 0.3, None);
++        unloaded.loads.clear();
++        assert!(same_driven(&driven(unloaded, 7, 1, -0.05, 10, 30)).is_none());
++        let mut tolerance = driven(solver, 7, 1, -0.05, 10, 30);
++        tolerance.tolerance = 0.0;
++        assert!(same_driven(&tolerance).is_none());
++    }
++}
+diff --git a/engine/src/solver/corotational.rs b/engine/src/solver/corotational.rs
+index 7975111e7a8bbe86d9587a0ec7d7e656ae427500..fdde636de3c2a7ab93703cb7140d945b986deb50 100644
+--- a/engine/src/solver/corotational.rs
++++ b/engine/src/solver/corotational.rs
+@@ -6,6 +6,7 @@ use super::dof::DofNumbering;
+ use super::assembly;
+ use super::constraints::{FreeConstraintSystem, MasterMotion};
+ use super::linear::SPARSE_THRESHOLD;
++pub use super::nonlinear::{IterationMethod, LoadStepping};
+ use super::sparse_tangent::{
+     cached_symbolic, solve_tangent_sparse_diagnosed, tangent_free_sparse_triplets, SparseSymbolicCache,
+ };
+@@ -89,6 +90,7 @@ struct Corotational2D<'a> {
+     support_step: Option<Vec<f64>>,
+     cached_factor: Option<CachedTangentFactor>,
+     r_f: Vec<f64>,
++    unbalance: Vec<f64>,
+     k_t: Vec<f64>,
+     trip_rows: Vec<usize>,
+     trip_cols: Vec<usize>,
+@@ -168,7 +170,7 @@ impl super::nonlinear::IncrementalProblem for Corotational2D<'_> {
+
+             // Rotate K_T/f_int back into the rotated (tangent, normal) basis
+             // at inclined-support DOFs so they stay consistent with self.f_ext
+-            // (already rotated by assemble_2d above) for the residual/solve
++            // (which assemble_2d already rotated) for the residual/solve
+             // below — without this, the tangent-stiffness system enforces
+             // "restrain literal global Z" instead of "restrain normal to
+             // the incline," silently solving the wrong physical problem.
+@@ -187,6 +189,7 @@ impl super::nonlinear::IncrementalProblem for Corotational2D<'_> {
+         let r_f: Vec<f64> = residual[..nf].to_vec();
+         let rel_error = metric.continuation_residual(&residual,&self.f_ext,&self.active_supports,&f_base,&start_internal,cs.as_ref());
+
++        self.unbalance.clone_from(&r_f);
+         self.r_f = r_f;
+         self.k_t = k_t;
+         self.trip_rows = trip_rows;
+@@ -195,7 +198,7 @@ impl super::nonlinear::IncrementalProblem for Corotational2D<'_> {
+         Ok(super::nonlinear::Linearization { measure: rel_error, forced: self.support_step.is_some() })
+     }
+
+-    fn correct(&mut self, modified_nr: bool) -> Result<(), String> {
++    fn correction(&mut self, modified_nr: bool) -> Result<Vec<f64>, String> {
+         let (dof_num, cs) = (self.dof_num, self.cs);
+         let (n, nf, ns) = (dof_num.n_total, dof_num.n_free, self.ns);
+         let sparse_tangent = ns >= SPARSE_THRESHOLD;
+@@ -301,7 +304,11 @@ impl super::nonlinear::IncrementalProblem for Corotational2D<'_> {
+             delta_u_indep
+         };
+
+-        // Update displacements (free DOFs only)
++        Ok(delta_u_f)
++    }
++
++    fn advance(&mut self, delta_u_f: &[f64]) {
++        let nf = self.dof_num.n_free;
+         for i in 0..nf {
+             self.u_full[i] += delta_u_f[i];
+         }
+@@ -310,11 +317,23 @@ impl super::nonlinear::IncrementalProblem for Corotational2D<'_> {
+                 self.u_full[nf + r] += du;
+             }
+         }
+-        Ok(())
+     }
+
+-    fn commit(&mut self) {
++    fn state(&self) -> Vec<f64> {
++        self.u_full[..self.dof_num.n_free].to_vec()
++    }
++
++    fn work(&self, step: &[f64]) -> f64 {
++        -super::line_search::directional_derivative(&self.unbalance, step, self.dof_num.n_free)
++    }
++
++    fn set_state(&mut self, state: &[f64]) {
++        self.u_full[..self.dof_num.n_free].copy_from_slice(state);
++    }
++
++    fn commit(&mut self) -> Result<(), String> {
+         self.u_converged.copy_from_slice(&self.u_full);
++        Ok(())
+     }
+
+     fn rollback(&mut self) {
+@@ -356,6 +375,47 @@ pub fn solve_corotational_2d_from(
+     tolerance: f64,
+     n_increments: usize,
+     modified_nr: bool,
++) -> Result<CorotationalResult, String> {
++    let method = if modified_nr { IterationMethod::ModifiedNewton } else { IterationMethod::Newton };
++    solve_corotational_2d_by(input, start, max_iter, tolerance, n_increments, method)
++}
++
++/// [`solve_corotational_2d_by`] with the load stepping chosen. With adaptive stepping
++/// `n_increments` sets the first increment's size and the result's `load_increments` is the
++/// number that converged.
++pub fn solve_corotational_2d_stepped(
++    input: &SolverInput,
++    start: Option<&CorotationalStart2D>,
++    max_iter: usize,
++    tolerance: f64,
++    n_increments: usize,
++    method: IterationMethod,
++    stepping: LoadStepping,
++) -> Result<CorotationalResult, String> {
++    corotational_2d(input, start, max_iter, tolerance, n_increments, method, stepping)
++}
++
++/// [`solve_corotational_2d_from`] with the iteration that converges each increment chosen.
++/// `max_iter` bounds the linearizations of an increment, a line search's trials among them.
++pub fn solve_corotational_2d_by(
++    input: &SolverInput,
++    start: Option<&CorotationalStart2D>,
++    max_iter: usize,
++    tolerance: f64,
++    n_increments: usize,
++    method: IterationMethod,
++) -> Result<CorotationalResult, String> {
++    corotational_2d(input, start, max_iter, tolerance, n_increments, method, LoadStepping::Equal)
++}
++
++fn corotational_2d(
++    input: &SolverInput,
++    start: Option<&CorotationalStart2D>,
++    max_iter: usize,
++    tolerance: f64,
++    n_increments: usize,
++    method: IterationMethod,
++    stepping: LoadStepping,
+ ) -> Result<CorotationalResult, String> {
+     let canonical_input = super::member_loads::plane_input(input);
+     let input = canonical_input.as_ref();
+@@ -377,6 +437,7 @@ pub fn solve_corotational_2d_from(
+     if !tolerance.is_finite() || tolerance <= 0.0 {
+         return Err("Convergence tolerance must be finite and positive".into());
+     }
++    super::nonlinear::validate(method)?;
+
+     // The 3D entry point validates; this one did not, and went straight to
+     // assembly — where ids are resolved by direct map indexing, so an element
+@@ -450,12 +511,13 @@ pub fn solve_corotational_2d_from(
+         support_step: None,
+         cached_factor: None,
+         r_f: Vec::new(),
++        unbalance: Vec::new(),
+         k_t: Vec::new(),
+         trip_rows: Vec::new(),
+         trip_cols: Vec::new(),
+         trip_vals: Vec::new(),
+     };
+-    let outcome = super::nonlinear::solve_by_load_increments(&mut problem, &super::nonlinear::Newton { lag_tangent: modified_nr }, n_increments, tolerance, max_iter)?;
++    let outcome = super::nonlinear::solve_stepped(&mut problem, method, stepping, n_increments, tolerance, max_iter)?;
+     let Corotational2D { u_full, conditioning, .. } = problem;
+     let (total_iterations, converged, converged_factor) = (outcome.iterations, outcome.converged, outcome.load_factor);
+
+@@ -481,7 +543,7 @@ pub fn solve_corotational_2d_from(
+         results,
+         iterations: total_iterations,
+         converged,
+-        load_increments: n_increments,
++        load_increments: if stepping == LoadStepping::Adaptive { outcome.increments } else { n_increments },
+         load_factor: converged_factor,
+         max_displacement,
+     })
+@@ -1403,6 +1465,223 @@ pub fn compute_corotational_forces(
+ // 3D Co-rotational Large Displacement Solver
+ // ============================================================
+
++struct Corotational3D<'a> {
++    input: &'a SolverInput3D,
++    dof_num: &'a DofNumbering,
++    cs: &'a Option<FreeConstraintSystem>,
++    asm: &'a assembly::AssemblyResult,
++    metric: &'a super::convergence::EquilibriumMetric,
++    ns: usize,
++    left_hand: bool,
++    f_total: &'a [f64],
++    u_full: Vec<f64>,
++    u_converged: Vec<f64>,
++    naturals: Vec<MemberDeformation3D>,
++    sparse_sym_cache: Option<SparseSymbolicCache>,
++    conditioning: Option<StructuredDiagnostic>,
++    f_ext: Vec<f64>,
++    cached_factor: Option<CachedTangentFactor>,
++    r_f: Vec<f64>,
++    unbalance: Vec<f64>,
++    k_t: Vec<f64>,
++    trip_rows: Vec<usize>,
++    trip_cols: Vec<usize>,
++    trip_vals: Vec<f64>,
++}
++
++impl super::nonlinear::IncrementalProblem for Corotational3D<'_> {
++    fn begin_increment(&mut self, load_factor: f64) {
++        self.f_ext = self.f_total.iter().map(|&f| load_factor * f).collect();
++        self.cached_factor = None;
++    }
++
++    fn linearize(&mut self) -> Result<super::nonlinear::Linearization, String> {
++        let (input, dof_num, asm, metric, cs, left_hand) = (self.input, self.dof_num, self.asm, self.metric, self.cs, self.left_hand);
++        let (n, nf, ns) = (dof_num.n_total, dof_num.n_free, self.ns);
++        let mut f_int = vec![0.0; n];
++        // See solve_corotational_2d: dense tangent below
++        // SPARSE_THRESHOLD, lower-triangle triplets at or above it.
++        let sparse_tangent = ns >= SPARSE_THRESHOLD;
++        let mut k_t: Vec<f64> = Vec::new();
++        let mut trip_rows: Vec<usize> = Vec::new();
++        let mut trip_cols: Vec<usize> = Vec::new();
++        let mut trip_vals: Vec<f64> = Vec::new();
++
++        // See the 2D solver's identical comment: elements need TRUE
++        // global nodal displacements; self.u_full keeps inclined-support
++        // DOFs in the rotated (normal, tangent, tangent) basis.
++        let mut u_geom = self.u_full.clone();
++        for it in &asm.inclined_transforms {
++            assembly::reverse_inclined_transform(&mut u_geom, &it.dofs, &it.r);
++        }
++
++        if sparse_tangent {
++            assemble_corotational_triplets_3d(
++                input, &dof_num, &u_geom, &mut f_int,
++                &mut trip_rows, &mut trip_cols, &mut trip_vals,
++                left_hand,
++            );
++            add_spring_contributions_3d(
++                input, &dof_num, &u_geom, &mut f_int,
++                &mut |gi, gj, v| {
++                    if gi >= gj {
++                        trip_rows.push(gi);
++                        trip_cols.push(gj);
++                        trip_vals.push(v);
++                    }
++                },
++            );
++            // Triplet K rotation + f rotation == dense
++            // apply_inclined_transform (see comment below).
++            for it in &asm.inclined_transforms {
++                assembly::apply_inclined_transform_triplets(
++                    &mut trip_rows, &mut trip_cols, &mut trip_vals,
++                    &mut f_int, &it.dofs, &it.r,
++                );
++            }
++        } else {
++            k_t = vec![0.0; n * n];
++            assemble_corotational_3d(input, &dof_num, &u_geom, &mut f_int, &mut k_t, left_hand);
++            add_spring_contributions_3d(
++                input, &dof_num, &u_geom, &mut f_int,
++                &mut |gi, gj, v| k_t[gi * n + gj] += v,
++            );
++
++            // Rotate back into the rotated frame so K_T/f_int stay
++            // consistent with self.f_ext (rotated by assemble_3d) for the
++            // residual/solve below.
++            for it in &asm.inclined_transforms {
++                assembly::apply_inclined_transform(&mut k_t, &mut f_int, n, &it.dofs, &it.r);
++            }
++        }
++
++        // Residual R = F_ext - f_int
++        let mut residual = vec![0.0; n];
++        for i in 0..n {
++            residual[i] = self.f_ext[i] - f_int[i];
++        }
++
++        // Reduce residual and check convergence on independent DOFs
++        let r_f: Vec<f64> = residual[..nf].to_vec();
++        let rel_error = metric.relative_residual(&residual, &self.f_ext, None, cs.as_ref());
++
++        self.unbalance.clone_from(&r_f);
++        self.r_f = r_f;
++        self.k_t = k_t;
++        self.trip_rows = trip_rows;
++        self.trip_cols = trip_cols;
++        self.trip_vals = trip_vals;
++        Ok(super::nonlinear::Linearization { measure: rel_error, forced: false })
++    }
++
++    fn correction(&mut self, modified_nr: bool) -> Result<Vec<f64>, String> {
++        let (dof_num, cs) = (self.dof_num, self.cs);
++        let (n, nf, ns) = (dof_num.n_total, dof_num.n_free, self.ns);
++        let r_f = std::mem::take(&mut self.r_f);
++        let k_t = std::mem::take(&mut self.k_t);
++        let (trip_rows, trip_cols, trip_vals) = (std::mem::take(&mut self.trip_rows), std::mem::take(&mut self.trip_cols), std::mem::take(&mut self.trip_vals));
++        // Solve K_T * delta_u = R (with constraint reduction if present)
++        let r_s = if let Some(ref cs) = *cs {
++            cs.reduce_vector(&r_f)
++        } else {
++            r_f
++        };
++
++        let delta_u_indep = if modified_nr {
++            if let Some(ref factor) = self.cached_factor {
++                solve_with_cached_factor(factor, &r_s)
++            } else if ns >= SPARSE_THRESHOLD {
++                // Sparse path: symbolic factorization is cached across
++                // iterations (pattern is constant); only the numeric
++                // phase runs here, and the resulting factor is reused
++                // for the rest of the increment.
++                let k_s_csc = tangent_free_sparse_triplets(
++                    &trip_rows, &trip_cols, &trip_vals, nf, cs,
++                );
++                let sym = cached_symbolic(&mut self.sparse_sym_cache, &k_s_csc);
++                let factor = numeric_cholesky(sym, &k_s_csc);
++                if let Some(found) = crate::known_issues::sparse_factor_conditioning(&k_s_csc, factor.as_ref()) { self.conditioning = Some(found); }
++                match factor {
++                    Some(num) => {
++                        let result = sparse_cholesky_solve(&num, &r_s);
++                        self.cached_factor = Some(CachedTangentFactor::Sparse(num));
++                        result
++                    }
++                    None => solve_tangent_sparse_diagnosed(&k_s_csc, &r_s, &mut self.sparse_sym_cache, &mut self.conditioning)?,
++                }
++            } else {
++                let free_idx: Vec<usize> = (0..nf).collect();
++                let k_ff = extract_submatrix(&k_t, n, &free_idx, &free_idx);
++                let k_s = if let Some(ref cs) = *cs {
++                    cs.reduce_matrix(&k_ff)
++                } else {
++                    k_ff
++                };
++                let factor = try_cholesky_factor(&k_s, ns);
++                if let Some(found) = crate::known_issues::dense_factor_conditioning(&k_s, ns, factor.as_ref().map(|f| f.l.as_slice())) { self.conditioning = Some(found); }
++                match factor {
++                    Some(factor) => {
++                        let result = solve_with_cholesky_factor(&factor.l, &r_s, factor.n);
++                        self.cached_factor = Some(CachedTangentFactor::Dense(factor));
++                        result
++                    }
++                    None => solve_free_dofs(&k_s, &r_s, ns, &mut self.conditioning)?,
++                }
++            }
++        } else if ns >= SPARSE_THRESHOLD {
++            let k_s_csc = tangent_free_sparse_triplets(
++                &trip_rows, &trip_cols, &trip_vals, nf, cs,
++            );
++            solve_tangent_sparse_diagnosed(&k_s_csc, &r_s, &mut self.sparse_sym_cache, &mut self.conditioning)?
++        } else {
++            let free_idx: Vec<usize> = (0..nf).collect();
++            let k_ff = extract_submatrix(&k_t, n, &free_idx, &free_idx);
++            let k_s = if let Some(ref cs) = *cs {
++                cs.reduce_matrix(&k_ff)
++            } else {
++                k_ff
++            };
++            solve_free_dofs(&k_s, &r_s, ns, &mut self.conditioning)?
++        };
++
++        let delta_u = if let Some(ref cs) = *cs {
++            cs.expand_solution(&delta_u_indep, MasterMotion::Homogeneous)
++        } else {
++            delta_u_indep
++        };
++
++        Ok(delta_u)
++    }
++
++    fn advance(&mut self, delta_u: &[f64]) {
++        for i in 0..self.dof_num.n_free {
++            self.u_full[i] += delta_u[i];
++        }
++    }
++
++    fn state(&self) -> Vec<f64> {
++        self.u_full[..self.dof_num.n_free].to_vec()
++    }
++
++    fn work(&self, step: &[f64]) -> f64 {
++        -super::line_search::directional_derivative(&self.unbalance, step, self.dof_num.n_free)
++    }
++
++    fn set_state(&mut self, state: &[f64]) {
++        self.u_full[..self.dof_num.n_free].copy_from_slice(state);
++    }
++
++    fn commit(&mut self) -> Result<(), String> {
++        self.naturals = on_one_branch_3d(self.input, self.dof_num, (&self.u_converged, &self.naturals), &self.u_full, self.left_hand)?;
++        self.u_converged.copy_from_slice(&self.u_full);
++        Ok(())
++    }
++
++    fn rollback(&mut self) {
++        self.u_full.copy_from_slice(&self.u_converged);
++    }
++}
++
+ /// Solve a 3D frame using co-rotational large displacement analysis.
+ ///
+ /// Extends the 2D formulation to 3D with:
+@@ -1420,6 +1699,43 @@ pub fn solve_corotational_3d(
+     tolerance: f64,
+     n_increments: usize,
+     modified_nr: bool,
++) -> Result<CorotationalResult3D, String> {
++    let method = if modified_nr { IterationMethod::ModifiedNewton } else { IterationMethod::Newton };
++    solve_corotational_3d_by(input, max_iter, tolerance, n_increments, method)
++}
++
++/// [`solve_corotational_3d_by`] with the load stepping chosen, as in
++/// [`solve_corotational_2d_stepped`].
++pub fn solve_corotational_3d_stepped(
++    input: &SolverInput3D,
++    max_iter: usize,
++    tolerance: f64,
++    n_increments: usize,
++    method: IterationMethod,
++    stepping: LoadStepping,
++) -> Result<CorotationalResult3D, String> {
++    corotational_3d(input, max_iter, tolerance, n_increments, method, stepping)
++}
++
++/// [`solve_corotational_3d`] with the iteration that converges each increment chosen.
++/// `max_iter` bounds the linearizations of an increment, a line search's trials among them.
++pub fn solve_corotational_3d_by(
++    input: &SolverInput3D,
++    max_iter: usize,
++    tolerance: f64,
++    n_increments: usize,
++    method: IterationMethod,
++) -> Result<CorotationalResult3D, String> {
++    corotational_3d(input, max_iter, tolerance, n_increments, method, LoadStepping::Equal)
++}
++
++fn corotational_3d(
++    input: &SolverInput3D,
++    max_iter: usize,
++    tolerance: f64,
++    n_increments: usize,
++    method: IterationMethod,
++    stepping: LoadStepping,
+ ) -> Result<CorotationalResult3D, String> {
+     let canonical_input = super::member_loads::space_input(input);
+     let input = canonical_input.as_ref();
+@@ -1436,6 +1752,7 @@ pub fn solve_corotational_3d(
+     if !tolerance.is_finite() || tolerance <= 0.0 {
+         return Err("Convergence tolerance must be finite and positive".into());
+     }
++    super::nonlinear::validate(method)?;
+
+     // Input validation and pre-solve gates
+     super::linear::validate_input_3d(input)?;
+@@ -1499,185 +1816,33 @@ pub fn solve_corotational_3d(
+     let asm = assembly::assemble_3d(input, &dof_num);
+     let f_total = asm.f.clone();
+
+-    let mut u_full = vec![0.0; n];
+-    let mut total_iterations = 0;
+-    let mut converged = true;
+-    // The state and load factor of the last converged increment.
+-    let mut u_converged = u_full.clone();
+-    let mut naturals = member_deformations_3d(input, &dof_num, &u_full, left_hand);
+-    let mut converged_factor = 0.0f64;
+-
+-    // See solve_corotational_2d: sparse symbolic factorization cache for the
+-    // ns >= SPARSE_THRESHOLD path (pattern is constant within a solve call).
+-    let mut sparse_sym_cache: Option<SparseSymbolicCache> = None;
+-    let mut conditioning = None;
+-
+-    for increment in 1..=n_increments {
+-        let load_factor = increment as f64 / n_increments as f64;
+-        let f_ext: Vec<f64> = f_total.iter().map(|&f| load_factor * f).collect();
+-
+-        let mut nr_converged = false;
+-        let mut cached_factor: Option<CachedTangentFactor> = None;
+-        for _iter in 0..max_iter {
+-            total_iterations += 1;
+-
+-            let mut f_int = vec![0.0; n];
+-            // See solve_corotational_2d: dense tangent below
+-            // SPARSE_THRESHOLD, lower-triangle triplets at or above it.
+-            let sparse_tangent = ns >= SPARSE_THRESHOLD;
+-            let mut k_t: Vec<f64> = Vec::new();
+-            let mut trip_rows: Vec<usize> = Vec::new();
+-            let mut trip_cols: Vec<usize> = Vec::new();
+-            let mut trip_vals: Vec<f64> = Vec::new();
+-
+-            // See the 2D solver's identical comment: elements need TRUE
+-            // global nodal displacements; u_full keeps inclined-support
+-            // DOFs in the rotated (normal, tangent, tangent) basis.
+-            let mut u_geom = u_full.clone();
+-            for it in &asm.inclined_transforms {
+-                assembly::reverse_inclined_transform(&mut u_geom, &it.dofs, &it.r);
+-            }
+-
+-            if sparse_tangent {
+-                assemble_corotational_triplets_3d(
+-                    input, &dof_num, &u_geom, &mut f_int,
+-                    &mut trip_rows, &mut trip_cols, &mut trip_vals,
+-                    left_hand,
+-                );
+-                add_spring_contributions_3d(
+-                    input, &dof_num, &u_geom, &mut f_int,
+-                    &mut |gi, gj, v| {
+-                        if gi >= gj {
+-                            trip_rows.push(gi);
+-                            trip_cols.push(gj);
+-                            trip_vals.push(v);
+-                        }
+-                    },
+-                );
+-                // Triplet K rotation + f rotation == dense
+-                // apply_inclined_transform (see comment below).
+-                for it in &asm.inclined_transforms {
+-                    assembly::apply_inclined_transform_triplets(
+-                        &mut trip_rows, &mut trip_cols, &mut trip_vals,
+-                        &mut f_int, &it.dofs, &it.r,
+-                    );
+-                }
+-            } else {
+-                k_t = vec![0.0; n * n];
+-                assemble_corotational_3d(input, &dof_num, &u_geom, &mut f_int, &mut k_t, left_hand);
+-                add_spring_contributions_3d(
+-                    input, &dof_num, &u_geom, &mut f_int,
+-                    &mut |gi, gj, v| k_t[gi * n + gj] += v,
+-                );
+-
+-                // Rotate back into the rotated frame so K_T/f_int stay
+-                // consistent with f_ext (rotated by assemble_3d) for the
+-                // residual/solve below.
+-                for it in &asm.inclined_transforms {
+-                    assembly::apply_inclined_transform(&mut k_t, &mut f_int, n, &it.dofs, &it.r);
+-                }
+-            }
+-
+-            // Residual R = F_ext - f_int
+-            let mut residual = vec![0.0; n];
+-            for i in 0..n {
+-                residual[i] = f_ext[i] - f_int[i];
+-            }
+-
+-            // Reduce residual and check convergence on independent DOFs
+-            let r_f: Vec<f64> = residual[..nf].to_vec();
+-            let rel_error = metric.relative_residual(&residual, &f_ext, None, cs.as_ref());
+-
+-            if rel_error < tolerance {
+-                nr_converged = true;
+-                break;
+-            }
+-
+-            // Solve K_T * delta_u = R (with constraint reduction if present)
+-            let r_s = if let Some(ref cs) = cs {
+-                cs.reduce_vector(&r_f)
+-            } else {
+-                r_f
+-            };
+-
+-            let delta_u_indep = if modified_nr {
+-                if let Some(ref factor) = cached_factor {
+-                    solve_with_cached_factor(factor, &r_s)
+-                } else if ns >= SPARSE_THRESHOLD {
+-                    // Sparse path: symbolic factorization is cached across
+-                    // iterations (pattern is constant); only the numeric
+-                    // phase runs here, and the resulting factor is reused
+-                    // for the rest of the increment.
+-                    let k_s_csc = tangent_free_sparse_triplets(
+-                        &trip_rows, &trip_cols, &trip_vals, nf, &cs,
+-                    );
+-                    let sym = cached_symbolic(&mut sparse_sym_cache, &k_s_csc);
+-                    let factor = numeric_cholesky(sym, &k_s_csc);
+-                    if let Some(found) = crate::known_issues::sparse_factor_conditioning(&k_s_csc, factor.as_ref()) { conditioning = Some(found); }
+-                    match factor {
+-                        Some(num) => {
+-                            let result = sparse_cholesky_solve(&num, &r_s);
+-                            cached_factor = Some(CachedTangentFactor::Sparse(num));
+-                            result
+-                        }
+-                        None => solve_tangent_sparse_diagnosed(&k_s_csc, &r_s, &mut sparse_sym_cache, &mut conditioning)?,
+-                    }
+-                } else {
+-                    let free_idx: Vec<usize> = (0..nf).collect();
+-                    let k_ff = extract_submatrix(&k_t, n, &free_idx, &free_idx);
+-                    let k_s = if let Some(ref cs) = cs {
+-                        cs.reduce_matrix(&k_ff)
+-                    } else {
+-                        k_ff
+-                    };
+-                    let factor = try_cholesky_factor(&k_s, ns);
+-                    if let Some(found) = crate::known_issues::dense_factor_conditioning(&k_s, ns, factor.as_ref().map(|f| f.l.as_slice())) { conditioning = Some(found); }
+-                    match factor {
+-                        Some(factor) => {
+-                            let result = solve_with_cholesky_factor(&factor.l, &r_s, factor.n);
+-                            cached_factor = Some(CachedTangentFactor::Dense(factor));
+-                            result
+-                        }
+-                        None => solve_free_dofs(&k_s, &r_s, ns, &mut conditioning)?,
+-                    }
+-                }
+-            } else if ns >= SPARSE_THRESHOLD {
+-                let k_s_csc = tangent_free_sparse_triplets(
+-                    &trip_rows, &trip_cols, &trip_vals, nf, &cs,
+-                );
+-                solve_tangent_sparse_diagnosed(&k_s_csc, &r_s, &mut sparse_sym_cache, &mut conditioning)?
+-            } else {
+-                let free_idx: Vec<usize> = (0..nf).collect();
+-                let k_ff = extract_submatrix(&k_t, n, &free_idx, &free_idx);
+-                let k_s = if let Some(ref cs) = cs {
+-                    cs.reduce_matrix(&k_ff)
+-                } else {
+-                    k_ff
+-                };
+-                solve_free_dofs(&k_s, &r_s, ns, &mut conditioning)?
+-            };
+-
+-            let delta_u = if let Some(ref cs) = cs {
+-                cs.expand_solution(&delta_u_indep, MasterMotion::Homogeneous)
+-            } else {
+-                delta_u_indep
+-            };
+-
+-            for i in 0..nf {
+-                u_full[i] += delta_u[i];
+-            }
+-        }
+-
+-        if !nr_converged {
+-            // Report the last converged increment, not the iterate given up on.
+-            converged = false;
+-            u_full.copy_from_slice(&u_converged);
+-            break;
+-        }
+-        naturals = on_one_branch_3d(input, &dof_num, (&u_converged, &naturals), &u_full, left_hand)?;
+-        u_converged.copy_from_slice(&u_full);
+-        converged_factor = load_factor;
+-    }
++    let u_full = vec![0.0; n];
++    let mut problem = Corotational3D {
++        input,
++        dof_num: &dof_num,
++        cs: &cs,
++        asm: &asm,
++        metric: &metric,
++        ns,
++        left_hand,
++        f_total: &f_total,
++        naturals: member_deformations_3d(input, &dof_num, &u_full, left_hand),
++        u_converged: u_full.clone(),
++        u_full,
++        sparse_sym_cache: None,
++        conditioning: None,
++        f_ext: Vec::new(),
++        cached_factor: None,
++        r_f: Vec::new(),
++        unbalance: Vec::new(),
++        k_t: Vec::new(),
++        trip_rows: Vec::new(),
++        trip_cols: Vec::new(),
++        trip_vals: Vec::new(),
++    };
++    let outcome = super::nonlinear::solve_stepped(&mut problem, method, stepping, n_increments, tolerance, max_iter)?;
++    let Corotational3D { u_full, u_converged, naturals, conditioning, .. } = problem;
++    let (total_iterations, converged, converged_factor) = (outcome.iterations, outcome.converged, outcome.load_factor);
+
+     let deformations = on_one_branch_3d(input, &dof_num, (&u_converged, &naturals), &u_full, left_hand)?;
+     let max_displacement = compute_max_displacement_3d(&dof_num, &u_full);
+@@ -1700,7 +1865,7 @@ pub fn solve_corotational_3d(
+         results,
+         iterations: total_iterations,
+         converged,
+-        load_increments: n_increments,
++        load_increments: if stepping == LoadStepping::Adaptive { outcome.increments } else { n_increments },
+         load_factor: converged_factor,
+         max_displacement,
+     })
+@@ -3976,6 +4141,145 @@ mod shared_driver_equivalence {
+         }
+     }
+
++    /// Largest difference of a translation, over the largest translation of `b`. Panics unless
++    /// both hold the same nodes in the same order, every component is finite and `b` moved.
++    fn apart_of(a: &[Displacement], b: &[Displacement]) -> f64 {
++        assert!(!b.is_empty() && a.len() == b.len(), "{} displacements against {}", a.len(), b.len());
++        let (mut gap, mut largest) = (0.0f64, 0.0f64);
++        for (x, y) in a.iter().zip(b) {
++            assert_eq!(x.node_id, y.node_id);
++            assert!([x.ux, x.uz, x.ry, y.ux, y.uz, y.ry].iter().all(|v| v.is_finite()), "node {}: {x:?} against {y:?}", x.node_id);
++            gap = gap.max((x.ux - y.ux).abs()).max((x.uz - y.uz).abs());
++            largest = largest.max(y.ux.abs()).max(y.uz.abs());
++        }
++        assert!(largest > 0.0, "the reference did not move");
++        gap / largest
++    }
++
++    fn apart(a: &CorotationalResult, b: &CorotationalResult) -> f64 {
++        apart_of(&a.results.displacements, &b.results.displacements)
++    }
++
++    fn moved(node_id: usize, ux: f64, uz: f64) -> Displacement {
++        Displacement { node_id, ux, uz, ry: 0.0 }
++    }
++
++    #[test]
++    fn the_comparison_measures_the_largest_difference_of_complete_finite_results() {
++        let reference = [moved(1, 0.0, 0.0), moved(2, 0.5, -2.0)];
++        assert_eq!(apart_of(&reference, &reference), 0.0);
++        assert_eq!(apart_of(&[moved(1, 0.0, 0.1), moved(2, 0.5, -2.0)], &reference), 0.05);
++        assert_eq!(apart_of(&[moved(1, 0.0, 0.0), moved(2, 0.9, -2.0)], &reference), 0.2);
++    }
++
++    #[test]
++    fn the_comparison_refuses_what_it_cannot_compare() {
++        let reference = vec![moved(1, 0.0, 0.0), moved(2, 0.5, -2.0)];
++        let refused = |a: Vec<Displacement>, b: Vec<Displacement>| std::panic::catch_unwind(move || apart_of(&a, &b)).is_err();
++        assert!(refused(vec![], reference.clone()));
++        assert!(refused(reference[..1].to_vec(), reference.clone()));
++        assert!(refused(reference.clone(), reference[..1].to_vec()));
++        assert!(refused(vec![], vec![]));
++        assert!(refused(vec![moved(1, 0.0, 0.0), moved(3, 0.5, -2.0)], reference.clone()));
++        assert!(refused(vec![moved(2, 0.5, -2.0), moved(1, 0.0, 0.0)], reference.clone()));
++        for bad in [f64::NAN, f64::INFINITY] {
++            assert!(refused(vec![moved(1, 0.0, 0.0), moved(2, bad, -2.0)], reference.clone()));
++            assert!(refused(vec![moved(1, 0.0, bad), moved(2, 0.5, -2.0)], reference.clone()));
++            assert!(refused(reference.clone(), vec![moved(1, 0.0, 0.0), moved(2, 0.5, bad)]));
++            let mut turned = reference.clone();
++            turned[1].ry = bad;
++            assert!(refused(turned, reference.clone()));
++        }
++        assert!(refused(vec![moved(1, 0.0, 0.0), moved(2, 0.0, 0.0)], vec![moved(1, 0.0, 0.0), moved(2, 0.0, 0.0)]));
++    }
++
++    #[test]
++    fn the_line_search_reaches_the_solution_of_many_small_increments_where_newton_does_not() {
++        let (mut newton_elsewhere, mut newton_lost) = (0, 0);
++        for n in [4, 12, 30] {
++            for (rise, far_support) in [(0.0, None), (0.4, None), (0.4, Some("pinned"))] {
++                let input = frame(n, rise, far_support);
++                let reference = solve_corotational_2d_by(&input, None, 200, 1e-8, 40, IterationMethod::NewtonLineSearch).unwrap();
++                assert!(reference.converged);
++                let stepped = solve_corotational_2d_by(&input, None, 200, 1e-8, 40, IterationMethod::Newton).unwrap();
++                if stepped.converged {
++                    assert!(apart(&reference, &stepped) <= 1e-8, "n {n}: {}", apart(&reference, &stepped));
++                }
++                for n_increments in [1, 4] {
++                    let searched = solve_corotational_2d_by(&input, None, 200, 1e-8, n_increments, IterationMethod::NewtonLineSearch).unwrap();
++                    assert!(searched.converged && searched.load_factor == 1.0, "n {n}, rise {rise}, {n_increments} increments");
++                    assert!(apart(&searched, &reference) <= 1e-8, "n {n}, rise {rise}, {n_increments} increments: {}", apart(&searched, &reference));
++                    assert!(searched.iterations <= 60, "{}", searched.iterations);
++                    let plain = solve_corotational_2d_by(&input, None, 200, 1e-8, n_increments, IterationMethod::Newton).unwrap();
++                    if !plain.converged {
++                        newton_lost += 1;
++                    } else if apart(&plain, &reference) > 1e-3 {
++                        newton_elsewhere += 1;
++                    }
++                }
++            }
++        }
++        assert!(newton_lost + newton_elsewhere >= 4, "{newton_lost} unconverged, {newton_elsewhere} on another solution");
++    }
++
++    #[test]
++    fn adaptive_steps_carry_newton_to_the_solution_of_many_small_increments() {
++        for n in [4, 12, 30] {
++            for (rise, far_support) in [(0.0, None), (0.4, None), (0.4, Some("pinned"))] {
++                let input = frame(n, rise, far_support);
++                let reference = solve_corotational_2d_by(&input, None, 200, 1e-8, 40, IterationMethod::NewtonLineSearch).unwrap();
++                assert!(reference.converged);
++                for method in [IterationMethod::Newton, IterationMethod::NewtonLineSearch] {
++                    let stepped = solve_corotational_2d_stepped(&input, None, 20, 1e-8, 4, method, LoadStepping::Adaptive).unwrap();
++                    assert!(stepped.converged && stepped.load_factor == 1.0, "n {n}, rise {rise}, {method:?}");
++                    assert!(stepped.load_increments >= 1 && stepped.load_increments <= 400, "{}", stepped.load_increments);
++                    assert!(apart(&stepped, &reference) <= 1e-7, "n {n}, rise {rise}, {method:?}: {}", apart(&stepped, &reference));
++                }
++            }
++        }
++    }
++
++    #[test]
++    fn equal_steps_through_the_stepped_entry_point_are_the_plain_solve() {
++        let input = frame(12, 0.4, Some("pinned"));
++        let plain = solve_corotational_2d(&input, 50, 1e-8, 4, false).unwrap();
++        let stepped = solve_corotational_2d_stepped(&input, None, 50, 1e-8, 4, IterationMethod::Newton, LoadStepping::Equal).unwrap();
++        assert_eq!(serde_json::to_string(&plain).unwrap(), serde_json::to_string(&stepped).unwrap());
++        let short = solve_corotational_2d_stepped(&input, None, 1, 1e-8, 4, IterationMethod::Newton, LoadStepping::Adaptive).unwrap();
++        assert!(!short.converged);
++        assert_eq!((short.load_factor, short.load_increments), (0.0, 0));
++        assert!(short.results.displacements.iter().all(|d| d.ux == 0.0 && d.uz == 0.0));
++    }
++
++    #[test]
++    fn anderson_converges_propped_arches_that_modified_newton_does_not() {
++        for n in [4, 12, 30] {
++            let input = frame(n, 0.4, Some("pinned"));
++            let reference = solve_corotational_2d_by(&input, None, 200, 1e-8, 40, IterationMethod::NewtonLineSearch).unwrap();
++            let modified = solve_corotational_2d_by(&input, None, 200, 1e-8, 4, IterationMethod::ModifiedNewton).unwrap();
++            assert!(!modified.converged);
++            let accelerated = solve_corotational_2d_by(&input, None, 200, 1e-8, 4, IterationMethod::Anderson { depth: 6 }).unwrap();
++            assert!(accelerated.converged && accelerated.load_factor == 1.0, "n {n}");
++            assert!(accelerated.iterations < 4 * 200);
++            assert!(apart(&accelerated, &reference) <= 1e-8, "n {n}: {}", apart(&accelerated, &reference));
++        }
++    }
++
++    #[test]
++    fn an_iteration_that_does_not_converge_reports_the_last_increment_that_did() {
++        let input = frame(12, 0.0, None);
++        for method in [IterationMethod::Anderson { depth: 3 }, IterationMethod::NewtonLineSearch, IterationMethod::ModifiedNewton] {
++            let result = solve_corotational_2d_by(&input, None, 3, 1e-8, 4, method).unwrap();
++            assert!(!result.converged, "{method:?}");
++            assert_eq!(result.load_factor, 0.0, "{method:?}");
++            assert!(result.results.displacements.iter().all(|d| d.ux == 0.0 && d.uz == 0.0), "{method:?}");
++        }
++        let refused = solve_corotational_2d_by(&input, None, 50, 1e-8, 4, IterationMethod::Anderson { depth: 0 });
++        assert_eq!(refused.err().as_deref(), Some("Anderson acceleration needs a depth from 1 to 50"));
++        let precedence = solve_corotational_2d_by(&input, None, 0, 1e-8, 4, IterationMethod::Anderson { depth: 0 });
++        assert_eq!(precedence.err().as_deref(), Some("Max iterations must be at least 1"));
++    }
++
+     #[test]
+     fn refused_inputs_are_refused_with_the_same_words() {
+         let input = frame(4, 0.0, None);
+@@ -3986,3 +4290,408 @@ mod shared_driver_equivalence {
+         assert!(same(&held, None, 20, 2, false).is_none());
+     }
+ }
++
++#[cfg(test)]
++mod shared_driver_equivalence_3d {
++    use super::*;
++
++    fn before_the_shared_driver_3d(
++        input: &SolverInput3D,
++        max_iter: usize,
++        tolerance: f64,
++        n_increments: usize,
++        modified_nr: bool,
++    ) -> Result<CorotationalResult3D, String> {
++        let canonical_input = crate::solver::member_loads::space_input(input);
++        let input = canonical_input.as_ref();
++
++        if n_increments == 0 {
++            return Err("Number of load increments must be at least 1".into());
++        }
++        if max_iter == 0 {
++            return Err("Max iterations must be at least 1".into());
++        }
++        if !tolerance.is_finite() || tolerance <= 0.0 {
++            return Err("Convergence tolerance must be finite and positive".into());
++        }
++
++        crate::solver::linear::validate_input_3d(input)?;
++        crate::solver::linear::refuse_initial_free_rotation_loads_3d(input)?;
++        let pre_solve_diags = crate::solver::pre_solve_gates::run_pre_solve_gates_3d(input);
++
++        let has_shells = !input.plates.is_empty()
++            || !input.quads.is_empty()
++            || !input.quad9s.is_empty()
++            || !input.solid_shells.is_empty()
++            || !input.curved_shells.is_empty();
++        if has_shells {
++            return Err("Corotational 3D solver does not support shell elements. \
++                Use the linear solver for models with plates, quads, or shells.".into());
++        }
++        let frame_sections: std::collections::HashSet<usize> =
++            crate::ordered::values(&input.elements).filter(|e| e.elem_type == "frame").map(|e| e.section_id).collect();
++        if let Some(sec) = crate::ordered::values(&input.sections).filter(|s| frame_sections.contains(&s.id)).find(|s| {
++            s.shear_center_y.is_some_and(|v| v != 0.0) || s.shear_center_z.is_some_and(|v| v != 0.0)
++        }) {
++            return Err(format!(
++                "Corotational 3D solver does not model a shear-centre offset (section {}): \
++                 flexural-torsional coupling is not included. Use linear buckling or P-Delta.",
++                sec.id
++            ));
++        }
++
++        crate::solver::feature_gates::refuse_3d(input, "Corotational analysis", &[
++            crate::solver::feature_gates::Feature::PrescribedDisplacements, crate::solver::feature_gates::Feature::ThermalLoads,
++            crate::solver::feature_gates::Feature::Warping,
++        ])?;
++        crate::element::connector::refuse_for_corotational_3d(input, "Corotational analysis")?;
++        let input = &crate::solver::linear::expand_curved_beams_3d(input);
++        let dof_num = DofNumbering::build_3d(input);
++
++        if dof_num.n_free == 0 {
++            return Err("No free DOFs — all nodes are fully restrained".into());
++        }
++
++        let n = dof_num.n_total;
++        let nf = dof_num.n_free;
++        let left_hand = input.left_hand.unwrap_or(false);
++
++        let cs = FreeConstraintSystem::build_3d(&input, &dof_num)?;
++        let metric = crate::solver::convergence::EquilibriumMetric::for_3d(input, &dof_num, cs.as_ref())?;
++        let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
++
++        let asm = assembly::assemble_3d(input, &dof_num);
++        let f_total = asm.f.clone();
++
++        let mut u_full = vec![0.0; n];
++        let mut total_iterations = 0;
++        let mut converged = true;
++        let mut u_converged = u_full.clone();
++        let mut naturals = member_deformations_3d(input, &dof_num, &u_full, left_hand);
++        let mut converged_factor = 0.0f64;
++
++        let mut sparse_sym_cache: Option<SparseSymbolicCache> = None;
++        let mut conditioning = None;
++
++        for increment in 1..=n_increments {
++            let load_factor = increment as f64 / n_increments as f64;
++            let f_ext: Vec<f64> = f_total.iter().map(|&f| load_factor * f).collect();
++
++            let mut nr_converged = false;
++            let mut cached_factor: Option<CachedTangentFactor> = None;
++            for _iter in 0..max_iter {
++                total_iterations += 1;
++
++                let mut f_int = vec![0.0; n];
++                let sparse_tangent = ns >= SPARSE_THRESHOLD;
++                let mut k_t: Vec<f64> = Vec::new();
++                let mut trip_rows: Vec<usize> = Vec::new();
++                let mut trip_cols: Vec<usize> = Vec::new();
++                let mut trip_vals: Vec<f64> = Vec::new();
++
++                let mut u_geom = u_full.clone();
++                for it in &asm.inclined_transforms {
++                    assembly::reverse_inclined_transform(&mut u_geom, &it.dofs, &it.r);
++                }
++
++                if sparse_tangent {
++                    assemble_corotational_triplets_3d(
++                        input, &dof_num, &u_geom, &mut f_int,
++                        &mut trip_rows, &mut trip_cols, &mut trip_vals,
++                        left_hand,
++                    );
++                    add_spring_contributions_3d(
++                        input, &dof_num, &u_geom, &mut f_int,
++                        &mut |gi, gj, v| {
++                            if gi >= gj {
++                                trip_rows.push(gi);
++                                trip_cols.push(gj);
++                                trip_vals.push(v);
++                            }
++                        },
++                    );
++                    for it in &asm.inclined_transforms {
++                        assembly::apply_inclined_transform_triplets(
++                            &mut trip_rows, &mut trip_cols, &mut trip_vals,
++                            &mut f_int, &it.dofs, &it.r,
++                        );
++                    }
++                } else {
++                    k_t = vec![0.0; n * n];
++                    assemble_corotational_3d(input, &dof_num, &u_geom, &mut f_int, &mut k_t, left_hand);
++                    add_spring_contributions_3d(
++                        input, &dof_num, &u_geom, &mut f_int,
++                        &mut |gi, gj, v| k_t[gi * n + gj] += v,
++                    );
++
++                    for it in &asm.inclined_transforms {
++                        assembly::apply_inclined_transform(&mut k_t, &mut f_int, n, &it.dofs, &it.r);
++                    }
++                }
++
++                let mut residual = vec![0.0; n];
++                for i in 0..n {
++                    residual[i] = f_ext[i] - f_int[i];
++                }
++
++                let r_f: Vec<f64> = residual[..nf].to_vec();
++                let rel_error = metric.relative_residual(&residual, &f_ext, None, cs.as_ref());
++
++                if rel_error < tolerance {
++                    nr_converged = true;
++                    break;
++                }
++
++                let r_s = if let Some(ref cs) = cs {
++                    cs.reduce_vector(&r_f)
++                } else {
++                    r_f
++                };
++
++                let delta_u_indep = if modified_nr {
++                    if let Some(ref factor) = cached_factor {
++                        solve_with_cached_factor(factor, &r_s)
++                    } else if ns >= SPARSE_THRESHOLD {
++                        let k_s_csc = tangent_free_sparse_triplets(
++                            &trip_rows, &trip_cols, &trip_vals, nf, &cs,
++                        );
++                        let sym = cached_symbolic(&mut sparse_sym_cache, &k_s_csc);
++                        let factor = numeric_cholesky(sym, &k_s_csc);
++                        if let Some(found) = crate::known_issues::sparse_factor_conditioning(&k_s_csc, factor.as_ref()) { conditioning = Some(found); }
++                        match factor {
++                            Some(num) => {
++                                let result = sparse_cholesky_solve(&num, &r_s);
++                                cached_factor = Some(CachedTangentFactor::Sparse(num));
++                                result
++                            }
++                            None => solve_tangent_sparse_diagnosed(&k_s_csc, &r_s, &mut sparse_sym_cache, &mut conditioning)?,
++                        }
++                    } else {
++                        let free_idx: Vec<usize> = (0..nf).collect();
++                        let k_ff = extract_submatrix(&k_t, n, &free_idx, &free_idx);
++                        let k_s = if let Some(ref cs) = cs {
++                            cs.reduce_matrix(&k_ff)
++                        } else {
++                            k_ff
++                        };
++                        let factor = try_cholesky_factor(&k_s, ns);
++                        if let Some(found) = crate::known_issues::dense_factor_conditioning(&k_s, ns, factor.as_ref().map(|f| f.l.as_slice())) { conditioning = Some(found); }
++                        match factor {
++                            Some(factor) => {
++                                let result = solve_with_cholesky_factor(&factor.l, &r_s, factor.n);
++                                cached_factor = Some(CachedTangentFactor::Dense(factor));
++                                result
++                            }
++                            None => solve_free_dofs(&k_s, &r_s, ns, &mut conditioning)?,
++                        }
++                    }
++                } else if ns >= SPARSE_THRESHOLD {
++                    let k_s_csc = tangent_free_sparse_triplets(
++                        &trip_rows, &trip_cols, &trip_vals, nf, &cs,
++                    );
++                    solve_tangent_sparse_diagnosed(&k_s_csc, &r_s, &mut sparse_sym_cache, &mut conditioning)?
++                } else {
++                    let free_idx: Vec<usize> = (0..nf).collect();
++                    let k_ff = extract_submatrix(&k_t, n, &free_idx, &free_idx);
++                    let k_s = if let Some(ref cs) = cs {
++                        cs.reduce_matrix(&k_ff)
++                    } else {
++                        k_ff
++                    };
++                    solve_free_dofs(&k_s, &r_s, ns, &mut conditioning)?
++                };
++
++                let delta_u = if let Some(ref cs) = cs {
++                    cs.expand_solution(&delta_u_indep, MasterMotion::Homogeneous)
++                } else {
++                    delta_u_indep
++                };
++
++                for i in 0..nf {
++                    u_full[i] += delta_u[i];
++                }
++            }
++
++            if !nr_converged {
++                converged = false;
++                u_full.copy_from_slice(&u_converged);
++                break;
++            }
++            naturals = on_one_branch_3d(input, &dof_num, (&u_converged, &naturals), &u_full, left_hand)?;
++            u_converged.copy_from_slice(&u_full);
++            converged_factor = load_factor;
++        }
++
++        let deformations = on_one_branch_3d(input, &dof_num, (&u_converged, &naturals), &u_full, left_hand)?;
++        let max_displacement = compute_max_displacement_3d(&dof_num, &u_full);
++        let scaled;
++        let at_state = if converged_factor < 1.0 {
++            scaled = scaled_loads_3d(input, converged_factor);
++            &scaled
++        } else {
++            input
++        };
++        let mut results = build_final_results_3d(at_state, &dof_num, &u_full, left_hand, &cs, pre_solve_diags, &asm.inclined_transforms)?;
++        crate::known_issues::attach(&mut results.structured_diagnostics, conditioning.into_iter().collect());
++        crate::known_issues::attach(&mut results.structured_diagnostics, crate::known_issues::for_3d(input, crate::known_issues::Analysis::Corotational));
++        if deformations.iter().any(|d| d.natural > crate::known_issues::NL3_NATURAL_ROTATION) {
++            crate::known_issues::attach(&mut results.structured_diagnostics, vec![crate::known_issues::corotational_natural_rotation()]);
++        }
++        crate::known_issues::refuse(&results.structured_diagnostics)?;
++
++        Ok(CorotationalResult3D {
++            results,
++            iterations: total_iterations,
++            converged,
++            load_increments: n_increments,
++            load_factor: converged_factor,
++            max_displacement,
++        })
++    }
++
++    fn frame(n: usize, rise: f64, propped: bool, scale: f64) -> SolverInput3D {
++        let mut nodes = serde_json::Map::new();
++        let mut elements = serde_json::Map::new();
++        for i in 0..=n {
++            let t = i as f64 / n as f64;
++            nodes.insert((i + 1).to_string(), serde_json::json!({"id": i + 1, "x": 6.0 * t, "y": 0.5 * t * t, "z": rise * 4.0 * t * (1.0 - t)}));
++        }
++        for i in 0..n {
++            elements.insert((i + 1).to_string(), serde_json::json!({"id": i + 1, "type": "frame", "nodeI": i + 1, "nodeJ": i + 2, "materialId": 1, "sectionId": 1}));
++        }
++        let held = |node: usize, turning: bool| serde_json::json!({"nodeId": node, "rx": true, "ry": true, "rz": true, "rrx": turning, "rry": turning, "rrz": turning});
++        let mut supports = serde_json::Map::new();
++        supports.insert("1".into(), held(1, true));
++        if propped {
++            supports.insert("2".into(), held(n + 1, false));
++        }
++        let loaded = if propped { n / 2 + 1 } else { n + 1 };
++        serde_json::from_value(serde_json::json!({
++            "nodes": nodes, "elements": elements, "supports": supports,
++            "materials": {"1": {"id": 1, "e": 200.0, "nu": 0.3}},
++            "sections": {"1": {"id": 1, "a": 0.01, "iy": 1e-4, "iz": 2e-4, "j": 1.5e-4}},
++            "loads": [{"type": "nodal", "data": {"nodeId": loaded, "fx": 1.0 * scale, "fy": 6.0 * scale, "fz": -10.0 * scale, "mx": 0.5 * scale, "my": 1.0 * scale, "mz": 0.0}}]
++        })).unwrap()
++    }
++
++    fn same(input: &SolverInput3D, max_iter: usize, n_increments: usize, modified: bool) -> Option<CorotationalResult3D> {
++        let before = before_the_shared_driver_3d(input, max_iter, 1e-8, n_increments, modified);
++        let now = solve_corotational_3d(input, max_iter, 1e-8, n_increments, modified);
++        match (before, now) {
++            (Ok(before), Ok(now)) => {
++                assert_eq!(serde_json::to_string(&before).unwrap(), serde_json::to_string(&now).unwrap());
++                Some(now)
++            }
++            (Err(before), Err(now)) => {
++                assert_eq!(before, now);
++                None
++            }
++            (before, now) => panic!("{:?} against {:?}", before.map(|r| r.converged), now.map(|r| r.converged)),
++        }
++    }
++
++    #[test]
++    fn the_shared_driver_gives_the_3d_results_the_loop_gave_bit_for_bit() {
++        let (mut converged, mut other, mut sparse) = (0, 0, 0);
++        for n in [1, 4, 12, 20] {
++            for (rise, propped) in [(0.0, false), (0.3, false), (0.3, true)] {
++                for scale in [0.05, 1.0] {
++                    let input = frame(n, rise, propped, scale);
++                    if DofNumbering::build_3d(&input).n_free >= SPARSE_THRESHOLD { sparse += 1; }
++                    for modified in [false, true] {
++                        for (max_iter, n_increments) in [(60, 1), (60, 5), (3, 2), (1, 4), (300, 10)] {
++                            match same(&input, max_iter, n_increments, modified) {
++                                Some(result) if result.converged => converged += 1,
++                                _ => other += 1,
++                            }
++                        }
++                    }
++                }
++            }
++        }
++        assert!(converged >= 40 && other >= 40 && sparse >= 6, "{converged} converged, {other} not, {sparse} sparse");
++    }
++
++    #[test]
++    fn refused_3d_inputs_are_refused_with_the_same_words() {
++        let input = frame(4, 0.0, false, 0.05);
++        assert!(same(&input, 0, 4, false).is_none());
++        assert!(same(&input, 20, 0, false).is_none());
++        let mut offset = frame(4, 0.0, false, 0.05);
++        offset.sections.get_mut("1").unwrap().shear_center_y = Some(0.01);
++        assert!(same(&offset, 20, 2, false).is_none());
++    }
++
++    /// As the 2D `apart`: panics unless both hold the same nodes in the same order, every
++    /// component is finite and `b` moved.
++    fn apart(a: &CorotationalResult3D, b: &CorotationalResult3D) -> f64 {
++        let (a, b) = (&a.results.displacements, &b.results.displacements);
++        assert!(!b.is_empty() && a.len() == b.len(), "{} displacements against {}", a.len(), b.len());
++        let (mut gap, mut largest) = (0.0f64, 0.0f64);
++        for (x, y) in a.iter().zip(b) {
++            assert_eq!(x.node_id, y.node_id);
++            let components = [x.ux, x.uy, x.uz, x.rx, x.ry, x.rz, y.ux, y.uy, y.uz, y.rx, y.ry, y.rz];
++            assert!(components.iter().all(|v| v.is_finite()), "node {}", x.node_id);
++            gap = gap.max((x.ux - y.ux).abs()).max((x.uy - y.uy).abs()).max((x.uz - y.uz).abs());
++            largest = largest.max(y.ux.abs()).max(y.uy.abs()).max(y.uz.abs());
++        }
++        assert!(largest > 0.0, "the reference did not move");
++        gap / largest
++    }
++
++    #[test]
++    fn the_3d_comparison_refuses_what_it_cannot_compare() {
++        let input = frame(4, 0.0, false, 0.05);
++        let solved = solve_corotational_3d(&input, 100, 1e-9, 2, false).unwrap();
++        assert_eq!(apart(&solved, &solved), 0.0);
++        let refused = |change: &dyn Fn(&mut CorotationalResult3D)| {
++            let mut other = solve_corotational_3d(&input, 100, 1e-9, 2, false).unwrap();
++            change(&mut other);
++            let reference = solve_corotational_3d(&input, 100, 1e-9, 2, false).unwrap();
++            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| apart(&other, &reference))).is_err()
++        };
++        assert!(!refused(&|_| {}));
++        assert!(refused(&|r| r.results.displacements.clear()));
++        assert!(refused(&|r| { r.results.displacements.pop(); }));
++        assert!(refused(&|r| r.results.displacements[2].node_id += 100));
++        assert!(refused(&|r| r.results.displacements[2].uy = f64::NAN));
++        assert!(refused(&|r| r.results.displacements[2].rz = f64::INFINITY));
++        let still = solve_corotational_3d(&input, 100, 1e-9, 2, false).unwrap();
++        let mut flat = solve_corotational_3d(&input, 100, 1e-9, 2, false).unwrap();
++        for d in flat.results.displacements.iter_mut() { (d.ux, d.uy, d.uz) = (0.0, 0.0, 0.0); }
++        assert!(std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| apart(&still, &flat))).is_err());
++    }
++
++    #[test]
++    fn adaptive_steps_reach_the_3d_solution_equal_steps_reach() {
++        for n in [4, 12] {
++            for (rise, propped) in [(0.0, false), (0.3, true)] {
++                let input = frame(n, rise, propped, 0.05);
++                let equal = solve_corotational_3d_by(&input, 100, 1e-9, 4, IterationMethod::Newton).unwrap();
++                assert!(equal.converged);
++                let stepped = solve_corotational_3d_stepped(&input, 100, 1e-9, 4, IterationMethod::Newton, LoadStepping::Adaptive).unwrap();
++                assert!(stepped.converged && stepped.load_factor == 1.0, "n {n}");
++                assert!(stepped.load_increments >= 1);
++                assert!(apart(&stepped, &equal) <= 1e-7, "n {n}: {}", apart(&stepped, &equal));
++            }
++        }
++    }
++
++    #[test]
++    fn the_other_iterations_reach_the_3d_solution_newton_reaches() {
++        for n in [4, 12] {
++            for (rise, propped) in [(0.0, false), (0.3, true)] {
++                let input = frame(n, rise, propped, 0.05);
++                let newton = solve_corotational_3d_by(&input, 100, 1e-9, 4, IterationMethod::Newton).unwrap();
++                assert!(newton.converged);
++                for method in [IterationMethod::NewtonLineSearch, IterationMethod::Anderson { depth: 4 }] {
++                    let other = solve_corotational_3d_by(&input, 400, 1e-9, 4, method).unwrap();
++                    assert!(other.converged, "n {n}, {method:?}");
++                    assert!(apart(&other, &newton) <= 1e-7, "n {n}, {method:?}: {}", apart(&other, &newton));
++                }
++            }
++        }
++        let refused = solve_corotational_3d_by(&frame(4, 0.0, false, 0.05), 50, 1e-8, 4, IterationMethod::Anderson { depth: 0 });
++        assert_eq!(refused.err().as_deref(), Some("Anderson acceleration needs a depth from 1 to 50"));
++    }
++}
+diff --git a/engine/src/solver/mod.rs b/engine/src/solver/mod.rs
+index a75a9a3ac46bea19db597e3f59cfa02a1c6ebcf0..dc1d4f8660549fb30211c0f48bf4ee33c7d305af 100644
+--- a/engine/src/solver/mod.rs
++++ b/engine/src/solver/mod.rs
+@@ -29,6 +29,7 @@ pub mod load_cases;
+ pub mod winkler;
+ pub mod line_search;
+ pub(crate) mod nonlinear;
++pub(crate) mod path_following;
+ pub mod adaptive_stepping;
+ pub mod contact;
+ pub mod soil_curves;
+diff --git a/engine/src/solver/nonlinear.rs b/engine/src/solver/nonlinear.rs
+index 74f96642f7cc5f1a5649f487da2a6a0eb9a33d91..f13cd701937bc775fec67ebcbcaefe04d5f97719 100644
+--- a/engine/src/solver/nonlinear.rs
++++ b/engine/src/solver/nonlinear.rs
+@@ -1,24 +1,37 @@
+ //! The incremental-iterative driver the nonlinear analyses share. An analysis describes itself as
+-//! an [`IncrementalProblem`]; how its increments are converged is an [`Iteration`], of which
+-//! [`Newton`] is the first.
++//! an [`IncrementalProblem`]; how its increments are converged is an [`Iteration`]: [`Newton`],
++//! [`NewtonLineSearch`] or [`Anderson`].
++
++use super::adaptive_stepping::{AdaptiveStepper, StepAction};
+
+ pub(crate) struct Linearization {
+     /// What the analysis compares with its tolerance.
+     pub measure: f64,
+-    /// A correction is owed whatever the measure says (a support step not yet applied).
++    /// A correction is owed whatever the measure says (a support step not yet applied), and it
++    /// has to be taken whole.
+     pub forced: bool,
+ }
+
++/// `correction` answers for the last `linearize` and may be asked once for it: linearize again
++/// after the state changes.
+ pub(crate) trait IncrementalProblem {
+     /// Set the loads and prescribed motion of the increment that ends at `load_factor`.
+     fn begin_increment(&mut self, load_factor: f64);
+     /// Residual and tangent at the current state.
+     fn linearize(&mut self) -> Result<Linearization, String>;
+-    /// Apply the correction of the last linearization. With `lag_tangent` the problem may answer
+-    /// with the tangent it factorized first in this increment.
+-    fn correct(&mut self, lag_tangent: bool) -> Result<(), String>;
+-    /// The current state converged: it is the one to return to.
+-    fn commit(&mut self);
++    /// The correction of the last linearization, over the unknowns `state` returns. With
++    /// `lag_tangent` the problem may answer with the tangent it factorized first in this increment.
++    fn correction(&mut self, lag_tangent: bool) -> Result<Vec<f64>, String>;
++    /// Add `step` to the state, with whatever a forced correction owes.
++    fn advance(&mut self, step: &[f64]);
++    fn state(&self) -> Vec<f64>;
++    /// Work of the last linearization's residual on `step`: positive while moving along `step`
++    /// still lowers the potential energy.
++    fn work(&self, step: &[f64]) -> f64;
++    /// Not for a forced correction: what it owes is only applied by `advance`.
++    fn set_state(&mut self, state: &[f64]);
++    /// The current state converged: it is the one to return to. An error ends the solve.
++    fn commit(&mut self) -> Result<(), String>;
+     /// Return to the last committed state.
+     fn rollback(&mut self);
+ }
+@@ -42,18 +55,257 @@ impl Iteration for Newton {
+             if at.measure < tolerance && !at.forced {
+                 return Ok(true);
+             }
+-            problem.correct(self.lag_tangent)?;
++            let step = problem.correction(self.lag_tangent)?;
++            problem.advance(&step);
+         }
+         Ok(false)
+     }
+ }
+
++const ENOUGH: f64 = 0.8;
++const MAX_TRIALS: usize = 6;
++
++/// Newton-Raphson with the line search of structural mechanics (Crisfield, vol. 1, 9.2): the
++/// step is scaled toward the point where the residual does no work on it, and taken once that
++/// work is under `ENOUGH` of what it was. A step that still lowers the energy is taken whole, so
++/// where Newton converges undisturbed this is Newton. Every trial is a linearization and counts
++/// as one; a trial within tolerance ends the increment, and one that leaves the state
++/// non-finite ends it unconverged. When the trials run out past the point of no work, the
++/// iteration goes on from the last one that still lowered the energy.
++///
++/// The measure is not the merit: a full step of a slender frame raises the residual norm a
++/// thousandfold on the way to the solution, and backtracking on it crawls.
++pub(crate) struct NewtonLineSearch;
++
++impl Iteration for NewtonLineSearch {
++    fn converge<P: IncrementalProblem + ?Sized>(&self, problem: &mut P, tolerance: f64, max_iter: usize, spent: &mut usize) -> Result<bool, String> {
++        let budget = *spent + max_iter;
++        if max_iter == 0 {
++            return Ok(false);
++        }
++        *spent += 1;
++        let mut at = problem.linearize()?;
++        loop {
++            if at.measure < tolerance && !at.forced {
++                return Ok(true);
++            }
++            if *spent >= budget {
++                return Ok(false);
++            }
++            let step = problem.correction(false)?;
++            let start_work = problem.work(&step);
++            if at.forced {
++                problem.advance(&step);
++                *spent += 1;
++                at = problem.linearize()?;
++                continue;
++            }
++            let origin = problem.state();
++            let trial = |problem: &mut P, alpha: f64, spent: &mut usize| -> Result<(Linearization, f64), String> {
++                let state: Vec<f64> = origin.iter().zip(&step).map(|(x, d)| x + alpha * d).collect();
++                problem.set_state(&state);
++                *spent += 1;
++                let found = problem.linearize()?;
++                let work = problem.work(&step);
++                Ok((found, work))
++            };
++            let (mut found, mut work) = trial(problem, 1.0, spent)?;
++            if found.measure < tolerance && !found.forced {
++                return Ok(true);
++            }
++            let searching = start_work.is_finite() && start_work > 0.0;
++            if searching {
++                let (mut low, mut low_work, mut high, mut high_work) = (0.0, start_work, 1.0, work);
++                for _ in 1..MAX_TRIALS {
++                    let overshot = !high_work.is_finite() || high_work < -ENOUGH * start_work;
++                    if !overshot || *spent >= budget {
++                        break;
++                    }
++                    let beyond = if high_work.is_finite() { high_work } else { -start_work };
++                    let secant = low + (high - low) * low_work / (low_work - beyond);
++                    let alpha = secant.clamp(low + 0.1 * (high - low), high - 0.1 * (high - low));
++                    (found, work) = trial(problem, alpha, spent)?;
++                    if found.measure < tolerance && !found.forced {
++                        return Ok(true);
++                    }
++                    if work.is_finite() && work.abs() <= ENOUGH * start_work {
++                        break;
++                    }
++                    if work.is_finite() && work > 0.0 {
++                        low = alpha;
++                        low_work = work;
++                    } else {
++                        high = alpha;
++                        high_work = work;
++                    }
++                }
++                let lost = !(work.is_finite() && found.measure.is_finite());
++                let past = lost || work < -ENOUGH * start_work;
++                if past && (low > 0.0 || lost) && *spent < budget {
++                    (found, work) = trial(problem, if low > 0.0 { low } else { 0.1 * high }, spent)?;
++                    if found.measure < tolerance && !found.forced {
++                        return Ok(true);
++                    }
++                }
++            }
++            if !found.measure.is_finite() || (searching && !work.is_finite()) {
++                problem.set_state(&origin);
++                return Ok(false);
++            }
++            at = found;
++        }
++    }
++}
++
++/// Anderson acceleration of the corrections (Walker and Ni's form, mixing 1): the next state is
++/// the one that would cancel a least-squares combination of the last `depth` corrections. With
++/// a lagged tangent it recovers much of Newton's speed from one factorization per increment.
++/// Depth 0 is the plain iteration.
++pub(crate) struct Anderson {
++    pub depth: usize,
++    pub lag_tangent: bool,
++}
++
++impl Iteration for Anderson {
++    fn converge<P: IncrementalProblem + ?Sized>(&self, problem: &mut P, tolerance: f64, max_iter: usize, spent: &mut usize) -> Result<bool, String> {
++        let mut previous: Option<(Vec<f64>, Vec<f64>)> = None;
++        let mut history: Vec<(Vec<f64>, Vec<f64>)> = Vec::new();
++        for _ in 0..max_iter {
++            *spent += 1;
++            let at = problem.linearize()?;
++            if at.measure < tolerance && !at.forced {
++                return Ok(true);
++            }
++            let correction = problem.correction(self.lag_tangent)?;
++            if at.forced {
++                problem.advance(&correction);
++                previous = None;
++                history.clear();
++                continue;
++            }
++            let state = problem.state();
++            if let Some((last_state, last_correction)) = previous.take() {
++                if history.len() == self.depth && !history.is_empty() {
++                    history.remove(0);
++                }
++                if self.depth > 0 {
++                    history.push((
++                        state.iter().zip(&last_state).map(|(a, b)| a - b).collect(),
++                        correction.iter().zip(&last_correction).map(|(a, b)| a - b).collect(),
++                    ));
++                }
++            }
++            let next = match mixed(&state, &correction, &history) {
++                Some(next) => next,
++                None => {
++                    history.clear();
++                    state.iter().zip(&correction).map(|(x, f)| x + f).collect()
++                }
++            };
++            problem.set_state(&next);
++            previous = Some((state, correction));
++        }
++        Ok(false)
++    }
++}
++
++const LONGEST_MIX: f64 = 1e3;
++pub(crate) const MAX_ANDERSON_DEPTH: usize = 50;
++
++/// The Anderson state from `state`, its correction and the history of differences. `None`
++/// when the differences are dependent to rounding, or the mixed step is non-finite or more than
++/// `LONGEST_MIX` times the correction: weights from nearly dependent differences can throw the
++/// state far enough for the next tangent to be singular.
++fn mixed(state: &[f64], correction: &[f64], history: &[(Vec<f64>, Vec<f64>)]) -> Option<Vec<f64>> {
++    let differences: Vec<&[f64]> = history.iter().map(|(_, df)| df.as_slice()).collect();
++    let weights = least_squares(&differences, correction)?;
++    let mut step = correction.to_vec();
++    for (weight, (dx, df)) in weights.iter().zip(history) {
++        for ((value, a), b) in step.iter_mut().zip(dx).zip(df) {
++            *value -= weight * (a + b);
++        }
++    }
++    let longest = |v: &[f64]| v.iter().fold(0.0f64, |m, x| m.max(x.abs()));
++    if step.iter().any(|v| !v.is_finite()) || longest(&step) > LONGEST_MIX * longest(correction) {
++        return None;
++    }
++    Some(state.iter().zip(&step).map(|(x, d)| x + d).collect())
++}
++
++/// Refuses an iteration method the driver cannot run as asked.
++pub(crate) fn validate(method: IterationMethod) -> Result<(), String> {
++    match method {
++        IterationMethod::Anderson { depth } if depth == 0 || depth > MAX_ANDERSON_DEPTH => {
++            Err(format!("Anderson acceleration needs a depth from 1 to {MAX_ANDERSON_DEPTH}"))
++        }
++        _ => Ok(()),
++    }
++}
++
++/// The weights minimizing ‖target − Σ wᵢ·columnᵢ‖, by the normal equations with pivoting.
++/// `None` when the columns are dependent to rounding, which is the sign to drop them.
++fn least_squares(columns: &[&[f64]], target: &[f64]) -> Option<Vec<f64>> {
++    let m = columns.len();
++    let dot = |a: &[f64], b: &[f64]| a.iter().zip(b).map(|(x, y)| x * y).sum::<f64>();
++    let mut a: Vec<Vec<f64>> = (0..m).map(|i| (0..m).map(|j| dot(columns[i], columns[j])).collect()).collect();
++    let mut b: Vec<f64> = (0..m).map(|i| dot(columns[i], target)).collect();
++    let scale = (0..m).fold(0.0f64, |largest, i| largest.max(a[i][i]));
++    for k in 0..m {
++        let pivot = (k..m).fold(k, |best, i| if a[i][k].abs() > a[best][k].abs() { i } else { best });
++        if !a[pivot][k].is_finite() || a[pivot][k].abs() <= 1e-12 * scale {
++            return None;
++        }
++        a.swap(k, pivot);
++        b.swap(k, pivot);
++        for i in k + 1..m {
++            let factor = a[i][k] / a[k][k];
++            for j in k..m {
++                a[i][j] -= factor * a[k][j];
++            }
++            b[i] -= factor * b[k];
++        }
++    }
++    let mut weights = vec![0.0; m];
++    for k in (0..m).rev() {
++        let known: f64 = (k + 1..m).map(|j| a[k][j] * weights[j]).sum();
++        weights[k] = (b[k] - known) / a[k][k];
++    }
++    Some(weights)
++}
++
++/// How the increments of a nonlinear analysis are converged.
++#[derive(Debug, Clone, Copy, PartialEq)]
++pub enum IterationMethod {
++    /// Newton-Raphson with a new tangent every iteration.
++    Newton,
++    /// The tangent of each increment's first iteration, kept for the increment.
++    ModifiedNewton,
++    /// Newton-Raphson with a backtracking line search.
++    NewtonLineSearch,
++    /// Modified Newton accelerated by Anderson mixing over the last `depth` corrections, from 1
++    /// to 50.
++    Anderson { depth: usize },
++}
++
++/// How the load is brought from zero to its full value.
++#[derive(Debug, Clone, Copy, PartialEq)]
++pub enum LoadStepping {
++    /// The number of increments asked for, all equal.
++    Equal,
++    /// Starting from that size: an increment that does not converge is retried at half the
++    /// size, down to a hundredth of the first; one that converges easily doubles the next, up
++    /// to four times the first.
++    Adaptive,
++}
++
+ #[derive(Debug, Clone, Copy, PartialEq)]
+ pub(crate) struct Outcome {
+     pub iterations: usize,
+     pub converged: bool,
+     /// Load factor of the last increment that converged; zero when none did.
+     pub load_factor: f64,
++    /// Increments that converged.
++    pub increments: usize,
+ }
+
+ /// Apply the load in `n_increments` equal steps. An increment that does not converge ends the
+@@ -65,7 +317,7 @@ pub(crate) fn solve_by_load_increments<P: IncrementalProblem + ?Sized, I: Iterat
+     tolerance: f64,
+     max_iter: usize,
+ ) -> Result<Outcome, String> {
+-    let mut outcome = Outcome { iterations: 0, converged: true, load_factor: 0.0 };
++    let mut outcome = Outcome { iterations: 0, converged: true, load_factor: 0.0, increments: 0 };
+     for increment in 1..=n_increments {
+         let load_factor = increment as f64 / n_increments as f64;
+         problem.begin_increment(load_factor);
+@@ -74,51 +326,167 @@ pub(crate) fn solve_by_load_increments<P: IncrementalProblem + ?Sized, I: Iterat
+             problem.rollback();
+             break;
+         }
+-        problem.commit();
++        problem.commit()?;
+         outcome.load_factor = load_factor;
++        outcome.increments += 1;
+     }
+     Ok(outcome)
+ }
+
++const FULL_LOAD_SLACK: f64 = 1e-12;
++
++/// Apply the load in increments whose size follows how they converge ([`LoadStepping::Adaptive`]).
++/// The solve ends unconverged, at the last increment that converged, when an increment a
++/// hundredth of the first size still does not. An increment whose iteration fails with an error
++/// (a tangent that cannot be factorized, typically) is retried smaller like one that does not
++/// converge; the error is returned only when the smallest increment still raises it.
++pub(crate) fn solve_by_adaptive_increments<P: IncrementalProblem + ?Sized, I: Iteration>(
++    problem: &mut P,
++    iteration: &I,
++    n_increments: usize,
++    tolerance: f64,
++    max_iter: usize,
++) -> Result<Outcome, String> {
++    let mut outcome = Outcome { iterations: 0, converged: true, load_factor: 0.0, increments: 0 };
++    if n_increments == 0 {
++        return Ok(outcome);
++    }
++    let mut stepper = AdaptiveStepper::from_n_increments(n_increments);
++    while let Some(target) = stepper.next_increment() {
++        let load_factor = if target >= 1.0 - FULL_LOAD_SLACK { 1.0 } else { target };
++        problem.begin_increment(load_factor);
++        let before = outcome.iterations;
++        let attempt = iteration.converge(problem, tolerance, max_iter, &mut outcome.iterations);
++        let converged = attempt == Ok(true);
++        if converged {
++            problem.commit()?;
++            outcome.load_factor = load_factor;
++            outcome.increments += 1;
++        } else {
++            problem.rollback();
++        }
++        if stepper.report_convergence(converged, outcome.iterations - before) == StepAction::Abort {
++            attempt?;
++            outcome.converged = false;
++            break;
++        }
++    }
++    outcome.converged = outcome.converged && outcome.load_factor == 1.0;
++    Ok(outcome)
++}
++
++#[cfg(test)]
++pub(crate) fn solve_by_load_increments_with<P: IncrementalProblem + ?Sized>(
++    problem: &mut P,
++    method: IterationMethod,
++    n_increments: usize,
++    tolerance: f64,
++    max_iter: usize,
++) -> Result<Outcome, String> {
++    solve_stepped(problem, method, LoadStepping::Equal, n_increments, tolerance, max_iter)
++}
++
++pub(crate) fn solve_stepped<P: IncrementalProblem + ?Sized>(
++    problem: &mut P,
++    method: IterationMethod,
++    stepping: LoadStepping,
++    n_increments: usize,
++    tolerance: f64,
++    max_iter: usize,
++) -> Result<Outcome, String> {
++    fn run<P: IncrementalProblem + ?Sized, I: Iteration>(problem: &mut P, iteration: &I, stepping: LoadStepping, n_increments: usize, tolerance: f64, max_iter: usize) -> Result<Outcome, String> {
++        match stepping {
++            LoadStepping::Equal => solve_by_load_increments(problem, iteration, n_increments, tolerance, max_iter),
++            LoadStepping::Adaptive => solve_by_adaptive_increments(problem, iteration, n_increments, tolerance, max_iter),
++        }
++    }
++    match method {
++        IterationMethod::Newton => run(problem, &Newton { lag_tangent: false }, stepping, n_increments, tolerance, max_iter),
++        IterationMethod::ModifiedNewton => run(problem, &Newton { lag_tangent: true }, stepping, n_increments, tolerance, max_iter),
++        IterationMethod::NewtonLineSearch => run(problem, &NewtonLineSearch, stepping, n_increments, tolerance, max_iter),
++        IterationMethod::Anderson { depth } => run(problem, &Anderson { depth, lag_tangent: true }, stepping, n_increments, tolerance, max_iter),
++    }
++}
++
+ #[cfg(test)]
+ mod tests {
+     use super::*;
+
+-    /// One unknown: u + stiffening·u³ = load_factor·load.
+-    struct Spring {
+-        load: f64,
+-        stiffening: f64,
+-        u: f64,
+-        committed: f64,
+-        target: f64,
+-        residual: f64,
+-        tangent: f64,
+-        lagged: Option<f64>,
++    /// Unknowns coupled in a chain: forceᵢ(u) = law(uᵢ) + coupling·(2uᵢ − uᵢ₋₁ − uᵢ₊₁) = load_factor·loadᵢ.
++    struct Chain {
++        law: fn(f64) -> (f64, f64),
++        coupling: f64,
++        load: Vec<f64>,
++        u: Vec<f64>,
++        committed: Vec<f64>,
++        target: Vec<f64>,
++        residual: Vec<f64>,
++        tangent: Vec<Vec<f64>>,
++        lagged: Option<Vec<Vec<f64>>>,
+         owed: bool,
++        refuse_commit: bool,
+         fail_at: Option<usize>,
+         linearizations: usize,
+         tangents: usize,
+         trace: Vec<f64>,
++        corrected_from: Vec<f64>,
+     }
+
+-    impl Spring {
+-        fn new(load: f64, stiffening: f64) -> Self {
+-            Spring { load, stiffening, u: 0.0, committed: 0.0, target: 0.0, residual: 0.0, tangent: 0.0, lagged: None, owed: false, fail_at: None, linearizations: 0, tangents: 0, trace: Vec::new() }
+-        }
++    fn stiffening(u: f64) -> (f64, f64) {
++        (u + 2.0 * u * u * u, 1.0 + 6.0 * u * u)
++    }
+
+-        fn exact(&self, load_factor: f64) -> f64 {
+-            let (mut lo, mut hi) = (0.0, load_factor * self.load);
+-            for _ in 0..200 {
+-                let mid = 0.5 * (lo + hi);
+-                if mid + self.stiffening * mid * mid * mid < load_factor * self.load { lo = mid } else { hi = mid }
++    fn mild(u: f64) -> (f64, f64) {
++        (u + 0.1 * u * u * u, 1.0 + 0.3 * u * u)
++    }
++
++    fn softening(u: f64) -> (f64, f64) {
++        (u.atan(), 1.0 / (1.0 + u * u))
++    }
++
++    fn yielding(u: f64) -> (f64, f64) {
++        (u.atan(), (1.0 / (1.0 + u * u)).max(1e-3))
++    }
++
++    impl Chain {
++        fn new(law: fn(f64) -> (f64, f64), coupling: f64, load: &[f64]) -> Self {
++            let n = load.len();
++            Chain {
++                law, coupling, load: load.to_vec(), u: vec![0.0; n], committed: vec![0.0; n], target: vec![0.0; n],
++                residual: vec![0.0; n], tangent: Vec::new(), lagged: None, owed: false, refuse_commit: false, fail_at: None,
++                linearizations: 0, tangents: 0, trace: Vec::new(), corrected_from: Vec::new(),
+             }
+-            0.5 * (lo + hi)
++        }
++
++        fn spring(law: fn(f64) -> (f64, f64), load: f64) -> Self {
++            Chain::new(law, 0.0, &[load])
++        }
++
++        fn starting_at(mut self, u: &[f64]) -> Self {
++            self.u = u.to_vec();
++            self.committed = u.to_vec();
++            self
++        }
++
++        fn unbalance(&self, load_factor: f64) -> f64 {
++            let n = self.u.len();
++            (0..n).map(|i| {
++                let neighbours = if i > 0 { self.u[i - 1] } else { 0.0 } + if i + 1 < n { self.u[i + 1] } else { 0.0 };
++                let force = (self.law)(self.u[i]).0 + self.coupling * (2.0 * self.u[i] - neighbours);
++                (load_factor * self.load[i] - force).abs()
++            }).fold(0.0, f64::max)
+         }
+     }
+
+-    impl IncrementalProblem for Spring {
++    fn solve_dense(a: &[Vec<f64>], b: &[f64]) -> Result<Vec<f64>, String> {
++        let columns: Vec<Vec<f64>> = (0..b.len()).map(|j| a.iter().map(|row| row[j]).collect()).collect();
++        let refs: Vec<&[f64]> = columns.iter().map(|c| c.as_slice()).collect();
++        least_squares(&refs, b).ok_or_else(|| "the tangent is singular".to_string())
++    }
++
++    impl IncrementalProblem for Chain {
+         fn begin_increment(&mut self, load_factor: f64) {
+-            self.target = load_factor * self.load;
++            self.target = self.load.iter().map(|p| load_factor * p).collect();
+             self.lagged = None;
+         }
+         fn linearize(&mut self) -> Result<Linearization, String> {
+@@ -126,48 +494,73 @@ mod tests {
+             if self.fail_at == Some(self.linearizations) {
+                 return Err("the tangent is singular".into());
+             }
+-            self.residual = self.target - (self.u + self.stiffening * self.u.powi(3));
+-            self.tangent = 1.0 + 3.0 * self.stiffening * self.u * self.u;
+-            self.trace.push(self.residual.abs());
+-            Ok(Linearization { measure: self.residual.abs(), forced: std::mem::take(&mut self.owed) })
++            let n = self.u.len();
++            self.tangent = vec![vec![0.0; n]; n];
++            for i in 0..n {
++                let (force, stiffness) = (self.law)(self.u[i]);
++                let neighbours = if i > 0 { self.u[i - 1] } else { 0.0 } + if i + 1 < n { self.u[i + 1] } else { 0.0 };
++                self.residual[i] = self.target[i] - force - self.coupling * (2.0 * self.u[i] - neighbours);
++                self.tangent[i][i] = stiffness + 2.0 * self.coupling;
++                if i > 0 { self.tangent[i][i - 1] = -self.coupling; }
++                if i + 1 < n { self.tangent[i][i + 1] = -self.coupling; }
++            }
++            let measure = self.residual.iter().map(|r| r * r).sum::<f64>().sqrt();
++            self.trace.push(measure);
++            Ok(Linearization { measure, forced: std::mem::take(&mut self.owed) })
+         }
+-        fn correct(&mut self, lag_tangent: bool) -> Result<(), String> {
+-            let tangent = match self.lagged {
+-                Some(kept) if lag_tangent => kept,
++        fn correction(&mut self, lag_tangent: bool) -> Result<Vec<f64>, String> {
++            self.corrected_from.push(self.u[0]);
++            let tangent = match &self.lagged {
++                Some(kept) if lag_tangent => kept.clone(),
+                 _ => {
+                     self.tangents += 1;
+-                    self.lagged = Some(self.tangent);
+-                    self.tangent
++                    self.lagged = Some(self.tangent.clone());
++                    self.tangent.clone()
+                 }
+             };
+-            self.u += self.residual / tangent;
++            solve_dense(&tangent, &self.residual)
++        }
++        fn advance(&mut self, step: &[f64]) {
++            self.u.iter_mut().zip(step).for_each(|(u, s)| *u += s);
++        }
++        fn state(&self) -> Vec<f64> {
++            self.u.clone()
++        }
++        fn work(&self, step: &[f64]) -> f64 {
++            self.residual.iter().zip(step).map(|(r, d)| r * d).sum()
++        }
++        fn set_state(&mut self, state: &[f64]) {
++            self.u.copy_from_slice(state);
++        }
++        fn commit(&mut self) -> Result<(), String> {
++            self.committed = self.u.clone();
++            if self.refuse_commit {
++                return Err("the state left its branch".into());
++            }
+             Ok(())
+         }
+-        fn commit(&mut self) {
+-            self.committed = self.u;
+-        }
+         fn rollback(&mut self) {
+-            self.u = self.committed;
++            self.u = self.committed.clone();
+         }
+     }
+
+     #[test]
+     fn newton_reaches_the_solution_and_counts_its_linearizations() {
+         for n_increments in [1, 4, 10] {
+-            let mut spring = Spring::new(30.0, 2.0);
++            let mut spring = Chain::spring(stiffening, 30.0);
+             let outcome = solve_by_load_increments(&mut spring, &Newton { lag_tangent: false }, n_increments, 1e-10, 50).unwrap();
+             assert!(outcome.converged);
+             assert_eq!(outcome.load_factor, 1.0);
+             assert_eq!(outcome.iterations, spring.linearizations);
+             assert_eq!(spring.tangents, spring.linearizations - n_increments);
+-            assert!((spring.u - spring.exact(1.0)).abs() <= 1e-10);
++            assert!(spring.unbalance(1.0) <= 1e-10);
+             assert_eq!(spring.u, spring.committed);
+         }
+     }
+
+     #[test]
+     fn newton_converges_quadratically_near_the_solution() {
+-        let mut spring = Spring::new(30.0, 2.0);
++        let mut spring = Chain::spring(stiffening, 30.0);
+         solve_by_load_increments(&mut spring, &Newton { lag_tangent: false }, 1, 1e-12, 50).unwrap();
+         let tail: Vec<f64> = spring.trace.iter().copied().filter(|r| *r < 1e-1 && *r > 1e-13).collect();
+         assert!(tail.len() >= 2, "{:?}", spring.trace);
+@@ -178,64 +571,337 @@ mod tests {
+
+     #[test]
+     fn a_lagged_tangent_reaches_the_same_solution_with_one_tangent_per_increment() {
+-        let mut full = Spring::new(2.0, 0.1);
+-        let mut lagged = Spring::new(2.0, 0.1);
++        let mut full = Chain::spring(mild, 2.0);
++        let mut lagged = Chain::spring(mild, 2.0);
+         let plain = solve_by_load_increments(&mut full, &Newton { lag_tangent: false }, 6, 1e-10, 400).unwrap();
+         let modified = solve_by_load_increments(&mut lagged, &Newton { lag_tangent: true }, 6, 1e-10, 400).unwrap();
+         assert!(plain.converged && modified.converged);
+         assert_eq!(lagged.tangents, 6);
+         assert!(modified.iterations > plain.iterations);
+-        assert!((lagged.u - full.u).abs() <= 1e-9);
++        assert!((lagged.u[0] - full.u[0]).abs() <= 1e-9);
+     }
+
+     #[test]
+     fn an_increment_that_does_not_converge_leaves_the_last_one_that_did() {
+-        let mut spring = Spring::new(30.0, 2.0);
+-        let outcome = solve_by_load_increments(&mut spring, &Newton { lag_tangent: false }, 1, 1e-10, 2).unwrap();
+-        assert_eq!(outcome, Outcome { iterations: 2, converged: false, load_factor: 0.0 });
+-        assert_eq!(spring.u, 0.0);
++        for method in [IterationMethod::Newton, IterationMethod::NewtonLineSearch, IterationMethod::Anderson { depth: 2 }] {
++            let mut spring = Chain::spring(stiffening, 30.0);
++            let outcome = solve_by_load_increments_with(&mut spring, method, 1, 1e-10, 2).unwrap();
++            assert_eq!((outcome.converged, outcome.load_factor), (false, 0.0), "{method:?}");
++            assert_eq!(spring.u, vec![0.0], "{method:?}");
++        }
+
+-        let mut reference = Spring::new(2.0, 0.1);
+-        let whole = solve_by_load_increments(&mut reference, &Newton { lag_tangent: true }, 4, 1e-10, 400).unwrap();
+-        assert!(whole.converged);
+         let per_increment = {
+-            let mut one = Spring::new(2.0, 0.1);
++            let mut one = Chain::spring(mild, 2.0);
+             let mut spent = 0;
+             one.begin_increment(0.25);
+             assert!(Newton { lag_tangent: true }.converge(&mut one, 1e-10, 400, &mut spent).unwrap());
+             spent
+         };
+-        let mut spring = Spring::new(2.0, 0.1);
++        let mut spring = Chain::spring(mild, 2.0);
+         let outcome = solve_by_load_increments(&mut spring, &Newton { lag_tangent: true }, 4, 1e-10, per_increment).unwrap();
+         assert!(!outcome.converged);
+         assert!(outcome.load_factor >= 0.25 && outcome.load_factor < 1.0);
+-        assert!((spring.u - spring.exact(outcome.load_factor)).abs() <= 1e-9);
++        assert!(spring.unbalance(outcome.load_factor) <= 1e-9);
+         assert_eq!(spring.u, spring.committed);
+     }
+
+     #[test]
+-    fn a_forced_correction_is_made_even_at_a_converged_state() {
+-        let mut spring = Spring::new(0.0, 2.0);
+-        spring.owed = true;
+-        let outcome = solve_by_load_increments(&mut spring, &Newton { lag_tangent: false }, 1, 1e-10, 50).unwrap();
+-        assert_eq!(outcome, Outcome { iterations: 2, converged: true, load_factor: 1.0 });
+-        assert_eq!(spring.tangents, 1);
++    fn a_forced_correction_is_made_whole_even_at_a_converged_state() {
++        for method in [IterationMethod::Newton, IterationMethod::ModifiedNewton, IterationMethod::NewtonLineSearch, IterationMethod::Anderson { depth: 3 }] {
++            let mut spring = Chain::spring(stiffening, 0.0);
++            spring.owed = true;
++            let outcome = solve_by_load_increments_with(&mut spring, method, 1, 1e-10, 50).unwrap();
++            assert_eq!(outcome, Outcome { iterations: 2, converged: true, load_factor: 1.0, increments: 1 }, "{method:?}");
++            assert_eq!(spring.tangents, 1, "{method:?}");
++        }
+     }
+
+     #[test]
+     fn an_error_of_the_problem_ends_the_solve() {
+-        let mut spring = Spring::new(30.0, 2.0);
+-        spring.fail_at = Some(3);
+-        let error = solve_by_load_increments(&mut spring, &Newton { lag_tangent: false }, 2, 1e-10, 50).unwrap_err();
+-        assert_eq!(error, "the tangent is singular");
+-        assert_eq!(spring.linearizations, 3);
++        for (method, fail_at) in [(IterationMethod::Newton, 3), (IterationMethod::NewtonLineSearch, 1), (IterationMethod::NewtonLineSearch, 2), (IterationMethod::NewtonLineSearch, 3), (IterationMethod::Anderson { depth: 2 }, 3)] {
++            let mut spring = Chain::spring(stiffening, 30.0);
++            spring.fail_at = Some(fail_at);
++            let error = solve_by_load_increments_with(&mut spring, method, 2, 1e-10, 50).unwrap_err();
++            assert_eq!(error, "the tangent is singular", "{method:?}");
++            assert_eq!(spring.linearizations, fail_at, "{method:?}");
++        }
+     }
+
+     #[test]
+-    fn no_increments_do_nothing() {
+-        let mut spring = Spring::new(30.0, 2.0);
+-        let outcome = solve_by_load_increments(&mut spring, &Newton { lag_tangent: false }, 0, 1e-10, 50).unwrap();
+-        assert_eq!(outcome, Outcome { iterations: 0, converged: true, load_factor: 0.0 });
+-        assert_eq!(spring.linearizations, 0);
++    fn an_error_on_commit_ends_the_solve() {
++        let mut spring = Chain::spring(mild, 2.0);
++        spring.refuse_commit = true;
++        let error = solve_by_load_increments(&mut spring, &Newton { lag_tangent: false }, 3, 1e-10, 50).unwrap_err();
++        assert_eq!(error, "the state left its branch");
++        assert!(spring.unbalance(1.0 / 3.0) <= 1e-10);
++    }
++
++    #[test]
++    fn adaptive_steps_reach_the_full_load_where_equal_ones_give_up() {
++        for method in [IterationMethod::Newton, IterationMethod::NewtonLineSearch] {
++            let mut equal = Chain::spring(stiffening, 30.0);
++            let given_up = solve_stepped(&mut equal, method, LoadStepping::Equal, 2, 1e-10, 6).unwrap();
++            assert!(!given_up.converged, "{method:?}");
++            let mut adaptive = Chain::spring(stiffening, 30.0);
++            let outcome = solve_stepped(&mut adaptive, method, LoadStepping::Adaptive, 2, 1e-10, 6).unwrap();
++            assert!(outcome.converged, "{method:?}");
++            assert_eq!(outcome.load_factor, 1.0);
++            assert!(outcome.increments > 2);
++            assert!(adaptive.unbalance(1.0) <= 1e-10);
++            assert_eq!(adaptive.u, adaptive.committed);
++            assert_eq!(outcome.iterations, adaptive.linearizations);
++        }
++    }
++
++    #[test]
++    fn adaptive_steps_grow_while_convergence_is_easy() {
++        let mut equal = Chain::spring(mild, 0.02);
++        let mut adaptive = Chain::spring(mild, 0.02);
++        let plain = solve_stepped(&mut equal, IterationMethod::Newton, LoadStepping::Equal, 16, 1e-6, 20).unwrap();
++        let outcome = solve_stepped(&mut adaptive, IterationMethod::Newton, LoadStepping::Adaptive, 16, 1e-6, 20).unwrap();
++        assert!(plain.converged && outcome.converged);
++        assert_eq!(plain.increments, 16);
++        assert!(outcome.increments < 16 && outcome.increments >= 4, "{}", outcome.increments);
++        assert_eq!(outcome.load_factor, 1.0);
++        assert!((adaptive.u[0] - equal.u[0]).abs() <= 1e-6);
++    }
++
++    #[test]
++    fn adaptive_steps_stop_at_the_load_the_structure_cannot_pass() {
++        let capacity = std::f64::consts::FRAC_PI_2 / 2.0;
++        let mut spring = Chain::spring(yielding, 2.0);
++        let outcome = solve_stepped(&mut spring, IterationMethod::Newton, LoadStepping::Adaptive, 4, 1e-9, 60).unwrap();
++        assert!(!outcome.converged);
++        assert!(outcome.load_factor < capacity && outcome.load_factor > 0.6 * capacity, "{}", outcome.load_factor);
++        assert!(spring.unbalance(outcome.load_factor) <= 1e-9);
++        assert_eq!(spring.u, spring.committed);
++
++        let mut stuck = Chain::spring(stiffening, 30.0);
++        let outcome = solve_stepped(&mut stuck, IterationMethod::Newton, LoadStepping::Adaptive, 4, 1e-10, 1).unwrap();
++        assert_eq!((outcome.converged, outcome.load_factor, outcome.increments), (false, 0.0, 0));
++        assert_eq!(stuck.u, vec![0.0]);
++    }
++
++    #[test]
++    fn adaptive_steps_end_exactly_at_the_full_load() {
++        for n_increments in [1, 3, 6, 7, 10, 13, 49] {
++            let mut spring = Chain::spring(mild, 2.0);
++            let outcome = solve_stepped(&mut spring, IterationMethod::Newton, LoadStepping::Adaptive, n_increments, 1e-10, 50).unwrap();
++            assert!(outcome.converged, "{n_increments}");
++            assert_eq!(outcome.load_factor, 1.0, "{n_increments}");
++            assert!(spring.unbalance(1.0) <= 1e-10, "{n_increments}");
++        }
++    }
++
++    #[test]
++    fn adaptive_steps_pass_on_errors_and_do_nothing_without_increments() {
++        let mut spring = Chain::spring(mild, 2.0);
++        spring.fail_at = Some(2);
++        let recovered = solve_stepped(&mut spring, IterationMethod::Newton, LoadStepping::Adaptive, 2, 1e-10, 9).unwrap();
++        assert!(recovered.converged && recovered.load_factor == 1.0);
++        assert!(spring.unbalance(1.0) <= 1e-10);
++
++        let mut broken = Chain::spring(softening, 0.0).starting_at(&[1e9]);
++        assert_eq!(solve_stepped(&mut broken, IterationMethod::Newton, LoadStepping::Adaptive, 2, 1e-10, 9).unwrap_err(), "the tangent is singular");
++        assert_eq!(broken.u, vec![1e9]);
++        let mut refused = Chain::spring(mild, 2.0);
++        refused.refuse_commit = true;
++        assert_eq!(solve_stepped(&mut refused, IterationMethod::Newton, LoadStepping::Adaptive, 2, 1e-10, 50).unwrap_err(), "the state left its branch");
++        let mut idle = Chain::spring(mild, 2.0);
++        let outcome = solve_stepped(&mut idle, IterationMethod::Newton, LoadStepping::Adaptive, 0, 1e-10, 50).unwrap();
++        assert_eq!(outcome, Outcome { iterations: 0, converged: true, load_factor: 0.0, increments: 0 });
++    }
++
++    #[test]
++    fn no_increments_or_no_iterations_do_nothing() {
++        for method in [IterationMethod::Newton, IterationMethod::NewtonLineSearch, IterationMethod::Anderson { depth: 2 }] {
++            let mut spring = Chain::spring(stiffening, 30.0);
++            let outcome = solve_by_load_increments_with(&mut spring, method, 0, 1e-10, 50).unwrap();
++            assert_eq!(outcome, Outcome { iterations: 0, converged: true, load_factor: 0.0, increments: 0 });
++            let outcome = solve_by_load_increments_with(&mut spring, method, 3, 1e-10, 0).unwrap();
++            assert_eq!(outcome, Outcome { iterations: 0, converged: false, load_factor: 0.0, increments: 0 });
++            assert_eq!(spring.linearizations, 0);
++        }
++    }
++
++    #[test]
++    fn the_line_search_converges_where_the_full_newton_step_runs_away() {
++        let from = [3.0];
++        let mut plain = Chain::spring(softening, 0.0).starting_at(&from);
++        let ran_away = solve_by_load_increments(&mut plain, &Newton { lag_tangent: false }, 1, 1e-10, 30);
++        assert!(!ran_away.is_ok_and(|outcome| outcome.converged));
++        assert!(plain.trace.last().unwrap() > &1.5);
++
++        let mut searched = Chain::spring(softening, 0.0).starting_at(&from);
++        let outcome = solve_by_load_increments(&mut searched, &NewtonLineSearch, 1, 1e-10, 60).unwrap();
++        assert!(outcome.converged);
++        assert!(searched.u[0].abs() <= 1e-9);
++        assert_eq!(outcome.iterations, searched.linearizations);
++        let accepted: Vec<f64> = searched.trace.clone();
++        assert!(accepted.last().unwrap() < accepted.first().unwrap());
++    }
++
++    #[test]
++    fn the_line_search_takes_the_full_step_where_newton_already_converges() {
++        let load = [4.0, -1.0, 2.5, 0.5];
++        let mut plain = Chain::new(mild, 0.7, &load);
++        let mut searched = Chain::new(mild, 0.7, &load);
++        let newton = solve_by_load_increments(&mut plain, &Newton { lag_tangent: false }, 3, 1e-11, 50).unwrap();
++        let outcome = solve_by_load_increments(&mut searched, &NewtonLineSearch, 3, 1e-11, 50).unwrap();
++        assert!(newton.converged && outcome.converged);
++        assert_eq!(plain.u, searched.u);
++        assert_eq!(newton.iterations, outcome.iterations);
++        assert_eq!(plain.tangents, searched.tangents);
++    }
++
++    #[test]
++    fn the_line_search_stays_within_its_budget_of_linearizations() {
++        for budget in 1..12 {
++            let mut searched = Chain::spring(softening, 0.0).starting_at(&[3.0]);
++            let outcome = solve_by_load_increments(&mut searched, &NewtonLineSearch, 1, 1e-14, budget).unwrap();
++            assert!(searched.linearizations <= budget, "{budget}: {}", searched.linearizations);
++            assert_eq!(outcome.iterations, searched.linearizations);
++            if !outcome.converged {
++                assert_eq!(searched.u, vec![3.0]);
++            }
++        }
++    }
++
++    #[test]
++    fn anderson_needs_one_tangent_per_increment_and_fewer_iterations_than_modified_newton() {
++        let load = [4.0, -1.0, 2.5, 0.5, 3.0];
++        for n_increments in [1, 3] {
++            let mut modified = Chain::new(mild, 0.7, &load);
++            let plain = solve_by_load_increments(&mut modified, &Newton { lag_tangent: true }, n_increments, 1e-10, 2000).unwrap();
++            assert!(plain.converged);
++            let mut newton = Chain::new(mild, 0.7, &load);
++            solve_by_load_increments(&mut newton, &Newton { lag_tangent: false }, n_increments, 1e-12, 200).unwrap();
++            for depth in [1, 3, 5] {
++                let mut accelerated = Chain::new(mild, 0.7, &load);
++                let outcome = solve_by_load_increments(&mut accelerated, &Anderson { depth, lag_tangent: true }, n_increments, 1e-10, 2000).unwrap();
++                assert!(outcome.converged, "depth {depth}");
++                assert_eq!(accelerated.tangents, n_increments);
++                assert!(accelerated.unbalance(1.0) <= 1e-9);
++                for (got, want) in accelerated.u.iter().zip(&newton.u) {
++                    assert!((got - want).abs() <= 1e-8, "depth {depth}: {got} vs {want}");
++                }
++                assert!(outcome.iterations < plain.iterations, "depth {depth}: {} against {}", outcome.iterations, plain.iterations);
++            }
++        }
++    }
++
++    #[test]
++    fn anderson_of_depth_zero_is_the_plain_iteration() {
++        let load = [4.0, -1.0, 2.5];
++        let mut modified = Chain::new(mild, 0.7, &load);
++        let mut flat = Chain::new(mild, 0.7, &load);
++        let plain = solve_by_load_increments(&mut modified, &Newton { lag_tangent: true }, 2, 1e-10, 500).unwrap();
++        let outcome = solve_by_load_increments(&mut flat, &Anderson { depth: 0, lag_tangent: true }, 2, 1e-10, 500).unwrap();
++        assert!(plain.converged);
++        assert_eq!(plain, outcome);
++        assert_eq!(modified.u, flat.u);
++    }
++
++    #[test]
++    fn anderson_with_one_unknown_is_the_secant_method() {
++        let mut spring = Chain::spring(mild, 4.0);
++        let outcome = solve_by_load_increments(&mut spring, &Anderson { depth: 1, lag_tangent: true }, 1, 1e-12, 200).unwrap();
++        assert!(outcome.converged);
++        let tail: Vec<f64> = spring.trace.iter().copied().filter(|r| *r < 1e-2 && *r > 1e-13).collect();
++        assert!(tail.len() >= 2 && tail.windows(2).all(|pair| pair[1] <= 0.1 * pair[0]), "{:?}", spring.trace);
++        let mut modified = Chain::spring(mild, 4.0);
++        let plain = solve_by_load_increments(&mut modified, &Newton { lag_tangent: true }, 1, 1e-12, 2000).unwrap();
++        assert!(!plain.converged, "modified Newton oscillates on this spring: {}", plain.iterations);
++        assert!(outcome.iterations <= 12, "{}", outcome.iterations);
++    }
++
++    #[test]
++    fn a_mix_far_longer_than_the_correction_is_not_taken() {
++        let (state, correction) = ([1.0, 2.0], [0.1, -0.2]);
++        let sound = vec![(vec![0.3, 0.1], vec![-0.05, 0.02])];
++        let taken = mixed(&state, &correction, &sound).expect("a mix of ordinary length");
++        assert!(taken.iter().all(|v| v.is_finite()));
++        assert_eq!(mixed(&state, &correction, &[]), Some(vec![1.1, 1.8]));
++
++        let thrown = vec![(vec![5e6, -1e7], vec![1e-4, -2e-4])];
++        assert_eq!(mixed(&state, &correction, &thrown), None);
++        let dependent = vec![(vec![0.3, 0.1], vec![1.0, 2.0]), (vec![0.1, 0.3], vec![1.0, 2.0])];
++        assert_eq!(mixed(&state, &correction, &dependent), None);
++        let poisoned = vec![(vec![f64::INFINITY, 0.1], vec![-0.05, 0.02])];
++        assert_eq!(mixed(&state, &correction, &poisoned), None);
++    }
++
++    #[test]
++    fn a_depth_the_driver_cannot_run_is_refused() {
++        for depth in [0, MAX_ANDERSON_DEPTH + 1, usize::MAX] {
++            assert_eq!(validate(IterationMethod::Anderson { depth }).unwrap_err(), "Anderson acceleration needs a depth from 1 to 50");
++        }
++        for method in [IterationMethod::Anderson { depth: 1 }, IterationMethod::Anderson { depth: MAX_ANDERSON_DEPTH }, IterationMethod::Newton, IterationMethod::ModifiedNewton, IterationMethod::NewtonLineSearch] {
++            assert_eq!(validate(method), Ok(()));
++        }
++    }
++
++    #[test]
++    fn a_trial_within_tolerance_ends_the_increment_whatever_its_work() {
++        let mut searched = Chain::spring(softening, 0.0).starting_at(&[0.5]);
++        let outcome = solve_by_load_increments(&mut searched, &NewtonLineSearch, 1, 0.2, 2).unwrap();
++        assert_eq!(outcome, Outcome { iterations: 2, converged: true, load_factor: 1.0, increments: 1 });
++        assert!(searched.unbalance(1.0) < 0.2);
++    }
++
++    #[test]
++    fn a_step_that_leaves_the_state_non_finite_ends_the_increment_unconverged() {
++        fn blowing(u: f64) -> (f64, f64) {
++            if u.abs() > 2.0 { (f64::NAN, 1.0) } else { (-u, -1.0) }
++        }
++        let mut searched = Chain::spring(blowing, 5.0).starting_at(&[1.0]);
++        let outcome = solve_by_load_increments(&mut searched, &NewtonLineSearch, 1, 1e-10, 30).unwrap();
++        assert!(!outcome.converged);
++        assert!(searched.linearizations < 30, "{}", searched.linearizations);
++        assert_eq!(searched.u, vec![1.0]);
++    }
++
++    #[test]
++    fn a_search_that_runs_out_of_trials_goes_on_from_a_point_that_lowered_the_energy() {
++        fn wall_at(wall: f64) -> fn(f64) -> (f64, f64) {
++            match (wall * 100.0).round() as usize {
++                12 => |u| if u >= 0.12 { (u + 100.0, 1.0) } else { (u, 1.0) },
++                17 => |u| if u >= 0.17 { (u + 100.0, 1.0) } else { (u, 1.0) },
++                23 => |u| if u >= 0.23 { (u + 100.0, 1.0) } else { (u, 1.0) },
++                26 => |u| if u >= 0.26 { (u + 100.0, 1.0) } else { (u, 1.0) },
++                29 => |u| if u >= 0.29 { (u + 100.0, 1.0) } else { (u, 1.0) },
++                33 => |u| if u >= 0.33 { (u + 100.0, 1.0) } else { (u, 1.0) },
++                37 => |u| if u >= 0.37 { (u + 100.0, 1.0) } else { (u, 1.0) },
++                _ => |u| if u >= 0.41 { (u + 100.0, 1.0) } else { (u, 1.0) },
++            }
++        }
++        let mut past_the_wall = 0;
++        for wall in [0.12, 0.17, 0.23, 0.26, 0.29, 0.33, 0.37, 0.41] {
++            let mut searched = Chain::spring(wall_at(wall), 2.0);
++            searched.begin_increment(1.0);
++            let mut spent = 0;
++            NewtonLineSearch.converge(&mut searched, 1e-12, 9, &mut spent).unwrap();
++            assert!(spent <= 9);
++            past_the_wall += searched.corrected_from.iter().filter(|u| **u >= wall).count();
++        }
++        assert_eq!(past_the_wall, 0);
++    }
++
++    #[test]
++    fn least_squares_solves_and_refuses_dependent_columns() {
++        let (a, b, c) = ([1.0, 0.0, 2.0], [0.0, 1.0, 1.0], [1.0, 1.0, 0.0]);
++        let target: Vec<f64> = (0..3).map(|i| 2.0 * a[i] - 3.0 * b[i] + 0.5 * c[i]).collect();
++        let weights = least_squares(&[&a, &b, &c], &target).unwrap();
++        for (got, want) in weights.iter().zip([2.0, -3.0, 0.5]) {
++            assert!((got - want).abs() <= 1e-12);
++        }
++        let projected = least_squares(&[&a, &b], &[1.0, 1.0, 1.0]).unwrap();
++        let rest: Vec<f64> = (0..3).map(|i| 1.0 - projected[0] * a[i] - projected[1] * b[i]).collect();
++        assert!(rest.iter().zip(&a).map(|(x, y)| x * y).sum::<f64>().abs() <= 1e-12);
++        assert!(rest.iter().zip(&b).map(|(x, y)| x * y).sum::<f64>().abs() <= 1e-12);
++        assert_eq!(least_squares(&[&a, &a], &target), None);
++        assert_eq!(least_squares(&[&[0.0, 0.0, 0.0]], &target), None);
++        assert_eq!(least_squares(&[&[f64::NAN, 0.0, 0.0]], &target), None);
++        assert_eq!(least_squares(&[], &target), Some(vec![]));
+     }
+ }
+diff --git a/engine/src/solver/path_following.rs b/engine/src/solver/path_following.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..6cebf739b6f01cbabae7ab80b15c93d1d5789caa
+--- /dev/null
++++ b/engine/src/solver/path_following.rs
+@@ -0,0 +1,474 @@
++//! Arc-length continuation (Crisfield's spherical constraint) over a [`PathProblem`]: the load
++//! factor is an unknown, so the path is followed past limit points, where load control stops.
++
++pub(crate) fn vec_norm(v: &[f64]) -> f64 {
++    v.iter().fold(0.0f64, |norm, v| norm.hypot(*v))
++}
++
++pub(crate) fn dot_product(a: &[f64], b: &[f64]) -> f64 {
++    a.iter().zip(b.iter()).map(|(x, y)| x * y).sum()
++}
++
++/// An equilibrium path r(u, λ) = 0. `measure` and `responses` answer for the last
++/// `linearize_at`, and `reference_response` and `responses` may each be asked once for it.
++pub(crate) trait PathProblem {
++    fn unknowns(&self) -> usize;
++    /// The weight of the load factor in the arc-length constraint ‖Δu‖² + Δλ²·scale = Δs².
++    fn load_scale(&self) -> f64;
++    /// Residual and tangent at the current state under `load_factor`.
++    fn linearize_at(&mut self, load_factor: f64);
++    /// What the analysis compares with its tolerance.
++    fn measure(&mut self, load_factor: f64) -> f64;
++    /// K⁻¹·(∂r/∂λ): the tangent to the path, per unit load factor.
++    fn reference_response(&mut self) -> Result<Vec<f64>, String>;
++    /// K⁻¹·r and K⁻¹·(∂r/∂λ), from one factorization.
++    fn responses(&mut self) -> Result<(Vec<f64>, Vec<f64>), String>;
++    fn advance(&mut self, step: &[f64]);
++    /// The current value of unknown `index`.
++    fn unknown(&self, index: usize) -> f64;
++    /// The current state under `load_factor` is step number `step` of the path.
++    fn record(&mut self, step: usize, load_factor: f64, iterations: usize, converged: bool);
++}
++
++pub(crate) struct ArcLengthControl {
++    pub max_steps: usize,
++    pub max_iter: usize,
++    pub tolerance: f64,
++    pub initial_ds: f64,
++    pub min_ds: f64,
++    pub max_ds: f64,
++    /// A step converging in half as many iterations doubles the next arc length; one taking
++    /// more than twice as many halves it.
++    pub target_iter: usize,
++}
++
++#[derive(Debug, Clone, Copy, PartialEq)]
++pub(crate) struct PathOutcome {
++    pub load_factor: f64,
++    /// False when a step did not converge at the smallest arc length.
++    pub converged: bool,
++    pub iterations: usize,
++    pub steps: usize,
++}
++
++/// Follow the path for `max_steps` converged steps. A step that does not converge is undone
++/// and retried at half the arc length; below `min_ds` the solve ends, at the last converged
++/// state.
++pub(crate) fn solve_by_arc_length<P: PathProblem + ?Sized>(problem: &mut P, control: &ArcLengthControl) -> Result<PathOutcome, String> {
++    let nf = problem.unknowns();
++    let psi2 = problem.load_scale();
++    let mut lambda = 0.0_f64;
++    let mut ds = control.initial_ds;
++    let mut total_iters = 0;
++    let mut overall_converged = true;
++
++    let mut prev_delta_u = vec![0.0; nf];
++    let mut prev_delta_lambda = 1.0_f64;
++
++    let mut step = 0;
++    while step < control.max_steps {
++        problem.linearize_at(lambda);
++        let du_hat = problem.reference_response()?;
++
++        let du_hat_norm = vec_norm(&du_hat);
++        let denom = du_hat_norm * du_hat_norm + psi2;
++        let mut delta_lambda = ds / denom.sqrt();
++
++        let dot = dot_product(&prev_delta_u, &du_hat) + prev_delta_lambda * delta_lambda * psi2;
++        if dot < 0.0 {
++            delta_lambda = -delta_lambda;
++        }
++
++        let mut delta_u: Vec<f64> = du_hat.iter().map(|&v| delta_lambda * v).collect();
++        problem.advance(&delta_u);
++        lambda += delta_lambda;
++
++        let mut step_converged = false;
++        let mut step_iters = 0;
++
++        for _iter in 0..control.max_iter {
++            step_iters += 1;
++            total_iters += 1;
++
++            problem.linearize_at(lambda);
++            if problem.measure(lambda) < control.tolerance {
++                step_converged = true;
++                break;
++            }
++
++            let (du_r, du_t) = problem.responses()?;
++
++            let a_coeff = dot_product(&du_t, &du_t) + psi2;
++            let b_coeff = 2.0 * (dot_product(&delta_u, &du_t) + dot_product(&du_r, &du_t)
++                + delta_lambda * psi2);
++            let c_coeff = dot_product(&delta_u, &delta_u) + 2.0 * dot_product(&delta_u, &du_r)
++                + dot_product(&du_r, &du_r)
++                + delta_lambda * delta_lambda * psi2
++                - ds * ds;
++
++            let discriminant = b_coeff * b_coeff - 4.0 * a_coeff * c_coeff;
++            let d_lambda = if discriminant >= 0.0 {
++                let sqrt_d = discriminant.sqrt();
++                let root1 = (-b_coeff + sqrt_d) / (2.0 * a_coeff);
++                let root2 = (-b_coeff - sqrt_d) / (2.0 * a_coeff);
++
++                let du1: Vec<f64> = (0..nf).map(|i| du_r[i] + root1 * du_t[i]).collect();
++                let du2: Vec<f64> = (0..nf).map(|i| du_r[i] + root2 * du_t[i]).collect();
++                let work1 = dot_product(&delta_u, &du1);
++                let work2 = dot_product(&delta_u, &du2);
++
++                if work1 >= work2 { root1 } else { root2 }
++            } else {
++                -b_coeff / (2.0 * a_coeff)
++            };
++
++            let du: Vec<f64> = (0..nf).map(|i| du_r[i] + d_lambda * du_t[i]).collect();
++            problem.advance(&du);
++            for i in 0..nf {
++                delta_u[i] += du[i];
++            }
++            lambda += d_lambda;
++            delta_lambda += d_lambda;
++        }
++
++        if !step_converged {
++            let back: Vec<f64> = delta_u.iter().map(|d| -d).collect();
++            problem.advance(&back);
++            lambda -= delta_lambda;
++
++            ds *= 0.5;
++            if ds < control.min_ds {
++                overall_converged = false;
++                break;
++            }
++            continue;
++        }
++
++        step += 1;
++        problem.record(step, lambda, step_iters, true);
++
++        prev_delta_u = delta_u;
++        prev_delta_lambda = delta_lambda;
++
++        if step_iters <= control.target_iter / 2 {
++            ds = (ds * 2.0).min(control.max_ds);
++        } else if step_iters > control.target_iter * 2 {
++            ds = (ds * 0.5).max(control.min_ds);
++        }
++    }
++
++    Ok(PathOutcome { load_factor: lambda, converged: overall_converged, iterations: total_iters, steps: step })
++}
++
++pub(crate) struct DisplacementControl {
++    /// The unknown that is driven.
++    pub control: usize,
++    pub target: f64,
++    pub n_steps: usize,
++    pub max_iter: usize,
++    pub tolerance: f64,
++}
++
++/// Drive unknown `control` to `target` in `n_steps` equal increments, the load factor being
++/// whatever holds it there: the path is followed where the load falls, as long as the driven
++/// unknown keeps growing. A step is converged when the measure is within tolerance and the
++/// unknown within tolerance of its increment. The first step that is not is recorded as
++/// unconverged and ends the solve, at that step's last iterate.
++pub(crate) fn solve_by_displacement_control<P: PathProblem + ?Sized>(problem: &mut P, control: &DisplacementControl) -> Result<PathOutcome, String> {
++    let nf = problem.unknowns();
++    let ctrl = control.control;
++    let mut lambda = 0.0_f64;
++    let mut total_iters = 0;
++    let mut overall_converged = true;
++    let mut taken = 0;
++
++    let delta_d = control.target / control.n_steps as f64;
++    let disp_scale = delta_d.abs();
++
++    for step in 0..control.n_steps {
++        let target_disp = (step + 1) as f64 * delta_d;
++
++        let mut step_converged = false;
++        let mut step_iters = 0;
++
++        for _iter in 0..control.max_iter {
++            step_iters += 1;
++            total_iters += 1;
++
++            problem.linearize_at(lambda);
++            let disp_error = target_disp - problem.unknown(ctrl);
++            let rel_error = problem.measure(lambda);
++            let disp_ok = disp_error.abs() <= control.tolerance * disp_scale;
++            if rel_error < control.tolerance && disp_ok {
++                step_converged = true;
++                break;
++            }
++
++            let (du_r, du_t) = problem.responses()?;
++
++            let step = (disp_error - du_r[ctrl]) / du_t[ctrl];
++            let d_lambda = Some(step).filter(|step| du_t[ctrl] != 0.0 && step.is_finite()).map_or(0.0, |step| step);
++
++            let du: Vec<f64> = (0..nf).map(|i| du_r[i] + d_lambda * du_t[i]).collect();
++            problem.advance(&du);
++            lambda += d_lambda;
++        }
++
++        taken = step + 1;
++        problem.record(taken, lambda, step_iters, step_converged);
++
++        if !step_converged {
++            overall_converged = false;
++            break;
++        }
++    }
++
++    Ok(PathOutcome { load_factor: lambda, converged: overall_converged, iterations: total_iters, steps: taken })
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    /// One unknown: force(u) = λ, with a force that rises, falls and rises again.
++    struct Snap {
++        u: f64,
++        residual: f64,
++        stiffness: f64,
++        path: Vec<(f64, f64)>,
++        unconverged: usize,
++        fail_at: Option<usize>,
++        solves: usize,
++    }
++
++    fn force(u: f64) -> f64 {
++        u * u * u - 3.0 * u * u + 2.5 * u
++    }
++
++    const FIRST_LIMIT: f64 = 0.591_751_709_536_136_9;
++    const SECOND_LIMIT: f64 = 1.408_248_290_463_863;
++
++    impl Snap {
++        fn new() -> Self {
++            Snap { u: 0.0, residual: 0.0, stiffness: 0.0, path: Vec::new(), unconverged: 0, fail_at: None, solves: 0 }
++        }
++    }
++
++    impl PathProblem for Snap {
++        fn unknowns(&self) -> usize {
++            1
++        }
++        fn load_scale(&self) -> f64 {
++            1.0
++        }
++        fn linearize_at(&mut self, load_factor: f64) {
++            self.residual = load_factor - force(self.u);
++            self.stiffness = 3.0 * self.u * self.u - 6.0 * self.u + 2.5;
++        }
++        fn measure(&mut self, _: f64) -> f64 {
++            self.residual.abs()
++        }
++        fn reference_response(&mut self) -> Result<Vec<f64>, String> {
++            self.solves += 1;
++            if self.fail_at == Some(self.solves) {
++                return Err("the tangent cannot be factorized".into());
++            }
++            Ok(vec![1.0 / self.stiffness])
++        }
++        fn responses(&mut self) -> Result<(Vec<f64>, Vec<f64>), String> {
++            self.solves += 1;
++            if self.fail_at == Some(self.solves) {
++                return Err("the tangent cannot be factorized".into());
++            }
++            Ok((vec![self.residual / self.stiffness], vec![1.0 / self.stiffness]))
++        }
++        fn advance(&mut self, step: &[f64]) {
++            self.u += step[0];
++        }
++        fn unknown(&self, index: usize) -> f64 {
++            assert_eq!(index, 0);
++            self.u
++        }
++        fn record(&mut self, step: usize, load_factor: f64, _: usize, converged: bool) {
++            assert_eq!(step, self.path.len() + 1);
++            self.path.push((self.u, load_factor));
++            if !converged {
++                self.unconverged += 1;
++            }
++        }
++    }
++
++    fn control(max_steps: usize) -> ArcLengthControl {
++        ArcLengthControl { max_steps, max_iter: 30, tolerance: 1e-10, initial_ds: 0.05, min_ds: 1e-8, max_ds: 0.2, target_iter: 5 }
++    }
++
++    #[test]
++    fn the_path_is_followed_past_both_limit_points() {
++        let mut snap = Snap::new();
++        let outcome = solve_by_arc_length(&mut snap, &control(60)).unwrap();
++        assert!(outcome.converged);
++        assert_eq!(outcome.steps, 60);
++        assert_eq!(snap.path.len(), 60);
++        for &(u, load_factor) in &snap.path {
++            assert!((load_factor - force(u)).abs() <= 1e-10, "({u}, {load_factor})");
++        }
++        assert!(snap.path.windows(2).all(|pair| pair[1].0 > pair[0].0), "the displacement goes back");
++        let (last_u, last_load) = *snap.path.last().unwrap();
++        assert!(last_u > 2.0 && last_load > force(FIRST_LIMIT), "ends at ({last_u}, {last_load})");
++        assert_eq!(outcome.load_factor, last_load);
++        let on_the_descent = snap.path.iter().filter(|(u, _)| *u > FIRST_LIMIT && *u < SECOND_LIMIT).count();
++        assert!(on_the_descent >= 3, "{on_the_descent} steps between the limit points");
++        let highest_before = snap.path.iter().filter(|(u, _)| *u < 1.0).map(|p| p.1).fold(f64::MIN, f64::max);
++        assert!(highest_before <= force(FIRST_LIMIT) + 1e-10 && highest_before >= 0.9 * force(FIRST_LIMIT));
++    }
++
++    #[test]
++    fn every_step_is_within_its_arc_length_of_the_one_before() {
++        let mut snap = Snap::new();
++        let limits = control(40);
++        solve_by_arc_length(&mut snap, &limits).unwrap();
++        let mut before = (0.0, 0.0);
++        for &point in &snap.path {
++            let length = (point.0 - before.0).hypot(point.1 - before.1);
++            assert!(length <= limits.max_ds * (1.0 + 1e-9) && length >= limits.min_ds, "{length}");
++            before = point;
++        }
++    }
++
++    #[test]
++    fn the_arc_length_grows_while_steps_converge_easily_and_never_past_its_limit() {
++        let mut snap = Snap::new();
++        let limits = ArcLengthControl { tolerance: 1e-3, initial_ds: 1e-3, ..control(12) };
++        solve_by_arc_length(&mut snap, &limits).unwrap();
++        let lengths: Vec<f64> = std::iter::once((0.0, 0.0)).chain(snap.path.iter().copied()).collect::<Vec<_>>()
++            .windows(2).map(|pair| (pair[1].0 - pair[0].0).hypot(pair[1].1 - pair[0].1)).collect();
++        assert!(lengths[3] > 4.0 * lengths[0], "{lengths:?}");
++        assert!(lengths.iter().all(|length| *length <= limits.max_ds * (1.0 + 1e-9)), "{lengths:?}");
++    }
++
++    #[test]
++    fn a_step_that_does_not_converge_is_retried_shorter_from_the_last_converged_state() {
++        let mut snap = Snap::new();
++        let tight = ArcLengthControl { max_iter: 2, initial_ds: 0.2, ..control(10) };
++        let outcome = solve_by_arc_length(&mut snap, &tight).unwrap();
++        assert!(outcome.converged);
++        assert_eq!(outcome.steps, 10);
++        for &(u, load_factor) in &snap.path {
++            assert!((load_factor - force(u)).abs() <= 1e-10);
++        }
++        let first = snap.path[0];
++        assert!(first.0.hypot(first.1) < 0.2 * 0.75, "the first step was not shortened: {first:?}");
++    }
++
++    #[test]
++    fn a_step_that_never_converges_ends_the_solve_at_the_last_converged_state() {
++        let mut snap = Snap::new();
++        let hopeless = ArcLengthControl { max_iter: 1, min_ds: 1e-3, ..control(10) };
++        let outcome = solve_by_arc_length(&mut snap, &hopeless).unwrap();
++        assert_eq!(outcome, PathOutcome { load_factor: 0.0, converged: false, iterations: outcome.iterations, steps: 0 });
++        assert!(snap.path.is_empty());
++        assert!(snap.u.abs() <= 1e-15);
++        assert!(outcome.iterations >= 5);
++
++        let mut snap = Snap::new();
++        let fading = ArcLengthControl { tolerance: 1e-10, max_iter: 4, ..control(3) };
++        let reached = solve_by_arc_length(&mut snap, &fading).unwrap();
++        let mut again = Snap::new();
++        let cut = ArcLengthControl { max_iter: 1, min_ds: 0.04, ..control(3) };
++        let stopped = solve_by_arc_length(&mut again, &cut).unwrap();
++        assert!(reached.converged && !stopped.converged);
++    }
++
++    #[test]
++    fn an_error_of_the_problem_ends_the_solve() {
++        for fail_at in [1, 2, 5] {
++            let mut snap = Snap::new();
++            snap.fail_at = Some(fail_at);
++            assert_eq!(solve_by_arc_length(&mut snap, &control(20)).unwrap_err(), "the tangent cannot be factorized");
++            assert_eq!(snap.solves, fail_at);
++        }
++    }
++
++    #[test]
++    fn no_steps_do_nothing() {
++        let mut snap = Snap::new();
++        let outcome = solve_by_arc_length(&mut snap, &control(0)).unwrap();
++        assert_eq!(outcome, PathOutcome { load_factor: 0.0, converged: true, iterations: 0, steps: 0 });
++        assert_eq!(snap.solves, 0);
++    }
++
++    fn driven(target: f64, n_steps: usize, max_iter: usize) -> DisplacementControl {
++        DisplacementControl { control: 0, target, n_steps, max_iter, tolerance: 1e-10 }
++    }
++
++    #[test]
++    fn a_driven_displacement_follows_the_path_down_and_up_again() {
++        let mut snap = Snap::new();
++        let outcome = solve_by_displacement_control(&mut snap, &driven(2.5, 50, 30)).unwrap();
++        assert!(outcome.converged);
++        assert_eq!((outcome.steps, snap.path.len(), snap.unconverged), (50, 50, 0));
++        for (k, &(u, load_factor)) in snap.path.iter().enumerate() {
++            assert!((u - 0.05 * (k + 1) as f64).abs() <= 1e-11, "step {k}: {u}");
++            assert!((load_factor - force(u)).abs() <= 1e-9, "({u}, {load_factor})");
++        }
++        let falling = snap.path.windows(2).filter(|pair| pair[1].1 < pair[0].1).count();
++        assert!(falling >= 10, "{falling} steps with a falling load");
++        assert_eq!(outcome.load_factor, snap.path.last().unwrap().1);
++    }
++
++    #[test]
++    fn a_displacement_can_be_driven_the_other_way() {
++        let mut snap = Snap::new();
++        let outcome = solve_by_displacement_control(&mut snap, &driven(-0.5, 10, 30)).unwrap();
++        assert!(outcome.converged);
++        let (u, load_factor) = *snap.path.last().unwrap();
++        assert!((u + 0.5).abs() <= 1e-11 && (load_factor - force(-0.5)).abs() <= 1e-9);
++    }
++
++    #[test]
++    fn a_step_that_does_not_converge_is_recorded_and_ends_the_solve() {
++        let mut snap = Snap::new();
++        let outcome = solve_by_displacement_control(&mut snap, &driven(2.5, 5, 2)).unwrap();
++        assert!(!outcome.converged);
++        assert_eq!(snap.unconverged, 1);
++        assert_eq!(outcome.steps, snap.path.len());
++        assert!(outcome.steps < 5);
++        assert_eq!(outcome.iterations, 2 * outcome.steps);
++    }
++
++    #[test]
++    fn a_response_that_does_not_move_the_driven_unknown_leaves_the_load_factor() {
++        struct Stuck(Snap);
++        impl PathProblem for Stuck {
++            fn unknowns(&self) -> usize { 1 }
++            fn load_scale(&self) -> f64 { 1.0 }
++            fn linearize_at(&mut self, load_factor: f64) { self.0.linearize_at(load_factor) }
++            fn measure(&mut self, load_factor: f64) -> f64 { self.0.measure(load_factor) }
++            fn reference_response(&mut self) -> Result<Vec<f64>, String> { Ok(vec![0.0]) }
++            fn responses(&mut self) -> Result<(Vec<f64>, Vec<f64>), String> { Ok((vec![0.0], vec![0.0])) }
++            fn advance(&mut self, step: &[f64]) { self.0.advance(step) }
++            fn unknown(&self, index: usize) -> f64 { self.0.unknown(index) }
++            fn record(&mut self, step: usize, load_factor: f64, iterations: usize, converged: bool) { self.0.record(step, load_factor, iterations, converged) }
++        }
++        let mut stuck = Stuck(Snap::new());
++        let outcome = solve_by_displacement_control(&mut stuck, &driven(1.0, 3, 4)).unwrap();
++        assert_eq!(outcome, PathOutcome { load_factor: 0.0, converged: false, iterations: 4, steps: 1 });
++        assert_eq!(stuck.0.u, 0.0);
++    }
++
++    #[test]
++    fn displacement_control_passes_on_errors() {
++        let mut snap = Snap::new();
++        snap.fail_at = Some(3);
++        assert_eq!(solve_by_displacement_control(&mut snap, &driven(2.5, 50, 30)).unwrap_err(), "the tangent cannot be factorized");
++        assert_eq!(snap.solves, 3);
++    }
++
++    #[test]
++    fn the_norm_and_the_dot_product_are_the_ones_the_solver_has_always_used() {
++        assert_eq!(vec_norm(&[3.0, 4.0]), 5.0);
++        assert_eq!(vec_norm(&[]), 0.0);
++        assert_eq!(vec_norm(&[1e200, 1e200]), 1e200 * 2f64.sqrt());
++        assert_eq!(dot_product(&[1.0, 2.0, 3.0], &[4.0, -5.0, 6.0]), 12.0);
++    }
++}
