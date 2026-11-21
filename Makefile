@@ -232,6 +232,10 @@ engine.nonlinear-opt-in:
 	checkout=$$(mktemp -d "$(CURDIR)/.nonlinear-opt-in.XXXXXX"); \
 	git clone --quiet --shared --no-checkout "$(CURDIR)" "$$checkout"; \
 	git -C "$$checkout" checkout --quiet --detach "$$(git rev-parse HEAD)"; \
+	preimages="$$checkout/.git/nonlinear-preimages"; \
+	git -C "$$checkout" apply --build-fake-ancestor="$$preimages" engine/experimental/nonlinear.patch; \
+	GIT_INDEX_FILE="$$preimages" git -C "$$checkout" diff --cached --name-status --exit-code --diff-filter=AMT HEAD || { \
+	    printf "%s\n" "The experimental nonlinear patch needs review against the current solver sources." >&2; exit 1; }; \
 	git -C "$$checkout" apply --index engine/experimental/nonlinear.patch; \
 	git -C "$$checkout" commit --quiet -S -m "Enable the experimental nonlinear solver drivers"; \
 	printf '%s\n' "$$checkout"

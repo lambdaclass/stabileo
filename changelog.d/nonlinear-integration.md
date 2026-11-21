@@ -8,4 +8,4 @@ adaptive load stepping and shared continuation drivers, run
 in the checkout printed by that command. The checkout is created from the
 current commit. The experimental sources receive their own signed commit so
 WASM results carry the build’s actual source provenance. Preparation fails if
-the experimental changes no longer apply to the current solver sources.
+any solver file the patch modifies has changed since the integration.
