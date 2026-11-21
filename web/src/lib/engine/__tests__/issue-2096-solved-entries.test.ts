@@ -24,6 +24,7 @@ const model = {
   supports: new Map([[1, { id: 1, nodeId: 1, type: 'fixed' }]]),
 } satisfies AutoVerifyModelData;
 afterEach(() => { setCompactStationTransfer(true); vi.restoreAllMocks(); });
+const steelExtremum = process.env.RUN_KNOWN_WRONG === '2403' ? it : it.skip;
 for (const spatial of [false, true]) for (const nonlinear of [false, true]) for (const compact of [false, true]) {
   const solveModel = (source = model, transverse?: { qI: number; qJ: number }) => {
     const loadedNode = Math.max(...source.nodes.keys());
@@ -74,6 +75,24 @@ for (const spatial of [false, true]) for (const nonlinear of [false, true]) for 
       expect(rows).toEqual(uniform ? result.stationTs : [...result.stationTs, ...extra].sort((a, b) => a - b));
     });
   }
+  steelExtremum(`known wrong result: #2403 retains the smooth steel bending peak ${label}`, () => {
+    const beam = { ...model, nodes: new Map([
+      [1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: 4, y: 0, z: 0 }],
+    ]), materials: new Map([[1, { id: 1, name: 'F-24', fy: 235, e: 200000, nu: 0.3 }]]) };
+    const q = 4;
+    const raw = solveModel(beam, { qI: q, qJ: q });
+    const ef = raw.elementForces[0]!;
+    const x = -ef.vzStart / q;
+    const t = x / ef.length;
+    const moment = ef.myStart + x * (ef.vzStart + q * x / 2);
+    const { stations } = computeStationDemands(new Map([[1, raw]]), combinations.slice(0, 1), beam);
+    const result = stations.get(1)!;
+    expect(t).toBeGreaterThan(0.3);
+    expect(t).toBeLessThan(0.4);
+    const rows = result.comboResults[0]!.stations;
+    expect(rows.map(row => row.t)).toEqual([...result.stationTs.slice(0, 4), expect.closeTo(t, 12), ...result.stationTs.slice(4)]);
+    expect(rows[4]!.my).toBeCloseTo(moment, 12);
+  });
   it(`known wrong result: #2096 round3 dispatch preserves per-combination stations ${label}`, () => {
     const raw = solveModel();
     const data = computeStationDemands(new Map([[1, raw], [2, raw]]), combinations, model);
