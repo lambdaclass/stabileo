@@ -1,9 +1,10 @@
 import { expect, it } from 'vitest';
-import { computeDiagramValueAt, computeElementDiagram } from '../diagrams';
+import { computeDiagramValueAt, computeElementDiagram, prepareDiagramValueAt } from '../diagrams';
 import { computeDiagram3D, evaluateDiagramAt } from '../diagrams-3d';
 import {
   computeDiagrams2D, computeDiagrams3D, computeDiagramValueAtWasm, computeDiagramValueAt3DWasm,
-  computeEnvelope, computeEnvelope3D, solve, solve3D, solvePDelta, solvePDelta3D,
+  computeEnvelope, computeEnvelope3D, extractBeamStations, extractBeamStations3D,
+  extractBeamStationsGrouped, extractBeamStationsGrouped3D, solve, solve3D, solvePDelta, solvePDelta3D,
 } from '../wasm-solver';
 import type { SolverInput } from '../types';
 import type { SolverInput3D } from '../types-3d';
@@ -26,7 +27,9 @@ function cantilevers(length: number): [SolverInput, SolverInput3D] {
   };
   const spatial: SolverInput3D = {
     materials: planar.materials,
-    elements: new Map([[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1 }]]),
+    elements: new Map([[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1,
+      releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false,
+      releaseTStart: false, releaseTEnd: false }]]),
     nodes: new Map([...planar.nodes].map(([id, node]) => [id, { ...node, y: 0 }])),
     sections: new Map([[1, { id: 1, a: 0.01, iz: 0.0001, iy: 0.0001, j: 0.0001 }]]),
     supports: new Map([[1, { nodeId: 1, rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true }]]),
@@ -47,7 +50,7 @@ function forceRecords() {
   return [plane, space, planar, spatial] as const;
 }
 
-it.skip('known wrong result: #2250 — refuses a point query at a peak whose ordinate cannot transfer', () => {
+it('#2250 refuses a point query at a peak whose ordinate cannot transfer', () => {
   const [plane, space, planar, spatial] = forceRecords();
   for (const result of planar) {
     const ef = result.elementForces[0]!;
@@ -62,9 +65,11 @@ it.skip('known wrong result: #2250 — refuses a point query at a peak whose ord
     expect.soft(diagram.maxValue).toBe(peakForce);
     expect.soft(() => computeDiagramValueAtWasm('shear', peakT, ef)).toThrow(/extrema/i);
     expect.soft(() => computeDiagramValueAt('shear', peakT, ef)).toThrow(/extrema/i);
+    expect.soft(() => prepareDiagramValueAt('shear', ef)(peakT)).toThrow(/extrema/i);
     ef.distributedLoads = [{ a, b: 2.25, qI: 4, qJ: -4 }];
     expect.soft(computeDiagramValueAtWasm('shear', 0.625, ef)).toBe(0.75);
     expect.soft(computeDiagramValueAt('shear', 0.625, ef)).toBe(0.75);
+    expect.soft(prepareDiagramValueAt('shear', ef)(0.625)).toBe(0.75);
   }
   for (const result of spatial) {
     const ef = result.elementForces[0]!;
@@ -79,28 +84,39 @@ it.skip('known wrong result: #2250 — refuses a point query at a peak whose ord
   }
 });
 
-it.skip('known wrong result: #2226 — refuses an envelope that aliases an extremum with another case’s jump', () => {
+it('#2226 refuses an envelope that aliases an extremum with another case’s jump', () => {
   const [, , planar, spatial] = forceRecords();
   const jump = peakT * length;
+  const members = [{ elementId: 1, length, sectionId: 1, materialId: 1 }];
   for (const result of planar) {
     const peak = structuredClone(result);
     peak.elementForces[0]!.distributedLoads = [{ a, b, qI: q, qJ: -q }];
     result.elementForces[0]!.pointLoads = [{ a: jump, p: 10 }];
-    expect.soft(() => computeEnvelope([peak, result])).toThrow(/extrema/i);
+    expect.soft(() => computeEnvelope([peak, result])).toThrow('Cannot compute the envelope: shear of element 1: distinct member diagram cuts share a normalized station');
+    const stations = { members, combinations: [peak, result].map((results, i) => ({ comboId: i + 1, results })) };
+    expect.soft(() => extractBeamStations(stations)).toThrow(/normalized station/i);
+    expect.soft(() => extractBeamStationsGrouped(stations)).toThrow(/normalized station/i);
     result.elementForces[0]!.pointLoads[0]!.a = a;
     expect.soft(computeEnvelope([peak, result])!.shear.globalMax).toBe(10);
+    expect.soft(extractBeamStations(stations).stations.some(s => s.t === peakT)).toBe(true);
+    expect.soft(extractBeamStationsGrouped(stations).members[0]!.stations.some(s => s.t === peakT)).toBe(true);
   }
   for (const result of spatial) {
     const peak = structuredClone(result);
     peak.elementForces[0]!.distributedLoadsZ = [{ a, b, qI: q, qJ: -q }];
     result.elementForces[0]!.pointLoadsZ = [{ a: jump, p: 10 }];
-    expect.soft(() => computeEnvelope3D([peak, result])).toThrow(/extrema/i);
+    expect.soft(() => computeEnvelope3D([peak, result])).toThrow('Cannot compute the envelope: shearZ of element 1: distinct member diagram cuts share a normalized station');
+    const stations = { members, combinations: [peak, result].map((results, i) => ({ comboId: i + 1, results })) };
+    expect.soft(() => extractBeamStations3D(stations)).toThrow(/normalized station/i);
+    expect.soft(() => extractBeamStationsGrouped3D(stations)).toThrow(/normalized station/i);
     result.elementForces[0]!.pointLoadsZ[0]!.a = a;
     expect.soft(computeEnvelope3D([peak, result])!.shearZ.globalMax).toBe(10);
+    expect.soft(extractBeamStations3D(stations).stations.some(s => s.t === peakT)).toBe(true);
+    expect.soft(extractBeamStationsGrouped3D(stations).members[0]!.stations.some(s => s.t === peakT)).toBe(true);
   }
 });
 
-it.skip('known wrong result: #2250 — refuses distinct extrema aliased within one normalized station', () => {
+it('#2250 refuses distinct extrema aliased within one normalized station', () => {
   const [, , [rp], [rs]] = forceRecords();
   const planar = rp!.elementForces[0]!;
   const spatial = rs!.elementForces[0]!;

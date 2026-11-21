@@ -129,7 +129,7 @@ pub fn checked_diagram_value_2d(kind: &str, t: f64, ef: &ElementForces) -> Resul
 pub(crate) fn checked_diagram_limit_2d(kind: &str, t: f64, ef: &ElementForces, right: bool) -> Result<f64, String> {
     validate_diagram_input_2d(ef)?;
     check_diagram_kind_2d(kind)?;
-    planar_curve(ef, kind, &sorted_point_loads(ef)).checked_value(Cut::at(t, right)).map_err(str::to_owned)
+    planar_curve(ef, kind, &sorted_point_loads(ef)).checked_station_value(t, right).map_err(str::to_owned)
 }
 
 pub(crate) fn evaluate_diagram_cut_2d(kind: &str, cut: Cut, ef: &ElementForces, sorted_pl: &[PointLoadInfo]) -> f64 {
@@ -678,7 +678,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "known wrong result: #2250"]
     fn round5a_point_queries_at_analytic_shear_peaks() {
         use crate::postprocess::diagrams_3d::{checked_diagram_value_3d, compute_diagrams_3d};
         let a = 1.5;
@@ -699,11 +698,10 @@ mod tests {
             assert_eq!(checked_diagram_value_2d("shear", exact_t, &planar.element_forces[0]), Ok(exact_peak));
             assert_eq!(checked_diagram_value_3d(&spatial.element_forces[0], "shearZ", exact_t), Ok(exact_peak));
         }
-        assert!(observed.iter().all(|value| matches!(value, Err(reason) if reason.contains("extremum"))), "{observed:?}");
+        assert!(observed.iter().all(|value| matches!(value, Err(reason) if reason.contains("extrema"))), "{observed:?}");
     }
 
     #[test]
-    #[ignore = "known wrong result: #2226"]
     fn round5b_envelopes_with_a_jump_at_another_cases_peak_station() {
         use crate::postprocess::combinations::{compute_envelope, compute_envelope_3d};
         let a = 1.5;

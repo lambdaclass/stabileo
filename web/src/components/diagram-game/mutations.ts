@@ -1,6 +1,6 @@
 import type { SupportType } from '../../lib/store/ui.svelte';
 import { memberLength, solveGame, type GameModel, type Solved } from './game-model';
-import { chainNeighbour, diagramOf, memberAxis, peak, sampleDiagram, forceValue, signGroups, type Diagram, type DiagramKind, type Trace, type Vec } from './traces';
+import { chainNeighbour, diagramOf, memberAxis, peak, sampleDiagram, memberForceReader, signGroups, type Diagram, type DiagramKind, type Trace, type Vec } from './traces';
 
 export const PHYSICAL_TAGS = ['loadMoved', 'loadFlipped', 'loadScaled', 'supportChanged', 'supportsMirrored', 'hingeToggled', 'rollerTurned', 'resultantLoad', 'pointAsUniform'] as const;
 export const MATH_TAGS = ['degreeLowered', 'degreeRaised', 'vertexWrongEnd', 'jumpMissing', 'nonZeroAtRelease', 'inflectionMisplaced', 'supportDisplaced', 'memberSignFlipped', 'zeroForceLoaded', 'loadedShownZero', 'concavityFlipped', 'fixedEndReleased', 'fixedEndRotates', 'notClosed', 'wrongKind', 'mirrored'] as const;
@@ -308,7 +308,8 @@ const MATH: Record<MathTag, (ctx: MutationContext) => Diagram | null> = {
   inflectionMisplaced: (ctx) => {
     if (ctx.kind !== 'D' || ctx.solved.model.allTruss) return null;
     const changes = ctx.solved.forces.some((ef) => {
-      const vs = Array.from({ length: 21 }, (_, k) => forceValue('M', ef, k / 20));
+      const moment = memberForceReader('M', ef);
+      const vs = Array.from({ length: 21 }, (_, k) => moment(k / 20));
       const big = Math.max(...vs.map(Math.abs));
       return vs.some((v) => v > 0.05 * big) && vs.some((v) => v < -0.05 * big);
     });

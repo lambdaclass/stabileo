@@ -74,7 +74,7 @@ pub fn checked_diagram_value_3d(ef: &ElementForces3D, kind: &str, t: f64) -> Res
 pub(crate) fn checked_diagram_limit_3d(ef: &ElementForces3D, kind: &str, t: f64, right: bool) -> Result<f64, String> {
     validate_diagram_input_3d(ef)?;
     check_diagram_kind_3d(kind)?;
-    spatial_curve(ef, kind).checked_value(Cut::at(t, right)).map_err(str::to_owned)
+    spatial_curve(ef, kind).checked_station_value(t, right).map_err(str::to_owned)
 }
 
 pub(crate) fn evaluate_diagram_cut_3d(ef: &ElementForces3D, kind: &str, cut: Cut) -> f64 {

@@ -12,6 +12,7 @@ export interface DiagramExtremum {
 }
 
 export interface DiagramCurve {
+  hasDistributedActions: boolean;
   cuts: number[];
   cutDistances: ReadonlyMap<number, number>;
   value: (station: DiagramStation) => number;
@@ -53,15 +54,21 @@ export function distributedActionTerms(load: DistributedAction, x: number): [for
   return [force, (left * (0.5 - u / 6) + right * (u / 6)) * s + force * (distance - s)];
 }
 
+export function diagramLineValue(start: number, change: number, rate: number, x: number, t: number): number {
+  return start + rate * x + change * t;
+}
+
 export function memberDiagram(
   length: number, start: number, change: number, distributed: DistributedAction[],
   points: PointAction[], order: 'force' | 'moment' = 'force', sign = 1, rate = 0,
 ): DiagramCurve {
+  if (!(length > 0 && Number.isFinite(length))) throw unavailableDiagramExtrema();
+  const hasDistributedActions = distributed.length > 0;
+  const hasActions = hasDistributedActions || points.length > 0;
   const at = (x: number) => x / length;
   let cutDistances: ReadonlyMap<number, number> | undefined;
   const distances = () => {
     if (cutDistances) return cutDistances;
-    if (!(length > 0 && Number.isFinite(length))) throw unavailableDiagramExtrema();
     const xs = sortedStations([0, length, ...distributed.flatMap(d => [d.a, d.b]), ...points.map(p => p.a)]
       .filter(x => x >= 0 && x <= length));
     const mapped = new Map(xs.map(x => [at(x), x]));
@@ -70,7 +77,7 @@ export function memberDiagram(
   };
   const component = order === 'force' ? 0 : 1;
   const physicalValue = (x: number, t: number, right: boolean) => {
-    let result = start + rate * x + change * t;
+    let result = diagramLineValue(start, change, rate, x, t);
     for (const load of distributed) result += sign * distributedActionTerms(load, x)[component];
     for (const point of points) {
       if (point.a < x || (right && point.a === x)) {
@@ -82,9 +89,11 @@ export function memberDiagram(
   };
 
   return {
+    hasDistributedActions,
     get cuts() { return [...distances().keys()]; },
     get cutDistances() { return distances(); },
     value({ t, right }) {
+      if (!hasActions) return diagramLineValue(start, change, rate, t * length, t);
       const cut = distances().get(t);
       if (cut !== undefined) return physicalValue(cut, t, right === true);
       const x = t * length;
@@ -147,11 +156,13 @@ function diagramExtremum(
   return { t, value, canTransfer };
 }
 
-export function curveExtrema(curve: DiagramCurve, length: number): DiagramExtremum[] {
+export function curveExtrema(curve: DiagramCurve, length: number, at?: number): DiagramExtremum[] {
+  if (!curve.hasDistributedActions) return [];
   const roots: DiagramExtremum[] = [];
   const cuts = [...curve.cutDistances.entries()];
   for (let k = 1; k < cuts.length; k++) {
     const [lo, x0] = cuts[k - 1]!, [hi, x1] = cuts[k]!;
+    if (at !== undefined && !(lo < at && at < hi)) continue;
     const polynomial = curve.polynomial(lo, hi);
     for (const u of polynomialRootCandidates(polynomialDerivative(polynomial))) {
       if (u <= 0 || u >= 1) continue;
@@ -162,6 +173,27 @@ export function curveExtrema(curve: DiagramCurve, length: number): DiagramExtrem
   return roots;
 }
 
+export function indexDiagramExtrema(critical: readonly DiagramExtremum[]): Map<number, DiagramExtremum> {
+  const byStation = new Map<number, DiagramExtremum>();
+  for (const peak of critical) {
+    const previous = byStation.get(peak.t);
+    if (!previous) {
+      byStation.set(peak.t, peak);
+    } else if (previous.value !== peak.value) {
+      throw unavailableDiagramExtrema();
+    } else if (previous.canTransfer(peak.t) && !peak.canTransfer(peak.t)) {
+      byStation.set(peak.t, peak);
+    }
+  }
+  return byStation;
+}
+
+export function checkedCurveValue(curve: Pick<DiagramCurve, 'value'>, station: DiagramStation, critical: ReadonlyMap<number, DiagramExtremum>): number {
+  const peak = critical.get(station.t);
+  if (peak && !peak.canTransfer(station.t)) throw unavailableDiagramExtrema();
+  return curve.value(station);
+}
+
 export function diagramCurvePoints(curve: Pick<DiagramCurve, 'cuts' | 'value'>, critical: readonly DiagramExtremum[]): (DiagramStation & { value: number })[] {
   const jumps = new Map<number, number>();
   for (const t of curve.cuts) {
@@ -169,19 +201,15 @@ export function diagramCurvePoints(curve: Pick<DiagramCurve, 'cuts' | 'value'>, 
     const right = curve.value({ t, right: true });
     if (right !== curve.value({ t })) jumps.set(t, right);
   }
-  const extrema = new Map<number, number[]>();
-  for (const { t, value } of critical) {
-    const values = extrema.get(t) ?? [];
-    if (!values.includes(value)) values.push(value);
-    extrema.set(t, values);
-  }
+  const extrema = indexDiagramExtrema(critical);
   const displayNeighbors = [...jumps.keys()].flatMap(t => [t - 1e-6, t + 1e-6].filter(u => u > 0 && u < 1));
   const boundaries = new Set(curve.cuts);
   return sortedStations([...regularStations, ...boundaries, ...extrema.keys(), ...displayNeighbors]).flatMap(t => {
-    const values = extrema.get(t) ?? [];
-    const left = values.length === 0 || boundaries.has(t) ? [curve.value({ t })] : [];
+    const peak = extrema.get(t);
     const right = jumps.get(t);
-    const points: (DiagramStation & { value: number })[] = [...left, ...values].map(value => ({ t, value }));
+    const points: (DiagramStation & { value: number })[] = [];
+    if (!peak || boundaries.has(t)) points.push({ t, value: curve.value({ t }) });
+    if (peak) points.push({ t, value: peak.value });
     if (right !== undefined) points.push({ t, right: true, value: right });
     if (points.some(point => !Number.isFinite(point.value))) throw unavailableDiagramExtrema();
     return points;

@@ -108,6 +108,7 @@ const ENGINE_SENTENCES: ReadonlyArray<[string, string]> = [
   [DIAGRAM_EXTREMA_UNAVAILABLE, DIAGRAM_EXTREMA_UNAVAILABLE],
   ['distinct member diagram cuts share a normalized station', DIAGRAM_EXTREMA_UNAVAILABLE],
   ['interior member diagram extremum has no distinct normalized station', DIAGRAM_EXTREMA_UNAVAILABLE],
+  ['member diagram extrema cannot be evaluated at the requested station', DIAGRAM_EXTREMA_UNAVAILABLE],
   ['non-finite member diagram polynomial', DIAGRAM_EXTREMA_UNAVAILABLE],
   ['non-finite moving load member diagram', DIAGRAM_EXTREMA_UNAVAILABLE],
   ['Repeated load case factors cancel to zero in this combination.', 'svc.engine.cancelledCombination'],

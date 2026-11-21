@@ -3812,14 +3812,21 @@
             const lenSq = edx * edx + edy * edy + edz * edz;
             if (lenSq < 1e-12) break;
             const p = hit.point;
-            let t = ((p.x - ni.x) * edx + (p.y - ni.y) * edy + (p.z - niz) * edz) / lenSq;
-            t = Math.max(0, Math.min(1, t));
+            let station = ((p.x - ni.x) * edx + (p.y - ni.y) * edy + (p.z - niz) * edz) / lenSq;
+            station = Math.max(0, Math.min(1, station));
             // Find ElementForces3D for this element
             const ef = r3d.elementForces.find(f => f.elementId === elemId);
             if (!ef) break;
-            const val = evaluateDiagramAt(ef, kind, t);
+            let val: number;
+            try {
+              val = evaluateDiagramAt(ef, kind, station);
+            } catch (error) {
+              if (!(error instanceof Error) || error.message !== DIAGRAM_EXTREMA_UNAVAILABLE) throw error;
+              diagramTooltip = t(DIAGRAM_EXTREMA_UNAVAILABLE);
+              break;
+            }
             const formatted = formatDiagramValue3D(val, kind, uiStore.unitSystem);
-            const posLabel = `x=${(t * ef.length).toFixed(2)}m`;
+            const posLabel = `x=${(station * ef.length).toFixed(2)}m`;
             // The certified bound holds at every point of an engine member (not a split or combined one).
             const cert = ef.pieces?.length || ef.combined ? null
               : diagramBound3D(certificateStore.stationBound<StationBound3D>(true, elemId), kind);

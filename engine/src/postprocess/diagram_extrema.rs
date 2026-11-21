@@ -30,6 +30,12 @@ impl Cut {
         Self { t, right, location: Location::Boundary(x) }
     }
 
+    fn interior(length: f64, start: f64, end: f64, u: f64) -> Self {
+        let lo = (start + 0.0) / length;
+        let hi = (end + 0.0) / length;
+        Self { t: lo + (hi - lo) * u, right: false, location: Location::Interior { start, end, u } }
+    }
+
     pub fn station_x(self, length: f64) -> f64 {
         match self.location {
             Location::Grid => self.t * length,
@@ -53,6 +59,14 @@ pub(crate) fn sort_cuts(cuts: &mut Vec<Cut>) -> Result<(), &'static str> {
         });
         if let Some(x) = boundaries.next() {
             if boundaries.any(|other| other != x) {
+                return Err(ALIASED_CUTS);
+            }
+            if station.iter().any(|cut| cut.right && cut.location == Location::Boundary(x))
+                && station.iter().any(|cut| match cut.location {
+                    Location::Interior { start, end, u } => x - start != (end - start) * u,
+                    _ => false,
+                })
+            {
                 return Err(ALIASED_CUTS);
             }
         }
@@ -160,6 +174,41 @@ where
         Ok(value)
     }
 
+    pub fn checked_station_value(&self, t: f64, right: bool) -> Result<f64, &'static str> {
+        let value = self.checked_value(Cut::at(t, right))?;
+        if !(0.0 < t && t < 1.0) || self.distributed.clone().next().is_none() {
+            return Ok(value);
+        }
+        let mut start = 0.0_f64;
+        let mut end = self.length;
+        for x in self.action_distances().filter(|x| (0.0..=self.length).contains(x)) {
+            let boundary = x / self.length;
+            if boundary == t {
+                return Ok(value);
+            }
+            if boundary < t {
+                start = start.max(x);
+            } else {
+                end = end.min(x);
+            }
+        }
+        let change = self.segment_change(start, end);
+        for u in interior_roots(change)? {
+            let cut = Cut::interior(self.length, start, end, u);
+            if cut.t != t {
+                continue;
+            }
+            let actual = (t * self.length - start) / (end - start);
+            let peak = self.checked_value(cut)?;
+            if !(0.0 < actual && actual < 1.0 && peak.is_finite())
+                || peak + change_between(change, u, actual) != peak
+            {
+                return Err("member diagram extrema cannot be evaluated at the requested station");
+            }
+        }
+        Ok(value)
+    }
+
     fn action_distances(&self) -> impl Iterator<Item = f64> + '_ {
         self.distributed.clone().flat_map(|d| [d.a, d.b]).chain(self.points.clone().map(|p| p.a))
     }
@@ -190,27 +239,23 @@ where
         for segment in boundaries.windows(2) {
             let [x0, x1] = [segment[0], segment[1]];
             let [lo, hi] = [at(x0), at(x1)];
-            let [linear, quadratic, cubic] = self.segment_change(x0, x1);
-            for u in quadratic_roots(cubic, quadratic, linear)? {
-                if u > 0.0 && u < 1.0 {
-                    let t = lo + (hi - lo) * u;
-                    let cut = Cut { t, right: false, location: Location::Interior { start: x0, end: x1, u } };
-                    if !(lo < t && t < hi) {
-                        let (boundary, v) = if t == lo {
-                            (Cut::boundary(lo, x0, true), 0.0)
-                        } else {
-                            (Cut::boundary(hi, x1, false), 1.0)
-                        };
-                        let boundary_value = self.checked_value(boundary)?;
-                        let change = (u - v) * (linear + quadratic * (u + v) + cubic * (u * u + u * v + v * v));
-                        let peak = boundary_value + change;
-                        if !peak.is_finite() || peak != boundary_value {
-                            return Err("interior member diagram extremum has no distinct normalized station");
-                        }
-                        continue;
+            let change = self.segment_change(x0, x1);
+            for u in interior_roots(change)? {
+                let cut = Cut::interior(self.length, x0, x1, u);
+                if !(lo < cut.t && cut.t < hi) {
+                    let (boundary, v) = if cut.t == lo {
+                        (Cut::boundary(lo, x0, true), 0.0)
+                    } else {
+                        (Cut::boundary(hi, x1, false), 1.0)
+                    };
+                    let boundary_value = self.checked_value(boundary)?;
+                    let peak = boundary_value + change_between(change, v, u);
+                    if !peak.is_finite() || peak != boundary_value {
+                        return Err("interior member diagram extremum has no distinct normalized station");
                     }
-                    cuts.push(cut);
+                    continue;
                 }
+                cuts.push(cut);
             }
         }
         sort_cuts(&mut cuts)?;
@@ -285,6 +330,14 @@ where
         }
         [linear, quadratic, cubic]
     }
+}
+
+fn change_between([linear, quadratic, cubic]: [f64; 3], from: f64, to: f64) -> f64 {
+    (to - from) * (linear + quadratic * (to + from) + cubic * (to * to + to * from + from * from))
+}
+
+fn interior_roots([linear, quadratic, cubic]: [f64; 3]) -> Result<impl Iterator<Item = f64>, &'static str> {
+    Ok(quadratic_roots(cubic, quadratic, linear)?.into_iter().filter(|&u| 0.0 < u && u < 1.0))
 }
 
 fn quadratic_roots(cubic: f64, quadratic: f64, linear: f64) -> Result<[f64; 2], &'static str> {

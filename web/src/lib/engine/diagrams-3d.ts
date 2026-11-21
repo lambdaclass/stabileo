@@ -3,7 +3,7 @@
 // using equilibrium equations with distributed and point loads.
 
 import { type UnitSystem, formatDiagramValue } from '../utils/units';
-import { addMagnitudeBounds, curveExtrema, diagramCurvePoints, fullSpanFallback, magnitudeExtrema, memberDiagram, sortedStations, unavailableDiagramExtrema, type DiagramCurve, type DiagramExtremum, type DiagramStation } from './member-diagram';
+import { addMagnitudeBounds, checkedCurveValue, curveExtrema, diagramCurvePoints, fullSpanFallback, indexDiagramExtrema, magnitudeExtrema, memberDiagram, sortedStations, unavailableDiagramExtrema, type DiagramCurve, type DiagramExtremum, type DiagramStation } from './member-diagram';
 import type { ElementForces3D, EnvelopeDiagramData3D } from './types-3d';
 
 export type Diagram3DKind = 'momentY' | 'momentZ' | 'shearY' | 'shearZ' | 'axial' | 'torsion';
@@ -24,9 +24,9 @@ export interface ElementDiagram3D {
 
 const diagramKinds = ['momentY', 'momentZ', 'shearY', 'shearZ', 'axial', 'torsion'] as const;
 
-interface SpatialCurve extends Omit<DiagramCurve, 'polynomial'> {
+interface SpatialCurve extends Pick<DiagramCurve, 'cuts' | 'cutDistances' | 'value'> {
   polynomial?: DiagramCurve['polynomial'];
-  extrema: () => DiagramExtremum[];
+  extrema: (at?: number) => DiagramExtremum[];
   magnitudeBound?: () => number;
 }
 
@@ -140,7 +140,7 @@ function spatialCurve(ef: ElementForces3D, kind: Diagram3DKind): SpatialCurve {
   return {
     get cuts() { return curve.cuts; },
     get cutDistances() { return curve.cutDistances; },
-    value: curve.value, polynomial: curve.polynomial, extrema: () => curveExtrema(curve, ef.length),
+    value: curve.value, polynomial: curve.polynomial, extrema: at => curveExtrema(curve, ef.length, at),
   };
 }
 
@@ -148,7 +148,7 @@ export function criticalDiagramStations3D(ef: ElementForces3D): DiagramStation[]
   const curves = diagramKinds.map(kind => spatialCurve(ef, kind));
   if (curves.some(curve => curve.magnitudeBound)) throw unavailableDiagramExtrema();
   const cuts = joinedCutDistances(curves.map(curve => curve.cutDistances));
-  const extrema = curves.flatMap(curve => curve.extrema());
+  const extrema = curves.flatMap(curve => [...indexDiagramExtrema(curve.extrema()).values()]);
   if (extrema.some(peak => cuts.has(peak.t) || !peak.canTransfer(peak.t))) throw unavailableDiagramExtrema();
   return sortedStations([...cuts.keys(), ...extrema.map(peak => peak.t)]).flatMap(t => {
     const left = { t };
@@ -241,7 +241,9 @@ export function getDiagramLocalDirection(kind: Diagram3DKind): 'y' | 'z' {
  * Uses analytical equilibrium equations.
  */
 export function evaluateDiagramAt(ef: ElementForces3D, kind: Diagram3DKind, t: number, right = false): number {
-  return spatialCurve(ef, kind).value({ t, right });
+  const curve = spatialCurve(ef, kind);
+  const station = { t, right };
+  return curve.magnitudeBound ? curve.value(station) : checkedCurveValue(curve, station, indexDiagramExtrema(curve.extrema(t)));
 }
 
 /** Format a 3D diagram value for display.

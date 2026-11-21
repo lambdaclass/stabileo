@@ -2,7 +2,7 @@
 // Given end forces and distributed load, compute intermediate values
 
 import { computeDeformedShape as wasmComputeDeformedShape } from './wasm-solver';
-import { curveExtrema, diagramCurvePoints, distributedActionTerms, fullSpanFallback, memberDiagram, type DiagramStation } from './member-diagram';
+import { checkedCurveValue, curveExtrema, diagramCurvePoints, diagramLineValue, distributedActionTerms, fullSpanFallback, indexDiagramExtrema, memberDiagram, unavailableDiagramExtrema, type DiagramStation } from './member-diagram';
 
 export interface DiagramPoint extends DiagramStation {
   /** World coordinates */
@@ -134,7 +134,29 @@ export function computeAxialDiagram(
  * Compute the value of a diagram (M, V, or N) at a given normalized position t ∈ [0,1]
  */
 export function computeDiagramValueAt(kind: PlanarKind, t: number, ef: PlanarForces): number {
-  return planarCurve(kind, ef).value({ t });
+  const { length } = ef;
+  if (!(length > 0 && Number.isFinite(length))) throw unavailableDiagramExtrema();
+  if (kind === 'axial') {
+    if (!ef.distributedLoadsX?.length && !ef.pointLoads?.some(p => p.px)) {
+      return diagramLineValue(ef.nStart, ef.nEnd - ef.nStart, 0, t * length, t);
+    }
+  } else if (!ef.distributedLoads?.length && !ef.pointLoads?.length && !ef.qI && !ef.qJ) {
+    const moment = kind === 'moment';
+    return diagramLineValue(moment ? ef.mStart : ef.vStart, 0, moment ? -ef.vStart : 0, t * length, t);
+  }
+  const curve = planarCurve(kind, ef);
+  if (!curve.hasDistributedActions) return curve.value({ t });
+  return checkedCurveValue(curve, { t }, indexDiagramExtrema(curveExtrema(curve, length, t)));
+}
+
+export function prepareDiagramValueAt(kind: PlanarKind, ef: PlanarForces): (t: number) => number {
+  const curve = planarCurve(kind, ef);
+  if (!curve.hasDistributedActions) return t => curve.value({ t });
+  let extrema: ReturnType<typeof indexDiagramExtrema> | undefined;
+  return t => {
+    extrema ??= indexDiagramExtrema(curveExtrema(curve, ef.length));
+    return checkedCurveValue(curve, { t }, extrema);
+  };
 }
 
 type PlanarRecoveryRequest = {
