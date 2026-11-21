@@ -3466,6 +3466,7 @@ const id: Translations = {
   'design.error.solveFirst': 'Hitung model terlebih dahulu untuk memperoleh gaya desain.',
   'design.error.noCombinations': 'Definisikan setidaknya satu kombinasi beban sebelum mendesain.',
   'design.error.noDemands': 'Tidak ada gaya desain yang dapat diekstrak dari hasil saat ini.',
+  'design.error.incompleteSpanStations': 'Perancangan memerlukan gaya dalam di setiap stasiun pada tiap bentang balok untuk semua kombinasi beban aktif.',
   'design.error.noLinearCombination': 'Tidak ada kombinasi linear yang aktif: kombinasi SRSS dan ABS adalah besaran tanpa tanda dan tidak dipakai untuk desain. Aktifkan kombinasi linear.',
   'design.error.combinationsUnsolved': 'Kombinasi sudah didefinisikan dan tidak satu pun punya hasil, jadi hanya ada beban tanpa faktor, dan tidak ada yang didesain dengannya. Perhitungan penuh dengan kombinasi memberikan hasilnya, atau menjelaskan mengapa kombinasi itu ditinggalkan.',
   'design.error.noAdapter': 'Tidak ada adaptor kode desain yang terdaftar untuk kode yang dipilih.',

@@ -1,8 +1,7 @@
 import type { AnalysisResults, ElementForces } from './types';
 import type { AnalysisResults3D, ElementForces3D } from './types-3d';
 import { computeDiagram3D } from './diagrams-3d';
-import { computeDiagramValueAt } from './diagrams';
-import { cubicStationaryPoints } from './cubic-stationary';
+import { computeElementDiagram } from './diagrams';
 
 export interface GoverningComboRef {
   comboId: number;
@@ -43,51 +42,20 @@ const ENDS_2D = {
 export type Component3D = keyof typeof ENDS_3D;
 export type Component2D = keyof typeof ENDS_2D;
 
+type Magnitude = { value: number; bounded?: true };
+
 const peak = (...values: number[]): number => Math.max(...values.map(Math.abs));
 
 /** The largest magnitude of the component anywhere along the member, its interior included. */
-export function governingMagnitude3D(ef: ElementForces3D, component: Component3D): number {
+export function governingMagnitude3D(ef: ElementForces3D, component: Component3D): Magnitude {
   const [s, e] = ENDS_3D[component];
   const d = computeDiagram3D(ef, component);
-  return peak(ef[s] as number, ef[e] as number, d.maxValue, d.minValue);
+  const value = peak(ef[s] as number, ef[e] as number, d.maxValue, d.minValue);
+  return d.extrema === 'bounded' ? { value, bounded: true } : { value };
 }
 
-/**
- * The largest magnitude of the diagram along the member: its stations, both sides of each point load, and the
- * stationary points of the cubic it follows between load discontinuities, so a peak between stations is not read low.
- */
-export function peakAlong(kind: 'moment' | 'shear' | 'axial', ef: ElementForces): number {
-  const f = (t: number) => Math.abs(computeDiagramValueAt(kind, Math.min(1, Math.max(0, t)), ef));
-  const ts = Array.from({ length: 41 }, (_, k) => k / 40);
-  for (const p of ef.pointLoads ?? []) {
-    const t = p.a / Math.max(ef.length, 1e-12);
-    ts.push(Math.max(0, t - 1e-9), Math.min(1, t + 1e-9));
-  }
-  for (const d of [...(ef.distributedLoads ?? []), ...(ef.distributedLoadsX ?? [])]) {
-    const a = d.a / Math.max(ef.length, 1e-12), b = d.b / Math.max(ef.length, 1e-12);
-    for (let k = 0; k <= 8; k++) ts.push(Math.min(1, Math.max(0, a + ((b - a) * k) / 8)));
-  }
-  ts.sort((a, b) => a - b);
-  const v = ts.map(f);
-  let best = Math.max(...v);
-  const g = (t: number) => computeDiagramValueAt(kind, t, ef);
-  const cuts = [0, 1];
-  for (const p of ef.pointLoads ?? []) cuts.push(p.a / Math.max(ef.length, 1e-12));
-  for (const d of [...(ef.distributedLoads ?? []), ...(ef.distributedLoadsX ?? [])]) cuts.push(d.a / Math.max(ef.length, 1e-12), d.b / Math.max(ef.length, 1e-12));
-  const edges = [...new Set(cuts.map((t) => Math.min(1, Math.max(0, t))))].sort((a, b) => a - b);
-  for (let k = 0; k + 1 < edges.length; k++) {
-    for (const t of cubicStationaryPoints(g, edges[k], edges[k + 1])) best = Math.max(best, Math.abs(g(t)));
-  }
-  for (let k = 1; k < ts.length - 1; k++) {
-    if (!(v[k] >= v[k - 1] && v[k] >= v[k + 1])) continue;
-    let lo = ts[k - 1], hi = ts[k + 1];
-    for (let i = 0; i < 60 && hi - lo > 1e-12; i++) {
-      const a = lo + (hi - lo) * 0.381966, b = lo + (hi - lo) * 0.618034;
-      if (f(a) >= f(b)) hi = b; else lo = a;
-    }
-    best = Math.max(best, f((lo + hi) / 2));
-  }
-  return best;
+export function peakAlong(kind: Component2D, ef: ElementForces): number {
+  return Math.abs(computeElementDiagram(kind, ef, 0, 0, ef.length, 0).maxAbsValue);
 }
 
 /** The largest magnitude of the component anywhere along the member, its interior included. */
@@ -100,17 +68,19 @@ function governing<E extends { elementId: number }, C extends string>(
   perCombo: Map<number, { elementForces: E[] }>,
   comboNames: Map<number, string>,
   components: readonly C[],
-  magnitude: (ef: E, component: C) => number,
+  magnitude: (ef: E, component: C) => Magnitude,
 ): Map<number, Partial<Record<C, GoverningComboRef>>> {
-  const best = new Map<number, Map<C, { value: number; comboId: number }>>();
+  const best = new Map<number, Map<C, Magnitude & { comboId: number }>>();
   for (const [comboId, results] of perCombo) {
     for (const ef of results.elementForces) {
-      const cur = best.get(ef.elementId) ?? new Map<C, { value: number; comboId: number }>();
+      const cur = best.get(ef.elementId) ?? new Map<C, Magnitude & { comboId: number }>();
       best.set(ef.elementId, cur);
       for (const c of components) {
-        const value = magnitude(ef, c);
+        const next = magnitude(ef, c);
         const held = cur.get(c);
-        if (!held || value > held.value) cur.set(c, { value, comboId });
+        if (!held || next.value > held.value || (next.value === held.value && held.bounded && !next.bounded)) {
+          cur.set(c, { ...next, comboId });
+        }
       }
     }
   }
@@ -119,7 +89,7 @@ function governing<E extends { elementId: number }, C extends string>(
     const out: Partial<Record<C, GoverningComboRef>> = {};
     for (const c of components) {
       const b = cur.get(c);
-      out[c] = b && b.value > 0
+      out[c] = b && !b.bounded && b.value > 0
         ? { comboId: b.comboId, comboName: comboNames.get(b.comboId) ?? `Combo ${b.comboId}`, value: b.value }
         : undefined;
     }
@@ -139,5 +109,5 @@ export function computeGoverning2D(
   perCombo: Map<number, AnalysisResults>,
   comboNames: Map<number, string>,
 ): Map<number, GoverningPerElement> {
-  return governing(perCombo, comboNames, Object.keys(ENDS_2D) as Component2D[], governingMagnitude2D);
+  return governing(perCombo, comboNames, Object.keys(ENDS_2D) as Component2D[], (ef, component) => ({ value: governingMagnitude2D(ef, component) }));
 }

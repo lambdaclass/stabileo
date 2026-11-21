@@ -1,3 +1,4 @@
+import type { ElementForces3D } from './types-3d';
 import { CompleteDemandSet, requireDemandInventories, demandCoverage, memberDemandScope, type DemandInventory } from './complete-demand-set';
 import { hasSecondaryShearDemand, ConcurrentDemand } from './concurrent-demand';
 import { getColumnCapacityKernel, columnCapacityKernelRegistered } from './column-capacity-kernel';
@@ -78,6 +79,7 @@ export interface ComboStationResult {
   comboId: number;
   comboName: string;
   stations: StationForces[];
+  diagramForces?: ElementForces3D;
   transverseLoading?: Readonly<{ My?: boolean; Mz?: boolean }>;
 }
 

@@ -529,3 +529,24 @@ it('#2292 case-factor resolution preserves exact signed residuals and rounds onc
       .toStrictEqual([{ caseId: 2, factor: 1 }, { caseId: 1, factor: 0 }]);
   }
 });
+
+it.each([
+  ['planar linear', 'ex-portal-frame-input.json', compute_envelope_2d, solve_2d, 'vStart', 'moment', 1],
+  ['planar P-Delta', 'ex-portal-frame-input.json', compute_envelope_2d,
+    (model: object) => JSON.parse(solve_pdelta_2d(JSON.stringify(model), 20, 1e-9)).results, 'vStart', 'moment', 1],
+  ['spatial linear', 'ex-3d-portal-frame-input.json', compute_envelope_3d, solve_3d, 'vzStart', 'momentY', -1],
+  ['spatial P-Delta', 'ex-3d-portal-frame-input.json', compute_envelope_3d,
+    (model: object) => JSON.parse(solve_pdelta_3d(JSON.stringify(model), 20, 1e-9)).results, 'vzStart', 'momentY', -1],
+] as const)('known wrong result: #1350 — %s WASM envelope locates overflow in a later case', (_name, fixture, envelope, solve, component, kind, sign) => {
+  const model = JSON.parse(readFileSync(new URL(`../../../../../engine/tests/fixtures/${fixture}`, import.meta.url), 'utf8'));
+  const result = solve(model);
+  const force = result.elementForces[0];
+  const changed = (slope: number) => ({
+    ...result,
+    elementForces: [{ ...force, [component]: slope }, ...result.elementForces.slice(1)],
+  });
+  const finite = changed(sign * (Number.MAX_VALUE / force.length / 2));
+  expect(envelope([result, finite])).toBeTruthy();
+  expect(() => envelope([result, changed(sign * Number.MAX_VALUE)]))
+    .toThrow(new RegExp(`${kind} of element ${force.elementId}.*result 1`));
+});

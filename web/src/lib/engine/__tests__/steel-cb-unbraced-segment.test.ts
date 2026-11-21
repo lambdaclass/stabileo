@@ -21,7 +21,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { runSteelVerification, steelSegmentDiagram } from '../verification-service';
+import { computeStationDemands, runSteelVerification, steelSegmentDiagram } from '../verification-service';
 import { memberLengths } from '../steel/unbraced-length';
 import { momentGradient } from '../steel/moment-gradient';
 import type { AnalysisResults3D } from '../types-3d';
@@ -214,3 +214,42 @@ describe('steelSegmentDiagram — the stitched segment diagram', () => {
     expect(steelSegmentDiagram(1, undefined, stationDiagrams(), model)).toBeUndefined();
   });
 });
+
+for (const [el2Reversed, mixed] of [[false, false], [true, false], [false, true]] as const) {
+  it(`known wrong result: #2403 uses only supported Cb on an unequal chain reversed=${el2Reversed} mixed=${mixed}`, () => {
+    const model = chainModel({ el2Reversed });
+    if (mixed) {
+      model.materials.set(2, { id: 2, name: 'H30', fc: 30, fy: 30, e: 25000 });
+      model.elements.get(2)!.materialId = 2;
+    }
+    model.nodes.get(2)!.x = 2;
+    const moment = (x: number) => 5 + x * (4 - x);
+    const raw = resultsFor(el2Reversed);
+    for (const ef of raw.elementForces) {
+      const reverse = ef.elementId === 2 && el2Reversed;
+      const start = ef.elementId === 1 ? 0 : reverse ? 6 : 2;
+      const end = ef.elementId === 1 ? 2 : reverse ? 2 : 6;
+      const sign = reverse ? -1 : 1;
+      Object.assign(ef, { length: Math.abs(end - start), myStart: sign * moment(start), myEnd: sign * moment(end),
+        vzStart: 4 - 2 * start, vzEnd: 4 - 2 * end, qYI: 0, qYJ: 0, qZI: -2 * sign, qZJ: -2 * sign,
+        distributedLoadsY: [], distributedLoadsZ: [], pointLoadsY: [], pointLoadsZ: [],
+        releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false,
+        releaseTStart: false, releaseTEnd: false });
+    }
+    const lengths = memberLengths(model);
+    expect(lengths.get(2)?.chain).toEqual([1, 2]);
+    const { demands, stations } = computeStationDemands(new Map([[1, raw]]), [{ id: 1, name: 'C1', factors: [] }], model);
+    const checks = runSteelVerification(raw, model, demands, stations, lengths);
+    const max = moment(2);
+    const cb = 12.5 * max / (2.5 * max + 3 * moment(1.5) + 4 * moment(3) + 3 * Math.abs(moment(4.5)));
+    expect(checks).toHaveLength(mixed ? 1 : 2);
+    for (const check of checks) {
+      expect(check.inputs!.length).toBeGreaterThan(0);
+      if (mixed) expect(cbOf(check)).toBe(1);
+      for (const input of check.inputs!) {
+        if (mixed) expect(input.Cb).toBeUndefined();
+        else expect(input.Cb).toBeCloseTo(cb, 12);
+      }
+    }
+  });
+}

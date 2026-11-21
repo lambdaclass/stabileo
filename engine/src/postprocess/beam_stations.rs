@@ -2,8 +2,9 @@ use crate::types::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use super::diagrams::{compute_diagram_value_at_sorted, sorted_point_loads};
-use super::diagrams_3d::evaluate_diagram_3d_at;
+use super::diagram_extrema::{sort_cuts, uniform_cuts};
+use super::diagrams::{diagram_critical_cuts_2d, try_evaluate_diagram_cut_2d, sorted_point_loads, DIAGRAM_KINDS_2D};
+use super::diagrams_3d::{diagram_critical_cuts_3d, try_evaluate_diagram_cut_3d, DIAGRAM_KINDS_3D};
 
 fn default_schema_version() -> u32 { 1 }
 
@@ -311,6 +312,10 @@ const DEFAULT_NUM_STATIONS: usize = 11;
 pub const MAX_NUM_STATIONS: usize = 1_001;
 
 pub fn extract_beam_stations(input: &BeamStationInput) -> BeamStationResult {
+    try_extract_beam_stations(input).unwrap_or_else(|error| panic!("{error}"))
+}
+
+pub(crate) fn try_extract_beam_stations(input: &BeamStationInput) -> Result<BeamStationResult, String> {
     let n_stations = input.num_stations.unwrap_or(DEFAULT_NUM_STATIONS).clamp(2, MAX_NUM_STATIONS);
 
     // Build element_id → index maps per combination (once)
@@ -346,9 +351,21 @@ pub fn extract_beam_stations(input: &BeamStationInput) -> BeamStationResult {
     let mut stations = Vec::with_capacity(input.members.len() * n_stations);
 
     for member in &input.members {
-        for s_idx in 0..n_stations {
-            let t = s_idx as f64 / (n_stations - 1) as f64;
-            let station_x = t * member.length;
+        let mut cuts: Vec<_> = uniform_cuts(n_stations).collect();
+        if input.num_stations.is_none() {
+            for (c_idx, combination) in input.combinations.iter().enumerate() {
+                if let Some(&index) = ef_indices[c_idx].get(&member.element_id) {
+                    let ef = &combination.results.element_forces[index];
+                    for kind in DIAGRAM_KINDS_2D {
+                        cuts.extend(diagram_critical_cuts_2d(ef, kind, &sorted_pls[c_idx][&member.element_id])?);
+                    }
+                }
+            }
+            sort_cuts(&mut cuts).map_err(|e| format!("Element {}: {e}", member.element_id))?;
+        }
+        for (s_idx, cut) in cuts.into_iter().enumerate() {
+            let t = cut.t;
+            let station_x = cut.station_x(member.length);
 
             let mut gov_moment = GoverningBuilder::new();
             let mut gov_shear = GoverningBuilder::new();
@@ -363,9 +380,9 @@ pub fn extract_beam_stations(input: &BeamStationInput) -> BeamStationResult {
                 let ef = &combo.results.element_forces[ef_idx];
                 let spl = &sorted_pls[c_idx][&member.element_id];
 
-                let m = compute_diagram_value_at_sorted("moment", t, ef, spl);
-                let v = compute_diagram_value_at_sorted("shear", t, ef, spl);
-                let n = compute_diagram_value_at_sorted("axial", t, ef, spl);
+                let m = try_evaluate_diagram_cut_2d("moment", cut, ef, spl)?;
+                let v = try_evaluate_diagram_cut_2d("shear", cut, ef, spl)?;
+                let n = try_evaluate_diagram_cut_2d("axial", cut, ef, spl)?;
 
                 gov_moment.update(combo.combo_id, m, combo.combo_name.as_deref());
                 gov_shear.update(combo.combo_id, v, combo.combo_name.as_deref());
@@ -398,19 +415,23 @@ pub fn extract_beam_stations(input: &BeamStationInput) -> BeamStationResult {
         }
     }
 
-    BeamStationResult {
+    Ok(BeamStationResult {
         schema_version: 1,
         stations,
         num_members: input.members.len(),
         num_combinations: input.combinations.len(),
         num_stations_per_member: n_stations,
         sign_convention: sign_convention_2d(),
-    }
+    })
 }
 
 // ==================== 3D Extraction ====================
 
 pub fn extract_beam_stations_3d(input: &BeamStationInput3D) -> BeamStationResult3D {
+    try_extract_beam_stations_3d(input).unwrap_or_else(|error| panic!("{error}"))
+}
+
+pub(crate) fn try_extract_beam_stations_3d(input: &BeamStationInput3D) -> Result<BeamStationResult3D, String> {
     let n_stations = input.num_stations.unwrap_or(DEFAULT_NUM_STATIONS).clamp(2, MAX_NUM_STATIONS);
 
     let ef_indices: Vec<HashMap<usize, usize>> = input
@@ -430,9 +451,21 @@ pub fn extract_beam_stations_3d(input: &BeamStationInput3D) -> BeamStationResult
     let mut stations = Vec::with_capacity(input.members.len() * n_stations);
 
     for member in &input.members {
-        for s_idx in 0..n_stations {
-            let t = s_idx as f64 / (n_stations - 1) as f64;
-            let station_x = t * member.length;
+        let mut cuts: Vec<_> = uniform_cuts(n_stations).collect();
+        if input.num_stations.is_none() {
+            for (c_idx, combination) in input.combinations.iter().enumerate() {
+                if let Some(&index) = ef_indices[c_idx].get(&member.element_id) {
+                    let ef = &combination.results.element_forces[index];
+                    for kind in DIAGRAM_KINDS_3D {
+                        cuts.extend(diagram_critical_cuts_3d(ef, kind)?);
+                    }
+                }
+            }
+            sort_cuts(&mut cuts).map_err(|e| format!("Element {}: {e}", member.element_id))?;
+        }
+        for (s_idx, cut) in cuts.into_iter().enumerate() {
+            let t = cut.t;
+            let station_x = cut.station_x(member.length);
 
             let mut gov_axial = GoverningBuilder::new();
             let mut gov_shear_y = GoverningBuilder::new();
@@ -449,12 +482,12 @@ pub fn extract_beam_stations_3d(input: &BeamStationInput3D) -> BeamStationResult
                 };
                 let ef = &combo.results.element_forces[ef_idx];
 
-                let n = evaluate_diagram_3d_at(ef, "axial", t);
-                let vy = evaluate_diagram_3d_at(ef, "shearY", t);
-                let vz = evaluate_diagram_3d_at(ef, "shearZ", t);
-                let my = evaluate_diagram_3d_at(ef, "momentY", t);
-                let mz = evaluate_diagram_3d_at(ef, "momentZ", t);
-                let torsion = evaluate_diagram_3d_at(ef, "torsion", t);
+                let n = try_evaluate_diagram_cut_3d(ef, "axial", cut)?;
+                let vy = try_evaluate_diagram_cut_3d(ef, "shearY", cut)?;
+                let vz = try_evaluate_diagram_cut_3d(ef, "shearZ", cut)?;
+                let my = try_evaluate_diagram_cut_3d(ef, "momentY", cut)?;
+                let mz = try_evaluate_diagram_cut_3d(ef, "momentZ", cut)?;
+                let torsion = try_evaluate_diagram_cut_3d(ef, "torsion", cut)?;
 
                 gov_axial.update(combo.combo_id, n, combo.combo_name.as_deref());
                 gov_shear_y.update(combo.combo_id, vy, combo.combo_name.as_deref());
@@ -496,14 +529,14 @@ pub fn extract_beam_stations_3d(input: &BeamStationInput3D) -> BeamStationResult
         }
     }
 
-    BeamStationResult3D {
+    Ok(BeamStationResult3D {
         schema_version: 1,
         stations,
         num_members: input.members.len(),
         num_combinations: input.combinations.len(),
         num_stations_per_member: n_stations,
         sign_convention: sign_convention_3d(),
-    }
+    })
 }
 
 // ==================== Grouped-by-Member Convenience Layer ====================
@@ -755,14 +788,22 @@ pub fn group_by_member_3d(flat: &BeamStationResult3D, members: &[BeamMemberInfo]
 
 /// One-shot: extract + group in a single call.
 pub fn extract_beam_stations_grouped(input: &BeamStationInput) -> GroupedBeamStationResult {
-    let flat = extract_beam_stations(input);
-    group_by_member(&flat, &input.members)
+    try_extract_beam_stations_grouped(input).unwrap_or_else(|error| panic!("{error}"))
+}
+
+pub(crate) fn try_extract_beam_stations_grouped(input: &BeamStationInput) -> Result<GroupedBeamStationResult, String> {
+    let flat = try_extract_beam_stations(input)?;
+    Ok(group_by_member(&flat, &input.members))
 }
 
 /// One-shot 3D: extract + group in a single call.
 pub fn extract_beam_stations_grouped_3d(input: &BeamStationInput3D) -> GroupedBeamStationResult3D {
-    let flat = extract_beam_stations_3d(input);
-    group_by_member_3d(&flat, &input.members)
+    try_extract_beam_stations_grouped_3d(input).unwrap_or_else(|error| panic!("{error}"))
+}
+
+pub(crate) fn try_extract_beam_stations_grouped_3d(input: &BeamStationInput3D) -> Result<GroupedBeamStationResult3D, String> {
+    let flat = try_extract_beam_stations_3d(input)?;
+    Ok(group_by_member_3d(&flat, &input.members))
 }
 
 // ==================== Tests ====================
@@ -1428,6 +1469,64 @@ mod tests {
             let e = &mg[*key];
             for ekey in &["posCombo", "posValue", "posStationIndex", "negCombo", "negValue", "negStationIndex"] {
                 assert!(e.get(*ekey).is_some(), "Missing {}.{}", key, ekey);
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod round3_tests {
+    use super::*;
+
+    #[test]
+    fn round3_concurrent_stations_validate_cuts_across_components() {
+        let a = 1.75_f64;
+        let adjacent = f64::from_bits(a.to_bits() + 1);
+        let separated = f64::from_bits(a.to_bits() + 2);
+        assert_eq!(a / 3.0, adjacent / 3.0);
+        assert_ne!(a / 3.0, separated / 3.0);
+        for b in [a, separated, adjacent] {
+            let member = BeamMemberInfo { element_id: 1, section_id: 1, material_id: 1, length: 3.0, label: None };
+            let planar = BeamStationInput {
+                members: vec![member.clone()], num_stations: None,
+                combinations: vec![LabeledResults {
+                    combo_id: 1, combo_name: None,
+                    results: serde_json::from_value(serde_json::json!({
+                        "displacements": [], "reactions": [], "elementForces": [{
+                            "elementId": 1, "length": 3.0, "nStart": 0.0, "nEnd": -40.0,
+                            "vStart": 40.0, "vEnd": 0.0, "mStart": 0.0, "mEnd": 0.0,
+                            "qI": 0.0, "qJ": 0.0, "distributedLoads": [],
+                            "pointLoads": [{"a": a, "p": 0.0, "px": 40.0}, {"a": b, "p": -40.0}]
+                        }]
+                    })).unwrap(),
+                }],
+            };
+            let spatial = BeamStationInput3D {
+                members: vec![member], num_stations: None,
+                combinations: vec![LabeledResults3D {
+                    combo_id: 1, combo_name: None,
+                    results: serde_json::from_value(serde_json::json!({
+                        "displacements": [], "reactions": [], "elementForces": [{
+                            "elementId": 1, "length": 3.0, "nStart": 0.0, "nEnd": -40.0,
+                            "vyStart": 0.0, "vyEnd": 0.0, "vzStart": 40.0, "vzEnd": 0.0,
+                            "mxStart": 0.0, "mxEnd": 0.0, "myStart": 0.0, "myEnd": 0.0,
+                            "mzStart": 0.0, "mzEnd": 0.0, "qYI": 0.0, "qYJ": 0.0, "qZI": 0.0, "qZJ": 0.0,
+                            "distributedLoadsY": [], "distributedLoadsZ": [], "pointLoadsY": [],
+                            "pointLoadsX": [{"a": a, "p": 40.0}], "pointLoadsZ": [{"a": b, "p": -40.0}]
+                        }]
+                    })).unwrap(),
+                }],
+            };
+            let planar = try_extract_beam_stations(&planar);
+            let spatial = try_extract_beam_stations_3d(&spatial);
+            if b == adjacent {
+                assert!(planar.unwrap_err().contains("distinct member diagram cuts"));
+                assert!(spatial.unwrap_err().contains("distinct member diagram cuts"));
+            } else {
+                let planar = planar.unwrap();
+                let spatial = spatial.unwrap();
+                assert_eq!(planar.stations.iter().any(|s| s.combo_forces.iter().any(|f| f.n == -40.0 && f.v == 40.0)), b == separated);
+                assert_eq!(spatial.stations.iter().any(|s| s.combo_forces.iter().any(|f| f.n == -40.0 && f.vz == 40.0)), b == separated);
             }
         }
     }
