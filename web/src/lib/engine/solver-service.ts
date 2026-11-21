@@ -49,7 +49,8 @@ import { enrichComboShellStresses, envelopeShellStresses } from './shell-combos'
 import { axialShares, combineShares, giveBackAxialShares } from './axial-shares';
 import { addSettlementCase, addSettlementCase2D, hasSettlement, withoutSettlement, SETTLEMENT_CASE_ID } from './settlement-case';
 import { memberAlphaOf, thermalAlphaOf, ENGINE_ALPHA } from './thermal-alpha';
-import { pointToSolver, pointToEnds, PointLoadNeedsCut, planePointLoad3D, pointWithCoupleToEnds } from './member-point-loads';
+import { pointToSolver, pointToEnds, PointLoadNeedsCut, planePointLoad3D, pointWithCoupleToEnds, planarMoment3D, planarPointOrigin, requirePlanarPointMoment, PlanarPointMomentError, type PlanePointLoadLike } from './member-point-loads';
+import { planarPointMomentWithoutProjection, planarPointProjectionTooShort } from './planar-point-load';
 import { prestressToSolver } from './prestress';
 import { hasCaseDisplacements, imposedOf, imposedUnsupported, supportsWithImposed, casesWithDisplacements } from './case-displacements';
 import { constraintsTo2D } from './constraint-2d-remap';
@@ -311,11 +312,12 @@ function buildSolverLoads2D(model: ModelData, loads: Load[], weights: readonly S
       });
     } else if (l.type === 'pointOnElement') {
       const d = l.data as PointLoadOnElement;
+      const pointMy = requirePlanarPointMoment(d);
       const angle = d.angle ?? 0;
       const isGlobal = d.isGlobal ?? false;
 
       if (angle === 0 && !isGlobal) {
-        solverLoads.push({ type: 'pointOnElement' as const, data: { elementId: d.elementId, a: d.a, p: sOf(d.elementId) * d.p, px: d.px, my: d.my ?? d.mz } });
+        solverLoads.push({ type: 'pointOnElement' as const, data: { elementId: d.elementId, a: d.a, p: sOf(d.elementId) * d.p, px: d.px, my: pointMy } });
       } else {
         const elem = model.elements.get(d.elementId);
         if (!elem) continue;
@@ -344,7 +346,6 @@ function buildSolverLoads2D(model: ModelData, loads: Load[], weights: readonly S
 
         // The axial force and the moment given alongside it are local and unaffected by the
         // angle; the load's own axial part joins that axial force, at the load's point.
-        const pointMy = d.my ?? d.mz;
         const px = (d.px ?? 0) + (Math.abs(pAxial) > 1e-10 ? pAxial : 0);
         const p = Math.abs(pPerp) > 1e-10 ? pPerp : 0;
         if (p !== 0 || px !== 0 || (pointMy !== undefined && pointMy !== 0)) {
@@ -1460,6 +1461,8 @@ export function memberRef3D(model: ModelData, elementId: number, project2DToXZ =
   return { elementId, nodeI: elem.nodeI, nodeJ: elem.nodeJ, axes: { ex: axes.ex, ey: axes.ey, ez: axes.ez, L: axes.L }, points: [[a.x, a.y, a.z], [b.x, b.y, b.z]] };
 }
 
+class PlanarPointLoadProjectionError extends Error {}
+
 /**
  * The engine's loads for `loads`, plus self-weight.
  *
@@ -1570,16 +1573,30 @@ export function buildSolverLoads3D(
     } else if (l.type === 'pointOnElement') {
       // A plane point load in the space axes (`planePointLoad3D`), then as a space one: its
       // couple, and its interior axial part, at the node the solve cut there.
-      const d = l.data as PointLoadOnElement;
+      const d: PlanePointLoadLike = l.data;
       const elem = model.elements.get(d.elementId);
       const ni = elem && model.nodes.get(elem.nodeI), nj = elem && model.nodes.get(elem.nodeJ);
       const m = refOf(d.elementId);
       if (!elem || !ni || !nj || !m) continue;
-      const niSolver = mapModelNodeToSolver3D(ni, project2DToXZ);
-      const njSolver = mapModelNodeToSolver3D(nj, project2DToXZ);
-      const dPlan = project2DToXZ ? (njSolver.z - niSolver.z) : (njSolver.y - niSolver.y);
-      if (Math.hypot(njSolver.x - niSolver.x, dPlan) < 1e-10) continue;
-      const p3 = planePointLoad3D(d, njSolver.x - niSolver.x, dPlan, project2DToXZ);
+      const dx = nj.x - ni.x, dPlan = nj.y - ni.y;
+      const origin = d[planarPointOrigin];
+      if (origin?.shortProjection || planarPointProjectionTooShort(dx, dPlan)) {
+        const moment = planarPointMomentWithoutProjection(d, origin?.a ?? d.a);
+        if (moment === null) {
+          requirePlanarPointMoment(d);
+          throw new PlanarPointLoadProjectionError(tp('svc.planarPointLoadNoProjection', {
+            load: origin?.loadId ?? l.data.id, n: origin?.elementId ?? d.elementId,
+          }));
+        }
+        if (moment !== 0) {
+          solverLoads.push({
+            type: 'nodal',
+            data: { nodeId: origin?.nodeI ?? m.nodeI, fx: 0, fy: 0, fz: 0, ...planarMoment3D(moment, project2DToXZ) },
+          });
+        }
+        continue;
+      }
+      const p3 = planePointLoad3D(d, dx, dPlan, project2DToXZ);
       solverLoads.push(...(axialMember(d.elementId) ? pointWithCoupleToEnds(m, p3, userLeftHand) : pointToSolver(m, p3, userLeftHand, opts.forcesOnly)));
     } else if (l.type === 'pointOnElement3d') {
       // Its force and moment, local or global; inside the span an axial part or a moment sits on
@@ -2014,7 +2031,7 @@ function buildSolveInput3D(...args: Parameters<typeof buildValidatedSolverInput3
 /** A load the solve cannot place, said by name: a moment on a member that takes no bending. */
 export function loadRefusal(err: unknown): string | null {
   if (err instanceof MemberLoadIntervalError) return err.message;
-  if (err instanceof PlaneSelfWeightError) return err.message;
+  if (err instanceof PlaneSelfWeightError || err instanceof PlanarPointLoadProjectionError || err instanceof PlanarPointMomentError) return err.message;
   return err instanceof PointLoadNeedsCut ? tp('svc.pointMomentOnTruss', { n: err.elementId }) : null;
 }
 
@@ -2512,6 +2529,18 @@ function combinationPreflight3D(model: ModelData, loadCases: readonly LoadCase[]
     ?? orphanLoadRefusal(model) ?? imposedRefusal(model);
 }
 
+function resolveCombinationModel3D(
+  model: ModelData, loadCases: LoadCase[], combinations: LoadCombination[],
+  includeSelfWeight: boolean, leftHand: boolean,
+) {
+  const resolved = resolveCombinationFactors(combinations);
+  if (typeof resolved === 'string') return resolved;
+  const solving = casesToSolve(loadCases, resolved);
+  const caseIds = new Set(solving.map(c => c.id));
+  model = withCaseEffects(model, loadCases, { includeSelfWeight, leftHand }, caseIds);
+  return magnitudeRefusal3D(model, resolved, loadCases) ?? { model, solving, resolved };
+}
+
 export function solveCombinations3D(
   model: ModelData,
   loadCases: LoadCase[],
@@ -2523,15 +2552,11 @@ export function solveCombinations3D(
 ): Bundle3D | string | null {
   const refused = combinationPreflight3D(model, loadCases, combinations);
   if (refused) return refused;
-  // Each case with its composition, notional loads and reduction written out (`case-effects.ts`);
-  // only the cases listed or taken by a combination solved (`combination-methods.ts`).
-  model = withCaseEffects(model, loadCases, { includeSelfWeight, leftHand });
-  const solving = casesToSolve(loadCases, combinations);
-  const magnitude = magnitudeRefusal3D(model, combinations, loadCases);
-  if (magnitude) return magnitude;
-  const resolved = resolveCombinationFactors(combinations);
-  if (typeof resolved === 'string') return resolved;
   try {
+    const prepared = resolveCombinationModel3D(model, loadCases, combinations, includeSelfWeight, leftHand);
+    if (typeof prepared === 'string') return prepared;
+    const { solving, resolved } = prepared;
+    model = prepared.model;
     const plan = combinationsPlan3D(solvableModel(model), solving, resolved, includeSelfWeight, leftHand);
     const solved = 'done' in plan ? plan.done : plan.finish(solveCombinations3DCore(plan.forces, solving, resolved, includeSelfWeight, leftHand));
     return finishBundle(withDeclaredInactiveBundle(solved, model), loadCases, resolved, magnitudeOptions(model), spectral);
@@ -3090,13 +3115,11 @@ export async function solveCombinations3DParallel(
   }
   const refused = combinationPreflight3D(model, loadCases, combinations);
   if (refused) return refused;
-  model = withCaseEffects(model, loadCases, { includeSelfWeight, leftHand });
-  const solving = casesToSolve(loadCases, combinations);
-  const magnitude = magnitudeRefusal3D(model, combinations, loadCases);
-  if (magnitude) return magnitude;
-  const resolved = resolveCombinationFactors(combinations);
-  if (typeof resolved === 'string') return resolved;
   try {
+    const prepared = resolveCombinationModel3D(model, loadCases, combinations, includeSelfWeight, leftHand);
+    if (typeof prepared === 'string') return prepared;
+    const { solving, resolved } = prepared;
+    model = prepared.model;
     const active = solvableModel(model);
     let solved;
     if (hasNonlinearBehaviour(active)) {

@@ -12175,6 +12175,8 @@ const fr: Translations = {
   'viewport3d.pointLoadOnMemberApplied': 'Charge ponctuelle appliquée sur la barre {id}',
   'edit.refused.prestress': '{n} nœuds ont été conservés : une barre y porte un câble de précontrainte, et les câbles de deux barres ne forment pas une seule parabole.',
   'svc.pointMomentOnTruss': 'La barre {n} ne reprend pas de flexion (barre de treillis ou unilatérale) et porte un moment concentré. Déplacez le moment sur un nœud ou changez le type de la barre.',
+  'svc.planarPointLoadNoProjection': 'La charge ponctuelle plane {load} ne peut pas être appliquée car la barre {n} ne possède pas de projection exploitable dans le plan de la charge. Remplacez-la par une charge ponctuelle 3D sur la barre.',
+  "svc.planarPointLoadMomentAliases": "La charge ponctuelle plane {load} sur la barre {n} comporte des champs de moment (my et mz) incompatibles ou invalides. Saisissez un seul moment fini.",
   'svc.loadOnMissingMember': 'La charge {load} est sur la barre {n}, que le modèle ne contient pas. Supprimez la charge ou placez-la sur une barre.',
   'svc.loadOnMissingNode': 'La charge {load} est sur le nœud {n}, que le modèle ne contient pas. Supprimez la charge ou placez-la sur un nœud.',
   'svc.imposedUnsupported': 'Un déplacement imposé exige un appui qui bloque cette direction en axes globaux. Nœuds sans appui : {list}.',

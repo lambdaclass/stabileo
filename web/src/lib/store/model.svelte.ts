@@ -70,6 +70,8 @@ import { type Element3DMetadata, type MemberOffset } from '../model/element-3d-m
 import type { ModelProvenance } from '../model/provenance';
 export type { MemberOffset, MemberOffsetVec } from '../model/element-3d-metadata';
 import { uiStore } from './ui.svelte';
+import { requirePlanarPointMoment } from '../engine/member-point-loads';
+import { planarPointMoment } from '../engine/planar-point-load';
 import { plainDeepCopy } from '../utils/plain-deep-copy';
 // Cycle-safe: switch-2d imports this module, but resetSwitchBackup is a
 // hoisted function declaration and is only ever CALLED at runtime (clear(),
@@ -1182,7 +1184,10 @@ function createModelStore() {
   const canonicalSupportDry = (support: Partial<Support>): number | undefined => support.dry ?? support.drz;
   const canonicalLoadFz = (load: Partial<NodalLoad>): number => load.fz ?? load.fy ?? 0;
   const canonicalLoadMy = (load: Partial<NodalLoad>): number => load.my ?? load.mz ?? 0;
-  const canonicalPointMoment = (load: Partial<PointLoadOnElement>): number | undefined => load.my ?? load.mz;
+  function copyPlanarPointLoad(data: Partial<PointLoadOnElement>) {
+    const moment = planarPointMoment(data);
+    return moment === null ? { ...data } : { ...data, my: moment };
+  }
 
   let detailing = $state.raw<DetailingStore | undefined>(emptyPublishedDetailing);
   let model = $state<StructureModel>({
@@ -2244,7 +2249,7 @@ function createModelStore() {
           }
           if (load.type === 'pointOnElement') {
             const data = load.data as PointLoadOnElement;
-            return { type: load.type, data: { ...data, my: canonicalPointMoment(data) } };
+            return { type: load.type, data: copyPlanarPointLoad(data) };
           }
           return load;
         }) as ModelSnapshot['loads'],
@@ -2455,7 +2460,7 @@ function createModelStore() {
         }
         if (l.type === 'pointOnElement') {
           const data = l.data as Partial<PointLoadOnElement>;
-          return { type: l.type, data: { ...data, my: canonicalPointMoment(data) } };
+          return { type: l.type, data: copyPlanarPointLoad(data) };
         }
         return { type: l.type, data: { ...l.data } };
       }) as unknown as Load[];
@@ -2998,11 +3003,11 @@ function createModelStore() {
     },
 
     addPointLoadOnElement(elementId: number, a: number, p: number, opts?: { px?: number; my?: number; mz?: number; angle?: number; isGlobal?: boolean; caseId?: number }): number {
+      const pointMy = requirePlanarPointMoment({ ...opts, elementId, id: nextId.load });
       if (!_undoBatching) _pushUndo?.();
       const id = nextId.load++;
       const data: PointLoadOnElement = { id, elementId, a, p };
       if (opts?.px !== undefined && opts.px !== 0) data.px = opts.px;
-      const pointMy = opts?.my ?? opts?.mz;
       if (pointMy !== undefined && pointMy !== 0) data.my = pointMy;
       if (opts?.angle !== undefined && opts.angle !== 0) data.angle = opts.angle;
       if (opts?.isGlobal) data.isGlobal = true;

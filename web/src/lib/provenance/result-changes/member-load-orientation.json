@@ -1,0 +1,36 @@
+{
+  "id": "member-load-orientation",
+  "date": "2026-11-21",
+  "prs": [],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "space3D",
+      "spatialDistributedLoadOrientation"
+    ]
+  },
+  "title": {
+    "en": "Distributed loads on reversed 3D members",
+    "es": "Cargas distribuidas en barras 3D invertidas",
+    "pt": "Cargas distribuídas em barras 3D invertidas",
+    "de": "Streckenlasten an umgekehrten räumlichen Stäben",
+    "fr": "Charges réparties sur les barres 3D inversées",
+    "hu": "Megfordított térbeli rudak megoszló terhei",
+    "tr": "Ters çevrilen 3B çubuklarda yayılı yükler",
+    "zh": "反向三维杆件的分布荷载"
+  },
+  "explanation": {
+    "en": "Reversing a member preserves the physical direction and profile of its distributed loads. Review the loads on previously reversed members before rerunning analysis.",
+    "es": "Al invertir una barra se conservan la dirección física y el perfil de sus cargas distribuidas. Revisá las cargas de las barras invertidas anteriormente antes de recalcular.",
+    "pt": "A inversão de uma barra preserva a direção física e o perfil de suas cargas distribuídas. Revise as cargas das barras invertidas anteriormente antes de recalcular.",
+    "de": "Das Umkehren eines Stabs erhält die physikalische Richtung und den Verlauf seiner Streckenlasten. Prüfen Sie die Lasten zuvor umgekehrter Stäbe vor der erneuten Berechnung.",
+    "fr": "L’inversion d’une barre conserve la direction physique et le profil de ses charges réparties. Vérifiez les charges sur les barres déjà inversées avant de relancer le calcul.",
+    "hu": "A rúd végpontjainak felcserélése megőrzi a megoszló terhek fizikai irányát és eloszlását. Újraszámítás előtt ellenőrizze a korábban megfordított rudak terheit.",
+    "tr": "Bir çubuğun ters çevrilmesi yayılı yüklerinin fiziksel yönünü ve dağılımını korur. Analizi yenilemeden önce daha önce ters çevrilmiş çubukların yüklerini inceleyin.",
+    "zh": "反向杆件时，其分布荷载的实际方向和分布保持不变。重新计算前，请检查曾反向的杆件荷载。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-member-load-orientation.md",
+    "heading": "Spatial member loads on reversal and planar projection"
+  }
+}

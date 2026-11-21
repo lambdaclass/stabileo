@@ -47,9 +47,13 @@ import { combineShellStresses, shellsById, uniqueShells, type PlateThickness } f
 
 export type MagnitudeMethod = 'srss' | 'abs';
 
+export function combinationCaseIds(combinations: ReadonlyArray<Pick<LoadCombination, 'factors'>>): Set<number> {
+  return new Set(combinations.flatMap(c => c.factors.filter(f => f.factor !== 0).map(f => f.caseId)));
+}
+
 /** The cases a solve needs: those to be listed, and any a combination takes. */
 export function casesToSolve<C extends Pick<LoadCase, 'id' | 'reference' | 'solve'>>(cases: readonly C[], combinations: ReadonlyArray<Pick<LoadCombination, 'factors'>>): C[] {
-  const used = new Set(combinations.flatMap((c) => c.factors.filter((f) => f.factor !== 0).map((f) => f.caseId)));
+  const used = combinationCaseIds(combinations);
   return cases.filter((c) => listed(c) || used.has(c.id));
 }
 

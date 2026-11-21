@@ -12351,6 +12351,8 @@ const pt: Translations = {
   'viewport3d.pointLoadOnMemberApplied': 'Carga pontual aplicada na barra {id}',
   'edit.refused.prestress': '{n} uniões foram mantidas: uma barra ali leva um cabo de protensão, e o cabo de duas barras não é uma só parábola.',
   'svc.pointMomentOnTruss': 'A barra {n} não resiste à flexão (é treliçada ou de um só sentido) e leva um momento concentrado. Passe o momento para um nó ou mude o tipo de barra.',
+  'svc.planarPointLoadNoProjection': 'A carga pontual plana {load} não pode ser aplicada porque a barra {n} não tem uma projeção utilizável no plano da carga. Substitua-a por uma carga pontual 3D na barra.',
+  "svc.planarPointLoadMomentAliases": "A carga pontual plana {load} na barra {n} tem campos de momento (my e mz) incompatíveis ou inválidos. Introduza um único momento finito.",
   'svc.loadOnMissingMember': 'A carga {load} está na barra {n}, que o modelo não tem. Apague a carga ou coloque-a numa barra.',
   'svc.loadOnMissingNode': 'A carga {load} está no nó {n}, que o modelo não tem. Apague a carga ou coloque-a num nó.',
   'svc.imposedUnsupported': 'Um deslocamento imposto precisa de um apoio que restrinja essa direção em eixos globais. Nós sem esse apoio: {list}.',

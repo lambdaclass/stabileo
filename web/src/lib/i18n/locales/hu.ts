@@ -11819,6 +11819,8 @@ const hu: Translations = {
   "viewport3d.pointLoadOnMemberApplied": "Koncentrált erő felvíve a(z) {id} rúdra",
   "edit.refused.prestress": "{n} csomópont megmaradt: az ottani rúd feszítőbetétet hordoz, és két rúd feszítőbetétei nem alkotnak egyetlen parabolát.",
   "svc.pointMomentOnTruss": "A(z) {n} rúd nem vesz fel hajlítást (rácsos vagy egyirányú rúd), mégis koncentrált nyomatékot hordoz. Helyezze át a nyomatékot egy csomópontra, vagy változtassa meg a rúd típusát.",
+  "svc.planarPointLoadNoProjection": "A(z) {load} síkbeli pontszerű teher nem alkalmazható, mert a(z) {n} rúdnak nincs használható vetülete a teher síkjában. Helyettesítse 3D pontszerű rúdteherrel.",
+  "svc.planarPointLoadMomentAliases": "A(z) {n} rúd {load} síkbeli pontszerű terhének nyomatékmezői (my és mz) ütköznek vagy érvénytelenek. Adjon meg egyetlen véges nyomatékot.",
   "svc.loadOnMissingMember": "A(z) {load} teher a(z) {n} rúdon van, amely nincs a modellben. Törölje a terhet, vagy vigye fel egy rúdra.",
   "svc.loadOnMissingNode": "A(z) {load} teher a(z) {n} csomóponton van, amely nincs a modellben. Törölje a terhet, vagy vigye fel egy csomópontra.",
   "svc.imposedUnsupported": "Az előírt elmozdulás olyan támaszt igényel, amely globális tengelyekben gátolja az adott irányt. Támasz nélküli csomópontok: {list}.",
