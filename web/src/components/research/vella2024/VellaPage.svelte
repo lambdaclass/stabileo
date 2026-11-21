@@ -12,7 +12,7 @@
   import { rs } from '../i18n';
   import { publicI18n } from '../../../lib/i18n/store.svelte';
   import { snapStrings } from './strings';
-  import { ALPHA_RANGE, ASYMMETRIC, RATE_RANGE, SEED_RANGE, asymmetry, decodeRun, displacementOf, logStep, logValue, parseFigure, restGeometry, sameSettings, snapFrame, type Settings, type SnapRun } from './protocol';
+  import { ALPHA_RANGE, ASYMMETRIC, RATE_RANGE, SEED_RANGE, asymmetry, decodeRun, displacementOf, logStep, logValue, parseFigure, restGeometry, sameSettings, snapFrame, thetaPeaks, type Settings, type SnapRun } from './protocol';
   import replay from '../../../../../research/mechanics/vella-2024/reference-results/replay.json';
   import study from '../../../../../research/mechanics/vella-2024/reference-results/study.json';
   import published from '../../../../../research/mechanics/vella-2024/reference-results/published.json';
@@ -51,12 +51,14 @@
   const displacement = $derived(showMode ? displacementOf(run.mode.x.map((x, i) => x + run.mode.dx[i]), run.mode.z.map((z, i) => z + run.mode.dz[i])) : displacementOf(frame.x, frame.z));
   const values = $derived(showMode ? run.mode.dz : asymmetry(frame.z));
   const range = $derived(showMode ? Math.max(...run.mode.dz.map(Math.abs)) : asymmetryRange);
-  const symmetric = $derived(run.outcome.amplification < ASYMMETRIC);
+  const snapped = $derived(run.outcome.snapped);
+  const symmetric = $derived(snapped && run.outcome.amplification! < ASYMMETRIC);
   const stale = $derived(!sameSettings(run.settings, settings));
   const atPaper = $derived(sameSettings(settings, PAPER));
 
   const d = study.dynamics;
-  const thetaSeries = $derived([{ name: s.thetaChart, color: 'var(--rs-plot-ours)', points: run.trace.t.map((t, i) => [t, Math.max(1e-7, Math.abs(run.trace.thetaMax[i]), Math.abs(run.trace.thetaMin[i]))] as [number, number]) }]);
+  const peaks = $derived(thetaPeaks(run.trace));
+  const thetaSeries = $derived([{ name: s.thetaChart, color: 'var(--rs-plot-ours)', points: peaks.points }]);
   const heightSeries = $derived([{ name: s.heightChart, color: 'var(--rs-plot-ours)', points: run.trace.t.map((t, i) => [t, run.trace.height[i]] as [number, number]) }]);
   const figure = parseFigure(figureCsv);
   const EXPERIMENT_FACTOR = study.units.rate_factor_experiments;
@@ -68,6 +70,8 @@
     { name: s.oursEnvelope, color: 'var(--rs-plot-variant)', dashed: true, points: d.seeded.map(p => [p.rate, p.envelope] as [number, number]) },
   ]);
   const D = study.diagram;
+  const referenceCritical = { muA: D.critical.muA, muStar: D.critical.muStar };
+  const liveModel = $derived(run.settings.alpha !== D.alpha || run.settings.n !== D.n);
   const diagramSeries = $derived([
     { name: s.shallowNatural, color: 'var(--rs-plot-ref)', dashed: true, points: D.shallow_natural as [number, number][] },
     { name: s.shallowInverted, color: 'var(--rs-plot-ref)', dashed: true, points: D.shallow_inverted as [number, number][] },
@@ -105,7 +109,7 @@
     playback.setCount(run.frames.length);
     playback.seek(0);
     if (!matchMedia('(prefers-reduced-motion: reduce)').matches) playback.play();
-    else playback.seek(snapFrame(run));
+    else playback.seek(snapFrame(run) ?? run.frames.length - 1);
   }
   function cancel() { worker?.terminate(); worker = null; busy = false; }
   function stop() { playback.interact(); cancel(); }
@@ -144,7 +148,7 @@
     if (source === 'live') { run = reference; source = 'replay'; settings = { ...PAPER }; }
     tab = 'snap';
     playback.setCount(run.frames.length);
-    playback.seek(step < 0 ? snapFrame(run) : step);
+    playback.seek(step < 0 ? (snapFrame(run) ?? 0) : step);
   }
   function setParams(params: Record<string, number | string | boolean>) {
     const next = { ...PAPER };
@@ -202,7 +206,7 @@
     <h2>{s.dynamicsHeading}</h2>
     <p>{fill(s.dynamicsResults, {
       rate: num(reference.settings.rate, { sig: 2 }), rateMS: `${num(reference.rateMS * 1000, { sig: 3 })} mm/s`,
-      before: num(reference.outcome.thetaBefore, { sig: 2 }), during: num(reference.outcome.thetaDuring, { sig: 2 }), amp: num(reference.outcome.amplification, { sig: 3 }),
+      before: num(reference.outcome.thetaBefore, { sig: 2 }), during: num(reference.outcome.thetaDuring!, { sig: 2 }), amp: num(reference.outcome.amplification!, { sig: 3 }),
       threshold: String(ASYMMETRIC), transitionEnvelope: num(d.transition_envelope, { sig: 2 }), muSnapFast: num(fast.mu_snap, { dp: 3 }),
     })}</p>
     <p><ExperimentLink step={-1}>{s.watchSnap}</ExperimentLink> · <ExperimentLink params={{ rate: 0.005 }}>{s.trySlow}</ExperimentLink> · <ExperimentLink params={{ rate: 0.3 }}>{s.tryFast}</ExperimentLink> · <ExperimentLink params={{ oneEnd: true }}>{s.tryOneEnd}</ExperimentLink></p>
@@ -227,7 +231,7 @@
   {#snippet app()}
     <div lang={publicI18n.locale} class="snap-app" bind:this={host} data-source={source} data-step={playback.shown} data-tab={tab}
       data-rate={run.settings.rate} data-alpha={run.settings.alpha} data-one-end={run.settings.oneEnd} data-amplification={run.outcome.amplification}
-      data-symmetric={symmetric} data-stale={stale} data-busy={busy}
+      data-snapped={snapped} data-symmetric={symmetric} data-stale={stale} data-busy={busy}
       onpointerdowncapture={() => playback.interact()} onkeydowncapture={() => playback.interact()} onwheelcapture={() => playback.interact()} role="group" aria-label={s.title}>
       <PaneTabs label={s.tabsLabel} tabs={[{ id: 'snap', label: s.tabs.snap }, { id: 'stability', label: s.tabs.stability }, { id: 'rates', label: s.tabs.rates }]}
         bind:active={() => tab, setTab} oninteract={() => playback.interact()} />
@@ -240,8 +244,9 @@
           view={[-0.05, narrow ? -0.55 : -0.32, 1.05, 0.14]} lineWidth={5} showMesh={false} oninteract={() => playback.interact()} />
         <p class="caption">{s.caption}{#if showMode}{' '}{s.modeCaption}{/if}</p>
         {#if tab === 'stability'}
-          <LineChart series={diagramSeries} xLabel={s.muAxis} yLabel={s.diagramAxis} height={220} marker={run.critical.muA} markerLabel={s.muAMark} nearest="xy" />
-          <LineChart series={spectrumSeries} xLabel={s.muAxis} yLabel={s.spectrumAxis} height={200} marker={run.critical.muStar} markerLabel={s.muStarMark} rules={[{ y: 0, text: '0' }]} nearest="xy" dataTable />
+          <LineChart series={diagramSeries} xLabel={s.muAxis} yLabel={s.diagramAxis} height={220} marker={referenceCritical.muA} markerLabel={s.muAMark} nearest="xy" />
+          <LineChart series={spectrumSeries} xLabel={s.muAxis} yLabel={s.spectrumAxis} height={200} marker={referenceCritical.muStar} markerLabel={s.muStarMark} rules={[{ y: 0, text: '0' }]} nearest="xy" dataTable />
+          <p class="caption" data-reference-curves>{fill(s.diagramReference, { alpha: degrees(D.alpha), n: String(D.n) })}{#if liveModel}{' '}{s.diagramLive}{/if}</p>
         {:else}
           <dl class="summary">
             <dt>{s.frame.time}</dt><dd>{num(frame.t, { dp: 2 })}</dd>
@@ -255,17 +260,22 @@
           </label>
           {#if tab === 'snap'}
             <LineChart series={thetaSeries} xLabel={s.timeAxis} yLabel={s.thetaAxis} height={200} log marker={frame.t} />
+            {#if peaks.zeros > 0}<p class="caption">{fill(s.thetaZero, { count: String(peaks.zeros) })}</p>{/if}
             <LineChart series={heightSeries} xLabel={s.timeAxis} yLabel={s.heightAxis} height={160} marker={frame.t} />
           {:else}
             <LineChart series={rateSeries} xLabel={s.rateAxis} yLabel={s.ratesAxis} height={240} log marker={run.settings.rate} rules={[{ y: ASYMMETRIC, text: `A = ${ASYMMETRIC}` }]} dataTable />
           {/if}
         {/if}
         <dl class="summary">
-          <dt>{s.summary.amplification}</dt><dd>{num(run.outcome.amplification, { sig: 3 })}</dd>
-          <dt>{s.summary.verdict}</dt><dd>{symmetric ? s.summary.symmetric : s.summary.asymmetric}</dd>
-          <dt>{s.summary.snapAt}</dt><dd>{fill('t = {t} T_osc, µ = {mu}', { t: num(run.outcome.tSnap, { dp: 2 }), mu: num(run.outcome.muSnap, { dp: 4 }) })}</dd>
+          {#if run.outcome.snapped}
+            <dt>{s.summary.amplification}</dt><dd>{num(run.outcome.amplification!, { sig: 3 })}</dd>
+            <dt>{s.summary.verdict}</dt><dd>{symmetric ? s.summary.symmetric : s.summary.asymmetric}</dd>
+            <dt>{s.summary.snapAt}</dt><dd>{fill('t = {t} T_osc, µ = {mu}', { t: num(run.outcome.tSnap!, { dp: 2 }), mu: num(run.outcome.muSnap!, { dp: 4 }) })}</dd>
+          {:else}
+            <dt>{s.summary.verdict}</dt><dd data-no-snap>{s.summary.noSnap}</dd>
+          {/if}
           <dt>{s.summary.before}</dt><dd>{num(run.outcome.thetaBefore, { sig: 3 })} rad</dd>
-          <dt>{s.summary.during}</dt><dd>{num(run.outcome.thetaDuring, { sig: 3 })} rad</dd>
+          {#if run.outcome.snapped}<dt>{s.summary.during}</dt><dd>{num(run.outcome.thetaDuring!, { sig: 3 })} rad</dd>{/if}
           <dt>{s.summary.critical}</dt><dd>{num(run.critical.muA, { dp: 4 })} · {num(run.critical.muStar, { dp: 4 })}</dd>
           <dt>{s.summary.physical}</dt><dd>{num(run.rateMS * 1000, { sig: 3 })} mm/s</dd>
         </dl>

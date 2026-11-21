@@ -15,15 +15,18 @@ export type Settings = {
 
 export type Frame = { t: number; mu: number; theta: number; height: number; x: number[]; z: number[] };
 
+/** Every jump-only value is a number when `snapped` and null otherwise. */
+export type Outcome = {
+  snapped: boolean; tSnap: number | null; muSnap: number | null; tEnd: number | null; thetaBefore: number; thetaDuring: number | null;
+  amplification: number | null; amplificationFromMuA: number | null; steps: number; newtonIterations: number; truncated: boolean;
+};
+
 export type SnapRun = {
   settings: Settings;
   critical: { muA: number; muStar: number; heightA: number; heightStar: number };
   frames: Frame[];
   trace: { t: number[]; mu: number[]; thetaMin: number[]; thetaMax: number[]; height: number[] };
-  outcome: {
-    snapped: boolean; tSnap: number; muSnap: number; tEnd: number; thetaBefore: number; thetaDuring: number;
-    amplification: number; amplificationFromMuA: number; steps: number; newtonIterations: number;
-  };
+  outcome: Outcome;
   mode: { x: number[]; z: number[]; dx: number[]; dz: number[] };
   rateMS: number;
 };
@@ -50,7 +53,9 @@ export function decodeRun(value: unknown): SnapRun {
   const k = t?.t?.length ?? 0;
   if (!k || !(['t', 'mu', 'thetaMin', 'thetaMax', 'height'] as const).every(key => numbers(t[key], k))) throw new Error('Invalid trace');
   const o = r.outcome;
-  if (!o || typeof o.snapped !== 'boolean' || ![o.thetaBefore, o.thetaDuring, o.amplification].every(finite)) throw new Error('Invalid outcome');
+  if (!o || typeof o.snapped !== 'boolean' || !finite(o.thetaBefore)) throw new Error('Invalid outcome');
+  const jump = [o.tSnap, o.muSnap, o.tEnd, o.thetaDuring, o.amplification, o.amplificationFromMuA];
+  if (o.snapped ? !jump.every(finite) : !jump.every(v => v === null)) throw new Error('Invalid outcome');
   const m = r.mode;
   if (!m || !(['x', 'z', 'dx', 'dz'] as const).every(key => numbers(m[key], nodes))) throw new Error('Invalid mode');
   const rateMS = (r as { rate_m_s?: number }).rate_m_s ?? r.rateMS;
@@ -89,8 +94,24 @@ export const logValue = (range: readonly [number, number], steps: number, step: 
   return Number(v.toFixed(digits));
 };
 
-/** Index of the frame shown at the snap: the first with the midpoint above the line of the clamps. */
-export const snapFrame = (run: SnapRun) => Math.max(0, run.frames.findIndex(f => f.height > 0));
+/** Index of the frame shown at the snap: the first with the midpoint above the line of the clamps; null without a snap. */
+export const snapFrame = (run: SnapRun): number | null => {
+  if (!run.outcome.snapped) return null;
+  const k = run.frames.findIndex(f => f.height > 0);
+  return k < 0 ? null : k;
+};
+
+/** The trace's largest |θ| per bin for a logarithmic axis: positive magnitudes as computed, and how many bins are exactly zero (not drawable). */
+export function thetaPeaks(trace: Pick<SnapRun['trace'], 't' | 'thetaMin' | 'thetaMax'>) {
+  const points: [number, number][] = [];
+  let zeros = 0;
+  trace.t.forEach((t, i) => {
+    const peak = Math.max(Math.abs(trace.thetaMax[i]), Math.abs(trace.thetaMin[i]));
+    if (peak > 0) points.push([t, peak]);
+    else zeros++;
+  });
+  return { points, zeros };
+}
 
 export function parseFigure(csv: string) {
   const rows = csv.trim().split('\n').slice(1).map(l => l.split(','));

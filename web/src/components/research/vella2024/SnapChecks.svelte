@@ -7,11 +7,12 @@
   let { s, rows = [], sensitivity = [] }: { s: Strings; rows?: Row[]; sensitivity?: Sensitivity[] } = $props();
 
   const show = (v: number) => (Math.abs(v) >= 1 ? num(v, { sig: 6 }) : num(v, { sig: 4 }));
-  const difference = (r: Row) => (r.observed < 1e-12 ? '0' : r.relative ? `${num(100 * r.observed, { sig: 2 })} %` : `${num(r.observed, { sig: 2 })} ${s.absolute}`);
+  const relative = (r: Row) => r.relative !== false;
+  const difference = (r: Row) => (r.observed < 1e-12 ? '0' : relative(r) ? `${num(100 * r.observed, { sig: 2 })} %` : `${num(r.observed, { sig: 2 })} ${s.absolute}`);
   const parameters = $derived([...new Set(sensitivity.map(x => x.parameter))]);
   const rates = $derived([...new Set(sensitivity.map(x => x.rate))]);
   const page = (source: string) => source.replace(/^arXiv:2312\.13908v2 /, '').replace(/, read off the figure.*$/, '');
-  const tolerance = (r: Row) => (r.relative === false ? `${num(r.tolerance, { sig: 2 })} ${s.absolute}` : `${num(100 * r.tolerance, { sig: 2 })} %`);
+  const tolerance = (r: Row) => (relative(r) ? `${num(100 * r.tolerance, { sig: 2 })} %` : `${num(r.tolerance, { sig: 2 })} ${s.absolute}`);
 </script>
 
 {#if rows.length}
