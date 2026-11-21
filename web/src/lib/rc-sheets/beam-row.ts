@@ -277,7 +277,7 @@ export function beamRow(d: BeamDemand, c: BeamContext, adopted: BeamAdopted | un
   const legs = Math.max(2, shear.stirrupLegs, limits.requiredLegs);
   const ph = hoopPerimeter(d, c, c.stirrupDia);
   const atS = tor.neglect ? 0 : tor.AtOverS;
-  const torsion25 = (Tu: number) => checkTorsion2025({ b: d.b, h: d.h, d: shear.d, dSecondary: d.b - c.cover - c.stirrupDia / 1000 - 0.008, cover: c.cover, stirrupDiaMm: c.stirrupDia, fc, fy, fyt: fy, demand: shearTorsion(0, Tu) });
+  const torsion25 = (Tu: number) => checkTorsion2025({ b: d.b, h: d.h, d: shear.d, cover: c.cover, stirrupDiaMm: c.stirrupDia, fc, fy, fyt: fy, demand: shearTorsion(0, Tu) });
   const t25 = torsion25(tuDesign);
   const alMin = tor.neglect ? 0 : t25.AlMin * 1e4;
   const transverseMin = torsion25(0).transverseRequired * 1e4;
