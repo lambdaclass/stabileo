@@ -28,8 +28,8 @@ pub(crate) trait IncrementalProblem {
     fn work(&self, step: &[f64]) -> f64;
     /// Not for a forced correction: what it owes is only applied by `advance`.
     fn set_state(&mut self, state: &[f64]);
-    /// The current state converged: it is the one to return to.
-    fn commit(&mut self);
+    /// The current state converged: it is the one to return to. An error ends the solve.
+    fn commit(&mut self) -> Result<(), String>;
     /// Return to the last committed state.
     fn rollback(&mut self);
 }
@@ -311,7 +311,7 @@ pub(crate) fn solve_by_load_increments<P: IncrementalProblem + ?Sized, I: Iterat
             problem.rollback();
             break;
         }
-        problem.commit();
+        problem.commit()?;
         outcome.load_factor = load_factor;
     }
     Ok(outcome)
@@ -348,6 +348,7 @@ mod tests {
         tangent: Vec<Vec<f64>>,
         lagged: Option<Vec<Vec<f64>>>,
         owed: bool,
+        refuse_commit: bool,
         fail_at: Option<usize>,
         linearizations: usize,
         tangents: usize,
@@ -372,7 +373,7 @@ mod tests {
             let n = load.len();
             Chain {
                 law, coupling, load: load.to_vec(), u: vec![0.0; n], committed: vec![0.0; n], target: vec![0.0; n],
-                residual: vec![0.0; n], tangent: Vec::new(), lagged: None, owed: false, fail_at: None,
+                residual: vec![0.0; n], tangent: Vec::new(), lagged: None, owed: false, refuse_commit: false, fail_at: None,
                 linearizations: 0, tangents: 0, trace: Vec::new(), corrected_from: Vec::new(),
             }
         }
@@ -451,8 +452,12 @@ mod tests {
         fn set_state(&mut self, state: &[f64]) {
             self.u.copy_from_slice(state);
         }
-        fn commit(&mut self) {
+        fn commit(&mut self) -> Result<(), String> {
             self.committed = self.u.clone();
+            if self.refuse_commit {
+                return Err("the state left its branch".into());
+            }
+            Ok(())
         }
         fn rollback(&mut self) {
             self.u = self.committed.clone();
@@ -540,6 +545,15 @@ mod tests {
             assert_eq!(error, "the tangent is singular", "{method:?}");
             assert_eq!(spring.linearizations, fail_at, "{method:?}");
         }
+    }
+
+    #[test]
+    fn an_error_on_commit_ends_the_solve() {
+        let mut spring = Chain::spring(mild, 2.0);
+        spring.refuse_commit = true;
+        let error = solve_by_load_increments(&mut spring, &Newton { lag_tangent: false }, 3, 1e-10, 50).unwrap_err();
+        assert_eq!(error, "the state left its branch");
+        assert!(spring.unbalance(1.0 / 3.0) <= 1e-10);
     }
 
     #[test]
