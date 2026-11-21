@@ -30,7 +30,7 @@ import { modelStore } from '../model.svelte';
 import { detailingStore } from '../detailing.svelte';
 import { verificationStore } from '../verification.svelte';
 import type { DetailingAssembly } from '../../engine/detailing/assembly';
-import { DETAILING_SCHEMA_VERSION } from '../../engine/detailing/assembly';
+import { DETAILING_SCHEMA_VERSION, emptyDetailingStore } from '../../engine/detailing/assembly';
 import { buildStraightBarWithHooks } from '../../codes/cirsoc201/bar-geometry';
 import { buildSceneModel } from '../../engine/detailing/scene-model';
 
@@ -174,7 +174,7 @@ it('reuses frozen detailing geometry through snapshot and restore', () => {
   expect(modelStore.model.detailing!.assemblies[0].bars).toBe(bars);
 });
 
-it.fails('known wrong result: #2444 captures and restores normalized detailing by reference', () => {
+it('captures and restores normalized detailing by reference', () => {
   modelStore.restore(modelStore.snapshot());
   const published = modelStore.model.detailing;
   const snapshot = modelStore.snapshot();
@@ -184,7 +184,7 @@ it.fails('known wrong result: #2444 captures and restores normalized detailing b
   expect(modelStore.model.detailing).toBe(published);
 });
 
-it.fails('known wrong result: #2444 copies a shared detailing branch once per import', () => {
+it('copies a shared detailing branch once per import', () => {
   const snapshot = modelStore.snapshot();
   const imported = structuredClone(snapshot.detailing!);
   const trace = imported.assemblies[0].provenance.trace;
@@ -212,6 +212,13 @@ it('owns nested detailing restored from a shallow-frozen import', () => {
   const restored = modelStore.model.detailing!.assemblies[0].provenance.trace;
   expect(restored).toEqual([]);
   expect(Object.isFrozen(restored)).toBe(true);
+});
+
+it.each([null, 'invalid'])('restores legacy detailing %s as an empty store', (detailing) => {
+  const snapshot = modelStore.snapshot();
+  const stored = JSON.parse(JSON.stringify({ ...snapshot, detailing }));
+  modelStore.restore(stored);
+  expect(modelStore.snapshot().detailing).toEqual(emptyDetailingStore());
 });
 
 it('publishes reusable detailing snapshots and projects their replacement on the next open', () => {
