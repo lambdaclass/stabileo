@@ -19,7 +19,7 @@
  */
 
 import { expect } from 'vitest';
-import { runWithWorkerYields, yieldToEventLoop } from '../../../../../__tests__/worker-yield';
+import { yieldToEventLoop } from '../../../../../__tests__/worker-yield';
 import { modelStore } from '../../../../store/model.svelte';
 import { resultsStore } from '../../../../store/results.svelte';
 import { detailingStore } from '../../../../store/detailing.svelte';
@@ -102,9 +102,11 @@ async function compute(example: string, variant?: Variant): Promise<WorkspaceSce
   resultsStore.setCombinationResults3D(r.perCase, r.perCombo, r.envelope);
 
   designRunStore.computeDemands();
+  await turn();
   designRunStore.runCodeCheck();
   await turn();
-  await runWithWorkerYields(designRunStore.designAllSteps());
+  designRunStore.designAll();
+  await turn();
   detailingStore.generate({ verifierId: 'cirsoc201.provided.v2.2025' });
   await turn();
   detailingStore.generateFloors({ verifierId: 'cirsoc201.provided.v2.2025' });

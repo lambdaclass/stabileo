@@ -13,8 +13,6 @@ import { DESIGN_FAMILIES, totalsOf, type DesignFamily } from '../../engine/desig
 import { ready, familyOf, designFamiliesWithWorkerYields } from './design-families-fixture';
 import { ROLLED_BEAMS } from '../../engine/detailing/__tests__/helpers/workspace-scene';
 
-const meshGuard = process.env.RUN_KNOWN_WRONG === '2338' ? it : it.skip;
-
 function designOutput() {
   const summary = verificationStore.runSummary;
   expect(summary).toMatchObject({ aborted: false, notReached: 0 });
@@ -49,7 +47,8 @@ describe('the run reports what happened, family by family', () => {
     });
 
     try {
-      await designFamiliesWithWorkerYields(['column', 'beam', 'slab']);
+      await designFamiliesWithWorkerYields(['column', 'beam']);
+      await designFamiliesWithWorkerYields(['slab']);
       expect(frame).toHaveBeenCalledTimes(1);
       expect(floors).toHaveBeenCalledTimes(1);
       expect(receivedBeforeFloors).toBe(true);
@@ -61,7 +60,7 @@ describe('the run reports what happened, family by family', () => {
     }
   }, 300_000);
 
-  meshGuard('known wrong result: #2338: concurrent worker scheduling preserves the full design and detailing', async () => {
+  it('#2338: concurrent worker scheduling preserves the full design and detailing', async () => {
     const frame: DesignFamily[] = ['column', 'beam'];
     const floors: DesignFamily[] = ['slab'];
     await ready('rc-qa-diagnostic-shells');

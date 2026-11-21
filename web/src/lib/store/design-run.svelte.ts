@@ -54,7 +54,7 @@ import {
 } from '../engine/design/member-context';
 import { catalogueGradeFamily } from '../engine/steel/grade-family';
 import { runOrientationDiagnostic } from '../engine/design/orientation-diagnostic';
-import { runDesignSteps, designMember, DEFAULT_RUN_MS } from '../engine/design/candidate-search';
+import { runDesign, designMember, DEFAULT_RUN_MS } from '../engine/design/candidate-search';
 import { getDesignCode } from '../engine/design/code-adapter';
 import { emptyRunSummary, type DesignRunSummary, type MemberDesignOutcome } from '../engine/design/outcome';
 import type { RunProgress } from '../engine/design/candidate-search';
@@ -318,25 +318,12 @@ function createDesignRunStore() {
   const currentDecisions = () => (modelStore.designDecisions ? migrateStoredDecisions(modelStore.designDecisions) : emptyStoredDecisions());
   const lockedNow = () => new Set(currentDecisions().locked);
 
-  function finishSteps<T>(steps: Generator<void, T, void>): T {
-    let step = steps.next();
-    while (!step.done) step = steps.next();
-    return step.value;
-  }
-
-  type AutoDesignOptions = { maxRunMs?: number; deferDetailing?: boolean; edited?: 'keep' | 'overwrite' };
-  type DesignFamilyOptions = { verifierId?: string; edited?: 'keep' | 'overwrite' };
-
   /**
    * 3. Auto-design. Only VERIFIED results are written to the model; provisional
    *    (failing) candidates are retained on the outcome for review and are never
    *    assigned, never certified and never counted as passing.
    */
-  function autoDesign(elementIds: Iterable<number>, opts: AutoDesignOptions = {}): CommandResult {
-    return finishSteps(autoDesignSteps(elementIds, opts));
-  }
-
-  function* autoDesignSteps(
+  function autoDesign(
     elementIds: Iterable<number>,
     /**
      * `edited`: what to do with members a person edited and did not lock, keep their bars or
@@ -344,8 +331,8 @@ function createDesignRunStore() {
      * command, so no button designs over a person's bars without asking. Locked members are
      * never redesigned.
      */
-    opts: AutoDesignOptions,
-  ): Generator<void, CommandResult, void> {
+    opts: { maxRunMs?: number; deferDetailing?: boolean; edited?: 'keep' | 'overwrite' } = {},
+  ): CommandResult {
     lastError = null;
     const a = adapter();
     if (!a) return fail('design.error.noAdapter');
@@ -377,7 +364,7 @@ function createDesignRunStore() {
     abortFlag = { aborted: false };
     progress = { done: 0, total: ctxs.length, verified: 0, elementId: -1 };
     try {
-      const summary = yield* runDesignSteps(a, ctxs, {
+      const summary = runDesign(a, ctxs, {
         signal: abortFlag,
         maxRunMs: opts.maxRunMs ?? DEFAULT_RUN_MS,
         onProgress: (p) => { progress = p; },
@@ -491,16 +478,10 @@ function createDesignRunStore() {
    * passes its own, as the engine's tests pass theirs to `runDesign`.
    */
   function designAll(opts: { maxRunMs?: number } = {}): CommandResult {
-    return finishSteps(designAllSteps(opts));
-  }
-
-  function* designAllSteps(opts: { maxRunMs?: number } = {}): Generator<void, CommandResult, void> {
     const d = computeDemands();
     if (!d.ok) return d;
-    yield;
     const c = runCodeCheck();
     if (!c.ok) return c;
-    yield;
     /*
      * Undesigned: no bars, and no refusal either. A refused member has no bars because the design
      * ran on it and refused, and its refusal is kept with the project (`design-refusals.ts`). Read
@@ -524,7 +505,7 @@ function createDesignRunStore() {
       && !verificationStore.outcomeFor(id) && !manualOverrides.has(id));
     if (answerLost) {
       const again = all.filter((id) => !manualOverrides.has(id));
-      return yield* autoDesignSteps(again.length > 0 ? again : all, { maxRunMs: opts.maxRunMs });
+      return autoDesign(again.length > 0 ? again : all, { maxRunMs: opts.maxRunMs });
     }
     const undesigned: number[] = [];
     for (const id of all) {
@@ -533,7 +514,7 @@ function createDesignRunStore() {
       undesigned.push(id);
     }
     const target = undesigned.length > 0 ? undesigned : all;
-    return yield* autoDesignSteps(target, { maxRunMs: opts.maxRunMs });
+    return autoDesign(target, { maxRunMs: opts.maxRunMs });
   }
 
   /**
@@ -563,15 +544,8 @@ function createDesignRunStore() {
    */
   function designFamilies(
     selection: DesignFamilySelection,
-    opts: DesignFamilyOptions = {},
+    opts: { verifierId?: string; edited?: 'keep' | 'overwrite' } = {},
   ): DesignRunReport {
-    return finishSteps(designFamiliesSteps(selection, opts));
-  }
-
-  function* designFamiliesSteps(
-    selection: DesignFamilySelection,
-    opts: DesignFamilyOptions = {},
-  ): Generator<void, DesignRunReport, void> {
     // Recorded before returning, so both the caller and the panel read one report.
     const record = <T extends DesignRunReport>(r: T): T => { lastFamilyReport = r; return r; };
     const families: FamilyRunResult[] = [];
@@ -581,9 +555,7 @@ function createDesignRunStore() {
     const frameWanted = needsFramePass(selection);
     if (frameWanted) {
       const d = computeDemands();
-      yield;
       const c = d.ok ? runCodeCheck() : d;
-      yield;
       if (!d.ok || !c.ok) {
         const bad = !d.ok ? d : c;
         for (const f of FRAME_FAMILIES) {
@@ -609,10 +581,8 @@ function createDesignRunStore() {
         if (target.length > 0) {
           // The global command owns detailing, including its verifier. Run its feedback
           // once, before reading the repaired outcomes into the family summaries.
-          yield* autoDesignSteps(target, { deferDetailing: true, ...(opts.edited ? { edited: opts.edited } : {}) });
-          yield;
+          autoDesign(target, { deferDetailing: true, ...(opts.edited ? { edited: opts.edited } : {}) });
           detailingStore.generate({ verifierId: opts.verifierId });
-          yield;
         }
 
         for (const f of FRAME_FAMILIES) {
@@ -870,10 +840,8 @@ function createDesignRunStore() {
     computeDemands,
     runCodeCheck,
     designFamilies,
-    designFamiliesSteps,
     autoDesign,
     designAll,
-    designAllSteps,
     designOne,
     /** The bound concrete design code, or none. */
     currentAdapter: adapter,

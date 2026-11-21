@@ -34,6 +34,7 @@
  * a bar is cut off and the cut-off zone's stirrups, §9.7.3.5(c)).
  */
 import { describe, it, expect, beforeAll, vi } from 'vitest';
+import { yieldToEventLoop } from '../../../__tests__/worker-yield';
 import { modelStore } from '..';
 import { verificationStore } from '../verification.svelte';
 import { designRunStore } from '../design-run.svelte';
@@ -396,8 +397,11 @@ function expectDesignsOrRefusals(t: Tally) {
 
 describe('the same building designed and detailed under four slab meshes', () => {
   const t = new Map<number, Tally>();
-  beforeAll(() => {
-    for (const m of MESHES) t.set(m, tally(m));
+  beforeAll(async () => {
+    for (const m of MESHES) {
+      t.set(m, tally(m));
+      await yieldToEventLoop();
+    }
     if (!PRINT) return;
     for (const x of t.values()) {
       for (const p of x.problems) console.log('PROBLEM', x.mesh, p);
@@ -516,10 +520,14 @@ describe('the same forces under the four meshes: the same design, the same sched
   // each mesh (`designAndDocumentUnder`). Whatever still differs is the per-span design's or
   // the detailing's, not the analysis'.
   const t = new Map<number, Tally>();
-  beforeAll(() => {
+  beforeAll(async () => {
     building(0.5, FRAME);
     const forces = forcesByPlace();
-    for (const m of MESHES.filter((mesh) => mesh !== 6)) t.set(m, tally(m, forces));
+    for (const m of MESHES.filter((mesh) => mesh !== 6)) {
+      await yieldToEventLoop();
+      t.set(m, tally(m, forces));
+    }
+    await yieldToEventLoop();
     t.set(6, tally(6, forces));
     if (!PRINT) return;
     for (const x of t.values()) {
@@ -614,10 +622,12 @@ describe('the steel is the forces\': each mesh\'s forces give its steel on anoth
   // differs between meshes is what their analyses deliver.
   const own = new Map<number, Tally>();
   const on1 = new Map<number, Tally>();
-  beforeAll(() => {
+  beforeAll(async () => {
     for (const m of MESHES) {
       own.set(m, tally(m));
+      await yieldToEventLoop();
       on1.set(m, tally(1, own.get(m)!.forces));
+      await yieldToEventLoop();
     }
   }, 300_000);
 

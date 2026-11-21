@@ -16,7 +16,7 @@ import { completeMemberDemands } from '../../engine/member-demand-gate';
  * for columns that hold the beams' hooks, `columnSide: 0.4`.
  */
 import { expect } from 'vitest';
-import { runWithWorkerYields } from '../../../__tests__/worker-yield';
+import { runBetweenWorkerTurns } from '../../../__tests__/worker-yield';
 import { historyStore, modelStore, resultsStore, uiStore } from '..';
 import { designRunStore } from '../design-run.svelte';
 import { verificationStore } from '../verification.svelte';
@@ -136,7 +136,7 @@ export function designAndDocument(): DocumentModel {
 }
 
 export async function designAndDocumentWithWorkerYields(): Promise<DocumentModel> {
-  await runWithWorkerYields(designRunStore.designFamiliesSteps(['column', 'beam']));
+  await runBetweenWorkerTurns(() => designRunStore.designFamilies(['column', 'beam']));
   return buildTestDocument();
 }
 
