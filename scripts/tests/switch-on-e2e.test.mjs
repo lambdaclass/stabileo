@@ -69,6 +69,22 @@ test('collects title tags even when the profiles have identical switches', t => 
   }, { sameProfiles: true })), [file]);
 });
 
+for (const [profile, sameProfiles] of [['test', false], ['production', false], ['production', true]]) {
+  test(`refuses an unregistered spec tagged only in the ${profile} profile (${sameProfiles ? 'identical' : 'different'} switches)`, { skip: 'known wrong result: #2436' }, t => {
+    const file = 'unregistered.spec.ts';
+    const result = collect(fixture(t, {
+      [file]: `
+        if (process.env.STABILEO_E2E_PROFILE === '${profile}') {
+          test('unregistered case', { tag: '@switch-on' }, () => {});
+        }
+      `,
+      'ordinary.spec.ts': "test('always enabled', () => {});",
+    }, { sameProfiles }));
+    assert.equal(result.status, 1, result.stdout + result.stderr);
+    assert.match(result.stderr, /Unregistered @switch-on specs \(add to config\/switch-on-e2e-specs\.json\): e2e\/unregistered\.spec\.ts/);
+  });
+}
+
 test('refuses a tagged spec when no tagged case is active even if an untagged case is switch-on', t => {
   const file = 'skipped.spec.ts';
   const result = collect(fixture(t, {
