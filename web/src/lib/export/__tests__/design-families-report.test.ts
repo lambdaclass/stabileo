@@ -3,16 +3,49 @@
  * design-families.test.ts so it runs on its own worker — see design-families-fixture.ts.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+import { MessageChannel } from 'node:worker_threads';
 import { designRunStore } from '../../store/design-run.svelte';
+import { detailingStore } from '../../store/detailing.svelte';
 import { verificationStore } from '../../store/verification.svelte';
 import { DESIGN_FAMILIES, totalsOf } from '../../engine/design/design-families';
-import { ready, familyOf } from './design-families-fixture';
+import { ready, familyOf, designFamiliesThenTurn } from './design-families-fixture';
 import { ROLLED_BEAMS } from '../../engine/detailing/__tests__/helpers/workspace-scene';
 
 // ─── The report ──────────────────────────────────────────────────
 
 describe('the run reports what happened, family by family', () => {
+  it.skip('handles a worker message between frame detailing and floor design', async () => {
+    await ready('rc-qa-diagnostic');
+    const { port1, port2 } = new MessageChannel();
+    let received = false;
+    let receivedBeforeFloors = false;
+    port1.once('message', () => { received = true; });
+
+    const generate = detailingStore.generate.bind(detailingStore);
+    const generateFloors = detailingStore.generateFloors.bind(detailingStore);
+    const frame = vi.spyOn(detailingStore, 'generate').mockImplementation((options) => {
+      port2.postMessage('progress reply');
+      return generate(options);
+    });
+    const floors = vi.spyOn(detailingStore, 'generateFloors').mockImplementation((options) => {
+      receivedBeforeFloors = received;
+      return generateFloors(options);
+    });
+
+    try {
+      await designFamiliesThenTurn(['column', 'beam', 'slab']);
+      expect(frame).toHaveBeenCalledTimes(1);
+      expect(floors).toHaveBeenCalledTimes(1);
+      expect(receivedBeforeFloors).toBe(true);
+    } finally {
+      frame.mockRestore();
+      floors.mockRestore();
+      port1.close();
+      port2.close();
+    }
+  }, 300_000);
+
   it('counts processed, designed, refused and not-modelled members', async () => {
     await ready('pro-edificio-7p', ROLLED_BEAMS);
     const report = designRunStore.designFamilies(['column', 'beam', 'slab', 'wall']);
