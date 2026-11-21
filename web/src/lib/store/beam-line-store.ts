@@ -243,9 +243,9 @@ export function withSavedBeamEvidence(id: number, reinforcement: ProvidedReinfor
   const frame = framesOf(id);
   const saved = frame && storedLine(frame.line);
   if (!saved) return reinforcement;
-  const length = saved.lengths[saved.members.indexOf(id)]!;
-  const pieces = savedPieces(saved, frame.line.forward).get(id);
-  return pieces ? { ...reinforcement, [drawnBeamReinforcement]: drawnBeamEvidence(pieces, length, saved.members) } : reinforcement;
+  const pieces = savedPieces(saved, frame.line.forward);
+  const forward = frame.line.forward[saved.members.indexOf(id)] !== false;
+  return pieces.has(id) ? { ...reinforcement, [drawnBeamReinforcement]: drawnBeamEvidence(pieces, id, saved, forward) } : reinforcement;
 }
 
 /** The cross-sections placed on saved lines, each at its point in the model (`DocumentModel.sectionCuts`). */

@@ -185,7 +185,7 @@ test-changed:
 check.quick:
 	BASE=$(BASE) scripts/check-quick.sh
 
-check.fast:
+check.fast: web/node_modules/@playwright/test/cli.js
 	$(MAKE) -j5 --output-sync=target lint.repo check.changelog check.issue-reproducers check.fail-closed typecheck.web test.web.fast test.ci-scripts check.web.production-parity test.web.pro-plates-switch
 
 test.web.fast:
@@ -559,6 +559,13 @@ test.reproducers.published:
 check.issue-reproducers:
 	$(if $(BODY),,body=$$(git log --format=%B "$(or $(BASE),origin/main)..$(or $(HEAD),HEAD)") && printf '%s\n' "$$body" | )python3 -I scripts/issue-reproducers.py flip-check --base "$(or $(BASE),origin/main)" --head "$(or $(HEAD),HEAD)" --body-file "$(or $(BODY),/dev/stdin)" $(if $(LABELS),--labels-json "$(LABELS)")
 
+web/node_modules/@playwright/test/cli.js: web/package.json web/package-lock.json
+	$(SUBMAKE) web.deps
+
+.PHONY: test.switch-on-e2e
+test.switch-on-e2e: web/node_modules/@playwright/test/cli.js
+	$(NIX_RUN) node --test scripts/tests/switch-on-e2e.test.mjs
+
 test.nightly-scripts:
 	python3 -B -I testing/scripts/tests/test_nightly.py
 	python3 -B -I scripts/tests/test_replay_findings.py
@@ -573,7 +580,7 @@ test.nightly-scripts:
 	$(NIX_RUN) node --test scripts/tests/runner-pools.test.cjs
 	$(NIX_RUN) node --test scripts/tests/cadence-reports.test.cjs
 
-test.ci-scripts: test.testing-move test.testing-map test.replay-steel-cb test.released-load-work-physics test.released-load-work-outcomes test.nightly-scripts check.cadence test.engine.plastic-budget-watchdog test.staged-wasm-assertions test.staged-round7-assertions test.agent-mistakes
+test.ci-scripts: test.switch-on-e2e test.testing-move test.testing-map test.replay-steel-cb test.released-load-work-physics test.released-load-work-outcomes test.nightly-scripts check.cadence test.engine.plastic-budget-watchdog test.staged-wasm-assertions test.staged-round7-assertions test.agent-mistakes
 	python3 -B -I scripts/tests/test_cadence.py
 	python3 -B -I scripts/tests/test_playwright_install.py
 	python3 -B -I scripts/tests/test_deps_audit.py

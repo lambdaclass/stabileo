@@ -4049,6 +4049,8 @@ const de: Translations = {
   'diag.verifFailTorsion': 'Torsionsnachweis NICHT erfüllt',
   'diag.rcTorsionConcrete': "Der Torsionsnachweis ist nicht erbracht: Die Interaktionsgrenze für Querkraft und Torsion überschätzt den ermittelten Betontraganteil.",
   'diag.rcTorsionDepth': "Der Torsionsnachweis ist nicht erbracht: Die angesetzte statische Nutzhöhe ist für die Längsbewehrung zu groß.",
+  "diag.rcTorsionSecondaryFace": "Der Torsionsnachweis ist nicht erbracht: Die Stablage zur Bestimmung der statischen Nutzhöhe für die gleichzeitige sekundäre Querkraft ist nicht belegt.",
+  "diag.rcShearTensionSteel": "Der Querkraftnachweis ist nicht erbracht: Die Zugbewehrung dieses Querschnitts belegt die im Nachweis angesetzte Stahlfläche nicht.",
   'diag.rcTorsionPerimeter': "Die Torsionslängsbewehrung ist nicht nachgewiesen: Die Verteilung der Stäbe entlang des Bügelumfangs ist nicht belegt.",
   'diag.rcTorsionCutoff': "Die Torsionslängsbewehrung ist nicht nachgewiesen: Der Nachweis würde Stäbe über ihr Ende hinaus anrechnen.",
   "diag.rcDrawnBarExtent": "Biegung oder Querkraft kann mit der Bereichsbewehrung nicht nachgewiesen werden, da Längsstäbe über ihre gezeichneten Enden hinaus berücksichtigt werden.",
