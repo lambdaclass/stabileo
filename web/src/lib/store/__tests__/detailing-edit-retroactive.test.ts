@@ -164,7 +164,7 @@ describe('undoing an edit is an edit', () => {
   });
 });
 
-it.fails('publishes reusable detailing snapshots and projects their replacement on the next open', () => {
+it('publishes reusable detailing snapshots and projects their replacement on the next open', () => {
   const bar = buildStraightBarWithHooks({
     id: 'span-bottom', diameterMm: 16, role: 'longitudinal', ownerElementIds: [beamA],
     start: { x: 0, y: 0, z: 3 }, end: { x: 6, y: 0, z: 3 },
