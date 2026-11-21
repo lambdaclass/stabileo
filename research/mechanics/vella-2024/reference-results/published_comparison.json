@@ -102,29 +102,29 @@
     {
       "computed": 0.6628509646686807,
       "id": "toy-omega-lower",
-      "metric": "toy model at mu = 1/4: lower frequency / t_osc (symmetric by our linearisation)",
+      "metric": "toy model at mu = 1/4: lower angular frequency omega sqrt(m/k)/alpha, dimensionless (printed omega_A/t_osc; symmetric by our linearisation)",
       "observed": 0.0001490353313193804,
       "passed": true,
       "reference": 0.663,
       "relative": false,
-      "source": "arXiv:2312.13908v2 p. 22, labelled omega_A in the text",
+      "source": "arXiv:2312.13908v2 p. 22, printed as omega_A/t_osc",
       "tolerance": 0.001
     },
     {
       "computed": 0.7319844044444277,
       "id": "toy-omega-upper",
-      "metric": "toy model at mu = 1/4: upper frequency / t_osc (antisymmetric)",
+      "metric": "toy model at mu = 1/4: upper angular frequency omega sqrt(m/k)/alpha, dimensionless (printed omega_S/t_osc; antisymmetric)",
       "observed": 0.002746042991242925,
       "passed": true,
       "reference": 0.734,
       "relative": true,
-      "source": "arXiv:2312.13908v2 p. 22, labelled omega_S in the text",
+      "source": "arXiv:2312.13908v2 p. 22, printed as omega_S/t_osc",
       "tolerance": 0.005
     },
     {
       "computed": 9.4790317010705,
       "id": "toy-t-osc",
-      "metric": "toy model: t_osc = 2 pi / omega_lower (S80)",
+      "metric": "toy model: t_osc = 2 pi / omega_lower (S80), in units of sqrt(m/k)/alpha",
       "observed": 0.00021438230141401782,
       "passed": true,
       "reference": 9.477,
@@ -133,10 +133,10 @@
       "tolerance": 0.001
     },
     {
-      "computed": 0.16084751836809025,
+      "computed": 0.1608475164968385,
       "id": "fig2c-transition",
       "metric": "Fig. 2c simulations: rate where A first falls below 2 (paper: first digitized point; ours: largest A over twelve seed phases); the paper's points cross A = 2 anywhere between 0.147 and 0.186",
-      "observed": 0.1328974751046348,
+      "observed": 0.1328974851922452,
       "passed": true,
       "reference": 0.1855,
       "relative": true,

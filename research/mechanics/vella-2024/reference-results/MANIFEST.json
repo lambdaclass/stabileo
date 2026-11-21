@@ -3,11 +3,11 @@
   "published_inputs": "published.json transcribes arXiv:2312.13908v2 (sha256 33d95f01b305100739562691008f63d97ee2d4262eb573ecc022060f47fa0329) with page sources; fig2c_digitized.csv is the output of reference/digitize_fig2c.py (PyMuPDF 1.26.5) on that PDF",
   "toolchain": "rustc 1.99.1; macOS 26 arm64 for the committed files",
   "files_sha256": {
-    "published.json": "8b70f6d5aab531a0b0044f88cd48601d4b882c819543da77c9423cc020c35cec",
+    "published.json": "2624a26068f90847b85884ae771e22993de1837c75ba26b20bd56befafbc7fa7",
     "fig2c_digitized.csv": "2498a29beed27db90065a5c847e322e7aeae325ca57db121d2f94a72afccb046",
-    "study.json": "e2b724808e95cdcf5bbd8350e039c3bfeff590bba2fcad1d9107ee9a77b87642",
-    "replay.json": "62e630b61abe6a5484d612095a25f4e64bff929dc9a76b2851eb1db280a0f1a7",
-    "published_comparison.json": "9d9439c62eccfb4080ef837de0eea32ba67c321013caf1015437f31ad1b4bd40"
+    "study.json": "f8b0a4fcad2af0b0e393a8817f88bbb0e094e8576c86f85fb72741875418dc79",
+    "replay.json": "cd882093db873bef3dbdb328ec31dc0637b6b03f540bc945169eda2f6d921045",
+    "published_comparison.json": "a461caf7f38fe824636b0cfdd4e0a04127513fd8185243dbbecb6bab7ccef9c4"
   },
   "not_hashed": "../VALIDATION.json: research/tools/catalog.py accepts hashed files only inside reference-results/ (as for every other crate); instead `validate` (CI's research job) recomputes it and fails if the stored file differs from a fresh run."
 }

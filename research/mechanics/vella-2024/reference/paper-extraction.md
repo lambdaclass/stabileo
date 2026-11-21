@@ -11,7 +11,7 @@ doi:10.1103/PhysRevLett.132.267201.
 | arXiv:2312.13908**v2** (2 July 2024), main text + Supplemental Information in one PDF | `https://arxiv.org/pdf/2312.13908v2` | `33d95f01b305100739562691008f63d97ee2d4262eb573ecc022060f47fa0329` | 25 (main pp. 1–6, SM pp. 7–25) |
 | arXiv:2312.13908v1 (21 Dec 2023), kept to check what changed | `https://arxiv.org/pdf/2312.13908v1` | `248605688f1fcafcda7a841e09476572d2d55ca7e781c2417abbe862fa247a8c` | — |
 
-v1 lacks Table S1, the natural frequency ω ≈ 57.86 and T_osc, and the toy model's µ̇_c; every
+v1 lacks Table S1, the natural frequency ω ≈ 57.86 and T_osc, and the toy model's \|µ̇_c\|; every
 number below is from v2. Every page number below is the **PDF page of arXiv v2** (the SM's own numbering restarts at 1 on
 PDF p. 7; it is given in brackets where it helps). The APS version of record was not opened; v2
 is dated after acceptance and its text matches the published abstract. Neither PDF is stored in
@@ -68,7 +68,7 @@ Newton–Raphson; converged at **N = 100 nodes, δt = 0.01 ms** (Fig. S4). pp. 1
 | Natural state, µ = 0.25 (τ = π): lowest (antisymmetric) frequency | ω = √(−λ²) ≈ √3348.04 ≈ 57.86; T_osc = 2π/ω = 0.108 | p. 12 [SM §II.D] |
 | Shallow branch height | h = ζ(0) from Eq. (S14) | p. 10 |
 | Toy model parameters | β = 0.110, L₀C = 0.655 (chosen so that µ*vM = 0.247, µ_A^vM = 1/4) | p. 20 |
-| Toy model frequencies at µ = 1/4 | "ω_A/t_osc = 0.663", "ω_S/t_osc = 0.734", t_osc = 2π/ω_s = 9.477 | p. 22, Eq. (S80) |
+| Toy model frequencies at µ = 1/4 | "ω_A/t_osc = 0.663", "ω_S/t_osc = 0.734", t_osc = 2π/ω_s = 9.477 (time in √(m/k)/α, (S72): the printed ratios are ω√(m/k)/α, dimensionless, and t_osc is in √(m/k)/α) | p. 22, Eq. (S80) |
 | Toy model critical rate | \|µ̇_c\| ≈ 0.0961 (0.096 on p. 25) | p. 4 (Fig. 4 caption); p. 25 |
 | Experimental amplifications | Table S1: 30 pairs (\|ΔL̇\|, A) | p. 8 |
 | Amplification | A := max_{t>0}\|θ\| / max_{t<0}\|θ\|, t = 0 where µ(0) = µ* | Eq. (2), p. 2 |
@@ -81,24 +81,24 @@ Newton–Raphson; converged at **N = 100 nodes, δt = 0.01 ms** (Fig. S4). pp. 1
 | 1c | bifurcation diagram (schematic) | µ, height | yes, from our static paths (finite α) |
 | S1c | h vs µ near µ_A, µ*: natural, inverted, grey and asymmetric branches | µ ∈ [0.24, 0.26]; axis labelled h/L | yes: shallow analytic (S14–S17) and our FE at small α. The axis values (natural 0.32, cyan −0.137) are h/(αL), not h/L |
 | S3 | antisymmetric vibration mode of the natural state at µ = 0.25 | x, ζ | yes (our eigenvector) |
-| 2a | θ(t) for 1.8 and 246.6 mm/s, experiment and simulation | −tΔL̇ (mm), θ (rad) | yes, qualitatively, from our runs at the same µ̇ |
+| 2a | θ(t) for 1.8 and 246.6 mm/s, experiment and simulation | −tΔL̇ (mm), θ (rad) | yes, qualitatively, from our runs at the same \|µ̇\| |
 | 2b | \|θ\| for three accelerations, one end moved; both ends → θ ≡ 0; inset \|θ/θ_b\| collapses | −tΔL̇ (mm) | the both-ends symmetry and the collapse, qualitatively |
-| 2c | A vs \|ΔL̇\| (top axis) and \|µ̇\| (bottom); experiments, simulations, model band | µ̇, A | yes: experiments from Table S1 (exact), simulation points read off the figure (by eye / pixel positions) |
-| 3, 4a, S5–S7 | double-mass von Mises toy model | ψ_S, ψ_A, µ, τ | the toy model's constants and µ̇_c are checked; its trajectories are not drawn |
-| 4b | A′ = max\|ψ_A\|/\|ψ_A⁰\| vs \|µ̇\| for the toy model | µ̇, A′ | µ̇_c checked; the curve is not drawn |
+| 2c | A vs \|ΔL̇\| (top axis) and \|µ̇\| (bottom); experiments, simulations, model band | \|µ̇\|, A | yes: experiments from Table S1 (exact), simulation points read off the figure (by eye / pixel positions) |
+| 3, 4a, S5–S7 | double-mass von Mises toy model | ψ_S, ψ_A, µ, τ | the toy model's constants and \|µ̇_c\| are checked; its trajectories are not drawn |
+| 4b | A′ = max\|ψ_A\|/\|ψ_A⁰\| vs \|µ̇\| for the toy model | \|µ̇\|, A′ | \|µ̇_c\| checked; the curve is not drawn |
 | S2 | experimental θ(t), h(t) for 12 speeds | — | no (experimental traces) |
 | S4 | convergence of θ in δt and N for the DER | — | our own δt and mesh study instead |
 
 ## Rate units (inferred, not stated)
 
-The paper never writes µ̇ in terms of ΔL̇. Fig. 2c plots each Table S1 experiment at
+The paper never writes \|µ̇\| in terms of ΔL̇. Fig. 2c plots each Table S1 experiment at
 \|µ̇\| ≈ 2.34–2.42 s/m × \|ΔL̇\| (pixel positions of 15 isolated crosses on the figure's embedded
 raster; the spread is Table S1's two-digit rounding). That matches
-µ̇ = \|ΔL̇\| · T_osc · t* / (α²L) = 2.358 s/m × \|ΔL̇\| with T_osc = 0.108 and t* from the
-experimental thickness 0.05 mm. The figure's **top axis** ticks (0.08 m/s on µ̇ = 0.2) imply
+\|µ̇\| = \|ΔL̇\| · T_osc · t* / (α²L) = 2.358 s/m × \|ΔL̇\| with T_osc = 0.108 and t* from the
+experimental thickness 0.05 mm. The figure's **top axis** ticks (0.08 m/s on \|µ̇\| = 0.2) imply
 2.50 s/m instead, 6 % off its own data points. We use the T_osc-based definition: one unit of
-µ̇ is a change of µ by one per period T_osc. With the simulation thickness (0.0508 mm) the
-factor is 2.321 s/m; the page reports both µ̇ and the corresponding \|ΔL̇\| for the paper's strip.
+\|µ̇\| is a decrease of µ by one per period T_osc (µ decreases while the ends separate, so the signed µ̇ is negative). With the simulation thickness (0.0508 mm) the
+factor is 2.321 s/m; the page reports both \|µ̇\| and the corresponding \|ΔL̇\| for the paper's strip.
 
 ## Things that do not agree inside the paper
 

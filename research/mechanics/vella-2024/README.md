@@ -21,7 +21,7 @@ page, the paper's own inconsistencies and our assumptions are in
 | Elastica with clamps at an angle | `stability/feher-sipos-varkonyi-2026` (quasi-static strip on the same element) | same model idea, own code |
 
 The engine and its numerics are not modified. The missing piece, an implicit nonlinear integrator,
-fits inside the crate (about 300 lines of `src/dynamics.rs`) and works on the production element; it
+fits inside the crate (about 700 lines of `src/dynamics.rs`) and works on the production element; it
 is written so that it could move to the product through the product's process. The research rules
 allow depending on stable engine APIs; nothing in the engine or app imports this crate.
 
@@ -54,22 +54,41 @@ floor of the internal force).
   at fixed heights differ between platforms by round-off only, so they can be stored as evidence.
 - µ_A: bisection on the midpoint height for the sign change of the antisymmetric tangent
   (Sylvester's inertia of an LDLᵀ); µ*: golden-section search for the least shortening along the
-  branch parametrised by the midpoint height.
+  branch parametrised by the midpoint height. Their heights are stored in αL, the unit of the
+  diagram's branches, and `validate` checks them against the heights where the drawn branch's
+  antisymmetric and symmetric ω² cross zero.
 - Spectra: the tangent projected on the mirror-symmetric and antisymmetric free DOFs; ω² from
   K φ = ω² M φ with the rotations condensed (no rotary inertia, as the paper's beam equation S2).
 - Dynamics: HHT-α (α = −0.1), β = (1−α)²/4, γ = ½−α, Newton on M/(βΔt²) + (1+α)K_T (banded LU),
   Δt = 0.005 T_osc, step halving where Newton fails or where a converged step turns a node by more
   than 0.3 rad (Newton otherwise finds roots 2π away in a nodal rotation). The rotations carry no
   mass and are not given a Newmark velocity. Mass: consistent for linearly interpolated centreline
-  positions, (h/6)[[2,1],[1,2]] per translation, constant under rotation. HHT's damping ratio for
-  the slow modes is O(Ω³) (of order 10⁻⁷ at 100 steps per period); its spectral radius at high
+  positions, (h/6)[[2,1],[1,2]] per translation, constant under rotation. At Ω = ωΔt = 2π/100
+  (100 steps per period) HHT-α with α = −0.1 loses 1.6 × 10⁻⁷ of the amplitude per step, an
+  equivalent damping ratio of 2.5 × 10⁻⁶ (the ratio grows as Ω³); its spectral radius at high
   frequency, 0.82, removes the axial ringing that makes the trapezoidal rule diverge here.
+- Clamp motion: steps end exactly where the clamp's acceleration changes (end of the acceleration
+  ramp, start and end of braking), so Newton never averages an acceleration across a jump; a
+  transition closer than 10⁻³ Δt to a step's end moves that end onto it, since shorter substeps
+  lose Newmark's acceleration (q₁ − q̃)/(βh²) to round-off. At each transition the free DOFs take
+  the jump the consistent mass couples into them, M_ff Δa_f = −M_fc Δa_c; with a zero ramp the
+  clamp's velocity jumps and the free DOFs take the impulse M_ff Δv_f = −M_fc Δv_c (on this mass
+  the node next to the clamp moves back by 2 − √3 of the clamp's velocity, as the exact discrete
+  impulse response). Every accepted substep, including those of a halved step, is a sample for
+  the snap time, the jump's end and the largest angles; the trace drawn on the page bins whole
+  steps of Δt, so it does not depend on how many substeps a platform needed.
 - Protocol: start on the inverted branch at µ₀ = 0.6; the clamp(s) accelerate over 0.01 s (SM p. 7)
-  to the rate µ̇ (change of µ per T_osc = 0.108 t*, SM p. 12); both clamps with the lowest
-  antisymmetric vibration mode as a seed of midpoint angle θ₀ = 10⁻³ rad (default), or one clamp
-  without a seed (the paper's simulations). After the jump the moving clamp brakes over 0.01 s.
+  to the release rate |µ̇| (decrease of µ per T_osc = 0.108 t*, SM p. 12; µ itself decreases, so
+  the signed µ̇ is negative); both clamps with the lowest antisymmetric vibration mode as a seed of
+  midpoint angle θ₀ = 10⁻³ rad (default), or one clamp without a seed (the paper's simulations).
+  The moving clamp brakes over 0.01 s once the jump has ended, or from µ = 0.02 (the stopper) if it
+  has not ended by then.
 - Amplification: Eq. (2), t = 0 where µ = µ* (our µ* for the same α and mesh), the jump ending at
-  the first maximum of the midpoint height after it crosses the clamps' line.
+  the first maximum of the midpoint height after it crosses the clamps' line. A run ends `after`
+  T_osc (1 by default) after that maximum has been observed, whatever the stopper did; braking
+  never starts the end timer. A run whose midpoint never crosses reports no snap (`snapped: false`,
+  every jump value null); a crossing whose first maximum is not observed, or a Newton failure
+  before the jump has ended, is an error, never a truncated result.
 
 ## Results
 
@@ -95,7 +114,7 @@ The analytic shallow values computed here: τ* = 8.98682 (paper 8.987), τ_fold 
 
 ### Step 3, dynamics
 
-| µ̇ | A, seeded, phase 0 | A, largest over 12 phases | A, one clamp from ΔL/L = 0.2 | µ at the snap |
+| \|µ̇\| | A, seeded, phase 0 | A, largest over 12 phases | A, one clamp from ΔL/L = 0.2 | µ at the snap |
 |---|---|---|---|---|
 | 0.005 | 96.1 | 104 | 156 | 0.2344 |
 | 0.0075 | 89.4 | 89.4 | 98.8 | 0.2306 |
@@ -115,24 +134,30 @@ The analytic shallow values computed here: τ* = 8.98682 (paper 8.987), τ_fold 
 | 0.5 | 0.536 | 1.19 | 0.928 | 0.0930 |
 | 0.7 | 0.792 | 0.922 | 0.945 | 0.0547 |
 
-Replay (default): µ̇ = 0.01 (4.31 mm/s for the paper's strip), seed 10⁻³ rad, A = 34.4, snap at
-µ = 0.2273, 1.82 T_osc after µ*. Both clamps without a seed: largest |θ| ≤ 2.4 × 10⁻¹⁰ rad at
-µ̇ = 0.01–0.3 (round-off, amplified at slow rates). Fig. 2a's rates on the one-clamp protocol:
-1.8 mm/s (µ̇ = 0.0042) gives A = 175, 246.6 mm/s (µ̇ = 0.572) gives A = 1.07.
+Replay (default): |µ̇| = 0.01 (4.31 mm/s for the paper's strip), seed 10⁻³ rad, A = 34.4, snap at
+µ = 0.2273, 1.82 T_osc after µ*. Both clamps without a seed: largest |θ| ≤ 2.0 × 10⁻¹⁰ rad at
+|µ̇| = 0.01–0.3 (round-off, amplified at slow rates). Fig. 2a's rates on the one-clamp protocol:
+1.8 mm/s (|µ̇| = 0.0042) gives A = 175, 246.6 mm/s (|µ̇| = 0.572) gives A = 1.07.
 
-**Against Fig. 2c (simulations).** The largest A over phase falls below 2 at µ̇ ≈
+Times in `study.json` and on the page are in T_osc, which is 0.01718 s for the simulated strip
+(`units.t_osc_simulations`; t* = 0.15908 s is `units.time_unit_simulations`). Each Fig. 2a run
+also stores `time_s`, and `validate` checks that its travel against `time_s` on the constant-speed
+part before µ* has the slope `rate_m_s`: at 246.6 mm/s the trace moves 0.02118 mm per
+0.005 T_osc = 8.59 × 10⁻⁵ s.
+
+**Against Fig. 2c (simulations).** The largest A over phase falls below 2 at |µ̇| ≈
 0.161, the one-clamp curve at 0.15; the paper's points first fall below 2 at
-µ̇ ≈ 0.185 (−13 % and −19 %). Between µ̇ = 0.04 and 0.1 the paper's 11 points are 11.5–35.6 and
+|µ̇| ≈ 0.185 (−13 % and −19 %). Between |µ̇| = 0.04 and 0.1 the paper's 11 points are 11.5–35.6 and
 ours 2.9–10.1 (largest over phase) or 2.2–7.1 (one clamp), lower at every one of them by a factor
-of 2.9–4.2 and 3.8–8.2. Over the paper's 49 points up to µ̇ = 0.3 the median relative difference
-is 36 % (largest over phase) and 55 % (one clamp); above µ̇ ≈ 0.2, where both are near 1, ours is
+of 2.9–4.2 and 3.8–8.2. Over the paper's 49 points up to |µ̇| = 0.3 the median relative difference
+is 36 % (largest over phase) and 55 % (one clamp); above |µ̇| ≈ 0.2, where both are near 1, ours is
 sometimes the larger. The paper's
 seed (the acceleration of its one moving end) is not given; at one phase A swings by an order of
-magnitude between neighbouring rates (0.93 at µ̇ = 0.04, 6.1 at 0.05), as the paper's Fig. S7
+magnitude between neighbouring rates (0.93 at |µ̇| = 0.04, 6.1 at 0.05), as the paper's Fig. S7
 shows for the toy model, so only the envelope is a fair comparison. Row-by-row numbers are in
 `VALIDATION.json` → `differences.figure_2c`.
 
-**Sensitivity** (µ̇ = 0.03 / 0.1; phase 0, then largest over phase):
+**Sensitivity** (|µ̇| = 0.03 / 0.1; phase 0, then largest over phase):
 
 | Setting | Values | A at phase 0 | Largest A over phase |
 |---|---|---|---|
@@ -144,15 +169,18 @@ shows for the toy model, so only the envelope is a fair comparison. Row-by-row n
 
 A at a single phase is sensitive to anything that shifts the phase of the antisymmetric oscillation
 when the strip reaches the amplification region (mesh, start); the largest A over phase is stable to
-3 % in mesh and Δt. Two of the 707 dynamic runs of the study stopped early after their jump,
-where Newton failed on 2⁸ substeps of the post-snap ringing; the amplification had been measured.
+3 % in mesh and Δt. Nine of the 707 dynamic runs of the study stopped early, after their jump
+had ended, where Newton failed on 2⁸ substeps of the post-snap ringing; the amplification had
+been measured, and a failure before the jump ends stops the study with an error.
 
 
 ### Toy model
 
 β = 0.110 and L₀C = 0.655 (p. 20) give µ*vM = 0.24628 (paper 0.247, −0.29 %, from the three-digit
-rounding of β and L₀C), µ_A^vM = 0.24935 (0.25), frequencies at µ = ¼ of 0.6629 and 0.7320 (paper
-"0.663" and "0.734", labelled the other way round, see the extraction) and t_osc = 9.479 (9.477).
+rounding of β and L₀C), µ_A^vM = 0.24935 (0.25), angular frequencies at µ = ¼ of ω√(m/k)/α =
+0.6629 and 0.7320 (paper "0.663" and "0.734", printed as ω_A/t_osc and ω_S/t_osc and labelled the
+other way round, see the extraction) and t_osc = 9.479 √(m/k)/α (9.477). The time scale √(m/k)/α
+is that of (S72); the paper's "ω/t_osc" is ω in its inverse, dimensionless, and t_osc = 2π/ω.
 Integrating (S84)–(S85) and bisecting on whether the trajectory reaches f < 0 gives a critical rate
 of 0.1052 against the paper's 0.0961 from its near-saddle-node reduction (+9.4 %); this is reported,
 not checked.
@@ -172,12 +200,14 @@ damping, rotary inertia and the stopper's impact are not modelled.
 
 ## Evidence and what the badges count
 
-`VALIDATION.json` has three parts. `checks` (21, all passing) are 8 checks of our own (mesh
-orders, bifurcation order, symmetry without a seed, the rate effect, time step) and 13 against
+`VALIDATION.json` has three parts. `checks` (23, all passing) are 10 checks of our own (mesh
+orders, bifurcation order, symmetry without a seed, the rate effect, time step, the critical
+heights against the branch's eigenvalue crossings, the Fig. 2a rate against its travel and time)
+and 13 against
 numbers printed in the paper (also in `reference-results/published_comparison.json`), including the
 rate at which Fig. 2c's amplification falls below 2 (0.161 against 0.186, within 20 %, the spread of
 the paper's own points around A = 2). `not_reproduced` lists the comparisons we fail, each with its
-number and the tolerance it would need: Fig. 2c's amplitudes between µ̇ = 0.04 and 0.1 (median
+number and the tolerance it would need: Fig. 2c's amplitudes between |µ̇| = 0.04 and 0.1 (median
 |A_ours/A_paper − 1| = 0.73 for the largest A over phase, 0.84 for one clamp, against 0.25) and the
 toy model's critical rate (|0.1052/0.0961 − 1| = 0.094 against 0.01). `differences` keeps the
 row-by-row Fig. 2c numbers. The page's badge against the paper counts all of them: 13 of 16, marked
@@ -199,11 +229,22 @@ The catalogue area is `metamaterials`, the area of the catalogue's two other sna
 - Both clamps without a seed: largest |θ| below 10⁻⁶ rad (a thousandth of the default seed); the
   observed 2.4 × 10⁻¹⁰ is round-off amplified near the fold and differs between platforms.
 - Bifurcation order: µ*/µ_A ≤ 0.995 at α = π/12 (observed 0.9879).
+- Critical heights: 10⁻⁴ αL between h_A, h* and the heights where the drawn branch's ω²_A and ω²_S
+  cross zero, read by linear interpolation between branch points 0.002 αL apart (5 % of that
+  step; observed 4.1 × 10⁻⁶). The old heights, in L, were off by the factor α = 0.26 and fail it
+  by 0.10.
+- Fig. 2a rate: 10⁻⁹ relative between the travel's slope against `time_s` and `rate_m_s`; both
+  come from closed-form clamp motion, so only round-off separates them (observed 4.9 × 10⁻¹⁴).
+- Before reducing, `validate` checks that every run it reduces over is present (the 17 rates of
+  both sweeps, the four unseeded rates, the 40 sensitivity runs, both Fig. 2a runs, 707 runs in
+  all), snapped, and finite; a missing run or a NaN fails instead of vanishing in a max or min.
 - **WASM parity** (`check-wasm.mjs`, run by `build.sh`): the WASM build gives the same bits on
   every host, and differs from the native `replay.json` only through the last bits of libm,
   measured at 8 × 10⁻¹² before the snap and 2 × 10⁻¹⁰ after it (the asymmetry has grown 34 times
   by then). Before the snap: 10⁻⁹ on θ, h, t and µ, 1.5 × 10⁻⁷ on the node coordinates (stored
   rounded to 10⁻⁷). After it: 10⁻⁶. Outcome: 10⁻⁸ absolute plus 10⁻⁶ relative; critical points 10⁻⁹.
+  Both sides must be finite numbers (a `null` from a non-finite Rust value never passes), `snapped`
+  must agree, and without a snap every jump value must be `null` on both sides.
 - Evidence files are compared with a fresh run (`validate` without `--write`), which lists every
   number that moved. Numbers: 10⁻⁸ absolute plus 10⁻⁶ relative. They are converged equilibria,
   their eigenvalues and integrations on a fixed schedule, so between platforms they differ by
@@ -242,7 +283,7 @@ the sensitivity studies.
 
 ## Open questions for the authors
 
-1. **Rate units.** Is µ̇ = |ΔL̇|·T_osc·t*/(α²L), with T_osc = 0.108 and t* from the experimental
+1. **Rate units.** Is |µ̇| = |ΔL̇|·T_osc·t*/(α²L), with T_osc = 0.108 and t* from the experimental
    strip? The crosses of Fig. 2c sit at 2.34–2.42 s/m × |ΔL̇| (Table S1 rounding), which that gives
    (2.358 s/m); the figure's top axis implies 2.50 s/m.
 2. **Time origin.** The main text puts t = 0 at µ = µ* (and writes µ = µ* − |µ̇|t); SM p. 22 says

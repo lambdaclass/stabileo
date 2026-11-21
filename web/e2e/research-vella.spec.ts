@@ -14,7 +14,7 @@ test('@smoke research snap-through: the replay shows a seeded strip that snaps a
   await expect(page.locator('table.checks').first()).toContainText('57.86');
   await expect(page.getByText('Research, not a design tool.')).toBeVisible();
   const verify = page.locator('.rs-verify');
-  await expect(verify).toContainText('8 of 8 checks pass');
+  await expect(verify).toContainText('10 of 10 checks pass');
   await expect(verify).toContainText('13 of 16 checks pass');
   await expect(verify.locator('.fail')).toHaveCount(1);
   await expect(page.locator('table.checks tr.failed')).toHaveCount(3);
