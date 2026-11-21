@@ -2491,6 +2491,40 @@ function evaluateProvidedReinforcement(
       }
       return [...required].every(([key, count]) => count <= (counts.get(key) ?? 0));
     };
+    const shearSteelByFace = new Map<'top' | 'bottom', Array<{ from: number; to: number; row: number;
+      slots: readonly number[]; area: number; fromFace: number }>>();
+    const shearSteelAt = (face: 'top' | 'bottom', t: number) => {
+      let bars = shearSteelByFace.get(face);
+      if (!bars) {
+        const drawn = drawnBars?.filter(bar => bar.face === face) ?? [];
+        const rowDiameters = faceRowDiameters(drawn.map(bar => ({ ...bar, count: 1 })));
+        bars = drawn.map(bar => ({
+          from: bar.from, to: bar.to, row: bar.row, slots: bar.place.slots,
+          area: rebarGroupArea({ count: 1, diameter: bar.diameter }),
+          fromFace: stackedLayerDepth(rowDiameters, bar.row, bar.diameter,
+            diameter => section.cover + section.stirrupDia / 1000 + diameter / 2000, spacingRule.edition),
+        }));
+        shearSteelByFace.set(face, bars);
+      }
+      type Seat = { area: number; fromFace: number };
+      const rows = new Map<number, Map<number, Seat>>();
+      for (const { from, to, row: index, slots, area, fromFace } of bars) {
+        if (!(t >= from && t <= to)) continue;
+        const row = rows.get(index) ?? new Map<number, Seat>();
+        for (const slot of slots) {
+          const other = row.get(slot);
+          row.set(slot, other ? { area: Math.min(area, other.area), fromFace: Math.max(fromFace, other.fromFace) } : { area, fromFace });
+        }
+        rows.set(index, row);
+      }
+      let area = 0, firstMoment = 0;
+      for (const row of rows.values()) for (const bar of row.values()) {
+        area += bar.area;
+        firstMoment += bar.area * bar.fromFace;
+      }
+      const shift = face === 'top' ? topShift : bottomShift;
+      return { area, depth: area > 0 ? section.h - (firstMoment / area + shift) : 0 };
+    };
     const flexureDrawnRefusal = (o: {
       label: string; sign: 1 | -1; range: [number, number]; tuples: Tuple[];
       tension: RebarLayer[]; compression: RebarLayer[];
@@ -2886,16 +2920,16 @@ function evaluateProvidedReinforcement(
     // ρw of the tension steel in each region, for row (c): the top at the supports (the smaller
     // end, conservatively), the bottom along the span.
     const rhoOf = (cm2: number) => cm2 / (section.b * d * 1e4);
-    const rhoSupport = rhoOf(Math.min(layersTotalArea(topStartLayers), layersTotalArea(topEndLayers)));
-    const rhoSpan = rhoOf(layersTotalArea(bottomLayers));
+    const supportSteelArea = Math.min(layersTotalArea(topStartLayers), layersTotalArea(topEndLayers));
+    const spanSteelArea = layersTotalArea(bottomLayers);
     const startDepth = topStartLayers.length ? dTopStart : Infinity;
     const endDepth = topEndLayers.length ? dTopEnd : Infinity;
     const tensionDepth = (t: Tuple) => elementType === 'beam' && M(t) < -0.001
       ? (t.stationT <= tStartEnd ? startDepth : t.stationT >= tEndStart ? endDepth : Math.min(startDepth, endDepth))
       : Infinity;
-    const shearSpecs: Array<{ label: string; stir: StirrupDef | undefined; tuples: Tuple[]; range: [number, number]; rhoW: number }> = [
-      { label: `Shear Support (${axes.shear})`, stir: stirSupport, tuples: [...startTuples, ...endTuples], range: [0, tStartEnd], rhoW: rhoSupport },
-      { label: `Shear Span (${axes.shear})`, stir: stirSpan, tuples: spanTuples, range: [tStartEnd, tEndStart], rhoW: rhoSpan },
+    const shearSpecs: Array<{ label: string; stir: StirrupDef | undefined; tuples: Tuple[]; range: [number, number]; rhoW: number; steelArea: number }> = [
+      { label: `Shear Support (${axes.shear})`, stir: stirSupport, tuples: [...startTuples, ...endTuples], range: [0, tStartEnd], rhoW: rhoOf(supportSteelArea), steelArea: supportSteelArea },
+      { label: `Shear Span (${axes.shear})`, stir: stirSpan, tuples: spanTuples, range: [tStartEnd, tEndStart], rhoW: rhoOf(spanSteelArea), steelArea: spanSteelArea },
     ];
     /*
      * CIRSOC 201-2025 §9.6.3.1 and Tabla 9.6.3.1: a beam «de poca altura» (h ≤ 250 mm) is exempt
@@ -2958,23 +2992,30 @@ function evaluateProvidedReinforcement(
           { Ag: section.b * section.h, rhoW, h: section.h, edition: spacingRule.edition, unrounded: true });
         return { depth, capacity };
       };
-      const shearEvidenceRefusal = (t: Tuple, stirrups = stirrupsAt(t) ?? (ss.stir ? [ss.stir] : [])) => {
+      const shearEvidenceRefusal = (t: Tuple, cages?: readonly StirrupDef[]) => {
+        if (!drawnBars) return !forSelection && tensionDepth(t) < d ? 'diag.rcShearDepth' : undefined;
         const supportTop = t.stationT <= tStartEnd ? topStartLayers : topEndLayers;
         const regionalLayers = support ? supportTop : bottomLayers;
         const regionalFace = support ? 'top' : 'bottom';
         if (!layersAreDrawn(regionalFace, regionalLayers, t.stationT)) return 'diag.rcDrawnBarExtent';
         if (forSelection) return undefined;
-        if (tensionDepth(t) < d) return 'diag.rcShearDepth';
-        if (!drawnBars || elementType !== 'beam' || spacingRule.edition !== '2025') return undefined;
-        const moment = M(t);
-        const tensionFace = moment < -0.001 ? 'top' : moment > 0.001 ? 'bottom' : regionalFace;
-        if (tensionFace === regionalFace) return undefined;
-        const candidates = tensionFace === 'bottom' ? [bottomLayers] : [topStartLayers, topEndLayers];
-        const credited = support ? Math.min(layersTotalArea(topStartLayers), layersTotalArea(topEndLayers)) : layersTotalArea(bottomLayers);
-        const supported = candidates.some(layers => layersTotalArea(layers) >= credited
-          && layersAreDrawn(tensionFace, layers, t.stationT));
-        return !supported && stirrups.some(stir => shearAtCage(t, stir).capacity.avBelowMin)
-          ? 'diag.rcShearTensionSteel' : undefined;
+        if (elementType === 'beam' && spacingRule.edition === '2025') {
+          const moment = M(t);
+          const tensionFace = moment < -0.001 ? 'top' : moment > 0.001 ? 'bottom' : regionalFace;
+          if (tensionFace !== regionalFace) {
+            const stirrups = cages ?? stirrupsAt(t) ?? (ss.stir ? [ss.stir] : []);
+            const sparse = stirrups.map(stir => ({ stir, ...shearAtCage(t, stir) })).filter(check => check.capacity.avBelowMin);
+            if (sparse.length) {
+              const steel = shearSteelAt(tensionFace, t.stationT);
+              if (!(steel.area >= ss.steelArea)) return 'diag.rcShearTensionSteel';
+              if (sparse.some(({ stir, depth }) => !(steel.depth + (section.stirrupDia - stir.diameter) / 1000 >= depth))) {
+                return 'diag.rcShearDepth';
+              }
+              return undefined;
+            }
+          }
+        }
+        return tensionDepth(t) < d ? 'diag.rcShearDepth' : undefined;
       };
       let refusal: { reason: string; Vu: number; t: Tuple; missing?: true } | undefined;
       const evidenceCuts = [...drawnBarCuts, ...shearEvidenceCuts].filter(inRegion);

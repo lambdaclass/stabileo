@@ -1941,9 +1941,8 @@ it('#2373 drawn hogging shear cannot credit the sagging steel ratio', () => {
   }
 });
 
-const overlappingShear = process.env.RUN_KNOWN_WRONG === '2373' ? it : it.skip;
 
-overlappingShear('known wrong result: #2373 drawn hogging shear can verify mixed tension bars across overlapping layouts', () => {
+it('#2373 drawn hogging shear can verify mixed tension bars across overlapping layouts', () => {
   const L = 4;
   const member = { id: 1, L, tStart: 0.25, tEnd: 0.25, faceStart: 0, faceEnd: 0 };
   const specimen = (count: number, row: number, overlap: boolean, diameter = 14, hoopSpacing = 0.45, lap = false) => membersFromLine({
