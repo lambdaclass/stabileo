@@ -43,7 +43,7 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join, dirname, extname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { captureProblem, newPrerenderPage, prerenderConcurrency, routePool, waitForRenderedApp } from './prerender-pool';
+import { captureProblem, newPrerenderPage, PRERENDER_NAVIGATION_TIMEOUT_MS, prerenderConcurrency, routePool, waitForRenderedApp } from './prerender-pool';
 import { rootHandoffScript } from './root-handoff';
 import { notFoundPage } from './not-found-page';
 import { buildStarCount, serveStarCount } from './build-stars';
@@ -240,6 +240,11 @@ async function capture(page: Page, base: string, locale: Locale, path: string) {
   // happens on the address a reader actually lands on.
   const href = path === '/' ? `/${locale}/` : `/${locale}${path}/`;
   await page.goto(base + href, { waitUntil: 'networkidle' });
+  if (path === '/research/benchmarks/mattiasson-elastica') {
+    await page.locator('#app [data-testid="mattiasson-summary"]')
+      .filter({ hasText: /\d+\/\d+$/ })
+      .waitFor({ state: 'attached', timeout: PRERENDER_NAVIGATION_TIMEOUT_MS });
+  }
   const tool = findTool(path);
   if (tool?.kind === 'calculator' || tool?.kind === 'batch') await page.waitForSelector('head script[data-prerendered-result]', { state: 'attached', timeout: 60_000 });
   // Network idle is not rendered: a page whose next chunk is requested only after a long main-thread task looks idle in between.

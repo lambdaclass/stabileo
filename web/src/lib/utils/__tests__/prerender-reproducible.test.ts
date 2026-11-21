@@ -66,7 +66,7 @@ describe('two prerenders of one build are byte-identical (#875)', () => {
     expect(differing, differing.map(difference).join('\n')).toEqual([]);
   });
 
-  it.skip('known wrong result: #2365 — captures completed Mattiasson results when the solver starts late', async () => {
+  it('known wrong result: #2365 — captures completed Mattiasson results when the solver starts late', async () => {
     const out = mkdtempSync(join(WEB_ROOT, '.dist-mattiasson-'));
     try {
       cpSync(FIRST, out, { recursive: true });
