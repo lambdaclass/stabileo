@@ -1,4 +1,4 @@
-import { planarPointMoment, planarPointMomentWithoutProjection, planarPointProjectionTooShort } from '../engine/planar-point-load';
+import { planarNodalMoment, planarPointMoment, planarPointMomentWithoutProjection, planarPointProjectionTooShort } from '../engine/planar-point-load';
 import { hasModalSeismicDerivation } from '../engine/loads/seismic-generation';
 /**
  * Which features a saved model has, for deciding which registered result changes concern it.
@@ -50,7 +50,7 @@ export const FEATURE_IDS = [
   'connectors', 'connectorsWithShear', 'pathAnalysis',
   'stagedConstruction', 'generatedStructures', 'nodalMoments', 'trussMemberLoads', 'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'generatedLoads', 'generatedWindLoads', 'generatedSeismicLoads', 'unverifiedGeneratedSeismicLoads',
   'generatedWidthGravity', 'generatedPanelGravityShells', 'memberFloorZones', 'magnitudeCombinations',
-  'partialDistributedMemberLoads', 'distributedMemberLoads', 'spatialDistributedLoadOrientation', 'unplaceablePlanarPointLoads', 'planarStartCoupleWithoutProjection', 'legacyPlanarPointCoupleAliases', 'selfWeight', 'nonstandardPlanarSelfWeight', 'standaloneGravityToggleOff', 'nodalForces', 'forceSummaryResults',
+  'partialDistributedMemberLoads', 'distributedMemberLoads', 'spatialDistributedLoadOrientation', 'unplaceablePlanarPointLoads', 'planarStartCoupleWithoutProjection', 'legacyPlanarPointCoupleAliases', 'invalidPlanarNodalMomentAliases', 'selfWeight', 'nonstandardPlanarSelfWeight', 'standaloneGravityToggleOff', 'nodalForces', 'forceSummaryResults',
   'ssiHistory', 'movingLoads', 'combinations', 'cirsocCombinations', 'seismic', 'snow', 'wind', 'timeHistorySpec',
   'superposedCombinations', 'repeatedCombinationCases',
   ...ANALYSIS_KINDS.map((k) => `analysis:${k}` as const),
@@ -119,6 +119,7 @@ export interface FeatureSnapshot extends FeatureSnapshotFields {
 }
 
 export interface FeatureContext {
+  storedLoads?: FeatureSnapshot['loads'];
   /** The workspace the project opens in (the file's `analysisMode`). */
   analysisMode?: string;
   /** Analyses the project's results came from, as its stamp records them; null: not recorded. */
@@ -339,6 +340,11 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   let memberGravity = false;
   let shellGravity = false;
   let generatedSeismic = !!loadBasis?.seismic || loadNoteKeys.has('loadPlan.derivation.seismic');
+  const storedLoads = ctx.storedLoads ?? s.loads;
+  if (Array.isArray(storedLoads) && storedLoads.some(l => l.type === 'pointOnElement' && l.data &&
+      (nonZero(l.data.mz) || planarPointMoment(l.data) === null))) {
+    f.add('legacyPlanarPointCoupleAliases');
+  }
   for (const l of Array.isArray(s.loads) ? s.loads : []) {
     const t = l.type ?? '';
     const d = l.data ?? {};
@@ -354,8 +360,8 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
         || (fixedLoadFrame && [d.qYI, d.qYJ, d.qZI, d.qZJ].some(nonZero)))) {
       f.add('spatialDistributedLoadOrientation');
     }
+    if (t === 'nodal' && planarNodalMoment(d) === null) f.add('invalidPlanarNodalMomentAliases');
     if (t === 'pointOnElement') {
-      if (nonZero(d.mz) || planarPointMoment(d) === null) f.add('legacyPlanarPointCoupleAliases');
       const e = elementById.get(d.elementId as number);
       const i = e && nodeById.get(e.nodeI), j = e && nodeById.get(e.nodeJ);
       if (i && j && (i.z ?? 0) !== (j.z ?? 0) && planarPointProjectionTooShort(j.x - i.x, j.y - i.y)) {

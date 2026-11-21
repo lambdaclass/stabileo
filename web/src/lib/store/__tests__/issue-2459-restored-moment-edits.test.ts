@@ -1,4 +1,4 @@
-import { beforeEach, expect, it } from 'vitest';
+import { beforeEach, expect, it, vi } from 'vitest';
 import { computeDiagramValueAt } from '../../engine/diagrams';
 import { evaluateDiagramAt } from '../../engine/diagrams-3d';
 import { runDirectAnalysis } from '../../engine/direct-analysis';
@@ -13,9 +13,8 @@ import { solvePDelta } from '../../engine/wasm-solver';
 import { t } from '../../i18n';
 import { historyStore, modelStore, uiStore } from '..';
 import { deserializeProject, serializeProject } from '../file';
+import { recheckStore } from '../recheck.svelte';
 
-const knownWrong2459 = process.env.RUN_KNOWN_WRONG === '2459' ? it : it.skip;
-const ignored2459 = 'known wrong result: #2459';
 const loadCase = { id: 1, name: 'Couple', type: 'D' as const };
 const combination = { id: 1, name: 'Couple', factors: [{ caseId: loadCase.id, factor: 1 }] };
 const cases = [loadCase];
@@ -71,14 +70,14 @@ function momentJump(mode: '2d' | '3d', member: number) {
 }
 
 for (const mode of ['2d', '3d'] as const) {
-  knownWrong2459(`${ignored2459} clears a restored legacy planar point couple (${mode})`, () => {
+  it(`#2459 clears a restored legacy planar point couple (${mode})`, () => {
     const member = cantilever(mode);
     restorePointCouple(member, { mz: legacyMoment });
     expect(modelStore.updateLoad(loadId, { my: 0 })).toBe(true);
     expect(momentJump(mode, member)).toBeCloseTo(0, 4);
   });
 
-  knownWrong2459(`${ignored2459} replaces a restored legacy planar point couple (${mode})`, () => {
+  it(`#2459 replaces a restored legacy planar point couple (${mode})`, () => {
     const member = cantilever(mode);
     restorePointCouple(member, { mz: legacyMoment });
     expect(modelStore.updateLoad(loadId, { my: 3 })).toBe(true);
@@ -133,7 +132,7 @@ async function spaceSolves() {
 
 for (const mode of ['2d', '3d', 'pro', 'pdelta'] as const) {
   for (const edited of [0, 3]) {
-    knownWrong2459(`${ignored2459} solves the edited member moment ${edited} through ${mode} analysis`, async () => {
+    it(`#2459 solves the edited member moment ${edited} through ${mode} analysis`, async () => {
       const member = cantilever(mode);
       restorePointCouple(member, { mz: legacyMoment });
       const root = modelStore.model.elements.get(member)!.nodeI;
@@ -168,7 +167,7 @@ function expectCanonicalMoment(value: number) {
 
 for (const mode of ['2d', '3d'] as const) {
   for (const type of ['pointOnElement', 'nodal'] as const) {
-    knownWrong2459(`${ignored2459} keeps ${type} edits through history and save/open (${mode})`, () => {
+    it(`#2459 keeps ${type} edits through history and save/open (${mode})`, () => {
       const member = cantilever(mode);
       const fields = type === 'pointOnElement'
         ? { elementId: member, a: position, p: 0, mz: legacyMoment }
@@ -204,7 +203,7 @@ for (const mode of ['2d', '3d'] as const) {
   }
 
   for (const aliases of [{ my: legacyMoment, mz: legacyMoment }, { my: legacyMoment, mz: 0 }, { my: 0, mz: legacyMoment }]) {
-    knownWrong2459(`${ignored2459} collapses compatible aliases ${JSON.stringify(aliases)} (${mode})`, () => {
+    it(`#2459 collapses compatible aliases ${JSON.stringify(aliases)} (${mode})`, () => {
       const member = cantilever(mode);
       restorePointCouple(member, aliases);
       expect(momentJump(mode, member)).toBeCloseTo(legacyMoment, 4);
@@ -212,7 +211,7 @@ for (const mode of ['2d', '3d'] as const) {
     });
   }
 
-  knownWrong2459(`${ignored2459} treats an explicit zero nodal moment as zero (${mode})`, () => {
+  it(`#2459 treats an explicit zero nodal moment as zero (${mode})`, () => {
     const member = cantilever(mode);
     const nodeId = modelStore.model.elements.get(member)!.nodeJ;
     openLegacyFile('nodal', { nodeId, fx: 0, fz: 0, my: 0, mz: legacyMoment });
@@ -224,7 +223,7 @@ for (const mode of ['2d', '3d'] as const) {
   });
 
   for (const type of ['pointOnElement', 'nodal'] as const) {
-    knownWrong2459(`${ignored2459} preserves a genuine ${type} conflict and refuses the solve (${mode})`, async () => {
+    it(`#2459 preserves a genuine ${type} conflict and refuses the solve (${mode})`, async () => {
       const member = cantilever(mode);
       const nodeId = modelStore.model.elements.get(member)!.nodeJ;
       const aliases = { my: legacyMoment, mz: -legacyMoment };
@@ -235,7 +234,7 @@ for (const mode of ['2d', '3d'] as const) {
       expect(modelStore.loads[0]?.data).toMatchObject(aliases);
       const solve = () => mode === '2d' ? validateAndSolve2D(modelStore.model) : validateAndSolve3D(modelStore.model);
       const key = type === 'pointOnElement' ? 'svc.planarPointLoadMomentAliases' : 'svc.planarNodalLoadMomentAliases';
-      const refusal = t(key as Parameters<typeof t>[0]).replace('{load}', String(loadId))
+      const refusal = t(key).replace('{load}', String(loadId))
         .replace('{n}', String(type === 'pointOnElement' ? member : nodeId));
       const solves = mode === '2d' ? await planeSolves() : await spaceSolves();
       if (mode === '2d') {
@@ -252,3 +251,19 @@ for (const mode of ['2d', '3d'] as const) {
     });
   }
 }
+
+it('#2459 preserves result-change applicability when opening and resaving a legacy couple', async () => {
+  const member = cantilever('3d');
+  const file = JSON.parse(serializeProject());
+  delete file.snapshot.solvedWith;
+  file.snapshot.loads = [{
+    type: 'pointOnElement', data: { id: loadId, elementId: member, a: position, p: 0, my: 0, mz: legacyMoment },
+  }];
+  expect(deserializeProject(JSON.stringify(file))).toBe(true);
+  expectCanonicalMoment(legacyMoment);
+  await vi.waitFor(() => expect(recheckStore.assessment?.changes.map(c => c.id)).toEqual(expect.arrayContaining([
+    'planar-point-couple-aliases', 'restored-planar-moment-edits',
+  ])));
+  expect(deserializeProject(serializeProject())).toBe(true);
+  await vi.waitFor(() => expect(recheckStore.assessment?.changes.map(c => c.id)).toContain('restored-planar-moment-edits'));
+});

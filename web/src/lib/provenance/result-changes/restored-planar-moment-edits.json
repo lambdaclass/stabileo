@@ -1,0 +1,42 @@
+{
+  "id": "restored-planar-moment-edits",
+  "date": "2026-11-21",
+  "prs": [],
+  "area": "analysis",
+  "when": {
+    "any": [
+      "legacyPlanarPointCoupleAliases",
+      "invalidPlanarNodalMomentAliases"
+    ]
+  },
+  "quantities": [
+    "solve.ok",
+    "displacements",
+    "reactions",
+    "elementForces"
+  ],
+  "title": {
+    "en": "Edits to restored planar moments",
+    "es": "Edición de momentos planos restaurados",
+    "pt": "Edição de momentos planos restaurados",
+    "de": "Bearbeitung wiederhergestellter ebener Momente",
+    "fr": "Modification des moments plans restaurés",
+    "hu": "Visszaállított síkbeli nyomatékok szerkesztése",
+    "tr": "Geri yüklenen düzlemsel momentlerin düzenlenmesi",
+    "zh": "编辑恢复的平面力矩"
+  },
+  "explanation": {
+    "en": "Editing a restored planar point couple now replaces the stored moment, including an edit to zero. Conflicting nodal moment values stop the solve. Verify the intended moments in affected projects and rerun analysis.",
+    "es": "Al editar un par puntual plano restaurado se reemplaza el momento guardado, incluso al ingresar cero. Los valores de momento nodal incompatibles detienen el análisis. Verificá los momentos previstos en los proyectos afectados y volvé a ejecutar el análisis.",
+    "pt": "Editar um binário pontual plano restaurado substitui o momento guardado, mesmo ao introduzir zero. Valores incompatíveis de momento nodal interrompem a análise. Verifique os momentos pretendidos nos projetos afetados e repita a análise.",
+    "de": "Beim Bearbeiten eines wiederhergestellten ebenen Einzelmoments wird das gespeicherte Moment ersetzt, auch bei Eingabe von null. Widersprüchliche Knotenmomente stoppen die Berechnung. Prüfen Sie die vorgesehenen Momente in betroffenen Projekten und führen Sie die Berechnung erneut aus.",
+    "fr": "La modification d’un couple ponctuel plan restauré remplace le moment enregistré, y compris par zéro. Des valeurs incompatibles de moment nodal arrêtent le calcul. Vérifiez les moments prévus dans les projets concernés et relancez le calcul.",
+    "hu": "A visszaállított síkbeli pontnyomaték szerkesztése felülírja a tárolt nyomatékot, akkor is, ha az új érték nulla. Az ellentmondó csomóponti nyomatékértékek leállítják a számítást. Ellenőrizze a kívánt nyomatékokat az érintett projektekben, és futtassa újra a számítást.",
+    "tr": "Geri yüklenen düzlemsel noktasal moment düzenlendiğinde, girilen değer sıfır olsa bile kayıtlı moment değiştirilir. Çelişkili düğüm momenti değerleri çözümü durdurur. Etkilenen projelerde amaçlanan momentleri doğrulayın ve analizi yeniden çalıştırın.",
+    "zh": "编辑恢复的平面集中力偶时，输入的值（包括零）会替换已保存的力矩。节点力矩值冲突时会停止求解。请核对受影响项目中的预期力矩并重新运行分析。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-restored-planar-moment-edits.md",
+    "heading": "Edits to restored planar moments"
+  }
+}
