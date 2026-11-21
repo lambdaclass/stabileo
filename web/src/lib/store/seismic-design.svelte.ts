@@ -164,7 +164,10 @@ export function applySoftStoreys(contexts: ReadonlyMap<number, MemberContext>): 
 /** The frame as the checks read it, from the design contexts and the bars in the model. */
 function frameInput(): FrameMember[] {
   const { roles } = seismicRoleReadings(), combos = seismicComboIds();
-  const cases = new Map(modelStore.model.loadCases.map((c) => [c.id, c.type]));
+  const perCase = resultsStore.perCase3D;
+  const gravityCases = modelStore.model.loadCases.filter(c => c.type === 'D' || c.type === 'L')
+    .map(c => ({ factor: c.type === 'D' ? 1.2 : 1,
+      forces: new Map(perCase.get(c.id)?.elementForces?.map(f => [f.elementId, f])) }));
   const out: FrameMember[] = [];
   const drawnStirrups = savedLinePieces().pieces;
   const quads = [...modelStore.quads.values()] as Array<{ nodes: number[]; thickness: number }>;
@@ -190,15 +193,18 @@ function frameInput(): FrameMember[] {
     };
     if (ctx.elementType === 'beam') {
       // Gravity shear at the ends, 1,2D + L, from the cases.
-      const vg: [number, number] = [0, 0];
-      for (const [cid, res] of resultsStore.perCase3D) {
-        const t = cases.get(cid), k = t === 'D' ? 1.2 : t === 'L' ? 1.0 : 0;
-        const fi = k ? res.elementForces?.find((x) => x.elementId === ends.i) : undefined;
-        const fj = k ? res.elementForces?.find((x) => x.elementId === ends.j) : undefined;
-        if (!fi || !fj) continue;
-        const at = (f: typeof fi, end: boolean) => (ctx.axes.shear === 'Vy' ? (end ? f.vyEnd : f.vyStart) : (end ? f.vzEnd : f.vzStart));
-        vg[0] += k * at(fi, ends.iAtJ); vg[1] += k * at(fj, !ends.jAtI);
-      }
+      const endGravity = (): [number, number] | undefined => {
+        let vi = 0, vj = 0;
+        for (const { factor, forces } of gravityCases) {
+          const fi = forces.get(ends.i), fj = forces.get(ends.j);
+          if (!fi || !fj) return;
+          const at = (f: typeof fi, end: boolean) =>
+            ctx.axes.shear === 'Vy' ? (end ? f.vyEnd : f.vyStart) : (end ? f.vzEnd : f.vzStart);
+          vi += factor * at(fi, ends.iAtJ);
+          vj += factor * at(fj, !ends.jAtI);
+        }
+        return [Math.abs(vi), Math.abs(vj)];
+      };
       // The slab beside the beam: the shells sharing both nodes of its (first) element, each side a flange.
       const first = modelStore.model.elements.get(ends.i) ?? e;
       const sides = quads.filter((q) => q.nodes.includes(first.nodeI) && q.nodes.includes(first.nodeJ));
@@ -207,15 +213,19 @@ function frameInput(): FrameMember[] {
       const top = slabBase?.topX ?? slabBase?.topY;
       const perM = top ? (Math.PI * top.diameter ** 2 / 400) / top.spacing : 0.0009 * hf * 1e4; // cm²/m
       const slab = sides.length * Math.min(8 * hf, ln / 8) * perM;
-      out.push({ ...base, criticalSections: ctx.criticalSections, drawnStirrups: drawnStirrups.get(e.id)?.stirrups, faceHalf: [ctx.criticalSections?.start.halfDepth ?? 0, ctx.criticalSections?.end.halfDepth ?? 0], vg: [Math.abs(vg[0]), Math.abs(vg[1])], slabTop: [slab, slab] });
+      out.push({ ...base, criticalSections: ctx.criticalSections, drawnStirrups: drawnStirrups.get(e.id)?.stirrups, vg: endGravity(), slabTop: [slab, slab] });
     } else {
       const ps: number[] = [], vs: number[] = [];
+      const seen = new Set<number>();
       for (const c of ctx.stations?.comboResults ?? []) {
         if (combos.size && !combos.has(c.comboId)) continue;
+        if (c.stations.length) seen.add(c.comboId);
         for (const s of c.stations) { ps.push(-s.n); vs.push(Math.hypot(s.vy, s.vz)); }
       }
       const sec = columnSectionOf(ctx, r);
-      out.push({ ...base, b: ctx.section.b, h: ctx.section.h, ...(sec ? { section: sec } : {}), axial: { min: ps.length ? Math.min(...ps) : 0, max: ps.length ? Math.max(...ps) : 0 }, vu: vs.length ? Math.max(...vs) : 0 });
+      const forces = seen.size && [...combos].every(id => seen.has(id))
+        ? { axial: { min: Math.min(...ps), max: Math.max(...ps) }, vu: Math.max(...vs) } : {};
+      out.push({ ...base, b: ctx.section.b, h: ctx.section.h, ...(sec ? { section: sec } : {}), ...forces });
     }
   }
   return out;
@@ -241,7 +251,7 @@ export function applySeismicDetailing(): { beams: number; columns: number } {
   const writes = new Map<number, ProvidedReinforcement>();
   const ctxs = verificationStore.contexts;
   for (const m of rep.members) {
-    if (m.ok || m.role !== 'primary') continue;
+    if (m.role !== 'primary' || m.ok || m.refusal) continue;
     const r0 = getReinforcement(m.id), ctx = ctxs.get(m.id);
     if (!r0 || !ctx) continue;
     const r: ProvidedReinforcement = JSON.parse(JSON.stringify(r0));

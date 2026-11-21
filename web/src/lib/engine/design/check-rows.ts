@@ -66,14 +66,16 @@ const namedClause = (s: string) => /(?:Table|Tabla)\s+([\d.]+)/.exec(s)?.[0] ?? 
  */
 export function concreteCheckRows(p: ProvidedRebarResult, edition: string = CIRSOC201_DESIGN_EDITION): CheckRow[] {
   return p.checks.map((c) => {
-    const spec = c.limiting && c.limiting !== 'unsupportedCheck' ? CONCRETE[c.limiting] : undefined;
+    const shearRefused = c.limiting === 'unsupportedCheck' && (c.demandCategory === 'Vy' || c.demandCategory === 'Vz');
+    const limiting = shearRefused ? 'shear' : c.limiting;
+    const spec = limiting && limiting !== 'unsupportedCheck' ? CONCRETE[limiting] : undefined;
     // A wall's own minimum (`wall-minimum-steel.ts`) names Tabla 11.6.1 or §11.6.2 in its category.
     const wallMin = c.limiting === 'minSteel' ? /\((11\.6\.[12])\)$/.exec(c.category)?.[1] : undefined;
     const clause = wallMin ?? (spec ? (typeof spec.clause === 'function' ? spec.clause(p.elementType) : spec.clause)
       : c.limiting === 'unsupportedCheck' ? namedClause(c.description) ?? concreteClause(c.category) : concreteClause(c.category));
     const inputs: CheckInput[] = [
-      ...(spec && c.demand !== undefined ? [{ symbol: spec.demand, value: c.demand, unit: c.unit }] : []),
-      ...(spec && c.capacity !== undefined ? [{ symbol: spec.capacity, value: c.capacity, unit: c.unit }] : []),
+      ...(!shearRefused && spec && c.demand !== undefined ? [{ symbol: spec.demand, value: c.demand, unit: c.unit }] : []),
+      ...(!shearRefused && spec && c.capacity !== undefined ? [{ symbol: spec.capacity, value: c.capacity, unit: c.unit }] : []),
       ...(c.required !== undefined ? [{ symbol: 'req', value: c.required, unit: c.unit }] : []),
       ...(c.provided !== undefined ? [{ symbol: 'prov', value: c.provided, unit: c.unit }] : []),
     ];
@@ -81,9 +83,9 @@ export function concreteCheckRows(p: ProvidedRebarResult, edition: string = CIRS
       code: 'cirsoc-201', edition,
       ...(clause ? { clause } : {}),
       title: c.category,
-      ...(c.limiting ? { titleKey: `check.rc.${c.limiting}` } : {}),
+      ...(limiting ? { titleKey: `check.rc.${limiting}` } : {}),
       // The inequality; a provision this app does not evaluate states what it left out.
-      formula: spec?.formula ?? (c.description || undefined),
+      formula: shearRefused ? c.description : spec?.formula ?? (c.description || undefined),
       inputs,
       ...(c.demand !== undefined ? { demand: c.demand } : {}),
       ...(c.capacity !== undefined ? { capacity: c.capacity } : {}),
@@ -93,7 +95,7 @@ export function concreteCheckRows(p: ProvidedRebarResult, edition: string = CIRS
       status: c.limiting === 'unsupportedCheck' ? 'unsupported' : c.anchorHook ? 'fail' : fromVerifStatus(c.status),
       ...(c.comboName ? { combination: c.comboName } : {}),
       ...(c.stationX !== undefined ? { location: `x = ${c.stationX.toFixed(2)} m` } : {}),
-      ...(c.description && spec ? { derivation: [c.description] } : {}),
+      ...(c.description && spec && !shearRefused ? { derivation: [c.description] } : {}),
     };
   });
 }

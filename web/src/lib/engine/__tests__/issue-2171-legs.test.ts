@@ -12,7 +12,7 @@ import { checkTorsion, prepareElementVerification, sharedTorsionReinforcement, s
 import { lineFromMembers, membersFromLine } from '../design/beam-line';
 import { mirrorReinforcement } from '../design/repeated-frames';
 import type { DesignAxes } from '../design/design-axes';
-import { extractGoverningDemands, rankProvidedReinforcement, verifyProvidedReinforcement } from '../station-design-forces';
+import { computeShearCapacity, extractGoverningDemands, layerCentroid, layersTotalArea, prepareProvidedReinforcementRanker, rankProvidedReinforcement, verifyProvidedReinforcement } from '../station-design-forces';
 import type { AnalysisResults, SolverInput } from '../types';
 import type { AnalysisResults3D, SolverInput3D } from '../types-3d';
 import { computeStationDemands, runCirsocDesign, runUnifiedVerification } from '../verification-service';
@@ -1076,8 +1076,7 @@ function verifyBeamStations(
     { axes: { ...axes, bFlex: geometry.b, hFlex: geometry.h }, spacingRule: { edition: '2025', maxAggregateSizeMm: 20 } });
 }
 
-const issue2213 = process.env.RUN_KNOWN_WRONG === '2213' ? it : it.skip;
-issue2213('known wrong result: #2213 compression in another combination cannot waive the ductility check', () => {
+it('#2213 compression in another combination cannot waive the ductility check', () => {
   const geometry = { ...section, h: 0.35, fy: 500 };
   const steel = {
     top: { count: 4, diameter: 25 }, bottom: { count: 2, diameter: 16 },
@@ -1085,11 +1084,22 @@ issue2213('known wrong result: #2213 compression in another combination cannot w
   };
   const bending = { name: 'Bending', forces: { n: 0, my: -50, vz: 0, torsion: 0 } };
   const cirsoc201Section9331Threshold = 0.1 * geometry.fc * 1000 * geometry.b * geometry.h;
-  const compression = { name: 'Compression', forces: { n: -Math.ceil(cirsoc201Section9331Threshold), my: 0, vz: 0, torsion: 0 } };
-  const ductility = (groups: Parameters<typeof verifyBeamStations>[3]) =>
-    verifyBeamStations(geometry, steel, 12, groups).checks.filter(row => row.category.includes('ductility'));
-  expect(ductility([bending])).toEqual(expect.arrayContaining([expect.objectContaining({ status: 'fail' })]));
-  expect(ductility([bending, compression])).toEqual(expect.arrayContaining([expect.objectContaining({ status: 'fail' })]));
+  for (const extracted of [false, true]) {
+    const ductility = (groups: Parameters<typeof verifyBeamStations>[3]) =>
+      verifyBeamStations(geometry, steel, 12, groups, extracted).checks.filter(row => row.category.includes('ductility'));
+    const expected = expect.arrayContaining([expect.objectContaining({ status: 'fail', comboName: bending.name })]);
+    expect(ductility([bending])).toEqual(expected);
+    for (const n of [262.499, cirsoc201Section9331Threshold, 262.501, 263]) {
+      const compression = { name: 'Compression', forces: { n: -n, my: 0, vz: 0, torsion: 0 } };
+      expect.soft(ductility([bending, compression])).toEqual(expected);
+      expect.soft(ductility([compression, bending])).toEqual(expected);
+    }
+    for (const n of [262.499, cirsoc201Section9331Threshold, 262.501]) {
+      const concurrent = { ...bending, forces: { ...bending.forces, n: -n } };
+      if (n > cirsoc201Section9331Threshold) expect.soft(ductility([concurrent])).toHaveLength(0);
+      else expect.soft(ductility([concurrent]).length).toBeGreaterThan(0);
+    }
+  }
 });
 
 function tensionSpacingWitness(axialTension: number, vu: number) {
@@ -1748,6 +1758,328 @@ for (const nonlinear of [false, true]) {
   });
 }
 
+
+it('#2296 a stirrup gap at the loaded cut is already rejected on main', () => {
+  const L = 4;
+  const bars = { count: 3, diameter: 16 };
+  const hoops = { diameter: 8, legs: 2, spacing: 0.075 };
+  const check = (from: number, extracted: boolean) => {
+    const provided = membersFromLine({
+      version: 1, members: [1], lengths: [L],
+      bars: [
+        { ...bars, id: 'T', face: 'top', row: 0, role: 'main', from: 0, to: L },
+        { ...bars, id: 'B', face: 'bottom', row: 0, role: 'main', from: 0, to: L },
+      ],
+      stirrups: [{ ...hoops, id: 'S', from, to: L }],
+    }, [{ id: 1, L, tStart: 0.25, tEnd: 0.25, faceStart: 0, faceEnd: 0 }]).get(1)!;
+    return checkReviewBeam(section, provided, L,
+      [0, 0.05, 0.1, 1].map(t => ({ t, my: -20, n: 0, vy: 0, vz: t === 0.05 ? 40 : 0, torsion: 0 })),
+      extracted, '2025').find(row => row.category === 'Shear Support (Vz)');
+  };
+  for (const extracted of [false, true]) {
+    expect(check(0.4, extracted)).toMatchObject({ demand: 40, stationX: 0.2, status: 'fail', missingReinforcement: true, description: 'diag.rcShearGap' });
+    expect(check(0, extracted)).toMatchObject({ demand: 40, status: 'ok' });
+  }
+});
+
+it('#2355 span shear cannot credit top layers terminated before the loaded cut', () => {
+  const L = 4;
+  const outer = { count: 3, diameter: 16, row: 0 };
+  const inner = { count: 2, diameter: 16, row: 1 };
+  const bottom = { count: 3, diameter: 16 };
+  const hoops = { diameter: 8, legs: 4, spacing: 0.1 };
+  const t = 0.5;
+  const check = (extension: number, my: number, extracted: boolean) => {
+    const provided: ProvidedReinforcement = {
+      stirrups: hoops,
+      regions: {
+        bottomSpan: bottom,
+        topStartGroups: [{ layers: [outer], extensionEnd: extension }, { layers: [inner] }],
+        topEndGroups: [{ layers: [outer], extensionStart: extension }, { layers: [inner] }],
+      },
+    };
+    return checkReviewBeam(section, provided, L,
+      [0, 0.25, 0.499, t, 0.501, 0.75, 1].map(x => ({ t: x, my, n: 0, vy: 0, vz: x === t ? 429.65 : 0, torsion: 0 })),
+      extracted, '2025').find(row => row.category === 'Shear Span (Vz)');
+  };
+  for (const extracted of [false, true]) {
+    expect.soft(check(0.99, -20, extracted)).toMatchObject({ status: 'fail', ratio: Infinity, limiting: 'unsupportedCheck' });
+    expect.soft(check(1.01, -20, extracted)).toMatchObject({ capacity: expect.any(Number), status: 'ok' });
+    expect.soft(check(0.99, 20, extracted)).toMatchObject({ capacity: expect.any(Number), status: 'ok' });
+  }
+});
+
+function solvedVerdictBeam(spatial: boolean, nonlinear: boolean, geometry: typeof section, L: number) {
+  const nodes = new Map([[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: L, y: 0, z: 0 }]]);
+  const element = model.elements.get(1)!;
+  const iz = geometry.b * geometry.h ** 3 / 12;
+  const a = geometry.b * geometry.h;
+  const sec = { ...model.sections.get(1)!, ...geometry, a, iy: iz, iz };
+  const solvedModel = { ...model, nodes, sections: new Map([[1, sec]]) };
+  const run = (fx: number, fz: number, my: number) => {
+    if (spatial) {
+      const solver: SolverInput3D = {
+        ...solvedModel,
+        elements: new Map([[1, { ...element, releaseMyStart: false, releaseMyEnd: false,
+          releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }]]),
+        supports: new Map([[1, { nodeId: 1, rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true }]]),
+        loads: [{ type: 'nodal', data: { nodeId: 2, fx, fy: 0, fz, mx: 0, my, mz: 0 } }],
+      };
+      return nonlinear ? solvePDelta3D(solver).results : solve3D(solver);
+    }
+    const solver: SolverInput = {
+      ...solvedModel,
+      nodes: new Map([...nodes].map(([id, { x, z }]) => [id, { id, x, z }])),
+      elements: new Map([[1, { ...element, hingeStart: false, hingeEnd: false }]]),
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx, fz, my } }],
+    };
+    return planarResultForDesign(nonlinear ? solvePDelta(solver).results : solve(solver));
+  };
+  return { run, solvedModel };
+}
+
+for (const spatial of [false, true]) for (const nonlinear of [false, true]) {
+  const mode = `${spatial ? '3D' : '2D'} ${nonlinear ? 'P-Delta' : 'linear'}`;
+  it(`#2213 ${mode} keeps ductility separate from the strength envelope for either bending sign`, () => {
+    const geometry = { ...section, h: 0.35, fy: 500 };
+    const { run, solvedModel } = solvedVerdictBeam(spatial, nonlinear, geometry, 12);
+    const large = { count: 4, diameter: 25 }, small = { count: 2, diameter: 16 };
+    const stirrups = { diameter: 8, legs: 2, spacing: 0.1 };
+    for (const sign of [-1, 1]) {
+      const scenarios = [{ id: 1, name: 'Bending', factors: [] }, { id: 2, name: 'Compression and bending', factors: [] }];
+      const { demands, stations } = computeStationDemands(new Map([
+        [1, run(0, 0, sign * 50)], [2, run(-263, 0, sign * 170)],
+      ]), scenarios, solvedModel);
+      const first = stations.get(1)!.comboResults.find(c => c.comboId === 1)!.stations[0]!;
+      expect(Math.abs(first.my)).toBeCloseTo(50, 8);
+      const top = first.my < 0 ? large : small, bottom = first.my < 0 ? small : large;
+      const rowLabel = first.my < 0 ? 'Top Start (My-)' : 'Bottom Span (My+)';
+      for (const extracted of [false, true]) {
+        const args = [1, 'beam', { top, bottom, stirrups }, extracted ? demands.get(1) : undefined, {}, geometry,
+          extracted ? undefined : stations.get(1), undefined, { axes }] as const;
+        for (const report of [verifyProvidedReinforcement(...args), rankProvidedReinforcement(...args).ranking]) {
+          expect.soft(report.checks.find(row => row.category === rowLabel)?.comboName).toBe('Compression and bending');
+          expect.soft(report.checks.find(row => row.category === `${rowLabel} ductility`)).toMatchObject({
+            status: 'fail', comboName: 'Bending',
+          });
+        }
+      }
+    }
+  });
+
+  it(`#2355 ${mode} primary shear refuses a drawn outer-row gap between solved cuts`, () => {
+    const L = 4;
+    const { run, solvedModel } = solvedVerdictBeam(spatial, nonlinear, section, L);
+    const calc = (fz: number) => computeStationDemands(new Map([[1, run(0, fz, 0)]]), combos, solvedModel);
+    const isHogging = (result: ReturnType<typeof calc>) => result.stations.get(1)!.comboResults[0]!.stations[0]!.my < 0;
+    const up = calc(40);
+    const hogging = isHogging(up) ? up : calc(-40);
+    expect(isHogging(hogging)).toBe(true);
+    const cuts = hogging.stations.get(1)!.stationTs.filter(t => t > 0.25 && t < 0.75);
+    const a = cuts[0]! * L, b = cuts[1]! * L;
+    const gapStart = (2 * a + b) / 3, gapEnd = (a + 2 * b) / 3;
+    const outer = { count: 3, diameter: 16, face: 'top' as const, role: 'main' as const, row: 0 };
+    const inner = { ...outer, count: 2, row: 1 };
+    const bottom = { ...outer, face: 'bottom' as const };
+    const cage = { diameter: 8, legs: 4, spacing: 0.1 };
+    const provided = (gap: boolean) => membersFromLine({
+      version: 1, members: [1], lengths: [L],
+      bars: [
+        { ...outer, id: 'outer-start', from: 0, to: gap ? gapStart : L },
+        ...(gap ? [{ ...outer, id: 'outer-end', from: gapEnd, to: L }] : []),
+        { ...inner, id: 'inner', from: 0, to: L },
+        { ...bottom, id: 'bottom', from: 0, to: L },
+        { ...inner, face: 'bottom', id: 'bottom-inner', from: 0, to: L },
+      ],
+      stirrups: [{ ...cage, id: 'cage', from: 0, to: L }],
+    }, [{ id: 1, L, tStart: 0.25, tEnd: 0.25, faceStart: 0, faceEnd: 0 }]).get(1)!;
+    for (const extracted of [false, true]) for (const gap of [false, true]) {
+      const args = [1, 'beam', provided(gap), extracted ? hogging.demands.get(1) : undefined, {}, section,
+        extracted ? undefined : hogging.stations.get(1), undefined, { axes }] as const;
+      for (const report of [verifyProvidedReinforcement(...args), rankProvidedReinforcement(...args).ranking]) {
+        const row = report.checks.find(row => row.category === 'Shear Span (Vz)');
+        if (gap) {
+          expect.soft(row).toMatchObject({ status: 'fail', ratio: Infinity, limiting: 'unsupportedCheck', description: 'diag.rcShearCutoff' });
+          expect.soft(row?.stationX).toBeGreaterThan(gapStart);
+          expect.soft(row?.stationX).toBeLessThan(gapEnd);
+        } else {
+          expect.soft(row).toMatchObject({ status: 'ok', capacity: expect.any(Number) });
+        }
+      }
+    }
+  });
+}
+
+for (const spatial of [false, true]) for (const nonlinear of [false, true]) {
+  it(`#2355 retained outer bars establish hogging shear depth (spatial=${spatial}, nonlinear=${nonlinear})`, () => {
+    const L = 4;
+    const { run, solvedModel } = solvedVerdictBeam(spatial, nonlinear, section, L);
+    const calc = (fz: number) => computeStationDemands(new Map([[1, run(0, fz, 0)]]), combos, solvedModel);
+    const up = calc(40);
+    const hogging = up.stations.get(1)!.comboResults[0]!.stations[0]!.my < 0 ? up : calc(-40);
+    expect(hogging.stations.get(1)!.comboResults[0]!.stations[0]!.my).toBeLessThan(0);
+    const outer = { count: 3, diameter: 16, row: 0 };
+    const inner = { ...outer, count: 2, row: 1 };
+    const bottom = [outer, { ...inner, count: outer.count }];
+    const cage = { diameter: 8, legs: 4, spacing: 0.1 };
+    const check = (cut: 'inner' | 'outer' | 'both', drawn: boolean, extracted: boolean) => {
+      const runs = (layer: typeof outer, isCut: boolean) => isCut ? [
+        { ...layer, id: `${layer.row}-start`, from: 0, to: 1.4 },
+        { ...layer, id: `${layer.row}-end`, from: 2.6, to: L },
+      ] : [{ ...layer, id: `${layer.row}`, from: 0, to: L }];
+      const group = (layer: typeof outer, isCut: boolean, end: 'Start' | 'End') => (
+        { layers: [layer], ...(isCut ? { [`extension${end}`]: 0.4 } : {}) }
+      );
+      const outerCut = cut !== 'inner', innerCut = cut !== 'outer';
+      const provided: ProvidedReinforcement = drawn ? membersFromLine({
+        version: 1, members: [1], lengths: [L],
+        bars: [
+          ...[...runs(outer, outerCut), ...runs(inner, innerCut)]
+            .map(bar => ({ ...bar, face: 'top' as const, role: 'main' as const })),
+          ...bottom.map(layer => ({ ...layer, id: `bottom-${layer.row}`, face: 'bottom' as const, role: 'main' as const, from: 0, to: L })),
+        ],
+        stirrups: [{ ...cage, id: 'cage', from: 0, to: L }],
+      }, [{ id: 1, L, tStart: 0.25, tEnd: 0.25, faceStart: 0, faceEnd: 0 }]).get(1)! : {
+        stirrups: cage,
+        regions: {
+          bottomSpanLayers: bottom, topStartLayers: [outer, inner], topEndLayers: [outer, inner],
+          topStartGroups: [group(outer, outerCut, 'End'), group(inner, innerCut, 'End')],
+          topEndGroups: [group(outer, outerCut, 'Start'), group(inner, innerCut, 'Start')],
+        },
+      };
+      const args = [1, 'beam', provided, extracted ? hogging.demands.get(1) : undefined, {}, section,
+        extracted ? undefined : hogging.stations.get(1), undefined, { axes }] as const;
+      const [id, kind, rebar, ...memberData] = args;
+      const prepared = prepareProvidedReinforcementRanker(id, kind, ...memberData);
+      return [verifyProvidedReinforcement(...args), rankProvidedReinforcement(...args).ranking, prepared(rebar)]
+        .map(report => report.checks.find(row => row.category === 'Shear Span (Vz)'));
+    };
+    for (const drawn of [false, true]) for (const extracted of [false, true]) {
+      for (const supported of check('inner', drawn, extracted)) {
+        expect.soft(supported, `drawn=${drawn}, extracted=${extracted}, result=${supported?.description}`).toMatchObject({ status: 'ok', capacity: expect.any(Number) });
+      }
+      for (const cut of ['outer', 'both'] as const) for (const refused of check(cut, drawn, extracted)) {
+        expect.soft(refused).toMatchObject({ status: 'fail', ratio: Infinity, description: 'diag.rcShearCutoff' });
+      }
+    }
+  });
+}
+
+for (const spatial of [false, true]) for (const nonlinear of [false, true]) {
+  it(`#2355 row (c) uses the steel present at the hogging span cut (spatial=${spatial}, nonlinear=${nonlinear})`, () => {
+    const L = 4;
+    const outer = { count: 2, diameter: 16, row: 0 };
+    const inner = { ...outer, count: 4, row: 1 };
+    const bottom = [{ ...outer, count: 3 }, { ...inner, count: 2 }];
+    const hoops = { diameter: 8, legs: 2, spacing: 0.6 };
+    const d = section.h - layerCentroid(bottom, section.cover, hoops.diameter);
+    const capacity = (layers: typeof bottom) => computeShearCapacity(hoops.diameter, hoops.legs, hoops.spacing,
+      section.b, d, section.fc, section.fy, 0,
+      { Ag: section.b * section.h, h: section.h, rhoW: layersTotalArea(layers) / (section.b * d * 1e4), edition: '2025' });
+    const retained = capacity([outer]), credited = capacity(bottom);
+    expect(retained).toMatchObject({ evaluated: true, avBelowMin: true });
+    expect(credited).toMatchObject({ evaluated: true, avBelowMin: true });
+    expect(retained.phiVn).toBeLessThan(credited.phiVn);
+    expect(section.h - layerCentroid([outer, inner], section.cover, hoops.diameter)).toBeLessThan(d);
+    expect(section.h - layerCentroid([outer], section.cover, hoops.diameter)).toBeGreaterThan(d);
+    const force = (retained.phiVn + credited.phiVn) / 2;
+    const { run, solvedModel } = solvedVerdictBeam(spatial, nonlinear, section, L);
+    const calc = (fz: number) => computeStationDemands(new Map([[1, run(0, fz, 0)]]), combos, solvedModel);
+    const up = calc(force), down = calc(-force);
+    const hoggingUp = up.stations.get(1)!.comboResults[0]!.stations[0]!.my < 0;
+
+    const solvedCuts = (hoggingUp ? up : down).stations.get(1)!.stationTs.map(t => t * L);
+    expect(solvedCuts.some(x => x > 1.3 && x < 1.5)).toBe(false);
+
+    for (const drawn of [false, true]) for (const extracted of [false, true]) {
+      const check = (hogging: boolean, spanForce: number, cut: readonly [number, number]) => {
+        const drawnInner = cut[0] === 1 ? inner : { ...inner, count: 1 };
+        const input = spanForce === force ? (hogging === hoggingUp ? up : down)
+          : calc(hogging === hoggingUp ? spanForce : -spanForce);
+        const provided: ProvidedReinforcement = drawn ? membersFromLine({
+          version: 1, members: [1], lengths: [L],
+          bars: [
+            { ...outer, id: 'top', face: 'top', role: 'main', from: 0, to: L },
+            { ...drawnInner, id: 'top-start', face: 'top', role: 'main', from: 0, to: cut[0] },
+            { ...drawnInner, id: 'top-end', face: 'top', role: 'main', from: cut[1], to: L },
+            ...bottom.map(layer => ({ ...layer, id: `bottom-${layer.row}`, face: 'bottom' as const, role: 'main' as const, from: 0, to: L })),
+          ],
+          stirrups: [{ ...hoops, id: 'stirrups', from: 0, to: L }],
+        }, [{ id: 1, L, tStart: 0.25, tEnd: 0.25, faceStart: 0, faceEnd: 0 }]).get(1)! : {
+          stirrups: hoops,
+          regions: {
+            bottomSpanLayers: bottom, topStartLayers: [outer, inner], topEndLayers: [outer, inner],
+            topStartGroups: [{ layers: [outer] }, { layers: [inner], continueEnd: false }],
+            topEndGroups: [{ layers: [outer] }, { layers: [inner], continueStart: false }],
+          },
+        };
+        const args = [1, 'beam', provided, extracted ? input.demands.get(1) : undefined, {}, section,
+          extracted ? undefined : input.stations.get(1), undefined, { axes }] as const;
+        const [id, kind, rebar, ...memberData] = args;
+        return [verifyProvidedReinforcement(...args), rankProvidedReinforcement(...args).ranking,
+          prepareProvidedReinforcementRanker(id, kind, ...memberData)(rebar)]
+          .map(report => report.checks.find(row => row.category === 'Shear Span (Vz)'));
+      };
+      for (const [hogging, demand, expected, status] of [
+        [true, force, retained, 'fail'],
+        [true, retained.phiVn - 1, retained, 'warn'],
+        [true, retained.phiVn * 0.9, retained, 'ok'],
+        [false, force, credited, 'ok'],
+      ] as const) {
+        const cutouts = drawn ? [[1, 3], [1.3, 1.5]] as const : [[1, 3]] as const;
+        for (const cut of cutouts) {
+          const [verified, ...ranked] = check(hogging, demand, cut);
+          const context = `drawn=${drawn}, extracted=${extracted}, hogging=${hogging}, demand=${demand}, cut=${cut}`;
+          if (drawn && hogging) {
+            expect.soft(verified, context).toMatchObject({
+              status: 'fail', capacity: 0, ratio: Infinity, description: 'diag.rcShearTensionSteel', limiting: 'unsupportedCheck',
+            });
+          }
+          for (const row of drawn && hogging ? ranked : [verified, ...ranked]) {
+            expect.soft(row, context).toMatchObject({ status, capacity: expected.phiVn, ratio: +(demand / expected.phiVn).toFixed(3) });
+            if (hogging && cut[0] !== 1) {
+              expect.soft(row?.stationX, context).toBeGreaterThan(cut[0]);
+              expect.soft(row?.stationX, context).toBeLessThan(cut[1]);
+            }
+          }
+        }
+      }
+    }
+  });
+}
+
+it('#2355 withholds shear when hogging and shear overlap only inside a top-bar gap', () => {
+  const L = 4, left = 0.4, right = 0.6;
+  const outer = { count: 3, diameter: 16, row: 0, face: 'top' as const, role: 'main' as const };
+  const inner = { ...outer, row: 1, count: 2 };
+  const hoops = { diameter: 8, legs: 4, spacing: 0.1 };
+  const provided = membersFromLine({
+    version: 1, members: [1], lengths: [L],
+    bars: [
+      { ...outer, id: 'start', from: 0, to: left * L },
+      { ...outer, id: 'end', from: right * L, to: L },
+      { ...inner, id: 'inner', from: 0, to: L },
+      { ...outer, face: 'bottom', id: 'bottom', from: 0, to: L },
+    ],
+    stirrups: [{ ...hoops, id: 'hoops', from: 0, to: L }],
+  }, [{ id: 1, L, tStart: 0.25, tEnd: 0.25, faceStart: 0, faceEnd: 0 }]).get(1)!;
+  const check = (overlap: boolean, extracted: boolean) =>
+    checkReviewBeam(section, provided, L, [
+      { t: 0, my: 20, vz: 0 },
+      { t: left, my: 20, vz: 40 },
+      ...(!overlap ? [{ t: 0.5, my: 7.5, vz: 0 }] : []),
+      { t: right, my: -5, vz: 0 },
+      { t: 1, my: -5, vz: 0 },
+    ].map(t => ({ ...t, n: 0, vy: 0, torsion: 0 })), extracted, '2025')
+      .find(row => row.category === 'Shear Span (Vz)');
+  for (const extracted of [false, true]) {
+    const refused = check(true, extracted);
+    expect(refused).toMatchObject({ status: 'fail', ratio: Infinity, description: 'diag.rcShearCutoff' });
+    expect(refused?.stationX).toBeGreaterThan(0.5 * L);
+    expect(refused?.stationX).toBeLessThan(right * L);
+    expect(check(false, extracted)).toMatchObject({ status: 'ok', demand: 40 });
+  }
+});
 
 it('#2310 active torsion requires resolved secondary geometry and preserves small shear demand', () => {
   const stirrups = { ...cage, spacing: 0.06 };

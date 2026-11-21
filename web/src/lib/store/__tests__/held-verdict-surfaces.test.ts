@@ -81,7 +81,7 @@ function heldMembers(): Map<number, Set<Kind>> {
   }
   const rep = seismicState.report;
   for (const m of rep?.members ?? []) if (seismicMemberCheckRows(m).length) add(m.id, 'seismic');
-  for (const j of rep?.joints ?? []) if (!j.strongColumn.roof) for (const c of j.columns) add(c, 'seismic');
+  for (const j of rep?.joints ?? []) if (!j.strongColumn?.roof) for (const c of j.columns) add(c, 'seismic');
   return out;
 }
 
