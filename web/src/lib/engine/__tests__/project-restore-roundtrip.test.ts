@@ -45,7 +45,6 @@ import { input3DToWireObject, findUncloneablePath, isSolverReady, solve3D } from
 import type { Load, LoadCase } from '../../store/model.svelte';
 
 const EXAMPLE = 'pro-edificio-7p';
-const issue2409 = process.env.RUN_KNOWN_WRONG === '2409' ? it : it.skip;
 
 /**
  * The snapshot as the restore path actually receives it: every object and array wrapped in a
@@ -115,7 +114,6 @@ describe('project restore round-trip', () => {
   let beforeFingerprint: string;
   let beforeStructure: string;
   let beforeCases: number;
-  let storedSnapshot: ReturnType<typeof modelStore.snapshot>;
   let restoredOk = false;
 
   beforeAll(async () => {
@@ -128,8 +126,7 @@ describe('project restore round-trip', () => {
     // Save exactly as autosave does, reload exactly as the banner does: the parsed
     // payload is reactive (hence proxied) before `restore()` ever sees it.
     const stored = JSON.parse(serializeProject());
-    storedSnapshot = stored.snapshot;
-    modelStore.restore(deepProxy(storedSnapshot));
+    modelStore.restore(deepProxy(stored.snapshot));
     restoredOk = true;
   }, 300_000);
 
@@ -140,26 +137,12 @@ describe('project restore round-trip', () => {
       .toBe(beforeFingerprint);
   });
 
-  issue2409('known wrong result: #2409 stores a rigid link without DOFs for the restore round-trip', () => {
-    const rigid = (storedSnapshot.constraints ?? []).filter(c => c.type === 'rigidLink');
-    expect(rigid.length, 'the saved model carries rigid links to migrate').toBeGreaterThan(0);
-    expect(rigid.some(c => !('dofs' in c))).toBe(true);
-  });
-
-  issue2409('known wrong result: #2409 never converts a stored sequence into a unit value', () => {
-    // A rigid link with no stored `dofs` must come back with NO `dofs` key at all —
-    // an own property holding `undefined` is what serde rejects.
-    const rigid = modelStore.model.constraints.filter((c) => c.type === 'rigidLink');
-    expect(rigid.length, 'the example carries rigid links to migrate').toBeGreaterThan(0);
-    for (const c of rigid) {
-      if ('dofs' in c) expect(Array.isArray((c as { dofs?: unknown }).dofs)).toBe(true);
-    }
-    // Diaphragms must still carry their slave-node sequence.
-    for (const c of modelStore.model.constraints) {
-      if (c.type === 'diaphragm') {
-        expect(Array.isArray((c as { slaveNodes?: unknown }).slaveNodes)).toBe(true);
-        expect((c as { slaveNodes: number[] }).slaveNodes.length).toBeGreaterThan(0);
-      }
+  it('restores diaphragm slave-node sequences', () => {
+    const diaphragms = modelStore.model.constraints.filter(c => c.type === 'diaphragm');
+    expect(diaphragms.length, 'the example carries diaphragms to migrate').toBeGreaterThan(0);
+    for (const c of diaphragms) {
+      expect(Array.isArray(c.slaveNodes)).toBe(true);
+      expect(c.slaveNodes.length).toBeGreaterThan(0);
     }
   });
 
@@ -366,5 +349,54 @@ describe('constraint migration', () => {
     const diaphragm = (wire.constraints as Array<Record<string, unknown>>)
       .find((c) => c.type === 'diaphragm')!;
     expect(diaphragm.slaveNodes).toEqual([14, 15, 16]);
+  });
+});
+
+
+describe('legacy rigid-link restore round-trip', () => {
+  const side = 2;
+  const pressure = 1;
+  let master: number;
+  let slave: number;
+  let storedSnapshot: ReturnType<typeof modelStore.snapshot>;
+
+  beforeAll(() => {
+    modelStore.clear();
+    master = modelStore.addNode(0, 0, 0);
+    slave = modelStore.addNode(0, 0, 1);
+    const corners = [
+      modelStore.addNode(side, 0, 1),
+      modelStore.addNode(side, side, 1),
+      modelStore.addNode(0, side, 1),
+    ] as const;
+    for (const node of [master, ...corners]) modelStore.addSupport(node, 'fixed3d');
+    const quad = modelStore.addQuad([slave, ...corners], 1, 0.15);
+    modelStore.addConstraint({ type: 'rigidLink', masterNode: master, slaveNode: slave });
+    modelStore.addSurfaceLoad3D(quad, pressure);
+    storedSnapshot = JSON.parse(serializeProject()).snapshot;
+  });
+
+  it('stores a rigid link without DOFs for the restore round-trip', () => {
+    const rigid = (storedSnapshot.constraints ?? []).filter(c => c.type === 'rigidLink');
+    expect(rigid.length, 'the saved model carries rigid links to migrate').toBeGreaterThan(0);
+    expect(rigid.some(c => !('dofs' in c))).toBe(true);
+  });
+
+  it('never converts a stored sequence into a unit value', () => {
+    modelStore.restore(deepProxy(storedSnapshot));
+    const rigid = modelStore.model.constraints.filter(c => c.type === 'rigidLink');
+    expect(rigid.length, 'the fixture carries rigid links to migrate').toBeGreaterThan(0);
+    expect(rigid).toEqual([{ type: 'rigidLink', masterNode: master, slaveNode: slave }]);
+    expect('dofs' in rigid[0]!).toBe(false);
+
+    const input = buildSolverInput3D(modelStore.model, false, false);
+    expect(input).not.toBeNull();
+    const wire = input3DToWireObject(input!);
+    expect(findUncloneablePath(wire)).toBeNull();
+    expect(() => structuredClone(wire)).not.toThrow();
+
+    const result = solve3D(input!);
+    expect(result.reactions.find(r => r.nodeId === master)?.fz).toBeGreaterThan(0);
+    expect(result.reactions.reduce((sum, r) => sum + r.fz, 0)).toBeCloseTo(side ** 2 * pressure, 8);
   });
 });
