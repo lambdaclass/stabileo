@@ -276,6 +276,7 @@ export function plateProblem(m: PlateModel, outer: readonly number[], holes: rea
   }
   const temp = { id: 0, members: { nodes: ids }, data: { surface: { loops: [outer.length, ...holes.map((h) => h.length)], arcMids: [...arcMids] } as unknown as PlateSurface } };
   const raw = ids.map((id) => v3(m.nodes.get(id)!));
+  if (raw.some(p => !p.every(Number.isFinite))) return 'needNodes';
   const geo = plateGeometry(m, temp);
   if (!geo) return collinear(raw.slice(0, outer.length)) ? 'noArea' : 'selfIntersecting';
   const frame = geo.frame;
@@ -307,7 +308,7 @@ export function insidePlate(geo: PlateGeometry, p: Vec3): boolean {
 }
 
 /** A horizontal plate is a slab; one standing up is a wall. */
-export function plateKindOf(geo: PlateGeometry): 'slab' | 'wall' {
+export function plateKindOf(geo: Pick<PlateGeometry, 'frame'>): 'slab' | 'wall' {
   return Math.abs(geo.frame.n[2]) >= Math.cos((30 * Math.PI) / 180) ? 'slab' : 'wall';
 }
 

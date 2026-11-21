@@ -544,7 +544,7 @@ function createDesignRunStore() {
    */
   function designFamilies(
     selection: DesignFamilySelection,
-    opts: { verifierId?: string; edited?: 'keep' | 'overwrite' } = {},
+    opts: { verifierId?: string; edited?: 'keep' | 'overwrite'; maxRunMs?: number } = {},
   ): DesignRunReport {
     // Recorded before returning, so both the caller and the panel read one report.
     const record = <T extends DesignRunReport>(r: T): T => { lastFamilyReport = r; return r; };
@@ -581,7 +581,7 @@ function createDesignRunStore() {
         if (target.length > 0) {
           // The global command owns detailing, including its verifier. Run its feedback
           // once, before reading the repaired outcomes into the family summaries.
-          autoDesign(target, { deferDetailing: true, ...(opts.edited ? { edited: opts.edited } : {}) });
+          autoDesign(target, { deferDetailing: true, maxRunMs: opts.maxRunMs, ...(opts.edited ? { edited: opts.edited } : {}) });
           detailingStore.generate({ verifierId: opts.verifierId });
         }
 

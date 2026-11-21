@@ -34,7 +34,11 @@ test('the unified PRO mesher validates all drawn boundaries', async (t) => {
         try {
           await outline.fill(bad);
           await expect(apply).toBeDisabled();
-          await expect(mesher.getByText(/check the outline and data/i)).toBeVisible();
+          if (bad === '1, 2, 3, 2') {
+            await expect(mesher.getByText(/check the outline and data/i)).toBeVisible();
+          } else {
+            await expect(mesher.getByTestId('ms-input-error')).toContainText('Plate outline');
+          }
           assert.equal(await page.evaluate(() => window.mesherFixture.area()), 0);
           await outline.fill('1, 2, 3, 4');
           await apply.click();
@@ -55,7 +59,11 @@ test('the unified PRO mesher validates all drawn boundaries', async (t) => {
           const hole = mesher.locator('.ms-hole input');
           await hole.fill(bad);
           await expect(apply).toBeDisabled();
-          await expect(mesher.getByText(/check the outline and data/i)).toBeVisible();
+          if (bad === '5, 6, 7, 6') {
+            await expect(mesher.getByText(/check the outline and data/i)).toBeVisible();
+          } else {
+            await expect(mesher.getByTestId('ms-input-error')).toContainText('Plate hole 1');
+          }
           assert.equal(await page.evaluate(() => window.mesherFixture.area()), 0);
           const triangular = bad === '5, 6, 999';
           await hole.fill(triangular ? '5, 6, 7' : '5, 6, 7, 8');
@@ -78,7 +86,7 @@ test('the unified PRO mesher validates all drawn boundaries', async (t) => {
         const center = page.getByTestId('ms-hole-center-1');
         await center.fill('3; 3;');
         await expect(apply).toBeDisabled();
-        await expect(mesher.getByText(/check the outline and data/i)).toBeVisible();
+        await expect(mesher.getByTestId('ms-input-error')).toContainText('Plate hole 2');
         assert.equal(await page.evaluate(() => window.mesherFixture.area()), 0);
         await center.fill('3; 3; 0');
         await expect(apply).toBeEnabled();

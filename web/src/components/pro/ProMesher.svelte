@@ -9,10 +9,17 @@
 <script lang="ts">
   import { modelVec } from '../../lib/axes/display';
   import Hint from './Hint.svelte';
+  /**
+   * The shell mesher (`model/edit/mesher.ts`): an outline through nodes or a circle, holes as
+   * node polygons or circles, divisions and bias per side, quadrilaterals or triangles, and the
+   * mesh drawn flat before it goes in. It replaces the four-corner generator: four nodes are
+   * simply an outline with four sides.
+   */
   import { modelStore, uiStore } from '../../lib/store';
   import { t, tp } from '../../lib/i18n';
   import { generateMesh, type Loop2, type MeshInput, type SideSpec } from '../../lib/model/edit/mesher';
   import { applyMesh, modelPoints } from '../../lib/model/edit/mesh-apply';
+  import type { Vec3 } from '../../lib/model/edit/affine';
   import { fromDisplay, unitLabel } from '../../lib/utils/units';
   import { parseDecimal } from '../../lib/utils/numeric-input';
   import QuantityInput from './loads/QuantityInput.svelte';
@@ -22,7 +29,8 @@
   let outlineText = $state('');
   let circleCenter = $state('0; 0; 0');
   let circleRadius = $state(3);
-  let holes = $state<Array<{ kind: 'polygon' | 'circle'; nodes: string; center: string; radius: number }>>([]);
+  let invalidCircleRadius = $state<string | null>(null);
+  let holes = $state<Array<{ kind: 'polygon' | 'circle'; nodes: string; center: string; radius: number; invalidRadius: string | null }>>([]);
   let size = $state(0.5);
   let element = $state<'quad' | 'tri'>('quad');
   let sides = $state<SideSpec[]>([]);
@@ -31,70 +39,64 @@
   let splitBeams = $state(true);
   let message = $state<string | null>(null);
 
-  function polygonIds(text: string): number[] | null {
-    const tokens = text.trim().split(/[,\s;]+/).filter(Boolean);
-    if (tokens.length < 3 || tokens.some(token => !/^[+-]?\d+$/.test(token))) return null;
+  function polygon(text: string): { ids: number[]; loop: Loop2 } | null {
+    const tokens = text.trim().split(/\s*[,;]\s*|\s+/);
+    if (tokens.length < 3 || tokens.some(token => !/^\d+$/.test(token))) return null;
     const ids = tokens.map(Number);
-    if (new Set(ids).size !== ids.length || ids.some(id => !Number.isSafeInteger(id) || !modelStore.nodes.has(id))) return null;
-    return ids;
+    const points: Vec3[] = [];
+    for (const id of ids) {
+      const node = modelStore.nodes.get(id);
+      if (!node) return null;
+      points.push([node.x, node.y, node.z ?? 0]);
+    }
+    return { ids, loop: { kind: 'polygon', points } };
   }
 
-  function polygon(ids: readonly number[]): Loop2 {
-    return {
-      kind: 'polygon',
-      points: ids.map(id => {
-        const node = modelStore.nodes.get(id)!;
-        return [node.x, node.y, node.z ?? 0];
-      }),
-    };
+  function circle(text: string, radius: number, invalidRadius: string | null): Loop2 | null {
+    const values = text.split(';').map(parseDecimal);
+    if (invalidRadius !== null || !Number.isFinite(radius) || radius <= 0
+      || values.length !== 3 || values.some(value => value === null || !Number.isFinite(value))) return null;
+    const [x, y, z] = values.map(value => fromDisplay(value!, 'length', uiStore.unitSystem));
+    return { kind: 'circle', center: modelVec(x!, y!, z!) as Vec3, radius };
   }
-
-  function circle(text: string, radius: number): Loop2 | null {
-    const [x, y, z, ...extra] = text.split(';').map(parseDecimal);
-    if (x == null || y == null || z == null || extra.length || !Number.isFinite(radius) || radius <= 0) return null;
-    const length = (value: number) => fromDisplay(value, 'length', uiStore.unitSystem);
-    const center = modelVec(length(x), length(y), length(z));
-    return { kind: 'circle', center, radius };
-  }
-
   const lenUnit = $derived(unitLabel('length', uiStore.unitSystem));
 
   function fromSelection() { outlineText = [...uiStore.selectedNodes].join(', '); }
 
-  const outlineIds = $derived(outerKind === 'polygon' ? polygonIds(outlineText) : null);
+  const outlinePolygon = $derived(outerKind === 'polygon' ? polygon(outlineText) : null);
+  const outlineIds = $derived(outlinePolygon?.ids ?? []);
+  // One row per side; keep what was typed when the outline changes length.
   $effect(() => {
-    const n = outerKind === 'circle' ? 0 : outlineIds?.length;
-    if (n !== undefined && sides.length !== n) sides = Array.from({ length: n }, (_, i) => sides[i] ?? {});
+    const n = outerKind === 'polygon' ? outlineIds.length : 0;
+    if (n > 0 && sides.length !== n) sides = Array.from({ length: n }, (_, i) => sides[i] ?? {});
   });
 
-  const input = $derived.by((): MeshInput | null => {
-    const outer = outerKind === 'circle' ? circle(circleCenter, circleRadius) : outlineIds && polygon(outlineIds);
+  const parsed = $derived.by((): { input: MeshInput } | { hole: number } | null => {
+    const outer = outerKind === 'polygon' ? outlinePolygon?.loop : circle(circleCenter, circleRadius, invalidCircleRadius);
     if (!outer) return null;
-    const boundaries: Loop2[] = [];
-    for (const hole of holes) {
-      const ids = hole.kind === 'polygon' ? polygonIds(hole.nodes) : null;
-      const boundary = hole.kind === 'circle' ? circle(hole.center, hole.radius) : ids && polygon(ids);
-      if (!boundary) return null;
-      boundaries.push(boundary);
+    const loops: Loop2[] = [];
+    for (const [i, hole] of holes.entries()) {
+      const loop = hole.kind === 'polygon' ? polygon(hole.nodes)?.loop : circle(hole.center, hole.radius, hole.invalidRadius);
+      if (!loop) return { hole: i + 1 };
+      loops.push(loop);
     }
-    return { outer, holes: boundaries, size, element, sides: outer.kind === 'polygon' ? sides : undefined };
+    return { input: { outer, holes: loops, size, element, sides: outerKind === 'polygon' ? sides : undefined } };
   });
-
-  const proposal = $derived.by(() => {
-    if (!input) return null;
-    const mesh = generateMesh({ ...input, fixedPoints: modelPoints() });
-    return mesh ? { input, mesh } : null;
-  });
-  const mesh = $derived(proposal?.mesh ?? null);
+  const input = $derived(parsed && 'input' in parsed ? parsed.input : null);
+  const inputError = $derived(!parsed
+    ? (outerKind === 'circle' || outlineText.trim() ? t('mesher.invalidOutline') : null)
+    : 'hole' in parsed ? tp('mesher.invalidHole', { n: parsed.hole }) : null);
+  const mesh = $derived(input && size > 0 ? generateMesh({ ...input, fixedPoints: modelPoints() }) : null);
 
   function apply() {
-    if (!proposal) return;
-    const r = applyMesh(proposal.input, { materialId, thickness, splitBeams }, proposal.mesh);
+    if (!input || !mesh) return;
+    const r = applyMesh(input, { materialId, thickness, splitBeams }, mesh);
     if (!r) return;
     if (r.occupied) { message = t('mesher.occupied'); return; }
     message = tp('mesher.applied', { quads: r.quads.length, plates: r.plates.length, nodes: r.newNodes, split: r.splitCount });
   }
 
+  // ── Flat preview ──
   const W = 260, H = 180, PAD = 8;
   const preview = $derived.by(() => {
     if (!mesh || mesh.cells.length > 20000) return null;
@@ -119,7 +121,7 @@
       <input class="ms-wide" placeholder={t('mesher.outlinePlaceholder')} bind:value={outlineText} data-testid="ms-outline" />
       <button class="pro-btn" disabled={uiStore.selectedNodes.size < 3} onclick={fromSelection}>{t('mesher.fromSelection')}</button>
     </div>
-    {#if outlineIds && sides.length > 0}
+    {#if sides.length > 0}
       <table class="ms-sides">
         <thead><tr><th>{t('mesher.side')}</th><th>{t('mesher.divisions')}</th><th>{t('mesher.bias')}</th></tr></thead>
         <tbody>
@@ -136,18 +138,18 @@
   {:else}
     <div class="ms-row">
       <label>{t('mesher.center')} <input bind:value={circleCenter} placeholder="x; y; z" data-testid="ms-center" /> <span class="ms-unit">{lenUnit}</span></label>
-      <label>R <QuantityInput min={0.1} bind:value={circleRadius} quantity="length" cls="ms-num" testid="ms-radius" /></label>
+      <label>R <QuantityInput min={0.1} bind:value={circleRadius} quantity="length" cls="ms-num" testid="ms-radius" bind:invalidText={invalidCircleRadius} /></label>
     </div>
   {/if}
 
   <div class="ms-row"><span>{t('mesher.holes')}</span>
-    <button class="pro-btn" onclick={() => (holes = [...holes, { kind: 'circle', nodes: '', center: '0; 0; 0', radius: 0.5 }])} data-testid="ms-add-hole">+</button>
+    <button class="pro-btn" onclick={() => (holes = [...holes, { kind: 'circle', nodes: '', center: '0; 0; 0', radius: 0.5, invalidRadius: null }])} data-testid="ms-add-hole">+</button>
   </div>
-  {#each holes as h, i (i)}
+  {#each holes as h, i (h)}
     <div class="ms-row ms-hole">
       <select bind:value={h.kind}><option value="circle">{t('mesher.circle')}</option><option value="polygon">{t('mesher.polygon')}</option></select>
       {#if h.kind === 'polygon'}<input class="ms-wide" bind:value={h.nodes} placeholder={t('mesher.outlinePlaceholder')} />
-      {:else}<input bind:value={h.center} placeholder="x; y; z" data-testid="ms-hole-center-{i}" /> <span class="ms-unit">{lenUnit}</span> R <QuantityInput min={0.05} bind:value={h.radius} quantity="length" cls="ms-num" testid="ms-hole-r-{i}" />{/if}
+      {:else}<input bind:value={h.center} placeholder="x; y; z" data-testid="ms-hole-center-{i}" /> <span class="ms-unit">{lenUnit}</span> R <QuantityInput min={0.05} bind:value={h.radius} quantity="length" cls="ms-num" testid="ms-hole-r-{i}" bind:invalidText={h.invalidRadius} />{/if}
       <button class="pro-btn" onclick={() => (holes = holes.filter((_, k) => k !== i))}>×</button>
     </div>
   {/each}
@@ -168,11 +170,13 @@
   {#if mesh}
     {#if preview}<svg viewBox="0 0 {W} {H}" class="ms-preview" role="img" aria-label={t('mesher.preview')}><path d={preview} /></svg>{/if}
     <p class="ms-hint" data-testid="ms-summary">{tp(mesh.structured ? 'mesher.summaryStructured' : 'mesher.summary', { cells: mesh.cells.length, points: mesh.points.length })}</p>
-  {:else if outerKind === 'circle' || outlineText.trim() || holes.length}
+  {:else if inputError}
+    <p class="ms-warn" role="status" data-testid="ms-input-error">{inputError}</p>
+  {:else if input}
     <p class="ms-warn">{t('mesher.failed')}</p>
   {/if}
   <button class="pro-btn pro-btn-accent" disabled={!mesh} onclick={apply} data-testid="ms-apply">{t('pro.generateMesh')}</button>
-  {#if message}<p class="ms-hint" data-testid="ms-done">{message}</p>{/if}
+  {#if message && mesh}<p class="ms-hint" data-testid="ms-done">{message}</p>{/if}
 </div>
 
 <style>

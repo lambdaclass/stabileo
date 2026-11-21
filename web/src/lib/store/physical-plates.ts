@@ -1,3 +1,5 @@
+import { arcEdgeBetween as modelArcEdgeBetween, physicalPlateProblems, type PlateStatus } from '../model/physical/plate-analysis';
+import { wallSlabRefusal } from '../engine/plate-analysis-refusal';
 /**
  * Physical plates in the model (`model/physical/plate.ts`): made from an outline, meshed on demand
  * one at a time or many together, meshed again without leaving anything behind, and made ready
@@ -26,7 +28,6 @@ import {
   arcInterior, circleThrough, DEFAULT_PLATE_MESH, externalFeatures, gridOfSpec, memberChains, meshQuality, onOutline, plateGeometry, plateKindOf, plateLoops, plateMeshInput, plateProblem,
   plateSignature, plateSurfaceOf, type ArcSampler, type MeshQuality, type PlateMeshSpec, type PlateProblem, type PlateSurface,
 } from '../model/physical/plate';
-import { pieceOf } from '../model/curve-entity';
 import { cross, type Vec3 } from '../model/edit/affine';
 import { generateMesh, MAX_MESH_CELLS, MAX_MESH_POINTS, type MeshOutput } from '../model/edit/mesher';
 import { frameAlong, gridMesh } from '../model/edit/grid-mesh';
@@ -47,7 +48,7 @@ import { designData } from './design-data';
 import { tributaryAreas } from '../engine/foundation-springs';
 import type { ModelGroup, SupportType, SurfaceLoad3D } from './model.svelte';
 
-export type PlateStatus = 'unmeshed' | 'current' | 'stale' | 'invalid';
+export type { PlateStatus };
 
 export interface PlateEntry { id: number; name: string; group: ModelGroup; physical: PhysicalData; surface: PlateSurface }
 
@@ -91,20 +92,7 @@ const plateModel = () => ({ nodes: modelStore.nodes, elements: modelStore.elemen
  * A curved member running from node a to node b, as its nodes in order from a, or null. What a
  * plate's curved side between the same nodes follows, so the two share their nodes.
  */
-export function arcEdgeBetween(a: number, b: number): { arcId: number; nodes: number[] } | null {
-  const seen = new Set<number>();
-  for (const e of modelStore.elements.values()) {
-    if (!e.arc || seen.has(e.arc.id)) continue;
-    seen.add(e.arc.id);
-    const p = pieceOf(modelStore.model as never, e.id);
-    if (!p || p.kind !== 'arc') continue;
-    if (!((p.start === a && p.end === b) || (p.start === b && p.end === a))) continue;
-    const nodes = [p.start];
-    for (const seg of p.segments) { const x = modelStore.elements.get(seg.elementId)!; nodes.push(seg.reversed ? x.nodeI : x.nodeJ); }
-    return { arcId: e.arc.id, nodes: p.start === a ? nodes : nodes.reverse() };
-  }
-  return null;
-}
+export const arcEdgeBetween = (a: number, b: number) => modelArcEdgeBetween(modelStore.model, a, b);
 
 /**
  * How a mesh draws a curved side: through the nodes of the curved member on it, when one runs
@@ -1248,16 +1236,29 @@ export function deletePlate(id: number): void {
 
 export type PlatePreparation =
   | { ok: true; meshed: number; cells: number }
-  | { ok: false; reason: 'needsMesh'; plates: string[] }
+  | { ok: false; reason: 'needsMesh' | 'invalid'; plates: string[] }
+  | { ok: false; reason: 'wallSlab'; error: string }
   | { ok: false; reason: 'refused'; plates: string[] }
   | { ok: false; reason: 'localLoads'; plates: string[] };
 
+function invalidPreparation(): PlatePreparation | null {
+  const { invalid } = physicalPlateProblems(modelStore.model);
+  return invalid.length ? { ok: false, reason: 'invalid', plates: invalid } : null;
+}
+
+function prepared(meshed: number, cells: number): PlatePreparation {
+  const error = wallSlabRefusal(modelStore.model);
+  return error ? { ok: false, reason: 'wallSlab', error } : { ok: true, meshed, cells };
+}
+
 function checkPreparedPlates(report: PlateMeshReport): PlatePreparation {
+  const invalid = invalidPreparation();
+  if (invalid) return invalid;
   const loaded = report.refused.filter(({ reason }) => reason === 'localLoads');
   if (loaded.length) return { ok: false, reason: 'localLoads', plates: loaded.map(({ id }) => plateEntry(id)?.name ?? `#${id}`) };
   const incomplete = new Set([...report.refused.map(({ id }) => id), ...platesNeedingMesh({ coarse: false })]);
   if (incomplete.size) return { ok: false, reason: 'refused', plates: [...incomplete].map(id => plateEntry(id)?.name ?? `#${id}`) };
-  return { ok: true, meshed: report.plates, cells: report.cells };
+  return prepared(report.plates, report.cells);
 }
 
 /**
@@ -1267,8 +1268,10 @@ function checkPreparedPlates(report: PlateMeshReport): PlatePreparation {
  */
 export function preparePlatesForAnalysis(): PlatePreparation {
   // Plates still on the coarse shells they came with are meshed when asked to; otherwise they solve as they came.
+  const invalid = invalidPreparation();
+  if (invalid) return invalid;
   const need = platesNeedingMesh({ coarse: meshBeforeAnalysis.value });
-  if (!need.length) return { ok: true, meshed: 0, cells: 0 };
+  if (!need.length) return prepared(0, 0);
   const names = (ids: number[]) => ids.map((id) => plateEntry(id)?.name ?? `#${id}`);
   if (!meshBeforeAnalysis.value) return { ok: false, reason: 'needsMesh', plates: names(need) };
   const r = applyMeshingRun(meshingRun(planPlateMeshesNow(need), true));
@@ -1280,8 +1283,10 @@ export async function preparePlatesForAnalysisAsync(): Promise<PlatePreparation>
   // A mesh the plates' dialog started is let finish: two runs would write the model at once.
   while (meshProgress.now) await nextFrame();
   // Plates still on the coarse shells they came with are meshed when asked to; otherwise they solve as they came.
+  const invalid = invalidPreparation();
+  if (invalid) return invalid;
   const need = platesNeedingMesh({ coarse: meshBeforeAnalysis.value });
-  if (!need.length) return { ok: true, meshed: 0, cells: 0 };
+  if (!need.length) return prepared(0, 0);
   const names = (ids: number[]) => ids.map((id) => plateEntry(id)?.name ?? `#${id}`);
   if (!meshBeforeAnalysis.value) return { ok: false, reason: 'needsMesh', plates: names(need) };
   try {
