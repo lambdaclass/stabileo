@@ -173,7 +173,16 @@ fn lanczos_tridiag(
 /// If z is Some, accumulates Givens rotations into z (m×m row-major, starts as identity).
 ///
 /// Reference: Golub & Van Loan, Algorithm 8.3.3 (implicit symmetric QR step with Wilkinson shift).
-fn tridiag_qr_impl(d: &mut [f64], e: &mut [f64], m: usize, mut z: Option<&mut [f64]>) {
+fn tridiag_qr_impl(d: &mut [f64], e: &mut [f64], m: usize, z: Option<&mut [f64]>) {
+    // The rotations act on whole columns of z: they are kept contiguous here and written back
+    // row-major at the end, each entry computed by the same operations in the same order.
+    let mut columns: Option<Vec<f64>> = z.as_deref().map(|rows| {
+        let mut columns = vec![0.0; m * m];
+        for i in 0..m {
+            for k in 0..m { columns[k * m + i] = rows[i * m + k]; }
+        }
+        columns
+    });
     let max_iter = 30 * m;
     let mut iter = 0;
 
@@ -252,12 +261,12 @@ fn tridiag_qr_impl(d: &mut [f64], e: &mut [f64], m: usize, mut z: Option<&mut [f
             e[k] = c * w3 - s * w4;
 
             // Accumulate rotation into eigenvector matrix
-            if let Some(zz) = z.as_deref_mut() {
-                for i in 0..m {
-                    let z_ik  = zz[i * m + k];
-                    let z_ik1 = zz[i * m + k + 1];
-                    zz[i * m + k]     =  c * z_ik - s * z_ik1;
-                    zz[i * m + k + 1] =  s * z_ik + c * z_ik1;
+            if let Some(zz) = columns.as_deref_mut() {
+                let (left, right) = zz[k * m..(k + 2) * m].split_at_mut(m);
+                for (a, b) in left.iter_mut().zip(right.iter_mut()) {
+                    let (z_ik, z_ik1) = (*a, *b);
+                    *a = c * z_ik - s * z_ik1;
+                    *b = s * z_ik + c * z_ik1;
                 }
             }
 
@@ -278,14 +287,16 @@ fn tridiag_qr_impl(d: &mut [f64], e: &mut [f64], m: usize, mut z: Option<&mut [f
         }
         if min_idx != i {
             d.swap(i, min_idx);
-            if let Some(zz) = z.as_deref_mut() {
-                // Swap columns i and min_idx
+            if let Some(zz) = columns.as_deref_mut() {
                 for row in 0..m {
-                    let a = row * m + i;
-                    let b = row * m + min_idx;
-                    zz.swap(a, b);
+                    zz.swap(i * m + row, min_idx * m + row);
                 }
             }
+        }
+    }
+    if let (Some(rows), Some(columns)) = (z, columns) {
+        for i in 0..m {
+            for k in 0..m { rows[i * m + k] = columns[k * m + i]; }
         }
     }
 }
@@ -1217,6 +1228,108 @@ fn dot(a: &[f64], b: &[f64]) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The implicit QR step with its rotations accumulated row by row, as it was written before
+    /// the columns were kept contiguous.
+    fn tridiag_eigen_vecs_by_rows(alpha: &[f64], beta: &[f64], m: usize) -> (Vec<f64>, Vec<f64>) {
+        let mut d = alpha[..m].to_vec();
+        let mut e = vec![0.0; m];
+        for i in 1..m { e[i - 1] = beta[i]; }
+        let mut zz = vec![0.0; m * m];
+        for i in 0..m { zz[i * m + i] = 1.0; }
+        let max_iter = 30 * m;
+        let mut iter = 0;
+        let mut l_end = m;
+        while l_end > 1 && iter < max_iter {
+            let mut found_zero = false;
+            for i in (0..l_end - 1).rev() {
+                let tst = d[i].abs() + d[i + 1].abs();
+                if e[i].abs() <= 1e-14 * tst.max(1e-30) {
+                    e[i] = 0.0;
+                    if i == l_end - 2 { l_end -= 1; found_zero = true; break; }
+                }
+            }
+            if found_zero { continue; }
+            if l_end <= 1 { break; }
+            let mut l_start = l_end - 2;
+            while l_start > 0 {
+                let tst = d[l_start - 1].abs() + d[l_start].abs();
+                if e[l_start - 1].abs() <= 1e-14 * tst.max(1e-30) { e[l_start - 1] = 0.0; break; }
+                l_start -= 1;
+            }
+            iter += 1;
+            let (n1, n2) = (l_end - 1, l_end - 2);
+            let dd = (d[n2] - d[n1]) * 0.5;
+            let ee = e[n2] * e[n2];
+            let mut mu = d[n1];
+            if dd.abs() > 1e-30 || ee > 1e-30 {
+                let r = (dd * dd + ee).sqrt();
+                mu -= ee / (dd + if dd >= 0.0 { r } else { -r });
+            }
+            let mut x = d[l_start] - mu;
+            let mut y = e[l_start];
+            for k in l_start..l_end - 1 {
+                let (c, s) = if y.abs() > 1e-300 { let r = (x * x + y * y).sqrt(); (x / r, -y / r) } else { (1.0, 0.0) };
+                if k > l_start { e[k - 1] = (x * x + y * y).sqrt(); }
+                let (d_k, d_k1, e_k) = (d[k], d[k + 1], e[k]);
+                let w1 = c * d_k - s * e_k;
+                let w2 = c * e_k - s * d_k1;
+                d[k] = c * w1 - s * w2;
+                let w3 = s * d_k + c * e_k;
+                let w4 = s * e_k + c * d_k1;
+                d[k + 1] = s * w3 + c * w4;
+                e[k] = c * w3 - s * w4;
+                for i in 0..m {
+                    let z_ik = zz[i * m + k];
+                    let z_ik1 = zz[i * m + k + 1];
+                    zz[i * m + k] = c * z_ik - s * z_ik1;
+                    zz[i * m + k + 1] = s * z_ik + c * z_ik1;
+                }
+                if k + 2 < l_end { x = e[k]; y = -s * e[k + 1]; e[k + 1] *= c; }
+            }
+        }
+        for i in 0..m {
+            let mut min_idx = i;
+            for j in i + 1..m { if d[j] < d[min_idx] { min_idx = j; } }
+            if min_idx != i {
+                d.swap(i, min_idx);
+                for row in 0..m { zz.swap(row * m + i, row * m + min_idx); }
+            }
+        }
+        (d, zz)
+    }
+
+    #[test]
+    fn tridiagonal_eigenvectors_have_the_bits_of_the_row_by_row_accumulation() {
+        let mut state = 0x853C49E6748FEA9Bu64;
+        let mut unit = || {
+            state ^= state << 13;
+            state ^= state >> 7;
+            state ^= state << 17;
+            (state >> 11) as f64 / (1u64 << 53) as f64
+        };
+        for m in [2usize, 3, 4, 7, 16, 33, 64, 127, 200] {
+            for shape in 0..4 {
+                let alpha: Vec<f64> = (0..m).map(|i| match shape {
+                    0 => 2.0,
+                    1 => 1e6 * unit() - 5e5,
+                    2 => 10f64.powf(12.0 * unit() - 6.0),
+                    _ => (i % 5) as f64,
+                }).collect();
+                let beta: Vec<f64> = (0..m).map(|i| match shape {
+                    0 => -1.0,
+                    1 => 1e3 * unit(),
+                    2 => if i % 9 == 0 { 0.0 } else { 10f64.powf(8.0 * unit() - 6.0) },
+                    _ => if i % 4 == 0 { 1e-20 } else { 0.5 },
+                }).collect();
+                let (values, vectors) = tridiag_eigen_vecs(&alpha, &beta, m);
+                let (expected_values, expected_vectors) = tridiag_eigen_vecs_by_rows(&alpha, &beta, m);
+                assert!(values.iter().zip(&expected_values).all(|(a, b)| a.to_bits() == b.to_bits()), "values, order {m}, shape {shape}");
+                assert!(vectors.iter().zip(&expected_vectors).all(|(a, b)| a.to_bits() == b.to_bits()), "vectors, order {m}, shape {shape}");
+                assert!(tridiag_eigen(&alpha, &beta, m).iter().zip(&expected_values).all(|(a, b)| a.to_bits() == b.to_bits()));
+            }
+        }
+    }
 
     #[test]
     fn buckling_818_nonpositive_original_work_is_deflated() {

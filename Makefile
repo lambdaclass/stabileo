@@ -343,9 +343,12 @@ mutants.safety.report:
 mutants.safety.record:
 	python3 -I scripts/mutants-safety.py record $(or $(REPORT),mutants-safety-report.json) $(ARGS)
 
-.PHONY: bench.web.solve bench.web.design
+.PHONY: bench.web.solve bench.web.design bench.web.render
 bench.web.solve:
 	$(NIX_RUN) bash -c 'cd web && node scripts/bench-design.mjs --solve $(ARGS)'
+
+bench.web.render:
+	$(NIX_RUN) bash -c 'cd web && node scripts/bench-design.mjs --render $(ARGS)'
 
 bench.web.design:
 	$(NIX_RUN) bash -c 'cd web && node scripts/bench-design.mjs $(ARGS)'

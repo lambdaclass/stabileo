@@ -28,10 +28,12 @@ it('samples once per member while retaining the diagram scale and geometry', () 
     const mesh = group.children.find(c => c.userData.type === 'diagram3dMesh') as Mesh;
     const positions = mesh.geometry.getAttribute('position');
     expect(positions.count).toBe(42);
-    expect(positions.getZ(0)).toBe(0);
-    expect(positions.getZ(1)).toBeCloseTo(-0.4, 6);
-    expect(positions.getX(40)).toBe(5);
-    expect(positions.getZ(41)).toBeCloseTo(-0.4, 6);
+    // The vertices are held from the group, which stands at the model's centre.
+    expect(group.position.toArray()).toEqual([2.5, 0, 0]);
+    expect(positions.getZ(0) + group.position.z).toBe(0);
+    expect(positions.getZ(1) + group.position.z).toBeCloseTo(-0.4, 6);
+    expect(positions.getX(40) + group.position.x).toBe(5);
+    expect(positions.getZ(41) + group.position.z).toBeCloseTo(-0.4, 6);
   } finally { spy.mockRestore(); disposeObject(group); modelStore.clear(); }
 });
 
@@ -57,4 +59,219 @@ it('retains off-grid point-load jumps and variable-member boundaries', () => {
   const piecewise = diagrams.computeDiagram3D(ef, 'momentY');
   expect(piecewise.points.find(p => p.t === t)?.value).toBe(10);
   expect(piecewise.maxValue).toBe(20);
+});
+
+it('draws every member of a group with one set of materials and one marker geometry', async () => {
+  const THREE = await import('three');
+  const { createEnvelopeDiagramGroup3D } = await import('../diagram-render-3d');
+  modelStore.clear();
+  const nodes = [0, 5, 10, 15].map((x) => modelStore.addNode(x, 0, 0));
+  const ids = [0, 1, 2].map((i) => modelStore.addElement(nodes[i]!, nodes[i + 1]!));
+  const forces = ids.map((id, i) => ({ ...force(), elementId: id, myStart: 10 + i, myEnd: -(4 + i) }));
+  const group = createDiagramGroup3D(modelStore.elements, modelStore.nodes, forces, 'momentY', 1, false);
+  const tPositions = [0, 0.5, 1];
+  const envelope = createEnvelopeDiagramGroup3D(modelStore.elements, modelStore.nodes, {
+    kind: 'momentY', globalMax: 12,
+    elements: ids.map((id, i) => ({ elementId: id, tPositions, posValues: [10 + i, 4, 0], negValues: [0, -3, -(6 + i)] })),
+  } as never, 'momentY', 1, false);
+  try {
+    type Drawn = InstanceType<typeof THREE.Mesh>;
+    const of = (root: typeof group, type: string) => root.children.filter((c) => c.userData.type === type) as Drawn[];
+    const fills = of(group, 'diagram3dMesh'), outlines = of(group, 'diagram3dLine');
+    expect([fills.length, outlines.length]).toEqual([3, 3]);
+    expect(new Set(fills.map((m) => m.material)).size).toBe(1);
+    expect(new Set(outlines.map((m) => m.material)).size).toBe(1);
+    const fill = fills[0]!.material as InstanceType<typeof THREE.MeshBasicMaterial>;
+    expect([fill.opacity, fill.transparent, fill.depthWrite, fill.side]).toEqual([0.35, true, false, THREE.DoubleSide]);
+    expect(new Set(fills.map((m) => m.geometry)).size).toBe(3);
+    // The closing lines of all the members are one object, two segments a member, and so are the markers.
+    const closing = of(group, 'diagram3dClosing') as unknown as InstanceType<typeof THREE.LineSegments>[];
+    expect(closing.length).toBe(1);
+    expect(closing[0]).toBeInstanceOf(THREE.LineSegments);
+    const ends = closing[0]!.geometry.getAttribute('position');
+    expect(ends.count).toBe(12);
+    for (let member = 0; member < 3; member++) {
+      const curve = fills[member]!.geometry.getAttribute('position');
+      const last = curve.count - 2;
+      // Baseline to curve at the member's first and last stations, as the member's own fill has them.
+      expect([0, 1, 2, 3].map((v) => [ends.getX(4 * member + v), ends.getY(4 * member + v), ends.getZ(4 * member + v)]))
+        .toEqual([0, 1, last, last + 1].map((v) => [curve.getX(v), curve.getY(v), curve.getZ(v)]));
+    }
+    const markers = of(group, 'diagram3dMarkers') as unknown as InstanceType<typeof THREE.InstancedMesh>[];
+    expect(markers.length).toBe(1);
+    expect([markers[0]!.count, markers[0]!.renderOrder]).toEqual([3, 1]);
+    expect((markers[0]!.material as InstanceType<typeof THREE.MeshBasicMaterial>).depthTest).toBe(false);
+    const at = new THREE.Matrix4();
+    for (let member = 0; member < 3; member++) {
+      markers[0]!.getMatrixAt(member, at);
+      const curve = fills[member]!.geometry.getAttribute('position');
+      // Each member's largest moment is at its start: the marker stands on the curve there, the
+      // mesh at the first marker and each instance placed from it.
+      const origin = markers[0]!.position;
+      [origin.x + at.elements[12]!, origin.y + at.elements[13]!, origin.z + at.elements[14]!]
+        .forEach((v, axis) => expect(v).toBeCloseTo([curve.getX(1), curve.getY(1), curve.getZ(1)][axis]!, 5));
+      if (member === 0) expect([at.elements[12], at.elements[13], at.elements[14]]).toEqual([0, 0, 0]);
+      expect([at.elements[0], at.elements[5], at.elements[10]]).toEqual([1, 1, 1]);
+    }
+    expect(group.children.length).toBe(3 + 3 + 1 + 1);
+    const disposed = vi.spyOn(markers[0]!, 'dispose');
+    disposeObject(group);
+    expect(disposed).toHaveBeenCalledTimes(1);
+
+    // An envelope keeps its two colours apart: one set a curve.
+    for (const curve of ['pos', 'neg']) {
+      const meshes = envelope.children.filter((c) => c.userData.type === 'diagram3dEnvelopeMesh' && c.userData.curve === curve) as Drawn[];
+      expect(meshes.length).toBe(3);
+      expect(new Set(meshes.map((m) => m.material)).size).toBe(1);
+      expect((meshes[0]!.material as InstanceType<typeof THREE.MeshBasicMaterial>).opacity).toBe(0.25);
+    }
+    const colours = new Set((envelope.children.filter((c) => c.userData.type === 'diagram3dEnvelopeMesh') as Drawn[])
+      .map((m) => (m.material as InstanceType<typeof THREE.MeshBasicMaterial>).color.getHex()));
+    expect(colours.size).toBe(2);
+  } finally { disposeObject(group); disposeObject(envelope); modelStore.clear(); }
+});
+
+it('keeps markers far from the origin in view: the instanced mesh is culled by where its instances are', async () => {
+  const THREE = await import('three');
+  modelStore.clear();
+  const a = modelStore.addNode(5000, 3000, 40), b = modelStore.addNode(5005, 3000, 40);
+  const id = modelStore.addElement(a, b);
+  const group = createDiagramGroup3D(modelStore.elements, modelStore.nodes, [{ ...force(), elementId: id }], 'momentY', 1, false);
+  try {
+    const markers = group.children.find((child) => child.userData.type === 'diagram3dMarkers') as InstanceType<typeof THREE.InstancedMesh>;
+    const at = new THREE.Matrix4();
+    markers.getMatrixAt(0, at);
+    const placed = new THREE.Vector3().setFromMatrixPosition(at);
+    group.updateMatrixWorld(true);
+    const marker = placed.clone().applyMatrix4(markers.matrixWorld);
+    expect(marker.distanceTo(new THREE.Vector3(5000, 3000, 40))).toBeLessThan(10);
+    // What the renderer asks before it draws: a camera looking at the member, the origin 5.8 km behind it.
+    const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 100);
+    camera.position.set(marker.x, marker.y - 20, marker.z);
+    camera.up.set(0, 0, 1);
+    camera.lookAt(marker);
+    camera.updateMatrixWorld(true);
+    const frustum = new THREE.Frustum().setFromProjectionMatrix(new THREE.Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
+    expect(frustum.intersectsObject(markers)).toBe(true);
+    expect(frustum.containsPoint(new THREE.Vector3(0, 0, 0))).toBe(false);
+    expect(markers.boundingSphere!.containsPoint(placed)).toBe(true);
+  } finally { disposeObject(group); modelStore.clear(); }
+});
+
+it('draws a marker round at survey coordinates: the vertex shader adds in single precision', async () => {
+  const THREE = await import('three');
+  modelStore.clear();
+  // A one-metre member where a float32 holds X to 0.03 m and Y to 0.5 m.
+  const a = modelStore.addNode(500_000, 5_000_000, 12), b = modelStore.addNode(500_001, 5_000_000, 12);
+  const id = modelStore.addElement(a, b);
+  const group = createDiagramGroup3D(modelStore.elements, modelStore.nodes, [{ ...force(), elementId: id }], 'momentY', 1, false);
+  try {
+    const markers = group.children.find((child) => child.userData.type === 'diagram3dMarkers') as InstanceType<typeof THREE.InstancedMesh>;
+    const radius = (markers.geometry as InstanceType<typeof THREE.SphereGeometry>).parameters.radius;
+    expect(radius).toBeCloseTo(0.008, 9);
+    group.updateMatrixWorld(true);
+    const camera = new THREE.PerspectiveCamera(50, 1, 0.01, 100);
+    camera.position.set(500_000.5, 4_999_998, 12);
+    camera.up.set(0, 0, 1);
+    camera.lookAt(500_000.5, 5_000_000, 12);
+    camera.updateMatrixWorld(true);
+    // As three.js gives them to the shader: the model-view product formed in doubles and
+    // uploaded as float32, the instance matrix and the vertices float32 from the start.
+    const f = Math.fround;
+    const modelView = new THREE.Matrix4().multiplyMatrices(camera.matrixWorldInverse, markers.matrixWorld).elements.map(f);
+    const instance = Array.from(markers.instanceMatrix.array.slice(0, 16));
+    const transform = (m: ArrayLike<number>, [x, y, z]: number[]) => [0, 1, 2].map((r) =>
+      f(f(f(f(m[r]! * x!) + f(m[4 + r]! * y!)) + f(m[8 + r]! * z!)) + m[12 + r]!));
+    const vertices = markers.geometry.getAttribute('position');
+    const seen: number[][] = [];
+    for (let i = 0; i < vertices.count; i++) {
+      seen.push(transform(modelView, transform(instance, [vertices.getX(i), vertices.getY(i), vertices.getZ(i)])));
+    }
+    // In view space the sphere is still a sphere: its extent along each axis is its diameter.
+    for (const axis of [0, 1, 2]) {
+      const along = seen.map((p) => p[axis]!);
+      expect(Math.max(...along) - Math.min(...along)).toBeCloseTo(2 * radius, 3);
+    }
+    // And it stands where the member's diagram has its largest value, 2 m in front of the camera.
+    const centre = [0, 1, 2].map((axis) => seen.reduce((sum, p) => sum + p[axis]!, 0) / seen.length);
+    expect(Math.abs(centre[2]! + 2)).toBeLessThan(0.1);
+    expect(Math.hypot(centre[0]!, centre[1]!)).toBeLessThan(1);
+  } finally { disposeObject(group); modelStore.clear(); }
+});
+
+it('draws a diagram to the millimetre at survey coordinates: its vertices are held from the group, not from zero', async () => {
+  const THREE = await import('three');
+  modelStore.clear();
+  const a = modelStore.addNode(500_000, 5_000_000, 12), b = modelStore.addNode(500_001, 5_000_000, 12);
+  const id = modelStore.addElement(a, b);
+  const group = createDiagramGroup3D(modelStore.elements, modelStore.nodes, [{ ...force(), elementId: id }], 'momentY', 1, false);
+  try {
+    group.updateMatrixWorld(true);
+    const camera = new THREE.PerspectiveCamera(50, 1, 0.01, 100);
+    camera.position.set(500_000.5, 4_999_998, 12);
+    camera.up.set(0, 0, 1);
+    camera.lookAt(500_000.5, 5_000_000, 12);
+    camera.updateMatrixWorld(true);
+    const f = Math.fround;
+    // The shader's product: a float32 model-view matrix on float32 vertices.
+    const seenBy = (object: InstanceType<typeof THREE.Object3D>, [x, y, z]: number[]) => {
+      const m = new THREE.Matrix4().multiplyMatrices(camera.matrixWorldInverse, object.matrixWorld).elements.map(f);
+      return [0, 1, 2].map((r) => f(f(f(f(m[r]! * x!) + f(m[4 + r]! * y!)) + f(m[8 + r]! * z!)) + m[12 + r]!));
+    };
+    const fill = group.children.find((child) => child.userData.type === 'diagram3dMesh') as InstanceType<typeof THREE.Mesh>;
+    const vertices = fill.geometry.getAttribute('position');
+    expect(vertices.count).toBe(42);
+    const baseline = Array.from({ length: 21 }, (_, i) => seenBy(fill, [vertices.getX(2 * i), vertices.getY(2 * i), vertices.getZ(2 * i)]));
+    const curve = Array.from({ length: 21 }, (_, i) => seenBy(fill, [vertices.getX(2 * i + 1), vertices.getY(2 * i + 1), vertices.getZ(2 * i + 1)]));
+    for (let i = 1; i < 21; i++) {
+      // 21 stations a metre apart in all: 50 mm from one to the next, along the camera's x.
+      expect(baseline[i]![0]! - baseline[i - 1]![0]!).toBeCloseTo(0.05, 3);
+      expect(curve[i]![0]! - curve[i - 1]![0]!).toBeCloseTo(0.05, 3);
+    }
+    // The moment is uniform: the curve stands the same 80 mm (8 % of the model's size) off the baseline everywhere.
+    for (let i = 0; i < 21; i++) {
+      expect(Math.hypot(curve[i]![0]! - baseline[i]![0]!, curve[i]![1]! - baseline[i]![1]!, curve[i]![2]! - baseline[i]![2]!)).toBeCloseTo(0.08, 3);
+    }
+    // The outline and the closing segments are held the same way and meet the fill.
+    const outline = group.children.find((child) => child.userData.type === 'diagram3dLine') as unknown as InstanceType<typeof THREE.Mesh>;
+    const drawn = outline.geometry.getAttribute('position');
+    const first = seenBy(outline, [drawn.getX(0), drawn.getY(0), drawn.getZ(0)]);
+    expect(Math.hypot(first[0]! - curve[0]![0]!, first[1]! - curve[0]![1]!, first[2]! - curve[0]![2]!)).toBeLessThan(1e-3);
+    const closing = group.children.find((child) => child.userData.type === 'diagram3dClosing') as unknown as InstanceType<typeof THREE.Mesh>;
+    const ends = closing.geometry.getAttribute('position');
+    const from = seenBy(closing, [ends.getX(0), ends.getY(0), ends.getZ(0)]), to = seenBy(closing, [ends.getX(1), ends.getY(1), ends.getZ(1)]);
+    expect(Math.hypot(from[0]! - baseline[0]![0]!, from[1]! - baseline[0]![1]!, from[2]! - baseline[0]![2]!)).toBeLessThan(1e-3);
+    expect(Math.hypot(to[0]! - curve[0]![0]!, to[1]! - curve[0]![1]!, to[2]! - curve[0]![2]!)).toBeLessThan(1e-3);
+    // In the world the fill is where the member is.
+    const world = new THREE.Vector3(vertices.getX(0), vertices.getY(0), vertices.getZ(0)).applyMatrix4(fill.matrixWorld);
+    expect(world.distanceTo(new THREE.Vector3(500_000, 5_000_000, 12))).toBeLessThan(1e-4);
+  } finally { disposeObject(group); modelStore.clear(); }
+});
+
+it('leaves an instanced mesh marked as shared for its owner to dispose', async () => {
+  const THREE = await import('three');
+  const group = new THREE.Group();
+  const owned = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 4, 2), new THREE.MeshBasicMaterial(), 2);
+  const pooled = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 4, 2), new THREE.MeshBasicMaterial(), 2);
+  pooled.userData.shared = true;
+  group.add(owned, pooled);
+  const calls = [vi.spyOn(owned, 'dispose'), vi.spyOn(pooled, 'dispose')];
+  disposeObject(group);
+  expect(calls.map((spy) => spy.mock.calls.length)).toEqual([1, 0]);
+  pooled.geometry.dispose(); (pooled.material as InstanceType<typeof THREE.MeshBasicMaterial>).dispose(); pooled.dispose();
+});
+
+it('marks only the members whose values are worth marking', async () => {
+  const THREE = await import('three');
+  modelStore.clear();
+  const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(5, 0, 0), c = modelStore.addNode(10, 0, 0);
+  const big = modelStore.addElement(a, b), small = modelStore.addElement(b, c);
+  // The second member's values are under 5 % of the largest: it is drawn and not marked.
+  const group = createDiagramGroup3D(modelStore.elements, modelStore.nodes,
+    [{ ...force(), elementId: big, myStart: 100, myEnd: 100 }, { ...force(), elementId: small, myStart: 1, myEnd: 1 }], 'momentY', 1, false);
+  try {
+    expect(group.children.filter((child) => child.userData.type === 'diagram3dMesh').length).toBe(2);
+    const markers = group.children.filter((child) => child.userData.type === 'diagram3dMarkers') as unknown as InstanceType<typeof THREE.InstancedMesh>[];
+    expect(markers.map((m) => m.count)).toEqual([1]);
+  } finally { disposeObject(group); modelStore.clear(); }
 });
