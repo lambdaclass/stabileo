@@ -27,4 +27,8 @@ export const snapCard = {
     title: 'Miért csak lassú tehermentesítéskor ferdül el az átpattanó szalag',
     hook: 'Egy ferdén befogott acélszalag kifordított alakjából a természetes alakjába pattan át. Ha a végeket lassan húzzuk szét, egy parányi aszimmetria az ugrás alatt sokszorosára nő; ha gyorsan, a szalag szimmetrikusan pattan át.',
   },
+  zh: {
+    title: '为什么突跳的钢条只有在缓慢释放时才会歪斜',
+    hook: '一根以一定角度固定的钢条从倒置形状突跳到自然形状。缓慢拉开两端，微小的不对称在跳跃中放大数十倍；快速拉开，它对称地突跳。',
+  },
 };
