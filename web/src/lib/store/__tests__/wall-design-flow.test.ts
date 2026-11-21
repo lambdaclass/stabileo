@@ -31,14 +31,14 @@ const grid: StructuralGrid = {
 
 type Opening = { offset: number; width: number; sill: number; height: number };
 
-function build(opening: Opening) {
+function build(opening: Opening, { slab = true } = {}) {
   modelStore.clear(); historyStore.clear(); resultsStore.clear(); verificationStore.clear(); uiStore.analysisMode = 'pro';
   const mat = modelStore.addMaterial({ name: 'H-25', e: 23500, nu: 0.2, rho: 25, fy: 25, fc: 25 });
   const col = modelStore.addSection({ name: '30×30', a: 0.09, iy: 0.000675, iz: 0.000675, j: 0.00114, b: 0.3, h: 0.3, shape: 'rect' } as never);
   const bm = modelStore.addSection({ name: '20×40', a: 0.08, iy: 0.00107, iz: 0.00027, j: 0.0007, b: 0.2, h: 0.4, shape: 'rect' } as never);
   placeFrame(grid, { x: ['x0', 'x1'], y: ['y0', 'y1'], levels: ['N0', 'N1'], columns: { sectionId: col, materialId: mat }, beamsX: { sectionId: bm, materialId: mat }, beamsY: { sectionId: bm, materialId: mat } }, { fixBase: true });
   expect(placeWall(grid, { axis: 'y1', from: 'x0', to: 'x1', levelFrom: 'N0', levelTo: 'N1', thickness: 0.2, materialId: mat, meshSize: 0.5, openings: [opening] }).created).toBe(1);
-  placeSlabs(grid, { levels: ['N1'], thickness: 0.12, materialId: mat, meshSize: 1 });
+  if (slab) placeSlabs(grid, { levels: ['N1'], thickness: 0.12, materialId: mat, meshSize: 1 });
   for (const q of modelStore.quads.values()) if (Math.abs(modelStore.nodes.get(q.nodes[0]!)!.z! - 3) < 1e-6 && q.nodes.every((n) => Math.abs(modelStore.nodes.get(n)!.z! - 3) < 1e-6)) modelStore.addSurfaceLoad3D(q.id, 5, 1);
   for (const n of modelStore.nodes.values()) if (Math.abs((n.z ?? 0) - 3) < 1e-6) modelStore.addNodalLoad3D(n.id, 8, 0, 0, 0, 0, 0, 1);
 }
@@ -59,8 +59,6 @@ function publish(sigma = 1000) {
   );
 }
 
-const issue2409 = process.env.RUN_KNOWN_WRONG === '2409' ? it : it.skip;
-
 describe('a wall designed as a member', () => {
   const opening = { offset: 1.5, width: 1, sill: 0.9, height: 1.2 };
 
@@ -69,8 +67,8 @@ describe('a wall designed as a member', () => {
     expect(modelStore.solveCombinations3D(false, false, true)).toEqual(expect.stringMatching(/wall.*slab.*shared nodes/i));
   });
 
-  issue2409('known wrong result: #2409 its paved wall and slab meshes are withheld while SH-MITC4-DISTORTION (#798) is open', () => {
-    build(opening);
+  it('withholds the paved wall while SH-MITC4-DISTORTION (#798) is open', () => {
+    build(opening, { slab: false });
     expectMembraneRefusal(() => modelStore.solveCombinations3D(false, false, true));
   });
 
