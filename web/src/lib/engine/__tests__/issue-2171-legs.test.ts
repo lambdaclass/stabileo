@@ -13,6 +13,7 @@ import { lineFromMembers, membersFromLine } from '../design/beam-line';
 import { mirrorReinforcement } from '../design/repeated-frames';
 import type { DesignAxes } from '../design/design-axes';
 import { computeShearCapacity, extractGoverningDemands, layerCentroid, layersTotalArea, prepareProvidedReinforcementRanker, rankProvidedReinforcement, verifyProvidedReinforcement } from '../station-design-forces';
+import { extractForcesAtStation } from '../station-forces';
 import type { AnalysisResults, SolverInput } from '../types';
 import type { AnalysisResults3D, SolverInput3D } from '../types-3d';
 import { computeStationDemands, runCirsocDesign, runUnifiedVerification } from '../verification-service';
@@ -2056,7 +2057,7 @@ for (const spatial of [false, true]) for (const nonlinear of [false, true]) {
 
 const curtailedShearModes = ['station tuples', '2D linear', '2D P-Delta', '3D linear', '3D P-Delta'] as const;
 
-function checkRowCShear(mode: typeof curtailedShearModes[number] | 'continuous layout') {
+function checkRowCShear(mode: typeof curtailedShearModes[number] | 'continuous layout', curvedTransition = false) {
   const continuous = mode === 'continuous layout';
   const L = 4, left = 0.4, right = 0.6;
   const outer = { count: 2, diameter: 16, row: 0 };
@@ -2074,14 +2075,23 @@ function checkRowCShear(mode: typeof curtailedShearModes[number] | 'continuous l
   expect(section.h - layerCentroid([outer, inner], section.cover, hoops.diameter)).toBeLessThan(d);
   expect(section.h - layerCentroid([outer], section.cover, hoops.diameter)).toBeGreaterThan(d);
 
-  const high = retained.phiVn + 0.48 * (credited.phiVn - retained.phiVn);
+  const crossingFraction = 0.1;
+  const chordFraction = 1 - (1 - crossingFraction) ** 2;
+  const lower = retained.phiVn / (1 - crossingFraction);
+  const upper = Math.min(credited.phiVn, retained.phiVn / (1 - chordFraction));
+  const high = curvedTransition ? lower + 0.25 * (upper - lower)
+    : retained.phiVn + 0.48 * (credited.phiVn - retained.phiVn);
+  const threshold = -0.001;
   const solver = mode === 'station tuples' || continuous ? undefined
     : solvedVerdictBeam(mode.startsWith('3D'), mode.endsWith('P-Delta'), section, L);
   const solveCuts = (hogging: boolean, force: number) => {
     if (!solver) return;
     const end = 0.5;
     const load = { a: left * L, b: end * L, q: force / ((end - left) * L) };
-    const calc = (my: number) => computeStationDemands(new Map([[1, solver.run(0, 0, my, load)]]), combos, solver.solvedModel);
+    const calc = (my: number) => {
+      const result = solver.run(0, 0, my, load);
+      return { ...computeStationDemands(new Map([[1, result]]), combos, solver.solvedModel), result };
+    };
     const at = (value: ReturnType<typeof calc>, t: number) => value.stations.get(1)!.comboResults[0]!.stations.find(s => s.t === t)!;
     let base = calc(0);
     if (at(base, left).my < at(base, end).my) {
@@ -2090,7 +2100,8 @@ function checkRowCShear(mode: typeof curtailedShearModes[number] | 'continuous l
     }
     const ml = at(base, left).my;
     const change = at(calc(1), left).my - ml;
-    const target = hogging ? 0.005 : ml - at(base, end).my + 1;
+    const drop = ml - at(base, end).my;
+    const target = hogging ? (curvedTransition ? threshold + chordFraction * drop : 0.005) : drop + 1;
     return calc((target - ml) / change);
   };
   for (const drawn of [false, true]) for (const extracted of [false, true]) {
@@ -2117,12 +2128,15 @@ function checkRowCShear(mode: typeof curtailedShearModes[number] | 'continuous l
       },
     };
     for (const [hogging, force] of [[true, high], [true, retained.phiVn * 0.9], [false, high]] as const) {
-      const momentAtLeft = continuous && hogging ? -1 : 0.005;
+      const drop = force * (right - left) * L / 2;
+      const momentAtLeft = continuous && hogging ? -1
+        : hogging && curvedTransition ? threshold + chordFraction * drop : 0.005;
+      const momentAtRight = hogging ? (curvedTransition ? momentAtLeft - drop : -1) : 1;
       const stations = [
         { t: 0, my: momentAtLeft, vz: 0 },
         { t: left, my: momentAtLeft, vz: force },
-        { t: right, my: hogging ? -1 : 1, vz: 0 },
-        { t: 1, my: hogging ? -1 : 1, vz: 0 },
+        { t: right, my: momentAtRight, vz: 0 },
+        { t: 1, my: momentAtRight, vz: 0 },
       ].map(s => ({ ...s, x: s.t * L, n: 0, mz: 0, vy: 0, torsion: 0 }));
       const solved = solveCuts(hogging, force);
       const layout = solved?.stations.get(1) ?? { elementId: 1, length: L, stationTs: stations.map(s => s.t),
@@ -2133,6 +2147,20 @@ function checkRowCShear(mode: typeof curtailedShearModes[number] | 'continuous l
       expect(b.vz).toBeCloseTo(0, 8);
       if (!continuous) expect(a.my).toBeGreaterThan(-0.001);
       if (hogging) expect(b.my).toBeLessThan(-0.001);
+      if (hogging && curvedTransition) {
+        expect((a.my - threshold) / (a.my - b.my)).toBeCloseTo(chordFraction, 8);
+        if (solved) {
+          const element = solved.result.elementForces.find(ef => ef.elementId === 1)!;
+          const crossing = extractForcesAtStation(element, a.t + crossingFraction * (b.t - a.t));
+          expect(crossing.my).toBeCloseTo(threshold, 8);
+          expect(Math.abs(crossing.vz)).toBeCloseTo(force * (1 - crossingFraction), 8);
+        }
+        if (force === high) {
+          expect(force * (1 - chordFraction)).toBeLessThan(retained.phiVn);
+          expect(force * (1 - crossingFraction)).toBeGreaterThan(retained.phiVn);
+          expect(force).toBeLessThan(credited.phiVn);
+        }
+      }
       const demands = solved?.demands.get(1) ?? extractGoverningDemands(layout);
       const args = [1, 'beam', provided, extracted ? demands : undefined, {}, section,
         extracted ? undefined : layout, undefined, { axes, spacingRule: { edition: '2025', maxAggregateSizeMm: 20 } }] as const;
@@ -2146,7 +2174,8 @@ function checkRowCShear(mode: typeof curtailedShearModes[number] | 'continuous l
           expect.soft(row, context).toMatchObject({ status: 'fail', capacity: 0, ratio: Infinity, description: 'diag.rcShearTensionSteel' });
         } else if (hogging && force === high) {
           const fraction = continuous ? 0 : (a.my + 0.001) / (a.my - b.my);
-          const demand = Math.abs(a.vz + (b.vz - a.vz) * fraction);
+          const demand = curvedTransition
+            ? Math.max(Math.abs(a.vz), Math.abs(b.vz)) : Math.abs(a.vz + (b.vz - a.vz) * fraction);
           expect(demand).toBeGreaterThan(retained.phiVn);
           expect.soft(row, context).toMatchObject({
             status: 'fail', demand: +demand.toFixed(2), capacity: retained.phiVn, ratio: +(demand / retained.phiVn).toFixed(3),
@@ -2166,6 +2195,11 @@ function checkRowCShear(mode: typeof curtailedShearModes[number] | 'continuous l
 
 for (const mode of curtailedShearModes) {
   it(`#2355 round 4 row (c) uses the tension steel inside a curtailed interval (${mode})`, () => checkRowCShear(mode));
+}
+
+const transitionShear = process.env.RUN_KNOWN_WRONG === '2434' ? it : it.skip;
+for (const mode of curtailedShearModes) {
+  transitionShear(`known wrong result: #2434 bounds shear when distributed loading curves the hogging transition (${mode})`, () => checkRowCShear(mode, true));
 }
 
 const continuousShear = process.env.RUN_KNOWN_WRONG === '2355' ? it : it.skip;
