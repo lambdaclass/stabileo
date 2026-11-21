@@ -6,7 +6,8 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { build, resolveConfig } from 'vite';
 import { proPlatesSource, readProPlatesProfile } from './pro-plates-source.mjs';
-import { readRegistryAt } from './result-changes/registry.mjs';
+import { readRegistry, readRegistryAt } from './result-changes/registry.mjs';
+import { readProfileResultChanges } from './result-change-metadata.mjs';
 import { featuresForMode } from '../config/public-features.mjs';
 import { withProductionFeatures } from './public-features-test-fixture.mjs';
 
@@ -52,6 +53,14 @@ test('production with unified plates off uses the shared portable project codec'
     assert.equal(active === current, true, path);
     assert.equal(resolveSource.read(absolute) === current, true, path);
   }
+});
+
+test('production keeps the complete pinned results registry #2365', { skip: 'known wrong result: #2365' }, () => {
+  assert.deepEqual(readProfileResultChanges(false), readRegistryAt(base));
+});
+
+test('the unified profile keeps its checkout results registry #2365', () => {
+  assert.deepEqual(readProfileResultChanges(true), readRegistry());
 });
 
 test('disabled builds load the main solver and results version and the validated mesher', async () => {
