@@ -144,9 +144,16 @@ test('canonical text tells apart what the bits tell apart', () => {
   assert.notEqual(canonical({ a: 1, b: 2 }), canonical({ a: 1, b: 3 }));
 });
 
+test('2D plastic certification is released only with a certified collapse factor (#758)', () => {
+  for (const name of ['plastic-2d-portal/certify_plastic_2d', 'plastic-2d-continuous/certify_plastic_2d']) {
+    mustFail(name, (v) => { v.certificate.certified = false; }, 'uncertified');
+    mustFail(name, (_v, r) => { r.text = 'ERR: refused'; }, 'refused');
+  }
+});
+
 test('2D plastic requires the specific refusal, never arbitrary errors or success', () => {
-  const refused = reference.filter(r => /^plastic-2d-.*\/((solve|certify)_plastic_2d|export_plastic_bundle_2d)$/.test(r.name));
-  assert.equal(refused.length, 6);
+  const refused = reference.filter(r => /^plastic-2d-.*\/(solve_plastic_2d|export_plastic_bundle_2d)$/.test(r.name));
+  assert.equal(refused.length, 4);
   for (const r of refused) {
     for (const text of ['ERR: unrelated', '{}', r.text.replaceAll('758', '759'), r.text.replaceAll('PL-2D-INVARIANCE', 'OTHER')]) {
       mustFail(r.name, (_v, r) => { r.text = text; }, text);
