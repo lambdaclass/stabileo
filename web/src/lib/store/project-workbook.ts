@@ -19,6 +19,7 @@ import { elementStationDeflections } from './service-deflection';
 import { downloadBlob } from './file';
 import { i18n, t } from '../i18n';
 import { buildSolverInput3D } from '../engine/solver-service';
+import { PlateAnalysisError } from '../engine/plate-analysis-refusal';
 import { sectionStressModel } from '../engine/member-stresses';
 import { toCsv } from '../engine/result-tables';
 import type { StationSpec } from '../engine/station-forces';
@@ -103,15 +104,23 @@ export function currentWorkbookSheets(stations: StationSpec, opts: WorkbookOptio
 }
 
 export function currentWorkbookParts(stations: StationSpec, opts: WorkbookOptions = {}, record?: ResultProvenance): WorkbookPart[] {
-  if (opts.results !== false || opts.design !== false) {
+  const modelOnly = opts.results === false && opts.design === false;
+  if (!modelOnly) {
     const disposition = uiStore.is3DWorkspace ? resultsStore.knownIssues3D : resultsStore.knownIssues;
     if (disposition.refused) throw new ContainmentExportError(disposition.messages.join('\n'));
   }
   const model = workbookModel();
+  let solved: ProjectWorkbookInput['solved'] = null;
+  try {
+    if (!modelOnly || opts.model !== false) solved = buildSolverInput3D(model, false, false, { expandMemberOffsets: false });
+  } catch (error) {
+    if (!(error instanceof PlateAnalysisError)) throw error;
+    if (!modelOnly) throw new ContainmentExportError(error.message);
+  }
   const exported = new Date().toISOString();
   const input: ProjectWorkbookInput = {
     model,
-    solved: buildSolverInput3D(model, false, false, { expandMemberOffsets: false }),
+    solved,
     projectName: modelStore.model.name,
     projectInfo: modelStore.projectInfo,
     meta: { exported, commit: `${APP_VERSION} (${BUILD_COMMIT})`, provenance: provenanceTextLines(record ?? currentResultProvenance(), provenanceLabels()) },
@@ -144,7 +153,7 @@ export function currentWorkbookParts(stations: StationSpec, opts: WorkbookOption
     ],
   };
   const parts = projectWorkbookParts(input);
-  if (opts.results !== false || opts.design !== false) {
+  if (!modelOnly) {
     const disposition = uiStore.is3DWorkspace ? resultsStore.knownIssues3D : resultsStore.knownIssues;
     const index = parts.findIndex(p => p.name === 'Warnings');
     const warnings = index < 0 ? undefined : materialize(parts[index]!);
