@@ -12712,6 +12712,7 @@ const en: Record<string, string> = {
   'svc.pointMomentOnTruss': 'Member {n} takes no bending (a truss or one-way member) and carries a concentrated moment. Move the moment to a node or change the member\'s type.',
   'svc.planarPointLoadNoProjection': 'Planar point load {load} cannot be applied because member {n} has no usable projection in the load plane. Replace it with a 3D member point load.',
   'svc.planarPointLoadMomentAliases': 'Planar point load {load} on member {n} has conflicting or invalid moment aliases (my and mz). Enter one finite moment.',
+  'svc.planarNodalLoadMomentAliases': 'Planar load {load} at node {n} has conflicting or invalid moment aliases (my and mz). Enter one finite moment.',
   'svc.loadOnMissingMember': 'Load {load} is on member {n}, which the model does not have. Delete the load or put it on a member.',
   'svc.loadOnMissingNode': 'Load {load} is on node {n}, which the model does not have. Delete the load or put it on a node.',
   'svc.imposedUnsupported': 'An imposed displacement needs a support that restrains that direction in global axes. Nodes without one: {list}.',

@@ -12273,6 +12273,7 @@ const zh: Translations = {
   "svc.pointMomentOnTruss": "杆件 {n} 不受弯（桁架杆或单向杆件），却承受集中力矩。请将力矩移到节点上，或更改杆件类型。",
   "svc.planarPointLoadNoProjection": "杆件 {n} 在荷载平面内没有可用的投影，无法施加平面集中荷载 {load}。请改用三维杆件集中荷载。",
   "svc.planarPointLoadMomentAliases": "杆件 {n} 上的平面集中荷载 {load} 的力矩字段（my 和 mz）冲突或无效。请输入一个有限的力矩值。",
+  "svc.planarNodalLoadMomentAliases": "节点 {n} 的平面荷载 {load} 的力矩字段（my 和 mz）冲突或无效。请输入一个有限的力矩值。",
   "svc.loadOnMissingMember": "荷载 {load} 作用在杆件 {n} 上，但模型中没有该杆件。请删除该荷载，或将其放在某个杆件上。",
   "svc.loadOnMissingNode": "荷载 {load} 作用在节点 {n} 上，但模型中没有该节点。请删除该荷载，或将其放在某个节点上。",
   "svc.imposedUnsupported": "强制位移需要在整体坐标轴下约束该方向的支座。没有支座的节点：{list}。",

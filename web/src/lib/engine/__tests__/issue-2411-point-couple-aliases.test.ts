@@ -141,12 +141,11 @@ it('#2411 retains the moment jump for equal nonzero aliases and for a zero legac
 
 it('#2411 preserves the legacy moment through load creation and snapshot restore', () => {
   const member = cantilever('space');
+  const legacyLoads = modelStore.model.loads.map(load => ({ ...load, data: { ...load.data, my: 0 } }));
   const snapshot = modelStore.snapshot();
-  expect.soft(modelFeatures(snapshot).has('legacyPlanarPointCoupleAliases')).toBe(true);
-  modelStore.restore({
-    ...snapshot,
-    loads: snapshot.loads.map(load => ({ ...load, data: { ...load.data, my: 0 } })),
-  });
+  expect.soft(modelFeatures({ ...snapshot, loads: legacyLoads }).has('legacyPlanarPointCoupleAliases')).toBe(true);
+  expect.soft(snapshot.loads[0]?.data).not.toHaveProperty('mz');
+  modelStore.restore({ ...snapshot, loads: legacyLoads });
   expect.soft(spaceJump(validateAndSolve3D(modelStore.model), member, 'momentZ'), 'restored').toBeCloseTo(couple, 4);
   modelStore.restore(snapshot);
   expect.soft(spaceJump(validateAndSolve3D(modelStore.model), member, 'momentZ'), 'round trip').toBeCloseTo(couple, 4);
