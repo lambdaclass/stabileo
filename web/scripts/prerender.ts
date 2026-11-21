@@ -235,14 +235,29 @@ async function newCapturePage(browser: Browser, stars: number | null) {
   return page;
 }
 
+const liveBenchmarkReady = new Map<string, { selector: string; hasText?: RegExp }>([
+  ['/research/benchmarks/mattiasson-elastica', {
+    selector: '[data-testid="mattiasson-summary"]', hasText: /\d+\/\d+$/,
+  }],
+  ['/research/benchmarks/shell-obstacle-course', {
+    selector: '[data-testid="shell-summary"]', hasText: /: \d+\/\d+$/,
+  }],
+  ['/research/benchmarks/macneal-harder-1985', {
+    selector: '.benchmark-pane :is([data-testid="summary-frame"], p[role="alert"])',
+  }],
+  ['/research/benchmarks/plastic-collapse', {
+    selector: '#portal:has(.controls > button:first-child:enabled) [data-testid="source"]',
+  }],
+]);
+
 async function capture(page: Page, base: string, locale: Locale, path: string) {
   // Visited in the same slashed form the site publishes, so the capture
   // happens on the address a reader actually lands on.
   const href = path === '/' ? `/${locale}/` : `/${locale}${path}/`;
   await page.goto(base + href, { waitUntil: 'networkidle' });
-  if (path === '/research/benchmarks/mattiasson-elastica') {
-    await page.locator('#app [data-testid="mattiasson-summary"]')
-      .filter({ hasText: /\d+\/\d+$/ })
+  const benchmark = liveBenchmarkReady.get(path);
+  if (benchmark) {
+    await page.locator(`#app ${benchmark.selector}`).filter({ hasText: benchmark.hasText })
       .waitFor({ state: 'attached', timeout: PRERENDER_NAVIGATION_TIMEOUT_MS });
   }
   const tool = findTool(path);

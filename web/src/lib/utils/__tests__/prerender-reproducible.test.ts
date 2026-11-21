@@ -100,7 +100,7 @@ describe('two prerenders of one build are byte-identical (#875)', () => {
     });
   }, 300_000);
 
-  it.skip('known wrong result: #2365 — waits for the other research benchmarks that compute on page load', async () => {
+  it('known wrong result: #2365 — waits for the other research benchmarks that compute on page load', async () => {
     const shell = '/research/benchmarks/shell-obstacle-course';
     const macneal = '/research/benchmarks/macneal-harder-1985';
     const plastic = '/research/benchmarks/plastic-collapse';
