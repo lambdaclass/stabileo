@@ -42,6 +42,7 @@ function deps(over: Partial<ExamSessionDeps['api']> = {}, auth: Partial<ExamSess
     auth: { ready: async () => {}, isAuthenticated: true, assignmentsEnabled: true, userLoginEnabled: true, ...auth },
     score: () => 0.5,
     debounceMs: 1000,
+    retryMs: 5000,
   };
   return { api, d };
 }
@@ -185,6 +186,35 @@ describe('during the attempt', () => {
     expect(examLock.locked, 'the lock comes back once the server answers again').toBe(true);
   });
 
+  it('a failed autosave is sent again on its own, without another edit', async () => {
+    const save = vi.fn().mockRejectedValueOnce(new ApiError(0, 'network_error', '')).mockImplementation(async (_id, answers) => attempt({ answers }));
+    const { s } = await running({ saveAnswers: save });
+    s.update(answer('4'));
+    await vi.advanceTimersByTimeAsync(1_000);
+    expect(s.saveState).toBe('failed');
+    await vi.advanceTimersByTimeAsync(5_000);
+    expect(save).toHaveBeenCalledTimes(2);
+    expect(s.saveState).toBe('saved');
+    expect(examLock.locked).toBe(true);
+  });
+
+  it('a save asked for while the hand-in is on its way is not sent', async () => {
+    let finish!: () => void;
+    const { s, api } = await running({
+      submit: vi.fn((_id: string, body: { answers?: Record<string, unknown> }) => new Promise<Attempt>((resolve) => {
+        finish = () => resolve(attempt({ answers: body.answers ?? {}, submitted_at: iso(Date.now()), closed: true, reveal_allowed: true }));
+      })),
+    });
+    s.update(answer('8'));
+    const handIn = s.submit();
+    await vi.advanceTimersByTimeAsync(0);
+    await s.flush();
+    finish();
+    await handIn;
+    expect(api.saveAnswers).not.toHaveBeenCalled();
+    expect([s.phase, s.note]).toEqual(['closed', null]);
+  });
+
   it('submits with the answers and the browser score, then unlocks', async () => {
     const { s, api } = await running();
     s.update(answer('5'));
@@ -222,6 +252,19 @@ describe('during the attempt', () => {
     expect(api.submit).toHaveBeenCalledTimes(1);
     expect(s.phase).toBe('closed');
     expect(s.note).toBe('autoSubmitted');
+  });
+
+  it('a hand-in at the deadline that cannot reach the server is tried again within the grace', async () => {
+    const submit = vi.fn().mockRejectedValueOnce(new ApiError(0, 'network_error', ''))
+      .mockImplementation(async (_id: string, body: { answers?: Record<string, unknown> }) =>
+        attempt({ answers: body.answers ?? {}, submitted_at: iso(Date.now()), closed: true }));
+    const { s } = await running({ submit });
+    s.update(answer('9'));
+    await vi.advanceTimersByTimeAsync(3_600_000);
+    expect(s.note).toBe('submitFailed');
+    await vi.advanceTimersByTimeAsync(5_000);
+    expect(submit).toHaveBeenCalledTimes(2);
+    expect([s.phase, s.note]).toEqual(['closed', 'autoSubmitted']);
   });
 
   it('a submit after the grace keeps the last autosave and closes gracefully', async () => {

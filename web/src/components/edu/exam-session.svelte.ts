@@ -16,6 +16,7 @@ export interface ExamSessionDeps {
   auth: { ready(): Promise<void>; readonly isAuthenticated: boolean; readonly assignmentsEnabled: boolean; readonly userLoginEnabled: boolean };
   score?: (spec: EduExerciseSpec, seed: number, answers: unknown) => number | null;
   debounceMs?: number;
+  retryMs?: number;
 }
 
 const defaultScore = (spec: EduExerciseSpec, seed: number, answers: unknown) => gradeAttempt(spec, seed, answers)?.fraction ?? null;
@@ -36,6 +37,7 @@ export function createExamSession(deps: ExamSessionDeps) {
   const { api, lock, auth } = deps;
   const score = deps.score ?? defaultScore;
   const debounceMs = deps.debounceMs ?? 1500;
+  const retryMs = deps.retryMs ?? 5000;
 
   let phase = $state<ExamPhase>('loading');
   let unavailable = $state<ExamUnavailable | null>(null);
@@ -53,6 +55,7 @@ export function createExamSession(deps: ExamSessionDeps) {
   let deadlineTimer: ReturnType<typeof setTimeout> | null = null;
   let inFlight: Promise<void> | null = null;
   let submitting: Promise<void> | null = null;
+  let handingIn = false;
 
   function stopTimers(): void {
     if (saveTimer !== null) clearTimeout(saveTimer);
@@ -128,7 +131,7 @@ export function createExamSession(deps: ExamSessionDeps) {
   }
 
   async function write(): Promise<void> {
-    if (!dirty || phase !== 'running' || !attempt || !spec) return;
+    if (!dirty || handingIn || phase !== 'running' || !attempt || !spec) return;
     dirty = false;
     saveState = 'saving';
     try {
@@ -150,6 +153,7 @@ export function createExamSession(deps: ExamSessionDeps) {
       dirty = true;
       saveState = 'failed';
       lock.release('error');
+      if (saveTimer === null) saveTimer = setTimeout(() => { saveTimer = null; void session.flush(); }, retryMs);
     }
   }
 
@@ -159,6 +163,8 @@ export function createExamSession(deps: ExamSessionDeps) {
     await inFlight;
     if (phase !== 'running' || !attempt || !spec) return;
     busy = true;
+    handingIn = true;
+    dirty = false;
     const body = payload();
     let clientScore: number | null = null;
     try { clientScore = score(spec, attempt.seed, body); } catch { clientScore = null; }
@@ -182,9 +188,11 @@ export function createExamSession(deps: ExamSessionDeps) {
         saveState = 'failed';
         note = 'submitFailed';
         lock.release('error');
+        if (auto && phase === 'running') deadlineTimer = setTimeout(() => void session.submit(true), retryMs);
       }
     } finally {
       busy = false;
+      handingIn = false;
     }
   }
 
