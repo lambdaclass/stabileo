@@ -7,6 +7,7 @@
  * check, with the checks that do not apply numbered under the table. Chapters are numbered as
  * they are printed, so leaving one out renumbers the rest.
  */
+import { axisLetter } from '../../axes/display';
 import type { CheckRow, DesignStatus } from '../../design-contract';
 import type { EngineMessage } from '../../codes/message';
 import type { ClauseRef } from '../../codes/regulation';
@@ -18,6 +19,7 @@ export interface RenderContext {
   fmt: (v: number, digits: number) => string;
 }
 
+const textOrDiagnostic = (s: string, c: RenderContext) => s.startsWith('diag.') ? c.tr(s) : s;
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const CODE_NAME: Record<string, string> = { 'cirsoc-201': 'CIRSOC 201', 'cirsoc-301': 'CIRSOC 301', 'cirsoc-601': 'CIRSOC 601', 'cirsoc-303': 'CIRSOC 303', 'en-1999-1-1': 'EN 1999-1-1', 'aisc-360': 'AISC 360', 'cirsoc-101': 'CIRSOC 101', 'cirsoc-102': 'CIRSOC 102', 'cirsoc-103': 'INPRES-CIRSOC 103', 'inpres-cirsoc-103-ii': 'INPRES-CIRSOC 103 II', 'inpres-cirsoc-103-iii': 'INPRES-CIRSOC 103 III', 'nds': 'NDS', 'en-1993-1-2': 'EN 1993-1-2', 'fema-356': 'FEMA 356', 'aci-318': 'ACI 318', 'en-1992-1-1': 'EN 1992-1-1', 'bs-en-1992-1-1': 'BS EN 1992-1-1', 'en-1993-1-1': 'EN 1993-1-1', 'bs-en-1993-1-1': 'BS EN 1993-1-1' };
 /** References of the project's own, named in the memoria's language. */
@@ -39,7 +41,7 @@ export function renderFicha(r: CheckRow, c: RenderContext): string {
   const eta = r.ratio === null ? '' : Number.isFinite(r.ratio) ? c.fmt(r.ratio, 3) : '∞';
   const head = `<h5>${esc(title)} <span class="clause">(${esc(ref(r, c.tr))})</span></h5>`;
   if (r.status === 'unsupported' || r.status === 'notVerified') {
-    return `<section class="ficha ${r.status}">${head}<p>${esc(c.tr(`memo.ficha.${r.status}`))}${r.formula ? `: ${esc(r.formula)}` : ''}</p></section>`;
+    return `<section class="ficha ${r.status}">${head}<p>${esc(c.tr(`memo.ficha.${r.status}`))}${r.formula ? `: ${esc(textOrDiagnostic(r.formula, c))}` : ''}</p></section>`;
   }
   const where = r.combination || r.location
     ? `<p class="where">${esc(c.tr('memo.ficha.governs', { location: r.location ?? '—', combination: r.combination ?? '—' }))}</p>` : '';
@@ -47,7 +49,7 @@ export function renderFicha(r: CheckRow, c: RenderContext): string {
     ? table([c.tr('memo.ficha.symbol'), c.tr('memo.ficha.value'), c.tr('memo.ficha.unit'), c.tr('memo.ficha.source')],
       r.inputs.map((i) => [`<b>${esc(i.symbol)}</b>${i.description ? ` <span class="muted">${esc(i.description)}</span>` : ''}`,
         typeof i.value === 'number' ? c.fmt(i.value, Math.abs(i.value) >= 100 ? 1 : 3) : esc(i.value), esc(i.unit ?? ''), esc(i.clause ?? '')]), 'glossary') : '';
-  const working = r.derivation?.length ? `<details open><summary>${esc(c.tr('memo.ficha.working'))}</summary><pre>${esc(r.derivation.join('\n'))}</pre></details>` : '';
+  const working = r.derivation?.length ? `<details open><summary>${esc(c.tr('memo.ficha.working'))}</summary><pre>${esc(r.derivation.map(step => textOrDiagnostic(step, c)).join('\n'))}</pre></details>` : '';
   return `<section class="ficha ${r.status}">${head}
 <p>${esc(c.tr('memo.ficha.mustHold'))}</p>
 <div class="hold ${r.status}"><span class="formula">${esc(r.formula ?? '—')}</span>${eta ? `<span class="eta">η = <b>${eta}</b> ${MARK[r.status]}</span>` : `<span class="eta">${MARK[r.status]}</span>`}</div>
@@ -71,7 +73,7 @@ export function familySummary(els: readonly MemoriaElement[], c: RenderContext, 
       const rs = e.rows.filter((r) => (r.titleKey ? `${r.titleKey}|${r.clause ?? ''}` : r.title) === col.key);
       if (rs.length === 0) return `N.P.<sup>${note(c.tr('memo.np.absent', { check: col.title }))}</sup>`;
       const worst = rs.reduce((a, b) => ((b.ratio ?? -1) > (a.ratio ?? -1) ? b : a));
-      if (worst.status === 'unsupported' || worst.status === 'notVerified') return `N.E.<sup>${note(`${col.title}: ${worst.formula ?? c.tr('memo.ficha.unsupported')}`)}</sup>`;
+      if (worst.status === 'unsupported' || worst.status === 'notVerified') return `N.E.<sup>${note(`${col.title}: ${worst.formula ? textOrDiagnostic(worst.formula, c) : c.tr('memo.ficha.unsupported')}`)}</sup>`;
       return worst.ratio === null ? MARK[worst.status] : `<span class="s-${worst.status}">η = ${Number.isFinite(worst.ratio) ? c.fmt(worst.ratio, 2) : '∞'}</span>`;
     });
     const ratios = e.rows.map((r) => r.ratio).filter((x): x is number => x !== null);
@@ -150,9 +152,9 @@ export function renderMemoriaHtml(m: MemoriaInput, chosen: ReadonlySet<ChapterId
   // ── Global analysis
   const g = m.global;
   add('global',
-    (part('global', 'modal') && g.modal?.length ? `<h3>${esc(c.tr('memo.glob.modal'))}</h3>` + table([c.tr('memo.glob.mode'), 'T (s)', 'Mx (%)', 'My (%)', 'ΣMx (%)', 'ΣMy (%)'], g.modal.map((r) => [String(r.mode), num(r.period, 3), num(r.mx * 100, 1), num(r.my * 100, 1), num(r.cumX * 100, 1), num(r.cumY * 100, 1)])) : '')
-    + (part('global', 'storeyShear') && g.storeyShear?.length ? `<h3>${esc(c.tr('memo.glob.shear'))}</h3>` + table([c.tr('memo.hyp.level'), 'Vx (kN)', 'Vy (kN)', 'Kx (kN/m)', 'Ky (kN/m)', c.tr('memo.glob.soft')], g.storeyShear.map((r) => [esc(r.level), num(r.vx, 1), num(r.vy, 1), r.kx === null ? '—' : num(r.kx, 0), r.ky === null ? '—' : num(r.ky, 0), r.soft ? `<span class="s-fail">${esc(c.tr('memo.glob.yes'))}</span>` : '—'])) + `<p class="muted">${esc(c.tr('memo.glob.softBasis'))}</p>` : '')
-    + (part('global', 'drift') && g.drift?.rows.length ? `<h3>${esc(c.tr('memo.glob.drift'))}</h3><p class="muted">${esc(c.tr('memo.glob.driftBasis', { cd: num(g.drift.cd, 1), limit: num(g.drift.limit, 4) }))}</p>` + table([c.tr('memo.hyp.level'), 'Δx/h', 'Δy/h', c.tr('memo.summary.state')], g.drift.rows.map((r) => [esc(r.level), num(r.ratioX, 4), num(r.ratioY, 4), esc(r.status)])) : ''));
+    (part('global', 'modal') && g.modal?.length ? `<h3>${esc(c.tr('memo.glob.modal'))}</h3>` + table([c.tr('memo.glob.mode'), 'T (s)', `M${axisLetter(0)} (%)`, `M${axisLetter(1)} (%)`, `ΣM${axisLetter(0)} (%)`, `ΣM${axisLetter(1)} (%)`], g.modal.map((r) => [String(r.mode), num(r.period, 3), num(r.mx * 100, 1), num(r.my * 100, 1), num(r.cumX * 100, 1), num(r.cumY * 100, 1)])) : '')
+    + (part('global', 'storeyShear') && g.storeyShear?.length ? `<h3>${esc(c.tr('memo.glob.shear'))}</h3>` + table([c.tr('memo.hyp.level'), `V${axisLetter(0)} (kN)`, `V${axisLetter(1)} (kN)`, `K${axisLetter(0)} (kN/m)`, `K${axisLetter(1)} (kN/m)`, c.tr('memo.glob.soft')], g.storeyShear.map((r) => [esc(r.level), num(r.vxMagnitude, 1), num(r.vyMagnitude, 1), r.kx === null ? '—' : num(r.kx, 0), r.ky === null ? '—' : num(r.ky, 0), r.soft ? `<span class="s-fail">${esc(c.tr('memo.glob.yes'))}</span>` : '—'])) + `<p class="muted">${esc(c.tr('memo.glob.softBasis'))}</p>` : '')
+    + (part('global', 'drift') && g.drift?.rows.length ? `<h3>${esc(c.tr('memo.glob.drift'))}</h3><p class="muted">${esc(c.tr('memo.glob.driftBasis', { cd: num(g.drift.cd, 1), limit: num(g.drift.limit, 4) }))}</p>` + table([c.tr('memo.hyp.level'), `Δ${axisLetter(0)}/h`, `Δ${axisLetter(1)}/h`, c.tr('memo.summary.state')], g.drift.rows.map((r) => [esc(r.level), num(r.ratioX, 4), num(r.ratioY, 4), esc(r.status)])) : ''));
 
   // ── Summary of the structure
   const byFamily = (f: string) => m.elements.filter((e) => e.family === f);

@@ -20,7 +20,8 @@
     "pt": "As cargas de neve seguem cada superfície conectada da cobertura",
     "de": "Schneelasten folgen jeder verbundenen Dachfläche",
     "fr": "Les charges de neige suivent chaque surface de toiture connectée",
-    "tr": "Kar yükleri bağlı her çatı yüzeyini izler"
+    "tr": "Kar yükleri bağlı her çatı yüzeyini izler",
+    "zh": "雪荷载遵从每个相连的屋面表面"
   },
   "explanation": {
     "en": "Selected members retain the full roof geometry. Tributary regions use their own pitch and width for balanced, unbalanced and partial snow. Sliding sources extend through connected upslope facets to the ridge. Member-bounded footprints preserve recesses and gaps; unresolved spatial sources refuse. Regenerate generated snow loads and rerun affected analyses and design checks. This correction is included in 0.6.1.",
@@ -28,7 +29,8 @@
     "pt": "Os elementos selecionados mantêm a geometria completa da cobertura. Cada região tributária usa sua inclinação e largura para neve balanceada, não balanceada e parcial. Fontes de deslizamento incluem facetas conectadas até a cumeeira. Os contornos preservam reentrâncias e separações; fontes espaciais indeterminadas são recusadas. Gere novamente as cargas de neve e recalcule análises e verificações afetadas. Correção incluída na versão 0.6.1.",
     "de": "Ausgewählte Stäbe behalten die vollständige Dachgeometrie. Jede Lasteinzugsfläche verwendet ihre eigene Neigung und Breite für gleichmäßige, ungleichmäßige und teilweise Schneelast. Abrutschquellen umfassen verbundene Dachflächen bis zum First. Umrisse erhalten Aussparungen und Lücken; unbestimmte räumliche Quellen werden abgelehnt. Schneelasten neu erzeugen und betroffene Analysen und Nachweise wiederholen. In 0.6.1 enthalten.",
     "fr": "Les barres sélectionnées conservent la géométrie complète du toit. Chaque zone tributaire utilise sa pente et sa largeur pour la neige équilibrée, déséquilibrée et partielle. Les sources de glissement incluent les facettes connectées jusqu’au faîtage. Les contours préservent les retraits et les séparations ; les sources spatiales indéterminées sont refusées. Régénérez les charges de neige et relancez les analyses et vérifications concernées. Correction incluse dans 0.6.1.",
-    "tr": "Seçilen elemanlar çatının tam geometrisini korur. Her yük alanı dengeli, dengesiz ve kısmi kar için kendi eğimini ve genişliğini kullanır. Kayma kaynakları mahyaya kadar bağlı yüzeyleri kapsar. Sınırlar girintileri ve boşlukları korur; belirsiz uzamsal kaynaklar reddedilir. Kar yüklerini yeniden üretip etkilenen analiz ve tasarım kontrollerini çalıştırın. Düzeltme 0.6.1 sürümüne dahildir."
+    "tr": "Seçilen elemanlar çatının tam geometrisini korur. Her yük alanı dengeli, dengesiz ve kısmi kar için kendi eğimini ve genişliğini kullanır. Kayma kaynakları mahyaya kadar bağlı yüzeyleri kapsar. Sınırlar girintileri ve boşlukları korur; belirsiz uzamsal kaynaklar reddedilir. Kar yüklerini yeniden üretip etkilenen analiz ve tasarım kontrollerini çalıştırın. Düzeltme 0.6.1 sürümüne dahildir.",
+    "zh": "被选中的杆件保留完整的屋面几何。从属区域对平衡、不平衡和局部雪荷载使用各自的坡度和宽度。滑落荷载源通过相连的上坡坡面延伸到屋脊。以杆件围成的投影范围保留凹口和空隙；未解析的空间荷载源会被拒绝。请重新生成雪荷载，并重新运行受影响的分析和设计验算。此修正已包含在 0.6.1 中。"
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-snow-surface-regions.md",

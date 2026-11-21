@@ -27,6 +27,7 @@ import { staticsCheck, combinationStatics, type StaticsCheckRow, type ComboStati
 import { withCaseEffects, singleSolveModel } from '../engine/case-effects';
 import { isMagnitudeCombination } from '../engine/result-scopes';
 import { toCsv } from '../engine/result-tables';
+import { userSix } from '../axes/typed-frame';
 
 /** Below this, a residual is round-off. The solve's own residuals sit around 1e-10. */
 export const BALANCED = 1e-6;
@@ -95,6 +96,9 @@ export function staticsCsv(rows: StaticsRows, labels: { name: string; kind: stri
     ...K.map((k) => `${labels.applied} Σ${k.toUpperCase()} (${units(k)})`),
     ...K.map((k) => `${labels.reactions} Σ${k.toUpperCase()} (${units(k)})`),
     ...K.map((k) => `${labels.residual} ${k.toUpperCase()} (${units(k)})`), labels.relative];
-  const line = (kind: string, r: StaticsCheckRow) => [kind, r.caseName, ...K.map((k) => r.applied[k]), ...K.map((k) => r.reactions[k]), ...K.map((k) => r.difference[k]), r.worstRelative];
+  const line = (kind: string, r: StaticsCheckRow) => {
+    const [a, re, d] = [userSix(r.applied), userSix(r.reactions), userSix(r.difference)];
+    return [kind, r.caseName, ...K.map((k) => a[k]), ...K.map((k) => re[k]), ...K.map((k) => d[k]), r.worstRelative];
+  };
   return toCsv(header, [...rows.cases.map((r) => line(labels.caseLabel, r)), ...rows.combos.map((r) => line(labels.comboLabel, r))]);
 }

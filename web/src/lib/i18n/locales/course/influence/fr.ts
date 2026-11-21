@@ -62,6 +62,7 @@ const words: Translations = {
   'course.influence.load.pAt': 'P sur la barre {e} à {pct} %',
   'course.influence.load.direct': 'Calcul direct avec ces charges : {v}',
   'course.influence.load.drawEnvelope': 'Tracer l’enveloppe sur les barres',
+  'course.influence.load.envelopeTitle': 'Enveloppe d’influence ({q})',
   'course.influence.load.hideEnvelope': 'Masquer l’enveloppe',
   'course.influence.load.drawing': 'Calcul en cours…',
   'course.influence.load.envelopeNote': 'Chaque section a été chargée sur sa propre ligne. La courbe rouge est le maximum et la bleue le minimum ; M est tracé du côté de la fibre tendue.',

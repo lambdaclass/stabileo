@@ -1,3 +1,4 @@
+import { axialStrainEnergy } from './strain-energy-label';
 /** Words of the "deformation" explained step-by-step methods (see engine/steps/methods/deformation). */
 import type { Translations } from '../../types';
 
@@ -14,7 +15,7 @@ export const es: Translations = {
   'steps.deformation.axialOffNote': 'La diferencia con el método matricial viene de haber dejado afuera el término axial, que el método matricial sí considera.',
   'steps.m.virtualWork.opt.axial.label': 'Incluir el término axial (N·n·L/EA)',
   'steps.m.virtualWork.opt.axial.help': 'Prendido, el desplazamiento suma el aporte del esfuerzo normal y el resultado coincide con el método matricial, que también lo considera. Es la opción más exacta. En la resolución a mano se suele despreciar, porque en pórticos y vigas su aporte es chico frente al de la flexión; apagalo para ver esa resolución clásica y cuánto cambia.',
-  'steps.m.castigliano.opt.axial.label': 'Incluir el término axial (N²/2EA)',
+  'steps.m.castigliano.opt.axial.label': `Incluir la energía de deformación axial (${axialStrainEnergy})`,
   'steps.m.castigliano.opt.axial.help': 'Prendido, la energía de deformación suma el aporte del esfuerzo normal y el resultado coincide con el método matricial, que también lo considera. Es la opción más exacta. En la resolución a mano se suele despreciar, porque en pórticos y vigas su aporte es chico frente al de la flexión; apagalo para ver esa resolución clásica y cuánto cambia.',
   'steps.m.castigliano.coefCaptionOff': 'Sólo el término de flexión de cada barra. Unidades: m/kN, rad/kN o rad/(kN·m) según las redundantes.',
   'steps.m.castigliano.reactionsLead': 'Las reacciones, por superposición de las de la fundamental más las redundantes:',
@@ -240,7 +241,7 @@ export const en: Translations = {
   'steps.deformation.axialOffNote': 'The difference from the matrix method comes from leaving out the axial term, which the matrix method does include.',
   'steps.m.virtualWork.opt.axial.label': 'Include the axial term (N·n·L/EA)',
   'steps.m.virtualWork.opt.axial.help': 'When on, the displacement adds the contribution of the axial force and the result matches the matrix method, which includes it too. It is the more exact choice. Hand solutions usually neglect it, because in frames and beams it is small compared with bending; turn it off to see that classical solution and how much it changes.',
-  'steps.m.castigliano.opt.axial.label': 'Include the axial term (N²/2EA)',
+  'steps.m.castigliano.opt.axial.label': `Include axial strain energy (${axialStrainEnergy})`,
   'steps.m.castigliano.opt.axial.help': 'When on, the strain energy adds the contribution of the axial force and the result matches the matrix method, which includes it too. It is the more exact choice. Hand solutions usually neglect it, because in frames and beams it is small compared with bending; turn it off to see that classical solution and how much it changes.',
   'steps.m.castigliano.coefCaptionOff': 'Bending term of each member only. Units: m/kN, rad/kN or rad/(kN·m) depending on the redundants.',
   'steps.m.castigliano.reactionsLead': 'The reactions, by superposing those of the primary structure and the redundants:',
@@ -466,7 +467,7 @@ export const pt: Translations = {
   'steps.deformation.axialOffNote': 'A diferença em relação ao método matricial vem de deixar de fora o termo axial, que o método matricial considera.',
   'steps.m.virtualWork.opt.axial.label': 'Incluir o termo axial (N·n·L/EA)',
   'steps.m.virtualWork.opt.axial.help': 'Ligado, o deslocamento soma a contribuição do esforço normal e o resultado coincide com o método matricial, que também o considera. É a opção mais exata. Na solução à mão costuma ser desprezado, porque em pórticos e vigas sua contribuição é pequena frente à da flexão; desligue para ver essa solução clássica e quanto ela muda.',
-  'steps.m.castigliano.opt.axial.label': 'Incluir o termo axial (N²/2EA)',
+  'steps.m.castigliano.opt.axial.label': `Incluir a energia de deformação axial (${axialStrainEnergy})`,
   'steps.m.castigliano.opt.axial.help': 'Ligado, a energia de deformação soma a contribuição do esforço normal e o resultado coincide com o método matricial, que também o considera. É a opção mais exata. Na solução à mão costuma ser desprezado, porque em pórticos e vigas sua contribuição é pequena frente à da flexão; desligue para ver essa solução clássica e quanto ela muda.',
   'steps.m.castigliano.coefCaptionOff': 'Apenas o termo de flexão de cada barra. Unidades: m/kN, rad/kN ou rad/(kN·m) conforme os hiperestáticos.',
   'steps.m.castigliano.reactionsLead': 'As reações, por superposição das da fundamental com os hiperestáticos:',

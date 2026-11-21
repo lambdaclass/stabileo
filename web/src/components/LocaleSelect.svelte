@@ -192,8 +192,8 @@
 
   .ls-list {
     position: absolute;
-    left: 0;
     right: 0;
+    width: max-content;
     /* Overlaps the button's border by 1 px — one shape, not two. */
     top: calc(100% - 1px);
     z-index: 60;

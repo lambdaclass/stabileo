@@ -30,7 +30,6 @@
 import type { AnalysisResults3D, ElementForces3D } from './types-3d';
 import type { ModalResult3D } from './result-types';
 import { mergeResultDiagnostics } from './result-diagnostics';
-import { cqcRho } from './loads/seismic-modal';
 import { reduceById, ELEMENT_KEEP } from './combination-methods';
 import { uniqueShells } from './shell-combos';
 import { parseDecimal } from '../utils/numeric-input';
@@ -38,6 +37,13 @@ import { parseDecimal } from '../utils/numeric-input';
 /** Standard gravity as the engine's spectral analysis takes it. */
 export { G } from './dynamics/requests';
 import { G } from './dynamics/requests';
+
+function cqcRho(ti: number, tj: number, zeta = 0.05): number {
+  const r = Math.min(ti, tj) / Math.max(ti, tj);
+  const num = 8 * zeta * zeta * (1 + r) * r ** 1.5;
+  const den = (1 - r * r) ** 2 + 4 * zeta * zeta * r * (1 + r) ** 2;
+  return den > 0 ? num / den : 1;
+}
 
 /** A spectrum the user writes. */
 export interface UserSpectrum {

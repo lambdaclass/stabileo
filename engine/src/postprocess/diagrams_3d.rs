@@ -191,7 +191,7 @@ pub fn compute_diagrams_3d(results: &AnalysisResults3D) -> DiagramResults3D {
 
 pub fn validate_diagram_loads_3d(ef: &ElementForces3D) -> Result<(), String> {
     for d in ef.distributed_loads_x.iter().chain(&ef.distributed_loads_y).chain(&ef.distributed_loads_z) {
-        crate::element::validate_member_load_interval(&format!("Element {}", ef.element_id), ef.length, d.a, d.b)?;
+        crate::element::validate_member_load_interval(format_args!("Element {}", ef.element_id), ef.length, d.a, d.b)?;
     }
     Ok(())
 }

@@ -86,7 +86,7 @@ test('known wrong result: #2286 — the copied route checker gets the committed 
 for (const production of [
   disabledFeatures,
   committedConfig.production,
-  { accounts: true, research: true, tools: true, diagramGame: true },
+  { accounts: true, research: true, tools: true, diagramGame: true, globalAxes: true },
 ]) {
   test(`production browser code only receives resolved switches with ${JSON.stringify(production)}`, () =>
     withProductionFeatures(production, async configFile => {

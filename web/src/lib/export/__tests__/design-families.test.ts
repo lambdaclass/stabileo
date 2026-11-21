@@ -13,11 +13,10 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { designRunStore } from '../../store/design-run.svelte';
 import { detailingStore } from '../../store/detailing.svelte';
 import { verificationStore } from '../../store/verification.svelte';
 import { DEFAULT_DESIGN_FAMILIES, availableDesignFamilies, initialDesignSelection, pruneDesignSelection, DESIGN_FAMILIES } from '../../engine/design/design-families';
-import { ready, familyOf, familiesWithSteel } from './design-families-fixture';
+import { ready, familyOf, familiesWithSteel, designFamiliesWithWorkerYields } from './design-families-fixture';
 
 // ─── The default ─────────────────────────────────────────────────
 
@@ -95,10 +94,10 @@ describe('the run covers exactly the families chosen', () => {
   beforeEach(async () => { await ready('pro-edificio-7p'); }, 300_000);
   afterEach(() => { vi.restoreAllMocks(); });
 
-  it('columns and beams only: no slab or wall steel is produced', () => {
+  it('columns and beams only: no slab or wall steel is produced', async () => {
     const generate = vi.spyOn(detailingStore, 'generate');
     const verifierId = 'cirsoc201.provided.v2.2025';
-    const report = designRunStore.designFamilies(['column', 'beam'], { verifierId });
+    const report = await designFamiliesWithWorkerYields(['column', 'beam'], { verifierId });
     expect(generate).toHaveBeenCalledExactlyOnceWith({ verifierId });
     expect(familyOf(report, 'column').state).toBe('designed');
     expect(familyOf(report, 'beam').state).toBe('designed');
@@ -116,10 +115,10 @@ describe('the run covers exactly the families chosen', () => {
     }
   }, 300_000);
 
-  it('columns only: beams are skipped and get no reinforcement from this run', () => {
+  it('columns only: beams are skipped and get no reinforcement from this run', async () => {
     detailingStore.setAutoGenerate(false);
     const generate = vi.spyOn(detailingStore, 'generate');
-    const report = designRunStore.designFamilies(['column']);
+    const report = await designFamiliesWithWorkerYields(['column']);
     expect(generate).toHaveBeenCalledTimes(1);
     expect(detailingStore.autoGenerate).toBe(false);
     expect(familyOf(report, 'beam').state).toBe('skipped');
@@ -129,8 +128,8 @@ describe('the run covers exactly the families chosen', () => {
     expect(familyOf(report, 'column').designed).toBeGreaterThan(0);
   }, 300_000);
 
-  it('the frame plus floors produces slab and wall steel', () => {
-    const report = designRunStore.designFamilies(['column', 'beam', 'slab', 'wall']);
+  it('the frame plus floors produces slab and wall steel', async () => {
+    const report = await designFamiliesWithWorkerYields(['column', 'beam', 'slab', 'wall']);
     expect(familyOf(report, 'slab').state).toBe('designed');
     expect(familyOf(report, 'wall').state).toBe('designed');
     expect(familyOf(report, 'slab').designed).toBeGreaterThan(0);
@@ -139,20 +138,20 @@ describe('the run covers exactly the families chosen', () => {
     expect(steel.has('wall')).toBe(true);
   }, 300_000);
 
-  it('slabs only: walls are filtered out through the engine’s own classifier', () => {
+  it('slabs only: walls are filtered out through the engine’s own classifier', async () => {
     const generate = vi.spyOn(detailingStore, 'generate');
-    const report = designRunStore.designFamilies(['slab']);
+    const report = await designFamiliesWithWorkerYields(['slab']);
     expect(generate).not.toHaveBeenCalled();
     expect(familyOf(report, 'slab').state).toBe('designed');
     expect(familyOf(report, 'wall').state).toBe('skipped');
     expect(familiesWithSteel().has('wall')).toBe(false);
   }, 300_000);
 
-  it('a family the model does not contain reports noElements, not failure', () => {
+  it('a family the model does not contain reports noElements, not failure', async () => {
     // This building has no footings. "You did not ask for them" and "there are none" are
     // different facts, and telling a user to tick a box that would change nothing is the
     // failure this distinction prevents.
-    const report = designRunStore.designFamilies(['column', 'footing']);
+    const report = await designFamiliesWithWorkerYields(['column', 'footing']);
     expect(familyOf(report, 'footing').state).toBe('noElements');
     expect(report.ok).toBe(true);
   }, 300_000);

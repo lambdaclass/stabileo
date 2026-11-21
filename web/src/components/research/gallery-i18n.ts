@@ -40,5 +40,11 @@ export const galleryStrings: Record<string, { researchTitle: string; galleryLead
     "galleryLead": "Klasszikus és friss cikkek, referenciafeladatok és módszerek, amelyeket a Stabileo nevű, mesterséges intelligenciával támogatott tartószerkezeti szoftverben futtathat és ellenőrizhet. Minden oldal leírja, mit reprodukáltunk és hogyan ellenőriztük.",
     "reviewOne": "{count} felülvizsgálati kör",
     "reviewMany": "{count} felülvizsgálati kör"
+  },
+  "zh": {
+    "researchTitle": "结构工程研究",
+    "galleryLead": "经典与近期的论文、基准算例和方法，可在 Stabileo（AI 结构工程软件）中运行并验证。每个页面都会说明复现了哪些内容，以及是如何验证的。",
+    "reviewOne": "{count} 轮评审",
+    "reviewMany": "{count} 轮评审"
   }
 };

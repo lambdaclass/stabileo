@@ -473,12 +473,18 @@ describe('despiece refinements — remnants, positioning, basis, inspection', ()
   });
 
   it('inspectMember returns both ends with basis-aware components', () => {
-    const j = inclined();
-    const local = inspectMember({ elements: j.elements, getNode: (id) => j.nodes.get(id), getElementForces: (id) => j.forces.get(id), basis: 'local' }, 1)!;
-    expect(local.ends.map(e => e.end)).toEqual(['I', 'J']);
-    expect(local.ends[0].components.map(c => c.label)).toEqual(['N', 'V', 'M']);
-    const global = inspectMember({ elements: j.elements, getNode: (id) => j.nodes.get(id), getElementForces: (id) => j.forces.get(id), basis: 'global' }, 1)!;
-    expect(global.ends[0].components.map(c => c.label)).toEqual(['Fx', 'Fz', 'M']);
+    vi.stubGlobal('__PUBLIC_FEATURES__', { ...__PUBLIC_FEATURES__, globalAxes: true });
+    try {
+      const j = inclined();
+      const local = inspectMember({ elements: j.elements, getNode: (id) => j.nodes.get(id), getElementForces: (id) => j.forces.get(id), basis: 'local' }, 1)!;
+      expect(local.ends.map(e => e.end)).toEqual(['I', 'J']);
+      expect(local.ends[0].components.map(c => c.label)).toEqual(['N', 'V', 'M']);
+      const global = inspectMember({ elements: j.elements, getNode: (id) => j.nodes.get(id), getElementForces: (id) => j.forces.get(id), basis: 'global' }, 1)!;
+      expect(global.ends[0].components.map(c => c.label)).toEqual(['Fx', 'Fz', 'My']);
+      expect(global.ends[1].components.map(c => c.label)).toEqual(['Fx', 'Fz', 'My']);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it('inspectNode returns every connected member-end action at the node', () => {

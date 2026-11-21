@@ -5,7 +5,10 @@ const tracked: { name: string; props: Record<string, unknown> }[] = [];
 let accountsOn = true;
 
 vi.mock('../auth.svelte', () => ({ authStore: auth }));
-vi.mock('../../features', () => ({ accounts: () => accountsOn }));
+vi.mock(import('../../features'), async (importOriginal) => ({
+  ...await importOriginal(),
+  accounts: () => accountsOn,
+}));
 vi.mock('../../telemetry/usage', () => ({
   trackUsage: (name: string, props: Record<string, unknown>) => void tracked.push({ name, props }),
 }));

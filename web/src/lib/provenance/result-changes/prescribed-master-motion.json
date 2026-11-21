@@ -18,7 +18,8 @@
     "de": "Vorgegebene Masterbewegungen in Zwangsbedingungen erhalten",
     "fr": "Conserver le mouvement imposé du maître dans les solutions contraintes",
     "hu": "A kényszerített mestercsomópont-elmozdulás megőrzése",
-    "tr": "Kısıtlı çözümlerde tanımlı ana düğüm hareketini koru"
+    "tr": "Kısıtlı çözümlerde tanımlı ana düğüm hareketini koru",
+    "zh": "在受约束的解中保留给定的主节点运动"
   },
   "explanation": {
     "en": "Staged, foundation, contact and nonlinear analyses now include prescribed constraint-master motion in slave displacements and equilibrium (#2008). Cable analyses with cable elements and time histories refuse prescribed support motion they do not implement. Re-run affected analyses.",
@@ -27,7 +28,8 @@
     "de": "Bauzustands-, Bettungs-, Kontakt- und nichtlineare Analysen berücksichtigen vorgegebene Masterbewegungen in Slaveverschiebungen und Gleichgewicht (#2008). Seilanalysen und Zeitverlaufsanalysen lehnen nicht unterstützte vorgegebene Auflagerbewegungen ab. Betroffene Analysen erneut ausführen.",
     "fr": "Les analyses par étapes, de fondation, de contact et non linéaires incluent le mouvement imposé du maître dans les déplacements de l’esclave et l’équilibre (#2008). Les analyses de câbles et les historiques temporels refusent les mouvements imposés non pris en charge. Relancer les analyses concernées.",
     "hu": "Az építési fázisok, alapozás, érintkezés és nemlineáris vizsgálatok a kényszerek mestercsomópontjainak előírt mozgását is figyelembe veszik a szolga-elmozdulásokban és az egyensúlyban (#2008). A kábeles vizsgálatok kábelelemek mellett, valamint az időtörténetek elutasítják a nem támogatott előírt támaszmozgást. Futtassa újra az érintett vizsgálatokat.",
-    "tr": "Aşamalı, temel, temas ve doğrusal olmayan analizler ana düğüm hareketini bağımlı düğüm deplasmanlarına ve dengeye dahil eder (#2008). Kablo ve zaman tanım alanı analizleri desteklenmeyen mesnet hareketlerini reddeder. Etkilenen analizleri yeniden çalıştırın."
+    "tr": "Aşamalı, temel, temas ve doğrusal olmayan analizler ana düğüm hareketini bağımlı düğüm deplasmanlarına ve dengeye dahil eder (#2008). Kablo ve zaman tanım alanı analizleri desteklenmeyen mesnet hareketlerini reddeder. Etkilenen analizleri yeniden çalıştırın.",
+    "zh": "分阶段、基础、接触和非线性分析现在在从节点位移和平衡中包含给定的约束主节点运动（#2008）。含索单元的索分析和时程分析，会拒绝其未实现的给定支座运动。请重新运行受影响的分析。"
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-prescribed-master-motion.md",

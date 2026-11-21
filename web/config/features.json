@@ -1,20 +1,23 @@
 {
   "production": {
-    "accounts": false,
+    "accounts": true,
     "research": true,
     "tools": true,
+    "globalAxes": false,
     "diagramGame": false
   },
   "development": {
     "accounts": true,
     "research": true,
     "tools": true,
+    "globalAxes": true,
     "diagramGame": true
   },
   "test": {
     "accounts": true,
     "research": true,
     "tools": true,
+    "globalAxes": true,
     "diagramGame": true
   }
 }

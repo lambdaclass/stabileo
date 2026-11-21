@@ -1,4 +1,7 @@
 <script lang="ts">
+  import { resultComponents } from '../../lib/axes/result-components';
+  import { axesStore } from '../../lib/axes/axes.svelte';
+  import { userDof } from '../../lib/axes/typed-frame';
   import { shellStressInputs } from '../../lib/store/shell-contour';
   import { downloadResultText } from '../../lib/export/provenance-attach';
   import { resultCaseName } from '../../lib/engine/settlement-case';
@@ -48,6 +51,7 @@
 
 
   const results = $derived(resultsStore.results3D);
+  const components = $derived(resultComponents(axesStore.frame, results));
 
   // Unified shell rows (plates + quads) with derived principal stresses, for
   // the readable split stress / moment tables.
@@ -640,7 +644,7 @@
     {/if}
 
     <!-- Results tables — each collapsible -->
-    <div class="pro-res-scroll">
+    <div>
       <PlateResults />
       <PieceResults />
 
@@ -800,12 +804,8 @@
               {#each results.reactions as r}
                 <tr onclick={() => { uiStore.selectMode = 'nodes'; uiStore.selectNode(r.nodeId, false); }} style="cursor:pointer">
                   <td class="col-id">{r.nodeId}</td>
-                  <td class="col-num">{fmtQ(r.fx, 'force')}</td>
-                  <td class="col-num">{fmtQ(r.fy, 'force')}</td>
-                  <td class="col-num">{fmtQ(r.fz, 'force')}</td>
-                  <td class="col-num">{fmtQ(r.mx, 'moment')}</td>
-                  <td class="col-num">{fmtQ(r.my, 'moment')}</td>
-                  <td class="col-num">{fmtQ(r.mz, 'moment')}</td>
+                  {#each components.vec(r.fx, r.fy, r.fz) as c}<td class="col-num">{fmtQ(c, 'force')}</td>{/each}
+                  {#each components.rot(r.mx, r.my, r.mz) as c}<td class="col-num">{fmtQ(c, 'moment')}</td>{/each}
                 </tr>
               {/each}
             </tbody>
@@ -881,12 +881,8 @@
               {#each results.displacements as d}
                 <tr onclick={() => { uiStore.selectMode = 'nodes'; uiStore.selectNode(d.nodeId, false); }} style="cursor:pointer">
                   <td class="col-id">{d.nodeId}</td>
-                  <td class="col-num">{fmtQ(d.ux, 'displacement')}</td>
-                  <td class="col-num">{fmtQ(d.uy, 'displacement')}</td>
-                  <td class="col-num">{fmtQ(d.uz, 'displacement')}</td>
-                  <td class="col-num">{fmtQ(d.rx, 'rotation')}</td>
-                  <td class="col-num">{fmtQ(d.ry, 'rotation')}</td>
-                  <td class="col-num">{fmtQ(d.rz, 'rotation')}</td>
+                  {#each components.vec(d.ux, d.uy, d.uz) as c}<td class="col-num">{fmtQ(c, 'displacement')}</td>{/each}
+                  {#each components.rot(d.rx, d.ry, d.rz) as c}<td class="col-num">{fmtQ(c, 'rotation')}</td>{/each}
                 </tr>
               {/each}
             </tbody>
@@ -1031,7 +1027,9 @@
                 <th>{t('pro.nodeLabel')}</th><th>DOF</th><th>{t('pro.forceLabel')}</th>
               </tr></thead>
               <tbody>
-                {#each cForces as cf}
+                {#each cForces as cf0}
+                  {@const u = userDof(cf0.dof, cf0.force)}
+                  {@const cf = { ...cf0, dof: u.dof, force: u.value }}
                   <tr onclick={() => { uiStore.selectMode = 'nodes'; uiStore.selectNode(cf.nodeId, false); }} style="cursor:pointer">
                     <td class="col-id">{cf.nodeId}</td>
                     <td>{cf.dof}</td>
@@ -1165,7 +1163,7 @@
   .pro-seg-btn:hover { background: var(--st-surface-3); color: var(--st-text); }
   .pro-seg-btn.on { background: var(--st-selected-bg); color: var(--st-accent); }
 
-  .pro-res { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
+  .pro-res { display: flex; flex-direction: column; }
 
   .pro-res-header {
     padding: 8px 10px;
@@ -1307,13 +1305,6 @@
     color: var(--st-text-2);
     cursor: pointer;
     margin-left: 4px;
-  }
-
-  /* Scrollable results area */
-  .pro-res-scroll {
-    flex: 1;
-    overflow-y: auto;
-    min-height: 0;
   }
 
   /* Collapsible result sections */

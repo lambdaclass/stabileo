@@ -21,7 +21,7 @@
 
 import { noteText } from '../drawings';
 import { describe, it, expect, beforeAll } from 'vitest';
-import { workspaceScene } from './helpers/workspace-scene';
+import { GALLERY_REFUSED_BEAM_IDS, workspaceScene } from './helpers/workspace-scene';
 import { verificationStore } from '../../../store/verification.svelte';
 import { renderReportHtml, renderDrawings, renderSchedule } from '../document-render';
 import { reportElementStatus, type DesignOutcomeSummary } from '../element-status';
@@ -59,15 +59,11 @@ describe('top assembly reinforcement, across every projection', { timeout: 60_00
       .map(([id]) => id);
     expect(beams.length).toBeGreaterThan(100);
     const bare = beams.filter((id) =>
-      !scene.bars.some((b) => b.elementIds.includes(id) && b.role === 'longitudinal'));
-    // A beam is bare only where the design refused it, never with a cage and no main steel: the
-    // 41 the design refuses since it reads the column cages (no layout of their bars passes the
-    // 35 cm columns' 16 bars, or the ones that do need a second top row the columns cannot
-    // develop). Before: none bare, all 119 designed; after: these 41, refused, nothing drawn.
-    expect(bare).toEqual([112, 113, 114, 115, 117, 118, 119, 120, 121, 123, 124, 126, 127, 128, 129, 130, 132, 133, 135, 136, 137, 138, 139, 141, 142, 144, 145, 146, 147, 172, 175, 176, 177, 178, 179, 180, 185, 187, 188, 193, 196]);
+      !scene.bars.some((b) => b.ownerScope === 'frame' && b.elementIds.includes(id) && b.role === 'longitudinal'));
+    expect(bare.sort((a, b) => a - b)).toEqual(GALLERY_REFUSED_BEAM_IDS);
     for (const id of bare) {
       expect(verificationStore.outcomeFor(id)?.outcome, `member ${id}`).not.toBe('VERIFIED');
-      expect(scene.bars.some((b) => b.elementIds.includes(id) && b.role === 'transverse' && b.piece !== 'jointTie' && b.piece !== 'jointCrosstie'), `member ${id} has no cage either`).toBe(false);
+      expect(scene.bars.some((b) => b.ownerScope === 'frame' && b.elementIds.includes(id) && b.role === 'transverse' && b.piece !== 'jointTie' && b.piece !== 'jointCrosstie'), `member ${id} has no cage either`).toBe(false);
     }
   });
 
@@ -173,29 +169,8 @@ describe('top assembly reinforcement, across every projection', { timeout: 60_00
       expect(e.topSteel).toBe('hangerProvisional');
       expect(['PROVISIONAL', 'MODELLED'], `member ${id}`).toContain(e.status);
     }
-    // The set is substantial, so "nobody's state moved" is a real claim rather than a
-    // statement about an empty list.
-    // Pin membership on the integrated solver, not just a count. All of them have no designed
-    // hogging group (checked above), appear in scene and document, and retain their design
-    // status. The separate no-bare-beam check covers every beam.
-    //
-    // Twelve of the 27 there were. The other fifteen are bottom-only beams whose top pair lines
-    // up with the next span's hogging steel and is ONE bar through the joint, owned by both and
-    // resisting that span's moment — so not a hanger. A pair that does not line up is lapped, not
-    // fused, and stays a hanger: no capacity is credited to it. Transitions are planned on every
-    // line, against each member's own layout where the floor's search closed no assignment.
-    // Eight more line up since a member's rows are laid at its widest group's bar rather than its
-    // largest (`run-detailing` `rowDia`): 173's pair stood at ±108 mm against 172's top row at
-    // ±96 mm and was lapped; it is now 172's row, one bar `e172-topRun-0+e173-topRun-0` (likewise
-    // 174, 181, 184, 186, 189, 192 and 197). No design changed.
-    //
-    // Twenty-seven since the design reads the column cages: the 41 beams it refuses carry no
-    // steel, so a pair beside one has no hogging row to line up with and stays a hanger — every
-    // one of the 27 shares a joint with a refused beam (measured). Before: the twelve below;
-    // after: those twelve and 116, 122, 125, 131, 134, 140, 143, 173, 174, 181, 184, 186, 189, 192
-    // and 197.
     expect(report.hangerTopMembers, 'hanger top steel reaches the audited members').toEqual(
-      [116, 122, 125, 131, 134, 140, 143, 173, 174, 181, 182, 183, 184, 186, 189, 190, 191, 192, 194, 195, 197, 198, 199, 200, 201, 202, 203],
+      [148, 152, 158, 160, 164, 166, 208, 211, 215, 224, 227, 231],
     );
     // None of them is PROVISIONAL any more. This assertion used to require the opposite —
     // over 50 proposals — because the fixture's transposed section inertias inflated

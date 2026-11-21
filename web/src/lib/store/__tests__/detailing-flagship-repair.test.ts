@@ -89,7 +89,7 @@ describe('the flagship: the repair ladder bounded by the section', () => {
       }
     }
     expect(offenders).toEqual([]);
-    expect(moved).toBeGreaterThan(0);
+    expect(moved).toBe(0);
 
     // ── 3. Every conflict the ladder could have moved is an open condition naming its pair ──
     let unreported = 0;

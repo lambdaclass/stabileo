@@ -8,7 +8,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 
 class CiAggregate(unittest.TestCase):
     def test_vitest_targets_honour_optional_worker_cap(self):
-        for target in ['test.web.unit', 'test.web.timing']:
+        for target in ['test.web.unit', 'test.web.unit.production', 'test.web.unit.switch-on', 'test.web.timing']:
             for workers in ['', '1', '2']:
                 with self.subTest(target=target, workers=workers):
                     result = subprocess.run(
@@ -21,7 +21,7 @@ class CiAggregate(unittest.TestCase):
 
     def test_ci_vitest_jobs_limit_workers(self):
         workflow = (ROOT / '.github/workflows/ci.yml').read_text()
-        for job in ['web-unit', 'timing-budgets']:
+        for job in ['web-unit', 'web-unit-switch-on', 'timing-budgets']:
             with self.subTest(job=job):
                 body = workflow.split(f'  {job}:\n', 1)[1]
                 body = re.split(r'^  [\w-]+:', body, maxsplit=1, flags=re.M)[0]
@@ -41,7 +41,24 @@ class CiAggregate(unittest.TestCase):
         dependency_list = re.findall(r'^      - ([\w-]+)$', needs, re.M)
         dependencies = set(dependency_list)
         self.assertEqual(len(dependency_list), len(dependencies))
-        self.assertEqual(dependencies, jobs - {'ci-ok', 'e2e-flaky', 'e2e-timings', 'timing-budgets-alert'})
+        self.assertEqual(dependencies, jobs - {'ci-ok', 'e2e-flaky', 'e2e-timings', 'timing-budgets-alert',
+                                                'wasm-switch-on', 'web-unit-switch-on', 'e2e-switch-on'})
+
+    def test_required_web_tests_use_production_and_switch_on_jobs_report_separately(self):
+        workflow = (ROOT / '.github/workflows/ci.yml').read_text().split('\njobs:\n', 1)[1]
+        jobs = dict(re.findall(r'^  ([\w-]+):\n((?:^(?:    .*|)\n)*)', workflow, re.M))
+        for name, target in [('web-unit', 'test.web.unit.production'), ('site-e2e', 'e2e.web.build.production'),
+                             ('e2e', 'e2e.web.smoke.production')]:
+            self.assertIn(f'make {target}', jobs[name])
+            self.assertRegex(jobs['ci-ok'], rf'(?m)^      - {name}$')
+        for name, target in [('web-unit-switch-on', 'test.web.unit.switch-on'), ('e2e-switch-on', 'e2e.web.smoke.switch-on')]:
+            self.assertIn(f'make {target}', jobs[name])
+            self.assertIn("github.event_name == 'pull_request'", jobs[name])
+            self.assertIn('continue-on-error: true', jobs[name])
+            self.assertNotRegex(jobs['ci-ok'], rf'(?m)^      - {name}$')
+            self.assertNotRegex(jobs['superseded'], rf'(?m)^      - {name}$')
+            self.assertNotIn('stop-failed-run.yml', jobs[name])
+        self.assertIn('make check.web.production-parity', jobs['web-build'])
 
     def test_ci_scripts_filter_covers_its_tests_and_inputs(self):
         workflow = (ROOT / '.github/workflows/ci.yml').read_text()

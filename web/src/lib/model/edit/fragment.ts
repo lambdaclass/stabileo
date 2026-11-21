@@ -14,6 +14,8 @@
  * into another project does not point a member at whatever section happens to carry its old id.
  */
 import { modelStore } from '../../store/model.svelte';
+import { uiStore, type AnalysisMode } from '../../store/ui.svelte';
+import { isLocalPlaneRoller } from '../support-types';
 import { generatedMetadata } from './generated-metadata';
 import type {
   Element, Load, LoadCase, Material, ModelGroup, Plate, Quad, Section, Support,
@@ -39,12 +41,14 @@ export function closure(set: EntitySet): { nodes: Set<number>; elements: Set<num
 export interface FragmentNode { id: number; x: number; y: number; z: number }
 
 export interface Fragment {
+  analysisMode?: AnalysisMode;
   nodes: FragmentNode[];
   elements: Element[];
   quads: Quad[];
   plates: Plate[];
   supports: Support[];
   supportNodesWithMembers?: number[];
+  missingSupportMembers?: true;
   loads: Load[];
   groups: ModelGroup[];
   materials: Material[];
@@ -75,6 +79,7 @@ export interface FragmentOptions {
 export function fragmentOf(set: EntitySet, opts: FragmentOptions = {}): Fragment {
   const { nodes, elements, quads, plates } = closure(set);
   const frag: Fragment = {
+    analysisMode: uiStore.viewportPresentation3D === 'upright2dIn3d' ? '2d' : uiStore.analysisMode,
     nodes: [...nodes].map((id) => modelStore.nodes.get(id)).filter(Boolean).map((n) => ({ id: n!.id, x: n!.x, y: n!.y, z: n!.z ?? 0 })),
     elements: [...elements].map((id) => modelStore.elements.get(id)).filter(Boolean).map((e) => clone(e!)),
     quads: [...quads].map((id) => modelStore.quads.get(id)).filter(Boolean).map((q) => clone(q!)),
@@ -97,9 +102,13 @@ export function fragmentOf(set: EntitySet, opts: FragmentOptions = {}): Fragment
   const localSupportNodes = new Set(frag.supports.filter(s => s.isGlobal === false).map(s => s.nodeId));
   if (localSupportNodes.size > 0) {
     const withMembers = new Set<number>();
+    const localRollerNodes = new Set(frag.supports.filter(isLocalPlaneRoller).map(s => s.nodeId));
     for (const member of modelStore.elements.values()) {
       if (localSupportNodes.has(member.nodeI)) withMembers.add(member.nodeI);
       if (localSupportNodes.has(member.nodeJ)) withMembers.add(member.nodeJ);
+      if (!elements.has(member.id) && (localRollerNodes.has(member.nodeI) || localRollerNodes.has(member.nodeJ))) {
+        frag.missingSupportMembers = true;
+      }
     }
     frag.supportNodesWithMembers = [...withMembers];
   }

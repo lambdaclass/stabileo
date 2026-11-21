@@ -9,13 +9,15 @@ import { modelStore } from './index';
 import { expandCombinations } from '../engine/loads/combination-cases';
 import { addGeneratedCombinations, takeBackCompositeCases } from './generated-combinations';
 import type { LoadPlan } from '../engine/loads/load-plan';
-import type { CurrentLoadState } from '../engine/loads/load-plan-delta';
+import { expandPlannedCombinations, type CurrentLoadState } from '../engine/loads/load-plan-delta';
 import { findPlannedCase, type Load } from './model.svelte';
 import { designData, patchDesignData } from './design-data';
-import { fromLoadPlan, loadsGeneratedWith } from '../provenance/model-features';
+import { fromLoadPlan, loadsGeneratedWith, unverifiedSeismicLoads } from '../provenance/model-features';
 import { RESULTS_VERSION } from '../provenance/registry';
 import { untouchedDefaults, DEFAULT_CASE_NAME_KEYS } from '../model/default-loads';
 import { t } from '../i18n';
+import { msg } from '../codes/message';
+import { hasModalSeismicDerivation, MODAL_SEISMIC_UNAVAILABLE } from '../engine/loads/seismic-generation';
 
 export interface ApplyLoadPlanOptions {
   clearExisting: boolean;
@@ -156,16 +158,23 @@ export function loadStateForPlan(p: LoadPlan, nameOf?: ApplyLoadPlanOptions['nam
   };
 }
 
-export function applyLoadPlan(p: LoadPlan, opts: ApplyLoadPlanOptions): void {
-  if (p.outcome !== 'READY' || p.blockedKeys.length > 0) return;
+export function applyLoadPlan(p: LoadPlan, opts: ApplyLoadPlanOptions) {
+  if (p.outcome !== 'READY' || p.blockedKeys.length > 0) return p.blockedKeys[0];
+  const expandOptions = { bothSenses: { E: opts.bothSenses }, patternsInCompanions: opts.patternsInCompanions };
+  if (hasModalSeismicDerivation(p.derivation) || (p.cases.some(c => c.type === 'E') && p.seismicGeneration !== 'static')) {
+    expandPlannedCombinations(p, expandOptions);
+    return msg(MODAL_SEISMIC_UNAVAILABLE);
+  }
   modelStore.batch(() => {
-    const before = loadsGeneratedWith({ designData: designData(), loads: modelStore.loads as never });
+    const saved = { designData: designData(), loads: modelStore.loads as never, loadCases: modelStore.loadCases, regulations: modelStore.model.regulations };
+    const legacySeismic = new Set(unverifiedSeismicLoads(saved).map(l => l.data?.id));
+    const before = loadsGeneratedWith(saved);
     // The basis of what is about to be written, for the memoria (`LoadBasis`).
     const { windGust: _gust, ...scalars } = p.factors;
     const factors = Object.fromEntries(Object.entries(scalars).filter(([, v]) => v !== undefined)) as Record<string, NonNullable<(typeof scalars)[keyof typeof scalars]>>;
     patchDesignData({ loadBasis: {
       at: new Date().toISOString(), resultsVersion: RESULTS_VERSION, ...(p.generatedBy ? { generatedBy: p.generatedBy } : {}), factors,
-      levels: p.levels.map(({ nodeIds: _n, ...l }) => l), ...(p.seismic ? { seismic: p.seismic } : {}),
+      levels: (p.seismicModel?.levels ?? p.levels).map(({ nodeIds: _n, ...l }) => l), ...(p.seismic ? { seismic: p.seismic } : {}),
       derivation: p.derivation, assumptions: p.assumptions, refs: p.refs,
     } });
     {
@@ -182,7 +191,7 @@ export function applyLoadPlan(p: LoadPlan, opts: ApplyLoadPlanOptions): void {
       // stayed, solved and listed (`takeBackCompositeCases`).
       takeBackCompositeCases();
     }
-    if (modelStore.loads.some((l) => fromLoadPlan((l.data as { generatedBy?: string }).generatedBy))) {
+    if (modelStore.loads.some(l => !legacySeismic.has(l.data.id) && fromLoadPlan((l.data as { generatedBy?: string }).generatedBy))) {
       patchDesignData({ loadBasis: { ...designData().loadBasis!, resultsVersion: Math.min(before, RESULTS_VERSION) } });
     }
     const firstNewLoad = Math.max(0, ...modelStore.loads.map((l) => l.data.id)) + 1;
@@ -192,9 +201,11 @@ export function applyLoadPlan(p: LoadPlan, opts: ApplyLoadPlanOptions): void {
     // twice does not duplicate the wind cases of Fig. 2.4-8 (`ensureLoadCase`).
     const caseIds: number[] = [];
     const caseIdByType = new Map<string, number[]>();
+    const existingCases = new Set(modelStore.loadCases.map(c => c.id));
     for (const pc of p.cases) {
       const name = opts.nameOf(pc.nameKey, pc.nameParams);
       const id = modelStore.ensureLoadCase(name, pc.type, { existingId: pc.existingId, alternatives: pc.alternatives, pattern: pc.pattern, category: pc.category, own: pc.own, reduced: pc.reduced, snowBasis: pc.snowBasis });
+      if (!existingCases.has(id)) modelStore.markLoadCaseAxisNamed(id);
       if (pc.snowBasis === 'flatRoof') modelStore.updateLoadCaseFields(id, { solve: false });
       caseIds.push(id);
       const list = caseIdByType.get(pc.type) ?? [];
@@ -231,7 +242,7 @@ export function applyLoadPlan(p: LoadPlan, opts: ApplyLoadPlanOptions): void {
     for (const s of p.surface) {
       const id = caseOf(s.caseType, s.caseIndex);
       if (id === undefined) continue;
-      modelStore.addSurfaceLoad3D(s.quadId, s.q, id, s.frame ? { frame: s.frame, dir: s.dir, vary: s.vary } : undefined);
+      modelStore.addSurfaceLoad3D(s.quadId, s.q, id, { ...(s.frame ? { frame: s.frame, dir: s.dir, vary: s.vary } : {}), ...(s.on ? { on: s.on } : {}) });
     }
 
     // The user's own cases of a type the plan generates into a group of its own (the live load
@@ -254,12 +265,24 @@ export function applyLoadPlan(p: LoadPlan, opts: ApplyLoadPlanOptions): void {
       const lc = modelStore.model.loadCases.find((c) => c.id === id);
       return { id, type, name: lc?.name ?? type, ...(lc?.snowBasis ? { snowBasis: lc.snowBasis } : {}), ...(lc?.alternatives ? { alternatives: lc.alternatives } : {}), ...(lc?.pattern ? { pattern: true } : {}) };
     }));
-    addGeneratedCombinations(expandCombinations(p.combinations, planned, { bothSenses: { E: opts.bothSenses }, patternsInCompanions: opts.patternsInCompanions }));
+    addGeneratedCombinations(expandCombinations(p.combinations, planned, expandOptions));
 
     // What the generator wrote says so, for the next "replace".
     const by = p.generatedBy ?? 'generator';
-    modelStore.replaceLoads(modelStore.loads.map((l) => (l.data.id >= firstNewLoad
-      ? ({ ...l, data: { ...l.data, generatedBy: by, ...(carrierOf.has(l.data.id) ? { carrier: carrierOf.get(l.data.id) } : {}) } } as Load)
-      : l)));
+    const seismicIds = new Set(caseIdByType.get('E'));
+    modelStore.replaceLoads(modelStore.loads.map(l => {
+      if (l.data.id < firstNewLoad) {
+        return legacySeismic.has(l.data.id) && l.data.seismicGeneration !== 'unverified'
+          ? { ...l, data: { ...l.data, seismicGeneration: 'unverified' } } as Load : l;
+      }
+      return {
+        ...l,
+        data: {
+          ...l.data, generatedBy: by, ...(carrierOf.has(l.data.id) ? { carrier: carrierOf.get(l.data.id) } : {}),
+          ...(l.data.caseId !== undefined && seismicIds.has(l.data.caseId) ? { seismicGeneration: 'static' } : {}),
+        },
+      } as Load;
+    }));
   });
+  return undefined;
 }

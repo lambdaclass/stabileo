@@ -11,8 +11,11 @@
  * engine knowing either convention exists.
  */
 import { isMessage, type EngineMessage } from '../codes/message';
+import { AMBIGUOUS_ROLLER_Z } from '../engine/support-dofs-3d';
 import type { StructuredDiagnostic } from '../engine/types';
 import { i18n, tAt } from './store.svelte';
+import { axesStore } from '../axes/axes.svelte';
+import { axisTokensIn } from '../axes/case-names';
 
 /**
  * Locale-aware number formatting for message parameters.
@@ -48,16 +51,21 @@ export function teAll(messages: readonly EngineMessage[]): string[] {
  * while reading an English UI. They pass the locale in rather than reading the store.
  */
 export function teAt(m: EngineMessage, locale: string): string {
-  const raw = tAt(m.key, locale);
+  const raw = AXES_IN_TEXT.has(m.key) ? axisTokensIn(axesStore.frame, tAt(m.key, locale)) : tAt(m.key, locale);
   if (!m.params) return raw;
   return raw.replace(/\{(\w+)\}/g, (whole, name: string) => {
     const v = m.params![name];
     if (v === undefined || v === null) return whole;
     // Nested messages resolve inside-out, so a sentence can quote a regulation label.
     if (isMessage(v)) return teAt(v, locale);
-    return typeof v === 'number' ? formatNumber(v, locale) : String(v);
+    if (typeof v === 'number') return formatNumber(v, locale);
+    return AXIS_PARAMS.has(name) ? axisTokensIn(axesStore.frame, String(v)) : String(v);
   });
 }
+
+/** Parameters the load generators fill with a model axis ("X", "+Y"): read in the user's axes. */
+const AXIS_PARAMS = new Set(['dir', 'dirX', 'dirY', 'axis']);
+const AXES_IN_TEXT = new Set(['loadPlan.derivation.adjacentSpans']);
 
 /** Translate a list at an explicit locale. */
 export function teAllAt(messages: readonly EngineMessage[], locale: string): string[] {
@@ -96,6 +104,8 @@ export function formatCombinationLabel(
  * they appear in a message; anything else is left as it is.
  */
 const ENGINE_SENTENCES: ReadonlyArray<[string, string]> = [
+  ['Repeated load case factors cancel to zero in this combination.', 'svc.engine.cancelledCombination'],
+  [AMBIGUOUS_ROLLER_Z, 'svc.engine.ambiguousRollerZ'],
   ['exact plastic LP resource budget exceeded', 'plasticDiag.resourceBudget'],
   ['Singular stiffness matrix — structure is a mechanism', 'svc.engine.mechanism'],
   ['All diagonal entries are zero — singular matrix', 'svc.engine.zeroDiagonal'],
@@ -105,6 +115,8 @@ const ENGINE_SENTENCES: ReadonlyArray<[string, string]> = [
 export function localizeEngineText(message: string): string {
   let out = message;
   for (const [en, key] of ENGINE_SENTENCES) if (out.includes(en)) out = out.split(en).join(tAt(key, i18n.locale));
+  out = out.replace(/Non-finite number \((NaN|Infinity|-Infinity)\) at (\S+)/g, (_, value: string, path: string) =>
+    fill('svc.engine.nonFiniteNumber', { value, path }));
   return out.replace(SELF_CHECK_REFUSAL, (whole, check: string, mode: string | undefined, rest: string) => {
     const name = selfCheckName(check, mode);
     if (!name) return whole;

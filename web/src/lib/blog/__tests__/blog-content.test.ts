@@ -430,8 +430,14 @@ describe('the safety-advisories post quotes the advisories', () => {
       fr: 'Corrigé dans 0.6.2',
       tr: '0.6.2 sürümünde düzeltildi',
       hu: 'Javítva a 0.6.2 verzióban',
+      zh: '已在 0.6.2 中修复',
     };
     const fixedIds = fixed.map(({ id }) => id).sort();
+    const november20 = readdirSync(directory).filter(file => /^SA-2026-09[1-5]-/.test(file));
+    expect(november20.map(file => file.slice(0, 11)).sort()).toEqual(['SA-2026-091', 'SA-2026-092', 'SA-2026-093', 'SA-2026-094', 'SA-2026-095']);
+    for (const file of november20) {
+      expect(index).toContain(`| [${file.slice(0, 11)}](${file}) |`);
+    }
 
     for (const locale of new Set<PublicLocale>([...REQUIRED, 'hu'])) {
       const body = post!.i18n[locale] ?? (locale === 'hu' ? huAdvisories : undefined);
@@ -441,11 +447,20 @@ describe('the safety-advisories post quotes the advisories', () => {
       expect(summary.rows.map((r) => r[0]).sort(), `${locale}: advisory list`).toEqual(ids);
       expect(summary.rows.filter((r) => r[3]?.includes('0.6.2')).map((r) => r[0]).sort(), `${locale}: 0.6.2 statuses`)
         .toEqual(fixedIds);
+      for (const file of november20) {
+        const id = file.slice(0, 11);
+        const status = summary.rows.find((r) => r[0] === id)?.[3];
+        expect(status, `${locale}: ${id} status`).toBeTruthy();
+        expect(blocks.filter((b) => b.k === 'note' && b.t.startsWith(`${id} — `)), `${locale}: ${id} note`)
+          .toEqual([{ k: 'note', t: `${id} — ${status}${locale === 'zh' ? '。' : '.'}` }]);
+        expect(blocks.filter((b) => b.k === 'ext' && b.label === id), `${locale}: ${id} evidence`)
+          .toEqual([expect.objectContaining({ href: `https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/${file}` })]);
+      }
       for (const { id, evidence } of fixed) {
         const status = fixedStatuses[locale];
         expect(summary.rows.find((r) => r[0] === id)?.[3], `${locale}: ${id} status`).toBe(status);
         expect(blocks.filter((b) => b.k === 'note' && b.t.startsWith(`${id} — `)), `${locale}: ${id} note`)
-          .toEqual([{ k: 'note', t: `${id} — ${status}.` }]);
+          .toEqual([{ k: 'note', t: `${id} — ${status}${locale === 'zh' ? '。' : '.'}` }]);
         expect(blocks.filter((b) => b.k === 'ext' && b.label === id), `${locale}: ${id} evidence`)
           .toEqual([expect.objectContaining({ href: `https://github.com/lambdaclass/stabileo/blob/main/docs/${evidence}` })]);
       }

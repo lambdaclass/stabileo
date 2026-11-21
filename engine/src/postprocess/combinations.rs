@@ -1,6 +1,8 @@
 use crate::types::*;
 use crate::postprocess::diagrams::{compute_diagram_value_at_sorted, diagram_peak_stations_2d, sorted_point_loads};
 use crate::postprocess::diagrams_3d::evaluate_diagram_3d_at;
+use num_rational::BigRational;
+use num_traits::{ToPrimitive, Zero};
 use serde::{Deserialize, Serialize};
 use std::{borrow::Cow, collections::{HashMap, HashSet}};
 
@@ -299,21 +301,29 @@ impl ResolvedFactors {
             }
             let total = totals[slot].get_or_insert_with(|| {
                 ordered_slots.push(slot);
-                [0.0; 2]
+                Some(BigRational::zero())
             });
-            compensated_add(total, factor);
+            let Some(sum) = total else { continue };
+            if let Some(value) = BigRational::from_float(factor) {
+                *sum += value;
+            } else {
+                *total = None;
+            }
         }
 
-        let terms = ordered_slots.into_iter().filter_map(|slot| {
-            let [sum, correction] = totals[slot].unwrap();
-            let mut factor = sum + correction;
-            if !factor.is_finite() {
-                let case_id = cases[slot].0;
-                factor = rescaled_sum(factors.iter().filter(|f| f.case_id == case_id).map(|f| (f.factor, 1.0)));
-            }
-            (factor != 0.0).then_some((factor, slot))
+        let has_nonzero_factors = !ordered_slots.is_empty();
+        let terms: Vec<_> = ordered_slots.into_iter().filter_map(|slot| {
+            let factor = match totals[slot].take().unwrap() {
+                Some(sum) if sum.is_zero() => return None,
+                Some(sum) => sum.to_f64().unwrap_or(f64::NAN),
+                None => factors.iter().filter(|f| f.case_id == cases[slot].0).map(|f| f.factor).sum(),
+            };
+            Some((factor, slot))
         }).collect();
 
+        if terms.is_empty() && has_nonzero_factors {
+            return Err("Repeated load case factors cancel to zero in this combination.".into());
+        }
         Ok(Self { terms })
     }
 

@@ -6,6 +6,7 @@
 </script>
 
 <script lang="ts">
+  import { axesStore } from '../../lib/axes/axes.svelte';
   import { resultCaseName } from '../../lib/engine/settlement-case';
   import { engineGuarded } from '../../lib/store/engine-action';
   /**
@@ -76,7 +77,7 @@
     }
     return nodes;
   });
-  const opts = $derived<TableOptions>({ entities, resultant, stations: isNode ? 2 : stations });
+  const opts = $derived<TableOptions>({ entities, resultant, stations: isNode ? 2 : stations, axes: axesStore.choice });
   const withStations = $derived(!isNode && stations > 2);
   const cols = $derived(columnsOf(kind, opts));
 

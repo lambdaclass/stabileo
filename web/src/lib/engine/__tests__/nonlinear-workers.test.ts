@@ -1,3 +1,4 @@
+import { factorsWithExactCancellation, factorsWithUnitResidual } from './combination-factor-fixture';
 import { afterEach, beforeAll, beforeEach, expect, it, vi } from 'vitest';
 import * as native from '../../wasm/dedaliano_engine.js';
 import { initSolver } from '../wasm-solver';
@@ -445,4 +446,77 @@ it.each([['cable', 'cable'], ['curves', 'ssi']] as const)('refuses non-finite %s
   } finally {
     await session.free();
   }
+});
+
+it('#2292 nonlinear named combinations refuse complete case cancellation', async () => {
+  beam('curves');
+  const cases = modelStore.model.loadCases;
+  const [combo] = modelStore.model.combinations;
+  const [{ caseId }] = combo!.factors;
+  for (const approach of [{ combinationMethod: 'superpose' }, { combinationMethod: 'solveEach' }, { perCombination: 'pdelta' }] as const) {
+    const model = { ...md(), analysis: { ...md().analysis, ...approach } };
+    if ('perCombination' in approach) model.supports = new Map([...model.supports].map(([id, support]) => [id, { ...support, curves: undefined }]));
+    for (const solve of [solveCombinations3D, solveCombinations3DParallel]) {
+      const run = (weights: number[]) => solve(model, cases, [{ ...combo!, factors: weights.map(factor => ({ caseId, factor })) }]);
+      const control = await run([1]);
+      if (!control || typeof control === 'string') throw new Error(String(control));
+      expect(control.perCombo.get(combo!.id)?.displacements.some(row => row.uz !== 0)).toBe(true);
+      const roundoff = await run([2 ** 54, 1, -(2 ** 54)]);
+      const response = typeof roundoff === 'string' ? roundoff : roundoff?.perCombo.get(combo!.id)?.displacements;
+      expect.soft(response, JSON.stringify(approach)).toStrictEqual(control.perCombo.get(combo!.id)?.displacements);
+      const refused = await run([1, -1]);
+      expect.soft(typeof refused === 'string' ? refused : refused?.perCombo.get(combo!.id)?.displacements, JSON.stringify(approach))
+        .toEqual(expect.stringMatching(/Repeated load case factors cancel to zero in this combination/));
+    }
+  }
+});
+
+async function checkNamed3DResiduals(weightsByResidual: [number, number[]][], cancelledWeights?: number[]) {
+  const base = modelStore.addNode(0, 0, 0), tip = modelStore.addNode(0, 0, 4);
+  modelStore.addElement(base, tip, 'frame');
+  modelStore.addSupport(base, 'fixed3d');
+  const cases = modelStore.model.loadCases;
+  const caseId = cases[0]!.id;
+  modelStore.addNodalLoad3D(tip, 0, 0, 1.25, 0, 0, 0, caseId);
+  const linear = { ...md(), supports: new Map(modelStore.supports) };
+  const supportId = modelStore.addSupport(tip, 'custom3d', undefined, {
+    dofRestraints: { tx: false, ty: false, tz: false, rx: false, ry: false, rz: false },
+  });
+  modelStore.updateSupport(supportId, { curves: { x: [[0.01, 100], [0.05, 150]] } });
+  const nonlinear = md();
+  const models = [
+    ['linear', linear],
+    ['srss', linear, 'srss'],
+    ['abs', linear, 'abs'],
+    ['pdelta', { ...linear, analysis: { ...linear.analysis, perCombination: 'pdelta' as const } }],
+    ['superpose', { ...nonlinear, analysis: { ...linear.analysis, combinationMethod: 'superpose' as const } }],
+    ['solveEach', { ...nonlinear, analysis: { ...linear.analysis, combinationMethod: 'solveEach' as const } }],
+  ] as const;
+  for (const [method, model, combinationMethod] of models) {
+    for (const solve of [solveCombinations3D, solveCombinations3DParallel]) {
+      const run = async (weights: number[]) => {
+        const result = await solve(model, cases, [{ id: 1, name: 'Scaled load', method: combinationMethod, factors: weights.map(factor => ({ caseId, factor })) }]);
+        return !result || typeof result === 'string' ? result : result.perCombo.get(1)?.displacements;
+      };
+      for (const [factor, weights] of weightsByResidual) {
+        const control = await run([factor]);
+        if (!control || typeof control === 'string') throw new Error(String(control));
+        expect(control.find(row => row.nodeId === tip)?.uz).not.toBe(0);
+        expect.soft(await run(weights), method + ' ' + solve.name + ' ' + factor).toStrictEqual(control);
+      }
+      if (cancelledWeights) {
+        expect.soft(await run(cancelledWeights), method + ' ' + solve.name)
+          .toEqual(expect.stringMatching(/Repeated load case factors cancel to zero in this combination/));
+      }
+    }
+  }
+}
+
+it('#2292 named 3D solves scale a load once by its net case factor', async () => {
+  const big = 2 ** 54;
+  await checkNamed3DResiduals([-1.5, 1.5, -1, 1].map(factor => [factor, [big, factor, -big]]));
+});
+
+it('#2292 named 3D methods distinguish exact cancellation from a unit residual', async () => {
+  await checkNamed3DResiduals([[1, factorsWithUnitResidual]], factorsWithExactCancellation);
 });

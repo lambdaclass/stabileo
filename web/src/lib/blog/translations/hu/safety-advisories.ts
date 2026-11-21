@@ -206,6 +206,10 @@ const body: PostBody = {
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/results-changes/2026-11-fillet-weld-physical-runs.md", "label": "SA-2026-084", "t": "Érintett modellek és szükséges teendők."},
     {"k": "note", "t": "SA-2026-085 — Javítva a 0.6.2 verzióban."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/results-changes/2026-11-fillet-weld-physical-runs.md", "label": "SA-2026-085", "t": "Érintett modellek és szükséges teendők."},
+    {"k": "note", "t": "SA-2026-086 — Javítva a #2316 módosításban, kiadásra vár."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-086-seismic-static-story-forces.md", "label": "SA-2026-086", "t": "Érintett modellek és szükséges teendők."},
+    {"k": "note", "t": "SA-2026-087 — A terhek előállítását a #2316 módosítás letiltja, kiadásra vár."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-087-seismic-modal-load-generation.md", "label": "SA-2026-087", "t": "Érintett modellek és szükséges teendők."},
     {"k": "note", "t": "SA-2026-088 — Javítva a 0.6.2 verzióban."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/results-changes/2026-11-gravity-core.md#combined-member-diagram-extrema", "label": "SA-2026-088", "t": "Érintett modellek és szükséges teendők."},
     {
@@ -220,6 +224,24 @@ const body: PostBody = {
     },
     {"k": "note", "t": "SA-2026-090 — Javítva a 0.6.2 verzióban."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/results-changes/2026-11-gravity-core.md#width-mode-level-mass-follows-loaded-carriers", "label": "SA-2026-090", "t": "Érintett modellek és szükséges teendők."},
+    {"k": "note", "t": "SA-2026-091 — Az érintett ellenőrzéseket a #2338 letiltja, kiadásra vár."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-091-rc-torsion-shear-verification.md", "label": "SA-2026-091", "t": "Érintett modellek és szükséges teendők."},
+    {"k": "note", "t": "SA-2026-092 — Az együttes esetet a #2372 letiltja, a metszeteket a #2382 javítja, kiadásra vár."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-092-section-stress-shear.md", "label": "SA-2026-092", "t": "A vékony falú cső példájában a vizsgált szál helye a rúd helyi tengelyei szerint y = 0,0995 m, z = 0. A korábbi számítás szerint az eredő nyírófeszültség 4,5697 MPa, a von Mises-feszültség 7,9149 MPa volt, és az ellenőrzés a csavarónyomaték mindkét előjelénél megfelelést jelzett. Ha az összetevők erősítik egymást, a nyírófeszültségek előjeles összege 6,4625 MPa. A hozzá tartozó 11,1934 MPa-os von Mises-feszültség meghaladja a 9 MPa-os folyáshatárt. Ha az összetevők kioltják egymást, a von Mises-feszültség közel nulla, és az ellenőrzés megfelelést mutat."},
+    {"k": "note", "t": "SA-2026-093 — Javítva a #2381 módosításban, kiadásra vár."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-093-plane-moving-load-axial-force.md", "label": "SA-2026-093", "t": "Érintett modellek és szükséges teendők."},
+    {"k": "note", "t": "SA-2026-094 — Javítva a #2364 módosításban, kiadásra vár."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-094-plane-free-body-end-moments.md", "label": "SA-2026-094", "t": "Érintett modellek és szükséges teendők."},
+    {"k": "note", "t": "SA-2026-095 — Javítva a #2364 módosításban, kiadásra vár."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-095-plane-signed-scoped-self-weight.md", "label": "SA-2026-095", "t": "Érintett modellek és szükséges teendők."},
+    {"k": "note", "t": "SA-2026-096 — Javítva a 0.6.3 verzióban."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-096-static-seismic-stories-and-rafters.md", "label": "SA-2026-096", "t": "Érintett modellek és szükséges teendők."},
+    {"k": "note", "t": "SA-2026-097 — Javítva a 0.6.3 verzióban."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-097-workbook-inputs-and-plane-springs.md", "label": "SA-2026-097", "t": "Érintett modellek és szükséges teendők."},
+    {"k": "note", "t": "SA-2026-098 — Javítva a 0.6.3 verzióban."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-098-rc-drawn-reinforcement-verification.md", "label": "SA-2026-098", "t": "Érintett modellek és szükséges teendők."},
+    {"k": "note", "t": "SA-2026-099 — Letiltással kezelve a 0.6.3 verzióban."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-099-gravity-and-roof-step-loads.md", "label": "SA-2026-099", "t": "Érintett modellek és szükséges teendők."},
     {
       "k": "img",
       "base": "blog/recheck-stale",
@@ -726,6 +748,8 @@ const body: PostBody = {
         ],
         ["SA-2026-084", "A végterhelt sarokvarrat felosztása megszüntethette a hatásos hossz csökkentését (#2243). Ellenőrizze újra az érintett varratcsoportokat.", "—", "Javítva a 0.6.2 verzióban"],
         ["SA-2026-085", "Rövid sarokvarratnál túl nagy hatásos szármérettel számolhatott az ellenőrzés (#2244). Ellenőrizze újra az érintett varratcsoportokat.", "—", "Javítva a 0.6.2 verzióban"],
+        ["SA-2026-086", "A generált statikus földrengésterhek hibás szintenkénti erőket és rúdigénybevételeket eredményezhettek. Generálja újra az érintett terheket, és ismételje meg az elemzést és a méretezést.", "Magas", "Javítva a #2316 módosításban, kiadásra vár"],
+        ["SA-2026-087", "A modális földrengésterhek előállítása hibás rúdigénybevételeket eredményezhetett. Ha alkalmazható, generálja újra a terheket a statikus módszerrel, vagy várja meg a #2319 megoldását.", "Magas", "A terhek előállítását a #2316 módosítás letiltja, kiadásra vár"],
         ["SA-2026-088", "Az ABS és SRSS rúddiagramok tartalmazzák a kombinált függvény teherhatárok közötti szélsőértékeit. Ismételje meg a kombinációkat, diagramokat és kapcsolódó ellenőrzéseket (#2273).", "—", "Javítva a 0.6.2 verzióban"],
         [
           "SA-2026-089",
@@ -733,7 +757,16 @@ const body: PostBody = {
           "Magas",
           "Javítva a 0.6.2 verzióban"
         ],
-        ["SA-2026-090", "Szélességalapú módban a szintterület és a szeizmikus súly eltérhetett a generált rúdterhektől, mert csomóponti kiterjedést használt vagy zárt tartományt igényelt. Most a terhelt rudak hatásterületeit használja. Generálja újra a gravitációs terveket, szeizmikus súlyokat és terheket, majd ismételje meg a kapcsolódó elemzéseket, kombinációkat és ellenőrzéseket. A mentett terhek újraszámítása nem javítja a szeizmikus hatásokat (#2269). (#2210)", "—", "Javítva a 0.6.2 verzióban"]
+        ["SA-2026-090", "Szélességalapú módban a szintterület és a szeizmikus súly eltérhetett a generált rúdterhektől, mert csomóponti kiterjedést használt vagy zárt tartományt igényelt. Most a terhelt rudak hatásterületeit használja. Generálja újra a gravitációs terveket, szeizmikus súlyokat és terheket, majd ismételje meg a kapcsolódó elemzéseket, kombinációkat és ellenőrzéseket. A mentett terhek újraszámítása nem javítja a szeizmikus hatásokat (#2269). (#2210)", "—", "Javítva a 0.6.2 verzióban"],
+        ["SA-2026-091", "A vasbeton nyírási, csavarási és szeizmikus kengyelellenőrzései a vasalás igazolása nélkül is megfelelhettek. Futtassa újra a tanúsított méretezéseket, és vizsgálja felül a mértékadó metszeteket, vasalási terveket és jelentéseket.", "Magas", "Az érintett ellenőrzéseket a #2338 letiltja, kiadásra vár"],
+        ["SA-2026-092", "A részletes keresztmetszeti feszültségszámítás alábecsülhette az eredő nyírófeszültséget és a von Mises-feszültséget, és megfelelést jelezhetett. Számítsa újra az érintett feszültségeket, és vizsgálja felül az ábrákat, ellenőrzéseket és jelentéseket.", "Magas", "Az együttes esetet a #2372 letiltja, a metszeteket a #2382 javítja, kiadásra vár"],
+        ["SA-2026-093", "A síkbeli mozgó terhek elsimíthatták a normálerő ugrásait a koncentrált tengelyterheknél. Számítsa újra az érintett burkolókat és normálerő-hatásábrákat, és vizsgálja felül az azokon alapuló jelentéseket.", "Magas", "Javítva a #2381 módosításban, kiadásra vár"],
+        ["SA-2026-094", "A 2D szabadtestábra vizsgálója hibás előjellel jeleníthette meg a globális rúdvégi nyomatékokat. A számítási eredményeket ez nem érintette. Vizsgálja meg ismét a rudakat, majd készítse el újra és ellenőrizze az érintett jelentéseket.", "Közepes", "Javítva a #2364 módosításban, kiadásra vár"],
+        ["SA-2026-095", "Az előjeles vagy meghatározott rudakra korlátozott önsúlyszabályokat tartalmazó mentett 2D projektek figyelmeztetés nélkül hibás támaszreakciókat adhattak. Az érintett projektek megnyitásakor értesítés kéri az újraszámítást. Számítsa újra az eredményeket, majd készítse el újra és ellenőrizze az érintett jelentéseket.", "Magas", "Javítva a #2364 módosításban, kiadásra vár"],
+        ["SA-2026-096", "A statikus földrengésteher előállítása merevítési vagy hálócsomópontokat emeletnek vehetett, és a tetőrudak tehetetlenségi terhét a rúdvégekre helyezhette. Ellenőrizze a födémszinteket és a tetőrudak terhelését. Az elemzés és a méretezési ellenőrzések megismétlése előtt hozza létre újra a tehereseteket.", "Magas", "Javítva a 0.6.3 verzióban"],
+        ["SA-2026-097", "A munkafüzet importálásakor modelladatok maradhattak ki, a 2D export pedig egy forgási rugót eltolódási rugóként jelölhetett. Hasonlítsa össze az importált modellt az eredeti munkafüzettel, majd javítsa és importálja újra. Ellenőrizze a támaszokat és a terheket, majd ismételje meg az érintett számításokat és exportokat.", "Magas", "Javítva a 0.6.3 verzióban"],
+        ["SA-2026-098", "A vasbeton-ellenőrzés túl nagy kengyeltávolságot fogadhatott el, vagy a vizsgált szelvényben hiányzó vasalást vehetett figyelembe. Az oszloprajzokon hibás rúdátmérők jelenhettek meg. Ellenőrizze újból a megadott vasalást az egyidejű igénybevételekkel, majd vizsgálja át az érintett rajzokat, vasalási kimutatásokat és jelentéseket.", "Magas", "Javítva a 0.6.3 verzióban"],
+        ["SA-2026-099", "A gravitációs terhek előállítása kétszer terhelhetett egy héj- és gerendamezőt, vagy elforgatás, illetve felosztás után megváltoztathatta a terhelt rudak kijelölését. A tetőlépcsőnél felhalmozódó hó terhének átadása erőt és nyomatékot veszíthetett. Hozza létre újra a terheket, és letiltás esetén használjon függetlenül ellenőrzött tehereseteket.", "Magas", "Letiltással kezelve a 0.6.3 verzióban"]
       ]
     },
     {
@@ -1058,7 +1091,7 @@ const body: PostBody = {
       "k": "ul",
       "items": [
         "Hogyan derül ki: a modellben „kötél” viselkedésű rudak vannak, az anyaguknak van sűrűsége, és nem a kötél az egyetlen teherút.",
-        "Mi a teendő: ellenőrizze kézzel a mértékadó kötél- és lehorgonyzási erőket, vagy számítson a kötél anyagának sűrűsége nélkül (súly nélkül a törvény helyes volt); a javítás közzététele után futtassa újra.",
+        "Mi a teendő: Független számítással ellenőrizze a mértékadó kötél- és lehorgonyzási erőket a kötél önsúlyának figyelembevételével. Futtassa újra a számítást egy javított verzióval.",
         "Állapot: javítva a 0.3.0-s verzióban. A kötélszámítás most magát a húrtörvényt oldja meg Newton-iterációval."
       ]
     },

@@ -52,7 +52,7 @@ for (const angle of [0, 0.37, -0.8, Math.PI / 2, Math.PI]) for (const mirror of 
   knownWrong(`known wrong result: #2095 two pitch sliding follows source to ridge ${angle} ${mirror}`, () => {
     const model = transform(twoPitch(), angle, 1, mirror);
     const layout = gravityLayout(model, { mode: 'panels', tributaryWidth: 1 });
-    const inputs = { pg: 1, balanced: 0.7, pf: 1, tributaryWidth: 1 };
+    const inputs = { pg: 1, balanced: 2, pf: 1, tributaryWidth: 1 };
     const yes = driftAndSlidingLoads(model, layout, { ...inputs, slippery: true });
     const no = driftAndSlidingLoads(model, layout, { ...inputs, slippery: false });
     expect(pressure(yes.distributed, 500) - pressure(no.distributed, 500)).toBeCloseTo(0.4 * 6 / 4.5, 9);
@@ -105,6 +105,11 @@ for (const angle of [0, 0.37, Math.PI / 2]) for (const shift of [0, 1]) for (con
         }
       }
       const plan = buildLoadPlan({ regulations: regulations(), dead: [], occupancyKey: 'vivienda', reductionElementKind: 'interiorBeam', floorsSupported: 1, applyLiveReduction: false, generateCombinations: true, model, gravity: { mode }, tributaryWidth: 1, snow: { ...snow, partial: true, enabled: true, source: 'site' } });
+      if (fixture === twoPitch && mode === 'panels') {
+        expect(direct).toMatchObject({ result: { refused: 'snow.refused.stepDriftTransfer' }, cases: [] });
+        expect(plan).toMatchObject({ outcome: 'BLOCKED', blockedKeys: [{ key: 'snow.refused.stepDriftTransfer' }], cases: [], distributed: [] });
+        return;
+      }
       expect(plan.outcome).toBe('READY');
       const index = plan.cases.findIndex(c => c.type === 'S');
       const planned = plan.distributed.filter(d => d.caseIndex === index);

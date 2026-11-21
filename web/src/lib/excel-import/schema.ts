@@ -1,3 +1,5 @@
+import { userAxisAlong, type AxesFrame } from '../axes/frame';
+
 /**
  * What a Stabileo workbook contains, declared once.
  *
@@ -39,6 +41,8 @@ export interface ColumnSpec {
   unit?: string;
   /** A row missing this is an error, not a default. */
   required?: boolean;
+  strictNumber?: boolean;
+  strictUnit?: boolean;
   /** One line, in the instructions sheet. Translated at render time. */
   helpKey: string;
   /** Shown in the example row, so the shape of a valid value is visible. */
@@ -88,7 +92,7 @@ export const SHEETS: SheetSpec[] = [
     titleKey: 'xls.sheet.nodes',
     columns: [
       { key: 'id', required: true, helpKey: 'xls.col.nodeId', example: 1 },
-      { key: 'x', unit: 'm', required: true, helpKey: 'xls.col.x', example: 0 },
+      { key: 'x', unit: 'm', strictUnit: true, required: true, helpKey: 'xls.col.x', example: 0 },
       /*
        * Neither Y nor Z is required on its own, and one of the two must be
        * there — which a per-column flag cannot express, so the check lives in
@@ -96,8 +100,8 @@ export const SHEETS: SheetSpec[] = [
        * the ground fills X and Y. Demanding both would make every 2-D workbook
        * carry a column of noughts to say "still flat".
        */
-      { key: 'y', unit: 'm', helpKey: 'xls.col.y', example: '' },
-      { key: 'z', unit: 'm', helpKey: 'xls.col.z', example: 0 },
+      { key: 'y', unit: 'm', strictUnit: true, helpKey: 'xls.col.y', example: '' },
+      { key: 'z', unit: 'm', strictUnit: true, helpKey: 'xls.col.z', example: 0 },
       { key: 'name', helpKey: 'xls.col.nodeName', example: '' },
     ],
     /*
@@ -164,7 +168,7 @@ export const SHEETS: SheetSpec[] = [
       { key: 'E', unit: 'MPa', required: true, helpKey: 'xls.col.E', example: 25000 },
       { key: 'nu', required: true, helpKey: 'xls.col.nu', example: 0.2 },
       { key: 'rho', unit: 'kN/m³', helpKey: 'xls.col.rho', example: 24 },
-      { key: 'fy', unit: 'MPa', helpKey: 'xls.col.fy', example: 420 },
+      { key: 'fy', unit: 'MPa', helpKey: 'xls.col.materialFy', example: 420 },
       /*
        * The two PRO asks of a concrete MIX, and neither had a column: a
        * spreadsheet could describe the whole structure and still arrive
@@ -228,13 +232,14 @@ export const SHEETS: SheetSpec[] = [
       { key: 'angle', unit: '°', helpKey: 'xls.col.supportAngle', example: '' },
       { key: 'kx', unit: 'kN/m', helpKey: 'xls.col.kx', example: '' },
       { key: 'ky', unit: 'kN/m', helpKey: 'xls.col.ky', example: '' },
-      { key: 'kz', unit: 'kN/m', helpKey: 'xls.col.kz', example: '' },
+      { key: 'kz', strictNumber: true, unit: 'kN/m', helpKey: 'xls.col.kz', example: '' },
       { key: 'krx', unit: 'kN·m/rad', helpKey: 'xls.col.krx', example: '' },
       { key: 'kry', unit: 'kN·m/rad', helpKey: 'xls.col.kry', example: '' },
       { key: 'krz', unit: 'kN·m/rad', helpKey: 'xls.col.krz', example: '' },
       { key: 'dx', unit: 'm', helpKey: 'xls.col.dx', example: '' },
       { key: 'dy', unit: 'm', helpKey: 'xls.col.dy', example: '' },
       { key: 'dz', unit: 'm', helpKey: 'xls.col.dz', example: '' },
+      ...['x', 'y', 'z'].map(axis => ({ key: 'dr' + axis, unit: 'rad', strictNumber: true, helpKey: 'xls.col.supportRotation', example: '' })),
     ],
     examples: [
       [1, 'fixed', '', '', '', '', '', '', '', '', '', ''],
@@ -430,22 +435,61 @@ export const SHEETS: SheetSpec[] = [
   },
 ];
 
+/** The axes the coordinates, global loads and supports are written in; absent, the model's own. */
+export const AXES_SHEET = 'Axes';
+
+export const LOAD_DATA_COLUMNS: readonly string[] = ['load', 'case', 'type', 'node', 'member', 'shell', 'field', 'value', 'unit'];
+
+type ImportColumn = Pick<ColumnSpec, 'key' | 'unit' | 'required' | 'strictNumber' | 'strictUnit'> & { bareHeader?: true };
+
+const extraSheets: Record<string, readonly ImportColumn[]> = {
+  [AXES_SHEET]: [{ key: 'up', required: true }, { key: 'right', required: true }, { key: 'hand', required: true }],
+  LoadData: LOAD_DATA_COLUMNS.map(key => ({ key })),
+  SelfWeight: [
+    { key: 'source', required: true }, { key: 'case' }, { key: 'direction', required: true },
+    { key: 'factor', required: true, bareHeader: true }, { key: 'scope', required: true }, { key: 'members' }, { key: 'group' },
+  ],
+};
+
+export const IMPORT_SHEET_NAMES = [...SHEETS.map(sheet => sheet.name), ...Object.keys(extraSheets)];
+
+export const PLANE_SPRING_ROTATION = { key: 'kr', unit: 'kN·m/rad', strictNumber: true, strictUnit: true } as const;
+
+export const SUPPORT_RESTRAINT_COLUMNS = [
+  'restrainedUx', 'restrainedUy', 'restrainedUz', 'restrainedRx', 'restrainedRy', 'restrainedRz',
+] as const;
+
+export function importColumns(name: string, framed: boolean): readonly ImportColumn[] {
+  if (Object.hasOwn(extraSheets, name)) return extraSheets[name]!;
+  const columns = sheetSpec(name, framed)!.columns;
+  return name === 'Supports'
+    ? [...columns, PLANE_SPRING_ROTATION, ...SUPPORT_RESTRAINT_COLUMNS.map(key => ({ key, bareHeader: true as const }))]
+    : columns;
+}
+
 /** The sheet a reader sees first. Not data — prose, in their language. */
 export const INSTRUCTIONS_SHEET = 'Instrucciones';
 
 /** Look a sheet up by its stable name. */
-export function sheetSpec(name: string): SheetSpec | undefined {
-  return SHEETS.find((s) => s.name.toLowerCase() === name.trim().toLowerCase());
+const frameColumns: Record<string, ColumnSpec[]> = {
+  Loads: [
+    { key: 'angle', unit: '°', helpKey: 'xls.col.loadAngle', example: '' },
+    { key: 'px', unit: 'kN', helpKey: 'xls.col.axialPoint', example: '' },
+    { key: 'qxi', unit: 'kN/m', helpKey: 'xls.col.qxi', example: '' },
+    { key: 'qxj', unit: 'kN/m', helpKey: 'xls.col.qxj', example: '' },
+  ],
+};
+
+export function sheetSpec(name: string, framed = false): SheetSpec | undefined {
+  const sheet = SHEETS.find((s) => s.name.toLowerCase() === name.trim().toLowerCase());
+  const extra = framed && sheet ? frameColumns[sheet.name] : undefined;
+  return sheet && extra ? { ...sheet, columns: [...sheet.columns, ...extra] } : sheet;
 }
 
 /**
  * The header a column is written with: `qi [kN/m]`.
- *
- * Parsing matches the key on what precedes the bracket and reads the unit
- * inside it: `x [mm]` is converted to metres, and a unit the importer cannot
- * convert leaves the column out with a line in the report (`parse.ts`).
  */
-export function headerFor(col: ColumnSpec): string {
+export function headerFor(col: Pick<ColumnSpec, 'key' | 'unit'>): string {
   return col.unit ? `${col.key} [${col.unit}]` : col.key;
 }
 
@@ -454,4 +498,14 @@ export function keyFromHeader(header: unknown): string | null {
   if (typeof header !== 'string') return null;
   const base = header.split('[')[0].trim().toLowerCase();
   return base.length > 0 ? base : null;
+}
+
+export function planeSpringColumns(frame: AxesFrame): Record<'kx' | 'ky' | 'kz', string> {
+  const { along, depth, height } = coordinateColumns(frame);
+  return { kx: 'k' + along, ky: 'k' + height, kz: 'kr' + depth };
+}
+
+export function coordinateColumns(frame: AxesFrame): { along: string; depth: string; height: string } {
+  const name = (index: number) => userAxisAlong(frame, index).name.toLowerCase();
+  return { along: name(0), depth: name(1), height: name(2) };
 }

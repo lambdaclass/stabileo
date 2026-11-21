@@ -30,12 +30,12 @@
  *
  * Pure of stores: the model and its combinations come in, results go out.
  */
+import { plateAnalysisRefusal } from './plate-analysis-refusal';
 import type { ModelData } from './solver-service';
 import { requireCableAnalysis } from './analysis-validity';
 import { materialFamilyOf } from './steel/material-family';
 import { catalogueGradeFamily } from './steel/grade-family';
-import { buildSolverInput3D, caseSolverLoads3D, comboSolverLoads3D, imposedRefusal, loadRefusal, orphanLoadRefusal } from './solver-service';
-import { solvableModel } from './member-behaviour';
+import { prepareSolverInput3D, caseSolverLoads3D, comboSolverLoads3D, imposedRefusal, loadRefusal, resolveCombinationFactors, orphanLoadRefusal } from './solver-service';
 import { casesWithDisplacements, imposedOf } from './case-displacements';
 import { collapseVariableResults, variableExpansionFor } from './variable-members';
 import type { LoadCase, LoadCombination } from '../store/model.svelte';
@@ -234,6 +234,10 @@ export async function runDirectAnalysis(
   combinations: LoadCombination[],
   opts: { includeSelfWeight: boolean; leftHand?: boolean; settings?: DirectAnalysisSettings; run?: PDeltaRunner },
 ): Promise<DirectAnalysisResult | string> {
+  const plateRefusal = plateAnalysisRefusal(model);
+  if (plateRefusal) return plateRefusal;
+  const resolved = resolveCombinationFactors(combinations);
+  if (typeof resolved === 'string') return resolved;
   // Each case with what it takes in, its notional loads and its reduction (`case-effects.ts`).
   model = withCaseEffects(model, loadCases, { includeSelfWeight: opts.includeSelfWeight, leftHand: opts.leftHand ?? false });
   const settings = { ...(opts.settings ?? DEFAULT_DIRECT_SETTINGS) };
@@ -247,12 +251,13 @@ export async function runDirectAnalysis(
    */
   const refused = orphanLoadRefusal(model) ?? imposedRefusal(model);
   if (refused) return refused;
-  const solvable = solvableModel(model);
+  const prepared = prepareSolverInput3D(model, leftHand);
+  const solvable = prepared.model;
   const expansion = variableExpansionFor(model);
   let base: SolverInput3D | null;
   let caseLoads: Map<number, SolverLoad3D[]>;
   try {
-    base = buildSolverInput3D({ ...solvable, loads: [] }, false, leftHand);
+    base = prepared.build([]);
     caseLoads = caseSolverLoads3D(solvable, loadCases, opts.includeSelfWeight, leftHand);
   } catch (err) {
     const said = loadRefusal(err);
@@ -302,12 +307,12 @@ export async function runDirectAnalysis(
     for (const inc of c.includes ?? []) notionalIn(inc.caseId, k * inc.factor, out, new Set([...seen, id]));
   };
 
-  await Promise.all(combinations.map(async (combo) => {
+  await Promise.all(resolved.map(async (combo) => {
     const loads = comboSolverLoads3D(combo, caseLoads);
-    const factorOf = (c: number) => combo.factors.filter((f) => f.caseId === c).reduce((sum, f) => sum + f.factor, 0);
+    const factorOf = (c: number) => combo.factors.find((f) => f.caseId === c)?.factor ?? 0;
     const imposedHere = [...imposedCases].some((c) => factorOf(c) !== 0);
     if (loads.length === 0 && !imposedHere) return;
-    const on = imposedHere ? buildSolverInput3D({ ...solvable, loads: imposedOf(solvable.loads, factorOf) }, false, leftHand) : base;
+    const on = imposedHere ? prepared.build(imposedOf(solvable.loads, factorOf)) : base;
     if (!on) return;
     const share = new Map<number, number>();
     for (const f of combo.factors) notionalIn(f.caseId, f.factor, share, new Set());

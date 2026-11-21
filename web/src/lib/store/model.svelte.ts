@@ -1,4 +1,6 @@
+import { globalAxes } from '../features';
 import type { SupportType } from '../model/support-types';
+import { caseNameShown, combinationNameShown } from '../axes/case-names';
 import { te } from '../i18n/engine-text';
 import type { NonlinearSolveOptions } from '../engine/solver-pool';
 import { migrateDesignData } from '../model/design-data';
@@ -24,7 +26,7 @@ import {
   type Footing, type FootingMatPreferences,
 } from '../model/footing';
 import { DEFAULT_COVER } from '../engine/design/member-context';
-import { DOF_SPRING, dofRestraintsOfType3D, supportConfiguration, is3DSupportType, type SpringKey } from '../model/support-3d';
+import { DOF_SPRING, dofRestraintsOfType3D, supportConfiguration, is3DSupportType, hasYRollerMaskOnZRoller, type SpringKey } from '../model/support-3d';
 import {
   emptyGeotechnical, migrateGeotechnical, newSoilProfile,
   type ProjectGeotechnical, type SoilProfile,
@@ -715,7 +717,7 @@ export interface ThermalLoadQuad3D {
   caseId?: number;
 }
 
-export type Load =
+export type Load = (
   | { type: 'nodal'; data: NodalLoad }
   | { type: 'distributed'; data: DistributedLoad }
   | { type: 'pointOnElement'; data: PointLoadOnElement }
@@ -726,7 +728,8 @@ export type Load =
   | { type: 'surface3d'; data: SurfaceLoad3D }
   | { type: 'thermalQuad3d'; data: ThermalLoadQuad3D }
   | { type: 'prestress3d'; data: PrestressLoad3D }
-  | { type: 'displacement3d'; data: NodeDisplacement3D };
+  | { type: 'displacement3d'; data: NodeDisplacement3D }
+) & { data: { seismicGeneration?: 'static' | 'unverified' } };
 
 /**
  * What each type of load stands on, by the number it carries: a node (`nodeId`), a member
@@ -801,6 +804,8 @@ export interface LoadCase {
   reduction?: { ratio: number; tributaryAreaM2: number; elementKind: string; floorsSupported: number; occupancyKey?: string };
   /** A response spectrum as this case's result (`engine/spectral-case.ts`): no loads of its own. */
   spectral?: import('../engine/spectral-case').SpectralCaseDef;
+  /** Named by Stabileo with model axis letters ("Viento +X"): shown in the user's (`axes/case-names.ts`) until renamed. */
+  axisNamed?: boolean;
 }
 
 export interface LoadCombination {
@@ -814,6 +819,8 @@ export interface LoadCombination {
   method?: 'linear' | 'srss' | 'abs';
   /** The code, edition, rule and purpose of a generated combination: what design reads to know it is its own. */
   origin?: import('../codes/families/origin').CombinationOrigin;
+  /** Renamed by the user: a generated combination's name is otherwise shown in the user's axes (`axes/case-names.ts`). */
+  nameTyped?: boolean;
 }
 
 /**
@@ -1087,37 +1094,73 @@ const VIEW_CHANNEL_FIELDS = ['views', 'grid', 'notes', 'underlays', 'designData'
 const isDefinedLoadData = (l: Load | undefined): boolean => (l?.data as { fromDef?: number } | undefined)?.fromDef !== undefined;
 
 
-/**
- * The detailing as a snapshot carries it, each of its parts copied once per version of it.
- *
- * The detailing of a detailed building runs to tens of megabytes (every bar of every assembly),
- * and every edit pushes an undo entry. Its parts are only ever replaced whole: an edit that
- * retires the document writes a new detailing object holding the SAME assemblies, refusals and
- * floor readings. So each part is copied once, keyed by the object the model holds, and every
- * snapshot taken until that part is replaced shares the copy. Nothing writes into a snapshot's
- * detailing: `restore()` copies what it receives before adopting it.
- */
-let detailingCopies = new WeakMap<object, unknown>();
-function deepFreeze<T>(v: T): T {
-  if (v !== null && typeof v === 'object' && !Object.isFrozen(v)) {
-    Object.freeze(v);
-    for (const child of Object.values(v)) deepFreeze(child);
+class FrozenPlainObject {
+  constructor(value: object) {
+    return Object.freeze(value);
   }
-  return v;
 }
-function copyDetailing(d: DetailingStore | undefined): DetailingStore {
-  if (!d) return emptyDetailingStore();
-  const out: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(d)) {
-    if (v === null || typeof v !== 'object') { out[k] = v; continue; }
-    let copy = detailingCopies.get(v);
-    if (copy === undefined) { copy = deepFreeze(JSON.parse(JSON.stringify($state.snapshot(v)))); detailingCopies.set(v, copy); }
-    out[k] = copy;
+
+class PublishedDetailingBranch extends FrozenPlainObject {
+  #published = true;
+
+  static has(value: unknown): boolean {
+    return value !== null && typeof value === 'object' && #published in value;
   }
-  return out as unknown as DetailingStore;
+
+  static publish(value: object): void {
+    new PublishedDetailingBranch(value);
+  }
 }
-/** For the tests that compare a snapshot's cost before and after: forget the copies made. */
-export function forgetDetailingCopies(): void { detailingCopies = new WeakMap(); }
+
+const restoredDetailing = new WeakMap<DetailingStore, DetailingStore>();
+
+function ownDetailing<T>(value: T): T {
+  if (value === null || typeof value !== 'object' || PublishedDetailingBranch.has(value)) return value;
+
+  const copies = new Map<object, object>();
+  function copyBranch(branch: object): object {
+    if (PublishedDetailingBranch.has(branch)) return branch;
+    const existing = copies.get(branch);
+    if (existing !== undefined) return existing;
+
+    let copy: object;
+    if (Array.isArray(branch)) {
+      copy = branch.map(copyValue);
+    } else {
+      const fields = branch as Record<string, unknown>;
+      const owned: Record<string, unknown> = {};
+      for (const key of Object.keys(fields)) {
+        const child = copyValue(fields[key]);
+        if (key === '__proto__') {
+          Object.defineProperty(owned, key, { value: child, enumerable: true });
+        } else {
+          owned[key] = child;
+        }
+      }
+      copy = owned;
+    }
+    PublishedDetailingBranch.publish(copy);
+    copies.set(branch, copy);
+    return copy;
+  }
+  function copyValue(child: unknown): unknown {
+    return child !== null && typeof child === 'object' ? copyBranch(child) : child;
+  }
+  return copyBranch(value) as T;
+}
+
+const emptyPublishedDetailing = ownDetailing(emptyDetailingStore());
+
+function restoreDetailing(saved: DetailingStore | undefined): DetailingStore {
+  if (saved === undefined) return emptyPublishedDetailing;
+  const existing = restoredDetailing.get(saved);
+  if (existing !== undefined) return existing;
+
+  const restored = ownDetailing(migrateDetailingStore(saved).store);
+  restoredDetailing.set(restored, restored);
+  if (PublishedDetailingBranch.has(saved)) restoredDetailing.set(saved, restored);
+  return restored;
+}
 
 function createModelStore() {
   /**
@@ -1141,6 +1184,7 @@ function createModelStore() {
   const canonicalLoadMy = (load: Partial<NodalLoad>): number => load.my ?? load.mz ?? 0;
   const canonicalPointMoment = (load: Partial<PointLoadOnElement>): number | undefined => load.my ?? load.mz;
 
+  let detailing = $state.raw<DetailingStore | undefined>(emptyPublishedDetailing);
   let model = $state<StructureModel>({
     name: t('tabBar.newStructure'),
     nodes: new Map(),
@@ -1168,7 +1212,8 @@ function createModelStore() {
     footingMatPreferences: defaultFootingMatPreferences(),
     localAxisConvention: 'zUpStrongAxis',
     codeSettings: defaultCodeSettings(),
-    detailing: emptyDetailingStore(),
+    get detailing() { return detailing; },
+    set detailing(value) { detailing = ownDetailing(value); },
   });
 
   let lastKinematicResult = $state<KinematicResult | null>(null);
@@ -1613,7 +1658,6 @@ function createModelStore() {
     }
   }
 
-  type SupportSnapshotOptions = { preserveSupportTypes?: boolean };
   type SupportSprings = { kx?: number; ky?: number; kz?: number; krx?: number; kry?: number; krz?: number };
   type SupportOpts = { angle?: number; isGlobal?: boolean; dx?: number; dy?: number; dz?: number; drx?: number; dry?: number; drz?: number; dofRestraints?: { tx: boolean; ty: boolean; tz: boolean; rx: boolean; ry: boolean; rz: boolean }; dofFrame?: 'global' | 'local'; dofLocalElementId?: number };
 
@@ -2163,11 +2207,9 @@ function createModelStore() {
     get geotechnical() { return model.geotechnical; },
     get kinematicResult() { return lastKinematicResult; },
 
-    snapshot(options?: SupportSnapshotOptions): ModelSnapshot {
+    snapshot(): ModelSnapshot {
       // $state.snapshot() is the official Svelte 5 API to deeply unwrap reactive proxies
       // into plain JavaScript objects. This avoids all proxy-related serialization issues.
-      // The detailing is left out of it and copied once per version (`detailingSnapshot`): it is
-      // the largest part of a detailed project and an edit never changes it in place.
       const snap = $state.snapshot({ ...model, detailing: undefined }) as unknown as ReturnType<typeof $state.snapshot<typeof model>>;
       const snapId = $state.snapshot(nextId);
       const result: ModelSnapshot = {
@@ -2192,7 +2234,6 @@ function createModelStore() {
         }]) as ModelSnapshot['elements'],
         supports: Array.from(snap.supports.entries()).map(([k, v]) => [k, {
           ...v,
-          type: options?.preserveSupportTypes ? v.type : normalize2DSupportType(v.type),
           dz: canonicalSupportDz(v),
           dry: canonicalSupportDry(v),
         }]) as ModelSnapshot['supports'],
@@ -2270,7 +2311,7 @@ function createModelStore() {
         codeSettings: snap.codeSettings
           ? (JSON.parse(JSON.stringify(snap.codeSettings)) as ProjectCodeSettings)
           : defaultCodeSettings(),
-        detailing: copyDetailing(model.detailing),
+        detailing: detailing ?? emptyPublishedDetailing,
         // Both of these were declared on StructureModel AND on ModelSnapshot and
         // emitted by neither, so the regulation stack and the revision vector were
         // dropped by every path that goes through snapshot(): .ded save, undo/redo,
@@ -2338,7 +2379,7 @@ function createModelStore() {
       _captureProvenance = fn;
     },
 
-    restore(rawSnapshot: ModelSnapshot, options?: SupportSnapshotOptions): void {
+    restore(rawSnapshot: ModelSnapshot): void {
       loadEpoch++;
       _onReplaced?.();
       // ── Why the incoming snapshot is unwrapped before anything reads it ──────────
@@ -2368,7 +2409,9 @@ function createModelStore() {
       // pushed before the file was written, so restoring its emission list would silently delete
       // a record of something that really happened. They are adopted once per project by
       // `hydrateProjectProvenance`, which file-open and tab-activation call.
-      const s = plainDeepCopy(rawSnapshot);
+      const { detailing: savedDetailing, ...modelFields } = rawSnapshot;
+      const s = plainDeepCopy(modelFields);
+      const migratedDetailing = restoreDetailing(savedDetailing);
       modelVersion++;
       _onMutation?.();
       if (s.name) model.name = s.name;
@@ -2390,8 +2433,7 @@ function createModelStore() {
       }]));
       // Deduplicate supports: keep only the last support per node (legacy cleanup)
       const supEntries = s.supports.map(([k, v]) => {
-        const type = options?.preserveSupportTypes ? v.type : normalize2DSupportType(v.type as SupportType);
-        const sup = { ...v, type } as Support;
+        const sup = v as Support;
         return [k, { ...sup, dz: canonicalSupportDz(sup), dry: canonicalSupportDry(sup) }] as [number, Support];
       });
       const seenNodes = new Set<number>();
@@ -2521,7 +2563,7 @@ function createModelStore() {
       // Migration is deliberate, not a fallback: a project with no settings is stamped
       // CIRSOC 201-2005, the edition its stored results were actually checked against.
       model.codeSettings = migrateCodeSettings(s.codeSettings).settings;
-      model.detailing = migrateDetailingStore(s.detailing).store;
+      model.detailing = migratedDetailing;
       // `migrateRegulations` was written, unit-tested and never called from anywhere in
       // production. Calling it here is what makes a stored regulation stack survive a
       // save/open, an undo and a tab switch, and what upgrades a v1 (CIRSOC-specific)
@@ -3054,7 +3096,7 @@ function createModelStore() {
     removeNode(id: number): void {
       if (!_undoBatching) _pushUndo?.();
       model.nodes.delete(id);
-      model.nodes = new Map(model.nodes);
+      if (!_bulkMutating) model.nodes = new Map(model.nodes);
       // Same reasoning as removeElement: node numbers are reused, so a group holding a
       // deleted one would quietly come to mean a different node.
       replaceInGroups('nodes', id);
@@ -3067,13 +3109,13 @@ function createModelStore() {
       const outerBatching = _undoBatching;
       _undoBatching = true;
       try { for (const elemId of attached) this.removeElement(elemId); } finally { _undoBatching = outerBatching; }
-      model.elements = new Map(model.elements);
+      if (!_bulkMutating) model.elements = new Map(model.elements);
       for (const [supId, sup] of model.supports) {
         if (sup.nodeId === id) {
           model.supports.delete(supId);
         }
       }
-      model.supports = new Map(model.supports);
+      if (!_bulkMutating) model.supports = new Map(model.supports);
       // Every load on the node, an imposed displacement too (`LOAD_TARGET`).
       const keepLoad = (l: Load) => loadNodeId(l) !== id;
       model.loads = model.loads.filter(keepLoad);
@@ -3308,7 +3350,7 @@ function createModelStore() {
       if (!_undoBatching) _pushUndo?.();
       model.plates.delete(id);
       replaceInGroups('plates', id);
-      model.plates = new Map(model.plates);
+      if (!_bulkMutating) model.plates = new Map(model.plates);
       // The loads on it go with it, as a quad's do.
       const keepLoad = (l: Load) =>
         !((l.type === 'surface3d' || l.type === 'thermalQuad3d') && l.data.quadId === id && l.data.on === 'plate');
@@ -3341,7 +3383,7 @@ function createModelStore() {
       if (!_undoBatching) _pushUndo?.();
       model.quads.delete(id);
       replaceInGroups('quads', id);
-      model.quads = new Map(model.quads);
+      if (!_bulkMutating) model.quads = new Map(model.quads);
       // Cascade to surface/thermal loads on this quad — otherwise the load
       // dangles (still in the loads table, .ded and URL share) and is silently
       // dropped at solve time (convertSurfaceLoad: `if (!quad) return out`).
@@ -3672,7 +3714,9 @@ function createModelStore() {
       if (!current) return;
       const typeInWorkspace = uiStore.is3DWorkspace ? (type: SupportType) => type : normalize2DSupportType;
       const requestedType = typeInWorkspace(data.type ?? current.type);
-      const changedType = requestedType !== typeInWorkspace(current.type) ? requestedType : undefined;
+      const reselectsRelabelledRoller = uiStore.is3DWorkspace
+        && data.type === 'rollerZ' && !data.dofRestraints && hasYRollerMaskOnZRoller(current);
+      const changedType = requestedType !== typeInWorkspace(current.type) || reselectsRelabelledRoller ? requestedType : undefined;
       if (needsSpaceForSupport(changedType, data.dofRestraints)) this.ensureSpaceCoordinates();
       const sup = model.supports.get(id);
       if (!sup) return;
@@ -4418,7 +4462,7 @@ function createModelStore() {
     updateLoadCase(id: number, name: string): void {
       if (!_undoBatching) _pushUndo?.();
       const lc = model.loadCases.find(c => c.id === id);
-      if (lc) lc.name = name;
+      if (lc && caseNameShown(lc) !== name) { lc.name = name; delete lc.axisNamed; }
     },
 
     updateLoadCaseType(id: number, type: LoadCaseType): void {
@@ -4448,7 +4492,7 @@ function createModelStore() {
       if (!_undoBatching) _pushUndo?.();
       const combo = model.combinations.find(c => c.id === id);
       if (!combo) return;
-      if (data.name !== undefined) combo.name = data.name;
+      if (data.name !== undefined && data.name !== combinationNameShown(combo)) { combo.name = data.name; if (combo.origin) combo.nameTyped = true; }
       if (data.factors !== undefined) {
         // Factors edited by hand make the combination the user's: "replace generated loads" takes
         // back only what a code wrote, and deleted the edit with it. It keeps its purpose, so a
@@ -5104,4 +5148,24 @@ export function findPlannedCase<C extends Pick<LoadCase, 'id' | 'type' | 'name' 
       : cases.find((c) => c.type === type && c.name === name && open(c)));
 }
 
-export const modelStore = createModelStore();
+function withAxisNamedCases(store: ReturnType<typeof createModelStore>) {
+  const add = store.addLoadCase.bind(store), ensure = store.ensureLoadCase.bind(store);
+  const mark = (id: number, axisNamed: boolean | undefined) => {
+    const c = store.model.loadCases.find(c => c.id === id);
+    if (globalAxes() && axisNamed && c && /(?<![A-Za-z])[XYZ](?![A-Za-z])/.test(c.name)) c.axisNamed = true;
+    return id;
+  };
+  return Object.assign(store, {
+    markLoadCaseAxisNamed(id: number): void { mark(id, true); },
+    addLoadCase(name: string, type: LoadCaseType = '', opts: Parameters<typeof store.addLoadCase>[2] & { axisNamed?: boolean } = {}): number {
+      return mark(add(name, type, opts), opts.axisNamed);
+    },
+    ensureLoadCase(name: string, type: LoadCaseType, opts: Parameters<typeof store.ensureLoadCase>[2] & { axisNamed?: boolean } = {}): number {
+      const found = findPlannedCase(store.model.loadCases, name, type, opts);
+      const id = ensure(name, type, opts);
+      return found ? id : mark(id, opts.axisNamed);
+    },
+  });
+}
+
+export const modelStore = withAxisNamedCases(createModelStore());

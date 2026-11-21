@@ -14,7 +14,7 @@ export interface WindPressurePart {
 
 const inner = Math.sqrt((3 - 2 * Math.sqrt(6 / 5)) / 7), outer = Math.sqrt((3 + 2 * Math.sqrt(6 / 5)) / 7);
 const innerWeight = (18 + Math.sqrt(30)) / 36, outerWeight = (18 - Math.sqrt(30)) / 36;
-const quadrature = [[-outer, outerWeight], [-inner, innerWeight], [inner, innerWeight], [outer, outerWeight]] as const;
+export const pressureQuadrature = [[-outer, outerWeight], [-inner, innerWeight], [inner, innerWeight], [outer, outerWeight]] as const;
 
 export function integrateWindPressure(length: number, boundaries: readonly number[], pressure: (s: number) => number): WindPressurePart[] {
   if (!(Number.isFinite(length) && length > 0)) throw new WindPressureRefusal('wind.pressure.invalidCarrier');
@@ -30,7 +30,7 @@ export function integrateWindPressure(length: number, boundaries: readonly numbe
     const mid = (a + b) / 2, half = (b - a) / 2;
     const moments: Moments = [0, 0, 0, 0];
     let min = Infinity, max = -Infinity;
-    for (const [x, w] of quadrature) {
+    for (const [x, w] of pressureQuadrature) {
       const s = mid + half * x!, p = value(s);
       min = Math.min(min, p); max = Math.max(max, p);
       const weighted = half * w * p, offset = s - origin;
@@ -93,12 +93,18 @@ export type WindHeightResult = {
   members: WindHeightMember[];
 };
 
+export function globalMemberLine(elementId: number, a: number, b: number, qX: number, qXJ: number, qY: number, qYJ: number) {
+  return { elementId, a, b, q: 0, qJ: 0, qX, qXJ, qY, qYJ, frame: 'global' as const };
+}
+
 export function windHeightLoads(field: WindHeightResult, fx: number, fy: number, eccentricity = 0): Pick<WindCaseLoads, 'nodal' | 'baseLoads' | 'distributed'> {
   const distributed = field.members.map(p => {
     if (eccentricity !== 0 && p.torque === 'unsupported' && (p.q !== 0 || p.qJ !== 0)) throw new WindPressureRefusal('wind.pressure.distributedTorqueUnsupported');
     const torque = p.torque === 'resolved' ? p : { cx: 0, cxJ: 0, cy: 0, cyJ: 0, cm: 0, cmJ: 0 };
     if (eccentricity !== 0 && (torque.cm !== 0 || torque.cmJ !== 0)) throw new WindPressureRefusal('wind.pressure.distributedTorqueUnsupported');
-    return { elementId: p.elementId, a: p.a, b: p.b, q: 0, qJ: 0, qX: fx * p.q + eccentricity * torque.cx, qXJ: fx * p.qJ + eccentricity * torque.cxJ, qY: fy * p.q + eccentricity * torque.cy, qYJ: fy * p.qJ + eccentricity * torque.cyJ, frame: 'global' as const, facet: -1 };
+    return { ...globalMemberLine(p.elementId, p.a, p.b,
+      fx * p.q + eccentricity * torque.cx, fx * p.qJ + eccentricity * torque.cxJ,
+      fy * p.q + eccentricity * torque.cy, fy * p.qJ + eccentricity * torque.cyJ), facet: -1 };
   });
   return { nodal: [], baseLoads: [], distributed };
 }

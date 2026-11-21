@@ -16,7 +16,7 @@ const planFor = (complete: boolean): LoadPlan => {
   expect(base.outcome).toBe('READY');
   return { ...base, distributed: [], nodal: [], surface: [], thermal: [],
     cases: (complete ? completeSnowPair : partialSnowPair).map(({ id, name, ...c }) => ({ ...c, existingId: null, nameKey: name })),
-    combinations: pairedSpecs() };
+    combinations: pairedSpecs(), ...(complete ? { seismicGeneration: 'static' as const } : {}) };
 };
 
 for (const mode of ['2d', '3d', 'pro'] as const) for (const analysis of ['linear', 'pdelta'] as const) for (const entry of ['preview', 'apply'] as const) {
@@ -44,7 +44,7 @@ for (const mode of ['2d', '3d', 'pro'] as const) for (const analysis of ['linear
         expect(describePlanDelta(plan, empty, { replaceExisting: true, bothSenses: { E: both } }).after.combinations).toBe(expected.length);
         continue;
       }
-      applyLoadPlan(plan, { clearExisting: true, bothSenses: both, nameOf: key => key });
+      expect(applyLoadPlan(plan, { clearExisting: true, bothSenses: both, nameOf: key => key })).toBeUndefined();
       modelStore.restore(JSON.parse(JSON.stringify(modelStore.snapshot())));
       const actual = modelStore.combinations.filter(c => expected.some(e => e.name === c.name));
       expect(actual).toHaveLength(expected.length);

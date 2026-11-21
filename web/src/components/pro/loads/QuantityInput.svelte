@@ -43,10 +43,11 @@
     showUnit?: boolean;
     /** The SI value, when the field is left with a value that reads. */
     onchange?: (si: T) => void;
+    invalidText?: string | null;
   }
   let {
     value = $bindable(), quantity, min, max, above, nullable = false, placeholder, testid, cls = '', wrap = '',
-    ariaLabel, describedBy, title, disabled = false, showUnit = true, onchange,
+    ariaLabel, describedBy, title, disabled = false, showUnit = true, onchange, invalidText = $bindable(),
   }: Props = $props();
 
   const system = $derived(uiStore.unitSystem);
@@ -55,7 +56,7 @@
   let focused = $state(false);
   let text = $state('');
   // What the value says, written into the field whenever the reader is not typing in it.
-  $effect(() => { const s = fmt(value); if (!focused) text = s; });
+  $effect(() => { const s = invalidText ?? fmt(value); if (!focused) text = s; });
 
   /** The SI value the text reads, `null` for an empty nullable field, or `undefined` when it does not read. */
   function parse(raw: string): number | null | undefined {
@@ -68,11 +69,15 @@
   function input(el: HTMLInputElement) {
     text = el.value;
     const si = parse(el.value);
+    if (invalidText !== undefined) invalidText = si === undefined ? el.value : null;
     if (si !== undefined) value = si as T;
   }
   function leave(el: HTMLInputElement) {
     const si = parse(el.value);
-    if (si === undefined) { text = fmt(value); el.value = text; return; }
+    if (si === undefined) {
+      if (invalidText === undefined) { text = fmt(value); el.value = text; }
+      return;
+    }
     value = si as T;
     text = fmt(si);
     onchange?.(si as T);

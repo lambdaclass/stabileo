@@ -6,9 +6,21 @@ Configuration and the reasons behind it are in `../playwright.config.ts`. Tests 
 |---|---|---|
 | `@smoke` | every PR and the merge queue, 10 shards balanced by duration (`../scripts/e2e-shard.mjs`) | yes |
 | `@slow` | the merge queue, or a PR labelled `run-e2e`, 10 shards balanced the same way | yes |
+| `@timing` | Timing Budgets, on `stabileo-timing` for trusted runs with the pool enabled | yes, with report mode for budget overruns on PRs without the `run-e2e` label |
 | `@flaky` | every PR and the merge queue, in the `e2e-flaky` job, with `--retries=2` | no |
 
-Locally: `npm run test:e2e:smoke`, `npm run test:e2e:slow`, `npm run test:e2e:flaky`.
+Locally, run `make e2e.web.smoke`, `make e2e.web.slow`, `make e2e.web.timing`, or `make e2e.web.flaky`.
+
+Tag wall-clock budget tests with `@timing`. Name files containing only these tests
+`*.timing.spec.ts` so shared shards omit them. Mixed files keep their regular names
+and their other tests stay in their original suites.
+
+## Switch-on cases
+
+When adding `@switch-on` cases, list the spec path relative to `web/e2e/` in
+`../config/switch-on-e2e-specs.json`. Collection fails if either Playwright profile
+reports a tagged spec missing from the registry. Every listed spec must contribute
+an active `@switch-on` case in the test profile.
 
 ## Quarantine: `@flaky`
 
@@ -68,14 +80,14 @@ import model from './model.json' with { type: 'json' };
 Smoke tests have a **45,000 ms total test budget**, enforced by the `smoke` Playwright project.
 The committed shard timings aggregate whole files and include failures, so they cannot establish
 the slowest healthy individual test; 45 seconds is the fallback until healthy per-test reports
-are available. Slow, flaky and untagged tests retain the `chromium` project's 60-second default
+are available. Slow, flaky, timing and untagged tests retain the `chromium` project's 60-second default
 and their existing explicit longer budgets. The projects partition the tests without duplication.
 Use the npm suite commands or `--grep @smoke`; `--project chromium` now excludes ordinary smoke.
 
 In a spec containing smoke tests, test-budget overrides (including `test.info().setTimeout`
 and `test.describe.configure`) must use positive literal milliseconds no greater than 45,000.
 Parenthesized literals are accepted; arithmetic and identifiers are rejected because the source
-guard cannot establish their values. `test.slow()` is forbidden outside explicit `@slow`/`@flaky`
+guard cannot establish their values. `test.slow()` is forbidden outside explicit `@slow`, `@flaky` or `@timing`
 scopes. A `// slow-ok:` comment never exempts a test-budget override or `test.slow()`.
 
 Individual numeric wait options above 45,000 ms (or zero, which disables the wait timeout)
