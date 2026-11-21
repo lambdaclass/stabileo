@@ -49,7 +49,7 @@
  */
 import type { SolverInput, SolverLoad, SolverElement, AnalysisResults, ElementForces } from './types';
 import type { PlasticHinge, PlasticResult, PlasticStep } from './result-types';
-import { generatedMemberBounds, memberLength, splitSpanLoad } from './member-span-loads';
+import { canonicalSpanLoad, generatedMemberBounds, memberLength, spanEndpoints, splitSpanLoad } from './member-span-loads';
 import { solve, plasticLimit2D, type PlasticLimitResult } from './wasm-solver';
 // The normalized reading: the diagnosis in the active language and the app's axis names.
 import { analyzeKinematics } from './kinematic-2d';
@@ -207,19 +207,20 @@ function splitAt(input: SolverInput, id: number, s: number, ids: { node: number;
   return { node: nodeId, right: rightId };
 }
 
-function memberLoadsOn(loads: readonly SolverLoad[], id: number, L: number, from: number, to: number, pieceId: number): SolverLoad[] {
+function memberLoadsOn(input: SolverInput, original: SolverInput, id: number, L: number, from: number, to: number, pieceId: number): SolverLoad[] {
+  const pieceLength = memberLength(input, pieceId);
   const out: SolverLoad[] = [];
-  for (const l of loads) {
+  for (const l of original.loads) {
     if (!('elementId' in l.data) || (l.data as { elementId: number }).elementId !== id) continue;
     if (l.type === 'distributed' || l.type === 'axialDistributed') {
       const d = l.data, type = l.type;
       const la = d.a ?? 0, lb = d.b ?? L;
       const qAt = (x: number) => (lb - la < 1e-12 ? d.qI : d.qI + ((d.qJ - d.qI) * (x - la)) / (lb - la));
       const s0 = Math.max(la, from), s1 = Math.min(lb, to);
-      if (s1 - s0 > 1e-12) out.push({ type, data: { elementId: pieceId, qI: qAt(s0), qJ: qAt(s1), a: s0 - from, b: s1 - from } });
+      if (s1 - s0 > 1e-12) out.push({ type, data: { elementId: pieceId, qI: qAt(s0), qJ: qAt(s1), a: Math.min(s0 - from, pieceLength), b: Math.min(s1 - from, pieceLength) } });
     } else if (l.type === 'pointOnElement') {
       if ((l.data.a > from + 1e-12 || from <= 1e-12) && l.data.a <= to + 1e-12) {
-        out.push({ type: 'pointOnElement', data: { ...l.data, elementId: pieceId, a: Math.min(l.data.a, to) - from } });
+        out.push({ type: 'pointOnElement', data: { ...l.data, elementId: pieceId, a: Math.min(Math.min(l.data.a, to) - from, pieceLength) } });
       }
     } else if (l.type === 'thermal') {
       out.push({ type: 'thermal', data: { ...l.data, elementId: pieceId } });
@@ -331,7 +332,8 @@ function valueAt(kind: 'moment' | 'shear', pieces: readonly Piece[], efOf: Map<n
 }
 
 /** The step-by-step history. */
-export function plasticHistory2D(original: SolverInput, opts: PlasticCollapseOptions): PlasticCollapseResult {
+export function plasticHistory2D(input: SolverInput, opts: PlasticCollapseOptions): PlasticCollapseResult {
+  const original = withCanonicalSpans(input);
   const S = opts.samples ?? 64;
   const maxEvents = opts.maxEvents ?? 200;
   const MAX_CLOSINGS = maxEvents;
@@ -469,7 +471,10 @@ export function plasticHistory2D(original: SolverInput, opts: PlasticCollapseOpt
     const { open, km, space } = openMotions();
     if (!open.length) return false;
     if (!space.length) { unresolved = true; return false; }
-    const th = space.map((d) => open.map((_, k) => dotRow(km.rotation[k], d)));
+    const raw = space.map((d) => open.map((_, k) => dotRow(km.rotation[k], d)));
+    const thBig = Math.max(0, ...raw.flat().map(Math.abs));
+    // A hinge the motion does not turn comes out as round-off, which the LP would read as turning it against its moment.
+    const th = raw.map((row) => row.map((v) => (Math.abs(v) <= 1e-9 * thBig ? 0 : v)));
     const sag = open.map((x) => -Math.sign(hinges[x.h].moment));
     const loadWork = space.map((d) => dotRow(km.work, d));
     const consistent = solveLp({
@@ -638,7 +643,7 @@ export function plasticHistory2D(original: SolverInput, opts: PlasticCollapseOpt
     work.nodes.delete(node);
     mb.splitNodes = mb.splitNodes.filter((n) => n !== node);
     const onPieces = (l: SolverLoad) => 'elementId' in l.data && [left.id, right.id].includes((l.data as { elementId: number }).elementId);
-    work.loads = [...work.loads.filter((l) => !onPieces(l)), ...memberLoadsOn(original.loads, mb.id, mb.L, left.t0 * mb.L, right.t1 * mb.L, left.id)];
+    work.loads = [...work.loads.filter((l) => !onPieces(l)), ...memberLoadsOn(work, original, mb.id, mb.L, left.t0 * mb.L, right.t1 * mb.L, left.id)];
     mb.pieces.splice(li, 2, { id: left.id, t0: left.t0, t1: right.t1 });
     ref.stretch!.hinge = null;
     ref.stretch = undefined;
@@ -660,8 +665,8 @@ export function plasticHistory2D(original: SolverInput, opts: PlasticCollapseOpt
     const onPieces = (l: SolverLoad) => 'elementId' in l.data && [left.id, right.id].includes((l.data as { elementId: number }).elementId);
     work.loads = [
       ...work.loads.filter((l) => !onPieces(l)),
-      ...memberLoadsOn(original.loads, mb.id, mb.L, left.t0 * mb.L, t * mb.L, left.id),
-      ...memberLoadsOn(original.loads, mb.id, mb.L, t * mb.L, right.t1 * mb.L, right.id),
+      ...memberLoadsOn(work, original, mb.id, mb.L, left.t0 * mb.L, t * mb.L, left.id),
+      ...memberLoadsOn(work, original, mb.id, mb.L, t * mb.L, right.t1 * mb.L, right.id),
     ];
     mb.pieces.splice(li, 2, { id: left.id, t0: left.t0, t1: t }, { id: right.id, t0: t, t1: right.t1 });
     startTrack(ref, h);
@@ -956,7 +961,22 @@ export function plasticHistory2D(original: SolverInput, opts: PlasticCollapseOpt
   };
 }
 
-export function plasticCollapse2D(original: SolverInput, opts: PlasticCollapseOptions): PlasticCollapseResult {
+/** The model with every span load's certified endpoint (an end a rounding past the member) at the member's end. */
+function withCanonicalSpans(input: SolverInput): SolverInput {
+  const loads = input.loads.map((l): SolverLoad => {
+    if (l.type !== 'distributed' && l.type !== 'axialDistributed') return l;
+    const e = input.elements.get(l.data.elementId);
+    if (!e) return l;
+    const L = len(input, e);
+    const ni = input.nodes.get(e.nodeI)!, nj = input.nodes.get(e.nodeJ)!;
+    const { a, b, values: [[qI, qJ]] } = canonicalSpanLoad(e.id, l.data.a ?? 0, l.data.b ?? L, L, [[l.data.qI, l.data.qJ]], [[ni.x, ni.z], [nj.x, nj.z]]);
+    return { type: l.type, data: { ...l.data, qI, qJ, ...spanEndpoints(a, b, L, e.id) } } as SolverLoad;
+  });
+  return { ...input, loads };
+}
+
+export function plasticCollapse2D(input: SolverInput, opts: PlasticCollapseOptions): PlasticCollapseResult {
+  const original = withCanonicalSpans(input);
   const { unresolved: historyUnresolved, ...history } = plasticHistory2D(original, opts);
   const lambda = history.collapseFactor;
   const settled = history.isMechanism;
