@@ -1817,7 +1817,7 @@ function solvedVerdictBeam(spatial: boolean, nonlinear: boolean, geometry: typeo
   const a = geometry.b * geometry.h;
   const sec = { ...model.sections.get(1)!, ...geometry, a, iy: iz, iz };
   const solvedModel = { ...model, nodes, sections: new Map([[1, sec]]) };
-  const run = (fx: number, fz: number, my: number, load?: { a: number; b: number; q: number }) => {
+  const run = (fx: number, fz: number, my: number, load?: { a: number; b: number; q: number }): AnalysisResults3D => {
     if (spatial) {
       const solver: SolverInput3D = {
         ...solvedModel,
@@ -2173,9 +2173,7 @@ function checkRowCShear(mode: typeof curtailedShearModes[number] | 'continuous l
         if (drawn && hogging && index === 0) {
           expect.soft(row, context).toMatchObject({ status: 'fail', capacity: 0, ratio: Infinity, description: 'diag.rcShearTensionSteel' });
         } else if (hogging && force === high) {
-          const fraction = continuous ? 0 : (a.my + 0.001) / (a.my - b.my);
-          const demand = curvedTransition
-            ? Math.max(Math.abs(a.vz), Math.abs(b.vz)) : Math.abs(a.vz + (b.vz - a.vz) * fraction);
+          const demand = Math.max(Math.abs(a.vz), Math.abs(b.vz));
           expect(demand).toBeGreaterThan(retained.phiVn);
           expect.soft(row, context).toMatchObject({
             status: 'fail', demand: +demand.toFixed(2), capacity: retained.phiVn, ratio: +(demand / retained.phiVn).toFixed(3),
@@ -2197,9 +2195,8 @@ for (const mode of curtailedShearModes) {
   it(`#2355 round 4 row (c) uses the tension steel inside a curtailed interval (${mode})`, () => checkRowCShear(mode));
 }
 
-const transitionShear = process.env.RUN_KNOWN_WRONG === '2434' ? it : it.skip;
 for (const mode of curtailedShearModes) {
-  transitionShear(`known wrong result: #2434 bounds shear when distributed loading curves the hogging transition (${mode})`, () => checkRowCShear(mode, true));
+  it(`#2434 bounds shear when distributed loading curves the hogging transition (${mode})`, () => checkRowCShear(mode, true));
 }
 
 const continuousShear = process.env.RUN_KNOWN_WRONG === '2355' ? it : it.skip;

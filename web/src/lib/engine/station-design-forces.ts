@@ -2033,30 +2033,33 @@ function evaluateProvidedReinforcement(
     }
     return orderedCombos = [...byCombo.values()].map(combo => combo.sort((a, b) => a.stationT - b.stationT));
   };
-  const interpolateCuts = (positions: readonly number[] | ((combo: readonly Tuple[]) => readonly number[])) => {
-    const cuts: Tuple[] = [];
+  const collectCuts = <T>(
+    positions: readonly number[] | ((combo: readonly Tuple[]) => readonly number[]),
+    makeCut: (a: Tuple, b: Tuple, position: number) => T,
+  ): T[] => {
+    const cuts: T[] = [];
     for (const combo of stationCombos()) {
       let hi = 1;
       for (const t of typeof positions === 'function' ? positions(combo) : positions) {
         while (hi < combo.length && combo[hi]!.stationT < t) hi++;
         const a = combo[hi - 1], b = combo[hi];
-        if (a && b && a.stationT < t && t < b.stationT) cuts.push(a.interpolate(b, t));
+        if (a && b && a.stationT < t && t < b.stationT) cuts.push(makeCut(a, b, t));
       }
     }
     return cuts;
   };
-  const cutsAround = (breaks: number[], comboBreaks?: (combo: readonly Tuple[]) => number[]) => {
-    const positions = (extra: readonly number[]) => {
-      const interior = [...new Set([0, 1, ...breaks, ...extra].filter(t => t >= 0 && t <= 1))].sort((a, b) => a - b);
-      return [...new Set(interior.flatMap((t, i) => {
-        const from = interior[i - 1];
-        if (from === undefined) return [t];
-        const step = Math.min((t - from) / 3, Number.EPSILON);
-        return [from + step, (from + t) / 2, t - step, t];
-      }))].sort((a, b) => a - b);
-    };
-    return interpolateCuts(comboBreaks ? combo => positions(comboBreaks(combo)) : positions([]));
+  const interpolateCuts = (positions: readonly number[]) =>
+    collectCuts(positions, (a, b, t) => a.interpolate(b, t));
+  const cutPositionsAround = (breaks: readonly number[]) => {
+    const interior = [...new Set([0, 1, ...breaks].filter(t => t >= 0 && t <= 1))].sort((a, b) => a - b);
+    return [...new Set(interior.flatMap((t, i) => {
+      const from = interior[i - 1];
+      if (from === undefined) return [t];
+      const step = Math.min((t - from) / 3, Number.EPSILON);
+      return [from + step, (from + t) / 2, t - step, t];
+    }))].sort((a, b) => a - b);
   };
+  const cutsAround = (breaks: readonly number[]) => interpolateCuts(cutPositionsAround(breaks));
   const hasTuples = allTuples.length > 0;
   const M = (t: Tuple) => tupleMoment(t, axes.flexure);
 
@@ -2999,29 +3002,37 @@ function evaluateProvidedReinforcement(
       }
     }
     const shearDemandLimit = 0.001;
-    const activeHoggingShear = (t: Tuple) => Math.abs(V(t)) >= shearDemandLimit && M(t) < -shearDemandLimit;
+    type ShearCut = { tuple: Tuple; Vu: number };
+    const shearCut = (tuple: Tuple): ShearCut => ({ tuple, Vu: Math.abs(V(tuple)) });
+    const activeHoggingShear = ({ tuple, Vu }: ShearCut) => Vu >= shearDemandLimit && M(tuple) < -shearDemandLimit;
     const thresholdFraction = (a: number, b: number, limit: number) =>
       (a < limit) !== (b < limit) ? (limit - a) / (b - a) : undefined;
+    const momentTransition = (a: Tuple, b: Tuple) => thresholdFraction(M(a), M(b), -shearDemandLimit);
     const momentThresholds = (combo: readonly Tuple[]) => {
       const positions: number[] = [];
       for (let i = 1; i < combo.length; i++) {
         const a = combo[i - 1]!, b = combo[i]!;
-        const fraction = thresholdFraction(M(a), M(b), -shearDemandLimit);
+        const fraction = momentTransition(a, b);
         if (fraction !== undefined) positions.push(a.stationT + fraction * (b.stationT - a.stationT));
       }
       return positions;
     };
-    const retainedSpanCuts = () => {
+    const retainedSpanCuts = (): ShearCut[] => {
       if (spacingRule.edition !== '2025' || !shearLayoutBreaks.some(t => t > 0 && t < 1)) return [];
       const candidates = stirrupCoverage ?? (stirSpan ? [stirSpan] : []);
       const rowCCages = new Set(candidates.filter(stir =>
         computeShearCapacity(stir.diameter, stir.legs, stir.spacing, section.b, d, section.fc, section.fy, 0,
           { Ag: section.b * section.h, h: section.h, edition: spacingRule.edition }).avBelowMin));
       if (!rowCCages.size) return [];
-      return cutsAround([tStartEnd, tEndStart, ...shearLayoutBreaks], momentThresholds).filter(t =>
-        t.stationT > tStartEnd && t.stationT < tEndStart && Math.abs(V(t)) >= shearDemandLimit
-        && (stirrupsAt(t) ?? (stirSpan ? [stirSpan] : [])).some(stir => rowCCages.has(stir))
-        && typeof hoggingLayoutAt(t.stationT) === 'object');
+      const breaks = [tStartEnd, tEndStart, ...shearLayoutBreaks];
+      return collectCuts(combo => cutPositionsAround([...breaks, ...momentThresholds(combo)]), (a, b, t): ShearCut => {
+        const tuple = a.interpolate(b, t);
+        return momentTransition(a, b) === undefined
+          ? shearCut(tuple) : { tuple, Vu: Math.max(Math.abs(V(a)), Math.abs(V(b))) };
+      }).filter(({ tuple, Vu }) =>
+        tuple.stationT > tStartEnd && tuple.stationT < tEndStart && Vu >= shearDemandLimit
+        && (stirrupsAt(tuple) ?? (stirSpan ? [stirSpan] : [])).some(stir => rowCCages.has(stir))
+        && typeof hoggingLayoutAt(tuple.stationT) === 'object');
     };
     const shearCutoffWitness = (support: boolean): Tuple | undefined => {
       const intervals = shearDepthIntervals.filter(interval => interval.support === support);
@@ -3044,7 +3055,7 @@ function evaluateProvidedReinforcement(
             cuts.sort((u, v) => u - v);
             for (let k = 1; k < cuts.length; k++) {
               const t = a.interpolate(b, from + (to - from) * (cuts[k - 1]! + cuts[k]!) / 2);
-              if (activeHoggingShear(t) && hoggingLayoutAt(t.stationT) === 'unsupported') return t;
+              if (activeHoggingShear(shearCut(t)) && hoggingLayoutAt(t.stationT) === 'unsupported') return t;
             }
           }
         }
@@ -3120,12 +3131,13 @@ function evaluateProvidedReinforcement(
       type ShearEvidence =
         | { reason: 'diag.rcDrawnBarExtent' | 'diag.rcShearCutoff' | 'diag.rcShearDepth' | 'diag.rcShearTensionSteel'; tensionArea?: never }
         | { reason?: never; tensionArea?: number };
-      const shearEvidence = (t: Tuple, cages?: readonly StirrupDef[]): ShearEvidence => {
+      const shearEvidence = (cut: ShearCut, cages?: readonly StirrupDef[]): ShearEvidence => {
+        const t = cut.tuple;
         const supportTop = t.stationT <= tStartEnd ? topStartLayers : topEndLayers;
         const regionalLayers = support ? supportTop : bottomLayers;
         const regionalFace = support ? 'top' : 'bottom';
         if (!layersAreDrawn(regionalFace, regionalLayers, t.stationT)) return { reason: 'diag.rcDrawnBarExtent' };
-        const layout = activeHoggingShear(t) ? hoggingLayoutAt(t.stationT) : 'regional';
+        const layout = activeHoggingShear(cut) ? hoggingLayoutAt(t.stationT) : 'regional';
         if (layout === 'unsupported') return { reason: 'diag.rcShearCutoff' };
         const tensionArea = !support && typeof layout === 'object' ? layout.tensionArea : undefined;
         if (forSelection) return { tensionArea };
@@ -3149,25 +3161,26 @@ function evaluateProvidedReinforcement(
         return { tensionArea };
       };
       let refusal: { reason: string; Vu: number; t: Tuple; missing?: true } | undefined;
-      const recordRefusal = (reason: NonNullable<ShearEvidence['reason']>, t: Tuple) => {
+      const recordRefusal = (reason: NonNullable<ShearEvidence['reason']>, { tuple: t, Vu }: ShearCut) => {
         if (refusal?.missing || refusal?.reason === 'diag.rcDrawnBarExtent') return;
         if (!refusal || reason === 'diag.rcDrawnBarExtent'
           || (reason === 'diag.rcShearCutoff' && refusal.reason !== reason)) {
-          refusal = { reason, Vu: Math.abs(V(t)), t };
+          refusal = { reason, Vu, t };
         }
       };
       const evidenceCuts = [...drawnBarCuts, ...shearEvidenceCuts].filter(inRegion);
-      for (const t of evidenceCuts) {
-        if (Math.abs(V(t)) < shearDemandLimit) continue;
-        const { reason } = shearEvidence(t);
-        if (reason) recordRefusal(reason, t);
+      for (const tuple of evidenceCuts) {
+        const cut = shearCut(tuple);
+        if (cut.Vu < shearDemandLimit) continue;
+        const { reason } = shearEvidence(cut);
+        if (reason) recordRefusal(reason, cut);
       }
       const cutoff = shearCutoffWitness(support);
-      if (cutoff) recordRefusal('diag.rcShearCutoff', cutoff);
-      const cuts = new Set([...ss.tuples, ...gapCuts.filter(inRegion), ...zoneCuts.filter(inRegion),
-        ...(support ? [] : retainedSpanCuts())]);
-      for (const t of cuts) {
-        const Vu = Math.abs(V(t));
+      if (cutoff) recordRefusal('diag.rcShearCutoff', shearCut(cutoff));
+      const standardCuts = new Set([...ss.tuples, ...gapCuts.filter(inRegion), ...zoneCuts.filter(inRegion)]);
+      const retainedCuts = support ? [] : retainedSpanCuts();
+      for (const cut of [...Array.from(standardCuts, shearCut), ...retainedCuts]) {
+        const { tuple: t, Vu } = cut;
         if (Vu < 0.001) continue;
         count++;
         const stirrups = stirrupsAt(t) ?? (ss.stir ? [ss.stir] : []);
@@ -3175,9 +3188,9 @@ function evaluateProvidedReinforcement(
           if (!refusal?.missing || Vu > refusal.Vu) refusal = { reason: 'diag.rcShearGap', Vu, t, missing: true };
           continue;
         }
-        const { reason, tensionArea } = shearEvidence(t, stirrups);
+        const { reason, tensionArea } = shearEvidence(cut, stirrups);
         if (reason) {
-          recordRefusal(reason, t);
+          recordRefusal(reason, cut);
           if (reason !== 'diag.rcShearTensionSteel') continue;
         }
         // Solver convention is + = tension; computeShearCapacity expects
@@ -3353,7 +3366,8 @@ function evaluateProvidedReinforcement(
             || (reason === 'diag.rcTorsionPerimeter' && longitudinalRefusal.reason === 'diag.rcTorsionSplice'))) longitudinalRefusal = { t: x.t, reason };
         };
         let evaluated = 0;
-        const torsionCuts = new Set([...cuts, ...longitudinalCuts.filter(inRegion)]);
+        const retainedTorsionCuts = retainedCuts.map(({ tuple }) => tuple).filter(t => Math.abs(V(t)) >= shearDemandLimit);
+        const torsionCuts = new Set([...standardCuts, ...retainedTorsionCuts, ...longitudinalCuts.filter(inRegion)]);
         const canCheckLongitudinal = (x: TorsionAtStation) => !x.r.refusal || x.r.refusal === 'diag.rcTorsionSecondaryFace';
         for (const t of torsionCuts) {
           if (isDrawnGap(t) && torsionActivation(section, spacingRule.edition, t.section(axes.flexure)).neglect) continue;
