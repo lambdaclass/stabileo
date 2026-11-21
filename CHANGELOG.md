@@ -11,20 +11,6 @@ It should capture what changed, not what should be built next.
 
 One file per change in [`changelog.d/`](changelog.d/README.md); `scripts/changelog.py --release` moves them here.
 
-### BREAKING (results)
-
-#### Refuse ambiguous gravity carriers and roof step drift
-
-Panel gravity blocks duplicate loading of overlapping beam bays and shell decks through fully tied seams, including ties through off-seam master nodes and seam coordinates that differ by roundoff. The Automatic Loads dialog blocks before preview when roundoff makes a gravity carrier’s slope classification indeterminate. Snow generation blocks when positive on-site roof step drift would need to be transferred to members or applicability is indeterminate, including on pitched roofs. Regenerate affected gravity or snow loads before analysis and replace saved loads if generation blocks. See [the results changes](docs/results-changes/2026-11-gravity-carrier-refusals.md). (#2347, #2254, #2218, #2406)
-
-#### Static seismic runs end at floor joints and ridges require floor evidence
-
-Inclined members above an evidenced floor receive span inertia even when they are collinear with a member reaching the support datum. Static seismic generation refuses ridge joints whose only floor evidence is an adjoining beam. Review and regenerate affected seismic cases. (#2332, #2404)
-
-#### Static seismic generation checks story geometry and loads supported rafters along their spans
-
-Static seismic generation refuses brace and roof joints whose geometry does not establish a story. It accounts for coordinate rounding when identifying straight subdivisions and refuses when the available precision is insufficient. When an elevated inclined member has floor evidence at both ends, the generator applies inertia along its participating span. Regenerate affected static seismic cases before repeating analyses or design checks, and review base shear, story forces and member actions. See [the results change](docs/results-changes/2026-11-seismic-story-resolution.md). (#2330, #2331, #2332, #2404)
-
 ### Added
 
 #### Public Terms of Use, Privacy Policy and results disclaimer
@@ -41,45 +27,23 @@ The public build includes the Terms of Use and Privacy Policy pages, links to th
 
 All eight release notes now include saved projects that retain an imported gravity setting with standalone self-weight turned off in the rerun guidance. The notes clarify when to replace generated modal seismic cases, which supports set the static seismic datum, what section shear plots show, what to verify against the actual reinforcement, and when workbook imports or checks are refused (#2400).
 
-#### Verify concurrent spacing and withhold unsupported RC detailing results (2026-11-20)
-
-CIRSOC 201 beam checks use concurrent axial force for stirrup spacing, include exact moment-zero stations in anchorage, and account for local stirrup intervals and layered end bars. Verification refuses unsupported drawn bar credit and reports torsion capacity and utilization using the lower evaluated limit. Column schedules retain mixed bar diameters, and physical detailing withholds cages it cannot reproduce. Rerun verification against current drawings and review governing combinations, verdicts and reports. See [the results change](docs/results-changes/2026-11-rc-detailing-verification.md). (#2398)
-
-#### Verify drawn beam bar ends and corner seats (2026-11-20)
-
-CIRSOC 201 beam verification refuses longitudinal torsion when the drawn perimeter bars lack confirmed development at a joint or bar end. The concrete-only secondary shear check requires bars in both top stirrup bends and uses their drawn positions to bound effective depth. See [the results change](docs/results-changes/2026-11-rc-drawn-joint-and-corner-verification.md). (#2398)
-
-#### Use replacement beam drawings for final-depth verification (2026-11-20)
-
-Final-depth verification uses the bar extents from a replacement drawing when one is supplied. A regional-only replacement inherits the saved drawing. See [the results change](docs/results-changes/2026-11-rc-final-depth-drawing.md). (#2398)
-
-#### Reject ambiguous workbook coordinates and loads and preserve explicit restraints (2026-11-20)
-
-Excel import blocks malformed coordinate unit headers and populated columns that do not apply to the load type on that row. Project workbooks preserve explicit spatial restraint flags in workbook axes before the model has been solved (#2395).
-
-#### Refuse spreadsheet errors and ambiguous support and gravity inputs (2026-11-20)
-
-Excel import blocks spreadsheet error cells on model sheets and rejects restraint flags that conflict with the named support. Complete explicit spatial restraint masks are preserved. The SelfWeight sheet requires a unitless `factor` header and rejects percentage and other unit suffixes (#2395).
-
-#### Preserve workbook restraint axes and require valid headers (2026-11-20)
-
-Project workbooks write explicit restraint flags in their declared axes and keep blank flags blank. Excel import blocks incomplete rotational spring unit suffixes and populated model sheets that lack required headers, including headerless sheets with just one load (#2395).
-
-#### Block Excel imports that would drop model data (2026-11-20)
-
-Excel import now refuses ambiguous sheet names and repeated headers, invalid coordinate units, populated unsupported columns and member point-load fields, and incompatible plane load components before replacing the current model. Planar rotational springs export under `kr [kN·m/rad]`, and legacy spring workbooks remain readable. Reimport affected workbooks from source, check the coordinates, loads, gravity and restraints, then rerun the model. Re-export affected spring and restraint workbooks (#2370, #2383, #2395).
-
-### Performance
-
-#### Clear plate meshes faster and share the 2D co-rotational driver
-
-Clearing a plate mesh takes less work, including when rebuilding slab meshes. The 2D co-rotational analysis uses a shared nonlinear driver and retains its existing Newton and modified Newton results (#2394).
-
 ## 0.6.3 (2026-11-20)
 
 Release notes: [`docs/releases/v0.6.3.md`](docs/releases/v0.6.3.md) (also in [Spanish](docs/releases/v0.6.3.es.md), [Portuguese](docs/releases/v0.6.3.pt.md), [German](docs/releases/v0.6.3.de.md), [French](docs/releases/v0.6.3.fr.md), [Turkish](docs/releases/v0.6.3.tr.md), [Hungarian](docs/releases/v0.6.3.hu.md) and [Chinese](docs/releases/v0.6.3.zh.md)).
 
 ### BREAKING (results)
+
+#### Refuse ambiguous gravity carriers and roof step drift
+
+Panel gravity blocks duplicate loading of overlapping beam bays and shell decks through fully tied seams, including ties through off-seam master nodes and seam coordinates that differ by roundoff. The Automatic Loads dialog blocks before preview when roundoff makes a gravity carrier’s slope classification indeterminate. Snow generation blocks when positive on-site roof step drift would need to be transferred to members or applicability is indeterminate, including on pitched roofs. Regenerate affected gravity or snow loads before analysis. If generation is blocked, resolve the reported issue and regenerate, or replace the saved loads with independently verified loads, before relying on the results. See [the results changes](docs/results-changes/2026-11-gravity-carrier-refusals.md). (#2347, #2254, #2218, #2406)
+
+#### Static seismic runs end at floor joints and ridges require floor evidence
+
+Inclined members above an evidenced floor receive span inertia even when they are collinear with a member reaching the support datum. Static seismic generation refuses ridge joints whose only floor evidence is an adjoining beam. Review and regenerate affected seismic cases. (#2332, #2404)
+
+#### Static seismic generation checks story geometry and loads supported rafters along their spans
+
+Static seismic generation refuses brace and roof joints whose geometry does not establish a story. It accounts for coordinate rounding when identifying straight subdivisions and refuses when the available precision is insufficient. When an elevated inclined member has floor evidence at both ends, the generator applies inertia along its participating span. Regenerate affected static seismic cases before repeating analyses or design checks, and review base shear, story forces and member actions. See [the results change](docs/results-changes/2026-11-seismic-story-resolution.md). (#2330, #2331, #2332, #2404)
 
 #### Scale each case once in 3D load combinations (2026-11-19)
 
@@ -239,6 +203,34 @@ Bringing the mouse over a figure on the landing froze it, which read as a broken
 The [release notes](docs/releases/v0.6.3.md) cover safety advisories, affected results, new refusals and the steps for regenerating loads and reviewing reports. The notes are available in all eight release-note languages.
 
 ### Fixed
+
+#### Verify concurrent spacing and withhold unsupported RC detailing results (2026-11-20)
+
+CIRSOC 201 beam checks use concurrent axial force for stirrup spacing, include exact moment-zero stations in anchorage, and account for local stirrup intervals and layered end bars. Verification refuses unsupported drawn bar credit and reports torsion capacity and utilization using the lower evaluated limit. Column schedules retain mixed bar diameters, and physical detailing withholds cages it cannot reproduce. Rerun verification against current drawings and review governing combinations, verdicts and reports. See [the results change](docs/results-changes/2026-11-rc-detailing-verification.md). (#2398)
+
+#### Verify drawn beam bar ends and corner seats (2026-11-20)
+
+CIRSOC 201 beam verification refuses longitudinal torsion when the drawn perimeter bars lack confirmed development at a joint or bar end. The concrete-only secondary shear check requires longitudinal bars seated in both upper stirrup bends and uses their drawn positions to bound effective depth. See [the results change](docs/results-changes/2026-11-rc-drawn-joint-and-corner-verification.md). (#2398)
+
+#### Use replacement beam drawings for final-depth verification (2026-11-20)
+
+Final-depth verification uses the bar extents from a replacement drawing when one is supplied. A regional-only replacement inherits the saved drawing. See [the results change](docs/results-changes/2026-11-rc-final-depth-drawing.md). (#2398)
+
+#### Reject ambiguous workbook coordinates and loads and preserve explicit restraints (2026-11-20)
+
+Excel import blocks malformed coordinate unit headers and populated columns that do not apply to the load type on that row. Project workbooks preserve explicit spatial restraint flags in workbook axes before the model has been solved (#2395).
+
+#### Refuse spreadsheet errors and ambiguous support and gravity inputs (2026-11-20)
+
+Excel import blocks spreadsheet error cells on model sheets and rejects restraint flags that conflict with the named support. Complete explicit spatial restraint masks are preserved. The SelfWeight sheet requires a unitless `factor` header and rejects percentage and other unit suffixes (#2395).
+
+#### Preserve workbook restraint axes and require valid headers (2026-11-20)
+
+Project workbooks write explicit restraint flags in their declared axes and keep blank flags blank. Excel import blocks incomplete rotational spring unit suffixes and populated model sheets that lack required headers, including headerless sheets with just one load (#2395).
+
+#### Block Excel imports that would drop model data (2026-11-20)
+
+Excel import now refuses ambiguous sheet names and repeated headers, invalid coordinate units, populated unsupported columns and member point-load fields, and incompatible plane load components before replacing the current model. For planar loads, Excel import rejects nonzero moment components about either of the two declared workbook axes that lie in the model plane. Planar rotational springs export under `kr [kN·m/rad]`, and legacy spring workbooks remain readable. Reimport affected workbooks from source, check the coordinates, loads, gravity and restraints, then rerun the model. Re-export affected workbooks containing springs or restraints (#2370, #2383, #2395).
 
 #### Safety advisories for concrete verification, section stress and moving loads (2026-11-20)
 
@@ -521,6 +513,10 @@ The Chinese release notes check requires one matching notice each for results ve
 The recheck notice about shear and von Mises stress on section cuts appears in Simplified Chinese. Builds refuse to package notices with missing translations for a supported product language.
 
 ### Performance
+
+#### Clear plate meshes faster and share the 2D co-rotational driver
+
+Clearing a plate mesh takes less work, including when rebuilding slab meshes. The 2D co-rotational analysis uses a shared nonlinear driver and retains its existing Newton and modified Newton results (#2394).
 
 #### Name a number's path only when it is refused (2026-11-19)
 
