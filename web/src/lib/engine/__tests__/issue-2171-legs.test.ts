@@ -8,7 +8,7 @@ import { checkTorsion, prepareElementVerification, sharedTorsionReinforcement, v
 import { lineFromMembers, membersFromLine } from '../design/beam-line';
 import { mirrorReinforcement } from '../design/repeated-frames';
 import type { DesignAxes } from '../design/design-axes';
-import { extractGoverningDemands, prepareProvidedReinforcementRanker, rankProvidedReinforcement, verifyProvidedReinforcement } from '../station-design-forces';
+import { computeShearCapacity, extractGoverningDemands, layerCentroid, layersTotalArea, prepareProvidedReinforcementRanker, rankProvidedReinforcement, verifyProvidedReinforcement } from '../station-design-forces';
 import type { AnalysisResults, SolverInput } from '../types';
 import type { AnalysisResults3D, SolverInput3D } from '../types-3d';
 import { computeStationDemands, runCirsocDesign, runUnifiedVerification } from '../verification-service';
@@ -1922,6 +1922,81 @@ for (const spatial of [false, true]) for (const nonlinear of [false, true]) {
       }
       for (const cut of ['outer', 'both'] as const) for (const refused of check(cut, drawn, extracted)) {
         expect.soft(refused).toMatchObject({ status: 'fail', ratio: Infinity, description: 'diag.rcShearCutoff' });
+      }
+    }
+  });
+}
+
+const issue2355Round3 = process.env.RUN_KNOWN_WRONG === '2355' ? it : it.skip;
+
+for (const spatial of [false, true]) for (const nonlinear of [false, true]) {
+  issue2355Round3(`known wrong result: #2355 row (c) uses the steel present at the hogging span cut (spatial=${spatial}, nonlinear=${nonlinear})`, () => {
+    const L = 4;
+    const outer = { count: 2, diameter: 16, row: 0 };
+    const inner = { ...outer, count: 4, row: 1 };
+    const bottom = [{ ...outer, count: 3 }, { ...inner, count: 2 }];
+    const hoops = { diameter: 8, legs: 2, spacing: 0.6 };
+    const d = section.h - layerCentroid(bottom, section.cover, hoops.diameter);
+    const capacity = (layers: typeof bottom) => computeShearCapacity(hoops.diameter, hoops.legs, hoops.spacing,
+      section.b, d, section.fc, section.fy, 0,
+      { Ag: section.b * section.h, h: section.h, rhoW: layersTotalArea(layers) / (section.b * d * 1e4), edition: '2025' });
+    const retained = capacity([outer]), credited = capacity(bottom);
+    expect(retained).toMatchObject({ evaluated: true, avBelowMin: true });
+    expect(credited).toMatchObject({ evaluated: true, avBelowMin: true });
+    expect(retained.phiVn).toBeLessThan(credited.phiVn);
+    expect(section.h - layerCentroid([outer, inner], section.cover, hoops.diameter)).toBeLessThan(d);
+    expect(section.h - layerCentroid([outer], section.cover, hoops.diameter)).toBeGreaterThan(d);
+    const force = (retained.phiVn + credited.phiVn) / 2;
+    const { run, solvedModel } = solvedVerdictBeam(spatial, nonlinear, section, L);
+    const calc = (fz: number) => computeStationDemands(new Map([[1, run(0, fz, 0)]]), combos, solvedModel);
+    const up = calc(force), down = calc(-force);
+    const hoggingUp = up.stations.get(1)!.comboResults[0]!.stations[0]!.my < 0;
+
+    const solvedCuts = (hoggingUp ? up : down).stations.get(1)!.stationTs.map(t => t * L);
+    expect(solvedCuts.some(x => x > 1.3 && x < 1.5)).toBe(false);
+
+    for (const drawn of [false, true]) for (const extracted of [false, true]) {
+      const check = (hogging: boolean, spanForce: number, cut: readonly [number, number]) => {
+        const input = spanForce === force ? (hogging === hoggingUp ? up : down)
+          : calc(hogging === hoggingUp ? spanForce : -spanForce);
+        const provided: ProvidedReinforcement = drawn ? membersFromLine({
+          version: 1, members: [1], lengths: [L],
+          bars: [
+            { ...outer, id: 'top', face: 'top', role: 'main', from: 0, to: L },
+            { ...inner, id: 'top-start', face: 'top', role: 'main', from: 0, to: cut[0] },
+            { ...inner, id: 'top-end', face: 'top', role: 'main', from: cut[1], to: L },
+            ...bottom.map(layer => ({ ...layer, id: `bottom-${layer.row}`, face: 'bottom' as const, role: 'main' as const, from: 0, to: L })),
+          ],
+          stirrups: [{ ...hoops, id: 'stirrups', from: 0, to: L }],
+        }, [{ id: 1, L, tStart: 0.25, tEnd: 0.25, faceStart: 0, faceEnd: 0 }]).get(1)! : {
+          stirrups: hoops,
+          regions: {
+            bottomSpanLayers: bottom, topStartLayers: [outer, inner], topEndLayers: [outer, inner],
+            topStartGroups: [{ layers: [outer] }, { layers: [inner], continueEnd: false }],
+            topEndGroups: [{ layers: [outer] }, { layers: [inner], continueStart: false }],
+          },
+        };
+        const args = [1, 'beam', provided, extracted ? input.demands.get(1) : undefined, {}, section,
+          extracted ? undefined : input.stations.get(1), undefined, { axes }] as const;
+        const [id, kind, rebar, ...memberData] = args;
+        return [verifyProvidedReinforcement(...args), rankProvidedReinforcement(...args).ranking,
+          prepareProvidedReinforcementRanker(id, kind, ...memberData)(rebar)]
+          .map(report => report.checks.find(row => row.category === 'Shear Span (Vz)'));
+      };
+      for (const [hogging, demand, expected, status] of [
+        [true, force, retained, 'fail'],
+        [true, retained.phiVn - 1, retained, 'ok'],
+        [false, force, credited, 'ok'],
+      ] as const) {
+        const cutouts = drawn ? [[1, 3], [1.3, 1.5]] as const : [[1, 3]] as const;
+        for (const cut of cutouts) for (const row of check(hogging, demand, cut)) {
+          expect.soft(row, `drawn=${drawn}, extracted=${extracted}, hogging=${hogging}, demand=${demand}, cut=${cut}`)
+            .toMatchObject({ status, capacity: expected.phiVn, ratio: +(demand / expected.phiVn).toFixed(3) });
+          if (hogging && cut[0] !== 1) {
+            expect.soft(row?.stationX).toBeGreaterThan(cut[0]);
+            expect.soft(row?.stationX).toBeLessThan(cut[1]);
+          }
+        }
       }
     }
   });
