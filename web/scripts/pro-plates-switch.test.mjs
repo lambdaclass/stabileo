@@ -55,6 +55,20 @@ test('production with unified plates off uses the shared portable project codec'
   }
 });
 
+test('production source access uses the pinned main modules', { skip: 'known wrong result: #2365' }, () => {
+  const off = proPlatesSource(() => false);
+  const on = proPlatesSource(() => true);
+  const paths = ['src/components/pro/ProMesher.svelte', 'src/lib/store/file.ts'];
+  for (const path of paths) {
+    const absolute = resolve(root, path);
+    assert.equal(off.read(absolute) === git('show', `${base}:web/${path}`), true, path);
+    assert.equal(on.read(absolute), readFileSync(absolute, 'utf8'), path);
+  }
+  const codec = resolve(root, 'src/lib/store/ded-design-refusals.ts');
+  assert.throws(() => off.read(codec), /Unified PRO plates are disabled/);
+  assert.equal(on.read(codec), readFileSync(codec, 'utf8'));
+});
+
 test('production keeps the complete pinned results registry #2365', () => {
   assert.deepEqual(readProfileResultChanges(false), readRegistryAt(base));
 });
