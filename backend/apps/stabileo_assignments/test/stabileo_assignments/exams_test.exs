@@ -1,6 +1,8 @@
 defmodule StabileoAssignments.ExamsTest do
   use StabileoRepo.DataCase, async: true
 
+  import Ecto.Query
+
   alias StabileoAssignments.{Assignments, Exams}
   alias StabileoRepo.{Factory, Features}
   alias StabileoRepo.Schemas.{Account, AssignmentAttempt}
@@ -281,6 +283,32 @@ defmodule StabileoAssignments.ExamsTest do
       refute Exams.reveal_allowed?(a, submitted, at(11))
       refute Exams.reveal_allowed?(a, submitted, DateTime.add(@closes, 30))
       assert Exams.reveal_allowed?(a, submitted, DateTime.add(@closes, 31))
+    end
+
+    test "after_close: an earlier closes_at waits for attempts already running", %{
+      owner: owner,
+      student: student
+    } do
+      a = assignment(owner, %{"reveal" => "after_close"})
+      {:ok, {attempt, _}} = Exams.start(student, a.code, at(0))
+      {:ok, {submitted, _}} = Exams.submit(student, attempt.id, %{}, at(10))
+      late = Factory.insert(:account, name: "Bea")
+      {:ok, {running, _}} = Exams.start(late, a.code, at(60))
+      assert running.deadline_at == at(150)
+
+      moved = at(70)
+
+      Repo.update_all(from(x in StabileoRepo.Schemas.Assignment, where: x.id == ^a.id),
+        set: [closes_at: moved]
+      )
+
+      a = Repo.reload!(a)
+      refute Exams.reveal_allowed?(a, submitted, DateTime.add(moved, 31))
+      refute Exams.reveal_allowed?(a, submitted, DateTime.add(at(150), 30))
+      assert Exams.reveal_allowed?(a, submitted, DateTime.add(at(150), 31))
+
+      {:ok, _} = Exams.submit(late, running.id, %{}, at(80))
+      assert Exams.reveal_allowed?(a, submitted, DateTime.add(moved, 31))
     end
   end
 end

@@ -83,10 +83,24 @@ defmodule StabileoAssignments.Exams do
 
   def reveal_allowed?(%Assignment{reveal: "on_submit"}, attempt, now), do: closed?(attempt, now)
 
-  def reveal_allowed?(%Assignment{reveal: "after_close", closes_at: closes_at}, _attempt, now),
-    do:
-      not is_nil(closes_at) and
-        DateTime.compare(now, DateTime.add(closes_at, @grace_seconds)) == :gt
+  def reveal_allowed?(%Assignment{reveal: "after_close", closes_at: nil}, _attempt, _now),
+    do: false
+
+  def reveal_allowed?(%Assignment{reveal: "after_close"} = assignment, _attempt, now),
+    do: DateTime.compare(now, DateTime.add(last_write(assignment), @grace_seconds)) == :gt
+
+  # closes_at can move earlier after attempts started; their deadlines do not move with it.
+  defp last_write(%Assignment{id: id, closes_at: closes_at}) do
+    open =
+      Repo.one(
+        from(t in AssignmentAttempt,
+          where: t.assignment_id == ^id and is_nil(t.submitted_at),
+          select: max(t.deadline_at)
+        )
+      )
+
+    if open && DateTime.compare(open, closes_at) == :gt, do: open, else: closes_at
+  end
 
   defp existing_or_new(assignment, account_id, now) do
     case Repo.get_by(AssignmentAttempt, assignment_id: assignment.id, account_id: account_id) do
