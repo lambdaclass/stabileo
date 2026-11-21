@@ -569,9 +569,9 @@
     const refused = imposedRefusal(modelStore.model);
     if (refused) { uiStore.toast(refused, 'error'); return; }
     // Every load, the cases' imposed displacements with them, as the linear "All loads" solve.
-    const input = modelStore.buildSolverInput3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand', { basic: uiStore.analysisMode !== 'pro', expandMemberOffsets: false, caseDisplacements: true });
-    if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
     try {
+      const input = modelStore.buildSolverInput3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand', { basic: uiStore.analysisMode !== 'pro', expandMemberOffsets: false, caseDisplacements: true });
+      if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
       const t0 = performance.now();
       let result: any;
       result = wasmPDelta3D(input);
@@ -587,9 +587,9 @@
   async function handleModal3D() {
     if (blockedBySlidingJoints()) return;
     if (!await ensureWasmReady('handleModal3D')) return;
-    const input = modelStore.buildSolverInput3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand', { basic: uiStore.analysisMode !== 'pro', expandMemberOffsets: false });
-    if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
     try {
+      const input = modelStore.buildSolverInput3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand', { basic: uiStore.analysisMode !== 'pro', expandMemberOffsets: false });
+      if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
       const t0 = performance.now();
       let result: any;
       const physical = withBasicMass(input, modelStore.model, 'izz');
@@ -608,9 +608,9 @@
   async function handleBuckling3D() {
     if (blockedBySlidingJoints()) return;
     if (!await ensureWasmReady('handleBuckling3D')) return;
-    const input = modelStore.buildSolverInput3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand', { basic: uiStore.analysisMode !== 'pro', expandMemberOffsets: false });
-    if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
     try {
+      const input = modelStore.buildSolverInput3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand', { basic: uiStore.analysisMode !== 'pro', expandMemberOffsets: false });
+      if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
       const t0 = performance.now();
       let result: any;
       result = wasmBuckling3D(input);

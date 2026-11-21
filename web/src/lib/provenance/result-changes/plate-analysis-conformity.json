@@ -1,0 +1,32 @@
+{
+  "id": "plate-analysis-conformity",
+  "date": "2026-11-20",
+  "prs": [2368, 2376, 2388, 2409],
+  "area": "analysis",
+  "when": { "all": ["plateAnalysisIssue"] },
+  "quantities": ["*", "solve.ok"],
+  "title": {
+    "en": "Physical plate and wall–slab mesh checks",
+    "es": "Verificación de placas físicas y uniones muro–losa",
+    "pt": "Verificação de placas físicas e ligações parede–laje",
+    "de": "Prüfung von Flächenelementen und Wand-Decken-Anschlüssen",
+    "fr": "Vérification des plaques et des jonctions voile–dalle",
+    "tr": "Fiziksel plak ve perde–döşeme ağı denetimi",
+    "hu": "Lemezek és fal–födém csatlakozások hálójának ellenőrzése",
+    "zh": "物理板与墙板交界网格检查"
+  },
+  "explanation": {
+    "en": "Analysis stops when a physical plate is invalid, its mesh is out of date, or a wall–slab junction lacks shared nodes or complete edge constraints. Repair or remesh the plate and solve again. The seven-storey example, architecture-only DXF example and newly meshed CAD drafts use shared wall and slab nodes.",
+    "es": "El análisis se detiene si una placa física no es válida, su malla está desactualizada o faltan nodos compartidos o restricciones completas de borde en la unión muro–losa. Repará o volvé a mallar la placa y calculá de nuevo. El ejemplo de siete pisos, el DXF de arquitectura y los nuevos borradores CAD mallados usan nodos compartidos.",
+    "pt": "A análise é interrompida se uma placa física for inválida, sua malha estiver desatualizada ou faltarem nós compartilhados ou restrições completas de borda na ligação entre parede e laje. Corrija ou refaça a malha da placa e calcule novamente. O exemplo de sete pavimentos, o DXF de arquitetura e os novos rascunhos CAD com malha usam nós compartilhados.",
+    "de": "Die Berechnung stoppt bei einem ungültigen Flächenelement, einem veralteten Netz oder einem Wand-Decken-Anschluss ohne gemeinsame Knoten oder vollständige Randbedingungen. Korrigieren oder vernetzen Sie das Flächenelement neu und berechnen Sie erneut. Das siebengeschossige Beispiel, das Architektur-DXF und neu vernetzte CAD-Entwürfe verwenden gemeinsame Knoten.",
+    "fr": "Le calcul s’arrête si une plaque physique est invalide, si son maillage est obsolète ou si la jonction voile–dalle ne dispose ni de nœuds communs ni de contraintes complètes sur le bord. Corrigez ou remaillez la plaque et relancez le calcul. Le bâtiment de sept étages, le DXF d’architecture et les nouvelles ébauches CAD maillées utilisent des nœuds communs.",
+    "tr": "Fiziksel plak geçersizse, ağı güncel değilse veya perde–döşeme birleşiminde ortak düğümler veya tam kenar kısıtları yoksa analiz durur. Plağı düzeltin veya yeniden ağ oluşturup çözümü tekrarlayın. Yedi katlı örnek, mimari DXF örneği ve yeni ağ oluşturulan CAD taslakları ortak düğümler kullanıyor.",
+    "hu": "A számítás leáll, ha egy lemez érvénytelen, a hálója elavult, vagy a fal–födém csatlakozásnál hiányoznak a közös csomópontok vagy a teljes élkényszerek. Javítsa ki vagy hálózza újra a lemezt, majd számítsa újra a modellt. A hétszintes példa, az építészeti DXF és az újonnan hálózott CAD-vázlatok közös csomópontokat használnak.",
+    "zh": "物理板无效、网格已过时，或墙板交界处既无共用节点也无完整边缘约束时，分析会停止。请修正板或重新划分网格，然后再次求解。七层建筑、纯建筑 DXF 示例和新划分网格的 CAD 草稿采用共享节点。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-plate-analysis-conformity.md",
+    "heading": "Invalid plates and nonconforming wall–slab meshes"
+  }
+}

@@ -328,3 +328,27 @@ it('a warned SVG with a tiny coordinate system is enlarged so its warnings stay 
   expect(Number(nested[3])).toBe(w);
   expect(Number(nested[1]) + Number(nested[3])).toBeCloseTo(h, 6);
 });
+
+it('#2409 an unmeshed plate allows model-only workbook exports', async () => {
+  const { createPlate } = await import('../../store/physical-plates');
+  const outline = [[0, 0], [4, 0], [4, 4], [0, 4]].map(([x, y]) => modelStore.addNode(x!, y!, 0));
+  expect(createPlate({ outline, name: 'Draft slab', materialId: 1, thickness: 0.15 })).toHaveProperty('id');
+  const opts = { results: false, design: false };
+  const sheets = currentWorkbookSheets(2, opts);
+  expect(sheets.find(s => s.name === 'Nodes')?.rows.slice(1)).toHaveLength(outline.length);
+  expect(sheets.find(s => s.name === 'Groups')?.rows.flat()).toContain('Draft slab');
+  expect(sheets.some(s => s.name === 'Reactions')).toBe(false);
+  await downloadProjectWorkbook(2, opts);
+  expect(workbooksSaved()).toBe(1);
+  await downloadProjectCsv(2, opts);
+  const zipped = unzipSync(new Uint8Array(await output.blobs[0]!.arrayBuffer()));
+  const groups = Object.entries(zipped).find(([name]) => name.endsWith('-Groups.csv'));
+  expect(strFromU8(groups![1])).toContain('Draft slab');
+  expect(() => currentWorkbookSheets(2)).toThrow(/Draft slab/);
+  const toast = vi.spyOn(uiStore, 'toast');
+  await expect(downloadProjectWorkbook(2)).resolves.toBeUndefined();
+  await expect(downloadProjectCsv(2)).resolves.toBeUndefined();
+  expect(toast.mock.calls).toEqual([[expect.stringContaining('Draft slab'), 'error'], [expect.stringContaining('Draft slab'), 'error']]);
+  expect(workbooksSaved()).toBe(1);
+  expect(output.blobs).toHaveLength(1);
+});

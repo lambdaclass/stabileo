@@ -51,10 +51,10 @@ export async function openStiffnessWizard(): Promise<boolean> {
   }
   if (blocked()) return false;
   const threeD = uiStore.is3DWorkspace;
-  const input = inputFor(threeD);
-  if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return false; }
-  if (refused(input, threeD)) return false;
   try {
+    const input = inputFor(threeD);
+    if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return false; }
+    if (refused(input, threeD)) return false;
     const { solveDetailed, solveDetailed3D } = course;
     const data = threeD ? solveDetailed3D(input as never) : solveDetailed(input as never);
     fmStepsStore.close();
@@ -92,11 +92,11 @@ export async function openFlexibilityWizard(): Promise<boolean> {
   }
   if (blocked()) return false;
   const threeD = uiStore.is3DWorkspace;
-  const input = inputFor(threeD);
-  if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return false; }
-  if (refused(input, threeD)) return false;
   const { solveForceMethod3D, ForceMethodError, FM_MAX_GH } = course;
   try {
+    const input = inputFor(threeD);
+    if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return false; }
+    if (refused(input, threeD)) return false;
     const result = threeD ? solveForceMethod3D(input as never) : solvePlaneWithChoice(course, input as never);
     dsmStepsStore.close();
     explainedSteps.leaveForWizard();
