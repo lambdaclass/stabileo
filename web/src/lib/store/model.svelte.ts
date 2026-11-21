@@ -1094,48 +1094,72 @@ const VIEW_CHANNEL_FIELDS = ['views', 'grid', 'notes', 'underlays', 'designData'
 const isDefinedLoadData = (l: Load | undefined): boolean => (l?.data as { fromDef?: number } | undefined)?.fromDef !== undefined;
 
 
-/**
- * The detailing as a snapshot carries it, each of its parts copied once per version of it.
- *
- * The detailing of a detailed building runs to tens of megabytes (every bar of every assembly),
- * and every edit pushes an undo entry. Its parts are only ever replaced whole: an edit that
- * retires the document writes a new detailing object holding the SAME assemblies, refusals and
- * floor readings. So each part is copied once, keyed by the object the model holds, and every
- * snapshot taken until that part is replaced shares the copy. Nothing writes into a snapshot's
- * detailing: `restore()` copies what it receives before adopting it.
- */
-let detailingCopies = new WeakMap<object, unknown>();
-function deepFreeze<T>(v: T): T {
-  if (v !== null && typeof v === 'object' && !Object.isFrozen(v)) {
-    Object.freeze(v);
-    for (const child of Object.values(v)) deepFreeze(child);
+class FrozenPlainObject {
+  constructor(value: object) {
+    return Object.freeze(value);
   }
-  return v;
 }
-function copyDetailing(d: DetailingStore | undefined): DetailingStore {
-  if (!d) return emptyDetailingStore();
-  const out: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(d)) {
-    if (v === null || typeof v !== 'object') { out[k] = v; continue; }
-    let copy = detailingCopies.get(v);
-    if (copy === undefined) { copy = deepFreeze(JSON.parse(JSON.stringify($state.snapshot(v)))); detailingCopies.set(v, copy); }
-    out[k] = copy;
-  }
-  return out as unknown as DetailingStore;
-}
-/** For the tests that compare a snapshot's cost before and after: forget the copies made. */
-export function forgetDetailingCopies(): void { detailingCopies = new WeakMap(); }
 
-const publishedDetailing = new WeakSet<object>();
+class PublishedDetailingBranch extends FrozenPlainObject {
+  #published = true;
+
+  static has(value: unknown): boolean {
+    return value !== null && typeof value === 'object' && #published in value;
+  }
+
+  static publish(value: object): void {
+    new PublishedDetailingBranch(value);
+  }
+}
+
+const restoredDetailing = new WeakMap<DetailingStore, DetailingStore>();
 
 function ownDetailing<T>(value: T): T {
-  if (value === null || typeof value !== 'object' || publishedDetailing.has(value)) return value;
-  const copy = Array.isArray(value)
-    ? value.map(ownDetailing)
-    : Object.fromEntries(Object.entries(value).map(([key, child]) => [key, ownDetailing(child)]));
-  Object.freeze(copy);
-  publishedDetailing.add(copy);
-  return copy as T;
+  if (value === null || typeof value !== 'object' || PublishedDetailingBranch.has(value)) return value;
+
+  const copies = new Map<object, object>();
+  function copyBranch(branch: object): object {
+    if (PublishedDetailingBranch.has(branch)) return branch;
+    const existing = copies.get(branch);
+    if (existing !== undefined) return existing;
+
+    let copy: object;
+    if (Array.isArray(branch)) {
+      copy = branch.map(copyValue);
+    } else {
+      const fields = branch as Record<string, unknown>;
+      const owned: Record<string, unknown> = {};
+      for (const key of Object.keys(fields)) {
+        const child = copyValue(fields[key]);
+        if (key === '__proto__') {
+          Object.defineProperty(owned, key, { value: child, enumerable: true });
+        } else {
+          owned[key] = child;
+        }
+      }
+      copy = owned;
+    }
+    PublishedDetailingBranch.publish(copy);
+    copies.set(branch, copy);
+    return copy;
+  }
+  function copyValue(child: unknown): unknown {
+    return child !== null && typeof child === 'object' ? copyBranch(child) : child;
+  }
+  return copyBranch(value) as T;
+}
+
+const emptyPublishedDetailing = ownDetailing(emptyDetailingStore());
+
+function restoreDetailing(saved: DetailingStore | undefined): DetailingStore {
+  if (saved === undefined) return emptyPublishedDetailing;
+  const existing = restoredDetailing.get(saved);
+  if (existing !== undefined) return existing;
+
+  const restored = ownDetailing(migrateDetailingStore(saved).store);
+  restoredDetailing.set(restored, restored);
+  if (PublishedDetailingBranch.has(saved)) restoredDetailing.set(saved, restored);
+  return restored;
 }
 
 function createModelStore() {
@@ -1160,7 +1184,7 @@ function createModelStore() {
   const canonicalLoadMy = (load: Partial<NodalLoad>): number => load.my ?? load.mz ?? 0;
   const canonicalPointMoment = (load: Partial<PointLoadOnElement>): number | undefined => load.my ?? load.mz;
 
-  let detailing = $state.raw<DetailingStore | undefined>(ownDetailing(emptyDetailingStore()));
+  let detailing = $state.raw<DetailingStore | undefined>(emptyPublishedDetailing);
   let model = $state<StructureModel>({
     name: t('tabBar.newStructure'),
     nodes: new Map(),
@@ -2186,8 +2210,6 @@ function createModelStore() {
     snapshot(): ModelSnapshot {
       // $state.snapshot() is the official Svelte 5 API to deeply unwrap reactive proxies
       // into plain JavaScript objects. This avoids all proxy-related serialization issues.
-      // The detailing is left out of it and copied once per version (`detailingSnapshot`): it is
-      // the largest part of a detailed project and an edit never changes it in place.
       const snap = $state.snapshot({ ...model, detailing: undefined }) as unknown as ReturnType<typeof $state.snapshot<typeof model>>;
       const snapId = $state.snapshot(nextId);
       const result: ModelSnapshot = {
@@ -2289,7 +2311,7 @@ function createModelStore() {
         codeSettings: snap.codeSettings
           ? (JSON.parse(JSON.stringify(snap.codeSettings)) as ProjectCodeSettings)
           : defaultCodeSettings(),
-        detailing: copyDetailing(model.detailing),
+        detailing: detailing ?? emptyPublishedDetailing,
         // Both of these were declared on StructureModel AND on ModelSnapshot and
         // emitted by neither, so the regulation stack and the revision vector were
         // dropped by every path that goes through snapshot(): .ded save, undo/redo,
@@ -2387,7 +2409,9 @@ function createModelStore() {
       // pushed before the file was written, so restoring its emission list would silently delete
       // a record of something that really happened. They are adopted once per project by
       // `hydrateProjectProvenance`, which file-open and tab-activation call.
-      const s = plainDeepCopy(rawSnapshot);
+      const { detailing: savedDetailing, ...modelFields } = rawSnapshot;
+      const s = plainDeepCopy(modelFields);
+      const migratedDetailing = restoreDetailing(savedDetailing);
       modelVersion++;
       _onMutation?.();
       if (s.name) model.name = s.name;
@@ -2539,7 +2563,7 @@ function createModelStore() {
       // Migration is deliberate, not a fallback: a project with no settings is stamped
       // CIRSOC 201-2005, the edition its stored results were actually checked against.
       model.codeSettings = migrateCodeSettings(s.codeSettings).settings;
-      model.detailing = migrateDetailingStore(s.detailing).store;
+      model.detailing = migratedDetailing;
       // `migrateRegulations` was written, unit-tested and never called from anywhere in
       // production. Calling it here is what makes a stored regulation stack survive a
       // save/open, an undo and a tab switch, and what upgrades a v1 (CIRSOC-specific)

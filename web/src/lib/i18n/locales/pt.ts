@@ -2815,6 +2815,8 @@ const pt: Translations = {
   'diag.verifFailTorsion': 'Verificação de torção NÃO atende',
   'diag.rcTorsionConcrete': "A torção não é verificada: o limite de cisalhamento e torção superestima a resistência ao cisalhamento avaliada do concreto.",
   'diag.rcTorsionDepth': "A torção não é verificada: a altura útil adotada é excessiva para a armadura longitudinal.",
+  "diag.rcTorsionSecondaryFace": "A torção não foi verificada: faltam confirmar as posições das barras que determinam a altura útil para o cisalhamento secundário simultâneo.",
+  "diag.rcShearTensionSteel": "O cisalhamento não foi verificado: as barras na face tracionada desta seção não comprovam a área de aço usada na verificação.",
   'diag.rcTorsionPerimeter': "A armadura longitudinal de torção não é verificada: falta comprovar a disposição das barras no perímetro do estribo.",
   'diag.rcTorsionCutoff': "A armadura longitudinal de torção não é verificada: o cálculo contaria barras além de onde terminam.",
   "diag.rcDrawnBarExtent": "A flexão ou o cisalhamento não pode ser verificado com a armadura regional porque ela inclui barras longitudinais além das extremidades desenhadas.",

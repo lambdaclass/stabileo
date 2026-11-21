@@ -78,12 +78,19 @@ describe('RC design baseline — the flagship frame, member by member', () => {
     const outcomes = [...summary.outcomes.values()]
       .sort((a, b) => a.elementId - b.elementId)
       .map(({ searchStats, ...outcome }) => outcome);
-    const result = JSON.stringify(outcomes, (_key, value: unknown) => {
-      if (typeof value !== 'number') return value;
-      if (Object.is(value, -0)) return { number: '-0' };
-      return Number.isFinite(value) ? value : { number: String(value) };
-    });
-    expect(createHash('sha256').update(result).digest('hex')).toBe('0eed6c25fca6643ed788227fb75211db6f2748fdf99b1f8334a5d2dc5b4686dc');
+    const digest = (restoreSecondaryShearRounding: boolean) => {
+      const result = JSON.stringify(outcomes, function (this: { category?: string }, key, value: unknown) {
+        if (typeof value !== 'number') return value;
+        if (restoreSecondaryShearRounding && key === 'demand' && this.category === 'Secondary shear (Vy)') {
+          return +value.toFixed(2);
+        }
+        if (Object.is(value, -0)) return { number: '-0' };
+        return Number.isFinite(value) ? value : { number: String(value) };
+      });
+      return createHash('sha256').update(result).digest('hex');
+    };
+    expect(digest(false), 'raw secondary shear demand').toBe('f03e7eb0f2ae193ca387a0045305b1a1a1068516c93027e2c7c7899ebe8fb1e9');
+    expect(digest(true), 'main baseline with its secondary shear rounding').toBe('0eed6c25fca6643ed788227fb75211db6f2748fdf99b1f8334a5d2dc5b4686dc');
   });
 
   it('#2338 shear-depth containment never reopens an exhausted flagship search', () => {

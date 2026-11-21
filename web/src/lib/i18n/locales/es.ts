@@ -4476,6 +4476,8 @@ const es: Record<string, string> = {
   'diag.verifFailTorsion': 'Verificación de torsión NO cumple',
   'diag.rcTorsionConcrete': "No se verifica la torsión: el límite combinado de corte y torsión sobreestima la resistencia a corte evaluada del hormigón.",
   'diag.rcTorsionDepth': "No se verifica la torsión: la altura útil utilizada es excesiva para la armadura longitudinal.",
+  "diag.rcTorsionSecondaryFace": "No se verifica la torsión: faltan confirmar las posiciones de las barras que determinan la altura útil para el corte secundario concurrente.",
+  "diag.rcShearTensionSteel": "No se verifica el corte: las barras de la cara traccionada en esta sección no acreditan el área de acero usada en la verificación.",
   'diag.rcTorsionPerimeter': "No se verifica la armadura longitudinal de torsión: falta acreditar la disposición de barras en el perímetro del estribo.",
   'diag.rcTorsionCutoff': "No se verifica la armadura longitudinal de torsión: el cálculo contaría barras más allá de su punto de corte.",
   "diag.rcDrawnBarExtent": "No se puede verificar la flexión o el corte con la armadura regional porque incluye barras longitudinales más allá de sus extremos dibujados.",

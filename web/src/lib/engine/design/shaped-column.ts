@@ -190,7 +190,7 @@ export function checkShapedColumn(input: {
       const u = cap > 1e-9 ? Vu / cap : Number.POSITIVE_INFINITY;
       if (!wv || u > wv.u || (u === wv.u && Vu > wv.Vu)) wv = { u, Vu, cap, t };
     }
-    if (wv) out.push({ category: `Ties (${w.axis})`, utilization: wv.u, unit: 'kN', demand: +wv.Vu.toFixed(2), capacity: +wv.cap.toFixed(2), description: secondary ? 'Requires a rectangular section' : `bw = ${(w.bw * 100).toFixed(0)} cm, d = ${(w.d * 100).toFixed(0)} cm`, limiting: secondary ? 'unsupportedCheck' : 'shear', comboName: wv.t.comboName, stationX: wv.t.stationX });
+    if (wv) out.push({ category: `Ties (${w.axis})`, utilization: wv.u, unit: 'kN', demand: wv.Vu, capacity: +wv.cap.toFixed(2), description: secondary ? 'Requires a rectangular section' : `bw = ${(w.bw * 100).toFixed(0)} cm, d = ${(w.d * 100).toFixed(0)} cm`, limiting: secondary ? 'unsupportedCheck' : 'shear', comboName: wv.t.comboName, stationX: wv.t.stationX });
   }
 
   // ── Ties or spiral ──

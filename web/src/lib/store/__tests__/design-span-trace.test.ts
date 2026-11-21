@@ -197,13 +197,13 @@ describe('trace of one physical beam: the X beam on axis 1 at N1, slab mesh 1 m'
     console.log('OPEN', JSON.stringify((doc.openIssues ?? []).filter((i) => i.elementIds.some((id) => beam.elements.includes(id))).map((i) => [i.key, i.params?.bar, i.params?.end, i.params?.available, i.params?.required])));
   }, 120_000);
 
-  it('#2310 refuses both spans under the solved slab torque without verified side bars', () => {
+  it('#2310 refuses both spans under the solved slab torque without verified secondary depth', () => {
     expect(solvedOutcomes).toHaveLength(12);
     expect(solvedBars).toBe(0);
     for (const outcome of solvedOutcomes) {
       expect(outcome?.outcome).toBe('SEARCH_EXHAUSTED');
       expect(outcome?.provisional?.verdict.checks).toContainEqual(expect.objectContaining({
-        description: 'diag.rcTorsionPerimeter', ratio: Infinity, status: 'fail',
+        description: 'diag.rcTorsionSecondaryFace', ratio: Infinity, status: 'fail',
       }));
     }
   });

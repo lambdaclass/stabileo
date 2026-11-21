@@ -28,9 +28,12 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import '../index';
 import { modelStore } from '../model.svelte';
 import { detailingStore } from '../detailing.svelte';
+import { deserializeProject, serializeProject } from '../file';
+import { historyStore } from '../history.svelte';
+import { uiStore } from '../ui.svelte';
 import { verificationStore } from '../verification.svelte';
 import type { DetailingAssembly } from '../../engine/detailing/assembly';
-import { DETAILING_SCHEMA_VERSION } from '../../engine/detailing/assembly';
+import { DETAILING_SCHEMA_VERSION, emptyDetailingStore } from '../../engine/detailing/assembly';
 import { buildStraightBarWithHooks } from '../../codes/cirsoc201/bar-geometry';
 import { buildSceneModel } from '../../engine/detailing/scene-model';
 
@@ -164,6 +167,118 @@ describe('undoing an edit is an edit', () => {
   });
 });
 
+it('reuses frozen detailing geometry through snapshot and restore', () => {
+  const bars = modelStore.model.detailing!.assemblies[0].bars;
+  const snapshot = modelStore.snapshot();
+  expect(snapshot.detailing!.assemblies[0].bars).toBe(bars);
+  expect(() => { snapshot.detailing!.assemblies = []; }).toThrow(TypeError);
+
+  modelStore.restore(snapshot);
+  expect(modelStore.model.detailing!.assemblies[0].bars).toBe(bars);
+});
+
+it('pairs the detailing and concrete versions through undo, redo and project reopen', ({ onTestFinished }) => {
+  const beam = modelStore.elements.get(beamA)!;
+  const start = { ...modelStore.nodes.get(beam.nodeI)! };
+  const end = { ...modelStore.nodes.get(beam.nodeJ)! };
+  const movedEnd = { ...end, x: end.x + 1 };
+  const original = persisted('level-3')!;
+
+  function publish(barEndX: number): void {
+    const bar = buildStraightBarWithHooks({
+      id: 'span-bottom', diameterMm: 16, role: 'longitudinal', ownerElementIds: [beamA],
+      start: { x: start.x, y: start.y, z: start.z! },
+      end: { x: barEndX, y: end.y, z: end.z! },
+      axis: { x: 1, y: 0, z: 0 }, hookNormal: { x: 0, y: 0, z: 1 },
+    });
+    detailingStore.setAssemblies([{ ...original, bars: [bar] }]);
+  }
+
+  function expectVersion(node: typeof end, barEndX: number, stale: boolean): void {
+    expect(modelStore.nodes.get(node.id)).toEqual(node);
+    const document = detailingStore.buildDocument({ author: 'test', at: '2026-11-21T00:00:00Z' })!;
+    expect(buildSceneModel(document).bars.map((bar) => bar.polyline)).toEqual([[
+      { x: start.x, y: start.y, z: start.z }, { x: barEndX, y: end.y, z: end.z },
+    ]]);
+    expect(detailingStore.modelStale).toBe(stale);
+    expect(document.readiness === 'OUTDATED').toBe(stale);
+  }
+
+  const previousMode = uiStore.analysisMode;
+  onTestFinished(() => {
+    historyStore.clear();
+    uiStore.analysisMode = previousMode;
+  });
+  uiStore.analysisMode = 'pro';
+  historyStore.clear();
+  publish(end.x);
+  expectVersion(end, end.x, false);
+  historyStore.pushState();
+  modelStore.updateNode(end.id, movedEnd.x, movedEnd.y, movedEnd.z);
+  expect(detailingStore.document).toBeNull();
+  expectVersion(movedEnd, end.x, true);
+  const staleProject = serializeProject();
+
+  publish(movedEnd.x);
+  const freshProject = serializeProject();
+  historyStore.undo();
+  expectVersion(end, end.x, false);
+  historyStore.redo();
+  expectVersion(movedEnd, movedEnd.x, false);
+
+  expect(deserializeProject(staleProject)).toBe(true);
+  expectVersion(movedEnd, end.x, true);
+  expect(deserializeProject(freshProject)).toBe(true);
+  expectVersion(movedEnd, movedEnd.x, false);
+});
+
+it('captures and restores normalized detailing by reference', () => {
+  modelStore.restore(modelStore.snapshot());
+  const published = modelStore.model.detailing;
+  const snapshot = modelStore.snapshot();
+  expect(snapshot.detailing).toBe(published);
+
+  modelStore.restore(snapshot);
+  expect(modelStore.model.detailing).toBe(published);
+});
+
+it('copies a shared detailing branch once per import', () => {
+  const snapshot = modelStore.snapshot();
+  const imported = structuredClone(snapshot.detailing!);
+  const trace = imported.assemblies[0].provenance.trace;
+  imported.assemblies[1].provenance.trace = trace;
+
+  modelStore.restore({ ...snapshot, detailing: imported });
+  const [first, second] = modelStore.snapshot().detailing!.assemblies;
+  expect(first.provenance.trace).toBe(second.provenance.trace);
+  expect(Object.isFrozen(first.provenance.trace)).toBe(true);
+  trace.push('external edit');
+  expect(first.provenance.trace).toEqual([]);
+
+  modelStore.restore({ ...snapshot, detailing: imported });
+  expect(modelStore.snapshot().detailing!.assemblies[0].provenance.trace).toEqual(['external edit']);
+});
+
+it('owns nested detailing restored from a shallow-frozen import', () => {
+  const snapshot = modelStore.snapshot();
+  const imported = Object.freeze(structuredClone(snapshot.detailing!));
+  const trace = imported.assemblies[0].provenance.trace;
+
+  modelStore.restore({ ...snapshot, detailing: imported });
+  trace.push('changed after restore');
+
+  const restored = modelStore.model.detailing!.assemblies[0].provenance.trace;
+  expect(restored).toEqual([]);
+  expect(Object.isFrozen(restored)).toBe(true);
+});
+
+it.each([null, 'invalid'])('restores legacy detailing %s as an empty store', (detailing) => {
+  const snapshot = modelStore.snapshot();
+  const stored = JSON.parse(JSON.stringify({ ...snapshot, detailing }));
+  modelStore.restore(stored);
+  expect(modelStore.snapshot().detailing).toEqual(emptyDetailingStore());
+});
+
 it('publishes reusable detailing snapshots and projects their replacement on the next open', () => {
   const bar = buildStraightBarWithHooks({
     id: 'span-bottom', diameterMm: 16, role: 'longitudinal', ownerElementIds: [beamA],
@@ -189,6 +304,7 @@ it('publishes reusable detailing snapshots and projects their replacement on the
   expect(reopened.assemblies[0].source).toBe(first.assemblies[0].source);
   expect(buildSceneModel(reopened)).toEqual(firstScene);
 
+  const beforeMove = modelStore.snapshot();
   const moved = buildStraightBarWithHooks({
     id: bar.id, diameterMm: bar.diameterMm, role: bar.role, ownerElementIds: [beamA],
     start: { x: 0, y: 1, z: 3 }, end: { x: 6, y: 1, z: 3 },
@@ -203,8 +319,12 @@ it('publishes reusable detailing snapshots and projects their replacement on the
   ]);
   expect(buildSceneModel(first)).toEqual(firstScene);
 
-  modelStore.restore(modelStore.snapshot());
+  modelStore.restore(beforeMove);
   const restored = detailingStore.buildDocument({ author: 'test', at })!;
   expect(Object.isFrozen(restored.assemblies[0].bars[0].segments[0].start)).toBe(true);
-  expect(buildSceneModel(restored)).toEqual(buildSceneModel(next));
+  const restoredScene = buildSceneModel(restored);
+  expect(restoredScene.bars[0].polyline).toEqual([
+    { x: 0, y: 0, z: 3 }, { x: 6, y: 0, z: 3 },
+  ]);
+  expect(restoredScene).toEqual(firstScene);
 });

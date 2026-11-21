@@ -4055,6 +4055,8 @@ const tr: Translations = {
   'diag.verifFailTorsion': 'Burulma kontrolü SAĞLANMIYOR',
   'diag.rcTorsionConcrete': "Burulma doğrulanmadı: birleşik kesme ve burulma sınırı, hesaplanan beton kesme dayanımını olduğundan büyük alıyor.",
   'diag.rcTorsionDepth': "Burulma doğrulanmadı: kullanılan faydalı yükseklik boyuna donatı için fazla büyük.",
+  "diag.rcTorsionSecondaryFace": "Burulma doğrulanmadı: eşzamanlı ikincil kesme için faydalı yüksekliği belirleyen donatı konumları doğrulanmamış.",
+  "diag.rcShearTensionSteel": "Kesme doğrulanmadı: bu kesitin çekme yüzündeki donatı, kontrolde kullanılan çelik alanını doğrulamıyor.",
   'diag.rcTorsionPerimeter': "Boyuna burulma donatısı doğrulanmadı: etriye çevresindeki çubuk yerleşimi belgelenmemiş.",
   'diag.rcTorsionCutoff': "Boyuna burulma donatısı doğrulanmadı: hesap, çubukları sona erdikleri noktanın ötesinde hesaba katıyor.",
   "diag.rcDrawnBarExtent": "Bölgesel donatı, boyuna çubukları çizimdeki uçlarının ötesinde hesaba kattığı için eğilme veya kesme doğrulanamıyor.",
