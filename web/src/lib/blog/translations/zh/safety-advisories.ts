@@ -339,6 +339,46 @@ const body: PostBody = {
       "t": "受影响的输入及用户应采取的措施。"
     },
     {
+      "k": "note",
+      "t": "SA-2026-096 — 已在 0.6.3 中修复。"
+    },
+    {
+      "k": "ext",
+      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-096-static-seismic-stories-and-rafters.md",
+      "label": "SA-2026-096",
+      "t": "受影响的输入和应采取的措施。"
+    },
+    {
+      "k": "note",
+      "t": "SA-2026-097 — 已在 0.6.3 中修复。"
+    },
+    {
+      "k": "ext",
+      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-097-workbook-inputs-and-plane-springs.md",
+      "label": "SA-2026-097",
+      "t": "受影响的输入和应采取的措施。"
+    },
+    {
+      "k": "note",
+      "t": "SA-2026-098 — 已在 0.6.3 中修复。"
+    },
+    {
+      "k": "ext",
+      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-098-rc-drawn-reinforcement-verification.md",
+      "label": "SA-2026-098",
+      "t": "受影响的输入和应采取的措施。"
+    },
+    {
+      "k": "note",
+      "t": "SA-2026-099 — 已在 0.6.3 中通过阻止生成控制风险。"
+    },
+    {
+      "k": "ext",
+      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-099-gravity-and-roof-step-loads.md",
+      "label": "SA-2026-099",
+      "t": "受影响的输入和应采取的措施。"
+    },
+    {
       "k": "img",
       "base": "blog/recheck-stale",
       "w": 1600,
@@ -923,6 +963,30 @@ const body: PostBody = {
           "保存了带符号或限定作用范围的自重规则的二维项目，可能在无警告的情况下给出错误的支座反力。打开受影响的项目时会提示重新计算。请重新计算结果，并重新生成和审阅受影响的报告。",
           "高",
           "已在 #2364 中修复，等待版本发布"
+        ],
+        [
+          "SA-2026-096",
+          "静力地震荷载生成可能将支撑交点或网格节点误判为楼层，并把斜屋面杆件的惯性荷载施加在端节点。请核查楼层标高和屋面杆件的荷载分布，重新生成工况后再进行分析和设计验算。",
+          "高",
+          "已在 0.6.3 中修复"
+        ],
+        [
+          "SA-2026-097",
+          "导入工作簿时可能遗漏模型数据，二维导出可能将转动弹簧标为平动弹簧。请将导入模型与原始工作簿比对，修正后重新导入。核实支座和荷载，重新运行受影响的分析并重新导出。",
+          "高",
+          "已在 0.6.3 中修复"
+        ],
+        [
+          "SA-2026-098",
+          "混凝土验算可能放行间距过大的箍筋，或计入未延伸至验算截面的钢筋。柱详图可能标出错误的钢筋直径。请按实际配筋和同时作用的内力重新验算，并复核受影响的详图、配筋表和报告。",
+          "高",
+          "已在 0.6.3 中修复"
+        ],
+        [
+          "SA-2026-099",
+          "重力荷载生成可能对壳板和梁区域重复施加荷载，或在平面旋转或杆件细分后改变受荷杆件。屋面高差处的积雪荷载在传递时可能损失合力和力矩。请重新生成荷载，遇到阻止时采用经独立验证的荷载工况。",
+          "高",
+          "已在 0.6.3 中通过阻止生成控制风险"
         ]
       ]
     },
