@@ -1047,11 +1047,22 @@ issue2213('known wrong result: #2213 compression in another combination cannot w
   };
   const bending = { name: 'Bending', forces: { n: 0, my: -50, vz: 0, torsion: 0 } };
   const cirsoc201Section9331Threshold = 0.1 * geometry.fc * 1000 * geometry.b * geometry.h;
-  const compression = { name: 'Compression', forces: { n: -Math.ceil(cirsoc201Section9331Threshold), my: 0, vz: 0, torsion: 0 } };
-  const ductility = (groups: Parameters<typeof verifyBeamStations>[3]) =>
-    verifyBeamStations(geometry, steel, 12, groups).checks.filter(row => row.category.includes('ductility'));
-  expect(ductility([bending])).toEqual(expect.arrayContaining([expect.objectContaining({ status: 'fail' })]));
-  expect(ductility([bending, compression])).toEqual(expect.arrayContaining([expect.objectContaining({ status: 'fail' })]));
+  for (const extracted of [false, true]) {
+    const ductility = (groups: Parameters<typeof verifyBeamStations>[3]) =>
+      verifyBeamStations(geometry, steel, 12, groups, extracted).checks.filter(row => row.category.includes('ductility'));
+    const expected = expect.arrayContaining([expect.objectContaining({ status: 'fail', comboName: bending.name })]);
+    expect(ductility([bending])).toEqual(expected);
+    for (const n of [262.499, cirsoc201Section9331Threshold, 262.501, 263]) {
+      const compression = { name: 'Compression', forces: { n: -n, my: 0, vz: 0, torsion: 0 } };
+      expect.soft(ductility([bending, compression])).toEqual(expected);
+      expect.soft(ductility([compression, bending])).toEqual(expected);
+    }
+    for (const n of [262.499, cirsoc201Section9331Threshold, 262.501]) {
+      const concurrent = { ...bending, forces: { ...bending.forces, n: -n } };
+      if (n > cirsoc201Section9331Threshold) expect.soft(ductility([concurrent])).toHaveLength(0);
+      else expect.soft(ductility([concurrent]).length).toBeGreaterThan(0);
+    }
+  }
 });
 
 function tensionSpacingWitness(axialTension: number, vu: number) {
@@ -1709,3 +1720,55 @@ for (const nonlinear of [false, true]) {
     }
   });
 }
+
+
+it('#2296 a stirrup gap at the loaded cut is already rejected on main', () => {
+  const L = 4;
+  const bars = { count: 3, diameter: 16 };
+  const hoops = { diameter: 8, legs: 2, spacing: 0.075 };
+  const check = (from: number, extracted: boolean) => {
+    const provided = membersFromLine({
+      version: 1, members: [1], lengths: [L],
+      bars: [
+        { ...bars, id: 'T', face: 'top', row: 0, role: 'main', from: 0, to: L },
+        { ...bars, id: 'B', face: 'bottom', row: 0, role: 'main', from: 0, to: L },
+      ],
+      stirrups: [{ ...hoops, id: 'S', from, to: L }],
+    }, [{ id: 1, L, tStart: 0.25, tEnd: 0.25, faceStart: 0, faceEnd: 0 }]).get(1)!;
+    return checkReviewBeam(section, provided, L,
+      [0, 0.05, 0.1, 1].map(t => ({ t, my: -20, n: 0, vy: 0, vz: t === 0.05 ? 40 : 0, torsion: 0 })),
+      extracted, '2025').find(row => row.category === 'Shear Support (Vz)');
+  };
+  for (const extracted of [false, true]) {
+    expect(check(0.4, extracted)).toMatchObject({ demand: 40, stationX: 0.2, status: 'fail', missingReinforcement: true, description: 'diag.rcShearGap' });
+    expect(check(0, extracted)).toMatchObject({ demand: 40, status: 'ok' });
+  }
+});
+
+const issue2355 = process.env.RUN_KNOWN_WRONG === '2355' ? it : it.skip;
+issue2355('known wrong result: #2355 span shear cannot credit top layers terminated before the loaded cut', () => {
+  const L = 4;
+  const outer = { count: 3, diameter: 16, row: 0 };
+  const inner = { count: 2, diameter: 16, row: 1 };
+  const bottom = { count: 3, diameter: 16 };
+  const hoops = { diameter: 8, legs: 4, spacing: 0.1 };
+  const t = 0.5;
+  const check = (extension: number, my: number, extracted: boolean) => {
+    const provided: ProvidedReinforcement = {
+      stirrups: hoops,
+      regions: {
+        bottomSpan: bottom,
+        topStartGroups: [{ layers: [outer], extensionEnd: extension }, { layers: [inner] }],
+        topEndGroups: [{ layers: [outer], extensionStart: extension }, { layers: [inner] }],
+      },
+    };
+    return checkReviewBeam(section, provided, L,
+      [0, 0.25, 0.499, t, 0.501, 0.75, 1].map(x => ({ t: x, my, n: 0, vy: 0, vz: x === t ? 429.65 : 0, torsion: 0 })),
+      extracted, '2025').find(row => row.category === 'Shear Span (Vz)');
+  };
+  for (const extracted of [false, true]) {
+    expect.soft(check(0.99, -20, extracted)).toMatchObject({ status: 'fail', ratio: Infinity, limiting: 'unsupportedCheck' });
+    expect.soft(check(1.01, -20, extracted)).toMatchObject({ capacity: expect.any(Number), status: 'ok' });
+    expect.soft(check(0.99, 20, extracted)).toMatchObject({ capacity: expect.any(Number), status: 'ok' });
+  }
+});

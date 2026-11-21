@@ -183,3 +183,25 @@ describe('quantities', () => {
     expect(memberFormwork('column', 0.3, 0.3, 3)).toBeCloseTo(3.6, 12);
   });
 });
+
+
+const issue2355 = process.env.RUN_KNOWN_WRONG === '2355' ? it : it.skip;
+issue2355('known wrong result: #2355 refused rows govern the report cell and retain their reasons', () => {
+  const [passing] = concreteCheckRows({ elementId: 1, elementType: 'beam', hasProvided: true,
+    overallStatus: 'ok', worstUtilization: 0.42, checkedAxes: [], strengthCheckCount: 1,
+    checks: [check('shear', { ratio: 0.42, status: 'ok' })] } as never);
+  const element = input().elements.find(e => e.family === 'beam')!;
+  const render = (rows: CheckRow[]) => familySummary([{ ...element, rows }], ctx(), 'beam');
+  for (const status of ['notVerified', 'unsupported'] as const) {
+    const refused = { ...passing!, status, ratio: null, formula: 'The tension bars end before the cut' };
+    const another = { ...refused, formula: 'Hoop geometry is unknown' };
+    for (const order of [[passing!, refused, another], [another, refused, passing!]]) {
+      const html = render(order);
+      expect.soft(html).toContain('N.E.');
+      expect.soft(html).toContain(refused.formula);
+      expect.soft(html).toContain(another.formula);
+      expect.soft(html).not.toContain('<span class="s-ok">η = 0.42</span>');
+    }
+  }
+  expect(render([passing!])).toContain('<span class="s-ok">η = 0.42</span>');
+});

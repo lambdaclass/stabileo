@@ -12,6 +12,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { beamSteel, seismicFrameChecks, type FrameMember } from '../frame-checks';
+import { seismicMemberCheckRows } from '../../check-rows-families';
 import { probableMoment } from '../capacity';
 import { defaultSeismicDesign } from '../../../../model/seismic-design';
 
@@ -77,16 +78,29 @@ describe('a seismic portal by hand', () => {
 
 const issue2216 = process.env.RUN_KNOWN_WRONG === '2216' ? it : it.skip;
 issue2216('known wrong result: #2216 missing primary reinforcement cannot pass a seismic member check', () => {
+  const primaryBeam = { ...beam, L: 8, b: 0.4, h: 0.8, vg: [0, 0] as [number, number] };
   const primaryColumn = column(1, 1, 2);
-  const missingReinforcement = [
-    { ...beam, r: undefined },
+  const missing = [
+    { ...primaryBeam, r: undefined },
+    { ...primaryBeam, r: {} },
     { ...primaryColumn, r: undefined, section: undefined },
+    { ...primaryColumn, section: undefined },
+    { ...primaryColumn, axial: undefined, vu: undefined },
+    { ...primaryBeam, vg: undefined },
   ];
-  const report = seismicFrameChecks({ nodes, members: missingReinforcement, settings: defaultSeismicDesign() });
-  expect(report.members).toHaveLength(missingReinforcement.length);
-  for (const member of report.members) {
-    expect.soft(member).toMatchObject({ ok: false });
+  for (const member of missing) {
+    const report = seismicFrameChecks({ nodes, members: [member], settings: defaultSeismicDesign() });
+    expect(report.members).toHaveLength(1);
+    expect.soft(report.members[0]).toMatchObject({ ok: false, issues: [expect.stringMatching(/^seisDes[.]issue[.]/)] });
+    expect.soft(report.members[0]?.shear).toBeUndefined();
+    expect.soft(seismicMemberCheckRows(report.members[0]!)).toContainEqual(expect.objectContaining({
+      status: 'notVerified', formula: report.members[0]?.issues[0],
+    }));
   }
+  const secondary = seismicFrameChecks({ nodes, settings: defaultSeismicDesign(),
+    members: [{ ...primaryBeam, role: 'secondary', r: undefined }],
+  }).members[0]!;
+  expect(seismicMemberCheckRows(secondary)).toHaveLength(0);
 });
 
 it('#2217 layered bars and grouped bars require the same hoop spacing', () => {
@@ -117,4 +131,30 @@ it('#2217 every regional layer or group participates in the smallest-bar limit',
     expect(beamSteel({ top: mirror, bottom: mirror, regions: withSmall }).minDia).toBe(10);
   }
   expect(beamSteel({ regions: { ...layers, topEndGroups: [{ layers: [large, small] }] } }).minDia).toBe(10);
+});
+
+
+const issue2351 = process.env.RUN_KNOWN_WRONG === '2351' ? it : it.skip;
+issue2351('known wrong result: #2351 hoop zone starts at either support face without faceHalf', () => {
+  const L = 5, h = 0.5, face = 0.2, required = 2 * h;
+  const bars = { count: 2, diameter: 16 };
+  const hoops = { diameter: 8, legs: 2, spacing: 0.075 };
+  const end = { tFace: face / L, tCritShear: (face + h) / L, halfDepth: face, source: 'column' as const };
+  const criticalSections = { L, d: h, start: end, end, tSpanStart: end.tCritShear, tSpanEnd: 1 - end.tCritShear };
+  const check = (left: number, right: number, known = true) => seismicFrameChecks({
+    nodes, settings: defaultSeismicDesign(), members: [{
+      ...beam, b: 0.3, h, L, vg: [0, 0], faceHalf: undefined, criticalSections: known ? criticalSections : undefined,
+      r: { top: bars, bottom: bars, regions: { regionT: required / L, stirrupsSupport: hoops } },
+      drawnStirrups: [{ ...hoops, from: 0, to: left }, { ...hoops, from: L - right, to: L }],
+    }],
+  }).members[0]!;
+  const full = required + face;
+  for (const [left, right] of [[required, full], [full, required], [full - 0.001, full], [full, full - 0.001]] as const) {
+    expect.soft(check(left, right)).toMatchObject({ ok: false, issues: ['seisDes.issue.hoopZone'], beam: { hoops: { lengthOk: false } } });
+  }
+  expect.soft(check(full, full)).toMatchObject({ ok: true, beam: { hoops: { lengthOk: true } } });
+  expect.soft(check(full + 0.001, full + 0.001)).toMatchObject({ ok: true, beam: { hoops: { lengthOk: true } } });
+  const unknown = check(full, full, false);
+  expect.soft(unknown).toMatchObject({ ok: false, issues: [expect.stringMatching(/^seisDes[.]issue[.]/)] });
+  expect.soft(unknown.shear).toBeUndefined();
 });
