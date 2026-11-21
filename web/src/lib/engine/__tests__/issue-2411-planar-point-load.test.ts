@@ -100,7 +100,7 @@ it('#2411 returns the load refusal when preparing a notional case', async () => 
 for (const data of [{ p: 0, my: couple }, { p: 0, px: 1 }, { p: 1 }]) {
   it(`#2411 refuses an active planar point action below the projection limit ${JSON.stringify(data)}`, () => {
     const { member } = cantilever(projectionLimit / 2, 0, length);
-    legacyPoint(member, { a: 0, ...data });
+    legacyPoint(member, { a: data.my ? 1 : 0, ...data });
     expect(validateAndSolve3D(modelStore.model)).toBe(refusal(member));
   });
 }

@@ -59,8 +59,6 @@ async function solveAll(cases: LoadCase[], combos: LoadCombination[]) {
   ];
 }
 
-const issue2411 = process.env.RUN_KNOWN_WRONG === '2411' ? it : it.skip;
-
 function refusal(member: number) {
   return t('svc.planarPointLoadNoProjection').replace('{load}', '1').replace('{n}', String(member));
 }
@@ -89,15 +87,17 @@ for (const mode of modes) {
 
   it(`#2411 refuses a my-only interior couple (${mode})`, () => expectInteriorRefusal(aliases[0]!));
   it(`#2411 refuses a mz-only interior couple (${mode})`, () => expectInteriorRefusal(aliases[1]!));
-  issue2411(`known wrong result: #2411 refuses an interior couple with both aliases (${mode})`,
+  it(`#2411 refuses an interior couple with both aliases (${mode})`,
     () => expectInteriorRefusal(aliases[2]!));
 
-  issue2411(`known wrong result: #2411 applies a start couple with zero member projection (${mode})`, async () => {
+  it(`#2411 applies a start couple with zero member projection (${mode})`, async () => {
     const { root, member } = verticalMember(0, { mz: couple }, mode);
     modelStore.addNodalLoad3D(root, 1, 0, -1, 0, 0, 0, source.id);
     const model = modelStore.model;
 
-    expect.soft(modelFeatures(modelStore.snapshot()).has('unplaceablePlanarPointLoads')).toBe(false);
+    const features = modelFeatures(modelStore.snapshot());
+    expect.soft(features.has('unplaceablePlanarPointLoads')).toBe(false);
+    expect.soft(features.has('planarStartCoupleWithoutProjection')).toBe(true);
     expect.soft(() => buildSolverLoads3D(model, model.loads, false, false)).not.toThrow(refusal(member));
     for (const result of [validateAndSolve3D(model), await validateAndSolve3DAsync(model)]) {
       const observed = typeof result === 'string' ? result : result?.reactions.find(r => r.nodeId === root)?.mz;
@@ -109,7 +109,7 @@ for (const mode of modes) {
     }
   });
 
-  issue2411(`known wrong result: #2411 solves independently of an unused notional case and its source (${mode})`, async () => {
+  it(`#2411 solves independently of an unused notional case and its source (${mode})`, async () => {
     const { root, tip } = verticalMember(1, { mz: couple }, mode);
     modelStore.addNodalLoad3D(tip, 1, 0, 0, 0, 0, 0, lateral.id);
     const combo = combination(lateral.id);
@@ -121,7 +121,7 @@ for (const mode of modes) {
   });
 }
 
-issue2411('known wrong result: #2411 refuses a start couple masked by a zero my field', () => {
+it('#2411 refuses a start couple masked by a zero my field', () => {
   const { member } = verticalMember(0, { my: 0, mz: couple });
   expect(validateAndSolve3D(modelStore.model)).toBe(refusal(member));
 });
@@ -132,7 +132,7 @@ it('#2411 refuses a short-projection interior couple even when the solve cuts th
     type: 'pointOnElement3d',
     data: { id: 2, elementId: member, a: 1, py: 0, pz: 1, frame: 'global', caseId: source.id },
   });
-  expect(() => buildSolverInput3D(modelStore.model)).toThrow(t('svc.planarPointLoadNoProjection').split(' {load}')[0]);
+  expect(() => buildSolverInput3D(modelStore.model)).toThrow(refusal(member));
 });
 
 it('#2411 refuses a projection-dependent load in the source of a required nested notional case', async () => {

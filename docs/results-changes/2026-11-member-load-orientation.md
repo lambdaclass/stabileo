@@ -4,7 +4,7 @@ Issues [#2268](https://github.com/lambdaclass/stabileo/issues/2268) and [#2411](
 
 Reversing a member exchanges its ends and reverses its local axial direction. The member editor previously left both axial distributed load fields as entered, which reversed the applied force and misplaced the ordinates of a varying load. It also treated global and projected transverse ordinates as local axes. Both reversal commands now swap all three pairs of ordinates and the loaded interval. For local loads they apply the signs of the reversed axes. Global and projected loads retain their directions.
 
-A legacy planar point load needs a usable member projection in the load plane for the 3D load adapter. The adapter previously skipped the force and couple when the projected length was below its existing limit. It now blocks assembly for a nonzero planar point force or couple and identifies the load and member. The supported model input for that geometry is a 3D member point load with an explicit force or moment direction.
+The 3D load adapter previously skipped legacy planar point loads when the member projection was below its existing limit. It now identifies and refuses loads it cannot place without the projection. A pure couple with an unambiguous magnitude at the member start can be [applied directly at the start node](2026-11-planar-start-couples.md). The supported model input for that geometry is a 3D member point load with an explicit force or moment direction.
 
 ## Before and after
 

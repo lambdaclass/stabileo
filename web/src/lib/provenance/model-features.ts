@@ -1,4 +1,4 @@
-import { planarPointHasAction, planarPointProjectionTooShort } from '../engine/member-point-loads';
+import { planarPointMomentWithoutProjection, planarPointProjectionTooShort } from '../engine/member-point-loads';
 import { hasModalSeismicDerivation } from '../engine/loads/seismic-generation';
 /**
  * Which features a saved model has, for deciding which registered result changes concern it.
@@ -50,7 +50,7 @@ export const FEATURE_IDS = [
   'connectors', 'connectorsWithShear', 'pathAnalysis',
   'stagedConstruction', 'generatedStructures', 'nodalMoments', 'trussMemberLoads', 'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'generatedLoads', 'generatedWindLoads', 'generatedSeismicLoads', 'unverifiedGeneratedSeismicLoads',
   'generatedWidthGravity', 'generatedPanelGravityShells', 'memberFloorZones', 'magnitudeCombinations',
-  'partialDistributedMemberLoads', 'distributedMemberLoads', 'spatialDistributedLoadOrientation', 'unplaceablePlanarPointLoads', 'selfWeight', 'nonstandardPlanarSelfWeight', 'standaloneGravityToggleOff', 'nodalForces', 'forceSummaryResults',
+  'partialDistributedMemberLoads', 'distributedMemberLoads', 'spatialDistributedLoadOrientation', 'unplaceablePlanarPointLoads', 'planarStartCoupleWithoutProjection', 'selfWeight', 'nonstandardPlanarSelfWeight', 'standaloneGravityToggleOff', 'nodalForces', 'forceSummaryResults',
   'ssiHistory', 'movingLoads', 'combinations', 'cirsocCombinations', 'seismic', 'snow', 'wind', 'timeHistorySpec',
   'superposedCombinations', 'repeatedCombinationCases',
   ...ANALYSIS_KINDS.map((k) => `analysis:${k}` as const),
@@ -354,11 +354,13 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
         || (fixedLoadFrame && [d.qYI, d.qYJ, d.qZI, d.qZJ].some(nonZero)))) {
       f.add('spatialDistributedLoadOrientation');
     }
-    if (t === 'pointOnElement' && planarPointHasAction(d)) {
+    if (t === 'pointOnElement') {
       const e = elementById.get(d.elementId as number);
       const i = e && nodeById.get(e.nodeI), j = e && nodeById.get(e.nodeJ);
       if (i && j && (i.z ?? 0) !== (j.z ?? 0) && planarPointProjectionTooShort(j.x - i.x, j.y - i.y)) {
-        f.add('unplaceablePlanarPointLoads');
+        const moment = planarPointMomentWithoutProjection(d, d.a);
+        if (moment === null) f.add('unplaceablePlanarPointLoads');
+        else if (moment !== 0) f.add('planarStartCoupleWithoutProjection');
       }
     }
     const partialDistributed = t.startsWith('distributed') && (positive(d.a) || d.b !== undefined);

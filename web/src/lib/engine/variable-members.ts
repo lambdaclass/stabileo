@@ -60,7 +60,7 @@ import { segmentBounds, segmentFields, splitElementLoads, memberLoadGeometry } f
 import { variableSectionPlan, isVariableMember as solvedAsVariable } from '../section/variable';
 import { eiOf, type ElementEI } from './member-deflection';
 import { memberFrame3D, takesNoBending, type Vec3 } from './member-loads';
-import { pointNeedsCut, planePointLoad3D, POINT_END_TOL } from './member-point-loads';
+import { pointNeedsCut, planePointLoad3D, POINT_END_TOL, planarPointProjectionTooShort, planarPointOrigin } from './member-point-loads';
 import { hasMemberOffset } from './member-offsets';
 import { globalAxis, CONNECTOR_ROT } from './expand-semi-rigid-3d';
 
@@ -314,7 +314,17 @@ export function expandVariableMembers<M extends ModelData>(model: M, base: Model
   const nodes = new Map(model.nodes);
   const elements = new Map(model.elements);
   const sections = new Map(model.sections);
-  let loads = model.loads;
+  let loads = model.loads.map(l => {
+    if (l.type !== 'pointOnElement' || !exp.members.has(l.data.elementId)) return l;
+    const e = model.elements.get(l.data.elementId)!;
+    const i = model.nodes.get(e.nodeI), j = model.nodes.get(e.nodeJ);
+    if (!i || !j) return l;
+    const origin = {
+      a: l.data.a, nodeI: e.nodeI, loadId: l.data.id, elementId: e.id,
+      shortProjection: planarPointProjectionTooShort(j.x - i.x, j.y - i.y),
+    };
+    return { ...l, data: { ...l.data, [planarPointOrigin]: origin } };
+  });
   for (const nd of planned.nodes) nodes.set(nd.id, nd as never);
   for (const m of exp.members.values()) elements.delete(m.parentId);
   for (const { parent, k, n, t0, t1, piece, section } of planned.pieces) {

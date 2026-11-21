@@ -44,6 +44,7 @@ import { computeLocalAxes3D } from './local-axes-3d';
 import { input3DToWireObject, solvePDelta3D, torsionGapRefusal } from './wasm-solver';
 import { amplification } from './pdelta-amplification';
 import { caseOrder, withCaseEffects } from './case-effects';
+import { combinationCaseIds } from './combination-methods';
 import { isCompositeCase } from './loads/combination-cases';
 export { amplification } from './pdelta-amplification';
 
@@ -242,6 +243,35 @@ export async function runDirectAnalysis(
   const run = opts.run ?? mainThreadPDelta;
   const leftHand = opts.leftHand ?? false;
   const maxIter = settings.maxIter ?? 30, tol = settings.tol ?? 1e-5;
+  // The notional cases: a combination that takes one has its C2.2b loads already. A composite case
+  // is no load type, whatever it is typed: it is read through what it takes in.
+  const notionalCases = new Set(loadCases.filter((c) => c.notional || (!isCompositeCase(c) && (c.type ?? '').toUpperCase() === 'N')).map((c) => c.id));
+  /*
+   * How much of each notional case a combination takes, through the composite cases too: a
+   * composite that takes a notional case in, at any depth, carries its loads times the product of
+   * the factors on the way (`case-effects.ts`). Read by the factor's own case only, a composite of
+   * D and N had its notional load read as the combination's lateral load and, past 1.7, the
+   * analysis added its own 0.002 on top. A case in a loop takes nothing in, as `withCaseEffects`
+   * solves it.
+   */
+  const caseById = new Map(loadCases.map((c) => [c.id, c]));
+  const { looped } = caseOrder(loadCases);
+  const notionalIn = (id: number, k: number, out: Map<number, number>, seen: ReadonlySet<number>) => {
+    if (k === 0 || seen.has(id)) return;
+    if (notionalCases.has(id)) { out.set(id, (out.get(id) ?? 0) + k); return; }
+    const c = caseById.get(id);
+    if (!c || looped.has(id)) return;
+    for (const inc of c.includes ?? []) notionalIn(inc.caseId, k * inc.factor, out, new Set([...seen, id]));
+  };
+
+  const caseIds = combinationCaseIds(resolved);
+  const notionalByCombo = new Map(resolved.map(combo => {
+    const share = new Map<number, number>();
+    for (const f of combo.factors) notionalIn(f.caseId, f.factor, share, new Set());
+    const factors = [...share].filter(([, k]) => Math.abs(k) > 1e-12).map(([caseId, factor]) => ({ caseId, factor }));
+    for (const { caseId } of factors) caseIds.add(caseId);
+    return [combo, factors];
+  }));
   /*
    * The structure the linear solve solves: its members cut where a moment or an axial force sits
    * inside a span (`variable-members.ts`), so the base is built from the same expanded model as the
@@ -251,12 +281,14 @@ export async function runDirectAnalysis(
   let base: SolverInput3D | null;
   let caseLoads: Map<number, SolverLoad3D[]>;
   try {
-    model = withCaseEffects(model, loadCases, { includeSelfWeight: opts.includeSelfWeight, leftHand });
-    const refused = orphanLoadRefusal(model) ?? imposedRefusal(model);
-    if (refused) return refused;
+    const orphan = orphanLoadRefusal(model);
+    if (orphan) return orphan;
+    model = withCaseEffects(model, loadCases, { includeSelfWeight: opts.includeSelfWeight, leftHand }, caseIds);
+    const imposed = imposedRefusal(model);
+    if (imposed) return imposed;
     prepared = prepareSolverInput3D(model, leftHand);
     base = prepared.build([]);
-    caseLoads = caseSolverLoads3D(prepared.model, loadCases, opts.includeSelfWeight, leftHand);
+    caseLoads = caseSolverLoads3D(prepared.model, loadCases.filter(c => caseIds.has(c.id)), opts.includeSelfWeight, leftHand);
   } catch (err) {
     const said = loadRefusal(err);
     if (said) return said;
@@ -286,27 +318,6 @@ export async function runDirectAnalysis(
   const perCombo = new Map<number, AnalysisResults3D>();
   const info = new Map<number, DirectComboInfo>();
   const extra = settings.tauB === 'unity' ? 0.001 : 0;
-  // The notional cases: a combination that takes one has its C2.2b loads already. A composite case
-  // is no load type, whatever it is typed: it is read through what it takes in.
-  const notionalCases = new Set(loadCases.filter((c) => c.notional || (!isCompositeCase(c) && (c.type ?? '').toUpperCase() === 'N')).map((c) => c.id));
-  /*
-   * How much of each notional case a combination takes, through the composite cases too: a
-   * composite that takes a notional case in, at any depth, carries its loads times the product of
-   * the factors on the way (`case-effects.ts`). Read by the factor's own case only, a composite of
-   * D and N had its notional load read as the combination's lateral load and, past 1.7, the
-   * analysis added its own 0.002 on top. A case in a loop takes nothing in, as `withCaseEffects`
-   * solves it.
-   */
-  const caseById = new Map(loadCases.map((c) => [c.id, c]));
-  const { looped } = caseOrder(loadCases);
-  const notionalIn = (id: number, k: number, out: Map<number, number>, seen: ReadonlySet<number>) => {
-    if (k === 0 || seen.has(id)) return;
-    if (notionalCases.has(id)) { out.set(id, (out.get(id) ?? 0) + k); return; }
-    const c = caseById.get(id);
-    if (!c || looped.has(id)) return;
-    for (const inc of c.includes ?? []) notionalIn(inc.caseId, k * inc.factor, out, new Set([...seen, id]));
-  };
-
   await Promise.all(resolved.map(async (combo) => {
     const loads = comboSolverLoads3D(combo, caseLoads);
     const factorOf = (c: number) => combo.factors.find((f) => f.caseId === c)?.factor ?? 0;
@@ -314,9 +325,7 @@ export async function runDirectAnalysis(
     if (loads.length === 0 && !imposedHere) return;
     const on = imposedHere ? prepared.build(imposedOf(solvable.loads, factorOf)) : base;
     if (!on) return;
-    const share = new Map<number, number>();
-    for (const f of combo.factors) notionalIn(f.caseId, f.factor, share, new Set());
-    const notionalFactors = [...share].filter(([, k]) => Math.abs(k) > 1e-12).map(([caseId, factor]) => ({ caseId, factor }));
+    const notionalFactors = notionalByCombo.get(combo)!;
     const takesNotional = notionalFactors.length > 0;
     // The notional part, and the rest: the combination's loads less the notional cases' share,
     // which a composite case carries mixed in with its gravity.
