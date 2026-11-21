@@ -37,25 +37,7 @@ test('disabled source profile is byte-identical to main for every changed app mo
   assert.equal(on.overrides.size + on.unavailable.size, 0);
 });
 
-test('production with unified plates off uses the shared portable project codec', async () => {
-  const config = await resolveConfig({ root }, 'build', 'production');
-  const loader = config.plugins.find(plugin => plugin.name === 'pro-plates-source');
-  const resolveSource = proPlatesSource(() => false);
-  const context = {
-    addWatchFile() {},
-    error(message) { throw new Error(message); },
-  };
-  loader.buildStart.call(context);
-  for (const path of ['src/lib/store/file.ts', 'src/lib/store/ded-design-refusals.ts']) {
-    const absolute = resolve(root, path);
-    const current = readFileSync(absolute, 'utf8');
-    const active = loader.load.call(context, absolute) ?? current;
-    assert.equal(active === current, true, path);
-    assert.equal(resolveSource.read(absolute) === current, true, path);
-  }
-});
-
-test('production source access uses the pinned main modules', { skip: 'known wrong result: #2365' }, () => {
+test('production source access uses the pinned main modules', () => {
   const off = proPlatesSource(() => false);
   const on = proPlatesSource(() => true);
   const paths = ['src/components/pro/ProMesher.svelte', 'src/lib/store/file.ts'];
@@ -77,7 +59,7 @@ test('the unified profile keeps its checkout results registry #2365', () => {
   assert.deepEqual(readProfileResultChanges(true), readRegistry());
 });
 
-test('disabled builds load the main solver and results version and the validated mesher', async () => {
+test('disabled builds load the main solver, mesher, file reader and results version', async () => {
   const entry = fileURLToPath(new URL('../.pro-plates-off-fixture.mjs', import.meta.url));
   const result = await build({
     root,
@@ -89,16 +71,18 @@ test('disabled builds load the main solver and results version and the validated
         import analysis from '/src/lib/engine/live-calc.ts?raw';
         import metadata from 'virtual:result-change-metadata';
         import mesher from '/src/components/pro/ProMesher.svelte?raw';
-        export default [analysis, metadata.currentResultsVersion, mesher];
+        import file from '/src/lib/store/file.ts?raw';
+        export default [analysis, metadata.currentResultsVersion, mesher, file];
       ` : null,
     }],
     build: { write: false, lib: { entry, formats: ['es'] } },
   });
   const chunk = (Array.isArray(result) ? result[0] : result).output.find(output => output.type === 'chunk');
-  const { default: [source, version, mesher] } = await import('data:text/javascript;base64,' + Buffer.from(chunk.code).toString('base64'));
+  const { default: [source, version, mesher, file] } = await import('data:text/javascript;base64,' + Buffer.from(chunk.code).toString('base64'));
   assert.equal(source, git('show', `${base}:web/src/lib/engine/live-calc.ts`));
   assert.equal(version, readRegistryAt(base).currentResultsVersion);
-  assert.equal(mesher, readFileSync(new URL('../src/components/pro/ProMesher.svelte', import.meta.url), 'utf8'));
+  assert.equal(mesher, git('show', `${base}:web/src/components/pro/ProMesher.svelte`));
+  assert.equal(file, git('show', `${base}:web/src/lib/store/file.ts`));
 });
 
 test('mesher translations are lazy in the unified profile and keep main’s dictionaries in production', async () => {

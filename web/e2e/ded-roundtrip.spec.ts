@@ -36,6 +36,7 @@
 import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { bootPro, rcFootingProject } from './fixtures';
+import { e2eBuildFeatures } from '../scripts/build-public-features';
 import {
   test, expect, openPreparedWorkspace, openWorkspaceFromCommandRow, readTally, readPieces,
 } from './prepared-building';
@@ -173,9 +174,10 @@ test.describe('@slow the 7-storey project survives the file', () => {
     // reports and which a projection bug would drop silently.
     const file = JSON.parse(readFileSync(path, 'utf8'));
     const census = fileCensus(file);
-    expect(census.version).toBe('2.1');
+    const unified = e2eBuildFeatures().proPlatesUnified;
+    expect(census.version).toBe(unified ? '2.1' : '2.0');
     const refusals = file.snapshot.detailing.designRefusals;
-    expect(refusals.members.length).toBeGreaterThan(refusals.records.length);
+    if (unified) expect(refusals.members.length).toBeGreaterThan(refusals.records.length);
     expect(census.appMode).toBe('pro');
     // `includeSelfWeight` and `selfWeightCaseId` (the case the self-weight goes in) are saved
     // with the project: they decide what the analysis weighs and where.

@@ -5,11 +5,6 @@ import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const manifestPath = resolve(root, 'config/pro-plates-off.json');
-const sharedProductionSources = new Set([
-  'src/components/pro/ProMesher.svelte',
-  'src/lib/store/file.ts',
-  'src/lib/store/ded-design-refusals.ts',
-]);
 const relativePath = path => relative(root, path).split(sep).join('/');
 const sha = source => createHash('sha256').update(source).digest('hex');
 
@@ -47,13 +42,16 @@ export function proPlatesSource(enabled) {
   let profile;
   const source = () => profile ??= readProPlatesProfile(enabled());
   const override = path => {
-    if (sharedProductionSources.has(path)) return undefined;
     const { unavailable, overrides } = source();
     return unavailable.has(path) ? null : overrides.get(path);
   };
+  const unavailableError = name => `Unified PRO plates are disabled, but the build reached ${name}.`;
   return {
     read(path) {
-      return override(relativePath(path)) ?? readFileSync(path, 'utf8');
+      const name = relativePath(path);
+      const code = override(name);
+      if (code === null) throw new Error(unavailableError(name));
+      return code ?? readFileSync(path, 'utf8');
     },
     plugin: {
       name: 'pro-plates-source',
@@ -72,7 +70,7 @@ export function proPlatesSource(enabled) {
         if (!isAbsolute(path)) return null;
         const name = relativePath(path);
         const code = override(name);
-        if (code === null) this.error(`Unified PRO plates are disabled, but the build reached ${name}.`);
+        if (code === null) this.error(unavailableError(name));
         if (code === undefined) return null;
         if (query === 'raw') return `export default ${JSON.stringify(code)};`;
         return query ? null : { code, map: null };
