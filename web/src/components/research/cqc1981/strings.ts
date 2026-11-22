@@ -27,7 +27,7 @@ const en = {
   viewer: 'Roof X displacement', viewNote: 'Axonometric projection in Stabileo’s viewer. Deformation ×40; the animation scales the envelope, it is not a time history.',
   step: 'Envelope display', rule: 'Combination',
   error: 'Live calculation failed',
-  damping: 'Damping ξ', dampingNote: 'Change the modal damping ratio ξ: only CQC depends on it, through ρ, and the page reruns the production spectrum solver and the closed form for that value. The 9 checks above are for the default, ξ = 5%.', tryDamping: 'Try ξ = 20%',
+  damping: 'Damping ξ', dampingNote: 'Change the modal damping ratio ξ: only CQC depends on it, through ρ, and the page reruns the production spectrum solver and the closed form for that value. The 9 checks are for the default, ξ = 5%.', tryDamping: 'Try ξ = 20%',
 };
 
 export type CqcStrings = typeof en;
@@ -60,7 +60,7 @@ export const translations: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr' | 'hu'
     replay: 'Reproducción precalculada (mismo motor)', live: 'Resultado en vivo (WASM de producción)',
     viewer: 'Desplazamiento X del techo', viewNote: 'Proyección axonométrica en el visor de Stabileo. Deformación ×40; la animación escala la envolvente, no es una historia temporal.',
     step: 'Visualización de envolvente', rule: 'Combinación',
-    damping: 'Amortiguamiento ξ', dampingNote: 'Cambiá la razón de amortiguamiento modal ξ: solo CQC depende de ella, a través de ρ, y la página vuelve a ejecutar el solver de espectro de producción y la solución analítica para ese valor. Las 9 comprobaciones de arriba corresponden al valor por defecto, ξ = 5%.', tryDamping: 'Probar ξ = 20%',
+    damping: 'Amortiguamiento ξ', dampingNote: 'Cambiá la razón de amortiguamiento modal ξ: solo CQC depende de ella, a través de ρ, y la página vuelve a ejecutar el solver de espectro de producción y la solución analítica para ese valor. Las 9 comprobaciones corresponden al valor por defecto, ξ = 5%.', tryDamping: 'Probar ξ = 20%',
     error: 'Falló el cálculo en vivo',
   },
   pt: {
@@ -89,7 +89,7 @@ export const translations: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr' | 'hu'
     replay: 'Reprodução pré-calculada (mesmo motor)', live: 'Resultado ao vivo (WASM de produção)',
     viewer: 'Deslocamento X da cobertura', viewNote: 'Projeção axonométrica no visualizador do Stabileo. Deformação ×40; a animação escala a envoltória, não é um histórico temporal.',
     step: 'Exibição da envoltória', rule: 'Combinação',
-    damping: 'Amortecimento ξ', dampingNote: 'Altere a razão de amortecimento modal ξ: só o CQC depende dela, por meio de ρ, e a página executa de novo o solver de espectro de produção e a solução analítica para esse valor. As 9 verificações acima são para o valor padrão, ξ = 5%.', tryDamping: 'Testar ξ = 20%',
+    damping: 'Amortecimento ξ', dampingNote: 'Altere a razão de amortecimento modal ξ: só o CQC depende dela, por meio de ρ, e a página executa de novo o solver de espectro de produção e a solução analítica para esse valor. As 9 verificações são para o valor padrão, ξ = 5%.', tryDamping: 'Testar ξ = 20%',
     error: 'Falha no cálculo ao vivo',
   },
   de: {
@@ -118,7 +118,7 @@ export const translations: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr' | 'hu'
     replay: 'Vorberechnete Wiedergabe (gleicher Löser)', live: 'Live-Ergebnis (produktives WASM)',
     viewer: 'X-Verschiebung des Dachs', viewNote: 'Axonometrische Projektion in Stabileos Ansicht. Verformung ×40; die Animation skaliert die Hüllkurve, sie ist kein Zeitverlauf.',
     step: 'Anzeige der Hüllkurve', rule: 'Überlagerung',
-    damping: 'Dämpfung ξ', dampingNote: 'Ändern Sie das modale Dämpfungsmaß ξ: Nur CQC hängt über ρ davon ab, und die Seite rechnet den Spektrallöser des Produkts und die geschlossene Lösung für diesen Wert neu. Die 9 Prüfungen oben gelten für den Standardwert ξ = 5 %.', tryDamping: 'ξ = 20 % ausprobieren',
+    damping: 'Dämpfung ξ', dampingNote: 'Ändern Sie das modale Dämpfungsmaß ξ: Nur CQC hängt über ρ davon ab, und die Seite rechnet den Spektrallöser des Produkts und die geschlossene Lösung für diesen Wert neu. Die 9 Prüfungen gelten für den Standardwert ξ = 5 %.', tryDamping: 'ξ = 20 % ausprobieren',
     error: 'Die Live-Berechnung ist fehlgeschlagen',
   },
   fr: {
@@ -147,7 +147,7 @@ export const translations: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr' | 'hu'
     replay: 'Relecture précalculée (même solveur)', live: 'Résultat en direct (WASM de production)',
     viewer: 'Déplacement X de la toiture', viewNote: 'Projection axonométrique dans la vue de Stabileo. Déformation ×40 ; l’animation met l’enveloppe à l’échelle, ce n’est pas une analyse temporelle.',
     step: 'Affichage de l’enveloppe', rule: 'Combinaison',
-    damping: 'Amortissement ξ', dampingNote: 'Modifiez le taux d’amortissement modal ξ : seule la CQC en dépend, par ρ, et la page relance le solveur spectral du produit et la solution analytique pour cette valeur. Les 9 vérifications ci-dessus portent sur la valeur par défaut, ξ = 5 %.', tryDamping: 'Essayer ξ = 20 %',
+    damping: 'Amortissement ξ', dampingNote: 'Modifiez le taux d’amortissement modal ξ : seule la CQC en dépend, par ρ, et la page relance le solveur spectral du produit et la solution analytique pour cette valeur. Les 9 vérifications portent sur la valeur par défaut, ξ = 5 %.', tryDamping: 'Essayer ξ = 20 %',
     error: 'Le calcul en direct a échoué',
   },
   tr: {
@@ -176,7 +176,7 @@ export const translations: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr' | 'hu'
     replay: 'Önceden hesaplanmış oynatma (aynı çözücü)', live: 'Canlı sonuç (üretim WASM)',
     viewer: 'Çatı X yer değiştirmesi', viewNote: 'Stabileo görüntüleyicisinde aksonometrik izdüşüm. Şekil değiştirme ×40; animasyon zarfı ölçekler, bir zaman tanım alanı analizi değildir.',
     step: 'Zarf gösterimi', rule: 'Birleştirme',
-    damping: 'Sönüm ξ', dampingNote: 'Modal sönüm oranı ξ’yi değiştirin: yalnızca CQC ρ üzerinden ona bağlıdır; sayfa bu değer için ürünün spektrum çözücüsünü ve kapalı form çözümü yeniden çalıştırır. Yukarıdaki 9 kontrol varsayılan değer ξ = %5 içindir.', tryDamping: 'ξ = %20’yi deneyin',
+    damping: 'Sönüm ξ', dampingNote: 'Modal sönüm oranı ξ’yi değiştirin: yalnızca CQC ρ üzerinden ona bağlıdır; sayfa bu değer için ürünün spektrum çözücüsünü ve kapalı form çözümü yeniden çalıştırır. 9 kontrol varsayılan değer ξ = %5 içindir.', tryDamping: 'ξ = %20’yi deneyin',
     error: 'Canlı hesaplama başarısız oldu',
   },
   hu: {
@@ -205,7 +205,7 @@ export const translations: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr' | 'hu'
     replay: 'Előre kiszámított visszajátszás (ugyanaz a megoldó)', live: 'Élő eredmény (az alkalmazás WASM-megoldója)',
     viewer: 'A tető X irányú elmozdulása', viewNote: 'Axonometrikus vetület a Stabileo nézőjében. Torzítás ×40; az animáció a burkolót skálázza, nem időtörténeti analízis.',
     step: 'Burkoló megjelenítése', rule: 'Kombináció',
-    damping: 'Csillapítás ξ', dampingNote: 'Változtassa meg a modális csillapítási tényezőt (ξ): csak a CQC függ tőle, ρ-n keresztül, és az oldal erre az értékre újrafuttatja a termék spektrummegoldóját és a zárt alakú megoldást. A fenti 9 ellenőrzés az alapértelmezett ξ = 5% értékre vonatkozik.', tryDamping: 'ξ = 20% kipróbálása',
+    damping: 'Csillapítás ξ', dampingNote: 'Változtassa meg a modális csillapítási tényezőt (ξ): csak a CQC függ tőle, ρ-n keresztül, és az oldal erre az értékre újrafuttatja a termék spektrummegoldóját és a zárt alakú megoldást. A 9 ellenőrzés az alapértelmezett ξ = 5% értékre vonatkozik.', tryDamping: 'ξ = 20% kipróbálása',
     error: 'Az élő számítás nem sikerült',
   },
   zh: {
@@ -234,7 +234,7 @@ export const translations: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr' | 'hu'
     replay: '预先计算的回放（同一求解器）', live: '实时结果（生产环境 WASM）',
     viewer: '屋面 X 向位移', viewNote: 'Stabileo 查看器中的轴测投影。变形 ×40；动画对包络进行缩放，并非时程。',
     step: '包络显示', rule: '组合方法',
-    damping: '阻尼比 ξ', dampingNote: '修改模态阻尼比 ξ：只有 CQC 通过 ρ 依赖于它；页面会针对该值重新运行生产环境的反应谱求解器和闭合解。上方的 9 项检查对应默认值 ξ = 5%。', tryDamping: '试试 ξ = 20%',
+    damping: '阻尼比 ξ', dampingNote: '修改模态阻尼比 ξ：只有 CQC 通过 ρ 依赖于它；页面会针对该值重新运行生产环境的反应谱求解器和闭合解。9 项检查对应默认值 ξ = 5%。', tryDamping: '试试 ξ = 20%',
     error: '实时计算失败',
   },
 };
