@@ -89,5 +89,11 @@ describe('a sheets run on a building with footings', () => {
     expect(quiet).not.toContain('data-testid="rc-progress-left"');
     const levelling = render(RcSheetsProgress, { props: { progress: { ...feet, layout: { ...feet.layout!, levelling: true } } } }).body;
     expect(levelling).toContain('Bringing the footings to one founding level');
+    const grouping = render(RcSheetsProgress, { props: { progress: { ...feet, layout: { ...feet.layout!, grouping: true } } } }).body;
+    expect(grouping).toContain('Grouping footings into combined footings, strips and mats');
+  });
+
+  it('says when it groups the footings into strips and mats, between designing them one by one', () => {
+    expect(seen.some((p) => p.phase === 'foundations' && p.layout!.grouping)).toBe(true);
   });
 });

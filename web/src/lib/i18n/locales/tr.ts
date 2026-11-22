@@ -16158,6 +16158,7 @@ const tr: Translations = {
   "rcSheets.progressFoundations": "Temel düzenleri karşılaştırılıyor: {index}/{count}, {layout}",
   "rcSheets.progressFoundationsFooting": "Temel {done}/{total}",
   "rcSheets.progressFoundationsLevel": "Temeller aynı temel kotuna getiriliyor",
+  "rcSheets.progressFoundationsGroup": "Temeller birleşik, sürekli temellere ve radyelere gruplanıyor",
   "wind.pressure.openBuildingRequiresFreeRoof": "Açık bir bina için serbest çatı tipi ve engelleme durumu belirtilmelidir.",
   "wind.pressure.distributedTorqueUnsupported": "Bu rüzgâr alanı, çözücünün temsil edemediği yayılı çubuk burulması gerektirir.",
   "wind.pressure.triangularCentroidUnsupported": "Üçgen rüzgâr taşıyıcıları rüzgâr yönüne göre simetrik olmalıdır; bu paylaşım izdüşüm basıncının ağırlık merkezini koruyamadığı için diğer üçgen planlar desteklenmez.",

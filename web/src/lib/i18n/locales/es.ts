@@ -16307,6 +16307,7 @@ const es: Record<string, string> = {
   "rcSheets.progressFoundations": "Comparando las disposiciones de la fundación: {index} de {count}, {layout}",
   "rcSheets.progressFoundationsFooting": "Base {done} de {total}",
   "rcSheets.progressFoundationsLevel": "Llevando las bases a un mismo nivel de fundación",
+  "rcSheets.progressFoundationsGroup": "Agrupando bases en combinadas, corridas y plateas",
   "xls.err.selfWeightRule": "Regla de peso propio no válida o no admitida en {field}. Se importan reglas de casos para todos los elementos o listas explícitas, y la gravedad independiente heredada para todo el modelo.",
 
   "wind.pressure.openBuildingRequiresFreeRoof": "Un edificio abierto requiere declarar el tipo de cubierta libre y su obstrucción.",

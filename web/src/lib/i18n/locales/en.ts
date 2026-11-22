@@ -16318,6 +16318,7 @@ const en: Record<string, string> = {
   "rcSheets.progressFoundations": "Comparing the foundation layouts: {index} of {count}, {layout}",
   "rcSheets.progressFoundationsFooting": "Footing {done} of {total}",
   "rcSheets.progressFoundationsLevel": "Bringing the footings to one founding level",
+  "rcSheets.progressFoundationsGroup": "Grouping footings into combined footings, strips and mats",
   "xls.err.selfWeightRule": "Invalid or unsupported self-weight rule in {field}. Import case rules for all members or explicit member lists, or legacy standalone gravity over the whole model.",
 
   "wind.pressure.openBuildingRequiresFreeRoof": "An open building requires an explicit free-roof kind and blockage declaration.",

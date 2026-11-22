@@ -3,8 +3,8 @@ export interface SheetProgress {
   phase: 'demands' | 'design' | 'foundations';
   done: number;
   total: number;
-  /** While the foundation layouts are compared: the one being designed, which of how many, and how far through its footings or the levelling of their founding level. */
-  layout?: { system: string; index: number; count: number; footing: number; footings: number; levelling: boolean };
+  /** While the foundation layouts are compared: the one being designed, which of how many, and how far through its footings, their grouping into combined footings, strips and mats, or the levelling of their founding level. */
+  layout?: { system: string; index: number; count: number; footing: number; footings: number; levelling: boolean; grouping?: true };
 }
 
 export const sheetsProgress = $state<{ now: SheetProgress | null; startedAt: number | null }>({ now: null, startedAt: null });

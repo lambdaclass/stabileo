@@ -11,9 +11,9 @@ export interface EdgeInput {
 const LEVEL_TOL = 0.05;
 
 /** Each footing's anchor from every axis point it stands on: a pier holds a line where any of its base nodes does. */
-function anchorsHeld(pts: ReadonlyArray<{ id: number; x: number; y: number }>, lines: PropertyLines): Map<number, [number, number]> {
+function anchorsHeld(pts: ReadonlyArray<{ id: number; x: number; y: number; hx?: number; hy?: number }>, lines: PropertyLines): Map<number, [number, number]> {
   const out = new Map<number, [number, number]>();
-  anchorsOf(pts.map((p, i) => ({ id: i, x: p.x, y: p.y })), lines).forEach((a, i) => {
+  anchorsOf(pts.map((p, i) => ({ id: i, x: p.x, y: p.y, ...(p.hx !== undefined ? { hx: p.hx, hy: p.hy } : {}) })), lines).forEach((a, i) => {
     const id = pts[i]!.id, was = out.get(id) ?? [0, 0];
     out.set(id, [was[0] || a[0], was[1] || a[1]]);
   });
@@ -29,7 +29,7 @@ function anchorsHeld(pts: ReadonlyArray<{ id: number; x: number; y: number }>, l
 export function withEdges(demands: readonly FootingDemand[], o: EdgeInput): FootingDemand[] {
   const live = demands.filter((d) => d.column && !d.footing?.outOfScope);
   const pts = live.map((d) => ({ id: d.nodeId, x: d.at.x, y: d.at.y }));
-  const axes = live.flatMap((d) => (d.pier?.points?.length ? d.pier.points : [d.at]).map((q) => ({ id: d.nodeId, x: q.x, y: q.y })));
+  const axes = live.flatMap((d) => (d.pier?.points?.length ? d.pier.points.map((q) => ({ id: d.nodeId, x: q.x, y: q.y })) : [{ id: d.nodeId, x: d.at.x, y: d.at.y, hx: (d.column?.b ?? 0) / 2, hy: (d.column?.h ?? 0) / 2 }]));
   const fromLines = anchorsHeld(axes, o.lines);
   return demands.map((d) => {
     if (!d.column || d.footing?.outOfScope) return d;

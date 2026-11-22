@@ -16158,6 +16158,7 @@ const de: Translations = {
   "rcSheets.progressFoundations": "Die Gründungsvarianten werden verglichen: {index} von {count}, {layout}",
   "rcSheets.progressFoundationsFooting": "Fundament {done} von {total}",
   "rcSheets.progressFoundationsLevel": "Die Fundamente werden auf eine Gründungsebene gebracht",
+  "rcSheets.progressFoundationsGroup": "Fundamente werden zu kombinierten Fundamenten, Streifen und Platten zusammengefasst",
   "wind.pressure.openBuildingRequiresFreeRoof": "Ein offenes Gebäude erfordert eine Angabe der freien Dachform und der Blockierung.",
   "wind.pressure.distributedTorqueUnsupported": "Dieses Windfeld erfordert verteilte Stabtorsion, die der Solver nicht darstellen kann.",
   "wind.pressure.triangularCentroidUnsupported": "Dreieckige Windlastträger müssen zur Windrichtung symmetrisch sein; andere dreieckige Grundrisse werden nicht unterstützt, da diese Aufteilung den Schwerpunkt des projizierten Drucks nicht erhält.",

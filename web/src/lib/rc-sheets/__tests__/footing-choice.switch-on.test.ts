@@ -6,7 +6,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { rulesFor } from '../codes';
-import { chooseFoundations, groupDemand, lineOf } from '../footing-choice';
+import { chooseFoundations, chooseFoundationsSteps, groupDemand, lineOf } from '../footing-choice';
 import { footingOverlaps } from '../footing-overlaps';
 import { analyseGroup, tiedAcross } from '../footing-group';
 import { CIRSOC_ONE_WAY } from '../footing-design';
@@ -96,5 +96,20 @@ describe('the foundation in the design data', () => {
     expect(migrateDesignData({ rcSheets: { adopted: {}, foundationSystem: 'caissons' } }).rcSheets?.foundationSystem).toBeUndefined();
     expect(migrateDesignData({ rcSheets: { adopted: {}, foundationSystem: 'piles' } }).rcSheets?.foundationSystem).toBe('piles');
     expect(footingSetupOf({ a: { solution: 'isolated', position: 'edge' } })).toEqual({ footingSetup: { a: { position: 'edge', solution: 'isolated' } } });
+  });
+});
+
+describe('the selection rule in steps', () => {
+  it('stops once after every strip or mat it designs, and ends where the rule in one go does', () => {
+    const ds = Array.from({ length: 12 }, (_, i) => column(i + 1, (i % 4) * 1.6, Math.floor(i / 4) * 1.6, 1500));
+    const design = (d: FootingDemand) => rules.footingRow(d, ctx, undefined, fmt);
+    let groups = 0;
+    const hooks = { capped: (d: FootingDemand, cap: never) => rules.footingRow(d, ctx, undefined, fmt, cap), combine: (a: FootingDemand, b: FootingDemand) => design({ ...a, carried: b }), group: (g: Parameters<typeof groupDemand>[0]) => { groups++; return design(groupDemand(g)); } };
+    const it = chooseFoundationsSteps(ds.map(design), hooks, { system: 'auto', solutions: {}, matShare: 0.5 });
+    let stops = 0, r = it.next();
+    for (; !r.done; r = it.next()) stops++;
+    expect(groups).toBeGreaterThan(0);
+    expect(stops).toBe(groups);
+    expect(kinds(r.value)).toEqual(kinds(choose(ds)));
   });
 });

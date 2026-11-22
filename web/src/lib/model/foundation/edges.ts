@@ -14,16 +14,21 @@ const TOL = 1e-3;
 const STRAP_CONE = Math.PI / 12;
 
 type Pt = { id: number; x: number; y: number };
+/** A point with the half widths of the column on it, m: its faces are what meets a line. */
+type Faced = Pt & { hx?: number; hy?: number };
 
-/** The anchor of each point: toward each declared line it stands on, the building's extremes being the points'. */
-export function anchorsOf(pts: readonly Pt[], lines: PropertyLines): Map<number, [number, number]> {
+/** The anchor of each point: toward each declared line it stands on, by its axis at the building's outermost axes or by its column's face at the outermost faces, so a wider column flush with the line is held too. */
+export function anchorsOf(pts: readonly Faced[], lines: PropertyLines): Map<number, [number, number]> {
   const out = new Map<number, [number, number]>();
   if (pts.length === 0) return out;
-  const minX = Math.min(...pts.map((p) => p.x)), maxX = Math.max(...pts.map((p) => p.x));
-  const minY = Math.min(...pts.map((p) => p.y)), maxY = Math.max(...pts.map((p) => p.y));
+  const lo = (p: Faced, k: 'x' | 'y') => p[k] - ((k === 'x' ? p.hx : p.hy) ?? 0), hi = (p: Faced, k: 'x' | 'y') => p[k] + ((k === 'x' ? p.hx : p.hy) ?? 0);
+  const ext = (f: (p: Faced) => number) => ({ min: Math.min(...pts.map(f)), max: Math.max(...pts.map(f)) });
+  const axis = { x: ext((p) => p.x), y: ext((p) => p.y) }, face = { x: { min: ext((p) => lo(p, 'x')).min, max: ext((p) => hi(p, 'x')).max }, y: { min: ext((p) => lo(p, 'y')).min, max: ext((p) => hi(p, 'y')).max } };
+  const atMin = (p: Faced, k: 'x' | 'y') => Math.abs(p[k] - axis[k].min) < TOL || Math.abs(lo(p, k) - face[k].min) < TOL;
+  const atMax = (p: Faced, k: 'x' | 'y') => Math.abs(p[k] - axis[k].max) < TOL || Math.abs(hi(p, k) - face[k].max) < TOL;
   for (const p of pts) {
-    const ax = lines.minX && Math.abs(p.x - minX) < TOL ? -1 : lines.maxX && Math.abs(p.x - maxX) < TOL ? 1 : 0;
-    const ay = lines.minY && Math.abs(p.y - minY) < TOL ? -1 : lines.maxY && Math.abs(p.y - maxY) < TOL ? 1 : 0;
+    const ax = lines.minX && atMin(p, 'x') ? -1 : lines.maxX && atMax(p, 'x') ? 1 : 0;
+    const ay = lines.minY && atMin(p, 'y') ? -1 : lines.maxY && atMax(p, 'y') ? 1 : 0;
     out.set(p.id, [ax, ay]);
   }
   return out;

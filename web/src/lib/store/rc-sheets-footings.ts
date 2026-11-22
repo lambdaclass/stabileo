@@ -22,7 +22,7 @@ import type { Fmt } from '../rc-sheets/format';
 import { FOOTING_BAR_RANGE, listIn, type Adopted } from '../rc-sheets/types';
 import { rcSheetsData, saveRcSheetsData } from './rc-sheets.svelte';
 import type { FootingAdopted, FootingContext, FootingDemand, FootingGroup, FootingRow, FootingSetup, FootingSizing, FootingSolution, FootingSoil, FoundationSystem, PileSpec, StrapResult } from '../rc-sheets/footing-types';
-import { chooseFoundations, groupDemand, lineOf } from '../rc-sheets/footing-choice';
+import { chooseFoundationsSteps, groupDemand, lineOf } from '../rc-sheets/footing-choice';
 import { check } from '../rc-sheets/types';
 
 const DEFAULT_FC = 25;
@@ -245,7 +245,8 @@ export const solutionsOf = (setup: Readonly<Record<string, FootingSetup>> | unde
  * after every footing it designs and every layout it chooses, so a page can draw between them. The recommendation founds on piles where some shallow
  * foundation it came to needs a stronger soil than the one given (GA §8.1, §15.1).
  */
-export interface FoundationStep { footing: number; footings: number; levelling: boolean }
+/** How far a layout is: through its footings one by one, then grouping them into combined footings, strips and mats, on a pass that levels their founding level or not. */
+export interface FoundationStep { footing: number; footings: number; levelling: boolean; grouping?: true }
 
 export function* foundationRowsSteps(feet: readonly FootingDemand[], o: FoundationInput): Generator<FoundationStep, FootingRow[]> {
   const rows = yield* layoutSteps(feet, o);
@@ -263,7 +264,7 @@ function* layoutSteps(feet: readonly FootingDemand[], o: FoundationInput): Gener
     const ds = grouped.map((d) => { const z = at(d); return z === undefined || d.footing ? d : { ...d, founding: z }; }).map((d) => (piles && !d.footing && !d.group && d.column ? { ...d, piles } : d));
     const rows: FootingRow[] = [];
     for (const d of ds) { const f = footingRowOf(d, o.rules, o.adopted, o.sizing, o.columns, o.fmt); o.redo(d.key, f.redo); rows.push(f.row); yield { footing: rows.length, footings: ds.length, levelling }; }
-    const chosen = chooseFoundations(rows, {
+    const steps = chooseFoundationsSteps(rows, {
       capped: (d, cap) => o.rules.footingRow(d, ctx(d), undefined, o.fmt, cap),
       combine: (a, b) => { const d = { ...a, carried: b }; o.redo(d.key, (x) => design(x)); return design(d); },
       group: (g) => {
@@ -274,8 +275,11 @@ function* layoutSteps(feet: readonly FootingDemand[], o: FoundationInput): Gener
         return design(dz, o.adopted[dz.key] as FootingAdopted | undefined);
       },
     }, { system: o.system, solutions: o.solutions, matShare: o.matShare });
-    yield { footing: ds.length, footings: ds.length, levelling };
-    return chosen;
+    for (;;) {
+      const r = steps.next();
+      if (r.done) { yield { footing: ds.length, footings: ds.length, levelling }; return r.value; }
+      yield { footing: ds.length, footings: ds.length, levelling, grouping: true };
+    }
   };
   if (o.founding !== undefined) return yield* pass(() => o.founding);
   let levels = new Map<string, number>();

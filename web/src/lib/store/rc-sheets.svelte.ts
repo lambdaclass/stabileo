@@ -755,7 +755,7 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
       if (r.done) { rows = r.value; break; }
       const s = r.value;
       done = base + Math.min(feet.length - 1, s.levelling ? feet.length - 1 : Math.round(feet.length * s.footing / Math.max(1, s.footings)));
-      yield { phase: 'foundations', done, total, layout: { system, index, count: FOUNDATION_SYSTEMS.length, footing: s.footing, footings: s.footings, levelling: s.levelling } };
+      yield { phase: 'foundations', done, total, layout: { system, index, count: FOUNDATION_SYSTEMS.length, footing: s.footing, footings: s.footings, levelling: s.levelling, ...(s.grouping ? { grouping: true as const } : {}) } };
     }
     done = base + feet.length;
     yield { phase: 'foundations', done, total, layout: { system, index, count: FOUNDATION_SYSTEMS.length, footing: feet.length, footings: feet.length, levelling: false } };

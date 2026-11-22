@@ -15960,6 +15960,7 @@ const pt: Translations = {
   "rcSheets.progressFoundations": "Comparando as disposições da fundação: {index} de {count}, {layout}",
   "rcSheets.progressFoundationsFooting": "Sapata {done} de {total}",
   "rcSheets.progressFoundationsLevel": "Levando as sapatas a um mesmo nível de fundação",
+  "rcSheets.progressFoundationsGroup": "Agrupando sapatas em combinadas, corridas e radiers",
   "xls.err.selfWeightRule": "Regra de peso próprio inválida ou não suportada em {field}. Importam-se regras de casos para todos os elementos ou listas explícitas, e a gravidade independente antiga para todo o modelo.",
 
   "wind.pressure.openBuildingRequiresFreeRoof": "Um edifício aberto exige declarar o tipo de cobertura livre e sua obstrução.",

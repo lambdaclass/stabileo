@@ -17,7 +17,7 @@
   <progress max={Math.max(1, progress.total)} value={progress.done}></progress>
   {#if layout}
     <span data-testid="rc-progress-count">{tp('rcSheets.progressFoundations', { index: layout.index, count: layout.count, layout: t(`rcSheets.foundation.${layout.system}`) })}</span>
-    <span data-testid="rc-progress-footing">{layout.levelling ? t('rcSheets.progressFoundationsLevel') : tp('rcSheets.progressFoundationsFooting', { done: layout.footing, total: layout.footings })}</span>
+    <span data-testid="rc-progress-footing">{layout.grouping ? t('rcSheets.progressFoundationsGroup') : layout.levelling ? t('rcSheets.progressFoundationsLevel') : tp('rcSheets.progressFoundationsFooting', { done: layout.footing, total: layout.footings })}</span>
   {:else}
     <span data-testid="rc-progress-count">{tp(progress.phase === 'demands' ? 'rcSheets.progressDemands' : 'rcSheets.progressDesign', { done: progress.done, total: progress.total })}</span>
   {/if}

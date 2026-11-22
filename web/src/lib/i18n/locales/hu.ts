@@ -15876,6 +15876,7 @@ const hu: Translations = {
   "rcSheets.progressFoundations": "Alapozási változatok összevetése: {index}/{count}, {layout}",
   "rcSheets.progressFoundationsFooting": "{done}/{total}. alap",
   "rcSheets.progressFoundationsLevel": "Az alapok egy alapozási szintre hozása",
+  "rcSheets.progressFoundationsGroup": "Az alapok összevonása kombinált, sáv- és lemezalapokká",
   "rcSheets.ec2.s.slabMin": "Minimális vasalás: As,1 fő, As,2 elosztó",
   "designData.minTieSpacing": "Legkisebb kengyeltávolság",
   "designData.minTieSpacingHint": "A gerendák és oszlopok kengyeleit és közbenső kengyeleit soha nem javasolja sűrűbben: így marad hely a betonnak. Ha egy követelmény ezen a távolságon nem teljesül, a sor megbukása előtt nagyobb engedélyezett átmérőt és több szárat próbál.",

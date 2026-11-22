@@ -15900,6 +15900,7 @@ const zh: Translations = {
   "rcSheets.progressFoundations": "正在比较基础布置：第 {index}/{count} 种，{layout}",
   "rcSheets.progressFoundationsFooting": "基础 {done}/{total}",
   "rcSheets.progressFoundationsLevel": "正在将各基础调整到同一基础标高",
+  "rcSheets.progressFoundationsGroup": "正在将基础合并为联合基础、条形基础和筏板",
   "rcSheets.ec2.s.slabMin": "最小配筋：As,1 为主筋，As,2 为副筋",
   "svc.engine.conflictingConstraints": "自由度 {dof}（节点 {node}）受 {n} 个约束绑定，仅最后一个生效",
   "notices.kind.withheld": "这些结果已被暂不提供：求解器遇到了无法可靠求解的情况。",

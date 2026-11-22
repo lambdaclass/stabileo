@@ -27,7 +27,7 @@ const membersOf = (r: FootingRow): FootingDemand[] => r.demand.group?.members ??
  * Strips along the column lines the way that gives the fewest lines, each line of two columns or
  * more on one strip; a core joins the line it stands across.
  */
-function alongLines(rows: FootingRow[], fixed: (r: FootingRow) => boolean, pinned: (r: FootingRow) => boolean, make: (ms: FootingDemand[], kind: GroupKind, reason: FootingGroup['reason']) => FootingRow): FootingRow[] {
+function* alongLines(rows: FootingRow[], fixed: (r: FootingRow) => boolean, pinned: (r: FootingRow) => boolean, make: (ms: FootingDemand[], kind: GroupKind, reason: FootingGroup['reason']) => FootingRow): Generator<void, FootingRow[]> {
   const free = rows.filter((r) => !fixed(r) && !pinned(r) && !r.demand.group && !r.demand.carried);
   const linesOf = (k: Axis) => {
     const across: Axis = k === 'x' ? 'y' : 'x';
@@ -44,7 +44,7 @@ function alongLines(rows: FootingRow[], fixed: (r: FootingRow) => boolean, pinne
   const ways = (['x', 'y'] as const).map((k) => ({ k, lines: linesOf(k).filter((l) => l.length > 1) }));
   const best = ways.sort((p, q) => p.lines.length - q.lines.length || q.lines.reduce((s, l) => s + l.length, 0) - p.lines.reduce((s, l) => s + l.length, 0))[0]!;
   let out = [...rows];
-  for (const l of best.lines) out = [...out.filter((r) => !l.includes(r)), make(l.flatMap(membersOf), 'strip', 'project')];
+  for (const l of best.lines) { out = [...out.filter((r) => !l.includes(r)), make(l.flatMap(membersOf), 'strip', 'project')]; yield; }
   return out;
 }
 
@@ -71,6 +71,12 @@ export function lineOf(ms: readonly FootingDemand[]): Axis | null {
  * Footings the engineer adopted or the model holds stay as they are.
  */
 export function chooseFoundations(rows: readonly FootingRow[], h: ChoiceHooks, o: ChoiceOptions): FootingRow[] {
+  const it = chooseFoundationsSteps(rows, h, o);
+  for (;;) { const r = it.next(); if (r.done) return r.value; }
+}
+
+/** `chooseFoundations` in steps: one after every strip or mat it designs, so a page can draw between them. */
+export function* chooseFoundationsSteps(rows: readonly FootingRow[], h: ChoiceHooks, o: ChoiceOptions): Generator<void, FootingRow[]> {
   const solution = (r: FootingRow): FootingSolution | undefined => o.solutions[r.key] ?? membersOf(r).map((m) => o.solutions[m.key]).find(Boolean);
   const fixed = (r: FootingRow) => !!r.demand.footing || r.B <= 0 || (r.isAdopted && !r.demand.group && !r.demand.carried) || !r.demand.column && !r.demand.group;
   const pinned = (r: FootingRow) => solution(r) === 'isolated';
@@ -88,8 +94,9 @@ export function chooseFoundations(rows: readonly FootingRow[], h: ChoiceHooks, o
     const reason: FootingGroup['reason'] = o.system === 'mat' ? 'project' : byCover ? 'cover' : 'row';
     const mat = groupRow(matRows.flatMap(membersOf), 'mat', reason);
     out = [...out.filter((r) => !matRows.includes(r)), mat];
+    yield;
   }
-  if (o.system === 'strips') out = alongLines(out, fixed, pinned, groupRow);
+  if (o.system === 'strips') out = yield* alongLines(out, fixed, pinned, groupRow);
   const merges = o.system === 'auto' || o.system === 'mat';
   if (o.system !== 'piles') out = layFootings(out, h);
   const near = (r: FootingRow) => out.filter((x) => x !== r && !fixed(x) && !pinned(x))
@@ -119,6 +126,7 @@ export function chooseFoundations(rows: readonly FootingRow[], h: ChoiceHooks, o
         if (next.status === 'fail') { const m = groupRow(members, 'mat', 'fallback'); if (m.status !== 'fail') next = m; }
       } else next = groupRow(members, 'mat', hasMat ? (comp.find((r) => r.demand.group?.kind === 'mat')!.demand.group!.reason) : 'fallback');
       out = [...out.filter((r) => !comp.includes(r)), next];
+      yield;
     }
   }
   return out;
