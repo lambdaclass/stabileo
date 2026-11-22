@@ -429,6 +429,36 @@ const body: PostBody = {
       "t": "受影响的输入和应采取的措施。"
     },
     {
+      "k": "note",
+      "t": "SA-2026-105 — 0.6.3 之后的下一个版本。"
+    },
+    {
+      "k": "ext",
+      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-105-restored-planar-moment-edits.md",
+      "label": "SA-2026-105",
+      "t": "受影响的输入和应采取的措施。"
+    },
+    {
+      "k": "note",
+      "t": "SA-2026-106 — 0.6.3 之后的下一个版本（遏制措施）。"
+    },
+    {
+      "k": "ext",
+      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-106-complementary-plate-remesh-arc.md",
+      "label": "SA-2026-106",
+      "t": "受影响的输入和应采取的措施。"
+    },
+    {
+      "k": "note",
+      "t": "SA-2026-107 — 0.6.3 之后的下一个版本（遏制措施）。"
+    },
+    {
+      "k": "ext",
+      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-107-plate-remesh-shell-edits.md",
+      "label": "SA-2026-107",
+      "t": "受影响的输入和应采取的措施。"
+    },
+    {
       "k": "img",
       "base": "blog/recheck-stale",
       "w": 1600,
@@ -1067,6 +1097,24 @@ const body: PostBody = {
           "反转杆件可能改变分布荷载的方向，分析也可能遗漏旧式平面集中力偶。请核查保存的荷载方向、端部荷载强度和力矩字段，修正荷载后重新分析和验算。",
           "高",
           "下一版本（0.6.4）"
+        ],
+        [
+          "SA-2026-105",
+          "将恢复的平面集中力偶改为零后，原力矩仍可能起作用。请核对并重新输入预期力矩，然后重新执行受影响的分析和验算。",
+          "高",
+          "0.6.3 之后的下一个版本"
+        ],
+        [
+          "SA-2026-106",
+          "重新划分网格时，曲线板边界可能沿互补圆弧生成。请对照指定圆弧检查网格，重建受影响的网格，然后重新分析和验算。",
+          "高",
+          "0.6.3 之后的下一个版本（遏制措施）"
+        ],
+        [
+          "SA-2026-107",
+          "重新划分网格可能丢失壳单元的偏置和曲率修改。请在重新分析和验算前核对并恢复预期的壳单元属性。",
+          "高",
+          "0.6.3 之后的下一个版本（遏制措施）"
         ]
       ]
     },

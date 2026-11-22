@@ -108,6 +108,12 @@ const body: PostBody = {
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-103-rc-torsion-evidence.md", "label": "SA-2026-103", "t": "Entrées concernées et mesures à prendre."},
     {"k": "note", "t": "SA-2026-104 — Prochaine version (0.6.4)."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-104-member-load-reversal-and-planar-couples.md", "label": "SA-2026-104", "t": "Entrées concernées et mesures à prendre."},
+    {"k": "note", "t": "SA-2026-105 — Prochaine version après la 0.6.3."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-105-restored-planar-moment-edits.md", "label": "SA-2026-105", "t": "Entrées concernées et mesures à prendre."},
+    {"k": "note", "t": "SA-2026-106 — Prochaine version après la 0.6.3 (mesure de protection)."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-106-complementary-plate-remesh-arc.md", "label": "SA-2026-106", "t": "Entrées concernées et mesures à prendre."},
+    {"k": "note", "t": "SA-2026-107 — Prochaine version après la 0.6.3 (mesure de protection)."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-107-plate-remesh-shell-edits.md", "label": "SA-2026-107", "t": "Entrées concernées et mesures à prendre."},
     {"k": "img", "base": "blog/recheck-stale", "w": 1600, "h": 1000, "alt": "Stabileo PRO avec un portique en béton enregistré avant que les résultats soient versionnés. Un bandeau en bas indique des résultats périmés : le projet a été résolu avec une version antérieure et 19 changements enregistrés le concernent, avec les boutons pour voir ce qui a changé et relancer le calcul.", "caption": "Comment une correction atteint un projet enregistré : tant qu’il n’est pas recalculé, ses résultats restent marqués périmés, et les changements qui le concernent sont à un clic."},
     {
       "k": "h",
@@ -520,7 +526,10 @@ const body: PostBody = {
         ["SA-2026-101", "PRO pouvait calculer avec des plaques omises, des maillages issus de données incomplètes ou des jonctions voile-dalle non raccordées. Comparez le maillage à la géométrie prévue, corrigez les plaques et les jonctions, puis relancez l’analyse et les vérifications.", "Élevée", "Prochaine version (0.6.4)"],
         ["SA-2026-102", "Les diagrammes pouvaient donner des extrema ou des efforts erronés près des actions concentrées, et des tronçons inversés pouvaient permuter les faces vérifiées en béton armé. Contrôlez les efforts déterminants, les faces d’armature et les données de gradient de moment en acier. Relancez les analyses et vérifications concernées.", "Élevée", "Prochaine version (0.6.4)"],
         ["SA-2026-103", "Les vérifications de torsion et de cisaillement du béton pouvaient accepter des armatures transversales insuffisantes ou créditer des barres périphériques ou tendues sans justification. Refaites les vérifications avec les armatures réelles et les efforts concomitants, puis révisez les rapports concernés.", "Élevée", "Prochaine version (0.6.4)"],
-        ["SA-2026-104", "L’inversion de barres pouvait changer le sens des charges réparties et l’analyse pouvait omettre d’anciens couples ponctuels plans. Vérifiez les directions, les intensités aux extrémités et les champs de moment enregistrés. Corrigez les charges, puis relancez les analyses et vérifications concernées.", "Élevée", "Prochaine version (0.6.4)"]
+        ["SA-2026-104", "L’inversion de barres pouvait changer le sens des charges réparties et l’analyse pouvait omettre d’anciens couples ponctuels plans. Vérifiez les directions, les intensités aux extrémités et les champs de moment enregistrés. Corrigez les charges, puis relancez les analyses et vérifications concernées.", "Élevée", "Prochaine version (0.6.4)"],
+        ["SA-2026-105", "La mise à zéro d’un couple ponctuel plan restauré pouvait laisser l’ancien moment actif. Vérifiez et saisissez de nouveau les moments prévus, puis relancez les calculs et vérifications concernés.", "Élevée", "Prochaine version après la 0.6.3"],
+        ["SA-2026-106", "Le remaillage pouvait suivre l’arc complémentaire d’un bord courbe de la plaque. Comparez le maillage à l’arc spécifié, refaites les maillages concernés, puis relancez le calcul et les vérifications.", "Élevée", "Prochaine version après la 0.6.3 (mesure de protection)"],
+        ["SA-2026-107", "Le remaillage pouvait effacer les modifications d’excentrement et de courbure des coques. Vérifiez et rétablissez les propriétés prévues avant de relancer le calcul et les vérifications.", "Élevée", "Prochaine version après la 0.6.3 (mesure de protection)"]
       ]
     },
     {
