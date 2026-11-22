@@ -77,15 +77,19 @@ Steel checks and profile searches retain off-grid bending peaks under uniform lo
 
 The shed calculation report reflects the corrected rafter strength and interaction ratio.
 
+#### Apply edits to restored planar moments
+
+Finite edits to restored planar point couples and nodal moments replace the stored moment. Empty or invalid edits preserve the original load. Conflicting aliases and saved invalid moment values stop analysis until a finite moment is entered. The refusal survives saving and reopening the project. [Results change](docs/results-changes/2026-11-restored-planar-moment-edits.md) (#2459)
+
+#### Preserve the plate definition when remeshing (#2460, #2461)
+
+Curved boundaries follow the sweep through the plate’s intermediate point. An ambiguous sweep blocks remeshing. Plate meshes carry shell offsets and curvature edits to exactly matching shells and refuse replacement when an edit has no exact match. See [the results change](docs/results-changes/2026-11-plate-remesh.md).
+
 ### Changed
 
 #### Prioritize work that prevents recurring wrong results
 
 The product roadmap puts independent load and plate area checks first. It also records plans for exact internal-force functions, complete design evidence and one canonical model with checks across transformations.
-
-#### Document the risk of setting a restored planar point couple to zero
-
-A previous moment can remain active after a zero edit. Inspect both moment fields in affected saved loads, clear the stale field and verify the moment jump and reactions before using the solution. [#2459](https://github.com/lambdaclass/stabileo/issues/2459)
 
 ### Fixed
 
@@ -95,7 +99,7 @@ A previous moment can remain active after a zero edit. Inspect both moment field
 
 #### Document affected results and rechecks in Stabileo 0.6.4
 
-The release notes in all eight languages link SA-2026-100 through SA-2026-104 and explain which models to repair, which analyses and checks to rerun, and which results and reports to review. They also identify the remaining risk when zeroing a restored legacy planar point couple.
+The release notes in all eight languages link SA-2026-100 through SA-2026-104 and explain which models to repair, which analyses and checks to rerun, and which results and reports to review. The notes also cover SA-2026-105 for restored planar moment edits and SA-2026-106 and SA-2026-107 for curved plate boundaries and shell edits during remeshing.
 
 #### AI key settings meet the 44 px tap target minimum (2026-11-21)
 
