@@ -56,6 +56,7 @@
   let deform = $state(10);
 
   const locale = $derived(publicI18n.locale);
+  const gap = (next: string) => (locale === 'zh' || /^[\s:.,;)]/.test(next) ? '' : ' ');
   const nf = (v: number | null | undefined, d = 3) =>
     v === null || v === undefined || !Number.isFinite(v) ? '—' : new Intl.NumberFormat(locale, { maximumFractionDigits: d, minimumFractionDigits: d }).format(v);
 
@@ -348,7 +349,7 @@
 >
   {#snippet article()}
       <h2>{s.springsPaperShows}</h2>
-      <p> {s.springsOverview} <em>{s.springsNonaffine}</em> {s.springsOverviewRelaxation} <strong>{s.springsAuxetic}</strong> {s.springsOverviewAuxetic} </p>
+      <p>{s.springsOverview}{gap(s.springsNonaffine)}<em>{s.springsNonaffine}</em>{gap(s.springsOverviewRelaxation)}{s.springsOverviewRelaxation}{gap(s.springsAuxetic)}<strong>{s.springsAuxetic}</strong>{gap(s.springsOverviewAuxetic)}{s.springsOverviewAuxetic}</p>
       <p class="sp-try"> {s.springsTry} <ExperimentLink params={{ family: 'foam', eta: 0 }}>{s.springsPerfect}</ExperimentLink> ·
         <ExperimentLink params={{ family: 'foam', eta: 0.3 }}>η = {nf(0.3, 1)}</ExperimentLink> ·
         <ExperimentLink params={{ family: 'foam', eta: 0.5 }}>{s.springsTryAuxetic}</ExperimentLink>

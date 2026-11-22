@@ -55,7 +55,7 @@ fn main() {
     let published = vec![
         row(
             "threshold-70",
-            "Snap threshold alpha/sqrt(epsilon), centered pattern over 70% of the span",
+            "Snap threshold α/√ε, centered pattern over 70% of the span",
             "Zmyślony et al., doi:10.1103/56f8-8gsx; arXiv:2601.06598v2 p.3 following Eq.(2), Eq.(3) p.4, supplementary Table S1 p.8 (PDF p.17)",
             21.52,
             result.threshold / result.compression.sqrt(),
@@ -64,8 +64,8 @@ fn main() {
         ),
         row(
             "k1",
-            "First antisymmetric Euler mode of the flat clamped beam, wavenumber k1/pi",
-            "arXiv:2601.06598v2, supplementary S2.6.1: k1 = 2.86 pi (f_i = k_i^2)",
+            "First antisymmetric Euler mode of the flat clamped beam, wavenumber k₁/π",
+            "arXiv:2601.06598v2, supplementary S2.6.1: k₁ = 2.86π (f_i = k_i²)",
             2.86,
             result.modes[1].force.sqrt() / pi,
             "absolute error",
@@ -73,8 +73,8 @@ fn main() {
         ),
         row(
             "k0",
-            "Fundamental Euler mode of the flat clamped beam, wavenumber k0/pi",
-            "arXiv:2601.06598v2, supplementary S2.6.1: k0 = 2 pi (f_i = k_i^2)",
+            "Fundamental Euler mode of the flat clamped beam, wavenumber k₀/π",
+            "arXiv:2601.06598v2, supplementary S2.6.1: k₀ = 2π (f_i = k_i²)",
             2.,
             result.modes[0].force.sqrt() / pi,
             "relative error",

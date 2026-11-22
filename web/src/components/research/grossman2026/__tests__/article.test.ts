@@ -9,7 +9,7 @@ import { comparisonRows, evidence, stripComparison } from '../evidence';
 it.each(OFFERED_LOCALES)('provides localized evidence prose and check labels in %s', (locale) => {
   const dictionary = RESEARCH_DICTIONARIES[locale];
   const strings = articleStrings(dictionary, locale);
-  expect(strings.springsFoamComparison).toContain(new Intl.NumberFormat(locale).format(-0.146));
+  expect(strings.springsFoamComparison).toContain(new Intl.NumberFormat(locale).format(-0.146).replace('-', '−'));
   expect(strings.springsStripBias).toContain(new Intl.NumberFormat(locale).format(0.371));
   expect(strings.springsFoamComparison).not.toMatch(/\{\w+\}/);
   for (const check of evidence.flatMap(g => g.checks)) {

@@ -6,7 +6,7 @@ export function articleStrings(strings: ResearchStrings, locale: string): Resear
   const rows = results.foam.periodic;
   const i = rows.findIndex((row) => row.nu.mean <= 0);
   const a = rows[i - 1], b = rows[i];
-  const fmt = (n: number, digits = 3) => new Intl.NumberFormat(locale, { maximumFractionDigits: digits }).format(n);
+  const fmt = (n: number, digits = 3) => new Intl.NumberFormat(locale, { maximumFractionDigits: digits }).format(n).replace('-', '−');
   const values: Record<string, string> = {
     nodes: fmt(824, 0), seeds: fmt(results.foam.seeds, 0), cells: fmt(results.foam.cells, 0),
     cross: fmt(a.eta + (b.eta - a.eta) * a.nu.mean / (a.nu.mean - b.nu.mean)),
