@@ -3194,6 +3194,8 @@ const pt: Translations = {
   'dxf.warnNodalLoadNoNode': 'Carga nodal sem nó próximo:',
   'dxf.warnPointLoadNoElement': 'Carga concentrada sem barra ou nó próximo:',
   'dxf.warnSupportBlockNoNode': 'Bloco de apoio sem nó próximo:',
+  'dxf.refuseSupportLabel': 'A etiqueta de apoio “{label}” na camada DXF “{layer}” é desconhecida ou ambígua. Corrija o desenho antes de importar. Use FIXED, PINNED, RX, RY ou RZ apenas se corresponder à restrição pretendida.',
+  'dxf.refuseConflictingSupports': 'As etiquetas de apoio “{first}” e “{second}” na camada DXF “{layer}” correspondem ao mesmo nó. Antes de importar, mantenha apenas a etiqueta ou o bloco da restrição pretendida.',
   'dxf.warnSupportNoNode': 'Apoio sem nó correspondente:',
   'dxf.warnUnrecognizedLoadText': 'Texto de carga não reconhecido:',
   'dxf.warnZeroLengthLine': 'Linha com comprimento zero ignorada',

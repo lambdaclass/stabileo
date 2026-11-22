@@ -3912,6 +3912,8 @@ const es: Record<string, string> = {
   // Advertencias del mapper
   'dxf.warnZeroLengthLine': 'Línea de longitud cero ignorada',
   'dxf.warnNoElementLayers': 'No se detectaron capas BARRAS/ELEMENTOS. Se usan todas las líneas como barras.',
+  'dxf.refuseSupportLabel': 'La etiqueta de apoyo «{label}» en la capa DXF «{layer}» es desconocida o ambigua. Corregí el dibujo antes de importar. Usá FIXED, PINNED, RX, RY o RZ solo si corresponde a la restricción prevista.',
+  'dxf.refuseConflictingSupports': 'Las etiquetas de apoyo «{first}» y «{second}» de la capa DXF «{layer}» corresponden al mismo nodo. Conservá solo la etiqueta o el bloque de la restricción prevista antes de importar.',
   'dxf.warnSupportNoNode': 'El apoyo no coincide con ningún nodo:',
   'dxf.warnSupportBlockNoNode': 'El bloque de apoyo no coincide con ningún nodo:',
   'dxf.warnDistLoadNoElement': 'Carga distribuida no asociada a ninguna barra:',

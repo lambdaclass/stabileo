@@ -1818,6 +1818,8 @@ const ja: Translations = {
   'dxf.summaryMaxV': '最大V：',
   'dxf.warnZeroLengthLine': 'ゼロ長の線分を無視しました',
   'dxf.warnNoElementLayers': 'BARRAS/ELEMENTOSレイヤーが検出されませんでした。すべての線分を要素として使用します。',
+  'dxf.refuseSupportLabel': 'DXF レイヤー「{layer}」の支点ラベル「{label}」は不明または曖昧です。インポート前に図面を修正してください。FIXED、PINNED、RX、RY、RZ は、意図した拘束条件に一致する場合にのみ使用してください。',
+  'dxf.refuseConflictingSupports': 'DXF レイヤー「{layer}」の支点ラベル「{first}」と「{second}」が同じ節点に対応しています。インポート前に、意図した拘束条件に対応するラベルまたはブロックだけを残してください。',
   'dxf.warnSupportNoNode': '支点が節点と一致しません：',
   'dxf.warnSupportBlockNoNode': '支点ブロックが節点と一致しません：',
   'dxf.warnDistLoadNoElement': '分布荷重が要素に関連付けられていません：',

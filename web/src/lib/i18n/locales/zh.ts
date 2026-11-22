@@ -3764,6 +3764,8 @@ const zh: Translations = {
   "dxf.summaryMaxV": "最大 V：",
   "dxf.warnZeroLengthLine": "已忽略零长度的线",
   "dxf.warnNoElementLayers": "未检测到 BARRAS/ELEMENTOS 图层。所有线均作为杆件使用。",
+  "dxf.refuseSupportLabel": "DXF 图层“{layer}”上的支座标签“{label}”无法识别或含义不明确。请先修正图纸，再导入。仅在标签与预期约束一致时使用 FIXED、PINNED、RX、RY 或 RZ。",
+  "dxf.refuseConflictingSupports": "DXF 图层“{layer}”上的支座标签“{first}”和“{second}”对应同一个节点。请在导入前仅保留预期约束对应的标签或块。",
   "dxf.warnSupportNoNode": "支座与任何节点都不匹配：",
   "dxf.warnSupportBlockNoNode": "支座块与任何节点都不匹配：",
   "dxf.warnDistLoadNoElement": "分布荷载未与任何杆件关联：",

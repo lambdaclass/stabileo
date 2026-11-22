@@ -3549,6 +3549,8 @@ const de: Translations = {
   'dxf.summaryMaxV': 'Max. V:',
   'dxf.warnZeroLengthLine': 'Linie der Länge null ignoriert',
   'dxf.warnNoElementLayers': 'Keine BARRAS/ELEMENTOS-Layer erkannt. Alle Linien werden als Stäbe verwendet.',
+  'dxf.refuseSupportLabel': 'Die Auflagerbezeichnung „{label}“ auf dem DXF-Layer „{layer}“ ist unbekannt oder mehrdeutig. Korrigieren Sie die Zeichnung vor dem Import. Verwenden Sie FIXED, PINNED, RX, RY oder RZ nur, wenn die Bezeichnung der vorgesehenen Lagerung entspricht.',
+  'dxf.refuseConflictingSupports': 'Die Auflagerbezeichnungen „{first}“ und „{second}“ auf dem DXF-Layer „{layer}“ sind demselben Knoten zugeordnet. Behalten Sie vor dem Import nur die Bezeichnung oder den Block für die vorgesehene Lagerung bei.',
   'dxf.warnSupportNoNode': 'Auflager passt zu keinem Knoten:',
   'dxf.warnSupportBlockNoNode': 'Auflagerblock passt zu keinem Knoten:',
   'dxf.warnDistLoadNoElement': 'Streckenlast keinem Stab zugeordnet:',

@@ -1810,6 +1810,8 @@ const hi: Translations = {
   // Mapper warnings
   'dxf.warnZeroLengthLine': 'शून्य-लंबाई रेखा अनदेखी की गई',
   'dxf.warnNoElementLayers': 'कोई BARRAS/ELEMENTOS परत नहीं पाई गई। सभी रेखाएँ तत्वों के रूप में उपयोग की गईं।',
+  'dxf.refuseSupportLabel': 'DXF परत “{layer}” पर आधार का लेबल “{label}” अज्ञात या अस्पष्ट है। आयात करने से पहले आरेख ठीक करें। FIXED, PINNED, RX, RY या RZ का उपयोग तभी करें जब वह अपेक्षित बंधन से मेल खाता हो।',
+  'dxf.refuseConflictingSupports': 'DXF परत “{layer}” पर आधार के लेबल “{first}” और “{second}” एक ही नोड से मेल खाते हैं। आयात करने से पहले केवल अपेक्षित बंधन का लेबल या ब्लॉक रखें।',
   'dxf.warnSupportNoNode': 'आधार किसी नोड से मेल नहीं खाता:',
   'dxf.warnSupportBlockNoNode': 'आधार ब्लॉक किसी नोड से मेल नहीं खाता:',
   'dxf.warnDistLoadNoElement': 'वितरित भार किसी तत्व से संबद्ध नहीं:',
