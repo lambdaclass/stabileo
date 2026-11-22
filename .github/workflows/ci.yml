@@ -1673,7 +1673,7 @@ jobs:
           merge-multiple: true
           path: production-parity
       - name: Compare both production inventories
-        run: make check.web.production-parity NIX_RUN= PARITY_COMPARE=production-parity
+        run: .github/scripts/retry-infra.sh make check.web.production-parity NIX_RUN= PARITY_COMPARE=production-parity
 
   web-build:
     name: Web Build
