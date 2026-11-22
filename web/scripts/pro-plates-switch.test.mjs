@@ -121,3 +121,14 @@ test('mesher translations are lazy in the unified profile and keep main’s dict
     });
   }
 });
+
+test('disabled builds resolve a module the branch removed, imported with or without its extension', () => {
+  const { plugin } = proPlatesSource(() => false);
+  for (const name of readProPlatesProfile(false).restored) {
+    const target = resolve(root, name);
+    const importer = resolve(root, name.replace(/[^/]+$/, 'importer.ts'));
+    const bare = `./${name.split('/').pop().replace(/\.(ts|js|svelte)$/, '')}`;
+    assert.equal(plugin.resolveId(bare, importer), target, bare);
+    assert.equal(plugin.resolveId(`./${name.split('/').pop()}`, importer), target, name);
+  }
+});
