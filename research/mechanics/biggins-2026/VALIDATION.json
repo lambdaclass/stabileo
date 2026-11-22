@@ -28,12 +28,39 @@
   "published_checks": [
     {
       "computed": 21.51730391466893,
-      "metric": "centered 70% alpha/sqrt(epsilon): absolute error",
+      "id": "threshold-70",
+      "metric": "absolute error",
+      "name": "Snap threshold alpha/sqrt(epsilon), centered pattern over 70% of the span",
       "observed": 0.0026960853310704636,
       "passed": true,
       "reference": 21.52,
       "source": "Zmyślony et al., doi:10.1103/56f8-8gsx; arXiv:2601.06598v2 p.3 following Eq.(2), Eq.(3) p.4, supplementary Table S1 p.8 (PDF p.17)",
-      "tolerance": 0.005
+      "tolerance": 0.005,
+      "unit": ""
+    },
+    {
+      "computed": 2.8605940776574674,
+      "id": "k1",
+      "metric": "absolute error",
+      "name": "First antisymmetric Euler mode of the flat clamped beam, wavenumber k1/pi",
+      "observed": 0.000594077657467551,
+      "passed": true,
+      "reference": 2.86,
+      "source": "arXiv:2601.06598v2, supplementary S2.6.1: k1 = 2.86 pi (f_i = k_i^2)",
+      "tolerance": 0.005,
+      "unit": ""
+    },
+    {
+      "computed": 2.0000001289578875,
+      "id": "k0",
+      "metric": "relative error",
+      "name": "Fundamental Euler mode of the flat clamped beam, wavenumber k0/pi",
+      "observed": 6.447894373984298e-8,
+      "passed": true,
+      "reference": 2.0,
+      "source": "arXiv:2601.06598v2, supplementary S2.6.1: k0 = 2 pi (f_i = k_i^2)",
+      "tolerance": 0.00001,
+      "unit": ""
     }
   ],
   "scope": "Production Euler modes and shallow-angle equilibrium thresholds; not laboratory validation or snap dynamics."

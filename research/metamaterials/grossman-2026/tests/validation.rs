@@ -34,12 +34,23 @@ struct Check {
 }
 
 #[derive(Default)]
-struct Checks(Vec<Check>);
+struct Checks(Vec<Check>, Vec<serde_json::Value>);
 
 impl Checks {
     fn at_most(&mut self, name: &str, metric: &str, observed: f64, tolerance: f64) {
         assert!(observed.is_finite() && tolerance.is_finite() && observed >= 0.0 && tolerance >= 0.0);
         self.0.push(Check { id: String::new(), category: "independent".into(), source: None, name: name.into(), metric: metric.into(), tolerance, observed, passed: observed <= tolerance });
+    }
+
+    fn paper_value(&mut self, id: &str, name: &str, source: &str, reference: f64, computed: f64, tolerance: f64) {
+        assert!(reference.is_finite() && computed.is_finite());
+        let observed = (computed - reference).abs();
+        self.1.push(serde_json::json!({ "id": id, "name": name, "source": source, "unit": "", "reference": reference, "computed": computed, "metric": "absolute difference", "observed": observed, "tolerance": tolerance, "passed": observed <= tolerance }));
+    }
+
+    fn paper_curve(&mut self, id: &str, name: &str, source: &str, points: usize, metric: &str, observed: f64, tolerance: f64) {
+        assert!(observed.is_finite() && points >= 2);
+        self.1.push(serde_json::json!({ "id": id, "name": name, "source": source, "unit": "", "points": points, "metric": metric, "observed": observed, "tolerance": tolerance, "passed": observed <= tolerance }));
     }
 }
 
@@ -85,6 +96,19 @@ fn records_match(a: &[Check], b: &[Check]) -> bool {
             && a.observed.is_finite() && b.observed.is_finite()
             && (a.observed - b.observed).abs() <= 1e-12 + 1e-8 * a.observed.abs().max(b.observed.abs())
     })
+}
+
+fn rows_match(a: &serde_json::Value, b: &serde_json::Value) -> bool {
+    use serde_json::Value;
+    match (a, b) {
+        (Value::Number(a), Value::Number(b)) => {
+            let (a, b) = (a.as_f64().unwrap(), b.as_f64().unwrap());
+            a.is_finite() && b.is_finite() && (a - b).abs() <= 1e-12 + 1e-8 * a.abs().max(b.abs())
+        }
+        (Value::Array(a), Value::Array(b)) => a.len() == b.len() && a.iter().zip(b).all(|(a, b)| rows_match(a, b)),
+        (Value::Object(a), Value::Object(b)) => a.len() == b.len() && a.iter().all(|(k, v)| b.get(k).is_some_and(|w| rows_match(v, w))),
+        _ => a == b,
+    }
 }
 
 /// Affine (Cauchy-Born) stiffness of a Bravais lattice with bonds `bonds` and cell area `area`:
@@ -285,6 +309,7 @@ fn part_b(c: &mut Checks) {
         }
     }
     c.at_most("Supplemental Eq. (9) = periodic network with equal-weight springs (7 lattices x 37 angles)", "max |nu difference|", worst, 1e-9);
+    c.paper_curve("eq9", "Poisson's ratio of ordered lattices, equal-weight springs (7 lattices x 37 orientations)", "Supplemental Material, App. C, Eq. (9)", 7 * 37, "absolute difference in nu, largest", worst, 1e-9);
 
     // B2. For equal Hookean springs (Eq. 3) the exact value differs: lattice (1, 0.5), theta = 0
     // gives nu = 1/6, Eq. (9) gives 8/27.
@@ -312,6 +337,7 @@ fn part_b(c: &mut Checks) {
         worst = finite_max([worst, (ours - y).abs()]);
     }
     c.at_most("Fig. 7 calculation line (741 points) = equal-weight Young's modulus x triangle area", "max |Y difference|", worst, 0.01);
+    c.paper_curve("fig7", "Young's modulus of the (3, 2) lattice against orientation, times the triangle area", "Fig. 7, calculation line (PDF vector data)", points.len(), "absolute difference in Y, largest", worst, 0.01);
 
     // B4. Eq. (23): honeycomb with soft centre springs. The error is O(k_radial).
     for (kr, tol) in [(1e-3, 5e-3), (1e-6, 1e-5)] {
@@ -322,17 +348,22 @@ fn part_b(c: &mut Checks) {
             worst = finite_max([worst, (r.uniaxial_x.unwrap().1 - paper::honeycomb_poisson(l)).abs()]);
         }
         c.at_most(&format!("Eq. (23) honeycomb, k_radial = {kr:e} (l = 0.05 ... 0.95)"), "max |nu difference|", worst, tol);
+        let id = if kr == 1e-3 { "honey-3" } else { "honey-6" };
+        c.paper_curve(id, &format!("Honeycomb Poisson's ratio, k_radial = {kr:e} (l = 0.05 ... 0.95)"), "Eq. (23), p. 7", 19, "absolute difference in nu, largest", worst, tol);
     }
 
     let triangular = periodic(spec(tri(1.0, 1.0)), 4);
     let b0 = v["fig9"]["B"]["mean_line"][0][1].as_f64().unwrap();
     let g0 = v["fig9"]["G"]["mean_line"][0][1].as_f64().unwrap();
     c.at_most("Fig. 9 at eta = 0: B = sqrt(3)/2, G = sqrt(3)/4", "max absolute difference", finite_max([(b0 - triangular.isotropic.bulk).abs(), (g0 - triangular.isotropic.shear).abs()]), 5e-3);
+    c.paper_value("fig9-bulk", "Bulk modulus B of the perfect triangular lattice (eta = 0)", "Fig. 9, mean line at eta = 0 (PDF vector data)", b0, triangular.isotropic.bulk, 5e-3);
+    c.paper_value("fig9-shear", "Shear modulus G of the perfect triangular lattice (eta = 0)", "Fig. 9, mean line at eta = 0 (PDF vector data)", g0, triangular.isotropic.shear, 5e-3);
 
     // B6. Foam: exact periodic moduli, 10 samples of 26 x 26 cells per eta, against the paper's
     // simulations (Fig. 5, digitised markers and error bars) and statements (p. 6).
     let text = std::fs::read_to_string(dir().join("reference-results/fig5_simulation_digitized.csv")).unwrap();
     let mut outside = 0;
+    let mut beyond: f64 = 0.0;
     let mut means = Vec::new();
     for line in text.lines().skip(1) {
         let f: Vec<&str> = line.split(',').collect();
@@ -352,11 +383,14 @@ fn part_b(c: &mut Checks) {
             if !inside_error_bar(m, lo, hi) {
                 outside += 1;
             }
+            beyond = finite_max([beyond, lo - m, m - hi]);
         }
     }
     c.at_most("foam: cross-protocol comparison, periodic nu vs Fig. 5 clamped-strip error bars (eta 0 ... 0.45, 10 markers); not strip validation", "markers outside", outside as f64, 0.0);
+    c.paper_curve("fig5-periodic", "Foam Poisson's ratio, periodic mean (10 samples) against the Fig. 5 strip error bars (eta = 0 ... 0.45); cross-protocol", "Fig. 5, p. 6, simulation markers and error bars (digitised)", 10, "absolute distance outside the error bar, largest", beyond, 0.003);
     let cross = means.windows(2).find(|w| w[0].1 > 0.0 && w[1].1 <= 0.0).map(|w| w[0].0 + (w[1].0 - w[0].0) * w[0].1 / (w[0].1 - w[1].1)).unwrap_or(f64::NAN);
     c.at_most("foam: periodic zero crossing vs strip text eta = 0.46 (cross-protocol)", "|eta_0 - 0.46|", (cross - 0.46).abs(), 0.02);
+    c.paper_value("zero-crossing", "Disorder eta at which the foam's Poisson's ratio crosses zero (periodic; cross-protocol)", "Sec. II C 2, p. 6: nu = 0 at eta ~ 0.46", 0.46, cross, 0.02);
     let mut nus = Vec::new();
     for seed in 0..10 {
         let mut s = spec(tri(1.0, 1.0));
@@ -389,22 +423,20 @@ fn main_checks() -> Checks {
 #[test]
 fn validation() {
     let c = main_checks();
-    let published: Vec<Check> = c.0.iter().filter(|ch| ch.category == "paper").cloned().collect();
-    for (file, checks) in [("VALIDATION.json", &c.0), ("PUBLISHED_COMPARISON.json", &published)] {
-        let json = serde_json::to_string_pretty(&serde_json::json!({ "checks": checks })).unwrap();
+    let published = serde_json::json!({ "checks": c.1 });
+    for (file, json) in [("VALIDATION.json", serde_json::json!({ "checks": c.0 })), ("reference-results/published_comparison.json", published.clone())] {
         let out = dir().join("target").join(file);
         std::fs::create_dir_all(out.parent().unwrap()).unwrap();
-        std::fs::write(&out, &json).unwrap();
+        std::fs::write(&out, serde_json::to_string_pretty(&json).unwrap() + "\n").unwrap();
     }
     for ch in &c.0 {
         println!("{} {} [{}: {:.3e} <= {:.1e}]", if ch.passed { "ok  " } else { "FAIL" }, ch.name, ch.metric, ch.observed, ch.tolerance);
     }
     assert!(c.0.iter().all(|ch| ch.passed), "a validation check failed");
-    for (file, checks) in [("VALIDATION.json", &c.0), ("PUBLISHED_COMPARISON.json", &published)] {
-        let committed = read_json(file);
-        let committed: Vec<Check> = serde_json::from_value(committed["checks"].clone()).unwrap();
-        assert!(records_match(&committed, checks), "{file} is stale: copy target/{file} over it");
-    }
+    assert!(c.1.iter().all(|row| row["passed"] == true), "a published comparison failed");
+    let committed: Vec<Check> = serde_json::from_value(read_json("VALIDATION.json")["checks"].clone()).unwrap();
+    assert!(records_match(&committed, &c.0), "VALIDATION.json is stale: copy target/VALIDATION.json over it");
+    assert!(rows_match(&read_json("reference-results/published_comparison.json"), &published), "reference-results/published_comparison.json is stale: copy it from target/");
 }
 
 #[test]

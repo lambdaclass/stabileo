@@ -163,7 +163,7 @@ papers:
   dependencies: []
   complexity: medium
   relevance: Spring networks map directly onto truss models, which Stabileo already solves.
-  status: numerically-validated
+  status: published-figures-compared
   reproduced_published_results: true
   benchmarks:
   - foam Poisson's ratio against disorder (Fig. 5, text p. 6)

@@ -55,7 +55,8 @@ The reference optimizer's default tolerance and rectangular-profile quadrature c
 produce small irregularities. The 0.3% comparison tolerance covers the observed
 0.1821% maximum discrepancy without altering the authors' code. A separate mesh/modal
 refinement check bounds sensitivity of our results. Published agreement is claimed
-only for the one 70% threshold, not an entire published figure or laboratory dataset.
+only for the 70% threshold and the two Euler wavenumbers, not an entire published figure or
+laboratory dataset.
 
 ## Reproduce
 
@@ -69,7 +70,9 @@ make wasm.research.biggins
 
 `validate --write` regenerates `VALIDATION.json` and
 `reference-results/published_comparison.json` only after checks pass. The latter
-records the published 70% threshold comparison and is read by the web evidence test.
+holds the paper against Stabileo in the catalogue's row schema (the published 70% threshold
+and the two Euler wavenumbers k₀ and k₁ of supplementary S2.6.1); the page shows these rows
+in its comparison table and the web evidence test reads them.
 `replay` prints the same solver's default run, saved by the evidence target in
 `reference-results/replay.json`; the tests compare every saved nodal height. `build.sh`
 creates the separate research WASM with the production buckling dependency, retaining
@@ -103,6 +106,10 @@ the same published replay; production numerics are unchanged.
 - Published threshold: absolute tolerance **0.005**, half the last printed digit of
   21.52. No additional discretization allowance is added; the observed error is
   0.0026961 and fits within the rounding budget.
+- Euler wavenumbers of the flat-clamped beam, supplementary S2.6.1 (arXiv v2), with f_i = k_i²:
+  k₁ = 2.86π is printed to three digits, so its absolute tolerance on k₁/π is **0.005**, half the
+  last digit (observed 0.00059). k₀ = 2π is exact; its relative tolerance **1e-5** is the same
+  analytical target as the Euler loads below (observed 6.4e-8).
 - Zenodo software: relative tolerance **0.003**. The default optimizer and rectangular
   quadrature have a measured maximum discrepancy of 0.0018207; the independent
   mesh/mode sensitivity is below 0.0004000. Their sum is below 0.003. This is a
