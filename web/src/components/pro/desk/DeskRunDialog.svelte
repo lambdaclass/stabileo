@@ -14,6 +14,8 @@
   import { deskUi, type RunScope } from '../../../lib/store/design-desk-ui.svelte';
   import { undesignedMembers, type DeskReport } from '../../../lib/store/design-desk';
   import { rcSize } from '../../../lib/flow/rc-commands';
+  import { untrack } from 'svelte';
+  import { solveProgress } from '../../../lib/store/solve-progress.svelte';
 
   let { onDone }: { onDone: (report: DeskReport, error: { key: string; params: Record<string, string | number> } | null, fromList: boolean) => void } = $props();
 
@@ -31,6 +33,7 @@
     scope = a.scope === 'selection' && uiStore.selectedElements.size === 0 ? 'all' : a.scope;
     edited = 'keep';
     confirming = false;
+    untrack(() => { const p = solveProgress.now; if (p?.phase === 'done' || p?.phase === 'failed') solveProgress.dismiss(); });
   });
   const selected = $derived([...uiStore.selectedElements]);
   const undesigned = $derived(deskUi.ask ? undesignedMembers().length : 0);

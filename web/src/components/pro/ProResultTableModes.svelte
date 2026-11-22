@@ -21,6 +21,7 @@
    */
   import { modelStore, resultsStore, uiStore } from '../../lib/store';
   import { t, tp } from '../../lib/i18n';
+  import NoticeRow from '../notices/NoticeRow.svelte';
   import { activePerCombo3D, activeCombinations } from '../../lib/store/active-results';
     import { exportToExcel } from '../../lib/export/excel';
   import { computeStationDemands } from '../../lib/engine/verification-service';
@@ -90,6 +91,7 @@
     const md = { elements: modelStore.elements, nodes: modelStore.nodes, sections: modelStore.sections, materials: modelStore.materials, supports: modelStore.supports };
     let perCombo: Map<number, AnalysisResults3D> = activePerCombo3D();
     let combos = activeCombinations();
+    if (perCombo.size === 0 && combos.length > 0) return [];
     if (perCombo.size === 0 && combos.length === 0 && resultsStore.results3D) {
       // Nothing combined: the result set on screen, named as what it is.
       perCombo = new Map([[0, resultsStore.results3D]]);
@@ -98,6 +100,7 @@
     return maxByType(computeStationDemands(perCombo, combos, md as never).demands, entities);
   }));
   const byType = $derived(guardedByType.value ?? []);
+  const combosUnsolved = $derived(activeCombinations().length > 0 && activePerCombo3D().size === 0);
 
   function fmt(n: number): string {
     if (!Number.isFinite(n)) return '—';
@@ -152,7 +155,7 @@
   }
 </script>
 
-{#each resultsStore.knownIssues3D.messages as message}<p role="alert">{message}</p>{/each}
+{#if resultsStore.knownIssues3D.refused}<div role="alert" data-testid="results-withheld"><NoticeRow kind="withheld" level="blocking" summary={t('notices.kind.withheld')} details={resultsStore.knownIssues3D.messages} open /></div>{/if}
 <div class="tm-bar" role="tablist" data-testid="table-modes-{kind}"><div class="pk-tabs tm-tabs">
   {#each modes as m (m)}
     <button class:on={mode === m} role="tab" aria-selected={mode === m}
@@ -256,6 +259,8 @@
     </table>
     <p class="tm-cap">{withStations ? t('tables.envelopeHintStations') : t('tables.envelopeHint')}</p>
   </div>
+{:else if mode === 'maxType' && combosUnsolved}
+  <p class="tm-cap" role="alert" data-testid="tm-maxtype-unsolved">{t('design.error.combinationsUnsolved')}</p>
 {:else if mode === 'maxType' && guardedByType.error}
   <p class="tm-cap" role="alert" data-testid="tm-maxtype-engine">{guardedByType.error}</p>
 {:else if mode === 'maxType'}

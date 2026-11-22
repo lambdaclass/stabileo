@@ -1,4 +1,5 @@
 <script lang="ts">
+  import NoticeSettings from '../notices/NoticeSettings.svelte';
   import { axesStore } from '../../lib/axes/axes.svelte';
   import { upLabel } from '../../lib/axes/frame';
   import { uiStore, resultsStore } from '../../lib/store';
@@ -477,6 +478,7 @@
           <span>{t('config.drawPositiveTowardLocalAxes')}</span>
           </HelpTip>
         </label>
+        <NoticeSettings />
       </div>
     {/if}
 

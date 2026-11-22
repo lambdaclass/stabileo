@@ -23,6 +23,7 @@ import { resultsStore } from '../results.svelte';
 import { solveCombinations3D, validateAndSolve3D } from '../../engine/solver-service';
 import type { BarPath } from '../../codes/cirsoc201/bar-geometry';
 import { anchorageCoherence } from './anchorage-coherence';
+import { stateSuiteCovers } from './suite-covers';
 
 beforeAll(async () => { await initSolver(); });
 
@@ -30,6 +31,7 @@ describe('the flagship frame: every interior support spliced, every end built as
   let bars: BarPath[] = [];
   beforeAll(async () => {
     await modelStore.loadExample('rc-design-frame');
+    stateSuiteCovers();
     uiStore.analysisMode = 'pro';
     const combo: any = solveCombinations3D(modelStore.model as never, modelStore.model.loadCases, modelStore.model.combinations, true, false);
     resultsStore.setResults3D(validateAndSolve3D(modelStore.model as never, true, false) as never);

@@ -7,13 +7,14 @@
  */
 import { modelStore } from './model.svelte';
 import { uiStore } from './ui.svelte';
-import { plateOfShell } from './physical-plates';
+import { holdPlateSidesAt, plateOfShell } from './physical-plates';
 import { redesignerOf, type SheetRow } from './rc-sheets.svelte';
 import type { BeamRow } from '../rc-sheets/beam-row';
 import type { ColumnRow } from '../rc-sheets/column-row';
+import type { WallRow } from '../rc-sheets/wall-row';
 import type { LineLayout } from '../rc-sheets/beam-line';
 
-export type ResizeWhat = 'beamH' | 'column' | 'slabH' | 'wallT' | 'punchSlab' | 'punchColumn' | 'punchCapital' | 'punchDrop';
+export type ResizeWhat = 'beamH' | 'beamB' | 'column' | 'slabH' | 'wallT' | 'punchSlab' | 'punchColumn' | 'punchCapital' | 'punchDrop';
 /**
  * `to` null: not even at the limit searched (twice the size). Lengths in m. A capital's `to` is its
  * projection beyond the column face; a drop panel's, its depth under the slab and its extent from
@@ -59,7 +60,8 @@ export function resizeHints(row: SheetRow): ResizeHint[] {
     case 'beam': {
       if (!fail) return [];
       const d = row.demand;
-      return [{ what: 'beamH', direction: 'grow', from: [d.h], to: grow(row.key, [d.h], 0.05, [Math.min(2 * d.h, 2)], ([h]) => ({ ...d, h })) }];
+      const deeper: ResizeHint = { what: 'beamH', direction: 'grow', from: [d.h], to: grow(row.key, [d.h], 0.05, [Math.min(2 * d.h, 2)], ([h]) => ({ ...d, h })) };
+      return deeper.to ? [deeper] : [deeper, { what: 'beamB', direction: 'grow', from: [d.b], to: grow(row.key, [d.b], 0.05, [2 * d.b], ([b]) => ({ ...d, b })) }];
     }
     case 'column': {
       const d = row.demand;
@@ -76,6 +78,7 @@ export function resizeHints(row: SheetRow): ResizeHint[] {
     }
     case 'wall': {
       const d = row.demand;
+      if (d.base?.unheld?.length) return [];
       if (fail) return [{ what: 'wallT', direction: 'grow', from: [d.thickness], to: grow(row.key, [d.thickness], 0.05, [2 * d.thickness], ([t]) => ({ ...d, thickness: t })) }];
       if (!row.generous && row.utilization >= ROOM) return [];
       const to = shrink(row.key, [d.thickness], 0.05, 0.1, ([t]) => ({ ...d, thickness: t }));
@@ -93,6 +96,7 @@ export function resizeHints(row: SheetRow): ResizeHint[] {
         { what: 'punchDrop', direction: 'grow', from: [0, 0], to: dropPanel(row.key, d) },
       ];
     }
+    case 'footing': return [];
   }
 }
 
@@ -117,13 +121,16 @@ function dropPanel(key: string, d: import('../rc-sheets/punching-row').PunchingD
   return null;
 }
 
-/** A continuous beam's depth: the deepest any of its failing spans needs. */
+/** A continuous beam's depth: the deepest any of its failing spans needs; where no depth up to twice does, the widest width they need. */
 export function lineResizeHint(spans: readonly BeamRow[]): ResizeHint | null {
   const hints = spans.filter((s) => s.status === 'fail').flatMap((s) => resizeHints(s));
   if (!hints.length) return null;
-  const from = Math.max(...spans.map((s) => s.demand.h));
-  const to = hints.some((h) => h.to === null) ? null : [Math.max(...hints.map((h) => h.to![0]!))];
-  return { what: 'beamH', direction: 'grow', from: [from], to };
+  const of = (what: ResizeWhat, side: (s: BeamRow) => number): ResizeHint => {
+    const mine = hints.filter((h) => h.what === what);
+    return { what, direction: 'grow', from: [Math.max(...spans.map(side))], to: mine.some((h) => h.to === null) ? null : [Math.max(...mine.map((h) => h.to![0]!))] };
+  };
+  const deeper = of('beamH', (s) => s.demand.h);
+  return deeper.to || !hints.some((h) => h.what === 'beamB') ? deeper : of('beamB', (s) => s.demand.b);
 }
 
 const groupOf = (key: string) => Number(key.split(':')[1]);
@@ -149,7 +156,35 @@ export function rowTargets(row: SheetRow | LineLayout): GotoTarget[] {
   if ('spanAdopted' in row) return ['members'];
   if (row.family === 'beam' || row.family === 'column') return ['members'];
   if (row.family === 'punching') return ['plates', 'members'];
+  if (row.family === 'footing') return [];
   return ['plates'];
+}
+
+export function wallsToHold(rows: readonly SheetRow[]): WallRow[] {
+  const zOf = (n: number) => modelStore.nodes.get(n)?.z ?? 0;
+  const supported = [...modelStore.supports.values()].map((s) => zOf(s.nodeId));
+  const ground = supported.length ? Math.min(...supported) : Math.min(...[...modelStore.nodes.values()].map((n) => n.z ?? 0));
+  return rows.filter((r): r is WallRow => r.family === 'wall' && !!r.demand.base?.unheld?.length
+    && r.demand.base.unheld.every((n) => modelStore.nodes.has(n) && Math.abs(zOf(n) - ground) < 1e-3));
+}
+
+/** Each base node gets the support most common at the foundation's level, fixed where it has none, and each wall's base is held all along with every mesh; one undo step. */
+export function supportWallBases(rows: readonly SheetRow[]): number {
+  const held = new Set([...modelStore.supports.values()].map((s) => s.nodeId));
+  const nodes = [...new Set(wallsToHold(rows).flatMap((r) => r.demand.base!.unheld!))].filter((n) => !held.has(n));
+  if (!nodes.length) return 0;
+  const ground = modelStore.nodes.get(nodes[0]!)?.z ?? 0;
+  const kinds = new Map<string, number>();
+  for (const s of modelStore.supports.values()) {
+    const p = modelStore.nodes.get(s.nodeId);
+    if (p && Math.abs((p.z ?? 0) - ground) < 1e-3) kinds.set(s.type, (kinds.get(s.type) ?? 0) + 1);
+  }
+  const type = ([...kinds.entries()].sort((p, q) => q[1] - p[1])[0]?.[0] ?? 'fixed3d') as Parameters<typeof modelStore.addSupport>[1];
+  modelStore.batch(() => {
+    for (const n of nodes) modelStore.addSupport(n, type);
+    for (const id of new Set(wallsToHold(rows).map((r) => groupOf(r.key)))) holdPlateSidesAt(id, ground, type);
+  });
+  return nodes.length;
 }
 
 /** Selects the row's element in the model and opens the tab where its dimensions are changed. */
