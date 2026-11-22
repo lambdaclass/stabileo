@@ -1038,9 +1038,13 @@ export function pinnedDefects(): void {
       await expect(page.getByTestId('plastic-withheld')).toContainText(/4[.,]6/);
       await expect(page.getByTestId('plastic-withheld').locator('a')).toHaveAttribute('href', 'https://github.com/lambdaclass/stabileo/issues/758');
       await expect(page.getByTestId('plastic-verdict')).toHaveCount(0);
-      await expect(page.getByTestId('adv-running')).toHaveCount(0);
+      // The refusal is the function's answer, under its own header, and "← Back" leaves it.
+      await expect(page.getByTestId('adv-running')).toHaveAttribute('data-adv', 'plastic');
       const d = await diff(page, before, await shot(page));
       expect(d.changed).toBeLessThan(Math.max(400, d.total * 0.002));
+      await page.getByTestId('adv-close').click();
+      await expect(page.getByTestId('adv-running')).toHaveCount(0);
+      await expect(page.getByTestId('plastic-withheld')).toHaveCount(0);
     });
 
     test('D5 free-body view: "← Back" drops the diagram the user was looking at', async ({ page }) => {
