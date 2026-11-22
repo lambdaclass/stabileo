@@ -24,7 +24,7 @@ keeps a curated defect list. Ergodic Group backs and publishes Stabileo.
   history goes to `CHANGELOG.md` and the website changelog. Sections 2 to 4 are rewritten when an item lands; sections 5 to 7 change rarely. The
   in-flight table in section 2 is generated: run `make roadmap.inflight` and commit the result.
 
-## 2. Now: soundness first (updated 2026-11-21)
+## 2. Now: soundness first (updated 2026-11-22)
 
 ### Overall order
 
@@ -62,9 +62,11 @@ metamorphic and differential tests; this layer has had almost none. The order be
    The **under audit** notice for generated loads and concrete design is on main in
    [#2228](https://github.com/lambdaclass/stabileo/pull/2228). Each reported wrong result still
    needs its own correction or refusal.
-2. **Remove the classes behind the 2026-11-21 findings** (user-approved 2026-11-21).
+2. **Remove the classes behind the 2026-11-21 findings** (items 1–4 user-approved 2026-11-21;
+   architectural foundations 5–6 added 2026-11-22).
    Almost all the recent wrong results came from the code that feeds the solver or reads its
-   results. Four patterns recur.
+   results. Four patterns recur; items 1–4 address them directly, and items 5–6 eliminate their
+   root causes structurally.
 
    1. **Independent load and geometry accounting on every solve** (first, in progress).
       Before each solve, use a separate simple path to compute each load case's total force and
@@ -77,9 +79,12 @@ metamorphic and differential tests; this layer has had almost none. The order be
       Include those cases in the transformation checks below. Load-generation tests still compare
       member loads and internal forces.
    2. **Exact internal-force functions instead of station samples.** The engine returns each
-      frame element's internal forces as exact piecewise functions of its loads. Diagrams and
-      design use them to find maxima and sign changes exactly. This addresses missed diagram peaks
-      ([#2403](https://github.com/lambdaclass/stabileo/pull/2403)) and shear cuts at moment transitions
+      frame element's internal forces as exact piecewise polynomials (`PiecewisePoly<5>`) of its
+      loads — extended across combinations, exact inflection points (`M(x) = 0`) and shear zeros
+      (`V(x) = 0`), analytical `Cb` integration, closed-form moving-load influence envelopes, and
+      rebar anchorage/curtailment intervals. This addresses missed diagram peaks
+      ([#2403](https://github.com/lambdaclass/stabileo/pull/2403)), moving-load axial jumps, and
+      shear cuts at moment transitions
       ([#2434](https://github.com/lambdaclass/stabileo/pull/2434),
       [#2463](https://github.com/lambdaclass/stabileo/issues/2463)).
    3. **Verdicts only from complete evidence.** A pass requires a record proving every required
@@ -92,9 +97,26 @@ metamorphic and differential tests; this layer has had almost none. The order be
       go through one parser that produces a single canonical form. It refuses conflicting fields
       such as the `my`/`mz` aliases. Each night, compare solves across a corpus of saved projects
       before and after remesh, member reversal, rotation, restore and save/open.
+   5. **Canonical Physical Structural IR → Pure Rust Analytical Compiler** *(added 2026-11-22; see
+      [high_leverage_solver_and_product_plan.md](../research/high_leverage_solver_and_product_plan.md#wave-1--soundness-compounding-architectural-foundations-roadmap-class-b-then-f)).*
+      Promote the physical building model (`BeamLine`, `Column`, `Wall`, `Slab`, `RoofPolygon`,
+      `Opening`, `LoadSurface`, `Diaphragm`, `RebarCage`, `SupportRegion`) to the sole mutable
+      source of truth, with the finite-element mesh compiled by a pure Rust lowering pass (`spade`
+      CDT + exact `∫ p dA == Σ f_i` and moment-conservation gates). Wind, snow, seismic stories,
+      gravity load ownership and rebar cutoffs are computed on Layer 1 *before* meshing exists —
+      removing the recurring `SA-2026-072…107` subdivision/remesh/reversal bug class by
+      construction and enabling multi-fidelity compilation (coarse stick ↔ refined MITC4/MITC9 ↔
+      fiber) from one model.
+   6. **Executable Design-Code IR ("Design Codes as Data")** *(added 2026-11-22).*
+      As design checks move from TypeScript to Rust, encode each code clause once as a pure,
+      unit-typed expression AST tagged with its exact clause citation and validity bounds. Derive
+      all five outputs from that single AST: fast `f64` check, outward-rounded `Interval`
+      certificate (zero drift with f64), `Dual<f64>` sizing derivatives, step-by-step KaTeX /
+      Memoria calculation traces (impossible for reports to disagree with the engine), and
+      exhaustive boundary-case tests on both sides of every limit.
 
-   Items 2 to 4 are part of moving design and loads to Rust and Option B, the shared 2D/3D kernel.
-   Item 1 proceeds independently.
+   Items 2 to 6 are part of moving design, loads and analytical compilation to Rust and Option B,
+   the shared 2D/3D kernel. Item 1 proceeds independently.
 3. **Review affected designs after the RC containment.** [#2338](https://github.com/lambdaclass/stabileo/pull/2338)
    blocks shear, torsion and seismic hoop checks where the evidence is insufficient.
    Re-run previously certified designs and review the governing cuts and drawings.
@@ -191,7 +213,11 @@ metamorphic and differential tests; this layer has had almost none. The order be
     and [#972](https://github.com/lambdaclass/stabileo/issues/972). The reported factors were
     slightly conservative, not unsafe. The exact-bounds approach in
     [#2084](https://github.com/lambdaclass/stabileo/pull/2084) is parked because it made the check
-    about three times slower and refused PRO examples that solve today; it needs a new approach.
+    about three times slower and refused PRO examples that solve today; it needs a new approach
+    (target: the sparse conic programming / Clarabel SOCP core in
+    [Solver performance and capability](#solver-performance-and-capability) item 6, which produces
+    primal static and dual kinematic witnesses directly for `PlasticSound.lean` without path,
+    ordering or unit dependence).
 13. **Remove whole classes of defects:**
     - one shared bounded-arithmetic layer for every rounding certificate and admission check;
     - required test helpers, plus a lint against vacuous checks: assert counts before values, and
@@ -734,13 +760,12 @@ has merged.
 
 Each moves to section 2 or 3 when it starts.
 
-**After the structural fixes, in this order:** the shell formulation fixes (now Priority now item 16; [#798](https://github.com/lambdaclass/stabileo/issues/798), [#1057](https://github.com/lambdaclass/stabileo/issues/1057); slabs
-and walls of real buildings use them, and both are contained once [#807](https://github.com/lambdaclass/stabileo/pull/807) lands), a Python package and API on the
-versioned engine interface ([#731](https://github.com/lambdaclass/stabileo/issues/731)), a public verification manual generated from the benchmarks, the
-metamorphic suite and the certificates, import from SAP2000, ETABS, IFC and DXF with reports engineers
-can hand in, then Latin American codes (NBR, NSR-10, NTE E.030/E.060, NCh next to CIRSOC), each with
-independent sign-off ([#450](https://github.com/lambdaclass/stabileo/issues/450)). The AI assistant stage comes after these (capabilities and safety rules
-in [AI_ROADMAP.md](AI_ROADMAP.md)): the AI is never the authority on a result.
+**After the structural fixes, reprioritized in four waves (updated 2026-11-22; full blueprint in [high_leverage_solver_and_product_plan.md](../research/high_leverage_solver_and_product_plan.md)):**
+
+- **Wave 1 — Core shell fixes & engine multipliers:** close the shell formulation fixes (Priority now item 17; [#798](https://github.com/lambdaclass/stabileo/issues/798), [#1057](https://github.com/lambdaclass/stabileo/issues/1057)) and `SA-2026-056`; land the Physical IR compiler, Executable Design-Code IR, constrained `PreparedStatic` factorization reuse + adjoint/Woodbury re-analysis, Load-Dependent Ritz + identical-substructure superelement caching, and the resident WASM memory arena (`simd128` + zero-copy Three.js buffers).
+- **Wave 2 — Zero-switching-cost trust & distribution wedges:** ship offline browser-verifiable **Proof-Carrying Memorias** (`verify.stabileo.com`, [#499](https://github.com/lambdaclass/stabileo/issues/499), [#346](https://github.com/lambdaclass/stabileo/issues/346)), the public verification manual, **"Drop your ETABS/SAP2000/STAAD/OpenSees file" Certified Second-Opinion Audit** (local WASM, zero upload), ecosystem-first **`stabileo-mcp` + `pip install stabileo`** on the versioned engine interface ([#731](https://github.com/lambdaclass/stabileo/issues/731), [#351](https://github.com/lambdaclass/stabileo/issues/351)) with Visual Revision Diff and `Stabileo-Bench`, the **Inverse Design Canvas** (adjoint click-to-fix + live cost/CO₂/constructability rhythm HUD + live code-switch diff), and Latin American codes (NBR, NSR-10, NTC, NTE E.030/E.060, NCh next to CIRSOC) built on the Executable Design-Code IR with independent sign-off ([#450](https://github.com/lambdaclass/stabileo/issues/450)).
+- **Wave 3 — High-ARPU category-expanding modules (reusing existing `engine/` primitives):** Sparse Conic Programming (SOCP) core for building-scale certified N–M–T limit analysis, automated Strut-and-Tie (CIRSOC 201/ACI 318 Ch. 23) and slab/masonry DLO; browser-native **CBFEM (steel connections) & CSFM (concrete detail)**; clash-free active **3D rebar routing → BVBS CNC export**; **CUFSM thin-walled buckling & 2D thermal FE fire rating** on `engine/src/section/`; unified **PT slab & staged bridge studio** (`prestress` + `creep_shrinkage` + `staged` + `MITC4`); **Prager–Synge equilibrated-flux guaranteed PDE bounds** ([#501](https://github.com/lambdaclass/stabileo/issues/501)) + dual-number force-based fiber nonlinearity.
+- **Wave 4 — Ecosystem & top-of-funnel lock-in:** bi-directional **Parametric Script ↔ 3D Canvas** + locked Enterprise/Manufacturer Configurator Apps, the **Structural Intuition Lab & Seeded Professor Auto-Grader** (`diagram-game` + Education), and broader in-app AI assistant workflows ([AI_ROADMAP.md](AI_ROADMAP.md)): the AI is never the authority on a result.
 
 **Release safety still open:** no raw i18n key visible ([#719](https://github.com/lambdaclass/stabileo/issues/719)), visual regression for exported
 documents ([#722](https://github.com/lambdaclass/stabileo/issues/722)), the policy for outside contributions ([#726](https://github.com/lambdaclass/stabileo/issues/726)), safety advisories emailed once
@@ -929,45 +954,54 @@ Places where Stabileo still computes something unverified, refuses something eng
 
 ### Multipliers
 
-The Product Thesis orders what to build for firms to buy. This section ranks what would make the product an order of magnitude more useful, not incrementally better. Engineers spend most of their time modelling, iterating and documenting, not waiting for a solver, so the multipliers are workflow, not numerics. Each builds on verification: none is worth shipping on results that can be silently wrong.
+The Product Thesis orders what to build for firms to buy. This section ranks what would make the product an order of magnitude more useful, not incrementally better. Engineers spend most of their time modelling, iterating, reviewing and documenting, not waiting for a solver, so the multipliers are workflow, trust distribution and inverse-design physics. Each builds on verification: none is worth shipping on results that can be silently wrong. Re-ranked 2026-11-22 (full technical breakdown in [high_leverage_solver_and_product_plan.md](../research/high_leverage_solver_and_product_plan.md)).
 
-1. **Drawings / BIM → analytical model.** [#344](https://github.com/lambdaclass/stabileo/issues/344) Import IFC (then Revit via IFC, DWG, PDF plans) and propose the analytical model: structural vs architectural elements, centrelines and surfaces snapped to grids, sections, supports, and loads from room uses (CIRSOC 101). Every inference is listed as an assumption the engineer accepts or fixes, never applied silently; the model sanity review then checks it. Modelling goes from days to minutes; the engineer judges assumptions instead of drafting lines.
-   *Exists:* `web/src/lib/ifc/` (IFC parse and mapping), `web/src/lib/cad/` (DXF plan wizard, opt-in inferences recorded as assumptions), `web/src/lib/ai/` (`build-model`). *Missing:* one guided import → assumptions → sanity review → analyse flow, real-world idealisation (offsets, members that don't meet, walls with openings), loads from room uses, PDF/vision, and a measured corpus of architect files vs engineer-built models. Related: Interoperability in Phase 2, `sketch-to-model` in the AI roadmap.
+1. **Proof-carrying Memorias & zero-trust verification portal (`verify.stabileo.com`).** [#346](https://github.com/lambdaclass/stabileo/issues/346), [#499](https://github.com/lambdaclass/stabileo/issues/499) Compile `certcheck` to a tiny offline browser WASM verifier (<150 KB) and embed a QR code + cryptographic proof bundle in every exported PDF/DOCX `Memoria de Cálculo`. Building authorities, peer checkers, banks and insurers drop a report into `verify.stabileo.com` offline to verify Lean-proved solver/plastic/combination bounds, input-to-report integrity, live safety-advisory status, and inspect members in interactive read-only 3D with sensitivity sliders. Turns Stabileo's verification rigor and public advisory discipline into reviewer-pull B2B distribution. Show a verification status on every result and check using [MATURITY.md](../../testing/docs/MATURITY.md) ([#440](https://github.com/lambdaclass/stabileo/issues/440)).
 
-2. **AI senior-engineer reviewer.** [#345](https://github.com/lambdaclass/stabileo/issues/345) Most real failures are conceptual (load path, ignored stiff elements, drift near the limit, a poor structural system), not arithmetic. A reviewer that reads model and results like a senior engineer scales that judgment to every project. Built on the model sanity review (reactions vs loads, weight per m², period vs code formula, tributary cross-checks, unit and plausibility checks). Related: `review-model`, `pre-solve-diagnostics` in the AI roadmap.
+2. **"Certified Second-Opinion Audit" for ETABS / SAP2000 / STAAD / OpenSees models (zero-switching-cost wedge).** Import `.e2k`, `.s2k`, `.std` and `.tcl` 100% locally in the browser (NDA client files never leave the engineer's machine), run kinematic/mechanism detection, an independent Lean-certified static/modal/buckling solve, `review_model_sanity` (equilibrium, mass/m², period vs empirical code formula, soft-story and torsional irregularity) and a side-by-side comparison against the incumbent tool's reactions and drifts. Lets firms deploy Stabileo on billable QA immediately with zero rip-and-replace risk.
 
-3. **Certified results as the product.** [#346](https://github.com/lambdaclass/stabileo/issues/346) A report where every number comes with an auditable bound lets building authorities and independent checkers review faster and lowers liability. Extend certificates to CIRSOC 201, ACI RC, timber, CFS and the nonlinear solvers; show a verification status on every result and check using the levels of [MATURITY.md](../../testing/docs/MATURITY.md) (Certified > Benchmarked > Differential > Tested > Unverified; [#440](https://github.com/lambdaclass/stabileo/issues/440)); put provenance in reports.
+3. **Inverse Design Canvas — click-to-fix failing checks, constructability rhythm & live cost/CO₂ HUD.** [#347](https://github.com/lambdaclass/stabileo/issues/347) Powered by exact adjoint sensitivities and Woodbury low-rank re-analysis: click any failing limit state (drift, PMM, buckling, torsion, slab deflection) to light up every member by marginal efficiency (`∂failure / ∂$ or kg`) and offer concrete constructable fixes (cheapest, zero-architectural-impact, or rhythm-consolidated: "standardize to ≤ 4 beam profiles & ≤ 3 column sizes"). Pair with an always-visible live `steel t · concrete m³ · tCO₂e · unique sections` HUD and instant **Live Code-Switch Diff** (CIRSOC 201 ↔ ACI 318 ↔ EC2 on one model).
 
-4. **Real-time design iteration and optimisation.** [#347](https://github.com/lambdaclass/stabileo/issues/347) Instant re-analysis plus automatic search over sections and structural systems, minimising cost, steel, concrete or embodied carbon, every candidate passing certified checks; the engineer picks from a Pareto front. Embodied-carbon reporting from the bill of materials comes with it (increasingly mandatory). Related: Automated design iteration in Phase 4, `section-optimizer`.
+4. **Stabileo as the deterministic physics engine for every AI agent (`stabileo-mcp` + `pip install stabileo` + Visual Revision Diff + `Stabileo-Bench`).** [#351](https://github.com/lambdaclass/stabileo/issues/351), [#731](https://github.com/lambdaclass/stabileo/issues/731) Ship an open-source local/remote MCP server and PyO3 native Python package backed by the Physical IR, sanity gates, code checks and Lean certificates — with clickable `stabileo.com/m/<id>` preview handoff, 3D **Visual Revision Diff** (`.ded` / `.ifc` Rev A vs Rev B showing geometry, demand, BOM and newly failing checks), and **`Stabileo-Bench`**, the first deterministic structural-engineering LLM benchmark.
 
-5. **Existing-building assessment and retrofit.** [#348](https://github.com/lambdaclass/stabileo/issues/348) Latin America has millions of seismically vulnerable buildings, mostly RC frames to old codes. Model from survey, check against the original and current codes, propose retrofits (jacketing, bracing, walls), prioritise portfolios for cities, insurers and banks. Large and underserved.
+5. **Drawings / BIM → analytical model.** [#344](https://github.com/lambdaclass/stabileo/issues/344) Import IFC (then Revit via IFC, DWG, PDF plans) into the Physical IR and propose the analytical model: structural vs architectural elements, centrelines and surfaces snapped to grids, sections, supports, and loads from room uses (CIRSOC 101). Every inference is listed as an assumption the engineer accepts or fixes, never applied silently; the model sanity review then checks it. Modelling goes from days to minutes; the engineer judges assumptions instead of drafting lines.
+   *Exists:* `web/src/lib/ifc/` (IFC parse and mapping), `web/src/lib/cad/` (DXF plan wizard, opt-in inferences recorded as assumptions), `web/src/lib/ai/` (`build-model`). *Missing:* one guided import → assumptions → sanity review → analyse flow, real-world idealisation (offsets, members that don't meet, walls with openings), loads from room uses, PDF/vision, and a measured corpus of architect files vs engineer-built models.
 
-6. **Latin American codes done properly** [#349](https://github.com/lambdaclass/stabileo/issues/349) — CIRSOC, NSR-10, NTC, NCh, NBR with clause-level traceability; the large vendors treat them as an afterthought.
+6. **AI senior-engineer reviewer.** [#345](https://github.com/lambdaclass/stabileo/issues/345) Most real failures are conceptual (load path, ignored stiff elements, drift near the limit, a poor structural system), not arithmetic. A reviewer that reads model and results like a senior engineer scales that judgment to every project. Built on the model sanity review (reactions vs loads, weight per m², period vs code formula, tributary cross-checks, unit and plausibility checks). Related: `review-model`, `pre-solve-diagnostics` in the AI roadmap.
 
-7. **Model → permit pipeline** [#350](https://github.com/lambdaclass/stabileo/issues/350) — analysis, design, detailing, drawings, bill of materials and an authority-ready calculation report from one model, without re-entry between tools.
+7. **Browser-native CBFEM (steel connections) & CSFM (concrete detail) — replacing separate $5k–$10k/yr connection tools.** Combine existing `spade` 2D meshing, elastoplastic `MITC4`/`DKT` shells, unilateral `contact.rs`, `constraints.rs` bolt/weld springs and `buckling.rs` so clicking any steel joint or RC D-region (deep beam, corbel, pile cap, wall opening) in the 3D model automatically imports all concurrent combinations and runs nonlinear plate/contact/buckling or Strut-and-Tie/CSFM verification in-browser.
 
-8. **Stabileo as an engine for agents** [#351](https://github.com/lambdaclass/stabileo/issues/351) — model building, analysis, checks and certificates exposed as an API / MCP server, so other tools and AI agents can call certified structural analysis.
+8. **Clash-free 3D rebar routing → direct CNC machine export (BVBS) & model → permit pipeline.** [#350](https://github.com/lambdaclass/stabileo/issues/350) Turn `engine/src/collision_kernel.rs` into an active 3D rebar router resolving beam–column joint congestion, hook bends, lap splices and aggregate clearances automatically; export **BVBS (`.abs`)** directly for CNC rebar benders, IFC4 Rebar, mobile QR site inspection, BOM and an authority-ready calculation report from one model without re-entry.
 
-9. **Collaboration** [#352](https://github.com/lambdaclass/stabileo/issues/352) — versioned, branchable models, comments on members, engineer/checker approvals (see CRDT collaboration).
+9. **Executable Latin American & international codes done properly** [#349](https://github.com/lambdaclass/stabileo/issues/349) — CIRSOC, NSR-10, NTC, NCh, NBR, ACI/AISC and Eurocodes authored on the single **Executable Design-Code IR** (clause-level traceability, zero engine-vs-report drift, auto-certified interval checks, step-by-step KaTeX Memoria).
 
-10. **Digital twin** [#353](https://github.com/lambdaclass/stabileo/issues/353) — sensor data and model updating after construction or an earthquake (see [`../research/beyond_roadmap_opportunities.md`](../research/beyond_roadmap_opportunities.md) §10).
+10. **Unified time-dependent PT slab & staged bridge studio + existing-building retrofit & forensic assessment.** [#348](https://github.com/lambdaclass/stabileo/issues/348) Couple `prestress.rs`, `creep_shrinkage.rs`, `staged.rs` (including shoring/reshoring staging and loaded-member removal redistribution) and `MITC4` slabs for browser-native post-tensioned slabs and staged bridges; add forensic retrofit assessment (measured field `f'c`/rebar/plumbness, original vs current code checks, CFRP/jacketing/bracing/wall retrofit comparison, portfolio risk prioritization).
 
-Order of work: 1–3 first (they remove the largest time sink, catch the errors tests cannot, and are unique), then 4–5.
+11. **Thin-walled buckling (CUFSM / DSM) & 2D transient thermal FE fire certification (R30–R120).** Extend `engine/src/section/` (`mesh.rs` + `poisson.rs`) with Finite Strip Method signature buckling curves ($P_{crl}, P_{crd}, P_{cre}$) for cold-formed steel Direct Strength Method (AISI S100 / CIRSOC 303, <5 ms) and ISO 834 / EC1-1-2 2D transient heat transfer coupled to temperature-degraded section capacity for arbitrary RC, steel, composite and timber cross-sections (<50 ms).
+
+12. **Bi-directional Parametric Script ↔ 3D Canvas, Enterprise/Manufacturer Configurator Apps & Structural Intuition Lab.** Sync every visual model with a readable parametric script (`@param` sliders) enabling locked enterprise typology apps (pipe racks, solar trackers, sheds, substations, crane runways, towers) and manufacturer-embedded certified product calculators tied directly to 3D model forces; expand `diagram-game` + Education into a mobile-first Structural Intuition Lab (qualitative $M/V/N$ diagram & deflected-shape sketching, mechanism-spotting challenges, and deterministic per-student seeded professor auto-grading).
+
+13. **Collaboration & digital twin.** [#352](https://github.com/lambdaclass/stabileo/issues/352), [#353](https://github.com/lambdaclass/stabileo/issues/353) Versioned, branchable models, comments on members, engineer/checker approvals (CRDT collaboration), and post-construction/post-earthquake sensor model updating ([`beyond_roadmap_opportunities.md`](../research/beyond_roadmap_opportunities.md) §10).
+
+Order of work: 1–4 first (pull-based trust distribution, zero-switching-cost QA entry, inverse-design UX, agent/Python ecosystem), alongside 5–6 and 9 on the Physical IR / Executable Code IR foundations; then 7–8 and 10–11 (high-ARPU category expanders); then 12–13.
 
 **Exit criteria (Multipliers).** A multiplier is done when it ships in a tagged release and meets its measurable target:
 
 | # | Exit criterion |
 |---|---|
-| 1 | On a corpus of at least 20 real architect files (IFC/DWG) with engineer-built reference models, the import matches at least 90 % of structural members and supports, every inference appears as an assumption the engineer accepted or fixed (0 applied silently), and the model sanity review passes on the accepted model. Modelling time per project is measured against the manual baseline. |
-| 2 | On a corpus of seeded-error models (load path, ignored stiff elements, drift, unit mix-ups, period vs code formula), the reviewer flags at least 90 % of seeded errors with at most one false alarm per clean model; every finding cites the check that produced it. |
-| 3 | Every number in the PRO calculation report carries its verification level and provenance; all analyses and design checks used by the report are **Certified** in MATURITY.md, or the report says which are not. |
-| 4 | Every candidate on the Pareto front passes certified checks; the optimiser reports cost, steel/concrete quantity and embodied carbon from the bill of materials. |
-| 5 | Assessment of an existing RC frame against the original and the current code, with at least one retrofit option, reproduces a published assessment case within its stated tolerance. |
-| 6 | Each supported Latin American code has a clause → implementation → test → published-example map enforced in CI (see [testing/ROADMAP.md, Trust item 3](../../testing/ROADMAP.md#trust-and-verification-backlog)) with no clause without a test. |
-| 7 | One model produces analysis, design, detailing, drawings, bill of materials and an authority-ready report with no re-entry, demonstrated on the acceptance-suite buildings. |
-| 8 | The API / MCP server exposes model building, analysis, checks and certificates with the same verification levels as the app, and an agent can reproduce an acceptance-suite case end to end. |
-| 9 | Versioned, branchable models with engineer/checker approval recorded in the report. |
-| 10 | Model updating from sensor data reproduces a published identification benchmark (e.g. the ASCE SHM benchmark in the acceptance suite) within its tolerance. |
+| 1 | Every number in the PRO calculation report carries its verification level, QR/bundle provenance and advisory-check link; `certcheck` runs offline in the browser (<150 KB WASM) and verifies all Certified analyses and design checks used by the report, or states which are not. |
+| 2 | On a corpus of real `.e2k`/`.s2k`/`.std`/`.tcl` models, local in-browser import + certified second-opinion audit agrees with reference reactions and drifts within documented tolerances, flags seeded modelling defects, and uploads zero user model data. |
+| 3 | Clicking a failing limit state highlights members by exact adjoint sensitivity verified against finite differences in CI; every candidate on the constructability Pareto front passes certified checks and reports cost, steel/concrete quantity, distinct section count and embodied carbon. |
+| 4 | `stabileo-mcp` and `pip install stabileo` reproduce acceptance-suite cases end to end with identical verification levels and provenance; Visual Revision Diff catches 100 % of seeded geometry/demand regressions between Rev A and Rev B; `Stabileo-Bench` runs deterministically in CI. |
+| 5 | On a corpus of at least 20 real architect files (IFC/DWG) with engineer-built reference models, the import matches at least 90 % of structural members and supports, every inference appears as an assumption the engineer accepted or fixed (0 applied silently), and the model sanity review passes on the accepted model. |
+| 6 | On a corpus of seeded-error models (load path, ignored stiff elements, drift, unit mix-ups, period vs code formula), the reviewer flags at least 90 % of seeded errors with at most one false alarm per clean model; every finding cites the check that produced it. |
+| 7 | CBFEM steel joints and CSFM/STM concrete D-regions match published experimental/reference benchmarks (EN 1993-1-8, AISC Design Guides, ACI 318/CIRSOC 201 Ch. 23) within stated tolerances and carry explicit refusal paths for out-of-scope geometry. |
+| 8 | One model produces analysis, design, clash-free 3D rebar (0 unresolved collisions in `collision_kernel.rs`), BVBS CNC export, drawings, BOM and an authority-ready report with no re-entry, demonstrated on the acceptance-suite buildings. |
+| 9 | Each supported Latin American and international code has a clause → AST → implementation → test → published-example map enforced in CI ([testing/ROADMAP.md, Trust item 3](../../testing/ROADMAP.md#trust-and-verification-backlog)) with zero engine-vs-Memoria drift and no clause without a test. |
+| 10 | PT slab/staged bridge benchmarks reproduce published time-dependent/hyperstatic references; existing-building assessment against original and current codes with at least one retrofit option reproduces a published assessment case within its stated tolerance. |
+| 11 | CUFSM signature buckling curves match published CUFSM / AISI S100 DSM benchmarks ($P_{crl}, P_{crd}, P_{cre}$) and 2D ISO 834 thermal FE fire ratings match published EC2/EC3 Annex benchmarks (R30–R120) within stated tolerances. |
+| 12 | Bi-directional script ↔ canvas round-trips without loss on the example corpus; at least one locked parametric configurator app and one seeded university problem set run end to end on the production engine. |
+| 13 | Versioned, branchable models with engineer/checker approval recorded in the report; sensor model updating reproduces a published identification benchmark (e.g. the ASCE SHM benchmark) within its tolerance. |
 
 **Metrics.** Backlog issues closed per section (`roadmap:multiplier` count on the [dashboard](../../testing/docs/DASHBOARD.md)); per multiplier, the corpus measure in its row above, added to the dashboard when its corpus exists ("not yet measured" until then).
 
@@ -977,17 +1011,18 @@ See [testing/ROADMAP.md — CI and feedback loop (2026-11-04)](../../testing/ROA
 
 ### Solver performance and capability
 
-Speed for the workflows engineers repeat, and results that come with a guaranteed accuracy. This section starts after the open unconservative `safety` issues are closed: a faster solver that is still wrong in places is the wrong order.
+Speed for the workflows engineers repeat, inverse-design primitives, and results that come with guaranteed accuracy. This section starts after the open unconservative `safety` issues are closed: a faster solver that is still wrong in places is the wrong order. Full architecture notes: [high_leverage_solver_and_product_plan.md](../research/high_leverage_solver_and_product_plan.md).
 
 1. **Profile before optimizing.** A benchmark harness over the acceptance suite, the large examples and synthetic 10⁵–10⁶-DOF frame, shell and building models: time per phase (assembly, ordering, factorization, solve, post-processing, certificates), memory, and iteration counts, tracked per release on the verification dashboard. Every item below is chosen and measured against it.
-2. **Re-analysis instead of re-solving.** Keep factorizations across edits; low-rank (Sherman–Morrison–Woodbury) updates when a section, support or load changes; all load cases and combinations solved as one multi-right-hand-side solve. Target: an edit-and-solve cycle on a large model 100–1000× faster than a full re-solve, so design iteration is interactive. Certificates must still cover the updated result.
-3. **A stronger sparse direct solver.** Supernodal or multifrontal Cholesky with nested-dissection / METIS-quality ordering; multithreading in the browser (WASM threads with SharedArrayBuffer and cross-origin isolation) and natively; an algebraic multigrid preconditioner for very large shell models; no silent fallback to dense LU on thin-shell meshes (#454). Target: 10–50× on large models.
-4. **GPU (WebGPU) for iterative and many-solve workloads:** preconditioned iterative solves, design-search batches, time-history and parameter sweeps, with CPU fallback and results checked against the CPU path to round-off.
-5. **Differentiable solver (adjoint sensitivities).** One adjoint solve gives the derivative of a response (drift, a member force, a utilization ratio, a frequency) with respect to every design variable: section properties, member sizes, support stiffness, material values. Turns optimization, sensitivity to assumptions and "which members govern" from thousands of solves into a handful; the foundation for the optimization and AI-reviewer multipliers. Gradients verified against finite differences in CI.
-6. **Adaptive refinement to a target accuracy.** The discretization-error estimator drives h-refinement (and p where available) until the estimated error in the governing quantities is below a user target, so "solve to 1 %" replaces "hope the mesh is fine". Estimates stay labelled as estimates, never certified.
-7. **End-to-end certificates for every element family:** after frames and trusses (#403), shells, plates and solids, so every displayed number is checked against the model itself, not only against the assembled matrices.
-8. **Substructuring and model reduction for buildings:** floors and repeated parts as superelements (static condensation, Craig–Bampton for dynamics) with exact recovery of the internal results, for large building models and for re-analysis of local changes.
-9. **One engine, every size:** the same Rust engine running in the browser, natively on the desktop and on a server for very large models, with identical results across all three (the determinism checks extend to native and server builds).
+2. **Constrained `PreparedStatic` + low-rank re-analysis instead of re-solving.** First close the immediate gap in `engine/src/solver/load_cases.rs` and `engine/src/load_session.rs` where any constraint (rigid diaphragm, rigid link, eccentric connection) bypasses factorization reuse and re-factors `Cᵀ K C` per load case. Then add Sherman–Morrison–Woodbury rank-k updates on the cached supernodal Cholesky factor `L` when sections, releases, or supports change (`WhatIfPanel` at 60 fps on 50k-DOF buildings). Target: an edit-and-solve cycle 100–1000× faster than a full re-solve, with certificates covering the updated result.
+3. **Differentiable solver (exact adjoint sensitivities).** One extra back-solve on the already-factored `L` gives the exact derivative of any response (drift, member force, utilization ratio, buckling factor `λ_cr`, modal frequency `ω²`) with respect to every member and support parameter simultaneously. Powers the Inverse Design Canvas, zero-Monte-Carlo assumption sensitivity bounds (`#357`), and 5–15-iteration whole-building convex sizing (MMA / sequential conic). Gradients verified against finite differences in CI.
+4. **Resident WASM memory arena + zero-copy Three.js buffers + deterministic WASM `simd128`.** Eliminate repeated full-model JSON string round-trips across JS↔WASM (`engine/src/lib.rs`) by keeping models, factors and results in a persistent WASM arena accepting delta mutations and exposing zero-copy `Float32Array` GPU views. Add deterministic `f64x2` `simd128` supernode panel kernels in `sparse_chol.rs` (fixed reduction order preserving cross-browser bitwise parity), streaming WASM compile + determinism-gated `wasm-opt` (`#1072`), and Web Worker parallelism for multi-case / optimization / background certification.
+5. **Load-Dependent Ritz vectors (Wilson WYD) + automatic identical-substructure superelement caching.** Add Load-Dependent Ritz vectors alongside Lanczos (`lanczos.rs`) to reach >99% seismic/dynamic mass participation in 5–10 vectors with built-in missing-mass static correction (10–50× faster on shell-slab buildings; eliminates truncation failures like `SA-2026-043`/`058`). Automatically hash and condense repeated floors/bays once via `reduction.rs` (Craig–Bampton / Guyan superelements) with exact recovery, collapsing repetitive multi-story towers by 10–100× in DOF count.
+6. **Sparse conic programming (SOCP) core (promoting Clarabel from `research/`).** Replace the 200-member dense LP in `plastic_limit.rs` with a sparse primal-dual LP/SOCP solver in `engine/`, unlocking: (a) 100% invariant, 10,000+-member 2D/3D certified limit analysis with exact **N–My–Mz–V–T** cone interaction feeding both primal and dual witnesses straight into `PlasticSound.lean` (closing `SA-2026-044` / `SA-2026-014` structurally), (b) automated code-compliant **Strut-and-Tie Modeling** (CIRSOC 201 / ACI 318 Ch. 23, EC2 §6.5), and (c) **Discontinuity Layout Optimization (DLO)** for certified slab yield-line and masonry arch/vault collapse bounds.
+7. **Guaranteed continuous PDE bounds (Prager–Synge equilibrated fluxes) + goal-oriented DWR adaptive meshing.** Upgrade `engine/src/postprocess/discretization/` from uncertified ZZ-SPR heuristics to local vertex-patch equilibrated-flux reconstruction giving a mathematically provable upper bound on continuous mesh error (formalizable in Lean; [#501](https://github.com/lambdaclass/stabileo/issues/501)), coupled with Dual-Weighted Residual goal-oriented refinement until the governing engineering quantity is certified within a user target (e.g. ±1 %).
+8. **Unified force-based fiber nonlinearity + `Dual<f64>` exact tangents + semi-smooth Newton NCP contact.** Replace displacement-only/secant nonlinear limitations (`#426–#433`) with 1-element-per-member Gauss–Lobatto force-based fiber beam-columns, exact SO(3) Lie-group kinematics, Rust generic-scalar `Dual<f64>` consistent tangents, and Augmented Lagrangian / semi-smooth Newton complementarity for unilateral contact and tension-only cables — enabling Newton–Kantorovich certification of nonlinear states ([#502](https://github.com/lambdaclass/stabileo/issues/502)).
+9. **2D section-FE extensions (`engine/src/section/`): CUFSM thin-walled buckling & transient thermal FE fire.** Build Finite Strip Method signature buckling curves ($P_{crl}, P_{crd}, P_{cre}$) for cold-formed steel Direct Strength Method (<5 ms) and 2D ISO 834 transient thermal heat transfer + degraded-section fire resistance (R30–R120 in <50 ms) directly on the existing `spade` section mesh and Poisson solver.
+10. **Stronger sparse direct / iterative / GPU stack & end-to-end shell certificates.** Supernodal/multifrontal Cholesky with nested-dissection ordering, AMG for >100k-DOF shells, selective WebGPU for batched postprocessing/topology/sweeps (CPU parity checked), end-to-end interval re-assembly certificates extended from frames (#403) to shells, plates and solids, and one deterministic Rust engine across browser, desktop (Tauri) and server.
 
 ### Platform and architecture backlog (2026-10-28)
 
@@ -2126,6 +2161,7 @@ Do not prioritize these before the core product is clearly trusted:
 - `SOLVER_ROADMAP.md` — solver mechanics and validation sequencing
 - `POSITIONING.md` — market framing and competitive wedge
 - `../research/rc_design_and_bbs.md` — RC design and BBS research
+- [`../research/high_leverage_solver_and_product_plan.md`](../research/high_leverage_solver_and_product_plan.md) — 2026-11-22 reprioritized solver and product plan across Waves 0–4
 - `../research/beyond_roadmap_opportunities.md` — GNN surrogates, digital twins, UQ, advanced research opportunities
 - `../research/cypecad_competitive_gap_and_parity_plan.md` — unified CYPECAD competitive gap analysis and parity plan
 - `../research/post_roadmap_software_stack.md` — platform adjacencies after roadmap execution

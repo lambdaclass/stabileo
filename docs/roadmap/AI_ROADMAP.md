@@ -16,6 +16,7 @@ See also:
 - [`INFRASTRUCTURE_ROADMAP.md`](INFRASTRUCTURE_ROADMAP.md)
 - [`research/ai_provider_architecture.md`](../research/ai_provider_architecture.md)
 - [`research/open_source_vs_hosted_ai_boundary.md`](../research/open_source_vs_hosted_ai_boundary.md)
+- [`research/high_leverage_solver_and_product_plan.md`](../research/high_leverage_solver_and_product_plan.md)
 
 ## Principles
 
@@ -33,6 +34,18 @@ See also:
 
 5. `Linear sequencing`
    The order below is deliberate. Do not jump ahead to flashy generation before the earlier capability layer is solid.
+
+6. `Ecosystem before sidebar` *(added 2026-11-22)*
+   Expose Stabileo as the deterministic physics, verification, and design backend that every AI coding and engineering agent can call (`stabileo-mcp` + `pip install stabileo`), rather than relying primarily on an in-app chat sidebar with hardcoded generators. See [`high_leverage_solver_and_product_plan.md`](../research/high_leverage_solver_and_product_plan.md#wave-2--zero-switching-cost-distribution--trust-wedges-roadmap-multipliers).
+
+## Ecosystem-First Track (2026-11-22 Reprioritization)
+
+Run ahead of expanding bespoke sidebar generators once the core soundness work and versioned engine interface (`#731`) stabilize:
+
+1. **`stabileo-mcp` (local stdio + remote MCP server):** wraps the exact Rust engine, Physical IR build/edit actions, pre-solve sanity gates (`review_model_sanity`), mechanism checks, code checks, and Lean certificates so Claude Code, Cursor, Codex, and firm agents can author, audit, size, and certify structures directly and return clickable `stabileo.com/m/<id>` preview links.
+2. **`pip install stabileo` (PyO3 native wheels):** fast Pythonic API over the same Rust solver with `.certify()`, batch optimization hooks, and `.to_stabileo_url()` / `.ded` handoff to the browser 3D viewer.
+3. **Visual Revision Diff (`Rev A` vs `Rev B`):** deterministic comparison of `.ded` / `.ifc` revisions surfacing geometry diffs, demand/utilization deltas, BOM/rebar changes, and newly failing checks — callable from both the app UI and MCP/CI pipelines.
+4. **`Stabileo-Bench` (open structural-AI evaluation benchmark):** deterministic public benchmark measuring how accurately frontier LLMs model, audit, and size real structures using tool-backed FEM, code checks, and Lean certificates.
 
 ## Ordered Task Sequence
 
