@@ -13,6 +13,7 @@
   import { uiStore } from '../../../lib/store';
   import { t, tp } from '../../../lib/i18n';
   import { applyPlateMeshes, planPlateMeshes, plateEntry, type PlateMeshPlan } from '../../../lib/store/physical-plates';
+  import { plateRemeshMessage } from '../../../lib/engine/plate-analysis-refusal';
   import { fmtQ, unitQ } from '../../../lib/store/display-units.svelte';
   import { POOR_MIN_ANGLE } from '../../../lib/model/physical/plate';
   import QuantityInput from '../loads/QuantityInput.svelte';
@@ -55,10 +56,11 @@
     if (!plans) return;
     const r = applyPlateMeshes(plans);
     uiStore.selectPlates(ids);
+    const messages = r.refused.map(({ id, reason }) => plateRemeshMessage(plateEntry(id)?.name ?? '#' + id, reason)).filter(Boolean);
     result = tp('plates.meshApplied', { plates: r.plates, cells: r.cells })
       + (r.refused.length ? ' ' + tp('plates.meshRefusedSome', { n: r.refused.length }) : '')
-      + r.refused.flatMap(refusal => refusal.message ? [' ' + refusal.message] : []).join('')
       + (r.droppedLocalLoads ? ' ' + tp('plates.localLoadsDropped', { n: r.droppedLocalLoads }) : '');
+    if (messages.length) result += ' ' + messages.join(' ');
     plans = null;
     if (!r.refused.length) onclose();
   }
@@ -143,13 +145,17 @@
         <thead><tr><th>{t('plates.plate')}</th><th>{t('plates.elements')}</th><th>{t('plates.kindHead')}</th><th>{t('plates.quality')}</th></tr></thead>
         <tbody>
           {#each plans as p (p.id)}
+            {@const block = p.refused && plateRemeshMessage(p.name, p.refused)}
             <tr class:refused={!p.mesh}>
-              <td>{p.name}</td>
-              {#if p.mesh}
+              {#if block}
+                <td colspan="4">{block}</td>
+              {:else if p.mesh}
+                <td>{p.name}</td>
                 <td>{p.cells}</td>
                 <td>{kindOf(p)}</td>
                 <td class:warn={!!p.quality && p.quality.poor > 0}>{p.quality ? tp('plates.qualityCell', { angle: p.quality.minAngle.toFixed(0), poor: p.quality.poor }) : ''}</td>
               {:else}
+                <td>{p.name}</td>
                 <td colspan="3">{t(`plates.refused.${p.refused}`)}{p.refused === 'tooManyCells' ? ` (${p.cells})` : ''}</td>
               {/if}
             </tr>

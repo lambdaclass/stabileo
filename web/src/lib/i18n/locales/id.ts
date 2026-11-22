@@ -6,6 +6,8 @@ const id: Translations = {
   'svc.accountingArea': "Analisis ditolak. Pelat {plate} memiliki luas atau batas yang berbeda pada model penyelesaian. Luas yang ditetapkan {entered}, luas rakitan {assembled}.",
   'svc.accountingSweep': "Analisis ditolak. Busur tepi pelat {plate} berbeda pada model penyelesaian. Luas yang ditetapkan {entered}, luas rakitan {assembled}.",
   'svc.accountingShellEdits': "Pelat {plate} tidak dapat dibuatkan mesh ulang karena offset atau perubahan kelengkungan cangkang akan hilang.",
+  "plates.remeshAmbiguousSweep": "Busur pada tepi lengkung {name} ambigu. Periksa titik antara dan batang lengkung di antara titik ujung sebelum membuat ulang mesh.",
+  "plates.remeshShellEdits": "Mesh {name} tidak dapat diganti karena perubahan ofset atau kelengkungan elemen cangkang tidak dapat dipindahkan secara persis.",
   'loadPlan.gravity.coveragePrecision': "Koordinat cakupan cangkang melampaui ketelitian interval batang yang didukung.",
   'loadPlan.gravity.partitionFailed': "Pembagian proyeksi cangkang gagal: {detail}",
   'loadPlan.gravity.unsupportedStrips': "Cakupan sebagian oleh cangkang memerlukan jalur yang membentang penuh di antara penumpu yang berhadapan pada panel balok persegi panjang.",

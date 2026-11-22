@@ -5,6 +5,8 @@ const it: Translations = {
   'svc.accountingArea': "Analisi rifiutata. La piastra {plate} ha un’area o un contorno diverso nel solutore. Area specificata {entered}, area assemblata {assembled}.",
   'svc.accountingSweep': "Analisi rifiutata. Il bordo curvo della piastra {plate} segue un arco diverso nel solutore. Area specificata {entered}, area assemblata {assembled}.",
   'svc.accountingShellEdits': "Non è possibile rigenerare la mesh della piastra {plate}, perché si perderebbe un’eccentricità o una modifica di curvatura del guscio.",
+  "plates.remeshAmbiguousSweep": "L’arco del bordo curvo di {name} è ambiguo. Prima di rigenerare la mesh, controlla il punto intermedio e le aste curve tra le estremità.",
+  "plates.remeshShellEdits": "Impossibile sostituire la mesh di {name} perché le modifiche all’offset o alla curvatura dei gusci non possono essere trasferite esattamente.",
   'loadPlan.gravity.coveragePrecision': "Le coordinate di copertura dei gusci superano la precisione supportata per gli intervalli degli elementi.",
   'loadPlan.gravity.partitionFailed': "Suddivisione della proiezione dei gusci non riuscita: {detail}",
   'loadPlan.gravity.unsupportedStrips': "La copertura parziale con gusci richiede strisce che coprano l’intera luce tra i sostegni opposti di un pannello rettangolare di travi.",

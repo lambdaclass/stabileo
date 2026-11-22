@@ -1,6 +1,5 @@
 import { arcEdgeBetween as modelArcEdgeBetween, physicalPlateProblems, plateMeshFeatures, plateStatusOf, type PlateStatus } from '../model/physical/plate-analysis';
-import { tp } from '../i18n';
-import { wallSlabRefusal } from '../engine/plate-analysis-refusal';
+import { plateRemeshMessage, wallSlabRefusal } from '../engine/plate-analysis-refusal';
 /**
  * Physical plates in the model (`model/physical/plate.ts`): made from an outline, meshed on demand
  * one at a time or many together, meshed again without leaving anything behind, and made ready
@@ -30,7 +29,7 @@ import {
 } from '../model/physical/plate';
 import { generateMesh, MAX_MESH_CELLS, type MeshOutput } from '../model/edit/mesher';
 import { frameAlong, gridMesh } from '../model/edit/grid-mesh';
-import { applyMesh } from '../model/edit/mesh-apply';
+import { applyPlacedMesh, placeMesh, regionOccupied, type MeshPlacement } from '../model/edit/mesh-apply';
 import { mergeCollinear } from '../model/edit/merge-collinear';
 import { addFloorLoadDef } from './defined-loads';
 import { constraintNodes } from '../engine/steel/unbraced-length';
@@ -274,13 +273,16 @@ export function plateLoadDefs(id: number): ModelGroup[] {
 
 // ─── Meshing ─────────────────────────────────────────────────────
 
+export type PlateMeshRefusalReason = 'invalid' | 'tooManyCells' | 'cannotMesh' | 'occupied' | 'ambiguousSweep' | 'shellEdits';
+
 export interface PlateMeshPlan {
   id: number;
   name: string;
   spec: PlateMeshSpec;
   /** Null when refused, with the reason. */
   mesh: MeshOutput | null;
-  refused?: 'invalid' | 'tooManyCells' | 'cannotMesh';
+  refused?: PlateMeshRefusalReason;
+  version: number;
   cells: number;
   quality: MeshQuality | null;
   signature: string;
@@ -353,14 +355,20 @@ export function planPlateMesh(id: number, specOverride?: Partial<PlateMeshSpec>)
   const e = plateEntry(id);
   if (!e) return null;
   const spec = { ...e.surface.mesh, ...(specOverride ?? {}) };
-  const base = { id, name: e.name, spec, localLoads: localLoadsOn(e), keptNodes: keptMeshNodes(e) };
+  const base = { id, name: e.name, spec, version: modelStore.modelVersion, localLoads: localLoadsOn(e), keptNodes: keptMeshNodes(e) };
   const f = plateMeshFeatures(modelStore.model, e.group, spec);
-  if (!f) return { ...base, mesh: null, refused: 'invalid', cells: 0, quality: null, signature: '', input: null, mixed: false };
+  if (f.refused) return { ...base, mesh: null, refused: f.refused, cells: 0, quality: null, signature: '', input: null, mixed: false };
   const input = plateMeshInput(f.geo, spec, f.features);
   const signature = plateSignature(f.geo, spec, f.features);
   // A plate far past the cap would be a long wait for a refusal: estimate from the area first.
   const estimate = plateAreaEstimate(f.geo, spec);
   if (estimate > MAX_MESH_CELLS * 1.5) return { ...base, mesh: null, refused: 'tooManyCells', cells: Math.round(estimate), quality: null, signature, input, mixed: false };
+  const preview = (mesh: MeshOutput, mixed: boolean, grid?: PlateMeshPlan['grid']): PlateMeshPlan => {
+    if (placePlateEdits(e, mesh) === null) {
+      return { ...base, mesh: null, refused: 'shellEdits', cells: 0, quality: null, signature, input, mixed: false };
+    }
+    return { ...base, mesh, cells: mesh.cells.length, quality: meshQuality(mesh), signature, input, mixed, grid };
+  };
   const grid = gridOfSpec(spec);
   if (grid) {
     const frame = grid.orient === 'globalX' ? frameAlong(f.geo.frame, [1, 0, 0]) : f.geo.frame;
@@ -371,12 +379,12 @@ export function planPlateMesh(id: number, specOverride?: Partial<PlateMeshSpec>)
     if (!g) return { ...base, mesh: null, refused: 'cannotMesh', cells: 0, quality: null, signature, input, mixed: false };
     if (g.cells.length > MAX_MESH_CELLS) return { ...base, mesh: null, refused: 'tooManyCells', cells: g.cells.length, quality: null, signature, input, mixed: false };
     const { gridCells, bandCells, cellA, cellB, ...mesh } = g;
-    return { ...base, mesh, cells: mesh.cells.length, quality: meshQuality(mesh), signature, input, mixed: bandCells > 0, grid: { gridCells, bandCells, cellA, cellB } };
+    return preview(mesh, bandCells > 0, { gridCells, bandCells, cellA, cellB });
   }
   const mesh = generateMesh(input);
   if (!mesh) return { ...base, mesh: null, refused: 'cannotMesh', cells: 0, quality: null, signature, input, mixed: false };
   if (mesh.cells.length > MAX_MESH_CELLS) return { ...base, mesh: null, refused: 'tooManyCells', cells: mesh.cells.length, quality: null, signature, input, mixed: false };
-  return { ...base, mesh, cells: mesh.cells.length, quality: meshQuality(mesh), signature, input, mixed: spec.element === 'quad' && !mesh.structured };
+  return preview(mesh, spec.element === 'quad' && !mesh.structured);
 }
 
 function plateAreaEstimate(geo: NonNullable<ReturnType<typeof plateGeometry>>, spec: PlateMeshSpec): number {
@@ -392,6 +400,10 @@ function plateAreaEstimate(geo: NonNullable<ReturnType<typeof plateGeometry>>, s
  * area loads. One undo step with the caller's.
  */
 export function clearPlateMesh(id: number): { removedNodes: number; keptNodes: number } {
+  return removePlateMesh(id);
+}
+
+function removePlateMesh(id: number, preserveNodes?: ReadonlySet<number>): { removedNodes: number; keptNodes: number } {
   const e = plateEntry(id);
   if (!e) return { removedNodes: 0, keptNodes: 0 };
   const loops = plateLoops(e.group);
@@ -404,11 +416,11 @@ export function clearPlateMesh(id: number): { removedNodes: number; keptNodes: n
     });
     // The members the mesh cut, whole again where the cut node is the mesh's and holds nothing else.
     const cut = [...modelStore.elements.values()].filter((el) => owned.has(el.nodeI) || owned.has(el.nodeJ)).map((el) => el.id);
-    if (cut.length) removedNodes += mergeCollinear(cut).removedNodes;
+    if (cut.length) removedNodes += mergeCollinear(cut, preserveNodes).removedNodes;
     const h = held(id);
     if (owned.size) modelStore.bulkMutate(() => {
       for (const n of owned) {
-        if (!modelStore.nodes.has(n)) continue;
+        if (!modelStore.nodes.has(n) || preserveNodes?.has(n)) continue;
         if (h.has(n)) { keptNodes++; continue; }
         modelStore.removeNode(n); removedNodes++;
       }
@@ -420,46 +432,99 @@ export function clearPlateMesh(id: number): { removedNodes: number; keptNodes: n
   return { removedNodes, keptNodes };
 }
 
-export function plateMeshEditRefusal(id: number): string | null {
-  const entry = plateEntry(id);
-  if (!entry) return null;
-  const offset = (entry.group.members.plates ?? []).some(id => modelStore.plates.get(id)?.offset)
-    || (entry.group.members.quads ?? []).some(id => modelStore.quads.get(id)?.offset || modelStore.quads.get(id)?.curved);
-  return offset ? tp('svc.accountingShellEdits', { plate: entry.name }) : null;
+function editedPlateShells(e: PlateEntry) {
+  const quads = (e.group.members.quads ?? []).flatMap(id => {
+    const quad = modelStore.quads.get(id);
+    return quad && (quad.offset !== undefined || quad.curved) ? [quad] : [];
+  });
+  const plates = (e.group.members.plates ?? []).flatMap(id => {
+    const plate = modelStore.plates.get(id);
+    return plate?.offset !== undefined ? [plate] : [];
+  });
+  return [...quads, ...plates];
 }
 
-export interface PlateMeshReport { plates: number; cells: number; refused: Array<{ id: number; reason: string; message?: string }>; droppedLocalLoads: number; keptNodes: number }
+export const hasPlateShellEdits = (e: PlateEntry): boolean => editedPlateShells(e).length > 0;
 
-/** Put the planned meshes in, replacing each plate's old one, as one undo step. */
+function cycleKey(nodes: readonly number[]): string {
+  const first = nodes.indexOf(Math.min(...nodes));
+  return [...nodes.slice(first), ...nodes.slice(0, first)].join(',');
+}
+
+function cellFootprint(nodes: readonly number[]): string {
+  return [...nodes].sort((a, b) => a - b).join(',');
+}
+
+function placePlateEdits(e: PlateEntry, mesh: MeshOutput): MeshPlacement | undefined | null {
+  const edits = editedPlateShells(e);
+  if (!edits.length) return undefined;
+  const placement = placeMesh(mesh);
+  const owned = new Set(plateLoops(e.group).owned);
+  const shifted = placement.nodeIds.some((id, i) => {
+    if (!owned.has(id)) return false;
+    const [x, y, z] = mesh.points[i]!;
+    const node = modelStore.nodes.get(id)!;
+    return node.x !== x || node.y !== y || (node.z ?? 0) !== z;
+  });
+  if (shifted) return null;
+
+  const byFootprint = new Map<string, MeshPlacement['cells'][number] | null>();
+  for (const cell of placement.cells) {
+    const key = cellFootprint(cell.nodes);
+    byFootprint.set(key, byFootprint.has(key) ? null : cell);
+  }
+  for (const edit of edits) {
+    const key = cellFootprint(edit.nodes);
+    const cell = byFootprint.get(key);
+    if (!cell || cycleKey(cell.nodes) !== cycleKey(edit.nodes)) return null;
+    byFootprint.delete(key);
+    cell.nodes = [...edit.nodes];
+    cell.offset = edit.offset;
+    if ('curved' in edit && edit.curved) cell.curved = true;
+  }
+  return placement;
+}
+
+export interface PlateMeshReport { plates: number; cells: number; refused: Array<{ id: number; reason: PlateMeshRefusalReason }>; droppedLocalLoads: number; keptNodes: number }
+
 export function applyPlateMeshes(plans: readonly PlateMeshPlan[]): PlateMeshReport {
   const report: PlateMeshReport = { plates: 0, cells: 0, refused: [], droppedLocalLoads: 0, keptNodes: 0 };
-  const ok = plans.filter((p) => p.mesh && p.input);
-  for (const p of plans) if (!p.mesh) report.refused.push({ id: p.id, reason: p.refused ?? 'cannotMesh' });
-  if (!ok.length) return report;
-  modelStore.batch(() => {
-    for (const [k, planned] of ok.entries()) {
-      // After the first, each plate is planned again on the model as it now is, so it meets the
-      // meshes just put in beside it.
-      const p = k === 0 ? planned : planPlateMesh(planned.id, planned.spec);
-      if (!p?.mesh || !p.input) { report.refused.push({ id: planned.id, reason: p?.refused ?? 'cannotMesh' }); continue; }
-      const e = plateEntry(p.id);
-      if (!e) { report.refused.push({ id: p.id, reason: 'invalid' }); continue; }
-      const edited = plateMeshEditRefusal(p.id);
-      if (edited) { report.refused.push({ id: p.id, reason: 'shellEdits', message: edited }); continue; }
+  const prepare = (planned: PlateMeshPlan, replan: boolean) => {
+    const refuse = (reason: PlateMeshRefusalReason) => { report.refused.push({ id: planned.id, reason }); return null; };
+    if (!planned.mesh || !planned.input) return refuse(planned.refused ?? 'cannotMesh');
+    const p = replan || planned.version !== modelStore.modelVersion ? planPlateMesh(planned.id, planned.spec) : planned;
+    if (!p?.mesh || !p.input) return refuse(p?.refused ?? 'cannotMesh');
+    const { mesh } = p;
+    const e = plateEntry(p.id);
+    if (!e) return refuse('invalid');
+    const placement = placePlateEdits(e, mesh);
+    if (placement === null) return refuse('shellEdits');
+    if (regionOccupied(p.input, mesh.plane, undefined, e.group.members)) return refuse('occupied');
+    return () => {
+      const oldOwned = new Set(plateLoops(e.group).owned);
+      const preserve = placement ? new Set(placement.nodeIds.filter(n => !placement.newNodes.has(n))) : undefined;
       report.droppedLocalLoads += p.localLoads;
-      report.keptNodes += clearPlateMesh(p.id).keptNodes;
+      report.keptNodes += removePlateMesh(p.id, preserve).keptNodes;
       const before = new Set(modelStore.nodes.keys());
-      const r = applyMesh(p.input!, { materialId: e.surface.materialId, thickness: e.surface.thickness, splitBeams: p.spec.followMembers }, p.mesh!);
-      if (!r || r.occupied) { report.refused.push({ id: p.id, reason: 'occupied' }); continue; }
-      const created = [...new Set(r.nodeIds)].filter((n) => !before.has(n));
+      const r = applyPlacedMesh(mesh, { materialId: e.surface.materialId, thickness: e.surface.thickness, splitBeams: p.spec.followMembers }, placement ?? placeMesh(mesh));
+      const created = [...new Set(r.nodeIds)].filter(n => !before.has(n) || (preserve?.has(n) && oldOwned.has(n)));
       const g = modelStore.model.groups.get(p.id)!;
       const loops = plateLoops(g);
       modelStore.setGroupMembers(p.id, { ...g.members, nodes: [...loops.outer, ...loops.holes.flat(), ...created], quads: r.quads, plates: r.plates });
       writeSurface(p.id, (s) => ({ ...s, mesh: p.spec, meshed: { signature: p.signature, cells: r.quads.length + r.plates.length, quality: p.quality! } }));
       report.plates++;
       report.cells += r.quads.length + r.plates.length;
-    }
-  });
+    };
+  };
+  for (const [i, plan] of plans.entries()) {
+    const apply = prepare(plan, false);
+    if (!apply) continue;
+    modelStore.batch(() => {
+      apply();
+      for (const next of plans.slice(i + 1)) prepare(next, true)?.();
+    });
+    break;
+  }
   return report;
 }
 
@@ -483,7 +548,7 @@ export function deletePlate(id: number): void {
 export type PlatePreparation =
   | { ok: true; meshed: number; cells: number }
   | { ok: false; reason: 'needsMesh' | 'invalid'; plates: string[] }
-  | { ok: false; reason: 'wallSlab' | 'shellEdits'; error: string }
+  | { ok: false; reason: 'wallSlab' | 'remeshBlocked'; error: string }
   | { ok: false; reason: 'refused'; plates: string[] }
   | { ok: false; reason: 'localLoads'; plates: string[] };
 
@@ -493,11 +558,13 @@ export type PlatePreparation =
  * which plates stop it instead. Runs once per solve, before its inputs are taken.
  */
 export function preparePlatesForAnalysis(): PlatePreparation {
-  const { invalid, needsMesh } = physicalPlateProblems(modelStore.model);
+  const { invalid, ambiguousSweep, needsMesh } = physicalPlateProblems(modelStore.model);
+  if (ambiguousSweep.length) return { ok: false, reason: 'remeshBlocked', error: ambiguousSweep.map(name => plateRemeshMessage(name, 'ambiguousSweep')).join(' ') };
   if (invalid.length) return { ok: false, reason: 'invalid', plates: invalid };
   const checked = (meshed: number, cells: number): PlatePreparation => {
     if (meshed) {
-      const { invalid, needsMesh } = physicalPlateProblems(modelStore.model);
+      const { invalid, ambiguousSweep, needsMesh } = physicalPlateProblems(modelStore.model);
+      if (ambiguousSweep.length) return { ok: false, reason: 'remeshBlocked', error: ambiguousSweep.map(name => plateRemeshMessage(name, 'ambiguousSweep')).join(' ') };
       if (invalid.length) return { ok: false, reason: 'invalid', plates: invalid };
       if (needsMesh.length) return { ok: false, reason: 'needsMesh', plates: needsMesh.map(p => p.name) };
     }
@@ -510,8 +577,6 @@ export function preparePlatesForAnalysis(): PlatePreparation {
   if (!meshBeforeAnalysis.value) return { ok: false, reason: 'needsMesh', plates: names(need) };
   const plans: PlateMeshPlan[] = [];
   for (const id of need) {
-    const edited = plateMeshEditRefusal(id);
-    if (edited) return { ok: false, reason: 'shellEdits', error: edited };
     const plan = planPlateMesh(id);
     if (!plan) return { ok: false, reason: 'invalid', plates: names([id]) };
     plans.push(plan);
@@ -521,7 +586,14 @@ export function preparePlatesForAnalysis(): PlatePreparation {
   const loaded = plans.filter((p) => p.localLoads > 0);
   if (loaded.length) return { ok: false, reason: 'localLoads', plates: names(loaded.map((p) => p.id)) };
   const r = applyPlateMeshes(plans);
-  if (r.refused.length) return { ok: false, reason: 'refused', plates: names(r.refused.map((x) => x.id)) };
+  if (r.refused.length) {
+    const messages = r.refused.flatMap(({ id, reason }) => {
+      const message = plateRemeshMessage(names([id])[0]!, reason);
+      return message ? [message] : [];
+    });
+    if (messages.length) return { ok: false, reason: 'remeshBlocked', error: messages.join(' ') };
+    return { ok: false, reason: 'refused', plates: names(r.refused.map(x => x.id)) };
+  }
   return checked(r.plates, r.cells);
 }
 

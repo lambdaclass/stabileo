@@ -1,4 +1,5 @@
 import { beforeEach, expect, it, vi } from 'vitest';
+import { plateRemeshMessage } from '../../engine/plate-analysis-refusal';
 import { accountingProjection } from '../../engine/accounting-source';
 import {
   buildSolverInput2D, solveCombinations2D, validateAndSolve2D, validateAndSolve2DAsync, type ModelData,
@@ -12,10 +13,10 @@ import { createArc, remakeArc } from '../curved-members';
 import { whatIf } from '../whatif.svelte';
 import { syncDefinedLoadsForAnalysis } from '../defined-loads';
 import {
-  addPlateLoad, applyPlateMeshes, createPlate, meshBeforeAnalysis, planPlateMesh, plateEntry, setPlateMeshSpec,
+  addPlateLoad, applyPlateMeshes, createPlate, meshBeforeAnalysis, planPlateMesh, plateEntry, plateStatus, setPlateMeshSpec, setPlateSideArc,
 } from '../physical-plates';
 
-const fault = vi.hoisted(() => ({ dropMemberLoad: false, scaleCaseLoad: 1, momentDelta: 0 }));
+const fault = vi.hoisted(() => ({ dropMemberLoad: false, scaleCaseLoad: 1, momentDelta: 0, stalePlanarMoment: 0 }));
 
 vi.mock('../../model/loads/load-magnitudes', async importOriginal => {
   const original = await importOriginal<typeof import('../../model/loads/load-magnitudes')>();
@@ -29,6 +30,17 @@ vi.mock('../../model/loads/load-magnitudes', async importOriginal => {
     },
   };
 });
+vi.mock('../../engine/member-point-loads', async importOriginal => {
+  const original = await importOriginal<typeof import('../../engine/member-point-loads')>();
+  return {
+    ...original,
+    requirePlanarPointMoment: (load: Parameters<typeof original.requirePlanarPointMoment>[0]) =>
+      fault.stalePlanarMoment || original.requirePlanarPointMoment(load),
+    planePointLoad3D: (...[load, ...rest]: Parameters<typeof original.planePointLoad3D>) =>
+      original.planePointLoad3D(fault.stalePlanarMoment ? { ...load, my: fault.stalePlanarMoment } : load, ...rest),
+  };
+});
+
 vi.mock('../../engine/member-loads', async importOriginal => {
   const original = await importOriginal<typeof import('../../engine/member-loads')>();
   return {
@@ -49,6 +61,7 @@ beforeEach(() => {
   fault.dropMemberLoad = false;
   fault.scaleCaseLoad = 1;
   fault.momentDelta = 0;
+  fault.stalePlanarMoment = 0;
 });
 
 function cantilever(mode: '2d' | '3d') {
@@ -80,6 +93,24 @@ for (const mode of ['2d', '3d'] as const) {
       loads: [{ type: 'pointOnElement', data: { id: 1, elementId: member, a: 1, p: 0, mz: 5 } }],
     });
     expect(modelStore.updateLoad(1, { my: 0 })).toBe(true);
+    expect(modelStore.loads[0]?.data).toMatchObject({ my: 0 });
+    expect(modelStore.loads[0]?.data).not.toHaveProperty('mz');
+    const cleared = modelStore.snapshot();
+    modelStore.restore({
+      ...cleared,
+      loads: [{ type: 'pointOnElement', data: {
+        id: 1, elementId: member, a: 1, p: 0, my: 5, mz: 5, enteredZeroMoment: true,
+      } }],
+    });
+    const result = mode === '2d' ? modelStore.solve() : modelStore.solve3D();
+    if (!result || typeof result === 'string') throw new Error(String(result));
+    const reaction = result.reactions[0]!;
+    expect(Math.abs(reaction.my)).toBe(0);
+    if ('mz' in reaction) expect(Math.abs(reaction.mz)).toBe(0);
+    expect(modelStore.loads[0]?.data).toMatchObject({ my: 0 });
+    expect(modelStore.loads[0]?.data).not.toHaveProperty('mz');
+    expect(modelStore.loads[0]?.data).not.toHaveProperty('enteredZeroMoment');
+    fault.stalePlanarMoment = 5;
 
     const model = modelStore.model;
     const densities = new Map([...model.materials].map(([id, material]) => [id, material.rho]));
@@ -106,13 +137,13 @@ for (const mode of ['2d', '3d'] as const) {
   });
 }
 
-function floor(curved = false, side = 2, holes: number[][] = []) {
+function floor(curved = false, side = 2, holes: number[][] = [], plateSide = -2) {
   const a = modelStore.addNode(0, 0, 0);
   const b = modelStore.addNode(4, 0, 0);
   const c = modelStore.addNode(4, 5, 0);
   const d = modelStore.addNode(0, 5, 0);
   for (const node of [a, b, c, d]) modelStore.addSupport(node, 'fixed3d');
-  const mid = curved ? modelStore.addNode(2, -2, 0) : undefined;
+  const mid = curved ? modelStore.addNode(2, plateSide, 0) : undefined;
   const members = curved ? createArc(a, { x: 2, y: side, z: 0 }, b, 4) : [];
   const plate = createPlate({
     name: 'Test floor', outline: mid === undefined ? [a, b, c, d] : [a, mid, b, c, d],
@@ -124,8 +155,20 @@ function floor(curved = false, side = 2, holes: number[][] = []) {
   return { id: plate.id, members };
 }
 
+function complementaryMeshMarkedCurrent() {
+  const { id } = floor(true, 2, [], 2);
+  expect(applyPlateMeshes([planPlateMesh(id)!]).plates).toBe(1);
+  expect(setPlateSideArc(id, 0, modelStore.addNode(2, -2, 0))).toBeNull();
+  const { group, surface } = plateEntry(id)!;
+  const { signature } = planPlateMesh(id)!;
+  modelStore.setGroupData(id, {
+    ...group.data, surface: { ...surface, meshed: { ...surface.meshed!, signature } },
+  });
+  expect(plateStatus(id)).toBe('current');
+}
+
 it('#2460 automatic solve refuses the complementary plate sweep', async () => {
-  floor(true);
+  complementaryMeshMarkedCurrent();
   expect(await runGlobalSolve({ directBase: true })).toMatchObject({
     ok: false, error: expect.stringMatching(/Test floor.*sweep/i),
   });
@@ -133,8 +176,7 @@ it('#2460 automatic solve refuses the complementary plate sweep', async () => {
 });
 
 it('#2460 direct solve refuses the complementary plate sweep', () => {
-  const { id } = floor(true);
-  expect(applyPlateMeshes([planPlateMesh(id)!]).plates).toBe(1);
+  complementaryMeshMarkedCurrent();
   syncDefinedLoadsForAnalysis();
   expect(modelStore.solve3D(false, false, true)).toEqual(expect.stringMatching(/Test floor.*sweep/i));
 });
@@ -192,7 +234,9 @@ it('#2461 blocks manual replacement and leaves an edited mesh solvable', () => {
   const shell = plateEntry(id)!.group.members.quads![0]!;
   const plan = planPlateMesh(id, { size: 1 })!;
   modelStore.setShellOffset('quad', shell, { frame: 'local', x: 0, y: 0, z: 0.1 });
-  expect(applyPlateMeshes([plan]).refused).toEqual([{ id, reason: 'shellEdits', message: expect.stringMatching(/Test floor.*offset/i) }]);
+  const { refused } = applyPlateMeshes([plan]);
+  expect(refused).toEqual([{ id, reason: 'shellEdits' }]);
+  expect(plateRemeshMessage(plateEntry(id)!.name, refused[0]!.reason)).toMatch(/Test floor.*offset/i);
   syncDefinedLoadsForAnalysis();
   expect(modelStore.solve3D(false, false, true)).toMatchObject({ reactions: expect.any(Array) });
   modelStore.setShellOffset('quad', shell, undefined);
@@ -208,7 +252,7 @@ it('#2461 refuses arc replacement that would remove a shell edit', () => {
   modelStore.setShellOffset('plate', shell, { frame: 'local', x: 0, y: 0, z: 0.1 });
   const arcId = modelStore.elements.get(members[0]!)!.arc!.id;
   const snapshot = modelStore.snapshot();
-  expect(remakeArc(arcId, { segments: 8 })).toBeNull();
+  expect(remakeArc(arcId, { segments: 8 })).toMatchObject({ refused: ['Test floor'] });
   expect(modelStore.snapshot()).toEqual(snapshot);
 });
 

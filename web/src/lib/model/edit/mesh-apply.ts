@@ -9,6 +9,7 @@ import { weldTolerance } from '../weld-tolerance';
 import { splitAtNodes } from './cut-members';
 import { generateMesh, type MeshInput, type MeshOutput } from './mesher';
 import type { Vec3 } from './affine';
+import type { ShellOffset } from '../element-3d-metadata';
 
 export interface MeshApplyOptions {
   materialId: number; thickness: number; splitBeams: boolean;
@@ -30,7 +31,7 @@ export interface MeshApplyResult {
  * outline, outside every hole, and on the region's plane. `exceptQuad` is a quad about to be
  * replaced by the mesh, which does not count.
  */
-export function regionOccupied(input: MeshInput, plane: MeshOutput['plane'], exceptQuad?: number): boolean {
+export function regionOccupied(input: MeshInput, plane: MeshOutput['plane'], exceptQuad?: number, except?: { quads?: number[]; plates?: number[] }): boolean {
   const n: Vec3 = [
     plane.u[1] * plane.v[2] - plane.u[2] * plane.v[1],
     plane.u[2] * plane.v[0] - plane.u[0] * plane.v[2],
@@ -50,8 +51,14 @@ export function regionOccupied(input: MeshInput, plane: MeshOutput['plane'], exc
     return inside;
   };
   const tol = 1e-3;
-  for (const shell of [...modelStore.quads.values(), ...modelStore.plates.values()]) {
-    if (shell.nodes.length === 4 && shell.id === exceptQuad) continue;
+  const quads = new Set(except?.quads);
+  const plates = new Set(except?.plates);
+  if (exceptQuad !== undefined) quads.add(exceptQuad);
+  const shells = [
+    ...[...modelStore.quads.values()].filter(q => !quads.has(q.id)),
+    ...[...modelStore.plates.values()].filter(p => !plates.has(p.id)),
+  ];
+  for (const shell of shells) {
     const ps = shell.nodes.map((id) => modelStore.nodes.get(id));
     if (ps.some((p) => !p)) continue;
     const pts = ps.map((p): Vec3 => [p!.x, p!.y, p!.z ?? 0]);
@@ -71,10 +78,25 @@ export const modelSegments = (): Array<[Vec3, Vec3]> => [...modelStore.elements.
   return a && b ? [[[a.x, a.y, a.z ?? 0], [b.x, b.y, b.z ?? 0]] as [Vec3, Vec3]] : [];
 });
 
+interface PlacedCell {
+  nodes: number[];
+  offset?: ShellOffset;
+  curved?: boolean;
+}
+
+export interface MeshPlacement {
+  newNodes: Map<number, Vec3>;
+  nodeIds: number[];
+  cells: PlacedCell[];
+}
+
 export function applyMesh(input: MeshInput, o: MeshApplyOptions, mesh: MeshOutput | null = generateMesh({ ...input, fixedPoints: input.fixedPoints ?? modelPoints(), fixedSegments: input.fixedSegments ?? modelSegments() })): MeshApplyResult | null {
   if (!mesh) return null;
-  const out: MeshApplyResult = { newNodes: 0, quads: [], plates: [], splitCount: 0, structured: mesh.structured, nodeIds: [] };
-  if (regionOccupied(input, mesh.plane)) return { ...out, occupied: true };
+  if (regionOccupied(input, mesh.plane)) return { newNodes: 0, quads: [], plates: [], splitCount: 0, structured: mesh.structured, nodeIds: [], occupied: true };
+  return applyPlacedMesh(mesh, o, placeMesh(mesh));
+}
+
+export function placeMesh(mesh: MeshOutput): MeshPlacement {
   // The model's nodes hashed by position, once: a mesh of thousands of points looked each one up
   // against every node, and the whole slab of a building took minutes to land.
   const tol = weldTolerance();
@@ -91,45 +113,50 @@ export function applyMesh(input: MeshInput, o: MeshApplyOptions, mesh: MeshOutpu
     }
     return null;
   };
-  // One undo step: the shells and nodes in one bulk mutation, then the cuts. A member is cut
-  // outside the bulk mutation because the cut moves its loads onto its pieces, and a bulk
-  // mutation commits the loads it buffered at its start: cut inside it, the pieces came without
-  // their loads and the loads kept naming the member that was gone.
-  modelStore.batch(() => applyInBatch(mesh, o, out, near, put));
-  return out;
+  const newNodes = new Map<number, Vec3>();
+  let next = -1;
+  const nodeIds = mesh.points.map(p => {
+    const hit = near(...p);
+    if (hit !== null) return hit;
+    while (modelStore.nodes.has(next)) next--;
+    const id = next--;
+    newNodes.set(id, p);
+    put({ id, x: p[0], y: p[1], z: p[2] });
+    return id;
+  });
+  const at = (id: number) => {
+    const p = newNodes.get(id);
+    if (p) return { x: p[0], y: p[1], z: p[2] };
+    const n = modelStore.nodes.get(id)!;
+    return { x: n.x, y: n.y, z: n.z ?? 0 };
+  };
+  const cells = mesh.cells.flatMap(c => validCells(c.map(i => nodeIds[i]!), at).map(nodes => ({ nodes })));
+  return { newNodes, nodeIds, cells };
 }
 
-function applyInBatch(
-  mesh: MeshOutput, o: MeshApplyOptions, out: MeshApplyResult,
-  near: (x: number, y: number, z: number) => number | null,
-  put: (n: { id: number; x: number; y: number; z: number }) => void,
-): void {
-  modelStore.bulkMutate(() => {
-    const ids = mesh.points.map((p) => {
-      const hit = near(p[0], p[1], p[2]);
-      if (hit !== null) return hit;
-      out.newNodes++;
-      const id = modelStore.addNode(p[0], p[1], p[2] !== 0 ? p[2] : undefined);
-      put({ id, x: p[0], y: p[1], z: p[2] });
-      return id;
-    });
-    out.nodeIds = ids;
-    const at3 = (id: number) => { const p = modelStore.nodes.get(id)!; return { x: p.x, y: p.y, z: p.z ?? 0 }; };
-    for (const c of mesh.cells) {
-      for (const n of validCells(c.map((i) => ids[i]!), at3)) {
-        if (n.length === 4) out.quads.push(modelStore.addQuad(n as [number, number, number, number], o.materialId, o.thickness));
-        else out.plates.push(modelStore.addPlate(n as [number, number, number], o.materialId, o.thickness));
+export function applyPlacedMesh(mesh: MeshOutput, o: MeshApplyOptions, placement: MeshPlacement): MeshApplyResult {
+  const out: MeshApplyResult = { newNodes: placement.newNodes.size, quads: [], plates: [], splitCount: 0, structured: mesh.structured, nodeIds: [] };
+  modelStore.batch(() => {
+    modelStore.bulkMutate(() => {
+      const created = new Map<number, number>();
+      for (const [id, [x, y, z]] of placement.newNodes) created.set(id, modelStore.addNode(x, y, z || undefined));
+      out.nodeIds = placement.nodeIds.map(id => created.get(id) ?? id);
+      for (const cell of placement.cells) {
+        const nodes = cell.nodes.map(id => created.get(id) ?? id);
+        if (nodes.length === 4) {
+          out.quads.push(modelStore.addQuad(nodes as [number, number, number, number], o.materialId, o.thickness, cell));
+        } else {
+          out.plates.push(modelStore.addPlate(nodes as [number, number, number], o.materialId, o.thickness, cell));
+        }
       }
+    });
+    if (o.splitBeams) {
+      const at = out.nodeIds.filter((_, i) => !o.splitAt || o.splitAt(mesh.points[i]!));
+      const cut = splitAtNodes([...modelStore.elements.keys()], at);
+      out.splitCount = cut.cut.reduce((sum, x) => sum + x.segments.length - 1, 0);
     }
   });
-  if (o.splitBeams) {
-    // Every mesh node a member passes through cuts it: on the region's edge (the beams round a
-    // panel) and inside it (a beam in the slab's plane, which works with the slab only where
-    // they share nodes; left whole, it crossed the slab's nodes unconnected).
-    const at = mesh.points.map((_, i) => i).filter((i) => !o.splitAt || o.splitAt(mesh.points[i]!)).map((i) => out.nodeIds[i]!);
-    const cut = splitAtNodes([...modelStore.elements.keys()], at);
-    out.splitCount = cut.cut.reduce((s, x) => s + x.segments.length - 1, 0);
-  }
+  return out;
 }
 
 /**
