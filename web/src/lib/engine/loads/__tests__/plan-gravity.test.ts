@@ -619,16 +619,20 @@ function deadLoadKN(plan: ReturnType<typeof buildLoadPlan>, model: LoadModelData
 }
 
 function checkBlockedGravity(model: LoadModelData, reason: EngineMessage) {
-  for (const loadEveryPanel of [false, true]) {
+  const plans = [false, true].map(loadEveryPanel => {
     const gravity = { mode: 'panels', loadEveryPanel } as const;
-    const plan = buildLoadPlan(planInput(model, { dead: [{ labelKey: 'a', q: 1 }], gravity }));
-    const detail = plan.outcome === 'READY'
-      ? JSON.stringify({ appliedDeadKN: deadLoadKN(plan, model), levelDeadKN: plan.levels.map(level => level.superimposedKN), blockedKeys: plan.blockedKeys })
-      : JSON.stringify(plan.blockedKeys);
+    const plan = buildLoadPlan(planInput(model, { dead: [{ labelKey: 'a', q: 1 }], gravity, generateCombinations: loadEveryPanel }));
+    return { gravity, plan };
+  });
+  const detail = JSON.stringify(plans.map(({ gravity, plan }) => ({
+    loadEveryPanel: gravity.loadEveryPanel, outcome: plan.outcome, blockedKeys: plan.blockedKeys,
+    appliedDeadKN: deadLoadKN(plan, model), levelDeadKN: plan.levels.map(level => level.superimposedKN),
+  })));
+  for (const { gravity, plan } of plans) {
     expect(plan.outcome, detail).toBe('BLOCKED');
     expect(plan.blockedKeys).toEqual([reason]);
     expect(teAt(reason, 'en')).not.toBe(reason.key);
-    expect(plan).toMatchObject({ cases: [], distributed: [], nodal: [], surface: [], levels: [] });
+    expect(plan).toMatchObject({ cases: [], distributed: [], nodal: [], surface: [], thermal: [], combinations: [], levels: [] });
     expect(() => gravityLayout(model, { ...gravity, tributaryWidth: 3 })).toThrow(expect.objectContaining(reason));
     expect(() => roofWeightFor(model, gravity, 3, 1)).toThrow(expect.objectContaining(reason));
   }
@@ -644,6 +648,36 @@ it('#2284 overlapping coplanar shells load the bay only once', () => {
   rectangularShell(model, 1, 0, 4, 3);
   rectangularShell(model, 2, 2, 6, 3);
   checkBlockedGravity(model, { key: 'loadPlan.gravity.overlappingShells', params: { first: 1, second: 2 } });
+});
+
+const issue2284 = process.env.RUN_KNOWN_WRONG === '2284' ? it : it.skip;
+
+issue2284('known wrong result: #2284 overlapping shells with elevation rounding block gravity', () => {
+  const model = floor(1, 1, 10, 6);
+  rectangularShell(model, 1, 0, 4, 3);
+  rectangularShell(model, 2, 2, 6, 3.0000001);
+  checkBlockedGravity(model, { key: 'loadPlan.gravity.overlappingShells', params: { first: 1, second: 2 } });
+});
+
+issue2284('known wrong result: #2284 shells rounded to different levels can claim the same bay', () => {
+  const model = floor(1, 1, 10, 6, 3.001);
+  rectangularShell(model, 1, 0, 4, 3.0000001);
+  rectangularShell(model, 2, 2, 6, 3.0019999);
+  checkBlockedGravity(model, { key: 'loadPlan.gravity.overlappingShells', params: { first: 1, second: 2 } });
+});
+
+it('#2284 shells outside the shared deck band keep independent gravity loads', () => {
+  const model = floor(1, 1, 10, 6, 3.001);
+  rectangularShell(model, 1, 0, 10, 3.0000001);
+  rectangularShell(model, 2, 2, 6, 3.0020001);
+  const plan = buildLoadPlan(planInput(model, { dead: [{ labelKey: 'a', q: 1 }] }));
+  expect(plan.outcome, JSON.stringify(plan.blockedKeys)).toBe('READY');
+  expect(plan.surface.filter(load => load.caseType === 'D')).toEqual(
+    [1, 2].map(quadId => ({ quadId, caseType: 'D', q: 1 })),
+  );
+  expect(plan.nodal).toEqual([]);
+  expect(plan.distributed).toEqual([]);
+  expect(deadLoadKN(plan, model)).toBe(10 * 6 + 4 * 6);
 });
 
 it('#2284 overlapping sloped shells also block gravity', () => {
@@ -695,6 +729,41 @@ function linkedShellBay(z: number, dofs = [0, 1, 2, 3, 4, 5]) {
 
 it('#2299 a rigidly linked shell and beam bay receive one dead load', () => {
   checkBlockedGravity(linkedShellBay(3.02), { key: 'loadPlan.gravity.offsetShellDeck', params: { id: 1 } });
+});
+
+function eccentricShellBay(z: number, releaseVertical = false) {
+  const model = linkedShellBay(z);
+  model.constraints = (model.constraints ?? []).flatMap(link => {
+    if (link.type !== 'rigidLink') return [];
+    const master = model.nodes.get(link.masterNode)!;
+    const slave = model.nodes.get(link.slaveNode)!;
+    return [{
+      type: 'eccentricConnection' as const,
+      masterNode: link.masterNode,
+      slaveNode: link.slaveNode,
+      offsetZ: slave.z! - master.z!,
+      releases: [false, false, releaseVertical, false, false, false],
+    }];
+  });
+  return model;
+}
+
+const issue2299 = process.env.RUN_KNOWN_WRONG === '2299' ? it : it.skip;
+
+issue2299('known wrong result: #2299 an equivalent eccentric connection blocks duplicate gravity', () => {
+  const model = eccentricShellBay(3.02);
+  checkBlockedGravity(model, { key: 'loadPlan.gravity.offsetShellDeck', params: { id: 1 } });
+});
+
+it('#2299 opening the vertical release on eccentric connections keeps separate carrier loads', () => {
+  const model = eccentricShellBay(3.02, true);
+  const independent = linkedShellBay(3.02, [0, 1]);
+  const input = { dead: [{ labelKey: 'a', q: 1 }], generateCombinations: true };
+  const plan = buildLoadPlan(planInput(model, input));
+  const expected = buildLoadPlan(planInput(independent, input));
+  expect(plan.outcome).toBe('READY');
+  expect(plan).toEqual(expected);
+  expect(deadLoadKN(plan, model)).toBeCloseTo(2 * 10 * 6, 10);
 });
 
 it('#2299 a linked shell within the bay elevation band keeps the load on the shell', () => {
