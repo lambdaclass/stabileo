@@ -537,3 +537,63 @@ it('checks a stale spatial moment at its own roundoff boundary (#2470)', async (
   expect.soft(await outcome(paths.async), 'nonlinear single').toEqual(diagnostic);
   expect.soft(await outcome(paths.parallel), 'nonlinear combinations').toEqual(diagnostic);
 });
+
+const issue2470ZeroComponent = process.env.RUN_KNOWN_WRONG === '2470' ? it : it.skip;
+
+issue2470ZeroComponent('known wrong result: #2470 — solves an inclined member with zero entered Mz under a vertical line load', async () => {
+  const member = cantilever('3d');
+  const model = modelStore.model;
+  const combination = model.combinations.at(-1)!;
+  const { nodeI: root, nodeJ: tip } = model.elements.get(member)!;
+  model.nodes.set(root, { ...model.nodes.get(root)!, y: 2 });
+  model.nodes.set(tip, { ...model.nodes.get(tip)!, y: 2, z: 3 });
+  const q = -7;
+  model.loads.push({
+    type: 'distributed3d',
+    data: { id: 1, elementId: member, qYI: 0, qYJ: 0, qZI: q, qZJ: q, frame: 'global', caseId: 1 },
+  });
+
+  const vertical = -q * Math.hypot(2, 3);
+  const expected = { reactions: [expect.objectContaining({
+    fx: expect.closeTo(0, 12), fy: expect.closeTo(0, 12), fz: expect.closeTo(vertical, 12),
+    my: expect.closeTo(-vertical, 12), mz: expect.closeTo(0, 12),
+  })] };
+  expect.soft(modelStore.solve3D(false, false, true), 'linear').toMatchObject(expected);
+  expect.soft(await modelStore.solve3DAsync(false, false, true), 'async linear').toMatchObject(expected);
+  const expectCombination = (bundle: ReturnType<typeof modelStore.solveCombinations3D>, label: string) => {
+    expect.soft(bundle && typeof bundle === 'object' ? bundle.perCombo.get(combination.id) : bundle, label)
+      .toMatchObject(expected);
+  };
+  expectCombination(modelStore.solveCombinations3D(false, false, true), 'linear combinations');
+  expectCombination(await modelStore.solveCombinations3DParallel(false, false, true), 'parallel linear combinations');
+  expect.soft(modelStore.singleSolveInput3D(false, false, true), 'input').toMatchObject({ dim: '3d' });
+  modelStore.setAnalysis({ perCombination: 'pdelta' });
+  expectCombination(modelStore.solveCombinations3D(false, false, true), 'P-Delta combinations');
+  expectCombination(await modelStore.solveCombinations3DParallel(false, false, true), 'parallel P-Delta combinations');
+});
+
+issue2470ZeroComponent.each(['xz', 'yz'] as const)(
+  'known wrong result: #2470 — a vertical force gives no allowance for a dropped orthogonal force in %s',
+  async plane => {
+    const member = cantilever('3d');
+    const model = modelStore.model;
+    const root = model.elements.get(member)!.nodeI;
+    if (plane === 'yz') {
+      for (const [id, node] of model.nodes) model.nodes.set(id, { ...node, x: 0, y: node.x });
+    }
+    const vertical = 2 ** 20;
+    const load = modelStore.addNodalLoad3D(root, 0, 0, -vertical, 0, 0, 0, 1);
+    expect(modelStore.solve(false, plane)).toMatchObject({ reactions: [expect.objectContaining({ rz: vertical })] });
+
+    const component = plane === 'xz' ? 'fy' : 'fx';
+    expect(modelStore.updateLoad(load, { [component]: Number.EPSILON })).toBe(true);
+    const paths = {
+      linear: () => modelStore.solve(false, plane),
+      async: () => modelStore.solveAsync(false, plane),
+      combinations: () => modelStore.solveCombinations(false, plane),
+      pdelta: () => solvePDelta(modelStore.buildSolverInput(false, plane)!),
+    };
+    const diagnostic = expect.stringMatching(new RegExp('case.*1.*' + component, 'i'));
+    for (const [name, solve] of Object.entries(paths)) expect.soft(await outcome(solve), name).toEqual(diagnostic);
+  },
+);
