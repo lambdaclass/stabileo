@@ -153,16 +153,56 @@ fn main() {
         "ring": ring_rows,
         "scope": "Rigid voussoirs with radial joints, no tension, unlimited compressive strength, no sliding; equilibrium checked at the joints. A numerical comparison with published analytical solutions and with an independent implementation, not a laboratory validation.",
     });
+    let published: Vec<Value> = rizzi["rows"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .flat_map(|row| {
+            let a = row["alpha"].as_f64().unwrap() as i64;
+            [("milankovitch", "Milankovitch, true voussoir weights"), ("ccr", "CCR, weight on the centreline")]
+                .into_iter()
+                .flat_map(move |(key, solution)| {
+                    [("eta", "least thickness t/r", "", true, 1e-4), ("beta", "haunch hinge angle from the crown", "°", false, 0.01), ("h", "thrust H/(w r)", "", true, 1e-4)]
+                        .map(|(quantity, what, unit, relative, tolerance)| (a, key, solution, quantity, what, unit, relative, tolerance))
+                })
+        })
+        .map(|(a, key, solution, quantity, what, unit, relative, tolerance)| {
+            let id = format!("{key}-{a}-{quantity}");
+            let c = checks.iter().find(|c| c["id"] == id.as_str()).unwrap();
+            json!({
+                "id": id,
+                "name": format!("α = {a}°, {solution}: {what}"),
+                "source": RIZZI,
+                "unit": unit,
+                "reference": c["reference"],
+                "computed": c["computed"],
+                "metric": if relative { "relative difference" } else { "absolute difference" },
+                "observed": c["observed"],
+                "tolerance": tolerance,
+                "passed": c["passed"],
+            })
+        })
+        .collect();
+    let comparison = json!({
+        "reproduced_published_results": true,
+        "scope": "Least thickness of circular arches under self-weight, α = 60° to 145°: the Milankovitch and CCR solutions tabulated by Rizzi et al. (2010). Heyman's own closed form in the same table is not compared: it places the resultant, not the line of thrust, tangent to the intrados.",
+        "checks": published,
+    });
     let failed = checks.iter().filter(|c| c["passed"] != true).count();
     for c in &checks {
         println!("{} {} {:.3e} (≤ {})", if c["passed"] == true { "ok  " } else { "FAIL" }, c["id"].as_str().unwrap(), c["observed"].as_f64().unwrap(), c["tolerance"]);
     }
     if write {
         std::fs::write(format!("{HERE}/VALIDATION.json"), serde_json::to_string_pretty(&out).unwrap() + "\n").unwrap();
+        std::fs::write(format!("{HERE}/reference-results/published_comparison.json"), serde_json::to_string_pretty(&comparison).unwrap() + "\n").unwrap();
     } else {
-        let (drift, at) = drift(&out, &read_root("VALIDATION.json"), None, "");
-        println!("{} VALIDATION.json against this run: largest difference {drift:.3e} of the allowed one{}{at}", if drift <= 1.0 { "ok  " } else { "FAIL" }, if at.is_empty() { "" } else { ", at " });
-        if drift > 1.0 {
+        let mut stale = false;
+        for (name, fresh, stored) in [("VALIDATION.json", &out, read_root("VALIDATION.json")), ("reference-results/published_comparison.json", &comparison, read("published_comparison.json"))] {
+            let (drift, at) = drift(fresh, &stored, None, "");
+            println!("{} {name} against this run: largest difference {drift:.3e} of the allowed one{}{at}", if drift <= 1.0 { "ok  " } else { "FAIL" }, if at.is_empty() { "" } else { ", at " });
+            stale |= drift > 1.0;
+        }
+        if stale {
             std::process::exit(1);
         }
     }

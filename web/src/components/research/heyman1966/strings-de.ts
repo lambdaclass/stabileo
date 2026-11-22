@@ -5,7 +5,6 @@ export const de: Strings = {
   title: archCard.de.title,
   lead: archCard.de.hook,
   referenceLabel: 'Gegen veröffentlichte Lösungen und eine unabhängige Implementierung',
-  publishedWhy: 'Heymans Artikel wurde hier nicht gelesen; die Tabelle vergleicht mit den veröffentlichten Lösungen, die Rizzi et al. (2010) tabellieren.',
 
   ideaHeading: 'Mauerwerk als plastischer Werkstoff',
   idea: 'Heymans plastische Theorie des Mauerwerks beruht auf drei Annahmen: Der Stein trägt keinen Zug, er wird nie zerdrückt, und die Steine gleiten nie aufeinander. Unter diesen Annahmen ist ein Bogen sicher, wenn sich innerhalb des Mauerwerks eine Stützlinie im Gleichgewicht mit den Lasten zeichnen lässt. Wo die Linie eine Oberfläche berührt, kann sich die Fuge öffnen und wirkt als Gelenk; mit genügend Gelenken wird der Bogen zum Mechanismus und stürzt ein. Die Festigkeit spielt kaum eine Rolle: Standsicherheit ist eine Frage der Geometrie.',

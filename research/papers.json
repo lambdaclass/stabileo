@@ -898,10 +898,12 @@
    ],
    "dependencies": [],
    "complexity": "low",
-   "relevance": "The plastic theory of masonry used to assess arches and vaults; relevant to engineers working on existing buildings and to the form-finding queue. Crossref has no abstract, so no summary. A circular arch of rigid voussoirs as a linear program on the static theorem, with a kinematic enumeration of hinge mechanisms. The least thickness under self-weight, haunch hinge angle and thrust match the Milankovitch and CCR solutions tabulated by Rizzi et al. (2010, doi:10.4028/www.scientific.net/AMR.133-134.467, Table 1) for α = 60° to 145°, within the checked tolerances of 10⁻⁴ relative on t/r and the thrust and 0.01° on the hinge angle (largest differences 5·10⁻⁶ relative and 6·10⁻⁵°); Heyman's own text and figures were not compared. See research/mechanics/heyman-1966/README.md.",
-   "status": "numerically-validated",
-   "reproduced_published_results": false,
-   "benchmarks": [],
+   "relevance": "The plastic theory of masonry used to assess arches and vaults; relevant to engineers working on existing buildings and to the form-finding queue. Crossref has no abstract, so no summary. A circular arch of rigid voussoirs as a linear program on the static theorem, with a kinematic enumeration of hinge mechanisms. The least thickness under self-weight, haunch hinge angle and thrust match the Milankovitch and CCR solutions published by Rizzi et al. (2010, doi:10.4028/www.scientific.net/AMR.133-134.467, Table 1) for α = 60° to 145°, within 10⁻⁴ relative on t/r and the thrust and 0.01° on the hinge angle (24 rows in reference-results/published_comparison.json; largest differences 5·10⁻⁶ relative and 6·10⁻⁵°). Heyman's own text is not available here and was not compared; his closed form in the same table solves a different tangency condition and is shown, not checked. See research/mechanics/heyman-1966/README.md.",
+   "status": "published-figures-compared",
+   "reproduced_published_results": true,
+   "benchmarks": [
+    "Rizzi et al. (2010), Table 1: least thickness t/r, haunch hinge angle and thrust of circular arches, Milankovitch and CCR solutions, α = 60°, 90°, 120°, 145°"
+   ],
    "implementation": "mechanics/heyman-1966",
    "page": "web/src/components/research/heyman1966/ArchPage.svelte",
    "contacts": []

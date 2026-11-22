@@ -5,7 +5,6 @@ export const tr: Strings = {
   title: archCard.tr.title,
   lead: archCard.tr.hook,
   referenceLabel: 'Yayımlanmış çözümlere ve bağımsız bir uygulamaya karşı',
-  publishedWhy: 'Heyman’ın makalesi burada okunmadı; tablo, Rizzi ve ark. (2010) tarafından tablolaştırılan yayımlanmış çözümlerle karşılaştırır.',
 
   ideaHeading: 'Plastik bir malzeme olarak yığma',
   idea: 'Heyman’ın yığma yapılar için plastik teorisi üç varsayıma dayanır: taş çekme taşımaz, hiç ezilmez ve bloklar birbiri üzerinde hiç kaymaz. Bu varsayımlar altında, yüklerle dengede olan bir basınç çizgisi yığmanın içine çizilebiliyorsa kemer güvenlidir. Çizginin bir yüzeye değdiği yerde derz açılabilir ve mafsal gibi davranır; yeterli sayıda mafsalla kemer bir mekanizmaya dönüşür ve göçer. Dayanım neredeyse önemsizdir: kararlılık bir geometri sorusudur.',
