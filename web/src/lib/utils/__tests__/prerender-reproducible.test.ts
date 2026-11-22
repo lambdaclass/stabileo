@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { cpSync, readFileSync, readdirSync, rmSync, statSync } from 'node:fs';
+import { cpSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join, relative, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -66,3 +66,31 @@ describe('two prerenders of one build are byte-identical (#875)', () => {
     expect(readFileSync(join(FIRST, 'en/index.html'), 'utf8')).toMatch(/>1\.2k</);
   });
 });
+
+it.skip('prerenders the Chinese slab tool after its delayed worker response (known wrong result: #2483)', async () => {
+  const out = mkdtempSync(join(WEB_ROOT, '.dist-prerender-model-'));
+  try {
+    await execFileAsync('npx', ['vite', 'build', '--outDir', out, '--emptyOutDir', '--logLevel', 'error'], {
+      cwd: WEB_ROOT, timeout: 300_000, maxBuffer: 32 * 1024 * 1024,
+    });
+    const assets = join(out, 'assets');
+    const workers = readdirSync(assets).filter(name => /^run\.worker-.*\.js$/.test(name));
+    expect(workers.length).toBeGreaterThan(0);
+    for (const name of workers) {
+      const worker = join(assets, name);
+      const source = readFileSync(worker, 'utf8');
+      writeFileSync(worker, `const postModelResult = self.postMessage.bind(self);
+self.postMessage = (...args) => { setTimeout(() => postModelResult(...args), 3500); };
+${source}`);
+    }
+
+    await execFileAsync('npx', ['tsx', 'scripts/prerender.ts'], {
+      cwd: WEB_ROOT, timeout: 300_000, maxBuffer: 32 * 1024 * 1024,
+      env: { ...process.env, PRERENDER_OUT: out, PRERENDER_ONLY: '/tools/slab-on-columns', PRERENDER_GITHUB_STARS: 'none' },
+    });
+    const html = readFileSync(join(out, 'zh/tools/slab-on-columns/index.html'), 'utf8');
+    expect(html.includes('data-testid="readout-maxDeflection"'), 'the rendered slab result is missing').toBe(true);
+  } finally {
+    rmSync(out, { recursive: true });
+  }
+}, 600_000);
