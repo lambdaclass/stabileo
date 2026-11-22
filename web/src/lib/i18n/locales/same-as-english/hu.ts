@@ -100,8 +100,6 @@ export const SAME_AS_ENGLISH: readonly string[] = [
   "designData.minimum",
   "desk.jointLine",
   "desk.resized.row",
-  "despiece.basisGlobal",
-  "despiece.basisGlobalShort",
   "detailing.revision",
   "detailing.schedule.diameter",
   "detailing.shape.hookPair",
