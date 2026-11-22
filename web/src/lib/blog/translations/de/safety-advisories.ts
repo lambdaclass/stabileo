@@ -114,6 +114,8 @@ const body: PostBody = {
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-106-complementary-plate-remesh-arc.md", "label": "SA-2026-106", "t": "Betroffene Eingaben und erforderliche Schritte."},
     {"k": "note", "t": "SA-2026-107 — Nächste Version nach 0.6.3 (Eindämmung)."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-107-plate-remesh-shell-edits.md", "label": "SA-2026-107", "t": "Betroffene Eingaben und erforderliche Schritte."},
+    {"k": "note", "t": "SA-2026-108 — Nächste Version nach 0.6.4."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-108-planar-projection-nodal-forces.md", "label": "SA-2026-108", "t": "Betroffene Eingaben und erforderliche Schritte."},
     {"k": "img", "base": "blog/recheck-stale", "w": 1600, "h": 1000, "alt": "Stabileo PRO mit einem Stahlbetonrahmen, gespeichert, bevor Ergebnisse versioniert wurden. Ein Hinweis unten meldet veraltete Ergebnisse: Das Projekt wurde mit einer älteren Version gelöst, und 19 registrierte Änderungen betreffen es; daneben die Schaltflächen, um die Änderungen zu sehen und neu zu rechnen.", "caption": "Wie eine Korrektur ein gespeichertes Projekt erreicht: Bis es neu gelöst ist, bleiben seine Ergebnisse als veraltet markiert, und die Änderungen, die es betreffen, sind einen Klick entfernt."},
     {
       "k": "h",
@@ -529,7 +531,8 @@ const body: PostBody = {
         ["SA-2026-104", "Das Umkehren von Stäben konnte Streckenlasten umlenken. Die Berechnung konnte ältere ebene Einzelmomente auslassen. Prüfen Sie Lastrichtungen, Endordinaten und gespeicherte Momentenfelder. Korrigieren Sie die Lasten und wiederholen Sie die betroffenen Berechnungen und Nachweise.", "Hoch", "Nächste Version (0.6.4)"],
         ["SA-2026-105", "Beim Nullsetzen eines wiederhergestellten ebenen Einzelmoments konnte das alte Moment weiterwirken. Prüfen Sie die vorgesehenen Momente, geben Sie sie erneut ein und wiederholen Sie die betroffenen Berechnungen und Nachweise.", "Hoch", "Nächste Version nach 0.6.3"],
         ["SA-2026-106", "Bei der Neuvernetzung konnte der Ergänzungsbogen eines gekrümmten Plattenrands verwendet werden. Vergleichen Sie das Netz mit dem vorgegebenen Bogen, erstellen Sie die betroffenen Netze neu und wiederholen Sie die Berechnung und die Nachweise.", "Hoch", "Nächste Version nach 0.6.3 (Eindämmung)"],
-        ["SA-2026-107", "Bei der Neuvernetzung konnten Änderungen am Schalenversatz und an der Krümmung verloren gehen. Prüfen Sie die vorgesehenen Schaleneigenschaften, stellen Sie sie wieder her und wiederholen Sie die Berechnung und die Nachweise.", "Hoch", "Nächste Version nach 0.6.3 (Eindämmung)"]
+        ["SA-2026-107", "Bei der Neuvernetzung konnten Änderungen am Schalenversatz und an der Krümmung verloren gehen. Prüfen Sie die vorgesehenen Schaleneigenschaften, stellen Sie sie wieder her und wiederholen Sie die Berechnung und die Nachweise.", "Hoch", "Nächste Version nach 0.6.3 (Eindämmung)"],
+        ["SA-2026-108", "Bei der Projektion auf die XZ- oder YZ-Ebene konnte die zur Berechnungsebene senkrechte Komponente einer Knotenkraft ohne Warnung entfallen. Prüfen Sie die Knotenkräfte in jedem Lastfall und wiederholen Sie die betroffenen Berechnungen und Nachweise mit dem räumlichen Modell.", "Hoch", "Nächste Version nach 0.6.4"]
       ]
     },
     {

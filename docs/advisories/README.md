@@ -134,6 +134,7 @@ snow loads before re-solving.
 | [SA-2026-105](SA-2026-105-restored-planar-moment-edits.md) | Editing a restored planar point couple to zero could leave the old moment active | High | [#2459](https://github.com/lambdaclass/stabileo/issues/2459) | [#2467](https://github.com/lambdaclass/stabileo/pull/2467) | the next release after 0.6.3 | Published 2026-11-22 |
 | [SA-2026-106](SA-2026-106-complementary-plate-remesh-arc.md) | Plate remeshing could use the complementary arc | High | [#2460](https://github.com/lambdaclass/stabileo/issues/2460) | [#2466](https://github.com/lambdaclass/stabileo/pull/2466) | the next release after 0.6.3 (containment) | Published 2026-11-22 |
 | [SA-2026-107](SA-2026-107-plate-remesh-shell-edits.md) | Plate remeshing could discard shell offsets and curvature edits | High | [#2461](https://github.com/lambdaclass/stabileo/issues/2461) | [#2466](https://github.com/lambdaclass/stabileo/pull/2466) | the next release after 0.6.3 (containment) | Published 2026-11-22 |
+| [SA-2026-108](SA-2026-108-planar-projection-nodal-forces.md) | Planar projection could drop an out-of-plane nodal force | High | — | [#2470](https://github.com/lambdaclass/stabileo/pull/2470) | the next release after 0.6.4 | Published 2026-11-22 |
 
 Fixed in 0.6.2 by [#2258](https://github.com/lambdaclass/stabileo/pull/2258): [SA-2026-084](../results-changes/2026-11-fillet-weld-physical-runs.md) (#2243, effective length of a subdivided end-loaded weld) and [SA-2026-085](../results-changes/2026-11-fillet-weld-physical-runs.md) (#2244, effective leg of a short weld).
 
