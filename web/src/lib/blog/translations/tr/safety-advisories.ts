@@ -108,6 +108,12 @@ const body: PostBody = {
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-103-rc-torsion-evidence.md", "label": "SA-2026-103", "t": "Etkilenen girdiler ve yapılması gerekenler."},
     {"k": "note", "t": "SA-2026-104 — Sonraki sürüm (0.6.4)."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-104-member-load-reversal-and-planar-couples.md", "label": "SA-2026-104", "t": "Etkilenen girdiler ve yapılması gerekenler."},
+    {"k": "note", "t": "SA-2026-105 — 0.6.3’ten sonraki ilk sürüm."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-105-restored-planar-moment-edits.md", "label": "SA-2026-105", "t": "Etkilenen girdiler ve yapılması gerekenler."},
+    {"k": "note", "t": "SA-2026-106 — 0.6.3’ten sonraki ilk sürüm (koruma önlemi)."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-106-complementary-plate-remesh-arc.md", "label": "SA-2026-106", "t": "Etkilenen girdiler ve yapılması gerekenler."},
+    {"k": "note", "t": "SA-2026-107 — 0.6.3’ten sonraki ilk sürüm (koruma önlemi)."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-107-plate-remesh-shell-edits.md", "label": "SA-2026-107", "t": "Etkilenen girdiler ve yapılması gerekenler."},
     {"k": "img", "base": "blog/recheck-stale", "w": 1600, "h": 1000, "alt": "Sonuçlar sürümlenmeden önce kaydedilmiş bir betonarme çerçeve ile Stabileo PRO. Alttaki bir şerit, projenin eski bir sürümle çözüldüğünü ve kayıtlı 19 değişikliğin onu ilgilendirdiğini, yani sonuçların eskidiğini söylüyor; yanında neyin değiştiğini görme ve yeniden çözme düğmeleri var.", "caption": "Bir düzeltme kayıtlı bir projeye böyle ulaşır: yeniden çözülene kadar sonuçları eskimiş olarak işaretli kalır ve onu ilgilendiren değişiklikler bir tık uzaktadır."},
     {
       "k": "h",
@@ -520,7 +526,10 @@ const body: PostBody = {
         ["SA-2026-101", "PRO, eksik plaklarla, eksik girdilerden oluşturulan ağlarla veya bağlantısız perde-döşeme birleşimleriyle çözüm yapabiliyordu. Ağı amaçlanan geometriyle karşılaştırın, etkilenen plakları ve birleşimleri düzeltin, ardından analizi ve tasarım kontrollerini yineleyin.", "Yüksek", "Sonraki sürüm (0.6.4)"],
         ["SA-2026-102", "Diyagramlar tekil etkilerin yakınında yanlış en büyük değerler veya kesit tesirleri verebiliyordu. Ters yönlü parçalar betonarme tasarım yüzlerini değiştirebiliyordu. Belirleyici tesirleri, donatı yüzlerini ve çelik moment gradyanı girdilerini kontrol edip etkilenen analizleri ve kontrolleri yineleyin.", "Yüksek", "Sonraki sürüm (0.6.4)"],
         ["SA-2026-103", "Betonarme burulma ve kesme kontrolleri yetersiz enine donatıyı kabul edebiliyor veya doğrulanmamış çevre ya da çekme donatısını hesaba katabiliyordu. Gerçek donatı ve eşzamanlı kesit tesirleriyle kontrolleri yineleyin ve etkilenen raporları inceleyin.", "Yüksek", "Sonraki sürüm (0.6.4)"],
-        ["SA-2026-104", "Elemanları ters çevirmek yayılı yüklerin yönünü değiştirebiliyor ve analiz eski düzlemsel tekil momentleri atlayabiliyordu. Kaydedilen yük yönlerini, uç değerlerini ve moment alanlarını kontrol edin. Yükleri düzeltip etkilenen analizleri ve tasarım kontrollerini yineleyin.", "Yüksek", "Sonraki sürüm (0.6.4)"]
+        ["SA-2026-104", "Elemanları ters çevirmek yayılı yüklerin yönünü değiştirebiliyor ve analiz eski düzlemsel tekil momentleri atlayabiliyordu. Kaydedilen yük yönlerini, uç değerlerini ve moment alanlarını kontrol edin. Yükleri düzeltip etkilenen analizleri ve tasarım kontrollerini yineleyin.", "Yüksek", "Sonraki sürüm (0.6.4)"],
+        ["SA-2026-105", "Geri yüklenen düzlemsel bir tekil moment sıfırlandığında eski moment uygulanmaya devam edebiliyordu. Amaçlanan momentleri doğrulayıp yeniden girin, ardından etkilenen analizleri ve tasarım kontrollerini yineleyin.", "Yüksek", "0.6.3’ten sonraki ilk sürüm"],
+        ["SA-2026-106", "Ağ yenileme, eğri plak kenarının tamamlayıcı yayını kullanabiliyordu. Ağı belirtilen yayla karşılaştırın, etkilenen ağları yeniden oluşturun ve analizi ve tasarım kontrollerini yineleyin.", "Yüksek", "0.6.3’ten sonraki ilk sürüm (koruma önlemi)"],
+        ["SA-2026-107", "Ağ yenileme, kabuk ofseti ve eğrilik düzenlemelerini silebiliyordu. Analizi ve tasarım kontrollerini yinelemeden önce amaçlanan kabuk özelliklerini doğrulayıp geri yükleyin.", "Yüksek", "0.6.3’ten sonraki ilk sürüm (koruma önlemi)"]
       ]
     },
     {
