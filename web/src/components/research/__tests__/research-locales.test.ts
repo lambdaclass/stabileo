@@ -67,8 +67,8 @@ it.each(Object.entries(DICTIONARIES))('publishes %s exactly in the languages its
   expect([...researchLocales(path)]).toEqual(defined(...dictionaries));
 });
 
-it('publishes a paper without German copy without /de/, and one with it under /de/', () => {
-  expect(supportsResearchRoute('/research/stability/ferrari-sigmund-2025', 'de')).toBe(false);
+it('publishes a page without German copy without /de/, and one with it under /de/', () => {
+  expect(supportsResearchRoute('/research', 'de')).toBe(false);
   expect(supportsResearchRoute('/research/benchmarks/navier-plate', 'de')).toBe(true);
   expect(supportsResearchRoute('/research/benchmarks/navier-plate/', 'de')).toBe(true);
   expect(researchLocales('/research/unknown-paper')).toEqual(['en']);

@@ -22,7 +22,7 @@ const PUBLISHED: Record<string, readonly string[]> = {
   '/research/benchmarks/macneal-harder-1985': ALL,
   '/research/benchmarks/mattiasson-elastica': ALL,
   '/research/benchmarks/navier-plate': ALL,
-  '/research/benchmarks/newmark-1959': BASE,
+  '/research/benchmarks/newmark-1959': ALL,
   '/research/form-finding/pastrana-2026': BASE,
   '/research/benchmarks/plastic-collapse': ALL,
   '/research/benchmarks/riks-crisfield': ALL,

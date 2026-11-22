@@ -1331,8 +1331,8 @@
    ],
    "dependencies": [],
    "complexity": "low",
-   "relevance": "Exercises Stabileo's Newmark time-history integration for structural response.",
-   "status": "proposed",
+   "relevance": "The production Newmark average-acceleration integrator (beta = 1/4, gamma = 1/2) on one exact SDOF step response at four time steps. Every sample matches the discrete closed form within 1e-10 m, the measured periods match pi dt / atan(omega dt / 2) within 0.5% and the error from the continuous solution stays below the phase-lag bound (13 checks, written by the engine test in the research CI). The 1959 paper's own examples are not compared; its full text was not available to us.",
+   "status": "numerically-validated",
    "stage": "first-version",
    "reviews": [
     {
