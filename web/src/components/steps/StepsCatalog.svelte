@@ -18,12 +18,34 @@
   import type { Applicability, Txt } from '../../lib/engine/steps/doc';
   import { tx } from '../../lib/engine/steps/doc';
   import { openStiffnessWizard, openFlexibilityWizard } from '../../lib/actions/step-wizards';
+  import { ownerOfMethod } from '../../lib/advanced/catalog';
+  import { advancedList } from '../../lib/advanced/panel-state.svelte';
+  import { tick, untrack } from 'svelte';
 
   const say = (x: Txt) => tp(x.key, x.params);
   let help = $state<string | null>(null);
   let loading = $state<string | null>(null);
 
   const is3D = $derived(uiStore.is3DWorkspace);
+
+  let body = $state<HTMLElement | null>(null);
+  $effect(() => {
+    const focus = explainedSteps.catalogFocus;
+    if (!focus) return;
+    untrack(() => advancedList.revealSteps(focus));
+    void tick().then(() => body?.querySelector(`[data-testid="steps-group-${focus}"]`)?.scrollIntoView({ block: 'start' }));
+  });
+
+  /** The analysis that runs this method on the model, when there is one (not a step-by-step topic). */
+  function analysisOf(m: ExplainedMethod) {
+    const owner = ownerOfMethod(m.id);
+    return owner && !owner.stepsGroup ? owner : null;
+  }
+
+  function openFunction(id: string) {
+    advancedList.pending = id;
+    explainedSteps.close();
+  }
 
   // Re-read when the model, the mode or the selection changes.
   const verdicts = $derived.by(() => {
@@ -75,19 +97,30 @@
     name={t('steps.catalog.title')} backTestid="steps-catalog-back" />
   <p class="sc-intro">{t('steps.catalog.intro')}</p>
 
-  <div class="sc-body">
+  <div class="sc-body" bind:this={body}>
     {#each GROUP_ORDER as g}
       {@const list = methodsIn(g)}
       {#if list.length}
-        <section class="sc-group" data-testid={`steps-group-${g}`}>
-          <h4>{t(`steps.group.${g}`)}</h4>
+        {@const isOpen = advancedList.stepsOpen.includes(g)}
+        <section class="sc-group" class:open={isOpen} data-testid={`steps-group-${g}`}>
+          <button type="button" class="sc-ghead" aria-expanded={isOpen} onclick={() => advancedList.toggleSteps(g)} data-testid={`steps-group-toggle-${g}`}>
+            <span class="sc-chev" aria-hidden="true">›</span>
+            <span class="sc-gtext">
+              <span class="sc-gname">{t(`steps.group.${g}`)}</span>
+              <span class="sc-gsum">{list.map((m) => t(`steps.m.${m.id}.title`).replace(/_/g, '')).join(' · ')}</span>
+            </span>
+            <span class="sc-gcount" title={tp('advCat.catalog.methods', { n: list.length })} aria-label={tp('advCat.catalog.methods', { n: list.length })}>{list.length}</span>
+          </button>
+          {#if isOpen}
+          <div class="sc-gbody">
           {#each list as m}
             {@const v = verdicts.get(m.id)}
+            {@const fn = analysisOf(m)}
             <article class="sc-method" data-testid={`steps-method-${m.id}`}>
               <div class="sc-row">
-                <span class="sc-name">{t(`steps.m.${m.id}.title`)}</span>
+                <span class="sc-name"><Prose text={t(`steps.m.${m.id}.title`)} /></span>
                 <button class="sc-help" class:on={help === m.id} onclick={() => (help = help === m.id ? null : m.id)}
-                  aria-expanded={help === m.id} title={t('steps.catalog.help')} data-testid={`steps-help-${m.id}`}>?</button>
+                  aria-expanded={help === m.id} title={t('steps.catalog.help')} aria-label={t('steps.catalog.help')} data-testid={`steps-help-${m.id}`}>?</button>
               </div>
               {#if help === m.id}<p class="sc-helptext"><Prose text={t(`steps.m.${m.id}.help`)} /></p>{/if}
               <p class="sc-req"><span>{t('steps.catalog.requiresLead')}</span> <Prose text={t(`steps.m.${m.id}.requires`)} /></p>
@@ -104,9 +137,14 @@
                 <button class="sc-example" disabled={loading !== null} onclick={() => example(m)} data-testid={`steps-example-${m.id}`}>
                   {loading === m.id ? t('steps.catalog.loading') : t('steps.catalog.example')}
                 </button>
+                {#if fn}
+                  <button class="sc-fn" onclick={() => openFunction(fn.id)} title={t('advCat.catalog.partOfTitle')} data-testid={`steps-function-${m.id}`}>{tp('advCat.catalog.partOf', { name: t(fn.titleKey) })} ›</button>
+                {/if}
               </div>
             </article>
           {/each}
+          </div>
+          {/if}
         </section>
       {/if}
     {/each}
@@ -116,12 +154,22 @@
 <style>
   .sc { display: flex; flex-direction: column; height: 100%; min-height: 0; color: var(--st-text); }
   .sc-intro { margin: 0.55rem 0.75rem 0.4rem; font-size: 0.78rem; color: var(--st-text-2); line-height: 1.4; }
-  .sc-body { flex: 1 1 auto; overflow-y: auto; padding: 0 0.75rem 0.8rem; min-height: 0; }
-  .sc-group { margin-top: 0.7rem; }
-  .sc-group h4 {
-    margin: 0 0 0.35rem; font-size: 0.72rem; letter-spacing: 0.07em; text-transform: uppercase;
-    color: var(--st-accent); border-bottom: 1px solid var(--st-hair); padding-bottom: 0.2rem;
+  .sc-body { flex: 1 1 auto; overflow-y: auto; padding: 0.2rem 0.75rem 0.8rem; min-height: 0; display: flex; flex-direction: column; gap: 0.4rem; }
+  .sc-group { border: 1px solid var(--st-hair); border-radius: var(--st-radius-lg, 8px); }
+  .sc-group.open { border-color: var(--st-hair-strong); }
+  .sc-ghead {
+    display: flex; align-items: center; gap: 0.5rem; width: 100%; min-height: 46px; padding: 0.4rem 0.6rem;
+    background: none; border: none; color: var(--st-text); font: inherit; text-align: left; cursor: pointer; border-radius: inherit;
   }
+  .sc-ghead:hover { background: var(--st-surface-3); }
+  .sc-ghead:focus-visible { outline: 2px solid var(--st-interactive); outline-offset: -2px; }
+  .sc-chev { flex: none; width: 12px; color: var(--st-text-3); font-size: 1rem; transition: transform 0.15s; }
+  .open .sc-chev { transform: rotate(90deg); }
+  .sc-gtext { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; }
+  .sc-gname { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--st-accent); }
+  .sc-gsum { font-size: 0.7rem; color: var(--st-text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sc-gcount { flex: none; min-width: 1.4rem; padding: 1px 6px; box-sizing: border-box; text-align: center; border: 1px solid var(--st-hair-strong); border-radius: 999px; font-size: 0.66rem; color: var(--st-text-3); }
+  .sc-gbody { padding: 0 0.45rem 0.1rem; }
   .sc-method { padding: 0.45rem 0.55rem; margin-bottom: 0.4rem; border: 1px solid var(--st-hair); border-radius: var(--st-radius); background: color-mix(in srgb, var(--st-surface-2) 45%, transparent); }
   .sc-row { display: flex; align-items: center; justify-content: space-between; gap: 0.4rem; }
   .sc-name { font-size: 0.84rem; font-weight: 600; }
@@ -137,11 +185,13 @@
   .sc-state.ok { color: #2fb36b; }
   .sc-state.no { color: var(--st-text-3); }
   .sc-issue { display: inline-block; min-height: 24px; color: var(--st-accent); overflow-wrap: anywhere; }
-  .sc-actions { display: flex; gap: 0.4rem; margin-top: 0.35rem; }
+  .sc-actions { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.35rem; }
+  .sc-fn { background: none; color: var(--st-interactive); border-color: var(--st-hair) !important; }
+  .sc-fn:hover { color: var(--st-text); }
   .sc-actions button { font-size: 0.74rem; padding: 0.25rem 0.7rem; border-radius: 4px; cursor: pointer; border: 1px solid var(--st-hair-strong); }
   .sc-open { background: var(--st-accent); border-color: var(--st-accent) !important; color: #fff; }
   .sc-open:disabled { opacity: 0.4; cursor: default; }
   .sc-example { background: var(--st-surface-2); color: var(--st-text-2); }
   .sc-example:hover:not(:disabled) { color: var(--st-text); }
-  @media (pointer: coarse) { .sc-actions button { min-height: 36px; } .sc-help { width: 30px; height: 30px; } }
+  @media (pointer: coarse), (max-width: 767px) { .sc-actions button { min-height: 44px; } .sc-help { width: 44px; height: 44px; } .sc-ghead { min-height: 48px; } }
 </style>

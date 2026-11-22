@@ -16,8 +16,6 @@
   import PlasticUserMechanism from './plastic/PlasticUserMechanism.svelte';
   import { collapseVerdict } from './plastic/user-compare';
   import { plasticCourse } from '../../lib/store/plastic-course.svelte';
-  import { openExplainedCatalog } from '../../lib/actions/step-wizards';
-  import { explainedSteps } from '../../lib/store/explained-steps.svelte';
 
   let { mps }: { mps: SectionMp[] } = $props();
   const r = $derived(resultsStore.plasticResult as PlasticCollapseResult | null);
@@ -33,11 +31,6 @@
   const goTo = (k: number) => { resultsStore.plasticStep = k; plasticCourse.view = 'steps'; };
   /** Plastic rotation of hinge h at the step on screen (none before it forms, none for an axial yield). */
   const rotation = (h: number) => r?.steps[step]?.rotations?.[h];
-  function openMethod(id: string) {
-    resultsStore.clearPlastic();
-    openExplainedCatalog();
-    explainedSteps.openMethod(id);
-  }
 </script>
 
 {#if r}
@@ -80,11 +73,6 @@
   <PlasticCurve {r} />
   <PlasticMechanism {r} />
   <PlasticUserMechanism {r} />
-  <div class="pl-methods">
-    <span>{t('course.plastic.methods.lead')}</span>
-    <button class="small-btn" onclick={() => openMethod('plasticKinematic')} data-testid="plastic-open-kinematic">{t('steps.m.plasticKinematic.title')}</button>
-    <button class="small-btn" onclick={() => openMethod('plasticStatic')} data-testid="plastic-open-static">{t('steps.m.plasticStatic.title')}</button>
-  </div>
   {#each mps as m (m.sectionId)}
     <div class="adv-result-info" data-testid="plastic-mp">
       {m.name}: Mp = {fmtQ(m.mp, 'moment')} {unitQ('moment')} (Zp = {sigQ(m.zp, 'sectionModulus')} {unitQ('sectionModulus')}, fy = {fy(m.fy)}) — {t(`advanced.mpSource.${m.source}`)}{#if m.fyAssumed} · {fyAssumedNote()}{/if}
@@ -102,6 +90,4 @@
   .pl-table tr.later td { opacity: 0.45; }
   .pl-note { margin: 2px 0 6px; font-size: 0.62rem; line-height: 1.4; color: var(--st-text-3); }
   .pl-closed { color: var(--st-text-3); font-weight: 400; }
-  .pl-methods { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 6px 0; font-size: 0.66rem; color: var(--st-text-3); }
-  .pl-methods span { flex-basis: 100%; }
 </style>

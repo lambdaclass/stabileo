@@ -48,6 +48,8 @@ let step = $state(0);
 let returnToCatalog = $state(false);
 /** A document opened from an analysis rather than the catalog: going back closes it, back to that analysis. */
 let fromTool = $state(false);
+/** The catalog group to open and bring into view when the catalog is opened at one. */
+let catalogFocus = $state<string | null>(null);
 
 /** The reader's choices of each method's assumptions, by method id (kept while the session lasts). */
 let options = $state<Record<string, Record<string, boolean>>>({});
@@ -118,10 +120,11 @@ export const explainedSteps = {
     return view === 'doc' && (builtAt !== modelStore.modelVersion || builtWithSelfWeight !== uiStore.includeSelfWeight || builtAxes !== axesKey());
   },
 
-  openCatalog(): void { view = 'catalog'; methodId = null; doc = null; error = null; returnToCatalog = false; },
+  openCatalog(focus: string | null = null): void { view = 'catalog'; methodId = null; doc = null; error = null; returnToCatalog = false; catalogFocus = focus; },
+  get catalogFocus() { return catalogFocus; },
   get returnToCatalog() { return returnToCatalog; },
   /** A wizard is being opened from the catalog (the catalog itself closes). */
-  leaveForWizard(): void { view = null; methodId = null; doc = null; error = null; returnToCatalog = true; },
+  leaveForWizard(toCatalog = true): void { view = null; methodId = null; doc = null; error = null; returnToCatalog = toCatalog; },
   openMethod(id: string, opener: 'catalog' | 'tool' = 'catalog'): void {
     fromTool = opener === 'tool'; methodId = id; view = 'doc'; doc = null; error = null;
     if (course) { build(id); return; }
@@ -150,5 +153,5 @@ export const explainedSteps = {
   },
   back(): void { if (fromTool) this.close(); else this.openCatalog(); },
   get fromTool() { return fromTool; },
-  close(): void { view = null; methodId = null; doc = null; error = null; returnToCatalog = false; fromTool = false; },
+  close(): void { view = null; methodId = null; doc = null; error = null; returnToCatalog = false; fromTool = false; catalogFocus = null; },
 };

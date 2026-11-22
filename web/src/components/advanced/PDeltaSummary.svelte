@@ -9,7 +9,6 @@
   import { formatPDeltaFactor } from '../../lib/engine/pdelta-result';
   import { sigQ, unitQ, fmtQ } from '../../lib/store/display-units.svelte';
   import { pdeltaConvergence, type ConvergenceRow, type PDeltaInfo } from '../../lib/engine/second-order/run-pdelta';
-  import { openSecondOrderSteps } from '../../lib/actions/second-order';
 
   let { result }: { result: any } = $props();
   const K = 'course.second-order.pd';
@@ -108,7 +107,6 @@
     {/if}
     {#if convError}<p class="pd-note">{convError}</p>{/if}
   </details>
-  <button class="small-btn pd-steps" onclick={() => openSecondOrderSteps(full.settings.method === 'phi' ? 'so-pdelta-phi' : 'so-pdelta-kg', full.settings)} data-testid="pdelta-open-steps">{t(`${K}.openSteps`)}</button>
 {/if}
 
 <style>
@@ -121,5 +119,4 @@
   .pd-table td { text-align: right; padding: 2px 3px; color: var(--st-text-2); }
   .pd-table th:first-child, .pd-table td:first-child { text-align: left; }
   .pd-table tr.phi td { color: var(--st-accent); }
-  .pd-steps { margin: 0.3rem 0 0 0.25rem; }
 </style>

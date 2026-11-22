@@ -94,10 +94,12 @@
   import { collapseVerdict } from '../advanced/plastic/user-compare';
   import InfluencePanel from '../advanced/InfluencePanel.svelte';
   import LoadStatesPanel from '../advanced/LoadStatesPanel.svelte';
-  import { tools } from '../../lib/features';
   import { mohrPanel, openMohr, closeMohr } from '../../lib/mohr/panel.svelte';
+  import { advFunction } from '../../lib/advanced/catalog';
+  import { advancedList } from '../../lib/advanced/panel-state.svelte';
+  import AdvancedLauncher from '../advanced/AdvancedLauncher.svelte';
+  import AdvFunctionHead from '../advanced/AdvFunctionHead.svelte';
 
-  let showAdvanced = $state(false);
   let showTrainPanel = $state(false);
   let selectedTrainIndex = $state<string>('');
   /**
@@ -110,82 +112,6 @@
    */
   let showFlex = $state(false);
   let showLoadStates = $state(false);
-
-  let advHelpKey = $state<string | null>(null);
-
-  // Listen for tour event to auto-open advanced section
-  $effect(() => {
-    const openAdvanced = () => { showAdvanced = true; };
-    window.addEventListener('stabileo-open-advanced', openAdvanced);
-    return () => {
-      window.removeEventListener('stabileo-open-advanced', openAdvanced);
-    };
-  });
-
-  const ADV_HELP: Record<string, { labelKey: string; textKey: string }> = {
-    'pdelta': {
-      labelKey: 'advHelp.pdelta.label',
-      textKey: 'advHelp.pdelta.text',
-    },
-    'buckling': {
-      labelKey: 'advHelp.buckling.label',
-      textKey: 'advHelp.buckling.text',
-    },
-    'modal': {
-      labelKey: 'advHelp.modal.label',
-      textKey: 'advHelp.modal.text',
-    },
-    // NOTE: 'spectral' help is retained for when Basic regains spectral
-    // analysis with a user-defined spectrum; the action itself is removed.
-    'spectral': {
-      labelKey: 'advHelp.spectral.label',
-      textKey: 'advHelp.spectral.text',
-    },
-    'plastic': {
-      labelKey: 'advHelp.plastic.label',
-      textKey: 'advHelp.plastic.text',
-    },
-    'steps': {
-      labelKey: 'steps.catalog.title',
-      textKey: 'steps.catalog.intro',
-    },
-    'trainLoad': {
-      labelKey: 'advHelp.trainLoad.label',
-      textKey: 'advHelp.trainLoad.text',
-    },
-    'influenceLine': {
-      labelKey: 'advHelp.influenceLine.label',
-      textKey: 'advHelp.influenceLine.text',
-    },
-    'loadStates': {
-      labelKey: 'course.influence.states.title',
-      textKey: 'course.influence.states.help',
-    },
-    'kinematic': {
-      labelKey: 'advHelp.kinematic.label',
-      textKey: 'advHelp.kinematic.text',
-    },
-    'cirsocFlex': {
-      labelKey: 'advHelp.cirsocFlex.label',
-      textKey: 'advHelp.cirsocFlex.text',
-    },
-    'stress': {
-      labelKey: 'advHelp.stress.label',
-      textKey: 'advHelp.stress.text',
-    },
-    ...(__PUBLIC_FEATURES__.tools ? { mohr: {
-      labelKey: 'advHelp.mohr.label',
-      textKey: 'advHelp.mohr.text',
-    } } : {}),
-    'despiece': {
-      labelKey: 'advHelp.despiece.label',
-      textKey: 'advHelp.despiece.text',
-    },
-    'whatif': {
-      labelKey: 'advHelp.whatif.label',
-      textKey: 'advHelp.whatif.text',
-    },
-  };
 
   /**
    * What a failed analysis actually said.
@@ -224,7 +150,7 @@
    * a toast action or restored with a saved model — and closing goes through
    * each analysis's own teardown.
    */
-  type Adv = { key: string; labelKey: string; isActive: () => boolean; close: () => void };
+  type Adv = { key: string; isActive: () => boolean; close: () => void };
 
   const ADV: Adv[] = [
     /*
@@ -242,7 +168,7 @@
      * and unmounted itself mid-pick. What the reader opened outranks the
      * pointer mode that opening it turned on.
      */
-    { key: 'cirsocFlex', labelKey: 'flex.title',
+    { key: 'cirsocFlex',
       isActive: () => showFlex,
       close: () => { showFlex = false; } },
     /*
@@ -250,44 +176,44 @@
      * disabled, so a header naming one of them would name something the reader
      * cannot reach, let alone close.
      */
-    { key: 'kinematic', labelKey: 'advanced.kinematicAnalysis',
+    { key: 'kinematic',
       isActive: () => !is3D && uiStore.showKinematicPanel,
       close: () => { uiStore.showKinematicPanel = false; } },
-    { key: 'despiece', labelKey: 'advanced.despiece',
+    { key: 'despiece',
       isActive: () => resultsStore.diagramType === 'despiece',
       close: () => { resultsStore.releaseView(is3D); uiStore.despieceInspect = null; } },
-    { key: 'stress', labelKey: 'advanced.sectionAnalysis',
+    { key: 'stress',
       isActive: () => uiStore.currentTool === 'select' && uiStore.selectMode === 'stress',
       close: () => { uiStore.selectMode = 'elements'; resultsStore.stressQuery = null; } },
-    ...(__PUBLIC_FEATURES__.tools ? [{ key: 'mohr', labelKey: 'advanced.mohr',
+    ...(__PUBLIC_FEATURES__.tools ? [{ key: 'mohr',
       isActive: () => mohrPanel.open,
       close: () => closeMohr() }] : []),
-    { key: 'pdelta', labelKey: 'advanced.pdelta',
+    { key: 'pdelta',
       isActive: () => !!(is3D ? resultsStore.pdeltaResult3D : resultsStore.pdeltaResult),
       close: () => (is3D ? resultsStore.clearPDelta3D() : resultsStore.clearPDelta()) },
-    { key: 'buckling', labelKey: 'advanced.buckling',
+    { key: 'buckling',
       isActive: () => !!(is3D ? resultsStore.bucklingResult3D : resultsStore.bucklingResult),
       close: () => (is3D ? resultsStore.clearBuckling3D() : resultsStore.clearBuckling()) },
-    { key: 'modal', labelKey: 'advanced.dynamic',
+    { key: 'modal',
       isActive: () => !!(is3D ? resultsStore.modalResult3D : resultsStore.modalResult),
       close: () => (is3D ? resultsStore.clearModal3D() : resultsStore.clearModal()) },
-    { key: 'plastic', labelKey: 'advanced.plasticCollapse',
+    { key: 'plastic',
       isActive: () => !is3D && !!resultsStore.plasticResult,
       close: () => resultsStore.clearPlastic() },
-    { key: 'trainLoad', labelKey: 'advanced.trainLoad',
+    { key: 'trainLoad',
       isActive: () => !is3D && (!!resultsStore.movingLoadEnvelope || showTrainPanel),
       close: () => { resultsStore.clearMovingLoad(); showTrainPanel = false; selectedTrainIndex = ''; } },
-    { key: 'influenceLine', labelKey: 'advanced.influenceLine',
+    { key: 'influenceLine',
       isActive: () => !is3D && uiStore.currentTool === 'influenceLine',
       close: () => { uiStore.currentTool = 'select'; resultsStore.clearInfluenceLine(); } },
-    { key: 'loadStates', labelKey: 'course.influence.states.title',
+    { key: 'loadStates',
       isActive: () => showLoadStates,
       close: () => { showLoadStates = false; } },
-    { key: 'whatif', labelKey: 'advanced.whatIf',
+    { key: 'whatif',
       isActive: () => uiStore.showWhatIf,
       close: () => { void whatIf.close(); } },
     /* One entry for every explained method: the catalog, a method's document, or one of the two wizards. */
-    { key: 'steps', labelKey: 'steps.catalog.title',
+    { key: 'steps',
       isActive: () => dsmStepsStore.isOpen || fmStepsStore.isOpen || explainedSteps.isOpen,
       close: () => { dsmStepsStore.close(); fmStepsStore.close(); explainedSteps.close(); } },
   ];
@@ -321,12 +247,6 @@
   $effect(() => {
     if (is3D) untrack(() => { showTrainPanel = false; selectedTrainIndex = ''; });
   });
-
-  /** A block is drawn when nothing is running, or when it IS what is running. */
-  function shown(key: string): boolean {
-    if (!flat) return true;
-    return active === null || active.key === key;
-  }
 
   /**
    * A buckling analysis of a model in which no bar is compressed has nothing to
@@ -396,11 +316,6 @@
     const dof = plane ? (DOF_2D[d[0].dof] ?? d[0].dof) : d[0].dof;
     const where = `${t('kin.nodeLC')} ${d[0].nodeId}${DOF_LABEL_KEY[shownDof(dof)] ? `, ${t(DOF_LABEL_KEY[shownDof(dof)])}` : ''}`;
     uiStore.toast(t('advanced.nullModesDiscarded').replace('{n}', String(d.length)).replace('{where}', where), 'info');
-  }
-
-  function toggleAdvHelp(key: string, e: MouseEvent) {
-    e.stopPropagation();
-    advHelpKey = advHelpKey === key ? null : key;
   }
 
   /** Guard for advanced analyses that don't yet expand sliding-joint
@@ -628,407 +543,103 @@
 
 
 
-  /**
-   * `flat` — everything open, no accordions.
-   *
-   * These sections collapse because they used to be stacked in one narrow left
-   * column where five of them competed for the same vertical space. In the
-   * ribbon layout only ONE of them is ever mounted, in a panel that already
-   * names it and that the user can widen, so a disclosure triangle just hides
-   * what they explicitly asked to see.
-   */
-  let { flat = false }: { flat?: boolean } = $props();
+  let {}: { flat?: boolean } = $props();
   let courseReady = $state(false);
   $effect(() => {
-    if ((flat || showAdvanced) && !courseReady) loadCourse().then(() => { courseReady = true; }, () => { courseReady = true; });
+    if (!courseReady) loadCourse().then(() => { courseReady = true; }, () => { courseReady = true; });
   });
+
+  const activeFn = $derived(active ? advFunction(active.key) ?? null : null);
+  const pdR = $derived(is3D ? resultsStore.pdeltaResult3D : resultsStore.pdeltaResult);
+  const moR = $derived(is3D ? resultsStore.modalResult3D : resultsStore.modalResult);
+  const buR = $derived(is3D ? resultsStore.bucklingResult3D : resultsStore.bucklingResult);
+
+  $effect(() => {
+    const id = advancedList.pending;
+    if (!id || !courseReady) return;
+    untrack(() => { advancedList.pending = null; openFunction(id); });
+  });
+
+  /** Start a function from the list; a step-by-step topic opens the catalog at its group. */
+  function openFunction(id: string): void {
+    noteOpening();
+    switch (id) {
+      case 'kinematic': uiStore.showKinematicPanel = true; return;
+      case 'despiece':
+        if (!(is3D ? resultsStore.results3D : resultsStore.results)) { uiStore.toast(t('advanced.calculateFirst'), 'error'); return; }
+        resultsStore.holdView();
+        resultsStore.diagramType = 'despiece';
+        return;
+      case 'stress':
+        if (!resultsStore.results && !resultsStore.results3D) { uiStore.toast(t('advanced.calculateFirst'), 'error'); return; }
+        uiStore.currentTool = 'select';
+        uiStore.selectMode = 'stress';
+        return;
+      case 'mohr': openMohr({ kind: is3D ? 'space' : 'plane' }); return;
+      case 'pdelta': if (is3D) void handlePDelta3D(); else handlePDelta(); return;
+      case 'buckling': if (is3D) void handleBuckling3D(); else handleBuckling(); return;
+      case 'modal': if (is3D) void handleModal3D(); else handleModal(); return;
+      case 'plastic': handlePlastic(); return;
+      case 'influenceLine':
+        if (blockedBySlidingJoints()) return;
+        uiStore.currentTool = 'influenceLine';
+        return;
+      case 'trainLoad': showTrainPanel = true; return;
+      case 'loadStates': showLoadStates = true; return;
+      case 'whatif': whatIf.open(); return;
+      case 'cirsocFlex': showFlex = true; return;
+      case 'steps': openExplainedCatalog(); return;
+    }
+    const topic = advFunction(id)?.stepsGroup;
+    if (topic) openExplainedCatalog(topic);
+  }
 </script>
 
-<div class="toolbar-section" class:flat data-tour="advanced-section" onclickcapture={noteOpening}>
-  {#if !flat}<button class="section-toggle" onclick={() => showAdvanced = !showAdvanced}>
-    {showAdvanced ? '▾' : '▸'} {t('advanced.title')}
-  </button>
-  {/if}
-  {#if flat || showAdvanced}
-  {#snippet helpPanel(key: string)}
-    {#if advHelpKey === key && ADV_HELP[key]}
-      <div class="adv-help-panel" style="grid-column: span 2">
-        <strong>{t(ADV_HELP[key].labelKey)}</strong>
-        <p>{t(ADV_HELP[key].textKey)}</p>
-      </div>
-    {/if}
-  {/snippet}
-  {#if flat && active}
-    <!--
-      The running analysis names itself and carries its own ✕. Section Analysis
-      in particular had no off switch here at all — you had to go up to the
-      ribbon and pick another tool, which is not where you turned it on.
-    -->
-    <!--
-      "Back", not ✕: what the reader wants from here is the list of functions
-      they picked this one from, and an ✕ read as "close the panel".
-    -->
-    <div class="adv-running" data-testid="adv-running" data-adv={active.key}>
-      <button
-        class="adv-running-back"
-        onclick={() => { if (active) closeEntry(active.key); }}
-        title={t('adv.backToList')}
-        aria-label={t('adv.backToList')}
-        data-testid="adv-close"
-      >← {t('adv.back')}</button>
-      <span class="adv-running-name">{t(active.labelKey)}</span>
-    </div>
-  {/if}
-
+<div class="toolbar-section flat" data-tour="advanced-section" onclickcapture={noteOpening}>
   {#if courseReady}
-  <div class="advanced-grid">
-    {#if !(flat && active) && (shown('kinematic') || shown('despiece') || shown('stress') || shown('mohr'))}
-    <!-- How the structure holds together, member by member, and what a section carries. -->
-    <div class="adv-group" style="grid-column: span 2" data-testid="adv-group-structure">{t('advanced.group.structure')}</div>
-    {/if}
-    {#if shown('kinematic')}
-    <!--
-      2D only, and it says so instead of disappearing. In 3D these four rows
-      used to be removed outright, so the panel silently changed length between
-      modes and a user who had used the feature in 2D was left looking for it.
-      Disabled-with-a-reason is what the ribbon does for the same situation.
-    -->
-      {#if !flat || active?.key !== 'kinematic'}
-    <div class="adv-btn-wrap" style="grid-column: span 2">
-      <button class="adv-btn" style="flex:1" disabled={is3D} title={is3D ? t('advanced.only2d') : undefined}
-        class:active={uiStore.showKinematicPanel}
-        data-testid="adv-kinematic"
-        onclick={() => uiStore.showKinematicPanel = !uiStore.showKinematicPanel}>
-        {t('advanced.kinematicAnalysis')}
-      </button>
-      <button class="adv-help-btn" onclick={(e) => toggleAdvHelp('kinematic', e)} class:active={advHelpKey === 'kinematic'}>?</button>
-    </div>
-    {@render helpPanel('kinematic')}
+    {#if active && activeFn}
+      <AdvFunctionHead fn={activeFn} onBack={() => { if (active) closeEntry(active.key); }} />
+      {#if active.key === 'despiece'}<DespieceOptions />{/if}
+      {#if (active.key === 'pdelta' || active.key === 'buckling') && !is3D}
+        <SecondOrderOptions onchange={() => rerunSecondOrder(handlePDelta, handleBuckling)} />
       {/if}
-    {/if}
-    {#if shown('despiece')}
-    <!-- Despiece / member free-body view (Basic 2D + 3D, solver-free overlay) -->
-      {#if !flat || active?.key !== 'despiece'}
-    <div class="adv-btn-wrap" style="grid-column: span 2">
-      <button class="adv-btn" style="flex:1"
-        class:active={resultsStore.diagramType === 'despiece'}
-        onclick={() => {
-          const hasRes = is3D ? resultsStore.results3D : resultsStore.results;
-          if (resultsStore.diagramType === 'despiece') { closeEntry('despiece'); return; }
-          if (!hasRes) { uiStore.toast(t('advanced.calculateFirst'), 'error'); return; }
-          resultsStore.holdView();
-          resultsStore.diagramType = 'despiece';
-        }}>
-        {t('advanced.despiece')}
-      </button>
-      <button class="adv-help-btn" onclick={(e) => toggleAdvHelp('despiece', e)} class:active={advHelpKey === 'despiece'}>?</button>
-    </div>
-    {@render helpPanel('despiece')}
-      {/if}
-    {#if resultsStore.diagramType === 'despiece'}
-      <DespieceOptions />
-    {/if}
-    {/if}
-    {#if shown('stress')}
-      {#if !flat || active?.key !== 'stress'}
-    <div class="adv-btn-wrap" style="grid-column: span 2">
-      <button class="adv-btn" style="flex:1"
-        class:active={uiStore.currentTool === 'select' && uiStore.selectMode === 'stress'}
-        data-testid="adv-stress"
-        onclick={() => {
-          // A toggle, like every other analysis here. It used to be one-way:
-          // it armed a picking mode and the only way back out was to pick a
-          // different tool in the ribbon — not where you turned it on.
-          if (uiStore.currentTool === 'select' && uiStore.selectMode === 'stress') {
-            closeEntry('stress');
-            return;
-          }
-          if (!resultsStore.results && !resultsStore.results3D) { uiStore.toast(t('advanced.calculateFirst'), 'error'); return; }
-          uiStore.currentTool = 'select';
-          uiStore.selectMode = 'stress';
-        }}>
-        {t('advanced.sectionAnalysis')}
-      </button>
-      <button class="adv-help-btn" onclick={(e) => toggleAdvHelp('stress', e)} class:active={advHelpKey === 'stress'}>?</button>
-    </div>
-    {@render helpPanel('stress')}
-      {/if}
-    {/if}
-    {#if __PUBLIC_FEATURES__.tools && shown('mohr')}
-      {#if !flat || active?.key !== 'mohr'}
-    <div class="adv-btn-wrap" style="grid-column: span 2">
-      {#if tools()}
-      <button class="adv-btn" style="flex:1" class:active={mohrPanel.open} data-testid="adv-mohr"
-        onclick={() => { if (mohrPanel.open) closeEntry('mohr'); else openMohr({ kind: is3D ? 'space' : 'plane' }); }}>
-        {t('advanced.mohr')}
-      </button>
-      {/if}
-      <button class="adv-help-btn" onclick={(e) => toggleAdvHelp('mohr', e)} class:active={advHelpKey === 'mohr'}>?</button>
-    </div>
-    {@render helpPanel('mohr')}
-      {/if}
-    {/if}
-    {#if !(flat && active) && (shown('pdelta') || shown('buckling'))}
-    <!-- Second-order analysis and the critical load: the two sides of buckling. -->
-    <div class="adv-group" style="grid-column: span 2" data-testid="adv-group-buckling">{t('advanced.group.buckling')}</div>
-    {/if}
-    {#if shown('pdelta')}
-    <!-- P-Delta & Buckling: available in both 2D and 3D -->
-      {#if !flat || active?.key !== 'pdelta'}
-    <div class="adv-btn-wrap">
-      <button class="adv-btn" class:active={is3D ? !!resultsStore.pdeltaResult3D : !!resultsStore.pdeltaResult}
-        onclick={() => {
-          /* Off puts back the view P-Δ replaced — it does not solve a model nobody solved. */
-          if (is3D ? resultsStore.pdeltaResult3D : resultsStore.pdeltaResult) closeEntry('pdelta');
-          else if (is3D) handlePDelta3D();
-          else handlePDelta();
-        }}>{t('advanced.pdelta')}</button>
-      <button class="adv-help-btn" onclick={(e) => toggleAdvHelp('pdelta', e)} class:active={advHelpKey === 'pdelta'}>?</button>
-    </div>
-      {/if}
-    {/if}
-    {#if shown('buckling')}
-      {#if !flat || active?.key !== 'buckling'}
-    <div class="adv-btn-wrap">
-      <button class="adv-btn" class:active={is3D ? !!resultsStore.bucklingResult3D : !!resultsStore.bucklingResult}
-        onclick={() => {
-          if (is3D ? resultsStore.bucklingResult3D : resultsStore.bucklingResult) closeEntry('buckling');
-          else if (is3D) handleBuckling3D();
-          else handleBuckling();
-        }}>{t('advanced.buckling')}</button>
-      <button class="adv-help-btn" onclick={(e) => toggleAdvHelp('buckling', e)} class:active={advHelpKey === 'buckling'}>?</button>
-    </div>
-      {/if}
-    {@render helpPanel('pdelta')}
-    {@render helpPanel('buckling')}
-    {/if}
-    {#if !is3D && (shown('pdelta') || shown('buckling'))}
-      <SecondOrderOptions onchange={() => rerunSecondOrder(handlePDelta, handleBuckling)} />
-    {/if}
-    {#if !(flat && active) && (shown('modal') || shown('plastic'))}
-    <!-- Beyond the static elastic answer: vibration modes and the plastic collapse. -->
-    <div class="adv-group" style="grid-column: span 2" data-testid="adv-group-dynamics">{t('advanced.group.dynamics')}</div>
-    {/if}
-    {#if shown('modal')}
-    <!-- Modal & Spectral: available in both 2D and 3D -->
-      {#if !flat || active?.key !== 'modal'}
-    <div class="adv-btn-wrap">
-      <button class="adv-btn" class:active={is3D ? !!resultsStore.modalResult3D : !!resultsStore.modalResult}
-        onclick={() => {
-          if (is3D ? resultsStore.modalResult3D : resultsStore.modalResult) closeEntry('modal');
-          else if (is3D) handleModal3D();
-          else handleModal();
-        }}>{t('advanced.dynamic')}</button>
-      <button class="adv-help-btn" onclick={(e) => toggleAdvHelp('modal', e)} class:active={advHelpKey === 'modal'}>?</button>
-    </div>
-      {/if}
-    <!--
-      Spectral analysis is intentionally absent from Basic.
-
-      This button used to run `cirsoc103Spectrum(4, 'II')` — CIRSOC 103,
-      seismic Zone 4, Soil II — with no way to see or change either parameter,
-      and the success toast reported only a base shear. A student anywhere
-      other than that one zone and soil class got a confident, unlabelled,
-      wrong number.
-
-      Basic will get spectral analysis back when it can offer a generic,
-      user-defined spectrum; national-code presets stay in PRO, where zone and
-      soil are already selectable (ProAdvancedTab). The solver entrypoints
-      (`solveSpectral`, `solveSpectral3D`) and the `resultsStore` spectral
-      slots are deliberately left intact for that work.
-    -->
-    {@render helpPanel('modal')}
-    {/if}
-    {#if shown('plastic')}
-    <!-- 2D only; disabled with a reason rather than hidden — see Kinematic above. -->
-      {#if !flat || active?.key !== 'plastic'}
-    <div class="adv-btn-wrap" style="grid-column: span 2">
-      <button class="adv-btn" style="flex:1" disabled={is3D} title={is3D ? t('advanced.only2d') : undefined} class:active={!!resultsStore.plasticResult}
-        onclick={() => {
-          if (resultsStore.plasticResult) closeEntry('plastic');
-          else handlePlastic();
-        }}>{t('advanced.plasticCollapse')}</button>
-      <button class="adv-help-btn" onclick={(e) => toggleAdvHelp('plastic', e)} class:active={advHelpKey === 'plastic'}>?</button>
-    </div>
-    {@render helpPanel('plastic')}
-      {/if}
-    {/if}
-    {#if !(flat && active) && (shown('influenceLine') || shown('trainLoad') || shown('loadStates'))}
-    <!-- A load that travels, and the largest and smallest effects of loads that come and go. -->
-    <div class="adv-group" style="grid-column: span 2" data-testid="adv-group-moving">{t('course.influence.group')}</div>
-    {/if}
-    {#if shown('influenceLine')}
-    <!-- 2D only; disabled with a reason rather than hidden — see Kinematic above. -->
-      {#if !flat || active?.key !== 'influenceLine'}
-    <div class="adv-btn-wrap" style="grid-column: span 2">
-      <button class="adv-btn" style="flex:1" disabled={is3D} title={is3D ? t('advanced.only2d') : undefined}
-        class:active={uiStore.currentTool === 'influenceLine'}
-        onclick={() => {
-          if (uiStore.currentTool === 'influenceLine') {
-            closeEntry('influenceLine');
-            return;
-          }
-          if (blockedBySlidingJoints()) return;
-          uiStore.currentTool = 'influenceLine';
-        }}>
-        {t('advanced.influenceLine')}
-      </button>
-      <button class="adv-help-btn" onclick={(e) => toggleAdvHelp('influenceLine', e)} class:active={advHelpKey === 'influenceLine'}>?</button>
-    </div>
-    {@render helpPanel('influenceLine')}
-      {/if}
-      {#if active?.key === 'influenceLine'}<InfluencePanel />{/if}
-    {/if}
-    {#if shown('trainLoad')}
-    <!-- 2D only; disabled with a reason rather than hidden — see Kinematic above. -->
-      {#if !flat || active?.key !== 'trainLoad'}
-    <div class="adv-btn-wrap" style="grid-column: span 2">
-      <button class="adv-btn" style="flex:1" disabled={is3D} title={is3D ? t('advanced.only2d') : undefined} class:active={!!resultsStore.movingLoadEnvelope}
-        onclick={() => {
-          if (resultsStore.movingLoadEnvelope) closeEntry('trainLoad');
-          else showTrainPanel = !showTrainPanel;
-        }}>
-        {flat ? '' : showTrainPanel ? '▾ ' : '▸ '}{t('advanced.trainLoad')}
-      </button>
-      <button class="adv-help-btn" onclick={(e) => toggleAdvHelp('trainLoad', e)} class:active={advHelpKey === 'trainLoad'}>?</button>
-    </div>
-    {@render helpPanel('trainLoad')}
-      {/if}
-    <!--
-      The train selector is part of running Moving Load, so it appears when
-      Moving Load is running. In the menu it sat permanently under the button —
-      in 3D, under a greyed-out one, offering to configure a run that cannot
-      start.
-    -->
-    {#if (flat && !is3D && active?.key === 'trainLoad') || (!flat && showTrainPanel)}
-      <div class="envelope-sub-panel" style="grid-column: span 2">
-        {#if resultsStore.movingLoadRunning}
-          <div class="moving-load-progress">
-            <div class="progress-bar-container">
-              <div class="progress-bar-fill" style="width: {resultsStore.movingLoadProgress ? (resultsStore.movingLoadProgress.current / Math.max(resultsStore.movingLoadProgress.total, 1) * 100) : 0}%"></div>
+      {#if active.key === 'influenceLine'}<InfluencePanel />{/if}
+      {#if active.key === 'trainLoad' && !is3D}
+        <div class="envelope-sub-panel">
+          {#if resultsStore.movingLoadRunning}
+            <div class="moving-load-progress">
+              <div class="progress-bar-container">
+                <div class="progress-bar-fill" style="width: {resultsStore.movingLoadProgress ? (resultsStore.movingLoadProgress.current / Math.max(resultsStore.movingLoadProgress.total, 1) * 100) : 0}%"></div>
+              </div>
+              <div class="progress-info">
+                <span class="progress-text">
+                  {resultsStore.movingLoadProgress?.current ?? 0}/{resultsStore.movingLoadProgress?.total ?? '?'} {t('advanced.positions')}
+                </span>
+                <button class="cancel-btn" onclick={() => resultsStore.cancelMovingLoad()}>
+                  {t('advanced.cancelBtn')}
+                </button>
+              </div>
             </div>
-            <div class="progress-info">
-              <span class="progress-text">
-                {resultsStore.movingLoadProgress?.current ?? 0}/{resultsStore.movingLoadProgress?.total ?? '?'} {t('advanced.positions')}
-              </span>
-              <button class="cancel-btn" onclick={() => resultsStore.cancelMovingLoad()}>
-                {t('advanced.cancelBtn')}
-              </button>
-            </div>
-          </div>
-        {:else}
-          <div class="adv-btn-wrap">
-            <select class="adv-select" bind:value={selectedTrainIndex} onchange={() => { if (selectedTrainIndex !== '') { handleMovingLoad(Number(selectedTrainIndex)); } }}>
+          {:else}
+            <select class="adv-select" bind:value={selectedTrainIndex} aria-label={t('advanced.selectTrain')} data-testid="adv-train-select"
+              onchange={() => { if (selectedTrainIndex !== '') { handleMovingLoad(Number(selectedTrainIndex)); } }}>
               <option value="">{t('advanced.selectTrain')}</option>
               {#each getPredefinedTrains() as train, i}
                 <option value={String(i)}>{train.name}</option>
               {/each}
             </select>
-          </div>
-        {/if}
-      </div>
-    {/if}
-    {/if}
-    {#if shown('loadStates')}
-      {#if !flat || active?.key !== 'loadStates'}
-    <div class="adv-btn-wrap" style="grid-column: span 2">
-      <button class="adv-btn" style="flex:1" class:active={showLoadStates} data-testid="adv-load-states"
-        onclick={() => { if (showLoadStates) closeEntry('loadStates'); else showLoadStates = true; }}>
-        {t('course.influence.states.title')}
-      </button>
-      <button class="adv-help-btn" onclick={(e) => toggleAdvHelp('loadStates', e)} class:active={advHelpKey === 'loadStates'}>?</button>
-    </div>
-    {@render helpPanel('loadStates')}
+          {/if}
+        </div>
       {/if}
-      {#if showLoadStates}
+      {#if active.key === 'loadStates'}
         <LoadStatesPanel onInfluence={() => { showLoadStates = false; if (!is3D && !blockedBySlidingJoints()) uiStore.currentTool = 'influenceLine'; }} />
       {/if}
+      {#if active.key === 'cirsocFlex'}<div class="adv-flex-body"><CirsocFlexPanel /></div>{/if}
+    {:else}
+      <AdvancedLauncher onOpen={openFunction} />
     {/if}
-    {#if !(flat && active) && (shown('whatif') || shown('steps'))}
-    <!-- Changing the model live, and each method solved step by step. -->
-    <div class="adv-group" style="grid-column: span 2" data-testid="adv-group-learn">{t('advanced.group.learn')}</div>
-    {/if}
-    {#if shown('whatif')}
-      {#if !flat || active?.key !== 'whatif'}
-    <div class="adv-btn-wrap" style="grid-column: span 2">
-        <button class="adv-btn" style="flex:1"
-          class:active={uiStore.showWhatIf}
-          onclick={() => {
-            /*
-             * No "calculate first" and no sliding-joint refusal: Explore turns
-             * live calc on, which solves the model — sliders and all — as it
-             * opens, and says so in the panel if it cannot.
-             */
-            if (uiStore.showWhatIf) void whatIf.close(); else whatIf.open();
-          }}
-        >
-          {uiStore.showWhatIf ? '\u2715 ' + t('advanced.closeExplorer') : t('advanced.whatIf')}
-        </button>
-        <button class="adv-help-btn" onclick={(e) => toggleAdvHelp('whatif', e)} class:active={advHelpKey === 'whatif'}>?</button>
-      </div>
-      {@render helpPanel('whatif')}
-      {/if}
-    {/if}
-    {#if shown('steps')}
-      {#if !flat || active?.key !== 'steps'}
-    <!-- Every explained method behind one entry: the catalog lists them by group. -->
-    <div class="adv-btn-wrap" style="grid-column: span 2">
-      <button class="adv-btn" style="flex:1" data-testid="adv-steps"
-        class:active={dsmStepsStore.isOpen || fmStepsStore.isOpen || explainedSteps.isOpen}
-        onclick={openExplainedCatalog}>
-        {t('steps.catalog.button')}
-      </button>
-      <button class="adv-help-btn" onclick={(e) => toggleAdvHelp('steps', e)} class:active={advHelpKey === 'steps'}>?</button>
-    </div>
-    {@render helpPanel('steps')}
-      {/if}
-    {/if}
-
-    <!--
-      Enabled whatever the model is doing — which is NOT the same as being
-      outside the accordion.
-      ──────────────────────────────────────────────────────────────────
-      The entries above are greyed until the model can support them: solved,
-      3D, enough members. This one needs none of that — it is a calculator
-      whose inputs are typed, and greying it out because the canvas is empty
-      would hide the tool exactly when it is most useful. That reasoning is
-      about the DISABLED state and it still holds.
-
-      It was also written outside `shown()`, and that part was a conflation.
-      Every other entry hides while another analysis is running, so the panel
-      shows one thing at a time; this one stayed visible underneath whatever
-      you had opened, looking like a stray disclosure rather than a function
-      you enter.
-    -->
-    {#if !(flat && active) && (shown('cirsocFlex'))}
-    <!-- Designing a section to a code. -->
-    <div class="adv-group" style="grid-column: span 2" data-testid="adv-group-design">{t('advanced.group.design')}</div>
-    {/if}
-    {#if shown('cirsocFlex')}
-      {#if !flat || active?.key !== 'cirsocFlex'}
-        <div class="adv-btn-wrap">
-          <button class="adv-btn" style="flex:1" class:active={showFlex} data-testid="adv-flex"
-            onclick={() => (showFlex = !showFlex)}>
-            {t('flex.title')}
-            <span class="adv-beta">{t('flex.beta')}</span>
-          </button>
-          <!-- Every other entry explains itself here; this one was the only
-               button in the panel with no way to ask what it does. -->
-          <button class="adv-help-btn" onclick={(e) => toggleAdvHelp('cirsocFlex', e)}
-            class:active={advHelpKey === 'cirsocFlex'}>?</button>
-        </div>
-        {@render helpPanel('cirsocFlex')}
-      {/if}
-      {#if showFlex}
-        <div class="adv-flex-body"><CirsocFlexPanel /></div>
-      {/if}
-    {/if}
-  </div>
   {/if}
-  {#each (is3D ? resultsStore.knownIssues3D : resultsStore.knownIssues).messages as message}<p role="alert">{message}</p>{/each}
-  {@const pdR = is3D ? resultsStore.pdeltaResult3D : resultsStore.pdeltaResult}
-  {@const moR = is3D ? resultsStore.modalResult3D : resultsStore.modalResult}
-  {@const buR = is3D ? resultsStore.bucklingResult3D : resultsStore.bucklingResult}
+  {#each (is3D ? resultsStore.knownIssues3D : resultsStore.knownIssues).messages as message}<p class="adv-known" role="alert">{message}</p>{/each}
   {#if pdR}
     <PDeltaSummary result={pdR} />
     <PDeltaCertificate result={pdR} />
@@ -1052,10 +663,10 @@
         {#if is3D}
           {@const m3 = mode as { massRatioZ?: number }}
           {@const r3 = moR as { cumulativeMassRatioZ?: number }}
-          Meff: {ratiosText([mode.massRatioX, mode.massRatioY, m3.massRatioZ ?? 0], true, 1, ' ')} |
+          M<sub>eff</sub>: {ratiosText([mode.massRatioX, mode.massRatioY, m3.massRatioZ ?? 0], true, 1, ' ')} |
           Σ: {ratiosText([moR.cumulativeMassRatioX, moR.cumulativeMassRatioY, r3.cumulativeMassRatioZ ?? 0], true, 1, ' ')}
         {:else}
-          Meff: {ratiosText([mode.massRatioX, 0, mode.massRatioY], false, 1, ' ')} |
+          M<sub>eff</sub>: {ratiosText([mode.massRatioX, 0, mode.massRatioY], false, 1, ' ')} |
           Σ: {ratiosText([moR.cumulativeMassRatioX, 0, moR.cumulativeMassRatioY], false, 1, ' ')}
         {/if}
       </div>
@@ -1070,7 +681,7 @@
       <button class="small-btn" onclick={() => { if (buR && resultsStore.activeBucklingMode < buR.modes.length - 1) resultsStore.activeBucklingMode++; }} disabled={!buR || resultsStore.activeBucklingMode >= buR.modes.length - 1}>&#9654;</button>
     </div>
     <div class="adv-result-info">
-      &lambda;_cr = {buR.modes[resultsStore.activeBucklingMode]?.loadFactor.toFixed(3) ?? '—'}
+      λ<sub>cr</sub> = {buR.modes[resultsStore.activeBucklingMode]?.loadFactor.toFixed(3) ?? '—'}
     </div>
     <BucklingCertificate certificate={buR.certificate} />
     <BucklingDetails result={buR} />
@@ -1108,7 +719,6 @@
       </button>
     {/if}
   {/if}
-  {/if}
 </div>
 
 <style>
@@ -1118,51 +728,6 @@
     gap: 0.5rem;
   }
 
-  .section-toggle {
-    width: 100%;
-    padding: 0.4rem 0.5rem;
-    background: none;
-    border: 1px solid var(--st-hair);
-    border-radius: 4px;
-    color: var(--st-text-2);
-    cursor: pointer;
-    font-size: 0.75rem;
-    font-weight: 600;
-    text-align: left;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    transition: all 0.2s;
-  }
-
-  .section-toggle:hover {
-    background: var(--st-bg);
-    color: var(--st-text);
-    border-color: var(--st-hair-strong);
-  }
-
-  .advanced-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0.25rem;
-  }
-
-  /*
-     One column in the right panel.
-     ─────────────────────────────
-     The two-column grid was built for the old left sidebar, where the section
-     was a short accordion and pairing P-Δ with Pcr saved vertical space. In the
-     right panel it produced a ragged list: most analyses carry
-     `grid-column: span 2` inline and take a full row, four do not, and each row
-     also ends in a round help button — so the panel showed full-width rows,
-     half-width rows and help buttons landing at three different x positions.
-
-     Flex, not a one-column grid: `grid-column: span 2` is set inline on most of
-     these rows, and in a single-column grid a span of 2 does not clamp — it
-     creates an implicit second column, which is how the ragged layout survived
-     the first attempt at this. `display: flex` makes those inline declarations
-     inert without touching sixty of them, and every child stretches to the
-     panel width on its own. Thirteen analyses read better as a list anyway.
-  */
   .adv-withheld {
     margin: 6px 0;
     padding: 8px 10px;
@@ -1173,178 +738,14 @@
     overflow-wrap: anywhere;
   }
   .adv-withheld p { margin: 0 0 6px; }
+  .adv-known { margin: 0; padding: 6px 8px; border-left: 2px solid var(--st-amber, var(--st-accent)); font-size: 0.74rem; line-height: 1.4; color: var(--st-text-2); overflow-wrap: anywhere; }
   .adv-withheld a { display: inline-block; min-height: 24px; color: var(--st-accent); }
-  .adv-running {
-    display: flex;
-    align-items: center;
-    justify-content: flex-start;
-    gap: 0.5rem;
-    padding: 0.35rem 0 0.45rem;
-    margin-bottom: 0.5rem;
-    border-bottom: 1px solid var(--st-hair);
-  }
 
-  .adv-running-name {
-    font-family: var(--st-mono);
-    font-size: 0.68rem;
-    letter-spacing: 0.11em;
-    text-transform: uppercase;
-    color: var(--st-accent);
-  }
 
-  .adv-running-back {
-    flex: none;
-    background: none;
-    border: 1px solid var(--st-hair-strong);
-    color: var(--st-text-2);
-    font-family: inherit;
-    font-size: 0.66rem;
-    line-height: 1;
-    padding: 0.28rem 0.5rem;
-    cursor: pointer;
-    border-radius: var(--st-radius);
-  }
-
-  .adv-running-back:hover { border-color: var(--st-accent); color: var(--st-accent); }
-
-  .flat .advanced-grid {
-    display: flex;
-    flex-direction: column;
-    gap: 0.3rem;
-  }
-
-  /* Sub-controls belong to the analysis above them, and should look it. */
-  .flat .envelope-sub-panel,
-  .flat .il-sub-panel {
-    margin-left: 0.6rem;
-    padding-left: 0.6rem;
-    border-left: 2px solid var(--st-hair);
-  }
-
-  /* ── The beta marker ─────────────────────────────────────────────
-     Small enough to read as a footnote on the label rather than a second
-     word in it, and in `--st-text-3` so it never competes with the name.
-     It states maturity, not danger: the tool works, and it has not been
-     through as many hands as the rest of this list.
-     ─────────────────────────────────────────────────────────────── */
-  .adv-beta {
-    margin-left: 0.35rem;
-    font-size: 0.55rem;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--st-text-3);
-    vertical-align: 0.15em;
-  }
-
-  /* Indented under its button, the way the kinematic report is. */
   .adv-flex-body {
     margin: 0.3rem 0 0.2rem;
     padding: 0.5rem 0.6rem;
     border-left: 2px solid var(--st-hair-strong);
-  }
-
-  .adv-btn-wrap {
-    display: flex;
-    align-items: stretch;
-    gap: 4px;
-  }
-
-  /*
-     A command, styled like the rest of the application's commands. These were
-     cyan on a raised block, which is the palette for a computed value, so a
-     column of thirteen buttons read as a column of results.
-  */
-  .adv-btn {
-    padding: 0.4rem 0.55rem;
-    min-height: 30px;
-    border: 1px solid var(--st-hair);
-    border-radius: var(--st-radius);
-    background: none;
-    color: var(--st-text-2);
-    font-family: var(--st-sans);
-    font-size: 0.76rem;
-    cursor: pointer;
-    text-align: left;
-    flex: 1;
-    transition: background 0.12s, color 0.12s, border-color 0.12s;
-  }
-
-  .adv-btn:hover {
-    background: var(--st-surface-3);
-    color: white;
-  }
-
-  .adv-btn:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-  }
-
-  .adv-btn.active {
-    background: var(--st-surface-3);
-    color: var(--st-value);
-    border-color: var(--st-interactive);
-  }
-
-  .adv-btn:hover:not(:disabled) {
-    background: var(--st-surface-3);
-    color: var(--st-text);
-    border-color: var(--st-hair-strong);
-  }
-
-  .adv-help-btn {
-    width: 20px;
-    min-width: 20px;
-    padding: 0;
-    border: 1px solid var(--st-hair-strong);
-    border-radius: 50%;
-    background: var(--st-surface-2);
-    color: var(--st-text-3);
-    font-size: 0.65rem;
-    font-weight: 700;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s;
-    flex-shrink: 0;
-  }
-
-  .adv-help-btn:hover,
-  .adv-help-btn.active {
-    background: var(--st-accent);
-    color: var(--st-text-on-accent);
-    border-color: var(--st-interactive);
-  }
-
-  .adv-group {
-    margin-top: 0.35rem;
-    padding-bottom: 0.15rem;
-    border-bottom: 1px solid var(--st-hair);
-    font-size: 0.66rem;
-    font-weight: 600;
-    letter-spacing: 0.07em;
-    text-transform: uppercase;
-    color: var(--st-accent);
-  }
-
-  .adv-help-panel {
-    padding: 6px 8px;
-    background: rgba(127, 212, 204, 0.08);
-    border: 1px solid rgba(127, 212, 204, 0.3);
-    border-radius: 6px;
-    font-size: 0.7rem;
-    line-height: 1.4;
-    color: var(--st-text);
-  }
-
-  .adv-help-panel strong {
-    color: var(--st-value);
-    font-size: 0.72rem;
-  }
-
-  .adv-help-panel p {
-    margin: 4px 0 0;
-    color: var(--st-text-2);
   }
 
   .envelope-sub-panel {

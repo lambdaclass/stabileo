@@ -56,14 +56,16 @@ describe('Basic cannot launch the hardcoded CIRSOC spectrum', () => {
     expect(code).not.toContain('setSpectralResult');
   });
 
-  it('the spectral button is gone from the Basic advanced panel', () => {
+  it('the spectral entry is gone from the Basic advanced panel', () => {
     const code = read('../../../components/toolbar/ToolbarAdvanced.svelte');
+    const catalog = read('../../advanced/catalog.ts');
     // Other advanced actions are untouched — this is a targeted removal.
-    expect(code).toContain("t('advanced.pdelta')");
-    expect(code).toContain("t('advanced.buckling')");
-    expect(code).toContain("t('advanced.dynamic')");
-    expect(code).not.toContain("t('advanced.spectral')");
-    expect(code).not.toContain("t('advanced.spectralLabel')");
+    for (const key of ['advanced.pdelta', 'advanced.buckling', 'advanced.dynamic']) expect(catalog).toContain(`'${key}'`);
+    for (const source of [code, catalog]) {
+      expect(source).not.toContain("'advanced.spectral'");
+      expect(source).not.toContain("'advanced.spectralLabel'");
+      expect(source).not.toMatch(/id: 'spectral'/);
+    }
   });
 
   it('the solver entrypoints are preserved for the future generic selector', async () => {

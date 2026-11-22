@@ -8,7 +8,6 @@
   import { modelStore, uiStore, resultsStore } from '../../lib/store';
   import { fmtQ, unitQ, fmtCoord } from '../../lib/store/display-units.svelte';
   import { bucklingConvergence, type BucklingConvergenceRow, type BucklingInfo } from '../../lib/engine/second-order/run-buckling';
-  import { openSecondOrderSteps } from '../../lib/actions/second-order';
 
   let { result }: { result: any } = $props();
   const K = 'course.second-order.bk';
@@ -93,7 +92,6 @@
       {#if convError}<p class="bk-note" data-testid="buckling-convergence-error">{convError}</p>{/if}
     {/if}
   </details>
-  <button class="small-btn bk-steps" onclick={() => openSecondOrderSteps(info.settings.method === 'phi' ? 'so-buckling-phi' : 'so-buckling-kg', info.settings)} data-testid="buckling-open-steps">{t('course.second-order.pd.openSteps')}</button>
 {/if}
 
 <style>
@@ -109,5 +107,4 @@
   .bk-table tr.now td { color: var(--st-accent); font-weight: 600; }
   .bk-table tr.phi td { color: var(--st-accent); }
   .bk-pick { background: none; border: none; padding: 0 0.2rem; color: inherit; cursor: pointer; font: inherit; text-decoration: underline dotted; }
-  .bk-steps { margin: 0.3rem 0 0 0.25rem; }
 </style>
