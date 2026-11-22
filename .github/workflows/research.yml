@@ -380,8 +380,10 @@ jobs:
         run: rustup show active-toolchain || rustup toolchain install
       - name: Fetch Rust dependencies
         run: bash "$GITHUB_WORKSPACE/.github/scripts/retry-infra.sh" cargo fetch --locked
-      - name: Buckling, energy derivatives and every replay frame
+      - name: Buckling, energy derivatives, Koiter slope and every replay frame; writes VALIDATION.json
         run: cargo test --release --locked -- --nocapture
+      - name: Every validation check passes
+        run: python3 -I -c "import json, sys; c = json.load(open('VALIDATION.json'))['checks']; sys.exit(len(c) != 12 or not all(x['passed'] for x in c))"
   form-finding:
     if: ${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name == 'schedule') }}
     name: Four-cable FDM (Pastrana 2026) validation

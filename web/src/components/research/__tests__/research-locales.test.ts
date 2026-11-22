@@ -10,6 +10,7 @@ import { translations as riser } from '../gayNeto2014/strings';
 import { translations as shape } from '../feher2026/strings';
 import { translations as heyman } from '../heyman1966/strings';
 import { translations as cqc } from '../cqc1981/strings';
+import { translations as ferrari } from '../ferrari2025/strings';
 import { strings as dadeppo } from '../dadeppo1975/i18n';
 import { translations as fairclough } from '../fairclough2026/translations';
 import { springTranslations } from '../grossman2026/translations';
@@ -45,7 +46,7 @@ const DICTIONARIES: Record<string, object[]> = {
   '/research/benchmarks/cqc-1981': [cqc],
   '/research/benchmarks/dadeppo-arch-1975': [dadeppo],
   '/research/optimisation/fairclough-2026': [fairclough],
-  '/research/stability/ferrari-sigmund-2025': [STRINGS],
+  '/research/stability/ferrari-sigmund-2025': [ferrari],
   '/research/metamaterials/grossman-2026': [either(STRINGS, springTranslations)],
   '/research/benchmarks/lee-frame-1968': [lee],
   '/research/benchmarks/macneal-harder-1985': [macneal],

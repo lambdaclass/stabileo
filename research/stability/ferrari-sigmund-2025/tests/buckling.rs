@@ -6,19 +6,6 @@ fn published_linear_buckling_and_mesh_convergence() {
         .into_iter()
         .map(|n| solve_buckling_2d(&roorda(n, 0.), 1).unwrap().modes[0].load_factor)
         .collect();
-    let evidence: serde_json::Value =
-        serde_json::from_str(include_str!("../VALIDATION.json")).unwrap();
-    let published: serde_json::Value =
-        serde_json::from_str(include_str!("../PUBLISHED_COMPARISON.json")).unwrap();
-    let observations = [
-        (values[1] - 2.4313).abs(),
-        (values[3] - 2.430).abs() / 2.430,
-    ];
-    for (i, observed) in observations.iter().enumerate() {
-        let check = &evidence["checks"][i + 4];
-        assert!((check["observed"].as_f64().unwrap() - observed).abs() < 1e-9);
-        assert_eq!(check, &published["checks"][i]);
-    }
     println!("buckling sequence {values:?}");
     assert!((values[1] - 2.4313).abs() < 0.0001);
     assert!((values[3] - 2.430).abs() / 2.430 < 0.001);

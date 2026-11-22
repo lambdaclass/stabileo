@@ -16,7 +16,7 @@ const PUBLISHED: Record<string, readonly string[]> = {
   '/research/optimisation/fairclough-2026': ALL,
   '/research/stability/feher-sipos-varkonyi-2026': BASE,
   '/research/mechanics/heyman-1966': ALL,
-  '/research/stability/ferrari-sigmund-2025': BASE,
+  '/research/stability/ferrari-sigmund-2025': ALL,
   '/research/metamaterials/grossman-2026': ALL,
   '/research/benchmarks/lee-frame-1968': ALL,
   '/research/benchmarks/macneal-harder-1985': ALL,

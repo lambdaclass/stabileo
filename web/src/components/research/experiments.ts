@@ -23,8 +23,8 @@ export const EXPERIMENTS: Experiment[] = [
   {
     paperId: 'ferrari-2025',
     path: '/research/stability/ferrari-sigmund-2025',
-    name: 'Roorda frame: reproduction in progress',
-    hook: 'Production buckling and an imperfect nonlinear path. The Koiter coefficient comparison is unfinished.',
+    name: 'Roorda frame: critical load and post-buckling slope',
+    hook: 'Production buckling and the slope of the post-buckling path against the paper; the curvature does not agree.',
     thumbnail: 'research-thumbs/ferrari-sigmund-2025.svg',
     thumbnailAlt: 'Geometry schematic: two perpendicular one-metre members of the Roorda frame, pinned at their outer ends',
     thumbnailQuery: '',

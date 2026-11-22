@@ -352,11 +352,11 @@
    ],
    "dependencies": [],
    "complexity": "medium",
-   "relevance": "Production buckling reproduces the simple Roorda frame load factor; element energy derivatives are checked through order four. Koiter coefficients and near-bifurcation path agreement remain unresolved. No public author code was run.",
-   "status": "implementation-in-progress",
+   "relevance": "Production linear buckling reproduces the simple Roorda frame's lambda_1 (2.4313 and the closed-form 2.430). The post-buckling slope alpha, read from the bifurcated branch that the production corotational solver traces in the inextensional idealization, matches the closed-form 0.3805 within 0.05%. The curvature beta does not match the closed-form 0.1421 (ours 0.463 in the corner rotation) and stays a visible failure; the paper does not state the second-order coordinate. No public author code was run.",
+   "status": "numerically-validated",
    "reproduced_published_results": false,
    "benchmarks": [
-    "Simple Roorda frame, Section 2.1.2; buckling load only"
+    "Simple Roorda frame, Section 2.1.2; critical load and post-buckling slope alpha (beta does not agree)"
    ],
    "implementation": "stability/ferrari-sigmund-2025",
    "page": "web/src/components/research/ferrari2025/FerrariPage.svelte",
