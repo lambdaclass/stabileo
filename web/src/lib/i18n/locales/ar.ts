@@ -1,6 +1,11 @@
 import type { Translations } from '../types';
 
 const ar: Translations = {
+  'svc.accountingMismatch': "رُفض التحليل. حالة الحمل {case}، المركبة {component}. المُدخل {entered}، المُجمّع {assembled}.",
+  'svc.accountingUnsupported': "رُفض التحليل. لا يمكن حساب قوى وعزوم {kind} {id} في حالة الحمل {case}.",
+  'svc.accountingArea': "رُفض التحليل. مساحة اللوح {plate} أو حدوده مختلفة في نموذج الحل. المساحة المحددة {entered}، والمساحة المجمّعة {assembled}.",
+  'svc.accountingSweep': "رُفض التحليل. مسار الحافة القوسية للوح {plate} مختلف في نموذج الحل. المساحة المحددة {entered}، والمساحة المجمّعة {assembled}.",
+  'svc.accountingShellEdits': "لا يمكن إعادة تشبيك اللوح {plate} لأن ذلك سيحذف إزاحة القشرة أو تعديل انحنائها.",
   "plates.remeshAmbiguousSweep": "القوس عند الحافة المنحنية للوحة {name} غير محدد بوضوح. تحقق من النقطة الوسطية وأي عضو منحني بين نقطتي النهاية قبل إعادة إنشاء الشبكة.",
   "plates.remeshShellEdits": "يتعذر استبدال شبكة {name} لأن تعديلات إزاحة عناصر القشرة أو انحنائها لا يمكن نقلها بدقة.",
   'loadPlan.gravity.coveragePrecision': "تتجاوز إحداثيات تغطية القشريات دقة فواصل العناصر المدعومة.",

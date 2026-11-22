@@ -7,7 +7,9 @@
 import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import { modelStore } from '../../store/model.svelte';
 import '../../store/index';
-import { initSolver } from '../wasm-solver';
+import { initSolver, solvePDelta3D } from '../wasm-solver';
+import { runDirectAnalysis } from '../direct-analysis';
+import { loadAccounting3D } from '../load-accounting';
 import { evaluateDiagramAt } from '../diagrams-3d';
 import { checkModel } from '../model-diagnostics';
 
@@ -54,6 +56,73 @@ function beamCarriesThePrimaryOnly(r: ReturnType<typeof solve>, beam: number, co
     expect(Math.abs(evaluateDiagramAt(fc, 'axial', t))).toBeLessThan(1e-6);
   }
 }
+
+function simplySupportedTendon(eccentricity = e0) {
+  const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(L, 0, 0);
+  const member = modelStore.addElement(a, b, 'frame');
+  modelStore.addSupport(a, 'pinned3d');
+  modelStore.addSupport(b, 'custom3d', undefined, { dofRestraints: { ...ONLY_TZ, ty: true, rx: true } });
+  straight(member, eccentricity);
+  return { a, member };
+}
+
+it('#2470 solves the straight eccentric tendon through 3D analysis entry points', async () => {
+  const { member } = simplySupportedTendon();
+  const factor = 0.25;
+  const id = modelStore.addCombination('Factored tendon', [{ caseId: 1, factor }]);
+  const check = (result: ReturnType<typeof modelStore.solve3D>, label: string, factor: number, linear: boolean) => {
+    expect.soft(result, label).toMatchObject({ reactions: expect.any(Array), elementForces: expect.any(Array) });
+    if (!result || typeof result === 'string') return;
+    expect(result.reactions).toHaveLength(2);
+    noReactions(result);
+    const forces = result.elementForces.find(x => x.elementId === member)!;
+    expect(evaluateDiagramAt(forces, 'axial', 0.5)).toBeCloseTo(-factor * P, 5);
+    if (linear) expect(Math.abs(evaluateDiagramAt(forces, 'momentY', 0.3))).toBeCloseTo(factor * P * e0, 5);
+  };
+  const checkCombination = (bundle: ReturnType<typeof modelStore.solveCombinations3D>, label: string, linear: boolean) =>
+    check(bundle && typeof bundle === 'object' ? bundle.perCombo.get(id) ?? null : bundle, label, factor, linear);
+
+  check(modelStore.solve3D(false, false, true), 'linear', 1, true);
+  check(await modelStore.solve3DAsync(false, false, true), 'async linear', 1, true);
+  checkCombination(modelStore.solveCombinations3D(false, false, true), 'linear combination', true);
+  checkCombination(await modelStore.solveCombinations3DParallel(false, false, true), 'parallel linear combination', true);
+  expect.soft(modelStore.singleSolveInput3D(false, false, true), 'single solve input').toMatchObject({ dim: '3d' });
+  try {
+    check(solvePDelta3D(modelStore.buildSolverInput3D()!).results, 'P-Delta', 1, false);
+  } catch (err) {
+    expect.soft(err, 'P-Delta').toBeUndefined();
+  }
+  modelStore.setAnalysis({ perCombination: 'pdelta' });
+  checkCombination(modelStore.solveCombinations3D(false, false, true), 'P-Delta combination', false);
+  checkCombination(await modelStore.solveCombinations3DParallel(false, false, true), 'parallel P-Delta combination', false);
+
+  const model = modelStore.model;
+  const direct = await runDirectAnalysis(model, model.loadCases, model.combinations.filter(c => c.id === id), {
+    includeSelfWeight: false,
+    settings: { notional: 0, tauB: 'iterate' },
+  });
+  check(typeof direct === 'object' ? direct.perCombo.get(id) ?? null : direct, 'direct analysis', factor, false);
+});
+
+it('#2470 bounds a zero-total tendon component by its cancelling terms', () => {
+  const eccentricity = 1 / 8;
+  const { a } = simplySupportedTendon(eccentricity);
+  const model = modelStore.model;
+  const input = modelStore.buildSolverInput3D()!;
+  const accounting = loadAccounting3D(model, input, false, false, new Map(), true);
+  const anchor = input.loads.find(load => load.type === 'nodal' && load.data.nodeId === a);
+  if (anchor?.type !== 'nodal') throw new Error('Missing tendon anchor');
+
+  const scale = 16 * P * eccentricity / L;
+  expect(() => accounting.verify(1, model.loads, input.loads)).not.toThrow();
+  anchor.data.fz = 127 * Number.EPSILON * scale;
+  expect.soft(() => accounting.verify(1, model.loads, input.loads)).not.toThrow();
+  anchor.data.fz = 129 * Number.EPSILON * scale;
+  expect(() => accounting.verify(1, model.loads, input.loads)).toThrow(/Analysis refused.*Fz/);
+  anchor.data.fz = 0;
+  anchor.data.fy = Number.EPSILON * scale;
+  expect(() => accounting.verify(1, model.loads, input.loads)).toThrow(/Analysis refused.*Fy/);
+});
 
 describe('a tendon on a statically determinate structure moves no support', () => {
   it('a simply supported beam: M = P·e all along, N = −P, no reactions', () => {

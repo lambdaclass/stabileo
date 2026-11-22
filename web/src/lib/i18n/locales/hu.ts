@@ -1,6 +1,11 @@
 import type { Translations } from '../types';
 
 const hu: Translations = {
+  'svc.accountingMismatch': "A számítás elutasítva. {case} tehereset, {component}. Megadott érték {entered}, összeállított érték {assembled}.",
+  'svc.accountingUnsupported': "A számítás elutasítva. A(z) {case} teheresetben a(z) {kind} {id} erői és nyomatékai nem ellenőrizhetők.",
+  'svc.accountingArea': "A számítás elutasítva. A(z) {plate} lemez területe vagy határa eltér a számítási modellben. Megadott terület {entered}, összeállított terület {assembled}.",
+  'svc.accountingSweep': "A számítás elutasítva. A(z) {plate} lemez íves éle eltér a számítási modellben. Megadott terület {entered}, összeállított terület {assembled}.",
+  'svc.accountingShellEdits': "A(z) {plate} lemez nem hálózható újra, mert elveszne egy héjeltolás vagy a héj görbületének módosítása.",
   'xls.col.loadAngle': "A rúdon ható teher szöge a kiválasztott rendszerben.",
   'xls.col.axialPoint': "Pontszerű erő a rúd tengelye mentén.",
   'xls.col.qxi': "Az X irányú megoszló teher a rúd elején.",

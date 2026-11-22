@@ -1,6 +1,11 @@
 import type { Translations } from '../types';
 
 const zh: Translations = {
+  'svc.accountingMismatch': "分析已拒绝。荷载工况 {case}，分量 {component}。输入值 {entered}，组装值 {assembled}。",
+  'svc.accountingUnsupported': "分析已拒绝。无法核算荷载工况 {case} 中 {kind} {id} 的力和力矩。",
+  'svc.accountingArea': "分析已拒绝。求解器中板 {plate} 的面积或边界不同。指定面积 {entered}，组装面积 {assembled}。",
+  'svc.accountingSweep': "分析已拒绝。求解器中板 {plate} 的弧边走向不同。指定面积 {entered}，组装面积 {assembled}。",
+  'svc.accountingShellEdits': "无法重新划分板 {plate} 的网格，否则会丢失壳单元偏移或曲率修改。",
   "underAudit.text": "审核中：内部审查发现自动荷载生成和钢筋混凝土设计存在错误，修复仍在进行中。在设计中使用这些结果之前，请独立核对。",
   "underAudit.details": "未结的审核问题",
   "steps.catalog.button": "分步讲解",

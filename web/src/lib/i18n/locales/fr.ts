@@ -1,6 +1,11 @@
 import type { Translations } from '../types';
 
 const fr: Translations = {
+  'svc.accountingMismatch': "Analyse refusée. Cas de charge {case}, {component}. Valeur saisie {entered}, valeur assemblée {assembled}.",
+  'svc.accountingUnsupported': "Analyse refusée. Les forces et les moments de {kind} {id} dans le cas de charge {case} ne peuvent pas être comptabilisés.",
+  'svc.accountingArea': "Analyse refusée. La plaque {plate} a une aire ou un contour différent dans le solveur. Aire spécifiée {entered}, aire assemblée {assembled}.",
+  'svc.accountingSweep': "Analyse refusée. L’arc du bord de la plaque {plate} suit un autre tracé dans le solveur. Aire spécifiée {entered}, aire assemblée {assembled}.",
+  'svc.accountingShellEdits': "La plaque {plate} ne peut pas être remaillée, car un décalage ou une modification de courbure de coque serait perdu.",
   'engine.memberLoad.geometryOrdering': "Ordre géométrique du membre généré non valide",
   'engine.memberLoad.geometryLine': "La géométrie du membre généré quitte la ligne d’origine",
   'engine.memberLoad.invalidGeometry': "Géométrie du membre généré non valide",
