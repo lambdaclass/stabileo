@@ -120,7 +120,7 @@ function boundarySegments(edges: Iterable<Edge>, limit: number, knots: ReadonlyS
   return segments;
 }
 
-function circularSegment(radius: number, sweep: number): number {
+function signedPlateArcSegmentArea(radius: number, sweep: number): number {
   return (radius ** 2 / 2) * (sweep - Math.sin(sweep));
 }
 
@@ -145,7 +145,8 @@ function measurePlate(model: ModelData, input: SolverInput3D, group: PlateGroup)
     const flags = points.map(() => mids.has(index++));
     const sides = boundaryOf(points, flags, normal, scale);
     const chord = polygonMeasure(points.filter((_, i) => !flags[i]), origin, normal).area;
-    const arcArea = sides.reduce((area, side) => side.arc ? area + circularSegment(side.arc.radius, side.arc.sweep) : area, 0);
+    const arcArea = sides.reduce((area, side) =>
+      side.arc ? area + signedPlateArcSegmentArea(side.arc.radius, side.arc.sweep) : area, 0);
     return { sides, area: chord + arcArea };
   });
   const specifiedArea = loops.reduce((area, loop, i) => area + (i === 0 ? 1 : -1) * Math.abs(loop.area), 0);
@@ -231,7 +232,7 @@ function measurePlate(model: ModelData, input: SolverInput3D, group: PlateGroup)
         if (!agrees(covered, interval.start, scale)) throw geometryError(hasArcs);
         covered = interval.end;
         boundary.push(interval.a);
-        if (side.arc) correction.add(circularSegment(side.arc.radius,
+        if (side.arc) correction.add(signedPlateArcSegmentArea(side.arc.radius,
           Math.sign(side.arc.sweep) * (interval.end - interval.start) / side.arc.radius));
       }
       if (!agrees(covered, side.length, scale)) throw geometryError(hasArcs);
