@@ -9,6 +9,7 @@
   import ExperimentLink from '../shell/ExperimentLink.svelte';
   import StabileoViewer from '../shell/StabileoViewer.svelte';
   import { Playback } from '../shell/playback.svelte';
+  import { sci } from '../shell/format';
   import type { PublishedRow } from '../shell/context';
   import PlotXY from '../grossman2026/PlotXY.svelte';
   import type { Frame } from './protocol';
@@ -17,7 +18,8 @@
   const playback = new Playback(160, 1600);
   let frames = $state<Frame[]>(replay.frames);
   let lambda = $state(replay.lambda);
-  let sign = $state(1);
+  const MOMENTS = [replay.model.loads[0].data.my, -replay.model.loads[0].data.my, -10 * replay.model.loads[0].data.my];
+  let moment = $state(MOMENTS[0]);
   let source = $state<'replay' | 'live' | 'cached'>('replay');
   let running = $state(false);
   let failed = $state(false);
@@ -26,18 +28,22 @@
   const shown = $derived(frames[Math.min(playback.shown, frames.length - 1)]);
   const format = (value: number) => new Intl.NumberFormat(researchLocale(), { maximumFractionDigits: 6 }).format(value);
   const signed = (value: number) => new Intl.NumberFormat(researchLocale(), { maximumFractionDigits: 6, signDisplay: 'always' }).format(value);
-  const scientific = (value: number) => new Intl.NumberFormat(researchLocale(), { notation: 'scientific', maximumSignificantDigits: 4 }).format(value);
+  const SUPERSCRIPT: Record<string, string> = { '-': '⁻', '−': '⁻', '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴', '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹' };
+  const scientific = (value: number) => {
+    const e = sci(value, 4, researchLocale());
+    return e.exp ? `${e.mantissa} × 10${[...e.exp].map(c => SUPERSCRIPT[c] ?? c).join('')}` : e.mantissa;
+  };
+  const short = (value: number) => new Intl.NumberFormat(researchLocale(), { maximumSignificantDigits: 4 }).format(value);
   const percent = (value: number) => new Intl.NumberFormat(researchLocale(), { style: 'percent', maximumSignificantDigits: 2 }).format(value);
   const rows = comparison.checks as PublishedRow[];
   const check = (prefix: string) => validation.checks.find(c => c.name.startsWith(prefix))!;
   const study = validation.study;
   const fine = study.corotational[study.corotational.length - 1];
   const beta = rows.find(r => r.id === 'beta-closed')!;
-  const moment = Math.abs(replay.model.loads[0].data.my);
   const sourceLabel = $derived(source === 'replay' ? s.replay : source === 'live' ? s.live : s.cached);
   const values = $derived({
     length: format(replay.model.nodes['21'].x), young: format(replay.model.materials['1'].e), area: format(replay.model.sections['1'].a),
-    inertia: scientific(replay.model.sections['1'].iz), force: format(-replay.model.loads[0].data.fz), moment: signed(sign * moment),
+    inertia: scientific(replay.model.sections['1'].iz), force: format(-replay.model.loads[0].data.fz), moment: signed(MOMENTS[0]),
     elements: format(Object.keys(replay.model.elements).length / 2),
   });
   function stop() {
@@ -48,7 +54,7 @@
     if (source === 'live') source = 'cached';
   }
   function restart() {
-    stop(); failed = false; sign = 1;
+    stop(); failed = false; moment = MOMENTS[0];
     frames = replay.frames; lambda = replay.lambda; source = 'replay';
     playback.setCount(frames.length); playback.seek(0); playback.play();
   }
@@ -68,12 +74,12 @@
     };
     active.onerror = () => { if (worker === active) { failed = true; stop(); } };
     const model = structuredClone(replay.model);
-    model.loads[0].data.my = sign * moment;
+    model.loads[0].data.my = moment;
     active.postMessage(model);
   }
-  function setSign(value: number) {
-    if (value !== 1 && value !== -1) return;
-    sign = value;
+  function setMoment(value: number) {
+    if (!MOMENTS.includes(value)) return;
+    moment = value;
     run();
   }
   onMount(() => {
@@ -90,20 +96,20 @@
 <ExperimentShell introInArticle paperId="ferrari-2025" name={s.title} lead={s.lead} locale={ferrariLocale()}
   sourcePath="research/stability/ferrari-sigmund-2025"
   checks={{ passed: validation.checks.filter(c => c.passed).length, total: validation.checks.length }}
-  comparison={rows} comparisonNames={s.rows}
-  actions={{ goToStep: i => playback.seek(i), setParams: p => setSign(Number(p.sign)), showTab: () => host.scrollIntoView({ block: 'nearest' }) }}>
+  referenceLabel={s.checksLabel} comparison={rows} comparisonNames={s.rows}
+  actions={{ goToStep: i => playback.seek(i), setParams: p => setMoment(Number(p.moment)), showTab: () => host.scrollIntoView({ block: 'nearest' }) }}>
   {#snippet article()}
     <h2>{s.scope}</h2><p>{s.scopeText}</p><p data-testid="ferrari-model">{fill(s.model, values)}</p>
     <h2>{s.methodHeading}</h2>
     <p>{fill(s.method, { factor: format(study.inextensional_area_m2 / paper.parameters.area_m2), elements: format(fine.elements_per_member) })}</p>
-    <p data-testid="ferrari-extensible">{fill(s.extensible, { first: format(study.paper_area_not_a_bifurcation[0].alpha), second: format(study.paper_area_not_a_bifurcation[1].alpha) })}</p>
-    <p data-testid="ferrari-beta">{fill(s.beta, { beta: format(beta.computed!), modal: format(fine.beta_modal), paper: format(beta.reference!) })}</p>
+    <p data-testid="ferrari-extensible">{fill(s.extensible, { first: short(study.paper_area_not_a_bifurcation[0].alpha), second: short(study.paper_area_not_a_bifurcation[1].alpha) })}</p>
+    <p data-testid="ferrari-beta">{fill(s.beta, { beta: short(beta.computed!), modal: short(fine.beta_modal), paper: format(beta.reference!) })}</p>
     <p>{s.tolerances}</p>
     <h2 id="checks">{s.evidence}</h2>
     <p data-testid="ferrari-checks">{fill(s.evidenceText, { mesh: percent(check('alpha: mesh').observed), step: percent(check('alpha: independent').observed), stiff: percent(check('alpha: inextensional').observed),
       derivative: scientific(Math.max(...validation.checks.slice(0, 4).map(c => c.observed))), derivativeTolerance: scientific(validation.checks[0].tolerance) })}</p>
     <p>{s.missing}</p>
-    <p><ExperimentLink params={{ sign: -1 }}>{s.tryNegative}</ExperimentLink></p>
+    <p>{fill(s.signs, { opposite: signed(MOMENTS[1]), larger: signed(MOMENTS[2]) })} <ExperimentLink params={{ moment: MOMENTS[1] }}>{s.tryNegative}</ExperimentLink> · <ExperimentLink params={{ moment: MOMENTS[2] }}>{s.tryLarger}</ExperimentLink></p>
   {/snippet}
   {#snippet app()}
     <div bind:this={host} class="experiment" data-testid="ferrari-experiment">
@@ -112,8 +118,8 @@
         <p data-testid="ferrari-source" aria-live="polite">{sourceLabel}</p>
         <div class="controls">
           <label>{s.imperfection}
-            <select data-testid="ferrari-sign" value={sign} onchange={e => setSign(Number(e.currentTarget.value))}>
-              {#each [1, -1] as value}<option value={value}>{signed(value * moment)} kN·m</option>{/each}
+            <select data-testid="ferrari-sign" value={moment} onchange={e => setMoment(Number(e.currentTarget.value))}>
+              {#each MOMENTS as value}<option value={value}>{signed(value)} kN·m</option>{/each}
             </select>
           </label>
           <button onclick={run} disabled={running}>{s.run}</button>

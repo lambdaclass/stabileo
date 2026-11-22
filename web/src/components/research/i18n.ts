@@ -2655,6 +2655,7 @@ export const STRINGS: Record<'en' | 'es' | 'pt' | 'zh', ResearchStrings> & Parti
 
 const SHELL_TRANSLATIONS: Record<string, Partial<ResearchStrings>> = {
   "de": {
+    "notComparedWhy": "Nicht verglichen: Der Volltext war uns nicht zugänglich",
     "afterAuthors": "Nach",
     "citeThis": "Zitieren",
     "citationTitle": "Stabileo Research, „",
@@ -2703,6 +2704,7 @@ const SHELL_TRANSLATIONS: Record<string, Partial<ResearchStrings>> = {
     "notDesign": "Forschung, kein Bemessungswerkzeug"
   },
   "fr": {
+    "notComparedWhy": "Non comparé : le texte intégral ne nous était pas accessible",
     "afterAuthors": "D’après",
     "citeThis": "Citer ce travail",
     "citationTitle": "Stabileo Research, « ",
@@ -2751,6 +2753,7 @@ const SHELL_TRANSLATIONS: Record<string, Partial<ResearchStrings>> = {
     "notDesign": "Recherche, pas un outil de dimensionnement"
   },
   "tr": {
+    "notComparedWhy": "Karşılaştırılmadı: makalenin tam metnine erişemedik",
     "afterAuthors": "Kaynak",
     "citeThis": "Alıntıla",
     "citationTitle": "Stabileo Research, “",
@@ -2813,7 +2816,7 @@ export function rs(): ResearchStrings {
 }
 
 export const FIELD_NAMES: Record<string, Record<string, string>> = {
-  de: { optimization: 'Optimierung', seismic: 'Erdbeben und Dynamik', metamaterials: 'Metamaterialien', fracture: 'Bruch und Schädigung', 'limit-analysis': 'Traglastverfahren und Mauerwerk' }, fr: { optimization: 'Optimisation', seismic: 'Séismes et dynamique', metamaterials: 'Métamatériaux', fracture: 'Rupture et endommagement', 'limit-analysis': 'Analyse limite et maçonnerie' }, tr: { optimization: 'Optimizasyon', seismic: 'Deprem ve dinamik', metamaterials: 'Metamalzemeler', fracture: 'Kırılma ve hasar', 'limit-analysis': 'Limit analiz ve yığma yapılar' },
+  de: { 'numerical-methods': 'Numerische Methoden', optimization: 'Optimierung', seismic: 'Erdbeben und Dynamik', metamaterials: 'Metamaterialien', fracture: 'Bruch und Schädigung', 'limit-analysis': 'Traglastverfahren und Mauerwerk' }, fr: { 'numerical-methods': 'Méthodes numériques', optimization: 'Optimisation', seismic: 'Séismes et dynamique', metamaterials: 'Métamatériaux', fracture: 'Rupture et endommagement', 'limit-analysis': 'Analyse limite et maçonnerie' }, tr: { 'numerical-methods': 'Sayısal yöntemler', optimization: 'Optimizasyon', seismic: 'Deprem ve dinamik', metamaterials: 'Metamalzemeler', fracture: 'Kırılma ve hasar', 'limit-analysis': 'Limit analiz ve yığma yapılar' },
   en: { fracture: 'Fracture and damage', 'differentiable-fem': 'Differentiable FEM', optimization: 'Optimization', metamaterials: 'Metamaterials', constitutive: 'Constitutive models', 'digital-twins': 'Digital twins', 'numerical-methods': 'Numerical methods', seismic: 'Seismic and dynamics', shells: 'Shells and buckling', 'limit-analysis': 'Limit analysis and masonry' },
   es: { fracture: 'Fractura y daño', 'differentiable-fem': 'FEM diferenciable', optimization: 'Optimización', metamaterials: 'Metamateriales', constitutive: 'Modelos constitutivos', 'digital-twins': 'Gemelos digitales', 'numerical-methods': 'Métodos numéricos', seismic: 'Sísmica y dinámica', shells: 'Cáscaras y pandeo', 'limit-analysis': 'Análisis límite y mampostería' },
   pt: { fracture: 'Fratura e dano', 'differentiable-fem': 'MEF diferenciável', optimization: 'Otimização', metamaterials: 'Metamateriais', constitutive: 'Modelos constitutivos', 'digital-twins': 'Gêmeos digitais', 'numerical-methods': 'Métodos numéricos', seismic: 'Sísmica e dinâmica', shells: 'Cascas e flambagem', 'limit-analysis': 'Análise limite e alvenaria' },

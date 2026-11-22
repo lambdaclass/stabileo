@@ -141,8 +141,15 @@ Each frame is the full final displacement of a deterministic production arc-leng
 with a progressively larger step budget. This avoids changing the engine's history API.
 Settings: max_iter 40, tolerance 1e-9, initial/max step 0.04, minimum 1e-7, target iterations 5.
 Every run must converge. Final sampled load factor: 2.1796142222595205; corner rotation:
-0.4883699212868724 rad. These are regression results, not paper targets. The page traces the
-other sign of the imperfection live, in the browser; the paper's Figure 2b shows both.
+0.4883699212868724 rad. These are regression results, not paper targets.
+
+The paper's Figure 2b traces both signs of the imperfection. The page traces −0.001 and
+−0.01 kN·m live, in the browser, with the replay's settings. With −0.001 kN·m the production
+path still turns to the falling side (corner rotation +0.42 rad at λ = 2.22 after 100 steps):
+the column's shortening turns the corner more than that moment does, the same effect that
+keeps the paper's area from having a bifurcation. With −0.01 kN·m it follows the rising branch
+(−0.37 rad at λ = 2.97). This is one more reason the paper's extensible-model α, β and its
+Figure 2b are not compared.
 The test reruns every prefix and compares every saved numeric value within
 1e-9 (1 + |value|). Browser live runs use the production WASM wrapper in a terminable worker.
 No research WASM is claimed: the derivative kernel and the branch tracing are native-only.

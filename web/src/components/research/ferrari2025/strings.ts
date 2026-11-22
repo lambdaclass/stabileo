@@ -2,6 +2,7 @@ import { publicI18n } from '../../../lib/i18n/store.svelte';
 
 const en = {
   title: 'Roorda frame: critical load and post-buckling slope',
+  checksLabel: 'Against published values, finite differences and native runs',
   lead: 'An L-shaped frame that buckles asymmetrically. The production engine gives its critical load and the slope α of its post-buckling path within the paper’s tolerances; the curvature β does not agree.',
   scope: 'What is reproduced',
   scopeText: 'The simple Roorda frame of §2.1.2, with the production engine only. Linear buckling gives the critical load λ₁ of the paper’s model. The slope α and the curvature β of the post-buckling path come from the bifurcated branch of the perfect frame, traced point by point with the production corotational solver. The app also traces the imperfect frame with the production arc-length solver, for either sign of the imperfection.',
@@ -28,7 +29,9 @@ const en = {
   viewer: 'Roorda frame displacement',
   disclaimer: 'Research, not a design tool.',
   imperfection: 'Imperfection',
-  tryNegative: 'Trace the other sign of the imperfection',
+  signs: 'The paper traces both signs of the imperfection. With {opposite} kN·m our path still turns to the side where the load falls: the column’s shortening turns the corner more than that moment does. With {larger} kN·m it follows the branch where the load rises.',
+  tryNegative: 'Trace the opposite moment',
+  tryLarger: 'Trace the larger opposite moment',
   pathNote: 'Every saved path sample is checked against a native production solve, and the browser solver against the native final state. The path is not compared with Figure 2b.',
   rows: { 'lambda-numerical': 'Critical load λ₁, numerical value of the paper', 'lambda-closed': 'Critical load λ₁, closed form', 'alpha-closed': 'Post-buckling slope α, closed form', 'beta-closed': 'Post-buckling curvature β, closed form' } as Record<string, string>,
 };
@@ -37,6 +40,7 @@ export type FerrariStrings = typeof en;
 
 const es: FerrariStrings = {
   title: 'Pórtico de Roorda: carga crítica y pendiente poscrítica',
+  checksLabel: 'Frente a valores publicados, diferencias finitas y corridas nativas',
   lead: 'Un pórtico en L que pandea de forma asimétrica. El motor de producción da su carga crítica y la pendiente α de su rama poscrítica dentro de las tolerancias del artículo; la curvatura β no coincide.',
   scope: 'Qué se reproduce',
   scopeText: 'El pórtico de Roorda simple de §2.1.2, solo con el motor de producción. El pandeo lineal da la carga crítica λ₁ del modelo del artículo. La pendiente α y la curvatura β de la rama poscrítica salen de la rama bifurcada del pórtico perfecto, que el solver corrotacional de producción recorre punto por punto. La app también calcula el pórtico imperfecto con el solver de longitud de arco de producción, con cualquiera de los dos signos de la imperfección.',
@@ -63,13 +67,16 @@ const es: FerrariStrings = {
   viewer: 'Desplazamiento del pórtico de Roorda',
   disclaimer: 'Investigación, no una herramienta de diseño.',
   imperfection: 'Imperfección',
-  tryNegative: 'Calculá el otro signo de la imperfección',
+  signs: 'El artículo calcula los dos signos de la imperfección. Con {opposite} kN·m nuestra trayectoria igual gira hacia el lado en que la carga baja: el acortamiento de la columna gira la esquina más que ese momento. Con {larger} kN·m sigue la rama en que la carga sube.',
+  tryNegative: 'Calculá el momento opuesto',
+  tryLarger: 'Calculá el momento opuesto mayor',
   pathNote: 'Cada muestra guardada de la trayectoria se compara con un cálculo nativo de producción, y el solver del navegador con el estado final nativo. La trayectoria no se compara con la Figura 2b.',
   rows: { 'lambda-numerical': 'Carga crítica λ₁, valor numérico del artículo', 'lambda-closed': 'Carga crítica λ₁, solución analítica', 'alpha-closed': 'Pendiente poscrítica α, solución analítica', 'beta-closed': 'Curvatura poscrítica β, solución analítica' },
 };
 
 const pt: FerrariStrings = {
   title: 'Pórtico de Roorda: carga crítica e inclinação pós-crítica',
+  checksLabel: 'Frente a valores publicados, diferenças finitas e execuções nativas',
   lead: 'Um pórtico em L que flamba de forma assimétrica. O motor de produção fornece sua carga crítica e a inclinação α do seu ramo pós-crítico dentro das tolerâncias do artigo; a curvatura β não coincide.',
   scope: 'O que é reproduzido',
   scopeText: 'O pórtico de Roorda simples da §2.1.2, apenas com o motor de produção. A flambagem linear fornece a carga crítica λ₁ do modelo do artigo. A inclinação α e a curvatura β do ramo pós-crítico vêm do ramo bifurcado do pórtico perfeito, percorrido ponto a ponto pelo solver corrotacional de produção. O app também calcula o pórtico imperfeito com o solver de comprimento de arco de produção, com qualquer um dos dois sinais da imperfeição.',
@@ -96,13 +103,16 @@ const pt: FerrariStrings = {
   viewer: 'Deslocamento do pórtico de Roorda',
   disclaimer: 'Pesquisa, não uma ferramenta de projeto.',
   imperfection: 'Imperfeição',
-  tryNegative: 'Calcule o outro sinal da imperfeição',
+  signs: 'O artigo calcula os dois sinais da imperfeição. Com {opposite} kN·m nossa trajetória ainda gira para o lado em que a carga cai: o encurtamento da coluna gira o canto mais do que esse momento. Com {larger} kN·m ela segue o ramo em que a carga sobe.',
+  tryNegative: 'Calcule o momento oposto',
+  tryLarger: 'Calcule o momento oposto maior',
   pathNote: 'Cada amostra salva da trajetória é comparada com um cálculo nativo de produção, e o solver do navegador com o estado final nativo. A trajetória não é comparada com a Figura 2b.',
   rows: { 'lambda-numerical': 'Carga crítica λ₁, valor numérico do artigo', 'lambda-closed': 'Carga crítica λ₁, solução analítica', 'alpha-closed': 'Inclinação pós-crítica α, solução analítica', 'beta-closed': 'Curvatura pós-crítica β, solução analítica' },
 };
 
 const de: FerrariStrings = {
   title: 'Roorda-Rahmen: kritische Last und Anfangssteigung im Nachbeulbereich',
+  checksLabel: 'Vergleich mit veröffentlichten Werten, finiten Differenzen und nativen Läufen',
   lead: 'Ein L-förmiger Rahmen, der unsymmetrisch ausknickt. Der Produktlöser liefert seine kritische Last und die Steigung α des Nachbeulpfads innerhalb der Toleranzen des Artikels; die Krümmung β stimmt nicht überein.',
   scope: 'Was nachgerechnet wird',
   scopeText: 'Der einfache Roorda-Rahmen aus §2.1.2, nur mit dem Produktlöser. Die lineare Knickanalyse liefert die kritische Last λ₁ des Modells aus dem Artikel. Steigung α und Krümmung β des Nachbeulpfads stammen aus dem Verzweigungsast des perfekten Rahmens, den der korotierende Löser des Produkts Punkt für Punkt verfolgt. Die App berechnet außerdem den imperfekten Rahmen mit dem Bogenlängenverfahren des Produkts, für beide Vorzeichen der Imperfektion.',
@@ -129,13 +139,16 @@ const de: FerrariStrings = {
   viewer: 'Verschiebung des Roorda-Rahmens',
   disclaimer: 'Forschung, kein Bemessungswerkzeug.',
   imperfection: 'Imperfektion',
-  tryNegative: 'Das andere Vorzeichen der Imperfektion berechnen',
+  signs: 'Der Artikel berechnet beide Vorzeichen der Imperfektion. Mit {opposite} kN·m dreht unser Pfad trotzdem zur Seite, auf der die Last fällt: Die Verkürzung der Stütze verdreht die Ecke stärker als dieses Moment. Mit {larger} kN·m folgt er dem Ast, auf dem die Last steigt.',
+  tryNegative: 'Das entgegengesetzte Moment berechnen',
+  tryLarger: 'Das größere entgegengesetzte Moment berechnen',
   pathNote: 'Jeder gespeicherte Pfadpunkt wird mit einer nativen Berechnung des Produkts verglichen, der Browserlöser mit dem nativen Endzustand. Der Pfad wird nicht mit Abbildung 2b verglichen.',
   rows: { 'lambda-numerical': 'Kritische Last λ₁, numerischer Wert des Artikels', 'lambda-closed': 'Kritische Last λ₁, geschlossene Lösung', 'alpha-closed': 'Anfangssteigung α, geschlossene Lösung', 'beta-closed': 'Krümmung β, geschlossene Lösung' },
 };
 
 const fr: FerrariStrings = {
   title: 'Portique de Roorda : charge critique et pente post-critique',
+  checksLabel: 'Comparaison avec les valeurs publiées, les différences finies et les calculs natifs',
   lead: 'Un portique en L qui flambe de façon asymétrique. Le solveur du produit donne sa charge critique et la pente α de sa branche post-critique dans les tolérances de l’article ; la courbure β ne concorde pas.',
   scope: 'Ce qui est reproduit',
   scopeText: 'Le portique de Roorda simple du §2.1.2, avec le seul solveur du produit. Le flambement linéaire donne la charge critique λ₁ du modèle de l’article. La pente α et la courbure β de la branche post-critique proviennent de la branche bifurquée du portique parfait, suivie point par point par le solveur corotationnel du produit. L’application calcule aussi le portique imparfait avec la méthode de longueur d’arc du produit, pour l’un ou l’autre signe de l’imperfection.',
@@ -162,13 +175,16 @@ const fr: FerrariStrings = {
   viewer: 'Déplacement du portique de Roorda',
   disclaimer: 'Recherche, pas un outil de dimensionnement.',
   imperfection: 'Imperfection',
-  tryNegative: 'Calculer l’autre signe de l’imperfection',
+  signs: 'L’article calcule les deux signes de l’imperfection. Avec {opposite} kN·m, notre chemin tourne quand même du côté où la charge diminue : le raccourcissement du poteau fait tourner l’angle davantage que ce moment. Avec {larger} kN·m, il suit la branche où la charge augmente.',
+  tryNegative: 'Calculer le moment opposé',
+  tryLarger: 'Calculer le moment opposé plus grand',
   pathNote: 'Chaque point enregistré du chemin est comparé à un calcul natif du produit, et le solveur du navigateur à l’état final natif. Le chemin n’est pas comparé à la figure 2b.',
   rows: { 'lambda-numerical': 'Charge critique λ₁, valeur numérique de l’article', 'lambda-closed': 'Charge critique λ₁, solution analytique', 'alpha-closed': 'Pente post-critique α, solution analytique', 'beta-closed': 'Courbure post-critique β, solution analytique' },
 };
 
 const tr: FerrariStrings = {
   title: 'Roorda çerçevesi: kritik yük ve burkulma sonrası eğim',
+  checksLabel: 'Yayımlanmış değerler, sonlu farklar ve yerel çalıştırmalarla karşılaştırma',
   lead: 'Asimetrik burkulan L biçimli bir çerçeve. Ürünün çözücüsü kritik yükü ve burkulma sonrası yolun eğimi α’yı makalenin toleransları içinde verir; eğrilik β uyuşmaz.',
   scope: 'Neyin yeniden üretildiği',
   scopeText: '§2.1.2’deki basit Roorda çerçevesi, yalnızca ürünün çözücüsüyle. Doğrusal burkulma analizi makaledeki modelin kritik yükü λ₁’i verir. Burkulma sonrası yolun eğimi α ve eğriliği β, kusursuz çerçevenin çatallanma kolundan gelir; bu kolu ürünün eş dönel (corotational) çözücüsü nokta nokta izler. Uygulama ayrıca kusurlu çerçeveyi ürünün yay uzunluğu çözücüsüyle, kusurun her iki işareti için hesaplar.',
@@ -195,13 +211,16 @@ const tr: FerrariStrings = {
   viewer: 'Roorda çerçevesinin yer değiştirmesi',
   disclaimer: 'Araştırma, tasarım aracı değil.',
   imperfection: 'Kusur',
-  tryNegative: 'Kusurun diğer işaretini hesaplayın',
+  signs: 'Makale kusurun her iki işaretini hesaplar. {opposite} kN·m ile yolumuz yine de yükün azaldığı tarafa döner: kolonun kısalması köşeyi bu momentten daha fazla döndürür. {larger} kN·m ile yükün arttığı kolu izler.',
+  tryNegative: 'Ters momenti hesaplayın',
+  tryLarger: 'Daha büyük ters momenti hesaplayın',
   pathNote: 'Yolun kaydedilen her noktası ürünün yerel bir hesabıyla, tarayıcı çözücüsü de yerel son durumla karşılaştırılır. Yol Şekil 2b ile karşılaştırılmaz.',
   rows: { 'lambda-numerical': 'Kritik yük λ₁, makalenin sayısal değeri', 'lambda-closed': 'Kritik yük λ₁, kapalı form çözüm', 'alpha-closed': 'Burkulma sonrası eğim α, kapalı form çözüm', 'beta-closed': 'Burkulma sonrası eğrilik β, kapalı form çözüm' },
 };
 
 const hu: FerrariStrings = {
   title: 'Roorda-keret: kritikus teher és posztkritikus meredekség',
+  checksLabel: 'Összevetés közölt értékekkel, véges differenciákkal és natív futtatásokkal',
   lead: 'Aszimmetrikusan kihajló L alakú keret. A termék megoldója a cikk tűrésein belül adja vissza a kritikus terhet és a posztkritikus ág α meredekségét; a β görbület nem egyezik.',
   scope: 'Amit reprodukálunk',
   scopeText: 'A §2.1.2 egyszerű Roorda-kerete, kizárólag a termék megoldójával. A lineáris stabilitásvizsgálat adja a cikk modelljének λ₁ kritikus terhét. A posztkritikus ág α meredeksége és β görbülete a tökéletes keret elágazási ágából származik, amelyet a termék együttforgó (korotációs) megoldója pontról pontra követ. Az alkalmazás a tökéletlen keretet is kiszámítja a termék ívhossz-módszerével, a tökéletlenség mindkét előjelére.',
@@ -228,13 +247,16 @@ const hu: FerrariStrings = {
   viewer: 'A Roorda-keret elmozdulása',
   disclaimer: 'Kutatás, nem tervezőeszköz.',
   imperfection: 'Tökéletlenség',
-  tryNegative: 'A tökéletlenség másik előjelének kiszámítása',
+  signs: 'A cikk a tökéletlenség mindkét előjelét kiszámítja. {opposite} kN·m esetén az utunk mégis arra az oldalra fordul, ahol a teher csökken: az oszlop rövidülése jobban elfordítja a sarkot, mint ez a nyomaték. {larger} kN·m esetén azt az ágat követi, ahol a teher nő.',
+  tryNegative: 'Az ellentétes nyomaték kiszámítása',
+  tryLarger: 'A nagyobb ellentétes nyomaték kiszámítása',
   pathNote: 'Az út minden elmentett pontját a termék natív számításával, a böngészős megoldót pedig a natív végállapottal vetjük össze. Az utat nem hasonlítjuk össze a 2b. ábrával.',
   rows: { 'lambda-numerical': 'λ₁ kritikus teher, a cikk numerikus értéke', 'lambda-closed': 'λ₁ kritikus teher, zárt alakú megoldás', 'alpha-closed': 'α posztkritikus meredekség, zárt alakú megoldás', 'beta-closed': 'β posztkritikus görbület, zárt alakú megoldás' },
 };
 
 const zh: FerrariStrings = {
   title: 'Roorda 框架：临界荷载与后屈曲斜率',
+  checksLabel: '与已发表数值、有限差分和原生运行结果对比',
   lead: '一个发生非对称屈曲的 L 形框架。生产环境求解器在论文的容差内给出了它的临界荷载和后屈曲路径的斜率 α；曲率 β 不一致。',
   scope: '复现了什么',
   scopeText: '§2.1.2 中的简单 Roorda 框架，仅使用生产环境求解器。线性屈曲分析给出论文模型的临界荷载 λ₁。后屈曲路径的斜率 α 和曲率 β 来自完善框架的分岔分支，由生产环境的共旋求解器逐点追踪。应用还用生产环境的弧长法计算缺陷框架，缺陷可取两种符号。',
@@ -261,7 +283,9 @@ const zh: FerrariStrings = {
   viewer: 'Roorda 框架位移',
   disclaimer: '研究用途，不是设计工具。',
   imperfection: '缺陷',
-  tryNegative: '计算另一种符号的缺陷',
+  signs: '论文计算了缺陷的两种符号。取 {opposite} kN·m 时，我们的路径仍然转向荷载下降的一侧：柱的缩短使转角转动的程度超过了该弯矩的作用。取 {larger} kN·m 时，路径沿荷载上升的分支发展。',
+  tryNegative: '计算反向弯矩',
+  tryLarger: '计算更大的反向弯矩',
   pathNote: '路径上保存的每个点都与生产环境的原生计算核对，浏览器求解器则与原生最终状态核对。路径没有与图 2b 比较。',
   rows: { 'lambda-numerical': '临界荷载 λ₁，论文数值解', 'lambda-closed': '临界荷载 λ₁，闭合解', 'alpha-closed': '后屈曲斜率 α，闭合解', 'beta-closed': '后屈曲曲率 β，闭合解' },
 };

@@ -58,7 +58,7 @@ for (const locale of PUBLIC_LOCALES) {
     }
     expect(model).toContain(new Intl.NumberFormat(locale, { maximumFractionDigits: 6, signDisplay: 'always' }).format(replay.model.loads[0].data.my));
     const beta = text(body.match(/data-testid="ferrari-beta"[^>]*>(.*?)<\/p>/s)![1]);
-    expect(beta).toContain(format(comparison.checks.find(r => r.id === 'beta-closed')!.computed));
+    expect(beta).toContain(new Intl.NumberFormat(locale, { maximumSignificantDigits: 4 }).format(comparison.checks.find(r => r.id === 'beta-closed')!.computed));
     expect(beta).toContain(format(paper.closed_form.beta));
     expect(page).toContain(`λ₁ = ${format(replay.lambda)}`);
     expect(page).toContain(`${validation.checks.length} ${rs().of} ${validation.checks.length} ${rs().checksPass}`);
