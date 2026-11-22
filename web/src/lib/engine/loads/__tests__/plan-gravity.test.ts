@@ -721,6 +721,83 @@ for (const [label, model, x0, x1, x2, x3, low, high] of [
   });
 }
 
+const roundThreeReproducer = process.env.RUN_KNOWN_WRONG === '2284' ? it : it.skip;
+
+for (const [label, low, high] of [
+  ['parallel sloped', 3.0001, 3.0021],
+  ['sloped and horizontal', 3.0015, 3.0015],
+] as const) {
+  for (let first = 0; first < 8; first++) for (let second = 0; second < 8; second++) {
+    roundThreeReproducer(`known wrong result: #2284 round 3 ${label} decks overlap with corner orders ${first}/${second}`, () => {
+      const model = floor(0, 0, 10, 6);
+      const a = rectangularShell(model, 1, 0, 10, 3, 3.002);
+      const b = rectangularShell(model, 2, 0, 10, low, high);
+      model.quads!.get(1)!.nodes = cornerOrders(a)[first]!;
+      model.quads!.get(2)!.nodes = cornerOrders(b)[second]!;
+      checkBlockedGravity(model, overlappingShells);
+    });
+  }
+}
+
+roundThreeReproducer('known wrong result: #2284 round 3 a mixed pair just inside the separation limit blocks', () => {
+  const model = floor(0, 0, 10, 6);
+  rectangularShell(model, 1, 0, 8, 3, 3.0020001);
+  rectangularShell(model, 2, 2, 10, 3.003);
+  checkBlockedGravity(model, overlappingShells);
+});
+
+roundThreeReproducer('known wrong result: #2284 round 3 a mixed pair claiming the same beam bay blocks', () => {
+  const model = floor(1, 1, 10, 6, 3.0004);
+  model.nodes.set(5, { id: 5, x: 0, y: 3, z: 2.9991 });
+  model.nodes.set(6, { id: 6, x: 10, y: 3, z: 2.9991 });
+  model.quads = new Map([
+    [1, { id: 1, nodes: [1, 2, 6, 5] }],
+    [2, { id: 2, nodes: [5, 6, 4, 3] }],
+  ]);
+  const flat = rectangularShell(model, 3, 0, 10, 3.0009);
+  flat.forEach((id, i) => { model.nodes.get(id)!.y = i < 2 ? 2.5 : 3.5; });
+  checkBlockedGravity(model, { key: 'loadPlan.gravity.overlappingShells', params: { first: 1, second: 3 } });
+});
+
+for (const [label, x0, low, high] of [
+  ['parallel with overlapping height ranges', 0, 3.0010001, 3.0030001],
+  ['mixed just outside the height tolerance', 0, 3.0030001, 3.0030001],
+  ['mixed with only a common edge', 10, 3.0015, 3.0015],
+] as const) {
+  it(`#2284 round 3 independent shells keep their loads ${label}`, () => {
+    const model = floor(0, 0, 10, 6);
+    rectangularShell(model, 1, 0, 10, 3, 3.002);
+    rectangularShell(model, 2, x0, x0 + 10, low, high);
+    for (const loadEveryPanel of [false, true]) {
+      const gravity = { mode: 'panels', loadEveryPanel } as const;
+      const plan = buildLoadPlan(planInput(model, { dead: [{ labelKey: 'a', q: 1 }], gravity }));
+      expect(plan.outcome, JSON.stringify(plan.blockedKeys)).toBe('READY');
+      expect(plan.blockedKeys).toEqual([]);
+      expect(plan.surface.filter(load => load.caseType === 'D').sort((a, b) => a.quadId - b.quadId)).toEqual([
+        { quadId: 1, caseType: 'D', q: 1 },
+        { quadId: 2, caseType: 'D', q: 1 },
+      ]);
+      expect(plan.nodal).toEqual([]);
+      expect(plan.distributed).toEqual([]);
+      expect(deadLoadKN(plan, model)).toBeCloseTo(10 * (Math.hypot(6, 0.002) + Math.hypot(6, high - low)), 9);
+    }
+  });
+}
+
+roundThreeReproducer('known wrong result: #2284 round 3 a lower shell entirely outside the bay band keeps independent load', () => {
+  const model = floor(1, 1, 10, 6, 3);
+  rectangularShell(model, 1, 0, 10, 2.9981, 2.9989);
+  for (const loadEveryPanel of [false, true]) {
+    const gravity = { mode: 'panels', loadEveryPanel } as const;
+    const plan = buildLoadPlan(planInput(model, { dead: [{ labelKey: 'a', q: 1 }], gravity }));
+    expect(plan.outcome, JSON.stringify(plan.blockedKeys)).toBe('READY');
+    expect(plan.blockedKeys).toEqual([]);
+    expect(plan.surface.filter(load => load.caseType === 'D')).toEqual([{ quadId: 1, caseType: 'D', q: 1 }]);
+    expect(plan.nodal).toEqual([]);
+    expect(totalKN(plan.distributed.filter(load => load.caseType === 'D'), model)).toBeCloseTo(-60, 9);
+  }
+});
+
 it('#2284 shells outside the shared deck band keep independent gravity loads', () => {
   const model = floor(1, 1, 10, 6, 3.001);
   rectangularShell(model, 1, 0, 10, 3.0000001);
