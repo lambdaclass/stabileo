@@ -376,9 +376,7 @@ function expectNonFiniteSpring(run: () => unknown, stiffness: number) {
   expect.soft(String(error)).toMatch(/supports\.\d+\.kx/);
 }
 
-const issue2292 = process.env.RUN_KNOWN_WRONG === '2292' ? it : it.skip;
-
-issue2292('known wrong result: #2292 P-Delta and harmonic solves refuse non-finite optional springs', () => {
+it('#2292 P-Delta and harmonic solves refuse non-finite optional springs', () => {
   uiStore.analysisMode = '2d';
   modelStore.clear();
   const start = modelStore.addNode(0, 0);
@@ -421,7 +419,7 @@ issue2292('known wrong result: #2292 P-Delta and harmonic solves refuse non-fini
   }
 });
 
-issue2292('known wrong result: #2292 JSON-backed iterations refuse non-finite scalar options', () => {
+it('#2292 JSON-backed iterations refuse non-finite scalar options', () => {
   uiStore.analysisMode = 'pro';
   portal3D();
   const space = input3D();
@@ -438,7 +436,7 @@ issue2292('known wrong result: #2292 JSON-backed iterations refuse non-finite sc
   }
 });
 
-issue2292('known wrong result: #2292 advanced JSON wrappers validate nested options before calling WASM', () => {
+it('#2292 advanced JSON wrappers validate nested options before calling WASM', () => {
   uiStore.analysisMode = 'pro';
   portal3D();
   const three = input3D();

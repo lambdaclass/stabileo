@@ -3918,7 +3918,7 @@ const de: Translations = {
   'svc.errorInCase3d': 'Fehler im 3D-Lastfall „{n}“: {err}',
   'svc.engine.mechanism': 'Singuläre Steifigkeitsmatrix: Das Tragwerk ist ein Mechanismus',
   'svc.engine.cancelledCombination': "Die Faktoren wiederholter Lastfälle heben sich in dieser Kombination zu null auf.",
-  'svc.engine.nonFiniteNumber': "Nicht endliche Zahl ({value}) in {path}",
+  "svc.engine.nonFiniteNumber": "Geben Sie für {path} eine endliche Zahl ein (erhaltener Wert: {value}).",
   'svc.engine.zeroDiagonal': 'Alle Diagonalelemente sind null: singuläre Matrix',
   'svc.engine.singular': 'Singuläre Steifigkeitsmatrix',
   'svc.settlementCase': 'Vorgegebene Setzungen',

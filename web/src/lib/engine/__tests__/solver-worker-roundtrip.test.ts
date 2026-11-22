@@ -32,8 +32,6 @@ function cantileverWire(): Record<string, any> {
   };
 }
 
-const issue2292 = process.env.RUN_KNOWN_WRONG === '2292' ? it : it.skip;
-
 describe('solver-worker message round-trip', () => {
   let posted: PostedMessage[];
   let dispatch: (msg: any) => Promise<void>;
@@ -103,7 +101,7 @@ describe('solver-worker message round-trip', () => {
     expect(tip.uz / (-10 * 12 ** 3 / (3 * 200e6 * 1000 * 1e-4))).toBeCloseTo(1, 6);
   });
 
-  issue2292('known wrong result: #2292 the P-Delta worker refuses non-finite scalar options', async () => {
+  it('#2292 the P-Delta worker refuses non-finite scalar options', async () => {
     for (const [id, tol] of [NaN, Infinity, -Infinity].entries()) {
       await dispatch({ type: 'pdelta3d', id: 2292 + id, input: cantileverWire(), maxIter: 20, tol });
       const reply = posted.find(m => m.id === 2292 + id);

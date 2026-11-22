@@ -3760,5 +3760,6 @@ const hi: Translations = {
   "autoLoad.work.draw": "भार बनाए जा रहे हैं",
   "autoLoad.work.step": "चरण {step} / {total}",
   "autoLoad.work.cancel": "रोकें",
+  "svc.engine.nonFiniteNumber": "{path} में एक परिमित संख्या दर्ज करें (प्राप्त मान: {value})।",
 };
 export default hi;

@@ -3752,6 +3752,7 @@ const ar: Translations = {
   "autoLoad.work.draw": "رسم الأحمال",
   "autoLoad.work.step": "الخطوة {step} من {total}",
   "autoLoad.work.cancel": "إيقاف",
+  "svc.engine.nonFiniteNumber": "أدخل عددًا منتهيًا في الحقل {path} (القيمة الواردة: {value}).",
 } as const satisfies Record<string, string>;
 
 export default ar;

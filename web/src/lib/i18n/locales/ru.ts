@@ -3756,6 +3756,7 @@ const ru: Translations = {
   "autoLoad.work.draw": "Отрисовка нагрузок",
   "autoLoad.work.step": "Шаг {step} из {total}",
   "autoLoad.work.cancel": "Остановить",
+  "svc.engine.nonFiniteNumber": "Введите конечное число для {path} (получено: {value}).",
 } as const satisfies Record<string, string>;
 
 export default ru;

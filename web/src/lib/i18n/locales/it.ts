@@ -3765,5 +3765,6 @@ const it: Translations = {
   "autoLoad.work.draw": "Disegno dei carichi",
   "autoLoad.work.step": "Passo {step} di {total}",
   "autoLoad.work.cancel": "Ferma",
+  "svc.engine.nonFiniteNumber": "Inserisci un numero finito per {path} (valore ricevuto: {value}).",
 };
 export default it;
