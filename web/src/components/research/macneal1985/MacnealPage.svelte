@@ -35,7 +35,8 @@
   ]);
   const fmt = (v: number | null | undefined) => v == null ? '—' : new Intl.NumberFormat(publicI18n.locale, { maximumSignificantDigits: 7 }).format(v);
   const pct = (e: number | null | undefined) => e == null ? '—' : 100 * e < 1e-4 ? `< ${fmt(1e-4)}` : new Intl.NumberFormat(publicI18n.locale, { maximumFractionDigits: 4 }).format(100 * e);
-  const tallyText = (t: { passed: number; withheld: number; total: number }) => s.tally.replace('{passed}', String(t.passed)).replace('{total}', String(t.total)).replace('{tol}', fmt(100 * tolerance)) + (t.withheld ? `; ${s.withheldTally.replace('{n}', String(t.withheld))}` : '');
+  const punct = (mark: ':' | ';') => (lang === 'fr' ? `\u202f${mark} ` : lang === 'zh' ? (mark === ':' ? '：' : '；') : `${mark} `);
+  const tallyText = (t: { passed: number; withheld: number; total: number }) => s.tally.replace('{passed}', String(t.passed)).replace('{total}', String(t.total)).replace('{tol}', fmt(100 * tolerance)) + (t.withheld ? `${punct(';')}${s.withheldTally.replace('{n}', String(t.withheld))}` : '');
   const ISSUE = 'https://github.com/lambdaclass/stabileo/issues/798';
   async function run() {
     if (busy) return;
@@ -104,7 +105,7 @@
   {#snippet app()}
     <div class="benchmark-pane" {lang}>
       <p role="status" class="mh-summary" data-testid="benchmark-summary">
-        {#if busy}{s.running}{:else if rows.length === cases.length}<span data-testid="summary-shell">{s.shells}: {tallyText(tally.shell)}</span><span class="mh-sep" aria-hidden="true">{" · "}</span><span data-testid="summary-frame">{s.frames}: {tallyText(tally.frame)}</span>{:else}{s.computing}{/if}
+        {#if busy}{s.running}{:else if rows.length === cases.length}<span data-testid="summary-shell">{s.shells}{punct(':')}{tallyText(tally.shell)}</span><span class="mh-sep" aria-hidden="true">{" · "}</span><span data-testid="summary-frame">{s.frames}{punct(':')}{tallyText(tally.frame)}</span>{:else}{s.computing}{/if}
       </p>
       {#if failure}<p role="alert">{s.failed}: {failure}</p>{/if}
       <PaneTabs tabs={[{ id: 'viewer', label: s.viewer }, { id: 'results', label: s.results }]} bind:active={tab} />
