@@ -36,7 +36,7 @@
  *
  * Pure: no store.
  */
-import { assertDisjointShells, footprintsOverlap, planarShell, refuseGravityGeometry, ringArea, type ShellDeckBand, type ShellPlane, type UncoveredStrips } from './gravity-shell-partition';
+import { assertDisjointBayShells, assertSeparateShellDecks, footprintsOverlap, planarShell, refuseGravityGeometry, ringArea, type ShellDeckBand, type ShellPlane, type UncoveredStrips } from './gravity-shell-partition';
 import { physicalRoofRuns, samePhysicalPoint, snowCoordinate } from './physical-roof-geometry';
 import polygonClipping, { type Polygon } from 'polygon-clipping';
 import { physicalFloorLoad as floorLoad, type FloorBeam, type FloorPanel, type SideStretch } from './floor-loads';
@@ -182,14 +182,14 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
     const plan = ringArea(poly);
     const plane = opts.mode === 'panels' && plan > 0 ? planarShell(q.id, xyz) : undefined;
     const carrier = { id: q.id, poly, pts: xyz, nodes: q.nodes, plane };
-    if (Math.max(...zs) - Math.min(...zs) <= TOL) {
-      const deckBand = shellDeckBand(zs);
-      const key = deckBand.elevation;
+    const low = Math.min(...zs), high = Math.max(...zs);
+    if (high - low <= TOL) {
+      const key = levelKey(zs[0]!);
       const list = quadsAt.get(key) ?? [];
       list.push({ quadId: q.id, area: plan });
       quadsAt.set(key, list);
       if (plan > 0) {
-        levelCarriers.push({ ...carrier, z0: key, deckBand });
+        levelCarriers.push({ ...carrier, z0: levelKey(low), deckBand: { low, high } });
         for (const id of q.nodes) shellNodes.add(id);
       }
       continue;
@@ -199,13 +199,13 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
     // |sin| ≤ 0,5, the members' rule: a roof; past 80° a wall; between, named.
     if (cos >= Math.sqrt(0.75) - 1e-9) {
       slopedQuads.push({ quadId: q.id, area: plan, z: zs.reduce((s, z) => s + z, 0) / zs.length, cos });
-      slopedCarriers.push({ ...carrier, z0: levelKey(Math.min(...zs)) });
+      slopedCarriers.push({ ...carrier, z0: levelKey(low) });
       for (const id of q.nodes) shellNodes.add(id);
     } else if (cos > Math.cos((80 * Math.PI) / 180)) steep.push(q.id);
   }
   const carriers = [...levelCarriers, ...slopedCarriers];
   const roofs = opts.mode === 'panels' ? connectedShellGroups(slopedCarriers) : [];
-  if (opts.mode === 'panels') assertDisjointShells(carriers);
+  if (opts.mode === 'panels') assertSeparateShellDecks(carriers, TOL);
   const links = opts.mode === 'panels' ? verticalShellLinks(model) : [];
   const linkedDecks = linkedShellDecks(model, carriers, links);
   const offsets = directShellOffsets(model, shellNodes, links);
@@ -738,15 +738,8 @@ function assertNoOffsetShellDeck(
 
 const atDeckLevel = (height: number, z: number) => height >= z - TOL && height <= z + TOL;
 
-function shellDeckBand(heights: number[]): ShellDeckBand {
-  const index = levelIndex(heights[0]!);
-  const servedLevels = [index - 1, index, index + 1].map(i => i * TOL)
-    .filter(z => heights.every(height => atDeckLevel(height, z)));
-  return { elevation: index * TOL, servedLevels };
-}
-
 function shellServesDeckLevel(shell: ShellCarrier, z: number): boolean {
-  return shell.deckBand?.servedLevels.includes(z) ?? shell.pts.every(p => atDeckLevel(p[2], z));
+  return shell.pts.every(p => atDeckLevel(p[2], z));
 }
 
 function deckFootprints(
@@ -755,12 +748,14 @@ function deckFootprints(
   const atLevel = (height: number) => atDeckLevel(height, z);
   const nodesAtLevel = (roof: ShellCarrier[]) =>
     new Set(roof.flatMap(shell => shell.nodes.filter((_, i) => atLevel(shell.pts[i]![2]))));
-  const footprints: Polygon[] = [];
+  const serving = level.filter(shell => shellServesDeckLevel(shell, z));
+  const footprints: Polygon[] = serving.map(shell => [shell.poly]);
   const overlaps = (shell: ShellCarrier) => footprintsOverlap(boundary, [shell.poly]);
   try {
+    assertDisjointBayShells(serving, boundary);
+    const served = new Set(serving);
     for (const shell of level) {
-      if (shellServesDeckLevel(shell, z)) footprints.push([shell.poly]);
-      else if (atLevel(shell.z0) && overlaps(shell)) {
+      if (!served.has(shell) && shell.pts.some(p => atLevel(levelKey(p[2]))) && overlaps(shell)) {
         refuseGravityGeometry(msg('loadPlan.gravity.differentDeck'));
       }
     }

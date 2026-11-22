@@ -1,10 +1,12 @@
 # Gravity generation blocks duplicate claims on a deck
 
-Panel-mode gravity generation now refuses overlapping level shells that are assigned
-to the same gravity level or are both eligible to cover the same deck elevation.
-The same elevation bands determine which footprints can replace beam loading.
-Coplanar shell overlaps, including sloped shells, still refuse. Coplanar edge
-contact and overlapping projections on separate deck levels are supported.
+Panel-mode gravity generation now checks the area where shell footprints
+intersect. For overlapping level shells, it compares the shell heights over
+that common footprint using the existing deck tolerance. The check gives
+the same result for every starting corner and winding. Coplanar shell
+overlaps, including sloped shells, still refuse. An actual beam bay also
+refuses when two shells eligible to cover it share a positive-area part of
+the bay. Shell edge contact and independent decks remain supported.
 
 The planner also recognizes eccentric connections that couple vertical motion.
 A vertically coupled offset shell and beam bay with overlapping load regions
@@ -25,6 +27,13 @@ twice the applied 60 kN. In both cases the level weights included the
 duplicate load. The automatic and explicit panel selections both reproduced
 the result without a blocking message. These variants now return BLOCKED
 with an empty load plan.
+
+A shell-only model with identical 10 × 6 m footprints at height ranges
+3.0009996–3.0019995 m and 3.0010006–3.0020005 m returned READY on main.
+At 1 kN/m² both shells received dead load and the level summaries totaled
+120 kN. The planner now blocks these overlapping claims for all corner
+orders. Two flat shells at 3.0002 m and 3.0018 m retain their independent
+loads unless they both cover the same part of a beam bay.
 
 Regenerate panel-mode gravity loads in potentially affected projects before
 using analysis, design or report results. If generation refuses, resolve

@@ -671,11 +671,10 @@ function cornerOrders(nodes: number[]): number[][] {
   );
 }
 
-const reviewShellOverlap = process.env.RUN_KNOWN_WRONG === '2284' ? it : it.skip;
 const overlappingShells = { key: 'loadPlan.gravity.overlappingShells', params: { first: 1, second: 2 } } as const;
 
 for (let first = 0; first < 8; first++) for (let second = 0; second < 8; second++) {
-  reviewShellOverlap(`known wrong result: #2284 round 2 parallel shell-only decks overlap with corner orders ${first}/${second}`, () => {
+  it(`#2284 round 2 parallel shell-only decks overlap with corner orders ${first}/${second}`, () => {
     const model = floor(0, 0, 10, 6);
     const a = rectangularShell(model, 1, 0, 10, 3.0009996, 3.0019995);
     const b = rectangularShell(model, 2, 0, 10, 3.0010006, 3.0020005);
@@ -704,7 +703,7 @@ for (const [label, model, x0, x1, x2, x3, low, high] of [
   ['without a beam bay', floor(0, 0, 10, 6), 0, 10, 0, 10, 3.0002, 3.0018],
   ['with a bay touching the common footprint at its edge', floor(1, 1, 10, 6, 3.001), -5, 0, -5, 10, 3.0002, 3.0018],
 ] as const) {
-  reviewShellOverlap(`known wrong result: #2284 round 2 independent shells keep their loads ${label}`, () => {
+  it(`#2284 round 2 independent shells keep their loads ${label}`, () => {
     rectangularShell(model, 1, x0, x1, low);
     rectangularShell(model, 2, x2, x3, high);
     for (const loadEveryPanel of [false, true]) {

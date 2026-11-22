@@ -3,7 +3,8 @@
   "date": "2026-11-22",
   "prs": [
     2284,
-    2299
+    2299,
+    2495
   ],
   "area": "loads",
   "when": {
@@ -28,7 +29,7 @@
     "hu": "A gravitációs terhek előállítása megakadályozza a födémterhek kettős kiosztását"
   },
   "explanation": {
-    "en": "Regenerate panel gravity loads in projects with shells. Overlapping shells that share a deck elevation band and offset shells vertically coupled by eccentric connections to an overlapping loaded beam bay block generation.",
+    "en": "Regenerate panel gravity loads in projects with shells. Overlapping shells within the deck height tolerance or claiming the same part of a beam bay block generation. Offset shells vertically coupled by eccentric connections to an overlapping loaded beam bay also block generation.",
     "es": "Regenerá las cargas gravitatorias por paños en proyectos con placas. Se bloquea la generación si se superponen placas que comparten una franja de elevación o si una placa desplazada está vinculada verticalmente a un paño de vigas cargado y superpuesto mediante conexiones excéntricas.",
     "pt": "Gere novamente as cargas gravitacionais por painéis em projetos com cascas. A geração é bloqueada quando há cascas sobrepostas que compartilham uma faixa de elevação ou quando cascas deslocadas são ligadas verticalmente por conexões excêntricas a um painel de vigas carregado e sobreposto.",
     "de": "Erzeugen Sie die Schwerkraftlasten für Projekte mit Schalen im Feldmodus neu. Überlappende Schalen im selben Höhenband und versetzte Schalen, die über exzentrische Verbindungen vertikal an überlappende belastete Trägerfelder gekoppelt sind, sperren die Lasterzeugung.",
