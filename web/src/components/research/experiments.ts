@@ -120,7 +120,7 @@ export const EXPERIMENTS: Experiment[] = [
     paperId: 'zmyslony-2026',
     path: '/research/mechanics/biggins-2026',
     name: 'Snapping arches by curvature patterning',
-    hook: 'Production buckling modes and a shallow-arch equilibrium jump, checked against published thresholds.',
+    hook: 'Production buckling modes and a shallow-arch equilibrium jump, checked against the paper’s values and the authors’ software.',
     thumbnail: 'research-thumbs/biggins-2026.webp',
     thumbnailAlt: 'Arch equilibrium',
     thumbnailQuery: '',

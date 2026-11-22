@@ -15,8 +15,8 @@
   import { EditorLoad, openEditorWindow } from './editor-load.svelte';
   import { forceScale, forceLegend } from './force-display';
   import { uniaxial } from './moduli';
-  import { checkLabel, checkMetric } from './check-labels';
-  import { evidence, stripComparison } from './evidence';
+  import { checkLabel, checkMetric, comparisonNames } from './check-labels';
+  import { evidence, stripComparison, comparisonRows } from './evidence';
   import replayJson from '../../../../../research/metamaterials/grossman-2026/reference-results/replay.json?raw';
   import type { solveAll } from './solve-all';
   import { Simulation } from './simulation.svelte';
@@ -180,7 +180,6 @@
       if (t === 'experiment' || t === 'params' || t === 'edit') showTab(t);
     },
   };
-  const paperChecks = evidence[0];
 
   /** Links in the article set the app's state. */
   function apply(p: Partial<{ family: Family; eta: number; phi: number; psi: number; theta: number; ell: number; keep: number; prestress: number; diagonals: boolean; law: 'hookean' | 'equal_weight'; strain: number }>) {
@@ -339,8 +338,10 @@
   lead={s.springsLead}
   verification={{
     reference: { kind: 'none', why: s.springsReferenceUnavailable },
-    published: { kind: 'checks', passed: paperChecks.passed + stripComparison.filter(r => r.passed).length, total: paperChecks.total + stripComparison.length, href: '#checks' },
+    published: { kind: 'checks', passed: comparisonRows.filter(r => r.passed).length, total: comparisonRows.length, href: '#comparison' },
   }}
+  comparison={comparisonRows}
+  comparisonNames={comparisonNames(comparisonRows as { id: string; eta?: number }[], locale)}
   {actions}
   sourcePath="research/metamaterials/grossman-2026"
   wide={tab === 'edit'}
@@ -372,7 +373,7 @@
       <table class="sp-checks sp-strip">
         <caption>{s.springsStripSeries} · {s.springsFigureSeries}</caption>
         <thead><tr><th>η</th><th>{s.springsObserved}</th><th>{s.springsFigureSeries} ± {nf(0.003)}</th><th>{s.springsResult}</th></tr></thead>
-        <tbody>{#each stripComparison as row (row.eta)}<tr><td>{nf(row.eta, 2)}</td><td>{nf(row.mean, 4)}</td><td>{nf(row.lo - row.digitisation, 4)} … {nf(row.hi + row.digitisation, 4)}</td><td>{row.passed ? s.pass : s.fail}</td></tr>{/each}</tbody>
+        <tbody>{#each stripComparison as row (row.eta)}<tr><td>{nf(row.eta, 2)}</td><td>{nf(row.computed, 4)}</td><td>{nf(row.lo - row.digitisation, 4)} … {nf(row.hi + row.digitisation, 4)}</td><td>{row.passed ? s.pass : s.fail}</td></tr>{/each}</tbody>
       </table>
 
       <h3>{s.springsHoneyHeading}</h3>

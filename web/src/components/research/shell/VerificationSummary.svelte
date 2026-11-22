@@ -16,7 +16,7 @@
       <dt>{label}</dt>
       <dd>
         {#if check.kind === 'checks'}
-          <span class="ok" aria-hidden="true">✓</span>
+          {#if check.passed === check.total}<span class="ok" aria-hidden="true">✓</span>{:else}<span class="no" aria-hidden="true">✗</span>{/if}
           {check.passed} {s.of} {check.total} {s.checksPass}{#if check.href} · <a href={check.href}>{s.seeChecks}</a>{/if}
         {:else}
           <span class="no" aria-hidden="true">–</span> {check.why}

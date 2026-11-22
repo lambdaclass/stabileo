@@ -31,6 +31,7 @@ const en = {
   ours: 'Stabileo modes + shallow-arch equations',
   reference: 'Authors’ Zenodo software',
   parameterNotice: 'Displayed results retain their computed parameters until recomputation completes.',
+  comparisonNames: { "threshold-70": "Snap threshold α/√ε, centered pattern over 70% of the span", k1: "First antisymmetric Euler mode of the flat clamped beam: wavenumber k₁/π", k0: "Fundamental Euler mode of the flat clamped beam: wavenumber k₀/π" } as Record<string, string>,
 };
 type Strings = typeof en;
 const es: Strings = {
@@ -48,6 +49,7 @@ const es: Strings = {
   limits: 'Es un modelo de equilibrio poco profundo e inextensible. El salto conecta equilibrios; no simula la dinámica ni reproduce mediciones de laboratorio. El método de longitud de arco del motor rechaza desplazamientos impuestos y cargas térmicas, por lo que no se usa aquí. Solo se estudian patrones centrados y pequeños acortamientos.',
   evidence: 'Para un ancho estimulado del 70%, el artículo da α/√ε = {threshold} (arXiv v2 página 3, después de la Ec. 2). La curva de referencia se genera con el software de los autores del registro Zenodo 18256271, con licencia CC-BY-4.0. Es una referencia numérica, no una validación experimental.',
   checkLabels: {"max relative threshold error against 31 Zenodo software outputs": 'Curva de Zenodo: error relativo máximo', "64 elements / 16 modes vs 96 elements / 24 modes: max relative threshold change": 'Refinamiento de malla y modos', "Euler f0 relative error": 'Primera carga de Euler', "Euler f1 relative error": 'Segunda carga de Euler'} as Record<string, string>, publishedValue: 'Umbral publicado para un ancho del 70%', checks: 'Validación y fuentes', width: 'Ancho estimulado γ', compression: 'Acortamiento ε', threshold: 'Umbral de salto α', normalized: 'Umbral normalizado α/√ε', mode: 'Primer modo de pandeo antisimétrico', arch: 'Equilibrio del arco', jump: 'Secuencia de equilibrios; el salto no tiene duración física', run: 'Recalcular en vivo', stop: 'Detener', restart: 'Reiniciar', error: 'El cálculo no pudo cargarse o completarse. El resultado anterior sigue disponible.', computing: 'Calculando con Stabileo…', paper: 'Artículo y ecuaciones suplementarias', data: 'Datos y software de Zenodo', ours: 'Modos de Stabileo + ecuaciones del arco', reference: 'Software de los autores en Zenodo', parameterNotice: 'Los resultados conservan sus parámetros hasta completar el nuevo cálculo.',
+  comparisonNames: { "threshold-70": "Umbral de salto α/√ε, patrón centrado sobre el 70% de la luz", k1: "Primer modo de Euler antisimétrico de la viga plana empotrada: número de onda k₁/π", k0: "Modo fundamental de Euler de la viga plana empotrada: número de onda k₀/π" },
 };
 const pt: Strings = {
   resultParameters: "Parâmetros calculados",
@@ -62,6 +64,7 @@ const pt: Strings = {
   limits: 'Este é um modelo de equilíbrio raso e inextensível. O salto conecta equilíbrios; não simula a dinâmica nem reproduz medições de laboratório. O método de comprimento de arco do motor rejeita deslocamentos impostos e cargas térmicas, portanto não é usado aqui. Apenas padrões centralizados e pequenos encurtamentos são estudados.',
   evidence: 'Para uma largura estimulada de 70%, o artigo fornece α/√ε = {threshold} (arXiv v2 página 3, após a Eq. 2). A curva de referência é gerada pelo software dos autores no registro Zenodo 18256271, sob licença CC-BY-4.0. É uma referência numérica, não uma validação experimental.',
   checkLabels: {"max relative threshold error against 31 Zenodo software outputs": 'Curva do Zenodo: erro relativo máximo', "64 elements / 16 modes vs 96 elements / 24 modes: max relative threshold change": 'Refinamento de malha e modos', "Euler f0 relative error": 'Primeira carga de Euler', "Euler f1 relative error": 'Segunda carga de Euler'} as Record<string, string>, publishedValue: 'Limiar publicado para largura de 70%', checks: 'Validação e fontes', width: 'Largura estimulada γ', compression: 'Encurtamento ε', threshold: 'Limiar do salto α', normalized: 'Limiar normalizado α/√ε', mode: 'Primeiro modo de flambagem antissimétrico', arch: 'Equilíbrio do arco', jump: 'Sequência de equilíbrios; o salto não tem duração física', run: 'Recalcular ao vivo', stop: 'Parar', restart: 'Reiniciar', error: 'O cálculo não pôde carregar ou terminar. O resultado anterior continua disponível.', computing: 'Calculando com Stabileo…', paper: 'Artigo e equações suplementares', data: 'Dados e software do Zenodo', ours: 'Modos Stabileo + equações do arco', reference: 'Software dos autores no Zenodo', parameterNotice: 'Os resultados mantêm seus parâmetros até o novo cálculo terminar.',
+  comparisonNames: { "threshold-70": "Limiar do salto α/√ε, padrão centralizado em 70% do vão", k1: "Primeiro modo de Euler antissimétrico da viga plana engastada: número de onda k₁/π", k0: "Modo fundamental de Euler da viga plana engastada: número de onda k₀/π" },
 };
 const de: Strings = {
   "title": "Schnappende Bögen durch Krümmungsmuster",
@@ -100,7 +103,8 @@ const de: Strings = {
     "64 elements / 16 modes vs 96 elements / 24 modes: max relative threshold change": "Netz- und Modenverfeinerung",
     "Euler f0 relative error": "Erste Euler-Last",
     "Euler f1 relative error": "Zweite Euler-Last"
-  }
+  },
+  comparisonNames: { "threshold-70": "Schnappschwelle α/√ε, zentriertes Muster über 70 % der Spannweite", k1: "Erste antisymmetrische Euler-Knickmode des ebenen, beidseitig eingespannten Balkens: Wellenzahl k₁/π", k0: "Euler-Grundknickmode des ebenen, beidseitig eingespannten Balkens: Wellenzahl k₀/π" },
 };
 const fr: Strings = {
   "title": "Claquement des arcs par motifs de courbure",
@@ -139,7 +143,8 @@ const fr: Strings = {
     "64 elements / 16 modes vs 96 elements / 24 modes: max relative threshold change": "Raffinement du maillage et des modes",
     "Euler f0 relative error": "Première charge d’Euler",
     "Euler f1 relative error": "Deuxième charge d’Euler"
-  }
+  },
+  comparisonNames: { "threshold-70": "Seuil de claquage α/√ε, motif centré sur 70 % de la portée", k1: "Premier mode d’Euler antisymétrique de la poutre plane bi-encastrée : nombre d’onde k₁/π", k0: "Mode d’Euler fondamental de la poutre plane bi-encastrée : nombre d’onde k₀/π" },
 };
 const tr: Strings = {
   "title": "Eğrilik desenleriyle sıçrayan kemerler",
@@ -178,7 +183,8 @@ const tr: Strings = {
     "64 elements / 16 modes vs 96 elements / 24 modes: max relative threshold change": "Ağ ve mod iyileştirmesi",
     "Euler f0 relative error": "Birinci Euler yükü",
     "Euler f1 relative error": "İkinci Euler yükü"
-  }
+  },
+  comparisonNames: { "threshold-70": "Ani geçiş eşiği α/√ε, açıklığın %70’ini kaplayan ortalanmış desen", k1: "İki ucu ankastre düz kirişin ilk antisimetrik Euler modu: dalga sayısı k₁/π", k0: "İki ucu ankastre düz kirişin temel Euler modu: dalga sayısı k₀/π" },
 };
 const hu: Strings = {
   "title": "Átpattanó ívek görbületi mintázattal",
@@ -217,7 +223,8 @@ const hu: Strings = {
     "64 elements / 16 modes vs 96 elements / 24 modes: max relative threshold change": "Háló- és alakfinomítás",
     "Euler f0 relative error": "Első Euler-teher",
     "Euler f1 relative error": "Második Euler-teher"
-  }
+  },
+  comparisonNames: { "threshold-70": "Átpattanási küszöb α/√ε, a fesztáv 70%-át lefedő, középre helyezett minta", k1: "A sík, két végén befogott gerenda első antiszimmetrikus Euler-módusa: k₁/π hullámszám", k0: "A sík, két végén befogott gerenda alap Euler-módusa: k₀/π hullámszám" },
 };
 const zh: Strings = {
   "title": "曲率分布诱发拱的突跳屈曲",
@@ -256,7 +263,8 @@ const zh: Strings = {
     "64 elements / 16 modes vs 96 elements / 24 modes: max relative threshold change": "网格与模态加密",
     "Euler f0 relative error": "第一 Euler 荷载",
     "Euler f1 relative error": "第二 Euler 荷载"
-  }
+  },
+  comparisonNames: { "threshold-70": "突跳阈值 α/√ε，覆盖跨度 70% 的居中分布", k1: "平直两端固定梁的第一反对称 Euler 模态：波数 k₁/π", k0: "平直两端固定梁的基本 Euler 模态：波数 k₀/π" },
 };
 export const translations: Record<string, Strings> = { en, es, pt, de, fr, tr, hu, zh };
 export const archStrings = (): Strings => translations[publicI18n.locale] ?? en;

@@ -13,6 +13,7 @@
   import replay from '../../../../../research/mechanics/biggins-2026/reference-results/replay.json';
   import reference from '../../../../../research/mechanics/biggins-2026/reference-results/thresholds.json';
   import validation from '../../../../../research/mechanics/biggins-2026/VALIDATION.json';
+  import published from '../../../../../research/mechanics/biggins-2026/reference-results/published_comparison.json';
 
   const s = $derived(archStrings());
   const shared = $derived(rs());
@@ -69,22 +70,22 @@
 
 <ExperimentShell paperId="zmyslony-2026" name={s.title} lead={s.lead} introInArticle compactHeader wide locale={publicI18n.locale}
   sourcePath="research/mechanics/biggins-2026"
-  verification={{ reference: { kind: 'checks', passed: validation.checks.filter(c => c.passed).length, total: validation.checks.length, href: '#checks' }, published: { kind: 'checks', passed: validation.published_checks.filter(c => c.passed).length, total: validation.published_checks.length, href: '#checks' } }}
+  verification={{ reference: { kind: 'checks', passed: validation.checks.filter(c => c.passed).length, total: validation.checks.length, href: '#checks' }, published: { kind: 'checks', passed: published.checks.filter(c => c.passed).length, total: published.checks.length, href: '#comparison' } }}
+  comparison={published.checks} comparisonNames={s.comparisonNames}
   actions={{ goToStep: i => { showMode = false; playback.seek(i); }, setParams: params => { if (typeof params.width === 'number' && params.width >= 0.3 && params.width <= 0.9) { width = params.width; compute(); } }, showTab: tab => { showMode = tab === 'mode'; playback.interact(); } }}>
   {#snippet article()}
     <h2>{s.model}</h2><p>{s.theory}</p><p>{s.method}</p>
     <p><ExperimentLink step={postSnapStep(run)}>{s.jump}</ExperimentLink> · <ExperimentLink tab="mode">{s.mode}</ExperimentLink></p>
-    <h2 id="checks">{s.checks}</h2><p>{s.evidence.replace('{threshold}', num(validation.published_checks[0].reference, { dp: 2 }))}</p>
+    <p>{s.width}: <ExperimentLink params={{ width: 0.7 }}>{num(0.7, { dp: 2 })}</ExperimentLink> · <ExperimentLink params={{ width: 0.5 }}>{num(0.5, { dp: 2 })}</ExperimentLink> · <ExperimentLink params={{ width: 0.9 }}>{num(0.9, { dp: 2 })}</ExperimentLink></p>
+    <h2 id="checks">{s.checks}</h2><p>{s.evidence.replace('{threshold}', num(published.checks[0].reference, { dp: 2 }))}</p>
     <dl>
-      <dt>{s.publishedValue}</dt><dd>{num(validation.published_checks[0].reference, { dp: 2 })}</dd>
-      <dt>{s.ours}</dt><dd>{num(replay.threshold / Math.sqrt(replay.compression), { dp: 5 })}</dd>
       {#each validation.checks as check}
         <dt>{s.checkLabels[check.metric]}</dt>
         <dd>{num(100 * check.observed, { sig: 4 })}% · {shared.tolerance} {num(100 * check.tolerance, { sig: 3 })}%</dd>
       {/each}
     </dl>
     <p><a href="https://arxiv.org/html/2601.06598v2">{s.paper}</a> · <a href="https://zenodo.org/records/18256271">{s.data}</a></p>
-    <p>{s.referenceCaveat.replace('{software}', num(reference.find(p => p[0] === 0.7)![1], { dp: 4 })).replace('{published}', num(validation.published_checks[0].reference, { dp: 2 }))}</p><p>{s.limits}</p>
+    <p>{s.referenceCaveat.replace('{software}', num(reference.find(p => p[0] === 0.7)![1], { dp: 4 })).replace('{published}', num(published.checks[0].reference, { dp: 2 }))}</p><p>{s.limits}</p>
   {/snippet}
   {#snippet app()}
     <div lang={publicI18n.locale} class="arches-app" bind:this={host} data-source={source} data-step={playback.shown} data-threshold={run.threshold} data-width={run.width} data-compression={run.compression} data-alpha={frame.alpha} data-force={frame.force}
