@@ -272,7 +272,7 @@
   {checks}
   introInArticle
   compactHeader
-  verification={{ reference: { kind: 'checks', ...checks, href: '#checks' }, published: { kind: 'none', why: strings.paperNotCompared } }}
+  verification={{ reference: { kind: 'checks', ...checks, href: '#checks' }, published: { kind: 'none', why: strings.notComparedWhy } }}
   {actions}
   sourcePath="research/fracture/shauer-2025"
 >
