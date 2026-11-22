@@ -1,0 +1,12 @@
+{
+  "quantity": "First limit (peak) load of the pinned Lee frame, kN",
+  "note": "Lee, Manuel & Rossow (1968) was not available to us; these are published solutions of the same frame.",
+  "rows": [
+    {"id": "fig10-elements20", "computed": "elements20", "label": "Figure 10 reading", "reference": 1.87, "uncertainty": 0.03,
+     "source": "de Souza, Vanalli & de Luz (2020), doi:10.1155/2020/3613892, Figure 10, pinned path with Schweizerhof & Wriggers (1986): first peak measured in pixels, scale checked on the semirigid peak 2.1474 kN stated in Figure 11; reading uncertainty ±0.03 kN"},
+    {"id": "fig10-extrapolated", "computed": "extrapolated", "label": "Figure 10 reading", "reference": 1.87, "uncertainty": 0.03,
+     "source": "de Souza, Vanalli & de Luz (2020), doi:10.1155/2020/3613892, Figure 10, pinned path with Schweizerhof & Wriggers (1986): first peak measured in pixels, scale checked on the semirigid peak 2.1474 kN stated in Figure 11; reading uncertainty ±0.03 kN"},
+    {"id": "galvao-extrapolated", "computed": "extrapolated", "label": "Galvão (2000)", "reference": 1.86, "uncertainty": 0.005,
+     "source": "Galvão (2000), point A, as tabulated by Neves (2025), Blucher Physics Proceedings XV ECFA, paper 2025030, Table 1; printed to 0.01 kN, tolerance half that unit"}
+  ]
+}

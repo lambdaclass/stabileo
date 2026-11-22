@@ -1,0 +1,52 @@
+{
+  "checks": [
+    {
+      "id": "limit-load",
+      "name": "Limit load PR²/EI, 40 elements",
+      "source": "DaDeppo & Schmidt (1975), Table 1, as quoted by R. Schmidt (2000), J. Eng. Mech. 126(12), p. 1308",
+      "unit": "",
+      "reference": 8.97,
+      "computed": 9.01129541241173,
+      "metric": "relative difference",
+      "observed": 0.004603724906547326,
+      "tolerance": 0.006,
+      "passed": true
+    },
+    {
+      "id": "crown-u",
+      "name": "Crown horizontal displacement u/R at the limit point, 40 elements",
+      "source": "DaDeppo & Schmidt (1975), Table 1, as quoted by R. Schmidt (2000), J. Eng. Mech. 126(12), p. 1308",
+      "unit": "",
+      "reference": 0.6116,
+      "computed": 0.61189302613322,
+      "metric": "relative difference",
+      "observed": 0.0004791140176913344,
+      "tolerance": 0.0011,
+      "passed": true
+    },
+    {
+      "id": "crown-v",
+      "name": "Crown vertical displacement v/R at the limit point, 40 elements",
+      "source": "DaDeppo & Schmidt (1975), Table 1, as quoted by R. Schmidt (2000), J. Eng. Mech. 126(12), p. 1308",
+      "unit": "",
+      "reference": 1.1372,
+      "computed": 1.1378066999020022,
+      "metric": "relative difference",
+      "observed": 0.0005335032553660209,
+      "tolerance": 0.0007,
+      "passed": true
+    },
+    {
+      "id": "crown-rotation",
+      "name": "Crown rotation at the limit point, 40 elements",
+      "source": "DaDeppo & Schmidt (1975), Table 1, as quoted by R. Schmidt (2000), J. Eng. Mech. 126(12), p. 1308",
+      "unit": "",
+      "reference": 0.0498,
+      "computed": 0.05134560445613732,
+      "metric": "relative difference",
+      "observed": 0.03103623405898236,
+      "tolerance": 0.04,
+      "passed": true
+    }
+  ]
+}

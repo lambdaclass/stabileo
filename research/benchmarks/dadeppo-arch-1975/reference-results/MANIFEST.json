@@ -1,7 +1,8 @@
 {
-  "method": "Manual transcription from the author\u2019s 2000 discussion, p. 1308 (limit load, crown u/R, v/R and rotation); no reference code.",
+  "method": "Manual transcription from the author’s 2000 discussion, p. 1308 (limit load, crown u/R, v/R and rotation); no reference code.",
   "date": "2026-10-31",
   "files_sha256": {
-    "limit-load.json": "2204ec7acaa7719c23cc35e2cdd1375e797fb8507ba70a824d769f71e34e71f4"
+    "limit-load.json": "2204ec7acaa7719c23cc35e2cdd1375e797fb8507ba70a824d769f71e34e71f4",
+    "published_comparison.json": "f1b45c6a53ccf2729e4608eaf9df8b6d07f6195d30d9a621025c2827ccd89b0d"
   }
 }

@@ -1582,7 +1582,7 @@
    "dependencies": [],
    "complexity": "low",
    "relevance": "A small frame exercises the existing nonlinear path-following solver and shared viewer.",
-   "status": "proposed",
+   "status": "numerically-validated",
    "stage": "first-version",
    "reviews": [
     {
@@ -1605,7 +1605,7 @@
    ],
    "reproduced_published_results": false,
    "benchmarks": [
-    "Pinned Lee frame, first sampled peak with mesh and step study, against a by-eye reading of de Souza et al. (2020) Figure 10"
+    "Pinned Lee frame, first peak with mesh and step study, against a measured reading of de Souza et al. (2020) Figure 10 and Galvão (2000) as tabulated by Neves (2025)"
    ],
    "implementation": "benchmarks/lee-frame-1968",
    "contacts": []
@@ -1639,7 +1639,7 @@
    "dependencies": [],
    "complexity": "low",
    "relevance": "One deep arch exercises the production path-following solver and shared viewer.",
-   "status": "implementation-in-progress",
+   "status": "published-figures-compared",
    "stage": "first-version",
    "reviews": [
     {
@@ -1660,7 +1660,7 @@
      "date": "2026-10-30"
     }
    ],
-   "reproduced_published_results": false,
+   "reproduced_published_results": true,
    "benchmarks": [
     "215 degree clamped–hinged arch under a crown point load"
    ],
@@ -1748,10 +1748,10 @@
    "dependencies": [],
    "complexity": "low",
    "relevance": "Exercises Stabileo's 2D frame arc-length solver through limit points and snap-through.",
-   "status": "proposed",
+   "status": "numerically-validated",
    "reproduced_published_results": false,
    "benchmarks": [],
-   "implementation": null,
+   "implementation": "numerical-methods/riks-crisfield",
    "page": "web/src/components/research/riksCrisfield/RiksCrisfieldPage.svelte",
    "contacts": [],
    "reviews": [
@@ -1801,10 +1801,10 @@
    "dependencies": [],
    "complexity": "low",
    "relevance": "Method behind Stabileo's Crisfield arc-length solver for 2D frame snap-through and snap-back.",
-   "status": "proposed",
+   "status": "numerically-validated",
    "reproduced_published_results": false,
    "benchmarks": [],
-   "implementation": null,
+   "implementation": "numerical-methods/riks-crisfield",
    "page": "web/src/components/research/riksCrisfield/RiksCrisfieldPage.svelte",
    "contacts": []
   },
