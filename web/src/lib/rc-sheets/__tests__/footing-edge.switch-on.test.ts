@@ -2,7 +2,7 @@
  * Footings at a property line against hand calculations: a strap beam's statics (V, R1, M), the
  * footing twice as long along the line with its column at it, checked centred under R1 and
  * reinforced along the line from the beam's faces; a corner with two straps; a footing that takes
- * its offset alone; a tie at the first floor (FIUBA §14.1).
+ * its offset alone; a tie at the first floor (FIUBA Cim. §6).
  */
 import { describe, it, expect } from 'vitest';
 import { rulesFor } from '../codes';
@@ -17,7 +17,7 @@ import { tiePulls, withPulls } from '../footing-ties';
 const fmt = makeFmt('.');
 const footingRow = rulesFor('cirsoc201-2025').footingRow;
 const ctx: FootingContext = { fc: 25, fy: 420, cover: 0.05, sizing: 'full', diameters: [10, 12, 16, 20, 25], preferred: { x: 12, y: 12 }, columnBars: { count: 4, dia: 16, tension: false } };
-const partner = (axis: 'x' | 'y', L: number) => ({ axis, key: 'footing:n2', nodeId: 2, name: 'C2', L, column: { b: 0.3, h: 0.3 } });
+const partner = (axis: 'x' | 'y', L: number) => ({ axis, key: 'footing:n2', nodeId: 2, name: 'C2', L, column: { b: 0.3, h: 0.3 }, permanent: 500 });
 
 function demand(edge: FootingEdge, over: Partial<FootingDemand> = {}): FootingDemand {
   return {
@@ -177,5 +177,33 @@ describe('a footing with a tie, by the FIUBA foundations course (§6)', () => {
     expect(row.verifications.some((v) => v.label === 'rcSheets.v.footTiePull')).toBe(true);
     const plain = footingRow(inner, ctx, undefined, fmt);
     expect(row.B * row.L).toBeGreaterThan(plain.B * plain.L);
+  });
+});
+
+describe('the footing a strap runs to (GA §12)', () => {
+  const pull = (permanent?: number) => {
+    const { permanent: _, ...unknown } = partner('x', 4);
+    const r = footingRow(demand({ anchor: [-1, 0], source: 'lines', balance: 'strap', partners: [{ ...unknown, ...(permanent !== undefined ? { permanent } : {}) }] }), ctx, undefined, fmt);
+    return { r, v: r.verifications.find((x) => x.label === 'rcSheets.v.footStrapPull')! };
+  };
+
+  it('holds the strap\'s service pull 1,5 times with its permanent load', () => {
+    const { r, v } = pull(1000);
+    const s = r.edge!.straps[0]!;
+    expect(s.pull).toBeCloseTo(s.R1 - s.P1, 6);
+    expect(v.ok).toBe(true);
+    expect(v.demand).toContain('C2');
+  });
+
+  it('fails where 1,5 times the pull outweighs it', () => {
+    const { r, v } = pull(10);
+    expect(1.5 * r.edge!.straps[0]!.pull!).toBeGreaterThan(10);
+    expect(v.ok).toBe(false);
+  });
+
+  it('does not pass with the permanent load unknown', () => {
+    const { v } = pull();
+    expect(v.ok).toBe(false);
+    expect(v.capacity).toBe('—');
   });
 });

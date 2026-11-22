@@ -16878,6 +16878,7 @@ const fr: Translations = {
   "rcSheets.v.footPresumedSoil": "Contrainte admissible présumée dans les données de calcul : le modèle n'a pas de profil de sol ; confirmez-la par l'étude de sol",
   "designData.propertyLinesHint": "Les côtés du bâtiment qui sont en limite de propriété. Les semelles de ces côtés sont proposées avec le poteau en limite, équilibrées par une longrine de redressement vers la semelle intérieure la plus proche ; chaque semelle peut le changer dans sa fiche. Le panneau des fondations lit la même option.",
   "rcSheets.v.footStrapNoPartner": "Pas de semelle vers l'intérieur pour une longrine selon {demand} : le sol reprend l'excentricité",
+  "rcSheets.v.footStrapPull": "La semelle où aboutit la longrine reprend sa traction par sa charge permanente",
   "rcSheets.v.footTie": "Tirant au premier plancher",
   "rcSheets.v.footTieLoad": "Charge d'une semelle avec tirant ; au-delà de la limite, une longrine de redressement convient mieux",
   "rcSheets.v.footTieArm": "Bras de levier du tirant (de son axe à la sous-face de la semelle)",

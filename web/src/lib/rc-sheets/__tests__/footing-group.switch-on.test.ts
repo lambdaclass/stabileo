@@ -99,14 +99,31 @@ describe('the characteristic length and a strip on springs', () => {
     expect(characteristicLength(E, h, ks)).toBeCloseTo(Math.pow((4 * E * (1 * h ** 3 / 12)) / (1 * ks), 0.25), 9);
   });
 
-  it('a long strip under one load settles and bends as the infinite beam: y = P·β/(2·k·b), M = P/(4·β)', () => {
+  it('a long strip pressed by its weight under one load settles and bends as the infinite beam: y = P·β/(2·k·b), M = P/(4·β)', () => {
     const EI = 2e5, ks = 20000, b = 1, P = 500;
     const beta = Math.pow((ks * b) / (4 * EI), 0.25);
-    const w = winklerStrip({ S: 40, b, EI, ks, ends: 1, loads: [{ s: 20, P, M: 0 }], dx: 0.05 });
+    const w = winklerStrip({ S: 40, b, EI, ks, ends: 1, loads: [{ s: 20, P, M: 0 }], dx: 0.05, preload: 100 });
     const mid = Math.round(20 / (40 / (w.s.length - 1)));
     expect(w.y[mid]!).toBeCloseTo((P * beta) / (2 * ks * b), 4);
     expect(w.M[mid]! / (P / (4 * beta))).toBeCloseTo(1, 1);
     expect(w.q[mid]!).toBeCloseTo(ks * w.y[mid]!, 9);
+  });
+
+  it('reads the soil pressure from the spring that gives it, the ends\' stiffened ones too', () => {
+    const w = winklerStrip({ S: 4, b: 1, EI: 5e5, ks: 25000, ends: 2, loads: [{ s: 2, P: 400, M: 0 }], dx: 0.1 });
+    expect(w.q[0]!).toBeCloseTo(2 * 25000 * w.y[0]!, 6);
+    const mid = Math.round(w.s.length / 2) - 1;
+    expect(w.q[mid]!).toBeCloseTo(25000 * w.y[mid]!, 6);
+  });
+
+  it('lets go of the soil where the columns lift the strip past what its weight presses: no pull, and the rest takes the load', () => {
+    const w = winklerStrip({ S: 6, b: 1, EI: 2e5, ks: 20000, ends: 1, loads: [{ s: 0.3, P: 600, M: 0 }], dx: 0.1, preload: 5 });
+    const lifted = w.y.map((v, i) => [v, w.q[i]!] as const).filter(([v]) => 20000 * v + 5 < 0);
+    expect(lifted.length).toBeGreaterThan(0);
+    for (const [, q] of lifted) expect(q).toBe(-5);
+    const h = 6 / (w.s.length - 1);
+    const reaction = w.q.reduce((t, q, i) => t + (q > -5 ? q : 0) * (i === 0 || i === w.q.length - 1 ? h / 2 : h), 0);
+    expect(reaction).toBeCloseTo(600, 0);
   });
 
   it('stiffens the ends to the factor given, back to k a fifth of the way in', () => {

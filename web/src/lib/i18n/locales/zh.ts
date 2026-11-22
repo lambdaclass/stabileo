@@ -16615,6 +16615,7 @@ const zh: Translations = {
   "rcSheets.v.footPresumedSoil": "设计数据中假定了容许承载力：模型没有土层剖面；请以岩土勘察确认",
   "designData.propertyLinesHint": "建筑物中属于地界线的各侧。这些侧的基础按柱贴地界线布置，并通过基础连梁与向内最近的基础平衡；每个基础可在其配筋表中更改。基础面板读取同一选项。",
   "rcSheets.v.footStrapNoPartner": "沿 {demand} 向内没有可配合设基础连梁的基础：偏心由土承担",
+  "rcSheets.v.footStrapPull": "拉梁所连基础的永久荷载可抵抗其上拔力",
   "rcSheets.v.footTie": "首层拉梁",
   "rcSheets.v.footTieLoad": "设拉梁的基础所受荷载；超过限值时，基础连梁更合适",
   "rcSheets.v.footTieArm": "拉梁力臂（从其轴线到基础底面）",

@@ -17040,6 +17040,7 @@ const en: Record<string, string> = {
   "rcSheets.v.footPresumedSoil": "Allowable pressure presumed in the design data: the model has no soil profile; confirm it with the soil study",
   "designData.propertyLinesHint": "The sides of the building that are property lines. Footings on those sides are proposed with the column at the line, balanced by a strap beam to the nearest footing inward; each footing can change that in its sheet. The foundations panel reads the same option.",
   "rcSheets.v.footStrapNoPartner": "No footing inward for a strap beam along {demand}: the soil takes the offset",
+  "rcSheets.v.footStrapPull": "The footing a strap runs to holds its pull with its permanent load",
   "rcSheets.v.footTie": "Tie at the first floor",
   "rcSheets.v.footTieLoad": "Load on a footing with a tie; beyond the limit, a strap beam suits better",
   "rcSheets.v.footTieArm": "Tie lever arm (from its axis to the footing's underside)",

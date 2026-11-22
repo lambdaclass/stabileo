@@ -1,7 +1,7 @@
 import type { Fmt } from './format';
 import { analyseFooting, CIRSOC_ONE_WAY, foundingOf, MIN_D, pedestalOf, proposeFooting, spacingClause, type FootingAnalysis, type FootingRowCode, type PlanCap } from './footing-design';
 import { ceilTo } from './footing-mechanics';
-import { soilChecks, upliftChecks } from './footing-needs';
+import { soilChecks, strapPullChecks, upliftChecks } from './footing-needs';
 import { meshText } from './footing-mesh';
 import { dowelsText } from './footing-dowels';
 import { footingSteps } from './footing-steps';
@@ -53,6 +53,7 @@ export function edgeResult(d: FootingDemand, r: FootingAnalysis, a: FootingAdopt
       straps.push({
         axis: x.axis, partner: x.partner.name, partnerKey: x.partner.key, L: x.partner.L, e: x.along, b: sec.b, h: sec.h,
         M: t.moment, V: t.force, factor: P1 > 0 ? (P1 + t.service) / P1 : 1, relief: t.relief, combo: t.combo, R1: P1 + t.service, P1,
+        pull: t.service, ...(x.partner.permanent !== undefined ? { partnerPermanent: x.partner.permanent } : {}),
         ...(x.partner.beam ? { group: x.partner.beam.group } : {}),
       });
     } else if (x.H) ties.push(tieOf(d, x.axis, x.H, x.along, t, c));
@@ -71,6 +72,7 @@ function edgeChecks(ed: FootingEdgeResult, cr: Criteria, fmt: Fmt): CheckLine[] 
   const out: CheckLine[] = [];
   const knm = (v: number) => `${fmt(v, 1)} kN·m`;
   for (const k of ed.unpartnered) out.push(check('rcSheets.v.footStrapNoPartner', true, { demand: k.toUpperCase() }));
+  out.push(...strapPullChecks(ed.straps, fmt));
   for (const t of ed.ties) {
     const m = (v: number) => `${fmt(v, 2)} m`;
     out.push(

@@ -1,8 +1,8 @@
 import type { Fmt } from './format';
-import { withCriterion } from './criteria';
+import { CRITERION, withCriterion } from './criteria';
 import { check, type CheckLine } from './types';
 import { MIN_CONTACT, UPLIFT_WEIGHT_FACTOR, upliftHolds, type bearingReading, type ServiceBearing, type UpliftReading } from './footing-mechanics';
-import type { FootingDemand } from './footing-types';
+import type { FootingDemand, StrapResult } from './footing-types';
 
 /** The allowable pressure a foundation needs where the soil's does not hold it at the plan the lines allow: what to ask the soil study for, or found deep instead (GA §4, §15.1). */
 export const needsLine = (needs: number, allowable: number, fmt: Fmt): CheckLine =>
@@ -20,7 +20,7 @@ export function soilChecks(d: Pick<FootingDemand, 'soil'>, b: ReturnType<typeof 
   if (!b) return [check('rcSheets.v.footNoService', false, { clause: '§13.3.1.1' })];
   return [
     check('rcSheets.v.footBearing', !b.overturns && b.use <= 1 + 1e-9, { clause, demand: `${fmt(b.qMax, 0)} · ${fmt(b.qMean, 0)} kPa`, capacity: `${fmt(b.edgeFactor * (b.allowable ?? 0), 0)} · ${fmt(b.allowable ?? 0, 0)} kPa`, ratio: b.use }),
-    check('rcSheets.v.footContact', !b.overturns && b.contact >= MIN_CONTACT - 1e-9, { clause: '§13.2.6.1', demand: `${fmt(b.contact * 100, 0)} %`, capacity: `≥ ${fmt(MIN_CONTACT * 100, 0)} %` }),
+    check('rcSheets.v.footContact', !b.overturns && b.contact >= MIN_CONTACT - 1e-9, { clause: CRITERION, demand: `${fmt(b.contact * 100, 0)} %`, capacity: `≥ ${fmt(MIN_CONTACT * 100, 0)} %` }),
     ...(needs !== undefined && !b.ok ? [needsLine(needs, b.allowable ?? 0, fmt)] : []),
   ];
 }
@@ -31,3 +31,14 @@ export const upliftChecks = (u: UpliftReading | null, fmt: Fmt): CheckLine[] => 
   capacity: `${fmt(UPLIFT_WEIGHT_FACTOR, 1)} G = ${fmt(UPLIFT_WEIGHT_FACTOR * u.weight, 0)} kN`,
   ratio: Number.isFinite(u.N) && u.weight > 0 ? -u.N / (UPLIFT_WEIGHT_FACTOR * u.weight) : Infinity,
 })] : []);
+
+/** The share of the strap's pull the partner's permanent load has to outweigh (GA §12). */
+export const STRAP_PULL_FACTOR = 1.5;
+
+/** Each strap's pull on the footing it runs to against that footing's permanent load, 1,5·ΔR ≤ N2 (GA §12): unknown, it does not pass. */
+export const strapPullChecks = (straps: readonly StrapResult[], fmt: Fmt): CheckLine[] => straps.flatMap((s) => (s.pull === undefined ? [] : [check('rcSheets.v.footStrapPull',
+  s.partnerPermanent !== undefined && STRAP_PULL_FACTOR * s.pull <= s.partnerPermanent + 1e-6, {
+    clause: CRITERION, demand: `${fmt(STRAP_PULL_FACTOR, 1)}·ΔR = ${fmt(STRAP_PULL_FACTOR * s.pull, 0)} kN · ${s.partner}`,
+    capacity: s.partnerPermanent !== undefined ? `N2,D = ${fmt(s.partnerPermanent, 0)} kN` : '—',
+    ratio: s.partnerPermanent && s.partnerPermanent > 0 ? (STRAP_PULL_FACTOR * s.pull) / s.partnerPermanent : Infinity,
+  })]));

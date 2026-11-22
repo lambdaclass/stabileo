@@ -5,6 +5,7 @@ import { proposeCombinedDowels } from './footing-combined';
 import { meshText } from './footing-mesh';
 import { edgeSteps } from './footing-steps';
 import { strapDefault } from './footing-strap';
+import { strapPullChecks } from './footing-needs';
 import { analyseCap, capBalance, capColumns, capCover, capHolds, capMeshes, capPlan, CAP_MAX_H, CAP_STEP_H, pileBars, pilePattern, PILE_COUNTS, PILE_EMBED, upCap, PILE_UNHELD_TOL, type CapAnalysis } from './pile-cap';
 import { check, ratioOf, type CheckLine, type RowStatus, type Step, type StepGroup } from './types';
 import type { CapPiles, FootingAdopted, FootingContext, FootingDemand, FootingEdgeResult, FootingRow, StrapResult } from './footing-types';
@@ -56,7 +57,7 @@ function capEdge(d: FootingDemand, r: CapAnalysis, a: CapAdopted): FootingEdgeRe
     let M = 0, combo: string | null = null;
     for (const q of d.combos) { const m = Math.abs(q.N) * e + Math.abs(b.axis === 'x' ? q.My + r.lever * q.Vx : q.Mx - r.lever * q.Vy); if (m > M) { M = m; combo = q.combo; } }
     const V = M / Math.max(0.1, p.L - e), Vs = (P1 * e) / Math.max(0.1, p.L - e);
-    return { axis: b.axis, partner: p.name, partnerKey: p.key, L: p.L, e, b: sec.b, h: sec.h, M, V, factor: P1 > 0 ? (P1 + Vs) / P1 : 1, relief: Vs, combo, R1: P1 + Vs, P1, ...(p.beam ? { group: p.beam.group } : {}) };
+    return { axis: b.axis, partner: p.name, partnerKey: p.key, L: p.L, e, b: sec.b, h: sec.h, M, V, factor: P1 > 0 ? (P1 + Vs) / P1 : 1, relief: Vs, combo, R1: P1 + Vs, P1, pull: Vs, ...(p.permanent !== undefined ? { partnerPermanent: p.permanent } : {}), ...(p.beam ? { group: p.beam.group } : {}) };
   });
   return { position: d.edge.anchor[0] && d.edge.anchor[1] ? 'corner' : 'edge', balance: d.edge.balance, anchor: d.edge.anchor, source: d.edge.source, straps, ties: [], columnMoment: 0, unpartnered: [] };
 }
@@ -130,7 +131,7 @@ export function capRow(d: FootingDemand, c: FootingContext, adopted: FootingAdop
   if (!a) return null;
   const r = analyseCap(d, c, a, code);
   const edge = capEdge(d, r, a);
-  const v = verifications(r, a, c, code, fmt);
+  const v = [...verifications(r, a, c, code, fmt), ...strapPullChecks(edge?.straps ?? [], fmt)];
   const status: RowStatus = v.every((l) => l.ok) ? 'ok' : 'fail';
   const k = r.result;
   const ratios = [...k.punching.map((p) => ratioOf(p.vu, p.phiVc)), ...k.shear.map((s) => ratioOf(s.vu, s.phiVc)), ratioOf(Math.max(...k.piles.map((p) => p.service)), k.capacity), ratioOf(k.section.pu, k.section.phiPn), ratioOf(r.x.mu, r.x.phiMn), ratioOf(r.y.mu, r.y.phiMn)];

@@ -49,18 +49,19 @@ const reactionAt = (r: Reactions, node: number) => r.reactions?.find((x) => x.no
 export const actionOf = (combo: string, r: Pick<Reaction3D, 'fx' | 'fy' | 'fz' | 'mx' | 'my'>): FootingAction =>
   ({ combo, N: r.fz, Mx: -r.mx, My: -r.my, Vx: -r.fx, Vy: -r.fy });
 
-function serviceOf(m: FootingDemandInput, node: number): { service: FootingAction | null; lateralLeftOut: number } {
+function serviceOf(m: FootingDemandInput, node: number): { service: FootingAction | null; lateralLeftOut: number; permanent?: number } {
   const sum = { fx: 0, fy: 0, fz: 0, mx: 0, my: 0 };
-  let gravity = 0, lateral = 0;
+  let gravity = 0, lateral = 0, permanent = 0;
   for (const c of m.cases) {
     const r = reactionAt(c.result, node);
     if (!r) continue;
     if (GRAVITY_CASES.has(c.type)) {
       gravity++;
+      if (c.type === 'D') permanent += r.fz;
       for (const k of ['fx', 'fy', 'fz', 'mx', 'my'] as const) sum[k] += r[k];
     } else if (LATERAL_CASES.has(c.type) && (Math.abs(r.fz) + Math.abs(r.mx) + Math.abs(r.my) + Math.abs(r.fx) + Math.abs(r.fy)) > 1e-9) lateral++;
   }
-  return { service: gravity ? actionOf('D + L', sum) : null, lateralLeftOut: lateral };
+  return { service: gravity ? actionOf('D + L', sum) : null, lateralLeftOut: lateral, ...(gravity ? { permanent } : {}) };
 }
 
 /** A combined footing of two columns the sheets design: square to the axes, as `combineFootings` and the sheets make it. */
@@ -117,6 +118,7 @@ function pierDemand(p: FootingPier, m: FootingDemandInput): FootingDemand | null
     key: `footing:${p.key}`, name: p.name, level: m.levelAt?.(z), nodeId: rep.n, at: { x: c.x, y: c.y, z },
     column: { b: p.box.x1 - p.box.x0, h: p.box.y1 - p.box.y0, area: p.area, ...(p.storey ? { storey: p.storey } : {}) },
     service: gravity.length ? summedAction('D + L', gravity, c) : null, lateralLeftOut: lateral, combos,
+    ...(gravity.length ? { permanent: m.cases.filter((k) => k.type === 'D').flatMap((k) => at(k.result)).reduce((t, r) => t + r.fz, 0) } : {}),
     soil: m.soilOf(own ? m.footings.find((f) => f.id === own.id)?.soilProfileId ?? null : null),
     ...(own ? { footing: own } : {}), pier: { key: p.key, nodes: p.nodes, walls: p.walls, ...(p.outline ? { outline: p.outline } : {}), points: pts.map(({ p: q }) => ({ x: q.x, y: q.y })) },
   };
@@ -146,12 +148,12 @@ export function footingDemands(m: FootingDemandInput): FootingDemand[] {
     const p = m.nodes.get(n), col = m.columnAt(n);
     if (!p) return null;
     const combos = m.sets.flatMap((s) => { const r = reactionAt(s.result, n); return r ? [actionOf(s.name, r)] : []; });
-    const { service, lateralLeftOut } = serviceOf(m, n);
+    const { service, lateralLeftOut, permanent } = serviceOf(m, n);
     const z = p.z ?? 0;
     return {
       key: `footing:n${n}`, name: col?.name || `N${n}`, level: m.levelAt?.(z), nodeId: n, at: { x: p.x, y: p.y, z },
       column: col ? { b: col.b, h: col.h, ...(col.rowKey ? { rowKey: col.rowKey } : {}), ...(col.storey ? { storey: col.storey } : {}) } : null,
-      service, lateralLeftOut, combos, soil: null,
+      service, lateralLeftOut, combos, soil: null, ...(permanent !== undefined ? { permanent } : {}),
     };
   };
   const nodes = [...new Set([...m.supportNodes.filter((n) => m.columnAt(n) || inGroup.has(n)), ...byNode.keys()])].filter((n) => !carried.has(n) && m.nodes.has(n));

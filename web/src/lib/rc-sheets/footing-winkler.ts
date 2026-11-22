@@ -1,7 +1,8 @@
 /**
  * A strip of a footing as a beam on Winkler springs (GA §6.4, §14.3): nodes every `dx` at most,
  * a spring k·Δx·b at each, the ends stiffened to `ends` times k over a fifth of the length each
- * and back to k linearly; columns as point loads and couples at their nearest node.
+ * and back to k linearly; columns as point loads and couples at their nearest node. A spring the
+ * strip lifts off is let go and the strip solved again: the soil does not pull.
  */
 
 export interface WinklerLoad { s: number; P: number; M: number }
@@ -13,11 +14,13 @@ export interface WinklerStrip {
   ends: number;
   /** Loads by their position from the strip's start, m: P down, kN; M, kN·m, positive when it bends the strip's bottom in tension past it. */
   loads: readonly WinklerLoad[];
+  /** The pressure, kPa, the strip's own weight keeps on the soil: the columns lift it off only past that. */
+  preload?: number;
   dx?: number;
 }
 
 export interface WinklerResult {
-  /** Settlement at each node, m, positive down; the soil pressure, kPa. */
+  /** Settlement at each node, m, positive down; the soil pressure the spring there adds to the preload, kPa, minus the preload where the strip lifts off. */
   s: number[]; y: number[]; q: number[];
   /** Moment at each node, kN·m, positive with the bottom in tension; shear between nodes, kN. */
   M: number[]; V: number[];
@@ -65,16 +68,24 @@ export function winklerStrip(w: WinklerStrip): WinklerResult {
     [6 * e / L ** 2, 2 * e / L, -6 * e / L ** 2, 4 * e / L],
   ];
   for (let el = 0; el < n - 1; el++) for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) K[2 * el + i]![2 * el + j]! += ke[i]![j]!;
-  const spring = s.map((x, i) => w.ks * w.b * (i === 0 || i === n - 1 ? h / 2 : h) * endFactor(x, w.S, w.ends));
-  spring.forEach((k, i) => { K[2 * i]![2 * i]! += k; });
+  const stiff = s.map((x) => w.ks * endFactor(x, w.S, w.ends));
+  const spring = s.map((_, i) => stiff[i]! * w.b * (i === 0 || i === n - 1 ? h / 2 : h));
   for (const p of w.loads) {
     const i = Math.max(0, Math.min(n - 1, Math.round(p.s / h)));
     f[2 * i]! += p.P;
     f[2 * i + 1]! -= p.M;
   }
-  const u = solveBanded(K, f, 3);
+  let contact = s.map(() => true), u: number[] = [];
+  for (let pass = 0; pass <= n; pass++) {
+    const Kc = K.map((r) => [...r]);
+    spring.forEach((k, i) => { if (contact[i]) Kc[2 * i]![2 * i]! += k; });
+    u = solveBanded(Kc, f, 3);
+    const next = s.map((_, i) => stiff[i]! * u[2 * i]! + (w.preload ?? 0) > 0);
+    if (!next.some(Boolean) || next.every((c, i) => c === contact[i])) break;
+    contact = next;
+  }
   const y = s.map((_, i) => u[2 * i]!);
-  const q = y.map((v) => w.ks * v);
+  const q = y.map((v, i) => (contact[i] ? stiff[i]! * v : -(w.preload ?? 0)));
   const curv = (el: number, xi: number) => {
     const v1 = u[2 * el]!, t1 = u[2 * el + 1]!, v2 = u[2 * el + 2]!, t2 = u[2 * el + 3]!;
     return ((-6 + 12 * xi) * v1 + L * (-4 + 6 * xi) * t1 + (6 - 12 * xi) * v2 + L * (-2 + 6 * xi) * t2) / (L * L);

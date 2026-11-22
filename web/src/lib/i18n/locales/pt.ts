@@ -16682,6 +16682,7 @@ const pt: Translations = {
   "rcSheets.v.footPresumedSoil": "Tensão admissível presumida nos Dados de Projeto: o modelo não tem perfil de solo; confirme-a com o estudo de solo",
   "designData.propertyLinesHint": "Os lados do edifício que são divisa. As sapatas desses lados são propostas com o pilar na divisa, equilibradas por uma viga de equilíbrio até a sapata interna mais próxima; cada sapata pode mudar isso na sua planilha. O painel de fundações lê a mesma opção.",
   "rcSheets.v.footStrapNoPartner": "Sem sapata para dentro para a viga de equilíbrio segundo {demand}: o solo toma a excentricidade",
+  "rcSheets.v.footStrapPull": "A sapata em que chega a viga de equilíbrio resiste ao seu arrancamento com a carga permanente",
   "rcSheets.v.footTie": "Tirante no primeiro pavimento",
   "rcSheets.v.footTieLoad": "Carga de uma sapata com tirante; acima do limite convém viga alavanca",
   "rcSheets.v.footTieArm": "Braço do tirante (do seu eixo à face inferior da sapata)",

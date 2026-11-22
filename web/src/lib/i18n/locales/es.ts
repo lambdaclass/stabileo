@@ -17029,6 +17029,7 @@ const es: Record<string, string> = {
   "rcSheets.v.footPresumedSoil": "Tensión admisible supuesta en Datos de Diseño: el modelo no tiene perfil de suelo; confirmala con el estudio de suelos",
   "designData.propertyLinesHint": "Los lados del edificio que son medianera. Las bases de esos lados se proponen con la columna en la línea, equilibradas por una viga centradora a la base interior más cercana; cada base puede cambiarlo en su planilla. El panel de fundaciones lee la misma opción.",
   "rcSheets.v.footStrapNoPartner": "Sin base hacia adentro para la viga centradora según {demand}: la excentricidad la toma el suelo",
+  "rcSheets.v.footStrapPull": "La base a la que llega la viga centradora resiste su tiro con su carga permanente",
   "rcSheets.v.footTie": "Tensor al primer entrepiso",
   "rcSheets.v.footTieLoad": "Carga de una base con tensor; por encima del límite conviene viga centradora",
   "rcSheets.v.footTieArm": "Brazo del tensor (de su eje a la cara inferior de la base)",

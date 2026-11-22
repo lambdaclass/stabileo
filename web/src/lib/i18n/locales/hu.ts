@@ -16586,6 +16586,7 @@ const hu: Translations = {
   "rcSheets.v.footPresumedSoil": "A megengedett feszültség a tervezési adatokban feltételezett: a modellben nincs talajprofil; erősítse meg a talajvizsgálattal",
   "designData.propertyLinesHint": "Az épület telekhatáron álló oldalai. Ezeken az oldalakon az alaptesteket a pillérrel a határon javasolja, a legközelebbi belső alaptesthez futó kiegyensúlyozó gerendával; minden alaptest ezt a saját lapján módosíthatja. Az alapozási panel ugyanezt a beállítást olvassa.",
   "rcSheets.v.footStrapNoPartner": "{demand} irányban nincs belső alaptest a kiegyensúlyozó gerendához: a külpontosságot a talaj veszi fel",
+  "rcSheets.v.footStrapPull": "A gerendával kapcsolt alap állandó terhe felveszi a húzást",
   "rcSheets.v.footTie": "Vonóvas az első födémnél",
   "rcSheets.v.footTieLoad": "Vonórúddal ellátott alap terhe; a határ fölött kiegyenlítő gerenda célszerűbb",
   "rcSheets.v.footTieArm": "A vonórúd karja (tengelyétől az alap alsó síkjáig)",

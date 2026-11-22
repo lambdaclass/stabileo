@@ -360,9 +360,10 @@ export function analyseGroup(g: FootingGroup, c: FootingContext, a: FootingAdopt
 
 function winklerOf(b: { dir: Axis; lo: number; hi: number; cols: Placed[] }, a: FootingAdopted, c: FootingContext, lever: number, E: number, ks: number): GroupStrip['winkler'] {
   const S = b.dir === 'x' ? a.B : a.L, width = b.hi - b.lo, EI = E * width * a.h ** 3 / 12, cr = critOf(c);
+  const weight = CONCRETE_WEIGHT * a.h;
   const run = (pick: (d: FootingDemand) => FootingAction | null | undefined) => {
     const loads = b.cols.map((p) => { const q = pick(p.demand); return q ? { s: (b.dir === 'x' ? p.x : p.y) + S / 2, P: q.N, M: b.dir === 'x' ? q.My + lever * q.Vx : -(q.Mx - lever * q.Vy) } : null; });
-    return loads.every(Boolean) ? winklerStrip({ S, b: width, EI, ks, ends: cr.footingWinklerEnds, loads: loads as never }) : null;
+    return loads.every(Boolean) ? winklerStrip({ S, b: width, EI, ks, ends: cr.footingWinklerEnds, loads: loads as never, preload: weight }) : null;
   };
   const s = run((d) => d.service);
   let mBottom = 0, mTop = 0, vu = 0;
@@ -371,7 +372,6 @@ function winklerOf(b: { dir: Axis; lo: number; hi: number; cols: Placed[] }, a: 
     if (!r) continue;
     mBottom = Math.max(mBottom, ...r.M); mTop = Math.max(mTop, ...r.M.map((m) => -m)); vu = Math.max(vu, ...r.V.map(Math.abs));
   }
-  const weight = 25 * a.h;
   return { y: s ? Math.max(...s.y) : 0, q: s ? Math.max(...s.q) + weight : 0, mBottom, mTop, vu };
 }
 

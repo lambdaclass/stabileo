@@ -65,7 +65,7 @@ export const FOOTING_POSITIONS: readonly FootingPosition[] = ['centred', 'edge',
 /**
  * What takes the offset of a footing held at a line: a strap beam to the nearest footing inward,
  * the footing alone by an uneven pressure, or a tie at the first floor with the column between
- * (FIUBA §14.1).
+ * (FIUBA Cim. §6).
  */
 export type FootingBalance = 'strap' | 'eccentric' | 'tie';
 export const FOOTING_BALANCES: readonly FootingBalance[] = ['strap', 'eccentric', 'tie'];
@@ -90,7 +90,7 @@ export interface CapResult {
   /** The cap's top cover, m: the footings' own; its bottom bars sit over the pile heads instead (`FootingRow.cover`). */
   topCover: number;
   group: { service: number; capacity: number };
-  /** The cap is deep (every pile within twice the cap's depth over the pile heads of the column's axis, §13.2.6.3): read by struts and ties (ch. 23). */
+  /** The cap is deep (every pile within twice the cap's depth over the pile heads of the column's axis, §13.2.6.5): read by struts and ties (ch. 23). */
   deep: boolean;
   stm: { z: number; theta: number; tx: number; ty: number; asx: number; asy: number; node: { column: number; columnCap: number; pile: number; pileCap: number } } | null;
   shear: Array<{ dir: 'x' | 'y'; at: number; vu: number; phiVc: number }>;
@@ -133,6 +133,8 @@ export interface StrapPartner {
   column: { b: number; h: number } | null;
   /** A strap beam the model has between the two: its physical member and section, m. */
   beam?: { group: number; key: string; b: number; h: number };
+  /** The partner's permanent load, kN: what holds it down against the strap's pull. */
+  permanent?: number;
 }
 
 export interface FootingEdge {
@@ -151,6 +153,8 @@ export interface FootingDemand {
   footing?: ModelledFooting;
   /** The gravity cases at unit factors; null when the solve kept no cases apart. */
   service: FootingAction | null;
+  /** The axial force of the dead load cases alone, kN; absent where the solve kept no cases apart. */
+  permanent?: number;
   /** Wind and earthquake cases that load the support and the service sum leaves out. */
   lateralLeftOut: number;
   combos: FootingAction[];
@@ -386,6 +390,8 @@ export interface StrapResult {
   M: number; V: number; factor: number; relief: number; combo: string | null;
   /** Service: the reaction under the footing, kN. */
   R1: number; P1: number;
+  /** Service: the strap's pull on the partner, kN, and the partner's permanent load that holds it down. */
+  pull?: number; partnerPermanent?: number;
   /** The model's strap member it is, when there is one. */
   group?: number;
   beam?: BeamRow; line?: LineLayout;

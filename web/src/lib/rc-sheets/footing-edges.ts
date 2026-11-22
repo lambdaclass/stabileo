@@ -71,6 +71,7 @@ export function withEdges(demands: readonly FootingDemand[], o: EdgeInput): Foot
         partners.push({
           axis, key: q.key, nodeId: q.nodeId, name: q.name, L: Math.hypot(q.at.x - d.at.x, q.at.y - d.at.y), column: q.column ? { b: q.column.b, h: q.column.h } : null,
           ...(beam ? { beam: { group: beam.group, key: beam.key, b: beam.width, h: beam.depth } } : {}),
+          ...(q.permanent !== undefined ? { permanent: q.permanent } : {}),
         });
       }
     }

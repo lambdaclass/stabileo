@@ -16878,6 +16878,7 @@ const tr: Translations = {
   "rcSheets.v.footPresumedSoil": "Emniyet gerilmesi tasarım verilerinde varsayıldı: modelde zemin profili yok; zemin etüdüyle doğrulayın",
   "designData.propertyLinesHint": "Binanın parsel sınırı olan kenarları. Bu kenarlardaki temeller kolon sınırda olacak şekilde önerilir ve en yakın iç temele bir bağ kirişiyle dengelenir; her temel bunu kendi tablosunda değiştirebilir. Temeller paneli aynı seçeneği okur.",
   "rcSheets.v.footStrapNoPartner": "{demand} doğrultusunda bağ kirişi için içeride temel yok: dışmerkezliği zemin alır",
+  "rcSheets.v.footStrapPull": "Bağ kirişinin ulaştığı temel, çekmesini kalıcı yüküyle karşılıyor",
   "rcSheets.v.footTie": "Birinci kat döşemesinde gergi",
   "rcSheets.v.footTieLoad": "Gergili temelin yükü; sınırın üstünde bağ kirişi daha uygundur",
   "rcSheets.v.footTieArm": "Gergi kolu (ekseninden temel alt yüzüne)",

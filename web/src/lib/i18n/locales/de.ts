@@ -16878,6 +16878,7 @@ const de: Translations = {
   "rcSheets.v.footPresumedSoil": "Zulässiger Sohldruck aus den Bemessungsdaten angenommen: Das Modell hat kein Bodenprofil; bestätigen Sie ihn mit dem Baugrundgutachten",
   "designData.propertyLinesHint": "Die Seiten des Gebäudes, die Grundstücksgrenzen sind. Fundamente an diesen Seiten werden mit der Stütze an der Grenze vorgeschlagen und durch einen Zerrbalken zum nächsten inneren Fundament ausgeglichen; jedes Fundament kann das in seiner Tabelle ändern. Die Gründungsleiste liest dieselbe Option.",
   "rcSheets.v.footStrapNoPartner": "Kein inneres Fundament für einen Zerrbalken in {demand}: der Boden nimmt die Ausmitte auf",
+  "rcSheets.v.footStrapPull": "Das Fundament am Ende des Zerrbalkens hält dessen Zug mit seiner ständigen Last",
   "rcSheets.v.footTie": "Zugband in der ersten Decke",
   "rcSheets.v.footTieLoad": "Last eines Fundaments mit Zugband; über der Grenze passt ein Ausgleichsbalken besser",
   "rcSheets.v.footTieArm": "Hebelarm des Zugbands (von seiner Achse bis zur Fundamentunterseite)",
