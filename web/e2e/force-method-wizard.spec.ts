@@ -9,7 +9,7 @@
  * the stiffness method.
  */
 import { test, expect, type Page } from './fixtures';
-import { openAdvancedFunction, openStepsCatalog, expandStepsCatalog } from './advanced-panel';
+import { openStepsCatalog, expandStepsCatalog } from './advanced-panel';
 
 /** Open a method from the "Explained step by step" catalog in the Advanced panel. */
 async function openMethod(page: Page, id: 'dsm' | 'fm') {

@@ -5,7 +5,7 @@
  * four segments with consistent mass, matching the engine.
  */
 import { test, expect, type Page } from './fixtures';
-import { openAdvancedFunction, openStepsCatalog, expandStepsCatalog } from './advanced-panel';
+import { openAdvancedFunction } from './advanced-panel';
 
 async function boot(page: Page) {
   await page.goto('/app/basic?e2e=1');

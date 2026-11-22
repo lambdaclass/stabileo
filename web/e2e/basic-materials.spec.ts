@@ -6,7 +6,7 @@ import { test, expect, type Page } from './fixtures';
 
 async function openPortal(page: Page) {
   await page.goto('/app/basic?e2e=1');
-  await page.waitForFunction(() => !!window.__stabileoActions, null, { timeout: 60_000 });
+  await page.waitForFunction(() => !!window.__stabileoActions, null, { timeout: 30_000 });
   await page.evaluate(() => window.__stabileoActions.loadExample('portal-frame'));
 }
 
@@ -23,7 +23,6 @@ async function displacements(page: Page) {
 
 test.describe('@smoke materials typed by hand in Basic', () => {
   test('a new material with half the E doubles every displacement', async ({ page }) => {
-    test.setTimeout(120_000);
     await openPortal(page);
     const members = await page.evaluate(() => window.__stabileo.elementIds());
     const used = await page.evaluate((ids) =>
@@ -87,7 +86,6 @@ for (const [width, height] of [[390, 844], [360, 740]] as const) {
     test.use({ viewport: { width, height }, hasTouch: true, isMobile: true });
 
     test('the custom tab is in reach, every target is a finger wide, and it saves', async ({ page }) => {
-      test.setTimeout(120_000);
       await openPortal(page);
       await page.getByTestId('rb-cmd-model').tap();
       await page.getByTestId('dt-tab-materials').tap();

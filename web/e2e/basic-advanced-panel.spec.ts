@@ -4,12 +4,13 @@
  * wider than the screen and every target large enough to tap.
  */
 import { test, expect, type Page } from './fixtures';
-import { ADV_GROUPS } from '../src/lib/advanced/catalog';
+import { ADV_FUNCTIONS, ADV_GROUPS } from '../src/lib/advanced/catalog';
+import { openAdvancedList, openStepsCatalog, expandStepsCatalog } from './advanced-panel';
 
 async function boot(page: Page) {
   await page.addInitScript(() => localStorage.setItem('liveCalc', 'false'));
   await page.goto('/app/basic?e2e=1');
-  await page.waitForFunction(() => !!window.__stabileoActions, null, { timeout: 60_000 });
+  await page.waitForFunction(() => !!window.__stabileoActions, null, { timeout: 30_000 });
   await page.evaluate(() => window.__stabileoActions.loadExample('portal-second-order'));
 }
 
@@ -77,3 +78,28 @@ for (const [label, viewport] of [['390×844', { width: 390, height: 844 }], ['36
     });
   });
 }
+
+test.describe('@smoke plane-only functions in a 3D workspace', () => {
+  test('no list, search hit or step-by-step link starts one', async ({ page }) => {
+    await boot(page);
+    await page.getByTestId('rb-cmd-dim').click();
+    await openAdvancedList(page);
+    const planeOnly = ADV_FUNCTIONS.filter((f) => f.requires.plane);
+    expect(planeOnly.map((f) => f.id)).toContain('influenceLine');
+
+    await page.getByTestId('adv-search').fill('influence');
+    await expect(page.getByTestId('adv-fn-influenceLine')).toBeDisabled();
+    const steps = page.locator('[data-testid^=adv-step-]');
+    for (let i = await steps.count(); i-- > 0;) {
+      const id = (await steps.nth(i).getAttribute('data-testid'))!.slice('adv-step-'.length);
+      if (planeOnly.some((f) => f.steps.includes(id))) await expect(steps.nth(i)).toBeDisabled();
+    }
+    await page.getByTestId('adv-search-clear').click();
+
+    await openStepsCatalog(page);
+    await expandStepsCatalog(page);
+    for (const f of planeOnly) {
+      for (const m of f.steps) await expect(page.getByTestId(`steps-function-${m}`), m).toHaveCount(0);
+    }
+  });
+});

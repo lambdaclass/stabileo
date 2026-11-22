@@ -5,7 +5,7 @@
  * members held axially rigid.
  */
 import { test, expect, type Page } from './fixtures';
-import { openAdvancedFunction, openStepsCatalog, expandStepsCatalog } from './advanced-panel';
+import { openStepsCatalog, expandStepsCatalog } from './advanced-panel';
 
 const SHOTS = process.env.KIN_SHOTS;
 

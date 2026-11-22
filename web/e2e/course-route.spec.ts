@@ -1,5 +1,5 @@
 import { test, expect } from './fixtures';
-import { openAdvancedFunction, openStepsCatalog, expandStepsCatalog } from './advanced-panel';
+import { openStepsCatalog } from './advanced-panel';
 
 test('@smoke the app opens without the course chunk, and fetches it when the Advanced course panel opens', async ({ page }) => {
   const fetched: string[] = [];
