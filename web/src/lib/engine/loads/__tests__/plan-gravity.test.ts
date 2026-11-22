@@ -650,16 +650,14 @@ it('#2284 overlapping coplanar shells load the bay only once', () => {
   checkBlockedGravity(model, { key: 'loadPlan.gravity.overlappingShells', params: { first: 1, second: 2 } });
 });
 
-const issue2284 = process.env.RUN_KNOWN_WRONG === '2284' ? it : it.skip;
-
-issue2284('known wrong result: #2284 overlapping shells with elevation rounding block gravity', () => {
+it('#2284 overlapping shells with elevation rounding block gravity', () => {
   const model = floor(1, 1, 10, 6);
   rectangularShell(model, 1, 0, 4, 3);
   rectangularShell(model, 2, 2, 6, 3.0000001);
   checkBlockedGravity(model, { key: 'loadPlan.gravity.overlappingShells', params: { first: 1, second: 2 } });
 });
 
-issue2284('known wrong result: #2284 shells rounded to different levels can claim the same bay', () => {
+it('#2284 shells rounded to different levels can claim the same bay', () => {
   const model = floor(1, 1, 10, 6, 3.001);
   rectangularShell(model, 1, 0, 4, 3.0000001);
   rectangularShell(model, 2, 2, 6, 3.0019999);
@@ -728,7 +726,7 @@ function linkedShellBay(z: number, dofs = [0, 1, 2, 3, 4, 5]) {
 }
 
 it('#2299 a rigidly linked shell and beam bay receive one dead load', () => {
-  checkBlockedGravity(linkedShellBay(3.02), { key: 'loadPlan.gravity.offsetShellDeck', params: { id: 1 } });
+  checkBlockedGravity(linkedShellBay(3.02), { key: 'loadPlan.gravity.offsetShellDeck', params: { id: 1, members: '1, 2, 3, 4' } });
 });
 
 function eccentricShellBay(z: number, releaseVertical = false) {
@@ -748,11 +746,9 @@ function eccentricShellBay(z: number, releaseVertical = false) {
   return model;
 }
 
-const issue2299 = process.env.RUN_KNOWN_WRONG === '2299' ? it : it.skip;
-
-issue2299('known wrong result: #2299 an equivalent eccentric connection blocks duplicate gravity', () => {
+it('#2299 an equivalent eccentric connection blocks duplicate gravity', () => {
   const model = eccentricShellBay(3.02);
-  checkBlockedGravity(model, { key: 'loadPlan.gravity.offsetShellDeck', params: { id: 1 } });
+  checkBlockedGravity(model, { key: 'loadPlan.gravity.offsetShellDeck', params: { id: 1, members: '1, 2, 3, 4' } });
 });
 
 it('#2299 opening the vertical release on eccentric connections keeps separate carrier loads', () => {
@@ -824,15 +820,15 @@ function exteriorStripShellBay(edges: number[], disconnected = false) {
 }
 
 it('#2299 a common rigid master connects the beam and offset shell corners', () => {
-  checkBlockedGravity(commonMasterShellBay(3.02), { key: 'loadPlan.gravity.offsetShellDeck', params: { id: 1 } });
+  checkBlockedGravity(commonMasterShellBay(3.02), { key: 'loadPlan.gravity.offsetShellDeck', params: { id: 1, members: '1, 2, 3, 4' } });
 });
 
 it('#2299 an attached exterior strip is part of the shell deck over the bay', () => {
-  checkBlockedGravity(exteriorStripShellBay([-2, 0, 10]), { key: 'loadPlan.gravity.offsetShellDeck', params: { id: 2 } });
+  checkBlockedGravity(exteriorStripShellBay([-2, 0, 10]), { key: 'loadPlan.gravity.offsetShellDeck', params: { id: 2, members: '1, 2, 3, 4' } });
 });
 
 it('#2299 subdividing the attached exterior strip preserves the refusal', () => {
-  checkBlockedGravity(exteriorStripShellBay([-2, -1, 0, 10]), { key: 'loadPlan.gravity.offsetShellDeck', params: { id: 3 } });
+  checkBlockedGravity(exteriorStripShellBay([-2, -1, 0, 10]), { key: 'loadPlan.gravity.offsetShellDeck', params: { id: 3, members: '1, 2, 3, 4' } });
 });
 
 it('#2299 common-master shells within the elevation band carry gravity once', () => {
@@ -894,15 +890,15 @@ function tiedExteriorStripShellBay(useCommonMaster: boolean, dofs?: number[], ma
 const allShellDofs = [0, 1, 2, 3, 4, 5];
 
 it('#2299 an offset deck crosses an exterior strip seam tied in all six DOFs', () => {
-  checkBlockedGravity(tiedExteriorStripShellBay(false, allShellDofs), { key: 'loadPlan.gravity.offsetShellDeck', params: { id: 2 } });
+  checkBlockedGravity(tiedExteriorStripShellBay(false, allShellDofs), { key: 'loadPlan.gravity.offsetShellDeck', params: { id: 2, members: '1, 2, 3, 4' } });
 });
 
 it('#2347 full ties through off-seam masters connect the shell deck', () => {
-  checkBlockedGravity(tiedExteriorStripShellBay(true, allShellDofs, 0.25), { key: 'loadPlan.gravity.offsetShellDeck', params: { id: 2 } });
+  checkBlockedGravity(tiedExteriorStripShellBay(true, allShellDofs, 0.25), { key: 'loadPlan.gravity.offsetShellDeck', params: { id: 2, members: '1, 2, 3, 4' } });
 });
 
 it('#2299 coincident common masters tie an offset shell seam', () => {
-  checkBlockedGravity(tiedExteriorStripShellBay(true, allShellDofs), { key: 'loadPlan.gravity.offsetShellDeck', params: { id: 2 } });
+  checkBlockedGravity(tiedExteriorStripShellBay(true, allShellDofs), { key: 'loadPlan.gravity.offsetShellDeck', params: { id: 2, members: '1, 2, 3, 4' } });
 });
 
 it('#2347 a full rigid chain across an offset seam survives plan rotation', () => {
@@ -914,7 +910,7 @@ it('#2347 a full rigid chain across an offset seam survives plan rotation', () =
     return [{ ...link, slaveNode: intermediate }, { ...link, masterNode: intermediate }];
   });
   rotatePlan(model, 0.37);
-  checkBlockedGravity(model, { key: 'loadPlan.gravity.offsetShellDeck', params: { id: 2 } });
+  checkBlockedGravity(model, { key: 'loadPlan.gravity.offsetShellDeck', params: { id: 2, members: '1, 2, 3, 4' } });
 });
 
 function checkSeparateStripAndBayLoads(model: LoadModelData) {
@@ -930,14 +926,14 @@ it('#2347 one ULP at a fully tied seam still blocks duplicate gravity', () => {
   for (const useCommonMaster of [false, true]) {
     const model = tiedExteriorStripShellBay(useCommonMaster, allShellDofs, 0.25);
     for (const id of model.quads!.get(2)!.nodes) model.nodes.get(id)!.z! += 2 ** -51;
-    checkBlockedGravity(model, { key: 'loadPlan.gravity.offsetShellDeck', params: { id: 2 } });
+    checkBlockedGravity(model, { key: 'loadPlan.gravity.offsetShellDeck', params: { id: 2, members: '1, 2, 3, 4' } });
   }
 });
 
 it('#2347 a fully tied seam joins just inside the physical point tolerance', () => {
   const model = tiedExteriorStripShellBay(true, allShellDofs, 0.25);
   for (const id of model.quads!.get(2)!.nodes) model.nodes.get(id)!.z! += 0.999e-8;
-  checkBlockedGravity(model, { key: 'loadPlan.gravity.offsetShellDeck', params: { id: 2 } });
+  checkBlockedGravity(model, { key: 'loadPlan.gravity.offsetShellDeck', params: { id: 2, members: '1, 2, 3, 4' } });
 });
 
 it('#2347 a fully tied seam just outside the physical point tolerance preserves separate deck loads', () => {

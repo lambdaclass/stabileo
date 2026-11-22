@@ -142,18 +142,26 @@ export function footprintsOverlap(a: Polygon | MultiPolygon, b: Polygon | MultiP
   }
 }
 
-export function assertDisjointShells(shells: ReadonlyArray<{ id: number; pts: Point3[]; poly: Point[]; plane?: ShellPlane }>): void {
-  const ordered = shells.flatMap(({ id, pts, poly, plane }) => {
-    if (!plane) return [];
-    const xs = poly.map(p => p[0]), ys = poly.map(p => p[1]);
-    return [{ id, pts, poly, plane, left: Math.min(...xs), right: Math.max(...xs), bottom: Math.min(...ys), top: Math.max(...ys) }];
+export type ShellDeckBand = { elevation: number; servedLevels: readonly number[] };
+
+export function assertDisjointShells(shells: ReadonlyArray<{
+  id: number; pts: Point3[]; poly: Point[]; plane?: ShellPlane; deckBand?: ShellDeckBand;
+}>): void {
+  const ordered = shells.flatMap(shell => {
+    if (!shell.plane) return [];
+    const xs = shell.poly.map(p => p[0]), ys = shell.poly.map(p => p[1]);
+    return [{ ...shell, plane: shell.plane, left: Math.min(...xs), right: Math.max(...xs), bottom: Math.min(...ys), top: Math.max(...ys) }];
   }).sort((a, b) => a.left - b.left);
 
   for (const [i, a] of ordered.entries()) {
     for (let j = i + 1; j < ordered.length; j++) {
       const b = ordered[j]!;
       if (b.left >= a.right) break;
-      if (b.bottom >= a.top || b.top <= a.bottom || !a.plane(b.pts) || !b.plane(a.pts)) continue;
+      if (b.bottom >= a.top || b.top <= a.bottom) continue;
+      const aBand = a.deckBand, bBand = b.deckBand;
+      const sameDeck = aBand && bBand && (aBand.elevation === bBand.elevation
+        || aBand.servedLevels.some(level => bBand.servedLevels.includes(level)));
+      if (!sameDeck && !(a.plane(b.pts) && b.plane(a.pts))) continue;
       if (footprintsOverlap([a.poly], [b.poly])) {
         refuseGravityGeometry(msg('loadPlan.gravity.overlappingShells', { first: Math.min(a.id, b.id), second: Math.max(a.id, b.id) }));
       }
