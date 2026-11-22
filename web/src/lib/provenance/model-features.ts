@@ -1,3 +1,4 @@
+import { POINT_END_TOL } from '../engine/member-point-loads';
 import { planarNodalMoment, planarPointMoment, planarPointMomentWithoutProjection, planarPointProjectionTooShort } from '../engine/planar-point-load';
 import { hasModalSeismicDerivation } from '../engine/loads/seismic-generation';
 /**
@@ -47,7 +48,7 @@ export const FEATURE_IDS = [
   'steelMembers', 'steelCirsoc301', 'steelTensionWithoutConnection', 'steelDeclaredUnbracedLength', 'steelStaggeredOrUnboltedWebEnd', 'timberOrAluminiumMembers',
   'concreteMembers', 'fiberMembers', 'hognestadFiberMembers', 'cirsoc201', 'aci318', 'footings', 'jointDesigns',
   'shells', 'physicalPlateRemesh', 'plateAnalysisIssue', 'curvedShells', 'shellEdgeLoads', 'eccentricities',
-  'physicalPlateDefinitions', 'planarQuarterTurnMemberLoads',
+  'physicalPlateDefinitions', 'planarQuarterTurnMemberLoads', 'planarGlobalAxisMemberLoads', 'prestressMemberLoads', 'nearEndSpatialPointLoads',
   'constraints', 'constraintOnSupportedNode', 'inclinedSupports', 'springs', 'multipleSupportsOnNode', 'bareRollerZ', 'bareCustom3D', 'localPlaneRoller', 'unknownSupportType', 'rollerSupports', 'namedSupportRestraintMasks', 'settlements', 'settledMaskedSupports', 'caseDisplacements',
   'connectors', 'connectorsWithShear', 'pathAnalysis',
   'stagedConstruction', 'generatedStructures', 'nodalMoments', 'trussMemberLoads', 'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'generatedLoads', 'generatedWindLoads', 'generatedSeismicLoads', 'unverifiedGeneratedSeismicLoads',
@@ -371,6 +372,21 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   for (const l of Array.isArray(s.loads) ? s.loads : []) {
     const t = l.type ?? '';
     const d = l.data ?? {};
+    if ((t === 'pointOnElement3d' || (t === 'pointOnElement' && f.has('space3D')))
+      && typeof d.a === 'number' && d.a > 0) {
+      const member = elementById.get(d.elementId as number);
+      const i = member && nodeById.get(member.nodeI), j = member && nodeById.get(member.nodeJ);
+      const length = i && j ? Math.hypot(j.x - i.x, j.y - i.y, (j.z ?? 0) - (i.z ?? 0)) : undefined;
+      if (d.a <= POINT_END_TOL || length === undefined || (d.a < length && d.a >= length - POINT_END_TOL)
+        || offsetMoves(member?.offset?.i) || offsetMoves(member?.offset?.j)) {
+        f.add('nearEndSpatialPointLoads');
+      }
+    }
+    if (t === 'prestress3d') f.add('prestressMemberLoads');
+    if (f.has('plane2D') && (t === 'distributed' || t === 'pointOnElement')
+      && d.isGlobal === true && (d.angle === undefined || (typeof d.angle === 'number' && d.angle % 90 === 0))) {
+      f.add('planarGlobalAxisMemberLoads');
+    }
     if (f.has('plane2D') && (t === 'distributed' || t === 'pointOnElement')
       && typeof d.angle === 'number' && d.angle !== 0 && d.angle % 90 === 0) {
       f.add('planarQuarterTurnMemberLoads');

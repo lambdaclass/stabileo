@@ -40,6 +40,7 @@
  */
 import type { SolverLoad3D } from './types-3d';
 import type { MemberRef, Vec3 } from './member-loads';
+import { assembledMagnitudes3D, LoadVector, zero } from './accounting-math';
 
 export interface PrestressLike { force: number; eI: number; eM: number; eJ: number }
 
@@ -48,14 +49,29 @@ export function tendonEccentricity(d: PrestressLike, xi: number): number {
   return d.eI * (1 - xi) * (1 - 2 * xi) + 4 * d.eM * xi * (1 - xi) + d.eJ * xi * (2 * xi - 1);
 }
 
+function evaluateTerms([i, m, j]: Vec3, factor: number, divisor: number) {
+  return {
+    value: factor * (i + m + j) / divisor,
+    magnitude: Math.abs(factor) * (Math.abs(i) + Math.abs(m) + Math.abs(j)) / divisor,
+  };
+}
+
+function slopeAt(d: PrestressLike, xi: number, L: number) {
+  return evaluateTerms([d.eI * (4 * xi - 3), 4 * d.eM * (1 - 2 * xi), d.eJ * (4 * xi - 1)], 1, L);
+}
+
+function lineIntensity(d: PrestressLike, L: number) {
+  return evaluateTerms([4 * d.eI, -8 * d.eM, 4 * d.eJ], -d.force, L * L);
+}
+
 /** de/dx at ξ, for a member of length L. */
 export function tendonSlope(d: PrestressLike, xi: number, L: number): number {
-  return (d.eI * (4 * xi - 3) + 4 * d.eM * (1 - 2 * xi) + d.eJ * (4 * xi - 1)) / L;
+  return slopeAt(d, xi, L).value;
 }
 
 /** The constant transverse load of the curved tendon, along local z, kN/m. */
 export function tendonLoad(d: PrestressLike, L: number): number {
-  return (-d.force * (4 * d.eI - 8 * d.eM + 4 * d.eJ)) / (L * L);
+  return lineIntensity(d, L).value;
 }
 
 /** The tendon of the stretch [x0, x1] of a member of length L, as a tendon of that stretch. */
@@ -63,25 +79,30 @@ export function tendonStretch<T extends PrestressLike>(d: T, x0: number, x1: num
   return { ...d, eI: tendonEccentricity(d, x0 / L), eM: tendonEccentricity(d, (x0 + x1) / (2 * L)), eJ: tendonEccentricity(d, x1 / L) };
 }
 
-const add = (a: Vec3, b: Vec3, k = 1): Vec3 => [a[0] + k * b[0], a[1] + k * b[1], a[2] + k * b[2]];
-const scale = (a: Vec3, k: number): Vec3 => [a[0] * k, a[1] * k, a[2] * k];
-const cross = (a: Vec3, b: Vec3): Vec3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
-
 /** The engine loads of a tendon in a member that bends. */
 export function prestressToSolver(m: MemberRef, d: PrestressLike): SolverLoad3D[] {
   const { ex, ey, ez, L } = m.axes;
   if (!(L > 0) || d.force === 0) return [];
   const P = d.force;
   // Anchor forces on the member: along the tendon, into the member. z_t = −e.
-  const fI = add(scale(ex, P), ez, -P * tendonSlope(d, 0, L));
-  const fJ = add(scale(ex, -P), ez, P * tendonSlope(d, 1, L));
-  const mI = scale(ey, -P * d.eI), mJ = scale(ey, P * d.eJ);
-  const at = (nodeId: number, f: Vec3, mm: Vec3, arm?: Vec3): SolverLoad3D => {
-    const c = arm ? cross(arm, f) : [0, 0, 0];
-    return { type: 'nodal', data: { nodeId, fx: f[0], fy: f[1], fz: f[2], mx: mm[0] + c[0]!, my: mm[1] + c[1]!, mz: mm[2] + c[2]!, tendonOf: m.elementId } };
+  const chord = LoadVector.from(ex), transverse = LoadVector.from(ez), bending = LoadVector.from(ey);
+  const at = (nodeId: number, xi: number, axial: number, eccentricity: number, arm?: Vec3): SolverLoad3D => {
+    const slope = slopeAt(d, xi, L);
+    const across = transverse.scale(-axial * slope.value, Math.abs(axial) * slope.magnitude);
+    const force = chord.scale(axial).add(across);
+    const couple = bending.scale(-axial * eccentricity).add(arm ? force.momentAt(arm) : LoadVector.from(zero()));
+    const [fx, fy, fz] = force.value, [mx, my, mz] = couple.value;
+    const load: SolverLoad3D = { type: 'nodal', data: { nodeId, fx, fy, fz, mx, my, mz, tendonOf: m.elementId } };
+    assembledMagnitudes3D.set(load, { force: force.magnitude, couple: couple.magnitude });
+    return load;
   };
-  const out: SolverLoad3D[] = [at(m.nodeI, fI, mI, m.armI), at(m.nodeJ, fJ, mJ, m.armJ)];
-  const q = tendonLoad(d, L);
-  if (Math.abs(q) > 1e-12) out.push({ type: 'distributed', data: { elementId: m.elementId, qYI: 0, qYJ: 0, qZI: q, qZJ: q } });
+  const out = [at(m.nodeI, 0, P, d.eI, m.armI), at(m.nodeJ, 1, -P, d.eJ, m.armJ)];
+  const { value: q, magnitude: qScale } = lineIntensity(d, L);
+  if (Math.abs(q) > 1e-12) {
+    const load: SolverLoad3D = { type: 'distributed', data: { elementId: m.elementId, qYI: 0, qYJ: 0, qZI: q, qZJ: q } };
+    const qMagnitude: Vec3 = [0, 0, qScale];
+    assembledMagnitudes3D.set(load, { qI: qMagnitude, qJ: qMagnitude });
+    out.push(load);
+  }
   return out;
 }

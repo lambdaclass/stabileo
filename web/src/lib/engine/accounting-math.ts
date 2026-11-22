@@ -1,3 +1,5 @@
+import type { SolverLoad3D } from './types-3d';
+
 export type Vector = [number, number, number];
 
 export const zero = (): Vector => [0, 0, 0];
@@ -49,17 +51,34 @@ function crossMagnitude([x, y, z]: Vector, [fx, fy, fz]: Vector): Vector {
 export class LoadVector {
   private constructor(readonly value: Vector, readonly magnitude: Vector) {}
 
-  static from(value: Vector): LoadVector {
-    return new LoadVector(value, absolute(value));
+  static from(value: Vector, magnitude = absolute(value)): LoadVector {
+    return new LoadVector(value, magnitude);
   }
 
   add(other: LoadVector): LoadVector {
     return new LoadVector(add(this.value, other.value), add(this.magnitude, other.magnitude));
   }
 
-  scale(factor: number): LoadVector {
-    return new LoadVector(mul(this.value, factor), mul(this.magnitude, Math.abs(factor)));
+  scale(factor: number, magnitude = Math.abs(factor)): LoadVector {
+    return new LoadVector(mul(this.value, factor), mul(this.magnitude, magnitude));
   }
+
+  momentAt(arm: Vector): LoadVector {
+    return new LoadVector(cross(arm, this.value), crossMagnitude(arm, this.magnitude));
+  }
+}
+
+type AssembledMagnitudes3D = { force: Vector; couple: Vector } | { qI: Vector; qJ: Vector };
+
+export const assembledMagnitudes3D = new WeakMap<SolverLoad3D, AssembledMagnitudes3D>();
+
+export function scaleAssembledMagnitudes3D(source: SolverLoad3D, scaled: SolverLoad3D, factor: number): void {
+  const magnitudes = assembledMagnitudes3D.get(source);
+  if (!magnitudes) return;
+  const scale = Math.abs(factor);
+  assembledMagnitudes3D.set(scaled, 'force' in magnitudes
+    ? { force: mul(magnitudes.force, scale), couple: mul(magnitudes.couple, scale) }
+    : { qI: mul(magnitudes.qI, scale), qJ: mul(magnitudes.qJ, scale) });
 }
 
 const zeroCouple = LoadVector.from(zero());
@@ -68,8 +87,8 @@ export class Wrench {
   private readonly components = Array.from({ length: 6 }, () => ({ total: new Sum(), magnitude: new Sum() }));
 
   apply(at: Vector, force: LoadVector, couple = zeroCouple): void {
-    this.addTotals(force.value, add(cross(at, force.value), couple.value),
-      force.magnitude, add(crossMagnitude(at, force.magnitude), couple.magnitude));
+    const moment = force.momentAt(at).add(couple);
+    this.addTotals(force.value, moment.value, force.magnitude, moment.magnitude);
   }
 
   private addTotals(force: Vector, moment: Vector, forceMagnitude: Vector, momentMagnitude: Vector): void {

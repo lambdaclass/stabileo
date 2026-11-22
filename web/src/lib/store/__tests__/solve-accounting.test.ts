@@ -580,9 +580,7 @@ it('#2470 solves an inclined member with zero entered Mz under a vertical line l
     .toMatchObject({ reactions: [expect.objectContaining(equilibrium)] });
 });
 
-const transverseStationRegression = process.env.RUN_KNOWN_WRONG === '2470' ? it : it.skip;
-
-transverseStationRegression('known wrong result: #2470 preserves a transverse force at its entered station near either member end', async () => {
+it('#2470 preserves a transverse force at its entered station near either member end', async () => {
   const elementId = cantilever('3d');
   const model = modelStore.model;
   const combination = model.combinations.at(-1)!;
@@ -612,9 +610,7 @@ transverseStationRegression('known wrong result: #2470 preserves a transverse fo
   }
 });
 
-const planarCancellationRegression = process.env.RUN_KNOWN_WRONG === '2470' ? it : it.skip;
-
-planarCancellationRegression('known wrong result: #2470 preserves cancelling projections on nearly vertical planar members', async () => {
+it('#2470 preserves cancelling projections on nearly vertical planar members', async () => {
   const elementId = cantilever('2d');
   const model = modelStore.model;
   const { nodeJ } = model.elements.get(elementId)!;

@@ -9,7 +9,7 @@ import { computeLocalAxes3D, memberRoll, type LocalAxes3D } from './local-axes-3
 import { memberFrame3D } from './member-loads';
 import { planarLoadDirection } from './planar-load-direction';
 import { transverseSign } from './transverse-sign-2d';
-import { add, agreesAtScale, LoadVector, mul, norm, sub, unit, xyz, zero, Wrench, type Vector } from './accounting-math';
+import { add, agreesAtScale, assembledMagnitudes3D, LoadVector, mul, norm, sub, unit, xyz, zero, Wrench, type Vector } from './accounting-math';
 import { accountSurface } from './surface-accounting';
 import { SolveAccountingError, type PlateMeasure } from './plate-accounting';
 
@@ -36,10 +36,10 @@ function compare(label: string, entered: Wrench, assembled: Wrench): void {
   }
 }
 
-function localVector(axes: LocalAxes3D, x: number, y: number, z: number): LoadVector {
-  const along = LoadVector.from(mul(axes.ex, x));
-  const transverseY = LoadVector.from(mul(axes.ey, y));
-  const transverseZ = LoadVector.from(mul(axes.ez, z));
+function localVector(axes: LocalAxes3D, x: number, y: number, z: number, magnitudes?: Vector): LoadVector {
+  const along = LoadVector.from(axes.ex).scale(x, magnitudes?.[0]);
+  const transverseY = LoadVector.from(axes.ey).scale(y, magnitudes?.[1]);
+  const transverseZ = LoadVector.from(axes.ez).scale(z, magnitudes?.[2]);
   return along.add(transverseY.add(transverseZ));
 }
 
@@ -225,9 +225,11 @@ function assembled3D(model: ModelData, input: SolverInput3D, loads: readonly Sol
   for (const load of loads) {
     const kind: string = load.type;
     if (kind === 'thermal' || kind === 'plateThermal' || kind === 'quadThermal' || kind === 'curvedShellThermal') continue;
+    const magnitudes = assembledMagnitudes3D.get(load);
     if (load.type === 'nodal') {
       const { nodeId, fx, fy, fz, mx, my, mz } = load.data;
-      result.apply(at(nodeId), LoadVector.from([fx, fy, fz]), LoadVector.from([mx, my, mz]));
+      const nodal = magnitudes && 'force' in magnitudes ? magnitudes : undefined;
+      result.apply(at(nodeId), LoadVector.from([fx, fy, fz], nodal?.force), LoadVector.from([mx, my, mz], nodal?.couple));
       continue;
     }
     if (kind === 'pressure' || kind === 'quadPressure' || kind === 'curvedShellPressure') {
@@ -253,8 +255,10 @@ function assembled3D(model: ModelData, input: SolverInput3D, loads: readonly Sol
     const { start, axes } = frame;
     if (load.type === 'distributed') {
       const d = load.data;
+      const line = magnitudes && 'qI' in magnitudes ? magnitudes : undefined;
       result.line(start, axes.ex, d.a ?? 0, d.b ?? axes.L,
-        localVector(axes, d.qXI ?? 0, d.qYI, d.qZI), localVector(axes, d.qXJ ?? 0, d.qYJ, d.qZJ));
+        localVector(axes, d.qXI ?? 0, d.qYI, d.qZI, line?.qI),
+        localVector(axes, d.qXJ ?? 0, d.qYJ, d.qZJ, line?.qJ));
     } else {
       const d = load.data;
       result.apply(add(start, mul(axes.ex, d.a)), localVector(axes, 0, d.py, d.pz));

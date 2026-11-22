@@ -57,8 +57,6 @@ function beamCarriesThePrimaryOnly(r: ReturnType<typeof solve>, beam: number, co
   }
 }
 
-const prestressRegression = process.env.RUN_KNOWN_WRONG === '2470' ? it : it.skip;
-
 function simplySupportedTendon(eccentricity = e0) {
   const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(L, 0, 0);
   const member = modelStore.addElement(a, b, 'frame');
@@ -68,7 +66,7 @@ function simplySupportedTendon(eccentricity = e0) {
   return { a, member };
 }
 
-prestressRegression('known wrong result: #2470 solves the straight eccentric tendon through 3D analysis entry points', async () => {
+it('#2470 solves the straight eccentric tendon through 3D analysis entry points', async () => {
   const { member } = simplySupportedTendon();
   const factor = 0.25;
   const id = modelStore.addCombination('Factored tendon', [{ caseId: 1, factor }]);
@@ -106,7 +104,7 @@ prestressRegression('known wrong result: #2470 solves the straight eccentric ten
   check(typeof direct === 'object' ? direct.perCombo.get(id) ?? null : direct, 'direct analysis', factor, false);
 });
 
-prestressRegression('known wrong result: #2470 bounds a zero-total tendon component by its cancelling terms', () => {
+it('#2470 bounds a zero-total tendon component by its cancelling terms', () => {
   const eccentricity = 1 / 8;
   const { a } = simplySupportedTendon(eccentricity);
   const model = modelStore.model;

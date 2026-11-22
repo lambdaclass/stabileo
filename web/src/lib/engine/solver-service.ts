@@ -1,5 +1,5 @@
 import { accountingCaseSources, accountingProjection, accountingSource, copyAccountingLoad, type AccountingCaseSources } from './accounting-source';
-import type { Wrench } from './accounting-math';
+import { scaleAssembledMagnitudes3D, type Wrench } from './accounting-math';
 import { accountCombination, accountLoads2D, loadAccounting3D, loadCaseBatches } from './load-accounting';
 import { accountPlateGeometry, SolveAccountingError } from './plate-accounting';
 import { shouldEmbedFlat2DModelIn3D } from './model-embedding';
@@ -306,6 +306,16 @@ function accountAssembly<T extends object>(assemble: (record: RecordLoadCase<T>)
   return { loads, cases };
 }
 
+function retainedPlanarProjections(globalAxis: boolean, axial: number[], transverse: number[]) {
+  const keepAxial = axial.some(value => Math.abs(value) > 1e-10);
+  const keepTransverse = transverse.some(value => Math.abs(value) > 1e-10);
+  const paired = globalAxis && (keepAxial || keepTransverse);
+  return {
+    axial: keepAxial || (paired && axial.some(value => value !== 0)),
+    transverse: keepTransverse || (paired && transverse.some(value => value !== 0)),
+  };
+}
+
 function convertSolverLoads2D(
   model: ModelData, loads: Load[], weights: readonly SelfWeightLoad[],
   record: RecordLoadCase<SolverInput['loads'][number]>,
@@ -401,8 +411,9 @@ function convertSolverLoads2D(
 
         // The axial force and the moment given alongside it are local and unaffected by the
         // angle; the load's own axial part joins that axial force, at the load's point.
-        const px = (d.px ?? 0) + (Math.abs(pAxial) > 1e-10 ? pAxial : 0);
-        const p = Math.abs(pPerp) > 1e-10 ? pPerp : 0;
+        const keep = retainedPlanarProjections(isGlobal && (sin === 0 || cos === 0), [pAxial], [pPerp]);
+        const px = (d.px ?? 0) + (keep.axial ? pAxial : 0);
+        const p = keep.transverse ? pPerp : 0;
         if (p !== 0 || px !== 0 || (pointMy !== undefined && pointMy !== 0)) {
           emit({ type: 'pointOnElement' as const, data: { elementId: d.elementId, a: d.a, p, ...(px !== 0 ? { px } : {}), ...(pointMy ? { my: pointMy } : {}) } });
         }
@@ -454,10 +465,12 @@ function convertSolverLoads2D(
           qJAxialLocal = d.qJ * sin;
         }
 
-        if (Math.abs(qIPerpLocal) > 1e-10 || Math.abs(qJPerpLocal) > 1e-10) {
+        const keep = retainedPlanarProjections(isGlobal && (sin === 0 || cos === 0),
+          [qIAxialLocal, qJAxialLocal], [qIPerpLocal, qJPerpLocal]);
+        if (keep.transverse) {
           emit({ type: 'distributed' as const, data: { elementId: d.elementId, qI: qIPerpLocal, qJ: qJPerpLocal, a: d.a, b: d.b } });
         }
-        if (Math.abs(qIAxialLocal) > 1e-10 || Math.abs(qJAxialLocal) > 1e-10) {
+        if (keep.axial) {
           emit({ type: 'axialDistributed' as const, data: { elementId: d.elementId, qI: qIAxialLocal, qJ: qJAxialLocal, a: d.a, b: d.b } });
         }
       }
@@ -3206,7 +3219,9 @@ export function scaleSolverLoad(l: SolverLoad3D, f: number): SolverLoad3D {
   // The axial share a nodal load carries for its member (`axial-shares.ts`) is a magnitude too.
   const ax = (l.data as { axialOf?: { elementId: number; end: 'i' | 'j'; p: number } }).axialOf;
   if (ax) data.axialOf = { ...ax, p: ax.p * f };
-  return { ...l, data } as unknown as SolverLoad3D;
+  const scaled = { ...l, data } as unknown as SolverLoad3D;
+  scaleAssembledMagnitudes3D(l, scaled, f);
+  return scaled;
 }
 
 // ─── 3D: Parallel solveCombinations3D (Web Workers) ──────────────
