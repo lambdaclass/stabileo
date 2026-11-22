@@ -69,9 +69,9 @@ export function customMaterialForm(m: Pick<Material, 'name' | 'e' | 'nu' | 'rho'
  */
 export function saveCustomMaterial(choice: CustomMaterialChoice, id: number | null = null): number {
   const fields = toMaterialFields(choice);
-  if (id === null || !modelStore.materials.has(id)) return modelStore.addMaterial(fields);
+  if (id === null || !modelStore.materials.has(id)) return modelStore.addMaterial({ ...fields, userDefined: true });
   modelStore.updateMaterial(id, {
-    name: fields.name, e: fields.e, nu: fields.nu, rho: fields.rho, fy: fields.fy, alpha: fields.alpha,
+    name: fields.name, e: fields.e, nu: fields.nu, rho: fields.rho, fy: fields.fy, alpha: fields.alpha, userDefined: true,
   });
   return id;
 }

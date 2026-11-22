@@ -15,6 +15,7 @@ export const RESULT_PROPERTY_POLICY = {
     fc: true,
     alpha: true,
     gradeId: true,
+    userDefined: { nonResult: 'Marks numbers the user entered, so a catalogue profile never swaps the material; the numbers are what the analysis reads.' },
     timber: true,
     maxAggregateSizeMm: true,
     spacingMarginMm: true,

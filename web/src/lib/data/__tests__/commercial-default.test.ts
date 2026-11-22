@@ -66,6 +66,10 @@ describe('a deliberate choice is never overwritten', () => {
     expect(commercialDefaultFor('IPN', { gradeId: 'iram-f36' }, 'AR')).toBeNull();
   });
 
+  it('leaves a material the user entered by its own numbers alone', () => {
+    expect(commercialDefaultFor('IPN', { userDefined: true }, 'AR')).toBeNull();
+  });
+
   it('applies to a material with no grade, which is not the same as no material', () => {
     // A material exists, it just did not come from the catalogue: nobody chose
     // a steel, they got whatever the model was created with.

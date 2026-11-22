@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { historyStore, modelStore, uiStore } from '../../store';
 import { buildProjectFile, deserializeProject } from '../../store/file';
+import { commercialDefaultFor } from '../../data/commercial-default';
 import {
   readCustomMaterial, customMaterialForm, saveCustomMaterial, type CustomMaterialForm,
 } from '../custom-material';
@@ -90,7 +91,7 @@ describe('saving a hand-entered material', () => {
     const before = modelStore.materials.size;
     const id = saveCustomMaterial(choice());
     expect(modelStore.materials.get(id)).toEqual({
-      id, name: 'Madera dura', e: 100000, nu: 0.25, rho: 20, fy: 300, alpha: 11e-6,
+      id, name: 'Madera dura', e: 100000, nu: 0.25, rho: 20, fy: 300, alpha: 11e-6, userDefined: true,
     });
     historyStore.undo();
     expect(modelStore.materials.has(id)).toBe(false);
@@ -103,11 +104,16 @@ describe('saving a hand-entered material', () => {
     if (!r.ok) throw new Error(r.reasonKey);
     expect(saveCustomMaterial(r.choice, id)).toBe(id);
     const m = modelStore.materials.get(id)!;
-    expect(m).toMatchObject({ name: 'F-24 reducido', e: 180000, nu: 0.3, rho: 78.5, gradeId: 'ar-f24' });
+    expect(m).toMatchObject({ name: 'F-24 reducido', e: 180000, nu: 0.3, rho: 78.5, gradeId: 'ar-f24', userDefined: true });
     expect(m.fy).toBeUndefined();
     expect(m.alpha).toBeUndefined();
     historyStore.undo();
     expect(modelStore.materials.get(id)).toMatchObject({ name: 'F-24', e: 200000, fy: 235, alpha: 12e-6 });
+  });
+
+  it('is never swapped for the steel a catalogue profile is rolled in', () => {
+    const id = saveCustomMaterial(choice());
+    expect(commercialDefaultFor('IPN', modelStore.materials.get(id), 'AR')).toBeNull();
   });
 
   it('adds a new one when the material to edit is gone', () => {

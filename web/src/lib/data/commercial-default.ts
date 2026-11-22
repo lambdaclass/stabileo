@@ -15,7 +15,8 @@
  * # The rule, and why this one
  *
  * The grade is applied ONLY when the element's current material did not come
- * from the catalogue — when nobody has chosen a steel on purpose yet.
+ * from the catalogue and was not entered by the user — when nobody has chosen a
+ * steel on purpose yet.
  *
  * The alternative, applying it always, would silently overwrite a deliberate
  * choice: an engineer verifying an existing structure sets the steel FIRST,
@@ -41,6 +42,8 @@ import { commercialGrade, commercialGradesFor, gradeById, type GradeRegion, type
 export interface MaterialLike {
   /** Present when the material came from the grade catalogue. */
   gradeId?: string;
+  /** True when the user entered the material's own numbers. */
+  userDefined?: boolean;
 }
 
 /**
@@ -57,7 +60,7 @@ export function commercialDefaultFor(
   region?: GradeRegion | null,
 ): StructuralGrade | null {
   // A steel was chosen on purpose. Not ours to change.
-  if (current?.gradeId) return null;
+  if (current?.gradeId || current?.userDefined) return null;
   if (!family) return null;
 
   const pairing = region
