@@ -1,0 +1,32 @@
+{
+  "id": "load-accounting-component-roundoff",
+  "date": "2026-11-22",
+  "prs": [2470],
+  "area": "analysis",
+  "when": { "any": ["spatialDistributedLoadOrientation", "projectedSpatialLoads", "pointOrPartialMemberLoads", "offsetMemberLoadFrame"] },
+  "quantities": ["solve.ok"],
+  "title": {
+    "en": "Roundoff allowances for load components",
+    "es": "Márgenes de redondeo por componente de carga",
+    "pt": "Margens de arredondamento por componente de carga",
+    "de": "Rundungstoleranzen für Lastkomponenten",
+    "fr": "Marges d’arrondi par composante de charge",
+    "hu": "Teherkomponensenkénti kerekítési tűrések",
+    "tr": "Yük bileşenleri için yuvarlama payları",
+    "zh": "荷载分量的舍入误差限值"
+  },
+  "explanation": {
+    "en": "The load check uses the magnitudes of the terms contributing to each force or moment component, even when their sum is zero. Analysis stops if a discrepancy exceeds that component's roundoff allowance.",
+    "es": "La verificación utiliza las magnitudes de los términos de cada componente de fuerza o momento, incluso cuando su suma es cero. El análisis se detiene si la diferencia supera el margen de redondeo de esa componente.",
+    "pt": "A verificação usa os módulos dos termos de cada componente de força ou momento, mesmo quando a soma é zero. A análise para se a diferença exceder a margem de arredondamento desse componente.",
+    "de": "Die Lastprüfung verwendet die Beträge der Terme jeder Kraft- oder Momentenkomponente, auch wenn ihre Summe null ist. Die Berechnung stoppt, wenn eine Abweichung die Rundungstoleranz dieser Komponente überschreitet.",
+    "fr": "La vérification utilise les valeurs absolues des termes de chaque composante de force ou de moment, même lorsque leur somme est nulle. L’analyse s’arrête si un écart dépasse la marge d’arrondi de cette composante.",
+    "hu": "A terhek ellenőrzése az egyes erő- és nyomatékkomponensek tagjainak abszolút értékét használja akkor is, ha az összegük nulla. A számítás leáll, ha az eltérés meghaladja a komponens kerekítési tűrését.",
+    "tr": "Yük denetimi, toplam sıfır olsa bile her kuvvet veya moment bileşenine katkı yapan terimlerin büyüklüklerini kullanır. Fark ilgili bileşenin yuvarlama payını aşarsa analiz durur.",
+    "zh": "荷载校核采用各力或力矩分量中各项的绝对值，即使各项之和为零。差异超过该分量的舍入误差限值时，分析将停止。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-load-accounting-component-roundoff.md",
+    "heading": "Roundoff allowances for load components"
+  }
+}

@@ -13,9 +13,13 @@ export const norm = (a: Vector): number => Math.hypot(...a);
 export const unit = (a: Vector): Vector => mul(a, 1 / norm(a));
 export const roundoff = 128 * Number.EPSILON;
 
-export function agrees(a: number, b: number, scale: number): boolean {
+export function agreesAtScale(a: number, b: number, scale: number): boolean {
   return Number.isFinite(a) && Number.isFinite(b) && Number.isFinite(scale)
-    && Math.abs(a - b) <= roundoff * Math.max(Math.abs(a), Math.abs(b), scale);
+    && Math.abs(a - b) <= roundoff * scale;
+}
+
+export function agrees(a: number, b: number, scale: number): boolean {
+  return Number.isFinite(scale) && agreesAtScale(a, b, Math.max(Math.abs(a), Math.abs(b), scale));
 }
 
 export class Sum {
@@ -42,16 +46,33 @@ function crossMagnitude([x, y, z]: Vector, [fx, fy, fz]: Vector): Vector {
   ];
 }
 
-export class Wrench {
-  private readonly components = Array.from({ length: 6 }, () => ({ total: new Sum(), magnitude: new Sum() }));
-  private readonly forceScale = new Sum();
+export class LoadVector {
+  private constructor(readonly value: Vector, readonly magnitude: Vector) {}
 
-  apply(at: Vector, force: Vector, couple = zero()): void {
-    this.addTotals(force, add(cross(at, force), couple),
-      absolute(force), add(crossMagnitude(at, force), absolute(couple)), norm(force));
+  static from(value: Vector): LoadVector {
+    return new LoadVector(value, absolute(value));
   }
 
-  private addTotals(force: Vector, moment: Vector, forceMagnitude: Vector, momentMagnitude: Vector, forceScale: number): void {
+  add(other: LoadVector): LoadVector {
+    return new LoadVector(add(this.value, other.value), add(this.magnitude, other.magnitude));
+  }
+
+  scale(factor: number): LoadVector {
+    return new LoadVector(mul(this.value, factor), mul(this.magnitude, Math.abs(factor)));
+  }
+}
+
+const zeroCouple = LoadVector.from(zero());
+
+export class Wrench {
+  private readonly components = Array.from({ length: 6 }, () => ({ total: new Sum(), magnitude: new Sum() }));
+
+  apply(at: Vector, force: LoadVector, couple = zeroCouple): void {
+    this.addTotals(force.value, add(cross(at, force.value), couple.value),
+      force.magnitude, add(crossMagnitude(at, force.magnitude), couple.magnitude));
+  }
+
+  private addTotals(force: Vector, moment: Vector, forceMagnitude: Vector, momentMagnitude: Vector): void {
     for (let i = 0; i < 3; i++) {
       const f = this.components[i]!, m = this.components[i + 3]!;
       f.total.add(force[i]!);
@@ -59,7 +80,6 @@ export class Wrench {
       m.total.add(moment[i]!);
       m.magnitude.add(momentMagnitude[i]!);
     }
-    this.forceScale.add(forceScale);
   }
 
   addScaled(other: Wrench, factor: number): void {
@@ -67,7 +87,7 @@ export class Wrench {
     const magnitude = other.read('magnitude');
     const scale = Math.abs(factor);
     this.addTotals(mul(force, factor), mul(moment, factor),
-      mul(magnitude.force, scale), mul(magnitude.moment, scale), other.forceScale.value * scale);
+      mul(magnitude.force, scale), mul(magnitude.moment, scale));
   }
 
   toWorld(plane: 'xz' | 'yz', origin: Vector): Wrench {
@@ -78,14 +98,13 @@ export class Wrench {
     const worldForceMagnitude = absolute(rotate(magnitude.force));
     const world = new Wrench();
     world.addTotals(worldForce, add(rotate(moment), cross(origin, worldForce)),
-      worldForceMagnitude, add(absolute(rotate(magnitude.moment)), crossMagnitude(origin, worldForceMagnitude)),
-      this.forceScale.value);
+      worldForceMagnitude, add(absolute(rotate(magnitude.moment)), crossMagnitude(origin, worldForceMagnitude)));
     return world;
   }
 
   component(index: number): { value: number; scale: number } {
     const { total, magnitude } = this.components[index]!;
-    return { value: total.value, scale: index < 3 ? this.forceScale.value : magnitude.value };
+    return { value: total.value, scale: magnitude.value };
   }
 
   private read(key: 'total' | 'magnitude'): { force: Vector; moment: Vector } {
@@ -93,10 +112,10 @@ export class Wrench {
     return { force: [c[0]!, c[1]!, c[2]!], moment: [c[3]!, c[4]!, c[5]!] };
   }
 
-  line(start: Vector, axis: Vector, a: number, b: number, qI: Vector, qJ: Vector): void {
+  line(start: Vector, axis: Vector, a: number, b: number, qI: LoadVector, qJ: LoadVector): void {
     const length = b - a;
-    this.apply(add(start, mul(axis, a + length / 3)), mul(qI, length / 2));
-    this.apply(add(start, mul(axis, b - length / 3)), mul(qJ, length / 2));
+    this.apply(add(start, mul(axis, a + length / 3)), qI.scale(length / 2));
+    this.apply(add(start, mul(axis, b - length / 3)), qJ.scale(length / 2));
   }
 }
 

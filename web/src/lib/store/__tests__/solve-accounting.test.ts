@@ -117,8 +117,10 @@ it.each(['distributed', 'pointOnElement'] as const)(
             ? { type: 'axialDistributed' }
             : { type, data: expect.objectContaining({ p: 0, px: -(2 ** 24) }) })],
         });
-      expect.soft(() => buildSolverInput2D(withLoad(90 - 2 ** -46, -2, isGlobal)), 'real transverse component')
-        .toThrow(/Load case.*Mz/);
+      const nearAxial = withLoad(90 - 2 ** -46, -2, isGlobal);
+      const root = model.elements.get(elementId)!.nodeI;
+      nearAxial.loads.push({ type: 'nodal', data: { id: 2, nodeId: root, fx: 0, fz: 1, my: 0, caseId: 1 } });
+      expect.soft(() => buildSolverInput2D(nearAxial), 'real transverse component').toThrow(/Load case.*Mz/);
     }
   },
 );
@@ -538,42 +540,74 @@ it('checks a stale spatial moment at its own roundoff boundary (#2470)', async (
   expect.soft(await outcome(paths.parallel), 'nonlinear combinations').toEqual(diagnostic);
 });
 
-const issue2470ZeroComponent = process.env.RUN_KNOWN_WRONG === '2470' ? it : it.skip;
-
-issue2470ZeroComponent('known wrong result: #2470 — solves an inclined member with zero entered Mz under a vertical line load', async () => {
+it('#2470 solves an inclined member with zero entered Mz under a vertical line load', async () => {
   const member = cantilever('3d');
   const model = modelStore.model;
   const combination = model.combinations.at(-1)!;
   const { nodeI: root, nodeJ: tip } = model.elements.get(member)!;
   model.nodes.set(root, { ...model.nodes.get(root)!, y: 2 });
   model.nodes.set(tip, { ...model.nodes.get(tip)!, y: 2, z: 3 });
-  const q = -7;
+  const q = -7 / 4;
   model.loads.push({
     type: 'distributed3d',
     data: { id: 1, elementId: member, qYI: 0, qYJ: 0, qZI: q, qZJ: q, frame: 'global', caseId: 1 },
   });
 
   const vertical = -q * Math.hypot(2, 3);
-  const expected = { reactions: [expect.objectContaining({
+  const equilibrium = {
     fx: expect.closeTo(0, 12), fy: expect.closeTo(0, 12), fz: expect.closeTo(vertical, 12),
-    my: expect.closeTo(-vertical, 12), mz: expect.closeTo(0, 12),
-  })] };
+    mx: expect.closeTo(0, 12), mz: expect.closeTo(0, 12),
+  };
+  const expected = { reactions: [expect.objectContaining({ ...equilibrium, my: expect.closeTo(-vertical, 12) })] };
   expect.soft(modelStore.solve3D(false, false, true), 'linear').toMatchObject(expected);
   expect.soft(await modelStore.solve3DAsync(false, false, true), 'async linear').toMatchObject(expected);
-  const expectCombination = (bundle: ReturnType<typeof modelStore.solveCombinations3D>, label: string) => {
+  const expectCombination = (bundle: ReturnType<typeof modelStore.solveCombinations3D>, label: string, pdelta = false) => {
     expect.soft(bundle && typeof bundle === 'object' ? bundle.perCombo.get(combination.id) : bundle, label)
-      .toMatchObject(expected);
+      .toMatchObject(pdelta ? { reactions: [expect.objectContaining(equilibrium)] } : expected);
   };
   expectCombination(modelStore.solveCombinations3D(false, false, true), 'linear combinations');
   expectCombination(await modelStore.solveCombinations3DParallel(false, false, true), 'parallel linear combinations');
   expect.soft(modelStore.singleSolveInput3D(false, false, true), 'input').toMatchObject({ dim: '3d' });
   modelStore.setAnalysis({ perCombination: 'pdelta' });
-  expectCombination(modelStore.solveCombinations3D(false, false, true), 'P-Delta combinations');
-  expectCombination(await modelStore.solveCombinations3DParallel(false, false, true), 'parallel P-Delta combinations');
+  expectCombination(modelStore.solveCombinations3D(false, false, true), 'P-Delta combinations', true);
+  expectCombination(await modelStore.solveCombinations3DParallel(false, false, true), 'parallel P-Delta combinations', true);
+  const direct = await runDirectAnalysis(model, model.loadCases, [combination], {
+    includeSelfWeight: false,
+    settings: { notional: 0, tauB: 'iterate' },
+  });
+  expect.soft(typeof direct === 'object' ? direct.perCombo.get(combination.id) : direct, 'direct analysis')
+    .toMatchObject({ reactions: [expect.objectContaining(equilibrium)] });
 });
 
-issue2470ZeroComponent.each(['xz', 'yz'] as const)(
-  'known wrong result: #2470 — a vertical force gives no allowance for a dropped orthogonal force in %s',
+it('#2470 solves an inclined planar member with a vertical point load at its support', async () => {
+  const elementId = cantilever('2d');
+  const model = modelStore.model;
+  const { nodeI: root, nodeJ: tip } = model.elements.get(elementId)!;
+  model.nodes.set(root, { ...model.nodes.get(root)!, y: 2 });
+  model.nodes.set(tip, { ...model.nodes.get(tip)!, y: 5 });
+  const force = 5;
+  model.loads.push({
+    type: 'pointOnElement',
+    data: { id: 1, elementId, a: 0, p: -force, angle: 0, isGlobal: true, caseId: 1 },
+  });
+
+  const expected = { reactions: [expect.objectContaining({
+    rx: expect.closeTo(0, 12), rz: expect.closeTo(force, 12), my: expect.closeTo(0, 12),
+  })] };
+  expect.soft(await refusal(() => validateAndSolve2D(model)), 'linear').toMatchObject(expected);
+  expect.soft(await refusal(() => validateAndSolve2DAsync(model)), 'async linear').toMatchObject(expected);
+  expect.soft(await refusal(() => solvePDelta(buildSolverInput2D(model)!).results), 'P-Delta').toMatchObject(expected);
+  const combination = model.combinations.at(-1)!;
+  const cases = [{ id: 1, name: 'D', type: 'D' }, { id: 2, name: 'L', type: 'L' }];
+  for (const name of ['D', 'L']) {
+    const bundle = solveCombinations2D(model, [cases[0]!, { ...cases[1]!, name }], [combination]);
+    expect.soft(bundle && typeof bundle === 'object' ? bundle.perCombo.get(combination.id) : bundle, name === 'L' ? 'batch' : 'fallback')
+      .toMatchObject(expected);
+  }
+});
+
+it.each(['xz', 'yz'] as const)(
+  '#2470 a vertical force gives no allowance for a dropped orthogonal force in %s',
   async plane => {
     const member = cantilever('3d');
     const model = modelStore.model;

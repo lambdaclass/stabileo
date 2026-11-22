@@ -1,5 +1,5 @@
 import type { ShellLoadSpec } from './shell-load-integration';
-import { add, cross, dot, mul, norm, roundoff, sub, unit, type Vector, type Wrench } from './accounting-math';
+import { add, cross, dot, LoadVector, mul, norm, roundoff, sub, unit, type Vector, type Wrench } from './accounting-math';
 
 function clip(points: Vector[], distance: (p: Vector) => number): Vector[] {
   const result: Vector[] = [];
@@ -12,12 +12,12 @@ function clip(points: Vector[], distance: (p: Vector) => number): Vector[] {
   return result;
 }
 
-function integratePolygon(out: Wrench, points: Vector[], normal: Vector, force: Vector, field: (point: Vector) => number): void {
+function integratePolygon(out: Wrench, points: Vector[], normal: Vector, force: LoadVector, field: (point: Vector) => number): void {
   for (let i = 1; i + 1 < points.length; i++) {
     const a = points[0]!, b = points[i]!, c = points[i + 1]!;
     const area = dot(cross(sub(b, a), sub(c, a)), normal) / 2;
     for (const point of [mul(add(a, b), 0.5), mul(add(b, c), 0.5), mul(add(c, a), 0.5)]) {
-      out.apply(point, mul(force, area * field(point) / 3));
+      out.apply(point, force.scale(area * field(point) / 3));
     }
   }
 }
@@ -31,14 +31,15 @@ export function accountSurface(out: Wrench, points: Vector[], spec: ShellLoadSpe
 
   if (spec.frame && spec.frame !== 'local' && spec.frame !== 'global' && spec.frame !== 'projected') return false;
   const direction = spec.frame === 'local' ? normal : unit(spec.frame ? (spec.dir ?? [0, 0, -1]) : [0, 0, -1]);
-  const force = spec.frame === 'projected' ? mul(direction, Math.abs(dot(direction, normal))) : direction;
+  const unitForce = LoadVector.from(direction);
+  const force = spec.frame === 'projected' ? unitForce.scale(Math.abs(dot(direction, normal))) : unitForce;
   if (spec.qNodes) {
     if (spec.region || spec.vary || spec.qNodes.length !== points.length) return false;
     if (points.length === 3) {
       for (let i = 0; i < 3; i++) {
         const j = (i + 1) % 3;
         out.apply(mul(add(points[i]!, points[j]!), 0.5),
-          mul(force, norm(cross(u, v)) * (spec.qNodes[i]! + spec.qNodes[j]!) / 12));
+          force.scale(norm(cross(u, v)) * (spec.qNodes[i]! + spec.qNodes[j]!) / 12));
       }
       return true;
     }
@@ -51,7 +52,7 @@ export function accountSurface(out: Wrench, points: Vector[], spec: ShellLoadSpe
         const jac = dot(cross(add(u, mul(w, t)), add(v, mul(w, s))), normal);
         const [a, b, c, d] = spec.qNodes;
         const q = (1 - t) * ((1 - s) * a! + s * b!) + t * ((1 - s) * d! + s * c!);
-        out.apply(at, mul(force, ws * wt * jac * q));
+        out.apply(at, force.scale(ws * wt * jac * q));
       }
     }
     return true;
@@ -85,7 +86,7 @@ export function accountSurface(out: Wrench, points: Vector[], spec: ShellLoadSpe
       const lo = Math.min(vary.c1, vary.c2), hi = Math.max(vary.c1, vary.c2);
       polygon = clip(clip(polygon, p => coordinate(p) - lo), p => hi - coordinate(p));
     }
-    integratePolygon(out, polygon, normal, index === 0 ? force : mul(force, -1), field);
+    integratePolygon(out, polygon, normal, index === 0 ? force : force.scale(-1), field);
   }
   return true;
 }
