@@ -111,7 +111,7 @@ export const EXPERIMENTS: Experiment[] = [
     name: 'Auxetic spring networks',
     hook: 'Shake the nodes of a triangular lattice of springs until it widens when pulled: a truss network solved in your browser, against the paper’s published numbers.',
     thumbnail: 'research-thumbs/grossman-2026.webp',
-    thumbnailAlt: 'The auxetic spring network (eta = 0.5) from our run, bars coloured by axial force on the deformed strip',
+    thumbnailAlt: 'The auxetic spring network (η = 0.5) from our run, bars colored by axial force on the deformed strip',
     thumbnailQuery: 'eta=0.5&thumb',
     editor: true,
     code: 'https://github.com/lambdaclass/stabileo/tree/main/research/metamaterials/grossman-2026',

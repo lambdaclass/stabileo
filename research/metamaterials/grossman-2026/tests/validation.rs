@@ -309,7 +309,7 @@ fn part_b(c: &mut Checks) {
         }
     }
     c.at_most("Supplemental Eq. (9) = periodic network with equal-weight springs (7 lattices x 37 angles)", "max |nu difference|", worst, 1e-9);
-    c.paper_curve("eq9", "Poisson's ratio of ordered lattices, equal-weight springs (7 lattices x 37 orientations)", "Supplemental Material, App. C, Eq. (9)", 7 * 37, "absolute difference in nu, largest", worst, 1e-9);
+    c.paper_curve("eq9", "Poisson's ratio ν of ordered lattices, equal-weight springs (7 lattices × 37 orientations)", "Supplemental Material, App. C, Eq. (9)", 7 * 37, "absolute difference in ν, largest", worst, 1e-9);
 
     // B2. For equal Hookean springs (Eq. 3) the exact value differs: lattice (1, 0.5), theta = 0
     // gives nu = 1/6, Eq. (9) gives 8/27.
@@ -349,15 +349,15 @@ fn part_b(c: &mut Checks) {
         }
         c.at_most(&format!("Eq. (23) honeycomb, k_radial = {kr:e} (l = 0.05 ... 0.95)"), "max |nu difference|", worst, tol);
         let id = if kr == 1e-3 { "honey-3" } else { "honey-6" };
-        c.paper_curve(id, &format!("Honeycomb Poisson's ratio, k_radial = {kr:e} (l = 0.05 ... 0.95)"), "Eq. (23), p. 7", 19, "absolute difference in nu, largest", worst, tol);
+        c.paper_curve(id, &format!("Honeycomb Poisson's ratio, k_radial = {kr:e} (l = 0.05 ... 0.95)"), "Eq. (23), p. 7", 19, "absolute difference in ν, largest", worst, tol);
     }
 
     let triangular = periodic(spec(tri(1.0, 1.0)), 4);
     let b0 = v["fig9"]["B"]["mean_line"][0][1].as_f64().unwrap();
     let g0 = v["fig9"]["G"]["mean_line"][0][1].as_f64().unwrap();
     c.at_most("Fig. 9 at eta = 0: B = sqrt(3)/2, G = sqrt(3)/4", "max absolute difference", finite_max([(b0 - triangular.isotropic.bulk).abs(), (g0 - triangular.isotropic.shear).abs()]), 5e-3);
-    c.paper_value("fig9-bulk", "Bulk modulus B of the perfect triangular lattice (eta = 0)", "Fig. 9, mean line at eta = 0 (PDF vector data)", b0, triangular.isotropic.bulk, 5e-3);
-    c.paper_value("fig9-shear", "Shear modulus G of the perfect triangular lattice (eta = 0)", "Fig. 9, mean line at eta = 0 (PDF vector data)", g0, triangular.isotropic.shear, 5e-3);
+    c.paper_value("fig9-bulk", "Bulk modulus B of the perfect triangular lattice (η = 0)", "Fig. 9, mean line at η = 0 (PDF vector data)", b0, triangular.isotropic.bulk, 5e-3);
+    c.paper_value("fig9-shear", "Shear modulus G of the perfect triangular lattice (η = 0)", "Fig. 9, mean line at η = 0 (PDF vector data)", g0, triangular.isotropic.shear, 5e-3);
 
     // B6. Foam: exact periodic moduli, 10 samples of 26 x 26 cells per eta, against the paper's
     // simulations (Fig. 5, digitised markers and error bars) and statements (p. 6).
@@ -387,10 +387,10 @@ fn part_b(c: &mut Checks) {
         }
     }
     c.at_most("foam: cross-protocol comparison, periodic nu vs Fig. 5 clamped-strip error bars (eta 0 ... 0.45, 10 markers); not strip validation", "markers outside", outside as f64, 0.0);
-    c.paper_curve("fig5-periodic", "Foam Poisson's ratio, periodic mean (10 samples) against the Fig. 5 strip error bars (eta = 0 ... 0.45); cross-protocol", "Fig. 5, p. 6, simulation markers and error bars (digitised)", 10, "absolute distance outside the error bar, largest", beyond, 0.003);
+    c.paper_curve("fig5-periodic", "Foam Poisson's ratio ν, periodic mean (10 samples) against the Fig. 5 strip error bars (η = 0 … 0.45); cross-protocol", "Fig. 5, p. 6, simulation markers and error bars (digitized)", 10, "absolute distance outside the error bar, largest", beyond, 0.003);
     let cross = means.windows(2).find(|w| w[0].1 > 0.0 && w[1].1 <= 0.0).map(|w| w[0].0 + (w[1].0 - w[0].0) * w[0].1 / (w[0].1 - w[1].1)).unwrap_or(f64::NAN);
     c.at_most("foam: periodic zero crossing vs strip text eta = 0.46 (cross-protocol)", "|eta_0 - 0.46|", (cross - 0.46).abs(), 0.02);
-    c.paper_value("zero-crossing", "Disorder eta at which the foam's Poisson's ratio crosses zero (periodic; cross-protocol)", "Sec. II C 2, p. 6: nu = 0 at eta ~ 0.46", 0.46, cross, 0.02);
+    c.paper_value("zero-crossing", "Disorder η at which the foam's Poisson's ratio crosses zero (periodic; cross-protocol)", "Sec. II C 2, p. 6: ν = 0 at η ≈ 0.46", 0.46, cross, 0.02);
     let mut nus = Vec::new();
     for seed in 0..10 {
         let mut s = spec(tri(1.0, 1.0));

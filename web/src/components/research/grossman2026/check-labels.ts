@@ -314,7 +314,7 @@ const comparisonLabels: Record<string, Record<string, string>> = {
     zh: '(3, 2) 点阵杨氏模量随方向的变化，乘以三角形面积',
   },
   'honey-3': {
-    en: 'Honeycomb ν, Eq. (23), soft centre springs k = 10⁻³',
+    en: 'Honeycomb ν, Eq. (23), soft center springs k = 10⁻³',
     es: 'Panal: ν según la ec. (23), resortes centrales blandos k = 10⁻³',
     pt: 'Colmeia: ν pela eq. (23), molas centrais macias k = 10⁻³',
     de: 'Waben: ν nach Gl. (23), weiche Mittelfedern k = 10⁻³',
@@ -324,7 +324,7 @@ const comparisonLabels: Record<string, Record<string, string>> = {
     zh: '蜂窝：式 (23) 的 ν，软中心弹簧 k = 10⁻³',
   },
   'honey-6': {
-    en: 'Honeycomb ν, Eq. (23), soft centre springs k = 10⁻⁶',
+    en: 'Honeycomb ν, Eq. (23), soft center springs k = 10⁻⁶',
     es: 'Panal: ν según la ec. (23), resortes centrales blandos k = 10⁻⁶',
     pt: 'Colmeia: ν pela eq. (23), molas centrais macias k = 10⁻⁶',
     de: 'Waben: ν nach Gl. (23), weiche Mittelfedern k = 10⁻⁶',

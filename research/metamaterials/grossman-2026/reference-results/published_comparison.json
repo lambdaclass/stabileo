@@ -2,8 +2,8 @@
   "checks": [
     {
       "id": "eq9",
-      "metric": "absolute difference in nu, largest",
-      "name": "Poisson's ratio of ordered lattices, equal-weight springs (7 lattices x 37 orientations)",
+      "metric": "absolute difference in ν, largest",
+      "name": "Poisson's ratio ν of ordered lattices, equal-weight springs (7 lattices × 37 orientations)",
       "observed": 7.105427357601002e-15,
       "passed": true,
       "points": 259,
@@ -24,7 +24,7 @@
     },
     {
       "id": "honey-3",
-      "metric": "absolute difference in nu, largest",
+      "metric": "absolute difference in ν, largest",
       "name": "Honeycomb Poisson's ratio, k_radial = 1e-3 (l = 0.05 ... 0.95)",
       "observed": 0.0033500744879860767,
       "passed": true,
@@ -35,7 +35,7 @@
     },
     {
       "id": "honey-6",
-      "metric": "absolute difference in nu, largest",
+      "metric": "absolute difference in ν, largest",
       "name": "Honeycomb Poisson's ratio, k_radial = 1e-6 (l = 0.05 ... 0.95)",
       "observed": 3.3644897416973407e-6,
       "passed": true,
@@ -48,11 +48,11 @@
       "computed": 0.8660254037844387,
       "id": "fig9-bulk",
       "metric": "absolute difference",
-      "name": "Bulk modulus B of the perfect triangular lattice (eta = 0)",
+      "name": "Bulk modulus B of the perfect triangular lattice (η = 0)",
       "observed": 0.002695403784438666,
       "passed": true,
       "reference": 0.86333,
-      "source": "Fig. 9, mean line at eta = 0 (PDF vector data)",
+      "source": "Fig. 9, mean line at η = 0 (PDF vector data)",
       "tolerance": 0.005,
       "unit": ""
     },
@@ -60,22 +60,22 @@
       "computed": 0.4330127018922193,
       "id": "fig9-shear",
       "metric": "absolute difference",
-      "name": "Shear modulus G of the perfect triangular lattice (eta = 0)",
+      "name": "Shear modulus G of the perfect triangular lattice (η = 0)",
       "observed": 0.0018327018922192906,
       "passed": true,
       "reference": 0.43118,
-      "source": "Fig. 9, mean line at eta = 0 (PDF vector data)",
+      "source": "Fig. 9, mean line at η = 0 (PDF vector data)",
       "tolerance": 0.005,
       "unit": ""
     },
     {
       "id": "fig5-periodic",
       "metric": "absolute distance outside the error bar, largest",
-      "name": "Foam Poisson's ratio, periodic mean (10 samples) against the Fig. 5 strip error bars (eta = 0 ... 0.45); cross-protocol",
+      "name": "Foam Poisson's ratio ν, periodic mean (10 samples) against the Fig. 5 strip error bars (η = 0 … 0.45); cross-protocol",
       "observed": 0.0,
       "passed": true,
       "points": 10,
-      "source": "Fig. 5, p. 6, simulation markers and error bars (digitised)",
+      "source": "Fig. 5, p. 6, simulation markers and error bars (digitized)",
       "tolerance": 0.003,
       "unit": ""
     },
@@ -83,11 +83,11 @@
       "computed": 0.4469165437494681,
       "id": "zero-crossing",
       "metric": "absolute difference",
-      "name": "Disorder eta at which the foam's Poisson's ratio crosses zero (periodic; cross-protocol)",
+      "name": "Disorder η at which the foam's Poisson's ratio crosses zero (periodic; cross-protocol)",
       "observed": 0.013083456250531922,
       "passed": true,
       "reference": 0.46,
-      "source": "Sec. II C 2, p. 6: nu = 0 at eta ~ 0.46",
+      "source": "Sec. II C 2, p. 6: ν = 0 at η ≈ 0.46",
       "tolerance": 0.02,
       "unit": ""
     }

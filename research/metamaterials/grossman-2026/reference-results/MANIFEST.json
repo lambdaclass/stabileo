@@ -19,10 +19,10 @@
   },
   "files_sha256": {
     "fig5_simulation_digitized.csv": "3c36f3da44897809ba87153198dd3d35238a0b0e2da2d6bbb021de1cc596fea2",
-    "fig5_strip_comparison.json": "11094ef5120c0c48d0ab651dccc5bd9445b0e88f9ca1091cf9b8bf43d1018177",
+    "fig5_strip_comparison.json": "0af26b2afb3923c15b92d3e6d97529afa37f008f8c117c84ba3027c005778f0b",
     "paper_figures_vector.json": "601669286c6d0e6a0126f92ef39e0908b82a4055dfc25738c28a63ce532ed5e6",
     "paper_values.json": "9cba558b8763cafa3d0317075a1ca9ec7cd49765f78cab2b518b645f83e19ede",
-    "published_comparison.json": "90001f9c28e79d017f5de6172fb25deae56b348fcff67aae20f0a373a33a0698",
+    "published_comparison.json": "7849e3873018ac0ccaa3959f63843feff1aa6195e2ca603467c483b258ce9eb0",
     "replay.json": "4bbb252dff7f29c79a769348f3f6f32ea123d474d60c15cb276ea6816720e84a"
   }
 }

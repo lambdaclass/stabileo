@@ -51,7 +51,7 @@ fn direct_strip_fig5_comparisons_record_disagreement() {
         let observed = (mean - nu).abs();
         let tolerance = if mean >= nu { hi - nu } else { nu - lo } + 0.003;
         assert_eq!(observed <= tolerance, mean >= lo - 0.003 && mean <= hi + 0.003);
-        comparisons.push(serde_json::json!({"id":format!("fig5-strip-{eta:.2}"),"name":format!("Strip Poisson's ratio at eta = {eta:.2}, 13 x 52 strip, mean of 10 samples"),"source":"Fig. 5, p. 6, simulation marker and error bar (digitised)","unit":"","reference":nu,"computed":mean,"metric":"absolute difference (tolerance: the error bar on that side plus 0.003 digitisation)","observed":observed,"tolerance":tolerance,"passed":observed <= tolerance,"eta":eta,"lo":lo,"hi":hi,"digitisation":0.003}));
+        comparisons.push(serde_json::json!({"id":format!("fig5-strip-{eta:.2}"),"name":format!("Strip Poisson's ratio ν at η = {eta:.2}, 13 × 52 strip, mean of 10 samples"),"source":"Fig. 5, p. 6, simulation marker and error bar (digitized)","unit":"","reference":nu,"computed":mean,"metric":"absolute difference (tolerance: the error bar on that side plus 0.003 digitization)","observed":observed,"tolerance":tolerance,"passed":observed <= tolerance,"eta":eta,"lo":lo,"hi":hi,"digitisation":0.003}));
     }
     let actual = serde_json::json!({"checks": comparisons});
     std::fs::create_dir_all(root.join("target/reference-results")).unwrap();
