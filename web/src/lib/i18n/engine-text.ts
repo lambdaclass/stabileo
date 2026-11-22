@@ -122,6 +122,7 @@ const ENGINE_SENTENCES: ReadonlyArray<[string, string]> = [
 export function localizeEngineText(message: string): string {
   let out = message;
   for (const [en, key] of ENGINE_SENTENCES) if (out.includes(en)) out = out.split(en).join(tAt(key, i18n.locale));
+  out = out.replace(CONFLICTING_CONSTRAINTS, (_whole, dof: string, node: string, n: string) => fill('svc.engine.conflictingConstraints', { dof, node, n }));
   out = out.replace(/Non-finite number \((NaN|Infinity|-Infinity)\) at (\S+)/g, (_, value: string, path: string) =>
     fill('svc.engine.nonFiniteNumber', { value, path }));
   return out.replace(SELF_CHECK_REFUSAL, (whole, check: string, mode: string | undefined, rest: string) => {
@@ -135,6 +136,7 @@ export function localizeEngineText(message: string): string {
   });
 }
 
+const CONFLICTING_CONSTRAINTS = /DOF (\d+) \(node (\d+)\) is constrained by (\d+) constraints — last one wins/g;
 const SELF_CHECKS = new Set(['static_residual', 'static_balance', 'modal_residual', 'modal_orthogonality', 'modal_mass']);
 const SELF_CHECK_REFUSAL = /REFUSE: self-check ([a-z_]+)(?::(\d+))?: ([^\n]*)/g;
 
