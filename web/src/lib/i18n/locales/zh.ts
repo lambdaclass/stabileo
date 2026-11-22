@@ -4107,7 +4107,7 @@ const zh: Translations = {
   "svc.errorInCase3d": "3D 工况“{n}”出错：{err}",
   "svc.engine.mechanism": "刚度矩阵奇异：结构是机构",
   "svc.engine.cancelledCombination": "此组合中重复荷载工况的系数相互抵消，合计为零。",
-  "svc.engine.nonFiniteNumber": "在 {path} 处发现非有限数值（{value}）",
+  "svc.engine.nonFiniteNumber": "请为 {path} 输入有限数值（收到的值为 {value}）。",
   "svc.engine.ambiguousRollerZ": "rollerZ 在三维模型中的约束方向不明确。请明确指定三维约束后再求解。",
   "svc.engine.zeroDiagonal": "所有对角元素均为零：矩阵奇异",
   "svc.engine.singular": "刚度矩阵奇异",

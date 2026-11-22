@@ -3744,6 +3744,7 @@ const ja: Translations = {
   "autoLoad.work.draw": "荷重を描画中",
   "autoLoad.work.step": "ステップ {step} / {total}",
   "autoLoad.work.cancel": "停止",
+  "svc.engine.nonFiniteNumber": "{path} に有限の数値を入力してください（受け取った値: {value}）。",
 } as const satisfies Record<string, string>;
 
 export default ja;

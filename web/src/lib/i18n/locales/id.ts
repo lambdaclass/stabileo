@@ -3754,6 +3754,7 @@ const id: Translations = {
   "autoLoad.work.draw": "Menggambar beban",
   "autoLoad.work.step": "Langkah {step} dari {total}",
   "autoLoad.work.cancel": "Hentikan",
+  "svc.engine.nonFiniteNumber": "Masukkan bilangan berhingga untuk {path} (nilai yang diterima: {value}).",
 } as const satisfies Record<string, string>;
 
 export default id;
