@@ -5569,7 +5569,7 @@
       ]
     },
     "src/lib/i18n/locales/de.ts": {
-      "source": "7f39eed89058d8f3ae73c705a90f1962c2c78b86ed1dbbf4a921411e6c844e70",
+      "source": "ab43e2b3509b698810fa656c787cf4e007b656c6141161412117fb9c2462a642",
       "original": "0b1cffc73c321c88dd80b93e39f81e925705babc0f2e91df63e10c19111fe052",
       "changes": [
         [
@@ -5890,13 +5890,13 @@
         ],
         [
           16165,
-          937,
+          939,
           []
         ]
       ]
     },
     "src/lib/i18n/locales/en.ts": {
-      "source": "752290428a2c857b4fb01c8503f7b78ba1bb1a16066c72d3763b91775f0ce7e8",
+      "source": "b5cdb500784babecfc2c0cd61271422f1b02474ed2ec8b69ea3c9dcc53e3741c",
       "original": "99343e2eeb7cf4140cbbcb69424c37461d3ec4e5c925d64439f6b56ee0e9e6b3",
       "changes": [
         [
@@ -6189,13 +6189,13 @@
         ],
         [
           16327,
-          937,
+          939,
           []
         ]
       ]
     },
     "src/lib/i18n/locales/es.ts": {
-      "source": "3d8eb5ff59c08d96aa613a28beafea3cb228b5676a044d5b3f0284fbf0ee787c",
+      "source": "ed0816509efd323cc32f981a4c7144300c9273f1b539521591a0ac15987f7dd2",
       "original": "df939d2beed0420d6833617b3561c95098e34704ee1a3b4f15f21dda24fa4e09",
       "changes": [
         [
@@ -6488,13 +6488,13 @@
         ],
         [
           16316,
-          937,
+          939,
           []
         ]
       ]
     },
     "src/lib/i18n/locales/fr.ts": {
-      "source": "172f7c059ee8b1ff078905b4fc6a9226c72ba18593970c31a12713fb08bdfe81",
+      "source": "b47e928f72cc11a3e42e4b1b5f7c6602469c49aa7f034f18fba5587a8e5ad5db",
       "original": "26693801514fc282fbb8a5a4ad627431cbfce3c6e3f0720639c8cb5cef4e4b20",
       "changes": [
         [
@@ -6815,7 +6815,7 @@
         ],
         [
           16165,
-          937,
+          939,
           []
         ]
       ]
@@ -6841,7 +6841,7 @@
       ]
     },
     "src/lib/i18n/locales/hu.ts": {
-      "source": "dd0a93b63fb483ea762b11b7007dd4201772413fcba2f3c93db0d33715ac66ec",
+      "source": "7efbb0b0ee8cc199166ac85a1479b58832dbe4a2cd04c6cad71417e933dfdf50",
       "original": "050bb2fb50b6d61761b6836086403490f8b3deedc1ac4af88de298aa3fd3966e",
       "changes": [
         [
@@ -7091,7 +7091,7 @@
         ],
         [
           14765,
-          2050,
+          2052,
           [
             "  \"edu.game.hint\": \"Játék: egy szerkezet, három ábra, és csak az egyik helyes.\"",
             ""
@@ -7180,7 +7180,7 @@
       ]
     },
     "src/lib/i18n/locales/pt.ts": {
-      "source": "60c1e5559713a0080feb7bced16db75f2d3dd13e18eb414e915aebfbbdec5d32",
+      "source": "dfd876cea06b4bdb2d2eef84ba22dac90f55dae65ef381f9d1107922a79a070d",
       "original": "f013a27bd1465964fefdc7d531a470bc4855e8593daa03ed54ed7453509bdd37",
       "changes": [
         [
@@ -7473,7 +7473,7 @@
         ],
         [
           15969,
-          937,
+          939,
           []
         ]
       ]
@@ -7801,7 +7801,7 @@
       ]
     },
     "src/lib/i18n/locales/tr.ts": {
-      "source": "b9174810fbca0d895357a2a11f8b890b21c15d7236912d976f6a475914eb6cdd",
+      "source": "8c9ae72da07d922fc84b7245cdab183920b52a57027507948766265b6e44f886",
       "original": "dfae3be5cd45792b6b2c9720f3433a60bace6b76a70d785cd4f6cc88d7ef096f",
       "changes": [
         [
@@ -8101,13 +8101,13 @@
         ],
         [
           16165,
-          937,
+          939,
           []
         ]
       ]
     },
     "src/lib/i18n/locales/zh.ts": {
-      "source": "8802ab1dfe82bfa52d85d37a1f0a8fc149cf706d441c9c8a4bd030baee36e8c4",
+      "source": "e19a1dff27e12e39eea0b555520ae3014521671a0855e55a3498c4f0c0316ca3",
       "original": "187ecdf53aa596a80d7c584c8c8fc84768c7dd6c4d6540750c3a9cdcf2caee26",
       "changes": [
         [
@@ -8341,7 +8341,7 @@
         ],
         [
           14787,
-          2052,
+          2054,
           []
         ]
       ]
@@ -8664,7 +8664,7 @@
       ]
     },
     "src/lib/model/design-data.ts": {
-      "source": "7d96e2d1f969f3ca80c1405738d8096c0d08e5c7acbab36d19972a7aacf573d3",
+      "source": "e1f075f710aba04febfe74385e23d45fbdf3beb1c50ced45812de493af1fedcb",
       "original": "e45f0506b5654ec576bb879d9d847d071b49538897c20af3680b2e2f6c1c74f8",
       "changes": [
         [
@@ -10865,6 +10865,7 @@
     "src/lib/store/rc-sheets-covers.ts": null,
     "src/lib/store/rc-sheets-documents.ts": null,
     "src/lib/store/rc-sheets-exports.ts": null,
+    "src/lib/store/rc-sheets-footing-preview.svelte.ts": null,
     "src/lib/store/rc-sheets-footings.ts": null,
     "src/lib/store/rc-sheets-ifc.ts": null,
     "src/lib/store/rc-sheets-piers.ts": null,

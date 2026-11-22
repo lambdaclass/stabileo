@@ -17133,6 +17133,8 @@ const en: Record<string, string> = {
   "rcSheets.v.pilePresumed": "Pile presumed in the design data: confirm its allowable load with the soil study",
   "rcSheets.v.pileLoad": "Service load on the most loaded pile",
   "rcSheets.v.pileUplift": "No pile pulled in service",
+  "rcSheets.v.pileLine": "The piles take the moment across their line",
+  "rcSheets.v.capTieOnPiles": "A pile cap takes its offset on its piles: ties are designed for footings",
   "rcSheets.v.pileGroup": "The pile group's capacity with its efficiency",
   "rcSheets.v.pileSpacing": "Number of piles and spacing between axes",
   "rcSheets.v.pileSection": "The pile's section, reinforced as a column",

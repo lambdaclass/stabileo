@@ -16971,6 +16971,8 @@ const fr: Translations = {
   "rcSheets.v.pilePresumed": "Pieu supposé dans les données de calcul : confirmez sa charge admissible avec l'étude de sol",
   "rcSheets.v.pileLoad": "Charge de service du pieu le plus chargé",
   "rcSheets.v.pileUplift": "Aucun pieu tendu en service",
+  "rcSheets.v.pileLine": "Les pieux reprennent le moment perpendiculaire à leur file",
+  "rcSheets.v.capTieOnPiles": "La semelle sur pieux reprend son excentrement par les pieux : le tirant n'est dimensionné que pour les semelles",
   "rcSheets.v.pileGroup": "Capacité du groupe de pieux avec son efficacité",
   "rcSheets.v.pileSpacing": "Nombre de pieux et entraxe",
   "rcSheets.v.pileSection": "Section du pieu armé comme un poteau",

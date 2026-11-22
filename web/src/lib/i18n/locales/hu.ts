@@ -16679,6 +16679,8 @@ const hu: Translations = {
   "rcSheets.v.pilePresumed": "A tervezési adatokban feltételezett cölöp: erősítse meg megengedett terhelését a talajvizsgálattal",
   "rcSheets.v.pileLoad": "A legjobban terhelt cölöp használati terhelése",
   "rcSheets.v.pileUplift": "Használatban egyik cölöp sem húzott",
+  "rcSheets.v.pileLine": "A cölöpök felveszik a sorukra merőleges nyomatékot",
+  "rcSheets.v.capTieOnPiles": "A cölöpfej a külpontosságot a cölöpökkel veszi fel: vonóvasat csak talpakhoz méretezünk",
   "rcSheets.v.pileGroup": "A cölöpcsoport teherbírása a hatásfokával",
   "rcSheets.v.pileSpacing": "Cölöpök száma és tengelytávolsága",
   "rcSheets.v.pileSection": "A cölöp keresztmetszete oszlopként vasalva",

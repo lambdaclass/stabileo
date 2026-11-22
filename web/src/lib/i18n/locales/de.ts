@@ -16971,6 +16971,8 @@ const de: Translations = {
   "rcSheets.v.pilePresumed": "Pfahl in den Bemessungsdaten angenommen: bestätigen Sie seine zulässige Last mit dem Bodengutachten",
   "rcSheets.v.pileLoad": "Gebrauchslast des am stärksten belasteten Pfahls",
   "rcSheets.v.pileUplift": "Kein Pfahl im Gebrauch auf Zug",
+  "rcSheets.v.pileLine": "Die Pfähle nehmen das Moment quer zu ihrer Reihe auf",
+  "rcSheets.v.capTieOnPiles": "Die Pfahlkopfplatte nimmt ihre Ausmitte über die Pfähle auf: Zugbänder werden nur für Einzelfundamente bemessen",
   "rcSheets.v.pileGroup": "Tragfähigkeit der Pfahlgruppe mit ihrem Wirkungsgrad",
   "rcSheets.v.pileSpacing": "Anzahl der Pfähle und Achsabstand",
   "rcSheets.v.pileSection": "Pfahlquerschnitt, bewehrt wie eine Stütze",

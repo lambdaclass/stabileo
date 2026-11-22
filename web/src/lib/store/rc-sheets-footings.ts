@@ -134,13 +134,18 @@ export function setFootingSizing(mode: FootingSizing): void {
 }
 
 /** The layout adopted for the building's foundation: the one stored, else the recommendation where the model already holds footings, else none. */
-export const foundationSystem = (sheets: { foundationSystem?: FoundationSystem }, modelHasFootings = modelStore.model.footings.size > 0): FoundationSystem | null =>
-  sheets.foundationSystem ?? (modelHasFootings ? 'auto' : null);
+export const foundationSystem = (sheets: { foundationSystem?: FoundationSystem | null }, modelHasFootings = modelStore.model.footings.size > 0): FoundationSystem | null =>
+  sheets.foundationSystem !== undefined ? sheets.foundationSystem : modelHasFootings ? 'auto' : null;
 
-/** Adopts a layout for the building's foundation, or none: the footings leave the drawings, the schedule and the 3D view. */
+export const isFootingKey = (key: string): boolean => key.startsWith('footing:');
+
+/** Adopts a layout for the building's foundation, or none: the footings leave the drawings, the schedule and the 3D view. The bars adopted for the footings of another layout go with it. */
 export function setFoundationSystem(mode: FoundationSystem | null): void {
-  const { foundationSystem: _, ...d } = rcSheetsData();
-  saveRcSheetsData(mode ? { ...d, foundationSystem: mode } : d);
+  const d = rcSheetsData();
+  if (foundationSystem(d) === mode && d.foundationSystem !== undefined) return;
+  const adopted = Object.fromEntries(Object.entries(d.adopted).filter(([k]) => !isFootingKey(k)));
+  const edited = (d.edited ?? []).filter((k) => !isFootingKey(k));
+  saveRcSheetsData({ ...d, foundationSystem: mode, adopted, edited: edited.length ? edited : undefined });
 }
 
 /** A footing's position and balance by hand, over the property lines; null clears it. */

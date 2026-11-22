@@ -16775,6 +16775,8 @@ const pt: Translations = {
   "rcSheets.v.pilePresumed": "Estaca suposta nos dados de projeto: confirme sua carga admissível com o estudo de solo",
   "rcSheets.v.pileLoad": "Carga de serviço da estaca mais carregada",
   "rcSheets.v.pileUplift": "Nenhuma estaca tracionada em serviço",
+  "rcSheets.v.pileLine": "As estacas resistem ao momento transversal à sua linha",
+  "rcSheets.v.capTieOnPiles": "O bloco absorve a excentricidade com as estacas: o tirante é dimensionado só para sapatas",
   "rcSheets.v.pileGroup": "Capacidade do grupo de estacas com sua eficiência",
   "rcSheets.v.pileSpacing": "Número de estacas e espaçamento entre eixos",
   "rcSheets.v.pileSection": "Seção da estaca armada como pilar",

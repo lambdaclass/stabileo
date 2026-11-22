@@ -16708,6 +16708,8 @@ const zh: Translations = {
   "rcSheets.v.pilePresumed": "设计数据中假定了桩：请以岩土勘察确认其容许荷载",
   "rcSheets.v.pileLoad": "受力最大的桩在正常使用下的荷载",
   "rcSheets.v.pileUplift": "正常使用下没有桩受拔",
+  "rcSheets.v.pileLine": "桩可承受垂直于其排列线的弯矩",
+  "rcSheets.v.capTieOnPiles": "承台由桩承担偏心：拉梁仅为独立基础设计",
   "rcSheets.v.pileGroup": "考虑效率的群桩承载力",
   "rcSheets.v.pileSpacing": "桩数与桩轴线间距",
   "rcSheets.v.pileSection": "桩截面，按柱配筋",

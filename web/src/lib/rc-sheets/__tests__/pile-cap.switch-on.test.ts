@@ -1,12 +1,12 @@
 /**
  * Pile caps against hand calculations: the loads a rigid cap gives its piles (GA §8.3), the share
- * of a pile's reaction past a section (§13.4.2.5), the fewest piles for the service load at the
+ * of a pile's reaction past a section (§13.4.6.7), the fewest piles for the service load at the
  * group's efficiency, a cap kept off a property line, and a deep cap read by struts and ties.
  */
 import { describe, it, expect } from 'vitest';
 import { rulesFor } from '../codes';
 import { makeFmt } from '../format';
-import { beyondShare, capPlan, pileLoads, pilePattern, capColumns } from '../pile-cap';
+import { beyondShare, capPlan, pileLoads, pilePattern, capColumns, PILE_PHI, pileBars } from '../pile-cap';
 import type { FootingContext, FootingDemand, PileSpec } from '../footing-types';
 
 const fmt = makeFmt('.');
@@ -71,5 +71,53 @@ describe('a pile cap proposed', () => {
     expect(t.theta).toBeGreaterThanOrEqual(25);
     expect(r.x!.asProvided).toBeGreaterThanOrEqual(t.asx - 1e-6);
     expect(r.verifications.some((v) => v.label === 'rcSheets.v.capStmTieX')).toBe(true);
+  });
+});
+
+describe('a cap whose piles take the column off their centroid', () => {
+  const col = capColumns(demand(1000));
+  const piles: Array<[number, number]> = [[0.5, -0.5], [2, -0.5], [0.5, 0.5], [2, 0.5]];
+  const at = [{ combo: 's', N: 1000, Mx: 0, My: 0, Vx: 0, Vy: 0 }];
+
+  it('loads the near piles with the offset when the piles take it, and the farthest ones pull', () => {
+    const { R, unheld } = pileLoads(col, at, piles, 0, [{ axis: 'x', sign: -1, kind: 'piles' }], 0);
+    expect(R[0]).toBeCloseTo(250 + (1000 * 1.25 * 0.75) / (4 * 0.75 ** 2), 6);
+    expect(R[1]).toBeLessThan(0);
+    expect(unheld).toBe(0);
+  });
+
+  it('leaves the offset to a strap', () => {
+    const { R, V } = pileLoads(col, at, piles, 0, [{ axis: 'x', sign: -1, kind: 'strap', L: 5 }], 0);
+    expect(V).toBeGreaterThan(0);
+    expect(Math.max(...R) - Math.min(...R)).toBeCloseTo(0, 6);
+  });
+
+  it('cannot take a moment across a single line of piles, and says how much', () => {
+    const line: Array<[number, number]> = [[0, -0.75], [0, 0.75]];
+    const { unheld } = pileLoads(col, [{ combo: 's', N: 1000, Mx: 0, My: 80, Vx: 0, Vy: 0 }], line, 0, [], 0);
+    expect(unheld).toBeCloseTo(80, 6);
+  });
+});
+
+describe('a cap\'s piles under factored loads', () => {
+  it('are spread until no combination pulls one, though every service load presses them', () => {
+    const gravity = demand(1500);
+    const windy = demand(1500, { combos: [...gravity.combos, { combo: '0.9D+1.6W', N: 600, Mx: 0, My: 900, Vx: 0, Vy: 0 }] });
+    const still = footingRow(gravity, ctx, undefined, fmt), r = footingRow(windy, ctx, undefined, fmt);
+    expect(r.verifications.find((x) => x.label === 'rcSheets.v.pileUplift')!.ok).toBe(true);
+    expect(r.B * r.L).toBeGreaterThan(still.B * still.L);
+    const held = { ...r.adopted };
+    const pulled = footingRow(windy, ctx, { ...held, B: still.B, L: still.L, piles: (still.adopted as typeof held).piles } as never, fmt);
+    const v = pulled.verifications.find((x) => x.label === 'rcSheets.v.pileUplift')!;
+    expect(v.ok).toBe(false);
+    expect(v.demand).toMatch(/· -/);
+  });
+
+  it('size a cast-in-place pile with φ = 0,55 (Table 13.4.3.2)', () => {
+    expect(PILE_PHI).toBe(0.55);
+    const D = 0.5, b = pileBars(D, 2000, ctx);
+    const as = b.count * Math.PI * (b.dia / 2) ** 2 / 100, Ap = Math.PI * D * D / 4;
+    const Po = 0.85 * ctx.fc * (Ap - as * 1e-4) * 1000 + ctx.fy * as * 1e-4 * 1000;
+    expect(PILE_PHI * 0.8 * Po).toBeGreaterThanOrEqual(2000 - 1e-6);
   });
 });

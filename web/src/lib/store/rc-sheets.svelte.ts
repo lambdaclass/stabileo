@@ -28,7 +28,8 @@ import { slabPlan, type LevelGeometry, type LevelPlan } from '../rc-sheets/slab-
 import type { PunchingRow } from '../rc-sheets/punching-row';
 import { FOUNDATION_SYSTEMS, type FootingRow, type FoundationSystem } from '../rc-sheets/footing-types';
 import { layoutSummary, type FoundationLayout } from '../rc-sheets/footing-layouts';
-import { currentFootingDemands, designFootingStraps, footingContext, footingRowOf, footingSizing, foundationRowsSteps, foundationSystem, solutionsOf, strapKeyOf, withAdoptedCombined } from './rc-sheets-footings';
+import { footingPreview } from './rc-sheets-footing-preview.svelte';
+import { currentFootingDemands, designFootingStraps, footingContext, footingRowOf, footingSizing, foundationRowsSteps, foundationSystem, isFootingKey, solutionsOf, strapKeyOf, withAdoptedCombined } from './rc-sheets-footings';
 import { withOverlaps } from '../rc-sheets/footing-overlaps';
 import { withStrapBeams } from '../rc-sheets/footing-strap';
 import { tiePulls, withPulls } from '../rc-sheets/footing-ties';
@@ -114,14 +115,33 @@ export function proposalBasis(dd: ProjectDesignData = designData()): string {
   return JSON.stringify({
     fy: dd.rebarFy, stirrup: dd.stirrupDiaMm, covers: dd.covers, control: dd.executionControl !== false, long: dd.longDiametersMm, ties: dd.stirrupDiametersMm,
     slab: dd.slabDiametersMm, floor: dd.minTieSpacingMm, aggregate: dd.maxAggregateMm, wall: dd.wallDiametersMm, byElement: dd.coverByElement ?? null, slabBase: dd.slabBase ?? null,
-    options: optionsView(dd.designOptions), ends: dd.columnEndZones === true, lateral: dd.lateralSystem ?? null, deflection: dd.designOptions?.deflection ?? null, bearing: dd.presumedBearingKPa, ...(dd.presumedPile ? { pile: dd.presumedPile } : {}), lines: dd.propertyLines ?? null,
+    options: optionsView(dd.designOptions), ends: dd.columnEndZones === true, lateral: dd.lateralSystem ?? null, deflection: dd.designOptions?.deflection ?? null,
     ...((k) => (k ? { criteria: k } : {}))(criteriaKey(dd.designOptions?.criteria)),
   });
 }
 
+/** The soil and the property lines, which only the footings' proposals read, as one string. */
+export function foundationBasis(dd: ProjectDesignData = designData()): string {
+  return JSON.stringify({ bearing: dd.presumedBearingKPa, ...(dd.presumedPile ? { pile: dd.presumedPile } : {}), lines: dd.propertyLines ?? null });
+}
+
+/** A basis stored before the soil and the property lines had one of their own still holds the members' proposals it was written for. */
+function sameProposalBasis(stored: string | undefined): boolean {
+  const now = proposalBasis();
+  if (stored === now || !stored) return stored === now;
+  try {
+    const { bearing: _b, pile: _p, lines: _l, ...rest } = JSON.parse(stored) as Record<string, unknown>;
+    return JSON.stringify(rest) === now;
+  } catch { return false; }
+}
+
 /** What adopted proposals hold under: the code, whether the seismic provisions apply, the proposals' logic and the design data they read. */
-const adoptionStamp = (d: Pick<RcSheetsData, 'seismic'>, code: SheetCode): Pick<RcSheetsData, 'adoptedCode' | 'adoptedSeismic' | 'adoptedLogic' | 'adoptedBasis'> =>
-  ({ adoptedCode: code, adoptedSeismic: seismicIn(d, code) ? true : undefined, adoptedLogic: RC_SHEETS_LOGIC, adoptedBasis: proposalBasis() });
+const adoptionStamp = (d: Pick<RcSheetsData, 'seismic'>, code: SheetCode): Pick<RcSheetsData, 'adoptedCode' | 'adoptedSeismic' | 'adoptedLogic' | 'adoptedBasis' | 'adoptedFoundationBasis'> =>
+  ({ adoptedCode: code, adoptedSeismic: seismicIn(d, code) ? true : undefined, adoptedLogic: RC_SHEETS_LOGIC, adoptedBasis: proposalBasis(), adoptedFoundationBasis: foundationBasis() });
+
+/** A footing adopted while no layout is: the layout shown then is adopted with it, since a footing's bars belong to its layout. */
+const withPreviewedLayout = (d: RcSheetsData, keys: readonly string[]): RcSheetsData =>
+  foundationSystem(d) === null && keys.some(isFootingKey) ? { ...d, foundationSystem: footingPreview.system } : d;
 
 /** The sheets' own data, without the options the design data hold (an older project kept them here). */
 function ownSheets(d: Partial<RcSheetsData>): StoredRcSheets {
@@ -137,7 +157,7 @@ export const saveRcSheetsData = save;
 
 /** Bars set for a row: by hand (the editor), kept whatever the code; `null` goes back to the proposal. */
 export function setAdopted(key: string, value: Adopted | null, byHand = true): void {
-  const d = rcSheetsData();
+  const d = value ? withPreviewedLayout(rcSheetsData(), [key]) : rcSheetsData();
   const code = sheetCode();
   const adopted = { ...(byHand ? d.adopted : liveAdopted(d, code)) };
   const edited = new Set(d.edited ?? []);
@@ -146,7 +166,7 @@ export function setAdopted(key: string, value: Adopted | null, byHand = true): v
 }
 
 export function adoptAll(rows: ReadonlyArray<{ key: string; proposed: unknown }>): void {
-  const d = rcSheetsData();
+  const d = withPreviewedLayout(rcSheetsData(), rows.map((r) => r.key));
   const live = liveAdopted(d, sheetCode());
   const adopted = { ...live };
   for (const r of rows) if (!adopted[r.key]) adopted[r.key] = JSON.parse(JSON.stringify(r.proposed)) as Adopted;
@@ -155,9 +175,12 @@ export function adoptAll(rows: ReadonlyArray<{ key: string; proposed: unknown }>
 
 /** The adopted bars that hold under `code`: those set by hand always, the adopted proposals only under the code, seismic option, proposals' logic and design data they were adopted for. */
 export function liveAdopted(d: RcSheetsData, code: SheetCode): Record<string, Adopted> {
-  if (!d.adoptedCode || (d.adoptedCode === code && (d.adoptedSeismic === true) === seismicIn(d, code) && d.adoptedLogic === RC_SHEETS_LOGIC && d.adoptedBasis === proposalBasis())) return d.adopted;
+  if (!d.adoptedCode) return d.adopted;
   const edited = new Set(d.edited ?? []);
-  return Object.fromEntries(Object.entries(d.adopted).filter(([k]) => edited.has(k)));
+  const members = d.adoptedCode === code && (d.adoptedSeismic === true) === seismicIn(d, code) && d.adoptedLogic === RC_SHEETS_LOGIC && sameProposalBasis(d.adoptedBasis);
+  if (!members) return Object.fromEntries(Object.entries(d.adopted).filter(([k]) => edited.has(k)));
+  if (d.adoptedFoundationBasis === undefined || d.adoptedFoundationBasis === foundationBasis()) return d.adopted;
+  return Object.fromEntries(Object.entries(d.adopted).filter(([k]) => !isFootingKey(k) || edited.has(k)));
 }
 
 /** The rows the engineer edited by hand. */

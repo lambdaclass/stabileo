@@ -17122,6 +17122,8 @@ const es: Record<string, string> = {
   "rcSheets.v.pilePresumed": "Pilote supuesto en los datos de diseño: confirmá su carga admisible con el estudio de suelos",
   "rcSheets.v.pileLoad": "Carga de servicio del pilote más cargado",
   "rcSheets.v.pileUplift": "Ningún pilote traccionado en servicio",
+  "rcSheets.v.pileLine": "Los pilotes toman el momento transversal a su línea",
+  "rcSheets.v.capTieOnPiles": "El cabezal toma su excentricidad con los pilotes: el tensor se dimensiona sólo para bases",
   "rcSheets.v.pileGroup": "Capacidad del grupo de pilotes con su eficiencia",
   "rcSheets.v.pileSpacing": "Cantidad de pilotes y separación entre ejes",
   "rcSheets.v.pileSection": "Sección del pilote armado como columna",

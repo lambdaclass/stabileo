@@ -16971,6 +16971,8 @@ const tr: Translations = {
   "rcSheets.v.pilePresumed": "Tasarım verilerinde varsayılan kazık: emniyetli yükünü zemin etüdüyle doğrulayın",
   "rcSheets.v.pileLoad": "En yüklü kazığın servis yükü",
   "rcSheets.v.pileUplift": "Serviste çekmeye çalışan kazık yok",
+  "rcSheets.v.pileLine": "Kazıklar dizilerine dik momenti karşılıyor",
+  "rcSheets.v.capTieOnPiles": "Kazık başlığı dışmerkezliğini kazıklarla karşılar: bağ kirişi yalnızca tekil temeller için boyutlandırılır",
   "rcSheets.v.pileGroup": "Kazık grubunun verimliliğiyle kapasitesi",
   "rcSheets.v.pileSpacing": "Kazık sayısı ve eksenler arası aralık",
   "rcSheets.v.pileSection": "Kolon gibi donatılmış kazık kesiti",

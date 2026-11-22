@@ -5,7 +5,7 @@ import { proposeCombinedDowels } from './footing-combined';
 import { meshText } from './footing-mesh';
 import { edgeSteps } from './footing-steps';
 import { strapDefault } from './footing-strap';
-import { analyseCap, capBalance, capColumns, capCover, capHolds, capMeshes, capPlan, CAP_MAX_H, CAP_STEP_H, pileBars, pilePattern, PILE_COUNTS, PILE_EMBED, upCap, type CapAnalysis } from './pile-cap';
+import { analyseCap, capBalance, capColumns, capCover, capHolds, capMeshes, capPlan, CAP_MAX_H, CAP_STEP_H, pileBars, pilePattern, PILE_COUNTS, PILE_EMBED, upCap, PILE_UNHELD_TOL, type CapAnalysis } from './pile-cap';
 import { check, ratioOf, type CheckLine, type RowStatus, type Step, type StepGroup } from './types';
 import type { CapPiles, FootingAdopted, FootingContext, FootingDemand, FootingEdgeResult, FootingRow, StrapResult } from './footing-types';
 
@@ -15,7 +15,7 @@ type CapAdopted = FootingAdopted & { piles: CapPiles };
  * A pile cap for its column (or the two of a combined cap): the fewest piles, at the criterion's
  * spacing and kept off the property lines, whose service loads on a rigid cap stay within each
  * pile's allowable load and the group's (§13.4.1.1; GA §8.3, §8.5), then as thick as shear and
- * punching with the pile reactions of §13.4.2.5, or the struts and nodes of a deep cap (ch. 23),
+ * punching with the pile reactions of §13.4.6.7, or the struts and nodes of a deep cap (ch. 23),
  * ask; the piles' own bars for the largest factored load. Null without piles or service loads.
  */
 export function proposeCap(d: FootingDemand, c: FootingContext, code: FootingRowCode): { adopted: CapAdopted; reached: boolean } | null {
@@ -67,13 +67,15 @@ function verifications(r: CapAnalysis, a: CapAdopted, c: FootingContext, code: F
   const n = k.piles.length, maxS = Math.max(...k.piles.map((p) => p.service)), minS = Math.min(...k.piles.map((p) => p.service));
   out.push(check(k.source === 'strata' ? 'rcSheets.v.pileStrata' : 'rcSheets.v.pilePresumed', true, { demand: `Ø${fmt(k.diameter * 100, 0)} · L = ${fmt(k.length, 1)} m · Qadm = ${kn(k.capacity)}` }));
   out.push(check('rcSheets.v.pileLoad', maxS <= k.capacity + 1e-6, { clause: '§13.4.1.1', demand: kn(maxS), capacity: kn(k.capacity), ratio: ratioOf(maxS, k.capacity) }));
-  out.push(check('rcSheets.v.pileUplift', minS >= -1e-6, { clause: '§13.4.1.1', demand: kn(minS), capacity: '≥ 0 kN' }));
+  out.push(check('rcSheets.v.pileUplift', minS >= -1e-6 && r.leastFactored >= -1e-6, { clause: '§13.4.1.1', demand: `${kn(minS)} · ${kn(r.leastFactored)}`, capacity: '≥ 0 kN' }));
+  if (r.unheld > PILE_UNHELD_TOL) out.push(check('rcSheets.v.pileLine', false, { clause: CRITERION, demand: `${fmt(r.unheld, 1)} kN·m`, capacity: '0 kN·m' }));
+  if (r.tieAsked) out.push(check('rcSheets.v.capTieOnPiles', true, { clause: CRITERION }));
   out.push(check('rcSheets.v.pileGroup', k.group.service <= k.group.capacity + 1e-6, { clause: CRITERION, demand: kn(k.group.service), capacity: `${fmt(k.efficiency, 2)}·${n}·${kn(k.capacity)} = ${kn(k.group.capacity)}`, ratio: ratioOf(k.group.service, k.group.capacity) }));
   const gap = n > 1 ? Math.min(...a.piles.at.flatMap((p, i) => a.piles.at.slice(i + 1).map((q) => Math.hypot(p[0] - q[0], p[1] - q[1])))) : Infinity;
   out.push(check('rcSheets.v.pileSpacing', n >= cr.footingPileMinCount && gap >= cr.footingPileSpacing * k.diameter - 2e-3, { clause: CRITERION, demand: `${n} · ${Number.isFinite(gap) ? cm(gap) : '—'}`, capacity: `≥ ${cr.footingPileMinCount} · ${fmt(cr.footingPileSpacing, 2)}·Ø = ${cm(cr.footingPileSpacing * k.diameter)}` }));
-  out.push(check('rcSheets.v.pileSection', k.section.pu <= k.section.phiPn + 1e-6 && k.section.as >= k.section.asMin - 1e-6, { clause: withCriterion('§22.4.2.1'), demand: `${kn(k.section.pu)} · ${cm2(k.section.asMin)}`, capacity: `${kn(k.section.phiPn)} · ${a.piles.bars.count} Ø${a.piles.bars.dia} (${cm2(k.section.as)})`, ratio: ratioOf(k.section.pu, k.section.phiPn) }));
-  for (const p of k.punching) out.push(check(p.at.startsWith('P') && !r.cols.some((x) => x.demand.name === p.at) ? 'rcSheets.v.pilePunching' : 'rcSheets.v.footPunching', p.vu <= p.phiVc + 1e-6, { clause: `§13.4.2.5, §22.6 · ${p.at}`, demand: mpa(p.vu), capacity: mpa(p.phiVc), ratio: ratioOf(p.vu, p.phiVc) }));
-  for (const s of k.shear) out.push(check(`rcSheets.v.footShear${s.dir.toUpperCase()}`, s.vu <= s.phiVc + 1e-6, { clause: `§13.4.2.5, ${code.oneWayClause}`, demand: kn(s.vu), capacity: kn(s.phiVc), ratio: ratioOf(s.vu, s.phiVc) }));
+  out.push(check('rcSheets.v.pileSection', k.section.pu <= k.section.phiPn + 1e-6 && k.section.as >= k.section.asMin - 1e-6, { clause: withCriterion('§22.4.2.1, §13.4.3.2'), demand: `${kn(k.section.pu)} · ${cm2(k.section.asMin)}`, capacity: `${kn(k.section.phiPn)} · ${a.piles.bars.count} Ø${a.piles.bars.dia} (${cm2(k.section.as)})`, ratio: ratioOf(k.section.pu, k.section.phiPn) }));
+  for (const p of k.punching) out.push(check(p.at.startsWith('P') && !r.cols.some((x) => x.demand.name === p.at) ? 'rcSheets.v.pilePunching' : 'rcSheets.v.footPunching', p.vu <= p.phiVc + 1e-6, { clause: `§13.4.6.7, §22.6 · ${p.at}`, demand: mpa(p.vu), capacity: mpa(p.phiVc), ratio: ratioOf(p.vu, p.phiVc) }));
+  for (const s of k.shear) out.push(check(`rcSheets.v.footShear${s.dir.toUpperCase()}`, s.vu <= s.phiVc + 1e-6, { clause: `§13.4.6.5, ${code.oneWayClause}`, demand: kn(s.vu), capacity: kn(s.phiVc), ratio: ratioOf(s.vu, s.phiVc) }));
   if (k.stm) {
     const t = k.stm;
     out.push(check('rcSheets.v.capStmAngle', t.theta >= 25 - 1e-9, { clause: '§23.2.7', demand: `θ = ${fmt(t.theta, 1)}°`, capacity: '≥ 25°' }));
@@ -89,7 +91,7 @@ function verifications(r: CapAnalysis, a: CapAdopted, c: FootingContext, code: F
     if ((x as { mTop?: number }).mTop! > 1e-6 && !k.stm) out.push(check(`rcSheets.v.capTop${X}`, true, { clause: '§13.2.7.1', demand: `${fmt((x as { mTop?: number }).mTop!, 1)} kN·m` }));
   }
   const dMin = Math.min(r.layers.dx, r.layers.dy);
-  out.push(check('rcSheets.v.footMinD', dMin >= 0.3 - 1e-9, { clause: '§13.3.1.2', demand: cm(dMin), capacity: '≥ 30,0 cm' }));
+  out.push(check('rcSheets.v.footMinD', dMin >= 0.3 - 1e-9, { clause: '§13.4.6.2', demand: cm(dMin), capacity: '≥ 30,0 cm' }));
   out.push(check('rcSheets.v.footBearingStrength', r.bearing.pu <= r.bearing.phiBn + 1e-6 || (!!r.dowels && r.dowels.area >= r.dowels.required - 1e-6), { clause: '§22.8', demand: kn(r.bearing.pu), capacity: kn(r.bearing.phiBn), ratio: ratioOf(r.bearing.pu, r.bearing.phiBn) }));
   if (r.dowels) {
     out.push(check('rcSheets.v.footDowelArea', r.dowels.area >= r.dowels.required - 1e-6, { clause: '§16.3.4.1', demand: cm2(r.dowels.required), capacity: `${r.dowels.count} Ø${r.dowels.dia} (${cm2(r.dowels.area)})` }));
@@ -110,7 +112,7 @@ function steps(r: CapAnalysis, a: CapAdopted, fmt: Fmt, reached: boolean | null,
     { label: 'rcSheets.s.pileBars', formula: 'Pu ≤ 0,65·0,80·Po', value: `${a.piles.bars.count} Ø${a.piles.bars.dia} · eØ${a.piles.hoop.dia} c/${cm(a.piles.hoop.spacing)} · ${fmt(k.section.pu, 0)} ≤ ${fmt(k.section.phiPn, 0)} kN` },
   ];
   const shear: Step[] = [
-    ...k.punching.map((p) => ({ label: 'rcSheets.s.footPunchVc', formula: `${p.at} (§13.4.2.5)`, value: `${fmt(p.vu, 3)} ≤ ${fmt(p.phiVc, 3)} MPa`, ok: p.vu <= p.phiVc + 1e-6 })),
+    ...k.punching.map((p) => ({ label: 'rcSheets.s.footPunchVc', formula: `${p.at} (§13.4.6.7)`, value: `${fmt(p.vu, 3)} ≤ ${fmt(p.phiVc, 3)} MPa`, ok: p.vu <= p.phiVc + 1e-6 })),
     ...k.shear.map((s) => ({ label: `rcSheets.s.footVu${s.dir.toUpperCase()}`, formula: `d · ${fmt(s.at, 2)} m`, value: `${fmt(s.vu, 1)} ≤ ${fmt(s.phiVc, 1)} kN`, ok: s.vu <= s.phiVc + 1e-6 })),
     ...(k.stm ? [{ label: 'rcSheets.s.capStm', formula: 'T = Σ Ri·xi/z · θ', value: `z = ${cm(k.stm.z)} cm · θ = ${fmt(k.stm.theta, 1)}° · Tx ${fmt(k.stm.tx, 0)} · Ty ${fmt(k.stm.ty, 0)} kN`, ok: k.stm.theta >= 25 - 1e-9 }] : []),
   ];

@@ -120,8 +120,8 @@ export interface RcSheetsData {
   slabBentBars?: boolean;
   /** How the footings are sized: from the loads, never under the modelled footing ('minimum' when absent), or as modelled with only their bars designed. */
   footingSizing?: import('./footing-types').FootingSizing;
-  /** The foundation layout adopted for the building; absent: none yet, the superstructure stands alone and no footing enters the drawings, the schedule or the 3D view. */
-  foundationSystem?: import('./footing-types').FoundationSystem;
+  /** The foundation layout adopted for the building; absent: none yet, or the recommendation where the model holds footings; null: none, cleared by hand. Without one the superstructure stands alone and no footing enters the drawings, the schedule or the 3D view. */
+  foundationSystem?: import('./footing-types').FoundationSystem | null;
   /** Footings set at a line, a corner or centred, and balanced, by row key, over what the property lines say. */
   footingSetup?: Record<string, import('./footing-types').FootingSetup>;
   /** The bending schedule: waste on the order (a fraction, 0.1 when absent) and where equal bars share a mark ('element' when absent). */
@@ -138,6 +138,8 @@ export interface RcSheetsData {
   adoptedLogic?: number;
   /** The design data the proposals were adopted under, as `proposalBasis` writes it: under others, those not edited by hand are designed again. Absent: before any. */
   adoptedBasis?: string;
+  /** The soil and property lines the footings' proposals were adopted under, as `foundationBasis` writes it: under others, the footings not edited by hand are designed again. Absent: before any. */
+  adoptedFoundationBasis?: string;
 }
 
 /** The sheets' data as the project stores it: the options the design takes before it starts live in the design data (`design-options.ts`). */

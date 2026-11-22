@@ -5,6 +5,7 @@
   import { extraBarsText } from '../../../lib/rc-sheets/line-geometry';
   import { dowelsText } from '../../../lib/rc-sheets/footing-dowels';
   import { adoptAll, downloadRcSheets, type SheetRow, type SheetRows } from '../../../lib/store/rc-sheets.svelte';
+  import { footingPreview } from '../../../lib/store/rc-sheets-footing-preview.svelte';
   import { designSheets, followSheetEdits, sheetsRun, sheetsStale } from '../../../lib/store/rc-sheets-view.svelte';
   import RcSheetsProgress from './RcSheetsProgress.svelte';
   import RcCoversNotice from './RcCoversNotice.svelte';
@@ -27,7 +28,7 @@
   import RcVerticalTable from './RcVerticalTable.svelte';
   import { verticalItems } from '../../../lib/rc-sheets/vertical-list';
   import { meshText } from '../../../lib/rc-sheets/footing-mesh';
-  import { FOOTING_SIZINGS, type FoundationSystem } from '../../../lib/rc-sheets/footing-types';
+  import { FOOTING_SIZINGS } from '../../../lib/rc-sheets/footing-types';
   import { footingSizing, setFootingSizing } from '../../../lib/store/rc-sheets-footings';
   import RcFootingLayouts from './RcFootingLayouts.svelte';
   import RcPropertyLines from './RcPropertyLines.svelte';
@@ -75,8 +76,7 @@
   const lineStatus = (l: LineLayout) => lineRowStatus(l, spansOf(l));
   const nothingFits = (r: ListRow) => noArrangement(r, r.family === 'line' ? spansOf(r) : []);
   type ListRow = SheetRow | (LineLayout & { family: 'line'; status: 'ok' | 'warn' | 'fail' });
-  let preview = $state<FoundationSystem>('auto');
-  const footingView = $derived(shownFootings(rows, preview));
+  const footingView = $derived(shownFootings(rows, footingPreview.system));
   const tabRows = (k: SheetTab) => (k === 'beam' ? rows.line.map((l) => ({ ...l, family: 'line' as const, status: lineStatus(l) })) : k === 'footing' ? footingView : TAB_FAMILIES[k].flatMap((f) => rows[f] as ListRow[])) as ListRow[];
   const all = $derived(tabRows(tab));
   const vlevels = $derived(verticalItems(rows.column, rows.wall).map((it) => (it.kind === 'row' ? it.row.level : it.pier.level) ?? ''));
@@ -228,7 +228,7 @@
             {#each FOOTING_SIZINGS as m (m)}<option value={m}>{t(`rcSheets.footSizing.${m}`)}</option>{/each}
           </select>
         </label>
-        {#if rows.footingLayouts?.length}<RcFootingLayouts layouts={rows.footingLayouts} adopted={rows.foundation ?? null} bind:preview />{/if}
+        {#if rows.footingLayouts?.length}<RcFootingLayouts layouts={rows.footingLayouts} adopted={rows.foundation ?? null} bind:preview={footingPreview.system} />{/if}
         <RcPropertyLines rows={footingView} />
         {#if matCover}<p class="rcw-mat" data-testid="rc-footing-mat">{tp('rcSheets.foot.matCover', { share: Math.round(matCover.share * 100), limit: Math.round(matShare * 100), footings: Math.round(matCover.footings), plan: Math.round(matCover.plan) })}</p>{/if}
       {/if}
