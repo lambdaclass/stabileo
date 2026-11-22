@@ -1,4 +1,5 @@
 import { beforeEach, expect, it, vi } from 'vitest';
+import { POINT_END_TOL } from '../../engine/member-point-loads';
 import { plateRemeshMessage } from '../../engine/plate-analysis-refusal';
 import { accountingProjection } from '../../engine/accounting-source';
 import {
@@ -577,6 +578,67 @@ it('#2470 solves an inclined member with zero entered Mz under a vertical line l
   });
   expect.soft(typeof direct === 'object' ? direct.perCombo.get(combination.id) : direct, 'direct analysis')
     .toMatchObject({ reactions: [expect.objectContaining(equilibrium)] });
+});
+
+const transverseStationRegression = process.env.RUN_KNOWN_WRONG === '2470' ? it : it.skip;
+
+transverseStationRegression('known wrong result: #2470 preserves a transverse force at its entered station near either member end', async () => {
+  const elementId = cantilever('3d');
+  const model = modelStore.model;
+  const combination = model.combinations.at(-1)!;
+  for (const a of [0, POINT_END_TOL / 2, 2 * POINT_END_TOL, 2 - 2 * POINT_END_TOL, 2 - POINT_END_TOL / 2, 2]) {
+    model.loads.splice(0, model.loads.length, { type: 'pointOnElement3d', data: {
+      id: 1, elementId, a, py: 0, pz: -1, frame: 'global', caseId: 1,
+    } });
+    const expected = { reactions: [expect.objectContaining({ fz: expect.closeTo(1, 12), my: expect.closeTo(-a, 12) })] };
+    expect.soft(await refusal(() => modelStore.solve3D(false, false, true)), 'linear at ' + a).toMatchObject(expected);
+    expect.soft(await refusal(() => modelStore.solve3DAsync(false, false, true)), 'async linear at ' + a).toMatchObject(expected);
+    expect.soft(await refusal(() => solvePDelta3D(modelStore.buildSolverInput3D()!).results), 'P-Delta at ' + a).toMatchObject(expected);
+    for (const perCombination of ['linear', 'pdelta'] as const) {
+      modelStore.setAnalysis({ perCombination });
+      for (const solve of [
+        () => modelStore.solveCombinations3D(false, false, true),
+        () => modelStore.solveCombinations3DParallel(false, false, true),
+      ]) {
+        const result = await solve();
+        expect.soft(result && typeof result === 'object'
+          ? result.perCombo.get(combination.id) : result, perCombination + ' combination at ' + a).toMatchObject(expected);
+      }
+    }
+    const direct = await runDirectAnalysis(model, model.loadCases, [combination], {
+      includeSelfWeight: false, settings: { notional: 0, tauB: 'iterate' },
+    });
+    expect.soft(typeof direct === 'object' ? direct.perCombo.get(combination.id) : direct, 'direct analysis at ' + a).toMatchObject(expected);
+  }
+});
+
+const planarCancellationRegression = process.env.RUN_KNOWN_WRONG === '2470' ? it : it.skip;
+
+planarCancellationRegression('known wrong result: #2470 preserves cancelling projections on nearly vertical planar members', async () => {
+  const elementId = cantilever('2d');
+  const model = modelStore.model;
+  const { nodeJ } = model.elements.get(elementId)!;
+  model.nodes.set(nodeJ, { ...model.nodes.get(nodeJ)!, x: Number.EPSILON / 2, y: 2 });
+  const data = { id: 1, elementId, a: 0.5, angle: 0, isGlobal: true, caseId: 1 };
+  const expected = { reactions: [expect.objectContaining({ rx: expect.closeTo(0, 12), rz: expect.closeTo(1, 12) })] };
+  const combination = model.combinations.at(-1)!;
+  const dead = { id: 1, name: 'D', type: 'D' };
+  const live = { id: 2, name: 'L', type: 'L' };
+
+  for (const load of [
+    { type: 'pointOnElement', data: { ...data, p: -1 } },
+    { type: 'distributed', data: { ...data, b: 1.5, qI: -1, qJ: -1 } },
+  ] satisfies ModelData['loads']) {
+    const input = { ...model, loads: [load] };
+    expect.soft(await refusal(() => validateAndSolve2D(input)), load.type + ' linear').toMatchObject(expected);
+    expect.soft(await refusal(() => validateAndSolve2DAsync(input)), load.type + ' async linear').toMatchObject(expected);
+    expect.soft(await refusal(() => solvePDelta(buildSolverInput2D(input)!).results), load.type + ' P-Delta').toMatchObject(expected);
+    for (const name of [dead.name, live.name]) {
+      const result = solveCombinations2D(input, [dead, { ...live, name }], [combination]);
+      expect.soft(result && typeof result === 'object' ? result.perCombo.get(combination.id) : result, load.type + ' ' + name)
+        .toMatchObject(expected);
+    }
+  }
 });
 
 it('#2470 solves an inclined planar member with a vertical point load at its support', async () => {
