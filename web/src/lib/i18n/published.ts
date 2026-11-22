@@ -4,6 +4,7 @@ import { publicFeatureEnabledWithFlags } from '../public-feature-policy';
 import { PUBLIC_LOCALES, type Locale } from './offered';
 import { buildPublicLocales } from './offered-research';
 import { isResearchRoute, researchLocales } from './research-routes';
+import { isGameRoute } from '../game-routes';
 
 declare const __BLOG_TRANSLATIONS__: readonly string[];
 
@@ -28,7 +29,7 @@ export function publishedLocales(path: string, flags: PublicFeatures = PUBLIC_PO
   if (!(PUBLIC_POLICY_AVAILABLE ? publicFeatureEnabled(route, flags) : publicFeatureEnabledWithFlags(route, flags))) return [];
   if (isResearchRoute(route)) return locales.filter((l) => researchLocales(route, flags).includes(l));
   if (route === '/paper') return locales.filter((l) => PAPER_PUBLISHED.includes(l));
-  if (route === '/' || route === '/blog' || route === '/examples' || route.startsWith('/examples/') || route === '/tools' || route.startsWith('/tools/') || route === '/diagram-game') return locales;
+  if (route === '/' || route === '/blog' || route === '/examples' || route.startsWith('/examples/') || route === '/tools' || route.startsWith('/tools/') || isGameRoute(route)) return locales;
   const id = route.startsWith('/blog/') ? route.slice('/blog/'.length) : `page-${route.slice(1)}`;
   return locales.filter((l) => BASE_LOCALES.some(base => base === l) || translated(`${l}/${id}`));
 }

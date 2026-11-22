@@ -9,7 +9,7 @@ try {
     page.on('pageerror', error => errors.push(error.message));
     await page.goto(`${base}/hu/`);
     await page.locator('h1').waitFor();
-    assert.equal(await page.locator('a[href*="/tools/mohr-"], a[href*="/diagram-game"]').count(), 0);
+    assert.equal(await page.locator('a[href*="/tools/mohr-"], a[href*="/games/"]').count(), 0);
     for (const section of ['tools', 'research', 'examples']) assert.ok(await page.locator(`a[href$="/${section}/"]`).count() > 0);
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
     await page.screenshot({ path: `.bautista-${name}-landing.png` });
@@ -20,7 +20,7 @@ try {
     await page.addInitScript(() => {
       for (const name of ['research', 'tools', 'diagram-game']) localStorage.setItem(`stabileo-feature-${name}`, '1');
     });
-    for (const [path, testid] of [['/en/tools/mohr-2d/', 'mohr2d-go-tmax'], ['/en/diagram-game/', 'dg-start']]) {
+    for (const [path, testid] of [['/en/tools/mohr-2d/', 'mohr2d-go-tmax'], ['/en/games/diagram-game/', 'dg-start']]) {
       await page.goto(base + path);
       await page.getByTestId(testid).waitFor();
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));

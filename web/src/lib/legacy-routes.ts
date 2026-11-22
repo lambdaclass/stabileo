@@ -2,18 +2,21 @@ import { publicFeatures, type PublicFeatures } from './features';
 import { EXAMPLE_PATHS } from './public-surface';
 import { PUBLIC_LOCALES } from './i18n/offered';
 
-/** Routes that moved, old prefix to new: `/examples/<id>` became the tool with the same id. */
-export const MOVED_ROUTES: readonly (readonly [string, string])[] = [['/examples', '/tools']];
+/**
+ * Routes that moved, old prefix to new, with the switch that publishes the new one: `/examples/<id>`
+ * became the tool with the same id, and the diagram game moved under the games hub.
+ */
+export const MOVED_ROUTES: readonly (readonly [string, string, 'tools' | 'diagramGame'])[] = [['/examples', '/tools', 'tools'], ['/diagram-game', '/games/diagram-game', 'diagramGame']];
 
 /** Every address the site published before it moved, which keeps a page that sends its reader on. */
-export const MOVED_PAGES: readonly string[] = EXAMPLE_PATHS;
+export const MOVED_PAGES: readonly string[] = [...EXAMPLE_PATHS, '/diagram-game'];
 
-export const movedPages = (flags: PublicFeatures = publicFeatures()): readonly string[] => flags.tools ? MOVED_PAGES : [];
+export const movedPages = (flags: PublicFeatures = publicFeatures()): readonly string[] => MOVED_PAGES.filter(path => movedRoute(path, flags) !== null);
 
 export function movedRoute(path: string, flags: PublicFeatures = publicFeatures()): string | null {
-  if (!flags.tools) return null;
   const route = path.replace(/\/+$/, '') || '/';
-  for (const [from, to] of MOVED_ROUTES) {
+  for (const [from, to, flag] of MOVED_ROUTES) {
+    if (!flags[flag]) continue;
     if (route === from) return to;
     if (route.startsWith(`${from}/`)) return `${to}${route.slice(from.length)}`;
   }

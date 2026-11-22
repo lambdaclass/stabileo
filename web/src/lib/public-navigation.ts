@@ -17,7 +17,7 @@ export function loadPublicPage(path: string): Promise<Page | null> {
       : route.kind === 'tools'
         ? import('../components/tools/load-page').then(m => m.loadToolsPage(key))
         : __PUBLIC_FEATURES__.diagramGame && route.kind === 'game'
-          ? import('../components/diagram-game/load-page').then(m => m.loadDiagramGamePage())
+          ? import('../components/games/load-page').then(m => m.loadGamesPage(key))
         : route.kind === 'blog'
           ? import('../components/blog/BlogPage.svelte').then(m => m.default)
         : route.kind === 'paper'

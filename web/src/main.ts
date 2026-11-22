@@ -46,7 +46,7 @@ function installTestHooks() {
 // this entry and make App import it; top-level await would then deadlock App.
 async function bootstrap() {
   restoreRedirectedRoute();
-  if (__PUBLIC_FEATURES__.tools) restoreMovedRoute();
+  if (__PUBLIC_FEATURES__.tools || __PUBLIC_FEATURES__.diagramGame) restoreMovedRoute();
   if (__PUBLIC_FEATURES__.accounts && accounts()) void import('./lib/tracking/tracking').then(m => m.startTracking());
   const target = document.getElementById('app')!;
   if (routeKind().kind === 'app') {

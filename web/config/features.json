@@ -4,7 +4,7 @@
     "research": true,
     "tools": true,
     "globalAxes": false,
-    "diagramGame": false
+    "diagramGame": true
   },
   "development": {
     "accounts": true,

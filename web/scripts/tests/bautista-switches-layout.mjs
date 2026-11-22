@@ -15,7 +15,7 @@ try {
     await page.goto(`${base}/en/`);
     await page.locator('h1').waitFor();
     for (const path of ['examples', 'tools', 'research']) assert.ok(await page.locator(`a[href="/en/${path}/"]`).count() > 0, `${name}: ${path} remains linked`);
-    assert.equal(await page.locator('a[href*="diagram-game"], a[href*="mohr-"]').count(), 0);
+    assert.equal(await page.locator('a[href*="/games/"], a[href*="mohr-"]').count(), 0);
     for (const [path, selector] of [
       ['/en/tools/', 'li.tool-card:has(a[href="/en/tools/simply-supported-beam/"])'],
       ['/en/tools/simply-supported-beam/', '[data-testid="agreement"]'],
@@ -44,7 +44,7 @@ try {
     assert.equal(new URL(page.url()).pathname, '/hu/research/stability/feher-sipos-varkonyi-2026/');
     await page.locator('#why').waitFor();
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
-    for (const [path, testid] of [['/en/tools/mohr-2d/', 'mohr2d-go-tmax'], ['/en/diagram-game/', 'dg-start']]) {
+    for (const [path, testid] of [['/en/tools/mohr-2d/', 'mohr2d-go-tmax'], ['/en/games/diagram-game/', 'dg-start']]) {
       await page.goto(base + path);
       await page.getByTestId(testid).waitFor();
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
