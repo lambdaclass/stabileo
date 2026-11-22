@@ -67,7 +67,7 @@ describe('two prerenders of one build are byte-identical (#875)', () => {
   });
 });
 
-it.skip('prerenders the Chinese slab tool after its delayed worker response (known wrong result: #2483)', async () => {
+it('prerenders the Chinese slab tool after its delayed worker response', async () => {
   const out = mkdtempSync(join(WEB_ROOT, '.dist-prerender-model-'));
   try {
     await execFileAsync('npx', ['vite', 'build', '--outDir', out, '--emptyOutDir', '--logLevel', 'error'], {
