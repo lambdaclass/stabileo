@@ -115,7 +115,7 @@
         <button onclick={run} disabled={busy}>{busy ? s.running : s.run}</button>
         <button onclick={stop}>{s.stop}</button><button onclick={restart}>{s.restart}</button>
         <label>{s.rule}<select bind:value={rule} onchange={() => playback.interact()}><option value="SRSS">{s.srss}</option><option value="CQC">{s.cqc}</option></select></label>
-        <label>{s.damping}<select data-testid="cqc-damping" value={xi} onchange={e => setDamping(Number(e.currentTarget.value))}>{#each DAMPING as value}<option value={value}>{num(100 * value, { dp: 0 })} %</option>{/each}</select></label>
+        <label>{s.damping}<select data-testid="cqc-damping" value={xi} onchange={e => setDamping(Number(e.currentTarget.value))}>{#each DAMPING as value}<option value={value}>{new Intl.NumberFormat(cqcLocale(), { style: 'percent' }).format(value)}</option>{/each}</select></label>
       </div>
       {#if error}<p role="alert">{s.error}: {error}</p>{/if}
       <StabileoViewer plane="elevation" {...view} cellSize={2} range={{ min: 0, max: 12 }} title={s.viewer} unit="mm" deformScale={40} height="18rem" editorButton={false} showMesh={false} oninteract={() => playback.interact()} />
