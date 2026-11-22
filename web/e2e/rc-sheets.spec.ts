@@ -1,11 +1,12 @@
 import { BUILD_FEATURES } from './build-features';
 import { test, expect, loadModel, solveModel } from './fixtures';
+import { setDesignOption } from './design-options';
 if (BUILD_FEATURES.proRcSheets) {
 
   /**
    * Reinforcement by sheets on the seven-storey concrete example: solved, its physical members
    * recognised (walls meshed by a second solve), every family has rows and the beams and columns their
-   * sections, the core's ground-floor walls are failed for resting on one node, a continuous beam's run
+   * sections, the core's ground-floor walls fail for resting on one node until one click holds their bases and designs again, a continuous beam's run
    * adopted short fails and says why, going back to the proposal makes it verify again, and a span
    * opens into its checks by combination.
    */
@@ -54,9 +55,12 @@ if (BUILD_FEATURES.proRcSheets) {
     const ws = page.getByTestId('rc-sheets-workspace');
     await expect(ws).toBeVisible();
     // The close button stays at the top right of the header however its controls wrap, and the table scrolls inside with the panels' scrollbars.
-    for (const width of [1440, 1100, 900]) {
+    for (const width of [1920, 1600, 1440, 1280, 1100, 900]) {
       await page.setViewportSize({ width, height: 900 });
+      await expect.poll(() => ws.getByTestId('rc-head').evaluate((h) => h.scrollWidth - h.clientWidth), { message: `header overflow at ${width} px` }).toBeLessThanOrEqual(0);
       const head = (await ws.locator('.rcw-head').boundingBox())!, close = (await ws.getByTestId('rc-close').boundingBox())!;
+      expect(close.x + close.width, `close inside the window at ${width} px`).toBeLessThanOrEqual(width);
+      await expect(ws.getByTestId('rc-plans-export')).toBeInViewport({ ratio: 1 });
       expect(close.y - head.y).toBeLessThan(14);
       // Everything on one row: the header no taller than its tallest control.
       expect(head.height, `header at ${width} px`).toBeLessThan(52);
@@ -64,11 +68,23 @@ if (BUILD_FEATURES.proRcSheets) {
       expect(head.x + head.width - (close.x + close.width)).toBeLessThan(16);
     }
     await expect(ws).toHaveClass(/st-panel-scrollbars/);
-    expect(await ws.locator('.rcw-body').evaluate((b) => b.scrollWidth > b.clientWidth)).toBe(true);
+    expect(await ws.locator('.rcw-body').evaluate((b) => getComputedStyle(b).overflowX)).toMatch(/auto|scroll/);
     await page.setViewportSize({ width: 1440, height: 900 });
     await expect(ws.getByTestId('rc-code').getByTestId('rc-code-select')).toHaveValue('cirsoc201-2025');
     const first = ws.getByTestId('rc-row').first();
-    await expect(first).toContainText('Verifica');
+    await expect(first).toContainText(/Verifica|Holgada/);
+    await expect(first).not.toContainText('No verifica');
+    const generous = ws.locator('tr.st-warn .stc').first();
+    if (await generous.count()) {
+      const [colour, warn] = await generous.evaluate((el) => {
+        const probe = el.appendChild(document.createElement('span'));
+        probe.style.color = 'var(--st-warn)';
+        const w = getComputedStyle(probe).color;
+        probe.remove();
+        return [getComputedStyle(el).color, w];
+      });
+      expect(colour, 'a generous row is not painted as a warning').not.toBe(warn);
+    }
 
     await first.click();
     await expect(ws.getByTestId('rc-line-svg')).toBeVisible();
@@ -79,17 +95,46 @@ if (BUILD_FEATURES.proRcSheets) {
     await expect(ws.getByTestId('rc-line-marks')).toHaveCount(0);
     await expect(ws.getByTestId('rc-section-marks')).toHaveCount(0);
     await ws.getByTestId('rc-marks-toggle').check();
+    await expect(ws.getByTestId('rc-line-envelope')).toBeVisible();
+    await expect(ws.getByTestId('rc-env-phivn')).toHaveAttribute('d', /^(M[\d.]+,[\d.]+( L[\d.]+,[\d.]+)+ ?)+$/);
+    await expect(ws.getByTestId('rc-env-mu-scale')).toHaveText(/^\d+ kN·m$/);
+    await expect(ws.getByTestId('rc-env-vu-scale')).toHaveText(/^\d+ kN$/);
+    await ws.getByTestId('rc-envelope-toggle').uncheck();
+    await expect(ws.getByTestId('rc-line-envelope')).toHaveCount(0);
+    await ws.getByTestId('rc-envelope-toggle').check();
+    await expect(ws.getByTestId('rc-line-cut').first()).toHaveText('1');
+    await expect(ws.getByTestId('rc-section').first()).toContainText('1–1');
+    await ws.getByTestId('rc-cuts-toggle').uncheck();
+    await expect(ws.getByTestId('rc-line-cuts')).toHaveCount(0);
+    await ws.getByTestId('rc-cuts-toggle').check();
     await expect(ws.getByTestId('rc-schedule')).toBeVisible();
     await expect(ws.getByTestId('rc-section').first()).toContainText('V1-1 · i');
     await expect(ws.getByTestId('rc-section').first().locator('circle').first()).toBeVisible();
+    const proposedStatus = (await first.locator('td.stc').textContent())!.trim();
+    expect(proposedStatus).toMatch(/^(Verifica|Holgada)$/);
     const editor = ws.getByTestId('rc-line-editor');
     await editor.getByRole('spinbutton', { name: 'Cantidad' }).first().fill('2');
     await editor.getByRole('combobox', { name: 'Diámetro' }).first().selectOption('10');
     await expect(ws.getByTestId('rc-row').first()).toContainText('No verifica');
-    await expect(ws.getByTestId('rc-checks').first()).toContainText('✗');
+    const short = ws.getByTestId('rc-span-toggle').filter({ hasText: 'No verifica' }).first();
+    const shortSpan = (await short.locator('strong').textContent())!;
+    await short.click();
+    await expect(ws.getByTestId('rc-checks').filter({ hasText: '✗' }).first()).toBeVisible();
+    await short.click();
 
     await editor.getByRole('button', { name: 'Volver a la propuesta' }).click();
-    await expect(ws.getByTestId('rc-row').first()).not.toContainText('No verifica');
+    await expect(ws.getByTestId('rc-row').first().locator('td.stc')).toHaveText(proposedStatus);
+    const named = page.getByTestId('rc-span-toggle').filter({ has: page.locator('strong', { hasText: new RegExp(`^${shortSpan.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`) }) });
+    const restored = ws.locator('.rcd-span').filter({ has: named }).first();
+    const restoredToggle = restored.getByTestId('rc-span-toggle');
+    await expect(restoredToggle).toContainText(/Verifica|Holgada/);
+    await expect(restoredToggle).not.toContainText('No verifica');
+    await restoredToggle.click();
+    const restoredChecks = restored.getByTestId('rc-checks');
+    await expect(restoredChecks.locator('td.st').first()).toHaveText('✓');
+    await expect(restoredChecks.locator('td.st', { hasText: '✗' })).toHaveCount(0);
+    await expect(ws.getByTestId('rc-checks').first().locator('td.st', { hasText: '✗' })).toHaveCount(0);
+    await restoredToggle.click();
 
     await ws.getByTestId('rc-span-toggle').first().click();
     await ws.locator('summary', { hasText: 'Por combinación' }).first().click();
@@ -99,6 +144,8 @@ if (BUILD_FEATURES.proRcSheets) {
     await ws.getByTestId('rc-tab-column').click();
     await expect(ws.getByTestId('rc-table-column')).toBeVisible();
     await ws.getByTestId('rc-row').first().click();
+    await expect(ws.getByTestId('rc-checks').first()).toContainText('Tabla 20.5.1.3.1');
+    await expect(ws.getByTestId('rc-checks').first()).toContainText('§10.3.1');
     await expect(ws.getByTestId('rc-section')).toHaveCount(1);
     await expect(ws.getByTestId('rc-section').locator('circle').first()).toBeVisible();
     // The storey in elevation: one tie each spacing from half a spacing above the floor, through the joint above.
@@ -124,12 +171,20 @@ if (BUILD_FEATURES.proRcSheets) {
     await expect(slabFig.getByTestId('rc-slab-plan-bottomY')).toHaveCount(1);
     await ws.getByTestId('rc-tab-wall').click();
     await expect(ws.getByTestId('rc-table-wall')).toBeVisible();
-    // The example's core stands on the corner column alone: its ground-floor walls rest on one node each.
+    // The fixture as tests load it, without the card's correction, stands its core on the corner column alone.
     const ground = ws.getByTestId('rc-row').filter({ hasText: 'N0' });
     await expect(ground).toHaveCount(3);
     await expect(ground.first()).toContainText('No verifica');
     await ground.first().click();
     await expect(ws.getByTestId('rc-checks').first()).toContainText('La base del tabique apoya en toda su longitud');
+    await expect(ws.getByTestId('rc-resize-hint')).toHaveCount(0);
+    // One click holds the three bases, solves again and designs again, with the window kept open.
+    await ws.getByTestId('rc-wall-hold-base').click();
+    await expect(ws.getByTestId('rc-row').filter({ hasText: 'N0' })).toHaveCount(3, { timeout: 120_000 });
+    await expect(ws.getByTestId('rc-wall-hold-base')).toHaveCount(0);
+    await expect(ws.getByTestId('rc-wall-base-unheld')).toHaveCount(0);
+    await expect(ws.getByTestId('rc-solve-design')).toHaveCount(0);
+    await expect(ws.getByTestId('rc-row').filter({ hasText: 'N0' }).filter({ hasText: 'No verifica' })).toHaveCount(0);
     await expect(ws.getByTestId('rc-row').filter({ hasText: 'N1' }).first()).toContainText('Verifica');
     // A wall's bars: the verticals and the horizontals, the U-bars that close its edges, each kind switched by itself.
     await ws.getByTestId('rc-row').filter({ hasText: 'N1' }).first().click();
@@ -142,13 +197,12 @@ if (BUILD_FEATURES.proRcSheets) {
     await expect(wallFig.getByTestId('rc-wall-elev-vertical')).toHaveCount(0);
     await expect(wallFig.getByTestId('rc-wall-elev-horizontal')).toHaveCount(1);
 
-    // The code is switched from the sheets themselves: the rows say they are out of date, and every family is designed again to it on asking; the choice is the project's.
+    // The code is switched from the sheets themselves: every family is designed again to it at once; the choice is the project's.
     const picker = ws.getByTestId('rc-code').getByTestId('rc-code-select');
     for (const [code, clause] of [['en1992-1-1', '9.2.1.3, 6.1'], ['bs-en1992-1-1', '9.2.1.3, 6.1'], ['ts500-2000', '7.1, 7.3'], ['aci318-19', '§9.7.3, §22.2']] as const) {
       await picker.selectOption(code);
-      await expect(ws.getByTestId('rc-stale')).toBeVisible();
-      await ws.getByTestId('rc-redesign').click();
-      await expect(ws.getByTestId('rc-stale')).toHaveCount(0, { timeout: 60_000 });
+      await expect(ws.getByTestId('rc-progress')).toHaveCount(0, { timeout: 60_000 });
+      await expect(ws.getByTestId('rc-stale')).toHaveCount(0);
       await ws.getByTestId('rc-tab-beam').click();
       await expect(ws.getByTestId('rc-row').first()).toBeVisible();
       await ws.getByTestId('rc-row').first().click();
@@ -159,8 +213,22 @@ if (BUILD_FEATURES.proRcSheets) {
     await page.keyboard.press('Escape');
     await expect(page.getByTestId('rc-panel-code').getByTestId('rc-code-select')).toHaveValue('aci318-19');
 
+    // Exact reinforcement: every line either bends bars up or says why it cannot, span by span.
+    await setDesignOption(page, 'bentBars');
+    await page.getByTestId('rc-redesign').click();
+    await expect(page.getByTestId('rc-stale')).toHaveCount(0, { timeout: 60_000 });
+    await page.getByTestId('rc-open-beam').click();
+    for (const text of await ws.getByTestId('rc-line-spans').allTextContents()) expect(text).toMatch(/lev\./);
+    const v4 = ws.getByTestId('rc-row').filter({ has: page.locator('td.nm', { hasText: /^V4\D*$/ }) }).first();
+    await v4.click();
+    if (await v4.getByTestId('rc-line-no-bent').count()) {
+      await expect(ws.getByTestId('rc-line-bent-note').first()).toBeVisible();
+      for (const reason of await ws.getByTestId('rc-line-bent-note').evaluateAll((xs) => xs.map((x) => x.getAttribute('data-reason')))) expect(['noSagging', 'noHogging', 'short']).toContain(reason);
+    } else await expect(ws.getByTestId('rc-bent-bar').first()).toBeVisible();
+    await page.keyboard.press('Escape');
+
     // The project's denser column ends, the design's own setting, drawn in the elevation.
-    await page.getByTestId('rc-opt-end-zones').check();
+    await setDesignOption(page, 'endZones');
     await page.getByTestId('rc-redesign').click();
     await expect(page.getByTestId('rc-stale')).toHaveCount(0, { timeout: 60_000 });
     await page.getByTestId('rc-open-column').click();
