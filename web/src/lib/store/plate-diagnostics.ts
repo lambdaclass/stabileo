@@ -31,10 +31,10 @@ export function plateDiagnostics(t: (key: string) => string): SolverDiagnostic[]
     const loose = new Set<number>();
     for (const q of p.group.members.quads ?? []) for (const n of modelStore.quads.get(q)?.nodes ?? []) if (!connecting.has(n)) loose.add(n);
     for (const q of p.group.members.plates ?? []) for (const n of modelStore.plates.get(q)?.nodes ?? []) if (!connecting.has(n)) loose.add(n);
-    if (loose.size) out.push({ source: 'model', objects: [{ kind: 'plate', id: p.id }], severity: 'warning', code: 'PLATE_LOOSE_CORNER', message: t('plates.diag.looseCorner'), details: { plate: p.name, nodes: [...loose].sort((a, b) => a - b).join(', ') } });
+    if (loose.size) out.push({ source: 'model', objects: [{ kind: 'plate', id: p.id }], severity: 'warning', code: 'PLATE_LOOSE_CORNER', message: t('pro.plates.diag.looseCorner'), details: { plate: p.name, nodes: [...loose].sort((a, b) => a - b).join(', ') } });
   }
   const review = planRecognition().proposals.filter((x) => x.status !== 'same').length;
-  if (review) out.push({ source: 'model', severity: 'info', code: 'PHYSICAL_REVIEW', message: t('physical.diag.review'), details: { n: review } });
+  if (review) out.push({ source: 'model', severity: 'info', code: 'PHYSICAL_REVIEW', message: t('pro.physical.diag.review'), details: { n: review } });
   for (const p of physicalPlates()) {
     const s = plateStatus(p.id);
     const base = { source: 'model' as const, objects: [{ kind: 'plate' as const, id: p.id }], details: { plate: p.name } };

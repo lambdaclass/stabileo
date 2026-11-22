@@ -17,7 +17,7 @@
   <div class="containment-notice" class:refused={disposition.refused} class:open role="alert" data-testid="containment-notice">
     <button class="cn-toggle" aria-expanded={open} onclick={() => (open = !open)} data-testid="containment-toggle">{open ? t('containment.less') : disposition.messages.length > 1 ? `${t('containment.more')} (${disposition.messages.length})` : t('containment.more')}</button>
     {#if !disposition.refused}
-      <button class="cn-close" aria-label={t('containment.dismiss')} title={t(uiStore.analysisMode === 'pro' ? 'containment.dismissHintPro' : 'containment.dismissHintBasic')} onclick={() => containmentDismissal.dismiss(disposition.messages)} data-testid="containment-dismiss">×</button>
+      <button class="cn-close" aria-label={t('toast.dismiss')} title={t(uiStore.analysisMode === 'pro' ? 'containment.dismissHintPro' : 'containment.dismissHintBasic')} onclick={() => containmentDismissal.dismiss(disposition.messages)} data-testid="containment-dismiss">×</button>
     {/if}
     {#each disposition.messages as message}<p>{message}</p>{/each}
   </div>

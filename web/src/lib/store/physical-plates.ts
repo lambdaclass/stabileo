@@ -561,7 +561,6 @@ export interface PlateMeshPlan {
   /** Null when refused, with the reason. */
   mesh: MeshOutput | null;
   refused?: PlateMeshRefusalReason;
-  version: number;
   cells: number;
   quality: MeshQuality | null;
   signature: string;
@@ -885,13 +884,19 @@ function removePlateMesh(id: number, updateNeighbours = true, preserveNodes?: Re
 }
 
 function editedPlateShells(e: PlateEntry) {
+  const inheritedOffset = e.surface.offset;
+  const isLocalOffset = (offset: PlateSurface['offset']) => {
+    if (!offset || !inheritedOffset) return offset !== inheritedOffset;
+    return offset.frame !== inheritedOffset.frame || offset.x !== inheritedOffset.x
+      || offset.y !== inheritedOffset.y || offset.z !== inheritedOffset.z;
+  };
   const quads = (e.group.members.quads ?? []).flatMap(id => {
     const quad = modelStore.quads.get(id);
-    return quad && (quad.offset !== undefined || quad.curved) ? [quad] : [];
+    return quad && (isLocalOffset(quad.offset) || !!quad.curved !== !!e.surface.curved) ? [quad] : [];
   });
   const plates = (e.group.members.plates ?? []).flatMap(id => {
     const plate = modelStore.plates.get(id);
-    return plate?.offset !== undefined ? [plate] : [];
+    return plate && isLocalOffset(plate.offset) ? [plate] : [];
   });
   return [...quads, ...plates];
 }
@@ -932,7 +937,11 @@ function placePlateEdits(e: PlateEntry, mesh: MeshOutput): MeshPlacement | undef
     byFootprint.delete(key);
     cell.nodes = [...edit.nodes];
     cell.offset = edit.offset;
-    if ('curved' in edit && edit.curved) cell.curved = true;
+    if (cell.nodes.length === 4) cell.curved = 'curved' in edit && !!edit.curved;
+  }
+  for (const cell of placement.cells) {
+    if (!('offset' in cell)) cell.offset = e.surface.offset;
+    if (!('curved' in cell) && cell.nodes.length === 4) cell.curved = e.surface.curved;
   }
   return placement;
 }
@@ -1119,8 +1128,8 @@ function meshingRun(plans: readonly PlateMeshPlan[], forAnalysis = false) {
     const edges = e.surface.edgeSupports ?? [];
     const supports = supportSides(edges, [...new Set(r.nodeIds)]);
     modelStore.setGroupMembers(p.id, { ...g.members, nodes: [...loops.outer, ...loops.holes.flat(), ...created], quads: r.quads, plates: r.plates });
-    if (e.surface.curved) for (const q of r.quads) modelStore.setQuadCurved(q, true);
-    if (e.surface.offset) {
+    if (!placement && e.surface.curved) for (const q of r.quads) modelStore.setQuadCurved(q, true);
+    if (!placement && e.surface.offset) {
       for (const q of r.quads) modelStore.setShellOffset('quad', q, e.surface.offset);
       for (const t of r.plates) modelStore.setShellOffset('plate', t, e.surface.offset);
     }

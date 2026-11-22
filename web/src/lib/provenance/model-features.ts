@@ -111,7 +111,7 @@ interface FeatureSnapshotFields {
     name?: string;
     kind?: string;
     members?: { nodes?: number[]; quads?: number[]; plates?: number[] };
-    data?: { typology?: string; surface?: { loops?: number[]; mesh?: { size?: number } } };
+    data?: { typology?: string; surface?: { loops?: number[]; arcMids?: number[]; mesh?: { size?: number } } };
   }>;
   regulations?: { roles?: Record<string, { adapterId?: string | null; settings?: Record<string, unknown> } | undefined> };
   dynamics?: { timeHistory?: unknown; spectra?: unknown[] };

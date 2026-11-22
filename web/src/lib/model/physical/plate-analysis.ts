@@ -119,7 +119,7 @@ export function plateMeshFeatures(model: PlateAnalysisModel, group: PlateGroup, 
     }
   }
   const loopNodes = new Set([...loops.outer, ...loops.holes.flat()]);
-  return { geo, features: externalFeatures(model, geo, owned, loopNodes, { mine, neighbours }) };
+  return { refused: undefined, geo, features: externalFeatures(model, geo, owned, loopNodes, { mine, neighbours }) };
 }
 
 export type PlateStatus = 'unmeshed' | 'current' | 'stale' | 'invalid';
