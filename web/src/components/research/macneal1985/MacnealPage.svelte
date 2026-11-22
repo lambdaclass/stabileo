@@ -1,13 +1,15 @@
 <script lang="ts">
-  import { onMount, tick } from 'svelte';
+  import { onMount, tick, untrack } from 'svelte';
   import { publicI18n } from '../../../lib/i18n/store.svelte';
   import { holdPrerender } from '../../../lib/prerender-hold';
   import ExperimentShell from '../shell/ExperimentShell.svelte';
   import PaneTabs from '../shell/PaneTabs.svelte';
   import ScalarFieldViewer from '../../viewport/ScalarFieldViewer.svelte';
-  import { cases, category, counts, nativeOnly, runCases, tolerance, unitOf, verdict, viewerData, type Result } from './cases';
+  import { cases, category, counts, distortable, nativeOnly, PAPER_SKEW, runCases, runVariant, skewedCase, tolerance, unitOf, verdict, viewerData, type Case, type Result } from './cases';
   import { editorURL } from './editor';
-  import { caseLabel, nativeReason, pageLocale, strings } from './i18n';
+  import { caseLabel, comparisonNames, nativeReason, pageLocale, strings } from './i18n';
+  import validation from '../../../../../research/benchmarks/macneal-harder-1985/VALIDATION.json';
+  import published from '../../../../../research/benchmarks/macneal-harder-1985/reference-results/published_comparison.json';
 
   let rows = $state<Result[]>([]);
   let busy = $state(false);
@@ -15,10 +17,16 @@
   let selected = $state(cases[6].id);
   let tab = $state('viewer');
   let scale = $state(1);
+  let skew = $state(PAPER_SKEW);
+  let variant = $state<Result | null>(null);
+  let variantBusy = $state(false);
+  let variantToken = 0;
   const lang = $derived(pageLocale(publicI18n.locale));
   const s = $derived(strings[lang]);
-  const current = $derived(cases.find(c => c.id === selected)!);
-  const result = $derived(rows.find(r => r.id === selected));
+  const base = $derived(cases.find(c => c.id === selected)!);
+  const varied = $derived(distortable(base) && skew !== PAPER_SKEW);
+  const current = $derived<Case>(varied ? skewedCase(base, skew) : base);
+  const result = $derived(varied ? (variant?.id === selected ? variant : undefined) : rows.find(r => r.id === selected));
   const view = $derived(viewerData(current, result));
   const tally = $derived(counts(rows));
   const groups = $derived([
@@ -36,6 +44,22 @@
     catch (e) { failure = String(e); }
     finally { busy = false; }
   }
+  $effect(() => {
+    const model = current;
+    const live = varied;
+    const token = ++variantToken;
+    untrack(() => { variant = null; variantBusy = live; });
+    if (!live) return;
+    void runVariant(model).then(next => {
+      if (token !== variantToken) return;
+      variant = next;
+      variantBusy = false;
+    });
+  });
+  function setSkew(degrees: number, id?: string) {
+    if (id) selected = id;
+    skew = Math.max(0, Math.min(PAPER_SKEW, degrees));
+  }
   function open() { window.open(editorURL(current, new URL(`${import.meta.env.BASE_URL}app`, location.origin).href, s), '_blank', 'noopener'); }
   async function inspect(id: string) {
     selected = id;
@@ -51,8 +75,11 @@
   locale={lang}
   compactHeader
   sourcePath="engine/tests/benchmarks"
-  actions={{ goToStep: () => {}, setParams: () => {}, showTab: t => { tab = t; } }}
-  verification={{ reference: { kind: 'none', why: s.referenceWhy }, published: { kind: 'none', why: s.publishedWhy } }}>
+  actions={{ goToStep: () => {}, setParams: p => { if (typeof p.skew === 'number') setSkew(p.skew, typeof p.case === 'string' ? p.case : undefined); }, showTab: t => { tab = t; } }}
+  verification={{ reference: { kind: 'checks', passed: validation.checks.filter(c => c.passed).length, total: validation.checks.length, href: '#mh-validation' }, published: { kind: 'checks', passed: published.checks.filter(c => c.passed).length, total: published.checks.length, href: '#comparison' } }}
+  referenceLabel={s.referenceLabel}
+  comparison={published.checks}
+  comparisonNames={comparisonNames(s)}>
   {#snippet article()}
     <div class="mh-article" {lang}>
       <h2>{s.testedHeading}</h2>
@@ -62,6 +89,10 @@
       <p><a href="https://github.com/lambdaclass/stabileo/blob/main/engine/tests/benchmarks/macneal_harder.json">{s.definitionLink}</a>{s.definitionDescription}</p>
       <h2>{s.accuracyHeading}</h2>
       <p>{s.accuracyDescription}</p>
+      <h2 id="mh-skew">{s.skewHeading}</h2>
+      <p>{s.skewArticle} <a href="#rs-tab-viewer" onclick={e => { e.preventDefault(); tab = 'viewer'; setSkew(5, 'mitc4-parallelogram-in'); }}>{s.skewLink.replace('{deg}', '5')}</a></p>
+      <h2 id="mh-validation">{s.validationHeading}</h2>
+      <p>{s.validationDescription}</p>
       <h2 id="limitations">{s.limitationsHeading}</h2>
       <p>{s.limitationsBefore}<a href="https://github.com/lambdaclass/stabileo/blob/main/engine/tests/benchmarks/KNOWN_ISSUES.md#mh-mitc4-distortion">{s.ledgerLink}</a>{s.limitationsMiddle}<a href={ISSUE}>{s.issueLink}</a>{s.limitationsAfter}</p>
       <h2 id="mh-provenance">{s.provenanceHeading}</h2>
@@ -80,6 +111,19 @@
       <div id="rs-panel-viewer" role="tabpanel" aria-labelledby="rs-tab-viewer" hidden={tab !== 'viewer'}>
         <ScalarFieldViewer plane={current.dimension === 2 ? 'elevation' : 'plan'} {...view} cellSize={current.dimension === 2 ? 2 : 4} deformScale={scale} showMesh={true} title={s.field} ariaLabel={`${caseLabel(current.id, s)} · ${s.field} (m)`} unit="m" height="20rem" editorButton={false} />
         <label class="mh-control">{s.select}<select bind:value={selected}>{#each cases as c (c.id)}<option value={c.id}>{caseLabel(c.id, s)}</option>{/each}</select></label>
+        {#if distortable(base)}
+          <label class="mh-control">{s.skew}<span class="mh-range"><input type="range" min="0" max={PAPER_SKEW} step="5" value={skew} oninput={e => setSkew(Number(e.currentTarget.value))} aria-valuetext={`${skew}°`} data-testid="skew" /><output>{skew}°</output></span></label>
+          <p class="mh-small">{s.skewHint}</p>
+          {#if varied}
+            <p role="status" data-testid="variant">
+              {s.variant.replace('{deg}', String(skew))}:
+              {#if variantBusy}{s.running}
+              {:else if variant?.refused}<a class="mh-link" href={ISSUE}>{s.withheld}</a>
+              {:else if variant?.failure}<strong>{s.engineError}</strong> {variant.failure}
+              {:else if variant}{s.reference} {fmt(base.reference)} · Stabileo {fmt(variant.value)} · {s.errorPct} {pct(variant.error)} · {variant.pass ? s.pass : s.fail}{/if}
+            </p>
+          {/if}
+        {/if}
         <label class="mh-control">{s.scale}<span class="mh-range"><input type="range" min="0" max="20" step="0.5" bind:value={scale} /><output>{scale}</output></span></label>
         <div class="mh-actions">
           <button onclick={run} disabled={busy}>{s.run}</button>
@@ -133,6 +177,7 @@
   button, select, input { font: inherit; }
   button, select { min-height: 44px; padding: 0 .75rem; }
   .mh-summary { margin: 0 0 .5rem; }
+  .mh-small { font-size: .8125rem; color: var(--fg-2); }
   @media (max-width: 40rem) { .mh-summary span { display: block; } .mh-summary .mh-sep { display: none; } }
   .mh-control { display: block; margin: .65rem 0; }
   .mh-control select { display: block; width: 100%; max-width: 100%; margin-top: .25rem; }

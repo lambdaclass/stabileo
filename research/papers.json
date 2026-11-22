@@ -1201,11 +1201,15 @@
    ],
    "dependencies": [],
    "complexity": "low",
-   "relevance": "Exercises Stabileo's beam, plate and shell elements on standard accuracy and mesh-distortion tests; use the supported structural subset.",
-   "status": "proposed",
+   "relevance": "Production MITC4 on the straight cantilever (Table 3) and the Scordelis–Lo roof (Table 5); regular meshes and the roof are within the paper's grade A (2%), the trapezoidal and parallelogram out-of-plane cases are not (3.7% and 2.2%, issue",
+   "status": "numerically-validated",
    "reproduced_published_results": false,
-   "benchmarks": [],
-   "implementation": null,
+   "benchmarks": [
+    "straight cantilever, regular, trapezoidal and parallelogram meshes",
+    "Scordelis–Lo roof"
+   ],
+   "implementation": "benchmarks/macneal-harder-1985",
+   "page": "web/src/components/research/macneal1985/MacnealPage.svelte",
    "contacts": [],
    "reviews": [
     {
@@ -1450,8 +1454,8 @@
    ],
    "dependencies": [],
    "complexity": "low",
-   "relevance": "One portal with our own dimensions, checked against independent hand derivations of the beam, sway and combined mechanism bounds by the virtual-work method that Horne presents (cited as background; no page or equation numbers checked). Publisher attribution: M. R. Horne; Crossref book record omits authors.",
-   "status": "proposed",
+   "relevance": "One portal with our own dimensions, checked against independent hand derivations of the beam, sway and combined mechanism bounds by the virtual-work method that Horne presents (cited as background; no page or equation numbers checked). The load ratio and height are page parameters; CI checks our example and five variants. Publisher attribution: M. R. Horne; Crossref book record omits authors.",
+   "status": "numerically-validated",
    "stage": "first-version",
    "reviews": [
     {

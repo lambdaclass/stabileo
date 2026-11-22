@@ -283,6 +283,12 @@ jobs:
           nix develop -c node research/benchmarks/macneal-harder-1985/wasm/check.mjs "$RUNNER_TEMP/macneal-native.json"
       - name: Test measurement and editor handoff
         run: nix develop -c sh -c 'cd web && npx vitest run src/components/research/macneal1985/__tests__/cases.test.ts'
+      - name: Plastic collapse native assertions
+        run: nix develop -c cargo test --locked --manifest-path engine/Cargo.toml --test integration plastic_collapse_benchmark::portal_combined_mechanism
+      - name: Plastic collapse production WASM against the hand bounds, the native replay and VALIDATION.json
+        run: |
+          nix develop -c node research/benchmarks/plastic-collapse/wasm/check.mjs
+          nix develop -c sh -c 'cd web && npx vitest run src/components/research/plastic-collapse'
       - name: Mattiasson native regression assertions
         run: nix develop -c cargo test --locked --release --manifest-path engine/Cargo.toml --test validation corotational_benchmarks
       - name: Mattiasson fresh production native results
