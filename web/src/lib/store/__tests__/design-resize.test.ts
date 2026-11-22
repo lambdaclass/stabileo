@@ -8,6 +8,7 @@
  * reported with their reason; and one undo puts every section back.
  */
 import { describe, it, expect, beforeAll, vi } from 'vitest';
+import { yieldToEventLoop } from '../../../__tests__/worker-yield';
 import { historyStore, modelStore } from '..';
 import { verificationStore } from '../verification.svelte';
 import { building, withZeroBeamTorque } from './span-fixture';
@@ -36,6 +37,7 @@ describe('«Size» on the span fixture at 30×30', () => {
       return !result || typeof result === 'string' ? result : { ...result, perCombo: withZeroBeamTorque(result.perCombo) };
     });
     const run = await designWithResizing({ edited: 'overwrite', steel: false }, {
+      pause: yieldToEventLoop,
       progress: (p) => phases.push(`${p.phase}${p.round}`),
     }).finally(() => combinationSolve.mockRestore());
 
@@ -69,7 +71,7 @@ describe('«Size» on the span fixture at 30×30', () => {
 
   it('runs once, growing nothing, where it is told to keep the sections', async () => {
     building(1);
-    const run = await designWithResizing({ edited: 'overwrite', steel: false, resize: false });
+    const run = await designWithResizing({ edited: 'overwrite', steel: false, resize: false }, { pause: yieldToEventLoop });
     expect(run.rounds).toBe(0);
     expect(run.changes).toEqual([]);
     expect(run.stopped).toBe('maxRounds');

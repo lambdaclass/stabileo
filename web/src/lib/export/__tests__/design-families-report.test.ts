@@ -87,7 +87,7 @@ describe('the run reports what happened, family by family', () => {
     }
   }, 300_000);
 
-  it.skip('known wrong result: #2439 — handles a worker reply before frame detailing', async () => {
+  it('handles a worker reply between frame search and detailing', async () => {
     await ready('rc-qa-diagnostic');
     const { port1, port2 } = new MessageChannel();
     let replyPosted = false;
