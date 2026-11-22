@@ -98,7 +98,7 @@
       {#if failure}<p role="alert">{s[failure]}</p>{/if}
       <h2>{s.results}</h2>
       <LineChart {series} xLabel={s.displacement} yLabel={s.load} height={230} ariaLabel={s.chartLabel} nearest="xy" point={current ? at(current) : null} rules={[{ y: publishedRows.checks[0].reference, text: s.reference }]} />
-      <div class="table-scroll"><table><thead><tr><th></th><th>{s.peak}</th></tr></thead><tbody>
+      <div class="table-scroll" id="checks"><table><thead><tr><th></th><th>{s.peak}</th></tr></thead><tbody>
         <tr><th>{fill(s.rowShown, { n: String(20 * shownSplit) })}</th><td data-testid="lee-limit">{peak !== null ? fmt(peak) : busy ? '…' : s.notReached}</td></tr>
         <tr><th>{fill(s.rowNative, { n: String(20 * shownSplit) })}</th><td data-testid="lee-native">{fmt(native)}</td></tr>
       </tbody></table></div>

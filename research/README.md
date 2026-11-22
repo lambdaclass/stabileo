@@ -30,10 +30,10 @@ The plan every page and contribution follows is [DESIGN.md](DESIGN.md).
 | `mechanics/biggins-2026/` | Centered curvature-patterned shallow arches, using production frame buckling modes |
 | `optimisation/fairclough-2026/` | One five-node self-weight gridshell from Table 1, externally executed reference and isolated Rust/Clarabel implementation |
 | `benchmarks/macneal-harder-1985/` | Production engine accuracy cases using the shared benchmark page format |
-| `benchmarks/mattiasson-elastica/` | Production corotational cantilever benchmark with provisional reference transcriptions |
+| `benchmarks/mattiasson-elastica/` | Production corotational cantilever against independent elliptic integrals and Mattiasson's table as reproduced by Nanakorn & Vu (2006) |
 | `benchmarks/cqc-1981/` | First version, 1 review round: close building modes, production modal + spectrum solvers versus closed form |
 | `benchmarks/navier-plate/` | First version: one simply supported plate, production DKT vs the thin-plate Navier series and MITC4 (hard support) vs the Reissner–Mindlin series; published `results/stabileo_results.json` |
-| `benchmarks/lee-frame-1968/` | First-version pinned Lee frame, production arc-length replay, mesh and step study, first-peak comparison with a by-eye reading of a published figure (2 review rounds) |
+| `benchmarks/lee-frame-1968/` | First-version pinned Lee frame, production arc-length replay, mesh and step study, first-peak comparison with a measured reading of a published figure and a tabulated later solution (2 review rounds) |
 | `numerical-methods/riks-crisfield/` | Production arc-length benchmarks against closed-form snap-through paths, with native/WASM parity checks |
 | `templates/` | Starting point for a new paper entry |
 | `tools/` | Catalog checker and other research-only tooling |
@@ -127,7 +127,8 @@ measurements.
 The Mattiasson engine benchmark (`benchmarks/mattiasson-elastica`) reads the
 engine-owned `engine/tests/benchmarks/mattiasson_elastica.json` through its native
 adapter and production WASM page. It publishes no research solver or imported
-research results. Reference transcriptions remain unverified and status proposed.
+research results. `validate.py` writes its VALIDATION.json and the published comparison with
+Mattiasson's table, read from its reproduction in Nanakorn & Vu (2006), Table 1.
 ## Newmark (1959), first version
 
 `benchmarks/newmark-1959/` documents one exact SDOF step-response benchmark using
@@ -144,4 +145,4 @@ production WASM wrapper and shared Stabileo viewer. Stage: first-version; 1 revi
 1 review round. The page reports hand mechanism bounds separately from the solver result.
 ## First-version engine benchmark
 
-`benchmarks/dadeppo-arch-1975/` is one 215° clamped–hinged arch solved by the production corotational arc-length solver. Its shared case lives in `engine/tests/benchmarks/dadeppo_arch.json`; the web reads only that engine-owned input and the native results `research/benchmarks/dadeppo-arch-1975/results/stabileo_results.json` (replay, limit point and mesh study). Stage: first-version, 2 review rounds. See its README for the corrected normalization (PR²/EI = 8.97), source, reproduction commands and limitations.
+`benchmarks/dadeppo-arch-1975/` is one 215° clamped–hinged arch solved by the production corotational arc-length solver. Its shared case lives in `engine/tests/benchmarks/dadeppo_arch.json`; the web reads only that engine-owned input and the native results `research/benchmarks/dadeppo-arch-1975/results/stabileo_results.json` (replay, limit point and mesh study), plus its `VALIDATION.json` and `reference-results/`. Stage: first-version, 2 review rounds. See its README for the corrected normalization (PR²/EI = 8.97), source, reproduction commands and limitations.

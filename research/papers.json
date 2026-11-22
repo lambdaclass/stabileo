@@ -1259,8 +1259,8 @@
    "dependencies": [],
    "complexity": "low",
    "relevance": "Production corotational cantilever compared with independent elliptic integrals corroborated by Nanakorn and Vu (2006), and a one-radian circular-arc moment solution.",
-   "status": "proposed",
-   "reproduced_published_results": false,
+   "status": "published-figures-compared",
+   "reproduced_published_results": true,
    "benchmarks": [
     "cantilever tip load",
     "cantilever tip moment"
