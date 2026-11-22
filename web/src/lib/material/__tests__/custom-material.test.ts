@@ -3,8 +3,9 @@ import { historyStore, modelStore, uiStore } from '../../store';
 import { buildProjectFile, deserializeProject } from '../../store/file';
 import { commercialDefaultFor } from '../../data/commercial-default';
 import {
-  readCustomMaterial, customMaterialForm, saveCustomMaterial, type CustomMaterialForm,
+  readCustomMaterial, customMaterialForm, saveCustomMaterial, saveCatalogueMaterial, type CustomMaterialForm,
 } from '../custom-material';
+import { getMaterialPresets } from '../../data/material-presets';
 
 const form = (over: Partial<CustomMaterialForm> = {}): CustomMaterialForm => ({
   name: 'Madera dura', e: 12000, nu: '0,3', rho: 9, fy: null, alpha: '', ...over,
@@ -98,17 +99,31 @@ describe('saving a hand-entered material', () => {
     expect(modelStore.materials.size).toBe(before);
   });
 
-  it('edits in place, keeps what the form does not show, and clears a blank fy and α', () => {
-    const id = modelStore.addMaterial({ name: 'F-24', e: 200000, nu: 0.3, rho: 78.5, fy: 235, alpha: 12e-6, gradeId: 'ar-f24' });
+  it('edits in place: drops the catalogue grade the numbers no longer match, keeps f\'c, and clears a blank fy and α', () => {
+    const id = modelStore.addMaterial({ name: 'F-24', e: 200000, nu: 0.3, rho: 78.5, fy: 235, fu: 370, fc: 30, alpha: 12e-6, gradeId: 'ar-f24' });
     const r = readCustomMaterial(form({ name: 'F-24 reducido', e: 180000, nu: '0.3', rho: 78.5 }));
     if (!r.ok) throw new Error(r.reasonKey);
     expect(saveCustomMaterial(r.choice, id)).toBe(id);
     const m = modelStore.materials.get(id)!;
-    expect(m).toMatchObject({ name: 'F-24 reducido', e: 180000, nu: 0.3, rho: 78.5, gradeId: 'ar-f24', userDefined: true });
-    expect(m.fy).toBeUndefined();
-    expect(m.alpha).toBeUndefined();
+    expect(m).toMatchObject({ name: 'F-24 reducido', e: 180000, nu: 0.3, rho: 78.5, fc: 30, userDefined: true });
+    for (const key of ['fy', 'fu', 'alpha', 'gradeId'] as const) expect(m[key], key).toBeUndefined();
     historyStore.undo();
-    expect(modelStore.materials.get(id)).toMatchObject({ name: 'F-24', e: 200000, fy: 235, alpha: 12e-6 });
+    expect(modelStore.materials.get(id)).toMatchObject({ name: 'F-24', e: 200000, fy: 235, fu: 370, alpha: 12e-6, gradeId: 'ar-f24' });
+  });
+
+  it('a catalogue grade put in place of a hand-entered material keeps none of its α or its mark', () => {
+    const id = saveCustomMaterial(choice());
+    const steel = getMaterialPresets().find((p) => p.gradeId && p.fy !== undefined)!;
+    expect(saveCatalogueMaterial(steel, id)).toBe(id);
+    const m = modelStore.materials.get(id)!;
+    expect(m).toMatchObject({ name: steel.name, e: steel.e, nu: steel.nu, rho: steel.rho, fy: steel.fy, gradeId: steel.gradeId });
+    expect(m.alpha).toBeUndefined();
+    expect(m.userDefined).toBeUndefined();
+    historyStore.undo();
+    expect(modelStore.materials.get(id)).toMatchObject({ name: 'Madera dura', alpha: 11e-6, userDefined: true });
+    const added = saveCatalogueMaterial(steel);
+    expect(added).not.toBe(id);
+    expect(modelStore.materials.get(added)?.gradeId).toBe(steel.gradeId);
   });
 
   it('is never swapped for the steel a catalogue profile is rolled in', () => {

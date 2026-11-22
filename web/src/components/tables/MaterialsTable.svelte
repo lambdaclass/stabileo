@@ -3,6 +3,7 @@
   import { t } from '../../lib/i18n';
   import MaterialPresetSelector from '../MaterialPresetSelector.svelte';
   import type { MaterialPreset } from '../../lib/data/material-presets';
+  import { saveCatalogueMaterial } from '../../lib/material/custom-material';
 
   const materialsArr = $derived([...modelStore.materials.values()]);
 
@@ -22,8 +23,12 @@
     materialPresetTargetId = null;
   }
 
-  function renameMaterial(id: number, name: string) {
-    modelStore.updateMaterial(id, { name });
+  function renameMaterial(id: number, input: HTMLInputElement) {
+    const name = input.value.trim();
+    const stored = modelStore.materials.get(id)?.name ?? '';
+    if (!name) { input.value = stored; return; }
+    if (name !== stored) modelStore.updateMaterial(id, { name });
+    input.value = name;
   }
 
   function deleteMaterial(id: number) {
@@ -32,24 +37,9 @@
   }
 
   function handleMaterialPresetSelect(preset: MaterialPreset) {
-    const fields = {
-      name: preset.name,
-      e: preset.e,
-      nu: preset.nu,
-      rho: preset.rho,
-      fy: preset.fy,
-      // The catalogue link must travel too. Without it the material looks
-      // ungraded, and the next profile picked for a member would overwrite
-      // this deliberate steel with the profile's commercial default — the
-      // exact interference `commercial-default.ts` exists to prevent.
-      gradeId: preset.gradeId,
-    };
-    if (materialPresetTargetId === null) {
-      modelStore.addMaterial(fields);
-    } else {
-      modelStore.updateMaterial(materialPresetTargetId, fields);
-      resultsStore.clear();
-    }
+    const replacing = materialPresetTargetId !== null;
+    saveCatalogueMaterial(preset, materialPresetTargetId);
+    if (replacing) resultsStore.clear();
     closePicker();
   }
 </script>
@@ -63,7 +53,7 @@
       <tr data-testid="mat-row-{mat.id}">
         <td class="id-cell">{mat.id}</td>
         <td class="name-cell">
-          <input type="text" value={mat.name} onchange={(e) => renameMaterial(mat.id, e.currentTarget.value)} />
+          <input type="text" value={mat.name} onchange={(e) => renameMaterial(mat.id, e.currentTarget)} />
         </td>
         <td class="action-cell">
           <button

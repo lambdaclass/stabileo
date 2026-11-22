@@ -24,7 +24,7 @@
   let { open, onselect, onclose, oninvent, inventMaterialId = null, initialTab = 'catalogue' }: Props = $props();
 
   let inventing = $state(false);
-  $effect(() => { if (open) inventing = initialTab === 'invent' && !!oninvent; });
+  $effect.pre(() => { if (open) inventing = initialTab === 'invent' && !!oninvent; });
 
   /*
    * The catalogue quotes MPa and kN/m³. In SI they are shown as written (E in

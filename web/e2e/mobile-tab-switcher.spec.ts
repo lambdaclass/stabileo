@@ -65,6 +65,10 @@ for (const width of [360, 390]) {
       const panelBox = await panel.boundingBox();
       expect(panelBox!.x).toBeGreaterThanOrEqual(0);
       expect(panelBox!.x + panelBox!.width).toBeLessThanOrEqual(width);
+      expect(panelBox!.width, 'the panel spans the screen, not the trigger').toBeGreaterThanOrEqual(width - 24);
+      const headerBottom = await page.evaluate(() => document.querySelector('.app-header')!.getBoundingClientRect().bottom);
+      expect(panelBox!.y).toBeGreaterThanOrEqual(headerBottom);
+      expect(panelBox!.y).toBeLessThanOrEqual(headerBottom + 12);
       for (const id of ['tab-switcher-tab', 'tab-switcher-rename', 'tab-switcher-close']) {
         const b = await rows.first().getByTestId(id).boundingBox();
         expect(b!.height, id).toBeGreaterThanOrEqual(44);

@@ -74,10 +74,12 @@
     return null;
   }
 
+  const ownerOf = (e: Entry) => (e.kind === 'fn' ? e.fn : e.owner);
+  const blocked = (e: Entry) => unavailable(ownerOf(e), modelState) === 'plane';
+
   function open(e: Entry): void {
+    if (blocked(e)) return;
     if (e.kind === 'step') { openStepMethod(e.method); return; }
-    const why = unavailable(e.fn, modelState);
-    if (why === 'plane') return;
     advancedList.reveal(e.fn.group);
     onOpen(e.fn.id);
   }
@@ -87,7 +89,7 @@
 
   function onKey(ev: KeyboardEvent): void {
     if (ev.key === 'Enter') {
-      const first = flat.find((e) => e.kind === 'step' || unavailable(e.fn, modelState) !== 'plane');
+      const first = flat.find((e) => !blocked(e));
       if (first) { ev.preventDefault(); open(first); }
     } else if (ev.key === 'Escape') {
       if (advancedList.query) { ev.preventDefault(); ev.stopPropagation(); advancedList.query = ''; }
@@ -147,7 +149,7 @@
             {#if e.kind === 'fn'}
               {@render card(e.fn)}
             {:else}
-              <button type="button" class="ac-step" onclick={() => open(e)} data-testid="adv-step-{e.method}">
+              <button type="button" class="ac-step" disabled={blocked(e)} title={blocked(e) ? t('advanced.only2d') : undefined} onclick={() => open(e)} data-testid="adv-step-{e.method}">
                 <span class="ac-step-tag">{t('advCat.search.step')}</span>
                 <span class="ac-step-title"><Prose text={t(methodTitle(e.method))} /></span>
                 <span class="ac-step-owner">{tp('advCat.search.stepOf', { name: t(e.owner.titleKey) })}</span>
@@ -263,7 +265,8 @@
     padding: 0.4rem 0.55rem; box-sizing: border-box; background: none; border: 1px dashed var(--st-hair-strong); border-radius: var(--st-radius-lg, 8px);
     color: var(--st-text); font: inherit; text-align: left; cursor: pointer;
   }
-  .ac-step:hover { border-color: var(--st-accent); background: var(--st-surface-3); }
+  .ac-step:hover:not(:disabled) { border-color: var(--st-accent); background: var(--st-surface-3); }
+  .ac-step:disabled { opacity: 0.5; cursor: not-allowed; }
   .ac-step:focus-visible { outline: 2px solid var(--st-interactive); outline-offset: 1px; }
   .ac-step-tag { font-family: var(--st-mono); font-size: 0.56rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--st-accent); }
   .ac-step-title { font-size: 0.78rem; font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; }

@@ -137,7 +137,7 @@
                 <button class="sc-example" disabled={loading !== null} onclick={() => example(m)} data-testid={`steps-example-${m.id}`}>
                   {loading === m.id ? t('steps.catalog.loading') : t('steps.catalog.example')}
                 </button>
-                {#if fn}
+                {#if fn && !(fn.requires.plane && is3D)}
                   <button class="sc-fn" onclick={() => openFunction(fn.id)} title={t('advCat.catalog.partOfTitle')} data-testid={`steps-function-${m.id}`}>{tp('advCat.catalog.partOf', { name: t(fn.titleKey) })} ›</button>
                 {/if}
               </div>

@@ -562,6 +562,9 @@
 
   /** Start a function from the list; a step-by-step topic opens the catalog at its group. */
   function openFunction(id: string): void {
+    const fn = advFunction(id);
+    if (fn?.requires.plane && is3D) { uiStore.toast(t('advanced.only2d'), 'error'); return; }
+    if (fn) advancedList.reveal(fn.group);
     noteOpening();
     switch (id) {
       case 'kinematic': uiStore.showKinematicPanel = true; return;

@@ -110,7 +110,7 @@ function wordScore(q: string, alternatives: readonly string[], field: { words: s
   for (const alt of alternatives) {
     for (const w of field.words) {
       if (w === alt) return 1;
-      if (alt.length >= 1 && w.startsWith(alt)) best = Math.max(best, alt.length === 1 ? 0.55 : 0.85);
+      if (w.startsWith(alt) && (alt.length > 1 || alt === q)) best = Math.max(best, alt.length === 1 ? 0.55 : 0.85);
       else {
         const max = allowedTypos(alt.length);
         if (max && Math.abs(w.length - alt.length) <= max) {

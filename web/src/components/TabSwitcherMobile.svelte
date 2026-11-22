@@ -62,10 +62,11 @@
     input?.select();
   }
 
-  async function finishRename(id: string, value: string | null) {
+  async function finishRename(id: string, value: string | null, refocus = true) {
     if (editingId !== id) return;
     editingId = null;
     if (value !== null) tabManager.renameTab(id, value.trim() || t('tabBar.newStructure'));
+    if (!refocus) return;
     await tick();
     panel?.querySelector<HTMLButtonElement>(`[data-tab-id="${id}"] .mts-rename`)?.focus();
   }
@@ -109,6 +110,7 @@
 <svelte:window onkeydown={onWindowKeydown} onpointerdown={onWindowPointerDown} />
 
 <div class="mts" bind:this={root} onfocusout={onFocusOut}>
+  <div class="mts-fit">
   <button
     bind:this={trigger}
     type="button"
@@ -129,6 +131,7 @@
       <svg class="mts-chev" viewBox="0 0 10 6" width="9" height="6"><path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" /></svg>
     </span>
   </button>
+  </div>
 
   {#if open}
     <div class="mts-backdrop" style:top="{panelTop}px" onclick={() => closePanel(false)} aria-hidden="true"></div>
@@ -156,7 +159,7 @@
                 spellcheck="false"
                 enterkeyhint="done"
                 onkeydown={(e) => onInputKeydown(tab.id, e)}
-                onblur={(e) => finishRename(tab.id, e.currentTarget.value)}
+                onblur={(e) => finishRename(tab.id, e.currentTarget.value, !panel?.contains(e.relatedTarget as Node | null))}
                 data-testid="tab-switcher-input"
               />
             {:else}
@@ -210,6 +213,13 @@
 
 <style>
   .mts {
+    flex: 1 1 0;
+    min-width: 44px;
+    display: flex;
+  }
+
+  /* The size container wraps only the trigger: it contains layout, and the fixed panel inside it would be placed against it instead of the screen. */
+  .mts-fit {
     flex: 1 1 0;
     min-width: 44px;
     display: flex;

@@ -46,6 +46,10 @@ describe('search', () => {
     for (const q of ['pdelta', 'p-delta', 'P-Δ', 'p delta', 'p-∆']) expect(ids(q)[0], q).toBe('pdelta');
   });
 
+  it('a one-letter alias matches only a word that is that letter, so delta does not list every "de"', () => {
+    expect(ids('delta')).toEqual(['pdelta']);
+  });
+
   it('matches second order in several spellings', () => {
     for (const q of ['segundo orden', '2do orden', 'second order', '2nd order']) expect(ids(q), q).toContain('pdelta');
   });
