@@ -9,7 +9,7 @@ import { computeLocalAxes3D, memberRoll, type LocalAxes3D } from './local-axes-3
 import { memberFrame3D } from './member-loads';
 import { planarLoadDirection } from './planar-load-direction';
 import { transverseSign } from './transverse-sign-2d';
-import { add, agreesAtScale, assembledMagnitudes3D, LoadVector, mul, norm, sub, unit, xyz, zero, Wrench, type Vector } from './accounting-math';
+import { agreesAtScale, assembledMagnitudes3D, LoadScalar, LoadVector, norm, positionAt, sub, unit, xyz, zero, Wrench, type Vector } from './accounting-math';
 import { accountSurface } from './surface-accounting';
 import { SolveAccountingError, type PlateMeasure } from './plate-accounting';
 
@@ -30,16 +30,16 @@ function unsupported(model: ModelData, caseId: number, kind: string, id: number)
 function compare(label: string, entered: Wrench, assembled: Wrench): void {
   for (let i = 0; i < components.length; i++) {
     const a = entered.component(i), b = assembled.component(i);
-    if (!agreesAtScale(a.value, b.value, Math.max(a.scale, b.scale))) throw new SolveAccountingError(tp('svc.accountingMismatch', {
+    if (!agreesAtScale(a.value, b.value, Math.max(a.scale, b.scale), a.underflow + b.underflow)) throw new SolveAccountingError(tp('svc.accountingMismatch', {
       case: label, component: components[i]!, entered: a.value, assembled: b.value,
     }));
   }
 }
 
-function localVector(axes: LocalAxes3D, x: number, y: number, z: number, magnitudes?: Vector): LoadVector {
-  const along = LoadVector.from(axes.ex).scale(x, magnitudes?.[0]);
-  const transverseY = LoadVector.from(axes.ey).scale(y, magnitudes?.[1]);
-  const transverseZ = LoadVector.from(axes.ez).scale(z, magnitudes?.[2]);
+function localVector(axes: LocalAxes3D, x: number, y: number, z: number, budget?: LoadVector): LoadVector {
+  const along = LoadVector.from(axes.ex).scale(new LoadScalar(x, budget?.underflow[0]), budget?.magnitude[0]);
+  const transverseY = LoadVector.from(axes.ey).scale(new LoadScalar(y, budget?.underflow[1]), budget?.magnitude[1]);
+  const transverseZ = LoadVector.from(axes.ez).scale(new LoadScalar(z, budget?.underflow[2]), budget?.magnitude[2]);
   return along.add(transverseY.add(transverseZ));
 }
 
@@ -62,11 +62,11 @@ function directionalPlaneForce(frame: Frame, chord: Vector, magnitude: number, d
   const { sin, cos } = frame === 'xy'
     ? planarLoadDirection(degrees)
     : { sin: Math.sin(radians), cos: Math.cos(radians) };
-  if (global) return LoadVector.from(inPlane(frame, magnitude * sin, magnitude * cos));
+  if (global) return LoadVector.from(inPlane(frame, sin, cos)).scale(magnitude);
   const tangent = unit([chord[0], chord[1], 0]);
   const sign = frame === 'space' ? 1 : transverseSign(chord[0], chord[1]);
-  return LoadVector.from(inPlane(frame, sin * tangent[0], sin * tangent[1]))
-    .add(LoadVector.from(inPlane(frame, -sign * cos * tangent[1], sign * cos * tangent[0])))
+  return LoadVector.from(inPlane(frame, tangent[0], tangent[1])).scale(sin)
+    .add(LoadVector.from(inPlane(frame, -tangent[1], tangent[0])).scale(sign * cos))
     .scale(magnitude);
 }
 
@@ -139,8 +139,8 @@ function enteredLoads(model: ModelData, loads: readonly Load[], frame: Frame, le
       if (load.type === 'pointOnElement') {
         const { p, a, px } = load.data;
         const planar = p === 0 && !px ? LoadVector.from(zero())
-          : force(p).add(LoadVector.from(mul(inPlane(frame, ...planarTangent(drawnChord)), px ?? 0)));
-        out.apply(add(start, mul(axis, a)), planar, planeMoment(frame, enteredMoment(load.data)));
+          : force(p).add(LoadVector.from(inPlane(frame, ...planarTangent(drawnChord))).scale(px ?? 0));
+        out.apply(positionAt(start, axis, a), planar, planeMoment(frame, enteredMoment(load.data)));
       } else {
         const { qI, qJ, a, b } = load.data;
         out.line(start, axis, a ?? 0, b ?? length, force(qI), force(qJ));
@@ -160,13 +160,15 @@ function enteredLoads(model: ModelData, loads: readonly Load[], frame: Frame, le
     if (load.type === 'pointOnElement3d') {
       const d = load.data;
       const inFrame = d.frame === 'global' ? (x: number, y: number, z: number) => LoadVector.from([x, y, z]) : local;
-      out.apply(add(start, mul(axis, d.a)), inFrame(d.px ?? 0, d.py, d.pz), inFrame(d.mx ?? 0, d.my ?? 0, d.mz ?? 0));
+      out.apply(positionAt(start, axis, d.a), inFrame(d.px ?? 0, d.py, d.pz), inFrame(d.mx ?? 0, d.my ?? 0, d.mz ?? 0));
     } else {
       const d = load.data;
       const inFrame = (x: number, y: number, z: number): LoadVector => {
         if (d.frame === 'global') return LoadVector.from([x, y, z]);
         if (d.frame === 'projected') {
-          return LoadVector.from([x * Math.hypot(axis[1], axis[2]), y * Math.hypot(axis[0], axis[2]), z * Math.hypot(axis[0], axis[1])]);
+          return LoadVector.from([x, y, z]).scaleComponents([
+            Math.hypot(axis[1], axis[2]), Math.hypot(axis[0], axis[2]), Math.hypot(axis[0], axis[1]),
+          ]);
         }
         return local(x, y, z);
       };
@@ -203,12 +205,12 @@ function assembled2D(model: ModelData, input: SolverInput, loads: readonly Solve
     const normal: Vector = [-axis[1], axis[0], 0];
     if (load.type === 'pointOnElement') {
       const { a: position, p, px, my } = load.data;
-      const force = LoadVector.from(mul(normal, p)).add(LoadVector.from(mul(axis, px ?? 0)));
-      result.apply(add(a, mul(axis, position)), force, LoadVector.from([0, 0, my ?? 0]));
+      const force = LoadVector.from(normal).scale(p).add(LoadVector.from(axis).scale(px ?? 0));
+      result.apply(positionAt(a, axis, position), force, LoadVector.from([0, 0, my ?? 0]));
     } else {
       const { qI, qJ, a: start, b: end } = load.data;
       const direction = load.type === 'distributed' ? normal : axis;
-      result.line(a, axis, start ?? 0, end ?? length, LoadVector.from(mul(direction, qI)), LoadVector.from(mul(direction, qJ)));
+      result.line(a, axis, start ?? 0, end ?? length, LoadVector.from(direction).scale(qI), LoadVector.from(direction).scale(qJ));
     }
   }
   return result;
@@ -229,7 +231,9 @@ function assembled3D(model: ModelData, input: SolverInput3D, loads: readonly Sol
     if (load.type === 'nodal') {
       const { nodeId, fx, fy, fz, mx, my, mz } = load.data;
       const nodal = magnitudes && 'force' in magnitudes ? magnitudes : undefined;
-      result.apply(at(nodeId), LoadVector.from([fx, fy, fz], nodal?.force), LoadVector.from([mx, my, mz], nodal?.couple));
+      result.apply(at(nodeId),
+        LoadVector.from([fx, fy, fz], nodal?.force.magnitude, nodal?.force.underflow),
+        LoadVector.from([mx, my, mz], nodal?.couple.magnitude, nodal?.couple.underflow));
       continue;
     }
     if (kind === 'pressure' || kind === 'quadPressure' || kind === 'curvedShellPressure') {
@@ -261,7 +265,7 @@ function assembled3D(model: ModelData, input: SolverInput3D, loads: readonly Sol
         localVector(axes, d.qXJ ?? 0, d.qYJ, d.qZJ, line?.qJ));
     } else {
       const d = load.data;
-      result.apply(add(start, mul(axes.ex, d.a)), localVector(axes, 0, d.py, d.pz));
+      result.apply(positionAt(start, axes.ex, d.a), localVector(axes, 0, d.py, d.pz));
     }
   }
   return result;
@@ -305,7 +309,7 @@ export function loadAccounting3D(
   const source = (checkAuthored ? model[accountingSource] : undefined) ?? model;
   const effects = checkAuthored ? model[accountingCaseSources] : undefined;
   const authored = effects?.authored ?? loadCaseBatches(source.loads);
-  const pressures = new Map<number, Array<{ id: number; plate: PlateMeasure; q: number }>>();
+  const pressures = new Map<number, Array<{ id: number; plate: PlateMeasure; pressure: LoadVector }>>();
   for (const [id, group] of source.groups ?? []) {
     if (group.kind !== 'floorLoad') continue;
     const d = group.data as unknown as FloorLoadDef | undefined;
@@ -313,7 +317,8 @@ export function loadAccounting3D(
     const plate = plates.get(d.target.groupId);
     if (!plate) continue;
     const batch = pressures.get(d.caseId) ?? [];
-    batch.push({ id, plate, q: d.q * (d.perPlanArea ? Math.abs(plate.normal[2]) : 1) });
+    const pressure = LoadVector.from([0, 0, -d.q]);
+    batch.push({ id, plate, pressure: d.perPlanArea ? pressure.scale(Math.abs(plate.normal[2])) : pressure });
     pressures.set(d.caseId, batch);
   }
 
@@ -326,7 +331,7 @@ export function loadAccounting3D(
     const definitions = new Set(batch.map(({ id }) => id));
     const totals = enteredLoads(source, authored.get(caseId) ?? [], frame, leftHand, caseId, definitions);
     const names = new Set(batch.map(({ plate }) => plate.name));
-    for (const { plate, q } of batch) totals.apply(plate.centroid, LoadVector.from([0, 0, -q * plate.area]));
+    for (const { plate, pressure } of batch) totals.apply(plate.centroid, pressure.scale(plate.area));
     const rule = effects?.cases.get(caseId);
     const result = new Wrench();
     result.addScaled(totals, rule?.ratio ?? 1);

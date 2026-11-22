@@ -17,7 +17,7 @@ import {
   addPlateLoad, applyPlateMeshes, createPlate, meshBeforeAnalysis, planPlateMesh, plateEntry, plateStatus, setPlateMeshSpec, setPlateSideArc,
 } from '../physical-plates';
 
-const fault = vi.hoisted(() => ({ dropMemberLoad: false, scaleCaseLoad: 1, momentDelta: 0, stalePlanarMoment: 0 }));
+const fault = vi.hoisted(() => ({ dropMemberLoad: false, dropLineIntensity: 0, scaleCaseLoad: 1, momentDelta: 0, stalePlanarMoment: 0 }));
 
 vi.mock('../../model/loads/load-magnitudes', async importOriginal => {
   const original = await importOriginal<typeof import('../../model/loads/load-magnitudes')>();
@@ -47,7 +47,8 @@ vi.mock('../../engine/member-loads', async importOriginal => {
   return {
     ...original,
     globalDistributedToSolver: (...args: Parameters<typeof original.globalDistributedToSolver>) =>
-      fault.dropMemberLoad ? [] : original.globalDistributedToSolver(...args),
+      fault.dropMemberLoad || (fault.dropLineIntensity !== 0 && args[1][2] === fault.dropLineIntensity)
+        ? [] : original.globalDistributedToSolver(...args),
   };
 });
 
@@ -60,6 +61,7 @@ beforeEach(() => {
   uiStore.includeSelfWeight = false;
   meshBeforeAnalysis.value = true;
   fault.dropMemberLoad = false;
+  fault.dropLineIntensity = 0;
   fault.scaleCaseLoad = 1;
   fault.momentDelta = 0;
   fault.stalePlanarMoment = 0;
@@ -690,9 +692,7 @@ it.each(['xz', 'yz'] as const)(
   },
 );
 
-const underflowRegression = process.env.RUN_KNOWN_WRONG === '2470' ? it : it.skip;
-
-underflowRegression('known wrong result: #2470 solves a fixed-ended beam with a subnormal live line load', async () => {
+it('#2470 solves a fixed-ended beam with a subnormal live line load', async () => {
   const elementId = cantilever('3d');
   const model = modelStore.model;
   const { nodeI, nodeJ } = model.elements.get(elementId)!;
@@ -750,12 +750,21 @@ underflowRegression('known wrong result: #2470 solves a fixed-ended beam with a 
   }
 
   live.qZI = live.qZJ = -1e-300;
+  modelStore.setAnalysis({ perCombination: 'linear' });
+  modelStore.updateSupport(supportId, { uplift: false });
+  const kept = await comboPaths.sync();
+  if (!kept || typeof kept === 'string') throw new Error(String(kept));
+  expect(kept.perCombo.get(2)).toMatchObject(expected(9));
+  const liveResult = kept.perCase.get(2)!;
+  expect(liveResult.reactions.map(({ fz }) => fz / 1e-300))
+    .toEqual([expect.closeTo(1.5, 12), expect.closeTo(1.5, 12)]);
+  fault.dropLineIntensity = -1e-300;
   const mismatch = expect.stringMatching(/case.*2.*\(L\).*Fz.*-3e-300.*0/i);
   for (const [path, solve] of Object.entries(comboPaths)) expect.soft(await solve(), path).toEqual(mismatch);
   expect(modelStore.solve3D(false, false, true)).toEqual(mismatch);
 });
 
-underflowRegression('known wrong result: #2470 solves a planar beam with a subnormal global line load', async () => {
+it('#2470 solves a planar beam with a subnormal global line load', async () => {
   const elementId = cantilever('2d');
   const model = modelStore.model;
   const { nodeJ } = model.elements.get(elementId)!;

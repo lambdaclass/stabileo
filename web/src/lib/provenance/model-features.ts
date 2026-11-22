@@ -48,7 +48,7 @@ export const FEATURE_IDS = [
   'steelMembers', 'steelCirsoc301', 'steelTensionWithoutConnection', 'steelDeclaredUnbracedLength', 'steelStaggeredOrUnboltedWebEnd', 'timberOrAluminiumMembers',
   'concreteMembers', 'fiberMembers', 'hognestadFiberMembers', 'cirsoc201', 'aci318', 'footings', 'jointDesigns',
   'shells', 'physicalPlateRemesh', 'plateAnalysisIssue', 'curvedShells', 'shellEdgeLoads', 'eccentricities',
-  'physicalPlateDefinitions', 'planarQuarterTurnMemberLoads', 'planarGlobalAxisMemberLoads', 'prestressMemberLoads', 'nearEndSpatialPointLoads',
+  'physicalPlateDefinitions', 'planarQuarterTurnMemberLoads', 'planarGlobalAxisMemberLoads', 'prestressMemberLoads', 'nearEndSpatialPointLoads', 'tinyDistributedLoads',
   'constraints', 'constraintOnSupportedNode', 'inclinedSupports', 'springs', 'multipleSupportsOnNode', 'bareRollerZ', 'bareCustom3D', 'localPlaneRoller', 'unknownSupportType', 'rollerSupports', 'namedSupportRestraintMasks', 'settlements', 'settledMaskedSupports', 'caseDisplacements',
   'connectors', 'connectorsWithShear', 'pathAnalysis',
   'stagedConstruction', 'generatedStructures', 'nodalMoments', 'trussMemberLoads', 'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'generatedLoads', 'generatedWindLoads', 'generatedSeismicLoads', 'unverifiedGeneratedSeismicLoads',
@@ -404,7 +404,11 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
       f.add('memberLoads');
       if (axialMembers.has(d.elementId as number)) f.add('trussMemberLoads');
     }
-    if (t.startsWith('distributed')) f.add('distributedMemberLoads');
+    if (t.startsWith('distributed')) {
+      f.add('distributedMemberLoads');
+      if ([d.qI, d.qJ, d.qXI, d.qXJ, d.qYI, d.qYJ, d.qZI, d.qZJ]
+        .some(q => typeof q === 'number' && q !== 0 && Math.abs(q) < 1e-12)) f.add('tinyDistributedLoads');
+    }
     const fixedLoadFrame = d.frame === 'global' || d.frame === 'projected';
     if (t === 'distributed3d' && (nonZero(d.qXI) || nonZero(d.qXJ)
         || (fixedLoadFrame && [d.qYI, d.qYJ, d.qZI, d.qZJ].some(nonZero)))) {

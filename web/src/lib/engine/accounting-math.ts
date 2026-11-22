@@ -15,9 +15,10 @@ export const norm = (a: Vector): number => Math.hypot(...a);
 export const unit = (a: Vector): Vector => mul(a, 1 / norm(a));
 export const roundoff = 128 * Number.EPSILON;
 
-export function agreesAtScale(a: number, b: number, scale: number): boolean {
-  return Number.isFinite(a) && Number.isFinite(b) && Number.isFinite(scale)
-    && Math.abs(a - b) <= roundoff * scale;
+export function agreesAtScale(a: number, b: number, scale: number, underflow = 0): boolean {
+  const tolerance = roundoff * scale + underflow;
+  return Number.isFinite(a) && Number.isFinite(b) && Number.isFinite(tolerance)
+    && Math.abs(a - b) <= tolerance;
 }
 
 export function agrees(a: number, b: number, scale: number): boolean {
@@ -48,93 +49,162 @@ function crossMagnitude([x, y, z]: Vector, [fx, fy, fz]: Vector): Vector {
   ];
 }
 
-export class LoadVector {
-  private constructor(readonly value: Vector, readonly magnitude: Vector) {}
+const eta = Number.MIN_VALUE;
+const minNormal = eta / Number.EPSILON;
 
-  static from(value: Vector, magnitude = absolute(value)): LoadVector {
-    return new LoadVector(value, magnitude);
+function underflowOf(a: number, b: number, result: number): number {
+  return a !== 0 && b !== 0 && Math.abs(result) <= minNormal ? eta : 0;
+}
+
+function multiplyBound(a: number, b: number): number {
+  if (a === 0 || b === 0) return 0;
+  const product = a * b;
+  if (product >= minNormal || !Number.isFinite(product)) return product;
+  return eta * Math.max(1, Math.ceil((Math.min(a, b) / eta) * Math.max(a, b)));
+}
+
+export class LoadScalar {
+  constructor(readonly value: number, readonly underflow = 0) {}
+
+  add(other: LoadScalar): LoadScalar {
+    return new LoadScalar(this.value + other.value, this.underflow + other.underflow);
   }
 
-  add(other: LoadVector): LoadVector {
-    return new LoadVector(add(this.value, other.value), add(this.magnitude, other.magnitude));
+  subtract(other: LoadScalar): LoadScalar {
+    return new LoadScalar(this.value - other.value, this.underflow + other.underflow);
   }
 
-  scale(factor: number, magnitude = Math.abs(factor)): LoadVector {
-    return new LoadVector(mul(this.value, factor), mul(this.magnitude, magnitude));
+  scale(factor: number | LoadScalar): LoadScalar {
+    const b = typeof factor === 'number' ? factor : factor.value;
+    const error = typeof factor === 'number' ? 0 : factor.underflow;
+    const value = this.value * b;
+    return new LoadScalar(value, underflowOf(this.value, b, value)
+      + multiplyBound(this.underflow, Math.abs(b))
+      + multiplyBound(Math.abs(this.value), error)
+      + multiplyBound(this.underflow, error));
   }
 
-  momentAt(arm: Vector): LoadVector {
-    return new LoadVector(cross(arm, this.value), crossMagnitude(arm, this.magnitude));
+  divide(divisor: number): LoadScalar {
+    const value = this.value / divisor;
+    const quotient = this.underflow / Math.abs(divisor);
+    const carried = this.underflow > 0 && quotient < minNormal
+      ? eta * Math.max(1, Math.ceil(this.underflow / (Math.abs(divisor) * eta))) : quotient;
+    return new LoadScalar(value, carried + underflowOf(this.value, divisor, value));
   }
 }
 
-type AssembledMagnitudes3D = { force: Vector; couple: Vector } | { qI: Vector; qJ: Vector };
+export class LoadVector {
+  private constructor(readonly value: Vector, readonly magnitude: Vector, readonly underflow: Vector) {}
+
+  static from(value: Vector, magnitude = absolute(value), underflow = zero()): LoadVector {
+    return new LoadVector(value, magnitude, underflow);
+  }
+
+  private at(index: 0 | 1 | 2): LoadScalar {
+    return new LoadScalar(this.value[index], this.underflow[index]);
+  }
+
+  private static fromComponents([x, y, z]: [LoadScalar, LoadScalar, LoadScalar], magnitude?: Vector): LoadVector {
+    return LoadVector.from([x.value, y.value, z.value], magnitude, [x.underflow, y.underflow, z.underflow]);
+  }
+
+  add(other: LoadVector): LoadVector {
+    return new LoadVector(add(this.value, other.value), add(this.magnitude, other.magnitude), add(this.underflow, other.underflow));
+  }
+
+  scale(factor: number | LoadScalar, magnitude = Math.abs(typeof factor === 'number' ? factor : factor.value)): LoadVector {
+    return LoadVector.fromComponents([this.at(0).scale(factor), this.at(1).scale(factor), this.at(2).scale(factor)],
+      mul(this.magnitude, magnitude));
+  }
+
+  scaleComponents(factors: Vector): LoadVector {
+    return LoadVector.fromComponents([this.at(0).scale(factors[0]), this.at(1).scale(factors[1]), this.at(2).scale(factors[2])],
+      [this.magnitude[0] * Math.abs(factors[0]), this.magnitude[1] * Math.abs(factors[1]), this.magnitude[2] * Math.abs(factors[2])]);
+  }
+
+  momentAt(arm: Vector | LoadVector): LoadVector {
+    const position = arm instanceof LoadVector ? arm : LoadVector.from(arm);
+    const x = position.at(0), y = position.at(1), z = position.at(2);
+    return LoadVector.fromComponents([
+      this.at(2).scale(y).subtract(this.at(1).scale(z)),
+      this.at(0).scale(z).subtract(this.at(2).scale(x)),
+      this.at(1).scale(x).subtract(this.at(0).scale(y)),
+    ], crossMagnitude([x.value, y.value, z.value], this.magnitude));
+  }
+}
+
+type AssembledMagnitudes3D = { force: LoadVector; couple: LoadVector } | { qI: LoadVector; qJ: LoadVector };
 
 export const assembledMagnitudes3D = new WeakMap<SolverLoad3D, AssembledMagnitudes3D>();
 
 export function scaleAssembledMagnitudes3D(source: SolverLoad3D, scaled: SolverLoad3D, factor: number): void {
   const magnitudes = assembledMagnitudes3D.get(source);
   if (!magnitudes) return;
-  const scale = Math.abs(factor);
   assembledMagnitudes3D.set(scaled, 'force' in magnitudes
-    ? { force: mul(magnitudes.force, scale), couple: mul(magnitudes.couple, scale) }
-    : { qI: mul(magnitudes.qI, scale), qJ: mul(magnitudes.qJ, scale) });
+    ? { force: magnitudes.force.scale(factor), couple: magnitudes.couple.scale(factor) }
+    : { qI: magnitudes.qI.scale(factor), qJ: magnitudes.qJ.scale(factor) });
 }
 
 const zeroCouple = LoadVector.from(zero());
 
-export class Wrench {
-  private readonly components = Array.from({ length: 6 }, () => ({ total: new Sum(), magnitude: new Sum() }));
+type WrenchComponent = { total: Sum; magnitude: Sum; underflow: Sum };
 
-  apply(at: Vector, force: LoadVector, couple = zeroCouple): void {
-    const moment = force.momentAt(at).add(couple);
-    this.addTotals(force.value, moment.value, force.magnitude, moment.magnitude);
+export function positionAt(start: Vector, axis: Vector, station: number | LoadScalar): LoadVector {
+  return LoadVector.from(start).add(LoadVector.from(axis).scale(station));
+}
+
+export class Wrench {
+  private readonly components: WrenchComponent[] = Array.from({ length: 6 }, () => ({
+    total: new Sum(), magnitude: new Sum(), underflow: new Sum(),
+  }));
+
+  apply(at: Vector | LoadVector, force: LoadVector, couple = zeroCouple): void {
+    this.addTotals(force, force.momentAt(at).add(couple));
   }
 
-  private addTotals(force: Vector, moment: Vector, forceMagnitude: Vector, momentMagnitude: Vector): void {
-    for (let i = 0; i < 3; i++) {
-      const f = this.components[i]!, m = this.components[i + 3]!;
-      f.total.add(force[i]!);
-      f.magnitude.add(forceMagnitude[i]!);
-      m.total.add(moment[i]!);
-      m.magnitude.add(momentMagnitude[i]!);
+  private addTotals(force: LoadVector, moment: LoadVector): void {
+    for (const [offset, load] of [[0, force], [3, moment]] as const) {
+      for (let i = 0; i < 3; i++) {
+        const component = this.components[offset + i]!;
+        component.total.add(load.value[i]!);
+        component.magnitude.add(load.magnitude[i]!);
+        component.underflow.add(load.underflow[i]!);
+      }
     }
   }
 
   addScaled(other: Wrench, factor: number): void {
-    const { force, moment } = other.read('total');
-    const magnitude = other.read('magnitude');
-    const scale = Math.abs(factor);
-    this.addTotals(mul(force, factor), mul(moment, factor),
-      mul(magnitude.force, scale), mul(magnitude.moment, scale));
+    const force = other.read(0), moment = other.read(3);
+    this.addTotals(factor === 1 ? force : force.scale(factor), factor === 1 ? moment : moment.scale(factor));
   }
 
   toWorld(plane: 'xz' | 'yz', origin: Vector): Wrench {
     const rotate = ([x, y, z]: Vector): Vector => plane === 'xz' ? [x, -z, y] : [z, x, y];
-    const { force, moment } = this.read('total');
-    const magnitude = this.read('magnitude');
-    const worldForce = rotate(force);
-    const worldForceMagnitude = absolute(rotate(magnitude.force));
+    const toWorldVector = (v: LoadVector) => LoadVector.from(rotate(v.value),
+      absolute(rotate(v.magnitude)), absolute(rotate(v.underflow)));
+    const force = toWorldVector(this.read(0)), moment = toWorldVector(this.read(3));
     const world = new Wrench();
-    world.addTotals(worldForce, add(rotate(moment), cross(origin, worldForce)),
-      worldForceMagnitude, add(absolute(rotate(magnitude.moment)), crossMagnitude(origin, worldForceMagnitude)));
+    world.addTotals(force, moment.add(force.momentAt(origin)));
     return world;
   }
 
-  component(index: number): { value: number; scale: number } {
-    const { total, magnitude } = this.components[index]!;
-    return { value: total.value, scale: magnitude.value };
+  component(index: number): { value: number; scale: number; underflow: number } {
+    const { total, magnitude, underflow } = this.components[index]!;
+    return { value: total.value, scale: magnitude.value, underflow: underflow.value };
   }
 
-  private read(key: 'total' | 'magnitude'): { force: Vector; moment: Vector } {
-    const c = this.components.map(component => component[key].value);
-    return { force: [c[0]!, c[1]!, c[2]!], moment: [c[3]!, c[4]!, c[5]!] };
+  private read(offset: number): LoadVector {
+    const vector = (key: keyof WrenchComponent): Vector => [
+      this.components[offset]![key].value, this.components[offset + 1]![key].value, this.components[offset + 2]![key].value,
+    ];
+    return LoadVector.from(vector('total'), vector('magnitude'), vector('underflow'));
   }
 
   line(start: Vector, axis: Vector, a: number, b: number, qI: LoadVector, qJ: LoadVector): void {
-    const length = b - a;
-    this.apply(add(start, mul(axis, a + length / 3)), qI.scale(length / 2));
-    this.apply(add(start, mul(axis, b - length / 3)), qJ.scale(length / 2));
+    const length = new LoadScalar(b - a);
+    const half = length.divide(2), third = length.divide(3);
+    this.apply(positionAt(start, axis, new LoadScalar(a).add(third)), qI.scale(half));
+    this.apply(positionAt(start, axis, new LoadScalar(b).subtract(third)), qJ.scale(half));
   }
 }
 

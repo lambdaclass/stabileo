@@ -40,7 +40,7 @@
  */
 import type { SolverLoad3D } from './types-3d';
 import type { MemberRef, Vec3 } from './member-loads';
-import { assembledMagnitudes3D, LoadVector, zero } from './accounting-math';
+import { assembledMagnitudes3D, LoadScalar, LoadVector, zero } from './accounting-math';
 
 export interface PrestressLike { force: number; eI: number; eM: number; eJ: number }
 
@@ -49,29 +49,37 @@ export function tendonEccentricity(d: PrestressLike, xi: number): number {
   return d.eI * (1 - xi) * (1 - 2 * xi) + 4 * d.eM * xi * (1 - xi) + d.eJ * xi * (2 * xi - 1);
 }
 
-function evaluateTerms([i, m, j]: Vec3, factor: number, divisor: number) {
+function evaluateTerms([i, m, j]: [LoadScalar, LoadScalar, LoadScalar], factor: number, divisor: number) {
   return {
-    value: factor * (i + m + j) / divisor,
-    magnitude: Math.abs(factor) * (Math.abs(i) + Math.abs(m) + Math.abs(j)) / divisor,
+    amount: i.add(m).add(j).scale(factor).divide(divisor),
+    magnitude: Math.abs(factor) * (Math.abs(i.value) + Math.abs(m.value) + Math.abs(j.value)) / divisor,
   };
 }
 
 function slopeAt(d: PrestressLike, xi: number, L: number) {
-  return evaluateTerms([d.eI * (4 * xi - 3), 4 * d.eM * (1 - 2 * xi), d.eJ * (4 * xi - 1)], 1, L);
+  return evaluateTerms([
+    new LoadScalar(d.eI).scale(4 * xi - 3),
+    new LoadScalar(4).scale(d.eM).scale(1 - 2 * xi),
+    new LoadScalar(d.eJ).scale(4 * xi - 1),
+  ], 1, L);
 }
 
 function lineIntensity(d: PrestressLike, L: number) {
-  return evaluateTerms([4 * d.eI, -8 * d.eM, 4 * d.eJ], -d.force, L * L);
+  return evaluateTerms([
+    new LoadScalar(4).scale(d.eI),
+    new LoadScalar(-8).scale(d.eM),
+    new LoadScalar(4).scale(d.eJ),
+  ], -d.force, L * L);
 }
 
 /** de/dx at ξ, for a member of length L. */
 export function tendonSlope(d: PrestressLike, xi: number, L: number): number {
-  return slopeAt(d, xi, L).value;
+  return slopeAt(d, xi, L).amount.value;
 }
 
 /** The constant transverse load of the curved tendon, along local z, kN/m. */
 export function tendonLoad(d: PrestressLike, L: number): number {
-  return lineIntensity(d, L).value;
+  return lineIntensity(d, L).amount.value;
 }
 
 /** The tendon of the stretch [x0, x1] of a member of length L, as a tendon of that stretch. */
@@ -88,20 +96,20 @@ export function prestressToSolver(m: MemberRef, d: PrestressLike): SolverLoad3D[
   const chord = LoadVector.from(ex), transverse = LoadVector.from(ez), bending = LoadVector.from(ey);
   const at = (nodeId: number, xi: number, axial: number, eccentricity: number, arm?: Vec3): SolverLoad3D => {
     const slope = slopeAt(d, xi, L);
-    const across = transverse.scale(-axial * slope.value, Math.abs(axial) * slope.magnitude);
+    const across = transverse.scale(slope.amount.scale(-axial), Math.abs(axial) * slope.magnitude);
     const force = chord.scale(axial).add(across);
-    const couple = bending.scale(-axial * eccentricity).add(arm ? force.momentAt(arm) : LoadVector.from(zero()));
+    const couple = bending.scale(new LoadScalar(-axial).scale(eccentricity)).add(arm ? force.momentAt(arm) : LoadVector.from(zero()));
     const [fx, fy, fz] = force.value, [mx, my, mz] = couple.value;
     const load: SolverLoad3D = { type: 'nodal', data: { nodeId, fx, fy, fz, mx, my, mz, tendonOf: m.elementId } };
-    assembledMagnitudes3D.set(load, { force: force.magnitude, couple: couple.magnitude });
+    assembledMagnitudes3D.set(load, { force, couple });
     return load;
   };
   const out = [at(m.nodeI, 0, P, d.eI, m.armI), at(m.nodeJ, 1, -P, d.eJ, m.armJ)];
-  const { value: q, magnitude: qScale } = lineIntensity(d, L);
+  const { amount: { value: q, underflow }, magnitude: qScale } = lineIntensity(d, L);
   if (Math.abs(q) > 1e-12) {
     const load: SolverLoad3D = { type: 'distributed', data: { elementId: m.elementId, qYI: 0, qYJ: 0, qZI: q, qZJ: q } };
-    const qMagnitude: Vec3 = [0, 0, qScale];
-    assembledMagnitudes3D.set(load, { qI: qMagnitude, qJ: qMagnitude });
+    const intensity = LoadVector.from([0, 0, q], [0, 0, qScale], [0, 0, underflow]);
+    assembledMagnitudes3D.set(load, { qI: intensity, qJ: intensity });
     out.push(load);
   }
   return out;

@@ -1,5 +1,5 @@
 import type { ShellLoadSpec } from './shell-load-integration';
-import { add, cross, dot, LoadVector, mul, norm, roundoff, sub, unit, type Vector, type Wrench } from './accounting-math';
+import { add, cross, dot, LoadScalar, LoadVector, mul, norm, roundoff, sub, unit, type Vector, type Wrench } from './accounting-math';
 
 function clip(points: Vector[], distance: (p: Vector) => number): Vector[] {
   const result: Vector[] = [];
@@ -12,12 +12,12 @@ function clip(points: Vector[], distance: (p: Vector) => number): Vector[] {
   return result;
 }
 
-function integratePolygon(out: Wrench, points: Vector[], normal: Vector, force: LoadVector, field: (point: Vector) => number): void {
+function integratePolygon(out: Wrench, points: Vector[], normal: Vector, force: LoadVector, field: (point: Vector) => LoadScalar): void {
   for (let i = 1; i + 1 < points.length; i++) {
     const a = points[0]!, b = points[i]!, c = points[i + 1]!;
-    const area = dot(cross(sub(b, a), sub(c, a)), normal) / 2;
+    const area = new LoadScalar(dot(cross(sub(b, a), sub(c, a)), normal)).divide(2);
     for (const point of [mul(add(a, b), 0.5), mul(add(b, c), 0.5), mul(add(c, a), 0.5)]) {
-      out.apply(point, force.scale(area * field(point) / 3));
+      out.apply(point, force.scale(area.scale(field(point)).divide(3)));
     }
   }
 }
@@ -39,7 +39,7 @@ export function accountSurface(out: Wrench, points: Vector[], spec: ShellLoadSpe
       for (let i = 0; i < 3; i++) {
         const j = (i + 1) % 3;
         out.apply(mul(add(points[i]!, points[j]!), 0.5),
-          force.scale(norm(cross(u, v)) * (spec.qNodes[i]! + spec.qNodes[j]!) / 12));
+          force.scale(new LoadScalar(norm(cross(u, v))).scale(spec.qNodes[i]! + spec.qNodes[j]!).divide(12)));
       }
       return true;
     }
@@ -51,8 +51,10 @@ export function accountSurface(out: Wrench, points: Vector[], spec: ShellLoadSpe
         const at = add(origin, add(mul(u, s), add(mul(v, t), mul(w, s * t))));
         const jac = dot(cross(add(u, mul(w, t)), add(v, mul(w, s))), normal);
         const [a, b, c, d] = spec.qNodes;
-        const q = (1 - t) * ((1 - s) * a! + s * b!) + t * ((1 - s) * d! + s * c!);
-        out.apply(at, force.scale(ws * wt * jac * q));
+        const qi = new LoadScalar(1 - s).scale(a!).add(new LoadScalar(s).scale(b!));
+        const qj = new LoadScalar(1 - s).scale(d!).add(new LoadScalar(s).scale(c!));
+        const q = new LoadScalar(1 - t).scale(qi).add(new LoadScalar(t).scale(qj));
+        out.apply(at, force.scale(new LoadScalar(ws * wt).scale(jac).scale(q)));
       }
     }
     return true;
@@ -61,8 +63,8 @@ export function accountSurface(out: Wrench, points: Vector[], spec: ShellLoadSpe
   const vary = spec.vary;
   if (vary && vary.c1 === vary.c2) return true;
   const coordinate = vary ? (p: Vector) => dot(unit(vary.dir), p) : () => 0;
-  const field = vary ? (p: Vector) => vary.q1 + (vary.q2 - vary.q1) * ((coordinate(p) - vary.c1) / (vary.c2 - vary.c1))
-    : () => spec.q;
+  const field = vary ? (p: Vector) => new LoadScalar(coordinate(p) - vary.c1).divide(vary.c2 - vary.c1)
+    .scale(vary.q2 - vary.q1).add(new LoadScalar(vary.q1)) : () => new LoadScalar(spec.q);
   const region = spec.region;
   if ((region?.holes?.length ?? 0) > 1) return false;
   const loops = region ? [region.points, ...(region.holes ?? [])] : [points];
