@@ -2429,7 +2429,7 @@
       ]
     },
     "src/lib/engine/live-calc.ts": {
-      "source": "96bba21f9d23d72e509c5ed6dbe3099779b5068185e1fdb8c659b7e4e4ebf79b",
+      "source": "7cea629232d52896b8636943b82c61f4e2b7ee8b768b9be88250449a001742c5",
       "original": "cbb60a9db3b58149771fd485f91f31b80202937c2ca19fda3d9c9222b2ec3cb0",
       "changes": [
         [
@@ -2461,7 +2461,7 @@
         ],
         [
           283,
-          10,
+          9,
           [
             "    // A slab meshed before its columns' sections were represented is meshed again with them",
             "    // (`column-footprints.ts`): held at one node, its load split is the mesh's, not the building's.",
@@ -2472,14 +2472,14 @@
           ]
         ],
         [
-          295,
+          294,
           1,
           [
             "    const p = preparePlatesForAnalysis();"
           ]
         ],
         [
-          308,
+          307,
           4,
           [
             "    if (p.meshed > 0) uiStore.toast(tp('plates.meshedAtAnalysis', { n: p.meshed, cells: p.cells }), 'info');"
@@ -6129,7 +6129,7 @@
       ]
     },
     "src/lib/store/physical-plates.ts": {
-      "source": "8577e510be6558bbdf0dc008be11196b64c7e5b4fb489cc1f559c7b619f35d30",
+      "source": "e330ecf67dbe2c035c2747cfbdf5fea9bafadf7958e7183fdac961c4613d1f10",
       "original": "f1087ec325f40fca6cbb4381606d060bd2deac498987efe69681fe3eb98fa8f1",
       "changes": [
         [
@@ -6536,7 +6536,7 @@
         ],
         [
           1351,
-          22,
+          14,
           [
             "  const plans: PlateMeshPlan[] = [];",
             "  for (const id of need) {",
@@ -6546,8 +6546,8 @@
           ]
         ],
         [
-          1374,
-          0,
+          1366,
+          11,
           [
             "  // Loads put by hand on the old mesh's elements cannot follow a new mesh: the plate is meshed",
             "  // from its panel, whose plan lists them, never here where they would vanish unseen.",
@@ -6560,8 +6560,13 @@
             "      return message ? [message] : [];",
             "    });",
             "    if (messages.length) return { ok: false, reason: 'remeshBlocked', error: messages.join(' ') };",
-            "    return { ok: false, reason: 'refused', plates: names(r.refused.map(x => x.id)) };",
-            "  }",
+            "    return { ok: false, reason: 'refused', plates: names(r.refused.map(x => x.id)) };"
+          ]
+        ],
+        [
+          1378,
+          0,
+          [
             "  return checked(r.plates, r.cells);"
           ]
         ]

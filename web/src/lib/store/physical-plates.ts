@@ -1354,12 +1354,16 @@ export function preparePlatesForAnalysis(): PlatePreparation {
 }
 
 /** The same, with a frame between plates so the page can show `meshProgress`: what an analysis the user asked for runs. */
-export async function preparePlatesForAnalysisAsync(): Promise<PlatePreparation> {
+export async function preparePlatesForAnalysisAsync(recognizePhysicalModel: () => number): Promise<PlatePreparation> {
   // A mesh the plates' dialog started is let finish: two runs would write the model at once.
   while (meshProgress.now) await nextFrame();
   // Plates still on the coarse shells they came with are meshed when asked to; otherwise they solve as they came.
   const invalid = invalidPreparation();
   if (invalid) return invalid;
+  if (recognizePhysicalModel()) {
+    const invalidRecognized = invalidPreparation();
+    if (invalidRecognized) return invalidRecognized;
+  }
   const need = platesNeedingMesh({ coarse: meshBeforeAnalysis.value });
   if (!need.length) return prepared(0, 0);
   const names = (ids: number[]) => ids.map((id) => plateEntry(id)?.name ?? `#${id}`);

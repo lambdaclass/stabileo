@@ -281,7 +281,6 @@ export async function runGlobalSolve(options: { directBase?: boolean } = {}): Pr
   // is put back below. Every entry point, not only the re-check's re-run.
   const stampBefore = recheckStore.capture();
   if (uiStore.is3DWorkspace) {
-    ensurePhysicalModel();
     // Basic 3D has no plates: a slab waiting for the analysis is meshed in place (`deferred-slabs.ts`).
     if (uiStore.analysisMode !== 'pro') {
       // A slab meshed before its columns' sections were represented is meshed again with them
@@ -293,7 +292,7 @@ export async function runGlobalSolve(options: { directBase?: boolean } = {}): Pr
     }
     // Physical plates with no mesh or an out-of-date one (`store/physical-plates.ts`): meshed here,
     // once for the whole solve and before its inputs are taken, or the solve stops and says which.
-    const p = await preparePlatesForAnalysisAsync();
+    const p = await preparePlatesForAnalysisAsync(ensurePhysicalModel);
     if (!p.ok) {
       const error = 'error' in p ? p.error : tp({
         needsMesh: 'plates.analysisNeedsMesh',
