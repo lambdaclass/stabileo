@@ -260,6 +260,11 @@ async function capture(page: Page, base: string, locale: Locale, path: string) {
       link.href = path;
       document.head.appendChild(link);
     }
+    for (const canvas of document.querySelectorAll('#app canvas[data-engine]')) {
+      for (const name of canvas.getAttributeNames()) {
+        if (name.startsWith('data-') && name !== 'data-engine') canvas.removeAttribute(name);
+      }
+    }
     for (const control of document.querySelectorAll('#app form, #app input, #app select, #app textarea')) control.setAttribute('inert', '');
     return { head: document.head.innerHTML, body: document.querySelector('#app')?.innerHTML ?? '' };
   });

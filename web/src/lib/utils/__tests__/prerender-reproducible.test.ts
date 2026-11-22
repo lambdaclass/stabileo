@@ -103,7 +103,7 @@ ${source}`);
   }
 }, 600_000);
 
-it.skip('known wrong result: #2483 — Ferrari prerenders omit live WebGL diagnostics', async () => {
+it('Ferrari prerenders omit live WebGL diagnostics (#2483)', async () => {
   const path = '/research/stability/ferrari-sigmund-2025';
   const out = mkdtempSync(join(WEB_ROOT, '.dist-prerender-ferrari-'));
   try {
