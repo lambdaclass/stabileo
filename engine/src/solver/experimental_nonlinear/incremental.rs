@@ -21,6 +21,58 @@ pub(crate) trait IncrementalProblem {
     fn rollback(&mut self);
 }
 
+#[derive(Debug, PartialEq)]
+pub(crate) enum IterationError {
+    BudgetExhausted,
+    CountOverflow,
+    Problem(String),
+}
+
+impl From<String> for IterationError {
+    fn from(error: String) -> Self {
+        Self::Problem(error)
+    }
+}
+
+impl From<IterationError> for String {
+    fn from(error: IterationError) -> Self {
+        match error {
+            IterationError::BudgetExhausted => "Nonlinear iteration budget exhausted".into(),
+            IterationError::CountOverflow => {
+                "Nonlinear iteration count exceeds the supported range".into()
+            }
+            IterationError::Problem(error) => error,
+        }
+    }
+}
+
+pub(crate) struct IterationBudget<'a> {
+    remaining: usize,
+    total: &'a mut usize,
+}
+
+impl IterationBudget<'_> {
+    pub fn has_remaining(&self) -> bool {
+        self.remaining != 0
+    }
+
+    pub fn linearize<P: IncrementalProblem + ?Sized>(
+        &mut self,
+        problem: &mut P,
+    ) -> Result<Linearization, IterationError> {
+        let remaining = self
+            .remaining
+            .checked_sub(1)
+            .ok_or(IterationError::BudgetExhausted)?;
+        *self.total = self
+            .total
+            .checked_add(1)
+            .ok_or(IterationError::CountOverflow)?;
+        self.remaining = remaining;
+        Ok(problem.linearize()?)
+    }
+}
+
 pub(crate) trait Iteration {
     fn converge<P: IncrementalProblem + ?Sized>(
         &self,
@@ -28,7 +80,23 @@ pub(crate) trait Iteration {
         tolerance: f64,
         max_iter: usize,
         spent: &mut usize,
-    ) -> Result<bool, String>;
+    ) -> Result<bool, IterationError> {
+        let mut budget = IterationBudget {
+            remaining: max_iter,
+            total: spent,
+        };
+        match self.iterate(problem, tolerance, &mut budget) {
+            Err(IterationError::BudgetExhausted) => Ok(false),
+            outcome => outcome,
+        }
+    }
+
+    fn iterate<P: IncrementalProblem + ?Sized>(
+        &self,
+        problem: &mut P,
+        tolerance: f64,
+        budget: &mut IterationBudget<'_>,
+    ) -> Result<bool, IterationError>;
 }
 
 pub(crate) struct Newton {
@@ -36,16 +104,14 @@ pub(crate) struct Newton {
 }
 
 impl Iteration for Newton {
-    fn converge<P: IncrementalProblem + ?Sized>(
+    fn iterate<P: IncrementalProblem + ?Sized>(
         &self,
         problem: &mut P,
         tolerance: f64,
-        max_iter: usize,
-        spent: &mut usize,
-    ) -> Result<bool, String> {
-        for _ in 0..max_iter {
-            *spent += 1;
-            let at = problem.linearize()?;
+        budget: &mut IterationBudget<'_>,
+    ) -> Result<bool, IterationError> {
+        while budget.has_remaining() {
+            let at = budget.linearize(problem)?;
             if at.measure < tolerance && !at.forced {
                 return Ok(true);
             }
@@ -1066,7 +1132,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "known wrong result: #2401"]
     fn line_search_budget_applies_to_each_load_increment() {
         let mut single = Chain::spring(mild, 4.0);
         let first =
@@ -1095,7 +1160,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "known wrong result: #2401"]
     fn line_search_budget_refuses_an_unrepresentable_iteration_total() {
         let mut spring = Chain::spring(mild, 4.0);
         let mut spent = usize::MAX - 1;
@@ -1116,9 +1180,9 @@ mod tests {
         assert_eq!(
             NewtonLineSearch
                 .converge(&mut spring, 1e-11, 1, &mut spent)
-                .as_ref()
+                .map_err(String::from)
                 .err()
-                .map(String::as_str),
+                .as_deref(),
             Some("Nonlinear iteration count exceeds the supported range"),
         );
         assert_eq!(spring.linearizations, 1);

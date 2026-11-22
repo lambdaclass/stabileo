@@ -4,7 +4,6 @@ import { test } from 'node:test';
 
 const require = createRequire(import.meta.url);
 const engine = require('../../target/experimental-nonlinear-wasm/dedaliano_engine.js');
-const lineSearchBudget = process.env.RUN_KNOWN_WRONG ? test : test.skip;
 
 const frame = {
   elements: { 1: { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1 } },
@@ -33,7 +32,7 @@ const space = {
 for (const [dimension, input] of [[2, plane], [3, space]]) {
   const solve = engine[`solve_experimental_corotational_${dimension}d`];
   for (const stepping of ['equal', 'adaptive']) {
-    lineSearchBudget(`known wrong result: #2401 ${dimension}D ${stepping} line search uses a fresh budget on each step`, () => {
+    test(`${dimension}D ${stepping} line search uses a fresh budget on each step`, () => {
       const run = (maxIter) => JSON.parse(solve(JSON.stringify(input), JSON.stringify({
         method: 'newtonLineSearch', stepping, nIncrements: 2, maxIter, tolerance: 1e-8,
       })));

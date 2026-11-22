@@ -1,6 +1,6 @@
 use crate::solver::adaptive_stepping::{AdaptiveStepper, StepAction};
 
-use super::incremental::{IncrementalProblem, Iteration, Outcome};
+use super::incremental::{IncrementalProblem, Iteration, IterationError, Outcome};
 
 const FULL_LOAD_SLACK: f64 = 1e-12;
 
@@ -37,6 +37,9 @@ pub(crate) fn solve_by_adaptive_increments<P: IncrementalProblem + ?Sized, I: It
             outcome.increments += 1;
         } else {
             problem.rollback();
+        }
+        if matches!(attempt, Err(IterationError::CountOverflow)) {
+            return Err(IterationError::CountOverflow.into());
         }
         if stepper.report_convergence(converged, outcome.iterations - before) == StepAction::Abort {
             attempt?;

@@ -1,4 +1,4 @@
-use super::incremental::{IncrementalProblem, Iteration};
+use super::incremental::{IncrementalProblem, Iteration, IterationBudget, IterationError};
 
 pub(crate) struct Anderson {
     pub depth: usize,
@@ -6,18 +6,16 @@ pub(crate) struct Anderson {
 }
 
 impl Iteration for Anderson {
-    fn converge<P: IncrementalProblem + ?Sized>(
+    fn iterate<P: IncrementalProblem + ?Sized>(
         &self,
         problem: &mut P,
         tolerance: f64,
-        max_iter: usize,
-        spent: &mut usize,
-    ) -> Result<bool, String> {
+        budget: &mut IterationBudget<'_>,
+    ) -> Result<bool, IterationError> {
         let mut previous: Option<(Vec<f64>, Vec<f64>)> = None;
         let mut history: Vec<(Vec<f64>, Vec<f64>)> = Vec::new();
-        for _ in 0..max_iter {
-            *spent += 1;
-            let at = problem.linearize()?;
+        while budget.has_remaining() {
+            let at = budget.linearize(problem)?;
             if at.measure < tolerance && !at.forced {
                 return Ok(true);
             }

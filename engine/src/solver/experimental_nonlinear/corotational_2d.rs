@@ -1067,7 +1067,6 @@ mod shared_driver_equivalence {
     }
 
     #[test]
-    #[ignore = "known wrong result: #2401"]
     fn line_search_budget_in_2d_equal_steps() {
         let input = frame(1, 0.0, None);
         let mut unloaded = input.clone();
@@ -1100,7 +1099,6 @@ mod shared_driver_equivalence {
     }
 
     #[test]
-    #[ignore = "known wrong result: #2401"]
     fn line_search_budget_in_2d_adaptive_steps() {
         let input = frame(1, 0.0, None);
         let solve = |max_iter, stepping| {

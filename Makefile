@@ -240,7 +240,7 @@ test.engine:
 
 .PHONY: test.engine.lib
 test.engine.lib:
-	$(NIX_RUN) cargo test -p dedaliano-engine --lib $(if $(RELEASE),--release) $(if $(ENGINE_FEATURES),--features $(ENGINE_FEATURES)) $(FILTER) -- $(if $(IGNORED),--ignored)
+	$(NIX_RUN) cargo test -p dedaliano-engine --lib $(if $(RELEASE),--release) $(if $(ENGINE_FEATURES),--features $(ENGINE_FEATURES)) $(FILTER) $(if $(IGNORED),-- --ignored)
 
 .PHONY: test.engine.experimental-nonlinear test.engine.experimental-nonlinear-wasm
 test.engine.experimental-nonlinear:
@@ -248,7 +248,7 @@ test.engine.experimental-nonlinear:
 
 test.engine.experimental-nonlinear-wasm:
 	$(NIX_RUN) wasm-pack build engine --target nodejs --out-dir ../target/experimental-nonlinear-wasm --no-opt -- --features experimental-nonlinear
-	$(NIX_RUN) env RUN_KNOWN_WRONG=$(IGNORED) node --test $(if $(FILTER),--test-name-pattern="$(FILTER)") scripts/tests/experimental-nonlinear-wasm.mjs
+	$(NIX_RUN) node --test $(if $(FILTER),--test-name-pattern="$(FILTER)") scripts/tests/experimental-nonlinear-wasm.mjs
 
 test.backend: services
 	$(NIX_RUN) bash -c "cd backend && MIX_ENV=test mix ecto.create --quiet && MIX_ENV=test mix ecto.migrate --quiet && mix test"

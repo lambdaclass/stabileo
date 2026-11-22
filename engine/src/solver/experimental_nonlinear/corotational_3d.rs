@@ -682,7 +682,6 @@ mod shared_driver_equivalence_3d {
     }
 
     #[test]
-    #[ignore = "known wrong result: #2401"]
     fn line_search_budget_in_3d_equal_steps() {
         let input = frame(1, 0.0, false, 0.05);
         let solve = |max_iter| {
@@ -700,7 +699,6 @@ mod shared_driver_equivalence_3d {
     }
 
     #[test]
-    #[ignore = "known wrong result: #2401"]
     fn line_search_budget_in_3d_adaptive_steps() {
         let input = frame(1, 0.0, false, 0.05);
         let solve = |max_iter, stepping| {

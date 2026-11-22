@@ -1,11 +1,9 @@
 ### Changed
-#### Keep alternative nonlinear drivers opt-in (2026-11-21)
+#### Compile alternative nonlinear drivers as an opt-in engine feature (2026-11-22)
 
-The default build keeps the existing nonlinear solver implementations. To
-build or test the integrated Newton line search, Anderson acceleration,
-adaptive load stepping and shared continuation drivers, run
-`make engine.nonlinear-opt-in` and use the ordinary engine or WASM Make targets
-in the checkout printed by that command. The checkout is created from the
-current commit. The experimental sources receive their own signed commit so
-WASM results carry the build’s actual source provenance. Preparation fails if
-any solver file the patch modifies has changed since the integration.
+Enable the `experimental-nonlinear` Cargo feature and use
+`solver::experimental_nonlinear` to select line search, Anderson acceleration,
+adaptive load stepping, the shared 3D driver, or the shared arc-length and
+displacement-control drivers. Feature-enabled WASM builds expose separate
+`solve_experimental_*` exports. CI runs the feature-enabled native and WASM
+driver tests.
