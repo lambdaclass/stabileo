@@ -77,7 +77,7 @@
 <ExperimentShell compactHeader paperId="lee-frame-1968" name={s.title} lead={s.lead}
   sourcePath="research/benchmarks/lee-frame-1968"
   actions={{ goToStep: i => playback.seek(i), setParams: p => { if (splits.includes(p.split as Split)) { split = p.split as Split; run(); } }, showTab: () => {} }}
-  checks={{ passed: validation.checks.filter(c => c.passed).length, total: validation.checks.length }} referenceLabel={s.validationLabel}
+  verification={{ reference: { kind: 'checks', passed: validation.checks.filter(c => c.passed).length, total: validation.checks.length, href: '#checks' }, published: { kind: 'none', why: s.paperWhy } }} referenceLabel={s.validationLabel}
   comparison={publishedRows.checks} comparisonNames={rowNames}>
   {#snippet article()}
     <h2>{s.model}</h2><p>{s.description}</p><p>{s.method}</p>

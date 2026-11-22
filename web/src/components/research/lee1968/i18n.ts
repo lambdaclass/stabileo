@@ -1,5 +1,6 @@
 export const strings = {
   en: {
+    paperWhy: 'Not compared: Lee, Manuel & Rossow (1968) was not available to us. The table below compares later published solutions of the same frame.',
     sourceLabel: 'de Souza, Vanalli & de Luz (2020), §3.3: model from Figure 9, pinned path in Figure 10',
     title: 'Lee frame (1968)',
     lead: 'A pinned L-frame traced through its first limit point with Stabileo’s production corotational arc-length solver.',
@@ -15,9 +16,10 @@ export const strings = {
     chartLabel: 'Load P (kN) against downward displacement of the load point (cm)', readout: 'Step {step}: P = {load} kN, downward displacement {u} cm',
     incomplete: 'The solver stopped before this step.', invalid: 'The solver returned a missing or non-finite value.', solveError: 'The live computation could not run in this browser.',
     thumbnailAlt: 'Lee frame from the production engine',
-    validationLabel: 'Checked in research CI', row_fig10_elements20: 'First peak load, 20 elements, against the Figure 10 reading', row_fig10_extrapolated: 'First peak load, extrapolated to zero element length, against the Figure 10 reading', row_galvao_extrapolated: 'First peak load, extrapolated to zero element length, against Galvão (2000)', meshLive: 'Trace the path live with a finer mesh:', elements: 'Elements', elementsOption: '{n} elements', rowShown: 'This run, {n} elements', rowNative: 'Native study, {n} elements',
+    validationLabel: 'Checked in CI', row_fig10_elements20: 'First peak load, 20 elements, against the Figure 10 reading', row_fig10_extrapolated: 'First peak load, extrapolated to zero element length, against the Figure 10 reading', row_galvao_extrapolated: 'First peak load, extrapolated to zero element length, against Galvão (2000)', meshLive: 'Trace the path live with a finer mesh:', elements: 'Elements', elementsOption: '{n} elements', rowShown: 'This run, {n} elements', rowNative: 'Native study, {n} elements',
   },
   es: {
+    paperWhy: 'No comparado: no tuvimos acceso a Lee, Manuel y Rossow (1968). La tabla de abajo compara soluciones publicadas después para el mismo pórtico.',
     sourceLabel: 'de Souza, Vanalli y de Luz (2020), §3.3: modelo de la Figura 9, trayectoria articulada de la Figura 10',
     title: 'Pórtico de Lee (1968)',
     lead: 'Un pórtico en L articulado, seguido más allá del primer punto límite con el solver corrotacional de longitud de arco de Stabileo.',
@@ -33,9 +35,10 @@ export const strings = {
     chartLabel: 'Carga P (kN) frente al desplazamiento hacia abajo del punto de carga (cm)', readout: 'Paso {step}: P = {load} kN, desplazamiento hacia abajo {u} cm',
     incomplete: 'El solver se detuvo antes de este paso.', invalid: 'El solver devolvió un valor faltante o no finito.', solveError: 'El cálculo en vivo no pudo ejecutarse en este navegador.',
     thumbnailAlt: 'Pórtico de Lee con el motor de producción',
-    validationLabel: 'Verificado en la CI de research', row_fig10_elements20: 'Primer máximo de carga, 20 elementos, frente a la lectura de la Figura 10', row_fig10_extrapolated: 'Primer máximo de carga extrapolado a longitud de elemento nula, frente a la lectura de la Figura 10', row_galvao_extrapolated: 'Primer máximo de carga extrapolado a longitud de elemento nula, frente a Galvão (2000)', meshLive: 'Seguí la trayectoria en vivo con una malla más fina:', elements: 'Elementos', elementsOption: '{n} elementos', rowShown: 'Esta ejecución, {n} elementos', rowNative: 'Estudio nativo, {n} elementos',
+    validationLabel: 'Verificado en la integración continua', row_fig10_elements20: 'Primer máximo de carga, 20 elementos, frente a la lectura de la Figura 10', row_fig10_extrapolated: 'Primer máximo de carga extrapolado a longitud de elemento nula, frente a la lectura de la Figura 10', row_galvao_extrapolated: 'Primer máximo de carga extrapolado a longitud de elemento nula, frente a Galvão (2000)', meshLive: 'Seguí la trayectoria en vivo con una malla más fina:', elements: 'Elementos', elementsOption: '{n} elementos', rowShown: 'Esta ejecución, {n} elementos', rowNative: 'Estudio nativo, {n} elementos',
   },
   pt: {
+    paperWhy: 'Não comparado: não tivemos acesso a Lee, Manuel e Rossow (1968). A tabela abaixo compara soluções publicadas depois para o mesmo pórtico.',
     sourceLabel: 'de Souza, Vanalli e de Luz (2020), §3.3: modelo da Figura 9, trajetória articulada da Figura 10',
     title: 'Pórtico de Lee (1968)',
     lead: 'Um pórtico em L articulado, acompanhado além do primeiro ponto limite com o solver corrotacional de comprimento de arco do Stabileo.',
@@ -51,9 +54,10 @@ export const strings = {
     chartLabel: 'Carga P (kN) versus deslocamento para baixo do ponto de carga (cm)', readout: 'Passo {step}: P = {load} kN, deslocamento para baixo {u} cm',
     incomplete: 'O solver parou antes deste passo.', invalid: 'O solver retornou um valor ausente ou não finito.', solveError: 'O cálculo ao vivo não pôde ser executado neste navegador.',
     thumbnailAlt: 'Pórtico de Lee pelo motor de produção',
-    validationLabel: 'Verificado na CI de research', row_fig10_elements20: 'Primeiro máximo de carga, 20 elementos, frente à leitura da Figura 10', row_fig10_extrapolated: 'Primeiro máximo de carga extrapolado para comprimento de elemento nulo, frente à leitura da Figura 10', row_galvao_extrapolated: 'Primeiro máximo de carga extrapolado para comprimento de elemento nulo, frente a Galvão (2000)', meshLive: 'Acompanhe a trajetória ao vivo com uma malha mais fina:', elements: 'Elementos', elementsOption: '{n} elementos', rowShown: 'Esta execução, {n} elementos', rowNative: 'Estudo nativo, {n} elementos',
+    validationLabel: 'Verificado na integração contínua', row_fig10_elements20: 'Primeiro máximo de carga, 20 elementos, frente à leitura da Figura 10', row_fig10_extrapolated: 'Primeiro máximo de carga extrapolado para comprimento de elemento nulo, frente à leitura da Figura 10', row_galvao_extrapolated: 'Primeiro máximo de carga extrapolado para comprimento de elemento nulo, frente a Galvão (2000)', meshLive: 'Acompanhe a trajetória ao vivo com uma malha mais fina:', elements: 'Elementos', elementsOption: '{n} elementos', rowShown: 'Esta execução, {n} elementos', rowNative: 'Estudo nativo, {n} elementos',
   },
   de: {
+    paperWhy: 'Nicht verglichen: Lee, Manuel & Rossow (1968) lag uns nicht vor. Die Tabelle unten vergleicht spätere veröffentlichte Lösungen desselben Rahmens.',
     sourceLabel: 'de Souza, Vanalli & de Luz (2020), §3.3: Modell aus Abbildung 9, gelenkiger Pfad in Abbildung 10',
     title: 'Lee-Rahmen (1968)',
     lead: 'Ein gelenkig gelagerter L-Rahmen, mit dem korotationalen Bogenlängenlöser von Stabileo über den ersten Grenzpunkt hinaus verfolgt.',
@@ -69,9 +73,10 @@ export const strings = {
     chartLabel: 'Last P (kN) über der Verschiebung des Lastpunkts nach unten (cm)', readout: 'Schritt {step}: P = {load} kN, Verschiebung nach unten {u} cm',
     incomplete: 'Der Löser hat vor diesem Schritt angehalten.', invalid: 'Der Löser hat einen fehlenden oder nicht endlichen Wert geliefert.', solveError: 'Die Live-Berechnung konnte in diesem Browser nicht ausgeführt werden.',
     thumbnailAlt: 'Lee-Rahmen aus dem Produktionsrechenkern',
-    validationLabel: 'In der Research-CI geprüft', row_fig10_elements20: 'Erstes Lastmaximum, 20 Elemente, gegenüber der Ablesung aus Abbildung 10', row_fig10_extrapolated: 'Erstes Lastmaximum, auf verschwindende Elementlänge extrapoliert, gegenüber der Ablesung aus Abbildung 10', row_galvao_extrapolated: 'Erstes Lastmaximum, auf verschwindende Elementlänge extrapoliert, gegenüber Galvão (2000)', meshLive: 'Den Pfad live mit einem feineren Netz verfolgen:', elements: 'Elemente', elementsOption: '{n} Elemente', rowShown: 'Dieser Lauf, {n} Elemente', rowNative: 'Native Studie, {n} Elemente',
+    validationLabel: 'In der CI geprüft', row_fig10_elements20: 'Erstes Lastmaximum, 20 Elemente, gegenüber der Ablesung aus Abbildung 10', row_fig10_extrapolated: 'Erstes Lastmaximum, auf verschwindende Elementlänge extrapoliert, gegenüber der Ablesung aus Abbildung 10', row_galvao_extrapolated: 'Erstes Lastmaximum, auf verschwindende Elementlänge extrapoliert, gegenüber Galvão (2000)', meshLive: 'Den Pfad live mit einem feineren Netz verfolgen:', elements: 'Elemente', elementsOption: '{n} Elemente', rowShown: 'Dieser Lauf, {n} Elemente', rowNative: 'Native Studie, {n} Elemente',
   },
   fr: {
+    paperWhy: 'Non comparé : Lee, Manuel & Rossow (1968) ne nous était pas accessible. Le tableau ci-dessous compare des solutions publiées plus tard pour le même portique.',
     sourceLabel: 'de Souza, Vanalli & de Luz (2020), §3.3 : modèle de la figure 9, chemin articulé de la figure 10',
     title: 'Portique de Lee (1968)',
     lead: 'Un portique en L articulé, suivi au-delà de son premier point limite avec le solveur corotationnel à longueur d’arc de Stabileo.',
@@ -87,9 +92,10 @@ export const strings = {
     chartLabel: 'Charge P (kN) en fonction du déplacement vers le bas du point de charge (cm)', readout: 'Pas {step} : P = {load} kN, déplacement vers le bas {u} cm',
     incomplete: 'Le solveur s’est arrêté avant ce pas.', invalid: 'Le solveur a renvoyé une valeur manquante ou non finie.', solveError: 'Le calcul en direct n’a pas pu s’exécuter dans ce navigateur.',
     thumbnailAlt: 'Portique de Lee par le moteur de production',
-    validationLabel: 'Vérifié dans la CI de research', row_fig10_elements20: 'Premier maximum de charge, 20 éléments, face à la lecture de la figure 10', row_fig10_extrapolated: 'Premier maximum de charge extrapolé à une longueur d’élément nulle, face à la lecture de la figure 10', row_galvao_extrapolated: 'Premier maximum de charge extrapolé à une longueur d’élément nulle, face à Galvão (2000)', meshLive: 'Suivre le chemin en direct avec un maillage plus fin :', elements: 'Éléments', elementsOption: '{n} éléments', rowShown: 'Ce calcul, {n} éléments', rowNative: 'Étude native, {n} éléments',
+    validationLabel: 'Vérifié en intégration continue', row_fig10_elements20: 'Premier maximum de charge, 20 éléments, face à la lecture de la figure 10', row_fig10_extrapolated: 'Premier maximum de charge extrapolé à une longueur d’élément nulle, face à la lecture de la figure 10', row_galvao_extrapolated: 'Premier maximum de charge extrapolé à une longueur d’élément nulle, face à Galvão (2000)', meshLive: 'Suivre le chemin en direct avec un maillage plus fin :', elements: 'Éléments', elementsOption: '{n} éléments', rowShown: 'Ce calcul, {n} éléments', rowNative: 'Étude native, {n} éléments',
   },
   tr: {
+    paperWhy: 'Karşılaştırılmadı: Lee, Manuel ve Rossow (1968) makalesine erişemedik. Aşağıdaki tablo aynı çerçevenin sonradan yayımlanmış çözümlerini karşılaştırır.',
     sourceLabel: 'de Souza, Vanalli ve de Luz (2020), §3.3: model Şekil 9’dan, mafsallı yol Şekil 10’da',
     title: 'Lee çerçevesi (1968)',
     lead: 'Mafsallı bir L çerçeve, Stabileo’nun üretim korotasyonel yay uzunluğu çözücüsüyle ilk limit noktasının ötesine izleniyor.',
@@ -105,9 +111,10 @@ export const strings = {
     chartLabel: 'Yük P (kN) ile yük noktasının aşağı yer değiştirmesi (cm)', readout: 'Adım {step}: P = {load} kN, aşağı yer değiştirme {u} cm',
     incomplete: 'Çözücü bu adımdan önce durdu.', invalid: 'Çözücü eksik veya sonlu olmayan bir değer döndürdü.', solveError: 'Canlı hesaplama bu tarayıcıda çalıştırılamadı.',
     thumbnailAlt: 'Üretim motorundan Lee çerçevesi',
-    validationLabel: 'Research CI’da doğrulandı', row_fig10_elements20: 'İlk tepe yükü, 20 eleman, Şekil 10 okumasına karşı', row_fig10_extrapolated: 'Sıfır eleman boyuna ekstrapole edilmiş ilk tepe yükü, Şekil 10 okumasına karşı', row_galvao_extrapolated: 'Sıfır eleman boyuna ekstrapole edilmiş ilk tepe yükü, Galvão (2000) değerine karşı', meshLive: 'Yolu daha ince bir ağla canlı izleyin:', elements: 'Eleman', elementsOption: '{n} eleman', rowShown: 'Bu çalıştırma, {n} eleman', rowNative: 'Yerel çalışma, {n} eleman',
+    validationLabel: 'Sürekli entegrasyonda doğrulandı', row_fig10_elements20: 'İlk tepe yükü, 20 eleman, Şekil 10 okumasına karşı', row_fig10_extrapolated: 'Sıfır eleman boyuna ekstrapole edilmiş ilk tepe yükü, Şekil 10 okumasına karşı', row_galvao_extrapolated: 'Sıfır eleman boyuna ekstrapole edilmiş ilk tepe yükü, Galvão (2000) değerine karşı', meshLive: 'Yolu daha ince bir ağla canlı izleyin:', elements: 'Eleman', elementsOption: '{n} eleman', rowShown: 'Bu çalıştırma, {n} eleman', rowNative: 'Yerel çalışma, {n} eleman',
   },
   hu: {
+    paperWhy: 'Nincs összevetve: Lee, Manuel és Rossow (1968) cikkéhez nem fértünk hozzá. Az alábbi táblázat ugyanennek a keretnek később publikált megoldásaival vet össze.',
     sourceLabel: 'de Souza, Vanalli és de Luz (2020), §3.3: a modell a 9. ábrából, a csuklós út a 10. ábrán',
     title: 'Lee-keret (1968)',
     lead: 'Csuklós L alakú keret, amelyet a Stabileo alkalmazásban futó korotációs ívhossz-megoldója az első határponton túl is követ.',
@@ -123,9 +130,10 @@ export const strings = {
     chartLabel: 'P teher (kN) a terhelési pont lefelé irányuló elmozdulásának (cm) függvényében', readout: '{step}. lépés: P = {load} kN, lefelé irányuló elmozdulás {u} cm',
     incomplete: 'A megoldó e lépés előtt leállt.', invalid: 'A megoldó hiányzó vagy nem véges értéket adott vissza.', solveError: 'Az élő számítás ebben a böngészőben nem futtatható.',
     thumbnailAlt: 'Lee-keret az alkalmazás számítómotorjából',
-    validationLabel: 'A research CI-ban ellenőrizve', row_fig10_elements20: 'Első csúcsteher, 20 elem, a 10. ábra leolvasásával szemben', row_fig10_extrapolated: 'Első csúcsteher zérus elemhosszra extrapolálva, a 10. ábra leolvasásával szemben', row_galvao_extrapolated: 'Első csúcsteher zérus elemhosszra extrapolálva, Galvão (2000) értékével szemben', meshLive: 'Az út élő követése finomabb hálóval:', elements: 'Elemek', elementsOption: '{n} elem', rowShown: 'Ez a futás, {n} elem', rowNative: 'Natív vizsgálat, {n} elem',
+    validationLabel: 'A folyamatos integrációban ellenőrizve', row_fig10_elements20: 'Első csúcsteher, 20 elem, a 10. ábra leolvasásával szemben', row_fig10_extrapolated: 'Első csúcsteher zérus elemhosszra extrapolálva, a 10. ábra leolvasásával szemben', row_galvao_extrapolated: 'Első csúcsteher zérus elemhosszra extrapolálva, Galvão (2000) értékével szemben', meshLive: 'Az út élő követése finomabb hálóval:', elements: 'Elemek', elementsOption: '{n} elem', rowShown: 'Ez a futás, {n} elem', rowNative: 'Natív vizsgálat, {n} elem',
   },
   zh: {
+    paperWhy: '未比较：我们无法获取 Lee、Manuel 和 Rossow (1968) 的原文。下表与同一框架后来发表的解进行比较。',
     sourceLabel: 'de Souza, Vanalli & de Luz (2020)，§3.3：模型取自图 9，铰接路径见图 10',
     title: 'Lee 框架 (1968)',
     lead: '一个铰接的 L 形框架，用 Stabileo 生产环境的共旋弧长求解器追踪其越过第一个极值点的全过程。',
@@ -141,6 +149,6 @@ export const strings = {
     chartLabel: '荷载 P (kN) 随加载点向下位移 (cm) 的变化', readout: '第 {step} 步：P = {load} kN，向下位移 {u} cm',
     incomplete: '求解器在此步之前已停止。', invalid: '求解器返回了缺失或非有限的值。', solveError: '无法在此浏览器中运行实时计算。',
     thumbnailAlt: '生产环境计算引擎得到的 Lee 框架',
-    validationLabel: '已在研究 CI 中检查', row_fig10_elements20: '第一个峰值荷载，20 个单元，对照图 10 读数', row_fig10_extrapolated: '外推到单元长度为零的第一个峰值荷载，对照图 10 读数', row_galvao_extrapolated: '外推到单元长度为零的第一个峰值荷载，对照 Galvão (2000)', meshLive: '用更细的网格实时追踪路径：', elements: '单元数', elementsOption: '{n} 个单元', rowShown: '本次计算，{n} 个单元', rowNative: '原生研究，{n} 个单元',
+    validationLabel: '已在持续集成中检查', row_fig10_elements20: '第一个峰值荷载，20 个单元，对照图 10 读数', row_fig10_extrapolated: '外推到单元长度为零的第一个峰值荷载，对照图 10 读数', row_galvao_extrapolated: '外推到单元长度为零的第一个峰值荷载，对照 Galvão (2000)', meshLive: '用更细的网格实时追踪路径：', elements: '单元数', elementsOption: '{n} 个单元', rowShown: '本次计算，{n} 个单元', rowNative: '原生研究，{n} 个单元',
   },
 };

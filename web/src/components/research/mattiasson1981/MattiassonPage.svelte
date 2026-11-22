@@ -89,10 +89,10 @@
     <div class="benchmark-pane" bind:this={pane}>
       <PaneTabs tabs={[{ id: 'viewer', label: s.viewer }, { id: 'results', label: s.results }]} bind:active={tab} />
       <div id="rs-panel-viewer" role="tabpanel" aria-labelledby="rs-tab-viewer" hidden={tab !== 'viewer'}>
-        <ScalarFieldViewer plane="elevation" {...view} cellSize={2} deformScale={1} showMesh={true} title={moment ? s.moment : s.force} unit="m" height="max(280px, min(23rem, 48svh))" onOpenEditor={open} />
+        <ScalarFieldViewer plane="elevation" {...view} cellSize={2} deformScale={1} showMesh={true} title={s.magnitude} unit="m" height="max(280px, min(23rem, 48svh))" onOpenEditor={open} />
         <label><input type="checkbox" bind:checked={moment} /> {s.moment}</label>
         <label>{s.select}: {fmt(forceCase.parameter)} <input aria-label={s.select} aria-valuetext={`${s.force}: PL²/EI = ${fmt(forceCase.parameter)}`} type="range" min="0" max={forceCases.length - 1} value={playback.shown} disabled={moment} oninput={e => playback.seek(Number(e.currentTarget.value))} /></label>
-        <p data-testid="mattiasson-step">{moment ? s.moment : s.force}: {current.id}</p>
+        <p data-testid="mattiasson-step">{moment ? s.moment : `${s.force}: PL²/EI = ${fmt(current.parameter)}`}</p>
         {#if result?.failure}<p role="alert">{s[result.failure as 'incomplete' | 'invalid' | 'solveError']}</p>{:else if !result}<p>{s.compute}</p>{/if}
         <button onclick={open}>{s.open}</button><p>{s.handoff}</p>
       </div>

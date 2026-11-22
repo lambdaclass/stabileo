@@ -38,13 +38,14 @@ export const strings = {
     "loadCase": "Benchmark",
     "chartDescription": "Solid u/L, dashed v/L; circles mark analytical references. Numerical values follow in the table.",
     "evidence": "Evidence and reproduction",
-    "validationLabel": "Checked in research CI",
+    "validationLabel": "Checked in CI",
     "rowName": "PL²/EI = {q}: {component}, 16 elements",
     "rowU": "horizontal tip displacement u/L",
     "rowV": "vertical tip displacement v/L",
     "meshLive": "Solve every case live with a finer mesh:",
     "meshRun": "{n} elements",
-    "elements": "Elements"
+    "elements": "Elements",
+    "magnitude": "Displacement magnitude |u|"
   },
   "es": {
     "title": "Mattiasson (1981): elástica de una ménsula",
@@ -85,13 +86,14 @@ export const strings = {
     "loadCase": "Referencia",
     "chartDescription": "u/L en línea continua, v/L en línea discontinua; los círculos marcan las referencias. Los valores están en la tabla siguiente.",
     "evidence": "Evidencia y reproducción",
-    "validationLabel": "Verificado en la CI de research",
+    "validationLabel": "Verificado en la integración continua",
     "rowName": "PL²/EI = {q}: {component}, 16 elementos",
     "rowU": "desplazamiento horizontal del extremo u/L",
     "rowV": "desplazamiento vertical del extremo v/L",
     "meshLive": "Resolvé todos los casos en vivo con una malla más fina:",
     "meshRun": "{n} elementos",
-    "elements": "Elementos"
+    "elements": "Elementos",
+    "magnitude": "Magnitud del desplazamiento |u|"
   },
   "pt": {
     "title": "Mattiasson (1981): elástica de uma viga em balanço",
@@ -132,13 +134,14 @@ export const strings = {
     "loadCase": "Referência",
     "chartDescription": "u/L contínua, v/L tracejada; círculos para as referências. Valores na tabela seguinte.",
     "evidence": "Evidência e reprodução",
-    "validationLabel": "Verificado na CI de research",
+    "validationLabel": "Verificado na integração contínua",
     "rowName": "PL²/EI = {q}: {component}, 16 elementos",
     "rowU": "deslocamento horizontal da extremidade u/L",
     "rowV": "deslocamento vertical da extremidade v/L",
     "meshLive": "Resolva todos os casos ao vivo com uma malha mais fina:",
     "meshRun": "{n} elementos",
-    "elements": "Elementos"
+    "elements": "Elementos",
+    "magnitude": "Magnitude do deslocamento |u|"
   },
   "de": {
     "title": "Mattiasson (1981): Kragträger-Elastica",
@@ -179,13 +182,14 @@ export const strings = {
     "loadCase": "Referenz",
     "chartDescription": "u/L durchgezogen, v/L gestrichelt; Kreise markieren Referenzen. Werte in der folgenden Tabelle.",
     "evidence": "Nachweise und Reproduktion",
-    "validationLabel": "In der Research-CI geprüft",
+    "validationLabel": "In der CI geprüft",
     "rowName": "PL²/EI = {q}: {component}, 16 Elemente",
     "rowU": "horizontale Endverschiebung u/L",
     "rowV": "vertikale Endverschiebung v/L",
     "meshLive": "Alle Fälle live mit einem feineren Netz berechnen:",
     "meshRun": "{n} Elemente",
-    "elements": "Elemente"
+    "elements": "Elemente",
+    "magnitude": "Betrag der Verschiebung |u|"
   },
   "fr": {
     "title": "Mattiasson (1981) : élastique d’une poutre en console",
@@ -226,13 +230,14 @@ export const strings = {
     "loadCase": "Référence",
     "chartDescription": "u/L continu, v/L pointillé ; cercles pour les références. Valeurs dans le tableau suivant.",
     "evidence": "Preuves et reproduction",
-    "validationLabel": "Vérifié dans la CI de research",
+    "validationLabel": "Vérifié en intégration continue",
     "rowName": "PL²/EI = {q} : {component}, 16 éléments",
     "rowU": "déplacement horizontal de l’extrémité u/L",
     "rowV": "déplacement vertical de l’extrémité v/L",
     "meshLive": "Recalculer tous les cas en direct avec un maillage plus fin :",
     "meshRun": "{n} éléments",
-    "elements": "Éléments"
+    "elements": "Éléments",
+    "magnitude": "Norme du déplacement |u|"
   },
   "tr": {
     "title": "Mattiasson (1981): konsol elastikası",
@@ -273,13 +278,14 @@ export const strings = {
     "loadCase": "Referans",
     "chartDescription": "u/L düz, v/L kesikli; daireler referansları gösterir. Sayısal değerler aşağıdaki tabloda.",
     "evidence": "Kanıtlar ve yeniden üretim",
-    "validationLabel": "Research CI’da doğrulandı",
+    "validationLabel": "Sürekli entegrasyonda doğrulandı",
     "rowName": "PL²/EI = {q}: {component}, 16 eleman",
     "rowU": "uçta yatay yer değiştirme u/L",
     "rowV": "uçta düşey yer değiştirme v/L",
     "meshLive": "Tüm durumları daha ince bir ağla canlı çözün:",
     "meshRun": "{n} eleman",
-    "elements": "Eleman"
+    "elements": "Eleman",
+    "magnitude": "Yer değiştirme büyüklüğü |u|"
   },
   "hu": {
     "title": "Mattiasson (1981): konzol elasztikája",
@@ -320,13 +326,14 @@ export const strings = {
     "loadCase": "Referenciafeladat",
     "chartDescription": "Folytonos vonal: u/L, szaggatott: v/L; a körök az analitikus referenciákat jelölik. A számértékek a táblázatban következnek.",
     "evidence": "Bizonyítékok és reprodukció",
-    "validationLabel": "A research CI-ban ellenőrizve",
+    "validationLabel": "A folyamatos integrációban ellenőrizve",
     "rowName": "PL²/EI = {q}: {component}, 16 elem",
     "rowU": "a vég vízszintes elmozdulása, u/L",
     "rowV": "a vég függőleges elmozdulása, v/L",
     "meshLive": "Minden eset élő számítása finomabb hálóval:",
     "meshRun": "{n} elem",
-    "elements": "Elemek"
+    "elements": "Elemek",
+    "magnitude": "Elmozdulás nagysága |u|"
   },
   "zh": {
     "title": "Mattiasson (1981)：悬臂梁弹性曲线",
@@ -367,12 +374,13 @@ export const strings = {
     "loadCase": "基准算例",
     "chartDescription": "实线为 u/L，虚线为 v/L；圆圈标出解析参考值。数值见后面的表格。",
     "evidence": "依据与复现",
-    "validationLabel": "已在研究 CI 中检查",
+    "validationLabel": "已在持续集成中检查",
     "rowName": "PL²/EI = {q}：{component}，16 个单元",
     "rowU": "端部水平位移 u/L",
     "rowV": "端部竖向位移 v/L",
     "meshLive": "用更细的网格实时求解所有工况：",
     "meshRun": "{n} 个单元",
-    "elements": "单元数"
+    "elements": "单元数",
+    "magnitude": "位移大小 |u|"
   }
 };

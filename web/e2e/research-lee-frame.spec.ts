@@ -38,7 +38,8 @@ test('@smoke Lee frame replay, reduced-motion live run and stop', async ({ page 
   await expect(comparison).toContainText('First peak load, 20 elements, against the Figure 10 reading');
   await expect(comparison).toContainText('Galvão (2000)');
   await expect(comparison.locator('.bad')).toHaveCount(0);
-  await expect(page.locator('.rs-verify')).toContainText('Checked in research CI');
+  await expect(page.locator('.rs-verify')).toContainText('Checked in CI');
+  await expect(page.locator('.rs-verify')).toContainText('Not compared: Lee, Manuel & Rossow (1968) was not available to us.');
   await expect(page.getByTestId('lee-convergence')).toContainText('1.8658 kN at step 47');
   await expect(page.getByTestId('lee-convergence')).toContainText('1.8582 and 1.8563 kN');
   await expect(page.getByTestId('lee-convergence')).toContainText('less than 0.0001 kN');
