@@ -120,6 +120,8 @@ const body: PostBody = {
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-109-dxf-support-labels.md", "label": "SA-2026-109", "t": "Betroffene Eingaben und erforderliche Schritte."},
     {"k": "note", "t": "SA-2026-110 — Nächste Version nach 0.6.4."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-110-solver-json-boundary.md", "label": "SA-2026-110", "t": "Betroffene Eingaben und erforderliche Schritte."},
+    {"k": "note", "t": "SA-2026-111 — Nächste Version nach 0.6.4."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-111-gravity-shared-deck-coverage.md", "label": "SA-2026-111", "t": "Betroffene Eingaben und erforderliche Schritte."},
     {"k": "img", "base": "blog/recheck-stale", "w": 1600, "h": 1000, "alt": "Stabileo PRO mit einem Stahlbetonrahmen, gespeichert, bevor Ergebnisse versioniert wurden. Ein Hinweis unten meldet veraltete Ergebnisse: Das Projekt wurde mit einer älteren Version gelöst, und 19 registrierte Änderungen betreffen es; daneben die Schaltflächen, um die Änderungen zu sehen und neu zu rechnen.", "caption": "Wie eine Korrektur ein gespeichertes Projekt erreicht: Bis es neu gelöst ist, bleiben seine Ergebnisse als veraltet markiert, und die Änderungen, die es betreffen, sind einen Klick entfernt."},
     {
       "k": "h",
@@ -538,7 +540,8 @@ const body: PostBody = {
         ["SA-2026-107", "Bei der Neuvernetzung konnten Änderungen am Schalenversatz und an der Krümmung verloren gehen. Prüfen Sie die vorgesehenen Schaleneigenschaften, stellen Sie sie wieder her und wiederholen Sie die Berechnung und die Nachweise.", "Hoch", "Nächste Version nach 0.6.3 (Eindämmung)"],
         ["SA-2026-108", "Bei der Projektion auf die XZ- oder YZ-Ebene konnte die zur Berechnungsebene senkrechte Komponente einer Knotenkraft ohne Warnung entfallen. Prüfen Sie die Knotenkräfte in jedem Lastfall und wiederholen Sie die betroffenen Berechnungen und Nachweise mit dem räumlichen Modell.", "Hoch", "Nächste Version nach 0.6.4"],
         ["SA-2026-109", "Unbekannte Auflagerbezeichnungen in einer ebenen DXF-Zeichnung konnten ohne Warnung als gelenkige Auflager importiert werden. Vergleichen Sie die importierten Auflager mit der Originalzeichnung, korrigieren Sie Abweichungen und wiederholen Sie die betroffenen Berechnungen.", "Hoch", "Nächste Version nach 0.6.4"],
-        ["SA-2026-110", "Die Webanwendung konnte eine Feder mit nicht endlicher Steifigkeit oder einen Lastfall in einer Kombination ohne Warnung auslassen. Prüfen Sie die Federsteifigkeiten, die Lastfallnamen und die resultierenden Faktoren. Berechnen Sie die betroffenen Fälle und Kombinationen erneut.", "Hoch", "Nächste Version nach 0.6.4"]
+        ["SA-2026-110", "Die Webanwendung konnte eine Feder mit nicht endlicher Steifigkeit oder einen Lastfall in einer Kombination ohne Warnung auslassen. Prüfen Sie die Federsteifigkeiten, die Lastfallnamen und die resultierenden Faktoren. Berechnen Sie die betroffenen Fälle und Kombinationen erneut.", "Hoch", "Nächste Version nach 0.6.4"],
+        ["SA-2026-111", "Die automatische Erzeugung von Schwerelasten für Deckenfelder konnte dieselbe Deckenlast doppelt ansetzen. Prüfen Sie überlappende Schalen und angeschlossene Trägerfelder, erzeugen Sie betroffene gespeicherte Schwerelastpläne neu und wiederholen Sie die betroffenen Berechnungen.", "Hoch", "Nächste Version nach 0.6.4"]
       ]
     },
     {
