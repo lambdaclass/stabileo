@@ -3978,6 +3978,16 @@ const de: Translations = {
   'config.unitMKS': 'Technisches Maßsystem (tf, kgf/cm²)',
   'config.unitImperial': 'Imperial (kip, ft)',
   'matEdit.optional': 'optional',
+  'matEdit.nameLabel': 'Name',
+  'matEdit.e': 'Elastizitätsmodul',
+  'matEdit.nu': 'Querdehnzahl',
+  'matEdit.gamma': 'Wichte',
+  'matEdit.fy': 'Streckgrenze',
+  'matEdit.alpha': 'Wärmeausdehnung',
+  'matEdit.extra': 'Streckgrenze und Wärmeausdehnung',
+  'matEdit.fyHelp': 'Wird von der plastischen Berechnung und den Querschnittsspannungen verwendet.',
+  'matEdit.save': 'Speichern',
+  'matEdit.delete': 'Material löschen',
   'dsm.expectedValue': 'Erwarteter Wert',
 
   // ─── Influence line labels ───

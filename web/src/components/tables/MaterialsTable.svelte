@@ -1,44 +1,24 @@
 <script lang="ts">
-  import { modelStore, resultsStore } from '../../lib/store';
+  import { modelStore, resultsStore, uiStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
   import MaterialPresetSelector from '../MaterialPresetSelector.svelte';
+  import MaterialForm from './MaterialForm.svelte';
   import type { MaterialPreset } from '../../lib/data/material-presets';
-  import { unitQ } from '../../lib/store/display-units.svelte';
-  import UnitInput from '../UnitInput.svelte';
 
   const materialsArr = $derived([...modelStore.materials.values()]);
 
   let materialPresetTargetId = $state<number | null>(null);
-  /** Which material has its properties open. One at a time: this is a list. */
-  let expandedId = $state<number | null>(null);
+  let formFor = $state<number | 'new' | null>(null);
 
   let showMaterialPresetSelector = $state(false);
 
-  function addMaterial() {
-    modelStore.addMaterial({ name: t('table.newMaterial'), e: 200000, nu: 0.3, rho: 78.5 });
-  }
-
-  function updateMaterialField(id: number, field: string, val: string) {
-    if (field === 'name') {
-      modelStore.updateMaterial(id, { name: val });
-    } else {
-      const num = parseFloat(val);
-      if (isNaN(num)) return;
-      modelStore.updateMaterial(id, { [field]: num });
-      resultsStore.clear();
-    }
-  }
-
-  /** E, ρ and fy come from a UnitInput, already back in SI (MPa, kN/m³). */
-  function setMaterialNumber(id: number, field: 'e' | 'rho' | 'fy', v: number) {
-    if (!Number.isFinite(v)) return;
-    modelStore.updateMaterial(id, { [field]: v });
-    resultsStore.clear();
+  function renameMaterial(id: number, name: string) {
+    modelStore.updateMaterial(id, { name });
   }
 
   function deleteMaterial(id: number) {
     const ok = modelStore.removeMaterial(id);
-    if (!ok) alert(t('table.cannotDeleteMaterial'));
+    if (!ok) uiStore.toast(t('table.cannotDeleteMaterial'), 'error');
   }
 
   function handleMaterialPresetSelect(preset: MaterialPreset) {
@@ -61,58 +41,46 @@
   }
 </script>
 
-<!--
-  Number, name, and what you do with it — the same shape as the sections list.
-  E, nu, rho and fy spread across every row made three materials read as a
-  spreadsheet; they belong to ONE material at a time, which is a different
-  question from "which materials are there".
--->
+{#if formFor !== null}
+  {#key formFor}
+    <MaterialForm materialId={formFor === 'new' ? null : formFor} onDone={() => (formFor = null)} />
+  {/key}
+{:else}
 <table class="mat-list">
   <thead>
     <tr><th>ID</th><th>{t('table.name')}</th><th class="col-actions"></th></tr>
   </thead>
   <tbody>
-    {#each materialsArr as mat}
-      {@const open = expandedId === mat.id}
-      <tr class:expanded={open}>
+    {#each materialsArr as mat (mat.id)}
+      <tr data-testid="mat-row-{mat.id}">
         <td class="id-cell">{mat.id}</td>
         <td class="name-cell">
-          <input type="text" value={mat.name} onchange={(e) => updateMaterialField(mat.id, 'name', e.currentTarget.value)} />
+          <input type="text" value={mat.name} onchange={(e) => renameMaterial(mat.id, e.currentTarget.value)} />
         </td>
         <td class="action-cell">
           <button
             class="row-action-btn primary"
             title={t('table.chooseMaterial')}
+            aria-label={t('table.chooseMaterial')}
             onclick={() => { materialPresetTargetId = mat.id; showMaterialPresetSelector = true; }}
           >&#9783;</button>
           <button
             class="row-action-btn"
-            class:on={open}
-            title={t('table.showProperties')}
-            aria-expanded={open}
-            onclick={() => expandedId = open ? null : mat.id}
-          >&#9432;</button>
-          <button class="del" onclick={() => deleteMaterial(mat.id)}>&#10005;</button>
+            title={t('prop.editMaterial')}
+            aria-label={t('prop.editMaterial')}
+            data-testid="mat-edit-{mat.id}"
+            onclick={() => (formFor = mat.id)}
+          >&#9998;</button>
+          <button class="del" aria-label={t('matEdit.delete')} data-testid="mat-delete-{mat.id}" onclick={() => deleteMaterial(mat.id)}>&#10005;</button>
         </td>
       </tr>
-      {#if open}
-        <tr class="detail-row">
-          <td colspan="3">
-            <div class="mat-detail">
-              <label class="prop"><span>E ({unitQ('stress')})</span><UnitInput value={mat.e} qty="stress" unit={false} step="1000" onchange={(v) => setMaterialNumber(mat.id, 'e', v)} /></label>
-              <label class="prop"><span>ν</span><input type="number" step="0.01" value={mat.nu} onchange={(e) => updateMaterialField(mat.id, 'nu', e.currentTarget.value)} /></label>
-              <label class="prop"><span>ρ ({unitQ('density')})</span><UnitInput value={mat.rho} qty="density" unit={false} step="0.1" onchange={(v) => setMaterialNumber(mat.id, 'rho', v)} /></label>
-              <label class="prop"><span>fy ({unitQ('stress')})</span><UnitInput value={mat.fy ?? NaN} qty="stress" unit={false} step="10" onchange={(v) => setMaterialNumber(mat.id, 'fy', v)} /></label>
-            </div>
-          </td>
-        </tr>
-      {/if}
     {/each}
   </tbody>
 </table>
 <div class="table-footer">
-  <button class="add-btn" onclick={addMaterial}>{t('table.addMaterialCustom')}</button>
+  <button class="add-btn" data-testid="mat-new" onclick={() => (formFor = 'new')}>{t('table.addMaterialCustom')}</button>
 </div>
+{/if}
 <MaterialPresetSelector
   open={showMaterialPresetSelector}
   onselect={(p: MaterialPreset) => handleMaterialPresetSelect(p)}
@@ -124,27 +92,6 @@
   .mat-list .name-cell input { width: 100%; }
   .mat-list .action-cell { display: flex; gap: 4px; justify-content: flex-end; }
   .row-action-btn.primary { color: var(--st-value); border-color: var(--st-value); }
-  .row-action-btn.on { background: var(--st-surface-3); color: var(--st-text); }
-  tr.expanded > td { border-bottom-color: transparent; }
-  .detail-row > td { padding: 0 0 8px; }
-  .mat-detail {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: 4px 14px;
-    padding: 9px 11px;
-    border-radius: var(--st-radius, 3px);
-    background: var(--st-surface-2);
-  }
-  .prop {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 8px;
-    font-size: 0.74rem;
-    color: var(--st-text-3);
-  }
-  /* :global because E, ρ and fy are inputs inside UnitInput. */
-  .prop :global(input) { width: 90px; text-align: right; }
 
   table {
     width: max-content;
@@ -179,7 +126,6 @@
     font-weight: 600;
   }
 
-  td :global(input[type="number"]),
   td input[type="text"] {
     width: 55px;
     padding: 0.1rem 0.2rem;
@@ -198,17 +144,6 @@
     display: flex;
     gap: 0.2rem;
     align-items: center;
-  }
-
-  .name-with-action {
-    display: flex;
-    align-items: center;
-    gap: 0.25rem;
-  }
-
-  .name-with-action input {
-    flex: 1;
-    min-width: 0;
   }
 
   .row-action-btn {
@@ -264,5 +199,11 @@
   .add-btn:hover {
     background: var(--st-surface-3);
     color: white;
+  }
+
+  @media (pointer: coarse), (max-width: 767px) {
+    .row-action-btn, .del { min-width: 44px; min-height: 44px; font-size: 1rem; }
+    td input[type="text"] { min-height: 44px; font-size: 16px; width: 120px; }
+    .add-btn { min-height: 44px; font-size: 0.9rem; }
   }
 </style>

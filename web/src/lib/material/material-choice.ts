@@ -53,7 +53,7 @@ export type MaterialChoice =
    * but because a hand-entered material HAS none of them. Synthesising any of the three is the
    * defect this module was written to prevent, one direction over.
    */
-  | { kind: 'custom'; name: string; e: number; nu: number; rho: number; fy?: number };
+  | { kind: 'custom'; name: string; e: number; nu: number; rho: number; fy?: number; alpha?: number };
 
 /** The subset of `Material` a choice writes. Deliberately not the whole interface. */
 export interface MaterialFields {
@@ -67,6 +67,8 @@ export interface MaterialFields {
   fy?: number;
   /** MPa. */
   fu?: number;
+  /** 1/°C. Absent: the family's (`engine/thermal-alpha.ts`). */
+  alpha?: number;
   /**
    * The catalogued grade this came from.
    *
@@ -109,6 +111,7 @@ export function toMaterialFields(choice: MaterialChoice): MaterialFields {
       nu: choice.nu,
       rho: choice.rho,
       ...(choice.fy !== undefined ? { fy: choice.fy } : {}),
+      ...(choice.alpha !== undefined ? { alpha: choice.alpha } : {}),
     };
   }
   const g = choice.grade;

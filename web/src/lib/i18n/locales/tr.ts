@@ -3987,6 +3987,16 @@ const tr: Translations = {
   'config.unitMKS': 'Teknik metrik (tf, kgf/cm²)',
   'config.unitImperial': 'Emperyal (kip, ft)',
   'matEdit.optional': 'isteğe bağlı',
+  'matEdit.nameLabel': 'Ad',
+  'matEdit.e': 'Elastisite modülü',
+  'matEdit.nu': 'Poisson oranı',
+  'matEdit.gamma': 'Birim hacim ağırlığı',
+  'matEdit.fy': 'Akma gerilmesi',
+  'matEdit.alpha': 'Isıl genleşme',
+  'matEdit.extra': 'Akma ve ısıl genleşme',
+  'matEdit.fyHelp': 'Plastik analiz ve kesit gerilmeleri bunu kullanır.',
+  'matEdit.save': 'Kaydet',
+  'matEdit.delete': 'Malzemeyi sil',
   'dsm.expectedValue': 'Beklenen değer',
 
   // ─── Influence line labels ───

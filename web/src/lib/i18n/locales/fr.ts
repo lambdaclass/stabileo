@@ -3978,6 +3978,16 @@ const fr: Translations = {
   'config.unitMKS': 'Métrique technique (tf, kgf/cm²)',
   'config.unitImperial': 'Impérial (kip, ft)',
   'matEdit.optional': 'facultatif',
+  'matEdit.nameLabel': 'Nom',
+  'matEdit.e': 'Module d’élasticité',
+  'matEdit.nu': 'Coefficient de Poisson',
+  'matEdit.gamma': 'Poids volumique',
+  'matEdit.fy': 'Limite d’élasticité',
+  'matEdit.alpha': 'Dilatation thermique',
+  'matEdit.extra': 'Limite d’élasticité et dilatation thermique',
+  'matEdit.fyHelp': 'Utilisée par l’analyse plastique et les contraintes dans la section.',
+  'matEdit.save': 'Enregistrer',
+  'matEdit.delete': 'Supprimer le matériau',
   'dsm.expectedValue': 'Valeur attendue',
 
   // ─── Influence line labels ───
