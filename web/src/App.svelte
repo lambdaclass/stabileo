@@ -1658,7 +1658,7 @@
         assistant specifically because the two answer the same impulse, "I am
         stuck", one automatically and one with a person on the other end.
       -->
-      {#if uiStore.appMode === 'pro'}<ProSaveStatus /><ProVideosOffer />{/if}
+      {#if uiStore.appMode === 'pro'}{#if !uiStore.isMobile}<ProSaveStatus />{/if}<ProVideosOffer />{/if}
       <ContactMenu />
 
       <!--
@@ -4284,11 +4284,11 @@
      its title and aria-label. Nothing is hidden that was not also said
      another way.
   */
-  @media (max-width: 460px) {
+  @media (max-width: 640px) {
     .logo-text { display: none; }
   }
 
-  @media (max-width: 410px) {
+  @media (max-width: 540px) {
     .ai-word { display: none; }
     .btn-ai { width: 32px; padding: 0; justify-content: center; border-radius: 50%; }
 
@@ -4297,9 +4297,17 @@
        The separator is a divider between two groups that are already told
        apart by which edge they sit on.
     */
-    .app-header { gap: 0.4rem; padding-left: 0.375rem; padding-right: 0.375rem; }
+    .app-header { gap: 0.25rem; padding-left: 0.25rem; padding-right: 0.25rem; }
     .separator { display: none; }
-    .header-actions { gap: 0.375rem; }
+    .header-actions { gap: 0.25rem; }
+    .logo { gap: 0.125rem; }
+  }
+
+  @media (max-width: 370px) {
+    .app-header { gap: 0.125rem; }
+    .header-actions { gap: 0.125rem; }
+    .logo { gap: 0; }
+    .mode-select-mobile { padding-left: 6px; padding-right: 19px; background-position: right 6px center; }
   }
 
   /*

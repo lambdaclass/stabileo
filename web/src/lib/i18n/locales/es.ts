@@ -3244,6 +3244,10 @@ const es: Record<string, string> = {
 
   // ─── TabBar (extra) ───
   'tabBar.newTab': 'Nueva pestaña',
+  'tabBar.tabs': 'Pestañas',
+  'tabBar.switcher': 'Pestañas: {name} ({index} de {count})',
+  'tabBar.renameTab': 'Renombrar pestaña',
+  'tabBar.tabName': 'Nombre de la pestaña',
 
   // ─── WhatIfPanel (extra) ───
   'whatif.loads': 'Cargas',

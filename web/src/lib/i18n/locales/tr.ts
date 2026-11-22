@@ -2895,6 +2895,10 @@ const tr: Translations = {
 
   // ─── TabBar (extra) ───
   'tabBar.newTab': 'Yeni sekme',
+  'tabBar.tabs': 'Sekmeler',
+  'tabBar.switcher': 'Sekmeler: {name} ({index}/{count})',
+  'tabBar.renameTab': 'Sekmeyi yeniden adlandır',
+  'tabBar.tabName': 'Sekme adı',
 
   // ─── WhatIfPanel (extra) ───
   'whatif.loads': 'Yükler',
