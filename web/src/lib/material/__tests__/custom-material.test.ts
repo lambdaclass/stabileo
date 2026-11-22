@@ -1,0 +1,139 @@
+import { describe, it, expect, beforeEach } from 'vitest';
+import { historyStore, modelStore, uiStore } from '../../store';
+import { buildProjectFile, deserializeProject } from '../../store/file';
+import {
+  readCustomMaterial, customMaterialForm, saveCustomMaterial, type CustomMaterialForm,
+} from '../custom-material';
+
+const form = (over: Partial<CustomMaterialForm> = {}): CustomMaterialForm => ({
+  name: 'Madera dura', e: 12000, nu: '0,3', rho: 9, fy: null, alpha: '', ...over,
+});
+
+describe('reading the form', () => {
+  it('turns the fields into a hand-entered material, in SI', () => {
+    expect(readCustomMaterial(form({ name: '  Pino  ', fy: 14, alpha: '5,5' }))).toEqual({
+      ok: true,
+      choice: { kind: 'custom', name: 'Pino', e: 12000, nu: 0.3, rho: 9, fy: 14, alpha: 5.5e-6 },
+    });
+  });
+
+  it('leaves fy and α out when they are blank', () => {
+    const r = readCustomMaterial(form());
+    expect(r.ok && r.choice).toEqual({ kind: 'custom', name: 'Madera dura', e: 12000, nu: 0.3, rho: 9 });
+  });
+
+  it.each([
+    [{ name: '   ' }, 'material.custom.needName'],
+    [{ e: null }, 'material.custom.needNumbers'],
+    [{ nu: '' }, 'material.custom.needNumbers'],
+    [{ nu: 'abc' }, 'material.custom.needNumbers'],
+    [{ rho: null }, 'material.custom.needNumbers'],
+    [{ e: 0 }, 'material.custom.badE'],
+    [{ e: -200000 }, 'material.custom.badE'],
+    [{ nu: '0.5' }, 'material.custom.badNu'],
+    [{ nu: '-1' }, 'material.custom.badNu'],
+    [{ nu: '3' }, 'material.custom.badNu'],
+    [{ rho: -78.5 }, 'material.custom.badRho'],
+    [{ fy: 0 }, 'material.custom.badFy'],
+    [{ fy: -250 }, 'material.custom.badFy'],
+    [{ alpha: '0' }, 'materials.alphaInvalid'],
+    [{ alpha: '-12' }, 'materials.alphaInvalid'],
+    [{ alpha: '101' }, 'materials.alphaInvalid'],
+    [{ alpha: 'doce' }, 'materials.alphaInvalid'],
+  ] as const)('refuses %o with %s', (over, reasonKey) => {
+    expect(readCustomMaterial(form(over))).toEqual({ ok: false, reasonKey });
+  });
+
+  it('accepts the bounds that are physical: ρ = 0 and ν just under 0.5', () => {
+    expect(readCustomMaterial(form({ rho: 0, nu: '0.499' })).ok).toBe(true);
+  });
+
+  it('opens a stored material as it was typed, α back in 10⁻⁶/°C', () => {
+    expect(customMaterialForm({ name: 'H', e: 30000, nu: 0.2, rho: 24, fy: 25, alpha: 10e-6 }))
+      .toEqual({ name: 'H', e: 30000, nu: '0.2', rho: 24, fy: 25, alpha: '10' });
+    expect(customMaterialForm({ name: 'S', e: 200000, nu: 0.3, rho: 78.5 }))
+      .toEqual({ name: 'S', e: 200000, nu: '0.3', rho: 78.5, fy: null, alpha: '' });
+  });
+});
+
+function cantilever(materialId: number) {
+  const a = modelStore.addNode(0, 0), b = modelStore.addNode(4, 0);
+  const e = modelStore.addElement(a, b);
+  const s = modelStore.addSection({ name: 'R', a: 0.01, iz: 1e-4, iy: 1e-4 });
+  modelStore.updateElementSection(e, s);
+  modelStore.updateElementMaterial(e, materialId);
+  modelStore.addSupport(a, 'fixed');
+  modelStore.addNodalLoad(b, 0, -10);
+  return { tip: b, element: e };
+}
+
+function tipDeflection(tip: number): number {
+  const r = modelStore.solve();
+  if (!r || typeof r === 'string') throw new Error(String(r));
+  return r.displacements.find((d) => d.nodeId === tip)!.uz;
+}
+
+describe('saving a hand-entered material', () => {
+  beforeEach(() => {
+    uiStore.analysisMode = '2d';
+    modelStore.clear();
+    historyStore.clear();
+  });
+
+  const choice = () => {
+    const r = readCustomMaterial(form({ e: 100000, nu: '0.25', rho: 20, fy: 300, alpha: '11' }));
+    if (!r.ok) throw new Error(r.reasonKey);
+    return r.choice;
+  };
+
+  it('adds it to the model with every field, in one undo step', () => {
+    const before = modelStore.materials.size;
+    const id = saveCustomMaterial(choice());
+    expect(modelStore.materials.get(id)).toEqual({
+      id, name: 'Madera dura', e: 100000, nu: 0.25, rho: 20, fy: 300, alpha: 11e-6,
+    });
+    historyStore.undo();
+    expect(modelStore.materials.has(id)).toBe(false);
+    expect(modelStore.materials.size).toBe(before);
+  });
+
+  it('edits in place, keeps what the form does not show, and clears a blank fy and α', () => {
+    const id = modelStore.addMaterial({ name: 'F-24', e: 200000, nu: 0.3, rho: 78.5, fy: 235, alpha: 12e-6, gradeId: 'ar-f24' });
+    const r = readCustomMaterial(form({ name: 'F-24 reducido', e: 180000, nu: '0.3', rho: 78.5 }));
+    if (!r.ok) throw new Error(r.reasonKey);
+    expect(saveCustomMaterial(r.choice, id)).toBe(id);
+    const m = modelStore.materials.get(id)!;
+    expect(m).toMatchObject({ name: 'F-24 reducido', e: 180000, nu: 0.3, rho: 78.5, gradeId: 'ar-f24' });
+    expect(m.fy).toBeUndefined();
+    expect(m.alpha).toBeUndefined();
+    historyStore.undo();
+    expect(modelStore.materials.get(id)).toMatchObject({ name: 'F-24', e: 200000, fy: 235, alpha: 12e-6 });
+  });
+
+  it('adds a new one when the material to edit is gone', () => {
+    const id = saveCustomMaterial(choice(), 9999);
+    expect(id).not.toBe(9999);
+    expect(modelStore.materials.get(id)?.name).toBe('Madera dura');
+  });
+
+  it('solves with its E: the cantilever tip moves PL³/3EI, and twice as much at half the E', () => {
+    const id = saveCustomMaterial(choice());
+    const { tip } = cantilever(id);
+    const exact = -(10 * 4 ** 3) / (3 * 100000e3 * 1e-4);
+    expect(tipDeflection(tip)).toBeCloseTo(exact, 6);
+    const half = readCustomMaterial(form({ e: 50000, nu: '0.25', rho: 20 }));
+    if (!half.ok) throw new Error(half.reasonKey);
+    saveCustomMaterial(half.choice, id);
+    expect(tipDeflection(tip)).toBeCloseTo(2 * exact, 6);
+  });
+
+  it('survives saving and opening the project', () => {
+    const id = saveCustomMaterial(choice());
+    const { element } = cantilever(id);
+    const text = JSON.stringify(buildProjectFile());
+    modelStore.clear();
+    expect(deserializeProject(text)).toBe(true);
+    const back = modelStore.materials.get(modelStore.elements.get(element)!.materialId);
+    expect(back).toMatchObject({ name: 'Madera dura', e: 100000, nu: 0.25, rho: 20, fy: 300, alpha: 11e-6 });
+  });
+});

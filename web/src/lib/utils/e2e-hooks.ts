@@ -265,6 +265,7 @@ export interface StabileoTestHooks {
   elementEnds(elementId: number): { i: number; j: number } | null;
   /** The 2D static results' axial force N at the start of every member, ordered by member id; null before a solve. */
   memberAxialForces(): { id: number; n: number }[] | null;
+  nodeDisplacement(id: number): { ux: number; uz: number } | null;
   pointLoadsOn(elementId: number): Array<{ p: number; px?: number; my?: number; angle?: number; isGlobal?: boolean }>;
   /** How many nodes and supports the model holds — what a delete must not touch. */
   /** Where the 3D viewport drew a load: the middle of its middle segment, in page coordinates. */
@@ -708,6 +709,10 @@ export function installE2EHooks(): void {
     currentTool: () => String(uiStore.currentTool),
     memberAxialForces: () =>
       resultsStore.results ? resultsStore.results.elementForces.map((f) => ({ id: f.elementId, n: f.nStart })).sort((a, b) => a.id - b.id) : null,
+    nodeDisplacement: (id: number) => {
+      const d = resultsStore.results?.displacements.find((x) => x.nodeId === id);
+      return d ? { ux: d.ux, uz: d.uz } : null;
+    },
     elementEnds: (elementId: number) => {
       const e = modelStore.elements.get(elementId);
       return e ? { i: e.nodeI, j: e.nodeJ } : null;
