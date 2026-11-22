@@ -116,6 +116,10 @@ const body: PostBody = {
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-107-plate-remesh-shell-edits.md", "label": "SA-2026-107", "t": "Entrées concernées et mesures à prendre."},
     {"k": "note", "t": "SA-2026-108 — Prochaine version après la 0.6.4."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-108-planar-projection-nodal-forces.md", "label": "SA-2026-108", "t": "Entrées concernées et mesures à prendre."},
+    {"k": "note", "t": "SA-2026-109 — Prochaine version après la 0.6.4."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-109-dxf-support-labels.md", "label": "SA-2026-109", "t": "Entrées concernées et mesures à prendre."},
+    {"k": "note", "t": "SA-2026-110 — Prochaine version après la 0.6.4."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-110-solver-json-boundary.md", "label": "SA-2026-110", "t": "Entrées concernées et mesures à prendre."},
     {"k": "img", "base": "blog/recheck-stale", "w": 1600, "h": 1000, "alt": "Stabileo PRO avec un portique en béton enregistré avant que les résultats soient versionnés. Un bandeau en bas indique des résultats périmés : le projet a été résolu avec une version antérieure et 19 changements enregistrés le concernent, avec les boutons pour voir ce qui a changé et relancer le calcul.", "caption": "Comment une correction atteint un projet enregistré : tant qu’il n’est pas recalculé, ses résultats restent marqués périmés, et les changements qui le concernent sont à un clic."},
     {
       "k": "h",
@@ -532,7 +536,9 @@ const body: PostBody = {
         ["SA-2026-105", "La mise à zéro d’un couple ponctuel plan restauré pouvait laisser l’ancien moment actif. Vérifiez et saisissez de nouveau les moments prévus, puis relancez les calculs et vérifications concernés.", "Élevée", "Prochaine version après la 0.6.3"],
         ["SA-2026-106", "Le remaillage pouvait suivre l’arc complémentaire d’un bord courbe de la plaque. Comparez le maillage à l’arc spécifié, refaites les maillages concernés, puis relancez le calcul et les vérifications.", "Élevée", "Prochaine version après la 0.6.3 (mesure de protection)"],
         ["SA-2026-107", "Le remaillage pouvait effacer les modifications d’excentrement et de courbure des coques. Vérifiez et rétablissez les propriétés prévues avant de relancer le calcul et les vérifications.", "Élevée", "Prochaine version après la 0.6.3 (mesure de protection)"],
-        ["SA-2026-108", "La projection sur le plan XZ ou YZ pouvait omettre sans avertissement une composante de force nodale perpendiculaire au plan d’analyse. Vérifiez les forces nodales de chaque cas de charge et reprenez les analyses et vérifications concernées avec le modèle spatial.", "Élevée", "Prochaine version après la 0.6.4"]
+        ["SA-2026-108", "La projection sur le plan XZ ou YZ pouvait omettre sans avertissement une composante de force nodale perpendiculaire au plan d’analyse. Vérifiez les forces nodales de chaque cas de charge et reprenez les analyses et vérifications concernées avec le modèle spatial.", "Élevée", "Prochaine version après la 0.6.4"],
+        ["SA-2026-109", "Des libellés d’appui inconnus dans un DXF plan pouvaient être importés comme appuis articulés sans avertissement. Comparez les appuis importés au dessin d’origine, corrigez les écarts et relancez les analyses concernées.", "Élevée", "Prochaine version après la 0.6.4"],
+        ["SA-2026-110", "L’analyse web pouvait omettre sans avertissement un ressort de raideur non finie ou un cas de charge dans une combinaison. Vérifiez les raideurs, les noms des cas et les coefficients nets, puis relancez les analyses et les combinaisons concernées.", "Élevée", "Prochaine version après la 0.6.4"]
       ]
     },
     {
