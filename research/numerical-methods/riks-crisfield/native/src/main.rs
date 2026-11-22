@@ -327,11 +327,7 @@ fn write_json(path: &Path, value: &Value) -> Result<(), String> {
 }
 
 fn manifest(reference_dir: &Path) -> Result<Value, String> {
-    let names = [
-        "arc_length_snap_through.json",
-        "native-results.json",
-        "VALIDATION.json",
-    ];
+    let names = ["arc_length_snap_through.json", "native-results.json"];
     let mut hashes = serde_json::Map::new();
     for name in names {
         let bytes = fs::read(reference_dir.join(name))
@@ -423,6 +419,10 @@ fn reference_dir() -> PathBuf {
         .join("reference-results")
 }
 
+fn validation_path(reference_dir: &Path) -> PathBuf {
+    reference_dir.parent().unwrap().join("VALIDATION.json")
+}
+
 fn same_evidence(a: &Value, b: &Value) -> bool {
     match (a, b) {
         (Value::Number(x), Value::Number(y)) => match (x.as_f64(), y.as_f64()) {
@@ -459,7 +459,7 @@ fn execute(mode: &str) -> Result<bool, String> {
     match mode {
         "generate" => {
             write_json(&dir.join("native-results.json"), &native_value)?;
-            write_json(&dir.join("VALIDATION.json"), &validation_value)?;
+            write_json(&validation_path(&dir), &validation_value)?;
             let manifest_value = manifest(&dir)?;
             write_json(&dir.join("MANIFEST.json"), &manifest_value)?;
             println!(
@@ -467,7 +467,7 @@ fn execute(mode: &str) -> Result<bool, String> {
                 serde_json::to_string(&json!({
                     "mode": mode,
                     "nativeResults": "reference-results/native-results.json",
-                    "validation": "reference-results/VALIDATION.json",
+                    "validation": "VALIDATION.json",
                     "manifest": "reference-results/MANIFEST.json",
                     "allPassed": validation_passed
                 }))
@@ -480,7 +480,7 @@ fn execute(mode: &str) -> Result<bool, String> {
             // float can differ between CPUs, so numbers must agree to 1e-12 relative and every
             // other field exactly. Within a run, step records are still compared bit for bit.
             let native_matches = same_evidence(&read_json(&dir.join("native-results.json"))?, &native_value);
-            let validation_matches = same_evidence(&read_json(&dir.join("VALIDATION.json"))?, &validation_value);
+            let validation_matches = same_evidence(&read_json(&validation_path(&dir))?, &validation_value);
             let manifest_matches = read_json(&dir.join("MANIFEST.json"))? == manifest(&dir)?;
             let ok = native_matches && validation_matches && manifest_matches;
             println!(
