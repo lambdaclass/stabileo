@@ -78,6 +78,7 @@
           ? tp('rcSheets.alt.ties', { to: `Ø${a.to}`, from: a.from.map((x) => `Ø${x}`).join(', ') })
           : a.kind === 'concrete'
           ? tp('rcSheets.alt.concrete', { name: a.name, to: fmt(a.to, 0), from: fmt(a.from, 0) })
+          : a.kind === 'footing' ? t(`rcSheets.alt.footing.${a.what}`)
           : tp(`rcSheets.alt.section.${a.what}`, { from: cm(a.from), to: cm(a.to) })}</span>
         {#if canApply(row, a)}<button type="button" class="rcz-btn" title={t('rcSheets.alt.applyTitle')} onclick={() => apply(a)} data-testid="rc-alternative-apply">{t('rcSheets.alt.apply')}</button>{/if}
       </span>

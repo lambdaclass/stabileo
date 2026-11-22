@@ -1,5 +1,5 @@
 <script lang="ts">
-  /** A column's storey in elevation: its bars at the faces, the bars from below cranked in beside them over the lap, every tie where its code puts it, and the zones dimensioned (`rc-sheets/column-ties.ts`). */
+  /** A column's storey in elevation: its bars at the faces, the bars from below (the footing's dowels at the bottom storey) cranked in beside them over the lap, every tie where its code puts it, and the zones dimensioned (`rc-sheets/column-ties.ts`). */
   import { t, tp, i18n, tpn } from '../../../lib/i18n';
   import { decimalFor, makeFmt } from '../../../lib/rc-sheets/format';
   import { columnTieLayout, tieSegments, tiesIn } from '../../../lib/rc-sheets/column-ties';
@@ -13,7 +13,7 @@
   const segs = $derived(tieSegments(layout));
 
   const H = 380, PADT = 18, PADB = 30, LEFT = 46, STUB = 34, COLW = 64;
-  const jb = $derived(Math.max(layout.jointBottom, 0.04)), jt = $derived(Math.max(layout.jointTop, 0.04));
+  const jb = $derived(row.onFooting ? Math.max(layout.jointBottom, 0.3) : Math.max(layout.jointBottom, 0.04)), jt = $derived(Math.max(layout.jointTop, 0.04));
   const total = $derived(layout.jointBottom + layout.clear + layout.jointTop);
   const k = $derived((H - PADT - PADB) / Math.max(jb + layout.clear + jt, 0.1));
   // Elevation height to scale; the width drawn at least COLW, so ties stay apart from the bars.
@@ -49,10 +49,10 @@
       {#each [x0 + inset, x1 - inset] as bx, i (i)}
         {@const inward = i ? -1 : 1}
         {@const low = bx + inward * (lapIn - by)}
-        <polyline points="{low},{Y(-jb)} {low},{Y(end) + rise} {bx + inward * lapIn},{Y(end)} {bx + inward * lapIn},{Y(lt)}" class="bar below" data-testid="rc-elev-lap-bar" />
+        <polyline points="{low},{Y(-jb)} {low},{Y(end) + rise} {bx + inward * lapIn},{Y(end)} {bx + inward * lapIn},{Y(lt)}" class="bar below" class:dowel={row.onFooting} data-testid="rc-elev-lap-bar" />
         <line x1={bx} y1={Y(lf)} x2={bx} y2={Y(layout.clear + jt)} class="bar" />
       {/each}
-      <text x={x0 + w / 2} y={Y(-jb / 2) + 3} class="lbl small-note">{row.step ? tp(row.step.dowels ? 'rcSheets.elev.dowels' : 'rcSheets.elev.crank', { off: fmt(row.step.offset * 100, 1) }) : tp('rcSheets.elev.lapCrank', { off: fmt(offCm, 1) })}</text>
+      <text x={x0 + w / 2} y={Y(-jb / 2) + 3} class="lbl small-note">{row.onFooting ? tp('rcSheets.elev.footDowels', { off: fmt(offCm, 1) }) : row.step ? tp(row.step.dowels ? 'rcSheets.elev.dowels' : 'rcSheets.elev.crank', { off: fmt(row.step.offset * 100, 1) }) : tp('rcSheets.elev.lapCrank', { off: fmt(offCm, 1) })}</text>
       <line x1={x0 - 6} y1={Y(lf)} x2={x0 - 6} y2={Y(lt)} class="dimline" />
       <text x={x0 - 10} y={(Y(lf) + Y(lt)) / 2} class="dim lapdim" transform="rotate(-90 {x0 - 10} {(Y(lf) + Y(lt)) / 2})">{tp('rcSheets.elev.lapLength', { l: cm(lt - lf) })}</text>
     {:else}
@@ -100,6 +100,7 @@
   .bar { stroke: #8f9cf5; stroke-width: 2.2; }
   .bar.face { stroke-width: 1.4; stroke-dasharray: 5 3; opacity: 0.7; }
   .bar.below { stroke: var(--st-text-2); fill: none; }
+  .bar.below.dowel { stroke: var(--st-danger); }
   .tie { stroke: var(--st-accent, #4ecdc4); stroke-width: 1.3; }
   .zone { stroke: var(--st-text-3); stroke-width: 1; }
   .seg-end .zone, .seg-lap .zone, .seg-joint .zone { stroke: var(--st-accent, #4ecdc4); }

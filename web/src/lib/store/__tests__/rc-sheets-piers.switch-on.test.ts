@@ -1,10 +1,10 @@
 /**
  * The seven-storey example's core: three walls in a U with column C1 modelled at the corner of two
- * of them, meshed and solved as the app does. C1 is part of the core at every storey and the core is
- * checked as one section with C1's bars as its boundary. The core's forces are read, as the walls'
- * are, from the first row of elements with their shear's moment carried down to the base: against
- * its base's reactions summed they differ by the self-weight of half that row and the stresses'
- * recovery.
+ * of them, meshed and solved as the app does. C1 is part of the core at every storey, the core is
+ * checked as one section with C1's bars as its boundary, and it stands on one footing whose
+ * actions are its base's reactions summed. The core's forces are read, as the walls' are, from
+ * the first row of elements with their shear's moment carried down to the base: against the
+ * reactions they differ by the self-weight of half that row and the stresses' recovery.
  */
 import { describe, it, expect, beforeAll } from 'vitest';
 import * as wasmSolver from '../../engine/wasm-solver';
@@ -17,6 +17,7 @@ import { publishCombinations3D } from '../active-results';
 import { recognizePhysicalElements } from '../physical';
 import { buildSheetRows, setSheetCode } from '../rc-sheets.svelte';
 import { storeyPiers } from '../rc-sheets-piers';
+import { setFoundationSystem, writeFootingToModel } from '../rc-sheets-footings';
 import { pierCombos } from '../../rc-sheets/pier-design';
 import { verticalItems } from '../../rc-sheets/vertical-list';
 import { pierSection } from '../../rc-sheets/pier-section';
@@ -26,7 +27,7 @@ import type { AnalysisResults3D } from '../../engine/types-3d';
 beforeAll(async () => { await wasmSolver.initSolver(); });
 
 describe('the seven-storey core as one element', () => {
-  it('integrates C1 into the walls and checks the core whole, its forces at the base its reactions', async () => {
+  it('integrates C1 into the walls, checks the core whole and stands it on one footing', async () => {
     modelStore.clear(); historyStore.clear(); resultsStore.clear(); uiStore.analysisMode = 'pro';
     await PRO_EXAMPLES.find((e) => e.id === 'pro-edificio-7p')!.load();
     ensurePhysicalModel();
@@ -37,6 +38,7 @@ describe('the seven-storey core as one element', () => {
     publishCombinations3D(modelStore.solveCombinations3D(false, false, true) as never);
 
     setSheetCode('cirsoc201-2025');
+    setFoundationSystem('footings');
     const rows = buildSheetRows();
     const c1 = rows.column.filter((r) => r.name === 'C1');
     expect(c1).toHaveLength(7);
@@ -65,25 +67,43 @@ describe('the seven-storey core as one element', () => {
       expect(k.n).toBeCloseTo(parts, 6);
     }
 
-    const supported = new Set([...modelStore.supports.values()].map((x) => x.nodeId));
-    const nodes = [...new Set([...n0.flatMap((r) => r.demand.baseNodes ?? []), c1[0]!.demand.nodes!.bottom])].filter((n) => supported.has(n));
-    expect(nodes.length).toBeGreaterThan(2);
-    const c = atBase.centroid, node = (id: number) => modelStore.nodes.get(id)!;
-    const nameOf = new Map(modelStore.combinations.map((x) => [x.id, x.name]));
-    for (const [id, result] of resultsStore.perCombo3D) {
-      const k = combos.find((x) => x.combo === nameOf.get(id))!;
-      const rs = (result as AnalysisResults3D).reactions.filter((x) => nodes.includes(x.nodeId));
-      expect(rs).toHaveLength(nodes.length);
-      const N = rs.reduce((t, x) => t + x.fz, 0), Vx = rs.reduce((t, x) => t + x.fx, 0), Vy = rs.reduce((t, x) => t + x.fy, 0);
-      const Mx = rs.reduce((t, x) => t + x.mx + (node(x.nodeId).y - c.y) * x.fz, 0), My = rs.reduce((t, x) => t + x.my - (node(x.nodeId).x - c.x) * x.fz, 0);
-      expect(Math.abs(k.n - N) / N, k.combo).toBeLessThan(0.01);
-      const near = (pier: number, reaction: number, slack: number) => expect(Math.abs(pier - reaction), k.combo).toBeLessThanOrEqual(slack);
-      near(k.vx, Vx, 0.1 * Math.abs(Vx) + 10);
-      near(k.vy, Vy, 0.1 * Math.abs(Vy) + 10);
-      const lever = 0.1 * Math.hypot(Vx, Vy) + 10;
-      near(k.mx, Mx, lever + 0.02 * Math.abs(Mx));
-      near(k.my, My, lever + 0.02 * Math.abs(My));
-    }
+    expect(rows.footing.find((f) => f.key === 'footing:n1')).toBeUndefined();
+    const core = rows.footing.filter((f) => f.demand.pier);
+    expect(core).toHaveLength(1);
+    const f = core[0]!;
+    expect(f.demand.pier!.nodes).toContain(c1[0]!.demand.nodes!.bottom);
+    expect(f.status, JSON.stringify(f.verifications.filter((v) => !v.ok))).not.toBe('fail');
+    const perCombo = [...resultsStore.perCombo3D.values()] as AnalysisResults3D[];
+    expect(perCombo.length).toBe(f.demand.combos.length);
+    const c = f.demand.at;
+    f.demand.combos.forEach((a, i) => {
+      const rs = perCombo[i]!.reactions.filter((x) => f.demand.pier!.nodes.includes(x.nodeId));
+      expect(rs).toHaveLength(f.demand.pier!.nodes.length);
+      const node = (id: number) => modelStore.nodes.get(id)!;
+      expect(a.N).toBeCloseTo(rs.reduce((s, x) => s + x.fz, 0), 6);
+      expect(a.Vx).toBeCloseTo(-rs.reduce((s, x) => s + x.fx, 0), 6);
+      expect(a.Mx).toBeCloseTo(-rs.reduce((s, x) => s + x.mx + (node(x.nodeId).y - c.y) * x.fz, 0), 6);
+      expect(a.My).toBeCloseTo(-rs.reduce((s, x) => s + x.my - (node(x.nodeId).x - c.x) * x.fz, 0), 6);
+      const k = combos.find((x) => x.combo === a.combo)!;
+      expect(Math.abs(k.n - a.N) / a.N, a.combo).toBeLessThan(0.01);
+      const near = (pier: number, reaction: number, slack: number) => expect(Math.abs(pier - reaction), a.combo).toBeLessThanOrEqual(slack);
+      near(k.vx, -a.Vx, 0.1 * Math.abs(a.Vx) + 10);
+      near(k.vy, -a.Vy, 0.1 * Math.abs(a.Vy) + 10);
+      const lever = 0.1 * Math.hypot(a.Vx, a.Vy) + 10 + Math.abs(k.n - a.N) * Math.hypot(c.x - atBase.centroid.x, c.y - atBase.centroid.y);
+      near(k.mx, -a.Mx + (c.y - atBase.centroid.y) * a.N, lever + 0.02 * Math.abs(a.Mx));
+      near(k.my, -a.My - (c.x - atBase.centroid.x) * a.N, lever + 0.02 * Math.abs(a.My));
+    });
+
+    writeFootingToModel(f);
+    const written = [...modelStore.model.footings.values()];
+    expect(written).toHaveLength(1);
+    expect(new Set([written[0]!.nodeId, ...(written[0]!.supportedNodeIds ?? [])])).toEqual(new Set(f.demand.pier!.nodes));
+    const again = buildSheetRows().footing.filter((x) => x.demand.pier);
+    expect(again).toHaveLength(1);
+    expect(again[0]!.demand.footing?.outOfScope).toBeUndefined();
+    expect(again[0]!.demand.footing!.B).toBeCloseTo(f.B, 9);
+    expect(again[0]!.demand.footing!.ex).toBeCloseTo(f.ex, 9);
+    expect(again[0]!.demand.footing!.ey).toBeCloseTo(f.ey, 9);
 
     const items = verticalItems(rows.column, rows.wall);
     const piers = items.filter((it) => it.kind === 'pier');
@@ -109,5 +129,6 @@ describe('the seven-storey core as one element', () => {
     const apart = buildSheetRows();
     expect(apart.wall.every((r) => !r.pier)).toBe(true);
     expect(apart.column.filter((r) => r.name === 'C1').every((r) => !r.pier && r.verifications.some((v) => v.label === 'rcSheets.v.pierApart'))).toBe(true);
+    expect(apart.footing.filter((x) => x.demand.pier)).toHaveLength(1);
   }, 600_000);
 });

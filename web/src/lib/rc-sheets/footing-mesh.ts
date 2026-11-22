@@ -58,9 +58,9 @@ export const meshText = (m: FootingMesh): string => (m.dia > 0
  * offered, the preferred one first, no closer than 10 cm (7,5 cm when none fits) and no farther
  * than `sMax`; a short direction split into its band and the rest (§13.3.3.3).
  */
-export function proposeLayer(dir: 'x' | 'y', a: Pick<FootingAdopted, 'B' | 'L' | 'ex' | 'ey'>, asReq: number, sMax: number, diameters: readonly number[], cover: number): FootingMesh {
+export function proposeLayer(dir: 'x' | 'y', a: Pick<FootingAdopted, 'B' | 'L' | 'ex' | 'ey'>, asReq: number, sMax: number, diameters: readonly number[], cover: number, even = false): FootingMesh {
   const across = dir === 'x' ? a.L : a.B;
-  const banded = isBanded(dir, a.B, a.L);
+  const banded = !even && isBanded(dir, a.B, a.L);
   const share = banded ? bandShare(a.B, a.L) : 1, width = Math.min(a.B, a.L);
   const fits = (m: FootingMesh) => {
     const p = meshArea(dir, a, m, cover);

@@ -16,6 +16,7 @@
   import { SHEET_CODES } from '../../../lib/rc-sheets/types';
   import { sheetCode } from '../../../lib/store/rc-sheets.svelte';
   import { rulesFor } from '../../../lib/rc-sheets/codes';
+  import { shownFootings } from '../../../lib/rc-sheets/footing-layouts';
   import ProDesignDataPanel from '../ProDesignDataPanel.svelte';
   import Icon from '../../ribbon/Icon.svelte';
 
@@ -78,7 +79,7 @@
     <RcLeftOut left={rows.left ?? []} />
     <ul class="rcp-fams">
       {#each SHEET_TABS as k (k)}
-        {@const s = stat(k === 'beam' ? rows.line.map((l) => ({ status: l.status === 'fail' || rows.beam.some((r) => r.demand.line?.group === l.group && r.status === 'fail') ? 'fail' : 'ok' })) as never : TAB_FAMILIES[k].flatMap((f) => rows[f] as SheetRow[]))}
+        {@const s = stat(k === 'beam' ? rows.line.map((l) => ({ status: l.status === 'fail' || rows.beam.some((r) => r.demand.line?.group === l.group && r.status === 'fail') ? 'fail' : 'ok' })) as never : TAB_FAMILIES[k].flatMap((f) => (f === 'footing' ? shownFootings(rows) : rows[f]) as SheetRow[]))}
         <li>
           <button type="button" onclick={() => openAt(k)} disabled={!s.n} data-testid={`rc-open-${k}`}>
             <span>{t(`rcSheets.tab.${k}`)}</span>

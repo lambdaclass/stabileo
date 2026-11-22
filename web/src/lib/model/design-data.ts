@@ -15,6 +15,8 @@ import { migrateDesignOptions } from '../rc-sheets/design-options';
 import { migrateLateralSystem } from './lateral-system';
 import { REBAR_DB } from '../engine/codes/argentina/cirsoc201';
 import { specifiedCoverMm } from '../codes/cirsoc201/cover';
+import { PROPERTY_SIDES, type PropertyLines } from './foundation/edges';
+import { footingSetupOf } from '../rc-sheets/footing-types';
 
 export type DesignKind = 'beam' | 'column' | 'slab' | 'wall' | 'footing';
 export const DESIGN_KINDS: readonly DesignKind[] = ['beam', 'column', 'slab', 'wall', 'footing'];
@@ -64,6 +66,14 @@ export interface ProjectDesignData {
   wallDiametersMm: number[];
   /** The wall bar a design without the list reads, mm: from `wallDiametersMm` (`preferredBar`), never stated. */
   wallBarDiaMm: number;
+  /** The allowable bearing pressure footings are presized for where the model states no soil, kPa: a presumption to confirm with the soil study. */
+  presumedBearingKPa: number;
+  /** The piles a pile foundation is designed with: their diameter and length, m, and, where the soil profile states no strata, the allowable load of one, kN: a presumption to confirm with the soil study. Absent: the defaults. */
+  presumedPile?: PresumedPile;
+  /** The sides of the building that are property lines: the footings there are held at the line, and the foundation tools read the same. Absent: none. */
+  propertyLines?: PropertyLines;
+  /** The elevation every footing of the building is founded at, its underside, m in global Z. Absent: the level the deepest footing asks for. */
+  foundingElevation?: number;
   /**
    * Denser ties at both ends of every column, also where no seismic rule asks for them: over
    * lo = max(largest side, clear height/6, 450 mm) at half the spacing. Absent: off.
@@ -145,7 +155,7 @@ export interface ProjectDesignData {
 export type StoredDesignData = { version: 1 } & Partial<Omit<ProjectDesignData, 'version' | 'covers' | 'exposure'>>
   & { covers?: Partial<Record<DesignKind, number>>; exposure?: Partial<Record<DesignKind, Exposure>> };
 
-const STATED_BY_DEFAULT = ['rebarGrade', 'rebarFy', 'longDiametersMm', 'stirrupDiametersMm', 'slabDiametersMm', 'wallDiametersMm', 'minTieSpacingMm', 'maxAggregateMm'] as const;
+const STATED_BY_DEFAULT = ['rebarGrade', 'rebarFy', 'longDiametersMm', 'stirrupDiametersMm', 'slabDiametersMm', 'wallDiametersMm', 'minTieSpacingMm', 'maxAggregateMm', 'presumedBearingKPa'] as const;
 /** Read from the lists, never stored. */
 export const DERIVED_DESIGN_KEYS = ['stirrupDiaMm', 'wallBarDiaMm'] as const;
 
@@ -168,8 +178,32 @@ export function migrateStoredDesignData(raw: unknown): StoredDesignData | undefi
   return out as StoredDesignData;
 }
 
+const propertyLinesOf = (v: unknown): PropertyLines | undefined => {
+  if (!v || typeof v !== 'object') return undefined;
+  const on = PROPERTY_SIDES.filter((k) => (v as Record<string, unknown>)[k] === true);
+  return on.length ? Object.fromEntries(on.map((k) => [k, true])) : undefined;
+};
+
 /** The floor of the stirrups' spacing the project may state, mm. */
 export const MIN_TIE_SPACING_RANGE = { min: 25, max: 150 } as const;
+
+/** The founding elevation the project may state, m. */
+export const FOUNDING_RANGE = { min: -30, max: 30 } as const;
+
+/** The presumed allowable bearing pressure the project may state, kPa, and its default (1,5 kg/cm²). */
+export const PRESUMED_BEARING_RANGE = { min: 50, max: 1000, default: 150 } as const;
+
+/** A pile as the project presumes it: diameter and length, m, and allowable load, kN. */
+export interface PresumedPile { diameter: number; length: number; capacity: number }
+
+/** The presumed pile's ranges and defaults: a bored pile of 50 cm, 12 m long, 600 kN allowable. */
+export const PRESUMED_PILE_RANGE = { diameter: { min: 0.3, max: 1.5, default: 0.5 }, length: { min: 3, max: 50, default: 12 }, capacity: { min: 100, max: 10000, default: 600 } } as const;
+
+/** The presumed pile with the defaults where it states none. */
+export const presumedPileOf = (p: Partial<PresumedPile> | undefined): PresumedPile => {
+  const pick = (k: keyof PresumedPile) => { const v = p?.[k], r = PRESUMED_PILE_RANGE[k]; return typeof v === 'number' && Number.isFinite(v) && v >= r.min && v <= r.max ? v : r.default; };
+  return { diameter: pick('diameter'), length: pick('length'), capacity: pick('capacity') };
+};
 
 /** Every diameter the bar table knows, mm. */
 export const BAR_DIAMETERS_MM: readonly number[] = REBAR_DB.map((r) => r.diameter);
@@ -193,6 +227,7 @@ export function defaultDesignData(): ProjectDesignData {
     maxAggregateMm: DEFAULT_AGGREGATE_MM,
     wallDiametersMm: walls,
     wallBarDiaMm: preferredBar(walls, 12),
+    presumedBearingKPa: PRESUMED_BEARING_RANGE.default,
   };
 }
 
@@ -277,12 +312,16 @@ export function migrateDesignData(raw: unknown): ProjectDesignData {
     maxAggregateMm: typeof e.maxAggregateMm === 'number' && Number.isFinite(e.maxAggregateMm) && e.maxAggregateMm >= AGGREGATE_RANGE.min && e.maxAggregateMm <= AGGREGATE_RANGE.max ? e.maxAggregateMm : def.maxAggregateMm,
     wallDiametersMm: walls,
     wallBarDiaMm: preferredBar(walls, 12),
+    presumedBearingKPa: typeof e.presumedBearingKPa === 'number' && Number.isFinite(e.presumedBearingKPa) && e.presumedBearingKPa >= PRESUMED_BEARING_RANGE.min && e.presumedBearingKPa <= PRESUMED_BEARING_RANGE.max ? e.presumedBearingKPa : def.presumedBearingKPa,
+    ...(e.presumedPile && typeof e.presumedPile === 'object' ? { presumedPile: presumedPileOf(e.presumedPile as Partial<PresumedPile>) } : {}),
+    ...((l) => (l ? { propertyLines: l } : {}))(propertyLinesOf(e.propertyLines)),
+    ...(typeof e.foundingElevation === 'number' && Number.isFinite(e.foundingElevation) && e.foundingElevation >= FOUNDING_RANGE.min && e.foundingElevation <= FOUNDING_RANGE.max ? { foundingElevation: e.foundingElevation } : {}),
     ...(e.columnEndZones === true ? { columnEndZones: true } : {}),
     ...((o) => (o ? { designOptions: o } : {}))(migrateDesignOptions(e.designOptions, e.rcSheets)),
     ...(e.executionControl === false ? { executionControl: false as const } : {}),
     ...(Array.isArray(e.joistTypes) ? { joistTypes: (e.joistTypes as Array<{ id?: unknown; name?: unknown }>).filter((t) => typeof t?.id === 'string' && typeof t?.name === 'string') as never } : {}),
     ...(e.slabBase && typeof e.slabBase === 'object' ? { slabBase: e.slabBase as ProjectDesignData['slabBase'] } : {}),
-    ...(e.rcSheets && typeof e.rcSheets === 'object' && typeof (e.rcSheets as { adopted?: unknown }).adopted === 'object' ? { rcSheets: { version: 1 as const, ...(SHEET_CODE_LIST.includes((e.rcSheets as { code?: unknown }).code as never) ? { code: (e.rcSheets as { code: SheetCode }).code } : {}), ...bentLinesOf((e.rcSheets as { bentLines?: unknown }).bentLines), ...(['full', 'minimum', 'reinforce'].includes((e.rcSheets as { footingSizing?: unknown }).footingSizing as string) ? { footingSizing: (e.rcSheets as { footingSizing: 'full' | 'minimum' | 'reinforce' }).footingSizing } : {}), ...scheduleOf((e.rcSheets as { schedule?: unknown }).schedule), ...(Array.isArray((e.rcSheets as { edited?: unknown }).edited) ? { edited: ((e.rcSheets as { edited: unknown[] }).edited).filter((k): k is string => typeof k === 'string') } : {}), ...(SHEET_CODE_LIST.includes((e.rcSheets as { adoptedCode?: unknown }).adoptedCode as never) ? { adoptedCode: (e.rcSheets as { adoptedCode: SheetCode }).adoptedCode } : {}), ...((e.rcSheets as { adoptedSeismic?: unknown }).adoptedSeismic === true ? { adoptedSeismic: true as const } : {}), ...((x) => (typeof x === 'number' && Number.isInteger(x) && x > 0 ? { adoptedLogic: x } : {}))((e.rcSheets as { adoptedLogic?: unknown }).adoptedLogic), ...((x) => (typeof x === 'string' && x ? { adoptedBasis: x } : {}))((e.rcSheets as { adoptedBasis?: unknown }).adoptedBasis), adopted: { ...((e.rcSheets as { adopted: Record<string, never> }).adopted) } } } : {}),
+    ...(e.rcSheets && typeof e.rcSheets === 'object' && typeof (e.rcSheets as { adopted?: unknown }).adopted === 'object' ? { rcSheets: { version: 1 as const, ...(SHEET_CODE_LIST.includes((e.rcSheets as { code?: unknown }).code as never) ? { code: (e.rcSheets as { code: SheetCode }).code } : {}), ...bentLinesOf((e.rcSheets as { bentLines?: unknown }).bentLines), ...(['full', 'minimum', 'reinforce'].includes((e.rcSheets as { footingSizing?: unknown }).footingSizing as string) ? { footingSizing: (e.rcSheets as { footingSizing: 'full' | 'minimum' | 'reinforce' }).footingSizing } : {}), ...(['auto', 'footings', 'strips', 'mat', 'piles'].includes((e.rcSheets as { foundationSystem?: unknown }).foundationSystem as string) ? { foundationSystem: (e.rcSheets as { foundationSystem: 'auto' | 'footings' | 'strips' | 'mat' | 'piles' }).foundationSystem } : {}), ...scheduleOf((e.rcSheets as { schedule?: unknown }).schedule), ...footingSetupOf((e.rcSheets as { footingSetup?: unknown }).footingSetup), ...(Array.isArray((e.rcSheets as { edited?: unknown }).edited) ? { edited: ((e.rcSheets as { edited: unknown[] }).edited).filter((k): k is string => typeof k === 'string') } : {}), ...(SHEET_CODE_LIST.includes((e.rcSheets as { adoptedCode?: unknown }).adoptedCode as never) ? { adoptedCode: (e.rcSheets as { adoptedCode: SheetCode }).adoptedCode } : {}), ...((e.rcSheets as { adoptedSeismic?: unknown }).adoptedSeismic === true ? { adoptedSeismic: true as const } : {}), ...((x) => (typeof x === 'number' && Number.isInteger(x) && x > 0 ? { adoptedLogic: x } : {}))((e.rcSheets as { adoptedLogic?: unknown }).adoptedLogic), ...((x) => (typeof x === 'string' && x ? { adoptedBasis: x } : {}))((e.rcSheets as { adoptedBasis?: unknown }).adoptedBasis), adopted: { ...((e.rcSheets as { adopted: Record<string, never> }).adopted) } } } : {}),
     // The seismic roles fixed by hand are the lateral-system declaration under its older name:
     // they move there (`migrateLateralSystem`), and the seismic settings keep none of their own.
     ...(e.seismic && typeof e.seismic === 'object' ? { seismic: { ...migrateSeismicDesign(e.seismic), roles: {} } } : {}),

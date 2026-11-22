@@ -1,13 +1,16 @@
 /**
  * The piers of the sheets: the walls and the columns inside them read from the demands, each
- * pier designed once its storey's walls come up (`pier-row.ts`).
+ * pier designed once its storey's walls come up (`pier-row.ts`), and at the foundation the groups
+ * of walls each footing stands under.
  */
-import { recognizePiers, type Pier, type PierColumn, type PierWall } from '../rc-sheets/piers';
-import { legDemand, pierCombos, zoneCandidates, zoneHosts } from '../rc-sheets/pier-design';
+import { outlineInertia, recognizePiers, type Pier, type PierColumn, type PierWall } from '../rc-sheets/piers';
+import { legDemand, pierCombos, pierDowelPlaces, zoneCandidates, zoneHosts } from '../rc-sheets/pier-design';
 import { columnOfPier, designPier, unloaded, type PierDesign } from '../rc-sheets/pier-row';
 import { stackOver } from '../rc-sheets/column-stack';
-import { boundaryBars, type WallContext, type WallDemand, type WallRow } from '../rc-sheets/wall-row';
+import { boundaryBars, verticalLap, type WallContext, type WallDemand, type WallRow } from '../rc-sheets/wall-row';
 import type { ColumnContext, ColumnDemand, ColumnRow, StackPlace } from '../rc-sheets/column-row';
+import type { FootingPier } from '../rc-sheets/footing-demands';
+import type { FootingColumn, FootingDemand } from '../rc-sheets/footing-types';
 import { computeLocalAxes3D, memberRoll } from '../engine/local-axes-3d';
 import { modelStore } from './model.svelte';
 import type { Fmt } from '../rc-sheets/format';
@@ -23,6 +26,21 @@ export const pierColumnOf = (d: ColumnDemand): PierColumn | null =>
 /** Every storey's groups of walls that meet, with the columns inside them. */
 export function storeyPiers(walls: readonly WallDemand[], columns: readonly ColumnDemand[]): Pier[] {
   return recognizePiers(walls.map(pierWallOf).filter((w): w is PierWall => !!w), columns.map(pierColumnOf).filter((c): c is PierColumn => !!c));
+}
+
+/** The groups whose base stands on supports: one footing each, under every supported node of their walls' bases and of the columns' feet inside them. */
+export function foundationPiers(piers: readonly Pier[], walls: readonly WallDemand[], columns: readonly ColumnDemand[], supported: ReadonlySet<number>): FootingPier[] {
+  const out: FootingPier[] = [];
+  for (const p of piers) {
+    const nodes = [...new Set([
+      ...p.walls.flatMap((w) => walls.find((d) => d.key === w.key)?.baseNodes ?? []),
+      ...p.columns.flatMap((c) => { const n = columns.find((d) => d.key === c.key)?.nodes?.bottom; return n === undefined ? [] : [n]; }),
+    ])].filter((n) => supported.has(n)).sort((a, b) => a - b);
+    if (nodes.length < 2) continue;
+    const xs = p.outline.outer.map((q) => q.x), ys = p.outline.outer.map((q) => q.y);
+    out.push({ key: p.key, name: p.name, nodes, box: { x0: Math.min(...xs), y0: Math.min(...ys), x1: Math.max(...xs), y1: Math.max(...ys) }, area: p.area, storey: p.height, walls: p.walls.map((w) => w.key), outline: p.outline.outer.map((q) => ({ x: q.x, y: q.y })) });
+  }
+  return out;
 }
 
 export interface PierHooks {
@@ -77,6 +95,45 @@ export function pierColumnRow(p: PierDesign, d: ColumnDemand, prev: ColumnRow | 
   return columnOfPier(base, d, p, zone, h.fmt);
 }
 
+/**
+ * A pier's footing dowels: one under each of its bottom storey's vertical bars, walls' and column
+ * zones' alike, of that bar's diameter and lapped with it over its own lap (the wall's for a wall's
+ * bar, the pier's for a column zone's: in tension where its section's edge is pulled), each with the
+ * way in it is cranked; how many, the thickest, their area, cm², and the least steel across the
+ * joint, 0,005 of its columns' area (§16.3.4.1) and each wall's least vertical ratio over its own (§16.3.4.2), cm².
+ */
+export function pierDowels(p: PierDesign, cover: (key: string) => number, fc: number, fy: number): NonNullable<FootingColumn['bars']> & { dowelMin: number } {
+  const legs = p.legs.filter((r) => !!r.demand.plan).map((r) => ({ key: r.key, wall: { plan: r.demand.plan!, thickness: r.thickness }, cover: cover(r.key), adopted: r.adopted }));
+  const c = p.pier.centroid, { ix, iy } = outlineInertia(p.pier.outline, c);
+  const far = p.pier.outline.outer.reduce((m, q) => ({ x: Math.max(m.x, Math.abs(q.x - c.x)), y: Math.max(m.y, Math.abs(q.y - c.y)) }), { x: 0, y: 0 });
+  const tension = p.combos.some((k) => k.n / p.pier.area - (Math.abs(k.mx) * far.y) / Math.max(ix, 1e-9) - (Math.abs(k.my) * far.x) / Math.max(iy, 1e-9) < 0);
+  const zoneLap = (dia: number) => verticalLap({ fc, fy }, dia, tension);
+  const lapOf = (leg: string | undefined, dia: number) => Math.max(zoneLap(dia), (leg ? p.legs.find((r) => r.key === leg)?.vLaps?.find((x) => x.dia === dia)?.lap : undefined) ?? 0);
+  const at = pierDowelPlaces(legs, p.zones).map((b) => ({ x: b.x, y: b.y, n: b.n, dia: b.dia, lap: lapOf(b.leg, b.dia) }));
+  const cols = p.zones.reduce((s, z) => s + z.column.b * z.column.h, 0);
+  const walls = p.legs.reduce((s, r) => s + r.req.rhoL * r.length * r.thickness, 0);
+  return { count: at.length, dia: Math.max(0, ...at.map((b) => b.dia)), tension, area: at.reduce((s, b) => s + barArea(b.dia), 0), at, dowelMin: (0.005 * cols + walls) * 1e4 };
+}
+
+/** A group of walls standing on a footing with no pier designed over it: a dowel under each of their bottom verticals, lapped over the wall's own lap (`pierDowels`). */
+export function wallDowels(walls: readonly WallRow[]): NonNullable<FootingColumn['bars']> & { dowelMin: number } {
+  const legs = walls.filter((r) => !!r.demand.plan).map((r) => ({ key: r.key, wall: { plan: r.demand.plan!, thickness: r.thickness }, cover: r.cover, adopted: r.adopted }));
+  const lapOf = (leg: string | undefined, dia: number) => walls.find((r) => r.key === leg)?.vLaps?.find((x) => x.dia === dia)?.lap ?? 0;
+  const at = pierDowelPlaces(legs, []).map((b) => ({ x: b.x, y: b.y, n: b.n, dia: b.dia, lap: lapOf(b.leg, b.dia) }));
+  const tension = walls.some((r) => r.vLaps?.some((x) => x.tension));
+  return { count: at.length, dia: Math.max(0, ...at.map((b) => b.dia)), tension, area: at.reduce((s, b) => s + barArea(b.dia), 0), at, dowelMin: walls.reduce((s, r) => s + r.req.rhoL * r.length * r.thickness, 0) * 1e4 };
+}
+
+/** The footings of walls with no pier designed over them, with their dowels from the walls on them. */
+export const withWallFeet = (feet: readonly FootingDemand[], walls: readonly WallRow[]): FootingDemand[] =>
+  feet.map((f) => {
+    if (!f.pier || !f.column || f.column.bars) return f;
+    const mine = walls.filter((w) => f.pier!.walls.includes(w.key));
+    if (!mine.length) return f;
+    const { dowelMin, ...bars } = wallDowels(mine);
+    return bars.count ? { ...f, column: { ...f.column, bars, dowelMin } } : f;
+  });
+
 /** Under a code whose sections the piers are not checked with, the walls and columns that overlap say they were designed apart. */
 export function withApart<R extends { key: string; verifications: CheckLine[] }>(rows: readonly R[], piers: readonly Pier[]): R[] {
   const names = new Map(piers.filter((p) => p.columns.length).flatMap((p) => [...p.walls.map((w) => w.key), ...p.columns.map((c) => c.key)].map((k) => [k, p.name] as const)));
@@ -106,5 +163,15 @@ export function withPierColumns(demands: readonly ColumnDemand[], rows: readonly
     const row = p ? pierColumnRow(p, d, before, h) : before?.pier ? free(d, before) : rows.find((r) => r.key === d.key)!;
     prev = row;
     return row;
+  });
+}
+
+/** The footings of piers with their dowels and concrete from the pier designed on them. */
+export function withPierFeet(feet: readonly FootingDemand[], designs: ReadonlyMap<string, PierDesign>, fc: (d: WallDemand) => number, cover: number, fy: number): FootingDemand[] {
+  return feet.map((f) => {
+    const p = f.pier && [...designs.values()].find((x) => x.pier.walls.some((w) => f.pier!.walls.includes(w.key)));
+    if (!p || !f.column) return f;
+    const { dowelMin, ...bars } = pierDowels(p, () => cover, Math.min(...p.legs.map((l) => fc(l.demand))), fy);
+    return { ...f, column: { ...f.column, bars, dowelMin, fc: Math.min(...p.legs.map((l) => fc(l.demand))) } };
   });
 }

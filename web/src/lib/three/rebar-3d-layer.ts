@@ -3,16 +3,18 @@ import type { Rebar3d, RebarTone } from '../rc-sheets/rebar-3d';
 
 export type Host = { scene: THREE.Scene; redraw: () => void };
 
-/** Every tone a colour of its own, none near the concrete ghost's (the text colour): a member's main bars, then its stirrups. */
+/** Every tone a colour of its own, none near the concrete ghost's (the text colour): a member's main bars, then its stirrups; foundation members in the footings' warm tones. */
 export const REBAR_FIXED: Partial<Record<RebarTone, string>> = {
   continuous: '#6fb3d9', column: '#8f9cf5',
   bent: '#b48cf2', bottomX: '#4ecdc4', bottomY: '#5b8def', topX: '#e0a03c', topY: '#d9607a',
   vertical: '#4ecdc4', horizontal: '#5b8def', ubar: '#e0a03c', wallTie: '#d9607a', punching: '#c084fc',
+  strapMain: '#b8692e', strapStirrup: '#9c8068',
 };
 const FIXED = REBAR_FIXED;
 const TOKENS: Partial<Record<RebarTone, [string, string]>> = {
   support: ['--st-danger', '#e0604a'], span: ['--st-ok', '#4fb37a'],
   stirrup: ['--st-text-2', '#9a968e'], tie: ['--st-text-2', '#9a968e'], dowel: ['--st-danger', '#e0604a'],
+  footingX: ['--st-accent', '#e8553a'], footingY: ['--st-warn', '#d9a03c'], footingTop: ['--st-ok', '#4fb37a'], footingPunch: ['--st-danger', '#d6455d'], pileBar: ['--st-accent', '#c2703d'], pileHoop: ['--st-warn', '#b9893a'],
 };
 
 let probe: CanvasRenderingContext2D | null | undefined;

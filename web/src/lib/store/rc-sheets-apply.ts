@@ -10,7 +10,9 @@ import { modelStore, type Material, type Section } from './model.svelte';
 import { plateOfShell, setPlateProperties } from './physical-plates';
 import { rectJ } from '../cad/draft';
 import { concreteClassOf, concreteModulus } from '../rc-sheets/concrete-classes';
-import { sheetCode, type SheetRow } from './rc-sheets.svelte';
+import { rcSheetsData, sheetCode, type SheetRow } from './rc-sheets.svelte';
+import { setFootingSetup } from './rc-sheets-footings';
+import type { FootingBalance } from '../rc-sheets/footing-types';
 import { storeyMembers, type Alternative } from './rc-sheets-resize';
 import { patchDesignData } from './design-data';
 import type { LineLayout } from '../rc-sheets/beam-line';
@@ -34,12 +36,14 @@ function targetsOf(row: SheetRow | LineLayout, alt: Alternative): { members: num
       const plates = [...new Set(row.demand.adjoining.map((a) => plateOfShell(`q${a.elementId}`) ?? plateOfShell(`p${a.elementId}`)).filter((x): x is number => x != null))];
       return { members: [], plates };
     }
+    case 'footing': return { members: [], plates: [] };
   }
 }
 
 /** Whether the sheets can apply it themselves: a capital, a drop panel or a column grown for punching is changed in the model by hand. */
 export function canApply(row: SheetRow | LineLayout, alt: Alternative): boolean {
   if (alt.kind === 'ties') return true;
+  if (alt.kind === 'footing') return alt.what === 'strap' || alt.what === 'tie' || alt.what === 'eccentric';
   const t = targetsOf(row, alt);
   return t.members.length + t.plates.length > 0;
 }
@@ -72,6 +76,11 @@ export function applyAlternative(row: SheetRow | LineLayout, alt: Alternative): 
   if (alt.kind === 'ties') {
     patchDesignData({ stirrupDiametersMm: alt.list });
     return { name: `Ø${alt.to}`, created: false, members: 0, plates: 0 };
+  }
+  if (alt.kind === 'footing') {
+    if (!canApply(row, alt) || 'spanAdopted' in row || row.family !== 'footing') return null;
+    setFootingSetup(row.key, { ...(rcSheetsData().footingSetup?.[row.key] ?? {}), balance: alt.what as FootingBalance });
+    return { name: row.name, created: false, members: 0, plates: 0 };
   }
   const { members, plates } = targetsOf(row, alt);
   if (!members.length && !plates.length) return null;
