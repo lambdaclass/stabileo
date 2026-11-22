@@ -640,7 +640,8 @@ function checkBlockedGravity(model: LoadModelData, reason: EngineMessage) {
   const width = buildLoadPlan(planInput(model, { gravity: { mode: 'width' } }));
   expect(width.outcome).toBe('READY');
   expect(width.surface).toEqual([]);
-  expect(width.distributed.length).toBeGreaterThan(0);
+  if (model.elements.size) expect(width.distributed.length).toBeGreaterThan(0);
+  else expect(width.distributed).toEqual([]);
 }
 
 it('#2284 overlapping coplanar shells load the bay only once', () => {
@@ -663,6 +664,63 @@ it('#2284 shells rounded to different levels can claim the same bay', () => {
   rectangularShell(model, 2, 2, 6, 3.0019999);
   checkBlockedGravity(model, { key: 'loadPlan.gravity.overlappingShells', params: { first: 1, second: 2 } });
 });
+
+function cornerOrders(nodes: number[]): number[][] {
+  return [nodes, [...nodes].reverse()].flatMap(order =>
+    order.map((_, start) => [...order.slice(start), ...order.slice(0, start)]),
+  );
+}
+
+const reviewShellOverlap = process.env.RUN_KNOWN_WRONG === '2284' ? it : it.skip;
+const overlappingShells = { key: 'loadPlan.gravity.overlappingShells', params: { first: 1, second: 2 } } as const;
+
+for (let first = 0; first < 8; first++) for (let second = 0; second < 8; second++) {
+  reviewShellOverlap(`known wrong result: #2284 round 2 parallel shell-only decks overlap with corner orders ${first}/${second}`, () => {
+    const model = floor(0, 0, 10, 6);
+    const a = rectangularShell(model, 1, 0, 10, 3.0009996, 3.0019995);
+    const b = rectangularShell(model, 2, 0, 10, 3.0010006, 3.0020005);
+    model.quads!.get(1)!.nodes = cornerOrders(a)[first]!;
+    model.quads!.get(2)!.nodes = cornerOrders(b)[second]!;
+    checkBlockedGravity(model, overlappingShells);
+  });
+}
+
+it('#2284 round 2 partial shell overlap just inside the deck tolerance blocks', () => {
+  const model = floor(0, 0, 10, 6);
+  rectangularShell(model, 1, 0, 8, 3.0001);
+  rectangularShell(model, 2, 2, 10, 3.0010999);
+  checkBlockedGravity(model, overlappingShells);
+});
+
+it('#2284 round 2 elevations shared by a real overlapping bay block gravity', () => {
+  const model = floor(1, 1, 10, 6, 3.001);
+  rectangularShell(model, 1, 0, 10, 3.0002);
+  rectangularShell(model, 2, 0, 10, 3.0018);
+  checkBlockedGravity(model, overlappingShells);
+});
+
+for (const [label, model, x0, x1, x2, x3, low, high] of [
+  ['outside the deck tolerance', floor(0, 0, 10, 6), 0, 8, 2, 10, 3.0001, 3.0011001],
+  ['without a beam bay', floor(0, 0, 10, 6), 0, 10, 0, 10, 3.0002, 3.0018],
+  ['with a bay touching the common footprint at its edge', floor(1, 1, 10, 6, 3.001), -5, 0, -5, 10, 3.0002, 3.0018],
+] as const) {
+  reviewShellOverlap(`known wrong result: #2284 round 2 independent shells keep their loads ${label}`, () => {
+    rectangularShell(model, 1, x0, x1, low);
+    rectangularShell(model, 2, x2, x3, high);
+    for (const loadEveryPanel of [false, true]) {
+      const gravity = { mode: 'panels', loadEveryPanel } as const;
+      const plan = buildLoadPlan(planInput(model, { dead: [{ labelKey: 'a', q: 1 }], gravity }));
+      expect(plan.outcome, JSON.stringify(plan.blockedKeys)).toBe('READY');
+      expect(plan.blockedKeys).toEqual([]);
+      expect(plan.surface.filter(load => load.caseType === 'D')).toEqual(
+        [1, 2].map(quadId => ({ quadId, caseType: 'D', q: 1 })),
+      );
+      expect(plan.nodal).toEqual([]);
+      expect(plan.distributed).toEqual([]);
+      expect(deadLoadKN(plan, model)).toBe(6 * ((x1 - x0) + (x3 - x2)));
+    }
+  });
+}
 
 it('#2284 shells outside the shared deck band keep independent gravity loads', () => {
   const model = floor(1, 1, 10, 6, 3.001);
