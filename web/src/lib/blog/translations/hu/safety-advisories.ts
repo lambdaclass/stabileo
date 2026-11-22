@@ -252,6 +252,12 @@ const body: PostBody = {
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-103-rc-torsion-evidence.md", "label": "SA-2026-103", "t": "Érintett bemenetek és szükséges teendők."},
     {"k": "note", "t": "SA-2026-104 — Következő kiadás (0.6.4)."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-104-member-load-reversal-and-planar-couples.md", "label": "SA-2026-104", "t": "Érintett bemenetek és szükséges teendők."},
+    {"k": "note", "t": "SA-2026-105 — A 0.6.3 utáni következő kiadás."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-105-restored-planar-moment-edits.md", "label": "SA-2026-105", "t": "Érintett bemenetek és szükséges teendők."},
+    {"k": "note", "t": "SA-2026-106 — A 0.6.3 utáni következő kiadás (korlátozás)."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-106-complementary-plate-remesh-arc.md", "label": "SA-2026-106", "t": "Érintett bemenetek és szükséges teendők."},
+    {"k": "note", "t": "SA-2026-107 — A 0.6.3 utáni következő kiadás (korlátozás)."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-107-plate-remesh-shell-edits.md", "label": "SA-2026-107", "t": "Érintett bemenetek és szükséges teendők."},
     {
       "k": "img",
       "base": "blog/recheck-stale",
@@ -781,7 +787,10 @@ const body: PostBody = {
         ["SA-2026-101", "A PRO kihagyott lemezekkel, hiányos adatokból készült hálókkal vagy csatlakozás nélküli fal–födém kapcsolatokkal is számolhatott. Hasonlítsa össze a hálót a tervezett geometriával, javítsa az érintett lemezeket és csatlakozásokat, majd ismételje meg a számítást és a méretezési ellenőrzéseket.", "Magas", "Következő kiadás (0.6.4)"],
         ["SA-2026-102", "Az ábrák hibás csúcsértékeket vagy igénybevételeket adhattak koncentrált hatások közelében, a megfordított rúdszakaszok pedig felcserélhették a vasbeton ellenőrzött oldalait. Ellenőrizze a mértékadó igénybevételeket, a vasalás oldalát és az acélszerkezetek nyomatékgradiensének adatait. Ismételje meg az érintett számításokat és ellenőrzéseket.", "Magas", "Következő kiadás (0.6.4)"],
         ["SA-2026-103", "A vasbeton csavarási és nyírási ellenőrzései elégtelen keresztirányú vasalást fogadhattak el, vagy nem igazolt kerületi, illetve húzott betonacélt vehettek figyelembe. Ismételje meg az ellenőrzéseket a tényleges vasalással és az egyidejű igénybevételekkel, majd vizsgálja felül a jelentéseket.", "Magas", "Következő kiadás (0.6.4)"],
-        ["SA-2026-104", "A rudak megfordítása módosíthatta a megoszló terhek irányát, és a számítás kihagyhatta a régi síkbeli koncentrált nyomatékokat. Ellenőrizze a mentett teherirányokat, végértékeket és nyomatékmezőket. Javítsa a terheket, és ismételje meg az érintett számításokat és méretezési ellenőrzéseket.", "Magas", "Következő kiadás (0.6.4)"]
+        ["SA-2026-104", "A rudak megfordítása módosíthatta a megoszló terhek irányát, és a számítás kihagyhatta a régi síkbeli koncentrált nyomatékokat. Ellenőrizze a mentett teherirányokat, végértékeket és nyomatékmezőket. Javítsa a terheket, és ismételje meg az érintett számításokat és méretezési ellenőrzéseket.", "Magas", "Következő kiadás (0.6.4)"],
+        ["SA-2026-105", "A visszaállított síkbeli koncentrált nyomaték nullázása után a korábbi nyomaték továbbra is hathatott. Ellenőrizze és adja meg újra a kívánt nyomatékokat, majd ismételje meg az érintett számításokat és méretezési ellenőrzéseket.", "Magas", "A 0.6.3 utáni következő kiadás"],
+        ["SA-2026-106", "Az újrahálózás a görbe lemezperem kiegészítő ívét követhette. Hasonlítsa össze a hálót a megadott ívvel, készítse el újra az érintett hálókat, majd ismételje meg a számítást és a méretezési ellenőrzéseket.", "Magas", "A 0.6.3 utáni következő kiadás (korlátozás)"],
+        ["SA-2026-107", "Az újrahálózás törölhette a héjelemek eltolásának és görbületének módosításait. Ellenőrizze és állítsa vissza a kívánt héjelem-tulajdonságokat a számítás és a méretezési ellenőrzések megismétlése előtt.", "Magas", "A 0.6.3 utáni következő kiadás (korlátozás)"]
       ]
     },
     {
