@@ -101,6 +101,15 @@ describe('solver-worker message round-trip', () => {
     expect(tip.uz / (-10 * 12 ** 3 / (3 * 200e6 * 1000 * 1e-4))).toBeCloseTo(1, 6);
   });
 
+  it('#2292 the P-Delta worker refuses non-finite scalar options', async () => {
+    for (const [id, tol] of [NaN, Infinity, -Infinity].entries()) {
+      await dispatch({ type: 'pdelta3d', id: 2292 + id, input: cantileverWire(), maxIter: 20, tol });
+      const reply = posted.find(m => m.id === 2292 + id);
+      expect.soft(reply?.result).toBeUndefined();
+      expect.soft(reply?.error).toMatch(/Non-finite number .* at .*tolerance/);
+    }
+  });
+
   it('reports an error for structurally invalid input instead of hanging', async () => {
     // Element references node 99, which does not exist.
     const bad = cantileverWire();

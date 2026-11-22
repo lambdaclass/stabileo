@@ -3912,6 +3912,8 @@ const es: Record<string, string> = {
   // Advertencias del mapper
   'dxf.warnZeroLengthLine': 'Línea de longitud cero ignorada',
   'dxf.warnNoElementLayers': 'No se detectaron capas BARRAS/ELEMENTOS. Se usan todas las líneas como barras.',
+  'dxf.refuseSupportLabel': 'La etiqueta de apoyo «{label}» en la capa DXF «{layer}» es desconocida o ambigua. Corregí el dibujo antes de importar. Usá FIXED, PINNED, RX, RY o RZ solo si corresponde a la restricción prevista.',
+  'dxf.refuseConflictingSupports': 'Las etiquetas de apoyo «{first}» y «{second}» de la capa DXF «{layer}» corresponden al mismo nodo. Conservá solo la etiqueta o el bloque de la restricción prevista antes de importar.',
   'dxf.warnSupportNoNode': 'El apoyo no coincide con ningún nodo:',
   'dxf.warnSupportBlockNoNode': 'El bloque de apoyo no coincide con ningún nodo:',
   'dxf.warnDistLoadNoElement': 'Carga distribuida no asociada a ninguna barra:',
@@ -4310,7 +4312,7 @@ const es: Record<string, string> = {
   'svc.errorInCase3d': 'Error en caso 3D "{n}": {err}',
   'svc.engine.mechanism': "Matriz de rigidez singular: la estructura es un mecanismo",
   'svc.engine.cancelledCombination': "Los factores de los casos de carga repetidos se cancelan y dan cero en esta combinación.",
-  'svc.engine.nonFiniteNumber': "Número no finito ({value}) en {path}",
+  "svc.engine.nonFiniteNumber": "Ingresá un número finito en {path} (valor recibido: {value}).",
   'svc.engine.zeroDiagonal': "Todas las entradas de la diagonal son cero: matriz singular",
   'svc.engine.singular': "Matriz de rigidez singular",
   'svc.settlementCase': 'Asentamientos impuestos',

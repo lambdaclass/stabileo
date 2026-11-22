@@ -1818,6 +1818,8 @@ const ar: Translations = {
   'dxf.summaryMaxV': 'أقصى V:',
   'dxf.warnZeroLengthLine': 'تم تجاهل خط بطول صفري',
   'dxf.warnNoElementLayers': 'لم يتم كشف طبقات عناصر/كمرات. يتم استخدام جميع الخطوط كعناصر.',
+  'dxf.refuseSupportLabel': 'تسمية المسند «{label}» في طبقة DXF «{layer}» غير معروفة أو ملتبسة. صحّح الرسم قبل الاستيراد. استخدم FIXED أو PINNED أو RX أو RY أو RZ فقط إذا كانت التسمية تطابق القيد المقصود.',
+  'dxf.refuseConflictingSupports': 'تسميتا المسند «{first}» و«{second}» في طبقة DXF «{layer}» تتطابقان مع العقدة نفسها. قبل الاستيراد، أبقِ فقط على التسمية أو الكتلة الخاصة بالقيد المقصود.',
   'dxf.warnSupportNoNode': 'المسند لا يتطابق مع أي عقدة:',
   'dxf.warnSupportBlockNoNode': 'كتلة المسند لا تتطابق مع أي عقدة:',
   'dxf.warnDistLoadNoElement': 'حمل موزّع غير مرتبط بأي عنصر:',
@@ -3752,6 +3754,7 @@ const ar: Translations = {
   "autoLoad.work.draw": "رسم الأحمال",
   "autoLoad.work.step": "الخطوة {step} من {total}",
   "autoLoad.work.cancel": "إيقاف",
+  "svc.engine.nonFiniteNumber": "أدخل عددًا منتهيًا في الحقل {path} (القيمة الواردة: {value}).",
 } as const satisfies Record<string, string>;
 
 export default ar;
