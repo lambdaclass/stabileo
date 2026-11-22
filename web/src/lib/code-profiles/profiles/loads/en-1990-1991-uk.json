@@ -1,0 +1,44 @@
+{
+  "meta": {
+    "schema": 1,
+    "id": "en-1990-1991-uk",
+    "extends": "en-1990-1991",
+    "role": "loads",
+    "title": "BS EN 1990 + BS EN 1991-1-1 + UK NA",
+    "edition": "NA 2004-2005",
+    "revision": 1,
+    "country": "GB",
+    "maturity": "provisional",
+    "maintainers": [],
+    "sources": [
+      {"id": "NA to BS EN 1990", "title": "UK National Annex to BS EN 1990", "edition": "2004"},
+      {"id": "NA to BS EN 1991-1-1", "title": "UK National Annex to BS EN 1991-1-1", "edition": "2005"}
+    ]
+  },
+  "combinations": {
+    "xi": {"v": 0.925, "cite": {"clause": "Table NA.A1.2(B)", "source": "NA to BS EN 1990", "label": "STR set B"}},
+    "psi": {
+      "cite": {"clause": "Table NA.A1.1", "source": "NA to BS EN 1990", "label": "psi"},
+      "rows": {"H": [0.7, 0, 0], "snowHigh": [0.5, 0.2, 0], "wind": [0.5, 0.2, 0]}
+    }
+  },
+  "imposed": {
+    "occupancies": {
+      "rows": [
+        {"key": "uk-A1", "label": "uk_A1", "group": "A", "kind": "residential", "q": 1.5, "Q": 2, "cite": {"clause": "Table NA.3", "source": "NA to BS EN 1991-1-1", "label": "imposed loads"}},
+        {"key": "uk-A3", "label": "uk_A3", "group": "A", "kind": "residential", "q": 2, "Q": 2, "cite": {"clause": "Table NA.3", "source": "NA to BS EN 1991-1-1", "label": "imposed loads"}},
+        {"key": "uk-A5", "label": "uk_A5", "group": "A", "kind": "residential", "q": 2.5, "Q": 2, "cite": {"clause": "Table NA.3", "source": "NA to BS EN 1991-1-1", "label": "imposed loads"}},
+        {"key": "uk-B1", "label": "uk_B1", "group": "B", "kind": "office", "q": 2.5, "Q": 2.7, "cite": {"clause": "Table NA.3", "source": "NA to BS EN 1991-1-1", "label": "imposed loads"}},
+        {"key": "uk-B2", "label": "uk_B2", "group": "B", "kind": "office", "q": 3, "Q": 2.7, "cite": {"clause": "Table NA.3", "source": "NA to BS EN 1991-1-1", "label": "imposed loads"}},
+        {"key": "uk-C11", "label": "uk_C11", "group": "C", "kind": "assembly", "q": 2, "Q": 3, "cite": {"clause": "Table NA.3", "source": "NA to BS EN 1991-1-1", "label": "imposed loads"}},
+        {"key": "uk-C13", "label": "uk_C13", "group": "C", "kind": "education", "q": 3, "Q": 3, "cite": {"clause": "Table NA.3", "source": "NA to BS EN 1991-1-1", "label": "imposed loads"}},
+        {"key": "uk-C21", "label": "uk_C21", "group": "C", "kind": "assembly", "q": 4, "Q": 3.6, "cite": {"clause": "Table NA.3", "source": "NA to BS EN 1991-1-1", "label": "imposed loads"}},
+        {"key": "uk-C41", "label": "uk_C41", "group": "C", "kind": "assembly", "q": 5, "Q": 3.6, "cite": {"clause": "Table NA.3", "source": "NA to BS EN 1991-1-1", "label": "imposed loads"}},
+        {"key": "uk-C51", "label": "uk_C51", "group": "C", "kind": "assembly", "q": 5, "Q": 3.6, "cite": {"clause": "Table NA.3", "source": "NA to BS EN 1991-1-1", "label": "imposed loads"}},
+        {"key": "uk-D1", "label": "uk_D1", "group": "D", "kind": "commercial", "q": 4, "Q": 3.6, "cite": {"clause": "Table NA.3", "source": "NA to BS EN 1991-1-1", "label": "imposed loads"}},
+        {"key": "uk-D2", "label": "uk_D2", "group": "D", "kind": "commercial", "q": 4, "Q": 3.6, "cite": {"clause": "Table NA.3", "source": "NA to BS EN 1991-1-1", "label": "imposed loads"}},
+        {"key": "uk-H", "label": "uk_H", "group": "H", "kind": "roof", "q": 0.6, "Q": 0.9, "noReduction": true, "cite": {"clause": "Table NA.7", "source": "NA to BS EN 1991-1-1", "label": "imposed loads"}}
+      ]
+    }
+  }
+}

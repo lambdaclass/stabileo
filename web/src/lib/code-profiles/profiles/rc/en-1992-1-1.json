@@ -1,0 +1,58 @@
+{
+  "meta": {
+    "schema": 1,
+    "id": "en-1992-1-1",
+    "role": "rc",
+    "title": "EN 1992-1-1, recommended values",
+    "edition": "2004",
+    "revision": 1,
+    "country": "EU",
+    "maturity": "provisional",
+    "maintainers": [],
+    "sources": [
+      {"id": "EN 1992-1-1", "title": "EN 1992-1-1, Design of concrete structures: general rules and rules for buildings", "edition": "2004"}
+    ]
+  },
+  "materials": {
+    "steel": {
+      "es": {"v": 200000, "unit": "MPa", "cite": {"clause": "3.2.7(4)"}}
+    }
+  },
+  "resistance": {
+    "kind": "gamma",
+    "gammaC": {"v": 1.5, "cite": {"clause": "2.4.2.4(1), Table 2.1N"}},
+    "gammaS": {"v": 1.15, "cite": {"clause": "2.4.2.4(1), Table 2.1N"}},
+    "alphaCC": {"v": 1.0, "cite": {"clause": "3.1.6(1)P"}},
+    "alphaCCShear": {"v": 1.0, "cite": {"clause": "3.1.6(1)P"}},
+    "alphaCT": {"v": 1.0, "cite": {"clause": "3.1.6(2)P"}}
+  },
+  "beams": {
+    "minSteel": {"f": "minSteel.tensileRatio", "k": {"c": 0.26, "floor": 0.0013}, "cite": {"clause": "9.2.1.1(1)"}},
+    "maxRatio": {"v": 0.04, "unit": "-", "cite": {"clause": "9.2.1.1(3)"}},
+    "xuLimit": {
+      "unit": "-",
+      "cite": {"clause": "5.5(4)", "label": "xu/d without redistribution, delta = 1"},
+      "interp": "step",
+      "axes": [
+        {"name": "fckUpTo", "values": [50, 90]}
+      ],
+      "values": [0.45, 0.35]
+    },
+    "linkMin": {"f": "minLinks.sqrtFc", "k": {"c": 0.08}, "cite": {"clause": "9.2.2(5)"}},
+    "linkMaxSpacing": {"v": 0.75, "unit": "-", "cite": {"clause": "9.2.2(6)"}}
+  },
+  "shear": {
+    "f": "shear.variableStrut",
+    "k": {"crdc": 0.18, "k1": 0.15, "vmin": 0.035, "cotMin": 1, "cotMax": 2.5, "nu1": 1},
+    "cite": {"clause": "6.2.2(1), 6.2.3(2), 6.2.3(3)"}
+  },
+  "punching": {
+    "vmax": {"f": "punching.vmax", "k": {"c": 0.4}, "cite": {"clause": "6.4.5(3)"}}
+  },
+  "columns": {
+    "rhoMin": {"f": "columnSteel.axialOrArea", "k": {"axial": 0.1, "floor": 0.002}, "cite": {"clause": "9.5.2(2)"}},
+    "rhoMax": {"v": 0.04, "unit": "-", "cite": {"clause": "9.5.2(3)"}},
+    "minBarDia": {"v": 8, "unit": "mm", "cite": {"clause": "9.5.2(1)"}},
+    "slenderness": {"f": "slenderness.limitABC", "k": {"c": 20}, "cite": {"clause": "5.8.3.1(1)"}}
+  }
+}
