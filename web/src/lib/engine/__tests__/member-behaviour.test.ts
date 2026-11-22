@@ -10,7 +10,7 @@ import '../../store';
 import * as wasmSolver from '../wasm-solver';
 import { solveDetailed } from '../solver-detailed';
 import { solveDetailed3D } from '../solver-detailed-3d';
-import { buildSolverInput2D, buildSolverInput3D, validateAndSolve3D, solveCombinations3D, scaleSolverLoad } from '../solver-service';
+import { buildSolverInput3D, validateAndSolve3D, solveCombinations3D, scaleSolverLoad } from '../solver-service';
 import { SETTLEMENT_CASE_ID } from '../settlement-case';
 import { presetModifiers, CIRSOC201_STIFFNESS, solveNonlinear3D } from '../member-behaviour';
 import { modelHasJoints3D } from '../expand-joints-3d';
@@ -457,7 +457,7 @@ it('preserves cable identity so bar analyses refuse it and cable analysis remain
   modelStore.updateElement(d5, { behaviour: 'cable' });
   const input = buildSolverInput3D(md())!;
   expect(input.elements.get(d5)?.type).toBe('cable');
-  const plane = buildSolverInput2D(md())!;
+  const plane = modelStore.buildSolverInput(false, 'xz')!;
   expect(plane.elements.get(d5)?.type).toBe('cable');
   for (const run of [() => solveDetailed(plane), () => solveDetailed3D(input)]) {
     let caught: unknown;

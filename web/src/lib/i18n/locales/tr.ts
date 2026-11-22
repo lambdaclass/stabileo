@@ -1,6 +1,11 @@
 import type { Translations } from '../types';
 
 const tr: Translations = {
+  'svc.accountingMismatch': "Analiz reddedildi. Yük durumu {case}, {component}. Girilen {entered}, birleştirilen {assembled}.",
+  'svc.accountingUnsupported': "Analiz reddedildi. {case} yük durumunda {kind} {id} için kuvvet ve moment hesabı yapılamıyor.",
+  'svc.accountingArea': "Analiz reddedildi. Çözücüde {plate} plağının alanı veya sınırı farklı. Belirtilen alan {entered}, birleştirilen alan {assembled}.",
+  'svc.accountingSweep': "Analiz reddedildi. Çözücüde {plate} plağının eğri kenar yayı farklı. Belirtilen alan {entered}, birleştirilen alan {assembled}.",
+  'svc.accountingShellEdits': "{plate} plağı yeniden ağlanamaz, çünkü kabuk ofseti veya kabuk eğriliği düzenlemesi kaybolur.",
   'engine.memberLoad.geometryOrdering': "Oluşturulan çubuk geometrisinin sıralaması geçersiz",
   'engine.memberLoad.geometryLine': "Oluşturulan çubuk geometrisi kaynak çizgiden ayrılıyor",
   'engine.memberLoad.invalidGeometry': "Oluşturulan çubuk geometrisi geçersiz",

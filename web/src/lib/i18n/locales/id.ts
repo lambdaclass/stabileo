@@ -1,6 +1,11 @@
 import type { Translations } from '../types';
 
 const id: Translations = {
+  'svc.accountingMismatch': "Analisis ditolak. Kasus beban {case}, {component}. Nilai masukan {entered}, nilai rakitan {assembled}.",
+  'svc.accountingUnsupported': "Analisis ditolak. Gaya dan momen {kind} {id} pada kasus beban {case} tidak dapat diperhitungkan.",
+  'svc.accountingArea': "Analisis ditolak. Pelat {plate} memiliki luas atau batas yang berbeda pada model penyelesaian. Luas yang ditetapkan {entered}, luas rakitan {assembled}.",
+  'svc.accountingSweep': "Analisis ditolak. Busur tepi pelat {plate} berbeda pada model penyelesaian. Luas yang ditetapkan {entered}, luas rakitan {assembled}.",
+  'svc.accountingShellEdits': "Pelat {plate} tidak dapat dibuatkan mesh ulang karena offset atau perubahan kelengkungan cangkang akan hilang.",
   "plates.remeshAmbiguousSweep": "Busur pada tepi lengkung {name} ambigu. Periksa titik antara dan batang lengkung di antara titik ujung sebelum membuat ulang mesh.",
   "plates.remeshShellEdits": "Mesh {name} tidak dapat diganti karena perubahan ofset atau kelengkungan elemen cangkang tidak dapat dipindahkan secara persis.",
   'loadPlan.gravity.coveragePrecision': "Koordinat cakupan cangkang melampaui ketelitian interval batang yang didukung.",
