@@ -49,7 +49,6 @@ for (const [file, tags] of [
 
 for (const [file, attribute] of [
   ['src/components/ContactMenu.svelte', 'contact-feedback'],
-  ['src/components/toolbar/ToolbarAdvanced.svelte', 'adv-mohr'],
   ['src/components/toolbar/ToolbarConfig.svelte', 'cfg-privacy'],
 ]) {
   test(`${file} removes disabled feature actions before compilation`, async () => {

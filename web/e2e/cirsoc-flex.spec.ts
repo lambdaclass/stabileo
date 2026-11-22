@@ -14,6 +14,7 @@
  */
 
 import { test, expect } from './fixtures';
+import { openAdvancedFunction } from './advanced-panel';
 
 type Page = import('@playwright/test').Page;
 
@@ -28,8 +29,7 @@ async function openFlex(page: Page) {
    * a ribbon command until its two-word label wrapped and took ten pixels of
    * canvas off every Basic user; see the commit that moved it.
    */
-  await page.getByTestId('rb-cmd-advanced').click();
-  await page.getByTestId('adv-flex').click();
+  await openAdvancedFunction(page, 'cirsocFlex');
   await expect(page.getByTestId('flex-panel')).toBeVisible();
 }
 
@@ -268,12 +268,12 @@ test.describe('@smoke the calculator behaves like the other advanced functions',
     const running = page.getByTestId('adv-running');
     await expect(running).toBeVisible();
     await expect(running).toHaveAttribute('data-adv', 'cirsocFlex');
-    // Its own button is gone while it is the thing running: the header replaces it.
-    await expect(page.getByTestId('adv-flex')).toHaveCount(0);
+    // Its own card is gone while it is the thing running: the header replaces it.
+    await expect(page.getByTestId('adv-fn-cirsocFlex')).toHaveCount(0);
 
     await page.getByTestId('adv-close').click();
     await expect(running).toHaveCount(0);
-    await expect(page.getByTestId('adv-flex')).toBeVisible();
+    await expect(page.getByTestId('adv-fn-cirsocFlex')).toBeVisible();
   });
 
   test('it explains itself, like every other entry in the panel', async ({ page }) => {
@@ -281,25 +281,23 @@ test.describe('@smoke the calculator behaves like the other advanced functions',
        does before pressing it. */
     await page.goto('/app/basic?e2e=1');
     await page.waitForFunction(() => !!window.__stabileo, null, { timeout: 45_000 });
-    await page.getByTestId('rb-cmd-advanced').click();
-    const row = page.getByTestId('adv-flex').locator('..');
-    const help = row.getByRole('button', { name: '?' });
+    await openAdvancedFunction(page, 'cirsocFlex');
+    const help = page.getByTestId('adv-help');
     await expect(help).toBeVisible();
     await help.click();
-    await expect(page.getByText(/CIRSOC FLEX/i).first()).toBeVisible();
+    await expect(page.getByTestId('adv-help-text')).toContainText(/CIRSOC FLEX/i);
   });
 
   test('it hides while another advanced function is running', async ({ page }) => {
     await openFlex(page);
     await page.getByTestId('adv-close').click();
 
-    // Kinematic analysis is the first entry and needs no solved model.
-    const kin = page.getByRole('button', { name: /cinem|kinematic/i }).first();
-    await kin.click();
-    await expect(page.getByTestId('adv-running')).toBeVisible();
+    // Kinematic analysis needs no solved model.
+    await openAdvancedFunction(page, 'kinematic');
+    await expect(page.getByTestId('adv-running')).toHaveAttribute('data-adv', 'kinematic');
     /* The defect: the calculator used to stay on screen underneath whatever
        else was open, which no other entry in this panel can do. */
-    await expect(page.getByTestId('adv-flex')).toHaveCount(0);
+    await expect(page.getByTestId('adv-fn-cirsocFlex')).toHaveCount(0);
   });
 });
 

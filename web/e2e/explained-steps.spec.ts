@@ -7,23 +7,23 @@
  * collapse, which is withheld (#758) and says so.
  */
 import { test, expect, type Page } from './fixtures';
+import { advFunction, ADV_GROUPS } from '../src/lib/advanced/catalog';
+import { expandStepsCatalog, openAdvancedFunction, openAdvancedList, openStepsCatalog } from './advanced-panel';
 
 async function boot(page: Page) {
   await page.goto('/app/basic?e2e=1');
   await page.waitForFunction(() => !!window.__stabileoActions, null, { timeout: 45_000 });
 }
 async function openCatalog(page: Page) {
-  // Closing a document goes back to the Advanced panel, and the ribbon command toggles it.
-  if (!(await page.getByTestId('adv-steps').isVisible())) await page.getByTestId('rb-cmd-advanced').click();
-  await page.getByTestId('adv-steps').click();
-  await expect(page.getByTestId('steps-catalog')).toBeVisible();
+  await openStepsCatalog(page);
+  await expandStepsCatalog(page);
 }
 
 test.describe('explained step by step', () => {
   test('@smoke the catalog: groups in order, help, requirements, and why a method is not available', async ({ page }) => {
     await boot(page);
     await openCatalog(page);
-    const groups = await page.locator('[data-testid^=steps-group-]').evaluateAll((els) => els.map((e) => e.getAttribute('data-testid')));
+    const groups = await page.locator('section[data-testid^=steps-group-]').evaluateAll((els) => els.map((e) => e.getAttribute('data-testid')));
     expect(groups).toEqual([
       'steps-group-stiffness', 'steps-group-flexibility', 'steps-group-continuous',
       'steps-group-frames', 'steps-group-trusses', 'steps-group-deformation', 'steps-group-influence', 'steps-group-secondOrder', 'steps-group-plastic', 'steps-group-dynamics',
@@ -155,26 +155,78 @@ test.describe('explained step by step', () => {
     }
     // And from the catalog, back to the list of advanced functions.
     await page.getByTestId('steps-catalog-back').click();
-    await expect(page.getByTestId('adv-steps')).toBeVisible();
+    await expect(page.getByTestId('adv-fn-steps')).toBeVisible();
     expect(errors).toEqual([]);
   });
 
-  test('@smoke Advanced lists its functions by group, and leaves the envelope to the results view', async ({ page }) => {
+  test('@smoke Advanced lists its functions in closed groups, and leaves the envelope to the results view', async ({ page }) => {
     await boot(page);
-    await page.getByTestId('rb-cmd-advanced').click();
-    const panel = page.locator('.advanced-grid');
-    await expect(panel).toBeVisible();
-    const groups = await panel.locator('[data-testid^=adv-group-]').evaluateAll((els) => els.map((e) => e.getAttribute('data-testid')));
-    expect(groups).toEqual(['adv-group-structure', 'adv-group-buckling', 'adv-group-dynamics', 'adv-group-moving', 'adv-group-learn', 'adv-group-design']);
-    // Every entry sits under a header: the first thing in the list is one.
-    const firstChild = await panel.evaluate((el) => el.firstElementChild?.getAttribute('data-testid'));
-    expect(firstChild).toBe('adv-group-structure');
-    // Each header comes right before its own entries.
-    const order = await panel.evaluate((el) => [...el.children].map((c) => c.getAttribute('data-testid') ?? c.textContent?.trim().slice(0, 24) ?? ''));
-    const b = order.indexOf('adv-group-buckling'), m = order.indexOf('adv-group-moving');
-    expect(order[b + 1]).toMatch(/P-?Δ|P-Delta/i);
-    expect(order[m + 1]).toMatch(/influen/i);
-    await expect(panel).not.toContainText(/Envolvente|Envelope|Envoltória/);
+    await openAdvancedList(page);
+    const launcher = page.getByTestId('adv-launcher');
+    const groups = await launcher.locator('section[data-testid^=adv-group-]').evaluateAll((els) => els.map((e) => e.getAttribute('data-testid')));
+    expect(groups).toEqual(ADV_GROUPS.map((g) => `adv-group-${g}`));
+    // Closed until opened, each header naming what it holds.
+    await expect(launcher.locator('button[data-testid^=adv-fn-]')).toHaveCount(0);
+    for (const g of ADV_GROUPS) await expect(page.getByTestId(`adv-group-toggle-${g}`)).toHaveAttribute('aria-expanded', 'false');
+    await expect(page.getByTestId('adv-group-toggle-analysis')).toContainText(/P-Δ/);
+    await page.getByTestId('adv-group-toggle-moving').click();
+    await expect(page.getByTestId('adv-group-toggle-moving')).toHaveAttribute('aria-expanded', 'true');
+    const cards = await launcher.locator('button[data-testid^=adv-fn-]').evaluateAll((els) => els.map((e) => e.getAttribute('data-testid')));
+    expect(cards).toEqual(['adv-fn-influenceLine', 'adv-fn-trainLoad', 'adv-fn-loadStates']);
+    await expect(page.getByTestId('adv-fn-influenceLine').locator('.ac-thumb svg')).toBeVisible();
+    await expect(page.getByTestId('adv-fn-influenceLine')).toContainText(/unit load|carga unitaria/i);
+    await expect(launcher).not.toContainText(/^Envelope$|^Envolvente$/);
+  });
+
+  test('@smoke a function opens from its card and goes back to the list; its step by step opens inside it', async ({ page }) => {
+    const errors: string[] = [];
+    page.on('pageerror', (e) => errors.push(String(e)));
+    await boot(page);
+    await page.evaluate(() => window.__stabileoActions.loadExample('portal-second-order'));
+    await openAdvancedFunction(page, 'buckling');
+    await expect(page.getByTestId('adv-running')).toHaveAttribute('data-adv', 'buckling');
+    await page.getByTestId('adv-related-steps').locator('summary').click();
+    await page.getByTestId('adv-related-so-buckling-phi').click();
+    await expect(page.getByTestId('steps-doc')).toBeVisible();
+    await page.getByTestId('steps-back').click();
+    await expect(page.getByTestId('adv-running')).toHaveAttribute('data-adv', 'buckling');
+    await page.getByTestId('adv-close').click();
+    await expect(page.getByTestId('adv-launcher')).toBeVisible();
+    await expect(page.getByTestId(`adv-group-toggle-${advFunction('buckling')!.group}`)).toHaveAttribute('aria-expanded', 'true');
+    expect(errors).toEqual([]);
+  });
+
+  test('@smoke the search finds φ by typing phi, ignores accents, opens the first result with Enter and clears with Escape', async ({ page }) => {
+    await boot(page);
+    await page.evaluate(() => window.__stabileoActions.loadExample('portal-second-order'));
+    await openAdvancedList(page);
+    const search = page.getByTestId('adv-search');
+    await search.fill('phi');
+    const results = page.getByTestId('adv-search-results');
+    await expect(results.getByTestId('adv-step-so-buckling-phi')).toBeVisible();
+    await expect(results.getByTestId('adv-step-so-pdelta-phi')).toBeVisible();
+    await search.fill('pandéo');
+    await expect(results.locator('button').first()).toHaveAttribute('data-testid', 'adv-fn-buckling');
+    await search.fill('zzqx');
+    await expect(page.getByTestId('adv-search-empty')).toBeVisible();
+    await search.press('Escape');
+    await expect(search).toHaveValue('');
+    await expect(page.getByTestId('adv-group-analysis')).toBeVisible();
+    await search.fill('pdelta');
+    await search.press('Enter');
+    await expect(page.getByTestId('adv-running')).toHaveAttribute('data-adv', 'pdelta');
+  });
+
+  test('@smoke a step-by-step topic opens the catalog at its group, and a method leads to its function', async ({ page }) => {
+    await boot(page);
+    await page.evaluate(() => window.__stabileoActions.loadExample('portal-second-order'));
+    await openAdvancedFunction(page, 'stepsTrusses');
+    await expect(page.getByTestId('steps-catalog')).toBeVisible();
+    await expect(page.getByTestId('steps-group-toggle-trusses')).toHaveAttribute('aria-expanded', 'true');
+    await expect(page.getByTestId('steps-method-joints')).toBeVisible();
+    await page.getByTestId('steps-group-toggle-secondOrder').click();
+    await page.getByTestId('steps-function-so-buckling-phi').click();
+    await expect(page.getByTestId('adv-running')).toHaveAttribute('data-adv', 'buckling');
   });
 
   test('@smoke a document offers to refresh after changing self-weight in the loads panel', async ({ page }) => {
@@ -261,9 +313,8 @@ test.describe('@smoke explained step by step on a phone', () => {
     const errors: string[] = [];
     page.on('pageerror', (e) => errors.push(String(e)));
     await boot(page);
-    await page.getByTestId('rb-cmd-advanced').tap();
-    await page.getByTestId('adv-steps').tap();
-    await expect(page.getByTestId('steps-catalog')).toBeVisible();
+    await openStepsCatalog(page, 'tap');
+    await expandStepsCatalog(page, 'tap');
     for (const id of ['crossBeams', 'joints', 'doubleIntegration']) {
       await page.getByTestId(`steps-example-${id}`).tap();
       await expect(page.getByTestId('steps-doc')).toBeVisible();

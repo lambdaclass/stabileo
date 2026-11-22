@@ -7,6 +7,7 @@
  * into a mechanism silently kept the last good diagram.
  */
 import { test, expect } from './fixtures';
+import { openAdvancedFunction } from './advanced-panel';
 
 test.describe('@slow explore', () => {
   test('a slider keeps the diagram, a mechanism is said, closing restores', async ({ page }) => {
@@ -20,8 +21,7 @@ test.describe('@slow explore', () => {
     const diagram = () => page.evaluate(() => window.__stabileo.diagramType());
     await expect.poll(diagram).toBe('moment');
 
-    await page.getByTestId('rb-cmd-advanced').click();
-    await page.locator('button.adv-btn', { hasText: /Explore|Explorar/ }).first().click();
+    await openAdvancedFunction(page, 'whatif');
     const panel = page.getByTestId('whatif-panel');
     await expect(panel).toBeVisible();
 
@@ -61,8 +61,7 @@ test.describe('@slow explore in 3D', () => {
     await page.waitForFunction(() => !!window.__stabileoActions, null, { timeout: 60_000 });
     await page.evaluate(() => window.__stabileoActions.loadExample('3d-portal-frame'));
     await page.evaluate(() => window.__stabileoActions.solve());
-    await page.getByTestId('rb-cmd-advanced').click();
-    await page.locator('button.adv-btn', { hasText: /Explore|Explorar/ }).first().click();
+    await openAdvancedFunction(page, 'whatif');
     const panel = page.getByTestId('whatif-panel');
     await expect(panel).toBeVisible();
     await expect(panel.locator('.wif-res-btn')).toHaveText(['δ', 'N', 'My', 'Vz', 'Mz', 'Vy', 'T']);

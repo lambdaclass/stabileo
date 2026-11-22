@@ -5,15 +5,15 @@
  * members held axially rigid.
  */
 import { test, expect, type Page } from './fixtures';
+import { openAdvancedFunction, openStepsCatalog, expandStepsCatalog } from './advanced-panel';
 
 const SHOTS = process.env.KIN_SHOTS;
 
 async function openCatalog(page: Page) {
   await page.goto('/app/basic?e2e=1');
   await page.waitForFunction(() => !!window.__stabileoActions, null, { timeout: 60_000 });
-  await page.getByTestId('rb-cmd-advanced').click();
-  await page.getByTestId('adv-steps').click();
-  await expect(page.getByTestId('steps-catalog')).toBeVisible();
+  await openStepsCatalog(page);
+  await expandStepsCatalog(page);
 }
 
 test.describe('@slow displacement method (kinematic unknowns)', () => {

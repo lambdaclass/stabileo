@@ -1,4 +1,5 @@
 import { test, expect, type Page } from './fixtures';
+import { openAdvancedFunction, openStepsCatalog, expandStepsCatalog } from './advanced-panel';
 
 const MODULES = (process.env.COURSE_MODULES ?? 'statics,influence,second,plastic,dynamics').split(',');
 
@@ -34,7 +35,8 @@ for (const width of [390, 820]) {
       test.skip(!MODULES.includes('statics'));
       test.setTimeout(120_000);
       await boot(page, width, 'continuous-beam');
-      await page.getByTestId('adv-steps').click();
+      await openStepsCatalog(page);
+      await expandStepsCatalog(page);
       await page.getByTestId('steps-open-fm').click();
       await noOverflow(page, 'fm-wizard', `${width}-fm`);
     });
@@ -42,16 +44,16 @@ for (const width of [390, 820]) {
       test.skip(!MODULES.includes('influence'));
       test.setTimeout(120_000);
       await boot(page, width, 'continuous-beam');
-      await page.locator('button.adv-btn', { hasText: /^Influence line$/ }).click();
+      await openAdvancedFunction(page, 'influenceLine');
       await noOverflow(page, 'il-panel', `${width}-il`);
-      await page.getByTestId('adv-close').click();
-      await page.getByTestId('adv-load-states').click();
+      await openAdvancedFunction(page, 'loadStates');
       await noOverflow(page, 'load-states-il', `${width}-states`);
     });
     test('second-order options', async ({ page }) => {
       test.skip(!MODULES.includes('second'));
       test.setTimeout(120_000);
       await boot(page, width, 'portal-second-order');
+      await openAdvancedFunction(page, 'pdelta');
       await page.getByTestId('so-options-toggle').click();
       await noOverflow(page, 'so-method', `${width}-so`);
     });
@@ -59,7 +61,7 @@ for (const width of [390, 820]) {
       test.skip(!MODULES.includes('plastic'));
       test.setTimeout(120_000);
       await boot(page, width, 'portal-frame');
-      await page.locator('button.adv-btn', { hasText: /Plastic collapse|Colapso plástico/ }).click();
+      await openAdvancedFunction(page, 'plastic');
       const withheld = page.getByTestId('plastic-withheld');
       await expect(withheld).toContainText(/4[.,]6/);
       await expect(withheld.locator('a')).toHaveAttribute('href', 'https://github.com/lambdaclass/stabileo/issues/758');
@@ -74,7 +76,7 @@ for (const width of [390, 820]) {
       test.skip(!MODULES.includes('dynamics'));
       test.setTimeout(120_000);
       await boot(page, width, 'dynamics-column-mass');
-      await page.getByRole('button', { name: /^(Dynamic|Dinámico|Dinâmico)$/ }).first().click();
+      await openAdvancedFunction(page, 'modal');
       await page.getByTestId('dyn-sdof-toggle').click();
       await noOverflow(page, 'dynamics-course', `${width}-dyn`);
     });

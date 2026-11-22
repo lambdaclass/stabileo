@@ -25,6 +25,7 @@
 
 import { test, expect, type Page } from '@playwright/test';
 import { loadModel } from './fixtures';
+import { openAdvancedFunction } from './advanced-panel';
 
 async function openBasic(page: Page) {
   await page.addInitScript(() => {
@@ -43,7 +44,7 @@ async function openBasic(page: Page) {
 async function openCalculator(page: Page) {
   await page.getByRole('button', { name: /Avanzado|Advanced/ }).first().click();
   await page.waitForTimeout(300);
-  await page.getByTestId('adv-flex').click();
+  await openAdvancedFunction(page, 'cirsocFlex');
   await page.waitForTimeout(500);
 }
 

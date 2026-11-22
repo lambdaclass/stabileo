@@ -5,14 +5,14 @@
  * four segments with consistent mass, matching the engine.
  */
 import { test, expect, type Page } from './fixtures';
+import { openAdvancedFunction, openStepsCatalog, expandStepsCatalog } from './advanced-panel';
 
 async function boot(page: Page) {
   await page.goto('/app/basic?e2e=1');
   await page.waitForFunction(() => !!window.__stabileoActions, null, { timeout: 60_000 });
 }
 async function runDynamic(page: Page) {
-  if (!(await page.getByTestId('adv-steps').isVisible())) await page.getByTestId('rb-cmd-advanced').click();
-  await page.getByRole('button', { name: /^(Dynamic|Dinámico|Dinâmico)$/ }).first().click();
+  await openAdvancedFunction(page, 'modal');
   await expect(page.getByTestId('dynamics-course')).toBeVisible();
 }
 
@@ -37,7 +37,7 @@ test.describe('@slow structural dynamics in Basic', () => {
     await page.getByTestId('steps-tab').nth(4).click();
     await expect(page.getByTestId('step-plot').first()).toBeVisible();
     await page.getByTestId('steps-back').click();
-    await page.getByTestId('steps-catalog-back').click();
+    await expect(page.getByTestId('adv-running')).toHaveAttribute('data-adv', 'modal');
 
     await page.evaluate(() => window.__stabileoActions.loadExample('dynamics-shear-building'));
     await runDynamicIfClosed(page);
@@ -58,7 +58,6 @@ test.describe('@slow structural dynamics in Basic', () => {
     await expect(doc.locator('.sb-compare').or(doc.locator('.sb-table')).first()).toBeVisible();
     await doc.screenshot({ path: 'test-results/course-dynamics-mdof-doc.png' });
     await page.getByTestId('steps-back').click();
-    await page.getByTestId('steps-catalog-back').click();
 
     await runDynamicIfClosed(page);
     await page.getByTestId('dyn-mass-toggle').click();

@@ -1,4 +1,5 @@
 import { test, expect } from './fixtures';
+import { openAdvancedFunction, openStepsCatalog, expandStepsCatalog } from './advanced-panel';
 
 test.describe('@slow plastic collapse, withheld', () => {
   test('the course unit refuses, says why and links #758', async ({ page }) => {
@@ -7,8 +8,7 @@ test.describe('@slow plastic collapse, withheld', () => {
     await page.goto('/app/basic?e2e=1');
     await page.waitForFunction(() => !!window.__stabileoActions, null, { timeout: 60_000 });
     await page.evaluate(() => window.__stabileoActions.loadExample('portal-frame'));
-    await page.getByTestId('rb-cmd-advanced').click();
-    await page.locator('button.adv-btn', { hasText: /Plastic collapse|Colapso plástico/ }).click();
+    await openAdvancedFunction(page, 'plastic');
 
     const withheld = page.getByTestId('plastic-withheld');
     await expect(withheld).toBeVisible();
@@ -19,7 +19,9 @@ test.describe('@slow plastic collapse, withheld', () => {
     for (const id of ['plastic-verdict', 'plastic-trace', 'plastic-curve', 'plastic-mechanism', 'plastic-user']) {
       await expect(page.getByTestId(id)).toHaveCount(0);
     }
-    await page.getByTestId('adv-steps').click();
+    await page.getByTestId('adv-close').click();
+    await openStepsCatalog(page);
+    await expandStepsCatalog(page);
     for (const id of ['plasticKinematic', 'plasticStatic']) {
       const row = page.getByTestId(`steps-withheld-${id}`);
       await expect(row).toContainText(/4[.,]6/);

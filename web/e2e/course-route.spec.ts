@@ -1,4 +1,5 @@
 import { test, expect } from './fixtures';
+import { openAdvancedFunction, openStepsCatalog, expandStepsCatalog } from './advanced-panel';
 
 test('@smoke the app opens without the course chunk, and fetches it when the Advanced course panel opens', async ({ page }) => {
   const fetched: string[] = [];
@@ -10,8 +11,7 @@ test('@smoke the app opens without the course chunk, and fetches it when the Adv
   await page.waitForTimeout(500);
   expect(fetched.filter((p) => /course-route/.test(p))).toEqual([]);
   await page.getByTestId('rb-cmd-advanced').click();
-  await expect(page.getByTestId('adv-steps')).toBeVisible();
+  await expect(page.getByTestId('adv-launcher')).toBeVisible();
   expect(fetched.some((p) => /course-route[^/]*\.js$/.test(p))).toBe(true);
-  await page.getByTestId('adv-steps').click();
-  await expect(page.getByTestId('steps-catalog')).toBeVisible();
+  await openStepsCatalog(page);
 });

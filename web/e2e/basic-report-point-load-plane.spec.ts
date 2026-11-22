@@ -1,4 +1,5 @@
 import { test as it, expect, CURRENT_STAMP, type Page } from './fixtures';
+import { openAdvancedFunction } from './advanced-panel';
 
 async function openPointLoadedCantilever(page: Page, mode: '2d' | '3d', native: boolean,
   load: { p: number; px?: number; my?: number; isGlobal?: boolean } = { p: 0, px: 10, isGlobal: true },
@@ -23,8 +24,7 @@ async function openPointLoadedCantilever(page: Page, mode: '2d' | '3d', native: 
 
 async function openReport(page: Page, nonlinear: boolean) {
   if (nonlinear) {
-    await page.getByTestId('rb-cmd-advanced').click();
-    await page.locator('button.adv-btn', { hasText: 'P-Δ' }).click();
+    await openAdvancedFunction(page, 'pdelta');
     await expect(page.getByText(/P-Δ converged in/)).toBeVisible();
     await page.getByTestId('rb-cmd-deformed').click();
   }
