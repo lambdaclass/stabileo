@@ -4,6 +4,7 @@ import { promisify } from 'node:util';
 import { cpSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join, relative, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { sharedBuild, SHARED_PLAIN_BUILD } from './shared-build';
 
 const execFileAsync = promisify(execFile);
 const WEB_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..');
@@ -26,6 +27,17 @@ function difference(path: string): string {
   return `${path}: first difference at byte ${offset} (sizes ${a.length} and ${b.length})\n  concurrency 1: ${context(a)}\n  concurrency 4: ${context(b)}`;
 }
 
+async function prepareBuild(out: string) {
+  const shared = sharedBuild(SHARED_PLAIN_BUILD);
+  if (shared) {
+    cpSync(shared, out, { recursive: true });
+  } else {
+    await execFileAsync('npx', ['vite', 'build', '--outDir', relative(WEB_ROOT, out), '--emptyOutDir', '--logLevel', 'error'], {
+      cwd: WEB_ROOT, timeout: 300_000, maxBuffer: 32 * 1024 * 1024,
+    });
+  }
+}
+
 async function prerender(out: string, concurrency: string) {
   await execFileAsync('npx', ['tsx', 'scripts/prerender.ts'], {
     cwd: WEB_ROOT,
@@ -37,9 +49,7 @@ async function prerender(out: string, concurrency: string) {
 
 describe('two prerenders of one build are byte-identical (#875)', () => {
   beforeAll(async () => {
-    await execFileAsync('npx', ['vite', 'build', '--outDir', relative(WEB_ROOT, FIRST), '--emptyOutDir', '--logLevel', 'error'], {
-      cwd: WEB_ROOT, timeout: 300_000, maxBuffer: 32 * 1024 * 1024,
-    });
+    await prepareBuild(FIRST);
     cpSync(FIRST, SECOND, { recursive: true });
     await prerender(FIRST, '1');
     await prerender(SECOND, '4');
@@ -70,9 +80,7 @@ describe('two prerenders of one build are byte-identical (#875)', () => {
 it('prerenders the Chinese slab tool after its delayed worker response', async () => {
   const out = mkdtempSync(join(WEB_ROOT, '.dist-prerender-model-'));
   try {
-    await execFileAsync('npx', ['vite', 'build', '--outDir', out, '--emptyOutDir', '--logLevel', 'error'], {
-      cwd: WEB_ROOT, timeout: 300_000, maxBuffer: 32 * 1024 * 1024,
-    });
+    await prepareBuild(out);
     const assets = join(out, 'assets');
     const workers = readdirSync(assets).filter(name => /^run\.worker-.*\.js$/.test(name));
     expect(workers.length).toBeGreaterThan(0);

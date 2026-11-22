@@ -79,7 +79,7 @@ const LOCALES = buildPublicLocales(buildPublicFeatures().research);
  */
 const DEFAULT_LOCALE = 'en';
 /** Build day, for the sitemap's lastmod. */
-const TODAY = new Date().toISOString().slice(0, 10);
+const TODAY = process.env.PRERENDER_BUILD_DATE ?? new Date().toISOString().slice(0, 10);
 
 const MIME: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',

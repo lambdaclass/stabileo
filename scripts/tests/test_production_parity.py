@@ -1,3 +1,4 @@
+from hashlib import sha256
 import importlib.util
 from pathlib import Path
 import subprocess
@@ -259,7 +260,6 @@ class ProductionParity(unittest.TestCase):
                     '-m', 'Production-Change: research/example/src/lib.rs')
                 parity.main()
 
-    @unittest.skip("known wrong result: #2483")
     def test_split_gate_compares_complete_inventories_from_both_builds(self):
         with tempfile.TemporaryDirectory(dir=parity.ROOT) as directory:
             repo = Path(directory)
@@ -286,16 +286,25 @@ class ProductionParity(unittest.TestCase):
                 with patch('sys.argv', ['check-production-parity.py', base, *args]):
                     parity.main()
 
-            runtime = {name: b'runtime' for name in parity.SOLVER_RUNTIME}
-            reference = {**runtime, 'web/dist/index.html': b'page', 'web/dist/research-wasm/example.wasm': b'research'}
+            runtime = {name: sha256(name.encode()).digest() for name in parity.SOLVER_RUNTIME}
+            reference = {**runtime, 'web/dist/index.html': sha256(b'page').digest(),
+                         'web/dist/research-wasm/example.wasm': sha256(b'research').digest()}
             with patch.object(parity, 'ROOT', repo), patch.object(parity, 'build', side_effect=[
-                reference, reference, {**reference, 'web/dist/research-wasm/example.wasm': b'changed'}
+                reference, reference, {**reference, 'web/dist/research-wasm/example.wasm': sha256(b'changed').digest()}
             ]) as build:
                 gate('--side', 'reference', '--inventory', str(inventories / 'reference.json'))
                 with self.assertRaisesRegex(RuntimeError, 'candidate.json'):
                     gate('--compare', str(inventories))
                 gate('--side', 'candidate', '--inventory', str(inventories / 'candidate.json'))
                 gate('--compare', str(inventories))
+                candidate = inventories / 'candidate.json'
+                valid = candidate.read_text()
+                candidate.write_text((inventories / 'reference.json').read_text())
+                with self.assertRaisesRegex(RuntimeError, 'wrong snapshot identity'):
+                    gate('--compare', str(inventories))
+                candidate.write_text(valid.replace('web/dist/index.html', 'web/dist/other.html'))
+                with self.assertRaisesRegex(RuntimeError, 'missing outputs or invalid checksums'):
+                    gate('--compare', str(inventories))
                 gate('--side', 'candidate', '--inventory', str(inventories / 'candidate.json'))
                 with self.assertRaisesRegex(SystemExit, r'Switch-off production differs[\s\S]*example.wasm'):
                     gate('--compare', str(inventories))

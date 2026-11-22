@@ -1,4 +1,5 @@
 import argparse
+from datetime import datetime, timezone
 import hashlib
 import json
 import os
@@ -6,6 +7,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import tempfile
+import time
 
 ROOT = Path(__file__).resolve().parents[1]
 FLAGS = 'web/config/features.json'
@@ -94,37 +96,46 @@ def build(checkout, env):
     return runtime | site
 
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('base', nargs='?', default='origin/main')
-    parser.add_argument('--required', action='store_true')
-    args = parser.parse_args()
-    head = git('rev-parse', 'HEAD').decode().strip()
-    base = git('merge-base', args.base, head).decode().strip()
-    paths = changed_paths(base)
+def parity_required(base, paths):
     before = json.loads(git('show', f'{base}:{FLAGS}'))
     after = json.loads((ROOT / FLAGS).read_text())
-    required = args.required or 'required' in trailers(base, 'Production-Parity')
-    if not (required or LEGACY_OVERLAY in paths or profiles_enable_off_switch(before, after)):
-        print('Production parity: no switch-only changes declared and no newly enabled off switch.')
-        return
-    intended = trailers(base, 'Production-Change')
-    if intended - paths or any(p.startswith('-') or p == LEGACY_OVERLAY for p in intended):
-        raise SystemExit('Production-Change trailers must name actual changed paths outside the legacy overlay.')
-    engine_paths = changed_paths(base, *ENGINE_INPUTS) - intended
-    engine_paths -= changed_paths(base, 'engine/src', 'engine/Cargo.toml')
-    if engine_paths:
-        raise SystemExit('Switch-off production engine inputs differ from the reference:\n  ' + '\n  '.join(sorted(engine_paths)))
-    env = {**os.environ, 'GITHUB_SHA': base, 'PRERENDER_GITHUB_STARS': 'none'}
-    for key in ('VITE_E2E', 'VITE_APP_TYPE', 'STABILEO_E2E_PROFILE', 'PRERENDER_ONLY', 'PRERENDER_OUT'):
-        env.pop(key, None)
-    with tempfile.TemporaryDirectory(prefix='.production-parity-', dir=ROOT) as directory:
-        checkout = Path(directory) / 'checkout'
+    return ('required' in trailers(base, 'Production-Parity') or LEGACY_OVERLAY in paths
+            or profiles_enable_off_switch(before, after))
+
+
+def build_side(side, checkout, head, base, intended, env):
+    started = time.monotonic()
+    if side == 'reference':
         snapshot(base, checkout, intended)
-        reference = build(checkout, env)
-        shutil.rmtree(checkout)
+    else:
         snapshot(head, checkout, changed_paths(head))
-        changed = differences(reference, build(checkout, env))
+    result = build(checkout, env)
+    print(f'Production parity: {side} built and inventoried in {time.monotonic() - started:.1f}s', flush=True)
+    return result
+
+
+def write_inventory(path, side, head, base, files):
+    path.write_text(json.dumps({
+        'side': side, 'head': head, 'base': base,
+        'files': {name: checksum.hex() for name, checksum in files.items()},
+    }, sort_keys=True))
+
+
+def read_inventory(path, side, head, base):
+    try:
+        data = json.loads(path.read_text())
+        if (data['side'], data['head'], data['base']) != (side, head, base):
+            raise ValueError('wrong snapshot identity')
+        files = {name: bytes.fromhex(checksum) for name, checksum in data['files'].items()}
+        if not {*SOLVER_RUNTIME, 'web/dist/index.html'} <= files.keys() or any(len(digest) != 32 for digest in files.values()):
+            raise ValueError('missing outputs or invalid checksums')
+    except (OSError, ValueError, AttributeError, KeyError, TypeError) as error:
+        raise RuntimeError(f'Invalid production parity inventory {path}: {error}') from error
+    return files
+
+
+def compare(reference, candidate, base):
+    changed = differences(reference, candidate)
     if changed:
         artifacts = '\n  '.join(changed[:20])
         raise SystemExit(f'Switch-off production differs from {base[:12]} plus declared production changes '
@@ -132,6 +143,73 @@ def main():
                          'Keep feature-only changes behind the switch and declare intentional production paths with '
                          'Production-Change trailers.')
     print(f'Production parity: all built files match {base[:12]} plus declared production changes.')
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('base', nargs='?', default='origin/main')
+    parser.add_argument('--required', action='store_true')
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument('--plan', action='store_true')
+    mode.add_argument('--side', choices=('reference', 'candidate'))
+    mode.add_argument('--compare', type=Path)
+    parser.add_argument('--inventory', type=Path)
+    parser.add_argument('--scratch', type=Path)
+    args = parser.parse_args()
+    if bool(args.side) != bool(args.inventory) or (args.scratch and not args.side):
+        parser.error('--side and --inventory must be used together; --scratch requires --side')
+
+    head = git('rev-parse', 'HEAD').decode().strip()
+    base = git('merge-base', args.base, head).decode().strip()
+    paths = changed_paths(base)
+    required = parity_required(base, paths) or args.required
+    if args.plan:
+        print(str(required).lower())
+        return
+    if not required:
+        if args.side or args.compare:
+            raise SystemExit('Production parity was scheduled without an active switch-off check.')
+        print('Production parity: no switch-only changes declared and no newly enabled off switch.')
+        return
+    if args.compare:
+        compare(read_inventory(args.compare / 'reference.json', 'reference', head, base),
+                read_inventory(args.compare / 'candidate.json', 'candidate', head, base), base)
+        return
+
+    intended = trailers(base, 'Production-Change')
+    if intended - paths or any(p.startswith('-') or p == LEGACY_OVERLAY for p in intended):
+        raise SystemExit('Production-Change trailers must name actual changed paths outside the legacy overlay.')
+    engine_paths = changed_paths(base, *ENGINE_INPUTS) - intended
+    engine_paths -= changed_paths(base, 'engine/src', 'engine/Cargo.toml')
+    if engine_paths:
+        raise SystemExit('Switch-off production engine inputs differ from the reference:\n  ' + '\n  '.join(sorted(engine_paths)))
+    timestamp = int(git('show', '-s', '--format=%ct', head))
+    date = datetime.fromtimestamp(timestamp, timezone.utc).date().isoformat()
+    env = {**os.environ, 'GITHUB_SHA': base, 'PRERENDER_GITHUB_STARS': 'none', 'PRERENDER_BUILD_DATE': date}
+    for key in ('VITE_E2E', 'VITE_APP_TYPE', 'STABILEO_E2E_PROFILE', 'PRERENDER_ONLY', 'PRERENDER_OUT'):
+        env.pop(key, None)
+
+    def run(directory):
+        checkout = directory / 'checkout'
+        if args.side:
+            write_inventory(args.inventory, args.side, head, base,
+                            build_side(args.side, checkout, head, base, intended, env))
+        else:
+            reference = build_side('reference', checkout, head, base, intended, env)
+            shutil.rmtree(checkout)
+            candidate = build_side('candidate', checkout, head, base, intended, env)
+            compare(reference, candidate, base)
+
+    if args.scratch:
+        directory = args.scratch.resolve()
+        directory.mkdir()
+        try:
+            run(directory)
+        finally:
+            shutil.rmtree(directory)
+    else:
+        with tempfile.TemporaryDirectory(prefix='.production-parity-', dir=ROOT) as directory:
+            run(Path(directory))
 
 
 if __name__ == '__main__':

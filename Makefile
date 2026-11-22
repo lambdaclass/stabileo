@@ -196,7 +196,9 @@ test.web.fast:
 
 .PHONY: check.web.production-parity
 check.web.production-parity:
-	$(NIX_RUN) python3 -B scripts/check-production-parity.py $(BASE) $(if $(REQUIRE_PARITY),--required)
+	$(NIX_RUN) python3 -B scripts/check-production-parity.py "$(or $(BASE),origin/main)" $(if $(REQUIRE_PARITY),--required) \
+		$(if $(PARITY_PLAN),--plan) $(if $(PARITY_SIDE),--side "$(PARITY_SIDE)" --inventory "$(PARITY_OUT)") \
+		$(if $(PARITY_SCRATCH),--scratch "$(PARITY_SCRATCH)") $(if $(PARITY_COMPARE),--compare "$(PARITY_COMPARE)")
 
 check.fail-closed:
 	python3 -B -I scripts/check-fail-closed.py
@@ -399,7 +401,12 @@ test.web.build: web.build.tested
 # The build prerenders the public pages in Chromium, so it needs the browser. The stamp is taken
 # before building, so a tree edited mid-build fails the build tests instead of passing them.
 web.build.tested:
-	$(NIX_RUN) bash -c 'cd web && $(PLAYWRIGHT_INSTALL) chromium && stamp=$$(node scripts/build-stamp.mjs) && rm -f dist.source-stamp .dist-shared.source-stamp && npm run build && npx tsx scripts/translation-gate.ts dist && npx vite build --manifest --outDir .dist-shared --emptyOutDir --logLevel error && node scripts/build-stamp.mjs --seal dist "$$stamp" && node scripts/build-stamp.mjs --seal .dist-shared "$$stamp"'
+	$(NIX_RUN) bash -c 'cd web && $(PLAYWRIGHT_INSTALL) chromium && stamp=$$(node scripts/build-stamp.mjs) && \
+		rm -f dist.source-stamp .dist-shared.source-stamp && \
+		npm run build:only -- --manifest --outDir .dist-shared --emptyOutDir && \
+		rm -rf dist && cp -R .dist-shared dist && rm dist/.vite/manifest.json && rmdir dist/.vite && \
+		npm run build:finish && npx tsx scripts/translation-gate.ts dist && \
+		node scripts/build-stamp.mjs --seal dist "$$stamp" && node scripts/build-stamp.mjs --seal .dist-shared "$$stamp"'
 
 test.web.build.shared: export STABILEO_UNIT_PROFILE = production
 test.web.build.shared:

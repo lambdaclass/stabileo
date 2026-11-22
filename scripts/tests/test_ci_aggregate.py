@@ -58,12 +58,11 @@ class CiAggregate(unittest.TestCase):
             self.assertNotRegex(jobs['ci-ok'], rf'(?m)^      - {name}$')
             self.assertNotRegex(jobs['superseded'], rf'(?m)^      - {name}$')
             self.assertNotIn('stop-failed-run.yml', jobs[name])
-        self.assertIn('make check.web.production-parity', jobs['web-build'])
+        self.assertIn('make check.web.production-parity', jobs['production-parity'])
 
-    @unittest.skip("known wrong result: #2483")
     def test_parity_runs_both_snapshots_off_the_web_build_runner(self):
         workflow = (ROOT / '.github/workflows/ci.yml').read_text()
-        jobs = dict(re.findall(r'^  ([\w-]+):\n((?:^(?:    .*|)\n)*)', workflow, re.M))
+        jobs = dict(re.findall(r'^  ([\w-]+):\n((?:^(?:    .*|)\n)*)', workflow.split('\njobs:\n', 1)[1], re.M))
         self.assertNotIn('check.web.production-parity', jobs['web-build'])
         self.assertIn('side: [reference, candidate]', jobs['production-parity-build'])
         self.assertIn('needs: [production-parity-build]', jobs['production-parity'])
