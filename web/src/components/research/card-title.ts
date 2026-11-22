@@ -1,4 +1,4 @@
-import { shellCardTitle } from './shell1985/card';
+import { card as shellCard } from './shell1985/card';
 import { ferrariStrings } from './ferrari2025/strings';
 import { archStrings } from './biggins2026/strings';
 import { riserTitle } from './gayNeto2014/card';
@@ -42,7 +42,7 @@ export function cardTitle(e: Experiment): string {
     case 'grossman-2026': return s.springsTitle;
     case 'mattiasson-elastica': return (mattiassonStrings[locale as keyof typeof mattiassonStrings] ?? mattiassonStrings.en).title;
     case 'macneal-harder-1985': return (macnealCard[locale as keyof typeof macnealCard] ?? macnealCard.en).title;
-    case 'shell-obstacle-course': return shellCardTitle;
+    case 'shell-obstacle-course': return (shellCard[locale as keyof typeof shellCard] ?? shellCard.en).title;
     case 'riks-1979': return riksStrings(locale).arcLengthSnapThroughRiksAndCrisfield;
     case 'ferrari-2025': return ferrariStrings().title;
     case 'shauer-2025': return s.shauerTitle;

@@ -1369,15 +1369,17 @@ papers:
   - mesh refinement
   dependencies: []
   complexity: low
-  relevance: Production MITC4 shell benchmarks from existing engine tests; numerical provenance pending
-    full-text verification.
-  status: proposed
+  relevance: Production MITC4 on the Scordelis–Lo roof, the pinched cylinder and the 18-degree hemisphere,
+    with the mesh as a live parameter. The article is not open access, so its tables were not compared;
+    the cylinder misses 2% below 32×32 and the hemisphere meshes are withheld (#798).
+  status: numerically-validated
   reproduced_published_results: false
   benchmarks:
   - Scordelis–Lo roof
   - pinched cylinder with rigid diaphragms
   - hemisphere with 18-degree hole (NAFEMS LE3 test convention)
   implementation: benchmarks/shell-obstacle-course
+  page: web/src/components/research/shell1985/ShellPage.svelte
   contacts: []
   reviews:
   - round: 1

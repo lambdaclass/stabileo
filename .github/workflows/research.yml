@@ -322,7 +322,7 @@ jobs:
         run: |
           nix develop -c node research/benchmarks/shell-obstacle-course/wasm/check.mjs "$RUNNER_TEMP/shell-native"
       - name: Test shell measurement, projection and editor handoff
-        run: nix develop -c sh -c 'cd web && npx vitest run src/components/research/shell1985/__tests__/cases.test.ts'
+        run: nix develop -c sh -c 'cd web && npx vitest run src/components/research/shell1985'
 
   springs:
     if: ${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name == 'schedule') }}

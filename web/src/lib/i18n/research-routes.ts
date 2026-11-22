@@ -27,7 +27,7 @@ const PUBLISHED: Record<string, readonly string[]> = {
   '/research/benchmarks/plastic-collapse': ALL,
   '/research/benchmarks/riks-crisfield': ALL,
   '/research/fracture/shauer-2025': ALL,
-  '/research/benchmarks/shell-obstacle-course': ['en'],
+  '/research/benchmarks/shell-obstacle-course': ALL,
 };
 
 /** The languages a research route is published in: the sitemap, the prerender and the hreflang set all read this. */
