@@ -199,9 +199,9 @@
   .riser-pane { min-width: 0; height: 100%; overflow: auto; display: flex; flex-direction: column; gap: 0.5rem; }
   [role='tabpanel'] { display: flex; flex-direction: column; gap: 0.5rem; }
   [role='tabpanel'][hidden] { display: none; }
-  p { font-size: 0.85rem; margin: 0; }
+  .riser-pane p { font-size: 0.85rem; margin: 0; }
   .source, .caption { color: var(--fg-2); font-size: 0.8rem; }
-  label { display: flex; flex-direction: column; gap: 0.15rem; font-size: 0.85rem; }
+  .riser-pane label { display: flex; flex-direction: column; gap: 0.15rem; font-size: 0.85rem; }
   input[type='range'] { width: 100%; min-height: 44px; margin: 0; }
   .params { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: 0 1rem; }
   .buttons { display: flex; flex-wrap: wrap; gap: 0.5rem; }

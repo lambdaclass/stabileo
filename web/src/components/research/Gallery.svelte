@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { ferrariStrings } from './ferrari2025/strings';
   import { citation } from './catalogue';
   /**
    * /research: the experiments that run here first, then what is being built, then the
@@ -109,7 +110,7 @@
               <p class="rs-g-by">{s.summaryIntro} {s.sourceLabel[p.summary_source as keyof typeof s.sourceLabel] ?? ''}.</p>
             {/if}
             {#if p.id === 'ferrari-2025'}
-              <p><PublicLink to="/research/stability/ferrari-sigmund-2025">{s.ferrariTitle}</PublicLink></p>
+              <p><PublicLink to="/research/stability/ferrari-sigmund-2025">{ferrariStrings().title}</PublicLink></p>
             {/if}
             {#if p.code.length}
               <p class="rs-g-by">{s.code}: {#each p.code as c, i (c.url)}{i ? ', ' : ''}{#if isHttpUrl(c.url)}<a href={c.url} rel="noreferrer" target="_blank">{c.url.replace('https://github.com/', '')}</a>{:else}{c.url}{/if} ({c.license === 'none' ? s.noLicence : c.license}){/each}</p>
