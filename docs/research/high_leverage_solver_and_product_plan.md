@@ -25,7 +25,7 @@ The goal is not to add generic simulation features, but to:
    - [`load_cases.rs`](../../engine/src/solver/load_cases.rs) and [`load_session.rs`](../../engine/src/load_session.rs) bypass `PreparedStatic` factorization reuse whenever `!constraints.is_empty()`, forcing every real 3D building with rigid diaphragms or links to re-assemble and re-factorize `Cᵀ K C` once per load case.
    - [`whatif.svelte.ts`](../../web/src/lib/store/whatif.svelte.ts) restores a full snapshot and triggers a full re-solve on slider edits instead of low-rank re-analysis on the cached supernodal Cholesky factor ([`sparse_chol.rs`](../../engine/src/linalg/sparse_chol.rs)).
    - [`plastic_limit.rs`](../../engine/src/solver/plastic_limit.rs) uses a dense LP capped at 200 members (100 certified), 2D plastic collapse remains refused (`SA-2026-044`), and 3D plastic certification is bending-only, even though pure-Rust WASM-clean Clarabel conic optimization is already proven in `research/optimisation/fairclough-2026/`.
-   - [`section/mod.rs`](../../engine/src/section/mod.rs) already contains a full 2D FEM cross-section mesher (`spade`) and Poisson solver for torsion, warping, and shear flow, [`collision_kernel.rs`](../../engine/src/collision_kernel.rs) already provides a 3D rebar spatial hash, [`prestress.rs`](../../engine/src/solver/prestress.rs) + [`creep_shrinkage.rs`](../../engine/src/solver/creep_shrinkage.rs) + `staged.rs` already exist as separate silos, and [`verify/Certify/`](../../verify/Certify/Main.lean) already proves certificate soundness in Lean 4.
+   - [`section/mod.rs`](../../engine/src/section/mod.rs) (`mesh.rs`, `poisson.rs`) already contains a full 2D FEM cross-section mesher (`spade`) and Poisson solver for torsion, warping, and shear flow, [`collision_kernel.rs`](../../engine/src/collision_kernel.rs) already provides a 3D rebar spatial hash, [`prestress.rs`](../../engine/src/solver/prestress.rs) + [`creep_shrinkage.rs`](../../engine/src/solver/creep_shrinkage.rs) + `staged.rs` already exist as separate silos, and [`verify/Certify/`](../../verify/Certify/Main.lean) already proves certificate soundness in Lean 4.
    - [`AUDIT-2026-10.md`](../performance/AUDIT-2026-10.md) and [`lib.rs`](../../engine/src/lib.rs) show that advanced WASM paths still serialize full models to/from JSON strings across the JS↔WASM boundary and run single-threaded scalar f64 on a 12 MB unoptimized WASM binary.
 
 ---
@@ -45,7 +45,7 @@ Soundness stays strictly first. Work is organized into **five waves** that map o
    - Decouple the mutable user model from the finite-element mesh.
    - **Layer 1 (Physical IR):** continuous, coordinate-invariant `BeamLine`, `Column`, `Wall`, `Slab`, `RoofPolygon`, `Opening`, `LoadSurface`, `Diaphragm`, `RebarCage`, `SupportRegion`.
    - **Layer 2 (Pure Lowering Pass in Rust):** `compile(PhysicalIR, MeshPolicy) -> AnalyticalFEM` using `spade` CDT for conforming wall–slab junctions, openings, and exact tributary/surface pressure integration.
-   - **Invariant by construction:** wind, snow, seismic stories, gravity load ownership, and rebar cutoffs are computed on Layer 1 *before* meshing exists — making subdivision, remesh, rotation, and member-reversal invariance structural theorems rather than fragile heuristics. Every lowering pass enforces exact global force and moment conservation (`∫ p dA == Σ f_i`, `∫ r × p dA == Σ r_i × f_i`).
+   - **Invariant by construction:** wind, snow, seismic stories, gravity load ownership, and rebar cutoffs are computed on Layer 1 *before* meshing exists — making subdivision, remesh, rotation, and member-reversal invariance structural theorems rather than fragile heuristics. Every lowering pass enforces exact global resultant force and moment conservation across all surface, line, point forces, and applied couples (`Σ F_physical == Σ F_assembled`, `Σ (r × F_physical + M_physical) == Σ (r × F_assembled + M_assembled)`).
    - Enables **multi-fidelity compilation** from one model (coarse stick frame for ms-scale live editing/sizing, refined MITC4/MITC9 shell model for final check, fiber model for nonlinear pushover).
 
 2. **Executable Design-Code IR ("Design Codes as Data")** *(Class `b`)*
@@ -55,7 +55,7 @@ Soundness stays strictly first. Work is organized into **five waves** that map o
      1. fast `f64` check,
      2. outward-rounded `Interval` certified check (zero drift with f64),
      3. `Dual<f64>` derivatives $\partial(\text{DCR})/\partial(b, h, A_s, f'_c, f_y)$ for sizing and optimization,
-     4. exact step-by-step KaTeX / PDF / DOCX Memoria trace with substituted values, units, branches taken, and clause citations (**impossible for reports to disagree with the engine**),
+     4. exact step-by-step KaTeX / PDF / DOCX Memoria trace with substituted values, units, branches taken, and clause citations (**eliminating formula drift between reports and the engine**),
      5. exhaustive boundary-case tests on both sides of every limit and proof obligations for Lean/Kani.
 
 3. **Exact Piecewise-Analytical Frame Algebra (`PiecewisePoly<5>`)** *(Class `b`)*
@@ -63,8 +63,8 @@ Soundness stays strictly first. Work is organized into **five waves** that map o
 
 4. **Constrained `PreparedStatic` + Adjoint Sensitivities + Woodbury Rank-k Re-Analysis** *(Class `f`)*
    - Close the immediate factorization-reuse gap in [`load_cases.rs`](../../engine/src/solver/load_cases.rs) and [`load_session.rs`](../../engine/src/load_session.rs) by factoring `Cᵀ K_ff C` once across all load cases, combinations, and moving-load positions.
-   - Add **one-backsolve adjoint sensitivities** (`K λ = ∂g/∂u` → exact $\partial g/\partial p_e$ for every member simultaneously for drift, member forces, buckling $\lambda_{\text{cr}}$, and frequencies $\omega_i^2$).
-   - Add **Sherman–Morrison–Woodbury rank-k updates** on the cached supernodal Cholesky factor `L` so local section/release/support edits ([`whatif.svelte.ts`](../../web/src/lib/store/whatif.svelte.ts)) update exact displacements in milliseconds on 50k-DOF buildings.
+   - Add **one-backsolve adjoint sensitivities** (`K λ = ∂g/∂u` → exact $\partial g/\partial p_e$ for every member simultaneously on smooth responses such as drift, member forces, simple buckling $\lambda_{\text{cr}}$, and simple frequencies $\omega_i^2$, with subgradient/active-set handling at repeated eigenvalues or nonsmooth envelope/branch switches).
+   - Add **Sherman–Morrison–Woodbury rank-k updates** on the cached supernodal Cholesky factor `L` for sparsity-preserving local section/stiffness edits ([`whatif.svelte.ts`](../../web/src/lib/store/whatif.svelte.ts)) so slider drags update exact displacements in milliseconds on 50k-DOF buildings (while release/support edits that alter sparsity or `C` route through fast augmented/re-factored constrained solves).
    - Add zero-Monte-Carlo **assumption sensitivity envelopes** (`#357`: soil stiffness, cracked $I_{\text{eff}}$, semi-rigid fixity) and 5–15-iteration whole-building convex sizing (MMA / sequential conic).
 
 5. **Resident WASM Memory Arena + Zero-Copy GPU Buffers + Deterministic WASM `simd128`** *(Class `f`)*
@@ -82,18 +82,18 @@ Soundness stays strictly first. Work is organized into **five waves** that map o
 
 1. **Proof-Carrying Memorias & Zero-Trust Verification Portal (`verify.stabileo.com`)** *(extends `#346`, `#499`)*
    - Compile the independent bundle verifier (`certcheck`) to a minimal offline browser WASM module (<150 KB).
-   - Embed a QR code + cryptographic proof bundle (and pinned snapshot hash) in every exported PDF/DOCX `Memoria de Cálculo`.
-   - Any peer reviewer, municipal authority, bank, or insurer drags a report into `verify.stabileo.com` offline to verify in <1 s: (a) Lean-proved solver/plastic/combination bounds, (b) input-to-report integrity (no manual edits), (c) live check against the public safety-advisory registry, and (d) read-only interactive 3D inspection with sensitivity sliders.
+   - Embed a QR code + **signed** proof bundle (binding the report digest, model snapshot, and key/revocation metadata so post-export report edits cannot be re-hashed silently) in every exported PDF/DOCX `Memoria de Cálculo`.
+   - Any peer reviewer, municipal authority, bank, or insurer drags a report into `verify.stabileo.com` **offline** to verify in <1 s: (a) certified solver/plastic/combination bounds per `MATURITY.md` (with Lean-proved checker soundness where formalized, explicitly noting unformalized steps tracked in `#500`/`#503`), (b) cryptographic signature and report-to-bundle integrity, (c) advisory status against an embedded timestamped advisory-registry snapshot (explicitly reporting current status as snapshot-dated/unknown when offline, with an **optional online-only fetch** of the public advisory registry that never uploads the report or model), and (d) read-only interactive 3D inspection with sensitivity sliders.
    - Creates **reviewer-pull B2B distribution** and turns Stabileo's public advisory discipline into a defensible trust moat.
 
 2. **"Drop Your ETABS / SAP2000 / STAAD / OpenSees File for a 10-Second Certified Second Opinion" (Stabileo Audit)** *(elevates `.e2k`/`.s2k`/`.std`/`.tcl` import from Phase 4 to top-of-funnel)*
-   - 100% local in-browser WASM execution (NDA/client files never leave the engineer's machine).
-   - Imports an existing model and runs: kinematic/mechanism audit, independent Lean-certified static/modal/buckling solve, `review_model_sanity` checks (equilibrium, mass/m², period vs empirical code formula, soft-story and torsional irregularity), and side-by-side comparison against the incumbent tool's exported reactions and drifts.
+   - 100% local in-browser WASM execution (NDA/client files never leave the engineer's machine; zero upload).
+   - Imports an existing model and runs: kinematic/mechanism audit, independent certified static/modal/buckling solve (scoped to `MATURITY.md` Certified levels, disclosing any uncertified features), `review_model_sanity` checks (equilibrium, mass/m², period vs empirical code formula, soft-story and torsional irregularity), and side-by-side comparison against the incumbent tool's exported reactions and drifts.
    - Converts Stabileo's differential-testing DNA into immediate billable QA usage with zero switching risk.
 
 3. **Ecosystem-First AI & Automation: `stabileo-mcp` + `pip install stabileo` + Visual Revision Diff + `Stabileo-Bench`** *(extends `#351`, `#731`)*
-   - Prioritize an open-source local/remote **MCP server** (`stabileo-mcp`) and native **PyO3 Python package** (`pip install stabileo`) backed by the Physical IR, pre-solve sanity gates, and Lean certificates — putting Stabileo inside Claude Code, Cursor, Codex, Jupyter, and firm scripts rather than competing only via an in-app chat sidebar.
-   - Support `.to_stabileo_url()` / `.ded` handoff straight to the interactive 3D viewer.
+   - Prioritize an open-source **local stdio MCP server** (`stabileo-mcp` — 100% local execution for NDA models, zero upload) plus an explicit opt-in authenticated remote MCP tier, and a native **PyO3 Python package** (`pip install stabileo`) backed by the Physical IR, pre-solve sanity gates, and certificates — putting Stabileo inside Claude Code, Cursor, Codex, Jupyter, and firm scripts rather than competing only via an in-app chat sidebar.
+   - Support local `.ded` handoff for confidential projects and opt-in authenticated `.to_stabileo_url()` (`stabileo.com/m/<id>`, private by default per shared-models policy) straight to the interactive 3D viewer.
    - Ship **Visual Revision Diff** (`.ded` / `.ifc` Rev A vs Rev B): 3D color-coded diff of geometry changes, demand deltas, BOM/rebar changes, and newly failing checks (usable interactively and in CI/MCP).
    - Publish **`Stabileo-Bench`**: the first open deterministic benchmark evaluating how accurately frontier LLMs model, audit, and size real structures with tool-backed FEM and certified checks.
 
@@ -108,7 +108,7 @@ Soundness stays strictly first. Work is organized into **five waves** that map o
 
 1. **Sparse Conic Programming (SOCP) Core: Building-Scale Certified Limit Analysis, Automated Strut-and-Tie (STM) & Slab/Masonry DLO**
    - Promote pure-Rust Clarabel (or an equivalent sparse primal-dual interior-point LP/SOCP core) into `engine/`.
-   - **Certified 2D & 3D Limit Analysis with N–My–Mz–V–T interaction:** scales past 10,000 members, eliminates path/ordering/unit dependence (`SA-2026-044`, `SA-2026-014`), and produces both primal static stress fields and dual kinematic mechanisms directly checkable by [`PlasticSound.lean`](../../verify/Certify/PlasticSound.lean).
+   - **Certified 2D & 3D Limit Analysis with conic N–My–Mz–V–T interaction:** scales past 10,000 members, eliminates path/ordering/unit dependence (`SA-2026-044`, `SA-2026-014`) via path-independent primal-dual conic optima (exact for quadratic/ellipsoidal yield surfaces, bounded conic approximations otherwise), and produces both primal static stress fields and dual kinematic mechanisms directly checkable by [`PlasticSound.lean`](../../verify/Certify/PlasticSound.lean).
    - **Automated Strut-and-Tie Modeling (CIRSOC 201 / ACI 318 Ch. 23, EC2 §6.5):** synthesizes optimal statically admissible minimum-steel STM trusses for deep beams, pile caps, corbels, transfer girders, and wall openings with lower-bound equilibrium certificates.
    - **Discontinuity Layout Optimization (DLO):** certified upper/lower collapse bounds for irregular flat slabs with openings (yield lines) and unreinforced masonry arches/vaults (productizing `research/mechanics/heyman-1966/`).
 
@@ -127,8 +127,8 @@ Soundness stays strictly first. Work is organized into **five waves** that map o
 5. **Unified Time-Dependent Post-Tensioned (PT) Slab & Staged Bridge Studio**
    - Unify [`prestress.rs`](../../engine/src/solver/prestress.rs), [`creep_shrinkage.rs`](../../engine/src/solver/creep_shrinkage.rs), `staged.rs` (including shoring/reshoring staging and loaded-member removal redistribution), and `MITC4` slabs with 3D tendon layout, hyperstatic/secondary moments, friction/wobble/anchorage losses, and cracked long-term deflections — challenging RAM Concept / ADAPT-Builder / Midas Civil in the browser.
 
-6. **Certified Continuous PDE Error Bounds (Prager–Synge Equilibrated Fluxes) + Dual-Number Force-Based Nonlinearity**
-   - Upgrade [`postprocess/discretization/`](../../engine/src/postprocess/discretization/mod.rs) from ZZ-SPR estimates (`certified: false`) to local vertex-patch equilibrated-flux reconstruction + Prager–Synge upper bounds (formalizable in Lean) + Dual-Weighted Residual goal-oriented refinement, certifying **both algebraic and mesh error** on slabs and shells.
+6. **Certified Continuous PDE Energy-Norm Bounds (Prager–Synge Equilibrated Fluxes) + Dual-Number Force-Based Nonlinearity**
+   - Upgrade [`postprocess/discretization/`](../../engine/src/postprocess/discretization/mod.rs) from ZZ-SPR estimates (`certified: false`) to local vertex-patch equilibrated-flux reconstruction + Prager–Synge guaranteed **energy-norm** upper bounds in linear elasticity where exact equilibrium holds (formalizable in Lean; MITC/variational-crime shell formulations explicitly scoped or excluded), paired with Dual-Weighted Residual goal-oriented refinement (**DWR and recovery indicators stay labelled as estimates, never certified**).
    - Unify nonlinear elements around **Force-Based Gauss–Lobatto Fiber Beam-Columns** + **SO(3) Lie-group kinematics** + Rust `Dual<f64>` exact consistent tangents + **semi-smooth Newton / Augmented Lagrangian complementarity** for contact and cables (eliminating active-set chattering `#432` and enabling Newton–Kantorovich certification of nonlinear states).
 
 ---
