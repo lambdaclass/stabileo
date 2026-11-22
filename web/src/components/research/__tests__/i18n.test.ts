@@ -43,7 +43,7 @@ it('preserves numeric values and interpolation tokens in research translations',
 
 it('preserves topology article numbers and translates every research string', () => {
   const english = topoptStrings('en');
-  const numbers = (s: string) => s.match(/\d+(?:\.\d+)*(?:e[+-]?\d+)?/g) ?? [];
+  const numbers = (s: string) => s.replace(/(\d),(\d)/g, '$1.$2').match(/\d+(?:\.\d+)*(?:e[+-]?\d+)?/g) ?? [];
   for (const locale of PUBLIC_LOCALES.filter((l) => l !== 'en')) {
     const translated = topoptStrings(locale);
     expect(Object.keys(translated).sort()).toEqual(Object.keys(english).sort());
