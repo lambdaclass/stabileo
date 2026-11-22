@@ -62,10 +62,21 @@ recomputes every check from the replay and compares it with `VALIDATION.json`.
 Increasing phase error with coarser steps is intentional, not a failed or relaxed
 tolerance. These are analytical verification checks, not certification.
 
+`reference.py` evaluates the exact period, T_n and the phase-lag bound for every
+time step from the shared case alone, independently of engine code, and stores
+them in `reference-results/closed-form.json` (hashed in
+`reference-results/MANIFEST.json`). The research CI (`engine-benchmarks` job)
+runs it, then runs the engine test with `NEWMARK_VALIDATION_OUT` so that
+`VALIDATION.json` is rewritten by the test itself, and fails unless all 13
+checks pass.
+
 Regenerate the replay and the evidence (test-only opt-in export):
 
 ```sh
-make research.newmark.replay
+python3 -I research/benchmarks/newmark-1959/reference.py --write
+NEWMARK_REPLAY_OUT=$PWD/research/benchmarks/newmark-1959/results/stabileo_results.json \
+NEWMARK_VALIDATION_OUT=$PWD/research/benchmarks/newmark-1959/VALIDATION.json \
+  cargo test --locked --manifest-path engine/Cargo.toml --test integration newmark_1959
 ```
 
 The page uses the shared Stabileo scalar-field viewer, a deformed axial member
@@ -74,13 +85,15 @@ as native production output; live values replace only the selected run. Stop
 cancels a pending result and playback; the tiny synchronous WASM solve itself
 cannot be interrupted midway. Playback is tied to physical time: every time
 step plays 2.5 times slower than real time, so the coarse run's longer period is
-visible as a longer cycle. Catalogue status remains conservatively `proposed`;
-runnable does not imply reviewed.
+visible as a longer cycle. The time step is the model parameter: choosing one
+reruns the production solver for it in the browser.
 
 What the page is compared with: the exact step response and the closed-form
 discrete solution above. No number printed in the 1959 paper is compared, and
 the page says so plainly; it cites this page as a "benchmark after" the paper,
-not a reproduction.
+not a reproduction. The paper is not open access (ASCE Library) and we found no
+open copy, so its own examples could not be transcribed; the catalogue keeps
+`reproduced_published_results: false` and the status `numerically-validated`.
 
 ## Native results
 
@@ -96,8 +109,8 @@ not a reproduction.
 - Published paper figures or numerical examples.
 - Damping, harmonic loading, nonlinear response or multi-DOF frames.
 - Engineering certification.
-- Page text in German, French and Turkish (research pages are English, Spanish
-  and Portuguese for now; those locales fall back to English).
+
+The page is written in all eight research languages (en, es, pt, de, fr, tr, hu, zh).
 
 ## Local verification of this first version (historical)
 

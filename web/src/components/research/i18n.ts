@@ -15,34 +15,6 @@ export type ResearchStrings = {
   meshLoadingReplay: string;
   comparisonFailure: string;
 
-  ferrariNumbers: string;
-  ferrariTitle: string;
-  ferrariLead: string;
-  ferrariScope: string;
-  ferrariScopeText: string;
-  ferrariModel: string;
-  ferrariEvidence: string;
-  ferrariEvidenceText: string;
-  ferrariMissing: string;
-  ferrariBlocker: string;
-  ferrariAuthors: string;
-  ferrariQuestions: string;
-  ferrariReference: string;
-  ferrariReferenceText: string;
-  ferrariReplay: string;
-  ferrariLive: string;
-  ferrariCached: string;
-  ferrariRun: string;
-  ferrariStop: string;
-  ferrariRestart: string;
-  ferrariStep: string;
-  ferrariFailed: string;
-  ferrariPath: string;
-  ferrariTheta: string;
-  ferrariLambda: string;
-  ferrariViewer: string;
-  ferrariDisclaimer: string;
-  ferrariComparison: string;
   formPositionError: string;
   formForceError: string;
   formTitle: string;
@@ -485,34 +457,6 @@ export const STRINGS: Record<'en' | 'es' | 'pt' | 'zh', ResearchStrings> & Parti
     meshLoadingReplay: "Loading the replay…",
     comparisonFailure: "Reference checks failed; inspect the comparison table and input parameters.",
 
-    ferrariNumbers: "With {elements} elements per member, |λ₁ − {reference}| = {error}, below the {tolerance} tolerance. The maximum scaled derivative discrepancy is {derivative}, below {derivativeTolerance}. These are checks of the implemented subset only.",
-    ferrariTitle: "Roorda frame: buckling and nonlinear path",
-    ferrariLead: "Buckling compared with the published scalar values; the imperfect arc-length path is checked against the native solver replay.",
-    ferrariScope: "What is reproduced",
-    ferrariScopeText: "This first version checks the critical load of the simple frame in §2.1.2, using the production engine. It also traces one imperfect path with the production corotational arc-length solver. The path is not a validated reproduction of Figure 2b.",
-    ferrariModel: "Two {length} m members, pinned at the outer ends and rigidly joined at the corner. E = {young} MPa, A = {area} m², J = {inertia} m⁴. A downward {force} kN reference load acts at the corner. The path adds a +{moment} kN·m reference moment; there are {elements} elements per member.",
-    ferrariEvidence: "Evidence and limitations",
-    ferrariEvidenceText: "The production linear buckling load is compared with the paper. Every partial derivative of the energy of a vertical element through order four is checked by central differences at three states. These checks validate derivatives of the production-style beam energy; they do not validate Koiter coefficients.",
-    ferrariMissing: "The computed results cover linear buckling and one eccentric-load path. The listed α and β are paper transcriptions only. Optimisation, multiple modes, larger assemblies and experimental validation are outside this comparison.",
-    ferrariBlocker: "A scaled linear displacement and linear buckling mode do not satisfy the nonlinear critical-point equations in the initial probe. No coefficients or Koiter prediction are displayed from that rejected calculation. The critical state and modal normalization must be resolved first.",
-    ferrariAuthors: "Questions for the authors",
-    ferrariQuestions: "Could you share the minimal §2.1.2 input, mesh and beam formulation; the precise normalization and sign mapping from ξ to corner rotation; and the reference α, β and arc-length arrays? Please clarify the reported coefficient error percentages, which differ from arithmetic on the rounded values.",
-    ferrariReference: "Published reference",
-    ferrariReferenceText: "§2.1.2, pages 4–5: closed-form (λ₁, α, β) = ({closed}); numerical ({numerical}). Figure 2b is on page 4. These are reference values, not computed coefficients.",
-    ferrariReplay: "Precomputed replay (same production solver)",
-    ferrariLive: "Live computation in your browser",
-    ferrariCached: "Cached result from this browser",
-    ferrariRun: "Recompute live",
-    ferrariStop: "Stop",
-    ferrariRestart: "Restart replay",
-    ferrariStep: "Path sample",
-    ferrariFailed: "The live computation failed. The last displayed data have been retained.",
-    ferrariPath: "Production arc-length path",
-    ferrariTheta: "Corner rotation (rad)",
-    ferrariLambda: "Load factor λ",
-    ferrariViewer: "Roorda frame displacement",
-    ferrariDisclaimer: "Research, not a design tool.",
-    ferrariComparison: "Every saved path sample is checked against a native production solve. The browser solver is checked against the native final displacement, rotation and load factor. This is a solver regression, not a comparison with the authors’ code or Figure 2b.",
     formPositionError: "Maximum reference position error",
     formForceError: "Maximum reference force error",
     formTitle: "Four cables, one equilibrium",
@@ -954,34 +898,6 @@ export const STRINGS: Record<'en' | 'es' | 'pt' | 'zh', ResearchStrings> & Parti
     meshLoadingReplay: "Cargando la reproducción…",
     comparisonFailure: "Fallaron las comprobaciones de referencia; revise la tabla y los parámetros.",
 
-    ferrariNumbers: "Con {elements} elementos por miembro, |λ₁ − {reference}| = {error}, menor que la tolerancia {tolerance}. La máxima discrepancia escalada de las derivadas es {derivative}, menor que {derivativeTolerance}. Estas comprobaciones cubren solo la parte implementada.",
-    ferrariTitle: "Pórtico de Roorda: pandeo y trayectoria no lineal",
-    ferrariLead: "Pandeo comparado con los valores publicados; la trayectoria imperfecta se comprueba contra la repetición del solver nativo.",
-    ferrariScope: "Qué se reproduce",
-    ferrariScopeText: "Esta primera versión comprueba la carga crítica del pórtico simple de §2.1.2 con el motor de producción. También calcula una trayectoria imperfecta con su solver corrotacional de longitud de arco. La trayectoria no es una reproducción validada de la Figura 2b.",
-    ferrariModel: "Dos miembros de {length} m, articulados en los extremos exteriores y unidos rígidamente en la esquina. E = {young} MPa, A = {area} m², J = {inertia} m⁴. La carga de referencia es {force} kN hacia abajo en la esquina. La trayectoria añade un momento de referencia de +{moment} kN·m; hay {elements} elementos por miembro.",
-    ferrariEvidence: "Evidencia y limitaciones",
-    ferrariEvidenceText: "La carga de pandeo lineal se compara con el artículo. Cada derivada parcial de la energía de un elemento vertical hasta orden cuatro se comprueba por diferencias centrales en tres estados. Esto verifica las derivadas de esta energía de viga, no los coeficientes de Koiter.",
-    ferrariMissing: "Los resultados calculados cubren pandeo lineal y una trayectoria con carga excéntrica. α y β son solo transcripciones del artículo. La optimización, los modos múltiples, los conjuntos mayores y la validación experimental quedan fuera de esta comparación.",
-    ferrariBlocker: "El desplazamiento lineal escalado y el modo de pandeo lineal no satisfacen las ecuaciones del punto crítico no lineal en la prueba inicial. No se muestran coeficientes ni predicciones de ese cálculo rechazado. Primero deben resolverse el estado crítico y la normalización modal.",
-    ferrariAuthors: "Preguntas para los autores",
-    ferrariQuestions: "¿Podrían compartir el modelo mínimo de §2.1.2, la malla y la formulación de viga; la normalización y los signos que relacionan ξ con el giro de esquina; y los datos de α, β y longitud de arco? Los porcentajes de error impresos no coinciden con los valores redondeados.",
-    ferrariReference: "Referencia publicada",
-    ferrariReferenceText: "§2.1.2, páginas 4–5: solución analítica (λ₁, α, β) = ({closed}); numérica ({numerical}). Figura 2b en página 4. Son referencias, no coeficientes calculados aquí.",
-    ferrariReplay: "Repetición precalculada (mismo solver de producción)",
-    ferrariLive: "Cálculo en vivo en tu navegador",
-    ferrariCached: "Resultado guardado de este navegador",
-    ferrariRun: "Recalcular en vivo",
-    ferrariStop: "Detener",
-    ferrariRestart: "Reiniciar repetición",
-    ferrariStep: "Muestra de trayectoria",
-    ferrariFailed: "Falló el cálculo en vivo. Se conservaron los últimos datos mostrados.",
-    ferrariPath: "Trayectoria de longitud de arco",
-    ferrariTheta: "Giro de esquina (rad)",
-    ferrariLambda: "Factor de carga λ",
-    ferrariViewer: "Desplazamiento del pórtico de Roorda",
-    ferrariDisclaimer: "Investigación, no una herramienta de diseño.",
-    ferrariComparison: "Cada muestra guardada se comprueba contra el solver nativo de producción. El solver del navegador se compara con el desplazamiento, giro y factor de carga finales nativos. Es una regresión del solver, no una comparación con el código de los autores ni con la Figura 2b.",
     formPositionError: "Error máximo de posición respecto a la referencia",
     formForceError: "Error máximo de fuerza respecto a la referencia",
     formTitle: "Cuatro cables, un equilibrio",
@@ -1423,34 +1339,6 @@ export const STRINGS: Record<'en' | 'es' | 'pt' | 'zh', ResearchStrings> & Parti
     meshLoadingReplay: "Carregando a reprodução…",
     comparisonFailure: "As verificações de referência falharam; consulte a tabela e os parâmetros.",
 
-    ferrariNumbers: "Com {elements} elementos por membro, |λ₁ − {reference}| = {error}, abaixo da tolerância {tolerance}. A maior discrepância escalada das derivadas é {derivative}, abaixo de {derivativeTolerance}. Estas verificações cobrem apenas a parte implementada.",
-    ferrariTitle: "Pórtico de Roorda: flambagem e trajetória não linear",
-    ferrariLead: "Flambagem comparada com os valores publicados; a trajetória imperfeita é verificada contra a reprodução do solver nativo.",
-    ferrariScope: "O que é reproduzido",
-    ferrariScopeText: "Esta primeira versão verifica a carga crítica do pórtico simples da §2.1.2 com o motor de produção. Também calcula uma trajetória imperfeita com seu solver corrotacional de comprimento de arco. A trajetória não é uma reprodução validada da Figura 2b.",
-    ferrariModel: "Dois membros de {length} m, articulados nas extremidades externas e unidos rigidamente no canto. E = {young} MPa, A = {area} m², J = {inertia} m⁴. A carga de referência é {force} kN para baixo no canto. A trajetória acrescenta um momento de referência de +{moment} kN·m; há {elements} elementos por membro.",
-    ferrariEvidence: "Evidência e limitações",
-    ferrariEvidenceText: "A carga de flambagem linear é comparada com o artigo. Cada derivada parcial da energia de um elemento vertical até ordem quatro é verificada por diferenças centrais em três estados. Isso verifica as derivadas desta energia de viga, não os coeficientes de Koiter.",
-    ferrariMissing: "Os resultados calculados abrangem flambagem linear e uma trajetória com carga excêntrica. α e β são apenas transcrições do artigo. Otimização, modos múltiplos, conjuntos maiores e validação experimental ficam fora desta comparação.",
-    ferrariBlocker: "O deslocamento linear escalado e o modo de flambagem linear não satisfazem as equações do ponto crítico não linear na tentativa inicial. Não são mostrados coeficientes nem previsões desse cálculo rejeitado. Primeiro é preciso resolver o estado crítico e a normalização modal.",
-    ferrariAuthors: "Perguntas aos autores",
-    ferrariQuestions: "Poderiam compartilhar o modelo mínimo da §2.1.2, a malha e a formulação de viga; a normalização e os sinais que relacionam ξ à rotação do canto; e os dados de α, β e comprimento de arco? As porcentagens de erro publicadas não coincidem com os valores arredondados.",
-    ferrariReference: "Referência publicada",
-    ferrariReferenceText: "§2.1.2, páginas 4–5: solução analítica (λ₁, α, β) = ({closed}); numérica ({numerical}). Figura 2b na página 4. São referências, não coeficientes calculados aqui.",
-    ferrariReplay: "Reprodução pré-calculada (mesmo solver de produção)",
-    ferrariLive: "Cálculo ao vivo no navegador",
-    ferrariCached: "Resultado armazenado deste navegador",
-    ferrariRun: "Recalcular ao vivo",
-    ferrariStop: "Parar",
-    ferrariRestart: "Reiniciar reprodução",
-    ferrariStep: "Amostra da trajetória",
-    ferrariFailed: "O cálculo ao vivo falhou. Os últimos dados exibidos foram mantidos.",
-    ferrariPath: "Trajetória de comprimento de arco",
-    ferrariTheta: "Rotação do canto (rad)",
-    ferrariLambda: "Fator de carga λ",
-    ferrariViewer: "Deslocamento do pórtico de Roorda",
-    ferrariDisclaimer: "Pesquisa, não uma ferramenta de projeto.",
-    ferrariComparison: "Cada amostra salva é verificada contra o solver nativo de produção. O solver do navegador é comparado com o deslocamento, rotação e fator de carga finais nativos. É uma regressão do solver, não uma comparação com o código dos autores ou com a Figura 2b.",
     formPositionError: "Erro máximo de posição em relação à referência",
     formForceError: "Erro máximo de força em relação à referência",
     formTitle: "Quatro cabos, um equilíbrio",
@@ -1892,34 +1780,6 @@ export const STRINGS: Record<'en' | 'es' | 'pt' | 'zh', ResearchStrings> & Parti
     meshLoadingReplay: "正在加载回放…",
     comparisonFailure: "参考检查未通过；请检查对比表和输入参数。",
 
-    ferrariNumbers: "每根杆件取 {elements} 个单元时，|λ₁ − {reference}| = {error}，低于容差 {tolerance}。缩放后导数的最大偏差为 {derivative}，低于 {derivativeTolerance}。这些仅是对已实现部分的检查。",
-    ferrariTitle: "Roorda 框架：屈曲与非线性路径",
-    ferrariLead: "将屈曲结果与已发表的标量值比较；含缺陷的弧长路径则与原生求解器的回放进行核对。",
-    ferrariScope: "复现的内容",
-    ferrariScopeText: "第一版使用生产环境计算引擎，验算 §2.1.2 中简单框架的临界荷载；还用生产环境的共旋弧长求解器追踪一条含缺陷的路径。该路径不是对图 2b 的经过验证的复现。",
-    ferrariModel: "两根长 {length} m 的杆件，外端铰接，在转角处刚性连接。E = {young} MPa，A = {area} m²，J = {inertia} m⁴。转角处作用一个向下的 {force} kN 参考荷载。路径中附加一个 +{moment} kN·m 的参考力矩；每根杆件划分 {elements} 个单元。",
-    ferrariEvidence: "依据与局限",
-    ferrariEvidenceText: "将生产环境的线性屈曲荷载与论文比较。竖向单元能量直至四阶的每一个偏导数，都在三个状态下用中心差分检验。这些检验验证的是生产环境梁能量的导数，并不验证 Koiter 系数。",
-    ferrariMissing: "计算结果涵盖线性屈曲和一条偏心荷载路径。列出的 α 和 β 仅是对论文数值的转录。优化、多个模态、更大的组合体以及试验验证不在本次比较范围内。",
-    ferrariBlocker: "在初始探测中，按比例缩放的线性位移和线性屈曲模态不满足非线性临界点方程。该被拒绝的计算不显示任何系数或 Koiter 预测。必须先解决临界状态和模态归一化的问题。",
-    ferrariAuthors: "向作者提出的问题",
-    ferrariQuestions: "能否提供 §2.1.2 的最小输入、网格和梁的格式；从 ξ 到转角处转角的精确归一化和符号对应关系；以及参考的 α、β 和弧长数组？另请说明所报告的系数误差百分比，它们与按舍入后数值计算的结果不一致。",
-    ferrariReference: "已发表的参考值",
-    ferrariReferenceText: "§2.1.2，第 4–5 页：闭合解 (λ₁, α, β) = ({closed})；数值解 ({numerical})。图 2b 在第 4 页。这些是参考值，不是计算得到的系数。",
-    ferrariReplay: "预先计算的回放（同一生产环境求解器）",
-    ferrariLive: "在浏览器中实时计算",
-    ferrariCached: "来自此浏览器的缓存结果",
-    ferrariRun: "实时重新计算",
-    ferrariStop: "停止",
-    ferrariRestart: "重新开始回放",
-    ferrariStep: "路径采样点",
-    ferrariFailed: "实时计算失败。已保留最后显示的数据。",
-    ferrariPath: "生产环境弧长路径",
-    ferrariTheta: "转角处转角 (rad)",
-    ferrariLambda: "荷载系数 λ",
-    ferrariViewer: "Roorda 框架位移",
-    ferrariDisclaimer: "研究，不是设计工具。",
-    ferrariComparison: "每个保存的路径采样点都与一次原生生产环境求解进行核对。浏览器求解器则与原生求解的最终位移、转角和荷载系数核对。这是求解器的回归测试，不是与作者代码或图 2b 的比较。",
     formPositionError: "参考位置最大误差",
     formForceError: "参考力最大误差",
     formTitle: "四根索，一个平衡状态",
@@ -2361,34 +2221,6 @@ export const STRINGS: Record<'en' | 'es' | 'pt' | 'zh', ResearchStrings> & Parti
     meshLoadingReplay: "A visszajátszás betöltése…",
     comparisonFailure: "A referencia-ellenőrzések nem teljesültek; nézze át az összehasonlító táblázatot és a bemeneti paramétereket.",
 
-    ferrariNumbers: "Rudanként {elements} elemmel |λ₁ − {reference}| = {error}, ami a(z) {tolerance} tűrés alatt marad. A skálázott deriváltak legnagyobb eltérése {derivative}, ami {derivativeTolerance} alatt van. Ezek csak a megvalósított részhalmaz ellenőrzései.",
-    ferrariTitle: "Roorda-keret: kihajlás és nemlineáris egyensúlyi út",
-    ferrariLead: "A kihajlást a közölt skalárértékekkel vetjük össze; a tökéletlen ívhossz-utat a natív megoldó visszajátszásával ellenőrizzük.",
-    ferrariScope: "Mit reprodukálunk",
-    ferrariScopeText: "Ez az első változat a 2.1.2. szakasz egyszerű keretének kritikus terhét ellenőrzi az éles megoldómotorral. Emellett egy tökéletlen egyensúlyi utat is végigkövet az éles korotációs ívhossz-megoldóval. Ez az út nem a 2b. ábra validált reprodukciója.",
-    ferrariModel: "Két {length} m-es rúd, a külső végeken csuklós megtámasztással, a saroknál mereven összekapcsolva. E = {young} MPa, A = {area} m², J = {inertia} m⁴. A saroknál {force} kN-os lefelé mutató referenciateher hat. Az egyensúlyi úthoz +{moment} kN·m referencianyomaték is társul; rudanként {elements} elem van.",
-    ferrariEvidence: "Bizonyítékok és korlátok",
-    ferrariEvidenceText: "Az éles lineáris kihajlási terhet a cikkel vetjük össze. Egy függőleges elem energiájának minden parciális deriváltját negyedrendig központi differenciákkal ellenőrizzük három állapotban. Ezek az ellenőrzések az éles megoldóéval megegyező gerendaenergia deriváltjait igazolják; a Koiter-együtthatókat nem.",
-    ferrariMissing: "A számított eredmények a lineáris kihajlást és egy külpontos terhelésű egyensúlyi utat fedik le. A feltüntetett α és β csak a cikkből átvett értékek. Az optimalizálás, a több kihajlási alak, a nagyobb szerkezetek és a kísérleti validálás kívül esik ezen az összehasonlításon.",
-    ferrariBlocker: "Az első próbálkozásban egy skálázott lineáris elmozdulás és a lineáris kihajlási alak nem elégíti ki a nemlineáris kritikus pont egyenleteit. Ebből az elvetett számításból nem jelenítünk meg együtthatókat vagy Koiter-előrejelzést. Előbb a kritikus állapotot és a sajátalak normálását kell tisztázni.",
-    ferrariAuthors: "Kérdések a szerzőkhöz",
-    ferrariQuestions: "Megosztanák a 2.1.2. szakasz minimális bemenetét, hálóját és gerendaformulációját; a ξ és a sarokelfordulás közötti pontos normálást és előjel-hozzárendelést; valamint a referencia α, β és ívhossz-tömböket? Kérjük, pontosítsák a közölt együttható-hibaszázalékokat is, mert eltérnek a kerekített értékekből számolt eredménytől.",
-    ferrariReference: "Közölt referencia",
-    ferrariReferenceText: "2.1.2. szakasz, 4–5. oldal: zárt alakban (λ₁, α, β) = ({closed}); numerikusan ({numerical}). A 2b. ábra a 4. oldalon található. Ezek referenciaértékek, nem számított együtthatók.",
-    ferrariReplay: "Előre kiszámított visszajátszás (ugyanaz az éles megoldó)",
-    ferrariLive: "Élő számítás a böngészőjében",
-    ferrariCached: "Ebben a böngészőben tárolt eredmény",
-    ferrariRun: "Újraszámítás élőben",
-    ferrariStop: "Leállítás",
-    ferrariRestart: "Visszajátszás újraindítása",
-    ferrariStep: "Útminta",
-    ferrariFailed: "Az élő számítás sikertelen. Az utoljára megjelenített adatok megmaradtak.",
-    ferrariPath: "Éles ívhossz-út",
-    ferrariTheta: "Sarokelfordulás (rad)",
-    ferrariLambda: "λ teherszorzó",
-    ferrariViewer: "A Roorda-keret elmozdulása",
-    ferrariDisclaimer: "Kutatás, nem tervezőeszköz.",
-    ferrariComparison: "Minden mentett útmintát egy natív éles számítással ellenőrzünk. A böngészős megoldót a natív végső elmozdulással, elfordulással és teherszorzóval vetjük össze. Ez a megoldó regressziós ellenőrzése, nem összehasonlítás a szerzők kódjával vagy a 2b. ábrával.",
     formPositionError: "Legnagyobb referencia-helyzethiba",
     formForceError: "Legnagyobb referencia-erőhiba",
     formTitle: "Négy kötél, egy egyensúly",
@@ -2823,6 +2655,7 @@ export const STRINGS: Record<'en' | 'es' | 'pt' | 'zh', ResearchStrings> & Parti
 
 const SHELL_TRANSLATIONS: Record<string, Partial<ResearchStrings>> = {
   "de": {
+    "notComparedWhy": "Nicht verglichen: Der Volltext war uns nicht zugänglich",
     "afterAuthors": "Nach",
     "citeThis": "Zitieren",
     "citationTitle": "Stabileo Research, „",
@@ -2871,6 +2704,7 @@ const SHELL_TRANSLATIONS: Record<string, Partial<ResearchStrings>> = {
     "notDesign": "Forschung, kein Bemessungswerkzeug"
   },
   "fr": {
+    "notComparedWhy": "Non comparé : le texte intégral ne nous était pas accessible",
     "afterAuthors": "D’après",
     "citeThis": "Citer ce travail",
     "citationTitle": "Stabileo Research, « ",
@@ -2919,6 +2753,7 @@ const SHELL_TRANSLATIONS: Record<string, Partial<ResearchStrings>> = {
     "notDesign": "Recherche, pas un outil de dimensionnement"
   },
   "tr": {
+    "notComparedWhy": "Karşılaştırılmadı: makalenin tam metnine erişemedik",
     "afterAuthors": "Kaynak",
     "citeThis": "Alıntıla",
     "citationTitle": "Stabileo Research, “",
@@ -2981,7 +2816,7 @@ export function rs(): ResearchStrings {
 }
 
 export const FIELD_NAMES: Record<string, Record<string, string>> = {
-  de: { optimization: 'Optimierung', seismic: 'Erdbeben und Dynamik', metamaterials: 'Metamaterialien', fracture: 'Bruch und Schädigung', 'limit-analysis': 'Traglastverfahren und Mauerwerk' }, fr: { optimization: 'Optimisation', seismic: 'Séismes et dynamique', metamaterials: 'Métamatériaux', fracture: 'Rupture et endommagement', 'limit-analysis': 'Analyse limite et maçonnerie' }, tr: { optimization: 'Optimizasyon', seismic: 'Deprem ve dinamik', metamaterials: 'Metamalzemeler', fracture: 'Kırılma ve hasar', 'limit-analysis': 'Limit analiz ve yığma yapılar' },
+  de: { 'numerical-methods': 'Numerische Methoden', optimization: 'Optimierung', seismic: 'Erdbeben und Dynamik', metamaterials: 'Metamaterialien', fracture: 'Bruch und Schädigung', 'limit-analysis': 'Traglastverfahren und Mauerwerk' }, fr: { 'numerical-methods': 'Méthodes numériques', optimization: 'Optimisation', seismic: 'Séismes et dynamique', metamaterials: 'Métamatériaux', fracture: 'Rupture et endommagement', 'limit-analysis': 'Analyse limite et maçonnerie' }, tr: { 'numerical-methods': 'Sayısal yöntemler', optimization: 'Optimizasyon', seismic: 'Deprem ve dinamik', metamaterials: 'Metamalzemeler', fracture: 'Kırılma ve hasar', 'limit-analysis': 'Limit analiz ve yığma yapılar' },
   en: { fracture: 'Fracture and damage', 'differentiable-fem': 'Differentiable FEM', optimization: 'Optimization', metamaterials: 'Metamaterials', constitutive: 'Constitutive models', 'digital-twins': 'Digital twins', 'numerical-methods': 'Numerical methods', seismic: 'Seismic and dynamics', shells: 'Shells and buckling', 'limit-analysis': 'Limit analysis and masonry' },
   es: { fracture: 'Fractura y daño', 'differentiable-fem': 'FEM diferenciable', optimization: 'Optimización', metamaterials: 'Metamateriales', constitutive: 'Modelos constitutivos', 'digital-twins': 'Gemelos digitales', 'numerical-methods': 'Métodos numéricos', seismic: 'Sísmica y dinámica', shells: 'Cáscaras y pandeo', 'limit-analysis': 'Análisis límite y mampostería' },
   pt: { fracture: 'Fratura e dano', 'differentiable-fem': 'MEF diferenciável', optimization: 'Otimização', metamaterials: 'Metamateriais', constitutive: 'Modelos constitutivos', 'digital-twins': 'Gêmeos digitais', 'numerical-methods': 'Métodos numéricos', seismic: 'Sísmica e dinâmica', shells: 'Cascas e flambagem', 'limit-analysis': 'Análise limite e alvenaria' },
