@@ -80,7 +80,7 @@ describe('the diagram game moved under the games hub', () => {
       expect(movedRoute(path, on)).toBe('/games/diagram-game');
       expect(movedRoute(path, off)).toBeNull();
     }
-    for (const path of ['/games', '/games/diagram-game', '/diagram-gamex', '/blog/diagram-game']) expect(movedRoute(path, on), path).toBeNull();
+    for (const path of ['/games', '/games/diagram-game', '/diagram-gamex', '/diagram-game/extra', '/diagram-game/extra/', '/blog/diagram-game']) expect(movedRoute(path, on), path).toBeNull();
     expect(movedRoute('/examples/tower', { ...on, tools: false })).toBeNull();
     expect(movedRoute('/diagram-game', { ...on, tools: false })).toBe('/games/diagram-game');
   });
@@ -91,6 +91,7 @@ describe('the diagram game moved under the games hub', () => {
         .toBe(flags.diagramGame ? `/${locale}/games/diagram-game/?seed=7&e2e=1#play` : null);
     }
     expect(movedAddress({ pathname: '/diagram-game', search: '', hash: '' })).toBe(flags.diagramGame ? '/games/diagram-game' : null);
+    expect(movedAddress({ pathname: '/en/diagram-game/extra', search: '', hash: '' })).toBeNull();
   });
 
   it('lists the hub and the game in the sitemap, never the old address', async () => {
