@@ -59,6 +59,44 @@ class ProductionParity(unittest.TestCase):
             self.assertEqual((reference / carried.name).read_text(), 'intended')
             self.assertFalse((reference / added.name).exists())
 
+    @unittest.skip("known wrong result: #2483")
+    def test_reference_materializes_base_only_blobs_from_a_partial_clone(self):
+        with tempfile.TemporaryDirectory(dir=parity.ROOT) as directory:
+            fixture = Path(directory)
+            upstream = fixture / 'upstream'
+            upstream.mkdir()
+            repo = fixture / 'ci-checkout'
+
+            def git(checkout, *args):
+                return subprocess.check_output(['git', '-C', str(checkout), *args]).decode().strip()
+
+            git(upstream, 'init', '--quiet')
+            git(upstream, 'config', 'user.name', 'Production parity fixture')
+            git(upstream, 'config', 'user.email', 'parity@example.invalid')
+            git(upstream, 'config', 'uploadpack.allowFilter', 'true')
+            git(upstream, 'config', 'uploadpack.allowAnySHA1InWant', 'true')
+            (upstream / 'Makefile').write_text(SOLVER_RECIPE)
+            (upstream / 'intended.bin').write_bytes(b'\x00\xff')
+            git(upstream, 'add', '.')
+            git(upstream, 'commit', '--quiet', '-m', 'Published reference')
+            base = git(upstream, 'rev-parse', 'HEAD')
+            base_recipe = git(upstream, 'rev-parse', 'HEAD:Makefile')
+            (upstream / 'Makefile').write_text(SOLVER_RECIPE.replace('printf legacy', 'printf changed'))
+            (upstream / 'intended.bin').write_bytes(b'\x00\xfe')
+            git(upstream, 'add', '.')
+            git(upstream, 'commit', '--quiet', '-m', 'Change the candidate recipe and asset')
+
+            git(upstream, 'clone', '--quiet', '--filter=blob:none', upstream.as_uri(), str(repo))
+            self.assertIn(f'?{base_recipe}', git(repo, 'rev-list', '--objects', '--missing=print', base).splitlines())
+            reference = fixture / 'reference'
+            with patch.object(parity, 'ROOT', repo):
+                parity.snapshot(base, reference, {'intended.bin'})
+            self.assertEqual(git(reference, 'rev-parse', 'HEAD'), base)
+            self.assertEqual((reference / 'Makefile').read_text(), SOLVER_RECIPE)
+            self.assertEqual((reference / 'intended.bin').read_bytes(), b'\x00\xfe')
+            self.assertEqual(git(reference, 'diff', '--cached', '--name-only'), 'intended.bin')
+            self.assertEqual(git(repo, 'status', '--porcelain'), '')
+
     def test_outputs_detect_binary_changes_additions_and_removals(self):
         with tempfile.TemporaryDirectory(dir=parity.ROOT) as directory:
             expected, actual = (Path(directory) / name for name in ('expected', 'actual'))
