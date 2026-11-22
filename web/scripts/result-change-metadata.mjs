@@ -1,15 +1,12 @@
 import { readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { deflateRawSync, inflateSync } from 'node:zlib';
-import { readProPlatesManifest } from './pro-plates-source.mjs';
+import { deflateRawSync } from 'node:zlib';
 import { resultChangeLocaleProblems } from './result-changes/locales.mjs';
 import { readRegistry } from './result-changes/registry.mjs';
 
 export function readProfileResultChanges(proPlatesUnified) {
-  if (proPlatesUnified) return readRegistry();
-  const { resultsRegistry } = readProPlatesManifest();
-  return JSON.parse(inflateSync(Buffer.from(resultsRegistry, 'base64')).toString('utf8'));
+  return readRegistry(undefined, { proPlatesUnified });
 }
 
 export function packResultChangeNotices(registry) {
