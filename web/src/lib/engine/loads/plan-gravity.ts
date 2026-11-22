@@ -36,7 +36,7 @@
  *
  * Pure: no store.
  */
-import { assertDisjointBayShells, assertSeparateShellDecks, footprintsOverlap, planarShell, refuseGravityGeometry, ringArea, type ShellDeckBand, type ShellPlane, type UncoveredStrips } from './gravity-shell-partition';
+import { assertDisjointBayShells, assertSeparateShellDecks, footprintsOverlap, planarShell, refuseGravityGeometry, ringArea, type ShellPlane, type UncoveredStrips } from './gravity-shell-partition';
 import { physicalRoofRuns, samePhysicalPoint, snowCoordinate } from './physical-roof-geometry';
 import polygonClipping, { type Polygon } from 'polygon-clipping';
 import { physicalFloorLoad as floorLoad, type FloorBeam, type FloorPanel, type SideStretch } from './floor-loads';
@@ -122,7 +122,7 @@ const MIN_COVER_RISE = 0.05;
 const BEAM_SLOPE_LIMIT = 0.5;
 type ShellCarrier = {
   id: number; z0: number; poly: Polygon[number]; pts: Array<[number, number, number]>;
-  nodes: number[]; plane?: ShellPlane; deckBand?: ShellDeckBand;
+  nodes: number[]; plane?: ShellPlane;
 };
 const levelIndex = (z: number) => Math.round(z / TOL);
 const levelKey = (z: number) => levelIndex(z) * TOL;
@@ -189,7 +189,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
       list.push({ quadId: q.id, area: plan });
       quadsAt.set(key, list);
       if (plan > 0) {
-        levelCarriers.push({ ...carrier, z0: levelKey(low), deckBand: { low, high } });
+        levelCarriers.push({ ...carrier, z0: levelKey(low) });
         for (const id of q.nodes) shellNodes.add(id);
       }
       continue;
@@ -205,7 +205,6 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
   }
   const carriers = [...levelCarriers, ...slopedCarriers];
   const roofs = opts.mode === 'panels' ? connectedShellGroups(slopedCarriers) : [];
-  if (opts.mode === 'panels') assertSeparateShellDecks(carriers, TOL);
   const links = opts.mode === 'panels' ? verticalShellLinks(model) : [];
   const linkedDecks = linkedShellDecks(model, carriers, links);
   const offsets = directShellOffsets(model, shellNodes, links);
@@ -257,6 +256,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
     levels.set(z, { beams, res });
     panelsAt.set(z, res.panels.map((pn) => pn.polygon));
   }
+  if (opts.mode === 'panels') assertSeparateShellDecks(carriers, TOL);
   const coverAbove = coverage(model, out.zOf, panelsAt);
   const covered = (pt: [number, number], zTop: number) => Number.isFinite(coverAbove(pt, zTop));
   const panelSides = new Map<number, SideStretch[]>();
@@ -749,13 +749,15 @@ function deckFootprints(
   const nodesAtLevel = (roof: ShellCarrier[]) =>
     new Set(roof.flatMap(shell => shell.nodes.filter((_, i) => atLevel(shell.pts[i]![2]))));
   const serving = level.filter(shell => shellServesDeckLevel(shell, z));
-  const footprints: Polygon[] = serving.map(shell => [shell.poly]);
+  const coveringShells = [...serving];
   const overlaps = (shell: ShellCarrier) => footprintsOverlap(boundary, [shell.poly]);
   try {
-    assertDisjointBayShells(serving, boundary);
     const served = new Set(serving);
     for (const shell of level) {
-      if (!served.has(shell) && shell.pts.some(p => atLevel(levelKey(p[2]))) && overlaps(shell)) {
+      if (served.has(shell)) continue;
+      const cornersInBand = shell.pts.some(p => atLevel(p[2]));
+      const allRoundIntoBand = shell.pts.every(p => atLevel(levelKey(p[2])));
+      if ((cornersInBand || allRoundIntoBand) && overlaps(shell)) {
         refuseGravityGeometry(msg('loadPlan.gravity.differentDeck'));
       }
     }
@@ -778,13 +780,14 @@ function deckFootprints(
         || polygonClipping.difference(boundary, projection).length !== 0) {
         refuseGravityGeometry(msg('loadPlan.gravity.differentSlopedDeck'));
       }
-      footprints.push(...polygons);
+      coveringShells.push(...covering);
     }
+    assertDisjointBayShells(coveringShells, boundary);
   } catch (err) {
     if (err instanceof EngineMessageError) throw err;
     refuseGravityGeometry(msg('loadPlan.gravity.deckCheckFailed', { detail: String(err) }));
   }
-  return footprints;
+  return coveringShells.map(shell => [shell.poly]);
 }
 
 function shellAbove(carrier: ShellCarrier, z: number): Polygon[number] {

@@ -1,12 +1,12 @@
 # Gravity generation blocks duplicate claims on a deck
 
-Panel-mode gravity generation now checks the area where shell footprints
-intersect. For overlapping level shells, it compares the shell heights over
-that common footprint using the existing deck tolerance. The check gives
-the same result for every starting corner and winding. Coplanar shell
-overlaps, including sloped shells, still refuse. An actual beam bay also
-refuses when two shells eligible to cover it share a positive-area part of
-the bay. Shell edge contact and independent decks remain supported.
+Panel-mode gravity generation intersects the plan projections of all
+shells that carry area load, including horizontal and sloped pairs. It
+compares their heights over each positive-area intersection using the
+existing deck tolerance. Starting corner and winding give the same result.
+An actual beam bay also refuses when two shells eligible to cover it
+share a positive-area part of the bay. Shell edge contact and independent
+decks remain supported.
 
 The planner also recognizes eccentric connections that couple vertical motion.
 A vertically coupled offset shell and beam bay with overlapping load regions
@@ -34,6 +34,16 @@ At 1 kN/m² both shells received dead load and the level summaries totaled
 120 kN. The planner now blocks these overlapping claims for all corner
 orders. Two flat shells at 3.0002 m and 3.0018 m retain their independent
 loads unless they both cover the same part of a beam bay.
+
+On main at `a1d0032fd`, two parallel 10 × 6 m shells rising from
+3.000 to 3.002 m and from 3.0001 to 3.0021 m each received the full dead
+pressure. At 1 kN/m² the plan and level summaries reported about 120 kN
+of superimposed dead load. Replacing the second shell with a horizontal
+shell at 3.0015 m produced the same duplicate assignment. A beam bay
+with two sloped shells that cover its footprint and a horizontal shell
+that claims a 10 m² strip within it reported about 70 kN under that same
+pressure. All three models returned READY with no blocking message.
+Both panel selection modes now refuse and emit no loads.
 
 Regenerate panel-mode gravity loads in potentially affected projects before
 using analysis, design or report results. If generation refuses, resolve

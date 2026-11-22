@@ -721,14 +721,12 @@ for (const [label, model, x0, x1, x2, x3, low, high] of [
   });
 }
 
-const roundThreeReproducer = process.env.RUN_KNOWN_WRONG === '2284' ? it : it.skip;
-
 for (const [label, low, high] of [
   ['parallel sloped', 3.0001, 3.0021],
   ['sloped and horizontal', 3.0015, 3.0015],
 ] as const) {
   for (let first = 0; first < 8; first++) for (let second = 0; second < 8; second++) {
-    roundThreeReproducer(`known wrong result: #2284 round 3 ${label} decks overlap with corner orders ${first}/${second}`, () => {
+    it(`#2284 round 3 ${label} decks overlap with corner orders ${first}/${second}`, () => {
       const model = floor(0, 0, 10, 6);
       const a = rectangularShell(model, 1, 0, 10, 3, 3.002);
       const b = rectangularShell(model, 2, 0, 10, low, high);
@@ -739,14 +737,14 @@ for (const [label, low, high] of [
   }
 }
 
-roundThreeReproducer('known wrong result: #2284 round 3 a mixed pair just inside the separation limit blocks', () => {
+it('#2284 round 3 a mixed pair just inside the separation limit blocks', () => {
   const model = floor(0, 0, 10, 6);
   rectangularShell(model, 1, 0, 8, 3, 3.0020001);
   rectangularShell(model, 2, 2, 10, 3.003);
   checkBlockedGravity(model, overlappingShells);
 });
 
-roundThreeReproducer('known wrong result: #2284 round 3 a mixed pair claiming the same beam bay blocks', () => {
+it('#2284 round 3 a mixed pair claiming the same beam bay blocks', () => {
   const model = floor(1, 1, 10, 6, 3.0004);
   model.nodes.set(5, { id: 5, x: 0, y: 3, z: 2.9991 });
   model.nodes.set(6, { id: 6, x: 10, y: 3, z: 2.9991 });
@@ -784,7 +782,7 @@ for (const [label, x0, low, high] of [
   });
 }
 
-roundThreeReproducer('known wrong result: #2284 round 3 a lower shell entirely outside the bay band keeps independent load', () => {
+it('#2284 round 3 a lower shell entirely outside the bay band keeps independent load', () => {
   const model = floor(1, 1, 10, 6, 3);
   rectangularShell(model, 1, 0, 10, 2.9981, 2.9989);
   for (const loadEveryPanel of [false, true]) {
