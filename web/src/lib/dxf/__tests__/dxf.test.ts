@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { parseDxf } from '../parser';
 import { mapDxfToModel, parseSectionText, parseMaterialText } from '../mapper';
-import type { DxfParseResult } from '../types';
+import type { DxfMappingResult, DxfParseResult } from '../types';
+import { solve } from '../../engine/wasm-solver';
 
 // ─── Minimal DXF strings for testing ───────────────────────────
 
@@ -56,6 +57,14 @@ function dxfText(layer: string, x: number, y: number, text: string): string {
     '40', '0.2',
     '1', text,
   ].join('\n');
+}
+
+function dxfInsert(layer: string, x: number, y: number, name: string): string {
+  return ['0', 'INSERT', '8', layer, '2', name, '10', String(x), '20', String(y), '30', '0'].join('\n');
+}
+
+function dxfMtext(layer: string, x: number, y: number, text: string): string {
+  return ['0', 'MTEXT', '8', layer, '10', String(x), '20', String(y), '30', '0', '1', text].join('\n');
 }
 
 function dxfPoint(layer: string, x: number, y: number): string {
@@ -199,21 +208,6 @@ describe('DXF Mapper', () => {
     expect(result.supports[1].type).toBe('pinned');
   });
 
-  const issue2278 = process.env.RUN_KNOWN_WRONG === '2278' ? it : it.skip;
-  issue2278('known wrong result: #2278 an unknown support label cannot silently create a pinned support', () => {
-    const unknown = 'ELASTIC_VERTICAL';
-    const parsed = makeParsed({
-      lines: [{ layer: 'BARRAS', start: { x: 0, y: 0 }, end: { x: 5, y: 0 } }],
-      texts: [
-        { layer: 'APOYOS', position: { x: 0, y: 0 }, value: 'EMPOTRADO' },
-        { layer: 'APOYOS', position: { x: 5, y: 0 }, value: unknown },
-      ],
-    });
-    const result = mapDxfToModel(parsed, { unit: 'm', snapTolerance: 0.01 });
-    expect(result.supports.map(support => support.type)).toEqual(['fixed']);
-    expect(result.warnings.join(' ')).toContain(unknown);
-  });
-
   it('should map distributed load text', () => {
     const parsed = makeParsed({
       lines: [
@@ -276,6 +270,100 @@ describe('DXF Mapper', () => {
     });
     const result = mapDxfToModel(parsed, { unit: 'm', snapTolerance: 0.01 });
     expect(result.elements).toHaveLength(1);
+  });
+});
+
+describe('DXF support labels', () => {
+  function mapSupports(...entities: string[]) {
+    const drawing = minimalDxf([
+      dxfLine('BARRAS', 0, 0, 5, 0),
+      dxfText('APOYOS', 0, 0, 'EMPOTRADO'),
+      dxfText('CARGAS', 5, 0, 'Fx=10'),
+      ...entities,
+    ].join('\n'));
+    return mapDxfToModel(parseDxf(drawing), { unit: 'm', snapTolerance: 0.01 });
+  }
+
+  function solveDrawing(mapped: DxfMappingResult) {
+    return solve({
+      nodes: new Map(mapped.nodes.map(({ id, x, y }) => [id + 1, { id: id + 1, x, z: y }])),
+      elements: new Map(mapped.elements.map(({ nodeI, nodeJ, type }, index) => [
+        index + 1, { id: index + 1, nodeI: nodeI + 1, nodeJ: nodeJ + 1, type,
+          materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false },
+      ])),
+      materials: new Map([[1, { id: 1, e: 1000, nu: 0 }]]),
+      sections: new Map([[1, { id: 1, a: 1, iz: 1 }]]),
+      supports: new Map(mapped.supports.map(({ nodeId, type }, index) => [
+        index + 1, { id: index + 1, nodeId: nodeId + 1, type },
+      ])),
+      loads: mapped.nodalLoads.map(load => ({
+        type: 'nodal', data: { ...load, nodeId: load.nodeId + 1 },
+      })),
+    });
+  }
+
+  const issue2278 = process.env.RUN_KNOWN_WRONG === '2278' ? it : it.skip;
+
+  issue2278('known wrong result: #2278 an unknown support label cannot silently create a pinned support', () => {
+    expect(() => mapSupports(dxfText('APOYOS', 5, 0, 'ELASTIC_VERTICAL')))
+      .toThrow(/ELASTIC_VERTICAL.*APOYOS/);
+  });
+
+  issue2278('known wrong result: #2278 refuses unknown MTEXT labels and INSERT names on the support layer', () => {
+    expect.soft(() => mapSupports(dxfMtext('apoyos', 5, 0, 'SPRING_VERTICAL')))
+      .toThrow(/SPRING_VERTICAL.*APOYOS/);
+    expect.soft(() => mapSupports(dxfInsert('APOYOS', 5, 0, 'ELASTIC_BLOCK')))
+      .toThrow(/ELASTIC_BLOCK.*APOYOS/);
+  });
+
+  issue2278('known wrong result: #2278 refuses ambiguous labels and partial alias matches', () => {
+    for (const label of ['R', 'ROLLER', 'MOVIL', 'MOVIL_XZ', 'ROLLER X/Y', 'NOT_FIXED', 'EMPOTRADO/ARTICULADO']) {
+      expect.soft(() => mapSupports(dxfText('APOYOS', 5, 0, label)), label)
+        .toThrow(new RegExp(label + '.*APOYOS'));
+    }
+  });
+
+  issue2278('known wrong result: #2278 refuses an empty label and an unknown label beyond the support matching radius', () => {
+    expect.soft(() => mapSupports(dxfText('APOYOS', 5, 0, ''))).toThrow(/“” on DXF layer “APOYOS”/);
+    expect.soft(() => mapSupports(dxfInsert('APOYOS', 5.125, 0, 'UNKNOWN_BLOCK')))
+      .toThrow(/UNKNOWN_BLOCK.*APOYOS/);
+  });
+
+  issue2278('known wrong result: #2278 refuses conflicting labels for a single snapped node', () => {
+    expect(() => mapSupports(
+      dxfText('APOYOS', 5, 0, 'ARTICULADO'),
+      dxfInsert('APOYOS', 5.005, 0, 'RX'),
+    )).toThrow(/ARTICULADO.*RX.*APOYOS/);
+  });
+
+  it('solves equivalent explicit support aliases with the same reactions', () => {
+    const pinned = mapSupports(dxfText('APOYOS', 5, 0, 'ARTICULADO'));
+    const roller = mapSupports(dxfText('APOYOS', 5, 0, 'RX'));
+    expect(pinned.supports).toEqual([{ nodeId: 0, type: 'fixed' }, { nodeId: 1, type: 'pinned' }]);
+    expect(roller.supports).toEqual([{ nodeId: 0, type: 'fixed' }, { nodeId: 1, type: 'rollerX' }]);
+    const pinnedResult = solveDrawing(pinned);
+    const rollerResult = solveDrawing(roller);
+    expect(pinnedResult.reactions.find(r => r.nodeId === 2)?.rx).toBe(-10);
+    expect(rollerResult.reactions.find(r => r.nodeId === 1)?.rx).toBe(-10);
+    expect(solveDrawing(mapSupports(dxfMtext('apoyos', 5, 0, ' pinned ')))).toEqual(pinnedResult);
+    expect(solveDrawing(mapSupports(dxfInsert('APOYOS', 5.075, 0, 'ROLLER_X')))).toEqual(rollerResult);
+    expect(solveDrawing(mapSupports(
+      dxfInsert('APOYOS', 5, 0, 'RX'),
+      dxfText('NOTES', 5, 0, 'ELASTIC_VERTICAL'),
+    ))).toEqual(rollerResult);
+    const beyondSnap = mapSupports(dxfInsert('APOYOS', 5.125, 0, 'RX'));
+    expect(beyondSnap.supports).toEqual([{ nodeId: 0, type: 'fixed' }]);
+    expect(beyondSnap.warnings).toHaveLength(1);
+    expect(beyondSnap.warnings[0]).toContain('RX');
+  });
+
+  it('keeps the supported direction aliases and legacy fixed alias', () => {
+    for (const [label, type] of [
+      ['RZ', 'rollerZ'], ['RY', 'rollerZ'], ['ROLLER_Y', 'rollerZ'],
+      ['MOVIL X', 'rollerX'], ['MOVIL Z', 'rollerZ'], ['E', 'fixed'], ['FIXED', 'fixed'],
+    ] as const) {
+      expect(mapSupports(dxfText('APOYOS', 5, 0, label)).supports[1]).toEqual({ nodeId: 1, type });
+    }
   });
 });
 
