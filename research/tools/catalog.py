@@ -38,7 +38,7 @@ AREAS = {
 }
 STATUSES = [
     "proposed", "reference-reproduced", "implementation-in-progress",
-    "numerically-validated", "published-figures-compared", "interactive",
+    "numerically-validated", "published-figures-compared",
 ]
 # Keep this explicit: catalog edits must not expand their own URL allowlist.
 CODE_HOSTS = {"github.com", "gitlab.com", "zenodo.org", "doi.org"}
@@ -99,12 +99,32 @@ def valid_checks(checks, published=False):
     def finite_number(value):
         return type(value) in (int, float) and math.isfinite(value)
 
+    def text(value):
+        return isinstance(value, str) and bool(value.strip())
+
+    def paper_row(c):
+        if not text(c.get("name")) or not text(c.get("source")) or not isinstance(c.get("unit", ""), str):
+            return False
+        if "reference" not in c and "computed" not in c:
+            return type(c.get("points")) is int and c["points"] >= 2
+        reference, computed = c.get("reference"), c.get("computed")
+        if not finite_number(reference) or not finite_number(computed):
+            return False
+        metric = c["metric"].lower()
+        if metric.startswith("absolute"):
+            expected = abs(computed - reference)
+        elif metric.startswith("relative") and reference != 0:
+            expected = abs(computed - reference) / abs(reference)
+        else:
+            return False
+        return abs(c["observed"] - expected) <= 1e-9 * max(1.0, expected)
+
     return isinstance(checks, list) and bool(checks) and all(
         isinstance(c, dict) and c.get("passed") is True and
-        isinstance(c.get("metric"), str) and bool(c["metric"].strip()) and
+        text(c.get("metric")) and
         finite_number(c.get("observed")) and finite_number(c.get("tolerance")) and
         0 <= c["observed"] <= c["tolerance"] and
-        (not published or isinstance(c.get("source"), str) and bool(c["source"].strip()))
+        (not published or paper_row(c))
         for c in checks
     )
 
@@ -197,11 +217,7 @@ def check_entry(p, errors):
                 evidence = json.load(f)
             checks = evidence.get("checks", [])
             if not valid_checks(checks, published=True):
-                errors.append(f"{pid}: published comparison needs passing checks with sources, metrics, observations and tolerances")
-    if status == "interactive":
-        page = p.get("page")
-        if not page or not os.path.isfile(os.path.join(ROOT, "..", page)):
-            errors.append(f"{pid}: interactive status needs an existing page")
+                errors.append(f"{pid}: published comparison needs passing checks, each with a name, source, metric, tolerance and either the paper value (reference) and ours (computed) whose difference is the observed value, or a point count for a curve")
     for c in p.get("code") or []:
         if not valid_code_url(c.get("url")):
             errors.append(f"{pid}: code URL must use HTTPS on an allowed host")

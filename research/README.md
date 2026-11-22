@@ -62,8 +62,11 @@ Statuses in `papers.yaml` are assigned from evidence in the repository, not by h
 | `reference-reproduced` | The authors' code ran here; its outputs are committed with the exact environment |
 | `implementation-in-progress` | A Stabileo implementation exists but its validation tests do not yet pass |
 | `numerically-validated` | Tests compare our implementation with the reproduced reference within documented tolerances, and pass in CI. When the authors publish no code, the reference is the paper's published values plus exact results (see that experiment's README). Whether published numbers were reproduced is the separate `reproduced_published_results` field |
-| `published-figures-compared` | Numerical validation plus `reproduced_published_results: true` and `reference-results/published_comparison.json` (legacy: `PUBLISHED_COMPARISON.json`) with passing checks naming published sources, metrics, observations and tolerances |
-| `interactive` | Numerical validation plus an existing repository-relative `page` file; this does not imply published-results agreement |
+| `published-figures-compared` | Numerical validation plus `reproduced_published_results: true` and `reference-results/published_comparison.json` (legacy: `PUBLISHED_COMPARISON.json`) with passing rows. Each row names the quantity (`name`), where the paper gives it (`source`), its `unit`, the paper's value (`reference`), ours (`computed`), the `metric` (`absolute …` or `relative …`), the difference that metric gives (`observed`, checked against `reference` and `computed`) and the `tolerance`. A row that compares a whole curve gives `points` instead of `reference` and `computed`, and `observed` is the largest difference. Pages show these rows as a table, "the paper against Stabileo" |
+
+Interactivity is not a status. Every experiment listed in `web/src/components/research/experiments.ts`
+runs on its page, shows an "Interactive" chip in the gallery and must be at least
+`numerically-validated`; a web test enforces it.
 
 `summary_source` is declared provenance for human review, not machine-verified summary content.
 The checker verifies the allowed source label; it does not compare the prose to the source.

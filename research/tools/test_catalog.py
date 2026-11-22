@@ -82,7 +82,8 @@ def main():
         manifest.write_text(manifest_text)
         (implementation / "VALIDATION.json").write_text(json.dumps({"checks": [{"passed": True, "metric": "error", "observed": 0, "tolerance": 0.01}]}))
         comparison = implementation / "PUBLISHED_COMPARISON.json"
-        comparison.write_text(json.dumps({"checks": [{"source": "paper figure 3", "metric": "relative error", "observed": 0.001, "tolerance": 0.01, "passed": True}]}))
+        good_row = {"name": "peak load", "source": "paper figure 3", "reference": 2.0, "computed": 2.002, "unit": "kN", "metric": "relative error", "observed": 0.001, "tolerance": 0.01, "passed": True}
+        comparison.write_text(json.dumps({"checks": [good_row]}))
         entry = mutated(lambda p: p.update(status="published-figures-compared", reproduced_published_results=True))[0]
         errors = []
         catalog.check_entry(entry, errors)
@@ -101,15 +102,22 @@ def main():
         errors = []
         catalog.check_entry(entry, errors)
         assert errors
-        (Path(tmp) / "page.svelte").write_text("<h1>Experiment</h1>")
-        entry.update(status="interactive", page="page.svelte", reproduced_published_results=False)
+        for change in [{"name": ""}, {"computed": 2.2}, {"metric": "error"}, {"reference": 0.0, "computed": 0.0}, {"reference": None}]:
+            comparison.write_text(json.dumps({"checks": [{**good_row, **change}]}))
+            errors = []
+            catalog.check_entry(entry, errors)
+            assert errors, change
+        curve = {k: v for k, v in good_row.items() if k not in ("reference", "computed")}
+        for points, expected in [(37, []), (1, 1), (None, 1)]:
+            comparison.write_text(json.dumps({"checks": [{**curve, "points": points}]}))
+            errors = []
+            catalog.check_entry(entry, errors)
+            assert (errors if expected == [] else len(errors)) == expected, (points, errors)
+        absolute = {**good_row, "metric": "absolute error", "observed": 0.002}
+        comparison.write_text(json.dumps({"checks": [absolute]}))
         errors = []
         catalog.check_entry(entry, errors)
         assert not errors, errors
-        entry["reproduced_published_results"] = True
-        errors = []
-        catalog.check_entry(entry, errors)
-        assert errors, "interactive published claim needs comparison evidence"
         entry["reproduced_published_results"] = False
         for bad in [{}, {"files_sha256": {}}, {"files_sha256": {"data.csv": "invalid"}}, {"files_sha256": {"data.csv": "0" * 64}}]:
             manifest.write_text(json.dumps(bad))
@@ -143,8 +151,7 @@ def main():
         "string boolean": lambda p: p.update(reproduced_published_results="false"),
         "integer boolean": lambda p: p.update(reproduced_published_results=1),
         "published claim without comparison": lambda p: p.update(status="published-figures-compared", reproduced_published_results=True),
-        "interactive without page": lambda p: p.update(status="interactive"),
-        "interactive missing page": lambda p: p.update(status="interactive", page="web/src/components/research/Missing.svelte"),
+        "interactive is not a status": lambda p: p.update(status="interactive"),
         "missing code commit": lambda p: p["code"][0].pop("commit"),
         "mutable code ref": lambda p: p["code"][0].update(commit="main"),
         "unknown area": lambda p: p.update(area="astrology"),

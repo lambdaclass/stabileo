@@ -12,8 +12,9 @@
   import PublicLink from '../../landing/PublicLink.svelte';
   import { fieldName, rs } from '../i18n';
   import { paperTextLocale } from '../text-locale';
-  import { provideExperiment, type ExperimentActions, type Check } from './context';
+  import { provideExperiment, type ExperimentActions, type Check, type PublishedRow } from './context';
   import VerificationSummary from './VerificationSummary.svelte';
+  import ComparisonTable from './ComparisonTable.svelte';
   import { BUILD_COMMIT } from '../../../lib/build-info';
   import { paperHead } from '../head.svelte';
 
@@ -27,6 +28,10 @@
     /** What the experiment is checked against; defaults from `checks` and the catalogue. */
     verification?: { reference: Check; published: Check } | null;
     referenceLabel?: string | null;
+    /** The rows of published_comparison.json, shown as the paper against Stabileo. */
+    comparison?: PublishedRow[] | null;
+    /** Translated row names by row id; rows without one show the JSON's English name. */
+    comparisonNames?: Record<string, string>;
     actions: ExperimentActions;
     /** Where the implementation lives, for Cite this and the source link. */
     sourcePath: string;
@@ -41,7 +46,7 @@
     /** Replaces "reproduction of" in Cite this when the page does not reproduce the paper. */
     citationRelation?: string;
   };
-  let { paperId, citationAuthors, name, lead, checks = null, verification = null, referenceLabel = null, actions, sourcePath, article, app, wide = false, locale, citationRelation, compactHeader = false, introInArticle = true }: Props = $props();
+  let { paperId, citationAuthors, name, lead, checks = null, verification = null, referenceLabel = null, comparison = null, comparisonNames = {}, actions, sourcePath, article, app, wide = false, locale, citationRelation, compactHeader = false, introInArticle = true }: Props = $props();
   provideExperiment(actions);
 
   const entry = catalog.papers.find((p) => p.id === paperId)!;
@@ -62,9 +67,10 @@
       </p>
       <VerificationSummary
         reference={verification?.reference ?? (checks ? { kind: 'checks', passed: checks.passed, total: checks.total, href: '#checks' } : { kind: 'none', why: '' })}
-        published={verification?.published ?? { kind: 'none', why: s.notComparedWhy }}
+        published={verification?.published ?? (comparison?.length ? { kind: 'checks', passed: comparison.filter((r) => r.passed).length, total: comparison.length, href: '#comparison' } : { kind: 'none', why: s.notComparedWhy })}
         {referenceLabel}
       />
+      {#if comparison?.length}<div id="comparison"><ComparisonTable rows={comparison} names={comparisonNames} /></div>{/if}
       <p class="rs-lead" lang={locale ?? paperTextLocale(paperId)}>{lead}</p>
 {/snippet}
 

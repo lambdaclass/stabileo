@@ -17,7 +17,7 @@
   import { publicI18n, tPublic } from '../../lib/i18n/store.svelte';
 
   type Paper = (typeof catalog.papers)[number];
-  const ORDER = ['interactive', 'published-figures-compared', 'numerically-validated', 'implementation-in-progress', 'reference-reproduced', 'proposed'];
+  const ORDER = ['published-figures-compared', 'numerically-validated', 'implementation-in-progress', 'reference-reproduced', 'proposed'];
   const papers: Paper[] = [...catalog.papers].sort((a, b) => ORDER.indexOf(a.status) - ORDER.indexOf(b.status) || b.crossref.year - a.crossref.year);
   const byId = new Map(papers.map((p) => [p.id, p]));
   const run = EXPERIMENTS.map((e) => ({ e, p: byId.get(e.paperId)! })).filter((x) => x.p);
@@ -57,7 +57,7 @@
             {/if}
           </ResearchLink>
           <div class="rs-g-runbody">
-            <div class="rs-g-meta"><span>{fieldName(p.area)}</span><span class="rs-g-status rs-g-{p.status}">{statusName(p.status)}</span></div>
+            <div class="rs-g-meta"><span>{fieldName(p.area)}</span><span class="rs-g-status rs-g-{p.status}">{statusName(p.status)}</span><span class="rs-g-status rs-g-interactive">{statusName('interactive')}</span></div>
             <h3><ResearchLink to={e.path}>{cardTitle(e)}</ResearchLink></h3>
             <p class="rs-g-hook">{cardHook(e)}</p>
             <p class="rs-g-by" lang="en">{p.crossref.title}. {citation(p)}.</p>

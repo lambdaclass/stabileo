@@ -344,7 +344,7 @@ papers:
     computes. Centered-pattern shallow-arch thresholds are checked against Zenodo software outputs. Production
     arc-length rejects thermal loading and prescribed displacements; the curvature-driven equilibrium
     path uses a research modal layer. Experimental snap dynamics are not reproduced.
-  status: interactive
+  status: published-figures-compared
   reproduced_published_results: true
   benchmarks: []
   implementation: mechanics/biggins-2026
@@ -392,7 +392,7 @@ papers:
     own input files. Element bending moments and shear forces match the reference code's stored tutorial
     results to 0.015 N·m and 0.013 N; touchdown and hanging shape are also checked against the elastic
     catenary. Sea current, Morison loads and line-to-line contact are not reproduced.
-  status: interactive
+  status: numerically-validated
   reproduced_published_results: false
   benchmarks: []
   implementation: mechanics/gay-neto-2014
@@ -470,7 +470,7 @@ papers:
     labels; the symmetric limit loads and curvature of Section 3.2 agree within 2%. The half-span-load
     values and the two Table 1 entries reached after a snap are open; the latter and the equilibrium
     surface of Figure 9(a) need arc-length with prescribed rotations.
-  status: interactive
+  status: numerically-validated
   reproduced_published_results: false
   benchmarks: []
   implementation: stability/feher-sipos-varkonyi-2026
@@ -745,7 +745,7 @@ papers:
     on the hinge angle (largest differences 5·10⁻⁶ relative and 6·10⁻⁵°); Heyman's own text and figures
     were not compared. See
     research/mechanics/heyman-1966/README.md.
-  status: interactive
+  status: numerically-validated
   reproduced_published_results: false
   benchmarks: []
   implementation: mechanics/heyman-1966
