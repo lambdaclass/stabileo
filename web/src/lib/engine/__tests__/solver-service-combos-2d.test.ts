@@ -8,7 +8,7 @@
  *  - error conditions still surfacing as string returns.
  */
 
-import { factorsWithExactCancellation, factorsWithUnitResidual } from './combination-factor-fixture';
+import { factorsWithExactCancellation, factorsWithUnitResidual, issue2297Factors } from './combination-factor-fixture';
 import { describe, it, expect, beforeAll } from 'vitest';
 import { initSolver, solvePDelta } from '../wasm-solver';
 import { buildSolverInput2D, solveCombinations2D, validateAndSolve2D, validateAndSolve2DAsync, type ModelData } from '../solver-service';
@@ -324,4 +324,28 @@ describe('explicit planar self-weight rules', () => {
       }
     }
   });
+});
+
+const issue2292 = process.env.RUN_KNOWN_WRONG === '2292' ? it : it.skip;
+
+issue2292('known wrong result: #2292 a repeated planar case with a reserved name keeps its exact residual', async () => {
+  await initSolver();
+  const model = beamModel();
+  const weights = issue2297Factors;
+  const run = (name: string, factors: number[]) => {
+    const loadCases = [{ ...cases[0], name }, cases[1]];
+    const result = solveCombinations2D(model, loadCases, [{ ...combos[0], factors: [
+      ...factors.map(factor => ({ caseId: 1, factor })), { caseId: 2, factor: 1 },
+    ] }]);
+    if (!result || typeof result === 'string') throw new Error(String(result));
+    return result.perCombo.get(combos[0].id)!.displacements.find(row => row.nodeId === 2)!;
+  };
+  const control = run('Dead', [1]);
+  expect(control.uz).toBeLessThan(0);
+  expect(run('Dead', weights)).toStrictEqual(control);
+  expect(run('__proto__', weights)).toStrictEqual(control);
+});
+
+it('#2297 the reported seven factors preserve the unit case response', async () => {
+  await checkNamedPlanarCancellation(issue2297Factors, [...issue2297Factors, -1]);
 });
