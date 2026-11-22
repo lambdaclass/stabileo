@@ -116,6 +116,10 @@ const body: PostBody = {
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-107-plate-remesh-shell-edits.md", "label": "SA-2026-107", "t": "Etkilenen girdiler ve yapılması gerekenler."},
     {"k": "note", "t": "SA-2026-108 — 0.6.4’ten sonraki ilk sürüm."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-108-planar-projection-nodal-forces.md", "label": "SA-2026-108", "t": "Etkilenen girdiler ve yapılması gerekenler."},
+    {"k": "note", "t": "SA-2026-109 — 0.6.4’ten sonraki ilk sürüm."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-109-dxf-support-labels.md", "label": "SA-2026-109", "t": "Etkilenen girdiler ve yapılması gerekenler."},
+    {"k": "note", "t": "SA-2026-110 — 0.6.4’ten sonraki ilk sürüm."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-110-solver-json-boundary.md", "label": "SA-2026-110", "t": "Etkilenen girdiler ve yapılması gerekenler."},
     {"k": "img", "base": "blog/recheck-stale", "w": 1600, "h": 1000, "alt": "Sonuçlar sürümlenmeden önce kaydedilmiş bir betonarme çerçeve ile Stabileo PRO. Alttaki bir şerit, projenin eski bir sürümle çözüldüğünü ve kayıtlı 19 değişikliğin onu ilgilendirdiğini, yani sonuçların eskidiğini söylüyor; yanında neyin değiştiğini görme ve yeniden çözme düğmeleri var.", "caption": "Bir düzeltme kayıtlı bir projeye böyle ulaşır: yeniden çözülene kadar sonuçları eskimiş olarak işaretli kalır ve onu ilgilendiren değişiklikler bir tık uzaktadır."},
     {
       "k": "h",
@@ -532,7 +536,9 @@ const body: PostBody = {
         ["SA-2026-105", "Geri yüklenen düzlemsel bir tekil moment sıfırlandığında eski moment uygulanmaya devam edebiliyordu. Amaçlanan momentleri doğrulayıp yeniden girin, ardından etkilenen analizleri ve tasarım kontrollerini yineleyin.", "Yüksek", "0.6.3’ten sonraki ilk sürüm"],
         ["SA-2026-106", "Ağ yenileme, eğri plak kenarının tamamlayıcı yayını kullanabiliyordu. Ağı belirtilen yayla karşılaştırın, etkilenen ağları yeniden oluşturun ve analizi ve tasarım kontrollerini yineleyin.", "Yüksek", "0.6.3’ten sonraki ilk sürüm (koruma önlemi)"],
         ["SA-2026-107", "Ağ yenileme, kabuk ofseti ve eğrilik düzenlemelerini silebiliyordu. Analizi ve tasarım kontrollerini yinelemeden önce amaçlanan kabuk özelliklerini doğrulayıp geri yükleyin.", "Yüksek", "0.6.3’ten sonraki ilk sürüm (koruma önlemi)"],
-        ["SA-2026-108", "XZ veya YZ düzlemine izdüşüm, düğüm kuvvetinin analiz düzlemine dik bileşenini uyarı vermeden atlayabiliyordu. Her yük durumundaki düğüm kuvvetlerini kontrol edin ve etkilenen analizleri ve tasarım kontrollerini uzamsal modelle yineleyin.", "Yüksek", "0.6.4’ten sonraki ilk sürüm"]
+        ["SA-2026-108", "XZ veya YZ düzlemine izdüşüm, düğüm kuvvetinin analiz düzlemine dik bileşenini uyarı vermeden atlayabiliyordu. Her yük durumundaki düğüm kuvvetlerini kontrol edin ve etkilenen analizleri ve tasarım kontrollerini uzamsal modelle yineleyin.", "Yüksek", "0.6.4’ten sonraki ilk sürüm"],
+        ["SA-2026-109", "Düzlemsel DXF çizimlerindeki tanınmayan mesnet etiketleri uyarı verilmeden mafsallı mesnet olarak içe aktarılabiliyordu. İçe aktarılan mesnetleri özgün çizimle karşılaştırın, farklılıkları düzeltin ve etkilenen analizleri yineleyin.", "Yüksek", "0.6.4’ten sonraki ilk sürüm"],
+        ["SA-2026-110", "Web analizi, sonlu olmayan rijitlikteki bir yayı veya bir birleşimdeki yük durumunu uyarı vermeden atlayabiliyordu. Yay rijitliklerini, yük durumu adlarını ve net katsayıları kontrol edip etkilenen analizleri ve birleşimleri yeniden hesaplayın.", "Yüksek", "0.6.4’ten sonraki ilk sürüm"]
       ]
     },
     {
