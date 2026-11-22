@@ -63,7 +63,7 @@ test.describe('@smoke plastic collapse', () => {
       const run = page.getByRole('button', { name: 'Recompute live', exact: true });
       await run.focus();
       await page.keyboard.press('Enter');
-      await expect(page.getByRole('status')).toHaveText('Live computation');
+      await expect(page.getByTestId('source')).toHaveText('Live computation');
       await expect(slider).toHaveValue('3');
       await page.getByRole('button', { name: 'Restart', exact: true }).click();
       await expect(page.getByTestId('source')).toHaveText('Live computation');

@@ -83,7 +83,7 @@ test('@smoke Navier plate recomputes live and restores the replay', async ({ pag
   await open(page, 'en', 390, 844);
   await page.getByRole('button', { name: 'Recompute live' }).click();
   await expect(page.getByTestId('navier-source')).toHaveText('Live result: all six meshes computed in this browser', { timeout: 40_000 }); // slow-ok: The WASM worker loads the production engine and solves all six plate meshes.
-  await expect(page.locator('.table-scroll').first()).toHaveAttribute('aria-busy', 'false');
+  await expect(page.locator('.table-scroll[aria-busy]')).toHaveAttribute('aria-busy', 'false');
   await expectRows(page, replay.rows);
   await page.getByRole('button', { name: 'Show the finest MITC4 mesh' }).click();
   await expect(page.getByTestId('navier-source')).toHaveText('Live result: all six meshes computed in this browser');
