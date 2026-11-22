@@ -56,16 +56,38 @@ about 0.001 kN of the mesh limit and the 20-element replay is about 0.5% high.
 
 ## What the result is compared with
 
-de Souza, Vanalli & de Luz (2020), “Numerical-Computational Model for Nonlinear
-Analysis of Frames with Semirigid Connection”, https://doi.org/10.1155/2020/3613892,
-plot the pinned path in §3.3, Figure 10, against Schweizerhof & Wriggers (1986),
-and tabulate no value. The comparison value, **about 1.83 kN**, is the first peak
-of that curve read by eye. Because it is a visual reading, the page states the
-difference only to the nearest percent: **≈ +2%** for the 20-element replay and
-**≈ +1%** for 80 elements (unit test `compares with the Figure 10 reading only to
-the nearest percent`). The chart draws 1.83 kN as a horizontal rule, not an
-invented reference curve. Figure 11's 2.1474 kN is for semirigid supports and is
-not used.
+Lee, Manuel & Rossow (1968) was not available to us. The first peak is compared with
+published solutions of the same pinned frame (`reference-results/published-peaks.json`):
+
+- de Souza, Vanalli & de Luz (2020), https://doi.org/10.1155/2020/3613892, Figure 10, plot
+  the pinned path next to points of Schweizerhof & Wriggers (1986) and tabulate no value. We
+  measured its first peak in pixels on the open PDF and checked the load scale on the
+  semirigid (Sr = EI/L₀) peak of the same figure, which Figure 11 states as 2.1474 kN:
+  **1.87 kN, reading uncertainty ±0.03 kN** (about three pixels, the marker half-height).
+  The earlier by-eye 1.83 kN is superseded. Both the 20-element value and the value
+  extrapolated to zero element length are compared within that uncertainty.
+- Galvão (2000), point A, as tabulated by Neves (2025), Blucher Physics Proceedings, XV ECFA,
+  paper 2025030, Table 1: **1.86 kN** (48.79 cm), printed to 0.01 kN. It is compared with our
+  extrapolated value within half that unit, 0.005 kN; Galvão's own discretization is not known,
+  so this is the strictest tolerance the printed digits allow.
+
+The chart draws 1.87 kN as a horizontal rule. Figure 11's values are for semirigid supports
+and serve only to check the figure's scale.
+
+## Validation in CI
+
+`validate.py` reads a fresh native export (`LEE_REPLAY_OUTPUT`) of the engine test
+`lee_frame_limit_load`, which also asserts the mesh and step study values of the case file to
+10⁻⁸ kN, and writes `VALIDATION.json`, `reference-results/published_comparison.json` and
+`reference-results/MANIFEST.json`. Its checks: all 90 steps converge; the 20-element first
+peak against the regression value (a historical bound, not accuracy); the arc-length step
+effect at 20, 40 and 80 elements (below 10⁻⁴ kN); the ratio of successive mesh changes within
+1 of 4 (second order); the committed replay against the fresh run (10⁻⁹); and the three
+published rows. The research workflow runs `validate.py check`, which fails when the
+committed files differ from a fresh run.
+
+Status: `numerically-validated`, `reproduced_published_results: false`, because the published
+values are later solutions of the frame, not Lee (1968).
 
 ## Scope
 
@@ -74,13 +96,10 @@ not used.
 - The mesh and step study covers the first peak only.
 - Research, not engineering certification.
 
-The catalogue status stays `proposed` because its higher evidence statuses require
-a tabulated or digitized published value; delivery `stage: first-version` is separate.
 
 ## Open questions
 
-- A digitized Figure 10 curve (or Schweizerhof & Wriggers 1986 values) would turn
-  the by-eye 1.83 kN into a value with a stated reading uncertainty and allow a
+- A digitized Figure 10 curve (or Schweizerhof & Wriggers 1986 values) would allow a
   whole-path comparison.
 - The original Lee, Manuel & Rossow (1968) paper was not available to us; its
   values could replace the second-hand figure reading.
@@ -90,8 +109,13 @@ a tabulated or digitized published value; delivery `stage: first-version` is sep
 Inside `nix develop`, run:
 
 ```
-cargo test -p dedaliano-engine --release --test solver lee_frame -- --nocapture
+LEE_REPLAY_OUTPUT=$PWD/fresh.json cargo test -p dedaliano-engine --release --test solver lee_frame -- --nocapture
+python3 -I research/benchmarks/lee-frame-1968/validate.py generate fresh.json
 ```
+
+The page can rerun the path live with 20, 40 or 80 elements, refined in the browser exactly
+as `refined()` in the engine test does; it shows the first peak of that run next to the native
+study value.
 
 To regenerate the same-solver replay, add
 `LEE_REPLAY_OUTPUT=$PWD/research/benchmarks/lee-frame-1968/results/stabileo_results.json`.

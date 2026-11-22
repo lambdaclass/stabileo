@@ -259,13 +259,13 @@
             {#each data.cases as c (c.id)}<option value={c.id}>{c.id === 'shallow-toggle' ? copy.shallowCase : copy.vonMisesCase}</option>{/each}
           </select>
         </ParamRow>
-        <ParamRow id="p-rise" name={strings.benchmark.riseSpan} hint="0.005–0.8" invalid={invalid.riseSpan}>
+        <ParamRow id="p-rise" name={strings.benchmark.riseSpan} hint={`${num(0.005)}–${num(0.8)}`} invalid={invalid.riseSpan}>
           <NumberField id="p-rise" label={strings.benchmark.riseSpan} min={0.005} max={0.8} bind:value={parameters.riseSpan} bind:invalid={invalid.riseSpan} />
         </ParamRow>
         <ParamRow id="p-direction" name={strings.benchmark.loadDirection}>
           <select id="p-direction" bind:value={parameters.direction}><option value="downward">{strings.benchmark.downward}</option><option value="upward">{strings.benchmark.upward}</option></select>
         </ParamRow>
-        <ParamRow id="p-ds" name={strings.benchmark.arcLengthStep} hint={`1e−8–${currentCase.input.maxDs}`} invalid={invalid.initialDs}>
+        <ParamRow id="p-ds" name={strings.benchmark.arcLengthStep} hint={`10⁻⁸–${num(currentCase.input.maxDs)}`} invalid={invalid.initialDs}>
           <NumberField id="p-ds" label={strings.benchmark.arcLengthStep} min={1e-8} max={currentCase.input.maxDs} bind:value={parameters.initialDs} bind:invalid={invalid.initialDs} />
         </ParamRow>
         <div class="rs-buttons">

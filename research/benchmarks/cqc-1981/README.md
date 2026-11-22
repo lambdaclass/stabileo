@@ -58,6 +58,7 @@ Native production-engine run (all nine checks passed):
 ```sh
 python3 research/benchmarks/cqc-1981/reference.py
 CQC_REPLAY_OUTPUT="$PWD/research/benchmarks/cqc-1981/results/stabileo_results.json" \
+CQC_VALIDATION_OUT="$PWD/research/benchmarks/cqc-1981/VALIDATION.json" \
   nix develop -c cargo test -p dedaliano-engine --test solver cqc_1981 -- --nocapture
 nix develop -c make typecheck.web
 make test.web.unit
@@ -65,7 +66,7 @@ make test.web.unit
 
 The page at `/research/benchmarks/cqc-1981` loads that native-engine replay,
 then recomputes via `initSolver`, `solveModal3D` and `solveSpectral3D` in the
-production WASM wrapper. The browser test checks replay/live agreement in all six locales.
+production WASM wrapper. The browser test checks replay/live agreement in English and the translated page in en, es, pt, de, fr and tr; hu and zh are checked by the unit tests.
 The Stabileo scalar-field viewer shows an explicitly labelled axonometric
 projection of the actual 3D nodes and bars. Animation scales the displacement
 envelope; it is not a mode oscillation or a time history. Stop cancels replay
@@ -92,6 +93,29 @@ accuracy target. Solver agreement with the closed form is not physical accuracy.
 
 The gallery thumbnail is a chart rendered from the replay's base shears, not a
 viewer screenshot or a paper figure.
+
+## Damping as the live parameter
+
+The page lets the reader choose the modal damping ratio ξ (2, 5, 10 or 20%). Only CQC
+depends on it, through ρ. The page reruns the production spectrum solver in the browser
+and compares it with the same closed form evaluated in `benchmark.ts` for that ξ; a Vitest
+test checks the 20% case through the real production WASM. `VALIDATION.json` covers the
+default ξ = 5% only.
+
+## Evidence in CI
+
+The `engine-benchmarks` job of `.github/workflows/research.yml` runs `reference.py`, then
+the engine test with `CQC_VALIDATION_OUT` pointing at `VALIDATION.json`, so the nine checks
+are rewritten by the test itself, and fails unless all nine pass.
+
+## The paper's own numbers
+
+None are compared. The paper is behind the publisher's paywall (Wiley) and the only public
+copy we found, a scan in the US NRC document system, refused automated download. Without
+the text in hand in this round, Table I and the building it describes could not be
+transcribed; the catalogue keeps `reproduced_published_results: false` and the status
+`numerically-validated`. The equation and page references above come from the earlier
+review rounds.
 
 ## Open questions
 

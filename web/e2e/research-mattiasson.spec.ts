@@ -10,7 +10,7 @@ test('Mattiasson live results, playback interaction and rerun @smoke', async ({ 
   await expect(page.getByTestId('mattiasson-summary')).toContainText(/\d+\/5/, { timeout: 120_000 }); // slow-ok: The production WASM engine computes the elastica benchmark cases before reporting the five checks.
   const slider = page.getByRole('slider').first();
   await slider.fill('1');
-  await expect(page.getByTestId('mattiasson-step')).toContainText('force-1');
+  await expect(page.getByTestId('mattiasson-step')).toContainText('PL²/EI = 1');
   await page.waitForTimeout(900);
   await expect(slider).toHaveValue('1');
   await page.getByRole('tab', { name: /Results|Resultados/ }).click();
@@ -22,6 +22,20 @@ test('Mattiasson live results, playback interaction and rerun @smoke', async ({ 
   await expect(page.getByTestId('force-10')).toContainText(/Pass|Cumple|Passa/);
   await page.getByRole('button', { name: /Run again|Ejecutar de nuevo|Executar novamente/ }).click();
   await expect(page.getByTestId('mattiasson-summary')).toContainText(/\d+\/5/, { timeout: 120_000 }); // slow-ok: Run again recomputes the elastica benchmark cases through the production WASM engine.
+});
+
+test('Mattiasson reruns every case with a finer mesh and shows the published table', async ({ page }) => {
+  await page.goto('/en/research/benchmarks/mattiasson-elastica/');
+  await expect(page.locator('#comparison tbody tr')).toHaveCount(20);
+  await expect(page.locator('#comparison .bad')).toHaveCount(0);
+  await expect(page.getByTestId('mattiasson-summary')).toContainText('5/5', { timeout: 120_000 }); // slow-ok: The production WASM engine computes the elastica benchmark cases before reporting the five checks.
+  await page.getByRole('button', { name: '32 elements', exact: true }).click();
+  await expect(page.getByRole('combobox', { name: 'Elements' })).toHaveValue('32');
+  await expect(page.getByTestId('mattiasson-summary')).toContainText('5/5', { timeout: 180_000 }); // slow-ok: all 21 cases recomputed with 32 elements through the production WASM engine.
+  await expect(page.getByText(`${strings.en.complete}: 21/21 · ${strings.en.fail}: 0`, { exact: true })).toBeVisible();
+  await page.getByRole('tab', { name: 'Results' }).click();
+  await expect(page.getByTestId('force-1')).not.toContainText(/0[.,]05639026/);
+  await expect(page.getByTestId('force-1')).toContainText(strings.en.pass);
 });
 
 test('Mattiasson editor handoff @smoke', async ({ page }) => {
@@ -50,11 +64,11 @@ test('Mattiasson moment selection keeps the force step on the slider', async ({ 
   const slider = page.getByRole('slider').first();
   await slider.fill('3');
   await page.getByRole('checkbox', { name: strings.en.moment }).check();
-  await expect(page.getByTestId('mattiasson-step')).toHaveText(`${strings.en.moment}: moment-1`);
+  await expect(page.getByTestId('mattiasson-step')).toHaveText(strings.en.moment);
   await expect(slider).toBeDisabled();
   await expect(slider).toHaveAttribute('aria-valuetext', `${strings.en.force}: PL²/EI = 2`);
   await page.getByRole('checkbox', { name: strings.en.moment }).uncheck();
-  await expect(page.getByTestId('mattiasson-step')).toHaveText(`${strings.en.force}: force-2`);
+  await expect(page.getByTestId('mattiasson-step')).toHaveText(`${strings.en.force}: PL²/EI = 2`);
 });
 
 test('Mattiasson Stop keeps computed steps seekable and playable', async ({ page }) => {
@@ -80,9 +94,9 @@ test('Mattiasson Stop keeps computed steps seekable and playable', async ({ page
   await page.getByRole('tab', { name: strings.en.viewer }).click();
   const slider = page.getByRole('slider').first();
   await slider.fill('0');
-  await expect(page.getByTestId('mattiasson-step')).toHaveText(`${strings.en.force}: force-0.5`);
+  await expect(page.getByTestId('mattiasson-step')).toHaveText(`${strings.en.force}: PL²/EI = 0.5`);
   await page.getByRole('button', { name: strings.en.play, exact: true }).click();
-  await expect(page.getByTestId('mattiasson-step')).toHaveText(`${strings.en.force}: force-1`);
+  await expect(page.getByTestId('mattiasson-step')).toHaveText(`${strings.en.force}: PL²/EI = 1`);
   await expect(slider).toHaveValue('1');
   await expect(page.getByRole('button', { name: strings.en.run, exact: true })).toBeEnabled();
 });

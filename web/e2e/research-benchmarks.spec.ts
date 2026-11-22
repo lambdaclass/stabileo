@@ -59,6 +59,33 @@ test('production engine benchmark results, signs, verdicts and rerun @smoke', as
   await waitForResults(page);
 });
 
+test('the paper comparison keeps its failures and the element skew reruns the engine @smoke', async ({ page }) => {
+  await page.goto(PAGE);
+  await waitForResults(page);
+  const table = page.locator('#comparison table');
+  await expect(table.locator('tbody tr')).toHaveCount(5);
+  await expect(table.locator('tbody .bad')).toHaveCount(2);
+  await expect(table.locator('tbody tr').nth(2)).toContainText('Straight cantilever · trapezoidal · out-of-plane');
+  await expect(page.getByText('3 of 5 checks pass')).toBeVisible();
+  await page.getByRole('combobox', { name: 'Case' }).selectOption('mitc4-parallelogram-out');
+  const skew = page.getByTestId('skew');
+  await expect(skew).toHaveValue('45');
+  await expect(page.getByTestId('variant')).toHaveCount(0);
+  await skew.fill('0');
+  await expect(page.getByTestId('variant')).toContainText('Live result at 0°');
+  await expect(page.getByTestId('variant')).toContainText('Pass');
+  await skew.fill('45');
+  await expect(page.getByTestId('variant')).toHaveCount(0);
+  await skew.fill('20');
+  await expect(page.getByTestId('variant')).toContainText('Fail');
+  await page.getByRole('link', { name: /Try the parallelogram mesh at 5°/ }).click();
+  await expect(page.getByRole('combobox', { name: 'Case' })).toHaveValue('mitc4-parallelogram-in');
+  await expect(page.getByTestId('variant')).toContainText('Live result at 5°');
+  await expect(page.getByTestId('variant')).toContainText('Fail');
+  await skew.fill('10');
+  await expect(page.getByTestId('variant').getByRole('link', { name: 'Withheld by the engine (known issue #798)' })).toBeVisible();
+});
+
 test('production engine benchmark editor handoff @smoke', async ({ page }) => {
   await page.goto(PAGE);
   await page.getByRole('tab', { name: 'Model', exact: true }).click();

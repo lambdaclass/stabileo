@@ -62,7 +62,7 @@
 
 {#snippet introduction()}
       <p class="rs-cite">
-        {s.afterAuthors} <span lang="en">{#if authors}{authors}, {/if}“{paper.crossref.title}”{#if paper.crossref.venue}, <em>{paper.crossref.venue}</em>{/if} ({paper.crossref.year}),
+        {s.afterAuthors} <span lang="en">{#if authors}{authors},{' '}{/if}“{paper.crossref.title}”{#if paper.crossref.venue}, <em>{paper.crossref.venue}</em>{/if} ({paper.crossref.year}),
         <a href="https://doi.org/{paper.doi}" rel="noreferrer" target="_blank">{"doi:"}{paper.doi}</a></span>.
       </p>
       <VerificationSummary

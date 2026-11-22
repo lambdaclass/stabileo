@@ -30,6 +30,10 @@ test.describe('@smoke DaDeppo arch', () => {
       await expect(page.locator('.rs-review')).toHaveCount(0);
       await expect(page.locator('body')).not.toContainText(/First version|review rounds?/);
       await expect(page.locator('.rs-verify')).toContainText('4 of 4');
+      await expect(page.locator('.rs-verify')).toContainText('18 of 18');
+      await expect(page.locator('#comparison tbody tr')).toHaveCount(4);
+      await expect(page.locator('#comparison')).toContainText('Limit load PR²/EI, 40 elements');
+      await expect(page.locator('#comparison .bad')).toHaveCount(0);
       await expect(page.locator('.arch-app')).toHaveAttribute('data-source', 'replay');
       await expect(page.getByTestId('arch-peak')).toHaveText('9.01129');
       await expect(page.getByTestId('check-loadFactor')).toContainText('9.0113');
@@ -99,5 +103,16 @@ test('@slow DaDeppo full live benchmark reaches the descending branch and the li
   await expect(page.getByTestId('arch-peak')).toHaveText('9.01129');
   await expect(page.getByTestId('check-rotation')).toContainText('0.05135');
   await expect(page.getByTestId('arch-verdict')).toHaveText('All four within tolerance; descending branch reached');
+  await expect(page.getByRole('alert')).toHaveCount(0);
+});
+
+test('@slow DaDeppo live run with 20 elements matches the native mesh study', async ({ page }) => {
+  test.setTimeout(240_000);
+  await page.goto('/en/research/benchmarks/dadeppo-arch-1975/');
+  await page.getByRole('button', { name: '20 elements', exact: true }).click();
+  await expect(page.locator('.arch-app')).toHaveAttribute('data-source', 'cached', { timeout: 200_000 }); // slow-ok: twenty production arc-length prefixes of the 20-element arch plus the three limit-point runs in WASM.
+  await expect(page.getByTestId('arch-verdict')).toHaveText('Matches the native 20-element mesh study; descending branch reached');
+  await expect(page.getByTestId('arch-mesh-note')).toBeVisible();
+  await expect(page.getByTestId('check-loadFactor')).toContainText('Matches native study');
   await expect(page.getByRole('alert')).toHaveCount(0);
 });

@@ -110,10 +110,10 @@ export const translations = {
     "citationRelation": "”, banco de pruebas del método de",
     "arcLengthSnapThroughRiksAndCrisfield": "Pruebas de longitud de arco: Riks y Crisfield",
     "methodText": "El control de carga se detiene en una tangente horizontal (dP/dv = 0) de este gráfico carga–desplazamiento. La restricción esférica de Crisfield acopla los incrementos de desplazamiento y carga: ‖Δu‖² + Δλ²‖f_ref‖² = Δs².",
-    "modelsText": "Ambos modelos son pórticos con bases articuladas y vértice rígido. El pórtico histórico poco profundo usa su derivada energética con flexión. El pórtico esbelto de von Mises se compara con el equilibrio axial de una cercha; supera solo el límite superior, no la inversión completa ni el límite inferior.",
+    "modelsText": "Ambos modelos son pórticos con bases articuladas y vértice rígido. El pórtico histórico poco profundo usa su derivada energética con flexión. El pórtico esbelto de von Mises se compara con el equilibrio axial de un reticulado; supera solo el límite superior, no la inversión completa ni el límite inferior.",
     "scopeText": "Esta prueba del método compara el equilibrio analítico y los resultados nativos de producción. No reproduce un ejemplo numérico de Riks (1979) ni de Crisfield (1981).",
     "accuracy": "Una inversión convergida de carga encierra el límite superior; una parábola por tres puntos vecinos estima su posición. Cada métrica tiene su tolerancia en el archivo del caso. Un límite no alcanzado no se evalúa. El incremento del factor de carga Δλ está acotado por Δs / ‖f_ref‖; es una cota de muestreo, no de precisión.",
-    "isolation": "Cada cuadro de desplazamiento es una resolución independiente de producción con el prefijo completo comprobado. La comparación nativa/WASM verifica iteraciones, convergencia y desplazamientos. Estos casos simétricos 2D no validan bifurcaciones ni comportamiento 3D. Investigación, no una herramienta de diseño.",
+    "isolation": "Cada fotograma de desplazamiento es una resolución independiente de producción con el prefijo completo comprobado. La comparación nativa/WASM verifica iteraciones, convergencia y desplazamientos. Estos casos simétricos 2D no validan bifurcaciones ni comportamiento 3D. Investigación, no una herramienta de diseño.",
     "downwardLoadAgainstDownwardApexDisplacementOrange": "Carga P (kN) / Desplazamiento del vértice v (m)",
     "formula": "L₀ = √(a² + h²); y = h − v; L = √(a² + y²); β = atan(y/a) − atan(h/a). P = 2EA(1 − L/L₀)y/L; U = EA(L−L₀)²/L₀ + 3EIβ²/L₀; P_frame = P − 6EI a β/(L₀L²)."
   },

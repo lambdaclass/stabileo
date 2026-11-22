@@ -62,6 +62,15 @@ instead.
 Agreement with the reference code is not experimental validation and not an engineering
 certification.
 
+## The paper's own numbers
+
+None are compared. The article is not open access: Springer serves it behind a paywall, the
+University of São Paulo repository record marks its copy private, and we found no open preprint.
+Without the full text we cannot transcribe its examples, so the catalogue keeps
+`reproduced_published_results: false` and the status `numerically-validated`. The tutorial guide
+of the authors' code is the reference instead; tutorial 16 is a riser on a seabed like the
+paper's, but it is not claimed to be one of the paper's examples.
+
 ## Page
 
 `/research/mechanics/gay-neto-2014` (`web/src/components/research/gayNeto2014/`). The shared

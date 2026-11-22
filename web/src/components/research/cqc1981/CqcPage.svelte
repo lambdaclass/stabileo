@@ -3,29 +3,37 @@
   import ExperimentShell from '../shell/ExperimentShell.svelte';
   import StabileoViewer from '../shell/StabileoViewer.svelte';
   import { Playback } from '../shell/playback.svelte';
-  import { num } from '../shell/format';
-  import { benchmark, difference, impliedRho, projection, recompute, roof, type Results } from './benchmark';
+  import { num, sci } from '../shell/format';
+  import { benchmark, closedForm, DAMPING, difference, impliedRho, projection, recompute, roof, type Results } from './benchmark';
+  import ExperimentLink from '../shell/ExperimentLink.svelte';
   import replay from '../../../../../research/benchmarks/cqc-1981/results/stabileo_results.json';
   import validation from '../../../../../research/benchmarks/cqc-1981/VALIDATION.json';
   import { cqcLocale, cqcStrings } from './strings';
 
   const s = $derived(cqcStrings());
   const passed = validation.checks.filter(c => c.passed).length;
+  const SUPERSCRIPT: Record<string, string> = { '-': '⁻', '−': '⁻', '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴', '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹' };
+  const largest = $derived.by(() => {
+    const e = sci(Math.max(...validation.checks.map(c => c.observed)), 2, cqcLocale());
+    return e.exp ? `${e.mantissa} × 10${[...e.exp].map(c => SUPERSCRIPT[c] ?? c).join('')}` : e.mantissa;
+  });
   let results = $state<Results>(replay.results);
   let source = $state<'replay' | 'live'>('replay');
   let rule = $state<'SRSS' | 'CQC'>('CQC');
+  let xi = $state(benchmark.xi);
+  const reference = $derived(closedForm(xi));
   let busy = $state(false);
   let error = $state('');
   let host: HTMLDivElement;
   let request = 0;
   const playback = new Playback(80);
   const view = $derived(projection(results[rule], playback.shown / 30));
-  const actions = { goToStep: (step: number) => playback.seek(step), setParams: () => playback.interact(), showTab: () => host.scrollIntoView({ behavior: 'smooth' }) };
+  const actions = { goToStep: (step: number) => playback.seek(step), setParams: (p: Record<string, unknown>) => { if (DAMPING.includes(Number(p.xi))) setDamping(Number(p.xi)); }, showTab: () => host.scrollIntoView({ behavior: 'smooth' }) };
   const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
   const modal = $derived([
-    { label: s.f1, reference: benchmark.reference.frequencies[0], actual: results.modal.modes[0].frequency },
-    { label: s.f2, reference: benchmark.reference.frequencies[1], actual: results.modal.modes[1].frequency },
-    { label: s.rho, reference: benchmark.reference.rho, actual: impliedRho(results) },
+    { label: s.f1, reference: reference.frequencies[0], actual: results.modal.modes[0].frequency },
+    { label: s.f2, reference: reference.frequencies[1], actual: results.modal.modes[1].frequency },
+    { label: s.rho, reference: reference.rho, actual: impliedRho(results) },
   ]);
 
   function stop() {
@@ -36,6 +44,7 @@
   function restart() {
     stop();
     results = replay.results;
+    xi = benchmark.xi;
     source = 'replay';
     error = '';
     if (reducedMotion()) {
@@ -51,7 +60,7 @@
     busy = true;
     error = '';
     try {
-      const next = await recompute();
+      const next = await recompute(xi);
       if (id !== request) return;
       results = next;
       source = 'live';
@@ -61,6 +70,11 @@
     } finally {
       if (id === request) busy = false;
     }
+  }
+  function setDamping(value: number) {
+    xi = value;
+    playback.interact();
+    void run();
   }
   function show(name: 'SRSS' | 'CQC') {
     rule = name;
@@ -87,9 +101,10 @@
     <p>ρ(r, ξ) = 8ξ²(1+r)r³ᐟ² / [(1−r²)² + 4ξ²r(1+r)²], r = ω₂/ω₁.</p>
     <p>{s.rhoSource}</p>
     <p>{s.explanation}</p>
+    <p>{s.dampingNote} <ExperimentLink params={{ xi: 0.2 }}>{s.tryDamping}</ExperimentLink></p>
     <p><button onclick={() => show('SRSS')}>{s.rule}: {s.srss}</button> <button onclick={() => show('CQC')}>{s.rule}: {s.cqc}</button></p>
     <h2 id="checks">{s.checksHeading}</h2>
-    <p>{s.tolerance}</p>
+    <p>{s.tolerance.replace('{max}', largest)}</p>
     <h2>{s.scope}</h2>
     <ul>{#each s.limitations as item}<li>{item}</li>{/each}</ul>
   {/snippet}
@@ -100,6 +115,7 @@
         <button onclick={run} disabled={busy}>{busy ? s.running : s.run}</button>
         <button onclick={stop}>{s.stop}</button><button onclick={restart}>{s.restart}</button>
         <label>{s.rule}<select bind:value={rule} onchange={() => playback.interact()}><option value="SRSS">{s.srss}</option><option value="CQC">{s.cqc}</option></select></label>
+        <label>{s.damping}<select data-testid="cqc-damping" value={xi} onchange={e => setDamping(Number(e.currentTarget.value))}>{#each DAMPING as value}<option value={value}>{new Intl.NumberFormat(cqcLocale(), { style: 'percent' }).format(value)}</option>{/each}</select></label>
       </div>
       {#if error}<p role="alert">{s.error}: {error}</p>{/if}
       <StabileoViewer plane="elevation" {...view} cellSize={2} range={{ min: 0, max: 12 }} title={s.viewer} unit="mm" deformScale={40} height="18rem" editorButton={false} showMesh={false} oninteract={() => playback.interact()} />
@@ -107,11 +123,11 @@
       <p class="note">{s.viewNote}</p>
       <h2>{s.comparison}</h2>
       <table data-testid="cqc-results"><thead><tr><th scope="col">{s.rule}</th><th scope="col">{s.reference}</th><th scope="col">{s.result}</th><th scope="col">{s.delta}</th></tr></thead>
-        <tbody>{#each ['SRSS', 'CQC'] as name}{@const key = name as 'SRSS' | 'CQC'}<tr><th scope="row">{key}</th><td>{num(benchmark.reference[key], { dp: 6 })}</td><td data-testid={'result-' + key}>{num(results[key].baseShear, { dp: 6 })}</td><td>{num(difference(results[key].baseShear, benchmark.reference[key]), { dp: 8 })}</td></tr>{/each}</tbody>
+        <tbody>{#each ['SRSS', 'CQC'] as name}{@const key = name as 'SRSS' | 'CQC'}<tr><th scope="row">{key}</th><td>{num(reference[key], { dp: 6 })}</td><td data-testid={'result-' + key}>{num(results[key].baseShear, { dp: 6 })}</td><td>{num(difference(results[key].baseShear, reference[key]), { dp: 8 })}</td></tr>{/each}</tbody>
       </table>
       <h2>{s.roofHeading}</h2>
       <table data-testid="cqc-roof"><thead><tr><th scope="col">{s.node}</th><th scope="col">{s.rule}</th><th scope="col">{s.reference}</th><th scope="col">{s.result}</th></tr></thead>
-        <tbody>{#each [0, 1] as i}{#each ['SRSS', 'CQC'] as name}{@const key = name as 'SRSS' | 'CQC'}<tr><th scope="row">{5 + i}</th><td>{key}</td><td>{num(1000 * benchmark.reference[key === 'SRSS' ? 'roofSRSS' : 'roofCQC'][i], { dp: 6 })}</td><td data-testid={`roof-${5 + i}-${key}`}>{num(1000 * roof(results[key])[i], { dp: 6 })}</td></tr>{/each}{/each}</tbody>
+        <tbody>{#each [0, 1] as i}{#each ['SRSS', 'CQC'] as name}{@const key = name as 'SRSS' | 'CQC'}<tr><th scope="row">{5 + i}</th><td>{key}</td><td>{num(1000 * reference[key === 'SRSS' ? 'roofSRSS' : 'roofCQC'][i], { dp: 6 })}</td><td data-testid={`roof-${5 + i}-${key}`}>{num(1000 * roof(results[key])[i], { dp: 6 })}</td></tr>{/each}{/each}</tbody>
       </table>
       <h2>{s.modalHeading}</h2>
       <table data-testid="cqc-modal"><thead><tr><th scope="col">{s.quantity}</th><th scope="col">{s.reference}</th><th scope="col">{s.result}</th></tr></thead>

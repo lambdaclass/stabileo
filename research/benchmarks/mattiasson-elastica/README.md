@@ -35,6 +35,27 @@ kN·m gives θ=1 rad, u/L=1−sin(1), v/L=cos(1)−1. Native regression asserts 
 rotation and displacement; 16-element errors are below 0.1%. This is a one-radian
 arc. Full-circle and frame examples are outside the live page's scope.
 
+## Validation and the published table
+
+`validate.py` reads the fresh native output of this crate (all 21 cases, plus the four
+referenced force cases at 16, 32 and 64 elements) and writes `VALIDATION.json`,
+`reference-results/published_comparison.json` and `reference-results/MANIFEST.json`; with
+`check` it fails when the committed files differ from a fresh run. Its 32 checks: every case
+reaches full load; both components of the four force references and the moment case within
+0.1% at 16 elements; the 16/32/64-element errors under `meshErrorCeilings` and shrinking with
+refinement; RESULTS.json equal to the fresh run.
+
+Mattiasson's own table, PL²/EI = 1…10, u/L and w/L (v/L here) to five decimals, is read from
+its reproduction in Nanakorn & Vu (2006), Table 1, p. 1245 (open copy linked above, which
+attributes the columns to Mattiasson [23]); `reference-results/mattiasson-table.json` holds the
+transcription. The 1981 paper itself was not available to us. Each of the 20 values is a
+published row; its tolerance is the 0.1% accuracy target plus half a unit in the fifth decimal
+relative to the value, since the table is rounded. All 20 pass at 16 elements; the largest
+difference is 0.080% (v/L at PL²/EI = 10). The table gives no tip rotation and no end-moment
+results.
+
+The page can rerun all cases live with 16, 32 or 64 elements.
+
 ## Measured outcome
 
 All 21 native cases reach full load; all five analytical checks pass. The parity
@@ -59,7 +80,8 @@ From the repository root:
 ```sh
 cargo test --locked --release --manifest-path engine/Cargo.toml --test validation mattiasson
 cargo test --locked --release --manifest-path engine/Cargo.toml --test validation corotational_benchmarks
-cargo run --locked --release --manifest-path research/benchmarks/mattiasson-elastica/Cargo.toml -- "${TMPDIR:-/tmp}/mattiasson-native.json"
+cargo run --locked --release --manifest-path research/benchmarks/mattiasson-elastica/Cargo.toml -- "${TMPDIR:-/tmp}/mattiasson-native.json" "${TMPDIR:-/tmp}/mattiasson-mesh.json"
+python3 -I research/benchmarks/mattiasson-elastica/validate.py check "${TMPDIR:-/tmp}/mattiasson-native.json" "${TMPDIR:-/tmp}/mattiasson-mesh.json"
 node research/benchmarks/mattiasson-elastica/wasm/check.mjs "${TMPDIR:-/tmp}/mattiasson-native.json"
 python3 -I research/tools/catalog.py check --offline
 python -m unittest discover -s engine/tests/research_references -p test_elastica.py
@@ -109,9 +131,8 @@ and stepping errors, not a demonstrated production solver defect.
 
 ## Open questions
 
-- Inspect Mattiasson's original table and establish its exact table/page locator
-  before claiming a direct transcription. Current comparisons use independent
-  analytical references corroborated by the secondary table.
+- Inspect Mattiasson's original table and establish its exact table/page locator;
+  the published rows rest on the Nanakorn & Vu reproduction.
 - Full-circle and frame problems would require separate models and evidence.
 
 ## Validation of this revision

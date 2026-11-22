@@ -1,5 +1,5 @@
 import { expect, it, vi } from 'vitest';
-import { benchmark, difference, impliedRho, model, projection, recompute, roof, type Results } from '../benchmark';
+import { benchmark, closedForm, DAMPING, difference, impliedRho, model, projection, recompute, roof, type Results } from '../benchmark';
 import { translations } from '../strings';
 import replay from '../../../../../../research/benchmarks/cqc-1981/results/stabileo_results.json';
 
@@ -62,7 +62,7 @@ it('dispatches both combinations through production WASM wrappers with the modal
 });
 
 it('supplies complete keys with the same numbers in all eight locales', () => {
-  const numbers = (v: unknown) => JSON.stringify(v).match(/\d+(?:\.\d+)*/g) ?? [];
+  const numbers = (v: unknown) => (JSON.stringify(v).match(/\d+(?:[.,]\d+)*/g) ?? []).map(n => n.replace(',', '.'));
   for (const locale of ['es', 'pt', 'de', 'fr', 'tr', 'hu', 'zh'] as const) {
     expect(Object.keys(translations[locale]).sort()).toEqual(Object.keys(translations.en).sort());
     expect(translations[locale].limitations).toHaveLength(3);
@@ -83,5 +83,28 @@ it('matches the closed form through the real production WASM boundary', async ()
       const actual = results[rule].displacements.find(d => d.nodeId === nodeId)!.ux;
       expect(Math.abs(difference(actual, benchmark.reference[rule === 'SRSS' ? 'roofSRSS' : 'roofCQC'][i]))).toBeLessThan(benchmark.relativeTolerance * 100);
     }
+  }
+});
+
+it('evaluates the closed form for every damping ratio offered, matching the shared case at 5%', () => {
+  expect(DAMPING).toContain(benchmark.xi);
+  const at = closedForm(benchmark.xi);
+  for (const key of Object.keys(benchmark.reference) as (keyof typeof benchmark.reference)[]) {
+    const want = benchmark.reference[key];
+    const got = at[key];
+    (Array.isArray(want) ? want : [want]).forEach((w, i) => expect(Math.abs((Array.isArray(got) ? got[i] : got) - w)).toBeLessThan(1e-12 * Math.abs(w)));
+  }
+  const rhos = DAMPING.map(xi => closedForm(xi).rho);
+  expect(rhos.every((r, i) => i === 0 || r > rhos[i - 1])).toBe(true);
+  for (const xi of DAMPING) expect(closedForm(xi).SRSS).toBe(at.SRSS);
+});
+
+it('reruns the production spectrum solver for another damping ratio and matches its closed form', async () => {
+  const xi = 0.2;
+  const results = await recompute(xi);
+  const reference = closedForm(xi);
+  expect(Math.abs(difference(impliedRho(results), reference.rho))).toBeLessThan(benchmark.relativeTolerance * 100);
+  for (const rule of ['SRSS', 'CQC'] as const) {
+    expect(Math.abs(difference(results[rule].baseShear, reference[rule]))).toBeLessThan(benchmark.relativeTolerance * 100);
   }
 });
