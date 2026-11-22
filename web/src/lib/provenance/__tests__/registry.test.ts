@@ -73,7 +73,7 @@ describe('result-change registry', () => {
   });
 
   it('takes an examples-scoped entry only with the example ids it changed, and no when or quantities', () => {
-    const entry = RESULT_CHANGES.changes.find((c) => c.scope === 'examples')!;
+    const entry = RESULT_CHANGES.changes.find((c) => c.id === 'example-cantilever-small-rotations')!;
     expect(entry.examples).toEqual(['3d-cantilever-load']);
     const check = (over: Record<string, unknown>) => validateRegistry({ ...RESULT_CHANGES, changes: [{ ...entry, resultsVersion: RESULT_CHANGES.currentResultsVersion, ...over } as typeof entry] }, new Set(FEATURE_IDS));
     expect(check({})).toEqual([]);
@@ -100,7 +100,7 @@ describe('result-change registry', () => {
   });
 
   it('accepts a scoped numerical quantity only with complete response fingerprints', () => {
-    const entry = { ...RESULT_CHANGES.changes[0], resultsVersion: RESULT_CHANGES.currentResultsVersion };
+    const entry = { ...RESULT_CHANGES.changes.find((c) => c.scope === undefined)!, resultsVersion: RESULT_CHANGES.currentResultsVersion };
     const scope = { quantity: 'displacements.rz', before: 'a'.repeat(64), after: 'b'.repeat(64) };
     const check = (q: unknown) => validateRegistry({ ...RESULT_CHANGES, changes: [{ ...entry, quantities: [q] } as typeof entry] }, new Set(FEATURE_IDS));
     expect(check(scope)).toEqual([]);

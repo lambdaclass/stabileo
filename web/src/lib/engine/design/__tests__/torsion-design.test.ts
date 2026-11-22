@@ -3,6 +3,7 @@ import { historyStore, modelStore, resultsStore, uiStore } from '../../../store'
 import { designRunStore } from '../../../store/design-run.svelte';
 import { verificationStore } from '../../../store/verification.svelte';
 import * as wasmSolver from '../../wasm-solver';
+import { stateSuiteCovers } from '../../../store/__tests__/suite-covers';
 
 beforeAll(async () => {
   await new Promise((r) => setTimeout(r, 0));
@@ -12,6 +13,7 @@ beforeAll(async () => {
 describe('torsion in the design of a beam', () => {
   it('checks both regions and refuses longitudinal torsion without perimeter evidence', () => {
     modelStore.clear(); historyStore.clear(); resultsStore.clear(); verificationStore.clear(); uiStore.analysisMode = 'pro';
+    stateSuiteCovers();
     const mat = modelStore.addMaterial({ name: 'H-25', e: 23500, nu: 0.2, rho: 25, fy: 25, fc: 25 });
     const sec = modelStore.addSection({ name: '30×60', a: 0.18, iy: 0.0054, iz: 0.00135, j: 0.0037, b: 0.3, h: 0.6, shape: 'rect' } as never);
     const a = modelStore.addNode(0, 0, 3), b = modelStore.addNode(6, 0, 3);

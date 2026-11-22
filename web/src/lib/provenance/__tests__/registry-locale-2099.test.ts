@@ -1,12 +1,12 @@
 import { afterEach, expect, it, vi } from 'vitest';
-import { readRegistry } from '../../../../scripts/result-changes/registry.mjs';
+import { readProfileResultChanges } from '../../../../scripts/result-change-metadata.mjs';
 import { FEATURE_IDS } from '../model-features';
 
 afterEach(() => { vi.unstubAllGlobals(); vi.resetModules(); });
 
 it('known wrong result: #2099 — main registry remains valid without research translations', async () => {
   const { validateRegistry } = await import('../registry');
-  expect(validateRegistry(readRegistry(), new Set(FEATURE_IDS))).toEqual([]);
+  expect(validateRegistry(readProfileResultChanges(__PUBLIC_FEATURES__.proPlatesUnified), new Set(FEATURE_IDS))).toEqual([]);
 });
 
 for (const research of ['0', '1']) {

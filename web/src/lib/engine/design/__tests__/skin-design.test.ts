@@ -3,6 +3,7 @@ import { historyStore, modelStore, resultsStore, uiStore } from '../../../store'
 import { designRunStore } from '../../../store/design-run.svelte';
 import { verificationStore } from '../../../store/verification.svelte';
 import * as wasmSolver from '../../wasm-solver';
+import { stateSuiteCovers } from '../../../store/__tests__/suite-covers';
 
 beforeAll(async () => {
   await new Promise((r) => setTimeout(r, 0));
@@ -11,6 +12,7 @@ beforeAll(async () => {
 
 function designBeam(load: number) {
   modelStore.clear(); historyStore.clear(); resultsStore.clear(); verificationStore.clear(); uiStore.analysisMode = 'pro';
+  stateSuiteCovers();
   const mat = modelStore.addMaterial({ name: 'H-25', e: 23500, nu: 0.2, rho: 25, fy: 25, fc: 25 });
   const sec = modelStore.addSection({ name: '30×100', a: 0.3, iy: 0.025, iz: 0.00225, j: 0.0074, b: 0.3, h: 1.0, shape: 'rect' } as never);
   const a = modelStore.addNode(0, 0, 3), b = modelStore.addNode(8, 0, 3);
