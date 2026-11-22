@@ -38,12 +38,12 @@ async function prepareBuild(out: string) {
   }
 }
 
-async function prerender(out: string, concurrency: string) {
+async function prerender(out: string, concurrency: string, paths = PAGES) {
   await execFileAsync('npx', ['tsx', 'scripts/prerender.ts'], {
     cwd: WEB_ROOT,
     timeout: 300_000,
     maxBuffer: 32 * 1024 * 1024,
-    env: { ...process.env, PRERENDER_OUT: out, PRERENDER_ONLY: PAGES.join(','), PRERENDER_GITHUB_STARS: '1234', PRERENDER_CONCURRENCY: concurrency },
+    env: { ...process.env, PRERENDER_OUT: out, PRERENDER_ONLY: paths.join(','), PRERENDER_GITHUB_STARS: '1234', PRERENDER_CONCURRENCY: concurrency },
   });
 }
 
@@ -100,5 +100,25 @@ ${source}`);
     expect(html.includes('data-testid="readout-maxDeflection"'), 'the rendered slab result is missing').toBe(true);
   } finally {
     rmSync(out, { recursive: true });
+  }
+}, 600_000);
+
+it.skip('known wrong result: #2483 — Ferrari prerenders omit live WebGL diagnostics', async () => {
+  const path = '/research/stability/ferrari-sigmund-2025';
+  const out = mkdtempSync(join(WEB_ROOT, '.dist-prerender-ferrari-'));
+  try {
+    await prepareBuild(out);
+    await prerender(out, '4', [path]);
+    for (const locale of ['es', 'en', 'pt', 'zh', 'hu']) {
+      const html = readFileSync(join(out, locale + path, 'index.html'), 'utf8');
+      const canvas = html.match(/<canvas data-engine="three\.js [^"]+"[^>]*>/)?.[0];
+      expect(canvas, locale).toBeDefined();
+      expect(canvas?.match(/\bdata-[\w-]+=/g), locale).toEqual(['data-engine=']);
+      expect(html).toContain('data-testid="ferrari-buckling"');
+      expect(html).toContain('data-testid="ferrari-reference"');
+      expect(html).toContain('<table><caption>');
+    }
+  } finally {
+    rmSync(out, { recursive: true, force: true });
   }
 }, 600_000);
