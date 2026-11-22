@@ -2,15 +2,25 @@
   import { modelStore, resultsStore, uiStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
   import MaterialPresetSelector from '../MaterialPresetSelector.svelte';
-  import MaterialForm from './MaterialForm.svelte';
   import type { MaterialPreset } from '../../lib/data/material-presets';
 
   const materialsArr = $derived([...modelStore.materials.values()]);
 
   let materialPresetTargetId = $state<number | null>(null);
-  let formFor = $state<number | 'new' | null>(null);
+  let pickerTab = $state<'catalogue' | 'invent'>('catalogue');
 
   let showMaterialPresetSelector = $state(false);
+
+  function openPicker(targetId: number | null, tab: 'catalogue' | 'invent') {
+    materialPresetTargetId = targetId;
+    pickerTab = tab;
+    showMaterialPresetSelector = true;
+  }
+
+  function closePicker() {
+    showMaterialPresetSelector = false;
+    materialPresetTargetId = null;
+  }
 
   function renameMaterial(id: number, name: string) {
     modelStore.updateMaterial(id, { name });
@@ -22,8 +32,7 @@
   }
 
   function handleMaterialPresetSelect(preset: MaterialPreset) {
-    if (materialPresetTargetId === null) return;
-    modelStore.updateMaterial(materialPresetTargetId, {
+    const fields = {
       name: preset.name,
       e: preset.e,
       nu: preset.nu,
@@ -34,18 +43,17 @@
       // this deliberate steel with the profile's commercial default — the
       // exact interference `commercial-default.ts` exists to prevent.
       gradeId: preset.gradeId,
-    });
-    resultsStore.clear();
-    showMaterialPresetSelector = false;
-    materialPresetTargetId = null;
+    };
+    if (materialPresetTargetId === null) {
+      modelStore.addMaterial(fields);
+    } else {
+      modelStore.updateMaterial(materialPresetTargetId, fields);
+      resultsStore.clear();
+    }
+    closePicker();
   }
 </script>
 
-{#if formFor !== null}
-  {#key formFor}
-    <MaterialForm materialId={formFor === 'new' ? null : formFor} onDone={() => (formFor = null)} />
-  {/key}
-{:else}
 <table class="mat-list">
   <thead>
     <tr><th>ID</th><th>{t('table.name')}</th><th class="col-actions"></th></tr>
@@ -62,14 +70,15 @@
             class="row-action-btn primary"
             title={t('table.chooseMaterial')}
             aria-label={t('table.chooseMaterial')}
-            onclick={() => { materialPresetTargetId = mat.id; showMaterialPresetSelector = true; }}
+            data-testid="mat-catalogue-{mat.id}"
+            onclick={() => openPicker(mat.id, 'catalogue')}
           >&#9783;</button>
           <button
             class="row-action-btn"
             title={t('prop.editMaterial')}
             aria-label={t('prop.editMaterial')}
             data-testid="mat-edit-{mat.id}"
-            onclick={() => (formFor = mat.id)}
+            onclick={() => openPicker(mat.id, 'invent')}
           >&#9998;</button>
           <button class="del" aria-label={t('matEdit.delete')} data-testid="mat-delete-{mat.id}" onclick={() => deleteMaterial(mat.id)}>&#10005;</button>
         </td>
@@ -78,13 +87,15 @@
   </tbody>
 </table>
 <div class="table-footer">
-  <button class="add-btn" data-testid="mat-new" onclick={() => (formFor = 'new')}>{t('table.addMaterialCustom')}</button>
+  <button class="add-btn" data-testid="mat-new" onclick={() => openPicker(null, 'catalogue')}>{t('table.addMaterial')}</button>
 </div>
-{/if}
 <MaterialPresetSelector
   open={showMaterialPresetSelector}
+  initialTab={pickerTab}
+  inventMaterialId={materialPresetTargetId}
   onselect={(p: MaterialPreset) => handleMaterialPresetSelect(p)}
-  onclose={() => { showMaterialPresetSelector = false; materialPresetTargetId = null; }}
+  oninvent={closePicker}
+  onclose={closePicker}
 />
 
 <style>

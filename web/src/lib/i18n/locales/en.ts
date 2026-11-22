@@ -1950,6 +1950,7 @@ const en: Record<string, string> = {
   'table.addLoad': '+ Load',
   'table.newMaterial': 'New material',
   'table.addMaterialCustom': '+ Add material (custom)',
+  'table.addMaterial': '+ Add material',
   'table.chooseMaterial': 'Choose predefined material',
   'table.cannotDeleteMaterial': 'Cannot delete: members or drawn sections use this material.',
   'table.newSection': 'New section',
@@ -4389,6 +4390,7 @@ const en: Record<string, string> = {
   'matEdit.fyHelp': 'Used by the plastic analysis and the section stresses.',
   'matEdit.save': 'Save',
   'matEdit.delete': 'Delete material',
+  'matEdit.invent': 'Define custom material',
   'dsm.expectedValue': 'Expected value',
   // ─── Influence line labels ───
   'influence.unitLoad': 'P=1',

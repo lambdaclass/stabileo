@@ -1601,6 +1601,7 @@ const fr: Translations = {
   'table.addLoad': '+ Charge',
   'table.newMaterial': 'Nouveau matériau',
   'table.addMaterialCustom': '+ Ajouter un matériau (personnalisé)',
+  'table.addMaterial': '+ Ajouter un matériau',
   'table.chooseMaterial': 'Choisir un matériau prédéfini',
   'table.cannotDeleteMaterial': 'Suppression impossible : des barres ou des sections dessinées utilisent ce matériau.',
   'table.newSection': 'Nouvelle section',
@@ -3988,6 +3989,7 @@ const fr: Translations = {
   'matEdit.fyHelp': 'Utilisée par l’analyse plastique et les contraintes dans la section.',
   'matEdit.save': 'Enregistrer',
   'matEdit.delete': 'Supprimer le matériau',
+  'matEdit.invent': 'Définir un matériau personnalisé',
   'dsm.expectedValue': 'Valeur attendue',
 
   // ─── Influence line labels ───

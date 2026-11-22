@@ -1601,6 +1601,7 @@ const de: Translations = {
   'table.addLoad': '+ Last',
   'table.newMaterial': 'Neues Material',
   'table.addMaterialCustom': '+ Material hinzufügen (benutzerdefiniert)',
+  'table.addMaterial': '+ Material hinzufügen',
   'table.chooseMaterial': 'Vordefiniertes Material wählen',
   'table.cannotDeleteMaterial': 'Löschen nicht möglich: Stäbe oder gezeichnete Querschnitte verwenden dieses Material.',
   'table.newSection': 'Neuer Querschnitt',
@@ -3988,6 +3989,7 @@ const de: Translations = {
   'matEdit.fyHelp': 'Wird von der plastischen Berechnung und den Querschnittsspannungen verwendet.',
   'matEdit.save': 'Speichern',
   'matEdit.delete': 'Material löschen',
+  'matEdit.invent': 'Eigenes Material definieren',
   'dsm.expectedValue': 'Erwarteter Wert',
 
   // ─── Influence line labels ───

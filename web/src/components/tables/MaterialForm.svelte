@@ -110,6 +110,7 @@
     display: flex;
     flex-direction: column;
     gap: 6px;
+    max-width: 460px;
     padding: 10px 12px;
     font-size: 0.76rem;
     color: var(--st-text-2);

@@ -1610,6 +1610,7 @@ const tr: Translations = {
   'table.addLoad': '+ Yük',
   'table.newMaterial': 'Yeni malzeme',
   'table.addMaterialCustom': '+ Malzeme ekle (özel)',
+  'table.addMaterial': '+ Malzeme ekle',
   'table.chooseMaterial': 'Önceden tanımlı malzeme seç',
   'table.cannotDeleteMaterial': 'Silinemez: bu malzemeyi çubuklar veya çizilmiş kesitler kullanıyor.',
   'table.newSection': 'Yeni kesit',
@@ -3997,6 +3998,7 @@ const tr: Translations = {
   'matEdit.fyHelp': 'Plastik analiz ve kesit gerilmeleri bunu kullanır.',
   'matEdit.save': 'Kaydet',
   'matEdit.delete': 'Malzemeyi sil',
+  'matEdit.invent': 'Özel malzeme tanımla',
   'dsm.expectedValue': 'Beklenen değer',
 
   // ─── Influence line labels ───

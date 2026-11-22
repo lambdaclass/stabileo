@@ -1943,6 +1943,7 @@ const es: Record<string, string> = {
   'table.addLoad': '+ Carga',
   'table.newMaterial': 'Nuevo material',
   'table.addMaterialCustom': '+ Agregar material (personalizado)',
+  'table.addMaterial': '+ Agregar material',
   'table.chooseMaterial': 'Elegir material predefinido',
   'table.cannotDeleteMaterial': 'No se puede eliminar: hay barras o secciones dibujadas que usan este material.',
   'table.newSection': 'Nueva sección',
@@ -4382,6 +4383,7 @@ const es: Record<string, string> = {
   'matEdit.fyHelp': 'La usan el análisis plástico y las tensiones en la sección.',
   'matEdit.save': 'Guardar',
   'matEdit.delete': 'Eliminar material',
+  'matEdit.invent': 'Inventar material',
   'dsm.expectedValue': 'Valor esperado',
   // ─── Influence line labels ───
   'influence.unitLoad': 'P=1',
