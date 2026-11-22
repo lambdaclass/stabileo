@@ -49,7 +49,7 @@ import { enrichComboShellStresses, envelopeShellStresses } from './shell-combos'
 import { axialShares, combineShares, giveBackAxialShares } from './axial-shares';
 import { addSettlementCase, addSettlementCase2D, hasSettlement, withoutSettlement, SETTLEMENT_CASE_ID } from './settlement-case';
 import { memberAlphaOf, thermalAlphaOf, ENGINE_ALPHA } from './thermal-alpha';
-import { pointToSolver, pointToEnds, PointLoadNeedsCut, planePointLoad3D, pointWithCoupleToEnds, planarMoment3D, planarPointOrigin, requirePlanarPointMoment, PlanarPointMomentError, type PlanePointLoadLike } from './member-point-loads';
+import { pointToSolver, pointToEnds, PointLoadNeedsCut, planePointLoad3D, pointWithCoupleToEnds, planarMoment3D, planarPointOrigin, requirePlanarNodalMoment, requirePlanarPointMoment, PlanarLoadMomentError, type PlanePointLoadLike } from './member-point-loads';
 import { planarPointMomentWithoutProjection, planarPointProjectionTooShort } from './planar-point-load';
 import { prestressToSolver } from './prestress';
 import { hasCaseDisplacements, imposedOf, imposedUnsupported, supportsWithImposed, casesWithDisplacements } from './case-displacements';
@@ -60,7 +60,6 @@ import { i18n, t, tp } from '../i18n';
 // reinforcement-only edit triggers none. Not part of the solver.
 import { noteStructuralSolve } from '../utils/solve-counter';
 import {
-  get2DDisplayNodalLoadMoment,
   get2DDisplayNodalLoadVertical,
   projectNodeToScene,
 } from '../geometry/coordinate-system';
@@ -290,7 +289,7 @@ function buildSolverLoads2D(model: ModelData, loads: Load[], weights: readonly S
     if (l.type === 'nodal') {
       solverLoads.push({
         type: 'nodal' as const,
-        data: { nodeId: l.data.nodeId, fx: l.data.fx, fz: l.data.fz ?? l.data.fy, my: l.data.my ?? l.data.mz },
+        data: { nodeId: l.data.nodeId, fx: l.data.fx, fz: l.data.fz ?? l.data.fy, my: requirePlanarNodalMoment(l.data) },
       });
     } else if (l.type === 'thermal') {
       const d = l.data as ThermalLoad;
@@ -1487,7 +1486,7 @@ export function buildSolverLoads3D(
   for (const l of loads) {
     if (l.type === 'nodal') {
       const vertical = get2DDisplayNodalLoadVertical(l.data);
-      const moment = get2DDisplayNodalLoadMoment(l.data);
+      const moment = requirePlanarNodalMoment(l.data);
       // Standing in X–Z the plane is a reflection of the drawn X–Y one, (x, y) → (x, 0, y): a
       // counter-clockwise couple as drawn is about −Y there, as the reactions read (embedded My is
       // the plane's with its sign turned). It went in as +Y, the mirror image of the load drawn.
@@ -2031,7 +2030,7 @@ function buildSolveInput3D(...args: Parameters<typeof buildValidatedSolverInput3
 /** A load the solve cannot place, said by name: a moment on a member that takes no bending. */
 export function loadRefusal(err: unknown): string | null {
   if (err instanceof MemberLoadIntervalError) return err.message;
-  if (err instanceof PlaneSelfWeightError || err instanceof PlanarPointLoadProjectionError || err instanceof PlanarPointMomentError) return err.message;
+  if (err instanceof PlaneSelfWeightError || err instanceof PlanarPointLoadProjectionError || err instanceof PlanarLoadMomentError) return err.message;
   return err instanceof PointLoadNeedsCut ? tp('svc.pointMomentOnTruss', { n: err.elementId }) : null;
 }
 

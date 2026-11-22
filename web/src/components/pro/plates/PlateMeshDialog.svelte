@@ -13,6 +13,7 @@
   import { onDestroy, untrack } from 'svelte';
   import { uiStore } from '../../../lib/store';
   import { t, tp } from '../../../lib/i18n';
+  import { plateRemeshMessage } from '../../../lib/engine/plate-analysis-refusal';
   import { planPlateMeshes, plateEntry, plateSides, plateStatus, type PlateMeshPlan } from '../../../lib/store/physical-plates';
   import { meshPlatesInModel } from '../../../lib/store/mesh-apply';
   import { meshProgress } from '../../../lib/store/mesh-progress.svelte';
@@ -169,13 +170,17 @@
         <thead><tr><th>{t('plates.plate')}</th><th>{t('plates.elements')}</th><th>{t('plates.kindHead')}</th><th>{t('plates.quality')}</th></tr></thead>
         <tbody>
           {#each plans as p (p.id)}
+            {@const block = p.refused && plateRemeshMessage(p.name, p.refused)}
             <tr class:refused={!p.mesh}>
-              <td>{p.name}</td>
-              {#if p.mesh}
+              {#if block}
+                <td colspan="4">{block}</td>
+              {:else if p.mesh}
+                <td>{p.name}</td>
                 <td>{p.cells}</td>
                 <td>{kindOf(p)}</td>
                 <td class:warn={!!p.quality && p.quality.poor > 0}>{p.quality ? (p.quality.poor > 0 ? tp('plates.qualityPoor', { poor: p.quality.poor, cells: p.cells }) : tp('plates.qualityGood', { angle: p.quality.minAngle.toFixed(0) })) : ''}</td>
               {:else}
+                <td>{p.name}</td>
                 <td colspan="3">{t(`plates.refused.${p.refused}`)}{p.refused === 'tooManyCells' ? ` (${p.cells})` : ''}</td>
               {/if}
             </tr>

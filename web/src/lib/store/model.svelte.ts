@@ -71,7 +71,7 @@ import type { ModelProvenance } from '../model/provenance';
 export type { MemberOffset, MemberOffsetVec } from '../model/element-3d-metadata';
 import { uiStore } from './ui.svelte';
 import { requirePlanarPointMoment } from '../engine/member-point-loads';
-import { planarPointMoment } from '../engine/planar-point-load';
+import { planarNodalMoment, planarPointMoment, type PlanarMomentFields } from '../engine/planar-point-load';
 import { plainDeepCopy } from '../utils/plain-deep-copy';
 // Cycle-safe: switch-2d imports this module, but resetSwitchBackup is a
 // hoisted function declaration and is only ever CALLED at runtime (clear(),
@@ -1184,10 +1184,28 @@ function createModelStore() {
   const canonicalSupportDz = (support: Partial<Support>): number | undefined => support.dz ?? support.dy;
   const canonicalSupportDry = (support: Partial<Support>): number | undefined => support.dry ?? support.drz;
   const canonicalLoadFz = (load: Partial<NodalLoad>): number => load.fz ?? load.fy ?? 0;
-  const canonicalLoadMy = (load: Partial<NodalLoad>): number => load.my ?? load.mz ?? 0;
-  function copyPlanarPointLoad(data: Partial<PointLoadOnElement>) {
-    const moment = planarPointMoment(data);
-    return moment === null ? { ...data } : { ...data, my: moment };
+  function writePlanarMoment(data: PlanarMomentFields, moment: number | undefined): void {
+    delete data.mz;
+    if (moment === undefined) delete data.my;
+    else data.my = moment;
+  }
+
+  function copyPersistedLoad({ type, data }: { type: string; data: object }): ModelSnapshot['loads'][number] {
+    const copy: Record<string, unknown> = { ...data };
+    if (type !== 'nodal' && type !== 'pointOnElement') return { type, data: copy };
+    for (const field of ['my', 'mz']) {
+      const value = copy[field];
+      if (value === null || (typeof value === 'number' && !Number.isFinite(value))) copy[field] = 'NaN';
+    }
+    if (type === 'nodal') {
+      copy.fz = canonicalLoadFz(copy);
+      const moment = planarNodalMoment(copy);
+      if (moment !== null) writePlanarMoment(copy, moment ?? 0);
+    } else {
+      const moment = planarPointMoment(copy);
+      if (moment !== null) writePlanarMoment(copy, moment);
+    }
+    return { type, data: copy };
   }
 
   let detailing = $state.raw<DetailingStore | undefined>(emptyPublishedDetailing);
@@ -1344,10 +1362,12 @@ function createModelStore() {
     // Remap loads: nodal3d → nodal, distributed3d → distributed
     const remappedLoads = model.loads.map(l => {
       if (l.type === 'nodal') {
-        const d = l.data as any;
-        const f = remapNodalLoad2D(plane, d.fx ?? 0, d.fz ?? d.fy ?? 0, 0);
-        const m = remapMoment2D(plane, 0, 0, d.my ?? d.mz ?? 0);
-        return { ...l, data: { ...d, fx: f.fx, fz: f.fy, my: m } };
+        const d = l.data;
+        const f = remapNodalLoad2D(plane, d.fx ?? 0, canonicalLoadFz(d), 0);
+        const data = { ...d, fx: f.fx, fz: f.fy };
+        const moment = planarNodalMoment(d);
+        if (moment !== null) writePlanarMoment(data, remapMoment2D(plane, 0, 0, moment ?? 0));
+        return { ...l, data };
       }
       if (l.type === 'nodal3d') {
         const d = l.data as any;
@@ -2243,17 +2263,7 @@ function createModelStore() {
           dz: canonicalSupportDz(v),
           dry: canonicalSupportDry(v),
         }]) as ModelSnapshot['supports'],
-        loads: snap.loads.map((load) => {
-          if (load.type === 'nodal') {
-            const data = load.data as NodalLoad;
-            return { type: load.type, data: { ...data, fz: canonicalLoadFz(data), my: canonicalLoadMy(data) } };
-          }
-          if (load.type === 'pointOnElement') {
-            const data = load.data as PointLoadOnElement;
-            return { type: load.type, data: copyPlanarPointLoad(data) };
-          }
-          return load;
-        }) as ModelSnapshot['loads'],
+        loads: snap.loads.map(copyPersistedLoad),
         loadCases: snap.loadCases as ModelSnapshot['loadCases'],
         combinations: snap.combinations as ModelSnapshot['combinations'],
         plates: Array.from(snap.plates.entries()) as ModelSnapshot['plates'],
@@ -2454,17 +2464,7 @@ function createModelStore() {
       dedupedEntries.reverse();
       model.supports = new Map(dedupedEntries);
       // Deep-copy loads manually (structuredClone fails on Svelte reactive proxies)
-      model.loads = s.loads.map((l) => {
-        if (l.type === 'nodal') {
-          const data = l.data as Partial<NodalLoad>;
-          return { type: l.type, data: { ...data, fz: canonicalLoadFz(data), my: canonicalLoadMy(data) } };
-        }
-        if (l.type === 'pointOnElement') {
-          const data = l.data as Partial<PointLoadOnElement>;
-          return { type: l.type, data: copyPlanarPointLoad(data) };
-        }
-        return { type: l.type, data: { ...l.data } };
-      }) as unknown as Load[];
+      model.loads = s.loads.map(copyPersistedLoad) as unknown as Load[];
       // Migrate old distributed loads: q → qI/qJ
       for (const l of model.loads) {
         if (l.type === 'distributed') {
@@ -3357,10 +3357,10 @@ function createModelStore() {
       this.batch(run); // batch() pushes a single undo step
     },
 
-    addPlate(nodes: [number, number, number], materialId: number, thickness: number): number {
+    addPlate(nodes: [number, number, number], materialId: number, thickness: number, metadata?: Pick<Plate, 'offset'>): number {
       if (!_undoBatching) _pushUndo?.();
       const id = nextId.plate++;
-      model.plates.set(id, { id, nodes, materialId, thickness });
+      model.plates.set(id, { id, nodes, materialId, thickness, ...(metadata?.offset ? { offset: { ...metadata.offset } } : {}) });
       if (!_bulkMutating) model.plates = new Map(model.plates);
       return id;
     },
@@ -3390,10 +3390,14 @@ function createModelStore() {
       model.plates = new Map(model.plates);
     },
 
-    addQuad(nodes: [number, number, number, number], materialId: number, thickness: number): number {
+    addQuad(nodes: [number, number, number, number], materialId: number, thickness: number, metadata?: Pick<Quad, 'offset' | 'curved'>): number {
       if (!_undoBatching) _pushUndo?.();
       const id = nextId.quad++;
-      model.quads.set(id, { id, nodes, materialId, thickness });
+      model.quads.set(id, {
+        id, nodes, materialId, thickness,
+        ...(metadata?.offset ? { offset: { ...metadata.offset } } : {}),
+        ...(metadata?.curved ? { curved: true } : {}),
+      });
       if (!_bulkMutating) model.quads = new Map(model.quads);
       return id;
     },
@@ -3812,6 +3816,10 @@ function createModelStore() {
       if (!load) return false;
       // A floor-load definition's load is edited through the definition (`removeLoad`).
       if (isDefinedLoadData(load)) return false;
+      const editsPlanarMoment = (load.type === 'nodal' || load.type === 'pointOnElement') && 'my' in data;
+      const moment = data.my;
+      const finiteMoment = typeof moment === 'number' && Number.isFinite(moment);
+      if (editsPlanarMoment && !finiteMoment) return false;
       if ((load.type === 'distributed3d' || load.type === 'pointOnElement3d')
         && !editKeepsPlace(load, data, loadedLength(model as never, load.data.elementId))) return false;
       if (!_undoBatching) _pushUndo?.();
@@ -3823,11 +3831,11 @@ function createModelStore() {
       if (data.caseId !== undefined) {
         (load.data as any).caseId = data.caseId as number | undefined;
       }
+      if (editsPlanarMoment && finiteMoment) writePlanarMoment(load.data, moment);
       if (load.type === 'nodal') {
         const d = load.data as NodalLoad;
         if (data.fx !== undefined) d.fx = data.fx as number;
         if (data.fz !== undefined) d.fz = data.fz as number;
-        if (data.my !== undefined) d.my = data.my as number;
       } else if (load.type === 'distributed') {
         const d = load.data as DistributedLoad;
         if (data.qI !== undefined) d.qI = data.qI as number;
@@ -3848,7 +3856,6 @@ function createModelStore() {
         if (data.a !== undefined) d.a = data.a as number;
         if (data.p !== undefined) d.p = data.p as number;
         if (data.px !== undefined) d.px = (data.px as number) || undefined;
-        if (data.my !== undefined) d.my = (data.my as number) || undefined;
         if (data.angle !== undefined) d.angle = data.angle as number;
         if (data.isGlobal !== undefined) d.isGlobal = data.isGlobal as boolean;
       } else if (load.type === 'thermal') {

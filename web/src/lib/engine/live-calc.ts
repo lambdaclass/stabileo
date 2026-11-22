@@ -295,7 +295,7 @@ export async function runGlobalSolve(options: { directBase?: boolean } = {}): Pr
     // once for the whole solve and before its inputs are taken, or the solve stops and says which.
     const p = await preparePlatesForAnalysisAsync();
     if (!p.ok) {
-      const error = p.reason === 'wallSlab' ? p.error : tp({
+      const error = 'error' in p ? p.error : tp({
         needsMesh: 'plates.analysisNeedsMesh',
         invalid: 'plates.analysisInvalid',
         localLoads: 'plates.analysisLocalLoads',

@@ -1,5 +1,5 @@
-import { arcEdgeBetween as modelArcEdgeBetween, physicalPlateProblems, type PlateStatus } from '../model/physical/plate-analysis';
-import { wallSlabRefusal } from '../engine/plate-analysis-refusal';
+import { arcEdgeBetween as modelArcEdgeBetween, physicalPlateProblems, plateMeshGeometry, type PlateStatus } from '../model/physical/plate-analysis';
+import { plateRemeshMessage, wallSlabRefusal } from '../engine/plate-analysis-refusal';
 /**
  * Physical plates in the model (`model/physical/plate.ts`): made from an outline, meshed on demand
  * one at a time or many together, meshed again without leaving anything behind, and made ready
@@ -25,15 +25,15 @@ import { uiStore } from './ui.svelte';
 import { physicalDataOf, type PhysicalData } from '../model/physical';
 import { levelAt } from '../model/physical/recognize';
 import {
-  arcInterior, circleThrough, DEFAULT_PLATE_MESH, externalFeatures, gridOfSpec, memberChains, meshQuality, onOutline, plateGeometry, plateKindOf, plateLoops, plateMeshInput, plateProblem,
-  plateSignature, plateSurfaceOf, type ArcSampler, type MeshQuality, type PlateMeshSpec, type PlateProblem, type PlateSurface,
+  DEFAULT_PLATE_MESH, externalFeatures, gridOfSpec, memberChains, meshQuality, onOutline, plateGeometry, plateKindOf, plateLoops, plateMeshInput, plateProblem,
+  plateSignature, plateSurfaceOf, type MeshQuality, type PlateMeshSpec, type PlateProblem, type PlateSurface,
 } from '../model/physical/plate';
 import { cross, type Vec3 } from '../model/edit/affine';
 import { generateMesh, MAX_MESH_CELLS, MAX_MESH_POINTS, type MeshOutput } from '../model/edit/mesher';
 import { frameAlong, gridMesh } from '../model/edit/grid-mesh';
 import { rectGrid } from '../model/edit/rect-grid';
 import { addedMeshStations, meshStations, sameMeshNode, sharedFrameStations, stationIndex, strictlyOrAt } from '../model/edit/mesh-stations';
-import { applyMesh, regionOccupied, validCells } from '../model/edit/mesh-apply';
+import { applyMesh, applyPlacedMesh, placeMesh, regionOccupied, validCells, type MeshPlacement } from '../model/edit/mesh-apply';
 import { weldTolerance } from '../model/weld-tolerance';
 import { mergeCollinear } from '../model/edit/merge-collinear';
 import { addFloorLoadDef, syncDefinedLoads } from './defined-loads';
@@ -95,25 +95,6 @@ const plateModel = () => ({ nodes: modelStore.nodes, elements: modelStore.elemen
 export const arcEdgeBetween = (a: number, b: number) => modelArcEdgeBetween(modelStore.model, a, b);
 
 /**
- * How a mesh draws a curved side: through the nodes of the curved member on it, when one runs
- * between its ends along the same circle, so plate and member share them; otherwise in pieces of
- * the element size.
- */
-function meshSampler(size: number): ArcSampler {
-  return (a, mid, b) => {
-    const ci = circleThrough(a.p, mid.p, b.p);
-    if (!ci) return [];
-    const edge = arcEdgeBetween(a.id, b.id);
-    if (edge) {
-      const pts = edge.nodes.slice(1, -1).map((id) => { const n = modelStore.nodes.get(id)!; return [n.x, n.y, n.z ?? 0] as Vec3; });
-      const onCircle = pts.every((q) => Math.abs(Math.hypot(q[0] - ci.c[0], q[1] - ci.c[1], q[2] - ci.c[2]) - ci.r) < 1e-3);
-      if (pts.length && onCircle) return pts;
-    }
-    return arcInterior(a.p, mid.p, b.p, Math.max(2, Math.ceil((ci.r * ci.sweep) / size)));
-  };
-}
-
-/**
  * What a plate's mesh has to meet. Members are read whole through the nodes every plate's mesh
  * created, so meshing one plate never puts its neighbours out of date; the nodes of the other
  * shells on its outline are points the mesh passes through, so neighbouring meshes meet node to
@@ -135,8 +116,10 @@ function sharedFeatures() {
   return sharedMemo;
 }
 
-function featuresOf(e: PlateEntry, spec: PlateMeshSpec = e.surface.mesh, replaced?: ReadonlyMap<number, number>) {
-  const geo = plateGeometry(plateModel(), e.group, meshSampler(spec.size));
+function featuresOf(
+  e: PlateEntry, replaced?: ReadonlyMap<number, number>,
+  geo = plateMeshGeometry(modelStore.model, e.group, e.surface.mesh).geo,
+) {
   if (!geo) return null;
   const loops = plateLoops(e.group);
   const mine = new Set(loops.owned);
@@ -569,13 +552,16 @@ export function plateLoadDefs(id: number): ModelGroup[] {
 
 // ─── Meshing ─────────────────────────────────────────────────────
 
+export type PlateMeshRefusalReason = 'invalid' | 'tooManyCells' | 'cannotMesh' | 'occupied' | 'ambiguousSweep' | 'shellEdits' | 'interrupted' | 'localLoads';
+
 export interface PlateMeshPlan {
   id: number;
   name: string;
   spec: PlateMeshSpec;
   /** Null when refused, with the reason. */
   mesh: MeshOutput | null;
-  refused?: 'invalid' | 'tooManyCells' | 'cannotMesh';
+  refused?: PlateMeshRefusalReason;
+  version: number;
   cells: number;
   quality: MeshQuality | null;
   signature: string;
@@ -693,20 +679,29 @@ export function planPlateMesh(id: number, specOverride?: Partial<PlateMeshSpec>,
   if (!e) return null;
   const spec = specOf(e, specOverride);
   const base = { id, name: e.name, spec, localLoads: localLoadsOn(e), keptNodes: keptMeshNodes(e) };
-  const f = featuresOf(e, spec, opts.replaced);
-  if (!f) return { ...base, mesh: null, refused: 'invalid', cells: 0, quality: null, signature: '', input: null, mixed: false };
+  const geometry = plateMeshGeometry(modelStore.model, e.group, spec);
+  if (geometry.refused) {
+    return { ...base, mesh: null, refused: geometry.refused, cells: 0, quality: null, signature: '', input: null, mixed: false };
+  }
+  const f = featuresOf(e, opts.replaced, geometry.geo)!;
   const input = plateMeshInput(f.geo, spec, f.features);
   const signature = signatureOf(e, f, spec);
+  const preview = (mesh: MeshOutput, mixed: boolean, extra?: Pick<PlateMeshPlan, 'grid' | 'aDir' | 'bDir' | 'footprints'>): PlateMeshPlan => {
+    if (!opts.replaced && placePlateEdits(e, mesh) === null) {
+      return { ...base, mesh: null, refused: 'shellEdits', cells: 0, quality: null, signature, input, mixed: false };
+    }
+    return { ...base, mesh, cells: mesh.cells.length, quality: meshQuality(mesh), signature, input, mixed, ...extra };
+  };
   const fp = footprintsOf(e, f.geo);
   const grid = gridOfSpec(spec);
   const fpCells = fp ? footprintCells(spec, grid, f.geo.frame) : null;
   const fpMesh = fp && fpCells ? footprintMesh(f, fp, fpCells.cells, spec) : null;
   if (fp && fpCells && fpMesh) {
     if (fpMesh.cells.length > MAX_MESH_CELLS) return { ...base, mesh: null, refused: 'tooManyCells', cells: fpMesh.cells.length, quality: null, signature, input, mixed: false };
-    return {
-      ...base, mesh: fpMesh, cells: fpMesh.cells.length, quality: meshQuality(fpMesh), signature, input, mixed: false, footprints: { columns: fp.columns, z: fp.z }, aDir: fpCells.aDir, bDir: fpCells.bDir,
+    return preview(fpMesh, false, {
+      footprints: { columns: fp.columns, z: fp.z }, aDir: fpCells.aDir, bDir: fpCells.bDir,
       ...(grid ? { grid: { gridCells: fpMesh.cells.length, bandCells: 0, cellA: grid.a, cellB: grid.b } } : {}),
-    };
+    });
   }
   // A plate far past the cap would be a long wait for a refusal: estimate from the area first.
   const estimate = plateAreaEstimate(f.geo, spec);
@@ -718,7 +713,7 @@ export function planPlateMesh(id: number, specOverride?: Partial<PlateMeshSpec>,
     const rect = rectGridOf(f.geo, spec, f.features, neighbourEdges(e, f, opts.meshedAgain), { frame, a: grid.a, b: grid.b });
     if (rect) {
       if (rect.cells.length > MAX_MESH_CELLS) return { ...base, mesh: null, refused: 'tooManyCells', cells: rect.cells.length, quality: null, signature, input, mixed: false };
-      return { ...base, mesh: rect, cells: rect.cells.length, quality: meshQuality(rect), signature, input, mixed: false, grid: { gridCells: rect.cells.length, bandCells: 0, cellA: grid.a, cellB: grid.b }, aDir: frame.u, bDir: frame.v };
+      return preview(rect, false, { grid: { gridCells: rect.cells.length, bandCells: 0, cellA: grid.a, cellB: grid.b }, aDir: frame.u, bDir: frame.v });
     }
     const g = gridMesh({
       outer: f.geo.outer, holes: f.geo.holes, frame, a: grid.a, b: grid.b, element: 'quad',
@@ -727,13 +722,13 @@ export function planPlateMesh(id: number, specOverride?: Partial<PlateMeshSpec>,
     if (!g) return { ...base, mesh: null, refused: 'cannotMesh', cells: 0, quality: null, signature, input, mixed: false };
     if (g.cells.length > MAX_MESH_CELLS) return { ...base, mesh: null, refused: 'tooManyCells', cells: g.cells.length, quality: null, signature, input, mixed: false };
     const { gridCells, bandCells, cellA, cellB, ...mesh } = g;
-    return { ...base, mesh, cells: mesh.cells.length, quality: meshQuality(mesh), signature, input, mixed: bandCells > 0, grid: { gridCells, bandCells, cellA, cellB }, aDir: frame.u, bDir: frame.v };
+    return preview(mesh, bandCells > 0, { grid: { gridCells, bandCells, cellA, cellB }, aDir: frame.u, bDir: frame.v });
   }
   const general = generateMesh(input);
   const mesh = general?.structured ? general : rectGridOf(f.geo, spec, f.features, neighbourEdges(e, f, opts.meshedAgain)) ?? general;
   if (!mesh) return { ...base, mesh: null, refused: 'cannotMesh', cells: 0, quality: null, signature, input, mixed: false };
   if (mesh.cells.length > MAX_MESH_CELLS) return { ...base, mesh: null, refused: 'tooManyCells', cells: mesh.cells.length, quality: null, signature, input, mixed: false };
-  return { ...base, mesh, cells: mesh.cells.length, quality: meshQuality(mesh), signature, input, mixed: spec.element === 'quad' && !mesh.structured };
+  return preview(mesh, spec.element === 'quad' && !mesh.structured);
 }
 
 type PlateFrameLike = { o: Vec3; u: Vec3; v: Vec3; n: Vec3 };
@@ -844,7 +839,7 @@ export function clearPlateMesh(id: number): { removedNodes: number; keptNodes: n
   return removePlateMesh(id);
 }
 
-function removePlateMesh(id: number, updateNeighbours = true): { removedNodes: number; keptNodes: number } {
+function removePlateMesh(id: number, updateNeighbours = true, preserveNodes?: ReadonlySet<number>): { removedNodes: number; keptNodes: number } {
   const e = plateEntry(id);
   if (!e) return { removedNodes: 0, keptNodes: 0 };
   const loops = plateLoops(e.group);
@@ -868,11 +863,11 @@ function removePlateMesh(id: number, updateNeighbours = true): { removedNodes: n
     respringAt(springNodes);
     // The members the mesh cut, whole again where the cut node is the mesh's and holds nothing else.
     const cut = [...modelStore.elements.values()].filter((el) => owned.has(el.nodeI) || owned.has(el.nodeJ)).map((el) => el.id);
-    if (cut.length) removedNodes += mergeCollinear(cut).removedNodes;
+    if (cut.length) removedNodes += mergeCollinear(cut, preserveNodes).removedNodes;
     const h = held(id);
     if (owned.size) modelStore.bulkMutate(() => {
       for (const n of owned) {
-        if (!modelStore.nodes.has(n)) continue;
+        if (!modelStore.nodes.has(n) || preserveNodes?.has(n)) continue;
         if (h.has(n)) { keptNodes++; continue; }
         modelStore.removeNode(n); removedNodes++;
       }
@@ -889,7 +884,60 @@ function removePlateMesh(id: number, updateNeighbours = true): { removedNodes: n
   return { removedNodes, keptNodes };
 }
 
-export interface PlateMeshReport { plates: number; cells: number; refused: Array<{ id: number; reason: string }>; droppedLocalLoads: number; keptNodes: number }
+function editedPlateShells(e: PlateEntry) {
+  const quads = (e.group.members.quads ?? []).flatMap(id => {
+    const quad = modelStore.quads.get(id);
+    return quad && (quad.offset !== undefined || quad.curved) ? [quad] : [];
+  });
+  const plates = (e.group.members.plates ?? []).flatMap(id => {
+    const plate = modelStore.plates.get(id);
+    return plate?.offset !== undefined ? [plate] : [];
+  });
+  return [...quads, ...plates];
+}
+
+export const hasPlateShellEdits = (e: PlateEntry): boolean => editedPlateShells(e).length > 0;
+
+function cycleKey(nodes: readonly number[]): string {
+  const first = nodes.indexOf(Math.min(...nodes));
+  return [...nodes.slice(first), ...nodes.slice(0, first)].join(',');
+}
+
+function cellFootprint(nodes: readonly number[]): string {
+  return [...nodes].sort((a, b) => a - b).join(',');
+}
+
+function placePlateEdits(e: PlateEntry, mesh: MeshOutput): MeshPlacement | undefined | null {
+  const edits = editedPlateShells(e);
+  if (!edits.length) return undefined;
+  const placement = placeMesh(mesh);
+  const owned = new Set(plateLoops(e.group).owned);
+  const shifted = placement.nodeIds.some((id, i) => {
+    if (!owned.has(id)) return false;
+    const [x, y, z] = mesh.points[i]!;
+    const node = modelStore.nodes.get(id)!;
+    return node.x !== x || node.y !== y || (node.z ?? 0) !== z;
+  });
+  if (shifted) return null;
+
+  const byFootprint = new Map<string, MeshPlacement['cells'][number] | null>();
+  for (const cell of placement.cells) {
+    const key = cellFootprint(cell.nodes);
+    byFootprint.set(key, byFootprint.has(key) ? null : cell);
+  }
+  for (const edit of edits) {
+    const key = cellFootprint(edit.nodes);
+    const cell = byFootprint.get(key);
+    if (!cell || cycleKey(cell.nodes) !== cycleKey(edit.nodes)) return null;
+    byFootprint.delete(key);
+    cell.nodes = [...edit.nodes];
+    cell.offset = edit.offset;
+    if ('curved' in edit && edit.curved) cell.curved = true;
+  }
+  return placement;
+}
+
+export interface PlateMeshReport { plates: number; cells: number; refused: Array<{ id: number; reason: PlateMeshRefusalReason }>; droppedLocalLoads: number; keptNodes: number }
 
 type ReadyPlateMesh = PlateMeshPlan & { mesh: MeshOutput; input: NonNullable<PlateMeshPlan['input']> };
 const readyPlateMesh = (p: PlateMeshPlan): p is ReadyPlateMesh => !!p.mesh && !!p.input;
@@ -1019,7 +1067,13 @@ function planConformingMeshes(plans: readonly PlateMeshPlan[], report: PlateMesh
       }
     }
     if (report.refused.length) return [];
-    if (!expanded) return final;
+    if (!expanded) {
+      for (const p of final) {
+        const e = plateEntry(p.id);
+        if (e && placePlateEdits(e, p.mesh) === null) report.refused.push({ id: p.id, reason: 'shellEdits' });
+      }
+      return report.refused.length ? [] : final;
+    }
   }
   return [];
 }
@@ -1030,9 +1084,7 @@ function meshingRun(plans: readonly PlateMeshPlan[], forAnalysis = false) {
   const current = ok.length ? physicalPlates().filter((e) => plateStatus(e.id) === 'current').map((e) => e.id) : [];
   const meshed: number[] = [];
   let loadDefsChanged = false;
-  const clear = (planned: PlateMeshPlan, byShell: ReturnType<typeof shellAreaLoads>) => {
-    const e = plateEntry(planned.id);
-    if (!e) return;
+  const clear = (e: PlateEntry, planned: PlateMeshPlan, byShell: ReturnType<typeof shellAreaLoads>, preserve?: ReadonlySet<number>) => {
     const lifted = liftableLoads(e, byShell);
     if (lifted?.gone.length) {
       modelStore.removeLoads(lifted.gone);
@@ -1040,17 +1092,27 @@ function meshingRun(plans: readonly PlateMeshPlan[], forAnalysis = false) {
     }
     loadDefsChanged ||= plateLoadDefs(e.id).length > 0;
     report.droppedLocalLoads += planned.localLoads;
-    report.keptNodes += removePlateMesh(planned.id, false).keptNodes;
+    report.keptNodes += removePlateMesh(planned.id, false, preserve).keptNodes;
   };
   const cellsOf = new Map<number, number>();
-  const meshOne = (p: ReadyPlateMesh) => {
+  const meshOne = (p: ReadyPlateMesh, byShell: ReturnType<typeof shellAreaLoads>) => {
     const e = plateEntry(p.id);
     if (!e) return;
+    const placement = placePlateEdits(e, p.mesh);
+    if (placement === null) { report.refused.push({ id: p.id, reason: 'shellEdits' }); return; }
+    if (regionOccupied(p.input, p.mesh.plane, undefined, new Set(plateShellKeys(p.id)))) {
+      report.refused.push({ id: p.id, reason: 'occupied' });
+      return;
+    }
+    const oldOwned = new Set(plateLoops(e.group).owned);
+    const preserve = placement ? new Set(placement.nodeIds.filter(n => !placement.newNodes.has(n))) : undefined;
+    clear(e, p, byShell, preserve);
     const before = new Set(modelStore.nodes.keys());
     const fp = p.footprints;
-    const r = applyMesh(p.input, { materialId: e.surface.materialId, thickness: e.surface.thickness, splitBeams: p.spec.followMembers, ...(fp ? { splitAt: outsideFootprints(fp.columns, fp.z) } : {}) }, p.mesh);
+    const options = { materialId: e.surface.materialId, thickness: e.surface.thickness, splitBeams: p.spec.followMembers, ...(fp ? { splitAt: outsideFootprints(fp.columns, fp.z) } : {}) };
+    const r = placement ? applyPlacedMesh(p.mesh, options, placement) : applyMesh(p.input, options, p.mesh);
     if (!r || r.occupied) { report.refused.push({ id: p.id, reason: 'occupied' }); return; }
-    const created = [...new Set(r.nodeIds)].filter((n) => !before.has(n));
+    const created = [...new Set(r.nodeIds)].filter(n => !before.has(n) || (preserve?.has(n) && oldOwned.has(n)));
     if (fp) tieFootprints(new Set(r.nodeIds), fp.columns);
     const g = modelStore.model.groups.get(p.id)!;
     const loops = plateLoops(g);
@@ -1090,8 +1152,7 @@ function meshingRun(plans: readonly PlateMeshPlan[], forAnalysis = false) {
     let done = from;
     do {
       const p = ok[done++]!;
-      clear(p, byShell);
-      meshOne(p);
+      meshOne(p, byShell);
     } while (done < ok.length && performance.now() < end);
     finish(done === ok.length);
     return done;
@@ -1237,12 +1298,15 @@ export function deletePlate(id: number): void {
 export type PlatePreparation =
   | { ok: true; meshed: number; cells: number }
   | { ok: false; reason: 'needsMesh' | 'invalid'; plates: string[] }
-  | { ok: false; reason: 'wallSlab'; error: string }
+  | { ok: false; reason: 'wallSlab' | 'remeshBlocked'; error: string }
   | { ok: false; reason: 'refused'; plates: string[] }
   | { ok: false; reason: 'localLoads'; plates: string[] };
 
 function invalidPreparation(): PlatePreparation | null {
-  const { invalid } = physicalPlateProblems(modelStore.model);
+  const { invalid, ambiguousSweep } = physicalPlateProblems(modelStore.model);
+  if (ambiguousSweep.length) {
+    return { ok: false, reason: 'remeshBlocked', error: ambiguousSweep.map(name => plateRemeshMessage(name, 'ambiguousSweep')).join(' ') };
+  }
   return invalid.length ? { ok: false, reason: 'invalid', plates: invalid } : null;
 }
 
@@ -1254,6 +1318,8 @@ function prepared(meshed: number, cells: number): PlatePreparation {
 function checkPreparedPlates(report: PlateMeshReport): PlatePreparation {
   const invalid = invalidPreparation();
   if (invalid) return invalid;
+  const messages = report.refused.map(({ id, reason }) => plateRemeshMessage(plateEntry(id)?.name ?? `#${id}`, reason)).filter(Boolean);
+  if (messages.length) return { ok: false, reason: 'remeshBlocked', error: messages.join(' ') };
   const loaded = report.refused.filter(({ reason }) => reason === 'localLoads');
   if (loaded.length) return { ok: false, reason: 'localLoads', plates: loaded.map(({ id }) => plateEntry(id)?.name ?? `#${id}`) };
   const incomplete = new Set([...report.refused.map(({ id }) => id), ...platesNeedingMesh({ coarse: false })]);

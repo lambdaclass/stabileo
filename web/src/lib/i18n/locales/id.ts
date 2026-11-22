@@ -1,6 +1,8 @@
 import type { Translations } from '../types';
 
 const id: Translations = {
+  "plates.remeshAmbiguousSweep": "Busur pada tepi lengkung {name} ambigu. Periksa titik antara dan batang lengkung di antara titik ujung sebelum membuat ulang mesh.",
+  "plates.remeshShellEdits": "Mesh {name} tidak dapat diganti karena perubahan ofset atau kelengkungan elemen cangkang tidak dapat dipindahkan secara persis.",
   'loadPlan.gravity.coveragePrecision': "Koordinat cakupan cangkang melampaui ketelitian interval batang yang didukung.",
   'loadPlan.gravity.partitionFailed': "Pembagian proyeksi cangkang gagal: {detail}",
   'loadPlan.gravity.unsupportedStrips': "Cakupan sebagian oleh cangkang memerlukan jalur yang membentang penuh di antara penumpu yang berhadapan pada panel balok persegi panjang.",

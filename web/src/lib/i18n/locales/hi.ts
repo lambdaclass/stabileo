@@ -1,5 +1,7 @@
 import type { Translations } from '../types';
 const hi: Translations = {
+  "plates.remeshAmbiguousSweep": "{name} की घुमावदार सीमा का चाप स्पष्ट नहीं है। दोबारा मेश बनाने से पहले बीच के बिंदु और सिरों के बीच के घुमावदार सदस्यों की जाँच करें।",
+  "plates.remeshShellEdits": "{name} का मेश बदला नहीं जा सकता क्योंकि शेल के ऑफ़सेट या वक्रता में किए गए बदलावों को ठीक उसी तरह स्थानांतरित नहीं किया जा सकता।",
   'loadPlan.gravity.coveragePrecision': "शेल आवरण के निर्देशांक सदस्य खंडों की समर्थित सटीकता सीमा से बाहर हैं।",
   'loadPlan.gravity.partitionFailed': "शेल के प्रक्षेपित क्षेत्र का विभाजन विफल रहा: {detail}",
   'loadPlan.gravity.unsupportedStrips': "आंशिक शेल आवरण में पट्टियाँ आयताकार बीम पैनल के विपरीत धारकों के बीच पूरे स्पैन तक होनी चाहिए।",

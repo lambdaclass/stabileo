@@ -4,7 +4,8 @@
  */
 import { tp } from '../i18n';
 import { uiStore } from './ui.svelte';
-import { applyPlateMeshesAsync, type PlateMeshPlan, type PlateMeshReport } from './physical-plates';
+import { plateRemeshMessage } from '../engine/plate-analysis-refusal';
+import { applyPlateMeshesAsync, plateEntry, type PlateMeshPlan, type PlateMeshReport } from './physical-plates';
 import { endMeshProgress, meshProgress, setMeshProgress } from './mesh-progress.svelte';
 
 export async function meshPlatesInModel(plans: readonly PlateMeshPlan[], ids: readonly number[]): Promise<PlateMeshReport | null> {
@@ -21,6 +22,7 @@ export async function meshPlatesInModel(plans: readonly PlateMeshPlan[], ids: re
   const msg = tp('plates.meshApplied', { plates: r.plates, cells: r.cells })
     + (r.refused.length ? ' ' + tp('plates.meshRefusedSome', { n: r.refused.length }) : '')
     + (r.droppedLocalLoads ? ' ' + tp('plates.localLoadsDropped', { n: r.droppedLocalLoads }) : '');
-  uiStore.toast(msg, r.refused.length ? 'error' : 'success');
+  const refusals = r.refused.map(({ id, reason }) => plateRemeshMessage(plateEntry(id)?.name ?? `#${id}`, reason)).filter(Boolean);
+  uiStore.toast([msg, ...refusals].join(' '), r.refused.length ? 'error' : 'success');
   return r;
 }

@@ -1,6 +1,8 @@
 import type { Translations } from '../types';
 
 const ar: Translations = {
+  "plates.remeshAmbiguousSweep": "القوس عند الحافة المنحنية للوحة {name} غير محدد بوضوح. تحقق من النقطة الوسطية وأي عضو منحني بين نقطتي النهاية قبل إعادة إنشاء الشبكة.",
+  "plates.remeshShellEdits": "يتعذر استبدال شبكة {name} لأن تعديلات إزاحة عناصر القشرة أو انحنائها لا يمكن نقلها بدقة.",
   'loadPlan.gravity.coveragePrecision': "تتجاوز إحداثيات تغطية القشريات دقة فواصل العناصر المدعومة.",
   'loadPlan.gravity.partitionFailed': "تعذر تقسيم المساحة المسقطة للقشريات: {detail}",
   'loadPlan.gravity.unsupportedStrips': "تتطلب التغطية الجزئية بالقشريات شرائط تمتد على كامل البحر بين الحوامل المتقابلة في لوح كمرات مستطيل.",

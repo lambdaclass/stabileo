@@ -1,4 +1,4 @@
-import { planarPointMoment, planarPointMomentWithoutProjection, planarPointProjectionTooShort } from '../engine/planar-point-load';
+import { planarNodalMoment, planarPointMoment, planarPointMomentWithoutProjection, planarPointProjectionTooShort } from '../engine/planar-point-load';
 import { hasModalSeismicDerivation } from '../engine/loads/seismic-generation';
 /**
  * Which features a saved model has, for deciding which registered result changes concern it.
@@ -18,6 +18,7 @@ import { hasModalSeismicDerivation } from '../engine/loads/seismic-generation';
  */
 import type { ArcSpec } from '../model/curved-member';
 import { plateAnalysisIssue, type PlateAnalysisModel } from '../model/physical/plate-analysis';
+import { plateSurfaceOf } from '../model/physical/plate';
 import { materialFamilyOf } from '../engine/steel/material-family';
 import { catalogueGradeFamily } from '../engine/steel/grade-family';
 import { is3DWorkspace } from '../utils/workspace';
@@ -46,12 +47,12 @@ export const FEATURE_IDS = [
   'plane2D', 'space3D', 'members', 'cableMembers', 'contactElements', 'frameMembers', 'trussMembers', 'hinges', 'arcMembers', 'shearAreas', 'thermalAtRelease',
   'steelMembers', 'steelCirsoc301', 'steelTensionWithoutConnection', 'steelDeclaredUnbracedLength', 'steelStaggeredOrUnboltedWebEnd', 'timberOrAluminiumMembers',
   'concreteMembers', 'fiberMembers', 'hognestadFiberMembers', 'cirsoc201', 'aci318', 'footings', 'jointDesigns',
-  'shells', 'plateAnalysisIssue', 'curvedShells', 'shellEdgeLoads', 'eccentricities', 'coarseShellsPro', 'unifiedPlateMeshes',
+  'shells', 'physicalPlateRemesh', 'plateAnalysisIssue', 'curvedShells', 'shellEdgeLoads', 'eccentricities', 'coarseShellsPro', 'unifiedPlateMeshes',
   'constraints', 'constraintOnSupportedNode', 'inclinedSupports', 'springs', 'multipleSupportsOnNode', 'bareRollerZ', 'bareCustom3D', 'localPlaneRoller', 'unknownSupportType', 'rollerSupports', 'namedSupportRestraintMasks', 'settlements', 'settledMaskedSupports', 'caseDisplacements',
   'connectors', 'connectorsWithShear', 'pathAnalysis',
   'stagedConstruction', 'generatedStructures', 'nodalMoments', 'trussMemberLoads', 'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'generatedLoads', 'generatedWindLoads', 'generatedSeismicLoads', 'unverifiedGeneratedSeismicLoads',
   'generatedWidthGravity', 'generatedPanelGravityShells', 'memberFloorZones', 'magnitudeCombinations',
-  'partialDistributedMemberLoads', 'distributedMemberLoads', 'spatialDistributedLoadOrientation', 'unplaceablePlanarPointLoads', 'planarStartCoupleWithoutProjection', 'legacyPlanarPointCoupleAliases', 'selfWeight', 'nonstandardPlanarSelfWeight', 'standaloneGravityToggleOff', 'nodalForces', 'forceSummaryResults',
+  'partialDistributedMemberLoads', 'distributedMemberLoads', 'spatialDistributedLoadOrientation', 'unplaceablePlanarPointLoads', 'planarStartCoupleWithoutProjection', 'legacyPlanarPointCoupleAliases', 'invalidPlanarNodalMomentAliases', 'selfWeight', 'nonstandardPlanarSelfWeight', 'standaloneGravityToggleOff', 'nodalForces', 'forceSummaryResults',
   'ssiHistory', 'movingLoads', 'combinations', 'cirsocCombinations', 'seismic', 'snow', 'wind', 'timeHistorySpec',
   'superposedCombinations', 'repeatedCombinationCases',
   ...ANALYSIS_KINDS.map((k) => `analysis:${k}` as const),
@@ -128,6 +129,7 @@ export interface FeatureSnapshot extends FeatureSnapshotFields {
 }
 
 export interface FeatureContext {
+  storedLoads?: FeatureSnapshot['loads'];
   /** The workspace the project opens in (the file's `analysisMode`). */
   analysisMode?: string;
   /** Analyses the project's results came from, as its stamp records them; null: not recorded. */
@@ -311,7 +313,18 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   const quads = values(s.quads);
   if (quads.length || values(s.plates).length || values(s.solidShells).length) f.add('shells');
   if (f.has('space3D') && (f.has('shells') || s.groups?.length)) {
-    const issue = plateAnalysisIssue(plateAnalysisModel(s));
+    const plates = plateAnalysisModel(s);
+    const editedQuads = new Set((s.quads ?? []).filter(([, shell]) => shell?.curved || shell?.offset !== undefined).map(([id]) => id));
+    const editedTriangles = new Set((s.plates ?? []).filter(([, shell]) => shell?.offset !== undefined).map(([id]) => id));
+    for (const group of plates.groups?.values() ?? []) {
+      const surface = plateSurfaceOf(group);
+      if (surface && (surface.arcMids?.length || group.members.quads?.some(id => editedQuads.has(id))
+        || group.members.plates?.some(id => editedTriangles.has(id)))) {
+        f.add('physicalPlateRemesh');
+        break;
+      }
+    }
+    const issue = plateAnalysisIssue(plates);
     if (issue && issue.kind !== 'unmeshed') f.add('plateAnalysisIssue');
   }
   if (quads.some((q) => q?.curved)) f.add('curvedShells');
@@ -380,6 +393,11 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   let memberGravity = false;
   let shellGravity = false;
   let generatedSeismic = !!loadBasis?.seismic || loadNoteKeys.has('loadPlan.derivation.seismic');
+  const storedLoads = ctx.storedLoads ?? s.loads;
+  if (Array.isArray(storedLoads) && storedLoads.some(l => l.type === 'pointOnElement' && l.data &&
+      (nonZero(l.data.mz) || planarPointMoment(l.data) === null))) {
+    f.add('legacyPlanarPointCoupleAliases');
+  }
   for (const l of Array.isArray(s.loads) ? s.loads : []) {
     const t = l.type ?? '';
     const d = l.data ?? {};
@@ -395,8 +413,9 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
         || (fixedLoadFrame && [d.qYI, d.qYJ, d.qZI, d.qZJ].some(nonZero)))) {
       f.add('spatialDistributedLoadOrientation');
     }
+    if (t === 'nodal' && planarNodalMoment(d) === null) f.add('invalidPlanarNodalMomentAliases');
     if (t === 'pointOnElement') {
-      if (nonZero(d.mz) || planarPointMoment(d) === null) f.add('legacyPlanarPointCoupleAliases');
+      if (planarPointMoment(d) === null) f.add('legacyPlanarPointCoupleAliases');
       const e = elementById.get(d.elementId as number);
       const i = e && nodeById.get(e.nodeI), j = e && nodeById.get(e.nodeJ);
       if (i && j && (i.z ?? 0) !== (j.z ?? 0) && planarPointProjectionTooShort(j.x - i.x, j.y - i.y)) {

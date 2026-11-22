@@ -161,7 +161,7 @@ export interface PlateGeometry { outer: Vec3[]; holes: Vec3[][]; frame: PlateFra
  * The points strictly between a and b on a curved side through `mid`, in order. The default draws
  * the arc in steps of 5°; the mesh asks for its own (`store/physical-plates.ts`).
  */
-export type ArcSampler = (a: { id: number; p: Vec3 }, mid: { id: number; p: Vec3 }, b: { id: number; p: Vec3 }) => Vec3[];
+export type ArcSampler = (a: { id: number; p: Vec3 }, mid: { id: number; p: Vec3 }, b: { id: number; p: Vec3 }) => Vec3[] | null;
 
 /** The circle through three points: centre, normal and the angle a→b the way through mid. Null in line. */
 export function circleThrough(a: Vec3, m: Vec3, b: Vec3): { c: Vec3; n: Vec3; r: number; sweep: number } | null {
@@ -216,6 +216,7 @@ export function plateGeometry(m: PlateModel, g: GroupLike, sampler: ArcSampler =
       const na = m.nodes.get(ia), nb = m.nodes.get(ib);
       if (!na || !nb) return null;
       const pts = sampler({ id: ia, p: v3(na) }, { id: ids[k]!, p: v3(n) }, { id: ib, p: v3(nb) });
+      if (!pts) return null;
       out.push(...(pts.length ? pts : [v3(n)]));
     }
     return out;
