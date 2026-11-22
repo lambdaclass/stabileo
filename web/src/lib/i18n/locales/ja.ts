@@ -1,6 +1,11 @@
 import type { Translations } from '../types';
 
 const ja: Translations = {
+  'svc.accountingMismatch': "解析を拒否しました。荷重ケース {case}、成分 {component}。入力値 {entered}、組立値 {assembled}。",
+  'svc.accountingUnsupported': "解析を拒否しました。荷重ケース {case} の {kind} {id} の力とモーメントを集計できません。",
+  'svc.accountingArea': "解析を拒否しました。ソルバー内のプレート {plate} の面積または境界が異なります。指定面積 {entered}、組立面積 {assembled}。",
+  'svc.accountingSweep': "解析を拒否しました。ソルバー内のプレート {plate} の円弧境界の経路が異なります。指定面積 {entered}、組立面積 {assembled}。",
+  'svc.accountingShellEdits': "プレート {plate} を再メッシュするとシェルのオフセットまたは曲率の変更が失われるため、実行できません。",
   "plates.remeshAmbiguousSweep": "{name} の曲線境界で円弧の範囲を一意に決められません。メッシュを再生成する前に、中間点と両端間の曲線部材を確認してください。",
   "plates.remeshShellEdits": "シェル要素のオフセットまたは曲率の変更を正確に引き継げないため、{name} のメッシュを置き換えられません。",
   'loadPlan.gravity.coveragePrecision': "シェルの被覆座標が部材区間で対応できる精度を超えています。",

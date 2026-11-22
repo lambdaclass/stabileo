@@ -1,3 +1,5 @@
+import { accountingCaseSources, accountingSource } from './accounting-source';
+import type { Load } from '../store/model.svelte';
 /**
  * What a member or a support does beyond the linear, stored on it and honoured by every solve.
  *
@@ -71,7 +73,12 @@ export function solvableModel<M extends ModelData>(model: M): M {
   // Variable members become chains of prismatic pieces for the solve (`variable-members.ts`).
   // Ids counted from the model given, so a reader of the results can plan the same expansion from
   // it (`variableExpansionFor`).
-  return expandVariableMembers(pruneModel(model, true), model);
+  const active = pruneModel(model, true);
+  const solved = expandVariableMembers(active, model);
+  return solved === model || solved[accountingSource] ? solved : {
+    ...solved,
+    [accountingSource]: { ...active, nodes: model.nodes },
+  };
 }
 
 function pruneModel<M extends ModelData>(model: M, dropLoose: boolean): M {
@@ -92,18 +99,23 @@ function pruneModel<M extends ModelData>(model: M, dropLoose: boolean): M {
   }
   const keepNode = (id: number) => used.has(id);
   if (inactive.size === 0 && [...model.nodes.keys()].every(keepNode)) return model;
-  const loads = model.loads.filter((l) => {
-    const d = l.data as { elementId?: number; nodeId?: number };
-    if (d.elementId !== undefined && inactive.has(d.elementId)) return false;
-    if (d.nodeId !== undefined && !keepNode(d.nodeId)) return false;
-    return true;
-  });
+  const keepLoad = (load: Load) => {
+    const { elementId, nodeId } = load.data as { elementId?: number; nodeId?: number };
+    return (elementId === undefined || !inactive.has(elementId))
+      && (nodeId === undefined || !heldByAny.has(nodeId) || keepNode(nodeId));
+  };
+  const cases = model[accountingCaseSources];
+  const keepBatches = (batches: ReadonlyMap<number, readonly Load[]>) =>
+    new Map([...batches].map(([id, loads]) => [id, loads.filter(keepLoad)]));
   return {
     ...model,
     elements,
     nodes: new Map([...model.nodes].filter(([id]) => keepNode(id))),
     supports: new Map([...model.supports].filter(([, s]) => keepNode(s.nodeId))),
-    loads,
+    loads: model.loads.filter(keepLoad),
+    ...(cases && inactive.size > 0 ? {
+      [accountingCaseSources]: { ...cases, authored: keepBatches(cases.authored), generated: keepBatches(cases.generated) },
+    } : {}),
   };
 }
 

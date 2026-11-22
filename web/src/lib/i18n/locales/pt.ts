@@ -1,5 +1,10 @@
 import type { Translations } from '../types';
 const pt: Translations = {
+  'svc.accountingMismatch': "Análise recusada. Caso de carga {case}, {component}. Valor introduzido {entered}, valor montado {assembled}.",
+  'svc.accountingUnsupported': "Análise recusada. No caso de carga {case}, não é possível contabilizar as forças e os momentos de {kind} {id}.",
+  'svc.accountingArea': "Análise recusada. A placa {plate} tem uma área ou um contorno diferente no solver. Área especificada {entered}, área montada {assembled}.",
+  'svc.accountingSweep': "Análise recusada. A placa {plate} tem outro percurso da aresta curva no solver. Área especificada {entered}, área montada {assembled}.",
+  'svc.accountingShellEdits': "A placa {plate} não pode ser remalhada porque se perderia uma excentricidade ou uma alteração de curvatura da casca.",
   'engine.memberLoad.geometryOrdering': "Ordenação geométrica inválida do membro gerado",
   'engine.memberLoad.geometryLine': "A geometria do membro gerado sai da linha de origem",
   'engine.memberLoad.invalidGeometry': "Geometria inválida do membro gerado",

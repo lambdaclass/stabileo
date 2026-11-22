@@ -1,3 +1,4 @@
+import { scenarioSurfaceAdjustment } from '../engine/accounting-source';
 /**
  * "What if…?" — the session behind the Explore panel.
  *
@@ -94,7 +95,13 @@ function scaleLoads(): void {
     if (f === 1) continue;
     // What every scaling of a load scales: a shell's values per corner and its variation too (a
     // soil or a fluid on a wall is q = 0, all of it in the variation).
-    loads[i] = scaledLoad(loads[i], f);
+    const original = loads[i]!;
+    const scaled = scaledLoad(original, f);
+    if (original.type === 'surface3d' && original.data.fromDef !== undefined && scaled.type === 'surface3d') {
+      const adjustment = scaledLoad(original, f - 1);
+      if (adjustment.type === 'surface3d') scaled.data[scenarioSurfaceAdjustment] = adjustment.data;
+    }
+    loads[i] = scaled;
   }
 }
 
