@@ -83,9 +83,8 @@ async function refusal(solve: () => unknown) {
   }
 }
 
-const issue2470QuarterTurns = process.env.RUN_KNOWN_WRONG === '2470' ? it : it.skip;
-issue2470QuarterTurns.each(['distributed', 'pointOnElement'] as const)(
-  'known wrong result: #2470 — accepts exactly axial planar %s loads',
+it.each(['distributed', 'pointOnElement'] as const)(
+  '#2470 accepts exactly axial planar %s loads',
   async type => {
     const elementId = cantilever('2d');
     const model = modelStore.model;
@@ -102,12 +101,13 @@ issue2470QuarterTurns.each(['distributed', 'pointOnElement'] as const)(
     const combinations = [{ id: 1, name: 'A only', factors: [{ caseId: 1, factor: 1 }] }];
     for (const isGlobal of [false, true]) {
       const input = withLoad(90, -2, isGlobal);
-      const expected = { reactions: [expect.objectContaining({ rx: expect.closeTo(2, 10), rz: 0, my: 0 })] };
+      const zero = expect.toSatisfy((value: unknown) => value === 0);
+      const expected = { reactions: [expect.objectContaining({ rx: expect.closeTo(2, 10), rz: zero, my: zero })] };
       expect.soft(await refusal(() => validateAndSolve2D(input)), 'linear').toMatchObject(expected);
       expect.soft(await refusal(() => validateAndSolve2DAsync(input)), 'async').toMatchObject(expected);
       expect.soft(await refusal(() => solvePDelta(buildSolverInput2D(input)!).results), 'P-Delta').toMatchObject(expected);
       for (const name of ['A', 'B']) {
-        const combined = await refusal(() => solveCombinations2D(input, [cases[0]!, { ...cases[1]!, name }], combinations));
+        const combined = solveCombinations2D(input, [cases[0]!, { ...cases[1]!, name }], combinations);
         const result = combined && typeof combined === 'object' ? combined.perCase.get(1) : combined;
         expect.soft(result, name === 'B' ? 'batch' : 'fallback').toMatchObject(expected);
       }

@@ -55,6 +55,7 @@ import { addSettlementCase, addSettlementCase2D, hasSettlement, withoutSettlemen
 import { memberAlphaOf, thermalAlphaOf, ENGINE_ALPHA } from './thermal-alpha';
 import { pointToSolver, pointToEnds, PointLoadNeedsCut, planePointLoad3D, pointWithCoupleToEnds, planarMoment3D, planarPointOrigin, requirePlanarNodalMoment, requirePlanarPointMoment, PlanarLoadMomentError, type PlanePointLoadLike } from './member-point-loads';
 import { planarPointMomentWithoutProjection, planarPointProjectionTooShort } from './planar-point-load';
+import { planarLoadDirection } from './planar-load-direction';
 import { prestressToSolver } from './prestress';
 import { hasCaseDisplacements, imposedOf, imposedUnsupported, supportsWithImposed, casesWithDisplacements } from './case-displacements';
 import { constraintsTo2D } from './constraint-2d-remap';
@@ -382,15 +383,15 @@ function convertSolverLoads2D(
         const L = Math.sqrt(edx * edx + edy * edy);
         if (L < 1e-10) continue;
         const cosTheta = edx / L, sinTheta = edy / L;
-        const angleRad = angle * Math.PI / 180;
+        const { sin, cos } = planarLoadDirection(angle);
 
         let fxGlobal: number, fyGlobal: number;
         if (isGlobal) {
-          fxGlobal = d.p * Math.sin(angleRad);
-          fyGlobal = d.p * Math.cos(angleRad);
+          fxGlobal = d.p * sin;
+          fyGlobal = d.p * cos;
         } else {
-          const fLocalPerp = sOf(d.elementId) * d.p * Math.cos(angleRad);
-          const fLocalAxial = d.p * Math.sin(angleRad);
+          const fLocalPerp = sOf(d.elementId) * d.p * cos;
+          const fLocalAxial = d.p * sin;
           fxGlobal = fLocalAxial * cosTheta + fLocalPerp * (-sinTheta);
           fyGlobal = fLocalAxial * sinTheta + fLocalPerp * cosTheta;
         }
@@ -431,26 +432,26 @@ function convertSolverLoads2D(
         const L = Math.sqrt(edx * edx + edy * edy);
         if (L < 1e-10) continue;
         const cosTheta = edx / L, sinTheta = edy / L;
-        const angleRad = angle * Math.PI / 180;
+        const { sin, cos } = planarLoadDirection(angle);
 
         let qIPerpLocal: number, qIAxialLocal: number;
         let qJPerpLocal: number, qJAxialLocal: number;
 
         if (isGlobal) {
-          const fxFactorI = d.qI * Math.sin(angleRad);
-          const fyFactorI = d.qI * Math.cos(angleRad);
-          const fxFactorJ = d.qJ * Math.sin(angleRad);
-          const fyFactorJ = d.qJ * Math.cos(angleRad);
+          const fxFactorI = d.qI * sin;
+          const fyFactorI = d.qI * cos;
+          const fxFactorJ = d.qJ * sin;
+          const fyFactorJ = d.qJ * cos;
           qIPerpLocal = fxFactorI * (-sinTheta) + fyFactorI * cosTheta;
           qIAxialLocal = fxFactorI * cosTheta + fyFactorI * sinTheta;
           qJPerpLocal = fxFactorJ * (-sinTheta) + fyFactorJ * cosTheta;
           qJAxialLocal = fxFactorJ * cosTheta + fyFactorJ * sinTheta;
         } else {
           const sd = sOf(d.elementId);
-          qIPerpLocal = sd * d.qI * Math.cos(angleRad);
-          qIAxialLocal = d.qI * Math.sin(angleRad);
-          qJPerpLocal = sd * d.qJ * Math.cos(angleRad);
-          qJAxialLocal = d.qJ * Math.sin(angleRad);
+          qIPerpLocal = sd * d.qI * cos;
+          qIAxialLocal = d.qI * sin;
+          qJPerpLocal = sd * d.qJ * cos;
+          qJAxialLocal = d.qJ * sin;
         }
 
         if (Math.abs(qIPerpLocal) > 1e-10 || Math.abs(qJPerpLocal) > 1e-10) {

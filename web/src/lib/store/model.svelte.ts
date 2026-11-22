@@ -1186,9 +1186,9 @@ function createModelStore() {
   const canonicalSupportDz = (support: Partial<Support>): number | undefined => support.dz ?? support.dy;
   const canonicalSupportDry = (support: Partial<Support>): number | undefined => support.dry ?? support.drz;
   const canonicalLoadFz = (load: Partial<NodalLoad>): number => load.fz ?? load.fy ?? 0;
-  function writePlanarMoment(data: PlanarMomentFields & { enteredZeroMoment?: unknown }, moment: number | undefined): void {
+  function writePlanarMoment(data: PlanarMomentFields, moment: number | undefined): void {
     delete data.mz;
-    delete data.enteredZeroMoment;
+    if ('enteredZeroMoment' in data) delete data.enteredZeroMoment;
     if (moment === undefined) delete data.my;
     else data.my = moment;
   }
@@ -1204,9 +1204,11 @@ function createModelStore() {
       copy.fz = canonicalLoadFz(copy);
       const moment = planarNodalMoment(copy);
       if (moment !== null) writePlanarMoment(copy, moment ?? 0);
+    } else if (copy.enteredZeroMoment === true && planarPointMoment(copy) !== null) {
+      writePlanarMoment(copy, 0);
     } else {
       const moment = planarPointMoment(copy);
-      if (moment !== null) writePlanarMoment(copy, copy.enteredZeroMoment === true ? 0 : moment);
+      if (moment !== null) writePlanarMoment(copy, moment);
     }
     return { type, data: copy };
   }

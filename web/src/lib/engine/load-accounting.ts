@@ -7,6 +7,7 @@ import type { SolverInput, SolverLoad } from './types';
 import type { SolverInput3D, SolverLoad3D } from './types-3d';
 import { computeLocalAxes3D, memberRoll, type LocalAxes3D } from './local-axes-3d';
 import { memberFrame3D } from './member-loads';
+import { planarLoadDirection } from './planar-load-direction';
 import { transverseSign } from './transverse-sign-2d';
 import { add, agrees, norm, mul, sub, unit, xyz, zero, Wrench, type Vector } from './accounting-math';
 import { accountSurface } from './surface-accounting';
@@ -54,13 +55,16 @@ function planarTangent(chord: Vector): [number, number] {
 }
 
 function directionalPlaneForce(frame: Frame, chord: Vector, magnitude: number, degrees: number, global: boolean): Vector {
-  const t = degrees * Math.PI / 180;
-  if (global) return inPlane(frame, magnitude * Math.sin(t), magnitude * Math.cos(t));
+  const radians = degrees * Math.PI / 180;
+  const { sin, cos } = frame === 'xy'
+    ? planarLoadDirection(degrees)
+    : { sin: Math.sin(radians), cos: Math.cos(radians) };
+  if (global) return inPlane(frame, magnitude * sin, magnitude * cos);
   const tangent = unit([chord[0], chord[1], 0]);
   const sign = frame === 'space' ? 1 : transverseSign(chord[0], chord[1]);
   return inPlane(frame,
-    magnitude * (Math.sin(t) * tangent[0] - sign * Math.cos(t) * tangent[1]),
-    magnitude * (Math.sin(t) * tangent[1] + sign * Math.cos(t) * tangent[0]));
+    magnitude * (sin * tangent[0] - sign * cos * tangent[1]),
+    magnitude * (sin * tangent[1] + sign * cos * tangent[0]));
 }
 
 function enteredMoment(d: PointLoadOnElement): number {
