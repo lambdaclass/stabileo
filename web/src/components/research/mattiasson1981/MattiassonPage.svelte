@@ -107,7 +107,7 @@
       </div>
       <p role="status" data-testid="mattiasson-summary">{#if busy}{s.running}{:else}{s.summary}: {passed}/{checks.length}{/if}</p>
       <p>{s.complete}: {rows.filter(r => !r.failure).length}/{cases.length} · {s.fail}: {rows.filter(r => r.pass === false).length}</p>
-      <label>{s.elements} <select aria-label={s.elements} bind:value={elements} disabled={busy} onchange={() => { playback.interact(); void run(); }}>{#each meshes as n (n)}<option value={n}>{s.meshRun.replace('{n}', String(n))}</option>{/each}</select></label>
+      <label>{s.elements} <select aria-label={s.elements} value={elements} disabled={busy} onchange={e => { elements = Number(e.currentTarget.value); playback.interact(); void run(); }}>{#each meshes as n (n)}<option value={n}>{s.meshRun.replace('{n}', String(n))}</option>{/each}</select></label>
       <button onclick={() => { playback.interact(); void run(); }} disabled={busy}>{s.run}</button>
       <button onclick={stop}>{s.stop}</button>
       <button onclick={() => { moment = false; playback.play(); }} disabled={busy || rows.length === 0}>{s.play}</button>
