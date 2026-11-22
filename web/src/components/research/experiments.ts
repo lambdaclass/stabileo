@@ -53,7 +53,7 @@ export const EXPERIMENTS: Experiment[] = [
   {
     paperId: 'mattiasson-elastica', path: '/research/benchmarks/mattiasson-elastica',
     name: 'Mattiasson: cantilever elastica',
-    hook: 'Trace the production corotational load path and inspect provisional reference comparisons, including failures.',
+    hook: 'A cantilever curls under a tip force; the production corotational solver against elliptic integrals and Mattiasson’s table.',
     thumbnail: 'research-thumbs/mattiasson-elastica.svg', thumbnailAlt: 'Geometry schematic of a cantilever under a tip load', thumbnailQuery: '',
     code: 'https://github.com/lambdaclass/stabileo/tree/main/engine/tests/benchmarks',
   },
