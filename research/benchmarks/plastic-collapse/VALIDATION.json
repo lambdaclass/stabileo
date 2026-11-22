@@ -1,0 +1,150 @@
+{
+  "what": "Production 3D plastic-collapse solver (WASM) on a fixed-base portal against independent virtual-work mechanism bounds and statics; written by wasm/check.mjs in the Research workflow.",
+  "command": "node research/benchmarks/plastic-collapse/wasm/check.mjs [--write]",
+  "checks": [
+    {
+      "metric": "our example (L = 4 m, h = 3 m, V/H = 2): |λ − 6Mp/(Hh + VL/2)| = |λ − 600/7|",
+      "observed": 1.41824330057716e-11,
+      "tolerance": 0.000001,
+      "passed": true
+    },
+    {
+      "metric": "our example: solver reports a mechanism; number of warnings",
+      "observed": 0,
+      "tolerance": 0,
+      "passed": true
+    },
+    {
+      "metric": "our example: largest |event λ − recorded native event λ| over the four hinge events",
+      "observed": 0,
+      "tolerance": 0.000001,
+      "passed": true
+    },
+    {
+      "metric": "our example: hinges at the right roof corner, midspan, right base and left base in that order; largest ||My|/Mp − 1| at a hinge",
+      "observed": 1.1102230246251565e-16,
+      "tolerance": 1e-9,
+      "passed": true
+    },
+    {
+      "metric": "our example: largest excess of |My|/Mp over 1 at any member end at collapse",
+      "observed": 0,
+      "tolerance": 1e-9,
+      "passed": true
+    },
+    {
+      "metric": "our example: largest global equilibrium residual of the summed reactions (ΣFx, ΣFz, ΣMy)",
+      "observed": 9.919176591210999e-11,
+      "tolerance": 1e-9,
+      "passed": true
+    },
+    {
+      "metric": "our example: |left roof corner moment − (3Mp − λHh)| from statics",
+      "observed": 9.957545898942044e-11,
+      "tolerance": 0.000001,
+      "passed": true
+    },
+    {
+      "metric": "WASM against the committed native replay: largest nodal ux/uz difference over every hinge event (m)",
+      "observed": 0,
+      "tolerance": 1e-9,
+      "passed": true
+    },
+    {
+      "metric": "WASM against the committed native replay: |λ difference|",
+      "observed": 0,
+      "tolerance": 0.000001,
+      "passed": true
+    },
+    {
+      "metric": "V/H = 0.5, h = 3 m (sway governs): |λ − lowest hand bound|",
+      "observed": 4.425453425938031e-8,
+      "tolerance": 0.000001,
+      "passed": true
+    },
+    {
+      "metric": "V/H = 0.5, h = 3 m (sway governs): largest equilibrium residual relative to λH, λV and λ(Hh + VL/2)",
+      "observed": 3.319090068351887e-10,
+      "tolerance": 1e-8,
+      "passed": true
+    },
+    {
+      "metric": "V/H = 0.5, h = 3 m (sway governs): page checks failing (mechanism, hinge set of the sway mechanism, yield, equilibrium)",
+      "observed": 0,
+      "tolerance": 0,
+      "passed": true
+    },
+    {
+      "metric": "V/H = 1, h = 3 m (combined governs): |λ − lowest hand bound|",
+      "observed": 1.6067119190665835e-8,
+      "tolerance": 0.000001,
+      "passed": true
+    },
+    {
+      "metric": "V/H = 1, h = 3 m (combined governs): largest equilibrium residual relative to λH, λV and λ(Hh + VL/2)",
+      "observed": 2.059431143861867e-10,
+      "tolerance": 1e-8,
+      "passed": true
+    },
+    {
+      "metric": "V/H = 1, h = 3 m (combined governs): page checks failing (mechanism, hinge set of the combined mechanism, yield, equilibrium, corner)",
+      "observed": 0,
+      "tolerance": 0,
+      "passed": true
+    },
+    {
+      "metric": "V/H = 4, h = 3 m (beam governs): |λ − lowest hand bound|",
+      "observed": 3.552713678800501e-14,
+      "tolerance": 0.000001,
+      "passed": true
+    },
+    {
+      "metric": "V/H = 4, h = 3 m (beam governs): largest equilibrium residual relative to λH, λV and λ(Hh + VL/2)",
+      "observed": 5.221068022365212e-13,
+      "tolerance": 1e-8,
+      "passed": true
+    },
+    {
+      "metric": "V/H = 4, h = 3 m (beam governs): page checks failing (mechanism, hinge set of the beam mechanism, yield, equilibrium)",
+      "observed": 0,
+      "tolerance": 0,
+      "passed": true
+    },
+    {
+      "metric": "V/H = 2, h = 2.5 m (combined governs): |λ − lowest hand bound|",
+      "observed": 2.842170943040401e-14,
+      "tolerance": 0.000001,
+      "passed": true
+    },
+    {
+      "metric": "V/H = 2, h = 2.5 m (combined governs): largest equilibrium residual relative to λH, λV and λ(Hh + VL/2)",
+      "observed": 1.3855583347321958e-15,
+      "tolerance": 1e-8,
+      "passed": true
+    },
+    {
+      "metric": "V/H = 2, h = 2.5 m (combined governs): page checks failing (mechanism, hinge set of the combined mechanism, yield, equilibrium, corner)",
+      "observed": 0,
+      "tolerance": 0,
+      "passed": true
+    },
+    {
+      "metric": "V/H = 2, h = 5 m (combined governs): |λ − lowest hand bound|",
+      "observed": 2.007993771258043e-11,
+      "tolerance": 0.000001,
+      "passed": true
+    },
+    {
+      "metric": "V/H = 2, h = 5 m (combined governs): largest equilibrium residual relative to λH, λV and λ(Hh + VL/2)",
+      "observed": 5.42286215931945e-13,
+      "tolerance": 1e-8,
+      "passed": true
+    },
+    {
+      "metric": "V/H = 2, h = 5 m (combined governs): page checks failing (mechanism, hinge set of the combined mechanism, yield, equilibrium, corner)",
+      "observed": 0,
+      "tolerance": 0,
+      "passed": true
+    }
+  ]
+}

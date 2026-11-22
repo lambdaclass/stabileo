@@ -1,0 +1,53 @@
+{
+  "checks": [
+    {
+      "computed": 2.4313556768341824,
+      "id": "lambda-numerical",
+      "metric": "absolute difference",
+      "name": "Critical load factor lambda_1, the paper's numerical value",
+      "observed": 0.000055676834182616375,
+      "passed": true,
+      "reference": 2.4313,
+      "source": "Ferrari and Sigmund (2025), Section 2.1.2, printed page 5",
+      "tolerance": 0.0001,
+      "unit": ""
+    },
+    {
+      "computed": 2.4313036248677338,
+      "id": "lambda-closed",
+      "metric": "relative difference",
+      "name": "Critical load factor lambda_1, closed form",
+      "observed": 0.0005364711389850248,
+      "passed": true,
+      "reference": 2.43,
+      "source": "Ferrari and Sigmund (2025), Section 2.1.2, printed page 4",
+      "tolerance": 0.001,
+      "unit": ""
+    },
+    {
+      "computed": 0.38031953775662936,
+      "id": "alpha-closed",
+      "metric": "relative difference",
+      "name": "Post-buckling slope alpha, closed form",
+      "observed": 0.00047427659230131226,
+      "passed": true,
+      "reference": 0.3805,
+      "source": "Ferrari and Sigmund (2025), Section 2.1.2, printed page 4",
+      "tolerance": 0.004,
+      "unit": ""
+    },
+    {
+      "computed": 0.463200045507602,
+      "id": "beta-closed",
+      "metric": "relative difference",
+      "name": "Post-buckling curvature beta, closed form",
+      "observed": 2.259676604557368,
+      "passed": false,
+      "reference": 0.1421,
+      "source": "Ferrari and Sigmund (2025), Section 2.1.2, printed page 4",
+      "tolerance": 0.011,
+      "unit": ""
+    }
+  ],
+  "scope": "lambda_1 from production linear buckling of the paper's model; alpha and beta from the bifurcated branch of the inextensional idealization, traced with the production corotational solver, in the corner rotation theta."
+}

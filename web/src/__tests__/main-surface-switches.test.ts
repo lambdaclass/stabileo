@@ -72,7 +72,7 @@ it.each(Array.from({ length: 8 }, (_, mask) => mask))('known wrong result: #1950
   const expected = [...main.routes.filter(path => !flags.tools || !path.startsWith('/examples')), ...(flags.tools ? [...models, '/tools/mohr-2d', '/tools/mohr-3d'] : []), ...(flags.diagramGame ? ['/diagram-game'] : [])].sort();
   expect(paths.sort()).toEqual(expected);
   for (const path of main.research) {
-    expect(writtenIn(path).includes('hu'), path).toBe(flags.research && PUBLIC_LOCALES.includes('hu') && path !== '/research/benchmarks/shell-obstacle-course');
+    expect(writtenIn(path).includes('hu'), path).toBe(flags.research && PUBLIC_LOCALES.includes('hu'));
     expect(publishedLocales(path, flags)).toEqual(writtenIn(path));
   }
   const { movedPages } = await import('../lib/legacy-routes');

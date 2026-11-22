@@ -1,0 +1,9 @@
+{
+  "what": "Reference values used by the page, written from the engine-owned case file; not transcribed paper data.",
+  "source": "engine/tests/benchmarks/shell_obstacle_course.json; ../README.md",
+  "command": "node research/benchmarks/shell-obstacle-course/wasm/check.mjs <native results directory> --write",
+  "date": "2026-11-22",
+  "files_sha256": {
+    "references.json": "2b94770db7878259ea716043e4fb1ab166760cc2f328bb281d93a6117e03fa4e"
+  }
+}

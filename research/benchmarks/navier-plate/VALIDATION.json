@@ -1,0 +1,120 @@
+{
+  "what": "Production WASM engine on the Navier plate: native parity, equilibrium, series references and convergence, written by this script.",
+  "command": "node research/benchmarks/navier-plate/wasm/check.mjs",
+  "checks": [
+    {
+      "metric": "plate builder (TypeScript) against the six engine-owned fixture cases: cases that differ",
+      "observed": 0,
+      "tolerance": 0,
+      "passed": true
+    },
+    {
+      "metric": "production WASM against the native replay, every node of the six soft-support and three hard-support meshes: largest difference (mm)",
+      "observed": 0,
+      "tolerance": 1e-9,
+      "passed": true
+    },
+    {
+      "metric": "vertical equilibrium, reactions against the 150 kN load, every mesh: largest difference (kN)",
+      "observed": 8.137135409924667e-11,
+      "tolerance": 0.000001,
+      "passed": true
+    },
+    {
+      "metric": "thin-plate series, 100 × 100 odd terms, against the stored reference (mm)",
+      "observed": 3.3306690738754696e-15,
+      "tolerance": 1e-12,
+      "passed": true
+    },
+    {
+      "metric": "thin-plate series truncation, 400 × 400 against 100 × 100 odd terms (mm)",
+      "observed": 2.6318724977159036e-11,
+      "tolerance": 1e-9,
+      "passed": true
+    },
+    {
+      "metric": "Reissner–Mindlin series, 1000 × 1000 odd terms, against the stored reference (mm)",
+      "observed": 3.7991831902672857e-13,
+      "tolerance": 1e-11,
+      "passed": true
+    },
+    {
+      "metric": "Reissner–Mindlin series truncation, 2000 × 2000 against 1000 × 1000 odd terms (mm)",
+      "observed": 7.167599846980011e-13,
+      "tolerance": 1e-9,
+      "passed": true
+    },
+    {
+      "metric": "published 1.28375 mm against the thin-plate series (mm)",
+      "observed": 0.0000018857703654173719,
+      "tolerance": 0.000005,
+      "passed": true
+    },
+    {
+      "metric": "DKT 4, 8, 16: refinements whose thin-plate error does not decrease",
+      "observed": 0,
+      "tolerance": 0,
+      "passed": true
+    },
+    {
+      "metric": "DKT 16 × 16 against the thin-plate series: relative difference",
+      "observed": 0.0022018496629908624,
+      "tolerance": 0.0025,
+      "passed": true
+    },
+    {
+      "metric": "DKT increment ratio (4 → 8) / (8 → 16): distance from 4 (second order)",
+      "observed": 0.04162156613063761,
+      "tolerance": 0.5,
+      "passed": true
+    },
+    {
+      "metric": "DKT Richardson extrapolation of 16 × 16 and 32 × 32 against the thin-plate series: relative difference",
+      "observed": 8.180138491020728e-7,
+      "tolerance": 0.0001,
+      "passed": true
+    },
+    {
+      "metric": "MITC4 hard support 4, 8, 16: refinements whose Reissner–Mindlin error does not decrease",
+      "observed": 0,
+      "tolerance": 0,
+      "passed": true
+    },
+    {
+      "metric": "MITC4 hard support 16 × 16 against the Reissner–Mindlin series: relative difference",
+      "observed": 0.0014231150284841343,
+      "tolerance": 0.0016,
+      "passed": true
+    },
+    {
+      "metric": "MITC4 hard support increment ratio (8 → 16) / (16 → 32): distance from 4 (second order)",
+      "observed": 0.07781537934295013,
+      "tolerance": 0.5,
+      "passed": true
+    },
+    {
+      "metric": "MITC4 hard support Richardson extrapolation of 16 × 16 and 32 × 32 against the Reissner–Mindlin series: relative difference",
+      "observed": 0.0000014744418193046727,
+      "tolerance": 0.0001,
+      "passed": true
+    },
+    {
+      "metric": "MITC4 soft support 32 × 32 against the documented 1.305399383 mm: relative difference",
+      "observed": 3.5408831422500953e-10,
+      "tolerance": 0.000001,
+      "passed": true
+    },
+    {
+      "metric": "MITC4 soft support 64 × 64 against the documented 1.310611471 mm: relative difference",
+      "observed": 2.1172019692983213e-10,
+      "tolerance": 0.000001,
+      "passed": true
+    },
+    {
+      "metric": "MITC4 soft support 8, 16, 32, 64 keeps rising and ends above 1.015 × Reissner–Mindlin: violations",
+      "observed": 0,
+      "tolerance": 0,
+      "passed": true
+    }
+  ]
+}

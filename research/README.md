@@ -25,7 +25,7 @@ The plan every page and contribution follows is [DESIGN.md](DESIGN.md).
 | `fracture/shauer-2025/` | Phase-field fracture (AT2), after Shauer (2025), reference code and Rust implementation |
 | `optimization/andreassen-2011/` | MBB topology optimization, unmodified Octave reference capture and Rust SIMP/OC implementation |
 | `metamaterials/grossman-2026/` | Spring networks after Grossman & Boudaoud (2026): moduli, auxetic foam, honeycomb, against the paper's published values |
-| `stability/ferrari-sigmund-2025/` | Roorda-frame buckling and energy derivatives; Koiter reproduction in progress |
+| `stability/ferrari-sigmund-2025/` | Roorda frame: production buckling and the post-buckling slope α against the paper; β does not agree |
 | `form-finding/pastrana-2026/` | Four-cable forward FDM, pinned jax_fdm comparison and production truss check |
 | `mechanics/biggins-2026/` | Centered curvature-patterned shallow arches, using production frame buckling modes |
 | `optimisation/fairclough-2026/` | One five-node self-weight gridshell from Table 1, externally executed reference and isolated Rust/Clarabel implementation |

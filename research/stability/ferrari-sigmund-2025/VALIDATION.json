@@ -1,55 +1,169 @@
 {
-  "scope": "Buckling and element energy derivatives only. Koiter coefficients and path agreement are not validated.",
   "checks": [
     {
+      "metric": "max abs(AD-central difference)/(1+abs(AD)), best of three step sizes",
       "name": "All order-1 element energy partials at three states",
-      "category": "independent",
-      "metric": "max abs(AD-central difference)/(1+abs(AD)), best of three step sizes",
-      "observed": 1.3291020555770811e-08,
-      "tolerance": 2e-05,
-      "passed": true
+      "observed": 1.3291020555770811e-8,
+      "passed": true,
+      "tolerance": 0.00002
     },
     {
+      "metric": "max abs(AD-central difference)/(1+abs(AD)), best of three step sizes",
       "name": "All order-2 element energy partials at three states",
-      "category": "independent",
-      "metric": "max abs(AD-central difference)/(1+abs(AD)), best of three step sizes",
-      "observed": 3.079674413012809e-08,
-      "tolerance": 2e-05,
-      "passed": true
+      "observed": 3.079674413012809e-8,
+      "passed": true,
+      "tolerance": 0.00002
     },
     {
+      "metric": "max abs(AD-central difference)/(1+abs(AD)), best of three step sizes",
       "name": "All order-3 element energy partials at three states",
-      "category": "independent",
-      "metric": "max abs(AD-central difference)/(1+abs(AD)), best of three step sizes",
-      "observed": 8.218832109566513e-09,
-      "tolerance": 2e-05,
-      "passed": true
+      "observed": 8.218832109566513e-9,
+      "passed": true,
+      "tolerance": 0.00002
     },
     {
+      "metric": "max abs(AD-central difference)/(1+abs(AD)), best of three step sizes",
       "name": "All order-4 element energy partials at three states",
-      "category": "independent",
-      "metric": "max abs(AD-central difference)/(1+abs(AD)), best of three step sizes",
-      "observed": 1.3742303848066058e-08,
-      "tolerance": 2e-05,
-      "passed": true
+      "observed": 1.3742303848066058e-8,
+      "passed": true,
+      "tolerance": 0.00002
     },
     {
-      "name": "Production LBA versus published numerical lambda",
-      "category": "paper",
-      "source": "https://doi.org/10.1002/nme.70082; Section 2.1.2, printed page 5",
-      "metric": "absolute load factor error",
-      "observed": 5.567683429363868e-05,
-      "tolerance": 0.0001,
-      "passed": true
+      "metric": "absolute load factor difference",
+      "name": "Production LBA, 10 elements per member, versus the published numerical lambda_1",
+      "observed": 0.000055676834182616375,
+      "passed": true,
+      "tolerance": 0.0001
     },
     {
-      "name": "Production LBA versus reported closed-form lambda",
-      "category": "paper",
-      "source": "https://doi.org/10.1002/nme.70082; Section 2.1.2, printed page 4",
-      "metric": "relative load factor error",
-      "observed": 0.0005364711472699385,
-      "tolerance": 0.001,
-      "passed": true
+      "metric": "relative load factor difference",
+      "name": "Production LBA, 40 elements per member, versus the closed-form lambda_1",
+      "observed": 0.0005364711389850248,
+      "passed": true,
+      "tolerance": 0.001
+    },
+    {
+      "metric": "relative load factor difference",
+      "name": "Corotational bifurcation load, inextensional, 40 elements per member, versus the closed-form lambda_1",
+      "observed": 0.0006185694103934252,
+      "passed": true,
+      "tolerance": 0.001
+    },
+    {
+      "metric": "relative difference",
+      "name": "Corotational alpha, inextensional, 40 elements per member, versus the closed form",
+      "observed": 0.00047427659230131226,
+      "passed": true,
+      "tolerance": 0.004
+    },
+    {
+      "metric": "relative difference",
+      "name": "alpha: mesh error of 40 elements per member (Richardson estimate from 20 and 40)",
+      "observed": 0.0005358484817617357,
+      "passed": true,
+      "tolerance": 0.001
+    },
+    {
+      "metric": "relative difference",
+      "name": "alpha: independent of the extraction step (theta step 0.02 against 0.01)",
+      "observed": 7.845211001447485e-6,
+      "passed": true,
+      "tolerance": 0.0001
+    },
+    {
+      "metric": "relative difference",
+      "name": "alpha: inextensional (area x1000 against x100)",
+      "observed": 0.00016309191025632548,
+      "passed": true,
+      "tolerance": 0.001
+    },
+    {
+      "metric": "max abs difference/(1+abs(value)) over every saved number",
+      "name": "Every replay frame reproduced by the production arc-length solver",
+      "observed": 3.235523009522184e-14,
+      "passed": true,
+      "tolerance": 1e-9
     }
-  ]
+  ],
+  "scope": "Production linear buckling, the production-style element energy derivatives, the slope alpha of the bifurcated branch traced with the production corotational solver in the inextensional idealization, and the replay. The curvature beta is not validated: see published_comparison.json and the README.",
+  "study": {
+    "area_x100": {
+      "alpha": 0.3803815647965499,
+      "beta": 0.46429545356874563,
+      "elements_per_member": 40
+    },
+    "corotational": [
+      {
+        "alpha": 0.3772747810457403,
+        "alpha_modal": 0.37866404233526213,
+        "beta": 0.45362109942478984,
+        "beta_modal": 0.35265868505277137,
+        "elements_per_member": 10,
+        "lambda_1": 2.4528756419722644,
+        "theta_step": 0.02
+      },
+      {
+        "alpha": 0.3797081568159557,
+        "alpha_modal": 0.38005381434111885,
+        "beta": 0.4612454836464015,
+        "beta_modal": 0.3562507520243201,
+        "elements_per_member": 20,
+        "lambda_1": 2.4357819450055067,
+        "theta_step": 0.02
+      },
+      {
+        "alpha": 0.38031953775662936,
+        "alpha_modal": 0.380403353115552,
+        "beta": 0.463200045507602,
+        "beta_modal": 0.3574305770728439,
+        "elements_per_member": 40,
+        "lambda_1": 2.431503123667256,
+        "theta_step": 0.02
+      }
+    ],
+    "inextensional_area_m2": 10.0,
+    "lba_load_factor": {
+      "elements_per_member": [
+        4,
+        10,
+        20,
+        40
+      ],
+      "values": [
+        2.4332361163113125,
+        2.4313556768341824,
+        2.4313067101490433,
+        2.4313036248677338
+      ]
+    },
+    "orientation": "theta is the production corner rotation ry with its sign reversed, so that the load rises on the positive branch, as the paper's positive alpha does",
+    "paper_area_not_a_bifurcation": [
+      {
+        "alpha": 0.43304656202320174,
+        "area_m2": 0.01,
+        "beta": 10.727685724588945,
+        "elements_per_member": 40,
+        "theta_step": 0.02
+      },
+      {
+        "alpha": 1.0177137353863408,
+        "area_m2": 0.01,
+        "beta": 135.7460733273582,
+        "elements_per_member": 40,
+        "theta_step": 0.01
+      }
+    ],
+    "richardson": {
+      "alpha": 0.38052333140352057,
+      "beta": 0.4638515661280022,
+      "beta_modal": 0.3578238520890185,
+      "lambda_1": 2.4300768498878393
+    },
+    "theta_step_0_01": {
+      "alpha": 0.38032252144365103,
+      "beta": 0.46336891277667513,
+      "elements_per_member": 40
+    }
+  },
+  "test": "tests/validation.rs"
 }

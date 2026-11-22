@@ -1,9 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { cases, solverInput, mesh, navierCenter, mindlinCenter, parameters, difference, convergence, reduction, hardCases, hardSupports, runState, type Row } from '../model';
+import { cases, solverInput, mesh, navierCenter, mindlinCenter, parameters, difference, convergence, reduction, hardCases, hardSupports, runState, build, seriesFor, validPlate, rigidity, PAPER_PLATE, type Row } from '../model';
 import { strings, navierLocale } from '../strings';
 import { PUBLIC_LOCALES } from '../../../../lib/i18n/offered';
 import { solve3D, input3DToWireObject } from '../../../../lib/engine/wasm-solver';
 import replay from '../../../../../../research/benchmarks/navier-plate/results/stabileo_results.json';
+import published from '../../../../../../research/benchmarks/navier-plate/reference-results/published_comparison.json';
+import validation from '../../../../../../research/benchmarks/navier-plate/VALIDATION.json';
 
 const { a, b, e, nu, thickness, pressure } = parameters;
 const near = (x: number, y: number) => Math.abs(x - y) < 1e-9;
@@ -80,6 +82,38 @@ describe.each(cases.map((c, i) => [c.family, c.n, i] as const))('%s %s', (family
   });
 });
 
+describe('plate builder', () => {
+  it.each(cases.map((c, i) => [c.family, c.n, i] as const))('reproduces the engine-owned %s %s fixture exactly', (family, n, index) => {
+    const built = build(family, n, false);
+    expect(built.center).toBe(cases[index].center);
+    expect(JSON.stringify(built.input)).toBe(JSON.stringify(cases[index].input));
+  });
+  it('builds hard support as the fixture with the edge rotations restrained', () => {
+    for (const index of hardCases) {
+      const { family, n, input } = cases[index];
+      expect(build(family, n, true).input.supports).toEqual(hardSupports(input.supports, input.nodes));
+    }
+  });
+  it('scales the series with thickness and refuses plates outside the controls', () => {
+    expect(rigidity()).toBeCloseTo(5468.75, 9);
+    expect(seriesFor(PAPER_PLATE)).toBeNull();
+    expect(seriesFor({ ...PAPER_PLATE, family: 'DKT' })).toEqual({ kind: 'kirchhoff', mm: parameters.reference_mm });
+    expect(seriesFor({ ...PAPER_PLATE, hard: true })).toEqual({ kind: 'mindlin', mm: parameters.mindlin_reference_mm });
+    expect(seriesFor({ ...PAPER_PLATE, family: 'DKT', thickness: 0.2 })!.mm).toBeCloseTo(parameters.reference_mm / 8, 12);
+    expect(Math.abs(seriesFor({ ...PAPER_PLATE, hard: true, thickness: 0.1 + 1e-12 })!.mm - parameters.mindlin_reference_mm)).toBeLessThan(1e-6);
+    expect(validPlate({ ...PAPER_PLATE, n: 3 })).toBe(false);
+    expect(validPlate({ ...PAPER_PLATE, n: 34 })).toBe(false);
+    expect(validPlate({ ...PAPER_PLATE, thickness: 0.6 })).toBe(false);
+    expect(validPlate({ ...PAPER_PLATE, thickness: Number.NaN })).toBe(false);
+    expect(validPlate({ ...PAPER_PLATE, n: 2 })).toBe(true);
+  });
+  it('solves a built plate in production WASM with the load balanced by the reactions', () => {
+    const { input } = build('MITC4', 6, true, 0.2);
+    const result = solve3D({ nodes: new Map(Object.entries(input.nodes).map(([k, v]) => [Number(k), v])), materials: new Map([[1, input.materials[1]]]), sections: new Map(), elements: new Map(), supports: new Map(Object.entries(input.supports).map(([k, v]) => [Number(k), v])), loads: input.loads, plates: new Map(), quads: new Map(Object.entries(input.quads).map(([k, v]) => [Number(k), v])) });
+    expect(result.reactions.reduce((sum, r) => sum + r.fz, 0)).toBeCloseTo(150, 6);
+  });
+});
+
 describe('hard simple support', () => {
   it('also restrains the rotation along each edge and nothing else', () => {
     const wire = cases[hardCases[0]].input;
@@ -133,6 +167,16 @@ describe('displayed convergence numbers', () => {
   });
 });
 
+describe('evidence shown on the page', () => {
+  it('names every published row in every locale and keeps all checks passing', () => {
+    for (const s of Object.values(strings)) expect(Object.keys(s.names)).toEqual(published.checks.map(r => r.id));
+    expect(published.checks.every(r => r.passed && r.observed <= r.tolerance)).toBe(true);
+    expect(validation.checks.every(c => c.passed && c.observed <= c.tolerance)).toBe(true);
+    const dkt16 = published.checks.find(r => r.id === 'dkt-16')!;
+    expect(dkt16.computed).toBe(replay.rows.find(r => r.family === 'DKT' && r.n === 16)!.center_mm);
+  });
+});
+
 describe('run state', () => {
   it('distinguishes replay, running, complete, partial, cancelled and failed runs', () => {
     expect(runState('replay', false, false, 6)).toBe('replay');
@@ -153,6 +197,9 @@ describe('locales', () => {
       expect(Object.keys(s)).toEqual(Object.keys(strings.en));
       expect(Object.keys(s.errors)).toEqual(Object.keys(strings.en.errors));
       expect(s.limitations).toHaveLength(4);
+      expect(Object.keys(s.names)).toEqual(['rigidity', 'series', 'dkt-16', 'dkt-richardson']);
+      for (const key of ['{family}', '{n}', '{support}', '{t}']) expect(s.plateLabel).toContain(key);
+      for (const key of ['{passed}', '{total}']) expect(s.checksText).toContain(key);
       expect(Object.values(s).every(value => value && (typeof value !== 'string' || value.length > 0))).toBe(true);
       expect(s.partial).toContain('{k}');
       expect(s.partial).toContain('{n}');

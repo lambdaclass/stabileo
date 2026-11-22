@@ -16,18 +16,18 @@ const PUBLISHED: Record<string, readonly string[]> = {
   '/research/optimisation/fairclough-2026': ALL,
   '/research/stability/feher-sipos-varkonyi-2026': BASE,
   '/research/mechanics/heyman-1966': ALL,
-  '/research/stability/ferrari-sigmund-2025': BASE,
+  '/research/stability/ferrari-sigmund-2025': ALL,
   '/research/metamaterials/grossman-2026': ALL,
   '/research/benchmarks/lee-frame-1968': ALL,
   '/research/benchmarks/macneal-harder-1985': ALL,
   '/research/benchmarks/mattiasson-elastica': ALL,
   '/research/benchmarks/navier-plate': ALL,
-  '/research/benchmarks/newmark-1959': BASE,
+  '/research/benchmarks/newmark-1959': ALL,
   '/research/form-finding/pastrana-2026': BASE,
   '/research/benchmarks/plastic-collapse': ALL,
   '/research/benchmarks/riks-crisfield': ALL,
   '/research/fracture/shauer-2025': ALL,
-  '/research/benchmarks/shell-obstacle-course': ['en'],
+  '/research/benchmarks/shell-obstacle-course': ALL,
 };
 
 /** The languages a research route is published in: the sitemap, the prerender and the hreflang set all read this. */

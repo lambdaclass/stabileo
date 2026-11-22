@@ -1,0 +1,8 @@
+{
+  "what": "Closed-form reference for the shared SDOF case: exact period, the average-acceleration discrete period T_n = pi dt / atan(omega dt / 2) and the phase-lag bound for each time step. Independent of engine code; not transcribed paper data.",
+  "source": "../reference.py (reads engine/tests/benchmarks/newmark_1959.json)",
+  "command": "python3 -I research/benchmarks/newmark-1959/reference.py --write",
+  "files_sha256": {
+    "closed-form.json": "43a3f2a0f39a2fd3a8517c9083e510e28158dfd7f5f477fba1ff4ece29ae496e"
+  }
+}

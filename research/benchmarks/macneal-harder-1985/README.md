@@ -8,48 +8,89 @@ from one case file, `engine/tests/benchmarks/macneal_harder.json`, which the nat
   meshes, loaded out of plane and in plane. The two distorted in-plane cases are withheld by the
   engine (known issue #798, SH-MITC4-DISTORTION): they have no computed value or error, stay in
   the denominator and are not accuracy passes.
-  References 0.4321 and 0.1081 are the theoretical tip displacements in the load direction of
-  Table 3, p. 10, according to a public transcription of the paper. Timoshenko beam theory with
-  shear factor 5/6 gives 0.4320936 and 0.1080936 from the case inputs, the printed values to
-  four digits (`macneal_harder::shell_references_match_timoshenko_beam_theory`).
 - **Frame adaptations (analytical reference), 6/6 within 2%.** Euler–Bernoulli cantilevers,
   PL³/(3EI), ML²/(2EI), ML/(EI); not problems from the paper.
 
-## Evidence
+## Published values
 
-| Case | Reference | Computed (native = WASM) | Error | Verdict |
+We read the article in a scanned copy (Finite Elements in Analysis and Design 1 (1985) 3–20);
+the publisher's online version was not inspected.
+
+- Fig. 4, p. 7: length 6.0, width 0.2, depth 0.1, E = 1.0 × 10⁷, ν = 0.30, mesh 6 × 1, unit
+  forces at the free end. Trapezoidal and parallelogram elements are skewed by 45°.
+- Table 3, p. 10: theoretical tip displacement in the direction of the load, straight beam:
+  in-plane shear **0.1081**, out-of-plane shear **0.4321**.
+- Table 5(a), p. 11, Scordelis–Lo roof: 0.3086 is quoted from Scordelis and Lo; the paper uses
+  **0.3024** for normalization because many elements converge slightly below 0.3086. We compare
+  with 0.3024, the value the paper normalizes by.
+- Table 5(b), p. 11: spherical shell normalization value 0.0940 (not compared: the shell obstacle
+  course hemisphere uses a different load convention and is withheld by the engine, #798).
+- p. 14: grade A means an error of at most 2%, grade B between 2% and 10%.
+
+Timoshenko beam theory with shear factor 5/6 gives 0.4320936 and 0.1080936 from the case inputs,
+the printed values to four digits (`macneal_harder::shell_references_match_timoshenko_beam_theory`
+and `wasm/check.mjs`).
+
+## The paper against Stabileo
+
+Written by `wasm/check.mjs` to `reference-results/published_comparison.json`; the page shows these
+rows. Tolerance: relative error 2%, the paper's own grade A (p. 14).
+
+| Row | Paper | Stabileo | Difference | Verdict |
 |---|---:|---:|---:|---|
-| MITC4 · regular · out-of-plane | 0.4321 | 0.4234856 | 1.99% | pass, marginal |
-| MITC4 · regular · in-plane | 0.1081 | 0.1070722 | 0.95% | pass |
-| MITC4 · trapezoidal · out-of-plane | 0.4321 | 0.4162054 | 3.68% | documented failure (#798) |
-| MITC4 · trapezoidal · in-plane | 0.1081 | — | — | withheld by the engine (known issue #798, SH-MITC4-DISTORTION) |
-| MITC4 · parallelogram · out-of-plane | 0.4321 | 0.4225724 | 2.20% | documented failure (#798) |
-| MITC4 · parallelogram · in-plane | 0.1081 | — | — | withheld by the engine (known issue #798, SH-MITC4-DISTORTION) |
-| Frame · tip force · 1, 2, 4, 8 elements · uz | −0.0036 m | −0.0036 m | < 1e-10 | pass |
-| Frame · tip moment · 4 elements · uz | 0.009 m | 0.009 m | < 1e-10 | pass |
-| Frame · tip moment · 4 elements · ry | 0.003 rad | 0.003 rad | < 1e-10 | pass |
+| Straight cantilever, regular, out-of-plane | 0.4321 | 0.4234856 | 1.99% | pass (marginal: the verdict changes inside the printed rounding) |
+| Straight cantilever, regular, in-plane | 0.1081 | 0.1070722 | 0.95% | pass |
+| Straight cantilever, trapezoidal, out-of-plane | 0.4321 | 0.4162054 | 3.68% | **fail** (grade B; #798) |
+| Straight cantilever, parallelogram, out-of-plane | 0.4321 | 0.4225724 | 2.20% | **fail** (grade B; #798) |
+| Scordelis–Lo roof, 16×16 quarter, midside deflection | 0.3024 | 0.3024255 | 0.0084% | pass |
+
+The trapezoidal and parallelogram in-plane cases (Table 3: 0.1081) are withheld by the engine and
+have no row: there is no computed value to compare. Because two published values are missed and two
+are withheld, `reproduced_published_results` stays `false` and the catalogue status is
+`numerically-validated`, not `published-figures-compared`. The roof input is the engine-owned
+`shell_obstacle_course.json` case `roof-16` (the paper's Fig. 8 with a 16 × 16 quarter mesh);
+its page is the shell obstacle course.
+
+## Validation (VALIDATION.json)
+
+`wasm/check.mjs <native results>` runs the page's case module through the production WASM wrapper,
+compares it with the fresh native results, and writes `VALIDATION.json`,
+`reference-results/published_comparison.json` and `reference-results/MANIFEST.json` with `--write`.
+Without `--write` it recomputes and fails if the committed files differ (1e-9 relative) or if any
+check fails. Checks, all passing:
+
+- the eight expected passes (two regular shell cases, six frames) within 2% of their reference;
+- Timoshenko beam theory against Table 3 within half a unit of the last printed digit (5e-5);
+- the two distorted out-of-plane values pinned to their recorded native values (1e-8 relative):
+  a regression bound for a documented failure, not an accuracy claim;
+- the two distorted in-plane cases withheld by both native and WASM with #798;
+- WASM against native values for every computed case (1e-8 relative);
+- the roof against Table 5(a) within 2%.
 
 - References and results are signed, in global axes; a reversed response fails.
-- The 2% limit is a project choice, not the paper's. A shell reference printed to four digits is
-  uncertain by ±5e-5; a verdict that would change within that interval is reported as marginal.
-- A refusal is not an accuracy pass. The two withheld cases keep their inputs and references in
-  the case file and carry `expectedRefusal` (#798, SH-MITC4-DISTORTION) instead of a pinned value.
-- `shells macneal_harder::browser_cases` pins every computed case's outcome (`expectedPass`),
-  bounds the regular cases at 2%, pins the two distorted out-of-plane values to 1e-8 and requires
-  the two distorted in-plane cases to refuse with #798 and SH-MITC4-DISTORTION; `wasm/check.mjs`
-  requires WASM to match native values, signs and verdicts, and requires native and WASM both to
-  refuse those two cases with the same issue and diagnostic, no value and no pass. An unexpected
-  error, or a solve that returns a value for a withheld case, fails verification. The Research
-  workflow runs both on engine changes.
+- A shell reference printed to four digits is uncertain by ±5e-5; a verdict that would change within
+  that interval is reported as marginal.
+- A refusal is not an accuracy pass. The two withheld cases keep their inputs and references in the
+  case file and carry `expectedRefusal` (#798, SH-MITC4-DISTORTION) instead of a pinned value.
 - Web unit tests: `web/src/components/research/macneal1985/__tests__/cases.test.ts`. Browser:
   `web/e2e/research-benchmarks.spec.ts`, including phone and tablet sizes.
+
+## Element skew on the page
+
+The paper's case (45° skew) loads first. For the trapezoidal and parallelogram cases a slider sets
+the skew from 0° (the regular mesh) to 45°; each change rebuilds the six-element strip with interior
+stations shifted by ±0.1·tan θ at the two edges and reruns the production engine. The variant is
+compared with the same Table 3 reference. Unit tests check that 45° rebuilds the case file's meshes
+exactly and that 0° gives the regular mesh.
 
 ## Reproduce
 
 ```sh
-MACNEAL_HARDER_RESULTS=/tmp/macneal-native.json nix develop -c cargo test --locked --manifest-path engine/Cargo.toml --test shells macneal_harder
-nix develop -c node research/benchmarks/macneal-harder-1985/wasm/check.mjs /tmp/macneal-native.json
+MACNEAL_HARDER_RESULTS=/tmp/macneal-native.json cargo test --locked --manifest-path engine/Cargo.toml --test shells macneal_harder::browser_cases
+node research/benchmarks/macneal-harder-1985/wasm/check.mjs /tmp/macneal-native.json
 ```
+
+Inside Nix, prefix both with `nix develop -c`; the engine WASM comes from `make wasm`.
 
 ## Reviews
 
@@ -60,6 +101,6 @@ keyboard navigation, the reference provenance, and phone/tablet layout.
 
 ## Open questions
 
-- Confirm the Table 3 (p. 10) transcription of 0.4321 and 0.1081 against the publisher's scan.
-- The remaining problems of the set (curved and twisted beams, plates, shells, thick-walled
-  cylinder) and the MITC4 distortion failures and in-plane refusals (#798).
+- The remaining problems of the set (patch tests in the browser, curved and twisted beams, plates,
+  the spherical shell, thick-walled cylinder) and the MITC4 distortion failures and in-plane
+  refusals (#798).
