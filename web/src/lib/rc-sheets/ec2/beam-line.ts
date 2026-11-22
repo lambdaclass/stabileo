@@ -6,6 +6,7 @@ import type { Fmt } from '../format';
 import { check, type StepGroup } from '../types';
 import { EC2_BENDS, designAnchorage, hookAlpha, lapLength, mandrel, matOf, minSteel, shearCapacity, ALPHA6, type Ec2Set } from './basis';
 import { beamCapacity } from './beam-section';
+import { makeBeamRow } from './beam-row';
 
 const goodBond = (top: boolean, h: number) => !top || h <= 0.25 + 1e-9;
 
@@ -14,6 +15,8 @@ export function ec2LineCode(set: Ec2Set): LineCode {
   return {
     development: (c, dia, top, h) => designAnchorage(mat(c), dia, goodBond(top, h)),
     hooked: (c, dia, top = false, h = 0) => designAnchorage(mat(c), dia, goodBond(top, h), hookAlpha(c.cover + c.stirrupDia / 1000, dia)),
+    alongBar: true,
+    spanRow: makeBeamRow(set),
     mandrel: (dia) => mandrel(dia) / 1000,
     hookExtension: (dia) => EC2_BENDS.extension(dia, 90, 'longitudinal'),
     lap: (c, dia, top, h) => lapLength(mat(c), dia, goodBond(top, h)),

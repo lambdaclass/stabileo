@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
+import { CRITERION } from '../../rc-sheets/criteria';
 import { modelStore } from '../model.svelte';
 import { resultsStore } from '../results.svelte';
 import { uiStore } from '../ui.svelte';
@@ -14,6 +15,7 @@ const modelEntryShells = (id: number) => modelStore.model.groups.get(id)!.member
 import { buildSheetRows, sheetsHavePhysical, redesignerOf, setSheetCode, rcSheetsData, saveRcSheetsData, setLineBentBars, setAdopted, setTorsionMode, adoptAll, setRcOption, meshWallsForSheets, wallsToMeshForSheets, WALL_MESH_SIZE } from '../rc-sheets.svelte';
 import { barActsAt } from '../../rc-sheets/beam-line';
 import { bendAngles } from '../../rc-sheets/shape';
+import { barArea } from '../../rc-sheets/bars';
 import { rcSheetsWorkbook } from '../../rc-sheets/workbook';
 import { goToRow, resizeHints, lineResizeHint } from '../rc-sheets-resize';
 
@@ -261,16 +263,24 @@ describe('reinforcement sheets from a solved model', () => {
     expect(topEnd.length).toBeGreaterThan(ln.ends.to - ln.ends.from);
   });
 
-  it('fails the end anchorage when the hook does not fit in a thin end column', () => {
+  it('in a thin end column no hook fits: ACI 318 fails the end anchorage, CIRSOC develops ld along the bar with a longer leg (FIUBA §12.2)', () => {
     frame();
     const thin = modelStore.addSection({ name: '15×40', a: 0.06, iy: 0.4 * 0.15 ** 3 / 12, iz: 0.15 * 0.4 ** 3 / 12, j: 0.0003, b: 0.4, h: 0.15, shape: 'rect' } as never);
     for (const e of modelStore.elements.values()) if (e.nodeI !== e.nodeJ && Math.abs((modelStore.nodes.get(e.nodeJ)!.z ?? 0) - (modelStore.nodes.get(e.nodeI)!.z ?? 0)) > 1) modelStore.updateElementSection(e.id, thin);
     solve();
-    const ln = buildSheetRows().line[0]!;
-    const v = ln.verifications.find((x) => x.label === 'rcSheets.v.lineEndAnchor')!;
-    expect(ln.ends.start!.half).toBeLessThan(0.1);
+    setSheetCode('aci318-19');
+    const aci = buildSheetRows().line[0]!;
+    const v = aci.verifications.find((x) => x.label === 'rcSheets.v.lineEndAnchor')!;
+    expect(aci.ends.start!.half).toBeLessThan(0.1);
     expect(v.ok).toBe(false);
     expect(v.ratio!).toBeGreaterThan(1);
+    setSheetCode('cirsoc201-2025');
+    const ci = buildSheetRows().line[0]!;
+    const w = ci.verifications.find((x) => x.label === 'rcSheets.v.lineEndAnchor')!;
+    expect(w.ok).toBe(true);
+    expect(w.clause).toBe(`§25.4.2; ${CRITERION}`);
+    const top = ci.bars.find((b) => b.face === 'top' && b.kind === 'continuous')!;
+    expect(top.anchor![0]!.tail).toBeGreaterThan(12 * top.bars.dia / 1000);
   });
 
   it('lays out the exact reinforcement: span bars bent up over the supports carry the hogging moment and the line still verifies everywhere', () => {
@@ -299,8 +309,8 @@ describe('reinforcement sheets from a solved model', () => {
       expect(bendAngles(b.shape).slice(-4, -2).every((t) => Math.abs(t - Math.PI / 4) < 1e-9 || Math.abs(t - Math.PI / 2) < 1e-9)).toBe(true);
       expect(b.length).toBeGreaterThan(b.to - b.from);
     }
-    const midTop = (l: typeof ln) => l.bars.filter((b) => b.kind === 'support' && b.from < 5 && b.to > 5).reduce((n, b) => n + b.bars.count, 0);
-    expect(midTop(ln)).toBeLessThanOrEqual(midTop(straight));
+    const topAt = (l: typeof ln, kinds: readonly string[]) => l.bars.filter((b) => kinds.includes(b.kind) && b.face === 'top' && b.from < 5 && b.to > 5).reduce((n, b) => n + b.bars.count * barArea(b.bars.dia), 0);
+    expect(topAt(ln, ['support'])).toBeLessThanOrEqual(topAt(straight, ['support', 'continuous']) - barArea(ln.adopted.top.dia) * ln.adopted.top.count + 1e-9);
     expect(ln.adopted.bent?.some((g) => g.count > 0)).toBe(true);
     expect(ln.steps[0]!.steps.some((x) => x.label === 'rcSheets.s.lineBent')).toBe(true);
   });
@@ -537,7 +547,7 @@ describe('reinforcement sheets from a solved model', () => {
   it('exports a sheet per family with a row per element', () => {
     frame(); solve();
     const sheets = rcSheetsWorkbook(buildSheetRows(), (k) => k);
-    expect(sheets.map((s) => s.name)).toEqual(['rcSheets.family.beam', 'rcSheets.sheet.schedule', 'rcSheets.family.column', 'rcSheets.family.slab', 'rcSheets.family.wall', 'rcSheets.family.footing']);
+    expect(sheets.map((s) => s.name)).toEqual(['rcSheets.family.beam', 'rcSheets.sheet.schedule', 'rcSheets.family.column', 'rcSheets.family.wall', 'rcSheets.family.slab']);
     expect(sheets[1]!.rows.length).toBeGreaterThan(3);
     expect(sheets[0]!.rows[0]![0]).toContain('CIRSOC 201-2025');
     expect(sheets[0]!.rows).toHaveLength(4);
@@ -614,6 +624,27 @@ describe('reinforcement sheets from a solved model', () => {
     expect(row.demand.base).toMatchObject({ nodes: row.demand.baseElements! + 1, held: 1 });
     expect(row.demand.base!.unheld).toHaveLength(row.demand.baseElements!);
     expect(row.status).toBe('fail');
+  });
+
+  it('holds a storey\'s wall on the same wall below: one plate through two storeys has its upper base nodes held by its own shells under the cut', () => {
+    const conc = modelStore.addMaterial({ name: 'H-30', e: 27000, nu: 0.2, rho: 25, fy: 30, fc: 30 });
+    modelStore.setGrid({ axes: [], levels: [{ id: 'L0', name: 'PB', z: 0 }, { id: 'L1', name: 'P1', z: 3 }, { id: 'L2', name: 'P2', z: 6 }] } as never);
+    const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(4, 0, 0), c = modelStore.addNode(4, 0, 6), d = modelStore.addNode(0, 0, 6);
+    modelStore.addQuad([a, b, c, d], conc, 0.2);
+    for (const n of [a, b]) modelStore.addSupport(n, 'fixed3d');
+    const D = modelStore.model.loadCases.find((x) => x.type === 'D')!.id;
+    modelStore.addNodalLoad3D(c, 0, 0, -100, 0, 0, 0, D);
+    modelStore.addCombination('1.4D', [{ caseId: D, factor: 1.4 }]);
+    ensurePhysicalModel();
+    expect(meshWallsForSheets()).toBe(1);
+    holdPlateSidesAt(physicalGroups().find((g) => g.physical.kind === 'wall')!.id, 0, 'fixed3d');
+    solve();
+    const walls = buildSheetRows().wall;
+    expect(walls.map((w) => w.demand.z).sort()).toEqual([0, 3]);
+    const upper = walls.find((w) => w.demand.z === 3)!;
+    expect(upper.demand.base!.nodes).toBeGreaterThan(2);
+    expect(upper.demand.base!.unheld).toEqual([]);
+    expect(upper.verifications.find((v) => v.label === 'rcSheets.v.wallBase')).toBeUndefined();
   });
 
   it('keeps a loaded one-shell wall\'s shell and its load as the plate\'s mesh, and does not mesh it for the sheets', () => {
@@ -772,12 +803,15 @@ describe('reinforcement sheets from a solved model', () => {
     expect(uiStore.proActiveTab).toBe('shells');
   });
 
-  it('gives a beam too shallow the depth it needs, never more than the one that holds, and a column with room the smaller section that still holds', () => {
+  it('gives a beam too shallow the depth it needs, never more than the one that holds, a beam that verifies the shallowest that still does with its deflection, and a column with room the smaller section that still holds', () => {
     frame();
     solve();
     const rows = buildSheetRows();
     const ok = rows.beam[0]!;
-    expect(resizeHints(ok)).toEqual([]);
+    const [down] = resizeHints(ok);
+    expect(down).toMatchObject({ what: 'beamH', direction: 'shrink', from: [ok.h] });
+    expect(redesignerOf(ok.key)!({ ...ok.demand, h: down!.to![0]! } as never).verifications.filter((v) => !v.ok)).toEqual([]);
+    if (down!.to![0]! - 0.05 >= Math.max(0.12, ok.b) - 1e-9) expect(redesignerOf(ok.key)!({ ...ok.demand, h: down!.to![0]! - 0.05 } as never).status).toBe('fail');
     const shallow = redesignerOf(ok.key)!({ ...ok.demand, h: 0.25 } as never) as typeof ok;
     expect(shallow.status).toBe('fail');
     const [hint] = resizeHints(shallow);
@@ -789,7 +823,76 @@ describe('reinforcement sheets from a solved model', () => {
     const [smaller] = resizeHints(col);
     expect(smaller).toMatchObject({ what: 'column', direction: 'shrink', from: [0.4, 0.4] });
     expect(smaller!.to![0]!).toBeLessThan(0.4);
-    expect(lineResizeHint(rows.beam)).toBeNull();
+    expect(lineResizeHint(rows.beam)).toMatchObject({ what: 'beamH', direction: 'shrink', to: down!.to });
+  });
+
+  it('gives a heavily loaded column the least section it verifies with, and the next smaller one fails', () => {
+    frame();
+    solve();
+    const col = buildSheetRows().column[1]!;
+    const redesign = redesignerOf(col.key)!;
+    const heavy = { ...col.demand, cases: col.demand.cases.map((c) => ({ ...c, pu: c.pu * 9, puMin: (c.puMin ?? c.pu) * 9, puD: (c.puD ?? 0) * 9, mxTop: c.mxTop * 9, mxBot: c.mxBot * 9, myTop: c.myTop * 9, myBot: c.myBot * 9 })) };
+    const short = redesign({ ...heavy, b: 0.3, h: 0.3 } as never) as typeof col;
+    expect(short.status).toBe('fail');
+    const [hint] = resizeHints(short);
+    expect(hint).toMatchObject({ what: 'column', direction: 'grow', from: [0.3, 0.3] });
+    const [b, h] = hint!.to!;
+    const fits = redesign({ ...heavy, b, h } as never) as typeof col;
+    expect(fits.status).not.toBe('fail');
+    expect(fits.checks.spacingOk).toBe(true);
+    expect(redesign({ ...heavy, b: b! - 0.05, h: h! - 0.05 } as never).status).toBe('fail');
+  });
+
+  it('lays the columns\' bars for the largest aggregate the design data states, and proposes again when it changes', async () => {
+    const { patchDesignData } = await import('../design-data');
+    const { proposalBasis } = await import('../rc-sheets.svelte');
+    frame();
+    solve();
+    const before = proposalBasis();
+    expect(buildSheetRows().column[0]!.aggregate).toBe(19);
+    patchDesignData({ maxAggregateMm: 38 });
+    const col = buildSheetRows().column[0]!;
+    expect(col.aggregate).toBe(38);
+    expect(col.steps.flatMap((g) => g.steps).find((s) => s.label === 'rcSheets.s.colSpacing')!.formula).toContain('dagg = 38 mm');
+    expect(proposalBasis()).not.toBe(before);
+  });
+
+  it('offers a TS 500 column under its least size (7.4.1) the section that meets it', () => {
+    frame();
+    solve();
+    setSheetCode('ts500-2000');
+    const col = buildSheetRows().column[1]!;
+    const thin = redesignerOf(col.key)!({ ...col.demand, b: 0.2, h: 0.45 } as never) as typeof col;
+    expect(thin.verifications.find((v) => v.label === 'rcSheets.ts500.v.colSize')!.ok).toBe(false);
+    const [hint] = resizeHints(thin);
+    expect(hint).toMatchObject({ what: 'column', direction: 'grow', to: [0.25, 0.5] });
+    expect(redesignerOf(col.key)!({ ...col.demand, b: 0.25, h: 0.5 } as never).status).not.toBe('fail');
+  });
+
+  it('reads each storey for sway from the combinations: Q from the drift, the wind\'s share of the column moments, and a P-Delta solve\'s first-order moments', () => {
+    frame();
+    const W = modelStore.model.loadCases.find((c) => c.type === 'W')!.id;
+    const D = modelStore.model.loadCases.find((c) => c.type === 'D')!.id;
+    const topLeft = [...modelStore.nodes.values()].find((n) => n.x === 0 && (n.z ?? 0) === 3)!.id;
+    modelStore.addNodalLoad3D(topLeft, 60, 0, 0, 0, 0, 0, W);
+    modelStore.addCombination('1.2D + 1.0W', [{ caseId: D, factor: 1.2 }, { caseId: W, factor: 1 }]);
+    solve();
+    const col = buildSheetRows().column[0]!;
+    const windy = col.demand.cases.find((c) => c.combo === '1.2D + 1.0W')!;
+    const own = resultsStore.perCase3D.get(W)!.elementForces.find((f) => f.elementId === modelStore.model.groups.get(Number(col.key.split(':')[1]))!.members.elements![0])!;
+    expect(windy.sway!.mxBot).toBeCloseTo(own.myStart, 6);
+    expect(col.demand.cases.find((c) => c.combo === '1.4D')!.sway).toBeUndefined();
+    expect(col.demand.sway!.Q).toBeGreaterThan(0);
+    expect(col.demand.sway!.combo).toBe('1.2D + 1.0W');
+    expect(col.demand.sway!.secondOrder).toBeUndefined();
+    modelStore.setAnalysis({ perCombination: 'pdelta' });
+    solve();
+    const second = buildSheetRows().column[0]!;
+    const c2 = second.demand.cases.find((c) => c.combo === '1.2D + 1.0W')!;
+    expect(second.demand.sway!.secondOrder).toBe(true);
+    expect(c2.first!.mxBot).toBeCloseTo(windy.mxBot, 6);
+    expect(Math.abs(c2.mxBot)).toBeGreaterThan(Math.abs(windy.mxBot));
+    expect(second.demand.sway!.Q).toBeCloseTo(col.demand.sway!.Q, 9);
   });
 
   it('cuts a column into storeys at the flat slabs it carries, as at beams, and checks punching at each', () => {

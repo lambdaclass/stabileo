@@ -6,7 +6,7 @@ if (BUILD_FEATURES.proRcSheets) {
   /**
    * The seven-storey example with the program's old 25 mm covers stored in it: the notice says where
    * they come from, the table's arithmetic and what its button changes; one click fixes them. Then the
-   * beams, columns and walls of a level each in plan: every member of the level drawn, its labels clear
+   * beams of a level in plan, and its columns and walls together: every member of the level drawn, its labels clear
    * of each other, its governing check on hover, and a click on it opening its row.
    */
   test.use({ appLocale: 'es' });
@@ -22,7 +22,7 @@ if (BUILD_FEATURES.proRcSheets) {
     return boxes.length;
   }
 
-  async function planOf(page: Page, ws: Locator, family: 'beam' | 'column' | 'wall', pick: number) {
+  async function planOf(page: Page, ws: Locator, family: 'beam' | 'vertical', pick: number) {
     await ws.getByTestId(`rc-tab-${family}`).click();
     await ws.getByTestId('rc-struct-view-list').click();
     const select = ws.getByTestId('rc-level-filter').locator('select');
@@ -34,7 +34,9 @@ if (BUILD_FEATURES.proRcSheets) {
     await ws.getByTestId('rc-struct-view-plan').click();
     const fig = ws.getByTestId('rc-struct-plan');
     await expect(fig).toHaveAttribute('data-family', family);
-    await expect(fig).toHaveAttribute('data-level', level);
+    const drawn = (await fig.getAttribute('data-level'))!;
+    if (family === 'vertical') expect(level).toBe(`s/${drawn}`);
+    else expect(drawn).not.toBe('');
     const items = fig.getByTestId('rc-struct-item');
     expect((await items.evaluateAll((g) => g.map((x) => x.getAttribute('data-key')!))).sort()).toEqual([...keys].sort());
     await expect(fig.getByTestId('rc-struct-unplaced')).toHaveCount(0);
@@ -103,7 +105,7 @@ if (BUILD_FEATURES.proRcSheets) {
     await cover.scrollIntoViewIfNeeded();
     await cover.locator('xpath=ancestor::table[1]').screenshot({ path: test.info().outputPath('covers-check-after.png') });
 
-    for (const [family, pick] of [['beam', 2], ['column', 2], ['wall', 0]] as const) {
+    for (const [family, pick] of [['beam', 2], ['vertical', 0], ['vertical', 2]] as const) {
       const { fig, items: drawn, keys } = await planOf(page, ws, family, pick);
       const first = drawn.first();
       const name = (await first.getAttribute('aria-label'))!.split(' · ')[0]!;

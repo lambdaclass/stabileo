@@ -7,6 +7,7 @@ import { isTopBar, lapOf, lbOf, rhoMinBeam, TS500_BENDS, ts500Mat } from './basi
 import { beamStrip } from './beam-flexure';
 import { shearState, vrOf } from './beam-shear';
 import { stripCapacity } from './section';
+import { beamRow as ts500BeamRow } from './beam';
 
 function shearAt(stations: CutoffInput['stations'], x: number): number {
   if (!stations.length) return 0;
@@ -34,6 +35,8 @@ const topOf = (c: BeamContext, dia: number, top: boolean, h: number) => top && i
 export const TS500_LINE: LineCode = {
   development: (c, dia, top, h) => lbOf(ts500Mat(c.mat), dia, topOf(c, dia, top, h)),
   hooked: (c, dia) => lbOf(ts500Mat(c.mat), dia, false),
+  alongBar: true,
+  spanRow: ts500BeamRow,
   lap: (c, dia, top, h) => lapOf(ts500Mat(c.mat), dia, topOf(c, dia, top, h), 1),
   minBottom: (c, b, d) => rhoMinBeam(ts500Mat(c.mat)) * b * d * 1e4,
   moments: (c, qs) => { const t = ts500Mat(c.mat); return qs.map((q) => stripCapacity(beamStrip(q.demand, c, q.tension, q.compression, q.sd, q.sagging).strip, t, q.nc ?? 0)); },

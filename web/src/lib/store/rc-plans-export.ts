@@ -49,6 +49,6 @@ export function exportRcPlans(rows: SheetRows, req: PlanExportRequest, tr: Tr, d
   if (!r.file) return 0;
   downloadBlob(new Blob([r.file.data as BlobPart], { type: r.file.mime }), r.file.name);
   const sel = req.selection;
-  recordSheetsExport('rcPlans', r.file.name, sel.element ?? [sel.families.map((f) => tr(`rcSheets.family.${f}`)).join(', '), ...(sel.levels ? [sel.levels.map((l) => l || '—').join(', ')] : [])].join(' · '));
+  recordSheetsExport('rcPlans', r.file.name, sel.element ?? [sel.families.map((f) => tr(`rcSheets.tab.${f}`)).join(', '), ...(sel.levels ? [sel.levels.map((l) => l || '—').join(', ')] : [])].join(' · '));
   return r.sheets;
 }

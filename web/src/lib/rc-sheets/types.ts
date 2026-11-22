@@ -1,7 +1,12 @@
 import type { WallReinforcement } from '../design-contract/reinforcement';
 
-export type SheetFamily = 'beam' | 'column' | 'slab' | 'wall' | 'punching' | 'footing';
-export const SHEET_FAMILIES: readonly SheetFamily[] = ['beam', 'column', 'slab', 'wall', 'punching', 'footing'];
+export type SheetFamily = 'beam' | 'column' | 'slab' | 'wall' | 'punching';
+export const SHEET_FAMILIES: readonly SheetFamily[] = ['beam', 'column', 'slab', 'wall', 'punching'];
+
+export type SheetTab = 'beam' | 'vertical' | 'slab' | 'punching';
+export const SHEET_TABS: readonly SheetTab[] = ['beam', 'vertical', 'slab', 'punching'];
+export const TAB_FAMILIES: Record<SheetTab, readonly SheetFamily[]> = { beam: ['beam'], vertical: ['column', 'wall'], slab: ['slab'], punching: ['punching'] };
+export const tabOf = (f: SheetFamily): SheetTab => (f === 'column' || f === 'wall' ? 'vertical' : f);
 
 export type SheetCode = 'cirsoc201-2025' | 'aci318-19' | 'en1992-1-1' | 'bs-en1992-1-1' | 'ts500-2000';
 /** The codes the sheets design to, in the order they are offered. */
@@ -21,6 +26,8 @@ export const SLAB_MESH_DIAMETERS: readonly number[] = [8, 10, 12, 16];
 export const SLAB_BAR_RANGE = { min: 6, max: 16 } as const;
 export const BEAM_BAR_RANGE = { min: 10, max: 25 } as const;
 export const COLUMN_BAR_RANGE = { min: 12, max: 32 } as const;
+export const TIE_BAR_RANGE = { min: 6, max: 16 } as const;
+export const WALL_BAR_RANGE = { min: 8, max: 20 } as const;
 export const FOOTING_BAR_RANGE = { min: 10, max: 25 } as const;
 export const inRange = (dia: number, r: { min: number; max: number }): boolean => dia >= r.min && dia <= r.max;
 
@@ -28,6 +35,10 @@ export const inRange = (dia: number, r: { min: number; max: number }): boolean =
 export const DEFAULT_TIE_DIAMETERS: readonly number[] = [6, 8, 10, 12];
 /** The closest stirrups, hoops and ties are proposed, m, when the project states none: room for the concrete to pass. */
 export const DEFAULT_MIN_TIE_SPACING = 0.075;
+/** The nominal size of the largest aggregate, mm, when the project states none: the usual 19 mm (3/4"). */
+export const DEFAULT_AGGREGATE_MM = 19;
+/** The largest aggregate a project may state, mm. */
+export const AGGREGATE_RANGE = { min: 6, max: 50 } as const;
 
 export interface TransverseList {
   /** The diameters the project allows for stirrups, hoops and ties, mm. */
@@ -129,7 +140,7 @@ export interface RcSheetsData {
 export type StoredRcSheets = Omit<RcSheetsData, 'torsion' | 'faces' | 'flange' | 'seismic' | 'bentBars' | 'slabBentBars'>;
 
 /** Raised whenever what the proposals propose changes, so the proposals adopted before it are proposed again. */
-export const RC_SHEETS_LOGIC = 8;
+export const RC_SHEETS_LOGIC = 25;
 
 export const defaultRcSheetsData = (): RcSheetsData => ({ version: 1, torsion: 'equilibrium', adopted: {} });
 

@@ -18,11 +18,11 @@ describe('the data the sheets read is editable whenever the sheets are reachable
     expect(s).not.toMatch(/designInPro/);
   });
 
-  it('the sheets\' panel says the design data in one line with a link that opens them, and keeps no option of its own', () => {
+  it('the sheets\' panel opens the design data from one button, without restating them, and keeps no option of its own', () => {
     const s = src('rc-sheets/ProRcSheetsTab.svelte');
     expect(s).toContain('<ProDesignDataPanel />');
-    expect(s).toContain('data-testid="rc-dd-summary"');
-    expect(s).toContain('data-testid="rc-dd-edit"');
+    expect(s).not.toContain('rc-dd-summary');
+    expect(s).toMatch(/<summary class="rcp-dd-btn"[^>]*data-testid="rc-dd-edit"><Icon name="settings"/);
     expect(s).not.toMatch(/rc-opt-|setRcOption|setTorsionMode|setColumnEndZones/);
     expect(s).not.toMatch(/designInPro/);
   });
@@ -34,5 +34,11 @@ describe('the data the sheets read is editable whenever the sheets are reachable
     expect(o).toContain('data-testid="dd-opt-torsion"');
     expect(o).toContain('<SeismicEditor />');
     expect(o).toMatch(/<details class="pk-card do"/);
+  });
+
+  it('the design data say what beams and slabs carry for their deflection, how long the load lasts, its sustained share, the creep coefficient and whether to calculate always', () => {
+    const o = src('design/DesignOptionsSections.svelte');
+    for (const id of ['design-options-deflection', 'dd-defl-supports', 'dd-defl-months', 'dd-defl-sustained', 'dd-defl-creep', 'dd-defl-always']) expect(o).toContain(`data-testid="${id}"`);
+    expect(o).toContain('setDeflectionSettings');
   });
 });

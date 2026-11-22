@@ -1,6 +1,6 @@
 import { ec2Shear } from '../../engine/design/eurocode/ec2-beam';
 import { barArea, faceLayout, groupsArea, moreStirrup, proposeBeamFace, proposeStirrups, roundDown } from '../bars';
-import { beamBarWhere, hangerBar } from '../beam-row';
+import { beamBarWhere, hangerBar, peakSection, searchFaces } from '../beam-row';
 import { SECTION_NAMES, type BeamContext, type BeamDemand, type BeamRow, type FlexureCheck, type SectionName } from '../beam-row';
 import type { Fmt } from '../format';
 import { type BarGroup, type BeamAdopted, type Signed, isGenerous } from '../types';
@@ -18,6 +18,8 @@ export interface Item { section: SectionName; sign: 'pos' | 'neg'; mu: number; n
 export interface BeamReq {
   items: Array<Item & { r: FlexReq; asMin: number; req: number }>;
   bottom: number; top: number; asMax: number;
+  /** The compression steel the doubly reinforced sections ask of each face, cm². */
+  compTop: number; compBottom: number;
   bySection: Array<{ section: SectionName; sign: 'pos' | 'neg'; req: number }>;
   shear: ReturnType<typeof ec2Shear>; vEd: number; sigmaCp: number; dShear: number;
   tg: TorsionGeom; screen: number; neglect: boolean; compat: boolean; torSection: boolean;
@@ -44,7 +46,7 @@ export function itemsOf(d: BeamDemand): Item[] {
     const e = sectionOf(d, s);
     items.push({ section: s, sign: 'pos', mu: e.pos.value, n: e.nPos, src: e.pos }, { section: s, sign: 'neg', mu: e.neg.value, n: e.nNeg, src: e.neg });
   }
-  if (d.negAny.value > Math.max(d.start.neg.value, d.span.neg.value, d.end.neg.value) + 1e-6) items.push({ section: 'span', sign: 'neg', mu: d.negAny.value, n: d.nNegAny, src: d.negAny });
+  if (d.negAny.value > Math.max(d.start.neg.value, d.span.neg.value, d.end.neg.value) + 1e-6) items.push({ section: peakSection(d, d.negAny.source?.x) ?? 'span', sign: 'neg', mu: d.negAny.value, n: d.nNegAny, src: d.negAny });
   return items;
 }
 
@@ -92,7 +94,7 @@ function requirement(set: Ec2Set, d: BeamDemand, c: BeamContext, m: Mat): BeamRe
   const sMax = Math.min(p.linkMaxSpacing * dd, neglect ? Infinity : Math.min(tg.uk / 8, Math.min(d.b, d.h)));
   const perLeg = (aswS * 1e4) / legs + tPerLeg;
   return {
-    items, bottom, top, asMax: p.beamMaxRatio * d.b * d.h * 1e4, bySection, shear, vEd, sigmaCp, dShear: dd,
+    items, bottom, top, compTop: comp(pos), compBottom: comp(hogging), asMax: p.beamMaxRatio * d.b * d.h * 1e4, bySection, shear, vEd, sigmaCp, dShear: dd,
     tg, screen, neglect, compat, torSection, cot, aswS: aswS * 1e4, tPerLeg, alReq, interaction, legs, stMax, sMax, perLeg,
     skin: skinBars(d.b, d.h, m.fyd / GAMMA_G, m, c.diameters),
   };
@@ -216,10 +218,19 @@ export function makeBeamRow(set: Ec2Set) {
     };
     let proposed = initial, iterations = 0;
     let ev = evaluate(set, d, c, proposed, req, m);
-    while (!ev.all && iterations < MAX_ITERATIONS) {
-      iterations++;
-      proposed = improve(proposed, ev, req, d, c);
+    const loop = () => {
+      for (let k = 0; !ev.all && k < MAX_ITERATIONS; k++) {
+        iterations++;
+        proposed = improve(proposed, ev, req, d, c);
+        ev = evaluate(set, d, c, proposed, req, m);
+      }
+    };
+    loop();
+    if (!adopted && !ev.flex.every((f) => f.ok)) {
+      const faces = searchFaces(proposed, req.bottom, req.top, d, c, (x) => flexChecks(set, d, c, x, m).every((f) => f.ok));
+      proposed = faces ?? { ...proposed, bottom: initial.bottom, top: initial.top };
       ev = evaluate(set, d, c, proposed, req, m);
+      if (faces) loop();
     }
     const a = adopted ?? proposed;
     const e = adopted ? evaluate(set, d, c, a, req, m) : ev;
@@ -234,6 +245,7 @@ export function makeBeamRow(set: Ec2Set) {
       req: {
         bottom: req.bottom, top: req.top, bottomAt: gPos.section, topAt: gNeg.section, stirrupPerLeg: req.perLeg, legs: req.legs, sMax: req.sMax,
         al: req.alReq, torsionNeglected: req.neglect, tuDesign: req.compat ? 0 : d.tu.value, skin: req.skin ? req.skin.mesh : null, bySection: req.bySection,
+        ...(req.compTop > 0 || req.compBottom > 0 ? { compression: { top: req.compTop, bottom: req.compBottom } } : {}),
       },
       proposed, adopted: a, isAdopted: !!adopted, iterations: adopted ? 0 : iterations, flexure: e.flex, verifications,
       combos: beamCombos(set, d, c, a, req, m, fmt),

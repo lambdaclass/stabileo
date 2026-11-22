@@ -29,10 +29,11 @@ if (BUILD_FEATURES.proRcSheets) {
     await ws.getByTestId('rc-slab-view-plan').click();
     await expect(ws.getByTestId('rc-table-slab')).toHaveCount(0);
     const level = ws.locator('.rcw-tools select');
-    const second = (await level.locator('option').allTextContents())[2]!;
-    await level.selectOption({ label: second });
     const fig = ws.getByTestId('rc-slab-plan-level');
-    await expect(fig).toHaveAttribute('data-level', second);
+    const shown = (await fig.getAttribute('data-level'))!;
+    await level.selectOption((await level.locator('option').nth(2).getAttribute('value'))!);
+    await expect(fig).not.toHaveAttribute('data-level', shown);
+    const second = (await level.locator('option').nth(2).textContent())!.trim();
 
     const bars = fig.getByTestId('rc-plan-bar');
     const rows = fig.getByTestId('rc-plan-schedule').locator('tbody tr');

@@ -4,6 +4,7 @@
   import { meshArea, meshLabel } from '../../../lib/rc-sheets/bars';
   import { planDrawing, type LevelPlan, type PlanBarDrawing } from '../../../lib/rc-sheets/slab-plan';
   import { legLabelBox, placePlanLabels } from '../../../lib/rc-sheets/slab-plan-labels';
+  import { localizeCriterion } from '../../../lib/rc-sheets/criteria';
 
   let { plan, highlight = [] }: { plan: LevelPlan; highlight?: string[] } = $props();
   const fmt = $derived(makeFmt(decimalFor(i18n.locale)));
@@ -91,7 +92,7 @@
   <p class="note">{tp('rcSheets.planFig.rules', { interior: fmt(plan.rules.reach.interior, 2), end: fmt(plan.rules.reach.end, 2), clause: plan.rules.clause.topReach })}</p>
   {#each plan.cantilevers as c (c.panel + c.dir)}<p class="note" data-testid="rc-plan-cantilever">{tp('rcSheets.planFig.cantilever', { panel: c.panel, length: fmt(c.length, 2) })}</p>{/each}
   <p class="note" class:bad={short.length > 0} data-testid="rc-plan-checks">{tpn('rcSheets.planFig.checks', plan.checks.length, { ok: plan.checks.length - short.length })}</p>
-  {#if plan.bent}<p class="note" data-testid="rc-plan-bend">{tp('rcSheets.planFig.bendAt', { oneWay: fraction(plan.rules.bendAt.oneWay), twoWay: fraction(plan.rules.bendAt.twoWay), clause: plan.rules.clause.bendAt ?? '' })}</p>{/if}
+  {#if plan.bent}<p class="note" data-testid="rc-plan-bend">{tp('rcSheets.planFig.bendAt', { oneWay: fraction(plan.rules.bendAt.oneWay), twoWay: fraction(plan.rules.bendAt.twoWay), clause: localizeCriterion(plan.rules.clause.bendAt, t) })}</p>{/if}
   {#if plan.rules.corners && corners.length}<p class="note" data-testid="rc-plan-corners">{tp('rcSheets.planFig.corners', { side: fraction(plan.rules.corners.side), n: corners.length / (2 * plan.rules.corners.faces.length), clause: plan.rules.clause.corners ?? '' })}</p>{/if}
   {#if plan.rules.integrity && integrity.length}<p class="note" data-testid="rc-plan-integrity">{tp('rcSheets.planFig.integrity', { n: plan.rules.integrity.bars, columns: integrity.length / 2, clause: plan.rules.clause.integrity ?? '' })}</p>{/if}
   {#each short as c, i (i)}<p class="note bad" data-testid="rc-plan-short">{c.kind === 'integrity'

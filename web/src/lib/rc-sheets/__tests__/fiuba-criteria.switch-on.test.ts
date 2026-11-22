@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { CRITERION } from '../criteria';
 import { makeFmt } from '../format';
 import { rulesFor } from '../codes';
 import { cirsocSlabDevelopment, slabRow, type SlabDemand } from '../slab-row';
@@ -37,7 +38,7 @@ describe('one-way slab distribution steel (FIUBA notes §13.1–13.2)', () => {
     expect(main * 0.2).toBeGreaterThan(r.faces.bottomY.asMin);
     expect(meshArea(r.adopted.bottomY)).toBeGreaterThanOrEqual(0.2 * main - 1e-9);
     expect(ok(r, 'rcSheets.v.slabDistribution.bottomY')).toBe(true);
-    expect(r.verifications.find((v) => v.label === 'rcSheets.v.slabDistribution.bottomY')!.clause).toContain('FIUBA');
+    expect(r.verifications.find((v) => v.label === 'rcSheets.v.slabDistribution.bottomY')!.clause).toContain(CRITERION);
   });
 
   it('fails a distribution mesh under a fifth of the main steel, and ACI 318 keeps only the minimum', () => {

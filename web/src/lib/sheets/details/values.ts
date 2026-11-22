@@ -75,7 +75,7 @@ export function barLengths(v: DetailValues, d: number): BarLengths {
   const base = { diameterMm: d, fy: v.fy, fc: v.fc, favourableSpacing: false, edition: v.edition };
   const dev = deriveDevelopment(base), devTop = deriveDevelopment({ ...base, psiT: 1.3 });
   const h90 = standardHook(d, 90, 'longitudinal'), h180 = standardHook(d, 180, 'longitudinal');
-  const lapC = compressionLapMm(v.fy, d);
+  const lapC = compressionLapMm(v.fy, d, v.fc);
   return {
     ld: up10(dev.ldM * 1000), ldTop: up10(devTop.ldM * 1000),
     lap: up10(deriveLap(dev, { edition: v.edition }).lapM * 1000), lapTop: up10(deriveLap(devTop, { edition: v.edition }).lapM * 1000),

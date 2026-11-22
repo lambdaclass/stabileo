@@ -818,6 +818,17 @@ export async function stateSuiteCovers(page: Page): Promise<void> {
   await designPlace(page, 'list');
 }
 
+/** The beams' role in the lateral-force-resisting system, set in the design data's chapter 18 section, which opens folded. */
+export async function setLateralBeams(page: Page, role: string): Promise<void> {
+  if (!BUILD_FEATURES.proPlatesUnified) {
+    await page.getByTestId('design-data-lateral-beams').selectOption(role);
+    return;
+  }
+  const seismic = page.getByTestId('design-options-seismic').first();
+  if (!(await seismic.evaluate((d) => (d as HTMLDetailsElement).open))) await seismic.locator('> summary').click();
+  await seismic.getByTestId('design-data-lateral-beams').selectOption(role);
+}
+
 /**
  * Declare the beams NOT part of the lateral-force-resisting system, through the design data
  * panel, and come back to the design table. Call it after `loadModel` and before designing.
@@ -831,7 +842,7 @@ export async function stateSuiteCovers(page: Page): Promise<void> {
  */
 export async function declareBeamsNotLateral(page: Page): Promise<void> {
   await designPlace(page, 'designData');
-  await page.getByTestId('design-data-lateral-beams').selectOption('gravity');
+  await setLateralBeams(page, 'gravity');
   await designPlace(page, 'list');
 }
 

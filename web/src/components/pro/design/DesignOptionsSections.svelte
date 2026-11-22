@@ -1,8 +1,10 @@
 <script lang="ts">
   /**
    * The choices the design takes before it starts, in the design data: the analysis assumptions
-   * (moments at the faces, the slab as a flange, torsion), the detailing (bent-up bars in beams and
-   * slabs, denser column ends, the closest stirrup spacing) and chapter 18 beside the seismic data.
+   * (moments at the faces, the slab as a flange, torsion), the lateral system and chapter 18 with
+   * the seismic data, the detailing (bent-up bars in beams and slabs, denser column ends, the
+   * closest stirrup spacing), the deflections with their limits, and what a member with no
+   * reinforcement for its section and concrete is offered instead.
    * Each says the clause it applies under the code the sheets design to, and why it does not apply
    * where it does not.
    */
@@ -11,17 +13,24 @@
   import { decimalFor, makeFmt } from '../../../lib/rc-sheets/format';
   import { modelStore } from '../../../lib/store';
   import { designData, patchDesignData } from '../../../lib/store/design-data';
-  import { rcSheetsData, setColumnEndZones, setRcOption, setTorsionMode, sheetCode } from '../../../lib/store/rc-sheets.svelte';
-  import { optionRule, type DesignOptionFlag, type DesignOptionKey } from '../../../lib/rc-sheets/design-options';
+  import { rcSheetsData, seismicAdvice, setAlternativeOptions, setColumnEndZones, setDeflectionSettings, setRcOption, setTorsionMode, sheetCode } from '../../../lib/store/rc-sheets.svelte';
+  import { DEFLECTION_SUPPORTS, LOAD_MONTHS, optionRule, type DeflectionSupport, type DesignOptionFlag, type DesignOptionKey, type LoadMonths } from '../../../lib/rc-sheets/design-options';
+  import { DEFAULT_CREEP, DEFAULT_MONTHS, DEFAULT_SUPPORTS } from '../../../lib/rc-sheets/deflection';
   import { MIN_TIE_SPACING_RANGE } from '../../../lib/model/design-data';
+  import { AGGREGATE_RANGE } from '../../../lib/rc-sheets/types';
+  import { localizeCriterion } from '../../../lib/rc-sheets/criteria';
+  import { concreteClasses, DEFAULT_FC_MAX } from '../../../lib/rc-sheets/concrete-classes';
   import type { TorsionMode } from '../../../lib/rc-sheets/types';
   import SeismicEditor from '../desk/seismic/SeismicEditor.svelte';
+  import ProDeflectionLimits from '../ProDeflectionLimits.svelte';
+  import { setBeamsLateral } from '../../../lib/store/lateral-system';
+  import StabileoCriteria from './StabileoCriteria.svelte';
 
   const code = $derived.by(() => { void modelStore.designData; return sheetCode(); });
   const d = $derived.by(() => { void modelStore.designData; return designData(); });
   const o = $derived.by(() => { void modelStore.designData; return rcSheetsData(); });
   const fmt = $derived(makeFmt(decimalFor(i18n.locale)));
-  const rule = (k: DesignOptionKey) => optionRule(k, code);
+  const rule = (k: DesignOptionKey) => ((r) => ({ ...r, clause: localizeCriterion(r.clause, t) }))(optionRule(k, code));
   const on = (k: DesignOptionFlag | 'endZones') => (k === 'endZones' ? d.columnEndZones === true : o[k] === true);
   const set = (k: DesignOptionFlag | 'endZones', v: boolean) => (k === 'endZones' ? setColumnEndZones(v) : setRcOption(k, v));
   const live = (k: DesignOptionFlag | 'endZones') => on(k) && !rule(k).off;
@@ -29,8 +38,25 @@
     const named = [...extra, ...keys.filter(live).map((k) => t(`designData.opt.short.${k}`))];
     return named.length ? named.join(' · ') : t('designData.opt.none');
   };
+  const defl = $derived(d.designOptions?.deflection ?? {});
+  const deflSummary = $derived([t(`designData.deflectionSupports.${defl.supports ?? DEFAULT_SUPPORTS}`), ...(defl.always ? [t('designData.deflectionAlways')] : [])].join(' · '));
+  const setFraction = (raw: string, key: 'sustained' | 'creep', max: number, input: HTMLInputElement) => {
+    if (raw.trim() === '') { setDeflectionSettings({ [key]: undefined }); return; }
+    const v = Number(raw.replace(',', '.'));
+    if (Number.isFinite(v) && v >= 0 && v <= max) setDeflectionSettings({ [key]: v }); else input.value = defl[key] !== undefined ? String(defl[key]) : '';
+  };
   const ANALYSIS: DesignOptionFlag[] = ['faces', 'flange'];
   const DETAILING: Array<DesignOptionFlag | 'endZones'> = ['bentBars', 'slabBentBars', 'endZones'];
+  const advice = $derived(seismicAdvice());
+  const SEISMIC_RULES = ['capacity', 'hoops', 'confinement', 'joints', 'laps', 'walls'] as const;
+  const alt = $derived(d.designOptions?.alternatives ?? {});
+  const classes = $derived(concreteClasses(code));
+  const fcMax = $derived(alt.fcMax ?? DEFAULT_FC_MAX);
+  const accepted = (fc: number) => !alt.fcClasses?.length || alt.fcClasses.some((x) => Math.abs(x - fc) < 0.05);
+  function toggleClass(fc: number, on: boolean) {
+    const now = classes.filter((k) => (Math.abs(k.fc - fc) < 0.05 ? on : accepted(k.fc))).map((k) => k.fc);
+    setAlternativeOptions({ fcClasses: now.length === classes.length ? null : now });
+  }
 </script>
 
 {#snippet option(k: DesignOptionFlag | 'endZones')}
@@ -57,8 +83,34 @@
   </div>
 </details>
 
+<details class="pk-card do" data-testid="design-options-seismic">
+  <summary><span class="do-h">{t('designData.seismicSection')}</span> <span class="do-sum" data-testid="design-options-seismic-summary">{summary(['seismic'], advice === 'recommend' ? [t('designData.seismic.recommended')] : [])}</span></summary>
+  <div class="do-opt" data-testid="design-data-lateral">
+    <span class="do-inline do-label">{t('lateral.title')}</span>
+    <label class="do-inline">{t('lateral.beams')}
+      <select value={d.lateralSystem?.beams ?? ''} onchange={(e) => { const v = e.currentTarget.value; setBeamsLateral(v === 'lateral' || v === 'gravity' ? v : null); }} data-testid="design-data-lateral-beams">
+        <option value="">{t('lateral.option.undeclared')}</option>
+        <option value="lateral">{t('lateral.option.lateral')}</option>
+        <option value="gravity">{t('lateral.option.gravity')}</option>
+      </select>
+    </label>
+    <Hint text={t('lateral.projectHint')} />
+  </div>
+  {#if advice}<p class="do-advice" class:warn={advice === 'recommend'} data-testid="dd-seismic-advice" data-advice={advice}>{t(`rcSheets.seismicAdvice.${advice}`)}</p>{/if}
+  {@render option('seismic')}
+  {#if live('seismic')}
+    <div class="do-sub" data-testid="dd-seismic-rules">
+      <span class="do-inline">{t('designData.seismic.rules')}</span>
+      <ul class="do-rules">{#each SEISMIC_RULES as k (k)}<li>{t(`designData.seismic.rule.${k}`)}</li>{/each}</ul>
+    </div>
+    <div class="do-sub" data-testid="rc-seismic-data">
+      <SeismicEditor />
+    </div>
+  {/if}
+</details>
+
 <details class="pk-card do" data-testid="design-options-detailing">
-  <summary><span class="do-h">{t('designData.detailing')}</span> <span class="do-sum" data-testid="design-options-detailing-summary">{summary(DETAILING, [`s ≥ ${fmt(d.minTieSpacingMm / 10, Number.isInteger(d.minTieSpacingMm / 10) ? 0 : 1)} cm`])}</span></summary>
+  <summary><span class="do-h">{t('designData.detailing')}</span> <span class="do-sum" data-testid="design-options-detailing-summary">{summary(DETAILING, [`s ≥ ${fmt(d.minTieSpacingMm / 10, Number.isInteger(d.minTieSpacingMm / 10) ? 0 : 1)} cm`, `dagg ${fmt(d.maxAggregateMm, 0)} mm`])}</span></summary>
   {@render option('bentBars')}
   {@render option('slabBentBars')}
   {@render option('endZones')}
@@ -69,18 +121,83 @@
     <span class="do-cl">{rule('minTieSpacing').clause}</span>
     <Hint text={t('designData.minTieSpacingHint')} />
   </div>
+  <div class="do-opt">
+    <label class="do-inline">{t('designData.maxAggregate')}
+      <input type="number" min={AGGREGATE_RANGE.min} max={AGGREGATE_RANGE.max} step="1" value={d.maxAggregateMm} onchange={(e) => { const v = Number(e.currentTarget.value); if (v >= AGGREGATE_RANGE.min && v <= AGGREGATE_RANGE.max) patchDesignData({ maxAggregateMm: v }); else e.currentTarget.value = String(d.maxAggregateMm); }} data-testid="design-data-max-aggregate" /> mm
+    </label>
+    <span class="do-cl">{rule('aggregate').clause}</span>
+    {#if rule('aggregate').off}<span class="do-off" data-testid="design-data-max-aggregate-off">{t(rule('aggregate').off!)}</span>{/if}
+    <Hint text={t('designData.maxAggregateHint')} />
+  </div>
 </details>
 
-<details class="pk-card do" data-testid="design-options-seismic">
-  <summary><span class="do-h">{t('designData.seismicSection')}</span> <span class="do-sum" data-testid="design-options-seismic-summary">{summary(['seismic'])}</span></summary>
-  {@render option('seismic')}
-  {#if live('seismic')}
-    <details class="do-sub" data-testid="rc-seismic-data">
-      <summary>{t('rcSheets.seismicData')}</summary>
-      <SeismicEditor />
-    </details>
-  {/if}
+<details class="pk-card do" data-testid="design-options-deflection">
+  <summary><span class="do-h">{t('designData.deflection')}</span> <span class="do-sum" data-testid="design-options-deflection-summary">{deflSummary}</span></summary>
+  <div class="do-opt">
+    <label class="do-inline">{t('designData.deflectionSupports')}
+      <select value={defl.supports ?? DEFAULT_SUPPORTS} onchange={(e) => setDeflectionSettings({ supports: e.currentTarget.value as DeflectionSupport })} data-testid="dd-defl-supports">
+        {#each DEFLECTION_SUPPORTS as s (s)}<option value={s}>{t(`designData.deflectionSupports.${s}`)}</option>{/each}
+      </select>
+    </label>
+    <span class="do-cl">{rule('deflection').clause}</span>
+  </div>
+  <div class="do-opt" class:off={!!rule('months').off}>
+    <label class="do-inline">{t('designData.deflectionMonths')}
+      <select value={String(defl.months ?? DEFAULT_MONTHS)} disabled={!!rule('months').off} onchange={(e) => setDeflectionSettings({ months: Number(e.currentTarget.value) as LoadMonths })} data-testid="dd-defl-months">
+        {#each LOAD_MONTHS as m (m)}<option value={String(m)}>{m} {t('designData.deflectionMonthsUnit')}</option>{/each}
+      </select>
+    </label>
+    <span class="do-cl">{rule('months').clause}</span>
+    {#if rule('months').off}<span class="do-off">{t(rule('months').off!)}</span>{/if}
+  </div>
+  <div class="do-opt">
+    <label class="do-inline">{t('designData.deflectionSustained')}
+      <input type="text" inputmode="decimal" placeholder="—" value={defl.sustained !== undefined ? fmt(defl.sustained, 2) : ''} onchange={(e) => setFraction(e.currentTarget.value, 'sustained', 1, e.currentTarget)} data-testid="dd-defl-sustained" />
+    </label>
+    <Hint text={t('designData.deflectionSustainedHint')} />
+  </div>
+  <div class="do-opt" class:off={!!rule('creep').off}>
+    <label class="do-inline">{t('designData.deflectionCreep')}
+      <input type="text" inputmode="decimal" placeholder={fmt(DEFAULT_CREEP, 1)} disabled={!!rule('creep').off} value={defl.creep !== undefined ? fmt(defl.creep, 2) : ''} onchange={(e) => setFraction(e.currentTarget.value, 'creep', 6, e.currentTarget)} data-testid="dd-defl-creep" />
+    </label>
+    <span class="do-cl">{rule('creep').clause}</span>
+    {#if rule('creep').off}<span class="do-off">{t(rule('creep').off!)}</span>{/if}
+  </div>
+  <div class="do-opt">
+    <label class="do-chk"><input type="checkbox" checked={defl.always === true} onchange={(e) => setDeflectionSettings({ always: e.currentTarget.checked ? true : undefined })} data-testid="dd-defl-always" /> <span>{t('designData.deflectionAlways')}</span></label>
+  </div>
+  <div class="do-sub" data-testid="design-data-deflection-limits">
+    <ProDeflectionLimits />
+  </div>
 </details>
+
+<details class="pk-card do" data-testid="design-options-alternatives">
+  <summary><span class="do-h">{t('designData.alternatives')}</span> <span class="do-sum" data-testid="design-options-alternatives-summary">{alt.raiseFc === false ? t('designData.alt.sectionOnly') : `f'c ≤ ${fmt(fcMax, 0)} MPa`}</span></summary>
+  <div class="do-opt">
+    <label class="do-chk"><input type="checkbox" checked={alt.raiseFc !== false} onchange={(e) => setAlternativeOptions({ raiseFc: e.currentTarget.checked ? null : false })} data-testid="dd-alt-raise-fc" /> <span>{t('designData.alt.raiseFc')}</span></label>
+    <span class="do-cl">{rule('alternatives').clause}</span>
+  </div>
+  {#if alt.raiseFc !== false}
+    <div class="do-opt">
+      <label class="do-inline">{t('designData.alt.fcMax')}
+        <select value={String(fcMax)} onchange={(e) => setAlternativeOptions({ fcMax: Number(e.currentTarget.value) === DEFAULT_FC_MAX ? null : Number(e.currentTarget.value) })} data-testid="dd-alt-fc-max">
+          {#each [...new Set([...classes.map((k) => k.fc), fcMax])].sort((p, q) => p - q) as fc (fc)}<option value={String(fc)}>{fmt(fc, Number.isInteger(fc) ? 0 : 1)} MPa</option>{/each}
+        </select>
+      </label>
+    </div>
+    <div class="do-opt">
+      <span class="do-inline">{t('designData.alt.classes')}</span>
+      <div class="do-classes">
+        {#each classes as k (k.fc)}
+          <label class="do-cls"><input type="checkbox" checked={accepted(k.fc)} onchange={(e) => toggleClass(k.fc, e.currentTarget.checked)} data-testid="dd-alt-class" data-fc={k.fc} /> {k.name}</label>
+        {/each}
+      </div>
+    </div>
+  {/if}
+  <Hint text={t('designData.alt.hint')} />
+</details>
+
+<StabileoCriteria />
 
 <style>
   .do > summary { cursor: pointer; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; }
@@ -94,5 +211,10 @@
   .do-off { font-size: 0.66rem; color: var(--st-warn); padding-left: 20px; }
   .do-opt.off .do-chk { opacity: 0.6; }
   .do-sub { margin-top: 6px; }
-  .do-sub > summary { cursor: pointer; font-size: 0.72rem; }
+  .do-classes { display: flex; flex-wrap: wrap; gap: 2px 10px; padding-left: 20px; }
+  .do-cls { display: inline-flex; align-items: center; gap: 3px; font-size: 0.68rem; color: var(--st-text-2); }
+  .do-advice { margin: 6px 0 2px; font-size: 0.7rem; line-height: 1.4; color: var(--st-text-2); }
+  .do-advice.warn { color: var(--st-warn); }
+  .do-label { font-weight: 600; color: var(--st-text); }
+  .do-rules { margin: 2px 0 0; padding-left: 2.2em; font-size: 0.68rem; line-height: 1.45; color: var(--st-text-2); }
 </style>

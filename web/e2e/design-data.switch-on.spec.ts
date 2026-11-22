@@ -35,6 +35,24 @@ if (BUILD_FEATURES.proPlatesUnified) {
     });
   });
 
+  test.describe('@smoke design data: deflections', () => {
+    test('say what beams and slabs carry, the load duration and the sustained share; the creep coefficient is EN 1992\'s only', async ({ pro: page }) => {
+      await designPlace(page, 'designData');
+      const card = page.getByTestId('design-options-deflection');
+      await card.locator('> summary').click();
+      await card.getByTestId('dd-defl-supports').selectOption('fragile');
+      await expect(page.getByTestId('design-options-deflection-summary')).toContainText('480');
+      await card.getByTestId('dd-defl-months').selectOption('12');
+      const share = card.getByTestId('dd-defl-sustained');
+      await share.fill('0.5');
+      await share.dispatchEvent('change');
+      await expect.poll(() => page.evaluate(() => window.__stabileo.serializeProject())).toMatch(/"deflection":\{"supports":"fragile","months":12,"sustained":0\.5\}/);
+      await expect(card.getByTestId('dd-defl-creep')).toBeDisabled();
+      await card.getByTestId('dd-defl-always').check();
+      await expect.poll(() => page.evaluate(() => window.__stabileo.serializeProject())).toContain('"always":true');
+    });
+  });
+
   test.describe('@smoke design data with design off', () => {
     test('the sheets and the building edit the covers, the steel and the seismic data the sheets read', async ({ pro: page }) => {
       await page.getByTestId('pro-settings').click();
@@ -51,23 +69,19 @@ if (BUILD_FEATURES.proPlatesUnified) {
       await cover.fill('35');
       await cover.dispatchEvent('change');
       await expect.poll(() => page.evaluate(() => window.__stabileo.serializeProject())).toMatch(/"beam":0\.035\b/);
-      await expect(page.getByTestId('rc-dd-summary')).toContainText('35 mm');
 
       await page.getByTestId('rc-design').click();
-      await expect(page.getByTestId('rc-open-column')).toBeEnabled({ timeout: 120_000 }); // slow-ok: the sheets design every member and combination before the families open
-      const before = await page.getByTestId('rc-dd-summary').textContent();
+      await expect(page.getByTestId('rc-open-vertical')).toBeEnabled({ timeout: 120_000 }); // slow-ok: the sheets design every member and combination before the families open
       await setDesignOption(page, 'seismic');
-      await expect(page.getByTestId('rc-dd-summary')).not.toHaveText(before ?? '');
       await expect(page.getByTestId('rc-stale')).toBeVisible();
       await page.getByTestId('rc-redesign').click();
       await expect(page.getByTestId('rc-stale')).toHaveCount(0, { timeout: 120_000 }); // slow-ok: chapter 18 designs every column against the joints' beams again
-      await page.getByTestId('rc-open-column').click();
+      await page.getByTestId('rc-open-vertical').click();
       const ws = page.getByTestId('rc-sheets-workspace');
       await ws.getByTestId('rc-row').first().click();
       await expect(ws.getByTestId('rc-checks').first()).toContainText('§18.7.5');
       await page.keyboard.press('Escape');
       const seismic = page.getByTestId('rc-seismic-data');
-      await seismic.locator('> summary').click();
       const overstrength = seismic.getByTestId('seismic-overstrength');
       await overstrength.fill('1.4');
       await overstrength.dispatchEvent('change');

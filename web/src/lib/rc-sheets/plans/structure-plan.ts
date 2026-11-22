@@ -1,6 +1,7 @@
 /**
  * A level's beams, columns or walls in plan to scale, as the workspace draws them: the slab
- * outlines, the grid's axes, each element's outline and its label placed clear of the others.
+ * outlines, the grid's axes, each element's outline, a tick across a beam where its bars are lapped,
+ * and its label placed clear of the others.
  * Model millimetres in the level's own coordinates.
  */
 import type { DrawingInput } from '../../sheets/compose';
@@ -22,8 +23,10 @@ export function structurePlanPrimitives(plan: StructurePlan, c: PlanCtx): Primit
   for (const a of plan.axes) ps.push(seg(EJES, pt(a.a[0] * K, a.a[1] * K), pt(a.b[0] * K, a.b[1] * K)));
   for (const e of ends) ps.push(...bubble(pt(e.at[0] * K, e.at[1] * K), e.name, s));
   for (const it of plan.items) {
-    if (it.kind === 'beam') for (const sp of it.spans) ps.push(poly(bandOutline(sp.a, sp.b, sp.width)));
-    else ps.push(poly(it.outline, true));
+    if (it.kind === 'beam') {
+      for (const sp of it.spans) ps.push(poly(bandOutline(sp.a, sp.b, sp.width)));
+      for (const [p, q] of it.splices) ps.push(seg(HORM, pt(p[0] * K, p[1] * K), pt(q[0] * K, q[1] * K)));
+    } else ps.push(poly(it.outline, true));
     if (it.kind === 'column') for (const b of it.rebars) ps.push({ kind: 'circle', layer: arm('LONG', b.dia), c: pt(b.at[0] * K, b.at[1] * K), r: b.dia / 2, dia: b.dia });
   }
   const text = (it: PlanItem) => (it.kind === 'wall' ? `${it.name} · e=${cm(c.fmt, it.thickness)} · ${it.bars}` : `${it.name} · ${it.bars}`);
@@ -42,6 +45,6 @@ export function structurePlanPrimitives(plan: StructurePlan, c: PlanCtx): Primit
 }
 
 export function structurePlanDrawing(plan: StructurePlan, o: StructurePlanOptions): DrawingInput {
-  const title = o.tr('rcSheets.structPlan.title', { family: o.tr(`rcSheets.family.${plan.family}`), level: plan.level || '—' });
+  const title = o.tr('rcSheets.structPlan.title', { family: o.tr(plan.family === 'vertical' ? 'rcSheets.tab.vertical' : `rcSheets.family.${plan.family}`), level: plan.level || '—' });
   return framed(`structplan:${plan.family}:${plan.level}`, title, structurePlanPrimitives(plan, o), o.scale, o.group);
 }

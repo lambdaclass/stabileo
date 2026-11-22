@@ -15,10 +15,10 @@ export const localizeDecimals = (s: string | undefined, comma: boolean): string 
  * A layer's bars across `span`, m, at `s`: the outer ones `edge` in from each side (the cover and
  * half the bar), the rest at the spacing, centred; every `every`-th drawn past `maxLines`.
  */
-export function layerPositions(span: number, s: number, edge: number, maxLines = Infinity): { at: number[]; n: number; every: number } {
+export function layerPositions(span: number, s: number, edge: number, maxLines = Infinity, minGap = 0): { at: number[]; n: number; every: number } {
   const room = Math.max(0, span - 2 * edge);
   const n = s > 0 ? Math.max(1, Math.floor(room / s + 1e-9) + 1) : 1;
-  const every = Number.isFinite(maxLines) ? Math.max(1, Math.ceil(n / maxLines)) : 1;
+  const every = Math.max(1, Number.isFinite(maxLines) ? Math.ceil(n / maxLines) : 1, s > 0 ? Math.ceil(minGap / s - 1e-9) : 1);
   const used = (n - 1) * s, start = (span - used) / 2;
   return { at: Array.from({ length: Math.ceil(n / every) }, (_, i) => start + i * every * s), n, every };
 }

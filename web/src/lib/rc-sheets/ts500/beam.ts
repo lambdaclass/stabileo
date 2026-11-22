@@ -1,5 +1,5 @@
 import { barArea, faceLayout, groupsArea, groupsLabel, moreStirrup, proposeBeamFace, proposeStirrups, roundDown, stirrupsLabel } from '../bars';
-import { beamBarWhere, hangerBar } from '../beam-row';
+import { beamBarWhere, compressionMargin, hangerBar, peakSection, searchFaces } from '../beam-row';
 import { SECTION_NAMES, type BeamContext, type BeamDemand, type BeamRow, type SectionName } from '../beam-row';
 import type { Fmt } from '../format';
 import { check, ratioOf, type BarGroup, type BeamAdopted, type CheckLine, type ComboTable, type MeshBars, type Step, type StepGroup, type Stirrups, isGenerous } from '../types';
@@ -120,18 +120,29 @@ export function beamRow(d: BeamDemand, c: BeamContext, adopted: BeamAdopted | un
   const sMax = Math.min(sh0.sMax, tor0.sMax);
   const skin = proposeSkin(d, c, d0);
 
+  const compression = (list: SectionNeed[]) => compressionMargin(c) * Math.max(0, ...list.filter((x) => x.env.value > 1e-6).map((x) => x.r.asComp));
+  const compTop = compression(needs.pos), compBottom = compression(hogging);
   const initial: BeamAdopted = {
-    bottom: proposeBeamFace(bottomReq, d.b, d.h, c.cover, c.stirrupDia, c.diameters),
-    top: topReq > 0 ? proposeBeamFace(topReq, d.b, d.h, c.cover, c.stirrupDia, c.diameters) : [{ count: 2, dia: hangerBar(c) }],
+    bottom: proposeBeamFace(Math.max(bottomReq, compBottom), d.b, d.h, c.cover, c.stirrupDia, c.diameters),
+    top: topReq > 0 || compTop > 0 ? proposeBeamFace(Math.max(topReq, compTop), d.b, d.h, c.cover, c.stirrupDia, c.diameters) : [{ count: 2, dia: hangerBar(c) }],
     stirrups: proposeStirrups(perLeg, legs, roundDown(sMax), c),
     ...(tor0.design ? { torsionLong: { count: Math.max(4, 2 * Math.ceil(tor0.uk / 0.3 / 2)), dia: 10 } } : {}),
   };
   let proposed = initial, iterations = 0;
   let ev = evaluate(d, c, t, proposed, req);
-  while (!ev.all && iterations < MAX_ITERATIONS) {
-    iterations++;
-    proposed = improve(proposed, ev, d, c);
+  const loop = () => {
+    for (let k = 0; !ev.all && k < MAX_ITERATIONS; k++) {
+      iterations++;
+      proposed = improve(proposed, ev, d, c);
+      ev = evaluate(d, c, t, proposed, req);
+    }
+  };
+  loop();
+  if (!adopted && !ev.flex.every((f) => f.ok)) {
+    const faces = searchFaces(proposed, Math.max(bottomReq, compBottom), Math.max(topReq, compTop), d, c, (x) => flexChecks(c, t, d, x).every((f) => f.ok));
+    proposed = faces ?? { ...proposed, bottom: initial.bottom, top: initial.top };
     ev = evaluate(d, c, t, proposed, req);
+    if (faces) loop();
   }
   const a = adopted ?? proposed;
   const e = adopted ? evaluate(d, c, t, a, req) : ev;
@@ -151,7 +162,7 @@ export function beamRow(d: BeamDemand, c: BeamContext, adopted: BeamAdopted | un
   ];
   return {
     family: 'beam', key: d.key, name: d.name, level: d.level, b: d.b, h: d.h, length: d.length, demand: d,
-    req: { bottom: bottomReq, top: topReq, bottomAt: gPos.s, topAt: gNeg.s, stirrupPerLeg: perLeg, legs, sMax, al: tor0.asl, torsionNeglected: !tor0.design, tuDesign: tor0.tdDesign, skin: skin?.mesh ?? null, bySection },
+    req: { bottom: bottomReq, top: topReq, bottomAt: gPos.s, topAt: gNeg.s, stirrupPerLeg: perLeg, legs, sMax, al: tor0.asl, torsionNeglected: !tor0.design, tuDesign: tor0.tdDesign, skin: skin?.mesh ?? null, bySection, ...(compTop > 0 || compBottom > 0 ? { compression: { top: compTop, bottom: compBottom } } : {}) },
     proposed, adopted: a, isAdopted: !!adopted, iterations: adopted ? 0 : iterations, flexure: e.flex, verifications, combos: comboTable(d, c, t, a, fmt),
     status: allOk ? (generous ? 'warn' : 'ok') : 'fail', generous, steps,
   };
@@ -202,9 +213,12 @@ function comboRatios(d: BeamDemand, c: BeamContext, t: Ts500Mat, a: BeamAdopted)
   return d.combos.map((k) => {
     const mr = (bars: { top: BarGroup[]; bottom: BarGroup[] }, sag: boolean, n: number) => (sag ? mrOf(d, c, t, bars.bottom, bars.top, sd, true, n) : mrOf(d, c, t, bars.top, bars.bottom, sd, false, n));
     const at = (m: number, bars: { top: BarGroup[]; bottom: BarGroup[] }, n: number, sag: boolean) => (sag === m >= 0 ? ratioOf(Math.abs(m), mr(bars, m >= 0, n)) : 0);
-    const pos = Math.max(at(k.mStart, S, k.nStart, true), at(k.mSpan, M, k.nSpan, true), at(k.mEnd, E, k.nEnd, true), ratioOf(k.mPos, mr(M, true, k.nSpan)));
+    const bars = { start: [S, k.nStart], span: [M, k.nSpan], end: [E, k.nEnd] } as const;
+    const peak = (sec: SectionName, sag: boolean) => mr(bars[sec][0], sag, bars[sec][1]);
+    const sp = peakSection(d, k.xPos) ?? 'span', sn = peakSection(d, k.xNeg);
+    const pos = Math.max(at(k.mStart, S, k.nStart, true), at(k.mSpan, M, k.nSpan, true), at(k.mEnd, E, k.nEnd, true), ratioOf(k.mPos, peak(sp, true)));
     const neg = Math.max(at(k.mStart, S, k.nStart, false), at(k.mSpan, M, k.nSpan, false), at(k.mEnd, E, k.nEnd, false),
-      ratioOf(k.mNeg, Math.min(mr(S, false, k.nStart), mr(E, false, k.nEnd), mr(M, false, k.nSpan))));
+      ratioOf(k.mNeg, sn ? peak(sn, false) : Math.min(mr(S, false, k.nStart), mr(E, false, k.nEnd), mr(M, false, k.nSpan))));
     const sh = shearState(t, d.b, d.h, dS, k.v, k.nV);
     const tor = torsionState(t, c, d.b, d.h, sh, k.t, c.torsion, sd);
     const stir = ratioOf(Math.max(sh.swReq, sh.swMin) / legs + tor.aoS, perLegProvided);
@@ -242,7 +256,7 @@ function flexureSteps(title: string, t: Ts500Mat, need: SectionNeed, bars: BarGr
   const steps: Step[] = [
     { label: `rcSheets.sec.${need.s}`, formula: `Md = ${f(need.env.value)} kN·m; Nd = ${f(need.n)} kN`, value: need.env.source?.combo ?? '' },
     { label: 'rcSheets.s.d', formula: 'd = h − c − Øw − Ø/2', value: `${f(r.d * 100, 1)} cm` },
-    { label: 'rcSheets.ts500.s.block', formula: `εcu = 3 ‰; 0.85·fcd over k1·c; k1 = 0.85 − 0.006·(fck − 25) = ${f(t.k1, 3)}`, value: '' },
+    { label: 'rcSheets.ts500.s.block', formula: `εcu = 3 ‰; 0.85·fcd (a = k1·c); k1 = 0.85 − 0.006·(fck − 25) = ${f(t.k1, 3)}`, value: '' },
   ];
   if (need.env.value <= 1e-6) steps.push({ label: 'rcSheets.s.noMoment', value: '' });
   else {
@@ -274,7 +288,7 @@ function shearSteps(d: BeamDemand, e: Evaluation, st: Stirrups, f: Fmt): StepGro
       { label: 'rcSheets.s.vc', formula: 'Vc = 0.8·Vcr (8.1.4)', value: `${f(s.vc)} kN` },
       { label: 'rcSheets.ts500.v.shearMax', formula: 'Vd ≤ 0.22·fcd·bw·d', value: `${f(s.vmax)} kN`, ok: e.ok.vmax },
       { label: 'rcSheets.s.avMin', formula: 'Asw/s ≥ 0.3·(fctd/fywd)·bw (8.1.5)', value: `${f(s.swMin)} cm²/m` },
-      { label: 'rcSheets.s.avReq', formula: s.vd > s.vcr ? 'Asw/s = (Vd − Vc)/(fywd·d)' : 'Vd ≤ Vcr → minimum', value: `${f(s.swReq)} cm²/m` },
+      { label: 'rcSheets.s.avReq', formula: s.vd > s.vcr ? 'Asw/s = (Vd − Vc)/(fywd·d)' : 'Vd ≤ Vcr → Asw,min', value: `${f(s.swReq)} cm²/m` },
       { label: 'rcSheets.ts500.s.spacing', formula: s.dense ? 'Vd > 3·Vcr: s ≤ min(d/4; 300 mm)' : 's ≤ min(d/2; 600 mm)', value: `${f(e.sMax * 100, 1)} cm` },
       { label: 'rcSheets.s.stirrups', formula: stirrupsLabel(st), value: '' },
       { label: 'rcSheets.s.verifyShear', formula: 'Vr = Vc + Asw·fywd·d/s', value: `${f(e.vr)} ≥ Vd = ${f(d.vu.value)} kN`, ok: e.ok.shear },
@@ -287,7 +301,7 @@ function torsionSteps(c: BeamContext, e: Evaluation, a: BeamAdopted, f: Fmt): St
   const steps: Step[] = [
     { label: 'rcSheets.ts500.s.tcr', formula: 'Tcr = 1.35·fctd·Se; Se = x²·y/3', value: `${f(r.tcr)} kN·m` },
     ...(c.torsion === 'compatibility' && r.tdDesign < r.td - 1e-9 ? [{ label: 'rcSheets.ts500.s.compatibility', formula: 'Td ≤ Tcr', value: `${f(r.tdDesign)} kN·m` }] : []),
-    { label: 'rcSheets.ts500.s.interaction', formula: '(Vd/Vcr)² + (Td/Tcr)² ≤ 1 → minimum', value: f(r.interaction, 3) },
+    { label: 'rcSheets.ts500.s.interaction', formula: '(Vd/Vcr)² + (Td/Tcr)² ≤ 1 → Asw,min', value: f(r.interaction, 3) },
   ];
   if (r.design) {
     steps.push(

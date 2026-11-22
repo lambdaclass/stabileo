@@ -363,7 +363,7 @@
     },
     "src/components/SolveProgressCard.svelte": null,
     "src/components/Viewport3D.svelte": {
-      "source": "f3a314e356b2f4e43756b5ef48892fc2bf864c849777561dbcb8dc057f1ed571",
+      "source": "7c9f54a75ba5e104e60249d45549ff02ec5eed21a76eb4fb468173969724c6de",
       "original": "b028c491dd62e39094084fc590add218b3c158013c71b8792cab1e32a94a0084",
       "changes": [
         [
@@ -372,7 +372,34 @@
           []
         ],
         [
-          1513,
+          32,
+          1,
+          []
+        ],
+        [
+          990,
+          1,
+          []
+        ],
+        [
+          996,
+          1,
+          []
+        ],
+        [
+          1407,
+          1,
+          [
+            "    const on = resultsStore.diagramType === 'despiece' && !!resultsStore.results3D && !buildTimelapse.active;"
+          ]
+        ],
+        [
+          1514,
+          2,
+          []
+        ],
+        [
+          1518,
           2,
           [
             "    void uiStore.platesShowMesh;",
@@ -380,7 +407,30 @@
           ]
         ],
         [
-          4741,
+          4338,
+          1,
+          [
+            "  onmousedown={handleMouseDown}"
+          ]
+        ],
+        [
+          4341,
+          3,
+          [
+            "  onmouseup={handleMouseUp}",
+            "  ondblclick={handleDoubleClick3D}",
+            "  onmousemove={handleMouseMove}"
+          ]
+        ],
+        [
+          4345,
+          2,
+          [
+            "  oncontextmenu={handleContextMenu3D}"
+          ]
+        ],
+        [
+          4747,
           1,
           []
         ]
@@ -743,6 +793,79 @@
         ]
       ]
     },
+    "src/components/pro/ProConcreteByLevel.svelte": {
+      "source": "8dd0364e66bb6e10aa54e4bb4deba9947ed9b918ba99ae2b1fd2087e13e99f0a",
+      "original": "96ab44bd44c8972f650a6ae3a1e680809738d2fe3cff421db0495f3f18813ada",
+      "changes": [
+        [
+          3,
+          3,
+          [
+            "   * The concrete of each kind of element, by level. It changes the analysis model (the members'",
+            "   * material), so it stays available with design off; the design data panel shows it too."
+          ]
+        ],
+        [
+          7,
+          1,
+          [
+            "  import { modelStore } from '../../lib/store';"
+          ]
+        ],
+        [
+          13,
+          2,
+          []
+        ],
+        [
+          16,
+          1,
+          []
+        ],
+        [
+          19,
+          2,
+          [
+            "  let ckind = $state<DesignKind>('column'), cmat = $state(0), clevel = $state('');",
+            "  $effect(() => { if (!concretes.some((m) => m.id === cmat) && concretes[0]) cmat = concretes[0].id; });"
+          ]
+        ],
+        [
+          22,
+          14,
+          [
+            "  function assign() { if (ckind !== 'footing') assigned = assignConcrete(ckind, cmat, clevel || undefined); }"
+          ]
+        ],
+        [
+          42,
+          2,
+          [
+            "    <div class=\"cl-row\">",
+            "      <select bind:value={ckind} aria-label={t('physical.kindCol')}>{#each DESIGN_KINDS.filter((k) => k !== 'footing') as k}<option value={k}>{t(`designData.kind.${k}`)}</option>{/each}</select>",
+            "      <select bind:value={clevel} aria-label={t('building.level')}>"
+          ]
+        ],
+        [
+          47,
+          23,
+          [
+            "      <select bind:value={cmat} aria-label={t('building.material')}>{#each concretes as m (m.id)}<option value={m.id}>{m.name}</option>{/each}</select>",
+            "      <button class=\"pk-btn\" onclick={assign} data-testid=\"design-data-assign\">{t('designData.assign')}</button>",
+            "    </div>",
+            "    {#if assigned !== null}<p class=\"pk-hint cl-hint\" role=\"status\">{tp('designData.assigned', { n: assigned })}</p>{/if}"
+          ]
+        ],
+        [
+          75,
+          5,
+          [
+            "  .cl-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-size: 0.7rem; margin: 4px 0; }",
+            "  .cl-hint { color: var(--st-text-2); }"
+          ]
+        ]
+      ]
+    },
     "src/components/pro/ProDeadLoadBuilder.svelte": {
       "source": "3b4d2ae44dce4906d651e078b421ca917a75f0a5d036aac6fcda551e6b1dd9ff",
       "original": "eb303dc3d0fd9502e81f72ff47a627e096df71b92d847797574ad1ca66512139",
@@ -803,36 +926,48 @@
       ]
     },
     "src/components/pro/ProDesignDataPanel.svelte": {
-      "source": "43d156a18d85424639af5a3d51b78fe0c71eadd8872e2e6d135f20abcc0d24e5",
+      "source": "a5b3b866cd1ddf17a376a9e66634d8c7ac717112c3dc82ae5489ee6402b929a1",
       "original": "a202d9a7d39711e8c5229dd98ffdfe747d440446bcb6ddf6fa664cb217226bc4",
       "changes": [
         [
-          15,
+          3,
+          6,
+          [
+            "   * The project's design data, in one place: the reinforcing steel, the stirrup the depth",
+            "   * arithmetic assumes, each kind of element's exposure and clear cover against the minimum of",
+            "   * CIRSOC 201-2025 Table 20.5.1.3.1, the bar diameters the design may choose from, a wall's bar,",
+            "   * whether the beams are part of the lateral-force-resisting system (§9.7.3.8.2; each beam may",
+            "   * declare its own on the desk), the concrete of each kind of element by level, and the",
+            "   * deflection limits. Changing any of it",
+            "   * keeps the solve and retires the design it fed (`store/design-data.ts`). Office templates",
+            "   * carry it with the rest of the starting library."
+          ]
+        ],
+        [
+          13,
           1,
           [
             "    BAR_DIAMETERS_MM, DESIGN_KINDS, REBAR_GRADES, coversUnderMinimum, largestBar, minimumCover, withCirsocCovers,"
           ]
         ],
         [
-          18,
+          16,
           1,
           [
-            "  import { designData, patchDesignData, setDesignData } from '../../lib/store/design-data';"
+            "  import { designData, patchDesignData, setDesignData } from '../../lib/store/design-data';",
+            "  import ProDeflectionLimits from './ProDeflectionLimits.svelte';"
           ]
         ],
         [
-          21,
-          1,
-          []
-        ],
-        [
-          23,
-          1,
-          []
-        ],
-        [
-          30,
+          18,
           3,
+          [
+            "  import { setBeamsLateral } from '../../lib/store/lateral-system';"
+          ]
+        ],
+        [
+          27,
+          14,
           [
             "  const setCover = (k: DesignKind, mm: number) => { if (mm >= 0) patchDesignData({ covers: { ...d.covers, [k]: mm / 1000 } }); };",
             "  const setExposure = (k: DesignKind, e: Exposure) => patchDesignData({ exposure: { ...d.exposure, [k]: e } });",
@@ -840,42 +975,125 @@
           ]
         ],
         [
-          49,
+          57,
           1,
           [
             "      <button class=\"pk-btn pk-btn-primary\" onclick={() => setDesignData(withCirsocCovers({ ...d, rebarGrade: 'ADN 420', rebarFy: 420 }))} data-testid=\"design-data-cirsoc\">{t('designData.cirsocPreset')}</button>"
           ]
         ],
         [
-          75,
+          62,
+          1,
+          [
+            "  <section class=\"pk-card\">"
+          ]
+        ],
+        [
+          72,
+          0,
+          [
+            "      <label class=\"dd-inline\">{t('designData.stirrup')}",
+            "        <select value={d.stirrupDiaMm} onchange={(e) => patchDesignData({ stirrupDiaMm: Number(e.currentTarget.value) })} data-testid=\"design-data-stirrup\">",
+            "          {#each BAR_DIAMETERS_MM.filter((x) => x <= 16) as dia}<option value={dia}>Ø{dia}</option>{/each}",
+            "        </select>",
+            "      </label>"
+          ]
+        ],
+        [
+          73,
+          10,
+          []
+        ],
+        [
+          88,
           1,
           []
         ],
         [
-          80,
+          93,
           1,
           [
             "          {@const min = minimumCover(k, d.exposure[k], largestBar(d, k))}"
           ]
         ],
         [
-          110,
+          112,
           1,
           [
-            "        <button class=\"dd-chip\" class:on={d.stirrupDiametersMm.includes(dia)} aria-pressed={d.stirrupDiametersMm.includes(dia)} onclick={() => toggle('stirrupDiametersMm', dia)}>Ø{dia}</button>"
-          ]
-        ],
-        [
-          113,
-          6,
-          [
+            "  <section class=\"pk-card\">",
+            "    <h5 class=\"dd-h\">{t('designData.diameters')}</h5>",
+            "    <div class=\"dd-sub\">{t('designData.longitudinal')}</div>",
+            "    <div class=\"dd-chips\">",
+            "      {#each BAR_DIAMETERS_MM.filter((x) => x >= 8) as dia}",
+            "        <button class=\"dd-chip\" class:on={d.longDiametersMm.includes(dia)} aria-pressed={d.longDiametersMm.includes(dia)} onclick={() => toggle('longDiametersMm', dia)} data-testid=\"design-data-long-{dia}\">Ø{dia}</button>",
+            "      {/each}",
+            "    </div>",
+            "    <div class=\"dd-sub\">{t('designData.stirrups')}</div>",
+            "    <div class=\"dd-chips\">",
+            "      {#each BAR_DIAMETERS_MM.filter((x) => x <= 16) as dia}",
+            "        <button class=\"dd-chip\" class:on={d.stirrupDiametersMm.includes(dia)} aria-pressed={d.stirrupDiametersMm.includes(dia)} onclick={() => toggle('stirrupDiametersMm', dia)}>Ø{dia}</button>",
+            "      {/each}",
+            "    </div>",
             "    <label class=\"dd-inline dd-check\"><input type=\"checkbox\" checked={d.columnEndZones === true} onchange={(e) => patchDesignData({ columnEndZones: e.currentTarget.checked })} data-testid=\"design-data-end-zones\" /> {t('designData.columnEndZones')}</label>",
-            "    <Hint text={t('designData.columnEndZonesHint')} />"
+            "    <Hint text={t('designData.columnEndZonesHint')} />",
+            "    <label class=\"dd-inline\">{t('designData.wallBar')}",
+            "      <select value={d.wallBarDiaMm} onchange={(e) => patchDesignData({ wallBarDiaMm: Number(e.currentTarget.value) })} data-testid=\"design-data-wall\">",
+            "        {#each BAR_DIAMETERS_MM.filter((x) => x >= 8 && x <= 20) as dia}<option value={dia}>Ø{dia}</option>{/each}",
+            "      </select>",
+            "    </label>",
+            "  </section>"
           ]
         ],
         [
-          125,
+          114,
+          1,
+          [
+            "  <section class=\"pk-card\" data-testid=\"design-data-lateral\">",
+            "    <h5 class=\"dd-h\">{t('lateral.title')}</h5>",
+            "    <Hint text={t('lateral.projectHint')} />",
+            "    <label class=\"dd-inline\">{t('lateral.beams')}",
+            "      <select value={d.lateralSystem?.beams ?? ''} onchange={(e) => { const v = e.currentTarget.value; setBeamsLateral(v === 'lateral' || v === 'gravity' ? v : null); }} data-testid=\"design-data-lateral-beams\">",
+            "        <option value=\"\">{t('lateral.option.undeclared')}</option>",
+            "        <option value=\"lateral\">{t('lateral.option.lateral')}</option>",
+            "        <option value=\"gravity\">{t('lateral.option.gravity')}</option>",
+            "      </select>",
+            "    </label>",
+            "  </section>"
+          ]
+        ],
+        [
+          116,
           2,
+          [
+            "  <section class=\"pk-card\" data-testid=\"design-data-slab-base\">",
+            "    <h5 class=\"dd-h\">{t('designData.slabBase')}</h5>"
+          ]
+        ],
+        [
+          119,
+          2,
+          [
+            "    {#each ['bottomX', 'bottomY', 'topX', 'topY'] as k}",
+            "      {@const v = d.slabBase?.[k as 'bottomX']}"
+          ]
+        ],
+        [
+          129,
+          1,
+          [
+            "  </section>",
+            "",
+            "  <ProConcreteByLevel />",
+            "",
+            "  <section class=\"pk-card\">",
+            "    <h5 class=\"dd-h\">{t('designData.deflection')}</h5>",
+            "    <ProDeflectionLimits />",
+            "  </section>"
+          ]
+        ],
+        [
+          150,
+          3,
           []
         ]
       ]
@@ -2013,6 +2231,7 @@
         ]
       ]
     },
+    "src/components/pro/design/StabileoCriteria.svelte": null,
     "src/components/pro/desk/DeskPrepare.svelte": {
       "source": "f6c83d459735ecb18a1ad89ffd6cd413344303bea15c10bb1e51849dc586aa01",
       "original": "cc64e551f7fec19b46e6c6e78d3146ef3dcb015b8630bb63c0e7d08b84462f4a",
@@ -2709,15 +2928,20 @@
     "src/components/pro/rc-sheets/RcFootingDetail.svelte": null,
     "src/components/pro/rc-sheets/RcFootingSvg.svelte": null,
     "src/components/pro/rc-sheets/RcLeftOut.svelte": null,
+    "src/components/pro/rc-sheets/RcLineCharts.svelte": null,
     "src/components/pro/rc-sheets/RcLineDetail.svelte": null,
     "src/components/pro/rc-sheets/RcLineEditor.svelte": null,
     "src/components/pro/rc-sheets/RcLineSvg.svelte": null,
+    "src/components/pro/rc-sheets/RcPierSection.svelte": null,
     "src/components/pro/rc-sheets/RcPlansExport.svelte": null,
     "src/components/pro/rc-sheets/RcPunchingSvg.svelte": null,
+    "src/components/pro/rc-sheets/RcRebar3d.svelte": null,
     "src/components/pro/rc-sheets/RcResize.svelte": null,
+    "src/components/pro/rc-sheets/RcRowDetail.svelte": null,
     "src/components/pro/rc-sheets/RcRowEditor.svelte": null,
     "src/components/pro/rc-sheets/RcScheduleView.svelte": null,
     "src/components/pro/rc-sheets/RcSectionSvg.svelte": null,
+    "src/components/pro/rc-sheets/RcSeismicNotice.svelte": null,
     "src/components/pro/rc-sheets/RcSheetsProgress.svelte": null,
     "src/components/pro/rc-sheets/RcSheetsProgressCard.svelte": null,
     "src/components/pro/rc-sheets/RcSheetsWorkspace.svelte": null,
@@ -2725,6 +2949,7 @@
     "src/components/pro/rc-sheets/RcSlabPlan.svelte": null,
     "src/components/pro/rc-sheets/RcSteps.svelte": null,
     "src/components/pro/rc-sheets/RcStructurePlan.svelte": null,
+    "src/components/pro/rc-sheets/RcVerticalTable.svelte": null,
     "src/components/pro/rc-sheets/RcWallDetail.svelte": null,
     "src/components/pro/spec/SpecSurfaces.svelte": {
       "source": "3ada566e8ca8589c7f3bafd193a203dc144e6e72b92ec5f499cc7e129d7313c8",
@@ -3135,7 +3360,7 @@
       ]
     },
     "src/lib/codes/cirsoc201/anchorage.ts": {
-      "source": "77ddbc01b8067b5799bd1b8f0ddcbd36760797b87c176e57360f9289296fcb0d",
+      "source": "9045f0091951c9ba84a5d47984fc3ebab509d9e5ea129b06c2981722bc843137",
       "original": "ffed8a5ca103ba5004549bdae145df5598f643b513a7b867e2c3b3a61a9c2337",
       "changes": [
         [
@@ -3510,55 +3735,86 @@
         ]
       ]
     },
+    "src/lib/engine/codes/argentina/cirsoc201-section.ts": {
+      "source": "dc62fac8ff9e396f216e2fe595f93d2c99fe414557c63fdbb421813e0319e21a",
+      "original": "39edcd6e49352e0e6f4c7cdfc103315bcc6f8bcfdacdbff0e403933dcfa8b8cd",
+      "changes": [
+        [
+          44,
+          2,
+          [
+            "  /** Any outline, its vertices around it, in section coordinates about its centroid (an L column). */",
+            "  | { kind: 'polygon'; outer: Pt[] };"
+          ]
+        ],
+        [
+          75,
+          1,
+          [
+            "      return { outer: o.outer.map((p) => ({ ...p })), holes: [] };"
+          ]
+        ]
+      ]
+    },
     "src/lib/engine/codes/argentina/cirsoc201.ts": {
-      "source": "9b2ae3178cd261a1a0c887d9ccc4fd0700af2dbb3f29c13568198751f03d8b39",
+      "source": "7cb9436f095f1cd4dec99d26081de3fc0c78d44c324aa0c1eab72cb3269597a5",
       "original": "bce67969340470d566fed3f5231ae3ad3a50be585ba7bf9dd4d6bff43178406a",
       "changes": [
         [
-          319,
+          84,
+          2,
+          []
+        ],
+        [
+          321,
           5,
           []
         ],
         [
-          404,
+          406,
           1,
           []
         ],
         [
-          411,
+          413,
           1,
           [
             "    AsDesign = design.kind === 'impossible' ? 0.10 * Ag * 1e4 : Math.max(design.As, AsMin);"
           ]
         ],
         [
-          454,
+          456,
           1,
           [
             "    const passes = rebar.area >= minFlexuralSteelCm2(fc, fy, b, dReal) && check.flexureValid && check.phiMn / 1e3 >= MuAbs && !(ductilityApplies && check.epsilonT < check.epsilonTMin);"
           ]
         ],
         [
-          466,
+          468,
           1,
           [
             "  AsDesign = design.kind === 'impossible' ? 0.10 * Ag * 1e4 : Math.max(design.As, AsMin);"
           ]
         ],
         [
-          501,
+          503,
           1,
           [
             "  if (rebar.area < AsMin || design.kind === 'impossible' || barsDesign.kind === 'impossible') status = 'fail';"
           ]
         ],
         [
-          538,
+          522,
           1,
           []
         ],
         [
-          540,
+          541,
+          1,
+          []
+        ],
+        [
+          543,
           1,
           [
             "  return evaluateShear(params, Vu, Nu, opts);"
@@ -3567,7 +3823,7 @@
       ]
     },
     "src/lib/engine/codes/argentina/losas.ts": {
-      "source": "f8f7e270c8b49a8c1783780986e6d1a694a590f9e1672c7c3c9fe6b990766b42",
+      "source": "b5b593e0e44c31026384a30fa82b59e3a0a56161403e956ec69b6c4c8002394b",
       "original": "e22930064e0e49453e96e4b5aa9696cb174d96d8e4cbc55250098fa0813ea447",
       "changes": [
         [
@@ -3590,6 +3846,11 @@
           [
             "function stripCapacity(AsCm2: number, h: number, d: number, fc: number, fy: number, edition: RegulationEdition): number {"
           ]
+        ],
+        [
+          123,
+          7,
+          []
         ]
       ]
     },
@@ -3637,6 +3898,51 @@
             "  const endLength = +Math.max(Math.max(ctx.section.b, ctx.section.h), ctx.L / 6, 0.45).toFixed(3);",
             "  const endSpacing = Math.max(COLUMN_LIMITS.minSpacing, Math.floor((spacing / 2) / SPACING_GRID + 1e-9) * SPACING_GRID);",
             "  return { endLength, endSpacing: +endSpacing.toFixed(4) };"
+          ]
+        ]
+      ]
+    },
+    "src/lib/engine/design/eurocode/ec2-column.ts": {
+      "source": "238d695bd81e96f7fe564068e0d51b8724e7163211c39ba9238a7d310a62d8c5",
+      "original": "8aa29039f8ad7a71e5269876ceb690b02a26364a5d05337ef1030370b1dc0b08",
+      "changes": [
+        [
+          38,
+          3,
+          []
+        ],
+        [
+          42,
+          1,
+          [
+            "export function sectionResistance(x: number, s: { b: number; h: number; d2: number; as: number }, m: Mat, es: number): { n: number; m: number } {"
+          ]
+        ],
+        [
+          48,
+          4,
+          [
+            "  const f1 = (as / 2) * sig(strain(d2)), f2 = (as / 2) * sig(strain(h - d2));",
+            "  return { n: fc + f1 + f2, m: fc * (h / 2 - depth / 2) + f1 * (h / 2 - d2) - f2 * (h / 2 - d2) };"
+          ]
+        ],
+        [
+          55,
+          1,
+          [
+            "export function momentAt(N: number, s: { b: number; h: number; d2: number; as: number }, m: Mat, es: number): number | null {"
+          ]
+        ],
+        [
+          72,
+          2,
+          []
+        ],
+        [
+          171,
+          1,
+          [
+            "  const MRd = momentAt(N, { b: pl.b, h: pl.h, d2, as: asPlane }, m, p.es);"
           ]
         ]
       ]
@@ -3753,6 +4059,57 @@
           1,
           [
             "    colMn.set(m.id, { least: Math.min(mnOf(m, m.fy, ax.min, 'least'), mnOf(m, m.fy, ax.max, 'least')), most: Math.max(mnOf(m, s.overstrength * m.fy, ax.min, 'most'), mnOf(m, s.overstrength * m.fy, ax.max, 'most')) });"
+          ]
+        ]
+      ]
+    },
+    "src/lib/engine/design/sway.ts": {
+      "source": "ae912e72da428d74b684312caf6131ddfd34a03abee31203b3f5c9c44705109b",
+      "original": "c063e7c325a3b957f1664b95ffa1c0dc45e6174e349d4cf4703938c13486266f",
+      "changes": [
+        [
+          28,
+          2,
+          []
+        ],
+        [
+          50,
+          2,
+          []
+        ],
+        [
+          73,
+          6,
+          []
+        ],
+        [
+          96,
+          1,
+          []
+        ],
+        [
+          100,
+          2,
+          [
+            "        if (q > Q) { Q = q; combo = input.comboNames?.get(cid) ?? String(cid); direction = dir; sumPu = P; }"
+          ]
+        ],
+        [
+          110,
+          0,
+          [
+            "        const sumPc = st.cols.reduce((s, c) => {",
+            "          const psi = input.psi?.(c.id) ?? { psiA: 1, psiB: 1 };",
+            "          const k = swayK(psi.psiA, psi.psiB);",
+            "          return s + (Math.PI ** 2 * 0.4 * c.Ec * c.Ig) / (k * c.lc) ** 2;",
+            "        }, 0);"
+          ]
+        ],
+        [
+          115,
+          1,
+          [
+            "    out.push({ zLo: st.zLo, zHi: st.zHi, columns: st.cols.map((c) => c.id), Q, combo, direction, sway, deltaS, method });"
           ]
         ]
       ]
@@ -4388,7 +4745,7 @@
       "original": "/**\n * A wall on one level as a member: its bars placed explicitly, its in-plane axial force and moment\n * checked on them by strain compatibility (the general section engine, the length as the depth),\n * its bending out of the plane checked on a metre strip in both directions (the vertical strip with\n * its share of the axial load, §11.5.2.2 reads it as a compression member), and the bars beside its\n * openings (§11.7.5.1: at least two Ø16 per side, or their area). When the distributed steel does\n * not carry the in-plane moment the design concentrates bars at both ends (boundary elements)\n * before closing the spacing.\n */\nimport type { WallReinforcement } from '../../design-contract/reinforcement';\nimport { momentCapacityAtAxial, axialRange } from '../codes/argentina/cirsoc-flex-surface';\nimport type { Bar } from '../codes/argentina/cirsoc201-section';\nimport { CIRSOC201_DESIGN_EDITION } from '../codes/argentina/cirsoc201-basis';\nimport { computeFlexureCapacity } from '../station-design-forces';\n\nconst area = (dMm: number) => Math.PI * (dMm / 1000) ** 2 / 4;\n\n/** The vertical bars of a wall in its section, x along the length, y across the thickness, m about the centre. */\nexport function wallVerticalBars(length: number, thickness: number, cover: number, r: WallReinforcement): Bar[] {\n  const out: Bar[] = [];\n  const hd = r.horizontal.diameter / 1000, vd = r.vertical.diameter / 1000;\n  // The verticals sit inside the horizontals on each curtain.\n  const ys = r.curtains === 2 ? [-(thickness / 2 - cover - hd - vd / 2), thickness / 2 - cover - hd - vd / 2] : [0];\n  const n = Math.max(2, Math.floor(length / r.vertical.spacing) + 1);\n  const span = length - 2 * (cover + hd + vd / 2);\n  for (const y of ys) for (let i = 0; i < n; i++) out.push({ x: -span / 2 + (span * i) / (n - 1), y, area: area(r.vertical.diameter) });\n  if (r.boundary && r.boundary.count > 0) {\n    // Each end's extra bars, split between the curtains, inward from the end bar at 2·db (≥ 50 mm).\n    const bd = r.boundary.diameter / 1000, pitch = Math.max(0.05, 2 * bd);\n    const per = Math.ceil(r.boundary.count / ys.length);\n    for (const end of [-1, 1]) for (const y of ys) for (let i = 0; i < per; i++) {\n      out.push({ x: end * (span / 2 - (i + 1) * pitch), y, area: area(r.boundary.diameter) });\n    }\n  }\n  return out;\n}\n\nexport interface WallCheck { category: string; utilization: number; description: string; ok: boolean }\n\n/** In-plane P–M on the wall's own bars, at its axial load in its own direction. */\nexport function wallInPlane(o: { length: number; thickness: number; cover: number; fc: number; fy: number; pu: number; mu: number; r: WallReinforcement }): WallCheck & { phiMn: number } {\n  const bars = wallVerticalBars(o.length, o.thickness, o.cover, o.r);\n  const outline = { kind: 'rect' as const, b: o.length, h: o.thickness };\n  const mat = { fc: o.fc, fy: o.fy, edition: CIRSOC201_DESIGN_EDITION };\n  const range = axialRange(outline, bars, mat);\n  let u: number, phiMn = 0;\n  if (o.pu > range.max || o.pu < range.min) u = Number.POSITIVE_INFINITY;\n  else if (o.mu < 1e-6) u = o.pu > 0 ? o.pu / Math.max(range.max, 1e-9) : 0;\n  else {\n    // In-plane bending: the strain varies along the length, the section's x.\n    const cap = momentCapacityAtAxial(outline, bars, mat, o.pu, 1e-9, o.mu);\n    phiMn = cap?.phiMn ?? 0;\n    u = phiMn > 1e-9 ? o.mu / phiMn : Number.POSITIVE_INFINITY;\n  }\n  return {\n    category: 'In-plane P-M', utilization: u, ok: u <= 1 + 1e-9, phiMn,\n    description: `Pu = ${o.pu.toFixed(0)} kN, Mu = ${o.mu.toFixed(0)} kN·m, φMn = ${phiMn.toFixed(0)} kN·m on ${bars.length} bars (strain compatibility)`,\n  };\n}\n\n/** Out of the plane, on a metre strip: the verticals with the axial share, the horizontals alone. */\nexport function wallOutOfPlane(o: { length: number; thickness: number; cover: number; fc: number; fy: number; pu: number; muV: number; muH: number; r: WallReinforcement }): WallCheck[] {\n  const out: WallCheck[] = [];\n  const t = o.thickness;\n  if (o.muV > 1e-6) {\n    const stripBars: Bar[] = [];\n    const per = 1 / o.r.vertical.spacing;\n    const ys = o.r.curtains === 2 ? [-(t / 2 - o.cover - o.r.horizontal.diameter / 1000 - o.r.vertical.diameter / 2000), t / 2 - o.cover - o.r.horizontal.diameter / 1000 - o.r.vertical.diameter / 2000] : [0];\n    for (const y of ys) stripBars.push({ x: 0, y, area: area(o.r.vertical.diameter) * per });\n    const outline = { kind: 'rect' as const, b: 1, h: t };\n    const Pm = Math.max(0, o.pu / Math.max(o.length, 1e-6));\n    const cap = momentCapacityAtAxial(outline, stripBars, { fc: o.fc, fy: o.fy, edition: CIRSOC201_DESIGN_EDITION }, Pm, o.muV, 1e-9);\n    const u = cap && cap.phiMn > 1e-9 ? o.muV / cap.phiMn : Number.POSITIVE_INFINITY;\n    out.push({ category: 'Out-of-plane (vertical bars)', utilization: u, ok: u <= 1 + 1e-9, description: `Mu = ${o.muV.toFixed(1)} kN·m/m at Pu = ${Pm.toFixed(0)} kN/m, φMn = ${(cap?.phiMn ?? 0).toFixed(1)} kN·m/m` });\n  }\n  if (o.muH > 1e-6) {\n    const As = (area(o.r.horizontal.diameter) / o.r.horizontal.spacing) * 1e4; // one curtain, cm²/m\n    const d = o.r.curtains === 2 ? t - o.cover - o.r.horizontal.diameter / 2000 : t / 2;\n    const phiMn = computeFlexureCapacity(As, 1, d, o.fc, o.fy)?.phiMn ?? 0;\n    const u = phiMn > 1e-9 ? o.muH / phiMn : Number.POSITIVE_INFINITY;\n    out.push({ category: 'Out-of-plane (horizontal bars)', utilization: u, ok: u <= 1 + 1e-9, description: `Mu = ${o.muH.toFixed(1)} kN·m/m, φMn = ${phiMn.toFixed(1)} kN·m/m` });\n  }\n  return out;\n}\n\n/** §11.7.5.1: beside each side of each opening, at least the area of 2Ø16. */\nexport function wallOpenings(openingCount: number, r: WallReinforcement): WallCheck | null {\n  if (!(openingCount > 0)) return null;\n  const need = 2 * area(16);\n  const have = r.openings ? r.openings.count * area(r.openings.diameter) : 0;\n  return {\n    category: 'Openings (§11.7.5)', utilization: have > 0 ? need / have : Number.POSITIVE_INFINITY, ok: have >= need - 1e-12,\n    description: `${openingCount} opening(s): ${r.openings ? `${r.openings.count}Ø${r.openings.diameter}` : 'no bars'} beside each side, at least 2Ø16 (${(need * 1e4).toFixed(2)} cm²)`,\n  };\n}\n\n/**\n * The wall's reinforcement as the design proposes it: the distributed minimum at the given bar,\n * then boundary bars at both ends while the in-plane P–M does not hold (2 to 8 bars of Ø12 to\n * Ø25 each end), then the opening bars.\n */\nexport function proposeWallReinforcement(o: {\n  length: number; thickness: number; cover: number; fc: number; fy: number; pu: number; mu: number;\n  barDiameterMm: number; verticalSpacing: number; horizontalSpacing: number; curtains: 1 | 2; openingCount: number;\n}): WallReinforcement {\n  const base: WallReinforcement = {\n    vertical: { diameter: o.barDiameterMm, spacing: o.verticalSpacing },\n    horizontal: { diameter: o.barDiameterMm, spacing: o.horizontalSpacing },\n    curtains: o.curtains,\n    ...(o.openingCount > 0 ? { openings: { count: 2, diameter: 16 } } : {}),\n  };\n  const holds = (r: WallReinforcement) => wallInPlane({ ...o, r }).ok;\n  if (holds(base)) return base;\n  for (const diameter of [12, 16, 20, 25]) for (const count of [2, 4, 6, 8]) {\n    const r = { ...base, boundary: { count, diameter } };\n    if (holds(r)) return r;\n  }\n  return { ...base, boundary: { count: 8, diameter: 25 } };\n}\n"
     },
     "src/lib/engine/generated/result-sites-ts.ts": {
-      "source": "597450ad5ec0608cad77057c57bcb6bd0e9efdc99a720d3c2bbbb4b3a7dd2cfc",
+      "source": "198ac2b3739726fe6826337c2897fbeb20c083e770a7a5c864d94badcbca1b26",
       "original": "7fd57b826a3cda22f935e235dc9a117bf8b8c6e221f6411ab8612b2b48f530f4",
       "changes": [
         [
@@ -4413,7 +4770,7 @@
       ]
     },
     "src/lib/engine/live-calc.ts": {
-      "source": "7001d1f492461e07f94b6e1c700c74750cbbeb633c9cf84b06940b5e73b97c68",
+      "source": "2f19cc8b676cacd2ec5347fb72c5efd531b0c47da21830d5952a61a43a6e06ba",
       "original": "cbb60a9db3b58149771fd485f91f31b80202937c2ca19fda3d9c9222b2ec3cb0",
       "changes": [
         [
@@ -4491,30 +4848,30 @@
         ],
         [
           356,
-          4,
+          5,
           [
             "    if (p.meshed > 0) uiStore.toast(tp('plates.meshedAtAnalysis', { n: p.meshed, cells: p.cells }), 'info');"
           ]
         ],
         [
-          374,
+          375,
           1,
           []
         ],
         [
-          377,
+          378,
           1,
           []
         ],
         [
-          390,
+          391,
           1,
           [
             "    outcome = await globalSolve3D(isStale, options.directBase ?? false);"
           ]
         ],
         [
-          429,
+          430,
           0,
           [
             "/** Show solver diagnostic warnings/errors as toasts (max 2 to avoid spam).",
@@ -4524,43 +4881,43 @@
           ]
         ],
         [
-          446,
+          447,
           1,
           [
             "async function globalSolve3D(isStale: () => boolean, directBase: boolean): Promise<GlobalSolveOutcome> {"
           ]
         ],
         [
-          457,
+          458,
           1,
           []
         ],
         [
-          481,
+          482,
           1,
           [
             "    showSolverWarningToasts(r.solverDiagnostics);"
           ]
         ],
         [
-          494,
+          495,
           2,
           []
         ],
         [
-          531,
+          532,
           2,
           []
         ],
         [
-          557,
+          558,
           1,
           [
             "    showSolverWarningToasts(firstCaseResult.solverDiagnostics);"
           ]
         ],
         [
-          636,
+          637,
           1,
           [
             "  showSolverWarningToasts(r.solverDiagnostics);"
@@ -5140,7 +5497,7 @@
       ]
     },
     "src/lib/i18n/locales/de.ts": {
-      "source": "ada87df7ace03a8d3cda576190afafef06267e524222bf364e968eb4497f2bed",
+      "source": "f597565f9a0214bae8eb09a9cdf6bebae4054a113bcbe78a376ef315e0e7090a",
       "original": "0b1cffc73c321c88dd80b93e39f81e925705babc0f2e91df63e10c19111fe052",
       "changes": [
         [
@@ -5201,35 +5558,56 @@
           ]
         ],
         [
-          7736,
+          6277,
+          1,
+          [
+            "  'designData.explain': 'Stahl, Betondeckungen, Durchmesser und Grenzwerte, die Bemessung, Nachweise, Bewehrungsführung und Bericht verwenden. Eine Änderung behält die Berechnung bei und verwirft die mit den vorherigen Werten durchgeführte Bemessung. Ohne eigene Werte verwendet das Projekt die üblichen Werte.',"
+          ]
+        ],
+        [
+          6282,
+          0,
+          [
+            "  'designData.stirrup': 'Angenommener Bügel',"
+          ]
+        ],
+        [
+          6301,
+          1,
+          [
+            "  'designData.concreteHint': 'Weist jeder Stütze, jedem Balken, jeder Decke oder Wand einen Beton zu, in allen Geschossen oder in einem. Dies ändert das Berechnungsmodell.',"
+          ]
+        ],
+        [
+          7735,
           1,
           [
             "  'loads.cirsoc101.reduction.applied': 'K_LL·A_t = {kll} × {at} = {kllAt} m². L = {lo} (0.25 + 4.57/√{kllAt}) = {raw} kN/m².',"
           ]
         ],
         [
-          7782,
+          7781,
           1,
           [
             "  'loadPlan.derivation.adjacentSpans': 'Lasten beiderseits eines Auflagers (Kommentar zu §4.3.3): {n} Anordnungen, die beiden Felder neben einer Rasterlinie belastet und darüber hinaus jedes zweite Feld ({x} Linien in X und {y} in Y).',"
           ]
         ],
         [
-          11151,
+          11150,
           0,
           [
             "  'combos.rules.seed': 'Mit CIRSOC 101 beginnen',"
           ]
         ],
         [
-          11158,
+          11157,
           1,
           [
             "  'batch.shells': 'Gruppenbearbeitung: {n} Schalen',"
           ]
         ],
         [
-          11196,
+          11195,
           0,
           [
             "  'quickEdit.meshSize': 'Elementgröße',",
@@ -5239,7 +5617,7 @@
           ]
         ],
         [
-          11257,
+          11256,
           2,
           [
             "  'autoLoad.roof.maintenance': 'Nur Wartung (Lr, §4.8.1)',",
@@ -5247,49 +5625,57 @@
           ]
         ],
         [
-          11295,
+          11294,
           0,
           [
             "  'combos.rules.none': 'Noch keine Regeln. Fügen Sie eine hinzu oder beginnen Sie mit CIRSOC 101.',"
           ]
         ],
         [
-          11623,
+          11622,
           1,
           [
             "  'mesher.polygon': 'Polygon',"
           ]
         ],
         [
-          11630,
+          11629,
           1,
           [
             "  'mesher.auto': 'auto',"
           ]
         ],
         [
-          13673,
+          13404,
+          2,
+          [
+            "  'designData.slabBase': 'Decken: vorgegebene Grundbewehrung',",
+            "  'designData.slabBaseHint': 'Ist sie festgelegt, nimmt jedes Feld sie als Grundbewehrung, und die Bemessung fügt nur dort Zulagen hinzu, wo sie nicht ausreicht. Ohne Festlegung ist die Grundbewehrung das untere Minimum.',"
+          ]
+        ],
+        [
+          13672,
           1,
           [
             "  'desk.prep.existingHint': 'Für ein bereits erstelltes statisches Modell: Seine physischen Bauteile (Balken, Stützen, Decken, Wände) werden erkannt und die für die Bemessung nötigen Daten ergänzt.',"
           ]
         ],
         [
-          13676,
+          13675,
           0,
           [
             "  'desk.prep.recognize': 'Physische Bauteile erkennen',"
           ]
         ],
         [
-          13687,
+          13686,
           0,
           [
             "  'desk.prep.miss.pieces': 'Die physischen Bauteile fehlen: Erkennen Sie sie aus dem statischen Modell.',"
           ]
         ],
         [
-          14077,
+          14076,
           3,
           [
             "  'building.slabs.meshedCount': '{n} Decken wurden bei der Berechnung vernetzt.',",
@@ -5298,24 +5684,24 @@
           ]
         ],
         [
-          14119,
+          14118,
           0,
           [
             "  'recheck.ack': 'Ich habe diese Änderungen gelesen',"
           ]
         ],
         [
-          14205,
+          14204,
           7,
           []
         ],
         [
-          14217,
+          14216,
           48,
           []
         ],
         [
-          14276,
+          14275,
           0,
           [
             "  'plates.status.unmeshed': 'kein Netz',",
@@ -5326,7 +5712,7 @@
           ]
         ],
         [
-          14282,
+          14281,
           0,
           [
             "  'plates.removeHole': 'Loch entfernen',",
@@ -5336,49 +5722,49 @@
           ]
         ],
         [
-          14299,
+          14298,
           0,
           [
             "  'plates.planning': 'Vorbereitung {done} von {total}…',"
           ]
         ],
         [
-          14304,
+          14303,
           0,
           [
             "  'plates.qualityCell': 'min. Winkel {angle}°, {poor} schlecht',"
           ]
         ],
         [
-          14316,
+          14315,
           0,
           [
             "  'plates.planTotal': '{cells} Elemente insgesamt, von {size} {unit}. Schlechte Qualität: ein Winkel unter {angle}° oder sehr ungleiche Seiten.',"
           ]
         ],
         [
-          14322,
+          14321,
           0,
           [
             "  'plates.listTitle': 'Physische Platten ({n})',"
           ]
         ],
         [
-          14323,
+          14322,
           0,
           [
             "  'plates.nElements': '{n} Elemente',"
           ]
         ],
         [
-          14327,
+          14326,
           1,
           [
             "  'plates.meshBeforeAnalysisHint': 'Vor jeder Berechnung werden nur die Platten ohne Netz oder mit veraltetem Netz vernetzt, mit ihren eigenen Einstellungen. Ausgeschaltet bricht die Berechnung ab und nennt sie.',"
           ]
         ],
         [
-          14380,
+          14379,
           0,
           [
             "  'plates.sideFollows': 'gekrümmt, folgt gekrümmtem Stab {id}',",
@@ -5386,59 +5772,59 @@
           ]
         ],
         [
-          14381,
+          14380,
           0,
           [
             "  'plates.sideThrough': 'Durchgangsknoten',"
           ]
         ],
         [
-          14382,
+          14381,
           0,
           [
             "  'plates.sideCurved': 'Seite gekrümmt. Das Netz ist veraltet, bis Sie erneut vernetzen.',"
           ]
         ],
         [
-          14520,
+          14519,
           0,
           [
             "  'plates.sidesSummary': '{n}, {curved} gekrümmt',"
           ]
         ],
         [
-          14524,
+          14523,
           1,
           [
             "  'plates.showMeshHint': 'Ausgeschaltet wird jede vernetzte Platte als Bauteil (ihr Umriss) gezeichnet. Nur die Darstellung ändert sich: Auswahl und Ergebnisse bleiben, wie sie sind.',"
           ]
         ],
         [
-          14642,
+          14641,
           3,
           []
         ],
         [
-          14692,
+          14691,
           1,
           [
             "  \"resultChecks.discretizationHigh\": \"hoher Diskretisierungsfehler\","
           ]
         ],
         [
-          15108,
-          1053,
+          15107,
+          1050,
           []
         ],
         [
-          16166,
-          471,
+          16162,
+          700,
           []
         ]
       ]
     },
     "src/lib/i18n/locales/en.ts": {
-      "source": "eb8e7da70c248c7d7914ef0324b6421c0e51213cc211fe762b33ef326df76844",
+      "source": "399b280c9e99e1addea3e9c49457884111ec1c4fc092852ee73d90c6d858d360",
       "original": "99343e2eeb7cf4140cbbcb69424c37461d3ec4e5c925d64439f6b56ee0e9e6b3",
       "changes": [
         [
@@ -5504,21 +5890,42 @@
           ]
         ],
         [
-          11690,
+          6728,
+          1,
+          [
+            "  'designData.explain': 'The steel, covers, diameters and limits that design, checks, detailing and the report use. Changing them keeps the solve and retires the design made with the previous ones. With none of its own, the project uses the usual values.',"
+          ]
+        ],
+        [
+          6733,
+          0,
+          [
+            "  'designData.stirrup': 'Assumed stirrup',"
+          ]
+        ],
+        [
+          6752,
+          1,
+          [
+            "  'designData.concreteHint': 'Assigns a concrete to every column, beam, slab or wall, on every level or on one. It changes the analysis model.',"
+          ]
+        ],
+        [
+          11689,
           0,
           [
             "  'combos.rules.seed': 'Start from CIRSOC 101',"
           ]
         ],
         [
-          11697,
+          11696,
           1,
           [
             "  'batch.shells': 'Group editing: {n} shells',"
           ]
         ],
         [
-          11735,
+          11734,
           0,
           [
             "  'quickEdit.meshSize': 'Element size',",
@@ -5528,7 +5935,7 @@
           ]
         ],
         [
-          11796,
+          11795,
           2,
           [
             "  'autoLoad.roof.maintenance': \"Maintenance only (Lr, §4.8.1)\",",
@@ -5536,35 +5943,43 @@
           ]
         ],
         [
-          11834,
+          11833,
           0,
           [
             "  'combos.rules.none': 'No rules yet. Add one or start from CIRSOC 101.',"
           ]
         ],
         [
-          14209,
+          13939,
+          2,
+          [
+            "  'designData.slabBase': 'Slabs: predetermined base mat',",
+            "  'designData.slabBaseHint': 'When set, every panel takes it as its base and the design adds extra bars only where it falls short. Unset, the base is the bottom minimum.',"
+          ]
+        ],
+        [
+          14208,
           1,
           [
             "  'desk.prep.existingHint': \"For an analytical model already built: its physical pieces (beams, columns, slabs, walls) are recognized and the data design needs is completed.\","
           ]
         ],
         [
-          14212,
+          14211,
           0,
           [
             "  'desk.prep.recognize': \"Recognize physical pieces\","
           ]
         ],
         [
-          14223,
+          14222,
           0,
           [
             "  'desk.prep.miss.pieces': \"The physical pieces are missing: recognize them from the analytical model.\","
           ]
         ],
         [
-          14612,
+          14611,
           3,
           [
             "  \"building.slabs.meshedCount\": \"{n} slabs were meshed by the analysis.\",",
@@ -5573,24 +5988,24 @@
           ]
         ],
         [
-          14653,
+          14652,
           0,
           [
             "  \"recheck.ack\": \"I have read these changes\","
           ]
         ],
         [
-          14739,
+          14738,
           7,
           []
         ],
         [
-          14751,
+          14750,
           48,
           []
         ],
         [
-          14810,
+          14809,
           0,
           [
             "  \"plates.status.unmeshed\": \"no mesh\",",
@@ -5601,7 +6016,7 @@
           ]
         ],
         [
-          14816,
+          14815,
           0,
           [
             "  \"plates.removeHole\": \"Remove hole\",",
@@ -5611,49 +6026,49 @@
           ]
         ],
         [
-          14833,
+          14832,
           0,
           [
             "  \"plates.planning\": \"Planning {done} of {total}…\","
           ]
         ],
         [
-          14838,
+          14837,
           0,
           [
             "  \"plates.qualityCell\": \"min. angle {angle}°, {poor} poor\","
           ]
         ],
         [
-          14850,
+          14849,
           0,
           [
             "  \"plates.planTotal\": \"{cells} elements in all, of {size} {unit}. Poor quality: an angle under {angle}° or very unequal sides.\","
           ]
         ],
         [
-          14856,
+          14855,
           0,
           [
             "  \"plates.listTitle\": \"Physical plates ({n})\","
           ]
         ],
         [
-          14857,
+          14856,
           0,
           [
             "  \"plates.nElements\": \"{n} elements\","
           ]
         ],
         [
-          14861,
+          14860,
           1,
           [
             "  \"plates.meshBeforeAnalysisHint\": \"Before each analysis only the plates with no mesh or an out-of-date one are meshed, at their own settings. Off, the analysis stops and names them.\","
           ]
         ],
         [
-          14914,
+          14913,
           0,
           [
             "  \"plates.sideFollows\": \"curved, follows curved member {id}\",",
@@ -5661,54 +6076,54 @@
           ]
         ],
         [
-          14915,
+          14914,
           0,
           [
             "  \"plates.sideThrough\": \"node it passes\","
           ]
         ],
         [
-          14916,
+          14915,
           0,
           [
             "  \"plates.sideCurved\": \"Side curved. The mesh is out of date until you mesh again.\","
           ]
         ],
         [
-          15054,
+          15053,
           0,
           [
             "  \"plates.sidesSummary\": \"{n}, {curved} curved\","
           ]
         ],
         [
-          15058,
+          15057,
           1,
           [
             "  \"plates.showMeshHint\": \"Off, each meshed plate is drawn as the piece (its outline). Only the drawing changes: picking and results stay as they are.\","
           ]
         ],
         [
-          15185,
+          15184,
           1,
           [
             "  \"resultChecks.discretizationHigh\": \"high discretization error\","
           ]
         ],
         [
-          15266,
-          1055,
+          15265,
+          1052,
           []
         ],
         [
-          16328,
-          471,
+          16324,
+          700,
           []
         ]
       ]
     },
     "src/lib/i18n/locales/es.ts": {
-      "source": "0e8fc56f29209f843af26e915080dc908c374d614b3336055343c0fb34ab770a",
+      "source": "37f8dc5fc8b3f29571e7d72c16defce2c99a8913c82505a2312bc475504fbb77",
       "original": "df939d2beed0420d6833617b3561c95098e34704ee1a3b4f15f21dda24fa4e09",
       "changes": [
         [
@@ -5774,21 +6189,42 @@
           ]
         ],
         [
-          11679,
+          6721,
+          1,
+          [
+            "  'designData.explain': 'El acero, los recubrimientos, los diámetros y los límites que usan el diseño, la verificación, el detallado y la memoria. Cambiarlos conserva el cálculo y retira el diseño hecho con los anteriores. Sin datos propios, el proyecto usa los valores de siempre.',"
+          ]
+        ],
+        [
+          6726,
+          0,
+          [
+            "  'designData.stirrup': 'Estribo supuesto',"
+          ]
+        ],
+        [
+          6745,
+          1,
+          [
+            "  'designData.concreteHint': 'Asigna un hormigón a todas las columnas, vigas, losas o tabiques, en todos los niveles o en uno. Cambia el modelo de cálculo.',"
+          ]
+        ],
+        [
+          11678,
           0,
           [
             "  'combos.rules.seed': 'Partir de CIRSOC 101',"
           ]
         ],
         [
-          11686,
+          11685,
           1,
           [
             "  'batch.shells': 'Edición en grupo: {n} placas',"
           ]
         ],
         [
-          11724,
+          11723,
           0,
           [
             "  'quickEdit.meshSize': 'Tamaño del elemento',",
@@ -5798,7 +6234,7 @@
           ]
         ],
         [
-          11785,
+          11784,
           2,
           [
             "  'autoLoad.roof.maintenance': \"Sólo mantenimiento (Lr, §4.8.1)\",",
@@ -5806,35 +6242,43 @@
           ]
         ],
         [
-          11823,
+          11822,
           0,
           [
             "  'combos.rules.none': 'Sin reglas todavía. Agregá una o partí de CIRSOC 101.',"
           ]
         ],
         [
-          14198,
+          13928,
+          2,
+          [
+            "  'designData.slabBase': 'Losas: armadura base predeterminada',",
+            "  'designData.slabBaseHint': 'Si se fija, cada paño la toma como base y el diseño agrega refuerzos sólo donde no alcanza. Sin fijar, la base es la mínima inferior.',"
+          ]
+        ],
+        [
+          14197,
           1,
           [
             "  'desk.prep.existingHint': \"Para un modelo analítico ya armado: se reconocen sus piezas físicas (vigas, columnas, losas, tabiques) y se completan los datos que el diseño necesita.\","
           ]
         ],
         [
-          14201,
+          14200,
           0,
           [
             "  'desk.prep.recognize': \"Reconocer piezas físicas\","
           ]
         ],
         [
-          14212,
+          14211,
           0,
           [
             "  'desk.prep.miss.pieces': \"Faltan las piezas físicas: reconocelas desde el modelo analítico.\","
           ]
         ],
         [
-          14601,
+          14600,
           3,
           [
             "  \"building.slabs.meshedCount\": \"{n} losas quedaron malladas por el cálculo.\",",
@@ -5843,24 +6287,24 @@
           ]
         ],
         [
-          14642,
+          14641,
           0,
           [
             "  \"recheck.ack\": \"Leí estos cambios\","
           ]
         ],
         [
-          14728,
+          14727,
           7,
           []
         ],
         [
-          14740,
+          14739,
           48,
           []
         ],
         [
-          14799,
+          14798,
           0,
           [
             "  \"plates.status.unmeshed\": \"sin malla\",",
@@ -5871,7 +6315,7 @@
           ]
         ],
         [
-          14805,
+          14804,
           0,
           [
             "  \"plates.removeHole\": \"Quitar hueco\",",
@@ -5881,49 +6325,49 @@
           ]
         ],
         [
-          14822,
+          14821,
           0,
           [
             "  \"plates.planning\": \"Preparando {done} de {total}…\","
           ]
         ],
         [
-          14827,
+          14826,
           0,
           [
             "  \"plates.qualityCell\": \"ángulo mín. {angle}°, {poor} bajos\","
           ]
         ],
         [
-          14839,
+          14838,
           0,
           [
             "  \"plates.planTotal\": \"{cells} elementos en total, de {size} {unit}. Calidad baja: ángulo menor a {angle}° o lados muy desparejos.\","
           ]
         ],
         [
-          14845,
+          14844,
           0,
           [
             "  \"plates.listTitle\": \"Placas físicas ({n})\","
           ]
         ],
         [
-          14846,
+          14845,
           0,
           [
             "  \"plates.nElements\": \"{n} elementos\","
           ]
         ],
         [
-          14850,
+          14849,
           1,
           [
             "  \"plates.meshBeforeAnalysisHint\": \"Antes de cada cálculo se mallan sólo las placas sin malla o con malla desactualizada, con su configuración. Apagado, el cálculo se detiene y las nombra.\","
           ]
         ],
         [
-          14903,
+          14902,
           0,
           [
             "  \"plates.sideFollows\": \"curvo, sigue a la viga curva {id}\",",
@@ -5931,54 +6375,54 @@
           ]
         ],
         [
-          14904,
+          14903,
           0,
           [
             "  \"plates.sideThrough\": \"nodo de paso\","
           ]
         ],
         [
-          14905,
+          14904,
           0,
           [
             "  \"plates.sideCurved\": \"Lado curvado. La malla queda desactualizada hasta que la rehagas.\","
           ]
         ],
         [
-          15043,
+          15042,
           0,
           [
             "  \"plates.sidesSummary\": \"{n}, {curved} curvos\","
           ]
         ],
         [
-          15047,
+          15046,
           1,
           [
             "  \"plates.showMeshHint\": \"Apagado, cada placa mallada se dibuja como pieza (su contorno). Sólo cambia el dibujo: la selección y los resultados siguen igual.\","
           ]
         ],
         [
-          15174,
+          15173,
           1,
           [
             "  \"resultChecks.discretizationHigh\": \"error de discretización alto\","
           ]
         ],
         [
-          15255,
-          1055,
+          15254,
+          1052,
           []
         ],
         [
-          16317,
-          471,
+          16313,
+          700,
           []
         ]
       ]
     },
     "src/lib/i18n/locales/fr.ts": {
-      "source": "62b7d7ced5d12237e83770c582f972fbb7a5e18a408c44ac5d133342187e9376",
+      "source": "7a9579752c6bd7ee07b4e6b898bb2f78ca915b2e2741e2ca5ef0b5fa31ea0055",
       "original": "26693801514fc282fbb8a5a4ad627431cbfce3c6e3f0720639c8cb5cef4e4b20",
       "changes": [
         [
@@ -6039,28 +6483,49 @@
           ]
         ],
         [
-          7736,
+          6277,
+          1,
+          [
+            "  'designData.explain': 'L\\'acier, les enrobages, les diamètres et les limites qu\\'utilisent le dimensionnement, les vérifications, le ferraillage et la note de calcul. Les modifier conserve le calcul et retire le dimensionnement fait avec les précédents. Sans valeurs propres, le projet utilise les valeurs habituelles.',"
+          ]
+        ],
+        [
+          6282,
+          0,
+          [
+            "  'designData.stirrup': 'Cadre supposé',"
+          ]
+        ],
+        [
+          6301,
+          1,
+          [
+            "  'designData.concreteHint': 'Affecte un béton à chaque poteau, poutre, dalle ou voile, à tous les niveaux ou à un seul. Cela modifie le modèle d\\'analyse.',"
+          ]
+        ],
+        [
+          7735,
           1,
           [
             "  'loads.cirsoc101.reduction.applied': 'K_LL·A_t = {kll} × {at} = {kllAt} m². L = {lo} (0.25 + 4.57/√{kllAt}) = {raw} kN/m².',"
           ]
         ],
         [
-          11151,
+          11150,
           0,
           [
             "  'combos.rules.seed': 'Partir de CIRSOC 101',"
           ]
         ],
         [
-          11158,
+          11157,
           1,
           [
             "  'batch.shells': 'Édition groupée : {n} coques',"
           ]
         ],
         [
-          11196,
+          11195,
           0,
           [
             "  'quickEdit.meshSize': 'Taille d\\'élément',",
@@ -6070,7 +6535,7 @@
           ]
         ],
         [
-          11257,
+          11256,
           2,
           [
             "  'autoLoad.roof.maintenance': 'Entretien seulement (Lr, §4.8.1)',",
@@ -6078,56 +6543,64 @@
           ]
         ],
         [
-          11295,
+          11294,
           0,
           [
             "  'combos.rules.none': 'Aucune règle pour l\\'instant. Ajoutez-en une ou partez de CIRSOC 101.',"
           ]
         ],
         [
-          11628,
+          11627,
           1,
           [
             "  'mesher.divisions': 'Divisions',"
           ]
         ],
         [
-          11630,
+          11629,
           1,
           [
             "  'mesher.auto': 'auto',"
           ]
         ],
         [
-          11635,
+          11634,
           1,
           [
             "  'mesher.tris': 'Triangles',"
           ]
         ],
         [
-          13673,
+          13404,
+          2,
+          [
+            "  'designData.slabBase': 'Dalles : armature de base prédéfinie',",
+            "  'designData.slabBaseHint': 'Si elle est fixée, chaque panneau la prend comme base et le dimensionnement n\\'ajoute des renforts que là où elle est insuffisante. Sinon, la base est l\\'armature minimale inférieure.',"
+          ]
+        ],
+        [
+          13672,
           1,
           [
             "  'desk.prep.existingHint': 'Pour un modèle analytique déjà construit : ses pièces physiques (poutres, poteaux, dalles, voiles) sont reconnues et les données dont le dimensionnement a besoin sont complétées.',"
           ]
         ],
         [
-          13676,
+          13675,
           0,
           [
             "  'desk.prep.recognize': 'Reconnaître les pièces physiques',"
           ]
         ],
         [
-          13687,
+          13686,
           0,
           [
             "  'desk.prep.miss.pieces': 'Les pièces physiques manquent : reconnaissez-les à partir du modèle analytique.',"
           ]
         ],
         [
-          14077,
+          14076,
           3,
           [
             "  'building.slabs.meshedCount': '{n} dalles ont été maillées par le calcul.',",
@@ -6136,24 +6609,24 @@
           ]
         ],
         [
-          14119,
+          14118,
           0,
           [
             "  'recheck.ack': 'J\\'ai lu ces changements',"
           ]
         ],
         [
-          14205,
+          14204,
           7,
           []
         ],
         [
-          14217,
+          14216,
           48,
           []
         ],
         [
-          14276,
+          14275,
           0,
           [
             "  'plates.status.unmeshed': 'sans maillage',",
@@ -6164,7 +6637,7 @@
           ]
         ],
         [
-          14282,
+          14281,
           0,
           [
             "  'plates.removeHole': 'Retirer le trou',",
@@ -6174,49 +6647,49 @@
           ]
         ],
         [
-          14299,
+          14298,
           0,
           [
             "  'plates.planning': 'Préparation {done} sur {total}…',"
           ]
         ],
         [
-          14304,
+          14303,
           0,
           [
             "  'plates.qualityCell': 'angle min. {angle}°, {poor} mauvais',"
           ]
         ],
         [
-          14316,
+          14315,
           0,
           [
             "  'plates.planTotal': '{cells} éléments au total, de {size} {unit}. Mauvaise qualité : un angle inférieur à {angle}° ou des côtés très inégaux.',"
           ]
         ],
         [
-          14322,
+          14321,
           0,
           [
             "  'plates.listTitle': 'Plaques physiques ({n})',"
           ]
         ],
         [
-          14323,
+          14322,
           0,
           [
             "  'plates.nElements': '{n} éléments',"
           ]
         ],
         [
-          14327,
+          14326,
           1,
           [
             "  'plates.meshBeforeAnalysisHint': 'Avant chaque calcul, seules les plaques sans maillage ou au maillage obsolète sont maillées, avec leurs propres paramètres. Désactivé, le calcul s\\'arrête et les nomme.',"
           ]
         ],
         [
-          14380,
+          14379,
           0,
           [
             "  'plates.sideFollows': 'courbe, suit la barre courbe {id}',",
@@ -6224,53 +6697,53 @@
           ]
         ],
         [
-          14381,
+          14380,
           0,
           [
             "  'plates.sideThrough': 'nœud de passage',"
           ]
         ],
         [
-          14382,
+          14381,
           0,
           [
             "  'plates.sideCurved': 'Côté courbé. Le maillage reste obsolète jusqu\\'à ce que vous remailliez.',"
           ]
         ],
         [
-          14520,
+          14519,
           0,
           [
             "  'plates.sidesSummary': '{n}, {curved} courbes',"
           ]
         ],
         [
-          14524,
+          14523,
           1,
           [
             "  'plates.showMeshHint': 'Désactivé, chaque plaque maillée est dessinée comme pièce (son contour). Seul le dessin change : la sélection et les résultats restent identiques.',"
           ]
         ],
         [
-          14642,
+          14641,
           3,
           []
         ],
         [
-          14692,
+          14691,
           1,
           [
             "  'resultChecks.discretizationHigh': 'erreur de discrétisation élevée',"
           ]
         ],
         [
-          15108,
-          1053,
+          15107,
+          1050,
           []
         ],
         [
-          16166,
-          471,
+          16162,
+          700,
           []
         ]
       ]
@@ -6296,7 +6769,7 @@
       ]
     },
     "src/lib/i18n/locales/hu.ts": {
-      "source": "6150347621374e7a3ab3866c2e29f2e5ed431688b6cf71425c8b7d71b986c26c",
+      "source": "ddae13873b7183838291cd26a36df705257a99bccb85f65453fea2d5f7ac0acb",
       "original": "050bb2fb50b6d61761b6836086403490f8b3deedc1ac4af88de298aa3fd3966e",
       "changes": [
         [
@@ -6351,28 +6824,49 @@
           ]
         ],
         [
-          7431,
+          5996,
+          1,
+          [
+            "  \"designData.explain\": \"A méretezés, az ellenőrzések, a részletképzés és a jelentés által használt acél, betonfedések, átmérők és határértékek. Módosításuk megtartja a megoldást, és érvényteleníti a korábbiakkal készült méretezést. Saját adatok nélkül a projekt a szokásos értékeket használja.\","
+          ]
+        ],
+        [
+          6001,
+          0,
+          [
+            "  \"designData.stirrup\": \"Feltételezett kengyel\","
+          ]
+        ],
+        [
+          6020,
+          1,
+          [
+            "  \"designData.concreteHint\": \"Minden oszlophoz, gerendához, födémhez vagy falhoz betont rendel, minden szinten vagy egyen. Módosítja az analízis modelljét.\","
+          ]
+        ],
+        [
+          7430,
           1,
           [
             "  \"loads.cirsoc101.reduction.applied\": \"K_LL·A_t = {kll} × {at} = {kllAt} m². L = {lo} (0.25 + 4.57/√{kllAt}) = {raw} kN/m².\","
           ]
         ],
         [
-          9269,
+          9268,
           1,
           [
             "  \"sheet.ui.lead\": \"A kivitelezési rajzok és a vasalási részletrajzok a választott méretű rajzlapokra kiosztva, rajzfejjel, számozással és jegyzékkel. Töltse le PDF-ként vagy DXF-ként, fájlonként egy rajzlappal.\","
           ]
         ],
         [
-          10798,
+          10797,
           0,
           [
             "  \"combos.rules.seed\": \"Kezdés a CIRSOC 101-ből\","
           ]
         ],
         [
-          10843,
+          10842,
           0,
           [
             "  \"quickEdit.meshSize\": \"Elemméret\",",
@@ -6382,42 +6876,50 @@
           ]
         ],
         [
-          10942,
+          10941,
           0,
           [
             "  \"combos.rules.none\": \"Még nincsenek szabályok. Adjon hozzá egyet, vagy kezdje a CIRSOC 101-ből.\","
           ]
         ],
         [
-          13313,
+          13041,
+          2,
+          [
+            "  \"designData.slabBase\": \"Födémek: előre meghatározott alapháló\",",
+            "  \"designData.slabBaseHint\": \"Beállítva minden panel ezt kapja alapként, és a méretezés csak ott ad hozzá kiegészítő vasakat, ahol ez kevés. Beállítás nélkül az alap az alsó minimum.\","
+          ]
+        ],
+        [
+          13312,
           0,
           [
             "  \"desk.prep.recognize\": \"Fizikai elemek felismerése\","
           ]
         ],
         [
-          13324,
+          13323,
           0,
           [
             "  \"desk.prep.miss.pieces\": \"A fizikai elemek hiányoznak: ismerje fel őket az analitikus modellből.\","
           ]
         ],
         [
-          13733,
+          13732,
           1,
           [
             "  \"desk.guide.document\": \"A rajzok, a kimutatások és a projekt statikai számításának megtekintése és exportálása.\","
           ]
         ],
         [
-          13743,
+          13742,
           0,
           [
             "  \"recheck.ack\": \"Elolvastam ezeket a változásokat\","
           ]
         ],
         [
-          13845,
+          13844,
           0,
           [
             "  \"plates.status.unmeshed\": \"nincs háló\",",
@@ -6428,7 +6930,7 @@
           ]
         ],
         [
-          13851,
+          13850,
           0,
           [
             "  \"plates.removeHole\": \"Lyuk eltávolítása\",",
@@ -6438,49 +6940,49 @@
           ]
         ],
         [
-          13868,
+          13867,
           0,
           [
             "  \"plates.planning\": \"Tervezés: {done} / {total}…\","
           ]
         ],
         [
-          13873,
+          13872,
           0,
           [
             "  \"plates.qualityCell\": \"legkisebb szög {angle}°, {poor} gyenge\","
           ]
         ],
         [
-          13885,
+          13884,
           0,
           [
             "  \"plates.planTotal\": \"Összesen {cells} elem, {size} {unit} méretű. Gyenge minőség: {angle}°-nál kisebb szög vagy nagyon egyenlőtlen oldalak.\","
           ]
         ],
         [
-          13891,
+          13890,
           0,
           [
             "  \"plates.listTitle\": \"Fizikai lemezek ({n})\","
           ]
         ],
         [
-          13892,
+          13891,
           0,
           [
             "  \"plates.nElements\": \"{n} elem\","
           ]
         ],
         [
-          13896,
+          13895,
           1,
           [
             "  \"plates.meshBeforeAnalysisHint\": \"Minden analízis előtt csak azok a lemezek hálózódnak, amelyeknek nincs hálójuk vagy elavult, a saját beállításaikkal. Kikapcsolva az analízis megáll, és megnevezi őket.\","
           ]
         ],
         [
-          13949,
+          13948,
           0,
           [
             "  \"plates.sideFollows\": \"íves, követi a(z) {id} íves rudat\",",
@@ -6488,36 +6990,36 @@
           ]
         ],
         [
-          13950,
+          13949,
           0,
           [
             "  \"plates.sideThrough\": \"csomópont, amelyen átmegy\","
           ]
         ],
         [
-          13951,
+          13950,
           0,
           [
             "  \"plates.sideCurved\": \"Az oldal íves. A háló elavult, amíg újra nem hálózza.\","
           ]
         ],
         [
-          14089,
+          14088,
           0,
           [
             "  \"plates.sidesSummary\": \"{n}, ebből {curved} íves\","
           ]
         ],
         [
-          14257,
+          14256,
           1,
           [
             "  \"resultChecks.discretizationHigh\": \"nagy diszkretizációs hiba\","
           ]
         ],
         [
-          14766,
-          1584,
+          14765,
+          1810,
           [
             "  \"edu.game.hint\": \"Játék: egy szerkezet, három ábra, és csak az egyik helyes.\"",
             ""
@@ -6606,7 +7108,7 @@
       ]
     },
     "src/lib/i18n/locales/pt.ts": {
-      "source": "10e985732c892e6e08fd7e4d0263f8af9b28e7cc8aac27036695709dc4f74bc7",
+      "source": "340ff7809e3574674805d12df46d922b032e7310b6f1319ee1ed75ec5e150d62",
       "original": "f013a27bd1465964fefdc7d531a470bc4855e8593daa03ed54ed7453509bdd37",
       "changes": [
         [
@@ -6665,28 +7167,49 @@
           ]
         ],
         [
-          6810,
+          6168,
+          1,
+          [
+            "  'designData.explain': 'O aço, os cobrimentos, os diâmetros e os limites que o dimensionamento, a verificação, o detalhamento e o memorial usam. Alterá-los conserva o cálculo e retira o dimensionamento feito com os anteriores. Sem dados próprios, o projeto usa os valores de sempre.',"
+          ]
+        ],
+        [
+          6173,
+          0,
+          [
+            "  'designData.stirrup': 'Estribo suposto',"
+          ]
+        ],
+        [
+          6192,
+          1,
+          [
+            "  'designData.concreteHint': 'Atribui um concreto a todos os pilares, vigas, lajes ou paredes, em todos os níveis ou em um. Altera o modelo de cálculo.',"
+          ]
+        ],
+        [
+          6809,
           0,
           [
             "  'pro.curvedShellHint': 'Estes quatro nós estão {mm} mm fora do plano. Resolvida plana, a curvatura se perde — marque Casca para mantê-la.',"
           ]
         ],
         [
-          11051,
+          11050,
           0,
           [
             "  'combos.rules.seed': 'Partir da CIRSOC 101',"
           ]
         ],
         [
-          11058,
+          11057,
           1,
           [
             "  'batch.shells': 'Edição em grupo: {n} placas',"
           ]
         ],
         [
-          11096,
+          11095,
           0,
           [
             "  'quickEdit.meshSize': 'Tamanho do elemento',",
@@ -6696,7 +7219,7 @@
           ]
         ],
         [
-          11157,
+          11156,
           2,
           [
             "  'autoLoad.roof.maintenance': \"Só manutenção (Lr, §4.8.1)\",",
@@ -6704,35 +7227,43 @@
           ]
         ],
         [
-          11195,
+          11194,
           0,
           [
             "  'combos.rules.none': 'Ainda sem regras. Adicione uma ou parta da CIRSOC 101.',"
           ]
         ],
         [
-          13851,
+          13581,
+          2,
+          [
+            "  'designData.slabBase': 'Lajes: armadura base predeterminada',",
+            "  'designData.slabBaseHint': 'Se definida, cada painel a usa como base e o dimensionamento acrescenta reforços só onde não basta. Sem definir, a base é a mínima inferior.',"
+          ]
+        ],
+        [
+          13850,
           1,
           [
             "  'desk.prep.existingHint': \"Para um modelo analítico já montado: as peças físicas (vigas, pilares, lajes, paredes) são reconhecidas e os dados de que o dimensionamento precisa são completados.\","
           ]
         ],
         [
-          13854,
+          13853,
           0,
           [
             "  'desk.prep.recognize': \"Reconhecer peças físicas\","
           ]
         ],
         [
-          13865,
+          13864,
           0,
           [
             "  'desk.prep.miss.pieces': \"Faltam as peças físicas: reconheça-as a partir do modelo analítico.\","
           ]
         ],
         [
-          14254,
+          14253,
           3,
           [
             "  \"building.slabs.meshedCount\": \"{n} lajes ficaram com malha pelo cálculo.\",",
@@ -6741,24 +7272,24 @@
           ]
         ],
         [
-          14295,
+          14294,
           0,
           [
             "  \"recheck.ack\": \"Li estas mudanças\","
           ]
         ],
         [
-          14381,
+          14380,
           7,
           []
         ],
         [
-          14393,
+          14392,
           48,
           []
         ],
         [
-          14452,
+          14451,
           0,
           [
             "  \"plates.status.unmeshed\": \"sem malha\",",
@@ -6769,7 +7300,7 @@
           ]
         ],
         [
-          14458,
+          14457,
           0,
           [
             "  \"plates.removeHole\": \"Remover furo\",",
@@ -6779,49 +7310,49 @@
           ]
         ],
         [
-          14475,
+          14474,
           0,
           [
             "  \"plates.planning\": \"Preparando {done} de {total}…\","
           ]
         ],
         [
-          14480,
+          14479,
           0,
           [
             "  \"plates.qualityCell\": \"ângulo mín. {angle}°, {poor} baixos\","
           ]
         ],
         [
-          14492,
+          14491,
           0,
           [
             "  \"plates.planTotal\": \"{cells} elementos no total, de {size} {unit}. Baixa qualidade: ângulo menor que {angle}° ou lados muito desiguais.\","
           ]
         ],
         [
-          14498,
+          14497,
           0,
           [
             "  \"plates.listTitle\": \"Placas físicas ({n})\","
           ]
         ],
         [
-          14499,
+          14498,
           0,
           [
             "  \"plates.nElements\": \"{n} elementos\","
           ]
         ],
         [
-          14503,
+          14502,
           1,
           [
             "  \"plates.meshBeforeAnalysisHint\": \"Antes de cada cálculo são malhadas só as placas sem malha ou com malha desatualizada, com sua configuração. Desligado, o cálculo para e as nomeia.\","
           ]
         ],
         [
-          14556,
+          14555,
           0,
           [
             "  \"plates.sideFollows\": \"curvo, segue a viga curva {id}\",",
@@ -6829,48 +7360,48 @@
           ]
         ],
         [
-          14557,
+          14556,
           0,
           [
             "  \"plates.sideThrough\": \"nó de passagem\","
           ]
         ],
         [
-          14558,
+          14557,
           0,
           [
             "  \"plates.sideCurved\": \"Lado curvado. A malha fica desatualizada até você malhar de novo.\","
           ]
         ],
         [
-          14696,
+          14695,
           0,
           [
             "  \"plates.sidesSummary\": \"{n}, {curved} curvos\","
           ]
         ],
         [
-          14700,
+          14699,
           1,
           [
             "  \"plates.showMeshHint\": \"Desligado, cada placa malhada é desenhada como peça (seu contorno). Só muda o desenho: a seleção e os resultados continuam iguais.\","
           ]
         ],
         [
-          14827,
+          14826,
           1,
           [
             "  \"resultChecks.discretizationHigh\": \"erro de discretização alto\","
           ]
         ],
         [
-          14908,
-          1055,
+          14907,
+          1052,
           []
         ],
         [
-          15970,
-          471,
+          15966,
+          700,
           []
         ]
       ]
@@ -6962,7 +7493,7 @@
       ]
     },
     "src/lib/i18n/locales/same-as-english/fr.ts": {
-      "source": "6d2e78d595d00ea0d6d939fd64a4366b8eb83f3292a5478c3125f27d05c5286d",
+      "source": "d23c49a65d51969d85fe618a5da58387322a5128951582a189df42da94b1e8ee",
       "original": "01234681db94c5f4f167b39f026f48e365985ca6f4133000b38ee9ab9a078c71",
       "changes": [
         [
@@ -6993,31 +7524,26 @@
         ],
         [
           584,
-          13,
+          15,
           []
         ],
         [
-          599,
-          1,
-          []
-        ],
-        [
-          606,
+          601,
           1,
           []
         ],
         [
           608,
-          3,
-          []
-        ],
-        [
-          612,
           1,
           []
         ],
         [
-          618,
+          610,
+          3,
+          []
+        ],
+        [
+          614,
           1,
           []
         ],
@@ -7027,7 +7553,12 @@
           []
         ],
         [
-          834,
+          622,
+          1,
+          []
+        ],
+        [
+          836,
           2,
           []
         ]
@@ -7173,7 +7704,7 @@
       ]
     },
     "src/lib/i18n/locales/tr.ts": {
-      "source": "9e0f9e3a52637fe889d7be44ffff7147c0bf53ac2ee5ccd6d93b659a08bbf835",
+      "source": "9ce106c19301804ee6e06c8e67c6fbcaae81a229b478cabce631ab37709f545d",
       "original": "dfae3be5cd45792b6b2c9720f3433a60bace6b76a70d785cd4f6cc88d7ef096f",
       "changes": [
         [
@@ -7234,28 +7765,49 @@
           ]
         ],
         [
-          7745,
+          6286,
+          1,
+          [
+            "  'designData.explain': 'Tasarım, kontroller, detaylandırma ve raporun kullandığı çelik, pas payları, çaplar ve sınırlar. Bunları değiştirmek çözümü korur ve önceki değerlerle yapılan tasarımı geçersiz kılar. Kendine ait değer yoksa proje olağan değerleri kullanır.',"
+          ]
+        ],
+        [
+          6291,
+          0,
+          [
+            "  'designData.stirrup': 'Varsayılan etriye',"
+          ]
+        ],
+        [
+          6310,
+          1,
+          [
+            "  'designData.concreteHint': 'Her kolona, kirişe, döşemeye veya perdeye, tüm katlarda veya tek bir katta bir beton atar. Analiz modelini değiştirir.',"
+          ]
+        ],
+        [
+          7744,
           1,
           [
             "  'loads.cirsoc101.reduction.applied': 'K_LL·A_t = {kll} × {at} = {kllAt} m². L = {lo} (0.25 + 4.57/√{kllAt}) = {raw} kN/m².',"
           ]
         ],
         [
-          11160,
+          11159,
           0,
           [
             "  'combos.rules.seed': 'CIRSOC 101\\'den başla',"
           ]
         ],
         [
-          11167,
+          11166,
           1,
           [
             "  'batch.shells': 'Grup düzenleme: {n} kabuk',"
           ]
         ],
         [
-          11205,
+          11204,
           0,
           [
             "  'quickEdit.meshSize': 'Eleman boyutu',",
@@ -7265,7 +7817,7 @@
           ]
         ],
         [
-          11266,
+          11265,
           2,
           [
             "  'autoLoad.roof.maintenance': 'Yalnızca bakım (Lr, §4.8.1)',",
@@ -7273,35 +7825,43 @@
           ]
         ],
         [
-          11304,
+          11303,
           0,
           [
             "  'combos.rules.none': 'Henüz kural yok. Bir kural ekleyin veya CIRSOC 101\\'den başlayın.',"
           ]
         ],
         [
-          13682,
+          13413,
+          2,
+          [
+            "  'designData.slabBase': 'Döşemeler: önceden belirlenmiş esas donatı',",
+            "  'designData.slabBaseHint': 'Belirlendiğinde her panel bunu esas donatı olarak alır ve boyutlandırma yalnızca yetmediği yerlere ilave donatı ekler. Belirlenmezse esas donatı alt minimumdur.',"
+          ]
+        ],
+        [
+          13681,
           1,
           [
             "  'desk.prep.existingHint': 'Önceden kurulmuş bir analitik model için: fiziksel parçaları (kirişler, kolonlar, döşemeler, perdeler) tanınır ve tasarımın ihtiyaç duyduğu veriler tamamlanır.',"
           ]
         ],
         [
-          13685,
+          13684,
           0,
           [
             "  'desk.prep.recognize': 'Fiziksel parçaları tanı',"
           ]
         ],
         [
-          13696,
+          13695,
           0,
           [
             "  'desk.prep.miss.pieces': 'Fiziksel parçalar eksik: bunları analitik modelden tanıtın.',"
           ]
         ],
         [
-          14086,
+          14085,
           3,
           [
             "  'building.slabs.meshedCount': '{n} döşemenin ağı analiz tarafından oluşturuldu.',",
@@ -7310,24 +7870,24 @@
           ]
         ],
         [
-          14119,
+          14118,
           0,
           [
             "  'recheck.ack': 'Bu değişiklikleri okudum',"
           ]
         ],
         [
-          14205,
+          14204,
           7,
           []
         ],
         [
-          14217,
+          14216,
           48,
           []
         ],
         [
-          14276,
+          14275,
           0,
           [
             "  'plates.status.unmeshed': 'ağ yok',",
@@ -7338,7 +7898,7 @@
           ]
         ],
         [
-          14282,
+          14281,
           0,
           [
             "  'plates.removeHole': 'Boşluğu kaldır',",
@@ -7348,49 +7908,49 @@
           ]
         ],
         [
-          14299,
+          14298,
           0,
           [
             "  'plates.planning': 'Hazırlanıyor {done} / {total}…',"
           ]
         ],
         [
-          14304,
+          14303,
           0,
           [
             "  'plates.qualityCell': 'en küçük açı {angle}°, {poor} düşük',"
           ]
         ],
         [
-          14316,
+          14315,
           0,
           [
             "  'plates.planTotal': 'Toplam {cells} eleman, {size} {unit} boyutunda. Düşük kalite: {angle}°\\'den küçük bir açı veya çok farklı kenarlar.',"
           ]
         ],
         [
-          14322,
+          14321,
           0,
           [
             "  'plates.listTitle': 'Fiziksel plaklar ({n})',"
           ]
         ],
         [
-          14323,
+          14322,
           0,
           [
             "  'plates.nElements': '{n} eleman',"
           ]
         ],
         [
-          14327,
+          14326,
           1,
           [
             "  'plates.meshBeforeAnalysisHint': 'Her analizden önce yalnızca ağı olmayan veya ağı güncel olmayan plakların ağı, kendi ayarlarıyla oluşturulur. Kapalıyken analiz durur ve bu plakları adlarıyla bildirir.',"
           ]
         ],
         [
-          14380,
+          14379,
           0,
           [
             "  'plates.sideFollows': 'eğrisel, {id} eğrisel çubuğunu izler',",
@@ -7398,59 +7958,59 @@
           ]
         ],
         [
-          14381,
+          14380,
           0,
           [
             "  'plates.sideThrough': 'geçtiği düğüm',"
           ]
         ],
         [
-          14382,
+          14381,
           0,
           [
             "  'plates.sideCurved': 'Kenar eğildi. Ağ yeniden oluşturulana kadar güncel değil.',"
           ]
         ],
         [
-          14520,
+          14519,
           0,
           [
             "  'plates.sidesSummary': '{n}, {curved} eğrisel',"
           ]
         ],
         [
-          14524,
+          14523,
           1,
           [
             "  'plates.showMeshHint': 'Kapalıyken ağı oluşturulmuş her plak parça olarak (konturuyla) çizilir. Yalnızca çizim değişir: seçim ve sonuçlar aynı kalır.',"
           ]
         ],
         [
-          14642,
+          14641,
           3,
           []
         ],
         [
-          14692,
+          14691,
           1,
           [
             "  'resultChecks.discretizationHigh': 'yüksek ayrıklaştırma hatası',"
           ]
         ],
         [
-          15108,
-          1053,
+          15107,
+          1050,
           []
         ],
         [
-          16166,
-          471,
+          16162,
+          700,
           []
         ]
       ]
     },
     "src/lib/i18n/locales/zh.ts": {
-      "source": "3efde820b8c5418bda65d20db7cd22d3a41e6a762444a7e117384d42a5f8fab9",
+      "source": "1b30aa3f2bbad8e4d8f87d77096150d111f7ba81d670ebab84a22a5635347f68",
       "original": "187ecdf53aa596a80d7c584c8c8fc84768c7dd6c4d6540750c3a9cdcf2caee26",
       "changes": [
         [
@@ -7501,21 +8061,28 @@
           ]
         ],
         [
-          11252,
+          6466,
+          0,
+          [
+            "  \"designData.stirrup\": \"假定箍筋\","
+          ]
+        ],
+        [
+          11251,
           1,
           [
             "  \"combos.rules.seed\": \"从 CIRSOC 101 开始\","
           ]
         ],
         [
-          11260,
+          11259,
           1,
           [
             "  \"batch.shells\": \"批量编辑：{n} 个壳\","
           ]
         ],
         [
-          11298,
+          11297,
           1,
           [
             "  \"quickEdit.meshSize\": \"单元尺寸\",",
@@ -7525,7 +8092,7 @@
           ]
         ],
         [
-          11360,
+          11359,
           2,
           [
             "  \"autoLoad.roof.maintenance\": \"仅检修（Lr，§4.8.1）\",",
@@ -7533,35 +8100,35 @@
           ]
         ],
         [
-          11398,
+          11397,
           1,
           [
             "  \"combos.rules.none\": \"尚无规则。请添加一条，或从 CIRSOC 101 开始。\","
           ]
         ],
         [
-          13769,
+          13768,
           1,
           [
             "  \"desk.prep.existingHint\": \"适用于已建好的分析模型：识别其实体构件（梁、柱、楼板、墙），并补全设计所需的数据。\","
           ]
         ],
         [
-          13772,
+          13771,
           1,
           [
             "  \"desk.prep.recognize\": \"识别实体构件\","
           ]
         ],
         [
-          13784,
+          13783,
           1,
           [
             "  \"desk.prep.miss.pieces\": \"缺少实体构件：请从分析模型中识别它们。\","
           ]
         ],
         [
-          14173,
+          14172,
           3,
           [
             "  \"building.slabs.meshedCount\": \"分析已为 {n} 块楼板划分网格。\",",
@@ -7570,14 +8137,14 @@
           ]
         ],
         [
-          14213,
+          14212,
           0,
           [
             "  \"recheck.ack\": \"我已阅读这些变更\","
           ]
         ],
         [
-          14315,
+          14314,
           1,
           [
             "  \"plates.status.unmeshed\": \"无网格\",",
@@ -7588,7 +8155,7 @@
           ]
         ],
         [
-          14322,
+          14321,
           1,
           [
             "  \"plates.removeHole\": \"删除洞口\",",
@@ -7598,49 +8165,49 @@
           ]
         ],
         [
-          14340,
+          14339,
           1,
           [
             "  \"plates.planning\": \"正在规划 {done} / {total}…\","
           ]
         ],
         [
-          14346,
+          14345,
           1,
           [
             "  \"plates.qualityCell\": \"最小角 {angle}°，{poor} 个较差\","
           ]
         ],
         [
-          14359,
+          14358,
           1,
           [
             "  \"plates.planTotal\": \"共 {cells} 个单元，尺寸 {size} {unit}。质量较差：夹角小于 {angle}° 或边长相差悬殊。\","
           ]
         ],
         [
-          14366,
+          14365,
           1,
           [
             "  \"plates.listTitle\": \"实体板（{n}）\","
           ]
         ],
         [
-          14368,
+          14367,
           1,
           [
             "  \"plates.nElements\": \"{n} 个单元\","
           ]
         ],
         [
-          14373,
+          14372,
           1,
           [
             "  \"plates.meshBeforeAnalysisHint\": \"每次分析前，仅对没有网格或网格已过期的板按其各自的设置划分网格。关闭后，分析将停止并指出这些板。\","
           ]
         ],
         [
-          14426,
+          14425,
           1,
           [
             "  \"plates.sideFollows\": \"曲线，跟随曲线杆件 {id}\",",
@@ -7648,36 +8215,36 @@
           ]
         ],
         [
-          14428,
+          14427,
           1,
           [
             "  \"plates.sideThrough\": \"经过的节点\","
           ]
         ],
         [
-          14430,
+          14429,
           1,
           [
             "  \"plates.sideCurved\": \"边已改为曲线。重新划分网格之前，网格已过期。\","
           ]
         ],
         [
-          14569,
+          14568,
           1,
           [
             "  \"plates.sidesSummary\": \"{n}，其中 {curved} 个为曲边\","
           ]
         ],
         [
-          14574,
+          14573,
           1,
           [
             "  \"plates.showMeshHint\": \"关闭时，每块已划分网格的板按整体（其轮廓）绘制。只改变绘制效果，拾取和结果不变。\","
           ]
         ],
         [
-          14788,
-          1586,
+          14787,
+          1812,
           []
         ]
       ]
@@ -8000,7 +8567,7 @@
       ]
     },
     "src/lib/model/design-data.ts": {
-      "source": "bf4b52feabd39ee28ac1278699ea213a3aaf1373483cda2d5017f15f8d4eb10b",
+      "source": "934da89bc47a817276c240553f1843329dfe93badd5f0cd2c7a4c712216fc2e7",
       "original": "e45f0506b5654ec576bb879d9d847d071b49538897c20af3680b2e2f6c1c74f8",
       "changes": [
         [
@@ -8027,39 +8594,62 @@
           []
         ],
         [
+          46,
+          1,
+          [
+            "  /** The stirrup or tie diameter the cover-to-centroid arithmetic assumes, mm. */"
+          ]
+        ],
+        [
           51,
           2,
           []
         ],
         [
           56,
-          4,
-          []
-        ],
-        [
-          128,
-          4,
-          []
-        ],
-        [
-          135,
-          31,
-          []
-        ],
-        [
-          175,
-          1,
+          9,
           [
+            "  /** The diameter of a wall's vertical and horizontal bars, mm. */"
+          ]
+        ],
+        [
+          132,
+          4,
+          []
+        ],
+        [
+          140,
+          33,
+          []
+        ],
+        [
+          176,
+          4,
+          []
+        ],
+        [
+          181,
+          1,
+          []
+        ],
+        [
+          185,
+          2,
+          [
+            "    stirrupDiaMm: 8,",
             "    covers: { beam: 0.025, column: 0.025, slab: 0.025, wall: 0.025, footing: 0.025 },"
           ]
         ],
         [
-          179,
-          2,
-          []
+          189,
+          6,
+          [
+            "    stirrupDiametersMm: BAR_DIAMETERS_MM.filter((d) => d <= 12),",
+            "    wallBarDiaMm: 12,"
+          ]
         ],
         [
-          186,
+          199,
           3,
           [
             " * The minimum clear cover, m, of CIRSOC 201-2025 Table 20.5.1.3.1 for cast-in-place concrete",
@@ -8067,7 +8657,7 @@
           ]
         ],
         [
-          190,
+          203,
           2,
           [
             "export function minimumCover(kind: DesignKind, exposure: Exposure, largestBarMm: number): number {",
@@ -8079,7 +8669,7 @@
           ]
         ],
         [
-          194,
+          207,
           12,
           [
             "/** The largest bar a kind of element may take under these data, mm. */",
@@ -8088,34 +8678,29 @@
           ]
         ],
         [
-          209,
+          222,
           1,
           [
             "  return DESIGN_KINDS.map((kind) => ({ kind, cover: d.covers[kind], minimum: minimumCover(kind, d.exposure[kind], largestBar(d, kind)) }))"
           ]
         ],
         [
-          213,
+          226,
           1,
           [
             "/** Every cover set to the table's minimum for its exposure: the CIRSOC preset. */"
           ]
         ],
         [
-          216,
+          229,
           1,
           [
             "  for (const k of DESIGN_KINDS) covers[k] = minimumCover(k, d.exposure[k], largestBar(d, k));"
           ]
         ],
         [
-          221,
+          234,
           16,
-          []
-        ],
-        [
-          259,
-          2,
           []
         ],
         [
@@ -8124,7 +8709,27 @@
           []
         ],
         [
-          267,
+          269,
+          1,
+          [
+            "    stirrupDiaMm: BAR_DIAMETERS_MM.includes(e.stirrupDiaMm as number) ? (e.stirrupDiaMm as number) : def.stirrupDiaMm,"
+          ]
+        ],
+        [
+          273,
+          6,
+          [
+            "    stirrupDiametersMm: known(e.stirrupDiametersMm, def.stirrupDiametersMm),",
+            "    wallBarDiaMm: BAR_DIAMETERS_MM.includes(e.wallBarDiaMm as number) ? (e.wallBarDiaMm as number) : def.wallBarDiaMm,"
+          ]
+        ],
+        [
+          280,
+          2,
+          []
+        ],
+        [
+          284,
           1,
           []
         ]
@@ -8430,10 +9035,17 @@
     "src/lib/rc-sheets/codes/index.ts": null,
     "src/lib/rc-sheets/column-layout.ts": null,
     "src/lib/rc-sheets/column-row.ts": null,
+    "src/lib/rc-sheets/column-run.ts": null,
+    "src/lib/rc-sheets/column-stack.ts": null,
+    "src/lib/rc-sheets/column-sway.ts": null,
+    "src/lib/rc-sheets/column-tie-path.ts": null,
     "src/lib/rc-sheets/column-ties.ts": null,
+    "src/lib/rc-sheets/concrete-classes.ts": null,
     "src/lib/rc-sheets/coverage.ts": null,
     "src/lib/rc-sheets/covers-notice.ts": null,
+    "src/lib/rc-sheets/criteria.ts": null,
     "src/lib/rc-sheets/cutoff.ts": null,
+    "src/lib/rc-sheets/deflection.ts": null,
     "src/lib/rc-sheets/demands.ts": null,
     "src/lib/rc-sheets/design-options.ts": null,
     "src/lib/rc-sheets/drawing.ts": null,
@@ -8448,6 +9060,7 @@
     "src/lib/rc-sheets/ec2/punching-row.ts": null,
     "src/lib/rc-sheets/ec2/slab-row.ts": null,
     "src/lib/rc-sheets/ec2/wall-row.ts": null,
+    "src/lib/rc-sheets/elevation-layout.ts": null,
     "src/lib/rc-sheets/footing-demands.ts": null,
     "src/lib/rc-sheets/footing-design.ts": null,
     "src/lib/rc-sheets/footing-detail.ts": null,
@@ -8459,19 +9072,33 @@
     "src/lib/rc-sheets/footing-types.ts": null,
     "src/lib/rc-sheets/format.ts": null,
     "src/lib/rc-sheets/joints.ts": null,
+    "src/lib/rc-sheets/line-charts.ts": null,
     "src/lib/rc-sheets/line-geometry.ts": null,
+    "src/lib/rc-sheets/line-steel.ts": null,
+    "src/lib/rc-sheets/pier-design.ts": null,
+    "src/lib/rc-sheets/pier-row.ts": null,
+    "src/lib/rc-sheets/pier-section.ts": null,
+    "src/lib/rc-sheets/piers.ts": null,
+    "src/lib/rc-sheets/plans/beam-annotations.ts": null,
     "src/lib/rc-sheets/plans/beam-elevation.ts": null,
     "src/lib/rc-sheets/plans/clip.ts": null,
     "src/lib/rc-sheets/plans/column-elevation.ts": null,
     "src/lib/rc-sheets/plans/draw.ts": null,
-    "src/lib/rc-sheets/plans/footing-detail.ts": null,
     "src/lib/rc-sheets/plans/schedule-table.ts": null,
     "src/lib/rc-sheets/plans/section.ts": null,
     "src/lib/rc-sheets/plans/sheets.ts": null,
     "src/lib/rc-sheets/plans/slab-level.ts": null,
     "src/lib/rc-sheets/plans/structure-plan.ts": null,
     "src/lib/rc-sheets/plans/wall-detail.ts": null,
+    "src/lib/rc-sheets/punching-bars.ts": null,
     "src/lib/rc-sheets/punching-row.ts": null,
+    "src/lib/rc-sheets/rebar-3d-columns.ts": null,
+    "src/lib/rc-sheets/rebar-3d-geometry.ts": null,
+    "src/lib/rc-sheets/rebar-3d-ghost.ts": null,
+    "src/lib/rc-sheets/rebar-3d-lines.ts": null,
+    "src/lib/rc-sheets/rebar-3d-plates.ts": null,
+    "src/lib/rc-sheets/rebar-3d-punching.ts": null,
+    "src/lib/rc-sheets/rebar-3d.ts": null,
     "src/lib/rc-sheets/schedule/bar-shape-diagram.ts": null,
     "src/lib/rc-sheets/schedule/bvbs.ts": null,
     "src/lib/rc-sheets/schedule/exports.ts": null,
@@ -8487,6 +9114,7 @@
     "src/lib/rc-sheets/slab-plan.ts": null,
     "src/lib/rc-sheets/slab-punching.ts": null,
     "src/lib/rc-sheets/slab-row.ts": null,
+    "src/lib/rc-sheets/storeys.ts": null,
     "src/lib/rc-sheets/structure-plan-labels.ts": null,
     "src/lib/rc-sheets/structure-plan.ts": null,
     "src/lib/rc-sheets/ts500/basis.ts": null,
@@ -8504,12 +9132,14 @@
     "src/lib/rc-sheets/ts500/steps.ts": null,
     "src/lib/rc-sheets/ts500/wall.ts": null,
     "src/lib/rc-sheets/types.ts": null,
+    "src/lib/rc-sheets/vertical-list.ts": null,
     "src/lib/rc-sheets/view-helpers.ts": null,
     "src/lib/rc-sheets/wall-design.ts": null,
     "src/lib/rc-sheets/wall-detail.ts": null,
     "src/lib/rc-sheets/wall-member.ts": null,
     "src/lib/rc-sheets/wall-row.ts": null,
     "src/lib/rc-sheets/wall-seismic.ts": null,
+    "src/lib/rc-sheets/wall-stack.ts": null,
     "src/lib/rc-sheets/workbook.ts": null,
     "src/lib/report/memoria/render.ts": {
       "source": "6334c83fd0052ef3b43c226e77f8e49f84a8d287334af6b7596fec9606389978",
@@ -8598,7 +9228,7 @@
       ]
     },
     "src/lib/sheets/details/values.ts": {
-      "source": "21f651c73ce982649dc56587022f31082a2ce20bfbd2589f4c275870a17deed6",
+      "source": "5c9b687bbd6bf3ab23f2caa758dddedb278b6183fdb7f063ed20f87dbaef0d65",
       "original": "a2f43e4e4eb5d5fb3fc8d6e5afde2e9b364eb8aa5333a8ea662cb818da603358",
       "changes": [
         [
@@ -8771,7 +9401,7 @@
       ]
     },
     "src/lib/store/design-data.ts": {
-      "source": "6481a4382571040b05714cf616532e977284c57afed4cf15a40b4cc3d8ccde2a",
+      "source": "f4f0d6bd3c6a3ba5199eb7301df91389bd1c2a221dd45748274c5ef26c1b5f32",
       "original": "d0be034b48a4f95f64c2d6747575bdd30f3e70f2a7b9d2b4086cbfe7b5b38057",
       "changes": [
         [
@@ -8790,14 +9420,14 @@
         ],
         [
           24,
-          2,
+          4,
           [
             "export function patchDesignData(patch: Partial<ProjectDesignData>): void {",
             "  setDesignData({ ...designData(), ...patch });"
           ]
         ],
         [
-          33,
+          35,
           2,
           [
             "export function patchOwnDesignData(patch: Partial<Pick<ProjectDesignData, 'specialFloors' | 'stairs' | 'postTension' | 'fire' | 'specialElements' | 'foreignCodes' | 'budget' | 'federation' | 'architecture' | 'site' | 'frameToleranceMm'>>): void {",
@@ -8805,7 +9435,7 @@
           ]
         ],
         [
-          73,
+          75,
           1,
           [
             "  const d = designData();"
@@ -9288,7 +9918,7 @@
     "src/lib/store/mesh-apply.ts": null,
     "src/lib/store/mesh-progress.svelte.ts": null,
     "src/lib/store/model.svelte.ts": {
-      "source": "c9dd1fad073c80d58068191b971cce1397fb78b26051b88972b687214914cc57",
+      "source": "b79a0c397c7d27cdd6d728c6c7477fb2d2d87988b38d4eaed251875112a41d00",
       "original": "dc6911f2e2605850133f42dfa16ce58eef34f944b48245e2b68a0775c9243fc9",
       "changes": [
         [
@@ -9309,38 +9939,109 @@
           []
         ],
         [
-          970,
+          755,
+          3,
+          []
+        ],
+        [
+          973,
           1,
           [
             "  designData?: import('../model/design-data').ProjectDesignData;"
           ]
         ],
         [
-          2529,
+          1507,
+          2,
+          []
+        ],
+        [
+          1757,
+          12,
+          []
+        ],
+        [
+          2201,
+          1,
+          []
+        ],
+        [
+          2205,
+          6,
+          []
+        ],
+        [
+          2553,
           1,
           [
             "    model.designData = s.designData ? migrateDesignData(s.designData) : undefined;"
           ]
         ],
         [
-          2924,
+          2950,
           13,
           []
         ],
         [
-          3563,
+          3149,
+          1,
+          [
+            "      replaceInGroups('nodes', id);"
+          ]
+        ],
+        [
+          3166,
+          2,
+          [
+            "      // Every load on the node, an imposed displacement too (`LOAD_TARGET`).",
+            "      const keepLoad = (l: Load) => loadNodeId(l) !== id;",
+            "      model.loads = model.loads.filter(keepLoad);",
+            "      if (_bulkLoadBuffer) _bulkLoadBuffer = _bulkLoadBuffer.filter(keepLoad);"
+          ]
+        ],
+        [
+          3213,
+          1,
+          [
+            "      model.constraints = pruneConstraints(model.constraints);",
+            "      // Inside bulkMutate the commit phase overwrites model.constraints with",
+            "      // the buffer — prune the buffer too or dangling constraints resurrect."
+          ]
+        ],
+        [
+          3215,
+          1,
+          []
+        ],
+        [
+          3433,
+          1,
+          []
+        ],
+        [
+          3439,
+          2,
+          [
+            "      const keepLoad = (l: Load) =>",
+            "        !((l.type === 'surface3d' || l.type === 'thermalQuad3d') && l.data.quadId === id && !l.data.on);",
+            "      model.loads = model.loads.filter(keepLoad);",
+            "      if (_bulkLoadBuffer) _bulkLoadBuffer = _bulkLoadBuffer.filter(keepLoad);"
+          ]
+        ],
+        [
+          3583,
           1,
           [
             "        cover: model.designData?.covers.footing ?? DEFAULT_COVER,"
           ]
         ],
         [
-          3730,
+          3750,
           10,
           []
         ],
         [
-          4367,
+          4387,
           1,
           [
             "    setDesignData(d: import('../model/design-data').ProjectDesignData | null): void {"
@@ -9383,7 +10084,7 @@
       ]
     },
     "src/lib/store/physical-plates.ts": {
-      "source": "3a7b0fc8476f05ce11981cb0902780532a2f5c548bb780e607c9912e99bf0031",
+      "source": "ebb309a78f262fca1d75339ae0dab74b66e09dc657acca3a44a85d4bcbe90d8e",
       "original": "f1087ec325f40fca6cbb4381606d060bd2deac498987efe69681fe3eb98fa8f1",
       "changes": [
         [
@@ -9763,12 +10464,19 @@
           ]
         ],
         [
-          1329,
-          25,
+          1323,
+          1,
+          [
+            "  | { ok: true; meshed: number; cells: number }"
+          ]
+        ],
+        [
+          1328,
+          33,
           []
         ],
         [
-          1360,
+          1368,
           5,
           [
             "  const { invalid, ambiguousSweep, needsMesh } = physicalPlateProblems(modelStore.model);",
@@ -9789,9 +10497,10 @@
           ]
         ],
         [
-          1367,
-          14,
+          1374,
+          15,
           [
+            "  if (!meshBeforeAnalysis.value) return { ok: false, reason: 'needsMesh', plates: names(need) };",
             "  const plans: PlateMeshPlan[] = [];",
             "  for (const id of need) {",
             "    const plan = planPlateMesh(id);",
@@ -9800,7 +10509,7 @@
           ]
         ],
         [
-          1382,
+          1390,
           11,
           [
             "  // Loads put by hand on the old mesh's elements cannot follow a new mesh: the plate is meshed",
@@ -9818,7 +10527,7 @@
           ]
         ],
         [
-          1394,
+          1402,
           0,
           [
             "  return checked(r.plates, r.cells);"
@@ -9966,16 +10675,21 @@
     "src/lib/store/plate-shape.ts": null,
     "src/lib/store/plates-from-shells.ts": null,
     "src/lib/store/rc-plans-export.ts": null,
+    "src/lib/store/rc-rebar-3d.svelte.ts": null,
+    "src/lib/store/rc-sheets-apply.ts": null,
     "src/lib/store/rc-sheets-covers.ts": null,
     "src/lib/store/rc-sheets-documents.ts": null,
     "src/lib/store/rc-sheets-exports.ts": null,
     "src/lib/store/rc-sheets-footings.ts": null,
     "src/lib/store/rc-sheets-ifc.ts": null,
+    "src/lib/store/rc-sheets-piers.ts": null,
     "src/lib/store/rc-sheets-progress.svelte.ts": null,
     "src/lib/store/rc-sheets-reinforcement.ts": null,
     "src/lib/store/rc-sheets-resize.ts": null,
     "src/lib/store/rc-sheets-schedule.ts": null,
+    "src/lib/store/rc-sheets-service.ts": null,
     "src/lib/store/rc-sheets-solve.svelte.ts": null,
+    "src/lib/store/rc-sheets-sway.ts": null,
     "src/lib/store/rc-sheets-view.svelte.ts": null,
     "src/lib/store/rc-sheets.svelte.ts": null,
     "src/lib/store/rc-structure-plan.ts": null,
@@ -10075,6 +10789,17 @@
             "      return knownIssueResultDisposition([singleResults3D, results3D, [...perCase3D.values()], [...perCombo3D.values()], envelope3D?.maxAbsResults3D, liveViewedEnvelope3D()?.maxAbsResults3D, overlayResults3D, pdeltaResult3D, modalResult3D, bucklingResult3D, spectralResult3D, timeHistoryView.storedDiagnostics]);",
             "    },"
           ]
+        ]
+      ]
+    },
+    "src/lib/store/seismic-design.svelte.ts": {
+      "source": "38c97de58f1fd5e0c144fadea593bbc810b2d0dcfbd922f5752447f482ea4f83",
+      "original": "7fcb766bb60ce90ba51036abb23f35cb204eaadc905569842335696f7d7f466b",
+      "changes": [
+        [
+          50,
+          5,
+          []
         ]
       ]
     },
@@ -10194,6 +10919,8 @@
         ]
       ]
     },
+    "src/lib/three/rebar-3d-layer.ts": null,
+    "src/lib/three/rebar-ghost-layer.ts": null,
     "src/lib/three/use-zone-map-3d.ts": {
       "source": "60afe97ad6e987e1758c67b0081d26d95cadda73dabfb649d29420cc3ae43f99",
       "original": "90f79cc45842937fbbc681798f1322373191285cfdf3c7cc1c19e59d79218325",
@@ -10296,6 +11023,23 @@
         ]
       ]
     },
+    "src/lib/viewport3d/scene-host.svelte.ts": {
+      "source": "300c7fae7fca9399abd69b4f7f713e90d9001020600f7c9be74b419f693aed7f",
+      "original": "b79d1f48dd1e1c6b38c1853ef2af9d1b3abe4364f3227e376631853fc099150d",
+      "changes": [
+        [
+          11,
+          1,
+          []
+        ],
+        [
+          21,
+          3,
+          []
+        ]
+      ]
+    },
+    "src/lib/viewport3d/scene-solo.ts": null,
     "src/lib/viewport3d/scene-sync.ts": {
       "source": "5cdd580dfda1f86514eb052c50a36bbd6436173f723e6ebd0f55dc9e9f8fd58f",
       "original": "4d82e54161660a2ce53f2eecf254fcf5e649309ac07497f14caef35f1f3c4c20",
