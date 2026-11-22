@@ -689,3 +689,101 @@ it.each(['xz', 'yz'] as const)(
     for (const [name, solve] of Object.entries(paths)) expect.soft(await outcome(solve), name).toEqual(diagnostic);
   },
 );
+
+const underflowRegression = process.env.RUN_KNOWN_WRONG === '2470' ? it : it.skip;
+
+underflowRegression('known wrong result: #2470 solves a fixed-ended beam with a subnormal live line load', async () => {
+  const elementId = cantilever('3d');
+  const model = modelStore.model;
+  const { nodeI, nodeJ } = model.elements.get(elementId)!;
+  model.nodes.set(nodeI, { ...model.nodes.get(nodeI)!, z: 3 });
+  model.nodes.set(nodeJ, { ...model.nodes.get(nodeJ)!, x: 3, z: 3 });
+  modelStore.addSupportEntry({ nodeId: nodeJ, type: 'fixed3d' });
+  model.loadCases.splice(0, model.loadCases.length, { id: 1, name: 'D', type: 'D' }, { id: 2, name: 'L', type: 'L' });
+  model.combinations.splice(0, model.combinations.length,
+    { id: 1, name: '1.4D', factors: [{ caseId: 1, factor: 1.4 }] },
+    { id: 2, name: '1.2D+1.6L', factors: [{ caseId: 1, factor: 1.2 }, { caseId: 2, factor: 1.6 }] });
+  const live = { id: 2, elementId, qYI: 0, qYJ: 0, qZI: -Number.MIN_VALUE, qZJ: -Number.MIN_VALUE, caseId: 2 };
+  model.loads.push(
+    { type: 'distributed3d', data: { ...live, id: 1, qZI: -5, qZJ: -5, caseId: 1 } },
+    { type: 'distributed3d', data: live },
+  );
+  const expected = (fz: number) => ({
+    reactions: [expect.objectContaining({ fz: expect.closeTo(fz, 12) }), expect.objectContaining({ fz: expect.closeTo(fz, 12) })],
+  });
+  const singlePaths = {
+    linear: () => modelStore.solve3D(false, false, true),
+    async: () => modelStore.solve3DAsync(false, false, true),
+    pdelta: () => {
+      const input = modelStore.buildSolverInput3D();
+      return input && solvePDelta3D(input).results;
+    },
+  };
+  for (const [path, solve] of Object.entries(singlePaths)) {
+    expect.soft(await refusal(solve), path).toMatchObject(expected(7.5));
+  }
+  const comboPaths = {
+    sync: () => modelStore.solveCombinations3D(false, false, true),
+    parallel: () => modelStore.solveCombinations3DParallel(false, false, true),
+  };
+  for (const perCombination of ['linear', 'pdelta'] as const) {
+    modelStore.setAnalysis({ perCombination });
+    for (const [path, solve] of Object.entries(comboPaths)) {
+      const result = await solve();
+      expect.soft(result && typeof result === 'object' ? result.perCombo.get(2) : result, perCombination + ' ' + path)
+        .toMatchObject(expected(9));
+    }
+  }
+  const direct = await runDirectAnalysis(model, model.loadCases, model.combinations, {
+    includeSelfWeight: false, settings: { notional: 0, tauB: 'iterate' },
+  });
+  expect.soft(typeof direct === 'object' ? direct.perCombo.get(2) : direct, 'direct').toMatchObject(expected(9));
+
+  const supportId = [...model.supports.keys()][0]!;
+  modelStore.updateSupport(supportId, { uplift: true });
+  expect.soft(await singlePaths.linear(), 'nonlinear').toMatchObject(expected(7.5));
+  expect.soft(await singlePaths.async(), 'async nonlinear').toMatchObject(expected(7.5));
+  for (const [path, solve] of Object.entries(comboPaths)) {
+    const result = await solve();
+    expect.soft(result && typeof result === 'object' ? result.perCombo.get(2) : result, 'nonlinear ' + path)
+      .toMatchObject(expected(9));
+  }
+
+  live.qZI = live.qZJ = -1e-300;
+  const mismatch = expect.stringMatching(/case.*2.*\(L\).*Fz.*-3e-300.*0/i);
+  for (const [path, solve] of Object.entries(comboPaths)) expect.soft(await solve(), path).toEqual(mismatch);
+  expect(modelStore.solve3D(false, false, true)).toEqual(mismatch);
+});
+
+underflowRegression('known wrong result: #2470 solves a planar beam with a subnormal global line load', async () => {
+  const elementId = cantilever('2d');
+  const model = modelStore.model;
+  const { nodeJ } = model.elements.get(elementId)!;
+  model.nodes.set(nodeJ, { ...model.nodes.get(nodeJ)!, x: 3 });
+  const cases = [{ id: 1, name: 'D', type: 'D' }, { id: 2, name: 'L', type: 'L' }];
+  const combination = { id: 1, name: 'D+L', factors: [{ caseId: 1, factor: 1 }, { caseId: 2, factor: 1 }] };
+  const live = { id: 2, elementId, qI: -Number.MIN_VALUE, qJ: -Number.MIN_VALUE, isGlobal: true, caseId: 2 };
+  const makeInput = (q: number): ModelData => ({
+    ...model, loads: [
+      { type: 'distributed', data: { id: 1, elementId, qI: -5, qJ: -5, caseId: 1 } },
+      { type: 'distributed', data: { ...live, qI: q, qJ: q } },
+    ],
+  });
+  const input = makeInput(-Number.MIN_VALUE);
+  const expected = { reactions: [expect.objectContaining({ rz: expect.closeTo(15, 12) })] };
+  expect.soft(await refusal(() => validateAndSolve2D(input)), 'linear').toMatchObject(expected);
+  expect.soft(await refusal(() => validateAndSolve2DAsync(input)), 'async').toMatchObject(expected);
+  expect.soft(await refusal(() => solvePDelta(buildSolverInput2D(input)!).results), 'P-Delta').toMatchObject(expected);
+  for (const name of ['D', 'L']) {
+    const withCases = [cases[0]!, { ...cases[1]!, name }];
+    const result = solveCombinations2D(input, withCases, [combination]);
+    expect.soft(result && typeof result === 'object' ? result.perCombo.get(1) : result, name).toMatchObject(expected);
+    expect.soft(solveCombinations2D(makeInput(-1e-300), withCases, [combination]), name + ' normal-range loss')
+      .toEqual(expect.stringMatching(/case.*2.*Fy.*-3e-300.*0/i));
+  }
+  expect.soft(validateAndSolve2D(makeInput(-2 * Number.MIN_VALUE)), 'six subnormal units')
+    .toMatchObject(expected);
+  expect.soft(validateAndSolve2D(makeInput(-3 * Number.MIN_VALUE)), 'eight subnormal units')
+    .toEqual(expect.stringMatching(/case.*2.*Fy.*assembled 0/i));
+  expect(validateAndSolve2D(makeInput(-1e-300))).toEqual(expect.stringMatching(/case.*2.*Fy.*-3e-300.*0/i));
+});
