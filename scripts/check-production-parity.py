@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 FLAGS = 'web/config/features.json'
 LEGACY_OVERLAY = 'web/config/pro-plates-off.json'
 SOLVER_RUNTIME = ('web/src/lib/wasm/dedaliano_engine.js', 'web/src/lib/wasm/dedaliano_engine_bg.wasm')
-ENGINE_INPUTS = ('engine/src', 'engine/build.rs', 'engine/Cargo.toml', 'Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', 'scripts/wasm-cached.sh',
+ENGINE_BUILD_INPUTS = ('engine/build.rs', 'Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', 'scripts/wasm-cached.sh',
                  '.github/scripts/build-research-wasm.sh', 'flake.nix', 'flake.lock')
 
 
@@ -104,7 +104,7 @@ def main():
     intended = trailers(base, 'Production-Change')
     if intended - paths or any(p.startswith('-') or p == LEGACY_OVERLAY for p in intended):
         raise SystemExit('Production-Change trailers must name actual changed paths outside the legacy overlay.')
-    engine_paths = changed_paths(base, *ENGINE_INPUTS) - intended
+    engine_paths = changed_paths(base, *ENGINE_BUILD_INPUTS) - intended
     if engine_paths:
         raise SystemExit('Switch-off production engine inputs differ from the reference:\n  ' + '\n  '.join(sorted(engine_paths)))
     env = {**os.environ, 'GITHUB_SHA': base, 'PRERENDER_GITHUB_STARS': 'none'}

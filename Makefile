@@ -71,7 +71,8 @@ help:
 	@echo "Testing:"
 	@echo "  make test           - Engine, backend and web tests"
 	@echo "  make test.engine    - Rust engine tests"
-	@echo "  make engine.nonlinear-opt-in - Prepare an isolated checkout with the experimental nonlinear drivers"
+	@echo "  make test.engine.experimental-nonlinear - Feature-enabled nonlinear driver tests (FILTER=...)"
+	@echo "  make test.engine.experimental-nonlinear-wasm - Feature-enabled nonlinear WASM tests (FILTER=...)"
 	@echo "  make test.backend   - Elixir backend tests"
 	@echo "  make test.backend.file FILE=apps/... - One backend test file or dir"
 	@echo "  make test.web       - Web (Vitest) tests"
@@ -226,20 +227,6 @@ audit.810.run:
 test.engine.targeted:
 	$(NIX_RUN) cargo test -p dedaliano-engine --test $(TEST) $(FILTER) -- --nocapture $(if $(IGNORED),--ignored)
 
-.PHONY: engine.nonlinear-opt-in
-engine.nonlinear-opt-in:
-	@set -eu; \
-	checkout=$$(mktemp -d "$(CURDIR)/.nonlinear-opt-in.XXXXXX"); \
-	git clone --quiet --shared --no-checkout "$(CURDIR)" "$$checkout"; \
-	git -C "$$checkout" checkout --quiet --detach "$$(git rev-parse HEAD)"; \
-	preimages="$$checkout/.git/nonlinear-preimages"; \
-	git -C "$$checkout" apply --build-fake-ancestor="$$preimages" engine/experimental/nonlinear.patch; \
-	GIT_INDEX_FILE="$$preimages" git -C "$$checkout" diff --cached --name-status --exit-code --diff-filter=AMT HEAD || { \
-	    printf "%s\n" "The experimental nonlinear patch needs review against the current solver sources." >&2; exit 1; }; \
-	git -C "$$checkout" apply --index engine/experimental/nonlinear.patch; \
-	git -C "$$checkout" commit --quiet -S -m "Enable the experimental nonlinear solver drivers"; \
-	printf '%s\n' "$$checkout"
-
 NEWMARK_DIR = $(CURDIR)/research/benchmarks/newmark-1959
 research.newmark.replay:
 	NEWMARK_REPLAY_OUT=$(NEWMARK_DIR)/results/stabileo_results.json NEWMARK_VALIDATION_OUT=$(NEWMARK_DIR)/VALIDATION.json \
@@ -253,7 +240,15 @@ test.engine:
 
 .PHONY: test.engine.lib
 test.engine.lib:
-	$(NIX_RUN) cargo test -p dedaliano-engine --lib $(if $(RELEASE),--release) $(FILTER)
+	$(NIX_RUN) cargo test -p dedaliano-engine --lib $(if $(RELEASE),--release) $(if $(ENGINE_FEATURES),--features $(ENGINE_FEATURES)) $(FILTER) -- $(if $(IGNORED),--ignored)
+
+.PHONY: test.engine.experimental-nonlinear test.engine.experimental-nonlinear-wasm
+test.engine.experimental-nonlinear:
+	$(MAKE) test.engine.lib ENGINE_FEATURES=experimental-nonlinear FILTER="$(or $(FILTER),experimental_nonlinear)"
+
+test.engine.experimental-nonlinear-wasm:
+	$(NIX_RUN) wasm-pack build engine --target nodejs --out-dir ../target/experimental-nonlinear-wasm --no-opt -- --features experimental-nonlinear
+	$(NIX_RUN) env RUN_KNOWN_WRONG=$(IGNORED) node --test $(if $(FILTER),--test-name-pattern="$(FILTER)") scripts/tests/experimental-nonlinear-wasm.mjs
 
 test.backend: services
 	$(NIX_RUN) bash -c "cd backend && MIX_ENV=test mix ecto.create --quiet && MIX_ENV=test mix ecto.migrate --quiet && mix test"

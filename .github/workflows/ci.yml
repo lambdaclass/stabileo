@@ -533,6 +533,8 @@ jobs:
         run: make test.engine.gates
       - name: Plastic replay with the built engine
         run: make test.engine.plastic-replay
+      - name: Opt-in nonlinear drivers
+        run: make test.engine.experimental-nonlinear test.engine.experimental-nonlinear-wasm
       - name: Report wall-clock overruns without failing
         if: ${{ !cancelled() && (github.event_name == 'pull_request' || github.event_name == 'merge_group') }}
         env:

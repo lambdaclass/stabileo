@@ -116,6 +116,9 @@ class ProductionParity(unittest.TestCase):
         with tempfile.TemporaryDirectory(dir=parity.ROOT) as directory:
             repo = Path(directory)
             web = repo / 'web'
+            engine_source = repo / 'engine/src/lib.rs'
+            engine_source.parent.mkdir(parents=True)
+            engine_source.write_text('legacy')
             (web / 'config').mkdir(parents=True)
             (web / 'package.json').write_text('{"scripts":{"build":"node build.cjs"}}')
             (web / 'package-lock.json').write_text('{}')
@@ -127,7 +130,7 @@ class ProductionParity(unittest.TestCase):
                 'fs.copyFileSync("src/lib/wasm/dedaliano_engine_bg.wasm", "dist/solver.wasm");\n'
             )
             makefile = repo / 'Makefile'
-            recipe = SOLVER_RECIPE + 'research.wasm: ;\n'
+            recipe = SOLVER_RECIPE.replace('printf legacy >', 'cat engine/src/lib.rs >', 1) + 'research.wasm: ;\n'
             makefile.write_text(recipe)
             (repo / '.gitignore').write_text('/web/src/lib/wasm/\n')
 
@@ -145,7 +148,15 @@ class ProductionParity(unittest.TestCase):
             run('make', 'wasm')
             with patch.object(parity, 'ROOT', repo), patch('sys.argv', ['check-production-parity.py', base]):
                 parity.main()
-                makefile.write_text(recipe.replace('printf legacy', 'printf changed'))
+                opt_in = repo / 'engine/src/experimental.rs'
+                opt_in.write_text('pub fn experimental() {}\n')
+                run('git', 'add', str(opt_in.relative_to(repo)))
+                parity.main()
+                engine_source.write_text('changed')
+                with self.assertRaisesRegex(SystemExit, r'Switch-off production differs[\s\S]*dedaliano_engine_bg.wasm'):
+                    parity.main()
+                engine_source.write_text('legacy')
+                makefile.write_text(recipe.replace('cat engine/src/lib.rs', 'printf changed'))
                 run('make', 'wasm')
                 with self.assertRaisesRegex(SystemExit, r'Switch-off production differs[\s\S]*solver.wasm'):
                     parity.main()
