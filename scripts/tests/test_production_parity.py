@@ -259,6 +259,48 @@ class ProductionParity(unittest.TestCase):
                     '-m', 'Production-Change: research/example/src/lib.rs')
                 parity.main()
 
+    @unittest.skip("known wrong result: #2483")
+    def test_split_gate_compares_complete_inventories_from_both_builds(self):
+        with tempfile.TemporaryDirectory(dir=parity.ROOT) as directory:
+            repo = Path(directory)
+            flags = repo / parity.FLAGS
+            flags.parent.mkdir(parents=True)
+            flags.write_text('{"production":{"example":false},"test":{"example":false}}')
+
+            def git(*args):
+                return subprocess.check_output(['git', *args], cwd=repo).decode().strip()
+
+            git('init', '--quiet')
+            git('config', 'user.name', 'Production parity fixture')
+            git('config', 'user.email', 'parity@example.invalid')
+            git('add', '.')
+            git('commit', '--quiet', '-m', 'Published reference')
+            base = git('rev-parse', 'HEAD')
+            flags.write_text('{"production":{"example":false},"test":{"example":true}}')
+            git('add', '.')
+            git('commit', '--quiet', '-m', 'Enable the test switch')
+            inventories = repo / 'inventories'
+            inventories.mkdir()
+
+            def gate(*args):
+                with patch('sys.argv', ['check-production-parity.py', base, *args]):
+                    parity.main()
+
+            runtime = {name: b'runtime' for name in parity.SOLVER_RUNTIME}
+            reference = {**runtime, 'web/dist/index.html': b'page', 'web/dist/research-wasm/example.wasm': b'research'}
+            with patch.object(parity, 'ROOT', repo), patch.object(parity, 'build', side_effect=[
+                reference, reference, {**reference, 'web/dist/research-wasm/example.wasm': b'changed'}
+            ]) as build:
+                gate('--side', 'reference', '--inventory', str(inventories / 'reference.json'))
+                with self.assertRaisesRegex(RuntimeError, 'candidate.json'):
+                    gate('--compare', str(inventories))
+                gate('--side', 'candidate', '--inventory', str(inventories / 'candidate.json'))
+                gate('--compare', str(inventories))
+                gate('--side', 'candidate', '--inventory', str(inventories / 'candidate.json'))
+                with self.assertRaisesRegex(SystemExit, r'Switch-off production differs[\s\S]*example.wasm'):
+                    gate('--compare', str(inventories))
+                self.assertEqual(build.call_count, 3)
+
     def test_missing_output_cannot_pass_as_matching(self):
         with tempfile.TemporaryDirectory(dir=parity.ROOT) as directory:
             with self.assertRaisesRegex(RuntimeError, 'did not emit index.html'):
