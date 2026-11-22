@@ -40,6 +40,7 @@ export function readProPlatesProfile(enabled) {
 
 export function proPlatesSource(enabled) {
   let profile;
+  let e2eBuild = false;
   const source = () => profile ??= readProPlatesProfile(enabled());
   const override = path => {
     const { unavailable, overrides } = source();
@@ -56,6 +57,9 @@ export function proPlatesSource(enabled) {
     plugin: {
       name: 'pro-plates-source',
       enforce: 'pre',
+      configResolved(config) {
+        e2eBuild = config.command === 'build' && config.env.VITE_E2E === '1';
+      },
       buildStart() {
         profile = readProPlatesProfile(enabled());
         if (!enabled()) this.addWatchFile(manifestPath);
@@ -69,6 +73,7 @@ export function proPlatesSource(enabled) {
         const [path, query] = id.split('?');
         if (!isAbsolute(path)) return null;
         const name = relativePath(path);
+        if (e2eBuild && name === 'src/lib/utils/e2e-hooks.ts') return null;
         const code = override(name);
         if (code === null) this.error(unavailableError(name));
         if (code === undefined) return null;
