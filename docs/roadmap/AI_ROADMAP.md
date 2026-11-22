@@ -33,19 +33,19 @@ See also:
    AI may suggest, explain, summarize, and draft. It must not silently modify models or auto-approve engineering conclusions.
 
 5. `Linear sequencing`
-   The order below is deliberate. Do not jump ahead to flashy generation before the earlier capability layer is solid.
+   The capability order below (review/explain/interpret before generation/optimization) is deliberate and applies equally to in-app UI and MCP/Python surfaces. Do not jump ahead to flashy generation before the earlier capability layer is solid.
 
 6. `Ecosystem before sidebar` *(added 2026-11-22)*
-   Expose Stabileo as the deterministic physics, verification, and design backend that every AI coding and engineering agent can call (`stabileo-mcp` + `pip install stabileo`), rather than relying primarily on an in-app chat sidebar with hardcoded generators. See [`high_leverage_solver_and_product_plan.md`](../research/high_leverage_solver_and_product_plan.md#wave-2--zero-switching-cost-distribution--trust-wedges-roadmap-multipliers).
+   Deliver each capability tier first as a deterministic tool/library backend (`stabileo-mcp` + `pip install stabileo`) that **every** AI coding and engineering agent can call, rather than investing first in expanding bespoke in-app chat sidebar generators. See [`high_leverage_solver_and_product_plan.md`](../research/high_leverage_solver_and_product_plan.md#wave-2--zero-switching-cost-distribution--trust-wedges-roadmap-multipliers).
 
 ## Ecosystem-First Track (2026-11-22 Reprioritization)
 
-Run ahead of expanding bespoke sidebar generators once the core soundness work and versioned engine interface (`#731`) stabilize:
+Exposes the Ordered Task Sequence capabilities (starting with review, sanity audit, certified solve, and code checks before generation) via open tool interfaces ahead of expanding bespoke sidebar generators, once core soundness and the versioned engine interface (`#731`) stabilize:
 
-1. **`stabileo-mcp` (local stdio + remote MCP server):** wraps the exact Rust engine, Physical IR build/edit actions, pre-solve sanity gates (`review_model_sanity`), mechanism checks, code checks, and Lean certificates so Claude Code, Cursor, Codex, and firm agents can author, audit, size, and certify structures directly and return clickable `stabileo.com/m/<id>` preview links.
-2. **`pip install stabileo` (PyO3 native wheels):** fast Pythonic API over the same Rust solver with `.certify()`, batch optimization hooks, and `.to_stabileo_url()` / `.ded` handoff to the browser 3D viewer.
-3. **Visual Revision Diff (`Rev A` vs `Rev B`):** deterministic comparison of `.ded` / `.ifc` revisions surfacing geometry diffs, demand/utilization deltas, BOM/rebar changes, and newly failing checks — callable from both the app UI and MCP/CI pipelines.
-4. **`Stabileo-Bench` (open structural-AI evaluation benchmark):** deterministic public benchmark measuring how accurately frontier LLMs model, audit, and size real structures using tool-backed FEM, code checks, and Lean certificates.
+1. **`stabileo-mcp` (local stdio default + opt-in authenticated remote tier):** local stdio wraps the exact Rust engine, Physical IR build/edit actions, pre-solve sanity gates (`review_model_sanity`), mechanism checks, code checks, and certificates with **zero upload** for NDA models; an opt-in authenticated remote tier (with explicit tenant/model-upload consent) supports hosted workflows and private-by-default `stabileo.com/m/<id>` preview links.
+2. **`pip install stabileo` (PyO3 native wheels):** fast local Pythonic API over the same Rust solver with `.certify()`, batch optimization hooks, local `.ded` export, and opt-in `.to_stabileo_url()` handoff to the browser 3D viewer.
+3. **Visual Revision Diff (`Rev A` vs `Rev B`):** deterministic comparison of `.ded` / `.ifc` revisions surfacing geometry diffs, demand/utilization deltas, BOM/rebar changes, and newly failing checks — callable locally from both the app UI and MCP/CI pipelines.
+4. **`Stabileo-Bench` (open structural-AI evaluation benchmark):** deterministic public benchmark measuring how accurately frontier LLMs model, audit, and size real structures using tool-backed FEM, code checks, and certificates.
 
 ## Ordered Task Sequence
 
