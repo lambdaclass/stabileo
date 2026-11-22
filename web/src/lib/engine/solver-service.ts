@@ -7,7 +7,7 @@ export { shouldEmbedFlat2DModelIn3D } from './model-embedding';
 import { MemberLoadIntervalError, validateMemberLoadInterval } from './member-span-loads';
 import { plainDeepCopy } from '../utils/plain-deep-copy';
 import { knownIssueRefusal } from './known-issues';
-import { isContainmentRefusal } from './containment-error';
+import { isContainmentRefusal, refusedWithCode } from './containment-error';
 // Solver service — pure functions extracted from model.svelte.ts
 // Each function takes a ModelData parameter instead of accessing reactive store state.
 
@@ -28,7 +28,7 @@ import { sectionShearAreas } from '../section/shear-areas';
 import { transverseSign } from './transverse-sign-2d';
 import { SupportMappingError, supportDofs3D } from './support-dofs-3d';
 import { isPlaneRoller, planeMemberAngle, resolvePlaneSupportSettlement } from '../model/support-types';
-import { solve as solveStructure, solve3D as solve3DEngine, setAdvancedGuards, assertFiniteWire, netCombinationFactors, combineResults, combineResults3D, combineResultsBatch3D, combineResultsEnvelope3D, computeEnvelope, computeEnvelope3D, solveMultiCase2D, solveMultiCase3D, input2DToWireObject, input3DToWireObject, solvePDelta3D } from './wasm-solver';
+import { solve as solveStructure, solve3D as solve3DEngine, setAdvancedGuards, assertFiniteWire, finiteWireJson, netCombinationFactors, combineResults, combineResults3D, combineResultsBatch3D, combineResultsEnvelope3D, computeEnvelope, computeEnvelope3D, solveMultiCase2D, solveMultiCase3D, input2DToWireObject, input3DToWireObject, solvePDelta3D } from './wasm-solver';
 import { solverProperties } from '../section/state';
 import type { SolverInput, SolverSupport, FullEnvelope, AnalysisResults } from './types';
 import { stabiliseOrphanRotations3D, unheldNodalMoment3D, exactOrphanRotations3D } from './orphan-rotations-3d';
@@ -174,6 +174,13 @@ export function resolveCombinationFactors(combinations: LoadCombination[]): Load
   } catch (error) {
     return localizeEngineText(errorText(error, String(error)));
   }
+}
+
+function namedCombinationFactors(factors: LoadCombination['factors'], caseNames: ReadonlyMap<number, string>): Record<string, number> {
+  return Object.fromEntries(netCombinationFactors(factors).flatMap(({ caseId, factor }) => {
+    const name = caseNames.get(caseId);
+    return name === undefined ? [] : [[name, factor] as const];
+  }));
 }
 
 function mapModelNodeToSolver3D(node: Node, project2DToXZ: boolean): { id: number; x: number; y: number; z: number } {
@@ -938,7 +945,7 @@ export function advancedRefusal2D(input: SolverInput): string | null {
       return t(key).replace('{n}', String(l.data.elementId));
     }
   }
-  return kinematicRefusal2D(input, `2d:${JSON.stringify(input2DToWireObject(input))}`);
+  return kinematicRefusal2D(input, `2d:${finiteWireJson(input2DToWireObject(input))}`);
 }
 
 /**
@@ -1006,7 +1013,12 @@ function prepareSolve2D(
   // validation, and the async path calls prepare on every edit even when the
   // solve itself is memoized. The wire key is also reused by the caller as the
   // solve-cache key, so it is computed once.
-  const wireKey = `2d:${JSON.stringify(input2DToWireObject(input))}`;
+  let wireKey: string;
+  try { wireKey = `2d:${finiteWireJson(input2DToWireObject(input))}`; }
+  catch (error) {
+    if (refusedWithCode(error, 'non_finite_result')) return localizeEngineText(errorText(error, String(error)));
+    throw error;
+  }
   const kinematicRefusal = kinematicRefusal2D(input, wireKey, onKinematic);
   if (kinematicRefusal) return kinematicRefusal;
 
@@ -1390,12 +1402,9 @@ function solveCombinations2DCore(
   const mcCombinations: Array<{ name: string; factors: Record<string, number> }> = [];
   const comboNameToId = new Map<string, number>();
 
+  const caseNames = invert(caseNameToId);
   for (const combo of combinations) {
-    const factors: Record<string, number> = {};
-    for (const f of combo.factors) {
-      const lc = loadCases.find(c => c.id === f.caseId);
-      if (lc) factors[lc.name] = (factors[lc.name] ?? 0) + f.factor;
-    }
+    const factors = namedCombinationFactors(combo.factors, caseNames);
     if (Object.keys(factors).length === 0) continue;
     mcCombinations.push({ name: combo.name, factors });
     comboNameToId.set(combo.name, combo.id);
@@ -1430,7 +1439,7 @@ function solveCombinations2DCore(
     certifiableMultiCase(perCase, perCombo, {
       dim: '2d',
       wire: () => ({ solver: input2DToWireObject(baseInput), loadCases: mcLoadCases, combinations: mcCombinations }),
-      caseNames: invert(caseNameToId), comboNames: invert(comboNameToId),
+      caseNames, comboNames: invert(comboNameToId),
     });
 
     console.log(`[solveCombinations2D] WASM multi-case: ${tWasm.toFixed(0)} ms | Cases: ${perCase.size} | Combos: ${perCombo.size}`);
@@ -2379,7 +2388,7 @@ export function nodesOnMembersHint(model: { nodes: ReadonlyMap<number, { x: numb
  */
 let lastGateSolve: { key: string; outcome: { results: AnalysisResults3D } | { error: string } } | null = null;
 function guardSolve3D(input: SolverInput3D): { results: AnalysisResults3D } | { error: string } {
-  const key = JSON.stringify(input3DToWireObject(input));
+  const key = finiteWireJson(input3DToWireObject(input));
   if (lastGateSolve?.key === key) return lastGateSolve.outcome;
   let outcome: { results: AnalysisResults3D } | { error: string };
   try { outcome = { results: solve3DEngine(input) }; } catch (err: any) { outcome = { error: err?.message ?? String(err) }; }
@@ -2509,15 +2518,15 @@ export async function validateAndSolve3DAsync(model: ModelData, includeSelfWeigh
     }
   }
 
-  const wire = input3DToWireObject(input);
-  const cacheKey = `3d:${JSON.stringify(wire)}`;
-  const cached = solveCacheGet(cacheKey);
-  if (cached) {
-    console.log(`Estructura 3D resuelta (caché) — ${model.nodes.size} nodos, ${model.elements.size} elementos`);
-    return cached as AnalysisResults3D;
-  }
-
   try {
+    const wire = input3DToWireObject(input);
+    const cacheKey = `3d:${finiteWireJson(wire)}`;
+    const cached = solveCacheGet(cacheKey);
+    if (cached) {
+      console.log(`Estructura 3D resuelta (caché) — ${model.nodes.size} nodos, ${model.elements.size} elementos`);
+      return cached as AnalysisResults3D;
+    }
+
     const t0 = performance.now();
     let results: AnalysisResults3D;
     try {
@@ -2536,7 +2545,7 @@ export async function validateAndSolve3DAsync(model: ModelData, includeSelfWeigh
     return finalResults;
   } catch (err: any) {
     console.error('Solver 3D error:', err);
-    return knownIssueRefusal(err) ?? t('svc.solver3dError').replace('{n}', err?.message ?? String(err));
+    return knownIssueRefusal(err) ?? t('svc.solver3dError').replace('{n}', localizeEngineText(errorText(err, String(err))));
   }
 }
 
@@ -2787,12 +2796,9 @@ function solveCombinations3DCore(
   const mcCombinations: Array<{ name: string; factors: Record<string, number> }> = [];
   const comboNameToId = new Map<string, number>();
 
+  const caseNames = invert(caseNameToId);
   for (const combo of combinations) {
-    const factors: Record<string, number> = {};
-    for (const f of combo.factors) {
-      const lc = loadCases.find(c => c.id === f.caseId);
-      if (lc) factors[caseKey(lc.id)] = (factors[caseKey(lc.id)] ?? 0) + f.factor;
-    }
+    const factors = namedCombinationFactors(combo.factors, caseNames);
     mcCombinations.push({ name: `combo#${combo.id}`, factors });
     comboNameToId.set(`combo#${combo.id}`, combo.id);
   }
@@ -2830,7 +2836,7 @@ function solveCombinations3DCore(
     certifiableMultiCase(perCase, perCombo, {
       dim: '3d',
       wire: () => ({ solver: input3DToWireObject(baseInput), loadCases: mcLoadCases, combinations: mcCombinations }),
-      caseNames: invert(caseNameToId), comboNames: invert(comboNameToId),
+      caseNames, comboNames: invert(comboNameToId),
     });
 
     // The axial part of member loads, given back to the members (`axial-shares.ts`): to each
@@ -3367,6 +3373,7 @@ async function solveCombinations3DParallelCore(
      * (the solve is deterministic), combined by the engine's own `combine_results_3d`, as the
      * multi-case solve combines them.
      */
+    const caseNames = new Map([...perCase.keys()].map((id) => [id, `case#${id}`]));
     certifiableMultiCase(perCase, perCombo, {
       dim: '3d',
       wire: () => ({
@@ -3374,10 +3381,10 @@ async function solveCombinations3DParallelCore(
         loadCases: caseInputs.filter((c) => perCase.has(c.caseId)).map((c) => ({ name: `case#${c.caseId}`, loads: c.input.loads })),
         combinations: combinations.filter((c) => perCombo.has(c.id)).map((c) => ({
           name: `combo#${c.id}`,
-          factors: c.factors.filter((x) => perCase.has(x.caseId)).reduce<Record<string, number>>((f, x) => ({ ...f, [`case#${x.caseId}`]: (f[`case#${x.caseId}`] ?? 0) + x.factor }), {}),
+          factors: namedCombinationFactors(c.factors, caseNames),
         })),
       }),
-      caseNames: new Map([...perCase.keys()].map((id) => [id, `case#${id}`])),
+      caseNames,
       comboNames: new Map(combinations.filter((c) => perCombo.has(c.id)).map((c) => [c.id, `combo#${c.id}`])),
     });
 

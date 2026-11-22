@@ -1814,6 +1814,8 @@ const it: Translations = {
   // Mapper warnings
   'dxf.warnZeroLengthLine': 'Linea a lunghezza zero ignorata',
   'dxf.warnNoElementLayers': 'Nessun layer BARRAS/ELEMENTOS rilevato. Tutte le linee usate come elementi.',
+  'dxf.refuseSupportLabel': 'L’etichetta del vincolo «{label}» sul layer DXF «{layer}» è sconosciuta o ambigua. Correggi il disegno prima di importarlo. Usa FIXED, PINNED, RX, RY o RZ solo se corrisponde al vincolo previsto.',
+  'dxf.refuseConflictingSupports': 'Le etichette di vincolo «{first}» e «{second}» sul layer DXF «{layer}» corrispondono allo stesso nodo. Prima di importare, conserva solo l’etichetta o il blocco del vincolo previsto.',
   'dxf.warnSupportNoNode': 'Il vincolo non corrisponde a nessun nodo:',
   'dxf.warnSupportBlockNoNode': 'Il blocco vincolo non corrisponde a nessun nodo:',
   'dxf.warnDistLoadNoElement': 'Carico distribuito non associato a nessun elemento:',
@@ -3765,5 +3767,6 @@ const it: Translations = {
   "autoLoad.work.draw": "Disegno dei carichi",
   "autoLoad.work.step": "Passo {step} di {total}",
   "autoLoad.work.cancel": "Ferma",
+  "svc.engine.nonFiniteNumber": "Inserisci un numero finito per {path} (valore ricevuto: {value}).",
 };
 export default it;

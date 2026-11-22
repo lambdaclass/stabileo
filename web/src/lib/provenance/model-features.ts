@@ -55,7 +55,7 @@ export const FEATURE_IDS = [
   'generatedWidthGravity', 'generatedPanelGravityShells', 'memberFloorZones', 'magnitudeCombinations',
   'partialDistributedMemberLoads', 'distributedMemberLoads', 'spatialDistributedLoadOrientation', 'unplaceablePlanarPointLoads', 'planarStartCoupleWithoutProjection', 'legacyPlanarPointCoupleAliases', 'invalidPlanarNodalMomentAliases', 'selfWeight', 'nonstandardPlanarSelfWeight', 'standaloneGravityToggleOff', 'nodalForces', 'forceSummaryResults',
   'ssiHistory', 'movingLoads', 'combinations', 'cirsocCombinations', 'seismic', 'snow', 'wind', 'timeHistorySpec',
-  'superposedCombinations', 'repeatedCombinationCases', 'staticCaseEffects', 'projectedSpatialLoads', 'offsetMemberLoadFrame', 'inactiveSpatialMembers',
+  'superposedCombinations', 'repeatedCombinationCases', 'prototypeNamedLoadCase', 'staticCaseEffects', 'projectedSpatialLoads', 'offsetMemberLoadFrame', 'inactiveSpatialMembers',
   ...ANALYSIS_KINDS.map((k) => `analysis:${k}` as const),
 ] as const;
 export type FeatureId = (typeof FEATURE_IDS)[number];
@@ -99,7 +99,7 @@ interface FeatureSnapshotFields {
   supports?: Entries<Sup>;
   loads?: Array<{ type: string; data?: Record<string, unknown> }>;
   loadCases?: Array<{
-    id: number; type?: string; spectral?: unknown; alternatives?: string; axisNamed?: boolean;
+    id: number; name?: string; type?: string; spectral?: unknown; alternatives?: string; axisNamed?: boolean;
     includes?: ReadonlyArray<{ factor: number }>; reduction?: { ratio: number };
   }>;
   combinations?: unknown[];
@@ -472,6 +472,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   const combos = (Array.isArray(s.combinations) && s.combinations.length > 0) || (Array.isArray(s.combinationRules) && s.combinationRules.length > 0);
   if (combos) {
     f.add('combinations');
+    if (cases.some(c => c.name === '__proto__')) f.add('prototypeNamedLoadCase');
     if (Array.isArray(s.combinations) && s.combinations.some(c => {
       const method = (c as { method?: string } | null)?.method;
       return method === 'abs' || method === 'srss';

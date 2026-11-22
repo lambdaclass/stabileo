@@ -3919,6 +3919,8 @@ const en: Record<string, string> = {
   // Mapper warnings
   'dxf.warnZeroLengthLine': 'Zero-length line ignored',
   'dxf.warnNoElementLayers': 'No BARRAS/ELEMENTOS layers detected. All lines used as members.',
+  'dxf.refuseSupportLabel': 'Unknown or ambiguous support label “{label}” on DXF layer “{layer}”. Correct the drawing before importing. Use FIXED, PINNED, RX, RY or RZ only if it matches the intended restraint.',
+  'dxf.refuseConflictingSupports': 'Support labels “{first}” and “{second}” on DXF layer “{layer}” match the same node. Keep only the label or block for the intended restraint before importing.',
   'dxf.warnSupportNoNode': 'Support does not match any node:',
   'dxf.warnSupportBlockNoNode': 'Support block does not match any node:',
   'dxf.warnDistLoadNoElement': 'Distributed load not associated with any member:',
@@ -4317,7 +4319,7 @@ const en: Record<string, string> = {
   'svc.errorInCase3d': 'Error in 3D case "{n}": {err}',
   'svc.engine.mechanism': "Singular stiffness matrix: the structure is a mechanism",
   'svc.engine.cancelledCombination': "Repeated load case factors cancel to zero in this combination.",
-  'svc.engine.nonFiniteNumber': "Non-finite number ({value}) at {path}",
+  "svc.engine.nonFiniteNumber": "Enter a finite number for {path} (received {value}).",
   'svc.engine.zeroDiagonal': "All diagonal entries are zero: singular matrix",
   'svc.engine.singular': "Singular stiffness matrix",
   'svc.settlementCase': 'Imposed settlements',

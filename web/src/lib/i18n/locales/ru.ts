@@ -1810,6 +1810,8 @@ const ru: Translations = {
   'dxf.summaryMaxV': 'Макс. V:',
   'dxf.warnZeroLengthLine': 'Линия нулевой длины проигнорирована',
   'dxf.warnNoElementLayers': 'Слои СТЕРЖНИ/ЭЛЕМЕНТЫ не обнаружены. Все линии используются как элементы.',
+  'dxf.refuseSupportLabel': 'Обозначение опоры «{label}» на слое DXF «{layer}» неизвестно или неоднозначно. Исправьте чертёж перед импортом. Используйте FIXED, PINNED, RX, RY или RZ, только если обозначение соответствует заданному закреплению.',
+  'dxf.refuseConflictingSupports': 'Обозначения опор «{first}» и «{second}» на слое DXF «{layer}» относятся к одному узлу. Перед импортом оставьте только обозначение или блок для заданного закрепления.',
   'dxf.warnSupportNoNode': 'Опора не совпадает ни с одним узлом:',
   'dxf.warnSupportBlockNoNode': 'Блок опоры не совпадает ни с одним узлом:',
   'dxf.warnDistLoadNoElement': 'Распределённая нагрузка не связана ни с одним элементом:',
@@ -3756,6 +3758,7 @@ const ru: Translations = {
   "autoLoad.work.draw": "Отрисовка нагрузок",
   "autoLoad.work.step": "Шаг {step} из {total}",
   "autoLoad.work.cancel": "Остановить",
+  "svc.engine.nonFiniteNumber": "Введите конечное число для {path} (получено: {value}).",
 } as const satisfies Record<string, string>;
 
 export default ru;
