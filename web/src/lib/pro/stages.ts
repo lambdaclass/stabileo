@@ -349,7 +349,7 @@ function allProStages(ctx: ProStageContext): ProStage[] {
           cmds: [
             { id: 'report', labelKey: 'pro.reportBtn', icon: 'project', action: onReport, enabled: () => canReport },
             ...(__PUBLIC_FEATURES__.proRcSheets ? [{
-              id: 'rcSheets', labelKey: 'rcSheets.cmd', descKey: 'rcSheets.cmdDesc', icon: 'data', tab: 'rcSheets', enabled: () => solved,
+              id: 'rcSheets', labelKey: 'rcSheets.cmd', descKey: 'rcSheets.cmdDesc', icon: 'data', tab: 'rcSheets',
             } satisfies ProCmd] : []),
           ],
         },

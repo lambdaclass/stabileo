@@ -15,7 +15,8 @@ export function faceLayers(groups: readonly BarGroup[], cover: number, sd: numbe
 
 export interface BeamGeom { b: number; h: number; flange?: { bf: number; hf: number } }
 
-export interface SectionRead { mrd: number; x: number; d: number; xd: number; epsS: number; epsMin: number; ductile: boolean }
+/** `feasible`: some neutral axis carries the axial force; a section that cannot has no capacity at all. */
+export interface SectionRead { mrd: number; x: number; d: number; xd: number; epsS: number; epsMin: number; ductile: boolean; feasible: boolean }
 
 export function beamCapacity(g: BeamGeom, cover: number, sd: number, tension: readonly BarGroup[], compression: readonly BarGroup[], sagging: boolean, N: number, m: Mat, p: Ec2Params): SectionRead {
   const t = faceLayers(tension, cover, sd), k = faceLayers(compression, cover, sd);
@@ -26,9 +27,9 @@ export function beamCapacity(g: BeamGeom, cover: number, sd: number, tension: re
   const xl = xuLimit(m.fck, p);
   const epsMin = (m.ecu3 * (1 - xl)) / xl;
   const r = at > 0 ? momentCapacity(N, shape, layers, m) : null;
-  if (!r) return { mrd: 0, x: 0, d, xd: 0, epsS: 0, epsMin, ductile: true };
+  if (!r) return { mrd: 0, x: 0, d, xd: 0, epsS: 0, epsMin, ductile: true, feasible: false };
   const epsS = (m.ecu3 * (d - r.x)) / r.x;
-  return { mrd: Math.max(0, r.mrd), x: r.x, d, xd: r.x / d, epsS, epsMin, ductile: r.x / d <= xl + 1e-9 };
+  return { mrd: Math.max(0, r.mrd), x: r.x, d, xd: r.x / d, epsS, epsMin, ductile: r.x / d <= xl + 1e-9, feasible: true };
 }
 
 export function tensionWidth(g: BeamGeom, flangeInTension: boolean): number {

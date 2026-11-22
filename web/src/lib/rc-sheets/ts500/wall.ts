@@ -1,8 +1,8 @@
-import { wallVerticalBars } from '../../engine/detailing/wall-member';
+import { wallVerticalBars } from '../wall-member';
 import { barArea, roundDown } from '../bars';
 import type { Fmt } from '../format';
-import { wallLabel, type WallContext, type WallDemand, type WallRow } from '../wall-row';
-import { check, ratioOf, type CheckLine, type ComboTable, type Step, type StepGroup, type WallAdopted } from '../types';
+import { boundaryBars, nextWallBar, wallLabel, type WallContext, type WallDemand, type WallRow } from '../wall-row';
+import { check, ratioOf, type CheckLine, type ComboTable, type Step, type StepGroup, type WallAdopted, isGenerous } from '../types';
 import { lapOf, toConfirm as U, ts500Mat, vcrOf, vmaxOf, type Ts500Mat } from './basis';
 import { axialLimits, capacityAt, type RectSection } from './biaxial';
 import { stripCapacity } from './section';
@@ -53,7 +53,7 @@ export function wallRow(d: WallDemand, c: WallContext, adopted: WallAdopted | un
   let a: WallAdopted = { vertical: meshFor(c.barDia, RHO_MIN), horizontal: meshFor(c.barDia, Math.max(RHO_MIN, probe.rhoTShear)), curtains };
   let iterations = 0;
   let e = evaluate(d, c, t, a);
-  const boundaries = [12, 16, 20, 25].flatMap((diameter) => [2, 4, 6, 8, 10, 12].map((count) => ({ count, diameter })))
+  const boundaries = boundaryBars(c.diameters).flatMap((diameter) => [2, 4, 6, 8, 10, 12].map((count) => ({ count, diameter })))
     .sort((p, q) => p.count * barArea(p.diameter) - q.count * barArea(q.diameter));
   while (iterations < 12) {
     if (e.pm.every(ok1) && e.out.every(ok1) && e.shear.every(ok1) && e.rhoL >= RHO_MIN - 1e-9 && e.rhoT >= RHO_MIN - 1e-9) break;
@@ -63,8 +63,8 @@ export function wallRow(d: WallDemand, c: WallContext, adopted: WallAdopted | un
       const next = boundaries.find((b) => b.count * barArea(b.diameter) > cur + 1e-9);
       a = next ? { ...a, boundary: next } : { ...a, vertical: { ...a.vertical, spacing: roundDown(Math.max(0.075, a.vertical.spacing - 0.025)) } };
     }
-    if (!e.out.every(ok1) || e.rhoL < RHO_MIN - 1e-9) a = { ...a, vertical: a.vertical.spacing > 0.1 + 1e-9 ? { ...a.vertical, spacing: roundDown(a.vertical.spacing - 0.025) } : { diameter: nextDia(a.vertical.diameter), spacing: a.vertical.spacing } };
-    if (!e.shear.every(ok1) || e.rhoT < RHO_MIN - 1e-9) a = { ...a, horizontal: a.horizontal.spacing > 0.1 + 1e-9 ? { ...a.horizontal, spacing: roundDown(a.horizontal.spacing - 0.025) } : { diameter: nextDia(a.horizontal.diameter), spacing: a.horizontal.spacing } };
+    if (!e.out.every(ok1) || e.rhoL < RHO_MIN - 1e-9) a = { ...a, vertical: a.vertical.spacing > 0.1 + 1e-9 ? { ...a.vertical, spacing: roundDown(a.vertical.spacing - 0.025) } : { diameter: nextWallBar(c.diameters, a.vertical.diameter), spacing: a.vertical.spacing } };
+    if (!e.shear.every(ok1) || e.rhoT < RHO_MIN - 1e-9) a = { ...a, horizontal: a.horizontal.spacing > 0.1 + 1e-9 ? { ...a.horizontal, spacing: roundDown(a.horizontal.spacing - 0.025) } : { diameter: nextWallBar(c.diameters, a.horizontal.diameter), spacing: a.horizontal.spacing } };
     e = evaluate(d, c, t, a);
   }
   const proposed = a;
@@ -87,7 +87,7 @@ export function wallRow(d: WallDemand, c: WallContext, adopted: WallAdopted | un
     check(U('rcSheets.v.wallThickness'), d.thickness >= T_MIN - 1e-6, { clause: 'TS 500', demand: `${fmt(d.thickness * 100, 0)} cm`, capacity: `≥ ${fmt(T_MIN * 100, 0)} cm` }),
   ];
   const allOk = verifications.every((v) => v.ok);
-  const generous = ev.rhoL > 1.2 * RHO_MIN + 1e-6 && ev.rhoT > 1.2 * Math.max(RHO_MIN, ev.rhoTShear) + 1e-6 && Math.max(0, ...ev.pm, ...ev.shear, ...ev.out) < 0.5;
+  const generous = isGenerous(verifications);
 
   const combos: ComboTable = {
     headers: ['Nd', 'Md', 'Vd', 'Mv', 'Mh'],
@@ -141,8 +141,10 @@ export function wallRow(d: WallDemand, c: WallContext, adopted: WallAdopted | un
     proposed, adopted: ad, isAdopted: !!adopted, iterations: adopted ? 0 : iterations, verifications, combos,
     utilization: Math.max(0, ...ev.pm, ...ev.shear, ...ev.out),
     cover: c.cover, hLap: lapOf(t, ad.horizontal.diameter, false, 1),
+    vLaps: [...new Set([ad.vertical.diameter, ...(ad.boundary ? [ad.boundary.diameter] : [])])].map((dia) => ({ dia, lap: lapOf(t, dia, false, 1) })),
     status: allOk ? (generous ? 'warn' : 'ok') : 'fail', generous, steps,
+    ...(c.tieDiameters ? { tieDiameters: c.tieDiameters } : {}),
+    ...(c.minTieSpacing !== undefined ? { minTieSpacing: c.minTieSpacing } : {}),
   };
 }
 
-const nextDia = (d: number) => [8, 10, 12, 16, 20, 25].find((x) => x > d) ?? d;

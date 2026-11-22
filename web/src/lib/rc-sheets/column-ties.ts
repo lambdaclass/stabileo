@@ -14,12 +14,13 @@
  * beyond what the row's shear check leaves room for.
  */
 import { roundDown } from './bars';
-import { columnEndZone } from '../engine/design/candidate-enumerate-column';
 import type { ColumnRow } from './column-row';
-import type { SheetCode } from './types';
+import type { Fmt } from './format';
+import { check, type CheckLine, type SheetCode } from './types';
 
 export type TieZoneKind = 'end' | 'middle' | 'lap' | 'joint';
-export interface TieZone { kind: TieZoneKind; from: number; to: number; spacing: number; clause: string }
+/** `confined`: where chapter 18 asks its Ash of the hoops (§18.7.5.4, §18.8.3.1), with the crossties the design gives that zone. */
+export interface TieZone { kind: TieZoneKind; from: number; to: number; spacing: number; clause: string; confined?: true }
 
 /** Why the storey looks as it does, as i18n keys: one spacing by the code, ends asked by the project, the shear holding the middle. */
 export type TieNote = 'rcSheets.elev.n.oneSpacingAci' | 'rcSheets.elev.n.oneSpacingTs500' | 'rcSheets.elev.n.projectEnds' | 'rcSheets.elev.n.shearHolds' | 'rcSheets.elev.n.ruleHolds';
@@ -29,12 +30,23 @@ export interface ColumnTieLayout {
   clear: number;
   /** Depth of the joints below and above, m. */
   jointBottom: number; jointTop: number;
-  lap: { from: number; to: number } | null;
+  /** Drawn within the storey; `fits` false where the lap the bars need is longer than the room the code gives it. */
+  lap: { from: number; to: number; fits: boolean } | null;
   /** Measured up from the face of the joint below; the joint above runs from `clear` to `clear + jointTop`. */
   zones: TieZone[];
   ties: number[];
   dia: number;
   notes: TieNote[];
+}
+
+const END_MIN_SPACING = 0.05;
+const END_SPACING_GRID = 0.025;
+
+/** The end zone of a b × h column of clear height `clear` tied at `spacing`, m: what `columnEndZones` asks, wherever it is drawn or designed. */
+export function columnEndZone(b: number, h: number, clear: number, spacing: number, floor = END_MIN_SPACING): { endLength: number; endSpacing: number } {
+  const endLength = +Math.max(Math.max(b, h), clear / 6, 0.45).toFixed(3);
+  const endSpacing = Math.min(spacing, Math.max(floor, Math.floor((spacing / 2) / END_SPACING_GRID + 1e-9) * END_SPACING_GRID));
+  return { endLength, endSpacing: +endSpacing.toFixed(4) };
 }
 
 const family = (code: SheetCode): 'aci' | 'ec2' | 'ts500' => (code === 'en1992-1-1' || code === 'bs-en1992-1-1' ? 'ec2' : code === 'ts500-2000' ? 'ts500' : 'aci');
@@ -65,7 +77,7 @@ export function columnTieLayout(row: ColumnRow, code: SheetCode, opts: { endZone
   };
   /** The project's denser ends over a code that asks for one spacing. */
   const projectEnds = (clause: string) => {
-    const z = columnEndZone(row.b, row.h, clear, s);
+    const z = columnEndZone(row.b, row.h, clear, s, row.tieFloor);
     const lo = Math.min(z.endLength, clear / 2);
     zones.push({ kind: 'end', from: 0, to: lo, spacing: z.endSpacing, clause }, { kind: 'end', from: clear - lo, to: clear, spacing: z.endSpacing, clause });
     notes.push('rcSheets.elev.n.projectEnds');
@@ -74,21 +86,21 @@ export function columnTieLayout(row: ColumnRow, code: SheetCode, opts: { endZone
   if (fam === 'aci' && row.confinement) {
     const lo = Math.min(row.confinement.lo, clear / 2);
     middle(Math.min(0.006 * thinnest, 0.15, row.checks.tieMax), '§18.7.5.5', '§22.5');
-    zones.push({ kind: 'end', from: 0, to: lo, spacing: s, clause: '§18.7.5.1, §18.7.5.3' }, { kind: 'end', from: clear - lo, to: clear, spacing: s, clause: '§18.7.5.1, §18.7.5.3' });
+    zones.push({ kind: 'end', from: 0, to: lo, spacing: s, clause: '§18.7.5.1, §18.7.5.3', confined: true }, { kind: 'end', from: clear - lo, to: clear, spacing: s, clause: '§18.7.5.1, §18.7.5.3', confined: true });
     if (row.lap) {
       const l = Math.min(row.lap.length, clear / 2);
-      lap = { from: clear / 2 - l / 2, to: clear / 2 + l / 2 };
-      zones.push({ kind: 'lap', ...lap, spacing: s, clause: '§18.7.4.3' });
+      lap = { from: clear / 2 - l / 2, to: clear / 2 + l / 2, fits: row.lap.length <= clear / 2 + 1e-6 };
+      zones.push({ kind: 'lap', from: lap.from, to: lap.to, spacing: s, clause: '§18.7.4.3' });
     }
-    if (jointTop > 0) zones.push({ kind: 'joint', from: clear, to: clear + jointTop, spacing: s, clause: '§18.8.3.1' });
+    if (jointTop > 0) zones.push({ kind: 'joint', from: clear, to: clear + jointTop, spacing: s, clause: '§18.8.3.1', confined: true });
   } else if (fam === 'ec2') {
     const scl = row.checks.tieMax / 0.6;
     const near = Math.min(Math.max(row.b, row.h), clear / 2);
     middle(scl, '9.5.3(3)', '6.2');
     zones.push({ kind: 'end', from: 0, to: near, spacing: s, clause: '9.5.3(4)' }, { kind: 'end', from: clear - near, to: clear, spacing: s, clause: '9.5.3(4)' });
     if (row.lap) {
-      lap = { from: 0, to: Math.min(row.lap.length, clear) };
-      if (longest > 14) zones.push({ kind: 'lap', ...lap, spacing: Math.min(s, roundDown((lap.to - lap.from) / 3, 0.005)), clause: '9.5.3(4)' });
+      lap = { from: 0, to: Math.min(row.lap.length, clear), fits: row.lap.length <= clear + 1e-6 };
+      if (longest > 14) zones.push({ kind: 'lap', from: lap.from, to: lap.to, spacing: Math.min(s, roundDown((lap.to - lap.from) / 3, 0.005)), clause: '9.5.3(4)' });
     }
     if (jointTop > 0) zones.push({ kind: 'joint', from: clear, to: clear + jointTop, spacing: s, clause: '9.5.3(4)' });
   } else {
@@ -96,8 +108,8 @@ export function columnTieLayout(row: ColumnRow, code: SheetCode, opts: { endZone
     if (opts.endZones) projectEnds(fam === 'aci' ? '§25.7.2.1' : '7.4.1');
     else notes.push(fam === 'aci' ? 'rcSheets.elev.n.oneSpacingAci' : 'rcSheets.elev.n.oneSpacingTs500');
     if (row.lap) {
-      lap = { from: 0, to: Math.min(row.lap.length, clear) };
-      zones.push({ kind: 'lap', ...lap, spacing: s, clause: fam === 'aci' ? (row.lap.tension ? '§25.5.2' : '§25.5.5.1') : '9.3' });
+      lap = { from: 0, to: Math.min(row.lap.length, clear), fits: row.lap.length <= clear + 1e-6 };
+      zones.push({ kind: 'lap', from: lap.from, to: lap.to, spacing: s, clause: fam === 'aci' ? (row.lap.tension ? '§25.5.2' : '§25.5.5.1') : '9.3' });
     }
     if (jointTop > 0) zones.push({ kind: 'joint', from: clear, to: clear + jointTop, spacing: s, clause: fam === 'aci' ? '§15.7.1' : '7.4.1' });
   }
@@ -127,6 +139,10 @@ function placeTies(zones: readonly TieZone[], top: number): number[] {
   return out;
 }
 
+/** How many ties fall in a zone of chapter 18's confinement, each counted once. */
+export const confinedTieCount = (layout: ColumnTieLayout): number =>
+  layout.ties.filter((y) => layout.zones.some((z) => z.confined && y >= z.from - 1e-6 && y <= z.to + 1e-6)).length;
+
 /** How many ties fall in a zone, its ends included. */
 export const tiesIn = (layout: ColumnTieLayout, z: TieZone): number => layout.ties.filter((y) => y >= z.from - 1e-6 && y <= z.to + 1e-6).length;
 
@@ -153,4 +169,21 @@ export function tieSegments(layout: ColumnTieLayout): TieZone[] {
     else out.push(piece);
   }
   return out;
+}
+
+/** The lap of the bars from below against the room its code gives it in the storey: the middle half under chapter 18 (§18.7.4.3), the clear height otherwise; null with none. */
+export function lapFit(row: ColumnRow, code: SheetCode, fmt: Fmt): CheckLine | null {
+  if (!row.lap) return null;
+  const fam = family(code), clear = Math.max(0.1, row.demand.lu);
+  const middle = fam === 'aci' && !!row.confinement;
+  const room = middle ? clear / 2 : clear;
+  const clause = fam === 'aci' ? (middle ? '§18.7.4.3' : row.lap.tension ? '§25.5.2' : '§25.5.5.1') : fam === 'ec2' ? '8.7.3' : '9.3';
+  return check('rcSheets.v.colLapFit', row.lap.length <= room + 1e-6, { clause, demand: `${fmt(row.lap.length * 100, 0)} cm`, capacity: `≤ ${fmt(room * 100, 0)} cm`, ratio: row.lap.length / room });
+}
+
+/** A column row with its lap's room checked: one that does not fit fails the row. */
+export function withLapFit(row: ColumnRow, code: SheetCode, fmt: Fmt): ColumnRow {
+  const v = lapFit(row, code, fmt);
+  if (!v) return row;
+  return { ...row, verifications: [...row.verifications, v], ...(v.ok ? {} : { status: 'fail' as const, checks: { ...row.checks, ok: false } }) };
 }

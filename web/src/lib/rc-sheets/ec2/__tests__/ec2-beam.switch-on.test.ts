@@ -4,7 +4,8 @@ import { makeFmt } from '../../format';
 import { EC2_RECOMMENDED, EC2_UK } from '../../../engine/design/eurocode/ec2-params';
 import { basicAnchorage, designAnchorage, lapLength, matOf, momentCapacity, resultant, shearCapacity, EC2_SET, UK_SET } from '../basis';
 import { makeBeamRow } from '../beam-row';
-import { makeBeamLine, shiftedRow } from '../beam-line';
+import { ec2LineCode, makeBeamLine, shiftedRow } from '../beam-line';
+import { beamLine } from '../../beam-line';
 import { ec2Rules, ukRules } from '..';
 
 const f = makeFmt('.');
@@ -113,10 +114,16 @@ describe('EC2 continuous beam', () => {
     const rows = [0, 1].map((k) => makeBeamRow(EC2_SET)(beam({
       key: `beam:1:${k}`, start: env(0, 0, k === 1 ? 120 : 0), span: env(3, 100, 0), end: env(6, 0, k === 0 ? 120 : 0), vu: { value: 120 },
       line: { group: 1, index: k, spans: 2, startNode: k, endNode: k + 1, lineName: 'V1' }, env: e(6, k),
+      supportHalf: { start: 0.2, end: 0.2 }, ends: { start: { kind: 'column', half: 0.2 }, end: { kind: 'column', half: 0.2 } },
     }), ctx, undefined, f));
     const shifted = shiftedRow(rows[0]!, 0.3);
-    expect(shifted.demand.env![1]!.neg).toBeGreaterThanOrEqual(rows[0]!.demand.env![0]!.neg - 1e-9);
+    // At x = 5.5 m the hogging is 64.17 kN·m; shifted by 0.3 m it reads the 97.67 kN·m interpolated at 5.8 m.
+    expect(rows[0]!.demand.env![11]!.neg).toBeCloseTo(64.17, 1);
+    expect(shifted.demand.env![11]!.neg).toBeCloseTo(64.17 + (120 - 64.17) * 0.6, 1);
     const lay = makeBeamLine(EC2_SET)(rows, ctx, undefined, f);
+    const unshifted = beamLine(rows, ctx, undefined, f, ec2LineCode(EC2_SET));
+    const over = (l: typeof lay) => l.bars.find((b) => b.kind === 'support' && b.from > 1 && b.to < 11)!;
+    expect(over(lay).to - over(lay).from).toBeGreaterThan(over(unshifted).to - over(unshifted).from + 0.1);
     expect(lay.verifications.find((v) => v.label === 'rcSheets.v.lineEnvelope')!.ok).toBe(true);
     expect(lay.anchorage.length).toBeGreaterThan(0);
     expect(lay.steps[0]!.steps[0]!.label).toBe('rcSheets.ec2.s.lineShift');
