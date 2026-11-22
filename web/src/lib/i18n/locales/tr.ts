@@ -3558,6 +3558,8 @@ const tr: Translations = {
   'dxf.summaryMaxV': 'Maks V:',
   'dxf.warnZeroLengthLine': 'Sıfır uzunluklu çizgi yok sayıldı',
   'dxf.warnNoElementLayers': 'BARRAS/ELEMENTOS katmanları algılanmadı. Tüm çizgiler çubuk olarak kullanıldı.',
+  'dxf.refuseSupportLabel': '“{layer}” DXF katmanındaki “{label}” mesnet etiketi tanınmıyor veya belirsiz. İçe aktarmadan önce çizimi düzeltin. FIXED, PINNED, RX, RY veya RZ etiketini yalnızca amaçlanan mesnet koşuluna uyuyorsa kullanın.',
+  'dxf.refuseConflictingSupports': '“{layer}” DXF katmanındaki “{first}” ve “{second}” mesnet etiketleri aynı düğüme karşılık geliyor. İçe aktarmadan önce yalnızca amaçlanan mesnet koşuluna ait etiketi veya bloğu bırakın.',
   'dxf.warnSupportNoNode': 'Mesnet hiçbir düğümle eşleşmiyor:',
   'dxf.warnSupportBlockNoNode': 'Mesnet bloğu hiçbir düğümle eşleşmiyor:',
   'dxf.warnDistLoadNoElement': 'Yayılı yük hiçbir çubukla ilişkilendirilmedi:',

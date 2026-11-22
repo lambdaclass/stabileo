@@ -3919,6 +3919,8 @@ const en: Record<string, string> = {
   // Mapper warnings
   'dxf.warnZeroLengthLine': 'Zero-length line ignored',
   'dxf.warnNoElementLayers': 'No BARRAS/ELEMENTOS layers detected. All lines used as members.',
+  'dxf.refuseSupportLabel': 'Unknown or ambiguous support label “{label}” on DXF layer “{layer}”. Correct the drawing before importing. Use FIXED, PINNED, RX, RY or RZ only if it matches the intended restraint.',
+  'dxf.refuseConflictingSupports': 'Support labels “{first}” and “{second}” on DXF layer “{layer}” match the same node. Keep only the label or block for the intended restraint before importing.',
   'dxf.warnSupportNoNode': 'Support does not match any node:',
   'dxf.warnSupportBlockNoNode': 'Support block does not match any node:',
   'dxf.warnDistLoadNoElement': 'Distributed load not associated with any member:',

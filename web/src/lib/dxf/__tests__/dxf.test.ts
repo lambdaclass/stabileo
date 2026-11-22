@@ -302,34 +302,32 @@ describe('DXF support labels', () => {
     });
   }
 
-  const issue2278 = process.env.RUN_KNOWN_WRONG === '2278' ? it : it.skip;
-
-  issue2278('known wrong result: #2278 an unknown support label cannot silently create a pinned support', () => {
+  it('#2278 an unknown support label cannot silently create a pinned support', () => {
     expect(() => mapSupports(dxfText('APOYOS', 5, 0, 'ELASTIC_VERTICAL')))
       .toThrow(/ELASTIC_VERTICAL.*APOYOS/);
   });
 
-  issue2278('known wrong result: #2278 refuses unknown MTEXT labels and INSERT names on the support layer', () => {
+  it('#2278 refuses unknown MTEXT labels and INSERT names on the support layer', () => {
     expect.soft(() => mapSupports(dxfMtext('apoyos', 5, 0, 'SPRING_VERTICAL')))
       .toThrow(/SPRING_VERTICAL.*APOYOS/);
     expect.soft(() => mapSupports(dxfInsert('APOYOS', 5, 0, 'ELASTIC_BLOCK')))
       .toThrow(/ELASTIC_BLOCK.*APOYOS/);
   });
 
-  issue2278('known wrong result: #2278 refuses ambiguous labels and partial alias matches', () => {
+  it('#2278 refuses ambiguous labels and partial alias matches', () => {
     for (const label of ['R', 'ROLLER', 'MOVIL', 'MOVIL_XZ', 'ROLLER X/Y', 'NOT_FIXED', 'EMPOTRADO/ARTICULADO']) {
       expect.soft(() => mapSupports(dxfText('APOYOS', 5, 0, label)), label)
         .toThrow(new RegExp(label + '.*APOYOS'));
     }
   });
 
-  issue2278('known wrong result: #2278 refuses an empty label and an unknown label beyond the support matching radius', () => {
+  it('#2278 refuses an empty label and an unknown label beyond the support matching radius', () => {
     expect.soft(() => mapSupports(dxfText('APOYOS', 5, 0, ''))).toThrow(/“” on DXF layer “APOYOS”/);
     expect.soft(() => mapSupports(dxfInsert('APOYOS', 5.125, 0, 'UNKNOWN_BLOCK')))
       .toThrow(/UNKNOWN_BLOCK.*APOYOS/);
   });
 
-  issue2278('known wrong result: #2278 refuses conflicting labels for a single snapped node', () => {
+  it('#2278 refuses conflicting labels for a single snapped node', () => {
     expect(() => mapSupports(
       dxfText('APOYOS', 5, 0, 'ARTICULADO'),
       dxfInsert('APOYOS', 5.005, 0, 'RX'),

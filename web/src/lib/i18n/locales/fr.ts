@@ -3549,6 +3549,8 @@ const fr: Translations = {
   'dxf.summaryMaxV': 'V max :',
   'dxf.warnZeroLengthLine': 'Ligne de longueur nulle ignorée',
   'dxf.warnNoElementLayers': 'Aucun calque BARRAS/ELEMENTOS détecté. Toutes les lignes sont utilisées comme barres.',
+  'dxf.refuseSupportLabel': 'Le libellé d’appui « {label} » sur le calque DXF « {layer} » est inconnu ou ambigu. Corrigez le dessin avant de l’importer. Utilisez FIXED, PINNED, RX, RY ou RZ uniquement si ce libellé correspond à la liaison prévue.',
+  'dxf.refuseConflictingSupports': 'Les libellés d’appui « {first} » et « {second} » sur le calque DXF « {layer} » désignent le même nœud. Avant l’importation, conservez uniquement le libellé ou le bloc correspondant à la liaison prévue.',
   'dxf.warnSupportNoNode': 'L\'appui ne correspond à aucun nœud :',
   'dxf.warnSupportBlockNoNode': 'Le bloc d\'appui ne correspond à aucun nœud :',
   'dxf.warnDistLoadNoElement': 'Charge répartie associée à aucune barre :',

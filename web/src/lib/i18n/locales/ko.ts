@@ -1816,6 +1816,8 @@ const ko: Translations = {
   'dxf.summaryMaxV': '최대 V:',
   'dxf.warnZeroLengthLine': '길이 0인 선이 무시됨',
   'dxf.warnNoElementLayers': '부재/요소 레이어가 감지되지 않음. 모든 선이 요소로 사용됩니다.',
+  'dxf.refuseSupportLabel': 'DXF 레이어 “{layer}”의 지점 라벨 “{label}”을 알 수 없거나 의미가 모호합니다. 가져오기 전에 도면을 수정하세요. FIXED, PINNED, RX, RY 또는 RZ는 의도한 구속 조건과 일치할 때만 사용하세요.',
+  'dxf.refuseConflictingSupports': 'DXF 레이어 “{layer}”의 지점 라벨 “{first}”와 “{second}”가 같은 절점에 대응합니다. 가져오기 전에 의도한 구속 조건에 해당하는 라벨이나 블록만 남기세요.',
   'dxf.warnSupportNoNode': '지점이 어떤 절점과도 일치하지 않음:',
   'dxf.warnSupportBlockNoNode': '지점 블록이 어떤 절점과도 일치하지 않음:',
   'dxf.warnDistLoadNoElement': '분포하중이 어떤 요소와도 연관되지 않음:',

@@ -1816,6 +1816,8 @@ const id: Translations = {
   'dxf.summaryMaxV': 'Maks V:',
   'dxf.warnZeroLengthLine': 'Garis panjang nol diabaikan',
   'dxf.warnNoElementLayers': 'Tidak terdeteksi layer BATANG/ELEMEN. Semua garis digunakan sebagai elemen.',
+  'dxf.refuseSupportLabel': 'Label tumpuan “{label}” pada lapisan DXF “{layer}” tidak dikenal atau ambigu. Perbaiki gambar sebelum mengimpor. Gunakan FIXED, PINNED, RX, RY, atau RZ hanya jika sesuai dengan kekangan yang dimaksud.',
+  'dxf.refuseConflictingSupports': 'Label tumpuan “{first}” dan “{second}” pada lapisan DXF “{layer}” cocok dengan simpul yang sama. Sebelum mengimpor, sisakan hanya label atau blok untuk kekangan yang dimaksud.',
   'dxf.warnSupportNoNode': 'Tumpuan tidak cocok dengan titik simpul manapun:',
   'dxf.warnSupportBlockNoNode': 'Blok tumpuan tidak cocok dengan titik simpul manapun:',
   'dxf.warnDistLoadNoElement': 'Beban terdistribusi tidak terkait dengan elemen manapun:',

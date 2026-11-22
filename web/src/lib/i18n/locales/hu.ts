@@ -3345,6 +3345,8 @@ const hu: Translations = {
   "dxf.summaryMaxV": "Max. V:",
   "dxf.warnZeroLengthLine": "A nulla hosszúságú vonal figyelmen kívül hagyva",
   "dxf.warnNoElementLayers": "Nem található BARRAS/ELEMENTOS réteg. Minden vonal rúdként használva.",
+  "dxf.refuseSupportLabel": "A(z) „{label}” támaszfelirat a(z) „{layer}” DXF-rétegen ismeretlen vagy nem egyértelmű. Importálás előtt javítsa a rajzot. A FIXED, PINNED, RX, RY vagy RZ jelölést csak akkor használja, ha megfelel a tervezett megtámasztásnak.",
+  "dxf.refuseConflictingSupports": "A(z) „{first}” és „{second}” támaszfelirat a(z) „{layer}” DXF-rétegen ugyanahhoz a csomóponthoz tartozik. Importálás előtt csak a tervezett megtámasztás feliratát vagy blokkját hagyja meg.",
   "dxf.warnSupportNoNode": "A támasz nem felel meg egyetlen csomópontnak sem:",
   "dxf.warnSupportBlockNoNode": "A támaszblokk nem felel meg egyetlen csomópontnak sem:",
   "dxf.warnDistLoadNoElement": "A megoszló teher egyetlen rúdhoz sincs hozzárendelve:",
