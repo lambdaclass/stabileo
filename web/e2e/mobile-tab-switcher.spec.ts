@@ -130,3 +130,30 @@ test.describe('@smoke PRO tabs on a 360 px phone', () => {
     await expect(trigger.locator('.mts-save')).toHaveAttribute('data-state', /saved|degraded/, { timeout: 30_000 });
   });
 });
+
+test.describe('@smoke tabs on a phone held sideways', () => {
+  test.use({ viewport: { width: 844, height: 390 }, hasTouch: true, isMobile: true });
+
+  test('a tablet-wide but short touch screen gets the dropdown, and a mouse at the same size keeps the strip', async ({ page }) => {
+    await page.goto('/app/basic?e2e=1');
+    await page.waitForFunction(() => !!window.__stabileo, null, { timeout: 30_000 });
+    await expect(page.getByTestId('tab-switcher')).toBeVisible();
+    await addTab(page);
+    await page.getByTestId('tab-switcher').tap();
+    await expect(page.getByTestId('tab-switcher-row')).toHaveCount(2);
+    const fit = await headerOverflow(page);
+    expect(fit.header, 'header scrolls sideways').toBeLessThanOrEqual(0);
+    expect(fit.page, 'page scrolls sideways').toBeLessThanOrEqual(0);
+  });
+});
+
+test.describe('@smoke tabs on a short desktop window', () => {
+  test.use({ viewport: { width: 844, height: 390 } });
+
+  test('keeps the strip for a mouse', async ({ page }) => {
+    await page.goto('/app/basic?e2e=1');
+    await page.waitForFunction(() => !!window.__stabileo, null, { timeout: 30_000 });
+    await expect(page.locator('.tab-bar')).toBeVisible();
+    await expect(page.getByTestId('tab-switcher')).toHaveCount(0);
+  });
+});

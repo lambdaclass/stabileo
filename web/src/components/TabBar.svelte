@@ -50,7 +50,7 @@
   });
 </script>
 
-{#if uiStore.isMobile}
+{#if uiStore.compactTabs}
 <TabSwitcherMobile />
 {:else}
 <div class="tab-bar" bind:this={tabBarEl}>

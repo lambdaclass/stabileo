@@ -1131,8 +1131,12 @@
     }, 30_000);
 
     // Mobile responsive: track window width
-    uiStore.windowWidth = window.innerWidth;
-    const onResize = () => { uiStore.windowWidth = window.innerWidth; };
+    const onResize = () => {
+      uiStore.windowWidth = window.innerWidth;
+      uiStore.windowHeight = window.innerHeight;
+      uiStore.coarsePointer = typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches;
+    };
+    onResize();
     window.addEventListener('resize', onResize);
 
     // Listen for PNG export event from Toolbar
@@ -1658,7 +1662,7 @@
         assistant specifically because the two answer the same impulse, "I am
         stuck", one automatically and one with a person on the other end.
       -->
-      {#if uiStore.appMode === 'pro'}{#if !uiStore.isMobile}<ProSaveStatus />{/if}<ProVideosOffer />{/if}
+      {#if uiStore.appMode === 'pro'}{#if !uiStore.compactTabs}<ProSaveStatus />{/if}<ProVideosOffer />{/if}
       <ContactMenu />
 
       <!--

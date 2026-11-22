@@ -512,6 +512,8 @@ function createUIStore() {
 
   // Mobile responsive
   let windowWidth = $state(initialWindowWidth);
+  let windowHeight = $state(typeof window === 'undefined' ? 900 : window.innerHeight);
+  let coarsePointer = $state(typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches);
   let rightDrawerOpen = $state(false);
   let mobileResultsPanelOpen = $state(false);
 
@@ -1239,6 +1241,11 @@ function createUIStore() {
 
     // Mobile responsive
     get isMobile() { return windowWidth < 768; },
+    /** Phones in landscape are tablet-wide but too short for the tab strip. */
+    get compactTabs() { return windowWidth < 768 || (coarsePointer && windowHeight < 500); },
+    get windowHeight() { return windowHeight; },
+    set windowHeight(h: number) { windowHeight = h; },
+    set coarsePointer(v: boolean) { coarsePointer = v; },
     get windowWidth() { return windowWidth; },
     set windowWidth(w: number) { windowWidth = w; },
     get rightDrawerOpen() { return rightDrawerOpen; },
