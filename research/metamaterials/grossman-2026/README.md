@@ -107,11 +107,12 @@ own error bars (plus 0.003 digitisation) for the cross-protocol Fig. 5 compariso
 Fig. 7 and Eq. (23) as curves (the largest difference over 259, 741 and 19 points), B and G of
 Fig. 9 at eta = 0 as two values read from the vector data (tolerance 0.005 each, as above), the
 periodic foam against the Fig. 5 error bars as the largest distance outside a bar (tolerance 0.003,
-the digitisation precision), and the zero crossing against the text's 0.46. All pass; the
-catalogue status `published-figures-compared` rests on them. The direct strip comparison with the
-same Fig. 5 markers is kept apart in `reference-results/fig5_strip_comparison.json` because four of
-its ten rows fail (see the review notes below); the page shows both files in one table, failures
-included.
+the digitisation precision), and the zero crossing against the text's 0.46. All of these pass.
+The direct strip comparison with the same Fig. 5 markers, our implementation of the paper's own
+protocol, is in `reference-results/fig5_strip_comparison.json`, in the same schema: four of its ten
+rows fail (see the review notes below). The page shows both files in one table, failures included.
+Because a like-for-like comparison with the paper fails, the catalogue records
+`reproduced_published_results: false` and the status stays `numerically-validated`.
 
 The browser bundle is checked in Node by `wasm/check.mjs` (exact lattice values, Eq. 23, input
 refusal) in the research-wasm CI job.

@@ -201,8 +201,8 @@
    "dependencies": [],
    "complexity": "medium",
    "relevance": "Spring networks map directly onto truss models, which Stabileo already solves.",
-   "status": "published-figures-compared",
-   "reproduced_published_results": true,
+   "status": "numerically-validated",
+   "reproduced_published_results": false,
    "benchmarks": [
     "foam Poisson's ratio against disorder (Fig. 5, text p. 6)",
     "honeycomb Poisson's ratio, Eq. (23)",
