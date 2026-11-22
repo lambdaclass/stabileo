@@ -36,6 +36,13 @@ def changed_paths(base, *paths):
 
 
 def snapshot(base, target, intended):
+    objects = git('rev-list', '--objects', '--no-object-names', '--missing=print', f'{base}^{{tree}}')
+    missing = [line[1:] for line in objects.splitlines() if line.startswith(b'?')]
+    if missing:
+        fetched = subprocess.run(['git', 'cat-file', '--batch-check=%(objectname) %(objecttype)'],
+                                 cwd=ROOT, input=b'\n'.join(missing) + b'\n', stdout=subprocess.PIPE)
+        if fetched.returncode or fetched.stdout.splitlines() != [oid + b' blob' for oid in missing]:
+            raise RuntimeError(f'Production parity could not fetch all tracked blobs for {base}')
     subprocess.run(['git', 'clone', '--quiet', '--shared', '--no-checkout', str(ROOT), str(target)], check=True)
     subprocess.run(['git', 'checkout', '--quiet', '--detach', base], cwd=target, check=True)
     if intended:

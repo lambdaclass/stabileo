@@ -59,7 +59,6 @@ class ProductionParity(unittest.TestCase):
             self.assertEqual((reference / carried.name).read_text(), 'intended')
             self.assertFalse((reference / added.name).exists())
 
-    @unittest.skip("known wrong result: #2483")
     def test_reference_materializes_base_only_blobs_from_a_partial_clone(self):
         with tempfile.TemporaryDirectory(dir=parity.ROOT) as directory:
             fixture = Path(directory)
@@ -89,6 +88,13 @@ class ProductionParity(unittest.TestCase):
             git(upstream, 'clone', '--quiet', '--filter=blob:none', upstream.as_uri(), str(repo))
             self.assertIn(f'?{base_recipe}', git(repo, 'rev-list', '--objects', '--missing=print', base).splitlines())
             reference = fixture / 'reference'
+            git(repo, 'remote', 'set-url', 'origin', (fixture / 'unavailable').as_uri())
+            with patch.object(parity, 'ROOT', repo):
+                with self.assertRaisesRegex(RuntimeError, 'could not fetch all tracked blobs'):
+                    parity.snapshot(base, reference, {'intended.bin'})
+            self.assertFalse(reference.exists())
+
+            git(repo, 'remote', 'set-url', 'origin', upstream.as_uri())
             with patch.object(parity, 'ROOT', repo):
                 parity.snapshot(base, reference, {'intended.bin'})
             self.assertEqual(git(reference, 'rev-parse', 'HEAD'), base)
