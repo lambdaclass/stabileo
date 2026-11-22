@@ -115,6 +115,12 @@ export const safetyAdvisories: Post = {
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-103-rc-torsion-evidence.md", "label": "SA-2026-103", "t": "Entradas afectadas y acciones necesarias."},
         {"k": "note", "t": "SA-2026-104 — Próxima versión (0.6.4)."},
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-104-member-load-reversal-and-planar-couples.md", "label": "SA-2026-104", "t": "Entradas afectadas y acciones necesarias."},
+        {"k": "note", "t": "SA-2026-105 — Próxima versión después de la 0.6.3."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-105-restored-planar-moment-edits.md", "label": "SA-2026-105", "t": "Entradas afectadas y acciones necesarias."},
+        {"k": "note", "t": "SA-2026-106 — Próxima versión después de la 0.6.3 (contención)."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-106-complementary-plate-remesh-arc.md", "label": "SA-2026-106", "t": "Entradas afectadas y acciones necesarias."},
+        {"k": "note", "t": "SA-2026-107 — Próxima versión después de la 0.6.3 (contención)."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-107-plate-remesh-shell-edits.md", "label": "SA-2026-107", "t": "Entradas afectadas y acciones necesarias."},
         { k: 'img', base: 'blog/recheck-stale', w: 1600, h: 1000, alt: 'Stabileo PRO con un pórtico de hormigón guardado antes de que los resultados tuvieran versión. Un aviso abajo indica que los resultados están desactualizados porque el proyecto se resolvió con una versión anterior y 19 cambios registrados lo afectan, con los botones para ver qué cambió y volver a calcular.', caption: 'Cómo llega una corrección a un proyecto guardado: hasta que se resuelve de nuevo, sus resultados quedan marcados como desactualizados, con los cambios que lo afectan a un clic.' },
 
         { k: 'h', t: 'Resumen' },
@@ -225,7 +231,10 @@ export const safetyAdvisories: Post = {
             ["SA-2026-101", "PRO podía calcular con placas omitidas, mallas basadas en datos incompletos o uniones muro–losa desconectadas. Compará la malla con la geometría prevista, corregí las placas y uniones afectadas y repetí el análisis y las verificaciones.", "Alta", "Próxima versión (0.6.4)"],
             ["SA-2026-102", "Los diagramas podían dar máximos incorrectos o esfuerzos erróneos junto a acciones concentradas, y los tramos con piezas invertidas podían intercambiar las caras de verificación del hormigón armado. Revisá los esfuerzos determinantes, las caras de armadura y los datos del gradiente de momentos en acero. Repetí los análisis y las verificaciones afectados.", "Alta", "Próxima versión (0.6.4)"],
             ["SA-2026-103", "Las verificaciones de torsión y corte en hormigón podían aceptar armadura transversal insuficiente o contar barras perimetrales o traccionadas sin verificar. Repetí la verificación con la armadura real y los esfuerzos concurrentes. Revisá los informes afectados.", "Alta", "Próxima versión (0.6.4)"],
-            ["SA-2026-104", "Invertir barras podía cambiar la dirección de las cargas distribuidas y el análisis podía omitir momentos puntuales de registros planos antiguos. Revisá las direcciones, las intensidades en los extremos y los campos de momento guardados. Corregí las cargas y repetí los análisis y las verificaciones afectados.", "Alta", "Próxima versión (0.6.4)"]
+            ["SA-2026-104", "Invertir barras podía cambiar la dirección de las cargas distribuidas y el análisis podía omitir momentos puntuales de registros planos antiguos. Revisá las direcciones, las intensidades en los extremos y los campos de momento guardados. Corregí las cargas y repetí los análisis y las verificaciones afectados.", "Alta", "Próxima versión (0.6.4)"],
+            ["SA-2026-105", "Al editar a cero un par puntual plano restaurado, el momento anterior podía seguir actuando. Verificá y volvé a ingresar los momentos previstos, y repetí los análisis y las verificaciones afectados.", "Alta", "Próxima versión después de la 0.6.3"],
+            ["SA-2026-106", "El remallado podía usar el arco complementario de un borde curvo de la placa. Compará la malla con el arco especificado, rehacé las mallas afectadas y repetí el análisis y las verificaciones.", "Alta", "Próxima versión después de la 0.6.3 (contención)"],
+            ["SA-2026-107", "El remallado podía descartar cambios en el desplazamiento de la superficie media y la curvatura de los elementos de placa. Verificá y restablecé las propiedades previstas antes de repetir el análisis y las verificaciones.", "Alta", "Próxima versión después de la 0.6.3 (contención)"]
           ],
         },
         {
@@ -496,6 +505,12 @@ export const safetyAdvisories: Post = {
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-103-rc-torsion-evidence.md", "label": "SA-2026-103", "t": "Affected inputs and user action."},
         {"k": "note", "t": "SA-2026-104 — Next release (0.6.4)."},
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-104-member-load-reversal-and-planar-couples.md", "label": "SA-2026-104", "t": "Affected inputs and user action."},
+        {"k": "note", "t": "SA-2026-105 — Next release after 0.6.3."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-105-restored-planar-moment-edits.md", "label": "SA-2026-105", "t": "Affected inputs and user action."},
+        {"k": "note", "t": "SA-2026-106 — Next release after 0.6.3 (containment)."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-106-complementary-plate-remesh-arc.md", "label": "SA-2026-106", "t": "Affected inputs and user action."},
+        {"k": "note", "t": "SA-2026-107 — Next release after 0.6.3 (containment)."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-107-plate-remesh-shell-edits.md", "label": "SA-2026-107", "t": "Affected inputs and user action."},
         { k: 'img', base: 'blog/recheck-stale', w: 1600, h: 1000, alt: 'Stabileo PRO with a concrete frame saved before results were versioned. A banner at the bottom reads “Results stale: this project was last solved with an older version, and 19 registered changes concern it”, with the buttons “What changed” and “Re-run”.', caption: 'How a fix reaches a saved project: until it is solved again, its results stay marked stale, with the changes that concern it one click away.' },
 
         { k: 'h', t: 'Summary' },
@@ -606,7 +621,10 @@ export const safetyAdvisories: Post = {
             ["SA-2026-101", "PRO could solve with omitted plates, meshes based on incomplete input or disconnected wall–slab joints. Compare the mesh with the intended geometry, repair the affected plates and junctions, and rerun analysis and design checks.", "High", "Next release (0.6.4)"],
             ["SA-2026-102", "Diagrams could give wrong peaks or section forces near concentrated actions, and reversed span pieces could swap concrete design faces. Check governing forces, reinforcement faces and steel moment-gradient inputs. Rerun affected analyses and checks.", "High", "Next release (0.6.4)"],
             ["SA-2026-103", "Concrete torsion and shear checks could accept insufficient transverse steel or credit unverified perimeter or tension bars. Repeat verification using the actual reinforcement and concurrent demands, and review affected reports.", "High", "Next release (0.6.4)"],
-            ["SA-2026-104", "Reversing members could redirect distributed loads, and analysis could omit legacy planar point couples. Check saved load directions, end ordinates and couple fields. Repair the loads and rerun affected analyses and design checks.", "High", "Next release (0.6.4)"]
+            ["SA-2026-104", "Reversing members could redirect distributed loads, and analysis could omit legacy planar point couples. Check saved load directions, end ordinates and couple fields. Repair the loads and rerun affected analyses and design checks.", "High", "Next release (0.6.4)"],
+            ["SA-2026-105", "Editing a restored planar point couple to zero could leave the old moment active. Verify and re-enter the intended moments, then rerun affected analyses and design checks.", "High", "Next release after 0.6.3"],
+            ["SA-2026-106", "Remeshing could use the complementary arc of a curved plate boundary. Verify the mesh against the specified sweep, rebuild affected meshes, and rerun analysis and design checks.", "High", "Next release after 0.6.3 (containment)"],
+            ["SA-2026-107", "Remeshing could discard shell offsets and curvature edits. Verify and restore the intended shell properties before rerunning analysis and design checks.", "High", "Next release after 0.6.3 (containment)"]
           ],
         },
         {
@@ -877,6 +895,12 @@ export const safetyAdvisories: Post = {
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-103-rc-torsion-evidence.md", "label": "SA-2026-103", "t": "Entradas afetadas e ações necessárias."},
         {"k": "note", "t": "SA-2026-104 — Próxima versão (0.6.4)."},
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-104-member-load-reversal-and-planar-couples.md", "label": "SA-2026-104", "t": "Entradas afetadas e ações necessárias."},
+        {"k": "note", "t": "SA-2026-105 — Próxima versão após a 0.6.3."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-105-restored-planar-moment-edits.md", "label": "SA-2026-105", "t": "Entradas afetadas e ações necessárias."},
+        {"k": "note", "t": "SA-2026-106 — Próxima versão após a 0.6.3 (contenção)."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-106-complementary-plate-remesh-arc.md", "label": "SA-2026-106", "t": "Entradas afetadas e ações necessárias."},
+        {"k": "note", "t": "SA-2026-107 — Próxima versão após a 0.6.3 (contenção)."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-107-plate-remesh-shell-edits.md", "label": "SA-2026-107", "t": "Entradas afetadas e ações necessárias."},
         { k: 'img', base: 'blog/recheck-stale', w: 1600, h: 1000, alt: 'Stabileo PRO com um pórtico de concreto salvo antes de os resultados terem versão. Um aviso embaixo indica que os resultados estão desatualizados porque o projeto foi resolvido com uma versão anterior e 19 mudanças registradas o afetam, com os botões para ver o que mudou e recalcular.', caption: 'Como uma correção chega a um projeto salvo: até ser resolvido de novo, seus resultados ficam marcados como desatualizados, com as mudanças que o afetam a um clique.' },
 
         { k: 'h', t: 'Resumo' },
@@ -987,7 +1011,10 @@ export const safetyAdvisories: Post = {
             ["SA-2026-101", "O PRO podia calcular com placas omitidas, malhas feitas com entradas incompletas ou ligações entre paredes e lajes desconectadas. Compare a malha com a geometria pretendida, corrija as placas e ligações afetadas e refaça a análise e as verificações.", "Alta", "Próxima versão (0.6.4)"],
             ["SA-2026-102", "Os diagramas podiam indicar picos ou esforços incorretos perto de ações concentradas, e trechos invertidos podiam trocar as faces verificadas no concreto. Confira os esforços determinantes, as faces das armaduras e os dados de gradiente de momentos no aço. Refaça as análises e verificações afetadas.", "Alta", "Próxima versão (0.6.4)"],
             ["SA-2026-103", "As verificações de torção e cisalhamento no concreto podiam aceitar armadura transversal insuficiente ou considerar barras perimetrais ou tracionadas sem comprovação. Refaça a verificação com a armadura existente e os esforços simultâneos. Revise os relatórios afetados.", "Alta", "Próxima versão (0.6.4)"],
-            ["SA-2026-104", "Inverter barras podia mudar a direção das cargas distribuídas, e a análise podia omitir momentos pontuais planos de registros antigos. Confira as direções, os valores nas extremidades e os campos de momento salvos. Corrija as cargas e refaça as análises e verificações afetadas.", "Alta", "Próxima versão (0.6.4)"]
+            ["SA-2026-104", "Inverter barras podia mudar a direção das cargas distribuídas, e a análise podia omitir momentos pontuais planos de registros antigos. Confira as direções, os valores nas extremidades e os campos de momento salvos. Corrija as cargas e refaça as análises e verificações afetadas.", "Alta", "Próxima versão (0.6.4)"],
+            ["SA-2026-105", "Ao zerar um momento pontual plano restaurado, o valor anterior podia continuar atuando. Confira e insira novamente os momentos pretendidos, depois refaça as análises e verificações afetadas.", "Alta", "Próxima versão após a 0.6.3"],
+            ["SA-2026-106", "A remalhagem podia usar o arco complementar de uma borda curva da placa. Compare a malha com o arco especificado, refaça as malhas afetadas e repita a análise e as verificações.", "Alta", "Próxima versão após a 0.6.3 (contenção)"],
+            ["SA-2026-107", "A remalhagem podia descartar alterações de excentricidade e curvatura das cascas. Confira e restaure as propriedades pretendidas antes de refazer a análise e as verificações.", "Alta", "Próxima versão após a 0.6.3 (contenção)"]
           ],
         },
         {

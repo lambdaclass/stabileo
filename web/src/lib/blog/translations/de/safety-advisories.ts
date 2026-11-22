@@ -108,6 +108,12 @@ const body: PostBody = {
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-103-rc-torsion-evidence.md", "label": "SA-2026-103", "t": "Betroffene Eingaben und erforderliche Schritte."},
     {"k": "note", "t": "SA-2026-104 — Nächste Version (0.6.4)."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-104-member-load-reversal-and-planar-couples.md", "label": "SA-2026-104", "t": "Betroffene Eingaben und erforderliche Schritte."},
+    {"k": "note", "t": "SA-2026-105 — Nächste Version nach 0.6.3."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-105-restored-planar-moment-edits.md", "label": "SA-2026-105", "t": "Betroffene Eingaben und erforderliche Schritte."},
+    {"k": "note", "t": "SA-2026-106 — Nächste Version nach 0.6.3 (Eindämmung)."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-106-complementary-plate-remesh-arc.md", "label": "SA-2026-106", "t": "Betroffene Eingaben und erforderliche Schritte."},
+    {"k": "note", "t": "SA-2026-107 — Nächste Version nach 0.6.3 (Eindämmung)."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-107-plate-remesh-shell-edits.md", "label": "SA-2026-107", "t": "Betroffene Eingaben und erforderliche Schritte."},
     {"k": "img", "base": "blog/recheck-stale", "w": 1600, "h": 1000, "alt": "Stabileo PRO mit einem Stahlbetonrahmen, gespeichert, bevor Ergebnisse versioniert wurden. Ein Hinweis unten meldet veraltete Ergebnisse: Das Projekt wurde mit einer älteren Version gelöst, und 19 registrierte Änderungen betreffen es; daneben die Schaltflächen, um die Änderungen zu sehen und neu zu rechnen.", "caption": "Wie eine Korrektur ein gespeichertes Projekt erreicht: Bis es neu gelöst ist, bleiben seine Ergebnisse als veraltet markiert, und die Änderungen, die es betreffen, sind einen Klick entfernt."},
     {
       "k": "h",
@@ -520,7 +526,10 @@ const body: PostBody = {
         ["SA-2026-101", "PRO konnte mit fehlenden Platten, Netzen aus unvollständigen Eingaben oder unverbundenen Wand-Decken-Anschlüssen rechnen. Vergleichen Sie das Netz mit der vorgesehenen Geometrie, korrigieren Sie betroffene Platten und Anschlüsse und wiederholen Sie Berechnung und Nachweise.", "Hoch", "Nächste Version (0.6.4)"],
         ["SA-2026-102", "Diagramme konnten falsche Spitzen- oder Schnittgrößenwerte nahe Einzellasten zeigen. Umgekehrt orientierte Stababschnitte konnten die Bemessungsseiten im Stahlbeton vertauschen. Prüfen Sie maßgebende Schnittgrößen, Bewehrungsseiten und Momentenverlaufswerte im Stahlbau und wiederholen Sie die betroffenen Berechnungen und Nachweise.", "Hoch", "Nächste Version (0.6.4)"],
         ["SA-2026-103", "Torsions- und Querkraftnachweise im Stahlbeton konnten zu geringe Querbewehrung zulassen oder ungeprüfte Umfangs- oder Zugbewehrung anrechnen. Wiederholen Sie die Nachweise mit der tatsächlich vorhandenen Bewehrung und den gleichzeitig wirkenden Schnittgrößen und prüfen Sie die Berichte.", "Hoch", "Nächste Version (0.6.4)"],
-        ["SA-2026-104", "Das Umkehren von Stäben konnte Streckenlasten umlenken. Die Berechnung konnte ältere ebene Einzelmomente auslassen. Prüfen Sie Lastrichtungen, Endordinaten und gespeicherte Momentenfelder. Korrigieren Sie die Lasten und wiederholen Sie die betroffenen Berechnungen und Nachweise.", "Hoch", "Nächste Version (0.6.4)"]
+        ["SA-2026-104", "Das Umkehren von Stäben konnte Streckenlasten umlenken. Die Berechnung konnte ältere ebene Einzelmomente auslassen. Prüfen Sie Lastrichtungen, Endordinaten und gespeicherte Momentenfelder. Korrigieren Sie die Lasten und wiederholen Sie die betroffenen Berechnungen und Nachweise.", "Hoch", "Nächste Version (0.6.4)"],
+        ["SA-2026-105", "Beim Nullsetzen eines wiederhergestellten ebenen Einzelmoments konnte das alte Moment weiterwirken. Prüfen Sie die vorgesehenen Momente, geben Sie sie erneut ein und wiederholen Sie die betroffenen Berechnungen und Nachweise.", "Hoch", "Nächste Version nach 0.6.3"],
+        ["SA-2026-106", "Bei der Neuvernetzung konnte der Ergänzungsbogen eines gekrümmten Plattenrands verwendet werden. Vergleichen Sie das Netz mit dem vorgegebenen Bogen, erstellen Sie die betroffenen Netze neu und wiederholen Sie die Berechnung und die Nachweise.", "Hoch", "Nächste Version nach 0.6.3 (Eindämmung)"],
+        ["SA-2026-107", "Bei der Neuvernetzung konnten Änderungen am Schalenversatz und an der Krümmung verloren gehen. Prüfen Sie die vorgesehenen Schaleneigenschaften, stellen Sie sie wieder her und wiederholen Sie die Berechnung und die Nachweise.", "Hoch", "Nächste Version nach 0.6.3 (Eindämmung)"]
       ]
     },
     {
