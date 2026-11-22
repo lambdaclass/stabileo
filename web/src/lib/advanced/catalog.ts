@@ -76,7 +76,7 @@ export const ADV_FUNCTIONS: readonly AdvFunction[] = [
   },
   {
     id: 'influenceLine', group: 'moving', titleKey: 'advanced.influenceLine', helpKey: 'advHelp.influenceLine.text', thumb: 'influence',
-    steps: ['influenceLine'], requires: { plane: true, model: true },
+    steps: ['influenceLine'], stepsInPanel: true, requires: { plane: true, model: true },
     keywords: ['influence line', 'línea de influencia', 'linha de influência', 'Einflusslinie', "ligne d'influence", 'etki çizgisi', 'hatásábra', '影响线', 'Müller-Breslau', 'LI', 'IL', 'η', 'eta'],
   },
   {
