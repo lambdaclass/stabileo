@@ -1,7 +1,7 @@
 import type { Fmt } from './format';
 import { withCriterion } from './criteria';
 import { check, type CheckLine } from './types';
-import { MIN_CONTACT, type bearingReading, type ServiceBearing } from './footing-mechanics';
+import { MIN_CONTACT, UPLIFT_WEIGHT_FACTOR, upliftHolds, type bearingReading, type ServiceBearing, type UpliftReading } from './footing-mechanics';
 import type { FootingDemand } from './footing-types';
 
 /** The allowable pressure a foundation needs where the soil's does not hold it at the plan the lines allow: what to ask the soil study for, or found deep instead (GA §4, §15.1). */
@@ -24,3 +24,10 @@ export function soilChecks(d: Pick<FootingDemand, 'soil'>, b: ReturnType<typeof 
     ...(needs !== undefined && !b.ok ? [needsLine(needs, b.allowable ?? 0, fmt)] : []),
   ];
 }
+
+/** A combination that pulls the base up: held when 0,9 of its weight and of the fill over it outweighs the pull, and told by name with neither where its axial force is missing. */
+export const upliftChecks = (u: UpliftReading | null, fmt: Fmt): CheckLine[] => (u ? [check('rcSheets.v.footUplift', upliftHolds(u), {
+  demand: Number.isFinite(u.N) ? `${fmt(-u.N, 0)} kN · ${u.combo}` : `— · ${u.combo}`,
+  capacity: `${fmt(UPLIFT_WEIGHT_FACTOR, 1)} G = ${fmt(UPLIFT_WEIGHT_FACTOR * u.weight, 0)} kN`,
+  ratio: Number.isFinite(u.N) && u.weight > 0 ? -u.N / (UPLIFT_WEIGHT_FACTOR * u.weight) : Infinity,
+})] : []);

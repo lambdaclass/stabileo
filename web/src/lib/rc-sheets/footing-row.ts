@@ -1,7 +1,7 @@
 import type { Fmt } from './format';
 import { analyseFooting, CIRSOC_ONE_WAY, foundingOf, MIN_D, pedestalOf, proposeFooting, spacingClause, type FootingAnalysis, type FootingRowCode, type PlanCap } from './footing-design';
 import { ceilTo } from './footing-mechanics';
-import { soilChecks } from './footing-needs';
+import { soilChecks, upliftChecks } from './footing-needs';
 import { meshText } from './footing-mesh';
 import { dowelsText } from './footing-dowels';
 import { footingSteps } from './footing-steps';
@@ -110,6 +110,7 @@ function verifications(d: FootingDemand, r: FootingAnalysis, a: FootingAdopted, 
     out.push(check(`rcSheets.v.footShear${X}`, k.vu <= k.phiVc + 1e-6, { clause: `§13.2.7.2, ${code.oneWayClause}`, demand: kn(k.vu), capacity: kn(k.phiVc), ratio: ratioOf(k.vu, k.phiVc) }));
     out.push(check(`rcSheets.v.footAnchor${X}`, k.anchorage.ok, { clause: `§13.2.8, ${k.anchorage.hooked ? code.anchorage?.clause.hooked ?? '' : code.anchorage?.clause.straight ?? ''}`, demand: `${k.anchorage.hooked ? 'ldh' : 'ld'} ${cm(k.anchorage.ld)}`, capacity: cm(k.anchorage.available) }));
   }
+  out.push(...upliftChecks(r.uplift, fmt));
   if (r.punching) out.push(check('rcSheets.v.footPunching', r.punching.utilization <= 1 + 1e-6, { clause: '§22.6, §13.2.6.2(b)', demand: `${fmt(r.punching.vu, 3)} MPa`, capacity: `${fmt(r.punching.phiVc, 3)} MPa`, ratio: r.punching.utilization }));
   const dMin = Math.min(r.layers.dx, r.layers.dy);
   out.push(check('rcSheets.v.footMinD', dMin >= MIN_D - 1e-9, { clause: '§13.3.1.2', demand: cm(dMin), capacity: `≥ ${cm(MIN_D)}` }));

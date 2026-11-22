@@ -1,7 +1,7 @@
 import { slabProvisions } from '../engine/codes/argentina/losas';
 import { pressureField } from '../engine/foundation/pressure-field';
 import { barArea } from './bars';
-import { ASSUMED_FILL_WEIGHT, bearingHolds, bearingReading, bearingStrength, beyond, cantileverAcross, ceilTo, centred, edgeFactorOf, r3, footingPunching, serviceBearing, strips, type FootingPlan, type ServiceBearing } from './footing-mechanics';
+import { ASSUMED_FILL_WEIGHT, baseWeight, upliftOf, type UpliftReading, bearingHolds, bearingReading, bearingStrength, beyond, cantileverAcross, ceilTo, centred, edgeFactorOf, r3, footingPunching, serviceBearing, strips, type FootingPlan, type ServiceBearing } from './footing-mechanics';
 import { layerAnchorage, meshArea, proposeLayer } from './footing-mesh';
 import { needsOf } from './footing-needs';
 import { MIN_D, footingSpacing, dowelLap, dowelReach, leverOf, layersOf, minThickness, preferredDiameters, stripReading, type FootingDowelReading, type FootingRowCode } from './footing-design';
@@ -112,6 +112,8 @@ export interface CombinedAnalysis {
   sMax: number;
   combos: Array<{ combo: string; N: number; mx: number; my: number; qMax: number; ratio: number }>;
   closure: number;
+  /** The combination whose columns together pull the footing up the most, with the weight that holds it down. */
+  uplift: UpliftReading | null;
 }
 
 export function analyseCombined(d: FootingDemand, c: FootingContext, a: FootingAdopted, code: FootingRowCode): CombinedAnalysis {
@@ -133,9 +135,12 @@ export function analyseCombined(d: FootingDemand, c: FootingContext, a: FootingA
   const pu = [0, 0];
   const across = (p: PlacedColumn) => cantileverAcross(p, cross, W);
   const bandWidth = (p: PlacedColumn) => Math.min(S, (axis === 'x' ? p.b : p.h) + dAcross);
+  const nets: Array<{ combo: string; N: number }> = [];
   for (const name of d.combos.map((x) => x.combo)) {
     const acts = cols.map((p) => p.demand.combos.find((x) => x.combo === name));
-    if (!acts.every((x) => x && x.N > 0)) continue;
+    const net = acts.every(Boolean) ? acts.reduce((t, x) => t + x!.N, 0) : NaN;
+    nets.push({ combo: name, N: net });
+    if (!(net > 0)) continue;
     const at = atCentroid(cols, (x) => x.combos.find((q) => q.combo === name), lever, name);
     const f = pressureField(a.B, a.L, at.N, at.My, -at.Mx);
     const placed = cols.map((p, i) => ({ ...p, N: acts[i]!.N, w: axis === 'x' ? acts[i]!.My + lever * acts[i]!.Vx : -(acts[i]!.Mx - lever * acts[i]!.Vy) }));
@@ -214,6 +219,7 @@ export function analyseCombined(d: FootingDemand, c: FootingContext, a: FootingA
   return {
     axis, plan, lever, layers, cols, bearing, along, across: acrossDir, top, bands, punching: punching.filter(Boolean), bearingStrength: bearingStrengths, dowels,
     sMax: footingSpacing(c, a.h).s, combos, closure: line.closure,
+    uplift: upliftOf(nets, baseWeight(a.B, a.L, a.h, lever, d.soil?.unitWeight ?? ASSUMED_FILL_WEIGHT)),
   };
 }
 

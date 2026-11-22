@@ -16304,6 +16304,9 @@ const es: Record<string, string> = {
   "rcSheets.progressTitle": "Dimensionando las armaduras",
   "rcSheets.progressDemands": "Leyendo los esfuerzos: {done} de {total} familias",
   "rcSheets.progressDesign": "Dimensionados {done} de {total} elementos",
+  "rcSheets.progressFoundations": "Comparando las disposiciones de la fundación: {index} de {count}, {layout}",
+  "rcSheets.progressFoundationsFooting": "Base {done} de {total}",
+  "rcSheets.progressFoundationsLevel": "Llevando las bases a un mismo nivel de fundación",
   "xls.err.selfWeightRule": "Regla de peso propio no válida o no admitida en {field}. Se importan reglas de casos para todos los elementos o listas explícitas, y la gravedad independiente heredada para todo el modelo.",
 
   "wind.pressure.openBuildingRequiresFreeRoof": "Un edificio abierto requiere declarar el tipo de cubierta libre y su obstrucción.",
@@ -16692,6 +16695,7 @@ const es: Record<string, string> = {
   "rcSheets.s.footAnchorY": "Anclaje de las barras (Y)",
   "rcSheets.v.footPunching": "Punzonado a d/2 de la columna",
   "rcSheets.v.footMinD": "Altura útil mínima de la armadura inferior",
+  "rcSheets.v.footUplift": "El peso de la base resiste el arrancamiento",
   "rcSheets.v.footBearingStrength": "Aplastamiento entre columna y base",
   "rcSheets.v.footDowelArea": "Armadura de espera de la columna",
   "rcSheets.v.footDowelAnchor": "Anclaje de las esperas en la base",

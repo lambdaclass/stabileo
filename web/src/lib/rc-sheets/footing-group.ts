@@ -2,7 +2,7 @@ import { slabProvisions } from '../engine/codes/argentina/losas';
 import { pressureField } from '../engine/foundation/pressure-field';
 import { barArea } from './bars';
 import { critOf } from './criteria';
-import { ASSUMED_FILL_WEIGHT, bearingReading, bearingStrength, cantileverAcross, CONCRETE_WEIGHT, centred, fieldOf, serviceBearing, type FootingPlan, type ServiceBearing } from './footing-mechanics';
+import { ASSUMED_FILL_WEIGHT, baseWeight, upliftOf, type UpliftReading, bearingReading, bearingStrength, cantileverAcross, CONCRETE_WEIGHT, centred, fieldOf, serviceBearing, type FootingPlan, type ServiceBearing } from './footing-mechanics';
 import { dropRect, punchingReading, type PunchingCase, type PunchingSite } from './footing-punching';
 import { meshArea } from './footing-mesh';
 import { dowelLap, dowelReach, footingSpacing, layersOf, leverOf, MIN_D, stripReading, type FootingRowCode } from './footing-design';
@@ -210,6 +210,8 @@ export interface GroupAnalysis {
   combos: Array<{ combo: string; N: number; mx: number; my: number; qMax: number; ratio: number }>;
   /** Each column's combinations and its site, as punching reads them. */
   punching: Array<{ cases: PunchingCase[]; site: PunchingSite }>;
+  /** The combination whose columns together pull the foundation up the most, with the weight that holds it down. */
+  uplift: UpliftReading | null;
 }
 
 function stripsOf(g: FootingGroup, cols: readonly Placed[], a: FootingAdopted): Array<{ dir: Axis; lo: number; hi: number; cols: Placed[] }> {
@@ -244,9 +246,11 @@ export function analyseGroup(g: FootingGroup, c: FootingContext, a: FootingAdopt
   const perCombo: GroupAnalysis['combos'] = [];
   const cantAcross = (p: Placed) => (across ? cantileverAcross(p, across, W) : 0);
   const tieForce = cols.map(() => ({ max: 0, byCombo: {} as Record<string, number> }));
+  const nets: Array<{ combo: string; N: number }> = [];
   for (const name of ref.combos.map((x) => x.combo)) {
     const pick = (d: FootingDemand) => d.combos.find((x) => x.combo === name);
     const at0 = summed(cols, pick, name, tied ?? strapped);
+    nets.push({ combo: name, N: at0?.N ?? NaN });
     if (!at0 || !(at0.N > 0)) continue;
     const pulls = strapPulls(cols, pick, strapped, lever);
     const at = { ...at0, N: at0.N + pulls.reduce((t, v) => t + v, 0) };
@@ -350,7 +354,8 @@ export function analyseGroup(g: FootingGroup, c: FootingContext, a: FootingAdopt
     return { column: p.demand.name, axis: tied, H, Tu: tieForce[i]!.max, ...bars, e, Ns, Ts, b, h: cr.footingTieMinDepth, mu: lim.mu, byCombo: tieForce[i]!.byCombo, stretch: null };
   }) : [];
   const straps = strapped ? stripStraps(cols, strapped, lever, a, ref.combos.map((x) => x.combo)) : [];
-  return { layers, lever, cols, bearing, strips, bands: bandList, columns, ties, straps, need, minSteel, anchorage, sMax: footingSpacing(c, a.h).s, combos: perCombo, punching: cols.map((_, i) => ({ cases: cases[i]!, site: sites[i]! })) };
+  return { layers, lever, cols, bearing, strips, bands: bandList, columns, ties, straps, need, minSteel, anchorage, sMax: footingSpacing(c, a.h).s, combos: perCombo, punching: cols.map((_, i) => ({ cases: cases[i]!, site: sites[i]! })),
+    uplift: upliftOf(nets, baseWeight(a.B, a.L, a.h, lever, ref.soil?.unitWeight ?? ASSUMED_FILL_WEIGHT) + CONCRETE_WEIGHT * dropsVolume(g, a)) };
 }
 
 function winklerOf(b: { dir: Axis; lo: number; hi: number; cols: Placed[] }, a: FootingAdopted, c: FootingContext, lever: number, E: number, ks: number): GroupStrip['winkler'] {

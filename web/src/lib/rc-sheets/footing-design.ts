@@ -4,7 +4,7 @@ import { presizeFooting } from '../model/foundation/presize';
 import { barArea } from './bars';
 import {
   ASSUMED_FILL_WEIGHT, bearingHolds, bearingReading, bearingStrength, ceilTo, edgeFactorOf, faceReading, r3, fieldOf, footingPunching, serviceBearing,
-  type FootingPlan, type FootingPunching, type ServiceBearing,
+  baseWeight, upliftOf, type FootingPlan, type FootingPunching, type ServiceBearing, type UpliftReading,
 } from './footing-mechanics';
 import { bandShare, isBanded, layerAnchorage, meshArea, proposeLayer } from './footing-mesh';
 import type { ColumnBarsAtBase, FootingAdopted, FootingContext, FootingDemand, FootingDirection, FootingLayers, FootingMesh } from './footing-types';
@@ -124,6 +124,8 @@ export interface FootingAnalysis {
   bearing: (ServiceBearing & { allowable: number | null; edgeFactor: number; use: number; ok: boolean }) | null;
   x: FootingDirection; y: FootingDirection;
   punching: (FootingPunching & { combo: string }) | null;
+  /** The combination that pulls the footing up the most, with the weight that holds it down; none when every one presses it. */
+  uplift: UpliftReading | null;
   bearingStrength: { column: number; footing: number; root: number; pu: number };
   dowels: (FootingDowelReading & { area: number; required: number }) | null;
   sMax: number;
@@ -206,7 +208,8 @@ export function analyseFooting(d: FootingDemand, c: FootingContext, a: FootingAd
     const lap = dowelLap(an, c.columnBars, { fc: c.columnFc ?? c.fc, fy: c.fy }, dw.dia, tension);
     dowels = { ...dw, area: dowelArea(c.columnBars, dw), required, ldc, ldh, available: a.h - c.cover - (a.x.dia + a.y.dia) / 1000, lap, tension, ...dowelReach(c.columnBars, dw.dia, lever - a.h) };
   }
-  return { plan, lever, layers, balance: bal, balanced, bearing, x, y, punching, bearingStrength: { ...bs, pu }, dowels, sMax: footingSpacing(c, a.h).s, combos };
+  const uplift = upliftOf(d.combos, baseWeight(a.B, a.L, a.h, lever, fillWeight(d)));
+  return { plan, lever, layers, balance: bal, balanced, bearing, x, y, punching, uplift, bearingStrength: { ...bs, pu }, dowels, sMax: footingSpacing(c, a.h).s, combos };
 }
 
 /** What the thickness has to hold: one-way shear both ways, punching, the dowels' anchorage and d ≥ 150 mm (§13.3.1.2). */

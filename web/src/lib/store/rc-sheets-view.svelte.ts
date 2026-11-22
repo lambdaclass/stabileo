@@ -36,7 +36,11 @@ interface Stamp {
 export const sheetsRun = $state<{ rows: SheetRows | null; stamp: Stamp | null; readonly progress: SheetProgress | null }>({
   rows: null, stamp: null, get progress() { return sheetsProgress.now; },
 });
-const setProgress = (p: SheetProgress | null) => { sheetsProgress.now = p; };
+const setProgress = (p: SheetProgress | null) => {
+  if (!p) sheetsProgress.startedAt = null;
+  else if (!sheetsProgress.now) sheetsProgress.startedAt = performance.now();
+  sheetsProgress.now = p;
+};
 
 function stampNow(): Stamp {
   void modelStore.designData;

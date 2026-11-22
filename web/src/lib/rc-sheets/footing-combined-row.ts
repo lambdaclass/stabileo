@@ -1,7 +1,7 @@
 import type { Fmt } from './format';
 import { foundingOf, MIN_D, pedestalOf, spacingClause, type FootingRowCode } from './footing-design';
 import { meshText } from './footing-mesh';
-import { soilChecks } from './footing-needs';
+import { soilChecks, upliftChecks } from './footing-needs';
 import { analyseCombined, proposeCombined, type CombinedAnalysis } from './footing-combined';
 import { check, ratioOf, type CheckLine, type RowStatus, type Step, type StepGroup } from './types';
 import type { FootingAdopted, FootingContext, FootingDemand, FootingRow } from './footing-types';
@@ -27,6 +27,7 @@ function verifications(d: FootingDemand, r: CombinedAnalysis, a: FootingAdopted,
     out.push(check(`rcSheets.v.footAnchor${k.dir.toUpperCase()}`, k.anchorage.ok, { clause: `§13.2.8, ${k.anchorage.hooked ? code.anchorage?.clause.hooked ?? '' : code.anchorage?.clause.straight ?? ''}`, demand: `${k.anchorage.hooked ? 'ldh' : 'ld'} ${cm(k.anchorage.ld)}`, capacity: cm(k.anchorage.available) }));
   }
   out.push(check(`rcSheets.v.footShear${X}`, L.vu <= L.phiVc + 1e-6, { clause: `§13.2.7.2, ${code.oneWayClause}`, demand: kn(L.vu), capacity: kn(L.phiVc), ratio: ratioOf(L.vu, L.phiVc) }));
+  out.push(...upliftChecks(r.uplift, fmt));
   r.punching.forEach((p, i) => out.push(check('rcSheets.v.footPunching', p.utilization <= 1 + 1e-6, { clause: `§22.6, §13.2.6.2(b) · ${r.cols[i]!.demand.name}`, demand: `${fmt(p.vu, 3)} MPa`, capacity: `${fmt(p.phiVc, 3)} MPa`, ratio: p.utilization })));
   const dMin = Math.min(r.layers.dx, r.layers.dy);
   out.push(check('rcSheets.v.footMinD', dMin >= MIN_D - 1e-9, { clause: '§13.3.1.2', demand: cm(dMin), capacity: `≥ ${cm(MIN_D)}` }));

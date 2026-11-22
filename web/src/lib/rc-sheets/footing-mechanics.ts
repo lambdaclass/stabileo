@@ -133,8 +133,7 @@ export interface ServiceBearing { qMax: number; qMin: number; qMean: number; con
 
 /** The service pressure under the base, kPa: the column's gravity loads and the weight of the footing and of the fill over it. */
 export function serviceBearing(p: FootingPlan, a: FootingAction, h: number, lever: number, fillWeight: number): ServiceBearing {
-  const fill = Math.max(0, lever - h);
-  const weight = (CONCRETE_WEIGHT * h + fillWeight * fill) * p.B * p.L;
+  const weight = baseWeight(p.B, p.L, h, lever, fillWeight);
   const f = fieldOf(p, a, lever, weight);
   const corners = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([u, v]) => f.plane.a + f.plane.b * (u! * p.B) / 2 + f.plane.c * (v! * p.L) / 2);
   return { qMax: f.qMax, qMin: Math.max(0, Math.min(...corners)), qMean: (a.N + weight) / (p.B * p.L), contact: f.contact, ex: f.eB, ey: f.eL, overturns: f.overturns, weight };
@@ -153,3 +152,20 @@ export function bearingReading(s: ServiceBearing, soil: Pick<FootingSoil, 'allow
   const allowable = soil?.allowable ?? null, k = edgeFactorOf(soil);
   return { ...s, allowable, edgeFactor: k, use: allowable ? bearingUse(s, allowable, k) : 0, ok: allowable ? bearingHolds(s, allowable, k) : false };
 }
+
+/** The share of a base's own weight, and of the fill over it, counted to hold it down: the 0,9 the combinations give the dead load. */
+export const UPLIFT_WEIGHT_FACTOR = 0.9;
+
+export interface UpliftReading { combo: string; N: number; weight: number }
+
+/** The combination that pulls the base up the most, with the weight that holds it down; a combination without an axial force counts as one, so it never passes. */
+export function upliftOf(combos: readonly { combo: string; N: number }[], weight: number): UpliftReading | null {
+  let worst: UpliftReading | null = null;
+  for (const k of combos) if (!(k.N > 0) && (!worst || !(k.N >= worst.N))) worst = { combo: k.combo, N: k.N, weight };
+  return worst;
+}
+
+export const upliftHolds = (u: UpliftReading): boolean => Number.isFinite(u.N) && -u.N <= UPLIFT_WEIGHT_FACTOR * u.weight + 1e-9;
+
+export const baseWeight = (B: number, L: number, h: number, lever: number, fillWeight: number): number =>
+  (CONCRETE_WEIGHT * h + fillWeight * Math.max(0, lever - h)) * B * L;

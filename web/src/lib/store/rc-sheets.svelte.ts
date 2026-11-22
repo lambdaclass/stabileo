@@ -512,7 +512,7 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
   const piers = rules.piers ? allPiers.filter((p) => p.columns.length) : [];
   const supported = new Set([...modelStore.supports.values()].map((x) => x.nodeId));
   let feet = withAdoptedCombined(currentFootingDemands(sets, storeyNamer(), foundationPiers(allPiers, D.walls, D.columns, supported)), adoptedNow);
-  const total = D.beams.length * 2 + D.columns.length + D.slabs.length + D.walls.length + D.punching.length + (feet.length ? FOUNDATION_SYSTEMS.length : 0);
+  const total = D.beams.length * 2 + D.columns.length + D.slabs.length + D.walls.length + D.punching.length + (feet.length ? FOUNDATION_SYSTEMS.length * feet.length : 0);
   let done = 0;
   const step = (): SheetProgress => ({ phase: 'design', done: ++done, total });
   const groupsById = new Map(physicalGroups().map((g) => [g.id, g]));
@@ -719,14 +719,23 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
     yield step();
   }
   const sort = <T extends { level?: string; name: string }>(rows: T[]) => rows.sort((a, b) => (a.level ?? '').localeCompare(b.level ?? '', undefined, { numeric: true }) || a.name.localeCompare(b.name, undefined, { numeric: true }));
-  const layout = function* (system: FoundationSystem, own: boolean): Generator<SheetProgress, FootingRow[]> {
+  const layout = function* (system: FoundationSystem, own: boolean, index: number): Generator<SheetProgress, FootingRow[]> {
+    const base = done;
     const redo = (k: string, f: unknown) => { if (own) redesigners.set(k, f as Redesign); };
     const it = foundationRowsSteps(feet, {
       rules, adopted: adoptedNow, sizing: footingSizing(data), columns: column, fmt, redo,
       system, solutions: solutionsOf(data.footingSetup), matShare: crit.footingMatShare, ...(dd.foundingElevation !== undefined ? { founding: dd.foundingElevation } : {}),
     });
     let rows: FootingRow[];
-    for (;;) { const r = it.next(); if (r.done) { rows = r.value; break; } yield { phase: 'design', done, total }; }
+    for (;;) {
+      const r = it.next();
+      if (r.done) { rows = r.value; break; }
+      const s = r.value;
+      done = base + Math.min(feet.length - 1, s.levelling ? feet.length - 1 : Math.round(feet.length * s.footing / Math.max(1, s.footings)));
+      yield { phase: 'foundations', done, total, layout: { system, index, count: FOUNDATION_SYSTEMS.length, footing: s.footing, footings: s.footings, levelling: s.levelling } };
+    }
+    done = base + feet.length;
+    yield { phase: 'foundations', done, total, layout: { system, index, count: FOUNDATION_SYSTEMS.length, footing: feet.length, footings: feet.length, levelling: false } };
     const pulls = tiePulls(rows, (q, H, from) => q.column?.storey ?? Math.max(0, H - leverOf(from.demand, from.adopted.h)), feet);
     if (pulls.size) rows = rows.map((r) => { const p = pulls.get(r.key); if (!p) return r; const f = footingRowOf(withPulls(r.demand, p), rules, adoptedNow, footingSizing(data), column, fmt); redo(r.key, f.redo); return f.row; });
     const straps = designFootingStraps(rows, {
@@ -746,10 +755,9 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
     return sort(withOverlaps(rows));
   };
   const chosen = feet.length ? foundationSystem(data) : null;
-  const footing = chosen ? yield* layout(chosen, true) : [];
-  if (chosen) yield step();
+  const footing = chosen ? yield* layout(chosen, true, 1) : [];
   const others = new Map<FoundationSystem, FootingRow[]>();
-  for (const sys of FOUNDATION_SYSTEMS) if (feet.length && sys !== chosen) { others.set(sys, yield* layout(sys, false)); yield step(); }
+  for (const sys of FOUNDATION_SYSTEMS) if (feet.length && sys !== chosen) others.set(sys, yield* layout(sys, false, others.size + (chosen ? 2 : 1)));
   const footingLayouts = FOUNDATION_SYSTEMS.flatMap((sys) => { const rows = sys === chosen ? footing : others.get(sys); return rows ? [{ system: sys, rows }] : []; });
   const framed = column.filter((r) => !r.pier);
   const checked = seismic ? jointChecks(framed, beam, modelStore.nodes, fmt, joint) : framed;

@@ -79,7 +79,7 @@ describe('designing the sheets on asking', () => {
     expect(concreteOfRow(column[0]!.key)).toBeUndefined();
   });
 
-  it('the steps count every member up to the total, one at a time, a foundation layout yielding between its footings without counting', () => {
+  it('the steps count every member one at a time and every foundation layout by its footings, up to the total', () => {
     solvedFrame();
     const it = sheetRowsSteps();
     const steps = [];
@@ -88,7 +88,9 @@ describe('designing the sheets on asking', () => {
     const design = steps.filter((s) => s.phase === 'design');
     expect(design.length).toBeGreaterThan(0);
     expect(design.every((s, k) => s.done - (k ? design[k - 1]!.done : 0) <= 1 && s.done >= (k ? design[k - 1]!.done : 1))).toBe(true);
-    expect(design[design.length - 1]!.done).toBe(design[0]!.total);
+    const counted = steps.filter((s) => s.phase !== 'demands');
+    expect(counted.every((s, k) => !k || s.done >= counted[k - 1]!.done)).toBe(true);
+    expect(counted[counted.length - 1]!.done).toBe(design[0]!.total);
     expect(r.value.beam.length).toBeGreaterThan(0);
   });
 

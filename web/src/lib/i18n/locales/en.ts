@@ -16315,6 +16315,9 @@ const en: Record<string, string> = {
   "rcSheets.progressTitle": "Designing the reinforcement",
   "rcSheets.progressDemands": "Reading the forces: {done} of {total} families",
   "rcSheets.progressDesign": "Designed {done} of {total} members",
+  "rcSheets.progressFoundations": "Comparing the foundation layouts: {index} of {count}, {layout}",
+  "rcSheets.progressFoundationsFooting": "Footing {done} of {total}",
+  "rcSheets.progressFoundationsLevel": "Bringing the footings to one founding level",
   "xls.err.selfWeightRule": "Invalid or unsupported self-weight rule in {field}. Import case rules for all members or explicit member lists, or legacy standalone gravity over the whole model.",
 
   "wind.pressure.openBuildingRequiresFreeRoof": "An open building requires an explicit free-roof kind and blockage declaration.",
@@ -16703,6 +16706,7 @@ const en: Record<string, string> = {
   "rcSheets.s.footAnchorY": "Bar development (Y)",
   "rcSheets.v.footPunching": "Punching shear at d/2 from the column",
   "rcSheets.v.footMinD": "Minimum effective depth of the bottom bars",
+  "rcSheets.v.footUplift": "The base's weight holds the uplift",
   "rcSheets.v.footBearingStrength": "Bearing between column and footing",
   "rcSheets.v.footDowelArea": "Column dowels",
   "rcSheets.v.footDowelAnchor": "Dowel development in the footing",

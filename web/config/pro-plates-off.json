@@ -5569,7 +5569,7 @@
       ]
     },
     "src/lib/i18n/locales/de.ts": {
-      "source": "08d570963008100534e1688bcad7d3820679b31b82d059722775c1e168ce3353",
+      "source": "7f39eed89058d8f3ae73c705a90f1962c2c78b86ed1dbbf4a921411e6c844e70",
       "original": "0b1cffc73c321c88dd80b93e39f81e925705babc0f2e91df63e10c19111fe052",
       "changes": [
         [
@@ -5885,18 +5885,18 @@
         ],
         [
           15107,
-          1050,
+          1053,
           []
         ],
         [
-          16162,
-          936,
+          16165,
+          937,
           []
         ]
       ]
     },
     "src/lib/i18n/locales/en.ts": {
-      "source": "4dd69471fa74c3f8037ff7b66158dbf9edf9219a6b9f69df39d0305380cdac74",
+      "source": "752290428a2c857b4fb01c8503f7b78ba1bb1a16066c72d3763b91775f0ce7e8",
       "original": "99343e2eeb7cf4140cbbcb69424c37461d3ec4e5c925d64439f6b56ee0e9e6b3",
       "changes": [
         [
@@ -6184,18 +6184,18 @@
         ],
         [
           15265,
-          1052,
+          1055,
           []
         ],
         [
-          16324,
-          936,
+          16327,
+          937,
           []
         ]
       ]
     },
     "src/lib/i18n/locales/es.ts": {
-      "source": "14b4ed5e5559642f23d097a28773d6ea0ba810e64a29c2ea57f9c62e03c6888b",
+      "source": "3d8eb5ff59c08d96aa613a28beafea3cb228b5676a044d5b3f0284fbf0ee787c",
       "original": "df939d2beed0420d6833617b3561c95098e34704ee1a3b4f15f21dda24fa4e09",
       "changes": [
         [
@@ -6483,18 +6483,18 @@
         ],
         [
           15254,
-          1052,
+          1055,
           []
         ],
         [
-          16313,
-          936,
+          16316,
+          937,
           []
         ]
       ]
     },
     "src/lib/i18n/locales/fr.ts": {
-      "source": "d07e4d82b6860c854b7175317677c3ff0ddcb105572155d7292b1fc078533596",
+      "source": "172f7c059ee8b1ff078905b4fc6a9226c72ba18593970c31a12713fb08bdfe81",
       "original": "26693801514fc282fbb8a5a4ad627431cbfce3c6e3f0720639c8cb5cef4e4b20",
       "changes": [
         [
@@ -6810,12 +6810,12 @@
         ],
         [
           15107,
-          1050,
+          1053,
           []
         ],
         [
-          16162,
-          936,
+          16165,
+          937,
           []
         ]
       ]
@@ -6841,7 +6841,7 @@
       ]
     },
     "src/lib/i18n/locales/hu.ts": {
-      "source": "a9e293f94d572f7f27e1255da3049373fd3804d2fcd052ca2bf392329137f795",
+      "source": "dd0a93b63fb483ea762b11b7007dd4201772413fcba2f3c93db0d33715ac66ec",
       "original": "050bb2fb50b6d61761b6836086403490f8b3deedc1ac4af88de298aa3fd3966e",
       "changes": [
         [
@@ -7091,7 +7091,7 @@
         ],
         [
           14765,
-          2046,
+          2050,
           [
             "  \"edu.game.hint\": \"Játék: egy szerkezet, három ábra, és csak az egyik helyes.\"",
             ""
@@ -7180,7 +7180,7 @@
       ]
     },
     "src/lib/i18n/locales/pt.ts": {
-      "source": "f7ef74ff2ea0e16e6d18c73a089fadba0925c3a2efb18592c0c3975d8d6fd003",
+      "source": "60c1e5559713a0080feb7bced16db75f2d3dd13e18eb414e915aebfbbdec5d32",
       "original": "f013a27bd1465964fefdc7d531a470bc4855e8593daa03ed54ed7453509bdd37",
       "changes": [
         [
@@ -7468,12 +7468,12 @@
         ],
         [
           14907,
-          1052,
+          1055,
           []
         ],
         [
-          15966,
-          936,
+          15969,
+          937,
           []
         ]
       ]
@@ -7801,7 +7801,7 @@
       ]
     },
     "src/lib/i18n/locales/tr.ts": {
-      "source": "a0639870857ca937df9d70337ae25fbe0184aa9da369eabd6fc9987c4a902fa5",
+      "source": "b9174810fbca0d895357a2a11f8b890b21c15d7236912d976f6a475914eb6cdd",
       "original": "dfae3be5cd45792b6b2c9720f3433a60bace6b76a70d785cd4f6cc88d7ef096f",
       "changes": [
         [
@@ -8096,18 +8096,18 @@
         ],
         [
           15107,
-          1050,
+          1053,
           []
         ],
         [
-          16162,
-          936,
+          16165,
+          937,
           []
         ]
       ]
     },
     "src/lib/i18n/locales/zh.ts": {
-      "source": "2d7243ebb5c955cd0b5f2b5079189aa05a6be9ba7a31ad4e8a84332378863966",
+      "source": "8802ab1dfe82bfa52d85d37a1f0a8fc149cf706d441c9c8a4bd030baee36e8c4",
       "original": "187ecdf53aa596a80d7c584c8c8fc84768c7dd6c4d6540750c3a9cdcf2caee26",
       "changes": [
         [
@@ -8341,7 +8341,7 @@
         ],
         [
           14787,
-          2048,
+          2052,
           []
         ]
       ]

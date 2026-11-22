@@ -15957,6 +15957,9 @@ const pt: Translations = {
   "rcSheets.progressTitle": "Dimensionando as armaduras",
   "rcSheets.progressDemands": "Lendo os esforços: {done} de {total} famílias",
   "rcSheets.progressDesign": "Dimensionados {done} de {total} elementos",
+  "rcSheets.progressFoundations": "Comparando as disposições da fundação: {index} de {count}, {layout}",
+  "rcSheets.progressFoundationsFooting": "Sapata {done} de {total}",
+  "rcSheets.progressFoundationsLevel": "Levando as sapatas a um mesmo nível de fundação",
   "xls.err.selfWeightRule": "Regra de peso próprio inválida ou não suportada em {field}. Importam-se regras de casos para todos os elementos ou listas explícitas, e a gravidade independente antiga para todo o modelo.",
 
   "wind.pressure.openBuildingRequiresFreeRoof": "Um edifício aberto exige declarar o tipo de cobertura livre e sua obstrução.",
@@ -16345,6 +16348,7 @@ const pt: Translations = {
   "rcSheets.s.footAnchorY": "Ancoragem das barras (Y)",
   "rcSheets.v.footPunching": "Punção a d/2 do pilar",
   "rcSheets.v.footMinD": "Altura útil mínima da armadura inferior",
+  "rcSheets.v.footUplift": "O peso da sapata resiste ao arrancamento",
   "rcSheets.v.footBearingStrength": "Esmagamento entre pilar e sapata",
   "rcSheets.v.footDowelArea": "Armadura de espera do pilar",
   "rcSheets.v.footDowelAnchor": "Ancoragem das esperas na sapata",

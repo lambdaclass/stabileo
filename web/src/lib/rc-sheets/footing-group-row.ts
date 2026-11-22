@@ -6,7 +6,7 @@ import { analyseGroup, type GroupAnalysis } from './footing-group';
 import { groupPunchingFixes, proposeGroup, proposeGroupBars, proposeGroupDowels } from './footing-group-propose';
 import { tieLimits } from './footing-tie-bars';
 import { punchingChecks, punchingSteps } from './footing-punching-row';
-import { soilChecks } from './footing-needs';
+import { soilChecks, upliftChecks } from './footing-needs';
 import { check, ratioOf, type CheckLine, type RowStatus, type Step, type StepGroup } from './types';
 import type { FootingAdopted, FootingContext, FootingDemand, FootingDirection, FootingGroup, FootingRow, GroupResult } from './footing-types';
 
@@ -20,6 +20,7 @@ function verifications(d: FootingDemand, g: FootingGroup, r: GroupAnalysis, a: F
   if (d.soil?.presumed) out.push(check('rcSheets.v.footPresumedSoil', true, { demand: `qadm = ${fmt(d.soil.allowable, 0)} kPa` }));
   const b = r.bearing;
   out.push(...soilChecks(d, b, fmt, needs, '§13.3.1.1, §13.3.4.3'));
+  out.push(...upliftChecks(r.uplift, fmt));
   for (const s of r.strips) {
     const name = stripName(s);
     out.push(check('rcSheets.v.footStripBottom', s.mBottom <= s.phiMnBottom + 1e-6, { clause: `§13.3.4.1, §13.2.7.1 · ${name}`, demand: `${knm(s.mBottom)} · ${cm2(s.asBottom)}`, capacity: `${knm(s.phiMnBottom)} · ${cm2(s.asBottomProvided)}`, ratio: ratioOf(s.mBottom, s.phiMnBottom) }));
