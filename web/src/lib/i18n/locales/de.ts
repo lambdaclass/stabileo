@@ -2845,6 +2845,10 @@ const de: Translations = {
 
   // ─── TabBar (extra) ───
   'tabBar.newTab': 'Neuer Tab',
+  'tabBar.tabs': 'Geöffnete Tabs',
+  'tabBar.switcher': 'Tabs: {name} ({index} von {count})',
+  'tabBar.renameTab': 'Tab umbenennen',
+  'tabBar.tabName': 'Name des Tabs',
 
   // ─── WhatIfPanel (extra) ───
   'whatif.loads': 'Lasten',

@@ -1,7 +1,8 @@
 <script lang="ts">
   import { tick } from 'svelte';
   import { tabManager } from '../lib/store/tabs.svelte';
-  import { modelStore } from '../lib/store';
+  import { modelStore, uiStore } from '../lib/store';
+  import TabSwitcherMobile from './TabSwitcherMobile.svelte';
   import { t } from '../lib/i18n';
 
   let tabBarEl: HTMLDivElement;
@@ -49,6 +50,9 @@
   });
 </script>
 
+{#if uiStore.isMobile}
+<TabSwitcherMobile />
+{:else}
 <div class="tab-bar" bind:this={tabBarEl}>
   {#each tabManager.tabs as tab (tab.id)}
     <div
@@ -80,6 +84,7 @@
   {/each}
   <button class="tab-add" onclick={handleNewTab} title={t('tabBar.newTab')}>+</button>
 </div>
+{/if}
 
 <style>
   .tab-bar {
@@ -150,12 +155,6 @@
     overflow: hidden;
     white-space: nowrap;
   }
-  @media (max-width: 767px) {
-    .tab-name {
-      font-size: 0.78rem;
-    }
-  }
-
   .tab.active .tab-name {
     color: #bbb;
   }

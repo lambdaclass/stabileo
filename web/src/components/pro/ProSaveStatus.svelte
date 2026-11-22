@@ -4,6 +4,8 @@
   import { requestAutosave } from '../../lib/store/autosave-service';
   import { i18n, t, tp } from '../../lib/i18n';
 
+  let { labelled = false }: { labelled?: boolean } = $props();
+
   let now = $state(Date.now());
   $effect(() => {
     const id = setInterval(() => { now = Date.now(); }, 20_000);
@@ -40,7 +42,7 @@
   <button type="button" class="ss" data-state={state} onclick={act} {title} aria-label={`${label}. ${title}`}
     data-testid="pro-save-status">
     <span class="ss-dot" aria-hidden="true"></span>
-    {#if !uiStore.isMobile}<span class="ss-text">{label}</span>{/if}
+    {#if labelled || !uiStore.isMobile}<span class="ss-text">{label}</span>{/if}
   </button>
 {/if}
 

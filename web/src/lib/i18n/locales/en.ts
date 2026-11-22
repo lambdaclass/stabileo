@@ -3210,6 +3210,10 @@ const en: Record<string, string> = {
 
   // ─── TabBar (extra) ───
   'tabBar.newTab': 'New tab',
+  'tabBar.tabs': 'Tabs',
+  'tabBar.switcher': 'Tabs: {name} ({index} of {count})',
+  'tabBar.renameTab': 'Rename tab',
+  'tabBar.tabName': 'Tab name',
 
   // ─── WhatIfPanel (extra) ───
   'whatif.loads': 'Loads',

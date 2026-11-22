@@ -2845,6 +2845,10 @@ const fr: Translations = {
 
   // ─── TabBar (extra) ───
   'tabBar.newTab': 'Nouvel onglet',
+  'tabBar.tabs': 'Onglets',
+  'tabBar.switcher': 'Onglets : {name} ({index} sur {count})',
+  'tabBar.renameTab': 'Renommer l\'onglet',
+  'tabBar.tabName': 'Nom de l\'onglet',
 
   // ─── WhatIfPanel (extra) ───
   'whatif.loads': 'Charges',
