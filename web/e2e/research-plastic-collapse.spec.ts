@@ -54,7 +54,7 @@ test.describe('@smoke plastic collapse', () => {
       await expect(page.locator('.axis-gizmo')).toBeHidden();
       await checkLayout(page, viewport);
 
-      const slider = page.getByRole('slider');
+      const slider = page.getByRole('slider', { name: 'Hinge event' });
       await slider.focus();
       await page.keyboard.press('Home');
       await expect(slider).toHaveValue('0');
@@ -71,6 +71,29 @@ test.describe('@smoke plastic collapse', () => {
       await expect(page.getByRole('alert')).toHaveCount(0);
     });
   }
+
+  test('the load ratio and height rerun the solver and change the governing mechanism', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto(route('en'));
+    await expect(page.getByTestId('source')).toHaveText('Live computation');
+    await expect(page.getByTestId('governs')).toHaveText('Lowest bound: Combined');
+    await page.getByRole('link', { name: 'Make the beam mechanism govern (V/H = 4)' }).click();
+    await expect(page.getByTestId('collapse-factor')).toHaveText('Stabileo λ = 50.000000');
+    await expect(page.getByTestId('governs')).toHaveText('Lowest bound: Beam');
+    await expect(page.getByTestId('model')).toContainText('λV = λ × 4 kN');
+    await expect(page.locator('[data-testid="check"][data-passed="false"]')).toHaveCount(0);
+    await expect(page.locator('[data-testid="check"]')).toHaveCount(5);
+    await page.getByRole('link', { name: 'Make sway govern (V/H = 0.5)' }).click();
+    await expect(page.getByTestId('collapse-factor')).toHaveText('Stabileo λ = 133.333333');
+    await expect(page.getByTestId('governs')).toHaveText('Lowest bound: Sway');
+    await expect(page.locator('[data-testid="check"][data-passed="false"]')).toHaveCount(0);
+    const height = page.getByTestId('height');
+    await height.fill('2');
+    await expect(page.getByTestId('governs')).toContainText('either mechanism can form');
+    await page.getByRole('link', { name: 'Back to our example' }).click();
+    await expect(page.getByTestId('collapse-factor')).toHaveText('Stabileo λ = 85.714286');
+    await expect(page.locator('[data-testid="check"][data-passed="true"]')).toHaveCount(6);
+  });
 
   for (const [locale, title, meta, run, lambda, place] of [
     ['en', 'Classic plastic collapse', 'Classic plastic collapse', 'Recompute live', '85.714286', 'Midspan'],

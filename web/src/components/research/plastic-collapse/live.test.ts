@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { run, portal, checks, cumulativeStep, viewer, type Result } from './case';
+import { run, portal, checks, cumulativeStep, governing, mechanisms, viewer, PAPER, type Result } from './case';
 import replayFile from '../../../../../research/benchmarks/plastic-collapse/results/stabileo_results.json';
 
 const replay = replayFile.result as Result;
@@ -27,4 +27,14 @@ it('recomputes the replay with the production WASM wrapper', async () => {
   const frame = viewer(cumulativeStep(result.steps, result.steps.length - 1));
   expect(frame.displacement?.every(Number.isFinite)).toBe(true);
   expect(frame.range.max).toBeGreaterThan(0);
+});
+
+it.each([[0.5, 3], [1, 3], [4, 3], [2, 2.5], [2, 5]])('collapses at the lowest hand bound and passes the page checks for V/H = %s, h = %s m', async (ratio, height) => {
+  const p = { ...PAPER, vertical: ratio * PAPER.horizontal, height };
+  const result = await run(p);
+  const mode = governing(p)!;
+  expect(Math.abs(result.collapseFactor - mechanisms(p)[mode])).toBeLessThan(portal.tolerance);
+  const list = checks(result, p);
+  expect(list.map(c => c.id)).toContain('hinges');
+  expect(list.filter(c => !c.passed)).toEqual([]);
 });

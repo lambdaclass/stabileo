@@ -1,0 +1,8 @@
+{
+  "what": "Hand-calculated mechanism bounds for our example and the parameter sweep; no published values (the book was not available to check).",
+  "source": "wasm/check.mjs from engine/tests/benchmarks/plastic_collapse.json",
+  "command": "node research/benchmarks/plastic-collapse/wasm/check.mjs [--write]",
+  "files_sha256": {
+    "hand_calculation.json": "4d70ff004c38d2b24ad001f2ea0576bd49a6e26d95c0796ead80fee7737aeb43"
+  }
+}

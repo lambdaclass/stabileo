@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { checks, compare, cornerMoment, cumulativeStep, events, fixed, hingeNode, mechanisms, portal, residual, run, viewer, type Result } from './case';
+import { checks, compare, cornerMoment, cumulativeStep, events, fixed, governing, hingeNode, isPaper, mechanisms, PAPER, portal, portalInput, residual, run, viewer, type Result } from './case';
 import { fill, plasticLocale, ps, strings } from './i18n';
 import { publicI18n, setLocale } from '../../../lib/i18n/store.svelte';
 import { PUBLIC_LOCALES } from '../../../lib/i18n/offered';
@@ -59,6 +59,30 @@ describe('portal mechanism benchmark', () => {
     const steps = [1, 2].map(n => ({ loadFactor: n, results: { displacements: [{ nodeId: 1, ux: n, uz: -n }] } }));
     expect(cumulativeStep(steps, 1)?.results.displacements).toEqual([{ nodeId: 1, ux: 3, uz: -3 }]);
     expect(cumulativeStep([], 0)).toBeUndefined();
+  });
+});
+
+describe('model parameters', () => {
+  it('builds exactly the shared case for our example', () => {
+    expect(isPaper(PAPER)).toBe(true);
+    expect(portalInput(PAPER)).toEqual(portal.input);
+    expect(portalInput()).not.toBe(portal.input);
+  });
+  it('moves the roof and scales the vertical load for a variant', () => {
+    const p = { ...PAPER, height: 4.5, vertical: 3 };
+    const input = portalInput(p);
+    expect(Object.values(input.solver.nodes).map(n => [n.id, n.x, n.z])).toEqual([[1, 0, 0], [2, 0, 4.5], [3, 4, 4.5], [4, 4, 0], [5, 2, 4.5]]);
+    expect(input.solver.loads.map(l => [l.data.nodeId, l.data.fx, l.data.fz])).toEqual([[2, 1, 0], [5, 0, -3]]);
+    expect(portal.input.solver.nodes['2'].z).toBe(3);
+  });
+  it('switches the governing mechanism at V/H = h/L and V/H = 4h/L, and reports ties', () => {
+    expect(governing(PAPER)).toBe('combined');
+    expect(governing({ ...PAPER, vertical: 0.5 })).toBe('sway');
+    expect(governing({ ...PAPER, vertical: 4 })).toBe('beam');
+    expect(governing({ ...PAPER, vertical: 0.75 })).toBeNull();
+    expect(governing({ ...PAPER, vertical: 3 })).toBeNull();
+    expect(governing({ ...PAPER, height: 2 })).toBeNull();
+    expect(mechanisms({ ...PAPER, vertical: 4 }).beam).toBe(50);
   });
 });
 

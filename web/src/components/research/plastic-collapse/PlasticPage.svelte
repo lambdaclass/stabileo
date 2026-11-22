@@ -4,7 +4,7 @@
   import StabileoViewer from '../shell/StabileoViewer.svelte';
   import { Playback } from '../shell/playback.svelte';
   import { fill, plasticLocale, ps } from './i18n';
-  import { run, viewer, cumulativeStep, mechanisms, events, checks, cornerMoment, fixed, portal, place, DEFORM_SCALE, type Result } from './case';
+  import { run, viewer, cumulativeStep, mechanisms, events, checks, cornerMoment, fixed, governing, isPaper, PAPER, place, DEFORM_SCALE, type Portal, type Result } from './case';
   import replay from '../../../../../research/benchmarks/plastic-collapse/results/stabileo_results.json';
   const s = $derived(ps());
   const locale = $derived(plasticLocale());
@@ -13,34 +13,53 @@
   let error = $state('');
   let running = $state(false);
   let generation = 0;
+  let params = $state<Portal>({ ...PAPER });
+  let solved = $state<Portal>({ ...PAPER });
+  const ratio = $derived(params.vertical / params.horizontal);
+  const bounds = $derived(mechanisms(solved));
+  const mode = $derived(governing(solved));
   let host: HTMLDivElement;
   const playback = new Playback(900, 2000);
   const frame = $derived(cumulativeStep(result?.steps ?? [], playback.shown));
-  const data = $derived(viewer(frame));
+  const data = $derived(viewer(frame, solved));
   const rows = $derived(result ? events(result) : []);
-  const list = $derived(result ? checks(result) : []);
+  const list = $derived(result ? checks(result, solved) : []);
   const passed = $derived(list.filter(c => c.passed).length);
   const nf = (n: number, dp = 6) => fixed(n, locale, dp);
-  const params = $derived({ span: nf(portal.span, 0), height: nf(portal.height, 0), mp: nf(portal.mp, 0), horizontal: nf(portal.horizontal, 0), vertical: nf(portal.vertical, 0) });
+  const shown = $derived({ span: nf(params.span, 0), height: nf(params.height, Number.isInteger(params.height) ? 0 : 1), mp: nf(params.mp, 0), horizontal: nf(params.horizontal, 0), vertical: nf(params.vertical, Number.isInteger(params.vertical) ? 0 : 1) });
+  const label = (m: 'beam' | 'sway' | 'combined') => s[m];
+  function setParams(next: Partial<Portal>) {
+    params = { ...params, ...next };
+    void recompute();
+  }
   function stop() { generation++; running = false; playback.pause(); }
   async function recompute(onLoad = false) {
     if (!onLoad) stop();
     const token = ++generation;
     running = true;
     error = '';
+    const model = { ...params };
     try {
-      const next = await run();
+      const next = await run(model);
       if (token !== generation) return;
       result = next;
+      solved = model;
       source = 'live';
       playback.setCount(next.steps.length);
       if (!onLoad) playback.seek(next.steps.length - 1);
     } catch (e) {
       if (token !== generation) return;
       error = e instanceof Error ? e.message : String(e);
-      result = replay.result as Result;
-      source = 'replay';
-      playback.setCount(result.steps.length);
+      if (isPaper(model)) {
+        result = replay.result as Result;
+        solved = model;
+        source = 'replay';
+        playback.setCount(result.steps.length);
+      } else {
+        result = null;
+        solved = model;
+        playback.setCount(0);
+      }
     } finally { if (token === generation) running = false; }
   }
   function restart() {
@@ -61,19 +80,26 @@
   verification={{ reference: { kind: 'checks', passed, total: list.length, href: '#checks' }, published: { kind: 'none', why: s.publishedNote } }}
   referenceLabel={s.referenceLabel}
   sourcePath="research/benchmarks/plastic-collapse"
-  actions={{ goToStep: i => playback.seek(i), setParams: () => {}, showTab: () => {} }}>
+  actions={{ goToStep: i => playback.seek(i), setParams: p => setParams({ ...(typeof p.ratio === 'number' ? { vertical: p.ratio * params.horizontal } : {}), ...(typeof p.height === 'number' ? { height: p.height } : {}) }), showTab: () => {} }}>
   {#snippet article()}
-    <p data-testid="model">{fill(s.model, params)}</p>
+    <p data-testid="model">{fill(s.model, shown)}</p>
     <p>{s.method} <a href="#portal" onclick={() => playback.seek((result?.steps.length ?? 1) - 1)}>{s.combined} →</a></p>
     <ul data-testid="bounds">
-      <li>{s.beam}: λ = 8Mp / (VL) = {nf(mechanisms().beam)}</li>
-      <li>{s.sway}: λ = 4Mp / (Hh) = {nf(mechanisms().sway)}</li>
-      <li>{s.combined}: λ = 6Mp / (Hh + VL/2) = {nf(mechanisms().combined)}</li>
+      <li>{s.beam}: λ = 8Mp / (VL) = {nf(bounds.beam)}</li>
+      <li>{s.sway}: λ = 4Mp / (Hh) = {nf(bounds.sway)}</li>
+      <li>{s.combined}: λ = 6Mp / (Hh + VL/2) = {nf(bounds.combined)}</li>
+    </ul>
+    <h2 id="loads">{s.paramsHeading}</h2>
+    <p>{s.paramsText}</p>
+    <ul class="links">
+      <li><a href="#portal" onclick={() => setParams({ vertical: 0.5 * params.horizontal, height: PAPER.height })}>{fill(s.paramsSway, { r: nf(0.5, 1) })}</a></li>
+      <li><a href="#portal" onclick={() => setParams({ vertical: 4 * params.horizontal, height: PAPER.height })}>{fill(s.paramsBeam, { r: nf(4, 0) })}</a></li>
+      <li><a href="#portal" onclick={() => setParams({ ...PAPER })}>{s.paramsPaper}</a></li>
     </ul>
     <p>{s.provenance} <a href="https://shop.elsevier.com/books/plastic-theory-of-structures/horne/978-0-08-022737-5">{s.publisher}</a> {s.provenanceEnd}</p>
     <h2 id="checks">{s.checksHeading}</h2>
     <ul class="checks">{#each list as check (check.id)}
-      <li data-testid="check" data-passed={check.passed}><span aria-hidden="true">{check.passed ? '✓' : '✗'}</span> {fill(s.checks[check.id], { corner: nf(cornerMoment(result?.collapseFactor ?? NaN)) })} <strong>{check.passed ? s.passed : s.failed}</strong></li>
+      <li data-testid="check" data-passed={check.passed}><span aria-hidden="true">{check.passed ? '✓' : '✗'}</span> {check.id === 'hinges' && mode === 'beam' ? s.hingesBeam : check.id === 'hinges' && mode === 'sway' ? s.hingesSway : check.id === 'equilibrium' && !isPaper(solved) ? s.equilibriumVariant : fill(s.checks[check.id], { corner: nf(cornerMoment(result?.collapseFactor ?? NaN, solved)) })} <strong>{check.passed ? s.passed : s.failed}</strong></li>
     {/each}</ul>
     <h2>{s.scope}</h2>
     <ul>{#each s.limits as limit}<li>{limit}</li>{/each}</ul>
@@ -85,6 +111,15 @@
         oninteract={() => playback.interact()} />
       <p class="small">{fill(s.amplified, { scale: DEFORM_SCALE })} · {s.planeNote}</p>
       <p data-testid="source" role="status" aria-live="polite">{running ? s.running : s[source]}</p>
+      <div class="params">
+        <label>{s.ratio} <output>{nf(ratio, 1)}</output>
+          <input type="range" min="0.5" max="5" step="0.5" value={ratio} aria-valuetext={nf(ratio, 1)} data-testid="ratio" oninput={e => setParams({ vertical: Number(e.currentTarget.value) * params.horizontal })} />
+        </label>
+        <label>{s.height} <output>{nf(params.height, 1)}</output>
+          <input type="range" min="2" max="5" step="0.5" value={params.height} aria-valuetext={nf(params.height, 1)} data-testid="height" oninput={e => setParams({ height: Number(e.currentTarget.value) })} />
+        </label>
+        <p class="small" data-testid="governs">{mode ? fill(s.governs, { m: label(mode) }) : s.tie}</p>
+      </div>
       <div class="controls">
         <button onclick={() => recompute()} disabled={running}>{s.run}</button>
         <button onclick={stop}>{s.stop}</button>
@@ -102,7 +137,7 @@
       <p data-testid="collapse-factor">Stabileo λ = {result ? nf(result.collapseFactor) : '—'}</p>
       <table>
         <thead><tr><th scope="col">{s.mechanism}</th><th scope="col">{s.reference}</th><th scope="col">{s.difference}</th></tr></thead>
-        <tbody>{#each Object.entries(mechanisms()) as [key, value]}
+        <tbody>{#each Object.entries(bounds) as [key, value]}
           <tr data-testid="bound-row"><th scope="row">{s[key as 'beam' | 'sway' | 'combined']}</th><td>{nf(value)}</td><td>{result ? nf(result.collapseFactor - value) : '—'}</td></tr>
         {/each}</tbody>
       </table>
@@ -140,6 +175,8 @@
   h2 { font-size: 1.1rem; margin-top: 1rem; }
   .small { font-size: .85rem; }
   .checks { list-style: none; padding-left: 0; }
+  .links a { display: inline-flex; align-items: center; min-height: 44px; }
+  .params label { margin: .5rem 0; }
   code { overflow-wrap: anywhere; }
   @media (max-height: 30rem) and (orientation: landscape) {
     :global(.rs-shell:has(#portal)) { padding-top: 4.25rem; }
