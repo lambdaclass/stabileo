@@ -262,6 +262,14 @@ export function bearingOf(d: FootingDemand, size: Pick<FootingAdopted, 'B' | 'L'
  * tie takes the offset, and as narrow across as its pressure can stay in contact (1,5 times the
  * column, or what a hooked bar needs past it) when the soil takes it alone, growing along the line only. A cap leaves one side short.
  */
+/** What a footing has to cover, m from its load point: a pier's outline, whose centroid need not be its box's centre, else the column's section. */
+export function coveredBox(d: Pick<FootingDemand, 'at' | 'column' | 'pier'>): { x0: number; x1: number; y0: number; y1: number } {
+  const o = d.pier?.outline;
+  if (o?.length) return { x0: Math.min(...o.map((p) => p.x)) - d.at.x, x1: Math.max(...o.map((p) => p.x)) - d.at.x, y0: Math.min(...o.map((p) => p.y)) - d.at.y, y1: Math.max(...o.map((p) => p.y)) - d.at.y };
+  const b = d.column?.b ?? 0, h = d.column?.h ?? 0;
+  return { x0: -b / 2, x1: b / 2, y0: -h / 2, y1: h / 2 };
+}
+
 export function proposeFooting(d: FootingDemand, c: FootingContext, code: FootingRowCode, cap?: PlanCap): Proposal | null {
   const m = d.footing && d.footing.B > 0 && d.footing.L > 0 ? d.footing : undefined;
   const col = d.column;
@@ -289,9 +297,12 @@ export function proposeFooting(d: FootingDemand, c: FootingContext, code: Footin
   if (cap) { if (cap.axis === 'x') B = Math.min(B, cap.max); else L = Math.min(L, cap.max); }
   const grows = { x: !(alone && anchor![0] && !anchor![1]) && !(cap?.axis === 'x'), y: !(alone && anchor![1] && !anchor![0]) && !(cap?.axis === 'y') };
   if (!grows.x && !grows.y) { if (cap?.axis === 'x') grows.y = true; else grows.x = true; }
+  const box = coveredBox(d);
+  B = Math.max(B, ceilTo(box.x1 - box.x0)); L = Math.max(L, ceilTo(box.y1 - box.y0));
+  const fit = (lo: number, hi: number, side: number, a: number) => (a < 0 ? lo + side / 2 : a > 0 ? hi - side / 2 : Math.min(Math.max(0, hi - side / 2), lo + side / 2));
   const ecc = (b: number, l: number) => (held
-    ? { ex: anchor![0] ? -anchor![0] * (b / 2 - col.b / 2) : 0, ey: anchor![1] ? -anchor![1] * (l / 2 - col.h / 2) : 0 }
-    : c.sizing === 'minimum' && m ? { ex: m.ex, ey: m.ey } : { ex: 0, ey: 0 });
+    ? { ex: fit(box.x0, box.x1, b, anchor![0]), ey: fit(box.y0, box.y1, l, anchor![1]) }
+    : c.sizing === 'minimum' && m ? { ex: m.ex, ey: m.ey } : { ex: fit(box.x0, box.x1, b, 0), ey: fit(box.y0, box.y1, l, 0) });
   const k = edgeFactorOf(soil);
   for (let step = 0; step < 300; step++) {
     const size = { B: r3(B), L: r3(L), h: r3(h), ...ecc(B, L) };
