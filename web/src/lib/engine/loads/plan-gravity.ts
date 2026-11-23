@@ -1647,7 +1647,7 @@ function coverage(model: GravityModel, zOf: Map<number, number>, panelsAt: Reado
   const byMember = new Map(geometry.map(member => [member.id, member]));
   const runs = physicalRoofRuns(geometry).map(({ a, b, members }) => {
     const start: [number, number] = [a.x, a.y], end: [number, number] = [b.x, b.y];
-    const dx = b.x - a.x, dy = b.y - a.y, length2 = dx * dx + dy * dy;
+    const dx = b.x - a.x, dy = b.y - a.y;
     const eave = (a.z ?? 0) <= (b.z ?? 0) ? a : b;
     const within = (rings: Array<Array<[number, number]>>) => {
       if (!withinPanel(start, rings) || !withinPanel(end, rings)) return false;

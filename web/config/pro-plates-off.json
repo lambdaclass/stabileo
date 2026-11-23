@@ -2536,93 +2536,597 @@
         ]
       ]
     },
-    "src/lib/engine/loads/load-plan.ts": {
-      "source": "1a52f498ab66c46c8b06a5318331616ab44c76d1770ab695677752ec481a096d",
-      "original": "768a22134a62ca10f84b4462c20ed67a2349c17d637b25f7a29fa5afaf9e003e",
+    "src/lib/engine/loads/floor-loads.ts": {
+      "source": "c1524dd0d89531b70051cb10a2c702bfeac5840736daaf2abeef6735b6cb2e44",
+      "original": "0c0dc7ac134f478fcbd9d7ec011bffe4071506276776f54ab032d3c22eaef458",
       "changes": [
         [
-          119,
+          48,
+          1,
+          []
+        ],
+        [
+          140,
+          14,
+          []
+        ],
+        [
+          159,
+          1,
+          [
+            "  return calculateFloorLoad(input, round);"
+          ]
+        ],
+        [
+          163,
+          1,
+          [
+            "  return calculateFloorLoad(input, value => value);"
+          ]
+        ],
+        [
+          166,
+          5,
+          [
+            "function calculateFloorLoad(input: FloorLoadInput, round: (value: number) => number): FloorLoadResult {"
+          ]
+        ],
+        [
+          174,
+          4,
+          [
+            "  if (input.zone !== undefined && input.shellFootprints !== undefined) return { ...res, refusal: 'zoneWithShellFootprints' };"
+          ]
+        ],
+        [
+          207,
+          1,
+          [
+            "    if (horizontal.length === 0) return res;"
+          ]
+        ],
+        [
+          219,
+          1,
+          [
+            "  if (beams.length === 0) return res;"
+          ]
+        ],
+        [
+          238,
+          0,
+          [
+            "  const raw = new Map<number, LoadPiece[]>();",
+            "  /** The panel each nodal load comes from. */",
+            "  const nodalPanel: number[] = [];"
+          ]
+        ],
+        [
+          362,
+          0,
+          [
+            "    if (res.refusal) return;"
+          ]
+        ],
+        [
+          376,
+          43,
+          [
+            "    const footprints = typeof input.shellFootprints === 'function'",
+            "      ? input.shellFootprints([sides.map(side => side.a), ...holes.map(hole => hole.map(side => side.a))], sides.map(side => side.nodeA))",
+            "      : input.shellFootprints ?? [];",
+            "    const partition = partitionShellCoverage(sides, holes, footprints, input.distribution === 'oneWay' ? spanDir : undefined);",
+            "    if (partition.kind !== 'uncovered') panel.shellCoverage = partition;",
+            "    if (partition.kind === 'shell') return;",
+            "    let panelZone = zone;",
+            "    if (zone) {",
+            "      const boundary: Polygon = [sides.map(side => side.a), ...holes.map(hole => hole.map(side => side.a))];",
+            "      const footprint: Polygon = [zone.outer, ...zone.holes];",
+            "      try {",
+            "        if (polygonClipping.intersection(boundary, footprint).length === 0) return;",
+            "        if (polygonClipping.difference(boundary, footprint).length === 0) panelZone = undefined;",
+            "      } catch {"
+          ]
+        ],
+        [
+          422,
+          54,
+          []
+        ],
+        [
+          477,
+          40,
+          [
+            "    const shares: SideShare[] | null = partition.kind === 'strips' ? partition.shares : input.distribution === 'oneWay'",
+            "      ? oneWayShares(sides, holes, spanDir, 1, panelZone)",
+            "      : twoWayShares(sides, holes, 1, panelZone);",
+            "    if (!shares) {",
+            "      if (zone && input.distribution === 'oneWay') res.refusal = 'eccentricZone';",
+            "      panel.reason = input.distribution === 'oneWay' && zone ? 'zoneAcrossSpan' : 'unresolved';",
+            "      if (panel.reason === 'zoneAcrossSpan') skipped.zoneAcrossSpan++; else skipped.unresolved++;",
+            "      return;"
+          ]
+        ],
+        [
+          518,
+          10,
+          [
+            "    if (zone && qEff !== 0 && shares.some(share => share.atA || share.atB)) {",
+            "      res.refusal = 'eccentricZone';",
+            "      return;",
+            "    }",
+            "    const exact = !!zone || partition.kind === 'strips';",
+            "    let carried = 0;",
+            "    all.forEach((side, i) => {",
+            "      const sh = shares[i]!;",
+            "      for (const pc of sh.pieces) { emit(side, { ...pc, q0: pc.q0 * qEff, q1: pc.q1 * qEff }, k, exact); carried += (pc.q0 + pc.q1) / 2 * (pc.s1 - pc.s0); }",
+            "      for (const [node, a, seg] of [[side.nodeA, sh.atA, side.segments[0]!], [side.nodeB, sh.atB, side.segments[side.segments.length - 1]!]] as const) {",
+            "        if (Math.abs(a) < 1e-12) continue;",
+            "        res.nodal.push({ nodeId: node, fz: -qEff * a, elementId: seg.elementId });",
+            "        nodalPanel.push(k);",
+            "        res.totalKN += qEff * a;",
+            "        carried += a;"
+          ]
+        ],
+        [
+          530,
+          1,
+          [
+            "    if (carried <= (exact ? 0 : 1e-12)) return;",
+            "    panel.loaded = true;",
+            "    panel.own = { loads: [], nodal: res.nodal.filter((_, i) => nodalPanel[i] === k), perBeam: new Map(), area: carried, sides: new Map() };",
+            "    res.loadedArea += carried;",
+            "  });",
+            "",
+            "  if (zone && [...raw.values()].some(requiresEccentricLoad)) res.refusal = 'eccentricZone';",
+            "  if (res.refusal) return { ...res, nodal: [], loadedArea: 0, totalKN: 0,",
+            "    panels: res.panels.map(({ own: _own, ...panel }) => ({ ...panel, loaded: false })),",
+            "  };",
+            "",
+            "  function emit(side: Side, pc: Piece, panel: number, exact: boolean) {",
+            "    for (const seg of side.segments) {",
+            "      const s0 = Math.max(pc.s0, seg.s0), s1 = Math.min(pc.s1, seg.s1);",
+            "      if (s1 <= s0) continue;",
+            "      if (exact && (s1 - s0) / (seg.s1 - seg.s0) < MEMBER_GEOMETRY_LIMIT) {",
+            "        if (!zone) refuseGravityGeometry(msg('loadPlan.gravity.stripInterval', { id: seg.elementId }));",
+            "        res.refusal = 'eccentricZone';",
+            "        return;",
+            "      }",
+            "      if (!exact && s1 - s0 < 1e-6) continue;",
+            "      const at = (s: number) => {",
+            "        const value = pc.q0 + ((pc.q1 - pc.q0) * (s - pc.s0)) / (pc.s1 - pc.s0 || 1);",
+            "        const error = 16 * Number.EPSILON * (Math.abs(pc.q0) + Math.abs(pc.q1));",
+            "        return Math.abs(value) <= error ? 0 : value;",
+            "      };",
+            "      const q0 = at(s0), q1 = at(s1);",
+            "      const len = seg.s1 - seg.s0;",
+            "      // Along the member, from node I.",
+            "      const [a, b, qa, qb] = seg.forward ? [s0 - seg.s0, s1 - seg.s0, q0, q1] : [seg.s1 - s1, seg.s1 - s0, q1, q0];",
+            "      if (exact ? qa === 0 && qb === 0 : Math.abs(qa) < 1e-12 && Math.abs(qb) < 1e-12) continue;",
+            "      const sign = seg.forward ? 1 : -1;",
+            "      const moment = (x: number) => sign * quadraticAt(pc.offset!, (x - pc.s0) / (pc.s1 - pc.s0));",
+            "      const offset = pc.offset",
+            "        ? [moment(seg.forward ? s0 : s1), moment((s0 + s1) / 2), moment(seg.forward ? s1 : s0)] as Piece['offset']",
+            "        : undefined;",
+            "      const piece = { a, b, qa, qb, len, panel, side: sign as 1 | -1, offset };",
+            "      const list = raw.get(seg.elementId) ?? [];",
+            "      list.push(piece);",
+            "      raw.set(seg.elementId, list);",
+            "    }"
+          ]
+        ],
+        [
+          532,
+          1,
+          [
+            "",
+            "  /** A member's pieces as loads in its local axes, and the kN they add up to. */",
+            "  const asLoads = (elementId: number, list: LoadPiece[]): { loads: FloorMemberLoad[]; total: number } => {",
+            "    const beam = beamById.get(elementId)!;",
+            "    const ni = pos(beam.nodeI)!, nj = pos(beam.nodeJ)!;",
+            "    const axes = computeLocalAxes3D(",
+            "      { id: 0, x: ni.x, y: ni.y, z: ni.z ?? 0 }, { id: 0, x: nj.x, y: nj.y, z: nj.z ?? 0 },",
+            "      beam.localYx !== undefined && beam.localYy !== undefined && beam.localYz !== undefined ? { x: beam.localYx, y: beam.localYy, z: beam.localYz } : undefined,",
+            "      (beam.rollAngle ?? 0) + (input.sectionRotation?.(beam.sectionId) ?? 0), false,",
+            "    );",
+            "    const ySign = input.leftHand ? -1 : 1;",
+            "    // Downward load q along −Z, in local components: on an inclined member the part along its axis",
+            "    // too, or the load the member receives would not be vertical, nor add up to q times the area.",
+            "    const fx = -axes.ex[2], fy = -axes.ey[2] * ySign, fz = -axes.ez[2];",
+            "    const loads: FloorMemberLoad[] = [];",
+            "    let total = 0;",
+            "    const exact = !!zone || list.some(p => res.panels[p.panel]?.shellCoverage?.kind === 'strips');",
+            "    for (const p of exact ? list : mergePieces(list)) {",
+            "      const error = 32 * Number.EPSILON * (Math.abs(ni.x) + Math.abs(ni.y) + Math.abs(ni.z ?? 0) + Math.abs(nj.x) + Math.abs(nj.y) + Math.abs(nj.z ?? 0) + p.len);",
+            "      const station = (x: number) => Math.abs(x) <= error ? 0 : Math.abs(x - p.len) <= error ? p.len : x;",
+            "      const start = station(p.a), end = station(p.b);",
+            "      const full = exact ? start === 0 && end === p.len : p.a < 1e-6 && p.b > p.len - 1e-6;",
+            "      const value = exact ? (v: number) => v === 0 ? 0 : v : round;",
+            "      loads.push({",
+            "        elementId,",
+            "        ...(full ? {} : { a: value(start), b: exact && end === p.len ? undefined : value(end) }),",
+            "        qI: value(p.qa), qJ: value(p.qb),",
+            "        qXI: value(fx * p.qa), qXJ: value(fx * p.qb),",
+            "        qYI: value(fy * p.qa), qYJ: value(fy * p.qb), qZI: value(fz * p.qa), qZJ: value(fz * p.qb),",
+            "      });",
+            "      total += ((p.qa + p.qb) / 2) * (p.b - p.a);",
+            "    }",
+            "    return { loads, total };",
+            "  };",
+            "",
+            "  for (const [elementId, list] of raw) {",
+            "    const { loads, total } = asLoads(elementId, list);",
+            "    res.loads.push(...loads);",
+            "    res.perBeam.set(elementId, total);",
+            "    res.totalKN += total;",
+            "  }",
+            "  // Each loaded panel's own part, from its own pieces alone.",
+            "  res.panels.forEach((panel, k) => {",
+            "    if (!panel.own) return;",
+            "    for (const [elementId, list] of raw) {",
+            "      const mine = list.filter((p) => p.panel === k);",
+            "      if (!mine.length) continue;",
+            "      const { loads, total } = asLoads(elementId, mine);",
+            "      panel.own.loads.push(...loads);",
+            "      panel.own.perBeam.set(elementId, total);",
+            "      panel.own.sides.set(elementId, mine.map((p) => ({ t0: p.a / p.len, t1: p.b / p.len, side: p.side })));",
+            "    }",
+            "  });",
+            "  return res;"
+          ]
+        ]
+      ]
+    },
+    "src/lib/engine/loads/floor-tributary.ts": {
+      "source": "5118205b091369dee4ab0803e6ef2f123887bd5d0c1de3343a6cda841dc296a8",
+      "original": "c4d3abd3f937432f3c2928c52818b1ec70c76b479ae6dcb2faafd6bbb7537804",
+      "changes": [
+        [
+          101,
+          1,
+          [
+            "function shareOf(e: Side, cells: P2[][], q: number, zone?: Zone2D): SideShare {"
+          ]
+        ],
+        [
+          130,
+          5,
+          [
+            "  const ss = [...bp].map((s) => Math.round(s * 1e9) / 1e9).sort((a, b) => a - b).filter((s, i, a) => i === 0 || s - a[i - 1]! > 1e-9);"
+          ]
+        ],
+        [
+          157,
+          1,
+          [
+            "export function twoWayShares(sides: Side[], holes: Side[][], q: number, zone?: Zone2D): SideShare[] | null {"
+          ]
+        ],
+        [
+          174,
+          1,
+          [
+            "  return all.map((e, k) => shareOf(e, cells[k]!, q, zone));"
+          ]
+        ],
+        [
+          178,
+          1,
+          [
+            "export function oneWayShares(sides: Side[], holes: Side[][], d: P2, q: number, zone?: Zone2D): SideShare[] | null {"
+          ]
+        ],
+        [
+          191,
+          2,
+          [
+            "  const ts = [...new Set(ts0.map((t) => Math.round(t * 1e9) / 1e9))].sort((a, b) => a - b);"
+          ]
+        ],
+        [
+          212,
+          1,
+          [
+            "    if (t1 - t0 < 1e-9) continue;"
+          ]
+        ]
+      ]
+    },
+    "src/lib/engine/loads/gravity-floor-ownership.ts": null,
+    "src/lib/engine/loads/gravity-shell-partition.ts": {
+      "source": "07fba493ba7b6db89d1b1da1dad49b4e3a15975800802c71251bec15cff377ad",
+      "original": "54db93ae0fc9a578b2503d30e35e1c109eded9bdad8bc4b809b91ba17d3ac114",
+      "changes": [
+        [
+          1,
+          1,
+          []
+        ],
+        [
+          4,
+          1,
+          [
+            "import { signedArea, type Side, type SideShare } from './floor-tributary';"
+          ]
+        ],
+        [
+          16,
+          7,
+          [
+            "  return Math.abs(signedArea(ring.map(p => [p[0] - x, p[1] - y])));"
+          ]
+        ],
+        [
+          25,
+          6,
+          [
+            "function area(region: MultiPolygon): number {",
+            "  return region.reduce((total, [outer, ...holes]) => total + ringArea(outer!) - holes.reduce((sum, hole) => sum + ringArea(hole), 0), 0);"
+          ]
+        ],
+        [
+          40,
+          1,
+          [
+            "type Partition = { kind: 'uncovered' } | { kind: 'shell' } | (UncoveredStrips & { shares: SideShare[] });"
+          ]
+        ],
+        [
+          42,
+          1,
+          [
+            "export function partitionShellCoverage(sides: Side[], holes: Side[][], shells: Polygon[], span?: Point): Partition {",
+            "  if (!shells.length) return { kind: 'uncovered' };",
+            ""
+          ]
+        ],
+        [
+          57,
+          11,
+          []
+        ],
+        [
+          77,
           5,
           []
         ],
         [
-          294,
+          83,
+          1,
+          [
+            "  if (!(area(covered) > 0)) return { kind: 'uncovered' };"
+          ]
+        ],
+        [
+          122,
+          1,
+          [
+            "    polygons: remaining.map(([outer]) => outer!.slice(0, -1).map(([x, y]) => [",
+            "      basis.a[0] + x * basis.u[0] + y * basis.n[0],",
+            "      basis.a[1] + x * basis.u[1] + y * basis.n[1],",
+            "    ])),"
+          ]
+        ],
+        [
+          160,
+          1,
+          [
+            "function footprintIntersection(a: Footprint, b: Footprint): MultiPolygon {"
+          ]
+        ],
+        [
+          169,
+          1,
+          [
+            "  return area(footprintIntersection(a, b)) > 0;"
+          ]
+        ],
+        [
+          172,
+          1,
+          [
+            "type ShellFootprint = { id: number; poly: Point[] };"
+          ]
+        ],
+        [
+          174,
+          2,
+          [
+            "export function assertSeparateShellDecks(",
+            "  shells: readonly (ShellFootprint & { pts: Point3[]; plane?: ShellPlane })[], tolerance: number,",
+            "): void {",
+            "  const decks = shells.map(shell => {",
+            "    const heights = shell.pts.map(point => point[2]);",
+            "    return { ...shell, low: Math.min(...heights), high: Math.max(...heights) };",
+            "  });",
+            "  assertDisjointShells(decks, (a, b) => {",
+            "    if (a.low > b.high + tolerance || b.low > a.high + tolerance) return false;",
+            "    const { plane: heightA } = a, { plane: heightB } = b;",
+            "    return footprintIntersection([a.poly], [b.poly]).some(polygon => {",
+            "      const overlapArea = area([polygon]);",
+            "      if (overlapArea === 0) return false;",
+            "      if (!(overlapArea > 0) || !Number.isFinite(overlapArea) || !heightA || !heightB) {",
+            "        refuseGravityGeometry(msg('loadPlan.gravity.coveragePrecision'));",
+            "      }",
+            "      const heights = polygon[0]!.map(point => [heightA(point), heightB(point)] as const);",
+            "      if (heights.some(([x, y]) => !Number.isFinite(x) || !Number.isFinite(y))) {",
+            "        refuseGravityGeometry(msg('loadPlan.gravity.coveragePrecision'));",
+            "      }",
+            "      return heights.some(([x, y]) => x <= y + tolerance) && heights.some(([x, y]) => y <= x + tolerance);",
+            "    });",
+            "  });"
+          ]
+        ],
+        [
+          178,
+          7,
+          [
+            "export function assertDisjointBayShells(shells: readonly ShellFootprint[], boundary: Polygon): void {",
+            "  assertDisjointShells(shells, (a, b) => {",
+            "    const overlap = footprintIntersection([a.poly], [b.poly]);",
+            "    return overlap.length > 0 && footprintsOverlap(overlap, boundary);",
+            "  }, footprintBounds(boundary[0]!));"
+          ]
+        ],
+        [
+          187,
+          9,
+          [
+            "function canonicalFootprint(ring: Point[]): Point[] {"
+          ]
+        ],
+        [
+          203,
+          1,
+          [
+            "function footprintBounds(ring: Point[]) {"
+          ]
+        ],
+        [
+          208,
+          2,
+          [
+            "function assertDisjointShells<T extends ShellFootprint>(",
+            "  shells: readonly T[], overlap: (a: T, b: T) => boolean, bay?: ReturnType<typeof footprintBounds>,",
+            "): void {",
+            "  const ordered = shells.map(shell => {",
+            "    const poly = canonicalFootprint(shell.poly);",
+            "    return { shell: { ...shell, poly }, ...footprintBounds(poly) };",
+            "  })",
+            "    .filter(box => !bay || (box.left < bay.right && box.right > bay.left && box.bottom < bay.top && box.top > bay.bottom))",
+            "    .sort((a, b) => a.left - b.left || a.shell.id - b.shell.id);",
+            ""
+          ]
+        ],
+        [
+          214,
+          1,
+          [
+            "      if (b.bottom >= a.top || b.top <= a.bottom) continue;",
+            "      if (overlap(a.shell, b.shell)) {",
+            "        const first = Math.min(a.shell.id, b.shell.id), second = Math.max(a.shell.id, b.shell.id);",
+            "        refuseGravityGeometry(msg('loadPlan.gravity.overlappingShells', { first, second }));",
+            "      }"
+          ]
+        ]
+      ]
+    },
+    "src/lib/engine/loads/load-plan.ts": {
+      "source": "948a42f1f2e09fc4e2fa01cc78c9f83451b21ab1302613269f228b833c4462f9",
+      "original": "768a22134a62ca10f84b4462c20ed67a2349c17d637b25f7a29fa5afaf9e003e",
+      "changes": [
+        [
+          71,
+          0,
+          [
+            "  supports?: ReadonlyMap<number, { nodeId: number }>;"
+          ]
+        ],
+        [
+          118,
+          5,
+          []
+        ],
+        [
+          293,
           6,
           []
         ],
         [
-          378,
+          377,
           2,
           []
         ],
         [
-          391,
+          390,
           6,
           []
         ],
         [
-          700,
+          575,
+          5,
+          [
+            "    for (const sq of layout.shellQuads) {",
+            "      if (!layout.roofQuads.has(sq.quadId)) continue;",
+            "      area += sq.area;",
+            "      const q = model.quads?.get(sq.quadId);"
+          ]
+        ],
+        [
+          582,
+          1,
+          [
+            "      kN += q.thickness! * rho * (sq.area / sq.cos);"
+          ]
+        ],
+        [
+          584,
+          1,
+          []
+        ],
+        [
+          701,
           1,
           [
             "  refs.push(R101('3.1.1', 'definición de cargas permanentes'));"
           ]
         ],
         [
-          734,
+          735,
           1,
           [
             "    const red = codes.loads.reduce({"
           ]
         ],
         [
-          756,
+          757,
           2,
           [
             "  const partition = partitionLiveAllowance(lo, partitionAsked);"
           ]
         ],
         [
-          813,
+          814,
           1,
           [
             "    return codes.loads.reduce({"
           ]
         ],
         [
-          835,
+          836,
           2,
           [
             "    if (r.weight) roofWeight = r.weight;"
           ]
         ],
         [
-          856,
+          857,
           1,
           [
             "      refs.push(...roofOcc.refs, clause('cirsoc-101', '2025', '4.8.2', 'cubiertas para propósitos especiales'));"
           ]
         ],
         [
-          858,
+          859,
           1,
           [
             "        ? codes.loads.reduce({ loKNm2: rlo, tributaryAreaM2, elementKind: input.reductionElementKind, floorsSupported: 1,"
           ]
         ],
         [
-          870,
+          871,
           1,
           [
             "    layout, tributaryWidth: input.tributaryWidth,"
           ]
         ],
         [
-          934,
+          935,
           1,
           []
         ],
         [
-          942,
+          943,
           2,
           [
             "      ? fromCode(codeF1, [clause('inpres-cirsoc-103-i', '2018', 'Tabla 3.3',",
@@ -2630,7 +3134,7 @@
           ]
         ],
         [
-          945,
+          946,
           2,
           [
             "          [clause('inpres-cirsoc-103-i', '2018', '3.6', 'acciones gravitatorias para la acción sísmica')]);",
@@ -2638,64 +3142,64 @@
           ]
         ],
         [
-          955,
+          956,
           3,
           [
             "  const byArea = levelsRaw.map(() => ({ area: 0, dead: 0, live: 0 }));"
           ]
         ],
         [
-          959,
+          960,
           1,
           [
             "  for (const [areas, pressures] of [[layout.areaOf, area.floorMass], [layout.roofAreaOf, area.roofMass]] as const) {"
           ]
         ],
         [
-          965,
+          966,
           1,
           []
         ],
         [
-          974,
+          975,
           1,
           []
         ],
         [
-          977,
+          978,
           1,
           [
             "    const { area, dead: superimposed, live: liveTotal } = byArea[i]!;"
           ]
         ],
         [
-          982,
+          983,
           1,
           [
             "      liveTotalKN: liveTotal, liveParticipatingKN: liveP,"
           ]
         ],
         [
-          991,
+          992,
           48,
           []
         ],
         [
-          1056,
+          1057,
           1,
           [
             "  if (snowPlanned && input.seismic?.enabled) {"
           ]
         ],
         [
-          1079,
+          1080,
           2,
           [
             "  const seismicModel = codes.seismic && input.seismic?.enabled"
           ]
         ],
         [
-          1083,
+          1084,
           5,
           [
             "  const seismicLevels = seismicModel?.levels;",
@@ -2704,7 +3208,7 @@
           ]
         ],
         [
-          1091,
+          1092,
           6,
           [
             "  const { seismicWeight, baseShear, seismicDetail } = codes.seismic && seismicModel",
@@ -2713,21 +3217,21 @@
           ]
         ],
         [
-          1142,
+          1143,
           3,
           [
             "    refs.push(codes.thermal?.combinationRef ?? clause('cirsoc-101', '2025', '2.3.4', 'cargas de coacción T'));"
           ]
         ],
         [
-          1183,
+          1184,
           1,
           [
             "      const strength = codes.basis.strength(ci);"
           ]
         ],
         [
-          1188,
+          1189,
           3,
           [
             "    if (set !== 'ultimate' && !input.projectCombinations) combinations = [...combinations, ...codes.basis.service(ci)];",
@@ -2736,43 +3240,43 @@
           ]
         ],
         [
-          1196,
+          1197,
           15,
           []
         ],
         [
-          1214,
+          1215,
           1,
           []
         ],
         [
-          1228,
+          1229,
           1,
           [
             "    levels: windLevels,"
           ]
         ],
         [
-          1239,
+          1240,
           7,
           []
         ],
         [
-          1254,
+          1255,
           1,
           [
             "  caseIndex: number, elevations: readonly number[],"
           ]
         ],
         [
-          1275,
+          1276,
           1,
           [
             "    out[nearest(((a.z ?? 0) + (b.z ?? 0)) / 2)]! += q * span * (Lh / L);"
           ]
         ],
         [
-          1280,
+          1281,
           1,
           [
             "    if (node) out[nearest(node.z ?? 0)]! += Math.abs(n.fz);"
@@ -2781,80 +3285,813 @@
       ]
     },
     "src/lib/engine/loads/plan-area-loads.ts": {
-      "source": "396face2582646bcdb656db687948b548d2c0d5f5d4ea222d06b9a716e741101",
+      "source": "10c10e853f543dad81d6cd5d28288669273a886badd699d288e072dd531de343",
       "original": "4da2d767ea65426db4889922e0b1e7becd05aa8ec540e6909030a99f65ff062c",
       "changes": [
         [
-          36,
+          12,
           2,
           []
         ],
         [
-          64,
+          38,
           2,
           []
         ],
         [
-          67,
+          66,
+          2,
+          []
+        ],
+        [
+          69,
           1,
           [
             "export interface AreaSurface { quadId: number; caseType: AreaCaseType; q: number }"
           ]
         ],
         [
-          71,
+          73,
           1,
           [
             "export interface AreaPoint { nodeId: number; caseType: AreaCaseType; fz: number; carrier: number; arrangement?: number }"
           ]
         ],
         [
-          105,
+          103,
+          1,
+          []
+        ],
+        [
+          108,
           1,
           [
             "      const r = roofLiveLoad({ weight: roof.weight, atM2: layout.roofAreaOf.get(id) ?? 0, slopePercent: roof.slopePercent });"
           ]
         ],
         [
-          112,
+          115,
           2,
           [
             "      out.derivation.push(msg('loadPlan.derivation.roofLive', {"
           ]
         ],
         [
-          130,
-          1,
+          129,
+          11,
           [
-            "      out.distributed.push({ elementId: p.elementId, caseType, q: -q * p.wI, qJ: -q * p.wJ, ...(p.a !== undefined ? { a: p.a, b: p.b } : {}), frame: 'global', ...arr });"
-          ]
-        ],
-        [
-          137,
-          1,
-          [
+            "    for (const p of layout.pieces) {",
+            "      if (arrangement !== undefined && !arrangement.loads({ panel: p.panel })) continue;",
+            "      const q = qOf(p.elementId, !!roof && p.roof);",
+            "      if (q === 0 || (p.wI === 0 && p.wJ === 0)) continue;",
+            "      out.distributed.push({ elementId: p.elementId, caseType, q: -q * p.wI, qJ: -q * p.wJ, ...(p.a !== undefined ? { a: p.a, b: p.b } : {}), frame: 'global', ...arr });",
+            "      if (arrangement === undefined) out.planned.add(caseType);",
+            "    }",
+            "    for (const p of layout.points) {",
+            "      if (arrangement !== undefined && !arrangement.loads({ panel: p.panel })) continue;",
+            "      const q = qOf(p.elementId, !!roof && p.roof);",
+            "      if (Math.abs(q * p.w) <= 1e-3) continue;",
             "      out.nodal.push({ nodeId: p.nodeId, caseType, fz: -q * p.w, carrier: p.elementId, ...arr });"
           ]
         ],
         [
-          148,
-          1,
+          142,
+          37,
           [
-            "        out.distributed.push({ elementId: m.elementId, caseType, q, ...span, frame: perProjection ? 'projected' : 'global', ...arr });"
+            "      if (arrangement !== undefined && !arrangement.loads({ member: m.elementId })) continue;",
+            "      // Along global Z in both gravity modes. The width mode used to load along local z, per",
+            "      // metre of member: on a sloped member that is the load turned off the vertical, with a",
+            "      // horizontal thrust, and the live loads per sloped metre instead of per metre of plan."
           ]
         ],
         [
-          157,
+          180,
           1,
+          [
+            "        const q = -qOf(m.elementId, isRoof(m.elementId)) * s.width;"
+          ]
+        ],
+        [
+          183,
+          3,
+          [
+            "        out.distributed.push({ elementId: m.elementId, caseType, q, ...span, frame: perProjection ? 'projected' : 'global', ...arr });",
+            "        if (arrangement === undefined) out.planned.add(caseType);"
+          ]
+        ],
+        [
+          188,
+          1,
+          [
+            "    // A slab of shells is a mesh, not panels: its arrangements are not drawn here.",
+            "    if (arrangement !== undefined) return;",
+            "    for (const sq of layout.shellQuads) {",
+            "      // `SurfaceLoad3D` is per m² of shell: a load per plan m² on a sloped one is scaled by cos."
+          ]
+        ],
+        [
+          190,
+          23,
           [
             "      if (q > 0) { out.surface.push({ quadId: sq.quadId, caseType, q }); out.planned.add(caseType); }"
           ]
         ],
         [
-          168,
+          223,
           1,
           [
             "    const shellLr = roofLiveLoad({ weight: roof.weight, atM2: 0, slopePercent: roof.slopePercent }).lr;"
+          ]
+        ]
+      ]
+    },
+    "src/lib/engine/loads/plan-gravity.ts": {
+      "source": "f0e52df950fa804303d1926244aebd82722cb5eab8d41ee01eac36e5040afeda",
+      "original": "f6ca0f8e2c815ba09559eb59424c414aeaca4292654ca7cb93672e814c9c88af",
+      "changes": [
+        [
+          38,
+          1,
+          [
+            "import { assertDisjointBayShells, assertSeparateShellDecks, footprintsOverlap, planarShell, refuseGravityGeometry, ringArea, type ShellPlane, type UncoveredStrips } from './gravity-shell-partition';"
+          ]
+        ],
+        [
+          41,
+          6,
+          [
+            "import { physicalFloorLoad as floorLoad, type FloorBeam, type FloorPanel, type SideStretch } from './floor-loads';"
+          ]
+        ],
+        [
+          55,
+          1,
+          []
+        ],
+        [
+          67,
+          4,
+          []
+        ],
+        [
+          88,
+          2,
+          []
+        ],
+        [
+          93,
+          2,
+          []
+        ],
+        [
+          111,
+          3,
+          [
+            "  shellQuads: Array<{ quadId: number; area: number; z: number; cos: number }>;"
+          ]
+        ],
+        [
+          162,
+          1,
+          []
+        ],
+        [
+          164,
+          1,
+          [
+            "    pieces: [], points: [], areaOf: new Map(), roofAreaOf: new Map(), widthMembers: [], shellQuads: [], areaByLevel: new Map(),"
+          ]
+        ],
+        [
+          177,
+          1,
+          [
+            "  const eligibility = new Map(candidates.map(e => {"
+          ]
+        ],
+        [
+          183,
+          2,
+          [
+            "    return [e.id, member] as const;",
+            "  }));"
+          ]
+        ],
+        [
+          186,
+          2,
+          [
+            "  const quadsAt = new Map<number, Array<{ quadId: number; area: number }>>();",
+            "  const slopedQuads: Array<{ quadId: number; area: number; z: number; cos: number }> = [];"
+          ]
+        ],
+        [
+          202,
+          2,
+          []
+        ],
+        [
+          205,
+          1,
+          [
+            "      const key = levelKey(zs[0]!);"
+          ]
+        ],
+        [
+          207,
+          1,
+          [
+            "      list.push({ quadId: q.id, area: plan });"
+          ]
+        ],
+        [
+          215,
+          0,
+          [
+            "    const surface = surfaceArea(xyz);",
+            "    const cos = surface > 0 ? plan / surface : 0;"
+          ]
+        ],
+        [
+          217,
+          1,
+          [
+            "      slopedQuads.push({ quadId: q.id, area: plan, z: zs.reduce((s, z) => s + z, 0) / zs.length, cos });"
+          ]
+        ],
+        [
+          225,
+          7,
+          [
+            "  const linkedDecks = linkedShellDecks(model, carriers, links);",
+            "  const offsets = directShellOffsets(model, shellNodes, links);"
+          ]
+        ],
+        [
+          262,
+          1,
+          [
+            "    const key = levelKey(nI.z ?? 0);"
+          ]
+        ],
+        [
+          270,
+          67,
+          [
+            "  const levels = new Map<number, { beams: FloorBeam[]; res: ReturnType<typeof floorLoad> }>();",
+            "  const panelsAt = new Map<number, Array<Array<[number, number]>>>();",
+            "  for (const [z, beams] of beamsAt) {",
+            "    const shellFootprints = opts.mode === 'panels'",
+            "      ? (boundary: Polygon, corners: number[]) => deckFootprints(boundary, corners, z, levelCarriers, roofs)",
+            "      : undefined;",
+            "    const res = floorLoad({ nodes: model.nodes, beams, q: 1, shellFootprints, ...slab });",
+            "    levels.set(z, { beams, res });",
+            "    panelsAt.set(z, res.panels.map((pn) => pn.polygon));"
+          ]
+        ],
+        [
+          338,
+          1,
+          [
+            "  if (opts.mode === 'panels') assertSeparateShellDecks(carriers, TOL);",
+            "  const coverAbove = coverage(model, out.zOf, panelsAt);"
+          ]
+        ],
+        [
+          345,
+          1,
+          [
+            "  const deck = opts.loadEveryPanel ? null : notADeck(model, carriers, panelsAt, coverAbove, opts.tributaryWidth, opts.mode === 'panels');"
+          ]
+        ],
+        [
+          348,
+          1,
+          [
+            "  if (deck) for (const [z, { res }] of levels) for (const panel of res.panels) {",
+            "    if (!panel.loaded) continue;"
+          ]
+        ],
+        [
+          360,
+          1,
+          [
+            "  const held: Held = { panels: [], members: out.widthMembers.filter(isSloped).map((m) => segment(m.elementId)), kept: [] };"
+          ]
+        ],
+        [
+          367,
+          4,
+          [
+            "    for (const panel of levels.get(z)?.res.panels ?? []) {",
+            "      if (!panel.loaded && panel.shellCoverage?.kind !== 'shell') continue;"
+          ]
+        ],
+        [
+          380,
+          1,
+          [
+            "    for (const panel of deck ? levels.get(z)?.res.panels ?? [] : []) {",
+            "      if (!panel.loaded || !panel.own) continue;"
+          ]
+        ],
+        [
+          384,
+          4,
+          [
+            "        const within = (o: { polygon: Array<[number, number]>; area: number }, p: { polygon: Array<[number, number]>; area: number }) => o !== p && o.area < p.area && o.polygon.every((q) => inside(q, p.polygon));",
+            "        const all = levels.get(z)?.res.panels ?? [];",
+            "        const loading = all.filter((o) => o.loaded && o.own && within(o, panel) && deckReasons.get(o) !== 'wide');",
+            "        const nested = loading.filter((o) => !loading.some((m) => within(o, m)));",
+            "        const { share, kept } = deck!.uncarried(panel.polygon, z, held, nested.map((o) => o.polygon));"
+          ]
+        ],
+        [
+          390,
+          1,
+          [
+            "        held.kept.push({ region: kept, z });"
+          ]
+        ],
+        [
+          393,
+          1,
+          [
+            "      const footprints = panel.shellCoverage?.kind === 'strips' ? panel.shellCoverage.polygons : [panel.polygon];",
+            "      for (const poly of footprints) held.panels.push({ poly, z });"
+          ]
+        ],
+        [
+          398,
+          1,
+          [
+            "      const beside = (panelsAt.get(z) ?? []).filter((poly) => onBoundary(model, e, poly)).map((poly) => deckless(poly, z));"
+          ]
+        ],
+        [
+          422,
+          1,
+          [
+            "        held.kept.push({ region: kept, z });"
+          ]
+        ],
+        [
+          431,
+          4,
+          [
+            "    for (const [z, quads] of quadsAt) {",
+            "      out.shellQuads.push(...quads.map((q) => ({ ...q, z, cos: 1 })));"
+          ]
+        ],
+        [
+          439,
+          5,
+          [
+            "    if (slopedQuads.length > 0) {",
+            "      out.shellQuads.push(...slopedQuads);",
+            "      out.notes.push(msg('loadPlan.gravity.slopedShells', { n: slopedQuads.length, area: round(slopedQuads.reduce((s, q) => s + q.area, 0), 1) }));"
+          ]
+        ],
+        [
+          448,
+          2,
+          [
+            "  const selectedPanels = new Map([...levels].map(([z, { res }]) => [z, res.panels.flatMap(panel => {",
+            "    if (!panel.loaded || !panel.own) return [];"
+          ]
+        ],
+        [
+          455,
+          1,
+          [
+            "    const footprint = region ?? (strips ? strips.polygons.map(poly => [poly]) : [[panel.polygon, ...(panel.holes ?? [])]]);",
+            "    return [{ panel, own: panel.own, why, strips, region, footprint }];"
+          ]
+        ],
+        [
+          494,
+          1,
+          [
+            "    for (const { panel, own: one, why, strips, region, footprint } of selectedPanels.get(z) ?? []) {",
+            "      if (linkedDecks) assertNoOffsetShellDeck(model, panel, footprint, z, linkedDecks);"
+          ]
+        ],
+        [
+          499,
+          1,
+          [
+            "        ? uncoveredStripIsRoof(strips, overhead ??= higherFootprints(z, selectedPanels, carriers, widthFootprints))"
+          ]
+        ],
+        [
+          506,
+          0,
+          [
+            "        let kept = 0;"
+          ]
+        ],
+        [
+          507,
+          2,
+          []
+        ],
+        [
+          515,
+          0,
+          [
+            "          kept += a;"
+          ]
+        ],
+        [
+          520,
+          0,
+          [
+            "          kept += pt.w;"
+          ]
+        ],
+        [
+          524,
+          6,
+          [
+            "      for (const l of one.loads) {",
+            "        if (!panel.shellCoverage) addSides(l.elementId, one.sides.get(l.elementId));",
+            "        out.pieces.push({ elementId: l.elementId, ...(l.a !== undefined ? { a: l.a, b: l.b } : {}), wI: l.qI, wJ: l.qJ, roof, panel: index });"
+          ]
+        ],
+        [
+          531,
+          3,
+          [
+            "      for (const n of one.nodal) {",
+            "        out.points.push({ nodeId: n.nodeId, w: -n.fz, elementId: n.elementId, roof, panel: index });",
+            "        addArea(roof ? out.roofAreaOf : out.areaOf, n.elementId, -n.fz);"
+          ]
+        ],
+        [
+          536,
+          1,
+          [
+            "      out.areaByLevel.set(z, (out.areaByLevel.get(z) ?? 0) + one.area);"
+          ]
+        ],
+        [
+          559,
+          1,
+          []
+        ],
+        [
+          566,
+          15,
+          []
+        ],
+        [
+          611,
+          1,
+          [
+            "  geometry?: { fullMotion: boolean };"
+          ]
+        ],
+        [
+          616,
+          6,
+          []
+        ],
+        [
+          623,
+          0,
+          [
+            "    if (constraint.type !== 'rigidLink' && constraint.type !== 'eccentricConnection') continue;",
+            "    const { masterNode, slaveNode } = constraint;",
+            "    const master = model.nodes.get(masterNode), slave = model.nodes.get(slaveNode);",
+            "    if (!master || !slave) continue;"
+          ]
+        ],
+        [
+          625,
+          6,
+          [
+            "      if (!dofs.includes(2)) continue;",
+            "      const fullMotion = [0, 1, 2, 3, 4, 5].every(dof => dofs.includes(dof));",
+            "      links.push({ masterNode, slaveNode, geometry: { fullMotion } });",
+            "    } else {",
+            "      if (constraint.releases?.[2]) continue;"
+          ]
+        ],
+        [
+          632,
+          10,
+          [
+            "      const geometry = samePhysicalPoint({ x, y, z }, slave)",
+            "        ? { fullMotion: [0, 1, 2, 3, 4, 5].every(dof => !constraint.releases?.[dof]) }",
+            "        : undefined;",
+            "      links.push({ masterNode, slaveNode, geometry });"
+          ]
+        ],
+        [
+          647,
+          16,
+          [
+            "function directShellOffsets(",
+            "  model: GravityModel, shellNodes: ReadonlySet<number>, links: readonly VerticalShellLink[],"
+          ]
+        ],
+        [
+          665,
+          13,
+          [
+            "  for (const link of links) {",
+            "    if (!link.geometry) continue;",
+            "    const masterIsShell = shellNodes.has(link.masterNode), slaveIsShell = shellNodes.has(link.slaveNode);",
+            "    if (masterIsShell === slaveIsShell) continue;",
+            "    const frameNode = masterIsShell ? link.slaveNode : link.masterNode;",
+            "    const shellNode = masterIsShell ? link.masterNode : link.slaveNode;",
+            "    const member = model.nodes.get(frameNode)!, shell = model.nodes.get(shellNode)!;",
+            "    const mz = member.z ?? 0, sz = shell.z ?? 0;",
+            "    const offset: Segment[0] = [shell.x - member.x, shell.y - member.y, sz - mz];",
+            "    const error = 64 * Number.EPSILON * Math.max(Math.abs(member.x), Math.abs(member.y), Math.abs(mz), Math.abs(shell.x), Math.abs(shell.y), Math.abs(sz));",
+            "    if (Math.hypot(...offset) <= error) continue;",
+            "    const entries = offsets.get(frameNode) ?? [];",
+            "    entries.push({ offset, error });",
+            "    offsets.set(frameNode, entries);"
+          ]
+        ],
+        [
+          758,
+          0,
+          [
+            "  has(node: number): boolean {",
+            "    return this.parent.has(node);",
+            "  }",
+            ""
+          ]
+        ],
+        [
+          788,
+          35,
+          [
+            "function shellSeamComponents(model: GravityModel, carriers: ShellCarrier[], fullMotion: NodeComponents): NodeComponents {"
+          ]
+        ],
+        [
+          824,
+          2,
+          [
+            "  const anchors = new Map<number, Set<number>>();",
+            "  for (const shell of carriers) for (const id of shell.nodes) {",
+            "    if (!fullMotion.has(id)) continue;",
+            "    const root = fullMotion.root(id);",
+            "    const component = anchors.get(root) ?? new Set<number>();",
+            "    if (component.has(id)) continue;"
+          ]
+        ],
+        [
+          827,
+          2,
+          [
+            "    for (const other of component) {"
+          ]
+        ],
+        [
+          831,
+          0,
+          [
+            "    component.add(id);",
+            "    anchors.set(root, component);"
+          ]
+        ],
+        [
+          835,
+          12,
+          [
+            "type ShellDecksAtNode = (node: number) => Iterable<ShellCarrier[]>;",
+            "",
+            "function linkedShellDecks(",
+            "  model: GravityModel, carriers: ShellCarrier[], links: readonly VerticalShellLink[],",
+            "): ShellDecksAtNode | undefined {",
+            "  if (!carriers.length || !links.length) return;",
+            "  const rigid = new NodeComponents();",
+            "  const fullMotion = new NodeComponents();",
+            "  for (const { masterNode, slaveNode, geometry } of links) {",
+            "    rigid.join(masterNode, slaveNode);",
+            "    if (geometry?.fullMotion) fullMotion.join(masterNode, slaveNode);",
+            "  }",
+            "  const seams = shellSeamComponents(model, carriers, fullMotion);",
+            "  const decksByRoot = new Map<number, Map<ShellCarrier[], Set<number>>>();",
+            "  for (const deck of connectedShellGroups(carriers, seams)) for (const shell of deck) for (const node of shell.nodes) {",
+            "    if (!rigid.has(node)) continue;",
+            "    const root = rigid.root(node);",
+            "    const decks = decksByRoot.get(root) ?? new Map<ShellCarrier[], Set<number>>();",
+            "    const anchors = decks.get(deck) ?? new Set<number>();",
+            "    anchors.add(node);",
+            "    decks.set(deck, anchors);",
+            "    decksByRoot.set(root, decks);",
+            "  }",
+            "  return function* (node) {",
+            "    for (const [deck, anchors] of decksByRoot.get(rigid.root(node)) ?? []) {",
+            "      if (anchors.size > 1 || !anchors.has(node)) yield deck;",
+            "    }",
+            "  };",
+            "}",
+            "",
+            "function assertNoOffsetShellDeck(",
+            "  model: GravityModel, panel: FloorPanel, footprint: Region, z: number, linkedDecks: ShellDecksAtNode,",
+            "): void {",
+            "  const decks = new Set<ShellCarrier[]>();",
+            "  for (const id of panel.members ?? []) {",
+            "    const { nodeI, nodeJ } = model.elements.get(id)!;",
+            "    for (const node of [nodeI, nodeJ]) for (const deck of linkedDecks(node)) decks.add(deck);",
+            "  }",
+            "  for (const deck of decks) for (const shell of deck) {",
+            "    if (shellServesDeckLevel(shell, z)) continue;",
+            "    if (footprintsOverlap(footprint, [shell.poly])) {",
+            "      const members = [...(panel.members ?? [])].sort((a, b) => a - b).join(', ');",
+            "      refuseGravityGeometry(msg('loadPlan.gravity.offsetShellDeck', { id: shell.id, members }));"
+          ]
+        ],
+        [
+          849,
+          65,
+          []
+        ],
+        [
+          922,
+          1,
+          [
+            "function deckFootprints("
+          ]
+        ],
+        [
+          924,
+          1,
+          [
+            "): Polygon[] {"
+          ]
+        ],
+        [
+          962,
+          0,
+          [
+            "    assertDisjointBayShells(coveringShells, boundary);"
+          ]
+        ],
+        [
+          966,
+          1,
+          [
+            "  return coveringShells.map(shell => [shell.poly]);"
+          ]
+        ],
+        [
+          1035,
+          1,
+          [
+            "  panelsAt: Map<number, Array<Array<[number, number]>>>,"
+          ]
+        ],
+        [
+          1062,
+          1,
+          [
+            "      if (!inside(p, c.poly)) continue;"
+          ]
+        ],
+        [
+          1105,
+          1,
+          [
+            "    for (const p of held.panels) if (low(p.z - z)) cover.push([[closeRing(p.poly)]]);",
+            "    for (const k of held.kept) if (low(k.z - z)) cover.push(k.region);"
+          ]
+        ],
+        [
+          1167,
+          1,
+          [
+            "      if (headroom(poly, z) || lowPanels.some(above => overlap(above).length) || lowShells.some(shellBelowHeadroom)) {"
+          ]
+        ],
+        [
+          1221,
+          1,
+          [
+            "type Region = Array<Array<Array<[number, number]>>>;"
+          ]
+        ],
+        [
+          1224,
+          1,
+          [
+            "type Held = { panels: Array<{ poly: Array<[number, number]>; z: number }>; members: Segment[]; kept: Array<{ region: Region; z: number }> };"
+          ]
+        ],
+        [
+          1399,
+          1,
+          []
+        ],
+        [
+          1409,
+          1,
+          [
+            "  const out = { pieces: [] as Array<{ elementId: number; a: number; b: number; wI: number; wJ: number }>, points: [] as Array<{ nodeId: number; w: number; elementId: number }> };"
+          ]
+        ],
+        [
+          1458,
+          3,
+          []
+        ],
+        [
+          1576,
+          1,
+          [
+            "function inside(pt: [number, number], poly: Array<[number, number]>, tol = 0.05): boolean {"
+          ]
+        ],
+        [
+          1593,
+          21,
+          []
+        ],
+        [
+          1627,
+          2,
+          [
+            "function coverage(model: GravityModel, zOf: Map<number, number>, panelsAt: Map<number, Array<Array<[number, number]>>>): (pt: [number, number], zTop: number) => number {",
+            "  type Cover = { z: number; polys: Array<Array<[number, number]>> };"
+          ]
+        ],
+        [
+          1637,
+          1,
+          []
+        ],
+        [
+          1640,
+          1,
+          [
+            "    coverAt(Math.min(...pts.map((p) => p!.z ?? 0))).polys.push(pts.map((p) => [p!.x, p!.y] as [number, number]));"
+          ]
+        ],
+        [
+          1642,
+          2,
+          [
+            "  const footprints = [...panelsAt].flatMap(([z, polys]) => connectedRoofFootprints(polys).map(rings => ({ z, rings })));",
+            "  const contains = (pt: [number, number], rings: Array<Array<[number, number]>>) => inside(pt, rings[0]!, TOL)"
+          ]
+        ],
+        [
+          1645,
+          3,
+          [
+            "  const runs = physicalRoofRuns(memberGeometry(model, zOf.keys())).map(({ a, b }) => {"
+          ]
+        ],
+        [
+          1649,
+          1,
+          [
+            "    const dx = b.x - a.x, dy = b.y - a.y, length2 = dx * dx + dy * dy;"
+          ]
+        ],
+        [
+          1652,
+          1,
+          [
+            "      if (!contains(start, rings) || !contains(end, rings)) return false;"
+          ]
+        ],
+        [
+          1665,
+          1,
+          [
+            "        return contains([a.x + mid * dx, a.y + mid * dy], rings);"
+          ]
+        ],
+        [
+          1670,
+          2,
+          [
+            "    return {",
+            "      start, end, ownPanels,",
+            "      heightAt: (pt: [number, number]) => {",
+            "        const t = Math.max(0, Math.min(1, ((pt[0] - a.x) * dx + (pt[1] - a.y) * dy) / length2));",
+            "        return (a.z ?? 0) + t * ((b.z ?? 0) - (a.z ?? 0));",
+            "      },",
+            "    };"
+          ]
+        ],
+        [
+          1674,
+          11,
+          [
+            "    let h = covers.reduce((h, c) => c.z > zTop + MIN_COVER_RISE && c.polys.some(poly => inside(pt, poly)) ? Math.min(h, c.z - zTop) : h, Infinity);",
+            "    for (const run of runs) {",
+            "      if (!nearSegment(pt, run.start, run.end, 0.05)) continue;",
+            "      if (run.ownPanels.some(({ z, rings }) => Math.abs(z - zTop) <= TOL && contains(pt, rings))) continue;",
+            "      const z = run.heightAt(pt);",
+            "      if (z > zTop + MIN_COVER_RISE) h = Math.min(h, z - zTop);"
           ]
         ]
       ]
@@ -2889,18 +4126,25 @@
       ]
     },
     "src/lib/i18n/locales/ar.ts": {
-      "source": "b9837f36cfba8d1933b47a9c1146db7a84d6ffdc5b2e4079b798aeb46446ebaf",
+      "source": "9379ea0ad3e23704393f42ba34956395161bdb4551a164530c6836a89faec29f",
       "original": "f7210da7eac39f61d28612c405cce966a20f58d944b694a94c2ed32709b7df99",
       "changes": [
         [
-          2654,
+          15,
+          4,
+          [
+            "  'loadPlan.gravity.overlappingShells': \"يتداخل العنصران القشريان {first} و{second} في المستوى نفسه أو يشتركان في نطاق منسوب البلاطة. صحّح هندسة القشرتين أو عيّن الحمل السطحي يدويًا مرة واحدة.\","
+          ]
+        ],
+        [
+          2657,
           0,
           [
             "  'pro.nPlatesQuads': '{plates} لوحة، {quads} رباعي',"
           ]
         ],
         [
-          2656,
+          2659,
           0,
           [
             "  'pro.meshGenerator': 'مولد الشبكة',"
@@ -2909,7 +4153,7 @@
       ]
     },
     "src/lib/i18n/locales/de.ts": {
-      "source": "77e56b7158c6cfa6fa404545001fc7e9921301ea62373395bfeab8331ed92f06",
+      "source": "d5a66de788228292e42d57a0231362b4108c690ba09f881466121085bfdf6862",
       "original": "0b1cffc73c321c88dd80b93e39f81e925705babc0f2e91df63e10c19111fe052",
       "changes": [
         [
@@ -2984,21 +4228,28 @@
           ]
         ],
         [
-          11151,
+          7793,
+          4,
+          [
+            "  'loadPlan.gravity.overlappingShells': \"Die Schalen {first} und {second} überlappen sich in derselben Ebene oder teilen sich ein Höhenband der Decke. Korrigieren Sie die Schalengeometrie oder weisen Sie die Flächenlast einmal von Hand zu.\","
+          ]
+        ],
+        [
+          11154,
           0,
           [
             "  'combos.rules.seed': 'Mit CIRSOC 101 beginnen',"
           ]
         ],
         [
-          11158,
+          11161,
           1,
           [
             "  'batch.shells': 'Gruppenbearbeitung: {n} Schalen',"
           ]
         ],
         [
-          11196,
+          11199,
           0,
           [
             "  'quickEdit.meshSize': 'Elementgröße',",
@@ -3008,7 +4259,7 @@
           ]
         ],
         [
-          11257,
+          11260,
           2,
           [
             "  'autoLoad.roof.maintenance': 'Nur Wartung (Lr, §4.8.1)',",
@@ -3016,49 +4267,49 @@
           ]
         ],
         [
-          11295,
+          11298,
           0,
           [
             "  'combos.rules.none': 'Noch keine Regeln. Fügen Sie eine hinzu oder beginnen Sie mit CIRSOC 101.',"
           ]
         ],
         [
-          11623,
+          11626,
           1,
           [
             "  'mesher.polygon': 'Polygon',"
           ]
         ],
         [
-          11630,
+          11633,
           1,
           [
             "  'mesher.auto': 'auto',"
           ]
         ],
         [
-          13673,
+          13676,
           1,
           [
             "  'desk.prep.existingHint': 'Für ein bereits erstelltes statisches Modell: Seine physischen Bauteile (Balken, Stützen, Decken, Wände) werden erkannt und die für die Bemessung nötigen Daten ergänzt.',"
           ]
         ],
         [
-          13676,
+          13679,
           0,
           [
             "  'desk.prep.recognize': 'Physische Bauteile erkennen',"
           ]
         ],
         [
-          13687,
+          13690,
           0,
           [
             "  'desk.prep.miss.pieces': 'Die physischen Bauteile fehlen: Erkennen Sie sie aus dem statischen Modell.',"
           ]
         ],
         [
-          14077,
+          14080,
           3,
           [
             "  'building.slabs.meshedCount': '{n} Decken wurden bei der Berechnung vernetzt.',",
@@ -3067,17 +4318,17 @@
           ]
         ],
         [
-          14206,
+          14209,
           7,
           []
         ],
         [
-          14218,
+          14221,
           48,
           []
         ],
         [
-          14277,
+          14280,
           0,
           [
             "  'plates.status.unmeshed': 'kein Netz',",
@@ -3088,7 +4339,7 @@
           ]
         ],
         [
-          14283,
+          14286,
           0,
           [
             "  'plates.removeHole': 'Loch entfernen',",
@@ -3098,49 +4349,49 @@
           ]
         ],
         [
-          14300,
+          14303,
           0,
           [
             "  'plates.planning': 'Vorbereitung {done} von {total}…',"
           ]
         ],
         [
-          14305,
+          14308,
           0,
           [
             "  'plates.qualityCell': 'min. Winkel {angle}°, {poor} schlecht',"
           ]
         ],
         [
-          14317,
+          14320,
           0,
           [
             "  'plates.planTotal': '{cells} Elemente insgesamt, von {size} {unit}. Schlechte Qualität: ein Winkel unter {angle}° oder sehr ungleiche Seiten.',"
           ]
         ],
         [
-          14323,
+          14326,
           0,
           [
             "  'plates.listTitle': 'Physische Platten ({n})',"
           ]
         ],
         [
-          14324,
+          14327,
           0,
           [
             "  'plates.nElements': '{n} Elemente',"
           ]
         ],
         [
-          14328,
+          14331,
           1,
           [
             "  'plates.meshBeforeAnalysisHint': 'Vor jeder Berechnung werden nur die Platten ohne Netz oder mit veraltetem Netz vernetzt, mit ihren eigenen Einstellungen. Ausgeschaltet bricht die Berechnung ab und nennt sie.',"
           ]
         ],
         [
-          14381,
+          14384,
           0,
           [
             "  'plates.sideFollows': 'gekrümmt, folgt gekrümmtem Stab {id}',",
@@ -3148,47 +4399,47 @@
           ]
         ],
         [
-          14382,
+          14385,
           0,
           [
             "  'plates.sideThrough': 'Durchgangsknoten',"
           ]
         ],
         [
-          14383,
+          14386,
           0,
           [
             "  'plates.sideCurved': 'Seite gekrümmt. Das Netz ist veraltet, bis Sie erneut vernetzen.',"
           ]
         ],
         [
-          14521,
+          14524,
           0,
           [
             "  'plates.sidesSummary': '{n}, {curved} gekrümmt',"
           ]
         ],
         [
-          14525,
+          14528,
           1,
           [
             "  'plates.showMeshHint': 'Ausgeschaltet wird jede vernetzte Platte als Bauteil (ihr Umriss) gezeichnet. Nur die Darstellung ändert sich: Auswahl und Ergebnisse bleiben, wie sie sind.',"
           ]
         ],
         [
-          14643,
+          14646,
           3,
           []
         ],
         [
-          15109,
+          15112,
           1058,
           []
         ]
       ]
     },
     "src/lib/i18n/locales/en.ts": {
-      "source": "2538f979bf20edd8ce67f978f943993714bc7b1c61bae7661a6c69adce8ce57d",
+      "source": "5e1b7f46ba9c0d42857061051c9c931d6470982c6a48b23f14fba4a16dd33a8e",
       "original": "99343e2eeb7cf4140cbbcb69424c37461d3ec4e5c925d64439f6b56ee0e9e6b3",
       "changes": [
         [
@@ -3254,21 +4505,28 @@
           ]
         ],
         [
-          11690,
+          8254,
+          4,
+          [
+            "  'loadPlan.gravity.overlappingShells': \"Shells {first} and {second} have overlapping footprints in the same plane or deck elevation band. Correct the shell geometry or assign the area load once by hand.\","
+          ]
+        ],
+        [
+          11693,
           0,
           [
             "  'combos.rules.seed': 'Start from CIRSOC 101',"
           ]
         ],
         [
-          11697,
+          11700,
           1,
           [
             "  'batch.shells': 'Group editing: {n} shells',"
           ]
         ],
         [
-          11735,
+          11738,
           0,
           [
             "  'quickEdit.meshSize': 'Element size',",
@@ -3278,7 +4536,7 @@
           ]
         ],
         [
-          11796,
+          11799,
           2,
           [
             "  'autoLoad.roof.maintenance': \"Maintenance only (Lr, §4.8.1)\",",
@@ -3286,35 +4544,35 @@
           ]
         ],
         [
-          11834,
+          11837,
           0,
           [
             "  'combos.rules.none': 'No rules yet. Add one or start from CIRSOC 101.',"
           ]
         ],
         [
-          14209,
+          14212,
           1,
           [
             "  'desk.prep.existingHint': \"For an analytical model already built: its physical pieces (beams, columns, slabs, walls) are recognized and the data design needs is completed.\","
           ]
         ],
         [
-          14212,
+          14215,
           0,
           [
             "  'desk.prep.recognize': \"Recognize physical pieces\","
           ]
         ],
         [
-          14223,
+          14226,
           0,
           [
             "  'desk.prep.miss.pieces': \"The physical pieces are missing: recognize them from the analytical model.\","
           ]
         ],
         [
-          14612,
+          14615,
           3,
           [
             "  \"building.slabs.meshedCount\": \"{n} slabs were meshed by the analysis.\",",
@@ -3323,17 +4581,17 @@
           ]
         ],
         [
-          14740,
+          14743,
           7,
           []
         ],
         [
-          14752,
+          14755,
           48,
           []
         ],
         [
-          14811,
+          14814,
           0,
           [
             "  \"plates.status.unmeshed\": \"no mesh\",",
@@ -3344,7 +4602,7 @@
           ]
         ],
         [
-          14817,
+          14820,
           0,
           [
             "  \"plates.removeHole\": \"Remove hole\",",
@@ -3354,49 +4612,49 @@
           ]
         ],
         [
-          14834,
+          14837,
           0,
           [
             "  \"plates.planning\": \"Planning {done} of {total}…\","
           ]
         ],
         [
-          14839,
+          14842,
           0,
           [
             "  \"plates.qualityCell\": \"min. angle {angle}°, {poor} poor\","
           ]
         ],
         [
-          14851,
+          14854,
           0,
           [
             "  \"plates.planTotal\": \"{cells} elements in all, of {size} {unit}. Poor quality: an angle under {angle}° or very unequal sides.\","
           ]
         ],
         [
-          14857,
+          14860,
           0,
           [
             "  \"plates.listTitle\": \"Physical plates ({n})\","
           ]
         ],
         [
-          14858,
+          14861,
           0,
           [
             "  \"plates.nElements\": \"{n} elements\","
           ]
         ],
         [
-          14862,
+          14865,
           1,
           [
             "  \"plates.meshBeforeAnalysisHint\": \"Before each analysis only the plates with no mesh or an out-of-date one are meshed, at their own settings. Off, the analysis stops and names them.\","
           ]
         ],
         [
-          14915,
+          14918,
           0,
           [
             "  \"plates.sideFollows\": \"curved, follows curved member {id}\",",
@@ -3404,42 +4662,42 @@
           ]
         ],
         [
-          14916,
+          14919,
           0,
           [
             "  \"plates.sideThrough\": \"node it passes\","
           ]
         ],
         [
-          14917,
+          14920,
           0,
           [
             "  \"plates.sideCurved\": \"Side curved. The mesh is out of date until you mesh again.\","
           ]
         ],
         [
-          15055,
+          15058,
           0,
           [
             "  \"plates.sidesSummary\": \"{n}, {curved} curved\","
           ]
         ],
         [
-          15059,
+          15062,
           1,
           [
             "  \"plates.showMeshHint\": \"Off, each meshed plate is drawn as the piece (its outline). Only the drawing changes: picking and results stay as they are.\","
           ]
         ],
         [
-          15267,
+          15270,
           1060,
           []
         ]
       ]
     },
     "src/lib/i18n/locales/es.ts": {
-      "source": "37fc98b76d55e797e8f3c15c1f8fe73b5aafef4145cfd7328de7d6e4265542ab",
+      "source": "0ac29849d231dda8adf21ee7a2ed4d54f0c23b5e005c37ef07bcd1233ae38c1b",
       "original": "df939d2beed0420d6833617b3561c95098e34704ee1a3b4f15f21dda24fa4e09",
       "changes": [
         [
@@ -3505,21 +4763,28 @@
           ]
         ],
         [
-          11679,
+          8247,
+          4,
+          [
+            "  'loadPlan.gravity.overlappingShells': \"Las placas {first} y {second} se superponen en el mismo plano o comparten una franja de elevación de entrepiso. Corregí la geometría de las placas o asigná manualmente la carga de área una sola vez.\","
+          ]
+        ],
+        [
+          11682,
           0,
           [
             "  'combos.rules.seed': 'Partir de CIRSOC 101',"
           ]
         ],
         [
-          11686,
+          11689,
           1,
           [
             "  'batch.shells': 'Edición en grupo: {n} placas',"
           ]
         ],
         [
-          11724,
+          11727,
           0,
           [
             "  'quickEdit.meshSize': 'Tamaño del elemento',",
@@ -3529,7 +4794,7 @@
           ]
         ],
         [
-          11785,
+          11788,
           2,
           [
             "  'autoLoad.roof.maintenance': \"Sólo mantenimiento (Lr, §4.8.1)\",",
@@ -3537,35 +4802,35 @@
           ]
         ],
         [
-          11823,
+          11826,
           0,
           [
             "  'combos.rules.none': 'Sin reglas todavía. Agregá una o partí de CIRSOC 101.',"
           ]
         ],
         [
-          14198,
+          14201,
           1,
           [
             "  'desk.prep.existingHint': \"Para un modelo analítico ya armado: se reconocen sus piezas físicas (vigas, columnas, losas, tabiques) y se completan los datos que el diseño necesita.\","
           ]
         ],
         [
-          14201,
+          14204,
           0,
           [
             "  'desk.prep.recognize': \"Reconocer piezas físicas\","
           ]
         ],
         [
-          14212,
+          14215,
           0,
           [
             "  'desk.prep.miss.pieces': \"Faltan las piezas físicas: reconocelas desde el modelo analítico.\","
           ]
         ],
         [
-          14601,
+          14604,
           3,
           [
             "  \"building.slabs.meshedCount\": \"{n} losas quedaron malladas por el cálculo.\",",
@@ -3574,17 +4839,17 @@
           ]
         ],
         [
-          14729,
+          14732,
           7,
           []
         ],
         [
-          14741,
+          14744,
           48,
           []
         ],
         [
-          14800,
+          14803,
           0,
           [
             "  \"plates.status.unmeshed\": \"sin malla\",",
@@ -3595,7 +4860,7 @@
           ]
         ],
         [
-          14806,
+          14809,
           0,
           [
             "  \"plates.removeHole\": \"Quitar hueco\",",
@@ -3605,49 +4870,49 @@
           ]
         ],
         [
-          14823,
+          14826,
           0,
           [
             "  \"plates.planning\": \"Preparando {done} de {total}…\","
           ]
         ],
         [
-          14828,
+          14831,
           0,
           [
             "  \"plates.qualityCell\": \"ángulo mín. {angle}°, {poor} bajos\","
           ]
         ],
         [
-          14840,
+          14843,
           0,
           [
             "  \"plates.planTotal\": \"{cells} elementos en total, de {size} {unit}. Calidad baja: ángulo menor a {angle}° o lados muy desparejos.\","
           ]
         ],
         [
-          14846,
+          14849,
           0,
           [
             "  \"plates.listTitle\": \"Placas físicas ({n})\","
           ]
         ],
         [
-          14847,
+          14850,
           0,
           [
             "  \"plates.nElements\": \"{n} elementos\","
           ]
         ],
         [
-          14851,
+          14854,
           1,
           [
             "  \"plates.meshBeforeAnalysisHint\": \"Antes de cada cálculo se mallan sólo las placas sin malla o con malla desactualizada, con su configuración. Apagado, el cálculo se detiene y las nombra.\","
           ]
         ],
         [
-          14904,
+          14907,
           0,
           [
             "  \"plates.sideFollows\": \"curvo, sigue a la viga curva {id}\",",
@@ -3655,42 +4920,42 @@
           ]
         ],
         [
-          14905,
+          14908,
           0,
           [
             "  \"plates.sideThrough\": \"nodo de paso\","
           ]
         ],
         [
-          14906,
+          14909,
           0,
           [
             "  \"plates.sideCurved\": \"Lado curvado. La malla queda desactualizada hasta que la rehagas.\","
           ]
         ],
         [
-          15044,
+          15047,
           0,
           [
             "  \"plates.sidesSummary\": \"{n}, {curved} curvos\","
           ]
         ],
         [
-          15048,
+          15051,
           1,
           [
             "  \"plates.showMeshHint\": \"Apagado, cada placa mallada se dibuja como pieza (su contorno). Sólo cambia el dibujo: la selección y los resultados siguen igual.\","
           ]
         ],
         [
-          15256,
+          15259,
           1060,
           []
         ]
       ]
     },
     "src/lib/i18n/locales/fr.ts": {
-      "source": "5fe51f0d2381c8eeff9080e0afe126f0621ded3560ea13847e816105c39d7a46",
+      "source": "690b5a94aa415cde8c99c98d71034b35379b13cb68a5b80dba16474679615d4b",
       "original": "26693801514fc282fbb8a5a4ad627431cbfce3c6e3f0720639c8cb5cef4e4b20",
       "changes": [
         [
@@ -3758,21 +5023,28 @@
           ]
         ],
         [
-          11151,
+          7793,
+          4,
+          [
+            "  'loadPlan.gravity.overlappingShells': \"Les coques {first} et {second} se chevauchent dans le même plan ou partagent une bande de niveau de plancher. Corrigez la géométrie des coques ou appliquez manuellement la charge surfacique une seule fois.\","
+          ]
+        ],
+        [
+          11154,
           0,
           [
             "  'combos.rules.seed': 'Partir de CIRSOC 101',"
           ]
         ],
         [
-          11158,
+          11161,
           1,
           [
             "  'batch.shells': 'Édition groupée : {n} coques',"
           ]
         ],
         [
-          11196,
+          11199,
           0,
           [
             "  'quickEdit.meshSize': 'Taille d\\'élément',",
@@ -3782,7 +5054,7 @@
           ]
         ],
         [
-          11257,
+          11260,
           2,
           [
             "  'autoLoad.roof.maintenance': 'Entretien seulement (Lr, §4.8.1)',",
@@ -3790,56 +5062,56 @@
           ]
         ],
         [
-          11295,
+          11298,
           0,
           [
             "  'combos.rules.none': 'Aucune règle pour l\\'instant. Ajoutez-en une ou partez de CIRSOC 101.',"
           ]
         ],
         [
-          11628,
+          11631,
           1,
           [
             "  'mesher.divisions': 'Divisions',"
           ]
         ],
         [
-          11630,
+          11633,
           1,
           [
             "  'mesher.auto': 'auto',"
           ]
         ],
         [
-          11635,
+          11638,
           1,
           [
             "  'mesher.tris': 'Triangles',"
           ]
         ],
         [
-          13673,
+          13676,
           1,
           [
             "  'desk.prep.existingHint': 'Pour un modèle analytique déjà construit : ses pièces physiques (poutres, poteaux, dalles, voiles) sont reconnues et les données dont le dimensionnement a besoin sont complétées.',"
           ]
         ],
         [
-          13676,
+          13679,
           0,
           [
             "  'desk.prep.recognize': 'Reconnaître les pièces physiques',"
           ]
         ],
         [
-          13687,
+          13690,
           0,
           [
             "  'desk.prep.miss.pieces': 'Les pièces physiques manquent : reconnaissez-les à partir du modèle analytique.',"
           ]
         ],
         [
-          14077,
+          14080,
           3,
           [
             "  'building.slabs.meshedCount': '{n} dalles ont été maillées par le calcul.',",
@@ -3848,17 +5120,17 @@
           ]
         ],
         [
-          14206,
+          14209,
           7,
           []
         ],
         [
-          14218,
+          14221,
           48,
           []
         ],
         [
-          14277,
+          14280,
           0,
           [
             "  'plates.status.unmeshed': 'sans maillage',",
@@ -3869,7 +5141,7 @@
           ]
         ],
         [
-          14283,
+          14286,
           0,
           [
             "  'plates.removeHole': 'Retirer le trou',",
@@ -3879,49 +5151,49 @@
           ]
         ],
         [
-          14300,
+          14303,
           0,
           [
             "  'plates.planning': 'Préparation {done} sur {total}…',"
           ]
         ],
         [
-          14305,
+          14308,
           0,
           [
             "  'plates.qualityCell': 'angle min. {angle}°, {poor} mauvais',"
           ]
         ],
         [
-          14317,
+          14320,
           0,
           [
             "  'plates.planTotal': '{cells} éléments au total, de {size} {unit}. Mauvaise qualité : un angle inférieur à {angle}° ou des côtés très inégaux.',"
           ]
         ],
         [
-          14323,
+          14326,
           0,
           [
             "  'plates.listTitle': 'Plaques physiques ({n})',"
           ]
         ],
         [
-          14324,
+          14327,
           0,
           [
             "  'plates.nElements': '{n} éléments',"
           ]
         ],
         [
-          14328,
+          14331,
           1,
           [
             "  'plates.meshBeforeAnalysisHint': 'Avant chaque calcul, seules les plaques sans maillage ou au maillage obsolète sont maillées, avec leurs propres paramètres. Désactivé, le calcul s\\'arrête et les nomme.',"
           ]
         ],
         [
-          14381,
+          14384,
           0,
           [
             "  'plates.sideFollows': 'courbe, suit la barre courbe {id}',",
@@ -3929,58 +5201,65 @@
           ]
         ],
         [
-          14382,
+          14385,
           0,
           [
             "  'plates.sideThrough': 'nœud de passage',"
           ]
         ],
         [
-          14383,
+          14386,
           0,
           [
             "  'plates.sideCurved': 'Côté courbé. Le maillage reste obsolète jusqu\\'à ce que vous remailliez.',"
           ]
         ],
         [
-          14521,
+          14524,
           0,
           [
             "  'plates.sidesSummary': '{n}, {curved} courbes',"
           ]
         ],
         [
-          14525,
+          14528,
           1,
           [
             "  'plates.showMeshHint': 'Désactivé, chaque plaque maillée est dessinée comme pièce (son contour). Seul le dessin change : la sélection et les résultats restent identiques.',"
           ]
         ],
         [
-          14643,
+          14646,
           3,
           []
         ],
         [
-          15109,
+          15112,
           1058,
           []
         ]
       ]
     },
     "src/lib/i18n/locales/hi.ts": {
-      "source": "89bb72f4d15a7618fabe0fb0513e194d5a1868f425acee23ea3d33d7a0457412",
+      "source": "969e6e1a00a5670a84d6804c649fa16e639735191b3712bdf5d9cea8ac37d3e6",
       "original": "0aebc206fb75087761973feb758bac0431473adde25a841391d7bdce49b6fa3e",
       "changes": [
         [
-          2753,
+          3,
+          4,
+          [
+            "  'loadPlan.gravity.overlappingShells': \"शेल {first} और {second} एक ही समतल में ओवरलैप करते हैं या एक ही डेक ऊँचाई सीमा में आते हैं। शेल की ज्यामिति ठीक करें या क्षेत्रीय भार हाथ से केवल एक बार लगाएँ।\","
+          ]
+        ],
+        [
+          2756,
           0,
           [
             "  'pro.nPlatesQuads': '{plates} प्लेट, {quads} क्वाड',"
           ]
         ],
         [
-          2755,
+          2758,
           0,
           [
             "  'pro.meshGenerator': 'जाल जनरेटर',"
@@ -3989,7 +5268,7 @@
       ]
     },
     "src/lib/i18n/locales/hu.ts": {
-      "source": "7c59edd6d858f712b296cc75499ef0d085f3f3515a4845ae1c9e3fb5b0afb517",
+      "source": "d9be066a8a6ab39b12bed5df28c2645ce0cd270eababa40377c7c78e0237b781",
       "original": "050bb2fb50b6d61761b6836086403490f8b3deedc1ac4af88de298aa3fd3966e",
       "changes": [
         [
@@ -4051,14 +5330,21 @@
           ]
         ],
         [
-          10798,
+          7488,
+          4,
+          [
+            "  'loadPlan.gravity.overlappingShells': \"A(z) {first} és {second} héj ugyanabban a síkban átfedi egymást, vagy azonos födémszint-sávba esik. Javítsa a héjak geometriáját, vagy kézzel, egyszer adja meg a felületi terhet.\","
+          ]
+        ],
+        [
+          10801,
           0,
           [
             "  \"combos.rules.seed\": \"Kezdés a CIRSOC 101-ből\","
           ]
         ],
         [
-          10843,
+          10846,
           0,
           [
             "  \"quickEdit.meshSize\": \"Elemméret\",",
@@ -4068,28 +5354,28 @@
           ]
         ],
         [
-          10942,
+          10945,
           0,
           [
             "  \"combos.rules.none\": \"Még nincsenek szabályok. Adjon hozzá egyet, vagy kezdje a CIRSOC 101-ből.\","
           ]
         ],
         [
-          13313,
+          13316,
           0,
           [
             "  \"desk.prep.recognize\": \"Fizikai elemek felismerése\","
           ]
         ],
         [
-          13324,
+          13327,
           0,
           [
             "  \"desk.prep.miss.pieces\": \"A fizikai elemek hiányoznak: ismerje fel őket az analitikus modellből.\","
           ]
         ],
         [
-          13846,
+          13849,
           0,
           [
             "  \"plates.status.unmeshed\": \"nincs háló\",",
@@ -4100,7 +5386,7 @@
           ]
         ],
         [
-          13852,
+          13855,
           0,
           [
             "  \"plates.removeHole\": \"Lyuk eltávolítása\",",
@@ -4110,49 +5396,49 @@
           ]
         ],
         [
-          13869,
+          13872,
           0,
           [
             "  \"plates.planning\": \"Tervezés: {done} / {total}…\","
           ]
         ],
         [
-          13874,
+          13877,
           0,
           [
             "  \"plates.qualityCell\": \"legkisebb szög {angle}°, {poor} gyenge\","
           ]
         ],
         [
-          13886,
+          13889,
           0,
           [
             "  \"plates.planTotal\": \"Összesen {cells} elem, {size} {unit} méretű. Gyenge minőség: {angle}°-nál kisebb szög vagy nagyon egyenlőtlen oldalak.\","
           ]
         ],
         [
-          13892,
+          13895,
           0,
           [
             "  \"plates.listTitle\": \"Fizikai lemezek ({n})\","
           ]
         ],
         [
-          13893,
+          13896,
           0,
           [
             "  \"plates.nElements\": \"{n} elem\","
           ]
         ],
         [
-          13897,
+          13900,
           1,
           [
             "  \"plates.meshBeforeAnalysisHint\": \"Minden analízis előtt csak azok a lemezek hálózódnak, amelyeknek nincs hálójuk vagy elavult, a saját beállításaikkal. Kikapcsolva az analízis megáll, és megnevezi őket.\","
           ]
         ],
         [
-          13950,
+          13953,
           0,
           [
             "  \"plates.sideFollows\": \"íves, követi a(z) {id} íves rudat\",",
@@ -4160,28 +5446,28 @@
           ]
         ],
         [
-          13951,
+          13954,
           0,
           [
             "  \"plates.sideThrough\": \"csomópont, amelyen átmegy\","
           ]
         ],
         [
-          13952,
+          13955,
           0,
           [
             "  \"plates.sideCurved\": \"Az oldal íves. A háló elavult, amíg újra nem hálózza.\","
           ]
         ],
         [
-          14090,
+          14093,
           0,
           [
             "  \"plates.sidesSummary\": \"{n}, ebből {curved} íves\","
           ]
         ],
         [
-          14767,
+          14770,
           1118,
           [
             "  \"edu.game.hint\": \"Játék: egy szerkezet, három ábra, és csak az egyik helyes.\"",
@@ -4191,18 +5477,25 @@
       ]
     },
     "src/lib/i18n/locales/id.ts": {
-      "source": "98700b85d8fd7b4c1cc842a41e92aee7008ae7ce6272c3ace3d392c3d24ff157",
+      "source": "62c24353f8377d8dd07d6ae3f1acb199be3ef97b705d8af38f15630df1fb781b",
       "original": "ba6d096e190a18ddeea7d98cabc496c4a31ace146b6bc43afbfa59ef85c9e29b",
       "changes": [
         [
-          2791,
+          15,
+          4,
+          [
+            "  'loadPlan.gravity.overlappingShells': \"Cangkang {first} dan {second} bertumpang tindih pada bidang yang sama atau berada dalam rentang elevasi pelat yang sama. Perbaiki geometri cangkang atau terapkan beban bidang secara manual satu kali.\","
+          ]
+        ],
+        [
+          2794,
           0,
           [
             "  'pro.nPlatesQuads': '{plates} pelat, {quads} quad',"
           ]
         ],
         [
-          2793,
+          2796,
           0,
           [
             "  'pro.meshGenerator': 'Generator mesh',"
@@ -4211,18 +5504,25 @@
       ]
     },
     "src/lib/i18n/locales/it.ts": {
-      "source": "1f541301c7535d3b8a205703af19f83e8203faeba2216e93a80bfa32f4d172f7",
+      "source": "576fdb13372350928564e87b8617f53ec6bda10a6c273c6af59cfbc1115c81bb",
       "original": "9161fe3ddfaa9cb0322fa8aa2b4a59549f40783881d80420a6854930ad0de32d",
       "changes": [
         [
-          2806,
+          14,
+          4,
+          [
+            "  'loadPlan.gravity.overlappingShells': \"I gusci {first} e {second} si sovrappongono sullo stesso piano o condividono una fascia di quota del solaio. Correggere la geometria dei gusci oppure assegnare manualmente il carico superficiale una sola volta.\","
+          ]
+        ],
+        [
+          2809,
           0,
           [
             "  'pro.nPlatesQuads': '{plates} piastre, {quads} quad',"
           ]
         ],
         [
-          2808,
+          2811,
           0,
           [
             "  'pro.meshGenerator': 'Generatore di mesh',"
@@ -4231,18 +5531,25 @@
       ]
     },
     "src/lib/i18n/locales/ja.ts": {
-      "source": "3c723c3925b16ff1a6727dd8f5e9e704be33484fa200a0af8e5c0e55fc9b603f",
+      "source": "3715a6d0817518972556eb6e899b4ad430a22121c42b7fbeba787b522d41cec3",
       "original": "3125c1632b6d497a2b0cec73da4d8055b9c83901ac2d8e8fa00206660b9e0e98",
       "changes": [
         [
-          2652,
+          15,
+          4,
+          [
+            "  'loadPlan.gravity.overlappingShells': \"シェル {first} と {second} が同一平面で重なるか、同じ床の高さ許容範囲内で重なっています。シェルの形状を修正するか、面荷重を手動で一度だけ設定してください。\","
+          ]
+        ],
+        [
+          2655,
           0,
           [
             "  'pro.nPlatesQuads': '{plates} プレート、{quads} クワッド',"
           ]
         ],
         [
-          2654,
+          2657,
           0,
           [
             "  'pro.meshGenerator': 'メッシュジェネレーター',"
@@ -4251,18 +5558,25 @@
       ]
     },
     "src/lib/i18n/locales/ko.ts": {
-      "source": "2a9bb177df4ecac1fd01d4a9c6126350635faf98051fedbb046951e9072cb342",
+      "source": "a9c43c0a0266776af0d982225681f668c044d730338b76f5fa841120c3ff3866",
       "original": "762f0fd3798cb0edbc6ad6c3a9acf95203ef190b33fbedc3aba067e29271894c",
       "changes": [
         [
-          2792,
+          15,
+          4,
+          [
+            "  'loadPlan.gravity.overlappingShells': \"셸 {first}과 {second}이 같은 평면에서 겹치거나 동일한 바닥 높이 허용 범위에서 겹칩니다. 셸의 형상을 수정하거나 면하중을 수동으로 한 번만 적용하세요.\","
+          ]
+        ],
+        [
+          2795,
           0,
           [
             "  'pro.nPlatesQuads': '{plates}개 판, {quads}개 사각형',"
           ]
         ],
         [
-          2794,
+          2797,
           0,
           [
             "  'pro.meshGenerator': '메쉬 생성기',"
@@ -4271,7 +5585,7 @@
       ]
     },
     "src/lib/i18n/locales/pt.ts": {
-      "source": "3d1ca80ddb4b1dff59ae18c2b0cd0d75437a640a581952942a7d4a7e56b0132b",
+      "source": "24408e217aced118cf49fde1614a07dd10d274d1890bd7b5dbcc904f4671a198",
       "original": "f013a27bd1465964fefdc7d531a470bc4855e8593daa03ed54ed7453509bdd37",
       "changes": [
         [
@@ -4285,26 +5599,33 @@
           []
         ],
         [
-          5194,
+          4473,
+          4,
+          [
+            "  'loadPlan.gravity.overlappingShells': \"As cascas {first} e {second} se sobrepõem no mesmo plano ou compartilham uma faixa de elevação do piso. Corrija a geometria das cascas ou atribua a carga de área manualmente uma única vez.\","
+          ]
+        ],
+        [
+          5197,
           1,
           []
         ],
         [
-          5365,
+          5368,
           0,
           [
             "  'pro.meshGenerator': 'Gerador de malha',"
           ]
         ],
         [
-          5378,
+          5381,
           0,
           [
             "  'pro.nPlatesQuads': '{plates} placas, {quads} quads',"
           ]
         ],
         [
-          5569,
+          5572,
           0,
           [
             "  'pro.shellInfoMesh': 'Gerar malha subdivide a laje/parede em quads menores, criando MAIS nós de laje ao longo de cada borda.',",
@@ -4315,14 +5636,14 @@
           ]
         ],
         [
-          5583,
+          5586,
           0,
           [
             "  'pro.shellWarnDisconnected': '{n} laje(s)/parede(s) têm um canto sem conexão com nada (nem viga, nem apoio, nem outra laje). Ali não se transfere carga — adicione um nó compartilhado ou apoio, ou gere malha para que as bordas compartilhem nós com a viga.',"
           ]
         ],
         [
-          5979,
+          5982,
           1,
           [
             "  'physical.explain': 'O que é cada conjunto de barras e placas: vigas contínuas, pilares de vários pavimentos, lajes, paredes, contraventamentos. O dimensionamento lê o tipo daqui. O que foi inferido da geometria fica marcado; corrija e passa a declarado.',",
@@ -4330,28 +5651,28 @@
           ]
         ],
         [
-          6810,
+          6813,
           0,
           [
             "  'pro.curvedShellHint': 'Estes quatro nós estão {mm} mm fora do plano. Resolvida plana, a curvatura se perde — marque Casca para mantê-la.',"
           ]
         ],
         [
-          11051,
+          11054,
           0,
           [
             "  'combos.rules.seed': 'Partir da CIRSOC 101',"
           ]
         ],
         [
-          11058,
+          11061,
           1,
           [
             "  'batch.shells': 'Edição em grupo: {n} placas',"
           ]
         ],
         [
-          11096,
+          11099,
           0,
           [
             "  'quickEdit.meshSize': 'Tamanho do elemento',",
@@ -4361,7 +5682,7 @@
           ]
         ],
         [
-          11157,
+          11160,
           2,
           [
             "  'autoLoad.roof.maintenance': \"Só manutenção (Lr, §4.8.1)\",",
@@ -4369,35 +5690,35 @@
           ]
         ],
         [
-          11195,
+          11198,
           0,
           [
             "  'combos.rules.none': 'Ainda sem regras. Adicione uma ou parta da CIRSOC 101.',"
           ]
         ],
         [
-          13851,
+          13854,
           1,
           [
             "  'desk.prep.existingHint': \"Para um modelo analítico já montado: as peças físicas (vigas, pilares, lajes, paredes) são reconhecidas e os dados de que o dimensionamento precisa são completados.\","
           ]
         ],
         [
-          13854,
+          13857,
           0,
           [
             "  'desk.prep.recognize': \"Reconhecer peças físicas\","
           ]
         ],
         [
-          13865,
+          13868,
           0,
           [
             "  'desk.prep.miss.pieces': \"Faltam as peças físicas: reconheça-as a partir do modelo analítico.\","
           ]
         ],
         [
-          14254,
+          14257,
           3,
           [
             "  \"building.slabs.meshedCount\": \"{n} lajes ficaram com malha pelo cálculo.\",",
@@ -4406,17 +5727,17 @@
           ]
         ],
         [
-          14382,
+          14385,
           7,
           []
         ],
         [
-          14394,
+          14397,
           48,
           []
         ],
         [
-          14453,
+          14456,
           0,
           [
             "  \"plates.status.unmeshed\": \"sem malha\",",
@@ -4427,7 +5748,7 @@
           ]
         ],
         [
-          14459,
+          14462,
           0,
           [
             "  \"plates.removeHole\": \"Remover furo\",",
@@ -4437,49 +5758,49 @@
           ]
         ],
         [
-          14476,
+          14479,
           0,
           [
             "  \"plates.planning\": \"Preparando {done} de {total}…\","
           ]
         ],
         [
-          14481,
+          14484,
           0,
           [
             "  \"plates.qualityCell\": \"ângulo mín. {angle}°, {poor} baixos\","
           ]
         ],
         [
-          14493,
+          14496,
           0,
           [
             "  \"plates.planTotal\": \"{cells} elementos no total, de {size} {unit}. Baixa qualidade: ângulo menor que {angle}° ou lados muito desiguais.\","
           ]
         ],
         [
-          14499,
+          14502,
           0,
           [
             "  \"plates.listTitle\": \"Placas físicas ({n})\","
           ]
         ],
         [
-          14500,
+          14503,
           0,
           [
             "  \"plates.nElements\": \"{n} elementos\","
           ]
         ],
         [
-          14504,
+          14507,
           1,
           [
             "  \"plates.meshBeforeAnalysisHint\": \"Antes de cada cálculo são malhadas só as placas sem malha ou com malha desatualizada, com sua configuração. Desligado, o cálculo para e as nomeia.\","
           ]
         ],
         [
-          14557,
+          14560,
           0,
           [
             "  \"plates.sideFollows\": \"curvo, segue a viga curva {id}\",",
@@ -4487,53 +5808,60 @@
           ]
         ],
         [
-          14558,
+          14561,
           0,
           [
             "  \"plates.sideThrough\": \"nó de passagem\","
           ]
         ],
         [
-          14559,
+          14562,
           0,
           [
             "  \"plates.sideCurved\": \"Lado curvado. A malha fica desatualizada até você malhar de novo.\","
           ]
         ],
         [
-          14697,
+          14700,
           0,
           [
             "  \"plates.sidesSummary\": \"{n}, {curved} curvos\","
           ]
         ],
         [
-          14701,
+          14704,
           1,
           [
             "  \"plates.showMeshHint\": \"Desligado, cada placa malhada é desenhada como peça (seu contorno). Só muda o desenho: a seleção e os resultados continuam iguais.\","
           ]
         ],
         [
-          14909,
+          14912,
           1060,
           []
         ]
       ]
     },
     "src/lib/i18n/locales/ru.ts": {
-      "source": "d69dcd7f43669e10d3050dbd8763f9d2502f745588a1805eb7bf82cf4f6437c7",
+      "source": "9a1069b3dda854a85a0edb476066c36e0ab2c0a88762bd09777d0f3c3a6c83cf",
       "original": "7c7ede3dbca14eca55ab5ed4ba0a32862b7949ca59bb2d1e7c648e9fb59418ed",
       "changes": [
         [
-          2797,
+          15,
+          4,
+          [
+            "  'loadPlan.gravity.overlappingShells': \"Оболочки {first} и {second} перекрываются в одной плоскости или в общем диапазоне отметок перекрытия. Исправьте геометрию оболочек или назначьте площадную нагрузку вручную один раз.\","
+          ]
+        ],
+        [
+          2800,
           0,
           [
             "  'pro.nPlatesQuads': '{plates} пластин, {quads} четырёхугольников',"
           ]
         ],
         [
-          2799,
+          2802,
           0,
           [
             "  'pro.meshGenerator': 'Генератор сетки',"
@@ -4808,7 +6136,7 @@
       ]
     },
     "src/lib/i18n/locales/tr.ts": {
-      "source": "2bb0dbd515d7b4d58c0020f0b34e8963edc350764ae3e83d2193eaaac5b46489",
+      "source": "57b6e6fc5054e03855bdcb036f5cd1ddaeb79e2c061aff28636a69974c1a789d",
       "original": "dfae3be5cd45792b6b2c9720f3433a60bace6b76a70d785cd4f6cc88d7ef096f",
       "changes": [
         [
@@ -4876,21 +6204,28 @@
           ]
         ],
         [
-          11160,
+          7802,
+          4,
+          [
+            "  'loadPlan.gravity.overlappingShells': \"{first} ve {second} numaralı kabuklar aynı düzlemde çakışıyor veya aynı döşeme kot bandını paylaşıyor. Kabuk geometrisini düzeltin veya alan yükünü elle bir kez atayın.\","
+          ]
+        ],
+        [
+          11163,
           0,
           [
             "  'combos.rules.seed': 'CIRSOC 101\\'den başla',"
           ]
         ],
         [
-          11167,
+          11170,
           1,
           [
             "  'batch.shells': 'Grup düzenleme: {n} kabuk',"
           ]
         ],
         [
-          11205,
+          11208,
           0,
           [
             "  'quickEdit.meshSize': 'Eleman boyutu',",
@@ -4900,7 +6235,7 @@
           ]
         ],
         [
-          11266,
+          11269,
           2,
           [
             "  'autoLoad.roof.maintenance': 'Yalnızca bakım (Lr, §4.8.1)',",
@@ -4908,35 +6243,35 @@
           ]
         ],
         [
-          11304,
+          11307,
           0,
           [
             "  'combos.rules.none': 'Henüz kural yok. Bir kural ekleyin veya CIRSOC 101\\'den başlayın.',"
           ]
         ],
         [
-          13682,
+          13685,
           1,
           [
             "  'desk.prep.existingHint': 'Önceden kurulmuş bir analitik model için: fiziksel parçaları (kirişler, kolonlar, döşemeler, perdeler) tanınır ve tasarımın ihtiyaç duyduğu veriler tamamlanır.',"
           ]
         ],
         [
-          13685,
+          13688,
           0,
           [
             "  'desk.prep.recognize': 'Fiziksel parçaları tanı',"
           ]
         ],
         [
-          13696,
+          13699,
           0,
           [
             "  'desk.prep.miss.pieces': 'Fiziksel parçalar eksik: bunları analitik modelden tanıtın.',"
           ]
         ],
         [
-          14086,
+          14089,
           3,
           [
             "  'building.slabs.meshedCount': '{n} döşemenin ağı analiz tarafından oluşturuldu.',",
@@ -4945,17 +6280,17 @@
           ]
         ],
         [
-          14206,
+          14209,
           7,
           []
         ],
         [
-          14218,
+          14221,
           48,
           []
         ],
         [
-          14277,
+          14280,
           0,
           [
             "  'plates.status.unmeshed': 'ağ yok',",
@@ -4966,7 +6301,7 @@
           ]
         ],
         [
-          14283,
+          14286,
           0,
           [
             "  'plates.removeHole': 'Boşluğu kaldır',",
@@ -4976,49 +6311,49 @@
           ]
         ],
         [
-          14300,
+          14303,
           0,
           [
             "  'plates.planning': 'Hazırlanıyor {done} / {total}…',"
           ]
         ],
         [
-          14305,
+          14308,
           0,
           [
             "  'plates.qualityCell': 'en küçük açı {angle}°, {poor} düşük',"
           ]
         ],
         [
-          14317,
+          14320,
           0,
           [
             "  'plates.planTotal': 'Toplam {cells} eleman, {size} {unit} boyutunda. Düşük kalite: {angle}°\\'den küçük bir açı veya çok farklı kenarlar.',"
           ]
         ],
         [
-          14323,
+          14326,
           0,
           [
             "  'plates.listTitle': 'Fiziksel plaklar ({n})',"
           ]
         ],
         [
-          14324,
+          14327,
           0,
           [
             "  'plates.nElements': '{n} eleman',"
           ]
         ],
         [
-          14328,
+          14331,
           1,
           [
             "  'plates.meshBeforeAnalysisHint': 'Her analizden önce yalnızca ağı olmayan veya ağı güncel olmayan plakların ağı, kendi ayarlarıyla oluşturulur. Kapalıyken analiz durur ve bu plakları adlarıyla bildirir.',"
           ]
         ],
         [
-          14381,
+          14384,
           0,
           [
             "  'plates.sideFollows': 'eğrisel, {id} eğrisel çubuğunu izler',",
@@ -5026,72 +6361,79 @@
           ]
         ],
         [
-          14382,
+          14385,
           0,
           [
             "  'plates.sideThrough': 'geçtiği düğüm',"
           ]
         ],
         [
-          14383,
+          14386,
           0,
           [
             "  'plates.sideCurved': 'Kenar eğildi. Ağ yeniden oluşturulana kadar güncel değil.',"
           ]
         ],
         [
-          14521,
+          14524,
           0,
           [
             "  'plates.sidesSummary': '{n}, {curved} eğrisel',"
           ]
         ],
         [
-          14525,
+          14528,
           1,
           [
             "  'plates.showMeshHint': 'Kapalıyken ağı oluşturulmuş her plak parça olarak (konturuyla) çizilir. Yalnızca çizim değişir: seçim ve sonuçlar aynı kalır.',"
           ]
         ],
         [
-          14643,
+          14646,
           3,
           []
         ],
         [
-          15109,
+          15112,
           1058,
           []
         ]
       ]
     },
     "src/lib/i18n/locales/zh.ts": {
-      "source": "21e0361896c08a091d4685b0a3e9d5a926feeeb7b91a41c0e4f60e98f2ca5435",
+      "source": "6434fcdd3a3c18663ecb65b34134a4a6e215c66bbb54de51f53cc32fc0cce7bb",
       "original": "187ecdf53aa596a80d7c584c8c8fc84768c7dd6c4d6540750c3a9cdcf2caee26",
       "changes": [
         [
-          5245,
+          84,
+          4,
+          [
+            "  'loadPlan.gravity.overlappingShells': \"壳单元 {first} 和 {second} 在同一平面内重叠，或在同一楼板标高容差范围内重叠。请修正壳单元几何，或手动施加一次面荷载。\","
+          ]
+        ],
+        [
+          5248,
           1,
           [
             "  \"pro.curvedShellHint\": \"这四个节点偏离平面 {mm} mm。按平面求解会丢失曲率，请勾选「曲面壳」以保留。\","
           ]
         ],
         [
-          5423,
+          5426,
           1,
           [
             "  \"pro.nPlatesQuads\": \"{plates} 个三角形，{quads} 个四边形\","
           ]
         ],
         [
-          5426,
+          5429,
           1,
           [
             "  \"pro.meshGenerator\": \"网格生成器\","
           ]
         ],
         [
-          5434,
+          5437,
           1,
           [
             "  \"pro.shellInfoTitle\": \"壳如何连接并传递荷载\",",
@@ -5102,14 +6444,14 @@
           ]
         ],
         [
-          5436,
+          5439,
           1,
           [
             "  \"pro.shellWarnDisconnected\": \"有 {n} 个壳的某个角点未与任何其他构件相连（没有梁、支座或其他壳）。荷载无法在该处传递：请添加共用节点或支座，或划分网格使各边与梁共用节点。\","
           ]
         ],
         [
-          6271,
+          6274,
           2,
           [
             "  \"physical.explain\": \"每组杆件和壳是什么：连续梁、多层柱、楼板、墙、支撑。设计从此处读取类型。根据几何推断出的内容会有标记；修改后即成为已声明。\",",
@@ -5117,21 +6459,21 @@
           ]
         ],
         [
-          11252,
+          11255,
           1,
           [
             "  \"combos.rules.seed\": \"从 CIRSOC 101 开始\","
           ]
         ],
         [
-          11260,
+          11263,
           1,
           [
             "  \"batch.shells\": \"批量编辑：{n} 个壳\","
           ]
         ],
         [
-          11298,
+          11301,
           1,
           [
             "  \"quickEdit.meshSize\": \"单元尺寸\",",
@@ -5141,7 +6483,7 @@
           ]
         ],
         [
-          11360,
+          11363,
           2,
           [
             "  \"autoLoad.roof.maintenance\": \"仅检修（Lr，§4.8.1）\",",
@@ -5149,35 +6491,35 @@
           ]
         ],
         [
-          11398,
+          11401,
           1,
           [
             "  \"combos.rules.none\": \"尚无规则。请添加一条，或从 CIRSOC 101 开始。\","
           ]
         ],
         [
-          13769,
+          13772,
           1,
           [
             "  \"desk.prep.existingHint\": \"适用于已建好的分析模型：识别其实体构件（梁、柱、楼板、墙），并补全设计所需的数据。\","
           ]
         ],
         [
-          13772,
+          13775,
           1,
           [
             "  \"desk.prep.recognize\": \"识别实体构件\","
           ]
         ],
         [
-          13784,
+          13787,
           1,
           [
             "  \"desk.prep.miss.pieces\": \"缺少实体构件：请从分析模型中识别它们。\","
           ]
         ],
         [
-          14173,
+          14176,
           3,
           [
             "  \"building.slabs.meshedCount\": \"分析已为 {n} 块楼板划分网格。\",",
@@ -5186,7 +6528,7 @@
           ]
         ],
         [
-          14316,
+          14319,
           1,
           [
             "  \"plates.status.unmeshed\": \"无网格\",",
@@ -5197,7 +6539,7 @@
           ]
         ],
         [
-          14323,
+          14326,
           1,
           [
             "  \"plates.removeHole\": \"删除洞口\",",
@@ -5207,49 +6549,49 @@
           ]
         ],
         [
-          14341,
+          14344,
           1,
           [
             "  \"plates.planning\": \"正在规划 {done} / {total}…\","
           ]
         ],
         [
-          14347,
+          14350,
           1,
           [
             "  \"plates.qualityCell\": \"最小角 {angle}°，{poor} 个较差\","
           ]
         ],
         [
-          14360,
+          14363,
           1,
           [
             "  \"plates.planTotal\": \"共 {cells} 个单元，尺寸 {size} {unit}。质量较差：夹角小于 {angle}° 或边长相差悬殊。\","
           ]
         ],
         [
-          14367,
+          14370,
           1,
           [
             "  \"plates.listTitle\": \"实体板（{n}）\","
           ]
         ],
         [
-          14369,
+          14372,
           1,
           [
             "  \"plates.nElements\": \"{n} 个单元\","
           ]
         ],
         [
-          14374,
+          14377,
           1,
           [
             "  \"plates.meshBeforeAnalysisHint\": \"每次分析前，仅对没有网格或网格已过期的板按其各自的设置划分网格。关闭后，分析将停止并指出这些板。\","
           ]
         ],
         [
-          14427,
+          14430,
           1,
           [
             "  \"plates.sideFollows\": \"曲线，跟随曲线杆件 {id}\",",
@@ -5257,35 +6599,35 @@
           ]
         ],
         [
-          14429,
+          14432,
           1,
           [
             "  \"plates.sideThrough\": \"经过的节点\","
           ]
         ],
         [
-          14431,
+          14434,
           1,
           [
             "  \"plates.sideCurved\": \"边已改为曲线。重新划分网格之前，网格已过期。\","
           ]
         ],
         [
-          14570,
+          14573,
           1,
           [
             "  \"plates.sidesSummary\": \"{n}，其中 {curved} 个为曲边\","
           ]
         ],
         [
-          14575,
+          14578,
           1,
           [
             "  \"plates.showMeshHint\": \"关闭时，每块已划分网格的板按整体（其轮廓）绘制。只改变绘制效果，拾取和结果不变。\","
           ]
         ],
         [
-          14789,
+          14792,
           1120,
           []
         ]
@@ -5735,7 +7077,7 @@
       ]
     },
     "src/lib/provenance/model-features.ts": {
-      "source": "d52941eabe0ed0b86bd1dafbf2b589f8a087ca80114b5c25182d3f1d01540115",
+      "source": "405ff962e103ee3c30afc0317ff47f96f481a88d4f03437ebbe9898b3a50c4f4",
       "original": "e5bcd06fa49c3cac9f93e74f325cf2e6bd24c3df3cb3f916cb9574151b4df114",
       "changes": [
         [
@@ -5748,6 +7090,13 @@
           1,
           [
             "  'shells', 'physicalPlateRemesh', 'plateAnalysisIssue', 'curvedShells', 'shellEdgeLoads', 'eccentricities',"
+          ]
+        ],
+        [
+          55,
+          1,
+          [
+            "  'generatedWidthGravity', 'generatedPanelGravityShells', 'memberFloorZones', 'magnitudeCombinations',"
           ]
         ],
         [
@@ -5773,9 +7122,17 @@
           338,
           12,
           []
+        ],
+        [
+          498,
+          1,
+          []
         ]
       ]
     },
+    "src/lib/provenance/result-changes/gravity-floor-coverage-and-transfer.json": null,
+    "src/lib/provenance/result-changes/gravity-floor-ownership.json": null,
+    "src/lib/provenance/result-changes/gravity-stations-and-exact-coverage.json": null,
     "src/lib/provenance/result-changes/perforated-plate-grid.json": null,
     "src/lib/provenance/result-changes/plates-coarse-as-modelled-meshed.json": null,
     "src/lib/provenance/result-changes/plates-conforming-batch-mesh.json": null,

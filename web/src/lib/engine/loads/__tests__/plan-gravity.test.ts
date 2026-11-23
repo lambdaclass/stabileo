@@ -1533,7 +1533,7 @@ it('#2512 a fixed restraint shared by several stations keeps both platform loads
     const lower = model.quads!.get(1)!.nodes, upper = model.quads!.get(2)!.nodes;
     const masterNode = 900;
     model.nodes.set(masterNode, { id: masterNode, x: -1, y: -1, z: 0 });
-    const support = { id: 1, nodeId: masterNode, type: 'fixed3d' };
+    const support = { id: 1, nodeId: masterNode, type: 'fixed3d' as const };
     model.supports = new Map([[1, support]]);
     model.constraints = [
       ...[...lower.slice(0, 3), ...upper.slice(0, 3)].map(node => tie(masterNode, node)),
@@ -1545,7 +1545,7 @@ it('#2512 a fixed restraint shared by several stations keeps both platform loads
 
 function splitEccentricLinks(model: LoadModelData, released = false) {
   let nextId = Math.max(...model.nodes.keys()) + 1;
-  model.constraints = model.constraints!.flatMap(link => {
+  model.constraints = model.constraints!.flatMap<Constraint3D>(link => {
     if (link.type !== 'eccentricConnection') return [link];
     const a = model.nodes.get(link.masterNode)!, b = model.nodes.get(link.slaveNode)!;
     const point = { id: nextId++, x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, z: (a.z! + b.z!) / 2 };
