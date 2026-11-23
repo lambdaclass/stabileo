@@ -489,9 +489,10 @@ function slabPosts(m: DemandInput, keys: ReadonlySet<string>, h: number): Array<
 /**
  * A slab on posts checked in one-way shear as a wide beam (§22.5, §8.4.3.2): the shear across a
  * whole cut of the panel, averaged along it, on every cut farther than c/2 + d from the posts.
- * Its largest |qx| and |qy|, kN/m; null for a slab with no posts, which reads its elements' peak.
+ * Its largest |qx| and |qy|, kN/m; null for a slab with no posts, which reads its elements' peak, and
+ * null in a direction whose every cut runs within reach of a post, which reads its elements there.
  */
-export function wideBeamShear(rows: ReadonlyArray<{ key: string; q: readonly number[] }>, boxes: ReadonlyMap<string, { x0: number; x1: number; y0: number; y1: number }>, posts: ReadonlyArray<{ p: Pt; r: number }>): { qx: number; qy: number } | null {
+export function wideBeamShear(rows: ReadonlyArray<{ key: string; q: readonly number[] }>, boxes: ReadonlyMap<string, { x0: number; x1: number; y0: number; y1: number }>, posts: ReadonlyArray<{ p: Pt; r: number }>): { qx: number | null; qy: number | null } | null {
   if (!posts.length) return null;
   const cut = (axis: 'x' | 'y', comp: 0 | 1) => {
     const bins = new Map<number, { sum: number; width: number }>();
@@ -505,7 +506,8 @@ export function wideBeamShear(rows: ReadonlyArray<{ key: string; q: readonly num
       b.sum += Math.abs(r.q[comp]!) * w; b.width += w;
       bins.set(at, b);
     }
-    return Math.max(0, ...[...bins.values()].filter((b) => b.width > 1e-12).map((b) => b.sum / b.width));
+    const means = [...bins.values()].filter((b) => b.width > 1e-12).map((b) => b.sum / b.width);
+    return means.length ? Math.max(0, ...means) : null;
   };
   return { qx: cut('x', 0), qy: cut('y', 1) };
 }
@@ -636,10 +638,10 @@ export function slabDemands(m: DemandInput, thickness: (g: DemandGroup) => numbe
         if (sh && !nearColumn.has(key)) { shears.push({ key, q: sh }); c.qx = Math.max(c.qx, Math.abs(sh[0])); c.qy = Math.max(c.qy, Math.abs(sh[1])); }
       }
       const wide = wideBeamShear(shears, boxOf, posts);
-      if (wide) { c.qx = wide.qx; c.qy = wide.qy; }
-      else if (shears.length) {
-        const along = (axis: 'x' | 'y', comp: 0 | 1) => shearAtCritical(shears.flatMap((r) => { const ct = centre.get(r.key); return ct ? [{ dist: fromFace(ct, axis), q: Math.abs(r.q[comp]!) }] : []; }), dSlab);
-        c.qx = along('x', 0); c.qy = along('y', 1);
+      const along = (axis: 'x' | 'y', comp: 0 | 1) => shearAtCritical(shears.flatMap((r) => { const ct = centre.get(r.key); return ct ? [{ dist: fromFace(ct, axis), q: Math.abs(r.q[comp]!) }] : []; }), dSlab);
+      if (wide || shears.length) {
+        c.qx = wide?.qx ?? (shears.length ? along('x', 0) : c.qx);
+        c.qy = wide?.qy ?? (shears.length ? along('y', 1) : c.qy);
       }
       if (read.size < keys.size) { missing.push(set.name); continue; }
       if (c.qx > q.x.value) q.x = { value: c.qx, source: { combo: set.name } };
