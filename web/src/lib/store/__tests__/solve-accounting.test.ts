@@ -17,14 +17,15 @@ import {
   addPlateLoad, applyPlateMeshes, createPlate, meshBeforeAnalysis, planPlateMesh, plateEntry, plateStatus, setPlateMeshSpec, setPlateSideArc,
 } from '../physical-plates';
 
-const fault = vi.hoisted(() => ({ dropMemberLoad: false, dropLineIntensity: 0, scaleCaseLoad: 1, momentDelta: 0, stalePlanarMoment: 0 }));
+const fault = vi.hoisted(() => ({ dropMemberLoad: false, dropLineIntensity: 0, scaleCaseLoad: 1, momentDelta: 0, stalePlanarMoment: 0, surfaceFactorOffset: 0 }));
 
 vi.mock('../../model/loads/load-magnitudes', async importOriginal => {
   const original = await importOriginal<typeof import('../../model/loads/load-magnitudes')>();
   return {
     ...original,
     scaledLoad: (load: Parameters<typeof original.scaledLoad>[0], factor: number) => {
-      const scaled = original.scaledLoad(load, factor * fault.scaleCaseLoad);
+      const offset = load.type === 'surface3d' ? fault.surfaceFactorOffset : 0;
+      const scaled = original.scaledLoad(load, factor * fault.scaleCaseLoad + offset);
       return scaled.type === 'nodal3d' && load.data.id === 2
         ? { ...scaled, data: { ...scaled.data, mx: scaled.data.mx + fault.momentDelta } }
         : scaled;
@@ -65,6 +66,7 @@ beforeEach(() => {
   fault.scaleCaseLoad = 1;
   fault.momentDelta = 0;
   fault.stalePlanarMoment = 0;
+  fault.surfaceFactorOffset = 0;
 });
 
 function cantilever(mode: '2d' | '3d') {
@@ -361,6 +363,67 @@ it.each([false, true])('accounts for a what-if plate pressure change with nonlin
     const result = await modelStore.solve3DAsync(false, false, true);
     if (!result || typeof result === 'string') throw new Error(String(result));
     expect(result.reactions.reduce((sum, r) => sum + r.fz, 0)).toBeCloseTo(20 - area / 2, 8);
+  } finally {
+    whatIf.abandon();
+    vi.useRealTimers();
+  }
+});
+
+const issue2479 = process.env.RUN_KNOWN_WRONG === '2479' ? it : it.skip;
+
+issue2479('#2479 refuses a wrong what-if plate-pressure factor throughout spatial analysis', async () => {
+  const { id } = floor();
+  const [a, b] = modelStore.nodes.keys();
+  modelStore.addElement(a!, b!);
+  expect(applyPlateMeshes([planPlateMesh(id)!]).plates).toBe(1);
+  syncDefinedLoadsForAnalysis();
+  const index = modelStore.loads.findIndex(load => load.type === 'surface3d');
+  expect(index).toBeGreaterThanOrEqual(0);
+  modelStore.addCombination('D', [{ caseId: 1, factor: 1 }]);
+  const model = modelStore.model;
+  const solve = () => modelStore.solve3D(false, false, true);
+
+  vi.useFakeTimers();
+  try {
+    whatIf.open();
+    for (const factor of [0, 2]) {
+      whatIf.setLoadFactor(index, factor);
+      await vi.advanceTimersByTimeAsync(60);
+      const load = modelStore.loads[index]!.data;
+      expect(load).toMatchObject({ q: factor });
+      expect(solve()).toMatchObject({ reactions: expect.any(Array) });
+    }
+
+    fault.surfaceFactorOffset = 0.25;
+    whatIf.setLoadFactor(index, 0.5);
+    await vi.advanceTimersByTimeAsync(60);
+    const paths = {
+      linear: solve,
+      async: () => modelStore.solve3DAsync(false, false, true),
+      combinations: () => modelStore.solveCombinations3D(false, false, true),
+      parallel: () => modelStore.solveCombinations3DParallel(false, false, true),
+      pdelta: () => solvePDelta3D(modelStore.buildSolverInput3D()!),
+      modal: () => solveModal3D(modelStore.buildSolverInput3D()!,
+        new Map([...modelStore.materials].map(([key, material]) => [key, material.rho]))),
+      buckling: () => solveBuckling3D(modelStore.buildSolverInput3D()!),
+      direct: () => runDirectAnalysis(model, model.loadCases, model.combinations, { includeSelfWeight: false }),
+    };
+    const diagnostic = expect.stringMatching(/case.*1.*Test floor.*Fz/i);
+    for (const [name, run] of Object.entries(paths)) {
+      expect.soft(await outcome(run), name).toEqual(diagnostic);
+    }
+    expect.soft(modelStore.singleSolveInput3D(false, false, true), 'input').toBeNull();
+    await runLiveCalc('pro', uiStore.axisConvention3D);
+    expect.soft(uiStore.liveCalcError, 'live').toEqual(diagnostic);
+    expect.soft(resultsStore.results3D, 'live results').toBeNull();
+    expect.soft(await runGlobalSolve({ directBase: true }), 'global').toMatchObject({ ok: false, error: diagnostic });
+
+    modelStore.setAnalysis({ perCombination: 'pdelta' });
+    expect.soft(await outcome(paths.combinations), 'P-Delta combinations').toEqual(diagnostic);
+    expect.soft(await outcome(paths.parallel), 'P-Delta parallel').toEqual(diagnostic);
+    modelStore.updateSupport(model.supports.keys().next().value!, { uplift: true });
+    expect.soft(await outcome(paths.async), 'nonlinear single').toEqual(diagnostic);
+    expect.soft(await outcome(paths.parallel), 'nonlinear combinations').toEqual(diagnostic);
   } finally {
     whatIf.abandon();
     vi.useRealTimers();
