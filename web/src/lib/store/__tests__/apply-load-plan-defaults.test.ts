@@ -176,9 +176,7 @@ it('#2512 restored platforms sharing a fixed UZ master each retain their applied
     .toEqual([lower.quad, upper.quad].map(quadId => expect.objectContaining({ data: expect.objectContaining({ quadId, q: 1 }) })));
 });
 
-const round3Reproducer = process.env.RUN_KNOWN_WRONG === '2512' ? it : it.skip;
-
-round3Reproducer('known wrong result: #2512 restored platforms with a second tie keep both pressures at a fixed master', () => {
+it('#2512 restored platforms with a second tie keep both pressures at a fixed master', () => {
   modelStore.clear();
   const addPlatform = (z: number) => {
     const nodes = [

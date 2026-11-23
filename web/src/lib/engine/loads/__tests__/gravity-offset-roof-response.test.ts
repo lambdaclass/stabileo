@@ -1,10 +1,13 @@
 import { expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { solve_3d, solve_pdelta_3d } from '../../../wasm/dedaliano_engine.js';
+import { solve_2d, solve_3d, solve_pdelta_2d, solve_pdelta_3d } from '../../../wasm/dedaliano_engine.js';
 import { evaluateDiagramAt } from '../../diagrams-3d';
 import { buildSolverLoads3D } from '../../solver-service';
 import type { Load } from '../../../store/model.svelte';
 import type { AnalysisResults3D } from '../../types-3d';
+import type { AnalysisResults } from '../../types';
+import { gravityLayout } from '../plan-gravity';
+import { planAreaLoads } from '../plan-area-loads';
 import type { LoadModelData } from '../load-plan';
 import { offsetRoof, roofPlan } from './gravity-offset-roof-fixture';
 
@@ -51,9 +54,7 @@ it('#2282 shell-borne gravity leaves the restrained offset rafters unloaded', ()
   }
 });
 
-const round3Reproducer = process.env.RUN_KNOWN_WRONG === '2512' ? it : it.skip;
-
-round3Reproducer('known wrong result: #2512 linear and P-Delta reactions include both independently restrained decks', () => {
+it('#2512 linear and P-Delta reactions include both independently restrained decks', () => {
   const { model: roof } = offsetRoof(0.02);
   const ground = 9;
   const nodes = new Map([[ground, { id: ground, x: -1, y: -1, z: 0 }]]);
@@ -95,5 +96,41 @@ round3Reproducer('known wrong result: #2512 linear and P-Delta reactions include
   expect(nonlinear.converged).toBe(true);
   for (const result of [solve_3d(input), nonlinear.results] as AnalysisResults3D[]) {
     expect(result.reactions.reduce((total, reaction) => total + reaction.fz, 0)).toBeCloseTo(2 * 10 * 6 * pressure, 8);
+  }
+});
+
+it('#2512 exact cover preserves the plane beam reactions on both sides of the end', () => {
+  const elements = new Map([
+    [1, { id: 1, nodeI: 1, nodeJ: 2, type: 'frame' as const, sectionId: 1, materialId: 1 }],
+    [2, { id: 2, nodeI: 3, nodeJ: 4, type: 'frame' as const, sectionId: 1, materialId: 1 }],
+  ]);
+  for (const mode of ['panels', 'width'] as const) for (const edge of [5.01, 5, 4.99]) {
+    const nodes = new Map([
+      [1, { id: 1, x: 0, y: 0, z: 3 }], [2, { id: 2, x: 10, y: 0, z: 3 }],
+      [3, { id: 3, x: edge, y: 0, z: 6 }], [4, { id: 4, x: 10, y: 0, z: 6 }],
+    ]);
+    const layout = gravityLayout({ nodes, elements }, { mode, tributaryWidth: 1 });
+    const area = planAreaLoads({
+      layout, tributaryWidth: 1, floor: { dead: 1, lo: 0, liveOf: () => 0 },
+      roof: { dead: 2, use: 'occupancy', weight: 'heavy', slopePercent: 0 },
+    });
+    const input = {
+      nodes: Object.fromEntries([...nodes].map(([id, { x, z }]) => [id, { id, x, z }])),
+      elements: Object.fromEntries(elements),
+      materials: template.materials, sections: template.sections,
+      supports: {
+        1: { id: 1, nodeId: 1, type: 'fixed' },
+        3: { id: 3, nodeId: 3, type: 'fixed' },
+      },
+      loads: area.distributed.filter(load => load.caseType === 'D').map(load => ({
+        type: 'distributed', data: { elementId: load.elementId, a: load.a, b: load.b, qI: load.q, qJ: load.qJ ?? load.q },
+      })),
+    };
+    const nonlinear = JSON.parse(solve_pdelta_2d(JSON.stringify(input), 100, 1e-10));
+    expect(nonlinear.converged).toBe(true);
+    for (const result of [solve_2d(input), nonlinear.results] as AnalysisResults[]) {
+      expect(result.reactions.find(reaction => reaction.nodeId === 1)?.rz).toBeCloseTo(10 * (edge > 5 ? 2 : 1), 8);
+      expect(result.reactions.find(reaction => reaction.nodeId === 3)?.rz).toBeCloseTo(2 * (10 - edge), 8);
+    }
   }
 });

@@ -69,7 +69,6 @@ export interface LoadModelData extends GravityModel {
    */
   quads?: Map<number, PlanShell>;
   plates?: Map<number, PlanShell>;
-  supports?: ReadonlyMap<number, { nodeId: number }>;
   materials: Map<number, { id: number; rho: number }>;
   /**
    * `alternatives`: the group a case belongs to, a generated full load among its patterns.

@@ -179,7 +179,8 @@ for (const angle of [0, 0.37]) for (const mirror of [-1, 1]) it(`#2197 hole-cros
     const pieces = layout.pieces.filter(p => affected.has(p.panel));
     expect(pieces.length).toBeGreaterThan(0);
     expect(pieces.every(p => !p.roof)).toBe(true);
-    const floor = { ...layout, pieces, points: layout.points.filter(p => affected.has(p.panel)), widthMembers: [] };
+    const panelAreas = layout.panelAreas.map((areas, index) => affected.has(index) ? areas : new Map<number, number>());
+    const floor = { ...layout, panelAreas, pieces, points: layout.points.filter(p => affected.has(p.panel)), widthMembers: [] };
     const loads = planAreaLoads({ layout: floor, tributaryWidth: 1, floor: { dead: 1, lo: 2, liveOf: () => 2 }, roof: { dead: 3, use: 'occupancy', weight: 'light', slopePercent: 0, lo: 4, liveOf: () => 4 } });
     for (const [kind, expected] of [['D', 12], ['L', 24]] as const) {
       const force = loads.distributed.filter(d => d.caseType === kind).reduce((sum, d) => {

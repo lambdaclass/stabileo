@@ -1527,9 +1527,7 @@ for (const shellEnd of [0, 6]) it(`#2512 the area gate checks incomplete and exc
   }
 });
 
-const round3Reproducer = process.env.RUN_KNOWN_WRONG === '2512' ? it : it.skip;
-
-round3Reproducer('known wrong result: #2512 a fixed restraint shared by several stations keeps both platform loads', () => {
+it('#2512 a fixed restraint shared by several stations keeps both platform loads', () => {
   for (const tie of Object.values(verticalTies)) {
     const model = connectedShells(0, 10, 6);
     const lower = model.quads!.get(1)!.nodes, upper = model.quads!.get(2)!.nodes;
@@ -1559,7 +1557,7 @@ function splitEccentricLinks(model: LoadModelData, released = false) {
   });
 }
 
-round3Reproducer('known wrong result: #2512 a split shifted eccentric deck has the direct connection’s ownership', () => {
+it('#2512 a split shifted eccentric deck has the direct connection’s ownership', () => {
   const model = connectedShells(2, 12);
   const split = structuredClone(model);
   splitEccentricLinks(split);
@@ -1570,7 +1568,7 @@ round3Reproducer('known wrong result: #2512 a split shifted eccentric deck has t
   checkOwnedFloor(released, [1, 2], 120);
 });
 
-round3Reproducer('known wrong result: #2512 a split eccentric rafter attachment keeps the shell as carrier', () => {
+it('#2512 a split eccentric rafter attachment keeps the shell as carrier', () => {
   const { model } = offsetRoof(0.02);
   const input = planInput(model, { dead: [{ labelKey: 'a', q: 1 }] });
   const direct = buildLoadPlan(input);
@@ -1590,7 +1588,7 @@ round3Reproducer('known wrong result: #2512 a split eccentric rafter attachment 
   expect(buildLoadPlan({ ...input, model: released }).distributed.some(load => load.caseType === 'D')).toBe(true);
 });
 
-round3Reproducer('known wrong result: #2512 roof coverage follows the shell boundary in both gravity modes', () => {
+it('#2512 roof coverage follows the shell boundary in both gravity modes', () => {
   for (const mode of ['width', 'panels'] as const) for (const edge of [5.01, 5, 4.99]) {
     const model = floor(0, 0, 10, 6);
     rectangularShell(model, 1, 0, 10, 3);
@@ -1606,7 +1604,7 @@ round3Reproducer('known wrong result: #2512 roof coverage follows the shell boun
   }
 });
 
-round3Reproducer('known wrong result: #2512 a plane member does not cover a point beyond its endpoint', () => {
+it('#2512 a plane member does not cover a point beyond its endpoint', () => {
   for (const mode of ['width', 'panels'] as const) for (const edge of [5.01, 5, 4.99]) {
     const model = floor(1, 0, 10, 6);
     model.nodes.set(3, { id: 3, x: edge, y: 0, z: 6 });
@@ -1617,7 +1615,7 @@ round3Reproducer('known wrong result: #2512 a plane member does not cover a poin
   }
 });
 
-round3Reproducer('known wrong result: #2512 case accounting refuses lost and excess emitted panel loads', () => {
+it('#2512 case accounting refuses lost and excess emitted panel loads', () => {
   const model = floor(1, 1, 10, 6);
   const input = planInput(model, { dead: [{ labelKey: 'a', q: 1 }], generateCombinations: true });
   expect(deadLoadKN(buildLoadPlan(input), model)).toBeCloseTo(60, 10);
