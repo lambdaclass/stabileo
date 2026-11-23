@@ -17185,6 +17185,8 @@ const en: Record<string, string> = {
   "rcSheets.footFig.piles": "Piles",
   "designData.crit.footingPileSpacing": "Least spacing between piles",
   "designData.crit.footingPileSpacing.hint": "Between the axes of a cap's piles, in diameters (3).",
+  "designData.crit.footingPedestalGrow": "Pedestal widening",
+  "designData.crit.footingPedestalGrow.hint": "The buried pedestal is the column plus this width each way (b₁ = d₁ + r): more cover against the ground and a ledge for its forms (5 cm).",
   "designData.crit.footingPileEfficiency": "Pile group efficiency",
   "designData.crit.footingPileEfficiency.hint": "The group's capacity is this share of its piles' summed capacity (70 %).",
   "designData.crit.footingPileMinCount": "Least piles under a cap",

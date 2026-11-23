@@ -1,6 +1,6 @@
 import type { Fmt } from './format';
 import { CRITERION, critOf, withCriterion } from './criteria';
-import { foundingOf, pedestalOf, proposeDowels, spacingClause, type FootingRowCode } from './footing-design';
+import { foundingOf, pedestalOf, pedestalSectionOf, proposeDowels, spacingClause, type FootingRowCode } from './footing-design';
 import { proposeCombinedDowels } from './footing-combined';
 import { meshText } from './footing-mesh';
 import { edgeSteps } from './footing-steps';
@@ -145,7 +145,7 @@ export function capRow(d: FootingDemand, c: FootingContext, adopted: FootingAdop
     utilization: Math.max(0, ...ratios.filter(Number.isFinite)), verifications: v,
     combos: { headers: ['N', 'Mx', 'My', 'R max'], rows: r.byCombo.map((q) => { const act = d.combos.find((x) => x.combo === q.combo)!; const R = Math.max(...q.R); return { combo: q.combo, values: [fmt(act.N, 1), fmt(act.Mx, 1), fmt(act.My, 1), fmt(R, 0)], ratio: R / Math.max(k.capacity, 1e-9), ok: true }; }) },
     status, generous: false, steps: steps(r, a, fmt, prop ? prop.reached : null, edge),
-    founding: foundingOf(d, a.h), pedestal: pedestalOf(d, a.h), cap: k, ...(edge ? { edge } : {}),
+    founding: foundingOf(d, a.h), pedestal: pedestalOf(d, a.h), pedestalSection: pedestalSectionOf(d, a.h, c), cap: k, ...(edge ? { edge } : {}),
   };
 }
 

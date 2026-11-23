@@ -17174,6 +17174,8 @@ const es: Record<string, string> = {
   "rcSheets.footFig.piles": "Pilotes",
   "designData.crit.footingPileSpacing": "Separación mínima entre pilotes",
   "designData.crit.footingPileSpacing.hint": "Entre ejes de pilotes de un cabezal, en diámetros (3).",
+  "designData.crit.footingPedestalGrow": "Ensanche del fuste",
+  "designData.crit.footingPedestalGrow.hint": "El fuste enterrado es la columna más este ancho en cada dirección (b₁ = d₁ + r): más recubrimiento contra el suelo y un apoyo para su encofrado (5 cm).",
   "designData.crit.footingPileEfficiency": "Eficiencia del grupo de pilotes",
   "designData.crit.footingPileEfficiency.hint": "La capacidad del grupo es esta fracción de la suma de las de sus pilotes (70 %).",
   "designData.crit.footingPileMinCount": "Pilotes mínimos por cabezal",

@@ -65,6 +65,7 @@ export const CRITERIA = {
   footingWinklerSettlement: { ...cm(1, 0.5, 5, 0.5), family: 'footing', digits: 1 },
   footingMaxSpacing: { ...cm(20, 10, 45, 2.5), family: 'footing', digits: 1 },
   footingPileSpacing: { family: 'footing', value: 3, min: 2, max: 6, step: 0.25, unit: '·Ø', prefix: 's ≥ ', digits: 2 },
+  footingPedestalGrow: { ...cm(5, 0, 30, 2.5), family: 'footing', digits: 1 },
   footingPileEfficiency: { family: 'footing', value: 70, min: 50, max: 100, step: 5, unit: '%', scale: 100 },
   footingPileMinCount: { family: 'footing', value: 2, min: 1, max: 4, step: 1, unit: '', integer: true },
   footingPileLineClear: { ...cm(50, 20, 150, 5), family: 'footing' },

@@ -16827,6 +16827,8 @@ const pt: Translations = {
   "rcSheets.footFig.piles": "Estacas",
   "designData.crit.footingPileSpacing": "Espaçamento mínimo entre estacas",
   "designData.crit.footingPileSpacing.hint": "Entre eixos das estacas de um bloco, em diâmetros (3).",
+  "designData.crit.footingPedestalGrow": "Alargamento do pescoço",
+  "designData.crit.footingPedestalGrow.hint": "O pescoço enterrado é o pilar mais esta largura em cada direção (b₁ = d₁ + r): mais cobrimento contra o solo e apoio para a fôrma (5 cm).",
   "designData.crit.footingPileEfficiency": "Eficiência do grupo de estacas",
   "designData.crit.footingPileEfficiency.hint": "A capacidade do grupo é esta fração da soma das de suas estacas (70 %).",
   "designData.crit.footingPileMinCount": "Mínimo de estacas por bloco",

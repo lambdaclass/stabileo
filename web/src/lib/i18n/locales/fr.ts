@@ -17023,6 +17023,8 @@ const fr: Translations = {
   "rcSheets.footFig.piles": "Pieux",
   "designData.crit.footingPileSpacing": "Entraxe minimal des pieux",
   "designData.crit.footingPileSpacing.hint": "Entre axes des pieux d'une semelle, en diamètres (3).",
+  "designData.crit.footingPedestalGrow": "Élargissement du fût",
+  "designData.crit.footingPedestalGrow.hint": "Le fût enterré est le poteau plus cette largeur dans chaque sens (b₁ = d₁ + r) : plus d’enrobage contre le sol et un appui pour son coffrage (5 cm).",
   "designData.crit.footingPileEfficiency": "Efficacité du groupe de pieux",
   "designData.crit.footingPileEfficiency.hint": "La capacité du groupe est cette part de la somme de celles de ses pieux (70 %).",
   "designData.crit.footingPileMinCount": "Nombre minimal de pieux par semelle",

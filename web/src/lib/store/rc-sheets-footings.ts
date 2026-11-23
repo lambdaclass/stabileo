@@ -343,7 +343,7 @@ export function writeFootingToModel(row: FootingRow): number {
   if (row.demand.group) return writeGroupFooting(row, row.demand.group);
   if (row.demand.pier) return writePierFooting(row, row.demand.pier);
   const a = row.adopted, d = row.demand, o = d.carried;
-  const data = { B: a.B, L: a.L, thickness: a.h, eccentricityB: a.ex, eccentricityL: a.ey, cover: row.cover, rotationDeg: 0, foundingElevation: row.founding, pedestal: row.pedestal > 1e-3 && d.column ? { B: d.column.b, L: d.column.h, height: row.pedestal } : undefined };
+  const data = { B: a.B, L: a.L, thickness: a.h, eccentricityB: a.ex, eccentricityL: a.ey, cover: row.cover, rotationDeg: 0, foundingElevation: row.founding, pedestal: row.pedestal > 1e-3 && d.column ? { B: row.pedestalSection?.b ?? d.column.b, L: row.pedestalSection?.h ?? d.column.h, height: row.pedestal } : undefined };
   let id = d.footing?.id;
   modelStore.batchFoundation(() => {
     if (o) for (const f of [...modelStore.model.footings.values()]) if (f.id !== id && (f.nodeId === o.nodeId || f.supportedNodeIds?.includes(o.nodeId))) modelStore.removeFooting(f.id);

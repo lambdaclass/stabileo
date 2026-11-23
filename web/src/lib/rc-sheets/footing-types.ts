@@ -319,6 +319,8 @@ export interface FootingRow {
   founding: number;
   /** The column's stretch below its foot down to the footing's top, m: the pedestal the common founding level asks for. */
   pedestal: number;
+  /** That pedestal's section, m, wider than the column it carries; absent with none. */
+  pedestalSection?: { b: number; h: number } | null;
   /** A strip or a mat: its columns, strips and bands. */
   group?: GroupResult;
   /** A pile cap: its piles and how it reads. */

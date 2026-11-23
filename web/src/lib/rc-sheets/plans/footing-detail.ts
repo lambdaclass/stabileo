@@ -28,7 +28,7 @@ export interface FootingPlanOptions extends PlanCtx { code: SheetCode; group: st
 
 const layerOf = (dir: 'x' | 'y'): ArmLayer => (dir === 'x' ? 'INFX' : 'INFY');
 
-export function footingPlanPrimitives(det: FootingDetail, o: FootingPlanOptions): Primitive[] {
+export function footingPlanPrimitives(det: FootingDetail, o: FootingPlanOptions, row?: FootingRow): Primitive[] {
   const B = det.B * K, L = det.L * K;
   const ps: Primitive[] = [rect(HORM, -B / 2, -L / 2, B / 2, L / 2)];
   for (const l of det.layers) {
@@ -41,6 +41,8 @@ export function footingPlanPrimitives(det: FootingDetail, o: FootingPlanOptions)
     for (const p of t.positions) ps.push(t.dir === 'x' ? seg(a, pt(t.from * K, p * K), pt(t.to * K, p * K), t.dia) : seg(a, pt(p * K, t.from * K), pt(p * K, t.to * K), t.dia));
   }
   for (const c of [det.column, det.second]) if (c) ps.push(rect(HORM, c.x0 * K, c.y0 * K, c.x1 * K, c.y1 * K));
+  const ped = row ? pedestalRect(det, row) : null;
+  if (ped) ps.push(rect(HORM, ped.x0 * K, ped.y0 * K, ped.x1 * K, ped.y1 * K));
   for (const s of det.straps) {
     ps.push(rect(HORM, s.rect.x0 * K, s.rect.y0 * K, s.rect.x1 * K, s.rect.y1 * K));
     const tip = s.axis === 'x' ? pt((s.toward > 0 ? s.rect.x1 : s.rect.x0) * K, s.rect.y1 * K) : pt(s.rect.x1 * K, (s.toward > 0 ? s.rect.y1 : s.rect.y0) * K);
@@ -55,11 +57,21 @@ export function footingPlanPrimitives(det: FootingDetail, o: FootingPlanOptions)
   return ps;
 }
 
+/** The pedestal's outline in the footing's plan, m: the column's grown evenly to the pedestal's section. */
+function pedestalRect(det: FootingDetail, row: FootingRow): { x0: number; x1: number; y0: number; y1: number } | null {
+  const c = det.column, p = row.pedestalSection, col = row.demand.column;
+  if (!c || !p || !col) return null;
+  const gx = (p.b - col.b) / 2, gy = (p.h - col.h) / 2;
+  return { x0: c.x0 - gx, x1: c.x1 + gx, y0: c.y0 - gy, y1: c.y1 + gy };
+}
+
 export function footingSectionPrimitives(det: FootingDetail, row: FootingRow, o: FootingPlanOptions): Primitive[] {
   const s = o.scale, B = det.B * K, H = det.h * K, lap = (row.dowels?.lap ?? 0) * K;
   const ps: Primitive[] = [rect(HORM, -B / 2, 0, B / 2, H)];
   const over = det.dowels ? (det.dowels.z + det.dowels.rise) * K - H : lap;
-  for (const c of [det.column, det.second]) if (c) ps.push(rect(HORM, c.x0 * K, H, c.x1 * K, H + over + 100));
+  const ped = pedestalRect(det, row), P = Math.min(row.pedestal * K, over + 100);
+  for (const c of [det.column, det.second]) if (c) ps.push(rect(HORM, c.x0 * K, H + (c === det.column && ped ? P : 0), c.x1 * K, H + over + 100));
+  if (ped && P > 0) ps.push(rect(HORM, ped.x0 * K, H, ped.x1 * K, H + P));
   const leg = (l: FootingLayerBars) => Math.abs(l.shape.pts.find((q) => Math.abs(q[1]) > 1e-9)?.[1] ?? 0) * K * (l === det.top ? -1 : 1);
   for (const l of [...det.layers, ...(det.top ? [det.top] : [])]) {
     const a = arm(l === det.top ? 'SUPX' : layerOf(l.dir), l.dia), z = l.z * K, up = leg(l);
@@ -118,7 +130,7 @@ export function footingPlans(row: FootingRow, o: FootingPlanOptions): DrawingInp
   if (!(row.B > 0) || (row.uncovered && !row.edge?.straps.length)) return [];
   const det = footingDetail(row, rulesFor(o.code).bends), piles = pilePrimitives(row, o);
   return [
-    framed(`${row.key}:plan`, `${o.tr('rcSheets.footFig.title', { name: row.name })} · ${o.tr('rcSheets.footFig.plan')}`, [...footingPlanPrimitives(det, o), ...piles.plan], o.scale, o.group),
+    framed(`${row.key}:plan`, `${o.tr('rcSheets.footFig.title', { name: row.name })} · ${o.tr('rcSheets.footFig.plan')}`, [...footingPlanPrimitives(det, o, row), ...piles.plan], o.scale, o.group),
     framed(`${row.key}:sec`, `${row.name} · ${o.tr('rcSheets.footFig.section')}`, [...footingSectionPrimitives(det, row, o), ...piles.section], o.scale, o.group),
     ...scheduleTables(row.key, o.tr('rcSheets.plans.schedule', { name: row.name }), footingScheduleRows(row, o.code), scheduleLayer, o, o.group),
   ];

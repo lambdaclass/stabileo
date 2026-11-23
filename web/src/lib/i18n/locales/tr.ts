@@ -17023,6 +17023,8 @@ const tr: Translations = {
   "rcSheets.footFig.piles": "Kazıklar",
   "designData.crit.footingPileSpacing": "Kazıklar arası en küçük aralık",
   "designData.crit.footingPileSpacing.hint": "Bir başlığın kazık eksenleri arasında, çap cinsinden (3).",
+  "designData.crit.footingPedestalGrow": "Boyun genişlemesi",
+  "designData.crit.footingPedestalGrow.hint": "Gömülü boyun, kolonun her yönde bu genişlik kadar büyütülmüşüdür (b₁ = d₁ + r): zemine karşı daha fazla pas payı ve kalıbı için bir oturma (5 cm).",
   "designData.crit.footingPileEfficiency": "Kazık grubu verimliliği",
   "designData.crit.footingPileEfficiency.hint": "Grubun kapasitesi kazıklarının kapasiteleri toplamının bu oranıdır (%70).",
   "designData.crit.footingPileMinCount": "Başlık başına en az kazık",

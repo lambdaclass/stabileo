@@ -16760,6 +16760,8 @@ const zh: Translations = {
   "rcSheets.footFig.piles": "桩",
   "designData.crit.footingPileSpacing": "桩的最小间距",
   "designData.crit.footingPileSpacing.hint": "承台各桩轴线之间的距离，以桩径倍数计（3）。",
+  "designData.crit.footingPedestalGrow": "短柱加宽",
+  "designData.crit.footingPedestalGrow.hint": "埋入的短柱为柱截面在每个方向加上此宽度（b₁ = d₁ + r）：对土有更大保护层，并为模板留出台阶（5 cm）。",
   "designData.crit.footingPileEfficiency": "群桩效率",
   "designData.crit.footingPileEfficiency.hint": "群桩承载力为其各桩承载力之和的此比例（70 %）。",
   "designData.crit.footingPileMinCount": "承台下最少桩数",

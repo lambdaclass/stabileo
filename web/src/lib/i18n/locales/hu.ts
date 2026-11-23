@@ -16731,6 +16731,8 @@ const hu: Translations = {
   "rcSheets.footFig.piles": "Cölöpök",
   "designData.crit.footingPileSpacing": "Cölöpök legkisebb tengelytávolsága",
   "designData.crit.footingPileSpacing.hint": "Egy fejgerenda cölöptengelyei között, átmérőben (3).",
+  "designData.crit.footingPedestalGrow": "Csonk szélesítése",
+  "designData.crit.footingPedestalGrow.hint": "Az eltemetett csonk az oszlop, mindkét irányban ennyivel szélesebb (b₁ = d₁ + r): nagyobb betonfedés a talaj felé és támasz a zsaluzatnak (5 cm).",
   "designData.crit.footingPileEfficiency": "Cölöpcsoport hatásfoka",
   "designData.crit.footingPileEfficiency.hint": "A csoport teherbírása cölöpjei teherbírásának ennyi része (70 %).",
   "designData.crit.footingPileMinCount": "Fejgerendánkénti legkevesebb cölöp",

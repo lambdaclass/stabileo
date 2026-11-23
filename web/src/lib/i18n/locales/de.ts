@@ -17023,6 +17023,8 @@ const de: Translations = {
   "rcSheets.footFig.piles": "Pfähle",
   "designData.crit.footingPileSpacing": "Kleinster Pfahlabstand",
   "designData.crit.footingPileSpacing.hint": "Zwischen den Pfahlachsen einer Pfahlkopfplatte, in Durchmessern (3).",
+  "designData.crit.footingPedestalGrow": "Verbreiterung des Köchers",
+  "designData.crit.footingPedestalGrow.hint": "Der eingegrabene Sockel ist die Stütze plus diese Breite je Richtung (b₁ = d₁ + r): mehr Betondeckung zum Boden und ein Absatz für die Schalung (5 cm).",
   "designData.crit.footingPileEfficiency": "Wirkungsgrad der Pfahlgruppe",
   "designData.crit.footingPileEfficiency.hint": "Die Tragfähigkeit der Gruppe ist dieser Anteil der Summe ihrer Pfähle (70 %).",
   "designData.crit.footingPileMinCount": "Mindestanzahl Pfähle je Pfahlkopfplatte",

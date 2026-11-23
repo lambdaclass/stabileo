@@ -13,6 +13,7 @@ import { balanceOf, type Balance } from './footing-balance';
 import { needsOf } from './footing-needs';
 import { lapOffset } from './column-stack';
 import { critOf, withCriterion } from './criteria';
+import { criteriaOf } from './criteria';
 
 const EDITION = '2025' as const;
 
@@ -87,6 +88,13 @@ export const leverOf = (d: FootingDemand, h: number): number => Math.max(h, d.at
 
 /** The column's stretch below its node down to the footing's top, m. */
 export const pedestalOf = (d: Pick<FootingDemand, 'footing' | 'founding' | 'at'>, h: number): number => Math.max(0, d.at.z - foundingOf(d, h) - h);
+
+/** The pedestal's section, m: the column's grown by the criterion's width (b1 = d1 + r), buried, with more cover than the column and a ledge for its forms. Null with no pedestal, or under a pier, whose pedestal is its walls. */
+export const pedestalSectionOf = (d: Pick<FootingDemand, 'footing' | 'founding' | 'at' | 'column' | 'pier'>, h: number, c: Pick<FootingContext, 'criteria'>): { b: number; h: number } | null => {
+  if (!d.column || d.pier || pedestalOf(d, h) <= 1e-3) return null;
+  const grow = (c.criteria ?? criteriaOf()).footingPedestalGrow;
+  return { b: Math.round((d.column.b + grow) * 1000) / 1000, h: Math.round((d.column.h + grow) * 1000) / 1000 };
+};
 
 export const planOf = (d: FootingDemand, a: Pick<FootingAdopted, 'B' | 'L' | 'ex' | 'ey'>): FootingPlan =>
   ({ B: a.B, L: a.L, xc: -a.ex, yc: -a.ey, b: d.column?.b ?? 0, h: d.column?.h ?? 0, ...(d.column?.area ? { area: d.column.area } : {}) });
