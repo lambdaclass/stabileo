@@ -78,7 +78,7 @@ export type FoundationSystem = 'auto' | 'footings' | 'strips' | 'mat' | 'piles';
 export const FOUNDATION_SYSTEMS: readonly FoundationSystem[] = ['auto', 'footings', 'strips', 'mat', 'piles'];
 
 /** The piles a column is founded on: diameter and length, m, the allowable load of one, kN, from the soil profile's strata or presumed, and the group's efficiency. */
-export interface PileSpec { diameter: number; length: number; capacity: number; source: 'strata' | 'presumed'; efficiency: number }
+export interface PileSpec { diameter: number; length: number; capacity: number; source: 'strata' | 'layers' | 'presumed'; efficiency: number }
 
 /** A pile cap's piles as adopted: where each stands from the cap's centroid, m, their diameter and length, and each pile's bars and hoops. */
 export interface CapPiles { diameter: number; length: number; at: Array<[number, number]>; bars: { count: number; dia: number }; hoop: { dia: number; spacing: number } }

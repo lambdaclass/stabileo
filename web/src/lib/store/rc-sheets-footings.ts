@@ -3,7 +3,7 @@ import { criteriaOf } from '../rc-sheets/criteria';
 import { resultsStore } from './results.svelte';
 import { physicalGroups } from './physical';
 import { designData } from './design-data';
-import { concreteFc, presumedPileOf } from '../model/design-data';
+import { concreteFc, pileLayerStrata, presumedPileOf } from '../model/design-data';
 import { pileCapacity } from '../model/foundation/piles';
 import { findProfile } from '../model/geotechnical';
 import { columnOn } from '../model/foundation/generate';
@@ -53,7 +53,10 @@ export function pileSpec(): PileSpec {
   const prof = findProfile(geo, geo?.defaultProfileId ?? null);
   const cap = prof?.strata?.length ? pileCapacity(prof.strata, p.diameter, p.length) : null;
   const efficiency = criteriaOf(dd.designOptions?.criteria).footingPileEfficiency;
-  return cap && cap.total > 0 && !cap.beyondStrata ? { diameter: p.diameter, length: p.length, capacity: cap.total, source: 'strata', efficiency } : { diameter: p.diameter, length: p.length, capacity: p.capacity, source: 'presumed', efficiency };
+  if (cap && cap.total > 0 && !cap.beyondStrata) return { diameter: p.diameter, length: p.length, capacity: cap.total, source: 'strata', efficiency };
+  const own = p.layers?.length ? pileCapacity(pileLayerStrata(p.layers), p.diameter, p.length) : null;
+  if (own && own.total > 0 && !own.beyondStrata) return { diameter: p.diameter, length: p.length, capacity: own.total, source: 'layers', efficiency };
+  return { diameter: p.diameter, length: p.length, capacity: p.capacity, source: 'presumed', efficiency };
 }
 
 /** Up the column from its foot to the first node a beam or a slab frames into, m. */

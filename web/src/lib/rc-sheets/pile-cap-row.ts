@@ -66,7 +66,7 @@ function verifications(r: CapAnalysis, a: CapAdopted, c: FootingContext, code: F
   const k = r.result, cr = critOf(c), out: CheckLine[] = [];
   const kn = (v: number) => `${fmt(v, 1)} kN`, mpa = (v: number) => `${fmt(v, 3)} MPa`, cm = (v: number) => `${fmt(v * 100, 1)} cm`, cm2 = (v: number) => `${fmt(v, 2)} cm²`;
   const n = k.piles.length, maxS = Math.max(...k.piles.map((p) => p.service)), minS = Math.min(...k.piles.map((p) => p.service));
-  out.push(check(k.source === 'strata' ? 'rcSheets.v.pileStrata' : 'rcSheets.v.pilePresumed', true, { demand: `Ø${fmt(k.diameter * 100, 0)} · L = ${fmt(k.length, 1)} m · Qadm = ${kn(k.capacity)}` }));
+  out.push(check(k.source === 'strata' ? 'rcSheets.v.pileStrata' : k.source === 'layers' ? 'rcSheets.v.pileLayers' : 'rcSheets.v.pilePresumed', true, { demand: `Ø${fmt(k.diameter * 100, 0)} · L = ${fmt(k.length, 1)} m · Qadm = ${kn(k.capacity)}` }));
   out.push(check('rcSheets.v.pileLoad', maxS <= k.capacity + 1e-6, { clause: '§13.4.1.1', demand: kn(maxS), capacity: kn(k.capacity), ratio: ratioOf(maxS, k.capacity) }));
   out.push(check('rcSheets.v.pileUplift', minS >= -1e-6 && r.leastFactored >= -1e-6, { clause: '§13.4.1.1', demand: `${kn(minS)} · ${kn(r.leastFactored)}`, capacity: '≥ 0 kN' }));
   if (r.unheld > PILE_UNHELD_TOL) out.push(check('rcSheets.v.pileLine', false, { clause: CRITERION, demand: `${fmt(r.unheld, 1)} kN·m`, capacity: '0 kN·m' }));

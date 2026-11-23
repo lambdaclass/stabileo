@@ -8,7 +8,8 @@
   import { modelStore } from '../../../lib/store';
   import { designData, patchDesignData } from '../../../lib/store/design-data';
   import { findProfile } from '../../../lib/model/geotechnical';
-  import { FOUNDING_RANGE, PRESUMED_BEARING_RANGE, PRESUMED_PILE_RANGE, presumedPileOf, type PresumedPile } from '../../../lib/model/design-data';
+  import { FOUNDING_RANGE, PRESUMED_BEARING_RANGE, PRESUMED_PILE_RANGE, presumedPileOf, type PileLayer, type PresumedPile } from '../../../lib/model/design-data';
+  import { pileSpec } from '../../../lib/store/rc-sheets-footings';
 
   let { layouts, adopted, preview = $bindable() }: { layouts: readonly FoundationLayout[]; adopted: FoundationSystem | null; preview: FoundationSystem } = $props();
   const fmt = $derived(makeFmt(decimalFor(i18n.locale)));
@@ -36,7 +37,18 @@
     patchDesignData({ foundingElevation: -v });
   }
   const strata = $derived(!!profile?.strata?.length);
-  function setPile(k: keyof PresumedPile, scale: number) {
+  const spec = $derived.by(() => { void modelStore.designData; void modelStore.model.geotechnical; return pileSpec(); });
+  const layers = $derived(pile.layers ?? []);
+  const setLayers = (next: PileLayer[]) => patchDesignData({ presumedPile: { ...pile, layers: next } });
+  function setLayer(i: number, k: keyof PileLayer, e: Event) {
+    const el = e.currentTarget as HTMLInputElement, v = Number(el.value.replace(',', '.'));
+    const lim = k === 'to' ? [0.1, 200] : k === 'shaft' ? [0, 2000] : [0, 50000];
+    if (!Number.isFinite(v) || v < lim[0]! || v > lim[1]!) { el.value = String(layers[i]![k]); return; }
+    setLayers(layers.map((l, j) => (j === i ? { ...l, [k]: v } : l)));
+  }
+  const addLayer = () => setLayers([...layers, { to: Math.max(pile.length, (layers.at(-1)?.to ?? 0) + 5), shaft: layers.at(-1)?.shaft ?? 30, tip: layers.at(-1)?.tip ?? 1500 }]);
+  const removeLayer = (i: number) => setLayers(layers.filter((_, j) => j !== i));
+  function setPile(k: 'diameter' | 'length' | 'capacity', scale: number) {
     return (e: Event) => {
       const el = e.currentTarget as HTMLInputElement, v = Number(el.value) / scale, r = PRESUMED_PILE_RANGE[k];
       if (!Number.isFinite(v) || v < r.min || v > r.max) { el.value = String(pile[k] * scale); return; }
@@ -74,9 +86,25 @@
       <span>{t('rcSheets.foundation.pile')}</span>
       <span>{t('rcSheets.foundation.pileDiameter')}</span><input type="number" min={PRESUMED_PILE_RANGE.diameter.min * 100} max={PRESUMED_PILE_RANGE.diameter.max * 100} step="5" value={pile.diameter * 100} onchange={setPile('diameter', 100)} data-testid="rc-foundation-pile-diameter" /><span>cm</span>
       <span>{t('rcSheets.foundation.pileLength')}</span><input type="number" min={PRESUMED_PILE_RANGE.length.min} max={PRESUMED_PILE_RANGE.length.max} step="0.5" value={pile.length} onchange={setPile('length', 1)} data-testid="rc-foundation-pile-length" /><span>m</span>
-      {#if !strata}<span>{t('rcSheets.foundation.pileCapacity')}</span><input type="number" min={PRESUMED_PILE_RANGE.capacity.min} max={PRESUMED_PILE_RANGE.capacity.max} step="50" value={pile.capacity} onchange={setPile('capacity', 1)} data-testid="rc-foundation-pile-capacity" /><span>kN</span>{/if}
-      <span class="hint">{strata ? t('rcSheets.foundation.pileStrata') : t('rcSheets.foundation.pilePresumed')}</span>
+      {#if !strata && !layers.length}<span>{t('rcSheets.foundation.pileCapacity')}</span><input type="number" min={PRESUMED_PILE_RANGE.capacity.min} max={PRESUMED_PILE_RANGE.capacity.max} step="50" value={pile.capacity} onchange={setPile('capacity', 1)} data-testid="rc-foundation-pile-capacity" /><span>kN</span>{/if}
+      <span class="hint">{strata ? t('rcSheets.foundation.pileStrata') : layers.length ? '' : t('rcSheets.foundation.pilePresumed')}</span>
     </label>
+    {#if !strata}
+      <div class="rfl-layers" data-testid="rc-foundation-pile-layers">
+        <span class="rfl-sub">{t('rcSheets.foundation.pileLayers')}</span>
+        {#each layers as l, i (i)}
+          <div class="rfl-soil" data-testid="rc-foundation-pile-layer">
+            <span>{t('rcSheets.foundation.pileLayerTo')}</span><input type="number" min="0.1" max="200" step="0.5" value={l.to} onchange={(e) => setLayer(i, 'to', e)} data-testid="rc-foundation-pile-layer-to" /><span>m</span>
+            <span>{t('rcSheets.foundation.pileShaft')}</span><input type="number" min="0" max="2000" step="5" value={l.shaft} onchange={(e) => setLayer(i, 'shaft', e)} data-testid="rc-foundation-pile-layer-shaft" /><span>kPa</span>
+            <span>{t('rcSheets.foundation.pileTip')}</span><input type="number" min="0" max="50000" step="100" value={l.tip} onchange={(e) => setLayer(i, 'tip', e)} data-testid="rc-foundation-pile-layer-tip" /><span>kPa</span>
+            <button type="button" class="pk-btn" onclick={() => removeLayer(i)} data-testid="rc-foundation-pile-layer-remove">{t('rcSheets.foundation.pileRemoveLayer')}</button>
+          </div>
+        {/each}
+        <button type="button" class="pk-btn rfl-compare" onclick={addLayer} data-testid="rc-foundation-pile-add-layer">{t('rcSheets.foundation.pileAddLayer')}</button>
+        <span class="hint">{t('rcSheets.foundation.pileLayersHint')}</span>
+      </div>
+    {/if}
+    <span class="rfl-soil" data-testid="rc-foundation-pile-capacity-read">{t('rcSheets.foundation.pileComputed')}: <b>{fmt(spec.capacity, 0)} kN</b></span>
   {/if}
   <table>
     <thead><tr><th>{t('rcSheets.foundation.label')}</th><th class="n">{t('rcSheets.foundation.share')}</th><th class="n">m³</th><th class="n">kg</th><th>{t('rcSheets.foundation.parts')}</th><th class="n">{t('rcSheets.foundation.failing')}</th><th></th></tr></thead>
@@ -128,6 +156,8 @@
   .rfl-fields { display: flex; flex-direction: column; gap: 2px; }
   td.pending { text-align: left; color: var(--st-text-3); font-style: italic; }
   .rfl-compare { align-self: flex-start; }
+  .rfl-layers { display: flex; flex-direction: column; gap: 2px; margin: 0 0 6px 12px; }
+  .rfl-sub { color: var(--st-text-2); }
   .rec { font-size: 0.64rem; color: var(--st-accent); border: 1px solid var(--st-accent); border-radius: 3px; padding: 0 3px; }
   .bad { color: var(--st-danger); font-weight: 600; }
   .needs { font-weight: 400; white-space: nowrap; }
