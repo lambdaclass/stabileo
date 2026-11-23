@@ -31,10 +31,10 @@ def evidence(fresh):
                    'observed': steps - len(frames), 'tolerance': 0, 'passed': len(frames) == steps})
     peak = first_peak(frames)
     regression = case['regression']
-    drift = abs(peak['load'] - regression['firstLimitLoad'])
+    drift = abs(peak['load'] - regression['firstLimitLoad']) if peak else None
     checks.append({'name': 'Regression: first sampled peak, 20 elements', 'metric': 'absolute difference (kN)',
                    'observed': drift, 'tolerance': regression['absoluteTolerance'],
-                   'passed': drift < regression['absoluteTolerance'] and peak['step'] == regression['firstPeakStep']})
+                   'passed': peak is not None and drift < regression['absoluteTolerance'] and peak['step'] == regression['firstPeakStep']})
     study = case['convergence']['cases']
     finest = {}
     for split in (1, 2, 4):
@@ -56,16 +56,16 @@ def evidence(fresh):
     checks.append({'name': 'The page replay is a fresh native run', 'metric': 'largest absolute difference in load (kN) and displacement (m)',
                    'observed': drift, 'tolerance': 1e-9, 'passed': drift <= 1e-9})
     reading = load(READING)
-    computed = {'elements20': peak['load'], 'elements80': p80, 'extrapolated': extrapolated}
+    computed = {'elements20': peak['load'] if peak else None, 'elements80': p80, 'extrapolated': extrapolated}
     labels = {'elements20': 'First peak load, 20 elements', 'elements80': 'First peak load, 80 elements',
               'extrapolated': 'First peak load, extrapolated to zero element length'}
     rows = []
     for entry in reading['rows']:
         value = computed[entry['computed']]
-        observed = abs(value - entry['reference'])
+        observed = abs(value - entry['reference']) if value is not None else None
         row = {'id': entry['id'], 'name': f'{labels[entry["computed"]]} against {entry["label"]}', 'source': entry['source'], 'unit': 'kN',
                'reference': entry['reference'], 'computed': value, 'metric': 'absolute difference',
-               'observed': observed, 'tolerance': entry['uncertainty'], 'passed': observed <= entry['uncertainty']}
+               'observed': observed, 'tolerance': entry['uncertainty'], 'passed': observed is not None and observed <= entry['uncertainty']}
         rows.append(row)
         checks.append({k: row[k] for k in ('name', 'metric', 'reference', 'computed', 'observed', 'tolerance', 'passed')})
     return {'command': COMMAND, 'case': 'engine/tests/benchmarks/lee_frame.json', 'checks': checks}, {'checks': rows}
@@ -85,12 +85,19 @@ def same(a, b):
         return isinstance(b, dict) and a.keys() == b.keys() and all(same(a[k], b[k]) for k in a)
     if isinstance(a, list):
         return isinstance(b, list) and len(a) == len(b) and all(same(x, y) for x, y in zip(a, b))
+    if a is None or b is None:
+        return a is b
     if isinstance(a, float) or isinstance(b, float):
         return abs(a - b) <= 1e-9 * max(1.0, abs(a), abs(b))
     return a == b
 
 
+USAGE = 'usage: validate.py generate|check <fresh export>'
+
+
 def main(mode, export):
+    if mode not in ('generate', 'check'):
+        raise SystemExit(USAGE)
     validation, comparison = evidence(load(export))
     text = dump(comparison)
     files = {'published-peaks.json': READING.read_text(), 'published_comparison.json': text}
@@ -98,13 +105,11 @@ def main(mode, export):
         (HERE / 'VALIDATION.json').write_text(dump(validation))
         (HERE / 'reference-results/published_comparison.json').write_text(text)
         (HERE / 'reference-results/MANIFEST.json').write_text(dump(manifest(files)))
-    elif mode == 'check':
+    else:
         committed = {name: (HERE / 'reference-results' / name).read_text() for name in files}
         assert same(load(HERE / 'VALIDATION.json'), validation), 'VALIDATION.json is not what the fresh run gives'
         assert same(json.loads(committed['published_comparison.json']), comparison), 'published_comparison.json is stale'
         assert load(HERE / 'reference-results/MANIFEST.json') == manifest(committed), 'MANIFEST.json hashes are stale'
-    else:
-        raise SystemExit('usage: validate.py generate|check <fresh export>')
     failed = [c['name'] for c in validation['checks'] + comparison['checks'] if not c['passed']]
     print(json.dumps({'mode': mode, 'checks': len(validation['checks']), 'comparisonRows': len(comparison['checks']), 'failed': failed}, ensure_ascii=False))
     if failed:
@@ -112,4 +117,6 @@ def main(mode, export):
 
 
 if __name__ == '__main__':
+    if len(sys.argv) != 3:
+        raise SystemExit(USAGE)
     main(*sys.argv[1:3])
