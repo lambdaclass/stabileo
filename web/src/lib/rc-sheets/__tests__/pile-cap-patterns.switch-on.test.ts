@@ -75,3 +75,24 @@ describe('a cap founded deeper', () => {
     expect(lower.capacity).toBeCloseTo(P * 40 * 9 + P * 60 * 1 + A * 3000, 6);
   });
 });
+
+describe('a cap at a property line', () => {
+  const partner = { axis: 'x' as const, key: 'footing:n2', nodeId: 2, name: 'C2', L: 5, column: { b: 0.5, h: 0.5 } };
+  const edge = (permanent: number) => demand(1500, { edge: { anchor: [1, 0], source: 'lines', balance: 'strap', partners: [{ ...partner, permanent }] } });
+
+  it('keeps its piles off the line and hands the offset to a strap, the piles loaded alike', () => {
+    const r = footingRow(edge(2000), ctx, undefined, fmt), ps = r.cap!.piles;
+    expect(Math.max(...ps.map((p) => p.x + r.ex))).toBeLessThanOrEqual(0.25 - 0.5 + 1e-9);
+    expect(r.ex + r.B / 2).toBeCloseTo(0.25, 9);
+    expect(Math.max(...ps.map((p) => p.service)) - Math.min(...ps.map((p) => p.service))).toBeCloseTo(0, 6);
+    const s = r.edge!.straps[0]!;
+    expect(s.partner).toBe('C2');
+    expect(s.pull).toBeCloseTo((1500 * s.e) / (5 - s.e), 6);
+    expect(r.verifications.find((v) => v.label === 'rcSheets.v.footStrapPull')!.ok).toBe(true);
+  });
+
+  it('fails where the inner column\'s permanent load cannot hold 1,5 times the strap\'s pull down (GA §8.5)', () => {
+    const r = footingRow(edge(100), ctx, undefined, fmt);
+    expect(r.verifications.find((v) => v.label === 'rcSheets.v.footStrapPull')!.ok).toBe(false);
+  });
+});
