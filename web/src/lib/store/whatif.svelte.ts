@@ -31,6 +31,8 @@ import type { ModelSnapshot } from './history.svelte';
 import type { Release, Section, SupportType } from './model.svelte';
 import { solverProperties } from '../section/state';
 import { liveSolveBusy } from '../engine/live-calc-state';
+import { modelCoords, shownCoords } from '../axes/display';
+import { is3DWorkspace } from '../utils/workspace';
 
 export interface MemberFactors { e: number; a: number; iy: number }
 
@@ -41,6 +43,16 @@ let all = $state<MemberFactors>({ e: 1, a: 1, iy: 1 });
 let members = $state<Record<number, MemberFactors>>({});
 let releases = $state<Record<number, { i?: Release; j?: Release }>>({});
 let supportTypes = $state<Record<number, SupportType>>({});
+/** A point load on a member at another distance from its node I (m). */
+let loadAt = $state<Record<number, number>>({});
+/** A load on a node, carried to another node. */
+let loadNode = $state<Record<number, number>>({});
+/** A support carried to another node, by support id. */
+let supportNode = $state<Record<number, number>>({});
+/** A node moved, in the coordinates the reader sees (`shownCoords`). */
+let nodeShift = $state<Record<number, number[]>>({});
+/** The response before any change, for the panel's comparison. */
+let reference = $state.raw<Record<string, number> | null>(null);
 let frame: { cancel: () => void } | null = null;
 let pending = false;
 /*
@@ -121,12 +133,63 @@ function scaledSection(sec: Section, fa: number, fi: number): Section {
   return out;
 }
 
+function moveNodes(): void {
+  const m = modelStore.model;
+  const space = is3DWorkspace(uiStore.analysisMode);
+  for (const [key, d] of Object.entries(nodeShift)) {
+    const n = m.nodes.get(Number(key));
+    if (!n || d.every((v) => v === 0)) continue;
+    const at = shownCoords(n, space).map((v, i) => v + (d[i] ?? 0));
+    const { x, y, z } = modelCoords(at, space);
+    m.nodes.set(n.id, space ? { ...n, x, y, z } : { ...n, x, y });
+  }
+  m.nodes = new Map(m.nodes);
+}
+
+function memberLength(elementId: number): number {
+  const m = modelStore.model;
+  const el = m.elements.get(elementId);
+  const a = el && m.nodes.get(el.nodeI), b = el && m.nodes.get(el.nodeJ);
+  return a && b ? Math.hypot(b.x - a.x, b.y - a.y, (b.z ?? 0) - (a.z ?? 0)) : 0;
+}
+
+/* Positions apply after the nodes moved, so a load stays on the member it was on, within its new length. */
+function moveLoads(): void {
+  const loads = modelStore.model.loads;
+  for (const [key, a] of Object.entries(loadAt)) {
+    const i = Number(key), l = loads[i];
+    if (!l || (l.type !== 'pointOnElement' && l.type !== 'pointOnElement3d')) continue;
+    const d = l.data as { elementId: number; a: number };
+    loads[i] = { ...l, data: { ...l.data, a: Math.min(Math.max(a, 0), memberLength(d.elementId)) } } as typeof l;
+  }
+  for (const [key, nodeId] of Object.entries(loadNode)) {
+    const i = Number(key), l = loads[i];
+    if (!l || (l.type !== 'nodal' && l.type !== 'nodal3d') || !modelStore.model.nodes.has(nodeId)) continue;
+    loads[i] = { ...l, data: { ...l.data, nodeId } } as typeof l;
+  }
+}
+
+function moveSupports(): void {
+  const m = modelStore.model;
+  const taken = new Set([...m.supports.values()].map((s) => s.nodeId));
+  for (const [key, nodeId] of Object.entries(supportNode)) {
+    const s = m.supports.get(Number(key));
+    if (!s || s.nodeId === nodeId || taken.has(nodeId) || !m.nodes.has(nodeId)) continue;
+    taken.delete(s.nodeId);
+    taken.add(nodeId);
+    m.supports.set(s.id, { ...s, nodeId });
+  }
+  m.supports = new Map(m.supports);
+}
+
 function apply(): void {
   const snap = baseline;
   if (!snap) return;
   restoreBaseline(snap);
   const m = modelStore.model;
+  moveNodes();
   scaleLoads();
+  moveLoads();
 
   if (all.e !== 1) for (const mat of m.materials.values()) mat.e *= all.e;
   if (all.a !== 1 || all.iy !== 1) {
@@ -157,6 +220,7 @@ function apply(): void {
       modelStore.updateSupport(Number(key), { type });
     }
   });
+  moveSupports();
 
   for (const [key, r] of Object.entries(releases)) {
     const el = m.elements.get(Number(key));
@@ -211,6 +275,20 @@ export const whatIf = {
   get members() { return members; },
   get releases() { return releases; },
   get supportTypes() { return supportTypes; },
+  get loadAt() { return loadAt; },
+  get loadNode() { return loadNode; },
+  get supportNode() { return supportNode; },
+  get nodeShift() { return nodeShift; },
+  get reference() { return reference; },
+  /** The response before any change: taken once, on the first results of an unchanged model. */
+  setReference(r: Record<string, number>) { reference = r; },
+  /** Whether anything differs from the model as it was on entry. */
+  get changed(): boolean {
+    return loadFactors.some((f) => f !== 1) || all.e !== 1 || all.a !== 1 || all.iy !== 1
+      || Object.keys(members).some((id) => this.isMemberChanged(Number(id))) || Object.keys(releases).length > 0
+      || Object.keys(supportTypes).length > 0 || Object.keys(loadAt).length > 0 || Object.keys(loadNode).length > 0
+      || Object.keys(supportNode).length > 0 || Object.values(nodeShift).some((d) => d.some((v) => v !== 0));
+  },
   get baseline() { return baseline; },
 
   /** Enter: remember the model and whether live calc was on, and turn it on. */
@@ -223,6 +301,11 @@ export const whatIf = {
     members = {};
     releases = {};
     supportTypes = {};
+    loadAt = {};
+    loadNode = {};
+    supportNode = {};
+    nodeShift = {};
+    reference = null;
     liveWasOn = uiStore.liveCalc;
     uiStore.liveCalc = true;
     uiStore.showWhatIf = true;
@@ -275,6 +358,15 @@ export const whatIf = {
     schedule();
   },
   setSupportType(id: number, type: SupportType) { supportTypes[id] = type; schedule(); },
+  setLoadAt(i: number, a: number) { loadAt[i] = a; schedule(); },
+  setLoadNode(i: number, nodeId: number) { loadNode[i] = nodeId; schedule(); },
+  setSupportNode(id: number, nodeId: number) { supportNode[id] = nodeId; schedule(); },
+  setNodeShift(id: number, axis: number, d: number) {
+    const cur = [...(nodeShift[id] ?? [0, 0, 0])];
+    cur[axis] = d;
+    nodeShift[id] = cur;
+    schedule();
+  },
 
   /** Everything back to the model as it was on entry. */
   reset() {
@@ -283,6 +375,10 @@ export const whatIf = {
     members = {};
     releases = {};
     supportTypes = {};
+    loadAt = {};
+    loadNode = {};
+    supportNode = {};
+    nodeShift = {};
     schedule();
   },
 
