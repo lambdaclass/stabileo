@@ -1,14 +1,11 @@
 /**
- * Slabs meshed when the model is solved, not when they are placed.
+ * Slabs meshed when the model is solved, not when they are placed, as Basic 3D reads them.
  *
- * A slab meshed at placement cuts its beams at every edge node of the mesh and adds tens of
- * shells per panel: the model the person edits gets heavy long before it is analysed. A slab
- * placed this way is one shell per panel, its beams whole, and it carries the mesh size it
- * will be analysed with (`PhysicalData.meshAtSolve`). The first solve meshes it in place
+ * A slab placed this way (`PhysicalData.meshAtSolve`) is one shell per panel, its beams whole, and
+ * it carries the mesh size it will be analysed with. In PRO it becomes a physical plate
+ * (`store/plates-from-shells.ts`); Basic 3D has no plates, so the first solve meshes it in place
  * (`meshQuad`, which keeps its loads and groups and cuts the beams so slab and beams share their
- * nodes), so the analysis, the results on screen and the slab design read the mesh they always
- * read. When the editing goes on, `simplifySlabs` puts the panel back: one shell, its loads, the
- * beams merged where the mesh had cut them and the mesh's own nodes gone.
+ * nodes), and the analysis and the results on screen read that mesh.
  *
  * Every call is one undo step.
  */
@@ -23,11 +20,6 @@ import { columnFootprintsAt, footprintGrid, outsideFootprints, tieFootprints, un
 
 type Deferred = ReturnType<typeof physicalGroups>[number] & { physical: PhysicalData & { meshAtSolve: NonNullable<PhysicalData['meshAtSolve']> } };
 const deferred = (): Deferred[] => physicalGroups().filter((g): g is Deferred => g.physical.kind === 'slab' && !!g.physical.meshAtSolve);
-
-/** The slabs waiting for their mesh: placed simple and not yet solved. */
-export const slabsToMesh = (): number => deferred().filter((g) => !g.physical.meshAtSolve.meshed).length;
-/** The slabs meshed by a solve, which can go back to one shell per panel. */
-export const slabsToSimplify = (): number => deferred().filter((g) => g.physical.meshAtSolve.meshed).length;
 
 /**
  * The size a waiting slab is meshed at: its own, and for a waffle slab with its rib system chosen

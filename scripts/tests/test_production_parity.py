@@ -61,6 +61,45 @@ class ProductionParity(unittest.TestCase):
             self.assertEqual((reference / carried.name).read_text(), 'intended')
             self.assertFalse((reference / added.name).exists())
 
+    def test_build_reads_its_checkout_history(self):
+        with tempfile.TemporaryDirectory(dir=parity.ROOT) as directory:
+            repo = Path(directory)
+            web = repo / 'web'
+            web.mkdir()
+            (web / 'package.json').write_text('{"scripts":{"build":"node build.cjs"}}')
+            (web / 'package-lock.json').write_text('{}')
+            (repo / 'Makefile').write_text(SOLVER_RECIPE + 'research.wasm: ;\n')
+            (web / 'build.cjs').write_text(
+                'const fs = require("node:fs");\n'
+                'const { execFileSync } = require("node:child_process");\n'
+                'const value = execFileSync("git", ["show", "HEAD:reference.txt"]);\n'
+                'fs.mkdirSync("dist");\n'
+                'fs.writeFileSync("dist/index.html", value);\n'
+            )
+
+            def git(*args):
+                return subprocess.check_output(['git', *args], cwd=repo, text=True).strip()
+
+            git('init', '--quiet')
+            git('config', 'user.name', 'Production parity fixture')
+            git('config', 'user.email', 'parity@example.invalid')
+            path = repo / 'reference.txt'
+            path.write_text('published')
+            git('add', '.')
+            git('commit', '--quiet', '-m', 'Published reference')
+            base = git('rev-parse', 'HEAD')
+            path.write_text('candidate')
+            git('add', '.')
+            git('commit', '--quiet', '-m', 'Candidate history')
+            head = git('rev-parse', 'HEAD')
+            with patch.object(parity, 'ROOT', repo):
+                for rev, expected in [(base, 'published'), (head, 'candidate')]:
+                    with self.subTest(revision=rev):
+                        checkout = repo / rev
+                        parity.snapshot(rev, checkout, set())
+                        parity.build(checkout, {**parity.os.environ, 'GITHUB_SHA': base})
+                        self.assertEqual((checkout / 'web/dist/index.html').read_text(), expected)
+
     def test_reference_materializes_base_only_blobs_from_a_partial_clone(self):
         with tempfile.TemporaryDirectory(dir=parity.ROOT) as directory:
             fixture = Path(directory)

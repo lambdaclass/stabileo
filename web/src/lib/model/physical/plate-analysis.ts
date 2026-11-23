@@ -95,10 +95,16 @@ function meshSampler(model: PieceModel, size: number): ArcSampler {
   };
 }
 
-export function plateMeshFeatures(model: PlateAnalysisModel, group: PlateGroup, spec: PlateMeshSpec) {
+export function plateMeshGeometry(model: PlateAnalysisModel, group: PlateGroup, spec: PlateMeshSpec) {
   if (invalidPlateDefinition(model, group)) return { refused: 'invalid' as const };
   const geo = plateGeometry(model, group, meshSampler(model, spec.size));
-  if (!geo) return { refused: 'ambiguousSweep' as const };
+  return geo ? { geo } : { refused: 'ambiguousSweep' as const };
+}
+
+export function plateMeshFeatures(model: PlateAnalysisModel, group: PlateGroup, spec: PlateMeshSpec) {
+  const geometry = plateMeshGeometry(model, group, spec);
+  if (geometry.refused) return geometry;
+  const { geo } = geometry;
   const loops = plateLoops(group);
   const mine = new Set(loops.owned);
   const owned = new Set<number>();
@@ -113,7 +119,7 @@ export function plateMeshFeatures(model: PlateAnalysisModel, group: PlateGroup, 
     }
   }
   const loopNodes = new Set([...loops.outer, ...loops.holes.flat()]);
-  return { geo, features: externalFeatures(model, geo, owned, loopNodes, { mine, neighbours }) };
+  return { refused: undefined, geo, features: externalFeatures(model, geo, owned, loopNodes, { mine, neighbours }) };
 }
 
 export type PlateStatus = 'unmeshed' | 'current' | 'stale' | 'invalid';
