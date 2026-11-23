@@ -11,6 +11,7 @@
   import QuantityInput from './loads/QuantityInput.svelte';
   import { fmtQ, unitQ } from '../../lib/store/display-units.svelte';
   import { foundationSprings, tributaryAreas } from '../../lib/engine/foundation-springs';
+  import { platesWholeIn, setPlateShellSpec } from '../../lib/store/physical-plates';
 
   const profiles = $derived(modelStore.geotechnical?.profiles ?? []);
   let source = $state<string>('typed');
@@ -48,6 +49,7 @@
           dofFrame: 'global', kz: sp.kz, ...(uplift ? { uplift: true } : {}),
         } as never);
       }
+      if (ks) setPlateShellSpec(platesWholeIn(uiStore.selectedShells), { springs: { ks, uplift, holdHorizontal } });
     });
     done = tp('foundation.applied', { n: springs.length, area: totalArea.toFixed(2) });
   }

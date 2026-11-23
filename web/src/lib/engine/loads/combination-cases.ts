@@ -128,27 +128,42 @@ function hasSeismicProvenance(spec: LoadCombinationSpec): boolean {
 
 export function expandCombinations(
   specs: readonly LoadCombinationSpec[],
-  cases: ReadonlyArray<{ id: number; type?: string; name: string; alternatives?: string; pattern?: boolean; includes?: ReadonlyArray<unknown>; snowBasis?: 'flatRoof' }>,
+  cases: ReadonlyArray<{ id: number; type?: string; name: string; alternatives?: string; pattern?: boolean; includes?: ReadonlyArray<unknown>; group?: string; snowBasis?: 'flatRoof' }>,
   opts: ExpandOptions = {},
 ): CaseCombination[] {
-  type Case = { id: number; name: string; alternatives?: string; pattern?: boolean; snowBasis?: 'flatRoof' };
-  const bySymbol = new Map<LoadSymbol, Case[]>();
+  type Case = { id: number; name: string; alternatives?: string; pattern?: boolean; group?: string; snowBasis?: 'flatRoof' };
+  const bySymbol0 = new Map<LoadSymbol, Case[]>();
   for (const c of cases) {
     const s = symbolOfCase(c);
     if (!s) continue;
-    bySymbol.set(s, [...(bySymbol.get(s) ?? []), { id: c.id, name: c.name, alternatives: c.alternatives, pattern: c.pattern, snowBasis: c.snowBasis }]);
+    bySymbol0.set(s, [...(bySymbol0.get(s) ?? []), { id: c.id, name: c.name, alternatives: c.alternatives, pattern: c.pattern, group: c.group, snowBasis: c.snowBasis }]);
   }
   /** One way of taking a term: the cases it adds, their sign, and what names it. */
   type Pick = { cases: Case[]; sense: 1 | -1; label: string };
   const out: CaseCombination[] = [];
   for (const spec of specs) {
-    const terms = spec.terms.filter((t) => t.factor !== 0);
+    const terms0 = spec.terms.filter((t) => t.factor !== 0);
+    /*
+     * A term with a group takes the cases planned with that group; a term of the same symbol with
+     * none takes the others. A spec that names no group takes every case of the symbol, as always.
+     */
+    const termKey = (t: (typeof terms0)[number]) => (t.group ? `${t.symbol}|${t.group}` : t.symbol);
+    const bySymbol = new Map<string, Case[]>();
+    for (const t of terms0) {
+      const all = bySymbol0.get(t.symbol);
+      if (!all) continue;
+      const named = new Set(terms0.filter((o) => o.symbol === t.symbol && o.group).map((o) => o.group!));
+      const mine = all.filter((c) => (t.group ? c.group === t.group : !(c.group && named.has(c.group))));
+      if (mine.length) bySymbol.set(termKey(t), mine);
+    }
+    // A group term with no case of its group is the part absent from the model: it drops, the rest stays.
+    const terms = terms0.filter((t) => !t.group || bySymbol.has(termKey(t)));
     const legacyFlatRoof = spec.notes?.some(n => n.key === 'loads.cirsoc101.note.snowAsFlatRoof');
     const seismic = hasSeismicProvenance(spec);
     const selected = new Map(terms.map(t => {
       if (t.snowBasis && t.symbol !== 'S') throw new EngineMessageError(msg('snow.refused.flatRoofCase'));
       if (t.symbol === 'S' && !t.snowBasis && legacyFlatRoof && seismic) throw new EngineMessageError(msg('snow.refused.legacyCombination'));
-      const all = bySymbol.get(t.symbol) ?? [];
+      const all = bySymbol.get(termKey(t)) ?? [];
       const basis = t.snowBasis ?? (t.symbol === 'S' && legacyFlatRoof ? 'flatRoof' : undefined);
       const matching = all.filter(c => t.symbol !== 'S' || c.snowBasis === basis);
       const missingSnowCase = basis === 'flatRoof' ? msg('snow.refused.flatRoofCase') : msg('snow.refused.physicalCase');
@@ -164,7 +179,7 @@ export function expandCombinations(
       if ((basis === 'flatRoof' || all.length > 0) && !matching.length) throw new EngineMessageError(missingSnowCase);
       return [t, matching] as const;
     }));
-    if (terms.some((t) => !bySymbol.has(t.symbol))) continue;
+    if (terms.some((t) => !bySymbol.has(termKey(t)))) continue;
     const casesFor = (t: (typeof terms)[number]) => selected.get(t)!;
     /*
      * Each term offers one or more picks, and a combination takes one pick of every term.

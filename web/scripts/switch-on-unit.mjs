@@ -27,3 +27,13 @@ export const switchOnUnitFiles = [
   'src/lib/store/__tests__/auth-store.test.ts',
   'src/lib/tracking/__tests__/activity.test.ts',
 ];
+
+export const sharedSwitchOnUnitFiles = [
+  'src/lib/i18n/__tests__/engine-purity.test.ts',
+  'src/lib/i18n/__tests__/pro-flow-coverage.test.ts',
+  'src/lib/i18n/__tests__/split-dictionaries.test.ts',
+  'src/lib/export/__tests__/export-provenance.test.ts',
+  'src/lib/provenance/__tests__/registry.test.ts',
+  'src/lib/store/__tests__/newer-file-version.test.ts',
+  'src/lib/store/__tests__/whatif-load-scaling.test.ts',
+];

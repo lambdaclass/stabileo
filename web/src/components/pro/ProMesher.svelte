@@ -1,3 +1,11 @@
+<script module lang="ts">
+  import { registerFeatureDictionaries } from '../../lib/i18n/store.svelte';
+
+  if (__PUBLIC_FEATURES__.proPlatesUnified) {
+    void import('virtual:mesher-i18n').then(({ default: dictionaries }) => registerFeatureDictionaries(dictionaries));
+  }
+</script>
+
 <script lang="ts">
   import { modelVec } from '../../lib/axes/display';
   import Hint from './Hint.svelte';

@@ -7,7 +7,7 @@
  * Pure: the store reads the project into a `DetailValues` (`store/detail-catalog.ts`); a family
  * with nothing designed yet keeps a typical value and says so (`typical`).
  */
-import { deriveCompressionDevelopment, deriveDevelopment, deriveHookedDevelopment, deriveLap } from '../../codes/cirsoc201/anchorage';
+import { compressionLapMm, deriveCompressionDevelopment, deriveDevelopment, deriveHookedDevelopment, deriveLap } from '../../codes/cirsoc201/anchorage';
 import { standardHook } from '../../codes/cirsoc201/bar-geometry';
 import type { RegulationEdition } from '../../codes/regulation';
 
@@ -75,7 +75,7 @@ export function barLengths(v: DetailValues, d: number): BarLengths {
   const base = { diameterMm: d, fy: v.fy, fc: v.fc, favourableSpacing: false, edition: v.edition };
   const dev = deriveDevelopment(base), devTop = deriveDevelopment({ ...base, psiT: 1.3 });
   const h90 = standardHook(d, 90, 'longitudinal'), h180 = standardHook(d, 180, 'longitudinal');
-  const lapC = Math.max(v.fy <= 420 ? 0.071 * v.fy * d : (0.13 * v.fy - 24) * d, 300);
+  const lapC = compressionLapMm(v.fy, d);
   return {
     ld: up10(dev.ldM * 1000), ldTop: up10(devTop.ldM * 1000),
     lap: up10(deriveLap(dev, { edition: v.edition }).lapM * 1000), lapTop: up10(deriveLap(devTop, { edition: v.edition }).lapM * 1000),
