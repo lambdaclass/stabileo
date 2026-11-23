@@ -131,7 +131,7 @@
       ]
     },
     "src/components/ContainmentBanner.svelte": {
-      "source": "ea1c84e9a161df080ca1aeee5f8ac801d54e5f8819e8e4732ae7edd500f6887d",
+      "source": "af8f933d8df44586610394530e74d35b83eb955c83250699897cf76e49b9ae1e",
       "original": "c650d2f81b16e0858d9a2109e3d883be4f4dea917fd10ae6480f811c3bbfac6e",
       "changes": [
         [
@@ -149,7 +149,7 @@
         ],
         [
           37,
-          16,
+          20,
           [
             "{#if disposition.messages.length}",
             "  <div class=\"containment-notice\" class:refused={disposition.refused} class:open role=\"alert\" data-testid=\"containment-notice\">",
@@ -158,7 +158,7 @@
           ]
         ],
         [
-          58,
+          62,
           15,
           [
             "  .containment-notice { position: absolute; top: 8px; left: 8px; right: 56px; z-index: 20; pointer-events: none; padding: 8px 12px; border: 2px solid #a65b00; background: #fff4db; color: #513000; font-size: 12px; }",
@@ -168,7 +168,7 @@
           ]
         ],
         [
-          74,
+          78,
           2,
           [
             "    .containment-notice { display: flex; align-items: center; gap: 8px; padding: 2px 4px 2px 8px; }",

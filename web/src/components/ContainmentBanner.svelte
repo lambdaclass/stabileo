@@ -9,7 +9,7 @@
   import NoticeRow from './notices/NoticeRow.svelte';
 
   type Finding = { code: string; severity: string; phase?: string; value?: number; message: string };
-  let { disposition, diagnostics = [], children, preserveModel = false, extra = [], actions, onDiagnostics }: {
+  let { disposition, diagnostics = [], children, preserveModel = false, extra = [], actions: rowActions, onDiagnostics }: {
     preserveModel?: boolean; disposition: { refused: boolean; messages: string[] }; diagnostics?: readonly Finding[]; children?: Snippet;
     /** The app's own notices beside the engine's: results out of date, features under review. */
     extra?: readonly ResultNotice[];
@@ -45,9 +45,13 @@
     </div>
     <div class="cn-list" hidden={!open}>
       {#each notices as notice (notice.kind)}
-        <NoticeRow kind={notice.kind} level={notice.level} summary={summaryOf(notice)} details={notice.details} testid="containment-row">
-          {#if actions && extra.some((x) => x.kind === notice.kind)}{@render actions(notice.kind)}{/if}
-        </NoticeRow>
+        {#if rowActions && extra.some((x) => x.kind === notice.kind)}
+          <NoticeRow kind={notice.kind} level={notice.level} summary={summaryOf(notice)} details={notice.details} testid="containment-row">
+            {#snippet actions()}{@render rowActions!(notice.kind)}{/snippet}
+          </NoticeRow>
+        {:else}
+          <NoticeRow kind={notice.kind} level={notice.level} summary={summaryOf(notice)} details={notice.details} testid="containment-row" />
+        {/if}
       {/each}
       {#if onDiagnostics}<button class="cn-diag" onclick={onDiagnostics} data-testid="containment-diagnostics">{t('containment.toDiagnostics')}</button>{/if}
     </div>
