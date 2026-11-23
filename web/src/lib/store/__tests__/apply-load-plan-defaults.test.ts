@@ -125,3 +125,27 @@ it('#2220 applying a signed wind profile preserves both horizontal member-load e
     expect(load.data.frame).toBe('global');
   }
 });
+
+const issue2499 = process.env.RUN_KNOWN_WRONG === '2499' ? it : it.skip;
+
+issue2499('known wrong result: #2499 restoring then applying generates only the upper shell pressure', () => {
+  modelStore.clear();
+  const corners: Array<[number, number]> = [[0, 0], [10, 0], [10, 6], [0, 6]];
+  const addLayer = (z: number) => corners.map(([x, y]) => modelStore.addNode(x, y, z)) as [number, number, number, number];
+  const lower = addLayer(3), upper = addLayer(3.02);
+  const materialId = modelStore.model.materials.keys().next().value!;
+  modelStore.addQuad(lower, materialId, 0.1);
+  const second = modelStore.addQuad(upper, materialId, 0.1);
+  lower.forEach((masterNode, i) => modelStore.addConstraint({
+    type: 'eccentricConnection', masterNode, slaveNode: upper[i]!, offsetZ: 0.02,
+  }));
+  modelStore.restore(JSON.parse(JSON.stringify(modelStore.snapshot())));
+  const input = planInput();
+  const model = { ...input.model, constraints: modelStore.model.constraints };
+  const plan = buildLoadPlan({ ...input, model, gravity: { mode: 'panels' }, dead: [{ labelKey: 'a', q: 1 }] });
+  expect(applyLoadPlan(plan, { clearExisting: true, bothSenses: true, nameOf })).toBeUndefined();
+  expect(plan.surface.filter(load => load.caseType === 'D')).toEqual([{ quadId: second, caseType: 'D', q: 1 }]);
+  const dead = modelStore.model.loadCases.find(c => c.type === 'D')!;
+  expect(modelStore.model.loads.filter(load => load.type === 'surface3d' && load.data.caseId === dead.id))
+    .toEqual([expect.objectContaining({ data: expect.objectContaining({ quadId: second, q: 1 }) })]);
+});

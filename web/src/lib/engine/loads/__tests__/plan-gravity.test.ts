@@ -11,6 +11,7 @@ import { defaultRegulations, type ProjectRegulations } from '../../../codes/role
 import { snowDriftRefusal } from '../snow-drift-loads';
 import type { EngineMessage } from '../../../codes/message';
 import { offsetRoof } from './gravity-offset-roof-fixture';
+import type { Constraint3D } from '../../types-3d';
 
 /** A level of `nx` × `ny` bays of `bx` × `by` m at height `z`, beams on every grid line. */
 function floor(nx: number, ny: number, bx: number, by: number, z = 3): GravityModel & LoadModelData {
@@ -881,6 +882,172 @@ function eccentricShellBay(z: number, releaseVertical = false) {
 it('#2299 an equivalent eccentric connection blocks duplicate gravity', () => {
   const model = eccentricShellBay(3.02);
   checkBlockedGravity(model, { key: 'loadPlan.gravity.offsetShellDeck', params: { id: 1, members: '1, 2, 3, 4' } });
+});
+
+const issue2299 = process.env.RUN_KNOWN_WRONG === '2299' ? it : it.skip;
+const issue2499 = process.env.RUN_KNOWN_WRONG === '2499' ? it : it.skip;
+
+function connectedShells(upperStart = 0, upperEnd = 10, upperHeight = 3.02) {
+  const model = floor(0, 0, 10, 6);
+  const lower = rectangularShell(model, 1, 0, 10, 3);
+  const upper = rectangularShell(model, 2, upperStart, upperEnd, upperHeight);
+  model.constraints = lower.map((masterNode, i) => {
+    const slaveNode = upper[i]!;
+    return { type: 'eccentricConnection', masterNode, slaveNode,
+      offsetX: model.nodes.get(slaveNode)!.x - model.nodes.get(masterNode)!.x, offsetZ: upperHeight - 3 };
+  });
+  return model;
+}
+
+function checkOwnedFloor(model: LoadModelData, owners: number[], expected: number) {
+  for (const loadEveryPanel of [false, true]) {
+    const gravity = { mode: 'panels', loadEveryPanel } as const;
+    const plan = buildLoadPlan(planInput(model, { dead: [{ labelKey: 'a', q: 1 }], gravity, generateCombinations: true }));
+    expect(plan.outcome, JSON.stringify({ blocked: plan.blockedKeys, dead: deadLoadKN(plan, model) })).toBe('READY');
+    expect(plan.surface.filter(load => load.caseType === 'D').map(load => load.quadId).sort((a, b) => a - b)).toEqual(owners);
+    expect(deadLoadKN(plan, model)).toBeCloseTo(expected, 10);
+    expect(plan.levels.reduce((total, level) => total + level.superimposedKN, 0)).toBeCloseTo(expected, 10);
+    expect(plan.combinations.length).toBeGreaterThan(0);
+
+    const layout = gravityLayout(model, { ...gravity, tributaryWidth: 3 });
+    expect(layout.shellQuads.map(quad => quad.quadId).sort((a, b) => a - b)).toEqual(owners);
+    expect([...layout.areaByLevel.values()].reduce((total, area) => total + area, 0)).toBeCloseTo(expected, 10);
+    expect(roofWeightFor(model, gravity, 3, 1)).toBe('heavy');
+    expect(() => snowDriftRefusal(model)).not.toThrow();
+  }
+}
+
+issue2299('known wrong result: #2299 a connected beam bay gives its covered area to the shell', () => {
+  for (const model of [linkedShellBay(3.02), eccentricShellBay(3.02), commonMasterShellBay(3.02)]) {
+    checkOwnedFloor(model, [1], 60);
+  }
+});
+
+issue2299('known wrong result: #2299 subdividing a connected beam bay preserves the shell owner through rotation and reflection', () => {
+  for (const angle of [0, 0.37]) for (const mirror of [1, -1]) {
+    const model = floor(2, 1, 5, 6);
+    const shell = rectangularShell(model, 1, 0, 10, 3.02);
+    model.constraints = [1, 3, 6, 4].map((masterNode, i) => ({
+      type: 'eccentricConnection', masterNode, slaveNode: shell[i]!, offsetZ: 0.02,
+    }));
+    for (const node of model.nodes.values()) node.x *= mirror;
+    rotatePlan(model, angle);
+    checkOwnedFloor(model, [1], 60);
+    expect(gravityLayout(model, { mode: 'panels', tributaryWidth: 3 }).areaByLevel.get(3.02)).toBeCloseTo(60, 10);
+  }
+});
+
+issue2499('known wrong result: #2499 a coextensive eccentric deck owns exactly 60 kN', () => {
+  const model = connectedShells();
+  checkOwnedFloor(model, [2], 60);
+  expect(deadLoadKN(buildLoadPlan(planInput(model, { dead: [{ labelKey: 'a', q: 1 }] })), model)).toBe(60);
+});
+
+for (const [name, mirror, rotate, reverse, subdivide, renumber] of [
+  ['rotation', false, 0.37, false, false, false],
+  ['mirror and corner reversal', true, 0, true, false, false],
+  ['upper shell subdivision', false, 0, false, true, false],
+  ['renumbering and reverse insertion', false, 0, true, false, true],
+] as const) {
+  issue2499(`known wrong result: #2499 ownership survives ${name}`, () => {
+    const model = connectedShells();
+    let owners = [2];
+    if (subdivide) {
+      const [a, b, c, d] = model.quads!.get(2)!.nodes;
+      const left = 501, right = 502;
+      model.nodes.set(left, { id: left, x: 5, y: 0, z: 3.02 });
+      model.nodes.set(right, { id: right, x: 5, y: 6, z: 3.02 });
+      model.quads!.get(2)!.nodes = [a!, left, right, d!];
+      model.quads!.set(3, { id: 3, nodes: [left, b!, c!, right] });
+      owners = [2, 3];
+    }
+    if (reverse) for (const shell of model.quads!.values()) shell.nodes.reverse();
+    if (renumber) {
+      model.quads = new Map([...model.quads!.values()].reverse().map(shell => {
+        const id = 40 - shell.id;
+        return [id, { ...shell, id }];
+      }));
+      owners = [38];
+    }
+    if (mirror) for (const node of model.nodes.values()) node.x = -node.x;
+    rotatePlan(model, rotate);
+    checkOwnedFloor(model, owners, 60);
+  });
+}
+
+const verticalTies: Record<string, (masterNode: number, slaveNode: number) => Constraint3D> = {
+  'rigid link': (masterNode, slaveNode) => ({ type: 'rigidLink', masterNode, slaveNode }),
+  'equal DOF': (masterNode, slaveNode) => ({ type: 'equalDOF', masterNode, slaveNode, dofs: [2] }),
+  'vertical diaphragm': (masterNode, slaveNode) => ({ type: 'diaphragm', masterNode, slaveNodes: [slaveNode], plane: 'xz' }),
+  'linear equation': (masterNode, slaveNode) => ({ type: 'linearMPC', terms: [
+    { nodeId: masterNode, dof: 2, coefficient: 2 },
+    { nodeId: slaveNode, dof: 2, coefficient: -2 },
+  ] }),
+};
+
+for (const [name, tie] of Object.entries(verticalTies)) {
+  issue2499(`known wrong result: #2499 a ${name} identifies one floor without choosing the owner`, () => {
+    const model = connectedShells();
+    const lower = model.quads!.get(1)!.nodes, upper = model.quads!.get(2)!.nodes;
+    model.constraints = lower.map((master, i) => tie(master, upper[i]!));
+    checkOwnedFloor(model, [2], 60);
+  });
+}
+
+issue2499('known wrong result: #2499 roof weight includes both structural shells per square metre of owned roof', () => {
+  const model = connectedShells();
+  for (const shell of model.quads!.values()) Object.assign(shell, { materialId: 1, thickness: 0.02 });
+  expect(roofWeightFor(model, { mode: 'panels' }, 3, 0)).toBe('heavy');
+});
+
+issue2499('known wrong result: #2499 the upper shell carries the deck just beyond the shared elevation tolerance', () => {
+  checkOwnedFloor(connectedShells(0, 10, 3.001001), [2], 60);
+});
+
+it('#2499 the upper shell is unresolved just inside the shared elevation tolerance', () => {
+  checkBlockedGravity(connectedShells(0, 10, 3.000999), overlappingShells);
+});
+
+issue2499('known wrong result: #2499 class: two vertically tied beam bays with the same footprint identify both conflicting carriers', () => {
+  const model = floor(1, 1, 10, 6);
+  for (const node of [...model.nodes.values()]) model.nodes.set(node.id + 10, { ...node, id: node.id + 10, z: 3.02 });
+  for (const beam of [...model.elements.values()]) model.elements.set(beam.id + 10,
+    { ...beam, id: beam.id + 10, nodeI: beam.nodeI + 10, nodeJ: beam.nodeJ + 10 });
+  model.constraints = [1, 2, 3, 4].map(node => verticalTies['rigid link']!(node, node + 10));
+  const input = planInput(model, { dead: [{ labelKey: 'a', q: 1 }], generateCombinations: true });
+  const plan = buildLoadPlan(input);
+  expect(plan.outcome).toBe('BLOCKED');
+  expect(plan.blockedKeys).toEqual([{ key: 'loadPlan.gravity.overlappingBays', params: { first: '1, 2, 3, 4', second: '11, 12, 13, 14' } }]);
+  expect(plan.distributed).toEqual([]);
+  expect(plan.combinations).toEqual([]);
+  model.constraints = [];
+  expect(deadLoadKN(buildLoadPlan(input), model)).toBeCloseTo(120, 10);
+});
+
+issue2499('known wrong result: #2499 class: the case conservation gate blocks a surface pressure that would otherwise be dropped', () => {
+  const model = floor(0, 0, 10, 6);
+  rectangularShell(model, 1, 0, 10, 3);
+  const plan = buildLoadPlan(planInput(model, { dead: [{ labelKey: 'a', q: -1 }], generateCombinations: true }));
+  expect(plan.outcome).toBe('BLOCKED');
+  expect(plan.blockedKeys).toEqual([{ key: 'loadPlan.gravity.caseResultant', params: { z: 3, action: 'D' } }]);
+  expect(plan.surface).toEqual([]);
+  expect(plan.combinations).toEqual([]);
+  checkOwnedFloor(model, [1], 60);
+});
+
+issue2499('known wrong result: #2499 partial overlap cannot load the lower quad uniformly', () => {
+  checkBlockedGravity(connectedShells(8, 18), overlappingShells);
+});
+
+it('#2499 releasing vertical transfer preserves both independent floors', () => {
+  const model = connectedShells();
+  model.constraints = model.constraints!.map(link =>
+    link.type === 'eccentricConnection' ? { ...link, releases: [false, false, true] } : link);
+  checkOwnedFloor(model, [1, 2], 120);
+});
+
+it('#2284 unresolved roundoff-separated shell ownership keeps its translated refusal', () => {
+  checkBlockedGravity(connectedShells(0, 10, 3.0000001), overlappingShells);
 });
 
 it('#2299 opening the vertical release on eccentric connections keeps separate carrier loads', () => {
