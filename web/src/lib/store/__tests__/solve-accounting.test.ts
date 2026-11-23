@@ -17,7 +17,7 @@ import {
   addPlateLoad, applyPlateMeshes, createPlate, meshBeforeAnalysis, planPlateMesh, plateEntry, plateStatus, setPlateMeshSpec, setPlateSideArc,
 } from '../physical-plates';
 
-const fault = vi.hoisted(() => ({ dropMemberLoad: false, dropLineIntensity: 0, scaleCaseLoad: 1, momentDelta: 0, stalePlanarMoment: 0, surfaceFactorOffset: 0 }));
+const fault = vi.hoisted(() => ({ dropMemberLoad: false, dropLineIntensity: 0, scaleCaseLoad: 1, momentDelta: 0, stalePlanarMoment: 0, surfaceFactorOffset: 0, dropNodalFy: false }));
 
 vi.mock('../../model/loads/load-magnitudes', async importOriginal => {
   const original = await importOriginal<typeof import('../../model/loads/load-magnitudes')>();
@@ -26,6 +26,7 @@ vi.mock('../../model/loads/load-magnitudes', async importOriginal => {
     scaledLoad: (load: Parameters<typeof original.scaledLoad>[0], factor: number) => {
       const offset = load.type === 'surface3d' ? fault.surfaceFactorOffset : 0;
       const scaled = original.scaledLoad(load, factor * fault.scaleCaseLoad + offset);
+      if (scaled.type === 'nodal3d' && fault.dropNodalFy) scaled.data.fy = 0;
       return scaled.type === 'nodal3d' && load.data.id === 2
         ? { ...scaled, data: { ...scaled.data, mx: scaled.data.mx + fault.momentDelta } }
         : scaled;
@@ -67,6 +68,7 @@ beforeEach(() => {
   fault.momentDelta = 0;
   fault.stalePlanarMoment = 0;
   fault.surfaceFactorOffset = 0;
+  fault.dropNodalFy = false;
 });
 
 function cantilever(mode: '2d' | '3d') {
@@ -369,9 +371,7 @@ it.each([false, true])('accounts for a what-if plate pressure change with nonlin
   }
 });
 
-const issue2479 = process.env.RUN_KNOWN_WRONG === '2479' ? it : it.skip;
-
-issue2479('#2479 refuses a wrong what-if plate-pressure factor throughout spatial analysis', async () => {
+it('#2479 refuses a wrong what-if plate-pressure factor throughout spatial analysis', async () => {
   const { id } = floor();
   const [a, b] = modelStore.nodes.keys();
   modelStore.addElement(a!, b!);
@@ -397,6 +397,7 @@ issue2479('#2479 refuses a wrong what-if plate-pressure factor throughout spatia
     fault.surfaceFactorOffset = 0.25;
     whatIf.setLoadFactor(index, 0.5);
     await vi.advanceTimersByTimeAsync(60);
+    expect(modelStore.loads[index]!.data).toMatchObject({ q: 0.75 });
     const paths = {
       linear: solve,
       async: () => modelStore.solve3DAsync(false, false, true),
@@ -754,6 +755,50 @@ it.each(['xz', 'yz'] as const)(
     for (const [name, solve] of Object.entries(paths)) expect.soft(await outcome(solve), name).toEqual(diagnostic);
   },
 );
+
+it('#2479 refuses the loss of a 0.01 orthogonal force alongside 1e12 at the origin', async () => {
+  const member = cantilever('3d');
+  const model = modelStore.model;
+  const root = model.elements.get(member)!.nodeI;
+  const dominant = 1e12;
+  const orthogonal = 0.01;
+  const load = modelStore.addNodalLoad3D(root, dominant, orthogonal, 0, 0, 0, 0, 1);
+  const diagnostic = expect.stringMatching(/case.*1.*Fy.*0\.01.*0/i);
+  const planarPaths = {
+    linear: () => modelStore.solve(false, 'xz'),
+    async: () => modelStore.solveAsync(false, 'xz'),
+    combinations: () => modelStore.solveCombinations(false, 'xz'),
+    pdelta: () => solvePDelta(modelStore.buildSolverInput(false, 'xz')!),
+  };
+  for (const [name, run] of Object.entries(planarPaths)) {
+    expect.soft(await outcome(run), name).toEqual(diagnostic);
+  }
+  expect(modelStore.updateLoad(load, { fy: 0 })).toBe(true);
+  expect(planarPaths.linear()).toMatchObject({ reactions: [expect.objectContaining({ rx: -dominant })] });
+
+  expect(modelStore.updateLoad(load, { fx: dominant / 2, fy: orthogonal / 2 })).toBe(true);
+  const reference = modelStore.addLoadCase('Reference', 'L');
+  modelStore.updateLoadCaseFields(reference, { reference: true });
+  modelStore.updateLoadCaseFields(1, { includes: [{ caseId: reference, factor: 2 }] });
+  model.loads[0]!.data.caseId = reference;
+  const spatialPaths = {
+    linear: () => modelStore.solve3D(false, false, true),
+    async: () => modelStore.solve3DAsync(false, false, true),
+    combinations: () => modelStore.solveCombinations3D(false, false, true),
+    parallel: () => modelStore.solveCombinations3DParallel(false, false, true),
+    direct: () => runDirectAnalysis(model, model.loadCases, model.combinations, { includeSelfWeight: false }),
+  };
+  expect(spatialPaths.linear()).toMatchObject({ reactions: [expect.objectContaining({ fx: -dominant, fy: -orthogonal })] });
+  fault.dropNodalFy = true;
+  for (const [name, run] of Object.entries(spatialPaths)) {
+    expect.soft(await outcome(run), name).toEqual(diagnostic);
+  }
+  modelStore.setAnalysis({ perCombination: 'pdelta' });
+  expect.soft(await outcome(spatialPaths.parallel), 'P-Delta').toEqual(diagnostic);
+  modelStore.updateSupport(model.supports.keys().next().value!, { uplift: true });
+  expect.soft(await outcome(spatialPaths.async), 'nonlinear single').toEqual(diagnostic);
+  expect.soft(await outcome(spatialPaths.parallel), 'nonlinear combinations').toEqual(diagnostic);
+});
 
 it('#2470 solves a fixed-ended beam with a subnormal live line load', async () => {
   const elementId = cantilever('3d');

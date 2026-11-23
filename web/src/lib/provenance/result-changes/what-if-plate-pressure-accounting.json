@@ -1,0 +1,32 @@
+{
+  "id": "what-if-plate-pressure-accounting",
+  "date": "2026-11-23",
+  "prs": [2479],
+  "area": "analysis",
+  "when": { "all": ["space3D", "physicalPlateDefinitions"] },
+  "quantities": ["solve.ok"],
+  "title": {
+    "en": "Independent pressure accounting in Explore",
+    "es": "Verificación independiente de presiones en Explorar",
+    "pt": "Verificação independente de pressões no Explorar",
+    "de": "Unabhängige Druckprüfung in Erkunden",
+    "fr": "Vérification indépendante des pressions dans Explorer",
+    "hu": "Független nyomásellenőrzés a Felfedezésben",
+    "tr": "Keşfet bölümünde bağımsız basınç denetimi",
+    "zh": "探索模式下的独立压力校核"
+  },
+  "explanation": {
+    "en": "Analysis stops if the assembled plate pressure has a different resultant from the one requested with the Explore slider, beyond the affected component's roundoff allowance.",
+    "es": "El análisis se detiene si la resultante de la presión ensamblada en la placa difiere de la solicitada con el control de Explorar más allá del margen de redondeo de la componente afectada.",
+    "pt": "A análise é interrompida se a resultante da pressão montada na placa diferir da solicitada pelo controle do Explorar além da margem de arredondamento da componente afetada.",
+    "de": "Die Berechnung stoppt, wenn die Resultierende der angesetzten Plattenlast über die Rundungstoleranz der betroffenen Komponente hinaus von der per Schieberegler in Erkunden angeforderten Resultierenden abweicht.",
+    "fr": "L’analyse s’arrête si la résultante de la pression assemblée sur la plaque diffère de celle demandée avec le curseur d’Explorer au-delà de la marge d’arrondi de la composante concernée.",
+    "hu": "A számítás leáll, ha a lemezen összeállított nyomás eredője az érintett komponens kerekítési tűrésén túl eltér a Felfedezés csúszkáján megadott értéktől.",
+    "tr": "Plakaya aktarılan basıncın bileşkesi, Keşfet kaydırıcısıyla istenen değerden ilgili bileşenin yuvarlama payını aşacak kadar farklıysa analiz durur.",
+    "zh": "如果组装后的板面压力合力与探索滑块指定的合力之差超过相应分量的舍入误差限值，分析将停止。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-what-if-plate-pressure-accounting.md",
+    "heading": "Independent pressure accounting in Explore"
+  }
+}
