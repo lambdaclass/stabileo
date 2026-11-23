@@ -78,7 +78,7 @@ test('Fairclough reruns a Table 1 row at its unit weight @smoke', async ({page})
   await page.getByRole('button',{name:'ρgL/σ = 1.85',exact:true}).click();
   await expect(page.getByTestId('source')).toContainText(text.cached,{timeout:30000});
   await expect(page.getByTestId('unit-weight')).toHaveText('1.85');
-  await expect(page.getByTestId('selected-volume')).toContainText(row.computed.toFixed(4));
+  expect(Math.abs(Number((await page.getByTestId('selected-volume').innerText()).replace(/,/g, '')) - row.computed)).toBeLessThan(1e-6);
   await expect(page.getByRole('button',{name:text.author,exact:true})).toBeDisabled();
   await expect(page.getByRole('link',{name:`${text.open} · ${text.own}`,exact:true})).toHaveCount(0);
   await page.getByRole('button',{name:text.restart}).click();
