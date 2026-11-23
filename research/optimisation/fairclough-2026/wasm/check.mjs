@@ -5,11 +5,17 @@ import path from 'node:path';
 const root=path.resolve(process.argv[2] ?? 'web/public/research-wasm/fairclough-2026');
 const module=await import(pathToFileURL(path.join(root,'gridshell_fairclough_2026.js')));
 await module.default({module_or_path:fs.readFileSync(path.join(root,'gridshell_fairclough_2026_bg.wasm'))});
-const result=JSON.parse(module.recompute());
+const result=JSON.parse(module.recompute(1.65));
 const evidenceRoot = new URL('../', import.meta.url);
 const recorded = JSON.parse(fs.readFileSync(new URL('results/stabileo_results.json', evidenceRoot))).layout;
-const published = JSON.parse(fs.readFileSync(new URL('reference-results/published_comparison.json', evidenceRoot))).checks[0];
-assert.ok(Math.abs(result.volume-published.reference)<published.tolerance);
+const published = JSON.parse(fs.readFileSync(new URL('reference-results/published_comparison.json', evidenceRoot))).checks;
+for (const row of published) {
+  const weight = Number(row.id.slice('table1-v5-'.length));
+  const volume = JSON.parse(module.recompute(weight)).volume;
+  assert.ok(Math.abs(volume-row.computed)<=1e-8*row.computed, row.id);
+  assert.ok(Math.abs(volume-row.reference)<=row.tolerance, row.id);
+}
+assert.throws(()=>module.recompute(2.5));
 function close(actual, expected) {
   if (typeof expected === 'number') {
     assert.ok(Number.isFinite(actual));

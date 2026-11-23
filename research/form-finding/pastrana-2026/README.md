@@ -92,6 +92,19 @@ for this symmetric case does not establish agreement for arbitrary nets.
 reproduced. It identifies the section/figure/equation used without turning derived values into
 published observations. Catalogue status must not claim published-figure agreement or full DFDM.
 
+### Published comparison, checked again on 2026-11-22
+
+There is still no row to compare. The article is open access (CC BY-NC 4.0), but its only full
+text is on ScienceDirect, which refuses automated retrieval, and OpenAlex lists no repository
+copy; the full text could not be read for this check, so no published number is transcribed or
+guessed. The forward problem reproduced here, Fig. 2's four-bar topology with Eq. (7), has no
+numbers attached in the sources available to earlier reviews (see above), and the article's
+numerical results are inverse-design outcomes (optimized gridshells, membranes, vault
+retrofits) that this forward kernel does not compute. A table or value for a forward
+equilibrium in the article would become a row of `reference-results/published_comparison.json`
+written by `tests/validation.rs`. The 2023 workshop paper on the same solver (arXiv:2307.12407)
+is a different publication and is not used.
+
 ## Limits
 
 No adjoints/gradients, inverse optimization, shells, mixed signs, pressure/self-weight updates,

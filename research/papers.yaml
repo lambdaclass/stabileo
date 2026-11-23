@@ -471,7 +471,8 @@ papers:
     (arXiv:2509.12916v1), lie on our computed actuator path within 0.005, at the points Figure 9(b)
     labels; the symmetric limit loads and curvature of Section 3.2 agree within 2%. The half-span-load
     values and the two Table 1 entries reached after a snap are open; the latter and the equilibrium
-    surface of Figure 9(a) need arc-length with prescribed rotations.
+    surface of Figure 9(a) need arc-length with prescribed rotations. The 13 comparisons with the paper,
+    failures included, are in reference-results/published_comparison.json (8 pass).
   status: numerically-validated
   reproduced_published_results: false
   benchmarks: []
@@ -578,11 +579,12 @@ papers:
   dependencies: []
   complexity: medium
   relevance: One fixed five-node square, independently assembled in Rust with Clarabel; a discretized
-    frame surrogate is checked by the production engine.
-  status: numerically-validated
+    frame surrogate is checked by the production engine. The seven volumes of the V5-nodes column of
+    Table 1 (rho_g L/sigma = 1.65 to 2.00) agree within half a unit of their fourth printed decimal.
+  status: published-figures-compared
   reproduced_published_results: true
   benchmarks:
-  - 'Table 1, five nodes, rho_g L/sigma = 1.65: V sigma/(FL) = 13.8394'
+  - 'Table 1, column V5-nodes, rho_g L/sigma = 1.65, 1.68, 1.72, 1.76, 1.80, 1.85, 2.00: V sigma/(FL) = 13.8394, 15.2528, 17.5301, 20.4014, 24.0981, 30.4425, 80.7391'
   implementation: optimisation/fairclough-2026
   contacts: []
   page: web/src/components/research/fairclough2026/FaircloughPage.svelte

@@ -1,14 +1,96 @@
 {
   "checks": [
     {
-      "metric": "absolute normalized volume error FL/sigma",
-      "name": "Table 1 five-node volume, first row",
+      "computed": 13.83937354032954,
+      "id": "table1-v5-1.65",
+      "metric": "absolute volume difference",
+      "name": "Volume V, five-node ground structure, ρgL/σ = 1.65",
       "observed": 0.00002645967045999953,
       "passed": true,
+      "rationale": "Half a unit of the fourth printed decimal",
       "reference": 13.8394,
-      "source": "https://eprints.whiterose.ac.uk/id/eprint/236639/ — accepted manuscript PDF page 29, printed page 28, Table 1; Section 4.3",
+      "source": "Accepted manuscript (https://eprints.whiterose.ac.uk/id/eprint/236639/), printed page 28 (PDF page 29), Table 1, column V5-nodes; Section 4.3",
       "tolerance": 0.00005,
-      "volume": 13.83937354032954
+      "unit": "FL/σ"
+    },
+    {
+      "computed": 15.252826676326192,
+      "id": "table1-v5-1.68",
+      "metric": "absolute volume difference",
+      "name": "Volume V, five-node ground structure, ρgL/σ = 1.68",
+      "observed": 0.000026676326191577004,
+      "passed": true,
+      "rationale": "Half a unit of the fourth printed decimal",
+      "reference": 15.2528,
+      "source": "Accepted manuscript (https://eprints.whiterose.ac.uk/id/eprint/236639/), printed page 28 (PDF page 29), Table 1, column V5-nodes; Section 4.3",
+      "tolerance": 0.00005,
+      "unit": "FL/σ"
+    },
+    {
+      "computed": 17.530073248289163,
+      "id": "table1-v5-1.72",
+      "metric": "absolute volume difference",
+      "name": "Volume V, five-node ground structure, ρgL/σ = 1.72",
+      "observed": 0.000026751710837658038,
+      "passed": true,
+      "rationale": "Half a unit of the fourth printed decimal",
+      "reference": 17.5301,
+      "source": "Accepted manuscript (https://eprints.whiterose.ac.uk/id/eprint/236639/), printed page 28 (PDF page 29), Table 1, column V5-nodes; Section 4.3",
+      "tolerance": 0.00005,
+      "unit": "FL/σ"
+    },
+    {
+      "computed": 20.401397964954175,
+      "id": "table1-v5-1.76",
+      "metric": "absolute volume difference",
+      "name": "Volume V, five-node ground structure, ρgL/σ = 1.76",
+      "observed": 2.0350458243001412e-6,
+      "passed": true,
+      "rationale": "Half a unit of the fourth printed decimal",
+      "reference": 20.4014,
+      "source": "Accepted manuscript (https://eprints.whiterose.ac.uk/id/eprint/236639/), printed page 28 (PDF page 29), Table 1, column V5-nodes; Section 4.3",
+      "tolerance": 0.00005,
+      "unit": "FL/σ"
+    },
+    {
+      "computed": 24.098105069930522,
+      "id": "table1-v5-1.80",
+      "metric": "absolute volume difference",
+      "name": "Volume V, five-node ground structure, ρgL/σ = 1.80",
+      "observed": 5.069930523404764e-6,
+      "passed": true,
+      "rationale": "Half a unit of the fourth printed decimal",
+      "reference": 24.0981,
+      "source": "Accepted manuscript (https://eprints.whiterose.ac.uk/id/eprint/236639/), printed page 28 (PDF page 29), Table 1, column V5-nodes; Section 4.3",
+      "tolerance": 0.00005,
+      "unit": "FL/σ"
+    },
+    {
+      "computed": 30.442499961347295,
+      "id": "table1-v5-1.85",
+      "metric": "absolute volume difference",
+      "name": "Volume V, five-node ground structure, ρgL/σ = 1.85",
+      "observed": 3.865270414848965e-8,
+      "passed": true,
+      "rationale": "Half a unit of the fourth printed decimal",
+      "reference": 30.4425,
+      "source": "Accepted manuscript (https://eprints.whiterose.ac.uk/id/eprint/236639/), printed page 28 (PDF page 29), Table 1, column V5-nodes; Section 4.3",
+      "tolerance": 0.00005,
+      "unit": "FL/σ"
+    },
+    {
+      "computed": 80.73905391019485,
+      "id": "table1-v5-2.00",
+      "metric": "absolute volume difference",
+      "name": "Volume V, five-node ground structure, ρgL/σ = 2.00",
+      "observed": 0.000046089805138649353,
+      "passed": true,
+      "rationale": "Half a unit of the fourth printed decimal",
+      "reference": 80.7391,
+      "source": "Accepted manuscript (https://eprints.whiterose.ac.uk/id/eprint/236639/), printed page 28 (PDF page 29), Table 1, column V5-nodes; Section 4.3",
+      "tolerance": 0.00005,
+      "unit": "FL/σ"
     }
-  ]
+  ],
+  "reproduced_published_results": true
 }
