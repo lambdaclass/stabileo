@@ -4,15 +4,16 @@
    * smaller one that still does, for a column or a wall), worked out a frame after it opens, and
    * the way to its element in the model, where the size is changed.
    */
-  import { t, tp, i18n } from '../../../lib/i18n';
+  import { t, tp, i18n, tpn } from '../../../lib/i18n';
   import { decimalFor, makeFmt } from '../../../lib/rc-sheets/format';
   import { nextFrame } from '../../../lib/store/mesh-progress.svelte';
-  import { goToRow, lineResizeHint, resizeHints, rowTargets, type GotoTarget, type ResizeHint } from '../../../lib/store/rc-sheets-resize';
+  import { goToRow, lineResizeHint, resizeHints, rowTargets, wallsToHold, type GotoTarget, type ResizeHint } from '../../../lib/store/rc-sheets-resize';
+  import { holdWallBasesAndDesign, sheetsSolve } from '../../../lib/store/rc-sheets-solve.svelte';
   import type { SheetRow } from '../../../lib/store/rc-sheets.svelte';
   import type { LineLayout } from '../../../lib/rc-sheets/beam-line';
   import type { BeamRow } from '../../../lib/rc-sheets/beam-row';
 
-  let { row, spans, onleave }: { row: SheetRow | LineLayout; spans?: BeamRow[]; onleave: () => void } = $props();
+  let { row, spans, walls = [], onleave }: { row: SheetRow | LineLayout; spans?: BeamRow[]; walls?: readonly SheetRow[]; onleave: () => void } = $props();
   const fmt = $derived(makeFmt(decimalFor(i18n.locale)));
   let hints = $state.raw<ResizeHint[] | null>(null);
 
@@ -32,6 +33,9 @@
   const isPunching = $derived(!('spanAdopted' in row) && row.family === 'punching');
   const gotoLabel = (g: GotoTarget) => t(isPunching ? (g === 'plates' ? 'rcSheets.goto.slab' : 'rcSheets.goto.column') : 'rcSheets.goto.element');
   function go(g: GotoTarget) { if (goToRow(row, g)) onleave(); }
+  const baseUnheld = $derived(!('spanAdopted' in row) && row.family === 'wall' ? (row.demand.base?.unheld?.length ?? 0) : 0);
+  const toHold = $derived(baseUnheld > 0 ? wallsToHold(walls.some((w) => w.key === row.key) ? walls : [row as SheetRow]) : []);
+  const onFoundation = $derived(toHold.some((w) => w.key === row.key));
 </script>
 
 <div class="rcz" data-testid="rc-resize">
@@ -48,6 +52,14 @@
       </span>
     {/each}
     {#if hints.length}<span class="dim">{t('rcSheets.resize.note')}</span>{/if}
+  {/if}
+  {#if baseUnheld > 0 && onFoundation}
+    <span class="hint none" data-testid="rc-wall-base-unheld">{tpn('rcSheets.resize.baseUnheld', baseUnheld)}</span>
+    <button type="button" class="rcz-btn" onclick={() => holdWallBasesAndDesign(toHold)} disabled={sheetsSolve.busy} data-testid="rc-wall-hold-base">
+      {toHold.length > 1 ? tp('rcSheets.resize.holdBases', { n: toHold.length }) : t('rcSheets.resize.holdBase')}
+    </button>
+  {:else if baseUnheld > 0}
+    <span class="hint none" data-testid="rc-wall-base-unheld">{tpn('rcSheets.resize.baseUnheldAbove', baseUnheld)}</span>
   {/if}
   <span class="sp"></span>
   {#each targets as g (g)}

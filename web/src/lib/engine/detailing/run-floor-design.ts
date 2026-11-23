@@ -43,7 +43,8 @@ import type { ClauseRef, RegulationEdition } from '../../codes/regulation';
 import type { Maturity } from '../../codes/maturity';
 import { msg, type EngineMessage } from '../../codes/message';
 import { designSlabPanel, type SlabDesignResult } from './slab-design';
-import { designWall, wallBaseResultants, type WallDesignResult } from './wall-design';
+import { designWall, type WallDesignResult } from './wall-design';
+import { wallBaseResultants } from '../../rc-sheets/wall-design';
 import {
   familyHash, familyRecordId,
   FAMILY_RECORD_SCHEMA_VERSION, recordStatusFor,
@@ -59,7 +60,7 @@ import type { DetailingAssembly } from './assembly';
 import {
   RESIDUAL_TOL, checkSlabJointPunching, slabJointPosition,
   type AdjoiningShell, type SlabColumnJoint, type SlabPunchingResult,
-} from './slab-punching';
+} from '../../rc-sheets/slab-punching';
 
 // ─── What this adapter reads ─────────────────────────────────────
 

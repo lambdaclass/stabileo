@@ -47,7 +47,7 @@ export const FEATURE_IDS = [
   GLOBAL_AXES_EVIDENCE,
   'plane2D', 'space3D', 'members', 'cableMembers', 'contactElements', 'frameMembers', 'trussMembers', 'hinges', 'arcMembers', 'shearAreas', 'thermalAtRelease',
   'steelMembers', 'steelCirsoc301', 'steelTensionWithoutConnection', 'steelDeclaredUnbracedLength', 'steelStaggeredOrUnboltedWebEnd', 'timberOrAluminiumMembers',
-  'concreteMembers', 'fiberMembers', 'hognestadFiberMembers', 'cirsoc201', 'aci318', 'footings', 'jointDesigns',
+  'concreteMembers', 'fiberMembers', 'hognestadFiberMembers', 'cirsoc201', 'aci318', 'footings', 'jointDesigns', 'defaultDesignCovers',
   'shells', 'physicalPlateRemesh', 'plateAnalysisIssue', 'curvedShells', 'shellEdgeLoads', 'eccentricities', 'coarseShellsPro', 'unifiedPlateMeshes',
   'physicalPlateDefinitions', 'planarQuarterTurnMemberLoads', 'planarGlobalAxisMemberLoads', 'prestressMemberLoads', 'nearEndSpatialPointLoads', 'tinyDistributedLoads',
   'constraints', 'constraintOnSupportedNode', 'inclinedSupports', 'springs', 'multipleSupportsOnNode', 'bareRollerZ', 'bareCustom3D', 'localPlaneRoller', 'unknownSupportType', 'rollerSupports', 'namedSupportRestraintMasks', 'settlements', 'settledMaskedSupports', 'caseDisplacements',
@@ -124,7 +124,7 @@ interface FeatureSnapshotFields {
   analysis?: { selfWeight?: unknown[]; standaloneSelfWeight?: string };
   includeSelfWeight?: boolean;
   designData?: {
-    loadBasis?: { resultsVersion?: unknown; derivation?: Array<{ key?: string }>; seismic?: unknown }; site?: { phases?: unknown[] };
+    loadBasis?: { resultsVersion?: unknown; derivation?: Array<{ key?: string }>; seismic?: unknown }; covers?: unknown; site?: { phases?: unknown[] };
     specialFloors?: { systems?: Record<string, { ribbed?: { spacingX?: number; spacingY?: number } } | undefined> };
   };
 }
@@ -312,6 +312,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
     if (concreteCode === 'aci-aisc') f.add('aci318');
   }
   if (values(s.footings).length) f.add('footings');
+  if ((concrete || values(s.footings).length) && !s.designData?.covers) f.add('defaultDesignCovers');
   const jd = s.jointDesigns;
   if (jd && (Array.isArray(jd) ? jd.length : typeof jd === 'object' && Object.keys(jd as object).length)) f.add('jointDesigns');
 

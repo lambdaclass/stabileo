@@ -41,6 +41,11 @@ export const LAYERS: readonly LayerDef[] = [
   { name: 'TB-LINE', color: 7, weight: 0.18 },
   { name: 'TB-TEXT', color: 7, weight: 0.18 },
   { name: 'NOTE-TEXT', color: 7, weight: 0.18 },
+  // Reinforcement drawings: concrete, dimensions, texts and axes; the bars on ST-ARM-<layer>-Ø<d>.
+  { name: 'ST-HORM', color: 7, weight: 0.35 },
+  { name: 'ST-COTA', color: 3, weight: 0.18 },
+  { name: 'ST-TEXTO', color: 7, weight: 0.18 },
+  { name: 'ST-EJES', color: 8, weight: 0.13, dashed: true },
 ];
 
 const BY = new Map(LAYERS.map((l) => [l.name, l]));
@@ -55,6 +60,8 @@ export const DIAMETER_COLORS: Record<number, number> = { 6: 4, 8: 3, 10: 2, 12: 
 export const layerDef = (name: string): LayerDef => {
   const own = BY.get(name);
   if (own) return own;
+  const arm = /^ST-ARM-(.+)-Ø(\d+)$/.exec(name);
+  if (arm) return { name, color: DIAMETER_COLORS[Number(arm[2])] ?? 7, weight: arm[1] === 'EST' ? 0.25 : 0.35 };
   const m = /^(.*)-D(\d+)$/.exec(name);
   if (m) { const base = BY.get(m[1]!) ?? { name: m[1]!, color: 7, weight: 0.25 }; return { ...base, name, color: DIAMETER_COLORS[Number(m[2])] ?? 7 }; }
   return { name, color: 7, weight: 0.25 };

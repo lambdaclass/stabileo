@@ -225,6 +225,7 @@ test.describe('@smoke story drift is checked on the seismic cases', () => {
     await page.evaluate(async () => { await window.__stabileoActions.solve(); });
     await page.getByTestId('pr-stage-analyse').click();
     const checks = page.getByTestId('pro-panel').getByTestId('result-checks');
+    if ((await checks.getAttribute('open')) === null) await checks.getByTestId('result-checks-toggle').click();
     await expect(checks).toHaveAttribute('open', '');
     await page.getByTestId('res-tab-drift').click();
     const panel = page.getByTestId('drift-panel');

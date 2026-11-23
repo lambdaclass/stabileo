@@ -86,6 +86,14 @@ export function minMandrelDiameter(
   return { value: factor * db, refs: [T2531] };
 }
 
+/**
+ * Inside diameter a bent-up longitudinal bar (not a hook) is bent on, m. Tables 25.3.1 to 25.3.3
+ * cover only hooks and stirrups; for bent bars and frame knees the FIUBA notes (§11.4) take
+ * 9·db up to Ø25, 12·db up to Ø32 and 15·db above.
+ */
+export const bentBarMandrel = (diameterMm: number): number =>
+  (diameterMm <= 25 ? 9 : diameterMm <= 32 ? 12 : 15) * diameterMm / 1000;
+
 /** Centreline bend radius from the inside mandrel diameter. */
 export function centrelineRadius(mandrelDiameter: number, diameterMm: number): number {
   return (mandrelDiameter + diameterMm / 1000) / 2;

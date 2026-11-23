@@ -158,14 +158,30 @@ function footprintsOf(e: PlateEntry, geo: NonNullable<ReturnType<typeof plateGeo
 }
 
 const r6 = (v: number) => Math.round(v * 1e6) / 1e6;
+const FOOTPRINTS = '#fp:';
 
 /** What a mesh is made from (`plateSignature`), with the column sections it represents. */
 function signatureOf(e: PlateEntry, f: NonNullable<ReturnType<typeof featuresOf>>, spec: PlateMeshSpec): string {
   const fp = footprintsOf(e, f.geo);
   const shellNeighbours = spec.followMembers ? [] : [...f.neighbours].map(f.neighbourAt)
     .filter((point): point is Vec3 => point !== null && onOutline(f.geo, point));
-  return plateSignature(f.geo, spec, f.features, shellNeighbours) + (fp ? `#fp:${fp.columns.map((c) => `${r6(c.x)},${r6(c.y)},${r6(c.hx)},${r6(c.hy)}`).sort().join(';')}` : '');
+  return plateSignature(f.geo, spec, f.features, shellNeighbours) + (fp ? `${FOOTPRINTS}${fp.columns.map((c) => `${r6(c.x)},${r6(c.y)},${r6(c.hx)},${r6(c.hy)}`).sort().join(';')}` : '');
 }
+
+
+/** A key from `signatureOf` as stored: the part analysis checks, and the column sections apart. */
+function meshedKey(key: string): { signature: string; footprints?: string } {
+  const at = key.indexOf(FOOTPRINTS);
+  return at < 0 ? { signature: key } : { signature: key.slice(0, at), footprints: key.slice(at + FOOTPRINTS.length) };
+}
+
+function withoutFootprints<T extends { footprints?: string }>(m: T | undefined): Omit<T, 'footprints'> | Record<string, never> {
+  if (!m) return {};
+  const { footprints: _, ...rest } = m;
+  return rest;
+}
+
+const storedKey = (m: { signature: string; footprints?: string }) => m.signature + (m.footprints ? FOOTPRINTS + m.footprints : '');
 
 /**
  * The plate's shells as they are, taken as its current mesh: what a plate made from shells already in
@@ -183,7 +199,7 @@ export function adoptCurrentMesh(id: number, opts: { original?: boolean } = {}):
   if (!cells.length) return;
   writeSurface(id, (s) => {
     const original = s.meshed ? s.meshed.original : opts.original;
-    return { ...s, meshed: { ...(s.meshed ?? {}), signature: signatureOf(e, f, specOf(e)), cells: cells.length, quality: meshQuality({ points, cells }), ...(original ? { original: true } : {}) } };
+    return { ...s, meshed: { ...withoutFootprints(s.meshed), ...meshedKey(signatureOf(e, f, specOf(e))), cells: cells.length, quality: meshQuality({ points, cells }), ...(original ? { original: true } : {}) } };
   });
 }
 
@@ -273,7 +289,7 @@ export function plateStatus(id: number): PlateStatus {
     const shells = (e.group.members.quads?.length ?? 0) + (e.group.members.plates?.length ?? 0);
     if (!f) s = 'invalid';
     else if (!e.surface.meshed || shells === 0) s = 'unmeshed';
-    else s = signatureOf(e, f, specOf(e)) === e.surface.meshed.signature && (e.surface.meshed.original || !meshHangsNeighbours(e, f)) ? 'current' : 'stale';
+    else s = signatureOf(e, f, specOf(e)) === storedKey(e.surface.meshed) && (e.surface.meshed.original || !meshHangsNeighbours(e, f)) ? 'current' : 'stale';
   }
   statusMemo.map.set(id, s);
   return s;
@@ -1133,7 +1149,7 @@ function meshingRun(plans: readonly PlateMeshPlan[], forAnalysis = false) {
       for (const q of r.quads) modelStore.setShellOffset('quad', q, e.surface.offset);
       for (const t of r.plates) modelStore.setShellOffset('plate', t, e.surface.offset);
     }
-    writeSurface(p.id, (s) => ({ ...s, edgeSupports: edges, mesh: p.spec, meshed: { signature: p.signature, cells: r.quads.length + r.plates.length, quality: p.quality!, ...(supports.length ? {
+    writeSurface(p.id, (s) => ({ ...s, edgeSupports: edges, mesh: p.spec, meshed: { ...meshedKey(p.signature), cells: r.quads.length + r.plates.length, quality: p.quality!, ...(supports.length ? {
       supported: supports.map(support => support.nodeId),
       supportIds: supports.map(support => support.id),
     } : {}) } }));

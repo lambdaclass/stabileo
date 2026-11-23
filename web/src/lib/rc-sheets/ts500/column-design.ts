@@ -3,6 +3,7 @@ import { columnArea, columnBars, type ColumnCase, type ColumnContext, type Colum
 import { ratioOf, type ColumnAdopted } from '../types';
 import { minEccentricity, vcrOf, vmaxOf, type Ts500Mat } from './basis';
 import { utilisation, type RectSection } from './biaxial';
+import { heldBars } from '../column-layout';
 
 export interface AxisResult { k: number; lk: number; lambda: number; lim: number; slender: boolean; m1: number; m2: number; cm: number; nk: number; beta: number; emin: number }
 export interface Tuple { pu: number; mx: number; my: number }
@@ -38,14 +39,22 @@ export function tuplesOf(cs: ColumnCase, x: AxisResult, y: AxisResult): Tuple[] 
     const nc = Math.max(0, n);
     return [{ pu: n, mx: Math.max(Math.abs(mx), nc * x.emin), my: Math.abs(my) }, { pu: n, mx: Math.abs(mx), my: Math.max(Math.abs(my), nc * y.emin) }];
   };
+  const inner = cs.inner ?? [];
   if (x.slender || y.slender) {
-    const nc = Math.max(0, cs.pu);
+    const amplified = (n: number, m2x: number, m2y: number): Tuple[] => {
+      const nc = Math.max(0, n);
+      return [
+        { pu: n, mx: x.beta * Math.max(m2x, nc * x.emin), my: y.beta * m2y },
+        { pu: n, mx: x.beta * m2x, my: y.beta * Math.max(m2y, nc * y.emin) },
+      ];
+    };
+    const both = cs.puMin !== undefined && cs.puMin < cs.pu - 1e-9 ? [cs.pu, cs.puMin] : [cs.pu];
     return [
-      { pu: cs.pu, mx: x.beta * Math.max(x.m2, nc * x.emin), my: y.beta * y.m2 },
-      { pu: cs.pu, mx: x.beta * x.m2, my: y.beta * Math.max(y.m2, nc * y.emin) },
+      ...both.flatMap((n) => amplified(n, x.m2, y.m2)),
+      ...inner.flatMap((t) => amplified(t.pu, Math.max(x.m2, Math.abs(t.mx) / Math.max(x.cm, 1e-9)), Math.max(y.m2, Math.abs(t.my) / Math.max(y.cm, 1e-9)))),
     ];
   }
-  return [...raise(cs.puMin ?? cs.pu, cs.mxTop, cs.myTop), ...raise(cs.pu, cs.mxBot, cs.myBot)];
+  return [...raise(cs.puMin ?? cs.pu, cs.mxTop, cs.myTop), ...raise(cs.pu, cs.mxBot, cs.myBot), ...inner.flatMap((t) => raise(t.pu, t.mx, t.my))];
 }
 
 export function governing(tuples: Tuple[]): Tuple[] {
@@ -79,14 +88,11 @@ export const tieMaxOf = (thinnest: number): number => Math.min(12 * thinnest / 1
 
 export const HELD_SPACING = 0.3;
 
-/** The face bars (1 … n between the corners) a crosstie holds so that held bars are at most 300 mm apart, centre to centre; null where two neighbours are already farther apart. */
+/** The face bars (1 … n between the corners) a crosstie holds so that held bars are at most 300 mm apart, centre to centre, symmetric about the face's middle; null where two neighbours are already farther apart. */
 export function heldFaceBars(side: number, n: number, cornerDia: number, c: ColumnContext, tie: number): number[] | null {
   const pitch = (side - 2 * coverToBar(c, tie, cornerDia)) / (n + 1);
   if (pitch > HELD_SPACING + 1e-9) return null;
-  const step = Math.max(1, Math.floor(HELD_SPACING / pitch + 1e-9));
-  const out: number[] = [];
-  for (let last = 0; (n + 1 - last) * pitch > HELD_SPACING + 1e-9;) { last += step; out.push(last); }
-  return out;
+  return heldBars(n, pitch, 0, { maxRun: HELD_SPACING });
 }
 
 export function crosstiesOf(d: ColumnDemand, a: ColumnAdopted, c: ColumnContext): { x: number; y: number; ok: boolean } {

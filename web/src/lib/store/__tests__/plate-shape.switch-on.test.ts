@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import * as wasmSolver from '../../engine/wasm-solver';
 import { historyStore, modelStore, uiStore } from '..';
 import { placeFrame, placeSlabs } from '../../model/building/build-on-grid';
-import { applyPlateMeshes, applyPlateMeshesAsync, createPlate, physicalPlates, planPlateMesh, plateEntry, plateStatus, setPlateLoops } from '../physical-plates';
+import { applyPlateMeshes, applyPlateMeshesAsync, createPlate, physicalPlates, planPlateMesh, plateEntry, plateShellKeys, plateStatus, platesNeedingMesh, setPlateLoops } from '../physical-plates';
 import { ensurePhysicalModel } from '../plates-from-shells';
 import { syncDefinedLoadsForAnalysis } from '../defined-loads';
 import { closePlateHole, cutPlateCells, plateFigure, plateSideShapes, setPlateSideSagitta } from '../plate-shape';
@@ -178,7 +178,8 @@ describe('rectangular holes in the shared-station batch', () => {
     const z = modelStore.nodes.get(outer[0]!)!.z;
     const hole = [[8.5, 2], [8.5, 3.5], [9.5, 3.5], [9.5, 2]].map(([x, y]) => modelStore.addNode(x!, y!, z));
     expect(setPlateLoops(slab.id, outer, [hole])).toBeNull();
-    const plan = planPlateMesh(slab.id)!;
+    const meshedAgain = new Set(platesNeedingMesh().flatMap(plateShellKeys));
+    const plan = planPlateMesh(slab.id, undefined, { meshedAgain })!;
     expect(plan.quality?.minAngle).toBeCloseTo(90, 3);
 
     const report = await apply([plan]);

@@ -39,3 +39,20 @@ export function fieldCovered(entry, path, features) {
   const field = /\]\.([A-Za-z][A-Za-z0-9]*)$/.exec(rest)?.[1];
   return quantities.includes(rest) || (!!collection && (quantities.includes(collection) || (!!field && quantities.includes(`${collection}.${field}`))));
 }
+
+/**
+ * A comparison of one example's numbers with only what no registered engine entry explains: a
+ * moved, removed or added path drops out when an entry with `when` holds for the model it was
+ * solved from (`features`) and declares that path. Examples-scoped entries explain nothing here.
+ */
+export function unexplainedDiff(diff, excuse) {
+  const entries = (excuse?.entries ?? []).filter((e) => e.scope !== 'examples');
+  const features = excuse?.features ?? [];
+  const explained = (path) => entries.find((e) => fieldCovered(e, path, features));
+  const by = new Set();
+  const keep = (path) => { const e = explained(path); if (e) by.add(e.id); return !e; };
+  const changed = diff.changed.filter((c) => keep(c.path));
+  const removed = diff.removed.filter(keep);
+  const added = diff.added.filter(keep);
+  return { changed, removed, added, differs: changed.length > 0 || removed.length > 0 || added.length > 0, explainedBy: [...by] };
+}

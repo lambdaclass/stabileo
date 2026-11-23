@@ -3,12 +3,22 @@
   import { setAdopted, type SheetRow } from '../../../lib/store/rc-sheets.svelte';
   import { SLAB_FACES } from '../../../lib/rc-sheets/slab-row';
   import type { BarGroup, BeamAdopted, ColumnAdopted, MeshBars, SlabAdopted, WallAdopted } from '../../../lib/rc-sheets/types';
+  import { modelStore } from '../../../lib/store';
+  import { designData } from '../../../lib/store/design-data';
+  import { editorDiameters, numberInput } from '../../../lib/rc-sheets/view-helpers';
 
-  let { row }: { row: Exclude<SheetRow, { family: 'punching' }> } = $props();
+  let { row }: { row: Exclude<SheetRow, { family: 'punching' | 'footing' }> } = $props();
 
-  const LONG = [10, 12, 16, 20, 25, 32];
-  const SMALL = [6, 8, 10, 12];
-  const MESH = [6, 8, 10, 12, 16];
+  const dd = $derived.by(() => { void modelStore.designData; return designData(); });
+  const held = $derived.by((): { long: number[]; tie: number[]; mesh: number[] } => {
+    if (row.family === 'beam') { const a = row.adopted; return { long: [...a.top, ...a.bottom].map((g) => g.dia).concat(a.torsionLong?.dia ?? 0), tie: [a.stirrups.dia], mesh: [] }; }
+    if (row.family === 'column') { const a = row.adopted; return { long: [a.corner, a.dx, a.dy, a.inner?.dia ?? 0], tie: [a.tieDia], mesh: [] }; }
+    if (row.family === 'slab') { const a = row.adopted; return { long: [], tie: [], mesh: SLAB_FACES.map((f) => a[f].dia) }; }
+    const a = row.adopted; return { long: [a.boundary?.diameter ?? 0], tie: [], mesh: [a.vertical.diameter, a.horizontal.diameter] };
+  });
+  const LONG = $derived(editorDiameters(dd, row.family === 'column' ? 'column' : 'beam', held.long));
+  const SMALL = $derived(editorDiameters(dd, 'tie', held.tie));
+  const MESH = $derived(editorDiameters(dd, row.family === 'wall' ? 'wall' : 'slab', held.mesh));
 
   // A number box cleared or typed past its limits takes the nearest limit: a spacing or a count of 0 would stall the drawings.
   const num = (e: Event) => {
@@ -16,7 +26,7 @@
     const v = Number(el.value);
     if (!(el instanceof HTMLInputElement) || el.type !== 'number') return v;
     const lo = el.min === '' ? -Infinity : Number(el.min), hi = el.max === '' ? Infinity : Number(el.max);
-    const c = el.value.trim() !== '' && Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : lo;
+    const c = numberInput(el.value, lo, hi, el.step === '' ? 1 : el.step === 'any' ? undefined : Number(el.step));
     if (Number.isFinite(c) && c !== v) el.value = String(c);
     return c;
   };
@@ -105,6 +115,12 @@
         <input type="number" min="0" max="12" step="1" value={row.adopted.ny} onchange={(e) => columnPatch({ ny: num(e) })} />
         <select value={row.adopted.dy} onchange={(e) => columnPatch({ dy: num(e) })}>{#each LONG.filter((d) => d >= 12) as d (d)}<option value={d}>Ø{d}</option>{/each}</select>
       </label>
+      <label><span>{t('rcSheets.ed.innerRow')}</span>
+        <input type="number" min="0" max="12" step="1" value={row.adopted.inner?.nx ?? 0} aria-label={t('rcSheets.ed.faceB')} data-testid="rc-col-inner-nx" onchange={(e) => columnPatch({ inner: { ...row.adopted.inner, nx: num(e), ny: row.adopted.inner?.ny ?? 0, dia: row.adopted.inner?.dia ?? row.adopted.dx } })} />
+        <input type="number" min="0" max="12" step="1" value={row.adopted.inner?.ny ?? 0} aria-label={t('rcSheets.ed.faceH')} data-testid="rc-col-inner-ny" onchange={(e) => columnPatch({ inner: { ...row.adopted.inner, nx: row.adopted.inner?.nx ?? 0, ny: num(e), dia: row.adopted.inner?.dia ?? row.adopted.dy } })} />
+        <select value={row.adopted.inner?.dia ?? row.adopted.dx} aria-label={t('rcSheets.ed.dia')} onchange={(e) => columnPatch({ inner: { ...row.adopted.inner, nx: row.adopted.inner?.nx ?? 0, ny: row.adopted.inner?.ny ?? 0, dia: num(e) } })}>{#each LONG.filter((d) => d >= 12) as d (d)}<option value={d}>Ø{d}</option>{/each}</select>
+        <input type="number" min="1" max="2" step="1" value={row.adopted.inner?.rows ?? 1} aria-label={t('rcSheets.ed.innerRows')} data-testid="rc-col-inner-rows" onchange={(e) => columnPatch({ inner: { nx: row.adopted.inner?.nx ?? 0, ny: row.adopted.inner?.ny ?? 0, dia: row.adopted.inner?.dia ?? row.adopted.dx, rows: Math.min(2, Math.max(1, num(e))) } })} />
+      </label>
     </fieldset>
     <fieldset>
       <legend>{t('rcSheets.col.ties')}</legend>
@@ -114,6 +130,12 @@
         <input type="number" min="5" max="40" step="2.5" value={Math.round(row.adopted.tieSpacing * 1000) / 10} onchange={(e) => columnPatch({ tieSpacing: num(e) / 100 })} />
         <span>cm</span>
       </label>
+      {#if row.confinement}
+        <label><span>{t('rcSheets.ed.confinedTies')}</span>
+          <input type="number" min="0" max={row.adopted.nx} step="1" value={row.checks.crossties.confined?.x ?? row.checks.crossties.x} aria-label={t('rcSheets.ed.faceB')} data-testid="rc-col-confined-x" onchange={(e) => columnPatch({ confined: { x: num(e), y: row.checks.crossties.confined?.y ?? row.checks.crossties.y } })} />
+          <input type="number" min="0" max={row.adopted.ny} step="1" value={row.checks.crossties.confined?.y ?? row.checks.crossties.y} aria-label={t('rcSheets.ed.faceH')} data-testid="rc-col-confined-y" onchange={(e) => columnPatch({ confined: { x: row.checks.crossties.confined?.x ?? row.checks.crossties.x, y: num(e) } })} />
+        </label>
+      {/if}
     </fieldset>
   {:else if row.family === 'wall'}
     {#each ['vertical', 'horizontal'] as const as k (k)}
@@ -167,7 +189,7 @@
       <button type="button" class="rcs-btn" onclick={() => setAdopted(row.key, null)}>{t('rcSheets.useProposal')}</button>
     {:else}
       <span class="hint">{t('rcSheets.showingProposal')}</span>
-      <button type="button" class="rcs-btn" onclick={() => setAdopted(row.key, row.proposed)}>{t('rcSheets.adoptProposal')}</button>
+      <button type="button" class="rcs-btn" onclick={() => setAdopted(row.key, row.proposed, false)}>{t('rcSheets.adoptProposal')}</button>
     {/if}
   </div>
 </div>

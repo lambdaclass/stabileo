@@ -17,6 +17,7 @@ import { isSolverReady } from '../../wasm-solver';
 import type { RebarLayer } from '../../../design-contract/reinforcement';
 import '../../design/adapters/cirsoc201-adapter';
 import '../../design/adapters/unsupported-adapter';
+import { stateSuiteCovers } from '../../../store/__tests__/suite-covers';
 
 /** The design's seat: cover 25 mm, Ø6 stirrup, the bar's centre half its diameter inside. */
 const seat = (dMm: number) => 0.025 + 0.006 + dMm / 2000;
@@ -82,6 +83,7 @@ describe('the blog beam, designed and laid as the embed runs it', () => {
   it('designs the simply supported beam with free end rotations', async () => {
     resetDesign();
     await modelStore.loadExample('rc-beam-flexure');
+    stateSuiteCovers();
     const solved = await solveAndDesignBeam();
     for (const result of [...solved.perCase.values(), ...solved.perCombo.values()]) {
       expect(result.elementForces.find((f) => f.elementId === 1)!.myStart).toBeCloseTo(0, 9);
@@ -102,6 +104,7 @@ describe('a pin–fixed beam with mixed top layers', () => {
         { id: 2, nodeId: 3, type: 'fixed3d' },
       ],
     }));
+    stateSuiteCovers();
     await solveAndDesignBeam();
 
     const o = verificationStore.outcomeFor(1)!;

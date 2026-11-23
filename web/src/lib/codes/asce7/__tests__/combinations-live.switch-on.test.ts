@@ -110,3 +110,19 @@ describe('§4.7.5 and §4.3.2', () => {
     expect(asce7Partition(50 * PSF, 0).qKNm2).toBe(0);
   });
 });
+
+describe('§4.7.5 and §4.3.2', () => {
+  it('an assembly use above 100 psf is not reduced either, on any number of floors', () => {
+    const b = { tributaryAreaM2: 100, elementKind: 'interiorColumn' as const, passengerGarage: false, publicAssembly: true, noReduction: false };
+    const r = reduceAsce7({ ...b, loKNm2: 125 * PSF, floorsSupported: 3 });
+    expect(r.lKNm2).toBeCloseTo(125 * PSF, 9);
+    expect(r.reason.key).toBe('loads.asce7.reduction.assembly');
+  });
+  it('a partition load typed below 15 psf is raised to it, and turned off it stays off', () => {
+    const low = asce7Partition(50 * PSF, 10 * PSF);
+    expect(low.qKNm2).toBeCloseTo(ASCE7_PARTITION_MIN, 12);
+    expect(low.message.key).toBe('loads.asce7.live.partitionBelowMinimum');
+    expect(asce7Partition(50 * PSF, 20 * PSF).qKNm2).toBeCloseTo(20 * PSF, 12);
+    expect(asce7Partition(50 * PSF, 0).qKNm2).toBe(0);
+  });
+});

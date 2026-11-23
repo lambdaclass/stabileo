@@ -5,7 +5,8 @@
  */
 import { modelStore } from './model.svelte';
 import { collectFootingSupport, collectFootingSupportReactions } from './footing-support';
-import { resolveConcreteProperties, currentConcreteEdition } from './detailing-project-inputs';
+import { currentConcreteEdition } from './detailing-project-inputs';
+import { resolveConcreteProperties } from './concrete-properties';
 import { findProfile } from '../model/geotechnical';
 import { pileCapacity } from '../model/foundation/piles';
 import { combineFootings } from '../model/foundation/generate';

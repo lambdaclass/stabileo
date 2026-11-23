@@ -30,7 +30,7 @@
   import { detailingStore } from '../../../lib/store/detailing.svelte';
   import {
     rcShapeForMark, type RcShapeResult,
-  } from '../../../lib/engine/detailing/bar-shape-diagram';
+  } from '../../../lib/rc-sheets/schedule/bar-shape-diagram';
 
   const selected = $derived(detailingStore.selected);
   const schedule = $derived(detailingStore.schedule);

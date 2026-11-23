@@ -151,6 +151,10 @@
 
           <FootingMatPanel footingId={f.id} />
         {/if}
+        {#if __PUBLIC_FEATURES__.proRcSheets}
+          <p class="note" data-testid="footing-to-sheets">{t('footing.ui.inSheets')}</p>
+          <button data-testid="footing-open-sheets" onclick={() => { uiStore.proActiveTab = 'rcSheets'; uiStore.proPanelVisible = true; }}>{t('footing.ui.openSheets')}</button>
+        {/if}
 
         <button class="danger" data-testid="footing-delete"
                 onclick={() => { modelStore.removeFooting(f.id); selectedId = null; }}>

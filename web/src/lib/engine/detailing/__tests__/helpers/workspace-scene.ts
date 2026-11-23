@@ -33,6 +33,7 @@ import type { DesignOutcomeSummary } from '../../element-status';
 import '../../../design/adapters/cirsoc201-adapter';
 import '../../../design/adapters/unsupported-adapter';
 import { stateSuiteLateral } from '../../../../store/__tests__/suite-lateral';
+import { stateSuiteCovers } from '../../../../store/__tests__/suite-covers';
 
 export interface WorkspaceScene {
   doc: DocumentModel;
@@ -107,8 +108,9 @@ async function compute(example: string, variant?: Variant): Promise<WorkspaceSce
   await modelStore.loadExample(example);
   expect(isSolverReady(), 'real WASM solver, not the Vite stub').toBe(true);
   if (variant) applyVariant(variant);
-  // The reading of the beams' role in the lateral system these suites were written under.
+  // The reading of the beams' role in the lateral system these suites were written under, and their covers.
   stateSuiteLateral();
+  stateSuiteCovers();
 
   const solved = await modelStore.solveCombinations3DParallel(true, false, true);
   expect(typeof solved, 'the solver returned results rather than an error string')

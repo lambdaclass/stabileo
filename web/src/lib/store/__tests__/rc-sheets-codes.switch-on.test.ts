@@ -56,6 +56,7 @@ describe('the code the sheets design to', () => {
     const first = buildSheetRows();
     const beam = first.beam[0]!;
     setAdopted(beam.key, beam.proposed);
+    const capacity = new Map<string, number>();
     for (const code of SHEET_CODE_LIST) {
       setSheetCode(code);
       const rows = buildSheetRows();
@@ -65,10 +66,18 @@ describe('the code the sheets design to', () => {
       expect(JSON.stringify(b.adopted.bottom)).toBe(JSON.stringify(beam.proposed.bottom));
       expect(rows.column.length).toBe(first.column.length);
       expect(b.verifications.length).toBeGreaterThan(0);
+      capacity.set(code, b.flexure.find((x) => x.section === 'span' && x.sign === 'pos')!.phiMn);
     }
+    // The same bars read under each code's own rules: EN 1992 and TS 500 with their own material factors, ACI as CIRSOC adopts it.
+    expect(capacity.get('aci318-19')).toBeCloseTo(capacity.get('cirsoc201-2025')!, 9);
+    for (const other of ['en1992-1-1', 'ts500-2000'] as const) expect(Math.abs(capacity.get(other)! - capacity.get('cirsoc201-2025')!)).toBeGreaterThan(1);
+    expect(capacity.get('bs-en1992-1-1')).toBeLessThan(capacity.get('en1992-1-1')!);
+    setSheetCode('cirsoc201-2025');
+    const back = buildSheetRows().beam.find((r) => r.key === beam.key)!;
+    expect(back.flexure.find((x) => x.section === 'span' && x.sign === 'pos')!.phiMn).toBe(capacity.get('cirsoc201-2025'));
   });
 
-  it('designs to ACI 318-19 with the provisions CIRSOC 201-2025 adopts from it: the same bars and the same capacities', () => {
+  it('designs to ACI 318-19 with the provisions CIRSOC 201-2025 adopts from it: the same bars and capacities, its own column ties and no Argentine cover table', () => {
     portal();
     setSheetCode('cirsoc201-2025');
     const cirsoc = buildSheetRows();
@@ -77,6 +86,11 @@ describe('the code the sheets design to', () => {
     expect(aci.code).toBe('ACI 318-19');
     expect(aci.beam.map((r) => r.proposed)).toEqual(cirsoc.beam.map((r) => r.proposed));
     expect(aci.beam.map((r) => r.flexure.map((f) => f.phiMn))).toEqual(cirsoc.beam.map((r) => r.flexure.map((f) => f.phiMn)));
-    expect(aci.column.map((r) => r.proposed)).toEqual(cirsoc.column.map((r) => r.proposed));
+    const bars = (p: { corner: number; nx: number; dx: number; ny: number; dy: number; tieSpacing: number }) => ({ corner: p.corner, nx: p.nx, dx: p.dx, ny: p.ny, dy: p.dy });
+    expect(aci.column.map((r) => bars(r.proposed))).toEqual(cirsoc.column.map((r) => bars(r.proposed)));
+    expect(aci.column.every((r) => r.proposed.tieDia >= 10)).toBe(true);
+    expect(cirsoc.column.every((r) => r.proposed.tieDia < 10)).toBe(true);
+    expect(cirsoc.beam.every((r) => r.verifications.some((v) => v.label === 'rcSheets.v.mainCover'))).toBe(true);
+    expect(aci.beam.some((r) => r.verifications.some((v) => v.label === 'rcSheets.v.mainCover'))).toBe(false);
   });
 });

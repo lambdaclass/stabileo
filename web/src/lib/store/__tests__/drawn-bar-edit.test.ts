@@ -18,6 +18,7 @@ import { canTakeAsDrawn, drawnBar, editDrawnBar, lineBarOf, takeAsDrawn } from '
 import type { StructuralGrid } from '../../model/grid';
 import * as wasmSolver from '../../engine/wasm-solver';
 import { stateSuiteLateral } from './suite-lateral';
+import { stateSuiteCovers } from './suite-covers';
 
 beforeAll(async () => {
   await new Promise((r) => setTimeout(r, 0));
@@ -35,6 +36,7 @@ const grid: StructuralGrid = {
 function detailedFrame() {
   modelStore.clear(); historyStore.clear(); resultsStore.clear(); verificationStore.clear(); uiStore.analysisMode = 'pro';
   stateSuiteLateral();
+  stateSuiteCovers();
   const conc = modelStore.addMaterial({ name: 'H-25', e: 23500, nu: 0.2, rho: 25, fy: 25, fc: 25 });
   const col = modelStore.addSection({ name: '40×40', a: 0.16, iy: 0.4 ** 4 / 12, iz: 0.4 ** 4 / 12, j: 0.1406 * 0.4 ** 4, b: 0.4, h: 0.4, shape: 'rect' } as never);
   const beam = modelStore.addSection({ name: '20×50', a: 0.1, iy: 0.00208, iz: 0.000333, j: 0.00093, b: 0.2, h: 0.5, shape: 'rect' } as never);

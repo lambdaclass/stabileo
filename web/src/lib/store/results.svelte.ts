@@ -5,7 +5,7 @@ import { timeHistoryView } from './time-history-view.svelte';
 import { carryCertifyJob } from '../engine/certify-tags';
 import type { AnalysisResults, InfluenceLineResult, Section, Material } from './model.svelte';
 import type { ElementForces, FullEnvelope, ConstraintForce, SolverDiagnostic, SolveTimings } from '../engine/types';
-import { freezeResult, knownIssueResultDisposition } from '../engine/known-issues';
+import { freezeResult, knownIssueDiagnosticsIn, knownIssueResultDisposition } from '../engine/known-issues';
 import { modelFindings } from '../engine/model-findings';
 import type { AnalysisResults3D, Displacement3D, Reaction3D, ElementForces3D, FullEnvelope3D } from '../engine/types-3d';
 import type { GoverningPerElement, GoverningPerElement3D } from '../engine/governing-case';
@@ -282,6 +282,8 @@ function createResultsStore() {
   const comboRefused3D = () => combosRefused3D() || knownIssueResultDisposition(envelope3D?.maxAbsResults3D).refused;
   const viewedRefused3D = () => knownIssueResultDisposition(liveViewedEnvelope3D()?.maxAbsResults3D).refused;
   const liveViewedEnvelope3D = () => viewedEnvelope3D && envelope3D && viewedEnvelope3D.over === envelope3D ? viewedEnvelope3D.env : null;
+  const knownIssueSources2D = () => [singleResults, results, [...perCase.values()], [...perCombo.values()], envelope?.maxAbsResults, overlayResults, pdeltaResult, modalResult, bucklingResult, plasticResult, spectralResult, movingLoadEnvelope, influenceLine];
+  const knownIssueSources3D = () => [singleResults3D, results3D, [...perCase3D.values()], [...perCombo3D.values()], envelope3D?.maxAbsResults3D, liveViewedEnvelope3D()?.maxAbsResults3D, overlayResults3D, pdeltaResult3D, modalResult3D, bucklingResult3D, spectralResult3D, timeHistoryView.storedDiagnostics];
   /** A named envelope on screen in place of the active one, valid only over the solve it was
    *  built from (`over`): any republish or clear makes it lapse without being reset. */
   let viewedEnvelope3D = $state.raw<{ env: FullEnvelope3D; name: string; over: FullEnvelope3D } | null>(null);
@@ -1406,12 +1408,10 @@ function createResultsStore() {
       return [...findingsOf(singleResults3D ?? perCase3D.values().next().value ?? results3D), ...findingsOf(modalResult3D), ...findingsOf(bucklingResult3D), ...findingsOf(spectralResult3D)];
     },
 
-    get knownIssues() {
-      return knownIssueResultDisposition([singleResults, results, [...perCase.values()], [...perCombo.values()], envelope?.maxAbsResults, overlayResults, pdeltaResult, modalResult, bucklingResult, plasticResult, spectralResult, movingLoadEnvelope, influenceLine]);
-    },
-    get knownIssues3D() {
-      return knownIssueResultDisposition([singleResults3D, results3D, [...perCase3D.values()], [...perCombo3D.values()], envelope3D?.maxAbsResults3D, liveViewedEnvelope3D()?.maxAbsResults3D, overlayResults3D, pdeltaResult3D, modalResult3D, bucklingResult3D, spectralResult3D, timeHistoryView.storedDiagnostics]);
-    },
+    get knownIssues() { return knownIssueResultDisposition(knownIssueSources2D()); },
+    get knownIssues3D() { return knownIssueResultDisposition(knownIssueSources3D()); },
+    get knownIssueDiagnostics() { return knownIssueDiagnosticsIn(knownIssueSources2D()); },
+    get knownIssueDiagnostics3D() { return knownIssueDiagnosticsIn(knownIssueSources3D()); },
 
     get maxDisplacement(): number {
       const r = this.results;

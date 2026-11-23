@@ -67,7 +67,7 @@ export function proPlatesSource(enabled) {
       resolveId(id, importer) {
         if (!importer || !id.startsWith('.')) return null;
         const target = resolve(dirname(importer.split('?')[0]), id);
-        return source().restored.has(relativePath(target)) ? target : null;
+        return ['', '.ts', '.js', '.svelte'].map(ext => target + ext).find(path => source().restored.has(relativePath(path))) ?? null;
       },
       load(id) {
         const [path, query] = id.split('?');

@@ -6,6 +6,7 @@ import { ensurePhysicalModel, ensurePlates } from '../plates-from-shells';
 import { meshBeforeAnalysis } from '../mesh-policy.svelte';
 import { deserializeProject, serializeProject } from '../file';
 import { PRO_EXAMPLES } from '../../data/pro-examples';
+import galleryDxf from '../../templates/fixtures/cad-arch-only-dxf.json';
 
 beforeAll(async () => { await wasmSolver.initSolver(); });
 
@@ -27,7 +28,7 @@ describe('a model that comes in', () => {
     await PRO_EXAMPLES.find((e) => e.id === 'cad-arch-only-dxf')!.load();
     ensurePhysicalModel();
     const supports = [...modelStore.supports.values()];
-    expect(supports).toHaveLength(24);
+    expect(supports).toHaveLength(galleryDxf.supports.length);
     meshBeforeAnalysis.value = false;
     expect(preparePlatesForAnalysis()).toEqual({ ok: true, meshed: 0, cells: 0 });
     meshBeforeAnalysis.value = true;

@@ -81,6 +81,18 @@ const beamDepths = (m: FrameMember, dia: number) => {
   return { d: m.h - m.cover - (st + dia / 2) / 1000, dPrime: m.cover + (st + dia / 2) / 1000 };
 };
 
+type ColumnSection = NonNullable<FrameMember['section']>;
+
+const columnMnAt = (sec: ColumnSection, fc: number, fy: number, P: number, pick: 'least' | 'most'): number => {
+  const a = nominalMomentAt(sec.outline, sec.bars, fc, fy, Math.PI / 2, P), b = nominalMomentAt(sec.outline, sec.bars, fc, fy, 0, P);
+  return pick === 'least' ? Math.min(a, b) : Math.max(a, b);
+};
+
+/** The nominal moment a column brings to the strong-column sum (§18.7.3.2): the least about either axis under either end of its axial range, kN·m. */
+export function columnLeastMn(sec: ColumnSection, fc: number, fy: number, axial: { min: number; max: number }): number {
+  return Math.min(columnMnAt(sec, fc, fy, axial.min, 'least'), columnMnAt(sec, fc, fy, axial.max, 'least'));
+}
+
 export function seismicFrameChecks(i: { nodes: ReadonlyMap<number, P>; members: readonly FrameMember[]; settings: SeismicDesignSettings }): SeismicReport {
   const { settings: s } = i;
   const members: MemberSeismic[] = [];
@@ -141,15 +153,10 @@ export function seismicFrameChecks(i: { nodes: ReadonlyMap<number, P>; members: 
     map.set(n, [...(map.get(n) ?? []), m.id]);
   }
   const colMn = new Map<number, { least: number; most: number }>();
-  const mnOf = (m: FrameMember, fy: number, P: number, pick: 'least' | 'most') => {
-    if (!m.section) return 0;
-    const a = nominalMomentAt(m.section.outline, m.section.bars, m.fc, fy, Math.PI / 2, P), b = nominalMomentAt(m.section.outline, m.section.bars, m.fc, fy, 0, P);
-    return pick === 'least' ? Math.min(a, b) : Math.max(a, b);
-  };
   for (const m of i.members) {
     if (m.kind !== 'column' || !m.section) continue;
     const ax = m.axial ?? { min: 0, max: 0 };
-    colMn.set(m.id, { least: Math.min(mnOf(m, m.fy, ax.min, 'least'), mnOf(m, m.fy, ax.max, 'least')), most: Math.max(mnOf(m, s.overstrength * m.fy, ax.min, 'most'), mnOf(m, s.overstrength * m.fy, ax.max, 'most')) });
+    colMn.set(m.id, { least: columnLeastMn(m.section, m.fc, m.fy, ax), most: Math.max(columnMnAt(m.section, m.fc, s.overstrength * m.fy, ax.min, 'most'), columnMnAt(m.section, m.fc, s.overstrength * m.fy, ax.max, 'most')) });
   }
   const joints: JointSeismic[] = [];
   const fromBeamsAt = new Map<string, number>();

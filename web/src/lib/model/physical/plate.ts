@@ -78,6 +78,8 @@ export interface PlateSurface {
   /** Set when the current mesh was made: what it was made from, and what it is. */
   meshed?: {
     signature: string; cells: number; quality: MeshQuality;
+    /** The column sections a slab's mesh was made to represent, apart from `signature`, which analysis reads without the model's sections. */
+    footprints?: string;
     /** Mesh nodes given an edge support's type (`edgeSupports`), taken away with the mesh. */
     supported?: number[];
     supportIds?: number[];

@@ -16,6 +16,8 @@
 
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { relative } from 'node:path';
+import { readProPlatesProfile } from '../../../../scripts/pro-plates-source.mjs';
 import { join } from 'node:path';
 import en from '../locales/en';
 import es from '../locales/es';
@@ -75,8 +77,12 @@ function walk(dir: string, out: string[] = []): string[] {
  */
 function usedKeys(): Set<string> {
   const keys = new Set<string>();
+  const profile = readProPlatesProfile(__PUBLIC_FEATURES__.proPlatesUnified);
+  const root = join(import.meta.dirname, '../../../..');
   for (const file of walk(SRC)) {
-    const src = readFileSync(file, 'utf8');
+    const name = relative(root, file).split('\\').join('/');
+    if (profile.unavailable.has(name)) continue;
+    const src = profile.overrides.get(name) ?? readFileSync(file, 'utf8');
     for (const m of src.matchAll(/\bt\(\s*['`]([a-zA-Z][\w.]*)['`]\s*[,)]/g)) {
       if (!OUT_OF_SCOPE.test(m[1])) keys.add(m[1]);
     }
