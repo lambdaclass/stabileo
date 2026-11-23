@@ -460,6 +460,43 @@ fn corotational_3d(
 mod shared_driver_equivalence_3d {
     use super::*;
 
+    #[test]
+    #[ignore = "known wrong result: #2484"]
+    fn issue_2484_curved_frame_sections_get_the_shear_centre_refusal() {
+        let mut model: SolverInput3D = serde_json::from_str(include_str!(
+            "../../../tests/metamorphic_corpus/feature_matrix/3d-curved-beam-arch-with.json"
+        ))
+        .unwrap();
+        assert!(model.elements.is_empty());
+        model.curved_beams[0].num_segments = 4;
+        for load in &mut model.loads {
+            if let SolverLoad3D::Nodal(load) = load {
+                load.fx *= 0.01;
+                load.fy *= 0.01;
+                load.fz *= 0.01;
+            }
+        }
+        model.sections.get_mut("6").unwrap().shear_center_y = Some(0.01);
+        for (y, z) in [(None, None), (Some(0.0), Some(-0.0)), (Some(-0.01), None), (None, Some(0.01))] {
+            let section = model.sections.get_mut("1").unwrap();
+            section.shear_center_y = y;
+            section.shear_center_z = z;
+            assert!(crate::solver::linear::solve_3d(&model).is_ok());
+            for result in [
+                solve_corotational_3d_by(&model, 30, 1e-8, 2, IterationMethod::Newton),
+                solve_corotational_3d_stepped(
+                    &model, 30, 1e-8, 2, IterationMethod::Newton, LoadStepping::Adaptive,
+                ),
+            ] {
+                if y.unwrap_or(0.0) != 0.0 || z.unwrap_or(0.0) != 0.0 {
+                    assert!(result.unwrap_err().contains("shear-centre offset (section 1)"));
+                } else {
+                    assert!(result.unwrap().converged);
+                }
+            }
+        }
+    }
+
     fn frame(n: usize, rise: f64, propped: bool, scale: f64) -> SolverInput3D {
         let mut nodes = serde_json::Map::new();
         let mut elements = serde_json::Map::new();

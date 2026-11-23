@@ -1,0 +1,19 @@
+{
+  "nodes": {
+    "1": {"id": 1, "x": -1, "z": 0},
+    "2": {"id": 2, "x": 0, "z": 0.5},
+    "3": {"id": 3, "x": 1, "z": 0}
+  },
+  "elements": {
+    "1": {"id": 1, "type": "truss", "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 1},
+    "2": {"id": 2, "type": "truss", "nodeI": 3, "nodeJ": 2, "materialId": 1, "sectionId": 1}
+  },
+  "supports": {
+    "1": {"id": 1, "nodeId": 1, "type": "fixed"},
+    "2": {"id": 2, "nodeId": 2, "type": "rollerZ"},
+    "3": {"id": 3, "nodeId": 3, "type": "fixed"}
+  },
+  "materials": {"1": {"id": 1, "e": 0.001, "nu": 0.3}},
+  "sections": {"1": {"id": 1, "a": 1, "iz": 1}},
+  "loads": [{"type": "nodal", "data": {"nodeId": 2, "fx": 0, "fz": -1, "my": 0}}]
+}

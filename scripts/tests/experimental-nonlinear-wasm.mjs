@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from "node:fs";
 import { createRequire } from 'node:module';
 import { test } from 'node:test';
 
@@ -56,4 +57,97 @@ test('experimental WASM continuation agrees with production on the same input', 
     assert.equal(production.converged, true);
     assert.deepEqual(JSON.parse(engine[`solve_experimental_${method}`](input)), production);
   }
+});
+
+const issue2484 = (name, run) => test(name, {
+  skip: !process.env.REPRODUCE_2484 && 'known wrong result: #2484',
+}, run);
+
+issue2484('issue 2484 refuses a shear-centre offset on a curved-only section', () => {
+  const solver = JSON.parse(readFileSync(new URL(
+    '../../engine/tests/metamorphic_corpus/feature_matrix/3d-curved-beam-arch-with.json',
+    import.meta.url,
+  ), 'utf8'));
+  solver.curvedBeams[0].numSegments = 4;
+  const load = solver.loads[0].data;
+  for (const key of ['fx', 'fy', 'fz']) load[key] *= 0.01;
+  solver.sections[6].shearCenterY = 0.01;
+  for (const stepping of ['equal', 'adaptive']) {
+    const options = JSON.stringify({
+      method: 'newton', stepping, nIncrements: 2, maxIter: 30, tolerance: 1e-8,
+    });
+    const run = () => JSON.parse(engine.solve_experimental_corotational_3d(JSON.stringify(solver), options));
+    assert.equal(run().converged, true);
+    solver.sections[1].shearCenterY = 0;
+    solver.sections[1].shearCenterZ = -0;
+    assert.equal(run().converged, true);
+    solver.sections[1].shearCenterY = -0.01;
+    assert.throws(run, /shear-centre offset \(section 1\)/);
+    solver.sections[1].shearCenterY = 0;
+    solver.sections[1].shearCenterZ = 0.01;
+    assert.throws(run, /shear-centre offset \(section 1\)/);
+    solver.sections[1].shearCenterZ = 0;
+  }
+});
+
+for (const [method, settings] of [
+  ['arc_length', { maxSteps: 2, initialDs: 0.003, minDs: 0.003, maxDs: 0.003 }],
+  ['displacement_control', { nSteps: 2, controlNode: 2, controlDof: 0, targetDisplacement: 0.02 }],
+]) {
+  issue2484(`issue 2484 ${method} recovers the canonical member load`, () => {
+    const b = 6.000000000000001;
+    const scale = b / 6;
+    const run = (data) => {
+      const solver = {
+        ...plane,
+        nodes: { 1: { id: 1, x: 100, z: 0 }, 2: { id: 2, x: 106, z: 0 } },
+        loads: [{ type: 'axialDistributed', data: { elementId: 1, ...data } }],
+      };
+      return JSON.parse(engine[`solve_experimental_${method}`](JSON.stringify({
+        solver, ...settings, maxIter: 20, tolerance: 1e-8,
+      })));
+    };
+    const canonical = run({ qI: 0.25 * scale, qJ: 0.19 * scale, a: 0.5 / scale });
+    assert.equal(canonical.converged, true);
+    assert.ok(canonical.finalLoadFactor > 0);
+    assert.deepEqual(run({ qI: 0.25, qJ: 0.19, a: 0.5, b }), canonical);
+  });
+}
+
+function twoBarArc(rise, e, radius, maxSteps, maxIter) {
+  const solver = JSON.parse(readFileSync(
+    new URL('./fixtures/experimental-nonlinear-two-bar.json', import.meta.url), 'utf8',
+  ));
+  solver.nodes[2].z = rise;
+  solver.materials[1].e = e;
+  return {
+    solver, maxSteps, maxIter, tolerance: 1e-8,
+    initialDs: radius, minDs: radius, maxDs: radius,
+  };
+}
+
+issue2484('issue 2484 the two-bar arc records points on the requested sphere', () => {
+  const run = (input) => JSON.parse(engine.solve_experimental_arc_length(JSON.stringify(input)));
+  const input = twoBarArc(2, 0.01, 3, 2, 20);
+  const result = run(input);
+  assert.ok(result.steps.length > 0);
+  let displacement = 0;
+  let load = 0;
+  for (const step of result.steps) {
+    const radius = Math.hypot(step.controlDisplacement - displacement, step.loadFactor - load);
+    assert.ok(Math.abs(radius / input.initialDs - 1) <= input.tolerance, `radius ${radius}`);
+    displacement = step.controlDisplacement;
+    load = step.loadFactor;
+  }
+  assert.equal(run(twoBarArc(2, 0.01, 1.5, 2, 20)).converged, true);
+});
+
+issue2484('issue 2484 the final arc state matches its last accepted point', () => {
+  const input = twoBarArc(0.5, 0.001, 0.25, 5, 3);
+  const result = JSON.parse(engine.solve_experimental_arc_length(JSON.stringify(input)));
+  assert.equal(result.converged, false);
+  const last = result.steps.at(-1);
+  assert.ok(last);
+  assert.equal(result.finalLoadFactor, last.loadFactor);
+  assert.equal(result.results.displacements.find((d) => d.nodeId === 2).uz, last.controlDisplacement);
 });

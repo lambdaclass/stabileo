@@ -229,6 +229,169 @@ pub(crate) fn solve_by_displacement_control<P: PathProblem + ?Sized>(
 mod tests {
     use super::*;
 
+    struct Probe {
+        displacement: f64,
+        load: f64,
+        force: fn(f64) -> f64,
+        tangent: fn(f64) -> f64,
+        trials: Vec<(f64, f64)>,
+        accepted: Vec<(f64, f64)>,
+        checkpoints: Vec<(f64, f64)>,
+        failed_correction: Option<f64>,
+        scale: f64,
+    }
+
+    impl Probe {
+        fn new(force: fn(f64) -> f64, tangent: fn(f64) -> f64) -> Self {
+            Self {
+                displacement: 0.0,
+                load: 0.0,
+                force,
+                tangent,
+                trials: Vec::new(),
+                accepted: Vec::new(),
+                checkpoints: Vec::new(),
+                failed_correction: None,
+                scale: 1.0,
+            }
+        }
+    }
+
+    impl PathProblem for Probe {
+        fn unknowns(&self) -> usize {
+            1
+        }
+
+        fn load_scale(&self) -> f64 {
+            1.0
+        }
+
+        fn linearize_at(&mut self, load: f64) {
+            self.load = load;
+        }
+
+        fn measure(&mut self, load: f64) -> f64 {
+            self.trials.push((self.displacement, load));
+            if self.failed_correction.is_some() && !self.accepted.is_empty() {
+                return 1.0;
+            }
+            (load - self.scale * (self.force)(self.displacement / self.scale)).abs()
+        }
+
+        fn reference_response(&mut self) -> Result<Vec<f64>, String> {
+            self.checkpoints.push((self.displacement, self.load));
+            Ok(vec![1.0 / (self.tangent)(self.displacement / self.scale)])
+        }
+
+        fn responses(&mut self) -> Result<(Vec<f64>, Vec<f64>), String> {
+            let u = self.displacement / self.scale;
+            let reference = 1.0 / (self.tangent)(u);
+            let correction = self
+                .failed_correction
+                .unwrap_or((self.load - self.scale * (self.force)(u)) * reference);
+            Ok((vec![correction], vec![reference]))
+        }
+
+        fn advance(&mut self, step: &[f64]) {
+            self.displacement += step[0];
+        }
+
+        fn unknown(&self, _: usize) -> f64 {
+            self.displacement
+        }
+
+        fn record(&mut self, _: usize, load: f64, _: usize, converged: bool) {
+            assert!(converged);
+            self.accepted.push((self.displacement, load));
+        }
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #2484"]
+    fn issue_2484_predictor_direction_does_not_depend_on_radius() {
+        for scale in [1.0, 0.5, 0.25, 0.125] {
+            let mut probe = Probe::new(
+                |u| u + 3.0 * u * u - 3.0 * u * u * u,
+                |u| 1.0 + 6.0 * u - 9.0 * u * u,
+            );
+            probe.scale = scale;
+            let ds = std::f64::consts::SQRT_2 * scale;
+            let mut limits = control(2);
+            limits.initial_ds = ds;
+            limits.min_ds = ds;
+            limits.max_ds = ds;
+            let _ = solve_by_arc_length(&mut probe, &limits).unwrap();
+            assert_eq!(probe.accepted[0], (scale, scale));
+            let (u, load) = probe.trials[1];
+            assert!(u < scale && load > scale, "radius {ds}: ({u}, {load})");
+        }
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #2484"]
+    fn issue_2484_corrector_ranks_roots_using_the_load_component() {
+        let mut probe = Probe::new(
+            |u| u + 2.25 * u * u - 2.5 * u * u * u,
+            |u| 1.0 + 4.5 * u - 7.5 * u * u,
+        );
+        let mut limits = control(1);
+        limits.initial_ds = std::f64::consts::SQRT_2;
+        let _ = solve_by_arc_length(&mut probe, &limits).unwrap();
+        assert_eq!(probe.trials[0], (1.0, 1.0));
+        let (u, load) = probe.trials[1];
+        assert!(u < 1.0 && load > 1.0, "({u}, {load})");
+        assert!((u.hypot(load) - limits.initial_ds).abs() <= limits.tolerance);
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #2484"]
+    fn issue_2484_quartic_spring_only_records_equilibrium_on_the_sphere() {
+        let ds = std::f64::consts::SQRT_2;
+        for min_ds in [ds, ds / 2.0, ds / 4.0, ds / 8.0] {
+            let mut spring = Probe::new(
+                |u| u + 9.0 * u * u - 2.0 * u.powi(3) - 3.0 * u.powi(4),
+                |u| 1.0 + 18.0 * u - 6.0 * u * u - 12.0 * u.powi(3),
+            );
+            let mut limits = control(1);
+            limits.initial_ds = ds;
+            limits.min_ds = min_ds;
+            limits.max_ds = ds;
+            let outcome = solve_by_arc_length(&mut spring, &limits).unwrap();
+            if min_ds == ds {
+                assert!(!outcome.converged, "{:?}", spring.accepted);
+                assert!(spring.accepted.is_empty());
+            } else if outcome.converged {
+                let (u, load) = spring.accepted[0];
+                let requested = ds / 2f64.powi(spring.checkpoints.len() as i32 - 1);
+                assert!((u.hypot(load) - requested).abs() <= limits.tolerance);
+                assert!((load - (spring.force)(u)).abs() <= limits.tolerance);
+            }
+            if min_ds == ds / 8.0 {
+                assert!(outcome.converged);
+            }
+        }
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #2484"]
+    fn issue_2484_failed_trial_restores_the_last_accepted_point_exactly() {
+        let ds = std::f64::consts::SQRT_2;
+        for min_ds in [ds, ds / 2.0] {
+            let mut probe = Probe::new(|u| u, |_| 1.0);
+            probe.failed_correction = Some(1e20);
+            let mut limits = control(2);
+            limits.initial_ds = ds;
+            limits.min_ds = min_ds;
+            limits.max_ds = ds;
+            limits.max_iter = 2;
+            let outcome = solve_by_arc_length(&mut probe, &limits).unwrap();
+            assert!(!outcome.converged);
+            assert_eq!(probe.accepted, [(1.0, 1.0)]);
+            assert_eq!((probe.displacement, outcome.load_factor), probe.accepted[0]);
+            assert_eq!(&probe.checkpoints[1..], vec![(1.0, 1.0); if min_ds == ds { 1 } else { 2 }]);
+        }
+    }
+
     struct Snap {
         u: f64,
         residual: f64,

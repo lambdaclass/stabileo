@@ -523,6 +523,83 @@ mod shared_driver_equivalence {
     use super::*;
     use std::collections::HashMap;
 
+    fn axial_spring(force: f64) -> SolverInput {
+        serde_json::from_value(serde_json::json!({
+            "nodes": {"1": {"id": 1, "x": 0, "z": 0}},
+            "elements": {}, "materials": {}, "sections": {},
+            "supports": {
+                "1": {"id": 1, "nodeId": 1, "type": "spring", "kx": 1, "ky": 1}
+            },
+            "loads": [{"type": "nodal", "data": {"nodeId": 1, "fx": force, "fz": 0, "my": 0}}]
+        }))
+        .unwrap()
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #2484"]
+    fn issue_2484_warm_start_reaches_the_exact_target_force() {
+        for (base, target) in [(2f64.powi(54), 1.0), (1.0, 1e-20)] {
+            let first = axial_spring(base);
+            let target_input = axial_spring(target);
+            let initial = solve_corotational_2d_by(&first, None, 20, 1e-8, 1, IterationMethod::Newton)
+                .unwrap();
+            assert!(initial.converged);
+            assert_eq!(initial.results.displacements[0].ux, base);
+            let start = CorotationalStart2D {
+                input: &first,
+                displacements: &initial.results.displacements,
+            };
+            for result in [
+                solve_corotational_2d_by(
+                    &target_input, Some(&start), 20, 1e-8, 1, IterationMethod::Newton,
+                ),
+                solve_corotational_2d_stepped(
+                    &target_input, Some(&start), 20, 1e-8, 1,
+                    IterationMethod::Newton, LoadStepping::Adaptive,
+                ),
+            ] {
+                let result = result.unwrap();
+                assert!(result.converged);
+                assert_eq!(result.load_factor, 1.0);
+                assert_eq!(result.results.displacements[0].ux, target);
+            }
+        }
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #2484"]
+    fn issue_2484_warm_start_assigns_the_exact_prescribed_position() {
+        let mut first = frame(1, 0.0, Some("pinned"));
+        first.loads.clear();
+        first.supports.get_mut("2").unwrap().dx = Some(1.0);
+        let initial =
+            solve_corotational_2d_by(&first, None, 20, 1e-8, 1, IterationMethod::Newton).unwrap();
+        assert!(initial.converged);
+        assert_eq!(initial.results.displacements[1].ux, 1.0);
+        let start = CorotationalStart2D {
+            input: &first,
+            displacements: &initial.results.displacements,
+        };
+        for target in [1e-20, 0.0, -1e-20, 0.25] {
+            let mut input = first.clone();
+            input.supports.get_mut("2").unwrap().dx = Some(target);
+            for result in [
+                solve_corotational_2d_by(
+                    &input, Some(&start), 20, 1e-8, 1, IterationMethod::Newton,
+                ),
+                solve_corotational_2d_stepped(
+                    &input, Some(&start), 20, 1e-8, 1,
+                    IterationMethod::Newton, LoadStepping::Adaptive,
+                ),
+            ] {
+                let result = result.unwrap();
+                assert!(result.converged);
+                assert_eq!(result.load_factor, 1.0);
+                assert_eq!(result.results.displacements[1].ux, target);
+            }
+        }
+    }
+
     fn frame(n: usize, rise: f64, far_support: Option<&str>) -> SolverInput {
         let (mut nodes, mut elements, mut supports) =
             (HashMap::new(), HashMap::new(), HashMap::new());

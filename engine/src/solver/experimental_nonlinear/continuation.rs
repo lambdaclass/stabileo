@@ -623,6 +623,125 @@ mod shared_driver_equivalence {
     use super::*;
     use std::collections::HashMap;
 
+    fn rounded_member_load() -> (SolverInput, SolverInput) {
+        let mut raw = frame(1, 0.0, None);
+        raw.nodes.get_mut("1").unwrap().x = 100.0;
+        raw.nodes.get_mut("2").unwrap().x = 106.0;
+        let end = 6.0_f64.next_up();
+        raw.loads = vec![SolverLoad::AxialDistributed(SolverAxialDistributedLoad {
+            element_id: 1,
+            q_i: 0.25,
+            q_j: 0.19,
+            a: Some(0.5),
+            b: Some(end),
+        })];
+        let mut canonical = raw.clone();
+        let SolverLoad::AxialDistributed(load) = &mut canonical.loads[0] else {
+            unreachable!();
+        };
+        load.q_i *= end / 6.0;
+        load.q_j *= end / 6.0;
+        load.a = Some(0.5 / (end / 6.0));
+        load.b = None;
+        (raw, canonical)
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #2484"]
+    fn issue_2484_arc_length_uses_the_canonical_member_pattern() {
+        let (raw, canonical) = rounded_member_load();
+        let input = |solver| {
+            let mut input = asked(solver, 2, 20, 0.003);
+            input.min_ds = input.initial_ds;
+            input.max_ds = input.initial_ds;
+            input
+        };
+        let expected = solve_arc_length(&input(canonical.clone())).unwrap();
+        assert!(expected.converged);
+        assert!(expected.final_load_factor > 0.0);
+        let actual = solve_arc_length(&input(raw.clone())).unwrap();
+        assert_eq!(format!("{actual:?}"), format!("{expected:?}"));
+
+        let initial = crate::solver::experimental_nonlinear::solve_corotational_2d_by(
+            &canonical, None, 20, 1e-8, 2,
+            crate::solver::experimental_nonlinear::IterationMethod::Newton,
+        )
+        .unwrap();
+        assert!(initial.converged);
+        let expected = solve_arc_length_from(
+            &input(canonical.clone()),
+            Some(&crate::solver::corotational::CorotationalStart2D {
+                input: &canonical,
+                displacements: &initial.results.displacements,
+            }),
+        )
+        .unwrap();
+        assert!(expected.converged);
+        let actual = solve_arc_length_from(
+            &input(raw.clone()),
+            Some(&crate::solver::corotational::CorotationalStart2D {
+                input: &raw,
+                displacements: &initial.results.displacements,
+            }),
+        )
+        .unwrap();
+        assert_eq!(format!("{actual:?}"), format!("{expected:?}"));
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #2484"]
+    fn issue_2484_displacement_control_uses_the_canonical_member_pattern() {
+        let (raw, canonical) = rounded_member_load();
+        let expected = solve_displacement_control(&driven(canonical, 2, 0, 0.02, 2, 20)).unwrap();
+        assert!(expected.converged);
+        assert!(expected.final_load_factor > 0.0);
+        let actual = solve_displacement_control(&driven(raw, 2, 0, 0.02, 2, 20)).unwrap();
+        assert_eq!(format!("{actual:?}"), format!("{expected:?}"));
+    }
+
+    fn two_bar_arc(rise: f64, e: f64, ds: f64, max_steps: usize, max_iter: usize) -> ArcLengthInput {
+        let mut solver: SolverInput = serde_json::from_str(include_str!(
+            "../../../../scripts/tests/fixtures/experimental-nonlinear-two-bar.json"
+        ))
+        .unwrap();
+        solver.nodes.get_mut("2").unwrap().z = rise;
+        solver.materials.get_mut("1").unwrap().e = e;
+        let mut input = asked(solver, max_steps, max_iter, ds);
+        input.min_ds = ds;
+        input.max_ds = ds;
+        input
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #2484"]
+    fn issue_2484_public_arc_checks_the_radius_of_the_two_bar_path() {
+        let input = two_bar_arc(2.0, 0.01, 3.0, 2, 20);
+        let result = solve_arc_length(&input).unwrap();
+        assert!(!result.steps.is_empty());
+        let (mut previous_displacement, mut previous_load) = (0.0, 0.0);
+        for step in &result.steps {
+            let radius = (step.control_displacement - previous_displacement)
+                .hypot(step.load_factor - previous_load);
+            assert!((radius / input.initial_ds - 1.0).abs() <= input.tolerance, "{radius}");
+            previous_displacement = step.control_displacement;
+            previous_load = step.load_factor;
+        }
+
+        let smaller = two_bar_arc(2.0, 0.01, 1.5, 2, 20);
+        assert!(solve_arc_length(&smaller).unwrap().converged);
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #2484"]
+    fn issue_2484_public_arc_returns_the_recorded_checkpoint() {
+        let input = two_bar_arc(0.5, 0.001, 0.25, 5, 3);
+        let result = solve_arc_length(&input).unwrap();
+        assert!(!result.converged);
+        let last = result.steps.last().unwrap();
+        assert_eq!(result.final_load_factor, last.load_factor);
+        assert_eq!(result.results.displacements[1].uz, last.control_displacement);
+    }
+
     fn frame(n: usize, rise: f64, far_support: Option<&str>) -> SolverInput {
         let (mut nodes, mut elements, mut supports) =
             (HashMap::new(), HashMap::new(), HashMap::new());
