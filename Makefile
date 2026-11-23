@@ -1382,3 +1382,7 @@ test.web.pro-plates-switch:
 .PHONY: test.web.production-mesher
 test.web.production-mesher:
 	nix develop .\#e2e --command node --test web/scripts/tests/pro-mesher-inputs.test.mjs
+
+.PHONY: test.engine.prescribed-motion-2227-wasm
+test.engine.prescribed-motion-2227-wasm: wasm
+	$(NIX_RUN) node --test scripts/tests/prescribed-motion-2227-wasm.mjs
