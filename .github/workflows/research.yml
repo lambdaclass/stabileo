@@ -58,6 +58,7 @@ jobs:
       - run: python3 -I research/tools/test_check_isolation.py
       - run: python3 -I research/tools/test_asset_identity.py
       - run: python3 -I research/tools/test_docker_context.py
+      - run: python3 -I research/tools/test_compare_evidence.py
       - name: Research pages draw models only through the shared Stabileo viewer
         run: research/tools/check_viewer.sh
       - name: The viewer rule rejects a page with its own canvas
@@ -275,16 +276,20 @@ jobs:
       - run: make wasm
       - name: CQC 1981 shared constants match the independent closed form
         run: python3 research/benchmarks/cqc-1981/reference.py
-      - name: CQC 1981 production modal and spectrum checks write VALIDATION.json
+      - name: CQC 1981 production modal and spectrum checks match the committed VALIDATION.json
         run: |
+          cp research/benchmarks/cqc-1981/VALIDATION.json "$RUNNER_TEMP/cqc-committed.json"
           CQC_VALIDATION_OUT="$PWD/research/benchmarks/cqc-1981/VALIDATION.json" nix develop -c cargo test --locked --manifest-path engine/Cargo.toml --test solver cqc_1981 -- --nocapture
           python3 -I -c "import json, sys; c = json.load(open('research/benchmarks/cqc-1981/VALIDATION.json'))['checks']; sys.exit(len(c) != 9 or not all(x['passed'] for x in c))"
+          python3 -I research/tools/compare_evidence.py "$RUNNER_TEMP/cqc-committed.json" research/benchmarks/cqc-1981/VALIDATION.json
       - name: Newmark 1959 closed form matches the shared case
         run: python3 -I research/benchmarks/newmark-1959/reference.py
-      - name: Newmark 1959 production time-history checks write VALIDATION.json
+      - name: Newmark 1959 production time-history checks match the committed VALIDATION.json
         run: |
+          cp research/benchmarks/newmark-1959/VALIDATION.json "$RUNNER_TEMP/newmark-committed.json"
           NEWMARK_VALIDATION_OUT="$PWD/research/benchmarks/newmark-1959/VALIDATION.json" nix develop -c cargo test --locked --manifest-path engine/Cargo.toml --test integration newmark_1959 -- --nocapture
           python3 -I -c "import json, sys; c = json.load(open('research/benchmarks/newmark-1959/VALIDATION.json'))['checks']; sys.exit(len(c) != 13 or not all(x['passed'] for x in c))"
+          python3 -I research/tools/compare_evidence.py "$RUNNER_TEMP/newmark-committed.json" research/benchmarks/newmark-1959/VALIDATION.json
       - name: Compute native results from the engine-owned cases
         run: |
           MACNEAL_HARDER_RESULTS="$RUNNER_TEMP/macneal-native.json" nix develop -c cargo test --locked --manifest-path engine/Cargo.toml --test shells macneal_harder::browser_cases
@@ -404,10 +409,18 @@ jobs:
         run: rustup show active-toolchain || rustup toolchain install
       - name: Fetch Rust dependencies
         run: bash "$GITHUB_WORKSPACE/.github/scripts/retry-infra.sh" cargo fetch --locked
+      - name: Keep the committed evidence for comparison
+        run: |
+          cp VALIDATION.json "$RUNNER_TEMP/koiter-validation.json"
+          cp reference-results/published_comparison.json "$RUNNER_TEMP/koiter-comparison.json"
       - name: Buckling, energy derivatives, Koiter slope and every replay frame; writes VALIDATION.json
         run: cargo test --release --locked -- --nocapture
       - name: Every validation check passes
         run: python3 -I -c "import json, sys; c = json.load(open('VALIDATION.json'))['checks']; sys.exit(len(c) != 12 or not all(x['passed'] for x in c))"
+      - name: The committed VALIDATION.json and published comparison are what the fresh run gives
+        run: |
+          python3 -I "$GITHUB_WORKSPACE/research/tools/compare_evidence.py" "$RUNNER_TEMP/koiter-validation.json" VALIDATION.json
+          python3 -I "$GITHUB_WORKSPACE/research/tools/compare_evidence.py" "$RUNNER_TEMP/koiter-comparison.json" reference-results/published_comparison.json
   form-finding:
     if: ${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name == 'schedule') }}
     name: Four-cable FDM (Pastrana 2026) validation
