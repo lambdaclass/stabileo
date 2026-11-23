@@ -1595,7 +1595,7 @@
       ]
     },
     "src/components/pro/ProPanel.svelte": {
-      "source": "1de2485a05356076521397271cf3b5e8011856701e5102bb68ab63b5a236d84f",
+      "source": "9fafc9705fbcef1e3dba985ba030a4f7eac4bb5c908cf9eb610a6dba5de325f2",
       "original": "490b90da003f2364b35280da388b93a0ce4f26b543832b092b765492bec17d9a",
       "changes": [
         [
@@ -1616,22 +1616,30 @@
           ]
         ],
         [
-          136,
+          137,
           3,
           []
         ],
         [
-          196,
+          154,
+          1,
+          [
+            "      // A solve stopped before it ran (plates that need a mesh) says why, not \"no results\".",
+            "      if (!outcome.ok) { solveError = outcome.error; solving = false; return; }"
+          ]
+        ],
+        [
+          195,
           1,
           []
         ],
         [
-          252,
+          251,
           1,
           []
         ],
         [
-          275,
+          274,
           2,
           [
             "  {#if solveError}",
@@ -1639,17 +1647,17 @@
           ]
         ],
         [
-          399,
+          398,
           2,
           []
         ],
         [
-          466,
+          465,
           1,
           []
         ],
         [
-          468,
+          467,
           3,
           []
         ]
@@ -4982,7 +4990,7 @@
       ]
     },
     "src/lib/engine/live-calc.ts": {
-      "source": "2f19cc8b676cacd2ec5347fb72c5efd531b0c47da21830d5952a61a43a6e06ba",
+      "source": "6d21cf87f86a78fed38b7e6310cb4175cbcb5f06ec34034c9f9572fc27cc369f",
       "original": "cbb60a9db3b58149771fd485f91f31b80202937c2ca19fda3d9c9222b2ec3cb0",
       "changes": [
         [
@@ -5028,11 +5036,11 @@
         ],
         [
           287,
-          36,
+          38,
           []
         ],
         [
-          329,
+          331,
           0,
           [
             "  // Slabs placed to be meshed at the analysis get their mesh first, so what follows (the floor",
@@ -5040,7 +5048,7 @@
           ]
         ],
         [
-          330,
+          332,
           9,
           [
             "    // A slab meshed before its columns' sections were represented is meshed again with them",
@@ -5052,38 +5060,38 @@
           ]
         ],
         [
-          341,
+          343,
           3,
           [
             "    const p = preparePlatesForAnalysis();"
           ]
         ],
         [
-          356,
+          358,
           5,
           [
             "    if (p.meshed > 0) uiStore.toast(tp('plates.meshedAtAnalysis', { n: p.meshed, cells: p.cells }), 'info');"
           ]
         ],
         [
-          375,
+          377,
           1,
           []
         ],
         [
-          378,
+          380,
           1,
           []
         ],
         [
-          391,
+          393,
           1,
           [
             "    outcome = await globalSolve3D(isStale, options.directBase ?? false);"
           ]
         ],
         [
-          430,
+          432,
           0,
           [
             "/** Show solver diagnostic warnings/errors as toasts (max 2 to avoid spam).",
@@ -5093,43 +5101,60 @@
           ]
         ],
         [
-          447,
+          433,
+          2,
+          [
+            " * The action a failed solve's message offers. When members pass nodes they are not cut at,",
+            " * which is how a first model usually falls apart, the fix is one command away and the message",
+            " * offers it; otherwise a mechanism message offers the kinematic panel."
+          ]
+        ],
+        [
+          437,
+          2,
+          [
+            "  if (nodesOnMembers(modelStore.nodes, modelStore.elements.values()).length > 0) return 'split-at-nodes';",
+            "  return isMechanismError(msg) ? 'kinematic' : undefined;"
+          ]
+        ],
+        [
+          448,
           1,
           [
             "async function globalSolve3D(isStale: () => boolean, directBase: boolean): Promise<GlobalSolveOutcome> {"
           ]
         ],
         [
-          458,
+          459,
           1,
           []
         ],
         [
-          482,
+          483,
           1,
           [
             "    showSolverWarningToasts(r.solverDiagnostics);"
           ]
         ],
         [
-          495,
+          496,
           2,
           []
         ],
         [
-          532,
+          533,
           2,
           []
         ],
         [
-          558,
+          559,
           1,
           [
             "    showSolverWarningToasts(firstCaseResult.solverDiagnostics);"
           ]
         ],
         [
-          637,
+          638,
           1,
           [
             "  showSolverWarningToasts(r.solverDiagnostics);"
@@ -11251,7 +11276,7 @@
       ]
     },
     "src/lib/store/ui.svelte.ts": {
-      "source": "4ff08ab480eb67c05199712812d00497bd9dc2b2f4efb6090d0e82bd099e372a",
+      "source": "ea769a53176df3bd66fc122b93d2950fefc2cbb0b0b68fdecd5fd01c1664eb89",
       "original": "d8a61b7f2aba13e625bb78e8174b4e8e637532eace3d30ba63b41a7e9b19f957",
       "changes": [
         [
@@ -11268,6 +11293,16 @@
           [
             "    set platesShowMesh(v: boolean) { platesShowMesh = v; },"
           ]
+        ],
+        [
+          1282,
+          2,
+          []
+        ],
+        [
+          1291,
+          4,
+          []
         ]
       ]
     },

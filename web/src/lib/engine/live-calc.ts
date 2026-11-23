@@ -307,7 +307,9 @@ export async function runGlobalSolve(options: { directBase?: boolean } = {}): Pr
       const warnings = uiStore.analysisMode === 'pro' ? reviewCount(uiStore.is3DWorkspace).total : uiStore.is3DWorkspace
         ? resultsStore.diagnostics3D.length + resultsStore.solverDiagnostics3D.length + resultsStore.structuredDiagnostics3D.length
         : resultsStore.diagnostics.length + resultsStore.solverDiagnostics.length + resultsStore.structuredDiagnostics.length;
-      solveProgress.finish(outcome?.ok ? { ok: true, warnings } : { ok: false, error: outcome && !outcome.ok ? outcome.error : '', warnings });
+      const error = outcome && !outcome.ok ? outcome.error : '';
+      solveProgress.finish(outcome?.ok ? { ok: true, warnings } : { ok: false, error, warnings });
+      if (error) uiStore.dismissToastsSaying(error);
     }
     manualSolves--;
     const held = deferredLive;
@@ -429,13 +431,12 @@ async function ensureWasmReady(context: string): Promise<void> {
 }
 
 /**
- * The action a failed solve's message offers. When members pass nodes they are not cut at,
- * which is how a first model usually falls apart, the fix is one command away and the message
- * offers it; otherwise a mechanism message offers the kinematic panel.
+ * The action a failed solve's message offers when the model is a mechanism: cutting the members
+ * at the nodes they pass, which is how a first model usually falls apart, else the kinematic panel.
  */
 function solveErrorAction(msg: string): string | undefined {
-  if (nodesOnMembers(modelStore.nodes, modelStore.elements.values()).length > 0) return 'split-at-nodes';
-  return isMechanismError(msg) ? 'kinematic' : undefined;
+  if (!isMechanismError(msg)) return undefined;
+  return nodesOnMembers(modelStore.nodes, modelStore.elements.values()).length > 0 ? 'split-at-nodes' : 'kinematic';
 }
 
 /** Detect if an error message is mechanism/hipostatic-related */

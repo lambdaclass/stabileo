@@ -152,8 +152,7 @@
     solving = true;
     try {
       const outcome = await runGlobalSolve();
-      // A solve stopped before it ran (plates that need a mesh) says why, not "no results".
-      if (!outcome.ok) { solveError = outcome.error; solving = false; return; }
+      if (!outcome.ok) { solving = false; return; }
       if (!resultsStore.results3D) {
         solveError = t('pro.noResults');
         solving = false;

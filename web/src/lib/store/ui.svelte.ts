@@ -1280,6 +1280,8 @@ function createUIStore() {
     get toasts() { return toasts; },
     /** `sticky`: kept until it is acted on or dismissed, for a question the reader has to answer. */
     toast(message: string, type: 'success' | 'error' | 'info' = 'info', actionId?: string, sticky = false) {
+      const at = toasts.findIndex(t => t.message === message && t.type === type);
+      if (at >= 0) { actionId ??= toasts[at]!.actionId; toasts.splice(at, 1); }
       const id = ++toastCounter;
       toasts.push({ id, message, type, actionId });
       if (sticky) return;
@@ -1287,6 +1289,10 @@ function createUIStore() {
         const idx = toasts.findIndex(t => t.id === id);
         if (idx >= 0) toasts.splice(idx, 1);
       }, actionId ? 8000 : 4000);
+    },
+    /** Takes back the toasts that say only this: what a card that stays says in their place. */
+    dismissToastsSaying(message: string) {
+      for (let i = toasts.length - 1; i >= 0; i--) if (toasts[i]!.message === message && !toasts[i]!.actionId) toasts.splice(i, 1);
     },
     dismissToast(id: number) {
       const idx = toasts.findIndex(t => t.id === id);
