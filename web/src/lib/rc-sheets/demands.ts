@@ -41,7 +41,7 @@ export interface DemandSet {
 export interface DemandInput {
   nodes: ReadonlyMap<number, Pt>;
   elements: ReadonlyMap<number, El>;
-  sections: ReadonlyMap<number, { id: number; b?: number; h?: number }>;
+  sections: ReadonlyMap<number, { id: number; b?: number; h?: number; rotation?: number }>;
   supportNodes: ReadonlySet<number>;
   shells: ShellModel;
   groups: readonly DemandGroup[];
@@ -148,10 +148,16 @@ function runStations(m: DemandInput, run: Array<{ e: El; forward: boolean }>, se
   for (const { e, forward } of run) {
     const L = lengthOf(m, e);
     const ef: ElementForces3D | undefined = by.get(e.id);
-    if (ef) for (const t of buildCriticalStations(ef)) out.push({ x: offset + (forward ? t : 1 - t) * L, s: extractForcesAtStation(ef, t) });
+    if (ef) for (const t of buildCriticalStations(ef)) out.push({ x: offset + (forward ? t : 1 - t) * L, s: unrolled(m, e, extractForcesAtStation(ef, t)) });
     offset += L;
   }
   return out;
+}
+
+/** A member's forces in the frame of its roll turned back by half a turn when it is past a quarter: rolled 180° its local y and z point the other way, and its sagging would read as hogging. */
+function unrolled(m: DemandInput, e: El, f: StationForces): StationForces {
+  const r = ((((e.rollAngle ?? 0) + (m.sections.get(e.sectionId)?.rotation ?? 0)) % 360) + 360) % 360;
+  return r >= 135 && r < 315 ? { ...f, vy: -f.vy, vz: -f.vz, my: -f.my, mz: -f.mz } : f;
 }
 
 const upright = (e: El) => { const r = ((((e.rollAngle ?? 0) % 180) + 180) % 180); return r < 5 || r > 175; };
@@ -165,7 +171,7 @@ function forcesAt(m: DemandInput, run: Array<{ e: El; forward: boolean }>, set: 
       const ef = by.get(e.id);
       if (!ef || L <= 0) return undefined;
       const local = Math.min(1, Math.max(0, (x - offset) / L));
-      const f = extractForcesAtStation(ef, forward ? local : 1 - local);
+      const f = unrolled(m, e, extractForcesAtStation(ef, forward ? local : 1 - local));
       // Along the line read backwards a member's shear changes sign; its bending moment does not.
       return forward ? f : { ...f, vy: -f.vy, vz: -f.vz };
     }
