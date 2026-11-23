@@ -1,3 +1,4 @@
+use super::numeric;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -15,8 +16,11 @@ pub struct SolverNode {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SolverMaterial {
+    #[serde(deserialize_with = "numeric::id::required")]
     pub id: usize,
+    #[serde(deserialize_with = "numeric::e::required")]
     pub e: f64,  // MPa
+    #[serde(deserialize_with = "numeric::nu::required")]
     pub nu: f64,
 }
 
@@ -51,60 +55,83 @@ pub struct SolverElement {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SolverSupport {
+    #[serde(deserialize_with = "numeric::id::required")]
     pub id: usize,
+    #[serde(deserialize_with = "numeric::node_id::required")]
     pub node_id: usize,
     #[serde(rename = "type")]
     pub support_type: String,
     #[serde(default)]
+    #[serde(deserialize_with = "numeric::kx::optional", skip_serializing_if = "Option::is_none")]
     pub kx: Option<f64>,
     #[serde(default)]
+    #[serde(deserialize_with = "numeric::ky::optional", skip_serializing_if = "Option::is_none")]
     pub ky: Option<f64>,
     #[serde(default)]
+    #[serde(deserialize_with = "numeric::kz::optional", skip_serializing_if = "Option::is_none")]
     pub kz: Option<f64>,
     #[serde(default)]
+    #[serde(deserialize_with = "numeric::dx::optional", skip_serializing_if = "Option::is_none")]
     pub dx: Option<f64>,
     #[serde(default, rename = "dz", alias = "dy")]
+    #[serde(deserialize_with = "numeric::dz_or_dy::optional", skip_serializing_if = "Option::is_none")]
     pub dz: Option<f64>,
     #[serde(default, rename = "dry", alias = "drz")]
+    #[serde(deserialize_with = "numeric::dry_or_drz::optional", skip_serializing_if = "Option::is_none")]
     pub dry: Option<f64>,
     #[serde(default)]
+    #[serde(deserialize_with = "numeric::angle::optional", skip_serializing_if = "Option::is_none")]
     pub angle: Option<f64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SolverNodalLoad {
+    #[serde(deserialize_with = "numeric::node_id::required")]
     pub node_id: usize,
+    #[serde(deserialize_with = "numeric::fx::required")]
     pub fx: f64,
     #[serde(rename = "fz", alias = "fy")]
+    #[serde(deserialize_with = "numeric::fz_or_fy::required")]
     pub fz: f64,
     #[serde(rename = "my", alias = "mz")]
+    #[serde(deserialize_with = "numeric::my_or_mz::required")]
     pub my: f64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SolverDistributedLoad {
+    #[serde(deserialize_with = "numeric::element_id::required")]
     pub element_id: usize,
     #[serde(rename = "qI")]
+    #[serde(deserialize_with = "numeric::q_i::required")]
     pub q_i: f64,
     #[serde(rename = "qJ")]
+    #[serde(deserialize_with = "numeric::q_j::required")]
     pub q_j: f64,
     #[serde(default)]
+    #[serde(deserialize_with = "numeric::a::optional", skip_serializing_if = "Option::is_none")]
     pub a: Option<f64>,
     #[serde(default)]
+    #[serde(deserialize_with = "numeric::b::optional", skip_serializing_if = "Option::is_none")]
     pub b: Option<f64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SolverPointLoadOnElement {
+    #[serde(deserialize_with = "numeric::element_id::required")]
     pub element_id: usize,
+    #[serde(deserialize_with = "numeric::a::required")]
     pub a: f64,
+    #[serde(deserialize_with = "numeric::p::required")]
     pub p: f64,
     #[serde(default)]
+    #[serde(deserialize_with = "numeric::px::optional", skip_serializing_if = "Option::is_none")]
     pub px: Option<f64>,
     #[serde(default, rename = "my", alias = "mz")]
+    #[serde(deserialize_with = "numeric::my_or_mz::optional", skip_serializing_if = "Option::is_none")]
     pub my: Option<f64>,
 }
 
@@ -117,32 +144,42 @@ pub struct SolverPointLoadOnElement {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SolverAxialDistributedLoad {
+    #[serde(deserialize_with = "numeric::element_id::required")]
     pub element_id: usize,
     #[serde(rename = "qI")]
+    #[serde(deserialize_with = "numeric::q_i::required")]
     pub q_i: f64,
     #[serde(rename = "qJ")]
+    #[serde(deserialize_with = "numeric::q_j::required")]
     pub q_j: f64,
     #[serde(default)]
+    #[serde(deserialize_with = "numeric::a::optional", skip_serializing_if = "Option::is_none")]
     pub a: Option<f64>,
     #[serde(default)]
+    #[serde(deserialize_with = "numeric::b::optional", skip_serializing_if = "Option::is_none")]
     pub b: Option<f64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SolverThermalLoad {
+    #[serde(deserialize_with = "numeric::element_id::required")]
     pub element_id: usize,
+    #[serde(deserialize_with = "numeric::dt_uniform::required")]
     pub dt_uniform: f64,
+    #[serde(deserialize_with = "numeric::dt_gradient::required")]
     pub dt_gradient: f64,
     /// The member material's coefficient of thermal expansion, 1/°C. Omitted: the engine's
     /// default [`DEFAULT_FRAME_THERMAL_ALPHA`] (steel's 12·10⁻⁶), and the result says so
     /// (`known_issues::FR-4`). Concrete is about 10·10⁻⁶, aluminium 23·10⁻⁶.
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "numeric::alpha::optional")]
     pub alpha: Option<f64>,
     /// The section's real depth across which `dt_gradient` acts (along local y, the depth
     /// bent with `iz`). Omitted: the depth of the section's equivalent solid rectangle,
     /// √(12·Iz/A), which is exact only for a solid rectangle, and the result says so.
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "numeric::depth::optional")]
     pub depth: Option<f64>,
 }
 
@@ -377,6 +414,7 @@ pub struct SolverElement3D {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SolverSupport3D {
+    #[serde(deserialize_with = "numeric::node_id::required")]
     pub node_id: usize,
     pub rx: bool,
     pub ry: bool,
@@ -385,38 +423,54 @@ pub struct SolverSupport3D {
     pub rry: bool,
     pub rrz: bool,
     #[serde(default)]
+    #[serde(deserialize_with = "numeric::kx::optional", skip_serializing_if = "Option::is_none")]
     pub kx: Option<f64>,
     #[serde(default)]
+    #[serde(deserialize_with = "numeric::ky::optional", skip_serializing_if = "Option::is_none")]
     pub ky: Option<f64>,
     #[serde(default)]
+    #[serde(deserialize_with = "numeric::kz::optional", skip_serializing_if = "Option::is_none")]
     pub kz: Option<f64>,
     #[serde(default)]
+    #[serde(deserialize_with = "numeric::krx::optional", skip_serializing_if = "Option::is_none")]
     pub krx: Option<f64>,
     #[serde(default)]
+    #[serde(deserialize_with = "numeric::kry::optional", skip_serializing_if = "Option::is_none")]
     pub kry: Option<f64>,
     #[serde(default)]
+    #[serde(deserialize_with = "numeric::krz::optional", skip_serializing_if = "Option::is_none")]
     pub krz: Option<f64>,
     #[serde(default)]
+    #[serde(deserialize_with = "numeric::dx::optional", skip_serializing_if = "Option::is_none")]
     pub dx: Option<f64>,
     #[serde(default)]
+    #[serde(deserialize_with = "numeric::dy::optional", skip_serializing_if = "Option::is_none")]
     pub dy: Option<f64>,
     #[serde(default)]
+    #[serde(deserialize_with = "numeric::dz::optional", skip_serializing_if = "Option::is_none")]
     pub dz: Option<f64>,
     #[serde(default)]
+    #[serde(deserialize_with = "numeric::drx::optional", skip_serializing_if = "Option::is_none")]
     pub drx: Option<f64>,
     #[serde(default)]
+    #[serde(deserialize_with = "numeric::dry::optional", skip_serializing_if = "Option::is_none")]
     pub dry: Option<f64>,
     #[serde(default)]
+    #[serde(deserialize_with = "numeric::drz::optional", skip_serializing_if = "Option::is_none")]
     pub drz: Option<f64>,
     #[serde(default)]
     pub rw: Option<bool>,
     #[serde(default)]
+    #[serde(deserialize_with = "numeric::kw::optional", skip_serializing_if = "Option::is_none")]
     pub kw: Option<f64>,
     #[serde(default)]
+    #[serde(deserialize_with = "numeric::normal_x::optional", skip_serializing_if = "Option::is_none")]
     pub normal_x: Option<f64>,
     #[serde(default)]
+    #[serde(deserialize_with = "numeric::normal_y::optional", skip_serializing_if = "Option::is_none")]
     pub normal_y: Option<f64>,
     #[serde(default)]
+    #[serde(deserialize_with = "numeric::normal_z::optional", skip_serializing_if = "Option::is_none")]
     pub normal_z: Option<f64>,
     #[serde(default)]
     pub is_inclined: Option<bool>,
@@ -425,14 +479,22 @@ pub struct SolverSupport3D {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SolverNodalLoad3D {
+    #[serde(deserialize_with = "numeric::node_id::required")]
     pub node_id: usize,
+    #[serde(deserialize_with = "numeric::fx::required")]
     pub fx: f64,
+    #[serde(deserialize_with = "numeric::fy::required")]
     pub fy: f64,
+    #[serde(deserialize_with = "numeric::fz::required")]
     pub fz: f64,
+    #[serde(deserialize_with = "numeric::mx::required")]
     pub mx: f64,
+    #[serde(deserialize_with = "numeric::my::required")]
     pub my: f64,
+    #[serde(deserialize_with = "numeric::mz::required")]
     pub mz: f64,
     #[serde(default)]
+    #[serde(deserialize_with = "numeric::bw::optional", skip_serializing_if = "Option::is_none")]
     pub bw: Option<f64>,
 }
 
@@ -440,55 +502,108 @@ pub struct SolverNodalLoad3D {
 #[serde(rename_all = "camelCase")]
 pub struct SolverDistributedLoad3D {
     #[serde(default, rename = "qXI")]
+    #[serde(deserialize_with = "numeric::q_xi::required")]
     pub q_xi: f64,
     #[serde(default, rename = "qXJ")]
+    #[serde(deserialize_with = "numeric::q_xj::required")]
     pub q_xj: f64,
+    #[serde(deserialize_with = "numeric::element_id::required")]
     pub element_id: usize,
     #[serde(rename = "qYI")]
+    #[serde(deserialize_with = "numeric::q_yi::required")]
     pub q_yi: f64,
     #[serde(rename = "qYJ")]
+    #[serde(deserialize_with = "numeric::q_yj::required")]
     pub q_yj: f64,
     #[serde(rename = "qZI")]
+    #[serde(deserialize_with = "numeric::q_zi::required")]
     pub q_zi: f64,
     #[serde(rename = "qZJ")]
+    #[serde(deserialize_with = "numeric::q_zj::required")]
     pub q_zj: f64,
     #[serde(default)]
+    #[serde(deserialize_with = "numeric::a::optional", skip_serializing_if = "Option::is_none")]
     pub a: Option<f64>,
     #[serde(default)]
+    #[serde(deserialize_with = "numeric::b::optional", skip_serializing_if = "Option::is_none")]
     pub b: Option<f64>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct SolverPointLoad3D {
+pub struct SolverPointLoad3D<L = f64, F = f64> {
     pub element_id: usize,
-    pub a: f64,
-    #[serde(default)]
-    pub px: f64,
-    pub py: f64,
-    pub pz: f64,
+    pub a: L,
+    pub px: F,
+    pub py: F,
+    pub pz: F,
+}
+
+impl<'de, L, F> Deserialize<'de> for SolverPointLoad3D<L, F>
+where
+    L: Deserialize<'de> + numeric::Numeric,
+    F: Deserialize<'de> + numeric::Numeric + Default,
+{
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        #[derive(Deserialize)]
+        #[serde(
+            rename_all = "camelCase",
+            bound(deserialize = "L: Deserialize<'de> + numeric::Numeric, F: Deserialize<'de> + numeric::Numeric + Default")
+        )]
+        struct Fields<L, F> {
+            #[serde(deserialize_with = "numeric::element_id::required")]
+            element_id: usize,
+            #[serde(deserialize_with = "numeric::a::required")]
+            a: L,
+            #[serde(default, deserialize_with = "numeric::px::required")]
+            px: F,
+            #[serde(deserialize_with = "numeric::py::required")]
+            py: F,
+            #[serde(deserialize_with = "numeric::pz::required")]
+            pz: F,
+            #[serde(flatten)]
+            additional: HashMap<String, serde::de::IgnoredAny>,
+        }
+
+        let Fields { element_id, a, px, py, pz, additional } = Fields::deserialize(deserializer)?;
+        for field in ["mx", "my", "mz"] {
+            if additional.contains_key(field) {
+                return Err(serde::de::Error::custom(format!(
+                    "Unsupported point load field {field}: apply the moment at a node"
+                )));
+            }
+        }
+        Ok(Self { element_id, a, px, py, pz })
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SolverThermalLoad3D {
+    #[serde(deserialize_with = "numeric::element_id::required")]
     pub element_id: usize,
+    #[serde(deserialize_with = "numeric::dt_uniform::required")]
     pub dt_uniform: f64,
     /// T(−y face) − T(+y face), °C: the opposite sign of `dt_gradient_z`.
+    #[serde(deserialize_with = "numeric::dt_gradient_y::required")]
     pub dt_gradient_y: f64,
     /// T(+z face) − T(−z face), °C: the opposite sign of `dt_gradient_y`.
+    #[serde(deserialize_with = "numeric::dt_gradient_z::required")]
     pub dt_gradient_z: f64,
     /// The member material's coefficient of thermal expansion, 1/°C. Omitted:
     /// [`DEFAULT_FRAME_THERMAL_ALPHA`], and the result says so (`known_issues::FR-4`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "numeric::alpha::optional")]
     pub alpha: Option<f64>,
     /// The section's real depth along local y, across which `dt_gradient_y` acts (bent with
     /// `iz`). Omitted: √(12·Iz/A), and the result says so.
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "numeric::depth_y::optional")]
     pub depth_y: Option<f64>,
     /// The section's real depth along local z, across which `dt_gradient_z` acts (bent with
     /// `iy`). Omitted: √(12·Iy/A), and the result says so.
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "numeric::depth_z::optional")]
     pub depth_z: Option<f64>,
 }
 
@@ -558,15 +673,20 @@ pub enum SolverLoad3D {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SolverQuadSelfWeightLoad {
+    #[serde(deserialize_with = "numeric::element_id::required")]
     pub element_id: usize,
     /// Mass density (kg/m³)
+    #[serde(deserialize_with = "numeric::density::required")]
     pub density: f64,
     /// Gravity acceleration components (m/s²), global coordinates
     #[serde(default)]
+    #[serde(deserialize_with = "numeric::gx::required")]
     pub gx: f64,
     #[serde(default)]
+    #[serde(deserialize_with = "numeric::gy::required")]
     pub gy: f64,
     #[serde(default)]
+    #[serde(deserialize_with = "numeric::gz::required")]
     pub gz: f64,
 }
 
@@ -574,14 +694,18 @@ pub struct SolverQuadSelfWeightLoad {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SolverQuadEdgeLoad {
+    #[serde(deserialize_with = "numeric::element_id::required")]
     pub element_id: usize,
     /// Edge index 0-3 (0=nodes 0→1, 1=1→2, 2=2→3, 3=3→0)
+    #[serde(deserialize_with = "numeric::edge::required")]
     pub edge: usize,
     /// Normal pressure on edge (force/length), positive = outward
     #[serde(default)]
+    #[serde(deserialize_with = "numeric::qn::required")]
     pub qn: f64,
     /// Tangential traction along edge (force/length)
     #[serde(default)]
+    #[serde(deserialize_with = "numeric::qt::required")]
     pub qt: f64,
 }
 
@@ -589,7 +713,9 @@ pub struct SolverQuadEdgeLoad {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SolverBimomentLoad {
+    #[serde(deserialize_with = "numeric::node_id::required")]
     pub node_id: usize,
+    #[serde(deserialize_with = "numeric::bimoment::required")]
     pub bimoment: f64,
 }
 
@@ -597,11 +723,15 @@ pub struct SolverBimomentLoad {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SolverPlateThermalLoad {
+    #[serde(deserialize_with = "numeric::element_id::required")]
     pub element_id: usize,
+    #[serde(deserialize_with = "numeric::dt_uniform::required")]
     pub dt_uniform: f64,
     #[serde(default)]
+    #[serde(deserialize_with = "numeric::dt_gradient::required")]
     pub dt_gradient: f64,
     #[serde(default)]
+    #[serde(deserialize_with = "numeric::alpha::optional", skip_serializing_if = "Option::is_none")]
     pub alpha: Option<f64>,
 }
 
@@ -760,21 +890,28 @@ pub struct SolverCurvedShellElement {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SolverSolidShellSelfWeightLoad {
+    #[serde(deserialize_with = "numeric::element_id::required")]
     pub element_id: usize,
     /// Mass density (kg/m³)
+    #[serde(deserialize_with = "numeric::density::required")]
     pub density: f64,
     #[serde(default)]
+    #[serde(deserialize_with = "numeric::gx::required")]
     pub gx: f64,
     #[serde(default)]
+    #[serde(deserialize_with = "numeric::gy::required")]
     pub gy: f64,
     #[serde(default)]
+    #[serde(deserialize_with = "numeric::gz::required")]
     pub gz: f64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SolverPressureLoad {
+    #[serde(deserialize_with = "numeric::element_id::required")]
     pub element_id: usize,
+    #[serde(deserialize_with = "numeric::pressure::required")]
     pub pressure: f64,
 }
 
@@ -967,6 +1104,7 @@ pub struct PlasticSectionData {
 #[serde(rename_all = "camelCase")]
 pub struct PlasticMaterialData {
     #[serde(default)]
+    #[serde(deserialize_with = "numeric::fy::optional", skip_serializing_if = "Option::is_none")]
     pub fy: Option<f64>, // Yield stress (MPa)
 }
 
@@ -1023,7 +1161,9 @@ pub struct LoadTrain {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Axle {
+    #[serde(deserialize_with = "numeric::offset::required")]
     pub offset: f64,
+    #[serde(deserialize_with = "numeric::weight::required")]
     pub weight: f64,
 }
 
@@ -1067,8 +1207,10 @@ fn default_n_increments() -> usize { 10 }
 #[serde(rename_all = "camelCase")]
 pub struct MaterialModel {
     pub model_type: String,
+    #[serde(deserialize_with = "numeric::fy::required")]
     pub fy: f64,
     #[serde(default)]
+    #[serde(deserialize_with = "numeric::alpha::optional", skip_serializing_if = "Option::is_none")]
     pub alpha: Option<f64>,
 }
 
@@ -1132,14 +1274,17 @@ pub struct NodeImperfection {
 #[serde(rename_all = "camelCase")]
 pub struct NotionalLoadDef {
     /// Imperfection ratio (e.g., 1/200 = 0.005 per AISC, 1/200 per EC3)
+    #[serde(deserialize_with = "numeric::ratio::required")]
     pub ratio: f64,
     /// Direction: 0=X, 1=Y, 2=Z
     #[serde(default)]
+    #[serde(deserialize_with = "numeric::direction::required")]
     pub direction: usize,
     /// Gravity axis: 0=X, 1=Z (2D), 0=X, 1=Y, 2=Z (3D). Absent: the vertical axis of the
     /// model, Z (1 in 2D, 2 in 3D). It defaulted to 1 for both, which is Y in a Z-up 3D
     /// model: a default 3D definition found no gravity and added nothing (NL-9).
     #[serde(default)]
+    #[serde(deserialize_with = "numeric::gravity_axis::optional", skip_serializing_if = "Option::is_none")]
     pub gravity_axis: Option<usize>,
 }
 
@@ -1295,15 +1440,21 @@ pub struct ConstructionStage {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PrestressLoad {
+    #[serde(deserialize_with = "numeric::element_id::required")]
     pub element_id: usize,
+    #[serde(deserialize_with = "numeric::force::required")]
     pub force: f64,
+    #[serde(deserialize_with = "numeric::eccentricity_i::required")]
     pub eccentricity_i: f64,
+    #[serde(deserialize_with = "numeric::eccentricity_j::required")]
     pub eccentricity_j: f64,
     #[serde(default)]
     pub profile: TendonProfile,
     #[serde(default)]
+    #[serde(deserialize_with = "numeric::mu::optional", skip_serializing_if = "Option::is_none")]
     pub mu: Option<f64>,
     #[serde(default)]
+    #[serde(deserialize_with = "numeric::kappa::optional", skip_serializing_if = "Option::is_none")]
     pub kappa: Option<f64>,
 }
 

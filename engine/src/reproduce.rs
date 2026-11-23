@@ -77,6 +77,7 @@ pub fn linear_hashes(json: &str, is_3d: bool) -> Result<ReproduceHashes, String>
 #[cfg(test)]
 mod tests {
     use super::linear_hashes;
+    use crate::solver::linear::{solve_2d, solve_3d};
     use crate::solver::pdelta::{solve_pdelta_2d, solve_pdelta_3d};
     use crate::types::{SolverInput, SolverInput3D};
     use serde_json::{json, Value};
@@ -113,13 +114,11 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "known wrong result: #2472"]
     fn issue_2472_native_linear_refuses_null_numeric_fields() {
         check_refusals(|text, space| linear_hashes(text, space).map(|_| ()));
     }
 
     #[test]
-    #[ignore = "known wrong result: #2472"]
     fn issue_2472_native_pdelta_refuses_null_numeric_fields() {
         check_refusals(pdelta);
     }
@@ -160,9 +159,18 @@ mod tests {
             if !space {
                 zero["loads"][0]["data"]["my"] = json!(0);
             }
-            let original = linear_hashes(&omitted.to_string(), space).unwrap();
-            let explicit = linear_hashes(&zero.to_string(), space).unwrap();
-            assert_eq!(original.results_sha256, explicit.results_sha256);
+            let reactions = |input: Value| {
+                if space {
+                    let input = serde_json::from_value(input).unwrap();
+                    let result = solve_3d(&input).unwrap();
+                    (json!(result.displacements), json!(result.reactions))
+                } else {
+                    let input = serde_json::from_value(input).unwrap();
+                    let result = solve_2d(&input).unwrap();
+                    (json!(result.displacements), json!(result.reactions))
+                }
+            };
+            assert_eq!(reactions(omitted), reactions(zero.clone()));
             assert!(pdelta(&zero.to_string(), space).is_ok());
         }
     }

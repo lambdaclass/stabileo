@@ -1,4 +1,5 @@
 mod input;
+mod numeric;
 mod output;
 
 pub use input::*;

@@ -54,6 +54,7 @@ import { axialShares, combineShares, giveBackAxialShares } from './axial-shares'
 import { addSettlementCase, addSettlementCase2D, hasSettlement, withoutSettlement, SETTLEMENT_CASE_ID } from './settlement-case';
 import { memberAlphaOf, thermalAlphaOf, ENGINE_ALPHA } from './thermal-alpha';
 import { pointToSolver, pointToEnds, PointLoadNeedsCut, planePointLoad3D, pointWithCoupleToEnds, planarMoment3D, planarPointOrigin, requirePlanarNodalMoment, requirePlanarPointMoment, PlanarLoadMomentError, type PlanePointLoadLike } from './member-point-loads';
+import { InvalidModelNumber, modelNumberRefusal, requireLoadNumbers, requireModelNumbers } from './model-input-numbers';
 import { planarPointMomentWithoutProjection, planarPointProjectionTooShort } from './planar-point-load';
 import { planarLoadDirection } from './planar-load-direction';
 import { prestressToSolver } from './prestress';
@@ -286,6 +287,7 @@ class PlaneSelfWeightError extends Error {}
 function buildSolverLoads2D(
   model: ModelData, input: SolverInput, loads: Load[], weights: readonly SelfWeightLoad[], caseIds?: readonly number[],
 ): SolverInput['loads'] {
+  requireLoadNumbers(loads);
   const projection = model[accountingProjection];
   const originals = loadCaseBatches(projection?.source.loads.filter(load => load.type.endsWith('3d')) ?? []);
   const batches = loadCaseBatches(loads, caseIds ?? [...originals.keys()]);
@@ -966,6 +968,8 @@ function prepareSolve2D(
     return t('svc.needSupport');
   }
 
+  const numberRefusal = modelNumberRefusal(model);
+  if (numberRefusal) return numberRefusal;
   const { error: preflightError } = preflightModel2D(model);
   if (preflightError) return preflightError;
 
@@ -1302,8 +1306,8 @@ export async function validateAndSolve2DAsync(
 
 // ─── 2D: buildSolverInput2D ──────────────────────────────────────
 
-/** Build a SolverInput from model data (no validation). Returns null if model is empty. */
 export function buildSolverInput2D(model: ModelData, includeSelfWeight = false): SolverInput | null {
+  requireModelNumbers(model);
   if (model.nodes.size < 2 || model.elements.size < 1 || model.supports.size < 1) return null;
   // The same builder as every 2D path, material α included (buildSolverLoads2D).
   const input = solverFrame2D(model);
@@ -1324,7 +1328,7 @@ export function solveCombinations2D(
   combinations: LoadCombination[],
   includeSelfWeight = false,
 ): { perCase: Map<number, AnalysisResults>; perCombo: Map<number, AnalysisResults>; envelope: FullEnvelope } | string | null {
-  const refused = missingCombinationCaseRefusal(loadCases.map(({ id }) => id), combinations);
+  const refused = modelNumberRefusal(model) ?? missingCombinationCaseRefusal(loadCases.map(({ id }) => id), combinations);
   if (refused) return refused;
   const resolved = resolveCombinationFactors(combinations);
   if (typeof resolved === 'string') return resolved;
@@ -1559,6 +1563,7 @@ export function buildSolverLoads3D(
   opts: { forcesOnly?: boolean; record?: RecordLoadCase<SolverLoad3D> } = {},
 ): SolverLoad3D[] {
   const leftHand = false;
+  requireLoadNumbers(loads);
   const solverLoads: SolverLoad3D[] = [];
   const project2DToXZ = shouldEmbedFlat2DModelIn3D(model);
   const refOf = (id: number) => memberRef3D(model, id, project2DToXZ);
@@ -1900,6 +1905,7 @@ export function buildSolverInput3D(...args: Parameters<typeof buildValidatedSolv
 
 export function prepareSolverInput3D(model: ModelData, leftHand: boolean) {
   assertPlateAnalysisReady(model);
+  requireModelNumbers(model);
   const solvable = solvableModel(model);
   return {
     model: solvable,
@@ -1914,6 +1920,7 @@ function buildValidatedSolverInput3D(
   userLeftHand = false,
   opts: { expandMemberOffsets?: boolean; plateCases?: boolean | readonly number[] } = {},
 ): SolverInput3D | null {
+  requireModelNumbers(model);
   model = solvableModel(model);
   if (model.nodes.size < 2 || !hasLoadCarrying3D(model) || model.supports.size < 1) return null;
 
@@ -2141,7 +2148,7 @@ function buildSolveInput3D(...args: Parameters<typeof buildValidatedSolverInput3
 
 /** A load the solve cannot place, said by name: a moment on a member that takes no bending. */
 export function loadRefusal(err: unknown): string | null {
-  if (err instanceof MemberLoadIntervalError || err instanceof SolveAccountingError) return err.message;
+  if (err instanceof MemberLoadIntervalError || err instanceof SolveAccountingError || err instanceof InvalidModelNumber) return err.message;
   if (err instanceof PlaneSelfWeightError || err instanceof PlanarPointLoadProjectionError || err instanceof PlanarLoadMomentError) return err.message;
   return err instanceof PointLoadNeedsCut ? tp('svc.pointMomentOnTruss', { n: err.elementId }) : null;
 }
@@ -2182,7 +2189,7 @@ function prepareSolve3D(model: ModelData, includeSelfWeight = false, leftHand = 
   // route through here exactly once) so browser tests can assert that a
   // reinforcement-only edit triggers none. Not part of the solver.
   if (countSolve) noteStructuralSolve();
-  const refusal = plateAnalysisRefusal(model) ?? orphanLoadRefusal(model);
+  const refusal = plateAnalysisRefusal(model) ?? modelNumberRefusal(model) ?? orphanLoadRefusal(model);
   if (refusal) return refusal;
   // Checked on what the engine will see: inactive members and the nodes nothing holds are out.
   // A variable member is its pieces there; a refusal names the member and the model's nodes.
@@ -2636,7 +2643,7 @@ function magnitudeRefusal3D(model: ModelData, combinations: LoadCombination[], l
 const magnitudeOptions = (model: ModelData) => ({ firstOrder: model.analysis?.perCombination === 'pdelta', plates: model.plates });
 
 function combinationPreflight3D(model: ModelData, loadCases: readonly LoadCase[], combinations: LoadCombination[]) {
-  return plateAnalysisRefusal(model) ?? missingCombinationCaseRefusal(loadCases.map(({ id }) => id), combinations)
+  return plateAnalysisRefusal(model) ?? modelNumberRefusal(model) ?? missingCombinationCaseRefusal(loadCases.map(({ id }) => id), combinations)
     ?? orphanLoadRefusal(model) ?? imposedRefusal(model);
 }
 
@@ -3170,6 +3177,7 @@ export function caseSolverLoads3D(
   model: ModelData, loadCases: LoadCase[], includeSelfWeight: boolean, leftHand: boolean, input?: SolverInput3D,
 ): Map<number, SolverLoad3D[]> {
   // On the members the solver input has: a variable member's loads are its pieces' (idempotent).
+  requireModelNumbers(model);
   model = solvableModel(model);
   const caseLoads = new Map<number, SolverLoad3D[]>();
   input ??= buildSolverInput3D({ ...model, loads: [] }, [], leftHand, { plateCases: false }) ?? undefined;
