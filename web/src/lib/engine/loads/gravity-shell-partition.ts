@@ -5,7 +5,7 @@ import { signedArea, type Side, type SideShare } from './floor-tributary';
 
 type Point = [number, number];
 type Point3 = [number, number, number];
-export type ShellPlane = (points: Point3[]) => boolean;
+export type ShellPlane = (point: Point) => number;
 
 export function refuseGravityGeometry(reason: EngineMessage): never {
   throw new EngineMessageError(reason);
@@ -113,8 +113,9 @@ export function partitionShellCoverage(sides: Side[], holes: Side[][], shells: P
 }
 
 export function planarShell(id: number, vertices: Point3[]): ShellPlane | undefined {
-  const origin = vertices[0]!;
-  const edges = vertices.slice(1).map(p => p.map((v, k) => v - origin[k]!) as Point3);
+  const [origin, ...corners] = [...vertices].sort((a, b) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2]);
+  if (!origin) return undefined;
+  const edges = corners.map(p => p.map((v, k) => v - origin[k]!) as Point3);
   const [a, b, c] = edges;
   if (!a || !b) return undefined;
   const cross = (u: Point3, v: Point3) => [
@@ -126,36 +127,92 @@ export function planarShell(id: number, vertices: Point3[]): ShellPlane | undefi
   const normal = normals.sort((u, v) => Math.hypot(...v) - Math.hypot(...u))[0]!;
   const norm = Math.hypot(...normal);
   const scale = Math.max(...vertices.flat().map(Math.abs), ...edges.map(edge => Math.hypot(...edge)));
-  const contains = (points: Point3[]) => {
-    const error = 64 * Number.EPSILON * Math.max(scale, ...points.flat().map(Math.abs)) * norm;
-    return points.every(p => Math.abs(p.reduce((sum, v, k) => sum + (v - origin[k]!) * normal[k]!, 0)) <= error);
-  };
-  if (!contains(vertices)) refuseGravityGeometry(msg('loadPlan.gravity.nonplanarShell', { id }));
-  return contains;
+  const error = 64 * Number.EPSILON * scale * norm;
+  if (!vertices.every(p => Math.abs(p.reduce((sum, v, k) => sum + (v - origin[k]!) * normal[k]!, 0)) <= error)) {
+    refuseGravityGeometry(msg('loadPlan.gravity.nonplanarShell', { id }));
+  }
+  return ([x, y]) => origin[2] - ((x - origin[0]) * normal[0]! + (y - origin[1]) * normal[1]!) / normal[2]!;
 }
 
-export function footprintsOverlap(a: Polygon | MultiPolygon, b: Polygon | MultiPolygon): boolean {
+type Footprint = Polygon | MultiPolygon;
+
+function footprintIntersection(a: Footprint, b: Footprint): MultiPolygon {
   try {
-    return area(polygonClipping.intersection(a, b)) > 0;
+    return polygonClipping.intersection(a, b);
   } catch (err) {
     return refuseGravityGeometry(msg('loadPlan.gravity.deckCheckFailed', { detail: String(err) }));
   }
 }
 
-export function assertDisjointShells(shells: ReadonlyArray<{ id: number; pts: Point3[]; poly: Point[]; plane?: ShellPlane }>): void {
-  const ordered = shells.flatMap(({ id, pts, poly, plane }) => {
-    if (!plane) return [];
-    const xs = poly.map(p => p[0]), ys = poly.map(p => p[1]);
-    return [{ id, pts, poly, plane, left: Math.min(...xs), right: Math.max(...xs), bottom: Math.min(...ys), top: Math.max(...ys) }];
-  }).sort((a, b) => a.left - b.left);
+export function footprintsOverlap(a: Footprint, b: Footprint): boolean {
+  return area(footprintIntersection(a, b)) > 0;
+}
+
+type ShellFootprint = { id: number; poly: Point[] };
+
+export function assertSeparateShellDecks(
+  shells: readonly (ShellFootprint & { pts: Point3[]; plane?: ShellPlane })[], tolerance: number,
+): void {
+  const decks = shells.map(shell => {
+    const heights = shell.pts.map(point => point[2]);
+    return { ...shell, low: Math.min(...heights), high: Math.max(...heights) };
+  });
+  assertDisjointShells(decks, (a, b) => {
+    if (a.low > b.high + tolerance || b.low > a.high + tolerance) return false;
+    const { plane: heightA } = a, { plane: heightB } = b;
+    return footprintIntersection([a.poly], [b.poly]).some(polygon => {
+      const overlapArea = area([polygon]);
+      if (overlapArea === 0) return false;
+      if (!(overlapArea > 0) || !Number.isFinite(overlapArea) || !heightA || !heightB) {
+        refuseGravityGeometry(msg('loadPlan.gravity.coveragePrecision'));
+      }
+      const heights = polygon[0]!.map(point => [heightA(point), heightB(point)] as const);
+      if (heights.some(([x, y]) => !Number.isFinite(x) || !Number.isFinite(y))) {
+        refuseGravityGeometry(msg('loadPlan.gravity.coveragePrecision'));
+      }
+      return heights.some(([x, y]) => x <= y + tolerance) && heights.some(([x, y]) => y <= x + tolerance);
+    });
+  });
+}
+
+export function assertDisjointBayShells(shells: readonly ShellFootprint[], boundary: Polygon): void {
+  assertDisjointShells(shells, (a, b) => {
+    const overlap = footprintIntersection([a.poly], [b.poly]);
+    return overlap.length > 0 && footprintsOverlap(overlap, boundary);
+  }, footprintBounds(boundary[0]!));
+}
+
+function canonicalFootprint(ring: Point[]): Point[] {
+  const compare = (a: Point, b: Point) => a[0] - b[0] || a[1] - b[1];
+  const start = ring.reduce((first, point, i) => compare(point, ring[first]!) < 0 ? i : first, 0);
+  const next = ring[(start + 1) % ring.length]!, previous = ring[(start + ring.length - 1) % ring.length]!;
+  const step = compare(next, previous) <= 0 ? 1 : -1;
+  return ring.map((_, i) => ring[(start + step * i + ring.length) % ring.length]!);
+}
+
+function footprintBounds(ring: Point[]) {
+  const xs = ring.map(p => p[0]), ys = ring.map(p => p[1]);
+  return { left: Math.min(...xs), right: Math.max(...xs), bottom: Math.min(...ys), top: Math.max(...ys) };
+}
+
+function assertDisjointShells<T extends ShellFootprint>(
+  shells: readonly T[], overlap: (a: T, b: T) => boolean, bay?: ReturnType<typeof footprintBounds>,
+): void {
+  const ordered = shells.map(shell => {
+    const poly = canonicalFootprint(shell.poly);
+    return { shell: { ...shell, poly }, ...footprintBounds(poly) };
+  })
+    .filter(box => !bay || (box.left < bay.right && box.right > bay.left && box.bottom < bay.top && box.top > bay.bottom))
+    .sort((a, b) => a.left - b.left || a.shell.id - b.shell.id);
 
   for (const [i, a] of ordered.entries()) {
     for (let j = i + 1; j < ordered.length; j++) {
       const b = ordered[j]!;
       if (b.left >= a.right) break;
-      if (b.bottom >= a.top || b.top <= a.bottom || !a.plane(b.pts) || !b.plane(a.pts)) continue;
-      if (footprintsOverlap([a.poly], [b.poly])) {
-        refuseGravityGeometry(msg('loadPlan.gravity.overlappingShells', { first: Math.min(a.id, b.id), second: Math.max(a.id, b.id) }));
+      if (b.bottom >= a.top || b.top <= a.bottom) continue;
+      if (overlap(a.shell, b.shell)) {
+        const first = Math.min(a.shell.id, b.shell.id), second = Math.max(a.shell.id, b.shell.id);
+        refuseGravityGeometry(msg('loadPlan.gravity.overlappingShells', { first, second }));
       }
     }
   }

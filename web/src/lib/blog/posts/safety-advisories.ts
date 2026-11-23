@@ -121,6 +121,14 @@ export const safetyAdvisories: Post = {
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-106-complementary-plate-remesh-arc.md", "label": "SA-2026-106", "t": "Entradas afectadas y acciones necesarias."},
         {"k": "note", "t": "SA-2026-107 — Próxima versión después de la 0.6.3 (contención)."},
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-107-plate-remesh-shell-edits.md", "label": "SA-2026-107", "t": "Entradas afectadas y acciones necesarias."},
+        {"k": "note", "t": "SA-2026-108 — Próxima versión después de la 0.6.4."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-108-planar-projection-nodal-forces.md", "label": "SA-2026-108", "t": "Entradas afectadas y acciones necesarias."},
+        {"k": "note", "t": "SA-2026-109 — Próxima versión después de la 0.6.4."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-109-dxf-support-labels.md", "label": "SA-2026-109", "t": "Entradas afectadas y acciones necesarias."},
+        {"k": "note", "t": "SA-2026-110 — Próxima versión después de la 0.6.4."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-110-solver-json-boundary.md", "label": "SA-2026-110", "t": "Entradas afectadas y acciones necesarias."},
+        {"k": "note", "t": "SA-2026-111 — Próxima versión después de la 0.6.4."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-111-gravity-shared-deck-coverage.md", "label": "SA-2026-111", "t": "Entradas afectadas y acciones necesarias."},
         { k: 'img', base: 'blog/recheck-stale', w: 1600, h: 1000, alt: 'Stabileo PRO con un pórtico de hormigón guardado antes de que los resultados tuvieran versión. Un aviso abajo indica que los resultados están desactualizados porque el proyecto se resolvió con una versión anterior y 19 cambios registrados lo afectan, con los botones para ver qué cambió y volver a calcular.', caption: 'Cómo llega una corrección a un proyecto guardado: hasta que se resuelve de nuevo, sus resultados quedan marcados como desactualizados, con los cambios que lo afectan a un clic.' },
 
         { k: 'h', t: 'Resumen' },
@@ -234,7 +242,11 @@ export const safetyAdvisories: Post = {
             ["SA-2026-104", "Invertir barras podía cambiar la dirección de las cargas distribuidas y el análisis podía omitir momentos puntuales de registros planos antiguos. Revisá las direcciones, las intensidades en los extremos y los campos de momento guardados. Corregí las cargas y repetí los análisis y las verificaciones afectados.", "Alta", "Próxima versión (0.6.4)"],
             ["SA-2026-105", "Al editar a cero un par puntual plano restaurado, el momento anterior podía seguir actuando. Verificá y volvé a ingresar los momentos previstos, y repetí los análisis y las verificaciones afectados.", "Alta", "Próxima versión después de la 0.6.3"],
             ["SA-2026-106", "El remallado podía usar el arco complementario de un borde curvo de la placa. Compará la malla con el arco especificado, rehacé las mallas afectadas y repetí el análisis y las verificaciones.", "Alta", "Próxima versión después de la 0.6.3 (contención)"],
-            ["SA-2026-107", "El remallado podía descartar cambios en el desplazamiento de la superficie media y la curvatura de los elementos de placa. Verificá y restablecé las propiedades previstas antes de repetir el análisis y las verificaciones.", "Alta", "Próxima versión después de la 0.6.3 (contención)"]
+            ["SA-2026-107", "El remallado podía descartar cambios en el desplazamiento de la superficie media y la curvatura de los elementos de placa. Verificá y restablecé las propiedades previstas antes de repetir el análisis y las verificaciones.", "Alta", "Próxima versión después de la 0.6.3 (contención)"],
+            ["SA-2026-108", "La proyección XZ o YZ podía omitir sin aviso una componente de fuerza nodal perpendicular al plano de análisis. Revisá las fuerzas nodales de cada caso de carga y repetí los análisis y las verificaciones afectados con el modelo espacial.", "Alta", "Próxima versión después de la 0.6.4"],
+            ["SA-2026-109", "Las etiquetas de apoyo desconocidas en un DXF plano podían importarse como apoyos articulados sin aviso. Compará los apoyos importados con el plano original, corregí las diferencias y repetí los análisis afectados.", "Alta", "Próxima versión después de la 0.6.4"],
+            ["SA-2026-110", "El análisis web podía omitir sin aviso un resorte de rigidez no finita o un caso de carga de una combinación. Revisá las rigideces, los nombres de los casos y los factores netos, y volvé a calcular los análisis y las combinaciones afectados.", "Alta", "Próxima versión después de la 0.6.4"],
+            ["SA-2026-111", "La generación automática de cargas gravitatorias por paños podía contar dos veces la misma carga de piso. Revisá las cáscaras superpuestas y los paños de vigas conectados, regenerá los planes de cargas gravitatorias guardados que estén afectados y repetí los análisis correspondientes.", "Alta", "Próxima versión después de la 0.6.4"]
           ],
         },
         {
@@ -511,6 +523,14 @@ export const safetyAdvisories: Post = {
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-106-complementary-plate-remesh-arc.md", "label": "SA-2026-106", "t": "Affected inputs and user action."},
         {"k": "note", "t": "SA-2026-107 — Next release after 0.6.3 (containment)."},
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-107-plate-remesh-shell-edits.md", "label": "SA-2026-107", "t": "Affected inputs and user action."},
+        {"k": "note", "t": "SA-2026-108 — Next release after 0.6.4."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-108-planar-projection-nodal-forces.md", "label": "SA-2026-108", "t": "Affected inputs and user action."},
+        {"k": "note", "t": "SA-2026-109 — Next release after 0.6.4."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-109-dxf-support-labels.md", "label": "SA-2026-109", "t": "Affected inputs and user action."},
+        {"k": "note", "t": "SA-2026-110 — Next release after 0.6.4."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-110-solver-json-boundary.md", "label": "SA-2026-110", "t": "Affected inputs and user action."},
+        {"k": "note", "t": "SA-2026-111 — Next release after 0.6.4."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-111-gravity-shared-deck-coverage.md", "label": "SA-2026-111", "t": "Affected inputs and user action."},
         { k: 'img', base: 'blog/recheck-stale', w: 1600, h: 1000, alt: 'Stabileo PRO with a concrete frame saved before results were versioned. A banner at the bottom reads “Results stale: this project was last solved with an older version, and 19 registered changes concern it”, with the buttons “What changed” and “Re-run”.', caption: 'How a fix reaches a saved project: until it is solved again, its results stay marked stale, with the changes that concern it one click away.' },
 
         { k: 'h', t: 'Summary' },
@@ -624,7 +644,11 @@ export const safetyAdvisories: Post = {
             ["SA-2026-104", "Reversing members could redirect distributed loads, and analysis could omit legacy planar point couples. Check saved load directions, end ordinates and couple fields. Repair the loads and rerun affected analyses and design checks.", "High", "Next release (0.6.4)"],
             ["SA-2026-105", "Editing a restored planar point couple to zero could leave the old moment active. Verify and re-enter the intended moments, then rerun affected analyses and design checks.", "High", "Next release after 0.6.3"],
             ["SA-2026-106", "Remeshing could use the complementary arc of a curved plate boundary. Verify the mesh against the specified sweep, rebuild affected meshes, and rerun analysis and design checks.", "High", "Next release after 0.6.3 (containment)"],
-            ["SA-2026-107", "Remeshing could discard shell offsets and curvature edits. Verify and restore the intended shell properties before rerunning analysis and design checks.", "High", "Next release after 0.6.3 (containment)"]
+            ["SA-2026-107", "Remeshing could discard shell offsets and curvature edits. Verify and restore the intended shell properties before rerunning analysis and design checks.", "High", "Next release after 0.6.3 (containment)"],
+            ["SA-2026-108", "XZ or YZ projection could silently drop a nodal force component perpendicular to the analysis plane. Check the nodal forces in each load case and rerun affected analyses and design checks using the spatial model.", "High", "Next release after 0.6.4"],
+            ["SA-2026-109", "Unknown planar DXF support labels could silently import as pinned supports. Compare imported supports with the original drawing, correct discrepancies and rerun affected analyses.", "High", "Next release after 0.6.4"],
+            ["SA-2026-110", "Web analysis could silently omit a spring with non-finite stiffness or a load case in a combination. Check spring stiffnesses, case names and net factors, then rerun affected analyses and combinations.", "High", "Next release after 0.6.4"],
+            ["SA-2026-111", "Automatic panel gravity generation could count the same floor load twice. Check overlapping shells and connected beam bays, regenerate affected saved gravity load plans and rerun affected analyses.", "High", "Next release after 0.6.4"]
           ],
         },
         {
@@ -901,6 +925,14 @@ export const safetyAdvisories: Post = {
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-106-complementary-plate-remesh-arc.md", "label": "SA-2026-106", "t": "Entradas afetadas e ações necessárias."},
         {"k": "note", "t": "SA-2026-107 — Próxima versão após a 0.6.3 (contenção)."},
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-107-plate-remesh-shell-edits.md", "label": "SA-2026-107", "t": "Entradas afetadas e ações necessárias."},
+        {"k": "note", "t": "SA-2026-108 — Próxima versão após a 0.6.4."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-108-planar-projection-nodal-forces.md", "label": "SA-2026-108", "t": "Entradas afetadas e ações necessárias."},
+        {"k": "note", "t": "SA-2026-109 — Próxima versão após a 0.6.4."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-109-dxf-support-labels.md", "label": "SA-2026-109", "t": "Entradas afetadas e ações necessárias."},
+        {"k": "note", "t": "SA-2026-110 — Próxima versão após a 0.6.4."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-110-solver-json-boundary.md", "label": "SA-2026-110", "t": "Entradas afetadas e ações necessárias."},
+        {"k": "note", "t": "SA-2026-111 — Próxima versão após a 0.6.4."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-111-gravity-shared-deck-coverage.md", "label": "SA-2026-111", "t": "Entradas afetadas e ações necessárias."},
         { k: 'img', base: 'blog/recheck-stale', w: 1600, h: 1000, alt: 'Stabileo PRO com um pórtico de concreto salvo antes de os resultados terem versão. Um aviso embaixo indica que os resultados estão desatualizados porque o projeto foi resolvido com uma versão anterior e 19 mudanças registradas o afetam, com os botões para ver o que mudou e recalcular.', caption: 'Como uma correção chega a um projeto salvo: até ser resolvido de novo, seus resultados ficam marcados como desatualizados, com as mudanças que o afetam a um clique.' },
 
         { k: 'h', t: 'Resumo' },
@@ -1014,7 +1046,11 @@ export const safetyAdvisories: Post = {
             ["SA-2026-104", "Inverter barras podia mudar a direção das cargas distribuídas, e a análise podia omitir momentos pontuais planos de registros antigos. Confira as direções, os valores nas extremidades e os campos de momento salvos. Corrija as cargas e refaça as análises e verificações afetadas.", "Alta", "Próxima versão (0.6.4)"],
             ["SA-2026-105", "Ao zerar um momento pontual plano restaurado, o valor anterior podia continuar atuando. Confira e insira novamente os momentos pretendidos, depois refaça as análises e verificações afetadas.", "Alta", "Próxima versão após a 0.6.3"],
             ["SA-2026-106", "A remalhagem podia usar o arco complementar de uma borda curva da placa. Compare a malha com o arco especificado, refaça as malhas afetadas e repita a análise e as verificações.", "Alta", "Próxima versão após a 0.6.3 (contenção)"],
-            ["SA-2026-107", "A remalhagem podia descartar alterações de excentricidade e curvatura das cascas. Confira e restaure as propriedades pretendidas antes de refazer a análise e as verificações.", "Alta", "Próxima versão após a 0.6.3 (contenção)"]
+            ["SA-2026-107", "A remalhagem podia descartar alterações de excentricidade e curvatura das cascas. Confira e restaure as propriedades pretendidas antes de refazer a análise e as verificações.", "Alta", "Próxima versão após a 0.6.3 (contenção)"],
+            ["SA-2026-108", "A projeção XZ ou YZ podia omitir sem aviso uma componente da força nodal perpendicular ao plano de análise. Confira as forças nodais em cada caso de carga e refaça as análises e verificações afetadas com o modelo espacial.", "Alta", "Próxima versão após a 0.6.4"],
+            ["SA-2026-109", "Rótulos de apoio desconhecidos em um DXF plano podiam ser importados como apoios articulados sem aviso. Compare os apoios importados com o desenho original, corrija as divergências e refaça as análises afetadas.", "Alta", "Próxima versão após a 0.6.4"],
+            ["SA-2026-110", "A análise web podia omitir sem aviso uma mola com rigidez não finita ou um caso de carga de uma combinação. Confira as rigidezes, os nomes dos casos e os fatores resultantes, e refaça as análises e combinações afetadas.", "Alta", "Próxima versão após a 0.6.4"],
+            ["SA-2026-111", "A geração automática de cargas gravitacionais por painéis podia contabilizar duas vezes a mesma carga de piso. Confira as cascas sobrepostas e os painéis de vigas conectados, gere novamente os planos de cargas gravitacionais salvos que foram afetados e refaça as análises correspondentes.", "Alta", "Próxima versão após a 0.6.4"]
           ],
         },
         {
