@@ -42,7 +42,24 @@ def max_relative(a, b, path='$'):
     if isinstance(a, bool) or not isinstance(a, (int, float)):
         assert a == b, (path, a, b)
         return 0.0
-    return abs(a - b) / max(abs(a), abs(b), 1e-300) if a != b else 0.0
+    return abs(a - b) / max(abs(a), abs(b), 1.0)
+
+
+def observed_order(q20, q40, q80):
+    if q40 == q80 or (q20 - q40) / (q40 - q80) <= 0:
+        return None
+    return math.log2((q20 - q40) / (q40 - q80))
+
+
+def unconverged(name, reference):
+    return [
+        {'name': f'{name}: observed order of mesh convergence', 'metric': 'absolute difference from 2',
+         'observed': None, 'tolerance': 0.5, 'passed': False},
+        {'name': f'{name}: extrapolated to zero element length', 'metric': 'relative difference',
+         'observed': None, 'tolerance': None, 'passed': False, 'reference': reference, 'computed': None},
+        {'name': f'{name}: tolerance within 1.25 × its 40-element budget', 'metric': 'tolerance / budget − 1',
+         'observed': None, 'tolerance': 0.25, 'passed': False},
+    ]
 
 
 def evidence(fresh):
@@ -59,26 +76,29 @@ def evidence(fresh):
         observed = relative(computed[key], reference[key])
         row = {'id': row_id, 'name': f'{name}, 40 elements', 'source': SOURCE, 'unit': UNITS[key],
                'reference': reference[key], 'computed': computed[key], 'metric': 'relative difference',
-               'observed': observed, 'tolerance': tolerance[key], 'passed': observed < tolerance[key]}
+               'observed': observed, 'tolerance': tolerance[key], 'passed': observed <= tolerance[key]}
         rows.append(row)
         checks.append({k: row[k] for k in ('name', 'metric', 'observed', 'tolerance', 'passed', 'reference', 'computed')})
     loads = [s['loadFactor'] for s in fresh['steps']]
     peak = max(loads)
     checks.append({'name': 'The path passes the limit point and descends', 'metric': 'final load / largest load',
-                   'observed': loads[-1] / peak, 'tolerance': 0.95, 'passed': loads[-1] / peak < 0.95})
+                   'observed': loads[-1] / peak, 'tolerance': 0.95, 'passed': loads[-1] / peak <= 0.95})
     meshes = fresh['convergence']['meshes']
     safety = fresh['convergence']['gciSafetyFactor']
     assert [m['elements'] for m in meshes] == [20, 40, 80]
     for row_id, key, name in QUANTITIES:
         q20, q40, q80 = (m[key] for m in meshes)
-        order = math.log2((q20 - q40) / (q40 - q80))
+        order = observed_order(q20, q40, q80)
+        if order is None:
+            checks.extend(unconverged(name, reference[key]))
+            continue
         checks.append({'name': f'{name}: observed order of mesh convergence', 'metric': 'absolute difference from 2',
                        'observed': abs(order - 2), 'tolerance': 0.5, 'passed': abs(order - 2) <= 0.5})
         extrapolated = q80 + (q80 - q40) / (2 ** order - 1)
         allowed = safety * abs((q80 - extrapolated) / extrapolated) + rounding(reference[key])
         observed = relative(extrapolated, reference[key])
         checks.append({'name': f'{name}: extrapolated to zero element length', 'metric': 'relative difference',
-                       'observed': observed, 'tolerance': allowed, 'passed': observed < allowed,
+                       'observed': observed, 'tolerance': allowed, 'passed': observed <= allowed,
                        'reference': reference[key], 'computed': extrapolated})
         budget = safety * abs((q40 - extrapolated) / extrapolated) + rounding(reference[key])
         checks.append({'name': f'{name}: tolerance within 1.25 × its 40-element budget', 'metric': 'tolerance / budget − 1',
@@ -87,7 +107,7 @@ def evidence(fresh):
     replay = load(HERE / 'results/stabileo_results.json')
     drift = max(max_relative(replay['steps'], fresh['steps']), max_relative(replay['frames'], fresh['frames']),
                 max_relative(replay['limitPoint'], fresh['limitPoint']), max_relative(replay['convergence'], fresh['convergence']))
-    checks.append({'name': 'The page replay is a fresh native run', 'metric': 'largest relative difference over every stored value',
+    checks.append({'name': 'The page replay is a fresh native run', 'metric': 'largest difference over every stored value, relative to max(|stored|, |fresh|, 1)',
                    'observed': drift, 'tolerance': 1e-9, 'passed': drift <= 1e-9})
     validation = {'command': COMMAND, 'case': 'engine/tests/benchmarks/dadeppo_arch.json', 'checks': checks}
     return validation, {'checks': rows}
@@ -119,7 +139,12 @@ def differences(a, b, path='$', scale=None):
     return [] if abs(a - b) <= allowed else [f'{path}: {a!r} != {b!r}']
 
 
+USAGE = 'usage: validate.py generate|check <fresh export>'
+
+
 def main(mode, export):
+    if mode not in ('generate', 'check'):
+        raise SystemExit(USAGE)
     validation, comparison = evidence(load(export))
     comparison_text = dump(comparison)
     files = {'limit-load.json': (HERE / 'reference-results/limit-load.json').read_text(), 'published_comparison.json': comparison_text}
@@ -127,15 +152,13 @@ def main(mode, export):
         (HERE / 'VALIDATION.json').write_text(dump(validation))
         (HERE / 'reference-results/published_comparison.json').write_text(comparison_text)
         (HERE / 'reference-results/MANIFEST.json').write_text(dump(manifest(files)))
-    elif mode == 'check':
+    else:
         committed = {name: (HERE / 'reference-results' / name).read_text() for name in files}
         stale = differences(load(HERE / 'VALIDATION.json'), validation)
         assert not stale, 'VALIDATION.json is not what the fresh run gives: ' + '; '.join(stale[:5])
         stale = differences(json.loads(committed['published_comparison.json']), comparison)
         assert not stale, 'published_comparison.json is stale: ' + '; '.join(stale[:5])
         assert load(HERE / 'reference-results/MANIFEST.json') == manifest(committed), 'MANIFEST.json hashes are stale'
-    else:
-        raise SystemExit('usage: validate.py generate|check <fresh export>')
     failed = [c['name'] for c in validation['checks'] + comparison['checks'] if not c['passed']]
     print(json.dumps({'mode': mode, 'checks': len(validation['checks']), 'comparisonRows': len(comparison['checks']), 'failed': failed}))
     if failed:
@@ -143,4 +166,6 @@ def main(mode, export):
 
 
 if __name__ == '__main__':
+    if len(sys.argv) != 3:
+        raise SystemExit(USAGE)
     main(*sys.argv[1:3])

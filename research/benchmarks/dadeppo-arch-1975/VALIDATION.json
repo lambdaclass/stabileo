@@ -139,8 +139,8 @@
     },
     {
       "name": "The page replay is a fresh native run",
-      "metric": "largest relative difference over every stored value",
-      "observed": 4.4423922174567585e-11,
+      "metric": "largest difference over every stored value, relative to max(|stored|, |fresh|, 1)",
+      "observed": 3.2685937290111156e-12,
       "tolerance": 1e-09,
       "passed": true
     }
