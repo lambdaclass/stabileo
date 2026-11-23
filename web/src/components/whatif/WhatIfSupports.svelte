@@ -5,12 +5,13 @@
   import { supportNameShown } from '../../lib/axes/user-names';
   import type { SupportType } from '../../lib/store/model.svelte';
   import { t } from '../../lib/i18n';
+  import WifPlace from './WifPlace.svelte';
 
   const is3D = $derived(uiStore.is3DWorkspace);
   /* As they were on entry: a moved support is still the same support. */
   const supports = $derived((whatIf.baseline ? whatIf.baseline.supports.map(([, sup]) => ({ ...sup, type: sup.type as SupportType }))
     : [...modelStore.supports.values()]).sort((a, b) => a.id - b.id));
-  const nodeIds = $derived([...modelStore.nodes.keys()].sort((a, b) => a - b));
+  const nodeIds = $derived((whatIf.baseline?.nodes ?? []).map(([id]) => id).sort((a, b) => a - b));
   const nodeOf = (s: { id: number; nodeId: number }) => whatIf.supportNode[s.id] ?? s.nodeId;
   /* A node can hold one support: the others' nodes are not offered. */
   const free = (s: { id: number; nodeId: number }) => {
@@ -37,7 +38,7 @@
 {#if !supports.length}<p class="wif-empty">{t('whatif.noSupports')}</p>{/if}
 {#each supports as s (s.id)}
   {@const type = whatIf.supportTypes[s.id] ?? s.type}
-  {@const moved = nodeOf(s) !== s.nodeId}
+  {@const moved = nodeOf(s) !== s.nodeId || s.id in whatIf.supportAlong}
   <div class="wif-item" class:changed={s.id in whatIf.supportTypes || moved}>
     <div class="wif-item-title">{t('whatif.supportN').replace('{n}', String(s.id))}</div>
     <label class="wif-row">
@@ -48,12 +49,7 @@
         {#each options as o (o.v)}<option value={o.v}>{label(o)}</option>{/each}
       </select>
     </label>
-    <label class="wif-row">
-      <span class="wif-label">{t('whatif.atNode')}</span>
-      <select class="wif-select" value={nodeOf(s)} onchange={(e) => whatIf.setSupportNode(s.id, Number(e.currentTarget.value))}
-        data-testid="whatif-supportnode-{s.id}">
-        {#each free(s) as id (id)}<option value={id}>{t('whatif.node').replace('{n}', String(id))}</option>{/each}
-      </select>
-    </label>
+    <WifPlace nodeId={nodeOf(s)} along={whatIf.supportAlong[s.id]} nodes={free(s)}
+      onNode={(id) => whatIf.setSupportNode(s.id, id)} onAlong={(el, at) => whatIf.setSupportAlong(s.id, el, at)} testid="whatif-supportnode-{s.id}" />
   </div>
 {/each}

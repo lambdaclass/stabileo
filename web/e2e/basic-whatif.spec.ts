@@ -59,6 +59,28 @@ test.describe('@slow explore', () => {
     await expect.poll(() => page.evaluate(() => window.__stabileo.viewportPick().hasResults)).toBe(true);
     await page.getByTestId('whatif-tab-loads').click();
 
+    // The nodal load carried onto a member, then slid along it; loads drawn while they are edited.
+    await expect(page.getByTestId('whatif-show-loads')).toHaveAttribute('aria-pressed', 'true');
+    const member = await nodeSelect.locator('option[value^="m:"]').first().getAttribute('value');
+    await nodeSelect.selectOption(member!);
+    const along = panel.locator('input[data-testid$=-along]').first();
+    await expect(along).toBeVisible();
+    const slid = await page.evaluate(() => window.__stabileo.modelVersion());
+    await along.evaluate((el: HTMLInputElement) => {
+      el.value = String(Number(el.min) + (Number(el.max) - Number(el.min)) * 0.3);
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await expect.poll(() => page.evaluate(() => window.__stabileo.modelVersion())).toBeGreaterThan(slid);
+    await expect.poll(() => page.evaluate(() => window.__stabileo.viewportPick().hasResults)).toBe(true);
+
+    // Results off shows the structure and its loads alone; on again brings the diagram back.
+    await page.getByTestId('whatif-show-results').click();
+    await expect.poll(diagram).toBe('none');
+    await page.getByTestId('whatif-show-results').click();
+    await expect.poll(diagram).toBe('moment');
+    await page.getByTestId('whatif-show-loads').click();
+    await expect(page.getByTestId('whatif-show-loads')).toHaveAttribute('aria-pressed', 'false');
+
     // The panel's own result row, and the ribbon, both leave the panel in view.
     await page.getByTestId('whatif-diagram-shear').click();
     await expect.poll(diagram).toBe('shear');

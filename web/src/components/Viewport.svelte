@@ -1202,7 +1202,7 @@
 
     // Draw results
     if (shown) {
-      ctx.globalAlpha = resultsStore.screen.held && !exportFrame && now - resultsStore.screen.heldSince > HELD_DIM_MS ? 0.45 : 1;
+      ctx.globalAlpha = resultsStore.screen.held && !exportFrame && !uiStore.showWhatIf && now - resultsStore.screen.heldSince > HELD_DIM_MS ? 0.45 : 1;
       const dt = dtNow();
       setDiagramUnitSystem(uiStore.unitSystem);
 

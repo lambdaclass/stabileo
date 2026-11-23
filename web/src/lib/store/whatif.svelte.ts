@@ -49,6 +49,14 @@ let loadAt = $state<Record<number, number>>({});
 let loadNode = $state<Record<number, number>>({});
 /** A support carried to another node, by support id. */
 let supportNode = $state<Record<number, number>>({});
+/** A point along a member (0 < t < 1 from node I), where a nodal load or a support was carried. */
+export interface Along { elementId: number; t: number }
+/** A nodal load carried onto a member, by load index. */
+let loadAlong = $state<Record<number, Along>>({});
+/** A support carried onto a member, by support id. */
+let supportAlong = $state<Record<number, Along>>({});
+/** What the canvas showed on entry, put back on leaving. */
+let viewAtOpen: { showLoads: boolean; showLoads3D: boolean; hideLoadsWithDiagram: boolean } | null = null;
 /** A node moved, in the coordinates the reader sees (`shownCoords`). */
 let nodeShift = $state<Record<number, number[]>>({});
 /** The response before any change, for the panel's comparison. */
@@ -65,6 +73,14 @@ let ownVersion = -1;
 let stampAtOpen: SolveStamp | undefined;
 
 const ONE: MemberFactors = { e: 1, a: 1, iy: 1 };
+
+function restoreView(): void {
+  if (!viewAtOpen) return;
+  uiStore.showLoads = viewAtOpen.showLoads;
+  uiStore.showLoads3D = viewAtOpen.showLoads3D;
+  uiStore.hideLoadsWithDiagram = viewAtOpen.hideLoadsWithDiagram;
+  viewAtOpen = null;
+}
 
 function restoreBaseline(snap: ModelSnapshot): void {
   modelStore.restore(snap);
@@ -164,6 +180,7 @@ function moveLoads(): void {
   }
   for (const [key, nodeId] of Object.entries(loadNode)) {
     const i = Number(key), l = loads[i];
+    if (i in loadAlong) continue;
     if (!l || (l.type !== 'nodal' && l.type !== 'nodal3d') || !modelStore.model.nodes.has(nodeId)) continue;
     loads[i] = { ...l, data: { ...l.data, nodeId } } as typeof l;
   }
@@ -173,6 +190,7 @@ function moveSupports(): void {
   const m = modelStore.model;
   const taken = new Set([...m.supports.values()].map((s) => s.nodeId));
   for (const [key, nodeId] of Object.entries(supportNode)) {
+    if (Number(key) in supportAlong) continue;
     const s = m.supports.get(Number(key));
     if (!s || s.nodeId === nodeId || taken.has(nodeId) || !m.nodes.has(nodeId)) continue;
     taken.delete(s.nodeId);
@@ -180,6 +198,57 @@ function moveSupports(): void {
     m.supports.set(s.id, { ...s, nodeId });
   }
   m.supports = new Map(m.supports);
+}
+
+/** The node nearest a point of the model, as a cut at that point left it (a cut may reuse a node). */
+function nodeAt(p: { x: number; y: number; z: number }): number | null {
+  let best: number | null = null, d = Infinity;
+  for (const n of modelStore.model.nodes.values()) {
+    const e = Math.hypot(n.x - p.x, n.y - p.y, (n.z ?? 0) - p.z);
+    if (e < d) { d = e; best = n.id; }
+  }
+  return best;
+}
+
+/*
+ * Last, after every other change: cutting a member renumbers the loads on it, and the placements
+ * are found again by the point they asked for, since a cut near an existing node reuses it.
+ */
+function placeAlong(): void {
+  const m = modelStore.model;
+  const byMember = new Map<number, Array<{ t: number; place: (nodeId: number) => void }>>();
+  const add = (a: Along, place: (nodeId: number) => void) => {
+    if (!m.elements.has(a.elementId)) return;
+    const t = Math.min(Math.max(a.t, 0.02), 0.98);
+    byMember.set(a.elementId, [...(byMember.get(a.elementId) ?? []), { t, place }]);
+  };
+  for (const [key, a] of Object.entries(loadAlong)) {
+    const load = m.loads[Number(key)];
+    if (!load || (load.type !== 'nodal' && load.type !== 'nodal3d')) continue;
+    add(a, (nodeId) => {
+      const i = modelStore.model.loads.indexOf(load);
+      if (i >= 0) modelStore.model.loads[i] = { ...load, data: { ...load.data, nodeId } } as typeof load;
+    });
+  }
+  for (const [key, a] of Object.entries(supportAlong)) {
+    const id = Number(key);
+    add(a, (nodeId) => {
+      const sup = modelStore.model.supports.get(id);
+      const taken = [...modelStore.model.supports.values()].some((o) => o.id !== id && o.nodeId === nodeId);
+      if (sup && !taken) modelStore.model.supports.set(id, { ...sup, nodeId });
+    });
+  }
+  for (const [elementId, list] of byMember) {
+    const el = m.elements.get(elementId);
+    const a = el && m.nodes.get(el.nodeI), b = el && m.nodes.get(el.nodeJ);
+    if (!a || !b) continue;
+    const at = (t: number) => ({ x: a.x + t * (b.x - a.x), y: a.y + t * (b.y - a.y), z: (a.z ?? 0) + t * ((b.z ?? 0) - (a.z ?? 0)) });
+    const points = list.map((p) => at(p.t));
+    modelStore.withoutUndo(() => modelStore.splitMember(elementId, list.map((p) => p.t), { keepOriginalId: true, reuseNodeTol: 0.01 }));
+    list.forEach((p, k) => { const n = nodeAt(points[k]!); if (n !== null) p.place(n); });
+  }
+  modelStore.model.supports = new Map(modelStore.model.supports);
+  modelStore.model.loads = [...modelStore.model.loads];
 }
 
 function apply(): void {
@@ -231,6 +300,7 @@ function apply(): void {
   m.sections = new Map(m.sections);
   m.elements = new Map(m.elements);
   m.loads = [...m.loads];
+  placeAlong();
   ownVersion = modelStore.modelVersion;
   // restore() moved the model version, so live calc re-solves what is now here.
   // PRO has no live calc; solve it directly.
@@ -287,7 +357,8 @@ export const whatIf = {
     return loadFactors.some((f) => f !== 1) || all.e !== 1 || all.a !== 1 || all.iy !== 1
       || Object.keys(members).some((id) => this.isMemberChanged(Number(id))) || Object.keys(releases).length > 0
       || Object.keys(supportTypes).length > 0 || Object.keys(loadAt).length > 0 || Object.keys(loadNode).length > 0
-      || Object.keys(supportNode).length > 0 || Object.values(nodeShift).some((d) => d.some((v) => v !== 0));
+      || Object.keys(supportNode).length > 0 || Object.values(nodeShift).some((d) => d.some((v) => v !== 0))
+      || Object.keys(loadAlong).length > 0 || Object.keys(supportAlong).length > 0;
   },
   get baseline() { return baseline; },
 
@@ -305,11 +376,16 @@ export const whatIf = {
     loadNode = {};
     supportNode = {};
     nodeShift = {};
+    loadAlong = {};
+    supportAlong = {};
     reference = null;
+    viewAtOpen = { showLoads: uiStore.showLoads, showLoads3D: uiStore.showLoads3D, hideLoadsWithDiagram: uiStore.hideLoadsWithDiagram };
     liveWasOn = uiStore.liveCalc;
     uiStore.liveCalc = true;
     uiStore.showWhatIf = true;
     ownVersion = modelStore.modelVersion;
+    // The first rebuild pays one-time costs; paid here, the first slider move is as quick as the rest.
+    schedule();
   },
 
   /** True when the model version moved and this session did not move it. */
@@ -326,6 +402,7 @@ export const whatIf = {
     if (!snap) return;
     const was = liveWasOn;
     uiStore.liveCalc = was;
+    restoreView();
     restoreBaseline(snap);
     // What the what-if solves stamped belongs to a model that no longer exists (recheck.svelte.ts).
     recheckStore.restoreStamp(stampAtOpen);
@@ -344,6 +421,7 @@ export const whatIf = {
     if (!baseline) return;
     baseline = null;
     uiStore.liveCalc = liveWasOn;
+    restoreView();
   },
 
   setLoadFactor(i: number, f: number) { loadFactors[i] = f; schedule(); },
@@ -359,8 +437,22 @@ export const whatIf = {
   },
   setSupportType(id: number, type: SupportType) { supportTypes[id] = type; schedule(); },
   setLoadAt(i: number, a: number) { loadAt[i] = a; schedule(); },
-  setLoadNode(i: number, nodeId: number) { loadNode[i] = nodeId; schedule(); },
-  setSupportNode(id: number, nodeId: number) { supportNode[id] = nodeId; schedule(); },
+  setLoadNode(i: number, nodeId: number) { delete loadAlong[i]; loadNode[i] = nodeId; schedule(); },
+  setSupportNode(id: number, nodeId: number) { delete supportAlong[id]; supportNode[id] = nodeId; schedule(); },
+  get loadAlong() { return loadAlong; },
+  get supportAlong() { return supportAlong; },
+  /** A nodal load carried onto a member, at `t` of its length from node I. */
+  setLoadAlong(i: number, elementId: number, t: number) { delete loadNode[i]; loadAlong[i] = { elementId, t }; schedule(); },
+  setSupportAlong(id: number, elementId: number, t: number) { delete supportNode[id]; supportAlong[id] = { elementId, t }; schedule(); },
+
+  /** Whether the canvas draws the loads, with or without a diagram on screen. */
+  get loadsShown(): boolean {
+    return (is3DWorkspace(uiStore.analysisMode) ? uiStore.showLoads3D : uiStore.showLoads) && !uiStore.hideLoadsWithDiagram;
+  },
+  showLoads(on: boolean) {
+    if (is3DWorkspace(uiStore.analysisMode)) uiStore.showLoads3D = on; else uiStore.showLoads = on;
+    if (on) uiStore.hideLoadsWithDiagram = false;
+  },
   setNodeShift(id: number, axis: number, d: number) {
     const cur = [...(nodeShift[id] ?? [0, 0, 0])];
     cur[axis] = d;
@@ -379,6 +471,8 @@ export const whatIf = {
     loadNode = {};
     supportNode = {};
     nodeShift = {};
+    loadAlong = {};
+    supportAlong = {};
     schedule();
   },
 

@@ -3,6 +3,7 @@
  * draws the structure without it, and the last frame is the solve of the last value.
  */
 import { test, expect } from './fixtures';
+import { openAdvancedFunction } from './advanced-panel';
 
 test.describe('@slow explore live', () => {
   test('a dragged load slider keeps the diagram drawn and ends on a fresh solve', async ({ page }) => {
@@ -16,8 +17,7 @@ test.describe('@slow explore live', () => {
     const frame = () => page.evaluate(() => window.__stabileo.screenFrame());
     await expect.poll(async () => (await frame()).diagram).toBe('moment');
 
-    await page.getByTestId('rb-cmd-advanced').click();
-    await page.locator('button.adv-btn', { hasText: /Explore|Explorar/ }).first().click();
+    await openAdvancedFunction(page, 'whatif');
     const panel = page.getByTestId('whatif-panel');
     await expect(panel).toBeVisible();
     await expect.poll(async () => (await frame()).drawn).toBe(true);

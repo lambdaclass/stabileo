@@ -6,14 +6,17 @@
   import { fmtQ, unitQ } from '../../lib/store/display-units.svelte';
   import { t } from '../../lib/i18n';
   import WifSlider from './WifSlider.svelte';
+  import WifPlace from './WifPlace.svelte';
   import type { Load } from '../../lib/store/model.svelte';
 
   const base = $derived((whatIf.baseline?.loads ?? []) as unknown as Load[]);
-  const nodeIds = $derived([...modelStore.nodes.keys()].sort((a, b) => a - b));
+  const nodeIds = $derived((whatIf.baseline?.nodes ?? []).map(([id]) => id).sort((a, b) => a - b));
+  const entry = $derived(new Map(whatIf.baseline?.elements ?? []));
   const length = (v: number) => `${fmtQ(v, 'length')} ${unitQ('length')}`;
 
+  /* The member as it was on entry (a cut the session made does not shorten it), between its nodes as they stand now. */
   function memberLength(elementId: number): number {
-    const el = modelStore.elements.get(elementId);
+    const el = entry.get(elementId);
     const a = el && modelStore.nodes.get(el.nodeI), b = el && modelStore.nodes.get(el.nodeJ);
     return a && b ? Math.hypot(b.x - a.x, b.y - a.y, (b.z ?? 0) - (a.z ?? 0)) : 0;
   }
@@ -24,7 +27,7 @@
   {@const l = base[i]}
   {@const onMember = l && (l.type === 'pointOnElement' || l.type === 'pointOnElement3d') ? (l.data as { elementId: number; a: number }) : null}
   {@const onNode = l && (l.type === 'nodal' || l.type === 'nodal3d') ? (l.data as { nodeId: number }) : null}
-  {@const moved = i in whatIf.loadAt || i in whatIf.loadNode}
+  {@const moved = i in whatIf.loadAt || i in whatIf.loadNode || i in whatIf.loadAlong}
   <div class="wif-item" class:changed={factor !== 1 || moved} data-testid="whatif-load-{i}">
     <div class="wif-item-title" title={loadLabel(l, i)}>{loadLabel(l, i)}</div>
     <WifSlider label={t('whatif.factor')} min={0} max={3} step={0.05} value={factor} changed={factor !== 1}
@@ -36,13 +39,8 @@
           changed={i in whatIf.loadAt} format={length} oninput={(v) => whatIf.setLoadAt(i, v)} testid="whatif-load-at-{i}" />
       {/if}
     {:else if onNode}
-      <label class="wif-row">
-        <span class="wif-label">{t('whatif.atNode')}</span>
-        <select class="wif-select" value={whatIf.loadNode[i] ?? onNode.nodeId}
-          onchange={(e) => whatIf.setLoadNode(i, Number(e.currentTarget.value))} data-testid="whatif-load-node-{i}">
-          {#each nodeIds as id (id)}<option value={id}>{t('whatif.node').replace('{n}', String(id))}</option>{/each}
-        </select>
-      </label>
+      <WifPlace nodeId={whatIf.loadNode[i] ?? onNode.nodeId} along={whatIf.loadAlong[i]} nodes={nodeIds}
+        onNode={(id) => whatIf.setLoadNode(i, id)} onAlong={(el, at) => whatIf.setLoadAlong(i, el, at)} testid="whatif-load-node-{i}" />
     {/if}
   </div>
 {/each}

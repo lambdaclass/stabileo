@@ -9,14 +9,14 @@ import { whatIf } from '../whatif.svelte';
 import { response2D } from '../../whatif/response';
 
 const P = -12;
-let n1 = 0, n2 = 0, n3 = 0, m1 = 0, s1 = 0, s3 = 0;
+let n1 = 0, n2 = 0, n3 = 0, m1 = 0, m2 = 0, s1 = 0, s3 = 0;
 
 function beam() {
   n1 = modelStore.addNode(0, 0);
   n2 = modelStore.addNode(4, 0);
   n3 = modelStore.addNode(8, 0);
   m1 = modelStore.addElement(n1, n2);
-  modelStore.addElement(n2, n3);
+  m2 = modelStore.addElement(n2, n3);
   s1 = modelStore.addSupport(n1, 'pinned');
   s3 = modelStore.addSupport(n3, 'rollerX');
 }
@@ -147,5 +147,67 @@ describe('the response the panel compares', () => {
     expect(m).toBeCloseTo(R1 * R1 / (2 * 10), 6);
     const ends = Math.max(...r.elementForces.flatMap((ef) => [Math.abs(ef.mStart), Math.abs(ef.mEnd)]));
     expect(m).toBeGreaterThan(ends);
+  });
+});
+
+describe('carrying a nodal load or a support along a member', () => {
+  it('a nodal load anywhere along a member: R₁ = P(L − x)/L at x = 5 m', () => {
+    modelStore.addNodalLoad(n2, 0, P);
+    whatIf.open();
+    whatIf.setLoadAlong(0, m2, 0.25);
+    settle();
+    const at = (modelStore.model.loads[0].data as { nodeId: number }).nodeId;
+    expect(modelStore.nodes.get(at)).toMatchObject({ x: 5, y: 0 });
+    const r = solve();
+    expect(rz(r, n1)).toBeCloseTo(-P * 3 / 8, 9);
+    expect(rz(r, n3)).toBeCloseTo(-P * 5 / 8, 9);
+  });
+
+  it('a support anywhere along a member: the beam gains an overhang where it was cut', () => {
+    modelStore.addNodalLoad(n2, 0, P);
+    whatIf.open();
+    whatIf.setSupportAlong(s3, m1, 0.5);
+    settle();
+    const at = modelStore.supports.get(s3)!.nodeId;
+    expect(modelStore.nodes.get(at)).toMatchObject({ x: 2, y: 0 });
+    // Supports at 0 and 2 m, load at 4 m: R(2) = 2P up, R(0) = P down.
+    const r = solve();
+    expect(rz(r, at)).toBeCloseTo(-2 * P, 9);
+    expect(rz(r, n1)).toBeCloseTo(P, 9);
+  });
+
+  it('choosing a node again takes it off the member, and leaving puts every member back whole', async () => {
+    modelStore.addNodalLoad(n2, 0, P);
+    const members = modelStore.elements.size;
+    whatIf.open();
+    whatIf.setLoadAlong(0, m1, 0.5);
+    settle();
+    expect(modelStore.elements.size).toBe(members + 1);
+    whatIf.setLoadNode(0, n3);
+    settle();
+    expect(modelStore.elements.size).toBe(members);
+    expect((modelStore.model.loads[0].data as { nodeId: number }).nodeId).toBe(n3);
+    whatIf.setSupportAlong(s3, m1, 0.5);
+    settle();
+    uiStore.liveCalc = true;
+    await whatIf.close();
+    expect(modelStore.elements.size).toBe(members);
+    expect(modelStore.supports.get(s3)?.nodeId).toBe(n3);
+  });
+});
+
+describe('what the canvas shows', () => {
+  it('loads drawn over the results while the session wants them, and the reader\'s own setting back on leaving', async () => {
+    uiStore.showLoads = false;
+    uiStore.hideLoadsWithDiagram = true;
+    whatIf.open();
+    expect(whatIf.loadsShown).toBe(false);
+    whatIf.showLoads(true);
+    expect(whatIf.loadsShown).toBe(true);
+    expect(uiStore.hideLoadsWithDiagram).toBe(false);
+    uiStore.liveCalc = true;
+    await whatIf.close();
+    expect(uiStore.showLoads).toBe(false);
+    expect(uiStore.hideLoadsWithDiagram).toBe(true);
   });
 });

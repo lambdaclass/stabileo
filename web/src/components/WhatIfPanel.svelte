@@ -71,8 +71,20 @@
   const value = (k: ResponseKey, v: number) => `${fmtQ(v, RESPONSE_QUANTITY[k])} ${unitQ(RESPONSE_QUANTITY[k])}`;
   const rows = $derived(shown ? ROWS.filter((r) => shown![r.k] > 1e-9 || (whatIf.reference?.[r.k] ?? 0) > 1e-9) : []);
 
+  /* Results off leaves the structure and its loads alone; on again brings back the last diagram. */
+  let lastDiagram: DiagramType | null = null;
+  const resultsOn = $derived(resultsStore.diagramType !== 'none');
+  function toggleResults() {
+    if (resultsOn) { lastDiagram = resultsStore.diagramType; showDiagram('none'); }
+    else showDiagram(lastDiagram ?? (is3D ? 'momentY' : 'moment'));
+  }
+  /* Loads drawn over the results; on by default while the loads are being edited, until the reader turns them off. */
+  let loadsTouched = false;
+  function toggleLoads() { loadsTouched = true; whatIf.showLoads(!whatIf.loadsShown); }
+
   type Tab = 'loads' | 'members' | 'supports' | 'nodes';
   let tab = $state<Tab>('loads');
+  $effect(() => { if (tab === 'loads' && !loadsTouched) whatIf.showLoads(true); });
   /* Picking on the canvas is the quickest way to say what to change: a member or a node opens its tab. */
   let lastPicked = { members: 0, nodes: 0 };
   $effect(() => {
@@ -104,7 +116,7 @@
 
     <div class="wif-body">
       <div class="wif-bar">
-        <span class="wif-live"><span class="wif-dot" aria-hidden="true"></span>{t('whatif.liveNote')}</span>
+        <span class="wif-live" class:busy={resultsStore.screen.held} data-testid="whatif-live"><span class="wif-dot" aria-hidden="true"></span>{t('whatif.liveNote')}</span>
         <button class="wif-reset" onclick={() => whatIf.reset()} disabled={!whatIf.changed} title={t('whatif.restoreOriginals')}
           data-testid="whatif-reset">{t('whatif.reset')}</button>
       </div>
@@ -112,9 +124,14 @@
       <div class="wif-view" role="group" aria-label={t('whatif.result')}>
         <div class="wif-results">
           {#each diagrams as item (item.d)}
-            <button class="wif-res-btn" class:active={resultsStore.diagramType === item.d}
+            <button class="wif-res-btn" class:active={resultsStore.screen.diagram === item.d}
               title={item.title} onclick={() => showDiagram(item.d)} data-testid="whatif-diagram-{item.d}">{item.label}</button>
           {/each}
+        </div>
+        <div class="wif-paints">
+          <span class="wif-paints-label">{t('whatif.show')}</span>
+          <button class="wif-paint-btn" class:active={resultsOn} aria-pressed={resultsOn} onclick={toggleResults} data-testid="whatif-show-results">{t('whatif.showResults')}</button>
+          <button class="wif-paint-btn" class:active={whatIf.loadsShown} aria-pressed={whatIf.loadsShown} onclick={toggleLoads} data-testid="whatif-show-loads">{t('whatif.showLoads')}</button>
         </div>
         <div class="wif-paints">
           <span class="wif-paints-label">{t('whatif.paint')}</span>
@@ -196,6 +213,10 @@
   .wif-bar { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
   .wif-live { display: inline-flex; align-items: center; gap: 5px; font-size: 0.66rem; color: var(--st-text-3); }
   .wif-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--st-ok, #2fb36b); }
+  /* While a re-solve is pending the last picture stays drawn; the dot says the answer is on its way. */
+  .wif-live.busy .wif-dot { background: var(--st-warn, #e0a030); animation: wif-pulse 0.8s ease-in-out infinite; }
+  @keyframes wif-pulse { 50% { opacity: 0.35; } }
+  @media (prefers-reduced-motion: reduce) { .wif-live.busy .wif-dot { animation: none; } }
   .wif-reset {
     background: none; border: 1px solid var(--st-hair-strong); border-radius: var(--st-radius); color: var(--st-text-2);
     font: inherit; font-size: 0.68rem; padding: 3px 9px; cursor: pointer;
@@ -211,7 +232,7 @@
   }
   .wif-res-btn:hover, .wif-paint-btn:hover { color: var(--st-text); }
   .wif-res-btn.active, .wif-paint-btn.active { border-color: var(--st-accent); color: var(--st-accent); background: var(--st-selected-bg); }
-  .wif-paints-label { flex: none; font-size: 0.64rem; color: var(--st-text-3); padding-right: 2px; }
+  .wif-paints-label { flex: none; width: 3.6rem; font-size: 0.64rem; color: var(--st-text-3); padding-right: 2px; }
 
   .wif-error {
     padding: 6px 8px; border: 1px solid color-mix(in srgb, var(--st-danger, #e5484d) 60%, transparent); border-radius: var(--st-radius);
@@ -269,6 +290,7 @@
 
   @media (max-width: 767px), (pointer: coarse) {
     .wif-res-btn, .wif-paint-btn { min-height: 40px; }
+    .wif-paint-btn { font-family: inherit; }
     .wif-tab { min-height: 44px; }
     .wif-reset { min-height: 40px; padding: 0 12px; }
     .wif-panel :global(.wif-row) { min-height: 44px; }
