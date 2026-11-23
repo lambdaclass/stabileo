@@ -63,5 +63,6 @@ it('does not install hooks in a production build', async () => {
   mocks.route = 'app';
   await (await import('../main')).default;
   window.dispatchEvent(new Event('stabileo-app-ready'));
+  await vi.dynamicImportSettled();
   expect(mocks.hooks).not.toHaveBeenCalled();
 });
