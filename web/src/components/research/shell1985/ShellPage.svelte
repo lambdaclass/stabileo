@@ -8,7 +8,7 @@
   import { num, sci } from '../shell/format';
   import ScalarFieldViewer from '../../viewport/ScalarFieldViewer.svelte';
   import ConvergencePlot from './ConvergencePlot.svelte';
-  import { cases, nativeOnly, runCases, finest, groups, viewerData, signedReference, shown, compare, inputFor, refusalFor, responseRatio, type Case, type Result } from './cases';
+  import { cases, nativeOnly, runCases, finest, groups, viewerData, signedReference, shown, responseRatio, type Case, type Result } from './cases';
   import { caseFor, MESH_RANGE, type BuiltGroup } from './builders';
   import { editorURL } from './editor';
   import { shellLocale, strings } from './i18n';
@@ -88,17 +88,7 @@
     solving = true;
     await new Promise(resolve => setTimeout(resolve, 120));
     if (mine !== token) return;
-    let row: Result;
-    try {
-      const engine = await import('../../../lib/engine/wasm-solver');
-      await engine.initSolver();
-      const { knownIssueResultDisposition } = await import('../../../lib/engine/known-issues');
-      const solved = engine.solve3D(inputFor(c));
-      if (knownIssueResultDisposition(solved).refused) throw new Error(JSON.stringify({ structuredDiagnostics: solved.structuredDiagnostics }));
-      row = compare(c, solved.displacements as unknown as Record<string, number>[]);
-    } catch (e) {
-      row = refusalFor(c, e);
-    }
+    const [row] = await runCases(undefined, [c]);
     built = { ...built, [c.id]: row };
     if (mine === token) solving = false;
   }
