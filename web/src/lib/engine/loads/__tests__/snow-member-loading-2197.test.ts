@@ -151,14 +151,17 @@ for (const angle of [0, 0.37]) for (const mirror of [-1, 1]) for (const panels o
 for (const angle of [0, 0.37]) for (const mirror of [-1, 1]) it(`#2197 hole-crossing rafters retain covered floor panels ${angle} ${mirror}`, () => {
   const xs = [0, 3, 5, 8], ys = [-2, -1, 1, 2];
   const rings = xs.slice(1).flatMap((x, i) => ys.slice(1).map((y, j) => [[xs[i]!, ys[j]!, 3], [x, ys[j]!, 3], [x, y, 3], [xs[i]!, y, 3]]));
-  const physicalFloorLoad = floorLoads.physicalFloorLoad;
-  vi.spyOn(floorLoads, 'physicalFloorLoad').mockImplementation(input => {
-    const out = physicalFloorLoad(input);
-    return { ...out, panels: out.panels.filter(p => {
-      const x = p.polygon.reduce((v, p) => v + mirror * (p[0] * Math.cos(angle) + p[1] * Math.sin(angle)), 0) / p.polygon.length;
-      const y = p.polygon.reduce((v, p) => v - p[0] * Math.sin(angle) + p[1] * Math.cos(angle), 0) / p.polygon.length;
-      return !(x > 3 && x < 5 && y > -1 && y < 1);
-    }) };
+  const preparePhysicalFloorLoad = floorLoads.preparePhysicalFloorLoad;
+  vi.spyOn(floorLoads, 'preparePhysicalFloorLoad').mockImplementation(input => {
+    const floor = preparePhysicalFloorLoad(input);
+    return { ...floor, generate: ownership => {
+      const out = floor.generate(ownership);
+      return { ...out, panels: out.panels.filter(p => {
+        const x = p.polygon.reduce((v, p) => v + mirror * (p[0] * Math.cos(angle) + p[1] * Math.sin(angle)), 0) / p.polygon.length;
+        const y = p.polygon.reduce((v, p) => v - p[0] * Math.sin(angle) + p[1] * Math.cos(angle), 0) / p.polygon.length;
+        return !(x > 3 && x < 5 && y > -1 && y < 1);
+      }) };
+    } };
   });
   for (const split of [1, 2, 3, 8]) {
     const base = mesh([...rings, [[0, 0, 3], [8, 0, 7]]]);

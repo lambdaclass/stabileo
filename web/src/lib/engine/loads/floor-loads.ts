@@ -45,7 +45,7 @@
 import { msg } from '../../codes/message';
 import { computeLocalAxes3D } from '../local-axes-3d';
 import { twoWayShares, oneWayShares, quadraticAt, signedArea, type Piece, type Side, type SideShare, type Zone2D } from './floor-tributary';
-import { partitionShellCoverage, refuseGravityGeometry, type ShellCoverage } from './gravity-shell-partition';
+import { partitionShellCoverage, refuseGravityGeometry, type BayPartition, type ShellCoverage } from './gravity-shell-partition';
 import { MEMBER_GEOMETRY_LIMIT } from '../member-span-loads';
 import polygonClipping, { type Polygon } from 'polygon-clipping';
 import type { P2 } from './floor-skeleton';
@@ -137,23 +137,44 @@ export interface FloorLoadResult {
   skipped: { trusses: number; notHorizontal: number; otherLevel: number; open: number; crossings: number; zoneAcrossSpan: number; unresolved: number };
 }
 
+export interface FloorBay {
+  index: number;
+  members: number[];
+  boundary: Polygon;
+  sides: Side[];
+  holes: Side[][];
+  span?: P2;
+}
+
+type PreparedFloorLoad = {
+  bays: readonly FloorBay[];
+  generate: (ownership?: ReadonlyMap<FloorBay, BayPartition>) => FloorLoadResult;
+};
+
 const EPS = 1e-9;
 
 export function floorLoad(input: FloorLoadInput & { shellFootprints?: undefined }): FloorLoadResult & { refusal?: 'eccentricZone' };
 export function floorLoad(input: FloorLoadInput): FloorLoadResult;
 export function floorLoad(input: FloorLoadInput): FloorLoadResult {
-  return calculateFloorLoad(input, round);
+  return prepareFloorLoad(input, round).generate();
 }
 
 export function physicalFloorLoad(input: FloorLoadInput): FloorLoadResult {
-  return calculateFloorLoad(input, value => value);
+  return preparePhysicalFloorLoad(input).generate();
 }
 
-function calculateFloorLoad(input: FloorLoadInput, round: (value: number) => number): FloorLoadResult {
+export function preparePhysicalFloorLoad(input: FloorLoadInput): PreparedFloorLoad {
+  return prepareFloorLoad(input, value => value);
+}
+
+function prepareFloorLoad(input: FloorLoadInput, round: (value: number) => number): PreparedFloorLoad {
   const tol = input.tol ?? 1e-3;
   const skipped = { trusses: 0, notHorizontal: 0, otherLevel: 0, open: 0, crossings: 0, zoneAcrossSpan: 0, unresolved: 0 };
   const res: FloorLoadResult = { z: null, panels: [], loads: [], nodal: [], normal: [0, 0, 1], perBeam: new Map(), loadedArea: 0, totalKN: 0, skipped };
-  if (input.zone !== undefined && input.shellFootprints !== undefined) return { ...res, refusal: 'zoneWithShellFootprints' };
+  const bays: FloorBay[] = [];
+  if (input.zone !== undefined && input.shellFootprints !== undefined) {
+    return { bays, generate: () => ({ ...res, refusal: 'zoneWithShellFootprints' }) };
+  }
   const pos = (id: number) => input.nodes.get(id);
   const P = (id: number): P3 => { const n = pos(id)!; return [n.x, n.y, n.z ?? 0]; };
 
@@ -183,7 +204,7 @@ function calculateFloorLoad(input: FloorLoadInput, round: (value: number) => num
       if (Math.abs((a.z ?? 0) - (c.z ?? 0)) > tol || Math.hypot(a.x - c.x, a.y - c.y) < tol) { skipped.notHorizontal++; continue; }
       horizontal.push(b);
     }
-    if (horizontal.length === 0) return res;
+    if (horizontal.length === 0) return { bays, generate: () => res };
     const zCount = new Map<number, number>();
     for (const b of horizontal) { const z = Math.round((pos(b.nodeI)!.z ?? 0) / tol) * tol; zCount.set(z, (zCount.get(z) ?? 0) + 1); }
     const z = [...zCount].sort((p, q) => q[1] - p[1])[0]![0];
@@ -195,7 +216,7 @@ function calculateFloorLoad(input: FloorLoadInput, round: (value: number) => num
     });
     toPlane = (p) => [p[0], p[1]];
   }
-  if (beams.length === 0) return res;
+  if (beams.length === 0) return { bays, generate: () => res };
 
   const xy = (id: number): P2 => toPlane(P(id));
   /** A point of the zone, dropped vertically onto the floor's plane. */
@@ -214,9 +235,6 @@ function calculateFloorLoad(input: FloorLoadInput, round: (value: number) => num
     a: number; b: number; qa: number; qb: number; len: number; panel: number; side: 1 | -1;
     offset?: Piece['offset'];
   };
-  const raw = new Map<number, LoadPiece[]>();
-  /** The panel each nodal load comes from. */
-  const nodalPanel: number[] = [];
 
   // ── Crossings without a node ──
   const crossed = new Set<number>();
@@ -341,7 +359,6 @@ function calculateFloorLoad(input: FloorLoadInput, round: (value: number) => num
   const beamsXY = beams.map((b) => ({ id: b.id, p: xy(b.nodeI), q: xy(b.nodeJ) }));
 
   panelsFound.forEach(({ face, cycle, poly, area, inner, ties }, k) => {
-    if (res.refusal) return;
     const sides = mergeSides(cycle, poly, elementOf, (e, p) => beamById.get(e)!.nodeI === p);
     const holeCycles = [...inner, ...(holesOf.get(k) ?? [])];
     const panel: FloorPanel = { polygon: poly, area, loaded: false };
@@ -356,146 +373,163 @@ function calculateFloorLoad(input: FloorLoadInput, round: (value: number) => num
     const onSides = (p: P2) => all.some((sd) => nearSegment(p, sd.a, sd.b, tol));
     const along = beamsXY.filter((b) => onSides(b.p) && onSides(b.q) && onSides([(b.p[0] + b.q[0]) / 2, (b.p[1] + b.q[1]) / 2])).map((b) => b.id);
     panel.members = [...new Set([...all.flatMap((sd) => sd.segments.map((g) => g.elementId)), ...along, ...ties])];
-    const footprints = typeof input.shellFootprints === 'function'
-      ? input.shellFootprints([sides.map(side => side.a), ...holes.map(hole => hole.map(side => side.a))], sides.map(side => side.nodeA))
-      : input.shellFootprints ?? [];
-    const partition = partitionShellCoverage(sides, holes, footprints, input.distribution === 'oneWay' ? spanDir : undefined);
-    if (partition.kind !== 'uncovered') panel.shellCoverage = partition;
-    if (partition.kind === 'shell') return;
-    let panelZone = zone;
-    if (zone) {
-      const boundary: Polygon = [sides.map(side => side.a), ...holes.map(hole => hole.map(side => side.a))];
-      const footprint: Polygon = [zone.outer, ...zone.holes];
-      try {
-        if (polygonClipping.intersection(boundary, footprint).length === 0) return;
-        if (polygonClipping.difference(boundary, footprint).length === 0) panelZone = undefined;
-      } catch {
+    const boundary = [sides.map(side => side.a), ...holes.map(hole => hole.map(side => side.a))];
+    bays.push({ index: k, members: panel.members, boundary, sides, holes, span: input.distribution === 'oneWay' ? spanDir : undefined });
+  });
+
+  const discovered = res;
+  function generate(ownership?: ReadonlyMap<FloorBay, BayPartition>): FloorLoadResult {
+    const res: FloorLoadResult = { ...discovered, panels: discovered.panels.map(panel => ({ ...panel })), skipped: { ...skipped },
+      loads: [], nodal: [], perBeam: new Map() };
+    const raw = new Map<number, LoadPiece[]>();
+    const nodalPanel: number[] = [];
+    bays.forEach(bay => {
+      if (res.refusal) return;
+      const { index: k, sides, holes, boundary, span } = bay;
+      const panel = res.panels[k]!;
+      const all = [...sides, ...holes.flat()];
+      const partition = ownership
+        ? ownership.get(bay) ?? refuseGravityGeometry(msg('loadPlan.gravity.coveragePrecision'))
+        : partitionShellCoverage(sides, holes, typeof input.shellFootprints === 'function'
+          ? input.shellFootprints(boundary, sides.map(side => side.nodeA))
+          : input.shellFootprints ?? [], span);
+      if (partition.kind !== 'uncovered') panel.shellCoverage = partition;
+      if (partition.kind === 'shell') return;
+      let panelZone = zone;
+      if (zone) {
+        const footprint: Polygon = [zone.outer, ...zone.holes];
+        try {
+          if (polygonClipping.intersection(boundary, footprint).length === 0) return;
+          if (polygonClipping.difference(boundary, footprint).length === 0) panelZone = undefined;
+        } catch {
+          res.refusal = 'eccentricZone';
+          return;
+        }
+      }
+      const shares: SideShare[] | null = partition.kind === 'strips' ? partition.shares : input.distribution === 'oneWay'
+        ? oneWayShares(sides, holes, spanDir, 1, panelZone, ownership !== undefined)
+        : twoWayShares(sides, holes, 1, panelZone, ownership !== undefined);
+      if (!shares) {
+        if (zone && input.distribution === 'oneWay') res.refusal = 'eccentricZone';
+        panel.reason = input.distribution === 'oneWay' && zone ? 'zoneAcrossSpan' : 'unresolved';
+        if (panel.reason === 'zoneAcrossSpan') skipped.zoneAcrossSpan++; else skipped.unresolved++;
+        return;
+      }
+      if (zone && qEff !== 0 && shares.some(share => share.atA || share.atB)) {
         res.refusal = 'eccentricZone';
         return;
       }
+      const exact = !!zone || partition.kind === 'strips';
+      let carried = 0;
+      all.forEach((side, i) => {
+        const sh = shares[i]!;
+        for (const pc of sh.pieces) { emit(side, { ...pc, q0: pc.q0 * qEff, q1: pc.q1 * qEff }, k, exact); carried += (pc.q0 + pc.q1) / 2 * (pc.s1 - pc.s0); }
+        for (const [node, a, seg] of [[side.nodeA, sh.atA, side.segments[0]!], [side.nodeB, sh.atB, side.segments[side.segments.length - 1]!]] as const) {
+          if (Math.abs(a) < 1e-12) continue;
+          res.nodal.push({ nodeId: node, fz: -qEff * a, elementId: seg.elementId });
+          nodalPanel.push(k);
+          res.totalKN += qEff * a;
+          carried += a;
+        }
+      });
+      if (carried <= (exact ? 0 : 1e-12)) return;
+      panel.loaded = true;
+      panel.own = { loads: [], nodal: res.nodal.filter((_, i) => nodalPanel[i] === k), perBeam: new Map(), area: carried, sides: new Map() };
+      res.loadedArea += carried;
+    });
+
+    if (zone && [...raw.values()].some(requiresEccentricLoad)) res.refusal = 'eccentricZone';
+    if (res.refusal) return { ...res, nodal: [], loadedArea: 0, totalKN: 0,
+      panels: res.panels.map(({ own: _own, ...panel }) => ({ ...panel, loaded: false })),
+    };
+
+    function emit(side: Side, pc: Piece, panel: number, exact: boolean) {
+      for (const seg of side.segments) {
+        const s0 = Math.max(pc.s0, seg.s0), s1 = Math.min(pc.s1, seg.s1);
+        if (s1 <= s0) continue;
+        if (exact && (s1 - s0) / (seg.s1 - seg.s0) < MEMBER_GEOMETRY_LIMIT) {
+          if (!zone) refuseGravityGeometry(msg('loadPlan.gravity.stripInterval', { id: seg.elementId }));
+          res.refusal = 'eccentricZone';
+          return;
+        }
+        if (!exact && s1 - s0 < 1e-6) continue;
+        const at = (s: number) => {
+          const value = pc.q0 + ((pc.q1 - pc.q0) * (s - pc.s0)) / (pc.s1 - pc.s0 || 1);
+          const error = 16 * Number.EPSILON * (Math.abs(pc.q0) + Math.abs(pc.q1));
+          return Math.abs(value) <= error ? 0 : value;
+        };
+        const q0 = at(s0), q1 = at(s1);
+        const len = seg.s1 - seg.s0;
+        // Along the member, from node I.
+        const [a, b, qa, qb] = seg.forward ? [s0 - seg.s0, s1 - seg.s0, q0, q1] : [seg.s1 - s1, seg.s1 - s0, q1, q0];
+        if (exact ? qa === 0 && qb === 0 : Math.abs(qa) < 1e-12 && Math.abs(qb) < 1e-12) continue;
+        const sign = seg.forward ? 1 : -1;
+        const moment = (x: number) => sign * quadraticAt(pc.offset!, (x - pc.s0) / (pc.s1 - pc.s0));
+        const offset = pc.offset
+          ? [moment(seg.forward ? s0 : s1), moment((s0 + s1) / 2), moment(seg.forward ? s1 : s0)] as Piece['offset']
+          : undefined;
+        const piece = { a, b, qa, qb, len, panel, side: sign as 1 | -1, offset };
+        const list = raw.get(seg.elementId) ?? [];
+        list.push(piece);
+        raw.set(seg.elementId, list);
+      }
     }
-    const shares: SideShare[] | null = partition.kind === 'strips' ? partition.shares : input.distribution === 'oneWay'
-      ? oneWayShares(sides, holes, spanDir, 1, panelZone)
-      : twoWayShares(sides, holes, 1, panelZone);
-    if (!shares) {
-      if (zone && input.distribution === 'oneWay') res.refusal = 'eccentricZone';
-      panel.reason = input.distribution === 'oneWay' && zone ? 'zoneAcrossSpan' : 'unresolved';
-      if (panel.reason === 'zoneAcrossSpan') skipped.zoneAcrossSpan++; else skipped.unresolved++;
-      return;
+
+    /** A member's pieces as loads in its local axes, and the kN they add up to. */
+    const asLoads = (elementId: number, list: LoadPiece[]): { loads: FloorMemberLoad[]; total: number } => {
+      const beam = beamById.get(elementId)!;
+      const ni = pos(beam.nodeI)!, nj = pos(beam.nodeJ)!;
+      const axes = computeLocalAxes3D(
+        { id: 0, x: ni.x, y: ni.y, z: ni.z ?? 0 }, { id: 0, x: nj.x, y: nj.y, z: nj.z ?? 0 },
+        beam.localYx !== undefined && beam.localYy !== undefined && beam.localYz !== undefined ? { x: beam.localYx, y: beam.localYy, z: beam.localYz } : undefined,
+        (beam.rollAngle ?? 0) + (input.sectionRotation?.(beam.sectionId) ?? 0), false,
+      );
+      const ySign = input.leftHand ? -1 : 1;
+      // Downward load q along −Z, in local components: on an inclined member the part along its axis
+      // too, or the load the member receives would not be vertical, nor add up to q times the area.
+      const fx = -axes.ex[2], fy = -axes.ey[2] * ySign, fz = -axes.ez[2];
+      const loads: FloorMemberLoad[] = [];
+      let total = 0;
+      const exact = !!zone || list.some(p => res.panels[p.panel]?.shellCoverage?.kind === 'strips');
+      for (const p of exact ? list : mergePieces(list)) {
+        const error = 32 * Number.EPSILON * (Math.abs(ni.x) + Math.abs(ni.y) + Math.abs(ni.z ?? 0) + Math.abs(nj.x) + Math.abs(nj.y) + Math.abs(nj.z ?? 0) + p.len);
+        const station = (x: number) => Math.abs(x) <= error ? 0 : Math.abs(x - p.len) <= error ? p.len : x;
+        const start = station(p.a), end = station(p.b);
+        const full = exact ? start === 0 && end === p.len : p.a < 1e-6 && p.b > p.len - 1e-6;
+        const value = exact ? (v: number) => v === 0 ? 0 : v : round;
+        loads.push({
+          elementId,
+          ...(full ? {} : { a: value(start), b: exact && end === p.len ? undefined : value(end) }),
+          qI: value(p.qa), qJ: value(p.qb),
+          qXI: value(fx * p.qa), qXJ: value(fx * p.qb),
+          qYI: value(fy * p.qa), qYJ: value(fy * p.qb), qZI: value(fz * p.qa), qZJ: value(fz * p.qb),
+        });
+        total += ((p.qa + p.qb) / 2) * (p.b - p.a);
+      }
+      return { loads, total };
+    };
+
+    for (const [elementId, list] of raw) {
+      const { loads, total } = asLoads(elementId, list);
+      res.loads.push(...loads);
+      res.perBeam.set(elementId, total);
+      res.totalKN += total;
     }
-    if (zone && qEff !== 0 && shares.some(share => share.atA || share.atB)) {
-      res.refusal = 'eccentricZone';
-      return;
-    }
-    const exact = !!zone || partition.kind === 'strips';
-    let carried = 0;
-    all.forEach((side, i) => {
-      const sh = shares[i]!;
-      for (const pc of sh.pieces) { emit(side, { ...pc, q0: pc.q0 * qEff, q1: pc.q1 * qEff }, k, exact); carried += (pc.q0 + pc.q1) / 2 * (pc.s1 - pc.s0); }
-      for (const [node, a, seg] of [[side.nodeA, sh.atA, side.segments[0]!], [side.nodeB, sh.atB, side.segments[side.segments.length - 1]!]] as const) {
-        if (Math.abs(a) < 1e-12) continue;
-        res.nodal.push({ nodeId: node, fz: -qEff * a, elementId: seg.elementId });
-        nodalPanel.push(k);
-        res.totalKN += qEff * a;
-        carried += a;
+    // Each loaded panel's own part, from its own pieces alone.
+    res.panels.forEach((panel, k) => {
+      if (!panel.own) return;
+      for (const [elementId, list] of raw) {
+        const mine = list.filter((p) => p.panel === k);
+        if (!mine.length) continue;
+        const { loads, total } = asLoads(elementId, mine);
+        panel.own.loads.push(...loads);
+        panel.own.perBeam.set(elementId, total);
+        panel.own.sides.set(elementId, mine.map((p) => ({ t0: p.a / p.len, t1: p.b / p.len, side: p.side })));
       }
     });
-    if (carried <= (exact ? 0 : 1e-12)) return;
-    panel.loaded = true;
-    panel.own = { loads: [], nodal: res.nodal.filter((_, i) => nodalPanel[i] === k), perBeam: new Map(), area: carried, sides: new Map() };
-    res.loadedArea += carried;
-  });
-
-  if (zone && [...raw.values()].some(requiresEccentricLoad)) res.refusal = 'eccentricZone';
-  if (res.refusal) return { ...res, nodal: [], loadedArea: 0, totalKN: 0,
-    panels: res.panels.map(({ own: _own, ...panel }) => ({ ...panel, loaded: false })),
-  };
-
-  function emit(side: Side, pc: Piece, panel: number, exact: boolean) {
-    for (const seg of side.segments) {
-      const s0 = Math.max(pc.s0, seg.s0), s1 = Math.min(pc.s1, seg.s1);
-      if (s1 <= s0) continue;
-      if (exact && (s1 - s0) / (seg.s1 - seg.s0) < MEMBER_GEOMETRY_LIMIT) {
-        if (!zone) refuseGravityGeometry(msg('loadPlan.gravity.stripInterval', { id: seg.elementId }));
-        res.refusal = 'eccentricZone';
-        return;
-      }
-      if (!exact && s1 - s0 < 1e-6) continue;
-      const at = (s: number) => {
-        const value = pc.q0 + ((pc.q1 - pc.q0) * (s - pc.s0)) / (pc.s1 - pc.s0 || 1);
-        const error = 16 * Number.EPSILON * (Math.abs(pc.q0) + Math.abs(pc.q1));
-        return Math.abs(value) <= error ? 0 : value;
-      };
-      const q0 = at(s0), q1 = at(s1);
-      const len = seg.s1 - seg.s0;
-      // Along the member, from node I.
-      const [a, b, qa, qb] = seg.forward ? [s0 - seg.s0, s1 - seg.s0, q0, q1] : [seg.s1 - s1, seg.s1 - s0, q1, q0];
-      if (exact ? qa === 0 && qb === 0 : Math.abs(qa) < 1e-12 && Math.abs(qb) < 1e-12) continue;
-      const sign = seg.forward ? 1 : -1;
-      const moment = (x: number) => sign * quadraticAt(pc.offset!, (x - pc.s0) / (pc.s1 - pc.s0));
-      const offset = pc.offset
-        ? [moment(seg.forward ? s0 : s1), moment((s0 + s1) / 2), moment(seg.forward ? s1 : s0)] as Piece['offset']
-        : undefined;
-      const piece = { a, b, qa, qb, len, panel, side: sign as 1 | -1, offset };
-      const list = raw.get(seg.elementId) ?? [];
-      list.push(piece);
-      raw.set(seg.elementId, list);
-    }
+    return res;
   }
-
-  /** A member's pieces as loads in its local axes, and the kN they add up to. */
-  const asLoads = (elementId: number, list: LoadPiece[]): { loads: FloorMemberLoad[]; total: number } => {
-    const beam = beamById.get(elementId)!;
-    const ni = pos(beam.nodeI)!, nj = pos(beam.nodeJ)!;
-    const axes = computeLocalAxes3D(
-      { id: 0, x: ni.x, y: ni.y, z: ni.z ?? 0 }, { id: 0, x: nj.x, y: nj.y, z: nj.z ?? 0 },
-      beam.localYx !== undefined && beam.localYy !== undefined && beam.localYz !== undefined ? { x: beam.localYx, y: beam.localYy, z: beam.localYz } : undefined,
-      (beam.rollAngle ?? 0) + (input.sectionRotation?.(beam.sectionId) ?? 0), false,
-    );
-    const ySign = input.leftHand ? -1 : 1;
-    // Downward load q along −Z, in local components: on an inclined member the part along its axis
-    // too, or the load the member receives would not be vertical, nor add up to q times the area.
-    const fx = -axes.ex[2], fy = -axes.ey[2] * ySign, fz = -axes.ez[2];
-    const loads: FloorMemberLoad[] = [];
-    let total = 0;
-    const exact = !!zone || list.some(p => res.panels[p.panel]?.shellCoverage?.kind === 'strips');
-    for (const p of exact ? list : mergePieces(list)) {
-      const error = 32 * Number.EPSILON * (Math.abs(ni.x) + Math.abs(ni.y) + Math.abs(ni.z ?? 0) + Math.abs(nj.x) + Math.abs(nj.y) + Math.abs(nj.z ?? 0) + p.len);
-      const station = (x: number) => Math.abs(x) <= error ? 0 : Math.abs(x - p.len) <= error ? p.len : x;
-      const start = station(p.a), end = station(p.b);
-      const full = exact ? start === 0 && end === p.len : p.a < 1e-6 && p.b > p.len - 1e-6;
-      const value = exact ? (v: number) => v === 0 ? 0 : v : round;
-      loads.push({
-        elementId,
-        ...(full ? {} : { a: value(start), b: exact && end === p.len ? undefined : value(end) }),
-        qI: value(p.qa), qJ: value(p.qb),
-        qXI: value(fx * p.qa), qXJ: value(fx * p.qb),
-        qYI: value(fy * p.qa), qYJ: value(fy * p.qb), qZI: value(fz * p.qa), qZJ: value(fz * p.qb),
-      });
-      total += ((p.qa + p.qb) / 2) * (p.b - p.a);
-    }
-    return { loads, total };
-  };
-
-  for (const [elementId, list] of raw) {
-    const { loads, total } = asLoads(elementId, list);
-    res.loads.push(...loads);
-    res.perBeam.set(elementId, total);
-    res.totalKN += total;
-  }
-  // Each loaded panel's own part, from its own pieces alone.
-  res.panels.forEach((panel, k) => {
-    if (!panel.own) return;
-    for (const [elementId, list] of raw) {
-      const mine = list.filter((p) => p.panel === k);
-      if (!mine.length) continue;
-      const { loads, total } = asLoads(elementId, mine);
-      panel.own.loads.push(...loads);
-      panel.own.perBeam.set(elementId, total);
-      panel.own.sides.set(elementId, mine.map((p) => ({ t0: p.a / p.len, t1: p.b / p.len, side: p.side })));
-    }
-  });
-  return res;
+  return { bays, generate };
 }
 
 function requiresEccentricLoad(list: Array<{ a: number; b: number; offset?: Piece['offset'] }>): boolean {

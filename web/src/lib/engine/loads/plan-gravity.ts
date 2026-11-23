@@ -36,10 +36,12 @@
  *
  * Pure: no store.
  */
-import { assertDisjointBayShells, assertSeparateShellDecks, footprintsOverlap, planarShell, refuseGravityGeometry, ringArea, type ShellPlane, type UncoveredStrips } from './gravity-shell-partition';
+import { footprintArea, footprintsOverlap, planarShell, refuseGravityGeometry, ringArea, type ShellPlane, type UncoveredStrips } from './gravity-shell-partition';
 import { physicalRoofRuns, samePhysicalPoint, snowCoordinate } from './physical-roof-geometry';
 import polygonClipping, { type Polygon } from 'polygon-clipping';
-import { physicalFloorLoad as floorLoad, type FloorBeam, type FloorPanel, type SideStretch } from './floor-loads';
+import { agrees, Sum } from '../accounting-math';
+import { partitionGravityFloors } from './gravity-floor-ownership';
+import { preparePhysicalFloorLoad, type FloorBay, type FloorBeam, type FloorPanel, type FloorLoadResult, type SideStretch } from './floor-loads';
 import { EngineMessageError, msg, round, type EngineMessage } from '../../codes/message';
 import type { Constraint3D } from '../types-3d';
 
@@ -59,6 +61,10 @@ export interface GravityOptions {
   tributaryWidth: number;
   /** Load every panel the beams close, also those within the roof's structure or too wide for a deck. */
   loadEveryPanel?: boolean;
+}
+
+export function loadSpanLength(span: { a?: number; b?: number }, length: number): number {
+  return (span.b ?? length) - (span.a ?? 0);
 }
 
 /**
@@ -96,6 +102,8 @@ export interface GravityLayout {
    * m² of shell.
    */
   shellQuads: Array<{ quadId: number; area: number; z: number; cos: number }>;
+  shadowedRoofShells?: ReadonlyArray<{ quadId: number; surface: number }>;
+  roofShellWeightUnresolved?: boolean;
   /** Loaded plan area per level elevation (rounded to the millimetre), m². */
   areaByLevel: Map<number, number>;
   /** Members that carry roof: a roof panel, or (loaded by width) nothing higher over them. */
@@ -167,7 +175,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
     return [e.id, member] as const;
   }));
 
-  const quadsAt = new Map<number, Array<{ quadId: number; area: number }>>();
+  const quadsAt = new Map<number, Array<{ quadId: number; area: number; cos: number }>>();
   const slopedQuads: Array<{ quadId: number; area: number; z: number; cos: number }> = [];
   const levelCarriers: ShellCarrier[] = [];
   const slopedCarriers: ShellCarrier[] = [];
@@ -183,10 +191,12 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
     const plane = opts.mode === 'panels' && plan > 0 ? planarShell(q.id, xyz) : undefined;
     const carrier = { id: q.id, poly, pts: xyz, nodes: q.nodes, plane };
     const low = Math.min(...zs), high = Math.max(...zs);
+    const surface = surfaceArea(xyz);
+    const cos = surface > 0 ? plan / surface : 0;
     if (high - low <= TOL) {
-      const key = levelKey(zs[0]!);
+      const key = levelKey(low + (high - low) / 2);
       const list = quadsAt.get(key) ?? [];
-      list.push({ quadId: q.id, area: plan });
+      list.push({ quadId: q.id, area: plan, cos });
       quadsAt.set(key, list);
       if (plan > 0) {
         levelCarriers.push({ ...carrier, z0: levelKey(low) });
@@ -194,11 +204,9 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
       }
       continue;
     }
-    const surface = surfaceArea(xyz);
-    const cos = surface > 0 ? plan / surface : 0;
     // |sin| ≤ 0,5, the members' rule: a roof; past 80° a wall; between, named.
     if (cos >= Math.sqrt(0.75) - 1e-9) {
-      slopedQuads.push({ quadId: q.id, area: plan, z: zs.reduce((s, z) => s + z, 0) / zs.length, cos });
+      slopedQuads.push({ quadId: q.id, area: plan, z: low + zs.sort((a, b) => a - b).reduce((sum, z) => sum + (z - low), 0) / zs.length, cos });
       slopedCarriers.push({ ...carrier, z0: levelKey(low) });
       for (const id of q.nodes) shellNodes.add(id);
     } else if (cos > Math.cos((80 * Math.PI) / 180)) steep.push(q.id);
@@ -238,7 +246,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
     // sloped member in a shell's surface is a rafter under the roof the shell carries.
     if (opts.mode === 'width' || (!horizontal && !inShell(e))) width(e.id, b.length, b.horizontalLength);
     if (!horizontal) continue;
-    const key = levelKey(nI.z ?? 0);
+    const key = levelKey(out.zOf.get(e.id)!);
     const list = beamsAt.get(key) ?? [];
     list.push({ id: e.id, nodeI: e.nodeI, nodeJ: e.nodeJ, type: 'frame', sectionId: e.sectionId ?? 0 });
     beamsAt.set(key, list);
@@ -246,25 +254,40 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
 
   // First pass: the panels of every level, which say what covers what.
   const slab = { distribution: opts.slab ?? 'twoWay', spanAxis: opts.spanAxis } as const;
-  const levels = new Map<number, { beams: FloorBeam[]; res: ReturnType<typeof floorLoad> }>();
+  const levels = new Map<number, { beams: FloorBeam[]; res: FloorLoadResult }>();
+  const prepared = [...beamsAt].map(([z, beams]) => ({
+    z, beams, floor: preparePhysicalFloorLoad({ nodes: model.nodes, beams, q: 1, ...slab }),
+  }));
+  const nodesByBay = new Map<FloorBay, Set<number>>();
+  const associatedNodes = (bay: FloorBay) => nodesByBay.get(bay) ?? nodesByBay.set(bay, new Set(bay.members.flatMap(id => {
+    const { nodeI, nodeJ } = model.elements.get(id)!;
+    return [nodeI, nodeJ];
+  }))).get(bay)!;
+  const ownership = opts.mode === 'panels' ? partitionGravityFloors(carriers, prepared.flatMap(({ z, floor }) =>
+    floor.bays.map(bay => {
+      const { boundary, sides } = bay;
+      const shellDecks = new Set(deckShells(boundary, sides.map(side => side.nodeA), z, levelCarriers, roofs));
+      for (const node of associatedNodes(bay)) for (const deck of linkedDecks.atNode(node)) {
+        for (const shell of deck) shellDecks.add(shell);
+      }
+      return { bay, z, shells: [...shellDecks] };
+    })), TOL, linkedDecks.coupled, (a, b) => linkedDecks.connected(associatedNodes(a), associatedNodes(b))) : undefined;
+  const ownedCarriers = carriers.filter(shell => ownership?.shells.has(shell));
+  const nonOwners = new Set(carriers.filter(shell => !ownership?.shells.has(shell)).map(shell => shell.id));
   const panelsAt = new Map<number, Array<Array<[number, number]>>>();
-  for (const [z, beams] of beamsAt) {
-    const shellFootprints = opts.mode === 'panels'
-      ? (boundary: Polygon, corners: number[]) => deckFootprints(boundary, corners, z, levelCarriers, roofs)
-      : undefined;
-    const res = floorLoad({ nodes: model.nodes, beams, q: 1, shellFootprints, ...slab });
+  for (const { z, beams, floor } of prepared) {
+    const res = floor.generate(ownership?.bays);
     levels.set(z, { beams, res });
-    panelsAt.set(z, res.panels.map((pn) => pn.polygon));
+    panelsAt.set(z, res.panels.map(pn => pn.polygon));
   }
-  if (opts.mode === 'panels') assertSeparateShellDecks(carriers, TOL);
-  const coverAbove = coverage(model, out.zOf, panelsAt);
+  const coverAbove = coverage(model, out.zOf, panelsAt, ownership ? nonOwners : undefined);
   const covered = (pt: [number, number], zTop: number) => Number.isFinite(coverAbove(pt, zTop));
   const panelSides = new Map<number, SideStretch[]>();
   for (const { res } of levels.values()) for (const pn of res.panels) for (const [id, sides] of pn.own?.sides ?? []) {
     (panelSides.get(id) ?? panelSides.set(id, []).get(id)!).push(...sides);
   }
   if (opts.mode === 'width') levels.clear();
-  const deck = opts.loadEveryPanel ? null : notADeck(model, carriers, panelsAt, coverAbove, opts.tributaryWidth, opts.mode === 'panels');
+  const deck = opts.loadEveryPanel ? null : notADeck(model, ownership ? ownedCarriers : carriers, panelsAt, coverAbove, opts.tributaryWidth, opts.mode === 'panels');
   const deckless = (poly: Array<[number, number]>, z: number) => (deck ? deck.why(poly, z) : null);
   const deckReasons = new Map<FloorPanel, ReturnType<typeof deckless>>();
   if (deck) for (const [z, { res }] of levels) for (const panel of res.panels) {
@@ -274,6 +297,21 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
   }
   const fringeRoof = new Map<number, { spans: WidthSpan[]; sides: SideStretch[]; region: Region; z: number }>();
   let byWidth = 0, unresolved = 0, partly = 0, lowPanels = 0, widePanels = 0, unclear = 0, unclearRoof = 0, fringes = 0;
+  const verifyBayArea = (
+    z: number, footprint: Region, scale: number, pieces: readonly { elementId: number; a?: number; b?: number; wI: number; wJ: number }[],
+    points: readonly { w: number }[],
+  ) => {
+    const load = new Sum();
+    for (const piece of pieces) {
+      load.add((piece.wI / 2 + piece.wJ / 2) * loadSpanLength(piece, eligibility.get(piece.elementId)!.length));
+    }
+    for (const point of points) load.add(point.w);
+    const area = footprintArea(footprint);
+    if (!agrees(load.value, area, scale)) {
+      refuseGravityGeometry(msg('loadPlan.gravity.areaResultant', { z }));
+    }
+    return area;
+  };
   const segment = (id: number): Segment => {
     const e = model.elements.get(id)!;
     const a = model.nodes.get(e.nodeI)!, b = model.nodes.get(e.nodeJ)!;
@@ -352,15 +390,19 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
   }
 
   if (opts.mode === 'panels') {
-    for (const [z, quads] of quadsAt) {
-      out.shellQuads.push(...quads.map((q) => ({ ...q, z, cos: 1 })));
+    for (const [z, layer] of quadsAt) {
+      const quads = layer.filter(quad => quad.area > 0 && !nonOwners.has(quad.quadId));
+      if (!quads.length) continue;
+      out.shellQuads.push(...quads.map((q) => ({ ...q, z })));
       const area = quads.reduce((s, q) => s + q.area, 0);
       out.areaByLevel.set(z, (out.areaByLevel.get(z) ?? 0) + area);
       out.notes.push(msg('loadPlan.gravity.shellLevel', { z: round(z, 2), n: quads.length, area: round(area, 1) }));
     }
-    if (slopedQuads.length > 0) {
-      out.shellQuads.push(...slopedQuads);
-      out.notes.push(msg('loadPlan.gravity.slopedShells', { n: slopedQuads.length, area: round(slopedQuads.reduce((s, q) => s + q.area, 0), 1) }));
+    const ownedSlopes = slopedQuads.filter(quad => !nonOwners.has(quad.quadId));
+    if (ownedSlopes.length > 0) {
+      out.shellQuads.push(...ownedSlopes);
+      for (const quad of ownedSlopes) out.areaByLevel.set(quad.z, (out.areaByLevel.get(quad.z) ?? 0) + quad.area);
+      out.notes.push(msg('loadPlan.gravity.slopedShells', { n: ownedSlopes.length, area: round(ownedSlopes.reduce((s, q) => s + q.area, 0), 1) }));
     }
     if (steep.length > 0) out.notes.push(msg('loadPlan.gravity.steepShells', { n: steep.length, ids: steep.slice(0, 10).join(', ') + (steep.length > 10 ? '…' : '') }));
   }
@@ -413,47 +455,48 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
     unresolved += res.skipped.unresolved;
     let overhead: ReturnType<typeof higherFootprints> | undefined;
     for (const { panel, own: one, why, strips, region, footprint } of selectedPanels.get(z) ?? []) {
-      if (linkedDecks) assertNoOffsetShellDeck(model, panel, footprint, z, linkedDecks);
       if (why === 'lowHeadroom') fringes++;
       if (why === 'headroomUnclear') { if (covered(centroid(panel.polygon), z)) unclear++; else unclearRoof++; }
       if (strips) partly++;
       const roof = strips
-        ? uncoveredStripIsRoof(strips, overhead ??= higherFootprints(z, selectedPanels, carriers, widthFootprints))
+        ? uncoveredStripIsRoof(strips, overhead ??= higherFootprints(z, selectedPanels, ownedCarriers, widthFootprints))
         : why === 'lowHeadroom' || !covered(centroid(panel.polygon), z);
+      const areaScale = ringArea(panel.polygon) + (panel.holes ?? []).reduce((sum, hole) => sum + ringArea(hole), 0);
       const index = panelBeams.length;
       panelBeams.push(new Set(one.perBeam.keys()));
       panelLevel.push(levelOrder.indexOf(z));
       out.panels.push({ polygon: panel.polygon, z, roof });
       if (region) {
-        let kept = 0;
         const moved = regionToBeams(model, region, [...one.perBeam.keys()]);
+        const kept = verifyBayArea(z, footprint, areaScale, moved.pieces, moved.points);
         for (const pc of moved.pieces) {
           out.pieces.push({ ...pc, roof, panel: index });
           addSides(pc.elementId, one.sides.get(pc.elementId));
           const a = pc.wI * (pc.b - pc.a);
           addArea(out.roofAreaOf, pc.elementId, a);
           out.roof.add(pc.elementId);
-          kept += a;
         }
         for (const pt of moved.points) {
           out.points.push({ ...pt, roof, panel: index });
           addArea(out.roofAreaOf, pt.elementId, pt.w);
           out.roof.add(pt.elementId);
-          kept += pt.w;
         }
         out.areaByLevel.set(z, (out.areaByLevel.get(z) ?? 0) + kept);
         continue;
       }
-      for (const l of one.loads) {
-        if (!panel.shellCoverage) addSides(l.elementId, one.sides.get(l.elementId));
-        out.pieces.push({ elementId: l.elementId, ...(l.a !== undefined ? { a: l.a, b: l.b } : {}), wI: l.qI, wJ: l.qJ, roof, panel: index });
+      const pieces = one.loads.map(l => ({ elementId: l.elementId, ...(l.a !== undefined ? { a: l.a, b: l.b } : {}), wI: l.qI, wJ: l.qJ, roof, panel: index }));
+      const points = one.nodal.map(n => ({ nodeId: n.nodeId, w: -n.fz, elementId: n.elementId, roof, panel: index }));
+      const area = verifyBayArea(z, footprint, areaScale, pieces, points);
+      for (const p of pieces) {
+        if (!panel.shellCoverage) addSides(p.elementId, one.sides.get(p.elementId));
+        out.pieces.push(p);
       }
-      for (const n of one.nodal) {
-        out.points.push({ nodeId: n.nodeId, w: -n.fz, elementId: n.elementId, roof, panel: index });
-        addArea(roof ? out.roofAreaOf : out.areaOf, n.elementId, -n.fz);
+      for (const p of points) {
+        out.points.push(p);
+        addArea(roof ? out.roofAreaOf : out.areaOf, p.elementId, p.w);
       }
       for (const [id, a] of one.perBeam) { addArea(roof ? out.roofAreaOf : out.areaOf, id, a); if (roof) out.roof.add(id); }
-      out.areaByLevel.set(z, (out.areaByLevel.get(z) ?? 0) + one.area);
+      out.areaByLevel.set(z, (out.areaByLevel.get(z) ?? 0) + area);
     }
   }
   out.oneSided = [...sidesOf].filter(([, s]) => oneSidedSomewhere(s)).map(([id]) => id).sort((a, b) => a - b);
@@ -476,12 +519,28 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
     if (roof) out.roof.add(m.elementId);
   }
   for (const q of model.quads?.values() ?? []) {
+    if (ownership && nonOwners.has(q.id)) continue;
     const pts = q.nodes.map((id) => model.nodes.get(id));
     if (pts.some((p) => !p)) continue;
     const c = centroid(pts.map((p) => [p!.x, p!.y] as [number, number]));
     if (!covered(c, Math.max(...pts.map((p) => p!.z ?? 0)))) out.roofQuads.add(q.id);
   }
 
+  if (ownership?.shadowedBy.size) {
+    const shadowed: Array<{ quadId: number; surface: number }> = [];
+    for (const [shell, above] of ownership.shadowedBy) {
+      const reachable = new Set(above);
+      for (const carrier of reachable) {
+        for (const upper of ownership.shadowedBy.get(carrier) ?? []) reachable.add(upper);
+      }
+      const owners = [...reachable].filter(carrier => ownership.shells.has(carrier));
+      if (owners.length === 0) refuseGravityGeometry(msg('loadPlan.gravity.coveragePrecision'));
+      const roofCount = owners.filter(owner => out.roofQuads.has(owner.id)).length;
+      if (roofCount === owners.length) shadowed.push({ quadId: shell.id, surface: surfaceArea(shell.pts) });
+      else if (roofCount > 0) out.roofShellWeightUnresolved = true;
+    }
+    out.shadowedRoofShells = shadowed;
+  }
   if (opts.mode === 'panels') {
     const sloped = out.widthMembers.length - byWidth;
     if (out.pieces.length > 0) out.notes.push(msg('loadPlan.gravity.panels', { members: new Set(out.pieces.map((p) => p.elementId)).size }));
@@ -517,23 +576,31 @@ type VerticalShellLink = {
 
 function verticalShellLinks(model: GravityModel): VerticalShellLink[] {
   const links: VerticalShellLink[] = [];
+  const add = (masterNode: number, slaveNode: number, geometry?: VerticalShellLink['geometry']) => {
+    if (masterNode !== slaveNode && model.nodes.has(masterNode) && model.nodes.has(slaveNode)) {
+      links.push({ masterNode, slaveNode, geometry });
+    }
+  };
+  const dofIndices = [0, 1, 2, 3, 4, 5];
   for (const constraint of model.constraints ?? []) {
-    if (constraint.type !== 'rigidLink' && constraint.type !== 'eccentricConnection') continue;
-    const { masterNode, slaveNode } = constraint;
-    const master = model.nodes.get(masterNode), slave = model.nodes.get(slaveNode);
-    if (!master || !slave) continue;
     if (constraint.type === 'rigidLink') {
       const dofs = constraint.dofs?.length ? constraint.dofs : [0, 1, 2];
-      if (!dofs.includes(2)) continue;
-      const fullMotion = [0, 1, 2, 3, 4, 5].every(dof => dofs.includes(dof));
-      links.push({ masterNode, slaveNode, geometry: { fullMotion } });
-    } else {
-      if (constraint.releases?.[2]) continue;
+      if (dofs.includes(2)) add(constraint.masterNode, constraint.slaveNode, { fullMotion: dofIndices.every(dof => dofs.includes(dof)) });
+    } else if (constraint.type === 'eccentricConnection') {
+      const { masterNode, slaveNode, releases } = constraint;
+      const master = model.nodes.get(masterNode), slave = model.nodes.get(slaveNode);
+      if (!master || !slave || releases?.[2]) continue;
       const [x, y, z] = attachmentPoint(master, [constraint.offsetX ?? 0, constraint.offsetY ?? 0, constraint.offsetZ ?? 0]);
-      const geometry = samePhysicalPoint({ x, y, z }, slave)
-        ? { fullMotion: [0, 1, 2, 3, 4, 5].every(dof => !constraint.releases?.[dof]) }
-        : undefined;
-      links.push({ masterNode, slaveNode, geometry });
+      const geometry = samePhysicalPoint({ x, y, z }, slave) ? { fullMotion: dofIndices.every(dof => !releases?.[dof]) } : undefined;
+      add(masterNode, slaveNode, geometry);
+    } else if (constraint.type === 'equalDOF' && constraint.dofs.includes(2)) {
+      add(constraint.masterNode, constraint.slaveNode);
+    } else if (constraint.type === 'diaphragm' && ['XZ', 'YZ'].includes(constraint.plane?.toUpperCase() ?? '')) {
+      for (const slave of constraint.slaveNodes) add(constraint.masterNode, slave);
+    } else if (constraint.type === 'linearMPC' && constraint.terms.length === 2) {
+      const [first, second] = constraint.terms;
+      if (first?.dof === 2 && second?.dof === 2 && Number.isFinite(first.coefficient)
+        && first.coefficient !== 0 && first.coefficient === -second.coefficient) add(first.nodeId, second.nodeId);
     }
   }
   return links;
@@ -689,12 +756,9 @@ function shellSeamComponents(model: GravityModel, carriers: ShellCarrier[], full
   return seams;
 }
 
-type ShellDecksAtNode = (node: number) => Iterable<ShellCarrier[]>;
-
 function linkedShellDecks(
   model: GravityModel, carriers: ShellCarrier[], links: readonly VerticalShellLink[],
-): ShellDecksAtNode | undefined {
-  if (!carriers.length || !links.length) return;
+) {
   const rigid = new NodeComponents();
   const fullMotion = new NodeComponents();
   for (const { masterNode, slaveNode, geometry } of links) {
@@ -703,37 +767,40 @@ function linkedShellDecks(
   }
   const seams = shellSeamComponents(model, carriers, fullMotion);
   const decksByRoot = new Map<number, Map<ShellCarrier[], Set<number>>>();
-  for (const deck of connectedShellGroups(carriers, seams)) for (const shell of deck) for (const node of shell.nodes) {
-    if (!rigid.has(node)) continue;
-    const root = rigid.root(node);
-    const decks = decksByRoot.get(root) ?? new Map<ShellCarrier[], Set<number>>();
-    const anchors = decks.get(deck) ?? new Set<number>();
-    anchors.add(node);
-    decks.set(deck, anchors);
-    decksByRoot.set(root, decks);
-  }
-  return function* (node) {
-    for (const [deck, anchors] of decksByRoot.get(rigid.root(node)) ?? []) {
-      if (anchors.size > 1 || !anchors.has(node)) yield deck;
+  const deckOf = new Map<ShellCarrier, number>();
+  const shellComponents = new NodeComponents();
+  for (const [index, deck] of connectedShellGroups(carriers, seams).entries()) for (const shell of deck) {
+    deckOf.set(shell, index);
+    for (const node of shell.nodes) {
+      if (!rigid.has(node)) continue;
+      const root = rigid.root(node);
+      const decks = decksByRoot.get(root) ?? new Map<ShellCarrier[], Set<number>>();
+      const anchors = decks.get(deck) ?? new Set<number>();
+      anchors.add(node);
+      decks.set(deck, anchors);
+      decksByRoot.set(root, decks);
     }
+  }
+  for (const decks of decksByRoot.values()) {
+    const [first, ...rest] = decks.keys();
+    for (const other of rest) shellComponents.join(deckOf.get(first![0]!)!, deckOf.get(other[0]!)!);
+  }
+  const connected = (a: ReadonlySet<number>, b: ReadonlySet<number>) => {
+    const roots = new Set([...a].map(node => rigid.root(node)));
+    return [...b].some(node => roots.has(rigid.root(node)));
   };
-}
-
-function assertNoOffsetShellDeck(
-  model: GravityModel, panel: FloorPanel, footprint: Region, z: number, linkedDecks: ShellDecksAtNode,
-): void {
-  const decks = new Set<ShellCarrier[]>();
-  for (const id of panel.members ?? []) {
-    const { nodeI, nodeJ } = model.elements.get(id)!;
-    for (const node of [nodeI, nodeJ]) for (const deck of linkedDecks(node)) decks.add(deck);
-  }
-  for (const deck of decks) for (const shell of deck) {
-    if (shellServesDeckLevel(shell, z)) continue;
-    if (footprintsOverlap(footprint, [shell.poly])) {
-      const members = [...(panel.members ?? [])].sort((a, b) => a - b).join(', ');
-      refuseGravityGeometry(msg('loadPlan.gravity.offsetShellDeck', { id: shell.id, members }));
-    }
-  }
+  return {
+    *atNode(node: number) {
+      for (const [deck, anchors] of decksByRoot.get(rigid.root(node)) ?? []) {
+        if (anchors.size > 1 || !anchors.has(node)) yield deck;
+      }
+    },
+    coupled(a: ShellCarrier, b: ShellCarrier): boolean {
+      const first = deckOf.get(a)!, second = deckOf.get(b)!;
+      return first === second || shellComponents.root(first) === shellComponents.root(second);
+    },
+    connected,
+  };
 }
 
 const atDeckLevel = (height: number, z: number) => height >= z - TOL && height <= z + TOL;
@@ -742,9 +809,9 @@ function shellServesDeckLevel(shell: ShellCarrier, z: number): boolean {
   return shell.pts.every(p => atDeckLevel(p[2], z));
 }
 
-function deckFootprints(
+function deckShells(
   boundary: Polygon, corners: number[], z: number, level: ShellCarrier[], roofs: ShellCarrier[][],
-): Polygon[] {
+): ShellCarrier[] {
   const atLevel = (height: number) => atDeckLevel(height, z);
   const nodesAtLevel = (roof: ShellCarrier[]) =>
     new Set(roof.flatMap(shell => shell.nodes.filter((_, i) => atLevel(shell.pts[i]![2]))));
@@ -782,12 +849,11 @@ function deckFootprints(
       }
       coveringShells.push(...covering);
     }
-    assertDisjointBayShells(coveringShells, boundary);
   } catch (err) {
     if (err instanceof EngineMessageError) throw err;
     refuseGravityGeometry(msg('loadPlan.gravity.deckCheckFailed', { detail: String(err) }));
   }
-  return coveringShells.map(shell => [shell.poly]);
+  return coveringShells;
 }
 
 function shellAbove(carrier: ShellCarrier, z: number): Polygon[number] {
@@ -1424,7 +1490,7 @@ function memberGeometry(model: GravityModel, ids: Iterable<number>) {
 }
 
 /** How far above `zTop` the lowest panel, slab or beam over a plan point is (see the header); Infinity when none is. */
-function coverage(model: GravityModel, zOf: Map<number, number>, panelsAt: Map<number, Array<Array<[number, number]>>>): (pt: [number, number], zTop: number) => number {
+function coverage(model: GravityModel, zOf: Map<number, number>, panelsAt: Map<number, Array<Array<[number, number]>>>, excludedShells?: ReadonlySet<number>): (pt: [number, number], zTop: number) => number {
   type Cover = { z: number; polys: Array<Array<[number, number]>> };
   const covers: Cover[] = [];
   const coverAt = (z: number) => {
@@ -1434,6 +1500,7 @@ function coverage(model: GravityModel, zOf: Map<number, number>, panelsAt: Map<n
   };
   for (const [z, polys] of panelsAt) coverAt(z).polys.push(...polys);
   for (const q of model.quads?.values() ?? []) {
+    if (excludedShells?.has(q.id)) continue;
     const pts = q.nodes.map((id) => model.nodes.get(id));
     if (pts.some((p) => !p)) continue;
     coverAt(Math.min(...pts.map((p) => p!.z ?? 0))).polys.push(pts.map((p) => [p!.x, p!.y] as [number, number]));

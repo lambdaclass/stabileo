@@ -126,9 +126,7 @@ it('#2220 applying a signed wind profile preserves both horizontal member-load e
   }
 });
 
-const issue2499 = process.env.RUN_KNOWN_WRONG === '2499' ? it : it.skip;
-
-issue2499('known wrong result: #2499 restoring then applying generates only the upper shell pressure', () => {
+it('#2499 restoring then applying generates only the upper shell pressure', () => {
   modelStore.clear();
   const corners: Array<[number, number]> = [[0, 0], [10, 0], [10, 6], [0, 6]];
   const addLayer = (z: number) => corners.map(([x, y]) => modelStore.addNode(x, y, z)) as [number, number, number, number];

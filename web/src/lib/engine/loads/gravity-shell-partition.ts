@@ -1,7 +1,8 @@
 import polygonClipping, { type MultiPolygon, type Polygon } from 'polygon-clipping';
+import { agrees, Sum } from '../accounting-math';
 import { MEMBER_GEOMETRY_LIMIT } from '../member-span-loads';
 import { EngineMessageError, msg, type EngineMessage } from '../../codes/message';
-import { signedArea, type Side, type SideShare } from './floor-tributary';
+import { type Side, type SideShare } from './floor-tributary';
 
 type Point = [number, number];
 type Point3 = [number, number, number];
@@ -13,11 +14,21 @@ export function refuseGravityGeometry(reason: EngineMessage): never {
 
 export function ringArea(ring: Point[]): number {
   const [x, y] = ring[0] ?? [0, 0];
-  return Math.abs(signedArea(ring.map(p => [p[0] - x, p[1] - y])));
+  const local = ring.map(([px, py]) => [px - x, py - y] as Point);
+  const twiceArea = new Sum();
+  for (const [i, a] of local.entries()) {
+    const b = local[(i + 1) % local.length]!;
+    twiceArea.add(a[0] * b[1] - a[1] * b[0]);
+  }
+  return Math.abs(twiceArea.value / 2);
 }
 
-function area(region: MultiPolygon): number {
-  return region.reduce((total, [outer, ...holes]) => total + ringArea(outer!) - holes.reduce((sum, hole) => sum + ringArea(hole), 0), 0);
+export function footprintArea(region: MultiPolygon): number {
+  const area = new Sum();
+  for (const poly of region) {
+    poly.forEach((ring, index) => area.add((index === 0 ? 1 : -1) * ringArea(ring)));
+  }
+  return area.value;
 }
 
 export interface UncoveredStrips {
@@ -27,11 +38,9 @@ export interface UncoveredStrips {
 }
 
 export type ShellCoverage = { kind: 'shell' } | UncoveredStrips;
-type Partition = { kind: 'uncovered' } | { kind: 'shell' } | (UncoveredStrips & { shares: SideShare[] });
+export type BayPartition = { kind: 'uncovered' } | { kind: 'shell' } | (UncoveredStrips & { shares: SideShare[] });
 
-export function partitionShellCoverage(sides: Side[], holes: Side[][], shells: Polygon[], span?: Point): Partition {
-  if (!shells.length) return { kind: 'uncovered' };
-
+export function bayFrame(sides: Side[], holes: Side[][]) {
   const basis = sides[0]!;
   const corners = sides.map(side => side.a);
   const boxPoints = [...corners, ...holes.flat().map(side => side.a)];
@@ -46,6 +55,17 @@ export function partitionShellCoverage(sides: Side[], holes: Side[][], shells: P
   const stations = [0, 1].map(k => boxPoints.map(p => project(p)[k]!));
   const local = (p: Point) => project(p).map((v, k) => stations[k]!.find(s => Math.abs(s - v) <= error) ?? v) as Point;
   const boundary = [corners.map(local), ...holes.map(hole => hole.map(side => local(side.a)))];
+  const inPlan = ([x, y]: Point): Point => [
+    basis.a[0] + x * basis.u[0] + y * basis.n[0],
+    basis.a[1] + x * basis.u[1] + y * basis.n[1],
+  ];
+  return { error, basis, local, inPlan, boundary };
+}
+
+export function partitionShellCoverage(sides: Side[], holes: Side[][], shells: Polygon[], span?: Point): BayPartition {
+  if (!shells.length) return { kind: 'uncovered' };
+  const { error, basis, local, inPlan, boundary } = bayFrame(sides, holes);
+
   const localShells = shells.map(poly => poly.map(ring => ring.map(local)));
   const [remaining, covered] = (() => {
     try {
@@ -55,8 +75,13 @@ export function partitionShellCoverage(sides: Side[], holes: Side[][], shells: P
       return refuseGravityGeometry(msg('loadPlan.gravity.partitionFailed', { detail: String(err) }));
     }
   })();
+  const originalArea = footprintArea([boundary]);
+  const coveredArea = footprintArea(covered), remainingArea = footprintArea(remaining);
+  if (!agrees(coveredArea + remainingArea, originalArea, originalArea)) {
+    refuseGravityGeometry(msg('loadPlan.gravity.coveragePrecision'));
+  }
   if (!remaining.length) return { kind: 'shell' };
-  if (!(area(covered) > 0)) return { kind: 'uncovered' };
+  if (!(coveredArea > 0)) return { kind: 'uncovered' };
 
   const fail = (): never => refuseGravityGeometry(msg('loadPlan.gravity.unsupportedStrips'));
   if (holes.length || sides.length !== 4) return fail();
@@ -95,10 +120,7 @@ export function partitionShellCoverage(sides: Side[], holes: Side[][], shells: P
   return {
     kind: 'strips',
     span: depth,
-    polygons: remaining.map(([outer]) => outer!.slice(0, -1).map(([x, y]) => [
-      basis.a[0] + x * basis.u[0] + y * basis.n[0],
-      basis.a[1] + x * basis.u[1] + y * basis.n[1],
-    ])),
+    polygons: remaining.map(([outer]) => outer!.slice(0, -1).map(inPlan)),
     shares: sides.map(side => {
       const start = local(side.a)[stationAxis]!, end = local(side.b)[stationAxis]!;
       const pieces = Math.abs(end - start) <= error ? [] : remaining.map(([outer]) => {
@@ -136,7 +158,7 @@ export function planarShell(id: number, vertices: Point3[]): ShellPlane | undefi
 
 type Footprint = Polygon | MultiPolygon;
 
-function footprintIntersection(a: Footprint, b: Footprint): MultiPolygon {
+export function footprintIntersection(a: Footprint, b: Footprint): MultiPolygon {
   try {
     return polygonClipping.intersection(a, b);
   } catch (err) {
@@ -145,44 +167,33 @@ function footprintIntersection(a: Footprint, b: Footprint): MultiPolygon {
 }
 
 export function footprintsOverlap(a: Footprint, b: Footprint): boolean {
-  return area(footprintIntersection(a, b)) > 0;
+  return footprintArea(footprintIntersection(a, b)) > 0;
 }
 
-type ShellFootprint = { id: number; poly: Point[] };
+export type ShellFootprint = { id: number; poly: Point[]; pts: Point3[]; plane?: ShellPlane };
 
-export function assertSeparateShellDecks(
-  shells: readonly (ShellFootprint & { pts: Point3[]; plane?: ShellPlane })[], tolerance: number,
-): void {
-  const decks = shells.map(shell => {
-    const heights = shell.pts.map(point => point[2]);
-    return { ...shell, low: Math.min(...heights), high: Math.max(...heights) };
-  });
-  assertDisjointShells(decks, (a, b) => {
-    if (a.low > b.high + tolerance || b.low > a.high + tolerance) return false;
-    const { plane: heightA } = a, { plane: heightB } = b;
-    return footprintIntersection([a.poly], [b.poly]).some(polygon => {
-      const overlapArea = area([polygon]);
-      if (overlapArea === 0) return false;
-      if (!(overlapArea > 0) || !Number.isFinite(overlapArea) || !heightA || !heightB) {
-        refuseGravityGeometry(msg('loadPlan.gravity.coveragePrecision'));
-      }
-      const heights = polygon[0]!.map(point => [heightA(point), heightB(point)] as const);
-      if (heights.some(([x, y]) => !Number.isFinite(x) || !Number.isFinite(y))) {
-        refuseGravityGeometry(msg('loadPlan.gravity.coveragePrecision'));
-      }
-      return heights.some(([x, y]) => x <= y + tolerance) && heights.some(([x, y]) => y <= x + tolerance);
-    });
-  });
+export function shellOverlapMessage(a: ShellFootprint, b: ShellFootprint): EngineMessage {
+  return msg('loadPlan.gravity.overlappingShells', { first: Math.min(a.id, b.id), second: Math.max(a.id, b.id) });
 }
 
-export function assertDisjointBayShells(shells: readonly ShellFootprint[], boundary: Polygon): void {
-  assertDisjointShells(shells, (a, b) => {
-    const overlap = footprintIntersection([a.poly], [b.poly]);
-    return overlap.length > 0 && footprintsOverlap(overlap, boundary);
-  }, footprintBounds(boundary[0]!));
+export function unionFootprints(footprints: Polygon[]): MultiPolygon {
+  if (footprints.length <= 1) return footprints;
+  try {
+    return polygonClipping.union(footprints[0]!, ...footprints.slice(1));
+  } catch (err) {
+    return refuseGravityGeometry(msg('loadPlan.gravity.partitionFailed', { detail: String(err) }));
+  }
 }
 
-function canonicalFootprint(ring: Point[]): Point[] {
+export function subtractFootprints(boundary: Polygon, covering: Polygon[]): MultiPolygon {
+  try {
+    return polygonClipping.difference(boundary, ...covering);
+  } catch (err) {
+    return refuseGravityGeometry(msg('loadPlan.gravity.partitionFailed', { detail: String(err) }));
+  }
+}
+
+export function canonicalFootprint(ring: Point[]): Point[] {
   const compare = (a: Point, b: Point) => a[0] - b[0] || a[1] - b[1];
   const start = ring.reduce((first, point, i) => compare(point, ring[first]!) < 0 ? i : first, 0);
   const next = ring[(start + 1) % ring.length]!, previous = ring[(start + ring.length - 1) % ring.length]!;
@@ -190,30 +201,18 @@ function canonicalFootprint(ring: Point[]): Point[] {
   return ring.map((_, i) => ring[(start + step * i + ring.length) % ring.length]!);
 }
 
-function footprintBounds(ring: Point[]) {
+export function footprintBounds(ring: Point[]) {
   const xs = ring.map(p => p[0]), ys = ring.map(p => p[1]);
   return { left: Math.min(...xs), right: Math.max(...xs), bottom: Math.min(...ys), top: Math.max(...ys) };
 }
 
-function assertDisjointShells<T extends ShellFootprint>(
-  shells: readonly T[], overlap: (a: T, b: T) => boolean, bay?: ReturnType<typeof footprintBounds>,
-): void {
-  const ordered = shells.map(shell => {
-    const poly = canonicalFootprint(shell.poly);
-    return { shell: { ...shell, poly }, ...footprintBounds(poly) };
-  })
-    .filter(box => !bay || (box.left < bay.right && box.right > bay.left && box.bottom < bay.top && box.top > bay.bottom))
-    .sort((a, b) => a.left - b.left || a.shell.id - b.shell.id);
-
+export function* potentiallyOverlapping<T>(items: readonly T[], outline: (item: T) => Point[]): Iterable<[T, T]> {
+  const ordered = items.map(item => ({ item, ...footprintBounds(outline(item)) })).sort((a, b) => a.left - b.left);
   for (const [i, a] of ordered.entries()) {
     for (let j = i + 1; j < ordered.length; j++) {
       const b = ordered[j]!;
       if (b.left >= a.right) break;
-      if (b.bottom >= a.top || b.top <= a.bottom) continue;
-      if (overlap(a.shell, b.shell)) {
-        const first = Math.min(a.shell.id, b.shell.id), second = Math.max(a.shell.id, b.shell.id);
-        refuseGravityGeometry(msg('loadPlan.gravity.overlappingShells', { first, second }));
-      }
+      if (b.bottom < a.top && b.top > a.bottom) yield [a.item, b.item];
     }
   }
 }
