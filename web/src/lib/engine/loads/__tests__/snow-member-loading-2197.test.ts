@@ -5,7 +5,7 @@ import { connectedRoofFootprints, gravityLayout } from '../plan-gravity';
 import { distributedGlobalEnds, dot, type Vec3 } from '../../member-loads';
 import { mesh, transform } from './snow-surface-round2-fixture';
 import { regulations, snow } from './snow-roof-plane-fixture';
-import * as floorLoads from '../floor-loads';
+import * as floorOwnership from '../gravity-floor-ownership';
 import { planAreaLoads } from '../plan-area-loads';
 import { planSnow } from '../load-plan-snow';
 import type { PlanSink } from '../load-plan';
@@ -151,17 +151,16 @@ for (const angle of [0, 0.37]) for (const mirror of [-1, 1]) for (const panels o
 for (const angle of [0, 0.37]) for (const mirror of [-1, 1]) it(`#2197 hole-crossing rafters retain covered floor panels ${angle} ${mirror}`, () => {
   const xs = [0, 3, 5, 8], ys = [-2, -1, 1, 2];
   const rings = xs.slice(1).flatMap((x, i) => ys.slice(1).map((y, j) => [[xs[i]!, ys[j]!, 3], [x, ys[j]!, 3], [x, y, 3], [xs[i]!, y, 3]]));
-  const preparePhysicalFloorLoad = floorLoads.preparePhysicalFloorLoad;
-  vi.spyOn(floorLoads, 'preparePhysicalFloorLoad').mockImplementation(input => {
-    const floor = preparePhysicalFloorLoad(input);
-    return { ...floor, generate: ownership => {
-      const out = floor.generate(ownership);
-      return { ...out, panels: out.panels.filter(p => {
-        const x = p.polygon.reduce((v, p) => v + mirror * (p[0] * Math.cos(angle) + p[1] * Math.sin(angle)), 0) / p.polygon.length;
-        const y = p.polygon.reduce((v, p) => v - p[0] * Math.sin(angle) + p[1] * Math.cos(angle), 0) / p.polygon.length;
-        return !(x > 3 && x < 5 && y > -1 && y < 1);
-      }) };
-    } };
+  const partitionGravityFloors = floorOwnership.partitionGravityFloors;
+  vi.spyOn(floorOwnership, 'partitionGravityFloors').mockImplementation((...args) => {
+    const ownership = partitionGravityFloors(...args);
+    for (const bay of ownership.bays.keys()) {
+      const polygon = bay.boundary[0]!;
+      const x = polygon.reduce((v, p) => v + mirror * (p[0] * Math.cos(angle) + p[1] * Math.sin(angle)), 0) / polygon.length;
+      const y = polygon.reduce((v, p) => v - p[0] * Math.sin(angle) + p[1] * Math.cos(angle), 0) / polygon.length;
+      if (x > 3 && x < 5 && y > -1 && y < 1) ownership.bays.set(bay, { partition: { kind: 'shell' }, region: [] });
+    }
+    return ownership;
   });
   for (const split of [1, 2, 3, 8]) {
     const base = mesh([...rings, [[0, 0, 3], [8, 0, 7]]]);

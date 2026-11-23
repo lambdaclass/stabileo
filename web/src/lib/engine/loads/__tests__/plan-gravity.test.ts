@@ -629,6 +629,7 @@ function checkBlockedGravity(model: LoadModelData, reason: EngineMessage, tribut
   const detail = JSON.stringify(plans.map(({ gravity, plan }) => ({
     loadEveryPanel: gravity.loadEveryPanel, outcome: plan.outcome, blockedKeys: plan.blockedKeys,
     appliedDeadKN: deadLoadKN(plan, model), levelDeadKN: plan.levels.map(level => level.superimposedKN),
+    gravityNotes: plan.derivation.filter(note => note.key.startsWith('loadPlan.gravity.')),
   })));
   for (const { gravity, plan } of plans) {
     expect(plan.outcome, detail).toBe('BLOCKED');
@@ -1394,9 +1395,7 @@ it('#2254 clear carrier slopes on both sides of the limit retain their member lo
   }
 });
 
-const round2KnownWrong = process.env.RUN_KNOWN_WRONG === '2512' ? it : it.skip;
-
-round2KnownWrong('known wrong result: #2512 a single shared vertical restraint preserves both platform loads', () => {
+it('#2512 a single shared vertical restraint preserves both platform loads', () => {
   for (const tie of Object.values(verticalTies)) {
     const model = connectedShells(0, 10, 6);
     model.nodes.set(900, { id: 900, x: -1, y: -1, z: 0 });
@@ -1415,7 +1414,7 @@ it('#2512 two independent aligned attachment stations identify one deck', () => 
   checkOwnedFloor(model, [2], 60);
 });
 
-for (const end of [10, 6]) round2KnownWrong(`known wrong result: #2512 shell-owned bay area cannot mask a lower roof at x=${end}`, () => {
+for (const end of [10, 6]) it(`#2512 shell-owned bay area cannot mask a lower roof at x=${end}`, () => {
   const roof = { use: 'maintenance', weight: 'heavy', dead: 1, slopeDeg: 0 } as const;
   for (const loadEveryPanel of [false, true]) {
     const model = linkedShellBay(2.8);
@@ -1425,7 +1424,7 @@ for (const end of [10, 6]) round2KnownWrong(`known wrong result: #2512 shell-own
       if (node.x === 10) node.x = end;
     }
     if (end < 10) model.constraints = model.constraints!.filter(link => link.type === 'rigidLink' && [1, 3].includes(link.masterNode));
-    const input = { roof, dead: [{ labelKey: 'a', q: 1 }], gravity: { mode: 'panels', loadEveryPanel } } as const;
+    const input = { roof, dead: [{ labelKey: 'a', q: 1 }], gravity: { mode: 'panels', loadEveryPanel } as const };
     const isolated = buildLoadPlan(planInput({ ...model, elements: new Map() }, input));
     const expectedRoof = isolated.surface.filter(load => load.caseType === 'Lr');
     expect(expectedRoof).toHaveLength(1);
@@ -1457,9 +1456,10 @@ function concaveBayWithUnresolvedTransfer() {
   return model;
 }
 
-round2KnownWrong('known wrong result: #2512 a positive bay with null tributary transfer blocks gravity', () => {
+it('#2512 a positive bay with null tributary transfer blocks gravity', () => {
   const model = concaveBayWithUnresolvedTransfer();
-  const floorResult = floorLoad({ nodes: model.nodes, beams: [...model.elements.values()].map(beam => ({ ...beam, type: 'frame' })), q: 1, distribution: 'twoWay' });
+  const beams: FloorBeam[] = [...model.elements.values()].map(beam => ({ ...beam, sectionId: beam.sectionId ?? 1, type: 'frame' }));
+  const floorResult = floorLoad({ nodes: model.nodes, beams, q: 1, distribution: 'twoWay' });
   expect(floorResult.panels).toHaveLength(1);
   expect(floorResult.panels[0]).toMatchObject({ area: 83.55, loaded: false, reason: 'unresolved' });
   expect(floorResult.totalKN).toBe(0);
@@ -1501,7 +1501,7 @@ function planWithScaledBayTransfer(model: LoadModelData, scale: number) {
   }
 }
 
-round2KnownWrong('known wrong result: #2512 a positive owned strip with no emitted transfer blocks gravity', () => {
+it('#2512 a positive owned strip with no emitted transfer blocks gravity', () => {
   const model = floor(1, 1, 10, 6);
   rectangularShell(model, 1, 0, 6, 3);
   expect(planWithScaledBayTransfer(model, 1).outcome).toBe('READY');

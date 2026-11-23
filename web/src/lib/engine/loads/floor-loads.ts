@@ -45,7 +45,8 @@
 import { msg } from '../../codes/message';
 import { computeLocalAxes3D } from '../local-axes-3d';
 import { twoWayShares, oneWayShares, quadraticAt, signedArea, type Piece, type Side, type SideShare, type Zone2D } from './floor-tributary';
-import { partitionShellCoverage, refuseGravityGeometry, type BayPartition, type ShellCoverage } from './gravity-shell-partition';
+import { partitionShellCoverage, refuseGravityGeometry, type ShellCoverage } from './gravity-shell-partition';
+import type { BayAssignment } from './gravity-floor-ownership';
 import { MEMBER_GEOMETRY_LIMIT } from '../member-span-loads';
 import polygonClipping, { type Polygon } from 'polygon-clipping';
 import type { P2 } from './floor-skeleton';
@@ -148,7 +149,7 @@ export interface FloorBay {
 
 type PreparedFloorLoad = {
   bays: readonly FloorBay[];
-  generate: (ownership?: ReadonlyMap<FloorBay, BayPartition>) => FloorLoadResult;
+  generate: (ownership?: ReadonlyMap<FloorBay, BayAssignment>) => FloorLoadResult;
 };
 
 const EPS = 1e-9;
@@ -378,7 +379,7 @@ function prepareFloorLoad(input: FloorLoadInput, round: (value: number) => numbe
   });
 
   const discovered = res;
-  function generate(ownership?: ReadonlyMap<FloorBay, BayPartition>): FloorLoadResult {
+  function generate(ownership?: ReadonlyMap<FloorBay, BayAssignment>): FloorLoadResult {
     const res: FloorLoadResult = { ...discovered, panels: discovered.panels.map(panel => ({ ...panel })), skipped: { ...skipped },
       loads: [], nodal: [], perBeam: new Map() };
     const raw = new Map<number, LoadPiece[]>();
@@ -389,7 +390,7 @@ function prepareFloorLoad(input: FloorLoadInput, round: (value: number) => numbe
       const panel = res.panels[k]!;
       const all = [...sides, ...holes.flat()];
       const partition = ownership
-        ? ownership.get(bay) ?? refuseGravityGeometry(msg('loadPlan.gravity.coveragePrecision'))
+        ? ownership.get(bay)?.partition ?? refuseGravityGeometry(msg('loadPlan.gravity.coveragePrecision'))
         : partitionShellCoverage(sides, holes, typeof input.shellFootprints === 'function'
           ? input.shellFootprints(boundary, sides.map(side => side.nodeA))
           : input.shellFootprints ?? [], span);
@@ -412,7 +413,7 @@ function prepareFloorLoad(input: FloorLoadInput, round: (value: number) => numbe
       if (!shares) {
         if (zone && input.distribution === 'oneWay') res.refusal = 'eccentricZone';
         panel.reason = input.distribution === 'oneWay' && zone ? 'zoneAcrossSpan' : 'unresolved';
-        if (panel.reason === 'zoneAcrossSpan') skipped.zoneAcrossSpan++; else skipped.unresolved++;
+        if (panel.reason === 'zoneAcrossSpan') res.skipped.zoneAcrossSpan++; else res.skipped.unresolved++;
         return;
       }
       if (zone && qEff !== 0 && shares.some(share => share.atA || share.atB)) {

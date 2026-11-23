@@ -14,6 +14,8 @@ export type GravityBay<S> = {
   shells: readonly S[];
 };
 
+export type BayAssignment = { partition: BayPartition; region: MultiPolygon };
+
 type FloorCarrier = {
   footprint: Polygon;
   assigned: MultiPolygon;
@@ -24,7 +26,7 @@ export function partitionGravityFloors<S extends ShellFootprint>(
   shells: readonly S[], bays: readonly GravityBay<S>[], tolerance: number,
   shellsTied: (a: S, b: S) => boolean,
   baysTied: (a: FloorBay, b: FloorBay) => boolean,
-): { shells: Set<S>; shadowedBy: ReadonlyMap<S, ReadonlySet<S>>; bays: Map<FloorBay, BayPartition> } {
+): { shells: Set<S>; shadowedBy: ReadonlyMap<S, ReadonlySet<S>>; bays: Map<FloorBay, BayAssignment> } {
   const footprintOf = new Map(shells.map(shell => [shell, [canonicalFootprint(shell.poly)]]));
   const elevations = new Map(shells.map(shell => [shell, shell.pts.map(p => p[2])]));
   const frames = new Map<FloorBay, ReturnType<typeof bayFrame>>();
@@ -99,15 +101,15 @@ export function partitionGravityFloors<S extends ShellFootprint>(
     carrier.assigned = [];
   }
 
-  const partitions = new Map<FloorBay, BayPartition>();
+  const assignments = new Map<FloorBay, BayAssignment>();
   for (const { bay } of bays) {
     const carrier = bayCarriers.get(bay)!;
     const serving = eligibleFor.get(bay)!;
     for (const shell of serving) join(carrier, shellCarriers.get(shell)!);
     const partition = partitionShellCoverage(bay.sides, bay.holes, serving.map(shell => footprintOf.get(shell)!), bay.span);
-    partitions.set(bay, partition);
     carrier.assigned = partition.kind === 'uncovered' ? [bay.boundary]
       : partition.kind === 'strips' ? partition.polygons.map(poly => [poly]) : [];
+    assignments.set(bay, { partition, region: carrier.assigned });
   }
 
   for (const [a, b] of potentiallyOverlapping(bays, ({ bay }) => bay.boundary[0]!)) {
@@ -141,5 +143,5 @@ export function partitionGravityFloors<S extends ShellFootprint>(
       refuseGravityGeometry(msg('loadPlan.gravity.coveragePrecision'));
     }
   }
-  return { shells: owners, shadowedBy: coveredBy, bays: partitions };
+  return { shells: owners, shadowedBy: coveredBy, bays: assignments };
 }

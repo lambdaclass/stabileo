@@ -148,9 +148,7 @@ it('#2499 restoring then applying generates only the upper shell pressure', () =
     .toEqual([expect.objectContaining({ data: expect.objectContaining({ quadId: second, q: 1 }) })]);
 });
 
-const round2KnownWrong = process.env.RUN_KNOWN_WRONG === '2512' ? it : it.skip;
-
-round2KnownWrong('known wrong result: #2512 restored platforms sharing a fixed UZ master each retain their applied dead pressure', () => {
+it('#2512 restored platforms sharing a fixed UZ master each retain their applied dead pressure', () => {
   modelStore.clear();
   const addPlatform = (z: number) => {
     const nodes = [
