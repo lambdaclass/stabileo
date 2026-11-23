@@ -50,4 +50,19 @@ it('loads the hub for /games and the game page for its own address', async () =>
   expect(await loadGamesPage('/games')).toBe(GamesPage);
   expect(await loadGamesPage('/games/')).toBe(GamesPage);
   expect(await loadGamesPage('/games/diagram-game')).toBe((await import('../../diagram-game/DiagramGamePage.svelte')).default);
+  for (const path of ['/games/constructor', '/games/toString', '/games/__proto__']) expect(await loadGamesPage(path), path).toBe(GamesPage);
+});
+
+it('speaks to the player as the rest of the site does: Sie, vous and the Turkish plural', () => {
+  const word = (alts: string) => new RegExp(`(?<!\\p{L})(${alts})(?!\\p{L})`, 'iu');
+  const informal: Partial<Record<Locale, RegExp>> = {
+    de: word('du|dich|dir|dein\\p{L}*|Wähle|Finde|Tippe|Dreh|Prüfe|vergleiche'),
+    fr: word('tu|te|toi|ton|ta|tes|choisis|vérifie|réessaie|touche une|tourne ton|compare les'),
+    tr: word('seç|bul|dokun|dene|karşılaştır|çevir'),
+  };
+
+  for (const [locale, pattern] of Object.entries(informal) as [Locale, RegExp][]) {
+    for (const [key, text] of Object.entries(gameStrings[locale]!)) expect(text, `${locale} ${key}`).not.toMatch(pattern);
+    for (const game of GAMES) expect(game.copy[locale].description, `${game.id} ${locale}`).not.toMatch(pattern);
+  }
 });

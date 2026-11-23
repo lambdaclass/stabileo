@@ -8,5 +8,5 @@ const PAGES: Record<GameId, () => Promise<{ default: Component<{ path: string }>
 
 export async function loadGamesPage(path = '/games') {
   const id = path.replace(/\/+$/, '').split('/')[2] as GameId | undefined;
-  return (await (id && id in PAGES ? PAGES[id]() : import('./GamesPage.svelte'))).default;
+  return (await (id && Object.hasOwn(PAGES, id) ? PAGES[id]() : import('./GamesPage.svelte'))).default;
 }

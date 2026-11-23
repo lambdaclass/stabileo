@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { MOVED_PAGES, movedAddress, movedRoute } from '../lib/legacy-routes';
 import { routeKind } from '../lib/public-route';
 import { PUBLIC_LOCALES } from '../lib/i18n/offered';
+import { publishedLocales } from '../lib/i18n/published';
 import { publicPaths } from '../../scripts/public-paths';
 import { redirectPage } from '../../scripts/redirect-page';
 import { TOOLS } from '../components/tools/registry';
@@ -92,6 +93,11 @@ describe('the diagram game moved under the games hub', () => {
     }
     expect(movedAddress({ pathname: '/diagram-game', search: '', hash: '' })).toBe(flags.diagramGame ? '/games/diagram-game' : null);
     expect(movedAddress({ pathname: '/en/diagram-game/extra', search: '', hash: '' })).toBeNull();
+  });
+
+  it('answers in every language at the old address, as it does at the new one', () => {
+    expect(publishedLocales('/diagram-game', on)).toEqual(publishedLocales('/games/diagram-game', on));
+    expect(publishedLocales('/diagram-game', on).length).toBe(PUBLIC_LOCALES.length);
   });
 
   it('lists the hub and the game in the sitemap, never the old address', async () => {
