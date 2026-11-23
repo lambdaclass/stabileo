@@ -110,14 +110,15 @@ metamorphic and differential tests; this layer has had almost none. The order be
       `Opening`, `LoadSurface`, `Diaphragm`, `RebarCage`, `SupportRegion`) to the sole mutable
       source of truth, with the finite-element mesh compiled by a pure Rust lowering pass (`spade`
       CDT). Every lowering pass enforces global resultant force and moment conservation across
-      surface, line, point forces and applied couples (`∫ p dA + ∫ q ds + Σ P` and
-      `∫ r × p dA + ∫ r × q ds + Σ (r × P + M)` matching assembled loads within scale-relative /
-      interval conservation tolerances) as a **necessary gate**, paired with **local patch balance
-      and remesh/subdivision/rotation/reversal metamorphic tests** to verify spatial distribution
-      invariance. Wind, snow, seismic stories, gravity load ownership and rebar cutoffs are
-      computed on Layer 1 *before* meshing exists — removing the recurring subdivision/remesh/reversal
-      bug class across the `SA-2026-064…107` wave (notably `SA-2026-072…107`) by construction and
-      enabling multi-fidelity compilation (coarse stick ↔ refined MITC4/MITC9 ↔ fiber) from one model.
+      surface, line, point forces and distributed/point applied couples (`∫ p dA + ∫ q ds + Σ P`
+      and `∫ r × p dA + ∫ (r × q + m) ds + Σ (r × P + M)` matching assembled loads within
+      scale-relative / interval conservation tolerances) as a **necessary gate**, paired with
+      **local patch balance and remesh/subdivision/rotation/reversal metamorphic tests** to verify
+      spatial distribution invariance. Wind, snow, seismic stories, gravity load ownership and rebar
+      cutoffs are computed on Layer 1 *before* meshing exists — removing the recurring
+      subdivision/remesh/reversal bug class across the `SA-2026-064…107` wave (notably
+      `SA-2026-072…107`) by construction and enabling multi-fidelity compilation (coarse stick ↔
+      refined MITC4/MITC9 ↔ fiber) from one model.
    6. **Executable Design-Code IR ("Design Codes as Data")** *(added 2026-11-22).*
       As design checks move from TypeScript to Rust, encode each code clause once as a pure,
       unit-typed expression AST tagged with its exact clause citation and validity bounds. Derive
@@ -269,8 +270,10 @@ metamorphic and differential tests; this layer has had almost none. The order be
       legal switches turn on (Mohr precision near hydrostatic stress, a plot tick hang, legal-link
       locales);
     - Global axes for 2D, 3D and PRO ([#2364](https://github.com/lambdaclass/stabileo/pull/2364),
-      merged in `0.6.3`) and PRO plate modelling ([#2365](https://github.com/lambdaclass/stabileo/pull/2365),
-      in flight) sit behind switches that are off in production.
+      merged in `0.6.3`), PRO plate modelling & physical-model view
+      ([#2365](https://github.com/lambdaclass/stabileo/pull/2365), merged on `main`), and the
+      shared nonlinear drivers ([#2483](https://github.com/lambdaclass/stabileo/pull/2483), merged
+      on `main`) sit behind switches that are off in production.
     - [#1929](https://github.com/lambdaclass/stabileo/pull/1929) stays held until its review
       findings are fixed.
 17. **Shell formulation fixes:** turn the MITC4 and MITC9 warnings and refusals
@@ -286,15 +289,15 @@ metamorphic and differential tests; this layer has had almost none. The order be
 - [#2271](https://github.com/lambdaclass/stabileo/issues/2271) The provided-beam stirrup spacing check can allow too much spacing when it leaves out axial tension.
 - [#2273](https://github.com/lambdaclass/stabileo/issues/2273) Combined 3D member diagrams missed peaks between plotted points. Fixed in [#2282](https://github.com/lambdaclass/stabileo/pull/2282).
 - [#2276](https://github.com/lambdaclass/stabileo/issues/2276) Ambiguous or unknown support types could act as fixed supports in 3D. Fixed in [#2277](https://github.com/lambdaclass/stabileo/pull/2277).
-- [#2278](https://github.com/lambdaclass/stabileo/issues/2278) DXF import silently maps unknown support labels to pinned supports.
-- [#2284](https://github.com/lambdaclass/stabileo/issues/2284) Overlapping shells on the same plane can count floor load twice.
+- [#2278](https://github.com/lambdaclass/stabileo/issues/2278) DXF import silently maps unknown support labels to pinned supports. Contained on `main` in [#2494](https://github.com/lambdaclass/stabileo/pull/2494) ([SA-2026-109](../advisories/SA-2026-109-dxf-support-labels.md)).
+- [#2284](https://github.com/lambdaclass/stabileo/issues/2284) Overlapping shells on the same plane can count floor load twice. Contained on `main` in [#2495](https://github.com/lambdaclass/stabileo/pull/2495) ([SA-2026-111](../advisories/SA-2026-111-gravity-shared-deck-coverage.md)).
 - [#2289](https://github.com/lambdaclass/stabileo/issues/2289) A quarter-turn of a plane roller with no attached member can fix every movement in 3D. Recheck the 3D case after [#2277](https://github.com/lambdaclass/stabileo/pull/2277).
 - [#2291](https://github.com/lambdaclass/stabileo/issues/2291) A detached sloping shell above a beam bay can hide the floor load below. [#2282](https://github.com/lambdaclass/stabileo/pull/2282) refuses the reported model.
-- [#2292](https://github.com/lambdaclass/stabileo/issues/2292) The synchronous cable and soil–structure solvers can treat non-finite spring stiffness as absent, and repeated case factors can cancel a nonzero response.
+- [#2292](https://github.com/lambdaclass/stabileo/issues/2292) The synchronous cable and soil–structure solvers can treat non-finite spring stiffness as absent, and repeated case factors can cancel a nonzero response. Contained on `main` in [#2496](https://github.com/lambdaclass/stabileo/pull/2496) ([SA-2026-110](../advisories/SA-2026-110-solver-json-boundary.md)).
 - [#2294](https://github.com/lambdaclass/stabileo/issues/2294) Copying only a roller node can lose its member axes and restrain the wrong movement.
 - [#2295](https://github.com/lambdaclass/stabileo/issues/2295) An offset rafter and split roof shells can both receive load over the same area. [#2282](https://github.com/lambdaclass/stabileo/pull/2282) refuses the reported model.
 - [#2296](https://github.com/lambdaclass/stabileo/issues/2296) The provided-beam shear check can miss gaps in the stirrups or use the wrong effective depth at the checked section. Contained in [#2338](https://github.com/lambdaclass/stabileo/pull/2338).
-- [#2299](https://github.com/lambdaclass/stabileo/issues/2299) A shell rigidly linked above a closed beam bay can receive the same gravity load as the beams below.
+- [#2299](https://github.com/lambdaclass/stabileo/issues/2299) A shell rigidly linked above a closed beam bay can receive the same gravity load as the beams below. Contained on `main` in [#2495](https://github.com/lambdaclass/stabileo/pull/2495) ([SA-2026-111](../advisories/SA-2026-111-gravity-shared-deck-coverage.md)).
 - [#2300](https://github.com/lambdaclass/stabileo/issues/2300) The torsion check can count longitudinal bars beyond their ends. Contained in [#2338](https://github.com/lambdaclass/stabileo/pull/2338).
 - [#2301](https://github.com/lambdaclass/stabileo/issues/2301) The reported cage already retained its declared primary legs on main. [#2338](https://github.com/lambdaclass/stabileo/pull/2338) adds a translated refusal when a fixed cage needs more legs.
 - [#2302](https://github.com/lambdaclass/stabileo/issues/2302) The seismic check can pass a dense stirrup zone that ends too early in the reopened beam line. Contained in [#2338](https://github.com/lambdaclass/stabileo/pull/2338).
@@ -324,9 +327,9 @@ Wave 2 covers design dispatch, steel welds and Cb, detailing and EC2.
 | RC shear, torsion and seismic hoop verification | [#2296](https://github.com/lambdaclass/stabileo/issues/2296), [#2300](https://github.com/lambdaclass/stabileo/issues/2300), [#2301](https://github.com/lambdaclass/stabileo/issues/2301), [#2302](https://github.com/lambdaclass/stabileo/issues/2302), [#2309](https://github.com/lambdaclass/stabileo/issues/2309), [#2310](https://github.com/lambdaclass/stabileo/issues/2310) | contained in [#2338](https://github.com/lambdaclass/stabileo/pull/2338); see [SA-2026-091](../advisories/SA-2026-091-rc-torsion-shear-verification.md) |
 | Visible under-audit notice for generated loads and concrete design | open audit findings below | on main in [#2228](https://github.com/lambdaclass/stabileo/pull/2228) |
 | Release 0.6.2 | merged results changes (`SA-2026-069`–`085`, `088`–`090`) | shipped on 2026-11-18 ([v0.6.2](../releases/v0.6.2.md)) |
-| Release 0.6.3: static/modal seismic, gravity & snow containment, drawn RC detailing, workbook & section shear (`SA-2026-086`, `087`, `091`–`099`) | [#2316](https://github.com/lambdaclass/stabileo/pull/2316), [#2338](https://github.com/lambdaclass/stabileo/pull/2338), [#2395](https://github.com/lambdaclass/stabileo/pull/2395), [#2398](https://github.com/lambdaclass/stabileo/pull/2398), [#2404](https://github.com/lambdaclass/stabileo/pull/2404), [#2406](https://github.com/lambdaclass/stabileo/pull/2406) | shipped on 2026-11-20 ([v0.6.3](../releases/v0.6.3.md)) |
+| Release 0.6.3: static/modal seismic, gravity & snow containment, drawn RC detailing, global axes, workbook & section shear (`SA-2026-086`, `087`, `091`–`099`) | [#2316](https://github.com/lambdaclass/stabileo/pull/2316), [#2338](https://github.com/lambdaclass/stabileo/pull/2338), [#2364](https://github.com/lambdaclass/stabileo/pull/2364), [#2395](https://github.com/lambdaclass/stabileo/pull/2395), [#2398](https://github.com/lambdaclass/stabileo/pull/2398), [#2404](https://github.com/lambdaclass/stabileo/pull/2404), [#2406](https://github.com/lambdaclass/stabileo/pull/2406) | shipped on 2026-11-20 ([v0.6.3](../releases/v0.6.3.md)) |
 | Release 0.6.4: plate/wall–slab conformity, diagram extrema & span faces, RC torsion evidence, reversed member loads, planar couples & plate remesh (`SA-2026-100`–`107`) | [#2396](https://github.com/lambdaclass/stabileo/pull/2396), [#2403](https://github.com/lambdaclass/stabileo/pull/2403), [#2409](https://github.com/lambdaclass/stabileo/pull/2409), [#2433](https://github.com/lambdaclass/stabileo/pull/2433), [#2456](https://github.com/lambdaclass/stabileo/pull/2456), [#2466](https://github.com/lambdaclass/stabileo/pull/2466), [#2467](https://github.com/lambdaclass/stabileo/pull/2467) | shipped on 2026-11-21 ([v0.6.4](../releases/v0.6.4.md)) |
-| Independent pre-solve load & physical plate-geometry accounting | [#2411](https://github.com/lambdaclass/stabileo/issues/2411), [#2459](https://github.com/lambdaclass/stabileo/issues/2459), [#2460](https://github.com/lambdaclass/stabileo/issues/2460), [#2461](https://github.com/lambdaclass/stabileo/issues/2461) | landed on main in [#2470](https://github.com/lambdaclass/stabileo/pull/2470) |
+| Post-0.6.4 containment & accounting on `main` (`SA-2026-108`–`111`): pre-solve load & plate accounting, DXF support labels, solver JSON boundary, duplicate shared-deck gravity | [#2278](https://github.com/lambdaclass/stabileo/issues/2278), [#2284](https://github.com/lambdaclass/stabileo/issues/2284), [#2292](https://github.com/lambdaclass/stabileo/issues/2292), [#2299](https://github.com/lambdaclass/stabileo/issues/2299), [#2411](https://github.com/lambdaclass/stabileo/issues/2411), [#2459](https://github.com/lambdaclass/stabileo/issues/2459)–[#2461](https://github.com/lambdaclass/stabileo/issues/2461) | landed on main in [#2470](https://github.com/lambdaclass/stabileo/pull/2470), [#2494](https://github.com/lambdaclass/stabileo/pull/2494), [#2495](https://github.com/lambdaclass/stabileo/pull/2495), [#2496](https://github.com/lambdaclass/stabileo/pull/2496) (next release after 0.6.4) |
 
 Wave 1 findings outside the initial 0.6.2 fix groups:
 
@@ -404,9 +407,18 @@ Per [docs/roadmap/README.md](README.md#rules-for-these-documents), detailed land
   restored planar couples, and curved plate remeshing ([#2456](https://github.com/lambdaclass/stabileo/pull/2456),
   [#2466](https://github.com/lambdaclass/stabileo/pull/2466),
   [#2467](https://github.com/lambdaclass/stabileo/pull/2467)).
-- **Landed on main since `0.6.4`:** independent pre-solve load and physical plate-geometry
-  accounting ([#2470](https://github.com/lambdaclass/stabileo/pull/2470)). Open follow-up issues from
-  these fixes remain tracked in Priority now items 10 and 11 above.
+- **Landed on main since `0.6.4` (`SA-2026-108`–`111`, next release):** independent pre-solve load
+  and physical plate-geometry accounting ([#2470](https://github.com/lambdaclass/stabileo/pull/2470)),
+  DXF support label refusal ([#2494](https://github.com/lambdaclass/stabileo/pull/2494)), duplicate
+  shared-deck gravity refusal ([#2495](https://github.com/lambdaclass/stabileo/pull/2495)), web
+  solver JSON boundary validation ([#2496](https://github.com/lambdaclass/stabileo/pull/2496)), plus
+  default-off PRO plate modelling ([#2365](https://github.com/lambdaclass/stabileo/pull/2365)) and
+  shared nonlinear drivers ([#2483](https://github.com/lambdaclass/stabileo/pull/2483)). Open
+  follow-up issues from these fixes remain tracked in Priority now items 10 and 11 above.
+
+> **Re-run guidance:** where an advisory affects generated area, roof, wind, snow, or seismic loads,
+> **regenerate those loads before re-solving** — re-running stored loads alone is insufficient (see
+> the "Your results may change" checklist in each release note and affected advisory).
 
 ### Open backlog and closures by cause
 
@@ -443,16 +455,11 @@ The open pull requests into main, apart from Dependabot updates, rewritten by `m
 <!-- inflight:start -->
 | PR | What | State |
 |---|---|---|
-| [#2493](https://github.com/lambdaclass/stabileo/pull/2493) | Safety advisory SA-2026-108 | ready |
+| [#2508](https://github.com/lambdaclass/stabileo/pull/2508) | Roadmap: archive pre-v0.2.0 layers, update infra to Elixir/Caddy, sync v0.6.4 & precision fixes | ready |
+| [#2505](https://github.com/lambdaclass/stabileo/pull/2505) | Research: every experiment validated, interactive and compared with its paper | ready |
 | [#2492](https://github.com/lambdaclass/stabileo/pull/2492) | Games hub at /games, the diagram game at /games/diagram-game, and on in production | ready |
 | [#2491](https://github.com/lambdaclass/stabileo/pull/2491) | Basic: user-defined materials, advanced functions grouped with a search, and tabs reachable on phones | ready |
-| [#2483](https://github.com/lambdaclass/stabileo/pull/2483) | Integrate Diego's nonlinear drivers behind a default-off feature | ready |
-| [#2410](https://github.com/lambdaclass/stabileo/pull/2410) | refactor: arc length and displacement control as shared path drivers, with the 2D solvers on them | ready |
 | [#2408](https://github.com/lambdaclass/stabileo/pull/2408) | perf(design): reuse support anchorage plan for hook tails | ready |
-| [#2407](https://github.com/lambdaclass/stabileo/pull/2407) | feat: adaptive load stepping on the shared nonlinear driver | ready |
-| [#2402](https://github.com/lambdaclass/stabileo/pull/2402) | refactor: 3D co-rotational analysis on the shared nonlinear driver | ready |
-| [#2401](https://github.com/lambdaclass/stabileo/pull/2401) | feat: a line search and Anderson acceleration for 2D co-rotational analysis | ready |
-| [#2365](https://github.com/lambdaclass/stabileo/pull/2365) | Integrate Bautista's \#1928: PRO: every shell a plate, and the physical model read by itself | ready |
 | [#2350](https://github.com/lambdaclass/stabileo/pull/2350) | Fix plate remeshing growth and shared-edge connectivity | ready |
 | [#2320](https://github.com/lambdaclass/stabileo/pull/2320) | Research: transient amplification of broken symmetry in elastic snap-through (Wang, …, Vella 2024) | ready |
 | [#2315](https://github.com/lambdaclass/stabileo/pull/2315) | perf: reduce repeated work in nonlinear matrix kernels | ready |
@@ -461,6 +468,7 @@ The open pull requests into main, apart from Dependabot updates, rewritten by `m
 | [#1928](https://github.com/lambdaclass/stabileo/pull/1928) | PRO: every shell a plate, and the physical model read by itself | ready |
 | [#1927](https://github.com/lambdaclass/stabileo/pull/1927) | Education: parametric exercises, homework and timed exams; live calculation without blanking; Basic advisory and plastic fixes | ready |
 | [#1698](https://github.com/lambdaclass/stabileo/pull/1698) | Verification dashboard: regenerated metrics | ready |
+| [#2497](https://github.com/lambdaclass/stabileo/pull/2497) | Web Unit shard 8: design-families tests yield between design stages (\#2439) | draft |
 | [#2465](https://github.com/lambdaclass/stabileo/pull/2465) | Seismic capacity checks withhold verdicts until demand is complete | draft |
 | [#2434](https://github.com/lambdaclass/stabileo/pull/2434) | RC shear, seismic hoop and report checks refuse or correct unsupported verdicts | draft |
 | [#2084](https://github.com/lambdaclass/stabileo/pull/2084) | Require verified, invariant public 3D plastic collapse factors | draft |
@@ -675,8 +683,8 @@ Each moves to section 2 or 3 when it starts.
 
 **First vertical slices (effort & dependencies — full table in [high_leverage_solver_and_product_plan.md](../research/high_leverage_solver_and_product_plan.md#first-vertical-slices-execution-scope-effort--dependencies)):**
 - *Quick wins (Effort S, days):* constrained `PreparedStatic` factorization reuse in `engine/src/solver/load_cases.rs` & `engine/src/load_session.rs` (`State2D`/`State3D::Constrained`), and determinism-gated `wasm-opt` + streaming WASM compile ([#1072](https://github.com/lambdaclass/stabileo/issues/1072), [#1466](https://github.com/lambdaclass/stabileo/issues/1466)).
-- *Wave 1 vertical slices (Effort M–L, weeks–months):* Physical IR Slice 1 (one slab + opening + perimeter beams + gravity/wind load surface compiled purely in Rust, building on merged [#2409](https://github.com/lambdaclass/stabileo/pull/2409), [#2470](https://github.com/lambdaclass/stabileo/pull/2470) and in-flight [#1928](https://github.com/lambdaclass/stabileo/pull/1928)/[#2365](https://github.com/lambdaclass/stabileo/pull/2365)); Executable Design-Code IR Slice 1 (CIRSOC 201 rectangular beam flexure + shear authored once as a unit-typed AST under [#390](https://github.com/lambdaclass/stabileo/issues/390)); Adjoint + Woodbury interactive pilot on linear drift/moments + single-member `EI` drag.
-- *Wave 2 vertical slices (Effort M, 2–4 weeks each):* `<150 KB` offline `verify.stabileo.com` WASM verifier + digest-only Ed25519 signing ([#499](https://github.com/lambdaclass/stabileo/issues/499), [#346](https://github.com/lambdaclass/stabileo/issues/346)); local stdio `stabileo-mcp` (review/audit/certify first) + frame-only `.s2k`/`.e2k` second-opinion audit ([#351](https://github.com/lambdaclass/stabileo/issues/351), [#731](https://github.com/lambdaclass/stabileo/issues/731)).
+- *Wave 1 vertical slices (Effort M–L, weeks–months):* Physical IR Slice 1 (one slab + opening + perimeter beams + gravity/wind load surface compiled purely in Rust, building on merged [#2365](https://github.com/lambdaclass/stabileo/pull/2365), [#2409](https://github.com/lambdaclass/stabileo/pull/2409), [#2470](https://github.com/lambdaclass/stabileo/pull/2470) and [#1928](https://github.com/lambdaclass/stabileo/pull/1928)); Executable Design-Code IR Slice 1 (CIRSOC 201 rectangular beam flexure + shear authored once as a unit-typed AST under [#390](https://github.com/lambdaclass/stabileo/issues/390)); Adjoint + Woodbury interactive pilot on linear drift/moments + single-member `EI` drag.
+- *Wave 2 vertical slices (Effort M, 2–4 weeks each):* `<150 KB` offline `verify.stabileo.com` WASM verifier + authenticated timestamped Ed25519 attestation & transparency log / per-firm PKI ([#499](https://github.com/lambdaclass/stabileo/issues/499), [#346](https://github.com/lambdaclass/stabileo/issues/346)); local stdio `stabileo-mcp` (review/audit/certify first) + frame-only `.s2k`/`.e2k` second-opinion audit ([#351](https://github.com/lambdaclass/stabileo/issues/351), [#731](https://github.com/lambdaclass/stabileo/issues/731)).
 - *Issue tracking:* new Wave 1–4 items without an existing issue receive `roadmap:*` GitHub issues linked under tracker [#396](https://github.com/lambdaclass/stabileo/issues/396) as each slice opens.
 
 **Release safety still open:** no raw i18n key visible ([#719](https://github.com/lambdaclass/stabileo/issues/719)), visual regression for exported
@@ -870,7 +878,7 @@ Places where Stabileo still computes something unverified, refuses something eng
 
 The Product Thesis orders what to build for firms to buy. This section ranks what would make the product an order of magnitude more useful, not incrementally better. Engineers spend most of their time modelling, iterating, reviewing and documenting, not waiting for a solver, so the multipliers are workflow, trust distribution and inverse-design physics. Each builds on verification: none is worth shipping on results that can be silently wrong. Re-ranked 2026-11-22 (full technical breakdown in [high_leverage_solver_and_product_plan.md](../research/high_leverage_solver_and_product_plan.md)).
 
-1. **Proof-carrying Memorias & zero-trust verification portal (`verify.stabileo.com`).** [#346](https://github.com/lambdaclass/stabileo/issues/346), [#499](https://github.com/lambdaclass/stabileo/issues/499) Compile `certcheck` to a tiny offline browser WASM verifier (<150 KB) and embed a QR code + **signed** cryptographic proof bundle in every exported PDF/DOCX `Memoria de Cálculo` so post-export report edits cannot be re-hashed silently. Signing uses either **digest-only server signing** (the browser canonicalizes the report/bundle excluding the embedded QR/signature region, hashes it locally, and sends only the SHA-256 digest + non-sensitive provenance metadata so NDA models stay zero-upload) or **per-firm PKI** keys. Building authorities, peer checkers, banks and insurers drop a report into `verify.stabileo.com` **offline** to verify certified solver/plastic/combination bounds per [MATURITY.md](../../testing/docs/MATURITY.md) (with Lean-proved checker soundness where formalized, disclosing unformalized steps under [#500](https://github.com/lambdaclass/stabileo/issues/500) and [#503](https://github.com/lambdaclass/stabileo/issues/503)), cryptographic signature/report integrity, and advisory + key-revocation status against an embedded timestamped snapshot (explicitly marking current advisory and key-revocation status as snapshot-dated/unknown when offline, with an **optional online-only fetch** of the public advisory/revocation feeds that never uploads the report or model), plus interactive read-only 3D inspection with sensitivity sliders. Show a verification status on every result and check from the same maturity matrix ([#440](https://github.com/lambdaclass/stabileo/issues/440)).
+1. **Proof-carrying Memorias & zero-trust verification portal (`verify.stabileo.com`).** [#346](https://github.com/lambdaclass/stabileo/issues/346), [#499](https://github.com/lambdaclass/stabileo/issues/499) Compile `certcheck` to a tiny offline browser WASM verifier (<150 KB) and embed a QR code + **signed** cryptographic proof bundle in every exported PDF/DOCX `Memoria de Cálculo`. Certified bounds are proved **solely by `certcheck` re-verifying the embedded proof bundle** (never by a signature alone); authorship and post-issuance tamper detection use either **per-firm PKI** keys or **authenticated timestamped digest attestation + mandatory append-only transparency log** (the browser canonicalizes the report + bundle excluding the QR/signature placeholder region and sends only its SHA-256 digest so NDA models stay zero-upload; the server signs `(signer_id, server_timestamp, key_id, canonical_digest)` and logs the entry so re-signing an edited report creates a visible second revision under that signer's identity rather than silently overwriting the original). Building authorities, peer checkers, banks and insurers drop a report into `verify.stabileo.com` **offline** to verify certified solver/plastic/combination bounds per [MATURITY.md](../../testing/docs/MATURITY.md) (with Lean-proved checker soundness where formalized, disclosing unformalized steps under [#500](https://github.com/lambdaclass/stabileo/issues/500) and [#503](https://github.com/lambdaclass/stabileo/issues/503)), cryptographic signature, signer identity, timestamp/transparency-log integrity, and advisory + key-revocation status against an embedded timestamped snapshot (explicitly marking current advisory and key-revocation status as snapshot-dated/unknown when offline, with an **optional online-only fetch** of the separate unauthenticated public advisory/revocation feeds that never uploads the report or model), plus interactive read-only 3D inspection with sensitivity sliders. Show a verification status on every result and check from the same maturity matrix ([#440](https://github.com/lambdaclass/stabileo/issues/440)).
 
 2. **"Certified Second-Opinion Audit" for ETABS / SAP2000 / STAAD / OpenSees models (zero-switching-cost wedge).** Import `.e2k`, `.s2k`, `.std` and `.tcl` 100% locally in the browser (NDA client files never leave the engineer's machine; zero upload), run kinematic/mechanism detection, an independent certified static/modal/buckling solve (scoped to [MATURITY.md](../../testing/docs/MATURITY.md) Certified levels, disclosing any uncertified features), `review_model_sanity` (equilibrium, mass/m², period vs empirical code formula, soft-story and torsional irregularity) and a side-by-side comparison against the incumbent tool's reactions and drifts. Lets firms deploy Stabileo on billable QA immediately with zero rip-and-replace risk.
 

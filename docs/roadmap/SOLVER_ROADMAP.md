@@ -32,11 +32,11 @@ A contract weakening (looser tolerance, removed assertion, skipped test) require
 
 ### Open pre-v0.2.0 carryover items
 
-Prescribed constrained-master displacement (`08d92e5`, `74f3e18`, `#2009`), arbitrary-depth circular-constraint DFS (`91eb53f`), and typed per-end 3D releases have landed (see Step 6 below and [`SOLVER_SNAPSHOT_PRE_V0_2.md`](../archive/roadmap/SOLVER_SNAPSHOT_PRE_V0_2.md)). Still open from the earlier hardening baseline:
+Prescribed constrained-master displacement (`08d92e5`, `74f3e18` documented in Step 6 below; staged/nonlinear extension in [#2009](https://github.com/lambdaclass/stabileo/pull/2009)), arbitrary-depth circular-constraint DFS (`91eb53f`, documented in Step 6 below), and typed per-end 3D releases have landed (history in [`SOLVER_SNAPSHOT_PRE_V0_2.md`](../archive/roadmap/SOLVER_SNAPSHOT_PRE_V0_2.md)). Still open from the earlier hardening baseline:
 - **Pre-solve release/topology diagnostics:** report unreachable DOFs using supports, springs-to-ground, and MPC/reduction edges as actionable diagnostics, while matrix/rank stability checks remain the final numerical authority.
 - **Residual Step 6 gaps:** non-linear path reaction redistribution on restrained masters and constrained fiber-nonlinear multipliers (`#1296`; details under Step 6 below).
 
-## What Still Separates Dedaliano From The Strongest Open Solvers
+## What Still Separates Stabileo From The Strongest Open Solvers
 
 The remaining gaps are not "missing the basics." They are:
 
@@ -48,7 +48,7 @@ The remaining gaps are not "missing the basics." They are:
 
 This changes the strategic target: not `be broader than every open-source mechanics framework` but `be the strongest open structural solver product with the deepest visible proof of correctness`.
 
-## What Would Make Dedaliano 10x Better
+## What Would Make Stabileo 10x Better
 
 The next big gains are not about collecting more categories. They are about making the solver faster on large real models, more obviously correct, more deterministic, harder to break on ugly mixed workflows, and easier to select and use correctly across the shell stack.
 
@@ -64,7 +64,7 @@ The next big gains are not about collecting more categories. They are about maki
 Full architectural rationale and product coupling: [`../research/high_leverage_solver_and_product_plan.md`](../research/high_leverage_solver_and_product_plan.md). Ordered strictly behind active wrong-result containment and fixes ([`PRODUCT_ROADMAP.md`](PRODUCT_ROADMAP.md#overall-order)):
 
 1. **Canonical Physical IR → Pure Rust Analytical Lowering Compiler** *(Soundness Class `b`)*
-   - Compile continuous physical members, slabs, walls, roof polygons, openings, load surfaces, diaphragms and rebar cages into conforming analytical meshes (`spade` CDT). Every lowering pass enforces global resultant force and moment conservation across surface, line, point forces and applied couples (`∫ p dA + ∫ q ds + Σ P` and `∫ r × p dA + ∫ r × q ds + Σ (r × P + M)` matching assembled loads within scale-relative / interval conservation tolerances) as a necessary gate, paired with local patch balance and remesh/subdivision/rotation/reversal metamorphic tests to verify spatial load-distribution invariance. Eliminates subdivision/remesh/reversal drift structurally and enables multi-fidelity compilation (coarse stick ↔ MITC4/MITC9 ↔ fiber) from one model.
+   - Compile continuous physical members, slabs, walls, roof polygons, openings, load surfaces, diaphragms and rebar cages into conforming analytical meshes (`spade` CDT). Every lowering pass enforces global resultant force and moment conservation across surface, line, point forces and distributed/point applied couples (`∫ p dA + ∫ q ds + Σ P` and `∫ r × p dA + ∫ (r × q + m) ds + Σ (r × P + M)` matching assembled loads within scale-relative / interval conservation tolerances) as a necessary gate, paired with local patch balance and remesh/subdivision/rotation/reversal metamorphic tests to verify spatial load-distribution invariance. Eliminates subdivision/remesh/reversal drift structurally and enables multi-fidelity compilation (coarse stick ↔ MITC4/MITC9 ↔ fiber) from one model.
 2. **Exact Piecewise-Analytical Frame Algebra (`PiecewisePoly<5>`)** *(Soundness Class `b`)*
    - Represent member internal forces and deflections as exact piecewise polynomials across load cases, combinations, exact extrema/inflection roots (`V(x)=0`, `M(x)=0`), analytical `Cb`, closed-form moving-load influence envelopes, and exact rebar curtailment intervals.
 3. **Constrained `PreparedStatic` + Exact Adjoint Sensitivities + Woodbury Rank-k Re-Analysis** *(Wave 1 Performance & Inverse Engine)*

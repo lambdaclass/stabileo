@@ -19,7 +19,7 @@ See also:
 ## Principles
 
 1. **Browser-first Rust/WASM solver; backend owns identity, persistence, and trust services**
-   The core solver runs locally in the browser as WASM (and locally in CLI / `stabileo-mcp` / PyO3 / Tauri). The backend never solves routine models: it owns accounts, cloud persistence, digest-only report signing, shared snapshots, billing, collaboration, and—later—opt-in batch/heavy server compute.
+   The core solver runs locally in the browser as WASM (and locally in CLI / `stabileo-mcp` / PyO3 / Tauri). The backend never solves routine models: it owns accounts, cloud persistence, authenticated timestamped digest attestation + transparency logging, shared snapshots, billing, collaboration, and—later—opt-in batch/heavy server compute.
 
 2. **Zero-upload privacy by default**
    NDA engineering models stay on the engineer's machine for core solving, ETABS/SAP2000 second-opinion audits, offline verification (`verify.stabileo.com`), and default local stdio `stabileo-mcp`. Hosted storage, remote MCP, and model sharing are explicit opt-in actions (private by default).
@@ -66,7 +66,7 @@ See also:
 - **Edge & WASM delivery:** WASM binary slimming (`wasm-opt`, streaming compile, CI size gate [`#1072`](https://github.com/lambdaclass/stabileo/issues/1072)); CDN decision (Cloudflare proxy + HTML edge cache purge on deploy); COOP/COEP cross-origin isolation headers if/when WASM `SharedArrayBuffer` threads are enabled.
 - **Wave 2 trust & sharing infrastructure:**
   - Isolated static origin for **`verify.stabileo.com`** (<150 KB offline `certcheck` WASM verifier + embedded timestamped advisory/revocation snapshots + unauthenticated public advisory/revocation JSON feed).
-  - **Digest-only report signing & key management** in `backend/` (Ed25519 signing of canonicalized report/bundle SHA-256 digests with zero model upload, key rotation, published JWKS/revocation list) and per-firm PKI option.
+  - **Authenticated timestamped digest attestation & key management** in `backend/` (Ed25519 attestation binding signer identity, server timestamp, key ID, and canonicalized report/bundle SHA-256 digest into an append-only transparency log with zero model upload, plus key rotation and published JWKS/revocation feeds) alongside per-firm PKI.
   - **Object storage (S3 / Cloudflare R2)** replacing Postgres `bytea` for cloud projects (`specs/services/projects.md`) and immutable shared models (`stabileo.com/m/<id>`, `model_revisions`, `shares`, `forks`), plus DNS/origin setup for `snapshots.stabileo.com` ([`#777`](https://github.com/lambdaclass/stabileo/pull/777)).
   - **Opt-in remote `stabileo-mcp` tier** (scoped tokens, tenant isolation, quotas, explicit upload consent — behind the 100% local stdio default).
 - **AI runtime migration & abuse hardening:** port `ai-backend/` into `backend/` with per-account/per-capability rate limits, token/cost ceilings, strict payload bounds, `build-model` output schema validation, request IDs, structured logs, and per-provider kill switches in `system_settings`.
@@ -85,10 +85,12 @@ Aligned strictly behind Wave 0 soundness closure ([`PRODUCT_ROADMAP.md`](PRODUCT
 ### Wave 2 — Verification Portal, Signing, Object Storage & Remote MCP
 - **`verify.stabileo.com` (Offline Verification Portal — `#499`, `#346`):**
   - Static isolated origin serving the <150 KB `certcheck` WASM module, strict CSP (`default-src 'self'`, `connect-src` restricted to the public read-only advisory/revocation feed only when the user opts into an online freshness check), and embedded timestamped advisory + key-revocation snapshots.
-  - **Zero-upload signing trust model:**
-    - *Hosted Stabileo signing (digest-only):* the browser canonicalizes the exported PDF/DOCX + certificate bundle (explicitly excluding the embedded QR/signature placeholder region), computes its SHA-256 digest locally, and sends **only the digest and non-sensitive provenance metadata** (engine version, certificate kind, timestamp) to `backend/` for Ed25519 signature + transparency/log entry. Neither the model nor the report leaves the user's machine.
-    - *Enterprise / per-firm PKI:* allow firms to verify against their own organization public keys without contacting Stabileo servers.
-    - *Revocation & advisory freshness:* offline verification checks signature validity and advisory/revocation status against the embedded timestamped snapshot and explicitly labels current status as `snapshot-dated (<date>)` until an optional online-only fetch refreshes the public advisory & key-revocation lists.
+  - **Zero-upload signing & attestation trust model:**
+    - *Authoritative engineering proof (`certcheck`):* mathematical soundness and certified solver/design bounds are proved **solely** by `certcheck` WASM re-verifying the embedded proof bundle against the report's bound values — never by a signature alone.
+    - *Tamper-evident authorship & timestamping (no blind signing oracle):* a server signing arbitrary client-supplied hashes would act as a signing oracle, so attestation is explicitly bound to signer identity, server timestamp, and an append-only transparency log:
+      - *Per-firm / engineer PKI (self-sovereign):* firms sign the canonicalized report + bundle digest (excluding the embedded QR/signature placeholder region) with their own keys; zero data leaves the machine and `verify.stabileo.com` checks against the firm's public key.
+      - *Authenticated timestamped digest attestation (zero-upload hosted option):* the browser canonicalizes the report + bundle (excluding the QR/signature placeholder region), computes its SHA-256 digest locally, and sends only the digest to an authenticated `backend/` endpoint. The server constructs and Ed25519-signs a canonical attestation statement binding `(account_or_firm_id, server_timestamp, key_id, canonical_digest)` — never unsigned loose metadata — and appends it to a verifiable transparency log. Re-signing a modified report produces a distinct logged entry under the signer's identity rather than silently overwriting the original; `verify.stabileo.com` displays the signer identity, timestamp, and transparency-log proof alongside the `certcheck` verdict.
+    - *Revocation & advisory freshness:* offline verification checks signature validity and advisory/revocation status against the embedded timestamped snapshot and explicitly labels current status as `snapshot-dated (<date>)` until an optional online-only fetch refreshes the public advisory & key-revocation feeds.
 - **Object Storage Migration (S3 / R2) for Cloud Projects & `stabileo.com/m/<id>`:**
   - Migrate `.ded` gzipped payloads out of PostgreSQL `projects.content` (`bytea`) to S3/R2 while keeping Postgres as the metadata, revision, permission, and concurrency-invariant store (`projects`, `model_revisions`, `shares`, `forks`).
   - Enforce content-type/gzip inflation caps before storage, private-by-default ACLs, hard deletion on share revocation, and XSS/untrusted-text sanitization for all shared model fields.
@@ -235,7 +237,8 @@ The practical rule: validate input, bound cost and inflation, limit rate, log sa
 
 ### 8. CORS, CSP, and Origin Policy
 
-- **Tight allowlist in production** — `CORS_ALLOWED_ORIGINS` restricted explicitly to production Stabileo origins (`stabileo.com`, admin domain, and `verify.stabileo.com` read-only advisory feed); no wildcard `*` on authenticated APIs.
+- **Tight allowlist in production** — `CORS_ALLOWED_ORIGINS` on authenticated `backend/` APIs is restricted strictly to production app and admin origins (`stabileo.com` and admin domain); no wildcard `*` on authenticated APIs, and **`verify.stabileo.com` is kept out of the authenticated-API CORS allowlist** so untrusted dropped bundles never gain cross-origin access to authenticated endpoints.
+- **Separate unauthenticated read-only feed** — serve the public advisory and key-revocation JSON snapshots from a dedicated unauthenticated static/read-only endpoint with its own read-only CORS policy for `verify.stabileo.com`'s optional online freshness check.
 - **Origin isolation** — keep `verify.stabileo.com` and `snapshots.stabileo.com` on dedicated origins with strict CSP so untrusted user/historical bundles cannot share cookies or storage with the main app or admin site.
 - **Review origin and proxy config on every deploy** — verify `CORS_ALLOWED_ORIGINS`, `TRUSTED_PROXIES`, and Caddy headers on every environment promotion.
 
@@ -261,7 +264,7 @@ The practical rule: validate input, bound cost and inflation, limit rate, log sa
 | Prompt injection via crafted model/text | Input length limits, structured prompts with explicit boundaries, curated action/tool registry instead of raw model synthesis |
 | Giant payloads / zip bombs / cost exhaustion | Caddy & `Plug.Parsers` body limits, bounded gzip inflation (`StabileoProjects.Content`), per-capability token ceilings, per-account rate limits |
 | Malicious AI-generated model JSON | Strict schema validation backend + frontend, reject unknown fields, pre-solve sanity/mechanism gate before apply |
-| Forged or silently edited `Memoria` / proof bundle | Canonicalized digest-only Ed25519 signature (excluding QR/signature region) or per-firm PKI, verified offline by `certcheck` WASM with key-revocation list |
+| Forged or silently edited `Memoria` / proof bundle | `certcheck` WASM re-verifies mathematical bounds directly from the embedded proof bundle; per-firm PKI or authenticated Ed25519 attestation binding `(signer_id, server_timestamp, key_id, canonical_digest)` + mandatory append-only transparency log detects post-issuance edits and re-signing |
 | Stored XSS via shared model (`stabileo.com/m/<id>`) or AI text | Strict output escaping, CSP, isolated origins (`snapshots.stabileo.com`, `verify.stabileo.com`), URL validation (`model_link` allowlist) |
 | Cross-app privilege escalation (product → admin) | Separate `app: "app"` / `app: "admin"` JWT claims, Google Workspace `hd` + `admin_allowed_emails` re-checked on every request |
 | Multi-tenant data leak / ID enumeration | Owner-scoped queries returning 404 (never 403) on foreign IDs, tenant-isolated remote MCP/worker sandboxes, private-by-default shares |
@@ -273,7 +276,7 @@ The practical rule: validate input, bound cost and inflation, limit rate, log sa
 2. **Request IDs and structured JSON logging** across Caddy and Phoenix (`backend/`), redacting secrets and raw payloads.
 3. **Per-account & per-capability rate limiting** (moving beyond single-node in-memory IP buckets as traffic grows).
 4. **AI output validation for `build-model`** on both backend and frontend before canvas import.
-5. **Digest-only signing & key-revocation endpoints** + isolated `verify.stabileo.com` static origin for Wave 2.
+5. **Authenticated timestamped digest attestation, transparency log & key-revocation feeds** + isolated `verify.stabileo.com` static origin for Wave 2 (keeping `verify.stabileo.com` out of the authenticated-API CORS allowlist).
 6. **Object storage (S3/R2) migration** for `stabileo_projects` and `stabileo.com/m/<id>` with inflation caps and revocation deletion.
 7. **Staging environment + PromEx/Sentry alerting + tested deploy/rollback & DB backup restore** (`#385`).
 8. **Scoped API tokens & tenant isolation** for opt-in remote `stabileo-mcp` and later server compute workers.
@@ -339,7 +342,7 @@ Current status: **MOSTLY DONE.** `backend/` umbrella (`stabileo_auth`, `stabileo
 
 Goal: make solver runs and certified reports reproducible, tamper-evident, and verifiable offline without uploading confidential models.
 
-Current status: **IN PROGRESS.** Engine-level provenance, results-change registry (`testing/docs/PROVENANCE.md`), and certificate checkers exist. Remaining: product-side artifact capture/export/replay flows, <150 KB `certcheck` WASM hosted on `verify.stabileo.com`, digest-only Ed25519 signing + key-revocation publication in `backend/`, and public CORS-safe advisory/revocation JSON feeds.
+Current status: **IN PROGRESS.** Engine-level provenance, results-change registry (`testing/docs/PROVENANCE.md`), and certificate checkers exist. Remaining: product-side artifact capture/export/replay flows, <150 KB `certcheck` WASM hosted on `verify.stabileo.com`, authenticated timestamped Ed25519 digest attestation + append-only transparency log + key-revocation publication in `backend/` (plus per-firm PKI), and separate unauthenticated public advisory/revocation JSON feeds.
 
 ### Stage 3 — Security, Observability & Abuse Hardening
 
@@ -391,7 +394,7 @@ Ordered to align with Wave 0–2 product execution:
 2. **WASM delivery hygiene (`#1072`, `#1466`)** — release profile for app WASM, determinism-gated `wasm-opt`, streaming compile, and CI size gate; resolve CDN / edge-cache purge policy.
 3. **Request IDs, structured logs, and Sentry/PromEx observability** across Caddy and `backend/`.
 4. **Port `ai-backend/` into `backend/` (Elixir umbrella) and delete `ai-backend/`** — with strict body/field limits, per-account/per-capability rate limits, token ceilings, `build-model` schema validation, and `system_settings` provider kill switches.
-5. **Wave 2 `verify.stabileo.com` static origin + digest-only Ed25519 signing & revocation endpoints (`#499`, `#346`)** — zero-upload proof-carrying `Memoria` verification.
+5. **Wave 2 `verify.stabileo.com` static origin + authenticated timestamped Ed25519 attestation, transparency log & separate unauthenticated advisory/revocation feeds (`#499`, `#346`)** — zero-upload proof-carrying `Memoria` verification.
 6. **Object storage (S3/R2) migration** — move `.ded` blobs out of Postgres `bytea` for `stabileo_projects` and back `stabileo.com/m/<id>` immutable revisions + `snapshots.stabileo.com` DNS (`#777`).
 7. **Product-side solver-run artifact capture, export/import, and support replay flows** (Stage 2).
 8. **Conditional COOP/COEP header rollout** in `infra/caddy/Caddyfile` if WASM `SharedArrayBuffer` threads are adopted (after OAuth popup and embed audit).
