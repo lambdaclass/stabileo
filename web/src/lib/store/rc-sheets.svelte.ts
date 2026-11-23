@@ -354,7 +354,7 @@ function demandInput(sets: DemandSet[], dead: AnalysisResults3D[], opts: { faces
     storeyOf: (id) => storeys.get(id),
     shells: { nodes: modelStore.nodes, quads: modelStore.quads, plates: modelStore.plates },
     groups, sets, dead, faces: opts.faces,
-    ...((f) => ({ slabSides: (id: number) => f.get(id)?.sides.length ?? 0, ...(opts.flange ? { flangeSides: (id: number) => f.get(id)?.sides } : {}) }))(beamFlangeSides({ nodes: modelStore.nodes, elements: modelStore.elements, sections: modelStore.sections, quads: modelStore.quads })),
+    ...((f) => ({ slabSides: (id: number) => f.get(id)?.sides.length ?? 0, ...(opts.flange ? { flangeSides: (id: number) => f.get(id)?.sides } : {}) }))(beamFlangeSides({ nodes: modelStore.nodes, elements: modelStore.elements, sections: modelStore.sections, quads: concreteQuads() })),
     faceOffset: (id, end) => {
       const e = modelStore.elements.get(id);
       const sec = e ? modelStore.sections.get(e.sectionId) : undefined;
@@ -368,6 +368,9 @@ function demandInput(sets: DemandSet[], dead: AnalysisResults3D[], opts: { faces
     psi: (id) => computeJointPsiFromModel(id, modelStore.nodes as never, modelStore.elements as never, modelStore.sections as never, modelStore.materials as never, supportsByNode as never),
   };
 }
+
+/** The shells a beam may take as its flange: concrete slabs, never a steel deck or a timber panel beside it. */
+const concreteQuads = () => new Map([...modelStore.quads].filter(([, q]) => inConcrete((q as { materialId?: number }).materialId)));
 
 /** A member of steel, timber or another metal is none of the sheets' business; one with no strength recorded is read as concrete. */
 function inConcrete(materialId: number | undefined): boolean {
