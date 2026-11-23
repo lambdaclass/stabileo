@@ -73,3 +73,97 @@ pub fn linear_hashes(json: &str, is_3d: bool) -> Result<ReproduceHashes, String>
         hashes("2d", &input, &r)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::linear_hashes;
+    use crate::solver::pdelta::{solve_pdelta_2d, solve_pdelta_3d};
+    use crate::types::{SolverInput, SolverInput3D};
+    use serde_json::{json, Value};
+
+    fn cantilever(space: bool) -> Value {
+        let mut input = json!({
+            "nodes": {"1": {"id": 1, "x": 0, "z": 0}, "2": {"id": 2, "x": 5, "z": 0}},
+            "materials": {"1": {"id": 1, "e": 200000, "nu": 0.3}},
+            "sections": {"1": {"id": 1, "a": 0.01, "iz": 1e-4}},
+            "elements": {"1": {"id": 1, "type": "frame", "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 1}},
+            "supports": {"1": {"id": 1, "nodeId": 1, "type": "fixed"}},
+            "loads": [{"type": "pointOnElement", "data": {"elementId": 1, "a": 1, "p": -10}}]
+        });
+        if space {
+            for node in ["1", "2"] {
+                input["nodes"][node]["y"] = json!(0);
+            }
+            input["sections"]["1"]["iy"] = json!(1e-4);
+            input["sections"]["1"]["j"] = json!(2e-4);
+            input["supports"]["1"] = json!({"nodeId": 1, "rx": true, "ry": true, "rz": true, "rrx": true, "rry": true, "rrz": true});
+            input["loads"][0]["data"] = json!({"elementId": 1, "a": 1, "py": 0, "pz": -10});
+        }
+        input
+    }
+
+    fn pdelta(text: &str, space: bool) -> Result<(), String> {
+        if space {
+            let input: SolverInput3D = serde_json::from_str(text).map_err(|err| err.to_string())?;
+            solve_pdelta_3d(&input, 20, 1e-8).map(|_| ())
+        } else {
+            let input: SolverInput = serde_json::from_str(text).map_err(|err| err.to_string())?;
+            solve_pdelta_2d(&input, 20, 1e-8).map(|_| ())
+        }
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #2472"]
+    fn issue_2472_native_linear_refuses_null_numeric_fields() {
+        check_refusals(|text, space| linear_hashes(text, space).map(|_| ()));
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #2472"]
+    fn issue_2472_native_pdelta_refuses_null_numeric_fields() {
+        check_refusals(pdelta);
+    }
+
+    fn check_refusals(run: impl Fn(&str, bool) -> Result<(), String>) {
+        let mut failures = Vec::new();
+        for space in [false, true] {
+            let input = cantilever(space);
+            assert!(run(&input.to_string(), space).is_ok());
+            for (pointer, field, bad) in [
+                ("/loads/0/data", "my", Value::Null),
+                ("/loads/0/data", "px", Value::Null),
+                ("/supports/1", "kx", Value::Null),
+                ("/materials/1", "e", Value::Null),
+                ("/supports/1", "kx", json!("0")),
+            ] {
+                let mut bad_input = input.clone();
+                bad_input.pointer_mut(pointer).unwrap()[field] = bad;
+                let text = bad_input.to_string();
+                let result = run(&text, space);
+                if !matches!(&result, Err(error) if error.contains(field)) {
+                    failures.push(format!("space={space}, {pointer}/{field}: {result:?}"));
+                }
+            }
+            let mut missing = input.clone();
+            missing["materials"]["1"].as_object_mut().unwrap().remove("e");
+            assert!(matches!(run(&missing.to_string(), space), Err(error) if error.contains("`e`")));
+        }
+        assert!(failures.is_empty(), "{}", failures.join("\n"));
+    }
+
+    #[test]
+    fn issue_2472_native_keeps_omitted_and_explicit_zero_optional_fields() {
+        for space in [false, true] {
+            let omitted = cantilever(space);
+            let mut zero = omitted.clone();
+            zero["loads"][0]["data"]["px"] = json!(0);
+            if !space {
+                zero["loads"][0]["data"]["my"] = json!(0);
+            }
+            let original = linear_hashes(&omitted.to_string(), space).unwrap();
+            let explicit = linear_hashes(&zero.to_string(), space).unwrap();
+            assert_eq!(original.results_sha256, explicit.results_sha256);
+            assert!(pdelta(&zero.to_string(), space).is_ok());
+        }
+    }
+}
