@@ -1,0 +1,45 @@
+{
+  "id": "plates-conforming-batch-mesh-withdrawn",
+  "date": "2026-11-23",
+  "prs": [
+    2509
+  ],
+  "area": "analysis",
+  "when": {
+    "allOf": [
+      [
+        "space3D"
+      ],
+      [
+        "shells",
+        "physicalPlateDefinitions"
+      ]
+    ]
+  },
+  "quantities": [
+    "*",
+    "solve.ok"
+  ],
+  "title": {
+    "en": "Unified PRO conforming plate remeshing withdrawn",
+    "es": "Retirado el remallado conforme de placas de PRO unificado",
+    "pt": "Retirado o remalhamento conforme de placas do PRO unificado",
+    "de": "Konforme Neuvernetzung von Platten in vereinheitlichtem PRO zurückgezogen",
+    "fr": "Retrait du remaillage conforme des plaques de PRO unifié",
+    "tr": "Birleşik PRO uyumlu plak ağı yenilemesi geri çekildi",
+    "zh": "统一版 PRO 的板相容网格重划分已撤回"
+  },
+  "explanation": {
+    "en": "PR #2509 reverted the unified PRO plates integration (#2365). Its batch placement of shared edge nodes when remeshing slabs and walls is no longer in effect. Check mesh preparation and re-run affected analyses performed with unified PRO.",
+    "es": "El PR #2509 revirtió la integración de placas de PRO unificado (#2365). Ha quedado sin efecto la colocación conjunta de nodos en los bordes compartidos al remallar losas y muros. Revise la preparación de la malla y vuelva a ejecutar los análisis afectados que se realizaron con PRO unificado.",
+    "pt": "O PR #2509 reverteu a integração de placas do PRO unificado (#2365). O posicionamento em lote de nós nas bordas compartilhadas ao remalhar lajes e paredes deixou de vigorar. Verifique a preparação da malha e execute novamente as análises afetadas que foram feitas com o PRO unificado.",
+    "de": "PR #2509 hat die Plattenintegration des vereinheitlichten PRO (#2365) rückgängig gemacht. Das gemeinsame Festlegen der Randknoten bei der Neuvernetzung von Decken und Wänden ist nicht mehr aktiv. Prüfen Sie die Netzvorbereitung und wiederholen Sie betroffene Berechnungen aus dem vereinheitlichten PRO.",
+    "fr": "La PR #2509 a annulé l’intégration des plaques dans PRO unifié (#2365). Le placement par lot des nœuds sur les bords communs lors du remaillage des dalles et des voiles ne s’applique plus. Vérifiez la préparation du maillage et relancez les calculs concernés qui ont été effectués avec PRO unifié.",
+    "tr": "#2509, birleşik PRO plak entegrasyonunu (#2365) geri aldı. Döşeme ve duvarların ağı yenilenirken ortak kenar düğümlerinin toplu olarak yerleştirilmesi artık geçerli değil. Ağ hazırlığını kontrol edin ve birleşik PRO ile yapılan ve bu değişiklikten etkilenen analizleri yeniden çalıştırın.",
+    "zh": "#2509 已回退统一版 PRO 的板功能集成（#2365）。重新划分楼板和墙的网格时批量布置共用边节点的做法已不再生效。请检查网格准备情况，并重新运行曾使用统一版 PRO 执行且受影响的分析。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-unified-pro-plates-withdrawn.md",
+    "heading": "Conforming plate remeshing across slabs and walls"
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "id": "plates-coarse-as-modelled-meshed-withdrawn",
+  "date": "2026-11-23",
+  "prs": [
+    2509
+  ],
+  "area": "analysis",
+  "when": {
+    "allOf": [
+      [
+        "space3D"
+      ],
+      [
+        "shells"
+      ]
+    ]
+  },
+  "quantities": [
+    "*"
+  ],
+  "title": {
+    "en": "Unified PRO automatic remeshing of coarse shells withdrawn",
+    "es": "Retirado el remallado automático de láminas con malla gruesa de PRO unificado",
+    "pt": "Retirado o remalhamento automático de cascas com malha grosseira do PRO unificado",
+    "de": "Automatische Neuvernetzung grober Schalen in vereinheitlichtem PRO zurückgezogen",
+    "fr": "Retrait du remaillage automatique des coques à maillage grossier de PRO unifié",
+    "tr": "Birleşik PRO kaba kabuk ağlarını otomatik yenileme değişikliği geri çekildi",
+    "zh": "统一版 PRO 自动重新划分粗壳网格的变更已撤回"
+  },
+  "explanation": {
+    "en": "PR #2509 reverted the unified PRO plates integration (#2365). Its automatic remeshing of coarse shells supplied with a model before analysis is no longer in effect. Check the mesh and re-run affected analyses performed with unified PRO.",
+    "es": "El PR #2509 revirtió la integración de placas de PRO unificado (#2365). Ha quedado sin efecto el remallado automático antes del análisis de las láminas con malla gruesa que venían con el modelo. Revise la malla y vuelva a ejecutar los análisis afectados que se realizaron con PRO unificado.",
+    "pt": "O PR #2509 reverteu a integração de placas do PRO unificado (#2365). O remalhamento automático antes da análise das cascas com malha grosseira fornecidas com o modelo deixou de vigorar. Verifique a malha e execute novamente as análises afetadas que foram feitas com o PRO unificado.",
+    "de": "PR #2509 hat die Plattenintegration des vereinheitlichten PRO (#2365) rückgängig gemacht. Die automatische Neuvernetzung grober, mit dem Modell gelieferter Schalen vor der Berechnung ist nicht mehr aktiv. Prüfen Sie das Netz und wiederholen Sie betroffene Berechnungen aus dem vereinheitlichten PRO.",
+    "fr": "La PR #2509 a annulé l’intégration des plaques dans PRO unifié (#2365). Le remaillage automatique avant le calcul des coques à maillage grossier fournies avec le modèle ne s’applique plus. Vérifiez le maillage et relancez les calculs concernés qui ont été effectués avec PRO unifié.",
+    "tr": "#2509, birleşik PRO plak entegrasyonunu (#2365) geri aldı. Modelle birlikte gelen kaba kabuk ağlarının analizden önce otomatik yenilenmesi artık geçerli değil. Ağı kontrol edin ve birleşik PRO ile yapılan ve bu değişiklikten etkilenen analizleri yeniden çalıştırın.",
+    "zh": "#2509 已回退统一版 PRO 的板功能集成（#2365）。分析前自动重新划分随模型提供的粗壳网格的做法已不再生效。请检查网格，并重新运行曾使用统一版 PRO 执行且受影响的分析。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-unified-pro-plates-withdrawn.md",
+    "heading": "Coarse shells supplied with a model"
+  }
+}

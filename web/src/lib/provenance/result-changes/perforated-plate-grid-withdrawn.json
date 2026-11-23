@@ -1,0 +1,43 @@
+{
+  "id": "perforated-plate-grid-withdrawn",
+  "date": "2026-11-23",
+  "prs": [
+    2509
+  ],
+  "area": "analysis",
+  "when": {
+    "allOf": [
+      [
+        "space3D"
+      ],
+      [
+        "physicalPlateDefinitions"
+      ]
+    ]
+  },
+  "quantities": [
+    "*"
+  ],
+  "title": {
+    "en": "Unified PRO rectangular plate grid change withdrawn",
+    "es": "Retirado el cambio de malla rectangular de placas de PRO unificado",
+    "pt": "Retirada da alteração da malha retangular de placas do PRO unificado",
+    "de": "Änderung an rechteckigen Plattennetzen in vereinheitlichtem PRO zurückgezogen",
+    "fr": "Retrait de la modification des maillages rectangulaires de plaques de PRO unifié",
+    "tr": "Birleşik PRO dikdörtgen plak ağı değişikliği geri çekildi",
+    "zh": "统一版 PRO 的板矩形网格变更已撤回"
+  },
+  "explanation": {
+    "en": "PR #2509 reverted the unified PRO plates integration (#2365). Its method of adding rectangular grid lines at shared nodes around openings is no longer in effect. Re-run affected plate analyses performed with unified PRO.",
+    "es": "El PR #2509 revirtió la integración de placas de PRO unificado (#2365). Su método de añadir líneas de malla rectangular en los nodos compartidos alrededor de aberturas ha quedado sin efecto. Vuelva a ejecutar los análisis de placas afectados que se realizaron con PRO unificado.",
+    "pt": "O PR #2509 reverteu a integração de placas do PRO unificado (#2365). O método de adicionar linhas de malha retangular nos nós compartilhados ao redor de aberturas deixou de vigorar. Execute novamente as análises de placas afetadas que foram feitas com o PRO unificado.",
+    "de": "PR #2509 hat die Plattenintegration des vereinheitlichten PRO (#2365) rückgängig gemacht. Das Verfahren zum Einfügen rechteckiger Netzlinien an gemeinsamen Knoten um Öffnungen ist nicht mehr aktiv. Wiederholen Sie betroffene Plattenberechnungen aus dem vereinheitlichten PRO.",
+    "fr": "La PR #2509 a annulé l’intégration des plaques dans PRO unifié (#2365). La méthode d’ajout de lignes de maillage rectangulaire aux nœuds communs autour des ouvertures ne s’applique plus. Relancez les calculs de plaques concernés qui ont été effectués avec PRO unifié.",
+    "tr": "#2509, birleşik PRO plak entegrasyonunu (#2365) geri aldı. Açıklıkların çevresindeki ortak düğümlere dikdörtgen ağ çizgileri ekleme yöntemi artık geçerli değil. Birleşik PRO ile yapılan ve bu değişiklikten etkilenen plak analizlerini yeniden çalıştırın.",
+    "zh": "#2509 已回退统一版 PRO 的板功能集成（#2365）。在开孔周围的共用节点处添加矩形网格线的方法已不再生效。请重新运行曾使用统一版 PRO 执行且受影响的板分析。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-unified-pro-plates-withdrawn.md",
+    "heading": "Rectangular plate grids around openings"
+  }
+}

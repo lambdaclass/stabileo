@@ -46,7 +46,7 @@ describe('result-change registry', () => {
     expect(validateRegistry(source(), new Set(FEATURE_IDS))).toEqual([]);
   });
 
-  it.skip.each(plateChanges)('validates the retired features of %s only on its historical entry (known wrong result: #2509)', (id, features) => {
+  it.each(plateChanges)('validates the retired features of %s only on its historical entry', (id, features) => {
     const registry = source();
     const entry = registry.changes.find((change) => change.id === id);
     expect(entry?.when).toEqual({ any: [...features] });
@@ -60,13 +60,13 @@ describe('result-change registry', () => {
       .toEqual(features.map((feature) => `change ${unrelated.id}: unknown feature "${feature}"`));
   });
 
-  it.skip.each([
+  it.each([
     { mode: 'pro', model: plateSurface, affected: ['perforated-plate-grid', 'plates-conforming-batch-mesh'] },
     { mode: 'pro', model: plateShell, affected: ['plates-coarse-as-modelled-meshed', 'plates-conforming-batch-mesh'] },
     { mode: 'pro', model: { ...plateSurface, ...plateShell }, affected: plateChanges.map(([id]) => id) },
     { mode: 'pro', model: {}, affected: [] },
     { mode: '2d', model: { ...plateSurface, ...plateShell }, affected: [] },
-  ])('shows the plate withdrawals for $mode with affected entries $affected (known wrong result: #2509)', ({ mode, model, affected }) => {
+  ])('shows the plate withdrawals for $mode with affected entries $affected', ({ mode, model, affected }) => {
     const withdrawals = RESULT_CHANGES.changes.filter(({ id }) => plateChangeIds.has(id) && id.endsWith('-withdrawn'));
     expect(withdrawals).toHaveLength(plateChanges.length);
     const version = Math.min(...withdrawals.map(({ resultsVersion }) => resultsVersion));
