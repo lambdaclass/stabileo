@@ -56,8 +56,7 @@ export function wallDetail(row: WallRow, code: SheetCode): WallDetail {
   const hd = a.horizontal.diameter / 1000;
   const bars = wallVerticalBars(L, t, cover, a);
   const curtains = a.curtains === 2 ? 2 : 1;
-  const nDistributed = curtains * Math.max(2, Math.floor(L / a.vertical.spacing) + 1);
-  const verticals = bars.map((b, i) => ({ x: b.x + L / 2, y: b.y + t / 2, dia: i < nDistributed ? a.vertical.diameter : a.boundary!.diameter, boundary: i >= nDistributed }))
+  const verticals = bars.map((b) => ({ x: b.x + L / 2, y: b.y + t / 2, dia: b.boundary ? a.boundary!.diameter : a.vertical.diameter, boundary: !!b.boundary }))
     .filter((v) => !inPierColumn(row.pier, v.x, v.y));
   const hy = curtains === 2 ? [cover + hd / 2, t - cover - hd / 2] : [t / 2];
   const notes: WallDetailNote[] = [];

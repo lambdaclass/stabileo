@@ -69,3 +69,14 @@ describe('a wall pulled along its axis', () => {
     expect(pulled.utilization).toBeGreaterThan(none.utilization);
   });
 });
+
+describe('a wall\'s edge bars', () => {
+  it('leave out of the section a distributed bar they crowd, and count every bar that fits', () => {
+    const mesh: WallReinforcement = { curtains: 2, vertical: { diameter: 12, spacing: 0.2 }, horizontal: { diameter: 12, spacing: 0.2 }, boundary: { count: 8, diameter: 25 } } as WallReinforcement;
+    const bars = wallVerticalBars(1.1, 0.2, 0.03, mesh);
+    const edge = bars.filter((b) => b.boundary), plain = bars.filter((b) => !b.boundary);
+    expect(edge).toHaveLength(2 * 8);
+    for (const p of plain) for (const e of edge.filter((x) => x.y === p.y)) expect(Math.abs(p.x - e.x) - (0.012 + 0.025) / 2).toBeGreaterThanOrEqual(0.025 - 1e-9);
+    expect(plain.length).toBeLessThan(2 * (Math.floor(1.1 / 0.2) + 1));
+  });
+});

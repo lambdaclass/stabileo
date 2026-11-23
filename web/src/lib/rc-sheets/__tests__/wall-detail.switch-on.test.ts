@@ -26,8 +26,9 @@ describe('wall detailing', () => {
   it('places the vertical bars of both curtains inside the horizontals, the boundary bars at the ends, and ties a boundary zone over 1 % (ACI)', () => {
     const d = wallDetail(wall({ t: 0.2, adopted: two(0.2, 0.2, { count: 8, diameter: 16 }) }), 'aci318-19');
     const dist = d.verticals.filter((v) => !v.boundary), ext = d.verticals.filter((v) => v.boundary);
-    expect(dist).toHaveLength(2 * 16);
+    expect(dist).toHaveLength(2 * 16 - 4);
     expect(ext).toHaveLength(16);
+    for (const v of dist) expect(ext.filter((e) => e.y === v.y).every((e) => Math.abs(e.x - v.x) > 0.016)).toBe(true);
     expect(Math.min(...d.verticals.map((v) => v.y))).toBeCloseTo(0.025 + 0.008 + 0.005, 9);
     expect(Math.min(...dist.map((v) => v.x))).toBeCloseTo(0.025 + 0.008 + 0.005, 9);
     expect(d.boundary!.rho).toBeGreaterThan(0.01);

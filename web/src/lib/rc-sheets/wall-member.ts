@@ -16,23 +16,31 @@ import { computeFlexureCapacity } from '../engine/station-design-forces';
 const area = (dMm: number) => Math.PI * (dMm / 1000) ** 2 / 4;
 
 /** The vertical bars of a wall in its section, x along the length, y across the thickness, m about the centre. */
-export function wallVerticalBars(length: number, thickness: number, cover: number, r: WallReinforcement): Bar[] {
-  const out: Bar[] = [];
+export function wallVerticalBars(length: number, thickness: number, cover: number, r: WallReinforcement): Array<Bar & { boundary?: true }> {
+  const out: Array<Bar & { boundary?: true }> = [];
   const hd = r.horizontal.diameter / 1000, vd = r.vertical.diameter / 1000;
   // The verticals sit inside the horizontals on each curtain.
   const ys = r.curtains === 2 ? [-(thickness / 2 - cover - hd - vd / 2), thickness / 2 - cover - hd - vd / 2] : [0];
   const n = Math.max(2, Math.floor(length / r.vertical.spacing) + 1);
   const span = length - 2 * (cover + hd + vd / 2);
-  for (const y of ys) for (let i = 0; i < n; i++) out.push({ x: -span / 2 + (span * i) / (n - 1), y, area: area(r.vertical.diameter) });
+  const edge: Array<Bar & { boundary: true }> = [];
   if (r.boundary && r.boundary.count > 0) {
     // Each end's extra bars, split between the curtains, inward from the end bar at 2·db (≥ 50 mm).
     const bd = r.boundary.diameter / 1000, pitch = Math.max(0.05, 2 * bd);
     const per = Math.ceil(r.boundary.count / ys.length);
     for (const end of [-1, 1]) for (const y of ys) for (let i = 0; i < per; i++) {
-      out.push({ x: end * (span / 2 - (i + 1) * pitch), y, area: area(r.boundary.diameter) });
+      edge.push({ x: end * (span / 2 - (i + 1) * pitch), y, area: area(r.boundary.diameter), boundary: true });
     }
   }
-  return out;
+  // A distributed bar closer to an edge bar than the clear spacing §25.2.3 asks is not there to count.
+  const clear = (bd: number) => Math.max(0.025, vd, bd);
+  const bdOf = r.boundary ? r.boundary.diameter / 1000 : 0;
+  for (const y of ys) for (let i = 0; i < n; i++) {
+    const x = -span / 2 + (span * i) / (n - 1);
+    if (edge.some((b) => b.y === y && Math.abs(b.x - x) - (vd + bdOf) / 2 < clear(bdOf) - 1e-9)) continue;
+    out.push({ x, y, area: area(r.vertical.diameter) });
+  }
+  return [...out, ...edge];
 }
 
 export interface WallCheck { category: string; utilization: number; description: string; ok: boolean }
