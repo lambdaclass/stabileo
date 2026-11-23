@@ -465,6 +465,7 @@ export interface StabileoTestActions {
   /** Test-only fault injection: append a runtime warning to already solved results. */
   seedSelfCheckWarning(count?: number, cases?: number): void;
   loadExample(name: string): Promise<void>;
+  tieNodes(masterNode: number, slaveNode: number, dofs: number[]): void;
   /** Move a node, as editing its coordinates in the node table does: an undo step, then the move. */
   moveNode(id: number, x: number, y: number, z: number): void;
   /**
@@ -968,6 +969,8 @@ export function installE2EHooks(): void {
     },
     toggleBarLock: (barId: string) => { detailingStore.toggleLock(barId); },
     loadExample: async (name: string) => { await modelStore.loadExample(name); },
+    /** Tie two nodes' degrees of freedom (`equalDOF`), as the constraints panel does. */
+    tieNodes: (masterNode: number, slaveNode: number, dofs: number[]) => modelStore.addConstraint({ type: 'equalDOF', masterNode, slaveNode, dofs }),
     moveNode: (id: number, x: number, y: number, z: number) => { historyStore.pushState(); modelStore.updateNode(id, x, y, z); },
     loadModelData: (json: Record<string, unknown>) => {
       modelStore.clear();

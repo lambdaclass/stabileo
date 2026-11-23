@@ -175,6 +175,7 @@ export interface TestHooks {
 export interface TestActions {
   seedSelfCheckWarning(count?: number, cases?: number): void;
   loadExample(name: string): Promise<void>;
+  tieNodes(masterNode: number, slaveNode: number, dofs: number[]): void;
   /** Open a project from its `.ded` JSON, as File → Open does. False when refused. */
   loadProject(file: Record<string, unknown>): boolean;
   solve(): Promise<void>;

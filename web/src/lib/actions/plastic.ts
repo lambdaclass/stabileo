@@ -6,8 +6,9 @@
  * (250 MPa if it has none, and said so by `plasticMoments`).
  *
  * The collapse factor is the limit analysis's, released only where the exact plastic certificate
- * confirms it (engine `plastic_limit_2d`); anything else stays withheld with the PL-2D-INVARIANCE
- * message (#758).
+ * confirms it (engine `plastic_limit_2d`). A factor it does not confirm is returned as `uncertified`
+ * (where the step-by-step analysis stopped) for the panel to show with its caveat; only a model the
+ * limit analysis cannot take at all is withheld with the PL-2D-INVARIANCE message.
  */
 import { modelStore, uiStore } from '../store';
 import { plasticMoments, DEFAULT_FY, type SectionMp } from '../engine/plastic-moments';
@@ -24,6 +25,8 @@ import { plasticCourse } from '../store/plastic-course.svelte';
 export interface PlasticRun {
   result: PlasticCollapseResult;
   mps: SectionMp[];
+  /** The exact certificate did not confirm the factor: it is where the step-by-step analysis stopped. */
+  uncertified?: boolean;
 }
 
 export class PlasticWithheld extends Error {
@@ -44,8 +47,8 @@ function withheld(): PlasticWithheld {
  * Throws, with the static solve's own message, on a model the static solve
  * refuses: the collapse analysis starts from that solve, and ran on a beam on
  * two rollers or a stray node as if it had one. A model nothing loads is
- * refused too: its λc = 0 read as "does not collapse". A collapse factor the
- * exact certificate does not confirm throws `PlasticWithheld`.
+ * refused too: its λc = 0 read as "does not collapse". A limit analysis that
+ * fails outright throws `PlasticWithheld`.
  */
 export function runPlasticCollapse(): PlasticRun | null {
   const input = modelStore.buildSolverInput(uiStore.includeSelfWeight);
@@ -69,7 +72,10 @@ export function runPlasticCollapse(): PlasticRun | null {
     throw withheld();
   }
   if (result.unloaded) throw new Error(t('advanced.plasticNoLoads'));
-  if (result.withheld) throw withheld();
+  if (result.withheld) {
+    plasticCourse.remember(input, memberPlasticMoments(input, mpOfSection), result);
+    return { result, mps, uncertified: true };
+  }
   tagPlasticCertificate(result, input, mpOfSection);
   plasticCourse.remember(input, memberPlasticMoments(input, mpOfSection), result);
   return { result, mps };

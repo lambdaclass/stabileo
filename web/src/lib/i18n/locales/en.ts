@@ -12497,6 +12497,8 @@ const en: Record<string, string> = {
   'plastic.collapse': 'collapse with {n} hinges: λc = {lambda}',
   'plastic.noCollapse': 'No collapse: the structure never became a mechanism',
   'plastic.withheldIssue': 'Why it is withheld, and when it returns: issue #{issue}',
+  'plastic.uncertified': 'The exact limit analysis could not confirm this factor: it is where the step-by-step analysis stopped, and the true collapse factor may differ. Take it as an estimate and check the structure another way before designing with it.',
+  'plastic.uncertifiedToast': 'Plastic collapse: an estimated factor, not confirmed by the exact limit analysis.',
   'plastic.member': 'Member',
   'plastic.value': 'Force',
   'plastic.axial': 'axial yield',

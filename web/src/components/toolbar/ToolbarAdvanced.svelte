@@ -498,10 +498,17 @@
   /** The Mp each section went in with, shown under the result. */
   let plasticMps = $state<SectionMp[]>([]);
   let plasticWithheld = $state<PlasticWithheld | null>(null);
+  let plasticUncertified = $state(false);
+  /* A note the reader has read and closed stays closed until the analysis runs again. */
+  let plasticNoteClosed = $state(false);
+  /** The panel speaks for itself: a tracker reference is for the team, not a place to send the reader. */
+  const withoutIssueRef = (text: string) => text.replace(/\s*\(#\d+\)\s*$/, '');
 
   function handlePlastic() {
     if (blockedBySlidingJoints()) return;
     plasticWithheld = null;
+    plasticUncertified = false;
+    plasticNoteClosed = false;
     try {
       const t0 = performance.now();
       /* The step-by-step collapse analysis (lib/engine/plastic-collapse.ts). */
@@ -510,9 +517,11 @@
       const dt = performance.now() - t0;
       plasticMps = run.mps;
       resultsStore.setPlasticResult(run.result);
+      plasticUncertified = !!run.uncertified;
       const r = run.result;
       const verdict = collapseVerdict(r);
-      if (verdict === 'unresolved') uiStore.toast(t('course.plastic.unresolved'), 'error');
+      if (run.uncertified) uiStore.toast(t('plastic.uncertifiedToast'), 'info');
+      else if (verdict === 'unresolved') uiStore.toast(t('course.plastic.unresolved'), 'error');
       else uiStore.toast(verdict === 'collapse'
         ? t('toast.plasticCollapse').replace('{lambda}', r.collapseFactor.toFixed(3)).replace('{hinges}', String(r.hinges.length)).replace('{ms}', dt.toFixed(0))
         : t('plastic.noCollapse'), verdict === 'collapse' ? 'info' : 'success');
@@ -1074,10 +1083,11 @@
     <BucklingCertificate certificate={buR.certificate} />
     <BucklingDetails result={buR} />
   {/if}
-  {#if plasticWithheld && !is3D}
-    <div class="adv-withheld" role="alert" data-testid="plastic-withheld">
-      <p>{plasticWithheld.message}</p>
-      <a href="https://github.com/lambdaclass/stabileo/issues/{plasticWithheld.issue}" target="_blank" rel="noopener noreferrer">{t('plastic.withheldIssue').replace('{issue}', String(plasticWithheld.issue))}</a>
+  {#if (plasticWithheld || (plasticUncertified && resultsStore.plasticResult)) && !is3D && !plasticNoteClosed}
+    <div class="adv-withheld" role="note" data-testid={plasticWithheld ? 'plastic-withheld' : 'plastic-uncertified'}>
+      <p>{plasticWithheld ? withoutIssueRef(plasticWithheld.message) : t('plastic.uncertified')}</p>
+      <button type="button" class="adv-note-close" onclick={() => (plasticNoteClosed = true)} title={t('ribbon.close')} aria-label={t('ribbon.close')}
+        data-testid="plastic-note-close">×</button>
     </div>
   {/if}
   <PlasticResultPanel mps={plasticMps} />
@@ -1163,8 +1173,9 @@
      panel width on its own. Thirteen analyses read better as a list anyway.
   */
   .adv-withheld {
+    position: relative;
     margin: 6px 0;
-    padding: 8px 10px;
+    padding: 8px 34px 8px 10px;
     border: 1px solid var(--st-danger);
     border-radius: 6px;
     font-size: 0.8rem;
@@ -1172,7 +1183,14 @@
     overflow-wrap: anywhere;
   }
   .adv-withheld p { margin: 0 0 6px; }
-  .adv-withheld a { display: inline-block; min-height: 24px; color: var(--st-accent); }
+  .adv-withheld p:last-of-type { margin: 0; }
+  .adv-withheld[data-testid='plastic-uncertified'] { border-color: var(--st-warn, #e0a030); }
+  .adv-note-close {
+    position: absolute; top: 4px; right: 4px; width: 26px; height: 26px; background: none; border: none; border-radius: 4px;
+    color: var(--st-text-2); font-size: 1rem; line-height: 1; cursor: pointer;
+  }
+  .adv-note-close:hover { background: var(--st-surface-3); color: var(--st-text); }
+  @media (max-width: 767px), (pointer: coarse) { .adv-note-close { width: 44px; height: 44px; top: 0; right: 0; } .adv-withheld { padding-right: 48px; } }
   .adv-running {
     display: flex;
     align-items: center;

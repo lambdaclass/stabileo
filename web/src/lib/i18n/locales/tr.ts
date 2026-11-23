@@ -11969,6 +11969,8 @@ const tr: Translations = {
   'plastic.collapse': '{n} mafsalla göçme: λc = {lambda}',
   'plastic.noCollapse': 'Göçme yok: yapı hiçbir zaman mekanizmaya dönüşmedi',
   'plastic.withheldIssue': 'Neden geri tutulduğu ve ne zaman döneceği: issue #{issue}',
+  'plastic.uncertified': 'Kesin limit analizi bu katsayıyı doğrulayamadı: adım adım hesabın durduğu değerdir ve gerçek göçme katsayısı farklı olabilir. Bunu bir tahmin olarak alın ve tasarımda kullanmadan önce yapıyı başka bir yolla kontrol edin.',
+  'plastic.uncertifiedToast': 'Plastik göçme: tahmini katsayı, kesin limit analiziyle doğrulanmadı.',
   'plastic.member': 'Çubuk',
   'plastic.value': 'İç kuvvet',
   'plastic.axial': 'eksenel akma',

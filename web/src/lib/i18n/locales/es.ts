@@ -12486,6 +12486,8 @@ const es: Record<string, string> = {
   'plastic.collapse': 'colapso con {n} rótulas: λc = {lambda}',
   'plastic.noCollapse': 'Sin colapso: la estructura no llegó a formar un mecanismo',
   'plastic.withheldIssue': 'Por qué se retiene y cuándo vuelve: issue #{issue}',
+  'plastic.uncertified': 'El análisis límite exacto no pudo confirmar este factor: es donde se detuvo el cálculo paso a paso, y el factor de colapso real puede diferir. Tomalo como una estimación y verificá la estructura por otro camino antes de usarlo para diseñar.',
+  'plastic.uncertifiedToast': 'Colapso plástico: factor estimado, sin confirmar por el análisis límite exacto.',
   'plastic.member': 'Barra',
   'plastic.value': 'Esfuerzo',
   'plastic.axial': 'fluencia axil',

@@ -11960,6 +11960,8 @@ const fr: Translations = {
   'plastic.collapse': 'ruine avec {n} rotules : λc = {lambda}',
   'plastic.noCollapse': 'Pas de ruine : la structure n\'est jamais devenue un mécanisme',
   'plastic.withheldIssue': 'Pourquoi il est retenu et quand il reviendra : issue #{issue}',
+  'plastic.uncertified': 'L\'analyse limite exacte n\'a pas pu confirmer ce facteur : c\'est là où le calcul pas à pas s\'est arrêté, et le vrai facteur de ruine peut être différent. Considérez-le comme une estimation et vérifiez la structure autrement avant de dimensionner avec.',
+  'plastic.uncertifiedToast': 'Ruine plastique : facteur estimé, non confirmé par l\'analyse limite exacte.',
   'plastic.member': 'Barre',
   'plastic.value': 'Effort',
   'plastic.axial': 'plastification axiale',

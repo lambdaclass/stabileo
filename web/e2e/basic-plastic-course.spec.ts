@@ -95,3 +95,24 @@ test.describe('@slow plastic collapse, explained', () => {
     expect(errors).toEqual([]);
   });
 });
+
+test.describe('@slow plastic collapse the exact certificate does not confirm', () => {
+  test('still answers, with a note the reader can close and no link out', async ({ page }) => {
+    await page.goto('/app/basic?e2e=1');
+    await page.waitForFunction(() => !!window.__stabileoActions, null, { timeout: 60_000 });
+    await page.evaluate(async () => {
+      await window.__stabileoActions.loadExample('portal-frame');
+      window.__stabileoActions.tieNodes(2, 3, [0]);
+    });
+    await page.getByTestId('rb-cmd-advanced').click();
+    await page.locator('button.adv-btn', { hasText: /Plastic collapse|Colapso plástico/ }).click();
+    const note = page.getByTestId('plastic-uncertified');
+    await expect(note).toBeVisible();
+    await expect(note.locator('a')).toHaveCount(0);
+    await expect(page.getByTestId('plastic-withheld')).toHaveCount(0);
+    await expect(page.getByTestId('plastic-step')).toBeVisible();
+    await page.getByTestId('plastic-note-close').click();
+    await expect(note).toHaveCount(0);
+    await expect(page.getByTestId('plastic-step')).toBeVisible();
+  });
+});

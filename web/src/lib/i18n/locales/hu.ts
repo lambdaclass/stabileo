@@ -11590,6 +11590,8 @@ const hu: Translations = {
   "plastic.collapse": "tönkremenetel {n} csuklóval: λc = {lambda}",
   "plastic.noCollapse": "Nincs tönkremenetel: a szerkezet soha nem vált mechanizmussá",
   "plastic.withheldIssue": "Miért van visszatartva, és mikor tér vissza: #{issue} hibajegy",
+  "plastic.uncertified": "A pontos határállapot-vizsgálat nem tudta megerősíteni ezt a tényezőt: ott van, ahol a lépésenkénti számítás megállt, és a valódi tönkremeneteli tényező eltérhet. Tekintse becslésnek, és tervezés előtt ellenőrizze a szerkezetet más úton is.",
+  "plastic.uncertifiedToast": "Képlékeny tönkremenetel: becsült tényező, a pontos határállapot-vizsgálat nem erősítette meg.",
   "plastic.member": "Rúd",
   "plastic.value": "Erő",
   "plastic.axial": "normálerő általi folyás",

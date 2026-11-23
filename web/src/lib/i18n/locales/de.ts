@@ -11960,6 +11960,8 @@ const de: Translations = {
   'plastic.collapse': 'Kollaps mit {n} Fließgelenken: λc = {lambda}',
   'plastic.noCollapse': 'Kein Kollaps: Das Tragwerk wurde nie zum Mechanismus',
   'plastic.withheldIssue': 'Warum es zurückgehalten wird und wann es zurückkommt: Issue #{issue}',
+  'plastic.uncertified': 'Die exakte Traglastanalyse konnte diesen Faktor nicht bestätigen: Er gibt an, wo die schrittweise Berechnung endete, und der tatsächliche Traglastfaktor kann abweichen. Betrachten Sie ihn als Schätzung und prüfen Sie das Tragwerk auf anderem Weg, bevor Sie damit bemessen.',
+  'plastic.uncertifiedToast': 'Plastischer Kollaps: geschätzter Faktor, nicht durch die exakte Traglastanalyse bestätigt.',
   'plastic.member': 'Stab',
   'plastic.value': 'Schnittgröße',
   'plastic.axial': 'Fließen unter Normalkraft',

@@ -12041,6 +12041,8 @@ const zh: Translations = {
   "plastic.collapse": "出现 {n} 个塑性铰后倒塌：λc = {lambda}",
   "plastic.noCollapse": "未倒塌：结构始终没有成为机构",
   "plastic.withheldIssue": "为何暂不提供，以及何时恢复：issue #{issue}",
+  "plastic.uncertified": "精确极限分析无法确认该系数：它是逐步计算停止处的值，真实的倒塌系数可能不同。请将其视为估计值，用于设计前请用其他方法核验结构。",
+  "plastic.uncertifiedToast": "塑性倒塌：估计系数，未经精确极限分析确认。",
   "plastic.member": "杆件",
   "plastic.value": "力",
   "plastic.axial": "轴向屈服",

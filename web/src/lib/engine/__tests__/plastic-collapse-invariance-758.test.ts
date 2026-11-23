@@ -12,7 +12,7 @@ import { certifyJobOf } from '../certify-tags';
 import { historyStore, modelStore, uiStore, resultsStore } from '../../store';
 import { plasticCourse } from '../../store/plastic-course.svelte';
 import { dot } from '../plastic/kinematics';
-import { runPlasticCollapse, PlasticWithheld } from '../../actions/plastic';
+import { runPlasticCollapse } from '../../actions/plastic';
 import { plasticCollapse2D } from '../plastic-collapse';
 import type { SolverInput, SolverLoad } from '../types';
 import f20843c from './fixtures/plastic-758/fuzz-rich-2d-20843-1.json';
@@ -270,14 +270,15 @@ describe('the Basic "Portal Frame" example through the Plastic collapse action',
     }
   });
 
-  it('a model with a constraint, outside the exact certificate, stays withheld with the PL-2D-INVARIANCE message', async () => {
+  it('a model with a constraint, outside the exact certificate, still answers: the step-by-step factor, marked uncertified', async () => {
     historyStore.clear(); uiStore.analysisMode = '2d'; modelStore.clear();
     await modelStore.loadExample('portal-frame');
     modelStore.addConstraint({ type: 'equalDOF', masterNode: 2, slaveNode: 3, dofs: [0] });
-    let error: unknown;
-    try { runPlasticCollapse(); } catch (e) { error = e; }
-    expect(error).toBeInstanceOf(PlasticWithheld);
-    expect((error as PlasticWithheld).issue).toBe(758);
-    expect((error as Error).message).toMatch(/^Results withheld: the 2D plastic collapse factor/);
+    const run = runPlasticCollapse()!;
+    expect(run.uncertified).toBe(true);
+    expect(run.result.withheld).toBe(true);
+    expect(run.result.collapseFactor).toBeGreaterThan(0);
+    expect(Number.isFinite(run.result.collapseFactor)).toBe(true);
+    expect(certifyJobOf(run.result)).toBeNull();
   });
 });

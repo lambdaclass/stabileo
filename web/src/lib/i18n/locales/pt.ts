@@ -11887,6 +11887,8 @@ const pt: Translations = {
   'plastic.collapse': 'colapso com {n} rótulas: λc = {lambda}',
   'plastic.noCollapse': 'Sem colapso: a estrutura não chegou a formar um mecanismo',
   'plastic.withheldIssue': 'Por que está retido e quando volta: issue #{issue}',
+  'plastic.uncertified': 'A análise limite exata não conseguiu confirmar este fator: é onde o cálculo passo a passo parou, e o fator de colapso real pode ser diferente. Considere-o uma estimativa e verifique a estrutura por outro caminho antes de usá-lo no dimensionamento.',
+  'plastic.uncertifiedToast': 'Colapso plástico: fator estimado, não confirmado pela análise limite exata.',
   'plastic.member': 'Barra',
   'plastic.value': 'Esforço',
   'plastic.axial': 'escoamento axial',
