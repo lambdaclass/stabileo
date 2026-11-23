@@ -8,6 +8,7 @@
  * whatever the factor says. Legacy aliases (`fy`, `mz` on a plane load) are listed too, so the
  * load scales whichever of the pair the solver reads.
  */
+import { scenarioSurfaceAdjustment } from '../../engine/accounting-source';
 import type { Load } from '../../store/model.svelte';
 
 export type MagnitudeFields = { [T in Load['type']]: ReadonlyArray<keyof Extract<Load, { type: T }>['data']> };
@@ -39,7 +40,12 @@ export function scaledLoad<L extends Load>(l: L, k: number): L {
       data[f] = { ...o, q1: o.q1 * k, q2: o.q2 * k };
     }
   }
-  return { ...l, data } as L;
+  const scaled = { ...l, data } as L;
+  if (l.type === 'surface3d' && scaled.type === 'surface3d') {
+    const adjustment = l.data[scenarioSurfaceAdjustment];
+    if (adjustment) scaled.data[scenarioSurfaceAdjustment] = scaledLoad({ type: 'surface3d', data: adjustment }, k).data;
+  }
+  return scaled;
 }
 
 /**

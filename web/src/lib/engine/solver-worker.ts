@@ -15,7 +15,7 @@
  * Inputs/outputs are plain JS objects — structured-cloned both ways, no JSON text.
  */
 
-import { assertFiniteWire, certificateOnly, isCertifyExport, readCertifyAnswer } from './wasm-solver';
+import { assertFiniteWire, finiteWireJson, certificateOnly, isCertifyExport, readCertifyAnswer } from './wasm-solver';
 import { nonlinearWorkerReply, nonlinearWorkerSession } from './nonlinear-worker-session';
 import { finishSolve3D, finishPDelta3D } from './solve-finish';
 
@@ -133,9 +133,9 @@ self.onmessage = async (e: MessageEvent) => {
       return;
     }
     try {
-      assertFiniteWire(msg.input);
-      // The P-Delta export takes JSON text, as its main-thread wrapper sends it.
-      const result = JSON.parse(solve_pdelta_3d(JSON.stringify(msg.input), msg.maxIter, msg.tol));
+      const { maxIter, tol: tolerance } = msg;
+      const json = finiteWireJson(msg.input, { maxIter, tolerance });
+      const result = JSON.parse(solve_pdelta_3d(json, maxIter, tolerance));
       finishPDelta3D(result, msg.input);
       self.postMessage({ type: 'result', id: msg.id, result });
     } catch (err: any) {

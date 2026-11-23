@@ -1,5 +1,10 @@
 import type { Translations } from '../types';
 const it: Translations = {
+  'svc.accountingMismatch': "Analisi rifiutata. Caso di carico {case}, {component}. Valore inserito {entered}, valore assemblato {assembled}.",
+  'svc.accountingUnsupported': "Analisi rifiutata. Non è possibile contabilizzare forze e momenti di {kind} {id} nel caso di carico {case}.",
+  'svc.accountingArea': "Analisi rifiutata. La piastra {plate} ha un’area o un contorno diverso nel solutore. Area specificata {entered}, area assemblata {assembled}.",
+  'svc.accountingSweep': "Analisi rifiutata. Il bordo curvo della piastra {plate} segue un arco diverso nel solutore. Area specificata {entered}, area assemblata {assembled}.",
+  'svc.accountingShellEdits': "Non è possibile rigenerare la mesh della piastra {plate}, perché si perderebbe un’eccentricità o una modifica di curvatura del guscio.",
   "plates.remeshAmbiguousSweep": "L’arco del bordo curvo di {name} è ambiguo. Prima di rigenerare la mesh, controlla il punto intermedio e le aste curve tra le estremità.",
   "plates.remeshShellEdits": "Impossibile sostituire la mesh di {name} perché le modifiche all’offset o alla curvatura dei gusci non possono essere trasferite esattamente.",
   'loadPlan.gravity.coveragePrecision': "Le coordinate di copertura dei gusci superano la precisione supportata per gli intervalli degli elementi.",
@@ -7,8 +12,8 @@ const it: Translations = {
   'loadPlan.gravity.unsupportedStrips': "La copertura parziale con gusci richiede strisce che coprano l’intera luce tra i sostegni opposti di un pannello rettangolare di travi.",
   'loadPlan.gravity.stripDirection': "La direzione di campata unidirezionale richiesta deve coincidere con quella delle strisce scoperte.",
   'loadPlan.gravity.nonplanarShell': "Il quadrilatero {id} non è piano. La copertura con gusci per i carichi gravitazionali richiede gusci piani.",
-  'loadPlan.gravity.overlappingShells': "I gusci {first} e {second} si sovrappongono sullo stesso piano. Il carico gravitazionale nella zona comune non può essere assegnato a un solo guscio.",
-  'loadPlan.gravity.offsetShellDeck': "Il guscio {id} è collegato rigidamente a un pannello di travi sfalsato la cui proiezione si sovrappone al guscio. Non è possibile stabilire quale superficie riceva il carico distribuito.",
+  'loadPlan.gravity.overlappingShells': "I gusci {first} e {second} si sovrappongono sullo stesso piano o condividono una fascia di quota del solaio. Correggere la geometria dei gusci oppure assegnare manualmente il carico superficiale una sola volta.",
+  'loadPlan.gravity.offsetShellDeck': "Il guscio {id} è accoppiato verticalmente a un pannello di travi sovrapposto a un’altra quota (aste {members}). Correggere la geometria del guscio, del collegamento o del pannello, oppure assegnare manualmente il carico superficiale una sola volta.",
   'loadPlan.gravity.memberSlopeLimit': "L’asta {id} è troppo vicina al limite di pendenza per stabilire se porta i carichi gravitazionali. Definisci esplicitamente i suoi carichi.",
   'snow.refused.stepDriftTransfer': "La generazione dei carichi da neve non può trasferire in modo affidabile l’accumulo sul salto di quota della copertura alle aste portanti. Definisci esplicitamente i carichi da neve.",
   'loadPlan.gravity.unresolvedMember': "L’elemento {id} è coperto solo in parte da un guscio e il trasferimento di carico del pannello è indeterminato.",
@@ -1809,6 +1814,8 @@ const it: Translations = {
   // Mapper warnings
   'dxf.warnZeroLengthLine': 'Linea a lunghezza zero ignorata',
   'dxf.warnNoElementLayers': 'Nessun layer BARRAS/ELEMENTOS rilevato. Tutte le linee usate come elementi.',
+  'dxf.refuseSupportLabel': 'L’etichetta del vincolo «{label}» sul layer DXF «{layer}» è sconosciuta o ambigua. Correggi il disegno prima di importarlo. Usa FIXED, PINNED, RX, RY o RZ solo se corrisponde al vincolo previsto.',
+  'dxf.refuseConflictingSupports': 'Le etichette di vincolo «{first}» e «{second}» sul layer DXF «{layer}» corrispondono allo stesso nodo. Prima di importare, conserva solo l’etichetta o il blocco del vincolo previsto.',
   'dxf.warnSupportNoNode': 'Il vincolo non corrisponde a nessun nodo:',
   'dxf.warnSupportBlockNoNode': 'Il blocco vincolo non corrisponde a nessun nodo:',
   'dxf.warnDistLoadNoElement': 'Carico distribuito non associato a nessun elemento:',
@@ -3760,5 +3767,6 @@ const it: Translations = {
   "autoLoad.work.draw": "Disegno dei carichi",
   "autoLoad.work.step": "Passo {step} di {total}",
   "autoLoad.work.cancel": "Ferma",
+  "svc.engine.nonFiniteNumber": "Inserisci un numero finito per {path} (valore ricevuto: {value}).",
 };
 export default it;

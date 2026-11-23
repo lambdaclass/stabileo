@@ -361,9 +361,9 @@
 
   function handlePDelta() {
     if (blockedBySlidingJoints()) return;
-    const input = modelStore.buildSolverInput(uiStore.includeSelfWeight);
-    if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
     try {
+      const input = modelStore.buildSolverInput(uiStore.includeSelfWeight);
+      if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
       const t0 = performance.now();
       const result = pdeltaBasic2D(input);
       const dt = performance.now() - t0;
@@ -376,9 +376,9 @@
 
   function handleModal() {
     if (blockedBySlidingJoints()) return;
-    const input = modelStore.buildSolverInput(uiStore.includeSelfWeight);
-    if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
     try {
+      const input = modelStore.buildSolverInput(uiStore.includeSelfWeight);
+      if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
       const t0 = performance.now();
       const physical = withBasicMass(input, modelStore.model, 'iy');
       const result = solveModal(physical.input, physical.densities);
@@ -397,9 +397,9 @@
 
   function handleBuckling() {
     if (blockedBySlidingJoints()) return;
-    const input = modelStore.buildSolverInput(uiStore.includeSelfWeight);
-    if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
     try {
+      const input = modelStore.buildSolverInput(uiStore.includeSelfWeight);
+      if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
       const t0 = performance.now();
       const result = bucklingBasic2D(input);
       const dt = performance.now() - t0;
@@ -444,14 +444,14 @@
   async function handleMovingLoad(trainIndex: number) {
     if (blockedBySlidingJoints()) return;
     // The train alone: the sweep drops the model's loads and settlements (`trainBase`).
-    const input = modelStore.buildSolverInput(false);
-    if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
     const train = getPredefinedTrains()[trainIndex];
     if (!train) return;
 
     const abortController = resultsStore.startMovingLoadAnalysis();
 
     try {
+      const input = modelStore.buildSolverInput(false);
+      if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
       const t0 = performance.now();
       const result = await solveMovingLoadsAsync(
         input,

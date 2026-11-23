@@ -1,4 +1,4 @@
-import { factorsWithExactCancellation, factorsWithUnitResidual } from './combination-factor-fixture';
+import { factorsWithExactCancellation, factorsWithUnitResidual, issue2297Factors } from './combination-factor-fixture';
 import { afterEach, beforeAll, beforeEach, expect, it, vi } from 'vitest';
 import { modelStore, uiStore } from '../../store';
 import * as solver from '../wasm-solver';
@@ -139,4 +139,8 @@ it('#2292 the named single quad refuses complete case cancellation', async () =>
 
 it('#2292 the named single quad distinguishes exact cancellation from a unit residual', async () => {
   await checkNamedQuadCancellation(factorsWithUnitResidual, factorsWithExactCancellation);
+});
+
+it('#2297 the reported seven factors preserve the unit case response', async () => {
+  await checkNamedQuadCancellation(issue2297Factors, [...issue2297Factors, -1]);
 });
