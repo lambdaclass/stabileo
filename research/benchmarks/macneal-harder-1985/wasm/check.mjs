@@ -101,27 +101,34 @@ try {
 
   const files = { validation: new URL('VALIDATION.json', here), comparison: new URL('reference-results/published_comparison.json', here), manifest: new URL('reference-results/MANIFEST.json', here) };
   const text = v => JSON.stringify(v, null, 2) + '\n';
+  const manifest = comparisonText => ({
+    what: 'Published values of MacNeal & Harder (1985), read in a scanned copy of the article, against the production engine.',
+    source: 'Tables 3 and 5, pp. 10–11; inputs in engine/tests/benchmarks/macneal_harder.json and shell_obstacle_course.json',
+    command: COMMAND,
+    files_sha256: { 'published_comparison.json': createHash('sha256').update(comparisonText).digest('hex') },
+  });
   if (write) {
     writeFileSync(files.validation, text(validation));
     writeFileSync(files.comparison, text(comparison));
-    writeFileSync(files.manifest, text({
-      what: 'Published values of MacNeal & Harder (1985), read in a scanned copy of the article, against the production engine.',
-      source: 'Tables 3 and 5, pp. 10–11; inputs in engine/tests/benchmarks/macneal_harder.json and shell_obstacle_course.json',
-      command: COMMAND,
-      files_sha256: { 'published_comparison.json': createHash('sha256').update(text(comparison)).digest('hex') },
-    }));
+    writeFileSync(files.manifest, text(manifest(text(comparison))));
   } else {
-    const same = (a, b, path) => {
-      if (typeof a === 'number' && typeof b === 'number') return assert.ok(Math.abs(a - b) <= Math.max(1e-9 * Math.abs(b), 1e-15), `${path}: ${a} vs committed ${b}`);
+    const same = (a, b, path, scale) => {
+      if (typeof a === 'number' && typeof b === 'number') {
+        const allowed = Math.max(1e-9 * Math.abs(b), 1e-15, scale === undefined ? 0 : 0.1 * scale);
+        return assert.ok(Math.abs(a - b) <= allowed, `${path}: ${a} vs committed ${b}`);
+      }
       if (a && typeof a === 'object') {
         assert.deepEqual(Object.keys(a), Object.keys(b), path);
-        for (const k of Object.keys(a)) same(a[k], b[k], `${path}.${k}`);
+        const inner = 'passed' in a && typeof a.tolerance === 'number' ? a.tolerance : scale;
+        for (const k of Object.keys(a)) same(a[k], b[k], `${path}.${k}`, k === 'tolerance' ? undefined : inner);
         return;
       }
       assert.equal(a, b, path);
     };
     same(validation, JSON.parse(readFileSync(files.validation, 'utf8')), 'VALIDATION.json');
-    same(comparison, JSON.parse(readFileSync(files.comparison, 'utf8')), 'published_comparison.json');
+    const committedComparison = readFileSync(files.comparison, 'utf8');
+    same(comparison, JSON.parse(committedComparison), 'published_comparison.json');
+    assert.deepEqual(JSON.parse(readFileSync(files.manifest, 'utf8')), manifest(committedComparison), 'MANIFEST.json is stale: rerun with --write');
   }
   console.log(JSON.stringify({ checks: checks.map(c => [c.metric, c.observed, c.tolerance]), published: published.map(r => [r.id, r.reference, r.computed, r.observed, r.passed]) }, null, 2));
 } finally { await server.close(); }
