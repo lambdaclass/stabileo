@@ -15,13 +15,21 @@ pub struct Layout {
     pub dual_residual: f64,
 }
 
+pub const PAPER_UNIT_WEIGHT: f64 = 1.65;
+
 pub fn square() -> Result<Layout, String> {
+    square_with(PAPER_UNIT_WEIGHT)
+}
+
+pub fn square_with(pg: f64) -> Result<Layout, String> {
+    if !(pg.is_finite() && pg > 0. && pg <= 2.2) {
+        return Err(format!("unit weight {pg} outside (0, 2.2]"));
+    }
     let plan: [[f64; 2]; 5] = [[-0.5, -0.5], [0.5, -0.5], [0.5, 0.5], [-0.5, 0.5], [0., 0.]];
     let edges: Vec<_> = (0..5)
         .flat_map(|i| (i + 1..5).map(move |j| [i, j]))
         .collect();
     let m = edges.len();
-    let pg = 1.65;
     let mut rows = vec![vec![0.; 3 * m]; 3 + 4 * m];
     let mut b = vec![0.; rows.len()];
     b[2] = -1.;
@@ -124,8 +132,8 @@ pub fn square() -> Result<Layout, String> {
 }
 
 #[wasm_bindgen::prelude::wasm_bindgen]
-pub fn recompute() -> Result<String, wasm_bindgen::JsValue> {
-    square()
+pub fn recompute(unit_weight: f64) -> Result<String, wasm_bindgen::JsValue> {
+    square_with(unit_weight)
         .and_then(|l| serde_json::to_string(&l).map_err(|e| e.to_string()))
         .map_err(|e| wasm_bindgen::JsValue::from_str(&e))
 }
