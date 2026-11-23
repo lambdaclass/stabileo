@@ -1,6 +1,7 @@
 <script lang="ts">
   import { saveWorkspaceSettled, saveSession } from '../lib/store/file';
   import { recheckStore } from '../lib/store/recheck.svelte';
+  import { recheckBanner } from '../lib/store/recheck-banner.svelte';
   import { rerunAnalysisAndDesign, recheckKey } from '../lib/actions/recheck';
   import { changelogUrl, concernsLoadBasis, registryLocale, type ResultChange } from '../lib/provenance/registry';
   import { advisoryName, type Advisory } from '../lib/provenance/advisories';
@@ -75,6 +76,19 @@
     reviewing = false;
     try { await rerunAnalysisAndDesign(); } finally { busy = false; }
   }
+  const bannerText = $derived(!open && details && recheckStore.stale && a
+    ? openAdvisories.length
+      ? [certain.length ? tp('recheck.advisoryBanner', { names: certain.map(advisoryName).join(', ') }) : '', ...openAdvisories.filter((x) => x.analysis || maybe(x)).map((adv) => advisoryText(adv, true))].filter(Boolean).join(' ')
+      : tp('recheck.banner', { n: a.changes.length })
+    : null);
+  $effect(() => {
+    recheckBanner.text = bannerText;
+    recheckBanner.alert = openAdvisories.length > 0;
+    recheckBanner.canRerun = resolve && !recheckStore.solvedAgain;
+    recheckBanner.busy = busy;
+    recheckBanner.review = () => { reviewing = true; };
+    recheckBanner.rerun = rerun;
+  });
 </script>
 
 {#if open && a}
@@ -156,20 +170,7 @@
   </dialog>
 {/if}
 
-{#if !open && details && recheckStore.stale && a}
-  <div class="rc-banner" class:rc-banner-advisory={openAdvisories.length > 0} role={openAdvisories.length ? 'alert' : 'status'} data-testid="recheck-stale-banner">
-    {#if openAdvisories.length}
-      <span data-testid="recheck-advisory-banner">
-        {#if certain.length}{tp('recheck.advisoryBanner', { names: certain.map(advisoryName).join(', ') })}{/if}
-        {#each openAdvisories.filter((x) => x.analysis || maybe(x)) as adv (adv.id)} {advisoryText(adv, true)}{/each}
-      </span>
-    {:else}
-      <span>{tp('recheck.banner', { n: a.changes.length })}</span>
-    {/if}
-    <button class="rc-banner-btn" onclick={() => (reviewing = true)} data-testid="recheck-banner-details">{t('recheck.bannerDetails')}</button>
-    {#if resolve && !recheckStore.solvedAgain}<button class="rc-banner-btn rc-primary" disabled={busy} onclick={rerun} data-testid="recheck-banner-rerun">{t('recheck.bannerRerun')}</button>{/if}
-  </div>
-{/if}
+
 
 <style>
   .rc-overlay {
@@ -225,7 +226,7 @@
   .rc-stale { margin: 0 0 10px; font-size: 0.75rem; font-weight: 600; color: var(--st-warn, #d9a441); }
   .rc-footer { flex-shrink: 0; }
   .rc-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
-  .rc-btn, .rc-banner-btn {
+  .rc-btn {
     min-height: 44px;
     min-width: 44px;
     max-width: 100%;
@@ -239,34 +240,9 @@
     color: var(--st-text);
     cursor: pointer;
   }
-  .rc-btn:disabled, .rc-banner-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .rc-btn:disabled { opacity: 0.5; cursor: not-allowed; }
   .rc-primary { background: var(--st-accent, #4a90d9); border-color: var(--st-accent, #4a90d9); color: #fff; }
-  .rc-banner {
-    position: fixed;
-    left: 50%;
-    bottom: 44px;
-    transform: translateX(-50%);
-    /* Above the app's own bars and drawers, below the notice itself. */
-    z-index: 250;
-    display: flex;
-    gap: 8px;
-    align-items: center;
-    box-sizing: border-box;
-    width: max-content;
-    max-width: calc(100vw - 32px);
-    flex-wrap: wrap;
-    overflow-wrap: anywhere;
-    padding: 6px 10px;
-    font-size: 0.75rem;
-    color: var(--st-text);
-    background: var(--st-surface);
-    border: 1px solid var(--st-warn, #d9a441);
-    border-radius: var(--st-radius);
-    box-shadow: 0 4px 16px rgb(0 0 0 / 0.25);
-  }
-  .rc-banner-btn { padding: 3px 8px; font-size: 0.75rem; }
-  .rc-banner-advisory, .rc-advisory { border-color: var(--st-danger, #d9534f); }
-  .rc-banner-advisory { z-index: 920; }
+  .rc-advisory { border-color: var(--st-danger, #d9534f); }
   /* Only one of .rc and .rc-list may scroll: a drag on a nested list never reaches the controls below it. */
   @media (max-height: 520px) {
     .rc-list { flex-shrink: 0; overflow-y: visible; overscroll-behavior: auto; }
@@ -274,8 +250,5 @@
   @media (max-width: 600px) {
     .rc { padding: 12px; max-height: calc(100dvh - 24px); }
     .rc-actions .rc-btn { flex: 1 1 100%; }
-    .rc-banner { width: calc(100vw - 24px); }
-    .rc-banner > span { flex-basis: 100%; }
-    .rc-banner-btn { flex: 1; }
   }
 </style>

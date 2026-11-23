@@ -1,6 +1,13 @@
 import { BUILD_FEATURES } from './build-features';
 import { test, expect, bootPro } from './fixtures';
 import { readRegistry } from '../scripts/result-changes/registry.mjs';
+
+async function openBoard(page: import('@playwright/test').Page) {
+  const toggle = page.getByTestId('containment-toggle');
+  await toggle.waitFor();
+  if ((await toggle.getAttribute('aria-expanded')) !== 'true') await toggle.click();
+}
+
 if (BUILD_FEATURES.proPlatesUnified) {
 
   test.use({ recheckNotice: 'assert' });
@@ -44,6 +51,7 @@ if (BUILD_FEATURES.proPlatesUnified) {
         await page.getByTestId('recheck-later').click();
         await expect(notice).toBeHidden();
 
+        await openBoard(page);
         const banner = page.getByTestId('recheck-stale-banner');
         await expect(banner).toHaveAttribute('role', 'alert');
         await expect(page.getByTestId('recheck-advisory-banner')).toContainText('#1569');
@@ -78,10 +86,13 @@ if (BUILD_FEATURES.proPlatesUnified) {
     await expect(notice).toBeHidden();
 
     const advisory = page.getByTestId('recheck-advisory-banner');
+    await openBoard(page);
     await page.getByTestId('recheck-banner-rerun').click();
+    await openBoard(page);
     await expect(advisory).not.toContainText('#1569', { timeout: 45_000 });
     await expect(advisory).toContainText('SA-2026-046');
     await expect(page.getByTestId('recheck-banner-rerun')).toHaveCount(0);
+    await openBoard(page);
     await page.getByTestId('recheck-banner-details').click();
     await expect(notice.locator('[data-advisory-id="SA-2026-046"]')).toBeVisible();
     await expect(notice.locator('[data-advisory-id="issue-1569"]')).toHaveCount(0);
@@ -93,6 +104,7 @@ if (BUILD_FEATURES.proPlatesUnified) {
 
     for (const viewport of [{ width: 390, height: 844 }, { width: 820, height: 1180 }]) {
       await page.setViewportSize(viewport);
+      await openBoard(page);
       const layout = await page.getByTestId('recheck-stale-banner').evaluate((el) => {
         const r = el.getBoundingClientRect();
         return { left: r.left, right: r.right, pageOverflow: document.documentElement.scrollWidth - window.innerWidth };

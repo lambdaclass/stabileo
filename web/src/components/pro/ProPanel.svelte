@@ -135,6 +135,9 @@
     return getModelErrors().length;
   });
 
+  /** A refusal the notice board above the model already says is not said again here. */
+  const onBoard = (err: string) => resultsStore.knownIssues3D.messages.some((m) => m === err || err.includes(m) || m.includes(err));
+
   async function handleSolve() {
     solveError = null;
 
@@ -270,8 +273,8 @@
     <ProPhoneNav {shell} />
   {/if}
 
-  {#if solveError}
-    <div class="pro-solve-error">{solveError}</div>
+  {#if solveError && !onBoard(solveError)}
+    <div class="pro-solve-error" data-testid="pro-solve-error"><span>{solveError}</span><button type="button" class="pro-solve-error-x" aria-label={t('toast.dismiss')} onclick={() => (solveError = null)} data-testid="pro-solve-error-close">×</button></div>
   {/if}
 
   <!--
@@ -461,7 +464,11 @@
      note, because the next person to read the build warnings will trust it.
   */
 
+  .pro-solve-error-x { flex: none; margin-left: auto; min-width: 26px; min-height: 26px; padding: 0; border: none; background: transparent; color: inherit; font-size: 16px; line-height: 1; cursor: pointer; }
   .pro-solve-error {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
     padding: 4px 10px;
     font-size: 0.7rem;
     color: var(--st-danger);
