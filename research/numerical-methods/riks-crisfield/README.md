@@ -22,8 +22,9 @@ L₀=√(a²+h²), L=√(a²+y²), and E=1000 E_MPa in kN/m²:
   Its derivative is P_frame=P−6EI a β/(L₀L²). At the default shallow geometry this
   reference has no limit through inversion. Only its equilibrium residual is checked here.
 
-The shared JSON input, native-results.json, VALIDATION.json and MANIFEST.json under
-`reference-results/` are the published data consumed by the browser. No research solver or
+The shared JSON input and native-results.json under `reference-results/` (hashed in its
+MANIFEST.json), and VALIDATION.json beside this README, are the published data consumed by the
+browser. No research solver or
 production engine numerical change is involved.
 
 ## Upper-limit sampling and accuracy budgets
@@ -72,7 +73,7 @@ nix develop -c node research/numerical-methods/riks-crisfield/wasm/check.mjs web
   research/numerical-methods/riks-crisfield/reference-results/native-results.json
 ```
 
-`generate` writes the evidence and SHA-256 manifest. `check` reruns the production solves and
+`generate` writes the evidence, VALIDATION.json and the SHA-256 manifest. `check` reruns the production solves and
 compares without rewriting. Across machines, numeric leaves satisfy
 `abs(a-b) <= 1e-12 * max(abs(a), abs(b), 1)`; all other fields match exactly.
 Within each run every step record in every independent maxSteps=k prefix must match exactly.

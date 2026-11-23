@@ -27,12 +27,13 @@ it('publishes every paper page, in English at least and never in a language with
       expect(publishedLocale(path, locale)).toBe(published ? locale : 'en');
     }
   }
-  expect(researchLocales('/research/benchmarks/shell-obstacle-course')).toEqual(['en']);
+  expect(researchLocales('/research/no-such-paper')).toEqual(['en']);
   const optionalHungarian = buildFeatures().research ? ['hu'] : [];
-  expect(researchLocales('/research/stability/ferrari-sigmund-2025')).toEqual(['en', 'es', 'pt', ...optionalHungarian, 'zh']);
+  expect(researchLocales('/research/benchmarks/shell-obstacle-course')).toEqual(['en', 'es', 'pt', 'de', 'fr', 'tr', ...optionalHungarian, 'zh']);
+  expect(researchLocales('/research')).toEqual(['en', 'es', 'pt', ...optionalHungarian, 'zh']);
   expect(researchLocales('/research/benchmarks/lee-frame-1968')).toEqual(['en', 'es', 'pt', 'de', 'fr', 'tr', ...optionalHungarian, 'zh']);
-  expect(publishedLocale('/research/benchmarks/shell-obstacle-course', 'es')).toBe('en');
-  expect(publishedLocale('/research/stability/ferrari-sigmund-2025', 'de')).toBe('en');
+  expect(publishedLocale('/research/benchmarks/shell-obstacle-course', 'es')).toBe('es');
+  expect(publishedLocale('/research', 'de')).toBe('en');
   expect(publishedLocale('/research/benchmarks/lee-frame-1968#edit', 'es')).toBe('es');
 });
 
@@ -106,7 +107,7 @@ it('lists every paper in the gallery graph at the URL it is published under', ()
   const graph = galleryGraph('es', labels);
   const items = (graph[0] as { mainEntity: { itemListElement: { url: string }[] } }).mainEntity.itemListElement.map((i) => i.url);
   expect(items).toContain('https://stabileo.com/es/research/benchmarks/lee-frame-1968/');
-  expect(items).toContain('https://stabileo.com/en/research/benchmarks/shell-obstacle-course/');
+  expect(items).toContain('https://stabileo.com/es/research/benchmarks/shell-obstacle-course/');
   expect(items).toContain('https://stabileo.com/es/research/benchmarks/riks-crisfield/');
   expect(items).toHaveLength(EXPERIMENTS.length);
 });

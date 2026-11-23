@@ -44,16 +44,21 @@ fn direct_strip_fig5_comparisons_record_disagreement() {
         let eta: f64 = f[0].parse().unwrap();
         let row = data["foam"]["strip_13x52"].as_array().unwrap().iter().find(|r| (r["eta"].as_f64().unwrap()-eta).abs()<1e-10).unwrap();
         let mean = row["nu"]["mean"].as_f64().unwrap();
+        let nu: f64 = f[1].parse().unwrap();
         let lo: f64 = f[2].parse().unwrap();
         let hi: f64 = f[3].parse().unwrap();
-        comparisons.push(serde_json::json!({"eta":eta,"mean":mean,"lo":lo,"hi":hi,"digitisation":0.003,"passed":mean>=lo-0.003 && mean<=hi+0.003}));
+        assert!(lo <= nu && nu <= hi);
+        let observed = (mean - nu).abs();
+        let tolerance = if mean >= nu { hi - nu } else { nu - lo } + 0.003;
+        assert_eq!(observed <= tolerance, mean >= lo - 0.003 && mean <= hi + 0.003);
+        comparisons.push(serde_json::json!({"id":format!("fig5-strip-{eta:.2}"),"name":format!("Strip Poisson's ratio ν at η = {eta:.2}, 13 × 52 strip, mean of 10 samples"),"source":"Fig. 5, p. 6, simulation marker and error bar (digitized)","unit":"","reference":nu,"computed":mean,"metric":"absolute difference (tolerance: the error bar on that side plus 0.003 digitization)","observed":observed,"tolerance":tolerance,"passed":observed <= tolerance,"eta":eta,"lo":lo,"hi":hi,"digitisation":0.003}));
     }
-    let actual = serde_json::json!(comparisons);
+    let actual = serde_json::json!({"checks": comparisons});
     std::fs::create_dir_all(root.join("target/reference-results")).unwrap();
-    std::fs::write(root.join("target/reference-results/published_comparison.json"),serde_json::to_string_pretty(&actual).unwrap()).unwrap();
-    let recorded: Value = serde_json::from_slice(&std::fs::read(root.join("reference-results/published_comparison.json")).unwrap()).unwrap();
+    std::fs::write(root.join("target/reference-results/fig5_strip_comparison.json"),serde_json::to_string_pretty(&actual).unwrap() + "\n").unwrap();
+    let recorded: Value = serde_json::from_slice(&std::fs::read(root.join("reference-results/fig5_strip_comparison.json")).unwrap()).unwrap();
     compare(&recorded,&actual);
-    assert_eq!(actual.as_array().unwrap().iter().filter(|r|r["passed"]==false).map(|r|r["eta"].as_f64().unwrap()).collect::<Vec<_>>(), vec![0.0,0.05,0.1,0.2]);
+    assert_eq!(actual["checks"].as_array().unwrap().iter().filter(|r|r["passed"]==false).map(|r|r["eta"].as_f64().unwrap()).collect::<Vec<_>>(), vec![0.0,0.05,0.1,0.2]);
 }
 
 #[test]

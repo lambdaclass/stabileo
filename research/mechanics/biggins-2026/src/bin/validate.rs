@@ -46,21 +46,47 @@ fn main() {
             1e-5,
         ),
     ];
-    let observed = result.threshold / result.compression.sqrt();
-    let mut published = check(
-        "centered 70% alpha/sqrt(epsilon): absolute error",
-        (observed - 21.52).abs(),
-        0.005,
-    );
-    published["source"]=json!("Zmyślony et al., doi:10.1103/56f8-8gsx; arXiv:2601.06598v2 p.3 following Eq.(2), Eq.(3) p.4, supplementary Table S1 p.8 (PDF p.17)");
-    published["reference"] = json!(21.52);
-    published["computed"] = json!(observed);
+    let row = |id: &str, name: &str, source: &str, reference: f64, computed: f64, metric: &str, tolerance: f64| {
+        let difference = (computed - reference).abs();
+        let observed = if metric.starts_with("relative") { difference / reference.abs() } else { difference };
+        json!({"id":id,"name":name,"source":source,"unit":"","reference":reference,"computed":computed,"metric":metric,"observed":observed,"tolerance":tolerance,"passed":observed<=tolerance})
+    };
+    let pi = std::f64::consts::PI;
+    let published = vec![
+        row(
+            "threshold-70",
+            "Snap threshold α/√ε, centered pattern over 70% of the span",
+            "Zmyślony et al., doi:10.1103/56f8-8gsx; arXiv:2601.06598v2 p.3 following Eq.(2), Eq.(3) p.4, supplementary Table S1 p.8 (PDF p.17)",
+            21.52,
+            result.threshold / result.compression.sqrt(),
+            "absolute error",
+            0.005,
+        ),
+        row(
+            "k1",
+            "First antisymmetric Euler mode of the flat clamped beam, wavenumber k₁/π",
+            "arXiv:2601.06598v2, supplementary S2.6.1: k₁ = 2.86π (f_i = k_i²)",
+            2.86,
+            result.modes[1].force.sqrt() / pi,
+            "absolute error",
+            0.005,
+        ),
+        row(
+            "k0",
+            "Fundamental Euler mode of the flat clamped beam, wavenumber k₀/π",
+            "arXiv:2601.06598v2, supplementary S2.6.1: k₀ = 2π (f_i = k_i²)",
+            2.,
+            result.modes[0].force.sqrt() / pi,
+            "relative error",
+            1e-5,
+        ),
+    ];
     let files = [
         (
             "VALIDATION.json",
-            json!({"checks":checks,"published_checks":[published.clone()],"scope":"Production Euler modes and shallow-angle equilibrium thresholds; not laboratory validation or snap dynamics."}),
+            json!({"checks":checks,"published_checks":published.clone(),"scope":"Production Euler modes and shallow-angle equilibrium thresholds; not laboratory validation or snap dynamics."}),
         ),
-        ("reference-results/published_comparison.json", json!({"checks":[published]})),
+        ("reference-results/published_comparison.json", json!({"checks":published})),
     ];
     assert!(files[0].1["published_checks"]
         .as_array()

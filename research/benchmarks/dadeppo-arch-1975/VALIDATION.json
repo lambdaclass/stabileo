@@ -1,0 +1,148 @@
+{
+  "command": "DADEPPO_EXPORT=<fresh.json> cargo test --release --manifest-path engine/Cargo.toml --test solver dadeppo_arch; python3 -I research/benchmarks/dadeppo-arch-1975/validate.py generate <fresh.json>",
+  "case": "engine/tests/benchmarks/dadeppo_arch.json",
+  "checks": [
+    {
+      "name": "Limit load PR²/EI, 40 elements",
+      "metric": "relative difference",
+      "observed": 0.004603724906547326,
+      "tolerance": 0.006,
+      "passed": true,
+      "reference": 8.97,
+      "computed": 9.01129541241173
+    },
+    {
+      "name": "Crown horizontal displacement u/R at the limit point, 40 elements",
+      "metric": "relative difference",
+      "observed": 0.0004791140176913344,
+      "tolerance": 0.0011,
+      "passed": true,
+      "reference": 0.6116,
+      "computed": 0.61189302613322
+    },
+    {
+      "name": "Crown vertical displacement v/R at the limit point, 40 elements",
+      "metric": "relative difference",
+      "observed": 0.0005335032553660209,
+      "tolerance": 0.0007,
+      "passed": true,
+      "reference": 1.1372,
+      "computed": 1.1378066999020022
+    },
+    {
+      "name": "Crown rotation at the limit point, 40 elements",
+      "metric": "relative difference",
+      "observed": 0.03103623405898236,
+      "tolerance": 0.04,
+      "passed": true,
+      "reference": 0.0498,
+      "computed": 0.05134560445613732
+    },
+    {
+      "name": "The path passes the limit point and descends",
+      "metric": "final load / largest load",
+      "observed": 0.5354211555725142,
+      "tolerance": 0.95,
+      "passed": true
+    },
+    {
+      "name": "Limit load PR²/EI: observed order of mesh convergence",
+      "metric": "absolute difference from 2",
+      "observed": 0.04036788353739107,
+      "tolerance": 0.5,
+      "passed": true
+    },
+    {
+      "name": "Limit load PR²/EI: extrapolated to zero element length",
+      "metric": "relative difference",
+      "observed": 0.0002945877524119099,
+      "tolerance": 0.0019418224410364838,
+      "passed": true,
+      "reference": 8.97,
+      "computed": 8.972642452139135
+    },
+    {
+      "name": "Limit load PR²/EI: tolerance within 1.25 × its 40-element budget",
+      "metric": "tolerance / budget − 1",
+      "observed": 0.009718755554334768,
+      "tolerance": 0.25,
+      "passed": true
+    },
+    {
+      "name": "Crown horizontal displacement u/R at the limit point: observed order of mesh convergence",
+      "metric": "absolute difference from 2",
+      "observed": 0.07949947670324864,
+      "tolerance": 0.5,
+      "passed": true
+    },
+    {
+      "name": "Crown horizontal displacement u/R at the limit point: extrapolated to zero element length",
+      "metric": "relative difference",
+      "observed": 0.0002804695846867218,
+      "tolerance": 0.00030645931246425805,
+      "passed": true,
+      "reference": 0.6116,
+      "computed": 0.6114284648020056
+    },
+    {
+      "name": "Crown horizontal displacement u/R at the limit point: tolerance within 1.25 × its 40-element budget",
+      "metric": "tolerance / budget − 1",
+      "observed": 0.06640953151965334,
+      "tolerance": 0.25,
+      "passed": true
+    },
+    {
+      "name": "Crown vertical displacement v/R at the limit point: observed order of mesh convergence",
+      "metric": "absolute difference from 2",
+      "observed": 0.3547323172624346,
+      "tolerance": 0.5,
+      "passed": true
+    },
+    {
+      "name": "Crown vertical displacement v/R at the limit point: extrapolated to zero element length",
+      "metric": "relative difference",
+      "observed": 7.014682896626742e-05,
+      "tolerance": 0.00022911597743576926,
+      "passed": true,
+      "reference": 1.1372,
+      "computed": 1.1372797709739004
+    },
+    {
+      "name": "Crown vertical displacement v/R at the limit point: tolerance within 1.25 × its 40-element budget",
+      "metric": "tolerance / budget − 1",
+      "observed": 0.12337453273256949,
+      "tolerance": 0.25,
+      "passed": true
+    },
+    {
+      "name": "Crown rotation at the limit point: observed order of mesh convergence",
+      "metric": "absolute difference from 2",
+      "observed": 0.009722849740517736,
+      "tolerance": 0.5,
+      "passed": true
+    },
+    {
+      "name": "Crown rotation at the limit point: extrapolated to zero element length",
+      "metric": "relative difference",
+      "observed": 0.0013988267096329077,
+      "tolerance": 0.010315309692828298,
+      "passed": true,
+      "reference": 0.0498,
+      "computed": 0.049869661570139716
+    },
+    {
+      "name": "Crown rotation at the limit point: tolerance within 1.25 × its 40-element budget",
+      "metric": "tolerance / budget − 1",
+      "observed": 0.052658570126390414,
+      "tolerance": 0.25,
+      "passed": true
+    },
+    {
+      "name": "The page replay is a fresh native run",
+      "metric": "largest relative difference over every stored value",
+      "observed": 4.4423922174567585e-11,
+      "tolerance": 1e-09,
+      "passed": true
+    }
+  ]
+}

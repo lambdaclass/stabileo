@@ -20,7 +20,7 @@
 
 {#snippet gap(v: number, r: PublishedRow)}
   {#if relative(r)}
-    {#if plain(v * 100)}<span class="n">{num(v * 100, { sig: 2 })}&#8239;%</span>{:else}<Sci value={v * 100} unit="%" />{/if}
+    {#if plain(v * 100)}<span class="n">{num(v * 100, { sig: 3 })}&#8239;%</span>{:else}<Sci value={v * 100} unit="%" />{/if}
   {:else if plain(v)}<span class="n">{num(v, { sig: 2 })}{#if r.unit}&#8239;{r.unit}{/if}</span>{:else}<Sci value={v} unit={r.unit ?? ''} />{/if}
 {/snippet}
 

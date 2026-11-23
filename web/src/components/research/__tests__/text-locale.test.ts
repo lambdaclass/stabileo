@@ -10,6 +10,6 @@ it('labels a paper in the reader’s language only where the paper is written in
   expect(paperTextLocale('shauer-2025')).toBe('es');
   expect(paperTextLocale('grossman-2026')).toBe('es');
   expect(paperTextLocale('ferrari-2025')).toBe('es');
-  expect(paperTextLocale('shell-obstacle-course')).toBe('en');
+  expect(paperTextLocale('shell-obstacle-course')).toBe('es');
   expect(paperTextLocale('no-such-paper')).toBe('en');
 });

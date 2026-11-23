@@ -202,7 +202,7 @@
    "complexity": "medium",
    "relevance": "Spring networks map directly onto truss models, which Stabileo already solves.",
    "status": "numerically-validated",
-   "reproduced_published_results": true,
+   "reproduced_published_results": false,
    "benchmarks": [
     "foam Poisson's ratio against disorder (Fig. 5, text p. 6)",
     "honeycomb Poisson's ratio, Eq. (23)",
@@ -352,11 +352,11 @@
    ],
    "dependencies": [],
    "complexity": "medium",
-   "relevance": "Production buckling reproduces the simple Roorda frame load factor; element energy derivatives are checked through order four. Koiter coefficients and near-bifurcation path agreement remain unresolved. No public author code was run.",
-   "status": "implementation-in-progress",
+   "relevance": "Production linear buckling reproduces the simple Roorda frame's lambda_1 (2.4313 and the closed-form 2.430). The post-buckling slope alpha, read from the bifurcated branch that the production corotational solver traces in the inextensional idealization, matches the closed-form 0.3805 within 0.05%. The curvature beta does not match the closed-form 0.1421 (ours 0.463 in the corner rotation) and stays a visible failure; the paper does not state the second-order coordinate. No public author code was run.",
+   "status": "numerically-validated",
    "reproduced_published_results": false,
    "benchmarks": [
-    "Simple Roorda frame, Section 2.1.2; buckling load only"
+    "Simple Roorda frame, Section 2.1.2; critical load and post-buckling slope alpha (beta does not agree)"
    ],
    "implementation": "stability/ferrari-sigmund-2025",
    "page": "web/src/components/research/ferrari2025/FerrariPage.svelte",
@@ -1203,11 +1203,15 @@
    ],
    "dependencies": [],
    "complexity": "low",
-   "relevance": "Exercises Stabileo's beam, plate and shell elements on standard accuracy and mesh-distortion tests; use the supported structural subset.",
-   "status": "proposed",
+   "relevance": "Production MITC4 on the straight cantilever (Table 3) and the Scordelis–Lo roof (Table 5); regular meshes and the roof are within the paper's grade A (2%), the trapezoidal and parallelogram out-of-plane cases are not (3.7% and 2.2%, issue",
+   "status": "numerically-validated",
    "reproduced_published_results": false,
-   "benchmarks": [],
-   "implementation": null,
+   "benchmarks": [
+    "straight cantilever, regular, trapezoidal and parallelogram meshes",
+    "Scordelis–Lo roof"
+   ],
+   "implementation": "benchmarks/macneal-harder-1985",
+   "page": "web/src/components/research/macneal1985/MacnealPage.svelte",
    "contacts": [],
    "reviews": [
     {
@@ -1257,8 +1261,8 @@
    "dependencies": [],
    "complexity": "low",
    "relevance": "Production corotational cantilever compared with independent elliptic integrals corroborated by Nanakorn and Vu (2006), and a one-radian circular-arc moment solution.",
-   "status": "proposed",
-   "reproduced_published_results": false,
+   "status": "published-figures-compared",
+   "reproduced_published_results": true,
    "benchmarks": [
     "cantilever tip load",
     "cantilever tip moment"
@@ -1333,8 +1337,8 @@
    ],
    "dependencies": [],
    "complexity": "low",
-   "relevance": "Exercises Stabileo's Newmark time-history integration for structural response.",
-   "status": "proposed",
+   "relevance": "The production Newmark average-acceleration integrator (beta = 1/4, gamma = 1/2) on one exact SDOF step response at four time steps. Every sample matches the discrete closed form within 1e-10 m, the measured periods match pi dt / atan(omega dt / 2) within 0.5% and the error from the continuous solution stays below the phase-lag bound (13 checks, written by the engine test in the research CI). The 1959 paper's own examples are not compared; its full text was not available to us.",
+   "status": "numerically-validated",
    "stage": "first-version",
    "reviews": [
     {
@@ -1452,8 +1456,8 @@
    ],
    "dependencies": [],
    "complexity": "low",
-   "relevance": "One portal with our own dimensions, checked against independent hand derivations of the beam, sway and combined mechanism bounds by the virtual-work method that Horne presents (cited as background; no page or equation numbers checked). Publisher attribution: M. R. Horne; Crossref book record omits authors.",
-   "status": "proposed",
+   "relevance": "One portal with our own dimensions, checked against independent hand derivations of the beam, sway and combined mechanism bounds by the virtual-work method that Horne presents (cited as background; no page or equation numbers checked). The load ratio and height are page parameters; CI checks our example and five variants. Publisher attribution: M. R. Horne; Crossref book record omits authors.",
+   "status": "numerically-validated",
    "stage": "first-version",
    "reviews": [
     {
@@ -1525,8 +1529,8 @@
     "Stabileo production WASM engine"
    ],
    "complexity": "low",
-   "relevance": "One rectangular plate reuses production shell elements and the shared viewer; low effort, clear numerical comparison and visible mesh refinement.",
-   "status": "proposed",
+   "relevance": "One rectangular plate reuses production shell elements and the shared viewer. The published numbers compared are those of the Haukaas worked example listed under data (D, p. 2; centre deflection 1.28375 mm, p. 3), against the series, DKT 16×16 and its Richardson extrapolation.",
+   "status": "published-figures-compared",
    "stage": "first-version",
    "reviews": [
     {
@@ -1547,7 +1551,7 @@
      "date": "2026-10-30"
     }
    ],
-   "reproduced_published_results": false,
+   "reproduced_published_results": true,
    "benchmarks": [
     "Centre displacement of the 3 by 5 metre uniformly loaded simply supported plate"
    ],
@@ -1584,7 +1588,7 @@
    "dependencies": [],
    "complexity": "low",
    "relevance": "A small frame exercises the existing nonlinear path-following solver and shared viewer.",
-   "status": "proposed",
+   "status": "numerically-validated",
    "stage": "first-version",
    "reviews": [
     {
@@ -1607,7 +1611,7 @@
    ],
    "reproduced_published_results": false,
    "benchmarks": [
-    "Pinned Lee frame, first sampled peak with mesh and step study, against a by-eye reading of de Souza et al. (2020) Figure 10"
+    "Pinned Lee frame, first peak with mesh and step study, against a measured reading of de Souza et al. (2020) Figure 10 and Galvão (2000) as tabulated by Neves (2025)"
    ],
    "implementation": "benchmarks/lee-frame-1968",
    "contacts": []
@@ -1641,7 +1645,7 @@
    "dependencies": [],
    "complexity": "low",
    "relevance": "One deep arch exercises the production path-following solver and shared viewer.",
-   "status": "implementation-in-progress",
+   "status": "published-figures-compared",
    "stage": "first-version",
    "reviews": [
     {
@@ -1662,7 +1666,7 @@
      "date": "2026-10-30"
     }
    ],
-   "reproduced_published_results": false,
+   "reproduced_published_results": true,
    "benchmarks": [
     "215 degree clamped–hinged arch under a crown point load"
    ],
@@ -1700,8 +1704,8 @@
    ],
    "dependencies": [],
    "complexity": "low",
-   "relevance": "Production MITC4 shell benchmarks from existing engine tests; numerical provenance pending full-text verification.",
-   "status": "proposed",
+   "relevance": "Production MITC4 on the Scordelis–Lo roof, the pinched cylinder and the 18-degree hemisphere, with the mesh as a live parameter. The article is not open access, so its tables were not compared; the cylinder misses 2% below 32×32 and the hemisphere meshes are withheld (#798).",
+   "status": "numerically-validated",
    "reproduced_published_results": false,
    "benchmarks": [
     "Scordelis–Lo roof",
@@ -1709,6 +1713,7 @@
     "hemisphere with 18-degree hole (NAFEMS LE3 test convention)"
    ],
    "implementation": "benchmarks/shell-obstacle-course",
+   "page": "web/src/components/research/shell1985/ShellPage.svelte",
    "contacts": [],
    "reviews": [
     {
@@ -1750,10 +1755,10 @@
    "dependencies": [],
    "complexity": "low",
    "relevance": "Exercises Stabileo's 2D frame arc-length solver through limit points and snap-through.",
-   "status": "proposed",
+   "status": "numerically-validated",
    "reproduced_published_results": false,
    "benchmarks": [],
-   "implementation": null,
+   "implementation": "numerical-methods/riks-crisfield",
    "page": "web/src/components/research/riksCrisfield/RiksCrisfieldPage.svelte",
    "contacts": [],
    "reviews": [
@@ -1803,10 +1808,10 @@
    "dependencies": [],
    "complexity": "low",
    "relevance": "Method behind Stabileo's Crisfield arc-length solver for 2D frame snap-through and snap-back.",
-   "status": "proposed",
+   "status": "numerically-validated",
    "reproduced_published_results": false,
    "benchmarks": [],
-   "implementation": null,
+   "implementation": "numerical-methods/riks-crisfield",
    "page": "web/src/components/research/riksCrisfield/RiksCrisfieldPage.svelte",
    "contacts": []
   },

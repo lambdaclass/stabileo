@@ -34,7 +34,8 @@ test.describe('Ferrari research', () => {
     await expectFrame(page, replay.frames.at(-1)!.displacement);
     await slider.press('Home');
     await expectFrame(page, replay.frames[0].displacement);
-    await expect(page.getByTestId('ferrari-reference')).toContainText('2.4313');
+    await expect(page.locator('#comparison')).toContainText('2.4313');
+    await expect(page.getByTestId('ferrari-beta')).toContainText('0.4632');
     await page.getByRole('button', { name: 'Recompute live', exact: true }).click();
     await expect(page.getByTestId('ferrari-source')).toContainText('Cached result', { timeout: 90_000 });
     await expect(page.getByTestId('ferrari-buckling')).toContainText('2.431356');

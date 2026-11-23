@@ -275,6 +275,16 @@ jobs:
       - run: make wasm
       - name: CQC 1981 shared constants match the independent closed form
         run: python3 research/benchmarks/cqc-1981/reference.py
+      - name: CQC 1981 production modal and spectrum checks write VALIDATION.json
+        run: |
+          CQC_VALIDATION_OUT="$PWD/research/benchmarks/cqc-1981/VALIDATION.json" nix develop -c cargo test --locked --manifest-path engine/Cargo.toml --test solver cqc_1981 -- --nocapture
+          python3 -I -c "import json, sys; c = json.load(open('research/benchmarks/cqc-1981/VALIDATION.json'))['checks']; sys.exit(len(c) != 9 or not all(x['passed'] for x in c))"
+      - name: Newmark 1959 closed form matches the shared case
+        run: python3 -I research/benchmarks/newmark-1959/reference.py
+      - name: Newmark 1959 production time-history checks write VALIDATION.json
+        run: |
+          NEWMARK_VALIDATION_OUT="$PWD/research/benchmarks/newmark-1959/VALIDATION.json" nix develop -c cargo test --locked --manifest-path engine/Cargo.toml --test integration newmark_1959 -- --nocapture
+          python3 -I -c "import json, sys; c = json.load(open('research/benchmarks/newmark-1959/VALIDATION.json'))['checks']; sys.exit(len(c) != 13 or not all(x['passed'] for x in c))"
       - name: Compute native results from the engine-owned cases
         run: |
           MACNEAL_HARDER_RESULTS="$RUNNER_TEMP/macneal-native.json" nix develop -c cargo test --locked --manifest-path engine/Cargo.toml --test shells macneal_harder::browser_cases
@@ -283,15 +293,39 @@ jobs:
           nix develop -c node research/benchmarks/macneal-harder-1985/wasm/check.mjs "$RUNNER_TEMP/macneal-native.json"
       - name: Test measurement and editor handoff
         run: nix develop -c sh -c 'cd web && npx vitest run src/components/research/macneal1985/__tests__/cases.test.ts'
+      - name: Navier plate production WASM against the series, the native replay and the published example
+        run: |
+          nix develop -c node research/benchmarks/navier-plate/wasm/check.mjs
+          nix develop -c sh -c 'cd web && npx vitest run src/components/research/navier1823'
+      - name: Plastic collapse native assertions
+        run: nix develop -c cargo test --locked --manifest-path engine/Cargo.toml --test integration plastic_collapse_benchmark::portal_combined_mechanism
+      - name: Plastic collapse production WASM against the hand bounds, the native replay and VALIDATION.json
+        run: |
+          nix develop -c node research/benchmarks/plastic-collapse/wasm/check.mjs
+          nix develop -c sh -c 'cd web && npx vitest run src/components/research/plastic-collapse'
       - name: Mattiasson native regression assertions
         run: nix develop -c cargo test --locked --release --manifest-path engine/Cargo.toml --test validation corotational_benchmarks
+      - name: Mattiasson elliptic-integral accuracy and mesh refinement
+        run: nix develop -c cargo test --locked --release --manifest-path engine/Cargo.toml --test validation research_benchmarks::mattiasson
       - name: Mattiasson fresh production native results
         run: |
-          nix develop -c cargo run --locked --release --manifest-path research/benchmarks/mattiasson-elastica/Cargo.toml -- "$RUNNER_TEMP/mattiasson-native.json"
+          nix develop -c cargo run --locked --release --manifest-path research/benchmarks/mattiasson-elastica/Cargo.toml -- "$RUNNER_TEMP/mattiasson-native.json" "$RUNNER_TEMP/mattiasson-mesh.json"
+      - name: Mattiasson validation and published comparison are what the fresh run gives
+        run: python3 -I research/benchmarks/mattiasson-elastica/validate.py check "$RUNNER_TEMP/mattiasson-native.json" "$RUNNER_TEMP/mattiasson-mesh.json"
       - name: Mattiasson production WASM parity and measurements
         run: |
           nix develop -c node research/benchmarks/mattiasson-elastica/wasm/check.mjs "$RUNNER_TEMP/mattiasson-native.json"
           nix develop -c sh -c 'cd web && npx vitest run src/components/research/mattiasson1981/__tests__/cases.test.ts'
+      - name: Lee frame native path, mesh and step study
+        run: LEE_REPLAY_OUTPUT="$RUNNER_TEMP/lee-native.json" nix develop -c cargo test --locked --release --manifest-path engine/Cargo.toml --test solver lee_frame
+      - name: Lee frame validation and published comparison are what the fresh run gives
+        run: python3 -I research/benchmarks/lee-frame-1968/validate.py check "$RUNNER_TEMP/lee-native.json"
+      - name: DaDeppo arch limit point, crown state and mesh study
+        run: DADEPPO_EXPORT="$RUNNER_TEMP/dadeppo-native.json" nix develop -c cargo test --locked --release --manifest-path engine/Cargo.toml --test solver dadeppo_arch
+      - name: DaDeppo validation and published comparison are what the fresh run gives
+        run: python3 -I research/benchmarks/dadeppo-arch-1975/validate.py check "$RUNNER_TEMP/dadeppo-native.json"
+      - name: Lee frame and DaDeppo arch page mapping through the production WASM
+        run: nix develop -c sh -c 'cd web && npx vitest run src/components/research/lee1968 src/components/research/dadeppo1975'
 
       - name: Compute shell obstacle course native results without changing regression bounds
         run: |
@@ -302,7 +336,7 @@ jobs:
         run: |
           nix develop -c node research/benchmarks/shell-obstacle-course/wasm/check.mjs "$RUNNER_TEMP/shell-native"
       - name: Test shell measurement, projection and editor handoff
-        run: nix develop -c sh -c 'cd web && npx vitest run src/components/research/shell1985/__tests__/cases.test.ts'
+        run: nix develop -c sh -c 'cd web && npx vitest run src/components/research/shell1985'
 
   springs:
     if: ${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name == 'schedule') }}
@@ -370,8 +404,10 @@ jobs:
         run: rustup show active-toolchain || rustup toolchain install
       - name: Fetch Rust dependencies
         run: bash "$GITHUB_WORKSPACE/.github/scripts/retry-infra.sh" cargo fetch --locked
-      - name: Buckling, energy derivatives and every replay frame
+      - name: Buckling, energy derivatives, Koiter slope and every replay frame; writes VALIDATION.json
         run: cargo test --release --locked -- --nocapture
+      - name: Every validation check passes
+        run: python3 -I -c "import json, sys; c = json.load(open('VALIDATION.json'))['checks']; sys.exit(len(c) != 12 or not all(x['passed'] for x in c))"
   form-finding:
     if: ${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name == 'schedule') }}
     name: Four-cable FDM (Pastrana 2026) validation

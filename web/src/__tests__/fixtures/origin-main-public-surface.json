@@ -204,6 +204,9 @@
       "en",
       "es",
       "pt",
+      "de",
+      "fr",
+      "tr",
       "zh"
     ],
     "/research/metamaterials/grossman-2026": [
@@ -255,6 +258,9 @@
       "en",
       "es",
       "pt",
+      "de",
+      "fr",
+      "tr",
       "zh"
     ],
     "/research/form-finding/pastrana-2026": [
@@ -291,7 +297,13 @@
       "zh"
     ],
     "/research/benchmarks/shell-obstacle-course": [
-      "en"
+      "en",
+      "es",
+      "pt",
+      "de",
+      "fr",
+      "tr",
+      "zh"
     ]
   }
 }

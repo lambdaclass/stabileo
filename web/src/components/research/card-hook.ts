@@ -1,4 +1,5 @@
 import { publicI18n } from '../../lib/i18n/store.svelte';
+import { ferrariStrings } from './ferrari2025/strings';
 import { archStrings } from './biggins2026/strings';
 import { riserHook } from './gayNeto2014/card';
 import { shapeCard } from './feher2026/card';
@@ -13,6 +14,7 @@ import { strings as leeStrings } from './lee1968/i18n';
 import { archStrings as dadeppoStrings } from './dadeppo1975/i18n';
 import { strings as mattiassonStrings } from './mattiasson1981/i18n';
 import { card as macnealCard } from './macneal1985/card';
+import { card as shellCard } from './shell1985/card';
 import { articleStrings as riksStrings } from './riksCrisfield/article';
 import { researchLocale, rs } from './i18n';
 import { englishOnlyCard } from './english-only-cards';
@@ -39,9 +41,10 @@ export function cardHook(e: Experiment): string {
     case 'pastrana-2026': return s.formLead;
     case 'grossman-2026': return s.springsHook;
     case 'shauer-2025': return s.shauerHook;
-    case 'ferrari-2025': return s.ferrariLead;
+    case 'ferrari-2025': return ferrariStrings().lead;
     case 'mattiasson-elastica': return pick(mattiassonStrings, locale).hook;
     case 'macneal-harder-1985': return pick(macnealCard, locale).hook;
+    case 'shell-obstacle-course': return pick(shellCard, locale).hook;
     case 'heyman-1966': return pick(archCard, locale).hook;
     case 'feher-sipos-varkonyi-2026': return pick(shapeCard, locale).hook;
     case 'gay-neto-2014': return pick(riserHook, locale);

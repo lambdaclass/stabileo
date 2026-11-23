@@ -1,0 +1,19 @@
+{
+  "quantity": "Cantilever under a fixed-direction tip force: horizontal (u/L) and vertical (w/L, called v/L here) tip displacement against PL²/EI",
+  "source": "Mattiasson (1981), elliptic-integral solution, as reproduced in Nanakorn & Vu (2006), FEAD 42, Table 1, p. 1245",
+  "url": "https://www.imechanica.org/sites/default/files/1-s2.0-S0168874X06000953-main.pdf",
+  "originalTableDirectlyInspected": false,
+  "decimals": 5,
+  "rows": [
+    {"parameter": 1, "u": 0.05643, "v": 0.30172},
+    {"parameter": 2, "u": 0.16064, "v": 0.49346},
+    {"parameter": 3, "u": 0.25442, "v": 0.60325},
+    {"parameter": 4, "u": 0.32894, "v": 0.66996},
+    {"parameter": 5, "u": 0.38763, "v": 0.71379},
+    {"parameter": 6, "u": 0.43459, "v": 0.74457},
+    {"parameter": 7, "u": 0.47293, "v": 0.76737},
+    {"parameter": 8, "u": 0.50483, "v": 0.78498},
+    {"parameter": 9, "u": 0.53182, "v": 0.79906},
+    {"parameter": 10, "u": 0.55500, "v": 0.81061}
+  ]
+}

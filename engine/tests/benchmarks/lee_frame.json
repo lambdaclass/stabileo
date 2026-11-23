@@ -359,10 +359,10 @@
   },
   "loadNode": 13,
   "reference": {
-    "load": 1.83,
-    "status": "read-by-eye",
-    "source": "de Souza, Vanalli & de Luz (2020), DOI 10.1155/2020/3613892, section 3.3 Figure 10 (pinned curve, compared there with Schweizerhof & Wriggers 1986): first peak read by eye; the paper tabulates no value",
-    "displayedPercentDigits": 0
+    "load": 1.87,
+    "uncertainty": 0.03,
+    "status": "measured-on-figure",
+    "source": "de Souza, Vanalli & de Luz (2020), DOI 10.1155/2020/3613892, section 3.3 Figure 10 (pinned curve, compared there with Schweizerhof & Wriggers 1986): first peak measured in pixels, scale checked on the semirigid peak 2.1474 kN stated in Figure 11; the paper tabulates no value for the pinned frame. Every published value compared is in research/benchmarks/lee-frame-1968/reference-results/published-peaks.json"
   },
   "regression": {
     "firstLimitLoad": 1.8657781212114986,
