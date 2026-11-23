@@ -120,6 +120,8 @@ const body: PostBody = {
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-109-dxf-support-labels.md", "label": "SA-2026-109", "t": "Entrées concernées et mesures à prendre."},
     {"k": "note", "t": "SA-2026-110 — Prochaine version après la 0.6.4."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-110-solver-json-boundary.md", "label": "SA-2026-110", "t": "Entrées concernées et mesures à prendre."},
+    {"k": "note", "t": "SA-2026-111 — Prochaine version après la 0.6.4."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-111-gravity-shared-deck-coverage.md", "label": "SA-2026-111", "t": "Entrées concernées et mesures à prendre."},
     {"k": "img", "base": "blog/recheck-stale", "w": 1600, "h": 1000, "alt": "Stabileo PRO avec un portique en béton enregistré avant que les résultats soient versionnés. Un bandeau en bas indique des résultats périmés : le projet a été résolu avec une version antérieure et 19 changements enregistrés le concernent, avec les boutons pour voir ce qui a changé et relancer le calcul.", "caption": "Comment une correction atteint un projet enregistré : tant qu’il n’est pas recalculé, ses résultats restent marqués périmés, et les changements qui le concernent sont à un clic."},
     {
       "k": "h",
@@ -538,7 +540,8 @@ const body: PostBody = {
         ["SA-2026-107", "Le remaillage pouvait effacer les modifications d’excentrement et de courbure des coques. Vérifiez et rétablissez les propriétés prévues avant de relancer le calcul et les vérifications.", "Élevée", "Prochaine version après la 0.6.3 (mesure de protection)"],
         ["SA-2026-108", "La projection sur le plan XZ ou YZ pouvait omettre sans avertissement une composante de force nodale perpendiculaire au plan d’analyse. Vérifiez les forces nodales de chaque cas de charge et reprenez les analyses et vérifications concernées avec le modèle spatial.", "Élevée", "Prochaine version après la 0.6.4"],
         ["SA-2026-109", "Des libellés d’appui inconnus dans un DXF plan pouvaient être importés comme appuis articulés sans avertissement. Comparez les appuis importés au dessin d’origine, corrigez les écarts et relancez les analyses concernées.", "Élevée", "Prochaine version après la 0.6.4"],
-        ["SA-2026-110", "L’analyse web pouvait omettre sans avertissement un ressort de raideur non finie ou un cas de charge dans une combinaison. Vérifiez les raideurs, les noms des cas et les coefficients nets, puis relancez les analyses et les combinaisons concernées.", "Élevée", "Prochaine version après la 0.6.4"]
+        ["SA-2026-110", "L’analyse web pouvait omettre sans avertissement un ressort de raideur non finie ou un cas de charge dans une combinaison. Vérifiez les raideurs, les noms des cas et les coefficients nets, puis relancez les analyses et les combinaisons concernées.", "Élevée", "Prochaine version après la 0.6.4"],
+        ["SA-2026-111", "La génération automatique des charges gravitaires par panneaux pouvait compter deux fois la même charge de plancher. Vérifiez les coques qui se chevauchent et les travées de poutres qui leur sont reliées, régénérez les plans de charges gravitaires enregistrés concernés et relancez les analyses correspondantes.", "Élevée", "Prochaine version après la 0.6.4"]
       ]
     },
     {
