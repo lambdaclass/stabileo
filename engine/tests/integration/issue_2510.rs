@@ -46,7 +46,6 @@ fn arc_runs(input: &ArcLengthInput) -> [ArcLengthResult; 2] {
 }
 
 #[test]
-#[ignore = "known wrong result: #2510"]
 fn accepted_steps_stay_on_the_requested_sphere() {
     let input = two_bar(2.0, 0.01, 3.0, 2, 20);
     for result in arc_runs(&input) {
@@ -81,7 +80,6 @@ fn accepted_steps_stay_on_the_requested_sphere() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2510"]
 fn path_follows_the_fold_without_retracing() {
     let mut input = two_bar(1.0, 0.01, 0.25, 9, 20);
     let SolverLoad::Nodal(load) = &mut input.solver.loads[0] else {
@@ -103,7 +101,6 @@ fn path_follows_the_fold_without_retracing() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2510"]
 fn failed_trial_returns_the_exact_accepted_state() {
     let input = two_bar(0.5, 0.001, 0.25, 5, 3);
     for result in arc_runs(&input) {
@@ -128,7 +125,6 @@ fn axial_spring(force: f64) -> SolverInput {
 }
 
 #[test]
-#[ignore = "known wrong result: #2510"]
 fn warm_start_uses_the_exact_target_force() {
     for (base, target) in [
         (1.0, 0.0),
@@ -168,7 +164,6 @@ fn frame() -> SolverInput {
 }
 
 #[test]
-#[ignore = "known wrong result: #2510"]
 fn warm_start_assigns_the_exact_target_support_position() {
     let mut first = frame();
     first.supports.insert(
@@ -199,7 +194,6 @@ fn warm_start_assigns_the_exact_target_support_position() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2510"]
 fn curved_frames_use_the_shear_centre_gate_in_both_iteration_modes() {
     let mut input: SolverInput3D = serde_json::from_str(include_str!(
         "../metamorphic_corpus/feature_matrix/3d-curved-beam-arch-with.json"
@@ -253,7 +247,6 @@ fn member_loads() -> [SolverInput; 2] {
 }
 
 #[test]
-#[ignore = "known wrong result: #2510"]
 fn arc_length_recovers_the_same_member_load_pattern_it_solves() {
     let [raw, canonical] = member_loads();
     let arc = |solver| ArcLengthInput {
@@ -278,7 +271,6 @@ fn arc_length_recovers_the_same_member_load_pattern_it_solves() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2510"]
 fn displacement_control_recovers_the_same_member_load_pattern_it_solves() {
     let solve = |solver| {
         let result = solve_displacement_control(&DisplacementControlInput {

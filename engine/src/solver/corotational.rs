@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use crate::solver::support::{support_dofs_3d};
 use crate::types::*;
 use crate::linalg::*;
@@ -67,6 +69,56 @@ pub(crate) fn chord_rotation(dx0: f64, dz0: f64, dux: f64, duz: f64) -> f64 {
     )
 }
 
+fn interpolate_increment(base: &[f64], target: &[f64], factor: f64) -> Vec<f64> {
+    match factor {
+        0.0 => base.to_vec(),
+        1.0 => target.to_vec(),
+        _ => base
+            .iter()
+            .zip(target)
+            .map(|(&base, &target)| base + factor * (target - base))
+            .collect(),
+    }
+}
+
+#[derive(Default)]
+struct IncrementTargets2D {
+    forces: Vec<f64>,
+    supports: Vec<f64>,
+    support_step: Option<Vec<f64>>,
+}
+
+impl IncrementTargets2D {
+    fn new(
+        base_forces: &[f64],
+        target_forces: &[f64],
+        base_supports: &[f64],
+        target_supports: &[f64],
+        current_supports: &[f64],
+        factor: f64,
+    ) -> Self {
+        let forces = interpolate_increment(base_forces, target_forces, factor);
+        let supports = interpolate_increment(base_supports, target_supports, factor);
+        let step: Vec<_> = supports
+            .iter()
+            .zip(current_supports)
+            .map(|(target, current)| target - current)
+            .collect();
+        let support_step = step.iter().any(|&value| value != 0.0).then_some(step);
+        Self {
+            forces,
+            supports,
+            support_step,
+        }
+    }
+
+    fn apply_supports(&mut self, restrained: &mut [f64]) {
+        if self.support_step.take().is_some() {
+            restrained.copy_from_slice(&self.supports);
+        }
+    }
+}
+
 struct Corotational2D<'a> {
     input: &'a SolverInput,
     dof_num: &'a DofNumbering,
@@ -84,9 +136,7 @@ struct Corotational2D<'a> {
     u_converged: Vec<f64>,
     sparse_sym_cache: Option<SparseSymbolicCache>,
     conditioning: Option<StructuredDiagnostic>,
-    f_ext: Vec<f64>,
-    active_supports: Vec<f64>,
-    support_step: Option<Vec<f64>>,
+    targets: IncrementTargets2D,
     cached_factor: Option<CachedTangentFactor>,
     r_f: Vec<f64>,
     k_t: Vec<f64>,
@@ -97,16 +147,15 @@ struct Corotational2D<'a> {
 
 impl super::nonlinear::IncrementalProblem for Corotational2D<'_> {
     fn begin_increment(&mut self, load_factor: f64) {
-        let (n, nf) = (self.dof_num.n_total, self.dof_num.n_free);
-        let (f_base, f_total, u_r_base, u_r_target) = (self.f_base, self.f_total, self.u_r_base, self.u_r_target);
-        self.f_ext = (0..n).map(|i| f_base[i] + load_factor * (f_total[i] - f_base[i])).collect();
-        self.active_supports = u_r_base.iter().zip(u_r_target).map(|(base, target)| base + load_factor * (target - base)).collect();
-        self.support_step = Some(
-            u_r_base.iter().zip(u_r_target).enumerate()
-                .map(|(i, (base, target))| base + load_factor * (target - base) - self.u_full[nf + i])
-                .collect::<Vec<f64>>(),
-        )
-        .filter(|du| du.iter().any(|&v| v != 0.0));
+        let nf = self.dof_num.n_free;
+        self.targets = IncrementTargets2D::new(
+            self.f_base,
+            self.f_total,
+            self.u_r_base,
+            self.u_r_target,
+            &self.u_full[nf..],
+            load_factor,
+        );
         self.cached_factor = None;
     }
 
@@ -167,7 +216,7 @@ impl super::nonlinear::IncrementalProblem for Corotational2D<'_> {
             );
 
             // Rotate K_T/f_int back into the rotated (tangent, normal) basis
-            // at inclined-support DOFs so they stay consistent with self.f_ext
+            // at inclined-support DOFs so they stay consistent with self.targets.forces
             // (already rotated by assemble_2d above) for the residual/solve
             // below — without this, the tangent-stiffness system enforces
             // "restrain literal global Z" instead of "restrain normal to
@@ -180,19 +229,26 @@ impl super::nonlinear::IncrementalProblem for Corotational2D<'_> {
         // Residual R = F_ext - f_int
         let mut residual = vec![0.0; n];
         for i in 0..n {
-            residual[i] = self.f_ext[i] - f_int[i];
+            residual[i] = self.targets.forces[i] - f_int[i];
         }
 
         // Reduce residual and check convergence on independent DOFs
         let r_f: Vec<f64> = residual[..nf].to_vec();
-        let rel_error = metric.continuation_residual(&residual,&self.f_ext,&self.active_supports,&f_base,&start_internal,cs.as_ref());
+        let rel_error = metric.continuation_residual(
+            &residual,
+            &self.targets.forces,
+            &self.targets.supports,
+            f_base,
+            start_internal,
+            cs.as_ref(),
+        );
 
         self.r_f = r_f;
         self.k_t = k_t;
         self.trip_rows = trip_rows;
         self.trip_cols = trip_cols;
         self.trip_vals = trip_vals;
-        Ok(super::nonlinear::Linearization { measure: rel_error, forced: self.support_step.is_some() })
+        Ok(super::nonlinear::Linearization { measure: rel_error, forced: self.targets.support_step.is_some() })
     }
 
     fn correct(&mut self, modified_nr: bool) -> Result<(), String> {
@@ -206,7 +262,7 @@ impl super::nonlinear::IncrementalProblem for Corotational2D<'_> {
         // predictor's load −K_fr·Δu_r: moving only the support nodes
         // would crush the elements next to them.
         let mut r_f = r_f;
-        if let Some(ref du_r) = self.support_step {
+        if let Some(ref du_r) = self.targets.support_step {
             let mut known = vec![0.0; n];
             known[nf..].copy_from_slice(du_r);
             if let Some(ref cs) = *cs { cs.impose_motion(&mut known); }
@@ -293,7 +349,7 @@ impl super::nonlinear::IncrementalProblem for Corotational2D<'_> {
         };
 
         let delta_u_f = if let Some(ref cs) = *cs {
-            cs.expand_solution(&delta_u_indep, self.support_step.as_deref().map_or(
+            cs.expand_solution(&delta_u_indep, self.targets.support_step.as_deref().map_or(
                 MasterMotion::Homogeneous,
                 MasterMotion::Prescribed,
             ))
@@ -305,11 +361,7 @@ impl super::nonlinear::IncrementalProblem for Corotational2D<'_> {
         for i in 0..nf {
             self.u_full[i] += delta_u_f[i];
         }
-        if let Some(du_r) = self.support_step.take() {
-            for (r, du) in du_r.iter().enumerate() {
-                self.u_full[nf + r] += du;
-            }
-        }
+        self.targets.apply_supports(&mut self.u_full[nf..]);
         Ok(())
     }
 
@@ -344,6 +396,34 @@ pub struct CorotationalStart2D<'a> {
     pub displacements: &'a [Displacement],
 }
 
+pub(super) struct PlaneInputs<'a> {
+    pub target: Cow<'a, SolverInput>,
+    base: Option<(Cow<'a, SolverInput>, &'a [Displacement])>,
+}
+
+impl<'a> PlaneInputs<'a> {
+    pub fn new(target: &'a SolverInput, start: Option<&CorotationalStart2D<'a>>) -> Self {
+        Self {
+            target: super::member_loads::plane_input(target),
+            base: start.map(|start| {
+                (
+                    super::member_loads::plane_input(start.input),
+                    start.displacements,
+                )
+            }),
+        }
+    }
+
+    pub fn start(&self) -> Option<CorotationalStart2D<'_>> {
+        self.base
+            .as_ref()
+            .map(|(input, displacements)| CorotationalStart2D {
+                input,
+                displacements,
+            })
+    }
+}
+
 /// Co-rotational analysis that continues from `start` instead of the
 /// undeformed state. The external loads and the restrained DOFs ramp linearly
 /// from the start model's to `input`'s, so every restrained DOF ends at the
@@ -357,8 +437,10 @@ pub fn solve_corotational_2d_from(
     n_increments: usize,
     modified_nr: bool,
 ) -> Result<CorotationalResult, String> {
-    let canonical_input = super::member_loads::plane_input(input);
-    let input = canonical_input.as_ref();
+    let plane = PlaneInputs::new(input, start);
+    let input = plane.target.as_ref();
+    let start = plane.start();
+    let start = start.as_ref();
 
     // Degenerate parameters, rejected before any work. These arrive from the
     // public WASM entry point exactly as the caller sent them, and the UI's
@@ -445,9 +527,7 @@ pub fn solve_corotational_2d_from(
         u_full,
         sparse_sym_cache: None,
         conditioning: None,
-        f_ext: Vec::new(),
-        active_supports: Vec::new(),
-        support_step: None,
+        targets: IncrementTargets2D::default(),
         cached_factor: None,
         r_f: Vec::new(),
         k_t: Vec::new(),
@@ -463,17 +543,8 @@ pub fn solve_corotational_2d_from(
     let max_displacement = compute_max_displacement(&dof_num, &u_full);
 
     // Results of the last converged state, under the loads it carries.
-    let scaled;
-    let at_state = if let Some(start) = start {
-        scaled = blended_loads_2d(start.input, input, converged_factor);
-        &scaled
-    } else if converged_factor < 1.0 {
-        scaled = scaled_loads_2d(input, converged_factor);
-        &scaled
-    } else {
-        input
-    };
-    let mut results = build_final_results(at_state, &dof_num, &u_full, &cs, &asm.inclined_transforms_2d)?;
+    let at_state = increment_result_model(input, start, converged_factor);
+    let mut results = build_final_results(at_state.as_ref(), &dof_num, &u_full, &cs, &asm.inclined_transforms_2d)?;
     crate::known_issues::attach(&mut results.structured_diagnostics, conditioning.into_iter().collect());
     crate::known_issues::attach(&mut results.structured_diagnostics, crate::known_issues::for_2d(input, crate::known_issues::Analysis::Corotational));
 
@@ -507,6 +578,21 @@ pub(super) fn scaled_loads_2d(input: &SolverInput, factor: f64) -> SolverInput {
         }
     }
     m
+}
+
+fn increment_result_model<'a>(
+    input: &'a SolverInput,
+    start: Option<&CorotationalStart2D>,
+    factor: f64,
+) -> Cow<'a, SolverInput> {
+    if factor == 1.0 {
+        return Cow::Borrowed(input);
+    }
+    let scaled = match start {
+        Some(start) => blended_loads_2d(start.input, input, factor),
+        None => scaled_loads_2d(input, factor),
+    };
+    Cow::Owned(scaled)
 }
 
 fn blended_loads_2d(from: &SolverInput, to: &SolverInput, factor: f64) -> SolverInput {
@@ -1403,6 +1489,28 @@ pub fn compute_corotational_forces(
 // 3D Co-rotational Large Displacement Solver
 // ============================================================
 
+fn checked_corotational_frames_3d(input: &SolverInput3D) -> Result<SolverInput3D, String> {
+    let input = super::linear::expand_curved_beams_3d(input);
+    let frame_sections: std::collections::HashSet<usize> = crate::ordered::values(&input.elements)
+        .filter(|e| e.elem_type == "frame")
+        .map(|e| e.section_id)
+        .collect();
+    if let Some(sec) = crate::ordered::values(&input.sections)
+        .filter(|s| frame_sections.contains(&s.id))
+        .find(|s| {
+            s.shear_center_y.is_some_and(|v| v != 0.0) || s.shear_center_z.is_some_and(|v| v != 0.0)
+        })
+    {
+        return Err(format!(
+            "Corotational 3D solver does not model a shear-centre offset (section {}): \
+             flexural-torsional coupling is not included. Use linear buckling or P-Delta.",
+            sec.id
+        ));
+    }
+
+    Ok(input)
+}
+
 /// Solve a 3D frame using co-rotational large displacement analysis.
 ///
 /// Extends the 2D formulation to 3D with:
@@ -1452,25 +1560,6 @@ pub fn solve_corotational_3d(
         return Err("Corotational 3D solver does not support shell elements. \
             Use the linear solver for models with plates, quads, or shells.".into());
     }
-    // The co-rotational element carries the Wagner term of a doubly symmetric
-    // section (internal torque and tangent) but not the shear-centre coupling of
-    // a monosymmetric one: refused rather than missing its flexural-torsional
-    // instability without a word.
-    // Only the sections of frame members: the catalogue may hold unused ones, and a truss has
-    // no flexural-torsional coupling to miss.
-    let frame_sections: std::collections::HashSet<usize> =
-        crate::ordered::values(&input.elements).filter(|e| e.elem_type == "frame").map(|e| e.section_id).collect();
-    if let Some(sec) = crate::ordered::values(&input.sections).filter(|s| frame_sections.contains(&s.id)).find(|s| {
-        s.shear_center_y.is_some_and(|v| v != 0.0) || s.shear_center_z.is_some_and(|v| v != 0.0)
-    }) {
-        return Err(format!(
-            "Corotational 3D solver does not model a shear-centre offset (section {}): \
-             flexural-torsional coupling is not included. Use linear buckling or P-Delta.",
-            sec.id
-        ));
-    }
-
-    // Expand curved beams before DOF numbering and assembly.
     // As in 2D: no prescribed-displacement term, and
     // temperature as fixed global forces.
     super::feature_gates::refuse_3d(input, "Corotational analysis", &[
@@ -1479,7 +1568,7 @@ pub fn solve_corotational_3d(
         super::feature_gates::Feature::Warping,
     ])?;
     crate::element::connector::refuse_for_corotational_3d(input, "Corotational analysis")?;
-    let input = &super::linear::expand_curved_beams_3d(input);
+    let input = &checked_corotational_frames_3d(input)?;
     let dof_num = DofNumbering::build_3d(input);
 
     if dof_num.n_free == 0 {

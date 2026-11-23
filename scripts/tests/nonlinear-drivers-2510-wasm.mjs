@@ -5,8 +5,6 @@ import * as engine from '../../web/src/lib/wasm/dedaliano_engine.js';
 
 engine.initSync({ module: readFileSync(new URL('../../web/src/lib/wasm/dedaliano_engine_bg.wasm', import.meta.url)) });
 
-const onlyReproducers = process.env.REPRODUCE_2510 === '1';
-const regression = (name, fn) => test(name, { skip: onlyReproducers ? false : 'known wrong result: #2510' }, fn);
 const read = (path) => JSON.parse(readFileSync(new URL(path, import.meta.url), 'utf8'));
 const arc = (input) => JSON.parse(engine.solve_arc_length(JSON.stringify(input)));
 
@@ -21,7 +19,7 @@ function radius(previous, step) {
   return Math.hypot(step.controlDisplacement - previous.controlDisplacement, step.loadFactor - previous.loadFactor);
 }
 
-regression('production two-bar arc accepts only the requested sphere', () => {
+test('production two-bar arc accepts only the requested sphere', () => {
   const input = twoBar(2, 0.01, 3, 2, 20);
   const result = arc(input);
   assert.ok(result.steps.length > 0);
@@ -40,7 +38,7 @@ regression('production two-bar arc accepts only the requested sphere', () => {
   assert.ok(Math.abs(radius(...reached.steps) / retry.minDs - 1) <= retry.tolerance);
 });
 
-regression('production two-bar arc does not retrace the fold', () => {
+test('production two-bar arc does not retrace the fold', () => {
   const input = twoBar(1, 0.01, 0.25, 9, 20);
   input.solver.loads[0].data.fz = -0.1;
   const result = arc(input);
@@ -52,7 +50,7 @@ regression('production two-bar arc does not retrace the fold', () => {
   assert.ok(result.steps[8].loadFactor < result.steps[7].loadFactor);
 });
 
-regression('production arc final state is its last accepted point', () => {
+test('production arc final state is its last accepted point', () => {
   const result = arc(twoBar(0.5, 0.001, 0.25, 5, 3));
   assert.equal(result.converged, false);
   const last = result.steps.at(-1);
@@ -61,7 +59,7 @@ regression('production arc final state is its last accepted point', () => {
   assert.equal(result.results.displacements.find((d) => d.nodeId === 2).uz, last.controlDisplacement);
 });
 
-regression('production 3D co-rotation checks curved frame sections after expansion', () => {
+test('production 3D co-rotation checks curved frame sections after expansion', () => {
   const solver = read('../../engine/tests/metamorphic_corpus/feature_matrix/3d-curved-beam-arch-with.json');
   assert.equal(Object.keys(solver.elements).length, 0);
   solver.curvedBeams[0].numSegments = 4;
@@ -81,7 +79,7 @@ for (const [method, settings] of [
   ['arc_length', { maxSteps: 2, initialDs: 0.003, minDs: 0.003, maxDs: 0.003 }],
   ['displacement_control', { nSteps: 2, controlNode: 2, controlDof: 0, targetDisplacement: 0.02 }],
 ]) {
-  regression('production ' + method + ' recovers the canonical member load', () => {
+  test('production ' + method + ' recovers the canonical member load', () => {
     const b = 6.000000000000001;
     const scale = b / 6;
     const run = (data) => {

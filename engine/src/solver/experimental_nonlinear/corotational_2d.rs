@@ -1,20 +1,5 @@
 use super::*;
-use crate::solver::experimental_nonlinear::{
-    incremental::{self, IterationMethod, LoadStepping},
-    PlaneInputs,
-};
-
-fn interpolate_increment(base: &[f64], target: &[f64], factor: f64) -> Vec<f64> {
-    match factor {
-        0.0 => base.to_vec(),
-        1.0 => target.to_vec(),
-        _ => base
-            .iter()
-            .zip(target)
-            .map(|(&base, &target)| base + factor * (target - base))
-            .collect(),
-    }
-}
+use crate::solver::experimental_nonlinear::incremental::{self, IterationMethod, LoadStepping};
 
 struct Corotational2D<'a> {
     input: &'a SolverInput,
@@ -33,9 +18,7 @@ struct Corotational2D<'a> {
     u_converged: Vec<f64>,
     sparse_sym_cache: Option<SparseSymbolicCache>,
     conditioning: Option<StructuredDiagnostic>,
-    f_ext: Vec<f64>,
-    active_supports: Vec<f64>,
-    support_step: Option<Vec<f64>>,
+    targets: IncrementTargets2D,
     cached_factor: Option<CachedTangentFactor>,
     r_f: Vec<f64>,
     unbalance: Vec<f64>,
@@ -48,15 +31,14 @@ struct Corotational2D<'a> {
 impl incremental::IncrementalProblem for Corotational2D<'_> {
     fn begin_increment(&mut self, load_factor: f64) {
         let nf = self.dof_num.n_free;
-        self.f_ext = interpolate_increment(self.f_base, self.f_total, load_factor);
-        self.active_supports = interpolate_increment(self.u_r_base, self.u_r_target, load_factor);
-        let support_step: Vec<f64> = self
-            .active_supports
-            .iter()
-            .zip(&self.u_full[nf..])
-            .map(|(target, current)| target - current)
-            .collect();
-        self.support_step = support_step.iter().any(|&v| v != 0.0).then_some(support_step);
+        self.targets = IncrementTargets2D::new(
+            self.f_base,
+            self.f_total,
+            self.u_r_base,
+            self.u_r_target,
+            &self.u_full[nf..],
+            load_factor,
+        );
         self.cached_factor = None;
     }
 
@@ -136,14 +118,14 @@ impl incremental::IncrementalProblem for Corotational2D<'_> {
 
         let mut residual = vec![0.0; n];
         for i in 0..n {
-            residual[i] = self.f_ext[i] - f_int[i];
+            residual[i] = self.targets.forces[i] - f_int[i];
         }
 
         let r_f: Vec<f64> = residual[..nf].to_vec();
         let rel_error = metric.continuation_residual(
             &residual,
-            &self.f_ext,
-            &self.active_supports,
+            &self.targets.forces,
+            &self.targets.supports,
             &f_base,
             &start_internal,
             cs.as_ref(),
@@ -157,7 +139,7 @@ impl incremental::IncrementalProblem for Corotational2D<'_> {
         self.trip_vals = trip_vals;
         Ok(incremental::Linearization {
             measure: rel_error,
-            forced: self.support_step.is_some(),
+            forced: self.targets.support_step.is_some(),
         })
     }
 
@@ -173,7 +155,7 @@ impl incremental::IncrementalProblem for Corotational2D<'_> {
             std::mem::take(&mut self.trip_vals),
         );
         let mut r_f = r_f;
-        if let Some(ref du_r) = self.support_step {
+        if let Some(ref du_r) = self.targets.support_step {
             let mut known = vec![0.0; n];
             known[nf..].copy_from_slice(du_r);
             if let Some(ref cs) = *cs {
@@ -274,7 +256,8 @@ impl incremental::IncrementalProblem for Corotational2D<'_> {
         let delta_u_f = if let Some(ref cs) = *cs {
             cs.expand_solution(
                 &delta_u_indep,
-                self.support_step
+                self.targets
+                    .support_step
                     .as_deref()
                     .map_or(MasterMotion::Homogeneous, MasterMotion::Prescribed),
             )
@@ -290,9 +273,7 @@ impl incremental::IncrementalProblem for Corotational2D<'_> {
         for i in 0..nf {
             self.u_full[i] += delta_u_f[i];
         }
-        if self.support_step.take().is_some() {
-            self.u_full[nf..].copy_from_slice(&self.active_supports);
-        }
+        self.targets.apply_supports(&mut self.u_full[nf..]);
     }
 
     fn state(&self) -> Vec<f64> {
@@ -452,9 +433,7 @@ fn corotational_2d(
         u_full,
         sparse_sym_cache: None,
         conditioning: None,
-        f_ext: Vec::new(),
-        active_supports: Vec::new(),
-        support_step: None,
+        targets: IncrementTargets2D::default(),
         cached_factor: None,
         r_f: Vec::new(),
         unbalance: Vec::new(),
@@ -481,18 +460,9 @@ fn corotational_2d(
 
     let max_displacement = compute_max_displacement(&dof_num, &u_full);
 
-    let scaled;
-    let at_state = if converged_factor == 1.0 {
-        input
-    } else {
-        scaled = match start {
-            Some(start) => blended_loads_2d(start.input, input, converged_factor),
-            None => scaled_loads_2d(input, converged_factor),
-        };
-        &scaled
-    };
+    let at_state = increment_result_model(input, start, converged_factor);
     let mut results = build_final_results(
-        at_state,
+        at_state.as_ref(),
         &dof_num,
         &u_full,
         &cs,

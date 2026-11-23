@@ -1,16 +1,21 @@
 use super::*;
-use crate::solver::experimental_nonlinear::{
-    path_following::{
-        solve_by_arc_length, solve_by_displacement_control, ArcLengthControl, ArcLengthProblem,
-        DisplacementControl, PathProblem,
-    },
-    PlaneInputs,
+use crate::solver::corotational::PlaneInputs;
+use crate::solver::path_following::{
+    solve_by_arc_length, solve_by_displacement_control, ArcLengthControl, ArcLengthProblem,
+    DisplacementControl, PathProblem,
 };
 
+/// Solve using Crisfield spherical arc-length method.
 pub fn solve_arc_length(input: &ArcLengthInput) -> Result<ArcLengthResult, String> {
     solve_arc_length_from(input, None)
 }
 
+/// Arc-length analysis that continues from `start` instead of the undeformed
+/// state. The start model's loads stay applied and its supports stay where the
+/// start state left them; the loads and prescribed support displacements of
+/// `input` are the pattern the load factor scales, so equilibrium is
+/// f_int(u) = f_start + λ·f_ref with each restrained DOF at u_start + λ·u_prescribed.
+/// Prescribed rotations alone (no loads) are a valid pattern.
 pub fn solve_arc_length_from(
     input: &ArcLengthInput,
     start: Option<&crate::solver::corotational::CorotationalStart2D>,
@@ -40,14 +45,14 @@ struct ArcLength2D<'a> {
     ns: usize,
     moves_supports: bool,
     load_weight: f64,
-    f_ref: &'a Vec<f64>,
-    f_ref_full: &'a Vec<f64>,
-    f_start: &'a Vec<f64>,
-    f_start_full: &'a Vec<f64>,
-    u_r_start: &'a Vec<f64>,
-    du_support: &'a Vec<f64>,
-    support_direction: &'a Vec<f64>,
-    start_internal: &'a Vec<f64>,
+    f_ref: &'a [f64],
+    f_ref_full: &'a [f64],
+    f_start: &'a [f64],
+    f_start_full: &'a [f64],
+    u_r_start: &'a [f64],
+    du_support: &'a [f64],
+    support_direction: &'a [f64],
+    start_internal: &'a [f64],
     u_full: Vec<f64>,
     sparse_sym_cache: Option<SparseSymbolicCache>,
     asm_t: Option<TangentAssembly>,
@@ -59,7 +64,7 @@ impl ArcLength2D<'_> {
     fn reference(&self, asm_t: &TangentAssembly) -> Vec<f64> {
         let (n, nf) = (self.dof_num.n_total, self.dof_num.n_free);
         let support_direction = self.support_direction;
-        let mut g = self.f_ref.clone();
+        let mut g = self.f_ref.to_vec();
         if self.moves_supports {
             if self.sparse {
                 for ((&i, &j), &v) in asm_t
@@ -86,11 +91,11 @@ impl ArcLength2D<'_> {
         g
     }
 
-    fn reduce(&self, v: &Vec<f64>) -> Vec<f64> {
+    fn reduce(&self, v: &[f64]) -> Vec<f64> {
         if let Some(ref cs) = *self.cs {
             cs.reduce_vector(v)
         } else {
-            v.clone()
+            v.to_vec()
         }
     }
 }
@@ -156,7 +161,7 @@ impl PathProblem for ArcLength2D<'_> {
         let residual_s = if let Some(ref cs) = *self.cs {
             cs.reduce_vector(&residual)
         } else {
-            residual.clone()
+            residual
         };
         let tangent = factor_assembled(&asm_t, n, nf, ns, self.cs, &mut self.sparse_sym_cache)?;
         let du_r_s = solve_with_tangent(&tangent, &residual_s, ns)?;
@@ -219,7 +224,13 @@ impl ArcLengthProblem for ArcLength2D<'_> {
     fn restore(&mut self, free_displacements: &[f64], load_factor: f64) {
         let nf = self.dof_num.n_free;
         self.u_full[..nf].copy_from_slice(free_displacements);
-        set_supports(&mut self.u_full, nf, self.u_r_start, self.du_support, load_factor);
+        set_supports(
+            &mut self.u_full,
+            nf,
+            self.u_r_start,
+            self.du_support,
+            load_factor,
+        );
     }
 
     fn reference_response(&mut self) -> Result<Vec<f64>, String> {
@@ -300,13 +311,7 @@ fn solve_arc_length_contained(
         &[],
     )?;
     let start_internal = if start.is_some() {
-        crate::solver::corotational::continuation_internal_2d(
-            solver,
-            &dof_num,
-            &u_full,
-            &its,
-            &art,
-        )
+        crate::solver::corotational::continuation_internal_2d(solver, &dof_num, &u_full, &its, &art)
     } else {
         vec![0.0; n]
     };
@@ -320,7 +325,7 @@ fn solve_arc_length_contained(
         vec_norm(&du_support)
     };
     let mut problem = ArcLength2D {
-        solver: solver,
+        solver,
         dof_num: &dof_num,
         cs: &cs,
         art: &art,
@@ -370,15 +375,18 @@ fn solve_arc_length_contained(
     let results =
         crate::solver::corotational::build_final_results(&at_state, &dof_num, &u_full, &cs, &its)?;
 
+    let accepted_iterations = steps.iter().map(|step| step.iterations).sum::<usize>();
     Ok(ArcLengthResult {
         results,
         steps,
         final_load_factor: lambda,
         converged: overall_converged,
         total_iterations: total_iters,
+        rejected_iterations: NonZeroUsize::new(total_iters - accepted_iterations),
     })
 }
 
+/// Solve using displacement control method.
 pub fn solve_displacement_control(
     input: &DisplacementControlInput,
 ) -> Result<DisplacementControlResult, String> {
@@ -400,9 +408,9 @@ struct DisplacementControl2D<'a> {
     sparse: bool,
     ns: usize,
     ctrl: usize,
-    f_ref: &'a Vec<f64>,
-    f_ref_full: &'a Vec<f64>,
-    f_ref_s: &'a Vec<f64>,
+    f_ref: &'a [f64],
+    f_ref_full: &'a [f64],
+    f_ref_s: &'a [f64],
     u_full: Vec<f64>,
     sparse_sym_cache: Option<SparseSymbolicCache>,
     asm_t: Option<TangentAssembly>,
@@ -503,8 +511,8 @@ impl PathProblem for DisplacementControl2D<'_> {
 fn solve_displacement_control_contained(
     input: &DisplacementControlInput,
 ) -> Result<DisplacementControlResult, String> {
-    let plane = PlaneInputs::new(&input.solver, None);
-    let solver = plane.target.as_ref();
+    let canonical = crate::solver::member_loads::plane_input(&input.solver);
+    let solver = canonical.as_ref();
 
     crate::solver::linear::validate_input_2d(solver)?;
     crate::solver::feature_gates::refuse_2d(
@@ -516,10 +524,7 @@ fn solve_displacement_control_contained(
             crate::solver::feature_gates::Feature::ThermalLoads,
         ],
     )?;
-    crate::element::connector::refuse_for_corotational_2d(
-        solver,
-        "Displacement-control analysis",
-    )?;
+    crate::element::connector::refuse_for_corotational_2d(solver, "Displacement-control analysis")?;
 
     let dof_num = DofNumbering::build_2d(solver);
     if dof_num.n_free == 0 {
@@ -530,11 +535,8 @@ fn solve_displacement_control_contained(
     let nf = dof_num.n_free;
 
     let cs_dc = FreeConstraintSystem::build_2d(solver, &dof_num)?;
-    let metric = crate::solver::convergence::EquilibriumMetric::for_2d(
-        solver,
-        &dof_num,
-        cs_dc.as_ref(),
-    )?;
+    let metric =
+        crate::solver::convergence::EquilibriumMetric::for_2d(solver, &dof_num, cs_dc.as_ref())?;
     let ns_dc = cs_dc.as_ref().map_or(nf, |c| c.n_free_indep);
 
     let sparse = ns_dc >= SPARSE_THRESHOLD;
@@ -577,7 +579,7 @@ fn solve_displacement_control_contained(
     }
 
     let mut problem = DisplacementControl2D {
-        solver: solver,
+        solver,
         dof_num: &dof_num,
         cs: &cs_dc,
         art: &art,
@@ -623,7 +625,7 @@ fn solve_displacement_control_contained(
     })
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "experimental-nonlinear"))]
 mod shared_driver_equivalence {
     use super::*;
     use std::collections::HashMap;
@@ -667,7 +669,11 @@ mod shared_driver_equivalence {
         assert_eq!(format!("{actual:?}"), format!("{expected:?}"));
 
         let initial = crate::solver::experimental_nonlinear::solve_corotational_2d_by(
-            &canonical, None, 20, 1e-8, 2,
+            &canonical,
+            None,
+            20,
+            1e-8,
+            2,
             crate::solver::experimental_nonlinear::IterationMethod::Newton,
         )
         .unwrap();
@@ -702,7 +708,13 @@ mod shared_driver_equivalence {
         assert_eq!(format!("{actual:?}"), format!("{expected:?}"));
     }
 
-    fn two_bar_arc(rise: f64, e: f64, ds: f64, max_steps: usize, max_iter: usize) -> ArcLengthInput {
+    fn two_bar_arc(
+        rise: f64,
+        e: f64,
+        ds: f64,
+        max_steps: usize,
+        max_iter: usize,
+    ) -> ArcLengthInput {
         let mut solver: SolverInput = serde_json::from_str(include_str!(
             "../../../../scripts/tests/fixtures/experimental-nonlinear-two-bar.json"
         ))
@@ -724,7 +736,10 @@ mod shared_driver_equivalence {
         for step in &result.steps {
             let radius = (step.control_displacement - previous_displacement)
                 .hypot(step.load_factor - previous_load);
-            assert!((radius / input.initial_ds - 1.0).abs() <= input.tolerance, "{radius}");
+            assert!(
+                (radius / input.initial_ds - 1.0).abs() <= input.tolerance,
+                "{radius}"
+            );
             previous_displacement = step.control_displacement;
             previous_load = step.load_factor;
         }
@@ -740,7 +755,11 @@ mod shared_driver_equivalence {
         let mut unloaded = fold.solver.clone();
         unloaded.loads.clear();
         let initial = crate::solver::corotational::solve_corotational_2d(
-            &unloaded, 20, fold.tolerance, 1, false,
+            &unloaded,
+            20,
+            fold.tolerance,
+            1,
+            false,
         )
         .unwrap();
         assert!(initial.converged);
@@ -748,14 +767,18 @@ mod shared_driver_equivalence {
             input: &unloaded,
             displacements: &initial.results.displacements,
         };
-        for result in [solve_arc_length(&fold), solve_arc_length_from(&fold, Some(&start))] {
+        for result in [
+            solve_arc_length(&fold),
+            solve_arc_length_from(&fold, Some(&start)),
+        ] {
             let result = result.unwrap();
             assert!(result.converged);
             assert_eq!(result.steps.len(), fold.max_steps);
             for (i, pair) in result.steps.windows(2).enumerate() {
                 assert!(
                     pair[1].control_displacement < pair[0].control_displacement,
-                    "path reversed at step {}", i + 2,
+                    "path reversed at step {}",
+                    i + 2,
                 );
             }
             let descent = &result.steps[result.steps.len() - 2..];
@@ -770,7 +793,10 @@ mod shared_driver_equivalence {
         assert!(!result.converged);
         let last = result.steps.last().unwrap();
         assert_eq!(result.final_load_factor, last.load_factor);
-        assert_eq!(result.results.displacements[1].uz, last.control_displacement);
+        assert_eq!(
+            result.results.displacements[1].uz,
+            last.control_displacement
+        );
     }
 
     fn frame(n: usize, rise: f64, far_support: Option<&str>) -> SolverInput {
@@ -900,7 +926,8 @@ mod shared_driver_equivalence {
             Err(error) => {
                 assert_eq!(
                     error,
-                    super::super::solve_arc_length_contained(input, start).unwrap_err(),
+                    crate::solver::experimental_nonlinear::solve_arc_length_from(input, start)
+                        .unwrap_err(),
                 );
                 return None;
             }
@@ -923,7 +950,10 @@ mod shared_driver_equivalence {
         let weight = if loads[..nf].iter().any(|&load| load != 0.0) {
             vec_norm(&loads[..nf])
         } else {
-            vec_norm(&crate::solver::linear::prescribed_displacements_2d(&input.solver, &dofs))
+            vec_norm(&crate::solver::linear::prescribed_displacements_2d(
+                &input.solver,
+                &dofs,
+            ))
         };
         let mut before = start.map_or_else(|| vec![0.0; nf], |start| free_at(start.displacements));
         let mut load = 0.0;
@@ -1059,8 +1089,8 @@ mod shared_driver_equivalence {
     }
 
     fn same_driven(input: &DisplacementControlInput) -> Option<DisplacementControlResult> {
-        let before = super::super::solve_displacement_control_contained(input);
-        let now = solve_displacement_control_contained(input);
+        let before = crate::solver::experimental_nonlinear::solve_displacement_control(input);
+        let now = solve_displacement_control(input);
         match (before, now) {
             (Ok(before), Ok(now)) => {
                 assert_eq!(format!("{before:?}"), format!("{now:?}"));

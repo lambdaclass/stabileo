@@ -35,6 +35,7 @@ pub mod soil_curves;
 pub mod ssi;
 pub mod constraints;
 pub mod arc_length;
+mod path_following;
 pub mod fiber_nonlinear;
 pub mod imperfections;
 pub mod creep_shrinkage;

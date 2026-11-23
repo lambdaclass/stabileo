@@ -13,7 +13,7 @@ self.onmessage = async (event: MessageEvent<RunMessage>) => {
     for (let k = 1; k <= full.steps.length; k++) {
       const prefix = solveArcLength({ ...input, maxSteps: k }) as RawResult;
       const expected = full.steps[k - 1];
-      const byNode = validatePrefix(full, prefix, k, nodeIds);
+      const byNode = validatePrefix(full, prefix, k, nodeIds, input.maxSteps);
       const apex = byNode.get(apexNodeId);
       if (!apex) throw new Error(`Missing apex displacement at step ${k}`);
       const displacement = -apex.uz;

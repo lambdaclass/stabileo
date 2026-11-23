@@ -22,7 +22,7 @@ const root = fileURLToPath(new URL('../', import.meta.url));
 const base = JSON.parse(readFileSync(new URL('../config/pro-plates-off.json', import.meta.url))).base;
 const git = (...args) => execFileSync('git', args, { cwd: root, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
 
-test('disabled source profile is byte-identical to main for every changed app module and production engine input', () => {
+test('disabled source profile is byte-identical to main for every changed app module and the engine is identical', () => {
   const off = readProPlatesProfile(false);
   const on = readProPlatesProfile(true);
   const paths = git('diff', '--name-status', '--no-renames', '-z', base, '--', 'src').split('\0');
@@ -33,24 +33,7 @@ test('disabled source profile is byte-identical to main for every changed app mo
     if (status === 'A') assert.equal(off.unavailable.has(path), true, path);
     else assert.equal(off.overrides.get(path), git('show', `${base}:${repoPath}`), path);
   }
-  const experimental = 'engine/src/solver/experimental_nonlinear/';
-  assert.equal(git('diff', '--name-only', base, '--', '../engine', `:(top,exclude)${experimental}`), '');
-
-  const cfg = '#[cfg(feature = "experimental-nonlinear")]';
-  const solverSource = (file) => readFileSync(resolve(root, '../engine/src/solver', file), 'utf8');
-  assert.ok(solverSource('mod.rs').includes(`${cfg}\npub mod experimental_nonlinear;`));
-  for (const [parent, file, name] of [
-    ['arc_length.rs', 'continuation', 'experimental_nonlinear_continuation'],
-    ['corotational.rs', 'corotational_2d', 'experimental_nonlinear_2d'],
-    ['corotational.rs', 'corotational_3d', 'experimental_nonlinear_3d'],
-  ]) {
-    const declaration = `#[path = "experimental_nonlinear/${file}.rs"]\npub(crate) mod ${name};`;
-    assert.ok(solverSource(parent).includes(`${cfg}\n${declaration}`), name);
-  }
-  const cargo = readFileSync(resolve(root, '../engine/Cargo.toml'), 'utf8');
-  const defaultFeatures = /^default\s*=\s*\[([^\]]*)\]/m.exec(cargo);
-  assert.ok(defaultFeatures);
-  assert.doesNotMatch(defaultFeatures[1], /"experimental-nonlinear"/);
+  assert.equal(git('diff', '--name-only', base, '--', '../engine'), '');
   assert.equal(on.overrides.size + on.unavailable.size, 0);
 });
 

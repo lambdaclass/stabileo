@@ -321,24 +321,7 @@ fn corotational_3d(
         ],
     )?;
     crate::element::connector::refuse_for_corotational_3d(input, "Corotational analysis")?;
-    let input = &crate::solver::linear::expand_curved_beams_3d(input);
-    let frame_sections: std::collections::HashSet<usize> = crate::ordered::values(&input.elements)
-        .filter(|e| e.elem_type == "frame")
-        .map(|e| e.section_id)
-        .collect();
-    if let Some(sec) = crate::ordered::values(&input.sections)
-        .filter(|s| frame_sections.contains(&s.id))
-        .find(|s| {
-            s.shear_center_y.is_some_and(|v| v != 0.0) || s.shear_center_z.is_some_and(|v| v != 0.0)
-        })
-    {
-        return Err(format!(
-            "Corotational 3D solver does not model a shear-centre offset (section {}): \
-             flexural-torsional coupling is not included. Use linear buckling or P-Delta.",
-            sec.id
-        ));
-    }
-
+    let input = &checked_corotational_frames_3d(input)?;
     let dof_num = DofNumbering::build_3d(input);
 
     if dof_num.n_free == 0 {

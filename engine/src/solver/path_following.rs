@@ -150,13 +150,13 @@ pub(crate) fn solve_by_arc_length<P: ArcLengthProblem + ?Sized>(
                 }
                 increment.load = trial_lambda - lambda;
                 let radius = metric.norm(&increment);
-                if problem.measure(trial_lambda) < control.tolerance {
-                    return Ok((radius.is_finite()
-                        && radius > 0.0
-                        && (radius - ds).abs() / ds < control.tolerance)
-                        .then_some((trial_lambda, increment, step_iters)));
+                if problem.measure(trial_lambda) < control.tolerance
+                    && radius.is_finite()
+                    && radius > 0.0
+                    && (radius - ds).abs() / ds < control.tolerance
+                {
+                    return Ok(Some((trial_lambda, increment, step_iters)));
                 }
-
                 let (residual_response, reference_response) = problem.responses()?;
                 let tangent = ArcIncrement {
                     displacement: reference_response,
