@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from "node:fs";
+import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { test } from 'node:test';
 
@@ -59,11 +59,7 @@ test('experimental WASM continuation agrees with production on the same input', 
   }
 });
 
-const issue2484 = (name, run) => test(name, {
-  skip: !process.env.REPRODUCE_2484 && 'known wrong result: #2484',
-}, run);
-
-issue2484('issue 2484 refuses a shear-centre offset on a curved-only section', () => {
+test('issue 2484 refuses a shear-centre offset on a curved-only section', () => {
   const solver = JSON.parse(readFileSync(new URL(
     '../../engine/tests/metamorphic_corpus/feature_matrix/3d-curved-beam-arch-with.json',
     import.meta.url,
@@ -94,7 +90,7 @@ for (const [method, settings] of [
   ['arc_length', { maxSteps: 2, initialDs: 0.003, minDs: 0.003, maxDs: 0.003 }],
   ['displacement_control', { nSteps: 2, controlNode: 2, controlDof: 0, targetDisplacement: 0.02 }],
 ]) {
-  issue2484(`issue 2484 ${method} recovers the canonical member load`, () => {
+  test(`issue 2484 ${method} recovers the canonical member load`, () => {
     const b = 6.000000000000001;
     const scale = b / 6;
     const run = (data) => {
@@ -126,7 +122,7 @@ function twoBarArc(rise, e, radius, maxSteps, maxIter) {
   };
 }
 
-issue2484('issue 2484 the two-bar arc records points on the requested sphere', () => {
+test('issue 2484 the two-bar arc stays on the sphere and follows the fold', () => {
   const run = (input) => JSON.parse(engine.solve_experimental_arc_length(JSON.stringify(input)));
   const input = twoBarArc(2, 0.01, 3, 2, 20);
   const result = run(input);
@@ -140,9 +136,22 @@ issue2484('issue 2484 the two-bar arc records points on the requested sphere', (
     load = step.loadFactor;
   }
   assert.equal(run(twoBarArc(2, 0.01, 1.5, 2, 20)).converged, true);
+
+  const fold = twoBarArc(1, 0.01, 0.25, 9, 20);
+  fold.solver.loads[0].data.fz = -0.1;
+  const path = run(fold);
+  assert.equal(path.converged, true);
+  assert.equal(path.steps.length, fold.maxSteps);
+  for (let i = 1; i < path.steps.length; i++) {
+    assert.ok(
+      path.steps[i].controlDisplacement < path.steps[i - 1].controlDisplacement,
+      `path reversed at step ${i + 1}`,
+    );
+  }
+  assert.ok(path.steps.at(-1).loadFactor < path.steps.at(-2).loadFactor);
 });
 
-issue2484('issue 2484 the final arc state matches its last accepted point', () => {
+test('issue 2484 the final arc state matches its last accepted point', () => {
   const input = twoBarArc(0.5, 0.001, 0.25, 5, 3);
   const result = JSON.parse(engine.solve_experimental_arc_length(JSON.stringify(input)));
   assert.equal(result.converged, false);

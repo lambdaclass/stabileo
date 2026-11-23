@@ -1,5 +1,20 @@
 use super::*;
-use crate::solver::experimental_nonlinear::incremental::{self, IterationMethod, LoadStepping};
+use crate::solver::experimental_nonlinear::{
+    incremental::{self, IterationMethod, LoadStepping},
+    PlaneInputs,
+};
+
+fn interpolate_increment(base: &[f64], target: &[f64], factor: f64) -> Vec<f64> {
+    match factor {
+        0.0 => base.to_vec(),
+        1.0 => target.to_vec(),
+        _ => base
+            .iter()
+            .zip(target)
+            .map(|(&base, &target)| base + factor * (target - base))
+            .collect(),
+    }
+}
 
 struct Corotational2D<'a> {
     input: &'a SolverInput,
@@ -32,28 +47,16 @@ struct Corotational2D<'a> {
 
 impl incremental::IncrementalProblem for Corotational2D<'_> {
     fn begin_increment(&mut self, load_factor: f64) {
-        let (n, nf) = (self.dof_num.n_total, self.dof_num.n_free);
-        let (f_base, f_total, u_r_base, u_r_target) =
-            (self.f_base, self.f_total, self.u_r_base, self.u_r_target);
-        self.f_ext = (0..n)
-            .map(|i| f_base[i] + load_factor * (f_total[i] - f_base[i]))
-            .collect();
-        self.active_supports = u_r_base
+        let nf = self.dof_num.n_free;
+        self.f_ext = interpolate_increment(self.f_base, self.f_total, load_factor);
+        self.active_supports = interpolate_increment(self.u_r_base, self.u_r_target, load_factor);
+        let support_step: Vec<f64> = self
+            .active_supports
             .iter()
-            .zip(u_r_target)
-            .map(|(base, target)| base + load_factor * (target - base))
+            .zip(&self.u_full[nf..])
+            .map(|(target, current)| target - current)
             .collect();
-        self.support_step = Some(
-            u_r_base
-                .iter()
-                .zip(u_r_target)
-                .enumerate()
-                .map(|(i, (base, target))| {
-                    base + load_factor * (target - base) - self.u_full[nf + i]
-                })
-                .collect::<Vec<f64>>(),
-        )
-        .filter(|du| du.iter().any(|&v| v != 0.0));
+        self.support_step = support_step.iter().any(|&v| v != 0.0).then_some(support_step);
         self.cached_factor = None;
     }
 
@@ -287,10 +290,8 @@ impl incremental::IncrementalProblem for Corotational2D<'_> {
         for i in 0..nf {
             self.u_full[i] += delta_u_f[i];
         }
-        if let Some(du_r) = self.support_step.take() {
-            for (r, du) in du_r.iter().enumerate() {
-                self.u_full[nf + r] += du;
-            }
+        if self.support_step.take().is_some() {
+            self.u_full[nf..].copy_from_slice(&self.active_supports);
         }
     }
 
@@ -368,8 +369,10 @@ fn corotational_2d(
     method: IterationMethod,
     stepping: LoadStepping,
 ) -> Result<CorotationalResult, String> {
-    let canonical_input = crate::solver::member_loads::plane_input(input);
-    let input = canonical_input.as_ref();
+    let plane = PlaneInputs::new(input, start);
+    let input = plane.target.as_ref();
+    let start = plane.start();
+    let start = start.as_ref();
 
     if n_increments == 0 {
         return Err("Number of load increments must be at least 1".into());
@@ -479,14 +482,14 @@ fn corotational_2d(
     let max_displacement = compute_max_displacement(&dof_num, &u_full);
 
     let scaled;
-    let at_state = if let Some(start) = start {
-        scaled = blended_loads_2d(start.input, input, converged_factor);
-        &scaled
-    } else if converged_factor < 1.0 {
-        scaled = scaled_loads_2d(input, converged_factor);
-        &scaled
-    } else {
+    let at_state = if converged_factor == 1.0 {
         input
+    } else {
+        scaled = match start {
+            Some(start) => blended_loads_2d(start.input, input, converged_factor),
+            None => scaled_loads_2d(input, converged_factor),
+        };
+        &scaled
     };
     let mut results = build_final_results(
         at_state,
@@ -536,9 +539,8 @@ mod shared_driver_equivalence {
     }
 
     #[test]
-    #[ignore = "known wrong result: #2484"]
     fn issue_2484_warm_start_reaches_the_exact_target_force() {
-        for (base, target) in [(2f64.powi(54), 1.0), (1.0, 1e-20)] {
+        for (base, target) in [(2f64.powi(54), 1.0), (1.0, 1e-20), (1.0, -1e-20), (1.0, 0.25), (1.0, 0.0)] {
             let first = axial_spring(base);
             let target_input = axial_spring(target);
             let initial = solve_corotational_2d_by(&first, None, 20, 1e-8, 1, IterationMethod::Newton)
@@ -567,7 +569,6 @@ mod shared_driver_equivalence {
     }
 
     #[test]
-    #[ignore = "known wrong result: #2484"]
     fn issue_2484_warm_start_assigns_the_exact_prescribed_position() {
         let mut first = frame(1, 0.0, Some("pinned"));
         first.loads.clear();

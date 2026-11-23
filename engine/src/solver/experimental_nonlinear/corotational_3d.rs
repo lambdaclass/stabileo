@@ -311,6 +311,17 @@ fn corotational_3d(
             Use the linear solver for models with plates, quads, or shells."
             .into());
     }
+    crate::solver::feature_gates::refuse_3d(
+        input,
+        "Corotational analysis",
+        &[
+            crate::solver::feature_gates::Feature::PrescribedDisplacements,
+            crate::solver::feature_gates::Feature::ThermalLoads,
+            crate::solver::feature_gates::Feature::Warping,
+        ],
+    )?;
+    crate::element::connector::refuse_for_corotational_3d(input, "Corotational analysis")?;
+    let input = &crate::solver::linear::expand_curved_beams_3d(input);
     let frame_sections: std::collections::HashSet<usize> = crate::ordered::values(&input.elements)
         .filter(|e| e.elem_type == "frame")
         .map(|e| e.section_id)
@@ -328,17 +339,6 @@ fn corotational_3d(
         ));
     }
 
-    crate::solver::feature_gates::refuse_3d(
-        input,
-        "Corotational analysis",
-        &[
-            crate::solver::feature_gates::Feature::PrescribedDisplacements,
-            crate::solver::feature_gates::Feature::ThermalLoads,
-            crate::solver::feature_gates::Feature::Warping,
-        ],
-    )?;
-    crate::element::connector::refuse_for_corotational_3d(input, "Corotational analysis")?;
-    let input = &crate::solver::linear::expand_curved_beams_3d(input);
     let dof_num = DofNumbering::build_3d(input);
 
     if dof_num.n_free == 0 {
@@ -461,7 +461,6 @@ mod shared_driver_equivalence_3d {
     use super::*;
 
     #[test]
-    #[ignore = "known wrong result: #2484"]
     fn issue_2484_curved_frame_sections_get_the_shear_centre_refusal() {
         let mut model: SolverInput3D = serde_json::from_str(include_str!(
             "../../../tests/metamorphic_corpus/feature_matrix/3d-curved-beam-arch-with.json"

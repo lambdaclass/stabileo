@@ -8,14 +8,19 @@ pub(crate) fn dot_product(a: &[f64], b: &[f64]) -> f64 {
 
 pub(crate) trait PathProblem {
     fn unknowns(&self) -> usize;
-    fn load_scale(&self) -> f64;
     fn linearize_at(&mut self, load_factor: f64);
     fn measure(&mut self, load_factor: f64) -> f64;
-    fn reference_response(&mut self) -> Result<Vec<f64>, String>;
     fn responses(&mut self) -> Result<(Vec<f64>, Vec<f64>), String>;
     fn advance(&mut self, step: &[f64]);
     fn unknown(&self, index: usize) -> f64;
     fn record(&mut self, step: usize, load_factor: f64, iterations: usize, converged: bool);
+}
+
+pub(crate) trait ArcLengthProblem: PathProblem {
+    fn load_weight(&self) -> f64;
+    fn free_displacements(&self) -> &[f64];
+    fn restore(&mut self, free_displacements: &[f64], load_factor: f64);
+    fn reference_response(&mut self) -> Result<Vec<f64>, String>;
 }
 
 pub(crate) struct ArcLengthControl {
@@ -36,120 +41,174 @@ pub(crate) struct PathOutcome {
     pub steps: usize,
 }
 
-pub(crate) fn solve_by_arc_length<P: PathProblem + ?Sized>(
+struct ArcIncrement {
+    displacement: Vec<f64>,
+    load: f64,
+}
+
+struct ArcMetric {
+    load_weight: f64,
+}
+
+impl ArcMetric {
+    fn dot(&self, a: &ArcIncrement, b: &ArcIncrement) -> f64 {
+        dot_product(&a.displacement, &b.displacement)
+            + (self.load_weight * a.load) * (self.load_weight * b.load)
+    }
+
+    fn norm(&self, increment: &ArcIncrement) -> f64 {
+        vec_norm(&increment.displacement).hypot(self.load_weight * increment.load)
+    }
+
+    fn correction(
+        &self,
+        increment: &ArcIncrement,
+        residual_response: &[f64],
+        tangent: &ArcIncrement,
+        radius: f64,
+    ) -> Option<f64> {
+        let offset = ArcIncrement {
+            displacement: increment
+                .displacement
+                .iter()
+                .zip(residual_response)
+                .map(|(u, correction)| u + correction)
+                .collect(),
+            load: increment.load,
+        };
+        let a = self.dot(tangent, tangent);
+        let half_b = self.dot(&offset, tangent);
+        let c = self.dot(&offset, &offset) - radius * radius;
+        let discriminant = half_b * half_b - a * c;
+        let direction = self.dot(increment, tangent);
+        if !discriminant.is_finite() || discriminant < 0.0 || !direction.is_finite() {
+            return None;
+        }
+        let root = discriminant.sqrt();
+        let signed_root = if direction < 0.0 { -root } else { root };
+        let correction = (signed_root - half_b) / a;
+        correction.is_finite().then_some(correction)
+    }
+}
+
+pub(crate) fn solve_by_arc_length<P: ArcLengthProblem + ?Sized>(
     problem: &mut P,
     control: &ArcLengthControl,
 ) -> Result<PathOutcome, String> {
-    let nf = problem.unknowns();
-    let psi2 = problem.load_scale();
-    let mut lambda = 0.0_f64;
+    let metric = ArcMetric {
+        load_weight: problem.load_weight(),
+    };
+    if !metric.load_weight.is_finite() || metric.load_weight <= 0.0 {
+        return Err("Arc-length analysis requires a finite positive load weight".into());
+    }
+
+    let mut lambda = 0.0;
     let mut ds = control.initial_ds;
     let mut total_iters = 0;
-    let mut overall_converged = true;
-
-    let mut prev_delta_u = vec![0.0; nf];
-    let mut prev_delta_lambda = 1.0_f64;
-
+    let mut direction = ArcIncrement {
+        displacement: vec![0.0; problem.unknowns()],
+        load: 1.0,
+    };
+    let mut checkpoint = problem.free_displacements().to_vec();
     let mut step = 0;
     while step < control.max_steps {
-        problem.linearize_at(lambda);
-        let du_hat = problem.reference_response()?;
-
-        let du_hat_norm = vec_norm(&du_hat);
-        let denom = du_hat_norm * du_hat_norm + psi2;
-        let mut delta_lambda = ds / denom.sqrt();
-
-        let dot = dot_product(&prev_delta_u, &du_hat) + prev_delta_lambda * delta_lambda * psi2;
-        if dot < 0.0 {
-            delta_lambda = -delta_lambda;
-        }
-
-        let mut delta_u: Vec<f64> = du_hat.iter().map(|&v| delta_lambda * v).collect();
-        problem.advance(&delta_u);
-        lambda += delta_lambda;
-
-        let mut step_converged = false;
-        let mut step_iters = 0;
-
-        for _iter in 0..control.max_iter {
-            step_iters += 1;
-            total_iters += 1;
-
+        let attempt = (|| {
             problem.linearize_at(lambda);
-            if problem.measure(lambda) < control.tolerance {
-                step_converged = true;
-                break;
+            let tangent = ArcIncrement {
+                displacement: problem.reference_response()?,
+                load: 1.0,
+            };
+            let projection = metric.dot(&direction, &tangent);
+            let predictor = ds / metric.norm(&tangent);
+            if !projection.is_finite() || !predictor.is_finite() || predictor <= 0.0 {
+                return Ok(None);
             }
-
-            let (du_r, du_t) = problem.responses()?;
-
-            let a_coeff = dot_product(&du_t, &du_t) + psi2;
-            let b_coeff = 2.0
-                * (dot_product(&delta_u, &du_t) + dot_product(&du_r, &du_t) + delta_lambda * psi2);
-            let c_coeff = dot_product(&delta_u, &delta_u)
-                + 2.0 * dot_product(&delta_u, &du_r)
-                + dot_product(&du_r, &du_r)
-                + delta_lambda * delta_lambda * psi2
-                - ds * ds;
-
-            let discriminant = b_coeff * b_coeff - 4.0 * a_coeff * c_coeff;
-            let d_lambda = if discriminant >= 0.0 {
-                let sqrt_d = discriminant.sqrt();
-                let root1 = (-b_coeff + sqrt_d) / (2.0 * a_coeff);
-                let root2 = (-b_coeff - sqrt_d) / (2.0 * a_coeff);
-
-                let du1: Vec<f64> = (0..nf).map(|i| du_r[i] + root1 * du_t[i]).collect();
-                let du2: Vec<f64> = (0..nf).map(|i| du_r[i] + root2 * du_t[i]).collect();
-                let work1 = dot_product(&delta_u, &du1);
-                let work2 = dot_product(&delta_u, &du2);
-
-                if work1 >= work2 {
-                    root1
-                } else {
-                    root2
-                }
+            let predictor = if projection < 0.0 {
+                -predictor
             } else {
-                -b_coeff / (2.0 * a_coeff)
+                predictor
+            };
+            let mut trial_lambda = lambda + predictor;
+            let mut correction: Vec<_> =
+                tangent.displacement.iter().map(|u| predictor * u).collect();
+            let mut increment = ArcIncrement {
+                displacement: vec![0.0; checkpoint.len()],
+                load: 0.0,
             };
 
-            let du: Vec<f64> = (0..nf).map(|i| du_r[i] + d_lambda * du_t[i]).collect();
-            problem.advance(&du);
-            for i in 0..nf {
-                delta_u[i] += du[i];
+            for step_iters in 1..=control.max_iter {
+                total_iters += 1;
+                problem.advance(&correction);
+                problem.linearize_at(trial_lambda);
+                for ((increment, trial), accepted) in increment
+                    .displacement
+                    .iter_mut()
+                    .zip(problem.free_displacements())
+                    .zip(&checkpoint)
+                {
+                    *increment = trial - accepted;
+                }
+                increment.load = trial_lambda - lambda;
+                let radius = metric.norm(&increment);
+                if problem.measure(trial_lambda) < control.tolerance {
+                    return Ok((radius.is_finite()
+                        && radius > 0.0
+                        && (radius - ds).abs() / ds < control.tolerance)
+                        .then_some((trial_lambda, increment, step_iters)));
+                }
+
+                let (residual_response, reference_response) = problem.responses()?;
+                let tangent = ArcIncrement {
+                    displacement: reference_response,
+                    load: 1.0,
+                };
+                let Some(load_correction) =
+                    metric.correction(&increment, &residual_response, &tangent, ds)
+                else {
+                    break;
+                };
+                correction = residual_response
+                    .iter()
+                    .zip(tangent.displacement)
+                    .map(|(residual, reference)| residual + load_correction * reference)
+                    .collect();
+                trial_lambda += load_correction;
             }
-            lambda += d_lambda;
-            delta_lambda += d_lambda;
-        }
+            Ok::<_, String>(None)
+        })();
 
-        if !step_converged {
-            let back: Vec<f64> = delta_u.iter().map(|d| -d).collect();
-            problem.advance(&back);
-            lambda -= delta_lambda;
-
-            ds *= 0.5;
-            if ds < control.min_ds {
-                overall_converged = false;
-                break;
+        match attempt {
+            Ok(Some((trial_lambda, increment, step_iters))) => {
+                lambda = trial_lambda;
+                step += 1;
+                problem.record(step, lambda, step_iters, true);
+                checkpoint.copy_from_slice(problem.free_displacements());
+                direction = increment;
+                if step_iters <= control.target_iter / 2 {
+                    ds = (ds * 2.0).min(control.max_ds);
+                } else if step_iters > control.target_iter.saturating_mul(2) {
+                    ds = (ds * 0.5).max(control.min_ds);
+                }
             }
-            continue;
-        }
-
-        step += 1;
-        problem.record(step, lambda, step_iters, true);
-
-        prev_delta_u = delta_u;
-        prev_delta_lambda = delta_lambda;
-
-        if step_iters <= control.target_iter / 2 {
-            ds = (ds * 2.0).min(control.max_ds);
-        } else if step_iters > control.target_iter * 2 {
-            ds = (ds * 0.5).max(control.min_ds);
+            other => {
+                problem.restore(&checkpoint, lambda);
+                other?;
+                let shorter = ds * 0.5;
+                if shorter < control.min_ds
+                    || shorter <= 0.0
+                    || shorter >= ds
+                    || !shorter.is_finite()
+                {
+                    break;
+                }
+                ds = shorter;
+            }
         }
     }
 
     Ok(PathOutcome {
         load_factor: lambda,
-        converged: overall_converged,
+        converged: step == control.max_steps,
         iterations: total_iters,
         steps: step,
     })
@@ -262,10 +321,6 @@ mod tests {
             1
         }
 
-        fn load_scale(&self) -> f64 {
-            1.0
-        }
-
         fn linearize_at(&mut self, load: f64) {
             self.load = load;
         }
@@ -276,11 +331,6 @@ mod tests {
                 return 1.0;
             }
             (load - self.scale * (self.force)(self.displacement / self.scale)).abs()
-        }
-
-        fn reference_response(&mut self) -> Result<Vec<f64>, String> {
-            self.checkpoints.push((self.displacement, self.load));
-            Ok(vec![1.0 / (self.tangent)(self.displacement / self.scale)])
         }
 
         fn responses(&mut self) -> Result<(Vec<f64>, Vec<f64>), String> {
@@ -306,8 +356,27 @@ mod tests {
         }
     }
 
+    impl ArcLengthProblem for Probe {
+        fn load_weight(&self) -> f64 {
+            1.0
+        }
+
+        fn free_displacements(&self) -> &[f64] {
+            std::slice::from_ref(&self.displacement)
+        }
+
+        fn restore(&mut self, displacements: &[f64], load: f64) {
+            self.displacement = displacements[0];
+            self.load = load;
+        }
+
+        fn reference_response(&mut self) -> Result<Vec<f64>, String> {
+            self.checkpoints.push((self.displacement, self.load));
+            Ok(vec![1.0 / (self.tangent)(self.displacement / self.scale)])
+        }
+    }
+
     #[test]
-    #[ignore = "known wrong result: #2484"]
     fn issue_2484_predictor_direction_does_not_depend_on_radius() {
         for scale in [1.0, 0.5, 0.25, 0.125] {
             let mut probe = Probe::new(
@@ -328,7 +397,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "known wrong result: #2484"]
     fn issue_2484_corrector_ranks_roots_using_the_load_component() {
         let mut probe = Probe::new(
             |u| u + 2.25 * u * u - 2.5 * u * u * u,
@@ -344,7 +412,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "known wrong result: #2484"]
     fn issue_2484_quartic_spring_only_records_equilibrium_on_the_sphere() {
         let ds = std::f64::consts::SQRT_2;
         for min_ds in [ds, ds / 2.0, ds / 4.0, ds / 8.0] {
@@ -373,7 +440,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "known wrong result: #2484"]
     fn issue_2484_failed_trial_restores_the_last_accepted_point_exactly() {
         let ds = std::f64::consts::SQRT_2;
         for min_ds in [ds, ds / 2.0] {
@@ -388,7 +454,10 @@ mod tests {
             assert!(!outcome.converged);
             assert_eq!(probe.accepted, [(1.0, 1.0)]);
             assert_eq!((probe.displacement, outcome.load_factor), probe.accepted[0]);
-            assert_eq!(&probe.checkpoints[1..], vec![(1.0, 1.0); if min_ds == ds { 1 } else { 2 }]);
+            assert_eq!(
+                &probe.checkpoints[1..],
+                vec![(1.0, 1.0); if min_ds == ds { 1 } else { 2 }]
+            );
         }
     }
 
@@ -427,22 +496,12 @@ mod tests {
         fn unknowns(&self) -> usize {
             1
         }
-        fn load_scale(&self) -> f64 {
-            1.0
-        }
         fn linearize_at(&mut self, load_factor: f64) {
             self.residual = load_factor - force(self.u);
             self.stiffness = 3.0 * self.u * self.u - 6.0 * self.u + 2.5;
         }
         fn measure(&mut self, _: f64) -> f64 {
             self.residual.abs()
-        }
-        fn reference_response(&mut self) -> Result<Vec<f64>, String> {
-            self.solves += 1;
-            if self.fail_at == Some(self.solves) {
-                return Err("the tangent cannot be factorized".into());
-            }
-            Ok(vec![1.0 / self.stiffness])
         }
         fn responses(&mut self) -> Result<(Vec<f64>, Vec<f64>), String> {
             self.solves += 1;
@@ -467,6 +526,28 @@ mod tests {
             if !converged {
                 self.unconverged += 1;
             }
+        }
+    }
+
+    impl ArcLengthProblem for Snap {
+        fn load_weight(&self) -> f64 {
+            1.0
+        }
+
+        fn free_displacements(&self) -> &[f64] {
+            std::slice::from_ref(&self.u)
+        }
+
+        fn restore(&mut self, displacements: &[f64], _: f64) {
+            self.u = displacements[0];
+        }
+
+        fn reference_response(&mut self) -> Result<Vec<f64>, String> {
+            self.solves += 1;
+            if self.fail_at == Some(self.solves) {
+                return Err("the tangent cannot be factorized".into());
+            }
+            Ok(vec![1.0 / self.stiffness])
         }
     }
 
@@ -717,17 +798,11 @@ mod tests {
             fn unknowns(&self) -> usize {
                 1
             }
-            fn load_scale(&self) -> f64 {
-                1.0
-            }
             fn linearize_at(&mut self, load_factor: f64) {
                 self.0.linearize_at(load_factor)
             }
             fn measure(&mut self, load_factor: f64) -> f64 {
                 self.0.measure(load_factor)
-            }
-            fn reference_response(&mut self) -> Result<Vec<f64>, String> {
-                Ok(vec![0.0])
             }
             fn responses(&mut self) -> Result<(Vec<f64>, Vec<f64>), String> {
                 Ok((vec![0.0], vec![0.0]))
