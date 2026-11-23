@@ -2,7 +2,6 @@ import { test, expect } from '@playwright/test';
 
 for (const activation of ['click', 'keyboard'] as const) {
   test(`@smoke Open the editor gives immediate feedback on ${activation}`, async ({ page }) => {
-    test.fixme(true, 'Known landing startup regression');
     await page.emulateMedia({ reducedMotion: 'reduce' });
     const ready = Promise.withResolvers<void>();
     const release = Promise.withResolvers<void>();
@@ -22,8 +21,9 @@ for (const activation of ['click', 'keyboard'] as const) {
       /\/assets\/(?:load-app-|App-)|\.wasm$/.test(entry.name),
     ))).toBe(false);
 
+    await page.evaluate(() => document.fonts.ready);
     if (activation === 'keyboard') await open.focus();
-    await expect.poll(() => open.evaluate((button) => {
+    await open.evaluate((button) => {
       const initial = button.getBoundingClientRect().toJSON();
       button.addEventListener('click', () => {
         requestAnimationFrame(() => {
@@ -34,8 +34,7 @@ for (const activation of ['click', 'keyboard'] as const) {
           });
         });
       }, { capture: true, once: true });
-      return initial.width > 0;
-    })).toBe(true);
+    });
 
     try {
       if (activation === 'click') await open.click();
@@ -58,3 +57,51 @@ for (const activation of ['click', 'keyboard'] as const) {
     await expect(member).toHaveClass(/\bactive\b/);
   });
 }
+
+test('@smoke editor prefetch waits for intent and Back cancels opening', async ({ page }) => {
+  const requested = Promise.withResolvers<string>();
+  const release = Promise.withResolvers<void>();
+  await page.route(/\/assets\/App-[^/]+\.js$/, async (route) => {
+    requested.resolve(route.request().url());
+    await release.promise;
+    await route.continue();
+  });
+
+  await page.goto('/en/');
+  const open = page.locator('#app .hero-ctas button');
+  await expect(open).toBeVisible();
+  const status = page.getByRole('status').filter({ hasText: 'Opening the editor…' });
+
+  try {
+    await open.hover();
+    await requested.promise;
+    await expect(page).toHaveURL(/\/en\/$/);
+    await expect(open).not.toHaveAttribute('aria-busy');
+    await expect(status).toHaveCount(0);
+
+    await open.click();
+    await expect(status).toBeVisible();
+    await page.goBack();
+    await expect(open).toBeVisible();
+    await expect(open).not.toHaveAttribute('aria-busy');
+  } finally {
+    release.resolve();
+  }
+
+  await page.evaluate(async url => { await import(url); }, await requested.promise);
+  await expect(page.getByTestId('ribbon')).toHaveCount(0);
+  await page.goForward();
+  await expect(page.getByTestId('ribbon')).toBeVisible();
+});
+
+test('@smoke an editor chunk failure offers a retry', async ({ page }) => {
+  await page.route(/\/assets\/App-[^/]+\.js$/, route => route.abort());
+  await page.goto('/en/');
+  await page.locator('#app .hero-ctas button').click();
+  await expect(page.getByRole('alert').filter({ hasText: 'This page could not be loaded.' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Try again', exact: true })).toBeVisible();
+
+  await page.unroute(/\/assets\/App-[^/]+\.js$/);
+  await page.getByRole('button', { name: 'Try again', exact: true }).click();
+  await expect(page.getByTestId('ribbon')).toBeVisible();
+});

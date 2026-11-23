@@ -1,8 +1,9 @@
 <script lang="ts">
   import { tPublic as t } from '../../lib/i18n/store.svelte';
-  import { REPO_URL, DOCS_HUB_URL, enterApp, SOCIAL_LINKS } from './landing-utils';
+  import { REPO_URL, DOCS_HUB_URL, SOCIAL_LINKS } from './landing-utils';
   import { SOCIAL_ICONS as ICONS } from '../../lib/contact/channels';
   import PublicLink from './PublicLink.svelte';
+  import OpenEditorButton from './OpenEditorButton.svelte';
   import BrandMark from './BrandMark.svelte';
   import { accounts, publicFeatureEnabled, PUBLIC_POLICY_AVAILABLE, tools } from '../../lib/features';
   import { onMount } from 'svelte';
@@ -42,7 +43,7 @@
           <div class="footer-group">
             <p class="footer-head" id="foot-{id}">{t(head)}</p>
             <ul aria-labelledby="foot-{id}">
-              {#if id === 'product'}<li><button onclick={() => enterApp()}>{t('landing.footLaunch')}</button></li>{/if}
+              {#if id === 'product'}<li><OpenEditorButton label="landing.footLaunch" /></li>{/if}
               {#each (PUBLIC_POLICY_AVAILABLE ? links.filter(([to]) => publicFeatureEnabled(to)) : links) as [to, key]}<li><PublicLink {to}>{key ? t(key) : 'CIRSOC'}</PublicLink></li>{/each}
               {#if id === 'project'}
                 <li><a href={DOCS_HUB_URL} target="_blank" rel="noreferrer">{t('landing.footDocs')}</a></li>
@@ -75,5 +76,5 @@
 </footer>
 
 <div class="mobile-sticky">
-  <button class="btn btn-primary" onclick={() => enterApp()}>{t('landing.navOpenEditor')}</button>
+  <OpenEditorButton class="btn btn-primary" label="landing.navOpenEditor" />
 </div>

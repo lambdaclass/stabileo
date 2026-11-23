@@ -313,6 +313,7 @@ const hu: Translations = {
   "landing.navLanguage": "Nyelv",
   "landing.navGithubRepo": "GitHub-tároló",
   "landing.navOpenEditor": "Szerkesztő megnyitása",
+  "landing.openingEditor": "A szerkesztő megnyitása…",
   "landing.navPricing": "Árak",
   "landing.navBlog": "Blog",
   "landing.navPaper": "Cikk",

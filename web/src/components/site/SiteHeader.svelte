@@ -3,7 +3,7 @@
   import { tPublic as t, publicI18n, PUBLIC_LOCALES } from '../../lib/i18n/store.svelte';
   import LocaleSelect from '../LocaleSelect.svelte';
   import { LOCALE_NAMES } from '../../lib/i18n/offered';
-  import { REPO_URL, enterApp, scrollToId, fetchGithubStars, switchPublicLocale, goPublic } from '../landing/landing-utils';
+  import { REPO_URL, scrollToId, fetchGithubStars, switchPublicLocale, goPublic } from '../landing/landing-utils';
   import { publicHref } from '../../lib/i18n/public-routes';
   import { SITE_NAV, currentNav } from './site-nav';
   import './site-header.css';
@@ -12,6 +12,7 @@
   const current = $derived(currentNav(path));
   import BrandMark from '../landing/BrandMark.svelte';
   import PublicLink from '../landing/PublicLink.svelte';
+  import OpenEditorButton from '../landing/OpenEditorButton.svelte';
 
   let stars = $state<number | null>(null);
   let open = $state(false);
@@ -68,7 +69,7 @@
           <PublicLink to={item.to} class="nav-link{current === item.id ? ' current' : ''}" data-nav={item.id} aria-current={current === item.id ? 'page' : undefined}>{t(item.key)}</PublicLink>
         {/if}
       {/each}
-      <button class="btn btn-primary nav-menu-cta" onclick={() => { open = false; enterApp(); }}>{t('landing.navOpenEditor')}</button>
+      <OpenEditorButton class="btn btn-primary nav-menu-cta" label="landing.navOpenEditor" />
     </div>
     {/if}
 
@@ -99,7 +100,7 @@
       {#if __PUBLIC_FEATURES__.accounts && actions}
         {@render actions()}
       {:else}
-      <button class="btn btn-primary btn-sm" onclick={() => enterApp()}>{t('landing.navOpenEditor')}</button>
+      <OpenEditorButton class="btn btn-primary btn-sm" label="landing.navOpenEditor" />
 
       <button
         class="nav-toggle"

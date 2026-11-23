@@ -1,7 +1,7 @@
 <script lang="ts">
   import { tPublic as t } from '../../lib/i18n/store.svelte';
   import { tools } from '../../lib/features';
-  import { enterApp } from './landing-utils';
+  import OpenEditorButton from './OpenEditorButton.svelte';
   import PublicLink from './PublicLink.svelte';
   import Eyebrow from './Eyebrow.svelte';
   import HeroFigures from './HeroFigures.svelte';
@@ -25,7 +25,7 @@
       <p class="lead">{t('landing.heroP')}</p>
 
       <div class="hero-ctas">
-        <button class="btn btn-primary btn-lg" onclick={() => enterApp()}>{t('landing.heroCtaPrimary')}</button>
+        <OpenEditorButton class="btn btn-primary btn-lg" label="landing.heroCtaPrimary" />
         <PublicLink to={tools() ? '/tools' : '/examples'} class="btn btn-ghost btn-lg">{t(tools() ? 'landing.navTools' : 'landing.navExamples')} →</PublicLink>
       </div>
 

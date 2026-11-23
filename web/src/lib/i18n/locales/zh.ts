@@ -658,6 +658,7 @@ const zh: Translations = {
   "landing.navLanguage": "语言",
   "landing.navGithubRepo": "GitHub 仓库",
   "landing.navOpenEditor": "打开编辑器",
+  "landing.openingEditor": "正在打开编辑器…",
   "landing.navPricing": "定价",
   "landing.navBlog": "博客",
   "landing.navPaper": "论文",
