@@ -16760,6 +16760,8 @@ const de: Translations = {
   "rcSheets.s.defl.proposal": "Mehr Bewehrung für die Durchbiegung",
   "rcSheets.status.noArrangement": "Keine Bewehrung möglich",
   "rcSheets.r3d.title": "Bewehrung in 3D",
+  "rcSheets.r3d.bars.one": "{n} Stab",
+  "rcSheets.r3d.bars.other": "{n} Stäbe",
   "rcSheets.r3d.show": "Stäbe in 3D zeigen",
   "rcSheets.r3d.hint": "Die Stäbe, die die Bewehrungstabellen vorschlagen, dort, wo ihre Zeichnungen sie zeigen, und so, wie die Biegeliste sie zählt. Solange sie angezeigt werden, ist das Modell ausgeblendet; der Beton kann als transparenter Umriss gezeigt werden.",
   "rcSheets.r3d.ghost": "Beton (transparent)",

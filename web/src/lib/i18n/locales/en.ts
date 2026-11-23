@@ -16922,6 +16922,8 @@ const en: Record<string, string> = {
   "rcSheets.s.defl.proposal": "More steel to meet the deflection",
   "rcSheets.status.noArrangement": "No reinforcement possible",
   "rcSheets.r3d.title": "Bars in 3D",
+  "rcSheets.r3d.bars.one": "{n} bar",
+  "rcSheets.r3d.bars.other": "{n} bars",
   "rcSheets.r3d.show": "See the bars in 3D",
   "rcSheets.r3d.hint": "The bars the sheets propose, where their drawings place them and as the bending schedule counts them. While they are shown the model is hidden; the concrete can be shown as a ghost.",
   "rcSheets.r3d.ghost": "Concrete (ghost)",

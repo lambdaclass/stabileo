@@ -363,7 +363,7 @@
     },
     "src/components/SolveProgressCard.svelte": null,
     "src/components/Viewport3D.svelte": {
-      "source": "7c9f54a75ba5e104e60249d45549ff02ec5eed21a76eb4fb468173969724c6de",
+      "source": "0012fe824755e86817b1d01e61c217324701b7e488f23ac506ad2e8c9442fafa",
       "original": "b028c491dd62e39094084fc590add218b3c158013c71b8792cab1e32a94a0084",
       "changes": [
         [
@@ -378,28 +378,29 @@
         ],
         [
           990,
-          1,
-          []
+          10,
+          [
+            "      renderer.render(scene, camera);",
+            "      splitView?.render();",
+            "      drawFreeBody3D();",
+            "      if (timelapseInfo && timelapseFrame) composeTimelapse(timelapseInfo);",
+            "      else renderInset();"
+          ]
         ],
         [
-          996,
-          1,
-          []
-        ],
-        [
-          1407,
+          1410,
           1,
           [
             "    const on = resultsStore.diagramType === 'despiece' && !!resultsStore.results3D && !buildTimelapse.active;"
           ]
         ],
         [
-          1514,
+          1517,
           2,
           []
         ],
         [
-          1518,
+          1521,
           2,
           [
             "    void uiStore.platesShowMesh;",
@@ -407,14 +408,14 @@
           ]
         ],
         [
-          4338,
+          4341,
           1,
           [
             "  onmousedown={handleMouseDown}"
           ]
         ],
         [
-          4341,
+          4344,
           3,
           [
             "  onmouseup={handleMouseUp}",
@@ -423,14 +424,14 @@
           ]
         ],
         [
-          4345,
+          4348,
           2,
           [
             "  oncontextmenu={handleContextMenu3D}"
           ]
         ],
         [
-          4747,
+          4750,
           1,
           []
         ]
@@ -794,7 +795,7 @@
       ]
     },
     "src/components/pro/ProConcreteByLevel.svelte": {
-      "source": "8dd0364e66bb6e10aa54e4bb4deba9947ed9b918ba99ae2b1fd2087e13e99f0a",
+      "source": "205d0e3f3473fe168d4a14a4824d82b5350d32358b7384bb924b2362a14833ee",
       "original": "96ab44bd44c8972f650a6ae3a1e680809738d2fe3cff421db0495f3f18813ada",
       "changes": [
         [
@@ -832,13 +833,13 @@
         ],
         [
           22,
-          14,
+          18,
           [
             "  function assign() { if (ckind !== 'footing') assigned = assignConcrete(ckind, cmat, clevel || undefined); }"
           ]
         ],
         [
-          42,
+          46,
           2,
           [
             "    <div class=\"cl-row\">",
@@ -847,7 +848,7 @@
           ]
         ],
         [
-          47,
+          51,
           23,
           [
             "      <select bind:value={cmat} aria-label={t('building.material')}>{#each concretes as m (m.id)}<option value={m.id}>{m.name}</option>{/each}</select>",
@@ -857,7 +858,7 @@
           ]
         ],
         [
-          75,
+          79,
           5,
           [
             "  .cl-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-size: 0.7rem; margin: 4px 0; }",
@@ -926,7 +927,7 @@
       ]
     },
     "src/components/pro/ProDesignDataPanel.svelte": {
-      "source": "a5b3b866cd1ddf17a376a9e66634d8c7ac717112c3dc82ae5489ee6402b929a1",
+      "source": "3f9c90f0270d80a6d6b79dae2db0c64f9463a58dff2adaeb1f5b58f1d0282a8c",
       "original": "a202d9a7d39711e8c5229dd98ffdfe747d440446bcb6ddf6fa664cb217226bc4",
       "changes": [
         [
@@ -5497,7 +5498,7 @@
       ]
     },
     "src/lib/i18n/locales/de.ts": {
-      "source": "f597565f9a0214bae8eb09a9cdf6bebae4054a113bcbe78a376ef315e0e7090a",
+      "source": "a302c031d4b26cbf55bea84482b9c168bc26488018269e3367019b37b2cfcf68",
       "original": "0b1cffc73c321c88dd80b93e39f81e925705babc0f2e91df63e10c19111fe052",
       "changes": [
         [
@@ -5818,13 +5819,13 @@
         ],
         [
           16162,
-          700,
+          702,
           []
         ]
       ]
     },
     "src/lib/i18n/locales/en.ts": {
-      "source": "399b280c9e99e1addea3e9c49457884111ec1c4fc092852ee73d90c6d858d360",
+      "source": "5cf72e5e830bcd92db585c81a7d1e2aec4bb1ef6010d7b7c3895e5490d0fadc0",
       "original": "99343e2eeb7cf4140cbbcb69424c37461d3ec4e5c925d64439f6b56ee0e9e6b3",
       "changes": [
         [
@@ -6117,13 +6118,13 @@
         ],
         [
           16324,
-          700,
+          702,
           []
         ]
       ]
     },
     "src/lib/i18n/locales/es.ts": {
-      "source": "37f8dc5fc8b3f29571e7d72c16defce2c99a8913c82505a2312bc475504fbb77",
+      "source": "211c842519726ad70167c1e885cd9da35e539007092f228c51e3be99ae51c1d9",
       "original": "df939d2beed0420d6833617b3561c95098e34704ee1a3b4f15f21dda24fa4e09",
       "changes": [
         [
@@ -6416,13 +6417,13 @@
         ],
         [
           16313,
-          700,
+          702,
           []
         ]
       ]
     },
     "src/lib/i18n/locales/fr.ts": {
-      "source": "7a9579752c6bd7ee07b4e6b898bb2f78ca915b2e2741e2ca5ef0b5fa31ea0055",
+      "source": "1591651e7c5cfdb9dcf67d5ad43504e6b7857603c841caf3b99631811f8ec6c1",
       "original": "26693801514fc282fbb8a5a4ad627431cbfce3c6e3f0720639c8cb5cef4e4b20",
       "changes": [
         [
@@ -6743,7 +6744,7 @@
         ],
         [
           16162,
-          700,
+          702,
           []
         ]
       ]
@@ -6769,7 +6770,7 @@
       ]
     },
     "src/lib/i18n/locales/hu.ts": {
-      "source": "ddae13873b7183838291cd26a36df705257a99bccb85f65453fea2d5f7ac0acb",
+      "source": "de5eb7b092c674018ab161885e02e63eab259f5f9a69f58042599661f37fb7e5",
       "original": "050bb2fb50b6d61761b6836086403490f8b3deedc1ac4af88de298aa3fd3966e",
       "changes": [
         [
@@ -7019,7 +7020,7 @@
         ],
         [
           14765,
-          1810,
+          1812,
           [
             "  \"edu.game.hint\": \"Játék: egy szerkezet, három ábra, és csak az egyik helyes.\"",
             ""
@@ -7108,7 +7109,7 @@
       ]
     },
     "src/lib/i18n/locales/pt.ts": {
-      "source": "340ff7809e3574674805d12df46d922b032e7310b6f1319ee1ed75ec5e150d62",
+      "source": "192f68be664b4616470e43551c0a9cfa928aa479291d02a99dbd0a7050042918",
       "original": "f013a27bd1465964fefdc7d531a470bc4855e8593daa03ed54ed7453509bdd37",
       "changes": [
         [
@@ -7401,7 +7402,7 @@
         ],
         [
           15966,
-          700,
+          702,
           []
         ]
       ]
@@ -7704,7 +7705,7 @@
       ]
     },
     "src/lib/i18n/locales/tr.ts": {
-      "source": "9ce106c19301804ee6e06c8e67c6fbcaae81a229b478cabce631ab37709f545d",
+      "source": "0aaf33efc641ab3d6b7adbbc8fce0d98db55135edcf1dd41a3e56edf166d3415",
       "original": "dfae3be5cd45792b6b2c9720f3433a60bace6b76a70d785cd4f6cc88d7ef096f",
       "changes": [
         [
@@ -8004,13 +8005,13 @@
         ],
         [
           16162,
-          700,
+          702,
           []
         ]
       ]
     },
     "src/lib/i18n/locales/zh.ts": {
-      "source": "1b30aa3f2bbad8e4d8f87d77096150d111f7ba81d670ebab84a22a5635347f68",
+      "source": "c16fbcf4f51f363977a23173dd6a7cb079d9d975a42626a9c54236338b7a2934",
       "original": "187ecdf53aa596a80d7c584c8c8fc84768c7dd6c4d6540750c3a9cdcf2caee26",
       "changes": [
         [
@@ -8244,7 +8245,7 @@
         ],
         [
           14787,
-          1812,
+          1814,
           []
         ]
       ]

@@ -162,7 +162,7 @@
           <g class="v" data-testid="rc-wall-plan-vertical">{#each d.verticals as b, i (i)}<circle cx={X(v, b.x)} cy={Y(v, b.y)} r={R(v, b.dia)} class:bnd={b.boundary} />{/each}</g>
         {/if}
       </g>
-      {#each d.columns as c (c.key)}
+      {#each d.columns.filter((c) => { const xs = c.outline.map((p) => X(v, p.x)); return Math.max(...xs) >= PAD2 && Math.min(...xs) <= W(v) - PAD2; }) as c (c.key)}
         {@const xs = c.outline.map((p) => X(v, p.x))}
         {@const cx = Math.min(Math.max((Math.min(...xs) + Math.max(...xs)) / 2, PAD2 + 30), W(v) - PAD2 - 30)}
         <text x={cx} y={Math.min(...c.outline.map((p) => Y(v, p.y))) - 4} class="dim tag" data-testid="rc-wall-plan-column-tag">{columnTag(c)}</text>

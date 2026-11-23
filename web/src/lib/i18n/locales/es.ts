@@ -16911,6 +16911,8 @@ const es: Record<string, string> = {
   "rcSheets.s.defl.proposal": "Más armadura para cumplir la flecha",
   "rcSheets.status.noArrangement": "Sin armado posible",
   "rcSheets.r3d.title": "Barras en 3D",
+  "rcSheets.r3d.bars.one": "{n} barra",
+  "rcSheets.r3d.bars.other": "{n} barras",
   "rcSheets.r3d.show": "Ver las barras en 3D",
   "rcSheets.r3d.hint": "Las barras que proponen las planillas, donde las dibujan y como las cuenta la planilla de doblado. Mientras se ven, el modelo queda oculto; el hormigón puede mostrarse como un fantasma.",
   "rcSheets.r3d.ghost": "Hormigón (fantasma)",

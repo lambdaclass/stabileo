@@ -35,7 +35,7 @@
 
   $effect(() => saveGhostPreference(rebarView.ghost));
 
-  onDestroy(() => { layer.clear(sceneHost.current); ghostLayer.clear(sceneHost.current); sceneHost.setSolo(false); });
+  onDestroy(() => { layer.clear(sceneHost.current); ghostLayer.clear(sceneHost.current); sceneHost.setSolo(false); rebarView.on = false; });
 </script>
 
 <div class="r3d" data-testid="rc-rebar-3d">

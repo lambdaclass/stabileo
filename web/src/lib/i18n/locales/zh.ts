@@ -16497,6 +16497,8 @@ const zh: Translations = {
   "rcSheets.s.defl.proposal": "为满足挠度要求增加钢筋",
   "rcSheets.status.noArrangement": "无法配筋",
   "rcSheets.r3d.title": "3D 钢筋",
+  "rcSheets.r3d.bars.one": "{n} 根钢筋",
+  "rcSheets.r3d.bars.other": "{n} 根钢筋",
   "rcSheets.r3d.show": "查看 3D 钢筋",
   "rcSheets.r3d.hint": "设计表提出的钢筋，按其图中位置绘制，并按钢筋下料表的计数方式统计。显示钢筋时模型被隐藏；混凝土可显示为半透明虚影。",
   "rcSheets.r3d.ghost": "混凝土（虚影）",

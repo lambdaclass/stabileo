@@ -16760,6 +16760,8 @@ const tr: Translations = {
   "rcSheets.s.defl.proposal": "Sehimi sağlamak için daha fazla donatı",
   "rcSheets.status.noArrangement": "Donatı mümkün değil",
   "rcSheets.r3d.title": "3B donatı",
+  "rcSheets.r3d.bars.one": "{n} çubuk",
+  "rcSheets.r3d.bars.other": "{n} çubuk",
   "rcSheets.r3d.show": "Donatıları 3B göster",
   "rcSheets.r3d.hint": "Donatı tablolarının önerdiği çubuklar, çizimlerinin yerleştirdiği yerde ve büküm listesinin saydığı gibi. Gösterildikleri sürece model gizlenir; beton saydam bir hayalet olarak gösterilebilir.",
   "rcSheets.r3d.ghost": "Beton (hayalet)",

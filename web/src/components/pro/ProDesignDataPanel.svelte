@@ -35,7 +35,7 @@
     { key: 'wallDiametersMm', id: 'wall', label: 'designData.wallBar', range: WALL_BAR_RANGE },
   ];
   const slabBaseSummary = $derived.by(() => {
-    const on = SLAB_FACES.flatMap((k) => { const v = d.slabBase?.[k]; return v ? [`${t(`slabEd.key.${k}`)} Ø${v.diameter} c/${v.spacing * 100}`] : []; });
+    const on = SLAB_FACES.flatMap((k) => { const v = d.slabBase?.[k]; return v ? [`${t(`slabEd.key.${k}`)} Ø${v.diameter} c/${Math.round(v.spacing * 1000) / 10}`] : []; });
     return on.length ? on.join(' · ') : t('designData.slabBaseNone');
   });
   const toggle = (key: ListKey, dia: number) => {

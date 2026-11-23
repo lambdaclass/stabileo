@@ -14,7 +14,7 @@
   import { modelStore } from '../../../lib/store';
   import { designData, patchDesignData } from '../../../lib/store/design-data';
   import { rcSheetsData, seismicAdvice, setAlternativeOptions, setColumnEndZones, setDeflectionSettings, setRcOption, setTorsionMode, sheetCode } from '../../../lib/store/rc-sheets.svelte';
-  import { DEFLECTION_SUPPORTS, LOAD_MONTHS, optionRule, type DeflectionSupport, type DesignOptionFlag, type DesignOptionKey, type LoadMonths } from '../../../lib/rc-sheets/design-options';
+  import { acceptedClassesAfter, DEFLECTION_SUPPORTS, LOAD_MONTHS, optionRule, type DeflectionSupport, type DesignOptionFlag, type DesignOptionKey, type LoadMonths } from '../../../lib/rc-sheets/design-options';
   import { DEFAULT_CREEP, DEFAULT_MONTHS, DEFAULT_SUPPORTS } from '../../../lib/rc-sheets/deflection';
   import { MIN_TIE_SPACING_RANGE } from '../../../lib/model/design-data';
   import { AGGREGATE_RANGE } from '../../../lib/rc-sheets/types';
@@ -53,9 +53,10 @@
   const classes = $derived(concreteClasses(code));
   const fcMax = $derived(alt.fcMax ?? DEFAULT_FC_MAX);
   const accepted = (fc: number) => !alt.fcClasses?.length || alt.fcClasses.some((x) => Math.abs(x - fc) < 0.05);
-  function toggleClass(fc: number, on: boolean) {
-    const now = classes.filter((k) => (Math.abs(k.fc - fc) < 0.05 ? on : accepted(k.fc))).map((k) => k.fc);
-    setAlternativeOptions({ fcClasses: now.length === classes.length ? null : now });
+  function toggleClass(fc: number, input: HTMLInputElement) {
+    const next = acceptedClassesAfter(classes.map((k) => k.fc), alt.fcClasses, fc, input.checked);
+    if (next.refused) { input.checked = true; return; }
+    setAlternativeOptions({ fcClasses: next.fcClasses });
   }
 </script>
 
@@ -189,7 +190,7 @@
       <span class="do-inline">{t('designData.alt.classes')}</span>
       <div class="do-classes">
         {#each classes as k (k.fc)}
-          <label class="do-cls"><input type="checkbox" checked={accepted(k.fc)} onchange={(e) => toggleClass(k.fc, e.currentTarget.checked)} data-testid="dd-alt-class" data-fc={k.fc} /> {k.name}</label>
+          <label class="do-cls"><input type="checkbox" checked={accepted(k.fc)} onchange={(e) => toggleClass(k.fc, e.currentTarget)} data-testid="dd-alt-class" data-fc={k.fc} /> {k.name}</label>
         {/each}
       </div>
     </div>

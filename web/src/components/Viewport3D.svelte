@@ -989,12 +989,15 @@
       nodesInstanced.setPixelRatio(renderer.getPixelRatio());
       if (toneDirty) { toneDirty = false; applyCategoryTones(); }
       const soloHidden = sceneHost.solo ? hideAllBut(scene) : null;
-      renderer.render(scene, camera);
-      splitView?.render();
-      drawFreeBody3D();
-      if (timelapseInfo && timelapseFrame) composeTimelapse(timelapseInfo);
-      else renderInset();
-      if (soloHidden) showAgain(soloHidden);
+      try {
+        renderer.render(scene, camera);
+        if (!soloHidden) splitView?.render();
+        drawFreeBody3D();
+        if (timelapseInfo && timelapseFrame) composeTimelapse(timelapseInfo);
+        else renderInset();
+      } finally {
+        if (soloHidden) showAgain(soloHidden);
+      }
       drawAxisGizmo();
       if (perfHud.on) {
         // GPU side: draw calls + triangles (renderer.info auto-resets per render,
@@ -1512,7 +1515,7 @@
     invalidate();
   });
 
-  $effect(() => { if (sceneHost.solo) untrack(handleMouseLeave); });
+  $effect(() => { if (sceneHost.solo) untrack(() => { handleMouseLeave(); uiStore.clearSelection(); }); });
 
   // Meshed plates as pieces or with their mesh: only the drawing changes.
   $effect(() => {

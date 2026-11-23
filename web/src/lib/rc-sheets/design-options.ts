@@ -33,6 +33,14 @@ export const DESIGN_OPTION_FLAGS: readonly DesignOptionFlag[] = ['faces', 'flang
  */
 export interface AlternativeOptions { raiseFc?: false; fcMax?: number; fcClasses?: number[] }
 
+/** The classes an alternative may take after one is ticked or unticked: null for all of them; unchanged (`refused`) where the last one would go. */
+export function acceptedClassesAfter(all: readonly number[], accepted: readonly number[] | undefined, fc: number, on: boolean): { refused: true } | { refused: false; fcClasses: number[] | null } {
+  const has = (x: number) => !accepted?.length || accepted.some((y) => Math.abs(y - x) < 0.05);
+  const now = all.filter((k) => (Math.abs(k - fc) < 0.05 ? on : has(k)));
+  if (!now.length) return { refused: true };
+  return { refused: false, fcClasses: now.length === all.length ? null : now };
+}
+
 /** Each flag on when true; torsion by equilibrium when absent; the deflection settings at their defaults when absent (`deflection.ts`); the Stabileo criteria the project states (`criteria.ts`). */
 export type DesignOptions = { torsion?: TorsionMode; deflection?: DeflectionSettings; alternatives?: AlternativeOptions; criteria?: CriteriaValues } & Partial<Record<DesignOptionFlag, true>>;
 

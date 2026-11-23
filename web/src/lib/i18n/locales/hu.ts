@@ -16485,6 +16485,8 @@ const hu: Translations = {
   "rcSheets.v.colNoLayout": "A megengedett átmérőkből egyik elrendezés sem fér el a keresztmetszetben a szükséges acélmennyiséggel",
   "rcSheets.status.noArrangement": "Nincs lehetséges vasalás",
   "rcSheets.r3d.title": "Vasalás 3D-ben",
+  "rcSheets.r3d.bars.one": "{n} rúd",
+  "rcSheets.r3d.bars.other": "{n} rúd",
   "rcSheets.r3d.show": "Vasak megjelenítése 3D-ben",
   "rcSheets.r3d.hint": "A vasalási táblázatok által javasolt betonacélok ott, ahol a rajzaik elhelyezik őket, és úgy, ahogy a hajlítási jegyzék számolja őket. Amíg láthatók, a modell rejtve van; a beton áttetsző szellemképként mutatható.",
   "rcSheets.r3d.ghost": "Beton (áttetsző)",

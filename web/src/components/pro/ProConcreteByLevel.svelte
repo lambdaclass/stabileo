@@ -21,16 +21,20 @@
   let chosen = $state<Record<string, number>>({});
   let assigned = $state<number | null>(null);
   let solving = $state(false);
-  const any = $derived(KINDS.some((k) => chosen[k]));
+  const any = $derived(KINDS.some((k) => chosen[k] !== undefined));
   function assign() {
     let n = 0;
-    modelStore.bulkMutate(() => { for (const k of KINDS) if (chosen[k]) n += assignConcrete(k, chosen[k]!, level || undefined); });
+    modelStore.bulkMutate(() => { for (const k of KINDS) if (chosen[k] !== undefined) n += assignConcrete(k, chosen[k]!, level || undefined); });
     assigned = n;
     chosen = {};
   }
   async function solve() {
     solving = true;
-    try { await runGlobalSolve(); assigned = null; }
+    try {
+      const outcome = await runGlobalSolve();
+      if (outcome.ok) assigned = null;
+      else uiStore.toast(errorText(outcome.error, String(outcome.error)), 'error');
+    }
     catch (err) { uiStore.toast(errorText(err, String(err)), 'error'); }
     finally { solving = false; }
   }
@@ -52,8 +56,8 @@
           <tr>
             <td>{t(`designData.kind.${k}`)}</td>
             <td>
-              <select value={chosen[k] ?? 0} onchange={(e) => (chosen = { ...chosen, [k]: Number(e.currentTarget.value) })} data-testid="design-data-concrete-{k}">
-                <option value={0}>{t('designData.concreteKeep')}</option>
+              <select value={chosen[k] ?? ''} onchange={(e) => { const v = e.currentTarget.value; const { [k]: _, ...rest } = chosen; chosen = v === '' ? rest : { ...rest, [k]: Number(v) }; }} data-testid="design-data-concrete-{k}">
+                <option value="">{t('designData.concreteKeep')}</option>
                 {#each concretes as m (m.id)}<option value={m.id}>{m.name}</option>{/each}
               </select>
             </td>

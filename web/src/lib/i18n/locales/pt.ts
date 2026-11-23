@@ -16564,6 +16564,8 @@ const pt: Translations = {
   "rcSheets.s.defl.proposal": "Mais armadura para cumprir a flecha",
   "rcSheets.status.noArrangement": "Sem armadura possível",
   "rcSheets.r3d.title": "Barras em 3D",
+  "rcSheets.r3d.bars.one": "{n} barra",
+  "rcSheets.r3d.bars.other": "{n} barras",
   "rcSheets.r3d.show": "Ver as barras em 3D",
   "rcSheets.r3d.hint": "As barras que as planilhas propõem, onde os desenhos as colocam e como a planilha de dobramento as conta. Enquanto elas aparecem, o modelo fica oculto; o concreto pode ser mostrado como um fantasma.",
   "rcSheets.r3d.ghost": "Concreto (fantasma)",

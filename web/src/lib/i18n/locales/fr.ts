@@ -16760,6 +16760,8 @@ const fr: Translations = {
   "rcSheets.s.defl.proposal": "Plus d'armatures pour respecter la flèche",
   "rcSheets.status.noArrangement": "Aucun ferraillage possible",
   "rcSheets.r3d.title": "Armatures en 3D",
+  "rcSheets.r3d.bars.one": "{n} barre",
+  "rcSheets.r3d.bars.other": "{n} barres",
   "rcSheets.r3d.show": "Voir les barres en 3D",
   "rcSheets.r3d.hint": "Les barres que proposent les feuilles de ferraillage, là où leurs dessins les placent et telles que la nomenclature de façonnage les compte. Tant qu'elles sont affichées, le modèle est masqué ; le béton peut être affiché en fantôme.",
   "rcSheets.r3d.ghost": "Béton (fantôme)",
