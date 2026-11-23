@@ -1,4 +1,5 @@
-import { scenarioSurfaceAdjustment } from '../engine/accounting-source';
+import { withScenarioSurfaceIntent } from '../engine/accounting-source';
+import { plainDeepCopy } from '../utils/plain-deep-copy';
 /**
  * "What if…?" — the session behind the Explore panel.
  *
@@ -96,12 +97,11 @@ function scaleLoads(): void {
     // What every scaling of a load scales: a shell's values per corner and its variation too (a
     // soil or a fluid on a wall is q = 0, all of it in the variation).
     const original = loads[i]!;
+    const intent = original.type === 'surface3d' && original.data.fromDef !== undefined
+      ? { baseline: plainDeepCopy(original.data), factor: f }
+      : undefined;
     const scaled = scaledLoad(original, f);
-    if (original.type === 'surface3d' && original.data.fromDef !== undefined && scaled.type === 'surface3d') {
-      const adjustment = scaledLoad(original, f - 1);
-      if (adjustment.type === 'surface3d') scaled.data[scenarioSurfaceAdjustment] = adjustment.data;
-    }
-    loads[i] = scaled;
+    loads[i] = intent && scaled.type === 'surface3d' ? withScenarioSurfaceIntent(scaled, intent) : scaled;
   }
 }
 

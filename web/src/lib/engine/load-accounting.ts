@@ -1,4 +1,4 @@
-import { accountingCaseSources, accountingProjection, accountingSource, scenarioSurfaceAdjustment } from './accounting-source';
+import { accountingCaseSources, accountingProjection, accountingSource, scenarioSurfaceIntentOf } from './accounting-source';
 import { tp } from '../i18n';
 import type { Load, PointLoadOnElement } from '../store/model.svelte';
 import type { FloorLoadDef } from '../model/loads/floor-definitions';
@@ -103,13 +103,16 @@ function enteredLoads(model: ModelData, loads: readonly Load[], frame: Frame, le
         if (frame === 'xy' && load.type !== 'thermal') unsupported(model, caseId, load.type, d.id);
         continue;
       case 'surface3d': {
-        const d = load.data;
-        const spec = d.fromDef !== undefined && definitions.has(d.fromDef) ? d[scenarioSurfaceAdjustment] : d;
-        if (!spec) continue;
-        const shell = (d.on === 'plate' ? model.plates : model.quads)?.get(d.quadId);
-        if (!shell || frame !== 'space' || !accountSurface(out, shell.nodes.map(at), spec)) {
-          unsupported(model, caseId, load.type, d.id);
+        const intent = scenarioSurfaceIntentOf(load);
+        const spec = intent?.baseline ?? load.data;
+        const coveredByDefinition = spec.fromDef !== undefined && definitions.has(spec.fromDef);
+        if (coveredByDefinition && !intent) continue;
+        const shell = (spec.on === 'plate' ? model.plates : model.quads)?.get(spec.quadId);
+        const surface = intent ? new Wrench() : out;
+        if (!shell || frame !== 'space' || !accountSurface(surface, shell.nodes.map(at), spec)) {
+          unsupported(model, caseId, load.type, spec.id);
         }
+        if (intent) out.addScaled(surface, intent.factor - (coveredByDefinition ? 1 : 0));
         continue;
       }
       case 'distributed':
