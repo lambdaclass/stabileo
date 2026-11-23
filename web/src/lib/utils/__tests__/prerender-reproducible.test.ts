@@ -4,6 +4,7 @@ import { promisify } from 'node:util';
 import { cpSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join, relative, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { sharedBuild, SHARED_PLAIN_BUILD } from './shared-build';
 
 const execFileAsync = promisify(execFile);
 const WEB_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..');
@@ -27,12 +28,23 @@ function difference(path: string): string {
   return `${path}: first difference at byte ${offset} (sizes ${a.length} and ${b.length})\n  concurrency 1: ${context(a)}\n  concurrency 4: ${context(b)}`;
 }
 
-async function prerender(out: string, concurrency: string, pages = PAGES) {
+async function prepareBuild(out: string) {
+  const shared = sharedBuild(SHARED_PLAIN_BUILD);
+  if (shared) {
+    cpSync(shared, out, { recursive: true });
+  } else {
+    await execFileAsync('npx', ['vite', 'build', '--outDir', relative(WEB_ROOT, out), '--emptyOutDir', '--logLevel', 'error'], {
+      cwd: WEB_ROOT, timeout: 300_000, maxBuffer: 32 * 1024 * 1024,
+    });
+  }
+}
+
+async function prerender(out: string, concurrency: string, paths = PAGES) {
   await execFileAsync('npx', ['tsx', 'scripts/prerender.ts'], {
     cwd: WEB_ROOT,
     timeout: 300_000,
     maxBuffer: 32 * 1024 * 1024,
-    env: { ...process.env, PRERENDER_OUT: out, PRERENDER_ONLY: pages.join(','), PRERENDER_GITHUB_STARS: '1234', PRERENDER_CONCURRENCY: concurrency },
+    env: { ...process.env, PRERENDER_OUT: out, PRERENDER_ONLY: paths.join(','), PRERENDER_GITHUB_STARS: '1234', PRERENDER_CONCURRENCY: concurrency },
   });
 }
 
@@ -40,9 +52,7 @@ describe('two prerenders of one build are byte-identical (#875)', () => {
   let entry: string;
 
   beforeAll(async () => {
-    await execFileAsync('npx', ['vite', 'build', '--outDir', relative(WEB_ROOT, FIRST), '--emptyOutDir', '--logLevel', 'error'], {
-      cwd: WEB_ROOT, timeout: 300_000, maxBuffer: 32 * 1024 * 1024,
-    });
+    await prepareBuild(FIRST);
     entry = readFileSync(join(FIRST, 'index.html'), 'utf8');
     cpSync(FIRST, SECOND, { recursive: true });
     await prerender(FIRST, '1');
@@ -115,3 +125,49 @@ describe('two prerenders of one build are byte-identical (#875)', () => {
     expect(readFileSync(join(FIRST, 'en/index.html'), 'utf8')).toMatch(/>1\.2k</);
   });
 });
+
+it('prerenders the Chinese slab tool after its delayed worker response', async () => {
+  const out = mkdtempSync(join(WEB_ROOT, '.dist-prerender-model-'));
+  try {
+    await prepareBuild(out);
+    const assets = join(out, 'assets');
+    const workers = readdirSync(assets).filter(name => /^run\.worker-.*\.js$/.test(name));
+    expect(workers.length).toBeGreaterThan(0);
+    for (const name of workers) {
+      const worker = join(assets, name);
+      const source = readFileSync(worker, 'utf8');
+      writeFileSync(worker, `const postModelResult = self.postMessage.bind(self);
+self.postMessage = (...args) => { setTimeout(() => postModelResult(...args), 3500); };
+${source}`);
+    }
+
+    await execFileAsync('npx', ['tsx', 'scripts/prerender.ts'], {
+      cwd: WEB_ROOT, timeout: 300_000, maxBuffer: 32 * 1024 * 1024,
+      env: { ...process.env, PRERENDER_OUT: out, PRERENDER_ONLY: '/tools/slab-on-columns', PRERENDER_GITHUB_STARS: 'none' },
+    });
+    const html = readFileSync(join(out, 'zh/tools/slab-on-columns/index.html'), 'utf8');
+    expect(html.includes('data-testid="readout-maxDeflection"'), 'the rendered slab result is missing').toBe(true);
+  } finally {
+    rmSync(out, { recursive: true });
+  }
+}, 600_000);
+
+it('Ferrari prerenders omit live WebGL diagnostics (#2483)', async () => {
+  const path = '/research/stability/ferrari-sigmund-2025';
+  const out = mkdtempSync(join(WEB_ROOT, '.dist-prerender-ferrari-'));
+  try {
+    await prepareBuild(out);
+    await prerender(out, '4', [path]);
+    for (const locale of ['es', 'en', 'pt', 'zh', 'hu']) {
+      const html = readFileSync(join(out, locale + path, 'index.html'), 'utf8');
+      const canvas = html.match(/<canvas data-engine="three\.js [^"]+"[^>]*>/)?.[0];
+      expect(canvas, locale).toBeDefined();
+      expect(canvas?.match(/\bdata-[\w-]+=/g), locale).toEqual(['data-engine=']);
+      expect(html).toContain('data-testid="ferrari-buckling"');
+      expect(html).toContain('data-testid="ferrari-reference"');
+      expect(html).toContain('<table><caption>');
+    }
+  } finally {
+    rmSync(out, { recursive: true, force: true });
+  }
+}, 600_000);

@@ -1000,3 +1000,7 @@ mod tests {
         }
     }
 }
+
+#[cfg(feature = "experimental-nonlinear")]
+#[path = "experimental_nonlinear/continuation.rs"]
+pub(crate) mod experimental_nonlinear_continuation;

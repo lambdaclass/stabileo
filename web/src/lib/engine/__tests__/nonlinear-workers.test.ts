@@ -128,7 +128,7 @@ it.each(['sequential', 'worker', 'fallback'] as const)('ignores factored empty c
 
   for (const factor of [NaN, Infinity, -Infinity]) {
     const rejected = await solve(model, cases, [withEmpty(factor)]);
-    expect(rejected).toContain(`Non-finite number (${factor}) at input[1].factor`);
+    expect(rejected).toContain(`Enter a finite number for input[1].factor (received ${factor}).`);
   }
 });
 
@@ -426,20 +426,20 @@ it.each([['cable', 'cable'], ['curves', 'ssi']] as const)('refuses non-finite %s
     const nativeSolve = vi.spyOn(native, kind === 'cable' ? 'solve_cable_3d' : 'solve_ssi_3d');
     for (const invalid of [NaN, Infinity, -Infinity]) {
       await expect(session.solve(withStiffness(invalid))).rejects.toThrow(
-        `Non-finite number (${invalid}) at input.solver.supports.${supportId}.kx`,
+        `Enter a finite number for input.solver.supports.${supportId}.kx (received ${invalid}).`,
       );
     }
     if (step.kind === 'cable') {
       const elementId = Object.keys(step.pretension)[0]!;
       const materialId = [...step.input.materials.keys()][0]!;
       await expect(session.solve({ ...step, densities: { [materialId]: Infinity } }))
-        .rejects.toThrow(`Non-finite number (Infinity) at input.densities.${materialId}`);
+        .rejects.toThrow(`Enter a finite number for input.densities.${materialId} (received Infinity).`);
       await expect(session.solve({ ...step, pretension: { ...step.pretension, [elementId]: NaN } }))
-        .rejects.toThrow(`Non-finite number (NaN) at input.pretension.${elementId}`);
+        .rejects.toThrow(`Enter a finite number for input.pretension.${elementId} (received NaN).`);
     } else {
       const soilSprings = [{ ...step.soilSprings[0] as object, tributaryLength: -Infinity }, ...step.soilSprings.slice(1)];
       await expect(session.solve({ ...step, soilSprings }))
-        .rejects.toThrow('Non-finite number (-Infinity) at input.soilSprings[0].tributaryLength');
+        .rejects.toThrow('Enter a finite number for input.soilSprings[0].tributaryLength (received -Infinity).');
     }
     expect(nativeSolve).not.toHaveBeenCalled();
     expect(output(await session.solve(step))).toBe(output(control));

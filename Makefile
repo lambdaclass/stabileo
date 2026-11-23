@@ -71,6 +71,8 @@ help:
 	@echo "Testing:"
 	@echo "  make test           - Engine, backend and web tests"
 	@echo "  make test.engine    - Rust engine tests"
+	@echo "  make test.engine.experimental-nonlinear - Feature-enabled nonlinear driver tests (FILTER=...)"
+	@echo "  make test.engine.experimental-nonlinear-wasm - Feature-enabled nonlinear WASM tests (FILTER=...)"
 	@echo "  make test.backend   - Elixir backend tests"
 	@echo "  make test.backend.file FILE=apps/... - One backend test file or dir"
 	@echo "  make test.web       - Web (Vitest) tests"
@@ -194,7 +196,11 @@ test.web.fast:
 
 .PHONY: check.web.production-parity
 check.web.production-parity:
-	$(NIX_RUN) python3 -B scripts/check-production-parity.py $(BASE) $(if $(REQUIRE_PARITY),--required)
+	$(NIX_RUN) python3 -B scripts/check-production-parity.py "$(or $(BASE),origin/main)" $(if $(REQUIRE_PARITY),--required) \
+		$(if $(PARITY_PLAN),--plan) $(if $(PARITY_RESEARCH_PLAN),--plan-research) $(if $(PARITY_SIDE),--side "$(PARITY_SIDE)") \
+		$(if $(PARITY_OUT),--inventory "$(PARITY_OUT)") $(if $(PARITY_RESEARCH_OUT),--research-out "$(PARITY_RESEARCH_OUT)") \
+		$(if $(PARITY_RESEARCH_IN),--research-in "$(PARITY_RESEARCH_IN)") \
+		$(if $(PARITY_SCRATCH),--scratch "$(PARITY_SCRATCH)") $(if $(PARITY_COMPARE),--compare "$(PARITY_COMPARE)")
 
 check.fail-closed:
 	python3 -B -I scripts/check-fail-closed.py
@@ -238,7 +244,15 @@ test.engine:
 
 .PHONY: test.engine.lib
 test.engine.lib:
-	$(NIX_RUN) cargo test -p dedaliano-engine --lib $(if $(RELEASE),--release) $(FILTER)
+	$(NIX_RUN) cargo test -p dedaliano-engine --lib $(if $(RELEASE),--release) $(if $(ENGINE_FEATURES),--features $(ENGINE_FEATURES)) $(FILTER) $(if $(IGNORED),-- --ignored)
+
+.PHONY: test.engine.experimental-nonlinear test.engine.experimental-nonlinear-wasm
+test.engine.experimental-nonlinear:
+	$(MAKE) test.engine.lib ENGINE_FEATURES=experimental-nonlinear FILTER="$(or $(FILTER),experimental_nonlinear)"
+
+test.engine.experimental-nonlinear-wasm:
+	$(NIX_RUN) wasm-pack build engine --target nodejs --out-dir ../target/experimental-nonlinear-wasm --no-opt -- --features experimental-nonlinear
+	$(NIX_RUN) node --test $(if $(FILTER),--test-name-pattern="$(FILTER)") scripts/tests/experimental-nonlinear-wasm.mjs
 
 test.backend: services
 	$(NIX_RUN) bash -c "cd backend && MIX_ENV=test mix ecto.create --quiet && MIX_ENV=test mix ecto.migrate --quiet && mix test"
@@ -389,7 +403,12 @@ test.web.build: web.build.tested
 # The build prerenders the public pages in Chromium, so it needs the browser. The stamp is taken
 # before building, so a tree edited mid-build fails the build tests instead of passing them.
 web.build.tested:
-	$(NIX_RUN) bash -c 'cd web && $(PLAYWRIGHT_INSTALL) chromium && stamp=$$(node scripts/build-stamp.mjs) && rm -f dist.source-stamp .dist-shared.source-stamp && npm run build && npx tsx scripts/translation-gate.ts dist && npx vite build --manifest --outDir .dist-shared --emptyOutDir --logLevel error && node scripts/build-stamp.mjs --seal dist "$$stamp" && node scripts/build-stamp.mjs --seal .dist-shared "$$stamp"'
+	$(NIX_RUN) bash -c 'cd web && $(PLAYWRIGHT_INSTALL) chromium && stamp=$$(node scripts/build-stamp.mjs) && \
+		rm -f dist.source-stamp .dist-shared.source-stamp && \
+		npm run build:only -- --manifest --outDir .dist-shared --emptyOutDir && \
+		rm -rf dist && cp -R .dist-shared dist && rm dist/.vite/manifest.json && rmdir dist/.vite && \
+		npm run build:finish && npx tsx scripts/translation-gate.ts dist && \
+		node scripts/build-stamp.mjs --seal dist "$$stamp" && node scripts/build-stamp.mjs --seal .dist-shared "$$stamp"'
 
 test.web.build.shared: export STABILEO_UNIT_PROFILE = production
 test.web.build.shared:
