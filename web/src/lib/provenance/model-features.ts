@@ -44,7 +44,7 @@ export const GLOBAL_AXES_EVIDENCE = 'axisNamedLoads';
 export const FEATURE_IDS = [
   'gallery:slab-on-columns:walls', 'example:rc-beam-flexure',
   GLOBAL_AXES_EVIDENCE,
-  'plane2D', 'space3D', 'proWorkspace', 'members', 'cableMembers', 'contactElements', 'frameMembers', 'trussMembers', 'hinges', 'arcMembers', 'shearAreas', 'thermalAtRelease',
+  'plane2D', 'space3D', 'members', 'cableMembers', 'contactElements', 'frameMembers', 'trussMembers', 'hinges', 'arcMembers', 'shearAreas', 'thermalAtRelease',
   'steelMembers', 'steelCirsoc301', 'steelTensionWithoutConnection', 'steelDeclaredUnbracedLength', 'steelStaggeredOrUnboltedWebEnd', 'timberOrAluminiumMembers',
   'concreteMembers', 'fiberMembers', 'hognestadFiberMembers', 'cirsoc201', 'aci318', 'footings', 'jointDesigns',
   'shells', 'physicalPlateRemesh', 'plateAnalysisIssue', 'curvedShells', 'shellEdgeLoads', 'eccentricities',
@@ -225,7 +225,6 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   const mode = ctx.analysisMode ?? s.analysisMode ?? '2d';
   if (ctx.analysesRun == null || ctx.analysesRun.some(k => k !== 'modal' && k !== 'buckling')) f.add('forceSummaryResults');
   f.add(is3DWorkspace(mode) ? 'space3D' : 'plane2D');
-  if (mode === 'pro') f.add('proWorkspace');
 
   const materials = new Map(values(s.materials).map((m) => [m.id, m]));
   const elements = values(s.elements);

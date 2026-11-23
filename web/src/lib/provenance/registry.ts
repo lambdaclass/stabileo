@@ -12,6 +12,7 @@
  * change that makes the same saved model give different numbers gets an entry here. The versions
  * in `numbered.json` are frozen; each later merge to main that adds entries takes the next one.
  */
+import { PRO_WORKSPACE_EVIDENCE } from './recheck-features';
 import { researchBuilt } from '../features';
 import metadata from 'virtual:result-change-metadata';
 import { conditionGroups } from '../../../scripts/results-snapshot/applicability.mjs';
@@ -168,7 +169,7 @@ export function validateRegistry(r: ResultChangeRegistry, knownFeatures: Readonl
     for (const g of groups) {
       if (g.length === 0) problems.push(`${where}: empty condition group`);
       for (const f of g) {
-        if (!knownFeatures.has(f) && !retiredFeatures?.includes(f)) problems.push(`${where}: unknown feature "${f}"`);
+        if (!knownFeatures.has(f) && f !== PRO_WORKSPACE_EVIDENCE && !retiredFeatures?.includes(f)) problems.push(`${where}: unknown feature "${f}"`);
       }
     }
   }
