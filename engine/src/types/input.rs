@@ -3,14 +3,7 @@ use std::collections::HashMap;
 
 // ==================== 2D Input Types ====================
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SolverNode {
-    pub id: usize,
-    pub x: f64,
-    #[serde(rename = "z", alias = "y")]
-    pub z: f64,
-}
+crate::types::model_aliases::node!(f64);
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -48,39 +41,9 @@ pub struct SolverElement {
     pub hinge_end: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SolverSupport {
-    pub id: usize,
-    pub node_id: usize,
-    #[serde(rename = "type")]
-    pub support_type: String,
-    #[serde(default)]
-    pub kx: Option<f64>,
-    #[serde(default)]
-    pub ky: Option<f64>,
-    #[serde(default)]
-    pub kz: Option<f64>,
-    #[serde(default)]
-    pub dx: Option<f64>,
-    #[serde(default, rename = "dz", alias = "dy")]
-    pub dz: Option<f64>,
-    #[serde(default, rename = "dry", alias = "drz")]
-    pub dry: Option<f64>,
-    #[serde(default)]
-    pub angle: Option<f64>,
-}
+crate::types::model_aliases::support!(f64, f64, f64, f64);
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SolverNodalLoad {
-    pub node_id: usize,
-    pub fx: f64,
-    #[serde(rename = "fz", alias = "fy")]
-    pub fz: f64,
-    #[serde(rename = "my", alias = "mz")]
-    pub my: f64,
-}
+crate::types::model_aliases::nodal_load!(f64, f64);
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -96,17 +59,7 @@ pub struct SolverDistributedLoad {
     pub b: Option<f64>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SolverPointLoadOnElement {
-    pub element_id: usize,
-    pub a: f64,
-    pub p: f64,
-    #[serde(default)]
-    pub px: Option<f64>,
-    #[serde(default, rename = "my", alias = "mz")]
-    pub my: Option<f64>,
-}
+crate::types::model_aliases::point_load!(f64, f64, f64);
 
 /// A load along a plane member's axis, linear from `q_i` at `a` to `q_j` at `b` (kN/m,
 /// positive toward J). The part of a load in global axes, or at an angle, that runs along an
@@ -259,25 +212,25 @@ impl MassInput {
     pub fn is_empty(&self) -> bool { self.nodal.is_empty() && self.line.is_empty() }
 }
 
-/// A lumped mass at a 2D node: translational mass (t) in X and Z, and rotary
-/// inertia (t·m²) about the out-of-plane axis.
-///
-/// `mass` applies to both translations; `massX`/`massZ` replace it in their
-/// direction when given (a mass that moves with the floor horizontally but
-/// not vertically, say).
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct NodalMass {
-    pub node_id: usize,
-    #[serde(default)]
-    pub mass: f64,
-    #[serde(default)]
-    pub mass_x: Option<f64>,
-    #[serde(default, rename = "massZ", alias = "massY")]
-    pub mass_z: Option<f64>,
-    /// Rotary inertia about the out-of-plane axis, t·m².
-    #[serde(default, rename = "iy", alias = "iz")]
-    pub rotary_inertia: f64,
+crate::types::model_aliases::aliased_input! {
+    /// A lumped mass at a 2D node: translational mass (t) in X and Z, and rotary
+    /// inertia (t·m²) about the out-of-plane axis.
+    ///
+    /// `mass` applies to both translations; `massX`/`massZ` replace it in their
+    /// direction when given (a mass that moves with the floor horizontally but
+    /// not vertically, say).
+    #[serde(rename_all = "camelCase", deny_unknown_fields)]
+    pub struct NodalMass {
+        pub node_id: usize,
+        #[serde(default)]
+        pub mass: f64,
+        #[serde(default)]
+        pub mass_x: Option<f64>,
+    }
+    aliases {
+        mass_z: Option<f64> => "massZ", mass_y => "massY", defaulted;
+        rotary_inertia: f64 => "iy", iz => "iz", defaulted;
+    }
 }
 
 impl NodalMass {
@@ -841,15 +794,16 @@ pub struct SpectralModeInput {
     pub effective_mass_y: f64,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SpectralModeDisp {
-    pub node_id: usize,
-    pub ux: f64,
-    #[serde(rename = "uz", alias = "uy")]
-    pub uz: f64,
-    #[serde(rename = "ry", alias = "rz")]
-    pub ry: f64,
+crate::types::model_aliases::aliased_input! {
+    #[serde(rename_all = "camelCase")]
+    pub struct SpectralModeDisp {
+        pub node_id: usize,
+        pub ux: f64,
+    }
+    aliases {
+        uz: f64 => "uz", uy => "uy", required;
+        ry: f64 => "ry", rz => "rz", required;
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

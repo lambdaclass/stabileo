@@ -1838,6 +1838,7 @@ const ko: Translations = {
   // ─── File operations (file.ts) ───
   'file.invalidJson': '유효하지 않은 JSON 파일입니다',
   'file.invalidFormat': '잘못된 파일 형식입니다. Stabileo의 .ded 파일인지 확인하세요.',
+  'file.modelAliasConflict': '모델 레코드 #{id}의 {field} 필드와 {alias} 필드 값이 서로 다릅니다. 값을 일치시키거나 두 필드 중 하나만 남기세요.',
   'file.supportFixed': '고정단',
   'file.supportPinned': '핀지점',
   'file.supportRollerX': 'X방향 이동단',

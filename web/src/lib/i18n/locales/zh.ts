@@ -3800,6 +3800,7 @@ const zh: Translations = {
   "file.workspaceDetailingUnread": "这次无法从浏览器读取这些标签页的配筋细部，因此它们在没有钢筋的情况下打开：{names}。数据仍然保存着，下次打开页面时会再次尝试读取；除非必要，请勿重新生成。",
   "file.workspaceRestoredBeside": "您保存的工作区已在新的标签页中打开，位于其加载期间您新开始的内容旁边。",
   "file.invalidFormat": "文件格式无效。请确认它是 Stabileo 的 .ded 文件。",
+  "file.modelAliasConflict": "模型记录 #{id} 的 {field} 和 {alias} 字段存在冲突。请使两者的值一致，或只保留其中一个字段。",
   "file.newerVersion": "此文件由更新版本的 Stabileo 保存（文件格式 {version}；当前版本最高可读取 {supported}）。文件未被打开，也未作任何更改：请用更新的版本打开。",
   "file.loadedNoAxisConvention": "加载的文件没有局部坐标轴约定的元数据，现已按修正后的 Z 向上局部坐标轴约定进行计算。请重新求解，并复核杆件内力图和验算。",
   "file.supportFixed": "固定支座",

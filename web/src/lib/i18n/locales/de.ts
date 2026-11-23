@@ -3590,6 +3590,7 @@ const de: Translations = {
   'file.workspaceDetailingUnread': 'Die Bewehrungsführung dieser Tabs konnte diesmal nicht aus dem Browser gelesen werden, daher wurden sie ohne Stäbe geöffnet: {names}. Sie bleibt gespeichert und wird beim nächsten Öffnen der Seite erneut gelesen; erzeugen Sie sie nur neu, wenn es nötig ist.',
   'file.workspaceRestoredBeside': 'Ihr gespeicherter Arbeitsbereich wurde in neuen Tabs geöffnet, neben dem, was Sie während des Ladens begonnen haben.',
   'file.invalidFormat': 'Ungültiges Dateiformat. Stellen Sie sicher, dass es eine .ded-Datei von Stabileo ist.',
+  'file.modelAliasConflict': 'Modelleintrag #{id} enthält widersprüchliche Werte in {field} und {alias}. Gleichen Sie die Werte an oder behalten Sie nur eines der Felder.',
   'file.newerVersion': 'Diese Datei wurde mit einer neueren Version von Stabileo gespeichert (Dateiformat {version}; diese Version liest bis {supported}). Sie wurde nicht geöffnet, und nichts wurde geändert: Öffnen Sie sie mit einer neueren Version.',
   'file.loadedNoAxisConvention': 'Ohne Metadaten zur Konvention der lokalen Achsen geladen — wird jetzt mit der korrigierten Konvention lokaler Achsen mit Z nach oben ausgewertet. Berechnen Sie neu und prüfen Sie die Diagramme und Nachweise der Stäbe.',
   'file.supportFixed': 'Einspannung',

@@ -10,7 +10,7 @@ import { historyStore } from './history.svelte';
 import { uiStore } from './ui.svelte';
 import { is3DWorkspace } from '../utils/workspace';
 import type { ModelSnapshot } from './history.svelte';
-import { NO_RELEASE, type Release } from './model.svelte';
+import { canonicalizeModelAliases, ModelAliasConflict } from '../model/canonical-aliases';
 import { exportToExcel } from '../export/excel';
 import { tabManager } from './tabs.svelte';
 import { accountGate } from './account-gate.svelte';
@@ -103,21 +103,9 @@ export interface DedalFile {
   selfWeightCaseId?: number | null;
 }
 
-/** Migrate a snapshot in place: converts legacy hingeStart/hingeEnd → releaseI.mz/releaseJ.mz. */
 export function migrateSnapshotV1ToV2(snapshot: Record<string, unknown>): void {
-  const elements = snapshot.elements;
-  if (!Array.isArray(elements)) return;
-  for (const entry of elements as Array<[number, Record<string, unknown>]>) {
-    const elem = entry[1];
-    if (!elem) continue;
-    const releaseI: Release = elem.releaseI as Release | undefined ?? { ...NO_RELEASE };
-    const releaseJ: Release = elem.releaseJ as Release | undefined ?? { ...NO_RELEASE };
-    if (elem.hingeStart === true) releaseI.mz = true;
-    if (elem.hingeEnd === true) releaseJ.mz = true;
-    elem.releaseI = releaseI;
-    elem.releaseJ = releaseJ;
-    delete elem.hingeStart;
-    delete elem.hingeEnd;
+  if (Array.isArray(snapshot.elements)) {
+    snapshot.elements = canonicalizeModelAliases({ elements: snapshot.elements }).elements;
   }
 }
 
@@ -306,7 +294,13 @@ export function deserializeProject(text: string): boolean {
   } catch {
     return false;
   }
-  return openProjectData(parsed);
+  try {
+    return openProjectData(parsed);
+  } catch (error) {
+    if (!(error instanceof ModelAliasConflict)) throw error;
+    uiStore.toast(error.message, 'error');
+    return false;
+  }
 }
 
 function openProjectData(parsed: unknown): boolean {
@@ -316,7 +310,6 @@ function openProjectData(parsed: unknown): boolean {
   if (!compact && (typeof d.version !== 'string' || !KNOWN_VERSIONS.has(d.version))) return false;
   const snapshot = d.snapshot as Record<string, unknown> | undefined;
   if (!snapshot) return false;
-  if (d.version === '1.0') migrateSnapshotV1ToV2(snapshot);
   if (compact) {
     const detailing = snapshot.detailing as Record<string, unknown> | undefined;
     const refusals = expandDesignRefusals(detailing?.designRefusals);
@@ -325,7 +318,7 @@ function openProjectData(parsed: unknown): boolean {
   }
   const data = { ...d, version: DEDAL_FILE_VERSION };
   if (!isValidDedalFile(data)) return false;
-  adoptStoredProject(data.snapshot, data.name);
+  adoptStoredProject(data.snapshot, data.name, data.analysisMode);
   // appMode is derived from analysisMode (getter-only) — assigning it throws
   // in strict mode, which broke opening any .ded that carried appMode.
   // Restoring analysisMode below already yields the right appMode.
@@ -352,7 +345,8 @@ function openProjectData(parsed: unknown): boolean {
  * autosave restore used to do only the `restore()`, so the hand-edit record was the session's
  * empty one: «Size…» then replaced bars edited by hand, and the next autosave wrote it empty.
  */
-export function adoptStoredProject(snapshot: ModelSnapshot, name: string): void {
+export function adoptStoredProject(raw: ModelSnapshot, name: string, analysisMode?: string): void {
+  const snapshot = canonicalizeModelAliases(raw, analysisMode);
   forgetSessionDemandRevisions(snapshot);
   historyStore.pushState();
   modelStore.restore(snapshot);
@@ -512,6 +506,7 @@ export interface DroppedSessionTab {
   index: number;
   /** The tab's own name, or null when the record did not carry a usable one. */
   name: string | null;
+  reason?: string;
 }
 
 export interface SessionTabsVerdict {
@@ -538,12 +533,19 @@ export function acceptSessionTabs(rawTabs: unknown): SessionTabsVerdict {
   const verdict: SessionTabsVerdict = { tabs: [], dropped: [] };
   if (!Array.isArray(rawTabs)) return verdict;
   rawTabs.forEach((raw, index) => {
-    const tab = acceptSessionTab(raw);
+    let tab: TabState | null = null;
+    let reason: string | undefined;
+    try {
+      tab = acceptSessionTab(raw);
+    } catch (error) {
+      if (error instanceof ModelAliasConflict) reason = error.message;
+      else throw error;
+    }
     if (tab) {
       verdict.tabs.push(tab);
     } else {
       const name = (raw as { name?: unknown } | null)?.name;
-      verdict.dropped.push({ index, name: typeof name === 'string' && name.trim() !== '' ? name : null });
+      verdict.dropped.push({ index, name: typeof name === 'string' && name.trim() !== '' ? name : null, ...(reason && { reason }) });
     }
   });
   return verdict;
@@ -552,11 +554,12 @@ export function acceptSessionTabs(rawTabs: unknown): SessionTabsVerdict {
 function acceptSessionTab(raw: unknown): TabState | null {
   try {
     if (!raw || typeof raw !== 'object') return null;
-    const tab = raw as TabState;
+    const tab = { ...raw } as TabState;
     if (typeof tab.id !== 'string' || typeof tab.name !== 'string') return null;
     if (!SESSION_TAB_MODES.has(tab.analysisMode)) return null;
     const asFile = (snapshot: unknown) => ({ version: DEDAL_FILE_VERSION, name: tab.name, snapshot });
     if (!isValidDedalFile(asFile(tab.modelSnapshot))) return null;
+    const modelSnapshot = canonicalizeModelAliases(tab.modelSnapshot, tab.analysisMode);
     const stacksOk = [tab.undoStack, tab.redoStack].every(
       (stack) => Array.isArray(stack) && stack.every((snap) => isValidDedalFile(asFile(snap))),
     );
@@ -566,12 +569,15 @@ function acceptSessionTab(raw: unknown): TabState | null {
       tab.undoKinds = [];
       tab.redoKinds = [];
     }
+    tab.modelSnapshot = modelSnapshot;
+    tab.undoStack = tab.undoStack.map(snap => canonicalizeModelAliases(snap, tab.analysisMode));
+    tab.redoStack = tab.redoStack.map(snap => canonicalizeModelAliases(snap, tab.analysisMode));
     for (const snap of [tab.modelSnapshot, ...tab.undoStack, ...tab.redoStack]) {
       forgetSessionDemandRevisions(snap);
     }
     return tab;
-  } catch {
-    // A record shaped badly enough to throw inside the gate is refused like any other.
+  } catch (error) {
+    if (error instanceof ModelAliasConflict) throw error;
     return null;
   }
 }
@@ -579,7 +585,7 @@ function acceptSessionTab(raw: unknown): TabState | null {
 /** "«A», «B»" for the toast; a tab without a name is called by its position. */
 function droppedTabNames(dropped: DroppedSessionTab[]): string {
   return dropped
-    .map((d) => `«${d.name ?? t('file.sessionTabUnnamed').replace('{n}', String(d.index + 1))}»`)
+    .map((d) => `«${d.name ?? t('file.sessionTabUnnamed').replace('{n}', String(d.index + 1))}»${d.reason ? ` (${d.reason})` : ''}`)
     .join(', ');
 }
 
@@ -716,7 +722,7 @@ export async function loadFile(file: File): Promise<{ type: 'tab' | 'session'; c
     // one of them. Nothing is lost either way, since the file stays on disk as it was; but
     // refusing it kept every good tab out of reach, and the toast says what did not open.
     const { tabs, dropped } = acceptSessionTabs(data.tabs);
-    if (tabs.length === 0) throw new Error(t('file.invalidFormat'));
+    if (tabs.length === 0) throw new Error(dropped.find(d => d.reason)?.reason ?? t('file.invalidFormat'));
     const activeTabId = typeof data.activeTabId === 'string' ? data.activeTabId : '';
     tabManager.restoreSession(tabs, activeTabId);
     if (dropped.length > 0) {
@@ -915,20 +921,21 @@ const WORKSPACE_KEY = 'stabileo-workspace';
  * referential-integrity checks are the project's, not the storage layer's, and a payload that
  * would be rejected as a file has no business being restored as an autosave.
  */
-export function acceptAutosavePayload(raw: unknown): DedalFile | null {
+export function acceptAutosavePayload(raw: unknown, onRefusal?: (reason: string) => void): DedalFile | null {
   if (!raw || typeof raw !== 'object') return null;
-  // Copied before migrating: `migrateSnapshotV1ToV2` rewrites in place, and mutating a record
-  // that is still sitting in IndexedDB would make a read a write.
   const data = plainDeepCopy(raw) as Record<string, unknown>;
   if (typeof data.version !== 'string' || !KNOWN_VERSIONS.has(data.version)) return null;
-  if (data.version === '1.0' && data.snapshot) {
-    migrateSnapshotV1ToV2(data.snapshot as Record<string, unknown>);
-    data.version = DEDAL_FILE_VERSION;
-  }
   if (!isValidDedalFile(data)) return null;
-  // An autosave is read back by a later page load — a different session (see the helper).
+  try {
+    data.snapshot = canonicalizeModelAliases(data.snapshot, data.analysisMode);
+  } catch (error) {
+    if (!(error instanceof ModelAliasConflict)) throw error;
+    onRefusal?.(error.message);
+    return null;
+  }
+  data.version = DEDAL_FILE_VERSION;
   forgetSessionDemandRevisions(data.snapshot);
-  return data as unknown as DedalFile;
+  return data;
 }
 
 /**
@@ -1083,9 +1090,9 @@ export async function loadAutosave(): Promise<AutosaveReadResult<DedalFile>> {
   }
   if (result.rejected.length > 0) {
     console.warn('[stabileo] autosave revisions refused on read:', result.rejected);
-    noticeOnce('rejected', result.value
-      ? t('file.autosaveOlderRestored')
-      : t('file.autosaveCorrupt'));
+    const status = result.value ? t('file.autosaveOlderRestored') : t('file.autosaveCorrupt');
+    const refusal = result.rejected.find(r => r.why === 'invalid' && r.reason);
+    noticeOnce('rejected', refusal?.why === 'invalid' ? `${status} ${refusal.reason}` : status);
   }
   if (result.backend === 'localstorage') {
     noticeOnce('degraded', t('file.autosaveDegraded'), 'info');

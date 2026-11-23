@@ -1838,6 +1838,7 @@ const id: Translations = {
   // ─── File operations (file.ts) ───
   'file.invalidJson': 'File bukan JSON yang valid',
   'file.invalidFormat': 'Format file tidak valid. Pastikan itu file .ded dari Stabileo.',
+  'file.modelAliasConflict': 'Rekaman model #{id} memiliki nilai yang bertentangan di kolom {field} dan {alias}. Samakan nilainya atau pertahankan hanya salah satu kolom.',
   'file.supportFixed': 'Jepit',
   'file.supportPinned': 'Sendi',
   'file.supportRollerX': 'Rol X',

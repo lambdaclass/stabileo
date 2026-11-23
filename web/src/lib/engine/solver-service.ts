@@ -27,7 +27,7 @@ import { repeatedSolve3D } from './repeated-solve-3d';
 import { sectionShearAreas } from '../section/shear-areas';
 import { transverseSign } from './transverse-sign-2d';
 import { SupportMappingError, supportDofs3D } from './support-dofs-3d';
-import { isPlaneRoller, planeMemberAngle, resolvePlaneSupportSettlement } from '../model/support-types';
+import { isPlaneRoller, isPlaneSupportType, planeMemberAngle, resolvePlaneSupportSettlement } from '../model/support-types';
 import { solve as solveStructure, solve3D as solve3DEngine, setAdvancedGuards, assertFiniteWire, finiteWireJson, netCombinationFactors, combineResults, combineResults3D, combineResultsBatch3D, combineResultsEnvelope3D, computeEnvelope, computeEnvelope3D, solveMultiCase2D, solveMultiCase3D, input2DToWireObject, input3DToWireObject, solvePDelta3D } from './wasm-solver';
 import { solverProperties } from '../section/state';
 import type { SolverInput, SolverSupport, FullEnvelope, AnalysisResults } from './types';
@@ -186,10 +186,6 @@ function namedCombinationFactors(factors: LoadCombination['factors'], caseNames:
 function mapModelNodeToSolver3D(node: Node, project2DToXZ: boolean): { id: number; x: number; y: number; z: number } {
   const pos = projectNodeToScene(node, project2DToXZ);
   return { id: node.id, x: pos.x, y: pos.y, z: pos.z };
-}
-
-function is2DSupportType(type: Support['type']): boolean {
-  return type === 'fixed' || type === 'pinned' || type === 'rollerX' || type === 'rollerY' || type === 'rollerZ' || type === 'spring';
 }
 
 // ─── Internal helpers ─────────────────────────────────────────────
@@ -2005,7 +2001,7 @@ function buildValidatedSolverInput3D(
       const supMap = new Map(Array.from(model.supports.entries()).map(([_id, s]) => {
         const dofs = supportDofs3D(s, project2DToXZ);
         const { dz: supportDz, dry: supportDry } = resolvePlaneSupportSettlement(s);
-        const embedded2D = project2DToXZ && !s.dofRestraints && is2DSupportType(s.type);
+        const embedded2D = project2DToXZ && !s.dofRestraints && isPlaneSupportType(s.type);
         // A plane support's prescribed rotation is the plane's θ, counter-clockwise as drawn; standing
         // in X–Z that is a rotation about −Y (θy = −θ, docs/solver/assembly-constraints.md §2.3), as
         // for a nodal couple in `buildSolverLoads3D`. It went in unchanged: the support turned the
@@ -2018,7 +2014,7 @@ function buildValidatedSolverInput3D(
          * spring about z: every space support lost its vertical spring, and
          * a raft on soil springs floated (7·10¹⁰ m, mat-foundation).
          */
-        const plane = !s.dofRestraints && is2DSupportType(s.type);
+        const plane = !s.dofRestraints && isPlaneSupportType(s.type);
         return [s.nodeId, withoutSpringsOnRestrained({
           nodeId: s.nodeId,
           ...dofs,

@@ -3963,6 +3963,7 @@ const en: Record<string, string> = {
   'file.workspaceDetailingUnread': 'The detailing of these tabs could not be read from the browser this time, so they opened without bars: {names}. It is still stored and will be tried again the next time you open the page; do not generate it again unless you need to.',
   'file.workspaceRestoredBeside': 'Your saved workspace opened in new tabs, beside what you started while it was loading.',
   'file.invalidFormat': 'Invalid file format. Make sure it is a .ded file from Stabileo.',
+  'file.modelAliasConflict': 'Model record #{id} has conflicting fields {field} and {alias}. Make the values agree or keep only one of these fields.',
   'file.newerVersion': 'This file was saved by a newer version of Stabileo (file format {version}; this version reads up to {supported}). It was not opened, and nothing was changed: open it with a newer version.',
   'file.loadedNoAxisConvention': 'Loaded without local-axis convention metadata — now evaluated with the corrected Z-up local-axis convention. Re-solve and review member diagrams/checks.',
   'file.supportFixed': 'Fixed',

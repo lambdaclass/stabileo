@@ -1835,6 +1835,7 @@ const hi: Translations = {
   // ─── File operations (file.ts) ───
   'file.invalidJson': 'फ़ाइल मान्य JSON नहीं है',
   'file.invalidFormat': 'अमान्य फ़ाइल प्रारूप। सुनिश्चित करें कि यह Stabileo की .ded फ़ाइल है।',
+  'file.modelAliasConflict': 'मॉडल रिकॉर्ड #{id} में {field} और {alias} फ़ील्ड के मान अलग हैं। मान समान करें या इनमें से केवल एक फ़ील्ड रखें।',
   'file.supportFixed': 'स्थिर',
   'file.supportPinned': 'कील',
   'file.supportRollerX': 'रोलर X',

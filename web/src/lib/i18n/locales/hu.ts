@@ -3384,6 +3384,7 @@ const hu: Translations = {
   "file.workspaceDetailingUnread": "Ezeknek a lapoknak a vasalási tervét most nem sikerült beolvasni a böngészőből, ezért vasak nélkül nyíltak meg: {names}. Még tárolva van, és a következő oldalmegnyitáskor újra megpróbáljuk; ne készítse el újra, ha nincs rá szükség.",
   "file.workspaceRestoredBeside": "A mentett munkaterülete új lapokon nyílt meg, azon mellett, amit a betöltés közben kezdett.",
   "file.invalidFormat": "Érvénytelen fájlformátum. Győződjön meg róla, hogy Stabileo .ded fájlról van szó.",
+  "file.modelAliasConflict": "A modell #{id} rekordjának {field} és {alias} mezője eltérő értékű. Egyeztesse az értékeket, vagy tartsa meg csak az egyik mezőt.",
   "file.newerVersion": "Ezt a fájlt a Stabileo újabb verziója mentette (fájlformátum: {version}; ez a verzió legfeljebb a(z) {supported} formátumig olvas). Nem nyílt meg, és semmi sem változott: nyissa meg újabb verzióval.",
   "file.loadedNoAxisConvention": "Lokális tengelykonvenció metaadatai nélkül töltődött be: most a javított, Z felé mutató lokális tengelykonvencióval értékelődik ki. Számítsa újra, és nézze át a rúdábrákat/ellenőrzéseket.",
   "file.supportFixed": "Befogás",

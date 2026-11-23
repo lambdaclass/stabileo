@@ -29,7 +29,7 @@ const planarSolvers = {
 };
 
 for (const [name, solve] of Object.entries(planarSolvers)) {
-  it.skip(`roadmap 2.4 reconciles a moment alias before WASM ${name} analysis`, () => {
+  it(`roadmap 2.4 reconciles a moment alias before WASM ${name} analysis`, () => {
     const input = (mz: number) => ({ ...planar, loads: planar.loads.map(l => ({ ...l, data: { ...l.data, mz } })) });
     expect(() => solve(input(0))).toThrow(/my/);
     const reference = solve(planar);

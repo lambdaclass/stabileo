@@ -655,14 +655,7 @@ mod wire {
         pub shear_center_z: Option<Length>,
     }
 
-    #[derive(Debug, Clone, Serialize, Deserialize)]
-    #[serde(rename_all = "camelCase")]
-    pub struct SolverNode {
-        pub id: usize,
-        pub x: Length,
-        #[serde(rename = "z", alias = "y")]
-        pub z: Length,
-    }
+    crate::types::model_aliases::node!(Length);
 
     #[derive(Debug, Clone, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
@@ -673,28 +666,9 @@ mod wire {
         pub z: Length,
     }
 
-    #[derive(Debug, Clone, Serialize, Deserialize)]
-    #[serde(rename_all = "camelCase")]
-    pub struct SolverNodalLoad {
-        pub node_id: usize,
-        pub fx: Force,
-        #[serde(rename = "fz", alias = "fy")]
-        pub fz: Force,
-        #[serde(rename = "my", alias = "mz")]
-        pub my: Moment,
-    }
+    crate::types::model_aliases::nodal_load!(Force, Moment);
 
-    #[derive(Debug, Clone, Serialize, Deserialize)]
-    #[serde(rename_all = "camelCase")]
-    pub struct SolverPointLoadOnElement {
-        pub element_id: usize,
-        pub a: Length,
-        pub p: Force,
-        #[serde(default)]
-        pub px: Option<Force>,
-        #[serde(default, rename = "my", alias = "mz")]
-        pub my: Option<Moment>,
-    }
+    crate::types::model_aliases::point_load!(Length, Force, Moment);
 
     #[derive(Debug, Clone, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
@@ -827,28 +801,7 @@ mod wire {
         pub qt: LineLoad,
     }
 
-    #[derive(Debug, Clone, Serialize, Deserialize)]
-    #[serde(rename_all = "camelCase")]
-    pub struct SolverSupport {
-        pub id: usize,
-        pub node_id: usize,
-        #[serde(rename = "type")]
-        pub support_type: String,
-        #[serde(default)]
-        pub kx: Option<TranslationalStiffness>,
-        #[serde(default)]
-        pub ky: Option<TranslationalStiffness>,
-        #[serde(default)]
-        pub kz: Option<RotationalStiffness>,
-        #[serde(default)]
-        pub dx: Option<Length>,
-        #[serde(default, rename = "dz", alias = "dy")]
-        pub dz: Option<Length>,
-        #[serde(default, rename = "dry", alias = "drz")]
-        pub dry: Option<Angle>,
-        #[serde(default)]
-        pub angle: Option<Angle>,
-    }
+    crate::types::model_aliases::support!(Length, Angle, TranslationalStiffness, RotationalStiffness);
 
     #[derive(Debug, Clone, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]

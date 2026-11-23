@@ -1840,6 +1840,7 @@ const ja: Translations = {
   // ─── File operations (file.ts) ───
   'file.invalidJson': 'ファイルが有効なJSONではありません',
   'file.invalidFormat': '無効なファイル形式です。Stabileo の.dedファイルか確認してください。',
+  'file.modelAliasConflict': 'モデルのレコード #{id} でフィールド {field} と {alias} の値が競合しています。値を一致させるか、どちらか一方のフィールドだけを残してください。',
   'file.supportFixed': '固定端',
   'file.supportPinned': 'ピン支点',
   'file.supportRollerX': 'X方向ローラー',

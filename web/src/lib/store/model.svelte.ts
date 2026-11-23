@@ -1,3 +1,4 @@
+import { canonicalizeModelAliases, NO_RELEASE } from '../model/canonical-aliases';
 import { accountingProjection, scenarioSurfaceAdjustment } from '../engine/accounting-source';
 import { globalAxes } from '../features';
 import type { SupportType } from '../model/support-types';
@@ -72,7 +73,7 @@ import type { ModelProvenance } from '../model/provenance';
 export type { MemberOffset, MemberOffsetVec } from '../model/element-3d-metadata';
 import { uiStore } from './ui.svelte';
 import { requirePlanarPointMoment } from '../engine/member-point-loads';
-import { planarNodalMoment, planarPointMoment, type PlanarMomentFields } from '../engine/planar-point-load';
+import { planarNodalMoment, type PlanarMomentFields } from '../engine/planar-point-load';
 import { plainDeepCopy } from '../utils/plain-deep-copy';
 // Cycle-safe: switch-2d imports this module, but resetSwitchBackup is a
 // hoisted function declaration and is only ever CALLED at runtime (clear(),
@@ -351,7 +352,7 @@ export interface Release {
   slideAxis?: SlideAxisMode;
 }
 
-export const NO_RELEASE: Readonly<Release> = Object.freeze({ my: false, mz: false, t: false });
+export { NO_RELEASE };
 
 /** Basic 3D internal joint: per-element-end relative-DOF release mask.
  *  Six global DOFs in solver order [0]=dx [1]=dy [2]=dz [3]=θx [4]=θy [5]=θz;
@@ -1184,34 +1185,12 @@ function createModelStore() {
 
   const normalize2DSupportType = (type: SupportType): SupportType =>
     type === 'rollerY' ? 'rollerZ' : type;
-  const canonicalSupportDz = (support: Partial<Support>): number | undefined => support.dz ?? support.dy;
-  const canonicalSupportDry = (support: Partial<Support>): number | undefined => support.dry ?? support.drz;
   const canonicalLoadFz = (load: Partial<NodalLoad>): number => load.fz ?? load.fy ?? 0;
   function writePlanarMoment(data: PlanarMomentFields, moment: number | undefined): void {
     delete data.mz;
     if ('enteredZeroMoment' in data) delete data.enteredZeroMoment;
     if (moment === undefined) delete data.my;
     else data.my = moment;
-  }
-
-  function copyPersistedLoad({ type, data }: { type: string; data: object }): ModelSnapshot['loads'][number] {
-    const copy: Record<string, unknown> = { ...data };
-    if (type !== 'nodal' && type !== 'pointOnElement') return { type, data: copy };
-    for (const field of ['my', 'mz']) {
-      const value = copy[field];
-      if (value === null || (typeof value === 'number' && !Number.isFinite(value))) copy[field] = 'NaN';
-    }
-    if (type === 'nodal') {
-      copy.fz = canonicalLoadFz(copy);
-      const moment = planarNodalMoment(copy);
-      if (moment !== null) writePlanarMoment(copy, moment ?? 0);
-    } else if (copy.enteredZeroMoment === true && planarPointMoment(copy) !== null) {
-      writePlanarMoment(copy, 0);
-    } else {
-      const moment = planarPointMoment(copy);
-      if (moment !== null) writePlanarMoment(copy, moment);
-    }
-    return { type, data: copy };
   }
 
   let detailing = $state.raw<DetailingStore | undefined>(emptyPublishedDetailing);
@@ -2263,12 +2242,8 @@ function createModelStore() {
           releaseI: { ...(v.releaseI ?? NO_RELEASE) },
           releaseJ: { ...(v.releaseJ ?? NO_RELEASE) },
         }]) as ModelSnapshot['elements'],
-        supports: Array.from(snap.supports.entries()).map(([k, v]) => [k, {
-          ...v,
-          dz: canonicalSupportDz(v),
-          dry: canonicalSupportDry(v),
-        }]) as ModelSnapshot['supports'],
-        loads: snap.loads.map(copyPersistedLoad),
+        supports: Array.from(snap.supports, ([id, support]) => [id, { ...support }]) as ModelSnapshot['supports'],
+        loads: snap.loads.map(({ type, data }) => ({ type, data: { ...data } })),
         loadCases: snap.loadCases as ModelSnapshot['loadCases'],
         combinations: snap.combinations as ModelSnapshot['combinations'],
         plates: Array.from(snap.plates.entries()) as ModelSnapshot['plates'],
@@ -2401,8 +2376,6 @@ function createModelStore() {
     },
 
     restore(rawSnapshot: ModelSnapshot): void {
-      loadEpoch++;
-      _onReplaced?.();
       // ── Why the incoming snapshot is unwrapped before anything reads it ──────────
       //
       // Every family below is copied ONE level deep (`{ ...v }`), which is enough to stop the
@@ -2431,7 +2404,9 @@ function createModelStore() {
       // a record of something that really happened. They are adopted once per project by
       // `hydrateProjectProvenance`, which file-open and tab-activation call.
       const { detailing: savedDetailing, ...modelFields } = rawSnapshot;
-      const s = plainDeepCopy(modelFields);
+      const s = canonicalizeModelAliases(plainDeepCopy(modelFields));
+      loadEpoch++;
+      _onReplaced?.();
       const migratedDetailing = restoreDetailing(savedDetailing);
       modelVersion++;
       _onMutation?.();
@@ -2453,10 +2428,7 @@ function createModelStore() {
         releaseJ: { ...(v.releaseJ ?? NO_RELEASE) },
       }]));
       // Deduplicate supports: keep only the last support per node (legacy cleanup)
-      const supEntries = s.supports.map(([k, v]) => {
-        const sup = v as Support;
-        return [k, { ...sup, dz: canonicalSupportDz(sup), dry: canonicalSupportDry(sup) }] as [number, Support];
-      });
+      const supEntries = s.supports as [number, Support][];
       const seenNodes = new Set<number>();
       const dedupedEntries: [number, Support][] = [];
       for (let i = supEntries.length - 1; i >= 0; i--) {
@@ -2468,19 +2440,7 @@ function createModelStore() {
       }
       dedupedEntries.reverse();
       model.supports = new Map(dedupedEntries);
-      // Deep-copy loads manually (structuredClone fails on Svelte reactive proxies)
-      model.loads = s.loads.map(copyPersistedLoad) as unknown as Load[];
-      // Migrate old distributed loads: q → qI/qJ
-      for (const l of model.loads) {
-        if (l.type === 'distributed') {
-          const d = l.data as any;
-          if (d.q !== undefined && d.qI === undefined) {
-            d.qI = d.q;
-            d.qJ = d.q;
-            delete d.q;
-          }
-        }
-      }
+      model.loads = s.loads as unknown as Load[];
       // Arcs drawn before #418 (SP-15) left their members on the default local axes, which turn
       // the near-vertical members of an arch by 90°: they take the arc's own orientation. Not a
       // member any load or support refers to: its local data would change direction with it.
@@ -4822,7 +4782,7 @@ function createModelStore() {
       // first, the PRO panel's self-weight effect ran during this await, found an empty model
       // without a rule and stated `selfWeight: []` for it, and the check below then took that
       // [] for the example's own rule: the example solved without its self-weight.
-      const json = await loader() as JSONModel;
+      const json = canonicalizeModelAliases(await loader() as JSONModel);
       validateFixtureSupportFrames(json);
       this.batch(() => {
         this.clear();

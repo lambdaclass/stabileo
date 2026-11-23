@@ -2,6 +2,7 @@
 // v1: LZ-String (legacy, still decoded for old links)
 // v2: compact JSON + fflate deflate + base64url (new default)
 
+import { canonicalizeModelAliases, ModelAliasConflict, NO_RELEASE } from '../model/canonical-aliases';
 import { adoptLoadCases } from '../store/load-cases-mode';
 import { defaultCodeSettings } from '../codes/project-code-settings';
 import { emptyDetailingStore } from '../engine/detailing/assembly';
@@ -15,7 +16,7 @@ import type { MemberBehaviour } from '../engine/member-behaviour';
 import type { DiagramType } from '../store/results.svelte';
 import { modelStore } from '../store/model.svelte';
 import { viewVisibility } from '../store/view-state.svelte';
-import { NO_RELEASE, type Release } from '../store/model.svelte';
+import type { Release } from '../store/model.svelte';
 import { uiStore } from '../store/ui.svelte';
 import { resultsStore } from '../store/results.svelte';
 import { onProjectOpened, noteBasicSelfWeightRuleIfNeeded, statedSelfWeightCaseId } from '../store/file';
@@ -345,11 +346,11 @@ function toCompact(snapshot: ModelSnapshot, meta?: ShareMeta): Record<string, un
     if (v.ky) opt.ky = r(v.ky);
     if (v.kz) opt.kz = r(v.kz);
     if (v.dx) opt.dx = r(v.dx);
-    if (v.dy) opt.dy = r(v.dy);
-    if (v.drz) opt.rz = r(v.drz);
-    if (v.dz) opt.dz = r(v.dz);
+    if (v.dy !== undefined) opt.dy = r(v.dy);
+    if (v.drz !== undefined) opt.rz = r(v.drz);
+    if (v.dz !== undefined) opt.dz = r(v.dz);
     if (v.drx) opt.rx = r(v.drx);
-    if (v.dry) opt.ry = r(v.dry);
+    if (v.dry !== undefined) opt.ry = r(v.dry);
     if (v.krx) opt.Rx = r(v.krx);
     if (v.kry) opt.Ry = r(v.kry);
     if (v.krz) opt.Rz = r(v.krz);
@@ -468,8 +469,13 @@ function toCompact(snapshot: ModelSnapshot, meta?: ShareMeta): Record<string, un
   return c;
 }
 
-function fromCompact(c: Record<string, unknown>): ModelSnapshot {
-  const snapshot: ModelSnapshot = {
+type CompactElement = ModelSnapshot['elements'][number][1];
+type DecodedCompactSnapshot = Omit<ModelSnapshot, 'elements'> & {
+  elements: Array<[number, Partial<CompactElement>]>;
+};
+
+function fromCompact(c: Record<string, unknown>): DecodedCompactSnapshot {
+  const snapshot: DecodedCompactSnapshot = {
     analysisMode: c.m as '2d' | '3d' | 'pro' | 'edu' | undefined,
     name: c.nm as string | undefined,
     localAxisConvention: c.lx as ModelSnapshot['localAxisConvention'],
@@ -526,13 +532,13 @@ function fromCompact(c: Record<string, unknown>): ModelSnapshot {
     // booleans which migrate to releaseI.mz / releaseJ.mz.
     elements: (c.e as any[]).map(a => {
       const opt = typeof a[6] === 'object' ? a[6] : {};
-      const sv = (c.sv as number | undefined) ?? 0;
-      const releaseI: Release = sv >= 4 ? unpackRelease(opt.ri) : { ...NO_RELEASE, mz: opt.hs === true };
-      const releaseJ: Release = sv >= 4 ? unpackRelease(opt.rj) : { ...NO_RELEASE, mz: opt.he === true };
       return [a[0], {
         id: a[0], type: a[1] === 1 ? 'truss' : 'frame', nodeI: a[2], nodeJ: a[3],
         materialId: a[4], sectionId: a[5],
-        releaseI, releaseJ,
+        ...(opt.ri !== undefined ? { releaseI: unpackRelease(opt.ri) } : {}),
+        ...(opt.rj !== undefined ? { releaseJ: unpackRelease(opt.rj) } : {}),
+        ...(opt.hs !== undefined ? { hingeStart: opt.hs } : {}),
+        ...(opt.he !== undefined ? { hingeEnd: opt.he } : {}),
         ...(opt.lx != null ? { localYx: opt.lx } : {}),
         ...(opt.ly != null ? { localYy: opt.ly } : {}),
         ...(opt.lz != null ? { localYz: opt.lz } : {}),
@@ -562,11 +568,11 @@ function fromCompact(c: Record<string, unknown>): ModelSnapshot {
         ...(opt.ky ? { ky: opt.ky } : {}),
         ...(opt.kz ? { kz: opt.kz } : {}),
         ...(opt.dx ? { dx: opt.dx } : {}),
-        ...(opt.dy ? { dy: opt.dy } : {}),
-        ...(opt.rz ? { drz: opt.rz } : {}),
-        ...(opt.dz ? { dz: opt.dz } : {}),
+        ...(opt.dy !== undefined ? { dy: opt.dy } : {}),
+        ...(opt.rz !== undefined ? { drz: opt.rz } : {}),
+        ...(opt.dz !== undefined ? { dz: opt.dz } : {}),
         ...(opt.rx ? { drx: opt.rx } : {}),
-        ...(opt.ry ? { dry: opt.ry } : {}),
+        ...(opt.ry !== undefined ? { dry: opt.ry } : {}),
         ...(opt.Rx ? { krx: opt.Rx } : {}),
         ...(opt.Ry ? { kry: opt.Ry } : {}),
         ...(opt.Rz ? { krz: opt.Rz } : {}),
@@ -660,7 +666,7 @@ function compressV2(snapshot: ModelSnapshot, meta?: ShareMeta): string {
   return V2_PREFIX + uint8ToBase64url(deflated);
 }
 
-function decompressV2(data: string): ModelSnapshot | null {
+function decompressV2(data: string, onConflict?: (error: ModelAliasConflict) => void): ModelSnapshot | null {
   try {
     const b64 = data.slice(V2_PREFIX.length);
     const deflated = base64urlToUint8(b64);
@@ -670,7 +676,8 @@ function decompressV2(data: string): ModelSnapshot | null {
     const compact = JSON.parse(json);
     if (!Array.isArray(compact.ni)) return null;
     return prepareSharedSnapshot(fromCompact(compact));
-  } catch {
+  } catch (error) {
+    if (error instanceof ModelAliasConflict) onConflict?.(error);
     return null;
   }
 }
@@ -688,10 +695,10 @@ export function compressSnapshot(snapshot: ModelSnapshot): string {
  * Decompress a URL-safe string back to a ModelSnapshot.
  * Auto-detects v2 (prefix "2.") vs v1 (LZ-String) format.
  */
-export function decompressSnapshot(data: string): ModelSnapshot | null {
+export function decompressSnapshot(data: string, onConflict?: (error: ModelAliasConflict) => void): ModelSnapshot | null {
   // v2 format
   if (data.startsWith(V2_PREFIX)) {
-    return decompressV2(data);
+    return decompressV2(data, onConflict);
   }
   // v1 (legacy LZ-String) — migrate hingeStart/hingeEnd → releaseI.mz/releaseJ.mz
   // LZ-String's output can grow quadratically in its input and its decoder cannot be stopped
@@ -701,21 +708,9 @@ export function decompressSnapshot(data: string): ModelSnapshot | null {
   try {
     const json = LZString.decompressFromEncodedURIComponent(data);
     if (!json) return null;
-    const parsed = prepareSharedSnapshot(JSON.parse(json));
-    if (!parsed) return null;
-
-    const elems = parsed.elements as unknown as Array<[number, Record<string, unknown>]>;
-    if (Array.isArray(elems)) {
-      for (const [, elem] of elems) {
-        if (!elem) continue;
-        if (!elem.releaseI) elem.releaseI = { ...NO_RELEASE, mz: elem.hingeStart === true };
-        if (!elem.releaseJ) elem.releaseJ = { ...NO_RELEASE, mz: elem.hingeEnd === true };
-        delete elem.hingeStart;
-        delete elem.hingeEnd;
-      }
-    }
-    return parsed;
-  } catch {
+    return prepareSharedSnapshot(JSON.parse(json));
+  } catch (error) {
+    if (error instanceof ModelAliasConflict) onConflict?.(error);
     return null;
   }
 }
@@ -809,8 +804,8 @@ function memberBehaviour(bh: unknown): MemberBehaviour {
 }
 
 export function compactLoses(snapshot: ModelSnapshot): boolean {
-  let back: ModelSnapshot;
-  try { back = fromCompact(JSON.parse(JSON.stringify(toCompact(snapshot)))); } catch { return true; }
+  let back: DecodedCompactSnapshot;
+  try { back = canonicalizeModelAliases(fromCompact(JSON.parse(JSON.stringify(toCompact(snapshot))))); } catch { return true; }
   const a = { ...(snapshot as unknown as Record<string, unknown>) }, b = { ...(back as unknown as Record<string, unknown>) };
   for (const k of IGNORED_TOP) { delete a[k]; delete b[k]; }
   // The project's documents the store fills in when a model does not state them: a link that
@@ -929,7 +924,10 @@ export function loadFromURLHash(): 'data' | 'embed' | null {
   // A PRO link carries the model code (`model/code/share.ts`).
   if (hash.startsWith(CODE_HASH)) {
     const r = readCodeFragment(hash);
-    if (!r.snapshot) return null;
+    if (!r.snapshot) {
+      if (r.errors[0]) uiStore.toast(r.errors[0].message, 'error');
+      return null;
+    }
     modelStore.clear();
     const { snapshot } = mergeCode(modelStore.snapshot(), r.snapshot);
     applyLinkMode(snapshot.analysisMode);
@@ -953,7 +951,7 @@ export function loadFromURLHash(): 'data' | 'embed' | null {
 
   if (!mode || !compressed) return null;
 
-  const snapshot = decompressSnapshot(compressed);
+  const snapshot = decompressSnapshot(compressed, error => uiStore.toast(error.message, 'error'));
   if (!snapshot) return null;
 
   const loadedMode = applyLinkMode(snapshot.analysisMode);
@@ -1009,7 +1007,10 @@ export function loadFromShareLink(url: string): boolean {
   const i = url.indexOf(CODE_HASH);
   if (i >= 0) {
     const r = readCodeFragment(url.slice(i));
-    if (!r.snapshot) return false;
+    if (!r.snapshot) {
+      if (r.errors[0]) uiStore.toast(r.errors[0].message, 'error');
+      return false;
+    }
     modelStore.clear();
     const { snapshot } = mergeCode(modelStore.snapshot(), r.snapshot);
     applyLinkMode(snapshot.analysisMode);
@@ -1021,7 +1022,7 @@ export function loadFromShareLink(url: string): boolean {
   const parsed = parseShareURL(url);
   if (!parsed) return false;
 
-  const snapshot = decompressSnapshot(parsed.compressed);
+  const snapshot = decompressSnapshot(parsed.compressed, error => uiStore.toast(error.message, 'error'));
   if (!snapshot) return false;
 
   const loadedMode = applyLinkMode(snapshot.analysisMode);

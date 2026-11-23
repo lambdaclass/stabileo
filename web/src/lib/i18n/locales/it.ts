@@ -1837,6 +1837,7 @@ const it: Translations = {
   // ─── File operations (file.ts) ───
   'file.invalidJson': 'Il file non è un JSON valido',
   'file.invalidFormat': 'Formato file non valido. Assicurarsi che sia un file .ded di Stabileo.',
+  'file.modelAliasConflict': 'Il record #{id} del modello ha valori in conflitto nei campi {field} e {alias}. Rendi uguali i valori o conserva un solo campo.',
   'file.supportFixed': 'Incastro',
   'file.supportPinned': 'Cerniera',
   'file.supportRollerX': 'Carrello X',
