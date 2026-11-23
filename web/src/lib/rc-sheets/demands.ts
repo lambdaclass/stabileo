@@ -154,6 +154,13 @@ function runStations(m: DemandInput, run: Array<{ e: El; forward: boolean }>, se
   return out;
 }
 
+/** The least width and depth among a run's pieces: a piece of smaller section is checked with no more than it has. Null where one has no rectangle. */
+function smallestSection(m: DemandInput, run: ReadonlyArray<{ e: El }>): { b: number; h: number } | null {
+  const secs = run.map(({ e }) => m.sections.get(e.sectionId));
+  if (!secs.every((x) => x?.b && x?.h)) return null;
+  return { b: Math.min(...secs.map((x) => x!.b!)), h: Math.min(...secs.map((x) => x!.h!)) };
+}
+
 /** A member's forces in the frame of its roll turned back by half a turn when it is past a quarter: rolled 180° its local y and z point the other way, and its sagging would read as hogging. */
 function unrolled(m: DemandInput, e: El, f: StationForces): StationForces {
   const r = ((((e.rollAngle ?? 0) + (m.sections.get(e.sectionId)?.rotation ?? 0)) % 360) + 360) % 360;
@@ -259,8 +266,8 @@ export function beamDemands(m: DemandInput): BeamDemand[] {
     });
     spans.forEach((span, k) => {
       const first = span[0]!.e;
-      const sec = m.sections.get(first.sectionId);
-      if (!sec?.b || !sec?.h) return;
+      const sec = smallestSection(m, span);
+      if (!sec) return;
       const turned = !upright(first) && Math.abs((((first.rollAngle ?? 0) % 180) + 180) % 180 - 90) < 5;
       const flex: 'my' | 'mz' = turned ? 'mz' : 'my';
       const shear: 'vz' | 'vy' = turned ? 'vy' : 'vz';
@@ -381,8 +388,8 @@ export function columnDemands(m: DemandInput): ColumnDemand[] {
     const deepest = (node: number) => Math.max(0, ...(inc.get(node) ?? []).filter((o) => !mine.has(o.id) && !isVertical(m, o)).map((o) => m.sections.get(o.sectionId)?.h ?? 0));
     storeys.forEach((st, k) => {
       const bottom = st[0]!, top = st[st.length - 1]!;
-      const sec = m.sections.get(bottom.e.sectionId);
-      if (!sec?.b || !sec?.h) return;
+      const sec = smallestSection(m, st);
+      if (!sec) return;
       const nBot = bottom.forward ? bottom.e.nodeI : bottom.e.nodeJ, nTop = top.forward ? top.e.nodeJ : top.e.nodeI;
       const L = st.reduce((s, r) => s + lengthOf(m, r.e), 0);
       const lu = Math.max(0.1, L - (deepest(nBot) + deepest(nTop)) / 2);
