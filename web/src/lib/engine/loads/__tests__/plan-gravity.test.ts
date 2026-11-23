@@ -1,6 +1,8 @@
 import { teAt } from '../../../i18n/engine-text';
 import { describe, it, expect, vi } from 'vitest';
 import { gravityLayout, type GravityModel } from '../plan-gravity';
+import * as gravityPlanner from '../plan-gravity';
+import { planAreaLoads } from '../plan-area-loads';
 import { floorLoad, type FloorBeam } from '../floor-loads';
 import * as floorLoads from '../floor-loads';
 import { expandDefinition } from '../../../model/loads/floor-definitions';
@@ -1524,3 +1526,115 @@ for (const shellEnd of [0, 6]) it(`#2512 the area gate checks incomplete and exc
     expect(plan).toMatchObject({ cases: [], distributed: [], nodal: [], surface: [], combinations: [] });
   }
 });
+
+const round3Reproducer = process.env.RUN_KNOWN_WRONG === '2512' ? it : it.skip;
+
+round3Reproducer('known wrong result: #2512 a fixed restraint shared by several stations keeps both platform loads', () => {
+  for (const tie of Object.values(verticalTies)) {
+    const model = connectedShells(0, 10, 6);
+    const lower = model.quads!.get(1)!.nodes, upper = model.quads!.get(2)!.nodes;
+    const masterNode = 900;
+    model.nodes.set(masterNode, { id: masterNode, x: -1, y: -1, z: 0 });
+    const support = { id: 1, nodeId: masterNode, type: 'fixed3d' };
+    model.supports = new Map([[1, support]]);
+    model.constraints = [
+      ...[...lower.slice(0, 3), ...upper.slice(0, 3)].map(node => tie(masterNode, node)),
+      tie(lower[3]!, upper[3]!),
+    ];
+    checkOwnedFloor(model, [1, 2], 120);
+  }
+});
+
+function splitEccentricLinks(model: LoadModelData, released = false) {
+  let nextId = Math.max(...model.nodes.keys()) + 1;
+  model.constraints = model.constraints!.flatMap(link => {
+    if (link.type !== 'eccentricConnection') return [link];
+    const a = model.nodes.get(link.masterNode)!, b = model.nodes.get(link.slaveNode)!;
+    const point = { id: nextId++, x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, z: (a.z! + b.z!) / 2 };
+    model.nodes.set(point.id, point);
+    return [
+      { ...link, slaveNode: point.id, offsetX: point.x - a.x, offsetY: point.y - a.y, offsetZ: point.z - a.z! },
+      { ...link, masterNode: point.id, offsetX: b.x - point.x, offsetY: b.y - point.y, offsetZ: b.z! - point.z, releases: [false, false, released] },
+    ];
+  });
+}
+
+round3Reproducer('known wrong result: #2512 a split shifted eccentric deck has the direct connection’s ownership', () => {
+  const model = connectedShells(2, 12);
+  const split = structuredClone(model);
+  splitEccentricLinks(split);
+  checkBlockedGravity(model, overlappingShells);
+  checkBlockedGravity(split, overlappingShells);
+  const released = structuredClone(model);
+  splitEccentricLinks(released, true);
+  checkOwnedFloor(released, [1, 2], 120);
+});
+
+round3Reproducer('known wrong result: #2512 a split eccentric rafter attachment keeps the shell as carrier', () => {
+  const { model } = offsetRoof(0.02);
+  const input = planInput(model, { dead: [{ labelKey: 'a', q: 1 }] });
+  const direct = buildLoadPlan(input);
+  expect(direct.outcome).toBe('READY');
+  expect(direct.distributed.filter(load => load.caseType === 'D')).toEqual([]);
+  const constraints: Constraint3D[] = model.constraints.map(link => ({
+    type: 'eccentricConnection', masterNode: link.masterNode, slaveNode: link.slaveNode, offsetZ: -0.02,
+  }));
+  const split = { ...model, constraints };
+  splitEccentricLinks(split);
+  const plan = buildLoadPlan({ ...input, model: split });
+  expect(plan.outcome).toBe('READY');
+  expect(plan.distributed).toEqual(direct.distributed);
+  expect(plan.surface).toEqual(direct.surface);
+  const released = { ...structuredClone(model), constraints };
+  splitEccentricLinks(released, true);
+  expect(buildLoadPlan({ ...input, model: released }).distributed.some(load => load.caseType === 'D')).toBe(true);
+});
+
+round3Reproducer('known wrong result: #2512 roof coverage follows the shell boundary in both gravity modes', () => {
+  for (const mode of ['width', 'panels'] as const) for (const edge of [5.01, 5, 4.99]) {
+    const model = floor(0, 0, 10, 6);
+    rectangularShell(model, 1, 0, 10, 3);
+    rectangularShell(model, 2, edge, 10, 6);
+    const layout = gravityLayout(model, { mode, tributaryWidth: 3 });
+    expect(layout.roofQuads.has(1)).toBe(edge > 5);
+    if (mode === 'width') continue;
+    const area = planAreaLoads({
+      layout, tributaryWidth: 3, floor: { dead: 1, lo: 0, liveOf: () => 0 },
+      roof: { use: 'occupancy', weight: 'heavy', dead: 2, slopePercent: 0 },
+    });
+    expect(area.surface.find(load => load.quadId === 1 && load.caseType === 'D')?.q).toBe(edge > 5 ? 2 : 1);
+  }
+});
+
+round3Reproducer('known wrong result: #2512 a plane member does not cover a point beyond its endpoint', () => {
+  for (const mode of ['width', 'panels'] as const) for (const edge of [5.01, 5, 4.99]) {
+    const model = floor(1, 0, 10, 6);
+    model.nodes.set(3, { id: 3, x: edge, y: 0, z: 6 });
+    model.nodes.set(4, { id: 4, x: 10, y: 0, z: 6 });
+    model.elements.set(2, { ...model.elements.get(1)!, id: 2, nodeI: 3, nodeJ: 4 });
+    const layout = gravityLayout(model, { mode, tributaryWidth: 1 });
+    expect(layout.roof.has(1)).toBe(edge > 5);
+  }
+});
+
+round3Reproducer('known wrong result: #2512 case accounting refuses lost and excess emitted panel loads', () => {
+  const model = floor(1, 1, 10, 6);
+  const input = planInput(model, { dead: [{ labelKey: 'a', q: 1 }], generateCombinations: true });
+  expect(deadLoadKN(buildLoadPlan(input), model)).toBeCloseTo(60, 10);
+  for (const scale of [0, 0.5, 1.5]) {
+    const mock = vi.spyOn(gravityPlanner, 'gravityLayout').mockImplementation((m, options) => {
+      const checked = gravityLayoutBeforeFault(m, options);
+      return { ...checked, pieces: scale === 0 ? [] : checked.pieces.map(piece => ({ ...piece, wI: piece.wI * scale, wJ: piece.wJ * scale })) };
+    });
+    try {
+      const plan = buildLoadPlan(input);
+      expect(plan.outcome, JSON.stringify({ dead: deadLoadKN(plan, model) })).toBe('BLOCKED');
+      expect(plan.blockedKeys).toEqual([{ key: 'loadPlan.gravity.caseResultant', params: { z: 3, action: 'D' } }]);
+      expect(plan).toMatchObject({ cases: [], distributed: [], nodal: [], surface: [], combinations: [] });
+    } finally {
+      mock.mockRestore();
+    }
+  }
+});
+
+const gravityLayoutBeforeFault = gravityLayout;

@@ -5,6 +5,7 @@ import { evaluateDiagramAt } from '../../diagrams-3d';
 import { buildSolverLoads3D } from '../../solver-service';
 import type { Load } from '../../../store/model.svelte';
 import type { AnalysisResults3D } from '../../types-3d';
+import type { LoadModelData } from '../load-plan';
 import { offsetRoof, roofPlan } from './gravity-offset-roof-fixture';
 
 const template = JSON.parse(readFileSync(new URL('../../../../../../engine/tests/fixtures/nightly-2026-11-13.json', import.meta.url), 'utf8'))['2023'];
@@ -47,5 +48,52 @@ it('#2282 shell-borne gravity leaves the restrained offset rafters unloaded', ()
       for (const id of rafter) expect(result.displacements.find(node => node.nodeId === id)?.uz).toBeCloseTo(0, 10);
       expect(Math.abs(result.displacements.find(node => node.nodeId === 4)!.uz)).toBeGreaterThan(0);
     }
+  }
+});
+
+const round3Reproducer = process.env.RUN_KNOWN_WRONG === '2512' ? it : it.skip;
+
+round3Reproducer('known wrong result: #2512 linear and P-Delta reactions include both independently restrained decks', () => {
+  const { model: roof } = offsetRoof(0.02);
+  const ground = 9;
+  const nodes = new Map([[ground, { id: ground, x: -1, y: -1, z: 0 }]]);
+  for (const [index, z] of [3, 6].entries()) {
+    for (const [i, [x, y]] of [[0, 0], [10, 0], [10, 6], [0, 6]].entries()) {
+      const id = index * 4 + i + 1;
+      nodes.set(id, { id, x: x!, y: y!, z });
+    }
+  }
+  const quads = new Map([
+    [1, { id: 1, nodes: [1, 2, 3, 4], materialId: 1, thickness: 0.1 }],
+    [2, { id: 2, nodes: [5, 6, 7, 8], materialId: 1, thickness: 0.1 }],
+  ]);
+  const model: LoadModelData = {
+    ...roof, nodes, quads, elements: new Map(),
+    supports: new Map([[ground, { id: ground, nodeId: ground, type: 'fixed3d' }]]),
+    constraints: [
+      ...[1, 2, 3, 5, 6, 7].map(slaveNode => ({ type: 'equalDOF' as const, masterNode: ground, slaveNode, dofs: [2] })),
+      { type: 'equalDOF', masterNode: 4, slaveNode: 8, dofs: [2] },
+    ],
+  };
+  const plan = roofPlan(model);
+  expect(plan.outcome).toBe('READY');
+  const dead = plan.surface.filter(load => load.caseType === 'D');
+  const pressure = dead[0]!.q;
+  const loads: Load[] = dead.map((load, index) => ({
+    type: 'surface3d', data: { id: index + 1, quadId: load.quadId, q: load.q },
+  }));
+  const supports = new Map([...nodes.keys()].map(nodeId => [
+    nodeId, { nodeId, rx: true, ry: true, rz: nodeId === ground, rrx: true, rry: true, rrz: true },
+  ]));
+  const input = {
+    ...structuredClone(template),
+    nodes: Object.fromEntries(nodes), elements: {}, quads: Object.fromEntries(quads), constraints: model.constraints,
+    supports: Object.fromEntries(supports),
+    loads: buildSolverLoads3D({ ...model, supports, loads } as never, loads, false, false),
+  };
+  const nonlinear = JSON.parse(solve_pdelta_3d(JSON.stringify(input), 100, 1e-10));
+  expect(nonlinear.converged).toBe(true);
+  for (const result of [solve_3d(input), nonlinear.results] as AnalysisResults3D[]) {
+    expect(result.reactions.reduce((total, reaction) => total + reaction.fz, 0)).toBeCloseTo(2 * 10 * 6 * pressure, 8);
   }
 });
