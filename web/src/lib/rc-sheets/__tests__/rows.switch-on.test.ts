@@ -119,7 +119,7 @@ describe('beam row', () => {
 
 describe('beam line', () => {
   const L = 6;
-  const stations = Array.from({ length: 33 }, (_, i) => { const x = (i / 32) * L; return { x, pos: 260 * (1 - (2 * x / L - 1) ** 2), neg: 0, v: 420 * Math.abs(1 - 2 * x / L) + 260 }; });
+  const stations = Array.from({ length: 33 }, (_, i) => { const x = (i / 32) * L; return { x, pos: 260 * (1 - (2 * x / L - 1) ** 2), neg: 0, v: 420 * Math.abs(1 - 2 * x / L) + 175 }; });
   const d: BeamDemand = { ...v0001, length: L, h: 0.6, start: env(0, 0, 0), span: env(3, 260, 0), end: env(L, 0, 0), vu: { value: 680 }, tu: { value: 0 }, env: stations, line: { group: 1, index: 0, spans: 1, startNode: 1, endNode: 2, lineName: 'V' } };
   const row = beamRow(d, beamCtx, undefined, f);
   const adopted = { bottom: { count: 3, dia: 20 }, top: { count: 2, dia: 12 }, supportTop: [{ count: 0, dia: 12 }, { count: 0, dia: 12 }], spanBottom: [{ count: 3, dia: 20 }] };
@@ -131,8 +131,11 @@ describe('beam line', () => {
     expect(open.cutoffs.filter((x) => x.mark === bar.mark)).toEqual([]);
   });
 
-  it('cuts it where the stirrups give (c)', () => {
-    const dense = beamLine([row], beamCtx, { ...adopted, stirrups: [{ dia: 10, legs: 2, spacing: 0.06 }] }, f);
+  it('cuts it where the stirrups give (c), and not where they only carry the shear there', () => {
+    const tight = beamLine([row], beamCtx, { ...adopted, stirrups: [{ dia: 8, legs: 2, spacing: 0.045 }] }, f);
+    const kept = tight.bars.find((b) => b.kind === 'span')!;
+    expect([kept.from, kept.to]).toEqual([0, L]);
+    const dense = beamLine([row], beamCtx, { ...adopted, stirrups: [{ dia: 12, legs: 2, spacing: 0.06 }] }, f);
     const bar = dense.bars.find((b) => b.kind === 'span')!;
     expect(bar.from).toBeGreaterThan(0);
     expect(bar.to).toBeLessThan(L);

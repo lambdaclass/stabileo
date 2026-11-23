@@ -15,11 +15,13 @@ export interface Cutoff {
   note: string;
 }
 
+/** The larger |V| of the two stations either side of x: between samples the shear is not known to be lower. None read, none allowed. */
 function shearAt(stations: readonly { x: number; v: number }[], x: number): number {
-  if (stations.length === 0) return 0;
-  let best = stations[0];
-  for (const s of stations) if (Math.abs(s.x - x) < Math.abs(best.x - x)) best = s;
-  return best.v;
+  if (stations.length === 0) return Infinity;
+  const sorted = [...stations].sort((a, b) => a.x - b.x);
+  const after = sorted.findIndex((s) => s.x >= x - 1e-9);
+  const pair = after < 0 ? [sorted[sorted.length - 1]!] : after === 0 ? [sorted[0]!] : [sorted[after - 1]!, sorted[after]!];
+  return Math.max(...pair.map((s) => Math.abs(s.v)));
 }
 
 /**
@@ -34,6 +36,7 @@ export function evaluateCutoff(opts: {
   d: number;
   diameterMm: number;
   stations: readonly { x: number; v: number }[];
+  /** Design shear strength φVn, kN. */
   vn: number;
   b: number;
   fy: number;
@@ -63,14 +66,14 @@ export function evaluateCutoff(opts: {
   if (vu <= (2 / 3) * opts.vn) {
     return {
       theoretical: opts.theoretical, actual, legality: 'lowShear', refs,
-      note: `9.7.3.5(a): Vu = ${vu.toFixed(1)} kN ≤ (2/3)Vn = ${((2 / 3) * opts.vn).toFixed(1)} kN.`,
+      note: `9.7.3.5(a): Vu = ${vu.toFixed(1)} kN ≤ (2/3)φVn = ${((2 / 3) * opts.vn).toFixed(1)} kN.`,
     };
   }
   if (opts.diameterMm <= 32 && opts.continuingDoubleArea && vu <= 0.75 * opts.vn) {
     return {
       theoretical: opts.theoretical, actual, legality: 'doubleArea', refs,
       note: `9.7.3.5(b): Ø${opts.diameterMm} ≤ 32 mm, la armadura que continúa duplica el ` +
-            `área requerida y Vu = ${vu.toFixed(1)} kN ≤ (3/4)Vn = ${(0.75 * opts.vn).toFixed(1)} kN.`,
+            `área requerida y Vu = ${vu.toFixed(1)} kN ≤ (3/4)φVn = ${(0.75 * opts.vn).toFixed(1)} kN.`,
     };
   }
 
