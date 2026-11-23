@@ -52,3 +52,20 @@ describe('a wall, ADN 500, in the transition zone', () => {
     expect(res.phiMn).toBeCloseTo(phi * M, 0);
   });
 });
+
+describe('a wall pulled along its axis', () => {
+  const bars: WallReinforcement = { curtains: 2, vertical: { diameter: 10, spacing: 0.2 }, horizontal: { diameter: 8, spacing: 0.2 } } as WallReinforcement;
+  const base = { length: 3, thickness: 0.2, cover: 0.025, fc: 25, fy: 420, r: bars };
+
+  it('uses its tension capacity in plane where no moment comes with the pull', () => {
+    const r = wallInPlane({ ...base, pu: -300, mu: 0 });
+    expect(r.utilization).toBeGreaterThan(0.1);
+    expect(wallInPlane({ ...base, pu: -5000, mu: 0 }).ok).toBe(false);
+  });
+
+  it('bends its vertical strip out of plane with the pull, which leaves it less than with none', () => {
+    const none = wallOutOfPlane({ ...base, pu: 0, muV: 5, muH: 0 })[0]!;
+    const pulled = wallOutOfPlane({ ...base, pu: -600, muV: 5, muH: 0 })[0]!;
+    expect(pulled.utilization).toBeGreaterThan(none.utilization);
+  });
+});

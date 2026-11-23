@@ -45,7 +45,7 @@ export function wallInPlane(o: { length: number; thickness: number; cover: numbe
   const range = axialRange(outline, bars, mat);
   let u: number, phiMn = 0, c: number | undefined;
   if (o.pu > range.max || o.pu < range.min) u = Number.POSITIVE_INFINITY;
-  else if (o.mu < 1e-6) u = o.pu > 0 ? o.pu / Math.max(range.max, 1e-9) : 0;
+  else if (o.mu < 1e-6) u = o.pu > 0 ? o.pu / Math.max(range.max, 1e-9) : o.pu < 0 ? o.pu / Math.min(range.min, -1e-9) : 0;
   else {
     // In-plane bending: the strain varies along the length, the section's x.
     const cap = momentCapacityAtAxial(outline, bars, mat, o.pu, 1e-9, o.mu);
@@ -69,8 +69,10 @@ export function wallOutOfPlane(o: { length: number; thickness: number; cover: nu
     const ys = o.r.curtains === 2 ? [-(t / 2 - o.cover - o.r.horizontal.diameter / 1000 - o.r.vertical.diameter / 2000), t / 2 - o.cover - o.r.horizontal.diameter / 1000 - o.r.vertical.diameter / 2000] : [0];
     for (const y of ys) stripBars.push({ x: 0, y, area: area(o.r.vertical.diameter) * per });
     const outline = { kind: 'rect' as const, b: 1, h: t };
-    const Pm = Math.max(0, o.pu / Math.max(o.length, 1e-6));
-    const cap = momentCapacityAtAxial(outline, stripBars, { fc: o.fc, fy: o.fy, edition: CIRSOC201_DESIGN_EDITION }, Pm, o.muV, 1e-9);
+    const Pm = o.pu / Math.max(o.length, 1e-6);
+    const mat = { fc: o.fc, fy: o.fy, edition: CIRSOC201_DESIGN_EDITION };
+    const strip = axialRange(outline, stripBars, mat);
+    const cap = Pm > strip.max || Pm < strip.min ? null : momentCapacityAtAxial(outline, stripBars, mat, Pm, o.muV, 1e-9);
     const u = cap && cap.phiMn > 1e-9 ? o.muV / cap.phiMn : Number.POSITIVE_INFINITY;
     out.push({ category: 'Out-of-plane (vertical bars)', utilization: u, ok: u <= 1 + 1e-9, description: `Mu = ${o.muV.toFixed(1)} kN·m/m at Pu = ${Pm.toFixed(0)} kN/m, φMn = ${(cap?.phiMn ?? 0).toFixed(1)} kN·m/m` });
   }
