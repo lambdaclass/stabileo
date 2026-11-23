@@ -16366,6 +16366,7 @@ const tr: Translations = {
   "rcSheets.plans.export": "Çizimleri dışa aktar",
   "rcSheets.plans.exportShort": "Çizimler",
   "rcSheets.plans.title": "Ölçekli donatı çizimleri",
+  "rcSheets.plans.footingPreview": "{layout} düzeni, benimsenmedi",
   "rcSheets.plans.scope": "Ne çizilecek",
   "rcSheets.plans.scope.current": "Açık eleman ({name})",
   "rcSheets.plans.scope.families": "Aileler ve katlar",

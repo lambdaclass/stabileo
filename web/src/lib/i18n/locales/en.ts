@@ -16528,6 +16528,7 @@ const en: Record<string, string> = {
   "rcSheets.plans.export": "Export drawings",
   "rcSheets.plans.exportShort": "Drawings",
   "rcSheets.plans.title": "Reinforcement drawings to scale",
+  "rcSheets.plans.footingPreview": "{layout} layout, not adopted",
   "rcSheets.plans.scope": "What to draw",
   "rcSheets.plans.scope.current": "The open element ({name})",
   "rcSheets.plans.scope.families": "Families and levels",

@@ -16170,6 +16170,7 @@ const pt: Translations = {
   "rcSheets.plans.export": "Exportar desenhos",
   "rcSheets.plans.exportShort": "Desenhos",
   "rcSheets.plans.title": "Desenhos de armadura em escala",
+  "rcSheets.plans.footingPreview": "disposição {layout}, não adotada",
   "rcSheets.plans.scope": "O que desenhar",
   "rcSheets.plans.scope.current": "O elemento aberto ({name})",
   "rcSheets.plans.scope.families": "Famílias e níveis",

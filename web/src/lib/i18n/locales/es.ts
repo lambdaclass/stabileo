@@ -16517,6 +16517,7 @@ const es: Record<string, string> = {
   "rcSheets.plans.export": "Exportar planos",
   "rcSheets.plans.exportShort": "Planos",
   "rcSheets.plans.title": "Planos de armadura a escala",
+  "rcSheets.plans.footingPreview": "disposición {layout}, sin adoptar",
   "rcSheets.plans.scope": "Qué dibujar",
   "rcSheets.plans.scope.current": "El elemento abierto ({name})",
   "rcSheets.plans.scope.families": "Familias y niveles",

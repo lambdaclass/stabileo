@@ -16103,6 +16103,7 @@ const zh: Translations = {
   "rcSheets.plans.export": "导出图纸",
   "rcSheets.plans.exportShort": "图纸",
   "rcSheets.plans.title": "按比例绘制的配筋图",
+  "rcSheets.plans.footingPreview": "{layout} 布置，未采用",
   "rcSheets.plans.scope": "绘制内容",
   "rcSheets.plans.scope.current": "当前打开的构件（{name}）",
   "rcSheets.plans.scope.families": "构件类型和楼层",

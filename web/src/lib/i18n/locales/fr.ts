@@ -16366,6 +16366,7 @@ const fr: Translations = {
   "rcSheets.plans.export": "Exporter les plans",
   "rcSheets.plans.exportShort": "Plans",
   "rcSheets.plans.title": "Plans de ferraillage à l’échelle",
+  "rcSheets.plans.footingPreview": "disposition {layout}, non adoptée",
   "rcSheets.plans.scope": "Quoi dessiner",
   "rcSheets.plans.scope.current": "L’élément ouvert ({name})",
   "rcSheets.plans.scope.families": "Familles et niveaux",

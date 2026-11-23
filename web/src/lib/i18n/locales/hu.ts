@@ -16050,6 +16050,7 @@ const hu: Translations = {
   "rcSheets.plans.export": "Rajzok exportálása",
   "rcSheets.plans.exportShort": "Rajzok",
   "rcSheets.plans.title": "Méretarányos vasalási rajzok",
+  "rcSheets.plans.footingPreview": "{layout} kiosztás, nincs elfogadva",
   "rcSheets.plans.scope": "Mit rajzoljon",
   "rcSheets.plans.scope.current": "A megnyitott elem ({name})",
   "rcSheets.plans.scope.families": "Családok és szintek",

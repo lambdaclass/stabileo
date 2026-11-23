@@ -16366,6 +16366,7 @@ const de: Translations = {
   "rcSheets.plans.export": "Pläne exportieren",
   "rcSheets.plans.exportShort": "Pläne",
   "rcSheets.plans.title": "Bewehrungspläne im Maßstab",
+  "rcSheets.plans.footingPreview": "Anordnung {layout}, nicht übernommen",
   "rcSheets.plans.scope": "Was gezeichnet wird",
   "rcSheets.plans.scope.current": "Das geöffnete Element ({name})",
   "rcSheets.plans.scope.families": "Familien und Ebenen",
