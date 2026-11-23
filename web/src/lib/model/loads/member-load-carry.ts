@@ -12,7 +12,7 @@
  * One place for these, so a point load, a thermal load and a tendon are carried alike by every
  * edit (`transform-fields.ts`, `transform-in-place.ts`, `flip-members.ts`, `reverse-element.ts`).
  */
-import type { PointLoadOnElement3D, PrestressLoad3D, SurfaceLoad3D, ThermalLoad } from '../../store/model.svelte';
+import type { DistributedLoad3D, PointLoadOnElement3D, PrestressLoad3D, SurfaceLoad3D, ThermalLoad } from '../../store/model.svelte';
 import { applyAxial, applyPoint, applyVector, det, type Affine, type Vec3 } from '../edit/affine';
 import { reexpressPointLocal } from '../../engine/member-point-loads';
 
@@ -35,6 +35,22 @@ export function carryPointLoad<P extends PointLoadOnElement3D>(d: P, T: Affine, 
 export function reversePointLoad<P extends PointLoadOnElement3D>(d: P, L: number, s: AxisSigns): P {
   const at = { ...d, a: L - (d.a ?? 0) } as P;
   return (d.frame ?? 'local') === 'global' ? at : reexpressPointLocal(at, { x: -1, y: s.sy, z: s.sz });
+}
+
+export function reverseDistributedLoad(d: DistributedLoad3D, L: number, s: AxisSigns): DistributedLoad3D {
+  const { a, b, qXI, qXJ, ...rest } = d;
+  const local = (d.frame ?? 'local') === 'local';
+  const y = local ? s.sy : 1;
+  const z = local ? s.sz : 1;
+  const x = local ? -1 : 1;
+  const next: DistributedLoad3D = { ...rest, qYI: y * d.qYJ, qYJ: y * d.qYI, qZI: z * d.qZJ, qZJ: z * d.qZI };
+  if (qXJ !== undefined) next.qXI = x * qXJ;
+  if (qXI !== undefined) next.qXJ = x * qXI;
+  if (a !== undefined || b !== undefined) {
+    next.a = L - (b ?? L);
+    next.b = L - (a ?? 0);
+  }
+  return next;
 }
 
 /** A thermal load's gradients on a member whose local y and z are `s` times the old ones. */

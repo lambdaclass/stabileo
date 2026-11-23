@@ -1,13 +1,20 @@
 import type { Translations } from '../types';
 
 const ar: Translations = {
+  'svc.accountingMismatch': "رُفض التحليل. حالة الحمل {case}، المركبة {component}. المُدخل {entered}، المُجمّع {assembled}.",
+  'svc.accountingUnsupported': "رُفض التحليل. لا يمكن حساب قوى وعزوم {kind} {id} في حالة الحمل {case}.",
+  'svc.accountingArea': "رُفض التحليل. مساحة اللوح {plate} أو حدوده مختلفة في نموذج الحل. المساحة المحددة {entered}، والمساحة المجمّعة {assembled}.",
+  'svc.accountingSweep': "رُفض التحليل. مسار الحافة القوسية للوح {plate} مختلف في نموذج الحل. المساحة المحددة {entered}، والمساحة المجمّعة {assembled}.",
+  'svc.accountingShellEdits': "لا يمكن إعادة تشبيك اللوح {plate} لأن ذلك سيحذف إزاحة القشرة أو تعديل انحنائها.",
+  "plates.remeshAmbiguousSweep": "القوس عند الحافة المنحنية للوحة {name} غير محدد بوضوح. تحقق من النقطة الوسطية وأي عضو منحني بين نقطتي النهاية قبل إعادة إنشاء الشبكة.",
+  "plates.remeshShellEdits": "يتعذر استبدال شبكة {name} لأن تعديلات إزاحة عناصر القشرة أو انحنائها لا يمكن نقلها بدقة.",
   'loadPlan.gravity.coveragePrecision': "تتجاوز إحداثيات تغطية القشريات دقة فواصل العناصر المدعومة.",
   'loadPlan.gravity.partitionFailed': "تعذر تقسيم المساحة المسقطة للقشريات: {detail}",
   'loadPlan.gravity.unsupportedStrips': "تتطلب التغطية الجزئية بالقشريات شرائط تمتد على كامل البحر بين الحوامل المتقابلة في لوح كمرات مستطيل.",
   'loadPlan.gravity.stripDirection': "يجب أن يتوافق اتجاه البحر الأحادي المطلوب مع اتجاه بحر الشرائط غير المغطاة.",
   'loadPlan.gravity.nonplanarShell': "العنصر الرباعي {id} غير مستوٍ. يتطلب حساب تغطية أحمال الجاذبية قشريات مستوية.",
-  'loadPlan.gravity.overlappingShells': "يتداخل العنصران القشريان {first} و{second} في المستوى نفسه. لا يمكن إسناد حمل الجاذبية في منطقة التداخل إلى عنصر قشري واحد.",
-  'loadPlan.gravity.offsetShellDeck': "العنصر القشري {id} متصل اتصالًا صلبًا بلوحة كمرات مزاحة تتداخل معه في المسقط. لا يمكن تحديد السطح الذي يتحمل الحمل المساحي.",
+  'loadPlan.gravity.overlappingShells': "يتداخل العنصران القشريان {first} و{second} في المستوى نفسه أو يشتركان في نطاق منسوب البلاطة. صحّح هندسة القشرتين أو عيّن الحمل السطحي يدويًا مرة واحدة.",
+  'loadPlan.gravity.offsetShellDeck': "يرتبط العنصر القشري {id} رأسيًا بلوحة كمرات متداخلة معه في المسقط وتقع على منسوب مختلف (العناصر {members}). صحّح هندسة القشرة أو الوصلة أو لوحة الكمرات، أو عيّن الحمل السطحي يدويًا مرة واحدة.",
   'loadPlan.gravity.memberSlopeLimit': "ميل العنصر {id} قريب جدًا من الحد بحيث لا يمكن تصنيفه بثقة كعنصر حامل لأحمال الجاذبية. حدّد أحماله صراحةً.",
   'snow.refused.stepDriftTransfer': "يتعذر نقل حمل تراكم الثلوج عند فرق منسوب السقف إلى العناصر الحاملة بشكل موثوق. حدّد أحمال الثلوج صراحةً.",
   'loadPlan.gravity.unresolvedMember': "العنصر {id} مغطى جزئيًا بقشرية ولم يتحدد انتقال الحمل من اللوح.",
@@ -1811,6 +1818,8 @@ const ar: Translations = {
   'dxf.summaryMaxV': 'أقصى V:',
   'dxf.warnZeroLengthLine': 'تم تجاهل خط بطول صفري',
   'dxf.warnNoElementLayers': 'لم يتم كشف طبقات عناصر/كمرات. يتم استخدام جميع الخطوط كعناصر.',
+  'dxf.refuseSupportLabel': 'تسمية المسند «{label}» في طبقة DXF «{layer}» غير معروفة أو ملتبسة. صحّح الرسم قبل الاستيراد. استخدم FIXED أو PINNED أو RX أو RY أو RZ فقط إذا كانت التسمية تطابق القيد المقصود.',
+  'dxf.refuseConflictingSupports': 'تسميتا المسند «{first}» و«{second}» في طبقة DXF «{layer}» تتطابقان مع العقدة نفسها. قبل الاستيراد، أبقِ فقط على التسمية أو الكتلة الخاصة بالقيد المقصود.',
   'dxf.warnSupportNoNode': 'المسند لا يتطابق مع أي عقدة:',
   'dxf.warnSupportBlockNoNode': 'كتلة المسند لا تتطابق مع أي عقدة:',
   'dxf.warnDistLoadNoElement': 'حمل موزّع غير مرتبط بأي عنصر:',
@@ -3466,6 +3475,7 @@ const ar: Translations = {
   'design.error.solveFirst': 'قم بحل النموذج أولًا لحساب قوى التصميم.',
   'design.error.noCombinations': 'عرّف تركيبة أحمال واحدة على الأقل قبل التصميم.',
   'design.error.noDemands': 'تعذّر استخراج قوى تصميم من النتائج الحالية.',
+  'design.error.incompleteSpanStations': 'يتطلب التصميم القوى الداخلية عند كل نقطة تقييم في كل بحر من بحور الكمرات لجميع تركيبات الأحمال المفعّلة.',
   'design.error.noLinearCombination': 'لا توجد تركيبة خطية نشطة: تركيبات SRSS وABS مقادير بلا إشارة ولا يُصمَّم عليها. فعّل تركيبة خطية.',
   'design.error.combinationsUnsolved': 'التركيبات معرّفة ولا نتائج لأيٍّ منها، فلا توجد إلا الأحمال غير المضروبة في المعاملات، ولا يُصمَّم شيء عليها. الحساب الكامل بالتركيبات يعطي نتائجها، أو يبيّن سبب استبعادها.',
   'design.error.noAdapter': 'لا يوجد محول كود تصميم مسجَّل للكود المحدد.',
@@ -3744,6 +3754,7 @@ const ar: Translations = {
   "autoLoad.work.draw": "رسم الأحمال",
   "autoLoad.work.step": "الخطوة {step} من {total}",
   "autoLoad.work.cancel": "إيقاف",
+  "svc.engine.nonFiniteNumber": "أدخل عددًا منتهيًا في الحقل {path} (القيمة الواردة: {value}).",
 } as const satisfies Record<string, string>;
 
 export default ar;

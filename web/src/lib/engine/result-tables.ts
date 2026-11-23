@@ -27,7 +27,7 @@ import type { Quantity } from '../utils/units';
 import { csvCell } from './result-query';
 import type { ElementDesignDemands, GoverningDemand } from './station-design-forces';
 import { stationTs, type StationSpec } from './station-forces';
-import { evaluateDiagramAt } from './diagrams-3d';
+import { prepareDiagramEvaluator3D } from './diagrams-3d';
 import { resultComponents } from '../axes/result-components';
 import { makeFrame, type AxesChoice } from '../axes/frame';
 
@@ -121,11 +121,16 @@ function eachRow(kind: TableKind, r: AnalysisResults3D, opts: TableOptions, visi
       continue;
     }
     const ts = stationTs(f, spec);
+    if (!ts.length) continue;
+    const axial = prepareDiagramEvaluator3D(f, 'axial');
+    const shearY = prepareDiagramEvaluator3D(f, 'shearY');
+    const shearZ = prepareDiagramEvaluator3D(f, 'shearZ');
+    const torsion = prepareDiagramEvaluator3D(f, 'torsion');
+    const momentY = prepareDiagramEvaluator3D(f, 'momentY');
+    const momentZ = prepareDiagramEvaluator3D(f, 'momentZ');
     for (let k = 0; k < ts.length; k++) {
       const t = ts[k]!;
-      // `extractForcesAtStation`'s six diagrams, without the station record it also builds.
-      const v = [evaluateDiagramAt(f, 'axial', t), evaluateDiagramAt(f, 'shearY', t), evaluateDiagramAt(f, 'shearZ', t),
-        evaluateDiagramAt(f, 'torsion', t), evaluateDiagramAt(f, 'momentY', t), evaluateDiagramAt(f, 'momentZ', t)];
+      const v = [axial(t), shearY(t), shearZ(t), torsion(t), momentY(t), momentZ(t)];
       visit(f.elementId, k === 0 ? 'i' : k === ts.length - 1 ? 'j' : undefined, t * f.length, fin(v));
     }
   }

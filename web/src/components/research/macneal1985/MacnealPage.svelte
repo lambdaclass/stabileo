@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
   import { publicI18n } from '../../../lib/i18n/store.svelte';
+  import { holdPrerender } from '../../../lib/prerender-hold';
   import ExperimentShell from '../shell/ExperimentShell.svelte';
   import PaneTabs from '../shell/PaneTabs.svelte';
   import ScalarFieldViewer from '../../viewport/ScalarFieldViewer.svelte';
@@ -42,7 +43,7 @@
     await tick();
     document.getElementById('rs-tab-viewer')?.focus();
   }
-  onMount(() => { void run(); });
+  onMount(() => { void holdPrerender(run()); });
 </script>
 
 <ExperimentShell paperId="macneal-harder-1985" name={s.title}

@@ -398,7 +398,7 @@ export function onProjectOpened(snap: ModelSnapshot | undefined, analysisMode: s
       includeSelfWeight: usesSelfWeightToggle && uiStore.includeSelfWeight,
       solvedWith: snap.solvedWith,
       pendingRecheckNotice: snap.pendingRecheckNotice,
-    } as never, analysisMode);
+    } as never, analysisMode, snap.loads);
   }
   // Design kept in the project while it is off in PRO's settings: offered, not switched on.
   noteDesignHeldIfOff(analysisMode);

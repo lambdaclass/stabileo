@@ -1,13 +1,20 @@
 import type { Translations } from '../types';
 
 const ko: Translations = {
+  'svc.accountingMismatch': "해석을 거부했습니다. 하중 케이스 {case}, 성분 {component}. 입력값 {entered}, 조립값 {assembled}.",
+  'svc.accountingUnsupported': "해석을 거부했습니다. 하중 케이스 {case}의 {kind} {id}에 대한 힘과 모멘트를 집계할 수 없습니다.",
+  'svc.accountingArea': "해석을 거부했습니다. 솔버의 판 {plate} 면적 또는 경계가 다릅니다. 지정 면적 {entered}, 조립 면적 {assembled}.",
+  'svc.accountingSweep': "해석을 거부했습니다. 솔버의 판 {plate} 곡선 모서리 경로가 다릅니다. 지정 면적 {entered}, 조립 면적 {assembled}.",
+  'svc.accountingShellEdits': "판 {plate}의 메시를 다시 생성하면 셸 오프셋 또는 곡률 편집이 사라지므로 실행할 수 없습니다.",
+  "plates.remeshAmbiguousSweep": "{name}의 곡선 경계에서 사용할 원호 구간이 불분명합니다. 메시를 다시 생성하기 전에 중간점과 두 끝점 사이의 곡선 부재를 확인하세요.",
+  "plates.remeshShellEdits": "셸 요소의 오프셋 또는 곡률 변경을 정확히 옮길 수 없어 {name}의 메시를 교체할 수 없습니다.",
   'loadPlan.gravity.coveragePrecision': "쉘 피복 좌표가 지원되는 부재 구간 정밀도를 초과합니다.",
   'loadPlan.gravity.partitionFailed': "쉘 투영 영역을 분할하지 못했습니다: {detail}",
   'loadPlan.gravity.unsupportedStrips': "부분 쉘 피복에서는 띠가 직사각형 보 패널의 마주 보는 지지부 사이 전 경간에 걸쳐야 합니다.",
   'loadPlan.gravity.stripDirection': "요청한 일방향 경간은 피복되지 않은 띠의 경간 방향과 일치해야 합니다.",
   'loadPlan.gravity.nonplanarShell': "사각형 {id}이 평면이 아닙니다. 중력 하중의 피복 계산에는 평면 쉘이 필요합니다.",
-  'loadPlan.gravity.overlappingShells': "셸 {first}과 {second}이 같은 평면에서 겹칩니다. 겹치는 영역의 중력 하중을 한 셸에 배정할 수 없습니다.",
-  'loadPlan.gravity.offsetShellDeck': "셸 {id}이 평면 투영이 겹치는 이격된 보 패널에 강결되어 있습니다. 면하중을 받는 표면을 결정할 수 없습니다.",
+  'loadPlan.gravity.overlappingShells': "셸 {first}과 {second}이 같은 평면에서 겹치거나 동일한 바닥 높이 허용 범위에서 겹칩니다. 셸의 형상을 수정하거나 면하중을 수동으로 한 번만 적용하세요.",
+  'loadPlan.gravity.offsetShellDeck': "셸 {id}이 평면 투영이 겹치는 다른 높이의 보 패널(부재 {members})에 수직 방향으로 연결되어 있습니다. 셸, 연결부 또는 보 패널의 형상을 수정하거나 면하중을 수동으로 한 번만 적용하세요.",
   'loadPlan.gravity.memberSlopeLimit': "부재 {id}의 경사가 중력 하중을 지지하는 부재의 판정 한계에 너무 가깝습니다. 하중을 명시적으로 지정하세요.",
   'snow.refused.stepDriftTransfer': "지붕 단차의 눈 쌓임으로 인한 하중을 지지 부재에 안정적으로 전달할 수 없습니다. 적설 하중을 명시적으로 지정하세요.",
   'loadPlan.gravity.unresolvedMember': "부재 {id}는 쉘에 일부만 덮여 있으며 패널의 하중 전달을 결정할 수 없습니다.",
@@ -1809,6 +1816,8 @@ const ko: Translations = {
   'dxf.summaryMaxV': '최대 V:',
   'dxf.warnZeroLengthLine': '길이 0인 선이 무시됨',
   'dxf.warnNoElementLayers': '부재/요소 레이어가 감지되지 않음. 모든 선이 요소로 사용됩니다.',
+  'dxf.refuseSupportLabel': 'DXF 레이어 “{layer}”의 지점 라벨 “{label}”을 알 수 없거나 의미가 모호합니다. 가져오기 전에 도면을 수정하세요. FIXED, PINNED, RX, RY 또는 RZ는 의도한 구속 조건과 일치할 때만 사용하세요.',
+  'dxf.refuseConflictingSupports': 'DXF 레이어 “{layer}”의 지점 라벨 “{first}”와 “{second}”가 같은 절점에 대응합니다. 가져오기 전에 의도한 구속 조건에 해당하는 라벨이나 블록만 남기세요.',
   'dxf.warnSupportNoNode': '지점이 어떤 절점과도 일치하지 않음:',
   'dxf.warnSupportBlockNoNode': '지점 블록이 어떤 절점과도 일치하지 않음:',
   'dxf.warnDistLoadNoElement': '분포하중이 어떤 요소와도 연관되지 않음:',
@@ -3465,6 +3474,7 @@ const ko: Translations = {
   'design.error.solveFirst': '설계 응력을 계산하려면 먼저 모델을 해석하세요.',
   'design.error.noCombinations': '설계 전에 최소 하나의 하중 조합을 정의하세요.',
   'design.error.noDemands': '현재 결과에서 설계 응력을 추출할 수 없습니다.',
+  'design.error.incompleteSpanStations': '설계하려면 모든 보 경간의 각 평가 지점에서 활성화된 모든 하중 조합에 대한 단면력이 필요합니다.',
   'design.error.noLinearCombination': '활성화된 선형 조합이 없습니다. SRSS 및 ABS 조합은 부호 없는 크기이며 설계에 사용되지 않습니다. 선형 조합을 활성화하세요.',
   'design.error.combinationsUnsolved': '조합이 정의되어 있지만 어느 것에도 결과가 없어 계수를 곱하지 않은 하중뿐이며, 이것으로는 아무것도 설계하지 않습니다. 조합을 포함한 전체 해석이 결과를 주거나, 조합을 제외한 이유를 알려 줍니다.',
   'design.error.noAdapter': '선택한 규준에 등록된 설계 어댑터가 없습니다.',
@@ -3743,6 +3753,7 @@ const ko: Translations = {
   "autoLoad.work.draw": "하중 그리는 중",
   "autoLoad.work.step": "{total}단계 중 {step}단계",
   "autoLoad.work.cancel": "중지",
+  "svc.engine.nonFiniteNumber": "{path}에 유한한 수를 입력하세요(받은 값: {value}).",
 } as const satisfies Record<string, string>;
 
 export default ko;

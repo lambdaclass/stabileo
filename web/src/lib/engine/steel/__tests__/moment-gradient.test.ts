@@ -22,7 +22,7 @@
 
 import { describe, it, expect } from 'vitest';
 import {
-  momentGradient, cbBasisKey, type StationMoment,
+  momentGradient, momentGradientStations, cbBasisKey, type StationMoment,
 } from '../moment-gradient';
 import es from '../../../i18n/locales/steel/es';
 import en from '../../../i18n/locales/steel/en';
@@ -289,4 +289,18 @@ describe('every basis and reason resolves in the three offered languages', () =>
       expect(v, name).toMatch(/6\.1|Apéndice 6|Apêndice 6/);
     }
   });
+});
+
+it('uses the interior limits at braces and the larger magnitude at a discontinuous quarter point', () => {
+  const read = (t: number, right: boolean): number => {
+    if (t === 0.25) return right ? 1 : 100;
+    if (t === 0.75) return right ? 100 : 2;
+    if (t === 0.5) return right ? -5 : 3;
+    return t < 0.5 ? 2 : -3;
+  };
+  const tStart = 0.25, tEnd = 0.75;
+  const stations = momentGradientStations([{ t: tStart, m: 100 }, { t: tEnd, m: 100 }], read, tStart, tEnd);
+  const gradient = momentGradient({ stations, tStart, tEnd, shape: 'I' });
+  expect(gradient).toMatchObject({ mMax: 5, mA: 2, mB: 5, mC: 3, curvature: 'double' });
+  expect(gradient.cb).toBeCloseTo(f11(5, 2, 5, 3), 12);
 });

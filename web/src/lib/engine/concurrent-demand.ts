@@ -13,7 +13,7 @@ function readScalars<T extends object, K extends keyof T>(source: T, keys: reado
 const forceFields = scalarKeys<StationForces>({ t: true, x: true, n: true, my: true, mz: true, vy: true, vz: true, torsion: true });
 const resultFields = scalarKeys<Omit<ElementStationResult, 'stationTs' | 'expectedCombinationIds' | 'comboResults'>>({ inventory: true, elementId: true, length: true });
 type ComboStations = ElementStationResult['comboResults'][number];
-const comboFields = scalarKeys<Omit<ComboStations, 'stations' | 'transverseLoading'>>({ comboId: true, comboName: true });
+const comboFields = scalarKeys<Omit<ComboStations, 'stations' | 'transverseLoading' | 'diagramForces'>>({ comboId: true, comboName: true });
 const loadingFields = scalarKeys<NonNullable<ComboStations['transverseLoading']>>({ My: true, Mz: true });
 
 interface ConcurrentTuple {

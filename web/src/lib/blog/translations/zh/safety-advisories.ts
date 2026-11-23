@@ -379,6 +379,126 @@ const body: PostBody = {
       "t": "受影响的输入和应采取的措施。"
     },
     {
+      "k": "note",
+      "t": "SA-2026-100 — 下一版本（0.6.4）。"
+    },
+    {
+      "k": "ext",
+      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-100-result-display-signs.md",
+      "label": "SA-2026-100",
+      "t": "受影响的输入和应采取的措施。"
+    },
+    {
+      "k": "note",
+      "t": "SA-2026-101 — 下一版本（0.6.4）。"
+    },
+    {
+      "k": "ext",
+      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-101-plate-analysis-conformity.md",
+      "label": "SA-2026-101",
+      "t": "受影响的输入和应采取的措施。"
+    },
+    {
+      "k": "note",
+      "t": "SA-2026-102 — 下一版本（0.6.4）。"
+    },
+    {
+      "k": "ext",
+      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-102-diagram-extrema-and-span-demands.md",
+      "label": "SA-2026-102",
+      "t": "受影响的输入和应采取的措施。"
+    },
+    {
+      "k": "note",
+      "t": "SA-2026-103 — 下一版本（0.6.4）。"
+    },
+    {
+      "k": "ext",
+      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-103-rc-torsion-evidence.md",
+      "label": "SA-2026-103",
+      "t": "受影响的输入和应采取的措施。"
+    },
+    {
+      "k": "note",
+      "t": "SA-2026-104 — 下一版本（0.6.4）。"
+    },
+    {
+      "k": "ext",
+      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-104-member-load-reversal-and-planar-couples.md",
+      "label": "SA-2026-104",
+      "t": "受影响的输入和应采取的措施。"
+    },
+    {
+      "k": "note",
+      "t": "SA-2026-105 — 0.6.3 之后的下一个版本。"
+    },
+    {
+      "k": "ext",
+      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-105-restored-planar-moment-edits.md",
+      "label": "SA-2026-105",
+      "t": "受影响的输入和应采取的措施。"
+    },
+    {
+      "k": "note",
+      "t": "SA-2026-106 — 0.6.3 之后的下一个版本（遏制措施）。"
+    },
+    {
+      "k": "ext",
+      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-106-complementary-plate-remesh-arc.md",
+      "label": "SA-2026-106",
+      "t": "受影响的输入和应采取的措施。"
+    },
+    {
+      "k": "note",
+      "t": "SA-2026-107 — 0.6.3 之后的下一个版本（遏制措施）。"
+    },
+    {
+      "k": "ext",
+      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-107-plate-remesh-shell-edits.md",
+      "label": "SA-2026-107",
+      "t": "受影响的输入和应采取的措施。"
+    },
+    {
+      "k": "note",
+      "t": "SA-2026-108 — 0.6.4 之后的下一个版本。"
+    },
+    {
+      "k": "ext",
+      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-108-planar-projection-nodal-forces.md",
+      "label": "SA-2026-108",
+      "t": "受影响的输入和应采取的措施。"
+    },
+    {
+      "k": "note",
+      "t": "SA-2026-109 — 0.6.4 之后的下一个版本。"
+    },
+    {
+      "k": "ext",
+      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-109-dxf-support-labels.md",
+      "label": "SA-2026-109",
+      "t": "受影响的输入和应采取的措施。"
+    },
+    {
+      "k": "note",
+      "t": "SA-2026-110 — 0.6.4 之后的下一个版本。"
+    },
+    {
+      "k": "ext",
+      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-110-solver-json-boundary.md",
+      "label": "SA-2026-110",
+      "t": "受影响的输入和应采取的措施。"
+    },
+    {
+      "k": "note",
+      "t": "SA-2026-111 — 0.6.4 之后的下一个版本。"
+    },
+    {
+      "k": "ext",
+      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-111-gravity-shared-deck-coverage.md",
+      "label": "SA-2026-111",
+      "t": "受影响的输入和应采取的措施。"
+    },
+    {
       "k": "img",
       "base": "blog/recheck-stale",
       "w": 1600,
@@ -987,6 +1107,78 @@ const body: PostBody = {
           "重力荷载生成可能对壳板和梁区域重复施加荷载，或在平面旋转或杆件细分后改变受荷杆件。屋面高差处的积雪荷载在传递时可能损失合力和力矩。请重新生成荷载，遇到阻止时采用经独立验证的荷载工况。",
           "高",
           "已在 0.6.3 中通过阻止生成控制风险"
+        ],
+        [
+          "SA-2026-100",
+          "支座反力矩、自由体读数和集中荷载列表可能显示错误的符号或轴向。请依据平衡条件和荷载方向核查数值，复核受影响的结果并重新生成报告。",
+          "中",
+          "下一版本（0.6.4）"
+        ],
+        [
+          "SA-2026-101",
+          "PRO 可能在遗漏板件、网格输入不完整或墙–板节点未连接的情况下完成计算。请对照预期几何核查网格，修正受影响的板件和连接，再重新分析和验算。",
+          "高",
+          "下一版本（0.6.4）"
+        ],
+        [
+          "SA-2026-102",
+          "内力图可能给出错误的峰值或集中作用附近的截面内力，反向杆段也可能使混凝土梁的上、下验算面互换。请核查控制内力、配筋面和钢构件弯矩梯度的输入，重新执行受影响的分析和验算。",
+          "高",
+          "下一版本（0.6.4）"
+        ],
+        [
+          "SA-2026-103",
+          "混凝土受扭和受剪验算可能接受不足的横向配筋，或计入未经验证的周边钢筋或受拉钢筋。请按实际配筋和同时作用的内力重新验算，并复核受影响的报告。",
+          "高",
+          "下一版本（0.6.4）"
+        ],
+        [
+          "SA-2026-104",
+          "反转杆件可能改变分布荷载的方向，分析也可能遗漏旧式平面集中力偶。请核查保存的荷载方向、端部荷载强度和力矩字段，修正荷载后重新分析和验算。",
+          "高",
+          "下一版本（0.6.4）"
+        ],
+        [
+          "SA-2026-105",
+          "将恢复的平面集中力偶改为零后，原力矩仍可能起作用。请核对并重新输入预期力矩，然后重新执行受影响的分析和验算。",
+          "高",
+          "0.6.3 之后的下一个版本"
+        ],
+        [
+          "SA-2026-106",
+          "重新划分网格时，曲线板边界可能沿互补圆弧生成。请对照指定圆弧检查网格，重建受影响的网格，然后重新分析和验算。",
+          "高",
+          "0.6.3 之后的下一个版本（遏制措施）"
+        ],
+        [
+          "SA-2026-107",
+          "重新划分网格可能丢失壳单元的偏置和曲率修改。请在重新分析和验算前核对并恢复预期的壳单元属性。",
+          "高",
+          "0.6.3 之后的下一个版本（遏制措施）"
+        ],
+        [
+          "SA-2026-108",
+          "投影到 XZ 或 YZ 平面时，垂直于分析平面的节点力分量可能被遗漏，且没有提示。请检查每个荷载工况的节点力，并使用空间模型重新进行受影响的分析和验算。",
+          "高",
+          "0.6.4 之后的下一个版本"
+        ],
+        [
+          "SA-2026-109",
+          "导入平面 DXF 时，无法识别的支座标签可能被直接当作铰支座，且没有提示。请对照原始图纸核查导入的支座，纠正差异并重新进行受影响的分析。",
+          "高",
+          "0.6.4 之后的下一个版本"
+        ],
+        [
+          "SA-2026-110",
+          "网页分析可能无提示地忽略刚度为非有限值的弹簧，或漏掉荷载组合中的某个工况。请检查弹簧刚度、工况名称和净系数，并重新计算受影响的分析和荷载组合。",
+          "高",
+          "0.6.4 之后的下一个版本"
+        ],
+        [
+          "SA-2026-111",
+          "按板格自动生成重力荷载时，同一楼面荷载可能被重复计算。请检查重叠的壳单元及与之相连的梁格，重新生成受影响的已保存重力荷载方案，并重新进行相关分析。",
+          "高",
+          "0.6.4 之后的下一个版本"
         ]
       ]
     },

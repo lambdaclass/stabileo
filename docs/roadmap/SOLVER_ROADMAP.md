@@ -174,6 +174,35 @@ The next big gains are not about collecting more categories. They are about maki
 5. `Shell workflow maturity` — the advantage is now the multi-family shell stack used correctly, not raw shell-family count.
 6. `Automation-ready outputs` — the solver should not stop at forces; it should expose the structured, governing, code-ready data product automation needs immediately.
 
+## High-Leverage Solver Tracks (2026-11-22 Reprioritization)
+
+Full architectural rationale and product coupling: [`../research/high_leverage_solver_and_product_plan.md`](../research/high_leverage_solver_and_product_plan.md). Ordered strictly behind active wrong-result containment and fixes ([`PRODUCT_ROADMAP.md`](PRODUCT_ROADMAP.md#overall-order)):
+
+1. **Canonical Physical IR → Pure Rust Analytical Lowering Compiler** *(Soundness Class `b`)*
+   - Compile continuous physical members, slabs, walls, roof polygons, openings, load surfaces, diaphragms and rebar cages into conforming analytical meshes (`spade` CDT) with exact global resultant force/moment conservation gates across all surface, line, point forces and applied couples (`Σ F_physical == Σ F_assembled`, `Σ (r × F_physical + M_physical) == Σ (r × F_assembled + M_assembled)`). Eliminates subdivision/remesh/reversal drift structurally and enables multi-fidelity compilation (coarse stick ↔ MITC4/MITC9 ↔ fiber) from one model.
+2. **Exact Piecewise-Analytical Frame Algebra (`PiecewisePoly<5>`)** *(Soundness Class `b`)*
+   - Represent member internal forces and deflections as exact piecewise polynomials across load cases, combinations, exact extrema/inflection roots (`V(x)=0`, `M(x)=0`), analytical `Cb`, closed-form moving-load influence envelopes, and exact rebar curtailment intervals.
+3. **Constrained `PreparedStatic` + Exact Adjoint Sensitivities + Woodbury Rank-k Re-Analysis** *(Wave 1 Performance & Inverse Engine)*
+   - Close the immediate gap in `engine/src/solver/load_cases.rs` and `engine/src/load_session.rs` where `!constraints.is_empty()` skips factorization reuse and re-factors `Cᵀ K C` once per load case.
+   - Layer one-backsolve adjoint gradients (`K λ = ∂g/∂u` → exact `∂g/∂p_e` for smooth responses: drift, forces, simple `λ_cr`, simple `ω²`, with active-set/subgradient handling at repeated eigenvalues or nonsmooth transitions), Sherman–Morrison–Woodbury rank-k updates on the cached supernodal `NumericCholesky` (`sparse_chol.rs`) for sparsity-preserving local section/stiffness edits (routing topology/release/support edits that alter `C` or sparsity through fast constrained re-factorization), zero-Monte-Carlo assumption sensitivity intervals (`#357`), and 5–15-iteration whole-building convex sizing (MMA / sequential conic).
+4. **Resident WASM Memory Arena + Zero-Copy GPU Views + Deterministic WASM `simd128`** *(Wave 1 Browser Runtime)*
+   - Keep model state, sparse factors and results in a persistent WASM arena (`engine/src/lib.rs`) receiving small delta ops instead of full-model JSON string round-trips; expose zero-copy `Float32Array` buffers to Three.js; add fixed-order `f64x2` `simd128` kernels to `sparse_chol.rs` supernode panels (preserving cross-browser bitwise determinism), streaming WASM compile + determinism-gated `wasm-opt`, and Web Worker pools.
+5. **Load-Dependent Ritz Vectors (Wilson WYD) + Automatic Identical-Substructure Superelements** *(Wave 1 Building Scale)*
+   - Add Load-Dependent Ritz vectors alongside `lanczos.rs` for >99% mass participation in 5–10 vectors with built-in missing-mass static correction (10–50× faster dynamics; prevents mode-truncation errors like `SA-2026-043`/`058`).
+   - Automatically hash identical repeated floors/bays/trusses and condense each canonical substructure once through `reduction.rs` (Craig–Bampton / Guyan) with exact recovery.
+6. **Sparse Conic Programming (SOCP) Core (Promoting Clarabel)** *(Wave 3 High-ARPU Primitives)*
+   - Replace the 200-member dense LP in `plastic_limit.rs` with a sparse primal-dual LP/SOCP core enabling: (a) path- and ordering-independent, 10,000+-member 2D/3D limit analysis with conic **N–My–Mz–V–T** interaction (exact for quadratic/ellipsoidal yield surfaces, bounded conic approximations otherwise) producing primal+dual certificates for `verify/Certify/PlasticSound.lean`, (b) automated **Strut-and-Tie Modeling** (CIRSOC 201 / ACI 318 Ch. 23, EC2 §6.5) with equilibrium proofs, and (c) **Discontinuity Layout Optimization (DLO)** for certified slab yield-line and Heyman masonry collapse bounds.
+7. **Browser-Native CBFEM (Steel Connections) & CSFM (Concrete Detail) + Active 3D Rebar Routing** *(Wave 3 Deliverables)*
+   - Combine `spade` 2D meshing, elastoplastic `MITC4`/`DKT` shells (5% plastic strain limit), unilateral `contact.rs`, `constraints.rs` bolt/weld springs and `buckling.rs` for full nonlinear connection and D-region checks (beyond elastic `connection_check.rs`).
+   - Evolve `collision_kernel.rs` from passive clash detection to active 3D beam–column joint rebar routing exporting CNC **BVBS (`.abs`)** and IFC4 Rebar.
+8. **Section-FE Expansions (CUFSM + 2D Thermal Fire), Unified PT/Staged Studio, Prager–Synge Energy-Norm Bounds & Dual-Number Force-Based Nonlinearity** *(Wave 3 Frontier)*
+   - Add Finite Strip Method cold-formed signature buckling (AISI S100 / CIRSOC 303 DSM) and ISO 834 2D transient thermal fire resistance directly on `engine/src/section/` (`mesh.rs` + `poisson.rs`).
+   - Couple `prestress.rs`, `creep_shrinkage.rs`, `staged.rs` (with shoring/reshoring and loaded-member removal redistribution) and `MITC4` slabs for PT flat slabs and staged bridges.
+   - Upgrade `postprocess/discretization/` from ZZ-SPR heuristics to **Prager–Synge equilibrated-flux guaranteed energy-norm upper bounds** where exact equilibrium holds in linear elasticity (formalizable in Lean; `#501`; MITC/variational-crime formulations explicitly scoped or excluded) + Dual-Weighted Residual adaptive meshing (**DWR indicators stay labelled as estimates, never certified**).
+   - Unify nonlinear frames around Gauss–Lobatto **force-based fiber beam-columns**, exact **SO(3) Lie-group kinematics**, generic-scalar **`Dual<f64>` exact consistent tangents**, and **semi-smooth Newton / Augmented Lagrangian complementarity** for unilateral contact and cables (`#432`, `#502`).
+
+Every new solver primitive ships labelled experimental until it passes two-reference benchmarks, convergence studies, self-checks, metamorphic invariance gates, and explicit refusal tests; every fast path must pass fast-vs-slow parity and cross-browser determinism gates.
+
 ## What The Solver Must Enable Beyond The Core App
 
 If the product roadmap succeeds, the solver becomes the foundation for more software than the main app itself. The solver roadmap should only carry the enabling work, not the downstream product definitions.
@@ -1231,4 +1260,5 @@ Phase 3c workflow measurements (20x20 MITC4, nf=2564):
 - `../research/competitor_element_families.md` — competitor shell-family comparison
 - `../research/numerical_methods_gap_analysis.md` — numerical-methods gap analysis
 - `../research/rc_design_and_bbs.md` — RC design/BBS research
+- [`../research/high_leverage_solver_and_product_plan.md`](../research/high_leverage_solver_and_product_plan.md) — 2026-11-22 reprioritized solver and product architecture plan
 - `../research/post_roadmap_software_stack.md` — post-core software stack

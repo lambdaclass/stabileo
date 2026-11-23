@@ -3986,3 +3986,11 @@ mod shared_driver_equivalence {
         assert!(same(&held, None, 20, 2, false).is_none());
     }
 }
+
+#[cfg(feature = "experimental-nonlinear")]
+#[path = "experimental_nonlinear/corotational_2d.rs"]
+pub(crate) mod experimental_nonlinear_2d;
+
+#[cfg(feature = "experimental-nonlinear")]
+#[path = "experimental_nonlinear/corotational_3d.rs"]
+pub(crate) mod experimental_nonlinear_3d;

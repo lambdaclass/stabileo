@@ -1,13 +1,20 @@
 import type { Translations } from '../types';
 
 const ja: Translations = {
+  'svc.accountingMismatch': "解析を拒否しました。荷重ケース {case}、成分 {component}。入力値 {entered}、組立値 {assembled}。",
+  'svc.accountingUnsupported': "解析を拒否しました。荷重ケース {case} の {kind} {id} の力とモーメントを集計できません。",
+  'svc.accountingArea': "解析を拒否しました。ソルバー内のプレート {plate} の面積または境界が異なります。指定面積 {entered}、組立面積 {assembled}。",
+  'svc.accountingSweep': "解析を拒否しました。ソルバー内のプレート {plate} の円弧境界の経路が異なります。指定面積 {entered}、組立面積 {assembled}。",
+  'svc.accountingShellEdits': "プレート {plate} を再メッシュするとシェルのオフセットまたは曲率の変更が失われるため、実行できません。",
+  "plates.remeshAmbiguousSweep": "{name} の曲線境界で円弧の範囲を一意に決められません。メッシュを再生成する前に、中間点と両端間の曲線部材を確認してください。",
+  "plates.remeshShellEdits": "シェル要素のオフセットまたは曲率の変更を正確に引き継げないため、{name} のメッシュを置き換えられません。",
   'loadPlan.gravity.coveragePrecision': "シェルの被覆座標が部材区間で対応できる精度を超えています。",
   'loadPlan.gravity.partitionFailed': "シェルの投影範囲を分割できませんでした：{detail}",
   'loadPlan.gravity.unsupportedStrips': "シェルが一部を覆う場合、矩形の梁パネルの向かい合う支持材の間で、帯が全スパンにわたる必要があります。",
   'loadPlan.gravity.stripDirection': "指定した一方向スパンの向きは、被覆されていない帯のスパン方向と一致する必要があります。",
   'loadPlan.gravity.nonplanarShell': "四辺形 {id} は平面ではありません。重力荷重の被覆計算には平面シェルが必要です。",
-  'loadPlan.gravity.overlappingShells': "シェル {first} と {second} が同一平面上で重なっています。重複部分の重力荷重を一方のシェルに割り当てることができません。",
-  'loadPlan.gravity.offsetShellDeck': "シェル {id} は、平面投影が重なる位置の異なる梁パネルに剛結されています。面荷重を受ける面を特定できません。",
+  'loadPlan.gravity.overlappingShells': "シェル {first} と {second} が同一平面で重なるか、同じ床の高さ許容範囲内で重なっています。シェルの形状を修正するか、面荷重を手動で一度だけ設定してください。",
+  'loadPlan.gravity.offsetShellDeck': "シェル {id} は、平面投影が重なる別の高さの梁パネル（部材 {members}）に鉛直方向に連結されています。シェル、接合部、または梁パネルの形状を修正するか、面荷重を手動で一度だけ設定してください。",
   'loadPlan.gravity.memberSlopeLimit': "部材 {id} の勾配は重力荷重を負担する部材の判定限界に近すぎます。荷重を明示的に設定してください。",
   'snow.refused.stepDriftTransfer': "屋根段差部の吹きだまり荷重を支持部材に確実に伝達できません。積雪荷重を明示的に設定してください。",
   'loadPlan.gravity.unresolvedMember': "部材 {id} はシェルに一部だけ覆われており、パネルからの荷重伝達を特定できません。",
@@ -1811,6 +1818,8 @@ const ja: Translations = {
   'dxf.summaryMaxV': '最大V：',
   'dxf.warnZeroLengthLine': 'ゼロ長の線分を無視しました',
   'dxf.warnNoElementLayers': 'BARRAS/ELEMENTOSレイヤーが検出されませんでした。すべての線分を要素として使用します。',
+  'dxf.refuseSupportLabel': 'DXF レイヤー「{layer}」の支点ラベル「{label}」は不明または曖昧です。インポート前に図面を修正してください。FIXED、PINNED、RX、RY、RZ は、意図した拘束条件に一致する場合にのみ使用してください。',
+  'dxf.refuseConflictingSupports': 'DXF レイヤー「{layer}」の支点ラベル「{first}」と「{second}」が同じ節点に対応しています。インポート前に、意図した拘束条件に対応するラベルまたはブロックだけを残してください。',
   'dxf.warnSupportNoNode': '支点が節点と一致しません：',
   'dxf.warnSupportBlockNoNode': '支点ブロックが節点と一致しません：',
   'dxf.warnDistLoadNoElement': '分布荷重が要素に関連付けられていません：',
@@ -3434,6 +3443,7 @@ const ja: Translations = {
   'design.error.solveFirst': '設計応力を計算するには、まずモデルを解析してください。',
   'design.error.noCombinations': '設計の前に少なくとも1つの荷重組み合わせを定義してください。',
   'design.error.noDemands': '現在の結果から設計応力を抽出できませんでした。',
+  'design.error.incompleteSpanStations': '設計には、各梁スパンのすべての評価点で、有効なすべての荷重組合せに対する断面力が必要です。',
   'design.error.noLinearCombination': '有効な線形組合せがありません。SRSS・ABS 組合せは符号のない大きさで、設計には使いません。線形組合せを有効にしてください。',
   'design.error.combinationsUnsolved': '組合せは定義されていますが、どれにも結果がないため、係数を掛けていない荷重しかなく、それでは何も設計しません。組合せを含む完全な計算で結果が得られるか、除外された理由が示されます。',
   'design.error.noAdapter': '選択した規準に対応するアダプタが登録されていません。',
@@ -3736,6 +3746,7 @@ const ja: Translations = {
   "autoLoad.work.draw": "荷重を描画中",
   "autoLoad.work.step": "ステップ {step} / {total}",
   "autoLoad.work.cancel": "停止",
+  "svc.engine.nonFiniteNumber": "{path} に有限の数値を入力してください（受け取った値: {value}）。",
 } as const satisfies Record<string, string>;
 
 export default ja;

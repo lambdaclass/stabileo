@@ -1,3 +1,5 @@
+import { POINT_END_TOL } from '../engine/member-point-loads';
+import { planarNodalMoment, planarPointMoment, planarPointMomentWithoutProjection, planarPointProjectionTooShort } from '../engine/planar-point-load';
 import { hasModalSeismicDerivation } from '../engine/loads/seismic-generation';
 /**
  * Which features a saved model has, for deciding which registered result changes concern it.
@@ -17,6 +19,7 @@ import { hasModalSeismicDerivation } from '../engine/loads/seismic-generation';
  */
 import type { ArcSpec } from '../model/curved-member';
 import { plateAnalysisIssue, type PlateAnalysisModel } from '../model/physical/plate-analysis';
+import { plateSurfaceOf } from '../model/physical/plate';
 import { materialFamilyOf } from '../engine/steel/material-family';
 import { catalogueGradeFamily } from '../engine/steel/grade-family';
 import { is3DWorkspace } from '../utils/workspace';
@@ -44,14 +47,15 @@ export const FEATURE_IDS = [
   'plane2D', 'space3D', 'members', 'cableMembers', 'contactElements', 'frameMembers', 'trussMembers', 'hinges', 'arcMembers', 'shearAreas', 'thermalAtRelease',
   'steelMembers', 'steelCirsoc301', 'steelTensionWithoutConnection', 'steelDeclaredUnbracedLength', 'steelStaggeredOrUnboltedWebEnd', 'timberOrAluminiumMembers',
   'concreteMembers', 'fiberMembers', 'hognestadFiberMembers', 'cirsoc201', 'aci318', 'footings', 'jointDesigns',
-  'shells', 'plateAnalysisIssue', 'curvedShells', 'shellEdgeLoads', 'eccentricities',
+  'shells', 'physicalPlateRemesh', 'plateAnalysisIssue', 'curvedShells', 'shellEdgeLoads', 'eccentricities',
+  'physicalPlateDefinitions', 'planarQuarterTurnMemberLoads', 'planarGlobalAxisMemberLoads', 'prestressMemberLoads', 'nearEndSpatialPointLoads', 'tinyDistributedLoads',
   'constraints', 'constraintOnSupportedNode', 'inclinedSupports', 'springs', 'multipleSupportsOnNode', 'bareRollerZ', 'bareCustom3D', 'localPlaneRoller', 'unknownSupportType', 'rollerSupports', 'namedSupportRestraintMasks', 'settlements', 'settledMaskedSupports', 'caseDisplacements',
   'connectors', 'connectorsWithShear', 'pathAnalysis',
   'stagedConstruction', 'generatedStructures', 'nodalMoments', 'trussMemberLoads', 'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'generatedLoads', 'generatedWindLoads', 'generatedSeismicLoads', 'unverifiedGeneratedSeismicLoads',
   'generatedWidthGravity', 'generatedPanelGravityShells', 'memberFloorZones', 'magnitudeCombinations',
-  'partialDistributedMemberLoads', 'distributedMemberLoads', 'selfWeight', 'nonstandardPlanarSelfWeight', 'standaloneGravityToggleOff', 'nodalForces', 'forceSummaryResults',
+  'partialDistributedMemberLoads', 'distributedMemberLoads', 'spatialDistributedLoadOrientation', 'unplaceablePlanarPointLoads', 'planarStartCoupleWithoutProjection', 'legacyPlanarPointCoupleAliases', 'invalidPlanarNodalMomentAliases', 'selfWeight', 'nonstandardPlanarSelfWeight', 'standaloneGravityToggleOff', 'nodalForces', 'forceSummaryResults',
   'ssiHistory', 'movingLoads', 'combinations', 'cirsocCombinations', 'seismic', 'snow', 'wind', 'timeHistorySpec',
-  'superposedCombinations', 'repeatedCombinationCases',
+  'superposedCombinations', 'repeatedCombinationCases', 'prototypeNamedLoadCase', 'staticCaseEffects', 'projectedSpatialLoads', 'offsetMemberLoadFrame', 'inactiveSpatialMembers',
   ...ANALYSIS_KINDS.map((k) => `analysis:${k}` as const),
 ] as const;
 export type FeatureId = (typeof FEATURE_IDS)[number];
@@ -94,7 +98,10 @@ interface FeatureSnapshotFields {
   fiberSections?: Record<string, { materials?: Array<{ type?: string }> }>;
   supports?: Entries<Sup>;
   loads?: Array<{ type: string; data?: Record<string, unknown> }>;
-  loadCases?: Array<{ id: number; type?: string; spectral?: unknown; alternatives?: string; axisNamed?: boolean }>;
+  loadCases?: Array<{
+    id: number; name?: string; type?: string; spectral?: unknown; alternatives?: string; axisNamed?: boolean;
+    includes?: ReadonlyArray<{ factor: number }>; reduction?: { ratio: number };
+  }>;
   combinations?: unknown[];
   combinationRules?: unknown[];
   solidShells?: Entries<unknown>;
@@ -118,6 +125,7 @@ export interface FeatureSnapshot extends FeatureSnapshotFields {
 }
 
 export interface FeatureContext {
+  storedLoads?: FeatureSnapshot['loads'];
   /** The workspace the project opens in (the file's `analysisMode`). */
   analysisMode?: string;
   /** Analyses the project's results came from, as its stamp records them; null: not recorded. */
@@ -280,8 +288,22 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
 
   const quads = values(s.quads);
   if (quads.length || values(s.plates).length || values(s.solidShells).length) f.add('shells');
+  if (values(s.groups).some(group => plateSurfaceOf({ data: group?.data as Record<string, unknown> }))) {
+    f.add('physicalPlateDefinitions');
+  }
   if (f.has('space3D') && (f.has('shells') || s.groups?.length)) {
-    const issue = plateAnalysisIssue(plateAnalysisModel(s));
+    const plates = plateAnalysisModel(s);
+    const editedQuads = new Set((s.quads ?? []).filter(([, shell]) => shell?.curved || shell?.offset !== undefined).map(([id]) => id));
+    const editedTriangles = new Set((s.plates ?? []).filter(([, shell]) => shell?.offset !== undefined).map(([id]) => id));
+    for (const group of plates.groups?.values() ?? []) {
+      const surface = plateSurfaceOf(group);
+      if (surface && (surface.arcMids?.length || group.members.quads?.some(id => editedQuads.has(id))
+        || group.members.plates?.some(id => editedTriangles.has(id)))) {
+        f.add('physicalPlateRemesh');
+        break;
+      }
+    }
+    const issue = plateAnalysisIssue(plates);
     if (issue && issue.kind !== 'unmeshed') f.add('plateAnalysisIssue');
   }
   if (quads.some((q) => q?.curved)) f.add('curvedShells');
@@ -315,6 +337,9 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   if (connectors.length) f.add('connectors');
   if (connectors.some((c) => positive(c.kShear) || positive(c.kShearZ))) f.add('connectorsWithShear');
 
+  if (f.has('space3D') && elements.some(e => e.behaviour === 'inactive')) f.add('inactiveSpatialMembers');
+  const elementById = new Map(elements.map(e => [e.id, e]));
+  const nodeById = new Map(Array.isArray(s.nodes) ? s.nodes : []);
   const axialMembers = new Set(elements.filter((e) => e.type === 'truss' || e.type === 'cable').map((e) => e.id));
   const cases = Array.isArray(s.loadCases) ? s.loadCases : [];
   if (globalAxes() && cases.some(c => c.axisNamed === true)) f.add(GLOBAL_AXES_EVIDENCE);
@@ -329,6 +354,9 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
       (weightRules.length > 1 || weightRules.some(rule => !isStandardGravityRule(rule)))) {
     f.add('nonstandardPlanarSelfWeight');
   }
+  if (f.has('space3D') && cases.some(c => c.includes?.some(term => nonZero(term.factor)) || (c.reduction && c.reduction.ratio !== 1))) {
+    f.add('staticCaseEffects');
+  }
   const caseType = new Map(cases.map((c) => [c.id, c.type]));
   const loadBasis = s.designData?.loadBasis;
   const loadNoteKeys = new Set(Array.isArray(loadBasis?.derivation) ? loadBasis.derivation.map(n => n?.key) : []);
@@ -336,16 +364,67 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   let memberGravity = false;
   let shellGravity = false;
   let generatedSeismic = !!loadBasis?.seismic || loadNoteKeys.has('loadPlan.derivation.seismic');
+  const storedLoads = ctx.storedLoads ?? s.loads;
+  if (Array.isArray(storedLoads) && storedLoads.some(l => l.type === 'pointOnElement' && l.data &&
+      (nonZero(l.data.mz) || planarPointMoment(l.data) === null))) {
+    f.add('legacyPlanarPointCoupleAliases');
+  }
   for (const l of Array.isArray(s.loads) ? s.loads : []) {
     const t = l.type ?? '';
     const d = l.data ?? {};
+    if ((t === 'pointOnElement3d' || (t === 'pointOnElement' && f.has('space3D')))
+      && typeof d.a === 'number' && d.a > 0) {
+      const member = elementById.get(d.elementId as number);
+      const i = member && nodeById.get(member.nodeI), j = member && nodeById.get(member.nodeJ);
+      const length = i && j ? Math.hypot(j.x - i.x, j.y - i.y, (j.z ?? 0) - (i.z ?? 0)) : undefined;
+      if (d.a <= POINT_END_TOL || length === undefined || (d.a < length && d.a >= length - POINT_END_TOL)
+        || offsetMoves(member?.offset?.i) || offsetMoves(member?.offset?.j)) {
+        f.add('nearEndSpatialPointLoads');
+      }
+    }
+    if (t === 'prestress3d') f.add('prestressMemberLoads');
+    if (f.has('plane2D') && (t === 'distributed' || t === 'pointOnElement')
+      && d.isGlobal === true && (d.angle === undefined || (typeof d.angle === 'number' && d.angle % 90 === 0))) {
+      f.add('planarGlobalAxisMemberLoads');
+    }
+    if (f.has('plane2D') && (t === 'distributed' || t === 'pointOnElement')
+      && typeof d.angle === 'number' && d.angle !== 0 && d.angle % 90 === 0) {
+      f.add('planarQuarterTurnMemberLoads');
+    }
+    if (f.has('plane2D') && elements.length > 0 && ['nodal3d', 'distributed3d', 'pointOnElement3d', 'surface3d'].includes(t)) {
+      f.add('projectedSpatialLoads');
+    }
+    if (f.has('space3D') && (t === 'distributed3d' || t === 'pointOnElement3d') && (d.frame === undefined || d.frame === 'local')) {
+      const offset = elementById.get(d.elementId as number)?.offset;
+      if (offsetMoves(offset?.i) || offsetMoves(offset?.j)) f.add('offsetMemberLoadFrame');
+    }
     if (/^nodal/.test(t) && ['fx', 'fy', 'fz'].some((key) => typeof d[key] === 'number' && d[key] !== 0)) f.add('nodalForces');
     if (/^nodal/.test(t) && ['mx', 'my', 'mz'].some((key) => typeof d[key] === 'number' && d[key] !== 0)) f.add('nodalMoments');
     if (/^(distributed|axialDistributed|pointOnElement|thermal)/.test(t)) {
       f.add('memberLoads');
       if (axialMembers.has(d.elementId as number)) f.add('trussMemberLoads');
     }
-    if (t.startsWith('distributed')) f.add('distributedMemberLoads');
+    if (t.startsWith('distributed')) {
+      f.add('distributedMemberLoads');
+      if ([d.qI, d.qJ, d.qXI, d.qXJ, d.qYI, d.qYJ, d.qZI, d.qZJ]
+        .some(q => typeof q === 'number' && q !== 0 && Math.abs(q) < 1e-12)) f.add('tinyDistributedLoads');
+    }
+    const fixedLoadFrame = d.frame === 'global' || d.frame === 'projected';
+    if (t === 'distributed3d' && (nonZero(d.qXI) || nonZero(d.qXJ)
+        || (fixedLoadFrame && [d.qYI, d.qYJ, d.qZI, d.qZJ].some(nonZero)))) {
+      f.add('spatialDistributedLoadOrientation');
+    }
+    if (t === 'nodal' && planarNodalMoment(d) === null) f.add('invalidPlanarNodalMomentAliases');
+    if (t === 'pointOnElement') {
+      if (planarPointMoment(d) === null) f.add('legacyPlanarPointCoupleAliases');
+      const e = elementById.get(d.elementId as number);
+      const i = e && nodeById.get(e.nodeI), j = e && nodeById.get(e.nodeJ);
+      if (i && j && (i.z ?? 0) !== (j.z ?? 0) && planarPointProjectionTooShort(j.x - i.x, j.y - i.y)) {
+        const moment = planarPointMomentWithoutProjection(d, d.a);
+        if (moment === null) f.add('unplaceablePlanarPointLoads');
+        else if (moment !== 0) f.add('planarStartCoupleWithoutProjection');
+      }
+    }
     const partialDistributed = t.startsWith('distributed') && (positive(d.a) || d.b !== undefined);
     if (partialDistributed) f.add('partialDistributedMemberLoads');
     if (t.startsWith('pointOnElement') || partialDistributed) f.add('pointOrPartialMemberLoads');
@@ -393,6 +472,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   const combos = (Array.isArray(s.combinations) && s.combinations.length > 0) || (Array.isArray(s.combinationRules) && s.combinationRules.length > 0);
   if (combos) {
     f.add('combinations');
+    if (cases.some(c => c.name === '__proto__')) f.add('prototypeNamedLoadCase');
     if (Array.isArray(s.combinations) && s.combinations.some(c => {
       const method = (c as { method?: string } | null)?.method;
       return method === 'abs' || method === 'srss';

@@ -709,6 +709,11 @@ fn factors_with_unit_residual() -> [f64; 5] {
     [large, middle, 1.0, -middle, -large]
 }
 
+fn issue_2297_weights() -> [f64; 7] {
+    let [large, middle, unit, negative_middle, negative_large] = factors_with_unit_residual();
+    [large, middle, unit, negative_middle, -unit, negative_large, unit]
+}
+
 #[test]
 fn issue_2292_planar_combination_sums_case_factors_exactly() {
     let model = serde_json::from_str(include_str!("../fixtures/ex-portal-frame-input.json")).unwrap();
@@ -733,6 +738,7 @@ fn issue_2292_planar_combination_sums_case_factors_exactly() {
         assert!(owned.is_none());
         assert!(borrowed.is_none());
         assert_eq!(residual, control);
+        assert_eq!(serde_json::to_value(combine(&issue_2297_weights())).unwrap(), control);
     }
 }
 
@@ -763,7 +769,9 @@ fn issue_2292_spatial_combination_sums_case_factors_exactly() {
             refused.iter().map(|r| r.as_ref().err().map(String::as_str)).collect::<Vec<_>>(),
             [Some("Repeated load case factors cancel to zero in this combination."); 4],
         );
-        assert_eq!(serde_json::to_value(residual).unwrap(), serde_json::to_value(control).unwrap());
+        let expected = serde_json::to_value(control).unwrap();
+        assert_eq!(serde_json::to_value(residual).unwrap(), expected);
+        assert_eq!(serde_json::to_value(combine(&issue_2297_weights())).unwrap(), expected);
     }
 }
 

@@ -1,0 +1,41 @@
+{
+  "id": "physical-plate-remesh",
+  "date": "2026-11-21",
+  "prs": [],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "space3D",
+      "physicalPlateRemesh"
+    ]
+  },
+  "quantities": [
+    "solve.ok",
+    "reactions.fz",
+    "displacements.uz"
+  ],
+  "title": {
+    "en": "Curved plate boundaries and shell edits during remeshing",
+    "es": "Bordes curvos y cambios en elementos de placa al remallar",
+    "pt": "Bordas curvas e alterações nas cascas durante a remalhagem",
+    "de": "Gekrümmte Plattenränder und Schalenänderungen bei der Neuvernetzung",
+    "fr": "Bords courbes et modifications des coques lors du remaillage",
+    "hu": "Görbe lemezperemek és héjelem-módosítások újrahálózáskor",
+    "tr": "Ağ yenilemede eğri plak kenarları ve kabuk düzenlemeleri",
+    "zh": "重新划分网格时的曲线板边界和壳单元修改"
+  },
+  "explanation": {
+    "en": "Remeshing follows the plate’s specified sweep and stops when that sweep is ambiguous. Shell offsets and curvature edits transfer only to exact matches. Check the intended boundary and shell properties of affected plates before solving again.",
+    "es": "El remallado sigue el arco especificado en la placa y se detiene si el arco es ambiguo. Los cambios de desplazamiento de la superficie media y de curvatura solo se trasladan a elementos que coinciden exactamente. Revisá el borde y las propiedades de los elementos de las placas afectadas antes de volver a calcular.",
+    "pt": "A remalhagem segue o arco especificado na placa e para quando o arco é ambíguo. As alterações de excentricidade e curvatura só são transferidas para elementos exatamente correspondentes. Confira a borda e as propriedades das cascas das placas afetadas antes de recalcular.",
+    "de": "Die Neuvernetzung folgt dem vorgegebenen Plattenbogen und stoppt bei einem mehrdeutigen Bogen. Schalenversatz und Krümmungsänderungen werden nur auf exakt passende Elemente übertragen. Prüfen Sie vor einer erneuten Berechnung die vorgesehenen Ränder und Schaleneigenschaften der betroffenen Platten.",
+    "fr": "Le remaillage suit l’arc spécifié pour la plaque et s’arrête si cet arc est ambigu. Les excentrements et les modifications de courbure des coques ne sont transférés qu’aux éléments qui correspondent exactement. Vérifiez le bord prévu et les propriétés des coques des plaques concernées avant de relancer le calcul.",
+    "hu": "Az újrahálózás a lemez megadott ívét követi, és nem egyértelmű ív esetén leáll. A héjelemek eltolása és görbületi módosításai csak pontosan egyező elemekre kerülnek át. Az újraszámítás előtt ellenőrizze az érintett lemezek kívánt peremét és héjelem-tulajdonságait.",
+    "tr": "Ağ yenileme plakta belirtilen yayı izler ve yay belirsizse durur. Kabuk ofseti ve eğrilik düzenlemeleri yalnızca bire bir eşleşen elemanlara aktarılır. Yeniden çözmeden önce etkilenen plakların amaçlanan sınırlarını ve kabuk özelliklerini kontrol edin.",
+    "zh": "重新划分网格时遵循板指定的圆弧，圆弧有歧义时停止。壳单元的偏置和曲率修改只会转移到完全匹配的单元。再次求解前，请核对受影响板的预期边界和壳单元属性。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-plate-remesh.md",
+    "heading": "Curved plate boundaries and shell edits during remeshing"
+  }
+}

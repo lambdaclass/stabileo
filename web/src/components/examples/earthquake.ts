@@ -95,7 +95,7 @@ export const earthquake = defineExample<Model>({
     const result = engine.solveTimeHistory3D(config) as History;
     let certificate: Certificate;
     if (engine.hasCertify('certify_time_history_3d')) {
-      const json = JSON.stringify({ ...config, solver: engine.input3DToWireObject(model) });
+      const json = engine.finiteWireJson({ ...config, solver: engine.input3DToWireObject(model) });
       certificate = timeCertificate(engine.callCertify('certify_time_history_3d', [json]));
     } else certificate = timeCertificate(null);
     const modal = engine.solveModal3D(model, new Map([[1, DENSITY]]), 1) as { modes: { period: number }[] };

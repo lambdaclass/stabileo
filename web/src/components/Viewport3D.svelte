@@ -96,6 +96,7 @@
   import { setCameraProbe, setWorldProjector } from '../lib/viewport3d/camera-probe';
   import { updateGrid as _updateGrid, gridLayout, gridKey, createFatAxes as _createFatAxes, addAxisLabels as _addAxisLabels } from '../lib/viewport3d/grid';
   import { syncNodes as _syncNodes, syncElements as _syncElements, syncSupports as _syncSupports, syncLoads as _syncLoads, syncShells as _syncShells, syncSelection as _syncSelection, syncLocalAxes as _syncLocalAxes, syncMemberOffsets as _syncMemberOffsets, syncShellOffsets as _syncShellOffsets, applyElementVisibility, type SceneSyncContext } from '../lib/viewport3d/scene-sync';
+  import { DIAGRAM_EXTREMA_UNAVAILABLE } from '../lib/engine/member-diagram';
   import { syncDeformed as _syncDeformed, syncDiagrams3D as _syncDiagrams3D, syncColorMap3D as _syncColorMap3D, syncVerificationLabels as _syncVerificationLabels, syncReactions as _syncReactions, syncConstraintForces as _syncConstraintForces, syncLabels3D as _syncLabels3D, DIAGRAM_3D_TYPES, type ResultsSyncContext } from '../lib/viewport3d/results-sync';
   import { applyLowDetail, isHeavyModel } from '../lib/viewport3d/lod';
   import { meshHidden } from '../lib/viewport3d/shell-members';
@@ -1451,7 +1452,12 @@
     deformedGroup = resultsCtx.deformedGroup;
   }
   function syncDiagrams3D() {
-    _syncDiagrams3D(resultsCtx);
+    try {
+      _syncDiagrams3D(resultsCtx);
+    } catch (error) {
+      if (!(error instanceof Error) || error.message !== DIAGRAM_EXTREMA_UNAVAILABLE) throw error;
+      uiStore.toast(t(DIAGRAM_EXTREMA_UNAVAILABLE), 'error');
+    }
   }
   function syncColorMap3D() {
     _syncColorMap3D(resultsCtx);
@@ -3806,14 +3812,21 @@
             const lenSq = edx * edx + edy * edy + edz * edz;
             if (lenSq < 1e-12) break;
             const p = hit.point;
-            let t = ((p.x - ni.x) * edx + (p.y - ni.y) * edy + (p.z - niz) * edz) / lenSq;
-            t = Math.max(0, Math.min(1, t));
+            let station = ((p.x - ni.x) * edx + (p.y - ni.y) * edy + (p.z - niz) * edz) / lenSq;
+            station = Math.max(0, Math.min(1, station));
             // Find ElementForces3D for this element
             const ef = r3d.elementForces.find(f => f.elementId === elemId);
             if (!ef) break;
-            const val = evaluateDiagramAt(ef, kind, t);
+            let val: number;
+            try {
+              val = evaluateDiagramAt(ef, kind, station);
+            } catch (error) {
+              if (!(error instanceof Error) || error.message !== DIAGRAM_EXTREMA_UNAVAILABLE) throw error;
+              diagramTooltip = t(DIAGRAM_EXTREMA_UNAVAILABLE);
+              break;
+            }
             const formatted = formatDiagramValue3D(val, kind, uiStore.unitSystem);
-            const posLabel = `x=${(t * ef.length).toFixed(2)}m`;
+            const posLabel = `x=${(station * ef.length).toFixed(2)}m`;
             // The certified bound holds at every point of an engine member (not a split or combined one).
             const cert = ef.pieces?.length || ef.combined ? null
               : diagramBound3D(certificateStore.stationBound<StationBound3D>(true, elemId), kind);
