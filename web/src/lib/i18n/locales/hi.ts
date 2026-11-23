@@ -1,5 +1,12 @@
 import type { Translations } from '../types';
 const hi: Translations = {
+  'loadPlan.gravity.offsetShellDeck': "शेल {id} अलग ऊँचाई पर स्थित ओवरलैप करते बीम पैनल (सदस्य {members}) से ऊर्ध्वाधर दिशा में जुड़ा है। शेल, कनेक्शन या पैनल की ज्यामिति ठीक करें, या क्षेत्रीय भार हाथ से केवल एक बार लगाएँ।",
+  'loadPlan.gravity.overlappingShells': "शेल {first} और {second} एक ही समतल में ओवरलैप करते हैं या एक ही डेक ऊँचाई सीमा में आते हैं। शेल की ज्यामिति ठीक करें या क्षेत्रीय भार हाथ से केवल एक बार लगाएँ।",
+  'svc.accountingMismatch': "विश्लेषण अस्वीकृत। भार प्रकरण {case}, घटक {component}। दर्ज मान {entered}, संयोजित मान {assembled}।",
+  'svc.accountingUnsupported': "विश्लेषण अस्वीकृत। भार प्रकरण {case} में {kind} {id} के बलों और आघूर्णों का लेखा संभव नहीं है।",
+  'svc.accountingArea': "विश्लेषण अस्वीकृत। सॉल्वर में प्लेट {plate} का क्षेत्रफल या सीमा अलग है। निर्दिष्ट क्षेत्रफल {entered}, संयोजित क्षेत्रफल {assembled}।",
+  'svc.accountingSweep': "विश्लेषण अस्वीकृत। सॉल्वर में प्लेट {plate} के वक्र किनारे का चाप अलग है। निर्दिष्ट क्षेत्रफल {entered}, संयोजित क्षेत्रफल {assembled}।",
+  'svc.accountingShellEdits': "प्लेट {plate} की जाली दोबारा नहीं बन सकती क्योंकि शेल का ऑफसेट या वक्रता में किया गया बदलाव हट जाएगा।",
   "plates.remeshAmbiguousSweep": "{name} की घुमावदार सीमा का चाप स्पष्ट नहीं है। दोबारा मेश बनाने से पहले बीच के बिंदु और सिरों के बीच के घुमावदार सदस्यों की जाँच करें।",
   "plates.remeshShellEdits": "{name} का मेश बदला नहीं जा सकता क्योंकि शेल के ऑफ़सेट या वक्रता में किए गए बदलावों को ठीक उसी तरह स्थानांतरित नहीं किया जा सकता।",
   'loadPlan.gravity.coveragePrecision': "शेल आवरण के निर्देशांक सदस्य खंडों की समर्थित सटीकता सीमा से बाहर हैं।",
@@ -1805,6 +1812,8 @@ const hi: Translations = {
   // Mapper warnings
   'dxf.warnZeroLengthLine': 'शून्य-लंबाई रेखा अनदेखी की गई',
   'dxf.warnNoElementLayers': 'कोई BARRAS/ELEMENTOS परत नहीं पाई गई। सभी रेखाएँ तत्वों के रूप में उपयोग की गईं।',
+  'dxf.refuseSupportLabel': 'DXF परत “{layer}” पर आधार का लेबल “{label}” अज्ञात या अस्पष्ट है। आयात करने से पहले आरेख ठीक करें। FIXED, PINNED, RX, RY या RZ का उपयोग तभी करें जब वह अपेक्षित बंधन से मेल खाता हो।',
+  'dxf.refuseConflictingSupports': 'DXF परत “{layer}” पर आधार के लेबल “{first}” और “{second}” एक ही नोड से मेल खाते हैं। आयात करने से पहले केवल अपेक्षित बंधन का लेबल या ब्लॉक रखें।',
   'dxf.warnSupportNoNode': 'आधार किसी नोड से मेल नहीं खाता:',
   'dxf.warnSupportBlockNoNode': 'आधार ब्लॉक किसी नोड से मेल नहीं खाता:',
   'dxf.warnDistLoadNoElement': 'वितरित भार किसी तत्व से संबद्ध नहीं:',
@@ -2742,10 +2751,8 @@ const hi: Translations = {
   'pro.unknown': 'अज्ञात',
 
   // ─── PRO: Shell ───
-  'pro.nPlatesQuads': '{plates} प्लेट, {quads} क्वाड',
   'pro.plateTriDKT': 'त्रिभुज प्लेट (DKT)',
   'pro.quadMITC4': 'क्वाड MITC4',
-  'pro.meshGenerator': 'जाल जनरेटर',
   'pro.meshHint': '4 कोने नोड (वामावर्त) और NxM उपविभाजन परिभाषित करें। मध्यवर्ती नोड और क्वाड स्वतः बनते हैं।',
   'pro.corners': 'कोने',
   'pro.subdivisions': 'उपविभाजन',
@@ -3755,5 +3762,6 @@ const hi: Translations = {
   "autoLoad.work.draw": "भार बनाए जा रहे हैं",
   "autoLoad.work.step": "चरण {step} / {total}",
   "autoLoad.work.cancel": "रोकें",
+  "svc.engine.nonFiniteNumber": "{path} में एक परिमित संख्या दर्ज करें (प्राप्त मान: {value})।",
 };
 export default hi;

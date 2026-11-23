@@ -4,20 +4,26 @@
     "research": true,
     "tools": true,
     "globalAxes": false,
-    "diagramGame": true
+    "diagramGame": true,
+    "proPlatesUnified": false,
+    "proRcSheets": false
   },
   "development": {
     "accounts": true,
     "research": true,
     "tools": true,
     "globalAxes": true,
-    "diagramGame": true
+    "diagramGame": true,
+    "proPlatesUnified": true,
+    "proRcSheets": false
   },
   "test": {
     "accounts": true,
     "research": true,
     "tools": true,
     "globalAxes": true,
-    "diagramGame": true
+    "diagramGame": true,
+    "proPlatesUnified": true,
+    "proRcSheets": true
   }
 }

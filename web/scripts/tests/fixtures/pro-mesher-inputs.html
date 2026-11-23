@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+  <head><meta charset="utf-8"><title>PRO mesher input fixture</title></head>
+  <body>
+    <main></main>
+    <script type="module">
+      import { mount } from 'svelte';
+      import ProMesher from '../../../src/components/pro/ProMesher.svelte';
+      import { modelStore, uiStore } from '../../../src/lib/store';
+      import { setLocale } from '../../../src/lib/i18n';
+      import '../../../src/lib/i18n/full-dictionaries';
+
+      modelStore.clear();
+      uiStore.analysisMode = 'pro';
+      setLocale('en');
+      for (const [x, y] of [[0, 0], [4, 0], [4, 4], [0, 4], [1, 1], [2, 1], [2, 2], [1, 2]]) {
+        modelStore.addNode(x, y, 0);
+      }
+      window.mesherFixture = {
+        unified: __PUBLIC_FEATURES__.proPlatesUnified,
+        async showPlateSpecifications() {
+          const { default: SpecSurfaces } = await import('../../../src/components/pro/spec/SpecSurfaces.svelte');
+          const { createPlate, planPlateMesh, applyPlateMeshes, plateEntry, plateShellKeys } = await import('../../../src/lib/store/physical-plates.ts');
+          const { id } = createPlate({ outline: [1, 2, 3, 4], materialId: 1, thickness: 0.2 });
+          this.remeshPlate = size => {
+            const report = applyPlateMeshes([planPlateMesh(id, { size })]);
+            if (report.plates !== 1 || report.refused.length) throw new Error(JSON.stringify(report));
+            return {
+              plate: plateEntry(id).surface.offset,
+              shells: [...modelStore.quads.values(), ...modelStore.plates.values()].map(shell => shell.offset),
+            };
+          };
+          this.remeshPlate(1);
+          for (const key of plateShellKeys(id)) uiStore.selectShell(key, true);
+          mount(SpecSurfaces, { target: document.querySelector('main') });
+        },
+        area() {
+          const shells = [...modelStore.quads.values(), ...modelStore.plates.values()];
+          const boundary = new Map();
+          for (const shell of shells) {
+            const ids = shell.nodes;
+            for (const [i, a] of ids.entries()) {
+              const b = ids[(i + 1) % ids.length];
+              const key = [Math.min(a, b), Math.max(a, b)].join(',');
+              if (boundary.has(key)) boundary.delete(key);
+              else boundary.set(key, [a, b]);
+            }
+          }
+          let twiceArea = 0;
+          for (const [a, b] of boundary.values()) {
+            const p = modelStore.nodes.get(a);
+            const q = modelStore.nodes.get(b);
+            twiceArea += p.x * q.y - p.y * q.x;
+          }
+          return Math.abs(twiceArea) / 2;
+        },
+      };
+      mount(ProMesher, { target: document.querySelector('main') });
+    </script>
+  </body>
+</html>

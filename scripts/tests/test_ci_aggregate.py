@@ -58,7 +58,30 @@ class CiAggregate(unittest.TestCase):
             self.assertNotRegex(jobs['ci-ok'], rf'(?m)^      - {name}$')
             self.assertNotRegex(jobs['superseded'], rf'(?m)^      - {name}$')
             self.assertNotIn('stop-failed-run.yml', jobs[name])
-        self.assertIn('make check.web.production-parity', jobs['web-build'])
+        self.assertIn('make check.web.production-parity', jobs['production-parity'])
+
+    def test_parity_runs_both_snapshots_off_the_web_build_runner(self):
+        workflow = (ROOT / '.github/workflows/ci.yml').read_text()
+        jobs = dict(re.findall(r'^  ([\w-]+):\n((?:^(?:    .*|)\n)*)', workflow.split('\njobs:\n', 1)[1], re.M))
+        self.assertNotIn('check.web.production-parity', jobs['web-build'])
+        self.assertIn('side: [reference, candidate]', jobs['production-parity-build'])
+        self.assertIn('needs: [production-parity-build]', jobs['production-parity'])
+        for job in ['production-parity-build', 'production-parity']:
+            for aggregate in ['ci-ok', 'superseded']:
+                self.assertRegex(jobs[aggregate], rf'(?m)^      - {job}$')
+
+    def test_parity_builds_research_in_separate_jobs_before_inventories(self):
+        workflow = (ROOT / '.github/workflows/ci.yml').read_text().split('\njobs:\n', 1)[1]
+        jobs = dict(re.findall(r'^  ([\w-]+):\n((?:^(?:    .*|)\n)*)', workflow, re.M))
+        research = jobs['production-parity-research']
+        site = jobs['production-parity-build']
+        self.assertIn('fromJSON(needs.changes.outputs.parity_research_sides)', research)
+        self.assertIn('PARITY_RESEARCH_OUT=', research)
+        self.assertIn('needs: [changes, production-parity-research]', site)
+        self.assertIn('PARITY_RESEARCH_IN=', site)
+        self.assertIn('timeout-minutes: 45', site)
+        for aggregate in ['ci-ok', 'superseded']:
+            self.assertRegex(jobs[aggregate], r'(?m)^      - production-parity-research$')
 
     def test_ci_scripts_filter_covers_its_tests_and_inputs(self):
         workflow = (ROOT / '.github/workflows/ci.yml').read_text()

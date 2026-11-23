@@ -139,7 +139,7 @@ export function globalDistributedToSolver(m: MemberRef, gI: Vec3, gJ: Vec3, a: n
     // The transverse part and the axial part separately: the axial one is tagged.
     if (![yI, yJ, zI, zJ].every(tiny)) toNodes(add(scale(ey, yI), ez, zI), add(scale(ey, yJ), ez, zJ));
     if (!(tiny(xI) && tiny(xJ))) toNodes(scale(ex, xI), scale(ex, xJ), true);
-  } else if (![xI, xJ, yI, yJ, zI, zJ].every(tiny)) {
+  } else if ([xI, xJ, yI, yJ, zI, zJ].some(v => v !== 0)) {
     out.push({ type: 'distributed', data: { elementId: m.elementId, qXI: xI, qXJ: xJ, qYI: yI, qYJ: yJ, qZI: zI, qZJ: zJ, a, b } });
   }
   return out;

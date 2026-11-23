@@ -1,0 +1,32 @@
+{
+  "id": "cancelling-generated-load-terms",
+  "date": "2026-11-22",
+  "prs": [2470],
+  "area": "analysis",
+  "when": { "any": ["prestressMemberLoads", "planarGlobalAxisMemberLoads"] },
+  "quantities": ["solve.ok"],
+  "title": {
+    "en": "Cancelling terms in tendon and planar loads",
+    "es": "Términos que se cancelan en cargas planas y de tendones",
+    "pt": "Termos que se cancelam em cargas planas e de tendões",
+    "de": "Sich aufhebende Terme bei Spannglied- und ebenen Lasten",
+    "fr": "Termes qui s’annulent dans les charges de câbles et les charges planes",
+    "hu": "Egymást kioltó tagok a feszítőkábel- és síkbeli terhekben",
+    "tr": "Tendon ve düzlem yüklerinde birbirini götüren terimler",
+    "zh": "预应力筋荷载与平面荷载中相互抵消的项"
+  },
+  "explanation": {
+    "en": "The load check includes the contributions that cancel in a tendon load. Planar load assembly retains both member-axis projections of an axis-aligned global load when either projection exceeds the existing cutoff.",
+    "es": "La verificación incluye las contribuciones que se cancelan en la carga de un tendón. El ensamblaje plano conserva ambas proyecciones sobre los ejes de la barra de una carga alineada con un eje global cuando alguna supera el umbral existente.",
+    "pt": "A verificação inclui as contribuições que se cancelam na carga de um tendão. A montagem plana preserva ambas as projeções nos eixos da barra de uma carga alinhada com um eixo global quando uma delas supera o limite existente.",
+    "de": "Die Lastprüfung berücksichtigt sich aufhebende Beiträge einer Spanngliedlast. Bei einer global achsparallelen Last werden beide Projektionen auf die Stabachsen berücksichtigt, sobald eine den bestehenden Grenzwert überschreitet.",
+    "fr": "La vérification inclut les contributions qui s’annulent dans la charge d’un câble de précontrainte. L’assemblage plan conserve les deux projections sur les axes de la barre d’une charge alignée sur un axe global dès que l’une dépasse le seuil existant.",
+    "hu": "A terhek ellenőrzése figyelembe veszi a feszítőkábel terhének egymást kioltó járulékait. A globális tengellyel párhuzamos síkbeli teher mindkét helyi vetülete megmarad, ha valamelyik meghaladja a meglévő küszöbértéket.",
+    "tr": "Yük denetimi, tendon yükünde birbirini götüren katkıları hesaba katar. Global bir eksene paralel düzlem yükünün izdüşümlerinden biri mevcut eşiği aşarsa eleman eksenlerindeki iki izdüşüm de korunur.",
+    "zh": "荷载校核计入预应力筋荷载中相互抵消的各项。平面荷载沿整体坐标轴作用时，只要在构件轴上的任一投影超过现有阈值，就会保留两个投影。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-cancelling-generated-load-terms.md",
+    "heading": "Cancelling terms in tendon and planar loads"
+  }
+}

@@ -43,7 +43,7 @@ import type { ClauseRef, RegulationEdition } from '../../codes/regulation';
 import type { Maturity } from '../../codes/maturity';
 import { msg, type EngineMessage } from '../../codes/message';
 import { designSlabPanel, type SlabDesignResult } from './slab-design';
-import { designWall, type WallDesignResult } from './wall-design';
+import { designWall, wallBaseResultants, type WallDesignResult } from './wall-design';
 import {
   familyHash, familyRecordId,
   FAMILY_RECORD_SCHEMA_VERSION, recordStatusFor,
@@ -610,17 +610,10 @@ export function runFloorDesign(input: RunFloorDesignInput): RunFloorDesignResult
     const bottom = group.filter((g) => Math.abs(Math.min(...g.pts.map((p) => p.z ?? 0)) - baseZ) < 1e-6);
 
     const supplied = input.wallDemands?.get(first.shell.id);
-    let pu = 0, mu = 0, vu = 0;
-    for (const g of bottom) {
+    const { pu, mu, vu } = wallBaseResultants(bottom.map((g) => {
       const us = g.pts.map(u);
-      const w = Math.max(...us) - Math.min(...us);
-      const uc = us.reduce((s, x) => s + x, 0) / us.length;
-      // Compression is a negative σyy; the wall carries it as a positive Pu.
-      const f = -g.stress.sigmaYy * g.shell.thickness * w;
-      pu += f;
-      mu += f * (uc - centre);
-      vu += g.stress.tauXy * g.shell.thickness * w;
-    }
+      return { u: us.reduce((s, x) => s + x, 0) / us.length, width: Math.max(...us) - Math.min(...us), thickness: g.shell.thickness, sigma: g.stress.sigmaYy, tau: g.stress.tauXy };
+    }), centre);
     const resolvedMoment = bottom.length > 1;
     const demands = supplied ?? { pu: Math.max(0, pu), muInPlane: Math.abs(mu), vuInPlane: Math.abs(vu) };
     if (!supplied && !resolvedMoment) {

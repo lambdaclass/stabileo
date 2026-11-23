@@ -1,4 +1,6 @@
+from hashlib import sha256
 import importlib.util
+import os
 from pathlib import Path
 import subprocess
 import tempfile
@@ -59,6 +61,89 @@ class ProductionParity(unittest.TestCase):
             self.assertEqual((reference / carried.name).read_text(), 'intended')
             self.assertFalse((reference / added.name).exists())
 
+    def test_build_reads_its_checkout_history(self):
+        with tempfile.TemporaryDirectory(dir=parity.ROOT) as directory:
+            repo = Path(directory)
+            web = repo / 'web'
+            web.mkdir()
+            (web / 'package.json').write_text('{"scripts":{"build":"node build.cjs"}}')
+            (web / 'package-lock.json').write_text('{}')
+            (repo / 'Makefile').write_text(SOLVER_RECIPE + 'research.wasm: ;\n')
+            (web / 'build.cjs').write_text(
+                'const fs = require("node:fs");\n'
+                'const { execFileSync } = require("node:child_process");\n'
+                'const value = execFileSync("git", ["show", "HEAD:reference.txt"]);\n'
+                'fs.mkdirSync("dist");\n'
+                'fs.writeFileSync("dist/index.html", value);\n'
+            )
+
+            def git(*args):
+                return subprocess.check_output(['git', *args], cwd=repo, text=True).strip()
+
+            git('init', '--quiet')
+            git('config', 'user.name', 'Production parity fixture')
+            git('config', 'user.email', 'parity@example.invalid')
+            path = repo / 'reference.txt'
+            path.write_text('published')
+            git('add', '.')
+            git('commit', '--quiet', '-m', 'Published reference')
+            base = git('rev-parse', 'HEAD')
+            path.write_text('candidate')
+            git('add', '.')
+            git('commit', '--quiet', '-m', 'Candidate history')
+            head = git('rev-parse', 'HEAD')
+            with patch.object(parity, 'ROOT', repo):
+                for rev, expected in [(base, 'published'), (head, 'candidate')]:
+                    with self.subTest(revision=rev):
+                        checkout = repo / rev
+                        parity.snapshot(rev, checkout, set())
+                        parity.build(checkout, {**parity.os.environ, 'GITHUB_SHA': base})
+                        self.assertEqual((checkout / 'web/dist/index.html').read_text(), expected)
+
+    def test_reference_materializes_base_only_blobs_from_a_partial_clone(self):
+        with tempfile.TemporaryDirectory(dir=parity.ROOT) as directory:
+            fixture = Path(directory)
+            upstream = fixture / 'upstream'
+            upstream.mkdir()
+            repo = fixture / 'ci-checkout'
+
+            def git(checkout, *args):
+                return subprocess.check_output(['git', '-C', str(checkout), *args]).decode().strip()
+
+            git(upstream, 'init', '--quiet')
+            git(upstream, 'config', 'user.name', 'Production parity fixture')
+            git(upstream, 'config', 'user.email', 'parity@example.invalid')
+            git(upstream, 'config', 'uploadpack.allowFilter', 'true')
+            git(upstream, 'config', 'uploadpack.allowAnySHA1InWant', 'true')
+            (upstream / 'Makefile').write_text(SOLVER_RECIPE)
+            (upstream / 'intended.bin').write_bytes(b'\x00\xff')
+            git(upstream, 'add', '.')
+            git(upstream, 'commit', '--quiet', '-m', 'Published reference')
+            base = git(upstream, 'rev-parse', 'HEAD')
+            base_recipe = git(upstream, 'rev-parse', 'HEAD:Makefile')
+            (upstream / 'Makefile').write_text(SOLVER_RECIPE.replace('printf legacy', 'printf changed'))
+            (upstream / 'intended.bin').write_bytes(b'\x00\xfe')
+            git(upstream, 'add', '.')
+            git(upstream, 'commit', '--quiet', '-m', 'Change the candidate recipe and asset')
+
+            git(upstream, 'clone', '--quiet', '--filter=blob:none', upstream.as_uri(), str(repo))
+            self.assertIn(f'?{base_recipe}', git(repo, 'rev-list', '--objects', '--missing=print', base).splitlines())
+            reference = fixture / 'reference'
+            git(repo, 'remote', 'set-url', 'origin', (fixture / 'unavailable').as_uri())
+            with patch.object(parity, 'ROOT', repo):
+                with self.assertRaisesRegex(RuntimeError, 'could not fetch all tracked blobs'):
+                    parity.snapshot(base, reference, {'intended.bin'})
+            self.assertFalse(reference.exists())
+
+            git(repo, 'remote', 'set-url', 'origin', upstream.as_uri())
+            with patch.object(parity, 'ROOT', repo):
+                parity.snapshot(base, reference, {'intended.bin'})
+            self.assertEqual(git(reference, 'rev-parse', 'HEAD'), base)
+            self.assertEqual((reference / 'Makefile').read_text(), SOLVER_RECIPE)
+            self.assertEqual((reference / 'intended.bin').read_bytes(), b'\x00\xfe')
+            self.assertEqual(git(reference, 'diff', '--cached', '--name-only'), 'intended.bin')
+            self.assertEqual(git(repo, 'status', '--porcelain'), '')
+
     def test_outputs_detect_binary_changes_additions_and_removals(self):
         with tempfile.TemporaryDirectory(dir=parity.ROOT) as directory:
             expected, actual = (Path(directory) / name for name in ('expected', 'actual'))
@@ -116,6 +201,9 @@ class ProductionParity(unittest.TestCase):
         with tempfile.TemporaryDirectory(dir=parity.ROOT) as directory:
             repo = Path(directory)
             web = repo / 'web'
+            engine_source = repo / 'engine/src/lib.rs'
+            engine_source.parent.mkdir(parents=True)
+            engine_source.write_text('legacy')
             (web / 'config').mkdir(parents=True)
             (web / 'package.json').write_text('{"scripts":{"build":"node build.cjs"}}')
             (web / 'package-lock.json').write_text('{}')
@@ -145,6 +233,16 @@ class ProductionParity(unittest.TestCase):
             run('make', 'wasm')
             with patch.object(parity, 'ROOT', repo), patch('sys.argv', ['check-production-parity.py', base]):
                 parity.main()
+                opt_in = repo / 'engine/src/experimental.rs'
+                opt_in.write_text('pub fn experimental() {}\n')
+                run('git', 'add', str(opt_in.relative_to(repo)))
+                parity.main()
+                makefile.write_text(recipe.replace('printf legacy', 'cat engine/src/lib.rs'))
+                parity.main()
+                engine_source.write_text('changed')
+                with self.assertRaisesRegex(SystemExit, r'Switch-off production differs[\s\S]*dedaliano_engine_bg.wasm'):
+                    parity.main()
+                engine_source.write_text('legacy')
                 makefile.write_text(recipe.replace('printf legacy', 'printf changed'))
                 run('make', 'wasm')
                 with self.assertRaisesRegex(SystemExit, r'Switch-off production differs[\s\S]*solver.wasm'):
@@ -193,7 +291,30 @@ class ProductionParity(unittest.TestCase):
             run('make', 'research.wasm')
             with patch.object(parity, 'ROOT', repo), patch('sys.argv', ['check-production-parity.py', base, '--required']):
                 parity.main()
+                shared = repo / 'shared'
+
+                def gate(*args):
+                    with patch('sys.argv', ['check-production-parity.py', base, '--required', *args]):
+                        parity.main()
+
+                gate('--side', 'reference', '--research-out', str(shared))
+                reference = repo / 'reference.json'
+                candidate = repo / 'candidate.json'
+                gate('--side', 'reference', '--inventory', str(reference), '--research-in', str(shared))
+                gate('--side', 'candidate', '--inventory', str(candidate), '--research-in', str(shared))
+                gate('--compare', str(repo))
+                cold = repo / 'cold.json'
+                gate('--side', 'candidate', '--inventory', str(cold))
+                self.assertEqual(candidate.read_bytes(), cold.read_bytes())
+
                 source.write_text('pub fn solve() -> i32 { 2 }\n')
+                with self.assertRaisesRegex(RuntimeError, 'research artifact.*snapshot'):
+                    gate('--side', 'candidate', '--inventory', str(candidate), '--research-in', str(shared))
+                separate = repo / 'separate'
+                gate('--side', 'candidate', '--research-out', str(separate))
+                gate('--side', 'candidate', '--inventory', str(candidate), '--research-in', str(separate))
+                with self.assertRaisesRegex(SystemExit, r'Switch-off production differs[\s\S]*research-wasm/example/solver_bg.wasm'):
+                    gate('--compare', str(repo))
                 run('make', 'research.wasm')
                 with self.assertRaisesRegex(SystemExit, r'Switch-off production differs[\s\S]*research-wasm/example/solver_bg.wasm'):
                     parity.main()
@@ -201,6 +322,110 @@ class ProductionParity(unittest.TestCase):
                 run('git', 'commit', '--quiet', '-m', 'Intentionally change the research solver',
                     '-m', 'Production-Change: research/example/src/lib.rs')
                 parity.main()
+
+    def test_split_gate_compares_complete_inventories_from_both_builds(self):
+        with tempfile.TemporaryDirectory(dir=parity.ROOT) as directory:
+            repo = Path(directory)
+            flags = repo / parity.FLAGS
+            flags.parent.mkdir(parents=True)
+            flags.write_text('{"production":{"example":false},"test":{"example":false}}')
+
+            def git(*args):
+                return subprocess.check_output(['git', *args], cwd=repo).decode().strip()
+
+            git('init', '--quiet')
+            git('config', 'user.name', 'Production parity fixture')
+            git('config', 'user.email', 'parity@example.invalid')
+            git('add', '.')
+            git('commit', '--quiet', '-m', 'Published reference')
+            base = git('rev-parse', 'HEAD')
+            flags.write_text('{"production":{"example":false},"test":{"example":true}}')
+            git('add', '.')
+            git('commit', '--quiet', '-m', 'Enable the test switch')
+            inventories = repo / 'inventories'
+            inventories.mkdir()
+
+            def gate(*args):
+                with patch('sys.argv', ['check-production-parity.py', base, *args]):
+                    parity.main()
+
+            runtime = {name: sha256(name.encode()).digest() for name in parity.SOLVER_RUNTIME}
+            reference = {**runtime, 'web/dist/index.html': sha256(b'page').digest(),
+                         'web/dist/research-wasm/example.wasm': sha256(b'research').digest()}
+            with patch.object(parity, 'ROOT', repo), patch.object(parity, 'build', side_effect=[
+                reference, reference, {**reference, 'web/dist/research-wasm/example.wasm': sha256(b'changed').digest()}
+            ]) as build:
+                gate('--side', 'reference', '--inventory', str(inventories / 'reference.json'))
+                with self.assertRaisesRegex(RuntimeError, 'candidate.json'):
+                    gate('--compare', str(inventories))
+                gate('--side', 'candidate', '--inventory', str(inventories / 'candidate.json'))
+                gate('--compare', str(inventories))
+                candidate = inventories / 'candidate.json'
+                valid = candidate.read_text()
+                candidate.write_text((inventories / 'reference.json').read_text())
+                with self.assertRaisesRegex(RuntimeError, 'wrong snapshot identity'):
+                    gate('--compare', str(inventories))
+                candidate.write_text(valid.replace('web/dist/index.html', 'web/dist/other.html'))
+                with self.assertRaisesRegex(RuntimeError, 'missing outputs or invalid checksums'):
+                    gate('--compare', str(inventories))
+                gate('--side', 'candidate', '--inventory', str(inventories / 'candidate.json'))
+                with self.assertRaisesRegex(SystemExit, r'Switch-off production differs[\s\S]*example.wasm'):
+                    gate('--compare', str(inventories))
+                self.assertEqual(build.call_count, 3)
+
+    def test_research_artifact_requires_matching_snapshot_inputs_and_complete_output(self):
+        with tempfile.TemporaryDirectory(dir=parity.ROOT) as directory:
+            repo = Path(directory)
+            source = repo / 'research/example/src/lib.rs'
+            source.parent.mkdir(parents=True)
+            source.write_text('reference')
+            viewer = repo / 'web/src/viewer.ts'
+            viewer.parent.mkdir(parents=True)
+            viewer.write_text('viewer')
+            build = repo / 'Makefile'
+            build.write_text('research.wasm:\n'
+                             '\tmkdir -p web/public/research-wasm/example\n'
+                             '\tcp research/example/src/lib.rs web/public/research-wasm/example/solver.wasm\n'
+                             '\tprintf metadata > web/public/research-wasm/example/.metadata\n')
+
+            def git(*args):
+                return subprocess.check_output(['git', *args], cwd=repo).decode().strip()
+
+            git('init', '--quiet')
+            git('config', 'user.name', 'Production parity fixture')
+            git('config', 'user.email', 'parity@example.invalid')
+            git('add', '.')
+            git('commit', '--quiet', '-m', 'Create the research build')
+            base = git('rev-parse', 'HEAD')
+            shared = repo / 'shared'
+            restored = repo / 'restored'
+            with patch.object(parity, 'ROOT', repo):
+                git('commit', '--quiet', '--allow-empty', '-m', 'Move head without changing inputs')
+                head = git('rev-parse', 'HEAD')
+                self.assertEqual(parity.research_sides(base, head), ['reference'])
+                key = parity.research_key(repo, base, head)
+                parity.build_research(repo, os.environ)
+                output = repo / parity.RESEARCH_WASM
+                parity.stage_research(output, shared, key)
+                parity.restore_research(shared, restored, key)
+                self.assertEqual(parity.file_inventory(restored), parity.file_inventory(output))
+                self.assertEqual((restored / 'example/.metadata').read_text(), 'metadata')
+
+                for path in (source, viewer, build, repo / 'engine/src/lib.rs', repo / 'flake.lock'):
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    path.write_text('changed')
+                    git('add', str(path.relative_to(repo)))
+                    changed = git('write-tree')
+                    self.assertEqual(parity.research_sides(base, changed), ['reference', 'candidate'])
+                    with self.assertRaisesRegex(RuntimeError, 'research artifact.*snapshot'):
+                        parity.restore_research(shared, repo / 'wrong', parity.research_key(repo, base, head))
+                    self.assertFalse((repo / 'wrong').exists())
+                    git('reset', '--quiet', 'HEAD', '--', str(path.relative_to(repo)))
+
+                (shared / 'assets/example/.metadata').unlink()
+                with self.assertRaisesRegex(RuntimeError, 'research artifact.*contents'):
+                    parity.restore_research(shared, repo / 'incomplete', key)
+                self.assertFalse((repo / 'incomplete').exists())
 
     def test_missing_output_cannot_pass_as_matching(self):
         with tempfile.TemporaryDirectory(dir=parity.ROOT) as directory:

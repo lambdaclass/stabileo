@@ -7,7 +7,6 @@ import { validateAndSolve3D } from '../solver-service';
 import { solveDetailed3D } from '../solver-detailed-3d';
 import { solveDetailed } from '../solver-detailed';
 import { solveForceMethod } from '../force-method/solve';
-import { buildSolverInput2D } from '../solver-service';
 import { solveForceMethod3D } from '../force-method/solve-3d';
 import { runDirectAnalysis } from '../direct-analysis';
 import { cableRefusal, recordFixedReplay } from './sa-059-replay';
@@ -26,7 +25,7 @@ it.each(['compression', 'shortening', 'unloaded', 'tension'] as const)('preserve
   const { a, b, frame, cable } = fixture(state);
   const input = centerlineInput({ caseDisplacements: true });
   expect(input.elements.get(cable)!.type).toBe('cable');
-  const plane = buildSolverInput2D(modelStore.model as never)!;
+  const plane = modelStore.buildSolverInput(false, 'xz')!;
   const paths: Array<[string, () => unknown]> = [
     ['2D stiffness teaching wizard', () => solveDetailed(plane)],
     ['2D flexibility teaching wizard', () => solveForceMethod(plane)],

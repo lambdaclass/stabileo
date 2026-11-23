@@ -40,7 +40,6 @@ export interface PointLoad3DLike {
   frame?: PointFrame;
 }
 
-/** Within a micron of an end, a load is at the end. */
 export const POINT_END_TOL = 1e-6;
 
 const add3 = (a: Vec3, b: Vec3, k = 1): Vec3 => [a[0] + k * b[0], a[1] + k * b[1], a[2] + k * b[2]];
@@ -84,12 +83,15 @@ export function pointToSolver(m: MemberRef, d: PointLoad3DLike, leftHand = false
     return { type: 'nodal', data: { nodeId, fx: f[0], fy: f[1], fz: f[2], mx: mm[0] + c[0], my: mm[1] + c[1], mz: mm[2] + c[2] } };
   };
   const none = F.every(tiny) && M.every(tiny);
-  if (d.a <= POINT_END_TOL) return none ? [] : [nodal(m.nodeI, F, M, m.armI)];
-  if (d.a >= L - POINT_END_TOL) return none ? [] : [nodal(m.nodeJ, F, M, m.armJ)];
+  const px = dot(F, ex);
+  const needsNode = !tiny(px) || !M.every(tiny);
+  const endTolerance = needsNode ? POINT_END_TOL : 0;
+  if (d.a <= endTolerance) return none ? [] : [nodal(m.nodeI, F, M, m.armI)];
+  if (d.a >= L - endTolerance) return none ? [] : [nodal(m.nodeJ, F, M, m.armJ)];
   const out: SolverLoad3D[] = [];
-  const py = dot(F, ey), pz = dot(F, ez), px = dot(F, ex);
+  const py = dot(F, ey), pz = dot(F, ez);
   if (!tiny(py) || !tiny(pz)) out.push({ type: 'pointOnElement', data: { elementId: m.elementId, a: d.a, py, pz } });
-  if (tiny(px) && M.every(tiny)) return out;
+  if (!needsNode) return out;
   if (!forcesOnly) throw new PointLoadNeedsCut(m.elementId);
   if (!tiny(px)) {
     const t = d.a / L, fx = scale3(ex, px);

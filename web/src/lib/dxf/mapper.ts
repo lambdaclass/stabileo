@@ -7,7 +7,7 @@ import type {
 } from './types';
 import { unitScale } from './types';
 import { profileByName, profileToSection } from '../data/steel-profiles';
-import { t } from '../i18n';
+import { t, tp } from '../i18n';
 
 export interface MapperOptions {
   unit: DxfUnit;
@@ -23,6 +23,18 @@ const LOAD_LAYER = 'CARGAS';
 const SECTION_LAYER = 'SECCIONES';
 const MATERIAL_LAYER = 'MATERIALES';
 const HINGE_LAYER = 'ARTICULACIONES';
+
+const SUPPORT_TYPES = new Map<string, MappedSupport['type']>([
+  ['E', 'fixed'],
+  ['EMPOT', 'fixed'],
+  ['EMPOTRADO', 'fixed'],
+  ['FIXED', 'fixed'],
+  ['ARTICULADO', 'pinned'],
+  ['PINNED', 'pinned'],
+  ['RX', 'rollerX'],
+  ['RY', 'rollerZ'],
+  ['RZ', 'rollerZ'],
+]);
 
 // ─── Main mapping function ─────────────────────────────────────
 
@@ -86,21 +98,30 @@ export function mapDxfToModel(
 
   // ── Supports ──
 
-  const supports: MappedSupport[] = [];
-  const supportTexts = parsed.texts.filter(t => t.layer === SUPPORT_LAYER);
-  const supportInserts = parsed.inserts.filter(i => i.layer === SUPPORT_LAYER);
-
-  for (const st of supportTexts) {
-    const nodeId = findNearestNode(st.position, nodes, scale, tol);
-    if (nodeId < 0) { warnings.push(`${t('dxf.warnSupportNoNode')} "${st.value}"`); continue; }
-    supports.push({ nodeId, type: parseSupportType(st.value) });
+  const supportByNode = new Map<number, MappedSupport & { label: string }>();
+  for (const entity of [...parsed.texts, ...parsed.inserts]) {
+    if (entity.layer !== SUPPORT_LAYER) continue;
+    const isBlock = 'blockName' in entity;
+    const label = isBlock ? entity.blockName : entity.value;
+    const type = parseSupportType(label);
+    if (type === undefined) {
+      throw new Error(tp('dxf.refuseSupportLabel', { label, layer: entity.layer }));
+    }
+    const nodeId = findNearestNode(entity.position, nodes, scale, tol);
+    if (nodeId < 0) {
+      const message = isBlock ? t('dxf.warnSupportBlockNoNode') : t('dxf.warnSupportNoNode');
+      warnings.push(message + ' "' + label + '"');
+      continue;
+    }
+    const existing = supportByNode.get(nodeId);
+    if (existing && existing.type !== type) {
+      throw new Error(tp('dxf.refuseConflictingSupports', {
+        first: existing.label, second: label, layer: entity.layer,
+      }));
+    }
+    supportByNode.set(nodeId, { nodeId, type, label });
   }
-
-  for (const si of supportInserts) {
-    const nodeId = findNearestNode(si.position, nodes, scale, tol);
-    if (nodeId < 0) { warnings.push(`${t('dxf.warnSupportBlockNoNode')} "${si.blockName}"`); continue; }
-    supports.push({ nodeId, type: parseSupportType(si.blockName) });
-  }
+  const supports = Array.from(supportByNode.values(), ({ nodeId, type }) => ({ nodeId, type }));
 
   // ── Loads ──
 
@@ -307,16 +328,10 @@ function splitAtTouchingNodes(elements: MappedElement[], nodes: MappedNode[], to
   }
 }
 
-function parseSupportType(text: string): MappedSupport['type'] {
-  const txt = text.toUpperCase();
-  if (txt.includes('EMPOT') || txt.includes('FIXED') || txt === 'E') return 'fixed';
-  if (txt.includes('MOVIL') || txt.includes('ROLLER')) {
-    return txt.includes('Y') || txt.includes('Z') ? 'rollerZ' : 'rollerX';
-  }
-  if (txt === 'R' || txt === 'RX') return 'rollerX';
-  if (txt === 'RY' || txt === 'RZ') return 'rollerZ';
-  // Default: pinned
-  return 'pinned';
+function parseSupportType(text: string): MappedSupport['type'] | undefined {
+  const label = text.trim().toUpperCase();
+  const roller = /^(?:ROLLER|MOVIL)[ _-]?([XYZ])$/.exec(label);
+  return SUPPORT_TYPES.get(roller ? 'R' + roller[1] : label);
 }
 
 function findNearestNode(pos: DxfPoint, nodes: MappedNode[], scale: number, tolerance: number): number {

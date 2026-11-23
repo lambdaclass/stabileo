@@ -459,6 +459,46 @@ const body: PostBody = {
       "t": "受影响的输入和应采取的措施。"
     },
     {
+      "k": "note",
+      "t": "SA-2026-108 — 0.6.4 之后的下一个版本。"
+    },
+    {
+      "k": "ext",
+      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-108-planar-projection-nodal-forces.md",
+      "label": "SA-2026-108",
+      "t": "受影响的输入和应采取的措施。"
+    },
+    {
+      "k": "note",
+      "t": "SA-2026-109 — 0.6.4 之后的下一个版本。"
+    },
+    {
+      "k": "ext",
+      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-109-dxf-support-labels.md",
+      "label": "SA-2026-109",
+      "t": "受影响的输入和应采取的措施。"
+    },
+    {
+      "k": "note",
+      "t": "SA-2026-110 — 0.6.4 之后的下一个版本。"
+    },
+    {
+      "k": "ext",
+      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-110-solver-json-boundary.md",
+      "label": "SA-2026-110",
+      "t": "受影响的输入和应采取的措施。"
+    },
+    {
+      "k": "note",
+      "t": "SA-2026-111 — 0.6.4 之后的下一个版本。"
+    },
+    {
+      "k": "ext",
+      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-111-gravity-shared-deck-coverage.md",
+      "label": "SA-2026-111",
+      "t": "受影响的输入和应采取的措施。"
+    },
+    {
       "k": "img",
       "base": "blog/recheck-stale",
       "w": 1600,
@@ -1115,6 +1155,30 @@ const body: PostBody = {
           "重新划分网格可能丢失壳单元的偏置和曲率修改。请在重新分析和验算前核对并恢复预期的壳单元属性。",
           "高",
           "0.6.3 之后的下一个版本（遏制措施）"
+        ],
+        [
+          "SA-2026-108",
+          "投影到 XZ 或 YZ 平面时，垂直于分析平面的节点力分量可能被遗漏，且没有提示。请检查每个荷载工况的节点力，并使用空间模型重新进行受影响的分析和验算。",
+          "高",
+          "0.6.4 之后的下一个版本"
+        ],
+        [
+          "SA-2026-109",
+          "导入平面 DXF 时，无法识别的支座标签可能被直接当作铰支座，且没有提示。请对照原始图纸核查导入的支座，纠正差异并重新进行受影响的分析。",
+          "高",
+          "0.6.4 之后的下一个版本"
+        ],
+        [
+          "SA-2026-110",
+          "网页分析可能无提示地忽略刚度为非有限值的弹簧，或漏掉荷载组合中的某个工况。请检查弹簧刚度、工况名称和净系数，并重新计算受影响的分析和荷载组合。",
+          "高",
+          "0.6.4 之后的下一个版本"
+        ],
+        [
+          "SA-2026-111",
+          "按板格自动生成重力荷载时，同一楼面荷载可能被重复计算。请检查重叠的壳单元及与之相连的梁格，重新生成受影响的已保存重力荷载方案，并重新进行相关分析。",
+          "高",
+          "0.6.4 之后的下一个版本"
         ]
       ]
     },

@@ -1,6 +1,11 @@
 import type { Translations } from '../types';
 
 const id: Translations = {
+  'svc.accountingMismatch': "Analisis ditolak. Kasus beban {case}, {component}. Nilai masukan {entered}, nilai rakitan {assembled}.",
+  'svc.accountingUnsupported': "Analisis ditolak. Gaya dan momen {kind} {id} pada kasus beban {case} tidak dapat diperhitungkan.",
+  'svc.accountingArea': "Analisis ditolak. Pelat {plate} memiliki luas atau batas yang berbeda pada model penyelesaian. Luas yang ditetapkan {entered}, luas rakitan {assembled}.",
+  'svc.accountingSweep': "Analisis ditolak. Busur tepi pelat {plate} berbeda pada model penyelesaian. Luas yang ditetapkan {entered}, luas rakitan {assembled}.",
+  'svc.accountingShellEdits': "Pelat {plate} tidak dapat dibuatkan mesh ulang karena offset atau perubahan kelengkungan cangkang akan hilang.",
   "plates.remeshAmbiguousSweep": "Busur pada tepi lengkung {name} ambigu. Periksa titik antara dan batang lengkung di antara titik ujung sebelum membuat ulang mesh.",
   "plates.remeshShellEdits": "Mesh {name} tidak dapat diganti karena perubahan ofset atau kelengkungan elemen cangkang tidak dapat dipindahkan secara persis.",
   'loadPlan.gravity.coveragePrecision': "Koordinat cakupan cangkang melampaui ketelitian interval batang yang didukung.",
@@ -8,8 +13,8 @@ const id: Translations = {
   'loadPlan.gravity.unsupportedStrips': "Cakupan sebagian oleh cangkang memerlukan jalur yang membentang penuh di antara penumpu yang berhadapan pada panel balok persegi panjang.",
   'loadPlan.gravity.stripDirection': "Arah bentang satu arah yang diminta harus searah dengan bentang jalur yang tidak tertutup.",
   'loadPlan.gravity.nonplanarShell': "Segi empat {id} tidak datar. Cakupan cangkang untuk beban gravitasi memerlukan cangkang datar.",
-  'loadPlan.gravity.overlappingShells': "Elemen cangkang {first} dan {second} bertumpang tindih pada bidang yang sama. Beban gravitasi di daerah tumpang tindih tidak dapat dialokasikan ke satu cangkang.",
-  'loadPlan.gravity.offsetShellDeck': "Cangkang {id} terhubung kaku ke panel balok yang bergeser dan bertumpang tindih dalam denah. Permukaan yang menerima beban bidang tidak dapat ditentukan.",
+  'loadPlan.gravity.overlappingShells': "Cangkang {first} dan {second} bertumpang tindih pada bidang yang sama atau berada dalam rentang elevasi pelat yang sama. Perbaiki geometri cangkang atau terapkan beban bidang secara manual satu kali.",
+  'loadPlan.gravity.offsetShellDeck': "Cangkang {id} terhubung secara vertikal dengan panel balok yang bertumpang tindih pada elevasi berbeda (batang {members}). Perbaiki geometri cangkang, sambungan, atau panel, atau terapkan beban bidang secara manual satu kali.",
   'loadPlan.gravity.memberSlopeLimit': "Batang {id} terlalu dekat dengan batas kemiringan untuk dipastikan sebagai pemikul beban gravitasi. Tetapkan bebannya secara eksplisit.",
   'snow.refused.stepDriftTransfer': "Pembangkitan beban salju tidak dapat menyalurkan timbunan pada undakan atap ke batang pemikul secara andal. Tetapkan beban salju secara eksplisit.",
   'loadPlan.gravity.unresolvedMember': "Batang {id} hanya tertutup sebagian oleh cangkang dan penyaluran beban panel belum dapat ditentukan.",
@@ -1811,6 +1816,8 @@ const id: Translations = {
   'dxf.summaryMaxV': 'Maks V:',
   'dxf.warnZeroLengthLine': 'Garis panjang nol diabaikan',
   'dxf.warnNoElementLayers': 'Tidak terdeteksi layer BATANG/ELEMEN. Semua garis digunakan sebagai elemen.',
+  'dxf.refuseSupportLabel': 'Label tumpuan “{label}” pada lapisan DXF “{layer}” tidak dikenal atau ambigu. Perbaiki gambar sebelum mengimpor. Gunakan FIXED, PINNED, RX, RY, atau RZ hanya jika sesuai dengan kekangan yang dimaksud.',
+  'dxf.refuseConflictingSupports': 'Label tumpuan “{first}” dan “{second}” pada lapisan DXF “{layer}” cocok dengan simpul yang sama. Sebelum mengimpor, sisakan hanya label atau blok untuk kekangan yang dimaksud.',
   'dxf.warnSupportNoNode': 'Tumpuan tidak cocok dengan titik simpul manapun:',
   'dxf.warnSupportBlockNoNode': 'Blok tumpuan tidak cocok dengan titik simpul manapun:',
   'dxf.warnDistLoadNoElement': 'Beban terdistribusi tidak terkait dengan elemen manapun:',
@@ -2782,10 +2789,8 @@ const id: Translations = {
   'pro.unknown': 'Tidak diketahui',
 
   // ─── PRO: Shell ───
-  'pro.nPlatesQuads': '{plates} pelat, {quads} quad',
   'pro.plateTriDKT': 'Pelat segitiga (DKT)',
   'pro.quadMITC4': 'Quad MITC4',
-  'pro.meshGenerator': 'Generator mesh',
   'pro.meshHint': 'Definisikan 4 titik sudut (berlawanan arah jarum jam) dan subdivisi NxM. Titik simpul dan quad antara dibuat otomatis.',
   'pro.corners': 'Sudut',
   'pro.subdivisions': 'Subdivisi',
@@ -3749,6 +3754,7 @@ const id: Translations = {
   "autoLoad.work.draw": "Menggambar beban",
   "autoLoad.work.step": "Langkah {step} dari {total}",
   "autoLoad.work.cancel": "Hentikan",
+  "svc.engine.nonFiniteNumber": "Masukkan bilangan berhingga untuk {path} (nilai yang diterima: {value}).",
 } as const satisfies Record<string, string>;
 
 export default id;

@@ -15,7 +15,6 @@ import {
 } from '../vehicles';
 import { addPositionCases, MAX_POSITION_CASES } from '../../store/moving-cases';
 import { buildCriticalStations, extractForcesAtStation } from '../station-forces';
-import type { AnalysisResults3D } from '../types-3d';
 
 beforeAll(async () => { await initSolver(); });
 beforeEach(() => { modelStore.clear(); });
@@ -38,7 +37,8 @@ function casesMy() {
   let max = -Infinity, min = Infinity;
   for (const lc of modelStore.model.loadCases.filter((c) => c.alternatives?.startsWith('move:'))) {
     const loads = modelStore.model.loads.filter((l) => (l.data as { caseId: number }).caseId === lc.id);
-    const res = validateAndSolve3D({ ...modelStore.model, loads } as never, false, false) as AnalysisResults3D;
+    const res = validateAndSolve3D({ ...modelStore.model, loads } as never, false, false);
+    if (!res || typeof res === 'string') throw new Error(`${lc.name}: ${String(res)}`);
     for (const ef of res.elementForces) for (const t of buildCriticalStations(ef)) { const v = extractForcesAtStation(ef, t).my; max = Math.max(max, v); min = Math.min(min, v); }
   }
   return { max, min };
