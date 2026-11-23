@@ -224,7 +224,7 @@
   let wizardOnlyWasOpen = false;
   $effect(() => {
     const w = dsmStepsStore.isOpen || fmStepsStore.isOpen;
-    if (!w && wizardOnlyWasOpen && untrack(() => explainedSteps.returnToCatalog)) explainedSteps.openCatalog();
+    if (!w && wizardOnlyWasOpen && untrack(() => explainedSteps.returnToCatalog)) explainedSteps.reopenCatalog();
     wizardOnlyWasOpen = w;
   });
 

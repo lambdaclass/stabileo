@@ -20,7 +20,6 @@
   import { openStiffnessWizard, openFlexibilityWizard } from '../../lib/actions/step-wizards';
   import { ownerOfMethod } from '../../lib/advanced/catalog';
   import { advancedList } from '../../lib/advanced/panel-state.svelte';
-  import { tick, untrack } from 'svelte';
 
   const say = (x: Txt) => tp(x.key, x.params);
   let help = $state<string | null>(null);
@@ -28,13 +27,10 @@
 
   const is3D = $derived(uiStore.is3DWorkspace);
 
-  let body = $state<HTMLElement | null>(null);
-  $effect(() => {
-    const focus = explainedSteps.catalogFocus;
-    if (!focus) return;
-    untrack(() => advancedList.revealSteps(focus));
-    void tick().then(() => body?.querySelector(`[data-testid="steps-group-${focus}"]`)?.scrollIntoView({ block: 'start' }));
-  });
+  /* Opened at one topic (from its card in the list), the catalog shows that topic's methods alone. */
+  const focus = $derived(explainedSteps.catalogFocus);
+  const groups = $derived(focus && methodsIn(focus as (typeof GROUP_ORDER)[number]).length ? [focus as (typeof GROUP_ORDER)[number]] : GROUP_ORDER);
+
 
   /** The analysis that runs this method on the model, when there is one (not a step-by-step topic). */
   function analysisOf(m: ExplainedMethod) {
@@ -93,16 +89,17 @@
 </script>
 
 <div class="sc" data-testid="steps-catalog">
-  <StepsHeader backLabel={t('adv.back')} backTitle={t('adv.backToList')} onBack={() => explainedSteps.close()}
-    name={t('steps.catalog.title')} backTestid="steps-catalog-back" />
-  <p class="sc-intro">{t('steps.catalog.intro')}</p>
+  <StepsHeader fromCatalog={false} backTitle={t('adv.backToList')} onBack={() => explainedSteps.close()}
+    backTestid="steps-catalog-back" help={t('steps.catalog.intro')} />
 
-  <div class="sc-body" bind:this={body}>
-    {#each GROUP_ORDER as g}
+  <div class="sc-body">
+    {#each groups as g}
       {@const list = methodsIn(g)}
       {#if list.length}
-        {@const isOpen = advancedList.stepsOpen.includes(g)}
-        <section class="sc-group" class:open={isOpen} data-testid={`steps-group-${g}`}>
+        {@const scoped = groups.length === 1 && g === focus}
+        {@const isOpen = scoped || advancedList.stepsOpen.includes(g)}
+        <section class="sc-group" class:open={isOpen} class:scoped data-testid={`steps-group-${g}`}>
+          {#if !scoped}
           <button type="button" class="sc-ghead" aria-expanded={isOpen} onclick={() => advancedList.toggleSteps(g)} data-testid={`steps-group-toggle-${g}`}>
             <span class="sc-chev" aria-hidden="true">›</span>
             <span class="sc-gtext">
@@ -111,6 +108,7 @@
             </span>
             <span class="sc-gcount" title={tp('advCat.catalog.methods', { n: list.length })} aria-label={tp('advCat.catalog.methods', { n: list.length })}>{list.length}</span>
           </button>
+          {/if}
           {#if isOpen}
           <div class="sc-gbody">
           {#each list as m}
@@ -153,10 +151,11 @@
 
 <style>
   .sc { display: flex; flex-direction: column; height: 100%; min-height: 0; color: var(--st-text); }
-  .sc-intro { margin: 0.55rem 0.75rem 0.4rem; font-size: 0.78rem; color: var(--st-text-2); line-height: 1.4; }
-  .sc-body { flex: 1 1 auto; overflow-y: auto; padding: 0.2rem 0.75rem 0.8rem; min-height: 0; display: flex; flex-direction: column; gap: 0.4rem; }
+  .sc-body { flex: 1 1 auto; overflow-y: auto; padding: 0.6rem 0.75rem 0.8rem; min-height: 0; display: flex; flex-direction: column; gap: 0.4rem; }
   .sc-group { border: 1px solid var(--st-hair); border-radius: var(--st-radius-lg, 8px); }
   .sc-group.open { border-color: var(--st-hair-strong); }
+  .sc-group.scoped { border: none; }
+  .sc-group.scoped .sc-gbody { padding: 0; }
   .sc-ghead {
     display: flex; align-items: center; gap: 0.5rem; width: 100%; min-height: 46px; padding: 0.4rem 0.6rem;
     background: none; border: none; color: var(--st-text); font: inherit; text-align: left; cursor: pointer; border-radius: inherit;

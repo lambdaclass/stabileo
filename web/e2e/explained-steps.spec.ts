@@ -143,9 +143,9 @@ test.describe('explained step by step', () => {
     await expect(page.getByTestId('steps-catalog').locator('button', { hasText: '×' })).toHaveCount(0);
     for (const [open, back] of [['steps-open-crossSway', 'steps-back'], ['steps-open-dsm', 'dsm-back'], ['steps-open-fm', 'fm-back']] as const) {
       await page.getByTestId(open).click();
-      await expect(panelTitle).toHaveText(/Advanced|Avanzado|Avançado/);
-      await expect(page.locator('.sh-name')).toBeVisible();
-      await expect(page.locator('.sf-title h3')).toBeVisible();
+      // One header row names where the reader is, Advanced › catalog › method, beside Back.
+      await expect(panelTitle).toHaveText(/^(Advanced|Avanzado|Avançado)\s*›.+›.+/);
+      await expect(page.getByTestId(back)).toBeVisible();
       await expect(page.locator('.sf-nav button').first()).toBeVisible();
       await expect(page.locator('.sf-foot')).toBeVisible();
       await page.locator('.sf-foot button').last().click();

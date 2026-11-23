@@ -50,9 +50,8 @@
   same method.
 -->
 <div class="wizard">
-  <StepsHeader backLabel={fromCatalog ? t('steps.view.back') : t('adv.back')}
-    backTitle={fromCatalog ? t('steps.view.backToCatalog') : t('adv.backToList')} onBack={close}
-    name={t('steps.catalog.title')} backTestid="dsm-back" />
+  <StepsHeader name={showExplorer ? t('dsm.matrixExplorer') : t('steps.m.dsm.title')} {fromCatalog}
+    backTitle={fromCatalog ? t('steps.view.backToCatalog') : t('adv.backToList')} onBack={close} backTestid="dsm-back" />
 
   <StepFrame space={is3D} title={showExplorer ? t('dsm.matrixExplorer') : t('steps.m.dsm.title')} subtitle={banner}
     step={dsmStepsStore.currentStep} last={9} onGo={(k) => dsmStepsStore.goToStep(k)} showNav={!showExplorer}

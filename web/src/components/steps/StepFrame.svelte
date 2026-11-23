@@ -1,9 +1,9 @@
 <script lang="ts">
   /**
    * The frame every step-by-step solution is shown in, the explained methods
-   * and the stiffness and flexibility wizards alike: the method's title and
-   * what it is solving, a row of step tabs, the step with its heading, and a
-   * footer to move one step at a time. Arrow keys move too.
+   * and the stiffness and flexibility wizards alike: a row of step tabs under
+   * the panel's header (which names the method), what it is solving, the step
+   * with its heading, and a footer to move one step at a time. Arrow keys move too.
    *
    * Steps are numbered from `first` (0 when the solution opens with a set-up,
    * shown as its own tab) to `last`.
@@ -24,7 +24,7 @@
     stepTitle?: string;
     tabTitle?: (k: number) => string;
     tabTestid?: (k: number) => string; headingTestid?: string; prevTestid?: string; nextTestid?: string;
-    /** Between the title and the tabs: assumptions, warnings. */
+    /** At the head of the body: assumptions, warnings. */
     top?: Snippet;
     /** A space structure: the statement of the user's axes is the 3D one. */
     space?: boolean;
@@ -59,14 +59,6 @@
 
 <svelte:window onkeydown={onKey} />
 
-<div class="sf-title">
-  <h3><Prose text={title} /></h3>
-  {#if subtitle}<span class="sf-sub"><Prose text={subtitle} /></span>{/if}
-</div>
-
-{#if top}{@render top()}{/if}
-{#if axesNote}<p class="sf-axes" data-testid="steps-axes-frame">{axesNote}</p>{/if}
-
 {#if showNav}
   <nav class="sf-nav" aria-label={title}>
     {#each tabs as k}
@@ -81,6 +73,10 @@
 {/if}
 
 <div class="sf-body" class:sb-narrow={narrow} bind:this={body} bind:clientWidth={bodyW}>
+  <!-- The panel's header names the method; here, what it is solving and the reader's choices for it. -->
+  {#if subtitle}<p class="sf-sub" data-testid="steps-subtitle"><Prose text={subtitle} /></p>{/if}
+  {#if top}<div class="sf-top">{@render top()}</div>{/if}
+  {#if axesNote}<p class="sf-axes" data-testid="steps-axes-frame">{axesNote}</p>{/if}
   {#if showNav && stepTitle !== undefined && step > 0}
     <h4 class="sf-step" data-testid={headingTestid}><span class="sf-num">{tp('steps.view.step', { n: step })}</span> <Prose text={stepTitle} /></h4>
   {/if}
@@ -96,9 +92,8 @@
 {/if}
 
 <style>
-  .sf-title { padding: 0.55rem 0.75rem 0.25rem; flex: none; }
-  .sf-title h3 { margin: 0; font-size: 1rem; color: var(--st-text); line-height: 1.3; }
-  .sf-sub { display: block; margin-top: 0.1rem; font-size: 0.68rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--st-text-3); line-height: 1.4; }
+  .sf-sub { margin: 0.35rem 0 0.2rem; font-size: 0.68rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--st-text-3); line-height: 1.4; }
+  .sf-top { margin: 0 -0.75rem; }
   .sf-nav { display: flex; flex-wrap: wrap; gap: 3px; align-items: center; padding: 0.3rem 0.75rem; border-bottom: 1px solid var(--st-hair); flex: none; }
   .sf-nav button {
     min-width: 1.9rem; padding: 0.15rem 0.45rem; font-size: 0.72rem; cursor: pointer; font-family: inherit;
@@ -113,7 +108,7 @@
   }
   .sf-nav-end :global(.sf-toggle:hover:not(:disabled)), .sf-nav-end :global(.sf-toggle.on) { border-color: var(--st-accent); color: var(--st-accent); }
   .sf-nav-end :global(.sf-toggle:disabled) { opacity: 0.35; cursor: default; }
-  .sf-axes { margin: 0 0.75rem 0.3rem; font-size: 0.72rem; color: var(--st-text-2); line-height: 1.35; }
+  .sf-axes { margin: 0 0 0.3rem; font-size: 0.72rem; color: var(--st-text-2); line-height: 1.35; }
   .sf-body { flex: 1 1 auto; overflow-y: auto; overflow-x: hidden; padding: 0.3rem 0.75rem 0.8rem; min-height: 0; }
   .sf-step { margin: 0.5rem 0 0.4rem; font-size: 0.92rem; color: var(--st-text); line-height: 1.35; }
   .sf-num { display: inline-block; padding: 0.05rem 0.45rem; margin-right: 0.3rem; border-radius: 3px; background: color-mix(in srgb, var(--st-accent) 85%, #000); color: #fff; font-size: 0.72rem; font-weight: 600; }

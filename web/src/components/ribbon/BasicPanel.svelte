@@ -20,6 +20,7 @@
   import SheetGrab from '../SheetGrab.svelte';
   import AiDrawer from '../AiDrawer.svelte';
   import { resultsStore } from '../../lib/store/results.svelte';
+  import { panelTrail } from '../../lib/advanced/panel-trail.svelte';
 
   /**
    * The right-hand panel: one thing, named by the command that opened it.
@@ -126,6 +127,13 @@
     return text === key ? '' : text;
   });
 
+  /* Where the reader is inside Advanced, published by the view on screen (`panel-trail`). */
+  const trail = $derived(panel === 'advanced' ? panelTrail.current : null);
+  const crumbs = $derived(trail?.crumbs ?? []);
+  let helpOpen = $state(false);
+  const shownKey = $derived(trail?.running ?? crumbs.map((c) => c.label).join('›'));
+  $effect(() => { void shownKey; helpOpen = false; });
+
   /*
    * Publish the width so fixed-position overlays can stay clear of the panel.
    *
@@ -219,10 +227,31 @@
     heading: Results and Project have nothing else that names them.
   -->
   {#if !(uiStore.isMobile && panel === 'data')}
-    <header class="bp-head">
-      <span class="bp-title" data-testid="bp-title">{title}</span>
-      <button class="bp-close" onclick={onClose} title={t('ribbon.close')} aria-label={t('ribbon.close')}>×</button>
+    <header class="bp-head" class:bp-trail={crumbs.length > 0}>
+      <nav class="bp-crumbs" aria-label={title} data-testid="bp-title">
+        {#if crumbs.length && trail?.home}
+          <button type="button" class="bp-crumb bp-home" onclick={trail.home} data-testid="bp-home">{title}</button>
+        {:else}
+          <span class="bp-crumb bp-home" class:bp-here={!crumbs.length}>{title}</span>
+        {/if}
+        {#each crumbs as c, i (i)}
+          {@const last = i === crumbs.length - 1}
+          <span class="bp-level"><span class="bp-sep" aria-hidden="true">›</span>{#if c.go && !last}<button type="button" class="bp-crumb" onclick={c.go}>{c.label}</button>{:else}<span class="bp-crumb" class:bp-here={last} aria-current={last ? 'page' : undefined}
+              data-testid={last && trail?.running ? 'adv-running' : undefined} data-adv={last ? trail?.running : undefined}>{c.label}</span>{/if}</span>
+        {/each}
+      </nav>
+      <span class="bp-actions">
+        {#if trail?.back}
+          <button type="button" class="bp-back" onclick={trail.back.run} title={trail.back.title} aria-label={trail.back.title} data-testid={trail.back.testid}>← {t('adv.back')}</button>
+        {/if}
+        {#if trail?.help}
+          <button type="button" class="bp-help" class:on={helpOpen} onclick={() => (helpOpen = !helpOpen)} aria-expanded={helpOpen}
+            title={t('steps.catalog.help')} aria-label={t('steps.catalog.help')} data-testid="adv-help">?</button>
+        {/if}
+        <button class="bp-close" onclick={onClose} title={t('ribbon.close')} aria-label={t('ribbon.close')}>×</button>
+      </span>
     </header>
+    {#if helpOpen && trail?.help}<p class="bp-helptext" data-testid="adv-help-text">{trail.help}</p>{/if}
   {/if}
 
   <div class="bp-body" class:bp-steps={stepsOpen}>
@@ -296,12 +325,89 @@
     flex: none;
   }
 
-  .bp-title {
+  .bp-head { gap: 0.5rem; }
+
+  /* The levels wrap onto a second line rather than ever scrolling sideways. */
+  .bp-crumbs {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    column-gap: 0.3rem;
+    row-gap: 0.1rem;
     font-family: var(--st-mono);
     font-size: 0.68rem;
-    letter-spacing: 0.12em;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
+    line-height: 1.35;
     color: var(--st-text-2);
+  }
+
+  .bp-crumb {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    background: none;
+    border: none;
+    padding: 0;
+    font: inherit;
+    letter-spacing: inherit;
+    text-transform: inherit;
+    color: inherit;
+    text-align: left;
+  }
+
+  button.bp-crumb { cursor: pointer; text-decoration: underline transparent; }
+  button.bp-crumb:hover { color: var(--st-text); text-decoration-color: currentColor; }
+  .bp-crumb.bp-here:not(.bp-home) { color: var(--st-accent); }
+  .bp-level { display: inline-flex; align-items: baseline; gap: 0.3rem; min-width: 0; }
+  .bp-sep { flex: none; color: var(--st-text-3); }
+
+  .bp-actions { flex: none; display: flex; align-items: center; gap: 0.35rem; }
+
+  .bp-back {
+    background: none;
+    border: 1px solid var(--st-hair-strong);
+    color: var(--st-text-2);
+    font-family: inherit;
+    font-size: 0.68rem;
+    line-height: 1;
+    padding: 0.3rem 0.5rem;
+    cursor: pointer;
+    border-radius: var(--st-radius);
+    white-space: nowrap;
+  }
+  .bp-back:hover { border-color: var(--st-accent); color: var(--st-accent); }
+
+  .bp-help {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 0.72rem;
+    font-weight: 700;
+    border: 1px solid var(--st-hair-strong);
+    background: var(--st-surface-2);
+    color: var(--st-text-2);
+  }
+  .bp-help.on { background: var(--st-accent); border-color: var(--st-accent); color: var(--st-text-on-accent, #fff); }
+
+  .bp-helptext {
+    flex: none;
+    margin: 0;
+    padding: 0.45rem 0.75rem;
+    font-size: 0.76rem;
+    line-height: 1.45;
+    color: var(--st-text-2);
+    border-bottom: 1px solid var(--st-hair);
+    max-height: 30vh;
+    overflow-y: auto;
+  }
+
+  @media (max-width: 767px), (pointer: coarse) {
+    .bp-back { min-height: 44px; padding: 0 0.75rem; font-size: 0.76rem; }
+    .bp-help { width: 44px; height: 44px; }
+    button.bp-crumb { min-height: 32px; }
   }
 
   .bp-close {

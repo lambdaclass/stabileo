@@ -122,6 +122,8 @@ export const explainedSteps = {
 
   openCatalog(focus: string | null = null): void { view = 'catalog'; methodId = null; doc = null; error = null; returnToCatalog = false; catalogFocus = focus; },
   get catalogFocus() { return catalogFocus; },
+  /** Back to the catalog the reader came from, at the topic it was opened at. */
+  reopenCatalog(): void { this.openCatalog(catalogFocus); },
   get returnToCatalog() { return returnToCatalog; },
   /** A wizard is being opened from the catalog (the catalog itself closes). */
   leaveForWizard(toCatalog = true): void { view = null; methodId = null; doc = null; error = null; returnToCatalog = toCatalog; },
@@ -151,7 +153,7 @@ export const explainedSteps = {
     build(methodId);
     this.step = keep;
   },
-  back(): void { if (fromTool) this.close(); else this.openCatalog(); },
+  back(): void { if (fromTool) this.close(); else this.reopenCatalog(); },
   get fromTool() { return fromTool; },
   close(): void { view = null; methodId = null; doc = null; error = null; returnToCatalog = false; fromTool = false; catalogFocus = null; },
 };
