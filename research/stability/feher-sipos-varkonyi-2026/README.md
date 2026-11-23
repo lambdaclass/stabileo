@@ -27,6 +27,17 @@ B = (sin 1, 0), with rotary actuators at both ends and a dead load q·Q(s) pushi
 - The actuators then move in steps of 0.02 rad (`solve_corotational_2d_from`).
 - Stability is the positive definiteness of the tangent on the free DOFs; its lowest eigenvalue
   comes from inverse iteration on the engine's dense Cholesky factor.
+- Each step is converged to a relative residual of 10⁻¹⁰. With the engine as of 2026-11-22 the
+  earlier 10⁻⁷ accepted states that depend on how many increments reached them: the arch at
+  Θ = 1, q = 2.5 came out 0.3 % off with 120 members, failing the mesh check, and the
+  committed evidence no longer reproduced. At 10⁻¹⁰ the results do not depend on the increments,
+  converge with the member length, and reproduce every number of the 2026-11-09 evidence to
+  10⁻⁵ (the replay to 5·10⁻⁵).
+- A path starts only from the loaded arch. The load goes on in steps of 0.25 from the unloaded
+  strip, and a step that moves any node by more than 0.05 is a snap (`start_snaps`); a step that
+  does not converge is `start_unsolved`. The previous test, a single solve to the full load and
+  a positive midpoint height, let a near-flat post-snap state through at 120 members, half-span
+  load and q = 4, so the page would have run a path from it.
 
 **Angle convention.** Θ is half the difference of the end tangents and Δ their sum:
 θ(A) = Θ + Δ/2, θ(B) = Δ/2 − Θ. This was fixed against the figures. With this reading the
