@@ -375,16 +375,17 @@ function inConcrete(materialId: number | undefined): boolean {
   return family === 'concrete' || family === 'unknown';
 }
 
-function fcOfElement(id: number | undefined): number {
-  const e = id !== undefined ? modelStore.elements.get(id) : undefined;
-  const m = e ? modelStore.materials.get(e.materialId) : undefined;
-  return concreteFc(m as never) ?? DEFAULT_FC;
+const fcOfMaterialId = (id: number | undefined) => concreteFc((id !== undefined ? modelStore.materials.get(id) : undefined) as never) ?? DEFAULT_FC;
+
+/** The weakest concrete among a member's elements: one stronger piece must not lend its strength to the rest. */
+function fcOfElements(ids: readonly number[] | undefined): number {
+  const fcs = (ids ?? []).flatMap((id) => { const e = modelStore.elements.get(id); return e ? [fcOfMaterialId(e.materialId)] : []; });
+  return fcs.length ? Math.min(...fcs) : DEFAULT_FC;
 }
 
 function fcOfShells(quads: number[], plates: number[]): number {
-  const s = quads.length ? modelStore.quads.get(quads[0]!) : plates.length ? modelStore.plates.get(plates[0]!) : undefined;
-  const m = s ? modelStore.materials.get((s as { materialId: number }).materialId) : undefined;
-  return concreteFc(m as never) ?? DEFAULT_FC;
+  const ids = [...quads.map((q) => modelStore.quads.get(q)), ...plates.map((p) => modelStore.plates.get(p))].flatMap((sh) => (sh ? [(sh as { materialId: number }).materialId] : []));
+  return ids.length ? Math.min(...ids.map(fcOfMaterialId)) : DEFAULT_FC;
 }
 
 const demandCache = new WeakMap<object, { beams: ReturnType<typeof beamDemands>; columns: ReturnType<typeof columnDemands>; slabs: ReturnType<typeof slabDemands>; levels: LevelGeometry[]; walls: ReturnType<typeof wallDemands>; punching: ReturnType<typeof punchingDemands>; groupsRev: unknown; opts: string }>();
@@ -560,7 +561,7 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
     return (g?.members.elements ?? []).some((id) => lateralReadingOf(dd.lateralSystem, id, { physicalId: g!.id, kind: 'column' }).role !== 'gravity');
   };
   const defl = dd.designOptions?.deflection ? { deflection: dd.designOptions.deflection } : {};
-  const beamCtx = (d: (typeof D.beams)[number]) => ({ mat: { fc: fcOfElement(groupOf(d.key)?.members.elements?.[0]), fy }, cover: coverOf('beam', d.key), stirrupDia: dd.stirrupDiaMm, diameters: dd.longDiametersMm, ...ties, torsion: data.torsion, ...(seismic && lateralBeam(d.key) ? { seismic } : {}), ...(bentIn(d) ? { bentBars: true } : {}), ...coverTable, ...defl, criteria: crit });
+  const beamCtx = (d: (typeof D.beams)[number]) => ({ mat: { fc: fcOfElements(groupOf(d.key)?.members.elements), fy }, cover: coverOf('beam', d.key), stirrupDia: dd.stirrupDiaMm, diameters: dd.longDiametersMm, ...ties, torsion: data.torsion, ...(seismic && lateralBeam(d.key) ? { seismic } : {}), ...(bentIn(d) ? { bentBars: true } : {}), ...coverTable, ...defl, criteria: crit });
   const proposals: BeamRow[] = [];
   for (const d of D.beams) {
     const ctx = beamCtx(d);
@@ -608,7 +609,7 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
   const below = new Map<number, ColumnRow>();
   const founded = feet.length > 0 && foundationSystem(data) !== null;
   const onFooting = new Set(founded ? feet.flatMap((f) => [f.column?.rowKey, f.carried?.column?.rowKey]).filter((k): k is string => !!k) : []);
-  const columnCtxOf = (d: (typeof D.columns)[number], minMn: ReadonlyMap<string, number> = new Map()) => ({ mat: { fc: fcOfElement(groupOf(d.key)?.members.elements?.[0]), fy }, cover: coverOf('column', d.key), tieDia: dd.stirrupDiaMm, diameters: dd.longDiametersMm, ...ties, seismic: seismic && !lateralColumn(d.key) ? { ...seismic, gravity: true as const } : seismic, ...coverTable, ...(minMn.has(d.key) ? { minMn: minMn.get(d.key) } : {}), criteria: crit });
+  const columnCtxOf = (d: (typeof D.columns)[number], minMn: ReadonlyMap<string, number> = new Map()) => ({ mat: { fc: fcOfElements(groupOf(d.key)?.members.elements), fy }, cover: coverOf('column', d.key), tieDia: dd.stirrupDiaMm, diameters: dd.longDiametersMm, ...ties, seismic: seismic && !lateralColumn(d.key) ? { ...seismic, gravity: true as const } : seismic, ...coverTable, ...(minMn.has(d.key) ? { minMn: minMn.get(d.key) } : {}), criteria: crit });
   const columnAt = (d: (typeof D.columns)[number], minMn: ReadonlyMap<string, number>): ColumnRow => {
     const ctx = columnCtxOf(d, minMn);
     const a = adoptedNow[d.key] as ColumnAdopted | undefined;
@@ -626,7 +627,7 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
     column.push(columnAt(d, new Map()));
     yield step();
   }
-  const joint = { fc: (r: ColumnRow) => fcOfElement(groupOf(r.key)?.members.elements?.[0]), beamFc: (b: BeamRow) => fcOfElement(groupOf(b.key)?.members.elements?.[0]), fy, cover: dd.covers.column, beamCover: dd.covers.beam, settings: seismicSettings() };
+  const joint = { fc: (r: ColumnRow) => fcOfElements(groupOf(r.key)?.members.elements), beamFc: (b: BeamRow) => fcOfElements(groupOf(b.key)?.members.elements), fy, cover: dd.covers.column, beamCover: dd.covers.beam, settings: seismicSettings() };
   if (seismic) column = strongColumns(column, beam, joint, (minMn) => { below.clear(); return D.columns.map((d) => columnAt(d, minMn)); });
   const slabBars = listIn(dd.slabDiametersMm, SLAB_BAR_RANGE);
   const baseFaces = Object.entries(dd.slabBase ?? {}).filter((x): x is [string, { diameter: number; spacing: number }] => !!x[1]);
@@ -788,7 +789,7 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
   const columnsFinal = column.map((r) => (r.pier ? r : checkedBy.get(r.key) ?? r));
   if (seismic) for (const r of checked) jointAwareRedesign(r, checked, beam, (rows, beams) => jointChecks(rows, beams, modelStore.nodes, fmt, joint));
   const left = leftOut([...beam, ...columnsFinal, ...slab, ...wall].map((r) => r.key), columnsFinal.map((r) => ({
-    name: r.name, level: r.level, b: r.b, h: r.h, fc: fcOfElement(groupOf(r.key)?.members.elements?.[0]), tu: Math.max(0, ...r.demand.cases.map((c) => c.tu ?? 0)),
+    name: r.name, level: r.level, b: r.b, h: r.h, fc: fcOfElements(groupOf(r.key)?.members.elements), tu: Math.max(0, ...r.demand.cases.map((c) => c.tu ?? 0)),
   })));
   const apart = rules.piers ? [] : allPiers;
   return { beam: sort(beam), line: sort(line), column: sort(withApart(columnsFinal, apart)), slab: sort(slab), slabPlan: slabPlans.sort((a, b) => a.level.localeCompare(b.level, undefined, { numeric: true })), wall: sort(withApart(wall, apart)), punching: sort(punching), levels: levelsUp([...beam, ...columnsFinal, ...slab, ...wall, ...punching].map((r) => r.level)), footing, footingLayouts: footingLayouts.map((l) => ({ ...l, summary: layoutSummary(l.rows, code) })), foundation: chosen, code: codeName, basis, combos: sets.length, left };
