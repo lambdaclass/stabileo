@@ -57,6 +57,25 @@ fn a_rotation_held_by_nothing_about_a_skew_axis_is_eliminated_and_not_certified(
     assert!(certify_linear_3d_full(&held).unwrap().certificate.is_certified());
 }
 
+#[test]
+#[ignore = "known wrong result: #458"]
+fn issue_458_supplied_3d_certificates_refuse_the_loaded_skew_axis() {
+    use dedaliano_engine::certify::{certify_load_cases_3d, certify_results_3d, Certificate};
+
+    let input = skew_mechanism([-1.3, 2.0, 0.0], true);
+    let allowed = skew_mechanism([2.0, 1.3, 0.0], true);
+    let candidate = solve_3d(&allowed).unwrap();
+    let refusal = solve_3d(&input).unwrap_err();
+    assert!(refusal.starts_with("Nodal moment at node 2 is not supported"), "{refusal}");
+    let expected = Certificate::Uncertified { reason: refusal };
+    let cases = certify_load_cases_3d(&allowed, &[(&allowed.loads, &candidate), (&input.loads, &candidate)]);
+    assert_eq!(cases[0], certify_results_3d(&allowed, &candidate));
+    assert_eq!(cases[1], expected);
+    assert_eq!(certify_results_3d(&input, &candidate), expected);
+    let held = skew_mechanism([-1.3, 2.0, 0.0], false);
+    assert!(certify_results_3d(&held, &solve_3d(&held).unwrap()).is_certified());
+}
+
 /// Bathe and Bolourchi's 45° bend (R = 100, unit square section, E = 10⁷, ν = 0) under an
 /// out-of-plane tip load of 600: tip displacement (−23.5, −13.4, 53.4) (Simo and Vu-Quoc 1986).
 fn bathe_bolourchi(n: usize) -> SolverInput3D {
