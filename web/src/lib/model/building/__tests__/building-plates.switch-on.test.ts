@@ -76,7 +76,7 @@ describe('slabs placed by the building tool', () => {
     expect(Math.abs(atSolve.beam / meshedNow.beam - 1)).toBeLessThan(0.05);
   });
 
-  it('give their mesh back and take it again, the load following and each step undoable', () => {
+  it('give their mesh back and take it again, the load following, each step undoable, and no analysis without a mesh', () => {
     const id = build(true);
     const placed = census();
     preparePlatesForAnalysis();
@@ -91,8 +91,8 @@ describe('slabs placed by the building tool', () => {
     expect(held()).toBeCloseTo(5 * 6 * 5, 3);
     historyStore.undo();
     expect(census()).toEqual(placed);
-    const total = solve().reactions.reduce((s, r) => s + r.fz, 0);
-    expect(Math.abs(total)).toBeLessThan(1e-6);
+    syncDefinedLoadsForAnalysis();
+    expect(String(modelStore.solve3D(false, false, true))).toContain('L1');
   });
 
   it('are meshed no coarser than a waffle slab\'s ribs', () => {
