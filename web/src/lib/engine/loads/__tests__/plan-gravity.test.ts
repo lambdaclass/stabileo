@@ -1,7 +1,8 @@
 import { teAt } from '../../../i18n/engine-text';
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { gravityLayout, type GravityModel } from '../plan-gravity';
 import { floorLoad, type FloorBeam } from '../floor-loads';
+import * as floorLoads from '../floor-loads';
 import { expandDefinition } from '../../../model/loads/floor-definitions';
 import { buildSolverInput3D } from '../../solver-service';
 import { withMassSource } from '../../dynamics/mass-source-model';
@@ -619,10 +620,10 @@ function deadLoadKN(plan: ReturnType<typeof buildLoadPlan>, model: LoadModelData
     - plan.nodal.filter(load => load.caseType === 'D').reduce((sum, load) => sum + load.fz, 0);
 }
 
-function checkBlockedGravity(model: LoadModelData, reason: EngineMessage) {
+function checkBlockedGravity(model: LoadModelData, reason: EngineMessage, tributaryWidth = 3) {
   const plans = [false, true].map(loadEveryPanel => {
     const gravity = { mode: 'panels', loadEveryPanel } as const;
-    const plan = buildLoadPlan(planInput(model, { dead: [{ labelKey: 'a', q: 1 }], gravity, generateCombinations: loadEveryPanel }));
+    const plan = buildLoadPlan(planInput(model, { dead: [{ labelKey: 'a', q: 1 }], gravity, generateCombinations: loadEveryPanel, tributaryWidth }));
     return { gravity, plan };
   });
   const detail = JSON.stringify(plans.map(({ gravity, plan }) => ({
@@ -1390,5 +1391,136 @@ it('#2254 clear carrier slopes on both sides of the limit retain their member lo
       expect(plan.surface).toEqual([]);
       expect(plan.nodal).toEqual([]);
     }
+  }
+});
+
+const round2KnownWrong = process.env.RUN_KNOWN_WRONG === '2512' ? it : it.skip;
+
+round2KnownWrong('known wrong result: #2512 a single shared vertical restraint preserves both platform loads', () => {
+  for (const tie of Object.values(verticalTies)) {
+    const model = connectedShells(0, 10, 6);
+    model.nodes.set(900, { id: 900, x: -1, y: -1, z: 0 });
+    const lower = model.quads!.get(1)!.nodes;
+    const upper = model.quads!.get(2)!.nodes;
+    for (const stations of [1, 4]) {
+      model.constraints = [...lower.slice(0, stations), ...upper.slice(0, stations)].map(node => tie(900, node));
+      checkOwnedFloor(model, [1, 2], 120);
+    }
+  }
+});
+
+it('#2512 two independent aligned attachment stations identify one deck', () => {
+  const model = connectedShells();
+  model.constraints = model.constraints!.slice(0, 2);
+  checkOwnedFloor(model, [2], 60);
+});
+
+for (const end of [10, 6]) round2KnownWrong(`known wrong result: #2512 shell-owned bay area cannot mask a lower roof at x=${end}`, () => {
+  const roof = { use: 'maintenance', weight: 'heavy', dead: 1, slopeDeg: 0 } as const;
+  for (const loadEveryPanel of [false, true]) {
+    const model = linkedShellBay(2.8);
+    const shell = model.quads!.get(1)!;
+    for (const id of shell.nodes) {
+      const node = model.nodes.get(id)!;
+      if (node.x === 10) node.x = end;
+    }
+    if (end < 10) model.constraints = model.constraints!.filter(link => link.type === 'rigidLink' && [1, 3].includes(link.masterNode));
+    const input = { roof, dead: [{ labelKey: 'a', q: 1 }], gravity: { mode: 'panels', loadEveryPanel } } as const;
+    const isolated = buildLoadPlan(planInput({ ...model, elements: new Map() }, input));
+    const expectedRoof = isolated.surface.filter(load => load.caseType === 'Lr');
+    expect(expectedRoof).toHaveLength(1);
+    const plan = buildLoadPlan(planInput(model, input));
+    expect(plan.blockedKeys).toEqual([{ key: 'loadPlan.blocked.concentratedRoof' }]);
+    expect(plan.surface.filter(load => load.caseType === 'Lr')).toEqual(expectedRoof);
+    expect(surfaceKN(plan.surface.filter(load => load.caseType === 'Lr'), model)).toBeGreaterThan(0);
+    expect(deadLoadKN(plan, model)).toBeCloseTo(60, 10);
+    expect(gravityLayout(model, { ...input.gravity, tributaryWidth: 3 }).roofQuads.has(1)).toBe(true);
+
+    model.constraints = [];
+    const separate = buildLoadPlan(planInput(model, input));
+    expect(separate.blockedKeys).toEqual(isolated.blockedKeys);
+    expect(separate.surface.filter(load => load.caseType === 'Lr')).toEqual([]);
+    expect(deadLoadKN(separate, model)).toBeCloseTo(60 + 6 * end, 10);
+  }
+});
+
+function concaveBayWithUnresolvedTransfer() {
+  const model = floor(0, 0, 10, 6);
+  model.nodes.clear();
+  const corners = [[8, 0], [4.3, 2.5], [2.5, 4.3], [0, 1], [-4.5, 7.8], [-7.8, 4.5],
+    [-1, 0], [-4.3, -2.5], [-4, -6.9], [0, -7], [1.5, -2.6], [3.5, -2]];
+  corners.forEach(([x, y], i) => {
+    const id = i + 1;
+    model.nodes.set(id, { id, x: x!, y: y!, z: 3 });
+    model.elements.set(id, { id, nodeI: id, nodeJ: (id % corners.length) + 1, sectionId: 1, materialId: 1 });
+  });
+  return model;
+}
+
+round2KnownWrong('known wrong result: #2512 a positive bay with null tributary transfer blocks gravity', () => {
+  const model = concaveBayWithUnresolvedTransfer();
+  const floorResult = floorLoad({ nodes: model.nodes, beams: [...model.elements.values()].map(beam => ({ ...beam, type: 'frame' })), q: 1, distribution: 'twoWay' });
+  expect(floorResult.panels).toHaveLength(1);
+  expect(floorResult.panels[0]).toMatchObject({ area: 83.55, loaded: false, reason: 'unresolved' });
+  expect(floorResult.totalKN).toBe(0);
+  checkBlockedGravity(model, { key: 'loadPlan.gravity.areaResultant', params: { z: 3 } }, 1);
+});
+
+it('#2512 the concave bay conserves the full footprint when a valid one-way transfer is selected', () => {
+  const model = concaveBayWithUnresolvedTransfer();
+  const gravity = { mode: 'panels', slab: 'oneWay', spanAxis: 'x', loadEveryPanel: true } as const;
+  const plan = buildLoadPlan(planInput(model, { gravity, dead: [{ labelKey: 'a', q: 1 }] }));
+  expect(plan.outcome).toBe('READY');
+  expect(deadLoadKN(plan, model)).toBeCloseTo(83.55, 10);
+});
+
+function planWithScaledBayTransfer(model: LoadModelData, scale: number) {
+  const prepare = floorLoads.preparePhysicalFloorLoad;
+  const mock = vi.spyOn(floorLoads, 'preparePhysicalFloorLoad').mockImplementation(input => {
+    const floor = prepare(input);
+    return { ...floor, generate: ownership => {
+      const result = floor.generate(ownership);
+      if (!ownership) return result;
+      for (const panel of result.panels) {
+        if (!panel.own) continue;
+        if (scale === 0) {
+          panel.loaded = false;
+          delete panel.own;
+        } else {
+          panel.own.loads = panel.own.loads.map(load => ({ ...load, qI: scale * load.qI, qJ: scale * load.qJ }));
+        }
+      }
+      return result;
+    } };
+  });
+  try {
+    return buildLoadPlan(planInput(model, { dead: [{ labelKey: 'a', q: 1 }], tributaryWidth: 1,
+      gravity: { mode: 'panels', loadEveryPanel: true }, generateCombinations: true }));
+  } finally {
+    mock.mockRestore();
+  }
+}
+
+round2KnownWrong('known wrong result: #2512 a positive owned strip with no emitted transfer blocks gravity', () => {
+  const model = floor(1, 1, 10, 6);
+  rectangularShell(model, 1, 0, 6, 3);
+  expect(planWithScaledBayTransfer(model, 1).outcome).toBe('READY');
+  const plan = planWithScaledBayTransfer(model, 0);
+  expect(plan.outcome, JSON.stringify({ dead: deadLoadKN(plan, model), expected: 60 })).toBe('BLOCKED');
+  expect(plan.blockedKeys).toEqual([{ key: 'loadPlan.gravity.areaResultant', params: { z: 3 } }]);
+  expect(plan).toMatchObject({ cases: [], distributed: [], nodal: [], surface: [], combinations: [] });
+});
+
+for (const shellEnd of [0, 6]) it(`#2512 the area gate checks incomplete and excess transfer with shell extent ${shellEnd}`, () => {
+  const model = floor(1, 1, 10, 6);
+  if (shellEnd > 0) rectangularShell(model, 1, 0, shellEnd, 3);
+  const control = planWithScaledBayTransfer(model, 1);
+  expect(control.outcome).toBe('READY');
+  expect(deadLoadKN(control, model)).toBeCloseTo(60, 10);
+  for (const scale of [0.5, 1.5]) {
+    const plan = planWithScaledBayTransfer(model, scale);
+    expect(plan.outcome).toBe('BLOCKED');
+    expect(plan.blockedKeys).toEqual([{ key: 'loadPlan.gravity.areaResultant', params: { z: 3 } }]);
+    expect(plan).toMatchObject({ cases: [], distributed: [], nodal: [], surface: [], combinations: [] });
   }
 });
