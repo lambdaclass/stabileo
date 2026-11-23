@@ -13,6 +13,7 @@
   import { editorURL } from './editor';
   import { shellLocale, strings } from './i18n';
   import validation from '../../../../../research/benchmarks/shell-obstacle-course/VALIDATION.json';
+  const HEMISPHERE_TEST = 'shell_benchmark::benchmark_hemisphere_hole_convergence';
 
   type Group = 'roof' | 'cylinder' | 'hemisphere';
   type Check = { id: string; kind: string; observed: number; tolerance: number; passed: boolean };
@@ -124,7 +125,7 @@
     <h2>{s.modelsHeading}</h2>
     <p><strong>{s.roof}:</strong> {s.roofText}</p>
     <p><strong>{s.cylinder}:</strong> {s.cylinderText}</p>
-    <p><strong>{s.hemisphere}:</strong> {s.hemisphereBefore}<code>shell_benchmark::benchmark_hemisphere_hole_convergence</code>{s.hemisphereAfter}</p>
+    <p><strong>{s.hemisphere}:</strong> {s.hemisphereBefore}<code>{HEMISPHERE_TEST}</code>{s.hemisphereAfter}</p>
     <p>{s.unitsText}</p>
     <h2 id="mesh">{s.meshHeading}</h2>
     <p>{s.meshText}</p>
