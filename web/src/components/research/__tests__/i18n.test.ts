@@ -20,7 +20,7 @@ it('attributes reset parameters to reference code in every public locale', () =>
 
 it('preserves numeric values and interpolation tokens in research translations', () => {
   const original = publicI18n.locale;
-  const numbers = (s: string) => s.match(/\d+(?:\.\d+)*(?:e[+-]?\d+)?/g) ?? [];
+  const numbers = (s: string) => s.replace(/(\d),(\d)/g, '$1.$2').match(/\d+(?:\.\d+)*(?:e[+-]?\d+)?/g) ?? [];
   const placeholders = (s: string) => s.match(/\{\w+\}/g)?.sort() ?? [];
   try {
     setLocale('en');

@@ -22,6 +22,7 @@ import { translations as newmark } from '../newmark1959/i18n';
 import { strings as plastic } from '../plastic-collapse/i18n';
 import { translations as riks } from '../riksCrisfield/article';
 import { shauerLocales } from '../shauer2025/locales';
+import { pastranaLocales } from '../pastrana2026/locales';
 import { strings as shell } from '../shell1985/i18n';
 import { translations as shellArticle } from '../shell1985/article';
 
@@ -53,7 +54,7 @@ const DICTIONARIES: Record<string, object[]> = {
   '/research/benchmarks/mattiasson-elastica': [mattiasson],
   '/research/benchmarks/navier-plate': [navier],
   '/research/benchmarks/newmark-1959': [newmark],
-  '/research/form-finding/pastrana-2026': [STRINGS],
+  '/research/form-finding/pastrana-2026': [either(STRINGS, pastranaLocales)],
   '/research/benchmarks/plastic-collapse': [plastic],
   '/research/benchmarks/riks-crisfield': [riks],
   '/research/fracture/shauer-2025': [either(STRINGS, shauerLocales)],

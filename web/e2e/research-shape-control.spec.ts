@@ -19,6 +19,8 @@ test('@smoke research shape control: the path takes the arch to the inverted sha
   await expect(app).toHaveAttribute('data-stable', 'true');
   expect(Number(await app.getAttribute('data-ymid'))).toBeCloseTo(-0.1498, 3);
   await expect(app).toContainText('The strip ended inverted, without a jump.');
+  await expect(page.locator('#comparison tbody tr')).toHaveCount(13);
+  await expect(page.locator('#comparison')).toContainText('Shape 1: midpoint height y(1/2)');
 });
 
 test('@smoke research shape control: a rectangle below the cusp brings the arch back', async ({ page }) => {

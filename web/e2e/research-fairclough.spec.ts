@@ -68,3 +68,20 @@ for (const locale of BUILD_PUBLIC_LOCALES) {
     });
   }
 }
+
+test('Fairclough reruns a Table 1 row at its unit weight @smoke', async ({page}) => {
+  const text = translations.en;
+  await page.emulateMedia({reducedMotion:'reduce'});
+  await page.goto('/en/research/optimisation/fairclough-2026?e2e=1');
+  await expect(page.locator('#comparison tbody tr')).toHaveCount(published.checks.length);
+  const row = published.checks.find(r => r.id === 'table1-v5-1.85')!;
+  await page.getByRole('button',{name:'ρgL/σ = 1.85',exact:true}).click();
+  await expect(page.getByTestId('source')).toContainText(text.cached,{timeout:30000});
+  await expect(page.getByTestId('unit-weight')).toHaveText('1.85');
+  await expect(page.getByTestId('selected-volume')).toContainText(row.computed.toFixed(4));
+  await expect(page.getByRole('button',{name:text.author,exact:true})).toBeDisabled();
+  await expect(page.getByRole('link',{name:`${text.open} · ${text.own}`,exact:true})).toHaveCount(0);
+  await page.getByRole('button',{name:text.restart}).click();
+  await expect(page.getByTestId('unit-weight')).toHaveText('1.65');
+  await expect(page.getByRole('button',{name:text.author,exact:true})).toBeEnabled();
+});
