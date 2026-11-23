@@ -31,9 +31,9 @@
       <tr><th scope="col">{s.quantity}</th><th scope="col">{s.paper}</th><th scope="col">{s.ours}</th><th scope="col">{s.difference}</th><th scope="col">{s.tolerance}</th></tr>
     </thead>
     <tbody>
-      {#each rows as r (r.id ?? r.name)}
+      {#each rows as r, i (r.id ?? r.name)}
         <tr>
-          <th scope="row">{names[r.id ?? r.name] ?? r.name}<span class="src" lang="en">{r.source}</span></th>
+          <th scope="row">{names[r.id ?? r.name] ?? r.name}{#if i === 0 || rows[i - 1].source !== r.source}<span class="src" lang="en">{r.source}</span>{/if}</th>
           {#if r.reference !== undefined && r.computed !== undefined}
             <td>{@render value(r.reference, r.unit ?? '')}</td>
             <td>{@render value(r.computed, r.unit ?? '')}</td>
