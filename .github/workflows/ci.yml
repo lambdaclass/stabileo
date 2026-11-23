@@ -120,6 +120,7 @@ jobs:
       e2e_total: ${{ steps.select.outputs.e2e_total }}
       web_build: ${{ steps.select.outputs.web_build }}
       production_parity: ${{ steps.parity.outputs.required }}
+      parity_research_sides: ${{ steps.parity.outputs.research_sides }}
       flaky: ${{ steps.select.outputs.flaky }}
       determinism: ${{ steps.select.outputs.determinism }}
       results: ${{ steps.select.outputs.results }}
@@ -274,6 +275,10 @@ jobs:
           required=$(make --silent check.web.production-parity NIX_RUN= PARITY_PLAN=1)
           case "$required" in true|false) ;; *) exit 1 ;; esac
           echo "required=$required" >> "$GITHUB_OUTPUT"
+          if [[ "$required" == true ]]; then
+            sides=$(make --silent check.web.production-parity NIX_RUN= PARITY_RESEARCH_PLAN=1)
+            echo "research_sides=$sides" >> "$GITHUB_OUTPUT"
+          fi
       # Every E2E shard balances from this one table, so a run that cannot read it uses the committed one everywhere.
       - name: Latest measured E2E timings (main or merge queue)
         id: timings
@@ -1612,11 +1617,61 @@ jobs:
           RUN_ID: ${{ github.run_id }}
         run: gh workflow run stop-failed-run.yml --ref main -f run_id="$RUN_ID"
 
+  production-parity-research:
+    name: Production parity research WASM (${{ matrix.side }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    needs: [changes]
+    if: needs.changes.outputs.production_parity == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        side: ${{ fromJSON(needs.changes.outputs.parity_research_sides) }}
+    env:
+      BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+      PARITY_SIDE: ${{ matrix.side }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          clean: true
+          persist-credentials: false
+          fetch-depth: 0
+          filter: blob:none
+      - uses: ./.github/actions/free-disk
+      - uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa
+        continue-on-error: true
+      - name: Prepare Nix shell (infrastructure retries)
+        run: .github/scripts/retry-infra.sh nix develop --command true
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        continue-on-error: true
+        with:
+          workspaces: |
+            research/fracture/shauer-2025/wasm
+            research/metamaterials/grossman-2026/wasm
+            research/form-finding/pastrana-2026/wasm
+            research/optimisation/fairclough-2026
+            research/mechanics/gay-neto-2014
+            research/stability/feher-sipos-varkonyi-2026
+            research/mechanics/heyman-1966
+          shared-key: research-wasm
+          save-if: false
+      - name: Install dependencies
+        run: .github/scripts/retry-infra.sh make web.deps
+      - name: Build research assets for the snapshot
+        run: make check.web.production-parity PARITY_SCRATCH=.production-parity-ci PARITY_RESEARCH_OUT=parity-research
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: parity-research-${{ matrix.side }}
+          path: parity-research
+          include-hidden-files: true
+          retention-days: 3
+          if-no-files-found: error
+
   production-parity-build:
     name: Production parity (${{ matrix.side }})
     runs-on: ubuntu-24.04
     timeout-minutes: 45
-    needs: [changes]
+    needs: [changes, production-parity-research]
     if: needs.changes.outputs.production_parity == 'true'
     strategy:
       fail-fast: false
@@ -1637,6 +1692,15 @@ jobs:
         continue-on-error: true
       - name: Prepare Nix shell (infrastructure retries)
         run: .github/scripts/retry-infra.sh nix develop --command true
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        continue-on-error: true
+        with:
+          shared-key: wasm
+          save-if: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          name: parity-research-${{ matrix.side == 'candidate' && contains(fromJSON(needs.changes.outputs.parity_research_sides), 'candidate') && 'candidate' || 'reference' }}
+          path: parity-research
       - name: Install dependencies
         run: .github/scripts/retry-infra.sh make web.deps
       - name: Install Chromium system dependencies
@@ -1646,7 +1710,7 @@ jobs:
       - name: Install build-test browser
         run: .github/scripts/retry-infra.sh make e2e.web.setup
       - name: Inventory the production build
-        run: make check.web.production-parity PARITY_SCRATCH=.production-parity-ci PARITY_OUT="$PARITY_SIDE.json"
+        run: make check.web.production-parity PARITY_SCRATCH=.production-parity-ci PARITY_OUT="$PARITY_SIDE.json" PARITY_RESEARCH_IN=parity-research
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: production-parity-${{ matrix.side }}
@@ -2378,6 +2442,7 @@ jobs:
       - site-e2e
       - web-unit
       - web-build
+      - production-parity-research
       - production-parity-build
       - production-parity
       - web-typecheck
@@ -2436,6 +2501,7 @@ jobs:
       - site-e2e
       - web-unit
       - web-build
+      - production-parity-research
       - production-parity-build
       - production-parity
       - web-typecheck

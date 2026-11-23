@@ -1,5 +1,6 @@
 from hashlib import sha256
 import importlib.util
+import os
 from pathlib import Path
 import subprocess
 import tempfile
@@ -251,7 +252,30 @@ class ProductionParity(unittest.TestCase):
             run('make', 'research.wasm')
             with patch.object(parity, 'ROOT', repo), patch('sys.argv', ['check-production-parity.py', base, '--required']):
                 parity.main()
+                shared = repo / 'shared'
+
+                def gate(*args):
+                    with patch('sys.argv', ['check-production-parity.py', base, '--required', *args]):
+                        parity.main()
+
+                gate('--side', 'reference', '--research-out', str(shared))
+                reference = repo / 'reference.json'
+                candidate = repo / 'candidate.json'
+                gate('--side', 'reference', '--inventory', str(reference), '--research-in', str(shared))
+                gate('--side', 'candidate', '--inventory', str(candidate), '--research-in', str(shared))
+                gate('--compare', str(repo))
+                cold = repo / 'cold.json'
+                gate('--side', 'candidate', '--inventory', str(cold))
+                self.assertEqual(candidate.read_bytes(), cold.read_bytes())
+
                 source.write_text('pub fn solve() -> i32 { 2 }\n')
+                with self.assertRaisesRegex(RuntimeError, 'research artifact.*snapshot'):
+                    gate('--side', 'candidate', '--inventory', str(candidate), '--research-in', str(shared))
+                separate = repo / 'separate'
+                gate('--side', 'candidate', '--research-out', str(separate))
+                gate('--side', 'candidate', '--inventory', str(candidate), '--research-in', str(separate))
+                with self.assertRaisesRegex(SystemExit, r'Switch-off production differs[\s\S]*research-wasm/example/solver_bg.wasm'):
+                    gate('--compare', str(repo))
                 run('make', 'research.wasm')
                 with self.assertRaisesRegex(SystemExit, r'Switch-off production differs[\s\S]*research-wasm/example/solver_bg.wasm'):
                     parity.main()
@@ -310,7 +334,6 @@ class ProductionParity(unittest.TestCase):
                     gate('--compare', str(inventories))
                 self.assertEqual(build.call_count, 3)
 
-    @unittest.skip("known wrong result: #2483")
     def test_research_artifact_requires_matching_snapshot_inputs_and_complete_output(self):
         with tempfile.TemporaryDirectory(dir=parity.ROOT) as directory:
             repo = Path(directory)
@@ -342,7 +365,7 @@ class ProductionParity(unittest.TestCase):
                 head = git('rev-parse', 'HEAD')
                 self.assertEqual(parity.research_sides(base, head), ['reference'])
                 key = parity.research_key(repo, base, head)
-                parity.build_research(repo, {})
+                parity.build_research(repo, os.environ)
                 output = repo / parity.RESEARCH_WASM
                 parity.stage_research(output, shared, key)
                 parity.restore_research(shared, restored, key)

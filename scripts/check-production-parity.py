@@ -12,6 +12,10 @@ import time
 ROOT = Path(__file__).resolve().parents[1]
 FLAGS = 'web/config/features.json'
 LEGACY_OVERLAY = 'web/config/pro-plates-off.json'
+RESEARCH_WASM = 'web/public/research-wasm'
+RESEARCH_INPUTS = ('research', 'engine', 'web', 'Makefile', 'Cargo.toml', 'Cargo.lock', '.cargo',
+                   'flake.nix', 'flake.lock', 'rust-toolchain.toml', 'scripts', '.github/scripts',
+                   '.gitattributes', '.gitignore')
 SOLVER_RUNTIME = ('web/src/lib/wasm/dedaliano_engine.js', 'web/src/lib/wasm/dedaliano_engine_bg.wasm')
 ENGINE_INPUTS = ('engine/src', 'engine/build.rs', 'engine/Cargo.toml', 'Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', 'scripts/wasm-cached.sh',
                  '.github/scripts/build-research-wasm.sh', 'flake.nix', 'flake.lock')
@@ -57,9 +61,13 @@ def digest(path):
         return hashlib.file_digest(source, 'sha256').digest()
 
 
+def file_inventory(directory):
+    return {path.relative_to(directory).as_posix(): digest(path)
+            for path in directory.rglob('*') if path.is_file()}
+
+
 def inventory(directory):
-    files = {path.relative_to(directory).as_posix(): digest(path)
-             for path in directory.rglob('*') if path.is_file()}
+    files = file_inventory(directory)
     if 'index.html' not in files:
         raise RuntimeError(f'Production build at {directory} did not emit index.html')
     return files
@@ -69,11 +77,73 @@ def differences(reference, candidate):
     return sorted(path for path in reference.keys() | candidate.keys() if reference.get(path) != candidate.get(path))
 
 
-def build(checkout, env):
+def research_inputs(checkout, tree):
+    entries = subprocess.check_output(
+        ['git', 'ls-tree', '-r', '-z', tree, '--', *RESEARCH_INPUTS], cwd=checkout)
+    return hashlib.sha256(entries).hexdigest()
+
+
+def research_sides(base, head):
+    if research_inputs(ROOT, base) == research_inputs(ROOT, head):
+        return ['reference']
+    return ['reference', 'candidate']
+
+
+def research_key(checkout, base, head):
+    tree = subprocess.check_output(['git', 'write-tree'], cwd=checkout).decode().strip()
+    return {'base': base, 'head': head, 'inputs': research_inputs(checkout, tree)}
+
+
+def research_checksums(directory):
+    return {name: checksum.hex() for name, checksum in file_inventory(directory).items()}
+
+
+def stage_research(output, artifact, key):
+    files = research_checksums(output)
+    if not files:
+        raise RuntimeError(f'Production parity research build at {output} did not emit any files')
+    artifact.mkdir()
+    shutil.copytree(output, artifact / 'assets')
+    (artifact / 'manifest.json').write_text(json.dumps({'snapshot': key, 'files': files}, sort_keys=True))
+
+
+def restore_research(artifact, output, key):
+    try:
+        manifest = json.loads((artifact / 'manifest.json').read_text())
+    except (OSError, ValueError) as error:
+        raise RuntimeError(f'Invalid production parity research artifact manifest at {artifact}') from error
+    if not isinstance(manifest, dict) or manifest.get('snapshot') != key:
+        raise RuntimeError(f'Production parity research artifact {artifact} has the wrong snapshot inputs')
+    assets = artifact / 'assets'
+    files = research_checksums(assets)
+    if not files or files != manifest.get('files'):
+        raise RuntimeError(f'Production parity research artifact {artifact} has incomplete or modified contents')
+    shutil.copytree(assets, output)
+
+
+def wasm_environment(checkout, env):
     wasm_env = {**env, 'STABILEO_GIT_COMMIT': env['GITHUB_SHA'], 'STABILEO_WASM_CACHE': '0',
                 'CARGO_TARGET_DIR': str(checkout / 'target')}
     for key in ('MAKEFLAGS', 'MFLAGS', 'MAKEOVERRIDES'):
         wasm_env.pop(key, None)
+    return wasm_env
+
+
+def prepare_web(checkout):
+    web = checkout / 'web'
+    if (ROOT / 'web/package-lock.json').read_bytes() == (web / 'package-lock.json').read_bytes():
+        (web / 'node_modules').symlink_to(ROOT / 'web/node_modules', target_is_directory=True)
+    else:
+        subprocess.run(['make', 'web.deps', 'NIX_RUN='], cwd=checkout, check=True)
+
+
+def build_research(checkout, wasm_env):
+    subprocess.run(['make', '--assume-old=web.deps', 'research.wasm'], cwd=checkout,
+                   env={**wasm_env, 'RESEARCH_SKIP_VIEWER': '0'}, check=True)
+
+
+def build(checkout, env, research=None):
+    wasm_env = wasm_environment(checkout, env)
     subprocess.run(['make', 'wasm'], cwd=checkout, env=wasm_env, check=True)
     runtime = {}
     for name in SOLVER_RUNTIME:
@@ -82,13 +152,13 @@ def build(checkout, env):
             raise RuntimeError(f'WASM build at {checkout} did not emit {name}')
         runtime[name] = digest(artifact)
 
-    web = checkout / 'web'
-    if (ROOT / 'web/package-lock.json').read_bytes() == (web / 'package-lock.json').read_bytes():
-        (web / 'node_modules').symlink_to(ROOT / 'web/node_modules', target_is_directory=True)
+    prepare_web(checkout)
+    if research is None:
+        build_research(checkout, wasm_env)
     else:
-        subprocess.run(['make', 'web.deps', 'NIX_RUN='], cwd=checkout, check=True)
-    subprocess.run(['make', '--assume-old=web.deps', 'research.wasm'], cwd=checkout,
-                   env={**wasm_env, 'RESEARCH_SKIP_VIEWER': '0'}, check=True)
+        artifact, identity = research
+        restore_research(artifact, checkout / RESEARCH_WASM, identity)
+    web = checkout / 'web'
     git_dir = git('rev-parse', '--absolute-git-dir').decode().strip()
     subprocess.run(['npm', 'run', 'build'], cwd=web,
                    env={**env, 'GIT_DIR': git_dir, 'GIT_WORK_TREE': str(checkout)}, check=True)
@@ -103,13 +173,20 @@ def parity_required(base, paths):
             or profiles_enable_off_switch(before, after))
 
 
-def build_side(side, checkout, head, base, intended, env):
-    started = time.monotonic()
+def snapshot_side(side, checkout, head, base, intended):
     if side == 'reference':
         snapshot(base, checkout, intended)
     else:
         snapshot(head, checkout, changed_paths(head))
-    result = build(checkout, env)
+
+
+def build_side(side, checkout, head, base, intended, env, research_artifact=None):
+    started = time.monotonic()
+    snapshot_side(side, checkout, head, base, intended)
+    research = None
+    if research_artifact is not None:
+        research = (research_artifact, research_key(checkout, base, head))
+    result = build(checkout, env, research)
     print(f'Production parity: {side} built and inventoried in {time.monotonic() - started:.1f}s', flush=True)
     return result
 
@@ -151,13 +228,20 @@ def main():
     parser.add_argument('--required', action='store_true')
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument('--plan', action='store_true')
+    mode.add_argument('--plan-research', action='store_true')
     mode.add_argument('--side', choices=('reference', 'candidate'))
     mode.add_argument('--compare', type=Path)
     parser.add_argument('--inventory', type=Path)
     parser.add_argument('--scratch', type=Path)
+    parser.add_argument('--research-out', type=Path)
+    parser.add_argument('--research-in', type=Path)
     args = parser.parse_args()
-    if bool(args.side) != bool(args.inventory) or (args.scratch and not args.side):
-        parser.error('--side and --inventory must be used together; --scratch requires --side')
+    if args.side and bool(args.inventory) == bool(args.research_out):
+        parser.error('--side requires exactly one of --inventory or --research-out')
+    if not args.side and any((args.inventory, args.research_out, args.scratch, args.research_in)):
+        parser.error('--inventory, --research-out, --research-in and --scratch require --side')
+    if args.research_in and not args.inventory:
+        parser.error('--research-in requires --inventory')
 
     head = git('rev-parse', 'HEAD').decode().strip()
     base = git('merge-base', args.base, head).decode().strip()
@@ -170,6 +254,9 @@ def main():
         if args.side or args.compare:
             raise SystemExit('Production parity was scheduled without an active switch-off check.')
         print('Production parity: no switch-only changes declared and no newly enabled off switch.')
+        return
+    if args.plan_research:
+        print(json.dumps(research_sides(base, head)))
         return
     if args.compare:
         compare(read_inventory(args.compare / 'reference.json', 'reference', head, base),
@@ -191,9 +278,18 @@ def main():
 
     def run(directory):
         checkout = directory / 'checkout'
-        if args.side:
+        if args.research_out:
+            started = time.monotonic()
+            snapshot_side(args.side, checkout, head, base, intended)
+            key = research_key(checkout, base, head)
+            prepare_web(checkout)
+            build_research(checkout, wasm_environment(checkout, env))
+            stage_research(checkout / RESEARCH_WASM, args.research_out, key)
+            print(f'Production parity: {args.side} research assets built in {time.monotonic() - started:.1f}s',
+                  flush=True)
+        elif args.side:
             write_inventory(args.inventory, args.side, head, base,
-                            build_side(args.side, checkout, head, base, intended, env))
+                            build_side(args.side, checkout, head, base, intended, env, args.research_in))
         else:
             reference = build_side('reference', checkout, head, base, intended, env)
             shutil.rmtree(checkout)

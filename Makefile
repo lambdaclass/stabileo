@@ -197,7 +197,9 @@ test.web.fast:
 .PHONY: check.web.production-parity
 check.web.production-parity:
 	$(NIX_RUN) python3 -B scripts/check-production-parity.py "$(or $(BASE),origin/main)" $(if $(REQUIRE_PARITY),--required) \
-		$(if $(PARITY_PLAN),--plan) $(if $(PARITY_SIDE),--side "$(PARITY_SIDE)" --inventory "$(PARITY_OUT)") \
+		$(if $(PARITY_PLAN),--plan) $(if $(PARITY_RESEARCH_PLAN),--plan-research) $(if $(PARITY_SIDE),--side "$(PARITY_SIDE)") \
+		$(if $(PARITY_OUT),--inventory "$(PARITY_OUT)") $(if $(PARITY_RESEARCH_OUT),--research-out "$(PARITY_RESEARCH_OUT)") \
+		$(if $(PARITY_RESEARCH_IN),--research-in "$(PARITY_RESEARCH_IN)") \
 		$(if $(PARITY_SCRATCH),--scratch "$(PARITY_SCRATCH)") $(if $(PARITY_COMPARE),--compare "$(PARITY_COMPARE)")
 
 check.fail-closed:

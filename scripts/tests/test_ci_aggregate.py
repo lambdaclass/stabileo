@@ -70,7 +70,6 @@ class CiAggregate(unittest.TestCase):
             for aggregate in ['ci-ok', 'superseded']:
                 self.assertRegex(jobs[aggregate], rf'(?m)^      - {job}$')
 
-    @unittest.skip("known wrong result: #2483")
     def test_parity_builds_research_in_separate_jobs_before_inventories(self):
         workflow = (ROOT / '.github/workflows/ci.yml').read_text().split('\njobs:\n', 1)[1]
         jobs = dict(re.findall(r'^  ([\w-]+):\n((?:^(?:    .*|)\n)*)', workflow, re.M))
