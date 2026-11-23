@@ -11,8 +11,8 @@ fn close_modes_against_closed_form() {
     let tolerance = case["relativeTolerance"].as_f64().unwrap();
     let mut checks = vec![];
     let mut close = |name: String, got: f64, want: f64| {
+        assert!(got.is_finite() && (got - want).abs() <= tolerance * want.abs(), "{name}: {got} != {want}");
         let observed = (got - want).abs() / want.abs();
-        assert!(got.is_finite() && observed <= tolerance, "{name}: {got} != {want}");
         checks.push(json!({"name": name, "metric": "relative difference", "observed": observed, "tolerance": tolerance, "passed": true}));
     };
     assert_eq!(modes.modes.len(), 2);
