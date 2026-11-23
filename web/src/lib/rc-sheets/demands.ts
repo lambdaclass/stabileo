@@ -772,6 +772,22 @@ function basePlan(pts: readonly Pt[], uOf: (p: Pt) => number): { x1: number; y1:
 type PunchingShell = { kind: 'quad' | 'plate'; id: number };
 type SheetPunchingDemand = PunchingDemand & { slab: readonly PunchingShell[] };
 
+/** Beams reach the joint along both plan axes: they, not the slab around the column, take its load. */
+function framedBothWays(m: DemandInput, at: readonly El[], node: number): boolean {
+  const dirs = at.filter((o) => !isVertical(m, o)).map((o) => {
+    const a = m.nodes.get(o.nodeI === node ? o.nodeI : o.nodeJ)!, b = m.nodes.get(o.nodeI === node ? o.nodeJ : o.nodeI)!;
+    return Math.abs(b.x - a.x) >= Math.abs(b.y - a.y) ? 'x' : 'y';
+  });
+  return dirs.includes('x') && dirs.includes('y');
+}
+
+/** The column standing on the joint, whatever group it was drawn in. */
+function columnAbove(m: DemandInput, at: readonly El[], node: number, below: El): { e: El; forward: boolean } | undefined {
+  const z = zOf(m.nodes.get(node));
+  const e = at.find((o) => o !== below && isVertical(m, o) && zOf(m.nodes.get(o.nodeI === node ? o.nodeJ : o.nodeI)) > z + 1e-6);
+  return e ? { e, forward: e.nodeI === node } : undefined;
+}
+
 export function punchingDemands(m: DemandInput): SheetPunchingDemand[] {
   const inc = incidence(m);
   type Shell = PunchingShell & { nodes: readonly number[]; thickness: number };
@@ -814,8 +830,8 @@ export function punchingDemands(m: DemandInput): SheetPunchingDemand[] {
       const node = r.forward ? r.e.nodeJ : r.e.nodeI;
       const shells = shellsAt.get(node);
       if (!shells?.length) return;
-      if ((inc.get(node) ?? []).some((o) => !isVertical(m, o))) return;
-      const above = run[i + 1];
+      if (framedBothWays(m, inc.get(node) ?? [], node)) return;
+      const above = run[i + 1] ?? columnAbove(m, inc.get(node) ?? [], node, r.e);
       const sec = m.sections.get(r.e.sectionId);
       const p = m.nodes.get(node)!;
       const forces: SlabJointForce[] = m.sets.map((set, k) => {
