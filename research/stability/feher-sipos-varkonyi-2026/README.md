@@ -52,14 +52,28 @@ comparison table, one collapsible item per open difference says where it comes f
 ## Running
 
 ```sh
-make evidence.research.feher   # replay.json, VALIDATION.json, MANIFEST.json
+make evidence.research.feher   # replay.json, VALIDATION.json, published_comparison.json, MANIFEST.json
 make test.research.feher       # validation, the crate's path tests and the engine's co-rotational tests
 research/stability/feher-sipos-varkonyi-2026/build.sh   # the page's WASM
 ```
 
+The research CI job `feher-sipos-varkonyi` runs the crate's tests, clippy and
+`cargo run --release --bin validate`, which recomputes every check and fails when a check of
+`VALIDATION.json` fails or when either evidence file differs from the fresh run by more than
+10⁻⁶ relative. `--write` rewrites both files.
+
 ## Agreement
 
-Every number below is in `VALIDATION.json`.
+The checks against exact results and our own runs are in `VALIDATION.json`; every comparison
+with a number the paper prints or draws is a row of `reference-results/published_comparison.json`,
+which the page shows as the paper-against-Stabileo table, failures included.
+
+**Tolerances.** Heights from Figure 9(c): 0.008 strip lengths, twice the drawn line width
+(about 0.004) to cover reading a digitized curve at a point that has to be located along its arc.
+Values of Section 3.2 and Table 1: 5 % relative. The text prints the limit loads with two
+significant figures behind "≈" (≈ −4.2 is ±1.2 % from rounding alone) and Table 1 with two
+decimals; the remainder covers the paper's own unstated discretization and our load and Δ step
+(limit loads are bracketed by bisection on q, the optimum by steps of 0.0125 in Δ).
 
 **Figure 9(c).** The five curves were digitized from the preprint
 (`reference-results/fig9c_digitized.json`, method inside). Each is compared through its midpoint
