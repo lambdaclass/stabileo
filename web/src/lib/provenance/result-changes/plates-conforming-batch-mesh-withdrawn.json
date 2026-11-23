@@ -8,7 +8,7 @@
   "when": {
     "allOf": [
       [
-        "space3D"
+        "proWorkspace"
       ],
       [
         "shells",
@@ -16,10 +16,6 @@
       ]
     ]
   },
-  "quantities": [
-    "*",
-    "solve.ok"
-  ],
   "title": {
     "en": "Unified PRO conforming plate remeshing withdrawn",
     "es": "Retirado el remallado conforme de placas de PRO unificado",

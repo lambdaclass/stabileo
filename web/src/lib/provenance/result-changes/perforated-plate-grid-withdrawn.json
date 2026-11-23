@@ -8,16 +8,13 @@
   "when": {
     "allOf": [
       [
-        "space3D"
+        "proWorkspace"
       ],
       [
         "physicalPlateDefinitions"
       ]
     ]
   },
-  "quantities": [
-    "*"
-  ],
   "title": {
     "en": "Unified PRO rectangular plate grid change withdrawn",
     "es": "Retirado el cambio de malla rectangular de placas de PRO unificado",

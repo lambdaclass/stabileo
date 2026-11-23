@@ -54,6 +54,7 @@ describe('result-change registry', () => {
     for (const feature of features) expect(known.has(feature)).toBe(false);
 
     expect(validateRegistry(registry, known).filter((problem) => problem.startsWith(`change ${id}:`))).toEqual([]);
+    expect(registry.changes.find((change) => change.id === `${id}-withdrawn`)?.quantities).toBeUndefined();
     const unrelated = { ...entry!, id: `${id}-unrelated` };
     const withUnrelated = { ...registry, changes: [...registry.changes, unrelated] };
     expect(validateRegistry(withUnrelated, known).filter((problem) => problem.startsWith(`change ${unrelated.id}:`)))
@@ -66,6 +67,7 @@ describe('result-change registry', () => {
     { mode: 'pro', model: { ...plateSurface, ...plateShell }, affected: plateChanges.map(([id]) => id) },
     { mode: 'pro', model: {}, affected: [] },
     { mode: '2d', model: { ...plateSurface, ...plateShell }, affected: [] },
+    { mode: '3d', model: { ...plateSurface, ...plateShell }, affected: [] },
   ])('shows the plate withdrawals for $mode with affected entries $affected', ({ mode, model, affected }) => {
     const withdrawals = RESULT_CHANGES.changes.filter(({ id }) => plateChangeIds.has(id) && id.endsWith('-withdrawn'));
     expect(withdrawals).toHaveLength(plateChanges.length);

@@ -8,16 +8,13 @@
   "when": {
     "allOf": [
       [
-        "space3D"
+        "proWorkspace"
       ],
       [
         "shells"
       ]
     ]
   },
-  "quantities": [
-    "*"
-  ],
   "title": {
     "en": "Unified PRO automatic remeshing of coarse shells withdrawn",
     "es": "Retirado el remallado automático de láminas con malla gruesa de PRO unificado",
