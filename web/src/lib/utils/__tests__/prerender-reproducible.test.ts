@@ -10,6 +10,7 @@ const execFileAsync = promisify(execFile);
 const WEB_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..');
 const FIRST = resolve(WEB_ROOT, '.dist-reproducible-a');
 const SECOND = resolve(WEB_ROOT, '.dist-reproducible-b');
+const MATTIASSON = '/research/benchmarks/mattiasson-elastica';
 const PAGES = ['/', '/research/fracture/shauer-2025', '/research/benchmarks/newmark-1959', '/research/form-finding/pastrana-2026', '/tools/simply-supported-beam'];
 
 function files(root: string): string[] {
@@ -48,8 +49,11 @@ async function prerender(out: string, concurrency: string, paths = PAGES) {
 }
 
 describe('two prerenders of one build are byte-identical (#875)', () => {
+  let entry: string;
+
   beforeAll(async () => {
     await prepareBuild(FIRST);
+    entry = readFileSync(join(FIRST, 'index.html'), 'utf8');
     cpSync(FIRST, SECOND, { recursive: true });
     await prerender(FIRST, '1');
     await prerender(SECOND, '4');
@@ -71,6 +75,51 @@ describe('two prerenders of one build are byte-identical (#875)', () => {
     const differing = files(FIRST).filter((path) => !readFileSync(join(FIRST, path)).equals(readFileSync(join(SECOND, path))));
     expect(differing, differing.map(difference).join('\n')).toEqual([]);
   });
+
+  async function withDelayedSolver(pages: string[], check: (html: (locale: string, path: string) => string) => void) {
+    const out = mkdtempSync(join(WEB_ROOT, '.dist-live-benchmarks-'));
+    try {
+      cpSync(FIRST, out, { recursive: true });
+      const delaySolver = `<script>
+        document.currentScript.remove();
+        if (location.pathname.includes('/research/benchmarks/')) {
+          const fetchResource = window.fetch.bind(window);
+          window.fetch = async (...args) => {
+            const response = await fetchResource(...args);
+            if (/dedaliano_engine_bg-.*\\.wasm$/.test(response.url)) {
+              await response.clone().arrayBuffer();
+              await new Promise(resolve => setTimeout(resolve, 3000));
+            }
+            return response;
+          };
+        }
+      </script>`;
+      writeFileSync(join(out, 'index.html'), entry.replace('<head>', `<head>${delaySolver}`));
+      await prerender(out, '4', pages);
+      check((locale, path) => readFileSync(join(out, locale, path, 'index.html'), 'utf8'));
+    } finally {
+      rmSync(out, { recursive: true });
+    }
+  }
+
+  it('known wrong result: #2365 — captures completed Mattiasson results when the solver starts late', async () => {
+    await withDelayedSolver([MATTIASSON], html => {
+      for (const locale of ['en', 'tr', 'zh']) {
+        expect(html(locale, MATTIASSON), locale).toMatch(/data-testid="mattiasson-summary"[^>]*>[^<]*5\/5/);
+      }
+    });
+  }, 300_000);
+
+  it('known wrong result: #2365 — waits for the other research benchmarks that compute on page load', async () => {
+    const shell = '/research/benchmarks/shell-obstacle-course';
+    const macneal = '/research/benchmarks/macneal-harder-1985';
+    const plastic = '/research/benchmarks/plastic-collapse';
+    await withDelayedSolver([shell, macneal, plastic], html => {
+      expect(html('en', shell)).toMatch(/data-testid="shell-summary"[^>]*>Finest selected meshes passing: \d+\/3/);
+      expect(html('en', macneal)).toContain('data-testid="summary-frame"');
+      expect(html('en', plastic)).toMatch(/data-testid="source"[^>]*>Live computation/);
+    });
+  }, 300_000);
 
   it('the pinned star count reached the header instead of a per-page fetch', () => {
     expect(readFileSync(join(FIRST, 'en/index.html'), 'utf8')).toMatch(/>1\.2k</);
