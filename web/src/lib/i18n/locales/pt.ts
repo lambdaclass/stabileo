@@ -16813,6 +16813,8 @@ const pt: Translations = {
   "rcSheets.v.capStmNodePile": "Nó e biela sobre a estaca",
   "rcSheets.v.capStmTieX": "Tirante em X",
   "rcSheets.v.capStmTieY": "Tirante em Y",
+  "rcSheets.v.capSecondaryX": "Malha distribuída em X (¼ das faixas)",
+  "rcSheets.v.capSecondaryY": "Malha distribuída em Y (¼ das faixas)",
   "rcSheets.v.capTopX": "Momento negativo em X: armadura superior a cargo do projetista",
   "rcSheets.v.capTopY": "Momento negativo em Y: armadura superior a cargo do projetista",
   "rcSheets.v.capTie": "Travamentos entre blocos à tração ou compressão",

@@ -99,7 +99,7 @@ export interface CapResult {
   group: { service: number; capacity: number };
   /** The cap is deep (every pile within twice the cap's depth over the pile heads of the column's axis, §13.2.6.5): read by struts and ties (ch. 23). */
   deep: boolean;
-  stm: { z: number; theta: number; tx: number; ty: number; asx: number; asy: number; node: { column: number; columnCap: number; pile: number; pileCap: number } } | null;
+  stm: { z: number; theta: number; tx: number; ty: number; asx: number; asy: number; /** Whether the ties along each axis lie in bands over lines of piles. */ banded: { x: boolean; y: boolean }; /** The steel each tie is read with, cm²: its bands' bars, or the whole mesh where there are none. */ tie: { x: number; y: number }; /** The mesh's own steel over the whole cap, its bands left out, cm². */ mesh: { x: number; y: number }; node: { column: number; columnCap: number; pile: number; pileCap: number } } | null;
   shear: Array<{ dir: 'x' | 'y'; at: number; vu: number; phiVc: number }>;
   punching: Array<{ at: string; vu: number; phiVc: number; bo: number; combo: string }>;
   section: { pu: number; phiPn: number; as: number; asMin: number };
@@ -195,7 +195,11 @@ export type FootingSizing = 'full' | 'minimum' | 'reinforce';
 export const FOOTING_SIZINGS: readonly FootingSizing[] = ['full', 'minimum', 'reinforce'];
 
 /** A bottom layer: bars `dia` at `spacing`, m; a short-direction layer of a rectangular footing at `outer` outside its central band (§13.3.3.3). */
-export interface FootingMesh { dia: number; spacing: number; outer?: number }
+export interface FootingMesh {
+  dia: number; spacing: number; outer?: number;
+  /** A pile cap's bands over its lines of piles: each centred `at` m across the layer, `width` wide, with `count` bars in place of the mesh's there. */
+  bands?: { at: number[]; width: number; count: number };
+}
 
 export interface FootingDowels { count: number; dia: number }
 

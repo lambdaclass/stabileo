@@ -17171,6 +17171,8 @@ const en: Record<string, string> = {
   "rcSheets.v.capStmNodePile": "Node and strut over the pile",
   "rcSheets.v.capStmTieX": "Tie along X",
   "rcSheets.v.capStmTieY": "Tie along Y",
+  "rcSheets.v.capSecondaryX": "Distributed mesh along X (¼ of the bands)",
+  "rcSheets.v.capSecondaryY": "Distributed mesh along Y (¼ of the bands)",
   "rcSheets.v.capTopX": "Hogging moment along X: top bars for the engineer",
   "rcSheets.v.capTopY": "Hogging moment along Y: top bars for the engineer",
   "rcSheets.v.capTie": "Ties between caps in tension or compression",

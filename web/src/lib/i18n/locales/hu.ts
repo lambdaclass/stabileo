@@ -16717,6 +16717,8 @@ const hu: Translations = {
   "rcSheets.v.capStmNodePile": "Csomópont és nyomott rúd a cölöp felett",
   "rcSheets.v.capStmTieX": "Húzott rúd X irányban",
   "rcSheets.v.capStmTieY": "Húzott rúd Y irányban",
+  "rcSheets.v.capSecondaryX": "Elosztott háló X irányban (a sávok ¼-e)",
+  "rcSheets.v.capSecondaryY": "Elosztott háló Y irányban (a sávok ¼-e)",
   "rcSheets.v.capTopX": "Negatív nyomaték X irányban: a felső vasalás a tervezőre marad",
   "rcSheets.v.capTopY": "Negatív nyomaték Y irányban: a felső vasalás a tervezőre marad",
   "rcSheets.v.capTie": "Fejgerendák közötti húzott vagy nyomott kötőgerendák",

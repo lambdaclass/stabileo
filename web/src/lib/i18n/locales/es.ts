@@ -17160,6 +17160,8 @@ const es: Record<string, string> = {
   "rcSheets.v.capStmNodePile": "Nudo y biela sobre el pilote",
   "rcSheets.v.capStmTieX": "Tensor en X",
   "rcSheets.v.capStmTieY": "Tensor en Y",
+  "rcSheets.v.capSecondaryX": "Parrilla repartida en X (¼ de las bandas)",
+  "rcSheets.v.capSecondaryY": "Parrilla repartida en Y (¼ de las bandas)",
   "rcSheets.v.capTopX": "Momento negativo en X: armadura superior a cargo del proyectista",
   "rcSheets.v.capTopY": "Momento negativo en Y: armadura superior a cargo del proyectista",
   "rcSheets.v.capTie": "Riostras entre cabezales a tracción o compresión",

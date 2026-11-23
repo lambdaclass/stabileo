@@ -5,7 +5,7 @@ import { critOf } from './criteria';
 import { shiftAt } from './footing-balance';
 import { dowelArea, dowelLap, dowelReach, footingSpacing, foundingOf, layersOf, leverOf, stripReading, type FootingRowCode } from './footing-design';
 import { alphaOfSides, bearingStrength, ceilTo, CONCRETE_WEIGHT, plainPunchingVc, r3 } from './footing-mechanics';
-import { layerAnchorage, meshArea, proposeLayer } from './footing-mesh';
+import { barPitch, layerAnchorage, meshArea, proposeLayer } from './footing-mesh';
 import { sectionStress, sidesIn } from './footing-punching';
 import type { CapPiles, CapResult, FootingAction, FootingAdopted, FootingContext, FootingDemand, FootingDirection, FootingLayers, FootingMesh, PileSpec } from './footing-types';
 
@@ -142,6 +142,20 @@ export function pileLoads(cols: ReadonlyArray<CapColumn>, acts: ReadonlyArray<Fo
   return { R: piles.map((p) => N / n + (sxx > 1e-9 ? (Sx * (p[0] - gx)) / sxx : 0) + (syy > 1e-9 ? (Sy * (p[1] - gy)) / syy : 0)), V, unheld };
 }
 
+/** The mesh of a deep cap, spread over it, carries at least this share of its ties' steel; the rest is in bands over the piles. */
+export const CAP_SECONDARY = 0.25;
+
+/** The lines of piles the bars along `dir` cross over, m across from the cap's centroid: each holding two piles or more. */
+export function bandLines(piles: readonly P2[], dir: Axis): number[] {
+  const across = (p: P2) => Math.round(p[dir === 'x' ? 1 : 0] * 1000);
+  const by = new Map<number, number>();
+  for (const p of piles) by.set(across(p), (by.get(across(p)) ?? 0) + 1);
+  return [...by].filter(([, n]) => n >= 2).map(([k]) => k / 1000).sort((p, q) => p - q);
+}
+
+/** A band's width over a line of piles, m: the pile's diameter and twice the height of the bars' axis over the pile heads. */
+export const bandWidth = (D: number, cover: number, dia: number): number => D + 2 * Math.max(0, capCover(cover) + dia / 2000 - PILE_EMBED);
+
 /** The share of a pile's reaction on the far side of a section at signed distance `t` past it (§13.4.6.7): all of it a half diameter past, none a half diameter short, linear between. */
 export const beyondShare = (t: number, D: number): number => Math.max(0, Math.min(1, (t + D / 2) / D));
 
@@ -239,12 +253,15 @@ export function analyseCap(d: FootingDemand, c: FootingContext, a: FootingAdopte
     const theta = Math.min(...piles.map((p) => Math.atan2(z, Math.max(1e-6, Math.hypot(p[0] - col.x, p[1] - col.y))))) * 180 / Math.PI;
     const tie = (dir: Axis) => Math.max(0, ...byCombo.map((k) => piles.reduce((t, p, i) => t + (along(dir, p) > along(dir, col) ? k.R[i]! * (along(dir, p) - along(dir, col)) / z : 0), 0)));
     const tx = tie('x'), ty = tie('y'), Ap = (Math.PI * D * D) / 4;
-    stm = { z, theta, tx, ty, asx: (tx * 10) / (phi * c.fy), asy: (ty * 10) / (phi * c.fy), node: {
+    const banded = (dir: Axis) => bandLines(piles, dir).length > 0;
+    const plainMesh = (dir: Axis) => { const m = dir === 'x' ? a.x : a.y; return meshArea(dir, { B: a.B, L: a.L, ex: 0, ey: 0 }, { dia: m.dia, spacing: m.spacing }, cover).area; };
+    const inBand = (dir: Axis) => { const m = dir === 'x' ? a.x : a.y; return banded(dir) && m.bands ? meshArea(dir, { B: a.B, L: a.L, ex: 0, ey: 0 }, m, cover).band : directions[dir === 'x' ? 0 : 1]!.asProvided; };
+    stm = { z, theta, tx, ty, asx: (tx * 10) / (phi * c.fy), asy: (ty * 10) / (phi * c.fy), banded: { x: banded('x'), y: banded('y') }, tie: { x: inBand('x'), y: inBand('y') }, mesh: { x: plainMesh('x'), y: plainMesh('y') }, node: {
       column: Math.max(0, ...byCombo.map((k) => k.acts[0]!.N)), columnCap: phi * 0.85 * 1.0 * c.fc * (col.demand.column?.area ?? col.b * col.h) * 1000,
       pile: Math.max(0, ...factored), pileCap: phi * 0.85 * 0.6 * c.fc * Ap * 1000,
     } };
-    directions[0]!.asReq = Math.max(directions[0]!.asReq, stm.asx);
-    directions[1]!.asReq = Math.max(directions[1]!.asReq, stm.asy);
+    directions[0]!.asReq = Math.max(directions[0]!.asReq, (stm.banded.x ? CAP_SECONDARY : 1) * stm.asx);
+    directions[1]!.asReq = Math.max(directions[1]!.asReq, (stm.banded.y ? CAP_SECONDARY : 1) * stm.asy);
   }
   const Ap = (Math.PI * D * D) / 4, pu = Math.max(0, ...factored);
   const asPile = a.piles.bars.count * barArea(a.piles.bars.dia), asMin = cr.footingPileMinSteel * Ap * 1e4;
@@ -307,7 +324,12 @@ export function pileBars(D: number, pu: number, c: Pick<FootingContext, 'fc' | '
   return { count: 24, dia: 25, hoop: { dia: 10, spacing: 0.3 } };
 }
 
-/** The cap's bottom meshes for its moments, struts' ties and the least steel, the depths read again from the bars chosen, of diameters whose end hooks stay inside the cap. */
+/**
+ * The cap's bottom meshes for its moments, struts' ties and the least steel, the depths read again
+ * from the bars chosen, of diameters whose end hooks stay inside the cap. A deep cap's ties lie in
+ * bands over its lines of piles, each band with its share of the tie, its bars 10 cm apart or
+ * 7,5 cm when no diameter fits, a bar's pitch at the least; the mesh between carries a quarter of them.
+ */
 export function capMeshes(d: FootingDemand, c: FootingContext, a: FootingAdopted & { piles: CapPiles }, code: FootingRowCode): { x: FootingMesh; y: FootingMesh } {
   const all = c.diameters.length ? [...c.diameters] : [12, 16, 20, 25], room = a.h - capCover(c.cover) - c.cover;
   const fit = all.filter((dia) => (HOOK_RISE * dia) / 1000 <= room + 1e-9), list = fit.length ? fit : [Math.min(...all)];
@@ -319,7 +341,20 @@ export function capMeshes(d: FootingDemand, c: FootingContext, a: FootingAdopted
     if (JSON.stringify([nx, ny]) === JSON.stringify([x, y])) break;
     x = { dia: nx.dia, spacing: nx.spacing }; y = { dia: ny.dia, spacing: ny.spacing };
   }
-  return { x, y };
+  const r = analyseCap(d, c, { ...a, x, y }, code), t = r.result.stm;
+  if (!t) return { x, y };
+  const size = { B: a.B, L: a.L, ex: 0, ey: 0 }, s = footingSpacing(c, a.h).s;
+  const banded = (dir: Axis, m: FootingMesh): FootingMesh => {
+    const lines = bandLines(a.piles.at, dir), tie = dir === 'x' ? t.asx : t.asy;
+    if (!lines.length || tie <= 1e-9) return m;
+    const tries = list.filter((dia) => dia >= m.dia), top = tries[tries.length - 1] ?? m.dia;
+    const band = (dia: number) => { const width = bandWidth(a.piles.diameter, c.cover, dia), count = Math.max(2, Math.ceil(tie / lines.length / barArea(dia) - 1e-9)); return { width, count, pitch: (width - dia / 1000) / (count - 1) }; };
+    const dia = [0.1, 0.075, 0].flatMap((floor) => tries.filter((k) => { const b = band(k); return b.pitch >= Math.max(floor, barPitch(k)) - 1e-9; }))[0] ?? top;
+    const { width, count } = band(dia);
+    const mesh = dia === m.dia ? m : proposeLayer(dir, size, (dir === 'x' ? r.x : r.y).asReq, s, [dia], capCover(c.cover), true);
+    return { dia, spacing: mesh.spacing, bands: { at: lines, width, count } };
+  };
+  return { x: banded('x', x), y: banded('y', y) };
 }
 
 export { STEP_H as CAP_STEP_H, MAX_H as CAP_MAX_H, COUNTS as PILE_COUNTS, ceilTo as upCap, r3 as r3Cap };

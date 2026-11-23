@@ -17009,6 +17009,8 @@ const de: Translations = {
   "rcSheets.v.capStmNodePile": "Knoten und Druckstrebe über dem Pfahl",
   "rcSheets.v.capStmTieX": "Zugband in X",
   "rcSheets.v.capStmTieY": "Zugband in Y",
+  "rcSheets.v.capSecondaryX": "Verteilte Bewehrung in X (¼ der Streifen)",
+  "rcSheets.v.capSecondaryY": "Verteilte Bewehrung in Y (¼ der Streifen)",
   "rcSheets.v.capTopX": "Stützmoment in X: obere Bewehrung durch den Tragwerksplaner",
   "rcSheets.v.capTopY": "Stützmoment in Y: obere Bewehrung durch den Tragwerksplaner",
   "rcSheets.v.capTie": "Zerrbalken zwischen Pfahlkopfplatten auf Zug oder Druck",

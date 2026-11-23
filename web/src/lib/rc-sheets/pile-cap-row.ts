@@ -6,7 +6,7 @@ import { meshText } from './footing-mesh';
 import { edgeSteps } from './footing-steps';
 import { strapDefault } from './footing-strap';
 import { strapPullChecks } from './footing-needs';
-import { analyseCap, capBalance, capColumns, capCover, capHolds, capMeshes, capPlan, CAP_MAX_H, CAP_STEP_H, pileBars, pilePatterns, PILE_COUNTS, PILE_EMBED, upCap, PILE_UNHELD_TOL, type CapAnalysis } from './pile-cap';
+import { analyseCap, CAP_SECONDARY, capBalance, capColumns, capCover, capHolds, capMeshes, capPlan, CAP_MAX_H, CAP_STEP_H, pileBars, pilePatterns, PILE_COUNTS, PILE_EMBED, upCap, PILE_UNHELD_TOL, type CapAnalysis } from './pile-cap';
 import { check, ratioOf, type CheckLine, type RowStatus, type Step, type StepGroup } from './types';
 import type { CapPiles, FootingAdopted, FootingContext, FootingDemand, FootingEdgeResult, FootingRow, StrapResult } from './footing-types';
 
@@ -97,7 +97,9 @@ function verifications(r: CapAnalysis, a: CapAdopted, c: FootingContext, code: F
   for (const x of [r.x, r.y]) {
     const X = x.dir.toUpperCase(), m = x.dir === 'x' ? a.x : a.y;
     const tie = k.stm ? (x.dir === 'x' ? k.stm.asx : k.stm.asy) : 0;
-    out.push(check(k.stm ? `rcSheets.v.capStmTie${X}` : `rcSheets.v.footFlexure${X}`, k.stm ? x.asProvided >= tie - 1e-6 : x.mu <= x.phiMn + 1e-6, k.stm ? { clause: '§23.7', demand: cm2(tie), capacity: cm2(x.asProvided), ratio: ratioOf(tie, x.asProvided) } : { clause: '§13.2.7.1', demand: `${fmt(x.mu, 1)} kN·m`, capacity: `${fmt(x.phiMn, 1)} kN·m`, ratio: ratioOf(x.mu, x.phiMn) }));
+    const held = k.stm ? k.stm.tie[x.dir] : 0;
+    out.push(check(k.stm ? `rcSheets.v.capStmTie${X}` : `rcSheets.v.footFlexure${X}`, k.stm ? held >= tie - 1e-6 : x.mu <= x.phiMn + 1e-6, k.stm ? { clause: k.stm.banded[x.dir] ? withCriterion('§23.7, §23.8') : '§23.7', demand: cm2(tie), capacity: cm2(held), ratio: ratioOf(tie, held) } : { clause: '§13.2.7.1', demand: `${fmt(x.mu, 1)} kN·m`, capacity: `${fmt(x.phiMn, 1)} kN·m`, ratio: ratioOf(x.mu, x.phiMn) }));
+    if (k.stm?.banded[x.dir] && tie > 1e-9) out.push(check(`rcSheets.v.capSecondary${X}`, k.stm.mesh[x.dir] >= CAP_SECONDARY * tie - 1e-6, { clause: CRITERION, demand: `${fmt(CAP_SECONDARY, 2)} · ${cm2(tie)} = ${cm2(CAP_SECONDARY * tie)}`, capacity: cm2(k.stm.mesh[x.dir]), ratio: ratioOf(CAP_SECONDARY * tie, k.stm.mesh[x.dir]) }));
     out.push(check(`rcSheets.v.footMin${X}`, x.asProvided >= x.asMin - 1e-6, { clause: '§8.6.1.1', demand: cm2(x.asMin), capacity: cm2(x.asProvided) }));
     out.push(check(`rcSheets.v.footSpacing${X}`, m.spacing <= Math.min(0.45, cr.footingMaxSpacing) + 1e-9, { clause: spacingClause(cr.footingMaxSpacing, a.h), demand: cm(m.spacing), capacity: `≤ ${cm(Math.min(0.45, cr.footingMaxSpacing))}` }));
     if ((x as { mTop?: number }).mTop! > 1e-6 && !k.stm) out.push(check(`rcSheets.v.capTop${X}`, true, { clause: '§13.2.7.1', demand: `${fmt((x as { mTop?: number }).mTop!, 1)} kN·m` }));
