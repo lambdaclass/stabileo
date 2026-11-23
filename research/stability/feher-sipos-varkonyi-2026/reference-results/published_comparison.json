@@ -8,7 +8,7 @@
       "observed": 0.0033199999999999896,
       "passed": true,
       "reference": 0.2225,
-      "source": "Fehér, Sipos & Várkonyi, doi:10.1016/j.euromechsol.2025.106000; arXiv:2509.12916v1, Figure 9(b,c) p.24, digitized (reference-results/fig9c_digitized.json); y(1/2) at half the arc length of the digitized curve",
+      "source": "arXiv:2509.12916v1, Figure 9(b,c) p.24, digitized",
       "tolerance": 0.008,
       "unit": "L"
     },
@@ -20,7 +20,7 @@
       "observed": 0.0010499999999999676,
       "passed": true,
       "reference": 0.18790000000000004,
-      "source": "Fehér, Sipos & Várkonyi, doi:10.1016/j.euromechsol.2025.106000; arXiv:2509.12916v1, Figure 9(b,c) p.24, digitized (reference-results/fig9c_digitized.json); y(1/2) at half the arc length of the digitized curve",
+      "source": "arXiv:2509.12916v1, Figure 9(b,c) p.24, digitized",
       "tolerance": 0.008,
       "unit": "L"
     },
@@ -32,7 +32,7 @@
       "observed": 0.000980364564276373,
       "passed": true,
       "reference": 0.10716963543572362,
-      "source": "Fehér, Sipos & Várkonyi, doi:10.1016/j.euromechsol.2025.106000; arXiv:2509.12916v1, Figure 9(b,c) p.24, digitized (reference-results/fig9c_digitized.json); y(1/2) at half the arc length of the digitized curve",
+      "source": "arXiv:2509.12916v1, Figure 9(b,c) p.24, digitized",
       "tolerance": 0.008,
       "unit": "L"
     },
@@ -44,7 +44,7 @@
       "observed": 0.010537242889091594,
       "passed": false,
       "reference": -0.0758872428890916,
-      "source": "Fehér, Sipos & Várkonyi, doi:10.1016/j.euromechsol.2025.106000; arXiv:2509.12916v1, Figure 9(b,c) p.24, digitized (reference-results/fig9c_digitized.json); y(1/2) at half the arc length of the digitized curve",
+      "source": "arXiv:2509.12916v1, Figure 9(b,c) p.24, digitized",
       "tolerance": 0.008,
       "unit": "L"
     },
@@ -56,7 +56,7 @@
       "observed": 0.005257891527902542,
       "passed": true,
       "reference": -0.15508789152790253,
-      "source": "Fehér, Sipos & Várkonyi, doi:10.1016/j.euromechsol.2025.106000; arXiv:2509.12916v1, Figure 9(b,c) p.24, digitized (reference-results/fig9c_digitized.json); y(1/2) at half the arc length of the digitized curve",
+      "source": "arXiv:2509.12916v1, Figure 9(b,c) p.24, digitized",
       "tolerance": 0.008,
       "unit": "L"
     },
@@ -68,7 +68,7 @@
       "observed": 0.01120721726190493,
       "passed": true,
       "reference": 4.2,
-      "source": "Fehér, Sipos & Várkonyi, doi:10.1016/j.euromechsol.2025.106000; arXiv:2509.12916v1, Sec. 3.2.1 p.18",
+      "source": "arXiv:2509.12916v1, Sec. 3.2.1 p.18",
       "tolerance": 0.05,
       "unit": ""
     },
@@ -80,7 +80,7 @@
       "observed": 0.013070913461538986,
       "passed": true,
       "reference": 3.9,
-      "source": "Fehér, Sipos & Várkonyi, doi:10.1016/j.euromechsol.2025.106000; arXiv:2509.12916v1, Sec. 3.2.1 p.19",
+      "source": "arXiv:2509.12916v1, Sec. 3.2.1 p.19",
       "tolerance": 0.05,
       "unit": ""
     },
@@ -92,7 +92,7 @@
       "observed": 0.053749999999999784,
       "passed": false,
       "reference": 2.5,
-      "source": "Fehér, Sipos & Várkonyi, doi:10.1016/j.euromechsol.2025.106000; arXiv:2509.12916v1, Sec. 3.2.1 p.19",
+      "source": "arXiv:2509.12916v1, Sec. 3.2.1 p.19",
       "tolerance": 0.05,
       "unit": ""
     },
@@ -106,7 +106,7 @@
       "passed": false,
       "reference": 4.0,
       "reference_delta": 1.36,
-      "source": "Fehér, Sipos & Várkonyi, doi:10.1016/j.euromechsol.2025.106000; arXiv:2509.12916v1, Sec. 3.2.1 p.19",
+      "source": "arXiv:2509.12916v1, Sec. 3.2.1 p.19",
       "tolerance": 0.05,
       "unit": ""
     },
@@ -118,7 +118,7 @@
       "observed": 0.015388773986265966,
       "passed": true,
       "reference": 2.1,
-      "source": "Fehér, Sipos & Várkonyi, doi:10.1016/j.euromechsol.2025.106000; arXiv:2509.12916v1, Table 1 p.20",
+      "source": "arXiv:2509.12916v1, Table 1 p.20",
       "tolerance": 0.05,
       "unit": "1/L"
     },
@@ -130,7 +130,7 @@
       "observed": 0.8517447718151027,
       "passed": false,
       "reference": 7.6,
-      "source": "Fehér, Sipos & Várkonyi, doi:10.1016/j.euromechsol.2025.106000; arXiv:2509.12916v1, Table 1 p.20",
+      "source": "arXiv:2509.12916v1, Table 1 p.20",
       "tolerance": 0.05,
       "unit": "1/L"
     },
@@ -142,7 +142,7 @@
       "observed": 0.027194860663279884,
       "passed": true,
       "reference": 11.7,
-      "source": "Fehér, Sipos & Várkonyi, doi:10.1016/j.euromechsol.2025.106000; arXiv:2509.12916v1, Table 1 p.20",
+      "source": "arXiv:2509.12916v1, Table 1 p.20",
       "tolerance": 0.05,
       "unit": "1/L"
     },
@@ -154,7 +154,7 @@
       "observed": 0.12274559896611732,
       "passed": false,
       "reference": 3.35,
-      "source": "Fehér, Sipos & Várkonyi, doi:10.1016/j.euromechsol.2025.106000; arXiv:2509.12916v1, Table 1 p.20",
+      "source": "arXiv:2509.12916v1, Table 1 p.20",
       "tolerance": 0.05,
       "unit": "1/L"
     }

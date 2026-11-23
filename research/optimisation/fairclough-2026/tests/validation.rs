@@ -143,7 +143,7 @@ fn five_node_reference_and_engine() {
         json!({
             "id": format!("table1-v5-{pg:.2}"),
             "name": format!("Volume V, five-node ground structure, ρgL/σ = {pg:.2}"),
-            "source": "Accepted manuscript (https://eprints.whiterose.ac.uk/id/eprint/236639/), printed page 28 (PDF page 29), Table 1, column V5-nodes; Section 4.3",
+            "source": "Accepted manuscript, White Rose eprint 236639, Table 1, V5-nodes, printed page 28 (PDF page 29)",
             "unit": "FL/σ",
             "reference": printed,
             "computed": computed,

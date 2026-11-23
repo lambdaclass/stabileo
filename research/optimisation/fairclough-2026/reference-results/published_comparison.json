@@ -9,7 +9,7 @@
       "passed": true,
       "rationale": "Half a unit of the fourth printed decimal",
       "reference": 13.8394,
-      "source": "Accepted manuscript (https://eprints.whiterose.ac.uk/id/eprint/236639/), printed page 28 (PDF page 29), Table 1, column V5-nodes; Section 4.3",
+      "source": "Accepted manuscript, White Rose eprint 236639, Table 1, V5-nodes, printed page 28 (PDF page 29)",
       "tolerance": 0.00005,
       "unit": "FL/σ"
     },
@@ -22,7 +22,7 @@
       "passed": true,
       "rationale": "Half a unit of the fourth printed decimal",
       "reference": 15.2528,
-      "source": "Accepted manuscript (https://eprints.whiterose.ac.uk/id/eprint/236639/), printed page 28 (PDF page 29), Table 1, column V5-nodes; Section 4.3",
+      "source": "Accepted manuscript, White Rose eprint 236639, Table 1, V5-nodes, printed page 28 (PDF page 29)",
       "tolerance": 0.00005,
       "unit": "FL/σ"
     },
@@ -35,7 +35,7 @@
       "passed": true,
       "rationale": "Half a unit of the fourth printed decimal",
       "reference": 17.5301,
-      "source": "Accepted manuscript (https://eprints.whiterose.ac.uk/id/eprint/236639/), printed page 28 (PDF page 29), Table 1, column V5-nodes; Section 4.3",
+      "source": "Accepted manuscript, White Rose eprint 236639, Table 1, V5-nodes, printed page 28 (PDF page 29)",
       "tolerance": 0.00005,
       "unit": "FL/σ"
     },
@@ -48,7 +48,7 @@
       "passed": true,
       "rationale": "Half a unit of the fourth printed decimal",
       "reference": 20.4014,
-      "source": "Accepted manuscript (https://eprints.whiterose.ac.uk/id/eprint/236639/), printed page 28 (PDF page 29), Table 1, column V5-nodes; Section 4.3",
+      "source": "Accepted manuscript, White Rose eprint 236639, Table 1, V5-nodes, printed page 28 (PDF page 29)",
       "tolerance": 0.00005,
       "unit": "FL/σ"
     },
@@ -61,7 +61,7 @@
       "passed": true,
       "rationale": "Half a unit of the fourth printed decimal",
       "reference": 24.0981,
-      "source": "Accepted manuscript (https://eprints.whiterose.ac.uk/id/eprint/236639/), printed page 28 (PDF page 29), Table 1, column V5-nodes; Section 4.3",
+      "source": "Accepted manuscript, White Rose eprint 236639, Table 1, V5-nodes, printed page 28 (PDF page 29)",
       "tolerance": 0.00005,
       "unit": "FL/σ"
     },
@@ -74,7 +74,7 @@
       "passed": true,
       "rationale": "Half a unit of the fourth printed decimal",
       "reference": 30.4425,
-      "source": "Accepted manuscript (https://eprints.whiterose.ac.uk/id/eprint/236639/), printed page 28 (PDF page 29), Table 1, column V5-nodes; Section 4.3",
+      "source": "Accepted manuscript, White Rose eprint 236639, Table 1, V5-nodes, printed page 28 (PDF page 29)",
       "tolerance": 0.00005,
       "unit": "FL/σ"
     },
@@ -87,7 +87,7 @@
       "passed": true,
       "rationale": "Half a unit of the fourth printed decimal",
       "reference": 80.7391,
-      "source": "Accepted manuscript (https://eprints.whiterose.ac.uk/id/eprint/236639/), printed page 28 (PDF page 29), Table 1, column V5-nodes; Section 4.3",
+      "source": "Accepted manuscript, White Rose eprint 236639, Table 1, V5-nodes, printed page 28 (PDF page 29)",
       "tolerance": 0.00005,
       "unit": "FL/σ"
     }

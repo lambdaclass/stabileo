@@ -1,7 +1,7 @@
 use serde_json::{json, Value};
 use shape_control_feher_2026::{bend, curvature_at, limit_load, optimum_limit_load, run, span, Distribution, Setting};
 
-const SOURCE: &str = "Fehér, Sipos & Várkonyi, doi:10.1016/j.euromechsol.2025.106000; arXiv:2509.12916v1";
+const SOURCE: &str = "arXiv:2509.12916v1";
 
 fn check(id: &str, metric: &str, observed: f64, tolerance: f64) -> Value {
     json!({"id": id, "metric": metric, "observed": observed, "tolerance": tolerance, "passed": observed.is_finite() && observed <= tolerance})
@@ -125,7 +125,7 @@ fn main() {
             "unit": "L",
             "metric": "absolute difference",
             "computed": ours, "reference": paper, "observed": (ours - paper).abs(), "tolerance": 0.008, "passed": (ours - paper).abs() <= 0.008,
-            "source": format!("{SOURCE}, Figure 9(b,c) p.24, digitized (reference-results/fig9c_digitized.json); y(1/2) at half the arc length of the digitized curve")
+            "source": format!("{SOURCE}, Figure 9(b,c) p.24, digitized")
         }));
         checks.push(check(&format!("shape-{label}"), &format!("Figure 9(c) shape {label}: median distance from the digitized curve to the closest state on our path"), best.0, 0.008));
     }

@@ -95,7 +95,7 @@ const en = {
   back: 'The strip came back as an arch: this rectangle does not go around the cusp.',
   inverted: 'The strip ended inverted, without a jump.',
   jumped: 'The strip jumped near Θ = {t}, Δ = {d}: this path crosses the fold, so the shape changes by a snap.',
-  computedCorner: 'Computed with the far corner at',
+  computedCorner: 'computed with the far corner at',
   staleResult: 'Previous results are shown. Recompute to obtain results for the current settings.',
 };
 type Strings = typeof en;
@@ -192,7 +192,7 @@ const es: Strings = {
   back: 'La lámina volvió como arco: este rectángulo no rodea la cúspide.',
   inverted: 'La lámina terminó invertida, sin saltar.',
   jumped: 'La lámina saltó cerca de Θ = {t}, Δ = {d}: este camino cruza el pliegue, así que la forma cambia por un salto.',
-  computedCorner: 'Calculado con la esquina lejana en',
+  computedCorner: 'calculado con la esquina lejana en',
   staleResult: 'Se muestran resultados anteriores. Recalculá para obtener resultados con los ajustes actuales.',
 };
 
@@ -288,7 +288,7 @@ const pt: Strings = {
   back: 'A lâmina voltou como arco: este retângulo não contorna a cúspide.',
   inverted: 'A lâmina terminou invertida, sem salto.',
   jumped: 'A lâmina saltou perto de Θ = {t}, Δ = {d}: este caminho cruza a dobra, então a forma muda por um salto.',
-  computedCorner: 'Calculado com o canto distante em',
+  computedCorner: 'calculado com o canto distante em',
   staleResult: 'São mostrados resultados anteriores. Recalcule para obter resultados com os ajustes atuais.',
 };
 
@@ -384,7 +384,7 @@ const hu: Strings = {
   back: 'A csík ívként tért vissza: ez a téglalap nem kerüli meg a csúcspontot.',
   inverted: 'A csík átfordult alakban, ugrás nélkül ért célba.',
   jumped: 'A csík Θ = {t}, Δ = {d} közelében átpattant: ez az út átlépi a redőt, így az alak ugrással változik meg.',
-  computedCorner: 'Számítva a távoli sarokkal:',
+  computedCorner: 'számítva a távoli sarokkal:',
   staleResult: 'Korábbi eredmények láthatók. Számítsa újra az aktuális beállítások eredményeit.',
 };
 
@@ -576,7 +576,7 @@ const de: Strings = {
   back: 'Der Streifen ist als Bogen zurückgekehrt: Dieses Rechteck umläuft die Spitze nicht.',
   inverted: 'Der Streifen endete invertiert, ohne Sprung.',
   jumped: 'Der Streifen ist nahe Θ = {t}, Δ = {d} gesprungen: Dieser Pfad kreuzt die Falte, daher wechselt die Form durch Durchschlagen.',
-  computedCorner: 'Berechnet mit der fernen Ecke bei',
+  computedCorner: 'berechnet mit der fernen Ecke bei',
   staleResult: 'Es werden frühere Ergebnisse angezeigt. Rechnen Sie neu, um Ergebnisse für die aktuellen Einstellungen zu erhalten.',
 };
 
@@ -672,7 +672,7 @@ const fr: Strings = {
   back: 'La lame est revenue en arc : ce rectangle ne contourne pas le point de rebroussement.',
   inverted: 'La lame a fini inversée, sans saut.',
   jumped: 'La lame a sauté près de Θ = {t}, Δ = {d} : ce chemin franchit le pli, la forme change donc par claquage.',
-  computedCorner: 'Calculé avec le coin éloigné en',
+  computedCorner: 'calculé avec le coin éloigné en',
   staleResult: 'Les résultats précédents sont affichés. Relancez le calcul pour obtenir les résultats des réglages actuels.',
 };
 

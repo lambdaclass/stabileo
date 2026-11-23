@@ -1,7 +1,7 @@
 use cut_strip_feher_2026::{exact, load_cycle, loaded_height, prepare, Strip, LENGTH};
 use serde_json::{json, Value};
 
-const SOURCE: &str = "Fehér (2026), doi:10.1016/j.euromechsol.2026.106217; arXiv:2601.20793v2";
+const SOURCE: &str = "arXiv:2601.20793v2";
 const HERE: &str = env!("CARGO_MANIFEST_DIR");
 const CUT: f64 = 0.5;
 const STEP: f64 = 0.05;
@@ -52,7 +52,7 @@ fn main() {
             let panel = digitized["panels"].as_array().unwrap().iter().find(|p| p["B_over_L"] == json!(span) && p["b"] == json!(b)).unwrap();
             let first = panel["experiment"].as_array().unwrap().iter().min_by(|p, q| p[0].as_f64().unwrap().partial_cmp(&q[0].as_f64().unwrap()).unwrap()).unwrap();
             rows.push(row(&format!("height-{span}-{b}"), format!("Unloaded midpoint height, B = {span}L, a = {CUT}, b = {b}, measured"),
-                format!("{SOURCE}, {}, measured heights digitized (reference-results/fig10_11_digitized.json)", figure(span, b)), "mm", first[1].as_f64().unwrap(), ours, HEIGHT_TOLERANCE));
+                format!("{SOURCE}, {}, measured heights, digitized", figure(span, b)), "mm", first[1].as_f64().unwrap(), ours, HEIGHT_TOLERANCE));
         }
     }
     let strip = Strip { a: CUT, b: 0.5 };
@@ -72,7 +72,7 @@ fn main() {
         let reference = if back { loads.fold(f64::INFINITY, f64::min) } else { loads.fold(0.0, f64::max) };
         let kind = if back { "Snap-back load" } else { "Snap-through load" };
         rows.push(row(&format!("{}-{span}-{b}", if back { "snap-back" } else { "snap-through" }), format!("{kind}, B = {span}L, a = {CUT}, b = {b}"),
-            format!("{SOURCE}, {}, end of the unstable (red) branch, digitized (reference-results/fig10_11_digitized.json)", figure(span, b)), "N", reference, computed, LOAD_TOLERANCE));
+            format!("{SOURCE}, {}, end of the unstable branch, digitized", figure(span, b)), "N", reference, computed, LOAD_TOLERANCE));
     }
 
     let validation = json!({
