@@ -217,14 +217,20 @@ test.describe('explained step by step', () => {
     await expect(page.getByTestId('adv-running')).toHaveAttribute('data-adv', 'pdelta');
   });
 
-  test('@smoke a step-by-step topic opens the catalog at its group, and a method leads to its function', async ({ page }) => {
+  test('@smoke a step-by-step topic opens its own methods alone, and a method leads to its function', async ({ page }) => {
     await boot(page);
     await page.evaluate(() => window.__stabileoActions.loadExample('portal-second-order'));
     await openAdvancedFunction(page, 'stepsTrusses');
     await expect(page.getByTestId('steps-catalog')).toBeVisible();
-    await expect(page.getByTestId('steps-group-toggle-trusses')).toHaveAttribute('aria-expanded', 'true');
+    // The topic under its own name in the header, its methods and no other group's.
+    await expect(page.getByTestId('bp-title')).toHaveText(/›\s*(Trusses|Reticulados)/);
     await expect(page.getByTestId('steps-method-joints')).toBeVisible();
-    await page.getByTestId('steps-group-toggle-secondOrder').click();
+    await expect(page.locator('[data-testid^=steps-group-toggle-]')).toHaveCount(0);
+    await expect(page.getByTestId('steps-method-threeMoments')).toHaveCount(0);
+    await page.getByTestId('steps-catalog-back').click();
+    await expect(page.getByTestId('adv-launcher')).toBeVisible();
+
+    await openCatalog(page);
     await page.getByTestId('steps-function-so-buckling-phi').click();
     await expect(page.getByTestId('adv-running')).toHaveAttribute('data-adv', 'buckling');
   });

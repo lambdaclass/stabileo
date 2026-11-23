@@ -64,12 +64,12 @@ for (const width of [390, 820]) {
       await openAdvancedFunction(page, 'plastic');
       const withheld = page.getByTestId('plastic-withheld');
       await expect(withheld).toContainText(/4[.,]6/);
-      await expect(withheld.locator('a')).toHaveAttribute('href', 'https://github.com/lambdaclass/stabileo/issues/758');
+      await expect(withheld.locator('a')).toHaveCount(0);
       await expect(page.getByTestId('plastic-verdict')).toHaveCount(0);
       const box = (await withheld.boundingBox())!;
       expect(box.height, `${width}: the refusal is an empty panel`).toBeGreaterThan(40);
-      const link = (await withheld.locator('a').boundingBox())!;
-      expect(link.height, `${width}: the #758 link is too small to tap`).toBeGreaterThanOrEqual(24);
+      const close = (await page.getByTestId('plastic-withheld-close').boundingBox())!;
+      expect(close.height, `${width}: the note's close is too small to tap`).toBeGreaterThanOrEqual(width <= 600 ? 44 : 24);
       await noOverflow(page, 'plastic-withheld', `${width}-plastic`);
     });
     test('dynamics course panel', async ({ page }) => {

@@ -2920,7 +2920,7 @@ const de: Translations = {
   'whatif.noLoads': 'Das Modell hat keine Lasten.',
   'whatif.noSupports': 'Das Modell hat keine Auflager.',
   'whatif.factor': 'Größe',
-  'whatif.position': 'Position',
+  'whatif.position': 'Lage',
   'whatif.atNode': 'Am Knoten',
   'whatif.pickMember': 'Tippen Sie auf einen Stab im Modell, um ihn zu ändern.',
   'whatif.pickNode': 'Tippen Sie auf einen Knoten im Modell, um ihn zu verschieben.',
@@ -2936,7 +2936,7 @@ const de: Translations = {
   'whatif.resp.shear': 'Max. Querkraft',
   'whatif.resp.axial': 'Max. Normalkraft',
   'whatif.resp.reaction': 'Max. Auflagerkraft',
-  'whatif.resp.original': 'Original',
+  'whatif.resp.original': 'Ursprünglich',
   'whatif.resp.now': 'Jetzt',
 
   // ─── ContextHelp (extra) ───

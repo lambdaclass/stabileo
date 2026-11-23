@@ -1036,7 +1036,7 @@ export function pinnedDefects(): void {
       const before = await shot(page);
       await runFn(ctx, 'plastic');
       await expect(page.getByTestId('plastic-withheld')).toContainText(/4[.,]6/);
-      await expect(page.getByTestId('plastic-withheld').locator('a')).toHaveAttribute('href', 'https://github.com/lambdaclass/stabileo/issues/758');
+      await expect(page.getByTestId('plastic-withheld').locator('a')).toHaveCount(0);
       await expect(page.getByTestId('plastic-verdict')).toHaveCount(0);
       // The refusal is the function's answer, under its own header, and "← Back" leaves it.
       await expect(page.getByTestId('adv-running')).toHaveAttribute('data-adv', 'plastic');

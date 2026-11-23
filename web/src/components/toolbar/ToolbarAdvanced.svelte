@@ -417,6 +417,11 @@
   /** The Mp each section went in with, shown under the result. */
   let plasticMps = $state<SectionMp[]>([]);
   let plasticWithheld = $state<PlasticWithheld | null>(null);
+  /* A note the reader has read and closed stays closed until the analysis runs again. */
+  let withheldDismissed = $state(false);
+  $effect(() => { void plasticWithheld; withheldDismissed = false; });
+  /** The panel speaks for itself: a tracker reference is for the team, not a place to send the reader. */
+  const withoutIssueRef = (text: string) => text.replace(/\s*\(#\d+\)\s*$/, '');
 
   function handlePlastic() {
     if (blockedBySlidingJoints()) return;
@@ -694,10 +699,11 @@
     <BucklingCertificate certificate={buR.certificate} />
     <BucklingDetails result={buR} />
   {/if}
-  {#if plasticWithheld && !is3D}
-    <div class="adv-withheld" role="alert" data-testid="plastic-withheld">
-      <p>{plasticWithheld.message}</p>
-      <a href="https://github.com/lambdaclass/stabileo/issues/{plasticWithheld.issue}" target="_blank" rel="noopener noreferrer">{t('plastic.withheldIssue').replace('{issue}', String(plasticWithheld.issue))}</a>
+  {#if plasticWithheld && !is3D && !withheldDismissed}
+    <div class="adv-withheld" role="note" data-testid="plastic-withheld">
+      <p>{withoutIssueRef(plasticWithheld.message)}</p>
+      <button type="button" class="adv-note-close" onclick={() => (withheldDismissed = true)} title={t('ribbon.close')} aria-label={t('ribbon.close')}
+        data-testid="plastic-withheld-close">×</button>
     </div>
   {/if}
   <PlasticResultPanel mps={plasticMps} />
@@ -737,8 +743,9 @@
   }
 
   .adv-withheld {
+    position: relative;
     margin: 6px 0;
-    padding: 8px 10px;
+    padding: 8px 34px 8px 10px;
     border: 1px solid var(--st-danger);
     border-radius: 6px;
     font-size: 0.8rem;
@@ -747,7 +754,13 @@
   }
   .adv-withheld p { margin: 0 0 6px; }
   .adv-known { margin: 0; padding: 6px 8px; border-left: 2px solid var(--st-amber, var(--st-accent)); font-size: 0.74rem; line-height: 1.4; color: var(--st-text-2); overflow-wrap: anywhere; }
-  .adv-withheld a { display: inline-block; min-height: 24px; color: var(--st-accent); }
+  .adv-withheld p:last-of-type { margin: 0; }
+  .adv-note-close {
+    position: absolute; top: 4px; right: 4px; width: 26px; height: 26px; background: none; border: none; border-radius: 4px;
+    color: var(--st-text-2); font-size: 1rem; line-height: 1; cursor: pointer;
+  }
+  .adv-note-close:hover { background: var(--st-surface-3); color: var(--st-text); }
+  @media (max-width: 767px), (pointer: coarse) { .adv-note-close { width: 44px; height: 44px; top: 0; right: 0; } .adv-withheld { padding-right: 48px; } }
 
 
   .adv-flex-body {
