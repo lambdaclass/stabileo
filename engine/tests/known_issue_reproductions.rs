@@ -58,9 +58,11 @@ fn a_rotation_held_by_nothing_about_a_skew_axis_is_eliminated_and_not_certified(
 }
 
 #[test]
-#[ignore = "known wrong result: #458"]
 fn issue_458_supplied_3d_certificates_refuse_the_loaded_skew_axis() {
-    use dedaliano_engine::certify::{certify_load_cases_3d, certify_results_3d, Certificate};
+    use dedaliano_engine::certify::{
+        certify_load_cases_3d, certify_results_3d, combinations::certify_multi_case_results_3d, Certificate,
+    };
+    use dedaliano_engine::solver::load_cases::{solve_multi_case_3d, CombinationDef, LoadCase3D, MultiCaseInput3D};
 
     let input = skew_mechanism([-1.3, 2.0, 0.0], true);
     let allowed = skew_mechanism([2.0, 1.3, 0.0], true);
@@ -72,6 +74,17 @@ fn issue_458_supplied_3d_certificates_refuse_the_loaded_skew_axis() {
     assert_eq!(cases[0], certify_results_3d(&allowed, &candidate));
     assert_eq!(cases[1], expected);
     assert_eq!(certify_results_3d(&input, &candidate), expected);
+    let mut combination = MultiCaseInput3D {
+        solver: allowed.clone(),
+        load_cases: vec![LoadCase3D { name: "A".into(), loads: allowed.loads.clone() }],
+        combinations: vec![CombinationDef { name: "C".into(), factors: [("A".into(), 1.0)].into() }],
+    };
+    let results = solve_multi_case_3d(&combination).unwrap();
+    combination.load_cases[0].loads = input.loads;
+    let certified = certify_multi_case_results_3d(&combination, results);
+    assert_eq!(certified.cases[0].certificate, expected);
+    assert!(!certified.combinations[0].certified);
+    assert!(!certified.envelope.certified);
     let held = skew_mechanism([-1.3, 2.0, 0.0], false);
     assert!(certify_results_3d(&held, &solve_3d(&held).unwrap()).is_certified());
 }

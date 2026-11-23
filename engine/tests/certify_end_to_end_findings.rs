@@ -411,7 +411,6 @@ fn assembled_spring_candidate_458(input: &SolverInput) -> AnalysisResults {
 }
 
 #[test]
-#[ignore = "known wrong result: #458"]
 fn issue_458_supplied_2d_certificates_refuse_a_spring_supported_moment() {
     use dedaliano_engine::certify::{certify_load_cases_2d, certify_results_2d, Certificate};
     use dedaliano_engine::solver::linear::solve_2d;
@@ -433,7 +432,6 @@ fn issue_458_supplied_2d_certificates_refuse_a_spring_supported_moment() {
 }
 
 #[test]
-#[ignore = "known wrong result: #458"]
 fn issue_458_supplied_2d_combination_cannot_certify_a_spring_supported_case() {
     use dedaliano_engine::certify::{combinations::certify_multi_case_results_2d, Certificate};
     use dedaliano_engine::solver::load_cases::{solve_multi_case_2d, CombinationDef, LoadCase, MultiCaseInput};

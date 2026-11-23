@@ -36,6 +36,7 @@ use super::linear::{
 };
 use super::sparse::{certify_lambda_min_lower, certify_sparse_spd_system, certify_with_certified_mu};
 use crate::linalg::sparse::CscMatrix;
+use crate::load_session::{LoadSession2D, LoadSession3D};
 use crate::solver::assembly::{
     assemble_2d, assemble_load_vector_2d, assemble_load_vector_3d_dense, assemble_sparse_3d, assemble_stiffness_2d,
     assemble_stiffness_3d, assemble_stiffness_sparse_3d, InclinedTransformData, InclinedTransformData2D,
@@ -248,7 +249,7 @@ pub fn certify_linear_2d(input: &SolverInput) -> Result<(AnalysisResults, Certif
     finite::check_input(input)?;
     let results = solve_2d(input)?;
     finite::check_results(&results)?;
-    let cert = certify_results_2d(input, &results);
+    let cert = certify_solved_cases_2d(input, &[(&input.loads, &results)]).pop().expect("one case");
     Ok((results, cert))
 }
 
@@ -258,7 +259,7 @@ pub fn certify_linear_3d(input: &SolverInput3D) -> Result<(AnalysisResults3D, Ce
     finite::check_input(input)?;
     let results = solve_3d(input)?;
     finite::check_results(&results)?;
-    let cert = certify_results_3d(input, &results);
+    let cert = certify_solved_cases_3d(input, &[(&input.loads, &results)]).pop().expect("one case");
     Ok((results, cert))
 }
 
@@ -324,16 +325,7 @@ fn size_check(dof_num: &DofNumbering) -> Result<(), Certificate> {
 /// the rest certify K once through `certify_load_cases_2d`.
 /// Uncertified when the input, the results or the bound are not finite.
 pub fn certify_results_2d(input: &SolverInput, results: &AnalysisResults) -> Certificate {
-    if let Err(e) = finite::check_input(input).and_then(|()| finite::check_results(results)) {
-        return Certificate::uncertified(e);
-    }
-    let mut c = if needs_general_2d(input) {
-        certify_general_2d(input, results)
-    } else {
-        certify_load_cases_2d(input, &[(&input.loads, results)]).pop().expect("one case")
-    };
-    finite::guard(&mut c);
-    c
+    certify_load_cases_2d(input, &[(&input.loads, results)]).pop().expect("one case")
 }
 
 fn needs_general_2d(input: &SolverInput) -> bool {
@@ -481,23 +473,39 @@ pub fn certify_load_cases_2d(input: &SolverInput, cases: &[(&[SolverLoad], &Anal
     if let Err(e) = finite::check_input(input) {
         return vec![Certificate::uncertified(e); cases.len()];
     }
-    let bad: Vec<Option<String>> =
-        cases.iter().map(|(l, r)| finite::check_input(l).and_then(|()| finite::check_results(r)).err()).collect();
-    let mut out = load_cases_2d(input, cases);
-    guard_cases(&mut out, bad);
-    out
+    let mut model = input.clone();
+    model.loads.clear();
+    let session = std::cell::OnceCell::new();
+    certify_cases(cases, |loads| {
+        session.get_or_init(|| LoadSession2D::from_input(model.clone()))
+            .as_ref().map_err(Clone::clone)?.solve_loads(loads).map(drop)
+    }, |cases| load_cases_2d(input, cases))
 }
 
-/// Downgrade the certificates of cases with non-finite data or bounds.
-fn guard_cases(out: &mut [Certificate], bad: Vec<Option<String>>) {
-    for (c, b) in out.iter_mut().zip(bad) {
-        match b {
-            Some(e) => c.downgrade(e),
-            None => {
-                finite::guard(c);
-            }
+pub(super) fn certify_solved_cases_2d(input: &SolverInput, cases: &[(&[SolverLoad], &AnalysisResults)]) -> Vec<Certificate> {
+    certify_cases(cases, |_| Ok(()), |cases| load_cases_2d(input, cases))
+}
+
+fn certify_cases<'a, L: Serialize, R: Serialize>(
+    cases: &[(&'a [L], &'a R)],
+    mut admit: impl FnMut(&[L]) -> Result<(), String>,
+    certify: impl FnOnce(&[(&'a [L], &'a R)]) -> Vec<Certificate>,
+) -> Vec<Certificate> {
+    let checks: Vec<_> = cases.iter()
+        .map(|(loads, result)| finite::check_input(loads)
+            .and_then(|()| finite::check_results(result))
+            .and_then(|()| admit(loads)))
+        .collect();
+    let admitted: Vec<_> = cases.iter().zip(&checks).filter_map(|(&case, check)| check.is_ok().then_some(case)).collect();
+    let mut certificates = if admitted.is_empty() { Vec::new() } else { certify(&admitted) }.into_iter();
+    checks.into_iter().map(|check| match check {
+        Err(e) => Certificate::uncertified(e),
+        Ok(()) => {
+            let mut certificate = certificates.next().expect("certificate for an admitted case");
+            finite::guard(&mut certificate);
+            certificate
         }
-    }
+    }).collect()
 }
 
 fn load_cases_2d(input: &SolverInput, cases: &[(&[SolverLoad], &AnalysisResults)]) -> Vec<Certificate> {
@@ -567,17 +575,7 @@ pub(super) fn gather_u_2d(dof_num: &DofNumbering, displacements: &[Displacement]
 /// Certify given results of `solve_3d(input)` (the input the results came from).
 /// Uncertified when the input, the results or the bound are not finite.
 pub fn certify_results_3d(input: &SolverInput3D, results: &AnalysisResults3D) -> Certificate {
-    if let Err(e) = finite::check_input(input).and_then(|()| finite::check_results(results)) {
-        return Certificate::uncertified(e);
-    }
-    let expanded = expand_curved_beams_3d(input);
-    let mut c = if needs_general_3d(&expanded) {
-        certify_general_3d(input, results)
-    } else {
-        certify_load_cases_3d(input, &[(&input.loads, results)]).pop().expect("one case")
-    };
-    finite::guard(&mut c);
-    c
+    certify_load_cases_3d(input, &[(&input.loads, results)]).pop().expect("one case")
 }
 
 /// Single 3D case with constraints and/or inclined supports.
@@ -694,11 +692,23 @@ pub fn certify_load_cases_3d(
     if let Err(e) = finite::check_input(input) {
         return vec![Certificate::uncertified(e); cases.len()];
     }
-    let bad: Vec<Option<String>> =
-        cases.iter().map(|(l, r)| finite::check_input(l).and_then(|()| finite::check_results(r)).err()).collect();
-    let mut out = load_cases_3d(input, cases);
-    guard_cases(&mut out, bad);
-    out
+    let mut model = input.clone();
+    model.loads.clear();
+    let session = std::cell::OnceCell::new();
+    certify_cases(cases, |loads| {
+        match session.get_or_init(|| LoadSession3D::from_input(model.clone())) {
+            Ok(session) => session.solve_loads(loads).map(drop),
+            Err(_) => {
+                let mut loaded = model.clone();
+                loaded.loads = loads.to_vec();
+                solve_3d(&loaded).map(drop)
+            }
+        }
+    }, |cases| load_cases_3d(input, cases))
+}
+
+pub(super) fn certify_solved_cases_3d(input: &SolverInput3D, cases: &[(&[SolverLoad3D], &AnalysisResults3D)]) -> Vec<Certificate> {
+    certify_cases(cases, |_| Ok(()), |cases| load_cases_3d(input, cases))
 }
 
 fn load_cases_3d(
