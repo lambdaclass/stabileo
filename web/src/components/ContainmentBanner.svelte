@@ -22,7 +22,7 @@
   const grouped = $derived(diagnostics.length || !disposition.messages.length ? groupKnownIssues(diagnostics, knownIssueMessage)
     : [{ kind: disposition.refused ? 'withheld' as const : 'limitation' as const, level: disposition.refused ? 'blocking' as const : 'warning' as const, details: disposition.messages }]);
   const notices = $derived(visibleNotices(boardNotices(grouped, extra), (k) => noticePrefs.isHidden(k)));
-  const messages = $derived(notices.flatMap((n) => [n.summary ?? n.kind, ...n.details]));
+  const messages = $derived([...disposition.messages, ...extra.filter((n) => notices.includes(n)).flatMap((n) => [n.summary ?? n.kind, ...n.details])]);
   const level = $derived(topLevel(notices));
   const refused = $derived(level === 'blocking');
   const summaryOf = (n: ResultNotice) => n.summary ?? t(`notices.kind.${n.kind}`);
