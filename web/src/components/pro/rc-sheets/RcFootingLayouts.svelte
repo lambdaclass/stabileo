@@ -3,7 +3,8 @@
   import { decimalFor, makeFmt } from '../../../lib/rc-sheets/format';
   import { setFoundationSystem } from '../../../lib/store/rc-sheets-footings';
   import type { FoundationLayout } from '../../../lib/rc-sheets/footing-layouts';
-  import type { FoundationSystem } from '../../../lib/rc-sheets/footing-types';
+  import { FOUNDATION_SYSTEMS, type FoundationSystem } from '../../../lib/rc-sheets/footing-types';
+  import { footingPreview } from '../../../lib/store/rc-sheets-footing-preview.svelte';
   import { modelStore } from '../../../lib/store';
   import { designData, patchDesignData } from '../../../lib/store/design-data';
   import { findProfile } from '../../../lib/model/geotechnical';
@@ -80,7 +81,7 @@
   <table>
     <thead><tr><th>{t('rcSheets.foundation.label')}</th><th class="n">{t('rcSheets.foundation.share')}</th><th class="n">m³</th><th class="n">kg</th><th>{t('rcSheets.foundation.parts')}</th><th class="n">{t('rcSheets.foundation.failing')}</th><th></th></tr></thead>
     <tbody>
-      {#each layouts as l (l.system)}
+      {#each FOUNDATION_SYSTEMS.map((sys) => ({ system: sys, done: layouts.find((x) => x.system === sys) })) as l (l.system)}
         <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
         <tr class:sel={shown === l.system} class:pick={!adopted} data-testid="rc-foundation-layout-{l.system}" onclick={() => { if (!adopted) preview = l.system; }}>
           <td>
@@ -88,16 +89,22 @@
             {#if l.system === 'auto'} <span class="rec">{t('rcSheets.foundation.recommended')}</span>{/if}
             {#if adopted === l.system}<span class="tag on" data-testid="rc-foundation-adopted-tag">{t('rcSheets.foundation.adoptedTag')}</span>{:else if !adopted && shown === l.system}<span class="tag" data-testid="rc-foundation-shown-tag">{t('rcSheets.foundation.shownTag')}</span>{/if}
           </td>
-          <td class="n">{pct(l.summary.share)}</td>
-          <td class="n">{fmt(l.summary.concrete, 1)}</td>
-          <td class="n">{fmt(l.summary.steel, 0)}</td>
-          <td>{l.summary.count.footing ? `${l.summary.count.footing} ${t('rcSheets.foundation.footingsShort')}` : ''}{l.summary.count.strip ? ` ${l.summary.count.strip} ${t('rcSheets.footKind.strip')}` : ''}{l.summary.count.mat ? ` ${l.summary.count.mat} ${t('rcSheets.footKind.mat')}` : ''}{l.summary.count.cap ? ` ${l.summary.count.cap} ${t('rcSheets.footKind.pileCap')}` : ''}</td>
-          <td class="n" class:bad={l.summary.failing > 0}>{l.summary.failing}{#if l.summary.needs !== null} <span class="needs" data-testid="rc-foundation-needs-{l.system}">{`qadm ≥ ${fmt(l.summary.needs, 0)} kPa`}</span>{/if}</td>
+          {#if l.done}
+            {@const sm = l.done.summary}
+            <td class="n">{pct(sm.share)}</td>
+            <td class="n">{fmt(sm.concrete, 1)}</td>
+            <td class="n">{fmt(sm.steel, 0)}</td>
+            <td>{sm.count.footing ? `${sm.count.footing} ${t('rcSheets.foundation.footingsShort')}` : ''}{sm.count.strip ? ` ${sm.count.strip} ${t('rcSheets.footKind.strip')}` : ''}{sm.count.mat ? ` ${sm.count.mat} ${t('rcSheets.footKind.mat')}` : ''}{sm.count.cap ? ` ${sm.count.cap} ${t('rcSheets.footKind.pileCap')}` : ''}</td>
+            <td class="n" class:bad={sm.failing > 0}>{sm.failing}{#if sm.needs !== null} <span class="needs" data-testid="rc-foundation-needs-{l.system}">{`qadm ≥ ${fmt(sm.needs, 0)} kPa`}</span>{/if}</td>
+          {:else}
+            <td class="n pending" colspan="5" data-testid="rc-foundation-pending-{l.system}">{t('rcSheets.foundation.notCompared')}</td>
+          {/if}
           <td>{#if adopted !== l.system}<button type="button" class="pk-btn" class:pk-btn-primary={shown === l.system} onclick={(e) => { e.stopPropagation(); setFoundationSystem(l.system); }} data-testid="rc-foundation-adopt-{l.system}">{t('rcSheets.foundation.adopt')}</button>{/if}</td>
         </tr>
       {/each}
     </tbody>
   </table>
+  {#if layouts.length < FOUNDATION_SYSTEMS.length}<button type="button" class="pk-btn rfl-compare" onclick={() => (footingPreview.compare = true)} data-testid="rc-foundation-compare">{t('rcSheets.foundation.compareAll')}</button>{/if}
   {#if layouts.some((l) => l.summary.needs !== null)}<p class="hint">{t('rcSheets.foundation.needsHint')}</p>{/if}
   {#if !adopted}<p class="hint">{t('rcSheets.foundation.noneHint')}</p>{/if}
 </div>
@@ -119,6 +126,8 @@
   .tag { margin-left: 4px; font-size: 0.64rem; padding: 0 4px; border-radius: 3px; border: 1px solid var(--st-hair-strong); color: var(--st-text-2); }
   .tag.on { border-color: var(--st-ok); color: var(--st-ok); }
   .rfl-fields { display: flex; flex-direction: column; gap: 2px; }
+  td.pending { text-align: left; color: var(--st-text-3); font-style: italic; }
+  .rfl-compare { align-self: flex-start; }
   .rec { font-size: 0.64rem; color: var(--st-accent); border: 1px solid var(--st-accent); border-radius: 3px; padding: 0 3px; }
   .bad { color: var(--st-danger); font-weight: 600; }
   .needs { font-weight: 400; white-space: nowrap; }

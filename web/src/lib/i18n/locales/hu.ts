@@ -16663,6 +16663,8 @@ const hu: Translations = {
   "rcSheets.alt.footing.soil": "A feltételezett megengedett feszültséggel egyik alaptest sem felel meg: erősítsen meg nagyobbat a talajvizsgálattal, vagy térjen át mélyalapozásra.",
   "rcSheets.foundation.layouts": "Alapozási változatok",
   "rcSheets.foundation.qadm": "Megengedett talajfeszültség",
+  "rcSheets.foundation.notCompared": "nincs méretezve: válassza ki a megtekintéshez",
+  "rcSheets.foundation.compareAll": "Mind az 5 kiosztás összevetése",
   "rcSheets.foundation.depth": "Alapozási mélység",
   "rcSheets.foundation.depthAuto": "automatikus",
   "rcSheets.foundation.depthHint": "az alapok alsó síkja ±0,00 alatt; üres: amit a legvastagabb alap kíván",

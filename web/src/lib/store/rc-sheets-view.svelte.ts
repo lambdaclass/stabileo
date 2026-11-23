@@ -19,6 +19,7 @@ import { activeResultSet3D } from './active-results';
 import { decimalFor, makeFmt } from '../rc-sheets/format';
 import { sheetsProgress } from './rc-sheets-progress.svelte';
 import { foundationStamp } from './rc-sheets-footings';
+import { footingPreview } from './rc-sheets-footing-preview.svelte';
 
 /** What the rows were designed from: what makes them out of date when it changes. */
 interface Stamp {
@@ -52,7 +53,7 @@ function stampNow(): Stamp {
     // The result shown is a view of these, not an input: the combinations', or with none the one set designed.
     results: resultsStore.perCombo3D.size ? resultsStore.perCase3D : activeResultSet3D(), perCombo: resultsStore.perCombo3D, groups: modelStore.model.groups,
     modelVersion: modelStore.modelVersion,
-    design: JSON.stringify({ rest, sheets, code: sheetCode() }), adopted: JSON.stringify({ adopted: adopted ?? null, bentLines, footingSetup, footingSizing, propertyLines, foundationSystem, foundingElevation, presumedBearingKPa, presumedPile }),
+    design: JSON.stringify({ rest, sheets, code: sheetCode() }), adopted: JSON.stringify({ adopted: adopted ?? null, bentLines, footingSetup, footingSizing, propertyLines, foundationSystem, foundingElevation, presumedBearingKPa, presumedPile, shown: foundationSystem ? null : footingPreview.system, compare: footingPreview.compare }),
     footings: JSON.stringify({ footingSetup, footingSizing, propertyLines, foundationSystem, foundingElevation, presumedBearingKPa, presumedPile }), locale: i18n.locale, foundation: foundationStamp(),
   };
 }

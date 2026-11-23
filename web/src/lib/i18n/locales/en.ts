@@ -17117,6 +17117,8 @@ const en: Record<string, string> = {
   "rcSheets.alt.footing.soil": "With the presumed allowable pressure no footing verifies: confirm a higher one with the soil study or move to a deep foundation.",
   "rcSheets.foundation.layouts": "Foundation layouts",
   "rcSheets.foundation.qadm": "Allowable soil pressure",
+  "rcSheets.foundation.notCompared": "not designed: pick it to see it",
+  "rcSheets.foundation.compareAll": "Compare the 5 layouts",
   "rcSheets.foundation.depth": "Founding depth",
   "rcSheets.foundation.depthAuto": "automatic",
   "rcSheets.foundation.depthHint": "underside of the footings below ±0.00; empty: what the deepest footing asks for",

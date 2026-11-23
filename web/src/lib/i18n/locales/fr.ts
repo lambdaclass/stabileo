@@ -16955,6 +16955,8 @@ const fr: Translations = {
   "rcSheets.alt.footing.soil": "Avec la contrainte admissible présumée aucune semelle ne vérifie : confirmez-en une plus élevée par l'étude de sol ou passez à une fondation profonde.",
   "rcSheets.foundation.layouts": "Dispositions de fondation",
   "rcSheets.foundation.qadm": "Contrainte admissible du sol",
+  "rcSheets.foundation.notCompared": "non calculée : choisissez-la pour la voir",
+  "rcSheets.foundation.compareAll": "Comparer les 5 dispositions",
   "rcSheets.foundation.depth": "Profondeur de fondation",
   "rcSheets.foundation.depthAuto": "automatique",
   "rcSheets.foundation.depthHint": "sous-face des semelles sous ±0,00 ; vide : celle que demande la semelle la plus épaisse",

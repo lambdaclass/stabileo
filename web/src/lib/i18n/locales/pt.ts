@@ -16759,6 +16759,8 @@ const pt: Translations = {
   "rcSheets.alt.footing.soil": "Com a tensão admissível presumida nenhuma sapata verifica: confirme uma maior com o estudo de solo ou passe a uma fundação profunda.",
   "rcSheets.foundation.layouts": "Arranjos da fundação",
   "rcSheets.foundation.qadm": "Tensão admissível do solo",
+  "rcSheets.foundation.notCompared": "não calculada: escolha-a para vê-la",
+  "rcSheets.foundation.compareAll": "Comparar as 5 disposições",
   "rcSheets.foundation.depth": "Profundidade de fundação",
   "rcSheets.foundation.depthAuto": "automática",
   "rcSheets.foundation.depthHint": "face inferior das sapatas abaixo de ±0,00; vazio: a que pede a sapata mais alta",

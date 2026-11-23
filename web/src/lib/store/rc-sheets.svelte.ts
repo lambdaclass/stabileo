@@ -394,6 +394,8 @@ function fcOfShells(quads: number[], plates: number[]): number {
 const demandCache = new WeakMap<object, { beams: ReturnType<typeof beamDemands>; columns: ReturnType<typeof columnDemands>; slabs: ReturnType<typeof slabDemands>; levels: LevelGeometry[]; walls: ReturnType<typeof wallDemands>; punching: ReturnType<typeof punchingDemands>; groupsRev: unknown; opts: string }>();
 
 const rowCache = new WeakMap<object, Map<string, SheetRow>>();
+/** Each foundation layout designed for these footings' demands, by what it was designed with: one already compared is not designed again when another is looked at. */
+const layoutCache = new WeakMap<object, Map<string, FootingRow[]>>();
 const lineCache = new WeakMap<object, { k: string; v: LineLayout }>();
 
 function cachedLine(anchor: object, inputs: unknown, compute: () => LineLayout): LineLayout {
@@ -539,7 +541,15 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
   const piers = rules.piers ? allPiers.filter((p) => p.columns.length) : [];
   const supported = new Set([...modelStore.supports.values()].map((x) => x.nodeId));
   let feet = withAdoptedCombined(currentFootingDemands(sets, storeyNamer(), foundationPiers(allPiers, D.walls, D.columns, supported)), adoptedNow);
-  const total = D.beams.length * 2 + D.columns.length + D.slabs.length + D.walls.length + D.punching.length + (feet.length ? FOUNDATION_SYSTEMS.length * feet.length : 0);
+  const chosenSystem = feet.length ? foundationSystem(data) : null;
+  const layoutsToDesign = feet.length ? (footingPreview.compare ? FOUNDATION_SYSTEMS : [chosenSystem ?? footingPreview.system]) : [];
+  const layoutKey = (sys: FoundationSystem) => JSON.stringify([sys, modelStore.modelVersion, code, fmt(1.5, 1), designInputs, crit.footingMatShare, Object.entries(adoptedNow).filter(([k]) => isFootingKey(k) || k.startsWith('column:') || k.startsWith('line:'))]);
+  const { adopted: _a, schedule: _s, edited: _e, ...sheetSettings } = data;
+  const designInputs = JSON.stringify([dd, sheetSettings]);
+  const layoutMemo = layoutCache.get(key) ?? new Map<string, FootingRow[]>();
+  layoutCache.set(key, layoutMemo);
+  const toDesign = layoutsToDesign.filter((sys) => sys === chosenSystem || !layoutMemo.has(layoutKey(sys)));
+  const total = D.beams.length * 2 + D.columns.length + D.slabs.length + D.walls.length + D.punching.length + toDesign.length * feet.length;
   let done = 0;
   const step = (): SheetProgress => ({ phase: 'design', done: ++done, total });
   const groupsById = new Map(physicalGroups().map((g) => [g.id, g]));
@@ -759,10 +769,10 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
       if (r.done) { rows = r.value; break; }
       const s = r.value;
       done = base + Math.min(feet.length - 1, s.levelling ? feet.length - 1 : Math.round(feet.length * s.footing / Math.max(1, s.footings)));
-      yield { phase: 'foundations', done, total, layout: { system, index, count: FOUNDATION_SYSTEMS.length, footing: s.footing, footings: s.footings, levelling: s.levelling, ...(s.grouping ? { grouping: true as const } : {}) } };
+      yield { phase: 'foundations', done, total, layout: { system, index, count: Math.max(1, toDesign.length), footing: s.footing, footings: s.footings, levelling: s.levelling, ...(s.grouping ? { grouping: true as const } : {}) } };
     }
     done = base + feet.length;
-    yield { phase: 'foundations', done, total, layout: { system, index, count: FOUNDATION_SYSTEMS.length, footing: feet.length, footings: feet.length, levelling: false } };
+    yield { phase: 'foundations', done, total, layout: { system, index, count: Math.max(1, toDesign.length), footing: feet.length, footings: feet.length, levelling: false } };
     const pulls = tiePulls(rows, (q, H, from) => q.column?.storey ?? Math.max(0, H - leverOf(from.demand, from.adopted.h)), feet);
     if (pulls.size) rows = rows.map((r) => { const p = pulls.get(r.key); if (!p) return r; const f = footingRowOf(withPulls(r.demand, p), rules, adoptedNow, footingSizing(data), column, fmt); redo(r.key, f.redo); return f.row; });
     const straps = designFootingStraps(rows, {
@@ -781,10 +791,18 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
     }
     return sort(withOverlaps(rows));
   };
-  const chosen = feet.length ? foundationSystem(data) : null;
+  const chosen = chosenSystem;
   const footing = chosen ? yield* layout(chosen, true, 1) : [];
+  if (chosen) layoutMemo.set(layoutKey(chosen), footing);
   const others = new Map<FoundationSystem, FootingRow[]>();
-  for (const sys of FOUNDATION_SYSTEMS) if (feet.length && sys !== chosen) others.set(sys, yield* layout(sys, false, others.size + (chosen ? 2 : 1)));
+  for (const sys of layoutsToDesign) {
+    if (sys === chosen) continue;
+    const hit = layoutMemo.get(layoutKey(sys));
+    const rows = hit ?? (yield* layout(sys, false, others.size + (chosen ? 2 : 1)));
+    if (!hit) layoutMemo.set(layoutKey(sys), rows);
+    others.set(sys, rows);
+  }
+  for (const sys of FOUNDATION_SYSTEMS) if (feet.length && sys !== chosen && !others.has(sys)) { const hit = layoutMemo.get(layoutKey(sys)); if (hit) others.set(sys, hit); }
   const footingLayouts = FOUNDATION_SYSTEMS.flatMap((sys) => { const rows = sys === chosen ? footing : others.get(sys); return rows ? [{ system: sys, rows }] : []; });
   const framed = column.filter((r) => !r.pier);
   const checked = seismic ? jointChecks(framed, beam, modelStore.nodes, fmt, joint) : framed;

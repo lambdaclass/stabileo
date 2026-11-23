@@ -16692,6 +16692,8 @@ const zh: Translations = {
   "rcSheets.alt.footing.soil": "按假定容许承载力，没有任何基础通过验算：请以岩土勘察确认更高的值，或改用深基础。",
   "rcSheets.foundation.layouts": "基础方案",
   "rcSheets.foundation.qadm": "地基容许承载力",
+  "rcSheets.foundation.notCompared": "未计算：选中即可查看",
+  "rcSheets.foundation.compareAll": "比较全部 5 种布置",
   "rcSheets.foundation.depth": "基础埋深",
   "rcSheets.foundation.depthAuto": "自动",
   "rcSheets.foundation.depthHint": "基础底面在 ±0.00 以下；留空：取最厚基础所需",

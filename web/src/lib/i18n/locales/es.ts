@@ -17106,6 +17106,8 @@ const es: Record<string, string> = {
   "rcSheets.alt.footing.soil": "Con la tensión admisible supuesta no hay base que verifique: confirmá una mayor con el estudio de suelos o pasá a una fundación profunda.",
   "rcSheets.foundation.layouts": "Disposiciones de la fundación",
   "rcSheets.foundation.qadm": "Tensión admisible del suelo",
+  "rcSheets.foundation.notCompared": "sin calcular: elegila para verla",
+  "rcSheets.foundation.compareAll": "Comparar las 5 disposiciones",
   "rcSheets.foundation.depth": "Profundidad de fundación",
   "rcSheets.foundation.depthAuto": "automática",
   "rcSheets.foundation.depthHint": "cara inferior de las bases bajo ±0,00; vacío: la que pide la base más gruesa",

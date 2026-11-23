@@ -16955,6 +16955,8 @@ const de: Translations = {
   "rcSheets.alt.footing.soil": "Mit dem angenommenen zulässigen Sohldruck erfüllt kein Fundament den Nachweis: Bestätigen Sie einen höheren mit dem Baugrundgutachten oder wechseln Sie zu einer Tiefgründung.",
   "rcSheets.foundation.layouts": "Gründungsvarianten",
   "rcSheets.foundation.qadm": "Zulässige Bodenpressung",
+  "rcSheets.foundation.notCompared": "nicht bemessen: zum Ansehen wählen",
+  "rcSheets.foundation.compareAll": "Alle 5 Anordnungen vergleichen",
   "rcSheets.foundation.depth": "Gründungstiefe",
   "rcSheets.foundation.depthAuto": "automatisch",
   "rcSheets.foundation.depthHint": "Unterkante der Fundamente unter ±0,00; leer: die das höchste Fundament verlangt",

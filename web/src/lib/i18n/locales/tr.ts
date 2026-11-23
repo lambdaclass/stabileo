@@ -16955,6 +16955,8 @@ const tr: Translations = {
   "rcSheets.alt.footing.soil": "Varsayılan emniyet gerilmesiyle hiçbir temel sağlamıyor: zemin etüdüyle daha yüksek bir değer doğrulayın veya derin temele geçin.",
   "rcSheets.foundation.layouts": "Temel düzenleri",
   "rcSheets.foundation.qadm": "Zemin emniyet gerilmesi",
+  "rcSheets.foundation.notCompared": "hesaplanmadı: görmek için seçin",
+  "rcSheets.foundation.compareAll": "5 düzeni karşılaştır",
   "rcSheets.foundation.depth": "Temel derinliği",
   "rcSheets.foundation.depthAuto": "otomatik",
   "rcSheets.foundation.depthHint": "temellerin alt yüzü ±0,00 altında; boş: en kalın temelin istediği",
