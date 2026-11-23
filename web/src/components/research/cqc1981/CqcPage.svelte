@@ -21,7 +21,8 @@
   let source = $state<'replay' | 'live'>('replay');
   let rule = $state<'SRSS' | 'CQC'>('CQC');
   let xi = $state(benchmark.xi);
-  const reference = $derived(closedForm(xi));
+  let resultXi = $state(benchmark.xi);
+  const reference = $derived(closedForm(resultXi));
   let busy = $state(false);
   let error = $state('');
   let host: HTMLDivElement;
@@ -45,6 +46,7 @@
     stop();
     results = replay.results;
     xi = benchmark.xi;
+    resultXi = benchmark.xi;
     source = 'replay';
     error = '';
     if (reducedMotion()) {
@@ -57,12 +59,14 @@
   async function run() {
     stop();
     const id = request;
+    const damping = xi;
     busy = true;
     error = '';
     try {
-      const next = await recompute(xi);
+      const next = await recompute(damping);
       if (id !== request) return;
       results = next;
+      resultXi = damping;
       source = 'live';
       playback.seek(30);
     } catch (e) {
