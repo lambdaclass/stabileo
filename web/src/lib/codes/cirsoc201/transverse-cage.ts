@@ -1249,9 +1249,6 @@ export interface UnbracedBarReport {
   refs: ClauseRef[];
 }
 
-/** §25.7.2.3(b): the clear distance an unbraced bar may keep from a braced one, m. */
-export const unbracedClearLimit = (stirrupDiaMm: number): number => Math.min(15 * stirrupDiaMm / 1000, 0.150);
-
 /**
  * §25.7.2.3(b) — "Ninguna barra que no esté arriostrada lateralmente puede estar separada
  * más de 15·d_be o 150 mm libres de una barra arriostrada."
@@ -1260,7 +1257,6 @@ export const unbracedClearLimit = (stirrupDiaMm: number): number => Math.min(15 
  * across-offset coincides with a leg offset. The limit is the LESSER of the two terms, and it
  * is a CLEAR distance, so the two bar radii come off the centre-to-centre distance.
  */
-
 export function unbracedBarReport(
   bars: readonly LongitudinalBarRef[],
   /**
@@ -1272,7 +1268,7 @@ export function unbracedBarReport(
   stirrupDiaMm: number,
   tolerance = 0.002,
 ): UnbracedBarReport {
-  const limit = unbracedClearLimit(stirrupDiaMm);
+  const limit = Math.min(15 * stirrupDiaMm / 1000, 0.150);
 
   // ── What "laterally supported" means, per §25.7.2.3(a) ─────────────
   //
