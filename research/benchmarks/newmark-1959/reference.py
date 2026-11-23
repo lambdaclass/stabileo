@@ -31,7 +31,11 @@ if sys.argv[1:] == ['--write']:
     manifest = json.loads((here / 'reference-results' / 'MANIFEST.json').read_text())
     manifest['files_sha256'] = {'closed-form.json': hashlib.sha256(text.encode()).hexdigest()}
     (here / 'reference-results' / 'MANIFEST.json').write_text(json.dumps(manifest, indent=2) + '\n')
-stored = json.loads(target.read_text())
+committed = target.read_text()
+manifest = json.loads((here / 'reference-results' / 'MANIFEST.json').read_text())
+assert manifest['files_sha256'] == {'closed-form.json': hashlib.sha256(committed.encode()).hexdigest()}, 'MANIFEST.json hashes are stale: rerun with --write'
+stored = json.loads(committed)
+assert len(stored['runs']) == len(runs), (len(stored['runs']), len(runs))
 for a, b in zip(stored['runs'], runs):
     for key in b:
         assert math.isclose(a[key], b[key], rel_tol=1e-12, abs_tol=1e-15), (key, a[key], b[key])

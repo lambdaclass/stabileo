@@ -122,6 +122,8 @@ try {
     };
     same(JSON.parse(readFileSync(paths.validation, 'utf8')), validation, 'VALIDATION.json');
     same(JSON.parse(readFileSync(paths.comparison, 'utf8')), comparison, 'published_comparison.json');
+    const manifest = JSON.parse(readFileSync(paths.manifest, 'utf8'));
+    assert.deepEqual(manifest.files_sha256, { 'published_comparison.json': createHash('sha256').update(readFileSync(paths.comparison)).digest('hex') }, 'MANIFEST.json hashes are stale: rerun with --write');
   }
   for (const c of checks) console.log(`${c.passed ? 'pass' : 'FAIL'}  ${c.metric}: ${c.observed} ≤ ${c.tolerance}`);
   for (const r of rows) console.log(`${r.passed ? 'pass' : 'FAIL'}  ${r.name}: paper ${r.reference}, Stabileo ${r.computed}, ${r.metric} ${r.observed} ≤ ${r.tolerance}`);

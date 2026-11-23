@@ -60,15 +60,16 @@ try {
   const reference = { what: 'Kinematic upper bounds by virtual work: beam 8Mp/(VL), sway 4Mp/(Hh), combined 6Mp/(Hh + VL/2); our own hand derivations (README), not values from Horne (1979).', cases: hand };
   const text = v => JSON.stringify(v, null, 2) + '\n';
   const files = { validation: new URL('VALIDATION.json', here), reference: new URL('reference-results/hand_calculation.json', here), manifest: new URL('reference-results/MANIFEST.json', here) };
+  const manifest = referenceText => ({
+    what: 'Hand-calculated mechanism bounds for our example and the parameter sweep; no published values (the book was not available to check).',
+    source: 'wasm/check.mjs from engine/tests/benchmarks/plastic_collapse.json',
+    command: COMMAND,
+    files_sha256: { 'hand_calculation.json': createHash('sha256').update(referenceText).digest('hex') },
+  });
   if (write) {
     writeFileSync(files.validation, text(validation));
     writeFileSync(files.reference, text(reference));
-    writeFileSync(files.manifest, text({
-      what: 'Hand-calculated mechanism bounds for our example and the parameter sweep; no published values (the book was not available to check).',
-      source: 'wasm/check.mjs from engine/tests/benchmarks/plastic_collapse.json',
-      command: COMMAND,
-      files_sha256: { 'hand_calculation.json': createHash('sha256').update(text(reference)).digest('hex') },
-    }));
+    writeFileSync(files.manifest, text(manifest(text(reference))));
   } else {
     const same = (a, b, path) => {
       if (typeof a === 'number' && typeof b === 'number') return assert.ok(Math.abs(a - b) <= Math.max(1e-9 * Math.abs(b), 1e-15), `${path}: ${a} vs committed ${b}`);
@@ -80,7 +81,9 @@ try {
       assert.equal(a, b, path);
     };
     same(validation, JSON.parse(readFileSync(files.validation, 'utf8')), 'VALIDATION.json');
-    same(reference, JSON.parse(readFileSync(files.reference, 'utf8')), 'hand_calculation.json');
+    const committedReference = readFileSync(files.reference, 'utf8');
+    same(reference, JSON.parse(committedReference), 'hand_calculation.json');
+    assert.deepEqual(JSON.parse(readFileSync(files.manifest, 'utf8')), manifest(committedReference), 'MANIFEST.json is stale: rerun with --write');
   }
   console.log(JSON.stringify(list.map(c => [c.metric, c.observed, c.tolerance]), null, 2));
 } finally { await server.close(); }
