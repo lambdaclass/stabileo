@@ -636,9 +636,9 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
     const g = groupOf(d.key);
     const ctx = { mat: { fc: fcOfShells(g?.members.quads ?? [], g?.members.plates ?? []), fy }, cover: dd.covers.slab, diameters: slabBars, ...slabBase, ...defl, criteria: crit };
     const a = adoptedNow[d.key] as SlabAdopted | undefined;
-    redesigners.set(d.key, ((x: typeof d, o?: RedesignWith) => rules.slabRow(x, withRedesign(ctx, o), undefined, fmt)) as Redesign);
+    redesigners.set(d.key, ((x: typeof d, o?: RedesignWith) => withMissingForces(rules.slabRow(x, withRedesign(ctx, o), undefined, fmt), x.missing)) as Redesign);
     rowFc.set(d.key, ctx.mat.fc);
-    slab.push(cached(d, [code, ctx, a, dec], () => rules.slabRow(d, ctx, a, fmt)));
+    slab.push(withMissingForces(cached(d, [code, ctx, a, dec], () => rules.slabRow(d, ctx, a, fmt)), d.missing));
     yield step();
   }
   const planOf = (g: LevelGeometry) => {
@@ -656,9 +656,9 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
     const g = groupOf(d.key);
     const ctx = { mat: { fc: fcOfShells(g?.members.quads ?? [], g?.members.plates ?? []), fy }, cover: dd.covers.slab, diameters: slabBars, ...slabBase, ...defl, span: { kind: 'cantilever' as const, dir: k.dir, length: k.length }, criteria: crit };
     const a = adoptedNow[d.key] as SlabAdopted | undefined;
-    redesigners.set(d.key, ((x: typeof d, o?: RedesignWith) => rules.slabRow(x, withRedesign(ctx, o), undefined, fmt)) as Redesign);
+    redesigners.set(d.key, ((x: typeof d, o?: RedesignWith) => withMissingForces(rules.slabRow(x, withRedesign(ctx, o), undefined, fmt), x.missing)) as Redesign);
     rowFc.set(d.key, ctx.mat.fc);
-    slab[i] = cached(d, [code, ctx, a, dec], () => rules.slabRow(d, ctx, a, fmt));
+    slab[i] = withMissingForces(cached(d, [code, ctx, a, dec], () => rules.slabRow(d, ctx, a, fmt)), d.missing);
     spanned.add(r.level ?? '');
   });
   if (spanned.size) slabPlans = D.levels.map((g) => (spanned.has(g.level) ? planOf(g) : slabPlans.find((p) => p.level === g.level))).filter((p): p is LevelPlan => !!p && p.panels.length > 0);
@@ -674,7 +674,7 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
   const pierHooks: PierHooks = {
     fmt, fy, diameters: dd.longDiametersMm,
     wallCtx: wallCtxOf, wallAdopted: (k) => adoptedNow[k] as WallAdopted | undefined,
-    wallRow: (d, c, a) => cached(d, [code, c, a, dec], () => rules.wallRow(d, c, a, fmt)),
+    wallRow: (d, c, a) => withMissingForces(cached(d, [code, c, a, dec], () => rules.wallRow(d, c, a, fmt)), d.missing),
     columnCtx: (d) => columnCtxOf(d), columnAdopted: (k) => adoptedNow[k] as ColumnAdopted | undefined,
     columnRow: (d, c, a, st) => withLapFit(rules.columnRow(d, c, a, fmt, st), code, fmt),
     below: (d) => { const i = D.columns.indexOf(d), prev = D.columns[i - 1]; return prev && prev.key.split(':')[1] === d.key.split(':')[1] ? column.find((r) => r.key === prev.key) : undefined; },
@@ -691,7 +691,7 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
           const stack = wallStack.get(leg.key);
           const placed = legOfPier(stack ? { ...leg, stack } : leg, design, fmt);
           const legCtx = { ...wallCtxOf(leg.demand), pier: {} };
-          redesigners.set(leg.key, ((x: typeof d, o?: RedesignWith) => rules.wallRow(x, withRedesign(legCtx, o), undefined, fmt)) as Redesign);
+          redesigners.set(leg.key, ((x: typeof d, o?: RedesignWith) => withMissingForces(rules.wallRow(x, withRedesign(legCtx, o), undefined, fmt), x.missing)) as Redesign);
           rowFc.set(leg.key, legCtx.mat.fc);
           wallDone.set(leg.key, placed);
           wall.push(placed);
@@ -703,9 +703,9 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
     const ctx = wallCtxOf(d);
     const stack = wallStack.get(d.key);
     const a = adoptedNow[d.key] as WallAdopted | undefined;
-    redesigners.set(d.key, ((x: typeof d, o?: RedesignWith) => rules.wallRow(x, withRedesign(ctx, o), undefined, fmt)) as Redesign);
+    redesigners.set(d.key, ((x: typeof d, o?: RedesignWith) => withMissingForces(rules.wallRow(x, withRedesign(ctx, o), undefined, fmt), x.missing)) as Redesign);
     rowFc.set(d.key, ctx.mat.fc);
-    const row = cached(d, [code, ctx, a, dec], () => rules.wallRow(d, ctx, a, fmt));
+    const row = withMissingForces(cached(d, [code, ctx, a, dec], () => rules.wallRow(d, ctx, a, fmt)), d.missing);
     const placed = stack ? { ...row, stack } : row;
     wallDone.set(d.key, placed);
     wall.push(placed);

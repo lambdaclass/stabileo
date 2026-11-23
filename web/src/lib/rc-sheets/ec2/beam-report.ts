@@ -50,7 +50,7 @@ function torsionLines(d: BeamDemand, req: BeamReq, e: BeamEval, fmt: Fmt): Check
   ];
 }
 
-export function beamCombos(set: Ec2Set, d: BeamDemand, c: BeamContext, a: BeamAdopted, req: BeamReq, m: Mat, fmt: Fmt): ComboTable {
+export function beamCombos(set: Ec2Set, d: BeamDemand, c: BeamContext, a: BeamAdopted, req: BeamReq, m: Mat, fmt: Fmt): { headers: string[]; rows: Array<ComboTable['rows'][number] & { short: { bottom: boolean; top: boolean; stirrups: boolean } }> } {
   const g = geomOf(d), sd = a.stirrups.dia, p = set.p;
   const S = barsAt(a, 'start'), M = barsAt(a, 'span'), E = barsAt(a, 'end');
   const cap = (t: typeof S.top, k: typeof S.top, sag: boolean, n: number) => beamCapacity(g, c.cover, sd, t, k, sag, n, m, p).mrd;
@@ -78,7 +78,14 @@ export function beamCombos(set: Ec2Set, d: BeamDemand, c: BeamContext, a: BeamAd
     const need = k.v > sCap.vrdc ? (k.v / (req.shear.z * fywd * (torsion ? req.cot : sCap.cot))) * 1e4 : 0;
     const stir = ratioOf(need / legs + tLeg, perLegProvided);
     const ratio = Math.max(flex, stir, ratioOf(k.v, sCap.vrd));
-    return { combo: k.combo, values: [fmt(k.mStart, 1), fmt(k.mSpan, 1), fmt(k.mEnd, 1), fmt(k.v, 1), fmt(k.t, 1), fmt(k.nSpan, 1)], ratio, ok: ratio <= 1 + 1e-6 };
+    const sag = Math.max(
+      r(Math.max(0, k.mStart), () => cap(S.bottom, S.top, true, k.nStart), () => 0),
+      r(Math.max(0, k.mSpan), () => cap(M.bottom, M.top, true, k.nSpan), () => 0),
+      r(Math.max(0, k.mEnd), () => cap(E.bottom, E.top, true, k.nEnd), () => 0),
+      ratioOf(k.mPos, peakCap(peakSection(d, k.xPos) ?? 'span', true, k)),
+    );
+    const short = { bottom: sag > 1 + 1e-6, top: flex > 1 + 1e-6 && sag <= flex - 1e-9, stirrups: Math.max(stir, ratioOf(k.v, sCap.vrd)) > 1 + 1e-6 };
+    return { combo: k.combo, values: [fmt(k.mStart, 1), fmt(k.mSpan, 1), fmt(k.mEnd, 1), fmt(k.v, 1), fmt(k.t, 1), fmt(k.nSpan, 1)], ratio, ok: ratio <= 1 + 1e-6, short };
   });
   return { headers: ['M i', 'M x*', 'M j', 'V', 'T', 'N'], rows };
 }

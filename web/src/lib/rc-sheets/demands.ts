@@ -577,13 +577,17 @@ export function slabDemands(m: DemandInput, thickness: (g: DemandGroup) => numbe
     const fromFace = (c: { x: number; y: number }, axis: 'x' | 'y') =>
       axis === 'x' ? Math.min(c.x - ext.x0 - faces.x0, ext.x1 - faces.x1 - c.x) : Math.min(c.y - ext.y0 - faces.y0, ext.y1 - faces.y1 - c.y);
     const combos: SlabComboForces[] = [];
+    const missing: string[] = [];
     const field = new Map<string, NonNullable<SlabDemand['topField']>[number]>();
     for (const set of m.sets) {
       const c: SlabComboForces = { combo: set.name, bottomX: 0, bottomY: 0, topX: 0, topY: 0, qx: 0, qy: 0 };
       const shears: Array<{ key: string; q: readonly number[] }> = [];
+      const read = new Set<string>();
       for (const row of shellRowsIn(set, m.shells, keys)) {
         const key = `${row.kind === 'quad' ? 'q' : 'p'}${row.id}`;
-        if (!keys.has(key) || !row.global) continue;
+        if (!keys.has(key)) continue;
+        read.add(key);
+        if (!row.global) continue;
         const k = flipOf.get(key) ?? 1;
         const mo = row.global.moment;
         const wa = woodArmer(k * mo.xx, k * mo.yy, k * mo.xy);
@@ -605,6 +609,7 @@ export function slabDemands(m: DemandInput, thickness: (g: DemandGroup) => numbe
         const along = (axis: 'x' | 'y', comp: 0 | 1) => shearAtCritical(shears.flatMap((r) => { const ct = centre.get(r.key); return ct ? [{ dist: fromFace(ct, axis), q: Math.abs(r.q[comp]!) }] : []; }), dSlab);
         c.qx = along('x', 0); c.qy = along('y', 1);
       }
+      if (read.size < keys.size) { missing.push(set.name); continue; }
       if (c.qx > q.x.value) q.x = { value: c.qx, source: { combo: set.name } };
       if (c.qy > q.y.value) q.y = { value: c.qy, source: { combo: set.name } };
       combos.push(c);
@@ -615,6 +620,7 @@ export function slabDemands(m: DemandInput, thickness: (g: DemandGroup) => numbe
       key: `slab:${g.id}`, name: g.name, level: g.level,
       lx: bounds.x1 - bounds.x0, ly: bounds.y1 - bounds.y0, bounds, h, m: best, q, combos,
       ...(field.size ? { topField: [...field.values()] } : {}),
+      ...(missing.length ? { missing } : {}),
     });
   }
   return out;
@@ -719,13 +725,17 @@ export function wallDemands(m: DemandInput): WallDemand[] {
       const held = baseNodes.filter((nd) => m.supportNodes.has(nd) || framed.has(nd) || (shellsAt.get(nd) ?? []).some((x) => x.minZ < lo - 1e-3 || (!own.has(x.key) && x.flat)));
       const baseBy = new Map(base.map((x) => [x.key, x]));
       const combos: WallComboForces[] = [];
+      const missing: string[] = [];
       for (const set of m.sets) {
         let muV = 0, muH = 0;
         const g: CutForces = { n: 0, mx: 0, my: 0, vx: 0, vy: 0 };
         const strips: Parameters<typeof wallBaseResultants>[0][number][] = [];
+        const read = new Set<string>();
         for (const row of shellRowsIn(set, m.shells, keys)) {
           const key = `${row.kind === 'quad' ? 'q' : 'p'}${row.id}`;
-          if (!keys.has(key) || !row.global) continue;
+          if (!keys.has(key)) continue;
+          read.add(key);
+          if (!row.global) continue;
           muV = Math.max(muV, Math.abs(tensorAlong(row.global.moment, v, v)));
           muH = Math.max(muH, Math.abs(tensorAlong(row.global.moment, u, u)));
           const b = baseBy.get(key);
@@ -740,12 +750,14 @@ export function wallDemands(m: DemandInput): WallDemand[] {
           g.n += f; g.mx += f * y - vy * dz; g.my += -f * x + vx * dz;
           g.vx += vx; g.vy += vy;
         }
+        if (read.size < keys.size) { missing.push(set.name); continue; }
         const { pu, mu, vu } = wallBaseResultants(strips, centre);
         combos.push({ combo: set.name, pu, mu: Math.abs(mu), vu: Math.abs(vu), muV, muH, global: g });
       }
       out.push({
         key: `wall:${g.id}:${k}`, name: g.name, level: m.levelAt ? m.levelAt(lo) : g.level,
         length, height: hi - lo, thickness, baseElements: base.length, plan: basePlan(base.flatMap((x) => x.pts), uOf), z: lo, base: { nodes: baseNodes.length, held: held.length, unheld: baseNodes.filter((nd) => !held.includes(nd)) }, baseNodes, combos,
+        ...(missing.length ? { missing } : {}),
       });
     }
   }

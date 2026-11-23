@@ -5,6 +5,7 @@ import { makeFmt } from '../format';
 const f = makeFmt('.');
 const env = (x: number, pos: number, neg: number): SectionEnv => ({ x, pos: { value: pos, source: { combo: 'U1', x } }, neg: { value: neg, source: { combo: 'U1', x } }, nPos: 0, nNeg: 0 });
 const ctx = { mat: { fc: 25, fy: 420 }, cover: 0.03, stirrupDia: 8, diameters: [8, 10, 12, 16, 20, 25], torsion: 'equilibrium' as const };
+const u1 = { combo: 'U1', mStart: 173.3, mSpan: 173.3, mEnd: -33.9, mPos: 173.3, mNeg: 33.9, nStart: 0, nSpan: 0, nEnd: 0, v: 311, nV: 0, t: 0.7 };
 const grade: BeamDemand = {
   key: 'beam:60:3', name: 'V4-4', length: 4.5, b: 0.2, h: 0.6,
   start: env(0, 0, 64.5), span: env(2.25, 217.7, 0), end: env(4.5, 217.7, 0),
@@ -27,7 +28,7 @@ describe('a beam whose shear the section cannot carry', () => {
     const d: BeamDemand = {
       key: 'beam:62:6', name: 'V6-7', length: 4.5, b: 0.2, h: 0.6,
       start: env(0, 173.3, 0), span: env(0, 173.3, 0), end: env(4.5, 0, 33.9),
-      negAny: { value: 33.9 }, nNegAny: 0, vu: { value: 311 }, nAtV: 0, tu: { value: 0.7 }, combos: [{ combo: 'U1', v: 311 } as never],
+      negAny: { value: 33.9 }, nNegAny: 0, vu: { value: 311 }, nAtV: 0, tu: { value: 0.7 }, combos: [u1],
     };
     const seismic = { ...ctx, seismic: { overstrength: 1.25 } };
     const narrow = beamRow(d, seismic, undefined, f);
@@ -40,7 +41,7 @@ describe('a beam whose shear the section cannot carry', () => {
     const d: BeamDemand = {
       key: 'beam:62:6', name: 'V6-7', length: 4.5, b: 0.3, h: 0.6,
       start: env(0, 173.3, 0), span: env(0, 173.3, 0), end: env(4.5, 0, 33.9),
-      negAny: { value: 33.9 }, nNegAny: 0, vu: { value: 311 }, nAtV: 0, tu: { value: 0.7 }, combos: [{ combo: 'U1', v: 311 } as never],
+      negAny: { value: 33.9 }, nNegAny: 0, vu: { value: 311 }, nAtV: 0, tu: { value: 0.7 }, combos: [u1],
     };
     const r = beamRow(d, { ...ctx, seismic: { overstrength: 1.25 } }, undefined, f);
     expect(r.proposed.stirrups.legs).toBe(3);

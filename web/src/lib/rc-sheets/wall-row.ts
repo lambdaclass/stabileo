@@ -19,6 +19,8 @@ export interface WallComboForces { combo: string; pu: number; mu: number; vu: nu
 
 export interface WallDemand {
   key: string; name: string; level?: string;
+  /** Combinations with no results for some of its shells: their forces were not read. */
+  missing?: string[];
   /** m. */
   length: number; height: number; thickness: number;
   /** Elements along the base cut: one cannot resolve an in-plane moment from its centre stress. */

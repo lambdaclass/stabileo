@@ -14,6 +14,8 @@ export const SLAB_FACES: readonly SlabFace[] = ['bottomX', 'bottomY', 'topX', 't
 
 export interface SlabDemand {
   key: string; name: string; level?: string;
+  /** Combinations with no results for some of its shells: their forces were not read. */
+  missing?: string[];
   /** m. */
   lx: number; ly: number; h: number;
   /** The panel's extent in plan and its elevation, m, where the level plan places it. */
