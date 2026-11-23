@@ -70,6 +70,20 @@ class CiAggregate(unittest.TestCase):
             for aggregate in ['ci-ok', 'superseded']:
                 self.assertRegex(jobs[aggregate], rf'(?m)^      - {job}$')
 
+    @unittest.skip("known wrong result: #2483")
+    def test_parity_builds_research_in_separate_jobs_before_inventories(self):
+        workflow = (ROOT / '.github/workflows/ci.yml').read_text().split('\njobs:\n', 1)[1]
+        jobs = dict(re.findall(r'^  ([\w-]+):\n((?:^(?:    .*|)\n)*)', workflow, re.M))
+        research = jobs['production-parity-research']
+        site = jobs['production-parity-build']
+        self.assertIn('fromJSON(needs.changes.outputs.parity_research_sides)', research)
+        self.assertIn('PARITY_RESEARCH_OUT=', research)
+        self.assertIn('needs: [changes, production-parity-research]', site)
+        self.assertIn('PARITY_RESEARCH_IN=', site)
+        self.assertIn('timeout-minutes: 45', site)
+        for aggregate in ['ci-ok', 'superseded']:
+            self.assertRegex(jobs[aggregate], r'(?m)^      - production-parity-research$')
+
     def test_ci_scripts_filter_covers_its_tests_and_inputs(self):
         workflow = (ROOT / '.github/workflows/ci.yml').read_text()
         paths = workflow.split('            ci_scripts:\n', 1)[1].split('\n\n', 1)[0]

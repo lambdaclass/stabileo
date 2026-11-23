@@ -310,6 +310,61 @@ class ProductionParity(unittest.TestCase):
                     gate('--compare', str(inventories))
                 self.assertEqual(build.call_count, 3)
 
+    @unittest.skip("known wrong result: #2483")
+    def test_research_artifact_requires_matching_snapshot_inputs_and_complete_output(self):
+        with tempfile.TemporaryDirectory(dir=parity.ROOT) as directory:
+            repo = Path(directory)
+            source = repo / 'research/example/src/lib.rs'
+            source.parent.mkdir(parents=True)
+            source.write_text('reference')
+            viewer = repo / 'web/src/viewer.ts'
+            viewer.parent.mkdir(parents=True)
+            viewer.write_text('viewer')
+            build = repo / 'Makefile'
+            build.write_text('research.wasm:\n'
+                             '\tmkdir -p web/public/research-wasm/example\n'
+                             '\tcp research/example/src/lib.rs web/public/research-wasm/example/solver.wasm\n'
+                             '\tprintf metadata > web/public/research-wasm/example/.metadata\n')
+
+            def git(*args):
+                return subprocess.check_output(['git', *args], cwd=repo).decode().strip()
+
+            git('init', '--quiet')
+            git('config', 'user.name', 'Production parity fixture')
+            git('config', 'user.email', 'parity@example.invalid')
+            git('add', '.')
+            git('commit', '--quiet', '-m', 'Create the research build')
+            base = git('rev-parse', 'HEAD')
+            shared = repo / 'shared'
+            restored = repo / 'restored'
+            with patch.object(parity, 'ROOT', repo):
+                git('commit', '--quiet', '--allow-empty', '-m', 'Move head without changing inputs')
+                head = git('rev-parse', 'HEAD')
+                self.assertEqual(parity.research_sides(base, head), ['reference'])
+                key = parity.research_key(repo, base, head)
+                parity.build_research(repo, {})
+                output = repo / parity.RESEARCH_WASM
+                parity.stage_research(output, shared, key)
+                parity.restore_research(shared, restored, key)
+                self.assertEqual(parity.file_inventory(restored), parity.file_inventory(output))
+                self.assertEqual((restored / 'example/.metadata').read_text(), 'metadata')
+
+                for path in (source, viewer, build, repo / 'engine/src/lib.rs', repo / 'flake.lock'):
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    path.write_text('changed')
+                    git('add', str(path.relative_to(repo)))
+                    changed = git('write-tree')
+                    self.assertEqual(parity.research_sides(base, changed), ['reference', 'candidate'])
+                    with self.assertRaisesRegex(RuntimeError, 'research artifact.*snapshot'):
+                        parity.restore_research(shared, repo / 'wrong', parity.research_key(repo, base, head))
+                    self.assertFalse((repo / 'wrong').exists())
+                    git('reset', '--quiet', 'HEAD', '--', str(path.relative_to(repo)))
+
+                (shared / 'assets/example/.metadata').unlink()
+                with self.assertRaisesRegex(RuntimeError, 'research artifact.*contents'):
+                    parity.restore_research(shared, repo / 'incomplete', key)
+                self.assertFalse((repo / 'incomplete').exists())
+
     def test_missing_output_cannot_pass_as_matching(self):
         with tempfile.TemporaryDirectory(dir=parity.ROOT) as directory:
             with self.assertRaisesRegex(RuntimeError, 'did not emit index.html'):
