@@ -1,5 +1,7 @@
 import type { Translations } from '../types';
 const hi: Translations = {
+  'loadPlan.gravity.offsetShellDeck': "शेल {id} अलग ऊँचाई पर स्थित ओवरलैप करते बीम पैनल (सदस्य {members}) से ऊर्ध्वाधर दिशा में जुड़ा है। शेल, कनेक्शन या पैनल की ज्यामिति ठीक करें, या क्षेत्रीय भार हाथ से केवल एक बार लगाएँ।",
+  'loadPlan.gravity.overlappingShells': "शेल {first} और {second} एक ही समतल में ओवरलैप करते हैं या एक ही डेक ऊँचाई सीमा में आते हैं। शेल की ज्यामिति ठीक करें या क्षेत्रीय भार हाथ से केवल एक बार लगाएँ।",
   'svc.accountingMismatch': "विश्लेषण अस्वीकृत। भार प्रकरण {case}, घटक {component}। दर्ज मान {entered}, संयोजित मान {assembled}।",
   'svc.accountingUnsupported': "विश्लेषण अस्वीकृत। भार प्रकरण {case} में {kind} {id} के बलों और आघूर्णों का लेखा संभव नहीं है।",
   'svc.accountingArea': "विश्लेषण अस्वीकृत। सॉल्वर में प्लेट {plate} का क्षेत्रफल या सीमा अलग है। निर्दिष्ट क्षेत्रफल {entered}, संयोजित क्षेत्रफल {assembled}।",
