@@ -1,5 +1,6 @@
 import { springTranslations } from './grossman2026/translations';
 import { shauerLocales } from './shauer2025/locales';
+import { pastranaLocales } from './pastrana2026/locales';
 import { galleryStrings } from './gallery-i18n';
 import { publicI18n } from '../../lib/i18n/store.svelte';
 
@@ -58,7 +59,6 @@ export type ResearchStrings = {
   formComparison: string;
   formDensityHint: string;
   formLoadHint: string;
-  researchLanguages: string;
 
   formReference: string;
   formEngineTitle: string;
@@ -527,7 +527,6 @@ export const STRINGS: Record<'en' | 'es' | 'pt' | 'zh', ResearchStrings> & Parti
     formComparison: "Our own inputs: compared with Eq. (7) and jax_fdm; the paper’s numerical results are not reproduced.",
     formDensityHint: "Enter 0.5–2 kN/m.",
     formLoadHint: "Enter 1–8 kN.",
-    researchLanguages: "Research content is available in English, Spanish, Portuguese and Simplified Chinese. Other site languages display the English research content.",
     formEvidence: "Five input cases compare every coordinate and cable force with unmodified jax_fdm in float64. Absolute tolerances are 1e-12 m for coordinates, 1e-12 kN for reference forces and equilibrium residuals, and 1e-9 kN for production truss forces. The validation file records each observed error. The replay is a load sweep computed by the same Rust solver, not convergence iterations. Scales are about 3 m, 3–12 kN and EA = 200000 kN. The 1e-12 budget allows float64 assembly and Cholesky roundoff; 1e-9 kN allows cancellation in recovering elastic forces from small displacements at this large stiffness.",
     formReference: "Reference: jax_fdm, MIT, revision 9a17fd379071fb3511ca914f46e8d1e8c286460e. The manifest records the source archive SHA-256, output hashes and installed environment. This revision has not been confirmed as the publication revision.",
     formEngineTitle: "What the production engine checks",
@@ -985,7 +984,7 @@ export const STRINGS: Record<'en' | 'es' | 'pt' | 'zh', ResearchStrings> & Parti
     formPositionError: "Error máximo de posición respecto a la referencia",
     formForceError: "Error máximo de fuerza respecto a la referencia",
     formTitle: "Cuatro cables, un equilibrio",
-    formLead: "Encuentra la forma del sistema de cuatro barras de la Fig. 2 con densidades de fuerza positivas. Cambia la carga, recalcula en Rust y abre la geometría como cercha en Stabileo.",
+    formLead: "Encontrá la forma del sistema de cuatro barras de la Fig. 2 con densidades de fuerza positivas. Cambiá la carga, recalculá en Rust y abrí la geometría como reticulado en Stabileo.",
     formScopeTitle: "Qué se reproduce",
     formScope: "Esta primera versión implementa el equilibrio directo de la sección 2.1, Fig. 2 y Ec. (7). La red tiene un nudo libre y cuatro apoyos fijos. Su topología sigue el artículo; sus dimensiones y cargas se eligen aquí explícitamente, sin extraerlas de la figura. El artículo desarrolla diseño inverso diferenciable; esa contribución queda fuera de esta versión.",
     formMethodTitle: "El método directo",
@@ -994,13 +993,12 @@ export const STRINGS: Record<'en' | 'es' | 'pt' | 'zh', ResearchStrings> & Parti
     formEvidenceTitle: "Evidencia y tolerancias",
     formCheckLabel: "Frente a jax_fdm (10 verificaciones); 20 analíticas/del motor abajo",
     formComparison: "Datos propios: comparados con la Ec. (7) y jax_fdm; no se reproducen resultados numéricos del artículo.",
-    formDensityHint: "Introduce 0.5–2 kN/m.",
-    formLoadHint: "Introduce 1–8 kN.",
-    researchLanguages: "El contenido de investigación está disponible en inglés, español, portugués y chino simplificado. Los demás idiomas muestran el contenido en inglés.",
-    formEvidence: "Cinco casos comparan cada coordenada y fuerza con jax_fdm sin modificar en float64. Las tolerancias absolutas son 1e-12 m para coordenadas, 1e-12 kN para fuerzas de referencia y residuos, y 1e-9 kN para fuerzas de la cercha de producción. El archivo de validación registra cada error observado. La reproducción recorre cargas con el mismo solver Rust; no representa iteraciones de convergencia. Las escalas son unos 3 m, 3–12 kN y EA = 200000 kN. El margen de 1e-12 admite redondeo float64 del ensamblaje y Cholesky; 1e-9 kN admite cancelación al recuperar fuerzas elásticas desde desplazamientos pequeños con esta rigidez elevada.",
+    formDensityHint: "Ingresá entre 0,5 y 2 kN/m.",
+    formLoadHint: "Ingresá entre 1 y 8 kN.",
+    formEvidence: "Cinco casos comparan cada coordenada y fuerza con jax_fdm sin modificar en float64. Las tolerancias absolutas son 1e-12 m para coordenadas, 1e-12 kN para fuerzas de referencia y residuos, y 1e-9 kN para fuerzas del reticulado de producción. El archivo de validación registra cada error observado. La reproducción recorre cargas con el mismo solver Rust; no representa iteraciones de convergencia. Las escalas son unos 3 m, 3–12 kN y EA = 200000 kN. El margen de 1e-12 admite redondeo float64 del ensamblaje y Cholesky; 1e-9 kN admite cancelación al recuperar fuerzas elásticas desde desplazamientos pequeños con esta rigidez elevada.",
     formReference: "Referencia: jax_fdm, MIT, revisión 9a17fd379071fb3511ca914f46e8d1e8c286460e. El manifiesto registra SHA-256 del archivo fuente, hashes de resultados y entorno instalado. No se ha confirmado que esta revisión corresponda a la publicación.",
     formEngineTitle: "Qué verifica el motor de producción",
-    formEngine: "El editor recibe la geometría, las traslaciones fijas de los apoyos y la misma carga vertical como cercha elástica lineal 3D. Con rigideces iguales, la simetría hace que sus fuerzas axiales coincidan con FDM. Los tests también verifican el desplazamiento vertical con la solución elástica exacta. Es un análisis separado de barras inicialmente sin tensión: no se transfieren pretensión ni rigidez geométrica.",
+    formEngine: "El editor recibe la geometría, las traslaciones fijas de los apoyos y la misma carga vertical como reticulado elástico lineal 3D. Con rigideces iguales, la simetría hace que sus fuerzas axiales coincidan con FDM. Los tests también verifican el desplazamiento vertical con la solución elástica exacta. Es un análisis separado de barras inicialmente sin tensión: no se transfieren pretensión ni rigidez geométrica.",
     formLimitsTitle: "Aún no reproducido",
     formLimits: "No incluye adjuntos, gradientes, optimización, cáscaras, tracción/compresión mixta, cargas dependientes de la forma, pandeo ni afirmaciones de velocidad. No se reproducen formas optimizadas ni valores tabulados del artículo. La vista previa es una proyección indicada; el editor contiene el modelo espacial completo.",
     formDisclaimer: "La concordancia con otro código no es validación experimental ni certificación de ingeniería.",
@@ -1021,9 +1019,9 @@ export const STRINGS: Record<'en' | 'es' | 'pt' | 'zh', ResearchStrings> & Parti
     formElevation: "Proyección de elevación",
     formProjectionNote: "Red espacial proyectada · apoyos en los cuatro extremos · geometría completa en el editor",
     formReplayStep: "Paso del barrido de carga",
-    formFailed: "No se pudo cargar el cálculo o editor. El resultado mostrado no cambió; reintenta.",
-    formExportNote: "Abre el resultado mostrado como cercha elástica sin tensión inicial. No exporta pretensión. Investigación, no herramienta de diseño.",
-    formEditorLabel: "Investigación: geometría de cuatro cables, verificación de cercha sin tensión inicial",
+    formFailed: "No se pudo cargar el cálculo o el editor. El resultado mostrado no cambió; probá de nuevo.",
+    formExportNote: "Abre el resultado mostrado como reticulado elástico sin tensión inicial. No exporta pretensión. Investigación, no herramienta de diseño.",
+    formEditorLabel: "Investigación: geometría de cuatro cables, verificación de reticulado sin tensión inicial",
     formAlt: "Proyección de nuestro equilibrio de cuatro cables",
     springsEqualWeight: "k ∝ 1/ℓ² (como Ec. 9)",
     springsCompressionLegend: "compresión positiva al dividir por ε negativo · tira comprimida de izquierda a derecha, filas extremas sujetas",
@@ -1465,7 +1463,6 @@ export const STRINGS: Record<'en' | 'es' | 'pt' | 'zh', ResearchStrings> & Parti
     formComparison: "Dados próprios: comparados com a Eq. (7) e jax_fdm; os resultados numéricos do artigo não são reproduzidos.",
     formDensityHint: "Insira 0.5–2 kN/m.",
     formLoadHint: "Insira 1–8 kN.",
-    researchLanguages: "O conteúdo de pesquisa está disponível em inglês, espanhol, português e chinês simplificado. Os outros idiomas exibem o conteúdo em inglês.",
     formEvidence: "Cinco casos comparam cada coordenada e força com jax_fdm sem modificações em float64. As tolerâncias absolutas são 1e-12 m para coordenadas, 1e-12 kN para forças de referência e resíduos, e 1e-9 kN para forças da treliça de produção. O arquivo de validação registra cada erro observado. A reprodução percorre cargas com o mesmo solver Rust; não representa iterações de convergência. As escalas são cerca de 3 m, 3–12 kN e EA = 200000 kN. A margem de 1e-12 admite arredondamento float64 da montagem e Cholesky; 1e-9 kN admite cancelamento ao recuperar forças elásticas de pequenos deslocamentos com esta rigidez elevada.",
     formReference: "Referência: jax_fdm, MIT, revisão 9a17fd379071fb3511ca914f46e8d1e8c286460e. O manifesto registra SHA-256 do arquivo fonte, hashes de resultados e ambiente instalado. Não foi confirmado que esta revisão corresponda à publicação.",
     formEngineTitle: "O que o motor de produção verifica",
@@ -1934,7 +1931,6 @@ export const STRINGS: Record<'en' | 'es' | 'pt' | 'zh', ResearchStrings> & Parti
     formComparison: "我们自己的输入：与式 (7) 和 jax_fdm 比较；未复现论文的数值结果。",
     formDensityHint: "请输入 0.5–2 kN/m。",
     formLoadHint: "请输入 1–8 kN。",
-    researchLanguages: "研究内容提供英语、西班牙语、葡萄牙语和简体中文版本。网站的其他语言显示英文研究内容。",
     formEvidence: "五组输入工况将每个坐标和每根索力，与未经修改的 jax_fdm 在 float64 下逐一比较。绝对容差为：坐标 1e-12 m，参考力和平衡残差 1e-12 kN，生产环境桁架内力 1e-9 kN。验证文件记录了各项观测到的误差。回放是由同一个 Rust 求解器计算的荷载扫描，不是收敛迭代。量级约为 3 m、3–12 kN，EA = 200000 kN。1e-12 的预算允许 float64 组装和 Cholesky 分解的舍入误差；1e-9 kN 则允许在如此大的刚度下，由小位移恢复弹性力时出现的抵消误差。",
     formReference: "参考实现：jax_fdm，MIT 许可，版本 9a17fd379071fb3511ca914f46e8d1e8c286460e。清单记录了源代码归档的 SHA-256、输出哈希和已安装的环境。该版本尚未确认为论文发表时所用的版本。",
     formEngineTitle: "生产环境计算引擎的检查内容",
@@ -2403,7 +2399,6 @@ export const STRINGS: Record<'en' | 'es' | 'pt' | 'zh', ResearchStrings> & Parti
     formComparison: "Saját bemeneteink: a (7) egyenlettel és a jax_fdm-mel összevetve; a cikk numerikus eredményeit nem reprodukáljuk.",
     formDensityHint: "Adjon meg 0.5–2 kN/m közötti értéket.",
     formLoadHint: "Adjon meg 1–8 kN közötti értéket.",
-    researchLanguages: "A kutatási tartalom angol, spanyol, portugál és magyar nyelven érhető el. A webhely többi nyelvén a kutatási tartalom angolul jelenik meg.",
     formEvidence: "Öt bemeneti eset minden koordinátát és kötélerőt összevet a módosítatlan jax_fdm float64-es eredményeivel. Az abszolút tűrés a koordinátákra 1e-12 m, a referenciaerőkre és az egyensúlyi reziduumokra 1e-12 kN, az éles rácsos tartó erőire 1e-9 kN. A validációs fájl minden megfigyelt hibát rögzít. A visszajátszás ugyanazzal a Rust-megoldóval számított teherléptetés, nem konvergencia-iterációk sora. A nagyságrendek körülbelül 3 m, 3–12 kN és EA = 200000 kN. Az 1e-12-es keret a float64-es összeállítás és a Cholesky-felbontás kerekítési hibáit fogadja be; az 1e-9 kN a rugalmas erők kis elmozdulásokból való visszaszámításakor fellépő kioltást engedi meg ennél a nagy merevségnél.",
     formReference: "Referencia: jax_fdm, MIT, 9a17fd379071fb3511ca914f46e8d1e8c286460e revízió. A manifest rögzíti a forrásarchívum SHA-256 értékét, a kimenetek hash-eit és a telepített környezetet. Nem erősítették meg, hogy ez a publikációhoz használt revízió.",
     formEngineTitle: "Mit ellenőriz az éles megoldómotor",
@@ -2970,9 +2965,9 @@ const SHELL_TRANSLATIONS: Record<string, Partial<ResearchStrings>> = {
 
 export const RESEARCH_DICTIONARIES = {
   ...STRINGS,
-  de: { ...STRINGS.en, ...springTranslations.de, ...shauerLocales.de, ...SHELL_TRANSLATIONS.de },
-  fr: { ...STRINGS.en, ...springTranslations.fr, ...shauerLocales.fr, ...SHELL_TRANSLATIONS.fr },
-  tr: { ...STRINGS.en, ...springTranslations.tr, ...shauerLocales.tr, ...SHELL_TRANSLATIONS.tr },
+  de: { ...STRINGS.en, ...springTranslations.de, ...shauerLocales.de, ...pastranaLocales.de, ...SHELL_TRANSLATIONS.de },
+  fr: { ...STRINGS.en, ...springTranslations.fr, ...shauerLocales.fr, ...pastranaLocales.fr, ...SHELL_TRANSLATIONS.fr },
+  tr: { ...STRINGS.en, ...springTranslations.tr, ...shauerLocales.tr, ...pastranaLocales.tr, ...SHELL_TRANSLATIONS.tr },
 } as Record<string, ResearchStrings>;
 
 export function rs(): ResearchStrings {
