@@ -9,15 +9,25 @@
   let { rows }: { rows: readonly FootingRow[] } = $props();
 
   const W = 220, H = 150, PAD = 22;
-  const lines = $derived.by((): PropertyLines => { void modelStore.designData; return designData().propertyLines ?? {}; });
+  const saved = $derived.by((): PropertyLines => { void modelStore.designData; return designData().propertyLines ?? {}; });
+  /** The sides picked and not yet applied: the footings are designed again only once the reader is done choosing. */
+  let draft = $state<PropertyLines | null>(null);
+  const lines = $derived(draft ?? saved);
+  const same = (p: PropertyLines, q: PropertyLines) => PROPERTY_SIDES.every((k) => !!p[k] === !!q[k]);
+  const pending = $derived(!!draft && !same(draft, saved));
+  const asLines = (on: readonly PropertySide[]): PropertyLines => Object.fromEntries(on.map((s) => [s, true]));
+  function apply() {
+    const on = PROPERTY_SIDES.filter((k) => lines[k]);
+    patchDesignData({ propertyLines: on.length ? asLines(on) : undefined });
+    draft = null;
+  }
   const SIDE: Record<PropertySide, string> = { minX: '−X', maxX: '+X', minY: '−Y', maxY: '+Y' };
 
   const none = $derived(!PROPERTY_SIDES.some((k) => lines[k]));
   const all = $derived(PROPERTY_SIDES.every((k) => lines[k]));
-  const setAll = (on: boolean) => patchDesignData({ propertyLines: on ? Object.fromEntries(PROPERTY_SIDES.map((k) => [k, true])) : undefined });
+  const setAll = (on: boolean) => { draft = asLines(on ? PROPERTY_SIDES : []); };
   function toggle(k: PropertySide) {
-    const on = PROPERTY_SIDES.filter((s) => (s === k ? !lines[s] : lines[s]));
-    patchDesignData({ propertyLines: on.length ? Object.fromEntries(on.map((s) => [s, true])) : undefined });
+    draft = asLines(PROPERTY_SIDES.filter((s) => (s === k ? !lines[s] : lines[s])));
   }
 
   const plan = $derived.by(() => {
@@ -85,7 +95,12 @@
         {/each}
         <button type="button" class:on={all} aria-pressed={all} onclick={() => setAll(!all)} data-testid="rc-property-chip-all">{t('rcSheets.footLines.all')}</button>
       </div>
-      {#if none}<span class="rpl-none" data-testid="rc-property-lines-none">{t('rcSheets.footLines.none')}</span>{/if}
+      {#if pending}
+        <div class="rpl-apply">
+          <button type="button" class="primary" onclick={apply} data-testid="rc-property-apply">{t('rcSheets.footLines.apply')}</button>
+          <button type="button" onclick={() => (draft = null)} data-testid="rc-property-discard">{t('rcSheets.footLines.discard')}</button>
+        </div>
+      {:else if none}<span class="rpl-none" data-testid="rc-property-lines-none">{t('rcSheets.footLines.none')}</span>{/if}
       <span class="rpl-note">{t('rcSheets.footLines.hint')} · {tp('rcSheets.footLines.count', { edge: counts.edge, corner: counts.corner })}</span>
     </div>
   </div>
@@ -112,5 +127,8 @@
   .rpl-chips button { font-size: 0.72rem; padding: 2px 8px; border: 1px solid var(--st-hair); border-radius: 4px; background: var(--st-surface-2); color: var(--st-text-2); cursor: pointer; }
   .rpl-chips button.on { border-color: var(--st-warn); color: var(--st-warn); font-weight: 600; }
   .rpl-none { font-size: 0.72rem; color: var(--st-warn); }
+  .rpl-apply { display: flex; flex-wrap: wrap; gap: 6px; }
+  .rpl-apply button { font-size: 0.72rem; padding: 4px 10px; border: 1px solid var(--st-hair-strong); border-radius: 4px; background: var(--st-surface-2); color: var(--st-text); cursor: pointer; }
+  .rpl-apply button.primary { background: var(--st-accent); border-color: var(--st-accent); color: #fff; }
   .rpl-note { font-size: 0.72rem; color: var(--st-text-3); }
 </style>

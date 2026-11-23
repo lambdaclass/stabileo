@@ -158,7 +158,7 @@
 
 <svelte:window onkeydown={onkey} />
 
-<div class="rcw" class:st-panel-scrollbars={uiStore.panelScrollbars && !uiStore.isMobile} use:portal role="dialog" aria-modal="true" aria-label={t('rcSheets.title')} data-testid="rc-sheets-workspace">
+<div class="rcw st-pro-surface" class:st-panel-scrollbars={uiStore.panelScrollbars && !uiStore.isMobile} use:portal role="dialog" aria-modal="true" aria-label={t('rcSheets.title')} data-testid="rc-sheets-workspace">
   <header class="rcw-head" title={basisText} bind:this={head} data-testid="rc-head" data-fit={fitStart}>
     <strong class="rcw-name">{t('rcSheets.title')}</strong>
     <span class="rcw-code" data-testid="rc-code"><RcCodePicker compact /></span>
