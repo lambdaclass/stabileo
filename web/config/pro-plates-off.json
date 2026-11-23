@@ -9161,14 +9161,15 @@
       ]
     },
     "src/lib/model/physical/plate-analysis.ts": {
-      "source": "6e4d4e7b2148b3fa190775454298ebbde293f1493c88a9596530c53a3d550740",
+      "source": "d06246340920fd3fe527484e172fff294736945f5af37ff7cc1216fd5b64bcee",
       "original": "5e647e1755321edb34ec16678aeb8cc72f4e559097f48f8f9e2f6dc84cf462c3",
       "changes": [
         [
           4,
-          1,
+          2,
           [
-            "  arcInterior, circleThrough, externalFeatures, frameOfLoop, plateGeometry, plateKindOf, plateLoops,"
+            "  arcInterior, circleThrough, externalFeatures, frameOfLoop, plateGeometry, plateKindOf, plateLoops,",
+            "  PLANE_TOL, plateProblem, plateSignature, plateSurfaceOf, type ArcSampler, type PlateMeshSpec,"
           ]
         ],
         [
@@ -9202,7 +9203,7 @@
       ]
     },
     "src/lib/model/physical/plate.ts": {
-      "source": "108abda5888429ed56b53bb736557c8d20a22a6f7bc9895f83a7e43068cae8c1",
+      "source": "7f3e9a1d73616a1772f537071a8c310ab16cbfc49f3a7fbf62cf4409356b6012",
       "original": "5855b10567b17e919b9f566366df3aebf5a02ac64836249e3e09a5b349123197",
       "changes": [
         [
@@ -9238,14 +9239,19 @@
           []
         ],
         [
-          420,
+          416,
+          9,
+          []
+        ],
+        [
+          429,
           5,
           [
             "export function plateSignature(geo: PlateGeometry, spec: PlateMeshSpec, features: { points: Vec3[]; segments: Array<[Vec3, Vec3]> } | null): string {"
           ]
         ],
         [
-          430,
+          439,
           1,
           [
             "    : '';"
@@ -10458,7 +10464,7 @@
       ]
     },
     "src/lib/store/physical-plates.ts": {
-      "source": "ebb309a78f262fca1d75339ae0dab74b66e09dc657acca3a44a85d4bcbe90d8e",
+      "source": "56f045a021d1ea9736620caad3e9cb628c7bd2aa96c72ca37e4ba7a842dcfe77",
       "original": "f1087ec325f40fca6cbb4381606d060bd2deac498987efe69681fe3eb98fa8f1",
       "changes": [
         [
@@ -10475,9 +10481,10 @@
         ],
         [
           27,
-          1,
+          2,
           [
-            "  DEFAULT_PLATE_MESH, gridOfSpec, meshQuality, plateGeometry, plateKindOf, plateLoops, plateMeshInput, plateProblem,"
+            "  DEFAULT_PLATE_MESH, gridOfSpec, meshQuality, plateGeometry, plateKindOf, plateLoops, plateMeshInput, plateProblem,",
+            "  plateSignature, plateSurfaceOf, type MeshQuality, type PlateMeshSpec, type PlateProblem, type PlateSurface,"
           ]
         ],
         [

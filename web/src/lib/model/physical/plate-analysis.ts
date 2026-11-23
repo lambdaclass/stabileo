@@ -3,7 +3,7 @@ import { cross, dot, type Vec3 } from '../edit/affine';
 import { pieceOf, type PieceModel } from '../curve-entity';
 import {
   arcInterior, circleThrough, externalFeatures, frameOfLoop, onOutline, plateGeometry, plateKindOf, plateLoops,
-  PLANE_TOL, plateProblem, plateSignature, plateSurfaceOf, type ArcSampler, type PlateMeshSpec,
+  PLANE_TOL, analysedSignature, plateProblem, plateSignature, plateSurfaceOf, type ArcSampler, type PlateMeshSpec,
 } from './plate';
 
 type Shell = { id: number; nodes: readonly number[]; curved?: boolean };
@@ -141,7 +141,7 @@ function plateMeshStatus(model: PlateAnalysisModel, group: PlateGroup): PlateSta
   if (mesh.refused) return mesh.refused;
   if (!count || !surface.meshed) return 'unmeshed';
   const shellNeighbours = surface.mesh.followMembers ? [] : mesh.shellNeighbours;
-  return plateSignature(mesh.geo, surface.mesh, mesh.features, shellNeighbours) === surface.meshed.signature ? 'current' : 'stale';
+  return plateSignature(mesh.geo, surface.mesh, mesh.features, shellNeighbours) === analysedSignature(surface.meshed) ? 'current' : 'stale';
 }
 
 export function plateStatusOf(model: PlateAnalysisModel, group: PlateGroup): PlateStatus {

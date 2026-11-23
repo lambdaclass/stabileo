@@ -16,6 +16,7 @@ import { addPlateLoad, applyPlateMeshes, plateEntry, clearPlateMesh, physicalPla
 import { syncDefinedLoadsForAnalysis } from '../../../store/defined-loads';
 import { patchOwnDesignData } from '../../../store/design-data';
 import { plateLoops } from '../../physical/plate';
+import { physicalPlateProblems } from '../../physical/plate-analysis';
 import { physicalThickness } from '../../../store/physical';
 import { stripUnderWall, supportWallBase } from '../../foundation/generate';
 import type { AnalysisResults3D } from '../../../engine/types-3d';
@@ -146,6 +147,18 @@ describe('a slab panel meshed with its columns\' sections', () => {
     const pieces = [...modelStore.elements.values()].filter((e) => [e.nodeI, e.nodeJ].every((n) => Math.abs(modelStore.nodes.get(n)!.x - 2.3) < 1e-9));
     expect(pieces.length).toBeGreaterThan(4);
     expect((modelStore.model.constraints ?? []).length).toBe(12);
+  });
+
+  it('reads a mesh saved with its column sections inside the signature as current, for the plates and the analysis, and solves it', () => {
+    const id = build(true);
+    applyPlateMeshes([planPlateMesh(id, { element: 'quad', size: 0.5, pattern: 'free' })!]);
+    const groups = modelStore.model.groups!, g = groups.get(id)!, surface = g.data!.surface!, m = surface.meshed!;
+    expect(m.footprints).toBeDefined();
+    const { footprints, ...rest } = m;
+    modelStore.model.groups = new Map(groups).set(id, { ...g, data: { ...g.data, surface: { ...surface, meshed: { ...rest, signature: `${m.signature}#fp:${footprints}` } } } });
+    expect(plateStatus(id)).toBe('current');
+    expect(physicalPlateProblems(modelStore.model).needsMesh).toEqual([]);
+    expect(solve().displacements.length).toBeGreaterThan(0);
   });
 
   it('solves in equilibrium with a triangular mesh', () => {
