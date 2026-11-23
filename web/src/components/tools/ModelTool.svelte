@@ -138,7 +138,7 @@
     {:else}
       <div class="placeholder" aria-busy="true"></div>
     {/if}
-    <article class="tool-results rs-prose" class:stale aria-busy={stale} data-testid="tool-results">
+    <article class="tool-results rs-prose" class:stale aria-busy={stale} data-testid="tool-results" data-public-pending={!outcome || stale ? '' : undefined}>
       <h2>{te('results')}</h2>
       <div aria-live="polite">
         {#if outcome?.status === 'refused'}
