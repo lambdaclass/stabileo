@@ -218,6 +218,9 @@ describe('punching sheet: integrity bars (§8.7.4.2.2)', () => {
     const short = punchingRow(d, { ...pctx, integrity: { x: 3, y: 1, required: 2, dia: 10 } }, f);
     expect(ok(short, 'rcSheets.v.punchingIntegrity')).toBe(false);
     expect(short.verifications.find((v) => v.label === 'rcSheets.v.punchingIntegrity')!.clause).toBe('§8.7.4.2.2');
+    expect(ok(short, 'rcSheets.v.punching')).toBe(true);
+    expect(short.status).toBe('fail');
+    expect(held.status).not.toBe('fail');
   });
 });
 

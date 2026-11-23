@@ -98,7 +98,7 @@ export function punchingRow(d: PunchingDemand, c: PunchingContext, fmt: Fmt): Pu
     family: 'punching', key: d.key, name: d.name, level: d.level, demand: d, position: position.position ?? '—',
     // The engine's ratio carries the moment transfer's stress (§8.4.4.2); Vu/φVc alone reads lower than what decides.
     vu: r.Vu, phiVc: r.phiVc, utilization: Number.isFinite(r.utilization) ? r.utilization : ratioOf(r.Vu, r.phiVc), verifications, combos,
-    status: unsupported ? 'none' : r.status === 'OK' ? 'ok' : 'fail', steps, isAdopted: true,
+    status: unsupported ? 'none' : verifications.every((v) => v.ok) ? 'ok' : 'fail', steps, isAdopted: true,
     ...(p && position.position ? { figure: {
       b: d.joint.b, h: d.joint.h, d: p.d, offset: p.halfX - d.joint.b / 2, rounded: false, bo: p.bo, clause: '§22.6.4.1',
       position: position.position, openBearingDeg: position.openBearingDeg, integrity,

@@ -103,7 +103,11 @@ export interface FlexureCheck { section: SectionName; sign: 'pos' | 'neg'; phiMn
 
 /** A section with axial force and no moment: its check, failing where the bars and concrete cannot take the force at all. */
 export const axialOnlyChecks = (flex: readonly FlexureCheck[], clause: string, fmt: Fmt): CheckLine[] =>
-  flex.filter((x) => !(x.mu > 1e-6) && Math.abs(x.nc ?? 0) > 1e-6).reduce<FlexureCheck[]>((w, x) => (w.some((y) => y.section === x.section) ? w : [...w, x]), [])
+  flex.filter((x) => !(x.mu > 1e-6) && Math.abs(x.nc ?? 0) > 1e-6).reduce<FlexureCheck[]>((w, x) => {
+    const i = w.findIndex((y) => y.section === x.section);
+    if (i < 0) return [...w, x];
+    return w[i]!.ok && !x.ok ? w.map((y, j) => (j === i ? x : y)) : w;
+  }, [])
     .map((x) => check('rcSheets.v.axialOnly', x.ok, { clause, demand: `N = ${fmt(x.nc ?? 0)} kN (${x.section})` }));
 
 export interface BeamRow {
