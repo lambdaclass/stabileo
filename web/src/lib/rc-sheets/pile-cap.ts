@@ -1,9 +1,9 @@
 import { slabProvisions } from '../engine/codes/argentina/losas';
-import { pileCentres } from '../model/foundation/piles';
+import { pileCapacity, pileCentres } from '../model/foundation/piles';
 import { barArea } from './bars';
 import { critOf } from './criteria';
 import { shiftAt } from './footing-balance';
-import { dowelArea, dowelLap, dowelReach, footingSpacing, layersOf, leverOf, stripReading, type FootingRowCode } from './footing-design';
+import { dowelArea, dowelLap, dowelReach, footingSpacing, foundingOf, layersOf, leverOf, stripReading, type FootingRowCode } from './footing-design';
 import { alphaOfSides, bearingStrength, ceilTo, CONCRETE_WEIGHT, plainPunchingVc, r3 } from './footing-mechanics';
 import { layerAnchorage, meshArea, proposeLayer } from './footing-mesh';
 import { sectionStress, sidesIn } from './footing-punching';
@@ -36,11 +36,34 @@ export const capColumns = (d: FootingDemand): CapColumn[] => [
 export function pilePattern(n: number, s: number, along: Axis): P2[] {
   if (n <= 4) { const c = pileCentres({ count: n, spacing: s }); return along === 'x' ? c : c.map(([x, y]) => [y, x]); }
   const cols = Math.ceil(Math.sqrt(n * (along === 'x' ? 1.5 : 1 / 1.5))), rows = Math.ceil(n / cols);
+  return grid(rows, cols, s, along);
+}
+
+const grid = (rows: number, cols: number, s: number, along: Axis): P2[] => {
   const out: P2[] = [];
   for (let i = 0; i < rows; i++) for (let j = 0; j < cols; j++) out.push([(j - (cols - 1) / 2) * s, (i - (rows - 1) / 2) * s]);
   return along === 'x' ? out : out.map(([x, y]) => [y, x]);
+};
+
+/**
+ * Every pattern of `n` piles worth trying under a footprint `aspect` times longer along `along`
+ * than across: the classic two, three and four, five in a quincunx, full grids whose rows keep
+ * near the footprint's proportion, and one line under a long wall. None for a count no such grid makes.
+ */
+export function pilePatterns(n: number, s: number, along: Axis, aspect = 1): P2[][] {
+  const out: P2[][] = [];
+  if (n <= 4) out.push(pilePattern(n, s, along));
+  if (n === 5) { const k = s / Math.SQRT2; out.push([[-k, -k], [k, -k], [0, 0], [-k, k], [k, k]]); }
+  const want = Math.min(4, Math.max(1, aspect));
+  for (let rows = 2; rows * rows <= n; rows++) {
+    const cols = n / rows;
+    if (!Number.isInteger(cols) || (n <= 4 && rows * cols === 4)) continue;
+    if (cols / rows <= 2 * want + 1e-9 && cols / rows >= want / 2 - 1e-9) out.push(grid(rows, cols, s, along));
+  }
+  if (n >= 3 && want >= 2.5 && n <= 2 * want + 1) out.push(grid(1, n, s, along));
+  return out;
 }
-const COUNTS = [1, 2, 3, 4, 6, 9, 12, 16, 20, 25, 30, 36];
+const COUNTS = [1, 2, 3, 4, 5, 6, 8, 9, 10, 12, 15, 16, 18, 20, 24, 25, 30, 36];
 
 /** How the cap's offset at a property line is taken: by a strap to the cap inward, by a tie at the first floor, or by the piles themselves. */
 export interface CapBalance { axis: Axis; sign: number; kind: 'strap' | 'tie' | 'piles'; L?: number }
@@ -146,6 +169,8 @@ export function analyseCap(d: FootingDemand, c: FootingContext, a: FootingAdopte
   const cols = placed(capColumns(d), a), lever = leverOf(d, a.h), stub = lever - a.h;
   const layers = layersOf(a, cover), dd = layers.d, D = spec.diameter, piles = a.piles.at;
   const weight = CONCRETE_WEIGHT * a.B * a.L * a.h;
+  const head = Math.max(0, d.at.z - foundingOf(d, a.h));
+  const capacity = spec.strata ? pileCapacity(spec.strata, D, a.piles.length, head).total : spec.capacity;
   const balance = capBalance(d);
   const sv = pileLoads(cols, cols.map((k) => k.demand.service ?? undefined), piles, weight, balance, lever);
   const names = d.combos.map((k) => k.combo);
@@ -241,8 +266,8 @@ export function analyseCap(d: FootingDemand, c: FootingContext, a: FootingAdopte
   const tieForce = cr.footingPileTieShare * Math.max(0, ...d.combos.map((k) => k.N), ...(d.carried?.combos.map((k) => k.N) ?? []));
   const result: CapResult = {
     piles: piles.map((p, i) => ({ x: p[0], y: p[1], service: service[i]!, factored: factored[i]! })),
-    diameter: D, length: a.piles.length, capacity: spec.capacity, source: spec.source, efficiency: spec.efficiency, spacing: critOf(c).footingPileSpacing * D, topCover: c.cover,
-    group: { service: service.reduce((t, v) => t + v, 0), capacity: spec.efficiency * n * spec.capacity },
+    diameter: D, length: a.piles.length, capacity, head, source: spec.source, efficiency: spec.efficiency, spacing: critOf(c).footingPileSpacing * D, topCover: c.cover,
+    group: { service: service.reduce((t, v) => t + v, 0), capacity: spec.efficiency * n * capacity },
     deep, stm, shear, punching, section: { pu, phiPn: PILE_PHI * 0.8 * Po, as: asPile, asMin },
     tie: tieOn ? { force: tieForce, as: (tieForce * 10) / (0.9 * c.fy) } : null,
   };

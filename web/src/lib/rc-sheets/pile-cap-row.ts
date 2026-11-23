@@ -6,44 +6,55 @@ import { meshText } from './footing-mesh';
 import { edgeSteps } from './footing-steps';
 import { strapDefault } from './footing-strap';
 import { strapPullChecks } from './footing-needs';
-import { analyseCap, capBalance, capColumns, capCover, capHolds, capMeshes, capPlan, CAP_MAX_H, CAP_STEP_H, pileBars, pilePattern, PILE_COUNTS, PILE_EMBED, upCap, PILE_UNHELD_TOL, type CapAnalysis } from './pile-cap';
+import { analyseCap, capBalance, capColumns, capCover, capHolds, capMeshes, capPlan, CAP_MAX_H, CAP_STEP_H, pileBars, pilePatterns, PILE_COUNTS, PILE_EMBED, upCap, PILE_UNHELD_TOL, type CapAnalysis } from './pile-cap';
 import { check, ratioOf, type CheckLine, type RowStatus, type Step, type StepGroup } from './types';
 import type { CapPiles, FootingAdopted, FootingContext, FootingDemand, FootingEdgeResult, FootingRow, StrapResult } from './footing-types';
 
 type CapAdopted = FootingAdopted & { piles: CapPiles };
 
 /**
- * A pile cap for its column (or the two of a combined cap): the fewest piles, at the criterion's
- * spacing and kept off the property lines, whose service loads on a rigid cap stay within each
- * pile's allowable load and the group's (§13.4.1.1; GA §8.3, §8.5), then as thick as shear and
- * punching with the pile reactions of §13.4.6.7, or the struts and nodes of a deep cap (ch. 23),
- * ask; the piles' own bars for the largest factored load. Null without piles or service loads.
+ * A pile cap for its column, its pier or the two columns of a combined cap: of the fewest piles
+ * that hold and the next count, in every pattern that suits the footprint (`pilePatterns`), the
+ * one of least concrete in cap and piles. The piles stand at the criterion's spacing, kept off the
+ * property lines, with service loads on a rigid cap within each pile's allowable load and the
+ * group's (§13.4.1.1; GA §8.3, §8.5); the cap as thick as shear and punching with the pile
+ * reactions of §13.4.6.7, or the struts and nodes of a deep cap (ch. 23), ask; the piles' own bars
+ * for the largest factored load. Null without piles or service loads.
  */
 export function proposeCap(d: FootingDemand, c: FootingContext, code: FootingRowCode): { adopted: CapAdopted; reached: boolean } | null {
   const spec = d.piles, cols = capColumns(d);
   if (!spec || !d.column || cols.some((k) => !k.demand.service)) return null;
   const cr = critOf(c), s = cr.footingPileSpacing * spec.diameter;
   const held = d.edge?.anchor ?? [0, 0];
-  const along = cols.length > 1 ? (Math.abs(cols[1]!.y) > Math.abs(cols[1]!.x) ? 'y' : 'x') : held[0] && !held[1] ? 'y' : 'x';
+  const span = (k: 'x' | 'y') => { const lo = Math.min(...cols.map((q) => q[k] - (k === 'x' ? q.b : q.h) / 2)), hi = Math.max(...cols.map((q) => q[k] + (k === 'x' ? q.b : q.h) / 2)); return Math.max(hi - lo, s); };
+  const shaped = cols.length > 1 || !!d.pier;
+  const along = shaped ? (span('x') >= span('y') ? 'x' : 'y') : held[0] && !held[1] ? 'y' : 'x';
+  const aspect = shaped ? Math.max(span('x'), span('y')) / Math.min(span('x'), span('y')) : 1;
   const dowels = d.carried ? proposeCombinedDowels(d, c) : ((dw) => (dw ? { dowels: dw } : {}))(proposeDowels(d, c));
   const minH = upCap(0.3 + capCover(c.cover) + 0.04);
-  let last: CapAdopted | null = null;
+  const volume = (a: CapAdopted) => a.B * a.L * a.h + a.piles.at.length * Math.PI * a.piles.diameter ** 2 / 4 * a.piles.length;
+  let last: CapAdopted | null = null, best: CapAdopted | null = null, holding = 0;
   for (const n of PILE_COUNTS.filter((k) => k >= Math.max(cr.footingPileMinCount, cols.length))) {
-    const plan = capPlan(cols, pilePattern(n, s, along), spec, cr.footingPileLineClear);
-    for (let h = minH; h <= CAP_MAX_H + 1e-9; h = Math.round((h + CAP_STEP_H) * 1000) / 1000) {
-      const bars0 = pileBars(spec.diameter, 0, c);
-      const base: CapAdopted = { B: plan.B, L: plan.L, h, ex: plan.ex, ey: plan.ey, x: { dia: 12, spacing: 0.2 }, y: { dia: 12, spacing: 0.2 }, ...dowels,
-        piles: { diameter: spec.diameter, length: spec.length, at: plan.piles, bars: { count: bars0.count, dia: bars0.dia }, hoop: bars0.hoop } };
-      const probe = analyseCap(d, c, base, code);
-      const pb = pileBars(spec.diameter, probe.result.section.pu, c);
-      const a: CapAdopted = { ...base, ...capMeshes(d, c, base, code), piles: { ...base.piles, bars: { count: pb.count, dia: pb.dia }, hoop: pb.hoop } };
-      last = a;
-      const r = analyseCap(d, c, a, code), k = r.result;
-      const soil = Math.max(...k.piles.map((p) => p.service)) <= k.capacity + 1e-6 && Math.min(...k.piles.map((p) => p.service)) >= -1e-6 && k.group.service <= k.group.capacity + 1e-6;
-      if (!soil) break;
-      if (capHolds(r)) return { adopted: a, reached: true };
+    let holds = false;
+    for (const pattern of pilePatterns(n, s, along, aspect)) {
+      const plan = capPlan(cols, pattern, spec, cr.footingPileLineClear);
+      for (let h = minH; h <= CAP_MAX_H + 1e-9; h = Math.round((h + CAP_STEP_H) * 1000) / 1000) {
+        const bars0 = pileBars(spec.diameter, 0, c);
+        const base: CapAdopted = { B: plan.B, L: plan.L, h, ex: plan.ex, ey: plan.ey, x: { dia: 12, spacing: 0.2 }, y: { dia: 12, spacing: 0.2 }, ...dowels,
+          piles: { diameter: spec.diameter, length: spec.length, at: plan.piles, bars: { count: bars0.count, dia: bars0.dia }, hoop: bars0.hoop } };
+        const probe = analyseCap(d, c, base, code);
+        const pb = pileBars(spec.diameter, probe.result.section.pu, c);
+        const a: CapAdopted = { ...base, ...capMeshes(d, c, base, code), piles: { ...base.piles, bars: { count: pb.count, dia: pb.dia }, hoop: pb.hoop } };
+        last = a;
+        const r = analyseCap(d, c, a, code), k = r.result;
+        const soil = Math.max(...k.piles.map((p) => p.service)) <= k.capacity + 1e-6 && Math.min(...k.piles.map((p) => p.service)) >= -1e-6 && k.group.service <= k.group.capacity + 1e-6;
+        if (!soil) break;
+        if (capHolds(r)) { holds = true; if (!best || volume(a) < volume(best) - 1e-9) best = a; break; }
+      }
     }
+    if (holds && ++holding >= 2) break;
   }
+  if (best) return { adopted: best, reached: true };
   return last ? { adopted: last, reached: false } : null;
 }
 
@@ -66,7 +77,7 @@ function verifications(r: CapAnalysis, a: CapAdopted, c: FootingContext, code: F
   const k = r.result, cr = critOf(c), out: CheckLine[] = [];
   const kn = (v: number) => `${fmt(v, 1)} kN`, mpa = (v: number) => `${fmt(v, 3)} MPa`, cm = (v: number) => `${fmt(v * 100, 1)} cm`, cm2 = (v: number) => `${fmt(v, 2)} cm²`;
   const n = k.piles.length, maxS = Math.max(...k.piles.map((p) => p.service)), minS = Math.min(...k.piles.map((p) => p.service));
-  out.push(check(k.source === 'strata' ? 'rcSheets.v.pileStrata' : k.source === 'layers' ? 'rcSheets.v.pileLayers' : 'rcSheets.v.pilePresumed', true, { demand: `Ø${fmt(k.diameter * 100, 0)} · L = ${fmt(k.length, 1)} m · Qadm = ${kn(k.capacity)}` }));
+  out.push(check(k.source === 'strata' ? 'rcSheets.v.pileStrata' : k.source === 'layers' ? 'rcSheets.v.pileLayers' : 'rcSheets.v.pilePresumed', true, { demand: `Ø${fmt(k.diameter * 100, 0)} · L = ${fmt(k.length, 1)} m (−${fmt(k.head, 2)} … −${fmt(k.head + k.length, 2)} m) · Qadm = ${kn(k.capacity)}` }));
   out.push(check('rcSheets.v.pileLoad', maxS <= k.capacity + 1e-6, { clause: '§13.4.1.1', demand: kn(maxS), capacity: kn(k.capacity), ratio: ratioOf(maxS, k.capacity) }));
   out.push(check('rcSheets.v.pileUplift', minS >= -1e-6 && r.leastFactored >= -1e-6, { clause: '§13.4.1.1', demand: `${kn(minS)} · ${kn(r.leastFactored)}`, capacity: '≥ 0 kN' }));
   if (r.unheld > PILE_UNHELD_TOL) out.push(check('rcSheets.v.pileLine', false, { clause: CRITERION, demand: `${fmt(r.unheld, 1)} kN·m`, capacity: '0 kN·m' }));

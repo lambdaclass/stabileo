@@ -53,9 +53,9 @@ export function pileSpec(): PileSpec {
   const prof = findProfile(geo, geo?.defaultProfileId ?? null);
   const cap = prof?.strata?.length ? pileCapacity(prof.strata, p.diameter, p.length) : null;
   const efficiency = criteriaOf(dd.designOptions?.criteria).footingPileEfficiency;
-  if (cap && cap.total > 0 && !cap.beyondStrata) return { diameter: p.diameter, length: p.length, capacity: cap.total, source: 'strata', efficiency };
-  const own = p.layers?.length ? pileCapacity(pileLayerStrata(p.layers), p.diameter, p.length) : null;
-  if (own && own.total > 0 && !own.beyondStrata) return { diameter: p.diameter, length: p.length, capacity: own.total, source: 'layers', efficiency };
+  if (cap && cap.total > 0 && !cap.beyondStrata) return { diameter: p.diameter, length: p.length, capacity: cap.total, source: 'strata', efficiency, strata: prof!.strata! };
+  const layers = p.layers?.length ? pileLayerStrata(p.layers) : null, own = layers ? pileCapacity(layers, p.diameter, p.length) : null;
+  if (layers && own && own.total > 0 && !own.beyondStrata) return { diameter: p.diameter, length: p.length, capacity: own.total, source: 'layers', efficiency, strata: layers };
   return { diameter: p.diameter, length: p.length, capacity: p.capacity, source: 'presumed', efficiency };
 }
 

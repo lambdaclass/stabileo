@@ -1,3 +1,4 @@
+import type { SoilStratum } from '../model/geotechnical';
 import type { CheckLine, ComboTable, RowStatus, StepGroup } from './types';
 import type { BeamRow } from './beam-row';
 import type { LineLayout } from './beam-line';
@@ -78,7 +79,11 @@ export type FoundationSystem = 'auto' | 'footings' | 'strips' | 'mat' | 'piles';
 export const FOUNDATION_SYSTEMS: readonly FoundationSystem[] = ['auto', 'footings', 'strips', 'mat', 'piles'];
 
 /** The piles a column is founded on: diameter and length, m, the allowable load of one, kN, from the soil profile's strata or presumed, and the group's efficiency. */
-export interface PileSpec { diameter: number; length: number; capacity: number; source: 'strata' | 'layers' | 'presumed'; efficiency: number }
+export interface PileSpec {
+  diameter: number; length: number; capacity: number; source: 'strata' | 'layers' | 'presumed'; efficiency: number;
+  /** The strata the capacity is read from, their top at the column's foot: a cap founded deeper reads its piles from its own underside down. */
+  strata?: readonly SoilStratum[];
+}
 
 /** A pile cap's piles as adopted: where each stands from the cap's centroid, m, their diameter and length, and each pile's bars and hoops. */
 export interface CapPiles { diameter: number; length: number; at: Array<[number, number]>; bars: { count: number; dia: number }; hoop: { dia: number; spacing: number } }
@@ -87,6 +92,8 @@ export interface CapPiles { diameter: number; length: number; at: Array<[number,
 export interface CapResult {
   piles: Array<{ x: number; y: number; service: number; factored: number }>;
   diameter: number; length: number; capacity: number; source: PileSpec['source']; efficiency: number; spacing: number;
+  /** How deep the pile heads stand under the column's foot, m: the strata are read from there down. */
+  head: number;
   /** The cap's top cover, m: the footings' own; its bottom bars sit over the pile heads instead (`FootingRow.cover`). */
   topCover: number;
   group: { service: number; capacity: number };
