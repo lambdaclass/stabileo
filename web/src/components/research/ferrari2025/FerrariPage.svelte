@@ -102,8 +102,10 @@
     <h2>{s.scope}</h2><p>{s.scopeText}</p><p data-testid="ferrari-model">{fill(s.model, values)}</p>
     <h2>{s.methodHeading}</h2>
     <p>{fill(s.method, { factor: format(study.inextensional_area_m2 / paper.parameters.area_m2), elements: format(fine.elements_per_member) })}</p>
+    <div data-testid="ferrari-reference">
     <p data-testid="ferrari-extensible">{fill(s.extensible, { first: short(study.paper_area_not_a_bifurcation[0].alpha), second: short(study.paper_area_not_a_bifurcation[1].alpha) })}</p>
     <p data-testid="ferrari-beta">{fill(s.beta, { beta: short(beta.computed!), modal: short(fine.beta_modal), paper: format(beta.reference!) })}</p>
+    </div>
     <p>{s.tolerances}</p>
     <h2 id="checks">{s.evidence}</h2>
     <p data-testid="ferrari-checks">{fill(s.evidenceText, { mesh: percent(check('alpha: mesh').observed), step: percent(check('alpha: independent').observed), stiff: percent(check('alpha: inextensional').observed),
