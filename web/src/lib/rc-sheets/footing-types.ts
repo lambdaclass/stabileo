@@ -301,6 +301,8 @@ export interface FootingRow {
   x: FootingDirection | null; y: FootingDirection | null;
   punching: { vu: number; phiVc: number; utilization: number; bo: number; position: 'interior' | 'edge' | 'corner' } | null;
   dowels: FootingRowDowels | null;
+  /** A combined footing's dowels into its second column, read against that column's bars. */
+  secondDowels?: FootingRowDowels | null;
   utilization: number;
   verifications: CheckLine[];
   combos: ComboTable;

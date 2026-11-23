@@ -72,11 +72,20 @@ export function buildingPlan(demands: readonly Pick<FootingDemand, 'at' | 'colum
   return area > 1e-9 ? { x0, x1, y0, y1, area } : null;
 }
 
-/** How much of the building's plan its footings cover: their areas summed over the plan its columns reach (GA §7.1), m². */
+/** The plan the footings' cover is read over: the building's, grown to the footings' own extent, so a building on one line of columns has a plan of the width its footings take, not of a column. */
+export function coverPlan(rows: readonly FootingRow[]): { area: number } | null {
+  const live = rows.filter((r) => r.B > 0 && r.L > 0);
+  const plan = buildingPlan(live.flatMap((r) => r.demand.group?.members ?? (r.demand.carried ? [r.demand, r.demand.carried] : [r.demand])));
+  if (!plan) return null;
+  const xs = [plan.x0, plan.x1, ...live.flatMap((r) => footingCorners(r).map((p) => p.x))], ys = [plan.y0, plan.y1, ...live.flatMap((r) => footingCorners(r).map((p) => p.y))];
+  return { area: (Math.max(...xs) - Math.min(...xs)) * (Math.max(...ys) - Math.min(...ys)) };
+}
+
+/** How much of the building's plan its footings cover: their areas summed over the plan they and its columns reach (GA §7.1), m². */
 export function footingCover(rows: readonly FootingRow[]): { footings: number; plan: number; share: number } | null {
   const live = rows.filter((r) => r.B > 0 && r.L > 0);
   if (!live.length) return null;
-  const plan = buildingPlan(live.flatMap((r) => r.demand.group?.members ?? (r.demand.carried ? [r.demand, r.demand.carried] : [r.demand])));
+  const plan = coverPlan(live);
   const footings = live.reduce((t, r) => t + r.B * r.L, 0);
   return plan ? { footings, plan: plan.area, share: footings / plan.area } : null;
 }

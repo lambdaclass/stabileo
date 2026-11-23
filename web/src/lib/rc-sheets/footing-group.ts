@@ -5,7 +5,7 @@ import { critOf } from './criteria';
 import { ASSUMED_FILL_WEIGHT, baseWeight, upliftOf, type UpliftReading, bearingReading, bearingStrength, cantileverAcross, CONCRETE_WEIGHT, centred, fieldOf, serviceBearing, type FootingPlan, type ServiceBearing } from './footing-mechanics';
 import { dropRect, punchingReading, type PunchingCase, type PunchingSite } from './footing-punching';
 import { meshArea } from './footing-mesh';
-import { dowelLap, dowelReach, footingSpacing, layersOf, leverOf, MIN_D, stripReading, type FootingRowCode } from './footing-design';
+import { dowelArea, dowelLap, dowelReach, footingSpacing, layersOf, leverOf, MIN_D, stripReading, type FootingRowCode } from './footing-design';
 import { tieBars, tieLimits, tieWidth } from './footing-tie-bars';
 import { winklerStrip } from './footing-winkler';
 import type { FootingAction, FootingAdopted, FootingContext, FootingDemand, FootingGroup, FootingLayers, GroupColumn, GroupExtra, GroupStrap, GroupStrip, GroupTie } from './footing-types';
@@ -46,7 +46,7 @@ export function strappedAcross(g: FootingGroup): Axis | undefined {
 }
 
 /** Whether a strip held along a line takes its offset across by ties at the first floor rather than by straps or the soil alone. */
-export const tiedAcross = (g: FootingGroup): boolean => heldAcross(g) !== 0 && !strappedAcross(g) && g.members.every((m) => m.edge?.balance !== 'eccentric');
+export const tiedAcross = (g: FootingGroup): boolean => heldAcross(g) !== 0 && !strappedAcross(g) && g.members.every((m) => m.edge?.balance !== 'eccentric' && m.column?.storey !== undefined);
 
 /**
  * The members' actions summed about the footing's centroid as one at its reference node; across
@@ -58,9 +58,9 @@ export function summed(cols: readonly Placed[], pick: (d: FootingDemand) => Foot
   const t = { combo, N: 0, Mx: 0, My: 0, Vx: 0, Vy: 0 };
   cols.forEach((c, i) => {
     const a = acts[i]!;
-    t.N += a.N; t.Vx += a.Vx; t.Vy += a.Vy;
-    if (tiedAxis !== 'x') t.My += a.My + a.N * c.x;
-    if (tiedAxis !== 'y') t.Mx += a.Mx - a.N * c.y;
+    t.N += a.N;
+    if (tiedAxis !== 'x') { t.My += a.My + a.N * c.x; t.Vx += a.Vx; }
+    if (tiedAxis !== 'y') { t.Mx += a.Mx - a.N * c.y; t.Vy += a.Vy; }
   });
   return t;
 }
@@ -272,7 +272,7 @@ export function analyseGroup(g: FootingGroup, c: FootingContext, a: FootingAdopt
       }
       if (p.demand.column) cases[i]!.push({ f, a: q, combo: name });
       if (tied) {
-        const H = (p.demand.column?.storey ?? 3) + lever, e = Math.abs(tied === 'x' ? p.x : p.y);
+        const H = p.demand.column!.storey! + lever, e = Math.abs(tied === 'x' ? p.x : p.y);
         const w = tied === 'x' ? q.My + lever * q.Vx : q.Mx - lever * q.Vy;
         const T = (q.N * e + Math.abs(w)) / H;
         tieForce[i]!.byCombo[name] = T; tieForce[i]!.max = Math.max(tieForce[i]!.max, T);
@@ -341,12 +341,12 @@ export function analyseGroup(g: FootingGroup, c: FootingContext, a: FootingAdopt
     if (p.demand.column && an && dw && dw.count > 0) {
       const bars = c.members?.[p.demand.key]?.columnBars, tension = bars?.tension ?? false, mat = { fc: c.fc, fy: c.fy };
       const required = Math.max(p.demand.column.dowelMin ?? 0.005 * (p.demand.column.area ?? p.b * p.h) * 1e4, (10 * Math.max(0, pu[i]! - phiBn)) / (0.65 * c.fy));
-      dowels = { ...dw, area: dw.count * barArea(dw.dia), required, ldc: an.ldc(mat, dw.dia), ldh: tension ? an.ldh(mat, dw.dia) : 0, available: a.h - c.cover - (a.x.dia + a.y.dia) / 1000, lap: dowelLap(an, bars, { fc: c.members?.[p.demand.key]?.columnFc ?? c.fc, fy: c.fy }, dw.dia, tension), tension, ...dowelReach(bars, dw.dia, leverOf(p.demand, a.h) - a.h) };
+      dowels = { ...dw, area: dowelArea(bars, dw), required, ldc: an.ldc(mat, dw.dia), ldh: tension ? an.ldh(mat, dw.dia) : 0, available: a.h - c.cover - (a.x.dia + a.y.dia) / 1000, lap: dowelLap(an, bars, { fc: c.members?.[p.demand.key]?.columnFc ?? c.fc, fy: c.fy }, dw.dia, tension), tension, ...dowelReach(bars, dw.dia, leverOf(p.demand, a.h) - a.h) };
     }
     return { key: p.demand.key, name: p.demand.name, x: p.x, y: p.y, b: p.b, h: p.h, N: p.demand.service?.N ?? 0, punching: punching[i]!, bearing: { pu: pu[i]!, phiBn }, dowels, anchor: p.anchor };
   });
   const ties: GroupTie[] = tied ? cols.map((p, i) => {
-    const lim = tieLimits(cr), H = (p.demand.column?.storey ?? 3) + lever, e = Math.abs(tied === 'x' ? p.x : p.y);
+    const lim = tieLimits(cr), H = p.demand.column!.storey! + lever, e = Math.abs(tied === 'x' ? p.x : p.y);
     const Ns = p.demand.service?.N ?? 0, sw = p.demand.service ? (tied === 'x' ? p.demand.service.My + lever * p.demand.service.Vx : p.demand.service.Mx - lever * p.demand.service.Vy) : 0;
     const Ts = (Ns * e + Math.abs(sw)) / H;
     const bars = tieBars(tieForce[i]!.max, c.fy, c.diameters, 0, cr.footingTieMinBars);

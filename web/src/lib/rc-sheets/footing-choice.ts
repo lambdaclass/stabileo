@@ -1,4 +1,4 @@
-import { buildingPlan, footingCorners, footingOverlaps } from './footing-overlaps';
+import { buildingPlan, coverPlan, footingCorners, footingOverlaps } from './footing-overlaps';
 
 export { buildingPlan };
 import { layFootings, type LayoutHooks } from './footing-layout';
@@ -41,7 +41,8 @@ function* alongLines(rows: FootingRow[], fixed: (r: FootingRow) => boolean, pinn
     }
     return out;
   };
-  const ways = (['x', 'y'] as const).map((k) => ({ k, lines: linesOf(k).filter((l) => l.length > 1) }));
+  const all = (['x', 'y'] as const).map((k) => ({ k, lines: linesOf(k).filter((l) => l.length > 1) }));
+  const ways = all.some((w) => w.lines.length) ? all.filter((w) => w.lines.length) : all;
   const best = ways.sort((p, q) => p.lines.length - q.lines.length || q.lines.reduce((s, l) => s + l.length, 0) - p.lines.reduce((s, l) => s + l.length, 0))[0]!;
   let out = [...rows];
   for (const l of best.lines) { out = [...out.filter((r) => !l.includes(r)), make(l.flatMap(membersOf), 'strip', 'project')]; yield; }
@@ -84,7 +85,7 @@ export function* chooseFoundationsSteps(rows: readonly FootingRow[], h: ChoiceHo
     const axis = kind === 'strip' ? lineOf(members) ?? undefined : undefined;
     return h.group({ kind, members: [...members].sort((p, q) => p.nodeId - q.nodeId), ...(axis ? { axis } : {}), reason });
   };
-  const plan = buildingPlan(rows.flatMap(membersOf));
+  const plan = coverPlan(rows);
   const covered = rows.filter((r) => r.B > 0).reduce((s, r) => s + r.B * r.L, 0);
   const byCover = o.system === 'auto' && !!plan && covered / plan.area > o.matShare + 1e-9;
   const toMat = (r: FootingRow) => !fixed(r) && !pinned(r) && (o.system === 'mat' || solution(r) === 'mat' || (byCover && solution(r) !== 'combined'));
@@ -103,6 +104,7 @@ export function* chooseFoundationsSteps(rows: readonly FootingRow[], h: ChoiceHo
     .map((x) => ({ x, d: Math.hypot(x.demand.at.x - r.demand.at.x, x.demand.at.y - r.demand.at.y) }))
     .sort((p, q) => p.d - q.d)[0]?.x;
   const asked: Array<[FootingRow, FootingRow]> = out.filter((r) => solution(r) === 'combined' && !r.demand.group && !r.demand.carried && !fixed(r)).flatMap((r) => { const n = near(r); return n ? [[r, n] as [FootingRow, FootingRow]] : []; });
+  if (o.system === 'piles') return out;
   if (!merges) return pairedFootings(out, asked, (r) => !fixed(r) && !pinned(r) && !r.demand.group && !r.demand.carried, h);
   for (let round = 0; round < rows.length + 2; round++) {
     const live = out.filter((r) => !fixed(r) && !pinned(r));

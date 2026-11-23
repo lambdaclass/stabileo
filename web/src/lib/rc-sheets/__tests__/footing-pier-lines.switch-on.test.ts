@@ -28,10 +28,25 @@ describe('footings that do not fit', () => {
     expect(onlyOverlaps(row(0, 0, 2, []))).toBe(false);
   });
 
-  it('cover a share of the building\'s plan, the rectangle its columns reach', () => {
+  it('cover a share of the building\'s plan, the rectangle its columns and its footings reach', () => {
     const c = footingCover([row(0, 0, 2, []), row(4, 3, 2, [])])!;
     expect(c.footings).toBeCloseTo(8, 9);
-    expect(c.plan).toBeCloseTo(4.4 * 3.4, 9);
-    expect(c.share).toBeCloseTo(8 / (4.4 * 3.4), 9);
+    expect(c.plan).toBeCloseTo(6 * 5, 9);
+    expect(c.share).toBeCloseTo(8 / 30, 9);
+  });
+
+  it('of a building on one line of columns cover the footings\' own width, not a column\'s', () => {
+    const c = footingCover([row(0, 0, 2, []), row(8, 0, 2, []), row(16, 0, 2, [])])!;
+    expect(c.plan).toBeCloseTo(18 * 2, 9);
+    expect(c.share).toBeLessThan(0.5);
   });
 });
+
+describe('a core standing on two opposite property lines', () => {
+  it('is held at neither of them, rather than at whichever its first node meets', () => {
+    const core = base('f1', 2, 1, { column: { b: 4.4, h: 0.3 }, pier: { key: 'p1', nodes: [1, 2], walls: [], points: [{ x: 0, y: 1 }, { x: 4, y: 1 }] } });
+    const rows = withEdges([core, base('f2', 2, 6)], { lines: { minX: true, maxX: true }, setup: {}, straps: [] });
+    expect(rows[0]!.edge?.anchor[0] ?? 0).toBe(0);
+  });
+});
+

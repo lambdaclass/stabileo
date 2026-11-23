@@ -162,7 +162,7 @@ export function proposeGroup(g: FootingGroup, c: FootingContext, code: FootingRo
       if (grow(growAxes)) { if (ext.x.hi - ext.x.lo > MAX_PLAN || ext.y.hi - ext.y.lo > MAX_PLAN) break; continue; }
       blocked = true;
     }
-    if (code.bearingOnly) return { adopted: { ...size, ...noBars }, reached: !blocked, ...needsOf(s, k) };
+    if (code.bearingOnly) return { adopted: { ...size, ...noBars }, reached: !blocked, ...(blocked ? needsOf(s, k) : {}) };
     const a = { ...size, ...proposeGroupBars(g, c, size, code) };
     const r = analyseGroup(g, c, a, code);
     if (!groupThicknessHolds(r, false)) h += STEP_H;

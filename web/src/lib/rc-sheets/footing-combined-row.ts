@@ -6,6 +6,9 @@ import { analyseCombined, proposeCombined, type CombinedAnalysis } from './footi
 import { check, ratioOf, type CheckLine, type RowStatus, type Step, type StepGroup } from './types';
 import type { FootingAdopted, FootingContext, FootingDemand, FootingRow } from './footing-types';
 
+type DowelReading = { count: number; dia: number; ldc: number; ldh: number; available: number; lap: number; tension: boolean; above: number; offset: number } | null | undefined;
+const rowDowels = (d: DowelReading) => (d ? { count: d.count, dia: d.dia, ldc: Math.max(d.ldc, d.ldh), available: d.available, lap: d.lap, tension: d.tension, above: d.above, offset: d.offset } : null);
+
 function verifications(d: FootingDemand, r: CombinedAnalysis, a: FootingAdopted, code: FootingRowCode, fmt: Fmt, needs?: number): CheckLine[] {
   const out: CheckLine[] = [];
   const kn = (v: number) => `${fmt(v, 1)} kN`, knm = (v: number) => `${fmt(v, 1)} kN·m`, cm2 = (v: number) => `${fmt(v, 2)} cm²`, cm = (v: number) => `${fmt(v * 100, 1)} cm`;
@@ -94,7 +97,8 @@ export function combinedRow(d: FootingDemand, c: FootingContext, adopted: Footin
     bearing: r.bearing ? { qMax: r.bearing.qMax, qMin: r.bearing.qMin, qMean: r.bearing.qMean, contact: r.bearing.contact, allowable: r.bearing.allowable, edgeFactor: r.bearing.edgeFactor, weight: r.bearing.weight, ex: r.bearing.ex, ey: r.bearing.ey, overturns: r.bearing.overturns, ok: r.bearing.ok, utilization: r.bearing.use } : null,
     layers: r.layers, x, y,
     punching: r.punching[0] ? { vu: r.punching[0].vu, phiVc: r.punching[0].phiVc, utilization: Math.max(...r.punching.map((p) => p.utilization)), bo: r.punching[0].bo, position: r.punching[0].position as 'interior' } : null,
-    dowels: r.dowels[0] ? { count: r.dowels[0].count, dia: r.dowels[0].dia, ldc: Math.max(r.dowels[0].ldc, r.dowels[0].ldh), available: r.dowels[0].available, lap: r.dowels[0].lap, tension: r.dowels[0].tension, above: r.dowels[0].above, offset: r.dowels[0].offset } : null,
+    dowels: rowDowels(r.dowels[0]),
+    secondDowels: rowDowels(r.dowels[1]),
     utilization: Math.max(0, ...ratios.filter(Number.isFinite)), verifications: v,
     combos: { headers: ['N', 'Mx', 'My', 'qu,max'], rows: r.combos.map((k) => ({ combo: k.combo, values: [fmt(k.N, 1), fmt(k.mx, 1), fmt(k.my, 1), fmt(k.qMax, 0)], ratio: k.ratio, ok: k.ratio <= 1 + 1e-6 })) },
     status, generous: false,

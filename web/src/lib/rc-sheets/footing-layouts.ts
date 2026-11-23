@@ -28,7 +28,8 @@ const pilesVolume = (r: FootingRow) => (r.adopted.piles ? r.adopted.piles.at.len
 
 export function layoutSummary(rows: readonly FootingRow[], code: SheetCode | string): LayoutSummary {
   const live = rows.filter((r) => r.B > 0);
-  const straps = live.flatMap((r) => (r.edge?.straps ?? []).filter((s) => s.group === undefined).map((s) => ({ key: [r.key, s.partnerKey].sort().join('|'), v: s.b * s.h * Math.max(0, s.L) })));
+  const half = (r: FootingRow | undefined, axis: 'x' | 'y') => (r ? (axis === 'x' ? r.B : r.L) / 2 : 0);
+  const straps = live.flatMap((r) => (r.edge?.straps ?? []).filter((s) => s.group === undefined).map((s) => ({ key: [r.key, s.partnerKey].sort().join('|'), v: s.b * s.h * Math.max(0, s.L - half(r, s.axis) - half(live.find((x) => x.key === s.partnerKey), s.axis)) })));
   const strapVolume = [...new Map(straps.map((s) => [s.key, s.v])).values()].reduce((t, v) => t + v, 0);
   const concrete = live.reduce((t, r) => t + r.B * r.L * r.h + (r.demand.group ? dropsVolume(r.demand.group, r.adopted) : 0) + pilesVolume(r) + (r.pedestal > 0 ? (r.group ? r.group.columns.reduce((s, c) => s + c.b * c.h, 0) : (r.demand.column?.b ?? 0) * (r.demand.column?.h ?? 0)) * r.pedestal : 0), 0) + strapVolume;
   const steel = scheduleOf(scheduleElements({ line: [], column: [], slab: [], wall: [], footing: [...live] }, { code: code as SheetCode, slabCover: 0.02 }), { code: code as SheetCode, scope: 'element' }).total.kg;

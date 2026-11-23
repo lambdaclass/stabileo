@@ -161,7 +161,7 @@ export interface UpliftReading { combo: string; N: number; weight: number }
 /** The combination that pulls the base up the most, with the weight that holds it down; a combination without an axial force counts as one, so it never passes. */
 export function upliftOf(combos: readonly { combo: string; N: number }[], weight: number): UpliftReading | null {
   let worst: UpliftReading | null = null;
-  for (const k of combos) if (!(k.N > 0) && (!worst || !(k.N >= worst.N))) worst = { combo: k.combo, N: k.N, weight };
+  for (const k of combos) if (!(k.N > 0) && (!worst || (Number.isFinite(worst.N) && !(k.N >= worst.N)))) worst = { combo: k.combo, N: k.N, weight };
   return worst;
 }
 

@@ -3,7 +3,7 @@ import { pileCentres } from '../model/foundation/piles';
 import { barArea } from './bars';
 import { critOf } from './criteria';
 import { shiftAt } from './footing-balance';
-import { dowelLap, dowelReach, footingSpacing, layersOf, leverOf, stripReading, type FootingRowCode } from './footing-design';
+import { dowelArea, dowelLap, dowelReach, footingSpacing, layersOf, leverOf, stripReading, type FootingRowCode } from './footing-design';
 import { alphaOfSides, bearingStrength, ceilTo, CONCRETE_WEIGHT, plainPunchingVc, r3 } from './footing-mechanics';
 import { layerAnchorage, meshArea, proposeLayer } from './footing-mesh';
 import { sectionStress, sidesIn } from './footing-punching';
@@ -232,7 +232,7 @@ export function analyseCap(d: FootingDemand, c: FootingContext, a: FootingAdopte
   const dowels = d.column && an && dw && dw.count > 0 ? (() => {
     const tension = c.columnBars?.tension ?? false, mat = { fc: c.fc, fy: c.fy };
     return {
-      ...dw, area: dw.count * barArea(dw.dia), required: Math.max(d.column!.dowelMin ?? 0.005 * (d.column!.area ?? first.b * first.h) * 1e4, (10 * Math.max(0, pu1 - phiBn)) / (0.65 * c.fy)),
+      ...dw, area: dowelArea(c.columnBars, dw), required: Math.max(d.column!.dowelMin ?? 0.005 * (d.column!.area ?? first.b * first.h) * 1e4, (10 * Math.max(0, pu1 - phiBn)) / (0.65 * c.fy)),
       ldc: an.ldc(mat, dw.dia), ldh: tension ? an.ldh(mat, dw.dia) : 0, available: a.h - cover - (a.x.dia + a.y.dia) / 1000,
       lap: dowelLap(an, c.columnBars, { fc: capFc, fy: c.fy }, dw.dia, tension), tension, ...dowelReach(c.columnBars, dw.dia, stub),
     };

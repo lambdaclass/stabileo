@@ -18,6 +18,7 @@ import type { Footing } from '../footing';
 import type { PhysicalData } from '../physical/types';
 import { levelAt } from '../physical/recognize';
 import { declare, nextName } from '../building/declare';
+import { planHalf } from '../building/build-on-grid';
 import { anchorsOf, inwardPartner, type PropertyLines } from './edges';
 
 export type { PropertyLines };
@@ -50,7 +51,20 @@ export function columnOn(nodeId: number): number | undefined {
 
 /** Where each node's footing is held: against the property lines it stands on, inward. */
 export function anchorsFor(nodeIds: number[], lines: PropertyLines): Map<number, [number, number]> {
-  return anchorsOf(nodeIds.map((id) => { const n = modelStore.nodes.get(id); return n ? { id, x: n.x, y: n.y } : null; }).filter((p): p is { id: number; x: number; y: number } => !!p), lines);
+  const halfAt = (id: number): [number, number] | null => {
+    for (const e of modelStore.elements.values()) {
+      if (e.nodeI !== id && e.nodeJ !== id) continue;
+      const a = modelStore.nodes.get(e.nodeI), b = modelStore.nodes.get(e.nodeJ);
+      if (a && b && Math.abs(a.x - b.x) < 1e-6 && Math.abs(a.y - b.y) < 1e-6) { const h = planHalf(e.id); if (h) return h; }
+    }
+    return null;
+  };
+  return anchorsOf(nodeIds.map((id) => {
+    const n = modelStore.nodes.get(id);
+    if (!n) return null;
+    const h = halfAt(id);
+    return { id, x: n.x, y: n.y, ...(h ? { hx: h[0], hy: h[1] } : {}) };
+  }).filter((p): p is { id: number; x: number; y: number; hx?: number; hy?: number } => !!p), lines);
 }
 
 /** Footings under the nodes given, one each, in one undo step. Returns their ids. */

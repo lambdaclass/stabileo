@@ -8,6 +8,7 @@ import type { MemoriaElement } from '../report/memoria/types';
 import { groupsLabel, meshLabel, stirrupsLabel } from '../rc-sheets/bars';
 import { columnLabel, tieLabel, type ColumnRow } from '../rc-sheets/column-row';
 import { wallLabel, type WallRow } from '../rc-sheets/wall-row';
+import { dowelsText } from '../rc-sheets/footing-dowels';
 import { SLAB_FACES, type SlabRow } from '../rc-sheets/slab-row';
 import { SHEET_CODES, type CheckLine, type SheetCode } from '../rc-sheets/types';
 import { localizeCriterion } from '../rc-sheets/criteria';
@@ -123,7 +124,7 @@ export function sheetsMemoriaElements(rows: SheetsForMemoria, code: SheetCode, t
       data: [
         ...(r.B > 0 ? [[tr('memo.el.size'), `${n2(r.B)} × ${n2(r.L)} × ${n2(r.h)} m`] as [string, string]] : []),
         ...(r.uncovered ? [] : [[tr('rcSheets.foot.mesh.x'), meshText(r.adopted.x)], [tr('rcSheets.foot.mesh.y'), meshText(r.adopted.y)]] as Array<[string, string]>),
-        ...(r.adopted.dowels && !r.uncovered ? [[tr('rcSheets.foot.dowels'), `${r.adopted.dowels.count} Ø${r.adopted.dowels.dia}`] as [string, string]] : []),
+        ...(r.adopted.dowels && !r.uncovered ? [[tr('rcSheets.foot.dowels'), dowelsText(r)] as [string, string]] : []),
         codeDatum,
       ],
       rows: checks(r.verifications), notes: [], ...held(r.isAdopted),

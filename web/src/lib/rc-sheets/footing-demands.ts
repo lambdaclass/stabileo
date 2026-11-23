@@ -183,7 +183,8 @@ function withModelGroups(out: FootingDemand[], groups: readonly FootingRecord[],
     const kind = f.kind === 'mat' ? 'mat' as const : 'strip' as const;
     const keys = members.map((d) => d.key);
     const soil = m.soilOf(f.soilProfileId);
-    for (const d of members) { const { outOfScope: _o, ...rest } = base; held.set(d.key, { footing: { ...rest, ex: base.ex + at.x - d.at.x, ey: base.ey + at.y - d.at.y, group: { kind, members: keys } }, soil }); }
+    const offQuarter = Math.abs(((f.rotationDeg % 90) + 90) % 90) > 1e-6;
+    for (const d of members) { const { outOfScope: _o, ...rest } = base; held.set(d.key, { footing: { ...rest, ex: base.ex + at.x - d.at.x, ey: base.ey + at.y - d.at.y, group: { kind, members: keys }, ...(offQuarter ? { outOfScope: 'rotated' as const } : {}) }, soil }); }
   }
   return out.map((d) => { const f = held.get(d.key); return f ? { ...d, footing: f.footing, soil: f.soil } : d; });
 }

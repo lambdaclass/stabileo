@@ -4,7 +4,7 @@ import { barArea } from './bars';
 import { ASSUMED_FILL_WEIGHT, baseWeight, upliftOf, type UpliftReading, bearingHolds, bearingReading, bearingStrength, beyond, cantileverAcross, ceilTo, centred, edgeFactorOf, r3, footingPunching, serviceBearing, strips, type FootingPlan, type ServiceBearing } from './footing-mechanics';
 import { layerAnchorage, meshArea, proposeLayer } from './footing-mesh';
 import { needsOf } from './footing-needs';
-import { MIN_D, footingSpacing, dowelLap, dowelReach, leverOf, layersOf, minThickness, preferredDiameters, stripReading, type FootingDowelReading, type FootingRowCode } from './footing-design';
+import { MIN_D, footingSpacing, dowelArea, dowelLap, dowelReach, leverOf, layersOf, minThickness, preferredDiameters, stripReading, type FootingDowelReading, type FootingRowCode } from './footing-design';
 import type { FootingAction, FootingAdopted, FootingContext, FootingDemand, FootingDirection, FootingDowels, FootingLayers, FootingMesh } from './footing-types';
 
 const EDITION = '2025' as const;
@@ -209,7 +209,7 @@ export function analyseCombined(d: FootingDemand, c: FootingContext, a: FootingA
     const tension = bars?.tension ?? false, mat = { fc: c.fc, fy: c.fy };
     const ldc = an.ldc(mat, dw.dia), ldh = tension ? an.ldh(mat, dw.dia) : 0;
     const lap = dowelLap(an, bars, { fc: (i === 0 ? c.columnFc : c.second?.columnFc) ?? c.fc, fy: c.fy }, dw.dia, tension);
-    return { ...dw, area: dw.count * barArea(dw.dia), required, ldc, ldh, available: a.h - c.cover - (a.x.dia + a.y.dia) / 1000, lap, tension, ...dowelReach(bars, dw.dia, lever - a.h) };
+    return { ...dw, area: dowelArea(bars, dw), required, ldc, ldh, available: a.h - c.cover - (a.x.dia + a.y.dia) / 1000, lap, tension, ...dowelReach(bars, dw.dia, lever - a.h) };
   });
   const ratio = (u: number, cap: number) => (cap > 1e-9 ? u / cap : u > 1e-9 ? Infinity : 0);
   const combos = perCombo.map((k) => ({

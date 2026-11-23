@@ -105,7 +105,7 @@
   function onkey(e: KeyboardEvent) { if (e.key !== 'Escape') return; if (plansOpen) plansOpen = false; else onclose(); }
   const openRow = $derived(openKey ? shown.find((r) => r.key === openKey) : undefined);
   const pick = () => { highlight = []; };
-  const matShare = $derived(criteriaOf(designData().designOptions?.criteria).footingMatShare);
+  const matShare = $derived.by(() => { void modelStore.designData; return criteriaOf(designData().designOptions?.criteria).footingMatShare; });
   const matCover = $derived.by(() => { if (footingView.some((r) => r.group?.kind === 'mat')) return null; const c = footingCover(footingView); return c && c.share > matShare ? c : null; });
   const drawable = $derived(rows.line.length + rows.column.length + rows.wall.length + rows.slabPlan.length + rows.footing.length > 0);
   async function openFromSchedule(el: ElementRef, marks: string[]) {

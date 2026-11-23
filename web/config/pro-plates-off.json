@@ -5569,7 +5569,7 @@
       ]
     },
     "src/lib/i18n/locales/de.ts": {
-      "source": "c4e65e33e104066e702acc30f0a0a88faeb43098d5fd607d5605ce839f5dc1fe",
+      "source": "b52cde5729e3ea74c2b7670818079eb0f21ada70b4411039941b8ece5763db96",
       "original": "0b1cffc73c321c88dd80b93e39f81e925705babc0f2e91df63e10c19111fe052",
       "changes": [
         [
@@ -5890,13 +5890,13 @@
         ],
         [
           16166,
-          940,
+          938,
           []
         ]
       ]
     },
     "src/lib/i18n/locales/en.ts": {
-      "source": "aa06dafe1efccc033e3562ea7675d0006c435b25141039fecfacafdd1bd8e6e5",
+      "source": "2cd3cbfdb92a1e06276885186f14ac6da5eb89e373508a93f0d3e1ba84b50cfa",
       "original": "99343e2eeb7cf4140cbbcb69424c37461d3ec4e5c925d64439f6b56ee0e9e6b3",
       "changes": [
         [
@@ -6189,13 +6189,13 @@
         ],
         [
           16328,
-          940,
+          938,
           []
         ]
       ]
     },
     "src/lib/i18n/locales/es.ts": {
-      "source": "ddd5ba005b861919730a8ff93286d9ddc89b7934d8c7ba1b5dd14ee2449c3e7c",
+      "source": "14c430570e9aed5ea67a0b2764c65723ac1aaf4e70c4451b5721bafaa9aa6bfc",
       "original": "df939d2beed0420d6833617b3561c95098e34704ee1a3b4f15f21dda24fa4e09",
       "changes": [
         [
@@ -6488,13 +6488,13 @@
         ],
         [
           16317,
-          940,
+          938,
           []
         ]
       ]
     },
     "src/lib/i18n/locales/fr.ts": {
-      "source": "d3c25376421185efa456bbeafc6c75fa57c013fafa4cad63ff729bf93b0fa166",
+      "source": "55f98ea385c8ea8f952c2f6634b9ee436062e949e1154e1b7d1a2d4cf3497660",
       "original": "26693801514fc282fbb8a5a4ad627431cbfce3c6e3f0720639c8cb5cef4e4b20",
       "changes": [
         [
@@ -6815,7 +6815,7 @@
         ],
         [
           16166,
-          940,
+          938,
           []
         ]
       ]
@@ -6841,7 +6841,7 @@
       ]
     },
     "src/lib/i18n/locales/hu.ts": {
-      "source": "a9a9750a2e5e1b0441889d1cf366d3383c738840a5a9a5e9aaf860eb327eb2b8",
+      "source": "23d1d8d0c18074d84edbac7ee3e7d01001c1bc4aef16727fa9787f6e2d3b449e",
       "original": "050bb2fb50b6d61761b6836086403490f8b3deedc1ac4af88de298aa3fd3966e",
       "changes": [
         [
@@ -7091,7 +7091,7 @@
         ],
         [
           14765,
-          2054,
+          2052,
           [
             "  \"edu.game.hint\": \"Játék: egy szerkezet, három ábra, és csak az egyik helyes.\"",
             ""
@@ -7180,7 +7180,7 @@
       ]
     },
     "src/lib/i18n/locales/pt.ts": {
-      "source": "94bd750e22aa2982640063d549a862abdb00d8c2dc71f2386ff48e1039164559",
+      "source": "02e7dbff05d63645ab897304e34233990c073988d122f3c55f477a42c74cd582",
       "original": "f013a27bd1465964fefdc7d531a470bc4855e8593daa03ed54ed7453509bdd37",
       "changes": [
         [
@@ -7473,7 +7473,7 @@
         ],
         [
           15970,
-          940,
+          938,
           []
         ]
       ]
@@ -7801,7 +7801,7 @@
       ]
     },
     "src/lib/i18n/locales/tr.ts": {
-      "source": "8f14b37d9857418a8b3cbe92f15e5b2c74ed018ff83e0a1c6d4ad0b398ca866f",
+      "source": "e68fa8df14b49ef04104fa7709199a83aa655aa48e4c1cd43f508d28e58a8ea6",
       "original": "dfae3be5cd45792b6b2c9720f3433a60bace6b76a70d785cd4f6cc88d7ef096f",
       "changes": [
         [
@@ -8101,13 +8101,13 @@
         ],
         [
           16166,
-          940,
+          938,
           []
         ]
       ]
     },
     "src/lib/i18n/locales/zh.ts": {
-      "source": "50dfbf38ebbea08bb139c0d7b27eb56b42cdbfd9dea0cab37416fe2ce01b2d8a",
+      "source": "cfafeec9c0f759fbb336553f5d7065ec6d3075511112ba5abe53fa226a3d18f7",
       "original": "187ecdf53aa596a80d7c584c8c8fc84768c7dd6c4d6540750c3a9cdcf2caee26",
       "changes": [
         [
@@ -8341,7 +8341,7 @@
         ],
         [
           14787,
-          2056,
+          2054,
           []
         ]
       ]
@@ -8881,7 +8881,7 @@
     "src/lib/model/edit/rect-grid.ts": null,
     "src/lib/model/foundation/edges.ts": null,
     "src/lib/model/foundation/generate.ts": {
-      "source": "db9dca70cd3e1aee53f3ab3fffac677807bcfd750f0c49b8454c3263a71232a1",
+      "source": "0207e73afbf3fcb943a4c5761d694fbdbc97f318591356f676e68bc45cfe0526",
       "original": "c819828a842345467ade84aa71cbfd7184587506195bb337632fd2754e07413c",
       "changes": [
         [
@@ -8896,19 +8896,19 @@
         ],
         [
           20,
-          1,
+          2,
           []
         ],
         [
-          22,
+          23,
           1,
           [
             "export type PropertyLines = { minX?: boolean; maxX?: boolean; minY?: boolean; maxY?: boolean };"
           ]
         ],
         [
-          52,
-          1,
+          53,
+          14,
           [
             "  const pts = nodeIds.map((id) => modelStore.nodes.get(id)!).filter(Boolean);",
             "  const out = new Map<number, [number, number]>();",
@@ -8924,19 +8924,19 @@
           ]
         ],
         [
-          100,
+          114,
           1,
           []
         ],
         [
-          107,
+          121,
           1,
           [
             "/** A wall stood on the ground: its base nodes fixed where they have no support. A model step. */"
           ]
         ],
         [
-          110,
+          124,
           7,
           [
             "  const add = wallBaseNodes(wallGroupId).filter((n) => !held.has(n));",
@@ -8944,12 +8944,12 @@
           ]
         ],
         [
-          191,
+          205,
           1,
           []
         ],
         [
-          194,
+          208,
           5,
           [
             "    for (const [dx, dy] of [[ax, 0], [0, ay]] as Array<[number, number]>) {",

@@ -22,7 +22,7 @@ export interface DowelPlace { x: number; y: number; out: [number, number]; dia: 
 /** How a column's own axes lie in plan: where its b and its h point. Absent, b along X and h along Y, as the footing's plan draws it. */
 export interface ColumnAxes { x: [number, number]; y: [number, number] }
 
-export type DowelRow = Pick<FootingRow, 'adopted' | 'cover' | 'demand' | 'dowels'>;
+export type DowelRow = Pick<FootingRow, 'adopted' | 'cover' | 'demand' | 'dowels'> & Partial<Pick<FootingRow, 'secondDowels'>>;
 
 export function columnRects(r: Pick<FootingRow, 'adopted' | 'demand'>): { column: Rect | null; second: Rect | null } {
   const a = r.adopted, col = r.demand.column, o = r.demand.carried;
@@ -94,7 +94,8 @@ export function dowelPlaces(r: DowelRow, R: BendRules, columns: { first?: Column
   } else {
     for (const p of underColumn(rects.column, dw.count, columns.first, columns.first && columns.axes?.(columns.first))) raw.push({ ...p, dia: dw.dia, lap, offset });
     const d2 = a.dowels2;
-    if (rects.second && d2 && d2.count > 0) for (const p of underColumn(rects.second, d2.count, columns.second, columns.second && columns.axes?.(columns.second))) raw.push({ ...p, dia: d2.dia, lap, offset });
+    const lap2 = r.secondDowels?.lap ?? lap, offset2 = r.secondDowels?.offset ?? offset;
+    if (rects.second && d2 && d2.count > 0) for (const p of underColumn(rects.second, d2.count, columns.second, columns.second && columns.axes?.(columns.second))) raw.push({ ...p, dia: d2.dia, lap: lap2, offset: offset2 });
   }
   const hx = a.B / 2 - r.cover, hy = a.L / 2 - r.cover;
   return raw.map((p) => {

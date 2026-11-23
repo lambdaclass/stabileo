@@ -2,6 +2,9 @@ import { strapForces } from '../engine/foundation/strap-footing';
 import type { FootingPlan } from './footing-mechanics';
 import type { FootingAction, FootingAdopted, FootingDemand, FootingPosition, StrapPartner } from './footing-types';
 
+/** A strap shorter than this past the footing's own offset levers nothing: its forces would grow without bound. */
+const STRAP_MIN_ARM = 0.1;
+
 export type Axis = 'x' | 'y';
 
 /** One axis the structure balances: toward the inside `u` (±1), the footing's offset `along` it, m; a strap's length L or a tie's height H, m. */
@@ -47,7 +50,7 @@ export function balanceOf(d: FootingDemand, a: Pick<FootingAdopted, 'B' | 'L' | 
     const u = (s > 0 ? -1 : 1) as 1 | -1, along = (axis === 'x' ? a.ex : a.ey) * u;
     const partner = e?.balance === 'strap' ? e.partners.find((p) => p.axis === axis) : undefined;
     const H = e?.balance === 'tie' && d.column?.storey ? lever + d.column.storey : undefined;
-    if (partner && partner.L > along + 1e-6) axes.push({ axis, u, along, L: partner.L, partner });
+    if (partner && partner.L > along + STRAP_MIN_ARM) axes.push({ axis, u, along, L: partner.L, partner });
     else if (H) axes.push({ axis, u, along, H });
     else free.push(axis);
   }

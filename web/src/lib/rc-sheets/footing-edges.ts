@@ -15,8 +15,10 @@ function anchorsHeld(pts: ReadonlyArray<{ id: number; x: number; y: number; hx?:
   const out = new Map<number, [number, number]>();
   anchorsOf(pts.map((p, i) => ({ id: i, x: p.x, y: p.y, ...(p.hx !== undefined ? { hx: p.hx, hy: p.hy } : {}) })), lines).forEach((a, i) => {
     const id = pts[i]!.id, was = out.get(id) ?? [0, 0];
-    out.set(id, [was[0] || a[0], was[1] || a[1]]);
+    const join = (p: number, q: number) => (Number.isNaN(p) || (p && q && p !== q) ? NaN : p || q);
+    out.set(id, [join(was[0], a[0]), join(was[1], a[1])]);
   });
+  for (const [id, a] of out) out.set(id, [Number.isNaN(a[0]) ? 0 : a[0], Number.isNaN(a[1]) ? 0 : a[1]]);
   return out;
 }
 

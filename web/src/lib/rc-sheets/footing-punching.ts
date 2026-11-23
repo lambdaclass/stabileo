@@ -184,7 +184,7 @@ export function designCage(cases: readonly PunchingCase[], s: PunchingSite): Pun
         if (rd && rd.utilization <= 1 + 1e-9) return c;
         if (rd && rd.sections.every((x) => x.at !== 'outer')) break;
       }
-      return null;
+      break;
     }
   }
   return null;
