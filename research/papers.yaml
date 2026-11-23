@@ -425,12 +425,14 @@ papers:
   - experiments
   dependencies: []
   complexity: low
-  relevance: The production co-rotational solver now takes prescribed end rotations and continues from a
-    converged state (pull request 1885), which lifts the blocker below. A first load-controlled prototype on the
-    production engine reaches the paper's unloaded heights and limit loads of Figures 10 and 11 within
-    a few percent (read from the figures); branch selection after the snap and B = 0.25L are open, and
-    the measured points are not compared yet. See research/metamaterials/feher-2026/README.md.
-  status: implementation-in-progress
+  relevance: The production co-rotational solver takes prescribed end rotations and continues from a
+    converged state (pull request 1885). The cut strip of Section 2, with self-weight, matches the
+    inextensible elastica of the same model solved by shooting within 1.6·10⁻⁴ relative in the six
+    cases of Figures 10 and 11. Against the paper (reference-results/published_comparison.json) the
+    measured unloaded heights at B = 0.5L agree within 0.3 mm; at B = 0.75L they differ by 1.1 to 2.1 mm,
+    and the snap-through loads read from the figures are 4 to 8 % higher than ours. No page yet. See
+    research/metamaterials/feher-2026/README.md.
+  status: numerically-validated
   reproduced_published_results: false
   benchmarks: []
   implementation: metamaterials/feher-2026
