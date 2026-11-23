@@ -1,6 +1,6 @@
 <script lang="ts" module>
   import DespieceOptions from '../DespieceOptions.svelte';
-  import { untrack } from 'svelte';
+  import { tick, untrack } from 'svelte';
   import { trackUsage } from '../../lib/telemetry/usage';
   import { uiStore, modelStore, resultsStore, dsmStepsStore, fmStepsStore } from '../../lib/store';
 
@@ -99,6 +99,7 @@
   import { advancedList } from '../../lib/advanced/panel-state.svelte';
   import AdvancedLauncher from '../advanced/AdvancedLauncher.svelte';
   import AdvFunctionHead from '../advanced/AdvFunctionHead.svelte';
+  import SelfCheckBanner from '../advanced/SelfCheckBanner.svelte';
 
   let showTrainPanel = $state(false);
   let selectedTrainIndex = $state<string>('');
@@ -223,9 +224,12 @@
 
 
   const active = $derived(ADV.find(a => a.isActive()) ?? null);
+  let section = $state<HTMLElement | null>(null);
   $effect(() => {
     const key = active?.key;
-    if (key) untrack(() => trackUsage('advanced.open', { analysis: key }));
+    if (!key) return;
+    untrack(() => trackUsage('advanced.open', { analysis: key }));
+    void tick().then(() => section?.scrollIntoView({ block: 'start' }));
   });
 
   /**
@@ -598,7 +602,7 @@
   }
 </script>
 
-<div class="toolbar-section flat" data-tour="advanced-section" onclickcapture={noteOpening}>
+<div class="toolbar-section flat" data-tour="advanced-section" bind:this={section} onclickcapture={noteOpening}>
   {#if courseReady}
     {#if active && activeFn}
       <AdvFunctionHead fn={activeFn} onBack={() => { if (active) closeEntry(active.key); }} />
@@ -648,7 +652,7 @@
     <PDeltaCertificate result={pdR} />
   {/if}
   {#if moR}
-    <ModalCertificate result={moR} mode={resultsStore.activeModeIndex} />
+    <SelfCheckBanner results={[moR]} />
     <FiniteSpectrumWarning result={moR} />
     <div class="adv-result-row">
       <button class="adv-result-btn" class:active={resultsStore.diagramType === 'modeShape'} onclick={() => resultsStore.diagramType = 'modeShape'}>{t('advanced.dynamic')}</button>
@@ -656,6 +660,7 @@
       <span class="adv-result-label">{resultsStore.activeModeIndex + 1}/{moR.modes.length}</span>
       <button class="small-btn" onclick={() => { if (moR && resultsStore.activeModeIndex < moR.modes.length - 1) resultsStore.activeModeIndex++; }} disabled={!moR || resultsStore.activeModeIndex >= moR.modes.length - 1}>&#9654;</button>
     </div>
+    <ModalCertificate result={moR} mode={resultsStore.activeModeIndex} checks={false} />
     {#if moR.modes[resultsStore.activeModeIndex]}
       {@const mode = moR.modes[resultsStore.activeModeIndex]}
       <div class="adv-result-info">
