@@ -184,7 +184,8 @@ export function analyseCap(d: FootingDemand, c: FootingContext, a: FootingAdopte
   const layers = layersOf(a, cover), dd = layers.d, D = spec.diameter, piles = a.piles.at;
   const weight = CONCRETE_WEIGHT * a.B * a.L * a.h;
   const head = Math.max(0, d.at.z - foundingOf(d, a.h));
-  const capacity = spec.strata ? pileCapacity(spec.strata, D, a.piles.length, head).total : spec.capacity;
+  const read = spec.strata ? pileCapacity(spec.strata, D, a.piles.length, head) : null, capacity = read ? read.total : spec.capacity;
+  const bottom = spec.strata?.reduce((t, s) => t + s.thickness, 0) ?? 0;
   const balance = capBalance(d);
   const sv = pileLoads(cols, cols.map((k) => k.demand.service ?? undefined), piles, weight, balance, lever);
   const names = d.combos.map((k) => k.combo);
@@ -283,7 +284,7 @@ export function analyseCap(d: FootingDemand, c: FootingContext, a: FootingAdopte
   const tieForce = cr.footingPileTieShare * Math.max(0, ...d.combos.map((k) => k.N), ...(d.carried?.combos.map((k) => k.N) ?? []));
   const result: CapResult = {
     piles: piles.map((p, i) => ({ x: p[0], y: p[1], service: service[i]!, factored: factored[i]! })),
-    diameter: D, length: a.piles.length, capacity, head, source: spec.source, efficiency: spec.efficiency, spacing: critOf(c).footingPileSpacing * D, topCover: c.cover,
+    diameter: D, length: a.piles.length, capacity, head, ...(read?.beyondStrata ? { beyond: bottom } : {}), source: spec.source, efficiency: spec.efficiency, spacing: critOf(c).footingPileSpacing * D, topCover: c.cover,
     group: { service: service.reduce((t, v) => t + v, 0), capacity: spec.efficiency * n * capacity },
     deep, stm, shear, punching, section: { pu, phiPn: PILE_PHI * 0.8 * Po, as: asPile, asMin },
     tie: tieOn ? { force: tieForce, as: (tieForce * 10) / (0.9 * c.fy) } : null,
@@ -297,7 +298,7 @@ export function analyseCap(d: FootingDemand, c: FootingContext, a: FootingAdopte
 /** Whether the cap holds: every pile under its allowable load and none pulled, service or factored, no moment across a line of piles, the group under its efficiency, each section's shear and punching, the struts and nodes of a deep cap, d ≥ 300 mm (§13.4.6.2). */
 export const capHolds = (r: CapAnalysis, withSteel = true): boolean => {
   const k = r.result;
-  return Math.max(...k.piles.map((p) => p.service)) <= k.capacity + 1e-6 && Math.min(...k.piles.map((p) => p.service)) >= -1e-6 && r.leastFactored >= -1e-6 && r.unheld <= PILE_UNHELD_TOL && k.group.service <= k.group.capacity + 1e-6
+  return k.beyond === undefined && Math.max(...k.piles.map((p) => p.service)) <= k.capacity + 1e-6 && Math.min(...k.piles.map((p) => p.service)) >= -1e-6 && r.leastFactored >= -1e-6 && r.unheld <= PILE_UNHELD_TOL && k.group.service <= k.group.capacity + 1e-6
     && k.shear.every((s) => s.vu <= s.phiVc + 1e-6) && k.punching.every((p) => p.vu <= p.phiVc + 1e-6)
     && (!k.stm || (k.stm.theta >= 25 - 1e-9 && k.stm.node.column <= k.stm.node.columnCap + 1e-6 && k.stm.node.pile <= k.stm.node.pileCap + 1e-6))
     && Math.min(r.layers.dx, r.layers.dy) >= 0.3 - 1e-9

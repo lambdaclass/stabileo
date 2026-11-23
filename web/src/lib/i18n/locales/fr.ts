@@ -16992,7 +16992,7 @@ const fr: Translations = {
   "rcSheets.foundation.pileAddLayer": "Ajouter une couche",
   "rcSheets.foundation.pileRemoveLayer": "Retirer",
   "rcSheets.foundation.pileComputed": "Charge admissible d’un pieu",
-  "rcSheets.foundation.pileLayersHint": "Une seule couche vaut pour toute la longueur. La pointe agit sur la section du pieu et le frottement sur son périmètre ; les valeurs sont admissibles et ne sont pas divisées à nouveau.",
+  "rcSheets.foundation.pileLayersHint": "Une seule couche vaut pour toute la longueur. La pointe agit sur la section du pieu et le frottement sur son périmètre ; les valeurs sont admissibles et ne sont pas divisées à nouveau. Les profondeurs se mesurent depuis le terrain, au pied du poteau : une semelle sur pieux fondée plus bas prend ses pieux depuis sa face inférieure.",
   "rcSheets.foundation.pilesChosen": "La règle a choisi des pieux : aucune fondation superficielle ne porte avec la pression admissible donnée.",
   "rcSheets.v.pileStrata": "Charge admissible d'un pieu, des couches du profil de sol",
   "rcSheets.v.pilePresumed": "Pieu supposé dans les données de calcul : confirmez sa charge admissible avec l'étude de sol",

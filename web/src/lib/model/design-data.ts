@@ -194,7 +194,7 @@ export const FOUNDING_RANGE = { min: -30, max: 30 } as const;
 export const PRESUMED_BEARING_RANGE = { min: 50, max: 1000, default: 150 } as const;
 
 /** A pile as the project presumes it: diameter and length, m, and allowable load, kN. */
-/** A layer of ground down to `to`, m below the cap: the allowable shaft friction on the pile's skin there and the allowable tip pressure under a pile ending in it, kPa, as the soil study gives them. */
+/** A layer of ground down to `to`, m below the ground at the column's foot, as a soil study gives its depths: the allowable shaft friction on the pile's skin there and the allowable tip pressure under a pile ending in it, kPa, as the soil study gives them. */
 export interface PileLayer { to: number; shaft: number; tip: number }
 export interface PresumedPile {
   diameter: number; length: number; capacity: number;

@@ -16729,7 +16729,7 @@ const zh: Translations = {
   "rcSheets.foundation.pileAddLayer": "添加土层",
   "rcSheets.foundation.pileRemoveLayer": "删除",
   "rcSheets.foundation.pileComputed": "单桩容许承载力",
-  "rcSheets.foundation.pileLayersHint": "只有一层时适用于全桩长。桩端作用于桩截面，侧摩阻作用于周长；这些值为容许值，不再折减。",
+  "rcSheets.foundation.pileLayersHint": "只有一层时适用于全桩长。桩端作用于桩截面，侧摩阻作用于周长；这些值为容许值，不再折减。 深度自柱脚处的地面起算：埋得更深的承台，其桩自承台底面向下计算。",
   "rcSheets.foundation.pilesChosen": "规则选择了桩：在给定的容许承载力下，没有任何浅基础满足要求。",
   "rcSheets.v.pileStrata": "单桩容许荷载，来自土层剖面的各土层",
   "rcSheets.v.pilePresumed": "设计数据中假定了桩：请以岩土勘察确认其容许荷载",

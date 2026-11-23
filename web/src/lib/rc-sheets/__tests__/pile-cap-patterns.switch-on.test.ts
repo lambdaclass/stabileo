@@ -74,6 +74,16 @@ describe('a cap founded deeper', () => {
     expect(lower.head).toBeCloseTo(3, 9);
     expect(lower.capacity).toBeCloseTo(P * 40 * 9 + P * 60 * 1 + A * 3000, 6);
   });
+
+  it('fails, with no tip counted, where its piles\' toes go past the deepest layer stated', () => {
+    const short: PileSpec = { ...deep, strata: strata.slice(0, 2) };
+    const r = footingRow(demand(1500, { piles: short, founding: -3 }), ctx, undefined, fmt);
+    expect(r.cap!.beyond).toBeCloseTo(12, 9);
+    const v = r.verifications.find((x) => x.label === 'rcSheets.v.pileLayers')!;
+    expect(v.ok).toBe(false);
+    expect(v.capacity).toContain('12');
+    expect(r.status).toBe('fail');
+  });
 });
 
 describe('a cap at a property line', () => {

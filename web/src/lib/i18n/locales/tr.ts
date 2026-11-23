@@ -16992,7 +16992,7 @@ const tr: Translations = {
   "rcSheets.foundation.pileAddLayer": "Tabaka ekle",
   "rcSheets.foundation.pileRemoveLayer": "Kaldır",
   "rcSheets.foundation.pileComputed": "Bir kazığın emniyetli yükü",
-  "rcSheets.foundation.pileLayersHint": "Tek tabaka tüm boy için geçerlidir. Uç direnci kazık kesitine, sürtünme çevresine etki eder; değerler emniyetlidir ve tekrar bölünmez.",
+  "rcSheets.foundation.pileLayersHint": "Tek tabaka tüm boy için geçerlidir. Uç direnci kazık kesitine, sürtünme çevresine etki eder; değerler emniyetlidir ve tekrar bölünmez. Derinlikler kolon ayağındaki zeminden ölçülür: daha derine oturan kazık başlığı kazıklarını kendi alt yüzünden itibaren alır.",
   "rcSheets.foundation.pilesChosen": "Kural kazık seçti: verilen emniyet gerilmesiyle hiçbir yüzeysel temel taşımıyor.",
   "rcSheets.v.pileStrata": "Bir kazığın emniyetli yükü, zemin profilinin katmanlarından",
   "rcSheets.v.pilePresumed": "Tasarım verilerinde varsayılan kazık: emniyetli yükünü zemin etüdüyle doğrulayın",

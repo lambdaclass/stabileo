@@ -16992,7 +16992,7 @@ const de: Translations = {
   "rcSheets.foundation.pileAddLayer": "Schicht hinzufügen",
   "rcSheets.foundation.pileRemoveLayer": "Entfernen",
   "rcSheets.foundation.pileComputed": "Zulässige Last eines Pfahls",
-  "rcSheets.foundation.pileLayersHint": "Eine einzige Schicht gilt für die ganze Länge. Der Spitzendruck wirkt auf den Pfahlquerschnitt, die Reibung auf den Umfang; die Werte sind zulässig und werden nicht erneut geteilt.",
+  "rcSheets.foundation.pileLayersHint": "Eine einzige Schicht gilt für die ganze Länge. Der Spitzendruck wirkt auf den Pfahlquerschnitt, die Reibung auf den Umfang; die Werte sind zulässig und werden nicht erneut geteilt. Die Tiefen werden ab Gelände am Stützenfuß gemessen: eine tiefer gegründete Pfahlkopfplatte liest ihre Pfähle ab ihrer Unterseite.",
   "rcSheets.foundation.pilesChosen": "Die Regel wählte Pfähle: keine Flachgründung trägt bei der angegebenen zulässigen Bodenpressung.",
   "rcSheets.v.pileStrata": "Zulässige Last eines Pfahls, aus den Schichten des Bodenprofils",
   "rcSheets.v.pilePresumed": "Pfahl in den Bemessungsdaten angenommen: bestätigen Sie seine zulässige Last mit dem Bodengutachten",

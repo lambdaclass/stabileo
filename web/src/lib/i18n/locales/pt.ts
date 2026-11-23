@@ -16796,7 +16796,7 @@ const pt: Translations = {
   "rcSheets.foundation.pileAddLayer": "Adicionar camada",
   "rcSheets.foundation.pileRemoveLayer": "Remover",
   "rcSheets.foundation.pileComputed": "Carga admissível de uma estaca",
-  "rcSheets.foundation.pileLayersHint": "Uma única camada vale para todo o comprimento. A ponta atua na seção da estaca e o atrito no seu perímetro; os valores são admissíveis e não se dividem de novo.",
+  "rcSheets.foundation.pileLayersHint": "Uma única camada vale para todo o comprimento. A ponta atua na seção da estaca e o atrito no seu perímetro; os valores são admissíveis e não se dividem de novo. As profundidades são medidas a partir do terreno, no pé do pilar: um bloco mais enterrado toma as estacas a partir da sua face inferior.",
   "rcSheets.foundation.pilesChosen": "A regra escolheu estacas: nenhuma fundação rasa suporta com a tensão admissível dada.",
   "rcSheets.v.pileStrata": "Carga admissível de uma estaca, dos estratos do perfil de solo",
   "rcSheets.v.pilePresumed": "Estaca suposta nos dados de projeto: confirme sua carga admissível com o estudo de solo",

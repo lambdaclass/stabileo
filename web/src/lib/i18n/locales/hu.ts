@@ -16700,7 +16700,7 @@ const hu: Translations = {
   "rcSheets.foundation.pileAddLayer": "Réteg hozzáadása",
   "rcSheets.foundation.pileRemoveLayer": "Eltávolítás",
   "rcSheets.foundation.pileComputed": "Egy cölöp megengedett terhe",
-  "rcSheets.foundation.pileLayersHint": "Egyetlen réteg a teljes hosszra érvényes. A csúcsellenállás a cölöp keresztmetszetén, a súrlódás a kerületén hat; az értékek megengedettek, nem osztjuk őket újra.",
+  "rcSheets.foundation.pileLayersHint": "Egyetlen réteg a teljes hosszra érvényes. A csúcsellenállás a cölöp keresztmetszetén, a súrlódás a kerületén hat; az értékek megengedettek, nem osztjuk őket újra. A mélységeket a pillér lábánál lévő terepszinttől mérjük: a mélyebbre alapozott cölöpfej a cölöpeit a saját alsó síkjától lefelé veszi.",
   "rcSheets.foundation.pilesChosen": "A szabály cölöpöket választott: egyik síkalap sem bírja a megadott megengedett feszültséggel.",
   "rcSheets.v.pileStrata": "Egy cölöp megengedett terhelése a talajprofil rétegeiből",
   "rcSheets.v.pilePresumed": "A tervezési adatokban feltételezett cölöp: erősítse meg megengedett terhelését a talajvizsgálattal",

@@ -46,7 +46,7 @@
     if (!Number.isFinite(v) || v < lim[0]! || v > lim[1]!) { el.value = String(layers[i]![k]); return; }
     setLayers(layers.map((l, j) => (j === i ? { ...l, [k]: v } : l)));
   }
-  const addLayer = () => setLayers([...layers, { to: Math.max(pile.length, (layers.at(-1)?.to ?? 0) + 5), shaft: layers.at(-1)?.shaft ?? 30, tip: layers.at(-1)?.tip ?? 1500 }]);
+  const addLayer = () => setLayers([...layers, { to: Math.max(pile.length + 5, (layers.at(-1)?.to ?? 0) + 5), shaft: layers.at(-1)?.shaft ?? 30, tip: layers.at(-1)?.tip ?? 1500 }]);
   const removeLayer = (i: number) => setLayers(layers.filter((_, j) => j !== i));
   function setPile(k: 'diameter' | 'length' | 'capacity', scale: number) {
     return (e: Event) => {

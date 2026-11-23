@@ -17143,7 +17143,7 @@ const es: Record<string, string> = {
   "rcSheets.foundation.pileAddLayer": "Agregar estrato",
   "rcSheets.foundation.pileRemoveLayer": "Quitar",
   "rcSheets.foundation.pileComputed": "Carga admisible de un pilote",
-  "rcSheets.foundation.pileLayersHint": "Un solo estrato vale para todo el largo. La punta se toma sobre el área del pilote y la fricción sobre su perímetro; los valores son admisibles y no se dividen otra vez.",
+  "rcSheets.foundation.pileLayersHint": "Un solo estrato vale para todo el largo. La punta se toma sobre el área del pilote y la fricción sobre su perímetro; los valores son admisibles y no se dividen otra vez. Las profundidades se miden desde el terreno, al pie de la columna: un cabezal más enterrado toma sus pilotes desde su cara inferior.",
   "rcSheets.foundation.pilesChosen": "La regla eligió pilotes: ninguna fundación superficial alcanza con la tensión admisible dada.",
   "rcSheets.v.pileStrata": "Carga admisible de un pilote, de los estratos del perfil de suelo",
   "rcSheets.v.pilePresumed": "Pilote supuesto en los datos de diseño: confirmá su carga admisible con el estudio de suelos",

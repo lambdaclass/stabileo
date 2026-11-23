@@ -23,9 +23,10 @@ describe('a pile read from the ground by depth', () => {
     expect(pileSpec().capacity).toBeCloseTo(40 * Math.PI * 0.6 * 10 + 1500 * Math.PI * 0.36 / 4, 6);
   });
 
-  it('falls back to the stated load where no layer reaches the tip, and drops a layer out of range', () => {
+  it('keeps layers that stop short of the tip, for the cap to say its piles go past them, and drops a layer out of range', () => {
     patchDesignData({ presumedPile: { diameter: 0.5, length: 12, capacity: 700, layers: [{ to: 6, shaft: 20, tip: 800 }] } });
-    expect(pileSpec()).toMatchObject({ source: 'presumed', capacity: 700 });
+    expect(pileSpec()).toMatchObject({ source: 'layers', capacity: Math.PI * 0.5 * 20 * 6 });
+    expect(pileSpec().strata).toHaveLength(1);
     expect(presumedPileOf({ diameter: 0.5, length: 12, capacity: 600, layers: [{ to: 5, shaft: -1, tip: 10 }, { to: 8, shaft: 10, tip: 10 }] }).layers).toEqual([{ to: 8, shaft: 10, tip: 10 }]);
   });
 });

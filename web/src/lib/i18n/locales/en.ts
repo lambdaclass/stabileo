@@ -17154,7 +17154,7 @@ const en: Record<string, string> = {
   "rcSheets.foundation.pileAddLayer": "Add layer",
   "rcSheets.foundation.pileRemoveLayer": "Remove",
   "rcSheets.foundation.pileComputed": "Allowable load of one pile",
-  "rcSheets.foundation.pileLayersHint": "One layer stands for the whole length. The tip acts on the pile’s section and the friction on its perimeter; the values are allowable and are not divided again.",
+  "rcSheets.foundation.pileLayersHint": "One layer stands for the whole length. The tip acts on the pile’s section and the friction on its perimeter; the values are allowable and are not divided again. Depths are measured from the ground at the column's foot: a cap founded deeper takes its piles from its own underside down.",
   "rcSheets.foundation.pilesChosen": "The rule chose piles: no shallow foundation holds at the allowable pressure given.",
   "rcSheets.v.pileStrata": "A pile's allowable load, from the soil profile's strata",
   "rcSheets.v.pilePresumed": "Pile presumed in the design data: confirm its allowable load with the soil study",

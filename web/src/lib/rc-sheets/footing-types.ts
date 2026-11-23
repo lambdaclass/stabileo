@@ -81,7 +81,7 @@ export const FOUNDATION_SYSTEMS: readonly FoundationSystem[] = ['auto', 'footing
 /** The piles a column is founded on: diameter and length, m, the allowable load of one, kN, from the soil profile's strata or presumed, and the group's efficiency. */
 export interface PileSpec {
   diameter: number; length: number; capacity: number; source: 'strata' | 'layers' | 'presumed'; efficiency: number;
-  /** The strata the capacity is read from, their top at the column's foot: a cap founded deeper reads its piles from its own underside down. */
+  /** The project's own layers of ground, depths from the ground at the column's foot: a cap founded deeper reads its piles from its own underside down. */
   strata?: readonly SoilStratum[];
 }
 
@@ -92,8 +92,10 @@ export interface CapPiles { diameter: number; length: number; at: Array<[number,
 export interface CapResult {
   piles: Array<{ x: number; y: number; service: number; factored: number }>;
   diameter: number; length: number; capacity: number; source: PileSpec['source']; efficiency: number; spacing: number;
-  /** How deep the pile heads stand under the column's foot, m: the strata are read from there down. */
+  /** How deep the pile heads stand under the column's foot, m: the layers are read from there down. */
   head: number;
+  /** The deepest layer stated, m below the column's foot, when the pile's toe goes past it: no tip is counted there and the cap fails. */
+  beyond?: number;
   /** The cap's top cover, m: the footings' own; its bottom bars sit over the pile heads instead (`FootingRow.cover`). */
   topCover: number;
   group: { service: number; capacity: number };
