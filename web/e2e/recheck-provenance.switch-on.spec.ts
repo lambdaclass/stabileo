@@ -13,9 +13,11 @@ import { BUILD_OFFERED_LOCALES } from './build-locales';
 import { test, expect, loadModel, solveModel, bootPro } from './fixtures';
 import type { Locator, Page } from '@playwright/test';
 
+/** Opens the notices board, unless a workspace covers it and the stale notice stands over that on its own. */
 async function openBoard(page: import('@playwright/test').Page) {
-  const toggle = page.getByTestId('containment-toggle');
-  await toggle.waitFor();
+  const toggle = page.getByTestId('containment-toggle'), banner = page.getByTestId('recheck-stale-banner');
+  await expect(toggle.or(banner).first()).toBeVisible();
+  if (await banner.isVisible()) return;
   if ((await toggle.getAttribute('aria-expanded')) !== 'true') await toggle.click();
 }
 

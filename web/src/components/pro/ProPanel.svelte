@@ -135,9 +135,6 @@
     return getModelErrors().length;
   });
 
-  /** A refusal the notice board above the model already says is not said again here. */
-  const onBoard = (err: string) => resultsStore.knownIssues3D.messages.some((m) => m === err || err.includes(m) || m.includes(err));
-
   async function handleSolve() {
     solveError = null;
 
@@ -272,7 +269,7 @@
     <ProPhoneNav {shell} />
   {/if}
 
-  {#if solveError && !onBoard(solveError)}
+  {#if solveError}
     <div class="pro-solve-error" data-testid="pro-solve-error"><span>{solveError}</span><button type="button" class="pro-solve-error-x" aria-label={t('toast.dismiss')} onclick={() => (solveError = null)} data-testid="pro-solve-error-close">×</button></div>
   {/if}
 

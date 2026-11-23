@@ -15,7 +15,7 @@ import { placeFrame, placeSlabs, placeWall } from '../build-on-grid';
 import { addPlateLoad, applyPlateMeshes, plateEntry, clearPlateMesh, physicalPlates, planPlateMesh, plateStatus, preparePlatesForAnalysis } from '../../../store/physical-plates';
 import { syncDefinedLoadsForAnalysis } from '../../../store/defined-loads';
 import { patchOwnDesignData } from '../../../store/design-data';
-import { plateLoops } from '../../physical/plate';
+import { plateLoops, plateSurfaceOf } from '../../physical/plate';
 import { physicalPlateProblems } from '../../physical/plate-analysis';
 import { physicalThickness } from '../../../store/physical';
 import { stripUnderWall, supportWallBase } from '../../foundation/generate';
@@ -152,7 +152,7 @@ describe('a slab panel meshed with its columns\' sections', () => {
   it('reads a mesh saved with its column sections inside the signature as current, for the plates and the analysis, and solves it', () => {
     const id = build(true);
     applyPlateMeshes([planPlateMesh(id, { element: 'quad', size: 0.5, pattern: 'free' })!]);
-    const groups = modelStore.model.groups!, g = groups.get(id)!, surface = g.data!.surface!, m = surface.meshed!;
+    const groups = modelStore.model.groups!, g = groups.get(id)!, surface = plateSurfaceOf(g)!, m = surface.meshed!;
     expect(m.footprints).toBeDefined();
     const { footprints, ...rest } = m;
     modelStore.model.groups = new Map(groups).set(id, { ...g, data: { ...g.data, surface: { ...surface, meshed: { ...rest, signature: `${m.signature}#fp:${footprints}` } } } });

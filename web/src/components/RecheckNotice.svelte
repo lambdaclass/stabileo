@@ -1,7 +1,7 @@
 <script lang="ts">
   import { saveWorkspaceSettled, saveSession } from '../lib/store/file';
   import { recheckStore } from '../lib/store/recheck.svelte';
-  import { recheckBanner } from '../lib/store/recheck-banner.svelte';
+  import { recheckBanner, boardCovered } from '../lib/store/recheck-banner.svelte';
   import { rerunAnalysisAndDesign, recheckKey } from '../lib/actions/recheck';
   import { changelogUrl, concernsLoadBasis, registryLocale, type ResultChange } from '../lib/provenance/registry';
   import { advisoryName, type Advisory } from '../lib/provenance/advisories';
@@ -170,7 +170,13 @@
   </dialog>
 {/if}
 
-
+{#if bannerText && boardCovered()}
+  <div class="rc-banner" class:rc-banner-advisory={openAdvisories.length > 0} role={openAdvisories.length ? 'alert' : 'status'} data-testid="recheck-stale-banner">
+    <span data-testid={openAdvisories.length ? 'recheck-advisory-banner' : undefined}>{bannerText}</span>
+    <button class="rc-banner-btn" onclick={() => (reviewing = true)} data-testid="recheck-banner-details">{t('recheck.bannerDetails')}</button>
+    {#if resolve && !recheckStore.solvedAgain}<button class="rc-banner-btn rc-primary" disabled={busy} onclick={rerun} data-testid="recheck-banner-rerun">{t('recheck.bannerRerun')}</button>{/if}
+  </div>
+{/if}
 
 <style>
   .rc-overlay {
@@ -226,7 +232,7 @@
   .rc-stale { margin: 0 0 10px; font-size: 0.75rem; font-weight: 600; color: var(--st-warn, #d9a441); }
   .rc-footer { flex-shrink: 0; }
   .rc-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
-  .rc-btn {
+  .rc-btn, .rc-banner-btn {
     min-height: 44px;
     min-width: 44px;
     max-width: 100%;
@@ -240,7 +246,7 @@
     color: var(--st-text);
     cursor: pointer;
   }
-  .rc-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .rc-btn:disabled, .rc-banner-btn:disabled { opacity: 0.5; cursor: not-allowed; }
   .rc-primary { background: var(--st-accent, #4a90d9); border-color: var(--st-accent, #4a90d9); color: #fff; }
   .rc-advisory { border-color: var(--st-danger, #d9534f); }
   /* Only one of .rc and .rc-list may scroll: a drag on a nested list never reaches the controls below it. */
@@ -250,5 +256,34 @@
   @media (max-width: 600px) {
     .rc { padding: 12px; max-height: calc(100dvh - 24px); }
     .rc-actions .rc-btn { flex: 1 1 100%; }
+  }
+  .rc-banner {
+    position: fixed;
+    left: 50%;
+    bottom: 44px;
+    transform: translateX(-50%);
+    z-index: 920;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    box-sizing: border-box;
+    width: max-content;
+    max-width: calc(100vw - 32px);
+    flex-wrap: wrap;
+    overflow-wrap: anywhere;
+    padding: 6px 10px;
+    font-size: 0.75rem;
+    color: var(--st-text);
+    background: var(--st-surface);
+    border: 1px solid var(--st-warn, #d9a441);
+    border-radius: var(--st-radius);
+    box-shadow: 0 4px 16px rgb(0 0 0 / 0.25);
+  }
+  .rc-banner-btn { padding: 3px 8px; font-size: 0.75rem; }
+  .rc-banner-advisory { border-color: var(--st-danger, #d9534f); }
+  @media (max-width: 600px) {
+    .rc-banner { width: calc(100vw - 24px); }
+    .rc-banner > span { flex-basis: 100%; }
+    .rc-banner-btn { flex: 1; }
   }
 </style>

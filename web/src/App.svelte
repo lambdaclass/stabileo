@@ -1,6 +1,6 @@
 <script lang="ts">
   import { modelAuditFeatures, underAudit, UNDER_AUDIT_URL } from './lib/provenance/under-audit';
-  import { recheckBanner } from './lib/store/recheck-banner.svelte';
+  import { recheckBanner, boardCovered } from './lib/store/recheck-banner.svelte';
   import type { ResultNotice } from './lib/store/result-notices';
   import { verificationStore } from './lib/store/verification.svelte';
   import { accountGate } from './lib/store/account-gate.svelte';
@@ -1442,7 +1442,7 @@
 
   const appNotices = $derived.by((): ResultNotice[] => {
     const out: ResultNotice[] = [];
-    if (recheckBanner.text) out.push({ kind: 'outdated', level: recheckBanner.alert ? 'blocking' : 'warning', details: [] });
+    if (recheckBanner.text && !boardCovered()) out.push({ kind: 'outdated', level: recheckBanner.alert ? 'blocking' : 'warning', details: [] });
     if (!deskUi.open && !rebarWorkspace.open && underAudit([...modelAuditFeatures(modelStore.model), ...(verificationStore.concrete.length ? ['rc-design' as const] : [])])) out.push({ kind: 'underReview', level: 'info', details: [] });
     return out;
   });

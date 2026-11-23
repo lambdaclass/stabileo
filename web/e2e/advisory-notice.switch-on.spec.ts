@@ -2,9 +2,11 @@ import { BUILD_FEATURES } from './build-features';
 import { test, expect, bootPro } from './fixtures';
 import { readRegistry } from '../scripts/result-changes/registry.mjs';
 
+/** Opens the notices board, unless a workspace covers it and the stale notice stands over that on its own. */
 async function openBoard(page: import('@playwright/test').Page) {
-  const toggle = page.getByTestId('containment-toggle');
-  await toggle.waitFor();
+  const toggle = page.getByTestId('containment-toggle'), banner = page.getByTestId('recheck-stale-banner');
+  await expect(toggle.or(banner).first()).toBeVisible();
+  if (await banner.isVisible()) return;
   if ((await toggle.getAttribute('aria-expanded')) !== 'true') await toggle.click();
 }
 
