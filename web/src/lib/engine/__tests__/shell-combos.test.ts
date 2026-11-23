@@ -264,9 +264,7 @@ describe('a MITC4 and a MITC9 both numbered 7 in one result', () => {
   });
 });
 
-const issue2297 = process.env.RUN_KNOWN_WRONG === '2297' ? it : it.skip;
-
-issue2297('known wrong result: #2297 shell combinations preserve both cases through the packed export and shell recombination', () => {
+it('#2297 shell combinations preserve both cases through the packed export and shell recombination', () => {
   const stresses = [q(7, 2), q(7, 4)];
   const perCase = new Map(stresses.map((stress, i) => [i + 1, emptyResult([stress])]));
   const caseQuads = new Map(stresses.map((stress, i) => [i + 1, new Map([[7, stress]])]));
@@ -291,10 +289,13 @@ issue2297('known wrong result: #2297 shell combinations preserve both cases thro
     expect.soft(run([0.5, 0.5])).toBe(6);
     expect.soft(run(issue2297Factors)).toBe(6);
     expect.soft(run(issue2297Factors.slice(0, -1))).toBe(4);
+    const max = Number.MAX_VALUE;
+    expect.soft(run([max, max, -max, -max, 1])).toBe(6);
+    expect.soft(() => run([max, max])).toThrow(/non-finite number at net factor/);
   }
 });
 
-issue2297('known wrong result: #2297 magnitude combinations preserve a repeated case before ABS or SRSS', () => {
+it('#2297 magnitude combinations preserve a repeated case before ABS or SRSS', () => {
   const perCase = new Map([[1, emptyResult([q(7, 2)])]]);
   const rotated = [issue2297Factors.at(-1)!, ...issue2297Factors.slice(0, -1)];
   for (const method of ['abs', 'srss'] as const) {

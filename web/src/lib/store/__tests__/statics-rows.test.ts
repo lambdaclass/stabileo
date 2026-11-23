@@ -48,9 +48,7 @@ describe('statics across combinations', () => {
   });
 });
 
-const issue2297 = process.env.RUN_KNOWN_WRONG === '2297' ? it : it.skip;
-
-issue2297('known wrong result: #2297 published planar free-body loads preserve a repeated case', () => {
+it('#2297 published planar free-body loads preserve a repeated case', () => {
   modelStore.clear();
   uiStore.analysisMode = '2d';
   for (const c of [...modelStore.combinations]) modelStore.removeCombination(c.id);
@@ -70,7 +68,7 @@ issue2297('known wrong result: #2297 published planar free-body loads preserve a
   expect(displayedLoads2D(resultsStore.perCombo.get(repeated))).toStrictEqual(control);
 });
 
-issue2297('known wrong result: #2297 published spatial free-body and statics loads preserve repeated case factors', () => {
+it('#2297 published spatial free-body and statics loads preserve repeated case factors', () => {
   modelStore.clear();
   uiStore.analysisMode = 'pro';
   uiStore.includeSelfWeight = false;

@@ -15,6 +15,7 @@
  *
  * Run inside the caller's batch: one command, one undo step.
  */
+import { sumCombinationFactors } from '../engine/wasm-solver';
 import { modelStore, type LoadCase, type LoadCombination } from './model.svelte';
 import type { CaseCombination } from '../engine/loads/combination-cases';
 import { generateCombinations, type LoadCombinationSpec, type CombinationInputs } from '../codes/cirsoc101/combinations';
@@ -81,9 +82,10 @@ export function addGeneratedCombinations(list: readonly CaseCombination[], prefi
  */
 export function addCompositeCases(list: readonly CaseCombination[], prefix: (c: CaseCombination) => string = () => ''): number[] {
   const ids: number[] = [];
+  const resolved = list.map(c => ({ ...c, factors: sumCombinationFactors(c.factors) }));
   modelStore.batch(() => {
     const combos: CaseCombination[] = [];
-    for (const c of list) {
+    for (const c of resolved) {
       const name = `${prefix(c)}${c.name}`;
       const id = modelStore.addLoadCase(name, '', { generated: true });
       modelStore.updateLoadCaseFields(id, { includes: c.factors.filter((f) => f.factor !== 0) });
@@ -128,14 +130,14 @@ export function takeBackCompositeCases(): number[] {
  */
 function leafFactors(factors: ReadonlyArray<{ caseId: number; factor: number }>, cases: ReadonlyArray<Pick<LoadCase, 'id' | 'includes'>>): Map<number, number> {
   const byId = new Map(cases.map((c) => [c.id, c]));
-  const out = new Map<number, number>();
+  const leaves: CaseCombination['factors'] = [];
   const walk = (id: number, k: number, seen: ReadonlySet<number>) => {
     const inc = byId.get(id)?.includes;
-    if (!inc?.length || seen.has(id)) { out.set(id, (out.get(id) ?? 0) + k); return; }
-    for (const i of inc) walk(i.caseId, k * i.factor, new Set([...seen, id]));
+    if (!inc?.length || seen.has(id)) { leaves.push({ caseId: id, factor: k }); return; }
+    for (const i of sumCombinationFactors(inc)) walk(i.caseId, k * i.factor, new Set([...seen, id]));
   };
-  for (const f of factors) if (f.factor !== 0) walk(f.caseId, f.factor, new Set());
-  return out;
+  for (const f of sumCombinationFactors(factors)) if (f.factor !== 0) walk(f.caseId, f.factor, new Set());
+  return new Map(sumCombinationFactors(leaves).map(({ caseId, factor }) => [caseId, factor]));
 }
 
 const signature = (m: ReadonlyMap<number, number>) =>

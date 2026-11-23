@@ -5,7 +5,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { modelStore } from '../model.svelte';
 import { historyStore } from '../history.svelte';
 import '../index';
-import { addCompositeCases, addGeneratedCombinations, SERVICE_ENVELOPE_NAME, templateCombinationSpecs } from '../generated-combinations';
+import { addCompositeCases, addGeneratedCombinations, combinationExists, SERVICE_ENVELOPE_NAME, templateCombinationSpecs } from '../generated-combinations';
 import { expandCombinations, presentSymbols } from '../../engine/loads/combination-cases';
 import { generateCombinations } from '../../codes/cirsoc101/combinations';
 import { generateServiceCombinations } from '../../codes/cirsoc101/service-combinations';
@@ -166,9 +166,7 @@ describe("the loads tab's templates say who wrote them", () => {
   });
 });
 
-const issue2297 = process.env.RUN_KNOWN_WRONG === '2297' ? it : it.skip;
-
-issue2297('known wrong result: #2297 applied project rules preserve the net case in composite and notional variants', async () => {
+it('#2297 applied project rules preserve the net case in composite and notional variants', async () => {
   const { issue2297Factors } = await import('../../engine/__tests__/combination-factor-fixture');
   const { withNotionalVariants } = await import('../../engine/loads/notional-combinations');
   const { initSolver } = await import('../../engine/wasm-solver');
@@ -182,9 +180,11 @@ issue2297('known wrong result: #2297 applied project rules preserve the net case
   }]);
   const expanded = expandCombinations(specs, cases);
   expect(expanded).toHaveLength(1);
+  const unit = [{ caseId: dead.id, factor: 1 }];
+  expect.soft(combinationExists(unit, [{ factors: expanded[0]!.factors }], cases)).toBe(true);
   const variants = withNotionalVariants(expanded, modelStore.loadCases);
   expect.soft(variants).toHaveLength(2);
   expect.soft(variants[1]?.factors.find(f => f.caseId === notional)?.factor).toBe(1);
   const [composite] = addCompositeCases(expanded);
-  expect.soft(modelStore.loadCases.find(c => c.id === composite)?.includes).toStrictEqual([{ caseId: dead.id, factor: 1 }]);
+  expect.soft(modelStore.loadCases.find(c => c.id === composite)?.includes).toStrictEqual(unit);
 });

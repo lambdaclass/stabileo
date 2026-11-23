@@ -1,5 +1,6 @@
 //! Shell superposition and governing envelopes in one WASM call. Case, factor,
 //! element and combination ordering are retained, including first-wins ties.
+use crate::postprocess::combinations::CaseFactorSums;
 use crate::types::{PlateStress, QuadStress};
 use std::collections::{HashMap, HashSet};
 use wasm_bindgen::prelude::*;
@@ -24,13 +25,9 @@ struct Case {
     plate_stresses: Vec<Membrane>,
     quad_stresses: Vec<Membrane>,
 }
-struct Factor {
-    case_id: i64,
-    factor: f64,
-}
 struct Combination {
     id: i64,
-    factors: Vec<Factor>,
+    factors: Vec<(i64, f64)>,
 }
 struct Input {
     cases: Vec<Case>,
@@ -220,7 +217,7 @@ struct Sum {
 }
 fn sum_tensors(
     count: usize,
-    factors: &[Factor],
+    factors: &CaseFactorSums<i64>,
     cases: &HashMap<i64, Vec<(usize, &Membrane)>>,
 ) -> Vec<Sum> {
     let mut out = vec![
@@ -232,9 +229,8 @@ fn sum_tensors(
         };
         count
     ];
-    // Factor order is unchanged for each element, including duplicate factors.
-    for f in factors {
-        if let Some(rows) = cases.get(&f.case_id) {
+    for &(case_id, factor) in factors.iter() {
+        if let Some(rows) = cases.get(&case_id) {
             for &(slot, p) in rows {
                 let sum = &mut out[slot];
                 sum.contributed = true;
@@ -243,16 +239,16 @@ fn sum_tensors(
                     .iter_mut()
                     .zip([p.sigma_xx, p.sigma_yy, p.tau_xy, p.mx, p.my, p.mxy])
                 {
-                    *a += f.factor * b;
+                    *a += factor * b;
                 }
-                sum.qx = sum.qx.zip(p.qx).map(|(a, b)| a + f.factor * b);
-                sum.qy = sum.qy.zip(p.qy).map(|(a, b)| a + f.factor * b);
+                sum.qx = sum.qx.zip(p.qx).map(|(a, b)| a + factor * b);
+                sum.qy = sum.qy.zip(p.qy).map(|(a, b)| a + factor * b);
             }
         }
     }
     out
 }
-fn combine(input: Input) -> Output {
+fn combine(input: Input) -> Result<Output, String> {
     let mut plate_ids = Vec::new();
     let mut quad_ids = Vec::new();
     let mut seen_p = HashSet::new();
@@ -324,8 +320,16 @@ fn combine(input: Input) -> Output {
     for combo in input.combinations {
         let mut plates = Vec::new();
         let mut quads = Vec::new();
-        let summed_p = sum_tensors(plate_ids.len(), &combo.factors, &cases_p);
-        let summed_q = sum_tensors(quad_ids.len(), &combo.factors, &cases_q);
+        let factors = CaseFactorSums::new(&combo.factors);
+        if let Some(&(id, factor)) = factors.iter().find(|(id, factor)| {
+            !factor.is_finite() && (cases_p.contains_key(id) || cases_q.contains_key(id))
+        }) {
+            return Err(format!(
+                "Cannot combine results: load case {id} has a non-finite number at net factor={factor}"
+            ));
+        }
+        let summed_p = sum_tensors(plate_ids.len(), &factors, &cases_p);
+        let summed_q = sum_tensors(quad_ids.len(), &factors, &cases_q);
         for (&id, sum) in plate_ids.iter().zip(summed_p) {
             if !sum.contributed {
                 continue;
@@ -403,10 +407,10 @@ fn combine(input: Input) -> Output {
             None => old,
         })
         .collect();
-    Output {
+    Ok(Output {
         envelope: envelope(&sources),
         combinations,
-    }
+    })
 }
 
 pub(crate) fn unique_ids(ids: impl Iterator<Item = usize>) -> Result<(), String> {
@@ -552,10 +556,7 @@ fn decode(data: &[f64]) -> Result<Input, String> {
         let id = r.id()?;
         let mut factors = Vec::new();
         for _ in 0..r.count()? {
-            factors.push(Factor {
-                case_id: r.id()?,
-                factor: r.number()?,
-            });
+            factors.push((r.id()?, r.number()?));
         }
         combinations.push(Combination { id, factors });
     }
@@ -653,7 +654,7 @@ pub fn envelope_shell_stresses(data: &[f64]) -> Result<Vec<f64>, JsValue> {
 #[wasm_bindgen]
 pub fn combine_shell_stresses(data: &[f64]) -> Result<Vec<f64>, JsValue> {
     let input = decode(data).map_err(|e| JsValue::from_str(&e))?;
-    let output = combine(input);
+    let output = combine(input).map_err(|e| JsValue::from_str(&e))?;
     for c in &output.combinations {
         let invalid_plate = c.plate_stresses.iter().any(|p| {
             [
@@ -747,7 +748,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "known wrong result: #2297"]
     fn issue_2297_packed_shell_combination_preserves_case_contributions() {
         let large = 2.0_f64.powi(110);
         let middle = 2.0_f64.powi(54);
@@ -765,7 +765,7 @@ mod tests {
                 data.extend([1.0, factor]);
             }
             data.extend([0.0, 1.0, 9.0, 0.0, 0.0]);
-            let combined = combine(decode(&data).unwrap());
+            let combined = combine(decode(&data).unwrap()).unwrap();
             let stresses = &combined.combinations[0];
             (stresses.plate_stresses[0].sigma_xx, stresses.quad_stresses[0].sigma_xx)
         };
@@ -798,7 +798,7 @@ mod tests {
         assert!(err.contains("Shell element 7 appears twice"), "{err}");
         let mut distinct = one_retained.clone();
         distinct[13] = 8.;
-        let combined = combine(decode(&distinct).unwrap());
+        let combined = combine(decode(&distinct).unwrap()).unwrap();
         let quads = &combined.combinations[0].quad_stresses;
         assert_eq!(quads.iter().map(|q| (q.element_id, q.sigma_xx)).collect::<Vec<_>>(), vec![(7, 15.), (8, 1500.)]);
     }
@@ -849,7 +849,7 @@ mod tests {
             0.,
             0.,
         ];
-        let result = combine(decode(&data).unwrap());
+        let result = combine(decode(&data).unwrap()).unwrap();
         assert_eq!(result.combinations[0].quad_stresses[0].sigma_xx, 20.);
         let e = &result.envelope.quads[0];
         assert_eq!(e.element_id, 42);
