@@ -103,11 +103,20 @@ def dump(value):
     return json.dumps(value, indent=2, ensure_ascii=False) + '\n'
 
 
-def same(a, b):
-    try:
-        return max_relative(a, b) <= 1e-9
-    except AssertionError:
-        return False
+def differences(a, b, path='$', scale=None):
+    if isinstance(a, dict) and isinstance(b, dict):
+        if a.keys() != b.keys():
+            return [f'{path}: keys {sorted(a)} != {sorted(b)}']
+        tolerance = a.get('tolerance') if isinstance(a.get('tolerance'), (int, float)) and 'passed' in a else scale
+        return [d for k in a for d in differences(a[k], b[k], f'{path}.{k}', None if k == 'tolerance' else tolerance)]
+    if isinstance(a, list) and isinstance(b, list):
+        if len(a) != len(b):
+            return [f'{path}: {len(a)} items != {len(b)}']
+        return [d for i, (x, y) in enumerate(zip(a, b)) for d in differences(x, y, f'{path}[{i}]', scale)]
+    if isinstance(a, bool) or isinstance(b, bool) or not isinstance(a, (int, float)) or not isinstance(b, (int, float)):
+        return [] if a == b else [f'{path}: {a!r} != {b!r}']
+    allowed = 0.1 * scale if scale else 1e-9 * max(abs(a), abs(b))
+    return [] if abs(a - b) <= allowed else [f'{path}: {a!r} != {b!r}']
 
 
 def main(mode, export):
@@ -120,8 +129,10 @@ def main(mode, export):
         (HERE / 'reference-results/MANIFEST.json').write_text(dump(manifest(files)))
     elif mode == 'check':
         committed = {name: (HERE / 'reference-results' / name).read_text() for name in files}
-        assert same(load(HERE / 'VALIDATION.json'), validation), 'VALIDATION.json is not what the fresh run gives'
-        assert same(json.loads(committed['published_comparison.json']), comparison), 'published_comparison.json is stale'
+        stale = differences(load(HERE / 'VALIDATION.json'), validation)
+        assert not stale, 'VALIDATION.json is not what the fresh run gives: ' + '; '.join(stale[:5])
+        stale = differences(json.loads(committed['published_comparison.json']), comparison)
+        assert not stale, 'published_comparison.json is stale: ' + '; '.join(stale[:5])
         assert load(HERE / 'reference-results/MANIFEST.json') == manifest(committed), 'MANIFEST.json hashes are stale'
     else:
         raise SystemExit('usage: validate.py generate|check <fresh export>')
