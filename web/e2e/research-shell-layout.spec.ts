@@ -11,10 +11,9 @@ async function openResearchPage(page: Page, path: string) {
   return root;
 }
 
-const layouts: Record<string, 'wide' | 'standalone' | undefined> = {
+const layouts: Record<string, 'wide' | undefined> = {
   'andreassen-2011': 'wide',
   'zmyslony-2026': 'wide',
-  'navier-plate': 'standalone',
 };
 
 for (const viewport of [{ width: 1440, height: 900 }, { width: 1280, height: 800 }]) {
@@ -25,26 +24,21 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 1280, height: 800
       await page.emulateMedia({ reducedMotion: 'reduce' });
       const root = await openResearchPage(page, e.path);
       const app = root.locator('.rs-shell-app');
-      if (layout === 'standalone') {
-        await expect(app).toHaveCount(0);
-        await expect(page.getByTestId('navier-results')).toBeVisible();
+      const shell = root.locator(layout === 'wide' ? '.rs-shell-grid.rs-wide' : '.rs-shell-wrap.rs-split');
+      await expect(shell.locator('.rs-shell-app')).toBeVisible();
+      const head = (await root.locator('.rs-shell-head').boundingBox())!;
+      const pane = (await app.boundingBox())!;
+      const article = (await root.locator('.rs-shell-article').boundingBox())!;
+      if (layout === 'wide') {
+        expect(pane.y).toBeGreaterThanOrEqual(head.y + head.height);
+        expect(article.y).toBeGreaterThanOrEqual(pane.y + pane.height);
+        expect(pane.x).toBe(article.x);
       } else {
-        const shell = root.locator(layout === 'wide' ? '.rs-shell-grid.rs-wide' : '.rs-shell-wrap.rs-split');
-        await expect(shell.locator('.rs-shell-app')).toBeVisible();
-        const head = (await root.locator('.rs-shell-head').boundingBox())!;
-        const pane = (await app.boundingBox())!;
-        const article = (await root.locator('.rs-shell-article').boundingBox())!;
-        if (layout === 'wide') {
-          expect(pane.y).toBeGreaterThanOrEqual(head.y + head.height);
-          expect(article.y).toBeGreaterThanOrEqual(pane.y + pane.height);
-          expect(pane.x).toBe(article.x);
-        } else {
-          expect(Math.abs(pane.y - head.y)).toBeLessThan(2);
-          expect(pane.x).toBeGreaterThan(head.x + head.width);
-          expect(pane.x).toBeGreaterThan(article.x + article.width);
-          expect(article.y).toBeGreaterThanOrEqual(head.y + head.height);
-          expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-        }
+        expect(Math.abs(pane.y - head.y)).toBeLessThan(2);
+        expect(pane.x).toBeGreaterThan(head.x + head.width);
+        expect(pane.x).toBeGreaterThan(article.x + article.width);
+        expect(article.y).toBeGreaterThanOrEqual(head.y + head.height);
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
       }
     });
   }
