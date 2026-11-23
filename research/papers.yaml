@@ -1019,9 +1019,9 @@ papers:
   methods: *id001
   dependencies: []
   complexity: low
-  relevance: Production MITC4 on the straight cantilever (Table 3) and the Scordelis–Lo roof (Table 5);
+  relevance: "Production MITC4 on the straight cantilever (Table 3) and the Scordelis–Lo roof (Table 5);
     regular meshes and the roof are within the paper's grade A (2%), the trapezoidal and parallelogram
-    out-of-plane cases are not (3.7% and 2.2%, issue #798) and their in-plane cases are withheld.
+    out-of-plane cases are not (3.7% and 2.2%, issue #798) and their in-plane cases are withheld."
   status: numerically-validated
   reproduced_published_results: false
   benchmarks:
