@@ -8,14 +8,27 @@ const fixture = name => readFileSync(new URL(`../../engine/tests/fixtures/${name
 
 function physicalResidualRefusal(error) {
   const refusal = JSON.parse(String(error));
-  assert.equal(refusal.structuredDiagnostics[0].code, 'result_quantity_unavailable');
-  assert.equal(refusal.structuredDiagnostics[0].severity, 'error');
+  const diagnostic = refusal.structuredDiagnostics[0];
+  assert.equal(diagnostic.code, 'result_quantity_unavailable');
+  assert.equal(diagnostic.severity, 'error');
+  assert.equal(diagnostic.phase, 'equilibrium');
+  assert.equal(diagnostic.threshold, 1e-8);
+  assert.ok(Number.isFinite(diagnostic.value) && diagnostic.value > diagnostic.threshold);
   assert.match(refusal.message, /physical free-DOF residual/);
   return true;
 }
 
+test('#2100 the exact nightly model retains its linear WASM result', () => {
+  const input = JSON.parse(fixture('issue-2100-pdelta'));
+  const result = engine.solve_3d(input);
+  assert.equal(result.displacements.length, Object.keys(input.nodes).length);
+  assert.equal(result.reactions.length, Object.keys(input.supports).length);
+  assert.ok(result.reactions.every(({ fx, fy, fz, mx, my, mz }) =>
+    [fx, fy, fz, mx, my, mz].every(Number.isFinite)));
+});
+
 for (const entry of [engine.solve_pdelta_3d, engine.certify_pdelta_3d]) {
-  test(`#2100 ${entry.name} refuses the exact nightly input at physical equilibrium`, { todo: 'known wrong result: #2100' }, () => {
+  test(`#2100 ${entry.name} refuses the exact nightly input at physical equilibrium`, () => {
     assert.throws(() => entry(fixture('issue-2100-pdelta'), 31, 1e-8), physicalResidualRefusal);
   });
 }
@@ -41,7 +54,7 @@ for (const dim of [2, 3]) {
   });
 
   for (const entry of [solve, certify]) {
-    test(`#2100 ${entry.name} refuses an unbalanced iterate`, { todo: 'known wrong result: #2100' }, () => {
+    test(`#2100 ${entry.name} refuses an unbalanced iterate`, () => {
       const loaded = structuredClone(model);
       loaded.loads[0].data.fx = -3;
       assert.throws(() => entry(JSON.stringify(loaded), 0, 1e-8), physicalResidualRefusal);

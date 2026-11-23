@@ -1,0 +1,41 @@
+{
+  "id": "pdelta-equilibrium-refusal",
+  "date": "2026-11-23",
+  "prs": [],
+  "area": "analysis",
+  "when": {
+    "allOf": [
+      [
+        "analysis:pdelta"
+      ]
+    ]
+  },
+  "quantities": [
+    "*",
+    "solve.ok"
+  ],
+  "title": {
+    "en": "P-Delta refuses results that fail the physical equilibrium check",
+    "es": "P-Delta rechaza los resultados que no cumplen la comprobación del equilibrio físico",
+    "pt": "P-Delta recusa resultados que falham na verificação do equilíbrio físico",
+    "de": "P-Delta verweigert Ergebnisse bei fehlendem physikalischem Gleichgewicht",
+    "fr": "P-Delta refuse les résultats qui échouent au contrôle d’équilibre physique",
+    "hu": "A P-Delta elutasítja a fizikai egyensúlyi ellenőrzésen megbukó eredményeket",
+    "tr": "P-Delta fiziksel denge denetimini geçemeyen sonuçları reddeder",
+    "zh": "P-Delta 拒绝未通过物理平衡检查的结果"
+  },
+  "explanation": {
+    "en": "Native 2D and 3D P-Delta now refuse the result when the physical free-DOF residual fails the requested tolerance. WASM now reports the same reason for refusal. Passing results retain their previous values (#2100).",
+    "es": "El análisis P-Delta nativo en 2D y 3D rechaza el resultado cuando el residuo físico en los grados de libertad libres no cumple la tolerancia solicitada. WASM informa el mismo motivo del rechazo. Los resultados que pasan la comprobación conservan sus valores (#2100).",
+    "pt": "O P-Delta nativo em 2D e 3D recusa o resultado quando o resíduo físico nos graus de liberdade livres não atende à tolerância solicitada. O WASM informa o mesmo motivo da recusa. Resultados aprovados mantêm seus valores (#2100).",
+    "de": "Die nativen 2D- und 3D-P-Delta-Löser verweigern das Ergebnis, wenn das physikalische Residuum der freien Freiheitsgrade die geforderte Toleranz verfehlt. WASM meldet denselben Grund. Bestandene Ergebnisse behalten ihre Werte (#2100).",
+    "fr": "Les solveurs P-Delta natifs 2D et 3D refusent le résultat si le résidu physique aux degrés de liberté libres ne satisfait pas la tolérance demandée. WASM signale la même cause de refus. Les résultats conformes gardent leurs valeurs (#2100).",
+    "hu": "A natív 2D és 3D P-Delta megoldó elutasítja az eredményt, ha a szabad szabadságfokok fizikai maradéka nem teljesíti a kért tűrést. A WASM ugyanezt az okot jelzi. Az ellenőrzésen átment eredmények értékei megmaradnak (#2100).",
+    "tr": "Yerel 2B ve 3B P-Delta çözücüleri, serbestlik derecelerindeki fiziksel artık istenen toleransı karşılamadığında sonucu reddeder. WASM aynı ret nedenini bildirir. Denetimi geçen sonuçların değerleri korunur (#2100).",
+    "zh": "当自由自由度的物理残差未达到要求的容差时，原生 2D 和 3D P-Delta 求解器会拒绝提供结果。WASM 会报告相同的拒绝原因。通过检查的结果保留原有数值（#2100）。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-pdelta-equilibrium-refusal.md",
+    "heading": "P-Delta refuses results that fail the physical equilibrium check"
+  }
+}

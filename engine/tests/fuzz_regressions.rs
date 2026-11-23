@@ -1182,12 +1182,17 @@ fn issue_2222_overflow_cannot_omit_one_of_several_combinations_2d() {
 
 fn assert_issue_2100_refusal(error: &str) {
     let refusal: serde_json::Value = serde_json::from_str(error).expect(error);
+    let diagnostic = &refusal["structuredDiagnostics"][0];
     assert_eq!(
-        refusal["structuredDiagnostics"][0]["code"],
+        diagnostic["code"],
         "result_quantity_unavailable",
         "{error}"
     );
-    assert_eq!(refusal["structuredDiagnostics"][0]["severity"], "error");
+    assert_eq!(diagnostic["severity"], "error");
+    assert_eq!(diagnostic["phase"], "equilibrium");
+    assert_eq!(diagnostic["threshold"].as_f64(), Some(1e-8));
+    assert!(diagnostic["value"].as_f64().unwrap() > 1e-8);
+    assert_eq!(refusal["message"], diagnostic["message"]);
     assert!(
         refusal["message"].as_str().unwrap().contains("physical free-DOF residual"),
         "{error}"
@@ -1195,7 +1200,6 @@ fn assert_issue_2100_refusal(error: &str) {
 }
 
 #[test]
-#[ignore = "known wrong result: #2100"]
 fn issue_2100_nightly_native_pdelta_3d_refuses_failed_physical_equilibrium() {
     use dedaliano_engine::{
         certify,
@@ -1222,7 +1226,6 @@ fn issue_2100_nightly_native_pdelta_3d_refuses_failed_physical_equilibrium() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2100"]
 fn issue_2100_native_certifier_refuses_the_nightly_model_at_the_solver() {
     use dedaliano_engine::{certify::pdelta, types::SolverInput3D};
 
@@ -1232,7 +1235,6 @@ fn issue_2100_native_certifier_refuses_the_nightly_model_at_the_solver() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2100"]
 fn issue_2100_native_pdelta_2d_refuses_unbalanced_iterate() {
     use dedaliano_engine::{certify, solver::pdelta, types::SolverInput};
 
@@ -1256,7 +1258,6 @@ fn issue_2100_native_pdelta_2d_refuses_unbalanced_iterate() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2100"]
 fn issue_2100_native_pdelta_3d_refuses_unbalanced_iterate() {
     use dedaliano_engine::{certify, solver::pdelta, types::SolverInput3D};
 

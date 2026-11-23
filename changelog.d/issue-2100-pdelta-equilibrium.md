@@ -1,0 +1,5 @@
+### BREAKING (results)
+
+#### Refuse P-Delta results that fail the physical equilibrium check
+
+The native 2D and 3D solvers now return an error when the physical residual fails the requested tolerance. WASM reports the same cause when it refuses the result. See [the results changes](../docs/results-changes/2026-11-pdelta-equilibrium-refusal.md).

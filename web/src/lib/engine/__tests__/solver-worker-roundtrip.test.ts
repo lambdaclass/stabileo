@@ -101,6 +101,32 @@ describe('solver-worker message round-trip', () => {
     expect(tip.uz / (-10 * 12 ** 3 / (3 * 200e6 * 1000 * 1e-4))).toBeCloseTo(1, 6);
   });
 
+  it.each([
+    { job: 'pdelta3d', id: 2100, fixture: 'issue-2100-pdelta', iterations: 31 },
+    { job: 'certify_pdelta_3d', id: 2101, fixture: 'issue-2100-pdelta', iterations: 31 },
+    { job: 'certify_pdelta_2d', id: 2102, fixture: 'reaction-recovery-2d', iterations: 0 },
+  ])('#2100 forwards the P-Delta equilibrium refusal from $job', async ({ job, id, fixture, iterations }) => {
+    const path = new URL(`../../../../../engine/tests/fixtures/${fixture}.json`, import.meta.url);
+    const input = JSON.parse(readFileSync(path, 'utf8'));
+    if (job === 'certify_pdelta_2d') input.loads[0].data.fx = -3;
+    const tolerance = 1e-8;
+    await dispatch(job === 'pdelta3d'
+      ? { type: job, id, input, maxIter: iterations, tol: tolerance }
+      : { type: 'certify', id, name: job, input: [JSON.stringify(input), iterations, tolerance] });
+    const reply = posted.find(m => m.type === 'result' && m.id === id);
+    expect(reply?.result).toBeUndefined();
+    expect(reply?.error).toBeDefined();
+    const refusal = JSON.parse(reply!.error!);
+    expect(refusal.structuredDiagnostics[0]).toMatchObject({
+      code: 'result_quantity_unavailable',
+      severity: 'error',
+      phase: 'equilibrium',
+      threshold: tolerance,
+    });
+    expect(refusal.structuredDiagnostics[0].value).toBeGreaterThan(tolerance);
+    expect(refusal.message).toContain('physical free-DOF residual');
+  });
+
   it('#2292 the P-Delta worker refuses non-finite scalar options', async () => {
     for (const [id, tol] of [NaN, Infinity, -Infinity].entries()) {
       await dispatch({ type: 'pdelta3d', id: 2292 + id, input: cantileverWire(), maxIter: 20, tol });
