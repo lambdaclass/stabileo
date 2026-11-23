@@ -182,10 +182,16 @@ export function groupRoom(cols: readonly Placed[], a: Pick<FootingAdopted, 'B' |
   const room = (dir: Axis) => {
     const S = dir === 'x' ? a.B : a.L;
     const pos = (p: Placed) => (dir === 'x' ? p.x : p.y), half = (p: Placed) => (dir === 'x' ? p.b : p.h) / 2;
-    return Math.min(S / 2 - Math.max(...cols.map((p) => pos(p) - half(p))), S / 2 + Math.min(...cols.map((p) => pos(p) + half(p))));
+    const hiOver = S / 2 - Math.max(...cols.map((p) => pos(p) + half(p))), loOver = S / 2 + Math.min(...cols.map((p) => pos(p) - half(p)));
+    const hi = hiOver > NO_CANTILEVER ? S / 2 - Math.max(...cols.map((p) => pos(p) - half(p))) : Infinity;
+    const lo = loOver > NO_CANTILEVER ? S / 2 + Math.min(...cols.map((p) => pos(p) + half(p))) : Infinity;
+    return Math.min(hi, lo);
   };
   return Math.min(room('x'), room('y')) - cover;
 }
+
+/** A side whose edge is this close to its outer columns' faces has no cantilever past them, m: no moment to develop there, its bars end hooked at the edge. */
+const NO_CANTILEVER = 0.05;
 
 /** The flexural modulus the strips' rigidity and springs are read with, kPa: Ec = 4700·√f'c on a cracked inertia of 0,7 (Cim. §7). */
 export const groupModulus = (fc: number): number => 0.7 * 4.7e6 * Math.sqrt(fc);

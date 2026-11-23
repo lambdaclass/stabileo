@@ -1,5 +1,6 @@
 import { anchorsOf, inwardPartner, nearestSides, type PropertyLines } from '../model/foundation/edges';
 import type { FootingBalance, FootingDemand, FootingEdge, FootingSetup, StrapPartner } from './footing-types';
+import { coveredBox } from './footing-design';
 
 export interface EdgeInput {
   lines: PropertyLines;
@@ -67,7 +68,8 @@ export function withEdges(demands: readonly FootingDemand[], o: EdgeInput): Foot
         if (!a) continue;
         const dir: [number, number] = axis === 'x' ? [a, 0] : [0, a];
         const tied = d.footing?.straps?.map((n) => level.find((q) => q.nodeId === n)).find((q) => q && Math.sign(axis === 'x' ? d.at.x - q.at.x : d.at.y - q.at.y) === a);
-        const q = tied ?? inwardPartner({ id: d.nodeId, x: d.at.x, y: d.at.y }, dir, level.map((x) => ({ id: x.nodeId, x: x.at.x, y: x.at.y, dem: x })))?.dem;
+        const box = coveredBox(d), halfAcross = axis === 'x' ? Math.max(-box.y0, box.y1) : Math.max(-box.x0, box.x1);
+        const q = tied ?? inwardPartner({ id: d.nodeId, x: d.at.x, y: d.at.y }, dir, level.map((x) => ({ id: x.nodeId, x: x.at.x, y: x.at.y, dem: x })), d.pier ? halfAcross : 0)?.dem;
         if (!q) continue;
         const beam = o.straps.find((m) => (m.a === d.nodeId && m.b === q.nodeId) || (m.b === d.nodeId && m.a === q.nodeId));
         partners.push({
