@@ -76,7 +76,7 @@ export interface BeamDemand {
 
 export interface SupportPost { name: string; b: number; h: number }
 
-export interface BeamEnd { kind: 'column' | 'support' | 'beam' | 'free'; /** Half the holding member's extent along the beam, m: at a support with none of its own, the beam crossing it there. */ half: number; /** A column that stops at the joint: a frame corner, where the bars turn round it. */ corner?: boolean }
+export interface BeamEnd { kind: 'column' | 'support' | 'beam' | 'free'; /** Half the holding member's extent along the beam, m: at a support with none of its own, the beam crossing it there. */ half: number; /** A column that stops at the joint: a frame corner, where the bars turn round it. */ corner?: boolean; /** Columns only above: the beam hangs from them, its end in tension. */ hanging?: boolean }
 
 export interface BeamContext extends TransverseList {
   mat: Materials;

@@ -154,6 +154,21 @@ function runStations(m: DemandInput, run: Array<{ e: El; forward: boolean }>, se
   return out;
 }
 
+/** Where along a run any combination puts a concentrated load, m from its start. */
+function pointLoadsAlong(m: DemandInput, run: ReadonlyArray<{ e: El; forward: boolean }>): number[] {
+  const out: number[] = [];
+  let offset = 0;
+  for (const { e, forward } of run) {
+    const L = lengthOf(m, e);
+    for (const set of m.sets) {
+      const ef = forcesOf(set).get(e.id);
+      for (const p of [...(ef?.pointLoadsY ?? []), ...(ef?.pointLoadsZ ?? [])]) if (Math.abs(p.p) > 1e-9) out.push(offset + (forward ? p.a : L - p.a));
+    }
+    offset += L;
+  }
+  return out;
+}
+
 /** The least width and depth among a run's pieces: a piece of smaller section is checked with no more than it has. Null where one has no rectangle. */
 function smallestSection(m: DemandInput, run: ReadonlyArray<{ e: El }>): { b: number; h: number } | null {
   const secs = run.map(({ e }) => m.sections.get(e.sectionId));
@@ -228,8 +243,9 @@ function endOf(m: DemandInput, inc: Map<number, El[]>, mine: ReadonlySet<number>
   const others = (inc.get(node) ?? []).filter((o) => !mine.has(o.id));
   const posts = others.filter((o) => isVertical(m, o));
   if (posts.length) {
-    const up = posts.some((o) => zOf(m.nodes.get(o.nodeI === node ? o.nodeJ : o.nodeI)) > zOf(m.nodes.get(node)) + 1e-6);
-    return { kind: 'column', half, ...(up ? {} : { corner: true }) };
+    const rises = (o: El) => zOf(m.nodes.get(o.nodeI === node ? o.nodeJ : o.nodeI)) > zOf(m.nodes.get(node)) + 1e-6;
+    const up = posts.some(rises);
+    return { kind: 'column', half, ...(up ? {} : { corner: true }), ...(posts.every(rises) ? { hanging: true } : {}) };
   }
   const beam = others.find((o) => o.type !== 'truss');
   const crossing = beam ? (m.sections.get(beam.sectionId)?.b ?? 0) / 2 : 0;
@@ -281,7 +297,10 @@ export function beamDemands(m: DemandInput): BeamDemand[] {
       const startNode = span[0]!.forward ? first.nodeI : first.nodeJ, endNode = lastEl.forward ? lastEl.e.nodeJ : lastEl.e.nodeI;
       const endS = endOf(m, inc, mine, startNode, m.faceOffset?.(first.id, span[0]!.forward ? 'i' : 'j') ?? 0, wallAcross(m, walls, startNode, first));
       const endE = endOf(m, inc, mine, endNode, m.faceOffset?.(lastEl.e.id, lastEl.forward ? 'j' : 'i') ?? 0, wallAcross(m, walls, endNode, lastEl.e));
-      const v0 = !m.faces ? 0 : endS.kind === 'beam' ? x0 : Math.min(x0 + dv, L / 2), v1 = !m.faces ? L : endE.kind === 'beam' ? x1 : Math.max(x1 - dv, L / 2);
+      const pointAt = pointLoadsAlong(m, span);
+      const shearAtFace = (end: BeamEnd, from: number, to: number) => end.kind === 'beam' || end.kind === 'free' || !!end.hanging || pointAt.some((x) => x > Math.min(from, to) - 1e-9 && x < Math.max(from, to) + 1e-9);
+      const v0 = !m.faces ? 0 : shearAtFace(endS, x0, Math.min(x0 + dv, L / 2)) ? x0 : Math.min(x0 + dv, L / 2);
+      const v1 = !m.faces ? L : shearAtFace(endE, Math.max(x1 - dv, L / 2), x1) ? x1 : Math.max(x1 - dv, L / 2);
       let xStar = (x0 + x1) / 2, best = 0;
       stations.forEach((list) => { for (const { x, s } of list) if (x >= x0 - 1e-9 && x <= x1 + 1e-9 && s[flex] > best) { best = s[flex]; xStar = x; } });
       const start = emptySection(x0), mid = emptySection(xStar), end = emptySection(x1);
