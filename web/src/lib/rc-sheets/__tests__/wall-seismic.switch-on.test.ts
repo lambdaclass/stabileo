@@ -55,3 +55,14 @@ describe('walls under chapter 18', () => {
     expect(wallRow(d, { ...ctx, seismic }, { ...r.adopted, curtains: 1 }, f).verifications.find((v) => v.label === 'rcSheets.v.wallSeisCurtains')!.ok).toBe(false);
   });
 });
+
+describe('a wall past 0.2·f\'c with no neutral axis', () => {
+  it('fails its special boundary where no neutral axis is found, rather than passing a boundary of nothing', () => {
+    const s = wallSeismic({ length: 3, height: 3, thickness: 0.25, combos: [{ combo: 'U', pu: 6000, mu: 0, vu: 50, muV: 0, muH: 0 }] }, ctx,
+      { vertical: { diameter: 12, spacing: 0.15 }, horizontal: { diameter: 10, spacing: 0.2 }, curtains: 2 }, [undefined], f);
+    expect(s.special).toBe(true);
+    const v = s.checks.find((k) => k.label === 'rcSheets.v.wallSpecialBoundary')!;
+    expect(v.ok).toBe(false);
+    expect(v.capacity).toBe('c —');
+  });
+});

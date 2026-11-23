@@ -57,6 +57,7 @@ export function wallSeismic(
   const carried = !!ctx.belowSpecial && sigma < 0.2 * fc - 1e-9 && sigma >= 0.15 * fc - 1e-9;
   const special = sigma >= 0.2 * fc - 1e-9 || carried;
   const c = Math.max(0, ...cs.filter((x): x is number => x !== undefined && Number.isFinite(x)));
+  const noAxis = special && !(c > 1e-9);
 
   const ends = a.boundary && a.boundary.count > 0 ? a.boundary.diameter : a.vertical.diameter;
   const dbMin = Math.min(a.vertical.diameter, ends);
@@ -89,7 +90,7 @@ export function wallSeismic(
     const dia = pool.find(fits);
     hoops = { dia: dia ?? pool.at(-1) ?? tieDiametersOf(ctx).at(-1)!, spacing: sMax, legsAcross, legsAlong, clause: '§18.10.6.4' };
     checks.push(
-      check('rcSheets.v.wallSpecialBoundary', true, { clause: '§18.10.6.3, §18.10.6.4(a)', demand: carried ? `σ = ${fmt(sigma)} MPa ≥ 0.15·f'c = ${fmt(0.15 * fc)} MPa ↓` : `σ = ${fmt(sigma)} MPa ≥ 0.2·f'c = ${fmt(0.2 * fc)} MPa`, capacity: `${fmt(boundaryLength * 100, 0)} cm (c = ${fmt(c * 100, 0)} cm)` }),
+      check('rcSheets.v.wallSpecialBoundary', !noAxis, { clause: '§18.10.6.3, §18.10.6.4(a)', demand: carried ? `σ = ${fmt(sigma)} MPa ≥ 0.15·f'c = ${fmt(0.15 * fc)} MPa ↓` : `σ = ${fmt(sigma)} MPa ≥ 0.2·f'c = ${fmt(0.2 * fc)} MPa`, capacity: noAxis ? 'c —' : `${fmt(boundaryLength * 100, 0)} cm (c = ${fmt(c * 100, 0)} cm)` }),
       check('rcSheets.v.wallBoundaryAsh', dia !== undefined, { clause: '§18.10.6.4(f)', demand: `Ash/(s·bc) ≥ ${fmt(k * 100, 3)} %`, capacity: dia !== undefined ? `Ø${dia} c/${fmt(sMax * 100, 1)}` : `> ${tieDiametersOf(ctx).map((x) => `Ø${x}`).join(' ')}` }),
     );
     steps.push(
