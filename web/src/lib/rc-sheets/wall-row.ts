@@ -86,7 +86,7 @@ export interface WallRow {
 const rhoOf = (m: { diameter: number; spacing: number }, curtains: number, t: number) => (m.spacing > 0 ? curtains * barArea(m.diameter) * 1e-4 / (m.spacing * t) : 0);
 
 export const wallLabel = (a: WallAdopted): string =>
-  `${a.curtains}× V Ø${a.vertical.diameter} c/${Math.round(a.vertical.spacing * 100)} · H Ø${a.horizontal.diameter} c/${Math.round(a.horizontal.spacing * 100)}${a.boundary && a.boundary.count > 0 ? ` · ${a.boundary.count} Ø${a.boundary.diameter}` : ''}`;
+  `${a.curtains}× V Ø${a.vertical.diameter} c/${Math.round(a.vertical.spacing * 1000) / 10} · H Ø${a.horizontal.diameter} c/${Math.round(a.horizontal.spacing * 1000) / 10}${a.boundary && a.boundary.count > 0 ? ` · ${a.boundary.count} Ø${a.boundary.diameter}` : ''}`;
 
 interface Eval {
   pm: number[]; out: number[]; shear: number[];

@@ -101,7 +101,7 @@ function pilePrimitives(row: FootingRow, o: FootingPlanOptions): { plan: Primiti
   const p = pileDetail(row, rulesFor(o.code).bends);
   if (!p) return { plan: [], section: [] };
   const D = p.diameter * K, show = Math.min(p.length, 1.5) * K, a = row.adopted.piles!;
-  const text = `${o.tr('rcSheets.footFig.piles')}: ${p.piles.length} Ø${o.fmt(p.diameter * 100, 0)} · L = ${o.fmt(p.length, 1)} m · ${a.bars.count} Ø${a.bars.dia} · eØ${a.hoop.dia} c/${o.fmt(a.hoop.spacing * 100, 0)}`;
+  const text = `${o.tr('rcSheets.footFig.piles')}: ${p.piles.length} Ø${o.fmt(p.diameter * 100, 0)} · L = ${o.fmt(p.length, 1)} m · ${a.bars.count} Ø${a.bars.dia} · eØ${a.hoop.dia} c/${o.fmt(a.hoop.spacing * 100, Number.isInteger(Math.round(a.hoop.spacing * 1000) / 10) ? 0 : 1)}`;
   const plan: Primitive[] = p.piles.map((q) => ({ kind: 'circle', layer: HORM, c: pt(q.x * K, q.y * K), r: D / 2 }));
   plan.push(label(pt(-row.B * K / 2, (row.L / 2) * K + 200), text, 2));
   const section: Primitive[] = [];
