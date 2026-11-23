@@ -1,4 +1,6 @@
-import { getShellCombinationKernel, registerShellCombinationKernel } from '../shell-combination-kernel';
+import { combine_shell_stresses } from '../../wasm/dedaliano_engine.js';
+import { issue2297Factors } from './combination-factor-fixture';
+import { packedShellCombinationKernel, getShellCombinationKernel, registerShellCombinationKernel } from '../shell-combination-kernel';
 /**
  * FIX2 root cause — shell stresses are dropped by the WASM combination solver;
  * they are recombined in JS from per-case results (linear in displacement).
@@ -260,4 +262,47 @@ describe('a MITC4 and a MITC9 both numbered 7 in one result', () => {
     const r = superposed([{ r: apart, f: 1.5 }]);
     expect(r.quadStresses!.map((s) => [s.elementId, s.sigmaXx])).toEqual([[7, 15], [8, 1500]]);
   });
+});
+
+const issue2297 = process.env.RUN_KNOWN_WRONG === '2297' ? it : it.skip;
+
+issue2297('known wrong result: #2297 shell combinations preserve both cases through the packed export and shell recombination', () => {
+  const stresses = [q(7, 2), q(7, 4)];
+  const perCase = new Map(stresses.map((stress, i) => [i + 1, emptyResult([stress])]));
+  const caseQuads = new Map(stresses.map((stress, i) => [i + 1, new Map([[7, stress]])]));
+  const raw = packedShellCombinationKernel(combine_shell_stresses);
+  const paths = [
+    (factors: Array<{caseId: number; factor: number}>) => raw({
+      cases: stresses.map((stress, i) => ({ id: i + 1, plateStresses: [], quadStresses: [stress] })),
+      combinations: [{ id: 10, factors }], thicknesses: [],
+      envelopeOrder: [{ id: 10, plateStresses: [], quadStresses: [] }],
+    }).envelope.quads[0]?.extremes.sigmaXx?.max,
+    (factors: Array<{caseId: number; factor: number}>) =>
+      combineShellStresses(factors, new Map(), caseQuads, new Map()).quadStresses[0]?.sigmaXx,
+    (factors: Array<{caseId: number; factor: number}>) => {
+      const perCombo = new Map([[10, emptyResult([])]]);
+      enrichComboShellStresses(perCase, perCombo, undefined, [{ id: 10, factors }], new Map());
+      return perCombo.get(10)?.quadStresses?.[0]?.sigmaXx;
+    },
+  ];
+  for (const path of paths) {
+    const run = (weights: number[]) => path([{ caseId: 2, factor: 1 }, ...weights.map(factor => ({ caseId: 1, factor }))]);
+    expect.soft(run([1])).toBe(6);
+    expect.soft(run([0.5, 0.5])).toBe(6);
+    expect.soft(run(issue2297Factors)).toBe(6);
+    expect.soft(run(issue2297Factors.slice(0, -1))).toBe(4);
+  }
+});
+
+issue2297('known wrong result: #2297 magnitude combinations preserve a repeated case before ABS or SRSS', () => {
+  const perCase = new Map([[1, emptyResult([q(7, 2)])]]);
+  const rotated = [issue2297Factors.at(-1)!, ...issue2297Factors.slice(0, -1)];
+  for (const method of ['abs', 'srss'] as const) {
+    const run = (weights: number[]) => magnitudeCombination(method, weights.map(factor => ({ caseId: 1, factor })), perCase);
+    const control = run([1]);
+    expect(control?.quadStresses?.[0]?.sigmaXx).toBe(2);
+    expect.soft(run([0.5, 0.5])).toStrictEqual(control);
+    expect.soft(run(issue2297Factors.slice(0, -1))).toBeNull();
+    expect.soft(run(rotated)).toStrictEqual(control);
+  }
 });

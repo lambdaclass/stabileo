@@ -746,6 +746,36 @@ mod tests {
         assert!(decode(&trailing).is_err());
     }
 
+    #[test]
+    #[ignore = "known wrong result: #2297"]
+    fn issue_2297_packed_shell_combination_preserves_case_contributions() {
+        let large = 2.0_f64.powi(110);
+        let middle = 2.0_f64.powi(54);
+        let factors = [large, middle, 1.0, -middle, -1.0, -large, 1.0];
+        let run = |weights: &[f64]| {
+            let mut data = vec![2.0];
+            for (id, value) in [(1.0, 2.0), (2.0, 4.0)] {
+                data.extend([id, 1.0, 1.0]);
+                for shell in [7.0, 8.0] {
+                    data.extend([shell, value, 0.0, 0.0, 0.0, 0.0, 0.0, f64::NAN, f64::NAN]);
+                }
+            }
+            data.extend([1.0, 9.0, (1 + weights.len()) as f64, 2.0, 1.0]);
+            for &factor in weights {
+                data.extend([1.0, factor]);
+            }
+            data.extend([0.0, 1.0, 9.0, 0.0, 0.0]);
+            let combined = combine(decode(&data).unwrap());
+            let stresses = &combined.combinations[0];
+            (stresses.plate_stresses[0].sigma_xx, stresses.quad_stresses[0].sigma_xx)
+        };
+
+        assert_eq!(run(&[1.0]), (6.0, 6.0));
+        assert_eq!(run(&[0.5, 0.5]), (6.0, 6.0));
+        assert_eq!(run(&factors), (6.0, 6.0));
+        assert_eq!(run(&factors[..6]), (4.0, 4.0));
+    }
+
     fn mitc4_and_mitc9_both_numbered_7(shells_per_set: usize) -> Vec<f64> {
         let mitc4 = [7., 10., 0., 0., 2., 0., 0., 1., 1.];
         let mitc9 = [7., 1000., 0., 0., 200., 0., 0., f64::NAN, f64::NAN];

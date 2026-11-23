@@ -5,7 +5,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { modelStore } from '../model.svelte';
 import { historyStore } from '../history.svelte';
 import '../index';
-import { addGeneratedCombinations, SERVICE_ENVELOPE_NAME, templateCombinationSpecs } from '../generated-combinations';
+import { addCompositeCases, addGeneratedCombinations, SERVICE_ENVELOPE_NAME, templateCombinationSpecs } from '../generated-combinations';
 import { expandCombinations, presentSymbols } from '../../engine/loads/combination-cases';
 import { generateCombinations } from '../../codes/cirsoc101/combinations';
 import { generateServiceCombinations } from '../../codes/cirsoc101/service-combinations';
@@ -164,4 +164,27 @@ describe("the loads tab's templates say who wrote them", () => {
     expect(serviceIds.length).toBeGreaterThan(0);
     expect(activeComboIds(undefined, modelStore.combinations).some((id) => serviceIds.includes(id))).toBe(false);
   });
+});
+
+const issue2297 = process.env.RUN_KNOWN_WRONG === '2297' ? it : it.skip;
+
+issue2297('known wrong result: #2297 applied project rules preserve the net case in composite and notional variants', async () => {
+  const { issue2297Factors } = await import('../../engine/__tests__/combination-factor-fixture');
+  const { withNotionalVariants } = await import('../../engine/loads/notional-combinations');
+  const { initSolver } = await import('../../engine/wasm-solver');
+  await initSolver();
+  const cases = model();
+  const dead = cases.find(c => c.type === 'D')!;
+  const notional = modelStore.addLoadCase('Notional X', '');
+  modelStore.updateLoadCaseFields(notional, { notional: { sourceCaseId: dead.id, ratio: 0.5, dir: '+X' } });
+  const specs = templateCombinationSpecs('project', presentSymbols(cases), [{
+    id: 'test', purpose: 'strength', terms: issue2297Factors.map(factor => ({ symbol: 'D', factor })),
+  }]);
+  const expanded = expandCombinations(specs, cases);
+  expect(expanded).toHaveLength(1);
+  const variants = withNotionalVariants(expanded, modelStore.loadCases);
+  expect.soft(variants).toHaveLength(2);
+  expect.soft(variants[1]?.factors.find(f => f.caseId === notional)?.factor).toBe(1);
+  const [composite] = addCompositeCases(expanded);
+  expect.soft(modelStore.loadCases.find(c => c.id === composite)?.includes).toStrictEqual([{ caseId: dead.id, factor: 1 }]);
 });
