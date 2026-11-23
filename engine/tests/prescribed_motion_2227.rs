@@ -153,7 +153,6 @@ fn check_paths_3d(free: usize, pcg: bool, path: &str, dx: f64) {
 }
 
 #[test]
-#[ignore = "known wrong result: #2227"]
 fn issue_2227_fully_restrained_2d() {
     for dx in MOTIONS {
         check_paths_2d(0, false, "fully_restrained", dx);
@@ -161,7 +160,6 @@ fn issue_2227_fully_restrained_2d() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2227"]
 fn issue_2227_fully_restrained_3d() {
     for dx in MOTIONS {
         check_paths_3d(0, false, "fully_restrained", dx);
@@ -169,7 +167,6 @@ fn issue_2227_fully_restrained_3d() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2227"]
 fn issue_2227_sparse_2d() {
     for dx in MOTIONS {
         check_paths_2d(linear::SPARSE_THRESHOLD, false, "sparse_cholesky", dx);
@@ -177,7 +174,6 @@ fn issue_2227_sparse_2d() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2227"]
 fn issue_2227_sparse_3d() {
     for dx in MOTIONS {
         check_paths_3d(linear::SPARSE_THRESHOLD, false, "sparse_cholesky", dx);
@@ -185,7 +181,6 @@ fn issue_2227_sparse_3d() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2227"]
 fn issue_2227_pcg_2d() {
     for dx in MOTIONS {
         check_paths_2d(linear::SPARSE_THRESHOLD, true, "pcg_ic0", dx);
@@ -193,7 +188,6 @@ fn issue_2227_pcg_2d() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2227"]
 fn issue_2227_pcg_3d() {
     for dx in MOTIONS {
         check_paths_3d(linear::SPARSE_THRESHOLD, true, "pcg_ic0", dx);

@@ -7,7 +7,6 @@ engine.initSync({ module: readFileSync(new URL('../../web/src/lib/wasm/dedaliano
 
 const fixture = JSON.parse(readFileSync(new URL('../../engine/tests/fixtures/equilibrium-oracle-2109.json', import.meta.url)));
 const motions = [0, 0.0013, 1.0000000000000003e-15, 1e-16, -1e-16, 9.999999999999999e-16, 1e-15];
-const knownWrong = process.env.ISSUE_2227_REPRODUCE ? false : 'known wrong result: #2227';
 
 function axialModel(dim, free, pcg, dx) {
   const model = { ...structuredClone(fixture), loads: [], nodes: {}, supports: {}, elements: {} };
@@ -65,7 +64,7 @@ const entries = {
     JSON.parse(engine[`solve_pdelta_${dim}d`](JSON.stringify(model), 20, 1e-10)).linearResults,
 };
 
-test('issue #2227 fixed-end shear from the #2109 model', { skip: knownWrong }, () => {
+test('issue #2227 fixed-end shear from the #2109 model', () => {
   for (const dx of motions) {
     const model = structuredClone(fixture);
     model.loads = [];
@@ -89,7 +88,7 @@ for (const dim of [2, 3]) {
   ]) {
     for (const [entry, solve] of Object.entries(entries)) {
       if (free === 0 && entry === 'P-Delta linear state') continue;
-      test(`issue #2227 ${dim}D ${path} ${entry}`, { skip: free === 1 ? false : knownWrong }, () => {
+      test(`issue #2227 ${dim}D ${path} ${entry}`, () => {
         for (const dx of motions) {
           const model = axialModel(dim, free, pcg, dx);
           checkAxial(model, solve(dim, model), dim, free, path, dx);
