@@ -26,8 +26,8 @@ function picked(ids: Iterable<number>): Load[] {
 export function addLoads(loads: readonly Load[]): number[] {
   // An empty batch still pushed an undo step and bumped the model's version, clearing the results.
   if (loads.length === 0) return [];
-  const out: number[] = [];
-  modelStore.batch(() => { for (const l of loads) out.push(modelStore.addLoadEntry(l)); });
+  let out: number[] = [];
+  modelStore.batch(() => { out = modelStore.addLoadEntries(loads); });
   return out;
 }
 
@@ -142,7 +142,7 @@ export function duplicateCase(caseId: number, name: string, factor = 1): number 
       ...(lc.solve === false ? { solve: false } : {}),
     });
     const own = modelStore.loads.filter((l) => (l.data.caseId ?? 1) === caseId);
-    for (const l of own) modelStore.addLoadEntry(userCopy(l, factor, id));
+    modelStore.addLoadEntries(own.map((l) => userCopy(l, factor, id)));
     const analysis = modelStore.model.analysis;
     const rows = analysis?.selfWeight?.filter((r) => r.caseId === caseId) ?? [];
     if (analysis && rows.length) {

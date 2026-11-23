@@ -13,8 +13,8 @@ const ko: Translations = {
   'loadPlan.gravity.unsupportedStrips': "부분 쉘 피복에서는 띠가 직사각형 보 패널의 마주 보는 지지부 사이 전 경간에 걸쳐야 합니다.",
   'loadPlan.gravity.stripDirection': "요청한 일방향 경간은 피복되지 않은 띠의 경간 방향과 일치해야 합니다.",
   'loadPlan.gravity.nonplanarShell': "사각형 {id}이 평면이 아닙니다. 중력 하중의 피복 계산에는 평면 쉘이 필요합니다.",
-  'loadPlan.gravity.overlappingShells': "셸 {first}과 {second}이 같은 평면에서 겹칩니다. 겹치는 영역의 중력 하중을 한 셸에 배정할 수 없습니다.",
-  'loadPlan.gravity.offsetShellDeck': "셸 {id}이 평면 투영이 겹치는 이격된 보 패널에 강결되어 있습니다. 면하중을 받는 표면을 결정할 수 없습니다.",
+  'loadPlan.gravity.overlappingShells': "셸 {first}과 {second}이 같은 평면에서 겹치거나 동일한 바닥 높이 허용 범위에서 겹칩니다. 셸의 형상을 수정하거나 면하중을 수동으로 한 번만 적용하세요.",
+  'loadPlan.gravity.offsetShellDeck': "셸 {id}이 평면 투영이 겹치는 다른 높이의 보 패널(부재 {members})에 수직 방향으로 연결되어 있습니다. 셸, 연결부 또는 보 패널의 형상을 수정하거나 면하중을 수동으로 한 번만 적용하세요.",
   'loadPlan.gravity.memberSlopeLimit': "부재 {id}의 경사가 중력 하중을 지지하는 부재의 판정 한계에 너무 가깝습니다. 하중을 명시적으로 지정하세요.",
   'snow.refused.stepDriftTransfer': "지붕 단차의 눈 쌓임으로 인한 하중을 지지 부재에 안정적으로 전달할 수 없습니다. 적설 하중을 명시적으로 지정하세요.",
   'loadPlan.gravity.unresolvedMember': "부재 {id}는 쉘에 일부만 덮여 있으며 패널의 하중 전달을 결정할 수 없습니다.",
@@ -1816,6 +1816,8 @@ const ko: Translations = {
   'dxf.summaryMaxV': '최대 V:',
   'dxf.warnZeroLengthLine': '길이 0인 선이 무시됨',
   'dxf.warnNoElementLayers': '부재/요소 레이어가 감지되지 않음. 모든 선이 요소로 사용됩니다.',
+  'dxf.refuseSupportLabel': 'DXF 레이어 “{layer}”의 지점 라벨 “{label}”을 알 수 없거나 의미가 모호합니다. 가져오기 전에 도면을 수정하세요. FIXED, PINNED, RX, RY 또는 RZ는 의도한 구속 조건과 일치할 때만 사용하세요.',
+  'dxf.refuseConflictingSupports': 'DXF 레이어 “{layer}”의 지점 라벨 “{first}”와 “{second}”가 같은 절점에 대응합니다. 가져오기 전에 의도한 구속 조건에 해당하는 라벨이나 블록만 남기세요.',
   'dxf.warnSupportNoNode': '지점이 어떤 절점과도 일치하지 않음:',
   'dxf.warnSupportBlockNoNode': '지점 블록이 어떤 절점과도 일치하지 않음:',
   'dxf.warnDistLoadNoElement': '분포하중이 어떤 요소와도 연관되지 않음:',
@@ -2788,10 +2790,8 @@ const ko: Translations = {
   'pro.unknown': '알 수 없음',
 
   // ─── PRO: Shell ───
-  'pro.nPlatesQuads': '{plates}개 판, {quads}개 사각형',
   'pro.plateTriDKT': '삼각 판 (DKT)',
   'pro.quadMITC4': '사각형 MITC4',
-  'pro.meshGenerator': '메쉬 생성기',
   'pro.meshHint': '4개 모서리 절점(반시계 방향)과 NxM 분할을 정의하세요. 중간 절점과 사각형이 자동 생성됩니다.',
   'pro.corners': '모서리',
   'pro.subdivisions': '분할',
@@ -3751,6 +3751,7 @@ const ko: Translations = {
   "autoLoad.work.draw": "하중 그리는 중",
   "autoLoad.work.step": "{total}단계 중 {step}단계",
   "autoLoad.work.cancel": "중지",
+  "svc.engine.nonFiniteNumber": "{path}에 유한한 수를 입력하세요(받은 값: {value}).",
 } as const satisfies Record<string, string>;
 
 export default ko;

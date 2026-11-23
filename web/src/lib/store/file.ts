@@ -26,6 +26,7 @@ import {
   type AutosaveFingerprint, type AutosavePolicy, type AutosaveReadResult, type AutosaveWriteResult,
 } from './autosave-db';
 import { noteDetailingKnown, onDetailingWrite, pruneDetailing, readDetailing, splitDetailing, stageDetailing, storeDetailing, type HeavyDetailing, type StagedDetailing } from './workspace-detailing';
+import { compactDesignRefusals, expandDesignRefusals, hasCompactRefusals } from './ded-design-refusals';
 import { workspaceSaveStatus } from './workspace-save-status.svelte';
 import {
   type ViewportPresentation3D,
@@ -48,6 +49,7 @@ import { axesStatement } from '../axes/statement';
  * Unknown versions are rejected.
  */
 export const DEDAL_FILE_VERSION = '2.0' as const;
+const COMPACT_REFUSALS_FILE_VERSION = '2.1' as const;
 const KNOWN_VERSIONS = new Set(['1.0', '2.0']);
 /** The session envelope (`DedalSessionFile`): every release so far has written 1.0. */
 export const SESSION_FILE_VERSION = '1.0' as const;
@@ -60,7 +62,7 @@ export const SESSION_FILE_VERSION = '1.0' as const;
  * opens it. Never read partially: fields this build does not know would be dropped in silence,
  * and saving it back would overwrite the newer file with less than it had (#718).
  */
-export function isNewerFileVersion(version: unknown, newest: string = DEDAL_FILE_VERSION): boolean {
+export function isNewerFileVersion(version: unknown, newest: string = COMPACT_REFUSALS_FILE_VERSION): boolean {
   if (typeof version !== 'string' || !/^\d+(\.\d+)*$/.test(version)) return false;
   const a = version.split('.').map(Number);
   const b = newest.split('.').map(Number);
@@ -279,37 +281,17 @@ export function statedSelfWeightCaseId(): number | null {
   return chosen !== null && modelStore.model.loadCases.some((c) => c.id === chosen) ? chosen : null;
 }
 
-/**
- * The project as a `.ded`, serialised COMPACT.
- *
- * ── What the indentation was costing ───────────────────────────────
- *
- * Measured on `pro-edificio-7p` after the whole chain — 203 members solved, designed, detailed,
- * floors designed, about 21 000 bars in the coordinated document:
- *
- *     JSON.stringify(payload, null, 2)   110 341 310 bytes    202 ms
- *     JSON.stringify(payload)             47 783 950 bytes     56 ms
- *
- * Sixty-two megabytes of a hundred-and-ten were spaces and newlines. A detailing document is
- * mostly deeply-nested arrays of numbers, and at that depth `null, 2` spends about twenty bytes
- * of indentation on every six-byte coordinate.
- *
- * ── Why this is safe ───────────────────────────────────────────────
- *
- * Whitespace is not part of the format. `deserializeProject` and `loadFile` both go through
- * `JSON.parse`, which does not care, and every `.ded` ever written — including the committed
- * `rc-footing-cad-poc.ded.json`, which stays pretty-printed on disk — still opens. The change is
- * one-directional and needs no migration: new files are smaller, old files are unaffected.
- *
- * One consequence worth knowing rather than discovering: regenerating that committed fixture
- * (`WRITE_FIXTURE=1`) now writes it on one line, because it is deliberately produced by this
- * same production writer.
- *
- * `saveSession` keeps its indentation. A session is a handful of tab records and is read by
- * people far more often than it is large.
- */
 export function serializeProject(): string {
-  return JSON.stringify(buildProjectFile());
+  const file = buildProjectFile();
+  const detailing = file.snapshot.detailing;
+  const refusals = detailing?.designRefusals;
+  const compact = refusals && compactDesignRefusals(refusals);
+  if (!compact) return JSON.stringify(file);
+  return JSON.stringify({
+    ...file,
+    version: COMPACT_REFUSALS_FILE_VERSION,
+    snapshot: { ...file.snapshot, detailing: { ...detailing, designRefusals: compact } },
+  });
 }
 
 /**
@@ -324,15 +306,25 @@ export function deserializeProject(text: string): boolean {
   } catch {
     return false;
   }
+  return openProjectData(parsed);
+}
+
+function openProjectData(parsed: unknown): boolean {
   if (!parsed || typeof parsed !== 'object') return false;
   const d = parsed as Record<string, unknown>;
-  if (typeof d.version !== 'string' || !KNOWN_VERSIONS.has(d.version)) return false;
+  const compact = d.version === COMPACT_REFUSALS_FILE_VERSION;
+  if (!compact && (typeof d.version !== 'string' || !KNOWN_VERSIONS.has(d.version))) return false;
   const snapshot = d.snapshot as Record<string, unknown> | undefined;
   if (!snapshot) return false;
   if (d.version === '1.0') migrateSnapshotV1ToV2(snapshot);
-  if (!isValidDedalFile({ ...d, version: DEDAL_FILE_VERSION })) return false;
-
-  const data = d as unknown as DedalFile;
+  if (compact) {
+    const detailing = snapshot.detailing as Record<string, unknown> | undefined;
+    const refusals = expandDesignRefusals(detailing?.designRefusals);
+    if (!detailing || !refusals) return false;
+    detailing.designRefusals = refusals;
+  }
+  const data = { ...d, version: DEDAL_FILE_VERSION };
+  if (!isValidDedalFile(data)) return false;
   adoptStoredProject(data.snapshot, data.name);
   // appMode is derived from analysisMode (getter-only) — assigning it throws
   // in strict mode, which broke opening any .ded that carried appMode.
@@ -607,6 +599,9 @@ function validateDedalFile(data: unknown): data is DedalFile {
   if (!Array.isArray(s.supports)) return false;
   if (!Array.isArray(s.loads)) return false;
 
+  const detailing = s.detailing as { designRefusals?: unknown } | undefined;
+  if (hasCompactRefusals(detailing?.designRefusals)) return false;
+
   const nextId = s.nextId as Record<string, unknown> | undefined;
   if (!nextId || typeof nextId.node !== 'number') return false;
 
@@ -682,9 +677,9 @@ export async function loadProject(file: File): Promise<void> {
   let data: unknown;
   try { data = JSON.parse(text); } catch { throw new Error(t('file.invalidFormat')); }
   const version = (data as { version?: unknown } | null)?.version;
-  const newest = isSessionFile(data) ? SESSION_FILE_VERSION : DEDAL_FILE_VERSION;
+  const newest = isSessionFile(data) ? SESSION_FILE_VERSION : COMPACT_REFUSALS_FILE_VERSION;
   if (isNewerFileVersion(version, newest)) throw newerVersionError(String(version), newest);
-  if (!deserializeProject(text)) throw new Error(t('file.invalidFormat'));
+  if (!openProjectData(data)) throw new Error(t('file.invalidFormat'));
   // Members lying over each other: ask about each, as drawing one would.
   askAboutOverlapsInModel();
 }
@@ -729,8 +724,8 @@ export async function loadFile(file: File): Promise<{ type: 'tab' | 'session'; c
     }
     return { type: 'session', count: tabs.length };
   } else if (isNewerFileVersion(version)) {
-    throw newerVersionError(String(version), DEDAL_FILE_VERSION);
-  } else if (deserializeProject(text)) {
+    throw newerVersionError(String(version), COMPACT_REFUSALS_FILE_VERSION);
+  } else if (openProjectData(data)) {
     askAboutOverlapsInModel();
     return { type: 'tab', count: 1 };
   } else {
