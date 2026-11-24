@@ -5,8 +5,6 @@
  * left out. Bars and shells share their nodes where they meet; the bars are cut at the shells'
  * nodes once the fragment is in the model (`connectShells`).
  */
-import { holdPlateSidesAt, physicalPlates } from '../store/physical-plates';
-import { ensurePlates } from '../store/plates-from-shells';
 import type { Fragment } from '../model/edit/fragment';
 import { generateMesh } from '../model/edit/mesher';
 import { splitAtNodes } from '../model/edit/cut-members';
@@ -164,8 +162,7 @@ export function connectShells(quads: number[], plates: number[]): number {
  * Fix the feet of the lowest columns and walls. An exchange file carries the building, not its
  * supports, so an imported model had none and could not be solved until each base was found by
  * hand. The nodes at the lowest elevation any column or wall reaches, that belong to one, are
- * fixed (nodes already supported are left as they are), and each wall's base held all along with
- * every mesh. Returns how many supports were added at the nodes there now.
+ * fixed (nodes already supported are left as they are). Returns how many supports were added.
  */
 export function fixBases(tol = 1e-3): number {
   const m = modelStore.model;
@@ -189,8 +186,6 @@ export function fixBases(tol = 1e-3): number {
     modelStore.addSupport(n, 'fixed3d' as never);
     added++;
   }
-  ensurePlates();
-  for (const p of physicalPlates()) if (p.physical.kind === 'wall') holdPlateSidesAt(p.id, zMin, 'fixed3d');
   return added;
 }
 

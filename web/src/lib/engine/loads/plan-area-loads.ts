@@ -36,8 +36,6 @@ export interface RoofLoads {
 
 export interface AreaLoadsInput {
   layout: GravityLayout;
-  /** The loads code's roof Lr for maintenance. Absent: CIRSOC 101 §4.8.1. */
-  roofLive?: typeof roofLiveLoad;
   tributaryWidth: number;
   floor: { dead: number; lo: number; liveOf: (elementId: number) => number };
   roof?: RoofLoads;
@@ -64,14 +62,12 @@ export interface AreaLoad {
   frame?: 'global' | 'projected';
   /** The arrangement this load belongs to, by `AreaLoadsResult.arrangements`; absent: the full load. */
   arrangement?: number;
-  /** From a roof's area, where the roof has loads of its own: its live load may be another action's part. */
-  roof?: true;
 }
-export interface AreaSurface { quadId: number; caseType: AreaCaseType; q: number; roof?: true }
+export interface AreaSurface { quadId: number; caseType: AreaCaseType; q: number }
 
 /** A panel's share past a side's end, at its node: kN along Z (negative down). */
 /** A panel's share at a re-entrant corner: at the node, `carrier` the side's member it belongs to. */
-export interface AreaPoint { nodeId: number; caseType: AreaCaseType; fz: number; carrier: number; arrangement?: number; roof?: true }
+export interface AreaPoint { nodeId: number; caseType: AreaCaseType; fz: number; carrier: number; arrangement?: number }
 
 export interface AreaLoadsResult {
   distributed: AreaLoad[];
@@ -106,15 +102,14 @@ export function planAreaLoads(i: AreaLoadsInput): AreaLoadsResult {
   if (roof?.use === 'maintenance') {
     let first: EngineMessage | null = null;
     for (const id of layout.roof) {
-      const r = (i.roofLive ?? roofLiveLoad)({ weight: roof.weight, atM2: layout.roofAreaOf.get(id) ?? 0, slopePercent: roof.slopePercent });
+      const r = roofLiveLoad({ weight: roof.weight, atM2: layout.roofAreaOf.get(id) ?? 0, slopePercent: roof.slopePercent });
       lrOf.set(id, r.lr);
       first ??= r.reason;
       if (out.refs.length === 0) out.refs.push(...r.refs);
     }
     if (lrOf.size > 0) {
       const ls = [...lrOf.values()];
-      if (i.roofLive) out.derivation.push(first!);
-      else out.derivation.push(msg('loadPlan.derivation.roofLive', {
+      out.derivation.push(msg('loadPlan.derivation.roofLive', {
         weight: msg(`loads.cirsoc101.roofWeight.${roof.weight}`), n: ls.length, min: round(Math.min(...ls), 3), max: round(Math.max(...ls), 3), slope: round(roof.slopePercent, 1),
       }));
     }
@@ -162,15 +157,13 @@ export function planAreaLoads(i: AreaLoadsInput): AreaLoadsResult {
       const q = qOf(p.elementId, !!roof && p.roof);
       if (q === 0 || (p.wI === 0 && p.wJ === 0)) continue;
       emitLine({ elementId: p.elementId, caseType, q: -q * p.wI, qJ: -q * p.wJ,
-        ...(p.a !== undefined ? { a: p.a, b: p.b } : {}), frame: 'global', ...arr,
-        ...(roof && p.roof ? { roof: true } : {}) }, layout.panels[p.panel]!.z);
+        ...(p.a !== undefined ? { a: p.a, b: p.b } : {}), frame: 'global', ...arr }, layout.panels[p.panel]!.z);
     }
     for (const p of layout.points) {
       if (arrangement && !arrangement.loads({ panel: p.panel })) continue;
       const fz = -qOf(p.elementId, !!roof && p.roof) * p.w;
       if (fz === 0) continue;
-      const load: AreaPoint = { nodeId: p.nodeId, caseType, fz, carrier: p.elementId, ...arr,
-        ...(roof && p.roof ? { roof: true } : {}) };
+      const load: AreaPoint = { nodeId: p.nodeId, caseType, fz, carrier: p.elementId, ...arr };
       out.nodal.push(load);
       levels.set(load, layout.panels[p.panel]!.z);
     }
@@ -181,14 +174,13 @@ export function planAreaLoads(i: AreaLoadsInput): AreaLoadsResult {
         const q = -pressure * s.width;
         if (q === 0) continue;
         const span = m.spans ? { a: s.t0 * m.length, b: s.t1 * m.length } : {};
-        emitLine({ elementId: m.elementId, caseType, q, ...span, frame: perProjection ? 'projected' : 'global', ...arr,
-          ...(isRoof(m.elementId) ? { roof: true } : {}) },
+        emitLine({ elementId: m.elementId, caseType, q, ...span, frame: perProjection ? 'projected' : 'global', ...arr },
           layout.zOf.get(m.elementId) ?? 0);
       }
     }
     if (!arrangement) for (const sq of layout.shellQuads) {
       const q = qOfQuad(sq.quadId) * (perProjection ? sq.cos : 1);
-      if (q > 0) out.surface.push({ quadId: sq.quadId, caseType, q, ...(isRoofQuad(sq.quadId) ? { roof: true } : {}) });
+      if (q > 0) out.surface.push({ quadId: sq.quadId, caseType, q });
     }
 
     for (const load of out.distributed.slice(distributedStart)) {
@@ -221,7 +213,7 @@ export function planAreaLoads(i: AreaLoadsInput): AreaLoadsResult {
   const lrQ = (id: number, atRoof: boolean) => (atRoof ? lrOf.get(id) ?? 0 : 0);
   if (roof?.use === 'maintenance') {
     // A slab of shells is not a member with a tributary area: R1 = 1 there, the largest Lr.
-    const shellLr = (i.roofLive ?? roofLiveLoad)({ weight: roof.weight, atM2: 0, slopePercent: roof.slopePercent }).lr;
+    const shellLr = roofLiveLoad({ weight: roof.weight, atM2: 0, slopePercent: roof.slopePercent }).lr;
     put('Lr', lrQ, (id) => (isRoofQuad(id) ? shellLr : 0), true);
   }
   const mode = i.patterns === true ? 'checkerboard' : i.patterns === false || i.patterns === undefined ? 'none' : i.patterns;
