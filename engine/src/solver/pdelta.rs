@@ -119,6 +119,12 @@ struct Iteration {
     indefinite: bool,
 }
 
+impl Iteration {
+    fn is_stable(&self, b2: f64) -> bool {
+        self.converged && b2 < 100.0
+    }
+}
+
 /// Solve the free (optionally constraint-reduced) system: sparse or dense
 /// Cholesky, then LU. The flag says whether Cholesky failed — K + K_G is then
 /// not positive definite. `None` when LU cannot solve it either.
@@ -349,7 +355,14 @@ pub fn solve_pdelta_2d_on(
 
     // Reactions and constraint forces of the system that was solved.
     let physical = PDeltaSystem2D::physical_residual(input, dof_num, sparse, &state.u);
-    let (recovered, relative_residual) = recover_pdelta_forces(&physical, &metric, dof_num, f, &state.u, cs.as_ref(), tolerance)?;
+    let forces = recover_pdelta_forces(&physical, &metric, dof_num, f, &state.u, cs.as_ref(), tolerance);
+    #[cfg(test)]
+    if forces.is_err() {
+        tests::record_rejected_iterate(&state, max_ratio, &linear_results.displacements, || {
+            build_displacements_2d(dof_num, &u_global)
+        });
+    }
+    let (recovered, relative_residual) = forces?;
     let reactions = recovered.reactions_2d(dof_num, &crate::solver::reaction_recovery::GlobalDisplacements::from_global(&u_global), its)?;
     let constraint_forces = recovered.constraint_forces;
 
@@ -372,7 +385,7 @@ pub fn solve_pdelta_2d_on(
         results,
         iterations: state.iterations,
         converged: state.converged,
-        is_stable: state.converged && max_ratio < 100.0,
+        is_stable: state.is_stable(max_ratio),
         b2_factor: max_ratio,
         linear_results,
     })
@@ -655,7 +668,14 @@ fn solve_pdelta_3d_on(input: &SolverInput3D, dof_num: &DofNumbering, cs: Option<
     let u_global = to_global_3d(&state.u, its);
     let b2 = stability_b2(state.indefinite, b2_factor(dof_num, 3, &to_global_3d(&u_prev, its), &u_global));
     let physical = PDeltaSystem3D::physical_residual(input, dof_num, sparse, &state.u);
-    let (recovered, relative_residual) = recover_pdelta_forces(&physical, &metric, dof_num, f, &state.u, cs.as_ref(), tolerance)?;
+    let forces = recover_pdelta_forces(&physical, &metric, dof_num, f, &state.u, cs.as_ref(), tolerance);
+    #[cfg(test)]
+    if forces.is_err() {
+        tests::record_rejected_iterate(&state, b2, &linear_results.displacements, || {
+            build_displacements_3d(dof_num, &u_global)
+        });
+    }
+    let (recovered, relative_residual) = forces?;
     let reactions = recovered.reactions_3d(dof_num, &crate::solver::reaction_recovery::GlobalDisplacements::from_global(&u_global), its)?;
     let constraint_forces = recovered.constraint_forces;
 
@@ -676,7 +696,7 @@ fn solve_pdelta_3d_on(input: &SolverInput3D, dof_num: &DofNumbering, cs: Option<
     Ok(PDeltaResult3D {
         results,
         iterations: state.iterations, converged: state.converged,
-        is_stable: state.converged && b2 < 100.0, b2_factor: b2, linear_results,
+        is_stable: state.is_stable(b2), b2_factor: b2, linear_results,
     })
 }
 
@@ -684,6 +704,83 @@ fn solve_pdelta_3d_on(input: &SolverInput3D, dof_num: &DofNumbering, cs: Option<
 mod tests {
     use super::*;
     use std::collections::HashMap;
+
+    thread_local! {
+        static REJECTED_ITERATE: std::cell::RefCell<Option<serde_json::Value>> =
+            const { std::cell::RefCell::new(None) };
+    }
+
+    pub(super) fn record_rejected_iterate<T: serde::Serialize>(
+        state: &Iteration,
+        b2: f64,
+        linear_displacements: &T,
+        displacements: impl FnOnce() -> T,
+    ) {
+        REJECTED_ITERATE.with_borrow_mut(|slot| {
+            if let Some(record) = slot {
+                assert!(record.is_null());
+                *record = serde_json::json!({
+                    "iterations": state.iterations,
+                    "converged": state.converged,
+                    "isStable": state.is_stable(b2),
+                    "linearDisplacements": linear_displacements,
+                    "results": { "displacements": displacements() },
+                });
+            }
+        });
+    }
+
+    fn audit_candidate_iterate<T>(
+        input: &impl serde::Serialize,
+        solve: impl FnOnce() -> Result<T, String>,
+        linear_displacements: impl serde::Serialize,
+    ) -> serde_json::Value {
+        REJECTED_ITERATE.with_borrow_mut(|slot| assert!(slot.replace(serde_json::Value::Null).is_none()));
+        let error = solve().err().expect("the candidate must refuse");
+        assert!(assert_physical_refusal(&error, 1e-12).as_f64().unwrap() > 1e-12);
+        let result = REJECTED_ITERATE.with_borrow_mut(|slot| slot.take().unwrap());
+        assert_eq!(result["iterations"], 100);
+        assert_eq!(result["converged"], false);
+        assert_eq!(result["isStable"], false);
+        assert_eq!(result["linearDisplacements"], serde_json::to_value(linear_displacements).unwrap());
+        serde_json::json!({ "input": input, "result": result })
+    }
+
+    #[cfg_attr(not(target_arch = "wasm32"), test)]
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    fn audit_candidate_1901_rejected_iterates() {
+        use crate::metamorphic::transform::{transform_2d, Iso2};
+        use serde_json::Value;
+
+        let fixtures: Value = serde_json::from_str(include_str!("../../tests/fixtures/candidate-replay.json")).unwrap();
+        let original: SolverInput = serde_json::from_value(fixtures["1901-body-0"].clone()).unwrap();
+        let rotated = transform_2d(&original, &Iso2::rotation(37.0_f64.to_radians())).unwrap();
+        let embeddings: Value = serde_json::from_str(include_str!("../../tests/fixtures/candidate-1901-embeddings.json")).unwrap();
+        let mut cases = serde_json::Map::new();
+        for (name, model) in [("original", original), ("rotated", rotated)] {
+            #[cfg(not(target_arch = "wasm32"))]
+            let solve = || solve_pdelta_2d(&model, 100, 1e-12);
+            #[cfg(target_arch = "wasm32")]
+            let solve = || crate::solve_pdelta_2d(&serde_json::to_string(&model).unwrap(), 100, 1e-12)
+                .map_err(|error| error.as_string().unwrap());
+            let linear = super::super::linear::solve_2d(&model).unwrap();
+            cases.insert(name.into(), audit_candidate_iterate(&model, solve, linear.displacements));
+        }
+        for plane in ["XY", "XZ", "YZ"] {
+            let model: SolverInput3D = serde_json::from_value(embeddings[plane].clone()).unwrap();
+            #[cfg(not(target_arch = "wasm32"))]
+            let solve = || solve_pdelta_3d(&model, 100, 1e-12);
+            #[cfg(target_arch = "wasm32")]
+            let solve = || crate::solve_pdelta_3d(&embeddings[plane].to_string(), 100, 1e-12)
+                .map_err(|error| error.as_string().unwrap());
+            let linear = super::super::linear::solve_3d(&model).unwrap();
+            cases.insert(plane.into(), audit_candidate_iterate(&model, solve, linear.displacements));
+        }
+        #[cfg(target_arch = "wasm32")]
+        wasm_bindgen_test::console_log!("CANDIDATE_1901_AUDIT {}", Value::Object(cases));
+        #[cfg(not(target_arch = "wasm32"))]
+        println!("CANDIDATE_1901_AUDIT {}", Value::Object(cases));
+    }
 
     fn assert_physical_refusal(error: &str, tolerance: f64) -> serde_json::Value {
         let refusal: serde_json::Value = serde_json::from_str(error).unwrap();

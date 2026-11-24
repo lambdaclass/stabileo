@@ -1100,15 +1100,15 @@ test.engine.reactions-r11-wasm: wasm
 
 .PHONY: test.engine.truss-balance-1969-wasm
 
-test.engine.truss-balance-1969-wasm: wasm
+test.engine.truss-balance-1969-wasm: wasm scripts/tests/pdelta-equilibrium-refusal.mjs
 	$(NIX_RUN) node scripts/tests/truss-balance-1969-wasm.mjs
 
 .PHONY: test.engine.candidate-1901-wasm
 
-test.engine.candidate-1901-wasm: wasm
-	CANDIDATE_1901_AUDIT=$(CURDIR)/.1901-audit.json $(NIX_RUN) node scripts/tests/candidate-1901-wasm.mjs
-	$(NIX_RUN) python3 testing/docs/audits/candidate-1901-audit.py $(CURDIR)/.1901-audit.json
-	rm -f $(CURDIR)/.1901-audit.json
+test.engine.candidate-1901-wasm: wasm scripts/tests/pdelta-equilibrium-refusal.mjs
+	$(NIX_RUN) node scripts/tests/candidate-1901-wasm.mjs
+	$(NIX_RUN) bash scripts/tests/candidate-1901-wasm-audit.sh
+
 .PHONY: test.engine.staged-settlement-1085-wasm
 
 test.engine.staged-settlement-1085-wasm: wasm
