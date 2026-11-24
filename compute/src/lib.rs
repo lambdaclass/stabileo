@@ -11,3 +11,6 @@ mod browser;
 pub mod gpu;
 #[cfg(any(feature = "webgpu", feature = "metal", test))]
 mod packing;
+
+pub mod fixtures;
+pub mod solver;

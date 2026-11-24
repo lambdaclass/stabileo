@@ -1402,3 +1402,13 @@ fmt.compute:
 	$(NIX_RUN) rustfmt --edition 2021 engine/src/linalg/backend.rs
 lint.compute:
 	$(NIX_RUN) cargo clippy --locked -p stabileo-compute --all-targets --all-features --no-deps -- -D warnings
+
+.PHONY: bench.compute.metal bench.compute.webgpu
+bench.compute.metal:
+	$(NIX_RUN) cargo run --locked --release -p stabileo-compute --features metal --example compare
+bench.compute.webgpu: build.compute.webgpu
+	$(NIX_RUN) node compute/browser-smoke.mjs --solve
+
+.PHONY: bench.compute.pcg
+bench.compute.pcg:
+	$(NIX_RUN) cargo run --locked --release -p stabileo-compute --example pcg_cost

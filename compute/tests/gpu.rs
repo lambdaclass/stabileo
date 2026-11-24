@@ -84,3 +84,35 @@ fn gpu_batches_match_cpu_and_reuse_buffers_without_stale_values() {
         ));
     });
 }
+
+#[test]
+fn gpu_pcg_solves_spd_systems_and_refuses_precision_loss() {
+    use stabileo_compute::{fixtures::grid, solver::PreparedPcg};
+    pollster::block_on(async {
+        let mut backend = WgpuBackend::new().await.unwrap();
+        for n in [3, 65, 257] {
+            let a = grid(n, 1, 4.);
+            let expected: Vec<_> = (0..n).map(|i| ((i % 11) as f64 - 5.) * 0.125).collect();
+            let rhs = a.sym_mat_vec(&expected);
+            let mut solver = PreparedPcg::prepare(&mut backend, a).await.unwrap();
+            let result = solver.solve(&rhs, 1e-6, 1000).await.unwrap();
+            assert!(result.converged, "{result:?}");
+            assert!(result
+                .x
+                .iter()
+                .zip(&expected)
+                .all(|(a, b)| (a - b).abs() < 1e-5));
+            let zero = solver.solve(&vec![0.; n], 1e-6, 1000).await.unwrap();
+            assert!(zero.converged);
+            assert_eq!(zero.x, vec![0.; n]);
+        }
+        let a = grid(2, 1, 1. + 1e-8);
+        let mut solver = PreparedPcg::prepare(&mut backend, a).await.unwrap();
+        assert!(!solver.solve(&[1., 1.], 1e-6, 100).await.unwrap().converged);
+        backend.shutdown();
+        assert!(matches!(
+            solver.solve(&[1., 1.], 1e-6, 100).await,
+            Err(ComputeError::Device(_))
+        ));
+    });
+}

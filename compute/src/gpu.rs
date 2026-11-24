@@ -12,6 +12,7 @@ use wgpu::util::DeviceExt;
 const SESSION_BYTES: u64 = 256 * 1024 * 1024;
 
 pub struct WgpuBackend {
+    info: wgpu::AdapterInfo,
     device: wgpu::Device,
     queue: wgpu::Queue,
     pipeline: wgpu::ComputePipeline,
@@ -19,6 +20,9 @@ pub struct WgpuBackend {
 }
 
 impl WgpuBackend {
+    pub fn adapter_info(&self) -> &wgpu::AdapterInfo {
+        &self.info
+    }
     pub fn shutdown(&mut self) {
         self.failed.store(true, Ordering::Release);
         self.device.destroy();
@@ -69,6 +73,7 @@ impl WgpuBackend {
             return Err(ComputeError::Device(error.to_string()));
         }
         Ok(Self {
+            info: adapter.get_info(),
             device,
             queue,
             pipeline,

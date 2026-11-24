@@ -11,6 +11,7 @@ pub enum Precision {
 pub enum ComputeError {
     InvalidMatrix,
     InvalidBatch,
+    InvalidOptions,
     NonFinite,
     NumericRange,
     ResourceLimit,

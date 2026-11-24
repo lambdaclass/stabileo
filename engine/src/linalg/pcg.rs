@@ -18,6 +18,111 @@ pub struct PcgResult {
     pub converged: bool,
 }
 
+// One iteration body, expanded synchronously for production and asynchronously
+// for injected products. The CPU expansion has no futures or executor overhead.
+macro_rules! pcg_result {
+    (plain, $result:expr) => { $result };
+    (fallible, $result:expr) => { Ok($result) };
+}
+macro_rules! pcg_iterations {
+    ($n:expr, $b:ident, $pre:ident, $tol:ident, $max_iter:ident, $p:ident, $product:expr, $mode:ident) => {{
+        let n = $n;
+        assert_eq!($b.len(), n, "rhs length must match matrix dimension");
+
+        let bnorm: f64 = $b.iter().map(|v| v * v).sum::<f64>().sqrt();
+        if bnorm == 0.0 {
+            return pcg_result!($mode, PcgResult {
+                x: vec![0.0; n],
+                iterations: 0,
+                final_rel_residual: 0.0,
+                converged: true,
+            });
+        }
+
+        let mut x = vec![0.0; n];
+        let mut r = $b.to_vec();
+        let mut z = vec![0.0; n];
+        let mut $p = vec![0.0; n];
+
+        $pre.apply(&r, &mut z);
+        let mut rz: f64 = r.iter().zip(z.iter()).map(|(ri, zi)| ri * zi).sum();
+        if !rz.is_finite() || rz <= 0.0 {
+            return pcg_result!($mode, PcgResult {
+                x,
+                iterations: 0,
+                final_rel_residual: 1.0,
+                converged: false,
+            });
+        }
+        $p.copy_from_slice(&z);
+
+        // Size-scaled stall window: CG residual plateaus on ill-conditioned
+        // systems grow like √n (see pcg_solve documentation for measurements), so
+        // a fixed limit aborts legitimate slow convergence on large models.
+        let stall_limit = 50usize.max(8 * (n as f64).sqrt().ceil() as usize);
+        const STALL_FACTOR: f64 = 0.99;
+        let mut best_rel = 1.0f64; // ||r₀||/‖b‖ = 1
+        let mut stall = 0usize;
+
+        let mut iterations = 0;
+        let mut final_rel = 1.0;
+        let mut converged = false;
+
+        for iter in 0..$max_iter {
+            let ap = $product;
+            let pap: f64 = $p.iter().zip(ap.iter()).map(|(pi, api)| pi * api).sum();
+            if !pap.is_finite() || pap <= 0.0 {
+                break;
+            }
+            let alpha = rz / pap;
+            for ((x_i, r_i), (p_i, ap_i)) in x
+                .iter_mut()
+                .zip(r.iter_mut())
+                .zip($p.iter().zip(ap.iter()))
+            {
+                *x_i += alpha * p_i;
+                *r_i -= alpha * ap_i;
+            }
+            iterations = iter + 1;
+
+            let rnorm: f64 = r.iter().map(|v| v * v).sum::<f64>().sqrt();
+            let rel = rnorm / bnorm;
+            final_rel = rel;
+            if rel <= $tol {
+                converged = true;
+                break;
+            }
+            if rel < STALL_FACTOR * best_rel {
+                best_rel = rel;
+                stall = 0;
+            } else {
+                stall += 1;
+                if stall >= stall_limit {
+                    break;
+                }
+            }
+
+            $pre.apply(&r, &mut z);
+            let rz_new: f64 = r.iter().zip(z.iter()).map(|(ri, zi)| ri * zi).sum();
+            if !rz_new.is_finite() || rz_new <= 0.0 {
+                break;
+            }
+            let beta = rz_new / rz;
+            rz = rz_new;
+            for (p_i, z_i) in $p.iter_mut().zip(z.iter()) {
+                *p_i = z_i + beta * *p_i;
+            }
+        }
+
+        pcg_result!($mode, PcgResult {
+            x,
+            iterations,
+            final_rel_residual: final_rel,
+            converged,
+        })
+    }};
+}
+
 /// Solve A x = b with preconditioned conjugate gradients
 /// (Golub & Van Loan, Algorithm 11.3.1), starting from x₀ = 0.
 ///
@@ -47,100 +152,24 @@ pub fn pcg_solve(
     tol: f64,
     max_iter: usize,
 ) -> PcgResult {
-    let n = a.n;
-    assert_eq!(b.len(), n, "rhs length must match matrix dimension");
+    pcg_iterations!(a.n, b, pre, tol, max_iter, p, a.sym_mat_vec(&p), plain)
+}
 
-    let bnorm: f64 = b.iter().map(|v| v * v).sum::<f64>().sqrt();
-    if bnorm == 0.0 {
-        return PcgResult {
-            x: vec![0.0; n],
-            iterations: 0,
-            final_rel_residual: 0.0,
-            converged: true,
-        };
-    }
-
-    let mut x = vec![0.0; n];
-    let mut r = b.to_vec();
-    let mut z = vec![0.0; n];
-    let mut p = vec![0.0; n];
-
-    pre.apply(&r, &mut z);
-    let mut rz: f64 = r.iter().zip(z.iter()).map(|(ri, zi)| ri * zi).sum();
-    if !rz.is_finite() || rz <= 0.0 {
-        return PcgResult {
-            x,
-            iterations: 0,
-            final_rel_residual: 1.0,
-            converged: false,
-        };
-    }
-    p.copy_from_slice(&z);
-
-    // Size-scaled stall window: CG residual plateaus on ill-conditioned
-    // systems grow like √n (see the doc comment above for measurements), so
-    // a fixed limit aborts legitimate slow convergence on large models.
-    let stall_limit = 50usize.max(8 * (n as f64).sqrt().ceil() as usize);
-    const STALL_FACTOR: f64 = 0.99;
-    let mut best_rel = 1.0f64; // ||r₀||/‖b‖ = 1
-    let mut stall = 0usize;
-
-    let mut iterations = 0;
-    let mut final_rel = 1.0;
-    let mut converged = false;
-
-    for iter in 0..max_iter {
-        let ap = a.sym_mat_vec(&p);
-        let pap: f64 = p.iter().zip(ap.iter()).map(|(pi, api)| pi * api).sum();
-        if !pap.is_finite() || pap <= 0.0 {
-            break;
+pub async fn pcg_solve_with_operator(
+    operator: &mut impl super::backend::PreparedOperator,
+    b: &[f64],
+    pre: &dyn Preconditioner,
+    tol: f64,
+    max_iter: usize,
+) -> Result<PcgResult, super::backend::ComputeError> {
+    let n = operator.dimension();
+    pcg_iterations!(n, b, pre, tol, max_iter, p, {
+        let ap = operator.apply_batch(&p).await?;
+        if ap.len() != n {
+            return Err(super::backend::ComputeError::InvalidBatch);
         }
-        let alpha = rz / pap;
-        for ((x_i, r_i), (p_i, ap_i)) in x
-            .iter_mut()
-            .zip(r.iter_mut())
-            .zip(p.iter().zip(ap.iter()))
-        {
-            *x_i += alpha * p_i;
-            *r_i -= alpha * ap_i;
-        }
-        iterations = iter + 1;
-
-        let rnorm: f64 = r.iter().map(|v| v * v).sum::<f64>().sqrt();
-        let rel = rnorm / bnorm;
-        final_rel = rel;
-        if rel <= tol {
-            converged = true;
-            break;
-        }
-        if rel < STALL_FACTOR * best_rel {
-            best_rel = rel;
-            stall = 0;
-        } else {
-            stall += 1;
-            if stall >= stall_limit {
-                break;
-            }
-        }
-
-        pre.apply(&r, &mut z);
-        let rz_new: f64 = r.iter().zip(z.iter()).map(|(ri, zi)| ri * zi).sum();
-        if !rz_new.is_finite() || rz_new <= 0.0 {
-            break;
-        }
-        let beta = rz_new / rz;
-        rz = rz_new;
-        for (p_i, z_i) in p.iter_mut().zip(z.iter()) {
-            *p_i = z_i + beta * *p_i;
-        }
-    }
-
-    PcgResult {
-        x,
-        iterations,
-        final_rel_residual: final_rel,
-        converged,
-    }
+        ap
+    }, fallible)
 }
 
 #[cfg(test)]
