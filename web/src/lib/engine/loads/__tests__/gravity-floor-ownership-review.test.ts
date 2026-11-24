@@ -4,11 +4,12 @@ import { solve_3d, solve_pdelta_3d } from '../../../wasm/dedaliano_engine.js';
 import { modelStore } from '../../../store/model.svelte';
 import '../../../store/index';
 import { applyLoadPlan } from '../../../store/apply-load-plan';
+import type { EngineMessage } from '../../../codes/message';
 import { teAt } from '../../../i18n/engine-text';
 import type { Load } from '../../../store/model.svelte';
 import { buildSolverLoads3D } from '../../solver-service';
 import type { AnalysisResults3D, Constraint3D } from '../../types-3d';
-import { gravityLayout } from '../plan-gravity';
+import { gravityLayout, MAX_DECK_SPAN } from '../plan-gravity';
 import { buildLoadPlan, roofWeightFor, type LoadModelData, type LoadPlanInput } from '../load-plan';
 import { snowDriftRefusal } from '../snow-drift-loads';
 import { input } from './gravity-width-mass-fixture';
@@ -473,7 +474,7 @@ function shellOverhangingBay(rise: number, verticalTies = 4) {
 const separateBayRefusal = { key: 'loadPlan.gravity.differentDeck' };
 const offsetBayRefusal = { key: 'loadPlan.gravity.offsetShellDeck', params: { id: 1, members: '1, 2, 3, 4' } };
 
-function expectPanelRefusal(model: ReviewModel, reason: typeof separateBayRefusal | typeof offsetBayRefusal, loadEveryPanel: boolean) {
+function expectPanelRefusal(model: ReviewModel, reason: EngineMessage, loadEveryPanel: boolean) {
   const gravity = { mode: 'panels', loadEveryPanel } as const;
   const plan = buildLoadPlan(input(model, { gravity, generateCombinations: true }));
   expect(plan.outcome, JSON.stringify({ blocked: plan.blockedKeys, levels: plan.levels })).toBe('BLOCKED');
@@ -521,6 +522,75 @@ for (const [name, model, reason] of [
     const { plan } = restoreAndPlan(model());
     const before = modelStore.snapshot();
     expect(plan.outcome).toBe('BLOCKED');
+    expect(applyLoadPlan(plan, { clearExisting: true, bothSenses: true, nameOf: key => key })).toEqual(reason);
+    expect(modelStore.snapshot()).toEqual(before);
+  });
+}
+
+const issue2512 = process.env.RUN_KNOWN_WRONG === '2512' ? it : it.skip;
+
+function straddlingShadow() {
+  const { model, row, beam, shell, tieRows } = modelFixture();
+  const left = row(0, 3), right = row(10, 3);
+  bayBoundary(beam, left, right);
+  const lower = row(0, 3.0005);
+  shell(lower, row(10, 3.0005));
+  const upper = row(0, 3.049);
+  shell(upper, row(10, 3.0504));
+  tieRows(lower, upper);
+  return model;
+}
+
+function openingWithShell() {
+  const { model, node, row, beam } = modelFixture();
+  bayBoundary(beam, row(0, 3), row(10, 3));
+  const ring = [[2, 2], [4, 2], [4, 4], [2, 4]].map(([x, y]) => node(x!, y!, 3));
+  const [a, b, c, d] = ring as [number, number, number, number];
+  bayBoundary(beam, [a, d], [b, c]);
+  model.quads.set(1, { id: 1, nodes: [a, b, c, d], materialId: 1, thickness: shellThickness });
+  return model;
+}
+
+function wideCover(span = 13) {
+  const { model, node, beam } = modelFixture();
+  const [a, b, c, d] = [[0, 0], [span, 0], [span, span], [0, span]]
+    .map(([x, y]) => node(x!, y!, 6)) as [number, number, number, number];
+  bayBoundary(beam, [a, d], [b, c]);
+  beam(node(2, 5, 3), node(7, 5, 3));
+  return model;
+}
+
+const openingRefusal = { key: 'loadPlan.gravity.differentDeck' };
+const wideCoverRefusal = { key: 'loadPlan.gravity.widePanels', params: { n: 1, span: MAX_DECK_SPAN } };
+
+for (const loadEveryPanel of [false, true]) {
+  issue2512(`known wrong result: #2512 a shell-to-bay overlap straddles the deck limit (${loadEveryPanel})`, () => {
+    expectPanelRefusal(tiedShellBay(3.02, 3.06), separateBayRefusal, loadEveryPanel);
+  });
+
+  issue2512(`known wrong result: #2512 a shadowed shell cannot return its load to a bay (${loadEveryPanel})`, () => {
+    expectPanelRefusal(straddlingShadow(), shadowRefusal, loadEveryPanel);
+  });
+
+  issue2512(`known wrong result: #2512 a shell cannot fill a beam bay opening (${loadEveryPanel})`, () => {
+    expectPanelRefusal(openingWithShell(), openingRefusal, loadEveryPanel);
+  });
+}
+
+issue2512('known wrong result: #2512 a rejected wide ring cannot cover a lower member', () => {
+  expectPanelRefusal(wideCover(), wideCoverRefusal, false);
+});
+
+for (const [name, fixture, reason] of [
+  ['a shell straddling the deck limit', () => tiedShellBay(3.02, 3.06), separateBayRefusal],
+  ['a reclaimed shadowed bay', straddlingShadow, shadowRefusal],
+  ['a shell inside a bay opening', openingWithShell, openingRefusal],
+  ['an overhead wide ring without a slab', wideCover, wideCoverRefusal],
+] as const) {
+  issue2512(`known wrong result: #2512 restored apply refuses ${name}`, () => {
+    const { plan } = restoreAndPlan(fixture());
+    const before = modelStore.snapshot();
+    expect(plan.outcome, JSON.stringify(plan.blockedKeys)).toBe('BLOCKED');
     expect(applyLoadPlan(plan, { clearExisting: true, bothSenses: true, nameOf: key => key })).toEqual(reason);
     expect(modelStore.snapshot()).toEqual(before);
   });
