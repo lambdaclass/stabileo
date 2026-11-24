@@ -11,6 +11,7 @@ import { planarLoadDirection } from './planar-load-direction';
 import { transverseSign } from './transverse-sign-2d';
 import { agreesAtScale, assembledMagnitudes3D, LoadScalar, LoadVector, norm, positionAt, sub, unit, xyz, zero, Wrench, type Vector } from './accounting-math';
 import { accountSurface } from './surface-accounting';
+import { shellLoadForces, type ShellLoadSpec } from './shell-load-integration';
 import { SolveAccountingError, type PlateMeasure } from './plate-accounting';
 
 type Frame = 'xy' | 'xz' | 'space';
@@ -42,7 +43,35 @@ function compare(label: string, entered: Wrench, assembled: Wrench): void {
   }
 }
 
-function verifyScenarioPressures(model: ModelData, caseId: number, label: string, loads: readonly Load[]): void {
+type ScenarioNodeForce = { shellId: number; nodeId: number; force: LoadVector };
+
+const scenarioNodeForces = new WeakMap<SolverLoad3D, ScenarioNodeForce>();
+
+function verifyScenarioNode(
+  model: ModelData, caseId: number, label: string, wire: SolverLoad3D, expected: ScenarioNodeForce,
+): void {
+  const { shellId, nodeId, force } = expected;
+  if (wire.type !== 'nodal' || wire.data.nodeId !== nodeId) unsupported(model, caseId, 'surface3d', shellId);
+  const { fx, fy, fz, mx, my, mz } = wire.data;
+  const nodeLabel = `${label} · #${shellId} · ${tp('whatif.node', { n: nodeId })}`;
+  for (const [i, actual] of [fx, fy, fz, mx, my, mz].entries()) {
+    const entered = force.value[i] ?? 0;
+    compareComponent(nodeLabel, components[i]!, entered, actual, Math.max(Math.abs(entered), Math.abs(actual)),
+      force.underflow[i] ?? 0);
+  }
+}
+
+export function verifyFactoredScenarioNode(
+  model: ModelData, id: number, name: string, original: SolverLoad3D, scaled: SolverLoad3D, factor: number,
+): void {
+  const expected = scenarioNodeForces.get(original);
+  if (expected) verifyScenarioNode(model, id, `#${id} (${name})`, scaled, { ...expected, force: expected.force.scale(factor) });
+}
+
+export function verifyScenarioSurfaceLoads(
+  model: ModelData, caseId: number, loads: readonly Load[], sources: ReadonlyMap<Load, readonly SolverLoad3D[]> | undefined,
+  label = caseLabel(model, caseId),
+): void {
   for (const load of loads) {
     if (load.type !== 'surface3d') continue;
     const intent = scenarioSurfaceIntentOf(load);
@@ -53,29 +82,48 @@ function verifyScenarioPressures(model: ModelData, caseId: number, label: string
     if (!shell || data.quadId !== baseline.quadId || data.on !== baseline.on) {
       unsupported(model, caseId, load.type, data.id);
     }
-    const corners = shell.nodes.length;
+    const scale = (q: number) => (intent.caseFactors ?? []).reduce(
+      (pressure, caseFactor) => pressure.scale(caseFactor), new LoadScalar(q).scale(factor),
+    );
     const comparePressure = (component: string, baselinePressure: number, assembled: number) => {
-      const entered = (intent.caseFactors ?? []).reduce(
-        (pressure, caseFactor) => pressure.scale(caseFactor), new LoadScalar(baselinePressure).scale(factor),
-      );
+      const entered = scale(baselinePressure);
       compareComponent(`${label} · #${data.quadId}`, component, entered.value, assembled,
         Math.max(Math.abs(entered.value), Math.abs(assembled)), entered.underflow);
+      return entered.value;
     };
-
+    const expected: ShellLoadSpec = { ...baseline, q: scale(baseline.q).value };
     if (baseline.vary || data.vary) {
       if (!baseline.vary || !data.vary || baseline.qNodes || data.qNodes) {
         unsupported(model, caseId, load.type, data.id);
       }
-      comparePressure('q1', baseline.vary.q1, data.vary.q1);
-      comparePressure('q2', baseline.vary.q2, data.vary.q2);
-      continue;
+      expected.vary = {
+        ...baseline.vary,
+        q1: comparePressure('q1', baseline.vary.q1, data.vary.q1),
+        q2: comparePressure('q2', baseline.vary.q2, data.vary.q2),
+      };
+    } else {
+      const corners = shell.nodes.length;
+      if ((baseline.qNodes && baseline.qNodes.length !== corners) || (data.qNodes && data.qNodes.length !== corners)) {
+        unsupported(model, caseId, load.type, data.id);
+      }
+      const pressures = shell.nodes.map((_, i) => comparePressure(`q[${i + 1}]`, baseline.qNodes ? baseline.qNodes[i]! : baseline.q,
+        data.qNodes ? data.qNodes[i]! : data.q));
+      if (baseline.qNodes) expected.qNodes = pressures;
     }
-    if ((baseline.qNodes && baseline.qNodes.length !== corners) || (data.qNodes && data.qNodes.length !== corners)) {
-      unsupported(model, caseId, load.type, data.id);
-    }
-    for (let i = 0; i < corners; i++) {
-      comparePressure(`q[${i + 1}]`, baseline.qNodes ? baseline.qNodes[i]! : baseline.q,
-        data.qNodes ? data.qNodes[i]! : data.q);
+
+    const points = shell.nodes.map(nodeId => model.nodes.get(nodeId) ?? unsupported(model, caseId, 'node', nodeId));
+    const forces = shellLoadForces(baseline.on === 'plate' ? 'plate' : 'quad', points, expected);
+    const batch = sources?.get(load) ?? [];
+    if (!forces || batch.length !== shell.nodes.length) unsupported(model, caseId, load.type, data.id);
+    const byNode = new Map(batch.map(wire => {
+      if (wire.type !== 'nodal') unsupported(model, caseId, load.type, data.id);
+      return [wire.data.nodeId, wire] as const;
+    }));
+    for (const [i, nodeId] of shell.nodes.entries()) {
+      const wire = byNode.get(nodeId) ?? unsupported(model, caseId, load.type, data.id);
+      const expectedNode = { shellId: baseline.quadId, nodeId, force: LoadVector.from(forces.forces[i]!) };
+      verifyScenarioNode(model, caseId, label, wire, expectedNode);
+      scenarioNodeForces.set(wire, expectedNode);
     }
   }
 }
@@ -396,7 +444,10 @@ export function loadAccounting3D(
 
   return {
     cases: effects?.targets ?? new Set([...authored.keys(), ...pressures.keys()]),
-    verify(caseId: number, loads: readonly Load[], assembled: readonly SolverLoad3D[]): Wrench {
+    verify(
+      caseId: number, loads: readonly Load[], assembled: readonly SolverLoad3D[],
+      sources?: ReadonlyMap<Load, readonly SolverLoad3D[]>,
+    ): Wrench {
       const { totals, names } = !checkAuthored
         ? { totals: enteredLoads(model, loads, frame, leftHand, caseId, new Set()), names: [] }
         : effects && !effects.targets.has(caseId)
@@ -404,7 +455,7 @@ export function loadAccounting3D(
           : expected(caseId);
       const label = [caseLabel(model, caseId), ...names].join(' · ');
       compare(label, totals, assembled3D(model, input, assembled, caseId));
-      verifyScenarioPressures(source, caseId, label, loads);
+      verifyScenarioSurfaceLoads(source, caseId, loads, sources, label);
       return totals;
     },
   };

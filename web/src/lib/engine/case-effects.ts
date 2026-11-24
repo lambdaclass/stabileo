@@ -23,7 +23,7 @@ import type { Load, LoadCase } from '../store/model.svelte';
 import type { SelfWeightLoad } from './analysis-settings';
 import { GRAVITY_SELF_WEIGHT } from './analysis-settings';
 import { scaledLoad } from '../model/loads/load-magnitudes';
-import { prepareSolverInput3D, buildSolverLoads3D, type ModelData } from './solver-service';
+import { prepareSolverInput3D, notionalSourceLoads3D, type ModelData } from './solver-service';
 import { nodeGravity, notionalLoads } from './direct-analysis';
 import { isCompositeCase } from './loads/combination-cases';
 import { variableExpansionFor } from './variable-members';
@@ -208,7 +208,7 @@ function sourceGravity(model: ModelData, srcLoads: Load[], srcRows: SelfWeightLo
   const { model: solvable } = prepared;
   const base = prepared.build([]);
   if (!base) return null;
-  const { gravity } = nodeGravity(base, buildSolverLoads3D(solvable, solvable.loads, solvable.analysis?.selfWeight ?? [], leftHand), leftHand);
+  const { gravity } = nodeGravity(base, notionalSourceLoads3D(solvable, leftHand), leftHand);
   const exp = variableExpansionFor(of);
   if (!exp) return gravity;
   const at = new Map<number, { parent: number; t: number }>();

@@ -1,6 +1,6 @@
-import { accountingCaseSources, accountingProjection, accountingSource, copyAccountingLoad, type AccountingCaseSources } from './accounting-source';
+import { accountingCaseSources, accountingProjection, accountingSource, copyAccountingLoad, scenarioSurfaceIntentOf, type AccountingCaseSources } from './accounting-source';
 import { scaleAssembledMagnitudes3D, type Wrench } from './accounting-math';
-import { accountCombination, accountLoads2D, loadAccounting3D, loadCaseBatches } from './load-accounting';
+import { accountCombination, accountLoads2D, loadAccounting3D, loadCaseBatches, verifyFactoredScenarioNode, verifyScenarioSurfaceLoads } from './load-accounting';
 import { accountPlateGeometry, SolveAccountingError } from './plate-accounting';
 import { shouldEmbedFlat2DModelIn3D } from './model-embedding';
 export { shouldEmbedFlat2DModelIn3D } from './model-embedding';
@@ -296,12 +296,19 @@ function buildSolverLoads2D(
   return checked;
 }
 
-type RecordLoadCase<T> = (caseId: number | null, loads: readonly T[]) => void;
+type RecordLoadCase<T> = (caseId: number | null, loads: readonly T[], scenario?: Load) => void;
 
 function accountAssembly<T extends object>(assemble: (record: RecordLoadCase<T>) => T[]) {
   const caseOf = new WeakMap<T, number | null>();
-  const loads = assemble((caseId, batch) => { for (const load of batch) caseOf.set(load, caseId); });
+  const sourceOf = new WeakMap<T, Load>();
+  const loads = assemble((caseId, batch, source) => {
+    for (const load of batch) {
+      caseOf.set(load, caseId);
+      if (source) sourceOf.set(load, source);
+    }
+  });
   const cases = new Map<number, T[]>();
+  const sources = new Map<Load, T[]>();
   for (const [i, load] of loads.entries()) {
     const id = caseOf.get(load);
     if (id === null) continue;
@@ -309,8 +316,14 @@ function accountAssembly<T extends object>(assemble: (record: RecordLoadCase<T>)
     const batch = cases.get(id);
     if (batch) batch.push(load);
     else cases.set(id, [load]);
+    const source = sourceOf.get(load);
+    if (source) {
+      const rows = sources.get(source);
+      if (rows) rows.push(load);
+      else sources.set(source, [load]);
+    }
   }
-  return { loads, cases };
+  return { loads, cases, sources };
 }
 
 function retainedPlanarProjections(globalAxis: boolean, axial: number[], transverse: number[]) {
@@ -1571,7 +1584,7 @@ export function buildSolverLoads3D(
   for (const l of loads) {
     const emit = (...batch: SolverLoad3D[]) => {
       const assembled = transverseToNodes(batch, truss);
-      opts.record?.(l.data.caseId ?? 1, assembled);
+      opts.record?.(l.data.caseId ?? 1, assembled, l.type === 'surface3d' && scenarioSurfaceIntentOf(l) ? l : undefined);
       for (const load of assembled) solverLoads.push(load);
     };
     if (l.type === 'nodal') {
@@ -1870,6 +1883,16 @@ export function withoutSpringsOnRestrained<T extends Record<string, unknown>>(su
   return out as T;
 }
 
+function recordedSolverLoads3D(model: ModelData, loads: Load[], weights: boolean | SelfWeightLoad[], leftHand: boolean) {
+  return accountAssembly<SolverLoad3D>(record => buildSolverLoads3D(model, loads, weights, leftHand, { record }));
+}
+
+export function notionalSourceLoads3D(model: ModelData, leftHand: boolean): SolverLoad3D[] {
+  const { loads, sources } = recordedSolverLoads3D(model, model.loads, model.analysis?.selfWeight ?? [], leftHand);
+  for (const [caseId, entered] of loadCaseBatches(model.loads)) verifyScenarioSurfaceLoads(model, caseId, entered, sources);
+  return loads;
+}
+
 function checkedSolverLoads3D(
   model: ModelData, input: SolverInput3D, loads: Load[], weights: boolean | SelfWeightLoad[], leftHand: boolean,
   plateCases: boolean | readonly number[],
@@ -1877,12 +1900,11 @@ function checkedSolverLoads3D(
     accountPlateGeometry(model[accountingSource] ?? model, input), plateCases !== false),
   checkedCase?: (caseId: number, loads: readonly SolverLoad3D[], totals: Wrench) => void,
 ): SolverLoad3D[] {
-  const { loads: checked, cases: assembledByCase } = accountAssembly<SolverLoad3D>(record =>
-    buildSolverLoads3D(model, loads, weights, leftHand, { record }));
+  const { loads: checked, cases: assembledByCase, sources } = recordedSolverLoads3D(model, loads, weights, leftHand);
   const selected = plateCases === true ? [...accounting.cases] : plateCases || [];
   for (const [caseId, entered] of loadCaseBatches(loads, selected)) {
     const assembled = assembledByCase.get(caseId) ?? [];
-    const totals = accounting.verify(caseId, entered, assembled);
+    const totals = accounting.verify(caseId, entered, assembled, sources);
     checkedCase?.(caseId, assembled, totals);
   }
   return checked;
@@ -3202,7 +3224,10 @@ export function comboSolverLoads3D(combo: LoadCombination, caseLoads: Map<number
     if (totals) terms.push({ factor, totals });
     return (caseLoads.get(caseId) ?? []).map(load => {
       const scaled = scaleSolverLoad(load, factor);
-      if (audit?.authored.has(load)) assembled.push(scaled);
+      if (audit?.authored.has(load)) {
+        verifyFactoredScenarioNode(audit.model, combo.id, combo.name, load, scaled, factor);
+        assembled.push(scaled);
+      }
       return scaled;
     });
   });

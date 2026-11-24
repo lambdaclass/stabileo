@@ -477,13 +477,11 @@ it('#2479 refuses a wrong what-if plate-pressure factor throughout spatial analy
   }
 });
 
-const issue2479Assembly = process.env.RUN_KNOWN_WRONG === '2479' ? it : it.skip;
-
-issue2479Assembly('known wrong result: #2479 refuses alternating equivalent nodal force errors introduced during assembly', async () => {
+it('#2479 refuses alternating equivalent nodal force errors introduced during assembly', async () => {
   await checkAlternatingExplorePressures('assembly');
 });
 
-issue2479Assembly('known wrong result: #2479 refuses alternating equivalent nodal force errors introduced by combination scaling', async () => {
+it('#2479 refuses alternating equivalent nodal force errors introduced by combination scaling', async () => {
   await checkAlternatingExplorePressures('combination');
 });
 
@@ -513,6 +511,11 @@ async function checkAlternatingExplorePressures(stage: 'slider' | 'case' | 'asse
   expect(modelStore.updateLoadCaseFields(included, { includes: [{ caseId: 1, factor: 2 }] })).toBe(true);
   const combo = modelStore.addCombination('Design pressure', [{ caseId: included, factor: 1.5 }]);
   const model = modelStore.model;
+  if (stage === 'combination') {
+    for (const other of [...model.combinations]) {
+      if (other.id !== combo) modelStore.removeCombination(other.id);
+    }
+  }
   const paths = {
     linear: () => modelStore.solve3D(false, false, true),
     async: () => modelStore.solve3DAsync(false, false, true),
@@ -525,11 +528,9 @@ async function checkAlternatingExplorePressures(stage: 'slider' | 'case' | 'asse
     direct: () => runDirectAnalysis(model, model.loadCases, model.combinations, { includeSelfWeight: false }),
   };
 
-  const notional = () => {
-    const id = included + 1;
-    const cases = [...model.loadCases, { id, type: 'L' as const, notional: { sourceCaseId: 1, ratio: 0.002, dir: '+X' as const } }];
-    return withCaseEffects(model, cases, { includeSelfWeight: false, leftHand: false }, new Set([id]));
-  };
+  const notionalCase = { id: included + 1, type: 'L' as const, notional: { sourceCaseId: 1, ratio: 0.002, dir: '+X' as const } };
+  const notional = () => withCaseEffects(model, [...model.loadCases, notionalCase],
+    { includeSelfWeight: false, leftHand: false }, new Set([notionalCase.id]));
 
   const requested = 0.5;
   const apply = async (delta: number) => {
@@ -560,6 +561,12 @@ async function checkAlternatingExplorePressures(stage: 'slider' | 'case' | 'asse
         await apply(delta);
         expect(assembleCombination().length).toBeGreaterThan(0);
       }
+      modelStore.setAnalysis({ perCombination: 'pdelta' });
+      const correct = paths.combinations();
+      if (!correct || typeof correct === 'string') throw new Error(String(correct));
+      const expected = (20 - area * (1 - requested)) * 2 * 1.5;
+      expect(correct.perCombo.get(combo)!.reactions.reduce((sum, r) => sum + r.fz, 0)).toBeCloseTo(expected, 8);
+
       await apply(beyond);
       expect.soft(await outcome(assembleCombination), 'just beyond nodal force roundoff').toEqual(diagnostic);
       await apply(0.25);
@@ -574,7 +581,7 @@ async function checkAlternatingExplorePressures(stage: 'slider' | 'case' | 'asse
     }
     for (const delta of [0, within]) {
       await apply(delta);
-      if (stage === 'assembly') expect(notional().loads.some(load => load.data.caseId === included + 1)).toBe(true);
+      if (stage === 'assembly') expect(notional().loads.some(load => load.data.caseId === notionalCase.id)).toBe(true);
       const expected = (20 - area * (1 - requested)) * 2;
       const result = paths.linear();
       if (!result || typeof result === 'string') throw new Error(String(result));

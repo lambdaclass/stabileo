@@ -16,14 +16,14 @@
     "zh": "探索模式下的独立压力校核"
   },
   "explanation": {
-    "en": "Analysis stops if a plate pressure value differs from the Explore slider request beyond its roundoff allowance, even when the total force and moment agree.",
-    "es": "El análisis se detiene si un valor de presión en la placa difiere del solicitado con el control de Explorar más allá de su margen de redondeo, aunque coincidan la fuerza y el momento totales.",
-    "pt": "A análise é interrompida se um valor de pressão na placa diferir do solicitado pelo controle do Explorar além da margem de arredondamento, mesmo quando a força e o momento totais coincidirem.",
-    "de": "Die Berechnung stoppt, wenn ein Druckwert auf der Platte über die Rundungstoleranz hinaus vom in Erkunden angeforderten Wert abweicht, selbst wenn Gesamtkraft und Gesamtmoment übereinstimmen.",
-    "fr": "L’analyse s’arrête si une valeur de pression sur la plaque diffère de celle demandée avec le curseur d’Explorer au-delà de la marge d’arrondi, même si la force et le moment totaux concordent.",
-    "hu": "A számítás leáll, ha egy lemeznyomás értéke a kerekítési tűrésen túl eltér a Felfedezés csúszkáján megadott értéktől, még akkor is, ha az eredő erő és nyomaték megegyezik.",
-    "tr": "Plakadaki bir basınç değeri, Keşfet kaydırıcısıyla istenen değerden yuvarlama payını aşacak kadar farklıysa, toplam kuvvet ve moment aynı olsa bile analiz durur.",
-    "zh": "即使总力和总力矩一致，只要板面压力值与探索滑块指定值的差超过舍入误差限值，分析就会停止。"
+    "en": "Analysis stops if a shell pressure or its assembled nodal forces differ from the Explore request beyond roundoff, even when the total force and moment agree.",
+    "es": "El análisis se detiene si la presión en un elemento de placa o sus fuerzas nodales ensambladas difieren de lo solicitado en Explorar más allá del margen de redondeo, aunque coincidan la fuerza y el momento totales.",
+    "pt": "A análise é interrompida se a pressão em um elemento de placa ou suas forças nodais montadas diferirem do solicitado no Explorar além da margem de arredondamento, mesmo quando a força e o momento totais coincidirem.",
+    "de": "Die Berechnung stoppt, wenn der Druck auf ein Schalenelement oder seine assemblierten Knotenkräfte über die Rundungstoleranz hinaus von der Vorgabe in Erkunden abweichen, selbst wenn Gesamtkraft und Gesamtmoment übereinstimmen.",
+    "fr": "L’analyse s’arrête si la pression sur un élément de coque ou ses forces nodales assemblées diffèrent de la demande dans Explorer au-delà de la marge d’arrondi, même si la force et le moment totaux concordent.",
+    "hu": "A számítás leáll, ha egy héjelem nyomása vagy az összeállított csomóponti erők a kerekítési tűrést meghaladóan eltérnek a Felfedezésben megadott terheléstől, akkor is, ha az eredő erő és nyomaték egyezik.",
+    "tr": "Bir kabuk elemanındaki basınç veya birleştirilmiş düğüm kuvvetleri Keşfet bölümünde istenen değerden yuvarlama payını aşacak kadar farklıysa, toplam kuvvet ve moment aynı olsa bile analiz durur.",
+    "zh": "即使总力和总力矩一致，只要壳单元压力或其组装后的节点力与探索模式中的设定值之差超过舍入误差限值，分析就会停止。"
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-what-if-plate-pressure-accounting.md",
