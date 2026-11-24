@@ -594,3 +594,29 @@ it('#2512 a ring at the span limit or explicitly selected can cover a lower memb
     expect(layout.areaByLevel.get(6)).toBeCloseTo(span ** 2, 10);
   }
 });
+
+const review2512Ownership = process.env.RUN_KNOWN_WRONG === '2512' ? it : it.skip;
+
+function shellAcrossBayGap(overlapGap = false) {
+  const { model, node, beam } = modelFixture();
+  const corners = [[0, 0], [10, 0], [10, 6], [8, 6], [8, 2], [2, 2], [2, 6], [0, 6]];
+  const boundary = corners.map(([x, y]) => node(x!, y!, 3));
+  boundary.forEach((id, index) => beam(id, boundary[(index + 1) % boundary.length]!));
+  const shell = [[0, overlapGap ? 1 : 3, 2.75], [10, overlapGap ? 1 : 3, 3.25], [10, 5, 3.25], [0, 5, 2.75]];
+  model.quads.set(1, { id: 1, nodes: shell.map(([x, y, z]) => node(x!, y!, z!)) as [number, number, number, number], materialId: 1, thickness: shellThickness });
+  return model;
+}
+
+for (const loadEveryPanel of [false, true]) {
+  review2512Ownership(`known wrong result: #2512 a shell can own the framed opening without loading the opening beams twice (${loadEveryPanel})`, () => {
+    deadResultant(openingWithShell(), loadEveryPanel, [1], area);
+  });
+
+  review2512Ownership(`known wrong result: #2512 separation is independent across disconnected bay overlaps (${loadEveryPanel})`, () => {
+    const model = shellAcrossBayGap();
+    const gravity = { mode: 'panels', loadEveryPanel } as const;
+    const plan = buildLoadPlan(input(model, { gravity }));
+    expect(plan.blockedKeys).not.toContainEqual(separateBayRefusal);
+    expectPanelRefusal(shellAcrossBayGap(true), separateBayRefusal, loadEveryPanel);
+  });
+}

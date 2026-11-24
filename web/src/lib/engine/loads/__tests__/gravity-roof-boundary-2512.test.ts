@@ -168,3 +168,20 @@ for (const mode of ['width', 'panels'] as const) {
     }
   });
 }
+
+const review2512Roof = process.env.RUN_KNOWN_WRONG === '2512' ? it : it.skip;
+
+for (const mode of ['width', 'panels'] as const) for (const upper of ['shell', 'frame']) {
+  review2512Roof(`known wrong result: #2512 the exact midpoint on an overhanging ${upper} edge is covered in ${mode}`, () => {
+    const model = lowerOverhang({ upper });
+    const gravity = { mode };
+    const plan = buildLoadPlan(input(model, { gravity, tributaryWidth, snow: siteSnow, generateCombinations: true }));
+    expect(plan.outcome, JSON.stringify(plan.blockedKeys)).toBe('READY');
+    expect(gravityLayout(model, { ...gravity, tributaryWidth }).roof.has(1)).toBe(false);
+    expect(roofMembers(model).some(member => member.id === 1)).toBe(false);
+    expect(plan.distributed.some(load => load.elementId === 1 && load.caseType === 'S')).toBe(false);
+    expect(() => roofWeightFor(model, gravity, tributaryWidth, 0)).not.toThrow();
+    expect(() => snowDriftRefusal(model)).not.toThrow();
+    expect(() => snowLoadCases({ model, snow, tributaryWidth })).not.toThrow();
+  });
+}

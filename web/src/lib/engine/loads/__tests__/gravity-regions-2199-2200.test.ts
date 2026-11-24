@@ -1,5 +1,6 @@
 import { expect, it } from 'vitest';
 import { teAt } from '../../../i18n/engine-text';
+import { gravityLayout } from '../plan-gravity';
 import { buildLoadPlan } from '../load-plan';
 import { areaLoads, bay, explicitStripFloor } from './gravity-regions-fixture';
 import { input } from './gravity-width-mass-fixture';
@@ -93,4 +94,17 @@ it('a wholly uncovered bay still loads every side', () => {
   const out = areaLoads(model);
   expect(new Set(out.distributed.map(load => load.elementId))).toEqual(new Set(model.elements.keys()));
   expect(out.surface).toEqual([]);
+});
+
+const review2512Coverage = process.env.RUN_KNOWN_WRONG === '2512' ? it : it.skip;
+
+review2512Coverage('known wrong result: #2512 a rotated, mirrored and subdivided bay transfers all gravity to the shell', () => {
+  const { model } = bay(10, 0.37, -1, 3, true);
+  const loads = areaLoads(model);
+  expect(loads.distributed).toEqual([]);
+  expect(loads.nodal).toEqual([]);
+  expect(loads.surface).toHaveLength(3);
+  expect(loads.surface.map(load => load.q)).toEqual([1, 1, 1]);
+  expect([...gravityLayout(model, { mode: 'panels', tributaryWidth: 1, loadEveryPanel: true }).areaByLevel.values()])
+    .toEqual([expect.closeTo(60, 10)]);
 });
