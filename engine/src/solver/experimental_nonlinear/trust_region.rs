@@ -40,13 +40,15 @@ impl Iteration for TrustRegion {
                 continue;
             }
             let residual = problem.residual();
-            let descent = problem.lagged_solve(&residual).map(|reduced| {
+            let kept = problem.lagged_solve(&residual);
+            let factorized = kept.is_some();
+            let descent = kept.map(|reduced| {
                 let curved = problem.tangent_times(&reduced);
                 let curvature = reduced.iter().zip(&curved).map(|(a, b)| a * b).sum::<f64>();
                 let step = problem.expand(&reduced);
                 Leg { work: problem.work(&step), curvature, step }
             });
-            let newton = problem.correction(false)?;
+            let newton = problem.correction(!factorized)?;
             let model = Model {
                 newton_work: problem.work(&newton),
                 newton,
@@ -63,7 +65,7 @@ impl Iteration for TrustRegion {
                 }
                 let released = 0.5 * (dogleg.work + problem.work(&dogleg.step));
                 let long = length(&dogleg.step);
-                match judged(released / dogleg.predicted, found.measure, long, radius) {
+                match judged((released, dogleg.predicted), found.measure, long, radius) {
                     Some(next) => {
                         kept_radius = Some(next);
                         break found;
@@ -85,10 +87,12 @@ fn length(v: &[f64]) -> f64 {
     v.iter().map(|x| x * x).sum::<f64>().sqrt()
 }
 
-/// The radius after a step of length `long` taken inside `radius` released `gain` of the
-/// energy predicted; `None` when the step is to be undone.
-pub(super) fn judged(gain: f64, measure: f64, long: f64, radius: f64) -> Option<f64> {
-    if !(gain.is_finite() && measure.is_finite()) || gain < REJECT {
+/// The radius after a step of length `long` taken inside `radius` released `released` where
+/// `predicted` was expected; `None` when the step is to be undone, as one is that was not
+/// predicted to release anything.
+pub(super) fn judged((released, predicted): (f64, f64), measure: f64, long: f64, radius: f64) -> Option<f64> {
+    let gain = released / predicted;
+    if !(predicted > 0.0 && gain.is_finite() && measure.is_finite()) || gain < REJECT {
         return None;
     }
     Some(if gain < POOR {
@@ -143,7 +147,8 @@ impl Model {
             return self.mixed(0.0, 1.0);
         }
         let Some(leg) = &self.descent else {
-            return self.mixed(0.0, if newton_long > radius { radius / newton_long } else { 1.0 });
+            let to_the_edge = radius / newton_long;
+            return self.mixed(0.0, if descends { to_the_edge } else { -to_the_edge });
         };
         let leg_long = length(&leg.step);
         let to_the_edge = radius / leg_long;
@@ -229,6 +234,17 @@ mod tests {
     }
 
     #[test]
+    fn without_a_second_direction_a_newton_step_that_climbs_is_taken_backwards() {
+        let climbing = Model { newton_work: -2.0, ..model(false) };
+        for radius in [0.5, 5.0] {
+            let back = climbing.within(radius);
+            assert!((back.step[0] + radius / length(&climbing.newton)).abs() < 1e-12);
+            assert!((length(&back.step) - radius).abs() <= 1e-12);
+            assert!(back.work > 0.0 && back.predicted > back.work);
+        }
+    }
+
+    #[test]
     fn where_newtons_step_is_not_a_descent_the_second_direction_is_taken_alone() {
         for newton_work in [0.0, -2.0, f64::NAN] {
             let model = Model { newton_work, ..model(true) };
@@ -246,16 +262,20 @@ mod tests {
 
     #[test]
     fn a_step_is_undone_grown_or_shortened_by_the_energy_it_released() {
-        assert_eq!(judged(0.09, 1.0, 2.0, 2.0), None);
-        assert_eq!(judged(-3.0, 1.0, 2.0, 2.0), None);
-        assert_eq!(judged(f64::NAN, 1.0, 2.0, 2.0), None);
-        assert_eq!(judged(f64::INFINITY, 1.0, 2.0, 2.0), None);
-        assert_eq!(judged(1.0, f64::NAN, 2.0, 2.0), None);
-        assert_eq!(judged(0.1, 1.0, 2.0, 2.0), Some(0.5));
-        assert_eq!(judged(0.25, 1.0, 2.0, 2.0), Some(2.0));
-        assert_eq!(judged(0.75, 1.0, 2.0, 2.0), Some(2.0));
-        assert_eq!(judged(0.8, 1.0, 2.0, 2.0), Some(4.0));
-        assert_eq!(judged(0.8, 1.0, 1.0, 2.0), Some(2.0));
-        assert_eq!(judged(50.0, 1.0, 2.0, 2.0), Some(4.0));
+        assert_eq!(judged((0.09, 1.0), 1.0, 2.0, 2.0), None);
+        assert_eq!(judged((-3.0, 1.0), 1.0, 2.0, 2.0), None);
+        assert_eq!(judged((f64::NAN, 1.0), 1.0, 2.0, 2.0), None);
+        assert_eq!(judged((f64::INFINITY, 1.0), 1.0, 2.0, 2.0), None);
+        assert_eq!(judged((1.0, 1.0), f64::NAN, 2.0, 2.0), None);
+        assert_eq!(judged((0.1, 1.0), 1.0, 2.0, 2.0), Some(0.5));
+        assert_eq!(judged((0.25, 1.0), 1.0, 2.0, 2.0), Some(2.0));
+        assert_eq!(judged((0.75, 1.0), 1.0, 2.0, 2.0), Some(2.0));
+        assert_eq!(judged((0.8, 1.0), 1.0, 2.0, 2.0), Some(4.0));
+        assert_eq!(judged((0.8, 1.0), 1.0, 1.0, 2.0), Some(2.0));
+        assert_eq!(judged((50.0, 1.0), 1.0, 2.0, 2.0), Some(4.0));
+        assert_eq!(judged((1.0, 2.0), 1.0, 2.0, 2.0), Some(2.0));
+        assert_eq!(judged((-1.0, -1.0), 1.0, 2.0, 2.0), None);
+        assert_eq!(judged((1.0, 0.0), 1.0, 2.0, 2.0), None);
+        assert_eq!(judged((1.0, f64::NAN), 1.0, 2.0, 2.0), None);
     }
 }

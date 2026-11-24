@@ -485,7 +485,9 @@ mod tests {
                 Some(kept) if lag_tangent => kept.clone(),
                 _ => {
                     self.tangents += 1;
-                    self.lagged = Some(self.tangent.clone());
+                    if lag_tangent {
+                        self.lagged = Some(self.tangent.clone());
+                    }
                     self.tangent.clone()
                 }
             };
@@ -1391,6 +1393,14 @@ mod tests {
         let error = solve_by_load_increments(&mut failing, &TrustRegion, 2, 1e-10, 50).unwrap_err();
         assert_eq!(error, "the tangent is singular");
         assert_eq!(validate(IterationMethod::TrustRegion), Ok(()));
+    }
+
+    #[test]
+    fn the_trust_region_keeps_the_factor_its_second_direction_comes_from() {
+        let mut chain = Chain::spring(stiffening, 30.0);
+        let outcome = solve_by_load_increments(&mut chain, &TrustRegion, 1, 1e-10, 200).unwrap();
+        assert!(outcome.converged);
+        assert!(chain.lagged.is_some());
     }
 
     #[test]
