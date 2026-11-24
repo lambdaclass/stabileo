@@ -42,9 +42,7 @@ impl Iteration for Broyden {
                     correction
                 }
             };
-            let state = problem.state();
-            let next: Vec<f64> = state.iter().zip(&step).map(|(x, s)| x + s).collect();
-            problem.set_state(&next);
+            problem.advance(&step);
             steps.push(step);
         }
         Ok(false)
@@ -52,7 +50,7 @@ impl Iteration for Broyden {
 }
 
 /// The step Broyden's updated Jacobian gives for `correction`, the step of the lagged tangent.
-/// `None` when the last secant denominator is under `SMALLEST_DENOMINATOR` or not a number, or
+/// `None` when the last secant denominator is under `SMALLEST_DENOMINATOR` or not finite, or
 /// the step is non-finite or more than `LONGEST_STEP` times the correction.
 pub(super) fn updated(correction: &[f64], steps: &[Vec<f64>]) -> Option<Vec<f64>> {
     let dot = |a: &[f64], b: &[f64]| a.iter().zip(b).map(|(x, y)| x * y).sum::<f64>();
@@ -67,7 +65,7 @@ pub(super) fn updated(correction: &[f64], steps: &[Vec<f64>]) -> Option<Vec<f64>
             .for_each(|(value, s)| *value += weight * s);
     }
     let denominator = 1.0 - dot(last, &z) / dot(last, last);
-    if !(denominator.abs() >= SMALLEST_DENOMINATOR) {
+    if !(denominator.is_finite() && denominator.abs() >= SMALLEST_DENOMINATOR) {
         return None;
     }
     let step: Vec<f64> = z.iter().map(|value| value / denominator).collect();
