@@ -302,7 +302,7 @@ describe('the sheets\' bars in 3D', () => {
   }, 600_000);
 
   it('a small frame on footings: the same, and a line\'s adopted bottom run is drawn as adopted', async () => {
-    await solvedExample('pro-rc-house');
+    await solvedExample('pro-rc-frame-area-loads');
     const rows = buildSheetRows();
     const bars = sheetBars3d(rows);
     coherent(rows, bars);

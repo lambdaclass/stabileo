@@ -18,6 +18,7 @@ export const CODE_EXAMPLES = {
   'pro-rc-lift-core': () => import('./pro-rc-lift-core.stabileo.txt?raw'),
   'pro-rc-party-wall': () => import('./pro-rc-party-wall.stabileo.txt?raw'),
   'pro-plane-frame-seismic': () => import('./pro-plane-frame-seismic.stabileo.txt?raw'),
+  'pro-rc-frame-area-loads': () => import('./pro-rc-frame-area-loads.stabileo.txt?raw'),
   'pro-steel-building-slabs': () => import('./pro-steel-building-slabs.stabileo.txt?raw'),
   'pro-simple-shed': () => import('./pro-simple-shed.stabileo.txt?raw'),
   'pro-concrete-wall-storehouse': () => import('./pro-concrete-wall-storehouse.stabileo.txt?raw'),
