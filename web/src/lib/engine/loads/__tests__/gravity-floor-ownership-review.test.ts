@@ -197,7 +197,7 @@ it('#2512 WASM reactions include roof live load below the same-deck beam', () =>
   checkPlanReactions(model, 'Lr', expected);
 });
 
-function restoreAndPlan(model: LoadModelData, setRoof = false) {
+function restoreAndPlan(model: LoadModelData, setRoof = false, gravity: LoadPlanInput['gravity'] = { mode: 'panels' }) {
   modelStore.clear();
   const nodes = new Map([...model.nodes].map(([id, { x, y, z }]) => [id, modelStore.addNode(x, y, z)]));
   const materialId = modelStore.model.materials.keys().next().value!;
@@ -212,7 +212,7 @@ function restoreAndPlan(model: LoadModelData, setRoof = false) {
   modelStore.restore(JSON.parse(JSON.stringify(modelStore.snapshot())));
   const snapshot = modelStore.model;
   const plan = buildLoadPlan(input(snapshot, {
-    gravity: { mode: 'panels' },
+    gravity,
     ...(setRoof ? { roof } : {}),
   }));
   return { quads, plan };
@@ -493,6 +493,68 @@ for (const loadEveryPanel of [false, true]) {
     expectPanelRefusal(baysSharingOneShell(0.08, 10), separateBayRefusal, loadEveryPanel);
   });
 }
+
+const explicitlySelectedBays = { mode: 'panels', loadEveryPanel: true } as const;
+const knownWrongCloseBays = process.env.RUN_KNOWN_WRONG === '2512' ? it : it.skip;
+const overlappingBays = { key: 'loadPlan.gravity.overlappingBays', params: { first: '1, 2, 3, 4', second: '5, 6, 7, 8' } };
+
+function stackedBeamBays(gap: number) {
+  const fixture = modelFixture();
+  const { row, beam } = fixture;
+  for (const z of [0, gap]) bayBoundary(beam, row(0, z), row(10, z));
+  return fixture;
+}
+
+for (const gap of [0.001001, 0.049, 0.051]) {
+  const verify = () => {
+    const { model } = stackedBeamBays(gap);
+    const layout = gravityLayout(model, { ...explicitlySelectedBays, tributaryWidth: 3 });
+    expect(layout.panels.toSorted((a, b) => a.z - b.z).map(panel => panel.roof)).toEqual([gap <= 0.05, true]);
+    expect([...layout.areaByLevel.values()]).toEqual([area, area]);
+    const plan = buildLoadPlan(input(model, { gravity: explicitlySelectedBays }));
+    expect(plan.outcome, JSON.stringify(plan.blockedKeys)).toBe('READY');
+    expect(plan.levels.map(level => level.superimposedKN)).toEqual([expect.closeTo(area * pressure, 10), expect.closeTo(area * pressure, 10)]);
+    const singleBay = { ...model, elements: new Map([...model.elements].slice(0, 4)) };
+    expect(roofWeightFor(model, explicitlySelectedBays, 3, pressure)).toBe(roofWeightFor(singleBay, explicitlySelectedBays, 3, pressure));
+  };
+  if (gap <= 0.05) knownWrongCloseBays(`known wrong result: #2512 — explicit flat beam bays at gap ${gap} retain independent loads`, verify);
+  else it('#2512 explicit flat beam bays beyond the roof-cover cutoff retain independent loads', verify);
+}
+
+knownWrongCloseBays('known wrong result: #2512 — restored explicit beam bays at 49 mm can apply dead load', () => {
+  const { model } = stackedBeamBays(0.049);
+  const { plan } = restoreAndPlan(model, false, explicitlySelectedBays);
+  expect(plan.outcome, JSON.stringify(plan.blockedKeys)).toBe('READY');
+  expect(applyLoadPlan(plan, { clearExisting: true, bothSenses: true, nameOf: key => key })).toBeUndefined();
+  const dead = modelStore.model.loadCases.find(loadCase => loadCase.type === 'D')!;
+  const loadedMembers = new Set(modelStore.model.loads.flatMap(load =>
+    load.type === 'distributed3d' && load.data.caseId === dead.id ? [load.data.elementId] : []));
+  expect(loadedMembers).toEqual(new Set(modelStore.model.elements.keys()));
+});
+
+knownWrongCloseBays('known wrong result: #2512 — WASM reactions include both explicitly selected beam bays at 49 mm', () => {
+  checkPlanReactions(stackedBeamBays(0.049).model, 'D', 2 * area * pressure, explicitlySelectedBays);
+});
+
+it('#2512 explicit selection still refuses overlapping beam bays at or within the level tolerance', () => {
+  for (const gap of [0.000999, 0.001]) expectPanelRefusal(stackedBeamBays(gap).model, overlappingBays, true);
+});
+
+it('#2512 automatic selection and connected, nonflat or shell-bearing models still refuse close overlapping beam bays', () => {
+  const { model, shell, row, beam } = stackedBeamBays(0.049);
+  expectPanelRefusal(model, overlappingBays, false);
+  model.constraints.push({ type: 'rigidLink', masterNode: 1, slaveNode: 5 });
+  expectPanelRefusal(model, overlappingBays, true);
+  model.constraints.pop();
+  beam(1, 5);
+  expectPanelRefusal(model, overlappingBays, true);
+  model.elements.delete(9);
+  model.nodes.get(5)!.z = 0.04925;
+  expectPanelRefusal(model, overlappingBays, true);
+  model.nodes.get(5)!.z = 0.049;
+  shell(row(0, 3), row(10, 3));
+  expectPanelRefusal(model, overlappingBays, true);
+});
 
 it('#2512 uneven offsets do not establish an owner within the level tolerance', () => {
   expectPanelRefusal(shellOverhangingBay(0.0005), separateBayRefusal, true);
