@@ -55,7 +55,8 @@ export const FEATURE_IDS = [
   'stagedConstruction', 'generatedStructures', 'nodalMoments', 'trussMemberLoads', 'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'generatedLoads', 'generatedWindLoads', 'generatedSeismicLoads', 'unverifiedGeneratedSeismicLoads',
   'generatedWidthGravity', 'generatedPanelGravityShells', 'memberFloorZones', 'magnitudeCombinations',
   'partialDistributedMemberLoads', 'distributedMemberLoads', 'spatialDistributedLoadOrientation', 'unplaceablePlanarPointLoads', 'planarStartCoupleWithoutProjection', 'legacyPlanarPointCoupleAliases', 'invalidPlanarNodalMomentAliases', 'selfWeight', 'nonstandardPlanarSelfWeight', 'standaloneGravityToggleOff', 'nodalForces', 'forceSummaryResults',
-  'ssiHistory', 'movingLoads', 'combinations', 'groupedCombinationRules', 'crossSymbolCombinationAlternatives', 'loadPlanInCompositeCase', 'cirsocCombinations', 'seismic', 'snow', 'wind', 'timeHistorySpec',
+  'ssiHistory', 'movingLoads', 'combinations', 'cirsocCombinations', 'seismic', 'snow', 'wind', 'timeHistorySpec',
+  'groupedCombinationRules', 'crossSymbolCombinationAlternatives', 'loadPlanInCompositeCase',
   'superposedCombinations', 'repeatedCombinationCases', 'zeroOrOpposingCombinationFactors', 'explicitNotionalCombinationCases',
   'prototypeNamedLoadCase', 'staticCaseEffects', 'projectedSpatialLoads', 'offsetMemberLoadFrame', 'inactiveSpatialMembers',
   ...ANALYSIS_KINDS.map((k) => `analysis:${k}` as const),
@@ -101,7 +102,8 @@ interface FeatureSnapshotFields {
   supports?: Entries<Sup>;
   loads?: Array<{ type: string; data?: Record<string, unknown> }>;
   loadCases?: Array<{
-    id: number; name?: string; type?: string; spectral?: unknown; alternatives?: string; axisNamed?: boolean; group?: string;
+    id: number; name?: string; type?: string; spectral?: unknown; alternatives?: string; axisNamed?: boolean;
+    group?: string;
     includes?: ReadonlyArray<{ caseId?: number; factor: number }>; reduction?: { ratio: number }; notional?: unknown;
   }>;
   combinations?: unknown[];
