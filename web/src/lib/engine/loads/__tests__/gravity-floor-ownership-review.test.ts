@@ -197,8 +197,6 @@ it('#2512 WASM reactions include roof live load below the same-deck beam', () =>
   checkPlanReactions(model, 'Lr', expected);
 });
 
-type ReviewModel = ReturnType<typeof modelFixture>['model'];
-
 function restoreAndPlan(model: LoadModelData, setRoof = false) {
   modelStore.clear();
   const nodes = new Map([...model.nodes].map(([id, { x, y, z }]) => [id, modelStore.addNode(x, y, z)]));
@@ -465,7 +463,7 @@ function shellOverhangingBay(rise: number, verticalTies = 4) {
 
 const separateBayRefusal = { key: 'loadPlan.gravity.differentDeck' };
 
-function expectPanelRefusal(model: ReviewModel, reason: EngineMessage, loadEveryPanel: boolean, tributaryWidth = 3) {
+function expectPanelRefusal(model: LoadModelData, reason: EngineMessage, loadEveryPanel: boolean, tributaryWidth = 3) {
   const gravity = { mode: 'panels', loadEveryPanel } as const;
   const plan = buildLoadPlan(input(model, { gravity, tributaryWidth, generateCombinations: true }));
   expect(plan.outcome, JSON.stringify({ blocked: plan.blockedKeys, levels: plan.levels })).toBe('BLOCKED');
