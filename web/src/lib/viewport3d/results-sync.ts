@@ -6,7 +6,6 @@
 //   - DIAGRAM_3D_TYPES (constant)
 //   - syncDeformed(), syncDiagrams3D(), syncColorMap3D(), syncVerificationLabels(), syncReactions(), syncConstraintForces(), syncLabels3D()
 
-import { plateMeshNodes, platesAsPieces } from './shell-members';
 import * as THREE from 'three';
 import { canvasUnitSystem } from '../canvas/canvas-units';
 import { fixedQuantity, displacementText } from '../utils/unit-format';
@@ -1153,8 +1152,7 @@ export function syncLabels3D(ctx: ResultsSyncContext): void {
     ctx.nodeLabelsGroup = new THREE.Group();
     ctx.nodeLabelsGroup.name = 'nodeLabels';
 
-    const hidden = platesAsPieces() ? plateMeshNodes() : null;
-    const nodes = hidden?.size ? new Map([...visibleNodes()].filter(([id]) => !hidden.has(id))) : visibleNodes();
+    const nodes = visibleNodes();
     const only = selectionOnly(nodes.size, 'nodes');
     for (const [id, node] of nodes) {
       if (only && !uiStore.selectedNodes.has(id)) continue;
