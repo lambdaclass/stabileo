@@ -1839,6 +1839,7 @@ const id: Translations = {
   'file.invalidJson': 'File bukan JSON yang valid',
   'file.invalidFormat': 'Format file tidak valid. Pastikan itu file .ded dari Stabileo.',
   'file.modelAliasConflict': 'Rekaman model #{id} memiliki nilai yang bertentangan di kolom {field} dan {alias}. Samakan nilainya atau pertahankan hanya salah satu kolom.',
+  'file.sessionHistoryDiscarded': 'Riwayat urungkan dan ulangi untuk {names} gagal divalidasi dan dibuang. Model saat ini telah dibuka.',
   'file.supportFixed': 'Jepit',
   'file.supportPinned': 'Sendi',
   'file.supportRollerX': 'Rol X',

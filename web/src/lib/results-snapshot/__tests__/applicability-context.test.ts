@@ -83,7 +83,7 @@ it('covers the fixture replay change only when its source declares the same rele
   expect(fieldCovered(coverage, 'solve.ok', features)).toBe(false);
 });
 
-it.skip.each(['2d', '3d'] as const)('known wrong result: #2532 attributes a blocked %s model open to its source alias conflict', async workspace => {
+it.each(['2d', '3d'] as const)('#2532 attributes a blocked %s model open to its source alias conflict', async workspace => {
   const c = CORPUS.find(c => c.name === (workspace === '2d' ? '2d-portal-frame' : '2d-in-3d-portal-frame'))!;
   if (!('example' in c.source)) throw new Error('Expected an example');
   const fixture = structuredClone(await getFixture(c.source.example)?.()) as JSONModel;

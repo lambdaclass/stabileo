@@ -315,7 +315,7 @@ function deserializeProjectWithNotice(text: string): boolean {
   }
 }
 
-export { deserializeProjectWithNotice as deserializeProject };
+export { deserializeProjectWithNotice as deserializeProject, deserializeProject as deserializeProjectOrThrow };
 
 function deserializeProject(text: string): boolean {
   let parsed: unknown;

@@ -1836,6 +1836,7 @@ const hi: Translations = {
   'file.invalidJson': 'फ़ाइल मान्य JSON नहीं है',
   'file.invalidFormat': 'अमान्य फ़ाइल प्रारूप। सुनिश्चित करें कि यह Stabileo की .ded फ़ाइल है।',
   'file.modelAliasConflict': 'मॉडल रिकॉर्ड #{id} में {field} और {alias} फ़ील्ड के मान अलग हैं। मान समान करें या इनमें से केवल एक फ़ील्ड रखें।',
+  'file.sessionHistoryDiscarded': '{names} के लिए पूर्ववत करने और दोबारा करने का इतिहास सत्यापन में विफल रहा और हटा दिया गया। वर्तमान मॉडल खोल दिए गए हैं।',
   'file.supportFixed': 'स्थिर',
   'file.supportPinned': 'कील',
   'file.supportRollerX': 'रोलर X',

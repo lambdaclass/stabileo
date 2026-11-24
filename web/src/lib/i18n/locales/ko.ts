@@ -1839,6 +1839,7 @@ const ko: Translations = {
   'file.invalidJson': '유효하지 않은 JSON 파일입니다',
   'file.invalidFormat': '잘못된 파일 형식입니다. Stabileo의 .ded 파일인지 확인하세요.',
   'file.modelAliasConflict': '모델 레코드 #{id}의 {field} 필드와 {alias} 필드 값이 서로 다릅니다. 값을 일치시키거나 두 필드 중 하나만 남기세요.',
+  'file.sessionHistoryDiscarded': '{names}의 실행 취소 및 다시 실행 기록이 검증을 통과하지 못해 삭제되었습니다. 현재 모델은 열렸습니다.',
   'file.supportFixed': '고정단',
   'file.supportPinned': '핀지점',
   'file.supportRollerX': 'X방향 이동단',

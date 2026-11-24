@@ -32,7 +32,8 @@ import { regulationsStore } from '../store/regulations.svelte';
 import '../store';
 import '../engine/design/adapters/cirsoc201-adapter';
 import '../engine/design/adapters/unsupported-adapter';
-import { deserializeProject } from '../store/file';
+import { deserializeProjectOrThrow } from '../store/file';
+import { ModelAliasConflict } from '../model/canonical-aliases';
 import { getFixture } from '../templates/fixture-index';
 import type { JSONModel } from '../templates/load-fixture';
 import { solveNow } from '../actions/solve';
@@ -90,13 +91,18 @@ function reset(c: SnapshotCase): void {
   uiStore.designInPro = !!c.design;
 }
 
-async function open(c: SnapshotCase, fixture?: unknown): Promise<void> {
-  if ('example' in c.source) {
-    await modelStore.loadExample(c.source.example, fixture === undefined ? undefined : async () => structuredClone(fixture));
-  } else if ('ded' in c.source) {
-    const text = fixture === undefined ? readFileSync(new URL(`../../../${c.source.ded}`, import.meta.url), 'utf8') : JSON.stringify(fixture);
-    if (!deserializeProject(text)) throw new Error(`${c.source.ded} does not open`);
-    uiStore.analysisMode = c.workspace;
+async function open(c: SnapshotCase, fixture?: unknown): Promise<ModelAliasConflict | undefined> {
+  try {
+    if ('example' in c.source) {
+      await modelStore.loadExample(c.source.example, fixture === undefined ? undefined : async () => structuredClone(fixture));
+    } else if ('ded' in c.source) {
+      const text = fixture === undefined ? readFileSync(new URL(`../../../${c.source.ded}`, import.meta.url), 'utf8') : JSON.stringify(fixture);
+      if (!deserializeProjectOrThrow(text)) throw new Error(`${c.source.ded} does not open`);
+      uiStore.analysisMode = c.workspace;
+    }
+  } catch (error) {
+    if (error instanceof ModelAliasConflict) return error;
+    throw error;
   }
   if (modelStore.nodes.size === 0) throw new Error(`${c.name}: the project opened empty`);
 }
@@ -281,7 +287,10 @@ export async function capture(c: SnapshotCase, opts: { afterOpen?: () => void; f
   containmentFindings.clear();
   setLocale('en');
   reset(c);
-  await open(c, opts.fixture);
+  const refusal = await open(c, opts.fixture);
+  if (refusal) {
+    return { case: c.name, covers: c.covers, format: FORMAT, values: { 'solve.ok': false, 'solve.refusal': refusal.message } };
+  }
   opts.afterOpen?.();
   const values: Values = {};
   values['model.nodes'] = modelStore.nodes.size;
@@ -310,8 +319,10 @@ export async function openedFeatures(c: SnapshotCase, fixture?: unknown): Promis
     const source = fixture as JSONModel | undefined;
     context.storedElements = source?.elements.map(member => [member.id, member]);
   }
-  await open(c, fixture);
-  const features: string[] = [...modelFeatures(modelStore.snapshot(), context)];
+  const refusal = await open(c, fixture);
+  const features: string[] = refusal
+    ? [c.workspace === '2d' ? 'plane2D' : 'space3D', 'analysis:linear', 'conflictingModelAliases']
+    : [...modelFeatures(modelStore.snapshot(), context)];
   if ('example' in c.source) features.push(`example:${c.source.example}`);
   return features;
 }

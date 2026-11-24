@@ -1833,6 +1833,7 @@ const ru: Translations = {
   'file.invalidJson': 'Файл не является допустимым JSON',
   'file.invalidFormat': 'Недопустимый формат файла. Проверьте, что это файл .ded из Stabileo.',
   'file.modelAliasConflict': 'В записи модели №{id} значения полей {field} и {alias} различаются. Укажите одинаковые значения или оставьте только одно поле.',
+  'file.sessionHistoryDiscarded': 'История отмены и повтора действий для {names} не прошла проверку и была отброшена. Текущие модели открыты.',
   'file.supportFixed': 'Жёсткая заделка',
   'file.supportPinned': 'Шарнирная',
   'file.supportRollerX': 'Подвижная X',

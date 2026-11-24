@@ -89,7 +89,6 @@ fn canonical_model_aliases_reach_native_linear_and_pdelta_solves() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2532"]
 fn canonical_model_alias_positional_records_keep_legacy_field_order() {
     let support = json!([1, 1, "fixed", null, null, null, null, 0.01, 0.02, 0.02]);
     let expected = json!({
@@ -133,7 +132,6 @@ fn positional<T: DeserializeOwned + Serialize>(wire: Value) -> Value {
 }
 
 #[test]
-#[ignore = "known wrong result: #2532"]
 fn canonical_model_alias_positional_support_reaches_native_linear_and_pdelta() {
     let mut model = json!({
         "nodes": { "1": {"id":1,"x":0,"z":0}, "2": {"id":2,"x":2,"z":0} },
@@ -143,7 +141,8 @@ fn canonical_model_alias_positional_support_reaches_native_linear_and_pdelta() {
         "loads": [{"type":"nodal","data":{"nodeId":2,"fx":0,"fz":0,"my":5}}]
     });
     model["supports"] = json!({"1": {"id": 1, "nodeId": 1, "type": "fixed", "dz": 0.01, "dry": 0.02, "angle": 0.02}});
-    let linear = |input: &Value| crate::reproduce::linear_hashes(&input.to_string(), false).unwrap();
+    let linear =
+        |input: &Value| crate::reproduce::linear_hashes(&input.to_string(), false).unwrap();
     let pdelta = |input: &Value| {
         let parsed: SolverInput = serde_json::from_value(input.clone()).unwrap();
         let result = crate::solver::pdelta::solve_pdelta_2d(&parsed, 20, 1e-9).unwrap();

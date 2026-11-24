@@ -1841,6 +1841,7 @@ const ar: Translations = {
   'file.invalidJson': 'الملف ليس JSON صالحاً',
   'file.invalidFormat': 'صيغة ملف غير صالحة. تحقق من أنه ملف .ded من Stabileo.',
   'file.modelAliasConflict': 'يحتوي سجل النموذج رقم {id} على قيم متعارضة في الحقلين {field} و{alias}. وحّد القيم أو احتفظ بحقل واحد فقط.',
+  'file.sessionHistoryDiscarded': 'لم يجتز سجل التراجع والإعادة التحقق، لذا تم تجاهله في {names}. تم فتح النماذج الحالية.',
   'file.supportFixed': 'تثبيت كامل',
   'file.supportPinned': 'مفصلي',
   'file.supportRollerX': 'متحرك X',

@@ -24,12 +24,12 @@ function picked(ids: Iterable<number>): Load[] {
 }
 
 /** New loads, whole, under new ids, in one undo step; the ids they took. None is no edit at all. */
-export function addLoads(loads: readonly Load[]): number[] {
+export function addLoads(incoming: readonly Load[]): number[] {
   // An empty batch still pushed an undo step and bumped the model's version, clearing the results.
-  if (loads.length === 0) return [];
-  const canonical = loads.map(canonicalizeLoadAliases);
+  if (incoming.length === 0) return [];
+  const loads = incoming.map(canonicalizeLoadAliases);
   const out: number[] = [];
-  modelStore.batch(() => { for (const load of canonical) out.push(modelStore.addLoadEntry(load)); });
+  modelStore.batch(() => { for (const l of loads) out.push(modelStore.addLoadEntry(l)); });
   return out;
 }
 

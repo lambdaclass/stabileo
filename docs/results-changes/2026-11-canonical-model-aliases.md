@@ -7,3 +7,7 @@ The model intake now refuses a record when two spellings of the same field disag
 This change applies before assembly. The analysis equations are unchanged.
 
 The results registry uses the same conflict check as model intake. The entry covers whether a model is accepted or refused. Numerical differences between successful analyses require their own evidence.
+
+When solver records are passed as positional JSON arrays, each position still uses the original canonical field order. Legacy aliases apply to named fields. A planar support array retains its prescribed settlement, rotation and support angle in that order. Missing trailing optional fields keep their defaults, and extra positions are rejected.
+
+The snapshot audit records a model-intake conflict as a failed solve with the refusal text. The alias entry applies to the refusal and gives no coverage to numerical results.

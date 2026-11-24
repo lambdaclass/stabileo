@@ -1841,6 +1841,7 @@ const ja: Translations = {
   'file.invalidJson': 'ファイルが有効なJSONではありません',
   'file.invalidFormat': '無効なファイル形式です。Stabileo の.dedファイルか確認してください。',
   'file.modelAliasConflict': 'モデルのレコード #{id} でフィールド {field} と {alias} の値が競合しています。値を一致させるか、どちらか一方のフィールドだけを残してください。',
+  'file.sessionHistoryDiscarded': '{names} の元に戻す操作とやり直し操作の履歴は、検証に失敗したため破棄されました。現在のモデルは開かれました。',
   'file.supportFixed': '固定端',
   'file.supportPinned': 'ピン支点',
   'file.supportRollerX': 'X方向ローラー',

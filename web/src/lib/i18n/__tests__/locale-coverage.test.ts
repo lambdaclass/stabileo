@@ -113,7 +113,7 @@ for (const code of OFFERED_LOCALES) {
   });
 }
 
-it.skip('known wrong result: #2532 translates the discarded session history warning in every locale dictionary', () => {
+it('#2532 translates the discarded session history warning in every locale dictionary', () => {
   for (const [code, dict] of Object.entries(ALL_DICTS)) {
     expect.soft(dict['file.sessionHistoryDiscarded'], code).toContain('{names}');
   }
