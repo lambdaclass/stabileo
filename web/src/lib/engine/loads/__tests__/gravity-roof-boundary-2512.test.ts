@@ -7,12 +7,8 @@ import { input } from './gravity-width-mass-fixture';
 import { snow, pressure } from './snow-roof-plane-fixture';
 import { asymmetric, transform } from './snow-surface-round2-fixture';
 
-const regression = process.env.RUN_KNOWN_WRONG === '2512' ? it : it.skip;
-
 for (const mode of ['width', 'panels'] as const) {
-  const check = mode === 'width' ? regression : it;
-  const title = `a rotated roof preserves the actions on its own boundary in ${mode} mode`;
-  check(mode === 'width' ? `known wrong result: #2512 ${title}` : title, () => {
+  it(`#2512 a rotated roof preserves the actions on its own boundary in ${mode} mode`, () => {
     const gravity = { mode };
     const tributaryWidth = 1;
     const eaves = [8, 9];

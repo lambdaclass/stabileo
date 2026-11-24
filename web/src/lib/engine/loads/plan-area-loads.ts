@@ -148,24 +148,21 @@ export function planAreaLoads(i: AreaLoadsInput): AreaLoadsResult {
 
     const distributedStart = out.distributed.length, nodalStart = out.nodal.length, surfaceStart = out.surface.length;
     const levels = new Map<AreaLoad | AreaPoint, number>();
-    const emitLine = (load: AreaLoad, z: number) => {
-      out.distributed.push(load);
-      levels.set(load, z);
-    };
     for (const p of layout.pieces) {
       if (arrangement && !arrangement.loads({ panel: p.panel })) continue;
       const q = qOf(p.elementId, !!roof && p.roof);
       if (q === 0 || (p.wI === 0 && p.wJ === 0)) continue;
-      emitLine({ elementId: p.elementId, caseType, q: -q * p.wI, qJ: -q * p.wJ,
-        ...(p.a !== undefined ? { a: p.a, b: p.b } : {}), frame: 'global', ...arr }, layout.panels[p.panel]!.z);
+      out.distributed.push({ elementId: p.elementId, caseType, q: -q * p.wI, qJ: -q * p.wJ, ...(p.a !== undefined ? { a: p.a, b: p.b } : {}), frame: 'global', ...arr });
+      levels.set(out.distributed.at(-1)!, layout.panels[p.panel]!.z);
+      if (arrangement === undefined) out.planned.add(caseType);
     }
     for (const p of layout.points) {
       if (arrangement && !arrangement.loads({ panel: p.panel })) continue;
-      const fz = -qOf(p.elementId, !!roof && p.roof) * p.w;
-      if (fz === 0) continue;
-      const load: AreaPoint = { nodeId: p.nodeId, caseType, fz, carrier: p.elementId, ...arr };
-      out.nodal.push(load);
-      levels.set(load, layout.panels[p.panel]!.z);
+      const q = qOf(p.elementId, !!roof && p.roof);
+      if (q * p.w === 0) continue;
+      out.nodal.push({ nodeId: p.nodeId, caseType, fz: -q * p.w, carrier: p.elementId, ...arr });
+      levels.set(out.nodal.at(-1)!, layout.panels[p.panel]!.z);
+      if (arrangement === undefined) out.planned.add(caseType);
     }
     for (const m of layout.widthMembers) {
       if (arrangement && !arrangement.loads({ member: m.elementId })) continue;
@@ -174,13 +171,14 @@ export function planAreaLoads(i: AreaLoadsInput): AreaLoadsResult {
         const q = -pressure * s.width;
         if (q === 0) continue;
         const span = m.spans ? { a: s.t0 * m.length, b: s.t1 * m.length } : {};
-        emitLine({ elementId: m.elementId, caseType, q, ...span, frame: perProjection ? 'projected' : 'global', ...arr },
-          layout.zOf.get(m.elementId) ?? 0);
+        out.distributed.push({ elementId: m.elementId, caseType, q, ...span, frame: perProjection ? 'projected' : 'global', ...arr });
+        levels.set(out.distributed.at(-1)!, layout.zOf.get(m.elementId) ?? 0);
+        if (arrangement === undefined) out.planned.add(caseType);
       }
     }
     if (!arrangement) for (const sq of layout.shellQuads) {
       const q = qOfQuad(sq.quadId) * (perProjection ? sq.cos : 1);
-      if (q > 0) out.surface.push({ quadId: sq.quadId, caseType, q });
+      if (q > 0) { out.surface.push({ quadId: sq.quadId, caseType, q }); out.planned.add(caseType); }
     }
 
     for (const load of out.distributed.slice(distributedStart)) {
@@ -200,9 +198,6 @@ export function planAreaLoads(i: AreaLoadsInput): AreaLoadsResult {
       if (!agrees(total.output.value, total.input.value, total.magnitude.value)) {
         refuseGravityGeometry(msg('loadPlan.gravity.caseResultant', { z, action: caseType }));
       }
-    }
-    if (!arrangement && (out.distributed.length > distributedStart || out.nodal.length > nodalStart || out.surface.length > surfaceStart)) {
-      out.planned.add(caseType);
     }
   };
 
