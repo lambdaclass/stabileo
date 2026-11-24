@@ -8,6 +8,7 @@ const it: Translations = {
   "plates.remeshAmbiguousSweep": "L’arco del bordo curvo di {name} è ambiguo. Prima di rigenerare la mesh, controlla il punto intermedio e le aste curve tra le estremità.",
   "plates.remeshShellEdits": "Impossibile sostituire la mesh di {name} perché le modifiche all’offset o alla curvatura dei gusci non possono essere trasferite esattamente.",
   'loadPlan.gravity.coveragePrecision': "Le coordinate di copertura dei gusci superano la precisione supportata per gli intervalli degli elementi.",
+  'loadPlan.gravity.roundedRoofBoundary': "L’arrotondamento del punto medio dell’asta {id} cambia se questa è coperta dal bordo del tetto. Correggere la geometria dell’asta o del tetto oppure assegnare i carichi manualmente.",
   'loadPlan.gravity.partitionFailed': "Suddivisione della proiezione dei gusci non riuscita: {detail}",
   'loadPlan.gravity.unsupportedStrips': "La copertura parziale con gusci richiede strisce che coprano l’intera luce tra i sostegni opposti di un pannello rettangolare di travi.",
   'loadPlan.gravity.stripDirection': "La direzione di campata unidirezionale richiesta deve coincidere con quella delle strisce scoperte.",

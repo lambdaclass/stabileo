@@ -13,6 +13,7 @@ export type ShellBayCandidate<S> = {
   deck: ShellPlane;
   tolerance: number;
   ambiguousLevel?: boolean;
+  unequalOffsets?: boolean;
 };
 
 export type GravityBay<S> = {
@@ -22,6 +23,8 @@ export type GravityBay<S> = {
 };
 
 export type BayAssignment = { partition: BayPartition; region: MultiPolygon };
+
+const bayMembers = (bay: FloorBay) => [...bay.members].sort((a, b) => a - b).join(', ');
 
 type FloorCarrier = {
   footprint: Polygon;
@@ -46,14 +49,14 @@ export function partitionGravityFloors<S extends ShellFootprint>(
   const inFrame = (bay: FloorBay, footprint: Polygon) => footprint.map(ring => ring.map(frameFor(bay).local));
   const overlapsBay = (bay: FloorBay, footprint: MultiPolygon) =>
     footprintsOverlap(frameFor(bay).boundary, footprint.map(polygon => inFrame(bay, polygon)));
-  const inBayDeck = (bay: FloorBay, overlap: MultiPolygon, shell: S, deck: ShellPlane, limit: number) => {
+  const inBayDeck = (bay: FloorBay, overlap: MultiPolygon, first: ShellPlane | undefined, second: ShellPlane, limit: number) => {
     const area = footprintArea(overlap);
     if (area === 0) return undefined;
     if (!(area > 0) || !Number.isFinite(area)) refuseGravityGeometry(msg('loadPlan.gravity.coveragePrecision'));
     const { inPlan } = frameFor(bay);
     const pairs = overlap.flatMap(([exterior]) => exterior!.map(point => {
       const plan = inPlan(point);
-      return [shell.plane?.(plan) ?? NaN, deck(plan)] as const;
+      return [first?.(plan) ?? NaN, second(plan)] as const;
     }));
     return samePhysicalDeck(pairs, limit);
   };
@@ -63,15 +66,21 @@ export function partitionGravityFloors<S extends ShellFootprint>(
     const { bay, candidates } = entry;
     const eligible = new Map<S, ShellPlane>();
     const ambiguous = new Set<S>();
-    for (const { shell, deck, tolerance, ambiguousLevel } of candidates) {
+    const unequalOffsets = new Set<S>();
+    for (const { shell, deck, tolerance, ambiguousLevel, unequalOffsets: unequal } of candidates) {
       if (eligible.has(shell)) continue;
       const overlap = footprintIntersection(frameFor(bay).boundary, inFrame(bay, footprintOf.get(shell)!));
-      const matches = inBayDeck(bay, overlap, shell, deck, tolerance);
-      if (matches) eligible.set(shell, deck);
+      const matches = inBayDeck(bay, overlap, shell.plane, deck, tolerance);
+      if (matches && unequal) unequalOffsets.add(shell);
+      else if (matches) eligible.set(shell, deck);
       else if (matches === false && ambiguousLevel) ambiguous.add(shell);
     }
     if ([...ambiguous].some(shell => !eligible.has(shell))) {
       refuseGravityGeometry(msg('loadPlan.gravity.differentDeck'));
+    }
+    const unresolved = [...unequalOffsets].find(shell => !eligible.has(shell));
+    if (unresolved) {
+      refuseGravityGeometry(msg('loadPlan.gravity.offsetShellDeck', { id: unresolved.id, members: bayMembers(bay) }));
     }
     eligibleFor.set(bay, eligible);
     for (const shell of eligible.keys()) (serving.get(shell) ?? serving.set(shell, new Set()).get(shell)!).add(entry);
@@ -138,6 +147,20 @@ export function partitionGravityFloors<S extends ShellFootprint>(
     carrier.assigned = [];
   }
 
+  for (const shell of owners) {
+    const servedBays = serving.get(shell);
+    if (!servedBays || servedBays.size < 2) continue;
+    const footprint = footprintOf.get(shell)!;
+    for (const [{ bay: a }, { bay: b }] of potentiallyOverlapping([...servedBays], ({ bay }) => bay.boundary[0]!)) {
+      const originalOverlap = footprintIntersection(frameFor(a).boundary, inFrame(a, b.boundary));
+      if (!originalOverlap.length) continue;
+      const sharedWithShell = footprintIntersection(originalOverlap, inFrame(a, footprint));
+      if (inBayDeck(a, sharedWithShell, eligibleFor.get(a)!.get(shell)!, eligibleFor.get(b)!.get(shell)!, maxShellDeckRise) === false) {
+        refuseGravityGeometry(msg('loadPlan.gravity.differentDeck'));
+      }
+    }
+  }
+
   const assignments = new Map<FloorBay, BayAssignment>();
   for (const { bay } of bays) {
     const carrier = bayCarriers.get(bay)!;
@@ -155,7 +178,7 @@ export function partitionGravityFloors<S extends ShellFootprint>(
         const reclaimed = footprintIntersection(assignedInBay, inFrame(bay, footprintOf.get(shell)!));
         for (const upper of upperOwners) {
           const overlap = footprintIntersection(reclaimed, inFrame(bay, footprintOf.get(upper)!));
-          if (inBayDeck(bay, overlap, upper, deck, maxShellDeckRise)) {
+          if (inBayDeck(bay, overlap, upper.plane, deck, maxShellDeckRise)) {
             refuseGravityGeometry(shellOverlapMessage(shell, upper));
           }
         }
@@ -171,8 +194,7 @@ export function partitionGravityFloors<S extends ShellFootprint>(
       const localFirst = first.assigned.map(footprint => inFrame(a.bay, footprint));
       const localSecond = second.assigned.map(footprint => inFrame(a.bay, footprint));
       if (localFirst.length && localSecond.length && footprintsOverlap(localFirst, localSecond)) {
-        const members = (bay: FloorBay) => [...bay.members].sort((x, y) => x - y).join(', ');
-        refuseGravityGeometry(msg('loadPlan.gravity.overlappingBays', { first: members(a.bay), second: members(b.bay) }));
+        refuseGravityGeometry(msg('loadPlan.gravity.overlappingBays', { first: bayMembers(a.bay), second: bayMembers(b.bay) }));
       }
       join(first, second);
     }

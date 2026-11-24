@@ -5,7 +5,8 @@
     2284,
     2299,
     2347,
-    2499
+    2499,
+    2512
   ],
   "area": "loads",
   "when": {
@@ -26,7 +27,8 @@
     "de": "Jeden Bereich der automatischen Schwerkraftlast einem Träger zuweisen",
     "fr": "Attribuer chaque zone de charge de gravité automatique à un seul porteur",
     "tr": "Her otomatik yerçekimi yükü bölgesini tek bir taşıyıcıya atama",
-    "zh": "将每个自动重力荷载区域分配给单个承载体"
+    "zh": "将每个自动重力荷载区域分配给单个承载体",
+    "hu": "Az automatikus gravitációs teher minden területének hozzárendelése egyetlen teherhordóhoz"
   },
   "explanation": {
     "en": "Regenerate panel gravity loads. A shell has precedence over a beam bay on the same floor. Where vertically coupled shells overlap, the upper shell takes the load if it is clearly above and fully covers the lower quad. Unresolved ownership blocks generation.",
@@ -35,7 +37,8 @@
     "de": "Erzeugen Sie die Schwerkraftlast im Feldmodus neu. Eine Schale hat Vorrang vor einem Trägerfeld auf derselben Ebene. Überlappen vertikal gekoppelte Schalen, trägt die obere Schale die Last, wenn sie eindeutig höher liegt und das untere Element vollständig überdeckt. Bei ungeklärter Zuordnung wird die Erzeugung gesperrt.",
     "fr": "Régénérez les charges de gravité par panneaux. Une coque est prioritaire sur une travée du même niveau. Lorsque des coques couplées verticalement se chevauchent, la coque supérieure reprend la charge si elle est clairement au-dessus et couvre entièrement la coque inférieure. Une attribution ambiguë bloque la génération.",
     "tr": "Panel yerçekimi yüklerini yeniden üretin. Aynı kattaki kiriş paneline göre kabuğa öncelik verilir. Düşey bağlı kabuklar çakıştığında, üst kabuk belirgin biçimde yukarıdaysa ve alt elemanı bütünüyle örtüyorsa yükü alır. Yükün nereye atanacağı belirlenemezse üretim durdurulur.",
-    "zh": "请重新生成板块重力荷载。同一楼层的壳单元优先于梁板区。竖向耦合的壳单元重叠时，若上层明显更高且完全覆盖下层，则由上层承载。无法确定归属时停止生成。"
+    "zh": "请重新生成板块重力荷载。同一楼层的壳单元优先于梁板区。竖向耦合的壳单元重叠时，若上层明显更高且完全覆盖下层，则由上层承载。无法确定归属时停止生成。",
+    "hu": "Generálja újra a mezőnkénti gravitációs terheket. Az azonos szinten lévő héj elsőbbséget élvez a gerendamezővel szemben. Ha függőlegesen összekapcsolt héjak átfedik egymást, a felső héj viseli a terhet, amennyiben egyértelműen magasabban van és teljesen lefedi az alsó héjelemet. Ha a teher hozzárendelése nem egyértelmű, a generálás leáll."
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-gravity-floor-ownership.md",

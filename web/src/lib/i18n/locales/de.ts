@@ -7793,6 +7793,7 @@ const de: Translations = {
   'loadPlan.derivation.roofDead': 'Dach: zusätzliche ständige Last {dead} kN/m² auf {n} Stäben und Schalen, die nichts Höheres überdeckt.',
   'loadPlan.derivation.roofOccupancy': 'Dach genutzt als {occupancy} (§4.8.2): Lo = {lo} kN/m² als Nutzlast L, abminderbar nach §4.7; ständige Last {dead} kN/m² auf {n} Stäben.',
   'loadPlan.gravity.coveragePrecision': "Die Koordinaten der Schalenabdeckung überschreiten die unterstützte Genauigkeit für Stabintervalle.",
+  'loadPlan.gravity.roundedRoofBoundary': "Die Rundung des Mittelpunkts von Stab {id} beeinflusst, ob er vom Dachrand überdeckt wird. Korrigieren Sie die Stab- oder Dachgeometrie oder weisen Sie die Lasten manuell zu.",
   'loadPlan.gravity.partitionFailed': "Die Aufteilung der projizierten Schalenflächen ist fehlgeschlagen: {detail}",
   'loadPlan.gravity.unsupportedStrips': "Eine teilweise Schalenabdeckung erfordert Streifen über die gesamte Spannweite zwischen gegenüberliegenden Trägern eines rechteckigen Felds.",
   'loadPlan.gravity.stripDirection': "Die gewählte einachsige Spannrichtung muss der Spannrichtung der freien Streifen entsprechen.",

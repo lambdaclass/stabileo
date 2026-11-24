@@ -78,6 +78,7 @@ const zh: Translations = {
   "account.logout": "退出登录",
   "account.err.account_disabled": "此账户已被停用。",
   'loadPlan.gravity.coveragePrecision': "壳单元覆盖坐标超出了杆件区间所支持的精度。",
+  'loadPlan.gravity.roundedRoofBoundary': "构件 {id} 的中点舍入会改变其是否被屋面边缘遮盖的判定。请修正构件或屋面几何形状，或手动指定荷载。",
   'loadPlan.gravity.partitionFailed': "壳单元投影区域划分失败：{detail}",
   'loadPlan.gravity.unsupportedStrips': "部分被壳单元覆盖时，条带必须跨越矩形梁格相对支承之间的全跨。",
   'loadPlan.gravity.stripDirection': "指定的单向跨度方向必须与未覆盖条带的跨度方向一致。",

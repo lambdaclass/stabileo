@@ -4,6 +4,6 @@ Panel-mode automatic gravity requires two linked shells to be within the existin
 
 The same bay member list now supplies both attachment stations and tributary geometry. A shell deck supported at two framing stub ends takes the bay's shared area. The 60 m² witness at 1 kN/m² now receives 60 kN of shell pressure. The previous branch revision and `b37840cb7d09` also loaded the framing and returned 120 kN.
 
-Roof classification uses the bay ownership assignment to identify a shell's own framing. The attached 2.8 m shell in the subdivided bay now retains its uniform roof live action below the centre beam. The preview now gives the shell the same pressure as the isolated roof. Independent overhead members still shade the shell. The concentrated-roof check still blocks application in the CIRSOC witness.
+Roof classification uses the bay ownership assignment to identify a shell's own framing. The attached shell at an elevation of 2.96 m in the subdivided bay now retains its uniform roof live action below the centre beam. The preview now gives the shell the same pressure as the isolated roof. Independent overhead members still shade the shell. The concentrated-roof check still blocks application in the CIRSOC witness.
 
 Regenerate panel gravity loads in affected projects before relying on their analysis results.

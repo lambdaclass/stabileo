@@ -472,7 +472,6 @@ function shellOverhangingBay(rise: number, verticalTies = 4) {
 
 const separateBayRefusal = { key: 'loadPlan.gravity.differentDeck' };
 const offsetBayRefusal = { key: 'loadPlan.gravity.offsetShellDeck', params: { id: 1, members: '1, 2, 3, 4' } };
-const review2512 = process.env.RUN_KNOWN_WRONG === '2512' ? it : it.skip;
 
 function expectPanelRefusal(model: ReviewModel, reason: typeof separateBayRefusal | typeof offsetBayRefusal, loadEveryPanel: boolean) {
   const gravity = { mode: 'panels', loadEveryPanel } as const;
@@ -487,13 +486,13 @@ function expectPanelRefusal(model: ReviewModel, reason: typeof separateBayRefusa
 
 for (const loadEveryPanel of [false, true]) {
   for (const gap of [0.08, 0.051]) {
-    review2512(`known wrong result: #2512 a shell cannot absorb both overlapping bays separated by ${gap} with loadEveryPanel=${loadEveryPanel}`, () => {
+    it(`#2512 a shell cannot absorb both overlapping bays separated by ${gap} with loadEveryPanel=${loadEveryPanel}`, () => {
       expectPanelRefusal(baysSharingOneShell(gap), separateBayRefusal, loadEveryPanel);
     });
   }
 
   for (const rise of [0.02, 0.049]) {
-    review2512(`known wrong result: #2512 unequal corner offsets at ${rise} block duplicate bay gravity with loadEveryPanel=${loadEveryPanel}`, () => {
+    it(`#2512 unequal corner offsets at ${rise} block duplicate bay gravity with loadEveryPanel=${loadEveryPanel}`, () => {
       expectPanelRefusal(shellOverhangingBay(rise), offsetBayRefusal, loadEveryPanel);
     });
   }
@@ -518,7 +517,7 @@ for (const [name, model, reason] of [
   ['separated bays under one shell', () => baysSharingOneShell(0.08), separateBayRefusal],
   ['an overhanging shell with unequal corner offsets', () => shellOverhangingBay(0.02), offsetBayRefusal],
 ] as const) {
-  review2512(`known wrong result: #2512 restored apply refuses ${name}`, () => {
+  it(`#2512 restored apply refuses ${name}`, () => {
     const { plan } = restoreAndPlan(model());
     const before = modelStore.snapshot();
     expect(plan.outcome).toBe('BLOCKED');

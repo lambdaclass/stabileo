@@ -4461,6 +4461,7 @@ const pt: Translations = {
   'loadPlan.derivation.roofDead': "Cobertura: carga permanente sobreposta {dead} kN/m² em {n} barras e placas que nada mais alto cobre.",
   'loadPlan.derivation.roofOccupancy': "Cobertura com destino {occupancy} (§4.8.2): Lo = {lo} kN/m² como sobrecarga L, redutível por §4.7; permanente {dead} kN/m² em {n} barras.",
   'loadPlan.gravity.coveragePrecision': "As coordenadas de cobertura das cascas excedem a precisão admitida para os intervalos das barras.",
+  'loadPlan.gravity.roundedRoofBoundary': "O arredondamento do ponto médio da barra {id} altera se ela fica sob a borda da cobertura. Corrija a geometria da barra ou da cobertura, ou atribua as cargas manualmente.",
   'loadPlan.gravity.partitionFailed': "Falha na divisão da projeção das cascas: {detail}",
   'loadPlan.gravity.unsupportedStrips': "A cobertura parcial por cascas exige faixas que percorram todo o vão entre apoios opostos de um painel retangular de vigas.",
   'loadPlan.gravity.stripDirection': "A direção unidirecional solicitada deve coincidir com a direção do vão das faixas descobertas.",

@@ -123,12 +123,11 @@ function lowerOverhang({ shift = 0, start = 0, end = 3, coverZ = 6, upper = 'she
 }
 
 const boundaryRefusal = { key: 'loadPlan.gravity.roundedRoofBoundary', params: { id: 1 } };
-const review2512 = process.env.RUN_KNOWN_WRONG === '2512' ? it : it.skip;
 const tributaryWidth = 1;
 const siteSnow = { ...snow, enabled: true, source: 'site' } as const;
 
 for (const mode of ['width', 'panels'] as const) for (const upper of ['shell', 'frame']) {
-  review2512(`known wrong result: #2512 rounded midpoint on an overhanging ${upper} edge blocks ${mode} loads`, () => {
+  it(`#2512 rounded midpoint on an overhanging ${upper} edge blocks ${mode} loads`, () => {
     const model = lowerOverhang({ upper });
     const gravity = { mode };
     const plan = buildLoadPlan(input(model, { gravity, tributaryWidth, snow: siteSnow, generateCombinations: true }));
@@ -143,7 +142,7 @@ for (const mode of ['width', 'panels'] as const) for (const upper of ['shell', '
   });
 }
 
-review2512('known wrong result: #2512 apply refuses the lower roof-edge overhang', () => {
+it('#2512 apply refuses the lower roof-edge overhang', () => {
   const plan = buildLoadPlan(input(lowerOverhang(), { tributaryWidth, snow: siteSnow }));
   const before = modelStore.snapshot();
   expect(plan.outcome).toBe('BLOCKED');
@@ -165,7 +164,7 @@ for (const mode of ['width', 'panels'] as const) {
       const plan = buildLoadPlan(input(model, { gravity, tributaryWidth, snow: siteSnow }));
       expect(plan.outcome, JSON.stringify({ geometry, blocked: plan.blockedKeys })).toBe('READY');
       expect(gravityLayout(model, { ...gravity, tributaryWidth }).roof.has(1)).toBe(exposed);
-      expect(plan.distributed.some(load => load.elementId === 1 && plan.cases[load.caseIndex]?.type === 'S')).toBe(exposed);
+      expect(plan.distributed.some(load => load.elementId === 1 && load.caseType === 'S')).toBe(exposed);
     }
   });
 }

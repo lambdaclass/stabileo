@@ -8251,6 +8251,7 @@ const en: Record<string, string> = {
   'loadPlan.derivation.roofDead': "Roof: superimposed dead load {dead} kN/m² on {n} members and shells nothing higher covers.",
   'loadPlan.derivation.roofOccupancy': "Roof used as {occupancy} (§4.8.2): Lo = {lo} kN/m² as live load L, reducible by §4.7; dead {dead} kN/m² on {n} members.",
   'loadPlan.gravity.coveragePrecision': "Shell coverage coordinates exceed the supported member interval precision.",
+  'loadPlan.gravity.roundedRoofBoundary': "Rounding the midpoint of member {id} changes whether the roof edge covers it. Correct the member or roof geometry, or assign the loads manually.",
   'loadPlan.gravity.partitionFailed': "Shell footprint partition failed: {detail}",
   'loadPlan.gravity.unsupportedStrips': "Partial shell coverage requires full-span strips between opposite carriers of a rectangular beam panel.",
   'loadPlan.gravity.stripDirection': "The requested one-way span must align with the span of the uncovered shell strips.",

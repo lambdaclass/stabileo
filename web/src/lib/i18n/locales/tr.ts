@@ -7802,6 +7802,7 @@ const tr: Translations = {
   'loadPlan.derivation.roofDead': 'Çatı: üstünde hiçbir şey olmayan {n} çubuk ve kabukta {dead} kN/m² ilave ölü yük.',
   'loadPlan.derivation.roofOccupancy': 'Çatı {occupancy} olarak kullanılıyor (§4.8.2): hareketli yük L olarak Lo = {lo} kN/m², §4.7\'ye göre azaltılabilir; {n} çubukta ölü yük {dead} kN/m².',
   'loadPlan.gravity.coveragePrecision': "Kabuk örtüsü koordinatları, eleman yükü aralıkları için desteklenen hassasiyeti aşıyor.",
+  'loadPlan.gravity.roundedRoofBoundary': "{id} numaralı elemanın orta noktasının yuvarlanması, çatı kenarının elemanı örtüp örtmediğini değiştiriyor. Eleman veya çatı geometrisini düzeltin ya da yükleri elle atayın.",
   'loadPlan.gravity.partitionFailed': "Kabuk izdüşümünün bölümlenmesi başarısız oldu: {detail}",
   'loadPlan.gravity.unsupportedStrips': "Kısmi kabuk örtüsü, dikdörtgen kiriş panelinin karşılıklı taşıyıcıları arasındaki açıklığın tamamını geçen şeritler gerektirir.",
   'loadPlan.gravity.stripDirection': "İstenen tek doğrultulu açıklık yönü, açıkta kalan şeritlerin açıklık yönüyle aynı olmalıdır.",

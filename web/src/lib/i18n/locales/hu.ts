@@ -7489,6 +7489,7 @@ const hu: Translations = {
   "loadPlan.derivation.roofDead": "Tető: ráterhelt állandó teher {dead} kN/m² {n} rúdon és héjon, amelyet nem fed magasabb elem.",
   "loadPlan.derivation.roofOccupancy": "Tető használata: {occupancy} (4.8.2. pont): Lo = {lo} kN/m² hasznos teherként L, a 4.7. pont szerint csökkenthető; állandó {dead} kN/m² {n} rúdon.",
   'loadPlan.gravity.coveragePrecision': "A héjfedés koordinátái meghaladják a rúdon belüli terhelési szakaszok támogatott pontosságát.",
+  'loadPlan.gravity.roundedRoofBoundary': "A(z) {id} rúd felezőpontjának kerekítése megváltoztatja, hogy a tető széle fedi-e a rudat. Javítsa a rúd vagy a tető geometriáját, vagy adja meg kézzel a terheket.",
   'loadPlan.gravity.partitionFailed': "A héjak vetületének felosztása sikertelen: {detail}",
   'loadPlan.gravity.unsupportedStrips': "Részleges héjfedés esetén a sávoknak a téglalap alakú gerendamező szemközti tartói közötti teljes fesztávot át kell hidalniuk.",
   'loadPlan.gravity.stripDirection': "A megadott egyirányú fesztávnak egybe kell esnie a fedetlen sávok fesztávjának irányával.",

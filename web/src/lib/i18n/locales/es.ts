@@ -8244,6 +8244,7 @@ const es: Record<string, string> = {
   'loadPlan.derivation.roofDead': "Cubierta: carga permanente sobreimpuesta {dead} kN/m² en {n} barras y placas que nada más alto cubre.",
   'loadPlan.derivation.roofOccupancy': "Cubierta con destino {occupancy} (§4.8.2): Lo = {lo} kN/m² como sobrecarga L, reducible por §4.7; permanente {dead} kN/m² en {n} barras.",
   'loadPlan.gravity.coveragePrecision': "Las coordenadas de cobertura de placas exceden la precisión admitida para los tramos de las barras.",
+  'loadPlan.gravity.roundedRoofBoundary': "El redondeo del punto medio de la barra {id} cambia si queda cubierta por el borde de la cubierta. Corregí la geometría de la barra o de la cubierta, o asigná las cargas manualmente.",
   'loadPlan.gravity.partitionFailed': "Falló la partición de la proyección de las placas: {detail}",
   'loadPlan.gravity.unsupportedStrips': "La cobertura parcial con placas requiere franjas que abarquen toda la luz entre apoyos opuestos de un paño rectangular de vigas.",
   'loadPlan.gravity.stripDirection': "La dirección unidireccional solicitada debe coincidir con la luz de las franjas descubiertas.",

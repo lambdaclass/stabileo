@@ -9,6 +9,7 @@ const ja: Translations = {
   "plates.remeshAmbiguousSweep": "{name} の曲線境界で円弧の範囲を一意に決められません。メッシュを再生成する前に、中間点と両端間の曲線部材を確認してください。",
   "plates.remeshShellEdits": "シェル要素のオフセットまたは曲率の変更を正確に引き継げないため、{name} のメッシュを置き換えられません。",
   'loadPlan.gravity.coveragePrecision': "シェルの被覆座標が部材区間で対応できる精度を超えています。",
+  'loadPlan.gravity.roundedRoofBoundary': "部材 {id} の中点の丸めにより、屋根の縁で覆われるかどうかの判定が変わります。部材または屋根の形状を修正するか、荷重を手動で設定してください。",
   'loadPlan.gravity.partitionFailed': "シェルの投影範囲を分割できませんでした：{detail}",
   'loadPlan.gravity.unsupportedStrips': "シェルが一部を覆う場合、矩形の梁パネルの向かい合う支持材の間で、帯が全スパンにわたる必要があります。",
   'loadPlan.gravity.stripDirection': "指定した一方向スパンの向きは、被覆されていない帯のスパン方向と一致する必要があります。",

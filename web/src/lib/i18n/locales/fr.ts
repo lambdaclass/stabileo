@@ -7793,6 +7793,7 @@ const fr: Translations = {
   'loadPlan.derivation.roofDead': 'Toiture : charge permanente rapportée de {dead} kN/m² sur {n} barres et coques que rien de plus haut ne couvre.',
   'loadPlan.derivation.roofOccupancy': 'Toiture utilisée comme {occupancy} (§4.8.2) : Lo = {lo} kN/m² comme charge d\'exploitation L, réductible selon le §4.7 ; charge permanente de {dead} kN/m² sur {n} barres.',
   'loadPlan.gravity.coveragePrecision': "Les coordonnées de recouvrement des coques dépassent la précision prise en charge pour les intervalles de barre.",
+  'loadPlan.gravity.roundedRoofBoundary': "L’arrondi du milieu de la barre {id} change son classement par rapport au bord de la toiture. Corrigez la géométrie de la barre ou de la toiture, ou attribuez les charges manuellement.",
   'loadPlan.gravity.partitionFailed': "Échec du découpage de la projection des coques : {detail}",
   'loadPlan.gravity.unsupportedStrips': "Le recouvrement partiel par des coques exige des bandes couvrant toute la portée entre les appuis opposés d’un panneau rectangulaire de poutres.",
   'loadPlan.gravity.stripDirection': "La direction de portée unidirectionnelle demandée doit correspondre à celle des bandes libres.",
