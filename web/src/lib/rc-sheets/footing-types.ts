@@ -105,6 +105,8 @@ export interface CapResult {
   shear: Array<{ dir: 'x' | 'y'; at: number; vu: number; phiVc: number }>;
   punching: Array<{ at: string; vu: number; phiVc: number; bo: number; combo: string }>;
   section: { pu: number; phiPn: number; as: number; asMin: number };
+  /** A pile pulled: its largest service and factored pull, kN, the allowable shaft friction of one pile (null where the ground is not stated by depth), the share of it the criterion counts in tension and what that gives, and its bars' φ·As·fy. */
+  tension: { service: number; factored: number; shaft: number | null; share: number; capacity: number; phiTn: number };
   /** The ties between caps where no strap balances the cap: their force, kN (a share of the largest column load), and steel, cm². */
   tie: { force: number; as: number } | null;
 }

@@ -273,7 +273,7 @@ function footingPieces(r: FootingRow, all: readonly FootingRow[], R: BendRules, 
   if (r.group) return { key: r.key, name: r.name, level: r.level, family: 'footing', pieces: [...(r.uncovered ? [] : groupPieces(r, R, columns)), ...ownStraps(r, all).flatMap((l) => linePieces(l, R).pieces)] };
   const det = footingDetail(r, R);
   const pieces: Piece[] = r.uncovered ? [] : det.layers.map((l) => ({ kind: l.dir === 'x' ? 'footingX' : 'footingY', count: l.positions.length, shape: l.shape }));
-  if (!r.uncovered && det.top) pieces.push({ kind: 'footingTop', count: det.top.positions.length, shape: det.top.shape });
+  if (!r.uncovered) for (const t of det.tops) pieces.push({ kind: 'footingTop', count: t.positions.length, shape: t.shape });
   const piles = r.uncovered ? null : pileDetail(r, R);
   if (piles) pieces.push({ kind: 'pileBar', count: piles.piles.length * piles.bar.ring.length, shape: piles.bar.shape }, { kind: 'pileHoop', count: piles.piles.length * piles.hoop.zs.length, shape: piles.hoop.shape });
   if (!r.uncovered) {

@@ -6,7 +6,7 @@ import { meshText } from './footing-mesh';
 import { edgeSteps } from './footing-steps';
 import { strapDefault } from './footing-strap';
 import { strapPullChecks } from './footing-needs';
-import { analyseCap, CAP_SECONDARY, capBalance, capColumns, capCover, capHolds, capMeshes, capPlan, CAP_MAX_H, CAP_STEP_H, pileBars, pilePatterns, PILE_COUNTS, PILE_EMBED, upCap, PILE_UNHELD_TOL, type CapAnalysis } from './pile-cap';
+import { analyseCap, CAP_SECONDARY, CAP_TOP_TOL, capBalance, capTops, pullHolds, capColumns, capCover, capHolds, capMeshes, capPlan, CAP_MAX_H, CAP_STEP_H, pileBars, pilePatterns, PILE_COUNTS, PILE_EMBED, upCap, PILE_UNHELD_TOL, type CapAnalysis } from './pile-cap';
 import { check, ratioOf, type CheckLine, type RowStatus, type Step, type StepGroup } from './types';
 import type { CapPiles, FootingAdopted, FootingContext, FootingDemand, FootingEdgeResult, FootingRow, StrapResult } from './footing-types';
 
@@ -43,11 +43,13 @@ export function proposeCap(d: FootingDemand, c: FootingContext, code: FootingRow
         const base: CapAdopted = { B: plan.B, L: plan.L, h, ex: plan.ex, ey: plan.ey, x: { dia: 12, spacing: 0.2 }, y: { dia: 12, spacing: 0.2 }, ...dowels,
           piles: { diameter: spec.diameter, length: spec.length, at: plan.piles, bars: { count: bars0.count, dia: bars0.dia }, hoop: bars0.hoop } };
         const probe = analyseCap(d, c, base, code);
-        const pb = pileBars(spec.diameter, probe.result.section.pu, c);
-        const a: CapAdopted = { ...base, ...capMeshes(d, c, base, code), piles: { ...base.piles, bars: { count: pb.count, dia: pb.dia }, hoop: pb.hoop } };
+        const pb = pileBars(spec.diameter, probe.result.section.pu, c, probe.result.tension.factored);
+        const meshed: CapAdopted = { ...base, ...capMeshes(d, c, base, code), piles: { ...base.piles, bars: { count: pb.count, dia: pb.dia }, hoop: pb.hoop } };
+        const tops = capTops(d, c, meshed, code);
+        const a: CapAdopted = tops ? { ...meshed, tops } : meshed;
         last = a;
         const r = analyseCap(d, c, a, code), k = r.result;
-        const soil = Math.max(...k.piles.map((p) => p.service)) <= k.capacity + 1e-6 && Math.min(...k.piles.map((p) => p.service)) >= -1e-6 && k.group.service <= k.group.capacity + 1e-6;
+        const soil = Math.max(...k.piles.map((p) => p.service)) <= k.capacity + 1e-6 && Math.max(k.tension.service, k.tension.factored) <= k.tension.capacity + 1e-6 && k.group.service <= k.group.capacity + 1e-6;
         if (!soil) break;
         if (capHolds(r)) { holds = true; if (!best || volume(a) < volume(best) - 1e-9) best = a; break; }
       }
@@ -79,7 +81,10 @@ function verifications(r: CapAnalysis, a: CapAdopted, c: FootingContext, code: F
   const n = k.piles.length, maxS = Math.max(...k.piles.map((p) => p.service)), minS = Math.min(...k.piles.map((p) => p.service));
   out.push(check(k.source === 'strata' ? 'rcSheets.v.pileStrata' : k.source === 'layers' ? 'rcSheets.v.pileLayers' : 'rcSheets.v.pilePresumed', k.beyond === undefined, { demand: `Ø${fmt(k.diameter * 100, 0)} · L = ${fmt(k.length, 1)} m (−${fmt(k.head, 2)} … −${fmt(k.head + k.length, 2)} m) · Qadm = ${kn(k.capacity)}`, ...(k.beyond !== undefined ? { capacity: `≤ −${fmt(k.beyond, 2)} m` } : {}) }));
   out.push(check('rcSheets.v.pileLoad', maxS <= k.capacity + 1e-6, { clause: '§13.4.1.1', demand: kn(maxS), capacity: kn(k.capacity), ratio: ratioOf(maxS, k.capacity) }));
-  out.push(check('rcSheets.v.pileUplift', minS >= -1e-6 && r.leastFactored >= -1e-6, { clause: '§13.4.1.1', demand: `${kn(minS)} · ${kn(r.leastFactored)}`, capacity: '≥ 0 kN' }));
+  const pull = k.tension;
+  out.push(pull.service > 1e-6 || pull.factored > 1e-6
+    ? check('rcSheets.v.pileTension', pullHolds(pull), { clause: withCriterion('§13.4.1.1, §22.4.3'), demand: `T = ${kn(pull.service)} · Tu = ${kn(pull.factored)}`, capacity: `${fmt(pull.share * 100, 0)} %·Qf = ${kn(pull.capacity)} · φAs·fy = ${kn(pull.phiTn)}`, ratio: Math.max(ratioOf(Math.max(pull.service, pull.factored), pull.capacity), ratioOf(pull.factored, pull.phiTn)) })
+    : check('rcSheets.v.pileUplift', true, { clause: '§13.4.1.1', demand: `${kn(minS)} · ${kn(r.leastFactored)}`, capacity: '≥ 0 kN' }));
   if (r.unheld > PILE_UNHELD_TOL) out.push(check('rcSheets.v.pileLine', false, { clause: CRITERION, demand: `${fmt(r.unheld, 1)} kN·m`, capacity: '0 kN·m' }));
   if (r.tieAsked) out.push(check('rcSheets.v.capTieOnPiles', true, { clause: CRITERION }));
   out.push(check('rcSheets.v.pileGroup', k.group.service <= k.group.capacity + 1e-6, { clause: CRITERION, demand: kn(k.group.service), capacity: `${fmt(k.efficiency, 2)}·${n}·${kn(k.capacity)} = ${kn(k.group.capacity)}`, ratio: ratioOf(k.group.service, k.group.capacity) }));
@@ -105,7 +110,7 @@ function verifications(r: CapAnalysis, a: CapAdopted, c: FootingContext, code: F
     if (between !== null && tie > 1e-9) out.push(check(`rcSheets.v.capSecondary${X}`, between >= CAP_SECONDARY * tie - 1e-6, { clause: CRITERION, demand: `${fmt(CAP_SECONDARY, 2)} · ${cm2(tie)} = ${cm2(CAP_SECONDARY * tie)}`, capacity: cm2(between), ratio: ratioOf(CAP_SECONDARY * tie, between) }));
     out.push(check(`rcSheets.v.footMin${X}`, x.asProvided >= x.asMin - 1e-6, { clause: '§8.6.1.1', demand: cm2(x.asMin), capacity: cm2(x.asProvided) }));
     out.push(check(`rcSheets.v.footSpacing${X}`, m.spacing <= Math.min(0.45, cr.footingMaxSpacing) + 1e-9, { clause: spacingClause(cr.footingMaxSpacing, a.h), demand: cm(m.spacing), capacity: `≤ ${cm(Math.min(0.45, cr.footingMaxSpacing))}` }));
-    if ((x as { mTop?: number }).mTop! > 1e-6 && !k.stm) out.push(check(`rcSheets.v.capTop${X}`, true, { clause: '§13.2.7.1', demand: `${fmt((x as { mTop?: number }).mTop!, 1)} kN·m` }));
+    if (x.top.m > CAP_TOP_TOL) out.push(check(`rcSheets.v.capTop${X}`, x.top.phiMn >= x.top.m - 1e-6, { clause: '§13.2.7.1', demand: `${fmt(x.top.m, 1)} kN·m`, capacity: a.tops?.[x.dir] ? `${meshText(a.tops[x.dir]!)} · φMn = ${fmt(x.top.phiMn, 1)} kN·m` : '—', ratio: ratioOf(x.top.m, x.top.phiMn) }));
   }
   const dMin = Math.min(r.layers.dx, r.layers.dy);
   out.push(check('rcSheets.v.footMinD', dMin >= 0.3 - 1e-9, { clause: '§13.4.6.2', demand: cm(dMin), capacity: '≥ 30,0 cm' }));

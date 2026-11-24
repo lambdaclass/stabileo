@@ -159,6 +159,15 @@ export const bandWidth = (D: number, cover: number, dia: number): number => D + 
 /** The share of a pile's reaction on the far side of a section at signed distance `t` past it (§13.4.6.7): all of it a half diameter past, none a half diameter short, linear between. */
 export const beyondShare = (t: number, D: number): number => Math.max(0, Math.min(1, (t + D / 2) / D));
 
+/** A cap's top face along one axis: the moment that bends it upward, kN·m, the steel it asks and has, cm², and the bars' φMn. */
+export interface CapTop { m: number; as: number; provided: number; phiMn: number }
+
+/** A top moment under this, kN·m, is rounding: no top bars are asked. */
+export const CAP_TOP_TOL = 1;
+
+/** φ of a pile's bars in tension (§21.2.2, tension-controlled). */
+export const PILE_TENSION_PHI = 0.9;
+
 export interface CapAnalysis {
   layers: FootingLayers; lever: number; weight: number;
   cols: CapColumn[];
@@ -169,7 +178,7 @@ export interface CapAnalysis {
   leastFactored: number;
   /** The largest moment, kN·m, about an axis the piles stand in one line along: what no pile load can take. */
   unheld: number;
-  x: FootingDirection; y: FootingDirection;
+  x: FootingDirection & { top: CapTop }; y: FootingDirection & { top: CapTop };
   result: CapResult;
   columnPunching: { vu: number; phiVc: number; utilization: number; bo: number; position: 'interior' | 'edge' | 'corner' } | null;
   dowels: { count: number; dia: number; ldc: number; ldh: number; available: number; lap: number; tension: boolean; above: number; offset: number; area: number; required: number } | null;
@@ -194,6 +203,7 @@ export function analyseCap(d: FootingDemand, c: FootingContext, a: FootingAdopte
   const factored = piles.map((_, i) => Math.max(0, ...byCombo.map((k) => k.R[i]!)));
   const leastFactored = Math.min(...byCombo.flatMap((k) => k.R));
   const unheld = Math.max(sv.unheld, ...byCombo.map((k) => k.unheld));
+  const pull = { service: Math.max(0, -Math.min(...sv.R)), factored: Math.max(0, -leastFactored), shaft: read ? read.shaft : null };
   const phi = 0.75, strip = stripReading(c, a.h, code);
   const plainVc = (beta: number, sides: number, bo: number) => plainPunchingVc(c.fc, beta, alphaOfSides(sides), dd, bo);
   const punching: CapResult['punching'] = [];
@@ -232,7 +242,9 @@ export function analyseCap(d: FootingDemand, c: FootingContext, a: FootingAdopte
   const directions = (['x', 'y'] as const).map((dir) => {
     const W = dir === 'x' ? a.L : a.B, S = dir === 'x' ? a.B : a.L, dD = dir === 'x' ? layers.dx : layers.dy, m = dir === 'x' ? a.x : a.y;
     const faces = cols.flatMap((col) => { const half = (dir === 'x' ? col.b : col.h) / 2, s0 = along(dir, col); return [[s0 + half, 1], [s0 - half, -1]] as Array<[number, 1 | -1]>; });
+    const lines = [...new Set(piles.map((p) => along(dir, p)))].flatMap((s) => [[s, 1], [s, -1]] as Array<[number, 1 | -1]>);
     let mu = 0, mTop = 0, vu = 0, at = 0;
+    for (const k of byCombo) for (const [s, sd] of lines) mTop = Math.max(mTop, -planeMoment(dir, s, sd, k));
     for (const k of byCombo) for (const [s, sd] of faces) {
       const mm = planeMoment(dir, s, sd, k);
       mu = Math.max(mu, mm); mTop = Math.max(mTop, -mm);
@@ -244,9 +256,12 @@ export function analyseCap(d: FootingDemand, c: FootingContext, a: FootingAdopte
     const asMin = prov.AsMin * W, phiMn = strip.capOf(pArea, W, dD);
     const phiVc = strip.vcOf(pArea, W, dD);
     if (!deep) shear.push({ dir, at, vu, phiVc });
+    const top = a.tops?.[dir], dTop = a.h - c.cover - (dir === 'y' && a.tops?.x ? a.tops.x.dia / 1000 : 0) - (top?.dia ?? 16) / 2000;
+    const topArea = top ? meshArea(dir, { B: a.B, L: a.L, ex: 0, ey: 0 }, top, c.cover).area : 0;
+    const topSide = { m: mTop, as: mTop > CAP_TOP_TOL ? strip.asOf(mTop, W, dTop) : 0, provided: topArea, phiMn: topArea > 0 ? strip.capOf(topArea, W, dTop) : 0 };
     const cant = Math.min(...cols.map((col) => Math.min(S / 2 - (along(dir, col) + (dir === 'x' ? col.b : col.h) / 2), along(dir, col) - (dir === 'x' ? col.b : col.h) / 2 + S / 2)));
     const anchorage = layerAnchorage(code.anchorage, { fc: c.fc, fy: c.fy }, m, a.h, cover, Math.max(cant, 0));
-    return { dir, mu, vu, width: W, d: dD, asReq: Math.max(asFlex, asMin), asMin, asProvided: pArea, phiMn, phiVc, anchorage: { ...anchorage, hooked: true, ok: anchorage.ok || !code.anchorage }, mTop } as FootingDirection & { mTop: number };
+    return { dir, mu, vu, width: W, d: dD, asReq: Math.max(asFlex, asMin), asMin, asProvided: pArea, phiMn, phiVc, anchorage: { ...anchorage, hooked: true, ok: anchorage.ok || !code.anchorage }, mTop, top: topSide } as FootingDirection & { mTop: number; top: CapTop };
   });
   let stm: CapResult['stm'] = null;
   if (deep) {
@@ -269,6 +284,7 @@ export function analyseCap(d: FootingDemand, c: FootingContext, a: FootingAdopte
   }
   const Ap = (Math.PI * D * D) / 4, pu = Math.max(0, ...factored);
   const asPile = a.piles.bars.count * barArea(a.piles.bars.dia), asMin = cr.footingPileMinSteel * Ap * 1e4;
+  const tension = { ...pull, capacity: pull.shaft === null ? 0 : cr.footingPileTensionShare * pull.shaft, share: cr.footingPileTensionShare, phiTn: (PILE_TENSION_PHI * c.fy * asPile) / 10 };
   const Po = 0.85 * c.fc * (Ap - asPile * 1e-4) * 1000 + c.fy * asPile * 1e-4 * 1000;
   const service = sv.R, n = piles.length;
   const capFc = c.columnFc ?? c.fc;
@@ -289,24 +305,28 @@ export function analyseCap(d: FootingDemand, c: FootingContext, a: FootingAdopte
     piles: piles.map((p, i) => ({ x: p[0], y: p[1], service: service[i]!, factored: factored[i]! })),
     diameter: D, length: a.piles.length, capacity, head, ...(read?.beyondStrata ? { beyond: bottom } : {}), source: spec.source, efficiency: spec.efficiency, spacing: critOf(c).footingPileSpacing * D, topCover: c.cover,
     group: { service: service.reduce((t, v) => t + v, 0), capacity: spec.efficiency * n * capacity },
-    deep, stm, shear, punching, section: { pu, phiPn: PILE_PHI * 0.8 * Po, as: asPile, asMin },
+    deep, stm, shear, punching, section: { pu, phiPn: PILE_PHI * 0.8 * Po, as: asPile, asMin }, tension,
     tie: tieOn ? { force: tieForce, as: (tieForce * 10) / (0.9 * c.fy) } : null,
   };
   return {
     layers, lever, weight, cols, service, factored, leastFactored: Number.isFinite(leastFactored) ? leastFactored : 0, unheld, tieAsked: d.edge?.balance === 'tie', byCombo: byCombo.map((k) => ({ combo: k.combo, R: k.R })),
-    x: directions[0]!, y: directions[1]!, result, columnPunching, dowels, bearing: { pu: pu1, phiBn }, strap: sv.V > 0 ? { V: sv.V, service: sv.V } : null,
+    x: directions[0]! as FootingDirection & { top: CapTop }, y: directions[1]! as FootingDirection & { top: CapTop }, result, columnPunching, dowels, bearing: { pu: pu1, phiBn }, strap: sv.V > 0 ? { V: sv.V, service: sv.V } : null,
   };
 }
 
 /** Whether the cap holds: every pile under its allowable load and none pulled, service or factored, no moment across a line of piles, the group under its efficiency, each section's shear and punching, the struts and nodes of a deep cap, d ≥ 300 mm (§13.4.6.2). */
 export const capHolds = (r: CapAnalysis, withSteel = true): boolean => {
   const k = r.result;
-  return k.beyond === undefined && Math.max(...k.piles.map((p) => p.service)) <= k.capacity + 1e-6 && Math.min(...k.piles.map((p) => p.service)) >= -1e-6 && r.leastFactored >= -1e-6 && r.unheld <= PILE_UNHELD_TOL && k.group.service <= k.group.capacity + 1e-6
+  return k.beyond === undefined && Math.max(...k.piles.map((p) => p.service)) <= k.capacity + 1e-6 && pullHolds(k.tension) && r.unheld <= PILE_UNHELD_TOL
+    && [r.x, r.y].every((x) => x.top.m <= CAP_TOP_TOL || x.top.phiMn >= x.top.m - 1e-6) && k.group.service <= k.group.capacity + 1e-6
     && k.shear.every((s) => s.vu <= s.phiVc + 1e-6) && k.punching.every((p) => p.vu <= p.phiVc + 1e-6)
     && (!k.stm || (k.stm.theta >= 25 - 1e-9 && k.stm.node.column <= k.stm.node.columnCap + 1e-6 && k.stm.node.pile <= k.stm.node.pileCap + 1e-6))
     && Math.min(r.layers.dx, r.layers.dy) >= 0.3 - 1e-9
     && (!withSteel || k.section.pu <= k.section.phiPn + 1e-6);
 };
+
+/** Whether a pile pulled holds: its pull, service or factored, within the shaft friction the criterion lets it count (none by default, so no pile is pulled in any combination), and its factored pull within its bars. */
+export const pullHolds = (t: CapResult['tension']): boolean => Math.max(t.service, t.factored) <= t.capacity + 1e-6 && t.factored <= t.phiTn + 1e-6;
 
 /** The strength reduction of a cast-in-place pile without a casing (Table 13.4.3.2(a)), the pile the sheets presume. */
 export const PILE_PHI = 0.55;
@@ -315,12 +335,12 @@ export const PILE_PHI = 0.55;
 export const PILE_UNHELD_TOL = 0.5;
 
 /** A pile's bars as columns are, the soil confining it (GA §8.5): at least the criterion's share of its section and six bars, enough that φ·0,80·Po carries the largest factored load (§22.4.2.1, φ of Table 13.4.3.2), and hoops at the code's spacing (§25.7.2.1). */
-export function pileBars(D: number, pu: number, c: Pick<FootingContext, 'fc' | 'fy' | 'criteria'>): CapPiles['bars'] & { hoop: CapPiles['hoop'] } {
+export function pileBars(D: number, pu: number, c: Pick<FootingContext, 'fc' | 'fy' | 'criteria'>, tu = 0): CapPiles['bars'] & { hoop: CapPiles['hoop'] } {
   const Ap = (Math.PI * D * D) / 4, min = critOf(c).footingPileMinSteel * Ap * 1e4;
   for (const dia of PILE_BARS) for (let count = 6; count <= 24; count += 2) {
     const as = count * barArea(dia), Po = 0.85 * c.fc * (Ap - as * 1e-4) * 1000 + c.fy * as * 1e-4 * 1000;
     const pitch = (Math.PI * (D - 2 * PILE_COVER - 0.016 - dia / 1000)) / count;
-    if (as >= min - 1e-9 && PILE_PHI * 0.8 * Po >= pu - 1e-6 && pitch >= 0.1) {
+    if (as >= min - 1e-9 && PILE_PHI * 0.8 * Po >= pu - 1e-6 && (PILE_TENSION_PHI * c.fy * as) / 10 >= tu - 1e-6 && pitch >= 0.1) {
       const hd = dia > 25 ? 10 : 8;
       return { count, dia, hoop: { dia: hd, spacing: Math.floor(Math.min(16 * dia / 1000, 48 * hd / 1000, D, 0.3) / 0.025 + 1e-9) * 0.025 } };
     }
@@ -362,6 +382,21 @@ export function capMeshes(d: FootingDemand, c: FootingContext, a: FootingAdopted
     return out;
   };
   return { x: banded('x', x), y: banded('y', y) };
+}
+
+/** The cap's top bars, along each axis a load off its piles bends it upward on: the lightest mesh of the diameters offered whose φMn takes that moment, the depth read again from the bars chosen. */
+export function capTops(d: FootingDemand, c: FootingContext, a: FootingAdopted & { piles: CapPiles }, code: FootingRowCode): FootingAdopted['tops'] {
+  const all = c.diameters.length ? [...c.diameters] : [12, 16, 20, 25], size = { B: a.B, L: a.L, ex: 0, ey: 0 }, s = footingSpacing(c, a.h).s;
+  let tops: FootingAdopted['tops'] = undefined;
+  for (let k = 0; k < 3; k++) {
+    const r = analyseCap(d, c, { ...a, ...(tops ? { tops } : {}) }, code);
+    const next: NonNullable<FootingAdopted['tops']> = {};
+    for (const x of [r.x, r.y]) if (x.top.m > CAP_TOP_TOL) next[x.dir] = proposeLayer(x.dir, size, x.top.as, s, all, c.cover, true);
+    const done = Object.keys(next).length ? next : undefined;
+    if (JSON.stringify(done) === JSON.stringify(tops)) break;
+    tops = done;
+  }
+  return tops;
 }
 
 export { STEP_H as CAP_STEP_H, MAX_H as CAP_MAX_H, COUNTS as PILE_COUNTS, ceilTo as upCap, r3 as r3Cap };

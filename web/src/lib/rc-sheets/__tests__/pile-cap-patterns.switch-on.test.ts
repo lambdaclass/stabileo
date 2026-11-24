@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { rulesFor } from '../codes';
 import { makeFmt } from '../format';
-import { pilePatterns } from '../pile-cap';
+import { pileBars, pilePatterns } from '../pile-cap';
+import { criteriaOf } from '../criteria';
 import type { FootingContext, FootingDemand, PileSpec } from '../footing-types';
 
 const fmt = makeFmt('.');
@@ -104,5 +105,65 @@ describe('a cap at a property line', () => {
   it('fails where the inner column\'s permanent load cannot hold 1,5 times the strap\'s pull down (GA §8.5)', () => {
     const r = footingRow(edge(100), ctx, undefined, fmt);
     expect(r.verifications.find((v) => v.label === 'rcSheets.v.footStrapPull')!.ok).toBe(false);
+  });
+});
+
+describe('a cap at a property line with no strap, its piles taking the offset', () => {
+  const ground = [{ name: 'clay', thickness: 30, shaftFrictionKPa: 60, tipResistanceKPa: 2000 }];
+  const eccentric = demand(1500, { piles: { ...spec, length: 12, capacity: 0, source: 'layers', strata: ground }, edge: { anchor: [1, 0], source: 'lines', balance: 'eccentric', partners: [] } });
+  const counted = { ...ctx, criteria: criteriaOf({ footingPileTensionShare: 70 }) };
+
+  it('cannot stand the column past its piles where no shaft is counted in tension, and says the pile is pulled', () => {
+    const r = footingRow(eccentric, ctx, undefined, fmt);
+    expect(r.verifications.find((v) => v.label === 'rcSheets.v.pileTension')?.ok).toBe(false);
+  });
+
+  it('stands the column past its piles, on the cap carried out to the line, a far pile pulled, and bars its top for the moment that bends it upward', () => {
+    const r = footingRow(eccentric, counted, undefined, fmt);
+    expect(r.cap!.tension.service).toBeGreaterThan(0);
+    expect(r.verifications.find((v) => v.label === 'rcSheets.v.pileTension')?.ok).toBe(true);
+    expect(r.ex + r.B / 2).toBeCloseTo(0.25, 9);
+    expect(Math.max(...r.cap!.piles.map((p) => p.x + r.ex))).toBeLessThanOrEqual(0.25 - 0.5 + 1e-9);
+    const top = r.verifications.find((v) => v.label === 'rcSheets.v.capTopX');
+    expect(top?.ok).toBe(true);
+    expect(r.adopted.tops?.x).toBeDefined();
+    expect(r.status, r.verifications.filter((v) => !v.ok).map((v) => v.label).join(', ')).toBe('ok');
+  });
+
+  it('draws and schedules the top bars the cap was given', async () => {
+    const { footingDetail } = await import('../footing-detail');
+    const r = footingRow(eccentric, counted, undefined, fmt);
+    const det = footingDetail(r, rulesFor('cirsoc201-2025').bends);
+    expect(det.tops.map((l) => l.dir)).toContain('x');
+    expect(det.tops[0]!.z).toBeGreaterThan(r.h / 2);
+  });
+});
+
+describe('a pile pulled', () => {
+  const strata = [{ name: 'clay', thickness: 30, shaftFrictionKPa: 40, tipResistanceKPa: 1000 }];
+  const layered: PileSpec = { ...spec, length: 10, capacity: 0, source: 'layers', strata };
+  const gravity = demand(1500, { piles: layered });
+  const windy = demand(1500, { piles: layered, combos: [...gravity.combos, { combo: '0.9D+1.6W', N: 600, Mx: 0, My: 900, Vx: 0, Vy: 0 }] });
+  const shaft = (head: number) => Math.PI * 0.5 * 40 * 10 + 0 * head;
+
+  it('holds on the share of its shaft friction the criterion counts, and on bars sized for its factored pull', () => {
+    const still = footingRow(gravity, ctx, undefined, fmt);
+    const held = { ...still.adopted } as never;
+    const counted = { ...ctx, criteria: criteriaOf({ footingPileTensionShare: 70 }) };
+    const r = footingRow(windy, counted, held, fmt), t = r.cap!.tension;
+    expect(t.factored).toBeGreaterThan(0);
+    expect(t.shaft).toBeCloseTo(shaft(0), 6);
+    expect(t.capacity).toBeCloseTo(0.7 * shaft(0), 6);
+    const v = r.verifications.find((x) => x.label === 'rcSheets.v.pileTension')!;
+    expect(v.ok).toBe(t.service <= t.capacity + 1e-6 && t.factored <= t.phiTn + 1e-6);
+    const bars = pileBars(0.5, 0, ctx, 400);
+    expect(0.9 * 420 * bars.count * Math.PI * (bars.dia / 20) ** 2 / 10).toBeGreaterThanOrEqual(400 - 1e-6);
+  });
+
+  it('counts no shaft in tension where the ground is not stated by depth', () => {
+    const still = footingRow(demand(1500), ctx, undefined, fmt);
+    const r = footingRow(demand(1500, { combos: [{ combo: 'u', N: 2100, Mx: 0, My: 0, Vx: 0, Vy: 0 }, { combo: '0.9D+1.6W', N: 600, Mx: 0, My: 900, Vx: 0, Vy: 0 }] }), { ...ctx, criteria: criteriaOf({ footingPileTensionShare: 70 }) }, { ...still.adopted } as never, fmt);
+    expect(r.cap!.tension.shaft).toBeNull();
+    expect(r.cap!.tension.capacity).toBe(0);
   });
 });

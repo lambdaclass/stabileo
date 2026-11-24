@@ -36,8 +36,8 @@ export function footingPlanPrimitives(det: FootingDetail, o: FootingPlanOptions,
     for (const p of l.positions) ps.push(l.dir === 'x' ? seg(a, pt(l.from * K, p * K), pt(l.to * K, p * K), l.dia) : seg(a, pt(p * K, l.from * K), pt(p * K, l.to * K), l.dia));
     if (l.band) for (const b of [l.band.lo, l.band.hi]) ps.push(l.dir === 'x' ? seg(HORM, pt(-B / 2, b * K), pt(B / 2, b * K)) : seg(HORM, pt(b * K, -L / 2), pt(b * K, L / 2)));
   }
-  if (det.top) {
-    const t = det.top, a = arm(t.dir === 'x' ? 'SUPX' : 'SUPY', t.dia);
+  for (const t of det.tops) {
+    const a = arm(t.dir === 'x' ? 'SUPX' : 'SUPY', t.dia);
     for (const p of t.positions) ps.push(t.dir === 'x' ? seg(a, pt(t.from * K, p * K), pt(t.to * K, p * K), t.dia) : seg(a, pt(p * K, t.from * K), pt(p * K, t.to * K), t.dia));
   }
   for (const c of [det.column, det.second]) if (c) ps.push(rect(HORM, c.x0 * K, c.y0 * K, c.x1 * K, c.y1 * K));
@@ -72,9 +72,10 @@ export function footingSectionPrimitives(det: FootingDetail, row: FootingRow, o:
   const ped = pedestalRect(det, row), P = Math.min(row.pedestal * K, over + 100);
   for (const c of [det.column, det.second]) if (c) ps.push(rect(HORM, c.x0 * K, H + (c === det.column && ped ? P : 0), c.x1 * K, H + over + 100));
   if (ped && P > 0) ps.push(rect(HORM, ped.x0 * K, H, ped.x1 * K, H + P));
-  const leg = (l: FootingLayerBars) => Math.abs(l.shape.pts.find((q) => Math.abs(q[1]) > 1e-9)?.[1] ?? 0) * K * (l === det.top ? -1 : 1);
-  for (const l of [...det.layers, ...(det.top ? [det.top] : [])]) {
-    const a = arm(l === det.top ? 'SUPX' : layerOf(l.dir), l.dia), z = l.z * K, up = leg(l);
+  const isTop = (l: FootingLayerBars) => det.tops.includes(l);
+  const leg = (l: FootingLayerBars) => Math.abs(l.shape.pts.find((q) => Math.abs(q[1]) > 1e-9)?.[1] ?? 0) * K * (isTop(l) ? -1 : 1);
+  for (const l of [...det.layers, ...det.tops]) {
+    const a = arm(isTop(l) ? (l.dir === 'x' ? 'SUPX' : 'SUPY') : layerOf(l.dir), l.dia), z = l.z * K, up = leg(l);
     if (l.dir === 'x') {
       ps.push({ kind: 'polyline', layer: a, points: [...(l.ends[0] ? [pt(l.from * K, z + up)] : []), pt(l.from * K, z), pt(l.to * K, z), ...(l.ends[1] ? [pt(l.to * K, z + up)] : [])], dia: l.dia });
     } else for (const p of l.positions) ps.push({ kind: 'circle', layer: a, c: pt(p * K, z), r: l.dia / 2, fill: true, dia: l.dia });

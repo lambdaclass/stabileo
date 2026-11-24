@@ -105,8 +105,8 @@ export function footingBars3d(r: FootingRow, all: readonly FootingRow[], columns
   const f = frames.footing(r);
   if (f && !r.uncovered) {
     const det = footingDetail(r, R);
-    for (const l of [...det.layers, ...(det.top ? [det.top] : [])]) {
-      const kind = l === det.top ? 'footingTop' as const : l.dir === 'x' ? 'footingX' as const : 'footingY' as const;
+    for (const l of [...det.layers, ...det.tops]) {
+      const kind = det.tops.includes(l) ? 'footingTop' as const : l.dir === 'x' ? 'footingX' as const : 'footingY' as const;
       for (const p of l.positions) {
         const place = (u: number, v: number): [number, number, number] => (l.dir === 'x' ? [l.from + u, p, l.z + v] : [p, l.from + u, l.z + v]);
         out.push(barOf(l.shape, laid(l.shape, f, place), { ...base, kind, tone: kind, set: `${r.key}:${kind}` }));

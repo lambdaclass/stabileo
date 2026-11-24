@@ -108,9 +108,9 @@ describe('a cap\'s piles under factored loads', () => {
     expect(r.B * r.L).toBeGreaterThan(still.B * still.L);
     const held = { ...r.adopted };
     const pulled = footingRow(windy, ctx, { ...held, B: still.B, L: still.L, piles: (still.adopted as typeof held).piles } as never, fmt);
-    const v = pulled.verifications.find((x) => x.label === 'rcSheets.v.pileUplift')!;
+    const v = pulled.verifications.find((x) => x.label === 'rcSheets.v.pileTension')!;
     expect(v.ok).toBe(false);
-    expect(v.demand).toMatch(/· -/);
+    expect(v.capacity).toMatch(/^0 %/);
   });
 
   it('size a cast-in-place pile with φ = 0,55 (Table 13.4.3.2)', () => {
