@@ -192,29 +192,73 @@ it('#2277 a recorded plane roller retains its plane and embedded answers', async
   }
 });
 
-const issue2304 = process.env.RUN_KNOWN_WRONG === '2304' ? it : it.skip;
-issue2304('known wrong result: #2304 a native Y roller survives a snapshot and can be edited to release global Z', () => {
+const yRoller = { tx: true, ty: false, tz: true, rx: true, ry: true, rz: false };
+const loadCase = { id: 1, type: 'D' as const, name: 'Applied load' };
+const combination = { id: 1, name: 'Applied load only', factors: [{ caseId: loadCase.id, factor: 1 }] };
+const appliedZ = -1;
+
+function nativeBearing(nonlinear = false) {
   const root = modelStore.addNode(0, 0, 0);
   const tip = modelStore.addNode(4, 0, 0);
   modelStore.addElement(root, tip);
-  modelStore.addSupport(root, 'fixed3d');
-  const yRoller = { tx: true, ty: false, tz: true, rx: true, ry: true, rz: false };
+  modelStore.addSupportEntry({ nodeId: root, type: 'fixed3d', ...(nonlinear ? { uplift: true } : {}) });
   const id = modelStore.addSupportEntry({ nodeId: tip, type: 'rollerY', dofRestraints: yRoller });
-  const load = -1;
-  modelStore.addNodalLoad3D(tip, 0, 0, load, 0, 0, 0);
-  const tipReaction = () => {
-    const solved = validateAndSolve3D(modelStore.model);
-    if (!solved || typeof solved === 'string') throw new Error(String(solved));
-    return solved.reactions.find(reaction => reaction.nodeId === tip)?.fz ?? 0;
-  };
+  modelStore.addNodalLoad3D(tip, 0, 0, appliedZ, 0, 0, 0, loadCase.id);
+  return { tip, id };
+}
+
+function tipReaction(tip: number): number {
+  const solved = validateAndSolve3D(modelStore.model);
+  if (!solved || typeof solved === 'string') throw new Error(String(solved));
+  return solved.reactions.find(reaction => reaction.nodeId === tip)?.fz ?? 0;
+}
+
+it('#2304 a native Y roller survives a snapshot and can be edited to release global Z', () => {
+  const { tip, id } = nativeBearing();
   expect(supportAt(tip).type).toBe('rollerY');
-  expect(tipReaction()).toBeCloseTo(-load, 12);
+  expect(tipReaction(tip)).toBeCloseTo(-appliedZ, 12);
   const snapshot = modelStore.snapshot();
   expect.soft(new Map(snapshot.supports).get(id)?.type).toBe('rollerY');
-  modelStore.restore(snapshot);
+  modelStore.restore(JSON.parse(JSON.stringify(snapshot)));
   expect.soft(supportAt(tip).type).toBe('rollerY');
   modelStore.updateSupport(id, { type: 'rollerZ' });
-  expect.soft(tipReaction()).toBeCloseTo(0, 12);
+  expect.soft(validateAndSolve3D(modelStore.model)).toMatch(ambiguous);
   modelStore.updateSupport(id, { type: 'rollerZ', dofRestraints: verticalSlider });
-  expect(tipReaction()).toBeCloseTo(0, 12);
+  expect(tipReaction(tip)).toBeCloseTo(0, 12);
+});
+
+for (const nonlinear of [false, true]) {
+  it(`#2304 a type-only Z edit refuses an old relabelled snapshot (nonlinear=${nonlinear})`, async () => {
+    const { tip, id } = nativeBearing(nonlinear);
+    const snapshot = modelStore.snapshot();
+    snapshot.supports = snapshot.supports.map(([key, support]) =>
+      [key, key === id ? { ...support, type: 'rollerZ' } : support]);
+    modelStore.restore(snapshot);
+    expect(hasNonlinearBehaviour(modelStore.model)).toBe(nonlinear);
+    expect(tipReaction(tip)).toBeCloseTo(-appliedZ, 12);
+    modelStore.updateSupport(id, { type: 'rollerZ' });
+    const model = modelStore.model;
+    expect.soft(() => buildSolverInput3D(model)).toThrow(ambiguous);
+    expect.soft(validateAndSolve3D(model)).toMatch(ambiguous);
+    expect.soft(await validateAndSolve3DAsync(model)).toMatch(ambiguous);
+    expect.soft(solveCombinations3D(model, [loadCase], [combination])).toMatch(ambiguous);
+    expect.soft(await solveCombinations3DParallel(model, [loadCase], [combination])).toMatch(ambiguous);
+    modelStore.updateSupport(id, { type: 'rollerZ', dofRestraints: verticalSlider });
+    modelStore.updateSupport(id, { type: 'rollerZ' });
+    expect(tipReaction(tip)).toBeCloseTo(0, 12);
+  });
+}
+
+it('#2304 a recorded plane Y alias keeps its plane reaction after snapshot replay', () => {
+  uiStore.analysisMode = '2d';
+  const root = modelStore.addNode(0, 0);
+  const tip = modelStore.addNode(4, 0);
+  modelStore.addElement(root, tip);
+  modelStore.addSupportEntry({ nodeId: root, type: 'fixed' });
+  modelStore.addSupportEntry({ nodeId: tip, type: 'rollerY' });
+  modelStore.addNodalLoad(tip, appliedZ, 0);
+  modelStore.restore(modelStore.snapshot());
+  const result = validateAndSolve2D(modelStore.model);
+  if (!result || typeof result === 'string') throw new Error(String(result));
+  expect(result.reactions.find(r => r.nodeId === tip)?.rx).toBeCloseTo(-appliedZ, 12);
 });

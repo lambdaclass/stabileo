@@ -1,4 +1,5 @@
-import { featureDefines, featuresForMode, type BuildFeatures } from './config/public-features.mjs';
+import { proPlatesSource } from './scripts/pro-plates-source.mjs';
+import { featureDefines, featuresForMode, unitFeatureProfile, type BuildFeatures } from './config/public-features.mjs';
 import { defineConfig, searchForWorkspaceRoot, type Plugin, type UserConfig } from 'vite';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 import { copyFileSync, cpSync, existsSync, readFileSync } from 'fs';
@@ -10,6 +11,7 @@ import { buildPublicLocales } from './src/lib/i18n/offered-research';
 import { resultChangeMetadataPlugin } from './scripts/result-change-metadata.mjs';
 import { prunePublicBuildBranches } from './scripts/prune-public-build-branches.mjs';
 import { researchLocaleBuildPlugin } from './scripts/research-locale-build.mjs';
+import { sharedSwitchOnUnitFiles, switchOnUnitFiles } from './scripts/switch-on-unit.mjs';
 import { blogTranslations } from './scripts/blog-translations';
 
 /**
@@ -51,7 +53,10 @@ function publicBuildSwitchesPlugin(featureConfig: unknown) {
     name: 'public-build-switches',
     config(_config, { mode, command }) {
       testing = !!process.env.VITEST && command === 'serve';
-      features = featuresForMode(testing ? 'test' : mode, featureConfig);
+      const profile = testing ? unitFeatureProfile()
+        : command === 'build' && process.env.VITE_E2E === '1' ? process.env.STABILEO_E2E_PROFILE || mode
+        : mode;
+      features = featuresForMode(profile, featureConfig);
       const define = featureDefines(features, command === 'build');
       if (testing) return { environments: { client: { define } } };
       if (command === 'build' && mode === 'production' && process.env.STABILEO_ROUTE_BUDGET_LEGACY === '1') {
@@ -70,50 +75,64 @@ function publicBuildSwitchesPlugin(featureConfig: unknown) {
   return { plugin, features: () => features, testing: () => testing };
 }
 
-function publicI18nPlugin(features: () => BuildFeatures, eager: () => boolean): Plugin {
+function publicI18nPlugin(features: () => BuildFeatures, eager: () => boolean, read: (path: string) => string): Plugin {
   const id = 'virtual:public-i18n';
   const app = 'virtual:app-i18n';
-  const offered = (code: string) => buildPublicLocales(features().research).some(locale => locale === code);
-  const entries = (loc: string, publicOnly: boolean, watch: (file: string) => void) => {
+  const mesher = 'virtual:mesher-i18n';
+  const locales = () => buildPublicLocales(features().research);
+  const offered = (code: string) => locales().some(locale => locale === code);
+  const entries = (loc: string, dictionary: 'public' | 'app' | 'mesher', watch: (file: string) => void) => {
     const file = resolve(__dirname, 'src/lib/i18n/locales', `${loc}.ts`);
     watch(file);
-    const lines = readFileSync(file, 'utf8').split('\n').filter((l) => {
-      const m = /^\s*(['"])([^'"]+)\1: /.exec(l);
-      if (!m) return false;
-      if (!eager() && !ADMIN && m[2].startsWith('admin.')) return false;
-      if (!eager() && !features().tools && /^(?:advanced\.mohr$|advHelp\.mohr\.|stress\.openMohr$)/.test(m[2])) return false;
-      if (!eager() && !ADMIN && !features().accounts && m[2].startsWith('disclaimer.') && m[2] !== 'disclaimer.report') return false;
-      if (!eager() && !ADMIN && !features().accounts && /^(?:account\.|legal\.|cloud\.|feedbackForm\.|usage\.|landing\.foot(?:Terms|Privacy|AdCookies)$)/.test(m[2])) return false;
-      if (!features().diagramGame && m[2] === 'landing.navGame') return false;
-      const publicEntry = PUBLIC_KEY_PREFIXES.some(prefix => m[2].startsWith(prefix))
-        && (!/^(?:legal\.|landing\.foot(?:Terms|Privacy|AdCookies)$)/.test(m[2]) || features().accounts);
-      return publicEntry === publicOnly;
+    const pruneEntries = !eager();
+    const { accounts, diagramGame, proPlatesUnified, tools } = features();
+    const lines = read(file).split('\n').filter((line) => {
+      const key = /^\s*(['"])([^'"]+)\1: /.exec(line)?.[2];
+      if (!key) return false;
+      if (proPlatesUnified && key.startsWith('mesher.')) return dictionary === 'mesher';
+      if (dictionary === 'mesher') return false;
+      const publicAccountEntry = /^(?:legal\.|landing\.foot(?:Terms|Privacy|AdCookies)$)/.test(key);
+      if (pruneEntries) {
+        if (!ADMIN && key.startsWith('admin.')) return false;
+        if (!tools && /^(?:advanced\.mohr$|advHelp\.mohr\.|stress\.openMohr$)/.test(key)) return false;
+        if (!ADMIN && !accounts) {
+          if (key.startsWith('disclaimer.') && key !== 'disclaimer.report') return false;
+          if (publicAccountEntry || /^(?:account\.|cloud\.|feedbackForm\.|usage\.)/.test(key)) return false;
+        }
+        if (!diagramGame && key === 'landing.navGame') return false;
+      }
+      const publicEntry = PUBLIC_KEY_PREFIXES.some(prefix => key.startsWith(prefix)) && (!publicAccountEntry || accounts);
+      return publicEntry === (dictionary === 'public');
     });
     return `{\n${lines.join('\n')}\n}`;
   };
   return {
     name: 'public-i18n',
     resolveId(s) {
-      return [id, app].some((v) => s === v || s.startsWith(`${v}/`)) ? '\0' + s : null;
+      return s === mesher || [id, app].some((v) => s === v || s.startsWith(`${v}/`)) ? '\0' + s : null;
     },
     load(resolved) {
       const watch = (f: string) => this.addWatchFile(f);
-      if (resolved.startsWith(`\0${id}/`)) return `export default ${entries(resolved.slice(id.length + 2), true, watch)};\n`;
+      if (resolved === '\0' + mesher && features().proPlatesUnified) {
+        const dictionaries = locales().map(loc => `${loc}: ${entries(loc, 'mesher', watch)}`);
+        return `export default {${dictionaries.join(',')}};\n`;
+      }
+      if (resolved.startsWith(`\0${id}/`)) return `export default ${entries(resolved.slice(id.length + 2), 'public', watch)};\n`;
       if (resolved === `\0${app}` || resolved.startsWith(`\0${app}/`)) {
         const locale = resolved.slice(app.length + 2);
-        return (locale ? [locale] : ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu'])
-          .map((loc) => `export const ${loc} = ${offered(loc) ? entries(loc, false, watch) : '{}'};\n`).join('');
+        return (locale ? [locale] : ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu', 'zh'])
+          .map((loc) => `export const ${loc} = ${offered(loc) ? entries(loc, 'app', watch) : '{}'};\n`).join('');
       }
       if (resolved !== '\0' + id) return null;
       let out = '';
       const lazy: string[] = [];
-      for (const loc of ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu']) {
+      for (const loc of ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu', 'zh']) {
         if (!offered(loc) || (!eager() && loc !== 'en')) {
           out += `export const ${loc} = {};\n`;
           if (offered(loc)) lazy.push(`${loc}: () => import(${JSON.stringify(`${id}/${loc}`)})`);
           continue;
         }
-        out += `export const ${loc} = ${entries(loc, true, watch)};\n`;
+        out += `export const ${loc} = ${entries(loc, 'public', watch)};\n`;
       }
       return out + `export const loaders = {${lazy.join(', ')}};\n`;
     },
@@ -126,6 +145,9 @@ function publicI18nPlugin(features: () => BuildFeatures, eager: () => boolean): 
 // determinism/ is a Playwright suite of its own (determinism/playwright.config.ts).
 // scripts/*.test.mjs are node:test suites (the Research workflow runs them with node --test).
 const NOT_VITEST = ['**/node_modules/**', '**/dist/**', 'e2e/**', 'determinism/**', '**/.stryker-tmp/**', 'scripts/**/*.test.mjs'];
+
+const EXCLUDED_SWITCH_ON_UNIT_TESTS = process.env.STABILEO_UNIT_PROFILE === 'production' ? switchOnUnitFiles : [];
+const INCLUDED_SWITCH_ON_UNIT_TESTS = [...switchOnUnitFiles, ...sharedSwitchOnUnitFiles];
 
 /**
  * Tests that shell out to a real build or another project script, plus timing budgets
@@ -242,6 +264,19 @@ function adminRootPlugin(): Plugin {
   };
 }
 
+function previewAuthConfigPlugin(): Plugin {
+  const body = JSON.stringify({ user_login_enabled: false, terms_version: null, usage_telemetry_enabled: false, cloud_projects_enabled: false, save_requires_account: false, google_login: false });
+  return {
+    name: 'preview-auth-config',
+    configurePreviewServer(server) {
+      server.middlewares.use('/api/v1/auth/config', (_req, res) => {
+        res.setHeader('Content-Type', 'application/json');
+        res.end(body);
+      });
+    },
+  };
+}
+
 /** The commit this bundle is built from, for the project workbook's cover (`lib/build-info.ts`). */
 function buildCommit(): string {
   if (process.env.GITHUB_SHA) return process.env.GITHUB_SHA.slice(0, 12);
@@ -269,17 +304,20 @@ const preloads = loadedPreloads();
 
 export function createWebConfig(featureConfig?: unknown): UserConfig {
   const switches = publicBuildSwitchesPlugin(featureConfig);
+  const plates = proPlatesSource(() => switches.features().proPlatesUnified);
   return {
     ...baseConfig,
+    worker: { ...baseConfig.worker, plugins: () => [plates.plugin, wasmStubPlugin()] },
     plugins: [
       switches.plugin,
+      plates.plugin,
       researchLocaleBuildPlugin(switches.features),
       preloads.plugin,
       wasmStubPlugin(),
-      publicI18nPlugin(switches.features, switches.testing),
-      resultChangeMetadataPlugin(),
+      publicI18nPlugin(switches.features, switches.testing, plates.read),
+      resultChangeMetadataPlugin(() => switches.features().proPlatesUnified),
       svelte({ preprocess: { markup: ({ content }) => switches.testing() ? { code: content } : prunePublicBuildBranches(content, switches.features()) } }),
-      ...(ADMIN ? [adminRootPlugin(), adminPublicAssetsPlugin()] : []),
+      ...(ADMIN ? [adminRootPlugin(), adminPublicAssetsPlugin()] : [previewAuthConfigPlugin()]),
     ],
   };
 }
@@ -327,7 +365,8 @@ const baseConfig = defineConfig({
           name: 'unit',
           setupFiles: ['./vitest.setup.ts'],
           // Everything except the production-build tests, which get their own pass.
-          exclude: [...NOT_VITEST, ...PRODUCTION_BUILD_TESTS, ...RESULTS_SNAPSHOT_TESTS],
+          exclude: [...NOT_VITEST, ...PRODUCTION_BUILD_TESTS, ...RESULTS_SNAPSHOT_TESTS, ...EXCLUDED_SWITCH_ON_UNIT_TESTS],
+          ...(process.env.STABILEO_UNIT_PROFILE === 'test' ? { include: INCLUDED_SWITCH_ON_UNIT_TESTS } : {}),
           // THREADS, NOT FORKS — and this is the line that fixed the RPC timeout.
           //
           // `onTaskUpdate` is the worker → coordinator RPC, and birpc gives it a SIXTY

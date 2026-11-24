@@ -46,12 +46,12 @@ const tr = (k: string) => k;
 const beamCtxs = () => [...verificationStore.contexts.values()].filter((c) => c.elementType === 'beam');
 const columnCtxs = () => [...verificationStore.contexts.values()].filter((c) => c.elementType === 'column');
 
-describe('feasible: the span fixture on 40×40 columns', () => {
+describe('feasible: the span fixture on 40×40 columns with prescribed zero beam torque', () => {
   const MESHES = [1, 0.5, 2, 6] as const;
   const runs = new Map<number, { coherence: ReturnType<typeof anchorageCoherence>; recorded: number; refused: number; columns: number }>();
   beforeAll(() => {
     for (const mesh of MESHES) {
-      building(mesh, { columnSide: 0.4 });
+      building(mesh, { columnSide: 0.4, prescribedZeroBeamTorque: true });
       const doc = designAndDocument();
       const bars = doc.assemblies.flatMap((a) => a.bars);
       runs.set(mesh, {
@@ -81,7 +81,7 @@ describe('feasible: the span fixture on 40×40 columns', () => {
 
   it('holds no beam for its anchorage in the document, the memoria, the IFC or the workbook', () => {
     // The last mesh built is 6 m; read the 1 m one, V2 the beam the trace follows.
-    building(1, { columnSide: 0.4 });
+    building(1, { columnSide: 0.4, prescribedZeroBeamTorque: true });
     const doc = designAndDocument();
     expect((doc.openIssues ?? []).filter((i) => i.key === 'detailing.anchorage.unresolved' || i.key === 'detailing.cover.violated')).toEqual([]);
     const memo = memoriaInput(tr, 'es');
@@ -100,10 +100,10 @@ describe('feasible: the span fixture on 40×40 columns', () => {
   });
 });
 
-describe('exhausted: the span fixture on its 30×30 columns', () => {
+describe('exhausted: the span fixture on its 30×30 columns with prescribed zero beam torque', () => {
   let doc: DocumentModel;
   beforeAll(() => {
-    building(1);
+    building(1, { prescribedZeroBeamTorque: true });
     doc = designAndDocument();
   }, 600_000);
 

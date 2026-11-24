@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import * as spacing from '../../../codes/cirsoc201/spacing';
+import { anchorageFunctions } from '../../../codes/cirsoc201/anchorage';
+import { beamGroups, envelopeStations, hoggingAtSupports } from '../beam-groups';
+import { generateBeamBars } from '../generate-beam';
 import { layerCentroid } from '../../station-design-forces';
 import { modelStore } from '../../../store/model.svelte';
 import { uiStore } from '../../../store/ui.svelte';
@@ -90,7 +93,7 @@ describe('the blog beam, designed and laid as the embed runs it', () => {
 });
 
 describe('a pin–fixed beam with mixed top layers', () => {
-  it('lays the second Ø10 layer 36 mm below the Ø12 pair, the depth the design verified, and conforms', async () => {
+  it('holds the shear-depth refusal and lays the candidate’s second Ø10 layer 36 mm below the Ø12 pair in isolation', async () => {
     resetDesign();
     await modelStore.loadExample('layer-stepping', async () => ({
       ...blogBeam,
@@ -102,14 +105,33 @@ describe('a pin–fixed beam with mixed top layers', () => {
     await solveAndDesignBeam();
 
     const o = verificationStore.outcomeFor(1)!;
-    expect(o.outcome).toBe('VERIFIED');
-    const reg = o.accepted!.regions!;
+    expect(o.outcome).toBe('UNSUPPORTED');
+    expect(o.reasons).toContainEqual({ key: 'diag.rcShearDepth' });
+    expect(o.accepted).toBeUndefined();
+    const candidate = o.provisional!.candidate;
+    const reg = candidate.regions!;
     expect(reg.topStartLayers).toEqual([{ count: 4, diameter: 10, row: 0 }, { count: 2, diameter: 10, row: 1 }]);
     expect(reg.topEndLayers).toEqual([{ count: 4, diameter: 12, row: 0 }, { count: 4, diameter: 12, row: 1 }]);
 
     // As laid: the pair's run and the start's second layer, their centres along the up axis.
-    const assemblies = modelStore.model.detailing?.assemblies ?? detailingStore.assemblies;
-    const bars = assemblies.flatMap((a) => a.bars);
+    const ctx = verificationStore.contextFor(1)!;
+    const { cover, fc, fy } = ctx.material;
+    const edition = '2025';
+    const maxAggregateSizeMm = ctx.material.maxAggregateSize.value;
+    const stations = envelopeStations(ctx);
+    const groups = beamGroups(candidate, { ctx, edition, maxAggregateSizeMm, hogging: hoggingAtSupports(ctx) })!;
+    const support = reg.stirrupsSupport!, span = reg.stirrupsSpan!;
+    const stirrupDia = Math.max(support.diameter, span.diameter);
+    const region = (reg.regionT ?? 0.25) * ctx.L;
+    const { bars } = generateBeamBars({
+      ...groups, elementId: 1, L: ctx.L, b: ctx.section.b, h: ctx.section.h,
+      d: ctx.section.h - cover - stirrupDia / 1000, cover, stirrupDia, fc, fy, maxAggregateSizeMm, edition,
+      stations, supportI: 'simple', supportJ: 'continuous', vn: Math.max(...stations.map(s => s.v)),
+      lateralSystem: true, ld: anchorageFunctions({ fy, fc, favourableSpacing: true, psiT: 1.3, edition }).ld,
+      origin: { x: 0, y: 0, z: 0 }, axis: { x: 1, y: 0, z: 0 }, up: { x: 0, y: 0, z: 1 },
+      bentUp: { seismicDesign: 'unstated', optOut: false },
+      designedStirrups: { support, span, regionI: region, regionJ: region },
+    });
     const runZ = (id: string) => {
       const b = bars.find((x) => x.id === id)!;
       const s = b.segments.find((g) => g.kind === 'straight' && Math.abs(g.start.z - g.end.z) < 1e-9)!;
@@ -125,8 +147,7 @@ describe('a pin–fixed beam with mixed top layers', () => {
 
     // The design's step, from the centroid the verifier reads for the start top: two bars at the
     // pair's seat, two at the Ø10 seat, two in the second layer.
-    const ctx = verificationStore.contextFor(1)!;
-    const cover = ctx.material.cover, st = ctx.material.stirrupDia;
+    const st = ctx.material.stirrupDia;
     const s = (d: number) => cover + st / 1000 + d / 2000;
     const centroid = layerCentroid(reg.topStartLayers!, cover, st, { diameterMm: 12, count: 2 });
     const designRow1 = (6 * centroid - 2 * s(12) - 2 * s(10)) / 2;
@@ -137,10 +158,9 @@ describe('a pin–fixed beam with mixed top layers', () => {
     const bottom1 = bars.filter((b) => b.layerId === 'e1:bottom:1').map((b) => runZ(b.id).z);
     expect((bottom1[0]! - bottom0[0]!) * 1000).toBeCloseTo(35, 6);
 
-    // Nothing left unresolved, and both members conform.
-    const unresolved = assemblies.flatMap((a) => a.unsupported ?? []).filter((u) => u.key === 'detailing.clash.unresolved');
-    expect(unresolved).toEqual([]);
-    expect(verificationStore.getDisplayStatus(1)).toBe('ok');
-    expect(verificationStore.getDisplayStatus(2)).toBe('ok');
+    const assemblies = modelStore.model.detailing?.assemblies ?? detailingStore.assemblies;
+    expect(assemblies.flatMap(a => a.bars)).toEqual([]);
+    expect(verificationStore.getDisplayStatus(1)).toBe('unavailable');
+    expect(verificationStore.getDisplayStatus(2)).toBe('unavailable');
   }, 120_000);
 });

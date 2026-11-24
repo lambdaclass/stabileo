@@ -209,7 +209,38 @@ export interface SlabPanelReinforcement {
   bands: SlabBand[];
 }
 
+export const drawnBeamReinforcement = Symbol('drawnBeamReinforcement');
+
+export interface StirrupInterval extends StirrupDef {
+  from: number;
+  to: number;
+}
+
+export interface DrawnBarPlacement {
+  seats: number;
+  slots: readonly number[];
+  besideMm?: number;
+  mirrored?: boolean;
+}
+
+export interface DrawnBarEnds {
+  start: { t: number; straightT: number; hook: boolean };
+  end: { t: number; straightT: number; hook: boolean };
+}
+
+interface DrawnBeamReinforcement {
+  memberLength: number;
+  lineMembers: readonly number[];
+  stirrups: readonly StirrupInterval[];
+  bars: ReadonlyArray<{
+    face: 'top' | 'bottom'; row: number; diameter: number; from: number; to: number;
+    ends: DrawnBarEnds;
+    place: DrawnBarPlacement;
+  }>;
+}
+
 export interface ProvidedReinforcement {
+  [drawnBeamReinforcement]?: DrawnBeamReinforcement;
   // ─── Beam reinforcement (region-aware) ───
   regions?: BeamRegions;
   // ─── Beam reinforcement (legacy element-global, backward compatible) ───

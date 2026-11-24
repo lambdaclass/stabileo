@@ -381,12 +381,7 @@
       border-left: none;
       border-top: 1px solid var(--st-hair-strong);
       border-radius: 12px 12px 0 0;
-      animation: bp-sheet-up 0.25s ease;
-    }
-
-    @keyframes bp-sheet-up {
-      from { transform: translateY(100%); }
-      to { transform: translateY(0); }
+      animation: st-sheet-slide-up 0.25s ease;
     }
 
     /* A horizontal drag on the leading edge cannot widen a full-width sheet. */

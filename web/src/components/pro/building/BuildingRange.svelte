@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { planNamesIn } from '../../../lib/axes/typed-frame';
   /**
    * Where a placement goes on the grid: between two axes in X, two in Y, and from one level to
    * another. The ranges start as the whole grid and keep what the person chose while the grid
@@ -27,12 +28,12 @@
 </script>
 
 <div class="br" data-testid={testid}>
-  <span>{t('grid.dir.x')}</span>
-  <select bind:value={x0} aria-label="{t('grid.dir.x')} 1">{#each xs as a (a.id)}<option value={a.id}>{a.name}</option>{/each}</select>
-  <select bind:value={x1} aria-label="{t('grid.dir.x')} 2">{#each xs as a (a.id)}<option value={a.id}>{a.name}</option>{/each}</select>
-  <span>{t('grid.dir.y')}</span>
-  <select bind:value={y0} aria-label="{t('grid.dir.y')} 1">{#each ys as a (a.id)}<option value={a.id}>{a.name}</option>{/each}</select>
-  <select bind:value={y1} aria-label="{t('grid.dir.y')} 2">{#each ys as a (a.id)}<option value={a.id}>{a.name}</option>{/each}</select>
+  <span>{planNamesIn(t('grid.dir.x'))}</span>
+  <select bind:value={x0} aria-label="{planNamesIn(t('grid.dir.x'))} 1">{#each xs as a (a.id)}<option value={a.id}>{a.name}</option>{/each}</select>
+  <select bind:value={x1} aria-label="{planNamesIn(t('grid.dir.x'))} 2">{#each xs as a (a.id)}<option value={a.id}>{a.name}</option>{/each}</select>
+  <span>{planNamesIn(t('grid.dir.y'))}</span>
+  <select bind:value={y0} aria-label="{planNamesIn(t('grid.dir.y'))} 1">{#each ys as a (a.id)}<option value={a.id}>{a.name}</option>{/each}</select>
+  <select bind:value={y1} aria-label="{planNamesIn(t('grid.dir.y'))} 2">{#each ys as a (a.id)}<option value={a.id}>{a.name}</option>{/each}</select>
   <span>{levelsLabel}</span>
   <select bind:value={levelFrom} data-testid="building-level-from">{#each levels as l (l.id)}<option value={l.id}>{l.name}</option>{/each}</select>
   <select bind:value={levelTo} data-testid="building-level-to">{#each levels as l (l.id)}<option value={l.id}>{l.name}</option>{/each}</select>

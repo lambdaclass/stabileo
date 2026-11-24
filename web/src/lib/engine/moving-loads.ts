@@ -237,13 +237,6 @@ function reverseTrain(train: LoadTrain): LoadTrain {
  * distance `a` from node I of `elementId` — node I of the ELEMENT, not of the
  * path walking over it.
  *
- * On a frame member it is the member's own transverse point load plus the axial
- * component shared by its end nodes, exactly as the static solve splits a global
- * point load (solver-service.ts buildSolverLoads2D). On a truss bar the engine
- * assembles no member load at all, so the force reaches the bar's two nodes by
- * the lever rule — the only way a bar that carries no bending can take it, and
- * how a deck resting on a truss loads it.
- *
  * Shared by the moving load (each axle) and the influence line (the unit load),
  * so the two place a load the same way.
  */
@@ -282,22 +275,12 @@ export function loadOnMember(
     ];
   }
 
-  const out: SolverLoad[] = [];
-  // Across the member (its local y, (−s, c)) and along it ((c, s)).
-  const pPerp = -s * Fx + c * Fz;
-  if (Math.abs(pPerp) > 1e-10) {
-    out.push({ type: 'pointOnElement', data: { elementId, a: t * L, p: pPerp } });
-  }
-  const pAxial = c * Fx + s * Fz;
-  if (Math.abs(pAxial) > 1e-10) {
-    const fI = pAxial * (1 - t);
-    const fJ = pAxial * t;
-    out.push(
-      { type: 'nodal', data: { nodeId: elem.nodeI, fx: fI * c, fz: fI * s, my: 0 } },
-      { type: 'nodal', data: { nodeId: elem.nodeJ, fx: fJ * c, fz: fJ * s, my: 0 } },
-    );
-  }
-  return out;
+  const p = -s * Fx + c * Fz;
+  const px = c * Fx + s * Fz;
+  const transverse = Math.abs(p) > 1e-10 ? p : 0;
+  const axial = Math.abs(px) > 1e-10 ? px : 0;
+  if (transverse === 0 && axial === 0) return [];
+  return [{ type: 'pointOnElement', data: { elementId, a: t * L, p: transverse, ...(axial === 0 ? {} : { px: axial }) } }];
 }
 
 /**

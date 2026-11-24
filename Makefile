@@ -1,5 +1,5 @@
 .PHONY: research.wasm paper.pdf help install-nix shell setup setup.run git.setup deps backend.run console routes \
-       lint.engine gen.result-sites test.engine.units-types check.engine.acceptance-models test.engine.gates test.engine.metamorphic test.engine.invariance.quick test.engine.mechanism-fuzz.quick test.engine.mechanism-fuzz.long test.engine.mechanism-fuzz.replay test.engine.suite test.engine.differential.quick test.engine.differential.full bench.engine mutants.engine mutants.safety.report mutants.safety.record \
+       lint.engine gen.result-sites test.engine.units-types check.engine.acceptance-models test.engine.gates test.engine.metamorphic test.engine.invariance.quick test.engine.mechanism-fuzz.quick test.engine.mechanism-fuzz.long test.engine.mechanism-fuzz.replay test.engine.suite test.engine.differential.quick test.engine.differential.full bench.engine test.engine.benches mutants.engine mutants.safety.report mutants.safety.record \
        web.deps typecheck.web typecheck.web.baseline typecheck.web.units typecheck.web.svelte test.web.unit test.web.build web.build.tested test.web.build.shared test.web.timing test.web.results snapshots-update check.results-snapshot-gate test.web.determinism e2e.web.setup e2e.web.build e2e.web.smoke e2e.web.slow e2e.web.timing e2e.web.visual e2e.web.flaky \
        perf.lighthouse.deps perf.lighthouse \
        test.ci-scripts test.nightly-scripts test.infra.caddy test.infra.caddy.redirects check.web.translations check.web.route-size \
@@ -71,6 +71,8 @@ help:
 	@echo "Testing:"
 	@echo "  make test           - Engine, backend and web tests"
 	@echo "  make test.engine    - Rust engine tests"
+	@echo "  make test.engine.experimental-nonlinear - Feature-enabled nonlinear driver tests (FILTER=...)"
+	@echo "  make test.engine.experimental-nonlinear-wasm - Feature-enabled nonlinear WASM tests (FILTER=...)"
 	@echo "  make test.backend   - Elixir backend tests"
 	@echo "  make test.backend.file FILE=apps/... - One backend test file or dir"
 	@echo "  make test.web       - Web (Vitest) tests"
@@ -93,6 +95,7 @@ help:
 	@echo "  make test.engine.differential.quick - Cross-method pairs that must agree (per PR)"
 	@echo "  make test.engine.differential.full  - Those plus the parametrised families (nightly)"
 	@echo "  make bench.engine         - Criterion benchmarks (informational)"
+	@echo "  make test.engine.benches  - Every engine benchmark once, untimed: a model the engine refuses fails here"
 	@echo "  make typecheck.web        - tsc against its baseline + svelte-check gate"
 	@echo "  make test.web.unit [SHARD=1/4] [VITEST_WORKERS=N] - Vitest unit pass"
 	@echo "  make test.web.timing [VITEST_WORKERS=N] - Project-scale timing budgets"
@@ -184,12 +187,20 @@ test-changed:
 check.quick:
 	BASE=$(BASE) scripts/check-quick.sh
 
-check.fast:
-	$(MAKE) -j5 --output-sync=target lint.repo check.changelog check.issue-reproducers check.fail-closed typecheck.web test.web.fast test.ci-scripts
+check.fast: web/node_modules/@playwright/test/cli.js
+	$(MAKE) -j5 --output-sync=target lint.repo check.changelog check.issue-reproducers check.fail-closed typecheck.web test.web.fast test.ci-scripts check.web.production-parity test.web.pro-plates-switch
 
 test.web.fast:
-	$(MAKE) test.web.unit UNIT_AREA= SHARD= FILTER= FILE='src/lib/i18n/__tests__/locale-coverage.test.ts src/lib/i18n/__tests__/engine-purity.test.ts src/lib/utils/__tests__/harness-architecture.test.ts src/lib/store/__tests__/recheck.test.ts src/lib/legacy-projects/__tests__/judge.test.ts'
-	$(MAKE) test.web.unit UNIT_AREA= SHARD= FILE=src/lib/blog/__tests__/blog-content.test.ts FILTER='lists every advisory'
+	$(MAKE) test.web.unit.production UNIT_AREA= SHARD= FILTER= FILE='src/lib/i18n/__tests__/locale-coverage.test.ts src/lib/i18n/__tests__/split-dictionaries.test.ts src/lib/i18n/__tests__/engine-purity.test.ts src/lib/utils/__tests__/harness-architecture.test.ts src/lib/store/__tests__/recheck.test.ts src/lib/legacy-projects/__tests__/judge.test.ts'
+	$(MAKE) test.web.unit.production UNIT_AREA= SHARD= FILE=src/lib/blog/__tests__/blog-content.test.ts FILTER='lists every advisory'
+
+.PHONY: check.web.production-parity
+check.web.production-parity:
+	$(NIX_RUN) python3 -B scripts/check-production-parity.py "$(or $(BASE),origin/main)" $(if $(REQUIRE_PARITY),--required) \
+		$(if $(PARITY_PLAN),--plan) $(if $(PARITY_RESEARCH_PLAN),--plan-research) $(if $(PARITY_SIDE),--side "$(PARITY_SIDE)") \
+		$(if $(PARITY_OUT),--inventory "$(PARITY_OUT)") $(if $(PARITY_RESEARCH_OUT),--research-out "$(PARITY_RESEARCH_OUT)") \
+		$(if $(PARITY_RESEARCH_IN),--research-in "$(PARITY_RESEARCH_IN)") \
+		$(if $(PARITY_SCRATCH),--scratch "$(PARITY_SCRATCH)") $(if $(PARITY_COMPARE),--compare "$(PARITY_COMPARE)")
 
 check.fail-closed:
 	python3 -B -I scripts/check-fail-closed.py
@@ -233,7 +244,15 @@ test.engine:
 
 .PHONY: test.engine.lib
 test.engine.lib:
-	$(NIX_RUN) cargo test -p dedaliano-engine --lib $(if $(RELEASE),--release) $(FILTER)
+	$(NIX_RUN) cargo test -p dedaliano-engine --lib $(if $(RELEASE),--release) $(if $(ENGINE_FEATURES),--features $(ENGINE_FEATURES)) $(FILTER) $(if $(IGNORED),-- --ignored)
+
+.PHONY: test.engine.experimental-nonlinear test.engine.experimental-nonlinear-wasm
+test.engine.experimental-nonlinear:
+	$(MAKE) test.engine.lib ENGINE_FEATURES=experimental-nonlinear FILTER="$(or $(FILTER),experimental_nonlinear)"
+
+test.engine.experimental-nonlinear-wasm:
+	$(NIX_RUN) wasm-pack build engine --target nodejs --out-dir ../target/experimental-nonlinear-wasm --no-opt -- --features experimental-nonlinear
+	$(NIX_RUN) node --test $(if $(FILTER),--test-name-pattern="$(FILTER)") scripts/tests/experimental-nonlinear-wasm.mjs
 
 test.backend: services
 	$(NIX_RUN) bash -c "cd backend && MIX_ENV=test mix ecto.create --quiet && MIX_ENV=test mix ecto.migrate --quiet && mix test"
@@ -356,6 +375,12 @@ build.engine.nonlinear-bench:
 bench.engine.nonlinear: build.engine.nonlinear-bench
 	./target/release/examples/nonlinear_preparation_bench $(ARGS)
 
+ENGINE_BENCHES = solver_bench assembly_bench workflow_bench pcg_bench eigen_bench
+
+## Run every benchmark of every engine bench once, untimed (Criterion's --test): a benchmark whose model the engine has come to refuse fails here
+test.engine.benches:
+	cd engine && $(NIX_RUN) cargo bench $(foreach b,$(ENGINE_BENCHES),--bench $(b)) -- --test
+
 web.deps:
 	$(NIX_RUN) bash -c "cd web && npm ci"
 
@@ -372,8 +397,12 @@ typecheck.web.units:
 typecheck.web.svelte:
 	$(NIX_RUN) bash -c "cd web && npm run check:gate"
 
-test.web.unit:
-	$(NIX_RUN) bash -c "cd web && npx vitest run --project unit $${UNIT_AREA:+src/components/$$UNIT_AREA src/lib/$$UNIT_AREA} $(FILE) $(if $(FILTER),-t '$(FILTER)') $(if $(SHARD),--shard=$(SHARD)) $(if $(BAIL),--bail=$(BAIL)) $(if $(VITEST_WORKERS),--maxWorkers=$(VITEST_WORKERS))"
+.PHONY: test.web.unit.production test.web.unit.switch-on
+test.web.unit.production: UNIT_PROFILE = production
+test.web.unit.switch-on: UNIT_PROFILE = test
+
+test.web.unit test.web.unit.production test.web.unit.switch-on:
+	$(NIX_RUN) env STABILEO_UNIT_PROFILE=$(UNIT_PROFILE) bash -c "cd web && npx vitest run --project unit $${UNIT_AREA:+src/components/$$UNIT_AREA src/lib/$$UNIT_AREA} $(FILE) $(if $(FILTER),-t '$(FILTER)') $(if $(SHARD),--shard=$(SHARD)) $(if $(BAIL),--bail=$(BAIL)) $(if $(VITEST_WORKERS),--maxWorkers=$(VITEST_WORKERS))"
 
 test.web.build: web.build.tested
 	$(MAKE) test.web.build.shared
@@ -381,11 +410,18 @@ test.web.build: web.build.tested
 # The build prerenders the public pages in Chromium, so it needs the browser. The stamp is taken
 # before building, so a tree edited mid-build fails the build tests instead of passing them.
 web.build.tested:
-	$(NIX_RUN) bash -c 'cd web && $(PLAYWRIGHT_INSTALL) chromium && stamp=$$(node scripts/build-stamp.mjs) && rm -f dist.source-stamp .dist-shared.source-stamp && npm run build && npx tsx scripts/translation-gate.ts dist && npx vite build --manifest --outDir .dist-shared --emptyOutDir --logLevel error && node scripts/build-stamp.mjs --seal dist "$$stamp" && node scripts/build-stamp.mjs --seal .dist-shared "$$stamp"'
+	$(NIX_RUN) bash -c 'cd web && $(PLAYWRIGHT_INSTALL) chromium && stamp=$$(node scripts/build-stamp.mjs) && \
+		rm -f dist.source-stamp .dist-shared.source-stamp && \
+		npm run build:only -- --manifest --outDir .dist-shared --emptyOutDir && \
+		rm -rf dist && cp -R .dist-shared dist && rm dist/.vite/manifest.json && rmdir dist/.vite && \
+		npm run build:finish && npx tsx scripts/translation-gate.ts dist && \
+		node scripts/build-stamp.mjs --seal dist "$$stamp" && node scripts/build-stamp.mjs --seal .dist-shared "$$stamp"'
 
+test.web.build.shared: export STABILEO_UNIT_PROFILE = production
 test.web.build.shared:
 	$(NIX_RUN) bash -c 'cd web && STABILEO_BUILD_ENV_STAMP=$$(node scripts/build-stamp.mjs --env) STABILEO_SHARED_BUILD=.dist-shared STABILEO_SHARED_PRERENDERED_BUILD=dist NO_WALL_CLOCK=$(NO_WALL_CLOCK) npx vitest run --project build $(FILE)'
 
+test.web.timing: export STABILEO_UNIT_PROFILE = production
 test.web.timing:
 	$(NIX_RUN) bash -c "cd web && npx vitest run --project build src/lib/engine/__tests__/scale-budget.test.ts $(if $(VITEST_WORKERS),--maxWorkers=$(VITEST_WORKERS))"
 
@@ -408,11 +444,13 @@ check.web.route-size:
 
 # The results snapshot gate (#716, testing/docs/PROVENANCE.md): the reference corpus solved
 # through the app's path and compared with web/results-snapshots/. Needs make wasm and web.deps.
+test.web.results: export STABILEO_UNIT_PROFILE = production
 test.web.results:
 	$(NIX_RUN) bash -c "cd web && npx vitest run --project results $(FILE) $(if $(FILTER),-t '$(FILTER)')"
 
 ## Regenerate web/results-snapshots/ after a DELIBERATE result change, then register it:
 ## an entry in web/src/lib/provenance/result-changes/ and a "BREAKING (results)" fragment.
+snapshots-update: export STABILEO_UNIT_PROFILE = production
 snapshots-update:
 	$(NIX_RUN) bash -c "cd web && RESULTS_SNAPSHOT_UPDATE=1 npx vitest run --project results $(FILE) $(if $(FILTER),-t '$(FILTER)')"
 
@@ -431,19 +469,28 @@ e2e.web.setup:
 
 # The site the e2e suites test with E2E_PREBUILT=1: VITE_E2E=1 compiles the read-only test hooks in,
 # and web/playwright.config.ts refuses a prebuilt dist without the marker. Needs make e2e.web.setup.
-e2e.web.build: test.web.e2e-features
-	$(NIX_RUN) bash -c 'cd web && VITE_E2E=1 npm run build && echo "VITE_E2E=1 build of $${GITHUB_SHA:-$$(git rev-parse HEAD)}" > dist/e2e-build.txt'
+.PHONY: e2e.web.build.production e2e.web.build.switch-on e2e.web.smoke.production e2e.web.smoke.switch-on
+e2e.web.build.production e2e.web.smoke.production: E2E_PROFILE = production
+e2e.web.build.switch-on e2e.web.smoke.switch-on: E2E_PROFILE = test
+
+e2e.web.build e2e.web.build.production: | test.web.e2e-features
+
+e2e.web.build e2e.web.build.production e2e.web.build.switch-on:
+	$(NIX_RUN) env STABILEO_E2E_PROFILE=$(or $(E2E_PROFILE),$(STABILEO_E2E_PROFILE)) bash -c 'cd web && VITE_E2E=1 npm run build && echo "VITE_E2E=1 build of $${GITHUB_SHA:-$$(git rev-parse HEAD)}" > dist/e2e-build.txt'
 
 # SHARD=i/n picks whole spec files balanced by measured duration (web/scripts/e2e-shard.mjs).
 # `@flaky` tests are quarantined (web/e2e/README.md): left out here, run by e2e.web.flaky.
-e2e.web.smoke:
-	$(NIX_RUN) bash -c 'cd web && E2E_JSON_REPORT=e2e/.results/smoke.json npx playwright test --grep @smoke --grep-invert @flaky $(FILE) $(if $(SHARD),$$(node scripts/e2e-shard.mjs $(subst /, ,$(SHARD))))'
+e2e.web.smoke e2e.web.smoke.production:
+	$(NIX_RUN) env STABILEO_E2E_PROFILE=$(or $(E2E_PROFILE),$(STABILEO_E2E_PROFILE)) bash -c 'cd web && E2E_JSON_REPORT=e2e/.results/smoke.json npx playwright test --grep @smoke --grep-invert "@flaky|@timing" $(FILE) $(if $(SHARD),$$(node scripts/e2e-shard.mjs $(subst /, ,$(SHARD))))'
+
+e2e.web.smoke.switch-on:
+	$(NIX_RUN) env STABILEO_E2E_PROFILE=$(or $(E2E_PROFILE),$(STABILEO_E2E_PROFILE)) bash -c 'cd web && node scripts/run-switch-on-e2e.mjs $(FILE)'
 
 e2e.web.slow:
-	$(NIX_RUN) bash -c 'cd web && $(if $(SHARD),files=$$(node scripts/e2e-shard.mjs --suite slow $(subst /, ,$(SHARD))) && if [ -z "$$files" ]; then exit 0; fi && )E2E_JSON_REPORT=e2e/.results/slow.json NO_WALL_CLOCK=$(NO_WALL_CLOCK) npx playwright test --grep "@slow" --grep-invert "visual baselines|@flaky" $(if $(SHARD),$$files) $(FILE)'
+	$(NIX_RUN) bash -c 'cd web && $(if $(SHARD),files=$$(node scripts/e2e-shard.mjs --suite slow $(subst /, ,$(SHARD))) && if [ -z "$$files" ]; then exit 0; fi && )E2E_JSON_REPORT=e2e/.results/slow.json npx playwright test --grep "@slow" --grep-invert "visual baselines|@flaky|@timing" $(if $(SHARD),$$files) $(FILE)'
 
 e2e.web.timing:
-	$(NIX_RUN) bash -c 'cd web && npx playwright test --grep "@slow" e2e/rebar-workspace-open.spec.ts e2e/model-fluidity.spec.ts'
+	$(NIX_RUN) bash -c 'cd web && npx playwright test --grep "@timing" --grep-invert "@flaky" $(FILE)'
 
 # --pass-with-no-tests: an empty quarantine is the goal, not an error.
 e2e.web.flaky:
@@ -538,6 +585,13 @@ test.reproducers.published:
 check.issue-reproducers:
 	$(if $(BODY),,body=$$(git log --format=%B "$(or $(BASE),origin/main)..$(or $(HEAD),HEAD)") && printf '%s\n' "$$body" | )python3 -I scripts/issue-reproducers.py flip-check --base "$(or $(BASE),origin/main)" --head "$(or $(HEAD),HEAD)" --body-file "$(or $(BODY),/dev/stdin)" $(if $(LABELS),--labels-json "$(LABELS)")
 
+web/node_modules/@playwright/test/cli.js: web/package.json web/package-lock.json
+	$(SUBMAKE) web.deps
+
+.PHONY: test.switch-on-e2e
+test.switch-on-e2e: web/node_modules/@playwright/test/cli.js
+	$(NIX_RUN) node --test scripts/tests/switch-on-e2e.test.mjs
+
 test.nightly-scripts:
 	python3 -B -I testing/scripts/tests/test_nightly.py
 	python3 -B -I scripts/tests/test_replay_findings.py
@@ -552,7 +606,7 @@ test.nightly-scripts:
 	$(NIX_RUN) node --test scripts/tests/runner-pools.test.cjs
 	$(NIX_RUN) node --test scripts/tests/cadence-reports.test.cjs
 
-test.ci-scripts: test.testing-move test.testing-map test.replay-steel-cb test.released-load-work-physics test.released-load-work-outcomes test.nightly-scripts check.cadence test.engine.plastic-budget-watchdog test.staged-wasm-assertions test.staged-round7-assertions test.agent-mistakes
+test.ci-scripts: test.switch-on-e2e test.testing-move test.testing-map test.replay-steel-cb test.released-load-work-physics test.released-load-work-outcomes test.nightly-scripts check.cadence test.engine.plastic-budget-watchdog test.staged-wasm-assertions test.staged-round7-assertions test.agent-mistakes
 	python3 -B -I scripts/tests/test_cadence.py
 	python3 -B -I scripts/tests/test_playwright_install.py
 	python3 -B -I scripts/tests/test_deps_audit.py
@@ -566,6 +620,7 @@ test.ci-scripts: test.testing-move test.testing-map test.replay-steel-cb test.re
 	python3 -B -I scripts/tests/test_roadmap_inflight.py
 	python3 -B -I scripts/tests/test_research_host_cache.py
 	python3 -B -I scripts/tests/test_ci_aggregate.py
+	python3 -B -I scripts/tests/test_production_parity.py
 	python3 -B -I scripts/tests/test_full_history_checkouts.py
 	python3 -B -I scripts/tests/test_ci_selection.py
 	python3 -B -I scripts/tests/test_check_wall_clock_tests.py
@@ -584,6 +639,7 @@ test.ci-scripts: test.testing-move test.testing-map test.replay-steel-cb test.re
 	python3 -B -I scripts/tests/test_required_checks.py
 	python3 -B -I scripts/tests/test_route_size_from_base.py
 	python3 -B -I scripts/tests/test_wall_clock.py
+	python3 -B -I scripts/tests/test_timing_budgets_gate.py
 	python3 -B -I scripts/tests/test_check_quick.py
 	python3 -B -I scripts/tests/test_infra_retry.py
 	python3 -B -I scripts/tests/test_e2e_timings.py
@@ -1281,7 +1337,7 @@ test.web.tool-current-result-2099:
 
 .PHONY: test.web.e2e-features
 test.web.e2e-features:
-	$(NIX_RUN) bash -c 'cd web && node --experimental-strip-types --test scripts/e2e-feature-build.test.mjs'
+	$(NIX_RUN) bash -c 'cd web && env -u STABILEO_E2E_PROFILE node --experimental-strip-types --test scripts/e2e-feature-build.test.mjs'
 
 .PHONY: replay.advisory.steel-cb
 replay.advisory.steel-cb:
@@ -1325,3 +1381,11 @@ test.design.completeness-2096:
 
 test.engine.kinematics-2222:
 	$(NIX_RUN) cargo test -p dedaliano-engine --test integration issue_2222_kinematics_identifies -- --nocapture $(if $(IGNORED),--ignored)
+
+.PHONY: test.web.pro-plates-switch
+test.web.pro-plates-switch:
+	$(NIX_RUN) bash -c 'cd web && node --test scripts/pro-plates-switch.test.mjs'
+
+.PHONY: test.web.production-mesher
+test.web.production-mesher:
+	nix develop .\#e2e --command node --test web/scripts/tests/pro-mesher-inputs.test.mjs

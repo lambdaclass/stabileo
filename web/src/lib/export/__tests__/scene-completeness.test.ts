@@ -21,7 +21,7 @@
  * only a structural loss can breach them.
  */
 
-import { applyVariant, ROLLED_BEAMS } from '../../engine/detailing/__tests__/helpers/workspace-scene';
+import { applyVariant, frameBarsInAssembly, ROLLED_BEAMS } from '../../engine/detailing/__tests__/helpers/workspace-scene';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { modelStore } from '../../store/model.svelte';
@@ -70,7 +70,8 @@ async function build(load: () => void | Promise<void>): Promise<Built> {
 
   designRunStore.computeDemands();
   designRunStore.runCodeCheck();
-  designRunStore.designAll();
+  designRunStore.designAll({ maxRunMs: 180_000 });
+  expect(verificationStore.runSummary?.aborted, 'the integration design ran to completion').toBe(false);
   detailingStore.generate({ verifierId: 'cirsoc201.provided.v2.2025' });
   detailingStore.generateFloors({ verifierId: 'cirsoc201.provided.v2.2025' });
 
@@ -170,18 +171,27 @@ describe('the 7-storey building is more than column longitudinals', () => {
     // Every beam is drawn, which was true before and stays true.
     const beamSolids = rolled.scene.solids.filter((s) => s.kind === 'beam');
     expect(beamSolids.length).toBeGreaterThan(50);
-    // A member with a proposal is not a member with nothing. The ones left bare are the beams the
-    // design refuses since it reads the column cages (no layout of their bars passes the 35 cm
-    // columns' bars, or anchors in them where one does): refused with their cause, no steel
-    // invented. Before: none bare; after: those 41, none of them a proposal.
     const bare = rolled.scene.unreinforcedMembers;
-    expect(bare.length, 'the beams refused on the column cages').toBe(41);
+    expect(bare.length, 'the beam elements refused by design').toBe(106);
+    const reasons = new Map<string, number>();
     for (const id of bare) {
       const o = verificationStore.outcomeFor(id)!;
       expect(o.outcome, `member ${id}`).not.toBe('PROVISIONAL_BIAXIAL');
-      expect(o.limiting.some((l) => l === 'congestion' || l === 'anchorage'), `member ${id}`).toBe(true);
       expect(named, `member ${id}`).not.toContain(id);
+      const reason = [...o.limiting].sort().join(',');
+      reasons.set(reason, (reasons.get(reason) ?? 0) + 1);
     }
+    expect(Object.fromEntries(reasons)).toEqual({
+      'anchorage': 20,
+      'anchorage,congestion': 5,
+      'anchorage,minSteel,unsupportedCheck': 33,
+      'anchorage,shear,unsupportedCheck': 1,
+      'anchorage,unsupportedCheck': 15,
+      'biaxial': 1,
+      'congestion': 26,
+      'congestion,minSteel,unsupportedCheck': 4,
+      'minSteel,unsupportedCheck': 1,
+    });
     // And the building as committed names none.
     expect(built.scene.provisionalMembers).toEqual([]);
   }, 240_000);
@@ -216,11 +226,6 @@ describe('every detailed bar reaches the scene', () => {
 
 describe('a model whose beams design shows every frame family', () => {
   it('rc-qa-diagnostic has column and beam steel, longitudinal and transverse', async () => {
-    /**
-     * The 7-storey model cannot prove this: its beams are refused, so beam steel does not
-     * exist to be shown. A model whose beams DO design is what distinguishes "the scene drops
-     * beam bars" from "the design produced none".
-     */
     const { scene } = await buildExample('rc-qa-diagnostic');
     const s = summariseScene(scene);
     expect(familyOf(s, 'column').longitudinal).toBeGreaterThan(0);
@@ -476,7 +481,7 @@ describe('every beam’s state is explained, and none loses its steel on the way
 
     const inDoc = new Map<number, number>();
     for (const a of doc.assemblies) {
-      for (const b of a.bars) {
+      for (const b of frameBarsInAssembly(a)) {
         for (const id of b.ownerElementIds) inDoc.set(id, (inDoc.get(id) ?? 0) + 1);
       }
     }
@@ -502,15 +507,6 @@ describe('every beam’s state is explained, and none loses its steel on the way
       }
     }
     expect(armed, 'some beams are armed').toBeGreaterThan(0);
-    /**
-     * `refused` is now zero on this fixture, and that is the improvement rather than a hole.
-     *
-     * Every beam reaches the document — the verified 114 as certified steel, the other 5 as
-     * a marked proposal — so the "no bars in the document" branch has nothing to count. The
-     * branch stays, because a member CAN still legitimately have no bars (a demand-unavailable
-     * member, a wall with no geometry), and when that happens it must still state a reason.
-     * What is asserted here is the total, which is what a lost member would break.
-     */
     expect(armed + refused, 'every beam is accounted for').toBe(beamIds.length);
     for (const id of beamIds) {
       const o = outcomes[id];

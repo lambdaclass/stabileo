@@ -1,0 +1,32 @@
+{
+  "id": "solver-json-boundary",
+  "date": "2026-11-22",
+  "prs": [2292, 2297],
+  "area": "analysis",
+  "when": { "all": ["plane2D", "prototypeNamedLoadCase"] },
+  "quantities": ["*", "solve.ok"],
+  "title": {
+    "en": "Planar combinations retain the load case named __proto__",
+    "es": "Las combinaciones planas conservan el caso de carga llamado __proto__",
+    "pt": "As combinações planas preservam o caso de carga chamado __proto__",
+    "de": "Ebene Kombinationen behalten den Lastfall namens __proto__ bei",
+    "fr": "Les combinaisons planes conservent le cas de charge nommé __proto__",
+    "hu": "A síkbeli kombinációk megtartják a __proto__ nevű teheresetet",
+    "tr": "Düzlemsel birleşimler __proto__ adlı yük durumunu korur",
+    "zh": "平面组合保留名为 __proto__ 的荷载工况"
+  },
+  "explanation": {
+    "en": "A planar combination could omit this case. The combination now applies the case’s resolved factor. Re-run the planar combinations.",
+    "es": "Una combinación plana podía omitir este caso. Ahora aplica el factor final del caso. Volvé a calcular las combinaciones planas.",
+    "pt": "Uma combinação plana podia omitir esse caso. A combinação agora aplica o fator final do caso. Recalcule as combinações planas.",
+    "de": "Eine ebene Kombination konnte diesen Lastfall auslassen. Jetzt wird sein ermittelter Faktor angewendet. Berechnen Sie die ebenen Kombinationen erneut.",
+    "fr": "Une combinaison plane pouvait omettre ce cas de charge. Son coefficient net est désormais appliqué. Recalculez les combinaisons planes.",
+    "hu": "Egy síkbeli kombináció kihagyhatta ezt a teheresetet. A kombináció most alkalmazza a tehereset nettó tényezőjét. Számítsa újra a síkbeli kombinációkat.",
+    "tr": "Düzlemsel bir birleşim bu yük durumunu atlayabiliyordu. Birleşim artık durumun net katsayısını uygular. Düzlemsel birleşimleri yeniden hesaplayın.",
+    "zh": "平面组合以前可能遗漏此荷载工况。现在组合会应用该工况的净系数。请重新计算平面组合。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-solver-json-boundary.md",
+    "heading": "Refuse non-finite solver inputs and preserve planar case factors"
+  }
+}

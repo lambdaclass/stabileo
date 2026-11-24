@@ -29,7 +29,9 @@ export type RegulationId =
   | 'cirsoc-301'   // structural steel
   | 'inpres-cirsoc-103-i'    // seismic — general
   | 'inpres-cirsoc-103-ii'   // seismic — reinforced concrete
-  | 'cirsoc-104';            // snow and ice
+  | 'cirsoc-104'             // snow and ice
+  | 'en-1990' | 'en-1991-1-1' | 'en-1991-1-3' | 'en-1991-1-4' | 'en-1998-1'
+  | 'asce-7' | 'ts-498' | 'ts-500' | 'tbdy';
 
 /** An edition is part of the regulation's identity, never a modifier of it. */
 export type RegulationEdition = '2005' | '2018' | '2024' | '2025';

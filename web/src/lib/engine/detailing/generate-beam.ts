@@ -53,6 +53,7 @@ import {
 } from '../../codes/cirsoc201/transverse-cage';
 import type { TopSteelPurpose } from './beam-top-steel';
 import type { LineBarPiece, LineStirrupPiece } from './line-bars';
+import type { DrawnBarPlacement } from '../../design-contract/reinforcement';
 import { DEFAULT_TOLERANCES } from './collision';
 import { clause, formatClause, type ClauseRef, type RegulationEdition } from '../../codes/regulation';
 
@@ -622,6 +623,46 @@ export function layoutBarRow(opts: {
   return { slots, layers, perLayer, fits };
 }
 
+export function beamBarSeatDiameter(
+  fallback: number, support?: { diameter: number }, span?: { diameter: number }, common?: { diameter: number },
+): number {
+  const regionalSupport = support ?? common;
+  const regionalSpan = span ?? common;
+  const diameter = regionalSupport && regionalSpan ? Math.max(regionalSupport.diameter, regionalSpan.diameter)
+    : Math.max(support?.diameter ?? 0, span?.diameter ?? 0, common?.diameter ?? 0);
+  return diameter > 0 ? diameter : fallback;
+}
+
+export function beamBarRowLayout(
+  section: Pick<BeamGenerationInput, 'b' | 'h' | 'cover' | 'stirrupDia'>,
+  count: number, diameterMm: number, minClear: number, layerClear: number, outerHalf?: number,
+) {
+  const { b, h, cover, stirrupDia } = section;
+  const half = seatedLongitudinalHalfExtents(b, h, cover, stirrupDia, diameterMm).corner.halfAcross;
+  const clearWidth = outerHalf === undefined ? Math.max(0.02, 2 * half + diameterMm / 1000) : 2 * outerHalf + diameterMm / 1000;
+  return { clearWidth, ...layoutBarRow({ count, diameterMm, clearWidth, minClear, layerClear, placementTolerance: DEFAULT_TOLERANCES.placement }) };
+}
+
+export function orderBeamRowSeats<T extends Pick<BarSlot, 'layer' | 'across'>>(slots: readonly T[]): T[] {
+  return [...slots].sort((p, q) => p.layer - q.layer || Math.abs(q.across) - Math.abs(p.across) || p.across - q.across);
+}
+
+function lapOffsetAcross(across: number, besideMm: number): number {
+  return (across === 0 ? 1 : -Math.sign(across)) * besideMm / 1000;
+}
+
+export function drawnBeamBarSlot<T extends Pick<BarSlot, 'layer' | 'across'>>(
+  seats: readonly T[], index: number, place: DrawnBarPlacement,
+) {
+  const nominal = seats[index];
+  if (!nominal) return undefined;
+  const base = place.mirrored
+    ? seats.reduce((m, o) => Math.abs(o.across + nominal.across) < Math.abs(m.across + nominal.across) ? o : m, nominal)
+    : nominal;
+  const offset = lapOffsetAcross(base.across, place.besideMm ?? 0);
+  return { base, offset, across: base.across + offset };
+}
+
 /** Unit vector across the section: the member axis rotated into the plane of `up`. */
 export function transverseAxis(axis: Point3, up: Point3): Point3 {
   // axis × up, normalised. For a horizontal beam with up = +z this is the in-plan normal,
@@ -740,9 +781,6 @@ export function generateBeamBars(input: BeamGenerationInput): GeneratedBeam {
   const seatFor = (dbMm: number) =>
     seatedLongitudinalHalfExtents(input.b, input.h, input.cover, input.stirrupDia, dbMm);
   const inset = (dbMm: number) => seatFor(dbMm).cornerInset;
-  /** Width to hand `layoutBarRow` so its OUTER bars land seated in the two bends. */
-  const clearWidthFor = (dbMm: number) =>
-    Math.max(0.02, 2 * seatFor(dbMm).corner.halfAcross + dbMm / 1000);
   // Joint-layer rank. A line that crosses another must sit above or below it, or their
   // bars occupy the same points in space. The raise belongs to the whole line, so it is
   // applied here once and not nudged at individual joints — see `joint-layers.ts`.
@@ -794,12 +832,8 @@ export function generateBeamBars(input: BeamGenerationInput): GeneratedBeam {
     stackedLayerDepth(rows, layer, dia, inset, input.edition) - inset(dia);
   const placeGroup = (count: number, dia: number, faceUpward: boolean, own = false, outerHalf?: number, rows: ReadonlyArray<ReadonlyArray<number>> = []) => {
     // `outerHalf`: the row's outer bars at ±outerHalf instead of in the stirrup's bends.
-    const clearWidth = outerHalf !== undefined ? 2 * outerHalf + dia / 1000 : clearWidthFor(dia);
-    const layout = layoutBarRow({
-      count, diameterMm: dia, clearWidth,
-      minClear: spacing.minClear, layerClear: layerSpacing.minClear,
-      placementTolerance: DEFAULT_TOLERANCES.placement,
-    });
+    const layout = beamBarRowLayout(input, count, dia, spacing.minClear, layerSpacing.minClear, outerHalf);
+    const { clearWidth } = layout;
     if (!layout.fits && count > 1) {
       unsupported.push(
         `No entran ${count}Ø${dia} en un ancho libre de ${(clearWidth * 1000).toFixed(0)} mm ` +
@@ -1009,37 +1043,34 @@ export function generateBeamBars(input: BeamGenerationInput): GeneratedBeam {
         // Positions reserved by index on the row's largest bar; each bar stands at its own
         // diameter's seat of the same index, so a bar running through a support stands at the same
         // place either side of it and the two pieces are one bar (`lap-materialize` fuses them).
-        const order = (xs: Array<{ layer: number; across: number; x: number; y: number; z: number }>) =>
-          xs.map((o) => ({ ...o })).sort((p, q) => p.layer - q.layer || Math.abs(q.across) - Math.abs(p.across) || p.across - q.across);
         // The row's own layout (`own`), not the coordinated slots the search chose for the
         // generator's arrangement: a drawn bar stands where its row puts it in every member it
         // crosses, the outer bars in the stirrup's bends. A clash with a crossing cage that this
         // leaves is the collision check's to report.
-        const slots = order(placeGroup(Math.max(1, most), dia, face === 'top', true, undefined, stacked));
+        const slots = orderBeamRowSeats(placeGroup(Math.max(1, most), dia, face === 'top', true, undefined, stacked));
         const seatsOf = new Map<number, typeof slots>([[dia, slots]]);
-        const seats = (d: number) => { let v = seatsOf.get(d); if (!v) { v = order(placeGroup(Math.max(1, most), d, face === 'top', true, undefined, stacked)); seatsOf.set(d, v); } return v; };
+        const seats = (d: number) => { let v = seatsOf.get(d); if (!v) { v = orderBeamRowSeats(placeGroup(Math.max(1, most), d, face === 'top', true, undefined, stacked)); seatsOf.set(d, v); } return v; };
         // A row past the face's first stands that many layers in, by the clear owed between layers.
         const inward = face === 'top' ? -1 : 1;
         const deeper = r === 0 ? 0 : intoLayer(stacked, r, dia) - intoLayer(stacked, 0, dia);
         type Spot = { layer: number; across: number; x: number; y: number; z: number };
         /** What each laid bar holds: slot indices it reserves, its base positions, and whether it stands beside them. */
         const taken: Array<{ id: string; from: number; to: number; slots: number[]; base: Spot[]; beside: boolean; dia: number }> = [];
-        const besideOf = (sp: Spot, mm: number): Spot => {
-          const shift = mm / 1000, sgn = sp.across === 0 ? 1 : -Math.sign(sp.across);
-          return { ...sp, across: sp.across + sgn * shift, x: sp.x + across.x * sgn * shift, y: sp.y + across.y * sgn * shift, z: sp.z + across.z * sgn * shift };
-        };
+        const offsetSpot = (sp: Spot, offset: number): Spot => ({
+          ...sp, across: sp.across + offset, x: sp.x + across.x * offset, y: sp.y + across.y * offset, z: sp.z + across.z * offset,
+        });
         for (const q of inRow) {
           if (q.place) {
             // Seated on the line: the same positions in every member, mirrored across where the
             // member runs against the line (its across axis is the line's reversed).
             const own = seats(q.diameterMm);
-            const at = (i: number) => {
-              const sp = own[i] ?? own[own.length - 1]!;
-              return q.place!.mirrored ? own.reduce((m, o) => (Math.abs(o.across + sp.across) < Math.abs(m.across + sp.across) ? o : m), sp) : sp;
-            };
-            const base = q.place.slots.map(at);
-            const spots = q.place.besideMm ? base.map((sp) => besideOf(sp, q.place!.besideMm!)) : base;
-            taken.push({ id: q.lineBarId, from: q.from, to: q.to, slots: q.place.besideMm ? [] : q.place.slots, base, beside: !!q.place.besideMm, dia: q.diameterMm });
+            const slots = q.place.slots.flatMap(i => {
+              const slot = drawnBeamBarSlot(own, i, q.place!);
+              return slot ? [slot] : [];
+            });
+            const base = slots.map(({ base }) => base);
+            const spots = slots.map(({ base, offset }) => offsetSpot(base, offset));
+            taken.push({ id: q.lineBarId, from: q.from, to: q.to, slots: q.place.besideMm ? [] : [...q.place.slots], base, beside: !!q.place.besideMm, dia: q.diameterMm });
             layAt(q, spots, r, deeper, inward);
             continue;
           }
@@ -1048,7 +1079,7 @@ export function generateBeamBars(input: BeamGenerationInput): GeneratedBeam {
           const partner = taken.find((t) => q.lapsWith.includes(t.id) && t.to > q.from + 1e-6 && t.from < q.to - 1e-6);
           if (partner) {
             const base = partner.base.slice(0, q.count);
-            const spots = partner.beside ? base : base.map((sp) => besideOf(sp, (partner.dia + q.diameterMm) / 2));
+            const spots = partner.beside ? base : base.map((sp) => offsetSpot(sp, lapOffsetAcross(sp.across, (partner.dia + q.diameterMm) / 2)));
             layAt(q, spots, r, deeper, inward);
             taken.push({ id: q.lineBarId, from: q.from, to: q.to, slots: [], base, beside: !partner.beside, dia: q.diameterMm });
             continue;

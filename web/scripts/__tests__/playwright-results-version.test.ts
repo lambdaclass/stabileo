@@ -1,17 +1,22 @@
-import { describe, expect, it } from 'vitest';
-import { readRegistry } from '../result-changes/registry.mjs';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { readProfileResultChanges } from '../result-change-metadata.mjs';
+import { featuresForMode } from '../../config/public-features.mjs';
 import globalSetup from '../../e2e/global-setup';
 
 describe('playwright results version', () => {
+  afterEach(() => vi.unstubAllEnvs());
   it('is not read when the config loads, so listing the tests needs no git history', async () => {
-    delete process.env.E2E_RESULTS_VERSION;
+    vi.stubEnv('E2E_RESULTS_VERSION', undefined);
     const { default: config } = await import('../../playwright.config');
     expect(process.env.E2E_RESULTS_VERSION).toBeUndefined();
     expect(config.globalSetup).toBe('./e2e/global-setup.ts');
   });
-  it('is read once in the global setup, for every worker to take from the environment', () => {
-    delete process.env.E2E_RESULTS_VERSION;
+  it.each(['production', 'test'] as const)('sets the %s build version for every worker', profile => {
+    vi.stubEnv('E2E_RESULTS_VERSION', undefined);
+    vi.stubEnv('E2E_PREBUILT', '0');
+    vi.stubEnv('STABILEO_E2E_PROFILE', profile);
     globalSetup();
-    expect(process.env.E2E_RESULTS_VERSION).toBe(String(readRegistry().currentResultsVersion));
+    const unified = featuresForMode(profile).proPlatesUnified;
+    expect(process.env.E2E_RESULTS_VERSION).toBe(String(readProfileResultChanges(unified).currentResultsVersion));
   });
 });

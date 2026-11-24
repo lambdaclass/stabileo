@@ -11,7 +11,7 @@ for (const edition of ['2005', '2025'] as const) {
     } }])[0]!.section('My');
     const v = verifyElement({ ...p, edition, elementId: 1, elementType: 'beam', demand,
       Mu: 20, Muy: 0, Nu: 0, Vu: 0, Tu: 30 } as never);
-    const actual = checkTorsion2025({ ...p, d: v.shear.d, dSecondary: p.b - p.cover - p.stirrupDia / 1000 - 0.008, stirrupDiaMm: p.stirrupDia,
+    const actual = checkTorsion2025({ ...p, d: v.shear.d, stirrupDiaMm: p.stirrupDia,
       fyt: p.fy, demand, stirrup: { diameter: p.stirrupDia, legs: v.shear.stirrupLegs, spacing: v.shear.spacing } });
     expect(actual.ratio).toBeGreaterThan(1);
     expect(v.torsion!.status).toBe('fail');

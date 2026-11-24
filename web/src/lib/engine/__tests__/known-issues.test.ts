@@ -50,7 +50,7 @@ describe('known-issue warnings in the reader’s language', () => {
   });
 
   it('names the member and section of a 3D plastic refusal for missing capacity, in every offered language (#1525)', async () => {
-    await Promise.all(['de', 'fr', 'tr', 'hu'].map(ensureLocale));
+    await Promise.all(['de', 'fr', 'tr', 'hu', 'zh'].map(ensureLocale));
     const d = { code: 'plastic_capacity_missing', severity: 'error', elementIds: [7], value: 12, message: 'ENGINE' };
     const error = JSON.stringify({ message: 'ENGINE', structuredDiagnostics: [d] });
     for (const loc of OFFERED_LOCALES) {
@@ -68,7 +68,7 @@ describe('known-issue warnings in the reader’s language', () => {
   });
 
   it('describes the certified lower bound and uncertified raw steps in every offered language', async () => {
-    await Promise.all(['de', 'fr', 'tr', 'hu'].map(ensureLocale));
+    await Promise.all(['de', 'fr', 'tr', 'hu', 'zh'].map(ensureLocale));
     const warning = { code: 'known_issue', severity: 'warning', phase: 'PL-3D-CERTIFICATE-MISMATCH', value: 1760, message: 'ENGINE' };
     const clauses = {
       en: [/certified lower bound/, /steps and hinges/, /not certified/],
@@ -78,6 +78,7 @@ describe('known-issue warnings in the reader’s language', () => {
       fr: [/borne inférieure certifiée/, /étapes et les rotules/, /ne sont pas certifiées/],
       tr: [/sertifikalı alt sınır/, /adımlar ve mafsallar/, /sertifikalandırılmamıştır/],
       hu: [/tanúsított alsó korlát/, /lépések és a csuklók/, /nem tanúsítja/],
+      zh: [/经认证的下限/, /增量步和塑性铰/, /不在该区间的认证范围内/],
     };
     for (const loc of OFFERED_LOCALES) {
       setLocale(loc);
@@ -90,7 +91,7 @@ describe('known-issue warnings in the reader’s language', () => {
   });
 
   it('translates the plastic resource-budget refusal and preserves its limit details', async () => {
-    await Promise.all(['de', 'fr', 'tr', 'hu'].map(ensureLocale));
+    await Promise.all(['de', 'fr', 'tr', 'hu', 'zh'].map(ensureLocale));
     const prefix = 'exact plastic LP resource budget exceeded';
     const engine = readFileSync('../engine/src/certify/plastic_budget.rs', 'utf8');
     expect(engine).toContain(prefix);
@@ -106,7 +107,7 @@ describe('known-issue warnings in the reader’s language', () => {
   });
 
   it('has a sentence for every finding the engine contains, in every offered language', async () => {
-    await Promise.all(['de', 'fr', 'tr', 'hu'].map(ensureLocale));
+    await Promise.all(['de', 'fr', 'tr', 'hu', 'zh'].map(ensureLocale));
     expect(OFFERED_LOCALES.every(isOfferedLocale)).toBe(true);
     const registry = readFileSync('../engine/src/known_issues.rs', 'utf8');
     const ids = [...registry.matchAll(/Entry \{ id: "([^"]+)"/g)].map(match => match[1]);
@@ -148,7 +149,7 @@ describe('known-issue warnings in the reader’s language', () => {
   });
 
   it('says a warped MITC4 or MITC9 shell is withheld above the refusal band and only warned below it (#1057)', async () => {
-    await Promise.all(['de', 'fr', 'tr', 'hu'].map(ensureLocale));
+    await Promise.all(['de', 'fr', 'tr', 'hu', 'zh'].map(ensureLocale));
     for (const element of ['MITC4', 'MITC9']) {
       const phase = `SH-WARPED-${element}`;
       for (const loc of OFFERED_LOCALES) {

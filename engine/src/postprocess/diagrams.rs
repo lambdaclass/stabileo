@@ -1,4 +1,5 @@
 use crate::types::*;
+use super::diagram_extrema::{distributed_actions, Curve, Cut, PointAction, Response};
 use serde::{Deserialize, Serialize};
 
 // ==================== Types ====================
@@ -40,124 +41,42 @@ pub struct DeformedPoint {
 
 const NUM_POINTS: usize = 21;
 
-// ==================== Sampling ====================
-
-pub(crate) fn build_sampling_positions(
-    length: f64,
-    point_positions: impl Iterator<Item = f64>,
-) -> Vec<f64> {
-    let mut positions = std::collections::BTreeSet::new();
-
-    // Regular grid
-    for i in 0..NUM_POINTS {
-        let t = i as f64 / (NUM_POINTS - 1) as f64;
-        // Use integer-keyed representation to avoid f64 in BTreeSet
-        positions.insert((t * 1e12) as i64);
+fn planar_curve<'a>(
+    ef: &'a ElementForces, kind: &str, sorted_pl: &'a [PointLoadInfo],
+) -> Curve<impl Iterator<Item = DistributedLoadInfo> + Clone + 'a, impl Iterator<Item = PointAction> + Clone + 'a> {
+    let (start, slope, response, loads, qi, qj, kind) = match kind {
+        "moment" => (ef.m_start, -ef.v_start, Response::Moment(-1.0), ef.distributed_loads.as_slice(), ef.q_i, ef.q_j, 0),
+        "shear" => (ef.v_start, 0.0, Response::Force(1.0), ef.distributed_loads.as_slice(), ef.q_i, ef.q_j, 1),
+        "axial" => (ef.n_start, 0.0, Response::Force(-1.0), ef.distributed_loads_x.as_slice(), 0.0, 0.0, 2),
+        _ => (0.0, 0.0, Response::Force(1.0), &[][..], 0.0, 0.0, 3),
+    };
+    Curve {
+        length: ef.length, start, change: 0.0, slope, response,
+        distributed: distributed_actions(ef.length, loads, qi, qj),
+        points: sorted_pl.iter().filter_map(move |p| {
+            let (jump, slope) = match kind {
+                0 => (p.my.into_iter().sum(), -p.p),
+                1 => (p.p, 0.0),
+                2 => (-p.px?, 0.0),
+                _ => return None,
+            };
+            (jump != 0.0 || slope != 0.0).then_some(PointAction { a: p.a, jump, slope })
+        }),
     }
-
-    // Around point loads
-    let eps = 1e-6;
-    for a in point_positions {
-        let t_pl = a / length;
-        if t_pl > eps {
-            positions.insert(((t_pl - eps) * 1e12) as i64);
-        }
-        positions.insert((t_pl * 1e12) as i64);
-        if t_pl < 1.0 - eps {
-            positions.insert(((t_pl + eps) * 1e12) as i64);
-        }
-    }
-
-    positions.into_iter().map(|k| k as f64 / 1e12).collect()
 }
 
-/// The stations (t ∈ [0, 1]) at which `compute_diagrams_2d` samples diagram
-/// `kind` of one member: a regular grid of 21, plus each point load's position
-/// and its ±1e-6 neighbours (the axial diagram only when it has axial point
-/// loads). The certified gaps between stations (`certify::stations`) use this.
 pub fn diagram_positions_2d(ef: &ElementForces, kind: &str) -> Vec<f64> {
     if let Err(error) = validate_diagram_loads_2d(ef) { panic!("{error}"); }
-    let has_axial_pl = ef.point_loads.iter().any(|pl| pl.px.is_some_and(|px| px.abs() > 1e-15));
-    if kind == "axial" && !has_axial_pl {
-        (0..NUM_POINTS).map(|i| i as f64 / (NUM_POINTS - 1) as f64).collect()
-    } else {
-        build_sampling_positions(ef.length, ef.point_loads.iter().map(|p| p.a))
-    }
+    let mut positions: Vec<_> = planar_curve(ef, kind, &sorted_point_loads(ef)).diagram_cuts(NUM_POINTS).unwrap_or_else(|error| panic!("{error}"))
+        .into_iter().map(|cut| cut.t).collect();
+    positions.dedup();
+    positions
 }
 
-/// Where the cubic through `g` at four Chebyshev points of (lo, hi) is stationary, inside (lo, hi):
-/// exact when `g` is a cubic there, as M, V and N are between load discontinuities.
-pub fn cubic_stationary_points(g: &dyn Fn(f64) -> f64, lo: f64, hi: f64) -> Vec<f64> {
-    let w = hi - lo;
-    if !(w > 1e-9) {
-        return vec![];
-    }
-    let s: [f64; 4] = std::array::from_fn(|k| (1.0 - ((2 * k + 1) as f64 * std::f64::consts::PI / 8.0).cos()) / 2.0);
-    let mut c: [f64; 4] = std::array::from_fn(|k| g(lo + w * s[k]));
-    for j in 1..4 {
-        for i in (j..4).rev() {
-            c[i] = (c[i] - c[i - 1]) / (s[i] - s[i - j]);
-        }
-    }
-    let a3 = c[3];
-    let a2 = c[2] - c[3] * (s[0] + s[1] + s[2]);
-    let a1 = c[1] - c[2] * (s[0] + s[1]) + c[3] * (s[0] * s[1] + s[0] * s[2] + s[1] * s[2]);
-    let (qa, qb, qc) = (3.0 * a3, 2.0 * a2, a1);
-    let scale = qa.abs().max(qb.abs()).max(qc.abs());
-    let mut roots = Vec::new();
-    if !(scale > 0.0) {
-        return roots;
-    }
-    if qa.abs() <= 1e-12 * scale {
-        if qb.abs() > 0.0 {
-            roots.push(-qc / qb);
-        }
-    } else {
-        let disc = qb * qb - 4.0 * qa * qc;
-        if disc >= 0.0 {
-            let sign = if qb < 0.0 { -1.0 } else { 1.0 };
-            let q = -0.5 * (qb + sign * disc.sqrt());
-            roots.push(q / qa);
-            if q != 0.0 {
-                roots.push(qc / q);
-            }
-        }
-    }
-    roots.into_iter().filter(|x| *x > 0.0 && *x < 1.0).map(|x| lo + w * x).collect()
+pub(crate) fn diagram_critical_cuts_2d(ef: &ElementForces, kind: &str, sorted_pl: &[PointLoadInfo]) -> Result<Vec<Cut>, String> {
+    validate_diagram_loads_2d(ef)?;
+    planar_curve(ef, kind, sorted_pl).critical_cuts().map_err(|e| format!("Element {} {kind}: {e}", ef.element_id))
 }
-
-/// Stations (t ∈ [0, 1]) where diagram `kind` of one member can peak off the regular grid: both
-/// sides of each point load, every load discontinuity, and every stationary point of each piece between them.
-pub fn diagram_peak_stations_2d(ef: &ElementForces, kind: &str, sorted_pl: &[PointLoadInfo]) -> Vec<f64> {
-    if let Err(error) = validate_diagram_loads_2d(ef) { panic!("{error}"); }
-    let len = ef.length;
-    if !(len > 0.0) {
-        return vec![];
-    }
-    let mut out = Vec::new();
-    let mut cuts = vec![0.0, 1.0];
-    for a in sorted_pl.iter().map(|p| p.a) {
-        let t = (a / len).clamp(0.0, 1.0);
-        cuts.push(t);
-        out.push((t - 1e-9).max(0.0));
-        out.push((t + 1e-9).min(1.0));
-    }
-    for d in ef.distributed_loads.iter().chain(ef.distributed_loads_x.iter()) {
-        cuts.push((d.a / len).clamp(0.0, 1.0));
-        cuts.push((d.b / len).clamp(0.0, 1.0));
-    }
-    cuts.sort_by(|a, b| a.total_cmp(b));
-    cuts.dedup();
-    out.extend(cuts.iter().copied());
-    let g = |t: f64| compute_diagram_value_at_sorted(kind, t, ef, sorted_pl);
-    for w in cuts.windows(2) {
-        out.extend(cubic_stationary_points(&g, w[0], w[1]));
-    }
-    out.retain(|t| t.is_finite());
-    out
-}
-
-// ==================== Diagram Value At ====================
 
 /// Return the element's point loads sorted by position `a` (stable, ascending).
 /// Pair with `compute_diagram_value_at_sorted` to sort once per element-force
@@ -200,91 +119,37 @@ pub fn compute_diagram_value_at_sorted(
     ef: &ElementForces,
     sorted_pl: &[PointLoadInfo],
 ) -> f64 {
-    if let Err(error) = validate_diagram_loads_2d(ef) { panic!("{error}"); }
-    let xi = t * ef.length;
+    evaluate_diagram_cut_2d(kind, Cut::left(t), ef, sorted_pl)
+}
 
-    let v_start = ef.v_start;
-    let m_start = ef.m_start;
+pub fn checked_diagram_value_2d(kind: &str, t: f64, ef: &ElementForces) -> Result<f64, String> {
+    checked_diagram_limit_2d(kind, t, ef, false)
+}
 
-    // Both non-first branches of the original expression were `Vec::new()`, so
-    // the whole thing collapsed to "iterate the slice" — but it allocated a Vec
-    // of references on *every* station evaluation, which in the envelope path is
-    // elements x 21 stations x load cases x diagram kinds allocations.
-    let d_loads = &ef.distributed_loads;
-    let use_legacy_q = ef.distributed_loads.is_empty() && (ef.q_i != 0.0 || ef.q_j != 0.0);
+pub(crate) fn checked_diagram_limit_2d(kind: &str, t: f64, ef: &ElementForces, right: bool) -> Result<f64, String> {
+    validate_diagram_input_2d(ef)?;
+    check_diagram_kind_2d(kind)?;
+    planar_curve(ef, kind, &sorted_point_loads(ef)).checked_station_value(t, right).map_err(str::to_owned)
+}
 
-    match kind {
-        "moment" => {
-            let mut value = m_start - v_start * xi;
+pub(crate) fn evaluate_diagram_cut_2d(kind: &str, cut: Cut, ef: &ElementForces, sorted_pl: &[PointLoadInfo]) -> f64 {
+    try_evaluate_diagram_cut_2d(kind, cut, ef, sorted_pl).unwrap_or_else(|error| panic!("{error}"))
+}
 
-            // Distributed load contributions
-            if use_legacy_q {
-                let dq = ef.q_j - ef.q_i;
-                value -= ef.q_i * xi * xi / 2.0 + dq * xi * xi * xi / (6.0 * ef.length);
-            }
-            for dl in d_loads {
-                value -= crate::element::distributed_load_terms(dl.q_i, dl.q_j, dl.a, dl.b, xi).1;
-            }
+pub(crate) fn try_evaluate_diagram_cut_2d(kind: &str, cut: Cut, ef: &ElementForces, sorted_pl: &[PointLoadInfo]) -> Result<f64, String> {
+    validate_diagram_loads_2d(ef)?;
+    planar_curve(ef, kind, sorted_pl).checked_value(cut).map_err(str::to_owned)
+}
 
-            // Point loads
-            for pl in sorted_pl {
-                if pl.a < xi - 1e-10 {
-                    value -= pl.p * (xi - pl.a);
-                    // With m(x) = m_start − v_start·x and P entering as
-                    // −P·(x − a), equilibrium of the piece left of x puts a
-                    // counter-clockwise couple in with a PLUS: past a couple
-                    // on a cantilever the moment must fall back to zero.
-                    if let Some(mz) = pl.my {
-                        value += mz;
-                    }
-                }
-            }
-            value
-        }
-        "shear" => {
-            let mut value = v_start;
-
-            if use_legacy_q {
-                let dq = ef.q_j - ef.q_i;
-                value += ef.q_i * xi + dq * xi * xi / (2.0 * ef.length);
-            }
-            for dl in d_loads {
-                value += crate::element::distributed_load_terms(dl.q_i, dl.q_j, dl.a, dl.b, xi).0;
-            }
-
-            for pl in sorted_pl {
-                if pl.a < xi - 1e-10 {
-                    value += pl.p;
-                }
-            }
-            value
-        }
-        "axial" => {
-            // Axial force is piecewise constant with jumps at concentrated axial
-            // loads. `n_start` already is the internal force at node I; each load
-            // px at a<x changes the constant level by -px. Do NOT interpolate
-            // n_start -> n_end here: n_end already accounts for all px via
-            // equilibrium, so interpolating would double-count the jumps.
-            let mut value = ef.n_start;
-            for pl in sorted_pl {
-                if let Some(px) = pl.px {
-                    if pl.a < xi - 1e-10 {
-                        value -= px;
-                    }
-                }
-            }
-            // An axial span load lowers it continuously, by what of it lies left of x
-            // (as the space diagram reads `distributed_loads_x`).
-            for dl in &ef.distributed_loads_x {
-                let span = dl.b - dl.a;
-                if span <= 0.0 { continue; }
-                let s = (xi - dl.a).clamp(0.0, span);
-                value -= dl.q_i * s + (dl.q_j - dl.q_i) * s * s / (2.0 * span);
-            }
-            value
-        }
+pub(crate) fn member_diagram_range_2d(ef: &ElementForces, kind: &str) -> Result<(f64, f64), String> {
+    validate_diagram_loads_2d(ef)?;
+    let end = match kind {
+        "moment" => ef.m_end,
+        "shear" => ef.v_end,
+        "axial" => ef.n_end,
         _ => 0.0,
-    }
+    };
+    planar_curve(ef, kind, &sorted_point_loads(ef)).interior_range(end).map_err(str::to_owned)
 }
 
 // ==================== 2D Diagrams ====================
@@ -293,19 +158,25 @@ fn compute_single_diagram(
     kind: &str,
     ef: &ElementForces,
     geom: (f64, f64, f64, f64),
-    positions: &[f64],
     sorted_pl: &[PointLoadInfo],
-) -> ElementDiagram {
+) -> Result<ElementDiagram, String> {
     let (node_ix, node_iy, node_jx, node_jy) = geom;
 
+    validate_diagram_loads_2d(ef)?;
+    let curve = planar_curve(ef, kind, sorted_pl);
+    let positions = curve.diagram_cuts(NUM_POINTS).map_err(|e| format!("Element {} {kind}: {e}", ef.element_id))?;
     let mut points = Vec::with_capacity(positions.len());
     let mut max_val = f64::NEG_INFINITY;
     let mut min_val = f64::INFINITY;
     let mut max_abs_t = 0.0;
     let mut max_abs_value: f64 = 0.0;
 
-    for &t in positions {
-        let value = compute_diagram_value_at_sorted(kind, t, ef, sorted_pl);
+    for cut in positions {
+        let t = cut.t;
+        let value = curve.checked_value(cut).map_err(|e| format!("Element {} {kind}: {e}", ef.element_id))?;
+        if !value.is_finite() {
+            return Err(format!("Element {} {kind}: non-finite diagram at t={t}", ef.element_id));
+        }
         let x = node_ix + t * (node_jx - node_ix);
         let y = node_iy + t * (node_jy - node_iy);
 
@@ -319,14 +190,14 @@ fn compute_single_diagram(
         }
     }
 
-    ElementDiagram {
+    Ok(ElementDiagram {
         element_id: ef.element_id,
         points,
         max_value: max_val,
         min_value: min_val,
         max_abs_t,
         max_abs_value,
-    }
+    })
 }
 
 /// Compute all 2D diagrams (M, V, N) for all elements.
@@ -334,6 +205,10 @@ pub fn compute_diagrams_2d(
     input: &SolverInput,
     results: &AnalysisResults,
 ) -> DiagramResults {
+    try_compute_diagrams_2d(input, results).unwrap_or_else(|error| panic!("{error}"))
+}
+
+pub(crate) fn try_compute_diagrams_2d(input: &SolverInput, results: &AnalysisResults) -> Result<DiagramResults, String> {
     let mut moment = Vec::new();
     let mut shear = Vec::new();
     let mut axial = Vec::new();
@@ -362,12 +237,11 @@ pub fn compute_diagrams_2d(
             ("shear", &mut shear),
             ("axial", &mut axial),
         ] {
-            let positions = &diagram_positions_2d(ef, kind);
-            out.push(compute_single_diagram(kind, ef, geom, positions, &sorted_pl));
+            out.push(compute_single_diagram(kind, ef, geom, &sorted_pl)?);
         }
     }
 
-    DiagramResults { moment, shear, axial }
+    Ok(DiagramResults { moment, shear, axial })
 }
 
 // ==================== Deformed Shape ====================
@@ -764,6 +638,169 @@ pub fn compute_member_displacements_2d(
 mod tests {
     use super::*;
 
+    fn diagram_issue_models(length: f64, planar: serde_json::Value, spatial: serde_json::Value) -> (SolverInput, SolverInput3D) {
+        let input = serde_json::json!({
+            "nodes": {"1":{"id":1,"x":0,"z":0}, "2":{"id":2,"x":length,"z":0}},
+            "materials": {"1":{"id":1,"e":200000,"nu":0.3}},
+            "sections": {"1":{"id":1,"a":0.01,"iy":0.0001,"iz":0.0001,"j":0.0001}},
+            "elements": {"1":{"id":1,"type":"frame","nodeI":1,"nodeJ":2,"materialId":1,"sectionId":1}},
+            "supports": {"1":{"id":1,"nodeId":1,"type":"fixed","rx":true,"ry":true,"rz":true,"rrx":true,"rry":true,"rrz":true}},
+            "loads": [planar]
+        });
+        let planar = serde_json::from_value(input.clone()).unwrap();
+        let mut input = input;
+        input["loads"][0] = spatial;
+        input["nodes"]["1"]["y"] = 0.into();
+        input["nodes"]["2"]["y"] = 0.into();
+        (planar, serde_json::from_value(input).unwrap())
+    }
+
+
+    fn round5_diagram_results() -> (SolverInput, [(AnalysisResults, AnalysisResults3D); 2]) {
+        let (plane, space) = diagram_issue_models(
+            3.0,
+            serde_json::json!({"type":"distributed","data":{"elementId":1,"qI":0,"qJ":0}}),
+            serde_json::json!({"type":"distributed","data":{"elementId":1,"qYI":0,"qYJ":0,"qZI":0,"qZJ":0}}),
+        );
+        let planar = crate::solver::pdelta::solve_pdelta_2d(&plane, 20, 1e-10).unwrap();
+        let spatial = crate::solver::pdelta::solve_pdelta_3d(&space, 20, 1e-10).unwrap();
+        assert!(planar.converged && spatial.converged);
+        let linear = (
+            crate::solver::linear::solve_2d(&plane).unwrap(),
+            crate::solver::linear::solve_3d(&space).unwrap(),
+        );
+        (plane, [linear, (planar.results, spatial.results)])
+    }
+
+    fn round5_shear_peak(a: f64, b: f64, q: f64) -> (DistributedLoadInfo, f64, f64) {
+        let t = a / 3.0 + (b / 3.0 - a / 3.0) / 2.0;
+        (DistributedLoadInfo { a, b, q_i: q, q_j: -q }, t, (b - a) * q / 4.0)
+    }
+
+    #[test]
+    fn round5a_point_queries_at_analytic_shear_peaks() {
+        use crate::postprocess::diagrams_3d::{checked_diagram_value_3d, compute_diagrams_3d};
+        let a = 1.5;
+        let (load, t, want) = round5_shear_peak(a, a + 1_351_081.0 * f64::EPSILON, 2.0_f64.powi(32));
+        let (control, exact_t, exact_peak) = round5_shear_peak(a, 2.25, 4.0);
+        let (input, results) = round5_diagram_results();
+        let mut observed = Vec::new();
+        for (mut planar, mut spatial) in results {
+            planar.element_forces[0].distributed_loads = vec![load.clone()];
+            spatial.element_forces[0].distributed_loads_z = vec![load.clone()];
+            assert_eq!(compute_diagrams_2d(&input, &planar).shear[0].max_value, want);
+            assert_eq!(compute_diagrams_3d(&spatial).shear_z[0].max_value, want);
+            observed.push(checked_diagram_value_2d("shear", t, &planar.element_forces[0]));
+            observed.push(checked_diagram_value_3d(&spatial.element_forces[0], "shearZ", t));
+
+            planar.element_forces[0].distributed_loads = vec![control.clone()];
+            spatial.element_forces[0].distributed_loads_z = vec![control.clone()];
+            assert_eq!(checked_diagram_value_2d("shear", exact_t, &planar.element_forces[0]), Ok(exact_peak));
+            assert_eq!(checked_diagram_value_3d(&spatial.element_forces[0], "shearZ", exact_t), Ok(exact_peak));
+        }
+        assert!(observed.iter().all(|value| matches!(value, Err(reason) if reason.contains("extrema"))), "{observed:?}");
+    }
+
+    #[test]
+    fn round5b_envelopes_with_a_jump_at_another_cases_peak_station() {
+        use crate::postprocess::combinations::{compute_envelope, compute_envelope_3d};
+        let a = 1.5;
+        let (load, t, _) = round5_shear_peak(a, a + 1_351_081.0 * f64::EPSILON, 2.0_f64.powi(32));
+        let exact = round5_shear_peak(1.5, 2.25, 4.0);
+        let (_, results) = round5_diagram_results();
+        let mut observed = Vec::new();
+        for (planar, spatial) in results {
+            let envelope_at = |load: &DistributedLoadInfo, a: f64, t: f64| {
+                let mut peak = planar.clone();
+                peak.element_forces[0].distributed_loads = vec![load.clone()];
+                let mut jump = planar.clone();
+                jump.element_forces[0].point_loads = vec![PointLoadInfo { a, p: 10.0, px: None, my: None }];
+                let plane = compute_envelope(&[peak, jump]).map(|envelope| envelope.shear);
+                let mut peak = spatial.clone();
+                peak.element_forces[0].distributed_loads_z = vec![load.clone()];
+                let mut jump = spatial.clone();
+                jump.element_forces[0].point_loads_z = vec![PointLoadInfo3D { a, p: 10.0 }];
+                let space = compute_envelope_3d(&[peak, jump]).map(|envelope| envelope.shear_z);
+                [plane, space].map(|result| result.map(|diagram| {
+                    let element = &diagram.elements[0];
+                    element.t_positions.iter().zip(&element.pos_values)
+                        .filter_map(|(&station, &force)| (station == t).then_some(force)).collect::<Vec<_>>()
+                }))
+            };
+            observed.extend(envelope_at(&load, 3.0 * t, t));
+            let [plane, space] = envelope_at(&load, (3.0 * t).next_down(), t);
+            for envelope in [plane, space] {
+                assert_eq!(envelope.unwrap(), vec![10.0]);
+            }
+            let [plane, space] = envelope_at(&exact.0, 3.0 * exact.1, exact.1);
+            for envelope in [plane, space] {
+                assert_eq!(envelope.unwrap(), vec![exact.2, 10.0]);
+            }
+        }
+        assert!(observed.iter().all(|value| matches!(value, Err(reason) if reason.contains("normalized station"))), "{observed:?}");
+    }
+
+    #[test]
+    fn issue_2250_diagram_extrema_partial_load() {
+        use crate::postprocess::{combinations, diagrams_3d};
+        let (plane, space) = diagram_issue_models(
+            100.0,
+            serde_json::json!({"type":"distributed","data":{"elementId":1,"a":1,"b":2,"qI":1,"qJ":-1}}),
+            serde_json::json!({"type":"distributed","data":{"elementId":1,"a":1,"b":2,"qYI":0,"qYJ":0,"qZI":1,"qZJ":-1}}),
+        );
+        let expected = (2.0 - 1.0) / 4.0;
+        let pn = crate::solver::pdelta::solve_pdelta_2d(&plane, 20, 1e-10).unwrap();
+        let sn = crate::solver::pdelta::solve_pdelta_3d(&space, 20, 1e-10).unwrap();
+        assert!(pn.converged && sn.converged);
+        let plane_results = [crate::solver::linear::solve_2d(&plane).unwrap(), pn.results];
+        let space_results = [crate::solver::linear::solve_3d(&space).unwrap(), sn.results];
+        let mut measured = Vec::new();
+        for (rp, rs) in plane_results.iter().zip(&space_results) {
+            measured.extend([
+                compute_diagrams_2d(&plane, rp).shear[0].max_abs_value,
+                diagrams_3d::compute_diagrams_3d(rs).shear_z[0].max_abs_value,
+                combinations::compute_envelope(std::slice::from_ref(rp)).unwrap().shear.global_max,
+                combinations::compute_envelope_3d(std::slice::from_ref(rs)).unwrap().shear_z.global_max,
+            ]);
+        }
+        assert!(measured.iter().all(|v| (v.abs() - expected).abs() < 1e-12), "expected {expected}, got {measured:?}");
+    }
+
+    #[test]
+    fn issue_2226_diagram_extrema_concentrated_jump() {
+        use crate::postprocess::diagrams_3d::evaluate_diagram_3d_at;
+        let mut measured = Vec::new();
+        for a in [1.5, 3.0 - 5e-11] {
+            let (plane, space) = diagram_issue_models(
+                3.0,
+                serde_json::json!({"type":"pointOnElement","data":{"elementId":1,"a":a,"p":1,"my":2}}),
+                serde_json::json!({"type":"pointOnElement","data":{"elementId":1,"a":a,"py":0,"pz":1}}),
+            );
+            let plane_nonlinear = crate::solver::pdelta::solve_pdelta_2d(&plane, 20, 1e-10).unwrap();
+            let space_nonlinear = crate::solver::pdelta::solve_pdelta_3d(&space, 20, 1e-10).unwrap();
+            assert!(plane_nonlinear.converged && space_nonlinear.converged);
+            let plane_results = [crate::solver::linear::solve_2d(&plane).unwrap(), plane_nonlinear.results];
+            let space_results = [crate::solver::linear::solve_3d(&space).unwrap(), space_nonlinear.results];
+            let before = (a - 5e-11) / 3.0;
+            let at = a / 3.0;
+            let after = (a + 5e-11) / 3.0;
+            for (plane_result, space_result) in plane_results.iter().zip(&space_results) {
+                let rp = &plane_result.element_forces[0];
+                let rs = &space_result.element_forces[0];
+                for t in [before, at] {
+                    assert!((compute_diagram_value_at("shear", t, rp) + 1.0).abs() < 1e-12);
+                    assert!((evaluate_diagram_3d_at(rs, "shearZ", t) + 1.0).abs() < 1e-12);
+                }
+                measured.extend([
+                    compute_diagram_value_at("shear", after, rp),
+                    compute_diagram_value_at("moment", after, rp),
+                    evaluate_diagram_3d_at(rs, "shearZ", after),
+                ]);
+            }
+        }
+        assert!(measured.iter().all(|v| v.abs() < 1e-12), "expected zero after the load, got {measured:?}");
+    }
+
     fn shape(
         ends: [f64; 4], hinges: (bool, bool), ei: f64, gas: Option<f64>,
         pts: &[(f64, f64)], dist: &[(f64, f64, f64, f64)], l: f64,
@@ -1156,7 +1193,7 @@ mod recovery_round4_2143 {
 
 pub fn validate_diagram_loads_2d(ef: &ElementForces) -> Result<(), String> {
     for d in ef.distributed_loads.iter().chain(&ef.distributed_loads_x) {
-        crate::element::validate_member_load_interval(&format!("Element {}", ef.element_id), ef.length, d.a, d.b)?;
+        crate::element::validate_member_load_interval(format_args!("Element {}", ef.element_id), ef.length, d.a, d.b)?;
     }
     Ok(())
 }

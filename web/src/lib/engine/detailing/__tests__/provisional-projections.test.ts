@@ -92,14 +92,15 @@ describe('a provisional proposal, across every projection', { timeout: 30_000 },
       expect(scene.solids.some((s) => s.elementIds.includes(id)),
         `member ${id} has concrete in the scene`).toBe(true);
     }
-    // And no beam is left bare but the ones the design refuses since it reads the column cages
-    // (41: no layout of their bars passes the columns' bars, or anchors where one does). None of
-    // them is a proposal: refused with a reason, no steel invented. Before: none bare.
-    expect(scene.unreinforcedMembers, 'and no beam is left bare but the refused').toHaveLength(41);
-    for (const id of scene.unreinforcedMembers) {
+    expect(scene.unreinforcedMembers, 'and no beam is left bare but the refused').toHaveLength(106);
+    const refused = scene.unreinforcedMembers.map(id => {
       expect(provisional, `member ${id}`).not.toContain(id);
-      expect(verificationStore.outcomeFor(id)?.limiting.some((l) => l === 'congestion' || l === 'anchorage'), `member ${id}`).toBe(true);
-    }
+      const outcome = verificationStore.outcomeFor(id)!;
+      expect(outcome.reasons.length, `member ${id}`).toBeGreaterThan(0);
+      expect(outcome.certificate, `member ${id}`).toBeUndefined();
+      return outcome;
+    });
+    expect(refused.filter(o => o.limiting.some(l => l === 'congestion' || l === 'anchorage'))).toHaveLength(104);
   });
 
   it('gives the workspace a state that is neither modelled nor a refusal', () => {

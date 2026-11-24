@@ -25,6 +25,352 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: '2026-11-21',
+    advisories: [
+      { id: 'SA-2026-100', href: 'https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-100-result-display-signs.md' },
+      { id: 'SA-2026-101', href: 'https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-101-plate-analysis-conformity.md' },
+      { id: 'SA-2026-102', href: 'https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-102-diagram-extrema-and-span-demands.md' },
+      { id: 'SA-2026-103', href: 'https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-103-rc-torsion-evidence.md' },
+      { id: 'SA-2026-104', href: 'https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-104-member-load-reversal-and-planar-couples.md' },
+    ],
+    areas: ['engine', 'engine', 'engine', 'pro', 'pro', 'pro', 'pro', 'pro', 'app', 'app', 'site', 'site'],
+    i18n: {
+      es: {
+        title: 'Stabileo 0.6.4: Resultados de barras, análisis de placas y verificación de hormigón corregidos',
+        items: [
+          'Los diagramas de barras y las envolventes de cargas móviles recuperan extremos entre estaciones, ambos lados de las acciones concentradas y los esfuerzos justo dentro de los extremos de barra. Los diagramas combinados pueden mostrar cotas conservadoras identificadas cuando no hay extremos exactos. Las estaciones ambiguas, los extremos determinantes sin resolver y las grillas de diseño incompletas bloquean el resultado afectado. Los segmentos invertidos conservan la cara traccionada física del vano de hormigón. Las verificaciones de acero usan los momentos de equilibrio máximos y en los cuartos de tramo y omiten el beneficio del gradiente si faltan datos del diagrama. Los informes con muchas estaciones reutilizan los diagramas preparados. (#2403)',
+          'Ambos comandos de inversión de barras conservan la dirección, el intervalo cargado y las intensidades extremas de las cargas distribuidas. El análisis toma el valor no nulo inequívoco de los campos antiguos de momento plano y rechaza los valores contradictorios. En modelos espaciales, un par puro al inicio puede aplicarse en su nudo de origen aunque la barra carezca de una proyección utilizable. Otras acciones antiguas que necesiten la proyección pueden bloquear el cálculo. (#2456)',
+          'Un valor finito ingresado en un par puntual plano o momento nodal restaurado reemplaza el momento guardado, incluso al ingresar cero. Los momentos incompatibles o inválidos bloquean el análisis incluso después de guardar y volver a abrir. Verificá el momento previsto, volvé a ingresarlo y repetí el análisis y el diseño. (#2467, SA-2026-105)',
+          'PRO rechaza el análisis si queda una malla de placa inválida o desactualizada, o si una unión muro–losa es incompatible. El mallador exige contornos y huecos completos y válidos antes de habilitar Aplicar. El edificio de siete pisos de la galería y el ejemplo de DXF arquitectónico tienen mallas compatibles en las uniones. Los nuevos borradores CAD mallados alinean los puntos de malla de losas y muros. Los libros que exportan solo el modelo pueden incluir placas sin mallar. (#2409)',
+          'El remallado sigue el borde curvo que pasa por el punto intermedio especificado para la placa. Un arco ambiguo bloquea el remallado y el análisis. Revisá el borde, rehacé las mallas desactualizadas y repetí el análisis y el diseño. (#2466, SA-2026-106)',
+          'El remallado solo transfiere los desplazamientos de la superficie media y los cambios de curvatura de los elementos de cáscara a celdas únicas que coinciden exactamente. Si una celda editada no tiene correspondencia, el remallado se detiene y conserva la malla existente. Revisá las propiedades de las cáscaras, recuperá los cambios que se hayan perdido y repetí el análisis y el diseño. (#2466, SA-2026-107)',
+          'Las verificaciones CIRSOC 201-2025 aplican la armadura transversal mínima de torsión en ambas direcciones y usan el límite evaluado del hormigón en torsión pura cuando se dispone de una jaula de armadura. Las verificaciones de torsión y corte pueden bloquearse si la armadura dibujada no justifica las barras perimetrales, la altura útil para corte secundario o el anclaje a través de una unión. La verificación de corte usa barras traccionadas distintas presentes en la sección, incluso entre estaciones muestreadas. El ejemplo de siete pisos puede mostrar rechazos en verificaciones que antes aprobaban. (#2433)',
+          'El espacio de trabajo de armaduras 3D abre más rápido. Al guardar, restaurar o cambiar de pestaña en modelos detallados se reutiliza la geometría inmutable de las armaduras. Deshacer y rehacer restauran el detallado que corresponde a la geometría de hormigón. (#2438, #2444, #2458)',
+          'Basic muestra los momentos de reacción 3D con los signos globales del solver. El inspector de cuerpo libre usa los ejes elegidos y, en 2D, las etiquetas del lado del nudo coinciden con las flechas. Los informes de Basic y PRO expresan las componentes de cargas puntuales y pares en el plano y los ejes del solver. Repetí las inspecciones y regenerá los informes afectados. (#2396)',
+          'En los ajustes de la clave de IA, los botones de proveedor, el campo de clave y sus acciones miden como mínimo 44 píxeles CSS en ambas direcciones. (#2440)',
+          'Las páginas publicadas de investigación sobre la elástica de Mattiasson, MacNeal–Harder y el circuito de pruebas de cáscaras muestran el resultado terminado o el rechazo de la primera ejecución. (#2445)',
+          'La hoja de ruta prioriza comprobaciones independientes de cargas y superficies de placas, funciones exactas de esfuerzos internos, evidencia completa para diseño y un modelo canónico con controles en las transformaciones. (#2469)',
+        ],
+      },
+      en: {
+        title: 'Stabileo 0.6.4: Corrected member results, plate analysis and concrete verification',
+        items: [
+          'Member diagrams and moving-load envelopes recover peaks between stations, both sides of concentrated actions and the forces just inside member ends. Combined diagrams can show labelled conservative bounds when exact extrema are unavailable. Ambiguous stations, unresolved governing peaks and incomplete design station grids block the affected result. Reversed concrete span pieces retain the physical tension face. Steel checks use equilibrium peak and quarter-point moments and withhold moment-gradient credit when the required diagram information is incomplete. Reports with many stations reuse the prepared diagrams. (#2403)',
+          'Both member reversal commands preserve the direction, loaded interval and end intensities of distributed loads. Analysis uses the unambiguous nonzero value in legacy planar couple fields and refuses conflicting values. In spatial models, a pure start couple can be applied at its authored node even without a usable member projection. Other legacy actions that still need the projection can block the solve. (#2456)',
+          'A finite edit to a restored planar point couple or nodal moment replaces the stored moment, including when set to zero. Conflicting or invalid moments block analysis even after saving and reopening. Check the intended moment, re-enter it and rerun analysis and design. (#2467, SA-2026-105)',
+          'PRO refuses analysis if an invalid or stale plate mesh remains or a wall–slab joint is incompatible. The mesher requires complete, valid outlines and holes before Apply. The updated seven-storey gallery and architectural DXF example have compatible junction meshes. New meshed CAD drafts align slab and wall stations. Model-only workbook exports can include unmeshed plates. (#2409)',
+          'Remeshing follows the curved boundary through the plate’s specified intermediate point. An ambiguous sweep blocks remeshing and analysis. Check the boundary, rebuild stale meshes and rerun analysis and design. (#2466, SA-2026-106)',
+          'Remeshing transfers shell offsets and curvature edits only to unique, exactly matching cells. If an edited shell cannot be matched, remeshing stops and preserves the existing mesh. Check shell properties against the intended model, restore any previously lost edits and rerun analysis and design. (#2466, SA-2026-107)',
+          'CIRSOC 201-2025 checks minimum transverse reinforcement for torsion in both directions and uses the evaluated concrete limit for pure torsion where a cage is available. Torsion and shear checks can refuse when the drawn cage lacks evidence for the perimeter bars, secondary effective depth or bar development across a joint. Shear checks use distinct tension bars present at the cut, including between sampled stations. The seven-storey example can now show refusals for checks that previously passed. (#2433)',
+          'The 3D reinforcement workspace opens faster, and saving, restoring and switching tabs in detailed models reuse immutable reinforcement geometry. Undo and redo restore detailing that matches the concrete geometry. (#2438, #2444, #2458)',
+          'Basic shows 3D support reaction moments with the solver’s global signs. Free-body readouts use the selected axes and match the node-side arrows in 2D. Basic and PRO report point-force and couple components in the solver’s plane and axes. Rerun affected inspections and regenerate reports. (#2396)',
+          'AI key settings give the provider buttons, key field and key actions a minimum size of 44 CSS pixels in both directions. (#2440)',
+          'The published Mattiasson elastica, MacNeal–Harder and shell obstacle-course research pages show the first benchmark run’s completed result or its reported refusal. (#2445)',
+          'The product roadmap prioritizes independent load and plate-area checks, exact internal-force functions, complete design evidence and one canonical model with checks across transformations. (#2469)',
+        ],
+      },
+      pt: {
+        title: 'Stabileo 0.6.4: Correções nos resultados de barras, na análise de placas e na verificação de concreto',
+        items: [
+          'Os diagramas de barras e as envoltórias de cargas móveis recuperam extremos entre estações, os dois lados das ações concentradas e os esforços imediatamente dentro das extremidades. Diagramas combinados podem mostrar limites conservadores identificados quando os extremos exatos não estão disponíveis. Estações ambíguas, extremos determinantes não resolvidos e malhas incompletas de estações de dimensionamento bloqueiam o resultado afetado. Trechos invertidos de vãos de concreto preservam a face tracionada física. As verificações de aço usam momentos de equilíbrio máximos e nos quartos do trecho e retiram o benefício do gradiente quando faltam dados do diagrama. Relatórios com muitas estações reutilizam os diagramas preparados. (#2403)',
+          'Os dois comandos de inversão de barras preservam a direção, o intervalo carregado e as intensidades nas extremidades das cargas distribuídas. A análise usa o valor não nulo inequívoco dos campos antigos de binários planos e recusa valores conflitantes. Em modelos espaciais, um binário puro no início da barra pode ser aplicado no nó de origem mesmo sem projeção utilizável. Outras ações antigas que ainda exigem essa projeção podem bloquear a análise. (#2456)',
+          'Um valor finito introduzido num binário pontual plano ou momento nodal restaurado substitui o momento guardado, inclusive quando vale zero. Momentos incompatíveis ou inválidos impedem a análise mesmo depois de guardar e reabrir. Confira o momento pretendido, introduza-o novamente e repita a análise e o dimensionamento. (#2467, SA-2026-105)',
+          'O PRO recusa a análise se restar uma malha de placa inválida ou desatualizada ou se uma ligação parede–laje for incompatível. A geração de malha exige contornos e aberturas completos e válidos para habilitar Aplicar. O edifício de sete pavimentos da galeria e o exemplo de DXF arquitetônico têm malhas compatíveis nas ligações. Novos rascunhos CAD com malha alinham os pontos das lajes e paredes. A exportação de planilhas apenas com o modelo pode incluir placas sem malha. (#2409)',
+          'A remalhagem segue a borda curva que passa pelo ponto intermédio especificado para a placa. Um arco ambíguo impede a remalhagem e a análise. Confira a borda, refaça as malhas desatualizadas e repita a análise e o dimensionamento. (#2466, SA-2026-106)',
+          'A remalhagem só transfere alterações de excentricidade e curvatura das cascas para elementos únicos que correspondam exatamente. Se uma casca alterada não tiver correspondência, a remalhagem para e preserva a malha existente. Confira as propriedades das cascas, recupere as alterações já perdidas e repita a análise e o dimensionamento. (#2466, SA-2026-107)',
+          'As verificações CIRSOC 201-2025 aplicam a armadura transversal mínima à torção nas duas direções e usam o limite avaliado do concreto em torção pura quando a gaiola de armadura está disponível. As verificações de torção e cisalhamento podem ser bloqueadas quando o detalhamento não comprova barras perimetrais, altura útil para cisalhamento secundário ou ancoragem através da ligação. O cisalhamento considera barras tracionadas distintas presentes na seção, inclusive entre estações amostradas. O exemplo de sete pavimentos pode recusar verificações antes aprovadas. (#2433)',
+          'O ambiente de armaduras 3D abre mais rápido. Salvar, restaurar e trocar de aba em modelos detalhados reutiliza a geometria imutável das armaduras. Desfazer e refazer restauram o detalhamento correspondente à geometria do concreto. (#2438, #2444, #2458)',
+          'O Basic apresenta os momentos de reação 3D com os sinais globais do solver. Os diagramas de corpo livre usam os eixos selecionados e, em 2D, os valores do lado do nó acompanham as setas. Os relatórios do Basic e do PRO expressam as componentes de cargas pontuais e binários no plano e nos eixos do solver. Repita as inspeções e gere novamente os relatórios afetados. (#2396)',
+          'Nas configurações da chave de IA, os botões de provedor, o campo da chave e suas ações têm tamanho mínimo de 44 pixels CSS nas duas direções. (#2440)',
+          'As páginas publicadas de pesquisa da elástica de Mattiasson, de MacNeal–Harder e do circuito de testes de cascas mostram o resultado concluído ou a recusa da primeira execução. (#2445)',
+          'O roteiro do produto prioriza verificações independentes das cargas e áreas das placas, funções exatas de esforços internos, evidências completas de dimensionamento e um modelo canônico com verificações nas transformações. (#2469)',
+        ],
+      },
+      de: {
+        title: 'Stabileo 0.6.4: Korrigierte Stabergebnisse, Plattenberechnung und Betonnachweise',
+        items: [
+          'Stabdiagramme und Wanderlasthüllkurven erfassen Extremwerte zwischen Stationen, beide Seiten von konzentrierten Einwirkungen und Schnittgrößen unmittelbar innerhalb der Stabenden. Kombinierte Diagramme können gekennzeichnete konservative Grenzen anzeigen, wenn keine exakten Extremwerte vorliegen. Mehrdeutige Stationen, nicht auflösbare maßgebende Extremwerte und unvollständige Bemessungsraster sperren das betroffene Ergebnis. Umgekehrte Abschnitte in Betonträgerfeldern behalten ihre physische Zugseite. Stahlnachweise verwenden Spitzen- und Viertelspunktmomente aus dem Gleichgewicht und setzen bei unvollständigen Diagrammdaten keinen günstigen Momentengradienten an. Berichte mit vielen Stationen verwenden die vorbereiteten Diagramme mehrfach. (#2403)',
+          'Beide Befehle zum Umkehren eines Stabs erhalten Richtung, belasteten Abschnitt und Endwerte der Streckenlast. Die Berechnung verwendet den eindeutigen von null verschiedenen Wert in den älteren Feldern für ebene Einzelmomente und lehnt widersprüchliche Werte ab. Im räumlichen Modell kann ein reines Einzelmoment am vorgesehenen Anfangsknoten auch ohne nutzbare Stabprojektion aufgebracht werden. Andere ältere Einwirkungen, die eine Projektion erfordern, können die Berechnung sperren. (#2456)',
+          'Eine endliche Eingabe für ein wiederhergestelltes ebenes Einzelmoment oder Knotenmoment ersetzt den gespeicherten Wert, auch bei Eingabe von null. Widersprüchliche oder ungültige Momente blockieren die Berechnung auch nach dem Speichern und erneuten Öffnen. Prüfen Sie das vorgesehene Moment, geben Sie es erneut ein und wiederholen Sie Berechnung und Bemessung. (#2467, SA-2026-105)',
+          'PRO lehnt die Berechnung ab, wenn ein ungültiges oder veraltetes Plattennetz bestehen bleibt oder ein Wand-Decken-Anschluss inkompatibel ist. Die Vernetzung setzt vollständige, gültige Umrisse und Öffnungen voraus, bevor Übernehmen verfügbar ist. Das siebengeschossige Galeriebeispiel und das Architektur-DXF-Beispiel haben kompatible Anschlussnetze. Neue vernetzte CAD-Entwürfe gleichen die Netzpunkte von Decken und Wänden an. Reine Modellexporte als Arbeitsmappe können unvernetzte Platten enthalten. (#2409)',
+          'Die Neuvernetzung folgt dem gekrümmten Rand durch den vorgegebenen Zwischenpunkt der Platte. Ein mehrdeutiger Bogen blockiert Neuvernetzung und Berechnung. Prüfen Sie den Rand, erneuern Sie veraltete Netze und wiederholen Sie Berechnung und Bemessung. (#2466, SA-2026-106)',
+          'Bei der Neuvernetzung werden Schalenversätze und Krümmungsänderungen nur auf eindeutig und genau passende Elemente übertragen. Fehlt ein passendes Element, wird die Neuvernetzung gestoppt und das vorhandene Netz bleibt erhalten. Prüfen Sie die Schaleneigenschaften, stellen Sie bereits verlorene Änderungen wieder her und wiederholen Sie Berechnung und Bemessung. (#2466, SA-2026-107)',
+          'CIRSOC 201-2025 prüft die Mindestquerbewehrung für Torsion in beiden Richtungen und verwendet bei reiner Torsion die ermittelte Betongrenze, wenn ein Bewehrungskorb vorliegt. Torsions- und Querkraftnachweise können gesperrt werden, wenn die gezeichnete Bewehrung die Umfangsstäbe, die statische Nutzhöhe für Nebenquerkraft oder die Verankerung durch einen Anschluss nicht belegt. Der Querkraftnachweis zählt unterschiedliche Zugstäbe am Schnitt, auch zwischen ausgewerteten Stationen. Im siebengeschossigen Beispiel können zuvor bestandene Nachweise jetzt gesperrt werden. (#2433)',
+          'Der 3D-Bewehrungsarbeitsbereich öffnet schneller. Speichern, Wiederherstellen und der Registerwechsel in detaillierten Modellen verwenden die unveränderliche Bewehrungsgeometrie erneut. Rückgängig und Wiederholen stellen die zur Betongeometrie passende Detaillierung her. (#2438, #2444, #2458)',
+          'Basic zeigt räumliche Auflagermomente mit den globalen Vorzeichen des Solvers an. Freikörperanzeigen verwenden die gewählten Achsen. Im ebenen Modell stimmen die Werte auf der Knotenseite mit den Pfeilen überein. Basic- und PRO-Berichte geben die Komponenten von Einzelkräften und Einzelmomenten in der Ebene und den Achsen des Solvers an. Wiederholen Sie betroffene Prüfungen und erstellen Sie die Berichte neu. (#2396)',
+          'In den KI-Schlüsseleinstellungen sind die Anbieterschaltflächen, das Schlüsselfeld und die zugehörigen Aktionen in beiden Richtungen mindestens 44 CSS-Pixel groß. (#2440)',
+          'Die veröffentlichten Forschungsseiten zur Mattiasson-Elastika, zu MacNeal–Harder und zum Schalen-Testparcours zeigen das abgeschlossene Ergebnis oder die gemeldete Ablehnung des ersten Rechenlaufs. (#2445)',
+          'Die Produkt-Roadmap priorisiert unabhängige Prüfungen von Lasten und Plattenflächen, exakte Schnittgrößenfunktionen, vollständige Nachweisgrundlagen und ein kanonisches Modell mit Prüfungen bei Transformationen. (#2469)',
+        ],
+      },
+      fr: {
+        title: 'Stabileo 0.6.4 : Correction des résultats de barres, de l’analyse des plaques et des vérifications du béton',
+        items: [
+          'Les diagrammes de barres et les enveloppes de charges mobiles récupèrent les extrema entre sections, les deux côtés des actions concentrées et les efforts juste à l’intérieur des extrémités. Les diagrammes combinés peuvent afficher des bornes conservatives identifiées lorsque les extrema exacts ne sont pas disponibles. Les positions ambiguës, les extrema déterminants non résolus et les grilles de dimensionnement incomplètes bloquent le résultat concerné. Les tronçons inversés des travées en béton conservent leur face tendue physique. Les vérifications acier utilisent les moments d’équilibre maximaux et aux quarts du tronçon et écartent le bénéfice du gradient si les données du diagramme sont incomplètes. Les rapports comportant de nombreuses sections réutilisent les diagrammes préparés. (#2403)',
+          'Les deux commandes d’inversion de barre conservent la direction, l’intervalle chargé et les intensités aux extrémités des charges réparties. L’analyse utilise la valeur non nulle sans ambiguïté dans les anciens champs de couple plan et refuse les valeurs contradictoires. Dans les modèles spatiaux, un couple pur en début de barre peut être appliqué au nœud d’origine même sans projection exploitable. D’autres actions anciennes qui dépendent encore de cette projection peuvent bloquer le calcul. (#2456)',
+          'Une valeur finie saisie pour un couple ponctuel plan ou un moment nodal restauré remplace le moment enregistré, y compris par zéro. Des moments contradictoires ou invalides bloquent le calcul même après enregistrement et réouverture. Vérifiez le moment voulu, saisissez-le à nouveau et relancez le calcul et le dimensionnement. (#2467, SA-2026-105)',
+          'PRO refuse l’analyse si un maillage de plaque reste invalide ou obsolète, ou si une jonction voile–dalle est incompatible. Le mailleur exige des contours et ouvertures complets et valides pour activer Appliquer. Le bâtiment de sept étages de la galerie et l’exemple de DXF architectural ont des maillages compatibles aux jonctions. Les nouvelles ébauches CAO maillées alignent les points des dalles et des voiles. Les classeurs contenant uniquement le modèle peuvent inclure des plaques non maillées. (#2409)',
+          'Le remaillage suit le bord courbe qui passe par le point intermédiaire spécifié pour la plaque. Un arc ambigu bloque le remaillage et le calcul. Vérifiez le bord, refaites les maillages obsolètes et relancez le calcul et le dimensionnement. (#2466, SA-2026-106)',
+          'Le remaillage ne transfère les excentrements et les modifications de courbure des coques qu’à des éléments uniques qui correspondent exactement. Sans élément correspondant, le remaillage s’arrête et conserve le maillage existant. Vérifiez les propriétés des coques, rétablissez les modifications déjà perdues et relancez le calcul et le dimensionnement. (#2466, SA-2026-107)',
+          'Les vérifications CIRSOC 201-2025 appliquent le minimum d’armatures transversales de torsion dans les deux directions et utilisent la limite calculée du béton en torsion pure lorsqu’une cage d’armatures est disponible. Les vérifications de torsion et de cisaillement peuvent être bloquées si le ferraillage dessiné ne justifie pas les barres périphériques, la hauteur utile pour le cisaillement secondaire ou l’ancrage à travers une jonction. La vérification de cisaillement tient compte des barres tendues distinctes présentes à la coupe, y compris entre sections échantillonnées. L’exemple de sept étages peut désormais bloquer des vérifications auparavant validées. (#2433)',
+          'L’espace de travail de ferraillage 3D s’ouvre plus vite. L’enregistrement, la restauration et le changement d’onglet dans les modèles détaillés réutilisent la géométrie immuable des armatures. Annuler et rétablir restaurent le ferraillage correspondant à la géométrie du béton. (#2438, #2444, #2458)',
+          'Basic affiche les moments de réaction 3D avec les signes globaux du solveur. L’inspecteur de corps libre utilise les axes sélectionnés et, en 2D, les valeurs côté nœud concordent avec les flèches. Les rapports Basic et PRO expriment les composantes des forces ponctuelles et des couples dans le plan et les axes du solveur. Reprenez les inspections et régénérez les rapports concernés. (#2396)',
+          'Dans les réglages de clé IA, les boutons de fournisseur, le champ de clé et les actions associées mesurent au moins 44 pixels CSS dans les deux directions. (#2440)',
+          'Les pages de recherche publiées sur l’élastique de Mattiasson, MacNeal–Harder et le parcours d’essais de coques affichent le résultat final ou le refus signalé du premier calcul. (#2445)',
+          'La feuille de route du produit donne la priorité aux contrôles indépendants des charges et surfaces de plaques, aux fonctions exactes d’efforts internes, aux justificatifs complets de dimensionnement et à un modèle canonique vérifié lors des transformations. (#2469)',
+        ],
+      },
+      tr: {
+        title: 'Stabileo 0.6.4: Düzeltilen eleman sonuçları, plak analizi ve betonarme doğrulaması',
+        items: [
+          'Eleman diyagramları ve hareketli yük zarfları, ölçüm noktaları arasındaki uç değerleri, tekil etkilerin iki tarafını ve eleman uçlarının hemen içindeki kesit tesirlerini hesaba katar. Kesin uç değerler bulunamadığında birleşik diyagramlar açıkça belirtilmiş güvenli sınırlar gösterebilir. Belirsiz ölçüm noktaları, çözülemeyen belirleyici uç değerler ve eksik tasarım ağları ilgili sonucu engeller. Ters yönlü betonarme açıklık parçaları fiziksel çekme yüzünü korur. Çelik kontrolleri dengeden elde edilen tepe ve çeyrek nokta momentlerini kullanır. Diyagram verileri eksikse elverişli moment gradyanı hesaba katılmaz. Çok sayıda ölçüm noktası içeren raporlar hazırlanmış diyagramları yeniden kullanır. (#2403)',
+          'Her iki eleman ters çevirme komutu da yayılı yüklerin yönünü, yüklü aralığını ve uç şiddetlerini korur. Analiz, eski düzlemsel moment alanlarındaki belirsiz olmayan sıfır dışı değeri kullanır ve çelişkili değerleri reddeder. Uzay modellerinde, kullanılabilir eleman izdüşümü olmasa da saf bir başlangıç momenti tanımlandığı başlangıç düğümüne uygulanabilir. İzdüşüm gerektiren diğer eski yükler çözümü engelleyebilir. (#2456)',
+          'Geri yüklenen düzlemsel noktasal momente veya düğüm momentine girilen sonlu değer, sıfır dahil, kayıtlı momentin yerini alır. Çelişkili veya geçersiz momentler kaydetme ve yeniden açma sonrasında da çözümü engeller. Amaçlanan momenti doğrulayın, yeniden girin ve analiz ile tasarımı tekrarlayın. (#2467, SA-2026-105)',
+          'PRO, geçersiz veya güncel olmayan bir plak ağı modelde kalırsa ya da bir perde–döşeme birleşimi uyumsuzsa analizi reddeder. Uygula düğmesinin etkinleşmesi için plak çevresi ve boşlukları eksiksiz ve geçerli olmalıdır. Galerideki yedi katlı bina ile mimari DXF örneği birleşimlerde uyumlu ağlara sahiptir. Yeni ağlı CAD taslakları döşeme ve perde ağ noktalarını hizalar. Yalnızca modeli içeren çalışma kitabı dışa aktarımında ağı oluşturulmamış plaklar yer alabilir. (#2409)',
+          'Ağ yenileme, plak için belirtilen ara noktadan geçen eğrisel sınırı izler. Belirsiz bir yay, ağ yenilemeyi ve analizi engeller. Sınırı kontrol edin, güncel olmayan ağları yeniden oluşturun ve analiz ile tasarımı tekrarlayın. (#2466, SA-2026-106)',
+          'Ağ yenileme, kabuk ofsetlerini ve eğrilik düzenlemelerini yalnızca bire bir eşleşen elemanlara aktarır. Düzenlenmiş bir kabuk için eşleşme yoksa ağ yenileme durur ve mevcut ağ korunur. Kabuk özelliklerini kontrol edin, daha önce kaybolan düzenlemeleri geri yükleyin ve analiz ile tasarımı tekrarlayın. (#2466, SA-2026-107)',
+          'CIRSOC 201-2025, burulma için enine donatı alt sınırını her iki yönde kontrol eder ve donatı kafesi mevcutsa saf burulmada hesaplanan beton sınırını kullanır. Çizilen donatı çevre çubuklarını, ikincil kesme için faydalı yüksekliği veya birleşim boyunca kenetlenmeyi doğrulamıyorsa burulma ve kesme kontrolleri engellenebilir. Kesme kontrolü kesitte bulunan ayrı çekme donatısı çubuklarını, örneklenen noktaların arasında da hesaba katar. Yedi katlı örnekte daha önce geçen kontroller artık engellenebilir. (#2433)',
+          '3B donatı çalışma alanı daha hızlı açılır. Ayrıntılı modelleri kaydetme, geri yükleme ve sekme değiştirme işlemleri değişmez donatı geometrisini yeniden kullanır. Geri alma ve yineleme, beton geometrisine karşılık gelen donatıyı geri yükler. (#2438, #2444, #2458)',
+          'Basic, 3B mesnet momentlerini çözücünün global işaretleriyle gösterir. Serbest cisim incelemesi seçilen eksenleri kullanır. 2B’de düğüm tarafındaki değerler okların yönüyle uyumludur. Basic ve PRO raporları noktasal kuvvet ve moment bileşenlerini çözücünün düzleminde ve eksenlerinde verir. Etkilenen incelemeleri yineleyin ve raporları yeniden oluşturun. (#2396)',
+          'Yapay zekâ anahtarı ayarlarında sağlayıcı düğmeleri, anahtar alanı ve anahtar işlemleri her iki yönde en az 44 CSS piksel boyutundadır. (#2440)',
+          'Yayımlanan Mattiasson elastik eğrisi, MacNeal–Harder ve kabuk sınama dizisi araştırma sayfaları ilk çalıştırmanın tamamlanmış sonucunu veya bildirilen ret nedenini gösterir. (#2445)',
+          'Ürün yol haritası bağımsız yük ve plak alanı denetimlerine, kesin iç kuvvet fonksiyonlarına, eksiksiz tasarım kanıtına ve dönüşümlerin denetlendiği tek bir kanonik modele öncelik verir. (#2469)',
+        ],
+      },
+      hu: {
+        title: 'Stabileo 0.6.4: Javított rúderedmények, lemezelemzés és vasbeton-ellenőrzés',
+        items: [
+          'A rúdábrák és mozgóteher-burkolók figyelembe veszik az állomások közötti szélsőértékeket, a koncentrált hatások mindkét oldalát és a rúdvég belső oldalán ébredő igénybevételeket. A kombinált ábrák pontos szélsőérték hiányában megjelölt konzervatív korlátot közölhetnek. Kétértelmű állomás, fel nem oldható mértékadó szélsőérték vagy hiányos méretezési rács esetén az érintett eredmény blokkolódik. A megfordított vasbeton gerendaszakaszok megtartják a fizikai húzott oldalt. Az acélellenőrzés az egyensúlyból számított csúcs- és negyedponti nyomatékokat használja, és hiányos ábraadatok esetén megvonja a nyomatékgradiens kedvező hatását. A sok állomást tartalmazó jelentések újra felhasználják az előkészített ábrákat. (#2403)',
+          'Mindkét rúdmegfordítási parancs megtartja a megoszló terhek irányát, terhelt szakaszát és végintenzitásait. A számítás a régi síkbeli pontnyomatékmezők egyértelmű, nullától eltérő értékét használja, és elutasítja az eltérő értékeket. Térbeli modellben a tiszta kezdőponti nyomaték használható rúdvetület nélkül is a kijelölt kezdőcsomópontra kerülhet. Más, vetületet igénylő régi terhek blokkolhatják a számítást. (#2456)',
+          'A visszaállított síkbeli pontnyomatékhoz vagy csomóponti nyomatékhoz megadott véges érték felülírja a tárolt nyomatékot, akkor is, ha az új érték nulla. Az ellentmondó vagy érvénytelen nyomatékok mentés és újranyitás után is blokkolják a számítást. Ellenőrizze a kívánt nyomatékot, adja meg újra, majd ismételje meg a számítást és a méretezést. (#2467, SA-2026-105)',
+          'A PRO elutasítja a számítást, ha érvénytelen vagy elavult lemezháló marad a modellben, vagy egy fal–födém csatlakozás inkompatibilis. A hálózó csak teljes, érvényes körvonalak és nyílások esetén engedélyezi az alkalmazást. A galéria hétszintes épületében és az építészeti DXF-példában a csatlakozások hálója kompatibilis. Az új hálózott CAD-vázlatok összeillesztik a födémek és falak hálópontjait. A csak a modellt tartalmazó munkafüzet hálózatlan lemezeket is tartalmazhat. (#2409)',
+          'Az újrahálózás a lemez megadott közbenső pontján áthaladó íves peremet követi. A nem egyértelmű ív blokkolja az újrahálózást és a számítást. Ellenőrizze a peremet, készítse újra az elavult hálókat, majd ismételje meg a számítást és a méretezést. (#2466, SA-2026-106)',
+          'Az újrahálózás a héjelemek eltolását és görbületi módosításait csak egyértelműen és pontosan egyező elemekre viszi át. Ha egy módosított elemhez nincs ilyen pár, az újrahálózás leáll, és a meglévő háló megmarad. Ellenőrizze a héjelemek tulajdonságait, állítsa vissza a már elveszett módosításokat, majd ismételje meg a számítást és a méretezést. (#2466, SA-2026-107)',
+          'A CIRSOC 201-2025 mindkét irányban ellenőrzi a csavarás minimális keresztirányú vasalását, és tiszta csavarásnál vasalási kosár rendelkezésre állása esetén a számított betonhatárértéket használja. A csavarási és nyírási ellenőrzés elutasítható, ha a megrajzolt vasalás nem igazolja a kerületi rudakat, a másodlagos nyíráshoz tartozó hasznos magasságot vagy a csatlakozáson átmenő lehorgonyzást. A nyírás ellenőrzése a szelvényben jelen lévő különálló húzott rudakat veszi figyelembe, a mintavételi állomások között is. A hétszintes példában korábban megfelelő ellenőrzések blokkolódhatnak. (#2433)',
+          'A 3D vasalási munkaterület gyorsabban nyílik meg. A részletezett modellek mentése, visszaállítása és lapváltása újra felhasználja a változtathatatlan vasalási geometriát. A visszavonás és az ismétlés a betongeometriához tartozó vasalást állítja helyre. (#2438, #2444, #2458)',
+          'A Basic a térbeli támasznyomatékokat a megoldó globális előjeleivel jeleníti meg. A szabadtestábra a kiválasztott tengelyeket használja, és síkbeli modellben a csomóponti oldalon a feliratok követik a nyilakat. A Basic- és PRO-jelentések a pontszerű erők és nyomatékok összetevőit a megoldó síkjában és tengelyei szerint adják meg. Ellenőrizze újra az érintett értékeket, és készítse újra a jelentéseket. (#2396)',
+          'Az MI-kulcs beállításainál a szolgáltatógombok, a kulcsmező és a kulcsműveletek mindkét irányban legalább 44 CSS-képpont méretűek. (#2440)',
+          'A Mattiasson-elastica, a MacNeal–Harder és a héjak tesztsorozatának közzétett kutatási oldalai az első futás kész eredményét vagy a számítás elutasítását mutatják. (#2445)',
+          'A termék ütemterve előre sorolja a terhek és lemezterületek független ellenőrzését, az egzakt igénybevételi függvényeket, a teljes méretezési bizonyítékot és az egységes kanonikus modellt az átalakítások ellenőrzésével. (#2469)',
+        ],
+      },
+      zh: {
+        title: 'Stabileo 0.6.4：修正杆件结果、板分析和混凝土验算',
+        items: [
+          '杆件内力图和移动荷载包络计入测站之间的极值、集中作用两侧的值以及紧靠杆端内侧的内力。组合内力图无法求得精确极值时可以显示明确标注的保守界限。测站有歧义、控制极值无法确定或设计测站不完整时，系统会阻止输出受影响的结果。混凝土跨段内的反向杆段保留实际受拉面。钢结构验算使用满足平衡的峰值和四分点弯矩。内力图数据不全时不采用弯矩梯度的有利影响。包含许多测站的报告会复用已准备好的内力图。 (#2403)',
+          '两种杆件反向命令均保留分布荷载的方向、加载区间和端部强度。分析采用旧版平面力偶字段中无歧义的非零值，并拒绝相互冲突的值。空间模型中，即使杆件没有可用投影，也可在原定起始节点施加纯起点力偶。仍需投影的其他旧版荷载可能阻止求解。 (#2456)',
+          '对恢复的平面集中力偶或节点力矩输入有限值时，该值会替换已保存的力矩，包括输入零。相互冲突或无效的力矩在保存并重新打开项目后仍会阻止分析。请核对预期力矩，重新输入，再运行分析和设计验算。 (#2467, SA-2026-105)',
+          '如果模型仍有无效或过期的板网格，或墙板接缝不相容，PRO 会拒绝分析。板轮廓和孔洞完整且有效后才可应用网格划分。示例库的七层建筑和建筑 DXF 示例已在接缝处使用相容网格。新划分网格的 CAD 草稿会对齐楼板和墙的网格点。仅导出模型的工作簿可以包含尚未划分网格的板。 (#2409)',
+          '重新划分网格时，板的曲线边界沿经过指定中间点的圆弧布置。圆弧有歧义时会阻止重新划分网格和分析。请核对边界，重建过期网格，再运行分析和设计验算。 (#2466, SA-2026-106)',
+          '重新划分网格时，壳单元的偏置和曲率修改只会转移到唯一且完全匹配的单元。若找不到匹配单元，重新划分网格会停止并保留现有网格。请核对壳单元属性，恢复此前丢失的修改，再运行分析和设计验算。 (#2466, SA-2026-107)',
+          'CIRSOC 201-2025 在两个方向验算受扭所需的最小横向配筋，有钢筋笼时，纯扭验算采用计算得到的混凝土限值。当钢筋详图无法证实周边纵筋、次方向受剪有效高度或跨接缝锚固时，受扭和受剪验算可能被阻止。受剪验算计入截面上实际存在的不同受拉钢筋，包括采样测站之间的截面。七层示例中原先通过的验算现在可能被拒绝。 (#2433)',
+          '三维钢筋工作区打开更快。在有配筋详图的模型中，保存、恢复和切换标签页会复用不可变的钢筋几何。撤销和重做会恢复与混凝土几何相符的配筋详图。 (#2438, #2444, #2458)',
+          'Basic 按求解器的全局符号显示三维支座反力矩。自由体检查使用所选坐标轴，二维模型中节点一侧的读数与箭头一致。Basic 和 PRO 报告按求解器的平面和坐标轴列出集中力与力偶分量。请重新检查受影响的读数并重新生成报告。 (#2396)',
+          'AI 密钥设置中的服务商按钮、密钥字段和密钥操作在两个方向上均至少为 44 CSS 像素。 (#2440)',
+          '已发布的 Mattiasson 弹性线、MacNeal–Harder 和壳单元综合测试研究页面会显示首次基准运行的最终结果或报告的拒绝信息。 (#2445)',
+          '产品路线图优先安排独立核查荷载和板面积、采用精确内力函数、完善设计验算依据，以及统一模型表示并检查各种变换。 (#2469)',
+        ],
+      },
+    },
+  },
+  {
+    date: '2026-11-20',
+    advisories: [
+      { id: 'SA-2026-086', href: 'https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-086-seismic-static-story-forces.md' },
+      { id: 'SA-2026-087', href: 'https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-087-seismic-modal-load-generation.md' },
+      { id: 'SA-2026-091', href: 'https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-091-rc-torsion-shear-verification.md' },
+      { id: 'SA-2026-092', href: 'https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-092-section-stress-shear.md' },
+      { id: 'SA-2026-093', href: 'https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-093-plane-moving-load-axial-force.md' },
+    ],
+    areas: ['engine', 'engine', 'engine', 'engine', 'engine', 'pro', 'pro', 'pro', 'pro', 'pro', 'pro', 'pro', 'app', 'app', 'app', 'site', 'site', 'site'],
+    i18n: {
+      es: {
+        title: 'Hormigón, tensiones de sección y cargas móviles',
+        items: [
+          'Las tensiones detalladas de sección bloquean el resultado combinado cuando coinciden el corte transversal y el de torsión. Los cortes ahora incluyen ambas componentes transversales al calcular el corte total y von Mises. Volvé a calcular las tensiones afectadas y revisá los informes (SA-2026-092). El ejemplo del aviso indica las coordenadas de la fibra en los ejes locales de la barra y en el dibujo de la sección.',
+          'Las cargas móviles planas conservan el salto de esfuerzo axial en cada eje concentrado. Recalculá los diagramas, las envolventes y las líneas de influencia axial afectadas (SA-2026-093).',
+          'Las combinaciones 2D y 3D conservan el factor neto al repetir un caso de carga y rechazan la cancelación total. Los análisis de cables y de interacción suelo-estructura rechazan resortes de rigidez no finita. Volvé a ejecutar las combinaciones afectadas.',
+          'Los pórticos y las vigas pasan más rápido la comprobación de estabilidad certificada. También se agilizan las combinaciones 3D y se corrige el precondicionador iterativo para placas.',
+          'El análisis corrotacional 2D usa un controlador no lineal compartido y conserva los resultados de Newton y Newton modificado. (#2394)',
+          'La verificación de hormigón armado bloquea los chequeos de corte, torsión y estribos sísmicos que carecen de evidencia y explica la causa. Volvé a verificar los diseños certificados y revisá las secciones y los planos de armadura (SA-2026-091).',
+          'Las cargas sísmicas estáticas siguen la masa física y su altura de aplicación. La generación modal queda bloqueada. Regenerá las cargas afectadas con el método estático donde sea aplicable y repetí el análisis y el diseño (SA-2026-086 y SA-2026-087).',
+          'La generación de cargas gravitatorias bloquea los paneles superpuestos que pueden cargar dos veces una misma zona. Regenerá las cargas afectadas antes de repetir los análisis y los chequeos.',
+          'Las transformaciones bloquean movimientos o copias que pueden alterar las direcciones restringidas de un apoyo móvil ambiguo. Las instantáneas conservan el tipo de apoyo registrado.',
+          'La generación sísmica estática comprueba si hay evidencia de piso en los cruces de arriostramientos y en los nudos de cubierta. Una viga de cumbrera por sí sola no define un piso. Las subdivisiones de barras rectas se identifican de forma coherente al trasladar el modelo. La generación se bloquea si la precisión de las coordenadas es insuficiente o si el nivel es ambiguo. Cuando hay evidencia de piso en ambos extremos, la inercia de las barras inclinadas elevadas de cubierta se distribuye a lo largo de los tramos participantes. Un piso comprobado también separa un tramo inclinado continuo en el nudo de piso. Esto puede cambiar las fuerzas por nivel, el corte basal, los momentos flectores y las flechas de esas barras. Regenerá los casos sísmicos estáticos afectados y revisá el corte basal y los esfuerzos de las barras de cubierta. (#2404)',
+          'La generación gravitatoria por paños bloquea la doble aplicación de cargas a un paño de vigas y a una losa de elementos de cáscara superpuesta cuando la junta de la losa está vinculada rígidamente en todos sus grados de libertad mediante nodos maestros fuera de la junta. Cargas automáticas también se bloquea antes de la vista previa si el redondeo de coordenadas impide clasificar una barra portante según su pendiente. Esa clasificación podía cambiar al girar el modelo en planta o subdividir una barra. En cubiertas planas e inclinadas, la generación de nieve se bloquea cuando una acumulación de nieve en un escalón de cubierta del propio predio debe transferirse a las barras o cuando no se puede determinar si corresponde aplicarla. La transferencia anterior podía perder fuerza y momento excéntrico. Regenerá las cargas gravitatorias y de nieve afectadas y resolvé los bloqueos antes de usar los resultados. (#2406)',
+          'La verificación CIRSOC 201 usa el esfuerzo axial concurrente para la separación de estribos, revisa el anclaje donde el momento es exactamente cero y evalúa los intervalos locales de estribos. Los límites de estribos sísmicos tienen en cuenta todas las capas de barras de extremo. La capacidad y el aprovechamiento a torsión reflejan el menor límite evaluado. Se pueden bloquear verificaciones por barras que terminan antes de la sección o por anclaje no verificado de barras perimetrales. La verificación de corte secundario resistido solo por el hormigón requiere barras longitudinales alojadas en ambos dobleces superiores de los estribos. La comprobación con la altura útil final usa el plano de viga modificado si se proporciona. Las planillas de columnas conservan los distintos diámetros y el detallado físico se omite si la armadura especificada no se puede reproducir. Volvé a verificar con los planos de armadura vigentes y revisá las combinaciones gobernantes y los dictámenes. (#2398)',
+          'El chino simplificado es el octavo idioma de Stabileo y está disponible en la aplicación, el sitio y los avisos de resultados.',
+          'La importación de libros rechaza nombres de hojas que se interpretan como iguales, encabezados duplicados, encabezados obligatorios ausentes, unidades inválidas, errores de celda, restricciones contradictorias y campos de carga no admitidos con datos. Para las cargas planas, rechaza las componentes de momento no nulas alrededor de cualquiera de los dos ejes declarados en el libro que estén en el plano del modelo. El modelo actual se conserva si se rechaza la importación. Las restricciones explícitas completas se conservan en los ejes declarados del libro, incluso al exportar antes de resolver. Los resortes rotacionales planos se exportan como kr [kN·m/rad], y el encabezado anterior sigue siendo válido al importar. Volvé a importar los libros afectados y revisá las coordenadas, las cargas, la gravedad y las restricciones antes de resolver. (#2395)',
+          'El borrado de mallas de placas es más rápido, incluso al volver a mallar losas. (#2394)',
+          'La versión 0.6.2 salió con correcciones de cargas de barra, apoyos 3D, armadura transversal secundaria y generación de cargas. Las notas de versión indican qué recalcular y qué cargas regenerar.',
+          'Las figuras de la portada siguen animadas bajo el puntero. El panel de proyectos indica qué acciones requieren una cuenta y la página de registro usa las figuras de la portada.',
+          'Research incorpora un experimento sobre el espesor mínimo y el colapso de arcos de mampostería basado en el trabajo de Heyman.',
+        ],
+      },
+      en: {
+        title: 'Concrete verification, section stress and moving loads',
+        items: [
+          'Detailed section stress withholds combined results where torsional and transverse shear coexist. The cuts now include both transverse components in total shear and von Mises. Recompute affected stresses and review the reports (SA-2026-092). The advisory’s worked example gives the fibre coordinates in both member-local and section-drawing axes.',
+          'Plane moving loads preserve the axial force jump at concentrated axles. Recompute affected diagrams, envelopes and axial influence lines (SA-2026-093).',
+          '2D and 3D combinations retain the net factor for repeated cases and refuse full cancellation. Cable and soil–structure analyses refuse non-finite spring stiffness. Rerun affected combinations.',
+          'Frames and beams pass the certified stability check faster. 3D combination recovery is faster, and the iterative preconditioner for plates was corrected.',
+          '2D co-rotational analysis uses a shared nonlinear driver and retains its existing Newton and modified Newton results. (#2394)',
+          'Reinforced concrete verification blocks shear, torsion and seismic hoop checks with insufficient evidence and explains why. Rerun certified designs and review the governing cuts and reinforcement drawings (SA-2026-091).',
+          'Static seismic loads follow the physical mass and its application height. Modal load generation is blocked. Regenerate affected loads with the static method where applicable, then rerun analysis and design (SA-2026-086 and SA-2026-087).',
+          'Gravity generation blocks overlapping panels that could load the same area twice. Regenerate affected loads before rerunning analyses and design checks.',
+          'Transforms block moves or copies that could change the restrained directions of an ambiguous roller support. Snapshots preserve the recorded support type.',
+          'Static seismic generation checks floor evidence at brace crossings and roof joints. A ridge beam alone cannot establish a floor. Straight member subdivisions are identified consistently after translation, and generation blocks if coordinate precision is insufficient or the story is ambiguous. Where both ends have floor evidence, elevated rafters receive distributed inertia along the participating spans. An established floor also splits a continuous inclined run at the floor joint. This can change story forces, base shear and rafter bending and deflection. Regenerate affected static seismic cases and review base shear and rafter actions. (#2404)',
+          'Panel gravity generation blocks a duplicate load path where an overlapping beam bay and shell deck would both be loaded and the deck seam is fully tied through off-seam master nodes. Automatic Loads also blocks before preview if coordinate roundoff makes a gravity carrier’s slope classification indeterminate. That classification could previously change after a plan rotation or member subdivision. On flat and pitched roofs, snow generation blocks when an on-site step drift needs transfer to members or its applicability cannot be established. Earlier transfer could lose force and eccentric moment. Regenerate affected gravity and snow loads and resolve blocking conditions before using the results. (#2406)',
+          'CIRSOC 201 verification uses concurrent axial force for stirrup spacing, checks anchorage at exact moment zeros and checks local stirrup intervals. Seismic hoop limits account for all end-bar layers. Torsion capacity and utilization reflect the lower evaluated limit. Verification can block when a bar’s drawn end falls short of the section being checked or when perimeter-bar development is unverified. The concrete-only secondary shear check requires longitudinal bars seated in both upper stirrup bends. Final-depth rechecks use the replacement beam drawing when supplied. Column schedules retain mixed bar diameters and withhold physical detailing when the specified cage cannot be reproduced. Rerun verification against the current reinforcement drawings and review governing combinations and verdicts. (#2398)',
+          'Simplified Chinese is the eighth Stabileo language and is available in the app, website and result notices.',
+          'Workbook import rejects sheet names that resolve to the same name, duplicate headers, missing required headers, invalid units, spreadsheet errors, conflicting restraint flags, and populated unsupported load fields. For planar loads, it rejects nonzero moment components about either of the two declared workbook axes that lie in the model plane. A refused import leaves the current model in place. Complete explicit restraints are preserved in the declared workbook axes, including in exports before solving. Planar rotational springs export as kr [kN·m/rad], and the legacy header remains readable. Reimport affected workbooks and verify coordinates, loads, gravity and restraints before solving again. (#2395)',
+          'Clearing a plate mesh is faster, including when rebuilding slab meshes. (#2394)',
+          'Stabileo 0.6.2 shipped with corrections to member loads, 3D supports, secondary stirrup reinforcement and generated loads. The release notes identify what to recompute and which loads to regenerate.',
+          'Landing figures keep moving under the pointer. The project panel explains which actions require an account, and the registration page uses the landing figures.',
+          'Research adds an experiment on minimum masonry arch thickness and collapse based on Heyman’s work.',
+        ],
+      },
+      pt: {
+        title: 'Verificação de concreto, tensões na seção e cargas móveis',
+        items: [
+          'As tensões detalhadas na seção bloqueiam o resultado combinado onde coexistem cisalhamento transversal e torção. Os cortes agora incluem as duas componentes transversais no cisalhamento total e em von Mises. Recalcule as tensões afetadas e revise os relatórios (SA-2026-092). O exemplo do aviso indica as coordenadas da fibra nos eixos locais da barra e no desenho da seção.',
+          'As cargas móveis planas preservam o salto da força axial nos eixos concentrados. Recalcule os diagramas, as envoltórias e as linhas de influência axial afetados (SA-2026-093).',
+          'As combinações 2D e 3D preservam o fator líquido dos casos repetidos e recusam o cancelamento total. As análises de cabos e de interação solo-estrutura recusam molas com rigidez não finita. Execute novamente as combinações afetadas.',
+          'Pórticos e vigas passam mais rapidamente pela verificação certificada de estabilidade. A recuperação das combinações 3D ficou mais rápida e o precondicionador iterativo para placas foi corrigido.',
+          'A análise corrotacional 2D usa um controlador não linear compartilhado e mantém os resultados de Newton e Newton modificado. (#2394)',
+          'A verificação de concreto armado bloqueia as verificações de cisalhamento, torção e estribos sísmicos sem evidência suficiente e informa o motivo. Execute novamente os dimensionamentos certificados e revise as seções críticas e os desenhos de armadura (SA-2026-091).',
+          'As cargas sísmicas estáticas seguem a massa física e sua altura de aplicação. A geração modal está bloqueada. Gere novamente as cargas afetadas pelo método estático onde for aplicável e refaça a análise e o dimensionamento (SA-2026-086 e SA-2026-087).',
+          'A geração de cargas gravitacionais bloqueia painéis sobrepostos que poderiam carregar a mesma área duas vezes. Gere novamente as cargas afetadas antes de repetir análises e verificações.',
+          'As transformações bloqueiam movimentos e cópias que podem alterar as direções restringidas de um apoio móvel ambíguo. Os instantâneos preservam o tipo de apoio registrado.',
+          'A geração sísmica estática verifica se há evidência de pavimento nos cruzamentos de contraventamentos e nos nós da cobertura. Uma viga de cumeeira por si só não caracteriza um pavimento. As subdivisões de barras retas são identificadas de forma consistente após a translação do modelo. A geração é bloqueada se a precisão das coordenadas for insuficiente ou se o pavimento for ambíguo. Quando há evidência de pavimento nas duas extremidades, as barras inclinadas elevadas da cobertura recebem inércia distribuída nos trechos participantes. Um pavimento comprovado também divide um trecho inclinado contínuo no nó do pavimento. Isso pode alterar as forças por pavimento, o cortante basal e os momentos fletores e flechas dessas barras. Gere novamente os casos sísmicos estáticos afetados e revise o cortante basal e os esforços nas barras de cobertura. (#2404)',
+          'A geração gravitacional por painéis bloqueia a aplicação duplicada de carga em um painel de vigas sobreposto por uma laje de cascas quando a junta da laje está totalmente vinculada por nós mestres fora da junta. Cargas automáticas também bloqueia a geração antes da prévia se o arredondamento das coordenadas tornar indeterminada a classificação de uma barra portante por sua inclinação. Essa classificação podia mudar após uma rotação em planta ou a subdivisão de uma barra. Em coberturas planas ou inclinadas, a geração de neve é bloqueada quando a acumulação de neve em um desnível de cobertura no terreno do projeto exige transferência às barras ou quando não se consegue determinar se ela se aplica. A transferência anterior podia perder força e momento excêntrico. Gere novamente as cargas gravitacionais e de neve afetadas e resolva os bloqueios antes de usar os resultados. (#2406)',
+          'A verificação CIRSOC 201 usa a força axial concomitante para o espaçamento dos estribos, verifica a ancoragem onde o momento é exatamente zero e avalia os intervalos locais de estribos. Os limites dos estribos sísmicos consideram todas as camadas de barras nas extremidades. A capacidade e a utilização à torção refletem o menor limite avaliado. A verificação pode ser bloqueada por barras que terminam antes da seção ou por ancoragem perimetral não confirmada. A verificação do cisalhamento secundário resistido só pelo concreto exige barras longitudinais alojadas nas duas dobras superiores dos estribos. A verificação com a altura útil final usa o desenho de viga revisado quando fornecido. As tabelas de pilares preservam os diferentes diâmetros e o detalhamento físico é omitido se o arranjo especificado não puder ser reproduzido. Refaça a verificação conforme os desenhos de armadura atuais e revise as combinações determinantes e os resultados. (#2398)',
+          'O chinês simplificado é o oitavo idioma do Stabileo e está disponível no aplicativo, no site e nos avisos de resultados.',
+          'A importação de planilhas rejeita nomes de abas interpretados como iguais, cabeçalhos duplicados, cabeçalhos obrigatórios ausentes, unidades inválidas, erros em células, restrições conflitantes e campos de carga incompatíveis preenchidos. Para cargas planas, a importação rejeita componentes de momento não nulas em torno de qualquer um dos dois eixos declarados na planilha que estejam no plano do modelo. O modelo atual é preservado se a importação for recusada. Restrições explícitas completas são preservadas nos eixos declarados da planilha, inclusive ao exportar antes da análise. Molas rotacionais planas são exportadas como kr [kN·m/rad], e o cabeçalho antigo continua aceito na importação. Importe novamente as planilhas afetadas e confira coordenadas, cargas, gravidade e restrições antes de analisar. (#2395)',
+          'A remoção de malhas de placas é mais rápida, inclusive ao refazer a malha de lajes. (#2394)',
+          'O Stabileo 0.6.2 foi lançado com correções em cargas de barras, apoios 3D, armadura transversal secundária e cargas geradas. As notas da versão indicam o que recalcular e quais cargas gerar novamente.',
+          'As figuras da página inicial continuam em movimento sob o ponteiro. O painel de projetos indica quais ações exigem uma conta e a página de cadastro usa as figuras da página inicial.',
+          'O Research inclui um experimento sobre a espessura mínima e o colapso de arcos de alvenaria com base no trabalho de Heyman.',
+        ],
+      },
+      de: {
+        title: 'Stahlbetonnachweise, Querschnittsspannungen und Wanderlasten',
+        items: [
+          'Die detaillierte Querschnittsspannungsauswertung sperrt das kombinierte Ergebnis, wenn Torsions- und Querkraftschub zusammen auftreten. Die Schnitte berücksichtigen nun beide Querkraftkomponenten für Gesamtschub und von Mises. Berechnen Sie betroffene Spannungen neu und prüfen Sie die Berichte (SA-2026-092). Das Rechenbeispiel im Hinweis nennt die Faserkoordinaten in lokalen Stabachsen und in der Querschnittszeichnung.',
+          'Wanderlasten in ebenen Rahmen erhalten den Normalkraftsprung an konzentrierten Achslasten. Berechnen Sie betroffene Diagramme, Einhüllende und Normalkraft-Einflusslinien neu (SA-2026-093).',
+          '2D- und 3D-Kombinationen behalten den Nettofaktor wiederholter Lastfälle und lehnen vollständige Aufhebung ab. Seilanalysen und Berechnungen der Boden-Bauwerk-Interaktion lehnen nicht endliche Federsteifigkeiten ab. Führen Sie betroffene Kombinationen erneut aus.',
+          'Rahmen und Träger durchlaufen die zertifizierte Stabilitätsprüfung schneller. Die Auswertung von 3D-Kombinationen wurde beschleunigt und der iterative Vorkonditionierer für Platten korrigiert.',
+          'Die 2D-korotatorische Analyse nutzt eine gemeinsame nichtlineare Lösungssteuerung und behält die bisherigen Ergebnisse mit Newton und modifiziertem Newton bei. (#2394)',
+          'Die Stahlbetonprüfung sperrt Querkraft-, Torsions- und Erdbebenbügelnachweise mit unzureichender Grundlage und nennt den Grund. Wiederholen Sie zertifizierte Bemessungen und prüfen Sie die maßgebenden Schnitte und Bewehrungspläne (SA-2026-091).',
+          'Statische Erdbebenlasten folgen der tatsächlichen Masse und ihrer Angriffshöhe. Die modale Lastgenerierung ist gesperrt. Erzeugen Sie betroffene Lasten mit dem statischen Verfahren neu, soweit dieses anwendbar ist, und wiederholen Sie Berechnung und Bemessung (SA-2026-086 und SA-2026-087).',
+          'Die Erzeugung von Schwerkraftlasten sperrt überlappende Felder, die dieselbe Fläche doppelt belasten könnten. Erzeugen Sie betroffene Lasten vor erneuter Berechnung und Bemessung neu.',
+          'Transformationen sperren Verschiebungen und Kopien, die die gesperrten Richtungen eines mehrdeutigen Rollenlagers ändern könnten. Momentaufnahmen bewahren den gespeicherten Lagertyp.',
+          'Die statische Erdbebenlasterzeugung prüft, ob an Kreuzungen von Diagonalen und an Dachknoten ein Geschoss belegt ist. Ein Firstträger allein genügt dafür nicht. Unterteilungen gerader Stäbe werden auch nach einer Verschiebung gleich erkannt. Die Erzeugung wird gesperrt, wenn die Koordinatengenauigkeit nicht ausreicht oder die Geschosszuordnung mehrdeutig ist. Bei nachgewiesenem Geschoss an beiden Enden erhalten höher liegende Sparren verteilte Trägheitslasten entlang der beteiligten Stababschnitte. Ein belegtes Geschoss unterteilt auch einen durchlaufenden geneigten Stabzug am Geschossknoten. Dadurch können sich Geschosskräfte, Gesamterdbebenkraft am Fuß, Biegemomente und Durchbiegungen der Sparren ändern. Erzeugen Sie betroffene statische Erdbebenlastfälle neu und prüfen Sie die Gesamterdbebenkraft am Fuß und die Sparrenschnittgrößen. (#2404)',
+          'Die feldweise Schwerkraftlasterzeugung sperrt den doppelten Lastpfad über ein belastetes Trägerfeld und eine überlappende Schalendecke, deren Fuge über außerhalb der Fuge liegende Hauptknoten vollständig starr gekoppelt ist. Die automatischen Lasten werden bereits vor der Vorschau gesperrt, wenn Koordinatenrundung die Einstufung eines Lastträgers nach seiner Neigung unbestimmbar macht. Diese Einstufung konnte sich früher durch eine Drehung im Grundriss oder eine Stabunterteilung ändern. Bei flachen und geneigten Dächern wird die Schneelasterzeugung gesperrt, wenn eine Schneeverwehung an einem Dachversatz auf dem Projektgrundstück auf Stäbe übertragen werden muss oder ihre Anwendbarkeit unklar ist. Bei der früheren Übertragung konnten Kraft und exzentrisches Moment verloren gehen. Erzeugen Sie betroffene Schwerkraft- und Schneelasten neu und beheben Sie Sperrgründe vor der Verwendung der Ergebnisse. (#2406)',
+          'Der Nachweis nach CIRSOC 201 verwendet die gleichzeitige Normalkraft für den Bügelabstand, prüft die Verankerung an exakten Momentennullstellen und berücksichtigt örtliche Bügelabschnitte. Für die Grenzwerte der Erdbebenbügel zählen alle Stablagen an den Enden. Torsionstragfähigkeit und Ausnutzung berücksichtigen den niedrigeren ermittelten Grenzwert. Der Nachweis kann gesperrt werden, wenn Stäbe vor dem Schnitt enden oder ihre Verankerung am Umfang nicht belegt ist. Der Nachweis der allein vom Beton aufgenommenen Nebenquerkraft setzt Längsstäbe in beiden oberen Bügelbiegungen voraus. Der Nachweis mit endgültiger Nutzhöhe verwendet den geänderten Trägerbewehrungsplan, sofern vorhanden. Stützenlisten behalten gemischte Durchmesser bei. Die konstruktive Darstellung unterbleibt, wenn sich der vorgegebene Korb nicht nachbilden lässt. Wiederholen Sie die Nachweise anhand der aktuellen Bewehrungspläne und prüfen Sie maßgebende Kombinationen und Nachweisergebnisse. (#2398)',
+          'Vereinfachtes Chinesisch ist die achte Sprache von Stabileo und steht in der Anwendung, auf der Website und in Ergebnishinweisen zur Verfügung.',
+          'Der Arbeitsmappenimport lehnt als gleich erkannte Blattnamen, doppelte Spaltenüberschriften, fehlende Pflichtüberschriften, ungültige Einheiten, Zellfehler, widersprüchliche Lagerfreiheitsgrade und ausgefüllte nicht unterstützte Lastfelder ab. Bei ebenen Lasten lehnt der Import von null verschiedene Momentenkomponenten um eine der beiden in der Modellebene liegenden deklarierten Arbeitsmappenachsen ab. Bei einer Ablehnung bleibt das aktuelle Modell erhalten. Vollständig angegebene Lagerfreiheitsgrade bleiben in den deklarierten Arbeitsmappenachsen erhalten, auch beim Export vor der Berechnung. Ebene Drehfedern werden als kr [kN·m/rad] ausgegeben. Die bisherige Überschrift bleibt beim Import lesbar. Importieren Sie betroffene Arbeitsmappen erneut und prüfen Sie Koordinaten, Lasten, Schwerkraft und Lagerfreiheitsgrade vor der Berechnung. (#2395)',
+          'Plattennetze werden schneller entfernt, auch bei der Neuvernetzung von Decken. (#2394)',
+          'Stabileo 0.6.2 erschien mit Korrekturen an Stablasten, 3D-Lagern, sekundärer Bügelbewehrung und erzeugten Lasten. Die Versionshinweise nennen erforderliche Neuberechnungen und neu zu erzeugende Lasten.',
+          'Die Figuren auf der Startseite bewegen sich unter dem Mauszeiger weiter. Die Projektleiste nennt Aktionen, die ein Konto erfordern, und die Registrierungsseite verwendet die Figuren der Startseite.',
+          'Research ergänzt ein Experiment zur Mindestdicke und zum Einsturz von Mauerwerksbögen nach Heyman.',
+        ],
+      },
+      fr: {
+        title: 'Vérification du béton, contraintes de section et charges mobiles',
+        items: [
+          'Le calcul détaillé des contraintes de section bloque le résultat combiné lorsque les cisaillements transversal et de torsion coexistent. Les coupes incluent désormais les deux composantes transversales dans le cisaillement total et la contrainte de von Mises. Recalculez les contraintes concernées et révisez les rapports (SA-2026-092). L’exemple de l’avis indique les coordonnées de la fibre dans les axes locaux de la barre et dans le dessin de la section.',
+          'Les charges mobiles planes conservent le saut d’effort normal au droit des essieux concentrés. Recalculez les diagrammes, les enveloppes et les lignes d’influence de l’effort normal concernés (SA-2026-093).',
+          'Les combinaisons 2D et 3D conservent le coefficient net des cas répétés et refusent leur annulation totale. Les analyses de câbles et d’interaction sol-structure refusent les raideurs de ressort non finies. Relancez les combinaisons concernées.',
+          'Les portiques et les poutres passent plus rapidement le contrôle de stabilité certifié. La récupération des combinaisons 3D est plus rapide et le préconditionneur itératif pour les plaques a été corrigé.',
+          'L’analyse corotationnelle 2D utilise un pilote non linéaire commun et conserve les résultats de Newton et de Newton modifié. (#2394)',
+          'La vérification du béton armé bloque les contrôles de cisaillement, de torsion et de cadres de confinement parasismique insuffisamment étayés et indique pourquoi. Relancez les dimensionnements certifiés et vérifiez les sections critiques et les plans de ferraillage (SA-2026-091).',
+          'Les charges sismiques statiques suivent la masse physique et sa hauteur d’application. La génération modale est bloquée. Régénérez les charges concernées par la méthode statique lorsqu’elle est applicable, puis relancez les analyses et les dimensionnements (SA-2026-086 et SA-2026-087).',
+          'La génération des charges gravitaires bloque les panneaux qui se chevauchent et pourraient charger deux fois la même zone. Régénérez les charges concernées avant de relancer les analyses et les vérifications.',
+          'Les transformations bloquent les déplacements ou copies susceptibles de modifier les directions bloquées d’un appui à rouleau ambigu. Les instantanés conservent le type d’appui enregistré.',
+          'La génération des charges sismiques statiques vérifie la présence d’indices de plancher aux croisements des contreventements et aux nœuds de toiture. Une poutre faîtière seule ne suffit pas. Les subdivisions des barres droites sont reconnues de la même façon après translation. La génération est bloquée si la précision des coordonnées est insuffisante ou si le niveau est ambigu. Lorsque les deux extrémités correspondent à des planchers établis, l’inertie des chevrons en hauteur est répartie sur les tronçons participants. Un plancher établi interrompt également un alignement incliné continu à son nœud. Les forces par niveau, le cisaillement à la base, la flexion et les flèches des chevrons peuvent changer. Régénérez les cas sismiques statiques concernés et vérifiez le cisaillement à la base et les efforts dans les chevrons. (#2404)',
+          'La génération des charges de gravité par panneaux bloque le double chargement d’un panneau de poutres et d’un plancher de coques qui se recouvrent quand le joint est entièrement solidarisé par des nœuds maîtres hors du joint. Les charges automatiques sont aussi bloquées avant l’aperçu si l’arrondi des coordonnées rend indéterminé le classement d’une barre porteuse selon sa pente. Ce classement pouvait changer après une rotation en plan ou la subdivision d’une barre. Sur les toitures plates ou inclinées, la génération de neige est bloquée lorsqu’une accumulation de neige à un décrochement de toiture sur le site du projet exige un transfert aux barres ou lorsque son applicabilité reste indéterminée. L’ancien transfert pouvait perdre de la force et du moment excentré. Régénérez les charges de gravité et de neige concernées et résolvez les conditions de blocage avant d’utiliser les résultats. (#2406)',
+          'La vérification CIRSOC 201 utilise l’effort normal concomitant pour l’espacement des cadres, contrôle l’ancrage aux points de moment exactement nul et tient compte des intervalles locaux de cadres. Les limites des cadres parasismiques tiennent compte de tous les lits de barres d’extrémité. La résistance et le taux d’utilisation en torsion reflètent la plus faible limite évaluée. Les vérifications peuvent être bloquées si des barres s’arrêtent avant la section ou si l’ancrage des barres périphériques est insuffisamment justifié. La vérification du cisaillement secondaire repris par le béton seul exige des barres longitudinales logées dans les deux coudes supérieurs des cadres. La nouvelle vérification avec la hauteur utile finale utilise le plan de poutre révisé s’il est fourni. Les nomenclatures de poteaux conservent les différents diamètres et le détail géométrique est bloqué si la cage prescrite ne peut être reproduite. Reprenez les vérifications avec les plans de ferraillage actuels et contrôlez les combinaisons déterminantes et les conclusions. (#2398)',
+          'Le chinois simplifié est la huitième langue de Stabileo. Il est disponible dans l’application, sur le site et dans les avis relatifs aux résultats.',
+          'L’importation refuse les noms de feuilles interprétés comme identiques, les en-têtes en double, les en-têtes obligatoires manquants, les unités invalides, les cellules en erreur, les blocages d’appui contradictoires et les champs de charge non pris en charge qui sont renseignés. Pour les charges planes, l’importation refuse les composantes de moment non nulles autour de l’un ou l’autre des deux axes déclarés du classeur qui sont situés dans le plan du modèle. Un refus conserve le modèle en cours. Les blocages explicites complets sont conservés dans les axes déclarés du classeur, y compris à l’export avant le calcul. Les ressorts de rotation plans sont exportés sous kr [kN·m/rad]. L’ancien en-tête reste accepté à l’importation. Réimportez les classeurs concernés et contrôlez les coordonnées, les charges, la gravité et les blocages d’appui avant le calcul. (#2395)',
+          'La suppression des maillages de plaques est plus rapide, y compris lors du remaillage des dalles. (#2394)',
+          'Stabileo 0.6.2 est sorti avec des corrections des charges sur barres, des appuis 3D, des cadres secondaires et des charges générées. Les notes de version indiquent quoi recalculer et quelles charges régénérer.',
+          'Les figures de la page d’accueil restent animées sous le pointeur. Le panneau de projet indique quelles actions exigent un compte et la page d’inscription reprend les figures de l’accueil.',
+          'Research propose une expérience sur l’épaisseur minimale et l’effondrement des arcs en maçonnerie d’après les travaux de Heyman.',
+        ],
+      },
+      tr: {
+        title: 'Betonarme doğrulaması, kesit gerilmeleri ve hareketli yükler',
+        items: [
+          'Ayrıntılı kesit gerilmesi hesabı, burulma ve enine kayma birlikte oluştuğunda birleşik sonucu engeller. Kesit çizgilerinde toplam kayma ve von Mises hesabı artık iki enine bileşeni de içerir. Etkilenen gerilmeleri yeniden hesaplayıp raporları inceleyin (SA-2026-092). Duyurudaki örnek, lifin koordinatlarını hem elemanın yerel eksenlerinde hem de kesit çiziminde verir.',
+          'Düzlem hareketli yükler, tekil dingil yüklerinde eksenel kuvvet sıçramasını korur. Etkilenen diyagramları, zarfları ve eksenel kuvvet tesir çizgilerini yeniden hesaplayın (SA-2026-093).',
+          '2B ve 3B yük birleşimleri tekrarlanan yük durumlarının net katsayısını korur ve tam iptali reddeder. Kablo ve zemin-yapı etkileşimi analizleri sonlu olmayan yay rijitliklerini reddeder. Etkilenen birleşimleri yeniden çalıştırın.',
+          'Çerçeveler ve kirişler sertifikalı stabilite kontrolünü daha hızlı geçer. 3B birleşim sonuçlarının hesaplanması hızlandı ve plakalar için iteratif önkoşullandırıcı düzeltildi.',
+          '2B eşdönel analiz ortak bir doğrusal olmayan çözüm sürücüsü kullanır ve Newton ile değiştirilmiş Newton sonuçlarını korur. (#2394)',
+          'Betonarme doğrulaması, yeterli kanıt bulunmadığında kesme, burulma ve deprem etriyesi kontrollerini gerekçesiyle engeller. Sertifikalı tasarımları yeniden çalıştırıp belirleyici kesitleri ve donatı çizimlerini inceleyin (SA-2026-091).',
+          'Statik deprem yükleri fiziksel kütleyi ve uygulama yüksekliğini izler. Modal yük üretimi engellenir. Uygun olduğunda etkilenen yükleri statik yöntemle yeniden üretin, ardından analizi ve tasarımı tekrarlayın (SA-2026-086 ve SA-2026-087).',
+          'Yerçekimi yükü üretimi, aynı alanı iki kez yükleyebilecek örtüşen panelleri engeller. Analizleri ve tasarım kontrollerini tekrarlamadan önce etkilenen yükleri yeniden üretin.',
+          'Dönüşümler, yönü belirsiz makaralı mesnetlerin kısıtlı doğrultularını değiştirebilecek taşıma veya kopyalama işlemlerini engeller. Anlık görüntüler kayıtlı mesnet türünü korur.',
+          'Statik deprem yükü üretimi çapraz kesişimlerinde ve çatı düğümlerinde katı doğrulayan geometri arar. Yalnızca mahya kirişi kat tanımlamaya yetmez. Doğrusal eleman bölümleri model ötelendiğinde de aynı biçimde tanınır. Koordinat hassasiyeti yetersizse veya kat belirsizse üretim engellenir. Her iki uçta da kat doğrulanıyorsa üst kotlardaki eğimli çatı elemanlarına katılan kesimleri boyunca yayılı atalet yükü uygulanır. Doğrulanmış bir kat, aynı doğrultuda devam eden eğimli eleman dizisini kat düğümünde ayırır. Bu durum kat kuvvetlerini, taban kesmesini, çatı elemanlarının eğilme momentlerini ve sehimlerini değiştirebilir. Etkilenen statik deprem yükü durumlarını yeniden üretip taban kesmesini ve çatı elemanlarının iç kuvvetlerini inceleyin. (#2404)',
+          'Panel tipi yerçekimi yükü üretimi, kabuk döşemenin birleşim düğümleri birleşim dışındaki ana düğümler üzerinden tam rijit bağlandığında, örtüşen kiriş paneli ile döşemenin çift yüklenmesini engeller. Koordinat yuvarlaması bir elemanın eğimine göre yük taşıyıp taşımadığını belirsiz bırakırsa Otomatik Yükler işlemi önizlemeden önce durur. Bu sınıflandırma daha önce model planda döndürüldüğünde veya bir eleman bölündüğünde değişebiliyordu. Düz veya eğimli çatılarda proje sahasındaki çatı kot farkında biriken karın elemanlara aktarılması gerekiyorsa ya da birikimin uygulanabilirliği belirlenemiyorsa kar yükü üretimi engellenir. Önceki aktarımda kuvvet ve eksantrik moment kaybolabiliyordu. Etkilenen yerçekimi ve kar yüklerini yeniden üretin ve sonuçları kullanmadan önce engelleme nedenlerini giderin. (#2406)',
+          'CIRSOC 201 doğrulaması etriye aralığı için eşzamanlı eksenel kuvveti kullanır, momentin tam sıfır olduğu noktalarda kenetlenmeyi denetler ve yerel etriye bölgelerini değerlendirir. Deprem etriyesi sınırları tüm uç donatısı katmanlarını hesaba katar. Burulma kapasitesi ve kullanım oranı, değerlendirilen daha düşük sınırı yansıtır. Kesitten önce biten çubuklar veya kenetlenmesi doğrulanmamış çevre donatısı kontrolü engelleyebilir. Yalnız betonun karşıladığı ikincil kesmenin kontrolü, etriyenin her iki üst kıvrımına oturan boyuna donatı çubukları gerektirir. Nihai faydalı yükseklikle yeniden yapılan kontrol, verilmişse güncellenen kiriş çizimini kullanır. Kolon çizelgeleri farklı çubuk çaplarını korur ve tanımlanan kafes oluşturulamıyorsa fiziksel detay verilmez. Güncel donatı çizimlerine göre doğrulamayı tekrarlayıp belirleyici birleşimleri ve kontrol sonuçlarını inceleyin. (#2398)',
+          'Basitleştirilmiş Çince, Stabileo’nun sekizinci dili olarak uygulamada, web sitesinde ve sonuç bildirimlerinde kullanılabilir.',
+          'Çalışma kitabı içe aktarımı aynı kabul edilen sayfa adlarını, yinelenen başlıkları, eksik zorunlu başlıkları, geçersiz birimleri, hücre hatalarını, çelişkili mesnet kısıtlarını ve doldurulmuş desteklenmeyen yük alanlarını reddeder. Düzlemsel yüklerde, çalışma kitabında tanımlanan ve model düzleminde yer alan iki eksenden herhangi biri etrafındaki sıfır olmayan moment bileşenleri reddedilir. İçe aktarım reddedilirse mevcut model korunur. Eksiksiz açık kısıtlar, çözümden önceki dışa aktarım dahil, çalışma kitabının tanımlı eksenlerinde korunur. Düzlem dönme yayları kr [kN·m/rad] başlığıyla dışa aktarılır. Eski başlık içe aktarımda geçerliliğini korur. Etkilenen çalışma kitaplarını yeniden içe aktarın ve çözümden önce koordinatları, yükleri, yerçekimi ayarlarını ve mesnet kısıtlarını kontrol edin. (#2395)',
+          'Döşeme ağları yeniden oluşturulurken de plak ağları daha hızlı temizlenir. (#2394)',
+          'Stabileo 0.6.2, eleman yükleri, 3B mesnetler, ikincil etriye donatısı ve üretilen yükler için düzeltmelerle yayımlandı. Sürüm notları hangi hesapların tekrarlanacağını ve hangi yüklerin yeniden üretileceğini açıklar.',
+          'Ana sayfadaki şekiller imleç üzerlerindeyken hareket etmeyi sürdürür. Proje paneli hesap gerektiren işlemleri belirtir ve kayıt sayfası ana sayfadaki şekilleri kullanır.',
+          'Research, Heyman’ın çalışmalarına dayanan, yığma kemerlerin asgari kalınlığı ve göçmesiyle ilgili bir deney sunar.',
+        ],
+      },
+      hu: {
+        title: 'Vasbeton-ellenőrzés, keresztmetszeti feszültségek és mozgó terhek',
+        items: [
+          'A részletes keresztmetszeti feszültségszámítás letiltja az együttes eredményt, ha a keresztirányú és a csavarási nyírás egyszerre van jelen. A metszetek mindkét keresztirányú összetevőt figyelembe veszik az eredő nyírófeszültség és a von Mises-feszültség számításakor. Számítsa újra az érintett feszültségeket, és vizsgálja felül a jelentéseket (SA-2026-092). A közlemény példája a vizsgált szál koordinátáit a rúd helyi tengelyei szerint és a keresztmetszeti rajzon is megadja.',
+          'A síkbeli mozgó terhek megőrzik a normálerő ugrását a koncentrált tengelyterheknél. Számítsa újra az érintett ábrákat, burkolókat és normálerő-hatásábrákat (SA-2026-093).',
+          'A 2D és 3D kombinációk megtartják az ismételt teheresetek eredő tényezőjét, és elutasítják a teljes kioltást. A kábelek és a talaj-szerkezet kölcsönhatás elemzése elutasítja a nem véges rugómerevséget. Futtassa újra az érintett kombinációkat.',
+          'A keretek és gerendák tanúsított stabilitásvizsgálata gyorsabb. A 3D kombinációk eredményeinek számítása is gyorsult, és javítottuk a lemezek iteratív előkondicionálóját.',
+          'A 2D korotációs elemzés közös nemlineáris megoldásvezérlést használ, és megőrzi a Newton- és a módosított Newton-módszer eredményeit. (#2394)',
+          'A vasbeton-ellenőrzés indoklással letiltja a nem kellően igazolt nyírási, csavarási és szeizmikus kengyelellenőrzéseket. Futtassa újra a korábban tanúsított méretezéseket, és vizsgálja felül a mértékadó metszeteket és a vasalási terveket (SA-2026-091).',
+          'A statikus földrengésterhek a tényleges tömeget és annak támadási magasságát követik. A modális tehergenerálás le van tiltva. Ha alkalmazható, generálja újra az érintett terheket statikus módszerrel, majd ismételje meg az elemzést és a méretezést (SA-2026-086 és SA-2026-087).',
+          'A gravitációs tehergenerálás letiltja az átfedő mezőket, amelyek ugyanazt a területet kétszer terhelhetnék. Az elemzések és ellenőrzések megismétlése előtt generálja újra az érintett terheket.',
+          'A transzformációk letiltják azokat az áthelyezéseket és másolásokat, amelyek módosíthatják a nem egyértelmű görgős támasz gátolt irányait. A pillanatképek megőrzik a rögzített támasztípust.',
+          'A statikus földrengésteher-generálás ellenőrzi, hogy a merevítők kereszteződésénél és a tető csomópontjainál igazolható-e szint. A gerincgerenda önmagában ehhez nem elegendő. Az egyenes rudak felosztását a modell eltolása után is azonos módon ismeri fel. A generálás leáll, ha a koordináták pontossága elégtelen vagy a szint nem egyértelmű. A magasabban fekvő szarufák a részt vevő szakaszaikon megoszló tehetetlenségi terhet kapnak, ha mindkét végüknél igazolható a szint. Az igazolt szint a szintcsomópontnál a folytonos ferde rúdsort is kettéosztja. Ez módosíthatja a szintenkénti erőket, az alapszinti nyíróerőt, valamint a szarufák hajlítónyomatékát és lehajlását. Generálja újra az érintett statikus földrengési tehereseteket, és ellenőrizze az alapszinti nyíróerőt és a szarufák igénybevételeit. (#2404)',
+          'A paneles gravitációs tehergenerálás letiltja az átfedő gerendamező és héjfödém kettős terhelését, ha a födém illesztési csomópontjait az illesztésen kívüli főcsomópontokon keresztül teljesen mereven kapcsolták össze. Az automatikus tehergenerálás már az előnézet előtt leáll, ha a koordináták kerekítése miatt a hajlásszög alapján nem dönthető el, hogy egy rúd terhet hord-e. A besorolás korábban megváltozhatott a modell alaprajzi elforgatása vagy a rúd felosztása után. Lapos és ferde tetőkön a hóteher-generálás leáll, ha a projekt helyszínén lévő tetőlépcsőn felhalmozódó havat a rudakra kell átadni, vagy ha nem állapítható meg, hogy a felhalmozódást figyelembe kell-e venni. A korábbi átadás során erő és külpontos nyomaték veszhetett el. Generálja újra az érintett gravitációs és hóterheket, és az eredmények felhasználása előtt szüntesse meg a letiltás okát. (#2406)',
+          'A CIRSOC 201 szerinti ellenőrzés a kengyeltávolsághoz az egyidejű normálerőt használja, a pontosan nulla nyomatékú helyeken is vizsgálja a lehorgonyzást, és figyelembe veszi a helyi kengyelszakaszokat. A szeizmikus kengyelkorlátok a rúdvég összes vasalási rétegét figyelembe veszik. A csavarási teherbírást és kihasználtságot a kisebbik értékelt határ szabja meg. Az ellenőrzés leállhat, ha a vasalás a vizsgált metszet előtt véget ér, vagy ha a kerületi vasalás lehorgonyzása nem igazolt. A csak betonnal felvett másodlagos nyírás ellenőrzéséhez a kengyel mindkét felső hajlatában hosszvasnak kell feküdnie. A végleges hasznos magassággal megismételt ellenőrzés a módosított gerendatervet használja, ha azt megadták. Az oszlopkimutatások megtartják az eltérő átmérőket, és a részletrajz elmarad, ha az előírt vasalási kosár nem reprodukálható. Ismételje meg az ellenőrzést az aktuális vasalási tervekkel, és tekintse át a mértékadó kombinációkat és a minősítéseket. (#2398)',
+          'Az egyszerűsített kínai a Stabileo nyolcadik nyelve. Az alkalmazásban, a webhelyen és az eredményekhez tartozó értesítésekben is elérhető.',
+          'A munkafüzet-import elutasítja az azonosként értelmezett munkalapneveket, az ismétlődő fejléceket, a hiányzó kötelező fejléceket, az érvénytelen mértékegységeket, a cellahibákat, az ellentmondó támaszmegkötéseket és a kitöltött, nem támogatott tehermezőket. Síkbeli terheknél az import elutasítja a munkafüzetben megadott két, a modell síkjába eső tengely bármelyike körüli nem nulla nyomatékkomponenst. Elutasításkor az aktuális modell megmarad. A hiánytalanul megadott megkötések a munkafüzet deklarált tengelyeiben maradnak, az elemzés előtti exportnál is. A síkbeli forgórugók fejléce kr [kN·m/rad]. Az import a régi fejlécet továbbra is elfogadja. Importálja újra az érintett munkafüzeteket, és az elemzés előtt ellenőrizze a koordinátákat, a terheket, a gravitációt és a támaszmegkötéseket. (#2395)',
+          'A lemezhálók törlése gyorsabb, födémek újrahálózásakor is. (#2394)',
+          'A Stabileo 0.6.2 kiadás kijavította a rúdterhek, a 3D támaszok, a másodlagos kengyelvasalás és a generált terhek hibáit. A kiadási megjegyzések felsorolják az újraszámítandó eredményeket és az újragenerálandó terheket.',
+          'A nyitóoldal ábrái az egérmutató alatt is mozognak. A projektpanel jelzi, mely műveletekhez kell fiók, és a regisztrációs oldal a nyitóoldal ábráit használja.',
+          'A Research új kísérlete Heyman munkája alapján vizsgálja a falazott ívek legkisebb vastagságát és összeomlását.',
+        ],
+      },
+      zh: {
+        title: '混凝土验算、截面应力与移动荷载',
+        items: [
+          '详细截面应力计算在扭转剪应力与横向剪应力同时存在的位置停止给出组合结果。截面剖线上的总剪应力和 von Mises 等效应力现在计入两个横向分量。请重新计算受影响的应力并复核报告（SA-2026-092）。公告中的算例同时给出了纤维在杆件局部坐标系和截面图坐标系中的位置。',
+          '平面移动荷载保留集中轴载处的轴力突变。请重新计算受影响的内力图、包络和轴力影响线（SA-2026-093）。',
+          '2D 和 3D 荷载组合保留重复工况的净系数，并拒绝完全抵消的组合。索分析和土-结构相互作用分析拒绝非有限的弹簧刚度。请重新计算受影响的组合。',
+          '框架和梁的认证稳定性校核更快，3D 组合结果恢复也已加快，板分析的迭代预条件器已修正。',
+          '二维共旋分析使用共用的非线性求解流程，保留原有牛顿法和修正牛顿法的结果。 (#2394)',
+          '钢筋混凝土抗剪、抗扭和抗震箍筋验算在依据不足时会停止并说明原因。请重新验算已通过认证的设计，并复核控制截面和配筋图（SA-2026-091）。',
+          '静力地震荷载按实际质量及其作用高度分配。模态荷载生成已停用。请在适用时用静力法重新生成受影响的荷载，再重新进行分析和设计（SA-2026-086、SA-2026-087）。',
+          '如果重叠板块可能对同一区域重复施加荷载，重力荷载生成会停止。请重新生成受影响的荷载，再进行分析和设计验算。',
+          '如果移动或复制可能改变方向不明确的滚动支座约束，变换操作会被拒绝。快照保留已记录的支座类型。',
+          '生成静力地震荷载时会检查支撑交点和屋面节点是否有楼层依据。仅有屋脊梁不足以认定楼层。模型平移后，直杆的细分节点仍按同一规则识别。坐标精度不足或楼层归属不明确时，生成会停止。当较高处斜屋面杆件的两端都有楼层依据时，惯性荷载沿参与的杆段分布。已有楼层依据的节点也会将连续的共线斜杆分开处理。这可能改变楼层地震力、基底剪力以及斜屋面杆件的弯矩和挠度。请重新生成受影响的静力地震工况，并复核基底剪力和斜屋面杆件内力。 (#2404)',
+          '如果受荷梁板区与壳单元楼板重叠，且楼板接缝通过接缝外的主节点实现全刚性连接，按板块生成重力荷载时会阻止重复加载。如果坐标舍入使杆件能否按坡度归类为承载构件无法确定，自动荷载会在预览前停止。此前在平面内旋转模型或细分杆件可能改变这一判定。对于平屋面和坡屋面，如果项目场地内屋面高差处的积雪需要传递给杆件，或无法确定是否适用这种积雪荷载，雪荷载生成会停止。旧版传递可能损失力和偏心力矩。请重新生成受影响的重力和雪荷载，解决阻止生成的问题后再使用结果。 (#2406)',
+          'CIRSOC 201 验算使用同时作用的轴力确定箍筋间距，检查弯矩恰为零处的锚固，并检查各局部箍筋区段。抗震箍筋限值计入所有端部钢筋层。抗扭承载力和利用率反映所评估的较低限值。如果钢筋在验算截面之前截断，或周边钢筋的锚固未经确认，相关验算可能会停止。仅由混凝土承担次向剪力的验算要求箍筋的两个上部弯角内均有就位的纵向钢筋。使用最终有效高度重新验算时，若提供了修订后的梁详图，则采用该图。柱配筋表保留混用的钢筋直径，无法按指定配筋生成钢筋笼时暂停出具详图。请按当前配筋图重新验算，并复核控制组合和验算结论。 (#2398)',
+          '简体中文是 Stabileo 的第八种语言，已在应用、网站和结果通知中提供。',
+          '导入工作簿时会拒绝被识别为同名的工作表、重复的列标题、缺失的必需标题、无效单位、单元格错误、相互矛盾的支座约束以及已填写但不受支持的荷载字段。对于平面荷载，如果绕工作簿声明的两个模型平面内坐标轴中的任一轴有非零力矩分量，则拒绝导入。导入被拒绝时保留当前模型。完整显式定义的支座约束按工作簿声明的坐标轴保留，求解前导出时也是如此。平面转动弹簧以 kr [kN·m/rad] 为标题导出，旧标题仍可导入。请重新导入受影响的工作簿，并在求解前核对坐标、荷载、重力设置和支座约束。 (#2395)',
+          '板网格清除更快，重新划分楼板网格时也能受益。 (#2394)',
+          'Stabileo 0.6.2 已发布，修正了杆件荷载、3D 支座、次方向箍筋和生成荷载。请参阅版本说明，确认需要重新计算的结果和重新生成的荷载。',
+          '鼠标悬停时，首页图形继续播放动画。项目面板标明哪些操作需要账户，注册页也使用首页的图形。',
+          'Research 新增基于 Heyman 研究的砌体拱实验，展示拱的最小厚度和倒塌。',
+        ],
+      },
+    },
+  },
+  {
     date: '2026-11-16',
     advisories: [
       { id: 'SA-2026-064', href: 'https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-064-steel-cb-combination.md' },
@@ -58,7 +404,7 @@ export const CHANGELOG: ChangelogEntry[] = [
           'Las traducciones al húngaro incluyen las guías de versiones y los avisos de proyectos guardados. Los controles ampliados de Fehér en Research, Tools consolidado, los nuevos accesos a Mohr y el juego de diagramas siguen siendo opcionales y desactivados por defecto. Las cuentas y la medición publicitaria siguen desactivadas por defecto.',
           'Las herramientas de tensiones conservan tensiones principales y cortes pequeños no nulos, y los enlaces de Mohr conservan el estado ingresado. Las calculadoras mantienen las respuestas ligadas a los datos actuales. Abrir el espacio de armaduras repite menos trabajo geométrico, con la misma geometría y resultados.',
           'En 3D se rechazan los tipos de apoyo desconocidos. Los rodillos ambiguos y los apoyos personalizados requieren restricciones explícitas. El ejemplo de viga de hormigón usa los apoyos simples previstos. Hay que confirmar qué movimientos restringen los apoyos afectados y repetir análisis, combinaciones y chequeos de diseño (SA-2026-089).',
-          'Las notas y artículos de las versiones 0.6.0 y 0.6.1 explican qué proyectos recalcular y qué cargas regenerar. Las correcciones posteriores de esta entrada están en main y esperan la versión 0.6.2; los hallazgos abiertos de la auditoría siguen registrados.',
+          'Las notas y artículos de las versiones 0.6.0 y 0.6.1 explican qué proyectos recalcular y qué cargas regenerar. Las correcciones posteriores de esta entrada se publicaron en la versión 0.6.2. Los hallazgos abiertos de la auditoría siguen registrados.',
           'Un nuevo experimento de Research, basado en el trabajo de Heyman sobre mampostería, explora el espesor mínimo de los arcos y cómo colapsan bajo carga.',
         ],
       },
@@ -78,7 +424,7 @@ export const CHANGELOG: ChangelogEntry[] = [
           'Hungarian translations include release guidance and saved-project notices. Expanded Fehér research controls, consolidated Tools, new Mohr entry points and the diagram game remain optional and disabled by default. Accounts and advertising measurement remain disabled by default.',
           'Stress tools retain small nonzero principal stresses and shear, and shared Mohr links preserve the entered stress state. Calculators keep answers tied to the current inputs. Opening the reinforcement workspace does less repeated geometry work, with unchanged geometry and analysis results.',
           '3D analysis refuses unknown support types. Ambiguous rollers and custom supports require explicit restraints. The concrete beam example uses its intended simple supports. Confirm which movements the affected supports restrain, then rerun analyses, combinations and design checks (SA-2026-089).',
-          'Release notes and blog posts for 0.6.0 and 0.6.1 explain which projects need recalculation and which loads need regeneration. The later corrections listed here are on main and await release 0.6.2; open audit findings remain tracked.',
+          'Release notes and blog posts for 0.6.0 and 0.6.1 explain which projects need recalculation and which loads need regeneration. The later corrections listed here shipped in 0.6.2. Open audit findings remain tracked.',
           'A new Research experiment based on Heyman’s work on masonry explores the least thickness of arches and how they collapse under load.',
         ],
       },
@@ -98,7 +444,7 @@ export const CHANGELOG: ChangelogEntry[] = [
           'As traduções para húngaro incluem orientações das versões e avisos de projetos salvos. Os controles ampliados de Fehér no Research, o Tools consolidado, os novos acessos a Mohr e o jogo de diagramas continuam opcionais e desativados por padrão. Contas e medição publicitária continuam desativadas por padrão.',
           'As ferramentas de tensões preservam pequenas tensões principais e cisalhamentos não nulos, e os links de Mohr mantêm o estado informado. As calculadoras vinculam as respostas aos dados atuais. Abrir o espaço de armaduras repete menos trabalho geométrico, sem alterar geometria ou resultados.',
           'A análise 3D recusa tipos de apoio desconhecidos. Apoios móveis ambíguos e apoios personalizados exigem restrições explícitas. O exemplo da viga de concreto usa os apoios simples previstos. Confirme quais movimentos os apoios afetados restringem e repita as análises, combinações e verificações de dimensionamento (SA-2026-089).',
-          'As notas e artigos das versões 0.6.0 e 0.6.1 explicam quais projetos recalcular e quais cargas gerar novamente. As correções posteriores desta entrada estão na main e aguardam a versão 0.6.2; os achados abertos da auditoria continuam registrados.',
+          'As notas e artigos das versões 0.6.0 e 0.6.1 explicam quais projetos recalcular e quais cargas gerar novamente. As correções posteriores desta entrada foram publicadas na versão 0.6.2. Os achados abertos da auditoria continuam registrados.',
           'Um novo experimento no Research, baseado no trabalho de Heyman sobre alvenaria, explora a espessura mínima dos arcos e como eles colapsam sob carga.',
         ],
       },
@@ -118,7 +464,7 @@ export const CHANGELOG: ChangelogEntry[] = [
           'Ungarische Übersetzungen umfassen Versionshinweise und Hinweise für gespeicherte Projekte. Erweiterte Fehér-Steuerungen in Research, die zusammengefassten Tools, neue Mohr-Zugänge und das Diagrammspiel bleiben optional und standardmäßig deaktiviert. Konten und Werbemessung bleiben standardmäßig deaktiviert.',
           'Spannungswerkzeuge erhalten kleine von null verschiedene Haupt- und Schubspannungen; geteilte Mohr-Links bewahren den eingegebenen Spannungszustand. Rechner ordnen Antworten den aktuellen Eingaben zu. Der Bewehrungsarbeitsbereich benötigt beim Öffnen weniger wiederholte Geometriearbeit, bei gleicher Geometrie und gleichen Analyseergebnissen.',
           'Die 3D-Analyse lehnt unbekannte Auflagertypen ab. Mehrdeutige Rollenlager und benutzerdefinierte Auflager brauchen eindeutig festgelegte Freiheitsgrade. Das Betonbalkenbeispiel verwendet die vorgesehenen einfachen Auflager. Prüfen, welche Bewegungen die betroffenen Auflager sperren, und Analysen, Kombinationen und Bemessungsnachweise wiederholen (SA-2026-089).',
-          'Versionshinweise und Blogbeiträge zu 0.6.0 und 0.6.1 erklären, welche Projekte neu zu berechnen und welche Lasten neu zu erzeugen sind. Die hier aufgeführten späteren Korrekturen sind auf main und warten auf Version 0.6.2; offene Auditbefunde bleiben erfasst.',
+          'Versionshinweise und Blogbeiträge zu 0.6.0 und 0.6.1 erklären, welche Projekte neu zu berechnen und welche Lasten neu zu erzeugen sind. Die hier aufgeführten späteren Korrekturen wurden mit Version 0.6.2 veröffentlicht. Offene Auditbefunde werden weiterhin verfolgt.',
           'Ein neues Experiment in Research untersucht anhand von Heymans Arbeit zum Mauerwerk die Mindestdicke von Bögen und ihr Versagen unter Last.',
         ],
       },
@@ -138,7 +484,7 @@ export const CHANGELOG: ChangelogEntry[] = [
           'Les traductions hongroises incluent les consignes de version et les avis des projets enregistrés. Les commandes Fehér étendues de Research, les Tools regroupés, les nouveaux accès à Mohr et le jeu de diagrammes restent facultatifs et désactivés par défaut. Les comptes et la mesure publicitaire restent désactivés par défaut.',
           'Les outils de contraintes préservent les petites contraintes principales et de cisaillement non nulles ; les liens Mohr partagés conservent l’état saisi. Les calculateurs relient les réponses aux données actuelles. L’ouverture de l’espace d’armatures répète moins de calculs géométriques, sans modifier géométrie ni résultats.',
           'L’analyse 3D refuse les types d’appuis inconnus. Les appuis à rouleau ambigus et les appuis personnalisés doivent définir explicitement leurs blocages. L’exemple de poutre en béton utilise les appuis simples prévus. Confirmer les mouvements bloqués par les appuis concernés, puis relancer les analyses, les combinaisons et les vérifications de dimensionnement (SA-2026-089).',
-          'Les notes et articles des versions 0.6.0 et 0.6.1 expliquent quels projets recalculer et quelles charges régénérer. Les corrections ultérieures de cette entrée sont sur main et attendent la version 0.6.2 ; les constats d’audit ouverts restent suivis.',
+          'Les notes et articles des versions 0.6.0 et 0.6.1 expliquent quels projets recalculer et quelles charges régénérer. Les corrections ultérieures de cette entrée ont été publiées dans la version 0.6.2. Le suivi des constats d’audit encore ouverts se poursuit.',
           'Une nouvelle expérience dans Research, fondée sur les travaux de Heyman sur la maçonnerie, explore l’épaisseur minimale des arcs et leur effondrement sous charge.',
         ],
       },
@@ -158,7 +504,7 @@ export const CHANGELOG: ChangelogEntry[] = [
           'Macarca çeviriler sürüm rehberlerini ve kayıtlı proje bildirimlerini içerir. Research içindeki genişletilmiş Fehér kontrolleri, birleştirilmiş Tools, yeni Mohr girişleri ve diyagram oyunu isteğe bağlıdır ve varsayılan olarak kapalıdır. Hesaplar ve reklam ölçümü varsayılan olarak kapalı kalır.',
           'Gerilme araçları sıfır olmayan küçük asal ve kayma gerilmelerini korur; paylaşılan Mohr bağlantıları girilen gerilme durumunu saklar. Hesaplayıcılar yanıtları güncel girdilerle ilişkilendirir. Donatı çalışma alanı açılırken daha az geometri işi tekrarlanır; geometri ve analiz sonuçları değişmez.',
           '3B analiz bilinmeyen mesnet türlerini reddeder. Yönü belirsiz makaralı mesnetlerde ve özel mesnetlerde kısıtlamalar açıkça belirtilmelidir. Betonarme kiriş örneği öngörülen basit mesnetleri kullanır. Etkilenen mesnetlerin hangi hareketleri kısıtladığını doğrulayın ve analizleri, birleşimleri ve tasarım kontrollerini tekrarlayın (SA-2026-089).',
-          '0.6.0 ve 0.6.1 sürüm notları ve yazıları hangi projelerin yeniden hesaplanacağını ve hangi yüklerin yeniden üretileceğini açıklar. Buradaki daha sonraki düzeltmeler main üzerindedir ve 0.6.2 sürümünü bekler; açık denetim bulguları izlenmeye devam eder.',
+          '0.6.0 ve 0.6.1 sürüm notları ve yazıları hangi projelerin yeniden hesaplanacağını ve hangi yüklerin yeniden üretileceğini açıklar. Burada listelenen sonraki düzeltmeler 0.6.2 sürümünde yayımlandı. Açık denetim bulguları izlenmeye devam ediyor.',
           'Research içindeki yeni bir deney, Heyman’ın yığma yapılar üzerine çalışmasından yola çıkarak kemerlerin en küçük kalınlığını ve yük altında nasıl göçtüğünü inceliyor.',
         ],
       },
@@ -178,8 +524,28 @@ export const CHANGELOG: ChangelogEntry[] = [
           'A magyar fordítások a verzióútmutatókat és a mentett projektek figyelmeztetéseit is tartalmazzák. A Research kibővített Fehér-vezérlői, az összevont Tools, az új Mohr-belépési pontok és a diagramjáték továbbra is választhatók, alapértelmezésben kikapcsolva. A fiókok és a hirdetési mérés alapértelmezésben kikapcsolva maradnak.',
           'A feszültségi eszközök megőrzik a kis, nem nulla fő- és nyírófeszültségeket, a megosztott Mohr-hivatkozások pedig a megadott feszültségállapotot. A kalkulátorok válaszai az aktuális bemenethez tartoznak. A vasalási munkaterület megnyitásakor kevesebb geometriai munka ismétlődik, változatlan geometriával és analíziseredményekkel.',
           'A 3D analízis elutasítja az ismeretlen támasztípusokat. A többértelmű görgős és az egyedi támaszoknál meg kell adni a gátolt mozgásokat. A vasbeton gerenda példája a tervezett egyszerű támaszokat használja. Ellenőrizze az érintett támaszok gátolt mozgásait, majd ismételje meg az analíziseket, kombinációkat és méretezési ellenőrzéseket (SA-2026-089).',
-          'A 0.6.0 és 0.6.1 verziójegyzetei és cikkei ismertetik, mely projekteket kell újraszámítani és mely terheket újragenerálni. Az itt felsorolt későbbi javítások a main ágon vannak, és a 0.6.2 kiadásra várnak; a nyitott auditmegállapítások továbbra is követhetők.',
+          'A 0.6.0 és 0.6.1 verziójegyzetei és cikkei ismertetik, mely projekteket kell újraszámítani és mely terheket újragenerálni. Az itt felsorolt későbbi javítások a 0.6.2-es verzióban jelentek meg. A nyitott auditmegállapítások továbbra is követhetők.',
           'A Research új kísérlete Heyman falazatokról szóló munkája alapján vizsgálja a boltívek legkisebb vastagságát és teher alatti összeomlását.',
+        ],
+      },
+      zh: {
+        "title": "杆件荷载、重力荷载和 3D 支座已更正",
+        "items": [
+          "杆件悬停读数和变形图通过 2D 和 3D 共用的内力恢复，计入集中力偶和部分分布荷载。抗弯刚度不足时，有荷载的内力恢复会明确拒绝求解。请重新运行受影响的分析，并复核杆件内部挠度和正常使用验算（SA-2026-070）。",
+          "与已释放转动相容的荷载，在旋转或单位换算后仍保持原有结果。相互抵消的节点弯矩得以保留；确实无法承受的残余弯矩仍会被拒绝。请重新运行受影响的分析。",
+          "长度过短区段上的分布荷载会被拒绝，并给出指明杆件和区间的提示。力平衡校核独立计入所施加的荷载。请复核被拒绝的区间，并重新运行受影响的分析。",
+          "ABS 和 SRSS 组合的 3D 杆件内力图计入绘图点之间的峰值以及突变两侧的数值。请重新计算受影响的内力图，并复核使用了其峰值的验算。",
+          "混凝土和钢结构的相关作用验算采用同一组合、同一截面位置的内力。钢结构弯矩梯度系数、混凝土弯矩放大以及实配抗扭箍筋均已更正。请重新运行受影响的杆件设计，并复核控制组合和配筋（SA-2026-064、SA-2026-066、SA-2026-068）。",
+          "CIRSOC 201 剪扭截面限值在梁、柱和墙中同时计入两个方向的同时剪力。以前通过的截面可能不再满足；增加箍筋无法弥补已超出的截面限值。请重新运行受影响的混凝土设计（SA-2026-069）。",
+          "杆件设计和证书在缺少组合、杆件或声明的截面位置时会拒绝，而不再只验算现有的内力需求。截面位置划分不同时，梁线包络仍保留每个组合。请重新运行已保存的混凝土和钢结构设计，并复核拒绝情况和证书（SA-2026-071）。",
+          "坡形受雪屋面上屋面高差处的雪堆积以及屋面宽度，均按实际屋面平面确定，与平面旋转无关。相连的屋面区域保留堆积、滑落和不均匀分布工况。请先重新生成受影响的雪荷载，再重新运行分析、组合和设计验算（SA-2026-065、SA-2026-067）。",
+          "增加节点不再移动雪荷载的屋脊，也不再把细分后的穹顶板件归类为楼板。跨越屋脊的杆件上的荷载，在所选承载构件子集上也保持其合力和合力矩。请重新生成所有受影响的生成面荷载（包括屋面和楼面荷载），然后重新运行分析、组合和设计验算；仅重新求解已存储的荷载是不够的（SA-2026-072、SA-2026-073、SA-2026-074）。",
+          "在含有壳的板块中，梁承受其能够支承的未覆盖条带上的荷载。覆盖情况不明确时，荷载生成会被拒绝。在从属宽度模式下，各楼层面积和地震质量按受荷杆件计算。无法表示其偏心荷载的楼面区域会被拒绝。请先重新生成受影响的重力荷载和地震荷载，再重新运行分析和验算。",
+          "匈牙利语翻译包含版本说明和已保存项目的通知。扩展的 Fehér 研究控件、合并后的工具页、新的 Mohr 入口和弯矩图游戏仍为可选功能，默认关闭。账户和广告效果测量仍默认关闭。",
+          "应力工具保留较小的非零主应力和剪应力，分享的 Mohr 链接保留所输入的应力状态。计算器的结果与当前输入保持一致。打开配筋工作区时重复的几何计算更少，几何和分析结果不变。",
+          "3D 分析拒绝未知的支座类型。方向不明确的滚动支座和自定义支座需要明确的约束。混凝土梁示例使用预期的简支支座。请确认受影响的支座约束哪些位移，然后重新运行分析、组合和设计验算（SA-2026-089）。",
+          "0.6.0 和 0.6.1 的版本说明和博客文章说明了哪些项目需要重新计算、哪些荷载需要重新生成。此处列出的后续修正已在 main 上，等待 0.6.2 版本发布；尚未关闭的审计发现仍在跟踪。",
+          "一个新的 Research 实验基于 Heyman 关于砌体的研究，探讨拱的最小厚度以及拱在荷载下如何倒塌。",
         ],
       },
     },
@@ -390,6 +756,34 @@ export const CHANGELOG: ChangelogEntry[] = [
           "A német, a francia és a török nyelv ismét elérhető. A Research egy tengerfenékkel érintkező offshore riserrel és egy hajlított szalag alakszabályozásával bővül, az oldalaikon bemutatott összehasonlításokkal és korlátokkal. A munkaterület mentése megőrzi a méretezett épületeket, és jelzi, ha a böngésző nem tud menteni."
         ]
       },
+      zh: {
+        "title": "求解前先检查稳定性，移动荷载与 P-Δ 已更正，限制更清晰",
+        "items": [
+          "2D 和 3D 线性分析在求解前先检查刚度稳定性。机构、负刚度以及不确定性过大而无法求解的刚度会被拒绝并给出原因，而不再借助人工弹簧或平移来求解。请重新运行受影响的线性分析及其设计验算。",
+          "在刚性约束的自由度上设置弹簧，2D 和 3D 中均会被拒绝。3D 移动荷载可捕捉跨内某一轴下的峰值，包括斜杆上的轴力及其杆端力。请重新运行受影响的移动荷载包络。",
+          "P-Δ 分析在 2D 和 3D 中沿每根杆件对变化的轴力积分，更正了跨间荷载下被低估的放大效应。谐响应分析可完整求解频率，无需有界的模态截断，包括超出稠密规模限制的模型。请重新运行这些分析及相关验算。",
+          "经认证的 3D 塑性倒塌分析会给出其经认证的下限，并拒绝不可靠的证书。塑性分析在分配内存前先检查所需的计算量和内存。纤维荷载控制会限定其极限荷载，而不再给出随步长变化的数值。",
+          "接触分析会拒绝不满足最终接触条件的冻结状态。索单元在专用索分析之外会被拒绝，因为那里无法表示其松弛。这些限制同时适用于原生分析和浏览器内分析。",
+          "壳组合保留强制位移工况产生的应力，并包含四边形单元的节点应力；土-结构相互作用在 2D 和 3D 中返回支座反力。屈曲分析和多工况分析会拒绝非有限结果。已保存的项目会识别出由存在已知错误结果的版本得出的分析，并要求重新运行受影响的分析。",
+          "2D 和 3D 屈曲分析仅在确实耦合的部分内保留轴力的舍入界限。独立结构中的约束不再妨碍另一根柱的求解；耦合部分内不确定的压力仍会被拒绝。请重新运行已保存的屈曲和 P-Δ 分析，以更新 B₂ 系数和稳定性。",
+          "回归检查覆盖了 28 个已报告的模型，这些模型现在会被拒绝并给出原因；经证据审查，25 个候选问题得以关闭。七个旧的壳模型存在面内自由刚体转动：原生测试和浏览器测试确认其被拒绝，并在补上缺失的约束后检验其结果。",
+          "2D 和 3D 分阶段分析与线性分析共用自由转动的处理方式。杆端释放和单位变更不再增加人工转动刚度，支座沉降保持其预期的位移。请重新运行受影响的分阶段分析及相关设计验算（SA-2026-060）。3D 塑性分析中最初的弹性拒绝现在仍是拒绝，不再悄悄变成零倒塌系数（SA-2026-062）。",
+          "对于记录标签与杆件和节点编号不一致的导入模型，塑性平衡检查不再崩溃。塑性证书按实际所需的存储量计数，当可选的细化超出限制时保留最后一个有效界限。此前被拒绝的框架现在可在相同限制内获得认证。",
+          "塑性认证运行更快，结果和资源限制不变。外伸臂示例求解也更快，并保留其经检验的滑块范围。",
+          "2D 和 3D 非线性分析在旋转、镜像和单位变更后，一致地检查物理平衡。P-Δ、强制沉降和土弹簧在不放宽收敛限制的情况下保留可求解的小响应。请重新运行受影响的非线性、P-Δ 和土-结构分析。",
+          "屈曲系数在 2D 和 3D 中由原始刚度矩阵恢复，更正了带约束或曲杆模型中轻微的高估和错误的拒绝。有效的教学振型在不同单位下得以保留。请重新运行受影响的屈曲分析；证书限制不变。",
+          "桁架杆件荷载现在在 2D 和 3D 中都进入平衡检查，因此当等效节点荷载可以求解时，带杆件荷载的有效模型不再被拒绝。请重新运行受影响的桁架分析。",
+          "模态分析在经过约束和斜支座后仍保持质量的物理秩。含无质量方向的模型可以返回其有效的有限模态，而不会因多出一个虚假模态而被拒绝。请重新运行受影响的模态分析及相关的动力响应。",
+          "受约束的约束主节点上的强制沉降和转角，现在可传递到分阶段、Winkler、接触、材料非线性、2D 共旋和弧长分析中的从属节点。索单元分析和线性时程分析会拒绝其无法表示的非零强制支座位移。请重新运行受影响的分析及相关验算（SA-2026-063）。",
+          "弧长法和位移控制在最终荷载系数下恢复支座反力和杆件内力。非线性和分阶段的恢复包含经约束传递的力，不含人工刚度，并采用每根杆件最终的物理状态和杆件坐标系。请重新运行受影响的分析及相关验算（SA-2026-061）。",
+          "P-Δ 分析区分物理残差失败与变位几何上的力矩平衡局限。物理平衡失败时，力和应力暂不提供；后一种局限则保留有效的小位移结果并给出警告。时程分析对不可用的总支座反力和峰值支座反力暂不提供，同时保留位移历程和峰值。请复核已保存的内力（SA-2026-061）。",
+          "在 2D 和 3D 中，移除承受内力的杆件的分阶段历程会被拒绝。荷载或位移之后刚度或支座弹簧的变化，可能使力和应力不可用并给出诊断信息。完全卸载的移除以及仅由约束完全确定的阶段保留其结果；受荷杆件的内力重分布仍未支持（SA-2026-061）。",
+          "土-结构相互作用修正弹性平衡，而不会重启未变化的求解。旋转后或单位缩放后的模型，无论没有土还是土处于初始线性范围，都可在现有容差和迭代次数限制内收敛。请重新运行受影响的土-结构分析。",
+          "旋转或镜像后的带约束框架和桁架，不再因舍入界限而被错误拒绝。2D 和 3D 的线性、分阶段、徐变和 P-Δ 初始求解保留可求解的物理刚度；机构和精度的限制不变。请重新运行受影响的分析。",
+          "CIRSOC 301 钢结构设计从计算引擎读取弯矩梯度和截面特性。弯矩梯度系数包含无支撑段两端的符号变化；受拉净面积检查每一条交错螺栓链，并拒绝腹板或角钢第二肢缺少螺栓的全单元连接。请重新验算受影响的钢构件。",
+          "重新提供德语、法语和土耳其语。Research 新增了带海床接触的海洋立管，以及弯曲板条的形状控制，对比和限制均在各自页面上列出。工作区保存会保留已设计的建筑，并在浏览器无法保存时给出提示。",
+        ]
+      },
     },
   },
   {
@@ -478,6 +872,18 @@ export const CHANGELOG: ChangelogEntry[] = [
           "A MITC4 és MITC9 héjelemek vetemedett geometrián továbbra is túl hajlékonyak: a 90°-os csavarású benchmarkban az elmozdulások MITC4 esetén mintegy 30%-kal haladták meg a referenciát, MITC9 esetén pedig annak akár 2,4-szeresét is elérték. A hiba a csavarással nő, sík elemeken nem jelentkezik. A formuláció továbbra sincs javítva (#1057). A #1074-es PR a mért határoknál figyelmeztetéseket és elutasításokat vezetett be; ez a korlátozás nem javítja a formulációt.",
           "A PRO számítási jelentése a kiválasztott eredményhalmazt nyomtatja, és ellenőrzi az exportált táblázatait. Vannak mentett nézetek, együtt látható alaprajz és 3D, IFC-referenciák, csak olvasható hivatkozások és több lemezeredmény. Az Excel- és IFC-importálás megtartja a téglalap keresztmetszetek helyes inerciatengelyét.",
           "Visszatért az Alap mód tananyaga statikával, hatásábrákkal, másodrendű analízissel, kihajlással, képlékenységgel és dinamikával. Elérhetők paraméteres példák és egy saját Anthropic- vagy OpenAI-kulccsal működő asszisztens. A Research és a Tools oldalak gyorsabban nyílnak meg telefonon."
+        ]
+      },
+      zh: {
+        "title": "荷载、设计与分析的更正；更多的计算与学习方式",
+        "items": [
+          "生成的荷载在局部覆盖和旋转楼板上保留楼面荷载，并将壳计入地震重量。平衡检查会指出无法求和的荷载。请重新生成受影响的荷载。",
+          "钢结构和混凝土验算更正了抗剪面积、超筋受弯、矩形柱和管截面受压。未验算扭转的连接和构件会说明哪些内容未评估。壳包络的每个分量保留各自的极值。请重新运行受影响的设计。",
+          "2D 屈曲分析沿杆件对轴力积分；刚性约束后的机构会被拒绝，3D 共旋分析可合成大转动。动力分析在无质量节点上保留初始荷载，并拒绝机构。非有限结果会被拒绝并给出原因。",
+          "新增 2D 塑性极限分析，但在 #758 的验证完成之前，塑性倒塌仍暂不提供。3D 屈曲分析区分压力与舍入误差；谐响应分析按模型和频率选择方法，不随荷载而改变。线性分析会对大转动和可能的二阶效应给出警告。",
+          "MITC4 和 MITC9 壳在翘曲几何上仍然过柔：在扭转 90° 的基准算例中，MITC4 的位移比参考值高约 30%，MITC9 最高达参考值的 2.4 倍。误差随扭转增大，平面单元上则不存在。该公式尚未修正（#1057）。PR #1074 按实测限值增加了警告和拒绝；这种遏制并不能修正公式。",
+          "PRO 报告会打印所选的结果集，并检查其导出的表格。新增已保存视图、平面与 3D 组合视图、IFC 引用、只读链接以及更多板结果。Excel 和 IFC 导入会保留矩形截面正确的惯性轴。",
+          "基础课程回归，涵盖静力学、影响线、二阶效应、屈曲、塑性和动力学。提供参数化示例，以及使用您自己的 Anthropic 或 OpenAI 密钥的助手。Research 和 Tools 页面在手机上打开更快。",
         ]
       },
     },
@@ -584,6 +990,20 @@ export const CHANGELOG: ChangelogEntry[] = [
           "A JAIE 2026 cikk teljes terjedelmében a /paper oldalon, valamint ez a változásnapló."
         ]
       },
+      zh: {
+        "title": "Stabileo Research、Tools，以及德语、法语和土耳其语版本的应用",
+        "items": [
+          "位于 X–Y 平面之外的壳的实体壳应力现已正确；应用会提示您重新运行受影响的项目。",
+          "计算引擎在每次变更时进行不变性检查，并每晚用随机模型测试；三个疑似的引擎错误最终证明是错误的测试模型，现在每个基准算例都需要两个独立的参考、模型检查和一次收敛研究。",
+          "板作为实体对象，在求解时划分网格；曲杆作为单个构件；跨多个标高的 DXF 模板；以及按楼层划分的使用区及其活荷载。",
+          "按输出内容选择导出（结果、计算书、图纸和 IFC），计算书也可导出为带插图的 Word 文件。",
+          "基础模式的复制粘贴与 PRO 一致，并预览落点；Ctrl+S 不再移动 3D 视图，撤销不再把 2D 模型平放进 3D，变形图上的位移可按需显示。",
+          "应用和网站现在也提供德语、法语和土耳其语。",
+          "Stabileo Research：17 篇已发表的论文和经典计算力学基准算例，在浏览器中基于 Stabileo 的引擎运行，每个都说明其对比对象和检验方式。",
+          "Tools：八个免费计算器（梁、悬臂梁、欧拉柱等），在真实的引擎上求解，在结果旁给出经典公式，并可在 Stabileo 中打开模型。",
+          "完整的 JAIE 2026 论文位于 /paper，以及本更新日志。",
+        ]
+      },
     },
   },
   {
@@ -660,6 +1080,16 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Két új blogbejegyzés, megújult tartalomjegyzék, és egy oldal, amely felsorolja, mit ellenőriz a Stabileo az egyes CIRSOC szabványokból."
         ]
       },
+      zh: {
+        "title": "引擎中的设计验算，以及 0.2.0 和 0.3.0 版本",
+        "items": [
+          "钢筋混凝土（CIRSOC 201）和钢结构（CIRSOC 301）的设计规范验算现在在引擎内运行，并配有针对已发表参考模型的验证套件。",
+          "对于允许的结果，引擎使用区间算术计算误差界限。",
+          "发布了 0.2.0 和 0.3.0 版本，附有西班牙语、英语和葡萄牙语的版本说明。当某项变更影响结果时，应用会提示您重新运行已保存的项目。",
+          "落地页新增了一个关于验证的板块，现在加载量为 152 KB，而不是 6.4 MB。",
+          "两篇新博客文章，重新设计的索引，以及一个列出 Stabileo 对每部 CIRSOC 规范检查内容的页面。",
+        ]
+      },
     },
   },
   {
@@ -677,6 +1107,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         fr: 'La boîte de dialogue de la note de calcul du mode Basique, avec la liste des contenus où l\'on choisit ce qu\'elle inclut',
         tr: 'Temel modundaki hesap raporu iletişim kutusu; neyin dahil edileceğini seçmek için içerik listesiyle',
         hu: 'Az Alap mód számítási jelentésének párbeszédablaka a tartalomlistával, amelyből kiválasztható, mi kerüljön bele',
+        zh: '基础模式的计算书对话框，列出可选择包含哪些内容的目录',
       },
     },
     i18n: {
@@ -757,6 +1188,17 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Mértékegységek a teljes PRO-ban, valamint exportálás Excelbe, CSV-be, PDF-jelentésbe, DXF-be és képekbe, mindegyik egy párbeszédablakkal, amely megmutatja, mi készül."
         ]
       },
+      zh: {
+        "title": "在基础模式中自行组合的报告，以及 PRO 中的动力荷载",
+        "items": [
+          "从千米到毫米的缩放，选取相互重叠的杆件，隐藏模型的部分内容，以及更易读的标签。",
+          "通过选择包含的内容来生成 PDF 计算书，包括几何组成分析和平衡的隔离体图，图形可直接导出打印。",
+          "一段展示结构逐层建成过程的视频。",
+          "复合荷载工况和参考荷载工况、名义荷载，以及 SRSS 和 ABS 组合。",
+          "动力荷载和移动荷载：项目专用的反应谱和目录中的车辆。",
+          "整个 PRO 中的单位，以及导出为 Excel、CSV、PDF 报告、DXF 和图像，每种导出都配有显示输出内容的对话框。",
+        ]
+      },
     },
   },
   {
@@ -826,6 +1268,15 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Egy teljes épület vasbeton méretezése kevesebb mint feleannyi ideig tart, mint korábban."
         ]
       },
+      zh: {
+        "title": "PRO 中基于规范的荷载",
+        "items": [
+          "规范荷载生成器涵盖屋面、雪堆积和荷载布置，并按 CIRSOC 102 计算风阵风系数。",
+          "杆件、节点和板上的荷载可连同方向、变化形式和作用面积一并输入。",
+          "显示单位、变截面杆件以及对截面编辑器的改进。",
+          "整栋建筑的钢筋混凝土设计所需时间不到以往的一半。",
+        ]
+      },
     },
   },
   {
@@ -843,6 +1294,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         fr: 'Un bâtiment de plusieurs étages modélisé dans le mode PRO, avec grilles et niveaux',
         tr: 'PRO modunda aks ızgaraları ve katlarla modellenmiş çok katlı bir bina',
         hu: 'Többszintes épület a PRO módban modellezve, raszterrel és szintekkel',
+        zh: '在 PRO 模式中建模的多层建筑，带轴网和标高',
       },
     },
     i18n: {
@@ -944,6 +1396,20 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Megoldó, amely sokkal gyorsabbá teszi a nagy modelleket, és javítás a lemezelemekben."
         ]
       },
+      zh: {
+        "title": "在 PRO 中从练习走向真实项目",
+        "items": [
+          "杆件逐点绘制，可捕捉节点、中点和交点，并询问是否连接相交处。",
+          "涵盖十五种分析方法的分步讲解解答。",
+          "动力分析会绘制各阶模态的振型。",
+          "轴网和标高、可插入模型的结构生成器，以及复制粘贴。",
+          "按从属面积计算楼面荷载、板网格划分、弹性支座和基础。",
+          "结果表、挠度限值、板云图、项目 Excel 工作簿和报告。",
+          "用于绘制组合截面的编辑器，以及搜索满足要求的最轻截面。",
+          "七个已发表的参考结构，经建模用于对照检验结果，以及包含 24 个示例的示例库。",
+          "一个使大型模型快得多的求解器，以及对板单元的一处修复。",
+        ]
+      },
     },
   },
   {
@@ -961,6 +1427,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         fr: 'Les armatures dimensionnées d\'une structure en béton armé, vues en 3D dans le mode PRO',
         tr: 'Betonarme bir yapının boyutlandırılmış donatıları, PRO modunda 3B olarak',
         hu: 'Vasbeton szerkezet méretezett vasalása 3D-ben, a PRO módban',
+        zh: '在 PRO 模式中以 3D 显示的钢筋混凝土结构设计配筋',
       },
     },
     i18n: {
@@ -1062,6 +1529,20 @@ export const CHANGELOG: ChangelogEntry[] = [
           "A hibásan felépített modellt az alkalmazás most üzenettel elutasítja ahelyett, hogy nullákat adna vissza."
         ]
       },
+      zh: {
+        "title": "PRO 中的钢筋混凝土设计",
+        "items": [
+          "更简短的落地页，带有定价方案和一个也显示在应用内的联系面板。",
+          "一篇新博客文章，讲述何时用杆件建模、何时用有限元建模，另有用户指南。",
+          "CIRSOC Flex 钢筋混凝土计算器现在会给出钢筋建议，并已对照原始电子表格验证。",
+          "按刚度法和柔度法的分步解答，支持 2D 和 3D。",
+          "所有分析中均支持温度作用。",
+          "教学模式成为基础模式内的一个面板。",
+          "钢筋混凝土设计，以及重新组织的 PRO 界面。",
+          "模型平衡检查，以及动力分析：模态、反应谱和时程分析。",
+          "构建有误的模型现在会被拒绝并给出提示，而不是返回零值。",
+        ]
+      },
     },
   },
   {
@@ -1079,6 +1560,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         fr: 'Le mode Basique sur un téléphone, avec le diagramme des moments d\'un portique',
         tr: 'Telefonda Temel modu; bir çerçevenin eğilme momenti diyagramıyla',
         hu: 'Az Alap mód telefonon, egy keret hajlítónyomatéki ábrájával',
+        zh: '手机上的基础模式，显示框架的弯矩图',
       },
     },
     i18n: {
@@ -1145,6 +1627,15 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Acélszerkezetek: keresztmetszet- és anyagválasztók, generátorok, acél munkafolyamat és kapcsolatok méretezése."
         ]
       },
+      zh: {
+        "title": "手机上的 Stabileo",
+        "items": [
+          "手机界面，基础模式和 PRO 使用相同的布局。",
+          "从 Excel 导入模型，共享链接再次打开完整的模型。",
+          "按 CIRSOC Flex 进行截面配筋设计，这是阿根廷大多数土木工程师使用的电子表格。",
+          "钢结构：截面和材料选择器、生成器、钢结构工作流程和连接设计。",
+        ]
+      },
     },
   },
   {
@@ -1162,6 +1653,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         fr: 'Une halle industrielle métallique générée à partir de paramètres modifiables',
         tr: 'Düzenlenebilir parametrelerle oluşturulmuş çelik bir endüstriyel yapı',
         hu: 'Szerkeszthető paraméterekből felépített acél ipari csarnok',
+        zh: '由可编辑参数构建的钢结构工业厂房',
       },
     },
     i18n: {
@@ -1228,6 +1720,15 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Három számítási hiba javítva: a kör keresztmetszetű cső nyírása, a csúcs-nyíróerő, és egy építési fázisokra bontott analízis, amely kihagyta a födémeket és a falakat."
         ]
       },
+      zh: {
+        "title": "钢结构，以及三种语言的网站",
+        "items": [
+          "根据可编辑参数生成桁架、格构柱和工业厂房的生成器，配有带目录和筛选功能的截面选择器。",
+          "落地页和博客提供西班牙语、英语和葡萄牙语版本。网站可被搜索引擎收录，共十八个页面和四篇文章。",
+          "七个简短教程，取代了引导式导览。",
+          "修复了三处计算错误：圆管的剪力、峰值剪力，以及一个遗漏了楼板和墙的分阶段分析。",
+        ]
+      },
     },
   },
   {
@@ -1245,6 +1746,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         fr: 'L\'analyse de section du mode Basique, avec l\'état de contrainte sur le contour réel du profilé',
         tr: 'Temel modunda kesit analizi; profilin gerçek konturu üzerindeki gerilme durumuyla',
         hu: 'Keresztmetszet-vizsgálat az Alap módban, a feszültségi állapottal a keresztmetszet valós kontúrján',
+        zh: '基础模式的截面分析，应力状态绘制在截面的真实轮廓上',
       },
     },
     i18n: {
@@ -1311,6 +1813,15 @@ export const CHANGELOG: ChangelogEntry[] = [
           "A PRO-t újratervezték, az Alap móddal azonos arculattal."
         ]
       },
+      zh: {
+        "title": "截面分析，以及全新的 PRO 界面",
+        "items": [
+          "点击结构上的任意一点，即可得到实际截面上的应力状态，包括主应力、莫尔圆、截面核心，以及可拖动的荷载点，用来观察偏心的影响。",
+          "面向阿根廷、欧洲、美国和巴西的材料与截面数据库，包含 700 多种已对照其标准检验的截面。",
+          "更易用的选择和移动工具，以及带色标的应力云图。",
+          "PRO 采用与基础模式相同的视觉标识重新设计。",
+        ]
+      },
     },
   },
   {
@@ -1328,6 +1839,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         fr: 'Un exercice du mode Enseignement, avec les diagrammes tracés par l\'étudiant corrigés par rapport au calcul',
         tr: 'Eğitim modunda bir alıştırma; öğrencinin çizdiği diyagramlar hesaba göre değerlendiriliyor',
         hu: 'Feladat az Oktatási módban, a hallgató által rajzolt ábrákkal, amelyeket az alkalmazás az analízis alapján értékel',
+        zh: '教学模式中的练习，学生绘制的图形会对照分析结果评分',
       },
     },
     i18n: {
@@ -1401,6 +1913,16 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Javítások a méretezési ellenőrzésekben: a biztonság kárára tévedő alapértékek, hiányzó határállapotok és figyelmen kívül hagyott bemenetek."
         ]
       },
+      zh: {
+        "title": "全新的视觉标识，以及教学模式",
+        "items": [
+          "整个基础界面采用新落地页的视觉标识。",
+          "每个截面都解析为其精确的轮廓。没有轮廓时，应用拒绝计算应力，而不是臆造缺失的厚度。",
+          "教师在应用内创建练习，学生在其中解答；学生绘制的图形会对照分析结果评分。",
+          "钢筋混凝土基础：从配筋设计到 CAD 文件，并附 3D 钢筋表。",
+          "对设计验算的修复：偏不安全的默认值、缺失的极限状态，以及被忽略的输入。",
+        ]
+      },
     },
   },
   {
@@ -1461,6 +1983,14 @@ export const CHANGELOG: ChangelogEntry[] = [
           "A nyitóoldalt újraépítették: elmagyarázza, mi a Stabileo, mi működik ma és mi van fejlesztés alatt, külön szakaszokkal az Alap, az Oktatási és a PRO mód számára.",
           "Terhek és méretezési ellenőrzések a 2025-ös CIRSOC szabványok szerint, az egyes szabványok kiadásának rögzítésével a projektben.",
           "Gyorsabb utófeldolgozás és 3D megjelenítő nagy modelleken."
+        ]
+      },
+      zh: {
+        "title": "全新的落地页，以及 2025 版 CIRSOC 规范",
+        "items": [
+          "重建了落地页：说明 Stabileo 是什么、目前可用的功能和开发中的功能，并设有基础模式、教学模式和 PRO 板块。",
+          "按 2025 版 CIRSOC 规范进行荷载和设计验算，各规范的版本会记录在项目中。",
+          "大型模型上更快的后处理和 3D 查看器。",
         ]
       },
     },
@@ -1525,6 +2055,14 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Javítások a kényszerekben és a ferde támaszokban."
         ]
       },
+      zh: {
+        "title": "结果始终与模型一致",
+        "items": [
+          "编辑模型会使由此过时的结果和设计验算失效，因此不再适用的结果绝不会显示。",
+          "更快的分析：荷载工况复用分解，组合成批求解，分析在后台运行。",
+          "对约束和斜支座问题的修复。",
+        ]
+      },
     },
   },
   {
@@ -1573,6 +2111,12 @@ export const CHANGELOG: ChangelogEntry[] = [
           "A DXF-rajzimportáló előnézettel és diagnosztikával, mértékegység-kezeléssel, több szinttel és gerendafelismeréssel bővült, áttekinthetőbb varázslóval."
         ]
       },
+      zh: {
+        "title": "DXF 图纸导入器",
+        "items": [
+          "DXF 图纸导入器新增预览和诊断、单位控制、多楼层和梁识别，向导也更清晰。",
+        ]
+      },
     },
   },
   {
@@ -1619,6 +2163,12 @@ export const CHANGELOG: ChangelogEntry[] = [
         "title": "Rudak szabadtest-ábrái az Alap módban",
         "items": [
           "Rudak szabadtest-ábrái 2D-ben és 3D-ben, 2D-ben csúszó csuklókkal, 3D-ben hat szabadságfokú kioldásokkal, és az erővektorokkal minden rúdvégen."
+        ]
+      },
+      zh: {
+        "title": "基础模式中的杆件隔离体图",
+        "items": [
+          "2D 和 3D 中杆件的隔离体图，2D 中带滑动铰，3D 中带六自由度释放，并显示每端的力矢量。",
         ]
       },
     },
@@ -1683,6 +2233,14 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Egységes tengelyek és keresztmetszetek az Alap mód 2D és 3D nézetében."
         ]
       },
+      zh: {
+        "title": "从 CAD 图纸到混凝土模型",
+        "items": [
+          "从 DXF 图纸到钢筋混凝土结构草案：一个对图层分类的向导、一个可下载的模板和示例。",
+          "3D 局部坐标轴的约定已在界面和引擎中统一，已有模型也完成了迁移。",
+          "基础模式的 2D 和 3D 中统一了坐标轴和截面。",
+        ]
+      },
     },
   },
   {
@@ -1700,6 +2258,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         fr: 'Les efforts normaux d\'un bâtiment dans le mode PRO, avec les formes réelles des sections dans la vue 3D',
         tr: 'PRO modunda bir binanın normal kuvvetleri; 3B görüntüleyicide gerçek kesit şekilleriyle',
         hu: 'Normálerők egy épületben a PRO módban, valós keresztmetszet-alakokkal a 3D megjelenítőben',
+        zh: 'PRO 模式中某建筑的轴力，3D 查看器中显示真实的截面形状',
       },
     },
     i18n: {
@@ -1771,6 +2330,16 @@ export const CHANGELOG: ChangelogEntry[] = [
           "3D megjelenítő valós keresztmetszet-alakokkal és helyi tengelyekkel, valamint rúdvégi eltolások az oszlop oldallapjához csatlakozó gerendák modellezéséhez.",
           "Födémek és falak megjelenítéssel, tengelyekkel, főfeszültségekkel és jelentéssel.",
           "Az Alap módot újraírták, világosabb határvonallal közte és a PRO között."
+        ]
+      },
+      zh: {
+        "title": "PRO 中的专业工作流程",
+        "items": [
+          "设计、荷载和计算书在 PRO 中协同工作，设计验算统一。",
+          "按荷载工况、组合和包络给出结果。",
+          "带真实截面形状和局部坐标轴的 3D 查看器，以及用于对梁与柱面相接建模的杆件偏移。",
+          "楼板和墙的显示、坐标轴、主应力和报告。",
+          "基础模式经过重写，与 PRO 的界线更清晰。",
         ]
       },
     },
@@ -1857,6 +2426,17 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Javítások a mentésben, a megosztott hivatkozásokban és az exportálásban."
         ]
       },
+      zh: {
+        "title": "更流畅的 3D 查看器和更稳固的引擎",
+        "items": [
+          "重新设计的落地页（首页）。",
+          "近一千个新的稳健性测试，并修正了引擎、单元和约束中的精度问题，在分析运行前给出不稳定警告。",
+          "3D 中的铰可在每根杆件的每一端逐轴释放。",
+          "3D 查看器在超过一千个节点的模型上依然流畅：节点一次绘制完成，杆件拾取更快。",
+          "整个应用统一采用 Z 轴向上，并修复了应力和设计验算中的 My 和 Mz 弯矩。",
+          "对保存、共享链接和导出的修复。",
+        ]
+      },
     },
   },
   {
@@ -1875,6 +2455,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         fr: 'Un portique spatial avec son diagramme des moments en 3D',
         tr: '3B eğilme momenti diyagramıyla bir uzay çerçeve',
         hu: 'Térbeli keret a hajlítónyomatéki ábrájával 3D-ben',
+        zh: '带 3D 弯矩图的空间框架',
       },
     },
     i18n: {
@@ -1983,6 +2564,21 @@ export const CHANGELOG: ChangelogEntry[] = [
           "MI-asszisztens, amely beszélgetés alapján épít és szerkeszt modelleket."
         ]
       },
+      zh: {
+        "title": "Rust 引擎、PRO 模式和 Stabileo 之名",
+        "items": [
+          "分析引擎用 Rust 重写，通过 WebAssembly 在浏览器中运行。在取代旧引擎之前，两者在 90 个模型上做过对比。",
+          "超过两千项对照教科书解答和已发表参考算例的验证测试。",
+          "几何非线性和材料非线性分析、模态、反应谱和时程动力分析、板和壳、索、分阶段施工以及弹簧支承的基础。",
+          "稀疏矩阵求解器加快了大型模型：3D 模态分析快了 11.8 倍。",
+          "项目更名为 Stabileo，拥有自己的域名、落地页和 14 种语言的界面。",
+          "PRO 模式，带有按 CIRSOC 201 的钢筋混凝土验算、自动荷载、诊断和计算书。",
+          "钢筋混凝土工作流程：每根杆件的控制组合、自动验算、配筋构造和节点，以及 1005 个节点的体育场等大型示例。",
+          "教学模式，带有逐步检查的引导式练习。",
+          "基础模式新增 3D 视图，以及把 3D 模型转换为 2D 模型。",
+          "一个可通过对话来构建和编辑模型的 AI 助手。",
+        ]
+      },
     },
   },
   {
@@ -2001,6 +2597,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         fr: 'Un portique plan avec son diagramme des moments fléchissants dans le mode Basique',
         tr: 'Temel modunda eğilme momenti diyagramıyla bir düzlem çerçeve',
         hu: 'Síkbeli keret a hajlítónyomatéki ábrájával az Alap módban',
+        zh: '基础模式中带弯矩图的平面框架',
       },
     },
     i18n: {
@@ -2088,6 +2685,18 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Mobil felület, a modellt magukban hordozó megosztott hivatkozások, bemutató túra és billentyűparancsok."
         ]
       },
+      zh: {
+        "title": "开端：浏览器中的结构编辑器",
+        "items": [
+          "2 月 10 日发布的第一个版本：2D 中的杆件、支座和荷载，带反力、内力图和挠曲形状，无需安装任何东西。",
+          "集中荷载、局部分布荷载和移动荷载，荷载工况、组合以及两条曲线的包络。",
+          "带截面构建器的钢截面和混凝土截面，以及按 Navier、Jourawski 和 Von Mises 计算的截面应力。",
+          "斜支座、弹簧和支座沉降，以及杆件自重。",
+          "每个节点六个自由度的 3D 引擎及其查看器，另有 2D 中的 P-Δ、屈曲和影响线。",
+          "一个教学用的几何组成分析，逐杆件解释结构为何是或不是机构。",
+          "手机界面、携带模型的共享链接、引导式导览和键盘快捷键。",
+        ]
+      },
     },
   },
 ];
@@ -2100,6 +2709,7 @@ export const AREA_LABELS: Record<PublicLocale, Record<ChangelogArea, string>> = 
   fr: { basic: 'Basique', pro: 'PRO', edu: 'Enseignement', app: 'Application', engine: 'Moteur', site: 'Site' },
   tr: { basic: 'Temel', pro: 'PRO', edu: 'Eğitim', app: 'Uygulama', engine: 'Motor', site: 'Site' },
   hu: { basic: 'Alap', pro: 'PRO', edu: 'Oktatás', app: 'Alkalmazás', engine: 'Számítómag', site: 'Weboldal' },
+  zh: { basic: '基础', pro: 'PRO', edu: '教学', app: '应用', engine: '计算引擎', site: '网站' },
 };
 
 /** Parsed by parts, so no time zone moves the day back. */

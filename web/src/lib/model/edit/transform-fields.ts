@@ -31,7 +31,7 @@ import { computeLocalAxes3D } from '../../engine/local-axes-3d';
 import type { Element, Section, Support, Joint3D, Load, NodalLoad3D, DistributedLoad3D, PointLoadOnElement3D, ThermalLoad, PrestressLoad3D, NodeDisplacement3D, SurfaceLoad3D } from '../../store/model.svelte';
 import { carryPointLoad, carryThermal, carryPrestress, carrySurface } from '../loads/member-load-carry';
 import type { MemberOffset } from '../element-3d-metadata';
-import { applyAxial, applyVector, axisPermutation, compose, dot, IDENTITY, isReflection, type Affine, type Vec3 } from './affine';
+import { applyAxial, applyVector, axisPermutation, compose, dot, isReflection, isTranslation, type Affine, type Vec3 } from './affine';
 
 export type EditWarning =
   | 'asymmetricProfile'   // mirrored, but the profile cannot be its own mirror image
@@ -176,7 +176,7 @@ export function carriedSupport(
     const n = applyVector(s.dofRestraints ? fieldTransform : T, [s.normalX ?? 0, s.normalY ?? 0, s.normalZ ?? 0]);
     out.normalX = n[0]; out.normalY = n[1]; out.normalZ = n[2];
   }
-  const translationOnly = T.A.every((v, i) => Math.abs(v - IDENTITY[i]!) < 1e-12);
+  const translationOnly = isTranslation(T);
   if (translationOnly || isUnresolvedSupport(s, plane)) return out;
   const p = axisPermutation(fieldTransform.A);
   if (planeFields && p && p.perm[1] !== 1) return null;
@@ -264,7 +264,7 @@ export function carriedLoad(
     const { fromDef: _def, ...rest } = l.data as unknown as Record<string, unknown>;
     l = { ...l, data: rest } as unknown as Load;
   }
-  const translationOnly = T.A.every((v, i) => Math.abs(v - [1, 0, 0, 0, 1, 0, 0, 0, 1][i]!) < 1e-12);
+  const translationOnly = isTranslation(T);
   const d = l.data as unknown as Record<string, unknown>;
   switch (l.type) {
     case 'nodal3d': {

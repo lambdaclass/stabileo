@@ -58,9 +58,9 @@ test('accounts-on build keeps registration available and consent outside the sta
   assert.deepEqual(modules.filter(id => /\/lib\/tracking\//.test(id)), []);
 });
 
-test('committed production config excludes registration', async () => {
+test('committed production config includes registration', async () => {
   const { manifest, modules } = await landingBuild();
-  assert.equal(manifest['src/components/register/RegisterPage.svelte'], undefined);
+  assert.ok(manifest['src/components/register/RegisterPage.svelte']);
   assert.deepEqual(modules.filter(id => /\/lib\/tracking\//.test(id)), []);
 });
 
@@ -80,4 +80,29 @@ test('research-on landing keeps publication policy and the Hungarian public dict
   const { modules, emittedModules } = await landingBuild({ ...disabledFeatures, research: true });
   assert.ok(modules.some(id => id.endsWith('/lib/i18n/published.ts')));
   assert.ok(emittedModules.includes('\0virtual:public-i18n/hu'));
+});
+
+test('the examples worker builds without browser dictionaries', async () => {
+  const root = resolve(import.meta.dirname, '..');
+  await build({
+    configFile: false,
+    root,
+    logLevel: 'error',
+    plugins: [{
+      name: 'examples-worker-engine-stub',
+      resolveId(id) {
+        if (id.endsWith('dedaliano_engine_bg.wasm?url')) return '\0worker-wasm';
+        if (id.endsWith('dedaliano_engine.js')) return '\0worker-engine';
+      },
+      load(id) {
+        if (id === '\0worker-wasm') return 'export default "data:application/wasm;base64,AGFzbQEAAAA="';
+        if (id === '\0worker-engine') return 'export function initSync() {}';
+      },
+    }],
+    build: {
+      target: 'esnext',
+      write: false,
+      lib: { entry: resolve(root, 'src/components/examples/run.worker.ts'), formats: ['es'], fileName: 'worker' },
+    },
+  });
 });

@@ -13,6 +13,7 @@
 </script>
 
 <script lang="ts">
+  import { userComponent, axisName } from '../../lib/axes/display';
   /**
    * T, H and F in the regulation load generator (`engine/loads/special-loads.ts`): a temperature
    * change on every member and shell, in both senses, the soil's lateral pressure on the vertical
@@ -58,7 +59,7 @@
     {#if config.soil.on}
       <div class="al-row">
         <label class="al-field al-field-narrow"><span class="al-label">{t('autoLoad.special.grade')}</span>
-          <QuantityInput bind:value={config.soil.gradeZ} quantity="length" testid="al-soil-grade" wrap="al-unit-field" /></label>
+          <QuantityInput bind:value={() => userComponent(2, config.soil.gradeZ, 'vector'), (v) => (config.soil.gradeZ = userComponent(2, v, 'vector'))} quantity="length" testid="al-soil-grade" wrap="al-unit-field" /></label>
         <label class="al-field"><span class="al-label">{t('autoLoad.special.soilType')}</span>
           <select value={SOIL_WEIGHTS.find((s) => s.gamma === config.soil.gamma)?.key ?? ''} onchange={(e) => { const s = SOIL_WEIGHTS.find((x) => x.key === e.currentTarget.value); if (s) config.soil.gamma = s.gamma; }}>
             <option value="" disabled>{t('autoLoad.special.typed')}</option>
@@ -75,10 +76,10 @@
       <label class="al-check"><input type="checkbox" bind:checked={config.soil.sideOn} data-testid="al-soil-side" /> {t('autoLoad.special.soilSide')}</label>
       {#if config.soil.sideOn}
         <div class="al-row">
-          <label class="al-field al-field-narrow"><span class="al-label">X</span>
-            <QuantityInput bind:value={config.soil.sideX} quantity="length" testid="al-soil-side-x" wrap="al-unit-field" /></label>
-          <label class="al-field al-field-narrow"><span class="al-label">Y</span>
-            <QuantityInput bind:value={config.soil.sideY} quantity="length" testid="al-soil-side-y" wrap="al-unit-field" /></label>
+          <label class="al-field al-field-narrow"><span class="al-label">{axisName(0)}</span>
+            <QuantityInput bind:value={() => userComponent(0, config.soil.sideX, 'vector'), (v) => (config.soil.sideX = userComponent(0, v, 'vector'))} quantity="length" testid="al-soil-side-x" wrap="al-unit-field" /></label>
+          <label class="al-field al-field-narrow"><span class="al-label">{axisName(1)}</span>
+            <QuantityInput bind:value={() => userComponent(1, config.soil.sideY, 'vector'), (v) => (config.soil.sideY = userComponent(1, v, 'vector'))} quantity="length" testid="al-soil-side-y" wrap="al-unit-field" /></label>
         </div>
       {/if}
       <Hint text={t('autoLoad.special.soilHint')} />
@@ -89,17 +90,17 @@
     {#if config.fluid.on}
       <div class="al-row">
         <label class="al-field al-field-narrow"><span class="al-label">{t('autoLoad.special.level')}</span>
-          <QuantityInput bind:value={config.fluid.levelZ} quantity="length" testid="al-fluid-level" wrap="al-unit-field" /></label>
+          <QuantityInput bind:value={() => userComponent(2, config.fluid.levelZ, 'vector'), (v) => (config.fluid.levelZ = userComponent(2, v, 'vector'))} quantity="length" testid="al-fluid-level" wrap="al-unit-field" /></label>
         <label class="al-field al-field-narrow"><span class="al-label">γ</span>
           <QuantityInput bind:value={config.fluid.gamma} quantity="density" wrap="al-unit-field" /></label>
       </div>
       <label class="al-check"><input type="checkbox" bind:checked={config.fluid.insideOn} data-testid="al-fluid-inside" /> {t('autoLoad.special.fluidInside')}</label>
       {#if config.fluid.insideOn}
         <div class="al-row">
-          <label class="al-field al-field-narrow"><span class="al-label">X</span>
-            <QuantityInput bind:value={config.fluid.insideX} quantity="length" testid="al-fluid-inside-x" wrap="al-unit-field" /></label>
-          <label class="al-field al-field-narrow"><span class="al-label">Y</span>
-            <QuantityInput bind:value={config.fluid.insideY} quantity="length" testid="al-fluid-inside-y" wrap="al-unit-field" /></label>
+          <label class="al-field al-field-narrow"><span class="al-label">{axisName(0)}</span>
+            <QuantityInput bind:value={() => userComponent(0, config.fluid.insideX, 'vector'), (v) => (config.fluid.insideX = userComponent(0, v, 'vector'))} quantity="length" testid="al-fluid-inside-x" wrap="al-unit-field" /></label>
+          <label class="al-field al-field-narrow"><span class="al-label">{axisName(1)}</span>
+            <QuantityInput bind:value={() => userComponent(1, config.fluid.insideY, 'vector'), (v) => (config.fluid.insideY = userComponent(1, v, 'vector'))} quantity="length" testid="al-fluid-inside-y" wrap="al-unit-field" /></label>
         </div>
       {/if}
       <Hint text={t('autoLoad.special.fluidHint')} />

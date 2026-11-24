@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { caseNameShown, combinationNameShown } from '../../lib/axes/case-names';
   import Hint from './Hint.svelte';
   import { uiStore } from '../../lib/store';
   /**
@@ -111,7 +112,7 @@
     {#if active}
       <ul class="rs-list" data-testid="rs-active-list">
         {#each combos as c (c.id)}
-          <li><label title={isMagnitudeCombination(c) ? t('combos.method.hint') : undefined}><input type="checkbox" checked={active.has(c.id) && !isMagnitudeCombination(c)} disabled={isMagnitudeCombination(c)} onchange={() => toggleActive(c.id)} /> {c.name}</label></li>
+          <li><label title={isMagnitudeCombination(c) ? t('combos.method.hint') : undefined}><input type="checkbox" checked={active.has(c.id) && !isMagnitudeCombination(c)} disabled={isMagnitudeCombination(c)} onchange={() => toggleActive(c.id)} /> {combinationNameShown(c)}</label></li>
         {/each}
       </ul>
       {#if nActive === 0}<p class="pk-warn" role="alert">{t('scopes.noneActive')}</p>{/if}
@@ -143,13 +144,13 @@
       {#if editing === env.id}
         <ul class="rs-list">
           {#each combos as c (c.id)}
-            <li><label><input type="checkbox" checked={env.comboIds.includes(c.id)} onchange={() => toggleEnvelopeCombo(env, c.id)} /> {c.name}</label></li>
+            <li><label><input type="checkbox" checked={env.comboIds.includes(c.id)} onchange={() => toggleEnvelopeCombo(env, c.id)} /> {combinationNameShown(c)}</label></li>
           {/each}
         </ul>
         <Hint text={t('scopes.casesToo')} />
         <ul class="rs-list" data-testid="rs-env-cases">
           {#each cases as c (c.id)}
-            <li><label><input type="checkbox" checked={env.caseIds?.includes(c.id) ?? false} onchange={() => toggleEnvelopeCase(env, c.id)} /> {c.name}</label></li>
+            <li><label><input type="checkbox" checked={env.caseIds?.includes(c.id) ?? false} onchange={() => toggleEnvelopeCase(env, c.id)} /> {caseNameShown(c)}</label></li>
           {/each}
         </ul>
       {/if}

@@ -1,0 +1,36 @@
+{
+  "id": "rc-drawn-hoop-verification",
+  "date": "2026-11-19",
+  "prs": [
+    2338
+  ],
+  "area": "design",
+  "when": {
+    "all": [
+      "concreteMembers",
+      "cirsoc201"
+    ]
+  },
+  "title": {
+    "en": "RC frame verification from drawn hoop zones",
+    "es": "Verificación de pórticos de hormigón con los estribos dibujados",
+    "pt": "Verificação de pórticos de concreto com os estribos desenhados",
+    "de": "Nachweis von Stahlbetonrahmen anhand eingezeichneter Bügel",
+    "fr": "Vérification des portiques en béton à partir des cadres dessinés",
+    "tr": "Betonarme çerçevelerin çizilen etriyelerle doğrulanması",
+    "zh": "按图示箍筋分区验算钢筋混凝土框架"
+  },
+  "explanation": {
+    "en": "Seismic checks now verify the diameter, leg count and spacing throughout each drawn hoop zone. Design exports report a concrete member as open when its strength verification is unavailable. Re-run the affected checks and regenerate the exports.",
+    "es": "Los controles sísmicos ahora verifican el diámetro, la cantidad de ramas y la separación en toda la zona de estribos dibujada. Las exportaciones indican que el elemento queda pendiente cuando no se pudo verificar su resistencia. Volvé a ejecutar los controles afectados y generá nuevamente las exportaciones.",
+    "pt": "As verificações sísmicas agora conferem o diâmetro, o número de ramos e o espaçamento ao longo de cada zona de estribos desenhada. As exportações mantêm o elemento em aberto quando a resistência não pôde ser verificada. Refaça as verificações afetadas e gere novamente as exportações.",
+    "de": "Die Erdbebennachweise prüfen nun Durchmesser, Schenkelzahl und Abstand im gesamten eingezeichneten Bügelbereich. Die Exporte kennzeichnen Betonbauteile ohne verfügbaren Tragfähigkeitsnachweis als offen. Wiederholen Sie die betroffenen Nachweise und erstellen Sie die Exporte erneut.",
+    "fr": "Les contrôles sismiques vérifient désormais le diamètre, le nombre de brins et l’espacement sur toute la zone de cadres dessinée. Les exports indiquent que l’élément reste à vérifier si le contrôle de résistance est indisponible. Relancez les contrôles concernés et régénérez les exports.",
+    "tr": "Deprem kontrolleri artık çizilen her etriye bölgesinin tamamında çapı, kol sayısını ve aralığı doğrular. Dayanım doğrulaması yapılamadığında tasarım çıktıları betonarme elemanı doğrulanmamış olarak gösterir. İlgili kontrolleri yeniden çalıştırın ve çıktıları yeniden oluşturun.",
+    "zh": "抗震验算现在检查每个图示箍筋分区全段的箍筋直径、肢数和间距。无法验算混凝土构件承载力时，设计导出文件将该构件标记为待验算。请重新运行受影响的验算并重新生成导出文件。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-rc-drawn-hoop-verification.md",
+    "heading": "RC frame verification from drawn hoop zones"
+  }
+}

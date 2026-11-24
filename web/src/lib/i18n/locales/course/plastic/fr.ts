@@ -21,7 +21,7 @@ const words: Translations = {
   'course.plastic.req.mechanisms': 'Il y a {n} mécanismes indépendants ; à la main, on travaille avec {max} au plus.',
 
   'course.plastic.doc.assumptions': 'Matériau rigide-plastique : chaque section reste rigide jusqu\'à ce que son moment atteigne Mp, puis tourne librement sans que le moment augmente (rotule plastique). On néglige l\'interaction avec l\'effort normal et l\'effort tranchant, les effets du second ordre et la décharge des rotules.',
-  'course.plastic.doc.signs': 'Moments positifs quand ils tendent la face inférieure de la barre parcourue de son nœud initial à son nœud final (face −y locale). Une rotation de rotule θ est positive quand la barre se plie dans le sens où un moment positif la fléchirait ; dans chaque rotule, M·θ est le travail absorbé.',
+  'course.plastic.doc.signs': 'Dans cette analyse plastique plane, l’axe local x va du nœud initial au nœud final. L’axe local y s’obtient en tournant x de 90° dans le sens antihoraire. Un moment positif tend la face locale −y, qui correspond, pour une poutre dessinée de gauche à droite, à la face locale −z de la leçon sur les lignes d’influence. Une rotation de rotule θ est positive quand la barre se plie dans le sens où un moment positif la fléchirait ; dans chaque rotule, M·θ est le travail absorbé.',
   'course.plastic.doc.mpCaption': 'Moment plastique de chaque barre, Mp = fy·Zp.',
   'course.plastic.doc.gh': 'Degré d\'hyperstaticité',
   'course.plastic.doc.axialRedundant': '{s} de ces inconnues ne participent pas à la flexion (un effort normal qu\'aucun mécanisme ne mobilise). Pour compter les mécanismes, on prend GH = {gh}.',

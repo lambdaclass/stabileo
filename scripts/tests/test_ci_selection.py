@@ -117,7 +117,7 @@ class Selection(unittest.TestCase):
                 log = Path(directory) / 'calls'
                 gh = Path(directory) / 'gh'
                 gh.write_text(f"""#!/bin/sh
-echo "$*" >> {log}
+echo "$@" >> {log}
 case "$*" in
   "api repos/o/r/actions/runs/7 --jq"*) echo "{run}" ;;
   "api --paginate"*) [ -n "{failed}" ] && echo "{failed}" ;;
@@ -438,6 +438,7 @@ exit 0
         args = run.call_args.args[0]
         self.assertIn('e2e/basic-pdelta.spec.ts', args)
         self.assertIn('@engine', args[args.index('--grep') + 1])
+        self.assertIn('@timing', args[args.index('--grep-invert') + 1])
         self.assertNotIn('--pass-with-no-tests', args)
 
     def test_typecheck_covers_every_selected_web_scope(self):
@@ -599,6 +600,31 @@ exit 0
             (e2e / 'rc-design-visual.spec.ts').write_text("test('visual @slow', async () => {});\n")
             self.assertEqual(selection.discover_slow_specs(e2e), ('url-title.spec.ts', 'via-helper.spec.ts'))
 
+    def test_slow_discovery_reads_shared_dependencies_once_even_with_cycles(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            e2e = Path(tmp).resolve()
+            sources = {
+                'a.spec.ts': "import { t } from './shared';",
+                'b.spec.ts': "import { t } from './cycle';",
+                'c.spec.ts': "import { t } from './fast';",
+                'shared.ts': "import './cycle'; export { t } from './slow';",
+                'cycle.ts': "export { t } from './shared';",
+                'slow.ts': "export const t = 'case @slow';",
+                'fast.ts': "import './c.spec'; export const t = 'case @smoke';",
+                'excluded.timing.spec.ts': "import './unused';",
+                'unused.ts': "export const t = 'timing @slow';",
+            }
+            for name, source in sources.items():
+                (e2e / name).write_text(source)
+
+            with patch.object(Path, 'read_text', autospec=True, side_effect=Path.read_text) as read:
+                self.assertEqual(selection.discover_slow_specs(e2e), ('a.spec.ts', 'b.spec.ts'))
+
+            self.assertCountEqual(
+                [call.args[0].name for call in read.call_args_list],
+                sources.keys() - {'excluded.timing.spec.ts', 'unused.ts'},
+            )
+
     def test_a_smoke_only_spec_change_selects_no_slow_run(self):
         smoke_only = next(p.name for p in sorted((ROOT / 'web/e2e').glob('*.spec.ts')) if p.name not in selection.ALL_SLOW_SET)
         self.assertEqual(selection.slow_specs_for_path(f'web/e2e/{smoke_only}'), ())
@@ -622,7 +648,7 @@ exit 0
             bin_dir = root / 'bin'
             bin_dir.mkdir()
             log = root / 'calls'
-            (bin_dir / 'npx').write_text(f'#!/bin/sh\nprintf "%s\\n" "$*" >> {log}\n')
+            (bin_dir / 'npx').write_text(f'#!/bin/sh\nprintf "%s\\n" "$@" >> {log}\n')
             (bin_dir / 'npx').chmod(0o755)
             env = {**os.environ, 'PATH': f'{bin_dir}{os.pathsep}{os.environ["PATH"]}', 'E2E_SUITE': 'slow'}
             for specs, expected in [('["a.spec.ts"]', ['e2e/a.spec.ts']),
@@ -631,8 +657,9 @@ exit 0
                     log.unlink(missing_ok=True)
                     subprocess.run([sys.executable, '-I', str(ROOT / '.github/scripts/run-area-e2e.py')], cwd=root,
                                    env={**env, 'E2E_SPECS': specs}, check=True)
-                    args = log.read_text().split()
+                    args = log.read_text().splitlines()
                     self.assertEqual([a for a in args if a.startswith('e2e/')], expected)
+                    self.assertIn('@timing', args[args.index('--grep-invert') + 1])
 
 
 if __name__ == '__main__':

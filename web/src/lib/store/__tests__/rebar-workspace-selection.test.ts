@@ -150,7 +150,7 @@ describe('selecting a conflict marker', () => {
  * The list writes this channel and holds nothing of its own, so these are the assertions that
  * stand behind "there is one source of truth". They exercise the store rather than the component
  * on purpose: a rune, a browser and a WebGL context are not needed to prove which member is
- * selected, and `rebar-workspace-open.spec.ts` already pays for the ones that are.
+ * selected, and `rebar-workspace-open.timing.spec.ts` already pays for the ones that are.
  */
 describe('selecting a member from the list', () => {
   beforeEach(() => rebarWorkspace.reset());

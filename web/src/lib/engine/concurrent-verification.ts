@@ -1,5 +1,5 @@
 import { CompleteDemandSet, IncompleteConcurrentDemandError, requireDemandInventories, demandCoverage, memberDemandScope } from './complete-demand-set';
-import { copyVerificationCheck } from './verification-steps';
+import { verificationCheckFields } from './verification-steps';
 import { withBiaxialCapacityCache } from './station-design-forces';
 import { verificationForElement } from './element-verification-copy';
 import { sharedTorsionReinforcement, checkColumn, prepareElementVerification, verificationCase, amplifiedDemand, type ConcurrentVerificationInput, type ElementVerification, type DemandLocation } from './codes/argentina/cirsoc201';
@@ -67,14 +67,14 @@ function verifyConcurrentCases(complete: CompleteDemandSet<{ elementId: number; 
     ? checkColumn(params, amplified, { edition: first.edition }) : undefined;
   const fixedColumn = column ? { barCount: column.barCount, barDia: column.barDia } : undefined;
   const prepared = unique.map(prepareElementVerification);
-  const initial = prepared.map(verify => verify({ column: fixedColumn }));
+  const initial = prepared.map(verify => verify({ column: fixedColumn }, 'size-cage'));
   const preliminary = indices.map(index => initial[index]!);
   const maxFlexure = preliminary.reduce((a, b) => b.flexure.AsProv > a.flexure.AsProv ? b : a).flexure;
   const maxCompression = preliminary.reduce((a, b) => (b.flexure.AsComp ?? 0) > (a.flexure.AsComp ?? 0) ? b : a).flexure;
-  const flexure = Object.assign(copyVerificationCheck(maxFlexure), { AsComp: maxCompression.AsComp, barCountComp: maxCompression.barCountComp,
+  const flexure = Object.assign(verificationCheckFields(maxFlexure), { AsComp: maxCompression.AsComp, barCountComp: maxCompression.barCountComp,
     barDiaComp: maxCompression.barDiaComp, barsComp: maxCompression.barsComp, isDoublyReinforced: maxCompression.isDoublyReinforced });
   const { shear, requirements } = sharedTorsionReinforcement(preliminary, first.edition ?? '2025');
-  const fixed = prepared.map(verify => verify({ column: fixedColumn, flexure, shear }));
+  const fixed = prepared.map(verify => verify({ column: fixedColumn, flexure, shear }, 'verify-sized-cage'));
   const used = new Set<number>();
   const checked = new Map<number, ElementVerification>();
   const checks = inputs.map((i, index) => {

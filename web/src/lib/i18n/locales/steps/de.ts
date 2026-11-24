@@ -1,3 +1,4 @@
+import { axialStrainEnergy } from './strain-energy-label';
 import type { Translations } from '../../types';
 import course from '../course/de';
 
@@ -609,7 +610,7 @@ const stepsDe: Translations = {
   'steps.deformation.axialOffNote': 'Der Unterschied zum Matrizenverfahren rührt vom Weglassen des Normalkraftanteils her, den das Matrizenverfahren berücksichtigt.',
   'steps.m.virtualWork.opt.axial.label': 'Normalkraftanteil berücksichtigen (N·n·L/EA)',
   'steps.m.virtualWork.opt.axial.help': 'Eingeschaltet enthält die Verschiebung den Beitrag der Normalkraft, und das Ergebnis stimmt mit dem Matrizenverfahren überein, das ihn ebenfalls berücksichtigt. Das ist die genauere Wahl. Handrechnungen vernachlässigen ihn meist, weil er bei Rahmen und Balken im Vergleich zur Biegung klein ist; schalten Sie ihn aus, um diese klassische Lösung zu sehen und wie stark sie sich ändert.',
-  'steps.m.castigliano.opt.axial.label': 'Normalkraftanteil berücksichtigen (N²/2EA)',
+  'steps.m.castigliano.opt.axial.label': `Formänderungsenergie aus Normalkraft berücksichtigen (${axialStrainEnergy})`,
   'steps.m.castigliano.opt.axial.help': 'Eingeschaltet enthält die Formänderungsenergie den Beitrag der Normalkraft, und das Ergebnis stimmt mit dem Matrizenverfahren überein, das ihn ebenfalls berücksichtigt. Das ist die genauere Wahl. Handrechnungen vernachlässigen ihn meist, weil er bei Rahmen und Balken im Vergleich zur Biegung klein ist; schalten Sie ihn aus, um diese klassische Lösung zu sehen und wie stark sie sich ändert.',
   'steps.m.castigliano.coefCaptionOff': 'Nur der Biegeanteil jedes Stabes. Einheiten: m/kN, rad/kN oder rad/(kN·m), je nach den Überzähligen.',
   'steps.m.castigliano.reactionsLead': 'Die Auflagerreaktionen durch Überlagerung derjenigen des Grundsystems und der Überzähligen:',

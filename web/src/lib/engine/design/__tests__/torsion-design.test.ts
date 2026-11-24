@@ -1,9 +1,3 @@
-/**
- * A beam under torsion: the verifier checks it by §22.7 with its shear, and the search designs
- * stirrups that carry both. A beam 0.30 × 0.60 m, H-25, 6 m, fixed at one end and pinned at the
- * other, with 20 kN·m of torque at the pinned end: 28 kN·m factored all along, well over
- * φ·Tth = 5.6 kN·m.
- */
 import { describe, it, expect, beforeAll } from 'vitest';
 import { historyStore, modelStore, resultsStore, uiStore } from '../../../store';
 import { designRunStore } from '../../../store/design-run.svelte';
@@ -16,7 +10,7 @@ beforeAll(async () => {
 });
 
 describe('torsion in the design of a beam', () => {
-  it('checked by §22.7 and designed for', () => {
+  it('checks both regions and refuses longitudinal torsion without perimeter evidence', () => {
     modelStore.clear(); historyStore.clear(); resultsStore.clear(); verificationStore.clear(); uiStore.analysisMode = 'pro';
     const mat = modelStore.addMaterial({ name: 'H-25', e: 23500, nu: 0.2, rho: 25, fy: 25, fc: 25 });
     const sec = modelStore.addSection({ name: '30×60', a: 0.18, iy: 0.0054, iz: 0.00135, j: 0.0037, b: 0.3, h: 0.6, shape: 'rect' } as never);
@@ -33,11 +27,20 @@ describe('torsion in the design of a beam', () => {
     expect(designRunStore.computeDemands().ok).toBe(true);
     expect(designRunStore.autoDesign([e1]).ok).toBe(true);
     const o = verificationStore.outcomeFor(e1);
-    expect(o?.outcome, JSON.stringify(o?.reasons)).toBe('VERIFIED');
-    const pv = verificationStore.providedFor(e1)!;
-    const torsion = pv.checks.filter((c) => c.category.startsWith('Torsion'));
-    expect(torsion.length).toBeGreaterThan(0);
-    expect(torsion.every((c) => c.ratio <= 1 + 1e-9)).toBe(true);
-    expect(verificationStore.outcomeFor(e1)?.outcome).toBe('VERIFIED');
+    expect(o?.outcome, JSON.stringify(o?.reasons)).toBe('SEARCH_EXHAUSTED');
+    expect(o?.reasons).toContainEqual({ key: 'diag.rcTorsionPerimeter' });
+    expect(o?.accepted).toBeUndefined();
+    expect(o?.certificate).toBeUndefined();
+    expect(verificationStore.providedFor(e1)).toBeNull();
+    const checks = o!.provisional!.verdict.checks;
+    for (const region of ['Support', 'Span']) {
+      const transverse = checks.find(c => c.category === `Torsion ${region} (Vz)`);
+      expect(transverse).toMatchObject({ status: 'fail', limiting: 'torsion' });
+      expect(transverse!.ratio).toBeGreaterThan(1 + 1e-9);
+      expect(Number.isFinite(transverse!.ratio)).toBe(true);
+      expect(checks.find(c => c.category === `Torsion Al ${region} (Vz)`)).toMatchObject({
+        status: 'fail', ratio: Infinity, limiting: 'unsupportedCheck', description: 'diag.rcTorsionPerimeter',
+      });
+    }
   });
 });

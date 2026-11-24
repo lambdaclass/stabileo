@@ -10,6 +10,7 @@ import { verificationStore } from './verification.svelte';
 import { activeCombinations } from './active-results';
 import { designData, patchDesignData } from './design-data';
 import { getReinforcement } from './rebar-edit';
+import { savedLinePieces } from './beam-line-store';
 import { classifyElement } from '../engine/codes/argentina/cirsoc201';
 import { materialFamilyOf } from '../engine/steel/material-family';
 import { catalogueGradeFamily } from '../engine/steel/grade-family';
@@ -165,6 +166,7 @@ function frameInput(): FrameMember[] {
   const { roles } = seismicRoleReadings(), combos = seismicComboIds();
   const cases = new Map(modelStore.model.loadCases.map((c) => [c.id, c.type]));
   const out: FrameMember[] = [];
+  const drawnStirrups = savedLinePieces().pieces;
   const quads = [...modelStore.quads.values()] as Array<{ nodes: number[]; thickness: number }>;
   const slabBase = designData().slabBase;
   for (const ctx of verificationStore.contexts.values()) {
@@ -205,7 +207,7 @@ function frameInput(): FrameMember[] {
       const top = slabBase?.topX ?? slabBase?.topY;
       const perM = top ? (Math.PI * top.diameter ** 2 / 400) / top.spacing : 0.0009 * hf * 1e4; // cm²/m
       const slab = sides.length * Math.min(8 * hf, ln / 8) * perM;
-      out.push({ ...base, faceHalf: [ctx.criticalSections?.start.halfDepth ?? 0, ctx.criticalSections?.end.halfDepth ?? 0], vg: [Math.abs(vg[0]), Math.abs(vg[1])], slabTop: [slab, slab] });
+      out.push({ ...base, criticalSections: ctx.criticalSections, drawnStirrups: drawnStirrups.get(e.id)?.stirrups, faceHalf: [ctx.criticalSections?.start.halfDepth ?? 0, ctx.criticalSections?.end.halfDepth ?? 0], vg: [Math.abs(vg[0]), Math.abs(vg[1])], slabTop: [slab, slab] });
     } else {
       const ps: number[] = [], vs: number[] = [];
       for (const c of ctx.stations?.comboResults ?? []) {

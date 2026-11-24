@@ -17,14 +17,11 @@
   let fileName = $state('');
 
   $effect(() => {
-    if (!file) {
-      parseResult = null;
-      mappingResult = null;
-      error = null;
-      fileName = '';
-      return;
-    }
-    fileName = file.name;
+    parseResult = null;
+    mappingResult = null;
+    error = null;
+    fileName = file?.name ?? '';
+    if (!file) return;
     const reader = new FileReader();
     reader.onload = () => {
       try {
@@ -41,6 +38,7 @@
       error = t('dxf.readError');
     };
     reader.readAsText(file);
+    return () => reader.abort();
   });
 
   function remapModel() {

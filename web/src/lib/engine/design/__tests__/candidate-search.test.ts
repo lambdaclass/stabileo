@@ -9,13 +9,14 @@ import qa8 from '../../../templates/fixtures/rc-design-qa-8.json';
 import { designMember, runDesign, runDesignSteps, isPassingVerdict, BEAM_BUDGET, COLUMN_BUDGET, budgetFor } from '../candidate-search';
 import { cirsoc201Adapter } from '../adapters/cirsoc201-adapter';
 import { unsupportedAdapters } from '../adapters/unsupported-adapter';
-import { listDesignCodes, getDesignCode } from '../code-adapter';
+import { listDesignCodes, getDesignCode, type DesignCodeAdapter } from '../code-adapter';
 import { createBeamCandidateGenerator, maxBarsPerRow, buildRegionOptions, BEAM_LIMITS } from '../candidate-enumerate-beam';
 import { createColumnCandidateGenerator, buildColumnLongOptions, maxTieSpacing, COLUMN_LIMITS } from '../candidate-enumerate-column';
 import { rebarHash } from '../rebar-hash';
 import { DESIGN_TARGET_UTILIZATION, UTIL_FAIL_THRESHOLD } from '../outcome';
 import { solveFixture, syntheticBeamContext, assertRealSolver } from './helpers';
 import type { MemberContext } from '../member-context';
+import type { ProvidedRebarResult } from '../../station-design-forces';
 
 const solved = solveFixture(qa8);
 
@@ -120,7 +121,7 @@ describe('designMember — outcomes and budgets', () => {
     expect(o.certificate!.rebarHash).toBe(rebarHash(o.accepted));
     // The verifier id now carries the edition. A v2 certificate did not record which
     // edition produced it, so v2 and v2.<edition> results are not interchangeable.
-    expect(o.certificate!.verifierId).toBe('cirsoc201.provided.v2.2025');
+    expect(o.certificate!.verifierId).toBe('cirsoc201.provided.v3.2025');
     expect(o.certificate!.worstUtilization).toBeLessThanOrEqual(UTIL_FAIL_THRESHOLD);
     expect(o.certificate!.designTarget).toBe(DESIGN_TARGET_UTILIZATION);
     expect(o.certificate!.checkedAxes.length).toBeGreaterThan(0);
@@ -249,6 +250,68 @@ describe('runDesign — cancellation and partial honesty', () => {
     expect(seen.length).toBeGreaterThan(0);
     expect(seen[seen.length - 1]).toBe(8);
   });
+});
+
+describe('settled crossing seats', () => {
+  it.each(['synchronous', 'resumable'] as const)(
+    '%s run verifies the selected cage against the settled seats',
+    (entry) => {
+      const contexts = [1, 2, 3, 4].map((elementId) => syntheticBeamContext({ elementId }));
+      const reinforcement = { regions: { bottomSpan: { count: 2, diameter: 12 } } };
+      const verdict = (elementId: number, ratio: number, blocked = false): ProvidedRebarResult => ({
+        elementId, elementType: 'beam', hasProvided: true,
+        checks: [{
+          category: 'Shear', demandCategory: 'Vz', ratio, status: blocked ? 'fail' : 'ok',
+          unit: '', method: 'capacity', tuplesChecked: 1,
+          description: blocked ? 'diag.rcShearDepth' : '',
+          ...(blocked ? { limiting: 'unsupportedCheck' } : {}),
+        }],
+        overallStatus: blocked ? 'fail' : 'ok', worstUtilization: ratio, checkedAxes: ['Vz'], strengthCheckCount: 1,
+      });
+      const adapter: DesignCodeAdapter = {
+        ...cirsoc201Adapter,
+        unsupported: () => [],
+        validateInputs: () => ({ ok: true, blocking: [], reasons: [] }),
+        createGenerator: () => ({
+          next: () => ({
+            reinforcement,
+            meta: { index: 0, label: '', cost: {
+              layers: 1, distinctDiameters: 1, nonStandardSteps: 0, steelMassKg: 1,
+              congestion: 0, arrangementCount: 1, spacingPracticality: 0, weighted: 0,
+            } },
+          }),
+          envelopeExhausted: false, produced: 1,
+        }),
+        rankCandidate: (ctx) => ({ ranking: verdict(ctx.elementId, 0.5) }),
+        verify: (ctx) => {
+          const crossingSeat = ctx.beamCorners?.has(4) ?? false;
+          const blocked = (ctx.elementId === 2 && crossingSeat)
+            || (ctx.elementId === 1 && ctx.absentBeams?.has(2));
+          const ratio = ctx.elementId === 3 && crossingSeat ? 0.75 : 0.5;
+          return verdict(ctx.elementId, ratio, !!blocked);
+        },
+      };
+
+      const opts = { clock: () => 0 };
+      const run = () => {
+        if (entry === 'synchronous') return runDesign(adapter, contexts, opts);
+        const steps = runDesignSteps(adapter, contexts, opts);
+        let step = steps.next();
+        while (!step.done) step = steps.next();
+        return step.value;
+      };
+      const { outcomes } = run();
+      for (const id of [2, 1]) {
+        const outcome = outcomes.get(id);
+        expect(outcome?.outcome, `beam ${id}`).toBe('UNSUPPORTED');
+        expect(outcome?.reasons).toContainEqual({ key: 'diag.rcShearDepth' });
+        expect(outcome?.accepted).toBeUndefined();
+        expect(outcome?.certificate).toBeUndefined();
+      }
+      expect(outcomes.get(3)?.certificate?.worstUtilization).toBe(0.75);
+      expect(outcomes.get(4)?.certificate?.worstUtilization).toBe(0.5);
+    },
+  );
 });
 
 describe('design-code adapter conformance (parameterised over the registry)', () => {

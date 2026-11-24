@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { signedNamesIn } from '../../lib/axes/typed-frame';
   import Hint from './Hint.svelte';
   /**
    * The surface generator (`model/edit/surfaces.ts`): a cylinder, cone, spherical cap or zone,
@@ -50,7 +51,7 @@
 </script>
 
 <div class="sf" data-testid="surfaces">
-  <Hint text={t('surface.hint')} />
+  <Hint text={signedNamesIn(t('surface.hint'))} />
   <label class="sf-row">{t('surface.kind')}
     <select bind:value={kind} data-testid="sf-kind">{#each SURFACE_KINDS as k (k)}<option value={k}>{t(`surface.${k}`)}</option>{/each}</select>
   </label>
@@ -69,8 +70,8 @@
   {#if mesh}<p class="sf-hint" data-testid="sf-summary">{#if mesh.cells.some((c) => c.length === 3)}{tp('surface.summaryTri', { quads: mesh.cells.filter((c) => c.length === 4).length, plates: mesh.cells.filter((c) => c.length === 3).length, nodes: mesh.points.length })}{:else}{tp('surface.summary', { quads: mesh.cells.length, nodes: mesh.points.length })}{/if}</p>
   {:else}<p class="sf-warn">{t('surface.invalid')}</p>{/if}
   <div class="sf-row">
-    <button class="pro-btn pro-btn-accent" disabled={!mesh} onclick={place} data-testid="sf-place">{t('surface.place')}</button>
-    <button class="pro-btn" disabled={!mesh} onclick={alongAxis} data-testid="sf-axis">{t('surface.axis')}</button>
+    <button class="pk-btn pk-btn-primary" disabled={!mesh} onclick={place} data-testid="sf-place">{t('surface.place')}</button>
+    <button class="pk-btn" disabled={!mesh} onclick={alongAxis} data-testid="sf-axis">{t('surface.axis')}</button>
   </div>
   {#if done}<p class="sf-hint" data-testid="sf-done">{done}</p>{/if}
 </div>

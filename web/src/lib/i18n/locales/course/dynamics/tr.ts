@@ -75,7 +75,7 @@ const words: Translations = {
   'course.dynamics.sdof.total.transient': 'geçici',
   'course.dynamics.sdof.total.steady': 'kalıcı',
   'course.dynamics.sdof.total.caption': 'Toplam yanıt u(t) ve iki kısmı.',
-  'course.dynamics.sdof.total.why': 'Kritik altı sönümde (0 < ξ < 1) geçici kısım e^(−ξωt) ile söner ve birkaç çevrimden sonra kalıcı rejim kalır. ξ = 1 iken karakteristik denklemin çift kökü ile (A + Bt)·e^(−ωt) biçiminde salınım yapmadan söner; ξ > 1 iken iki gerçek kökü ile salınım yapmadan söner. ξ = 0 iken hiç sönmez: serbest titreşim yanıtta kalıcı olarak kalır.',
+  'course.dynamics.sdof.total.why': 'Kritik altı sönümde (0 < ξ < 1) geçici yanıtın genlik zarfı e^(−ξωt) ile azalır. Başlangıç genliğinin kabul edilebilir kalan oranı ε (0 < ε < 1) ise bu eşiğe t = ln(1/ε)/(ξω) anında ulaşılır.. ξ = 1 iken karakteristik denklemin çift kökü ile (A + Bt)·e^(−ωt) biçiminde salınım yapmadan söner; ξ > 1 iken iki gerçek kökü ile salınım yapmadan söner. ξ = 0 iken hiç sönmez: serbest titreşim yanıtta kalıcı olarak kalır.',
   'course.dynamics.sdof.total.whyResonant': 'Sönümsüz rezonansta genlik sınırsız büyür. Gerçek bir yapıda bunu sönüm ve doğrusal olmayan davranış sınırlar.',
   'course.dynamics.sdof.engine.lead': 'Aynı sistem hesap motoruyla matris yoluyla çözülür: ucunda m kütlesi bulunan, eksenel rijitliği k olan kütlesiz bir çubuk. ω modal analizle, X harmonik analizle, u(t) adım adım zaman integrasyonuyla karşılaştırılır.',
   'course.dynamics.sdof.engine.how': 'Motor zamanda ortalama ivme yöntemiyle integre eder ve sönümü c = a_0·m + a_1·k olarak modeller. Tek serbestlik derecesinde a_0 ve a_1 aynı ξ = c/(2√(km)) oranını verir, dolayısıyla farklar zaman adımından gelir.',

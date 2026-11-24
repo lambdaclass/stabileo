@@ -1,4 +1,5 @@
 pub mod check_ledger;
+pub(crate) mod diagram_extrema;
 pub mod diagrams;
 pub mod diagrams_3d;
 pub mod combinations;

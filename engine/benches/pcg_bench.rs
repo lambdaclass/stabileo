@@ -10,7 +10,7 @@
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use dedaliano_engine::linalg::{
-    numeric_cholesky, pcg_solve, sparse_cholesky_solve, symbolic_cholesky, CscMatrix,
+    gmres_solve, numeric_cholesky, pcg_solve, sparse_cholesky_solve, symbolic_cholesky, CscMatrix,
     Ic0Preconditioner, JacobiPreconditioner, SsorPreconditioner,
 };
 use dedaliano_engine::linalg::preconditioner::{MicPreconditioner, ShiftedIcPreconditioner};
@@ -93,6 +93,19 @@ fn make_ss_plate_3d(n: usize) -> SolverInput3D {
         SolverSupport3D {
             node_id: grid[0][0],
             rx: true, ry: true, rz: true, rrx: false, rry: false, rrz: false,
+            kx: None, ky: None, kz: None, krx: None, kry: None, krz: None,
+            dx: None, dy: None, dz: None, drx: None, dry: None, drz: None,
+            rw: None, kw: None,
+            normal_x: None, normal_y: None, normal_z: None, is_inclined: None,
+        },
+    );
+    sid += 1;
+    // One pinned corner leaves the plate free to turn in its plane about it: a second corner holds uy.
+    supports.insert(
+        sid.to_string(),
+        SolverSupport3D {
+            node_id: grid[n][0],
+            rx: false, ry: true, rz: true, rrx: false, rry: false, rrz: false,
             kx: None, ky: None, kz: None, krx: None, kry: None, krz: None,
             dx: None, dy: None, dz: None, drx: None, dry: None, drz: None,
             rw: None, kw: None,
@@ -348,6 +361,35 @@ fn report_convergence(label: &str, k_ff: &CscMatrix, f_f: &[f64], max_iter: usiz
     (jacobi_ok, ssor_ok, ic0_ok, ics_ok, mic_ok)
 }
 
+/// Not measured: GMRES against the default direct solve on the same stiffness matrix. Plates
+/// above 3000 unknowns are left out, where GMRES with the preconditioners that work on them
+/// takes seconds.
+fn compare_gmres_with_direct(label: &str, k_ff: &CscMatrix, f_f: &[f64]) {
+    let norm = |v: &[f64]| v.iter().map(|a| a * a).sum::<f64>().sqrt();
+    let direct = direct_solve(k_ff, f_f);
+    let apply = |v: &[f64], out: &mut [f64]| out.copy_from_slice(&k_ff.sym_mat_vec(v));
+    let shifted = ShiftedIcPreconditioner::new(k_ff, 0.0);
+    let mut name = "ics";
+    let mut result = gmres_solve(&apply, f_f, &shifted, 200, 1e-10, 30_000);
+    if !result.converged {
+        if k_ff.n > 3000 {
+            eprintln!("    [{label}] gmres: not compared (ics does not converge, {} unknowns)", k_ff.n);
+            return;
+        }
+        name = "ssor";
+        let ssor = SsorPreconditioner::new(k_ff, 1.0).expect("ssor build failed in bench");
+        result = gmres_solve(&apply, f_f, &ssor, 200, 1e-10, 30_000);
+    }
+    let difference: Vec<f64> = result.x.iter().zip(&direct).map(|(a, b)| a - b).collect();
+    let relative = norm(&difference) / norm(&direct);
+    eprintln!(
+        "    [{label}] gmres(200)+{name}: converged={} steps={} residual {:.2e}, against direct {relative:.2e}",
+        result.converged, result.iterations, result.final_rel_residual
+    );
+    assert!(result.converged, "{label}: gmres did not converge");
+    assert!(relative <= 1e-7, "{label}: gmres differs from the direct solve by {relative:.2e}");
+}
+
 fn bench_model(group: &mut criterion::BenchmarkGroup<'_, criterion::measurement::WallTime>,
                label: &str, input: &SolverInput3D) {
     let dof_num = DofNumbering::build_3d(input);
@@ -358,6 +400,7 @@ fn bench_model(group: &mut criterion::BenchmarkGroup<'_, criterion::measurement:
     let max_iter = 1000usize.max(nf / 4);
     eprintln!("  [{label}] n_free={nf} nnz(k_ff)={}", k_ff.nnz());
     let (jacobi_ok, ssor_ok, ic0_ok, ics_ok, mic_ok) = report_convergence(label, &k_ff, &f_f, max_iter);
+    compare_gmres_with_direct(label, &k_ff, &f_f);
 
     group.bench_with_input(BenchmarkId::new("direct", label), &(), |b, _| {
         b.iter(|| direct_solve(&k_ff, &f_f));

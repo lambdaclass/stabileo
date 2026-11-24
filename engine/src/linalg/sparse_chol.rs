@@ -1,5 +1,5 @@
 /// Sparse Cholesky factorization (supernodal: left-looking between supernodes,
-/// dense right-looking within each supernode panel).
+/// dense left-looking within each supernode panel).
 ///
 /// Two-phase: symbolic (AMD + elimination tree + column counts + supernode
 /// partition) then numeric. Symbolic phase can be reused when sparsity
@@ -547,9 +547,19 @@ pub(crate) fn numeric_cholesky_with_workspace(sym: &Rc<SymbolicCholesky>, a: &Cs
             }
         }
 
-        // Dense partial Cholesky of the panel: factor the leading width×width
-        // block, then scale the subdiagonal block (right-looking, in cache).
         for d in 0..width {
+            for k in 0..d {
+                let f = panel[k * rows + d];
+                if f == 0.0 {
+                    continue;
+                }
+                let (before, after) = panel.split_at_mut(d * rows);
+                let source = &before[k * rows + d..k * rows + rows];
+                let target = &mut after[d..rows];
+                for (value, &source) in target.iter_mut().zip(source) {
+                    *value -= f * source;
+                }
+            }
             let diag = panel[d * rows + d];
             // `!(diag > t)` (not `diag <= t`) so a NaN pivot — where every
             // comparison is false — is also rejected instead of producing a
@@ -561,15 +571,6 @@ pub(crate) fn numeric_cholesky_with_workspace(sym: &Rc<SymbolicCholesky>, a: &Cs
             panel[d * rows + d] = l;
             for p in (d + 1)..rows {
                 panel[d * rows + p] /= l;
-            }
-            for d2 in (d + 1)..width {
-                let f = panel[d * rows + d2]; // L[s+d2, s+d]
-                if f == 0.0 {
-                    continue;
-                }
-                for p in d2..rows {
-                    panel[d2 * rows + p] -= f * panel[d * rows + p];
-                }
             }
         }
 
@@ -939,6 +940,39 @@ mod tests {
             }
         }
         assert!(compared > 200_000, "{compared} factor entries compared");
+    }
+
+    #[test]
+    fn panel_columns_preserve_factor_bits_and_rejection_after_extreme_values() {
+        for n in [2, 8, 32, 128] {
+            let (mut rows, mut cols, mut values) = (Vec::new(), Vec::new(), Vec::new());
+            for j in 0..n {
+                for i in j..n {
+                    rows.push(i);
+                    cols.push(j);
+                    values.push(if i == j { n as f64 } else { ((i * 17 + j * 31) % 23) as f64 / 23.0 - 0.5 });
+                }
+            }
+            let matrix = CscMatrix::from_triplets(n, &rows, &cols, &values);
+            let sym = Rc::new(symbolic_cholesky_with_perm(&matrix, &(0..n).collect::<Vec<_>>()));
+            assert_eq!(sym.snode_start, vec![0]);
+            for value in [0.0, -0.0, 1e-300, 1e-15, f64::from_bits(1e-15f64.to_bits() + 1), -1.0, f64::MAX, f64::INFINITY, f64::NEG_INFINITY, f64::NAN] {
+                for at in [0, 1, matrix.col_ptr[n / 2], matrix.values.len() - 1] {
+                    let mut changed = matrix.clone();
+                    changed.values[at] = value;
+                    for input in [&changed, &matrix] {
+                        let expected = numeric_cholesky_by_pairs(&sym, input);
+                        let actual = numeric_cholesky(&sym, input);
+                        assert_eq!(actual.is_some(), expected.is_some(), "n={n}, at={at}, value={value:?}");
+                        if let (Some(actual), Some(expected)) = (actual, expected) {
+                            assert_eq!(actual.l_values.iter().map(|x| x.to_bits()).collect::<Vec<_>>(), expected.l_values.iter().map(|x| x.to_bits()).collect::<Vec<_>>());
+                            let rhs = vec![1.0; n];
+                            assert_eq!(sparse_cholesky_solve(&actual, &rhs).iter().map(|x| x.to_bits()).collect::<Vec<_>>(), sparse_cholesky_solve(&expected, &rhs).iter().map(|x| x.to_bits()).collect::<Vec<_>>());
+                        }
+                    }
+                }
+            }
+        }
     }
 
     fn make_spd(dense: &[f64], n: usize) -> CscMatrix {

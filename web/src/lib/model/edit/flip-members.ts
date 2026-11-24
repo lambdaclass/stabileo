@@ -15,7 +15,7 @@
  * them is the design's to redo. One undo step.
  */
 import { modelStore } from '../../store/model.svelte';
-import { reversePointLoad, carryThermal, carryPrestress } from '../loads/member-load-carry';
+import { reverseDistributedLoad, reversePointLoad, carryThermal, carryPrestress } from '../loads/member-load-carry';
 import { computeLocalAxes3D } from '../../engine/local-axes-3d';
 import { shouldEmbedFlat2DModelIn3D } from '../../engine/solver-service';
 
@@ -52,16 +52,7 @@ export function flipMembers(ids: Iterable<number>): FlipReport {
       const next = modelStore.loads.map((l) => {
         const d = l.data as unknown as Record<string, number | undefined>;
         if (d.elementId !== id) return l;
-        if (l.type === 'distributed3d') {
-          const aa = d.a ?? 0, bb = d.b ?? L;
-          const span = d.a !== undefined || d.b !== undefined ? { a: L - bb, b: L - aa } : {};
-          // Global and projected loads point where they pointed: only the ends swap. A local one
-          // follows the reversed axes, x and z turning over with the section kept in place.
-          if ((d as { frame?: string }).frame === 'global' || (d as { frame?: string }).frame === 'projected') {
-            return { ...l, data: { ...d, qYI: d.qYJ, qYJ: d.qYI, qZI: d.qZJ, qZJ: d.qZI, ...(d.qXI !== undefined || d.qXJ !== undefined ? { qXI: d.qXJ, qXJ: d.qXI } : {}), ...span } };
-          }
-          return { ...l, data: { ...d, qYI: d.qYJ, qYJ: d.qYI, qZI: -(d.qZJ ?? 0), qZJ: -(d.qZI ?? 0), ...(d.qXI !== undefined || d.qXJ !== undefined ? { qXI: -(d.qXJ ?? 0), qXJ: -(d.qXI ?? 0) } : {}), ...span } };
-        }
+        if (l.type === 'distributed3d') return { ...l, data: reverseDistributedLoad(l.data, L, { sy: 1, sz: -1 }) };
         // Local y kept, x and z reversed.
         if (l.type === 'pointOnElement3d') return { ...l, data: reversePointLoad(l.data, L, { sy: 1, sz: -1 }) };
         if (l.type === 'thermal') return { ...l, data: carryThermal(l.data, { sy: 1, sz: -1 }) };

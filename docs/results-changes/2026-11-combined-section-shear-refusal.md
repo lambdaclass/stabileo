@@ -1,0 +1,9 @@
+# Refusal for combined torsional and transverse shear
+
+At a member fibre, torsional and transverse shear act in the same plane and may reinforce or cancel. The previous detailed 3D section stress calculation treated torsional shear as a third orthogonal component. It could understate total shear and von Mises stress and report a pass.
+
+The [SA-2026-092 thin-tube replay](../advisories/SA-2026-092-section-stress-shear.md#thin-tube-worked-example) gives the WASM inputs, the member-local and section-drawing fibre coordinates, and the old and signed verdicts for both torque signs.
+
+The detailed stress result now carries `refusal: "combinedTorsionAndTransverseShear"` wherever the computed torsional shear and either computed transverse component are nonzero. At that fibre or cut sample, `tauTotal` and its dependent quantities are null. This includes the Mohr circle and the failure checks at the selected fibre, and von Mises on the cuts. The stress panel displays a translated warning and withholds the dependent readouts. Both cuts check the two transverse components at each sample coordinate before projecting the shear diagram onto the cut axis. A cut endpoint can still refuse if the transverse component perpendicular to the cut is nonzero there. Individual shear components and normal stress remain available. Pure torsion retains its existing values. For pure transverse shear, the selected fibre retains its existing values and the two cuts use the [full shear magnitudes](2026-11-section-stress-cut-magnitudes.md).
+
+The change applies during detailed section stress postprocessing of member forces, including forces from previously solved models. It also applies to an eccentric planar query routed through the biaxial force API. Review any prior assessment that used the detailed readout where these shear components coincided.

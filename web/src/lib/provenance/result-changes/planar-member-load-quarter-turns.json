@@ -1,0 +1,32 @@
+{
+  "id": "planar-member-load-quarter-turns",
+  "date": "2026-11-22",
+  "prs": [2470],
+  "area": "analysis",
+  "when": { "all": ["planarQuarterTurnMemberLoads"] },
+  "quantities": ["*", "solve.ok"],
+  "title": {
+    "en": "Exact directions for planar member loads",
+    "es": "Direcciones exactas para cargas de barra planas",
+    "pt": "Direções exatas para cargas em barras planas",
+    "de": "Exakte Richtungen für ebene Stablasten",
+    "fr": "Directions exactes des charges de barre planes",
+    "hu": "Síkbeli rúdterhek pontos iránya",
+    "tr": "Düzlemsel eleman yüklerinde kesin yönler",
+    "zh": "平面杆件荷载的精确方向"
+  },
+  "explanation": {
+    "en": "The 2D analysis uses exact directions for point and distributed member loads entered at multiples of 90 degrees. The interval geometry limit still applies.",
+    "es": "El análisis 2D usa direcciones exactas para las cargas puntuales y distribuidas de barra ingresadas en múltiplos de 90 grados. El límite geométrico del intervalo sigue vigente.",
+    "pt": "A análise 2D usa direções exatas para cargas pontuais e distribuídas em barras definidas em múltiplos de 90 graus. O limite geométrico do intervalo continua válido.",
+    "de": "Die 2D-Berechnung verwendet exakte Richtungen für Stabeinzel- und Streckenlasten bei Vielfachen von 90 Grad. Die geometrische Intervallgrenze gilt weiterhin.",
+    "fr": "L’analyse 2D utilise des directions exactes pour les charges ponctuelles et réparties de barre saisies par multiples de 90 degrés. La limite géométrique de l’intervalle reste applicable.",
+    "hu": "A 2D számítás pontos irányt használ a 90 fok többszöröseinél megadott koncentrált és megoszló rúdterhekhez. Az intervallum geometriai határértéke továbbra is érvényes.",
+    "tr": "2B analiz, 90 derecenin katlarında girilen tekil ve yayılı eleman yükleri için kesin yönleri kullanır. Geometrik aralık sınırı geçerliliğini korur.",
+    "zh": "二维分析对按 90 度倍数输入的杆件集中荷载和分布荷载采用精确方向。荷载区间的几何限制仍然适用。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-planar-member-load-quarter-turns.md",
+    "heading": "Exact directions for planar member loads"
+  }
+}

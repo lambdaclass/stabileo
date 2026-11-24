@@ -448,7 +448,7 @@ fn bench_json_roundtrip(c: &mut Criterion) {
 fn bench_linear_beam(c: &mut Criterion) {
     let mut group = c.benchmark_group("linear_beam");
 
-    for n in [4, 16, 64, 500, 2000] {
+    for n in [4, 16, 64, 500, 1000] {
         let input = make_ss_beam(n);
         group.bench_with_input(BenchmarkId::from_parameter(n), &input, |b, input| {
             b.iter(|| linear::solve_2d(input).unwrap());
@@ -578,9 +578,19 @@ fn bench_plastic(c: &mut Criterion) {
         mp_overrides: None,
     };
 
-    group.bench_function("ss_beam_4elem", |b| {
-        b.iter(|| plastic::solve_plastic_2d(&input).unwrap());
-    });
+    // The engine withholds every 2D plastic result while known issue #758 is open, before it
+    // computes anything: there is no solve to time until it is closed.
+    match plastic::solve_plastic_2d(&input) {
+        Ok(_) => {
+            group.bench_function("ss_beam_4elem", |b| {
+                b.iter(|| plastic::solve_plastic_2d(&input).unwrap());
+            });
+        }
+        Err(refusal) if refusal.contains("PL-2D-INVARIANCE") => {
+            eprintln!("plastic/ss_beam_4elem: not timed, results withheld (known issue #758, PL-2D-INVARIANCE)");
+        }
+        Err(other) => panic!("{other}"),
+    }
     group.finish();
 }
 
@@ -682,21 +692,27 @@ fn bench_cable(c: &mut Criterion) {
 
     let densities = make_densities();
     for n in [4, 16, 32] {
+        // A beam of n elements hung from one anchor above midspan by a cable to each interior
+        // node. A chain of cable links alone is a mechanism for this solver, which takes cables
+        // as tension members of a linear stiffness.
         let l = 20.0;
-        let sag = l / 8.0; // 2.5m sag for 20m span
+        let height = 8.0;
         let elem_len = l / n as f64;
 
         let mut nodes = Vec::new();
         for i in 0..=n {
-            let x = i as f64 * elem_len;
-            let y = -4.0 * sag * x * (l - x) / (l * l);
-            nodes.push((i + 1, x, y));
+            nodes.push((i + 1, i as f64 * elem_len, 0.0));
         }
+        let anchor = n + 2;
+        nodes.push((anchor, l / 2.0, height));
         let mut elems = Vec::new();
         for i in 0..n {
-            elems.push((i + 1, "truss", i + 1, i + 2, 1, 1, false, false));
+            elems.push((i + 1, "frame", i + 1, i + 2, 1, 1, false, false));
         }
-        let sups = vec![(1, 1, "pinned"), (2, n + 1, "pinned")];
+        for i in 1..n {
+            elems.push((n + i, "cable", anchor, i + 1, 1, 2, false, false));
+        }
+        let sups = vec![(1, 1, "pinned"), (2, n + 1, "rollerX"), (3, anchor, "pinned")];
         let mut loads = Vec::new();
         for i in 1..n {
             loads.push(SolverLoad::Nodal(SolverNodalLoad {
@@ -709,7 +725,7 @@ fn bench_cable(c: &mut Criterion) {
         let input = make_input(
             nodes,
             vec![(1, 200_000.0, 0.3)],
-            vec![(1, 0.005, 1e-8)],  // larger cable area
+            vec![(1, 0.02, 1e-4), (2, 0.005, 1e-8)],
             elems,
             sups,
             loads,
@@ -1132,7 +1148,8 @@ fn bench_staged(c: &mut Criterion) {
                     elements_added: (1..=half).collect(),
                     elements_removed: vec![],
                     load_indices: (0..half).collect(),
-                    supports_added: vec![1, 2],
+                    // Every support from the first stage: one that appears later is refused.
+                    supports_added: vec![1, 2, 3],
                     supports_removed: vec![],
                     prestress_loads: vec![],
                 },
@@ -1141,7 +1158,7 @@ fn bench_staged(c: &mut Criterion) {
                     elements_added: (half + 1..=n).collect(),
                     elements_removed: vec![],
                     load_indices: (half..n).collect(),
-                    supports_added: vec![3],
+                    supports_added: vec![],
                     supports_removed: vec![],
                     prestress_loads: vec![],
                 },

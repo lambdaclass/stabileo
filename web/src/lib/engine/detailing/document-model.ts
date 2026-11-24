@@ -293,9 +293,8 @@ export interface DocumentSelection {
  * was applied, what was measured against it, and what was already tried are the difference
  * between a report someone can work from and a report someone has to re-derive.
  */
-/** An unsupported condition of one assembly, as the document lists it. */
 export interface OpenIssue {
-  assemblyId: string;
+  assemblyId?: string;
   /** An i18n key when `params` is set; otherwise a stable condition key. */
   key: string;
   elementIds: number[];
@@ -592,14 +591,15 @@ export function buildDocumentModel(input: {
     };
   });
 
-  // The joint verdict over the members this document holds (a span's representative is one). A
-  // point joint on none of them leaves the document's members represented, or not applicable.
-  const held = new Map<number, string>();
-  for (const a of docAssemblies) for (const id of a.elementIds) if (!held.has(id)) held.set(id, a.id);
-  const pointJoints = (input.slabColumnJoint?.pointJoints ?? []).filter((m) => held.has(m.elementId));
+  const assemblyByElement = new Map<number, string>();
+  for (const a of docAssemblies) for (const id of a.elementIds) if (!assemblyByElement.has(id)) assemblyByElement.set(id, a.id);
   const joint: DocumentSlabColumnJoint | undefined = input.slabColumnJoint ? {
-    verdict: input.slabColumnJoint.verdict === 'pointJoint' && pointJoints.length === 0 ? 'notApplicable' : input.slabColumnJoint.verdict,
-    pointJoints: pointJoints.map((m) => ({ elementId: m.elementId, reasonKey: m.reasonKey ?? 'slabColumnJoint.point', params: { ...(m.params ?? {}) } })),
+    verdict: input.slabColumnJoint.verdict,
+    pointJoints: input.slabColumnJoint.pointJoints.map((m) => ({
+      elementId: m.elementId,
+      reasonKey: m.reasonKey ?? 'slabColumnJoint.point',
+      params: { ...m.params },
+    })),
   } : undefined;
 
   const readiness = documentReadiness({
@@ -617,7 +617,14 @@ export function buildDocumentModel(input: {
     ...(u.params ? { params: { ...u.params } } : {}),
   })));
   for (const m of joint?.pointJoints ?? []) {
-    openIssues.push({ assemblyId: held.get(m.elementId)!, key: m.reasonKey, elementIds: [m.elementId], message: 'slab joined to the columns at one node: the split of its load between beams and columns is not established', params: { ...m.params } });
+    const assemblyId = assemblyByElement.get(m.elementId);
+    openIssues.push({
+      ...(assemblyId === undefined ? {} : { assemblyId }),
+      key: m.reasonKey,
+      elementIds: [m.elementId],
+      message: 'slab joined to the columns at one node: the split of its load between beams and columns is not established',
+      params: { ...m.params },
+    });
   }
 
   // Clause provenance travels on the bars themselves, so the document cites exactly the
