@@ -3,10 +3,11 @@
   /**
    * The model's physical elements: what each set of bars and shells IS to the engineer.
    *
-   * Recognise reads them off the model (the generator's role first, the geometry last, said as
-   * inferred); a person corrects the kind or the typology, and the element becomes declared, so a
-   * later recognition leaves it alone. Design reads the kind from here: a bar declared a column
-   * is designed as a column. A click on a row selects its bars and shells in the model.
+   * They are read off the model as it changes (`ensurePhysicalModel`: the generator's role first,
+   * the geometry last, said as inferred); a person corrects the kind or the typology, and the
+   * element becomes declared, so the reading leaves it alone. A reading that would move a design
+   * decision waits here for review. Design reads the kind from here: a bar declared a column is
+   * designed as a column. A click on a row selects its bars and shells in the model.
    */
   import { modelStore, uiStore } from '../../lib/store';
   import { t, tp } from '../../lib/i18n';
@@ -21,7 +22,8 @@
   /** The proposal under review, and what the last application did. */
   let review = $state<RecognitionPlan | null>(null);
   let outcome = $state<RecognitionOutcome | null>(null);
-  function recognise() { outcome = null; review = planRecognition(); }
+  const pending = $derived.by(() => { void modelStore.modelVersion; void modelStore.model.groups; return planRecognition().proposals.filter((p) => p.status !== 'same').length; });
+  function open() { outcome = null; review = planRecognition(); }
   function done(o: RecognitionOutcome | null) { review = null; outcome = o; }
 
   const KINDS: PhysicalKind[] = ['column', 'beam', 'brace', 'slab', 'wall'];
@@ -59,10 +61,13 @@
   <section class="pk-card">
     <h4 class="pk-heading">{t('physical.title')}</h4>
     <Hint text={t('physical.explain')} />
-    <div class="pk-row">
-      <button class="pk-btn pk-btn-primary" onclick={recognise} disabled={review !== null} data-testid="physical-recognize">{t('physical.recognize')}</button>
-      {#if list.length > 0}<span class="pk-hint">{tp('physical.summary', { n: list.length, inferred })}</span>{/if}
-    </div>
+    {#if list.length > 0}<p class="pk-hint">{tp('physical.summary', { n: list.length, inferred })}</p>{/if}
+    {#if pending > 0 && !review}
+      <div class="pk-row ph-pending" data-testid="physical-pending">
+        <span>{tp('physical.pending', { n: pending })}</span>
+        <button class="pk-btn pk-btn-primary" onclick={open} data-testid="physical-review">{t('physical.pendingReview')}</button>
+      </div>
+    {/if}
     {#if outcome && outcome.channel !== 'none'}
       <p class="pk-hint" data-testid="recognition-outcome">{tp('physical.review.done', { applied: outcome.applied, created: outcome.created, removed: outcome.removed, remapped: outcome.remapped })}
         {#if outcome.frozen}{tp('physical.review.doneFrozen', { n: outcome.frozen })}{/if}
@@ -130,6 +135,7 @@
 </div>
 
 <style>
+  .ph-pending { align-items: center; gap: 8px; padding: 6px 8px; border: 1px solid var(--st-warn, #d9a441); border-radius: var(--st-radius); color: var(--st-text); }
   .ph-filter { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
   .ph-filter .on { border-color: var(--st-accent); color: var(--st-text); }
   .ph-table { width: 100%; border-collapse: collapse; font-size: 0.72rem; }

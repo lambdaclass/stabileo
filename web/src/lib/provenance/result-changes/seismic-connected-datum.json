@@ -1,0 +1,42 @@
+{
+  "id": "seismic-connected-datum",
+  "date": "2026-11-19",
+  "prs": [
+    2316
+  ],
+  "area": "loads",
+  "when": {
+    "all": [
+      "generatedSeismicLoads"
+    ]
+  },
+  "quantities": [
+    "*",
+    "solve.ok"
+  ],
+  "requiresLoadRegeneration": true,
+  "title": {
+    "en": "Static seismic loads require a common elevation at connected supports",
+    "es": "Las cargas sísmicas estáticas requieren una cota común en los apoyos conectados",
+    "pt": "As cargas sísmicas estáticas exigem uma cota comum nos apoios ligados",
+    "de": "Statische Erdbebenlasten erfordern eine gemeinsame Höhe der verbundenen Auflager",
+    "fr": "Les charges sismiques statiques exigent une cote commune aux appuis reliés",
+    "tr": "Statik deprem yükleri bağlı mesnetlerin aynı kotta olmasını gerektirir",
+    "zh": "等效静力地震荷载要求相连支座具有相同标高",
+    "hu": "A statikus szeizmikus terhekhez a kapcsolódó támaszoknak azonos magasságban kell lenniük"
+  },
+  "explanation": {
+    "en": "Supports connected to seismic mass define the datum. A stepped base blocks static generation. Regenerate affected E loads (#2316).",
+    "es": "Los apoyos conectados a la masa sísmica definen la cota de referencia. Una base escalonada bloquea la generación estática. Regenerá las cargas E afectadas (#2316).",
+    "pt": "Os apoios ligados à massa sísmica definem a cota de referência. Uma base escalonada impede a geração estática. Gere novamente as cargas E afetadas (#2316).",
+    "de": "Die mit der seismischen Masse verbundenen Auflager bestimmen die Bezugshöhe. Eine abgestufte Basis verhindert die statische Lasterzeugung. Erzeugen Sie betroffene E-Lasten neu (#2316).",
+    "fr": "Les appuis reliés à la masse sismique définissent la cote de référence. Une base à redans bloque la génération statique. Régénérez les charges E concernées (#2316).",
+    "tr": "Sismik kütleye bağlı mesnetler referans kotunu belirler. Kademeli taban statik yük üretimini engeller. Etkilenen E yüklerini yeniden oluşturun (#2316).",
+    "zh": "与地震质量相连的支座确定基准标高。阶梯形基础会阻止生成等效静力地震荷载。请重新生成受影响的 E 荷载（#2316）。",
+    "hu": "A szeizmikus tömeghez kapcsolódó támaszok határozzák meg a viszonyítási magasságot. A lépcsőzetes alap megakadályozza a statikus terhek előállítását. Generálja újra az érintett E terheket (#2316)."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-seismic-connected-datum.md",
+    "heading": "Static seismic loads require a common elevation at connected supports"
+  }
+}

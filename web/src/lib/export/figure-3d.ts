@@ -33,6 +33,7 @@ import { takesNoBending } from '../engine/member-loads';
 import { displayedLoads3D, despieceNote3D, despieceDrawsActions, despieceNoteText } from '../store/displayed-loads-3d';
 import { drawFreeBody, type P3 } from '../canvas/free-body';
 import { createLabelCollector } from '../canvas/label-layout';
+import { t as tr } from '../i18n';
 import { drawHiddenLabelsNote } from './hidden-labels-note';
 import { drawShellMap, type DrawShells } from './figure-shell-map';
 import { addMemberTags } from '../canvas/member-tags';
@@ -409,12 +410,15 @@ export function createFigure3DRenderer(): Figure2DRenderer {
               ctx.beginPath();
               dg.points.forEach((p, i) => { const s = toScreen(tip(p.t, p.value)); if (i) ctx.lineTo(s.x, s.y); else ctx.moveTo(s.x, s.y); });
               ctx.strokeStyle = col.stroke; ctx.lineWidth = 1.4; ctx.stroke();
-              if (opts.values && Math.abs(dg.maxAbsValue) > 0.02 * gmax) {
+              if ((opts.values || dg.extrema === 'bounded') && Math.abs(dg.maxAbsValue) > 0.02 * gmax) {
                 const at = dg.points.find((p) => p.value === dg.maxAbsValue) ?? dg.points[0]!;
                 const s = toScreen(tip(at.t, at.value)), sb = toScreen(base(at.t));
                 const dx = s.x - sb.x, dy = s.y - sb.y, l = Math.hypot(dx, dy) || 1;
-                const shown = isMoment && !r3d.magnitude ? -dg.maxAbsValue : dg.maxAbsValue;
-                labels.add({ text: `${SYM[kind]} ${fmtF(shown, isMoment ? 'moment' : 'force')}`, colour: col.stroke, font: 'bold 10.5px sans-serif', box: { x: s.x + (dx / l) * 8, y: s.y + (dy / l) * 8 + 4, width: 0, height: 0, dirX: dx / l, dirY: dy / l, priority: Math.abs(dg.maxAbsValue), anchorX: 'center', sweep: 'any' } });
+                const bounded = dg.extrema === 'bounded';
+                const shown = isMoment && !r3d.magnitude && !bounded ? -dg.maxAbsValue : dg.maxAbsValue;
+                const value = fmtF(shown, isMoment ? 'moment' : 'force');
+                const label = bounded ? `${tr('figures.diagramMagnitudeBound')} ${value}` : value;
+                labels.add({ text: `${SYM[kind]} ${label}`, colour: col.stroke, font: 'bold 10.5px sans-serif', box: { x: s.x + (dx / l) * 8, y: s.y + (dy / l) * 8 + 4, width: 0, height: 0, dirX: dx / l, dirY: dy / l, priority: Math.abs(dg.maxAbsValue), anchorX: 'center', sweep: 'any' } });
               }
             }
           }

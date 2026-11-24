@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { ilText, relabelAxes } from '../lib/axes/user-names';
   import { uiStore, modelStore } from '../lib/store';
   import { t } from '../lib/i18n';
   import ToolSelectOptions from './floating-tools/ToolSelectOptions.svelte';
@@ -109,7 +110,7 @@
             <span class="ft-il-group">
               <span class="ft-il-label">{t(group.labelKey)}</span>
               {#each group.quantities as q}
-                <button class="ft-opt-btn" class:active={uiStore.ilQuantity === q.id} onclick={() => setInfluenceQuantity(q.id)}>{t(q.labelKey)}</button>
+                <button class="ft-opt-btn" class:active={uiStore.ilQuantity === q.id} onclick={() => setInfluenceQuantity(q.id)}>{ilText(q.id, t(q.labelKey))}</button>
               {/each}
             </span>
           {/each}
@@ -117,7 +118,7 @@
           <span class="ft-il-group">
             <span class="ft-il-label">{t('float.ilUnitLoad')}</span>
             {#each IL_DIRECTIONS as d (d.id)}
-              <button class="ft-opt-btn" class:active={uiStore.ilDirection === d.id} title={t(d.tip)}
+              <button class="ft-opt-btn" class:active={uiStore.ilDirection === d.id} title={relabelAxes(t(d.tip))}
                 onclick={() => setInfluenceDirection(d.id)}>{t(d.key)}</button>
             {/each}
           </span>

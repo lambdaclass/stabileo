@@ -167,6 +167,7 @@ export function currentReadiness(): DetailingReadiness {
   return detailingReadiness({
     contexts: verificationStore.contexts,
     outcomes: designOutcomeMap(),
+    elements: modelStore.elements,
     scope: designRunStore.familySelection,
     presentFloorFamilies: presentFloorFamilies(),
   });

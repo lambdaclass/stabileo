@@ -9,7 +9,8 @@
   "scripts": {
     "dev": "vite",
     "dev:admin": "VITE_APP_TYPE=admin vite",
-    "build": "vite build && npx tsx scripts/prerender.ts && node scripts/precompress.mjs dist",
+    "build": "vite build && npm run build:finish",
+    "build:finish": "npm run prerender && node scripts/precompress.mjs dist",
     "build:admin": "VITE_APP_TYPE=admin vite build",
     "preview": "vite preview",
     "wasm": "../scripts/wasm-cached.sh",

@@ -11,9 +11,10 @@ import { loadOnMember } from '../../moving-loads';
 import { unitSolver, readForce, memberGeom } from '../unit-sweep';
 import { ilExtremes, IlLoadRefusal, ilAreas, extremeLoads, uniformAlong, defaultLoadedMembers } from '../areas';
 import { ilEnvelopeAlong } from '../envelope-along';
+import { readLine } from '../analysis';
 import type { IlTarget } from '../quantities';
 import type { InfluenceQuantity } from '../../../store/model.svelte';
-import { simpleBeam, threeSpan, twoSpan } from './fixtures';
+import { cantilever, planeModel, simpleBeam, threeSpan, twoSpan } from './fixtures';
 
 beforeAll(async () => { await initSolver(); });
 
@@ -147,4 +148,50 @@ describe('the envelope along the members', () => {
       });
     }
   });
+});
+
+it('#2375 — plane axial influence readings retain both sides of the jump', () => {
+  const model = cantilever(4);
+  const unit = unitSolver(buildSolverInput2D(model, false)!);
+  const line = computeInfluenceLine(model, 'N', undefined, 1, 0.5, 20, 'horizontal');
+  if (typeof line === 'string') throw new Error(line);
+  expect.soft(line.points.find(p => p.t === 0.25)?.value).toBeCloseTo(0, 9);
+  expect.soft(line.points.find(p => p.t === 0.75)?.value).toBeCloseTo(1, 9);
+  expect.soft(line.points.find(p => 'side' in p && p.side === 'left')?.value).toBeCloseTo(0, 9);
+  expect.soft(line.points.find(p => 'side' in p && p.side === 'right')?.value).toBeCloseTo(1, 9);
+  const dir = { x: 1, z: 0 };
+  const loads = { g: 1, q: 0, P: 1 };
+  for (const placement of ['zones', 'spans'] as const) {
+    const result = readLine(unit, line, loads, placement, [1], dir);
+    expect.soft(result.min.value).toBeCloseTo(2, 9);
+    expect.soft(result.direct.min).toBeCloseTo(2, 9);
+    expect.soft(result.max.value).toBeCloseTo(3, 9);
+    expect.soft(result.direct.max).toBeCloseTo(3, 9);
+
+    const [member] = ilEnvelopeAlong(unit, 'N', loads, placement, dir, [1], 2).members;
+    const midpoint = member.t.indexOf(0.5);
+    expect.soft(member.min[midpoint]).toBeCloseTo(2, 9);
+    expect.soft(member.max[midpoint]).toBeCloseTo(3, 9);
+  }
+});
+
+it('#2375 — axial influence envelopes find both extrema at an interior section', () => {
+  const model = planeModel([[1, 0, 0], [2, 4, 0]], [[1, 1, 2]], [[1, 'fixed'], [2, 'fixed']]);
+  const unit = unitSolver(buildSolverInput2D(model, false)!);
+  const line = computeInfluenceLine(model, 'N', undefined, 1, 0.5, 20, 'horizontal');
+  if (typeof line === 'string') throw new Error(line);
+  const dir = { x: 1, z: 0 };
+  const loads = { g: 0, q: 0, P: 1 };
+  for (const placement of ['zones', 'spans'] as const) {
+    const result = readLine(unit, line, loads, placement, [1], dir);
+    expect.soft(result.min.value).toBeCloseTo(-0.5, 9);
+    expect.soft(result.direct.min).toBeCloseTo(-0.5, 9);
+    expect.soft(result.max.value).toBeCloseTo(0.5, 9);
+    expect.soft(result.direct.max).toBeCloseTo(0.5, 9);
+
+    const [member] = ilEnvelopeAlong(unit, 'N', loads, placement, dir, [1], 2).members;
+    const midpoint = member.t.indexOf(0.5);
+    expect.soft(member.min[midpoint]).toBeCloseTo(-0.5, 9);
+    expect.soft(member.max[midpoint]).toBeCloseTo(0.5, 9);
+  }
 });

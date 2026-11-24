@@ -189,6 +189,7 @@
      ends far better than any single number can.
      ──────────────────────────────────────────────────────────────────── */
   --st-sheet-h: 45vh;
+  --st-sheet-bottom: 0px;
 
   /* ── The phone's bottom bar, as a number ──────────────────────────────
      PRO and Education keep a fixed bar at the foot of the screen. Three

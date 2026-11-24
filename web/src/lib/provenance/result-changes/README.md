@@ -18,8 +18,8 @@ project solved before it is told on opening ([testing/docs/PROVENANCE.md](../../
      "area": "analysis",
      "when": { "allOf": [["plane2D"], ["connectors"]] },
      "quantities": ["solve.ok"],
-     "title": { "en": "…", "es": "…", "pt": "…", "de": "…", "fr": "…", "tr": "…" },
-     "explanation": { "en": "…", "es": "…", "pt": "…", "de": "…", "fr": "…", "tr": "…" },
+     "title": { "en": "…", "es": "…", "pt": "…", "de": "…", "fr": "…", "tr": "…", "zh": "…" },
+     "explanation": { "en": "…", "es": "…", "pt": "…", "de": "…", "fr": "…", "tr": "…", "zh": "…" },
      "changelog": { "file": "docs/results-changes/….md", "heading": "…" }
    }
    ```

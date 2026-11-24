@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { caseNameShown } from '../../../lib/axes/case-names';
   /**
    * The member selected whole (`store/curved-members.ts`): an arc or a member a mesh cut. For an
    * arc, its geometry, the segments it is analysed with and their chord error, remade from here
@@ -7,9 +8,11 @@
   import { modelStore, uiStore } from '../../../lib/store';
   import { t, tp } from '../../../lib/i18n';
   import { addCurveLoad, arcHandLoads, curveLoadDefs, remakeArc, removeCurveLoad, selectedPiece, type CurveLoadDef } from '../../../lib/store/curved-members';
+  import { plateRemeshMessage } from '../../../lib/engine/plate-analysis-refusal';
   import { arcThroughThree, chordError } from '../../../lib/model/curved-member';
   import { fmtQ, unitQ } from '../../../lib/store/display-units.svelte';
   import QuantityInput from '../loads/QuantityInput.svelte';
+  import { signedModelName, userVec } from '../../../lib/axes/display';
 
   const p = $derived.by(() => { void modelStore.modelVersion; void uiStore.selectedElements; return selectedPiece(); });
   const arc = $derived.by(() => {
@@ -30,6 +33,10 @@
     if (!arc) return;
     const r = remakeArc(arc.id, { segments });
     if (!r) return;
+    if (r.refused?.length) {
+      message = r.refused.map(name => plateRemeshMessage(name, 'shellEdits')).join(' ');
+      return;
+    }
     uiStore.selectElements(r.members);
     message = tp('pieces.remade', { n: r.members.length }) + (r.droppedLoads ? ' ' + tp('pieces.droppedLoads', { n: r.droppedLoads }) : '') + (r.keptNodes ? ' ' + tp('pieces.keptNodes', { n: r.keptNodes }) : '');
   }
@@ -42,9 +49,11 @@
     if (!arc) return;
     addCurveLoad({ arcId: arc.id, caseId: loadCase, q: loadQ, dir: DIRS[loadDir]! });
   }
+  const DIR_AXIS: Record<string, [0 | 1 | 2, 1 | -1]> = { gravity: [2, -1], x: [0, 1], y: [1, 1], z: [2, 1] };
+  const dirText = (k: string) => t(`pieces.dir.${k}`).replace(/[+−-][XYZ]/, signedModelName(...DIR_AXIS[k]!));
   const dirLabel = (d: [number, number, number]) => {
     const k = Object.entries(DIRS).find(([, v]) => v.every((x, i) => Math.abs(x - d[i]!) < 1e-9))?.[0];
-    return k ? t(`pieces.dir.${k}`) : `(${d.map((v) => v.toFixed(2)).join(', ')})`;
+    return k ? dirText(k) : `(${userVec(...d).map((v) => v.toFixed(2)).join(', ')})`;
   };
 </script>
 
@@ -74,10 +83,10 @@
           </div>
         {/each}
         <div class="pc-row">
-          <select bind:value={loadCase} data-testid="piece-load-case">{#each cases as c (c.id)}<option value={c.id}>{c.name}</option>{/each}</select>
+          <select bind:value={loadCase} data-testid="piece-load-case">{#each cases as c (c.id)}<option value={c.id}>{caseNameShown(c)}</option>{/each}</select>
           <QuantityInput value={loadQ} quantity="distributedLoad" cls="pc-num" testid="piece-load-q" onchange={(v) => (loadQ = v)} />
           <select bind:value={loadDir} data-testid="piece-load-dir">
-            {#each Object.keys(DIRS) as k (k)}<option value={k}>{t(`pieces.dir.${k}`)}</option>{/each}
+            {#each Object.keys(DIRS) as k (k)}<option value={k}>{dirText(k)}</option>{/each}
           </select>
           <button class="pc-btn" onclick={addLoad} data-testid="piece-load-add">{t('pieces.addLoad')}</button>
         </div>

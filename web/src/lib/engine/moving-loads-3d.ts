@@ -25,7 +25,7 @@ import type { StructuredDiagnostic } from './types';
  */
 import { prepareLoadSession3D } from './wasm-solver';
 import { computeLocalAxes3D } from './local-axes-3d';
-import { buildCriticalStations, extractForcesAtStation } from './station-forces';
+import { criticalForceStations, extractForcesAtStation } from './station-forces';
 import type { SolverInput3D, SolverLoad3D, AnalysisResults3D } from './types-3d';
 import type { LoadTrain } from './moving-loads';
 import { buildSolverInput3D, type ModelData } from './solver-service';
@@ -133,7 +133,7 @@ export function foldPosition(env: MovingEnvelope3D['elements'], results: Analysi
   for (const ef of results.elementForces) {
     let rec = env.get(ef.elementId);
     if (!rec) { rec = blank(); env.set(ef.elementId, rec); }
-    for (const t of buildCriticalStations(ef)) {
+    for (const t of criticalForceStations(ef)) {
       const f = extractForcesAtStation(ef, t);
       for (const c of ENVELOPE_COMPONENTS) {
         const v = f[c];

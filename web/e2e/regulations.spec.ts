@@ -1,4 +1,4 @@
-import { dwellingFloorLoads } from './load-generator-inputs';
+import { dwellingFloorLoads, loadSeismicFloor, openSeismicLoadGenerator } from './load-generator-inputs';
 /**
  * PR16 — project regulations and regulation-backed loads, through VISIBLE CONTROLS ONLY.
  *
@@ -328,7 +328,7 @@ test.describe('@smoke regulation-backed load generation', () => {
   });
 
   test('R11 — binding the seismic role enables seismic loads', async ({ pro: page }) => {
-    await loadModel(page, 'rc-design-qa-8');
+    await loadSeismicFloor(page);
     await openRegulations(page);
     await page.getByTestId('role-select-seismic').selectOption('inpres103-2018');
     await page.getByTestId('pending-review-in-loads').click();
@@ -342,6 +342,23 @@ test.describe('@smoke regulation-backed load generation', () => {
     // A real seismic weight and base shear from the model's own masses.
     await expect(page.getByTestId('al-base-shear')).toContainText(/Seismic weight W =/);
   });
+
+  for (const base of [-5, 10, 0]) {
+    test(`#2316 the seismic preview shows the roof above a ${base} m support datum`, async ({ pro: page }) => {
+      await loadSeismicFloor(page, base);
+      await openSeismicLoadGenerator(page);
+      await dwellingFloorLoads(page);
+      await page.getByTestId('al-preview-btn').click();
+
+      const summary = page.getByTestId('al-base-shear');
+      await expect(summary).toBeVisible();
+      const weight = (await summary.innerText()).match(/Seismic weight W = (\d+\.\d) kN/);
+      expect(weight).not.toBeNull();
+      expect(Number(weight![1])).toBeGreaterThan(0);
+      const stories = page.getByTestId('al-seismic-preview').locator('div').filter({ hasText: 'Wi =' });
+      await expect(stories).toHaveText([`+3.20 m · Wi = ${weight![1]} kN`]);
+    });
+  }
 
   test('R12 — the imposed-load reduction is a visible, real control', async ({ pro: page }) => {
     const derivation = async () => {

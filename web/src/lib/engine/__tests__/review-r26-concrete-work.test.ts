@@ -68,7 +68,7 @@ for (const torque of [0, 6]) for (const spatial of [false, true]) for (const non
     const demand = extractGoverningDemands({ elementId: 1, length: 0.8, stationTs: [0, 1], comboResults: [{
       comboId: 1, comboName: 'torsion', stations: [0, 1].map(t => ({ t, x: 0.8 * t, n: t ? ef.nEnd : ef.nStart,
         my: t ? ef.myEnd : ef.myStart, mz: t ? ef.mzEnd : ef.mzStart,
-        vy: t ? ef.vyEnd : ef.vyStart, vz: t ? ef.vzEnd : ef.vzStart, torsion: torque })),
+        vy: 0, vz: 0, torsion: torque })),
     }] });
     const demands = new Map([1, 2].map(elementId => [elementId, { ...demand, elementId }]));
     const run = (elementForces: typeof results.elementForces, uncached = false) => {
@@ -85,6 +85,7 @@ for (const torque of [0, 6]) for (const spatial of [false, true]) for (const non
       return value;
     });
     const expected = results.elementForces.flatMap(ef => run([ef]));
+    expect(expected).toHaveLength(results.elementForces.length);
     expect(expected.every(v => torque === 0 ? v.torsion === undefined : v.torsion?.longitudinalProvision === 'not-checked')).toBe(true);
     expect(expected.every(v => torque === 0 ? v.engineRecheck?.certified?.ok === true : v.engineRecheck?.certified?.code === 'VERIF_TORSION_LONGITUDINAL_NOT_CHECKED')).toBe(true);
     for (const value of expected) for (const check of value.concurrentChecks ?? []) {

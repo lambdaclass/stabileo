@@ -20,13 +20,12 @@
 
     <div class="mode-head">
       <h2 id="pro-design-title" class="display">{t('landing.proDesignH')}</h2>
-      <span class="badge badge-dev">{t('landing.badgeDevOpen')}</span>
+      <span class="badge badge-dev">{t('landing.badgeDev')}</span>
     </div>
     <p class="lead">{t('landing.proDesignP')}</p>
-    <p class="lead">{t('landing.proDesign3d')}</p>
     <p class="link-row">
       <PublicLink to="/cirsoc" class="link-arrow">{t('landing.proDesignCirsocLink')}</PublicLink>
-      <a class="link-arrow" href="https://github.com/lambdaclass/stabileo/issues/532">#532</a>
+      <a class="link-arrow" href="https://github.com/lambdaclass/stabileo/blob/main/docs/roadmap/PRODUCT_ROADMAP.md#pro-design-follow-ups">{t('landing.proDesignRoadmapLink')}</a>
     </p>
 
     <div class="card-row cols-1 cap-shots">

@@ -19,7 +19,7 @@ const words: Translations = {
   "course.plastic.req.size": "{n} kritikus keresztmetszet van; kézzel legfeljebb {max}.",
   "course.plastic.req.mechanisms": "{n} független mechanizmus van; kézzel legfeljebb {max}.",
   "course.plastic.doc.assumptions": "Merev-képlékeny anyag: minden keresztmetszet merev marad, amíg a nyomatéka el nem éri az Mp-t, utána szabadon elfordul, miközben a nyomaték Mp-n marad (képlékeny csukló). A normálerővel és nyíróerővel való kölcsönhatást, a másodrendű hatásokat és a csukló tehermentesülését elhanyagoljuk.",
-  "course.plastic.doc.signs": "A nyomatékok pozitívak, ha az alsó felületet húzzák, a rudat a kezdőcsomópontjától a végcsomópontjáig olvasva (helyi −y felület). A θ csuklóelfordulás pozitív, ha a rúd úgy törik meg, ahogyan egy pozitív nyomaték hajlítaná; minden csuklónál az M·θ az általa elnyelt munka.",
+  "course.plastic.doc.signs": "Ebben a síkbeli képlékeny analízisben a helyi x tengely a kezdőcsomóponttól a végcsomópontig mutat. A helyi y tengelyt x 90°-os, óramutató járásával ellentétes elforgatásával kapjuk. A pozitív nyomaték a helyi −y oldalt húzza, amely balról jobbra rajzolt tartónál a hatásvonalakról szóló leckében szereplő helyi −z oldalnak felel meg. A θ csuklóelfordulás pozitív, ha a rúd úgy törik meg, ahogyan egy pozitív nyomaték hajlítaná; minden csuklónál az M·θ az általa elnyelt munka.",
   "course.plastic.doc.mpCaption": "Az egyes rudak képlékeny nyomatéka, Mp = fy·Zp.",
   "course.plastic.doc.gh": "Statikai határozatlansági fok",
   "course.plastic.doc.axialRedundant": "Ezek közül a határozatlan erők közül {s} nem vesz részt a hajlításban (olyan normálerő, amelyet egyetlen mechanizmus sem mozgósít). A mechanizmusokat GH = {gh} mellett számoljuk.",

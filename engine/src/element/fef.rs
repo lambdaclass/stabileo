@@ -834,7 +834,7 @@ pub fn member_load_interval_is_supported(length: f64, a: f64, b: f64) -> bool {
         && (b - a) / length >= MEMBER_GEOMETRY_LIMIT
 }
 
-pub fn validate_member_load_interval(member: &str, length: f64, a: f64, b: f64) -> Result<(), String> {
+pub fn validate_member_load_interval(member: impl std::fmt::Display, length: f64, a: f64, b: f64) -> Result<(), String> {
     if member_load_interval_is_supported(length, a, b) {
         return Ok(());
     }
@@ -845,9 +845,11 @@ pub fn validate_member_load_interval(member: &str, length: f64, a: f64, b: f64) 
 }
 
 pub(crate) fn distributed_load_terms(q_i: f64, q_j: f64, a: f64, b: f64, x: f64) -> (f64, f64) {
-    if b <= a || x <= a { return (0.0, 0.0); }
-    let span = b - a;
-    let d = x - a;
+    distributed_load_terms_at_distance(q_i, q_j, b - a, x - a)
+}
+
+pub(crate) fn distributed_load_terms_at_distance(q_i: f64, q_j: f64, span: f64, d: f64) -> (f64, f64) {
+    if span <= 0.0 || d <= 0.0 { return (0.0, 0.0); }
     let s = d.min(span);
     if q_i == q_j {
         let rectangle = d * s;
@@ -870,6 +872,24 @@ pub(crate) fn distributed_load_terms(q_i: f64, q_j: f64, a: f64, b: f64, x: f64)
 
 fn require_member_load_interval(length: f64, a: f64, b: f64) {
     assert!(member_load_interval_is_supported(length, a, b), "unsupported distributed member load interval");
+}
+
+#[cfg(test)]
+mod load_interval_message_tests {
+    use super::validate_member_load_interval;
+
+    #[test]
+    fn a_refused_interval_names_its_member_however_the_name_is_given() {
+        let invalid = "Element 7: invalid distributed load interval [2, 1] on length 5";
+        let short = "Element 7: distributed load interval [1, 1.0000000001] on length 5 is below the relative geometry limit 0.0000000001";
+        let id = 7;
+        assert_eq!(validate_member_load_interval("Element 7", 5.0, 2.0, 1.0).unwrap_err(), invalid);
+        assert_eq!(validate_member_load_interval(&format!("Element {id}"), 5.0, 2.0, 1.0).unwrap_err(), invalid);
+        assert_eq!(validate_member_load_interval(format_args!("Element {id}"), 5.0, 2.0, 1.0).unwrap_err(), invalid);
+        assert_eq!(validate_member_load_interval(format_args!("Element {id}"), 5.0, 1.0, 1.0000000001).unwrap_err(), short);
+        assert!(validate_member_load_interval(format_args!("Element {id}"), 5.0, 1.0, 2.0).is_ok());
+        assert!(validate_member_load_interval(format_args!("Element {id}"), f64::NAN, 1.0, 2.0).unwrap_err().starts_with("Element 7: invalid"));
+    }
 }
 
 #[cfg(test)]

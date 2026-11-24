@@ -2,7 +2,7 @@ import type { RigidLinkConstraint } from '../../types-3d';
 import { buildLoadPlan, type LoadModelData } from '../load-plan';
 import { input } from './gravity-width-mass-fixture';
 
-export function offsetRoof(offset: number, angle = 0, mirror = 1, subdivide = false, gap = false) {
+export function offsetRoof(offset: number, angle = 0, mirror = 1, subdivide = false, gap: boolean | readonly [number, number] = false) {
   const nodes: LoadModelData['nodes'] = new Map();
   const elements: LoadModelData['elements'] = new Map();
   const quads = new Map<number, { id: number; nodes: number[]; materialId: number; thickness: number }>();
@@ -19,9 +19,10 @@ export function offsetRoof(offset: number, angle = 0, mirror = 1, subdivide = fa
     const id = quads.size + 1;
     quads.set(id, { id, nodes: [a, b, c, d], materialId: 1, thickness: 0.1 });
   }
+  const [gapStart, gapEnd] = typeof gap === 'boolean' ? [2, 4] as const : gap;
   if (gap) {
-    shell(first, row(2));
-    shell(row(4), last);
+    shell(first, row(gapStart));
+    shell(row(gapEnd), last);
   } else if (subdivide) {
     const seam = row(7);
     shell(first, seam);
@@ -29,7 +30,7 @@ export function offsetRoof(offset: number, angle = 0, mirror = 1, subdivide = fa
   } else {
     shell(first, last);
   }
-  const stations = subdivide ? [0, 2, gap ? 4 : 8, 10] : [0, 10];
+  const stations = subdivide ? (gap ? [0, gapStart, gapEnd, 10] : [0, 2, 8, 10]) : [0, 10];
   const rafter = stations.map(x => node(x, 0, elevation(x) - offset));
   rafter.slice(1).forEach((nodeJ, index) => {
     const id = index + 1;

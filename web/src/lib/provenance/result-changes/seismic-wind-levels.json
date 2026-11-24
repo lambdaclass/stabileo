@@ -1,0 +1,33 @@
+{
+  "id": "seismic-wind-levels",
+  "date": "2026-11-19",
+  "prs": [2316],
+  "area": "loads",
+  "when": {
+    "all": ["generatedWindLoads", "generatedSeismicLoads"]
+  },
+  "title": {
+    "en": "Wind plan levels are independent of seismic generation",
+    "es": "Los niveles del plan de viento son independientes de la generación sísmica",
+    "pt": "Os níveis do plano de vento são independentes da geração sísmica",
+    "de": "Geschosse der Windlastplanung sind von der Erdbebenlasterzeugung unabhängig",
+    "fr": "Les niveaux du plan de vent sont indépendants de la génération sismique",
+    "tr": "Rüzgâr planı seviyeleri deprem yükü üretiminden bağımsızdır",
+    "zh": "风荷载方案的楼层数据独立于地震荷载生成",
+    "hu": "A szélteherterv szintjei függetlenek a szeizmikus terhek előállításától"
+  },
+  "explanation": {
+    "en": "The wind plan retains its level weights when static seismic generation is enabled. The seismic preview uses the weights of its own stories. This correction to the plan data requires no load regeneration.",
+    "es": "El plan de viento conserva los pesos de sus niveles al activar la generación sísmica estática. La vista previa sísmica usa los pesos de sus propios pisos. Esta corrección de los datos del plan no requiere regenerar cargas.",
+    "pt": "O plano de vento conserva os pesos dos seus níveis ao ativar a geração sísmica estática. A prévia sísmica usa os pesos dos seus próprios andares. Esta correção dos dados do plano não exige regenerar cargas.",
+    "de": "Die Windlastplanung behält ihre Geschossgewichte bei aktivierter statischer Erdbebenlasterzeugung. Die Erdbebenvorschau verwendet ihre eigenen Geschossgewichte. Für diese Korrektur der Plandaten müssen keine Lasten neu erzeugt werden.",
+    "fr": "Le plan de vent conserve les poids de ses niveaux lorsque la génération sismique statique est activée. L’aperçu sismique utilise les poids de ses propres étages. Cette correction des données du plan ne nécessite pas de régénérer les charges.",
+    "tr": "Statik deprem yükü üretimi etkinleştirildiğinde rüzgâr planı seviye ağırlıklarını korur. Deprem önizlemesi kendi kat ağırlıklarını kullanır. Plan verilerindeki bu düzeltme yüklerin yeniden üretilmesini gerektirmez.",
+    "zh": "启用等效静力地震荷载生成时，风荷载方案仍保留自己的楼层重量。地震预览使用地震方案的楼层重量。此次方案数据修正无需重新生成荷载。",
+    "hu": "A szélteherterv szintsúlyai a statikus szeizmikus terhek bekapcsolásakor is megmaradnak. A szeizmikus előnézet a saját szintjeinek súlyait használja. A tervadatok javítása miatt nem kell újra előállítani a terheket."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-seismic-wind-levels.md",
+    "heading": "Wind plan levels are independent of seismic generation"
+  }
+}

@@ -15,6 +15,10 @@ import type { planeModel } from '../engine/steps/plane-model';
 import type { solveReference } from '../engine/steps/reference';
 import { loadCourse } from '../course/load-course';
 import { fmChoice } from './fm-choice.svelte';
+import { axesStore } from '../axes/axes.svelte';
+import { axesKey } from '../axes/display';
+import { planeInputIn } from '../axes/plane-input';
+import { stepDocIn } from '../axes/step-doc-frame';
 
 interface CourseMethods {
   methodById: (id: string) => ExplainedMethod | undefined;
@@ -38,6 +42,7 @@ let doc = $state.raw<StepDoc | null>(null);
 let error = $state.raw<Txt | null>(null);
 let builtAt = $state(-1);
 let builtWithSelfWeight = $state(false);
+let builtAxes = $state('');
 let step = $state(0);
 /** A wizard was opened from the catalog: closing it returns there. */
 let returnToCatalog = $state(false);
@@ -51,8 +56,9 @@ let params = $state<Record<string, Record<string, string>>>({});
 
 /** The model as the methods read it, or null when there is nothing to read. */
 export function methodContext(methodId?: string): MethodContext | null {
-  const input = modelStore.buildSolverInput(uiStore.includeSelfWeight);
-  if (!course || !input || input.elements.size === 0) return null;
+  const built = modelStore.buildSolverInput(uiStore.includeSelfWeight);
+  if (!course || !built || built.elements.size === 0) return null;
+  const input = planeInputIn(built, axesStore.frame);
   return {
     input,
     pm: course.planeModel(input),
@@ -88,13 +94,14 @@ function build(id: string): void {
   const ok = m.applies(ctx);
   if (!ok.ok) { error = ok.reason; return; }
   try {
-    doc = m.build(ctx);
+    doc = stepDocIn(m.build(ctx), axesStore.frame);
   } catch (e) {
     console.error('explained step by step:', e);
     error = tx('steps.view.failed');
   }
   builtAt = modelStore.modelVersion;
   builtWithSelfWeight = uiStore.includeSelfWeight;
+  builtAxes = axesKey();
   step = 0;
 }
 
@@ -108,7 +115,7 @@ export const explainedSteps = {
   get step() { return step; },
   set step(v: number) { step = Math.max(0, Math.min(v, doc ? doc.steps.length : 0)); },
   get stale() {
-    return view === 'doc' && (builtAt !== modelStore.modelVersion || builtWithSelfWeight !== uiStore.includeSelfWeight);
+    return view === 'doc' && (builtAt !== modelStore.modelVersion || builtWithSelfWeight !== uiStore.includeSelfWeight || builtAxes !== axesKey());
   },
 
   openCatalog(): void { view = 'catalog'; methodId = null; doc = null; error = null; returnToCatalog = false; },

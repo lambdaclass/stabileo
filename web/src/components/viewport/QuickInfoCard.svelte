@@ -11,11 +11,16 @@
   import { fmtQ, fmtCoord, unitQ, toQ } from '../../lib/store/display-units.svelte';
   import { certificateStore, formatBound } from '../../lib/store/certificate.svelte';
   import { forceReactionBound } from '../../lib/engine/certificate-read';
+  import { axesStore } from '../../lib/axes/axes.svelte';
+  import { resultComponents } from '../../lib/axes/result-components';
+  import { nodeShown3D } from '../../lib/axes/node-coords';
+  import { supportTypeShown } from '../../lib/axes/user-names';
   import type { ReactionBound3D } from '../../lib/engine/wasm-solver';
 
   const node = $derived(viewState.quickInfo && uiStore.selectedNodes.size === 1 && uiStore.selectedElements.size === 0 ? modelStore.nodes.get([...uiStore.selectedNodes][0]!) : undefined);
   const elem = $derived(viewState.quickInfo && uiStore.selectedElements.size === 1 && uiStore.selectMode !== 'shells' ? modelStore.elements.get([...uiStore.selectedElements][0]!) : undefined);
   const r = $derived(resultsStore.results3D);
+  const components = $derived(resultComponents(axesStore.frame, r));
   const disp = $derived(node && r ? r.displacements.find((d) => d.nodeId === node.id) : undefined);
   const reac = $derived(node && r ? r.reactions.find((d) => d.nodeId === node.id) : undefined);
   /** The certified bound on the reaction forces shown (the largest of the three), when there is one. */
@@ -34,10 +39,10 @@
   <div class="qi" data-testid="quick-info">
     {#if node}
       <div class="qi-title">{t('quick.node')} {node.id}</div>
-      <div>x, y, z = {fmtCoord(node.x)}; {fmtCoord(node.y)}; {fmtCoord(node.z ?? 0)} {unitQ('length')}</div>
-      {#if support}<div>{t('quick.support')}: {support.type}</div>{/if}
-      {#if disp}<div>u = {fmtQ(disp.ux, 'displacement')}; {fmtQ(disp.uy, 'displacement')}; {fmtQ(disp.uz, 'displacement')} {unitQ('displacement')}</div>{/if}
-      {#if reac}<div>R = {fmtQ(reac.fx, 'force')}; {fmtQ(reac.fy, 'force')}; {fmtQ(reac.fz, 'force')}{reacBound !== null ? ` ± ${formatBound(toQ(reacBound, 'force'))}` : ''} {unitQ('force')}</div>{/if}
+      <div>x, y, z = {nodeShown3D(node).map((c) => fmtCoord(c)).join('; ')} {unitQ('length')}</div>
+      {#if support}<div>{t('quick.support')}: {supportTypeShown(support.type, uiStore.is3DWorkspace)}</div>{/if}
+      {#if disp}<div>u = {components.vec(disp.ux, disp.uy, disp.uz).map((c) => fmtQ(c, 'displacement')).join('; ')} {unitQ('displacement')}</div>{/if}
+      {#if reac}<div>R = {components.vec(reac.fx, reac.fy, reac.fz).map((c) => fmtQ(c, 'force')).join('; ')}{reacBound !== null ? ` ± ${formatBound(toQ(reacBound, 'force'))}` : ''} {unitQ('force')}</div>{/if}
     {:else if elem}
       <div class="qi-title">{t('quick.member')} {elem.id} · {elem.type}</div>
       <div>{elem.nodeI} → {elem.nodeJ} · L = {fmtCoord(length)} {unitQ('length')}</div>

@@ -14,6 +14,7 @@
 import { detach, fragmentOf, closure, type EntitySet, type Fragment } from '../model/edit/fragment';
 import { fragmentFromCode, fragmentToCode } from '../model/edit/fragment-code';
 import { insertFragment } from '../model/edit/transformed-copy';
+import { refuseSupportTransform } from '../model/edit/support-transform-refusal';
 import { IDENTITY } from '../model/edit/affine';
 import { placementStore } from './placement.svelte';
 import { modelStore } from './model.svelte';
@@ -53,7 +54,12 @@ export function hasClipboard(): boolean { return memory !== null; }
 export function copySelection(): boolean {
   const set = selectionSet();
   if (isEmpty(set)) return false;
-  memory = detach(fragmentOf(set, { withLoads: true, withSupports: true }));
+  const frag = fragmentOf(set, { withLoads: true, withSupports: true });
+  if (frag.missingSupportMembers) {
+    refuseSupportTransform('missingSupportMembers');
+    return false;
+  }
+  memory = detach(frag);
   memoryCode = fragmentToCode(memory);
   memoryInPlane = modelInPlane();
   clipboardState.filled = true;
@@ -99,6 +105,7 @@ export function paste(inPlace: boolean, external?: string): boolean {
   }
   if (inPlace) {
     const r = insertFragment(frag, [{ A: IDENTITY, t: [0, 0, 0] }], { withLoads: true, withSupports: true });
+    if (r.refused) return false;
     uiStore.setSelection(new Set(r.nodes), new Set(r.elements), false,
       new Set([...r.quads.map((id) => `q${id}`), ...r.plates.map((id) => `p${id}`)]));
     uiStore.toast(tp('clipboard.pastedInPlace', { n: r.elements.length + r.quads.length + r.plates.length, welded: r.welded }), 'success');

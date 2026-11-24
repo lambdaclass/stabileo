@@ -581,7 +581,7 @@ test.describe('blog', () => {
       .locator('link[rel="alternate"][hreflang]')
       .evaluateAll((els) => els.map((e) => `${e.getAttribute('hreflang')} ${e.getAttribute('href')}`).sort());
     // The languages the post is written in: the three it is published in, and any whose translation file exists.
-    const written = ['en', 'es', 'pt', ...['de', 'fr', 'tr', 'hu'].filter((l) =>
+    const written = ['en', 'es', 'pt', ...['de', 'fr', 'tr', 'hu', 'zh'].filter((l) =>
       existsSync(fileURLToPath(new URL(`../src/lib/blog/translations/${l}/${SLUG}.ts`, import.meta.url))))];
     expect(alts).toEqual([
       ...[...BUILD_PUBLIC_LOCALES].sort().filter((l) => written.includes(l)).map((l) => `${l} https://stabileo.com/${l}/blog/${SLUG}/`),
@@ -591,7 +591,7 @@ test.describe('blog', () => {
       // post's path because a default that jumps to the home page sends every
       // unmatched reader away from the thing they were about to be shown.
       `x-default https://stabileo.com/en/blog/${SLUG}/`,
-    ]);
+    ].sort());
   });
 
   test('@smoke the tables render as tables, with every row filled', async ({ page }) => {

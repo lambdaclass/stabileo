@@ -55,7 +55,7 @@ const words: Translations = {
   'course.kinematics.gic.cmp.equal': 'Beide Verfahren brauchen gleich viele Gleichungen: {gh}.',
 
   'course.kinematics.dm.intro': 'Die Unbekannten sind die Knotenverschiebungen: Verdrehungen und Verschiebungen. Alle werden mit fiktiven Festhaltungen blockiert, die Lasten werden so gelöst (Zustand 0), und danach erhält jede Unbekannte einzeln den Wert eins (Zustände 1…n). Die Forderung, dass die fiktiven Festhaltungen am Ende keine Kraft tragen, liefert das System K·D = −R⁰.',
-  'course.kinematics.dm.introStates': 'In jedem Zustand wirken die Stäbe als an ihren Enden eingespannt, oder gelenkig, wo sie es sind; ihre Momente ergeben sich daher aus bekannten Koeffizienten: 4EI/L und 2EI/L für eine Verdrehung, 6EI/L² für eine Querverschiebung, 3EI/L bei gelenkigem anderem Ende und EA/L für eine Längung.',
+  'course.kinematics.dm.introStates': 'In jedem Zustand wirken die Stäbe als an ihren Enden eingespannt, oder gelenkig, wo sie es sind; ihre Momente ergeben sich daher aus bekannten Koeffizienten: 4EI/L und 2EI/L für eine Verdrehung, 6EI/L² für eine Querverschiebung, 3EI/L bei gelenkigem anderem Ende. Wird die axiale Verformung berücksichtigt, ergibt sich die Normalkraft N = (EA/L)·ΔL aus der Längung ΔL.',
   'course.kinematics.dm.introRigid': 'Die Stäbe gelten als dehnstarr: Sie behalten ihre Länge. Pendelstäbe dagegen längen sich wie Längsfedern EA/L.',
   'course.kinematics.dm.introAxial': 'Die Stäbe haben die Dehnsteifigkeit EA/L: Sie können sich längen, und jede freie Verschiebung jedes Knotens ist eine Unbekannte. So stimmt das Ergebnis mit der Matrizenrechnung überein.',
   'course.kinematics.dm.membersCaption': 'Stäbe: Länge und Steifigkeiten.',

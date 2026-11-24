@@ -1,3 +1,4 @@
+use crate::postprocess::{diagrams::member_diagram_range_2d, diagrams_3d::member_diagram_range_3d};
 use crate::types::*;
 use crate::solver::linear::{prepare_static_2d, prepare_static_3d, solve_2d, solve_3d};
 use std::collections::HashMap;
@@ -158,9 +159,9 @@ pub fn solve_moving_loads_2d(input: &MovingLoadInput) -> Result<MovingLoadEnvelo
             if let Some(env) = envelopes.get_mut(&ef.element_id.to_string()) {
                 // Along the member, not only at its ends: under a span load M peaks inside the
                 // span, and under a sign-changing axial span load so does N.
-                let (m_min, m_max) = diagram_range_2d(ef, "moment", ef.m_start, ef.m_end);
-                let (v_min, v_max) = diagram_range_2d(ef, "shear", ef.v_start, ef.v_end);
-                let (n_min, n_max) = diagram_range_2d(ef, "axial", ef.n_start, ef.n_end);
+                let (m_min, m_max) = member_diagram_range_2d(ef, "moment")?;
+                let (v_min, v_max) = member_diagram_range_2d(ef, "shear")?;
+                let (n_min, n_max) = member_diagram_range_2d(ef, "axial")?;
 
                 env.m_max_pos = env.m_max_pos.max(m_max);
                 env.m_max_neg = env.m_max_neg.min(m_min);
@@ -202,14 +203,15 @@ pub fn moving_loads_at_position_2d(
         }
 
         // Find which segment this axle is on
-        if let Some((seg, local_pos)) = find_segment(path, axle_pos) {
+        if let Some((seg, a)) = path.iter().find_map(|seg| {
+            sampled_axle_station(seg.start_pos, seg.end_pos, seg.length, seg.reversed, axle_pos).map(|a| (seg, a))
+        }) {
             // The axle weight acts straight down (−Z). In member axes (local
             // x = (c, s) from node_i to node_j, local y = (−s, c)) that is
             // p = −W·c transverse and px = −W·s axial — for any orientation.
             // The former branch for near-horizontal members used −W·|c|,
             // which pushed the train UP on a member drawn right-to-left
             // (found by the metamorphic mirror check).
-            let a = if seg.reversed { seg.length - local_pos } else { local_pos };
             loads.push(SolverLoad::PointOnElement(SolverPointLoadOnElement {
                 element_id: seg.element_id,
                 a,
@@ -287,130 +289,20 @@ fn auto_detect_path(input: &SolverInput) -> Result<Vec<usize>, String> {
     Ok(elem_list.iter().map(|e| e.id).collect())
 }
 
-fn find_segment<'a>(path: &'a [PathSegment], global_pos: f64) -> Option<(&'a PathSegment, f64)> {
-    for seg in path {
-        if global_pos >= seg.start_pos - 1e-10 && global_pos <= seg.end_pos + 1e-10 {
-            let local = (global_pos - seg.start_pos).max(0.0).min(seg.length);
-            return Some((seg, local));
-        }
+fn sampled_axle_station(start: f64, end: f64, length: f64, reversed: bool, position: f64) -> Option<f64> {
+    if !(position >= start - 1e-10 && position <= end + 1e-10) {
+        return None;
     }
-    None
-}
-
-fn point_at_member_end(a: f64, end: f64, length: f64) -> bool {
-    (a - end).abs() <= 8.0 * f64::EPSILON * length
-}
-
-/// The least and greatest value of a 2D diagram along a member: its ends and the stations
-/// the diagrams sample (`diagram_positions_2d`, which include every point load), plus, for N,
-/// where the total axial span load changes sign (N' = −q_x, so N peaks there).
-fn diagram_range_2d(ef: &ElementForces, kind: &str, start: f64, end: f64) -> (f64, f64) {
-    use crate::postprocess::diagrams::{compute_diagram_value_at, diagram_positions_2d};
-    let endpoint_jump = |x: f64| -> f64 {
-        ef.point_loads.iter().filter(|p| point_at_member_end(p.a, x, ef.length)).map(|p| match kind {
-            "axial" => -p.px.unwrap_or(0.0),
-            "shear" => p.p,
-            _ => 0.0,
-        }).sum()
+    let local = (position - start).max(0.0).min(length);
+    let endpoint_roundoff = 8.0 * f64::EPSILON * length;
+    let station = if local <= endpoint_roundoff {
+        0.0
+    } else if length - local <= endpoint_roundoff {
+        length
+    } else {
+        local
     };
-    let start_jump = endpoint_jump(0.0);
-    let end_jump = endpoint_jump(ef.length);
-    if start_jump != 0.0 || end_jump != 0.0 {
-        let (start, end) = (start + start_jump, end - end_jump);
-        let mut interior = ef.clone();
-        match kind {
-            "axial" => { interior.n_start = start; interior.n_end = end; },
-            "shear" => { interior.v_start = start; interior.v_end = end; },
-            _ => unreachable!(),
-        }
-        interior.point_loads.retain(|p| !point_at_member_end(p.a, 0.0, ef.length) && !point_at_member_end(p.a, ef.length, ef.length));
-        return diagram_range_2d(&interior, kind, start, end);
-    }
-    diagram_range(
-        diagram_positions_2d(ef, kind), ef.length, &ef.distributed_loads_x,
-        kind == "axial", start, end,
-        |t| compute_diagram_value_at(kind, t, ef),
-    )
-}
-
-fn diagram_range(
-    mut ts: Vec<f64>, length: f64, axial_loads: &[DistributedLoadInfo],
-    axial: bool, start: f64, end: f64, evaluate: impl Fn(f64) -> f64,
-) -> (f64, f64) {
-    if axial && length > 0.0 {
-        let mut xs: Vec<f64> = vec![0.0, length];
-        for d in axial_loads { xs.push(d.a); xs.push(d.b); }
-        xs.sort_by(|a, b| a.total_cmp(b));
-        ts.extend(xs.iter().map(|x| x / length));
-        let q_at = |x: f64| -> f64 {
-            axial_loads.iter()
-                .filter(|d| d.b > d.a && x >= d.a && x <= d.b)
-                .map(|d| d.q_i + (d.q_j - d.q_i) * (x - d.a) / (d.b - d.a))
-                .sum()
-        };
-        for w in xs.windows(2) {
-            let (x0, x1) = (w[0], w[1]);
-            if x1 - x0 < 1e-12 { continue; }
-            let h = (x1 - x0) * 1e-9;
-            let (q0, q1) = (q_at(x0 + h), q_at(x1 - h));
-            if q0 * q1 < 0.0 { ts.push((x0 + (x1 - x0) * q0 / (q0 - q1)) / length); }
-        }
-    }
-    let (mut lo, mut hi) = (start.min(end), start.max(end));
-    for t in ts {
-        let v = evaluate(t.clamp(0.0, 1.0));
-        if v.is_finite() { lo = lo.min(v); hi = hi.max(v); }
-    }
-    (lo, hi)
-}
-
-fn diagram_range_3d(ef: &ElementForces3D, kind: &str, start: f64, end: f64) -> (f64, f64) {
-    use crate::postprocess::diagrams_3d::{diagram_positions_3d, evaluate_diagram_3d_at};
-    let points_and_sign = match kind {
-        "shearY" => Some((&ef.point_loads_y, 1.0)),
-        "shearZ" => Some((&ef.point_loads_z, 1.0)),
-        "axial" => Some((&ef.point_loads_x, -1.0)),
-        _ => None,
-    };
-    if let Some((points, sign)) = points_and_sign {
-        let start_jump = sign * points.iter().filter(|p| point_at_member_end(p.a, 0.0, ef.length)).map(|p| p.p).sum::<f64>();
-        let end_jump = sign * points.iter().filter(|p| point_at_member_end(p.a, ef.length, ef.length)).map(|p| p.p).sum::<f64>();
-        if start_jump != 0.0 || end_jump != 0.0 {
-            let (start, end) = (start + start_jump, end - end_jump);
-            let mut interior = ef.clone();
-            let points = match kind {
-                "axial" => { interior.n_start = start; interior.n_end = end; &mut interior.point_loads_x },
-                "shearY" => { interior.vy_start = start; interior.vy_end = end; &mut interior.point_loads_y },
-                "shearZ" => { interior.vz_start = start; interior.vz_end = end; &mut interior.point_loads_z },
-                _ => unreachable!(),
-            };
-            points.retain(|p| !point_at_member_end(p.a, 0.0, ef.length) && !point_at_member_end(p.a, ef.length, ef.length));
-            return diagram_range_3d(&interior, kind, start, end);
-        }
-    }
-    let (mut lo, mut hi) = diagram_range(
-        diagram_positions_3d(ef, kind), ef.length, &ef.distributed_loads_x,
-        kind == "axial", start, end,
-        |t| if t <= 0.0 { start } else if t >= 1.0 { end } else { evaluate_diagram_3d_at(ef, kind, t) },
-    );
-    let Some((points, sign)) = points_and_sign else { return (lo, hi) };
-    if !points.is_empty() {
-        let mut smooth = ef.clone();
-        match kind {
-            "shearY" => smooth.point_loads_y.clear(),
-            "shearZ" => smooth.point_loads_z.clear(),
-            _ => { smooth.point_loads_x.clear(); smooth.n_end = smooth.n_start; },
-        }
-        for point in points {
-            let x = point.a;
-            let base = evaluate_diagram_3d_at(&smooth, kind, x / ef.length);
-            let left = base + sign * points.iter().filter(|p| p.a < x).map(|p| p.p).sum::<f64>();
-            let right = left + sign * points.iter().filter(|p| p.a == x).map(|p| p.p).sum::<f64>();
-            if x > 0.0 { lo = lo.min(left); hi = hi.max(left); }
-            if x < ef.length { lo = lo.min(right); hi = hi.max(right); }
-        }
-    }
-    (lo, hi)
+    Some(if reversed { length - station } else { station })
 }
 
 /// The permanent loads, all of them: every load in the input is permanent (the train's axle
@@ -556,22 +448,22 @@ pub fn solve_moving_loads_3d(input: &MovingLoadInput3D) -> Result<MovingLoadEnve
         crate::known_issues::attach(&mut structured_diagnostics, results.structured_diagnostics.clone());
         for ef in &results.element_forces {
             if let Some(env) = envelopes.get_mut(&ef.element_id.to_string()) {
-                let (lo, hi) = diagram_range_3d(ef, "axial", ef.n_start, ef.n_end);
+                let (lo, hi) = member_diagram_range_3d(ef, "axial")?;
                 env.n_max_pos = env.n_max_pos.max(hi);
                 env.n_max_neg = env.n_max_neg.min(lo);
-                let (lo, hi) = diagram_range_3d(ef, "shearY", ef.vy_start, ef.vy_end);
+                let (lo, hi) = member_diagram_range_3d(ef, "shearY")?;
                 env.vy_max_pos = env.vy_max_pos.max(hi);
                 env.vy_max_neg = env.vy_max_neg.min(lo);
-                let (lo, hi) = diagram_range_3d(ef, "shearZ", ef.vz_start, ef.vz_end);
+                let (lo, hi) = member_diagram_range_3d(ef, "shearZ")?;
                 env.vz_max_pos = env.vz_max_pos.max(hi);
                 env.vz_max_neg = env.vz_max_neg.min(lo);
-                let (lo, hi) = diagram_range_3d(ef, "momentY", ef.my_start, ef.my_end);
+                let (lo, hi) = member_diagram_range_3d(ef, "momentY")?;
                 env.my_max_pos = env.my_max_pos.max(hi);
                 env.my_max_neg = env.my_max_neg.min(lo);
-                let (lo, hi) = diagram_range_3d(ef, "momentZ", ef.mz_start, ef.mz_end);
+                let (lo, hi) = member_diagram_range_3d(ef, "momentZ")?;
                 env.mz_max_pos = env.mz_max_pos.max(hi);
                 env.mz_max_neg = env.mz_max_neg.min(lo);
-                let (lo, hi) = diagram_range_3d(ef, "torsion", ef.mx_start, ef.mx_end);
+                let (lo, hi) = member_diagram_range_3d(ef, "torsion")?;
                 env.mx_max_pos = env.mx_max_pos.max(hi);
                 env.mx_max_neg = env.mx_max_neg.min(lo);
             }
@@ -645,7 +537,9 @@ pub fn moving_loads_at_position_3d_with_maps(
             continue;
         }
 
-        if let Some((seg, local_pos)) = find_segment_3d(path, axle_pos) {
+        if let Some((seg, a)) = path.iter().find_map(|seg| {
+            sampled_axle_station(seg.start_pos, seg.end_pos, seg.length, seg.reversed, axle_pos).map(|a| (seg, a))
+        }) {
             // Gravity vector in global coordinates
             let (gx, gy, gz) = match gravity {
                 "y" => (0.0, -axle.weight, 0.0),
@@ -672,7 +566,7 @@ pub fn moving_loads_at_position_3d_with_maps(
                 loads.push(SolverLoad3D::PointOnElement(SolverPointLoad3D {
                     px: gx * lex[0] + gy * lex[1] + gz * lex[2],
                     element_id: seg.element_id,
-                    a: if seg.reversed { seg.length - local_pos } else { local_pos },
+                    a,
                     py,
                     pz,
                 }));
@@ -743,18 +637,29 @@ fn auto_detect_path_3d(input: &SolverInput3D) -> Result<Vec<usize>, String> {
     Ok(elem_list.iter().map(|e| e.id).collect())
 }
 
-fn find_segment_3d<'a>(path: &'a [PathSegment3D], global_pos: f64) -> Option<(&'a PathSegment3D, f64)> {
-    for seg in path {
-        if global_pos >= seg.start_pos - 1e-10 && global_pos <= seg.end_pos + 1e-10 {
-            let local = (global_pos - seg.start_pos).max(0.0).min(seg.length);
-            return Some((seg, local));
-        }
-    }
-    None
-}
-
 /// As `base_loads`: every input load is permanent (point loads on members, bimoments and
 /// shell loads used to be dropped).
 fn base_loads_3d(input: &SolverInput3D) -> Vec<SolverLoad3D> {
     input.loads.clone()
+}
+
+#[cfg(test)]
+mod diagram_limit_tests {
+    use super::*;
+
+    #[test]
+    fn moving_range_keeps_end_forces_and_recovered_tip_limits() {
+        let mut ef: ElementForces3D = serde_json::from_value(serde_json::json!({
+            "elementId": 1, "length": 10.0, "nStart": 0.0, "nEnd": 0.0,
+            "vyStart": 0.0, "vyEnd": 0.0, "vzStart": 0.0, "vzEnd": 0.0,
+            "mxStart": 0.0, "mxEnd": 0.0, "myStart": 50.0, "myEnd": 0.0,
+            "mzStart": 0.0, "mzEnd": 0.0, "qYI": 0.0, "qYJ": 0.0,
+            "qZI": -1.0, "qZJ": -1.0, "distributedLoadsY": [], "distributedLoadsZ": [],
+            "pointLoadsY": [], "pointLoadsZ": [{"a": 10.0, "p": 10.0}]
+        })).unwrap();
+        assert_eq!(member_diagram_range_3d(&ef, "shearZ").unwrap(), (-10.0, 0.0));
+        ef.point_loads_z[0].a = f64::from_bits(10.0_f64.to_bits() - 1);
+        let range = member_diagram_range_3d(&ef, "shearZ").unwrap();
+        assert!(range.0 > -10.0 && range.0 < -9.0, "{range:?}");
+    }
 }

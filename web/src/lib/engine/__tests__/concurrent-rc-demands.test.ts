@@ -108,7 +108,8 @@ describe('concurrent design demands #1316', () => {
       expect((v as any).concurrentChecks).toHaveLength(4);
       expect((v as any).concurrentChecks.map((x: any) => [x.demand.comboName, x.demand.forces.n, x.demand.forces.my, x.demand.forces.mz, x.demand.forces.torsion]))
         .toEqual([['gravity', -200, 30, 55, 12], ['gravity', -200, 30, 55, 12], ['wind', -100, 65, 5, 2], ['wind', -100, 65, 5, 2]]);
-      expect(normalizeCirsoc201([v], new Map())[0]!.checks.every(c => !c.comboName?.startsWith('N '))).toBe(true);
+      const rows = normalizeCirsoc201([v], new Map())[0]!.checks;
+      expect(rows.every(c => !c.comboName?.startsWith('N '))).toBe(true);
       const own = (esr.comboResults).map(cr => cr.stations[0]!);
       const params = { b: v.b, h: v.h, fc: v.fc, fy: v.fy, cover: v.cover, stirrupDia: 8 };
       const cage = resolveCage(params, { diameter: params.stirrupDia, legs: v.shear.stirrupLegs, spacing: v.shear.spacing });
@@ -117,8 +118,28 @@ describe('concurrent design demands #1316', () => {
         : { kind: 'column', diameters: [v.column!.barDia], totalAreaCm2: v.column!.AsProv });
       expect(face.kind).toBe('secondary-face');
       const expectedTorsion = own.map(s => checkTorsion(params, extractGoverningDemands(stations([[s]])).concurrent![0]!.section(v.flexureAxis!), '2025', face).ratio);
-      expect(v.torsion!.ratio).toBe(Math.max(...expectedTorsion));
-      if (!beam) {
+      if (beam) {
+        const refusal = 'diag.rcTorsionSecondaryFace';
+        const failure = { code: 'VERIF_FAIL_TORSION', severity: 'error', message: refusal };
+        expect(v.flexure.barDia).toBeGreaterThan(16);
+        expect(v.torsion).toMatchObject({ Tu: a.torsion, neglect: false, phiTn: 0, ratio: Infinity, status: 'fail', refusal });
+        expect(v.overallStatus).toBe('fail');
+        expect(v.diagnostics).toContainEqual(expect.objectContaining(failure));
+        expect(v.governingCombos?.torsion).toMatchObject({ comboId: 1, comboName: 'gravity' });
+        expect(rows).toContainEqual(expect.objectContaining({
+          name: refusal, ratio: Infinity, status: 'fail', comboName: 'gravity',
+        }));
+        for (const { demand, verification } of v.concurrentChecks!) {
+          if (demand.comboId === 1) {
+            expect(verification.torsion).toMatchObject({ Tu: a.torsion, neglect: false, phiTn: 0, ratio: Infinity, status: 'fail', refusal });
+            expect(verification.diagnostics).toContainEqual(expect.objectContaining(failure));
+          } else {
+            expect(verification.torsion).toMatchObject({ Tu: b.torsion, neglect: true, ratio: expectedTorsion[1], status: 'ok' });
+            expect(verification.torsion!.refusal).toBeUndefined();
+          }
+        }
+      } else {
+        expect(v.torsion!.ratio).toBe(Math.max(...expectedTorsion));
         const c = v.column!, layout = computeColumnLayout(c.barCount, c.barDia, v.b, v.h, v.cover, 8);
         const expected = own.map(s => computeBiaxialCapacity(layout.totalArea, v.b, v.h, v.fc, v.fy, v.cover, 8,
           -s.n, Math.abs(s.mz), Math.abs(s.my), layout.bars, '2025'));

@@ -1,34 +1,18 @@
-/**
- * The model's modes for the load generator's modal response spectrum method
- * (`engine/loads/seismic-modal.ts`), with the mass the plan itself assumes: the members' own
- * weight, the planned dead load and the planned live load at the seismic participation.
- *
- * Those loads are the level weights the forces are spread over (`LoadPlan.levels`) when the plan
- * loads by panels and is built without the §4.7.2 reduction, which the dialog does for the mass:
- * the weights carry Lo, not a member's reduced live load. By width the weights still come from
- * the extent of each level's nodes, and the two can differ.
- *
- * The plan's loads are not in the model yet when it is previewed, so they are handed to the
- * mass source as two temporary cases; nothing is written to the model. Modes are added until 90 %
- * of the mass in X and in Y (§7.2.3), as the Advanced panel's modal analysis does.
- */
 import { modelStore, uiStore } from './index';
 import { t } from '../i18n';
+import { PlateAnalysisError } from '../engine/plate-analysis-refusal';
 import { modelHasMemberOffsets } from '../engine/member-offsets';
 import { modelHasShellOffsets } from '../engine/shell-offsets';
 import { withMassSource, densitiesFor } from '../engine/dynamics/mass-source-model';
 import { modalUntilMass } from '../engine/dynamics/requests';
 import { solveModal3D } from '../engine/wasm-solver';
 import type { LoadPlan } from '../engine/loads/load-plan';
-import type { ModeShape } from '../engine/loads/seismic-modal';
 import { fundamentalFrequencies } from '../engine/loads/wind-dynamics';
 
 const DEAD = -1, LIVE = -2;
+type WindModalLoads = Pick<LoadPlan, 'distributed' | 'surface'>;
 
-/** The model's modal result under the plan's own masses, raw (`modesForPlan`, `windFrequenciesForPlan`). */
-export function planModalResult(plan: LoadPlan, liveParticipation: number): { result: unknown; reached: boolean } | { error: string } {
-  // Solved on the node lines (no helper nodes for the offsets): refused rather than handing the
-  // seismic and wind plans modes of a centred model (`dynamic-input.ts` `centerlineInput`).
+export function planModalResult(plan: WindModalLoads, liveParticipation: number): { result: unknown; reached: boolean } | { error: string } {
   if (modelHasMemberOffsets(modelStore.elements.values()) || modelHasShellOffsets(modelStore.plates, modelStore.quads)) {
     return { error: t('advanced.offsetsUnsupported') };
   }
@@ -48,7 +32,13 @@ export function planModalResult(plan: LoadPlan, liveParticipation: number): { re
     loads.push({ type: 'surface3d', data: { id: id++, quadId: s.quadId, q: s.q, caseId: s.caseType === 'D' ? DEAD : LIVE } });
   }
   const leftHand = uiStore.axisConvention3D === 'leftHand';
-  const input = modelStore.buildSolverInput3D(uiStore.includeSelfWeight, leftHand, { expandMemberOffsets: false });
+  let input;
+  try {
+    input = modelStore.buildSolverInput3D(uiStore.includeSelfWeight, leftHand, { expandMemberOffsets: false });
+  } catch (error) {
+    if (error instanceof PlateAnalysisError) return { error: error.message };
+    throw error;
+  }
   if (!input) return { error: 'empty' };
   const md = {
     nodes: modelStore.nodes, elements: modelStore.elements, supports: modelStore.supports,
@@ -64,20 +54,12 @@ export function planModalResult(plan: LoadPlan, liveParticipation: number): { re
   return { result: r.result, reached: r.reached };
 }
 
-export function modesForPlan(plan: LoadPlan, liveParticipation: number): { modes: ModeShape[]; reached: boolean } | { error: string } {
-  const r = planModalResult(plan, liveParticipation);
-  if ('error' in r) return r;
-  const modes = ((r.result as { modes?: Array<{ period: number; displacements: Array<{ nodeId: number; ux: number; uy: number }> }> }).modes ?? [])
-    .map((m) => ({ period: m.period, shape: new Map(m.displacements.map((d) => [d.nodeId, { ux: d.ux, uy: d.uy }])) }));
-  return { modes, reached: r.reached };
-}
-
 /**
  * Each wind direction's fundamental frequency under the plan's masses (CIRSOC 102-2025 §1.9.2):
  * the lowest mode with a tenth of the mass along it (`wind-dynamics.ts`). The live load at the seismic
  * participation is in the mass: more mass lowers n₁ and raises G_f, the safe side.
  */
-export function windFrequenciesForPlan(plan: LoadPlan, liveParticipation: number): ReturnType<typeof fundamentalFrequencies> | { error: string } {
+export function windFrequenciesForPlan(plan: WindModalLoads, liveParticipation: number): ReturnType<typeof fundamentalFrequencies> | { error: string } {
   const r = planModalResult(plan, liveParticipation);
   if ('error' in r) return r;
   const modes = ((r.result as { modes?: Array<{ frequency: number; massRatioX?: number; massRatioY?: number }> }).modes ?? []);

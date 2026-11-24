@@ -6,7 +6,11 @@ const COMPONENTS_3D = new Set<string>(['momentZ', 'shearY', 'axial', 'momentY', 
 const COMPONENTS_2D = new Set<string>(['moment', 'shear', 'axial']);
 
 function magnitude(f: Record<string, unknown>, component: string): number | undefined {
-  if ('mzStart' in f) return COMPONENTS_3D.has(component) ? governingMagnitude3D(f as unknown as ElementForces3D, component as Component3D) : undefined;
+  if ('mzStart' in f) {
+    if (!COMPONENTS_3D.has(component)) return undefined;
+    const peak = governingMagnitude3D(f as unknown as ElementForces3D, component as Component3D);
+    return peak.bounded ? undefined : peak.value;
+  }
   return COMPONENTS_2D.has(component) ? governingMagnitude2D(f as unknown as ElementForces, component as Component2D) : undefined;
 }
 

@@ -18,37 +18,46 @@ for (const edition of ['2005', '2025'] as const) for (const axis of ['My', 'Mz']
       expect(v.torsion!.AlReq).toBeGreaterThan(0);
       expect(v.torsion!.AlProv).toBeUndefined();
       expect(v.torsion).toHaveProperty('longitudinalProvision', 'not-checked');
-      expect(v.torsion!.status).toBe('warn');
+      const fixedCage = entry !== 'concurrent';
+      const reason = 'diag.rcTorsionPerimeter';
+      expect(v.torsion!.status).toBe(fixedCage ? 'fail' : 'warn');
       expect(v.overallStatus).not.toBe('ok');
       const normalized = normalizeCirsoc201([v], new Map())[0]!;
-      expect(normalized.status).toBe('held');
-      const torsion = normalized.checks.find(c => c.name === 'Torsion')!;
+      expect(normalized.status).toBe(fixedCage ? 'fail' : 'held');
+      const torsion = normalized.checks.find(c => c.name === (fixedCage ? reason : 'Torsion'))!;
       expect(torsion).toBeDefined();
       expect(torsion).toHaveProperty('longitudinalProvision', 'not-checked');
       expect(torsion.demand).toBe(Math.abs(v.torsion!.Tu));
       expect(torsion.capacity).toBe(v.torsion!.phiTn);
       expect(torsion.ratio).toBe(v.torsion!.ratio);
-      expect(torsion.ratio).toBeCloseTo(torsion.demand / torsion.capacity, 12);
-      expect(torsion.ratio).not.toBe(1);
-      if (entry === 'concurrent' && elementType === 'beam') expect(v.engineRecheck!.certified!.ok).toBe(false);
-      expect(v.torsion!.steps.join(' ')).toContain('longitudinal por torsión no verificada');
-      expect(v.diagnostics).toContainEqual(expect.objectContaining({ code: 'VERIF_TORSION_LONGITUDINAL_NOT_CHECKED' }));
+      if (fixedCage) {
+        expect(torsion.ratio).toBe(Infinity);
+        expect(v.torsion!.steps).toContain(reason);
+        expect(v.diagnostics).toContainEqual(expect.objectContaining({ code: 'VERIF_FAIL_TORSION', message: reason }));
+      } else {
+        expect(torsion.ratio).toBeCloseTo(torsion.demand / torsion.capacity, 12);
+        expect(torsion.ratio).not.toBe(1);
+        if (elementType === 'beam') expect(v.engineRecheck!.certified!.ok).toBe(false);
+        expect(v.torsion!.steps.join(' ')).toContain('longitudinal por torsión no verificada');
+        expect(v.diagnostics).toContainEqual(expect.objectContaining({ code: 'VERIF_TORSION_LONGITUDINAL_NOT_CHECKED' }));
+      }
     });
   }
   for (const factor of [0, 1 - 1e-8, 1, 1 + 1e-8]) {
-    it(`explicit longitudinal provision retains its boundary ${edition} ${axis} ${elementType} ${factor}`, () => {
+    it(`fixed longitudinal provision verdict ${edition} ${axis} ${elementType} ${factor}`, () => {
       const i = input(6), need = checkTorsion(params, i.demand, edition);
-      const v = verifyElement(i, { shear: { spacing: 0.05, legs: 2 }, torsion: { AlProv: need.AlReq * factor } });
-      expect(v.torsion!.AlProv).toBe(need.AlReq * factor);
-      expect(v.torsion!.status === 'fail').toBe(factor < 1);
-      expect(v.torsion!.reinforcementRatio).toBe(factor === 0 ? Infinity : 1 / factor);
+      const shear = { spacing: 0.05, legs: 2 };
+      const v = verifyElement(i, { shear, torsion: { AlProv: need.AlReq * factor } });
       const normalized = normalizeCirsoc201([v], new Map())[0]!;
-      const torsion = normalized.checks.find(c => c.name === 'Torsion')!;
+      const torsion = normalized.checks.find(c => c.name === 'diag.rcTorsionPerimeter')!;
       expect(torsion.demand).toBe(Math.abs(v.torsion!.Tu));
       expect(torsion.capacity).toBe(v.torsion!.phiTn);
       expect(torsion.ratio).toBe(v.torsion!.ratio);
-      expect(normalized.status === 'fail').toBe(factor < 1);
-      expect(normalized.status).not.toBe('held');
+      expect(v.torsion).toMatchObject({ status: 'fail', refusal: 'diag.rcTorsionPerimeter', longitudinalProvision: 'not-checked' });
+      expect(v.torsion!.AlProv).toBeUndefined();
+      expect(torsion.ratio).toBe(Infinity);
+      expect(normalized.status).toBe('fail');
+      expect(v.torsion!.reinforcementRatio).toBe(verifyElement(i, { shear }).torsion!.reinforcementRatio);
     });
   }
   it(`zero torque keeps the correct answer ${edition} ${axis} ${elementType}`, () => {

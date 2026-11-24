@@ -1,0 +1,40 @@
+{
+  "id": "plane-moving-concentrated-axial-forces",
+  "date": "2026-11-20",
+  "prs": [],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "plane2D",
+      "frameMembers"
+    ]
+  },
+  "quantities": [
+    "elementForces",
+    "envelopes"
+  ],
+  "title": {
+    "en": "Plane moving loads retain concentrated axial forces",
+    "es": "Las cargas móviles planas conservan las fuerzas axiales concentradas",
+    "pt": "Cargas móveis planas preservam forças axiais concentradas",
+    "de": "Ebene Wanderlasten behalten axiale Einzelkräfte bei",
+    "fr": "Les charges mobiles planes conservent les forces axiales ponctuelles",
+    "hu": "A síkbeli mozgó terhek megőrzik a koncentrált tengelyirányú erőt",
+    "tr": "Düzlemsel hareketli yükler tekil eksenel kuvvetleri korur",
+    "zh": "平面移动荷载保留集中轴向力"
+  },
+  "explanation": {
+    "en": "A moving force on a frame member now keeps its axial component at the load position. This restores the force jump at the load in plane influence lines and moving-load diagrams and envelopes.",
+    "es": "Una fuerza móvil sobre una barra de pórtico conserva su componente axial en el punto de aplicación. Así se recupera el salto del esfuerzo normal en las líneas de influencia, diagramas y envolventes de cargas móviles planas.",
+    "pt": "Uma força móvel em uma barra de pórtico mantém sua componente axial no ponto de aplicação. Isso recupera o salto de esforço normal nas linhas de influência, diagramas e envoltórias de cargas móveis planas.",
+    "de": "Bei einer wandernden Kraft auf einem Rahmenstab bleibt die axiale Komponente am Lastangriffspunkt. Dadurch erscheint der Normalkraftsprung in ebenen Einflusslinien, Schnittgrößendiagrammen und Einhüllenden wieder.",
+    "fr": "La composante axiale d’une force mobile sur une barre de portique reste au point d’application. Les lignes d’influence planes, les diagrammes et les enveloppes retrouvent ainsi le saut d’effort normal.",
+    "hu": "A keretrúdon mozgó erő tengelyirányú összetevője a terhelés helyén marad. Így a normálerő ugrása megjelenik a síkbeli hatásábrákon, igénybevételi ábrákon és burkológörbéken.",
+    "tr": "Çerçeve elemanı üzerindeki hareketli bir kuvvetin eksenel bileşeni yükün uygulandığı noktada kalır. Böylece düzlemsel etki çizgileri, kuvvet diyagramları ve zarflar normal kuvvet sıçramasını gösterir.",
+    "zh": "框架杆件上移动荷载的轴向分量保留在作用点。平面影响线、移动荷载内力图和包络因此能反映轴力在作用点处的跳变。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-plane-moving-axial-jump.md",
+    "heading": "Concentrated axial actions in plane moving loads and influence lines"
+  }
+}

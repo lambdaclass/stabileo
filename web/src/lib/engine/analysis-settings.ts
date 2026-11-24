@@ -32,6 +32,7 @@ export type PerCombination = 'linear' | 'pdelta';
 
 export interface AnalysisSettings {
   selfWeight?: SelfWeightLoad[];
+  standaloneSelfWeight?: 'gravity';
   combinationMethod?: CombinationMethod;
   perCombination?: PerCombination;
   /**
@@ -72,7 +73,7 @@ export function editSelfWeightRule(rules: readonly SelfWeightLoad[], i: number, 
 
 /** Whether settings say anything; an empty object is stored as absent. */
 export function isEmptyAnalysis(a: AnalysisSettings | undefined): boolean {
-  return !a || ((a.selfWeight === undefined) && a.combinationMethod === undefined && a.perCombination === undefined && a.shearDeformation === undefined && a.beamTorsion === undefined);
+  return !a || ((a.selfWeight === undefined) && a.standaloneSelfWeight === undefined && a.combinationMethod === undefined && a.perCombination === undefined && a.shearDeformation === undefined && a.beamTorsion === undefined);
 }
 
 export interface SelfWeightPlan {

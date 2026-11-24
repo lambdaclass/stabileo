@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { axisName } from '../../../lib/axes/display';
+  import { planNamesIn } from '../../../lib/axes/typed-frame';
   /**
    * The PHYSICAL bottom mat of one footing: order, elevations, bars, schedule, anchorage.
    *
@@ -135,8 +137,8 @@
                 <th>{t('footing.ui.matArrangementFeasible')}</th>
                 <th>{t('footing.ui.matArrangementMass')}</th>
                 <th>{t('footing.ui.matArrangementUtil')}</th>
-                <th>dX</th>
-                <th>dY</th>
+                <th>d{axisName(0)}</th>
+                <th>d{axisName(1)}</th>
               </tr>
             </thead>
             <tbody>
@@ -258,11 +260,11 @@
       </div>
       <!-- The reconciliation, said out loud: the totals above ARE the bars in the model. -->
       <p class="note" data-testid="footing-mat-reconciliation">
-        {tp('footing.ui.matReconciled', {
+        {planNamesIn(tp('footing.ui.matReconciled', {
           scheduled: geometry.schedule.reduce((n, r) => n + r.barCount, 0),
           generated: geometry.provenance.length,
           crossings: geometry.intendedCrossings,
-        })}
+        }))}
       </p>
     {/if}
 
@@ -336,7 +338,7 @@
         and an orthogonal grid is neither case.
       -->
       <p class="note" data-testid="footing-mat-no-conflicts">
-        {tp('footing.ui.matNoConflicts', { crossings: geometry.intendedCrossings })}
+        {planNamesIn(tp('footing.ui.matNoConflicts', { crossings: geometry.intendedCrossings }))}
       </p>
     {/if}
 

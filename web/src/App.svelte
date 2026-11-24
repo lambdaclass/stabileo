@@ -3,12 +3,17 @@
   import { modelAuditFeatures } from './lib/provenance/under-audit';
   import { verificationStore } from './lib/store/verification.svelte';
   import { accountGate } from './lib/store/account-gate.svelte';
+  import { userComponent, axisName, twoD } from './lib/axes/display';
   import { provideEditorActivity } from './lib/utils/editor-activity';
   // First: every dictionary entry, before anything here renders (the store starts with the public
   // pages' entries only; Root.svelte loads this component on the first app route).
   import './lib/i18n/full-dictionaries';
   import { seedProStarterLibrary } from './lib/pro/pro-starter-library';
   import ProQuickEdit from './components/pro/ProQuickEdit.svelte';
+  import MeshProgressCard from './components/pro/plates/MeshProgressCard.svelte';
+  import RcSheetsProgressCard from './components/pro/rc-sheets/RcSheetsProgressCard.svelte';
+  import { sheetsProgress } from './lib/store/rc-sheets-progress.svelte';
+  import { meshProgress } from './lib/store/mesh-progress.svelte';
   import { is3DWorkspace } from './lib/utils/workspace';
   import { captureFigure } from './lib/export/figure';
   import { viewportCanvas } from './lib/utils/viewport-canvas';
@@ -335,6 +340,7 @@
   import StressPickHint from './components/stress/StressPickHint.svelte';
   import ColourScaleLegend from './components/ColourScaleLegend.svelte';
   import SwitchTo2DDialog from './components/SwitchTo2DDialog.svelte';
+  import AxesPicker from './components/axes/AxesPicker.svelte';
   import RecheckNotice from './components/RecheckNotice.svelte';
   import WorkspaceSaveNotice from './components/WorkspaceSaveNotice.svelte';
   import { prepareExportProvenance, pngWithProvenance } from './lib/export/provenance-attach';
@@ -801,12 +807,17 @@
   }
 
 
+  const pasteAxes = $derived(uiStore.is3DWorkspace ? [axisName(0), axisName(1)] : [twoD.horizontal, twoD.vertical]);
+  function pastedPoint(a: number, b: number): [number, number] {
+    return uiStore.is3DWorkspace ? [userComponent(0, a, 'vector') + 0, userComponent(1, b, 'vector') + 0] : [twoD.fromX(a) + 0, twoD.fromZ(b) + 0];
+  }
+
   function handleImportCoordinates() {
     const lines = importText.trim().split('\n').filter(l => l.trim());
     const points: Array<[number, number]> = [];
     for (const line of lines) {
       const parts = line.trim().split(/[,;\t\s]+/).map(Number);
-      if (parts.length >= 2 && !isNaN(parts[0]) && !isNaN(parts[1])) points.push([parts[0], parts[1]]);
+      if (parts.length >= 2 && !isNaN(parts[0]) && !isNaN(parts[1])) points.push(pastedPoint(parts[0], parts[1]));
     }
     // One undo step for the whole import — none when every point is a node already there — and
     // each point welds to a node already at its coordinates: a wireframe listing repeats shared
@@ -2338,8 +2349,10 @@
 <RebarWorkspace />
 {#if !deskDocked}<DesignDesk />{/if}
 
-{#if uiStore.toasts.length > 0}
+{#if uiStore.toasts.length > 0 || meshProgress.now || sheetsProgress.now}
   <div class="toast-container" class:toast-over-sheet={uiStore.isMobile && uiStore.appMode === 'basico' && basicPanel !== null}>
+    <MeshProgressCard />
+    {#if __PUBLIC_FEATURES__.proRcSheets}<RcSheetsProgressCard />{/if}
     {#each uiStore.toasts as toast}
       <div class="toast toast-{toast.type}">
         <span>{toast.message}</span>
@@ -2391,6 +2404,7 @@
   viewport-scoped act.
 -->
 <SwitchTo2DDialog bind:open={uiStore.switchTo2DPrompt} />
+{#if __PUBLIC_FEATURES__.globalAxes}<AxesPicker />{/if}
 
 <!--
   The re-check notice for a project last solved with an older version, and the banner that keeps
@@ -2453,7 +2467,7 @@
         <button class="help-close" onclick={() => showImportDialog = false}>✕</button>
       </div>
       <p style="font-size: 0.85rem; color: #aaa; margin: 0.5rem 0">
-        {t('app.importCoordDesc')}
+        {t('app.importCoordDesc').replace('X,Y', pasteAxes.join(','))}
       </p>
       <textarea
         class="import-textarea"
@@ -3922,7 +3936,8 @@
          phone also draws the bottom bar — PRO and Education, the two modes
          that are not Basic — so the offset is unconditional here.
       */
-      bottom: var(--st-bar-h);
+      --st-sheet-bottom: var(--st-bar-h);
+      bottom: var(--st-sheet-bottom);
       left: 0;
       right: 0;
       width: 100%;
@@ -3932,7 +3947,7 @@
       border-left: none;
       border-top: 1px solid var(--st-hair-strong);
       border-radius: 12px 12px 0 0;
-      animation-name: sheet-slide-up;
+      animation-name: st-sheet-slide-up;
     }
 
     /*
@@ -3988,11 +4003,6 @@
       line-height: 1;
       cursor: pointer;
       touch-action: manipulation;
-    }
-
-    @keyframes sheet-slide-up {
-      from { transform: translateY(100%); }
-      to { transform: translateY(0); }
     }
   }
 
