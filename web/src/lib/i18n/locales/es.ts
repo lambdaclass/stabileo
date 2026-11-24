@@ -636,6 +636,7 @@ const es: Record<string, string> = {
   'landing.navLanguage': 'Idioma',
   'landing.navGithubRepo': 'Repositorio en GitHub',
   'landing.navOpenEditor': 'Abrir el editor',
+  'landing.openingEditor': 'Abriendo el editor…',
   'landing.navPricing': 'Precios',
   'landing.navBlog': 'Blog',
   'landing.navPaper': 'Paper',

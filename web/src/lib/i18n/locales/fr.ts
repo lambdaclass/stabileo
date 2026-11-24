@@ -306,6 +306,7 @@ const fr: Translations = {
   'landing.navLanguage': 'Langue',
   'landing.navGithubRepo': 'Dépôt GitHub',
   'landing.navOpenEditor': 'Ouvrir l\'éditeur',
+  'landing.openingEditor': 'Ouverture de l’éditeur…',
   'landing.navPricing': 'Tarifs',
   'landing.navBlog': 'Blog',
   'landing.navPaper': 'Article',
