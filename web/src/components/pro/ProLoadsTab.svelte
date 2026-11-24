@@ -7,7 +7,7 @@
   import { windCaseReversible } from '../../lib/store/wind-reversal';
   import ProFloorLoadSection from './ProFloorLoadSection.svelte';
   import { expandCombinations, presentSymbols, type CaseCombination } from '../../lib/engine/loads/combination-cases';
-  import { addGeneratedCombinations, addCompositeCases, combinationExists, templateCombinationSpecs } from '../../lib/store/generated-combinations';
+  import { activeCombinationFactors, addGeneratedCombinations, addCompositeCases, combinationExists, templateCombinationSpecs } from '../../lib/store/generated-combinations';
   import { withNotionalVariants } from '../../lib/engine/loads/notional-combinations';
   import { modelStore, uiStore } from '../../lib/store';
   import { runEngineAction } from '../../lib/store/engine-action';
@@ -60,11 +60,6 @@
   let seismicBothSenses = $state(true);
   let windBySign = $state(false);
 
-  // Read through the composite cases: one written as a composite case is the same combination.
-  function comboExists(factors: Array<{caseId: number; factor: number}>): boolean {
-    return combinationExists(factors, combinations, modelStore.model.loadCases);
-  }
-
   function buildCandidates(template: ComboTemplate): CandidateCombo[] {
     return candidatesFrom(template);
   }
@@ -91,10 +86,10 @@
     });
     // The notional cases, each with its source's factor, in the combinations without lateral load.
     const out = (addNotionals ? withNotionalVariants(expanded, cases) : expanded).map((c) => {
-      const factors = cases.map((lc) => ({ caseId: lc.id, factor: c.factors.find((f) => f.caseId === lc.id)?.factor ?? 0 }));
-      return { name: c.name, factors, exists: comboExists(factors), selected: false, template, generated: c };
+      const factors = activeCombinationFactors(c.factors);
+      const exists = combinationExists(factors, combinations, asComposite ? modelStore.model : undefined);
+      return { name: c.name, factors, exists, selected: !exists, template, generated: c };
     });
-    for (const c of out) c.selected = !c.exists;
     return out;
   }
 
@@ -251,12 +246,12 @@
         </label>
       {/if}
       <label class="combo-wind-basis" data-testid="combo-as-composite">
-        <input type="checkbox" bind:checked={asComposite} />
+        <input type="checkbox" bind:checked={asComposite} onchange={() => { candidateCombos = runEngineAction(() => buildCandidates(activeTemplate)) ?? candidateCombos; }} />
         <span>{t('combos.asComposite')}</span>
       </label>
       <div class="combo-modal-body">
         {#each candidateCombos as cand, i}
-          {@const nonZero = cand.factors.filter(f => Math.abs(f.factor) > 1e-9).sort((a, b) => {
+          {@const nonZero = [...cand.factors].sort((a, b) => {
             const typePri = (id: number) => {
               const lc2 = loadCases.find(c => c.id === id);
               const tp = (lc2?.type || '').toUpperCase();

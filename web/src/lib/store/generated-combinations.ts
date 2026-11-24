@@ -15,8 +15,9 @@
  *
  * Run inside the caller's batch: one command, one undo step.
  */
+import { caseOrder } from '../engine/case-effects';
 import { sumCombinationFactors } from '../engine/wasm-solver';
-import { modelStore, type LoadCase, type LoadCombination } from './model.svelte';
+import { modelStore, type LoadCombination, type StructureModel } from './model.svelte';
 import type { CaseCombination } from '../engine/loads/combination-cases';
 import { generateCombinations, type LoadCombinationSpec, type CombinationInputs } from '../codes/cirsoc101/combinations';
 import { generateServiceCombinations } from '../codes/cirsoc101/service-combinations';
@@ -82,13 +83,13 @@ export function addGeneratedCombinations(list: readonly CaseCombination[], prefi
  */
 export function addCompositeCases(list: readonly CaseCombination[], prefix: (c: CaseCombination) => string = () => ''): number[] {
   const ids: number[] = [];
-  const resolved = list.map(c => ({ ...c, factors: sumCombinationFactors(c.factors) }));
+  const resolved = list.map(c => ({ ...c, factors: activeCombinationFactors(c.factors) }));
   modelStore.batch(() => {
     const combos: CaseCombination[] = [];
     for (const c of resolved) {
       const name = `${prefix(c)}${c.name}`;
       const id = modelStore.addLoadCase(name, '', { generated: true });
-      modelStore.updateLoadCaseFields(id, { includes: c.factors.filter((f) => f.factor !== 0) });
+      modelStore.updateLoadCaseFields(id, { includes: c.factors });
       ids.push(id);
       combos.push({ ...c, name, factors: [{ caseId: id, factor: 1 }] });
     }
@@ -124,35 +125,39 @@ export function takeBackCompositeCases(): number[] {
   return gone;
 }
 
-/**
- * The cases a combination's factors stand for, a composite case read through what it takes in, at
- * any depth, with the factors on the way multiplied; a case in a loop as its own.
- */
-function leafFactors(factors: ReadonlyArray<{ caseId: number; factor: number }>, cases: ReadonlyArray<Pick<LoadCase, 'id' | 'includes'>>): Map<number, number> {
-  const byId = new Map(cases.map((c) => [c.id, c]));
-  const leaves: CaseCombination['factors'] = [];
-  const walk = (id: number, k: number, seen: ReadonlySet<number>) => {
-    const inc = byId.get(id)?.includes;
-    if (!inc?.length || seen.has(id)) { leaves.push({ caseId: id, factor: k }); return; }
-    for (const i of sumCombinationFactors(inc)) walk(i.caseId, k * i.factor, new Set([...seen, id]));
-  };
-  for (const f of sumCombinationFactors(factors)) if (f.factor !== 0) walk(f.caseId, f.factor, new Set());
-  return new Map(sumCombinationFactors(leaves).map(({ caseId, factor }) => [caseId, factor]));
+type Factors = ReadonlyArray<LoadCombination['factors'][number]>;
+
+export function activeCombinationFactors(factors: Factors): LoadCombination['factors'] {
+  return sumCombinationFactors(factors).filter(({ factor }) => factor !== 0);
 }
 
-const signature = (m: ReadonlyMap<number, number>) =>
-  [...m].filter(([, f]) => Math.abs(f) > 1e-9).sort((a, b) => a[0] - b[0]).map(([id, f]) => `${id}:${f.toFixed(2)}`).join('|');
-
-/**
- * Whether the model has a combination of these factors already, read through the composite
- * cases: a combination written as a composite case takes that case at 1, and compared as written
- * it never matched, so every run in composite mode wrote the whole set again.
- */
 export function combinationExists(
-  factors: ReadonlyArray<{ caseId: number; factor: number }>,
-  combinations: ReadonlyArray<Pick<LoadCombination, 'factors'>>,
-  cases: ReadonlyArray<Pick<LoadCase, 'id' | 'includes'>>,
+  factors: Factors,
+  combinations: ReadonlyArray<Pick<LoadCombination, 'factors' | 'method'>>,
+  compositeModel?: Pick<StructureModel, 'loadCases' | 'loads' | 'analysis'>,
 ): boolean {
-  const sig = signature(leafFactors(factors, cases));
-  return combinations.some((c) => signature(leafFactors(c.factors, cases)) === sig);
+  const expected = activeCombinationFactors(factors);
+  if (expected.length === 0) return false;
+  const sameFactors = (actual: Factors) =>
+    actual.length === expected.length && actual.every(({ caseId, factor }, i) =>
+      caseId === expected[i]!.caseId && factor === expected[i]!.factor);
+  const linear = combinations.filter(c => c.method === undefined || c.method === 'linear');
+
+  if (!compositeModel) return linear.some(c => sameFactors(activeCombinationFactors(c.factors)));
+
+  const { loadCases, loads, analysis } = compositeModel;
+  const occupied = new Set([
+    ...loads.map(load => load.data.caseId ?? 1),
+    ...(analysis?.selfWeight ?? []).map(row => row.caseId),
+    ...caseOrder(loadCases).looped,
+  ]);
+  const wrappers = new Map(loadCases
+    .filter(c => c.generated && c.includes?.length && c.type === '' && !c.notional && !c.spectral && !occupied.has(c.id))
+    .map(c => [c.id, c.includes!]));
+  return linear.some(c => {
+    const roots = activeCombinationFactors(c.factors);
+    if (roots.length !== 1 || roots[0]!.factor !== 1) return false;
+    const includes = wrappers.get(roots[0]!.caseId);
+    return includes !== undefined && sameFactors(activeCombinationFactors(includes));
+  });
 }
