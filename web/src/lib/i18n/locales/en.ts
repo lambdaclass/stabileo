@@ -4293,6 +4293,7 @@ const en: Record<string, string> = {
   'svc.zeroLengthElement': 'Member {n} has zero length (nodes {ni} and {nj} coincide).',
   'svc.model3dSupport': 'This model uses 3D supports ({n}) that are not compatible with 2D analysis. Switch to Stabileo 3D to analyze it.',
   'svc.model3dZCoords': 'This model has nodes with Z coordinates (3D geometry). Switch to Stabileo 3D to analyze it.',
+  "svc.shellsRequirePro3d": "Shell elements require PRO 3D analysis. Switch to PRO to analyze this model.",
   'svc.variableIn2D': 'Member {n} is of variable section, which the 2D analysis does not model: it would be solved with the section at end I alone. Switch to Stabileo 3D to analyze it.',
   'svc.planeCollapse': 'Member {elem} collapses to zero length when projected to the {plane} plane. Choose a different plane or use 3D mode.',
   'svc.constraintsCoupled': 'A constraint ties a movement in the plane to one out of it (a linear MPC with terms on both, or an eccentric connection offset out of the plane). A 2D solve has no out-of-plane movements, so it cannot keep that tie and its results would be wrong. Solve in 3D.',

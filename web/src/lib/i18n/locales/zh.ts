@@ -4083,6 +4083,7 @@ const zh: Translations = {
   "svc.zeroLengthElement": "杆件 {n} 长度为零（节点 {ni} 与 {nj} 重合）。",
   "svc.model3dSupport": "此模型使用了与 2D 分析不兼容的 3D 支座（{n}）。请切换到 Stabileo 3D 进行分析。",
   "svc.model3dZCoords": "此模型的节点带有 Z 坐标（3D 几何）。请切换到 Stabileo 3D 进行分析。",
+  "svc.shellsRequirePro3d": "壳单元需要 PRO 三维分析。请切换到 PRO 以分析此模型。",
   "svc.variableIn2D": "杆件 {n} 为变截面，2D 分析不对其建模：将仅按 I 端的截面求解。请切换到 Stabileo 3D 进行分析。",
   "svc.planeCollapse": "杆件 {elem} 投影到 {plane} 平面后长度退化为零。请选择其他平面或使用 3D 模式。",
   "svc.constraintsCoupled": "某个约束把平面内的位移与平面外的位移联系在一起（两端都带项的线性 MPC，或偏离平面的偏心连接）。2D 求解没有平面外位移，因此无法保持这种联系，其结果会是错误的。请在 3D 中求解。",
