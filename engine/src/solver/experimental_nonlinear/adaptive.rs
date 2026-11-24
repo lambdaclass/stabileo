@@ -48,8 +48,12 @@ impl Steps {
 
     /// The increment did not converge: `false` when no smaller one is allowed.
     pub(super) fn failed(&mut self) -> bool {
-        self.size *= 0.5;
-        self.size >= self.smallest
+        let attempted = self.size.min(1.0 - self.reached);
+        if attempted <= self.smallest {
+            return false;
+        }
+        self.size = (0.5 * attempted).max(self.smallest);
+        true
     }
 }
 
@@ -156,13 +160,23 @@ mod tests {
     #[test]
     fn increments_that_always_fail_stop_at_a_hundredth_of_the_first() {
         let mut steps = Steps::from_n_increments(4);
-        let mut halvings = 0;
+        let mut tried = Vec::new();
         while steps.failed() {
-            halvings += 1;
-            assert!(steps.next().unwrap() >= SMALLEST * 0.25);
+            tried.push(steps.next().unwrap());
+            assert!(tried.len() < 100);
         }
-        assert_eq!(halvings, 6);
+        assert_eq!(tried, vec![0.125, 0.0625, 0.03125, 0.015625, 0.0078125, 0.00390625, SMALLEST * 0.25]);
         assert!(taken(4, &|_| None).is_empty());
+    }
+
+    #[test]
+    fn a_last_increment_that_fails_is_retried_at_half_of_what_was_left() {
+        let targets = taken(4, &|attempt| match attempt {
+            1 | 2 => Some(EASY),
+            3 => None,
+            _ => Some(EASY + 1),
+        });
+        assert_eq!(targets, vec![0.25, 0.75, 0.875, 1.0]);
     }
 
     #[test]
