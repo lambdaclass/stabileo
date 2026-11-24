@@ -152,13 +152,11 @@ it.each([
   },
 );
 
-const round3Notional = process.env.RUN_KNOWN_WRONG === '2297' ? it : it.skip;
-
-round3Notional.each([
+it.each([
   ['spatial', 'main thread'], ['spatial', 'worker'], ['spatial', 'worker fallback'],
   ['planar', 'main thread'], ['planar', 'worker'], ['planar', 'worker fallback'],
 ] as const)(
-  'known wrong result: #2297 direct analysis retains tiny explicit notional loads in %s through the %s',
+  '#2297 direct analysis retains tiny explicit notional loads in %s through the %s',
   async (dimension, path) => {
     const planar = dimension === 'planar';
     const a = modelStore.addNode(0, 0, 0);

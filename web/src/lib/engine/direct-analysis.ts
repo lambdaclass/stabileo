@@ -277,7 +277,7 @@ export async function runDirectAnalysis(
     for (const combo of resolved) {
       const terms: LoadCombination['factors'] = [];
       for (const f of combo.factors) notionalIn(f.caseId, f.factor, terms, new Set());
-      const factors = sumCombinationFactors(terms).filter(({ factor }) => Math.abs(factor) > 1e-12);
+      const factors = sumCombinationFactors(terms).filter(({ factor }) => factor !== 0);
       for (const { caseId } of factors) caseIds.add(caseId);
       notionalByCombo.set(combo, factors);
     }

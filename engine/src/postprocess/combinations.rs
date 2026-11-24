@@ -499,7 +499,7 @@ pub fn combine_results_refs(factors: &[CombinationFactor], cases: &[(usize, &Ana
 fn combined_screen_2d(resolved: &ResolvedFactors, cases: &[(usize, &AnalysisResults)], carried: &[StructuredDiagnostic]) -> (Option<f64>, Vec<StructuredDiagnostic>) {
     let ratio = crate::known_issues::combined_ratio(cases.iter().enumerate().map(|(slot, (_, r))| {
         let factor = resolved.terms.iter().find(|&&(_, s)| s == slot).map_or(0.0, |&(factor, _)| factor);
-        (factor, r.result_summary.as_ref(), r.element_forces.iter().any(axial_2d))
+        (factor.abs(), r.result_summary.as_ref(), r.element_forces.iter().any(axial_2d))
     }));
     let diagnostics = crate::known_issues::combined_second_order(carried.iter(), resolved.terms.iter().any(|&(factor, _)| factor < 0.0), ratio);
     (ratio, diagnostics)
