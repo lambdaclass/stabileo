@@ -294,14 +294,15 @@ impl PathProblem for ArcLength3D<'_> {
         iterations: usize,
         converged: bool,
     ) -> Result<(), String> {
+        let u_geom = self.global();
         self.naturals = on_one_branch_3d(
             self.input,
             self.dof_num,
             (&self.u_converged, &self.naturals),
-            &self.u_full,
+            &u_geom,
             self.left_hand,
         )?;
-        self.u_converged.clone_from(&self.u_full);
+        self.u_converged.clone_from(&u_geom);
         self.steps.push(EquilibriumStep3D {
             step,
             load_factor: lambda,
@@ -309,7 +310,7 @@ impl PathProblem for ArcLength3D<'_> {
             iterations,
             displacements: crate::solver::linear::build_displacements_3d(
                 self.dof_num,
-                &self.global(),
+                &u_geom,
             ),
         });
         Ok(())
@@ -661,6 +662,73 @@ mod tests {
             assert!(factorized <= assembled, "{element}, {n}: {factorized} factorizations for {assembled} assemblies");
             assert!(factorized >= followed.steps.len());
         }
+    }
+
+    #[test]
+    fn inclined_support_steps_check_deformations_in_global_coordinates() {
+        for left_hand in [false, true] {
+            let mut input = space_cantilever(1);
+            input.left_hand = Some(left_hand);
+            let mut tip = input.supports["1"].clone();
+            tip.node_id = 2;
+            (tip.rx, tip.ry, tip.rz, tip.rrx, tip.rry, tip.rrz) = (false, false, false, false, false, false);
+            tip.is_inclined = Some(true);
+            (tip.normal_x, tip.normal_y, tip.normal_z) = (Some(1.0), Some(2.0), Some(3.0));
+            input.supports.insert("2".into(), tip);
+            let dof_num = DofNumbering::build_3d(&input);
+            let cs = FreeConstraintSystem::build_3d(&input, &dof_num).unwrap();
+            let asm = assembly::assemble_3d(&input, &dof_num);
+            assert_eq!(asm.inclined_transforms.len(), 1);
+            let metric = crate::solver::convergence::EquilibriumMetric::for_3d(&input, &dof_num, cs.as_ref()).unwrap();
+            let zero = vec![0.0; dof_num.n_total];
+            let mut problem = ArcLength3D {
+                input: &input, dof_num: &dof_num, cs: &cs, asm: &asm, metric: &metric,
+                ns: dof_num.n_free, left_hand, f_ref: &asm.f[..dof_num.n_free], psi2: 1.0,
+                u_full: zero.clone(), u_converged: zero.clone(),
+                naturals: member_deformations_3d(&input, &dof_num, &zero, left_hand),
+                sparse_sym_cache: None, factor: None, factorizations: 0,
+                f_int: Vec::new(), r_f: Vec::new(), k_t: Vec::new(),
+                trip_rows: Vec::new(), trip_cols: Vec::new(), trip_vals: Vec::new(), steps: Vec::new(),
+            };
+            for step in 1..=2 {
+                problem.u_full[dof_num.global_dof(2, 0).unwrap()] = 0.02 * step as f64;
+                problem.u_full[dof_num.global_dof(2, 1).unwrap()] = -0.01 * step as f64;
+                let global = problem.global();
+                assert_ne!(global, problem.u_full);
+                let expected = on_one_branch_3d(&input, &dof_num,
+                    (&problem.u_converged, &problem.naturals), &global, left_hand).unwrap();
+                problem.record(step, 1.0, 2, true).unwrap();
+                assert_eq!(problem.u_converged, global);
+                for (actual, expected) in problem.naturals.iter().zip(expected) {
+                    assert_eq!(actual.natural.to_bits(), expected.natural.to_bits());
+                    assert_eq!(actual.chord.to_bits(), expected.chord.to_bits());
+                    assert_eq!(actual.ends, expected.ends);
+                }
+                let expected = crate::solver::linear::build_displacements_3d(&dof_num, &global);
+                assert_eq!(serde_json::to_value(&problem.steps.last().unwrap().displacements).unwrap(),
+                    serde_json::to_value(expected).unwrap());
+            }
+            problem.u_full[dof_num.global_dof(2, 3).unwrap()] = MAX_RELATIVE_END_ROTATION + 0.1;
+            let before = problem.u_converged.clone();
+            let expected = on_one_branch_3d(&input, &dof_num,
+                (&before, &problem.naturals), &problem.global(), left_hand).err().unwrap();
+            assert_eq!(problem.record(3, 1.0, 2, true).unwrap_err(), expected);
+            assert_eq!(problem.steps.len(), 2);
+            assert_eq!(problem.u_converged, before);
+        }
+    }
+
+    #[test]
+    fn a_large_target_iteration_count_does_not_overflow() {
+        let (_, space) = planar(2, 0.3, "truss", (0.0, -1.0));
+        let mut input = asked(space, 4, 0.02);
+        input.target_iter = usize::MAX;
+        let result = solve_arc_length_3d(&input).unwrap();
+        assert!(result.converged);
+        assert_eq!(result.steps.len(), 4);
+        input.target_iter = usize::MAX / 2;
+        let expected = solve_arc_length_3d(&input).unwrap();
+        assert_eq!(serde_json::to_value(result).unwrap(), serde_json::to_value(expected).unwrap());
     }
 
     #[test]

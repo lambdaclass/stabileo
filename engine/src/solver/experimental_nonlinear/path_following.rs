@@ -148,7 +148,7 @@ pub(crate) fn solve_by_arc_length<P: PathProblem + ?Sized>(
 
         if step_iters <= control.target_iter / 2 {
             ds = (ds * 2.0).min(control.max_ds);
-        } else if step_iters > control.target_iter * 2 {
+        } else if step_iters > control.target_iter.saturating_mul(2) {
             ds = (ds * 0.5).max(control.min_ds);
         }
     }
