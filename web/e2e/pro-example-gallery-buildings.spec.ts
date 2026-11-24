@@ -5,7 +5,7 @@
  * `data/__tests__/pro-examples-gallery.switch-on.test.ts`.
  */
 import { BUILD_FEATURES } from './build-features';
-import { test, expect } from './fixtures';
+import { test, expect, alSection } from './fixtures';
 
 if (BUILD_FEATURES.proPlatesUnified) {
   test('@smoke the gallery opens on the concrete buildings and one loads with the generator\'s wind, its dialog on its settings', async ({ pro: page }) => {
@@ -28,8 +28,14 @@ if (BUILD_FEATURES.proPlatesUnified) {
     await page.getByTestId('pr-stage-model').click();
     await page.getByTestId('pr-cmd-loads').click();
     await page.getByTestId('pro-auto-loads-btn').click();
+    await expect(page.getByTestId('dead-picker')).toBeVisible();
+    await alSection(page, 'live');
     await expect(page.getByTestId('al-occupancy')).toHaveValue('vivienda');
+    await alSection(page, 'roof');
     await expect(page.getByTestId('al-roof')).not.toBeChecked();
+    await alSection(page, 'wind');
     await expect(page.getByTestId('al-enable-wind')).toBeChecked();
+    await expect(page.getByTestId('al-nav-wind')).not.toHaveClass(/\boff\b/);
+    await expect(page.getByTestId('al-nav-seismic')).toHaveClass(/\boff\b/);
   });
 }
