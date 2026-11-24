@@ -305,15 +305,9 @@ export function serializeProject(): string {
  * v1.0 snapshots into the typed-release shape, restores the model, and returns
  * `true` on success. Unknown/invalid payloads return `false` without mutating state.
  */
-export function deserializeProject(text: string): boolean {
-  let parsed: unknown;
+function deserializeProjectWithNotice(text: string): boolean {
   try {
-    parsed = JSON.parse(text);
-  } catch {
-    return false;
-  }
-  try {
-    return openProjectData(parsed);
+    return deserializeProject(text);
   } catch (error) {
     if (!(error instanceof ModelAliasConflict)) throw error;
     uiStore.toast(error.message, 'error');
@@ -321,11 +315,21 @@ export function deserializeProject(text: string): boolean {
   }
 }
 
-function openProjectData(parsed: unknown): boolean {
+export { deserializeProjectWithNotice as deserializeProject };
+
+function deserializeProject(text: string): boolean {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    return false;
+  }
   if (!parsed || typeof parsed !== 'object') return false;
-  const data = parsed as Record<string, unknown>;
-  if (typeof data.version !== 'string' || !KNOWN_VERSIONS.has(data.version)) return false;
-  if (!isValidDedalFile(data)) return false;
+  const d = parsed as Record<string, unknown>;
+  if (typeof d.version !== 'string' || !KNOWN_VERSIONS.has(d.version)) return false;
+  if (!isValidDedalFile({ ...d, version: DEDAL_FILE_VERSION })) return false;
+
+  const data = d as unknown as DedalFile;
   adoptStoredProject(data.snapshot, data.name, data.analysisMode);
   // appMode is derived from analysisMode (getter-only) — assigning it throws
   // in strict mode, which broke opening any .ded that carried appMode.
@@ -690,7 +694,7 @@ export async function loadProject(file: File): Promise<void> {
   const version = (data as { version?: unknown } | null)?.version;
   const newest = isSessionFile(data) ? SESSION_FILE_VERSION : DEDAL_FILE_VERSION;
   if (isNewerFileVersion(version, newest)) throw newerVersionError(String(version), newest);
-  if (!openProjectData(data)) throw new Error(t('file.invalidFormat'));
+  if (!deserializeProject(text)) throw new Error(t('file.invalidFormat'));
   // Members lying over each other: ask about each, as drawing one would.
   askAboutOverlapsInModel();
 }
@@ -736,7 +740,7 @@ export async function loadFile(file: File): Promise<{ type: 'tab' | 'session'; c
     return { type: 'session', count: tabs.length };
   } else if (isNewerFileVersion(version)) {
     throw newerVersionError(String(version), DEDAL_FILE_VERSION);
-  } else if (openProjectData(data)) {
+  } else if (deserializeProject(text)) {
     askAboutOverlapsInModel();
     return { type: 'tab', count: 1 };
   } else {

@@ -26,8 +26,21 @@ fn aliases<T: DeserializeOwned + Serialize>(canonical: Value, pairs: &[(&str, &s
 }
 
 #[test]
+fn canonical_model_alias_planar_coordinates_require_exactly_one_spelling() {
+    let canonical = json!({"id":1,"x":0.0,"z":1.0});
+    let legacy = json!({"id":1,"x":0.0,"y":1.0});
+    for node in [canonical.clone(), legacy] {
+        let node = serde_json::from_value::<SolverNode>(node).unwrap();
+        assert_eq!(serde_json::to_value(node).unwrap(), canonical);
+    }
+    for y in [0, 1] {
+        let ambiguous = json!({"id":1,"x":0,"z":1,"y":y});
+        assert!(serde_json::from_value::<SolverNode>(ambiguous).is_err());
+    }
+}
+
+#[test]
 fn canonical_model_alias_legacy_wire_records() {
-    aliases::<SolverNode>(json!({"id":1,"x":0,"z":1}), &[("z", "y")]);
     aliases::<SolverSupport>(
         json!({"id":1,"nodeId":1,"type":"fixed","dz":1,"dry":1}),
         &[("dz", "dy"), ("dry", "drz")],

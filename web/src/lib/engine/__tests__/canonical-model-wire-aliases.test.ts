@@ -48,9 +48,7 @@ it('roadmap 2.4 retains independent spatial moments through both WASM solvers', 
   }
 });
 
-const coordinateReproducer = process.env.RUN_KNOWN_WRONG === '1949' ? it : it.skip;
-
-coordinateReproducer('known wrong result: #1949 WASM planar solvers refuse a second node coordinate', () => {
+it('#1949 WASM planar solvers refuse a second node coordinate', () => {
   const path = {
     maxSteps: 3, nSteps: 3, controlNode: 2, controlDof: 1,
     targetDisplacement: -0.005, tolerance: 1e-9,

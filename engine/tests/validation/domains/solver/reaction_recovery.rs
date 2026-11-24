@@ -798,7 +798,6 @@ fn issue_1949_guyan_springs_3d() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1949"]
 fn issue_1949_planar_wire_refuses_a_second_coordinate_in_every_solver() {
     for z in [0.0, 1.0, -1.0] {
         let mut m = model(2, false);

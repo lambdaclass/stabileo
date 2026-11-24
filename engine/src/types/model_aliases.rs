@@ -86,23 +86,13 @@ macro_rules! deserialize_aliased_input {
     };
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename = "SolverNode", rename_all = "camelCase")]
 pub struct PlanarNode<L> {
     pub id: usize,
     pub x: L,
+    #[serde(alias = "y")]
     pub z: L,
-}
-
-deserialize_aliased_input! {
-    PlanarNode<L>,
-    {
-        id: usize,
-        x: L,
-    }
-    aliases {
-        z: L => "z", y => "y", required;
-    }
 }
 
 #[derive(Debug, Clone, Serialize)]
