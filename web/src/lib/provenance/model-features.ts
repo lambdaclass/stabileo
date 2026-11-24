@@ -43,7 +43,7 @@ export const GLOBAL_AXES_EVIDENCE = 'axisNamedLoads';
 
 /** Every feature id a registry entry may name. The registry test fails on any other. */
 export const FEATURE_IDS = [
-  'gallery:slab-on-columns:walls', 'example:rc-beam-flexure',
+  'gallery:slab-on-columns:walls', 'example:rc-beam-flexure', 'native:supplied-linear-certificate',
   GLOBAL_AXES_EVIDENCE, 'conflictingModelAliases', 'duplicateFixtureEndRelease',
   'plane2D', 'space3D', 'members', 'cableMembers', 'contactElements', 'frameMembers', 'trussMembers', 'hinges', 'arcMembers', 'shearAreas', 'thermalAtRelease',
   'steelMembers', 'steelCirsoc301', 'steelTensionWithoutConnection', 'steelDeclaredUnbracedLength', 'steelStaggeredOrUnboltedWebEnd', 'timberOrAluminiumMembers',
