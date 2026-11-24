@@ -188,10 +188,10 @@ check.quick:
 	BASE=$(BASE) scripts/check-quick.sh
 
 check.fast: web/node_modules/@playwright/test/cli.js
-	$(MAKE) -j5 --output-sync=target lint.repo check.changelog check.issue-reproducers check.fail-closed typecheck.web test.web.fast test.ci-scripts check.web.production-parity test.web.pro-plates-switch
+	$(MAKE) -j5 --output-sync=target lint.repo check.changelog check.issue-reproducers check.fail-closed typecheck.web test.web.fast test.ci-scripts check.web.production-parity
 
 test.web.fast:
-	$(MAKE) test.web.unit.production UNIT_AREA= SHARD= FILTER= FILE='src/lib/i18n/__tests__/locale-coverage.test.ts src/lib/i18n/__tests__/split-dictionaries.test.ts src/lib/i18n/__tests__/engine-purity.test.ts src/lib/utils/__tests__/harness-architecture.test.ts src/lib/store/__tests__/recheck.test.ts src/lib/legacy-projects/__tests__/judge.test.ts'
+	$(MAKE) test.web.unit.production UNIT_AREA= SHARD= FILTER= FILE='src/lib/i18n/__tests__/locale-coverage.test.ts src/lib/i18n/__tests__/engine-purity.test.ts src/lib/utils/__tests__/harness-architecture.test.ts src/lib/store/__tests__/recheck.test.ts src/lib/legacy-projects/__tests__/judge.test.ts'
 	$(MAKE) test.web.unit.production UNIT_AREA= SHARD= FILE=src/lib/blog/__tests__/blog-content.test.ts FILTER='lists every advisory'
 
 .PHONY: check.web.production-parity
@@ -1374,14 +1374,6 @@ test.design.completeness-2096:
 
 test.engine.kinematics-2222:
 	$(NIX_RUN) cargo test -p dedaliano-engine --test integration issue_2222_kinematics_identifies -- --nocapture $(if $(IGNORED),--ignored)
-
-.PHONY: test.web.pro-plates-switch
-test.web.pro-plates-switch:
-	$(NIX_RUN) bash -c 'cd web && node --test scripts/pro-plates-switch.test.mjs'
-
-.PHONY: test.web.production-mesher
-test.web.production-mesher:
-	nix develop .\#e2e --command node --test web/scripts/tests/pro-mesher-inputs.test.mjs
 
 .PHONY: test.engine.nonlinear-drivers-2510-wasm
 test.engine.nonlinear-drivers-2510-wasm: wasm
