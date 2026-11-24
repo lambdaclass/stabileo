@@ -612,6 +612,43 @@ const halfRegion: ShellLoadSpec['region'] = {
   normal: [0, 0, 1], points: [[0, 0, 0], [2, 0, 0], [2, 5, 0], [0, 5, 0]],
 };
 
+const signedPressure = process.env.RUN_KNOWN_WRONG === '2479' ? it : it.skip;
+
+signedPressure('known wrong result: #2479 accepts signed pressures with zero equivalent force at two corners', async () => {
+  const nodes = [[0, 0], [4, 0], [4, 5], [0, 5]].map(([x, y]) => modelStore.addNode(x!, y!, 0)) as [number, number, number, number];
+  for (const node of nodes) modelStore.addSupport(node, 'fixed3d');
+  const quadId = modelStore.addQuad(nodes, 1, 0.2);
+  const baseline = { id: 1, caseId: 1, quadId, q: 0, qNodes: [2, -4, -4, 2] };
+  const data = { ...baseline, qNodes: baseline.qNodes.map(q => q / 2) };
+  const model = modelStore.model;
+  model.loads.push(withScenarioSurfaceIntent({ type: 'surface3d', data }, { baseline, factor: 0.5 }));
+  const combo = { id: 1, name: 'Signed pressure', factors: [{ caseId: 1, factor: 2 }] };
+  const expected = [0, 5, 5, 0];
+  const checkWires = (wires: readonly SolverLoad3D[] | undefined, factor = 1) => {
+    expect(wires).toHaveLength(nodes.length);
+    for (const [i, nodeId] of nodes.entries()) {
+      const load = wires?.find(row => row.type === 'nodal' && row.data.nodeId === nodeId);
+      expect(load?.type === 'nodal' && load.data.fz).toBeCloseTo(expected[i]! * factor, 10);
+    }
+  };
+  const factored = () => comboSolverLoads3D(combo, caseSolverLoads3D(model, model.loadCases, false, false));
+  const notional = () => notionalSourceLoads3D(model, false, 1, [{ baseline, factor: 0.5 }]);
+  checkWires(buildSolverInput3D(model)?.loads);
+  checkWires(factored(), 2);
+  checkWires(notional());
+
+  for (const solve of [
+    () => modelStore.solve3D(false, false, true),
+    () => modelStore.solve3DAsync(false, false, true),
+  ]) {
+    const result = await solve();
+    if (!result || typeof result === 'string') throw new Error(String(result));
+    for (const [i, nodeId] of nodes.entries()) {
+      expect(result.reactions.find(row => row.nodeId === nodeId)?.fz).toBeCloseTo(-expected[i]!, 10);
+    }
+  }
+});
+
 it.each([
   { name: 'triangle with corner pressures', xy: [[0, 0], [4, 0], [0, 5]], field: { q: 0, qNodes: [0, 6, 0] },
     expected: [2.5, 5, 2.5] },
@@ -623,6 +660,8 @@ it.each([
     expected: [7.5, 2.5, 2.5, 7.5] },
   { name: 'trapezoid under whole pressure', xy: [[0, 0], [4, 0], [5, 5], [0, 5]], field: { q: 4 },
     expected: [65 / 6, 65 / 6, 35 / 3, 35 / 3] },
+  { name: 'trapezoid with nonuniform corner pressures', xy: [[0, 0], [4, 0], [5, 5], [0, 5]], field: { q: 0, qNodes: [0, 0, 6, 6] },
+    expected: [45 / 8, 45 / 8, 95 / 8, 95 / 8] },
   { name: 'trapezoid under partial pressure', xy: [[0, 0], [4, 0], [5, 5], [0, 5]], field: { q: 4, region: halfRegion },
     expected: null },
 ] satisfies { name: string; xy: number[][]; field: ShellLoadSpec; expected: number[] | null }[])(
