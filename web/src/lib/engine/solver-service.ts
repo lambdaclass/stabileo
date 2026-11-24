@@ -3114,7 +3114,7 @@ function solveCombinations3DPDelta(
       perCombo.set(combo.id, results);
     }
   } catch (err: any) {
-    return knownIssueRefusal(err) ?? t('svc.solver3dError').replace('{n}', err.message);
+    return knownIssueRefusal(err) ?? t('svc.solver3dError').replace('{n}', localizeEngineText(errorText(err, String(err))));
   }
   if (perCombo.size === 0) return unstable.length > 0 ? t('svc.pdeltaNoneStable') : t('svc.noLoadsApplied');
   const envelope = computeEnvelope3D([...perCombo.values()]);

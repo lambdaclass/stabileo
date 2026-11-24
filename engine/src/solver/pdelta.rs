@@ -16,12 +16,33 @@ use super::sparse_tangent::{SparseSymbolicCache, cached_symbolic};
 /// taken, `ExcessiveDisplacement` — and none of it was checked against the
 /// second-order state. Carried over, a P-Delta result with sway amplified by
 /// 1.8 announced "equilibrium residual OK" and a dense LU it never ran.
-fn model_structured_diagnostics(linear: &[StructuredDiagnostic]) -> Vec<StructuredDiagnostic> {
-    linear
+fn pdelta_diagnostics(linear: &[StructuredDiagnostic], equilibrium_ok: bool) -> Vec<StructuredDiagnostic> {
+    let mut diagnostics = linear
         .iter()
         .filter(|d| (d.code == DiagnosticCode::KnownIssue && !crate::known_issues::is_second_order(d)) || matches!(d.phase.as_deref(), Some("pre_solve" | "constraints" | "conditioning")))
         .cloned()
-        .collect()
+        .collect();
+    if !equilibrium_ok {
+        let diagnostic = StructuredDiagnostic::global(DiagnosticCode::EquilibriumViolation, Severity::Warning, "P-Delta satisfies its physical small-displacement equations, but its support-only force and moment balance on the displaced geometry fails the requested tolerance. General MPC actions are reported separately as constraint forces and need not have zero resultant. Small-strain P-Delta also does not enforce finite-displacement moment balance; use corotational analysis for finite-displacement reactions.".to_string());
+        crate::known_issues::attach(&mut diagnostics, vec![diagnostic]);
+    }
+    diagnostics
+}
+
+fn require_physical_equilibrium(relative_residual: f64, tolerance: f64) -> Result<(), String> {
+    if relative_residual.is_finite() && relative_residual <= tolerance {
+        return Ok(());
+    }
+
+    let mut diagnostic = StructuredDiagnostic::global(
+        DiagnosticCode::ResultQuantityUnavailable,
+        Severity::Error,
+        "P-Delta results were withheld because the physical free-DOF residual did not meet the requested tolerance.",
+    )
+    .with_phase("equilibrium");
+    diagnostic.value = relative_residual.is_finite().then_some(relative_residual);
+    diagnostic.threshold = tolerance.is_finite().then_some(tolerance);
+    Err(crate::refusal::from_diagnostic(diagnostic))
 }
 
 /// The legacy counterpart: only the conditioning entries describe the model;
@@ -96,6 +117,12 @@ struct Iteration {
     converged: bool,
     /// Whether the last solve needed LU because Cholesky failed on K + K_G.
     indefinite: bool,
+}
+
+impl Iteration {
+    fn is_stable(&self, b2: f64) -> bool {
+        self.converged && b2 < 100.0
+    }
 }
 
 /// Solve the free (optionally constraint-reduced) system: sparse or dense
@@ -328,32 +355,37 @@ pub fn solve_pdelta_2d_on(
 
     // Reactions and constraint forces of the system that was solved.
     let physical = PDeltaSystem2D::physical_residual(input, dof_num, sparse, &state.u);
-    let (recovered, relative_residual) = recover_pdelta_forces(&physical, &metric, dof_num, f, &state.u, cs.as_ref());
+    let forces = recover_pdelta_forces(&physical, &metric, dof_num, f, &state.u, cs.as_ref(), tolerance);
+    #[cfg(test)]
+    if forces.is_err() {
+        tests::record_rejected_iterate(&state, max_ratio, &linear_results.displacements, || {
+            build_displacements_2d(dof_num, &u_global)
+        });
+    }
+    let (recovered, relative_residual) = forces?;
     let reactions = recovered.reactions_2d(dof_num, &crate::solver::reaction_recovery::GlobalDisplacements::from_global(&u_global), its)?;
     let constraint_forces = recovered.constraint_forces;
 
     let mut equilibrium = super::reaction_recovery::balance_2d(input, dof_num, &u_global, f, &reactions, its, tolerance);
     equilibrium.relative_residual = relative_residual;
-    equilibrium.residual_ok = relative_residual.is_finite() && relative_residual <= tolerance;
-    let containment = equilibrium.clone();
-    let mut results = AnalysisResults {
+    equilibrium.residual_ok = true;
+    let results = AnalysisResults {
         displacements: build_displacements_2d(dof_num, &u_global),
         reactions,
         element_forces: second_order_forces_2d(input, dof_num, &u_global),
         constraint_forces,
         diagnostics: linear_results.diagnostics.clone(),
         solver_diagnostics: model_solver_diagnostics(&linear_results.solver_diagnostics),
-        structured_diagnostics: model_structured_diagnostics(&linear_results.structured_diagnostics),
+        structured_diagnostics: pdelta_diagnostics(&linear_results.structured_diagnostics, equilibrium.equilibrium_ok),
         equilibrium: Some(equilibrium),
         result_summary: None, solver_run_meta: None,
     };
-    super::reaction_recovery::contain_pdelta(&mut results, &containment);
 
     Ok(PDeltaResult {
         results,
         iterations: state.iterations,
         converged: state.converged,
-        is_stable: state.converged && max_ratio < 100.0,
+        is_stable: state.is_stable(max_ratio),
         b2_factor: max_ratio,
         linear_results,
     })
@@ -428,6 +460,20 @@ impl PhysicalPDeltaResidual {
 }
 
 fn recover_pdelta_forces(
+    physical: &PhysicalPDeltaResidual,
+    metric: &super::convergence::EquilibriumMetric,
+    dofs: &DofNumbering,
+    f: &[f64],
+    u: &[f64],
+    cs: Option<&FreeConstraintSystem>,
+    tolerance: f64,
+) -> Result<(super::reaction_recovery::RecoveredForces, f64), String> {
+    let (recovered, relative) = pdelta_force_residual(physical, metric, dofs, f, u, cs);
+    require_physical_equilibrium(relative, tolerance)?;
+    Ok((recovered, relative))
+}
+
+fn pdelta_force_residual(
     physical: &PhysicalPDeltaResidual,
     metric: &super::convergence::EquilibriumMetric,
     dofs: &DofNumbering,
@@ -622,30 +668,35 @@ fn solve_pdelta_3d_on(input: &SolverInput3D, dof_num: &DofNumbering, cs: Option<
     let u_global = to_global_3d(&state.u, its);
     let b2 = stability_b2(state.indefinite, b2_factor(dof_num, 3, &to_global_3d(&u_prev, its), &u_global));
     let physical = PDeltaSystem3D::physical_residual(input, dof_num, sparse, &state.u);
-    let (recovered, relative_residual) = recover_pdelta_forces(&physical, &metric, dof_num, f, &state.u, cs.as_ref());
+    let forces = recover_pdelta_forces(&physical, &metric, dof_num, f, &state.u, cs.as_ref(), tolerance);
+    #[cfg(test)]
+    if forces.is_err() {
+        tests::record_rejected_iterate(&state, b2, &linear_results.displacements, || {
+            build_displacements_3d(dof_num, &u_global)
+        });
+    }
+    let (recovered, relative_residual) = forces?;
     let reactions = recovered.reactions_3d(dof_num, &crate::solver::reaction_recovery::GlobalDisplacements::from_global(&u_global), its)?;
     let constraint_forces = recovered.constraint_forces;
 
     let mut equilibrium = super::reaction_recovery::balance_3d(input, dof_num, &u_global, f, &reactions, its, tolerance);
     equilibrium.relative_residual = relative_residual;
-    equilibrium.residual_ok = relative_residual.is_finite() && relative_residual <= tolerance;
-    let containment = equilibrium.clone();
-    let mut results = AnalysisResults3D {
+    equilibrium.residual_ok = true;
+    let results = AnalysisResults3D {
         displacements: build_displacements_3d(dof_num, &u_global), reactions,
         element_forces: second_order_forces_3d(input, dof_num, &u_global),
         plate_stresses: compute_plate_stresses(input, dof_num, &u_global, None),
         quad_stresses: compute_quad_stresses(input, dof_num, &u_global, None), quad_nodal_stresses: vec![], constraint_forces,
         diagnostics: linear_results.diagnostics.clone(),
         solver_diagnostics: model_solver_diagnostics(&linear_results.solver_diagnostics),
-        structured_diagnostics: model_structured_diagnostics(&linear_results.structured_diagnostics),
+        structured_diagnostics: pdelta_diagnostics(&linear_results.structured_diagnostics, equilibrium.equilibrium_ok),
         equilibrium: Some(equilibrium), timings: None, result_summary: None, solver_run_meta: None,
     };
-    super::reaction_recovery::contain_pdelta(&mut results, &containment);
 
     Ok(PDeltaResult3D {
         results,
         iterations: state.iterations, converged: state.converged,
-        is_stable: state.converged && b2 < 100.0, b2_factor: b2, linear_results,
+        is_stable: state.is_stable(b2), b2_factor: b2, linear_results,
     })
 }
 
@@ -653,6 +704,107 @@ fn solve_pdelta_3d_on(input: &SolverInput3D, dof_num: &DofNumbering, cs: Option<
 mod tests {
     use super::*;
     use std::collections::HashMap;
+
+    thread_local! {
+        static REJECTED_ITERATE: std::cell::RefCell<Option<serde_json::Value>> =
+            const { std::cell::RefCell::new(None) };
+    }
+
+    pub(super) fn record_rejected_iterate<T: serde::Serialize>(
+        state: &Iteration,
+        b2: f64,
+        linear_displacements: &T,
+        displacements: impl FnOnce() -> T,
+    ) {
+        REJECTED_ITERATE.with_borrow_mut(|slot| {
+            if let Some(record) = slot {
+                assert!(record.is_null());
+                *record = serde_json::json!({
+                    "iterations": state.iterations,
+                    "converged": state.converged,
+                    "isStable": state.is_stable(b2),
+                    "linearDisplacements": linear_displacements,
+                    "results": { "displacements": displacements() },
+                });
+            }
+        });
+    }
+
+    fn audit_candidate_iterate<T>(
+        input: &impl serde::Serialize,
+        solve: impl FnOnce() -> Result<T, String>,
+        linear_displacements: impl serde::Serialize,
+    ) -> serde_json::Value {
+        REJECTED_ITERATE.with_borrow_mut(|slot| assert!(slot.replace(serde_json::Value::Null).is_none()));
+        let error = solve().err().expect("the candidate must refuse");
+        assert!(assert_physical_refusal(&error, 1e-12).as_f64().unwrap() > 1e-12);
+        let result = REJECTED_ITERATE.with_borrow_mut(|slot| slot.take().unwrap());
+        assert_eq!(result["iterations"], 100);
+        assert_eq!(result["converged"], false);
+        assert_eq!(result["isStable"], false);
+        assert_eq!(result["linearDisplacements"], serde_json::to_value(linear_displacements).unwrap());
+        serde_json::json!({ "input": input, "result": result })
+    }
+
+    #[cfg_attr(not(target_arch = "wasm32"), test)]
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    fn audit_candidate_1901_rejected_iterates() {
+        use crate::metamorphic::transform::{transform_2d, Iso2};
+        use serde_json::Value;
+
+        let fixtures: Value = serde_json::from_str(include_str!("../../tests/fixtures/candidate-replay.json")).unwrap();
+        let original: SolverInput = serde_json::from_value(fixtures["1901-body-0"].clone()).unwrap();
+        let rotated = transform_2d(&original, &Iso2::rotation(37.0_f64.to_radians())).unwrap();
+        let embeddings: Value = serde_json::from_str(include_str!("../../tests/fixtures/candidate-1901-embeddings.json")).unwrap();
+        let mut cases = serde_json::Map::new();
+        for (name, model) in [("original", original), ("rotated", rotated)] {
+            #[cfg(not(target_arch = "wasm32"))]
+            let solve = || solve_pdelta_2d(&model, 100, 1e-12);
+            #[cfg(target_arch = "wasm32")]
+            let solve = || crate::solve_pdelta_2d(&serde_json::to_string(&model).unwrap(), 100, 1e-12)
+                .map_err(|error| error.as_string().unwrap());
+            let linear = super::super::linear::solve_2d(&model).unwrap();
+            cases.insert(name.into(), audit_candidate_iterate(&model, solve, linear.displacements));
+        }
+        for plane in ["XY", "XZ", "YZ"] {
+            let model: SolverInput3D = serde_json::from_value(embeddings[plane].clone()).unwrap();
+            #[cfg(not(target_arch = "wasm32"))]
+            let solve = || solve_pdelta_3d(&model, 100, 1e-12);
+            #[cfg(target_arch = "wasm32")]
+            let solve = || crate::solve_pdelta_3d(&embeddings[plane].to_string(), 100, 1e-12)
+                .map_err(|error| error.as_string().unwrap());
+            let linear = super::super::linear::solve_3d(&model).unwrap();
+            cases.insert(plane.into(), audit_candidate_iterate(&model, solve, linear.displacements));
+        }
+        #[cfg(target_arch = "wasm32")]
+        wasm_bindgen_test::console_log!("CANDIDATE_1901_AUDIT {}", Value::Object(cases));
+        #[cfg(not(target_arch = "wasm32"))]
+        println!("CANDIDATE_1901_AUDIT {}", Value::Object(cases));
+    }
+
+    fn assert_physical_refusal(error: &str, tolerance: f64) -> serde_json::Value {
+        let refusal: serde_json::Value = serde_json::from_str(error).unwrap();
+        let diagnostic = &refusal["structuredDiagnostics"][0];
+        assert_eq!(diagnostic["code"], "result_quantity_unavailable");
+        assert_eq!(diagnostic["severity"], "error");
+        assert_eq!(diagnostic["phase"], "equilibrium");
+        assert_eq!(diagnostic["threshold"].as_f64(), Some(tolerance));
+        assert_eq!(refusal["message"], diagnostic["message"]);
+        diagnostic["value"].clone()
+    }
+
+    #[test]
+    fn issue_2100_physical_residual_boundary_is_inclusive_and_finite() {
+        let tolerance = 1e-8_f64;
+        assert!(require_physical_equilibrium(tolerance.next_down(), tolerance).is_ok());
+        assert!(require_physical_equilibrium(tolerance, tolerance).is_ok());
+        let error = require_physical_equilibrium(tolerance.next_up(), tolerance).unwrap_err();
+        assert!(assert_physical_refusal(&error, tolerance).as_f64().unwrap() > tolerance);
+        for residual in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+            let error = require_physical_equilibrium(residual, tolerance).unwrap_err();
+            assert!(assert_physical_refusal(&error, tolerance).is_null());
+        }
+    }
 
     fn r19_unpruned_physical(dim: usize) {
         let mut model: serde_json::Value = serde_json::from_str(if dim == 2 {
@@ -674,7 +826,7 @@ mod tests {
                 }
                 let residual = PDeltaSystem2D::physical_residual(&input,&dofs,sparse,&u);
                 let metric = super::super::convergence::EquilibriumMetric::for_2d(&input,&dofs,None).unwrap();
-                let (_,relative) = recover_pdelta_forces(&residual,&metric,&dofs,&vec![0.0;dofs.n_total],&u,None);
+                let (_,relative) = pdelta_force_residual(&residual,&metric,&dofs,&vec![0.0;dofs.n_total],&u,None);
                 (residual.residual,max,relative)
             } else {
                 let input: SolverInput3D = serde_json::from_value(model).unwrap();
@@ -688,7 +840,7 @@ mod tests {
                 }
                 let residual = PDeltaSystem3D::physical_residual(&input,&dofs,sparse,&u);
                 let metric = super::super::convergence::EquilibriumMetric::for_3d(&input,&dofs,None).unwrap();
-                let (_,relative) = recover_pdelta_forces(&residual,&metric,&dofs,&vec![0.0;dofs.n_total],&u,None);
+                let (_,relative) = pdelta_force_residual(&residual,&metric,&dofs,&vec![0.0;dofs.n_total],&u,None);
                 (residual.residual,max,relative)
             }
         };
@@ -731,11 +883,10 @@ mod tests {
                 let dofs = DofNumbering::build_3d(&input);
                 for sparse in [false,true] {
                     let solved = solve_pdelta_3d_on(&input,&dofs,None,sparse,100,1e-12).unwrap();
-                    let uniterated = solve_pdelta_3d_on(&input,&dofs,None,sparse,0,1e-12).unwrap();
+                    let uniterated = solve_pdelta_3d_on(&input,&dofs,None,sparse,0,1e-12).unwrap_err();
                     assert!(solved.results.equilibrium.as_ref().unwrap().residual_ok);
-                    assert!(!uniterated.results.equilibrium.as_ref().unwrap().residual_ok);
+                    assert!(assert_physical_refusal(&uniterated, 1e-12).as_f64().unwrap() > 1e-12);
                     assert!(solved.results.reactions.iter().all(|r|r.fx.is_finite() && r.fy.is_finite() && r.fz.is_finite()));
-                    assert!(uniterated.results.reactions.iter().all(|r|r.fx.is_nan() && r.fy.is_nan() && r.fz.is_nan()));
                 }
             }
         }
@@ -755,23 +906,28 @@ mod tests {
                         let input: SolverInput = serde_json::from_value(m).unwrap();
                         let dofs = DofNumbering::build_2d(&input);
                         let cs = FreeConstraintSystem::build_2d(&input, &dofs).unwrap();
-                        serde_json::to_value(solve_pdelta_2d_on(&input, &dofs, cs, sparse, iterations, 1e-9).unwrap().results).unwrap()
+                        solve_pdelta_2d_on(&input, &dofs, cs, sparse, iterations, 1e-9)
+                            .map(|out| serde_json::to_value(out.results).unwrap())
                     } else {
                         let input: SolverInput3D = serde_json::from_value(m).unwrap();
                         let dofs = DofNumbering::build_3d(&input);
                         let cs = FreeConstraintSystem::build_3d(&input, &dofs).unwrap();
-                        serde_json::to_value(solve_pdelta_3d_on(&input, &dofs, cs, sparse, iterations, 1e-9).unwrap().results).unwrap()
+                        solve_pdelta_3d_on(&input, &dofs, cs, sparse, iterations, 1e-9)
+                            .map(|out| serde_json::to_value(out.results).unwrap())
                     };
-                    let unavailable = iterations == 0 && axial != 0.0;
-                    let warned = r["structuredDiagnostics"].as_array().into_iter().flatten().any(|d| d["code"] == "result_quantity_unavailable" && d["phase"] == "reactions");
-                    assert_eq!(warned, unavailable, "{dim}D sparse={sparse} iterations={iterations}: {r}");
-                    assert_eq!(r["reactions"].as_array().unwrap().len(), 1, "{r}");
-                    assert_eq!(r["reactions"][0][if dim == 2 {"rz"} else {"fz"}].is_null(), unavailable, "{r}");
-                    assert_eq!(r["elementForces"][0]["nStart"].is_null(), unavailable, "{r}");
-                    assert!(!r["elementForces"].as_array().unwrap().is_empty());
-                    if axial != 0.0 {
-                        assert_eq!(r["equilibrium"]["residualOk"], iterations != 0, "{r}");
+                    if iterations == 0 && axial != 0.0 {
+                        let refused = r.unwrap_err();
+                        assert!(assert_physical_refusal(&refused, 1e-9).as_f64().unwrap() > 1e-9);
+                        continue;
                     }
+                    let r = r.unwrap();
+                    let warned = r["structuredDiagnostics"].as_array().into_iter().flatten().any(|d| d["code"] == "result_quantity_unavailable" && d["phase"] == "reactions");
+                    assert!(!warned, "{dim}D sparse={sparse} iterations={iterations}: {r}");
+                    assert_eq!(r["reactions"].as_array().unwrap().len(), 1, "{r}");
+                    assert!(r["reactions"][0][if dim == 2 {"rz"} else {"fz"}].is_number(), "{r}");
+                    assert!(r["elementForces"][0]["nStart"].is_number(), "{r}");
+                    assert!(!r["elementForces"].as_array().unwrap().is_empty());
+                    assert_eq!(r["equilibrium"]["residualOk"], true, "{r}");
                 }
             }
         }
@@ -796,16 +952,23 @@ mod tests {
                         let input: SolverInput = serde_json::from_value(m).unwrap();
                         let dofs = DofNumbering::build_2d(&input);
                         let cs = FreeConstraintSystem::build_2d(&input, &dofs).unwrap();
-                        serde_json::to_value(solve_pdelta_2d_on(&input, &dofs, cs, sparse, iterations, 1e-9).unwrap().results).unwrap()
+                        solve_pdelta_2d_on(&input, &dofs, cs, sparse, iterations, 1e-9)
+                            .map(|out| serde_json::to_value(out.results).unwrap())
                     } else {
                         let input: SolverInput3D = serde_json::from_value(m).unwrap();
                         let dofs = DofNumbering::build_3d(&input);
                         let cs = FreeConstraintSystem::build_3d(&input, &dofs).unwrap();
-                        serde_json::to_value(solve_pdelta_3d_on(&input, &dofs, cs, sparse, iterations, 1e-9).unwrap().results).unwrap()
+                        solve_pdelta_3d_on(&input, &dofs, cs, sparse, iterations, 1e-9)
+                            .map(|out| serde_json::to_value(out.results).unwrap())
                     };
+                    if iterations == 0 && axial != 0.0 {
+                        let refused = r.unwrap_err();
+                        assert!(assert_physical_refusal(&refused, 1e-9).as_f64().unwrap() > 1e-9);
+                        continue;
+                    }
+                    let r = r.unwrap();
                     println!("r18 {dim}D sparse={sparse} iterations={iterations} axial={axial}: {}", r["equilibrium"]);
-                    let failed = iterations == 0 && axial != 0.0;
-                    assert_eq!(r["equilibrium"]["residualOk"], !failed);
+                    assert_eq!(r["equilibrium"]["residualOk"], true);
                     for (field, id) in [("reactions", "nodeId"), ("elementForces", "elementId")] {
                         let rows = r[field].as_array().unwrap();
                         assert_eq!(rows.len(), 1, "{field}: {r}");
@@ -813,12 +976,12 @@ mod tests {
                             let values = row.as_object().unwrap();
                             assert!(values[id].is_number());
                             let key = if field == "reactions" { if dim == 2 { "rz" } else { "fz" } } else { "nStart" };
-                            assert_eq!(values[key].is_null(), failed, "{field}: {r}");
+                            assert!(values[key].is_number(), "{field}: {r}");
                         }
                     }
                     for phase in ["reactions", "elementForces", "constraintForces"] {
                         let warned = r["structuredDiagnostics"].as_array().into_iter().flatten().any(|d| d["code"] == "result_quantity_unavailable" && d["phase"] == phase);
-                        assert_eq!(warned, failed, "{phase}: {r}");
+                        assert!(!warned, "{phase}: {r}");
                     }
                 }
             }
@@ -868,7 +1031,7 @@ mod tests {
                 };
                 assert!(tangent.all_residual(dofs.n_total, &f, &u).iter().all(|v| v.abs() < 1e-12));
                 assert!(physical.residual.iter().zip(&f).all(|(r,f)| *r == -*f));
-                let (_, relative) = recover_pdelta_forces(&physical, &metric, &dofs, &f, &u, None);
+                let (_, relative) = pdelta_force_residual(&physical, &metric, &dofs, &f, &u, None);
                 if (sign == 0.0 && relative != 0.0) || (sign != 0.0 && relative < 0.99) {
                     failures.push(format!("sparse={sparse}, sign={sign}, certified residual={relative}"));
                 }
