@@ -23,10 +23,15 @@ type FloorCarrier = {
 };
 
 export function partitionGravityFloors<S extends ShellFootprint>(
-  shells: readonly S[], bays: readonly GravityBay<S>[], tolerance: number,
+  shells: readonly S[], bays: readonly GravityBay<S>[], tolerance: number, maxShellDeckRise: number,
   shellsTied: (a: S, b: S) => boolean,
   baysTied: (a: FloorBay, b: FloorBay) => boolean,
-): { shells: Set<S>; shadowedBy: ReadonlyMap<S, ReadonlySet<S>>; bays: Map<FloorBay, BayAssignment> } {
+): {
+  shells: Set<S>;
+  shadowedBy: ReadonlyMap<S, ReadonlySet<S>>;
+  shellBayMembers: ReadonlyMap<number, ReadonlySet<number>>;
+  bays: Map<FloorBay, BayAssignment>;
+} {
   const footprintOf = new Map(shells.map(shell => [shell, [canonicalFootprint(shell.poly)]]));
   const elevations = new Map(shells.map(shell => [shell, shell.pts.map(p => p[2])]));
   const frames = new Map<FloorBay, ReturnType<typeof bayFrame>>();
@@ -80,8 +85,9 @@ export function partitionGravityFloors<S extends ShellFootprint>(
     }
     const above = differences.every(difference => difference > tolerance);
     const below = differences.every(difference => difference < -tolerance);
-    if (!tied && (above || below) && !commonBays.some(({ bay }) => overlapsBay(bay, intersection))) continue;
-    if (!tied || (!above && !below)) refuseGravityGeometry(shellOverlapMessage(a, b));
+    const sameDeck = tied && differences.every(difference => Math.abs(difference) <= maxShellDeckRise);
+    if (!sameDeck && (above || below) && !commonBays.some(({ bay }) => overlapsBay(bay, intersection))) continue;
+    if (!sameDeck || (!above && !below)) refuseGravityGeometry(shellOverlapMessage(a, b));
     const upper = above ? a : b, lower = above ? b : a;
     (coveredBy.get(lower) ?? coveredBy.set(lower, new Set()).get(lower)!).add(upper);
     join(shellCarriers.get(lower)!, shellCarriers.get(upper)!);
@@ -143,5 +149,10 @@ export function partitionGravityFloors<S extends ShellFootprint>(
       refuseGravityGeometry(msg('loadPlan.gravity.coveragePrecision'));
     }
   }
-  return { shells: owners, shadowedBy: coveredBy, bays: assignments };
+  const shellBayMembers = new Map<number, ReadonlySet<number>>();
+  for (const shell of owners) {
+    const servedBays = serving.get(shell);
+    if (servedBays) shellBayMembers.set(shell.id, new Set([...servedBays].flatMap(({ bay }) => bay.members)));
+  }
+  return { shells: owners, shadowedBy: coveredBy, shellBayMembers, bays: assignments };
 }

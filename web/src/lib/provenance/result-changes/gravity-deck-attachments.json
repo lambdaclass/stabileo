@@ -1,0 +1,42 @@
+{
+  "id": "gravity-deck-attachments",
+  "date": "2026-11-24",
+  "prs": [
+    2512
+  ],
+  "area": "loads",
+  "when": {
+    "any": [
+      "generatedPanelGravity"
+    ]
+  },
+  "quantities": [
+    "*",
+    "solve.ok"
+  ],
+  "requiresLoadRegeneration": true,
+  "title": {
+    "en": "Preserve gravity on independently tied storeys and attached roof decks",
+    "es": "Conservar las cargas gravitatorias en niveles independientes vinculados y en cubiertas conectadas",
+    "pt": "Preservar as cargas gravitacionais em pavimentos independentes vinculados e em coberturas ligadas",
+    "de": "Schwerkraftlasten auf gekoppelten unabhängigen Geschossen und angeschlossenen Dächern erhalten",
+    "fr": "Préserver les charges gravitaires des étages indépendants liés et des toitures raccordées",
+    "tr": "Bağlı bağımsız katlarda ve çatı döşemelerinde yerçekimi yüklerini koruma",
+    "zh": "保留受约束的独立楼层和相连屋面的重力荷载",
+    "hu": "A gravitációs terhek megőrzése összekötött független szinteken és csatlakozó tetőfödémeken"
+  },
+  "explanation": {
+    "en": "Regenerate panel gravity loads. Tied shells at separate storeys each retain their gravity load. Framing stub ties can attach an offset shell to its bay. A shell keeps its uniform roof live load below its own bay framing.",
+    "es": "Regenerá las cargas gravitatorias por paños. Las placas de distintos niveles conservan sus propias cargas aunque estén vinculadas. Los vínculos en vigas cortas pueden unir una placa desplazada a su paño. Las vigas de ese paño ya no suprimen la sobrecarga uniforme de la cubierta.",
+    "pt": "Gere novamente as cargas gravitacionais por painéis. Cascas vinculadas em pavimentos distintos conservam suas próprias cargas. Ligações em vigas curtas podem unir uma casca deslocada ao seu painel. As vigas desse painel não eliminam a sobrecarga uniforme da cobertura.",
+    "de": "Erzeugen Sie die Schwerkraftlasten für Felder neu. Gekoppelte Schalen in getrennten Geschossen behalten ihre jeweilige Last. Anschlüsse an kurzen Trägern können eine versetzte Schale mit ihrem Feld verbinden. Die eigenen Träger der Schale unterdrücken ihre gleichmäßig verteilte Dachnutzlast nicht.",
+    "fr": "Régénérez les charges gravitaires par panneaux. Les coques liées à des étages distincts conservent chacune leur charge. Les liaisons aux extrémités de poutres courtes peuvent rattacher une coque décalée à sa travée. Les poutres de sa travée ne suppriment plus sa charge d’exploitation uniforme de toiture.",
+    "tr": "Panel yerçekimi yüklerini yeniden üretin. Farklı katlardaki bağlı kabuklar kendi yüklerini korur. Kısa kiriş uçlarındaki bağlantılar, kotu farklı bir kabuğu kendi açıklığına bağlayabilir. Kabuğun kendi açıklığındaki kirişler düzgün yayılı çatı hareketli yükünü kaldırmaz.",
+    "zh": "请重新生成按板格分配的重力荷载。不同楼层的壳即使通过约束连接，也各自保留重力荷载。短梁端部的约束可以将有高差的壳与其板格相连。壳所属板格的梁不再消除其均布屋面活荷载。",
+    "hu": "Generálja újra a mezőnkénti gravitációs terheket. A külön szinteken lévő, összekötött héjak mindegyike megtartja saját terhét. A rövid gerendák végeinél lévő kapcsolatok a szintben eltolt héjat a saját mezőjéhez köthetik. A mező saját gerendái nem szüntetik meg a héj egyenletesen megoszló tetőhasznos terhét."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-gravity-deck-attachments.md",
+    "heading": "Preserve gravity on independently tied storeys and attached roof decks"
+  }
+}

@@ -12,7 +12,6 @@ import { buildLoadPlan, roofWeightFor, type LoadModelData } from '../load-plan';
 import { snowDriftRefusal } from '../snow-drift-loads';
 import { input } from './gravity-width-mass-fixture';
 
-const regression = process.env.RUN_KNOWN_WRONG === '2512' ? it : it.skip;
 const area = 10 * 6;
 const shellThickness = 0.1;
 const pressure = 1;
@@ -22,7 +21,7 @@ const template = JSON.parse(readFileSync(new URL('../../../../../../engine/tests
 function modelFixture() {
   const nodes: LoadModelData['nodes'] = new Map();
   const elements: LoadModelData['elements'] = new Map();
-  const quads = new Map<number, { id: number; nodes: number[]; materialId: number; thickness: number }>();
+  const quads = new Map<number, { id: number; nodes: [number, number, number, number]; materialId: number; thickness: number }>();
   const constraints: Constraint3D[] = [];
   const model = {
     nodes, elements, quads, constraints, loadCases: [],
@@ -100,18 +99,18 @@ function deadResultant(model: LoadModelData, loadEveryPanel: boolean, shellOwner
   expect(() => snowDriftRefusal(model)).not.toThrow();
 }
 
-regression('known wrong result: #2512 two direct vertical ties preserve loads on separate storeys', () => {
+it('#2512 two direct vertical ties preserve loads on separate storeys', () => {
   for (const loadEveryPanel of [false, true]) deadResultant(directlyTiedPlatforms(), loadEveryPanel, [1, 2], 2 * area);
 });
 
-regression('known wrong result: #2512 tied shells share a deck only within the cover-rise boundary', () => {
+it('#2512 tied shells share a deck only within the cover-rise boundary', () => {
   for (const loadEveryPanel of [false, true]) {
     deadResultant(directlyTiedPlatforms(3.051), loadEveryPanel, [1, 2], 2 * area);
     deadResultant(directlyTiedPlatforms(3.049), loadEveryPanel, [2], area);
   }
 });
 
-regression('known wrong result: #2512 two stub stations attach the offset shell to its bay', () => {
+it('#2512 two stub stations attach the offset shell to its bay', () => {
   for (const loadEveryPanel of [false, true]) {
     const model = stubAttachedShellBay();
     deadResultant(model, loadEveryPanel, [1, 2], area);
@@ -120,7 +119,7 @@ regression('known wrong result: #2512 two stub stations attach the offset shell 
   }
 });
 
-regression('known wrong result: #2512 the centre beam in a subdivided bay leaves its own shell exposed', () => {
+it('#2512 the centre beam in a subdivided bay leaves its own shell exposed', () => {
   for (const loadEveryPanel of [false, true]) {
     const gravity = { mode: 'panels', loadEveryPanel } as const;
     const model = subdividedShellBay();
@@ -175,15 +174,15 @@ function checkPlanReactions(model: LoadModelData, caseType: 'D' | 'Lr', expected
   checkWasmReactions(model, loads, expected);
 }
 
-regression('known wrong result: #2512 WASM reactions include both directly tied storeys', () => {
+it('#2512 WASM reactions include both directly tied storeys', () => {
   checkPlanReactions(directlyTiedPlatforms(), 'D', 2 * area * pressure);
 });
 
-regression('known wrong result: #2512 WASM reactions include the stub-attached deck once', () => {
+it('#2512 WASM reactions include the stub-attached deck once', () => {
   checkPlanReactions(stubAttachedShellBay(), 'D', area * pressure);
 });
 
-regression('known wrong result: #2512 WASM reactions include roof live load below the same-deck beam', () => {
+it('#2512 WASM reactions include roof live load below the same-deck beam', () => {
   const model = subdividedShellBay();
   const isolated = buildLoadPlan(input({ ...model, elements: new Map() }, { gravity: { mode: 'panels' }, roof }));
   const expected = isolated.surface.find(load => load.caseType === 'Lr')!.q * area;
@@ -191,11 +190,14 @@ regression('known wrong result: #2512 WASM reactions include roof live load belo
   checkPlanReactions(model, 'Lr', expected);
 });
 
-function restoreAndPlan(model: LoadModelData, setRoof = false) {
+type ReviewModel = ReturnType<typeof modelFixture>['model'];
+
+function restoreAndPlan(model: ReviewModel, setRoof = false) {
   modelStore.clear();
   const nodes = new Map([...model.nodes].map(([id, { x, y, z }]) => [id, modelStore.addNode(x, y, z)]));
   const materialId = modelStore.model.materials.keys().next().value!;
-  const quads = [...model.quads!.values()].map(quad => modelStore.addQuad(quad.nodes.map(id => nodes.get(id)!), materialId, shellThickness));
+  const quads = [...model.quads.values()].map(({ nodes: [a, b, c, d] }) =>
+    modelStore.addQuad([nodes.get(a)!, nodes.get(b)!, nodes.get(c)!, nodes.get(d)!], materialId, shellThickness));
   for (const { nodeI, nodeJ } of model.elements.values()) modelStore.addElement(nodes.get(nodeI)!, nodes.get(nodeJ)!);
   for (const constraint of model.constraints ?? []) {
     if (constraint.type === 'equalDOF') modelStore.addConstraint({
@@ -211,7 +213,7 @@ function restoreAndPlan(model: LoadModelData, setRoof = false) {
   return { quads, plan };
 }
 
-function applyDeadPressure(model: LoadModelData) {
+function applyDeadPressure(model: ReviewModel) {
   const { quads, plan } = restoreAndPlan(model);
   expect(plan.outcome, JSON.stringify(plan.blockedKeys)).toBe('READY');
   expect(applyLoadPlan(plan, { clearExisting: true, bothSenses: true, nameOf: key => key })).toBeUndefined();
@@ -219,17 +221,17 @@ function applyDeadPressure(model: LoadModelData) {
   return { quads, loads: modelStore.model.loads.filter(load => load.data.caseId === dead.id) };
 }
 
-regression('known wrong result: #2512 restored directly tied storeys both receive applied pressure', () => {
+it('#2512 restored directly tied storeys both receive applied pressure', () => {
   const { quads, loads } = applyDeadPressure(directlyTiedPlatforms());
   expect(loads.map(load => load.data)).toEqual(quads.map(quadId => expect.objectContaining({ quadId, q: pressure })));
 });
 
-regression('known wrong result: #2512 restored stub ties apply only shell pressure', () => {
+it('#2512 restored stub ties apply only shell pressure', () => {
   const { quads, loads } = applyDeadPressure(stubAttachedShellBay());
   expect(loads.map(load => load.data)).toEqual(quads.map(quadId => expect.objectContaining({ quadId, q: pressure })));
 });
 
-regression('known wrong result: #2512 restored subdivided bay previews uniform roof live load and refuses apply', () => {
+it('#2512 restored subdivided bay previews uniform roof live load and refuses apply', () => {
   const model = subdividedShellBay();
   const { quads, plan } = restoreAndPlan(model, true);
   const isolated = buildLoadPlan(input({ ...model, elements: new Map() }, { gravity: { mode: 'panels' }, roof }));

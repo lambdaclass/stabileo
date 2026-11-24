@@ -300,11 +300,10 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
   const stationsOfBay = (bay: FloorBay) => {
     const known = stationsByBay.get(bay);
     if (known) return known;
-    const stations = linkedDecks.stationsOf(new Set([...bay.sides, ...bay.holes.flat()].flatMap(side =>
-      side.segments.flatMap(({ elementId }) => {
-        const { nodeI, nodeJ } = model.elements.get(elementId)!;
-        return [nodeI, nodeJ];
-      }))));
+    const stations = linkedDecks.stationsOf(new Set(bay.members.flatMap(elementId => {
+      const { nodeI, nodeJ } = model.elements.get(elementId)!;
+      return [nodeI, nodeJ];
+    })));
     stationsByBay.set(bay, stations);
     return stations;
   };
@@ -314,7 +313,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
       const shellDecks = new Set(deckShells(boundary, sides.map(side => side.nodeA), z, levelCarriers, roofs));
       for (const shell of linkedDecks.shellsAt(stationsOfBay(bay))) shellDecks.add(shell);
       return { bay, z, shells: [...shellDecks] };
-    })), TOL, linkedDecks.coupled, (a, b) => linkedDecks.connected(stationsOfBay(a), stationsOfBay(b))) : undefined;
+    })), TOL, MIN_COVER_RISE, linkedDecks.coupled, (a, b) => linkedDecks.connected(stationsOfBay(a), stationsOfBay(b))) : undefined;
   const ownedCarriers = carriers.filter(shell => ownership?.shells.has(shell));
   const nonOwners = new Set(carriers.filter(shell => !ownership?.shells.has(shell)).map(shell => shell.id));
   const panelsAt = new Map<number, Region>();
@@ -337,7 +336,8 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
     panelsAt.set(z, ownership ? owned.flatMap(bay => bay.footprint) : res.panels.map(panel => [panel.polygon]));
   }
   const coverAbove = coverage(model, out.zOf, panelsAt, ownership ? nonOwners : undefined);
-  const covered = (pt: [number, number], zTop: number) => Number.isFinite(coverAbove(pt, zTop));
+  const covered = (pt: [number, number], zTop: number, ownMembers?: ReadonlySet<number>) =>
+    Number.isFinite(coverAbove(pt, zTop, ownMembers));
   const panelSides = new Map<number, SideStretch[]>();
   for (const { res } of levels.values()) for (const pn of res.panels) for (const [id, sides] of pn.own?.sides ?? []) {
     (panelSides.get(id) ?? panelSides.set(id, []).get(id)!).push(...sides);
@@ -561,7 +561,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
     const pts = q.nodes.map((id) => model.nodes.get(id));
     if (pts.some((p) => !p)) continue;
     const c = centroid(pts.map((p) => [p!.x, p!.y] as [number, number]));
-    if (!covered(c, Math.max(...pts.map((p) => p!.z ?? 0)))) out.roofQuads.add(q.id);
+    if (!covered(c, Math.max(...pts.map((p) => p!.z ?? 0)), ownership?.shellBayMembers.get(q.id))) out.roofQuads.add(q.id);
   }
 
   if (ownership?.shadowedBy.size) {
@@ -1625,7 +1625,9 @@ function memberGeometry(model: GravityModel, ids: Iterable<number>) {
 }
 
 /** How far above `zTop` the lowest panel, slab or beam over a plan point is (see the header); Infinity when none is. */
-function coverage(model: GravityModel, zOf: Map<number, number>, panelsAt: ReadonlyMap<number, Region>, excludedShells?: ReadonlySet<number>): (pt: [number, number], zTop: number) => number {
+function coverage(
+  model: GravityModel, zOf: Map<number, number>, panelsAt: ReadonlyMap<number, Region>, excludedShells?: ReadonlySet<number>,
+): (pt: [number, number], zTop: number, ownMembers?: ReadonlySet<number>) => number {
   type Cover = { z: number; polys: Region };
   const covers: Cover[] = [];
   const coverAt = (z: number) => {
@@ -1671,12 +1673,13 @@ function coverage(model: GravityModel, zOf: Map<number, number>, panelsAt: Reado
     const segments = [...members].map(id => byMember.get(id)!);
     return { segments, ownPanels };
   });
-  return (pt: [number, number], zTop: number) => {
+  return (pt: [number, number], zTop: number, ownMembers?: ReadonlySet<number>) => {
     let h = covers.reduce((lowest, c) => c.z > zTop + MIN_COVER_RISE && c.polys.some(poly => footprintContains(pt, poly))
       ? Math.min(lowest, c.z - zTop) : lowest, Infinity);
     for (const { segments, ownPanels } of runs) {
       if (ownPanels.some(({ z, rings }) => Math.abs(z - zTop) <= TOL && footprintContains(pt, rings))) continue;
-      for (const { a, b, dx, dy, dz, lh } of segments) {
+      for (const { id, a, b, dx, dy, dz, lh } of segments) {
+        if (ownMembers?.has(id)) continue;
         const start: [number, number] = [a.x, a.y], end: [number, number] = [b.x, b.y];
         if (!withinSegmentBounds(pt, start, end) || snowCoordinate(pt, start, [-dy / lh, dx / lh], [0]) !== 0) continue;
         const fraction = snowCoordinate(pt, start, [dx / lh, dy / lh], [0, lh]) / lh;
