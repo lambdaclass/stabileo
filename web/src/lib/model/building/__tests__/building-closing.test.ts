@@ -3,6 +3,7 @@
  * the same building made bar by bar, and with its slabs it is still in equilibrium.
  */
 import { describe, it, expect, beforeEach } from 'vitest';
+import { t } from '../../../i18n';
 import { historyStore, modelStore, uiStore } from '../../../store';
 import { placeFrame, placeSlabs } from '../build-on-grid';
 import { physicalGroups } from '../../../store/physical';
@@ -76,12 +77,26 @@ describe('a seven-storey building placed with the tools', () => {
     }
   });
 
-  it('with its slabs meshed into the beams, the reactions balance the loads', () => {
+  function placeBuildingWithSlabs() {
     placeFrame(grid, { x: ['x0', 'x2'], y: ['y0', 'y1'], levels: ['N0', 'N7'], columns: S, beamsX: S, beamsY: S }, { fixBase: true });
-    const r = placeSlabs(grid, { levels: ['N1', 'N2', 'N3', 'N4', 'N5', 'N6', 'N7'], thickness: 0.15, materialId: 1, meshSize: 1.5 });
-    expect(r.created).toBe(14);
+    const slabs = placeSlabs(grid, { levels: ['N1', 'N2', 'N3', 'N4', 'N5', 'N6', 'N7'], thickness: 0.15, materialId: 1, meshSize: 1.5 });
+    expect(slabs.created).toBe(14);
+    expect(slabs.shells).toBeGreaterThan(0);
     loadRoof();
+    return slabs.shells;
+  }
+
+  it.skip('known wrong result: #2535 — Basic 3D refuses the seven-storey building with meshed slabs', () => {
+    placeBuildingWithSlabs();
+    const result = modelStore.solve3D(false, false, false);
+    expect(typeof result).toBe('string');
+    expect(result).toBe(t('svc.shellsRequirePro3d'));
+  });
+
+  it('with its slabs meshed into the beams, the reactions balance the loads', () => {
+    const shells = placeBuildingWithSlabs();
     const res = solve();
+    expect((res.quadStresses?.length ?? 0) + (res.plateStresses?.length ?? 0)).toBe(shells);
     const sum = [0, 0, 0];
     for (const q of res.reactions) { sum[0] += q.fx; sum[1] += q.fy; sum[2] += q.fz; }
     expect(sum[0]).toBeCloseTo(-40, 6);
