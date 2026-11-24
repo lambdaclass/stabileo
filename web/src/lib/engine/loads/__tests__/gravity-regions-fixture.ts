@@ -1,3 +1,4 @@
+import { physicalFloorLoad, type FloorLoadInput } from '../floor-loads';
 import type { LoadModelData } from '../load-plan';
 import { gravityLayout } from '../plan-gravity';
 import { planAreaLoads } from '../plan-area-loads';
@@ -39,4 +40,16 @@ export function bay(covered: number, angle = 0, mirror = 1, mesh = 1, subdivide 
 export function areaLoads(model: ReturnType<typeof bay>['model']) {
   const layout = gravityLayout(model, { mode: 'panels', tributaryWidth: 1, loadEveryPanel: true });
   return planAreaLoads({ layout, tributaryWidth: 1, floor: { dead: 1, lo: 0, liveOf: () => 0 } });
+}
+
+export function explicitStripFloor(model: ReturnType<typeof bay>['model'], options: Partial<FloorLoadInput> = {}) {
+  return physicalFloorLoad({
+    nodes: model.nodes, q: 1, distribution: 'twoWay',
+    beams: [...model.elements.values()].map(beam => ({ ...beam, type: 'frame' })),
+    shellFootprints: [...model.quads.values()].map(quad => [quad.nodes.map(id => {
+      const { x, y } = model.nodes.get(id)!;
+      return [x, y];
+    })]),
+    ...options,
+  });
 }

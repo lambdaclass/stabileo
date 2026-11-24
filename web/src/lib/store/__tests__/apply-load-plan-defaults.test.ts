@@ -126,13 +126,13 @@ it('#2220 applying a signed wind profile preserves both horizontal member-load e
   }
 });
 
-it('#2499 restoring then applying generates only the upper shell pressure', () => {
+it('#2499 restoring then applying refuses two ambiguous shell pressures', () => {
   modelStore.clear();
   const corners: Array<[number, number]> = [[0, 0], [10, 0], [10, 6], [0, 6]];
   const addLayer = (z: number) => corners.map(([x, y]) => modelStore.addNode(x, y, z)) as [number, number, number, number];
   const lower = addLayer(3), upper = addLayer(3.02);
   const materialId = modelStore.model.materials.keys().next().value!;
-  modelStore.addQuad(lower, materialId, 0.1);
+  const first = modelStore.addQuad(lower, materialId, 0.1);
   const second = modelStore.addQuad(upper, materialId, 0.1);
   lower.forEach((masterNode, i) => modelStore.addConstraint({
     type: 'eccentricConnection', masterNode, slaveNode: upper[i]!, offsetZ: 0.02,
@@ -141,11 +141,11 @@ it('#2499 restoring then applying generates only the upper shell pressure', () =
   const input = planInput();
   const model = { ...input.model, constraints: modelStore.model.constraints };
   const plan = buildLoadPlan({ ...input, model, gravity: { mode: 'panels' }, dead: [{ labelKey: 'a', q: 1 }] });
-  expect(applyLoadPlan(plan, { clearExisting: true, bothSenses: true, nameOf })).toBeUndefined();
-  expect(plan.surface.filter(load => load.caseType === 'D')).toEqual([{ quadId: second, caseType: 'D', q: 1 }]);
-  const dead = modelStore.model.loadCases.find(c => c.type === 'D')!;
-  expect(modelStore.model.loads.filter(load => load.type === 'surface3d' && load.data.caseId === dead.id))
-    .toEqual([expect.objectContaining({ data: expect.objectContaining({ quadId: second, q: 1 }) })]);
+  const before = modelStore.snapshot();
+  const reason = { key: 'loadPlan.gravity.overlappingShells', params: { first, second } };
+  expect(plan).toMatchObject({ outcome: 'BLOCKED', blockedKeys: [reason], surface: [], distributed: [], nodal: [] });
+  expect(applyLoadPlan(plan, { clearExisting: true, bothSenses: true, nameOf })).toEqual(reason);
+  expect(modelStore.snapshot()).toEqual(before);
 });
 
 it('#2512 restored platforms sharing a fixed UZ master each retain their applied dead pressure', () => {

@@ -142,6 +142,7 @@ export interface FloorBay {
   index: number;
   members: number[];
   boundary: Polygon;
+  boundaryNodes: number[][];
   sides: Side[];
   holes: Side[][];
   span?: P2;
@@ -375,7 +376,7 @@ function prepareFloorLoad(input: FloorLoadInput, round: (value: number) => numbe
     const along = beamsXY.filter((b) => onSides(b.p) && onSides(b.q) && onSides([(b.p[0] + b.q[0]) / 2, (b.p[1] + b.q[1]) / 2])).map((b) => b.id);
     panel.members = [...new Set([...all.flatMap((sd) => sd.segments.map((g) => g.elementId)), ...along, ...ties])];
     const boundary = [sides.map(side => side.a), ...holes.map(hole => hole.map(side => side.a))];
-    bays.push({ index: k, members: panel.members, boundary, sides, holes, span: input.distribution === 'oneWay' ? spanDir : undefined });
+    bays.push({ index: k, members: panel.members, boundary, boundaryNodes: [cycle, ...holeCycles], sides, holes, span: input.distribution === 'oneWay' ? spanDir : undefined });
   });
 
   const discovered = res;

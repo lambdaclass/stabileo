@@ -76,7 +76,7 @@ function stubAttachedShellBay() {
 }
 
 function subdividedShellBay(withIndependentOverhead = false, shellZ = 2.96) {
-  const { model, row, beam, shell, tieRows } = modelFixture();
+  const { model, row, beam, shell } = modelFixture();
   const left = row(0, 3), center = row(5, 3), right = row(10, 3);
   for (const [a, b] of [[left, center], [center, right]] as const) {
     beam(a[0], b[0]);
@@ -85,20 +85,21 @@ function subdividedShellBay(withIndependentOverhead = false, shellZ = 2.96) {
   for (const [a, b] of [left, center, right]) beam(a, b);
   const shellLeft = row(0, shellZ), shellRight = row(10, shellZ);
   shell(shellLeft, shellRight);
-  tieRows(left, shellLeft);
-  tieRows(right, shellRight);
+  [...left, ...right].forEach((masterNode, i) => model.constraints.push({
+    type: 'rigidLink', masterNode, slaveNode: [...shellLeft, ...shellRight][i]!, dofs: [0, 1, 2, 3, 4, 5],
+  }));
   if (withIndependentOverhead) beam(...row(5, 6));
   return model;
 }
 
-function deadResultant(model: LoadModelData, loadEveryPanel: boolean, shellOwners: number[], expectedArea: number) {
+function deadResultant(model: LoadModelData, loadEveryPanel: boolean, shellOwners: number[], expectedArea: number, planArea = expectedArea) {
   const gravity = { mode: 'panels', loadEveryPanel } as const;
   const plan = buildLoadPlan(input(model, { gravity }));
   expect(plan.outcome, JSON.stringify(plan.blockedKeys)).toBe('READY');
   expect(plan.surface.filter(load => load.caseType === 'D').map(load => load.quadId).sort()).toEqual(shellOwners);
   expect(plan.levels.reduce((total, level) => total + level.superimposedKN, 0)).toBeCloseTo(expectedArea * pressure, 10);
   const layout = gravityLayout(model, { ...gravity, tributaryWidth: 3 });
-  expect([...layout.areaByLevel.values()].reduce((total, level) => total + level, 0)).toBeCloseTo(expectedArea, 10);
+  expect([...layout.areaByLevel.values()].reduce((total, level) => total + level, 0)).toBeCloseTo(planArea, 10);
   expect(() => snowDriftRefusal(model)).not.toThrow();
 }
 
@@ -106,19 +107,19 @@ it('#2512 two direct vertical ties preserve loads on separate storeys', () => {
   for (const loadEveryPanel of [false, true]) deadResultant(directlyTiedPlatforms(), loadEveryPanel, [1, 2], 2 * area);
 });
 
-it('#2512 tied shells share a deck only within the cover-rise boundary', () => {
+it('#2512 tied shells require clear separation', () => {
   for (const loadEveryPanel of [false, true]) {
     deadResultant(directlyTiedPlatforms(3.051), loadEveryPanel, [1, 2], 2 * area);
-    deadResultant(directlyTiedPlatforms(3.049), loadEveryPanel, [2], area);
+    for (const z of [3.049, 3.05]) expectPanelRefusal(directlyTiedPlatforms(z), shadowRefusal, loadEveryPanel);
   }
 });
 
-it('#2512 two stub stations attach the offset shell to its bay', () => {
+it('#2512 one or two offset stub stations cannot establish a shared deck', () => {
   for (const loadEveryPanel of [false, true]) {
     const model = stubAttachedShellBay();
-    deadResultant(model, loadEveryPanel, [1, 2], area);
+    expectPanelRefusal(model, separateBayRefusal, loadEveryPanel);
     model.constraints.pop();
-    deadResultant(model, loadEveryPanel, [1, 2], 2 * area);
+    expectPanelRefusal(model, separateBayRefusal, loadEveryPanel);
   }
 });
 
@@ -186,9 +187,7 @@ it('#2512 WASM reactions include both directly tied storeys', () => {
   checkPlanReactions(directlyTiedPlatforms(), 'D', 2 * area * pressure);
 });
 
-it('#2512 WASM reactions include the stub-attached deck once', () => {
-  checkPlanReactions(stubAttachedShellBay(), 'D', area * pressure);
-});
+
 
 it('#2512 WASM reactions include roof live load below the same-deck beam', () => {
   const model = subdividedShellBay();
@@ -208,7 +207,7 @@ function restoreAndPlan(model: ReviewModel, setRoof = false) {
     modelStore.addQuad([nodes.get(a)!, nodes.get(b)!, nodes.get(c)!, nodes.get(d)!], materialId, shellThickness));
   for (const { nodeI, nodeJ } of model.elements.values()) modelStore.addElement(nodes.get(nodeI)!, nodes.get(nodeJ)!);
   for (const constraint of model.constraints ?? []) {
-    if (constraint.type === 'equalDOF' || constraint.type === 'eccentricConnection') modelStore.addConstraint({
+    if (constraint.type === 'equalDOF' || constraint.type === 'eccentricConnection' || constraint.type === 'rigidLink') modelStore.addConstraint({
       ...constraint, masterNode: nodes.get(constraint.masterNode)!, slaveNode: nodes.get(constraint.slaveNode)!,
     });
   }
@@ -234,9 +233,12 @@ it('#2512 restored directly tied storeys both receive applied pressure', () => {
   expect(loads.map(load => load.data)).toEqual(quads.map(quadId => expect.objectContaining({ quadId, q: pressure })));
 });
 
-it('#2512 restored stub ties apply only shell pressure', () => {
-  const { quads, loads } = applyDeadPressure(stubAttachedShellBay());
-  expect(loads.map(load => load.data)).toEqual(quads.map(quadId => expect.objectContaining({ quadId, q: pressure })));
+it('#2512 restored stub ties refuse ambiguous shell ownership', () => {
+  const { plan } = restoreAndPlan(stubAttachedShellBay());
+  const before = modelStore.snapshot();
+  expect(plan.outcome).toBe('BLOCKED');
+  expect(applyLoadPlan(plan, { clearExisting: true, bothSenses: true, nameOf: key => key })).toEqual(separateBayRefusal);
+  expect(modelStore.snapshot()).toEqual(before);
 });
 
 it('#2512 restored subdivided bay previews uniform roof live load and refuses apply', () => {
@@ -277,23 +279,17 @@ it('#2512 two aligned stations keep the elevated shell and lower bay independent
   }
 });
 
-it('#2512 attached bay ownership checks both ends of the overlap', () => {
-  deadResultant(tiedShellBay(3.049), true, [1], area);
+it('#2512 a partial attachment is ambiguous inside the separation limit', () => {
+  for (const loadEveryPanel of [false, true]) {
+    expectPanelRefusal(tiedShellBay(3.049), separateBayRefusal, loadEveryPanel);
+  }
   deadResultant(tiedShellBay(3.051), true, [1], 2 * area);
-  const model = tiedShellBay(3.02, 3.06);
-  const plan = buildLoadPlan(input(model, { gravity: { mode: 'panels', loadEveryPanel: true } }));
-  const expected = pressure * 6 * (10 + Math.hypot(10, 0.04));
-  expect(plan.outcome, JSON.stringify(plan.blockedKeys)).toBe('READY');
-  expect(plan.levels.reduce((sum, level) => sum + level.superimposedKN, 0)).toBeCloseTo(expected, 10);
+  const separatedSlope = tiedShellBay(3.051, 3.06);
+  deadResultant(separatedSlope, true, [1], area + 6 * Math.hypot(10, 0.009), 2 * area);
 });
 
-it('#2512 an untied shell needs to match the bay only over their overlap', () => {
-  const model = tiedShellBay(2.9989, 2.9998, false, -10);
-  const gravity = { mode: 'panels', loadEveryPanel: true } as const;
-  const plan = buildLoadPlan(input(model, { gravity }));
-  expect(plan.outcome, JSON.stringify(plan.blockedKeys)).toBe('READY');
-  expect(plan.distributed.filter(load => load.caseType === 'D')).toEqual([]);
-  expect(plan.levels.reduce((sum, level) => sum + level.superimposedKN, 0)).toBeCloseTo(pressure * 6 * Math.hypot(20, 0.0009), 10);
+it('#2512 a near-level shell extending beyond the bay does not own it', () => {
+  expectPanelRefusal(tiedShellBay(2.9989, 2.9998, false, -10), separateBayRefusal, true);
 });
 
 it('#2512 3D linear and nonlinear WASM reactions include the shell and separate bay', () => {
@@ -352,7 +348,7 @@ it('#2512 an offset shell cannot pass its bay to a shadowing shell outside the d
   model.quads.set(2, { ...shell, id: 2, nodes });
   model.quads.get(1)!.nodes.forEach((masterNode, i) =>
     model.constraints.push({ type: 'equalDOF', masterNode, slaveNode: nodes[i]!, dofs: [2] }));
-  deadResultant(model, true, [2], 2 * area);
+  expectPanelRefusal(model, shadowRefusal, true);
 });
 
 it('#2512 full-span one-way transfer preserves projected area on rising beams', () => {
@@ -420,15 +416,11 @@ it('#2512 apply refuses to put pressure on a restored coincident bay with ambigu
   expect(modelStore.snapshot()).toEqual(before);
 });
 
-it('#2512 directly established bay ownership and separated shells keep their pressure', () => {
+it('#2512 a bay cannot inherit shell ownership from a chain of attachments', () => {
   for (const loadEveryPanel of [false, true]) {
-    deadResultant(coincidentBayWithShadowedShell(0.02, 2), loadEveryPanel, [2], area);
+    expectPanelRefusal(coincidentBayWithShadowedShell(0.02, 2), shadowRefusal, loadEveryPanel);
     deadResultant(coincidentBayWithShadowedShell(0.051, 1), loadEveryPanel, [1, 2], 2 * area);
   }
-  const plan = buildLoadPlan(input(coincidentBayWithShadowedShell(0.02)));
-  expect(plan.outcome).toBe('READY');
-  expect(plan.surface).toEqual([]);
-  expect(plan.distributed.some(load => load.caseType === 'D')).toBe(true);
 });
 
 function bayBoundary(beam: (a: number, b: number) => void, left: readonly [number, number], right: readonly [number, number]) {
@@ -472,7 +464,6 @@ function shellOverhangingBay(rise: number, verticalTies = 4) {
 }
 
 const separateBayRefusal = { key: 'loadPlan.gravity.differentDeck' };
-const offsetBayRefusal = { key: 'loadPlan.gravity.offsetShellDeck', params: { id: 1, members: '1, 2, 3, 4' } };
 
 function expectPanelRefusal(model: ReviewModel, reason: EngineMessage, loadEveryPanel: boolean) {
   const gravity = { mode: 'panels', loadEveryPanel } as const;
@@ -488,35 +479,36 @@ function expectPanelRefusal(model: ReviewModel, reason: EngineMessage, loadEvery
 for (const loadEveryPanel of [false, true]) {
   for (const gap of [0.08, 0.051]) {
     it(`#2512 a shell cannot absorb both overlapping bays separated by ${gap} with loadEveryPanel=${loadEveryPanel}`, () => {
-      expectPanelRefusal(baysSharingOneShell(gap), separateBayRefusal, loadEveryPanel);
+      const model = baysSharingOneShell(gap);
+      expectPanelRefusal(model, separateBayRefusal, loadEveryPanel);
     });
   }
 
   for (const rise of [0.02, 0.049]) {
     it(`#2512 unequal corner offsets at ${rise} block duplicate bay gravity with loadEveryPanel=${loadEveryPanel}`, () => {
-      expectPanelRefusal(shellOverhangingBay(rise), offsetBayRefusal, loadEveryPanel);
+      expectPanelRefusal(shellOverhangingBay(rise), separateBayRefusal, loadEveryPanel);
     });
   }
 
-  it(`#2512 same-deck or nonoverlapping bays keep their shared shell with loadEveryPanel=${loadEveryPanel}`, () => {
-    deadResultant(baysSharingOneShell(0.049), loadEveryPanel, [1], area);
-    deadResultant(baysSharingOneShell(0.08, 10), loadEveryPanel, [1], 2 * area);
+  it(`#2512 bays cannot assume a shared shell from partial ties with loadEveryPanel=${loadEveryPanel}`, () => {
+    expectPanelRefusal(baysSharingOneShell(0.049), separateBayRefusal, loadEveryPanel);
+    expectPanelRefusal(baysSharingOneShell(0.08, 10), separateBayRefusal, loadEveryPanel);
   });
 }
 
-it('#2512 a shell at bay level has an established owner despite uneven offsets', () => {
-  deadResultant(shellOverhangingBay(0.0005), true, [1], 13 * 9);
+it('#2512 uneven offsets do not establish an owner within the level tolerance', () => {
+  expectPanelRefusal(shellOverhangingBay(0.0005), separateBayRefusal, true);
 });
 
-it('#2512 a separate shell or a single attachment retains independent gravity', () => {
+it('#2512 only a separated shell retains independent gravity with incomplete attachments', () => {
   deadResultant(shellOverhangingBay(0.051), true, [1], 13 * 9 + area);
-  deadResultant(shellOverhangingBay(0.02, 1), true, [1], 13 * 9 + area);
+  expectPanelRefusal(shellOverhangingBay(0.02, 1), separateBayRefusal, true);
   deadResultant(baysSharingOneShell(0.102), true, [1], 3 * area);
 });
 
 for (const [name, model, reason] of [
   ['separated bays under one shell', () => baysSharingOneShell(0.08), separateBayRefusal],
-  ['an overhanging shell with unequal corner offsets', () => shellOverhangingBay(0.02), offsetBayRefusal],
+  ['an overhanging shell with unequal corner offsets', () => shellOverhangingBay(0.02), separateBayRefusal],
 ] as const) {
   it(`#2512 restored apply refuses ${name}`, () => {
     const { plan } = restoreAndPlan(model());
@@ -526,8 +518,6 @@ for (const [name, model, reason] of [
     expect(modelStore.snapshot()).toEqual(before);
   });
 }
-
-const issue2512 = process.env.RUN_KNOWN_WRONG === '2512' ? it : it.skip;
 
 function straddlingShadow() {
   const { model, row, beam, shell, tieRows } = modelFixture();
@@ -564,20 +554,20 @@ const openingRefusal = { key: 'loadPlan.gravity.differentDeck' };
 const wideCoverRefusal = { key: 'loadPlan.gravity.widePanels', params: { n: 1, span: MAX_DECK_SPAN } };
 
 for (const loadEveryPanel of [false, true]) {
-  issue2512(`known wrong result: #2512 a shell-to-bay overlap straddles the deck limit (${loadEveryPanel})`, () => {
+  it(`#2512 a shell-to-bay overlap straddles the deck limit (${loadEveryPanel})`, () => {
     expectPanelRefusal(tiedShellBay(3.02, 3.06), separateBayRefusal, loadEveryPanel);
   });
 
-  issue2512(`known wrong result: #2512 a shadowed shell cannot return its load to a bay (${loadEveryPanel})`, () => {
+  it(`#2512 a shadowed shell cannot return its load to a bay (${loadEveryPanel})`, () => {
     expectPanelRefusal(straddlingShadow(), shadowRefusal, loadEveryPanel);
   });
 
-  issue2512(`known wrong result: #2512 a shell cannot fill a beam bay opening (${loadEveryPanel})`, () => {
+  it(`#2512 a shell cannot fill a beam bay opening (${loadEveryPanel})`, () => {
     expectPanelRefusal(openingWithShell(), openingRefusal, loadEveryPanel);
   });
 }
 
-issue2512('known wrong result: #2512 a rejected wide ring cannot cover a lower member', () => {
+it('#2512 a rejected wide ring cannot cover a lower member', () => {
   expectPanelRefusal(wideCover(), wideCoverRefusal, false);
 });
 
@@ -587,7 +577,7 @@ for (const [name, fixture, reason] of [
   ['a shell inside a bay opening', openingWithShell, openingRefusal],
   ['an overhead wide ring without a slab', wideCover, wideCoverRefusal],
 ] as const) {
-  issue2512(`known wrong result: #2512 restored apply refuses ${name}`, () => {
+  it(`#2512 restored apply refuses ${name}`, () => {
     const { plan } = restoreAndPlan(fixture());
     const before = modelStore.snapshot();
     expect(plan.outcome, JSON.stringify(plan.blockedKeys)).toBe('BLOCKED');
@@ -595,3 +585,12 @@ for (const [name, fixture, reason] of [
     expect(modelStore.snapshot()).toEqual(before);
   });
 }
+
+it('#2512 a ring at the span limit or explicitly selected can cover a lower member', () => {
+  for (const [span, loadEveryPanel] of [[MAX_DECK_SPAN - 0.01, false], [MAX_DECK_SPAN, false], [MAX_DECK_SPAN + 1, true]] as const) {
+    const model = wideCover(span);
+    const layout = gravityLayout(model, { mode: 'panels', loadEveryPanel, tributaryWidth: 3 });
+    expect(layout.roof.has(5)).toBe(false);
+    expect(layout.areaByLevel.get(6)).toBeCloseTo(span ** 2, 10);
+  }
+});

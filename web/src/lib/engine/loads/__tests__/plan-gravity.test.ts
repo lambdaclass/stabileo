@@ -9,7 +9,7 @@ import { expandDefinition } from '../../../model/loads/floor-definitions';
 import { buildSolverInput3D } from '../../solver-service';
 import { withMassSource } from '../../dynamics/mass-source-model';
 import { G } from '../../dynamics/requests';
-import { buildLoadPlan, roofWeightFor, roofWeightOf, type LoadModelData, type LoadPlanInput } from '../load-plan';
+import { buildLoadPlan, roofWeightFor, type LoadModelData, type LoadPlanInput } from '../load-plan';
 import { defaultRegulations, type ProjectRegulations } from '../../../codes/roles';
 import { snowDriftRefusal } from '../snow-drift-loads';
 import type { EngineMessage } from '../../../codes/message';
@@ -298,33 +298,15 @@ function gableWithLeanTo(mesh: number, y: number, drop: number, angle = 0) {
   return model;
 }
 
-it('#2282 a descending lean-to leaves the main bay loaded only by its roof shells', () => {
+it('#2282 the eave bay under a gable with a descending lean-to needs explicit loads', () => {
   for (const [mesh, angle] of [[1, 0], [3, 0.37]] as const) {
-    const model = gableWithLeanTo(mesh, -4, 1, angle);
-    for (const loadEveryPanel of [false, true]) {
-      for (const slab of ['oneWay', 'twoWay'] as const) {
-        const gravity = { mode: 'panels', loadEveryPanel, slab } as const;
-        const layout = gravityLayout(model, { ...gravity, tributaryWidth: 3 });
-        const plan = buildLoadPlan(planInput(model, { gravity }));
-        const shellDead = 2 * 10 * (2 * Math.hypot(5, 2) + Math.hypot(4, 1));
-        expect(plan.outcome).toBe('READY');
-        expect(plan.blockedKeys).toEqual([]);
-        expect(totalKN(plan.distributed.filter(d => d.caseType === 'D'), model)).toBeCloseTo(0, 6);
-        expect(plan.nodal).toEqual([]);
-        expect(plan.distributed).toEqual([]);
-        expect(surfaceKN(plan.surface.filter(s => s.caseType === 'D'), model)).toBeCloseTo(shellDead, 6);
-        expect(plan.levels.reduce((sum, level) => sum + level.superimposedKN, 0)).toBeCloseTo(shellDead, 6);
-        expect(layout.panels).toEqual([]);
-        expect(layout.widthMembers).toEqual([]);
-        expect(layout.shellQuads.reduce((sum, q) => sum + q.area, 0)).toBeCloseTo(140, 6);
-      }
-    }
+    checkBlockedGravity(gableWithLeanTo(mesh, -4, 1, angle), differentDeck);
   }
 });
 
 it('#2282 a descending shell projecting into the eave bay refuses at every layout consumer', () => {
   const model = gableWithLeanTo(2, 0.01, 0.004);
-  const reason = { key: 'loadPlan.gravity.differentSlopedDeck' };
+  const reason = { key: 'loadPlan.gravity.overlappingShells', params: { first: 1, second: 5 } };
   for (const loadEveryPanel of [false, true]) {
     for (const slab of ['oneWay', 'twoWay'] as const) {
       const gravity = { mode: 'panels', loadEveryPanel, slab } as const;
@@ -343,46 +325,30 @@ it('#2282 a descending shell projecting into the eave bay refuses at every layou
   expect(buildLoadPlan(planInput(model, { gravity: { mode: 'width' } })).outcome).toBe('READY');
 });
 
-it('an ascending extension of the eave ring keeps the roof on its shells', () => {
-  const model = gableWithLeanTo(1, -4, -1);
-  const plan = buildLoadPlan(planInput(model));
-  expect(plan.outcome).toBe('READY');
-  expect(plan.distributed).toEqual([]);
-  expect(plan.nodal).toEqual([]);
-  expect(surfaceKN(plan.surface.filter(s => s.caseType === 'D'), model)).toBeCloseTo(2 * 10 * (2 * Math.hypot(5, 2) + Math.hypot(4, 1)), 6);
+it('the eave bay under a gable with an ascending extension needs explicit loads', () => {
+  checkBlockedGravity(gableWithLeanTo(1, -4, -1), differentDeck);
 });
 
 describe('a ring of beams under a roof of shells', () => {
-  it('the eave ring takes no area load, however many quads make up each slope', () => {
+  it('requires explicit loads for the eave bay and still loads the gable by itself', () => {
     for (const n of [1, 2, 3]) for (const angle of [0, 0.37]) {
-      const m = gable(n);
-      for (const node of m.nodes.values()) {
-        const { x, y } = node;
-        node.x = x * Math.cos(angle) - y * Math.sin(angle);
-        node.y = x * Math.sin(angle) + y * Math.cos(angle);
-      }
-      const p = buildLoadPlan(planInput(m));
-      expect(p.outcome).toBe('READY');
-      expect(totalKN(p.distributed.filter((d) => d.caseType === 'D'), m)).toBeCloseTo(0, 6);
-      expect(totalKN(p.distributed.filter((d) => d.caseType === 'L'), m)).toBeCloseTo(0, 6);
-      // The shells carry the roof: 2 kN/m² over their surface.
-      const surface = Math.hypot(5, 2) * 10 * 2;
-      expect(surfaceKN(p.surface.filter((s) => s.caseType === 'D'), m)).toBeCloseTo(2 * surface, 3);
+      const model = gable(n);
+      rotatePlan(model, angle);
+      checkBlockedGravity(model, differentDeck);
+      const roof = { ...model, elements: new Map() };
+      const plan = buildLoadPlan(planInput(roof));
+      expect(plan.outcome).toBe('READY');
+      expect(plan.distributed).toEqual([]);
+      expect(plan.nodal).toEqual([]);
+      expect(surfaceKN(plan.surface.filter(load => load.caseType === 'D'), roof)).toBeCloseTo(2 * Math.hypot(5, 2) * 10 * 2, 3);
     }
   });
 
-  it('a slab over part of a bay leaves the rest of the bay to its beams', () => {
-    // One 10 × 10 bay at z = 3; a slab of shells over x 0 to 4 only.
-    const m = floor(1, 1, 10, 10);
-    for (const [id, x, y] of [[10, 4, 0], [11, 4, 10]] as const) m.nodes.set(id, { id, x, y, z: 3 });
+  it('refuses a slab over part of a bay', () => {
+    const model = floor(1, 1, 10, 10);
+    for (const [id, x, y] of [[10, 4, 0], [11, 4, 10]] as const) model.nodes.set(id, { id, x, y, z: 3 });
     const quads = new Map([[1, { id: 1, nodes: [1, 10, 11, 3] }]]);
-    const p = buildLoadPlan(planInput({ ...m, quads }));
-    const onBeams = -totalKN(p.distributed.filter((d) => d.caseType === 'D'), m);
-    const onShells = surfaceKN(p.surface.filter((s) => s.caseType === 'D'), { ...m, quads });
-    expect(onShells).toBeCloseTo(2 * 40, 6);
-    // The bay is loaded once: 2 kN/m² over 100 m², the slab's 40 m² on the shells.
-    expect(onBeams + onShells).toBeCloseTo(2 * 100, 0);
-    expect(p.derivation.some((d) => d.key === 'loadPlan.gravity.partlyUnderShells')).toBe(true);
+    checkBlockedGravity({ ...model, quads }, differentDeck);
   });
 });
 
@@ -437,9 +403,7 @@ describe('the seismic mass is the load the plan puts on the structure', () => {
   it('the level weights and the full D and unreduced L the plan applies are one and the same load', () => {
     // What the modal method builds its mass from (`store/seismic-modes.ts`: the planned D and L,
     // the L of a plan without the §4.7.2 reduction) against what the static method distributes.
-    // A gable of shells over its ring (dead load per m² of sloped shell, live per m² of plan), and
-    // gable frames whose rafters are loaded by width, standing on supports at z = 0.
-    for (const m of [gable(2), gableFrames()]) {
+    for (const m of [{ ...gable(2), elements: new Map() }, gableFrames()]) {
       const p = buildLoadPlan(planInput(m, { applyLiveReduction: false, tributaryWidth: 5 }));
       const full = <T extends { caseType: string; caseIndex?: number }>(list: T[], type: string) => list.filter((d) => d.caseType === type && d.caseIndex === undefined);
       const applied = (type: string) => -totalKN(full(p.distributed, type), m) + (m.quads ? surfaceKN(full(p.surface, type), m) : 0);
@@ -676,6 +640,7 @@ function cornerOrders(nodes: number[]): number[][] {
   );
 }
 
+const differentDeck = { key: 'loadPlan.gravity.differentDeck' };
 const overlappingShells = { key: 'loadPlan.gravity.overlappingShells', params: { first: 1, second: 2 } } as const;
 
 for (let first = 0; first < 8; first++) for (let second = 0; second < 8; second++) {
@@ -708,21 +673,10 @@ for (const [label, model, x0, x1, x2, x3, low, high] of [
   ['without a beam bay', floor(0, 0, 10, 6), 0, 10, 0, 10, 3.0002, 3.0018],
   ['with a bay touching the common footprint at its edge', floor(1, 1, 10, 6, 3.001), -5, 0, -5, 10, 3.0002, 3.0018],
 ] as const) {
-  it(`#2284 round 2 independent shells keep their loads ${label}`, () => {
+  it(`#2284 round 2 overlapping shells within the separation limit: ${label}`, () => {
     rectangularShell(model, 1, x0, x1, low);
     rectangularShell(model, 2, x2, x3, high);
-    for (const loadEveryPanel of [false, true]) {
-      const gravity = { mode: 'panels', loadEveryPanel } as const;
-      const plan = buildLoadPlan(planInput(model, { dead: [{ labelKey: 'a', q: 1 }], gravity }));
-      expect(plan.outcome, JSON.stringify(plan.blockedKeys)).toBe('READY');
-      expect(plan.blockedKeys).toEqual([]);
-      expect(plan.surface.filter(load => load.caseType === 'D')).toEqual(
-        [1, 2].map(quadId => ({ quadId, caseType: 'D', q: 1 })),
-      );
-      expect(plan.nodal).toEqual([]);
-      expect(plan.distributed).toEqual([]);
-      expect(deadLoadKN(plan, model)).toBe(6 * ((x1 - x0) + (x3 - x2)));
-    }
+    checkBlockedGravity(model, overlappingShells);
   });
 }
 
@@ -763,8 +717,8 @@ it('#2284 round 3 a mixed pair claiming the same beam bay blocks', () => {
 });
 
 for (const [label, x0, low, high] of [
-  ['parallel with overlapping height ranges', 0, 3.0010001, 3.0030001],
-  ['mixed just outside the height tolerance', 0, 3.0030001, 3.0030001],
+  ['parallel and outside the separation limit', 0, 3.050001, 3.052001],
+  ['mixed and just outside the separation limit', 0, 3.052001, 3.052001],
   ['mixed with only a common edge', 10, 3.0015, 3.0015],
 ] as const) {
   it(`#2284 round 3 independent shells keep their loads ${label}`, () => {
@@ -789,7 +743,7 @@ for (const [label, x0, low, high] of [
 
 it('#2284 round 3 a lower shell entirely outside the bay band keeps independent load', () => {
   const model = floor(1, 1, 10, 6, 3);
-  rectangularShell(model, 1, 0, 10, 2.9981, 2.9989);
+  rectangularShell(model, 1, 0, 10, 2.9481, 2.9489);
   for (const loadEveryPanel of [false, true]) {
     const gravity = { mode: 'panels', loadEveryPanel } as const;
     const plan = buildLoadPlan(planInput(model, { dead: [{ labelKey: 'a', q: 1 }], gravity }));
@@ -801,18 +755,11 @@ it('#2284 round 3 a lower shell entirely outside the bay band keeps independent 
   }
 });
 
-it('#2284 shells outside the shared deck band keep independent gravity loads', () => {
+it('#2284 a shell and bay overlap must have a single established owner', () => {
   const model = floor(1, 1, 10, 6, 3.001);
   rectangularShell(model, 1, 0, 10, 3.0000001);
   rectangularShell(model, 2, 2, 6, 3.0020001);
-  const plan = buildLoadPlan(planInput(model, { dead: [{ labelKey: 'a', q: 1 }] }));
-  expect(plan.outcome, JSON.stringify(plan.blockedKeys)).toBe('READY');
-  expect(plan.surface.filter(load => load.caseType === 'D')).toEqual(
-    [1, 2].map(quadId => ({ quadId, caseType: 'D', q: 1 })),
-  );
-  expect(plan.nodal).toEqual([]);
-  expect(plan.distributed).toEqual([]);
-  expect(deadLoadKN(plan, model)).toBe(10 * 6 + 4 * 6);
+  checkBlockedGravity(model, overlappingShells);
 });
 
 it('#2284 overlapping sloped shells also block gravity', () => {
@@ -845,7 +792,7 @@ it('#2284 touching coplanar shell edges and separate levels keep their surface p
 it('#2291 a detached sloped shell starting at bay level blocks gravity', () => {
   const model = floor(1, 1, 10, 6);
   rectangularShell(model, 1, 0, 10, 3, 6);
-  checkBlockedGravity(model, { key: 'loadPlan.gravity.differentSlopedDeck' });
+  checkBlockedGravity(model, differentDeck);
 });
 
 it('#2295 a rigidly linked rafter under a centered shell gap blocks gravity', () => {
@@ -938,10 +885,8 @@ it('#2299 subdividing a connected beam bay preserves the shell owner through rot
   }
 });
 
-it('#2499 a coextensive eccentric deck owns exactly 60 kN', () => {
-  const model = connectedShells();
-  checkOwnedFloor(model, [2], 60);
-  expect(deadLoadKN(buildLoadPlan(planInput(model, { dead: [{ labelKey: 'a', q: 1 }] })), model)).toBe(60);
+it('#2499 overlapping offset shells refuse automatic ownership', () => {
+  checkBlockedGravity(connectedShells(), overlappingShells);
 });
 
 for (const [name, mirror, rotate, reverse, subdivide, renumber] of [
@@ -950,9 +895,8 @@ for (const [name, mirror, rotate, reverse, subdivide, renumber] of [
   ['upper shell subdivision', false, 0, false, true, false],
   ['renumbering and reverse insertion', false, 0, true, false, true],
 ] as const) {
-  it(`#2499 ownership survives ${name}`, () => {
+  it(`#2499 ownership refusal survives ${name}`, () => {
     const model = connectedShells();
-    let owners = [2];
     if (subdivide) {
       const [a, b, c, d] = model.quads!.get(2)!.nodes;
       const left = 501, right = 502;
@@ -960,7 +904,6 @@ for (const [name, mirror, rotate, reverse, subdivide, renumber] of [
       model.nodes.set(right, { id: right, x: 5, y: 6, z: 3.02 });
       model.quads!.get(2)!.nodes = [a!, left, right, d!];
       model.quads!.set(3, { id: 3, nodes: [left, b!, c!, right] });
-      owners = [2, 3];
     }
     if (reverse) for (const shell of model.quads!.values()) shell.nodes.reverse();
     if (renumber) {
@@ -968,11 +911,10 @@ for (const [name, mirror, rotate, reverse, subdivide, renumber] of [
         const id = 40 - shell.id;
         return [id, { ...shell, id }];
       }));
-      owners = [38];
     }
     if (mirror) for (const node of model.nodes.values()) node.x = -node.x;
     rotatePlan(model, rotate);
-    checkOwnedFloor(model, owners, 60);
+    checkBlockedGravity(model, { key: overlappingShells.key, params: { first: renumber ? 38 : 1, second: renumber ? 39 : 2 } });
   });
 }
 
@@ -987,38 +929,32 @@ const verticalTies: Record<string, (masterNode: number, slaveNode: number) => Co
 };
 
 for (const [name, tie] of Object.entries(verticalTies)) {
-  it(`#2499 a ${name} identifies one floor without choosing the owner`, () => {
+  it(`#2499 a ${name} cannot choose a shell owner`, () => {
     const model = connectedShells();
     const lower = model.quads!.get(1)!.nodes, upper = model.quads!.get(2)!.nodes;
     model.constraints = lower.map((master, i) => tie(master, upper[i]!));
-    checkOwnedFloor(model, [2], 60);
+    checkBlockedGravity(model, overlappingShells);
   });
 }
 
-it('#2499 roof weight includes both structural shells per square metre of owned roof', () => {
+it('#2499 roof weight refuses when overlapping shells have no owner', () => {
   const model = connectedShells();
-  for (const shell of model.quads!.values()) Object.assign(shell, { materialId: 1, thickness: 0.02 });
-  const layout = gravityLayout(model, { mode: 'panels', tributaryWidth: 3 });
-  expect(roofWeightOf(model, layout, 0).structure).toBeCloseTo(2 * 0.02 * model.materials.get(1)!.rho, 10);
-  expect(roofWeightFor(model, { mode: 'panels' }, 3, 0)).toBe('heavy');
+  expect(() => roofWeightFor(model, { mode: 'panels' }, 3, 0)).toThrow(expect.objectContaining(overlappingShells));
 });
 
-it('#2499 the upper shell carries the deck just beyond the shared elevation tolerance', () => {
-  checkOwnedFloor(connectedShells(0, 10, 3.001001), [2], 60);
+it('#2499 a gap just beyond the level tolerance does not establish separate decks', () => {
+  checkBlockedGravity(connectedShells(0, 10, 3.001001), overlappingShells);
 });
 
-it('#2499 ownership maps to the same level for every order of a near-horizontal upper shell', () => {
+it('#2499 near-horizontal overlapping shells refuse in every corner order', () => {
   const model = connectedShells(0, 10, 3.0192);
   for (const node of model.quads!.get(2)!.nodes.slice(2)) model.nodes.get(node)!.z = 3.02;
   model.constraints = model.constraints!.map(link => link.type === 'eccentricConnection'
     ? { ...link, offsetZ: model.nodes.get(link.slaveNode)!.z! - 3 } : link);
-  const levels = cornerOrders(model.quads!.get(2)!.nodes).map(nodes => {
+  for (const nodes of cornerOrders(model.quads!.get(2)!.nodes)) {
     model.quads!.get(2)!.nodes = nodes;
-    const layout = gravityLayout(model, { mode: 'panels', tributaryWidth: 3 });
-    expect(layout.shellQuads.map(shell => shell.quadId)).toEqual([2]);
-    return [...layout.areaByLevel];
-  });
-  expect(levels).toEqual(Array.from({ length: 8 }, () => [[3.02, 60]]));
+    checkBlockedGravity(model, overlappingShells);
+  }
 });
 
 it('#2499 the upper shell is unresolved just inside the shared elevation tolerance', () => {
@@ -1038,7 +974,7 @@ it('#2499 class: two vertically tied beam bays with the same footprint identify 
   expect(plan.distributed).toEqual([]);
   expect(plan.combinations).toEqual([]);
   model.constraints = [];
-  expect(deadLoadKN(buildLoadPlan(input), model)).toBeCloseTo(120, 10);
+  expect(buildLoadPlan(input).blockedKeys).toEqual(plan.blockedKeys);
 });
 
 it('#2499 class: the case conservation gate blocks a surface pressure that would otherwise be dropped', () => {
@@ -1056,26 +992,19 @@ it('#2499 partial overlap cannot load the lower quad uniformly', () => {
   checkBlockedGravity(connectedShells(8, 18), overlappingShells);
 });
 
-it('#2499 releasing vertical transfer preserves both independent floors', () => {
+it('#2499 releasing vertical transfer cannot settle close shell ownership', () => {
   const model = connectedShells();
   model.constraints = model.constraints!.map(link =>
     link.type === 'eccentricConnection' ? { ...link, releases: [false, false, true] } : link);
-  checkOwnedFloor(model, [1, 2], 120);
+  checkBlockedGravity(model, overlappingShells);
 });
 
 it('#2284 unresolved roundoff-separated shell ownership keeps its translated refusal', () => {
   checkBlockedGravity(connectedShells(0, 10, 3.0000001), overlappingShells);
 });
 
-it('#2299 opening the vertical release on eccentric connections keeps separate carrier loads', () => {
-  const model = eccentricShellBay(3.02, true);
-  const independent = linkedShellBay(3.02, [0, 1]);
-  const input = { dead: [{ labelKey: 'a', q: 1 }], generateCombinations: true };
-  const plan = buildLoadPlan(planInput(model, input));
-  const expected = buildLoadPlan(planInput(independent, input));
-  expect(plan.outcome).toBe('READY');
-  expect(plan).toEqual(expected);
-  expect(deadLoadKN(plan, model)).toBeCloseTo(2 * 10 * 6, 10);
+it('#2299 opening the vertical release leaves an ambiguous overlap', () => {
+  checkBlockedGravity(eccentricShellBay(3.02, true), differentDeck);
 });
 
 it('#2299 a linked shell within the bay elevation band keeps the load on the shell', () => {
@@ -1088,7 +1017,7 @@ it('#2299 a linked shell within the bay elevation band keeps the load on the she
 });
 
 it('#2299 an independent upper shell and lower deck each carry gravity', () => {
-  const model = linkedShellBay(3.02, [0, 1]);
+  const model = linkedShellBay(6, [0, 1]);
   const plan = buildLoadPlan(planInput(model, { dead: [{ labelKey: 'a', q: 1 }] }));
   expect(plan.outcome).toBe('READY');
   expect(plan.surface.filter(load => load.caseType === 'D')).toEqual([{ quadId: 1, caseType: 'D', q: 1 }]);
@@ -1139,12 +1068,12 @@ it('#2299 a common rigid master connects the beam and offset shell corners', () 
   checkOwnedFloor(commonMasterShellBay(3.02), [1], 60);
 });
 
-it('#2299 an attached exterior strip is part of the shell deck over the bay', () => {
-  checkOwnedFloor(exteriorStripShellBay([-2, 0, 10]), [1, 2], 72);
+it('#2299 an attachment to an exterior strip cannot establish the bay owner', () => {
+  checkBlockedGravity(exteriorStripShellBay([-2, 0, 10]), differentDeck);
 });
 
-it('#2299 subdividing the attached exterior strip preserves shell ownership', () => {
-  checkOwnedFloor(exteriorStripShellBay([-2, -1, 0, 10]), [1, 2, 3], 72);
+it('#2299 subdividing the exterior strip does not establish bay ownership', () => {
+  checkBlockedGravity(exteriorStripShellBay([-2, -1, 0, 10]), differentDeck);
 });
 
 it('#2299 common-master shells within the elevation band carry gravity once', () => {
@@ -1157,13 +1086,10 @@ it('#2299 common-master shells within the elevation band carry gravity once', ()
   expect(deadLoadKN(plan, model)).toBeCloseTo(10 * 6, 10);
 });
 
-it('#2299 breaking vertical coupling on either common-master link keeps separate deck loads', () => {
+it('#2299 breaking a common-master link leaves the deck ambiguous', () => {
   for (const untied of ['beam', 'shell'] as const) {
     const model = commonMasterShellBay(3.02, untied);
-    const plan = buildLoadPlan(planInput(model, { dead: [{ labelKey: 'a', q: 1 }] }));
-    expect(plan.outcome).toBe('READY');
-    expect(plan.surface.filter(load => load.caseType === 'D')).toEqual([{ quadId: 1, caseType: 'D', q: 1 }]);
-    expect(deadLoadKN(plan, model)).toBeCloseTo(2 * 10 * 6, 10);
+    checkBlockedGravity(model, differentDeck);
   }
 });
 
@@ -1175,14 +1101,8 @@ it('#2299 a linked strip touching only the bay edge keeps both loads', () => {
   expect(deadLoadKN(plan, model)).toBeCloseTo((10 + 2) * 6, 10);
 });
 
-it('#2299 an independent shell over the bay stays separate from the attached strip', () => {
-  const model = exteriorStripShellBay([-2, 0, 10], true);
-  const plan = buildLoadPlan(planInput(model, { dead: [{ labelKey: 'a', q: 1 }] }));
-  expect(plan.outcome).toBe('READY');
-  expect(plan.surface.filter(load => load.caseType === 'D')).toEqual(
-    [1, 2].map(quadId => ({ quadId, caseType: 'D', q: 1 })),
-  );
-  expect(deadLoadKN(plan, model)).toBeCloseTo((2 * 10 + 2) * 6, 10);
+it('#2299 the unattached shell over a bay with an exterior strip is ambiguous', () => {
+  checkBlockedGravity(exteriorStripShellBay([-2, 0, 10], true), differentDeck);
 });
 
 function tiedExteriorStripShellBay(useCommonMaster: boolean, dofs?: number[], masterOffset = 0) {
@@ -1205,19 +1125,19 @@ function tiedExteriorStripShellBay(useCommonMaster: boolean, dofs?: number[], ma
 
 const allShellDofs = [0, 1, 2, 3, 4, 5];
 
-it('#2299 an offset deck crosses an exterior strip seam tied in all six DOFs', () => {
-  checkOwnedFloor(tiedExteriorStripShellBay(false, allShellDofs), [1, 2], 72);
+it('#2299 a tie in six DOFs at the strip seam does not establish bay ownership', () => {
+  checkBlockedGravity(tiedExteriorStripShellBay(false, allShellDofs), differentDeck);
 });
 
-it('#2347 full ties through off-seam masters connect the shell deck', () => {
-  checkOwnedFloor(tiedExteriorStripShellBay(true, allShellDofs, 0.25), [1, 2], 72);
+it('#2347 offset seam masters do not establish bay ownership', () => {
+  checkBlockedGravity(tiedExteriorStripShellBay(true, allShellDofs, 0.25), differentDeck);
 });
 
-it('#2299 coincident common masters tie an offset shell seam', () => {
-  checkOwnedFloor(tiedExteriorStripShellBay(true, allShellDofs), [1, 2], 72);
+it('#2299 coincident seam masters do not establish bay ownership', () => {
+  checkBlockedGravity(tiedExteriorStripShellBay(true, allShellDofs), differentDeck);
 });
 
-it('#2347 a full rigid chain across an offset seam survives plan rotation', () => {
+it('#2347 rotating a rigid chain across an offset seam preserves the refusal', () => {
   const model = tiedExteriorStripShellBay(true, allShellDofs, -0.25);
   model.constraints = model.constraints!.flatMap(link => {
     if (link.type !== 'rigidLink' || link.slaveNode !== model.quads!.get(2)!.nodes[0]) return [link];
@@ -1226,75 +1146,59 @@ it('#2347 a full rigid chain across an offset seam survives plan rotation', () =
     return [{ ...link, slaveNode: intermediate }, { ...link, masterNode: intermediate }];
   });
   rotatePlan(model, 0.37);
-  checkOwnedFloor(model, [1, 2], 72);
+  checkBlockedGravity(model, differentDeck);
 });
 
-function checkSeparateStripAndBayLoads(model: LoadModelData) {
-  const plan = buildLoadPlan(planInput(model, { dead: [{ labelKey: 'a', q: 1 }] }));
-  expect(plan.outcome).toBe('READY');
-  expect(plan.surface.filter(load => load.caseType === 'D')).toEqual(
-    [1, 2].map(quadId => ({ quadId, caseType: 'D', q: 1 })),
-  );
-  expect(deadLoadKN(plan, model)).toBeCloseTo((2 * 10 + 2) * 6, 10);
-}
-
-it('#2347 one ULP at a fully tied seam still assigns shell ownership', () => {
+it('#2347 one ULP at a fully tied seam preserves the refusal', () => {
   for (const useCommonMaster of [false, true]) {
     const model = tiedExteriorStripShellBay(useCommonMaster, allShellDofs, 0.25);
     for (const id of model.quads!.get(2)!.nodes) model.nodes.get(id)!.z! += 2 ** -51;
-    checkOwnedFloor(model, [1, 2], 72);
+    checkBlockedGravity(model, differentDeck);
   }
 });
 
-it('#2347 a fully tied seam joins just inside the physical point tolerance assigns shell ownership', () => {
+it('#2347 a seam just inside the point tolerance leaves ownership unresolved', () => {
   const model = tiedExteriorStripShellBay(true, allShellDofs, 0.25);
   for (const id of model.quads!.get(2)!.nodes) model.nodes.get(id)!.z! += 0.999e-8;
-  checkOwnedFloor(model, [1, 2], 72);
+  checkBlockedGravity(model, differentDeck);
 });
 
-it('#2347 a fully tied seam just outside the physical point tolerance preserves separate deck loads', () => {
+it('#2347 a seam just outside the point tolerance leaves ownership unresolved', () => {
   const model = tiedExteriorStripShellBay(true, allShellDofs, 0.25);
   for (const id of model.quads!.get(2)!.nodes) model.nodes.get(id)!.z! += 1.001e-8;
-  checkSeparateStripAndBayLoads(model);
+  checkBlockedGravity(model, differentDeck);
 });
 
-it('#2347 breaking the full tie to an off-seam master preserves the separate deck loads', () => {
+it('#2347 breaking a seam tie leaves ownership unresolved', () => {
   const model = tiedExteriorStripShellBay(true, allShellDofs, 0.25);
   const inner = model.quads!.get(2)!.nodes;
   model.constraints = model.constraints!.map(link =>
     link.type === 'rigidLink' && inner.includes(link.slaveNode) ? { ...link, dofs: [0, 1, 2, 3, 4] } : link);
-  checkSeparateStripAndBayLoads(model);
+  checkBlockedGravity(model, differentDeck);
 });
 
-it('#2347 full ties across horizontally separated nodes do not join shell seams', () => {
+it('#2347 horizontal offsets across a seam leave ownership unresolved', () => {
   const model = tiedExteriorStripShellBay(true, allShellDofs, 0.25);
   for (const id of model.quads!.get(2)!.nodes) model.nodes.get(id)!.y += 0.25;
-  checkSeparateStripAndBayLoads(model);
+  checkBlockedGravity(model, differentDeck);
 });
 
-it('#2299 ties with a free rotation preserve separate strip and bay loads', () => {
+it('#2299 a free rotation at a seam leaves ownership unresolved', () => {
   for (const dofs of [[0, 1, 2, 3, 4], [0, 1, 2, 3, 4, 4], [], undefined]) {
-    checkSeparateStripAndBayLoads(tiedExteriorStripShellBay(false, dofs));
+    checkBlockedGravity(tiedExteriorStripShellBay(false, dofs), differentDeck);
   }
 });
 
-it('#2299 full ties between nodes at different heights preserve separate strip and bay loads', () => {
+it('#2299 ties at different seam heights leave ownership unresolved', () => {
   const model = tiedExteriorStripShellBay(false, allShellDofs);
   for (const nodeId of model.quads!.get(2)!.nodes) model.nodes.get(nodeId)!.z! += 1 / 2048;
-  checkSeparateStripAndBayLoads(model);
+  checkBlockedGravity(model, differentDeck);
 });
 
-it('#2299 a fully tied seam within the bay elevation band keeps the load on the shells', () => {
+it('#2299 a seam within the level tolerance cannot decide bay ownership', () => {
   const model = tiedExteriorStripShellBay(false, allShellDofs);
   for (const quad of model.quads!.values()) for (const id of quad.nodes) model.nodes.get(id)!.z = 3.001;
-  const plan = buildLoadPlan(planInput(model, { dead: [{ labelKey: 'a', q: 1 }] }));
-  expect(plan.outcome).toBe('READY');
-  expect(plan.distributed).toEqual([]);
-  expect(plan.nodal).toEqual([]);
-  expect(plan.surface.filter(load => load.caseType === 'D')).toEqual(
-    [1, 2].map(quadId => ({ quadId, caseType: 'D', q: 1 })),
-  );
-  expect(deadLoadKN(plan, model)).toBeCloseTo((10 + 2) * 6, 10);
+  checkBlockedGravity(model, differentDeck);
 });
 
 function rotatePlan(model: GravityModel, angle: number): void {
@@ -1412,10 +1316,10 @@ it('#2512 a single shared vertical restraint preserves both platform loads', () 
   }
 });
 
-it('#2512 two independent aligned attachment stations identify one deck', () => {
+it('#2512 two aligned stations are insufficient to choose a shell owner', () => {
   const model = connectedShells();
   model.constraints = model.constraints!.slice(0, 2);
-  checkOwnedFloor(model, [2], 60);
+  checkBlockedGravity(model, overlappingShells);
 });
 
 for (const end of [10, 6]) it(`#2512 shell-owned bay area cannot mask a lower roof at x=${end}`, () => {
@@ -1433,11 +1337,15 @@ for (const end of [10, 6]) it(`#2512 shell-owned bay area cannot mask a lower ro
     const expectedRoof = isolated.surface.filter(load => load.caseType === 'Lr');
     expect(expectedRoof).toHaveLength(1);
     const plan = buildLoadPlan(planInput(model, input));
-    expect(plan.blockedKeys).toEqual([{ key: 'loadPlan.blocked.concentratedRoof' }]);
-    expect(plan.surface.filter(load => load.caseType === 'Lr')).toEqual(expectedRoof);
-    expect(surfaceKN(plan.surface.filter(load => load.caseType === 'Lr'), model)).toBeGreaterThan(0);
-    expect(deadLoadKN(plan, model)).toBeCloseTo(60, 10);
-    expect(gravityLayout(model, { ...input.gravity, tributaryWidth: 3 }).roofQuads.has(1)).toBe(true);
+    if (end === 10) {
+      expect(plan.blockedKeys).toEqual([{ key: 'loadPlan.blocked.concentratedRoof' }]);
+      expect(plan.surface.filter(load => load.caseType === 'Lr')).toEqual(expectedRoof);
+      expect(surfaceKN(plan.surface.filter(load => load.caseType === 'Lr'), model)).toBeGreaterThan(0);
+      expect(deadLoadKN(plan, model)).toBeCloseTo(60, 10);
+      expect(gravityLayout(model, { ...input.gravity, tributaryWidth: 3 }).roofQuads.has(1)).toBe(true);
+    } else {
+      checkBlockedGravity(model, differentDeck);
+    }
 
     for (const id of shell.nodes) model.nodes.get(id)!.z = 2.8;
     const separate = buildLoadPlan(planInput(model, input));
@@ -1505,9 +1413,8 @@ function planWithScaledBayTransfer(model: LoadModelData, scale: number) {
   }
 }
 
-it('#2512 a positive owned strip with no emitted transfer blocks gravity', () => {
+it('#2512 a positive bay with no emitted transfer blocks gravity', () => {
   const model = floor(1, 1, 10, 6);
-  rectangularShell(model, 1, 0, 6, 3);
   expect(planWithScaledBayTransfer(model, 1).outcome).toBe('READY');
   const plan = planWithScaledBayTransfer(model, 0);
   expect(plan.outcome, JSON.stringify({ dead: deadLoadKN(plan, model), expected: 60 })).toBe('BLOCKED');
@@ -1515,12 +1422,12 @@ it('#2512 a positive owned strip with no emitted transfer blocks gravity', () =>
   expect(plan).toMatchObject({ cases: [], distributed: [], nodal: [], surface: [], combinations: [] });
 });
 
-for (const shellEnd of [0, 6]) it(`#2512 the area gate checks incomplete and excess transfer with shell extent ${shellEnd}`, () => {
+for (const shellEnd of [0, 6]) it(`#2512 the area gate checks incomplete and excess transfer with a separated shell of extent ${shellEnd}`, () => {
   const model = floor(1, 1, 10, 6);
-  if (shellEnd > 0) rectangularShell(model, 1, 0, shellEnd, 3);
+  if (shellEnd > 0) rectangularShell(model, 1, 0, shellEnd, 6);
   const control = planWithScaledBayTransfer(model, 1);
   expect(control.outcome).toBe('READY');
-  expect(deadLoadKN(control, model)).toBeCloseTo(60, 10);
+  expect(deadLoadKN(control, model)).toBeCloseTo(60 + shellEnd * 6, 10);
   for (const scale of [0.5, 1.5]) {
     const plan = planWithScaledBayTransfer(model, scale);
     expect(plan.outcome).toBe('BLOCKED');
@@ -1567,7 +1474,7 @@ it('#2512 a split shifted eccentric deck has the direct connection’s ownership
   checkBlockedGravity(split, overlappingShells);
   const released = structuredClone(model);
   splitEccentricLinks(released, true);
-  checkOwnedFloor(released, [1, 2], 120);
+  checkBlockedGravity(released, overlappingShells);
 });
 
 it('#2512 a split eccentric rafter attachment keeps the shell as carrier', () => {
