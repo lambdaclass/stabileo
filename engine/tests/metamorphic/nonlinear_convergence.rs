@@ -2306,10 +2306,25 @@ mod r3 {
             }
             if prescribed {
                 let mut pattern = s.clone();
-                pattern.supports.get_mut("1").unwrap().dry = Some(0.001);
-                let r =
-                    arc_length::solve_arc_length_from(&arc(pattern, 1e-20), Some(&start)).unwrap();
+                let support_direction = 0.001;
+                pattern.supports.get_mut("1").unwrap().dry = Some(support_direction);
+                let input = arc(pattern, 1e-20);
+                let r = arc_length::solve_arc_length_from(&input, Some(&start)).unwrap();
                 assert!(r.converged);
+                let step = &r.steps[0];
+                assert_eq!(
+                    step.displacements[1].ux,
+                    initial.results.displacements[1].ux
+                );
+                assert_eq!(
+                    step.displacements[1].ry,
+                    initial.results.displacements[1].ry
+                );
+                close(
+                    step.load_factor * support_direction,
+                    input.initial_ds,
+                    input.tolerance,
+                );
             }
         }
     }

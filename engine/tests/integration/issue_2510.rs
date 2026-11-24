@@ -298,7 +298,6 @@ fn tied_springs() -> SolverInput {
 }
 
 #[test]
-#[ignore = "known wrong result: #2510"]
 fn review_2539_arc_tie_is_rebuilt_from_each_absolute_support_position() {
     let mut base = tied_springs();
     base.supports.get_mut("1").unwrap().dx = Some(2f64.powi(54));
@@ -331,11 +330,11 @@ fn review_2539_arc_tie_is_rebuilt_from_each_absolute_support_position() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2510"]
 fn review_2539_partial_warm_start_recovers_the_load_it_solved() {
     let large = 2f64.powi(54);
     let mut base = tied_springs();
     base.constraints.clear();
+    base.supports.get_mut("1").unwrap().dx = Some(large);
     base.supports.get_mut("2").unwrap().kx = Some(3.0);
     base.loads = serde_json::from_value(serde_json::json!([
         {"type":"nodal","data":{"nodeId":1,"fx":large,"fz":0,"my":0}},
@@ -344,6 +343,7 @@ fn review_2539_partial_warm_start_recovers_the_load_it_solved() {
     ]))
     .unwrap();
     let mut target = base.clone();
+    target.supports.get_mut("1").unwrap().dx = Some(2.0 - large);
     for (load, force) in target
         .loads
         .iter_mut()
@@ -364,6 +364,7 @@ fn review_2539_partial_warm_start_recovers_the_load_it_solved() {
         assert!(!result.converged);
         assert_eq!(result.load_factor, 0.5);
         assert_eq!(result.results.displacements[2].ux, 1.0);
+        assert_eq!(result.results.displacements[0].ux, 1.0);
         assert_eq!(
             result
                 .results
@@ -402,7 +403,6 @@ fn review_2539_partial_warm_start_recovers_the_load_it_solved() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2510"]
 fn review_2539_arc_requires_finite_ordered_controls() {
     let base = two_bar(1.0, 0.01, 0.25, 1, 20);
     for (initial_ds, min_ds, max_ds, tolerance) in [
@@ -436,4 +436,40 @@ fn review_2539_arc_requires_finite_ordered_controls() {
         };
         assert!(solve_arc_length(&input).unwrap().converged);
     }
+}
+
+#[test]
+fn displacement_control_matches_the_axial_bar_equilibrium() {
+    let solver = serde_json::from_str(include_str!(
+        "../../../scripts/tests/fixtures/displacement-control-axial.json"
+    ))
+    .unwrap();
+    let input = DisplacementControlInput {
+        solver,
+        control_node: 2,
+        control_dof: 0,
+        target_displacement: 0.5,
+        n_steps: 2,
+        max_iter: 20,
+        tolerance: 1e-8,
+    };
+    let check = |result: dedaliano_engine::solver::arc_length::DisplacementControlResult| {
+        assert!(result.converged);
+        assert_eq!(result.steps.len(), input.n_steps);
+        for (index, step) in result.steps.iter().enumerate() {
+            let displacement = (index + 1) as f64 * 0.25;
+            assert!(step.converged);
+            assert_eq!(step.control_displacement, displacement);
+            assert_eq!(step.load_factor, displacement / 2.0);
+        }
+        assert_eq!(result.final_load_factor, 0.25);
+        assert_eq!(result.results.displacements[1].ux, 0.5);
+        assert_eq!(result.results.reactions[0].rx, -0.5);
+        let force = &result.results.element_forces[0];
+        assert_eq!(force.n_start, 0.5);
+        assert_eq!(force.n_end, 0.5);
+    };
+    check(solve_displacement_control(&input).unwrap());
+    #[cfg(feature = "experimental-nonlinear")]
+    check(dedaliano_engine::solver::experimental_nonlinear::solve_displacement_control(&input).unwrap());
 }

@@ -6,11 +6,26 @@ pub(crate) fn dot_product(a: &[f64], b: &[f64]) -> f64 {
     a.iter().zip(b.iter()).map(|(x, y)| x * y).sum()
 }
 
+pub(crate) enum PathResponseError {
+    Numerical(String),
+    InvalidState(String),
+}
+
+impl From<PathResponseError> for String {
+    fn from(error: PathResponseError) -> Self {
+        match error {
+            PathResponseError::Numerical(message) | PathResponseError::InvalidState(message) => {
+                message
+            }
+        }
+    }
+}
+
 pub(crate) trait PathProblem {
     fn unknowns(&self) -> usize;
     fn linearize_at(&mut self, load_factor: f64);
     fn measure(&mut self, load_factor: f64) -> f64;
-    fn responses(&mut self) -> Result<(Vec<f64>, Vec<f64>), String>;
+    fn responses(&mut self) -> Result<(Vec<f64>, Vec<f64>), PathResponseError>;
     fn advance(&mut self, step: &[f64]);
     fn unknown(&self, index: usize) -> f64;
     fn record(&mut self, step: usize, load_factor: f64, iterations: usize, converged: bool);
@@ -95,6 +110,17 @@ pub(crate) fn solve_by_arc_length<P: ArcLengthProblem + ?Sized>(
     problem: &mut P,
     control: &ArcLengthControl,
 ) -> Result<PathOutcome, String> {
+    if [control.min_ds, control.initial_ds, control.max_ds]
+        .into_iter()
+        .any(|radius| !radius.is_finite() || radius <= 0.0)
+        || control.initial_ds < control.min_ds
+        || control.initial_ds > control.max_ds
+    {
+        return Err("Arc-length radii must be finite and positive, with the initial radius between the minimum and maximum".into());
+    }
+    if !control.tolerance.is_finite() || control.tolerance <= 0.0 {
+        return Err("Convergence tolerance must be finite and positive".into());
+    }
     let metric = ArcMetric {
         load_weight: problem.load_weight(),
     };
@@ -136,6 +162,7 @@ pub(crate) fn solve_by_arc_length<P: ArcLengthProblem + ?Sized>(
                 load: 0.0,
             };
 
+            let mut tried_load_only = false;
             for step_iters in 1..=control.max_iter {
                 total_iters += 1;
                 problem.advance(&correction);
@@ -150,14 +177,31 @@ pub(crate) fn solve_by_arc_length<P: ArcLengthProblem + ?Sized>(
                 }
                 increment.load = trial_lambda - lambda;
                 let radius = metric.norm(&increment);
-                if problem.measure(trial_lambda) < control.tolerance
+                let equilibrated = problem.measure(trial_lambda) < control.tolerance;
+                if equilibrated
                     && radius.is_finite()
                     && radius > 0.0
                     && (radius - ds).abs() / ds < control.tolerance
                 {
                     return Ok(Some((trial_lambda, increment, step_iters)));
                 }
-                let (residual_response, reference_response) = problem.responses()?;
+                if equilibrated
+                    && !tried_load_only
+                    && increment.displacement.iter().all(|&delta| delta == 0.0)
+                {
+                    tried_load_only = true;
+                    let load_on_sphere = lambda + (ds / metric.load_weight).copysign(predictor);
+                    if load_on_sphere.is_finite() && load_on_sphere != trial_lambda {
+                        trial_lambda = load_on_sphere;
+                        correction.fill(0.0);
+                        continue;
+                    }
+                }
+                let (residual_response, reference_response) = match problem.responses() {
+                    Ok(responses) => responses,
+                    Err(PathResponseError::Numerical(_)) => break,
+                    Err(error) => return Err(error.into()),
+                };
                 let tangent = ArcIncrement {
                     displacement: reference_response,
                     load: 1.0,
@@ -333,11 +377,13 @@ mod tests {
             (load - self.scale * (self.force)(self.displacement / self.scale)).abs()
         }
 
-        fn responses(&mut self) -> Result<(Vec<f64>, Vec<f64>), String> {
+        fn responses(&mut self) -> Result<(Vec<f64>, Vec<f64>), PathResponseError> {
             let u = self.displacement / self.scale;
             let reference = 1.0 / (self.tangent)(u);
             if !reference.is_finite() {
-                return Err("Singular tangent stiffness".into());
+                return Err(PathResponseError::Numerical(
+                    "Singular tangent stiffness".into(),
+                ));
             }
             let correction = self
                 .failed_correction
@@ -407,6 +453,7 @@ mod tests {
         );
         let mut limits = control(1);
         limits.initial_ds = std::f64::consts::SQRT_2;
+        limits.max_ds = limits.initial_ds;
         let _ = solve_by_arc_length(&mut probe, &limits).unwrap();
         assert_eq!(probe.trials[0], (1.0, 1.0));
         let (u, load) = probe.trials[1];
@@ -465,7 +512,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "known wrong result: #2510"]
     fn review_2539_singular_trial_retries_or_returns_the_checkpoint() {
         let ds = std::f64::consts::SQRT_2;
         for min_ds in [ds / 2.0, ds] {
@@ -533,10 +579,12 @@ mod tests {
         fn measure(&mut self, _: f64) -> f64 {
             self.residual.abs()
         }
-        fn responses(&mut self) -> Result<(Vec<f64>, Vec<f64>), String> {
+        fn responses(&mut self) -> Result<(Vec<f64>, Vec<f64>), PathResponseError> {
             self.solves += 1;
             if self.fail_at == Some(self.solves) {
-                return Err("the tangent cannot be factorized".into());
+                return Err(PathResponseError::InvalidState(
+                    "the tangent cannot be factorized".into(),
+                ));
             }
             Ok((
                 vec![self.residual / self.stiffness],
@@ -834,7 +882,7 @@ mod tests {
             fn measure(&mut self, load_factor: f64) -> f64 {
                 self.0.measure(load_factor)
             }
-            fn responses(&mut self) -> Result<(Vec<f64>, Vec<f64>), String> {
+            fn responses(&mut self) -> Result<(Vec<f64>, Vec<f64>), PathResponseError> {
                 Ok((vec![0.0], vec![0.0]))
             }
             fn advance(&mut self, step: &[f64]) {

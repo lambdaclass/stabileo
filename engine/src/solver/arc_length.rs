@@ -7,7 +7,6 @@
 /// Reference: Crisfield, "Non-linear Finite Element Analysis of Solids
 ///            and Structures" Vol. 1, Ch. 9
 
-use std::num::NonZeroUsize;
 
 use serde::{Serialize, Deserialize};
 use crate::types::*;
@@ -107,7 +106,7 @@ pub struct ArcLengthResult {
     pub converged: bool,
     pub total_iterations: usize,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub rejected_iterations: Option<NonZeroUsize>,
+    pub rejected_iterations: Option<usize>,
 }
 
 /// Displacement control result.

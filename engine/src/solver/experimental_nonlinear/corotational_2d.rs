@@ -9,7 +9,7 @@ struct Corotational2D<'a> {
     art: &'a [(usize, f64)],
     metric: &'a crate::solver::convergence::EquilibriumMetric,
     ns: usize,
-    f_total: &'a [f64],
+    start_model: Option<&'a SolverInput>,
     f_base: &'a [f64],
     u_r_base: &'a [f64],
     u_r_target: &'a [f64],
@@ -32,8 +32,13 @@ impl incremental::IncrementalProblem for Corotational2D<'_> {
     fn begin_increment(&mut self, load_factor: f64) {
         let nf = self.dof_num.n_free;
         self.targets = IncrementTargets2D::new(
-            self.f_base,
-            self.f_total,
+            increment_forces_2d(
+                self.input,
+                self.start_model,
+                self.dof_num,
+                self.asm,
+                load_factor,
+            ),
             self.u_r_base,
             self.u_r_target,
             &self.u_full[nf..],
@@ -388,7 +393,6 @@ fn corotational_2d(
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
 
     let asm = assembly::assemble_2d(input, &dof_num);
-    let f_total = asm.f.clone();
     let art = assembly::artificial_stiffness_entries(&asm);
 
     let (u_full, f_base) = match start {
@@ -424,7 +428,7 @@ fn corotational_2d(
         art: &art,
         metric: &metric,
         ns,
-        f_total: &f_total,
+        start_model: start.map(|start| start.input),
         f_base: &f_base,
         u_r_base: &u_r_base,
         u_r_target: &u_r_target,
@@ -460,7 +464,7 @@ fn corotational_2d(
 
     let max_displacement = compute_max_displacement(&dof_num, &u_full);
 
-    let at_state = increment_result_model(input, start, converged_factor);
+    let at_state = increment_result_model(input, start.map(|start| start.input), converged_factor);
     let mut results = build_final_results(
         at_state.as_ref(),
         &dof_num,

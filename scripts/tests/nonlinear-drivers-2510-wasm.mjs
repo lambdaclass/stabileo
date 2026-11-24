@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
-import { registerArcReviewTests } from './arc-review-wasm.mjs';
+import { registerArcReviewTests, registerDisplacementFixture } from './arc-review-wasm.mjs';
 import * as engine from '../../web/src/lib/wasm/dedaliano_engine.js';
 
 engine.initSync({ module: readFileSync(new URL('../../web/src/lib/wasm/dedaliano_engine_bg.wasm', import.meta.url)) });
@@ -102,3 +102,4 @@ for (const [method, settings] of [
 }
 
 registerArcReviewTests(engine.solve_arc_length);
+registerDisplacementFixture(engine.solve_displacement_control);

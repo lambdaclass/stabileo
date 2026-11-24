@@ -2,7 +2,7 @@ use super::*;
 use crate::solver::corotational::PlaneInputs;
 use crate::solver::path_following::{
     solve_by_arc_length, solve_by_displacement_control, ArcLengthControl, ArcLengthProblem,
-    DisplacementControl, PathProblem,
+    DisplacementControl, PathProblem, PathResponseError,
 };
 
 /// Solve using Crisfield spherical arc-length method.
@@ -61,6 +61,19 @@ struct ArcLength2D<'a> {
 }
 
 impl ArcLength2D<'_> {
+    fn set_trial_load(&mut self, lambda: f64) {
+        set_supports(
+            &mut self.u_full,
+            self.dof_num.n_free,
+            self.u_r_start,
+            self.du_support,
+            lambda,
+        );
+        if let Some(cs) = self.cs {
+            cs.impose_motion(&mut self.u_full);
+        }
+    }
+
     fn reference(&self, asm_t: &TangentAssembly) -> Vec<f64> {
         let (n, nf) = (self.dof_num.n_total, self.dof_num.n_free);
         let support_direction = self.support_direction;
@@ -106,13 +119,7 @@ impl PathProblem for ArcLength2D<'_> {
     }
 
     fn linearize_at(&mut self, lambda: f64) {
-        set_supports(
-            &mut self.u_full,
-            self.dof_num.n_free,
-            self.u_r_start,
-            self.du_support,
-            lambda,
-        );
+        self.set_trial_load(lambda);
         self.asm_t = Some(assemble_tangent(
             self.solver,
             self.dof_num,
@@ -152,10 +159,12 @@ impl PathProblem for ArcLength2D<'_> {
         measure
     }
 
-    fn responses(&mut self) -> Result<(Vec<f64>, Vec<f64>), String> {
+    fn responses(&mut self) -> Result<(Vec<f64>, Vec<f64>), PathResponseError> {
         let (n, nf, ns) = (self.dof_num.n_total, self.dof_num.n_free, self.ns);
         let Some(asm_t) = self.asm_t.take() else {
-            return Err("Arc-length analysis: no tangent assembled".into());
+            return Err(PathResponseError::InvalidState(
+                "Arc-length analysis: no tangent assembled".into(),
+            ));
         };
         let residual = std::mem::take(&mut self.residual);
         let residual_s = if let Some(ref cs) = *self.cs {
@@ -163,9 +172,12 @@ impl PathProblem for ArcLength2D<'_> {
         } else {
             residual
         };
-        let tangent = factor_assembled(&asm_t, n, nf, ns, self.cs, &mut self.sparse_sym_cache)?;
-        let du_r_s = solve_with_tangent(&tangent, &residual_s, ns)?;
-        let du_t_s = solve_with_tangent(&tangent, &self.reduce(&self.reference(&asm_t)), ns)?;
+        let tangent = factor_assembled(&asm_t, n, nf, ns, self.cs, &mut self.sparse_sym_cache)
+            .map_err(PathResponseError::Numerical)?;
+        let du_r_s =
+            solve_with_tangent(&tangent, &residual_s, ns).map_err(PathResponseError::Numerical)?;
+        let du_t_s = solve_with_tangent(&tangent, &self.reduce(&self.reference(&asm_t)), ns)
+            .map_err(PathResponseError::Numerical)?;
         let du_r = if let Some(ref cs) = *self.cs {
             cs.expand_solution(&du_r_s, MasterMotion::Homogeneous)
         } else {
@@ -180,8 +192,14 @@ impl PathProblem for ArcLength2D<'_> {
     }
 
     fn advance(&mut self, step: &[f64]) {
-        for i in 0..self.dof_num.n_free {
-            self.u_full[i] += step[i];
+        if let Some(cs) = self.cs {
+            for &i in cs.independent_dofs() {
+                self.u_full[i] += step[i];
+            }
+        } else {
+            for (displacement, increment) in self.u_full.iter_mut().zip(step) {
+                *displacement += increment;
+            }
         }
     }
 
@@ -190,14 +208,7 @@ impl PathProblem for ArcLength2D<'_> {
     }
 
     fn record(&mut self, step: usize, lambda: f64, iterations: usize, converged: bool) {
-        let (n, nf) = (self.dof_num.n_total, self.dof_num.n_free);
-        set_supports(
-            &mut self.u_full,
-            nf,
-            self.u_r_start,
-            self.du_support,
-            lambda,
-        );
+        let n = self.dof_num.n_total;
         self.steps.push(EquilibriumStep {
             step,
             load_factor: lambda,
@@ -224,13 +235,7 @@ impl ArcLengthProblem for ArcLength2D<'_> {
     fn restore(&mut self, free_displacements: &[f64], load_factor: f64) {
         let nf = self.dof_num.n_free;
         self.u_full[..nf].copy_from_slice(free_displacements);
-        set_supports(
-            &mut self.u_full,
-            nf,
-            self.u_r_start,
-            self.du_support,
-            load_factor,
-        );
+        self.set_trial_load(load_factor);
     }
 
     fn reference_response(&mut self) -> Result<Vec<f64>, String> {
@@ -284,7 +289,7 @@ fn solve_arc_length_contained(
     let its = asm.inclined_transforms_2d;
     let f_ref_full = asm.f;
     let f_ref: Vec<f64> = f_ref_full[..nf].to_vec();
-    let (u_full, f_start) = match start {
+    let (mut u_full, f_start) = match start {
         Some(start) => crate::solver::corotational::start_state_2d(solver, start, &dof_num)?,
         None => (vec![0.0; n], vec![0.0; n]),
     };
@@ -293,6 +298,9 @@ fn solve_arc_length_contained(
     let u_r_start: Vec<f64> = u_full[nf..].to_vec();
     let du_support = crate::solver::linear::prescribed_displacements_2d(solver, &dof_num);
     let moves_supports = du_support.iter().any(|&v| v != 0.0);
+    if let Some(cs) = &cs {
+        cs.impose_motion(&mut u_full);
+    }
     let mut support_direction = vec![0.0; n];
     support_direction[nf..].copy_from_slice(&du_support);
     if let Some(ref cs) = cs {
@@ -361,13 +369,10 @@ fn solve_arc_length_contained(
             target_iter: input.target_iter,
         },
     )?;
-    let ArcLength2D {
-        mut u_full, steps, ..
-    } = problem;
+    let ArcLength2D { u_full, steps, .. } = problem;
     let (lambda, overall_converged, total_iters) =
         (outcome.load_factor, outcome.converged, outcome.iterations);
 
-    set_supports(&mut u_full, nf, &u_r_start, &du_support, lambda);
     let mut at_state = crate::solver::corotational::scaled_loads_2d(solver, lambda);
     if let Some(start) = start {
         at_state.loads.extend(start.input.loads.clone());
@@ -376,13 +381,14 @@ fn solve_arc_length_contained(
         crate::solver::corotational::build_final_results(&at_state, &dof_num, &u_full, &cs, &its)?;
 
     let accepted_iterations = steps.iter().map(|step| step.iterations).sum::<usize>();
+    let rejected_iterations = total_iters - accepted_iterations;
     Ok(ArcLengthResult {
         results,
         steps,
         final_load_factor: lambda,
         converged: overall_converged,
         total_iterations: total_iters,
-        rejected_iterations: NonZeroUsize::new(total_iters - accepted_iterations),
+        rejected_iterations: (rejected_iterations != 0).then_some(rejected_iterations),
     })
 }
 
@@ -455,10 +461,12 @@ impl PathProblem for DisplacementControl2D<'_> {
         rel_error
     }
 
-    fn responses(&mut self) -> Result<(Vec<f64>, Vec<f64>), String> {
+    fn responses(&mut self) -> Result<(Vec<f64>, Vec<f64>), PathResponseError> {
         let (n, nf, ns) = (self.dof_num.n_total, self.dof_num.n_free, self.ns);
         let Some(asm_t) = self.asm_t.take() else {
-            return Err("Displacement-control analysis: no tangent assembled".into());
+            return Err(PathResponseError::InvalidState(
+                "Displacement-control analysis: no tangent assembled".into(),
+            ));
         };
         let residual = std::mem::take(&mut self.residual);
         let residual_s = if let Some(ref cs) = *self.cs {
@@ -466,9 +474,12 @@ impl PathProblem for DisplacementControl2D<'_> {
         } else {
             residual
         };
-        let tangent = factor_assembled(&asm_t, n, nf, ns, self.cs, &mut self.sparse_sym_cache)?;
-        let du_r_s = solve_with_tangent(&tangent, &residual_s, ns)?;
-        let du_t_s = solve_with_tangent(&tangent, self.f_ref_s, ns)?;
+        let tangent = factor_assembled(&asm_t, n, nf, ns, self.cs, &mut self.sparse_sym_cache)
+            .map_err(PathResponseError::Numerical)?;
+        let du_r_s =
+            solve_with_tangent(&tangent, &residual_s, ns).map_err(PathResponseError::Numerical)?;
+        let du_t_s =
+            solve_with_tangent(&tangent, self.f_ref_s, ns).map_err(PathResponseError::Numerical)?;
         let du_r = if let Some(ref cs) = *self.cs {
             cs.expand_solution(&du_r_s, MasterMotion::Homogeneous)
         } else {
@@ -1088,28 +1099,8 @@ mod shared_driver_equivalence {
         }
     }
 
-    fn same_driven(input: &DisplacementControlInput) -> Option<DisplacementControlResult> {
-        let before = crate::solver::experimental_nonlinear::solve_displacement_control(input);
-        let now = solve_displacement_control(input);
-        match (before, now) {
-            (Ok(before), Ok(now)) => {
-                assert_eq!(format!("{before:?}"), format!("{now:?}"));
-                Some(now)
-            }
-            (Err(before), Err(now)) => {
-                assert_eq!(before, now);
-                None
-            }
-            (before, now) => panic!(
-                "{:?} against {:?}",
-                before.map(|r| r.converged),
-                now.map(|r| r.converged)
-            ),
-        }
-    }
-
     #[test]
-    fn the_shared_driver_gives_the_driven_paths_the_loop_gave_bit_for_bit() {
+    fn displacement_control_paths_reach_each_requested_displacement() {
         let (mut reached, mut stopped, mut sparse, mut steps) = (0, 0, 0, 0);
         for n in [2, 6, 14, 30] {
             for (rise, far_support) in [
@@ -1135,16 +1126,21 @@ mod shared_driver_equivalence {
                     (1, -0.4, 4, 2),
                     (1, -0.05, 3, 1),
                 ] {
-                    let Some(result) = same_driven(&driven(
-                        solver.clone(),
-                        node,
-                        dof,
-                        target,
-                        n_steps,
-                        max_iter,
-                    )) else {
+                    let input = driven(solver.clone(), node, dof, target, n_steps, max_iter);
+                    let Ok(result) = solve_displacement_control(&input) else {
                         continue;
                     };
+                    let delta = target / n_steps as f64;
+                    for step in result.steps.iter().filter(|step| step.converged) {
+                        let expected = step.step as f64 * delta;
+                        assert!(
+                            (step.control_displacement - expected).abs()
+                                <= input.tolerance * delta.abs(),
+                            "step {}: {} != {expected}",
+                            step.step,
+                            step.control_displacement
+                        );
+                    }
                     steps += result.steps.len();
                     if result.converged {
                         reached += 1
@@ -1161,24 +1157,51 @@ mod shared_driver_equivalence {
     }
 
     #[test]
-    fn refused_displacement_control_is_refused_with_the_same_words() {
+    fn invalid_displacement_control_inputs_report_their_cause() {
         let solver = frame(6, 0.3, None);
-        for input in [
-            driven(solver.clone(), 7, 1, -0.05, 0, 30),
-            driven(solver.clone(), 7, 1, -0.05, 10, 0),
-            driven(solver.clone(), 7, 1, 0.0, 10, 30),
-            driven(solver.clone(), 7, 1, f64::NAN, 10, 30),
-            driven(solver.clone(), 1, 1, -0.05, 10, 30),
-            driven(solver.clone(), 99, 1, -0.05, 10, 30),
-            driven(solver.clone(), 7, 9, -0.05, 10, 30),
+        for (input, expected) in [
+            (
+                driven(solver.clone(), 7, 1, -0.05, 0, 30),
+                "Number of displacement steps must be at least 1",
+            ),
+            (
+                driven(solver.clone(), 7, 1, -0.05, 10, 0),
+                "Max iterations must be at least 1",
+            ),
+            (
+                driven(solver.clone(), 7, 1, 0.0, 10, 30),
+                "Target displacement must be finite and non-zero",
+            ),
+            (
+                driven(solver.clone(), 7, 1, f64::NAN, 10, 30),
+                "Target displacement must be finite and non-zero",
+            ),
+            (
+                driven(solver.clone(), 1, 1, -0.05, 10, 30),
+                "Control DOF is restrained",
+            ),
+            (
+                driven(solver.clone(), 99, 1, -0.05, 10, 30),
+                "Control node/DOF not found in free DOFs",
+            ),
+            (
+                driven(solver.clone(), 7, 9, -0.05, 10, 30),
+                "Control node/DOF not found in free DOFs",
+            ),
         ] {
-            assert!(same_driven(&input).is_none());
+            assert_eq!(solve_displacement_control(&input).unwrap_err(), expected);
         }
-        let mut unloaded = frame(6, 0.3, None);
+        let mut unloaded = solver.clone();
         unloaded.loads.clear();
-        assert!(same_driven(&driven(unloaded, 7, 1, -0.05, 10, 30)).is_none());
+        assert_eq!(
+            solve_displacement_control(&driven(unloaded, 7, 1, -0.05, 10, 30)).unwrap_err(),
+            "Zero reference load",
+        );
         let mut tolerance = driven(solver, 7, 1, -0.05, 10, 30);
         tolerance.tolerance = 0.0;
-        assert!(same_driven(&tolerance).is_none());
+        assert_eq!(
+            solve_displacement_control(&tolerance).unwrap_err(),
+            "Convergence tolerance must be finite and positive",
+        );
     }
 }
