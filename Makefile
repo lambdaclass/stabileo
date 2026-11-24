@@ -1378,3 +1378,7 @@ test.engine.kinematics-2222:
 .PHONY: test.engine.nonlinear-drivers-2510-wasm
 test.engine.nonlinear-drivers-2510-wasm: wasm scripts/tests/arc-review-wasm.mjs
 	$(NIX_RUN) node --test scripts/tests/nonlinear-drivers-2510-wasm.mjs
+
+.PHONY: test.engine.prescribed-motion-2227-wasm
+test.engine.prescribed-motion-2227-wasm: wasm
+	$(NIX_RUN) node --test scripts/tests/prescribed-motion-2227-wasm.mjs
