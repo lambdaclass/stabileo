@@ -530,9 +530,8 @@ type ShearProvision = ({ legs: number } | { secondaryFace: SecondaryShearFace })
 
 export function checkShear(
   params: ConcreteDesignParams, Vu: number, Nu: number = 0, opts: ShearOptions = {},
-  provided?: { legs: number; spacing: number },
 ): ShearResult {
-  return evaluateShear(params, Vu, Nu, opts, provided);
+  return evaluateShear(params, Vu, Nu, opts);
 }
 
 function evaluateShear(
