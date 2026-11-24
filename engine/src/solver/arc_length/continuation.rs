@@ -1,5 +1,6 @@
 use super::*;
-use crate::solver::corotational::PlaneInputs;
+use crate::solver::corotational::{build_planar_results, start_displacements_2d, PlaneInputs};
+use crate::solver::planar_loads::PlanarLoadPath;
 use crate::solver::path_following::{
     solve_by_arc_length, solve_by_displacement_control, ArcLengthControl, ArcLengthProblem,
     DisplacementControl, PathProblem, PathResponseError,
@@ -46,9 +47,8 @@ struct ArcLength2D<'a> {
     moves_supports: bool,
     load_weight: f64,
     f_ref: &'a [f64],
-    f_ref_full: &'a [f64],
+    loads: &'a PlanarLoadPath,
     f_start: &'a [f64],
-    f_start_full: &'a [f64],
     u_r_start: &'a [f64],
     du_support: &'a [f64],
     support_direction: &'a [f64],
@@ -131,27 +131,17 @@ impl PathProblem for ArcLength2D<'_> {
     }
 
     fn measure(&mut self, lambda: f64) -> f64 {
-        let (n, nf) = (self.dof_num.n_total, self.dof_num.n_free);
-        let (f_start, f_ref, f_start_full, f_ref_full) =
-            (self.f_start, self.f_ref, self.f_start_full, self.f_ref_full);
+        let nf = self.dof_num.n_free;
         let Some(asm_t) = self.asm_t.as_ref() else {
             return f64::INFINITY;
         };
-        let f_int_new = &asm_t.f_int;
-
-        let mut residual = vec![0.0; nf];
-        for i in 0..nf {
-            residual[i] = f_start[i] + lambda * f_ref[i] - f_int_new[i];
-        }
-
-        let applied: Vec<f64> = (0..n)
-            .map(|i| f_start_full[i] + lambda * f_ref_full[i])
-            .collect();
+        let applied = self.loads.at(lambda).forces(self.its);
+        let residual: Vec<_> = (0..nf).map(|i| applied[i] - asm_t.f_int[i]).collect();
         let measure = self.metric.continuation_residual(
             &residual,
             &applied,
             &self.u_full[nf..],
-            f_start_full,
+            self.f_start,
             self.start_internal,
             self.cs.as_ref(),
         );
@@ -284,17 +274,17 @@ fn solve_arc_length_contained(
 
     let sparse = ns >= SPARSE_THRESHOLD;
 
-    let asm = assembly::assemble_2d(solver, &dof_num);
-    let art = assembly::artificial_stiffness_entries(&asm);
+    let asm = assembly::assemble_stiffness_2d(solver, &dof_num);
+    let art = asm.artificial_stiffness_entries();
     let its = asm.inclined_transforms_2d;
-    let f_ref_full = asm.f;
-    let f_ref: Vec<f64> = f_ref_full[..nf].to_vec();
-    let (mut u_full, f_start) = match start {
-        Some(start) => crate::solver::corotational::start_state_2d(solver, start, &dof_num)?,
-        None => (vec![0.0; n], vec![0.0; n]),
+    let mut u_full = match start {
+        Some(start) => start_displacements_2d(solver, start, &dof_num)?,
+        None => vec![0.0; n],
     };
-    let f_start_full = f_start;
-    let f_start: Vec<f64> = f_start_full[..nf].to_vec();
+    let loads = PlanarLoadPath::continuation(solver, start.map(|start| start.input), &dof_num);
+    let f_ref_full = loads.reference().forces(&its);
+    let f_ref = &f_ref_full[..nf];
+    let f_start = loads.base().forces(&its);
     let u_r_start: Vec<f64> = u_full[nf..].to_vec();
     let du_support = crate::solver::linear::prescribed_displacements_2d(solver, &dof_num);
     let moves_supports = du_support.iter().any(|&v| v != 0.0);
@@ -323,12 +313,12 @@ fn solve_arc_length_contained(
     } else {
         vec![0.0; n]
     };
-    let f_ref_norm = metric.free_norm(&f_ref, cs.as_ref());
+    let f_ref_norm = metric.free_norm(f_ref, cs.as_ref());
     if f_ref_norm == 0.0 && !moves_supports {
         return Err("Zero reference load".into());
     }
     let load_weight = if f_ref_norm > 0.0 {
-        vec_norm(&f_ref)
+        vec_norm(f_ref)
     } else {
         vec_norm(&du_support)
     };
@@ -343,10 +333,9 @@ fn solve_arc_length_contained(
         ns,
         moves_supports,
         load_weight,
-        f_ref: &f_ref,
-        f_ref_full: &f_ref_full,
+        f_ref,
+        loads: &loads,
         f_start: &f_start,
-        f_start_full: &f_start_full,
         u_r_start: &u_r_start,
         du_support: &du_support,
         support_direction: &support_direction,
@@ -373,12 +362,7 @@ fn solve_arc_length_contained(
     let (lambda, overall_converged, total_iters) =
         (outcome.load_factor, outcome.converged, outcome.iterations);
 
-    let mut at_state = crate::solver::corotational::scaled_loads_2d(solver, lambda);
-    if let Some(start) = start {
-        at_state.loads.extend(start.input.loads.clone());
-    }
-    let results =
-        crate::solver::corotational::build_final_results(&at_state, &dof_num, &u_full, &cs, &its)?;
+    let results = build_planar_results(solver, &dof_num, &u_full, &cs, &its, &loads.at(lambda))?;
 
     let accepted_iterations = steps.iter().map(|step| step.iterations).sum::<usize>();
     let rejected_iterations = total_iters - accepted_iterations;
@@ -414,8 +398,7 @@ struct DisplacementControl2D<'a> {
     sparse: bool,
     ns: usize,
     ctrl: usize,
-    f_ref: &'a [f64],
-    f_ref_full: &'a [f64],
+    loads: &'a PlanarLoadPath,
     f_ref_s: &'a [f64],
     u_full: Vec<f64>,
     sparse_sym_cache: Option<SparseSymbolicCache>,
@@ -442,18 +425,11 @@ impl PathProblem for DisplacementControl2D<'_> {
 
     fn measure(&mut self, lambda: f64) -> f64 {
         let nf = self.dof_num.n_free;
-        let (f_ref, f_ref_full) = (self.f_ref, self.f_ref_full);
         let Some(asm_t) = self.asm_t.as_ref() else {
             return f64::INFINITY;
         };
-        let f_int = &asm_t.f_int;
-
-        let mut residual = vec![0.0; nf];
-        for i in 0..nf {
-            residual[i] = lambda * f_ref[i] - f_int[i];
-        }
-
-        let applied: Vec<f64> = f_ref_full.iter().map(|f| lambda * f).collect();
+        let applied = self.loads.at(lambda).forces(self.its);
+        let residual: Vec<_> = (0..nf).map(|i| applied[i] - asm_t.f_int[i]).collect();
         let rel_error = self
             .metric
             .relative_residual(&residual, &applied, None, self.cs.as_ref());
@@ -574,17 +550,18 @@ fn solve_displacement_control_contained(
         return Err("Convergence tolerance must be finite and positive".into());
     }
 
-    let asm = assembly::assemble_2d(solver, &dof_num);
-    let art = assembly::artificial_stiffness_entries(&asm);
+    let asm = assembly::assemble_stiffness_2d(solver, &dof_num);
+    let art = asm.artificial_stiffness_entries();
     let its = asm.inclined_transforms_2d;
-    let f_ref_full = asm.f;
-    let f_ref: Vec<f64> = f_ref_full[..nf].to_vec();
+    let loads = PlanarLoadPath::continuation(solver, None, &dof_num);
+    let f_ref_full = loads.reference().forces(&its);
+    let f_ref = &f_ref_full[..nf];
     let f_ref_s_dc = if let Some(ref cs) = cs_dc {
-        cs.reduce_vector(&f_ref)
+        cs.reduce_vector(f_ref)
     } else {
-        f_ref.clone()
+        f_ref.to_vec()
     };
-    let f_ref_norm = metric.free_norm(&f_ref, cs_dc.as_ref());
+    let f_ref_norm = metric.free_norm(f_ref, cs_dc.as_ref());
     if f_ref_norm == 0.0 {
         return Err("Zero reference load".into());
     }
@@ -599,8 +576,7 @@ fn solve_displacement_control_contained(
         sparse,
         ns: ns_dc,
         ctrl,
-        f_ref: &f_ref,
-        f_ref_full: &f_ref_full,
+        loads: &loads,
         f_ref_s: &f_ref_s_dc,
         u_full: vec![0.0; n],
         sparse_sym_cache: None,
@@ -622,10 +598,7 @@ fn solve_displacement_control_contained(
     let (lambda, overall_converged, total_iters) =
         (outcome.load_factor, outcome.converged, outcome.iterations);
 
-    let at_state = crate::solver::corotational::scaled_loads_2d(solver, lambda);
-    let results = crate::solver::corotational::build_final_results(
-        &at_state, &dof_num, &u_full, &cs_dc, &its,
-    )?;
+    let results = build_planar_results(solver, &dof_num, &u_full, &cs_dc, &its, &loads.at(lambda))?;
 
     Ok(DisplacementControlResult {
         results,
@@ -926,23 +899,13 @@ mod shared_driver_equivalence {
     fn checked_arc(
         input: &ArcLengthInput,
         start: Option<&crate::solver::corotational::CorotationalStart2D>,
-    ) -> Option<ArcLengthResult> {
-        let result = solve_arc_length_from(input, start);
-        if start.is_none() {
-            let cold = solve_arc_length(input);
-            assert_eq!(format!("{cold:?}"), format!("{result:?}"));
+    ) -> ArcLengthResult {
+        let result = if let Some(start) = start {
+            solve_arc_length_from(input, Some(start))
+        } else {
+            solve_arc_length(input)
         }
-        let result = match result {
-            Ok(result) => result,
-            Err(error) => {
-                assert_eq!(
-                    error,
-                    crate::solver::experimental_nonlinear::solve_arc_length_from(input, start)
-                        .unwrap_err(),
-                );
-                return None;
-            }
-        };
+        .unwrap();
 
         let dofs = DofNumbering::build_2d(&input.solver);
         let nf = dofs.n_free;
@@ -1001,7 +964,7 @@ mod shared_driver_equivalence {
                 format!("{:?}", step.displacements),
             );
         }
-        Some(result)
+        result
     }
 
     #[test]
@@ -1025,12 +988,10 @@ mod shared_driver_equivalence {
                     (6, 1, 0.05),
                     (0, 30, 0.1),
                 ] {
-                    let Some(result) = checked_arc(
+                    let result = checked_arc(
                         &asked(solver.clone(), max_steps, max_iter, initial_ds),
                         None,
-                    ) else {
-                        continue;
-                    };
+                    );
                     steps += result.steps.len();
                     if result.converged {
                         followed += 1
@@ -1051,9 +1012,9 @@ mod shared_driver_equivalence {
         for n in [6, 30] {
             let mut settling = frame(n, 0.3, Some("pinned"));
             settling.supports.get_mut("2").unwrap().dz = Some(-0.05);
-            assert!(checked_arc(&asked(settling.clone(), 10, 30, 0.05), None).is_some());
+            checked_arc(&asked(settling.clone(), 10, 30, 0.05), None);
             settling.loads.clear();
-            assert!(checked_arc(&asked(settling, 10, 30, 0.05), None).is_some());
+            checked_arc(&asked(settling, 10, 30, 0.05), None);
 
             let first = frame(n, 0.3, Some("pinned"));
             let reached =
@@ -1070,14 +1031,20 @@ mod shared_driver_equivalence {
                 fz: -10.0,
                 my: 0.0,
             })];
-            assert!(checked_arc(&asked(next, 10, 30, 0.05), Some(&start)).is_some());
+            checked_arc(&asked(next, 10, 30, 0.05), Some(&start));
         }
         let mut unloaded = frame(6, 0.3, None);
         unloaded.loads.clear();
-        assert!(checked_arc(&asked(unloaded, 10, 30, 0.05), None).is_none());
+        assert_eq!(
+            solve_arc_length(&asked(unloaded, 10, 30, 0.05)).unwrap_err(),
+            "Zero reference load",
+        );
         let mut held = frame(1, 0.0, Some("fixed"));
         held.supports.get_mut("1").unwrap().support_type = "fixed".into();
-        assert!(checked_arc(&asked(held, 10, 30, 0.05), None).is_none());
+        assert_eq!(
+            solve_arc_length(&asked(held, 10, 30, 0.05)).unwrap_err(),
+            "No free DOFs",
+        );
     }
 
     fn driven(

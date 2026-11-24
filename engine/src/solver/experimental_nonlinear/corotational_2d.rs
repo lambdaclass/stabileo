@@ -5,11 +5,11 @@ struct Corotational2D<'a> {
     input: &'a SolverInput,
     dof_num: &'a DofNumbering,
     cs: &'a Option<FreeConstraintSystem>,
-    asm: &'a assembly::AssemblyResult,
+    asm: &'a assembly::StiffnessAssembly2D,
     art: &'a [(usize, f64)],
     metric: &'a crate::solver::convergence::EquilibriumMetric,
     ns: usize,
-    start_model: Option<&'a SolverInput>,
+    loads: &'a PlanarLoadPath,
     f_base: &'a [f64],
     u_r_base: &'a [f64],
     u_r_target: &'a [f64],
@@ -32,13 +32,7 @@ impl incremental::IncrementalProblem for Corotational2D<'_> {
     fn begin_increment(&mut self, load_factor: f64) {
         let nf = self.dof_num.n_free;
         self.targets = IncrementTargets2D::new(
-            increment_forces_2d(
-                self.input,
-                self.start_model,
-                self.dof_num,
-                self.asm,
-                load_factor,
-            ),
+            self.loads.at(load_factor).forces(&self.asm.inclined_transforms_2d),
             self.u_r_base,
             self.u_r_target,
             &self.u_full[nf..],
@@ -274,11 +268,8 @@ impl incremental::IncrementalProblem for Corotational2D<'_> {
     }
 
     fn advance(&mut self, delta_u_f: &[f64]) {
-        let nf = self.dof_num.n_free;
-        for i in 0..nf {
-            self.u_full[i] += delta_u_f[i];
-        }
-        self.targets.apply_supports(&mut self.u_full[nf..]);
+        self.targets
+            .advance(&mut self.u_full, delta_u_f, self.cs.as_ref());
     }
 
     fn state(&self) -> Vec<f64> {
@@ -295,6 +286,9 @@ impl incremental::IncrementalProblem for Corotational2D<'_> {
 
     fn set_state(&mut self, state: &[f64]) {
         self.u_full[..self.dof_num.n_free].copy_from_slice(state);
+        if let Some(cs) = self.cs {
+            cs.impose_motion(&mut self.u_full);
+        }
     }
 
     fn commit(&mut self) -> Result<(), String> {
@@ -392,13 +386,18 @@ fn corotational_2d(
     let cs = FreeConstraintSystem::build_2d(&input, &dof_num)?;
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
 
-    let asm = assembly::assemble_2d(input, &dof_num);
-    let art = assembly::artificial_stiffness_entries(&asm);
+    let asm = assembly::assemble_stiffness_2d(input, &dof_num);
+    let art = asm.artificial_stiffness_entries();
 
-    let (u_full, f_base) = match start {
-        Some(start) => start_state_2d(input, start, &dof_num)?,
-        None => (vec![0.0; n], vec![0.0; n]),
+    let mut u_full = match start {
+        Some(start) => start_displacements_2d(input, start, &dof_num)?,
+        None => vec![0.0; n],
     };
+    let loads = PlanarLoadPath::increments(input, start.map(|start| start.input), &dof_num);
+    let f_base = loads.base().forces(&asm.inclined_transforms_2d);
+    if let Some(cs) = &cs {
+        cs.impose_motion(&mut u_full);
+    }
     let u_r_base: Vec<f64> = u_full[nf..].to_vec();
     let u_r_target = crate::solver::linear::prescribed_displacements_2d(input, &dof_num);
     let support_extent: Vec<_> = u_r_base
@@ -428,7 +427,7 @@ fn corotational_2d(
         art: &art,
         metric: &metric,
         ns,
-        start_model: start.map(|start| start.input),
+        loads: &loads,
         f_base: &f_base,
         u_r_base: &u_r_base,
         u_r_target: &u_r_target,
@@ -464,13 +463,13 @@ fn corotational_2d(
 
     let max_displacement = compute_max_displacement(&dof_num, &u_full);
 
-    let at_state = increment_result_model(input, start.map(|start| start.input), converged_factor);
-    let mut results = build_final_results(
-        at_state.as_ref(),
+    let mut results = build_planar_results(
+        input,
         &dof_num,
         &u_full,
         &cs,
         &asm.inclined_transforms_2d,
+        &loads.at(converged_factor),
     )?;
     crate::known_issues::attach(
         &mut results.structured_diagnostics,
@@ -513,7 +512,6 @@ mod shared_driver_equivalence {
     }
 
     #[test]
-    #[ignore = "known wrong result: #2510"]
     fn review_round_two_warm_corotation_preserves_the_absolute_tie() {
         let mut first: SolverInput = serde_json::from_str(include_str!(
             "../../../../scripts/tests/fixtures/arc-tied-springs.json"
@@ -553,7 +551,6 @@ mod shared_driver_equivalence {
     }
 
     #[test]
-    #[ignore = "known wrong result: #2510"]
     fn review_round_two_warm_corotation_keeps_a_constant_resultant_at_every_increment() {
         let mut input = axial_spring(1.0);
         let initial =

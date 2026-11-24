@@ -481,7 +481,6 @@ fn round_two_tied_springs() -> SolverInput {
 }
 
 #[test]
-#[ignore = "known wrong result: #2510"]
 fn review_round_two_cold_corotation_reconstructs_a_scaled_tie() {
     let mut input = round_two_tied_springs();
     input.constraints = serde_json::from_value(serde_json::json!([{
@@ -505,7 +504,6 @@ fn review_round_two_cold_corotation_reconstructs_a_scaled_tie() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2510"]
 fn review_round_two_warm_corotation_preserves_the_absolute_tie() {
     let mut first = round_two_tied_springs();
     first.supports.get_mut("1").unwrap().dx = Some(1.0);
@@ -544,7 +542,6 @@ fn round_two_cancelling_loads(node_id: usize) -> [SolverLoad; 2] {
 }
 
 #[test]
-#[ignore = "known wrong result: #2510"]
 fn review_round_two_warm_corotation_keeps_a_constant_resultant_at_every_increment() {
     let mut input = axial_spring(1.0);
     let initial = solve_corotational_2d(&input, 20, 1e-8, 1, false).unwrap();
@@ -575,7 +572,6 @@ fn round_two_axial_cancellation() -> SolverInput {
 }
 
 #[test]
-#[ignore = "known wrong result: #2510"]
 fn review_round_two_arc_recovers_the_scaled_exact_resultant() {
     for factor in [0.5, 0.75, 1.0] {
         let radius = factor * std::f64::consts::SQRT_2;
@@ -599,7 +595,6 @@ fn review_round_two_arc_recovers_the_scaled_exact_resultant() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2510"]
 fn review_round_two_displacement_control_recovers_the_scaled_exact_resultant() {
     for factor in [0.5, 0.75, 1.0] {
         let input = DisplacementControlInput {
@@ -619,7 +614,6 @@ fn review_round_two_displacement_control_recovers_the_scaled_exact_resultant() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2510"]
 fn review_round_two_public_arc_rejects_a_backwards_corrector() {
     let mut input = two_bar(0.5, 0.01, 0.375, 1, 30);
     let first = arc_runs(&input);
@@ -649,7 +643,6 @@ fn review_round_two_public_arc_rejects_a_backwards_corrector() {
 
 
 #[test]
-#[ignore = "known wrong result: #2510"]
 fn review_round_two_arc_scales_the_axial_member_resultant() {
     let mut solver = round_two_axial_cancellation();
     solver.loads.truncate(1);
@@ -687,7 +680,6 @@ fn review_round_two_arc_scales_the_axial_member_resultant() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2510"]
 fn review_round_two_arc_assembles_loads_before_rounding_the_reference() {
     let mut solver = round_two_axial_cancellation();
     solver.loads.clear();

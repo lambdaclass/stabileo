@@ -75,6 +75,16 @@ impl ArcMetric {
         vec_norm(&increment.displacement).hypot(self.load_weight * increment.load)
     }
 
+    fn projection(&self, a: &ArcIncrement, b: &ArcIncrement) -> f64 {
+        let a_norm = self.norm(a);
+        let b_norm = self.norm(b);
+        let displacement = a.displacement.iter().zip(&b.displacement)
+            .map(|(x, y)| (x / a_norm) * (y / b_norm))
+            .sum::<f64>();
+        displacement
+            + ((self.load_weight * a.load) / a_norm) * ((self.load_weight * b.load) / b_norm)
+    }
+
     fn correction(
         &self,
         increment: &ArcIncrement,
@@ -131,10 +141,7 @@ pub(crate) fn solve_by_arc_length<P: ArcLengthProblem + ?Sized>(
     let mut lambda = 0.0;
     let mut ds = control.initial_ds;
     let mut total_iters = 0;
-    let mut direction = ArcIncrement {
-        displacement: vec![0.0; problem.unknowns()],
-        load: 1.0,
-    };
+    let mut direction = None;
     let mut checkpoint = problem.free_displacements().to_vec();
     let mut step = 0;
     while step < control.max_steps {
@@ -144,7 +151,9 @@ pub(crate) fn solve_by_arc_length<P: ArcLengthProblem + ?Sized>(
                 displacement: problem.reference_response()?,
                 load: 1.0,
             };
-            let projection = metric.dot(&direction, &tangent);
+            let projection = direction.as_ref().map_or(1.0, |direction| {
+                metric.projection(direction, &tangent)
+            });
             let predictor = ds / metric.norm(&tangent);
             if !projection.is_finite() || !predictor.is_finite() || predictor <= 0.0 {
                 return Ok(None);
@@ -183,7 +192,11 @@ pub(crate) fn solve_by_arc_length<P: ArcLengthProblem + ?Sized>(
                     && radius > 0.0
                     && (radius - ds).abs() / ds < control.tolerance
                 {
-                    return Ok(Some((trial_lambda, increment, step_iters)));
+                    let forward = direction.as_ref().unwrap_or(&tangent);
+                    if metric.projection(forward, &increment) > 0.0 {
+                        return Ok(Some((trial_lambda, increment, step_iters)));
+                    }
+                    break;
                 }
                 if equilibrated
                     && !tried_load_only
@@ -227,7 +240,7 @@ pub(crate) fn solve_by_arc_length<P: ArcLengthProblem + ?Sized>(
                 step += 1;
                 problem.record(step, lambda, step_iters, true);
                 checkpoint.copy_from_slice(problem.free_displacements());
-                direction = increment;
+                direction = Some(increment);
                 if step_iters <= control.target_iter / 2 {
                     ds = (ds * 2.0).min(control.max_ds);
                 } else if step_iters > control.target_iter.saturating_mul(2) {
@@ -426,7 +439,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "known wrong result: #2510"]
     fn review_round_two_arc_rejects_return_to_the_previous_point() {
         let spring = || Probe::new(
             |u| u + u * u * (u - 1.0).powi(2) * (2.5 * u - 6.0),
@@ -446,8 +458,12 @@ mod tests {
         assert_eq!((fixed.displacement, fixed.load), (1.0, 1.0));
 
         let mut retried = spring();
-        limits.min_ds = limits.initial_ds * 0.5;
-        assert!(solve_by_arc_length(&mut retried, &limits).unwrap().converged);
+        limits.min_ds = limits.initial_ds / 8.0;
+        assert!(
+            solve_by_arc_length(&mut retried, &limits).unwrap().converged,
+            "{:?}",
+            retried.trials,
+        );
         assert_eq!(retried.accepted.len(), 2);
         assert_eq!(retried.accepted[0], (1.0, 1.0));
         let (u, load) = retried.accepted[1];

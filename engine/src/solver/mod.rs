@@ -80,6 +80,7 @@ pub(crate) mod reaction_recovery;
 
 mod applied_loads;
 mod member_loads;
+mod planar_loads;
 pub use member_loads::{canonical_interval as canonical_member_load_interval, canonical_interval_values as canonical_member_load_interval_values};
 
 #[cfg(feature = "experimental-nonlinear")]
