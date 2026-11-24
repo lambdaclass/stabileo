@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import declaredQuantities from 'virtual:result-change-quantities';
 import { assessProject } from '../applicability';
 import { unknownStamp } from '../solve-stamp';
 import { RESULT_CHANGES } from '../full-registry';
@@ -17,6 +18,7 @@ const applicable = (id: string, mode: string, analyses: string[], snapshot = mod
 describe('audited output changes are registered narrowly', () => {
   it('registers only the refusal for conflicting model aliases', () => {
     const id = 'canonical-model-aliases';
+    expect(declaredQuantities[id]).toEqual(['solve.ok']);
     const registered = (snapshot: FeatureSnapshot, mode: string) =>
       assessProject(snapshot, undefined, mode).changes.find(change => change.id === id);
     const releases = { ...model.elements![0]![1], releaseI: { mz: false }, hingeStart: true };
@@ -29,7 +31,7 @@ describe('audited output changes are registered narrowly', () => {
       { elements: [[1, releases]] },
     ];
     for (const snapshot of conflicts) {
-      expect(registered(snapshot, '2d')?.quantities).toEqual(['solve.ok']);
+      expect(registered(snapshot, '2d')).toBeDefined();
     }
 
     const admitted: FeatureSnapshot[] = [
@@ -41,7 +43,7 @@ describe('audited output changes are registered narrowly', () => {
     for (const snapshot of admitted) {
       expect(registered(snapshot, '2d')).toBeUndefined();
     }
-    expect(registered(conflicts[0]!, '3d')?.quantities).toEqual(['solve.ok']);
+    expect(registered(conflicts[0]!, '3d')).toBeDefined();
     expect(registered({
       loads: [{ type: 'nodal3d', data: { fy: 1, fz: 2, my: 3, mz: 4 } }],
       supports: [[1, { nodeId: 1, type: 'fixed3d', dz: 1, dy: 2, dry: 3, drz: 4 }]],
