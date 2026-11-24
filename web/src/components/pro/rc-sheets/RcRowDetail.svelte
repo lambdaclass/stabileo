@@ -14,6 +14,7 @@
   import RcResize from './RcResize.svelte';
   import RcFootingDetail from './RcFootingDetail.svelte';
   import RcStairDetail from './RcStairDetail.svelte';
+  import RcFixedPoint from './RcFixedPoint.svelte';
   import { showRebarOf } from '../../../lib/store/rc-rebar-3d.svelte';
 
   let { row: r, rows, code, endZones, slabCover, onleave }: { row: SheetRow; rows: SheetRows; code: SheetCode; endZones: boolean; slabCover: number; onleave: () => void } = $props();
@@ -30,6 +31,7 @@
   {#if r.family !== 'punching'}<RcRowEditor row={r} />{/if}
 {/if}
 {#if r.family === 'column'}
+  <RcFixedPoint row={r} />
   <div class="rcw-secs">
     <RcColumnSection row={r} all={rows.column} {code} {endZones} />
     <RcColumnElevation row={r} {code} {endZones} />

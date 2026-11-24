@@ -27,7 +27,7 @@ interface ItemBase { key: string; name: string; status: PlanStatus; bars: string
 /** A line of beams: each span from axis to axis with its width, where a bar is cut, and a tick across the beam where bars are lapped, m in plan. */
 export interface PlanBeamItem extends ItemBase { kind: 'beam'; spans: Array<{ a: Pt; b: Pt; width: number }>; cuts: Pt[]; splices: Array<[Pt, Pt]> }
 /** A column cut at its base: its outline and bars turned as the model turns it. */
-export interface PlanColumnItem extends ItemBase { kind: 'column'; at: Pt; rotDeg: number; b: number; h: number; outline: Pt[]; rebars: Array<{ at: Pt; dia: number }> }
+export interface PlanColumnItem extends ItemBase { kind: 'column'; at: Pt; rotDeg: number; b: number; h: number; outline: Pt[]; rebars: Array<{ at: Pt; dia: number }>; /** Where its stack's fixed point puts it (`fixed-points.ts`). */ fixed?: import('./fixed-points').ColumnFixed }
 export interface PlanWallItem extends ItemBase { kind: 'wall'; a: Pt; b: Pt; thickness: number; outline: Pt[] }
 export type PlanItem = PlanBeamItem | PlanColumnItem | PlanWallItem;
 

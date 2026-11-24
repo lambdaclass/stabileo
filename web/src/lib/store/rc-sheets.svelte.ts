@@ -897,8 +897,10 @@ export async function downloadRcSheets(rows: SheetRows, tr: (k: string) => strin
   const { rcSheetsWorkbook } = await import('../rc-sheets/workbook');
   const { sheetsSchedule } = await import('./rc-sheets-schedule');
   const { recordSheetsExport } = await import('./rc-sheets-exports');
+  const { structurePlansOf } = await import('./rc-structure-plan');
+  const { settingOut } = await import('../rc-sheets/fixed-points');
   const name = (modelStore.model.name || 'stabileo').replace(/[^\w.-]+/g, '-');
   const filename = `${name}-${tr('rcSheets.fileName')}.xlsx`;
-  await exportToExcel({ filename, onlyExtras: true, extraSheets: rcSheetsWorkbook(rows, tr, sheetsSchedule(rows)), provenance: false });
+  await exportToExcel({ filename, onlyExtras: true, extraSheets: rcSheetsWorkbook(rows, tr, sheetsSchedule(rows), settingOut(structurePlansOf(rows), rows.levels ?? [], modelStore.grid?.axes ?? [])), provenance: false });
   recordSheetsExport('rcWorkbook', filename, SHEET_FAMILIES.filter((f) => rows[f].length).map((f) => tr(`rcSheets.family.${f}`)).join(', '));
 }

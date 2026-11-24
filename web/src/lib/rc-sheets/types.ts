@@ -126,6 +126,8 @@ export interface RcSheetsData {
   footingSetup?: Record<string, import('./footing-types').FootingSetup>;
   /** The bending schedule: waste on the order (a fraction, 0.1 when absent) and where equal bars share a mark ('element' when absent). */
   schedule?: { waste?: number; scope?: MarkScope };
+  /** Each column stack's fixed point, by where it stands (`fixed-points.ts`); the centre when absent. */
+  fixedPoints?: Record<string, import('./fixed-points').FixedPointKind>;
   /** Adopted bars by row key. */
   adopted: Record<string, Adopted>;
   /** The rows whose bars the engineer set by hand: they stay when the code changes. */

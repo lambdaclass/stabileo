@@ -45,7 +45,7 @@ const setProgress = (p: SheetProgress | null) => {
 
 function stampNow(): Stamp {
   void modelStore.designData;
-  const { adopted, bentLines, footingSetup, footingSizing, foundationSystem, edited: _edited, adoptedCode: _adoptedCode, adoptedSeismic: _adoptedSeismic, adoptedLogic: _adoptedLogic, adoptedBasis: _adoptedBasis, adoptedFoundationBasis: _adoptedFoundationBasis, schedule: _schedule, code: _code, ...sheets } = rcSheetsData();
+  const { adopted, bentLines, footingSetup, footingSizing, foundationSystem, edited: _edited, adoptedCode: _adoptedCode, adoptedSeismic: _adoptedSeismic, adoptedLogic: _adoptedLogic, adoptedBasis: _adoptedBasis, adoptedFoundationBasis: _adoptedFoundationBasis, schedule: _schedule, code: _code, fixedPoints: _fixed, ...sheets } = rcSheetsData();
   // The options as the design reads them: an option stated at its default is no change.
   const { rcSheets: _, designOptions, propertyLines, foundingElevation, presumedBearingKPa, presumedPile, ...own } = designData();
   const rest = { ...own, designOptions: { ...optionsView(designOptions), criteria: criteriaKey(designOptions?.criteria), deflection: designOptions?.deflection ?? null, alternatives: designOptions?.alternatives ?? null } };

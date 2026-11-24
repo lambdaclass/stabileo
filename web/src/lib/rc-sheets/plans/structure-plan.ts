@@ -4,6 +4,7 @@
  * and its label placed clear of the others.
  * Model millimetres in the level's own coordinates.
  */
+import { fixedSymbol, type SettingOut } from '../fixed-points';
 import type { DrawingInput } from '../../sheets/compose';
 import type { Primitive } from '../../sheets/primitives';
 import { bandOutline, type PlanItem, type Pt, type StructurePlan } from '../structure-plan';
@@ -15,6 +16,9 @@ const K = 1000, TEXT_MM = 2.5, BUBBLE_MM = 2.6;
 export interface StructurePlanOptions extends PlanCtx { group: string }
 
 const poly = (p: readonly Pt[], fill = false): Primitive => ({ kind: 'polyline', layer: HORM, closed: true, points: p.map(([x, y]) => pt(x * K, y * K)), fill });
+
+/** The fixed point's symbol's radius in plan, m. */
+export const FIXED_SYMBOL_M = 0.06;
 
 export function structurePlanPrimitives(plan: StructurePlan, c: PlanCtx): Primitive[] {
   const s = c.scale, ps: Primitive[] = [];
@@ -28,6 +32,10 @@ export function structurePlanPrimitives(plan: StructurePlan, c: PlanCtx): Primit
       for (const [p, q] of it.splices) ps.push(seg(HORM, pt(p[0] * K, p[1] * K), pt(q[0] * K, q[1] * K)));
     } else ps.push(poly(it.outline, true));
     if (it.kind === 'column') for (const b of it.rebars) ps.push({ kind: 'circle', layer: arm('LONG', b.dia), c: pt(b.at[0] * K, b.at[1] * K), r: b.dia / 2, dia: b.dia });
+    if (it.kind === 'column' && it.fixed) {
+      const sym = fixedSymbol(it.fixed, FIXED_SYMBOL_M);
+      ps.push(sym.kind === 'circle' ? { kind: 'circle', layer: EJES, c: pt(sym.c[0] * K, sym.c[1] * K), r: sym.r * K } : { kind: 'arc', layer: EJES, c: pt(sym.c[0] * K, sym.c[1] * K), r: sym.r * K, start: sym.start, end: sym.end });
+    }
   }
   const text = (it: PlanItem) => (it.kind === 'wall' ? `${it.name} · e=${cm(c.fmt, it.thickness)} · ${it.bars}` : `${it.name} · ${it.bars}`);
   const h = (TEXT_MM * s) / K, r = (BUBBLE_MM * s) / K;
@@ -47,4 +55,11 @@ export function structurePlanPrimitives(plan: StructurePlan, c: PlanCtx): Primit
 export function structurePlanDrawing(plan: StructurePlan, o: StructurePlanOptions): DrawingInput {
   const title = o.tr('rcSheets.structPlan.title', { family: o.tr(plan.family === 'vertical' ? 'rcSheets.tab.vertical' : `rcSheets.family.${plan.family}`), level: plan.level || '—' });
   return framed(`structplan:${plan.family}:${plan.level}`, title, structurePlanPrimitives(plan, o), o.scale, o.group);
+}
+
+/** The setting out: the lowest level's columns over the axes, each fixed point with its symbol and its coordinates from the origin. */
+export function settingOutDrawing(plan: StructurePlan, so: readonly SettingOut[], o: StructurePlanOptions): DrawingInput {
+  const ps = structurePlanPrimitives({ ...plan, items: plan.items.filter((it) => it.kind === 'column'), slabs: [] }, o).filter((p) => p.kind !== 'text' || !plan.items.some((it) => p.text.startsWith(`${it.name} ·`)));
+  for (const r of so) ps.push(label(pt(r.x * K + 80, r.y * K + 80), `${r.name} (${o.fmt(r.x, 3)}; ${o.fmt(r.y, 3)})`, TEXT_MM));
+  return framed(`setting:${plan.level}`, `${o.tr('rcSheets.setting.title')} · ${plan.level || '—'}`, ps, o.scale, o.group);
 }

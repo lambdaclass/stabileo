@@ -25,11 +25,12 @@ import { slabLevelPlans } from './slab-level';
 import { wallPlans } from './wall-detail';
 import { footingPlans } from './footing-detail';
 import { stairPlans } from './stair-detail';
+import { settingOut } from '../fixed-points';
 import type { StairRow } from '../stair-row';
 import type { FootingRow } from '../footing-types';
 import type { Tr } from './draw';
 import type { StructurePlan } from '../structure-plan';
-import { structurePlanDrawing } from './structure-plan';
+import { settingOutDrawing, structurePlanDrawing } from './structure-plan';
 
 export type PlanFormat = 'A3' | 'A1' | 'A0';
 export const PLAN_FORMATS: readonly PlanFormat[] = ['A3', 'A1', 'A0'];
@@ -41,7 +42,7 @@ export interface PlanScales { elevation: number; plan: number }
 export const DEFAULT_PLAN_SCALES: PlanScales = { elevation: 20, plan: 50 };
 
 /** `structure`: each family's level plans, drawn ahead of its elements when families are asked for. */
-export interface PlanRows { line: LineLayout[]; beam: BeamRow[]; column: ColumnRow[]; slab: SlabRow[]; slabPlan: LevelPlan[]; wall: WallRow[]; footing?: FootingRow[]; stair?: StairRow[]; structure?: readonly StructurePlan[] }
+export interface PlanRows { line: LineLayout[]; beam: BeamRow[]; column: ColumnRow[]; slab: SlabRow[]; slabPlan: LevelPlan[]; wall: WallRow[]; footing?: FootingRow[]; stair?: StairRow[]; structure?: readonly StructurePlan[]; levels?: readonly string[] }
 
 /** The families and levels to draw (all levels when `levels` is null), or one element by its row key. */
 export interface PlanSelection { families: readonly PlanFamily[]; levels: readonly string[] | null; element?: string }
@@ -76,6 +77,16 @@ export function planDrawings(rows: PlanRows, sel: PlanSelection, o: PlanOptions)
     drawings.push(...beamPlans(line, spans, { ...e, code: o.code, maxWidth, group: group('beam', line.level) }));
   }
   structure('vertical');
+  if (!sel.element && sel.families.includes('vertical')) {
+    const vertical = (rows.structure ?? []).filter((sp) => sp.family === 'vertical' && sp.items.some((it) => it.kind === 'column'));
+    const order = rows.levels ?? [];
+    const rank = (l: string) => { const i = order.indexOf(l); return i < 0 ? order.length : i; };
+    const lowest = [...vertical].sort((a, b) => rank(a.level) - rank(b.level))[0];
+    if (lowest && levelOk(sel, lowest.level)) {
+      const axes = lowest.axes.map((a) => (Math.abs(a.a[0] - a.b[0]) < 1e-9 ? { name: a.name, axis: 'x' as const, at: a.a[0] } : { name: a.name, axis: 'y' as const, at: a.a[1] }));
+      drawings.push(settingOutDrawing(lowest, settingOut(vertical, order, axes), { ...p, group: group('vertical', lowest.level) }));
+    }
+  }
   for (const row of rows.column) {
     if (!want('vertical', row.key, row.level)) continue;
     drawings.push(...columnPlans(row, rows.column, { ...e, code: o.code, endZones: o.endZones, group: group('vertical', row.level) }));
