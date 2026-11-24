@@ -222,8 +222,12 @@ function sourceGravity(model: ModelData, srcLoads: Load[], srcRows: SelfWeightLo
   return out;
 }
 
-function includedCases(c: CaseLike, accepts: (id: number) => boolean): NonNullable<LoadCase['includes']> {
-  return sumCombinationFactors((c.includes ?? []).filter(({ caseId }) => accepts(caseId)))
+export function includedCases(
+  c: CaseLike,
+  cases: ReadonlySet<number> | ReadonlyMap<number, CaseLike>,
+  accepts: (id: number) => boolean = () => true,
+): NonNullable<LoadCase['includes']> {
+  return sumCombinationFactors((c.includes ?? []).filter(({ caseId }) => cases.has(caseId) && accepts(caseId)))
     .filter(({ factor }) => factor !== 0);
 }
 
@@ -232,7 +236,7 @@ function caseSources(
   cases: readonly CaseLike[],
   looped: ReadonlySet<number>,
   inScope: (id: number) => boolean,
-  include: (id: number) => boolean = () => true,
+  include?: (id: number) => boolean,
 ): AccountingCaseSources {
   const ids = new Set(cases.map(c => c.id));
   return {
@@ -240,7 +244,7 @@ function caseSources(
     generated: new Map(),
     cases: new Map(cases.map(c => [c.id, {
       ratio: ratioOf(c),
-      includes: looped.has(c.id) ? [] : includedCases(c, id => ids.has(id) && include(id)),
+      includes: looped.has(c.id) ? [] : includedCases(c, ids, include),
     }])),
     targets: new Set([...ids, ...authored.keys()].filter(inScope)),
   };
@@ -334,7 +338,7 @@ export function singleSolveFactors(cases: readonly SingleCase[], opts: { legacyS
   const includesOf = (id: number) => {
     const cached = includes.get(id);
     if (cached) return cached;
-    const resolved = looped.has(id) ? [] : includedCases(byId.get(id)!, caseId => byId.has(caseId));
+    const resolved = looped.has(id) ? [] : includedCases(byId.get(id)!, byId);
     includes.set(id, resolved);
     return resolved;
   };

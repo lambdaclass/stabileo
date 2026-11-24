@@ -9,8 +9,6 @@ import { solve_pdelta_3d } from '../../wasm/dedaliano_engine.js';
 beforeAll(async () => { await initSolver(); });
 beforeEach(() => { modelStore.clear(); });
 
-const knownWrong = process.env.RUN_KNOWN_WRONG === '2297' ? it : it.skip;
-
 function cantilever(planar: boolean) {
   const base = modelStore.addNode(0, 0, 0);
   const tip = planar ? modelStore.addNode(0, 4) : modelStore.addNode(0, 0, 4);
@@ -37,7 +35,7 @@ function cantilever(planar: boolean) {
 
 for (const dimension of ['planar', 'spatial']) {
   for (const path of ['main thread', 'worker', 'worker fallback']) {
-    knownWrong(`known wrong result: #2297 direct analysis ignores nonexistent notional inclusions in ${dimension} on the ${path}`, async () => {
+    it(`#2297 direct analysis ignores nonexistent notional inclusions in ${dimension} on the ${path}`, async () => {
       const { notional, outer, solve } = cantilever(dimension === 'planar');
       const includes = [{ caseId: notional, factor: 1 }];
       let workerCalls = 0, workerAnswers = 0;

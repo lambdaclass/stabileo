@@ -43,7 +43,7 @@ import type { SolverInput3D, SolverLoad3D, AnalysisResults3D, SolverNode3D } fro
 import { computeLocalAxes3D } from './local-axes-3d';
 import { input3DToWireObject, solvePDelta3D, sumCombinationFactors, torsionGapRefusal } from './wasm-solver';
 import { amplification } from './pdelta-amplification';
-import { caseOrder, withCaseEffects } from './case-effects';
+import { caseOrder, includedCases, withCaseEffects } from './case-effects';
 import { combinationCaseIds } from './combination-methods';
 import { isCompositeCase } from './loads/combination-cases';
 export { amplification } from './pdelta-amplification';
@@ -254,13 +254,14 @@ export async function runDirectAnalysis(
    * analysis added its own 0.002 on top. A case in a loop takes nothing in, as `withCaseEffects`
    * solves it.
    */
-  const includes = new Map(loadCases.map(c => [c.id, c.includes ?? []]));
+  const byId = new Map(loadCases.map(c => [c.id, c]));
   const { looped } = caseOrder(loadCases);
   const notionalIn = (id: number, k: number, out: LoadCombination['factors'], seen: ReadonlySet<number>) => {
     if (k === 0 || seen.has(id)) return;
     if (notionalCases.has(id)) { out.push({ caseId: id, factor: k }); return; }
-    if (looped.has(id)) return;
-    for (const inc of sumCombinationFactors(includes.get(id) ?? [])) notionalIn(inc.caseId, k * inc.factor, out, new Set([...seen, id]));
+    const c = byId.get(id);
+    if (!c || looped.has(id)) return;
+    for (const inc of includedCases(c, byId)) notionalIn(inc.caseId, k * inc.factor, out, new Set([...seen, id]));
   };
 
   const caseIds = combinationCaseIds(resolved);

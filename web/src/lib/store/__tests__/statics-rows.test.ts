@@ -98,5 +98,7 @@ it('#2297 published spatial free-body and statics loads preserve repeated case f
   expect(rows.get(control)?.applied.fz).toBe(-6);
   expect.soft(rows.get(residual)?.applied).toStrictEqual(rows.get(control)?.applied);
   expect.soft(rows.get(permuted)?.applied).toStrictEqual(rows.get(control)?.applied);
+  expect(rows.get(zero)).toBeDefined();
+  expect(rows.get(absent)).toBeDefined();
   expect.soft(rows.get(zero)?.applied).toStrictEqual(rows.get(absent)?.applied);
 });
