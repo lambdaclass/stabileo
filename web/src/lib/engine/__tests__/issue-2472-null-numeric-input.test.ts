@@ -90,12 +90,12 @@ it('#2472 WASM linear and P-Delta decode numeric fields before solving', () => {
   ] as const) {
     expect(linear(input).reactions.length).toBeGreaterThan(0);
     expect(JSON.parse(pdelta(JSON.stringify(input), 20, 1e-8)).results.reactions.length).toBeGreaterThan(0);
-    for (const field of ['my', 'px', 'kx', 'e']) {
+    for (const field of ['my', 'mz', 'px', 'kx', 'e']) {
       const malformed = structuredClone(input);
       const record = field === 'kx' ? Object.values(malformed.supports)[0]!
         : field === 'e' ? Object.values(malformed.materials)[0]! : malformed.loads[0]!.data;
       Object.assign(record, { [field]: null });
-      const named = new RegExp(`\\b${field}\\b`);
+      const named = field === 'e' ? /Invalid numeric input at e \(/ : new RegExp(`\\b${field}\\b`);
       expect.soft(() => linear(malformed), `linear/${field}`).toThrow(named);
       expect.soft(() => pdelta(JSON.stringify(malformed), 20, 1e-8), `pdelta/${field}`).toThrow(named);
     }
@@ -103,6 +103,46 @@ it('#2472 WASM linear and P-Delta decode numeric fields before solving', () => {
       const nonfinite = structuredClone(input);
       Object.assign(Object.values(nonfinite.materials)[0]!, { e: value });
       expect.soft(() => linear(nonfinite)).toThrow(/\be\b/);
+    }
+  }
+});
+
+const knownWrong = process.env.RUN_KNOWN_WRONG === '2472' ? it : it.skip;
+
+knownWrong('known wrong result: #2472 WASM member point loads reject unsupported moments and accept zero', () => {
+  const { plane, space } = wireInputs();
+  for (const [input, linear, pdelta, Session, fields] of [
+    [plane, wasm.solve_2d, wasm.solve_pdelta_2d, wasm.LoadSession2D, ['mx']],
+    [space, wasm.solve_3d, wasm.solve_pdelta_3d, wasm.LoadSession3D, ['mx', 'my', 'mz']],
+  ] as const) {
+    const session = new Session({ ...input, loads: [] });
+    try {
+      const solves = {
+        linear,
+        pdelta: (value: typeof input) => JSON.parse(pdelta(JSON.stringify(value), 20, 1e-8)).results,
+        session: (value: typeof input) => session.solve(value.loads),
+      };
+      const zero = structuredClone(input);
+      for (const field of fields) Object.assign(zero.loads[0]!.data, { [field]: -0 });
+      for (const [path, solve] of Object.entries(solves)) {
+        const answer = solve(input);
+        expect(answer.reactions.length).toBeGreaterThan(0);
+        expect.soft(() => {
+          const actual = solve(zero);
+          expect(actual.reactions).toEqual(answer.reactions);
+          expect(actual.displacements).toEqual(answer.displacements);
+        }, path + ' explicit zero').not.toThrow();
+        for (const field of fields) {
+          for (const value of [null, '0', 1e-20, -10]) {
+            const changed = structuredClone(input);
+            Object.assign(changed.loads[0]!.data, { [field]: value });
+            const diagnostic = typeof value === 'number' ? 'Unsupported point load field ' : 'Invalid numeric input at ';
+            expect.soft(() => solve(changed), [path, field, value].join('/')).toThrow(diagnostic + field);
+          }
+        }
+      }
+    } finally {
+      session.free();
     }
   }
 });

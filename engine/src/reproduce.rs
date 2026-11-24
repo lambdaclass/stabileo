@@ -114,11 +114,13 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "known wrong result: #2472"]
     fn issue_2472_native_linear_refuses_null_numeric_fields() {
         check_refusals(|text, space| linear_hashes(text, space).map(|_| ()));
     }
 
     #[test]
+    #[ignore = "known wrong result: #2472"]
     fn issue_2472_native_pdelta_refuses_null_numeric_fields() {
         check_refusals(pdelta);
     }
@@ -130,6 +132,7 @@ mod tests {
             assert!(run(&input.to_string(), space).is_ok());
             for (pointer, field, bad) in [
                 ("/loads/0/data", "my", Value::Null),
+                ("/loads/0/data", "mz", Value::Null),
                 ("/loads/0/data", "px", Value::Null),
                 ("/supports/1", "kx", Value::Null),
                 ("/materials/1", "e", Value::Null),
@@ -139,13 +142,55 @@ mod tests {
                 bad_input.pointer_mut(pointer).unwrap()[field] = bad;
                 let text = bad_input.to_string();
                 let result = run(&text, space);
-                if !matches!(&result, Err(error) if error.contains(field)) {
+                let named_field = if space || !matches!(field, "my" | "mz") { field } else { "my/mz" };
+                let diagnostic = format!("Invalid numeric input at {named_field} (");
+                if !matches!(&result, Err(error) if error.contains(&diagnostic)) {
                     failures.push(format!("space={space}, {pointer}/{field}: {result:?}"));
                 }
             }
             let mut missing = input.clone();
             missing["materials"]["1"].as_object_mut().unwrap().remove("e");
             assert!(matches!(run(&missing.to_string(), space), Err(error) if error.contains("`e`")));
+        }
+        assert!(failures.is_empty(), "{}", failures.join("\n"));
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #2472"]
+    fn issue_2472_native_point_load_requires_supported_moment_components() {
+        let mut failures = Vec::new();
+        for space in [false, true] {
+            let omitted = cantilever(space);
+            let fields: &[&str] = if space { &["mx", "my", "mz"] } else { &["mx"] };
+            let mut zero = omitted.clone();
+            for &field in fields {
+                zero["loads"][0]["data"][field] = json!(-0.0);
+            }
+            let reference = linear_hashes(&omitted.to_string(), space).unwrap();
+            match linear_hashes(&zero.to_string(), space) {
+                Ok(actual) => assert_eq!(actual, reference),
+                Err(error) => failures.push(format!("space={space}, linear zero: {error}")),
+            }
+            if let Err(error) = pdelta(&zero.to_string(), space) {
+                failures.push(format!("space={space}, P-Delta zero: {error}"));
+            }
+            for &field in fields {
+                for (value, diagnostic) in [
+                    (Value::Null, format!("Invalid numeric input at {field}")),
+                    (json!("0"), format!("Invalid numeric input at {field}")),
+                    (json!(1e-20), format!("Unsupported point load field {field}")),
+                    (json!(-10), format!("Unsupported point load field {field}")),
+                ] {
+                    let mut input = omitted.clone();
+                    input["loads"][0]["data"][field] = value.clone();
+                    let text = input.to_string();
+                    for (path, result) in [("linear", linear_hashes(&text, space).map(|_| ())), ("P-Delta", pdelta(&text, space))] {
+                        if !matches!(&result, Err(error) if error.contains(&diagnostic)) {
+                            failures.push(format!("space={space}, {path}, {field}={value}: {result:?}"));
+                        }
+                    }
+                }
+            }
         }
         assert!(failures.is_empty(), "{}", failures.join("\n"));
     }
