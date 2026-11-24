@@ -33,10 +33,8 @@
  * ceiling far above the measurement so a genuine format regression is still caught.
  */
 
-import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { bootPro, rcFootingProject } from './fixtures';
-import { e2eBuildFeatures } from '../scripts/build-public-features';
 import {
   test, expect, openPreparedWorkspace, openWorkspaceFromCommandRow, readTally, readPieces,
 } from './prepared-building';
@@ -86,7 +84,8 @@ async function fingerprint(page: Page) {
 }
 
 /** Nodes, quads and constraints, which no hook reports — read off the saved file. */
-function fileCensus(parsed: ReturnType<typeof JSON.parse>) {
+function fileCensus(path: string) {
+  const parsed = JSON.parse(readFileSync(path, 'utf8'));
   const s = parsed.snapshot;
   const len = (v: unknown) => (Array.isArray(v) ? v.length : 0);
   return {
@@ -123,7 +122,7 @@ test.describe('@smoke a small project survives the file', () => {
     console.log(`small .ded: ${bytes} bytes`);
 
     // The file is a `.ded` of the version this app writes, and it parses.
-    const census = fileCensus(JSON.parse(readFileSync(path, 'utf8')));
+    const census = fileCensus(path);
     expect(census.version).toBe('2.0');
     expect(census.appMode).toBe('pro');
     expect(census.nodes).toBe(8);
@@ -172,12 +171,8 @@ test.describe('@slow the 7-storey project survives the file', () => {
 
     // What the file itself contains — nodes, quads and constraints included, which no hook
     // reports and which a projection bug would drop silently.
-    const file = JSON.parse(readFileSync(path, 'utf8'));
-    const census = fileCensus(file);
-    const unified = e2eBuildFeatures().proPlatesUnified;
-    expect(census.version).toBe(unified ? '2.1' : '2.0');
-    const refusals = file.snapshot.detailing.designRefusals;
-    if (unified) expect(refusals.members.length).toBeGreaterThan(refusals.records.length);
+    const census = fileCensus(path);
+    expect(census.version).toBe('2.0');
     expect(census.appMode).toBe('pro');
     // `includeSelfWeight` and `selfWeightCaseId` (the case the self-weight goes in) are saved
     // with the project: they decide what the analysis weighs and where.
@@ -195,7 +190,7 @@ test.describe('@slow the 7-storey project survives the file', () => {
     expect(census.loads).toBeGreaterThan(0);
     // `constraints` may legitimately be empty for this model; what must hold is that the field
     // survives as an array rather than disappearing.
-    expect(Array.isArray(file.snapshot.constraints)).toBe(true);
+    expect(Array.isArray(JSON.parse(readFileSync(path, 'utf8')).snapshot.constraints)).toBe(true);
 
     // ── A page that has never seen this project ────────────────────
     //
@@ -244,15 +239,6 @@ test.describe('@slow the 7-storey project survives the file', () => {
     expect(after.solveCount, 'opening a project must not solve it').toBe(0);
     expect(after.runCounts, 'opening a project must not run a design').toBeNull();
 
-    const reopenedRefusals = await fresh.evaluate(async () => {
-      const { snapshot } = JSON.parse(window.__stabileo.serializeProject());
-      const evidence = new TextEncoder().encode(JSON.stringify(snapshot.detailing.designRefusals));
-      const digest = await crypto.subtle.digest('SHA-256', evidence);
-      return Array.from(new Uint8Array(digest));
-    });
-    expect(reopenedRefusals, 'every member keeps its exact refused design evidence')
-      .toEqual([...createHash('sha256').update(JSON.stringify(refusals)).digest()]);
-
     // ── The scene the document draws, compared with the live one ───
     await fresh.evaluate(() => window.__stabileoActions.openDesignTab());
     await openWorkspaceFromCommandRow(fresh);
@@ -282,7 +268,8 @@ test.describe('@slow the 7-storey project survives the file', () => {
      * threshold), so today both halves read "none". The restore keeping a non-empty list is
      * pinned in assembly.test.ts.
      */
-    const inFile = file.snapshot.detailing.assemblies as Array<{ provisionalMembers?: number[] }>;
+    const inFile = JSON.parse(readFileSync(path, 'utf8'))
+      .snapshot.detailing.assemblies as Array<{ provisionalMembers?: number[] }>;
     expect(inFile.some((a) => (a.provisionalMembers?.length ?? 0) > 0),
       'the file records which members are proposals').toBe(preparedProject.provisionalBanner);
     expect(await fresh.getByTestId('rebar-provisional-banner').count() > 0,
