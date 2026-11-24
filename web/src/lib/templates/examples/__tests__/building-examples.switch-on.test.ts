@@ -17,7 +17,7 @@ import { currentWorkbookSheets } from '../../../store/project-workbook';
 import { PRO_EXAMPLES } from '../../../data/pro-examples';
 import { expectBaseline } from '../../__tests__/result-baseline';
 
-const BASELINES = fileURLToPath(new URL('../baselines/', import.meta.url));
+const BASELINES = fileURLToPath(new URL('../baselines/generated/', import.meta.url));
 const BUILDINGS = PRO_EXAMPLES.filter((e) => e.loads === 'generator');
 
 beforeAll(async () => { await initSolver(); setLocale('es'); });
