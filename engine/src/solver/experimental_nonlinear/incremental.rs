@@ -3,6 +3,7 @@ use super::{
     anderson::{Anderson, MAX_ANDERSON_DEPTH},
     broyden::{Broyden, MAX_BROYDEN_MEMORY},
     line_search::NewtonLineSearch,
+    newton_krylov::NewtonKrylov,
 };
 
 pub(crate) struct Linearization {
@@ -18,6 +19,15 @@ pub(crate) trait IncrementalProblem {
     fn state(&self) -> Vec<f64>;
     fn work(&self, step: &[f64]) -> f64;
     fn set_state(&mut self, state: &[f64]);
+    /// The residual of the last linearization, over the unknowns the next three methods share
+    /// (the independent ones, where constraints tie some to others).
+    fn residual(&self) -> Vec<f64>;
+    /// The tangent of the last linearization times `v`. It is gone once `correction` is asked.
+    fn tangent_times(&self, v: &[f64]) -> Vec<f64>;
+    /// K₀⁻¹·rhs with the tangent this increment factorized and kept; `None` when it kept none.
+    fn lagged_solve(&self, rhs: &[f64]) -> Option<Vec<f64>>;
+    /// A vector over those unknowns as a step `advance` takes.
+    fn expand(&self, reduced: &[f64]) -> Vec<f64>;
     fn commit(&mut self) -> Result<(), String>;
     fn rollback(&mut self);
 }
@@ -144,6 +154,7 @@ pub enum IterationMethod {
     NewtonLineSearch,
     Anderson { depth: usize },
     Broyden { memory: usize },
+    NewtonKrylov,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -277,6 +288,14 @@ pub(crate) fn solve_stepped<P: IncrementalProblem + ?Sized>(
             tolerance,
             max_iter,
         ),
+        IterationMethod::NewtonKrylov => run(
+            problem,
+            &NewtonKrylov,
+            stepping,
+            n_increments,
+            tolerance,
+            max_iter,
+        ),
     }
 }
 
@@ -302,6 +321,7 @@ mod tests {
         tangents: usize,
         trace: Vec<f64>,
         corrected_from: Vec<f64>,
+        products: std::cell::Cell<usize>,
     }
 
     fn stiffening(u: f64) -> (f64, f64) {
@@ -338,6 +358,7 @@ mod tests {
                 fail_at: None,
                 linearizations: 0,
                 tangents: 0,
+                products: std::cell::Cell::new(0),
                 trace: Vec::new(),
                 corrected_from: Vec::new(),
             }
@@ -431,6 +452,22 @@ mod tests {
         }
         fn set_state(&mut self, state: &[f64]) {
             self.u.copy_from_slice(state);
+        }
+        fn residual(&self) -> Vec<f64> {
+            self.residual.clone()
+        }
+        fn tangent_times(&self, v: &[f64]) -> Vec<f64> {
+            self.products.set(self.products.get() + 1);
+            self.tangent
+                .iter()
+                .map(|row| row.iter().zip(v).map(|(k, x)| k * x).sum())
+                .collect()
+        }
+        fn lagged_solve(&self, rhs: &[f64]) -> Option<Vec<f64>> {
+            solve_dense(self.lagged.as_ref()?, rhs).ok()
+        }
+        fn expand(&self, reduced: &[f64]) -> Vec<f64> {
+            reduced.to_vec()
         }
         fn commit(&mut self) -> Result<(), String> {
             self.committed = self.u.clone();
@@ -1069,6 +1106,81 @@ mod tests {
         assert!(updated(&[0.999, 0.0], &[vec![1.0, 0.0]]).is_some());
         assert_eq!(updated(&correction, &[vec![0.0, 0.0]]), None);
         assert_eq!(updated(&correction, &[vec![f64::NAN, 1.0]]), None);
+    }
+
+    #[test]
+    fn newton_krylov_takes_newtons_iterations_from_one_tangent_per_increment() {
+        let load = [4.0, -1.0, 2.5, 0.5, 3.0];
+        for n_increments in [1, 3] {
+            let mut newton = Chain::new(mild, 0.7, &load);
+            let exact = solve_by_load_increments(&mut newton, &Newton { lag_tangent: false }, n_increments, 1e-10, 200).unwrap();
+            let mut krylov = Chain::new(mild, 0.7, &load);
+            let outcome = solve_stepped(&mut krylov, IterationMethod::NewtonKrylov, LoadStepping::Equal, n_increments, 1e-10, 200).unwrap();
+            assert!(exact.converged && outcome.converged);
+            assert_eq!(krylov.tangents, n_increments);
+            assert!(krylov.products.get() > 0);
+            assert!(outcome.iterations <= exact.iterations + n_increments, "{} against {}", outcome.iterations, exact.iterations);
+            for (got, want) in krylov.u.iter().zip(&newton.u) {
+                assert!((got - want).abs() <= 1e-8, "{got} vs {want}");
+            }
+        }
+    }
+
+    #[test]
+    fn the_inexact_step_solves_the_newton_equation_to_its_forcing_term() {
+        use crate::solver::experimental_nonlinear::newton_krylov::{inexact, Inexact};
+        let mut chain = Chain::new(mild, 0.7, &[4.0, -1.0, 2.5, 0.5, 3.0]);
+        chain.begin_increment(1.0);
+        chain.linearize().unwrap();
+        assert!(matches!(inexact(&chain), Inexact::NoFactor));
+
+        let first = chain.correction(true).unwrap();
+        chain.advance(&first);
+        chain.linearize().unwrap();
+        let Inexact::Step(step) = inexact(&chain) else { panic!("no step from a positive definite tangent") };
+        let left: Vec<f64> = chain.tangent_times(&step).iter().zip(&chain.residual).map(|(k, r)| r - k).collect();
+        let norm = |v: &[f64]| v.iter().map(|x| x * x).sum::<f64>().sqrt();
+        assert!(norm(&left) <= 1e-3 * norm(&chain.residual), "{} of {}", norm(&left), norm(&chain.residual));
+        assert!(norm(&step) > 0.0);
+    }
+
+    #[test]
+    fn newton_krylov_hands_an_indefinite_tangent_to_the_exact_solve() {
+        fn snapping(u: f64) -> (f64, f64) {
+            (u * u * u - 3.0 * u * u + 2.5 * u, 3.0 * u * u - 6.0 * u + 2.5)
+        }
+        let target = snapping(2.2).0;
+        let mut spring = Chain::spring(snapping, target).starting_at(&[0.3]);
+        spring.begin_increment(1.0);
+        spring.linearize().unwrap();
+        let first = spring.correction(true).unwrap();
+        spring.advance(&first);
+        spring.set_state(&[1.0]);
+        let mut spent = 0;
+        let converged = NewtonKrylov.converge(&mut spring, 1e-10, 60, &mut spent).unwrap();
+        assert!(converged);
+        assert!((spring.u[0] - 2.2).abs() <= 1e-8, "{}", spring.u[0]);
+        assert!(spring.tangents > 1, "the exact solve was never asked");
+    }
+
+    #[test]
+    fn newton_krylov_keeps_the_rules_every_iteration_keeps() {
+        let mut owed = Chain::spring(stiffening, 0.0);
+        owed.owed = true;
+        let outcome = solve_by_load_increments(&mut owed, &NewtonKrylov, 1, 1e-10, 50).unwrap();
+        assert_eq!((outcome.iterations, outcome.converged, outcome.load_factor), (2, true, 1.0));
+
+        let mut short = Chain::spring(stiffening, 30.0);
+        let outcome = solve_by_load_increments(&mut short, &NewtonKrylov, 1, 1e-10, 2).unwrap();
+        assert_eq!((outcome.converged, outcome.load_factor), (false, 0.0));
+        assert_eq!(short.u, vec![0.0]);
+
+        let mut failing = Chain::spring(stiffening, 30.0);
+        failing.fail_at = Some(3);
+        let error = solve_by_load_increments(&mut failing, &NewtonKrylov, 2, 1e-10, 50).unwrap_err();
+        assert_eq!(error, "the tangent is singular");
+        assert_eq!(failing.linearizations, 3);
+        assert_eq!(validate(IterationMethod::NewtonKrylov), Ok(()));
     }
 
     #[test]

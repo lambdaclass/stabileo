@@ -30,6 +30,56 @@ struct Corotational2D<'a> {
     trip_vals: Vec<f64>,
 }
 
+/// The free residual over the independent unknowns.
+pub(super) fn reduced(cs: &Option<FreeConstraintSystem>, free: &[f64]) -> Vec<f64> {
+    if let Some(ref cs) = *cs {
+        cs.reduce_vector(free)
+    } else {
+        free.to_vec()
+    }
+}
+
+/// A vector over the independent unknowns as one over the free DOFs.
+pub(super) fn expanded(cs: &Option<FreeConstraintSystem>, independent: &[f64]) -> Vec<f64> {
+    if let Some(ref cs) = *cs {
+        cs.expand_solution(independent, MasterMotion::Homogeneous)
+    } else {
+        independent.to_vec()
+    }
+}
+
+/// The assembled tangent (dense when `trip_rows` is empty and `k_t` is not) times a vector over
+/// the independent unknowns, reduced again.
+pub(super) fn tangent_product(
+    cs: &Option<FreeConstraintSystem>,
+    (n, nf): (usize, usize),
+    k_t: &[f64],
+    (trip_rows, trip_cols, trip_vals): (&[usize], &[usize], &[f64]),
+    v: &[f64],
+) -> Vec<f64> {
+    let u = expanded(cs, v);
+    let mut w = vec![0.0; nf];
+    if k_t.is_empty() {
+        for ((&i, &j), &value) in trip_rows.iter().zip(trip_cols).zip(trip_vals) {
+            if i < nf && j < nf {
+                w[i] += value * u[j];
+                if i != j {
+                    w[j] += value * u[i];
+                }
+            }
+        }
+    } else {
+        for (i, wi) in w.iter_mut().enumerate() {
+            *wi = (0..nf).map(|j| k_t[i * n + j] * u[j]).sum();
+        }
+    }
+    reduced(cs, &w)
+}
+
+pub(super) fn kept_solve(factor: &Option<CachedTangentFactor>, rhs: &[f64]) -> Option<Vec<f64>> {
+    factor.as_ref().map(|factor| solve_with_cached_factor(factor, rhs))
+}
+
 impl incremental::IncrementalProblem for Corotational2D<'_> {
     fn begin_increment(&mut self, load_factor: f64) {
         let (n, nf) = (self.dof_num.n_total, self.dof_num.n_free);
@@ -308,6 +358,28 @@ impl incremental::IncrementalProblem for Corotational2D<'_> {
 
     fn set_state(&mut self, state: &[f64]) {
         self.u_full[..self.dof_num.n_free].copy_from_slice(state);
+    }
+
+    fn residual(&self) -> Vec<f64> {
+        reduced(self.cs, &self.unbalance)
+    }
+
+    fn tangent_times(&self, v: &[f64]) -> Vec<f64> {
+        tangent_product(
+            self.cs,
+            (self.dof_num.n_total, self.dof_num.n_free),
+            &self.k_t,
+            (&self.trip_rows, &self.trip_cols, &self.trip_vals),
+            v,
+        )
+    }
+
+    fn lagged_solve(&self, rhs: &[f64]) -> Option<Vec<f64>> {
+        kept_solve(&self.cached_factor, rhs)
+    }
+
+    fn expand(&self, reduced: &[f64]) -> Vec<f64> {
+        expanded(self.cs, reduced)
     }
 
     fn commit(&mut self) -> Result<(), String> {
@@ -1019,6 +1091,29 @@ mod shared_driver_equivalence {
         assert!(reached + 2 >= cases, "{reached} of {cases}");
         let refused = solve_corotational_2d_by(&frame(4, 0.0, None), None, 50, 1e-8, 4, IterationMethod::Broyden { memory: 0 });
         assert_eq!(refused.err().as_deref(), Some("Broyden's method needs a memory from 1 to 50"));
+    }
+
+    #[test]
+    fn newton_krylov_with_adaptive_steps_reaches_the_solution_of_many_small_increments() {
+        let (mut reached, mut cases) = (0, 0);
+        for n in [4, 12, 30] {
+            for (rise, far_support) in [(0.0, None), (0.4, None), (0.4, Some("pinned"))] {
+                let input = frame(n, rise, far_support);
+                let reference = solve_corotational_2d_by(&input, None, 200, 1e-8, 40, IterationMethod::NewtonLineSearch).unwrap();
+                assert!(reference.converged);
+                let stepped = solve_corotational_2d_stepped(&input, None, 30, 1e-8, 4, IterationMethod::NewtonKrylov, LoadStepping::Adaptive).unwrap();
+                cases += 1;
+                if stepped.converged {
+                    reached += 1;
+                    assert_eq!(stepped.load_factor, 1.0);
+                    assert!(apart(&stepped, &reference) <= 1e-7, "n {n}, rise {rise}: {}", apart(&stepped, &reference));
+                }
+                if far_support.is_some() {
+                    assert!(stepped.converged, "the propped arch of {n} members");
+                }
+            }
+        }
+        assert!(reached + 2 >= cases, "{reached} of {cases}");
     }
 
     #[test]
