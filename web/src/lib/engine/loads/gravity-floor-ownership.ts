@@ -46,30 +46,35 @@ export function partitionGravityFloors<S extends ShellFootprint>(
   const inFrame = (bay: FloorBay, footprint: Polygon) => footprint.map(ring => ring.map(frameFor(bay).local));
   const overlapsBay = (bay: FloorBay, footprint: MultiPolygon) =>
     footprintsOverlap(frameFor(bay).boundary, footprint.map(polygon => inFrame(bay, polygon)));
-  const eligibleFor = new Map<FloorBay, S[]>();
+  const inBayDeck = (bay: FloorBay, overlap: MultiPolygon, shell: S, deck: ShellPlane, limit: number) => {
+    const area = footprintArea(overlap);
+    if (area === 0) return undefined;
+    if (!(area > 0) || !Number.isFinite(area)) refuseGravityGeometry(msg('loadPlan.gravity.coveragePrecision'));
+    const { inPlan } = frameFor(bay);
+    const pairs = overlap.flatMap(([exterior]) => exterior!.map(point => {
+      const plan = inPlan(point);
+      return [shell.plane?.(plan) ?? NaN, deck(plan)] as const;
+    }));
+    return samePhysicalDeck(pairs, limit);
+  };
+  const eligibleFor = new Map<FloorBay, Map<S, ShellPlane>>();
   const serving = new Map<S, Set<GravityBay<S>>>();
-  for (const bay of bays) {
-    const eligible = new Set<S>();
+  for (const entry of bays) {
+    const { bay, candidates } = entry;
+    const eligible = new Map<S, ShellPlane>();
     const ambiguous = new Set<S>();
-    for (const { shell, deck, tolerance, ambiguousLevel } of bay.candidates) {
+    for (const { shell, deck, tolerance, ambiguousLevel } of candidates) {
       if (eligible.has(shell)) continue;
-      const frame = frameFor(bay.bay);
-      const overlap = footprintIntersection(frame.boundary, inFrame(bay.bay, footprintOf.get(shell)!));
-      const area = footprintArea(overlap);
-      if (area === 0) continue;
-      if (!(area > 0) || !Number.isFinite(area)) refuseGravityGeometry(msg('loadPlan.gravity.coveragePrecision'));
-      const pairs = overlap.flatMap(([exterior]) => exterior!.map(point => {
-        const plan = frame.inPlan(point);
-        return [shell.plane?.(plan) ?? NaN, deck(plan)] as const;
-      }));
-      if (samePhysicalDeck(pairs, tolerance)) eligible.add(shell);
-      else if (ambiguousLevel) ambiguous.add(shell);
+      const overlap = footprintIntersection(frameFor(bay).boundary, inFrame(bay, footprintOf.get(shell)!));
+      const matches = inBayDeck(bay, overlap, shell, deck, tolerance);
+      if (matches) eligible.set(shell, deck);
+      else if (matches === false && ambiguousLevel) ambiguous.add(shell);
     }
     if ([...ambiguous].some(shell => !eligible.has(shell))) {
       refuseGravityGeometry(msg('loadPlan.gravity.differentDeck'));
     }
-    eligibleFor.set(bay.bay, [...eligible]);
-    for (const shell of eligible) (serving.get(shell) ?? serving.set(shell, new Set()).get(shell)!).add(bay);
+    eligibleFor.set(bay, eligible);
+    for (const shell of eligible.keys()) (serving.get(shell) ?? serving.set(shell, new Set()).get(shell)!).add(entry);
   }
   const coveredBy = new Map<S, Set<S>>();
   const floors = new Map<FloorCarrier, FloorCarrier>();
@@ -136,11 +141,26 @@ export function partitionGravityFloors<S extends ShellFootprint>(
   const assignments = new Map<FloorBay, BayAssignment>();
   for (const { bay } of bays) {
     const carrier = bayCarriers.get(bay)!;
-    const serving = eligibleFor.get(bay)!.filter(shell => owners.has(shell));
-    for (const shell of serving) join(carrier, shellCarriers.get(shell)!);
-    const partition = partitionShellCoverage(bay.sides, bay.holes, serving.map(shell => footprintOf.get(shell)!), bay.span);
+    const eligible = eligibleFor.get(bay)!;
+    const bayOwners = [...eligible.keys()].filter(shell => owners.has(shell));
+    for (const shell of bayOwners) join(carrier, shellCarriers.get(shell)!);
+    const partition = partitionShellCoverage(bay.sides, bay.holes, bayOwners.map(shell => footprintOf.get(shell)!), bay.span);
     carrier.assigned = partition.kind === 'uncovered' ? [bay.boundary]
       : partition.kind === 'strips' ? partition.polygons.map(poly => [poly]) : [];
+    const shadowed = [...eligible].filter(([shell]) => coveredBy.has(shell));
+    if (carrier.assigned.length && shadowed.length) {
+      const assignedInBay = carrier.assigned.map(polygon => inFrame(bay, polygon));
+      for (const [shell, deck] of shadowed) {
+        const upperOwners = coveredBy.get(shell)!;
+        const reclaimed = footprintIntersection(assignedInBay, inFrame(bay, footprintOf.get(shell)!));
+        for (const upper of upperOwners) {
+          const overlap = footprintIntersection(reclaimed, inFrame(bay, footprintOf.get(upper)!));
+          if (inBayDeck(bay, overlap, upper, deck, maxShellDeckRise)) {
+            refuseGravityGeometry(shellOverlapMessage(shell, upper));
+          }
+        }
+      }
+    }
     assignments.set(bay, { partition, region: carrier.assigned });
   }
 

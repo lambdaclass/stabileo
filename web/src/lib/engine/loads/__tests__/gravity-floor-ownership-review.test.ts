@@ -4,6 +4,7 @@ import { solve_3d, solve_pdelta_3d } from '../../../wasm/dedaliano_engine.js';
 import { modelStore } from '../../../store/model.svelte';
 import '../../../store/index';
 import { applyLoadPlan } from '../../../store/apply-load-plan';
+import { teAt } from '../../../i18n/engine-text';
 import type { Load } from '../../../store/model.svelte';
 import { buildSolverLoads3D } from '../../solver-service';
 import type { AnalysisResults3D, Constraint3D } from '../../types-3d';
@@ -382,10 +383,9 @@ function coincidentBayWithShadowedShell(rise: number, bayAttachments = 0) {
   return model;
 }
 
-const reviewC2 = process.env.RUN_KNOWN_WRONG === '2512' ? it : it.skip;
 const shadowRefusal = { key: 'loadPlan.gravity.overlappingShells', params: { first: 1, second: 2 } };
 
-reviewC2('known wrong result: #2512 shadowed shell ownership cannot put gravity back on a coincident bay', () => {
+it('#2512 shadowed shell ownership cannot put gravity back on a coincident bay', () => {
   for (const model of [
     coincidentBayWithShadowedShell(0.02),
     coincidentBayWithShadowedShell(0.049, 1),
@@ -400,6 +400,7 @@ reviewC2('known wrong result: #2512 shadowed shell ownership cannot put gravity 
         gravityKN: plan.levels.reduce((total, level) => total + level.superimposedKN, 0),
       })).toBe('BLOCKED');
       expect(plan.blockedKeys).toEqual([shadowRefusal]);
+      expect(teAt(plan.blockedKeys[0]!, 'en')).toMatch(/^Shells 1 and 2 overlap/);
       expect(plan).toMatchObject({ cases: [], distributed: [], nodal: [], surface: [], combinations: [], levels: [] });
       expect(() => gravityLayout(model, { ...gravity, tributaryWidth: 3 })).toThrow(expect.objectContaining(shadowRefusal));
       expect(() => roofWeightFor(model, gravity, 3, 0)).toThrow(expect.objectContaining(shadowRefusal));
@@ -408,7 +409,7 @@ reviewC2('known wrong result: #2512 shadowed shell ownership cannot put gravity 
   }
 });
 
-reviewC2('known wrong result: #2512 apply refuses to put pressure on a restored coincident bay with ambiguous ownership', () => {
+it('#2512 apply refuses to put pressure on a restored coincident bay with ambiguous ownership', () => {
   const { quads, plan } = restoreAndPlan(coincidentBayWithShadowedShell(0.02));
   const before = modelStore.snapshot();
   expect(plan.outcome).toBe('BLOCKED');
