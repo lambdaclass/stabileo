@@ -24,6 +24,16 @@ pub struct PreparedPcg<O> {
     operator: O,
 }
 
+#[cfg(any(feature = "metal", feature = "webgpu"))]
+impl PreparedPcg<crate::gpu::WgpuOperator> {
+    pub fn transfers(&self) -> crate::gpu::resident::Transfers {
+        self.operator.transfers()
+    }
+    pub fn reset_transfers(&mut self) {
+        self.operator.reset_transfers();
+    }
+}
+
 impl<O: PreparedOperator> PreparedPcg<O> {
     pub async fn prepare(
         backend: &mut impl SparseBackend<Operator = O>,
@@ -67,7 +77,7 @@ impl PcgProblem {
         })
     }
 
-    fn validate_rhs(
+    pub(crate) fn validate_rhs(
         &self,
         rhs: &[f64],
         tolerance: f64,
@@ -89,7 +99,7 @@ impl PcgProblem {
         Ok(())
     }
 
-    fn report(
+    pub(crate) fn report(
         &self,
         rhs: &[f64],
         tolerance: f64,

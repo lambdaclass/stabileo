@@ -9,7 +9,7 @@ fn main() {
     use std::{rc::Rc, time::Instant};
     fn median(mut samples: Vec<f64>) -> f64 {
         samples.sort_by(f64::total_cmp);
-        samples[samples.len() / 2]
+        (samples[(samples.len() - 1) / 2] + samples[samples.len() / 2]) / 2.
     }
     fn relative_error(x: &[f64], reference: &[f64]) -> f64 {
         let error = x
@@ -47,6 +47,9 @@ fn main() {
             let mut gpu = PreparedPcg::prepare(&mut backend, a.clone()).await.unwrap();
             let gpu_prepare_ms = start.elapsed().as_secs_f64() * 1000.;
             let start = Instant::now();
+            let mut resident = backend.prepare_resident_pcg(a.clone()).await.unwrap();
+            let resident_prepare_ms = start.elapsed().as_secs_f64() * 1000.;
+            let start = Instant::now();
             let factor = if a.n <= 4096 {
                 let symbolic = Rc::new(symbolic_cholesky(&a));
                 Some(numeric_cholesky(&symbolic, &a).expect("SPD comparison case"))
@@ -59,6 +62,7 @@ fn main() {
                 .map(|factor| sparse_cholesky_solve(factor, &case.rhs));
             cpu.solve_cpu_reference(&case.rhs, 1e-6, 2000).unwrap();
             let _ = gpu.solve(&case.rhs, 1e-6, 2000).await;
+            let _ = resident.solve(&case.rhs, 1e-6, 2000).await;
             let mut cpu_ms = Vec::new();
             let mut gpu_ms = Vec::new();
             let mut direct_ms = Vec::new();
@@ -66,17 +70,37 @@ fn main() {
             let mut cpu_runs = Vec::new();
             let mut cpu_result = None;
             let mut gpu_result = None;
-            for round in 0..5 {
-                for gpu_first in [round % 2 == 0, round % 2 != 0] {
+            let mut resident_result = None;
+            let mut resident_ms = Vec::new();
+            let mut resident_runs = Vec::new();
+            let orders = [
+                [0, 1, 2],
+                [1, 2, 0],
+                [2, 0, 1],
+                [2, 1, 0],
+                [1, 0, 2],
+                [0, 2, 1],
+            ];
+            for (round, order) in orders.iter().enumerate() {
+                for variant in order {
                     let start = Instant::now();
-                    if gpu_first {
+                    if *variant == 1 {
+                        gpu.reset_transfers();
                         gpu_result = Some(gpu.solve(&case.rhs, 1e-6, 2000).await);
                         gpu_ms.push(start.elapsed().as_secs_f64() * 1000.);
                         gpu_runs.push(match gpu_result.as_ref().unwrap() {
                             Ok(result) => json!({"converged": result.converged,
                                 "iterations": result.iterations,
-                                "true_relative_residual": result.true_relative_residual}),
+                                "true_relative_residual": result.true_relative_residual,"transfers":gpu.transfers()}),
                             Err(error) => json!({"converged": false,"error": error.to_string()}),
+                        });
+                    } else if *variant == 2 {
+                        resident_result = Some(resident.solve(&case.rhs, 1e-6, 2000).await);
+                        resident_ms.push(start.elapsed().as_secs_f64() * 1000.);
+                        resident_runs.push(match resident_result.as_ref().unwrap() {
+                            Ok(r) => json!({"converged":r.solve.converged,"iterations":r.solve.iterations,
+                                "true_relative_residual":r.solve.true_relative_residual,"transfers":r.transfers}),
+                            Err(e) => json!({"converged":false,"error":e.to_string()}),
                         });
                     } else {
                         cpu_result = Some(cpu.solve_cpu_reference(&case.rhs, 1e-6, 2000).unwrap());
@@ -94,17 +118,24 @@ fn main() {
                     true_relative_residual(&a, &case.rhs, &x).unwrap();
                     direct_ms.push(start.elapsed().as_secs_f64() * 1000.);
                 }
-                eprintln!("{}: paired round {}/5", case.name, round + 1);
+                eprintln!("{}: balanced round {}/6", case.name, round + 1);
             }
             let cpu = cpu_result.unwrap();
             let gpu = match gpu_result.unwrap() {
                 Ok(result) => json!({"converged":result.converged,"iterations":result.iterations,
                     "true_relative_residual":result.true_relative_residual,"recursive_relative_residual":result.recursive_relative_residual,
                     "relative_error_vs_direct":direct.as_ref().map(|x| relative_error(&result.x,x)),"relative_error_vs_known":relative_error(&result.x,&case.expected),
-                    "relative_error_vs_cpu":relative_error(&result.x,&cpu.x)}),
+                    "relative_error_vs_cpu":relative_error(&result.x,&cpu.x),"transfers":gpu.transfers()}),
                 Err(error) => json!({"converged":false,"error":error.to_string()}),
             };
+            let resident = match resident_result.unwrap() {
+                Ok(r) => json!({"converged":r.solve.converged,"iterations":r.solve.iterations,
+                    "true_relative_residual":r.solve.true_relative_residual,"recursive_relative_residual":r.solve.recursive_relative_residual,
+                    "relative_error_vs_known":relative_error(&r.solve.x,&case.expected),"relative_error_vs_cpu":relative_error(&r.solve.x,&cpu.x),"transfers":r.transfers}),
+                Err(e) => json!({"converged":false,"error":e.to_string()}),
+            };
             rows.push(json!({"case":case.name,"dofs":case.n,"stored_nnz":a.values.len(),
+                "resident_prepare_ms":resident_prepare_ms,"resident_solve_ms":median(resident_ms.clone()),"resident_samples_ms":resident_ms,"resident_runs":resident_runs,"resident":resident,
                 "cpu_prepare_ms":cpu_prepare_ms,"gpu_prepare_ms":gpu_prepare_ms,"cholesky_prepare_ms":factor.as_ref().map(|_| direct_prepare_ms),
                 "cpu_solve_ms":median(cpu_ms.clone()),"gpu_solve_ms":median(gpu_ms.clone()),"cholesky_solve_ms":(!direct_ms.is_empty()).then(|| median(direct_ms.clone())),
                 "cpu_samples_ms":cpu_ms,"gpu_samples_ms":gpu_ms,"cholesky_samples_ms":direct_ms,"gpu_runs":gpu_runs,"cpu_runs":cpu_runs,
@@ -114,7 +145,7 @@ fn main() {
         }
         let report = json!({"adapter":adapter,"profile":if large {"large"} else {"small"},"gpu_startup_ms":startup_ms,"tolerance":1e-6,"max_iterations":2000,
             "cpu_baseline":"production pcg_solve + original f64 residual validation",
-            "timing":"median of five paired rounds after warmup; solve includes transfer, CPU vector work and f64 residual validation",
+            "timing":"median of six balanced CPU/hybrid/resident rounds after warmup; solve includes transfers and f64 residual validation",
             "experimental":true,"rows":rows});
         let output = std::env::var("COMPUTE_BENCH_OUT")
             .unwrap_or("target/compute-comparison-metal.json".into());

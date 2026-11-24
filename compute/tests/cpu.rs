@@ -106,11 +106,16 @@ fn invalid_batches_and_nonfinite_products_never_succeed() {
 
 #[test]
 fn shared_shader_is_valid_without_gpu_hardware() {
-    let module = naga::front::wgsl::parse_str(include_str!("../src/spmv.wgsl")).unwrap();
-    naga::valid::Validator::new(
-        naga::valid::ValidationFlags::all(),
-        naga::valid::Capabilities::empty(),
-    )
-    .validate(&module)
-    .unwrap();
+    for source in [
+        include_str!("../src/spmv.wgsl"),
+        include_str!("../src/resident.wgsl"),
+    ] {
+        let module = naga::front::wgsl::parse_str(source).unwrap();
+        naga::valid::Validator::new(
+            naga::valid::ValidationFlags::all(),
+            naga::valid::Capabilities::empty(),
+        )
+        .validate(&module)
+        .unwrap();
+    }
 }

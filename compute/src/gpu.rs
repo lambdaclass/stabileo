@@ -9,6 +9,8 @@ use std::sync::{
 };
 use wgpu::util::DeviceExt;
 
+pub mod resident;
+
 const SESSION_BYTES: u64 = 256 * 1024 * 1024;
 
 pub struct WgpuBackend {
@@ -92,6 +94,16 @@ pub struct WgpuOperator {
     row_norm: f64,
     bind_group: wgpu::BindGroup,
     buffers: Vec<wgpu::Buffer>,
+    transfers: resident::Transfers,
+}
+
+impl WgpuOperator {
+    pub fn transfers(&self) -> resident::Transfers {
+        self.transfers
+    }
+    pub fn reset_transfers(&mut self) {
+        self.transfers = resident::Transfers::default();
+    }
 }
 
 impl SparseBackend for WgpuBackend {
@@ -219,6 +231,7 @@ impl SparseBackend for WgpuBackend {
             row_norm: packed.row_norm,
             bind_group,
             buffers,
+            transfers: resident::Transfers::default(),
         })
     }
 }
@@ -265,6 +278,9 @@ impl PreparedOperator for WgpuOperator {
         let bytes = values.len() as u64 * 4;
         encoder.copy_buffer_to_buffer(&self.buffers[4], 0, &self.buffers[6], 0, bytes);
         let _submission = self.queue.submit([encoder.finish()]);
+        self.transfers.uploaded_bytes += bytes + 16;
+        self.transfers.downloaded_bytes += bytes;
+        self.transfers.readbacks += 1;
         let mapping = UnmapOnDrop(&self.buffers[6]);
         let slice = self.buffers[6].slice(..bytes);
         let (sender, receiver) = futures_channel::oneshot::channel();

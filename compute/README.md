@@ -33,8 +33,8 @@ operator. Explicit backend shutdown invalidates its operators. Out-of-range
 f32 inputs and conservative overflow bounds refuse dispatch; subnormal outputs
 and rounding remain platform-dependent. These checks do not certify a solve.
 
-Solver comparisons use one warmup and five paired rounds, alternating CPU/GPU
-order, with a median for each. Device startup and preparation are separate;
+Solver comparisons use one warmup and six rounds covering every ordering of
+CPU, hybrid GPU and resident GPU, with a median for each. Device startup and preparation are separate;
 solve time includes transfers and validation against the original f64 matrix.
 `COMPUTE_BENCH_OUT=/path/report.json` selects the output. All methods use the
 same RHS; PCG uses the same Jacobi preconditioner, tolerance and iteration cap.
@@ -58,3 +58,13 @@ The GPU experiment does not promise bit-identical results or certify matrix
 stability. Its recursive convergence must also pass a fresh f64 residual test.
 The synchronous production PCG keeps its previous arithmetic and guards; its
 comparison oracle lives only in tests and the CPU cost experiment.
+
+The resident variant keeps x/r/z/p/Ap and Jacobi data on GPU. Each iteration
+reads two sets of workgroup summaries instead of a full vector and uploads only
+scalar parameters; the RHS and final solution move once per solve. Reports count
+these payload bytes and readbacks, excluding matrix preparation and driver internals.
+Vector updates and partial reductions are f32, so results may differ from the
+hybrid variant. Host control retains curvature, preconditioner, iteration and
+stagnation checks; conservative range bounds precede GPU operations. The original
+f64 residual still determines acceptance. One resident control interface serves
+backends; WebGPU and Metal use the same WGSL kernels. Production CPU code is unchanged.

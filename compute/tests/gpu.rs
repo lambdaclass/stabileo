@@ -116,3 +116,79 @@ fn gpu_pcg_solves_spd_systems_and_refuses_precision_loss() {
         ));
     });
 }
+
+#[test]
+fn resident_pcg_reuses_vectors_reduces_transfer_bytes_and_refuses_unsafe_inputs() {
+    use stabileo_compute::fixtures::grid;
+    pollster::block_on(async {
+        let mut backend = WgpuBackend::new().await.unwrap();
+        for n in [3, 257, 4096] {
+            let matrix = grid(n, 1, 4.);
+            let expected: Vec<_> = (0..n).map(|i| (i % 13) as f64 * 0.125).collect();
+            let rhs = matrix.sym_mat_vec(&expected);
+            let cpu = stabileo_compute::solver::PcgProblem::new(matrix.clone())
+                .unwrap()
+                .solve_cpu_reference(&rhs, 1e-6, 2000)
+                .unwrap();
+            let mut solver = backend.prepare_resident_pcg(matrix).await.unwrap();
+            for _ in 0..2 {
+                let r = solver.solve(&rhs, 1e-6, 2000).await.unwrap();
+                assert!(r.solve.converged, "{r:?}");
+                assert!(r.solve.true_relative_residual <= 1e-6);
+                // Gershgorin gives kappa_2 <= 3 for this tridiagonal SPD matrix.
+                // A fixed componentwise bound is not implied by a relative L2 residual.
+                let error = r
+                    .solve
+                    .x
+                    .iter()
+                    .zip(&expected)
+                    .map(|(a, b)| (a - b) * (a - b))
+                    .sum::<f64>()
+                    .sqrt();
+                let scale = expected.iter().map(|v| v * v).sum::<f64>().sqrt();
+                assert!(error <= 3e-6 * scale);
+                assert!(r
+                    .solve
+                    .x
+                    .iter()
+                    .zip(&cpu.x)
+                    .all(|(a, b)| (a - b).abs() < 1e-6));
+                if n == 4096 {
+                    let hybrid_bytes = (n as u64 * 8 + 16) * r.solve.iterations as u64;
+                    assert!(
+                        r.transfers.uploaded_bytes + r.transfers.downloaded_bytes
+                            < hybrid_bytes / 4
+                    );
+                }
+                let zero = solver.solve(&vec![0.; n], 1e-6, 2000).await.unwrap();
+                assert_eq!(zero.solve.x, vec![0.; n]);
+                assert_eq!(zero.transfers.readbacks, 0);
+            }
+        }
+        let mut ill = backend
+            .prepare_resident_pcg(grid(2, 1, 1. + 1e-8))
+            .await
+            .unwrap();
+        assert!(
+            !ill.solve(&[1., 1.], 1e-6, 100)
+                .await
+                .unwrap()
+                .solve
+                .converged
+        );
+        let a = CscMatrix::from_triplets(1, &[0], &[0], &[1e-10]);
+        let mut overflow = backend.prepare_resident_pcg(a).await.unwrap();
+        assert!(matches!(
+            overflow.solve(&[1e30], 1e-6, 100).await,
+            Err(ComputeError::NumericRange)
+        ));
+        for rhs in [vec![f64::NAN; 2], vec![1e-300; 2], vec![f64::MAX; 2]] {
+            assert!(ill.solve(&rhs, 1e-6, 100).await.is_err());
+        }
+        backend.shutdown();
+        assert!(matches!(
+            ill.solve(&[1., 1.], 1e-6, 100).await,
+            Err(ComputeError::Device(_))
+        ));
+    });
+}

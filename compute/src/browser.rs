@@ -54,6 +54,10 @@ fn js_error(error: crate::ComputeError) -> JsValue {
     js_sys::Error::new(&error.to_string()).into()
 }
 
+fn report_value(report: &impl serde::Serialize) -> Result<JsValue, serde_wasm_bindgen::Error> {
+    report.serialize(&serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true))
+}
+
 #[wasm_bindgen]
 pub struct ExperimentalGpuContext(crate::gpu::WgpuBackend);
 
@@ -79,11 +83,27 @@ impl ExperimentalGpuContext {
             .map_err(js_error)?;
         Ok(ExperimentalPcgSolver(PcgBackend::Gpu(solver)))
     }
+
+    pub async fn prepare_resident_pcg(
+        &mut self,
+        n: u32,
+        offsets: Vec<u32>,
+        rows: Vec<u32>,
+        values: Vec<f64>,
+    ) -> Result<ExperimentalPcgSolver, JsValue> {
+        let solver = self
+            .0
+            .prepare_resident_pcg(sparse_matrix(n, offsets, rows, values))
+            .await
+            .map_err(js_error)?;
+        Ok(ExperimentalPcgSolver(PcgBackend::Resident(solver)))
+    }
 }
 
 enum PcgBackend {
     Cpu(crate::solver::PcgProblem),
     Gpu(crate::solver::PreparedPcg<crate::gpu::WgpuOperator>),
+    Resident(crate::gpu::resident::ResidentPcg),
 }
 
 #[wasm_bindgen]
@@ -107,11 +127,30 @@ impl ExperimentalPcgSolver {
         max_iterations: usize,
     ) -> Result<JsValue, JsValue> {
         let report = match &mut self.0 {
-            PcgBackend::Cpu(solver) => solver.solve_cpu_reference(&rhs, tolerance, max_iterations),
-            PcgBackend::Gpu(solver) => solver.solve(&rhs, tolerance, max_iterations).await,
-        }
-        .map_err(js_error)?;
-        serde_wasm_bindgen::to_value(&report).map_err(|e| js_sys::Error::new(&e.to_string()).into())
+            PcgBackend::Cpu(solver) => report_value(
+                &solver
+                    .solve_cpu_reference(&rhs, tolerance, max_iterations)
+                    .map_err(js_error)?,
+            ),
+            PcgBackend::Gpu(solver) => {
+                solver.reset_transfers();
+                let solve = solver
+                    .solve(&rhs, tolerance, max_iterations)
+                    .await
+                    .map_err(js_error)?;
+                report_value(&crate::gpu::resident::ResidentReport {
+                    solve,
+                    transfers: solver.transfers(),
+                })
+            }
+            PcgBackend::Resident(solver) => report_value(
+                &solver
+                    .solve(&rhs, tolerance, max_iterations)
+                    .await
+                    .map_err(js_error)?,
+            ),
+        };
+        report.map_err(|e| js_sys::Error::new(&e.to_string()).into())
     }
 }
 

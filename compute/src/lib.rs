@@ -13,4 +13,5 @@ pub mod gpu;
 mod packing;
 
 pub mod fixtures;
+pub mod resident;
 pub mod solver;
