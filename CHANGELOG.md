@@ -855,56 +855,6 @@ Envelopes match nodal displacements and reactions by node ID, and member forces 
 
 ### Performance
 
-#### Skip the span rotation scan where a bound already settles it (2026-11-17)
-
-The small-displacement check scans every frame member's span in 64 intervals,
-finding where each plane's rotation turns, for every case and combination. An
-upper bound of that scan is now computed first from 17 rotations per plane and
-the largest moment and shear the member's loads allow. Where the bound is
-within the limit the member is within it and the scan is not run; otherwise
-the scan decides as before, as it does for any member whose forces, lengths
-or stiffness are beyond 1e100, where the scan itself can overflow.
-Diagnostics are unchanged.
-
-#### Lay out a beam's slots against its joints once per row and cages (2026-11-17)
-
-The design's joint threading check generated every legal layout of a beam's
-row of slots for each candidate, though most candidates of a member share
-their top row and meet the same column cages. The layouts are now kept per
-exact row, section and keep-outs.
-
-#### Reuse section capacities across the passes of a code check (2026-11-17)
-
-Verifying an element sizes it, verifies it again with the shared steel fixed,
-and rechecks it against the engine; each pass asked for the same column and
-biaxial capacities. Within one element's verification a capacity is now
-computed once per exact section, bars and demand, and discarded when that
-verification ends.
-
-#### Find the flexural neutral axis in fewer evaluations (2026-11-17)
-
-The CIRSOC 201 beam check located the neutral axis by bisecting down to
-adjacent floats, about 57 evaluations of the section's equilibrium. Every
-rounded operation in that residual is monotone in the neutral axis depth, so
-its sign changes between one pair of adjacent floats, and a false-position
-search that falls back to bisection reaches that same pair sooner. The depth
-returned is bit-identical; the interval certificate is unchanged.
-
-#### Reuse the support plan for a beam's own hook tails (2026-11-17)
-
-The joint threading check read where a beam's hooks stand from a second,
-identical support plan. It now reads the plan the verification already made,
-so each candidate plans its supports once.
-
-#### Share the flexural sizing scan between moments (2026-11-17)
-
-Sizing a concrete section for flexure scans the tension steel range before
-bisecting the requirement. The ductile range and the strength at each scan
-point depend on the section and the axial force, not on the moment, so they
-are kept per section and reused by every moment asked of it. The requirement,
-its bisection and the confirming check are unchanged, and results are
-bit-identical.
-
 #### Reinforcement workspace avoids repeated coordinate reads (2026-11-16)
 
 Opening and reopening the reinforcement workspace samples bar coordinates once before projection. Sampling tolerance, geometry and analysis results are unchanged.
