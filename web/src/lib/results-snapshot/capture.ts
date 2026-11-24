@@ -105,6 +105,7 @@ async function open(c: SnapshotCase, fixture?: unknown): Promise<ModelAliasConfl
     throw error;
   }
   if (modelStore.nodes.size === 0) throw new Error(`${c.name}: the project opened empty`);
+  return undefined;
 }
 
 /** A solve's result, as numbers: displacements, reactions, member forces, shells, its diagnostics' codes. */
