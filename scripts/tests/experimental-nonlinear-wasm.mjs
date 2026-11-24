@@ -57,3 +57,33 @@ test('experimental WASM continuation agrees with production on the same input', 
     assert.deepEqual(JSON.parse(engine[`solve_experimental_${method}`](input)), production);
   }
 });
+
+test('3D arc length follows a path and reads its model through the typed boundary', () => {
+  const held = { nodeId: 2, rx: false, ry: true, rz: false, rrx: true, rry: false, rrz: true };
+  const flat = {
+    ...space,
+    nodes: { 1: { id: 1, x: 0, y: 0, z: 0 }, 2: { id: 2, x: 6, y: 0, z: 0 } },
+    supports: { ...space.supports, 2: held },
+    sections: { 1: { id: 1, a: 0.01, iy: 1e-4, iz: 1e-4, j: 2e-4 } },
+    loads: [{ type: 'nodal', data: { nodeId: 2, fx: 2, fy: 0, fz: 0, mx: 0, my: 0, mz: 0 } }],
+  };
+  const solver = { ...plane, loads: [{ type: 'nodal', data: { nodeId: 2, fx: 2, fz: 0, my: 0 } }] };
+  const options = { maxSteps: 4, tolerance: 1e-9 };
+  const planar = JSON.parse(engine.solve_arc_length(JSON.stringify({ solver, ...options })));
+  const result = JSON.parse(engine.solve_experimental_arc_length_3d(JSON.stringify({ solver: flat, ...options })));
+  assert.equal(result.converged, true);
+  assert.equal(result.steps.length, 4);
+  assert.equal(result.finalLoadFactor, result.steps[3].loadFactor);
+  result.steps.forEach((step, i) => {
+    assert.equal(step.converged, true);
+    assert.ok(Math.abs(step.loadFactor - planar.steps[i].loadFactor) <= 1e-8, `step ${i + 1}`);
+  });
+  const tip = result.results.displacements.find((d) => d.nodeId === 2);
+  const planarTip = planar.results.displacements.find((d) => d.nodeId === 2);
+  assert.ok(Math.abs(tip.ux - planarTip.ux) <= 1e-10);
+  assert.equal(tip.uy, 0);
+
+  const malformed = { ...flat, sections: { 1: { id: 1, a: 'wide', iy: 1e-4, iz: 1e-4, j: 2e-4 } } };
+  assert.throws(() => engine.solve_experimental_arc_length_3d(JSON.stringify({ solver: malformed, ...options })), /Parse error/);
+  assert.throws(() => engine.solve_experimental_arc_length_3d(JSON.stringify({ solver: flat, ...options, targetIter: 0 })), /Target iterations/);
+});

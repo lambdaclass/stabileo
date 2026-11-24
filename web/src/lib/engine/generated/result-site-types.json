@@ -43,6 +43,20 @@
         }
       }
     ],
+    "ArcLengthResult3D": [
+      {
+        "origin": "src/solver/experimental_nonlinear/arc_length_3d.rs::ArcLengthResult3D",
+        "shape": {
+          "fields": {
+            "results": {
+              "ref": "AnalysisResults3D"
+            }
+          },
+          "flatten": [],
+          "kind": "struct"
+        }
+      }
+    ],
     "BatchCombinationInput3D": [
       {
         "origin": "src/postprocess/combinations.rs::BatchCombinationInput3D",

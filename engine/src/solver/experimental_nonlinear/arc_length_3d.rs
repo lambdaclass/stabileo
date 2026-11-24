@@ -49,16 +49,20 @@ pub struct ArcLengthInput3D {
     pub target_iter: usize,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct EquilibriumStep3D {
     pub step: usize,
     pub load_factor: f64,
     pub converged: bool,
     pub iterations: usize,
+    /// The converged nodal displacements (Rust callers only; not serialized).
+    #[serde(skip)]
     pub displacements: Vec<Displacement3D>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ArcLengthResult3D {
     /// The state of the last converged step, under the loads times `final_load_factor`.
     pub results: AnalysisResults3D,
