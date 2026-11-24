@@ -17,6 +17,8 @@ export interface ResultNotice {
   details: string[];
   /** The sentence the row says, where it is not the kind's own (a count, a name). */
   summary?: string;
+  /** What tells this notice from an earlier one of its kind when the board was closed on it: a new one shows the board again. */
+  key?: string;
 }
 
 const KIND_BY_PHASE: Record<string, NoticeKind> = {

@@ -616,24 +616,17 @@ export function slabDemands(m: DemandInput, thickness: (g: DemandGroup) => numbe
     for (const set of m.sets) {
       const c: SlabComboForces = { combo: set.name, bottomX: 0, bottomY: 0, topX: 0, topY: 0, qx: 0, qy: 0 };
       const shears: Array<{ key: string; q: readonly number[] }> = [];
+      const tops: Array<{ key: string; topX: number; topY: number }> = [];
       const read = new Set<string>();
       for (const row of shellRowsIn(set, m.shells, keys)) {
         const key = `${row.kind === 'quad' ? 'q' : 'p'}${row.id}`;
-        if (!keys.has(key)) continue;
+        if (!keys.has(key) || !row.global) continue;
         read.add(key);
-        if (!row.global) continue;
         const k = flipOf.get(key) ?? 1;
         const mo = row.global.moment;
         const wa = woodArmer(k * mo.xx, k * mo.yy, k * mo.xy);
-        for (const f of SLAB_FACE_KEYS) {
-          c[f] = Math.max(c[f], wa[f]);
-          if (wa[f] > best[f].value) best[f] = { value: wa[f], source: { combo: set.name } };
-        }
-        if (wa.topX > 1e-6 || wa.topY > 1e-6) {
-          const ct = centre.get(key);
-          const fe = field.get(key) ?? (ct ? { x: ct.x, y: ct.y, topX: 0, topY: 0, box: boxOf.get(key)! } : undefined);
-          if (fe) { fe.topX = Math.max(fe.topX, wa.topX); fe.topY = Math.max(fe.topY, wa.topY); field.set(key, fe); }
-        }
+        for (const f of SLAB_FACE_KEYS) c[f] = Math.max(c[f], wa[f]);
+        if (wa.topX > 1e-6 || wa.topY > 1e-6) tops.push({ key, topX: wa.topX, topY: wa.topY });
         const sh = row.global.shear;
         if (sh && !nearColumn.has(key)) { shears.push({ key, q: sh }); c.qx = Math.max(c.qx, Math.abs(sh[0])); c.qy = Math.max(c.qy, Math.abs(sh[1])); }
       }
@@ -644,6 +637,12 @@ export function slabDemands(m: DemandInput, thickness: (g: DemandGroup) => numbe
         c.qy = wide?.qy ?? (shears.length ? along('y', 1) : c.qy);
       }
       if (read.size < keys.size) { missing.push(set.name); continue; }
+      for (const f of SLAB_FACE_KEYS) if (c[f] > best[f].value) best[f] = { value: c[f], source: { combo: set.name } };
+      for (const t of tops) {
+        const ct = centre.get(t.key);
+        const fe = field.get(t.key) ?? (ct ? { x: ct.x, y: ct.y, topX: 0, topY: 0, box: boxOf.get(t.key)! } : undefined);
+        if (fe) { fe.topX = Math.max(fe.topX, t.topX); fe.topY = Math.max(fe.topY, t.topY); field.set(t.key, fe); }
+      }
       if (c.qx > q.x.value) q.x = { value: c.qx, source: { combo: set.name } };
       if (c.qy > q.y.value) q.y = { value: c.qy, source: { combo: set.name } };
       combos.push(c);
@@ -767,9 +766,8 @@ export function wallDemands(m: DemandInput): WallDemand[] {
         const read = new Set<string>();
         for (const row of shellRowsIn(set, m.shells, keys)) {
           const key = `${row.kind === 'quad' ? 'q' : 'p'}${row.id}`;
-          if (!keys.has(key)) continue;
+          if (!keys.has(key) || !row.global) continue;
           read.add(key);
-          if (!row.global) continue;
           muV = Math.max(muV, Math.abs(tensorAlong(row.global.moment, v, v)));
           muH = Math.max(muH, Math.abs(tensorAlong(row.global.moment, u, u)));
           const b = baseBy.get(key);

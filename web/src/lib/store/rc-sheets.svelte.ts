@@ -543,7 +543,7 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
   let feet = withAdoptedCombined(currentFootingDemands(sets, storeyNamer(), foundationPiers(allPiers, D.walls, D.columns, supported)), adoptedNow);
   const chosenSystem = feet.length ? foundationSystem(data) : null;
   const layoutsToDesign = feet.length ? (footingPreview.compare ? FOUNDATION_SYSTEMS : [chosenSystem ?? footingPreview.system]) : [];
-  const layoutKey = (sys: FoundationSystem) => JSON.stringify([sys, modelStore.modelVersion, code, fmt(1.5, 1), designInputs, crit.footingMatShare, Object.entries(adoptedNow).filter(([k]) => isFootingKey(k) || k.startsWith('column:') || k.startsWith('line:'))]);
+  const layoutKey = (sys: FoundationSystem) => JSON.stringify([sys, modelStore.modelVersion, code, fmt(1.5, 1), designInputs, crit.footingMatShare, Object.entries(adoptedNow).filter(([k]) => isFootingKey(k) || k.startsWith('column:') || k.startsWith('line:') || k.startsWith('beam:'))]);
   const { adopted: _a, schedule: _s, edited: _e, ...sheetSettings } = data;
   const designInputs = JSON.stringify([dd, sheetSettings]);
   const layoutMemo = layoutCache.get(key) ?? new Map<string, FootingRow[]>();

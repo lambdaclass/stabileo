@@ -10,11 +10,13 @@
 
   const W = 220, H = 150, PAD = 22;
   const saved = $derived.by((): PropertyLines => { void modelStore.designData; return designData().propertyLines ?? {}; });
-  /** The sides picked and not yet applied: the footings are designed again only once the reader is done choosing. */
-  let draft = $state<PropertyLines | null>(null);
-  const lines = $derived(draft ?? saved);
+  const savedKey = $derived(PROPERTY_SIDES.filter((k) => saved[k]).join(','));
+  /** The sides picked and not yet applied, over the lines they were picked from: the footings are designed again only once the reader is done choosing, and lines changed meanwhile (undo, another model) drop the pick. */
+  let draft = $state<{ from: string; lines: PropertyLines } | null>(null);
+  const picked = $derived(draft && draft.from === savedKey ? draft.lines : null);
+  const lines = $derived(picked ?? saved);
   const same = (p: PropertyLines, q: PropertyLines) => PROPERTY_SIDES.every((k) => !!p[k] === !!q[k]);
-  const pending = $derived(!!draft && !same(draft, saved));
+  const pending = $derived(!!picked && !same(picked, saved));
   const asLines = (on: readonly PropertySide[]): PropertyLines => Object.fromEntries(on.map((s) => [s, true]));
   function apply() {
     const on = PROPERTY_SIDES.filter((k) => lines[k]);
@@ -25,9 +27,9 @@
 
   const none = $derived(!PROPERTY_SIDES.some((k) => lines[k]));
   const all = $derived(PROPERTY_SIDES.every((k) => lines[k]));
-  const setAll = (on: boolean) => { draft = asLines(on ? PROPERTY_SIDES : []); };
+  const setAll = (on: boolean) => { draft = { from: savedKey, lines: asLines(on ? PROPERTY_SIDES : []) }; };
   function toggle(k: PropertySide) {
-    draft = asLines(PROPERTY_SIDES.filter((s) => (s === k ? !lines[s] : lines[s])));
+    draft = { from: savedKey, lines: asLines(PROPERTY_SIDES.filter((s) => (s === k ? !lines[s] : lines[s]))) };
   }
 
   const plan = $derived.by(() => {

@@ -177,7 +177,7 @@ export function extraIn(a: Pick<FootingAdopted, 'extra'>, dir: Axis, face: 'bott
   return t;
 }
 
-/** Past the outer columns' inner faces to the edges, the least of all four, m: where the bottom bars, hooked at the ends, develop. */
+/** Past the outer columns' inner faces to the edges, the least of all four, m: where the bottom bars, hooked at the ends, develop. A direction with no cantilever on either side develops them from its middle, where its span moment peaks, to the edge. */
 export function groupRoom(cols: readonly Placed[], a: Pick<FootingAdopted, 'B' | 'L'>, cover: number): number {
   const room = (dir: Axis) => {
     const S = dir === 'x' ? a.B : a.L;
@@ -185,7 +185,8 @@ export function groupRoom(cols: readonly Placed[], a: Pick<FootingAdopted, 'B' |
     const hiOver = S / 2 - Math.max(...cols.map((p) => pos(p) + half(p))), loOver = S / 2 + Math.min(...cols.map((p) => pos(p) - half(p)));
     const hi = hiOver > NO_CANTILEVER ? S / 2 - Math.max(...cols.map((p) => pos(p) - half(p))) : Infinity;
     const lo = loOver > NO_CANTILEVER ? S / 2 + Math.min(...cols.map((p) => pos(p) + half(p))) : Infinity;
-    return Math.min(hi, lo);
+    const held = Math.min(hi, lo);
+    return Number.isFinite(held) ? held : S / 2;
   };
   return Math.min(room('x'), room('y')) - cover;
 }

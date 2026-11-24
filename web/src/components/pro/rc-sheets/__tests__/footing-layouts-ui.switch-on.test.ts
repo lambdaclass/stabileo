@@ -34,4 +34,15 @@ describe('the foundation layouts', () => {
     expect(piles).toContain('rc-foundation-pile-diameter');
     expect(piles).toContain('data-testid="rc-foundation-depth"');
   });
+
+  it('offer to go back to designing only the layout shown once all five are compared', async () => {
+    const { footingPreview } = await import('../../../../lib/store/rc-sheets-footing-preview.svelte');
+    footingPreview.compare = true;
+    try {
+      const html = render(RcFootingLayouts, { props: { layouts, adopted: null, preview: 'auto' } }).body;
+      expect(html).toContain('data-testid="rc-foundation-compare-off"');
+      expect(html).not.toContain('data-testid="rc-foundation-compare"');
+      expect(html).not.toMatch(/<tr[^>]*onclick/);
+    } finally { footingPreview.compare = false; }
+  });
 });

@@ -14,7 +14,7 @@ import type { AnalysisResults3D } from '../../engine/types-3d';
 const missingCheck = (r: { verifications: Array<{ label: string; ok: boolean; demand?: string }> }) => r.verifications.find((v) => v.label === 'rcSheets.v.forcesMissing');
 
 describe('slabs and walls whose shells one combination has no results for', () => {
-  let named = '';
+  let named = '', unread = '';
 
   beforeAll(async () => {
     await wasmSolver.initSolver();
@@ -29,6 +29,10 @@ describe('slabs and walls whose shells one combination has no results for', () =
     const [id, last] = [...r.perCombo].at(-1)!;
     named = modelStore.model.combinations.find((c) => c.id === id)!.name;
     r.perCombo.set(id, { ...last, quadStresses: (last.quadStresses ?? []).filter((_, i) => i % 2 === 0), plateStresses: (last.plateStresses ?? []).filter((_, i) => i % 2 === 0) });
+    const [id2, before] = [...r.perCombo].at(-2)!;
+    unread = modelStore.model.combinations.find((c) => c.id === id2)!.name;
+    const noGlobal = <T,>(list: T[] | undefined) => (list ?? []).map((x, i) => (i % 2 ? { ...x, envelope: {} } : x));
+    r.perCombo.set(id2, { ...before, quadStresses: noGlobal(before.quadStresses), plateStresses: noGlobal(before.plateStresses) } as never);
     publishCombinations3D(r as never);
     setSheetCode('cirsoc201-2025');
   }, 600_000);
@@ -42,6 +46,7 @@ describe('slabs and walls whose shells one combination has no results for', () =
       const v = missingCheck(row)!;
       expect(v.ok).toBe(false);
       expect(v.demand).toContain(named);
+      expect(v.demand, 'a shell with results but no forces in global axes is not read').toContain(unread);
       expect(row.status).toBe('fail');
     }
   });

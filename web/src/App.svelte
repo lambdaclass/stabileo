@@ -1442,7 +1442,7 @@
 
   const appNotices = $derived.by((): ResultNotice[] => {
     const out: ResultNotice[] = [];
-    if (recheckBanner.text && !boardCovered()) out.push({ kind: 'outdated', level: recheckBanner.alert ? 'blocking' : 'warning', details: [] });
+    if (recheckBanner.text && !boardCovered()) out.push({ kind: 'outdated', level: recheckBanner.alert ? 'blocking' : 'warning', details: [], key: `${recheckBanner.alert ? 'advisory' : 'stale'}:${recheckBanner.text}` });
     if (!deskUi.open && !rebarWorkspace.open && underAudit([...modelAuditFeatures(modelStore.model), ...(verificationStore.concrete.length ? ['rc-design' as const] : [])])) out.push({ kind: 'underReview', level: 'info', details: [] });
     return out;
   });

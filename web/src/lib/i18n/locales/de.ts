@@ -16957,6 +16957,7 @@ const de: Translations = {
   "rcSheets.foundation.qadm": "Zulässige Bodenpressung",
   "rcSheets.foundation.notCompared": "nicht bemessen: zum Ansehen wählen",
   "rcSheets.foundation.compareAll": "Alle 5 Anordnungen vergleichen",
+  "rcSheets.foundation.compareOff": "Nur die angezeigte bemessen",
   "rcSheets.foundation.depth": "Gründungstiefe",
   "rcSheets.foundation.depthAuto": "automatisch",
   "rcSheets.foundation.depthHint": "Unterkante der Fundamente unter ±0,00; leer: die das höchste Fundament verlangt",

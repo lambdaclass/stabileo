@@ -89,6 +89,10 @@
     recheckBanner.review = () => { reviewing = true; };
     recheckBanner.rerun = rerun;
   });
+  $effect(() => () => {
+    recheckBanner.text = null;
+    recheckBanner.alert = false;
+  });
 </script>
 
 {#if open && a}

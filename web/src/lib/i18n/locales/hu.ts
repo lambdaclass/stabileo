@@ -16665,6 +16665,7 @@ const hu: Translations = {
   "rcSheets.foundation.qadm": "Megengedett talajfeszültség",
   "rcSheets.foundation.notCompared": "nincs méretezve: válassza ki a megtekintéshez",
   "rcSheets.foundation.compareAll": "Mind az 5 kiosztás összevetése",
+  "rcSheets.foundation.compareOff": "Csak a látható méretezése",
   "rcSheets.foundation.depth": "Alapozási mélység",
   "rcSheets.foundation.depthAuto": "automatikus",
   "rcSheets.foundation.depthHint": "az alapok alsó síkja ±0,00 alatt; üres: amit a legvastagabb alap kíván",

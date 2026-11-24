@@ -17119,6 +17119,7 @@ const en: Record<string, string> = {
   "rcSheets.foundation.qadm": "Allowable soil pressure",
   "rcSheets.foundation.notCompared": "not designed: pick it to see it",
   "rcSheets.foundation.compareAll": "Compare the 5 layouts",
+  "rcSheets.foundation.compareOff": "Design only the one shown",
   "rcSheets.foundation.depth": "Founding depth",
   "rcSheets.foundation.depthAuto": "automatic",
   "rcSheets.foundation.depthHint": "underside of the footings below ±0.00; empty: what the deepest footing asks for",

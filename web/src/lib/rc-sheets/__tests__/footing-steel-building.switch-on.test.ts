@@ -31,4 +31,9 @@ describe('the room a mat\'s bars have to anchor past its outer columns', () => {
     expect(flush).toBeGreaterThan(overhung);
     expect(overhung).toBeCloseTo(0.5 + 0.3 - 0.05, 6);
   });
+
+  it('is half the mat, finite, in a direction flush on both sides, where its bars develop from the span\'s middle', () => {
+    const cols = [p(-5.85, 0), p(5.85, 0), p(-5.85, 6), p(5.85, 6)].map((c) => ({ ...c, y: c.y - 3 }));
+    expect(groupRoom(cols, { B: 12, L: 6.3 }, 0.05)).toBeCloseTo(6.3 / 2 - 0.05, 6);
+  });
 });

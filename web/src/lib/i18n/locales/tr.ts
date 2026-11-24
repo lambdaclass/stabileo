@@ -16957,6 +16957,7 @@ const tr: Translations = {
   "rcSheets.foundation.qadm": "Zemin emniyet gerilmesi",
   "rcSheets.foundation.notCompared": "hesaplanmadı: görmek için seçin",
   "rcSheets.foundation.compareAll": "5 düzeni karşılaştır",
+  "rcSheets.foundation.compareOff": "Yalnızca gösterileni hesapla",
   "rcSheets.foundation.depth": "Temel derinliği",
   "rcSheets.foundation.depthAuto": "otomatik",
   "rcSheets.foundation.depthHint": "temellerin alt yüzü ±0,00 altında; boş: en kalın temelin istediği",

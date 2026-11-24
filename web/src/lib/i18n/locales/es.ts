@@ -17108,6 +17108,7 @@ const es: Record<string, string> = {
   "rcSheets.foundation.qadm": "Tensión admisible del suelo",
   "rcSheets.foundation.notCompared": "sin calcular: elegila para verla",
   "rcSheets.foundation.compareAll": "Comparar las 5 disposiciones",
+  "rcSheets.foundation.compareOff": "Calcular sólo la que se ve",
   "rcSheets.foundation.depth": "Profundidad de fundación",
   "rcSheets.foundation.depthAuto": "automática",
   "rcSheets.foundation.depthHint": "cara inferior de las bases bajo ±0,00; vacío: la que pide la base más gruesa",

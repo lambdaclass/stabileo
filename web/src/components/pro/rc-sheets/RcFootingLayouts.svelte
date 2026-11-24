@@ -110,10 +110,9 @@
     <thead><tr><th>{t('rcSheets.foundation.label')}</th><th class="n">{t('rcSheets.foundation.share')}</th><th class="n">m³</th><th class="n">kg</th><th>{t('rcSheets.foundation.parts')}</th><th class="n">{t('rcSheets.foundation.failing')}</th><th></th></tr></thead>
     <tbody>
       {#each FOUNDATION_SYSTEMS.map((sys) => ({ system: sys, done: layouts.find((x) => x.system === sys) })) as l (l.system)}
-        <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
-        <tr class:sel={shown === l.system} class:pick={!adopted} data-testid="rc-foundation-layout-{l.system}" onclick={() => { if (!adopted) preview = l.system; }}>
+        <tr class:sel={shown === l.system} class:pick={!adopted} data-testid="rc-foundation-layout-{l.system}">
           <td>
-            {#if adopted}{t(`rcSheets.foundation.${l.system}`)}{:else}<button type="button" class="rfl-name" aria-pressed={shown === l.system} onclick={(e) => { e.stopPropagation(); preview = l.system; }} data-testid="rc-foundation-view-{l.system}">{t(`rcSheets.foundation.${l.system}`)}</button>{/if}
+            {#if adopted}{t(`rcSheets.foundation.${l.system}`)}{:else}<button type="button" class="rfl-name" aria-pressed={shown === l.system} onclick={() => (preview = l.system)} data-testid="rc-foundation-view-{l.system}">{t(`rcSheets.foundation.${l.system}`)}</button>{/if}
             {#if l.system === 'auto'} <span class="rec">{t('rcSheets.foundation.recommended')}</span>{/if}
             {#if adopted === l.system}<span class="tag on" data-testid="rc-foundation-adopted-tag">{t('rcSheets.foundation.adoptedTag')}</span>{:else if !adopted && shown === l.system}<span class="tag" data-testid="rc-foundation-shown-tag">{t('rcSheets.foundation.shownTag')}</span>{/if}
           </td>
@@ -127,12 +126,13 @@
           {:else}
             <td class="n pending" colspan="5" data-testid="rc-foundation-pending-{l.system}">{t('rcSheets.foundation.notCompared')}</td>
           {/if}
-          <td>{#if adopted !== l.system}<button type="button" class="pk-btn" class:pk-btn-primary={shown === l.system} onclick={(e) => { e.stopPropagation(); setFoundationSystem(l.system); }} data-testid="rc-foundation-adopt-{l.system}">{t('rcSheets.foundation.adopt')}</button>{/if}</td>
+          <td>{#if adopted !== l.system}<button type="button" class="pk-btn" class:pk-btn-primary={shown === l.system} onclick={() => setFoundationSystem(l.system)} data-testid="rc-foundation-adopt-{l.system}">{t('rcSheets.foundation.adopt')}</button>{/if}</td>
         </tr>
       {/each}
     </tbody>
   </table>
-  {#if layouts.length < FOUNDATION_SYSTEMS.length}<button type="button" class="pk-btn rfl-compare" onclick={() => (footingPreview.compare = true)} data-testid="rc-foundation-compare">{t('rcSheets.foundation.compareAll')}</button>{/if}
+  {#if footingPreview.compare}<button type="button" class="pk-btn rfl-compare" onclick={() => (footingPreview.compare = false)} data-testid="rc-foundation-compare-off">{t('rcSheets.foundation.compareOff')}</button>
+  {:else if layouts.length < FOUNDATION_SYSTEMS.length}<button type="button" class="pk-btn rfl-compare" onclick={() => (footingPreview.compare = true)} data-testid="rc-foundation-compare">{t('rcSheets.foundation.compareAll')}</button>{/if}
   {#if layouts.some((l) => l.summary.needs !== null)}<p class="hint">{t('rcSheets.foundation.needsHint')}</p>{/if}
   {#if !adopted}<p class="hint">{t('rcSheets.foundation.noneHint')}</p>{/if}
 </div>
