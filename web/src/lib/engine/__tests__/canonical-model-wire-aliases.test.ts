@@ -40,13 +40,19 @@ for (const [name, solve] of Object.entries(planarSolvers)) {
   });
 }
 
-it('roadmap 2.4 retains independent spatial moments through both WASM solvers', () => {
-  for (const result of [solve_3d(space), JSON.parse(solve_pdelta_3d(JSON.stringify(space), 20, 1e-9)).results]) {
+const spatialSolvers = {
+  linear: () => solve_3d(space),
+  pdelta: () => JSON.parse(solve_pdelta_3d(JSON.stringify(space), 20, 1e-9)).results,
+};
+
+for (const [name, solve] of Object.entries(spatialSolvers)) {
+  it(`roadmap 2.4 retains independent spatial moments through WASM ${name}`, () => {
+    const result = solve();
     expect(result.reactions).toHaveLength(1);
-    expect(result.reactions[0].my).not.toBe(0);
-    expect(result.reactions[0].mz).not.toBe(0);
-  }
-});
+    expect(result.reactions[0].my).toBeCloseTo(1, 14);
+    expect(result.reactions[0].mz).toBeCloseTo(-6, 14);
+  });
+}
 
 it('#1949 WASM planar solvers refuse a second node coordinate', () => {
   const path = {

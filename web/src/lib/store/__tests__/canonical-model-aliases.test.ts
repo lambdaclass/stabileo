@@ -1,15 +1,18 @@
 import 'fake-indexeddb/auto';
-import { beforeEach, expect, it } from 'vitest';
+import { beforeEach, expect, it, vi } from 'vitest';
 import { deflateSync, inflateSync } from 'fflate';
 import LZString from 'lz-string';
-import { modelStore, uiStore } from '..';
+import { historyStore, modelStore, uiStore } from '..';
 import { autosaveClear, autosaveWrite, resetAutosaveDbForTests } from '../autosave-db';
-import { acceptAutosavePayload, acceptSessionTabs, buildProjectFile, deserializeProject, loadAutosave, loadFile, loadProject, projectAutosavePolicy } from '../file';
+import { acceptAutosavePayload, acceptSessionTabs, buildProjectFile, deserializeProject, loadAutosave, loadFile, loadProject, loadWorkspaceFromLocalStorage, projectAutosavePolicy } from '../file';
 import { compressSnapshot, decompressSnapshot, loadFromShareLink } from '../../utils/url-sharing';
 import { applyCode } from '../../model/code/apply';
 import { codeToModel } from '../../model/code/format';
 import { CODE_HASH, encodeCode } from '../../model/code/share';
 import { fragmentFromJSONModel, fragmentFromSnapshot } from '../../model/edit/fragment-code';
+import { modelFeatures } from '../../provenance/model-features';
+import { RESULT_CHANGES } from '../../provenance/full-registry';
+import { conditionHolds } from '../../provenance/applicability';
 import { validateAndSolve2D } from '../../engine/solver-service';
 import { loadFixture, type JSONModel } from '../../templates/load-fixture';
 
@@ -168,3 +171,123 @@ it('roadmap 2.4 collapses agreeing aliases and preserves distinct 3D components'
   expect(modelStore.snapshot().supports[0]![1]).toMatchObject({ dy: 1, dz: 2, dry: 3, drz: 4 });
   expect(modelStore.loads[0]?.data).toMatchObject({ fy: 1, fz: 2, my: 3, mz: 4 });
 });
+
+
+const reviewReproducer = process.env.RUN_ALIAS_REVIEW_REPRODUCERS ? it : it.skip;
+
+reviewReproducer('known wrong result: #2532 normalizes legacy edit-layer loads before they enter undo history', () => {
+  const file = project();
+  const nodeId = file.snapshot.nodes[1]![0];
+  modelStore.addLoadEntry({ type: 'nodal', data: { id: 0, nodeId, fx: 0, fy: -7, mz: 2 } as never });
+  const before = modelStore.snapshot();
+  modelStore.restore(before);
+  expect.soft(modelStore.snapshot().loads).toEqual(before.loads);
+  expect.soft(before.loads).toEqual([{ type: 'nodal', data: { id: 1, nodeId, fx: 0, fz: -7, my: 2 } }]);
+  historyStore.clear();
+  expect.soft(() => modelStore.addLoadEntry({ type: 'nodal', data: { id: 0, nodeId, fx: 0, fz: 0, fy: 1 } as never })).toThrow(/fz.*fy/);
+  expect.soft(historyStore.canUndo).toBe(false);
+  expect(modelStore.snapshot().loads).toEqual(before.loads);
+});
+
+reviewReproducer('known wrong result: #2532 uses the project mode consistently and leaves history intact on refusal', async () => {
+  const space = project('3d');
+  space.snapshot.analysisMode = '2d';
+  space.snapshot.nodes[1]![1].z = 1;
+  Object.assign(space.snapshot.supports[0]![1], { dy: 1, dz: 2 });
+  historyStore.clear();
+  await expect.soft(loadProject(asFile(space))).resolves.toBeUndefined();
+  expect.soft(uiStore.analysisMode).toBe('3d');
+  expect.soft(modelStore.snapshot().supports[0]![1]).toMatchObject({ dy: 1, dz: 2 });
+  expect.soft(acceptAutosavePayload(space)?.snapshot.analysisMode).toBe('3d');
+
+  const plane = { ...space, analysisMode: '2d', snapshot: { ...space.snapshot, analysisMode: '3d' } } as const;
+  const before = modelStore.snapshot();
+  const stacks = historyStore.getStacks();
+  await expect.soft(loadProject(asFile(plane))).rejects.toThrow(/dz.*dy/);
+  expect.soft(acceptAutosavePayload(plane)).toBeNull();
+  expect.soft(historyStore.getStacks()).toEqual(stacks);
+  expect(modelStore.snapshot()).toEqual(before);
+});
+
+for (const stack of ['undoStack', 'redoStack'] as const) {
+  reviewReproducer(`known wrong result: #2532 opens repaired tabs and reports discarded ${stack} in session and workspace intake`, async () => {
+    const file = project();
+    nodal(file, { fz: 0, my: 5, mz: 5 });
+    const bad = { ...file.snapshot, loads: [] };
+    nodal({ ...file, snapshot: bad }, { fz: 0, my: 0, mz: 5 });
+    const tab = { id: 'repaired', name: 'Repaired fixture', analysisMode: '2d', modelSnapshot: file.snapshot,
+      undoStack: [file.snapshot], redoStack: [file.snapshot], undoKinds: ['structural'], redoKinds: ['structural'] };
+    const session = { version: '1.0', type: 'session', activeTabId: tab.id, tabs: [{ ...tab, [stack]: [bad] }] };
+    const good = acceptSessionTabs([tab]).tabs[0];
+    expect(good.undoStack).toHaveLength(1);
+    expect(good.redoStack).toHaveLength(1);
+    const toast = vi.spyOn(uiStore, 'toast').mockImplementation(() => {});
+    const storage = new Map([['stabileo-workspace', JSON.stringify(session)]]);
+    vi.stubGlobal('localStorage', { getItem: (key: string) => storage.get(key) ?? null, setItem: (key: string, value: string) => storage.set(key, value) });
+    try {
+      await expect.soft(loadFile(asFile(session))).resolves.toEqual({ type: 'session', count: 1 });
+      expect.soft(modelStore.snapshot().loads[0]?.data).toMatchObject({ my: 5 });
+      expect.soft(historyStore.getStacks()).toEqual({ undo: [], redo: [], undoKinds: [], redoKinds: [] });
+      expect.soft(toast).toHaveBeenCalledWith(expect.stringMatching(/history.*Repaired fixture.*my.*mz/i), 'error');
+      toast.mockClear();
+      const saved = loadWorkspaceFromLocalStorage();
+      expect.soft(saved?.tabs[0]).toMatchObject({ id: tab.id, undoStack: [], redoStack: [], undoKinds: [], redoKinds: [] });
+      expect(toast).toHaveBeenCalledWith(expect.stringMatching(/history.*Repaired fixture.*my.*mz/i), 'error');
+    } finally {
+      toast.mockRestore();
+      vi.unstubAllGlobals();
+    }
+  });
+}
+
+for (const [canonical, legacy] of [['dz', 'dy'], ['dry', 'drz']] as const) {
+  reviewReproducer(`known wrong result: #2532 refuses distinct ${canonical}/${legacy} before compact rounding`, () => {
+    const file = project();
+    const support = file.snapshot.supports[0]![1];
+    const value = 0.12345678901;
+    Object.assign(support, { [canonical]: value, [legacy]: 0.12345678902 });
+    expect.soft(() => compressSnapshot(file.snapshot)).toThrow(new RegExp(`${canonical}.*${legacy}`));
+    support[legacy] = value;
+    const agreeing = decompressSnapshot(compressSnapshot(file.snapshot))?.supports[0]![1];
+    expect.soft(agreeing?.[canonical]).toBe(0.123456789);
+    expect(agreeing).not.toHaveProperty(legacy);
+  });
+}
+
+for (const end of ['I', 'J'] as const) {
+  reviewReproducer(`known wrong result: #2532 registers the changed reactions of a fixture with agreeing end ${end} release aliases`, () => {
+    const file = project();
+    const root = file.snapshot.nodes[0]![0];
+    const tip = file.snapshot.nodes[1]![0];
+    modelStore.addSupport(tip, 'fixed');
+    const input = fixture(buildProjectFile());
+    const member = input.elements[0];
+    const hinge = end === 'I' ? 'hingeStart' : 'hingeEnd';
+    const release = end === 'I' ? 'releaseI' : 'releaseJ';
+    member[hinge] = true;
+    member[release] = { mz: true };
+    input.loads = [{ type: 'distributed', data: { id: 1, elementId: file.snapshot.elements[0]![0], qI: -4, qJ: -4 } }];
+
+    modelStore.clear();
+    loadFixture(input, modelStore.fixtureApi() as never);
+    const result = validateAndSolve2D(modelStore.model);
+    if (!result || typeof result === 'string') throw new Error(String(result));
+    const released = end === 'I' ? root : tip;
+    const fixed = end === 'I' ? tip : root;
+    expect.soft(result.reactions.find(reaction => reaction.nodeId === released)?.rz).toBeCloseTo(3, 10);
+    expect.soft(result.reactions.find(reaction => reaction.nodeId === fixed)?.rz).toBeCloseTo(5, 10);
+    expect.soft(modelStore.elements.get(member.id)?.[release].mz).toBe(true);
+
+    const change = RESULT_CHANGES.changes.find(entry => entry.id === 'fixture-release-aliases');
+    expect.soft(change?.quantities).toEqual(['displacements', 'reactions', 'elementForces']);
+    const features = () => modelFeatures({ elements: input.elements.map(e => [e.id, e]) });
+    if (change) {
+      expect.soft(conditionHolds(change.when, features())).toBe(true);
+      delete member[hinge];
+      expect.soft(conditionHolds(change.when, features())).toBe(false);
+      member[hinge] = false;
+      member[release] = { mz: false };
+      expect(conditionHolds(change.when, features())).toBe(false);
+    }
+  });
+}
