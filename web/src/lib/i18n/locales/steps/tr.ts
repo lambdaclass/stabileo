@@ -1,6 +1,8 @@
 import { axialStrainEnergy } from './strain-energy-label';
 import type { Translations } from '../../types';
 import course from '../course/tr';
+import { galerkinTr } from './galerkin';
+import { tr as axialLoadTr } from './axial-load';
 
 const stepsTr: Translations = {
   'steps.dsm.classification': 'Statik sınıflandırma',
@@ -925,4 +927,4 @@ const stepsTr: Translations = {
   'course.statics.vw.p.help': 'Virtüel yük aradığınız büyüklüğe bağlıdır: yer değiştirme için birim kuvvet, dönme için birim moment, iki düğüm arasındaki göreli yer değiştirme için zıt iki kuvvet ve göreli dönme için zıt iki moment. Otomatik seçenek, modelde seçili düğümü veya en çok hareket eden düğümü alır; göreli bir büyüklükte otomatik doğrultu, iki düğümü birleştiren doğrudur.',
 };
 
-export default { ...stepsTr, ...course };
+export default { ...stepsTr, ...galerkinTr, ...axialLoadTr, ...course };

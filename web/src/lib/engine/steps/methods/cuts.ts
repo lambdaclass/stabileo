@@ -52,6 +52,7 @@ function applies(ctx: MethodContext) {
   for (const s of input.supports.values()) if ((s as { restrainedDofs?: unknown }).restrainedDofs) return { ok: false as const, reason: tx('steps.req.special') };
   if ((input.constraints?.length ?? 0) > 0 || (input.connectors?.size ?? 0) > 0) return { ok: false as const, reason: tx('steps.cuts.req.connectors') };
   if (hasThermal(pm)) return { ok: false as const, reason: tx('steps.req.thermal') };
+  if (input.loads.some((l) => l.type === 'axialDistributed')) return { ok: false as const, reason: tx('steps.req.axialDistributed') };
   if (!ref) return { ok: false as const, reason: tx('steps.req.unstable') };
   if (computeStaticDegree(input).degree < 0) return { ok: false as const, reason: tx('steps.req.unstable') };
   return { ok: true as const };

@@ -375,6 +375,7 @@ export const SAME_AS_ENGLISH: readonly string[] = [
   "steps.deformation.segment",
   "steps.m.crossBeams.rowDF",
   "steps.m.crossBeams.rowFEM",
+  "steps.m.galerkin.femSeries",
   "stress.shapeT",
   "stress.tt.bredt",
   "stress.tt.cauchy",

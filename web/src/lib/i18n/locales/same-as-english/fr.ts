@@ -714,6 +714,7 @@ export const SAME_AS_ENGLISH: readonly string[] = [
   'steps.frames.sway.superTitle',
   'steps.m.castigliano.coefficient',
   'steps.m.castigliano.sumAxial',
+  'steps.m.galerkin.femSeries',
   'steps.m.momentArea.shape.rect',
   'steps.trusses.compat.depRelation',
   'steps.trusses.compat.dir.ry',

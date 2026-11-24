@@ -1,6 +1,8 @@
 import { axialStrainEnergy } from './strain-energy-label';
 import type { Translations } from '../../types';
 import course from '../course/de';
+import { galerkinDe } from './galerkin';
+import { de as axialLoadDe } from './axial-load';
 
 const stepsDe: Translations = {
   'steps.dsm.classification': 'Statische Bestimmtheit',
@@ -925,4 +927,4 @@ const stepsDe: Translations = {
   'course.statics.vw.p.help': 'Die virtuelle Last hängt von der gesuchten Größe ab: eine Einheitskraft für eine Verschiebung, ein Einheitsmoment für eine Verdrehung, zwei entgegengesetzte Kräfte für eine Relativverschiebung zwischen zwei Knoten und zwei entgegengesetzte Momente für eine Relativverdrehung. Die Option Automatisch nimmt den im Modell ausgewählten Knoten oder den, der sich am meisten bewegt; bei einer relativen Größe ist die automatische Richtung die Verbindungslinie der beiden Knoten.',
 };
 
-export default { ...stepsDe, ...course };
+export default { ...stepsDe, ...galerkinDe, ...axialLoadDe, ...course };

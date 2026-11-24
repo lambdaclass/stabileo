@@ -38,6 +38,7 @@ export function compatApplies(ctx: MethodContext): Applicability {
   if ((input.constraints?.length ?? 0) > 0 || (input.connectors?.size ?? 0) > 0) return refuse(`${P}req.constraints`);
   if (hasSpecialSupports(pm)) return refuse('steps.req.special');
   if (hasThermal(pm)) return refuse('steps.req.thermal');
+  if (input.loads.some((l) => l.type === 'axialDistributed')) return refuse('steps.req.axialDistributed');
   for (const s of pm.supports.values()) {
     if (!['fixed', 'pinned', 'rollerX', 'rollerZ'].includes(s.type)) return refuse(`${P}req.supportTypeCompat`, { n: nodeName(pm, s.node) });
   }

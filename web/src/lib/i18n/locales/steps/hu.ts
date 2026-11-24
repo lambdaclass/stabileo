@@ -1,6 +1,8 @@
 import { axialStrainEnergy } from './strain-energy-label';
 import type { Translations } from '../../types';
 import course from '../course/hu';
+import { galerkinHu } from './galerkin';
+import { hu as axialLoadHu } from './axial-load';
 
 const stepsHu: Translations = {
   "steps.dsm.classification": "Statikai osztályozás",
@@ -911,4 +913,4 @@ const stepsHu: Translations = {
   "course.statics.vw.p.help": "A virtuális teher attól függ, mit keresünk: egységnyi erő elmozduláshoz, egységnyi nyomatékpár elforduláshoz, két ellentétes erő két csomópont közötti relatív elmozduláshoz, és két ellentétes nyomatékpár relatív elforduláshoz. Az automatikus a modellben kijelölt csomópontot veszi, vagy azt, amelyik a legtöbbet mozdul; relatív mennyiségnél az automatikus irány a két csomópontot összekötő egyenes.",
 };
 
-export default { ...stepsHu, ...course };
+export default { ...stepsHu, ...galerkinHu, ...axialLoadHu, ...course };

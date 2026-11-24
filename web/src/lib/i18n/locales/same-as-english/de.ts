@@ -537,6 +537,7 @@ export const SAME_AS_ENGLISH: readonly string[] = [
   'steel.tc.col.status',
   'steps.m.crossBeams.rowDF',
   'steps.m.crossBeams.rowFEM',
+  'steps.m.galerkin.femSeries',
   'steps.trusses.compat.dir.ux',
   'steps.view.compare.diffShort',
   'steps.view.compare.matrixShort',

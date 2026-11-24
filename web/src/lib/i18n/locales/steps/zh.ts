@@ -1,6 +1,8 @@
 import { axialStrainEnergy } from './strain-energy-label';
 import type { Translations } from '../../types';
 import course from '../course/zh';
+import { galerkinZh } from './galerkin';
+import { zh as axialLoadZh } from './axial-load';
 
 const stepsZh: Translations = {
   "steps.dsm.classification": "静力分类",
@@ -911,4 +913,4 @@ const stepsZh: Translations = {
   "steps.cuts.dia.M": "弯矩 M [kN·m]，绘在受拉纤维一侧。",
 };
 
-export default { ...stepsZh, ...course };
+export default { ...stepsZh, ...galerkinZh, ...axialLoadZh, ...course };

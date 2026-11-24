@@ -9,9 +9,11 @@ import * as frames from './frames';
 import * as trusses from './trusses';
 import * as deformation from './deformation';
 import * as cuts from './cuts';
+import * as galerkin from './galerkin';
+import * as axialLoad from './axial-load';
 import { courseEs, courseEn, coursePt } from '../course/index';
 
-const parts = [common, continuous, frames, trusses, deformation, cuts];
+const parts = [common, continuous, frames, trusses, deformation, cuts, galerkin, axialLoad];
 const merge = (k: 'es' | 'en' | 'pt'): Translations => Object.assign({}, ...parts.map((p) => p[k]));
 
 export const stepsEs = { ...merge('es'), ...courseEs };
