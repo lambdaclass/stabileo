@@ -188,3 +188,40 @@ it('#2297 applied project rules preserve the net case in composite and notional 
   const [composite] = addCompositeCases(expanded);
   expect.soft(modelStore.loadCases.find(c => c.id === composite)?.includes).toStrictEqual(unit);
 });
+
+const signatureRegression = process.env.RUN_KNOWN_WRONG === '2297' ? it : it.skip;
+
+signatureRegression('known wrong result: #2297 a unit candidate differs from large cancelling composite paths', async () => {
+  const { initSolver, combineResults, combineResults3D } = await import('../../engine/wasm-solver');
+  await initSolver();
+  const unit = [{ caseId: 1, factor: 1 }];
+  const cases = [1, 2, 3, 4].map(id => ({ id, includes: id === 1 ? [] : unit }));
+  const large = 2 ** 54;
+  const factors = [large, 1, -large].map((factor, i) => ({ caseId: i + 2, factor }));
+  const empty = { displacements: [], elementForces: [] };
+  const planar = { ...empty, reactions: [{ nodeId: 1, rx: -1, rz: 0, my: 0 }] };
+  const spatial = { ...empty, reactions: [{ nodeId: 1, fx: -1, fy: 0, fz: 0, mx: 0, my: 0, mz: 0 }] };
+  const planarCases = new Map(cases.map(({ id }) => [id, planar]));
+  const spatialCases = new Map(cases.map(({ id }) => [id, spatial]));
+  expect(combineResults(unit, planarCases)?.reactions[0]?.rx).toBe(-1);
+  expect(combineResults(factors, planarCases)?.reactions[0]?.rx).toBe(0);
+  expect(combineResults3D(unit, spatialCases, new Map())?.reactions[0]?.fx).toBe(-1);
+  expect(combineResults3D(factors, spatialCases, new Map())?.reactions[0]?.fx).toBe(0);
+  expect(combinationExists(unit, [{ factors }], cases)).toBe(false);
+});
+
+signatureRegression('known wrong result: #2297 duplicate detection preserves factor values, term order and combination method', () => {
+  const cases = [{ id: 1 }, { id: 2 }, { id: 3 }];
+  const factors = cases.map(({ id: caseId }, i) => ({ caseId, factor: [2 ** 54, 1, -(2 ** 54)][i]! }));
+  const unit = [{ caseId: 2, factor: 1 }];
+  const nearlyUnit = [{ caseId: 2, factor: 1 + Number.EPSILON }];
+  const zero = { caseId: 1, factor: 0 };
+  const tiny = { caseId: 1, factor: Number.MIN_VALUE };
+  const magnitude = { factors: unit, method: 'abs' } as const;
+  expect(combinationExists(unit, [{ factors: [zero, ...unit] }], cases)).toBe(true);
+  expect(combinationExists(factors, [{ factors }], cases)).toBe(true);
+  expect.soft(combinationExists(unit, [{ factors: nearlyUnit }], cases)).toBe(false);
+  expect.soft(combinationExists(unit, [{ factors: [tiny, ...unit] }], cases)).toBe(false);
+  expect.soft(combinationExists(factors, [{ factors: [factors[0]!, factors[2]!, factors[1]!] }], cases)).toBe(false);
+  expect.soft(combinationExists(unit, [magnitude], cases)).toBe(false);
+});
