@@ -18,3 +18,11 @@ it('keeps small nonzero table values distinct from zero', () => {
   expect(tableValue(1e-14, 'en')).toBe('1E-14');
   expect(tableValue(0, 'en')).toBe('0');
 });
+
+it.each([[0, 0], [1, 1], [-2.5, -2.5], [3e-7, 3e-7], [Infinity, -Infinity]])('gives a single value or no data (%s to %s) a finite axis of nonzero width', (lo, hi) => {
+  const { domain, ticks } = axis(lo, hi, false);
+  expect(domain.every(Number.isFinite)).toBe(true);
+  expect(domain[1]).toBeGreaterThan(domain[0]);
+  expect(ticks.length).toBeGreaterThan(1);
+  if (Number.isFinite(lo)) expect(lo).toBeGreaterThanOrEqual(domain[0]), expect(lo).toBeLessThanOrEqual(domain[1]);
+});
