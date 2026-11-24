@@ -518,6 +518,10 @@ function convertSolverLoads2D(
   return solverLoads;
 }
 
+export function shellsRequirePro3D(model: Pick<ModelData, 'plates' | 'quads'>): string | null {
+  return model.plates?.size || model.quads?.size ? t('svc.shellsRequirePro3d') : null;
+}
+
 /**
  * Model-level rejections the 2D solver cannot honor: disconnected nodes,
  * zero-length elements, and 3D-only features (support types / z-coords).
@@ -529,6 +533,8 @@ function convertSolverLoads2D(
  * reuses downstream.
  */
 function preflightModel2D(model: ModelData): { error: string | null; connectedNodes: Set<number> } {
+  const shellRefusal = shellsRequirePro3D(model);
+  if (shellRefusal) return { error: shellRefusal, connectedNodes: new Set() };
   // Constraints are stored in 3D semantics; the 2D solver speaks [ux, uz, ry].
   // Remap ONCE and use the result for both the connectivity preflight and the
   // wire, so the preflight only credits constraints that actually reach the
@@ -1304,6 +1310,7 @@ export async function validateAndSolve2DAsync(
 
 /** Build a SolverInput from model data (no validation). Returns null if model is empty. */
 export function buildSolverInput2D(model: ModelData, includeSelfWeight = false): SolverInput | null {
+  if (shellsRequirePro3D(model)) return null;
   if (model.nodes.size < 2 || model.elements.size < 1 || model.supports.size < 1) return null;
   // The same builder as every 2D path, material α included (buildSolverLoads2D).
   const input = solverFrame2D(model);
