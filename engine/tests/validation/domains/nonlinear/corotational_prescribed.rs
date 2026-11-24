@@ -144,7 +144,6 @@ fn validation_corotational_continuing_an_unchanged_model_keeps_its_state() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2510"]
 fn issue_2510_unchanged_prescribed_motion_needs_no_warm_start_correction() {
     let flat = strip(16, 1.0, 1e-3);
     let bent = clamp(&flat, 0.3, 0.3f64.sin() / 0.3, 1.0);

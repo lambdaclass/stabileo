@@ -76,7 +76,13 @@ fn interpolate_supports(base: &[f64], target: &[f64], factor: f64) -> Vec<f64> {
         _ => base
             .iter()
             .zip(target)
-            .map(|(&base, &target)| (1.0 - factor) * base + factor * target)
+            .map(|(&base, &target)| {
+                if base == target {
+                    target
+                } else {
+                    (1.0 - factor) * base + factor * target
+                }
+            })
             .collect(),
     }
 }
