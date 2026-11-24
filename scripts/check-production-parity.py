@@ -159,8 +159,9 @@ def build(checkout, env, research=None):
         artifact, identity = research
         restore_research(artifact, checkout / RESEARCH_WASM, identity)
     web = checkout / 'web'
+    git_dir = git('rev-parse', '--absolute-git-dir').decode().strip()
     subprocess.run(['npm', 'run', 'build'], cwd=web,
-                   env={**env, 'GIT_DIR': str(checkout / '.git'), 'GIT_WORK_TREE': str(checkout)}, check=True)
+                   env={**env, 'GIT_DIR': git_dir, 'GIT_WORK_TREE': str(checkout)}, check=True)
     site = {f'web/dist/{name}': checksum for name, checksum in inventory(web / 'dist').items()}
     return runtime | site
 

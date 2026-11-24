@@ -292,11 +292,6 @@ function directionOf(el: Element, spec: ShellLoadSpec): { d: Vec3; factor: numbe
   return { d, factor: spec.frame === 'projected' ? Math.abs(dot(el.ez, d)) : 1 };
 }
 
-export function shellLoadDirection(kind: 'quad' | 'plate', pts: readonly ShellPoint[], spec: ShellLoadSpec): Vec3 | null {
-  const el = element(kind, pts);
-  return el ? directionOf(el, spec).d : null;
-}
-
 /**
  * The corner forces of an area load on one shell, or null for a degenerate one. `pts` are the
  * shell's corners in node order (three for a triangle).
