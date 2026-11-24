@@ -246,7 +246,7 @@ fn units_3d_every_deserialized_model_goes_through_the_typed_boundary() {
         unrouted.extend(lines.into_iter().map(|l| format!("{}:{l}", path.display())));
     }
     assert!(unrouted.is_empty(), "3D models parsed without the typed boundary: {unrouted:?}");
-    assert_eq!(wrappers, 18, "routed wrapper fields");
+    assert_eq!(wrappers, 19, "routed wrapper fields");
 }
 
 #[test]

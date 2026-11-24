@@ -3,7 +3,6 @@ use super::*;
 use crate::solver::experimental_nonlinear::path_following::{
     solve_by_arc_length, vec_norm, ArcLengthControl, PathProblem,
 };
-use serde::{Deserialize, Serialize};
 
 fn default_max_steps() -> usize {
     100
@@ -29,9 +28,10 @@ fn default_target_iter() -> usize {
 
 /// The 3D twin of `arc_length::ArcLengthInput`: the model's loads are the pattern the load
 /// factor scales.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ArcLengthInput3D {
+    #[serde(deserialize_with = "crate::types::units::deserialize_input_3d")]
     pub solver: SolverInput3D,
     #[serde(default = "default_max_steps")]
     pub max_steps: usize,
@@ -49,20 +49,16 @@ pub struct ArcLengthInput3D {
     pub target_iter: usize,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone)]
 pub struct EquilibriumStep3D {
     pub step: usize,
     pub load_factor: f64,
     pub converged: bool,
     pub iterations: usize,
-    /// The converged nodal displacements (Rust callers only; not serialized).
-    #[serde(skip)]
     pub displacements: Vec<Displacement3D>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone)]
 pub struct ArcLengthResult3D {
     /// The state of the last converged step, under the loads times `final_load_factor`.
     pub results: AnalysisResults3D,
@@ -728,7 +724,31 @@ mod tests {
         assert_eq!(result.steps.len(), 4);
         input.target_iter = usize::MAX / 2;
         let expected = solve_arc_length_3d(&input).unwrap();
-        assert_eq!(serde_json::to_value(result).unwrap(), serde_json::to_value(expected).unwrap());
+        assert_eq!(serde_json::to_value(result.results).unwrap(), serde_json::to_value(expected.results).unwrap());
+        assert_eq!(format!("{:?}", result.steps), format!("{:?}", expected.steps));
+        assert_eq!(result.final_load_factor, expected.final_load_factor);
+        assert_eq!(result.converged, expected.converged);
+        assert_eq!(result.total_iterations, expected.total_iterations);
+    }
+
+    #[test]
+    fn an_input_read_from_json_goes_through_the_typed_boundary_and_takes_the_defaults() {
+        let (_, space) = planar(8, 0.3, "frame", (0.0, -1.0));
+        let read: ArcLengthInput3D = serde_json::from_value(serde_json::json!({
+            "solver": serde_json::to_value(&space).unwrap(), "maxSteps": 6, "initialDs": 0.02
+        })).unwrap();
+        assert_eq!((read.max_steps, read.max_iter, read.target_iter), (6, 30, 5));
+        assert_eq!((read.tolerance, read.initial_ds, read.min_ds, read.max_ds), (1e-6, 0.02, 1e-6, 1.0));
+        let direct = ArcLengthInput3D { solver: space, ..read.clone() };
+        let (from_json, built) = (solve_arc_length_3d(&read).unwrap(), solve_arc_length_3d(&direct).unwrap());
+        assert_eq!(format!("{:?}", from_json.steps), format!("{:?}", built.steps));
+        assert_eq!(from_json.steps.len(), 6);
+
+        let malformed = serde_json::from_value::<ArcLengthInput3D>(serde_json::json!({
+            "solver": {"nodes": {}, "elements": {}, "materials": {}, "supports": {}, "loads": [],
+                "sections": {"1": {"id": 1, "a": "wide", "iy": 1.0, "iz": 1.0, "j": 1.0}}}
+        }));
+        assert!(malformed.is_err());
     }
 
     #[test]
