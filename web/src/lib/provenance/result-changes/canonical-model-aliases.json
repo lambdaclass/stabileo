@@ -3,23 +3,8 @@
   "date": "2026-11-23",
   "prs": [],
   "area": "analysis",
-  "when": {
-    "any": [
-      "nodalForces",
-      "nodalMoments",
-      "legacyPlanarPointCoupleAliases",
-      "invalidPlanarNodalMomentAliases",
-      "settlements",
-      "hinges",
-      "distributedMemberLoads"
-    ]
-  },
-  "quantities": [
-    "solve.ok",
-    "displacements",
-    "reactions",
-    "elementForces"
-  ],
+  "when": { "all": ["conflictingModelAliases"] },
+  "quantities": ["solve.ok"],
   "title": {
     "en": "Conflicting model aliases",
     "es": "Campos equivalentes en conflicto",

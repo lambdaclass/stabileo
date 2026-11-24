@@ -4,7 +4,7 @@ import type { Release } from '../store/model.svelte';
 import { isPlaneSupportType } from './support-types';
 
 type Fields = Record<string, unknown>;
-type LoadRecord = { type: string; data: object };
+type LoadRecord = { type: string; data?: object };
 type Collection<T> = ReadonlyArray<T | readonly [number, T]>;
 type Input = {
   analysisMode?: string;
@@ -82,7 +82,7 @@ function support(record: object, plane: boolean): object {
 function load(record: LoadRecord): LoadRecord {
   const { type, data } = record;
   if (type !== 'nodal' && type !== 'pointOnElement' && type !== 'distributed') return record;
-  return { ...record, data: normalizeRecord(data, 'load', (copy, conflict) => {
+  return { ...record, data: normalizeRecord(data ?? {}, 'load', (copy, conflict) => {
     if (type === 'distributed') {
       reconcile(copy, 'qI', copy.q, 'q', conflict);
       reconcile(copy, 'qJ', copy.q, 'q', conflict);
@@ -117,4 +117,14 @@ export function canonicalizeModelAliases<T extends Input>(model: T, analysisMode
     ...(model.supports && { supports: mapRecords(model.supports, record => support(record, plane)) }),
     ...(model.loads && { loads: model.loads.map(load) }),
   };
+}
+
+export function hasConflictingModelAliases(model: Input, analysisMode?: string): boolean {
+  try {
+    canonicalizeModelAliases(model, analysisMode);
+    return false;
+  } catch (error) {
+    if (error instanceof ModelAliasConflict) return true;
+    throw error;
+  }
 }

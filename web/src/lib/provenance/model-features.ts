@@ -17,6 +17,7 @@ import { hasModalSeismicDerivation } from '../engine/loads/seismic-generation';
  *
  * Pure: no store, no runes.
  */
+import { hasConflictingModelAliases } from '../model/canonical-aliases';
 import type { ArcSpec } from '../model/curved-member';
 import { plateAnalysisIssue, type PlateAnalysisModel } from '../model/physical/plate-analysis';
 import { plateSurfaceOf } from '../model/physical/plate';
@@ -43,7 +44,7 @@ export const GLOBAL_AXES_EVIDENCE = 'axisNamedLoads';
 /** Every feature id a registry entry may name. The registry test fails on any other. */
 export const FEATURE_IDS = [
   'gallery:slab-on-columns:walls', 'example:rc-beam-flexure',
-  GLOBAL_AXES_EVIDENCE,
+  GLOBAL_AXES_EVIDENCE, 'conflictingModelAliases',
   'plane2D', 'space3D', 'members', 'cableMembers', 'contactElements', 'frameMembers', 'trussMembers', 'hinges', 'arcMembers', 'shearAreas', 'thermalAtRelease',
   'steelMembers', 'steelCirsoc301', 'steelTensionWithoutConnection', 'steelDeclaredUnbracedLength', 'steelStaggeredOrUnboltedWebEnd', 'timberOrAluminiumMembers',
   'concreteMembers', 'fiberMembers', 'hognestadFiberMembers', 'cirsoc201', 'aci318', 'footings', 'jointDesigns',
@@ -365,6 +366,16 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   let shellGravity = false;
   let generatedSeismic = !!loadBasis?.seismic || loadNoteKeys.has('loadPlan.derivation.seismic');
   const storedLoads = ctx.storedLoads ?? s.loads;
+  if (hasConflictingModelAliases({
+    nodes: values(s.nodes),
+    elements,
+    supports,
+    loads: Array.isArray(storedLoads) ? storedLoads : undefined,
+    plates: s.plates,
+    quads: s.quads,
+  }, ctx.analysisMode ?? s.analysisMode)) {
+    f.add('conflictingModelAliases');
+  }
   if (Array.isArray(storedLoads) && storedLoads.some(l => l.type === 'pointOnElement' && l.data &&
       (nonZero(l.data.mz) || planarPointMoment(l.data) === null))) {
     f.add('legacyPlanarPointCoupleAliases');

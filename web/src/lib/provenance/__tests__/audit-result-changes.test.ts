@@ -15,7 +15,7 @@ const applicable = (id: string, mode: string, analyses: string[], snapshot = mod
 };
 
 describe('audited output changes are registered narrowly', () => {
-  it.skip('known wrong result: #2459 — registers only the refusal for conflicting model aliases', () => {
+  it('registers only the refusal for conflicting model aliases', () => {
     const id = 'canonical-model-aliases';
     const registered = (snapshot: FeatureSnapshot, mode: string) =>
       assessProject(snapshot, undefined, mode).changes.find(change => change.id === id);
