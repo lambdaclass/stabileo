@@ -1,0 +1,31 @@
+[package]
+name = "stabileo-compute"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.88"
+description = "Experimental sparse compute backends; not a production solver"
+repository = "https://github.com/lambdaclass/stabileo"
+license = "AGPL-3.0-only"
+publish = false
+
+[lib]
+crate-type = ["rlib", "cdylib"]
+
+[features]
+default = []
+hardware-tests = []
+webgpu = ["dep:wgpu", "wgpu/webgpu", "dep:bytemuck", "dep:futures-channel", "dep:wasm-bindgen", "dep:wasm-bindgen-futures", "dep:js-sys"]
+metal = ["dep:wgpu", "wgpu/metal", "dep:bytemuck", "dep:futures-channel"]
+
+[dependencies]
+dedaliano-engine = { path = "../engine", default-features = false }
+wgpu = { version = "27", default-features = false, features = ["std", "wgsl"], optional = true }
+bytemuck = { version = "1", optional = true }
+futures-channel = { version = "0.3", optional = true }
+wasm-bindgen = { version = "0.2", optional = true }
+wasm-bindgen-futures = { version = "0.4", optional = true }
+js-sys = { version = "0.3", optional = true }
+
+[dev-dependencies]
+pollster = "0.4"
+naga = { version = "27", features = ["wgsl-in"] }

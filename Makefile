@@ -1382,3 +1382,23 @@ test.web.pro-plates-switch:
 .PHONY: test.web.production-mesher
 test.web.production-mesher:
 	nix develop .\#e2e --command node --test web/scripts/tests/pro-mesher-inputs.test.mjs
+
+.PHONY: test.compute check.compute.webgpu test.compute.metal build.compute.webgpu
+test.compute:
+	$(NIX_RUN) cargo test --locked -p stabileo-compute
+check.compute.webgpu:
+	$(NIX_RUN) cargo check --locked -p stabileo-compute --target wasm32-unknown-unknown --features webgpu
+test.compute.metal:
+	$(NIX_RUN) cargo test --locked -p stabileo-compute --features metal,hardware-tests --test gpu -- --nocapture
+build.compute.webgpu:
+	$(NIX_RUN) wasm-pack build compute --target web --out-dir ../target/compute-webgpu --no-opt -- --features webgpu --locked
+
+.PHONY: test.compute.webgpu check.compute fmt.compute lint.compute
+test.compute.webgpu: build.compute.webgpu
+	$(NIX_RUN) node compute/browser-smoke.mjs
+check.compute: test.compute check.compute.webgpu
+fmt.compute:
+	$(NIX_RUN) cargo fmt -p stabileo-compute
+	$(NIX_RUN) rustfmt --edition 2021 engine/src/linalg/backend.rs
+lint.compute:
+	$(NIX_RUN) cargo clippy --locked -p stabileo-compute --all-targets --all-features --no-deps -- -D warnings

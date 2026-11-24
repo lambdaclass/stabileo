@@ -14,6 +14,7 @@ WORKDIR /app
 COPY Cargo.toml Cargo.lock ./
 COPY engine/ engine/
 COPY ai-backend/ ai-backend/
+COPY compute/ compute/
 
 RUN cargo build --locked -p dedaliano-backend --release
 
@@ -33,6 +34,7 @@ WORKDIR /app
 COPY Cargo.toml Cargo.lock ./
 COPY engine/ engine/
 COPY ai-backend/ ai-backend/
+COPY compute/ compute/
 RUN cd engine && wasm-pack build --target web --out-dir ../web-wasm --no-opt
 
 # Build the same trimmed WASM and verified replay as make research.wasm.

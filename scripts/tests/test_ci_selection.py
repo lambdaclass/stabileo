@@ -18,6 +18,10 @@ spec.loader.exec_module(selection)
 
 
 class Selection(unittest.TestCase):
+    def test_compute_sources_run_engine_checks(self):
+        for path in ['compute/src/gpu.rs', 'compute/src/spmv.wgsl', 'compute/tests/cpu.rs']:
+            self.assertEqual(selection.select('pull_request', [path])['engine'], 'true')
+
     def test_exact_frozen_results_run_for_engine_gallery_and_baseline_changes(self):
         paths = ['engine/src/solver/ssi.rs', 'engine/src/solver/arc_length.rs',
                  'web/src/components/examples/slab.ts', 'web/results-frozen/gallery-slab-walls.json',
