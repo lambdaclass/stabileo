@@ -499,6 +499,26 @@ const body: PostBody = {
       "t": "受影响的输入和应采取的措施。"
     },
     {
+      "k": "note",
+      "t": "SA-2026-112 — 0.6.4 之后的下一个版本。"
+    },
+    {
+      "k": "ext",
+      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-112-basic-3d-shell-omission.md",
+      "label": "SA-2026-112",
+      "t": "受影响的输入和应采取的措施。"
+    },
+    {
+      "k": "note",
+      "t": "SA-2026-113 — 0.6.4 之后的下一个版本。"
+    },
+    {
+      "k": "ext",
+      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-113-native-supplied-linear-certificates.md",
+      "label": "SA-2026-113",
+      "t": "受影响的输入和应采取的措施。"
+    },
+    {
       "k": "img",
       "base": "blog/recheck-stale",
       "w": 1600,
@@ -1178,6 +1198,18 @@ const body: PostBody = {
           "SA-2026-111",
           "按板格自动生成重力荷载时，同一楼面荷载可能被重复计算。请检查重叠的壳单元及与之相连的梁格，重新生成受影响的已保存重力荷载方案，并重新进行相关分析。",
           "高",
+          "0.6.4 之后的下一个版本"
+        ],
+        [
+          "SA-2026-112",
+          "基本模式的三维分析可能在未发出警告的情况下忽略所有壳单元。请在 PRO 三维模式下使用完整的壳单元网格重新计算受影响的荷载工况和组合，并重新进行依赖这些结果的设计验算。",
+          "高",
+          "0.6.4 之后的下一个版本"
+        ],
+        [
+          "SA-2026-113",
+          "原生 Rust API 可能会认证求解器已拒绝的荷载工况所提交的线性分析结果。请重新进行受影响的分析和认证，包括依赖这些工况的组合和包络。",
+          "中",
           "0.6.4 之后的下一个版本"
         ]
       ]
