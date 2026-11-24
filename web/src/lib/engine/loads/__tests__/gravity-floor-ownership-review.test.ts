@@ -9,7 +9,7 @@ import { teAt } from '../../../i18n/engine-text';
 import type { Load } from '../../../store/model.svelte';
 import { buildSolverLoads3D } from '../../solver-service';
 import type { AnalysisResults3D, Constraint3D } from '../../types-3d';
-import { gravityLayout, MAX_DECK_SPAN } from '../plan-gravity';
+import { gravityLayout, MAX_DECK_SPAN, MIN_STOREY_HEADROOM } from '../plan-gravity';
 import { buildLoadPlan, roofWeightFor, type LoadModelData, type LoadPlanInput } from '../load-plan';
 import { snowDriftRefusal } from '../snow-drift-loads';
 import { input } from './gravity-width-mass-fixture';
@@ -199,12 +199,12 @@ it('#2512 WASM reactions include roof live load below the same-deck beam', () =>
 
 type ReviewModel = ReturnType<typeof modelFixture>['model'];
 
-function restoreAndPlan(model: ReviewModel, setRoof = false) {
+function restoreAndPlan(model: LoadModelData, setRoof = false) {
   modelStore.clear();
   const nodes = new Map([...model.nodes].map(([id, { x, y, z }]) => [id, modelStore.addNode(x, y, z)]));
   const materialId = modelStore.model.materials.keys().next().value!;
-  const quads = [...model.quads.values()].map(({ nodes: [a, b, c, d] }) =>
-    modelStore.addQuad([nodes.get(a)!, nodes.get(b)!, nodes.get(c)!, nodes.get(d)!], materialId, shellThickness));
+  const quads = [...model.quads?.values() ?? []].map(({ nodes: [a, b, c, d] }) =>
+    modelStore.addQuad([nodes.get(a!)!, nodes.get(b!)!, nodes.get(c!)!, nodes.get(d!)!], materialId, shellThickness));
   for (const { nodeI, nodeJ } of model.elements.values()) modelStore.addElement(nodes.get(nodeI)!, nodes.get(nodeJ)!);
   for (const constraint of model.constraints ?? []) {
     if (constraint.type === 'equalDOF' || constraint.type === 'eccentricConnection' || constraint.type === 'rigidLink') modelStore.addConstraint({
@@ -668,4 +668,89 @@ it('#2512 a low roof fringe cannot reclaim a shell-filled opening', () => {
   expect(plan.outcome, JSON.stringify(plan.blockedKeys)).toBe('READY');
   expect(plan.levels.find(level => level.elevation === 3)?.planAreaM2).toBeCloseTo(area, 10);
   expect(plan.surface.filter(load => load.caseType === 'D')).toEqual([expect.objectContaining({ quadId: 1, q: pressure })]);
+});
+
+const known2512 = process.env.RUN_KNOWN_WRONG === '2512' ? it : it.skip;
+const offsetRafterRefusal = { key: 'loadPlan.gravity.offsetRafter', params: { id: 1 } };
+
+function framedGable(mesh: boolean, gap = false, detached = false) {
+  const { model, row, beam, shell } = modelFixture();
+  const left = row(0, 3), right = row(10, 3);
+  row(0, 0).forEach((base, i) => beam(base, left[i]!));
+  row(10, 0).forEach((base, i) => beam(base, right[i]!));
+  const leftEave = detached ? row(0, 3) : left;
+  const rightEave = detached ? row(10, 3) : right;
+  const ridge = row(gap ? 4 : 5, 4);
+  const otherRidge = gap ? row(6, 4) : ridge;
+  bayBoundary(beam, left, right);
+  const stations = mesh
+    ? [leftEave, row(2.5, 3.5), ridge, row(7.5, 3.5), rightEave]
+    : [leftEave, ridge, rightEave];
+  if (gap) {
+    shell(leftEave, ridge);
+    shell(otherRidge, rightEave);
+  } else {
+    for (const [i, start] of stations.slice(0, -1).entries()) shell(start, stations[i + 1]!);
+    if (!detached) {
+      for (const direction of [0, 1] as const) {
+        beam(left[direction], ridge[direction]);
+        beam(ridge[direction], right[direction]);
+      }
+      beam(...ridge);
+    }
+  }
+  return model;
+}
+
+for (const loadEveryPanel of [false, true]) {
+  known2512(`known wrong result: #2512 attached gable shells own the eave ring with loadEveryPanel=${loadEveryPanel}`, () => {
+    const gravity = { mode: 'panels', loadEveryPanel } as const;
+    for (const mesh of [false, true]) {
+      const model = framedGable(mesh);
+      const isolated = { ...model, elements: new Map([...model.elements].filter(([, { nodeI, nodeJ }]) => {
+        const a = model.nodes.get(nodeI)!, b = model.nodes.get(nodeJ)!;
+        return a.x === b.x && a.y === b.y;
+      })) };
+      const expected = buildLoadPlan(input(isolated, { gravity, roof }));
+      expect(expected.outcome, JSON.stringify(expected.blockedKeys)).toBe('READY');
+      expect(expected.surface.filter(load => load.caseType === 'D')).toHaveLength(model.quads.size);
+      expect(expected.surface.filter(load => load.caseType === 'Lr')).toHaveLength(model.quads.size);
+      const plan = buildLoadPlan(input(model, { gravity, roof }));
+      expect(plan.outcome, JSON.stringify(plan.blockedKeys)).toBe('READY');
+      expect(plan.surface).toEqual(expected.surface);
+      expect(plan.distributed).toEqual([]);
+      expect(plan.nodal).toEqual([]);
+      expect(plan.levels.reduce((sum, level) => sum + level.superimposedKN, 0)).toBeCloseTo(2 * 6 * Math.hypot(5, 1) * pressure, 10);
+      const layout = gravityLayout(model, { ...gravity, tributaryWidth: 3 });
+      expect(layout.roofQuads).toEqual(new Set(model.quads.keys()));
+      expect(layout.widthMembers).toEqual([]);
+      expect(layout.pieces).toEqual([]);
+      expect(roofWeightFor(model, gravity, 3, pressure)).toEqual(roofWeightFor(isolated, gravity, 3, pressure));
+      expect(snowDriftRefusal(model)).toBe(snowDriftRefusal(isolated));
+    }
+  });
+
+  for (const offset of [0.051, 0.2, -0.2, MIN_STOREY_HEADROOM - 0.125]) {
+    known2512(`known wrong result: #2512 a matched rafter at offset ${offset} refuses with loadEveryPanel=${loadEveryPanel}`, () => {
+      const { model } = offsetRoof(offset);
+      expectPanelRefusal(model, offsetRafterRefusal, loadEveryPanel);
+    });
+  }
+}
+
+known2512('known wrong result: #2512 restored gable loads reach the linear and P-Delta reactions', () => {
+  const model = framedGable(false);
+  const { quads, loads } = applyDeadPressure(model);
+  expect(loads.map(load => load.type)).toEqual(['surface3d', 'surface3d']);
+  for (const [index, load] of loads.entries()) expect(load.data).toMatchObject({ quadId: quads[index], q: pressure });
+  checkPlanReactions(model, 'D', 2 * 6 * Math.hypot(5, 1) * pressure);
+});
+
+known2512('known wrong result: #2512 restored apply blocks the matched 200 mm offset rafter', () => {
+  const { model } = offsetRoof(0.2);
+  const { plan } = restoreAndPlan(model);
+  const before = modelStore.snapshot();
+  expect(plan.outcome, JSON.stringify(plan.blockedKeys)).toBe('BLOCKED');
+  expect(applyLoadPlan(plan, { clearExisting: true, bothSenses: true, nameOf: key => key })).toEqual(offsetRafterRefusal);
+  expect(modelStore.snapshot()).toEqual(before);
 });
