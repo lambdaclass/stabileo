@@ -18,6 +18,7 @@ const tr: Translations = {
   "loadPlan.blocked.concentratedRule": "{occupancy} için CIRSOC 101 {article} uyarınca tekil yük kontrolü gerekir. En elverişsiz konumlar değerlendirilmez. Otomatik üretim engellendi; bu etkileri elle modelleyip kontrol edin.",
   "loadPlan.blocked.concentratedLive": "{occupancy} için CIRSOC 101 §4.4 uyarınca {force} kN tekil hareketli yük kontrolü gerekir. En elverişsiz konumlar ve düzgün yayılı/tekil yük alternatifi değerlendirilmez. Otomatik üretim engellendi; bu etkileri elle modelleyip kontrol edin.",
   "loadPlan.blocked.concentratedRoof": "CIRSOC 101 §4.4, §4.8 çatı hareketli yükünden ayrı olarak, en elverişsiz konumlarda tekil çatı etkileri gerektirir. Bu kontroller değerlendirilmez. Otomatik üretim engellendi; çatı etkilerini elle modelleyip kontrol edin.",
+  "loadPlan.blocked.unmeshedPlatePressure": "Henüz ağı oluşturulmamış bir plağa zemin veya sıvı basıncı etkiyor. Plağın ağını oluşturun (veya bir kez hesaplayın) ve yükleri yeniden üretin.",
   "loads.asce7.blocked.concentratedLive": "{occupancy}, ASCE 7-22 §4.4 ve Tablo 4.3-1'e göre {force} kN tekil hareketli yük kontrolü gerektirir. Belirleyici konumlar ve yayılı/tekil yük seçeneği değerlendirilmez. Otomatik üretim engellendi; bu etkileri elle modelleyip kontrol edin.",
   "loads.asce7.blocked.concentratedRoof": "ASCE 7-22 Tablo 4.3-1, bakım için erişilen çatılarda, §4.8 çatı hareketli yükünden ayrı olarak, en elverişsiz konumda 300 lb (1,33 kN) tekil yük gerektirir. Bu kontrol değerlendirilmez. Otomatik üretim engellendi; çatı etkilerini elle modelleyip kontrol edin.",
   "loads.ec.live.localQk": "{occupancy}: Qk = {force} kN tekil yükü tek başına, yerel kontroller için etkir (EN 1991-1-1 6.2.1(4)). Analiz yayılı qk yükünü alır; Qk'yı yerel olarak kontrol edin.",
@@ -898,6 +899,11 @@ const tr: Translations = {
   'pro.stats.nodes': 'düğüm',
   'pro.stats.members': 'çubuk',
   'pro.stats.shells': 'kabuk',
+  "pro.stats.plates": "plak",
+  "pro.examples.loading.title": "“{name}” açılıyor",
+  "pro.examples.loading.model": "Model yükleniyor",
+  "pro.examples.loading.loads": "Yönetmelik yükleri ve kombinasyonları üretiliyor",
+  "pro.examples.loading.draw": "Çiziliyor",
   'pro.stats.heavy': 'ağır model',
 
   // ─── ToolbarProject.svelte ───
@@ -3593,6 +3599,7 @@ const tr: Translations = {
   'file.workspaceBackupFailed': 'Kopya saklamak için yer yoktu; bu yüzden bu sayfa açık kaldığı sürece saklanan çalışma alanının üzerine yazılmayacak. Açtıklarınızı korumak için Oturumu kaydet\'i kullanın.',
   'file.workspaceNotSaved': 'Çalışmanız otomatik olarak KAYDEDİLMİYOR: tarayıcı bu çalışma alanını saklamayı reddetti. Kaybetmemek için bir dosyaya kaydedin.',
   'file.workspaceSaveToFile': 'Oturumu dosyaya kaydet',
+  "file.workspaceNoticeClose": "Uyarıyı kapat",
   'file.workspaceDetailingLost': 'Bu sekmelerin detaylandırması tarayıcıdan geri alınamadı, bu yüzden donatısız geri yüklendiler: {names}. Detaylandırmayı yeniden oluşturun veya kaydettiğiniz .ded dosyasını açın.',
   'file.workspaceDetailingUnread': 'Bu sekmelerin detaylandırması bu sefer tarayıcıdan okunamadı, bu yüzden donatısız açıldılar: {names}. Hâlâ saklanıyor ve sayfayı bir sonraki açışınızda yeniden okunacak; gerekmedikçe yeniden oluşturmayın.',
   'file.workspaceRestoredBeside': 'Kaydedilmiş çalışma alanınız, yüklenirken başladığınız çalışmanın yanında yeni sekmelerde açıldı.',

@@ -41,6 +41,8 @@ import { loadCodeExample, type CodeExampleId } from '../templates/examples';
 import { PRO_EXAMPLE_FIXES, declareSteelGrades } from './pro-example-fixes';
 import { localiseExampleNames } from './example-names';
 import { generateSavedLoads } from '../store/saved-loads';
+import { exampleProgress } from '../store/example-progress.svelte';
+import { nextFrame } from '../store/mesh-progress.svelte';
 
 export type ExampleGroup =
   | 'rcBuildings' | 'steelBuildings' | 'cad' | 'industrial' | 'towers' | 'longspan' | 'foundations' | 'showcase';
@@ -74,7 +76,8 @@ export interface ProExample {
   lookKey: string;
   groupKey: string;
   tags: string[];
-  stats: { nodes: number; members: number; shells?: number };
+  /** `plates`: physical plates the analysis meshes, not counted in `shells`. */
+  stats: { nodes: number; members: number; shells?: number; plates?: number };
   selfWeight: ExampleSelfWeight;
   combinations: ExampleCombinations;
   loads: ExampleLoads;
@@ -139,28 +142,37 @@ function regulationCombinations(bothSenses: boolean): void {
 }
 
 async function loadExample(ex: ProExample): Promise<void> {
-  // The regulation's combinations come from the engine: an example opened while it is still
-  // loading waits for it rather than fail.
-  try { await initSolver(); } catch { throw new EngineUnavailableError("the example's combinations"); }
-  if (ex.source === 'code') await loadCodeExample(ex.id as CodeExampleId);
-  else await modelStore.loadExample(ex.id);
-  modelStore.batch(() => {
-    PRO_EXAMPLE_FIXES[ex.id]?.();
-    declareSteelGrades();
-    // After the fixes and grades, which read the names as written; before the combinations,
-    // which are named from the cases.
-    localiseExampleNames(ex.nameKey);
-    if (ex.loads === 'generator') {
-      const refused = generateSavedLoads();
-      if (refused) throw new Error(`${ex.id}: the load generator refused: ${refused.map((m) => m.key).join(', ')}`);
-    }
-    // A model written as code states its own self-weight rule; a fixture gets the example's.
-    const stated = ex.source === 'code' ? modelStore.analysis?.selfWeight : undefined;
-    const dead = stated?.[0]?.caseId ?? modelStore.model.loadCases.find((c) => (c.type || '').toUpperCase() === 'D')?.id;
-    dropEmptyCases(ex.selfWeight === 'none' ? undefined : dead);
-    if (!stated) stateSelfWeight(ex.selfWeight, dead);
-    if (ex.combinations !== 'own') regulationCombinations(ex.combinations === 'regulation');
-  });
+  exampleProgress.begin(ex.nameKey);
+  try {
+    await nextFrame();
+    // The regulation's combinations come from the engine: an example opened while it is still
+    // loading waits for it rather than fail.
+    try { await initSolver(); } catch { throw new EngineUnavailableError("the example's combinations"); }
+    if (ex.source === 'code') await loadCodeExample(ex.id as CodeExampleId);
+    else await modelStore.loadExample(ex.id);
+    if (ex.loads === 'generator') { exampleProgress.step('loads'); await nextFrame(); }
+    modelStore.batch(() => {
+      PRO_EXAMPLE_FIXES[ex.id]?.();
+      declareSteelGrades();
+      // After the fixes and grades, which read the names as written; before the combinations,
+      // which are named from the cases.
+      localiseExampleNames(ex.nameKey);
+      if (ex.loads === 'generator') {
+        const refused = generateSavedLoads();
+        if (refused) throw new Error(`${ex.id}: the load generator refused: ${refused.map((m) => m.key).join(', ')}`);
+      }
+      // A model written as code states its own self-weight rule; a fixture gets the example's.
+      const stated = ex.source === 'code' ? modelStore.analysis?.selfWeight : undefined;
+      const dead = stated?.[0]?.caseId ?? modelStore.model.loadCases.find((c) => (c.type || '').toUpperCase() === 'D')?.id;
+      dropEmptyCases(ex.selfWeight === 'none' ? undefined : dead);
+      if (!stated) stateSelfWeight(ex.selfWeight, dead);
+      if (ex.combinations !== 'own') regulationCombinations(ex.combinations === 'regulation');
+    });
+    exampleProgress.step('draw');
+    await nextFrame();
+  } finally {
+    exampleProgress.end();
+  }
 }
 
 type Entry = Omit<ProExample, 'nameKey' | 'descKey' | 'purposeKey' | 'lookKey' | 'groupKey' | 'load' | 'loads'> & { loads?: ExampleLoads };
@@ -180,15 +192,15 @@ export const exampleEntry = (e: Entry): ProExample => {
 export const PRO_EXAMPLES: readonly ProExample[] = [
   // ── Reinforced concrete buildings ── their loads, wind included, from the load generator; the
   // earthquake is for the reader to add there, with the site's zone and soil.
-  exampleEntry({ id: 'pro-rc-house', source: 'code', group: 'rcBuildings', tags: ['pro.tagRC', 'pro.tagShells'], stats: { nodes: 207, members: 126, shells: 160 }, selfWeight: 'all', combinations: 'own', loads: 'generator' }),
-  exampleEntry({ id: 'pro-rc-four-storey', source: 'code', group: 'rcBuildings', tags: ['pro.tagRC', 'pro.tagWind'], stats: { nodes: 480, members: 320, shells: 384 }, selfWeight: 'all', combinations: 'own', loads: 'generator' }),
-  exampleEntry({ id: 'pro-rc-steel-columns', source: 'code', group: 'rcBuildings', tags: ['pro.tagRC', 'pro.tagSteel'], stats: { nodes: 441, members: 264, shells: 360 }, selfWeight: 'all', combinations: 'own', loads: 'generator' }),
-  exampleEntry({ id: 'pro-rc-lift-core', source: 'code', group: 'rcBuildings', tags: ['pro.tagRC', 'pro.tagCore'], stats: { nodes: 956, members: 540, shells: 808 }, selfWeight: 'all', combinations: 'own', loads: 'generator' }),
-  exampleEntry({ id: 'pro-rc-party-wall', source: 'code', group: 'rcBuildings', tags: ['pro.tagRC', 'pro.tagStair'], stats: { nodes: 798, members: 609, shells: 664 }, selfWeight: 'all', combinations: 'own', loads: 'generator' }),
+  exampleEntry({ id: 'pro-rc-house', source: 'code', group: 'rcBuildings', tags: ['pro.tagRC', 'pro.tagShells'], stats: { nodes: 27, members: 42, plates: 8 }, selfWeight: 'all', combinations: 'own', loads: 'generator' }),
+  exampleEntry({ id: 'pro-rc-four-storey', source: 'code', group: 'rcBuildings', tags: ['pro.tagRC', 'pro.tagWind'], stats: { nodes: 60, members: 116, plates: 24 }, selfWeight: 'all', combinations: 'own', loads: 'generator' }),
+  exampleEntry({ id: 'pro-rc-steel-columns', source: 'code', group: 'rcBuildings', tags: ['pro.tagRC', 'pro.tagSteel'], stats: { nodes: 48, members: 87, plates: 18 }, selfWeight: 'all', combinations: 'own', loads: 'generator' }),
+  exampleEntry({ id: 'pro-rc-lift-core', source: 'code', group: 'rcBuildings', tags: ['pro.tagRC', 'pro.tagCore'], stats: { nodes: 164, members: 238, plates: 107 }, selfWeight: 'all', combinations: 'own', loads: 'generator' }),
+  exampleEntry({ id: 'pro-rc-party-wall', source: 'code', group: 'rcBuildings', tags: ['pro.tagRC', 'pro.tagStair'], stats: { nodes: 496, members: 494, plates: 340 }, selfWeight: 'all', combinations: 'own', loads: 'generator' }),
 
   // ── Steel buildings ──
   exampleEntry({ id: 'pro-plane-frame-seismic', source: 'code', group: 'steelBuildings', tags: ['pro.tagSteel', 'pro.tagSeismic'], stats: { nodes: 20, members: 28 }, selfWeight: 'all', combinations: 'regulation' }),
-  exampleEntry({ id: 'pro-steel-building-slabs', source: 'code', group: 'steelBuildings', tags: ['pro.tagSteel', 'pro.tagShells'], stats: { nodes: 836, members: 450, shells: 756 }, selfWeight: 'all', combinations: 'own', loads: 'generator' }),
+  exampleEntry({ id: 'pro-steel-building-slabs', source: 'code', group: 'steelBuildings', tags: ['pro.tagSteel', 'pro.tagShells'], stats: { nodes: 99, members: 153, plates: 48 }, selfWeight: 'all', combinations: 'own', loads: 'generator' }),
   exampleEntry({ id: 'torre-irregular-con-retiros', source: 'fixture', group: 'steelBuildings', tags: ['pro.tagSteel', 'pro.tagDrift'], stats: { nodes: 556, members: 1420 }, selfWeight: 'all', combinations: 'regulation' }),
 
   // ── From CAD ── their dead load holds the slab's weight, and their provenance lists the

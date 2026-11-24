@@ -1,2083 +1,333 @@
 stabileo-model 1
-# A two-by-three bay steel frame, three storeys, with 12 cm concrete slabs meshed as shells and
-# a concrete core, a column at its corner on the grid. The beams sit under the slab: their axis is
-# offset below its mid-plane.
+# A two-by-three bay steel frame, three storeys, with 12 cm concrete slabs on main and secondary
+# beams, a plate between them, and a concrete core, a column at its corner on the grid. The beams
+# sit under the slab: their axis is offset below its mid-plane.
 name "Edificio de acero con losas y núcleo"
 mode pro
 axes zUpStrongAxis
 
 node 1 0 0 0
-node 2 0 6 0
-node 3 0 12 0
-node 4 0 18 0
-node 5 6 0 0
-node 6 6 6 0
-node 7 6 12 0
-node 8 6 18 0
-node 9 12 0 0
-node 10 12 6 0
-node 11 12 12 0
-node 12 12 18 0
-node 13 0 9 0
-node 14 1 6 0
-node 15 1 9 0
-node 16 2 6 0
-node 17 2 9 0
-node 18 3 6 0
-node 19 3 9 0
-node 20 0 7 0
-node 21 3 7 0
-node 22 0 8 0
-node 23 3 8 0
-node 24 0 0 3.6
-node 25 0 6 3.6
-node 26 0 12 3.6
-node 27 0 18 3.6
-node 28 6 0 3.6
-node 29 6 6 3.6
-node 30 6 12 3.6
-node 31 6 18 3.6
-node 32 12 0 3.6
-node 33 12 6 3.6
-node 34 12 12 3.6
-node 35 12 18 3.6
-node 36 1 0 3.6
-node 37 2 0 3.6
-node 38 3 0 3.6
-node 39 4 0 3.6
-node 40 5 0 3.6
-node 41 7 0 3.6
-node 42 8 0 3.6
-node 43 9 0 3.6
-node 44 10 0 3.6
-node 45 11 0 3.6
-node 46 1 6 3.6
-node 47 2 6 3.6
-node 48 3 6 3.6
-node 49 4 6 3.6
-node 50 5 6 3.6
-node 51 7 6 3.6
-node 52 8 6 3.6
-node 53 9 6 3.6
-node 54 10 6 3.6
-node 55 11 6 3.6
-node 56 1 12 3.6
-node 57 2 12 3.6
-node 58 3 12 3.6
-node 59 4 12 3.6
-node 60 5 12 3.6
-node 61 7 12 3.6
-node 62 8 12 3.6
-node 63 9 12 3.6
-node 64 10 12 3.6
-node 65 11 12 3.6
-node 66 1 18 3.6
-node 67 2 18 3.6
-node 68 3 18 3.6
-node 69 4 18 3.6
-node 70 5 18 3.6
-node 71 7 18 3.6
-node 72 8 18 3.6
-node 73 9 18 3.6
-node 74 10 18 3.6
-node 75 11 18 3.6
-node 76 0 1 3.6
-node 77 0 2 3.6
-node 78 0 3 3.6
-node 79 0 4 3.6
-node 80 0 5 3.6
-node 81 0 7 3.6
-node 82 0 8 3.6
-node 83 0 9 3.6
-node 84 0 10 3.6
-node 85 0 11 3.6
-node 86 0 13 3.6
-node 87 0 14 3.6
-node 88 0 15 3.6
-node 89 0 16 3.6
-node 90 0 17 3.6
-node 91 6 1 3.6
-node 92 6 2 3.6
-node 93 6 3 3.6
-node 94 6 4 3.6
-node 95 6 5 3.6
-node 96 6 7 3.6
-node 97 6 8 3.6
-node 98 6 9 3.6
-node 99 6 10 3.6
-node 100 6 11 3.6
-node 101 6 13 3.6
-node 102 6 14 3.6
-node 103 6 15 3.6
-node 104 6 16 3.6
-node 105 6 17 3.6
-node 106 12 1 3.6
-node 107 12 2 3.6
-node 108 12 3 3.6
-node 109 12 4 3.6
-node 110 12 5 3.6
-node 111 12 7 3.6
-node 112 12 8 3.6
-node 113 12 9 3.6
-node 114 12 10 3.6
-node 115 12 11 3.6
-node 116 12 13 3.6
-node 117 12 14 3.6
-node 118 12 15 3.6
-node 119 12 16 3.6
-node 120 12 17 3.6
-node 121 1 3 3.6
-node 122 2 3 3.6
-node 123 3 3 3.6
-node 124 4 3 3.6
-node 125 5 3 3.6
-node 126 7 3 3.6
-node 127 8 3 3.6
-node 128 9 3 3.6
-node 129 10 3 3.6
-node 130 11 3 3.6
-node 131 1 9 3.6
-node 132 2 9 3.6
-node 133 3 9 3.6
-node 134 4 9 3.6
-node 135 5 9 3.6
-node 136 7 9 3.6
-node 137 8 9 3.6
-node 138 9 9 3.6
-node 139 10 9 3.6
-node 140 11 9 3.6
-node 141 1 15 3.6
-node 142 2 15 3.6
-node 143 3 15 3.6
-node 144 4 15 3.6
-node 145 5 15 3.6
-node 146 7 15 3.6
-node 147 8 15 3.6
-node 148 9 15 3.6
-node 149 10 15 3.6
-node 150 11 15 3.6
-node 151 1 1 3.6
-node 152 1 2 3.6
-node 153 1 4 3.6
-node 154 1 5 3.6
-node 155 1 7 3.6
-node 156 1 8 3.6
-node 157 1 10 3.6
-node 158 1 11 3.6
-node 159 1 13 3.6
-node 160 1 14 3.6
-node 161 1 16 3.6
-node 162 1 17 3.6
-node 163 2 1 3.6
-node 164 2 2 3.6
-node 165 2 4 3.6
-node 166 2 5 3.6
-node 167 2 7 3.6
-node 168 2 8 3.6
-node 169 2 10 3.6
-node 170 2 11 3.6
-node 171 2 13 3.6
-node 172 2 14 3.6
-node 173 2 16 3.6
-node 174 2 17 3.6
-node 175 3 1 3.6
-node 176 3 2 3.6
-node 177 3 4 3.6
-node 178 3 5 3.6
-node 179 3 7 3.6
-node 180 3 8 3.6
-node 181 3 10 3.6
-node 182 3 11 3.6
-node 183 3 13 3.6
-node 184 3 14 3.6
-node 185 3 16 3.6
-node 186 3 17 3.6
-node 187 4 1 3.6
-node 188 4 2 3.6
-node 189 4 4 3.6
-node 190 4 5 3.6
-node 191 4 7 3.6
-node 192 4 8 3.6
-node 193 4 10 3.6
-node 194 4 11 3.6
-node 195 4 13 3.6
-node 196 4 14 3.6
-node 197 4 16 3.6
-node 198 4 17 3.6
-node 199 5 1 3.6
-node 200 5 2 3.6
-node 201 5 4 3.6
-node 202 5 5 3.6
-node 203 5 7 3.6
-node 204 5 8 3.6
-node 205 5 10 3.6
-node 206 5 11 3.6
-node 207 5 13 3.6
-node 208 5 14 3.6
-node 209 5 16 3.6
-node 210 5 17 3.6
-node 211 7 1 3.6
-node 212 7 2 3.6
-node 213 7 4 3.6
-node 214 7 5 3.6
-node 215 7 7 3.6
-node 216 7 8 3.6
-node 217 7 10 3.6
-node 218 7 11 3.6
-node 219 7 13 3.6
-node 220 7 14 3.6
-node 221 7 16 3.6
-node 222 7 17 3.6
-node 223 8 1 3.6
-node 224 8 2 3.6
-node 225 8 4 3.6
-node 226 8 5 3.6
-node 227 8 7 3.6
-node 228 8 8 3.6
-node 229 8 10 3.6
-node 230 8 11 3.6
-node 231 8 13 3.6
-node 232 8 14 3.6
-node 233 8 16 3.6
-node 234 8 17 3.6
-node 235 9 1 3.6
-node 236 9 2 3.6
-node 237 9 4 3.6
-node 238 9 5 3.6
-node 239 9 7 3.6
-node 240 9 8 3.6
-node 241 9 10 3.6
-node 242 9 11 3.6
-node 243 9 13 3.6
-node 244 9 14 3.6
-node 245 9 16 3.6
-node 246 9 17 3.6
-node 247 10 1 3.6
-node 248 10 2 3.6
-node 249 10 4 3.6
-node 250 10 5 3.6
-node 251 10 7 3.6
-node 252 10 8 3.6
-node 253 10 10 3.6
-node 254 10 11 3.6
-node 255 10 13 3.6
-node 256 10 14 3.6
-node 257 10 16 3.6
-node 258 10 17 3.6
-node 259 11 1 3.6
-node 260 11 2 3.6
-node 261 11 4 3.6
-node 262 11 5 3.6
-node 263 11 7 3.6
-node 264 11 8 3.6
-node 265 11 10 3.6
-node 266 11 11 3.6
-node 267 11 13 3.6
-node 268 11 14 3.6
-node 269 11 16 3.6
-node 270 11 17 3.6
-node 271 1 6 1.2
-node 272 0 6 1.2
-node 273 1 6 2.4
-node 274 0 6 2.4
-node 275 1 9 1.2
-node 276 0 9 1.2
-node 277 1 9 2.4
-node 278 0 9 2.4
-node 279 2 6 1.2
-node 280 2 6 2.4
-node 281 2 9 1.2
-node 282 2 9 2.4
-node 283 3 6 1.2
-node 284 3 6 2.4
-node 285 3 9 1.2
-node 286 3 9 2.4
-node 287 0 7 1.2
-node 288 0 7 2.4
-node 289 3 7 1.2
-node 290 3 7 2.4
-node 291 0 8 1.2
-node 292 0 8 2.4
-node 293 3 8 1.2
-node 294 3 8 2.4
-node 295 0 0 7.2
-node 296 0 6 7.2
-node 297 0 12 7.2
-node 298 0 18 7.2
-node 299 6 0 7.2
-node 300 6 6 7.2
-node 301 6 12 7.2
-node 302 6 18 7.2
-node 303 12 0 7.2
-node 304 12 6 7.2
-node 305 12 12 7.2
-node 306 12 18 7.2
-node 307 1 0 7.2
-node 308 2 0 7.2
-node 309 3 0 7.2
-node 310 4 0 7.2
-node 311 5 0 7.2
-node 312 7 0 7.2
-node 313 8 0 7.2
-node 314 9 0 7.2
-node 315 10 0 7.2
-node 316 11 0 7.2
-node 317 1 6 7.2
-node 318 2 6 7.2
-node 319 3 6 7.2
-node 320 4 6 7.2
-node 321 5 6 7.2
-node 322 7 6 7.2
-node 323 8 6 7.2
-node 324 9 6 7.2
-node 325 10 6 7.2
-node 326 11 6 7.2
-node 327 1 12 7.2
-node 328 2 12 7.2
-node 329 3 12 7.2
-node 330 4 12 7.2
-node 331 5 12 7.2
-node 332 7 12 7.2
-node 333 8 12 7.2
-node 334 9 12 7.2
-node 335 10 12 7.2
-node 336 11 12 7.2
-node 337 1 18 7.2
-node 338 2 18 7.2
-node 339 3 18 7.2
-node 340 4 18 7.2
-node 341 5 18 7.2
-node 342 7 18 7.2
-node 343 8 18 7.2
-node 344 9 18 7.2
-node 345 10 18 7.2
-node 346 11 18 7.2
-node 347 0 1 7.2
-node 348 0 2 7.2
-node 349 0 3 7.2
-node 350 0 4 7.2
-node 351 0 5 7.2
-node 352 0 7 7.2
-node 353 0 8 7.2
-node 354 0 9 7.2
-node 355 0 10 7.2
-node 356 0 11 7.2
-node 357 0 13 7.2
-node 358 0 14 7.2
-node 359 0 15 7.2
-node 360 0 16 7.2
-node 361 0 17 7.2
-node 362 6 1 7.2
-node 363 6 2 7.2
-node 364 6 3 7.2
-node 365 6 4 7.2
-node 366 6 5 7.2
-node 367 6 7 7.2
-node 368 6 8 7.2
-node 369 6 9 7.2
-node 370 6 10 7.2
-node 371 6 11 7.2
-node 372 6 13 7.2
-node 373 6 14 7.2
-node 374 6 15 7.2
-node 375 6 16 7.2
-node 376 6 17 7.2
-node 377 12 1 7.2
-node 378 12 2 7.2
-node 379 12 3 7.2
-node 380 12 4 7.2
-node 381 12 5 7.2
-node 382 12 7 7.2
-node 383 12 8 7.2
-node 384 12 9 7.2
-node 385 12 10 7.2
-node 386 12 11 7.2
-node 387 12 13 7.2
-node 388 12 14 7.2
-node 389 12 15 7.2
-node 390 12 16 7.2
-node 391 12 17 7.2
-node 392 1 3 7.2
-node 393 2 3 7.2
-node 394 3 3 7.2
-node 395 4 3 7.2
-node 396 5 3 7.2
-node 397 7 3 7.2
-node 398 8 3 7.2
-node 399 9 3 7.2
-node 400 10 3 7.2
-node 401 11 3 7.2
-node 402 1 9 7.2
-node 403 2 9 7.2
-node 404 3 9 7.2
-node 405 4 9 7.2
-node 406 5 9 7.2
-node 407 7 9 7.2
-node 408 8 9 7.2
-node 409 9 9 7.2
-node 410 10 9 7.2
-node 411 11 9 7.2
-node 412 1 15 7.2
-node 413 2 15 7.2
-node 414 3 15 7.2
-node 415 4 15 7.2
-node 416 5 15 7.2
-node 417 7 15 7.2
-node 418 8 15 7.2
-node 419 9 15 7.2
-node 420 10 15 7.2
-node 421 11 15 7.2
-node 422 1 1 7.2
-node 423 1 2 7.2
-node 424 1 4 7.2
-node 425 1 5 7.2
-node 426 1 7 7.2
-node 427 1 8 7.2
-node 428 1 10 7.2
-node 429 1 11 7.2
-node 430 1 13 7.2
-node 431 1 14 7.2
-node 432 1 16 7.2
-node 433 1 17 7.2
-node 434 2 1 7.2
-node 435 2 2 7.2
-node 436 2 4 7.2
-node 437 2 5 7.2
-node 438 2 7 7.2
-node 439 2 8 7.2
-node 440 2 10 7.2
-node 441 2 11 7.2
-node 442 2 13 7.2
-node 443 2 14 7.2
-node 444 2 16 7.2
-node 445 2 17 7.2
-node 446 3 1 7.2
-node 447 3 2 7.2
-node 448 3 4 7.2
-node 449 3 5 7.2
-node 450 3 7 7.2
-node 451 3 8 7.2
-node 452 3 10 7.2
-node 453 3 11 7.2
-node 454 3 13 7.2
-node 455 3 14 7.2
-node 456 3 16 7.2
-node 457 3 17 7.2
-node 458 4 1 7.2
-node 459 4 2 7.2
-node 460 4 4 7.2
-node 461 4 5 7.2
-node 462 4 7 7.2
-node 463 4 8 7.2
-node 464 4 10 7.2
-node 465 4 11 7.2
-node 466 4 13 7.2
-node 467 4 14 7.2
-node 468 4 16 7.2
-node 469 4 17 7.2
-node 470 5 1 7.2
-node 471 5 2 7.2
-node 472 5 4 7.2
-node 473 5 5 7.2
-node 474 5 7 7.2
-node 475 5 8 7.2
-node 476 5 10 7.2
-node 477 5 11 7.2
-node 478 5 13 7.2
-node 479 5 14 7.2
-node 480 5 16 7.2
-node 481 5 17 7.2
-node 482 7 1 7.2
-node 483 7 2 7.2
-node 484 7 4 7.2
-node 485 7 5 7.2
-node 486 7 7 7.2
-node 487 7 8 7.2
-node 488 7 10 7.2
-node 489 7 11 7.2
-node 490 7 13 7.2
-node 491 7 14 7.2
-node 492 7 16 7.2
-node 493 7 17 7.2
-node 494 8 1 7.2
-node 495 8 2 7.2
-node 496 8 4 7.2
-node 497 8 5 7.2
-node 498 8 7 7.2
-node 499 8 8 7.2
-node 500 8 10 7.2
-node 501 8 11 7.2
-node 502 8 13 7.2
-node 503 8 14 7.2
-node 504 8 16 7.2
-node 505 8 17 7.2
-node 506 9 1 7.2
-node 507 9 2 7.2
-node 508 9 4 7.2
-node 509 9 5 7.2
-node 510 9 7 7.2
-node 511 9 8 7.2
-node 512 9 10 7.2
-node 513 9 11 7.2
-node 514 9 13 7.2
-node 515 9 14 7.2
-node 516 9 16 7.2
-node 517 9 17 7.2
-node 518 10 1 7.2
-node 519 10 2 7.2
-node 520 10 4 7.2
-node 521 10 5 7.2
-node 522 10 7 7.2
-node 523 10 8 7.2
-node 524 10 10 7.2
-node 525 10 11 7.2
-node 526 10 13 7.2
-node 527 10 14 7.2
-node 528 10 16 7.2
-node 529 10 17 7.2
-node 530 11 1 7.2
-node 531 11 2 7.2
-node 532 11 4 7.2
-node 533 11 5 7.2
-node 534 11 7 7.2
-node 535 11 8 7.2
-node 536 11 10 7.2
-node 537 11 11 7.2
-node 538 11 13 7.2
-node 539 11 14 7.2
-node 540 11 16 7.2
-node 541 11 17 7.2
-node 542 1 6 4.8
-node 543 0 6 4.8
-node 544 1 6 6
-node 545 0 6 6
-node 546 1 9 4.8
-node 547 0 9 4.8
-node 548 1 9 6
-node 549 0 9 6
-node 550 2 6 4.8
-node 551 2 6 6
-node 552 2 9 4.8
-node 553 2 9 6
-node 554 3 6 4.8
-node 555 3 6 6
-node 556 3 9 4.8
-node 557 3 9 6
-node 558 0 7 4.8
-node 559 0 7 6
-node 560 3 7 4.8
-node 561 3 7 6
-node 562 0 8 4.8
-node 563 0 8 6
-node 564 3 8 4.8
-node 565 3 8 6
-node 566 0 0 10.8
-node 567 0 6 10.8
-node 568 0 12 10.8
-node 569 0 18 10.8
-node 570 6 0 10.8
-node 571 6 6 10.8
-node 572 6 12 10.8
-node 573 6 18 10.8
-node 574 12 0 10.8
-node 575 12 6 10.8
-node 576 12 12 10.8
-node 577 12 18 10.8
-node 578 1 0 10.8
-node 579 2 0 10.8
-node 580 3 0 10.8
-node 581 4 0 10.8
-node 582 5 0 10.8
-node 583 7 0 10.8
-node 584 8 0 10.8
-node 585 9 0 10.8
-node 586 10 0 10.8
-node 587 11 0 10.8
-node 588 1 6 10.8
-node 589 2 6 10.8
-node 590 3 6 10.8
-node 591 4 6 10.8
-node 592 5 6 10.8
-node 593 7 6 10.8
-node 594 8 6 10.8
-node 595 9 6 10.8
-node 596 10 6 10.8
-node 597 11 6 10.8
-node 598 1 12 10.8
-node 599 2 12 10.8
-node 600 3 12 10.8
-node 601 4 12 10.8
-node 602 5 12 10.8
-node 603 7 12 10.8
-node 604 8 12 10.8
-node 605 9 12 10.8
-node 606 10 12 10.8
-node 607 11 12 10.8
-node 608 1 18 10.8
-node 609 2 18 10.8
-node 610 3 18 10.8
-node 611 4 18 10.8
-node 612 5 18 10.8
-node 613 7 18 10.8
-node 614 8 18 10.8
-node 615 9 18 10.8
-node 616 10 18 10.8
-node 617 11 18 10.8
-node 618 0 1 10.8
-node 619 0 2 10.8
-node 620 0 3 10.8
-node 621 0 4 10.8
-node 622 0 5 10.8
-node 623 0 7 10.8
-node 624 0 8 10.8
-node 625 0 9 10.8
-node 626 0 10 10.8
-node 627 0 11 10.8
-node 628 0 13 10.8
-node 629 0 14 10.8
-node 630 0 15 10.8
-node 631 0 16 10.8
-node 632 0 17 10.8
-node 633 6 1 10.8
-node 634 6 2 10.8
-node 635 6 3 10.8
-node 636 6 4 10.8
-node 637 6 5 10.8
-node 638 6 7 10.8
-node 639 6 8 10.8
-node 640 6 9 10.8
-node 641 6 10 10.8
-node 642 6 11 10.8
-node 643 6 13 10.8
-node 644 6 14 10.8
-node 645 6 15 10.8
-node 646 6 16 10.8
-node 647 6 17 10.8
-node 648 12 1 10.8
-node 649 12 2 10.8
-node 650 12 3 10.8
-node 651 12 4 10.8
-node 652 12 5 10.8
-node 653 12 7 10.8
-node 654 12 8 10.8
-node 655 12 9 10.8
-node 656 12 10 10.8
-node 657 12 11 10.8
-node 658 12 13 10.8
-node 659 12 14 10.8
-node 660 12 15 10.8
-node 661 12 16 10.8
-node 662 12 17 10.8
-node 663 1 3 10.8
-node 664 2 3 10.8
-node 665 3 3 10.8
-node 666 4 3 10.8
-node 667 5 3 10.8
-node 668 7 3 10.8
-node 669 8 3 10.8
-node 670 9 3 10.8
-node 671 10 3 10.8
-node 672 11 3 10.8
-node 673 1 9 10.8
-node 674 2 9 10.8
-node 675 3 9 10.8
-node 676 4 9 10.8
-node 677 5 9 10.8
-node 678 7 9 10.8
-node 679 8 9 10.8
-node 680 9 9 10.8
-node 681 10 9 10.8
-node 682 11 9 10.8
-node 683 1 15 10.8
-node 684 2 15 10.8
-node 685 3 15 10.8
-node 686 4 15 10.8
-node 687 5 15 10.8
-node 688 7 15 10.8
-node 689 8 15 10.8
-node 690 9 15 10.8
-node 691 10 15 10.8
-node 692 11 15 10.8
-node 693 1 1 10.8
-node 694 1 2 10.8
-node 695 1 4 10.8
-node 696 1 5 10.8
-node 697 1 7 10.8
-node 698 1 8 10.8
-node 699 1 10 10.8
-node 700 1 11 10.8
-node 701 1 13 10.8
-node 702 1 14 10.8
-node 703 1 16 10.8
-node 704 1 17 10.8
-node 705 2 1 10.8
-node 706 2 2 10.8
-node 707 2 4 10.8
-node 708 2 5 10.8
-node 709 2 7 10.8
-node 710 2 8 10.8
-node 711 2 10 10.8
-node 712 2 11 10.8
-node 713 2 13 10.8
-node 714 2 14 10.8
-node 715 2 16 10.8
-node 716 2 17 10.8
-node 717 3 1 10.8
-node 718 3 2 10.8
-node 719 3 4 10.8
-node 720 3 5 10.8
-node 721 3 7 10.8
-node 722 3 8 10.8
-node 723 3 10 10.8
-node 724 3 11 10.8
-node 725 3 13 10.8
-node 726 3 14 10.8
-node 727 3 16 10.8
-node 728 3 17 10.8
-node 729 4 1 10.8
-node 730 4 2 10.8
-node 731 4 4 10.8
-node 732 4 5 10.8
-node 733 4 7 10.8
-node 734 4 8 10.8
-node 735 4 10 10.8
-node 736 4 11 10.8
-node 737 4 13 10.8
-node 738 4 14 10.8
-node 739 4 16 10.8
-node 740 4 17 10.8
-node 741 5 1 10.8
-node 742 5 2 10.8
-node 743 5 4 10.8
-node 744 5 5 10.8
-node 745 5 7 10.8
-node 746 5 8 10.8
-node 747 5 10 10.8
-node 748 5 11 10.8
-node 749 5 13 10.8
-node 750 5 14 10.8
-node 751 5 16 10.8
-node 752 5 17 10.8
-node 753 7 1 10.8
-node 754 7 2 10.8
-node 755 7 4 10.8
-node 756 7 5 10.8
-node 757 7 7 10.8
-node 758 7 8 10.8
-node 759 7 10 10.8
-node 760 7 11 10.8
-node 761 7 13 10.8
-node 762 7 14 10.8
-node 763 7 16 10.8
-node 764 7 17 10.8
-node 765 8 1 10.8
-node 766 8 2 10.8
-node 767 8 4 10.8
-node 768 8 5 10.8
-node 769 8 7 10.8
-node 770 8 8 10.8
-node 771 8 10 10.8
-node 772 8 11 10.8
-node 773 8 13 10.8
-node 774 8 14 10.8
-node 775 8 16 10.8
-node 776 8 17 10.8
-node 777 9 1 10.8
-node 778 9 2 10.8
-node 779 9 4 10.8
-node 780 9 5 10.8
-node 781 9 7 10.8
-node 782 9 8 10.8
-node 783 9 10 10.8
-node 784 9 11 10.8
-node 785 9 13 10.8
-node 786 9 14 10.8
-node 787 9 16 10.8
-node 788 9 17 10.8
-node 789 10 1 10.8
-node 790 10 2 10.8
-node 791 10 4 10.8
-node 792 10 5 10.8
-node 793 10 7 10.8
-node 794 10 8 10.8
-node 795 10 10 10.8
-node 796 10 11 10.8
-node 797 10 13 10.8
-node 798 10 14 10.8
-node 799 10 16 10.8
-node 800 10 17 10.8
-node 801 11 1 10.8
-node 802 11 2 10.8
-node 803 11 4 10.8
-node 804 11 5 10.8
-node 805 11 7 10.8
-node 806 11 8 10.8
-node 807 11 10 10.8
-node 808 11 11 10.8
-node 809 11 13 10.8
-node 810 11 14 10.8
-node 811 11 16 10.8
-node 812 11 17 10.8
-node 813 1 6 8.4
-node 814 0 6 8.4
-node 815 1 6 9.6
-node 816 0 6 9.6
-node 817 1 9 8.4
-node 818 0 9 8.4
-node 819 1 9 9.6
-node 820 0 9 9.6
-node 821 2 6 8.4
-node 822 2 6 9.6
-node 823 2 9 8.4
-node 824 2 9 9.6
-node 825 3 6 8.4
-node 826 3 6 9.6
-node 827 3 9 8.4
-node 828 3 9 9.6
-node 829 0 7 8.4
-node 830 0 7 9.6
-node 831 3 7 8.4
-node 832 3 7 9.6
-node 833 0 8 8.4
-node 834 0 8 9.6
-node 835 3 8 8.4
-node 836 3 8 9.6
+node 2 0 0 3.6
+node 3 0 0 7.2
+node 4 0 0 10.8
+node 5 0 6 0
+node 6 0 6 3.6
+node 7 0 6 7.2
+node 8 0 6 10.8
+node 9 0 12 0
+node 10 0 12 3.6
+node 11 0 12 7.2
+node 12 0 12 10.8
+node 13 0 18 0
+node 14 0 18 3.6
+node 15 0 18 7.2
+node 16 0 18 10.8
+node 17 6 0 0
+node 18 6 0 3.6
+node 19 6 0 7.2
+node 20 6 0 10.8
+node 21 6 6 0
+node 22 6 6 3.6
+node 23 6 6 7.2
+node 24 6 6 10.8
+node 25 6 12 0
+node 26 6 12 3.6
+node 27 6 12 7.2
+node 28 6 12 10.8
+node 29 6 18 0
+node 30 6 18 3.6
+node 31 6 18 7.2
+node 32 6 18 10.8
+node 33 12 0 0
+node 34 12 0 3.6
+node 35 12 0 7.2
+node 36 12 0 10.8
+node 37 12 6 0
+node 38 12 6 3.6
+node 39 12 6 7.2
+node 40 12 6 10.8
+node 41 12 12 0
+node 42 12 12 3.6
+node 43 12 12 7.2
+node 44 12 12 10.8
+node 45 12 18 0
+node 46 12 18 3.6
+node 47 12 18 7.2
+node 48 12 18 10.8
+node 49 3 6 0
+node 50 3 6 3.6
+node 51 3 6 7.2
+node 52 3 6 10.8
+node 53 3 9 0
+node 54 3 9 3.6
+node 55 3 9 7.2
+node 56 3 9 10.8
+node 57 0 9 0
+node 58 0 9 3.6
+node 59 0 9 7.2
+node 60 0 9 10.8
+node 61 3 0 3.6
+node 62 3 12 3.6
+node 63 3 18 3.6
+node 64 0 3 3.6
+node 65 0 15 3.6
+node 66 6 3 3.6
+node 67 6 9 3.6
+node 68 6 15 3.6
+node 69 12 3 3.6
+node 70 12 9 3.6
+node 71 12 15 3.6
+node 72 3 3 3.6
+node 73 3 15 3.6
+node 74 3 0 7.2
+node 75 3 12 7.2
+node 76 3 18 7.2
+node 77 0 3 7.2
+node 78 0 15 7.2
+node 79 6 3 7.2
+node 80 6 9 7.2
+node 81 6 15 7.2
+node 82 12 3 7.2
+node 83 12 9 7.2
+node 84 12 15 7.2
+node 85 3 3 7.2
+node 86 3 15 7.2
+node 87 3 0 10.8
+node 88 3 12 10.8
+node 89 3 18 10.8
+node 90 0 3 10.8
+node 91 0 15 10.8
+node 92 6 3 10.8
+node 93 6 9 10.8
+node 94 6 15 10.8
+node 95 12 3 10.8
+node 96 12 9 10.8
+node 97 12 15 10.8
+node 98 3 3 10.8
+node 99 3 15 10.8
 
 material 1 name="Acero F-24" e=200000 nu=0.3 rho=77 alpha=0.000012 fy=240 fu=370 gradeId="iram-f24"
 material 2 name="Hormigón H-25" e=23500 nu=0.2 rho=25 alpha=0.00001 fy=25
 section 1 name="HEB 240" profileFamily="HEB" shape="H" a=0.0106 iy=0.0001126 iz=0.00003923 b=0.24 h=0.24 tw=0.01 tf=0.017
 section 2 name="IPE 360" profileFamily="IPE" shape="I" a=0.00727 iy=0.0001627 iz=0.00001043 b=0.17 h=0.36 tw=0.008 tf=0.0127
 section 3 name="IPE 270" profileFamily="IPE" shape="I" a=0.00459 iy=0.0000579 iz=0.0000042 b=0.135 h=0.27 tw=0.0066 tf=0.0102
-member 1 frame 1 24 materialId=1 sectionId=1
-member 2 frame 2 25 materialId=1 sectionId=1
-member 3 frame 3 26 materialId=1 sectionId=1
-member 4 frame 4 27 materialId=1 sectionId=1
-member 5 frame 5 28 materialId=1 sectionId=1
-member 6 frame 6 29 materialId=1 sectionId=1
-member 7 frame 7 30 materialId=1 sectionId=1
-member 8 frame 8 31 materialId=1 sectionId=1
-member 9 frame 9 32 materialId=1 sectionId=1
-member 10 frame 10 33 materialId=1 sectionId=1
-member 11 frame 11 34 materialId=1 sectionId=1
-member 12 frame 12 35 materialId=1 sectionId=1
-member 13 frame 24 36 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 14 frame 36 37 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 15 frame 37 38 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 16 frame 38 39 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 17 frame 39 40 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 18 frame 40 28 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 19 frame 28 41 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 20 frame 41 42 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 21 frame 42 43 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 22 frame 43 44 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 23 frame 44 45 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 24 frame 45 32 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 25 frame 25 46 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 26 frame 46 47 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 27 frame 47 48 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 28 frame 48 49 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 29 frame 49 50 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 30 frame 50 29 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 31 frame 29 51 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 32 frame 51 52 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 33 frame 52 53 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 34 frame 53 54 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 35 frame 54 55 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 36 frame 55 33 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 37 frame 26 56 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 38 frame 56 57 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 39 frame 57 58 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 40 frame 58 59 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 41 frame 59 60 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 42 frame 60 30 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 43 frame 30 61 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 44 frame 61 62 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 45 frame 62 63 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 46 frame 63 64 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 47 frame 64 65 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 48 frame 65 34 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 49 frame 27 66 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 50 frame 66 67 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 51 frame 67 68 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 52 frame 68 69 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 53 frame 69 70 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 54 frame 70 31 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 55 frame 31 71 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 56 frame 71 72 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 57 frame 72 73 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 58 frame 73 74 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 59 frame 74 75 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 60 frame 75 35 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 61 frame 24 76 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 62 frame 76 77 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 63 frame 77 78 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 64 frame 78 79 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 65 frame 79 80 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 66 frame 80 25 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 67 frame 25 81 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 68 frame 81 82 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 69 frame 82 83 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 70 frame 83 84 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 71 frame 84 85 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 72 frame 85 26 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 73 frame 26 86 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 74 frame 86 87 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 75 frame 87 88 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 76 frame 88 89 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 77 frame 89 90 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 78 frame 90 27 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 79 frame 28 91 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 80 frame 91 92 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 81 frame 92 93 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 82 frame 93 94 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 83 frame 94 95 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 84 frame 95 29 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 85 frame 29 96 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 86 frame 96 97 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 87 frame 97 98 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 88 frame 98 99 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 89 frame 99 100 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 90 frame 100 30 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 91 frame 30 101 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 92 frame 101 102 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 93 frame 102 103 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 94 frame 103 104 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 95 frame 104 105 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 96 frame 105 31 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 97 frame 32 106 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 98 frame 106 107 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 99 frame 107 108 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 100 frame 108 109 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 101 frame 109 110 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 102 frame 110 33 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 103 frame 33 111 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 104 frame 111 112 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 105 frame 112 113 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 106 frame 113 114 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 107 frame 114 115 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 108 frame 115 34 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 109 frame 34 116 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 110 frame 116 117 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 111 frame 117 118 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 112 frame 118 119 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 113 frame 119 120 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 114 frame 120 35 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 115 frame 78 121 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 116 frame 121 122 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 117 frame 122 123 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 118 frame 123 124 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 119 frame 124 125 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 120 frame 125 93 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 121 frame 93 126 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 122 frame 126 127 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 123 frame 127 128 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 124 frame 128 129 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 125 frame 129 130 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 126 frame 130 108 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 127 frame 83 131 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 128 frame 131 132 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 129 frame 132 133 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 130 frame 133 134 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 131 frame 134 135 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 132 frame 135 98 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 133 frame 98 136 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 134 frame 136 137 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 135 frame 137 138 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 136 frame 138 139 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 137 frame 139 140 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 138 frame 140 113 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 139 frame 88 141 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 140 frame 141 142 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 141 frame 142 143 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 142 frame 143 144 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 143 frame 144 145 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 144 frame 145 103 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 145 frame 103 146 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 146 frame 146 147 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 147 frame 147 148 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 148 frame 148 149 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 149 frame 149 150 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 150 frame 150 118 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-quad 1 [24,36,151,76] materialId=2 thickness=0.12
-quad 2 [76,151,152,77] materialId=2 thickness=0.12
-quad 3 [77,152,121,78] materialId=2 thickness=0.12
-quad 4 [78,121,153,79] materialId=2 thickness=0.12
-quad 5 [79,153,154,80] materialId=2 thickness=0.12
-quad 6 [80,154,46,25] materialId=2 thickness=0.12
-quad 7 [25,46,155,81] materialId=2 thickness=0.12
-quad 8 [81,155,156,82] materialId=2 thickness=0.12
-quad 9 [82,156,131,83] materialId=2 thickness=0.12
-quad 10 [83,131,157,84] materialId=2 thickness=0.12
-quad 11 [84,157,158,85] materialId=2 thickness=0.12
-quad 12 [85,158,56,26] materialId=2 thickness=0.12
-quad 13 [26,56,159,86] materialId=2 thickness=0.12
-quad 14 [86,159,160,87] materialId=2 thickness=0.12
-quad 15 [87,160,141,88] materialId=2 thickness=0.12
-quad 16 [88,141,161,89] materialId=2 thickness=0.12
-quad 17 [89,161,162,90] materialId=2 thickness=0.12
-quad 18 [90,162,66,27] materialId=2 thickness=0.12
-quad 19 [36,37,163,151] materialId=2 thickness=0.12
-quad 20 [151,163,164,152] materialId=2 thickness=0.12
-quad 21 [152,164,122,121] materialId=2 thickness=0.12
-quad 22 [121,122,165,153] materialId=2 thickness=0.12
-quad 23 [153,165,166,154] materialId=2 thickness=0.12
-quad 24 [154,166,47,46] materialId=2 thickness=0.12
-quad 25 [46,47,167,155] materialId=2 thickness=0.12
-quad 26 [155,167,168,156] materialId=2 thickness=0.12
-quad 27 [156,168,132,131] materialId=2 thickness=0.12
-quad 28 [131,132,169,157] materialId=2 thickness=0.12
-quad 29 [157,169,170,158] materialId=2 thickness=0.12
-quad 30 [158,170,57,56] materialId=2 thickness=0.12
-quad 31 [56,57,171,159] materialId=2 thickness=0.12
-quad 32 [159,171,172,160] materialId=2 thickness=0.12
-quad 33 [160,172,142,141] materialId=2 thickness=0.12
-quad 34 [141,142,173,161] materialId=2 thickness=0.12
-quad 35 [161,173,174,162] materialId=2 thickness=0.12
-quad 36 [162,174,67,66] materialId=2 thickness=0.12
-quad 37 [37,38,175,163] materialId=2 thickness=0.12
-quad 38 [163,175,176,164] materialId=2 thickness=0.12
-quad 39 [164,176,123,122] materialId=2 thickness=0.12
-quad 40 [122,123,177,165] materialId=2 thickness=0.12
-quad 41 [165,177,178,166] materialId=2 thickness=0.12
-quad 42 [166,178,48,47] materialId=2 thickness=0.12
-quad 43 [47,48,179,167] materialId=2 thickness=0.12
-quad 44 [167,179,180,168] materialId=2 thickness=0.12
-quad 45 [168,180,133,132] materialId=2 thickness=0.12
-quad 46 [132,133,181,169] materialId=2 thickness=0.12
-quad 47 [169,181,182,170] materialId=2 thickness=0.12
-quad 48 [170,182,58,57] materialId=2 thickness=0.12
-quad 49 [57,58,183,171] materialId=2 thickness=0.12
-quad 50 [171,183,184,172] materialId=2 thickness=0.12
-quad 51 [172,184,143,142] materialId=2 thickness=0.12
-quad 52 [142,143,185,173] materialId=2 thickness=0.12
-quad 53 [173,185,186,174] materialId=2 thickness=0.12
-quad 54 [174,186,68,67] materialId=2 thickness=0.12
-quad 55 [38,39,187,175] materialId=2 thickness=0.12
-quad 56 [175,187,188,176] materialId=2 thickness=0.12
-quad 57 [176,188,124,123] materialId=2 thickness=0.12
-quad 58 [123,124,189,177] materialId=2 thickness=0.12
-quad 59 [177,189,190,178] materialId=2 thickness=0.12
-quad 60 [178,190,49,48] materialId=2 thickness=0.12
-quad 61 [48,49,191,179] materialId=2 thickness=0.12
-quad 62 [179,191,192,180] materialId=2 thickness=0.12
-quad 63 [180,192,134,133] materialId=2 thickness=0.12
-quad 64 [133,134,193,181] materialId=2 thickness=0.12
-quad 65 [181,193,194,182] materialId=2 thickness=0.12
-quad 66 [182,194,59,58] materialId=2 thickness=0.12
-quad 67 [58,59,195,183] materialId=2 thickness=0.12
-quad 68 [183,195,196,184] materialId=2 thickness=0.12
-quad 69 [184,196,144,143] materialId=2 thickness=0.12
-quad 70 [143,144,197,185] materialId=2 thickness=0.12
-quad 71 [185,197,198,186] materialId=2 thickness=0.12
-quad 72 [186,198,69,68] materialId=2 thickness=0.12
-quad 73 [39,40,199,187] materialId=2 thickness=0.12
-quad 74 [187,199,200,188] materialId=2 thickness=0.12
-quad 75 [188,200,125,124] materialId=2 thickness=0.12
-quad 76 [124,125,201,189] materialId=2 thickness=0.12
-quad 77 [189,201,202,190] materialId=2 thickness=0.12
-quad 78 [190,202,50,49] materialId=2 thickness=0.12
-quad 79 [49,50,203,191] materialId=2 thickness=0.12
-quad 80 [191,203,204,192] materialId=2 thickness=0.12
-quad 81 [192,204,135,134] materialId=2 thickness=0.12
-quad 82 [134,135,205,193] materialId=2 thickness=0.12
-quad 83 [193,205,206,194] materialId=2 thickness=0.12
-quad 84 [194,206,60,59] materialId=2 thickness=0.12
-quad 85 [59,60,207,195] materialId=2 thickness=0.12
-quad 86 [195,207,208,196] materialId=2 thickness=0.12
-quad 87 [196,208,145,144] materialId=2 thickness=0.12
-quad 88 [144,145,209,197] materialId=2 thickness=0.12
-quad 89 [197,209,210,198] materialId=2 thickness=0.12
-quad 90 [198,210,70,69] materialId=2 thickness=0.12
-quad 91 [40,28,91,199] materialId=2 thickness=0.12
-quad 92 [199,91,92,200] materialId=2 thickness=0.12
-quad 93 [200,92,93,125] materialId=2 thickness=0.12
-quad 94 [125,93,94,201] materialId=2 thickness=0.12
-quad 95 [201,94,95,202] materialId=2 thickness=0.12
-quad 96 [202,95,29,50] materialId=2 thickness=0.12
-quad 97 [50,29,96,203] materialId=2 thickness=0.12
-quad 98 [203,96,97,204] materialId=2 thickness=0.12
-quad 99 [204,97,98,135] materialId=2 thickness=0.12
-quad 100 [135,98,99,205] materialId=2 thickness=0.12
-quad 101 [205,99,100,206] materialId=2 thickness=0.12
-quad 102 [206,100,30,60] materialId=2 thickness=0.12
-quad 103 [60,30,101,207] materialId=2 thickness=0.12
-quad 104 [207,101,102,208] materialId=2 thickness=0.12
-quad 105 [208,102,103,145] materialId=2 thickness=0.12
-quad 106 [145,103,104,209] materialId=2 thickness=0.12
-quad 107 [209,104,105,210] materialId=2 thickness=0.12
-quad 108 [210,105,31,70] materialId=2 thickness=0.12
-quad 109 [28,41,211,91] materialId=2 thickness=0.12
-quad 110 [91,211,212,92] materialId=2 thickness=0.12
-quad 111 [92,212,126,93] materialId=2 thickness=0.12
-quad 112 [93,126,213,94] materialId=2 thickness=0.12
-quad 113 [94,213,214,95] materialId=2 thickness=0.12
-quad 114 [95,214,51,29] materialId=2 thickness=0.12
-quad 115 [29,51,215,96] materialId=2 thickness=0.12
-quad 116 [96,215,216,97] materialId=2 thickness=0.12
-quad 117 [97,216,136,98] materialId=2 thickness=0.12
-quad 118 [98,136,217,99] materialId=2 thickness=0.12
-quad 119 [99,217,218,100] materialId=2 thickness=0.12
-quad 120 [100,218,61,30] materialId=2 thickness=0.12
-quad 121 [30,61,219,101] materialId=2 thickness=0.12
-quad 122 [101,219,220,102] materialId=2 thickness=0.12
-quad 123 [102,220,146,103] materialId=2 thickness=0.12
-quad 124 [103,146,221,104] materialId=2 thickness=0.12
-quad 125 [104,221,222,105] materialId=2 thickness=0.12
-quad 126 [105,222,71,31] materialId=2 thickness=0.12
-quad 127 [41,42,223,211] materialId=2 thickness=0.12
-quad 128 [211,223,224,212] materialId=2 thickness=0.12
-quad 129 [212,224,127,126] materialId=2 thickness=0.12
-quad 130 [126,127,225,213] materialId=2 thickness=0.12
-quad 131 [213,225,226,214] materialId=2 thickness=0.12
-quad 132 [214,226,52,51] materialId=2 thickness=0.12
-quad 133 [51,52,227,215] materialId=2 thickness=0.12
-quad 134 [215,227,228,216] materialId=2 thickness=0.12
-quad 135 [216,228,137,136] materialId=2 thickness=0.12
-quad 136 [136,137,229,217] materialId=2 thickness=0.12
-quad 137 [217,229,230,218] materialId=2 thickness=0.12
-quad 138 [218,230,62,61] materialId=2 thickness=0.12
-quad 139 [61,62,231,219] materialId=2 thickness=0.12
-quad 140 [219,231,232,220] materialId=2 thickness=0.12
-quad 141 [220,232,147,146] materialId=2 thickness=0.12
-quad 142 [146,147,233,221] materialId=2 thickness=0.12
-quad 143 [221,233,234,222] materialId=2 thickness=0.12
-quad 144 [222,234,72,71] materialId=2 thickness=0.12
-quad 145 [42,43,235,223] materialId=2 thickness=0.12
-quad 146 [223,235,236,224] materialId=2 thickness=0.12
-quad 147 [224,236,128,127] materialId=2 thickness=0.12
-quad 148 [127,128,237,225] materialId=2 thickness=0.12
-quad 149 [225,237,238,226] materialId=2 thickness=0.12
-quad 150 [226,238,53,52] materialId=2 thickness=0.12
-quad 151 [52,53,239,227] materialId=2 thickness=0.12
-quad 152 [227,239,240,228] materialId=2 thickness=0.12
-quad 153 [228,240,138,137] materialId=2 thickness=0.12
-quad 154 [137,138,241,229] materialId=2 thickness=0.12
-quad 155 [229,241,242,230] materialId=2 thickness=0.12
-quad 156 [230,242,63,62] materialId=2 thickness=0.12
-quad 157 [62,63,243,231] materialId=2 thickness=0.12
-quad 158 [231,243,244,232] materialId=2 thickness=0.12
-quad 159 [232,244,148,147] materialId=2 thickness=0.12
-quad 160 [147,148,245,233] materialId=2 thickness=0.12
-quad 161 [233,245,246,234] materialId=2 thickness=0.12
-quad 162 [234,246,73,72] materialId=2 thickness=0.12
-quad 163 [43,44,247,235] materialId=2 thickness=0.12
-quad 164 [235,247,248,236] materialId=2 thickness=0.12
-quad 165 [236,248,129,128] materialId=2 thickness=0.12
-quad 166 [128,129,249,237] materialId=2 thickness=0.12
-quad 167 [237,249,250,238] materialId=2 thickness=0.12
-quad 168 [238,250,54,53] materialId=2 thickness=0.12
-quad 169 [53,54,251,239] materialId=2 thickness=0.12
-quad 170 [239,251,252,240] materialId=2 thickness=0.12
-quad 171 [240,252,139,138] materialId=2 thickness=0.12
-quad 172 [138,139,253,241] materialId=2 thickness=0.12
-quad 173 [241,253,254,242] materialId=2 thickness=0.12
-quad 174 [242,254,64,63] materialId=2 thickness=0.12
-quad 175 [63,64,255,243] materialId=2 thickness=0.12
-quad 176 [243,255,256,244] materialId=2 thickness=0.12
-quad 177 [244,256,149,148] materialId=2 thickness=0.12
-quad 178 [148,149,257,245] materialId=2 thickness=0.12
-quad 179 [245,257,258,246] materialId=2 thickness=0.12
-quad 180 [246,258,74,73] materialId=2 thickness=0.12
-quad 181 [44,45,259,247] materialId=2 thickness=0.12
-quad 182 [247,259,260,248] materialId=2 thickness=0.12
-quad 183 [248,260,130,129] materialId=2 thickness=0.12
-quad 184 [129,130,261,249] materialId=2 thickness=0.12
-quad 185 [249,261,262,250] materialId=2 thickness=0.12
-quad 186 [250,262,55,54] materialId=2 thickness=0.12
-quad 187 [54,55,263,251] materialId=2 thickness=0.12
-quad 188 [251,263,264,252] materialId=2 thickness=0.12
-quad 189 [252,264,140,139] materialId=2 thickness=0.12
-quad 190 [139,140,265,253] materialId=2 thickness=0.12
-quad 191 [253,265,266,254] materialId=2 thickness=0.12
-quad 192 [254,266,65,64] materialId=2 thickness=0.12
-quad 193 [64,65,267,255] materialId=2 thickness=0.12
-quad 194 [255,267,268,256] materialId=2 thickness=0.12
-quad 195 [256,268,150,149] materialId=2 thickness=0.12
-quad 196 [149,150,269,257] materialId=2 thickness=0.12
-quad 197 [257,269,270,258] materialId=2 thickness=0.12
-quad 198 [258,270,75,74] materialId=2 thickness=0.12
-quad 199 [45,32,106,259] materialId=2 thickness=0.12
-quad 200 [259,106,107,260] materialId=2 thickness=0.12
-quad 201 [260,107,108,130] materialId=2 thickness=0.12
-quad 202 [130,108,109,261] materialId=2 thickness=0.12
-quad 203 [261,109,110,262] materialId=2 thickness=0.12
-quad 204 [262,110,33,55] materialId=2 thickness=0.12
-quad 205 [55,33,111,263] materialId=2 thickness=0.12
-quad 206 [263,111,112,264] materialId=2 thickness=0.12
-quad 207 [264,112,113,140] materialId=2 thickness=0.12
-quad 208 [140,113,114,265] materialId=2 thickness=0.12
-quad 209 [265,114,115,266] materialId=2 thickness=0.12
-quad 210 [266,115,34,65] materialId=2 thickness=0.12
-quad 211 [65,34,116,267] materialId=2 thickness=0.12
-quad 212 [267,116,117,268] materialId=2 thickness=0.12
-quad 213 [268,117,118,150] materialId=2 thickness=0.12
-quad 214 [150,118,119,269] materialId=2 thickness=0.12
-quad 215 [269,119,120,270] materialId=2 thickness=0.12
-quad 216 [270,120,35,75] materialId=2 thickness=0.12
-quad 217 [2,14,271,272] materialId=2 thickness=0.2
-quad 218 [272,271,273,274] materialId=2 thickness=0.2
-quad 219 [274,273,46,25] materialId=2 thickness=0.2
-quad 220 [13,15,275,276] materialId=2 thickness=0.2
-quad 221 [276,275,277,278] materialId=2 thickness=0.2
-quad 222 [278,277,131,83] materialId=2 thickness=0.2
-quad 223 [14,16,279,271] materialId=2 thickness=0.2
-quad 224 [271,279,280,273] materialId=2 thickness=0.2
-quad 225 [273,280,47,46] materialId=2 thickness=0.2
-quad 226 [15,17,281,275] materialId=2 thickness=0.2
-quad 227 [275,281,282,277] materialId=2 thickness=0.2
-quad 228 [277,282,132,131] materialId=2 thickness=0.2
-quad 229 [16,18,283,279] materialId=2 thickness=0.2
-quad 230 [279,283,284,280] materialId=2 thickness=0.2
-quad 231 [280,284,48,47] materialId=2 thickness=0.2
-quad 232 [17,19,285,281] materialId=2 thickness=0.2
-quad 233 [281,285,286,282] materialId=2 thickness=0.2
-quad 234 [282,286,133,132] materialId=2 thickness=0.2
-quad 235 [2,20,287,272] materialId=2 thickness=0.2
-quad 236 [272,287,288,274] materialId=2 thickness=0.2
-quad 237 [274,288,81,25] materialId=2 thickness=0.2
-quad 238 [18,21,289,283] materialId=2 thickness=0.2
-quad 239 [283,289,290,284] materialId=2 thickness=0.2
-quad 240 [284,290,179,48] materialId=2 thickness=0.2
-quad 241 [20,22,291,287] materialId=2 thickness=0.2
-quad 242 [287,291,292,288] materialId=2 thickness=0.2
-quad 243 [288,292,82,81] materialId=2 thickness=0.2
-quad 244 [21,23,293,289] materialId=2 thickness=0.2
-quad 245 [289,293,294,290] materialId=2 thickness=0.2
-quad 246 [290,294,180,179] materialId=2 thickness=0.2
-quad 247 [22,13,276,291] materialId=2 thickness=0.2
-quad 248 [291,276,278,292] materialId=2 thickness=0.2
-quad 249 [292,278,83,82] materialId=2 thickness=0.2
-quad 250 [23,19,285,293] materialId=2 thickness=0.2
-quad 251 [293,285,286,294] materialId=2 thickness=0.2
-quad 252 [294,286,133,180] materialId=2 thickness=0.2
-member 151 frame 24 295 materialId=1 sectionId=1
-member 152 frame 25 296 materialId=1 sectionId=1
-member 153 frame 26 297 materialId=1 sectionId=1
-member 154 frame 27 298 materialId=1 sectionId=1
-member 155 frame 28 299 materialId=1 sectionId=1
-member 156 frame 29 300 materialId=1 sectionId=1
-member 157 frame 30 301 materialId=1 sectionId=1
-member 158 frame 31 302 materialId=1 sectionId=1
-member 159 frame 32 303 materialId=1 sectionId=1
-member 160 frame 33 304 materialId=1 sectionId=1
-member 161 frame 34 305 materialId=1 sectionId=1
-member 162 frame 35 306 materialId=1 sectionId=1
-member 163 frame 295 307 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 164 frame 307 308 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 165 frame 308 309 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 166 frame 309 310 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 167 frame 310 311 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 168 frame 311 299 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 169 frame 299 312 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 170 frame 312 313 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 171 frame 313 314 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 172 frame 314 315 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 173 frame 315 316 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 174 frame 316 303 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 175 frame 296 317 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 176 frame 317 318 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 177 frame 318 319 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 178 frame 319 320 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 179 frame 320 321 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 180 frame 321 300 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 181 frame 300 322 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 182 frame 322 323 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 183 frame 323 324 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 184 frame 324 325 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 185 frame 325 326 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 186 frame 326 304 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 187 frame 297 327 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 188 frame 327 328 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 189 frame 328 329 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 190 frame 329 330 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 191 frame 330 331 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 192 frame 331 301 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 193 frame 301 332 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 194 frame 332 333 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 195 frame 333 334 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 196 frame 334 335 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 197 frame 335 336 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 198 frame 336 305 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 199 frame 298 337 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 200 frame 337 338 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 201 frame 338 339 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 202 frame 339 340 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 203 frame 340 341 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 204 frame 341 302 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 205 frame 302 342 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 206 frame 342 343 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 207 frame 343 344 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 208 frame 344 345 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 209 frame 345 346 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 210 frame 346 306 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 211 frame 295 347 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 212 frame 347 348 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 213 frame 348 349 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 214 frame 349 350 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 215 frame 350 351 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 216 frame 351 296 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 217 frame 296 352 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 218 frame 352 353 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 219 frame 353 354 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 220 frame 354 355 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 221 frame 355 356 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 222 frame 356 297 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 223 frame 297 357 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 224 frame 357 358 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 225 frame 358 359 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 226 frame 359 360 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 227 frame 360 361 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 228 frame 361 298 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 229 frame 299 362 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 230 frame 362 363 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 231 frame 363 364 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 232 frame 364 365 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 233 frame 365 366 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 234 frame 366 300 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 235 frame 300 367 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 236 frame 367 368 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 237 frame 368 369 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 238 frame 369 370 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 239 frame 370 371 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 240 frame 371 301 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 241 frame 301 372 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 242 frame 372 373 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 243 frame 373 374 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 244 frame 374 375 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 245 frame 375 376 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 246 frame 376 302 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 247 frame 303 377 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 248 frame 377 378 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 249 frame 378 379 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 250 frame 379 380 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 251 frame 380 381 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 252 frame 381 304 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 253 frame 304 382 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 254 frame 382 383 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 255 frame 383 384 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 256 frame 384 385 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 257 frame 385 386 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 258 frame 386 305 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 259 frame 305 387 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 260 frame 387 388 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 261 frame 388 389 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 262 frame 389 390 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 263 frame 390 391 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 264 frame 391 306 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 265 frame 349 392 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 266 frame 392 393 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 267 frame 393 394 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 268 frame 394 395 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 269 frame 395 396 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 270 frame 396 364 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 271 frame 364 397 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 272 frame 397 398 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 273 frame 398 399 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 274 frame 399 400 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 275 frame 400 401 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 276 frame 401 379 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 277 frame 354 402 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 278 frame 402 403 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 279 frame 403 404 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 280 frame 404 405 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 281 frame 405 406 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 282 frame 406 369 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 283 frame 369 407 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 284 frame 407 408 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 285 frame 408 409 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 286 frame 409 410 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 287 frame 410 411 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 288 frame 411 384 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 289 frame 359 412 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 290 frame 412 413 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 291 frame 413 414 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 292 frame 414 415 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 293 frame 415 416 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 294 frame 416 374 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 295 frame 374 417 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 296 frame 417 418 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 297 frame 418 419 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 298 frame 419 420 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 299 frame 420 421 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 300 frame 421 389 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-quad 253 [295,307,422,347] materialId=2 thickness=0.12
-quad 254 [347,422,423,348] materialId=2 thickness=0.12
-quad 255 [348,423,392,349] materialId=2 thickness=0.12
-quad 256 [349,392,424,350] materialId=2 thickness=0.12
-quad 257 [350,424,425,351] materialId=2 thickness=0.12
-quad 258 [351,425,317,296] materialId=2 thickness=0.12
-quad 259 [296,317,426,352] materialId=2 thickness=0.12
-quad 260 [352,426,427,353] materialId=2 thickness=0.12
-quad 261 [353,427,402,354] materialId=2 thickness=0.12
-quad 262 [354,402,428,355] materialId=2 thickness=0.12
-quad 263 [355,428,429,356] materialId=2 thickness=0.12
-quad 264 [356,429,327,297] materialId=2 thickness=0.12
-quad 265 [297,327,430,357] materialId=2 thickness=0.12
-quad 266 [357,430,431,358] materialId=2 thickness=0.12
-quad 267 [358,431,412,359] materialId=2 thickness=0.12
-quad 268 [359,412,432,360] materialId=2 thickness=0.12
-quad 269 [360,432,433,361] materialId=2 thickness=0.12
-quad 270 [361,433,337,298] materialId=2 thickness=0.12
-quad 271 [307,308,434,422] materialId=2 thickness=0.12
-quad 272 [422,434,435,423] materialId=2 thickness=0.12
-quad 273 [423,435,393,392] materialId=2 thickness=0.12
-quad 274 [392,393,436,424] materialId=2 thickness=0.12
-quad 275 [424,436,437,425] materialId=2 thickness=0.12
-quad 276 [425,437,318,317] materialId=2 thickness=0.12
-quad 277 [317,318,438,426] materialId=2 thickness=0.12
-quad 278 [426,438,439,427] materialId=2 thickness=0.12
-quad 279 [427,439,403,402] materialId=2 thickness=0.12
-quad 280 [402,403,440,428] materialId=2 thickness=0.12
-quad 281 [428,440,441,429] materialId=2 thickness=0.12
-quad 282 [429,441,328,327] materialId=2 thickness=0.12
-quad 283 [327,328,442,430] materialId=2 thickness=0.12
-quad 284 [430,442,443,431] materialId=2 thickness=0.12
-quad 285 [431,443,413,412] materialId=2 thickness=0.12
-quad 286 [412,413,444,432] materialId=2 thickness=0.12
-quad 287 [432,444,445,433] materialId=2 thickness=0.12
-quad 288 [433,445,338,337] materialId=2 thickness=0.12
-quad 289 [308,309,446,434] materialId=2 thickness=0.12
-quad 290 [434,446,447,435] materialId=2 thickness=0.12
-quad 291 [435,447,394,393] materialId=2 thickness=0.12
-quad 292 [393,394,448,436] materialId=2 thickness=0.12
-quad 293 [436,448,449,437] materialId=2 thickness=0.12
-quad 294 [437,449,319,318] materialId=2 thickness=0.12
-quad 295 [318,319,450,438] materialId=2 thickness=0.12
-quad 296 [438,450,451,439] materialId=2 thickness=0.12
-quad 297 [439,451,404,403] materialId=2 thickness=0.12
-quad 298 [403,404,452,440] materialId=2 thickness=0.12
-quad 299 [440,452,453,441] materialId=2 thickness=0.12
-quad 300 [441,453,329,328] materialId=2 thickness=0.12
-quad 301 [328,329,454,442] materialId=2 thickness=0.12
-quad 302 [442,454,455,443] materialId=2 thickness=0.12
-quad 303 [443,455,414,413] materialId=2 thickness=0.12
-quad 304 [413,414,456,444] materialId=2 thickness=0.12
-quad 305 [444,456,457,445] materialId=2 thickness=0.12
-quad 306 [445,457,339,338] materialId=2 thickness=0.12
-quad 307 [309,310,458,446] materialId=2 thickness=0.12
-quad 308 [446,458,459,447] materialId=2 thickness=0.12
-quad 309 [447,459,395,394] materialId=2 thickness=0.12
-quad 310 [394,395,460,448] materialId=2 thickness=0.12
-quad 311 [448,460,461,449] materialId=2 thickness=0.12
-quad 312 [449,461,320,319] materialId=2 thickness=0.12
-quad 313 [319,320,462,450] materialId=2 thickness=0.12
-quad 314 [450,462,463,451] materialId=2 thickness=0.12
-quad 315 [451,463,405,404] materialId=2 thickness=0.12
-quad 316 [404,405,464,452] materialId=2 thickness=0.12
-quad 317 [452,464,465,453] materialId=2 thickness=0.12
-quad 318 [453,465,330,329] materialId=2 thickness=0.12
-quad 319 [329,330,466,454] materialId=2 thickness=0.12
-quad 320 [454,466,467,455] materialId=2 thickness=0.12
-quad 321 [455,467,415,414] materialId=2 thickness=0.12
-quad 322 [414,415,468,456] materialId=2 thickness=0.12
-quad 323 [456,468,469,457] materialId=2 thickness=0.12
-quad 324 [457,469,340,339] materialId=2 thickness=0.12
-quad 325 [310,311,470,458] materialId=2 thickness=0.12
-quad 326 [458,470,471,459] materialId=2 thickness=0.12
-quad 327 [459,471,396,395] materialId=2 thickness=0.12
-quad 328 [395,396,472,460] materialId=2 thickness=0.12
-quad 329 [460,472,473,461] materialId=2 thickness=0.12
-quad 330 [461,473,321,320] materialId=2 thickness=0.12
-quad 331 [320,321,474,462] materialId=2 thickness=0.12
-quad 332 [462,474,475,463] materialId=2 thickness=0.12
-quad 333 [463,475,406,405] materialId=2 thickness=0.12
-quad 334 [405,406,476,464] materialId=2 thickness=0.12
-quad 335 [464,476,477,465] materialId=2 thickness=0.12
-quad 336 [465,477,331,330] materialId=2 thickness=0.12
-quad 337 [330,331,478,466] materialId=2 thickness=0.12
-quad 338 [466,478,479,467] materialId=2 thickness=0.12
-quad 339 [467,479,416,415] materialId=2 thickness=0.12
-quad 340 [415,416,480,468] materialId=2 thickness=0.12
-quad 341 [468,480,481,469] materialId=2 thickness=0.12
-quad 342 [469,481,341,340] materialId=2 thickness=0.12
-quad 343 [311,299,362,470] materialId=2 thickness=0.12
-quad 344 [470,362,363,471] materialId=2 thickness=0.12
-quad 345 [471,363,364,396] materialId=2 thickness=0.12
-quad 346 [396,364,365,472] materialId=2 thickness=0.12
-quad 347 [472,365,366,473] materialId=2 thickness=0.12
-quad 348 [473,366,300,321] materialId=2 thickness=0.12
-quad 349 [321,300,367,474] materialId=2 thickness=0.12
-quad 350 [474,367,368,475] materialId=2 thickness=0.12
-quad 351 [475,368,369,406] materialId=2 thickness=0.12
-quad 352 [406,369,370,476] materialId=2 thickness=0.12
-quad 353 [476,370,371,477] materialId=2 thickness=0.12
-quad 354 [477,371,301,331] materialId=2 thickness=0.12
-quad 355 [331,301,372,478] materialId=2 thickness=0.12
-quad 356 [478,372,373,479] materialId=2 thickness=0.12
-quad 357 [479,373,374,416] materialId=2 thickness=0.12
-quad 358 [416,374,375,480] materialId=2 thickness=0.12
-quad 359 [480,375,376,481] materialId=2 thickness=0.12
-quad 360 [481,376,302,341] materialId=2 thickness=0.12
-quad 361 [299,312,482,362] materialId=2 thickness=0.12
-quad 362 [362,482,483,363] materialId=2 thickness=0.12
-quad 363 [363,483,397,364] materialId=2 thickness=0.12
-quad 364 [364,397,484,365] materialId=2 thickness=0.12
-quad 365 [365,484,485,366] materialId=2 thickness=0.12
-quad 366 [366,485,322,300] materialId=2 thickness=0.12
-quad 367 [300,322,486,367] materialId=2 thickness=0.12
-quad 368 [367,486,487,368] materialId=2 thickness=0.12
-quad 369 [368,487,407,369] materialId=2 thickness=0.12
-quad 370 [369,407,488,370] materialId=2 thickness=0.12
-quad 371 [370,488,489,371] materialId=2 thickness=0.12
-quad 372 [371,489,332,301] materialId=2 thickness=0.12
-quad 373 [301,332,490,372] materialId=2 thickness=0.12
-quad 374 [372,490,491,373] materialId=2 thickness=0.12
-quad 375 [373,491,417,374] materialId=2 thickness=0.12
-quad 376 [374,417,492,375] materialId=2 thickness=0.12
-quad 377 [375,492,493,376] materialId=2 thickness=0.12
-quad 378 [376,493,342,302] materialId=2 thickness=0.12
-quad 379 [312,313,494,482] materialId=2 thickness=0.12
-quad 380 [482,494,495,483] materialId=2 thickness=0.12
-quad 381 [483,495,398,397] materialId=2 thickness=0.12
-quad 382 [397,398,496,484] materialId=2 thickness=0.12
-quad 383 [484,496,497,485] materialId=2 thickness=0.12
-quad 384 [485,497,323,322] materialId=2 thickness=0.12
-quad 385 [322,323,498,486] materialId=2 thickness=0.12
-quad 386 [486,498,499,487] materialId=2 thickness=0.12
-quad 387 [487,499,408,407] materialId=2 thickness=0.12
-quad 388 [407,408,500,488] materialId=2 thickness=0.12
-quad 389 [488,500,501,489] materialId=2 thickness=0.12
-quad 390 [489,501,333,332] materialId=2 thickness=0.12
-quad 391 [332,333,502,490] materialId=2 thickness=0.12
-quad 392 [490,502,503,491] materialId=2 thickness=0.12
-quad 393 [491,503,418,417] materialId=2 thickness=0.12
-quad 394 [417,418,504,492] materialId=2 thickness=0.12
-quad 395 [492,504,505,493] materialId=2 thickness=0.12
-quad 396 [493,505,343,342] materialId=2 thickness=0.12
-quad 397 [313,314,506,494] materialId=2 thickness=0.12
-quad 398 [494,506,507,495] materialId=2 thickness=0.12
-quad 399 [495,507,399,398] materialId=2 thickness=0.12
-quad 400 [398,399,508,496] materialId=2 thickness=0.12
-quad 401 [496,508,509,497] materialId=2 thickness=0.12
-quad 402 [497,509,324,323] materialId=2 thickness=0.12
-quad 403 [323,324,510,498] materialId=2 thickness=0.12
-quad 404 [498,510,511,499] materialId=2 thickness=0.12
-quad 405 [499,511,409,408] materialId=2 thickness=0.12
-quad 406 [408,409,512,500] materialId=2 thickness=0.12
-quad 407 [500,512,513,501] materialId=2 thickness=0.12
-quad 408 [501,513,334,333] materialId=2 thickness=0.12
-quad 409 [333,334,514,502] materialId=2 thickness=0.12
-quad 410 [502,514,515,503] materialId=2 thickness=0.12
-quad 411 [503,515,419,418] materialId=2 thickness=0.12
-quad 412 [418,419,516,504] materialId=2 thickness=0.12
-quad 413 [504,516,517,505] materialId=2 thickness=0.12
-quad 414 [505,517,344,343] materialId=2 thickness=0.12
-quad 415 [314,315,518,506] materialId=2 thickness=0.12
-quad 416 [506,518,519,507] materialId=2 thickness=0.12
-quad 417 [507,519,400,399] materialId=2 thickness=0.12
-quad 418 [399,400,520,508] materialId=2 thickness=0.12
-quad 419 [508,520,521,509] materialId=2 thickness=0.12
-quad 420 [509,521,325,324] materialId=2 thickness=0.12
-quad 421 [324,325,522,510] materialId=2 thickness=0.12
-quad 422 [510,522,523,511] materialId=2 thickness=0.12
-quad 423 [511,523,410,409] materialId=2 thickness=0.12
-quad 424 [409,410,524,512] materialId=2 thickness=0.12
-quad 425 [512,524,525,513] materialId=2 thickness=0.12
-quad 426 [513,525,335,334] materialId=2 thickness=0.12
-quad 427 [334,335,526,514] materialId=2 thickness=0.12
-quad 428 [514,526,527,515] materialId=2 thickness=0.12
-quad 429 [515,527,420,419] materialId=2 thickness=0.12
-quad 430 [419,420,528,516] materialId=2 thickness=0.12
-quad 431 [516,528,529,517] materialId=2 thickness=0.12
-quad 432 [517,529,345,344] materialId=2 thickness=0.12
-quad 433 [315,316,530,518] materialId=2 thickness=0.12
-quad 434 [518,530,531,519] materialId=2 thickness=0.12
-quad 435 [519,531,401,400] materialId=2 thickness=0.12
-quad 436 [400,401,532,520] materialId=2 thickness=0.12
-quad 437 [520,532,533,521] materialId=2 thickness=0.12
-quad 438 [521,533,326,325] materialId=2 thickness=0.12
-quad 439 [325,326,534,522] materialId=2 thickness=0.12
-quad 440 [522,534,535,523] materialId=2 thickness=0.12
-quad 441 [523,535,411,410] materialId=2 thickness=0.12
-quad 442 [410,411,536,524] materialId=2 thickness=0.12
-quad 443 [524,536,537,525] materialId=2 thickness=0.12
-quad 444 [525,537,336,335] materialId=2 thickness=0.12
-quad 445 [335,336,538,526] materialId=2 thickness=0.12
-quad 446 [526,538,539,527] materialId=2 thickness=0.12
-quad 447 [527,539,421,420] materialId=2 thickness=0.12
-quad 448 [420,421,540,528] materialId=2 thickness=0.12
-quad 449 [528,540,541,529] materialId=2 thickness=0.12
-quad 450 [529,541,346,345] materialId=2 thickness=0.12
-quad 451 [316,303,377,530] materialId=2 thickness=0.12
-quad 452 [530,377,378,531] materialId=2 thickness=0.12
-quad 453 [531,378,379,401] materialId=2 thickness=0.12
-quad 454 [401,379,380,532] materialId=2 thickness=0.12
-quad 455 [532,380,381,533] materialId=2 thickness=0.12
-quad 456 [533,381,304,326] materialId=2 thickness=0.12
-quad 457 [326,304,382,534] materialId=2 thickness=0.12
-quad 458 [534,382,383,535] materialId=2 thickness=0.12
-quad 459 [535,383,384,411] materialId=2 thickness=0.12
-quad 460 [411,384,385,536] materialId=2 thickness=0.12
-quad 461 [536,385,386,537] materialId=2 thickness=0.12
-quad 462 [537,386,305,336] materialId=2 thickness=0.12
-quad 463 [336,305,387,538] materialId=2 thickness=0.12
-quad 464 [538,387,388,539] materialId=2 thickness=0.12
-quad 465 [539,388,389,421] materialId=2 thickness=0.12
-quad 466 [421,389,390,540] materialId=2 thickness=0.12
-quad 467 [540,390,391,541] materialId=2 thickness=0.12
-quad 468 [541,391,306,346] materialId=2 thickness=0.12
-quad 469 [25,46,542,543] materialId=2 thickness=0.2
-quad 470 [543,542,544,545] materialId=2 thickness=0.2
-quad 471 [545,544,317,296] materialId=2 thickness=0.2
-quad 472 [83,131,546,547] materialId=2 thickness=0.2
-quad 473 [547,546,548,549] materialId=2 thickness=0.2
-quad 474 [549,548,402,354] materialId=2 thickness=0.2
-quad 475 [46,47,550,542] materialId=2 thickness=0.2
-quad 476 [542,550,551,544] materialId=2 thickness=0.2
-quad 477 [544,551,318,317] materialId=2 thickness=0.2
-quad 478 [131,132,552,546] materialId=2 thickness=0.2
-quad 479 [546,552,553,548] materialId=2 thickness=0.2
-quad 480 [548,553,403,402] materialId=2 thickness=0.2
-quad 481 [47,48,554,550] materialId=2 thickness=0.2
-quad 482 [550,554,555,551] materialId=2 thickness=0.2
-quad 483 [551,555,319,318] materialId=2 thickness=0.2
-quad 484 [132,133,556,552] materialId=2 thickness=0.2
-quad 485 [552,556,557,553] materialId=2 thickness=0.2
-quad 486 [553,557,404,403] materialId=2 thickness=0.2
-quad 487 [25,81,558,543] materialId=2 thickness=0.2
-quad 488 [543,558,559,545] materialId=2 thickness=0.2
-quad 489 [545,559,352,296] materialId=2 thickness=0.2
-quad 490 [48,179,560,554] materialId=2 thickness=0.2
-quad 491 [554,560,561,555] materialId=2 thickness=0.2
-quad 492 [555,561,450,319] materialId=2 thickness=0.2
-quad 493 [81,82,562,558] materialId=2 thickness=0.2
-quad 494 [558,562,563,559] materialId=2 thickness=0.2
-quad 495 [559,563,353,352] materialId=2 thickness=0.2
-quad 496 [179,180,564,560] materialId=2 thickness=0.2
-quad 497 [560,564,565,561] materialId=2 thickness=0.2
-quad 498 [561,565,451,450] materialId=2 thickness=0.2
-quad 499 [82,83,547,562] materialId=2 thickness=0.2
-quad 500 [562,547,549,563] materialId=2 thickness=0.2
-quad 501 [563,549,354,353] materialId=2 thickness=0.2
-quad 502 [180,133,556,564] materialId=2 thickness=0.2
-quad 503 [564,556,557,565] materialId=2 thickness=0.2
-quad 504 [565,557,404,451] materialId=2 thickness=0.2
-member 301 frame 295 566 materialId=1 sectionId=1
-member 302 frame 296 567 materialId=1 sectionId=1
-member 303 frame 297 568 materialId=1 sectionId=1
-member 304 frame 298 569 materialId=1 sectionId=1
-member 305 frame 299 570 materialId=1 sectionId=1
-member 306 frame 300 571 materialId=1 sectionId=1
-member 307 frame 301 572 materialId=1 sectionId=1
-member 308 frame 302 573 materialId=1 sectionId=1
-member 309 frame 303 574 materialId=1 sectionId=1
-member 310 frame 304 575 materialId=1 sectionId=1
-member 311 frame 305 576 materialId=1 sectionId=1
-member 312 frame 306 577 materialId=1 sectionId=1
-member 313 frame 566 578 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 314 frame 578 579 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 315 frame 579 580 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 316 frame 580 581 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 317 frame 581 582 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 318 frame 582 570 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 319 frame 570 583 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 320 frame 583 584 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 321 frame 584 585 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 322 frame 585 586 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 323 frame 586 587 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 324 frame 587 574 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 325 frame 567 588 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 326 frame 588 589 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 327 frame 589 590 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 328 frame 590 591 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 329 frame 591 592 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 330 frame 592 571 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 331 frame 571 593 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 332 frame 593 594 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 333 frame 594 595 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 334 frame 595 596 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 335 frame 596 597 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 336 frame 597 575 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 337 frame 568 598 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 338 frame 598 599 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 339 frame 599 600 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 340 frame 600 601 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 341 frame 601 602 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 342 frame 602 572 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 343 frame 572 603 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 344 frame 603 604 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 345 frame 604 605 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 346 frame 605 606 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 347 frame 606 607 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 348 frame 607 576 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 349 frame 569 608 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 350 frame 608 609 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 351 frame 609 610 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 352 frame 610 611 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 353 frame 611 612 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 354 frame 612 573 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 355 frame 573 613 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 356 frame 613 614 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 357 frame 614 615 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 358 frame 615 616 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 359 frame 616 617 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 360 frame 617 577 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 361 frame 566 618 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 362 frame 618 619 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 363 frame 619 620 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 364 frame 620 621 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 365 frame 621 622 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 366 frame 622 567 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 367 frame 567 623 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 368 frame 623 624 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 369 frame 624 625 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 370 frame 625 626 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 371 frame 626 627 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 372 frame 627 568 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 373 frame 568 628 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 374 frame 628 629 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 375 frame 629 630 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 376 frame 630 631 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 377 frame 631 632 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 378 frame 632 569 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 379 frame 570 633 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 380 frame 633 634 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 381 frame 634 635 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 382 frame 635 636 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 383 frame 636 637 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 384 frame 637 571 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 385 frame 571 638 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 386 frame 638 639 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 387 frame 639 640 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 388 frame 640 641 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 389 frame 641 642 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 390 frame 642 572 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 391 frame 572 643 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 392 frame 643 644 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 393 frame 644 645 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 394 frame 645 646 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 395 frame 646 647 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 396 frame 647 573 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 397 frame 574 648 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 398 frame 648 649 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 399 frame 649 650 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 400 frame 650 651 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 401 frame 651 652 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 402 frame 652 575 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 403 frame 575 653 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 404 frame 653 654 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 405 frame 654 655 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 406 frame 655 656 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 407 frame 656 657 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 408 frame 657 576 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 409 frame 576 658 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 410 frame 658 659 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 411 frame 659 660 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 412 frame 660 661 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 413 frame 661 662 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 414 frame 662 577 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
-member 415 frame 620 663 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 416 frame 663 664 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 417 frame 664 665 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 418 frame 665 666 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 419 frame 666 667 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 420 frame 667 635 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 421 frame 635 668 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 422 frame 668 669 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 423 frame 669 670 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 424 frame 670 671 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 425 frame 671 672 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 426 frame 672 650 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 427 frame 625 673 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 428 frame 673 674 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 429 frame 674 675 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 430 frame 675 676 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 431 frame 676 677 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 432 frame 677 640 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 433 frame 640 678 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 434 frame 678 679 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 435 frame 679 680 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 436 frame 680 681 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 437 frame 681 682 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 438 frame 682 655 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 439 frame 630 683 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 440 frame 683 684 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 441 frame 684 685 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 442 frame 685 686 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 443 frame 686 687 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 444 frame 687 645 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 445 frame 645 688 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 446 frame 688 689 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 447 frame 689 690 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 448 frame 690 691 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 449 frame 691 692 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-member 450 frame 692 660 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
-quad 505 [566,578,693,618] materialId=2 thickness=0.12
-quad 506 [618,693,694,619] materialId=2 thickness=0.12
-quad 507 [619,694,663,620] materialId=2 thickness=0.12
-quad 508 [620,663,695,621] materialId=2 thickness=0.12
-quad 509 [621,695,696,622] materialId=2 thickness=0.12
-quad 510 [622,696,588,567] materialId=2 thickness=0.12
-quad 511 [567,588,697,623] materialId=2 thickness=0.12
-quad 512 [623,697,698,624] materialId=2 thickness=0.12
-quad 513 [624,698,673,625] materialId=2 thickness=0.12
-quad 514 [625,673,699,626] materialId=2 thickness=0.12
-quad 515 [626,699,700,627] materialId=2 thickness=0.12
-quad 516 [627,700,598,568] materialId=2 thickness=0.12
-quad 517 [568,598,701,628] materialId=2 thickness=0.12
-quad 518 [628,701,702,629] materialId=2 thickness=0.12
-quad 519 [629,702,683,630] materialId=2 thickness=0.12
-quad 520 [630,683,703,631] materialId=2 thickness=0.12
-quad 521 [631,703,704,632] materialId=2 thickness=0.12
-quad 522 [632,704,608,569] materialId=2 thickness=0.12
-quad 523 [578,579,705,693] materialId=2 thickness=0.12
-quad 524 [693,705,706,694] materialId=2 thickness=0.12
-quad 525 [694,706,664,663] materialId=2 thickness=0.12
-quad 526 [663,664,707,695] materialId=2 thickness=0.12
-quad 527 [695,707,708,696] materialId=2 thickness=0.12
-quad 528 [696,708,589,588] materialId=2 thickness=0.12
-quad 529 [588,589,709,697] materialId=2 thickness=0.12
-quad 530 [697,709,710,698] materialId=2 thickness=0.12
-quad 531 [698,710,674,673] materialId=2 thickness=0.12
-quad 532 [673,674,711,699] materialId=2 thickness=0.12
-quad 533 [699,711,712,700] materialId=2 thickness=0.12
-quad 534 [700,712,599,598] materialId=2 thickness=0.12
-quad 535 [598,599,713,701] materialId=2 thickness=0.12
-quad 536 [701,713,714,702] materialId=2 thickness=0.12
-quad 537 [702,714,684,683] materialId=2 thickness=0.12
-quad 538 [683,684,715,703] materialId=2 thickness=0.12
-quad 539 [703,715,716,704] materialId=2 thickness=0.12
-quad 540 [704,716,609,608] materialId=2 thickness=0.12
-quad 541 [579,580,717,705] materialId=2 thickness=0.12
-quad 542 [705,717,718,706] materialId=2 thickness=0.12
-quad 543 [706,718,665,664] materialId=2 thickness=0.12
-quad 544 [664,665,719,707] materialId=2 thickness=0.12
-quad 545 [707,719,720,708] materialId=2 thickness=0.12
-quad 546 [708,720,590,589] materialId=2 thickness=0.12
-quad 547 [589,590,721,709] materialId=2 thickness=0.12
-quad 548 [709,721,722,710] materialId=2 thickness=0.12
-quad 549 [710,722,675,674] materialId=2 thickness=0.12
-quad 550 [674,675,723,711] materialId=2 thickness=0.12
-quad 551 [711,723,724,712] materialId=2 thickness=0.12
-quad 552 [712,724,600,599] materialId=2 thickness=0.12
-quad 553 [599,600,725,713] materialId=2 thickness=0.12
-quad 554 [713,725,726,714] materialId=2 thickness=0.12
-quad 555 [714,726,685,684] materialId=2 thickness=0.12
-quad 556 [684,685,727,715] materialId=2 thickness=0.12
-quad 557 [715,727,728,716] materialId=2 thickness=0.12
-quad 558 [716,728,610,609] materialId=2 thickness=0.12
-quad 559 [580,581,729,717] materialId=2 thickness=0.12
-quad 560 [717,729,730,718] materialId=2 thickness=0.12
-quad 561 [718,730,666,665] materialId=2 thickness=0.12
-quad 562 [665,666,731,719] materialId=2 thickness=0.12
-quad 563 [719,731,732,720] materialId=2 thickness=0.12
-quad 564 [720,732,591,590] materialId=2 thickness=0.12
-quad 565 [590,591,733,721] materialId=2 thickness=0.12
-quad 566 [721,733,734,722] materialId=2 thickness=0.12
-quad 567 [722,734,676,675] materialId=2 thickness=0.12
-quad 568 [675,676,735,723] materialId=2 thickness=0.12
-quad 569 [723,735,736,724] materialId=2 thickness=0.12
-quad 570 [724,736,601,600] materialId=2 thickness=0.12
-quad 571 [600,601,737,725] materialId=2 thickness=0.12
-quad 572 [725,737,738,726] materialId=2 thickness=0.12
-quad 573 [726,738,686,685] materialId=2 thickness=0.12
-quad 574 [685,686,739,727] materialId=2 thickness=0.12
-quad 575 [727,739,740,728] materialId=2 thickness=0.12
-quad 576 [728,740,611,610] materialId=2 thickness=0.12
-quad 577 [581,582,741,729] materialId=2 thickness=0.12
-quad 578 [729,741,742,730] materialId=2 thickness=0.12
-quad 579 [730,742,667,666] materialId=2 thickness=0.12
-quad 580 [666,667,743,731] materialId=2 thickness=0.12
-quad 581 [731,743,744,732] materialId=2 thickness=0.12
-quad 582 [732,744,592,591] materialId=2 thickness=0.12
-quad 583 [591,592,745,733] materialId=2 thickness=0.12
-quad 584 [733,745,746,734] materialId=2 thickness=0.12
-quad 585 [734,746,677,676] materialId=2 thickness=0.12
-quad 586 [676,677,747,735] materialId=2 thickness=0.12
-quad 587 [735,747,748,736] materialId=2 thickness=0.12
-quad 588 [736,748,602,601] materialId=2 thickness=0.12
-quad 589 [601,602,749,737] materialId=2 thickness=0.12
-quad 590 [737,749,750,738] materialId=2 thickness=0.12
-quad 591 [738,750,687,686] materialId=2 thickness=0.12
-quad 592 [686,687,751,739] materialId=2 thickness=0.12
-quad 593 [739,751,752,740] materialId=2 thickness=0.12
-quad 594 [740,752,612,611] materialId=2 thickness=0.12
-quad 595 [582,570,633,741] materialId=2 thickness=0.12
-quad 596 [741,633,634,742] materialId=2 thickness=0.12
-quad 597 [742,634,635,667] materialId=2 thickness=0.12
-quad 598 [667,635,636,743] materialId=2 thickness=0.12
-quad 599 [743,636,637,744] materialId=2 thickness=0.12
-quad 600 [744,637,571,592] materialId=2 thickness=0.12
-quad 601 [592,571,638,745] materialId=2 thickness=0.12
-quad 602 [745,638,639,746] materialId=2 thickness=0.12
-quad 603 [746,639,640,677] materialId=2 thickness=0.12
-quad 604 [677,640,641,747] materialId=2 thickness=0.12
-quad 605 [747,641,642,748] materialId=2 thickness=0.12
-quad 606 [748,642,572,602] materialId=2 thickness=0.12
-quad 607 [602,572,643,749] materialId=2 thickness=0.12
-quad 608 [749,643,644,750] materialId=2 thickness=0.12
-quad 609 [750,644,645,687] materialId=2 thickness=0.12
-quad 610 [687,645,646,751] materialId=2 thickness=0.12
-quad 611 [751,646,647,752] materialId=2 thickness=0.12
-quad 612 [752,647,573,612] materialId=2 thickness=0.12
-quad 613 [570,583,753,633] materialId=2 thickness=0.12
-quad 614 [633,753,754,634] materialId=2 thickness=0.12
-quad 615 [634,754,668,635] materialId=2 thickness=0.12
-quad 616 [635,668,755,636] materialId=2 thickness=0.12
-quad 617 [636,755,756,637] materialId=2 thickness=0.12
-quad 618 [637,756,593,571] materialId=2 thickness=0.12
-quad 619 [571,593,757,638] materialId=2 thickness=0.12
-quad 620 [638,757,758,639] materialId=2 thickness=0.12
-quad 621 [639,758,678,640] materialId=2 thickness=0.12
-quad 622 [640,678,759,641] materialId=2 thickness=0.12
-quad 623 [641,759,760,642] materialId=2 thickness=0.12
-quad 624 [642,760,603,572] materialId=2 thickness=0.12
-quad 625 [572,603,761,643] materialId=2 thickness=0.12
-quad 626 [643,761,762,644] materialId=2 thickness=0.12
-quad 627 [644,762,688,645] materialId=2 thickness=0.12
-quad 628 [645,688,763,646] materialId=2 thickness=0.12
-quad 629 [646,763,764,647] materialId=2 thickness=0.12
-quad 630 [647,764,613,573] materialId=2 thickness=0.12
-quad 631 [583,584,765,753] materialId=2 thickness=0.12
-quad 632 [753,765,766,754] materialId=2 thickness=0.12
-quad 633 [754,766,669,668] materialId=2 thickness=0.12
-quad 634 [668,669,767,755] materialId=2 thickness=0.12
-quad 635 [755,767,768,756] materialId=2 thickness=0.12
-quad 636 [756,768,594,593] materialId=2 thickness=0.12
-quad 637 [593,594,769,757] materialId=2 thickness=0.12
-quad 638 [757,769,770,758] materialId=2 thickness=0.12
-quad 639 [758,770,679,678] materialId=2 thickness=0.12
-quad 640 [678,679,771,759] materialId=2 thickness=0.12
-quad 641 [759,771,772,760] materialId=2 thickness=0.12
-quad 642 [760,772,604,603] materialId=2 thickness=0.12
-quad 643 [603,604,773,761] materialId=2 thickness=0.12
-quad 644 [761,773,774,762] materialId=2 thickness=0.12
-quad 645 [762,774,689,688] materialId=2 thickness=0.12
-quad 646 [688,689,775,763] materialId=2 thickness=0.12
-quad 647 [763,775,776,764] materialId=2 thickness=0.12
-quad 648 [764,776,614,613] materialId=2 thickness=0.12
-quad 649 [584,585,777,765] materialId=2 thickness=0.12
-quad 650 [765,777,778,766] materialId=2 thickness=0.12
-quad 651 [766,778,670,669] materialId=2 thickness=0.12
-quad 652 [669,670,779,767] materialId=2 thickness=0.12
-quad 653 [767,779,780,768] materialId=2 thickness=0.12
-quad 654 [768,780,595,594] materialId=2 thickness=0.12
-quad 655 [594,595,781,769] materialId=2 thickness=0.12
-quad 656 [769,781,782,770] materialId=2 thickness=0.12
-quad 657 [770,782,680,679] materialId=2 thickness=0.12
-quad 658 [679,680,783,771] materialId=2 thickness=0.12
-quad 659 [771,783,784,772] materialId=2 thickness=0.12
-quad 660 [772,784,605,604] materialId=2 thickness=0.12
-quad 661 [604,605,785,773] materialId=2 thickness=0.12
-quad 662 [773,785,786,774] materialId=2 thickness=0.12
-quad 663 [774,786,690,689] materialId=2 thickness=0.12
-quad 664 [689,690,787,775] materialId=2 thickness=0.12
-quad 665 [775,787,788,776] materialId=2 thickness=0.12
-quad 666 [776,788,615,614] materialId=2 thickness=0.12
-quad 667 [585,586,789,777] materialId=2 thickness=0.12
-quad 668 [777,789,790,778] materialId=2 thickness=0.12
-quad 669 [778,790,671,670] materialId=2 thickness=0.12
-quad 670 [670,671,791,779] materialId=2 thickness=0.12
-quad 671 [779,791,792,780] materialId=2 thickness=0.12
-quad 672 [780,792,596,595] materialId=2 thickness=0.12
-quad 673 [595,596,793,781] materialId=2 thickness=0.12
-quad 674 [781,793,794,782] materialId=2 thickness=0.12
-quad 675 [782,794,681,680] materialId=2 thickness=0.12
-quad 676 [680,681,795,783] materialId=2 thickness=0.12
-quad 677 [783,795,796,784] materialId=2 thickness=0.12
-quad 678 [784,796,606,605] materialId=2 thickness=0.12
-quad 679 [605,606,797,785] materialId=2 thickness=0.12
-quad 680 [785,797,798,786] materialId=2 thickness=0.12
-quad 681 [786,798,691,690] materialId=2 thickness=0.12
-quad 682 [690,691,799,787] materialId=2 thickness=0.12
-quad 683 [787,799,800,788] materialId=2 thickness=0.12
-quad 684 [788,800,616,615] materialId=2 thickness=0.12
-quad 685 [586,587,801,789] materialId=2 thickness=0.12
-quad 686 [789,801,802,790] materialId=2 thickness=0.12
-quad 687 [790,802,672,671] materialId=2 thickness=0.12
-quad 688 [671,672,803,791] materialId=2 thickness=0.12
-quad 689 [791,803,804,792] materialId=2 thickness=0.12
-quad 690 [792,804,597,596] materialId=2 thickness=0.12
-quad 691 [596,597,805,793] materialId=2 thickness=0.12
-quad 692 [793,805,806,794] materialId=2 thickness=0.12
-quad 693 [794,806,682,681] materialId=2 thickness=0.12
-quad 694 [681,682,807,795] materialId=2 thickness=0.12
-quad 695 [795,807,808,796] materialId=2 thickness=0.12
-quad 696 [796,808,607,606] materialId=2 thickness=0.12
-quad 697 [606,607,809,797] materialId=2 thickness=0.12
-quad 698 [797,809,810,798] materialId=2 thickness=0.12
-quad 699 [798,810,692,691] materialId=2 thickness=0.12
-quad 700 [691,692,811,799] materialId=2 thickness=0.12
-quad 701 [799,811,812,800] materialId=2 thickness=0.12
-quad 702 [800,812,617,616] materialId=2 thickness=0.12
-quad 703 [587,574,648,801] materialId=2 thickness=0.12
-quad 704 [801,648,649,802] materialId=2 thickness=0.12
-quad 705 [802,649,650,672] materialId=2 thickness=0.12
-quad 706 [672,650,651,803] materialId=2 thickness=0.12
-quad 707 [803,651,652,804] materialId=2 thickness=0.12
-quad 708 [804,652,575,597] materialId=2 thickness=0.12
-quad 709 [597,575,653,805] materialId=2 thickness=0.12
-quad 710 [805,653,654,806] materialId=2 thickness=0.12
-quad 711 [806,654,655,682] materialId=2 thickness=0.12
-quad 712 [682,655,656,807] materialId=2 thickness=0.12
-quad 713 [807,656,657,808] materialId=2 thickness=0.12
-quad 714 [808,657,576,607] materialId=2 thickness=0.12
-quad 715 [607,576,658,809] materialId=2 thickness=0.12
-quad 716 [809,658,659,810] materialId=2 thickness=0.12
-quad 717 [810,659,660,692] materialId=2 thickness=0.12
-quad 718 [692,660,661,811] materialId=2 thickness=0.12
-quad 719 [811,661,662,812] materialId=2 thickness=0.12
-quad 720 [812,662,577,617] materialId=2 thickness=0.12
-quad 721 [296,317,813,814] materialId=2 thickness=0.2
-quad 722 [814,813,815,816] materialId=2 thickness=0.2
-quad 723 [816,815,588,567] materialId=2 thickness=0.2
-quad 724 [354,402,817,818] materialId=2 thickness=0.2
-quad 725 [818,817,819,820] materialId=2 thickness=0.2
-quad 726 [820,819,673,625] materialId=2 thickness=0.2
-quad 727 [317,318,821,813] materialId=2 thickness=0.2
-quad 728 [813,821,822,815] materialId=2 thickness=0.2
-quad 729 [815,822,589,588] materialId=2 thickness=0.2
-quad 730 [402,403,823,817] materialId=2 thickness=0.2
-quad 731 [817,823,824,819] materialId=2 thickness=0.2
-quad 732 [819,824,674,673] materialId=2 thickness=0.2
-quad 733 [318,319,825,821] materialId=2 thickness=0.2
-quad 734 [821,825,826,822] materialId=2 thickness=0.2
-quad 735 [822,826,590,589] materialId=2 thickness=0.2
-quad 736 [403,404,827,823] materialId=2 thickness=0.2
-quad 737 [823,827,828,824] materialId=2 thickness=0.2
-quad 738 [824,828,675,674] materialId=2 thickness=0.2
-quad 739 [296,352,829,814] materialId=2 thickness=0.2
-quad 740 [814,829,830,816] materialId=2 thickness=0.2
-quad 741 [816,830,623,567] materialId=2 thickness=0.2
-quad 742 [319,450,831,825] materialId=2 thickness=0.2
-quad 743 [825,831,832,826] materialId=2 thickness=0.2
-quad 744 [826,832,721,590] materialId=2 thickness=0.2
-quad 745 [352,353,833,829] materialId=2 thickness=0.2
-quad 746 [829,833,834,830] materialId=2 thickness=0.2
-quad 747 [830,834,624,623] materialId=2 thickness=0.2
-quad 748 [450,451,835,831] materialId=2 thickness=0.2
-quad 749 [831,835,836,832] materialId=2 thickness=0.2
-quad 750 [832,836,722,721] materialId=2 thickness=0.2
-quad 751 [353,354,818,833] materialId=2 thickness=0.2
-quad 752 [833,818,820,834] materialId=2 thickness=0.2
-quad 753 [834,820,625,624] materialId=2 thickness=0.2
-quad 754 [451,404,827,835] materialId=2 thickness=0.2
-quad 755 [835,827,828,836] materialId=2 thickness=0.2
-quad 756 [836,828,675,722] materialId=2 thickness=0.2
+member 1 frame 1 2 materialId=1 sectionId=1
+member 2 frame 2 3 materialId=1 sectionId=1
+member 3 frame 3 4 materialId=1 sectionId=1
+member 4 frame 5 6 materialId=1 sectionId=1
+member 5 frame 6 7 materialId=1 sectionId=1
+member 6 frame 7 8 materialId=1 sectionId=1
+member 7 frame 9 10 materialId=1 sectionId=1
+member 8 frame 10 11 materialId=1 sectionId=1
+member 9 frame 11 12 materialId=1 sectionId=1
+member 10 frame 13 14 materialId=1 sectionId=1
+member 11 frame 14 15 materialId=1 sectionId=1
+member 12 frame 15 16 materialId=1 sectionId=1
+member 13 frame 17 18 materialId=1 sectionId=1
+member 14 frame 18 19 materialId=1 sectionId=1
+member 15 frame 19 20 materialId=1 sectionId=1
+member 16 frame 21 22 materialId=1 sectionId=1
+member 17 frame 22 23 materialId=1 sectionId=1
+member 18 frame 23 24 materialId=1 sectionId=1
+member 19 frame 25 26 materialId=1 sectionId=1
+member 20 frame 26 27 materialId=1 sectionId=1
+member 21 frame 27 28 materialId=1 sectionId=1
+member 22 frame 29 30 materialId=1 sectionId=1
+member 23 frame 30 31 materialId=1 sectionId=1
+member 24 frame 31 32 materialId=1 sectionId=1
+member 25 frame 33 34 materialId=1 sectionId=1
+member 26 frame 34 35 materialId=1 sectionId=1
+member 27 frame 35 36 materialId=1 sectionId=1
+member 28 frame 37 38 materialId=1 sectionId=1
+member 29 frame 38 39 materialId=1 sectionId=1
+member 30 frame 39 40 materialId=1 sectionId=1
+member 31 frame 41 42 materialId=1 sectionId=1
+member 32 frame 42 43 materialId=1 sectionId=1
+member 33 frame 43 44 materialId=1 sectionId=1
+member 34 frame 45 46 materialId=1 sectionId=1
+member 35 frame 46 47 materialId=1 sectionId=1
+member 36 frame 47 48 materialId=1 sectionId=1
+member 37 frame 2 61 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 38 frame 61 18 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 39 frame 18 34 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 40 frame 6 50 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 41 frame 50 22 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 42 frame 22 38 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 43 frame 10 62 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 44 frame 62 26 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 45 frame 26 42 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 46 frame 14 63 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 47 frame 63 30 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 48 frame 30 46 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 49 frame 2 64 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 50 frame 64 6 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 51 frame 6 58 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 52 frame 58 10 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 53 frame 10 65 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 54 frame 65 14 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 55 frame 18 66 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 56 frame 66 22 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 57 frame 22 67 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 58 frame 67 26 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 59 frame 26 68 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 60 frame 68 30 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 61 frame 34 69 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 62 frame 69 38 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 63 frame 38 70 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 64 frame 70 42 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 65 frame 42 71 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 66 frame 71 46 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 67 frame 64 72 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
+member 68 frame 72 66 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
+member 69 frame 66 69 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
+member 70 frame 58 54 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
+member 71 frame 54 67 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
+member 72 frame 67 70 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
+member 73 frame 65 73 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
+member 74 frame 73 68 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
+member 75 frame 68 71 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
+member 76 frame 3 74 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 77 frame 74 19 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 78 frame 19 35 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 79 frame 7 51 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 80 frame 51 23 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 81 frame 23 39 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 82 frame 11 75 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 83 frame 75 27 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 84 frame 27 43 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 85 frame 15 76 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 86 frame 76 31 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 87 frame 31 47 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 88 frame 3 77 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 89 frame 77 7 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 90 frame 7 59 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 91 frame 59 11 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 92 frame 11 78 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 93 frame 78 15 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 94 frame 19 79 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 95 frame 79 23 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 96 frame 23 80 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 97 frame 80 27 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 98 frame 27 81 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 99 frame 81 31 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 100 frame 35 82 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 101 frame 82 39 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 102 frame 39 83 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 103 frame 83 43 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 104 frame 43 84 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 105 frame 84 47 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 106 frame 77 85 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
+member 107 frame 85 79 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
+member 108 frame 79 82 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
+member 109 frame 59 55 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
+member 110 frame 55 80 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
+member 111 frame 80 83 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
+member 112 frame 78 86 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
+member 113 frame 86 81 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
+member 114 frame 81 84 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
+member 115 frame 4 87 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 116 frame 87 20 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 117 frame 20 36 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 118 frame 8 52 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 119 frame 52 24 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 120 frame 24 40 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 121 frame 12 88 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 122 frame 88 28 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 123 frame 28 44 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 124 frame 16 89 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 125 frame 89 32 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 126 frame 32 48 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 127 frame 4 90 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 128 frame 90 8 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 129 frame 8 60 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 130 frame 60 12 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 131 frame 12 91 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 132 frame 91 16 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 133 frame 20 92 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 134 frame 92 24 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 135 frame 24 93 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 136 frame 93 28 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 137 frame 28 94 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 138 frame 94 32 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 139 frame 36 95 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 140 frame 95 40 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 141 frame 40 96 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 142 frame 96 44 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 143 frame 44 97 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 144 frame 97 48 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 145 frame 90 98 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
+member 146 frame 98 92 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
+member 147 frame 92 95 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
+member 148 frame 60 56 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
+member 149 frame 56 93 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
+member 150 frame 93 96 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
+member 151 frame 91 99 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
+member 152 frame 99 94 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
+member 153 frame 94 97 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
 
-support 1 1 fixed3d
-support 2 2 fixed3d
-support 3 3 fixed3d
-support 4 4 fixed3d
-support 5 5 fixed3d
-support 6 6 fixed3d
-support 7 7 fixed3d
-support 8 8 fixed3d
-support 9 9 fixed3d
-support 10 10 fixed3d
-support 11 11 fixed3d
-support 12 12 fixed3d
-support 13 13 fixed3d
-support 14 14 fixed3d
-support 15 15 fixed3d
-support 16 16 fixed3d
-support 17 17 fixed3d
-support 18 18 fixed3d
-support 19 19 fixed3d
-support 20 20 fixed3d
-support 21 21 fixed3d
-support 22 22 fixed3d
-support 23 23 fixed3d
 grid {"axes":[{"id":"ax-x1","name":"1","axis":"x","at":0},{"id":"ax-x2","name":"2","axis":"x","at":6},{"id":"ax-x3","name":"3","axis":"x","at":12},{"id":"ax-y1","name":"A","axis":"y","at":0},{"id":"ax-y2","name":"B","axis":"y","at":6},{"id":"ax-y3","name":"C","axis":"y","at":12},{"id":"ax-y4","name":"D","axis":"y","at":18}],"levels":[{"id":"lv-0","name":"PB","z":0},{"id":"lv-1","name":"1º piso","z":3.6},{"id":"lv-2","name":"2º piso","z":7.2},{"id":"lv-3","name":"Azotea","z":10.8}]}
+support 1 1 fixed3d
+support 2 5 fixed3d
+support 3 9 fixed3d
+support 4 13 fixed3d
+support 5 17 fixed3d
+support 6 21 fixed3d
+support 7 25 fixed3d
+support 8 29 fixed3d
+support 9 33 fixed3d
+support 10 37 fixed3d
+support 11 41 fixed3d
+support 12 45 fixed3d
+support 13 49 fixed3d
+group 1 physicalMember "Tabique núcleo 1 · PB" members={"nodes":[5,49,50,6]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-0","levelTo":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.2,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[{"from":5,"to":49,"type":"fixed3d"}]}}
+group 2 physicalMember "Tabique núcleo 1 · 1º piso" members={"nodes":[6,50,51,7]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-1","levelTo":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.2,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 3 physicalMember "Tabique núcleo 1 · 2º piso" members={"nodes":[7,51,52,8]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-2","levelTo":"lv-3","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.2,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+support 14 53 fixed3d
+group 4 physicalMember "Tabique núcleo 2 · PB" members={"nodes":[49,53,54,50]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-0","levelTo":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.2,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[{"from":49,"to":53,"type":"fixed3d"}]}}
+group 5 physicalMember "Tabique núcleo 2 · 1º piso" members={"nodes":[50,54,55,51]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-1","levelTo":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.2,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 6 physicalMember "Tabique núcleo 2 · 2º piso" members={"nodes":[51,55,56,52]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-2","levelTo":"lv-3","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.2,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+support 15 57 fixed3d
+group 7 physicalMember "Tabique núcleo 3 · PB" members={"nodes":[53,57,58,54]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-0","levelTo":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.2,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[{"from":53,"to":57,"type":"fixed3d"}]}}
+group 8 physicalMember "Tabique núcleo 3 · 1º piso" members={"nodes":[54,58,59,55]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-1","levelTo":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.2,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 9 physicalMember "Tabique núcleo 3 · 2º piso" members={"nodes":[55,59,60,56]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-2","levelTo":"lv-3","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.2,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 10 physicalMember "Tabique núcleo 4 · PB" members={"nodes":[57,5,6,58]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-0","levelTo":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.2,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[{"from":57,"to":5,"type":"fixed3d"}]}}
+group 11 physicalMember "Tabique núcleo 4 · 1º piso" members={"nodes":[58,6,7,59]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-1","levelTo":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.2,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 12 physicalMember "Tabique núcleo 4 · 2º piso" members={"nodes":[59,7,8,60]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-2","levelTo":"lv-3","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.2,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 13 physicalMember "Losa 0–6 × 0–3 · 1º piso" members={"nodes":[2,18,66,64]} data={"kind":"slab","typology":"solid","levelFrom":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 14 physicalMember "Losa 0–6 × 3–6 · 1º piso" members={"nodes":[64,66,22,6]} data={"kind":"slab","typology":"solid","levelFrom":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 15 physicalMember "Losa 0–6 × 6–9 · 1º piso" members={"nodes":[6,22,67,58]} data={"kind":"slab","typology":"solid","levelFrom":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 16 physicalMember "Losa 0–6 × 9–12 · 1º piso" members={"nodes":[58,67,26,10]} data={"kind":"slab","typology":"solid","levelFrom":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 17 physicalMember "Losa 0–6 × 12–15 · 1º piso" members={"nodes":[10,26,68,65]} data={"kind":"slab","typology":"solid","levelFrom":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 18 physicalMember "Losa 0–6 × 15–18 · 1º piso" members={"nodes":[65,68,30,14]} data={"kind":"slab","typology":"solid","levelFrom":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 19 physicalMember "Losa 6–12 × 0–3 · 1º piso" members={"nodes":[18,34,69,66]} data={"kind":"slab","typology":"solid","levelFrom":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 20 physicalMember "Losa 6–12 × 3–6 · 1º piso" members={"nodes":[66,69,38,22]} data={"kind":"slab","typology":"solid","levelFrom":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 21 physicalMember "Losa 6–12 × 6–9 · 1º piso" members={"nodes":[22,38,70,67]} data={"kind":"slab","typology":"solid","levelFrom":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 22 physicalMember "Losa 6–12 × 9–12 · 1º piso" members={"nodes":[67,70,42,26]} data={"kind":"slab","typology":"solid","levelFrom":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 23 physicalMember "Losa 6–12 × 12–15 · 1º piso" members={"nodes":[26,42,71,68]} data={"kind":"slab","typology":"solid","levelFrom":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 24 physicalMember "Losa 6–12 × 15–18 · 1º piso" members={"nodes":[68,71,46,30]} data={"kind":"slab","typology":"solid","levelFrom":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 25 physicalMember "Losa 0–6 × 0–3 · 2º piso" members={"nodes":[3,19,79,77]} data={"kind":"slab","typology":"solid","levelFrom":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 26 physicalMember "Losa 0–6 × 3–6 · 2º piso" members={"nodes":[77,79,23,7]} data={"kind":"slab","typology":"solid","levelFrom":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 27 physicalMember "Losa 0–6 × 6–9 · 2º piso" members={"nodes":[7,23,80,59]} data={"kind":"slab","typology":"solid","levelFrom":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 28 physicalMember "Losa 0–6 × 9–12 · 2º piso" members={"nodes":[59,80,27,11]} data={"kind":"slab","typology":"solid","levelFrom":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 29 physicalMember "Losa 0–6 × 12–15 · 2º piso" members={"nodes":[11,27,81,78]} data={"kind":"slab","typology":"solid","levelFrom":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 30 physicalMember "Losa 0–6 × 15–18 · 2º piso" members={"nodes":[78,81,31,15]} data={"kind":"slab","typology":"solid","levelFrom":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 31 physicalMember "Losa 6–12 × 0–3 · 2º piso" members={"nodes":[19,35,82,79]} data={"kind":"slab","typology":"solid","levelFrom":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 32 physicalMember "Losa 6–12 × 3–6 · 2º piso" members={"nodes":[79,82,39,23]} data={"kind":"slab","typology":"solid","levelFrom":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 33 physicalMember "Losa 6–12 × 6–9 · 2º piso" members={"nodes":[23,39,83,80]} data={"kind":"slab","typology":"solid","levelFrom":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 34 physicalMember "Losa 6–12 × 9–12 · 2º piso" members={"nodes":[80,83,43,27]} data={"kind":"slab","typology":"solid","levelFrom":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 35 physicalMember "Losa 6–12 × 12–15 · 2º piso" members={"nodes":[27,43,84,81]} data={"kind":"slab","typology":"solid","levelFrom":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 36 physicalMember "Losa 6–12 × 15–18 · 2º piso" members={"nodes":[81,84,47,31]} data={"kind":"slab","typology":"solid","levelFrom":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 37 physicalMember "Losa 0–6 × 0–3 · Azotea" members={"nodes":[4,20,92,90]} data={"kind":"slab","typology":"solid","levelFrom":"lv-3","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 38 physicalMember "Losa 0–6 × 3–6 · Azotea" members={"nodes":[90,92,24,8]} data={"kind":"slab","typology":"solid","levelFrom":"lv-3","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 39 physicalMember "Losa 0–6 × 6–9 · Azotea" members={"nodes":[8,24,93,60]} data={"kind":"slab","typology":"solid","levelFrom":"lv-3","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 40 physicalMember "Losa 0–6 × 9–12 · Azotea" members={"nodes":[60,93,28,12]} data={"kind":"slab","typology":"solid","levelFrom":"lv-3","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 41 physicalMember "Losa 0–6 × 12–15 · Azotea" members={"nodes":[12,28,94,91]} data={"kind":"slab","typology":"solid","levelFrom":"lv-3","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 42 physicalMember "Losa 0–6 × 15–18 · Azotea" members={"nodes":[91,94,32,16]} data={"kind":"slab","typology":"solid","levelFrom":"lv-3","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 43 physicalMember "Losa 6–12 × 0–3 · Azotea" members={"nodes":[20,36,95,92]} data={"kind":"slab","typology":"solid","levelFrom":"lv-3","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 44 physicalMember "Losa 6–12 × 3–6 · Azotea" members={"nodes":[92,95,40,24]} data={"kind":"slab","typology":"solid","levelFrom":"lv-3","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 45 physicalMember "Losa 6–12 × 6–9 · Azotea" members={"nodes":[24,40,96,93]} data={"kind":"slab","typology":"solid","levelFrom":"lv-3","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 46 physicalMember "Losa 6–12 × 9–12 · Azotea" members={"nodes":[93,96,44,28]} data={"kind":"slab","typology":"solid","levelFrom":"lv-3","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 47 physicalMember "Losa 6–12 × 12–15 · Azotea" members={"nodes":[28,44,97,94]} data={"kind":"slab","typology":"solid","levelFrom":"lv-3","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 48 physicalMember "Losa 6–12 × 15–18 · Azotea" members={"nodes":[94,97,48,32]} data={"kind":"slab","typology":"solid","levelFrom":"lv-3","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
 regulations {"version":2,"roles":{"basis":{"role":"basis","adapterId":"cirsoc101-2025-basis","nameKey":"regulations.name.cirsoc101","edition":"2025","maturity":"VALIDATED","jurisdiction":"","adoption":"unstated","settings":{"generateCombinations":true,"dialog":{"comboSet":"ultimate","comboSource":"regulation","bothSenses":true,"patternsInCompanions":false}},"configComplete":true,"state":"applied","appliedAtRevision":0,"refs":[]},"loads":{"role":"loads","adapterId":"cirsoc101-2025-loads","nameKey":"regulations.name.cirsoc101","edition":"2025","maturity":"VALIDATED","jurisdiction":"","adoption":"unstated","settings":{"occupancyKey":"vivienda","dead":[{"labelKey":"loads.dead.contrapiso_cemento","q":1.44},{"labelKey":"loads.dead.piso_baldosa_ceramica","q":0.28},{"labelKey":"loads.dead.cielo_acustico","q":0.05}],"tributaryWidth":3,"applyLiveReduction":true,"reductionElementKind":"interiorBeam","floorsSupported":1,"dialog":{"deadRows":[{"entryKey":"contrapiso_cemento","thickness":0.08,"onBattens":false,"q":0,"isPartition":false},{"entryKey":"piso_baldosa_ceramica","thickness":0,"onBattens":false,"q":0,"isPartition":false},{"entryKey":"cielo_acustico","thickness":0,"onBattens":false,"q":0,"isPartition":false}],"partitionLive":{"on":true,"q":0.75},"gravityMode":"panels","gravitySlab":"twoWay","gravitySpan":"x","gravityLoadEveryPanel":false,"roofCfg":{"enabled":false,"use":"maintenance","dead":null,"weight":null,"occupancyKey":"azotea_privada","slopeDeg":null},"livePatterns":"all","special":{"thermal":{"on":false,"dt":20,"grad":0},"soil":{"on":false,"gradeZ":0,"gamma":17.3,"k":0.5,"surcharge":0,"permanent":true,"sideOn":false,"sideX":0,"sideY":0},"fluid":{"on":false,"levelZ":3,"gamma":10,"insideOn":false,"insideX":0,"insideY":0}}}},"configComplete":true,"state":"applied","appliedAtRevision":0,"refs":[]},"wind":{"role":"wind","adapterId":"cirsoc102-2025","nameKey":"regulations.name.cirsoc102","edition":"2025","maturity":"VALIDATED","jurisdiction":"","adoption":"unstated","settings":{"basicSpeed":45,"exposure":"B","enclosure":"enclosed","siteAltitudeM":0,"kzt":1,"kztSurveyed":false,"roofSlopeDeg":0,"dynamics":{"n1Source":"modal","beta":0.02,"rigidG":"default"},"dialog":{"windDirs":["+x","-x","+y","-y"],"windCaseSet":"all","windService":{"enabled":false,"v50":0,"mri":10},"windStructure":{"kind":"building","roof":"pitched","blocked":false,"towerSection":"square","round":false,"solidity":0.2,"diagonal":true,"members":"flat","clearance":2,"chimney":"roundRough","width":0,"diameter":0,"areaX":0,"areaY":0}}},"configComplete":true,"state":"applied","appliedAtRevision":0,"refs":[]},"snow":{"role":"snow","adapterId":"cirsoc104-2005","nameKey":"regulations.name.cirsoc104","edition":"2005","maturity":"IMPLEMENTED_PROVISIONAL","jurisdiction":"","adoption":"unstated","settings":{},"configComplete":false,"state":"applied","appliedAtRevision":0,"refs":[]},"seismic":{"role":"seismic","adapterId":null,"nameKey":"","edition":"","maturity":"UNSUPPORTED","jurisdiction":"","adoption":"unstated","settings":{},"configComplete":false,"state":"unset","appliedAtRevision":null,"refs":[]},"thermal":{"role":"thermal","adapterId":"cirsoc101-2025-thermal","nameKey":"regulations.name.cirsoc101Thermal","edition":"2025","maturity":"VALIDATED","jurisdiction":"","adoption":"unstated","settings":{},"configComplete":true,"state":"applied","appliedAtRevision":0,"refs":[]},"concrete":{"role":"concrete","adapterId":"cirsoc","nameKey":"regulations.name.cirsoc201","edition":"2025","maturity":"VALIDATED","jurisdiction":"","adoption":"unstated","settings":{},"configComplete":true,"state":"applied","appliedAtRevision":0,"refs":[]},"steel":{"role":"steel","adapterId":null,"nameKey":"","edition":"","maturity":"UNSUPPORTED","jurisdiction":"","adoption":"unstated","settings":{},"configComplete":false,"state":"unset","appliedAtRevision":null,"refs":[]},"masonry":{"role":"masonry","adapterId":null,"nameKey":"","edition":"","maturity":"UNSUPPORTED","jurisdiction":"","adoption":"unstated","settings":{},"configComplete":false,"state":"unset","appliedAtRevision":null,"refs":[]},"timber":{"role":"timber","adapterId":null,"nameKey":"","edition":"","maturity":"UNSUPPORTED","jurisdiction":"","adoption":"unstated","settings":{},"configComplete":false,"state":"unset","appliedAtRevision":null,"refs":[]}}}
 

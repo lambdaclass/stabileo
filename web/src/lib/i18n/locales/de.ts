@@ -18,6 +18,7 @@ const de: Translations = {
   "loadPlan.blocked.concentratedRule": "{occupancy} erfordert einen Nachweis konzentrierter Lasten nach CIRSOC 101 {article}. Maßgebende Laststellungen werden nicht ausgewertet. Die automatische Erzeugung ist gesperrt; modellieren und prüfen Sie diese Einwirkungen manuell.",
   "loadPlan.blocked.concentratedLive": "{occupancy} erfordert nach CIRSOC 101 §4.4 den Nachweis einer konzentrierten Nutzlast von {force} kN. Maßgebende Laststellungen und die Alternative zwischen Flächenlast und Einzellast werden nicht ausgewertet. Die automatische Erzeugung ist gesperrt; modellieren und prüfen Sie diese Einwirkungen manuell.",
   "loadPlan.blocked.concentratedRoof": "CIRSOC 101 §4.4 verlangt konzentrierte Dacheinwirkungen in den ungünstigsten Laststellungen, getrennt von der Dachnutzlast nach §4.8. Diese Nachweise werden nicht ausgewertet. Die automatische Erzeugung ist gesperrt; modellieren und prüfen Sie die Dacheinwirkungen manuell.",
+  "loadPlan.blocked.unmeshedPlatePressure": "Erd- oder Flüssigkeitsdruck wirkt auf eine Platte, die noch nicht vernetzt ist. Vernetzen Sie die Platte (oder rechnen Sie einmal) und erzeugen Sie die Lasten erneut.",
   "loads.asce7.blocked.concentratedLive": "{occupancy} verlangt einen Nachweis für eine Einzelnutzlast von {force} kN nach ASCE 7-22 §4.4 und Tabelle 4.3-1. Die maßgebenden Laststellungen und die Alternative zwischen Flächen- und Einzellast werden nicht ausgewertet. Die automatische Erzeugung ist gesperrt; modellieren und prüfen Sie diese Einwirkungen manuell.",
   "loads.asce7.blocked.concentratedRoof": "ASCE 7-22 Tabelle 4.3-1 verlangt auf Dächern mit Wartungszugang eine Einzellast von 300 lb (1,33 kN) in der ungünstigsten Stellung, getrennt von der Dachnutzlast nach §4.8. Dieser Nachweis wird nicht ausgewertet. Die automatische Erzeugung ist gesperrt; modellieren und prüfen Sie die Dacheinwirkungen manuell.",
   "loads.ec.live.localQk": "{occupancy}: Die Einzellast Qk = {force} kN wirkt allein, für örtliche Nachweise (EN 1991-1-1 6.2.1(4)). Die Berechnung nimmt die Flächenlast qk; weisen Sie Qk örtlich nach.",
@@ -889,6 +890,11 @@ const de: Translations = {
   'pro.stats.nodes': 'Knoten',
   'pro.stats.members': 'Stäbe',
   'pro.stats.shells': 'Schalen',
+  "pro.stats.plates": "Platten",
+  "pro.examples.loading.title": "„{name}“ wird geöffnet",
+  "pro.examples.loading.model": "Modell wird geladen",
+  "pro.examples.loading.loads": "Normgemäße Lasten und Kombinationen werden erzeugt",
+  "pro.examples.loading.draw": "Wird gezeichnet",
   'pro.stats.heavy': 'großes Modell',
 
   // ─── ToolbarProject.svelte ───
@@ -3584,6 +3590,7 @@ const de: Translations = {
   'file.workspaceBackupFailed': 'Es war kein Platz für eine Kopie vorhanden, daher wird der gespeicherte Arbeitsbereich nicht überschrieben, solange diese Seite geöffnet ist. Verwenden Sie „Sitzung speichern“, um zu sichern, was Sie öffnen.',
   'file.workspaceNotSaved': 'Ihre Arbeit wird NICHT automatisch gespeichert: Der Browser hat das Speichern dieses Arbeitsbereichs abgelehnt. Speichern Sie ihn in einer Datei, damit nichts verloren geht.',
   'file.workspaceSaveToFile': 'Sitzung in Datei speichern',
+  "file.workspaceNoticeClose": "Hinweis schließen",
   'file.workspaceDetailingLost': 'Die Bewehrungsführung dieser Tabs konnte nicht aus dem Browser wiederhergestellt werden, daher wurden sie ohne Stäbe wiederhergestellt: {names}. Erzeugen Sie die Bewehrungsführung erneut oder öffnen Sie Ihre gespeicherte .ded-Datei.',
   'file.workspaceDetailingUnread': 'Die Bewehrungsführung dieser Tabs konnte diesmal nicht aus dem Browser gelesen werden, daher wurden sie ohne Stäbe geöffnet: {names}. Sie bleibt gespeichert und wird beim nächsten Öffnen der Seite erneut gelesen; erzeugen Sie sie nur neu, wenn es nötig ist.',
   'file.workspaceRestoredBeside': 'Ihr gespeicherter Arbeitsbereich wurde in neuen Tabs geöffnet, neben dem, was Sie während des Ladens begonnen haben.',

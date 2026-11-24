@@ -13,6 +13,8 @@
   import ProQuickEdit from './components/pro/ProQuickEdit.svelte';
   import MeshProgressCard from './components/pro/plates/MeshProgressCard.svelte';
   import SolveProgressCard from './components/SolveProgressCard.svelte';
+  import ExampleProgressCard from './components/pro/ExampleProgressCard.svelte';
+  import { exampleProgress } from './lib/store/example-progress.svelte';
   import { solveProgress } from './lib/store/solve-progress.svelte';
   import RcSheetsProgressCard from './components/pro/rc-sheets/RcSheetsProgressCard.svelte';
   import { sheetsProgress } from './lib/store/rc-sheets-progress.svelte';
@@ -2344,8 +2346,9 @@
 <RebarWorkspace />
 {#if !deskDocked}<DesignDesk />{/if}
 
-{#if solveProgress.now || uiStore.toasts.length > 0 || meshProgress.now || sheetsProgress.now}
+{#if solveProgress.now || uiStore.toasts.length > 0 || meshProgress.now || sheetsProgress.now || exampleProgress.now}
   <div class="toast-container" class:toast-over-sheet={uiStore.isMobile && uiStore.appMode === 'basico' && basicPanel !== null}>
+    <ExampleProgressCard />
     <SolveProgressCard />
     {#if !(solveProgress.now && solveProgress.now.phase === 'mesh')}<MeshProgressCard />{/if}
     {#if __PUBLIC_FEATURES__.proRcSheets}<RcSheetsProgressCard />{/if}

@@ -1,6 +1,7 @@
 /**
- * The PRO gallery opens on its concrete buildings, and one of them loads with the wind the load
- * generator writes from the settings it brings; the generator opens on those settings, the
+ * The PRO gallery opens on its concrete buildings, and one of them loads, saying so while it does,
+ * its slabs, walls and stair plates not meshed yet, with the wind the load generator writes from the
+ * settings it brings; the generator opens on those settings, the
  * earthquake left for the reader to add. The catalogue and the loads are pinned in
  * `data/__tests__/pro-examples-gallery.switch-on.test.ts`.
  */
@@ -19,7 +20,12 @@ if (BUILD_FEATURES.proPlatesUnified) {
     expect(ids).toEqual(['pro-rc-house', 'pro-rc-four-storey', 'pro-rc-steel-columns', 'pro-rc-lift-core', 'pro-rc-party-wall']);
 
     await gallery.locator('[data-example="pro-rc-party-wall"] .pp-ex').click();
-    await expect.poll(() => page.evaluate(() => window.__stabileo.elementIds().length), { timeout: 90_000 }).toBe(609);
+    await expect(page.getByTestId('example-progress')).toBeVisible();
+    await expect.poll(() => page.evaluate(() => window.__stabileo.elementIds().length), { timeout: 90_000 }).toBe(494);
+    await expect(page.getByTestId('example-progress')).toHaveCount(0);
+    const plates = await page.evaluate(() => window.__stabileo.physicalMembers().filter((m) => m.kind === 'slab' || m.kind === 'wall').length);
+    expect(plates, 'slabs, walls, flights and landings as plates').toBe(340);
+    await page.screenshot({ path: test.info().outputPath('party-wall.png') });
     const cases = await page.evaluate(() => window.__stabileo.loadCaseNames());
     expect(cases.filter((n) => /^Wind \+Y/.test(n)).length).toBeGreaterThan(0);
     expect(cases.some((n) => /Wind [+−-]X/.test(n))).toBe(false);

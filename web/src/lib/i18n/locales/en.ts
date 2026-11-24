@@ -16,6 +16,7 @@ const en: Record<string, string> = {
   "loadPlan.blocked.concentratedRule": "{occupancy} requires a concentrated load check under CIRSOC 101 {article}. Governing placements are not evaluated. Automatic generation is blocked; model and check these actions manually.",
   "loadPlan.blocked.concentratedLive": "{occupancy} requires a {force} kN concentrated live load check under CIRSOC 101 §4.4. Governing placements and the uniform/concentrated alternative are not evaluated. Automatic generation is blocked; model and check these actions manually.",
   "loadPlan.blocked.concentratedRoof": "CIRSOC 101 §4.4 requires concentrated roof actions at their most unfavourable positions, separately from §4.8 roof live loading. These checks are not evaluated. Automatic generation is blocked; model and check the roof actions manually.",
+  "loadPlan.blocked.unmeshedPlatePressure": "Soil or fluid pressure acts on a plate that has no mesh yet. Mesh the plate (or run an analysis once) and generate the loads again.",
   "loads.asce7.blocked.concentratedLive": "{occupancy} requires a {force} kN concentrated live load check under ASCE 7-22 §4.4 and Table 4.3-1. Governing placements and the uniform/concentrated alternative are not evaluated. Automatic generation is blocked; model and check these actions manually.",
   "loads.asce7.blocked.concentratedRoof": "ASCE 7-22 Table 4.3-1 requires a 300 lb (1.33 kN) concentrated load on roofs subject to maintenance workers, at its most unfavourable position and separately from §4.8 roof live loading. This check is not evaluated. Automatic generation is blocked; model and check the roof actions manually.",
   "loads.ec.live.localQk": "{occupancy}: the concentrated load Qk = {force} kN acts alone, for local verifications (EN 1991-1-1 6.2.1(4)). The analysis takes the uniform qk; check Qk locally.",
@@ -1239,6 +1240,11 @@ const en: Record<string, string> = {
   'pro.stats.nodes': 'nodes',
   'pro.stats.members': 'members',
   'pro.stats.shells': 'shells',
+  "pro.stats.plates": "plates",
+  "pro.examples.loading.title": "Opening “{name}”",
+  "pro.examples.loading.model": "Loading the model",
+  "pro.examples.loading.loads": "Generating the code loads and their combinations",
+  "pro.examples.loading.draw": "Drawing",
   'pro.stats.heavy': "heavy model",
 
   // ─── ToolbarProject.svelte ───
@@ -3957,6 +3963,7 @@ const en: Record<string, string> = {
   'file.workspaceBackupFailed': 'There was no room to keep a copy, so the stored workspace will not be overwritten while this page is open. Use Save session to keep what you open.',
   'file.workspaceNotSaved': 'Your work is NOT being saved automatically: the browser refused to store this workspace. Save it to a file so you do not lose it.',
   'file.workspaceSaveToFile': 'Save session to file',
+  "file.workspaceNoticeClose": "Close the notice",
   'file.workspaceDetailingLost': 'The detailing of these tabs could not be recovered from the browser, so they were restored without bars: {names}. Generate the detailing again or open your saved .ded file.',
   'file.workspaceDetailingUnread': 'The detailing of these tabs could not be read from the browser this time, so they opened without bars: {names}. It is still stored and will be tried again the next time you open the page; do not generate it again unless you need to.',
   'file.workspaceRestoredBeside': 'Your saved workspace opened in new tabs, beside what you started while it was loading.',

@@ -1,6 +1,6 @@
 stabileo-model 1
 # A two-storey concrete house, two bays each way: 20 × 20 columns, 20 × 40 beams on every axis
-# and 12 cm solid slabs meshed as shells. Loads and combinations from the load generator.
+# and 12 cm solid slabs, a plate a bay. Loads and combinations from the load generator.
 name "Vivienda de H.A. de dos plantas"
 mode pro
 axes zUpStrongAxis
@@ -32,186 +32,6 @@ node 24 8 4.5 5.6
 node 25 8 9 0
 node 26 8 9 2.8
 node 27 8 9 5.6
-node 28 1 0 2.8
-node 29 2 0 2.8
-node 30 3 0 2.8
-node 31 5 0 2.8
-node 32 6 0 2.8
-node 33 7 0 2.8
-node 34 1 4.5 2.8
-node 35 2 4.5 2.8
-node 36 3 4.5 2.8
-node 37 5 4.5 2.8
-node 38 6 4.5 2.8
-node 39 7 4.5 2.8
-node 40 1 9 2.8
-node 41 2 9 2.8
-node 42 3 9 2.8
-node 43 5 9 2.8
-node 44 6 9 2.8
-node 45 7 9 2.8
-node 46 0 0.9 2.8
-node 47 0 1.8 2.8
-node 48 0 2.7 2.8
-node 49 0 3.6 2.8
-node 50 0 5.4 2.8
-node 51 0 6.3 2.8
-node 52 0 7.2 2.8
-node 53 0 8.1 2.8
-node 54 4 0.9 2.8
-node 55 4 1.8 2.8
-node 56 4 2.7 2.8
-node 57 4 3.6 2.8
-node 58 4 5.4 2.8
-node 59 4 6.3 2.8
-node 60 4 7.2 2.8
-node 61 4 8.1 2.8
-node 62 8 0.9 2.8
-node 63 8 1.8 2.8
-node 64 8 2.7 2.8
-node 65 8 3.6 2.8
-node 66 8 5.4 2.8
-node 67 8 6.3 2.8
-node 68 8 7.2 2.8
-node 69 8 8.1 2.8
-node 70 1 0.9 2.8
-node 71 1 1.8 2.8
-node 72 1 2.7 2.8
-node 73 1 3.6 2.8
-node 74 1 5.4 2.8
-node 75 1 6.3 2.8
-node 76 1 7.2 2.8
-node 77 1 8.1 2.8
-node 78 2 0.9 2.8
-node 79 2 1.8 2.8
-node 80 2 2.7 2.8
-node 81 2 3.6 2.8
-node 82 2 5.4 2.8
-node 83 2 6.3 2.8
-node 84 2 7.2 2.8
-node 85 2 8.1 2.8
-node 86 3 0.9 2.8
-node 87 3 1.8 2.8
-node 88 3 2.7 2.8
-node 89 3 3.6 2.8
-node 90 3 5.4 2.8
-node 91 3 6.3 2.8
-node 92 3 7.2 2.8
-node 93 3 8.1 2.8
-node 94 5 0.9 2.8
-node 95 5 1.8 2.8
-node 96 5 2.7 2.8
-node 97 5 3.6 2.8
-node 98 5 5.4 2.8
-node 99 5 6.3 2.8
-node 100 5 7.2 2.8
-node 101 5 8.1 2.8
-node 102 6 0.9 2.8
-node 103 6 1.8 2.8
-node 104 6 2.7 2.8
-node 105 6 3.6 2.8
-node 106 6 5.4 2.8
-node 107 6 6.3 2.8
-node 108 6 7.2 2.8
-node 109 6 8.1 2.8
-node 110 7 0.9 2.8
-node 111 7 1.8 2.8
-node 112 7 2.7 2.8
-node 113 7 3.6 2.8
-node 114 7 5.4 2.8
-node 115 7 6.3 2.8
-node 116 7 7.2 2.8
-node 117 7 8.1 2.8
-node 118 1 0 5.6
-node 119 2 0 5.6
-node 120 3 0 5.6
-node 121 5 0 5.6
-node 122 6 0 5.6
-node 123 7 0 5.6
-node 124 1 4.5 5.6
-node 125 2 4.5 5.6
-node 126 3 4.5 5.6
-node 127 5 4.5 5.6
-node 128 6 4.5 5.6
-node 129 7 4.5 5.6
-node 130 1 9 5.6
-node 131 2 9 5.6
-node 132 3 9 5.6
-node 133 5 9 5.6
-node 134 6 9 5.6
-node 135 7 9 5.6
-node 136 0 0.9 5.6
-node 137 0 1.8 5.6
-node 138 0 2.7 5.6
-node 139 0 3.6 5.6
-node 140 0 5.4 5.6
-node 141 0 6.3 5.6
-node 142 0 7.2 5.6
-node 143 0 8.1 5.6
-node 144 4 0.9 5.6
-node 145 4 1.8 5.6
-node 146 4 2.7 5.6
-node 147 4 3.6 5.6
-node 148 4 5.4 5.6
-node 149 4 6.3 5.6
-node 150 4 7.2 5.6
-node 151 4 8.1 5.6
-node 152 8 0.9 5.6
-node 153 8 1.8 5.6
-node 154 8 2.7 5.6
-node 155 8 3.6 5.6
-node 156 8 5.4 5.6
-node 157 8 6.3 5.6
-node 158 8 7.2 5.6
-node 159 8 8.1 5.6
-node 160 1 0.9 5.6
-node 161 1 1.8 5.6
-node 162 1 2.7 5.6
-node 163 1 3.6 5.6
-node 164 1 5.4 5.6
-node 165 1 6.3 5.6
-node 166 1 7.2 5.6
-node 167 1 8.1 5.6
-node 168 2 0.9 5.6
-node 169 2 1.8 5.6
-node 170 2 2.7 5.6
-node 171 2 3.6 5.6
-node 172 2 5.4 5.6
-node 173 2 6.3 5.6
-node 174 2 7.2 5.6
-node 175 2 8.1 5.6
-node 176 3 0.9 5.6
-node 177 3 1.8 5.6
-node 178 3 2.7 5.6
-node 179 3 3.6 5.6
-node 180 3 5.4 5.6
-node 181 3 6.3 5.6
-node 182 3 7.2 5.6
-node 183 3 8.1 5.6
-node 184 5 0.9 5.6
-node 185 5 1.8 5.6
-node 186 5 2.7 5.6
-node 187 5 3.6 5.6
-node 188 5 5.4 5.6
-node 189 5 6.3 5.6
-node 190 5 7.2 5.6
-node 191 5 8.1 5.6
-node 192 6 0.9 5.6
-node 193 6 1.8 5.6
-node 194 6 2.7 5.6
-node 195 6 3.6 5.6
-node 196 6 5.4 5.6
-node 197 6 6.3 5.6
-node 198 6 7.2 5.6
-node 199 6 8.1 5.6
-node 200 7 0.9 5.6
-node 201 7 1.8 5.6
-node 202 7 2.7 5.6
-node 203 7 3.6 5.6
-node 204 7 5.4 5.6
-node 205 7 6.3 5.6
-node 206 7 7.2 5.6
-node 207 7 8.1 5.6
 
 material 1 name="Hormigón H-25" e=23500 nu=0.2 rho=25 alpha=0.00001 fy=25
 section 1 name="Col 20×20" shape="rect" b=0.2 h=0.2 a=0.04 iy=0.0001333333333 iz=0.0001333333333 j=0.0002253333333
@@ -234,274 +54,30 @@ member 15 frame 22 23 materialId=1 sectionId=1
 member 16 frame 23 24 materialId=1 sectionId=1
 member 17 frame 25 26 materialId=1 sectionId=1
 member 18 frame 26 27 materialId=1 sectionId=1
-member 19 frame 2 28 materialId=1 sectionId=2
-member 20 frame 28 29 materialId=1 sectionId=2
-member 21 frame 29 30 materialId=1 sectionId=2
-member 22 frame 30 11 materialId=1 sectionId=2
-member 23 frame 11 31 materialId=1 sectionId=2
-member 24 frame 31 32 materialId=1 sectionId=2
-member 25 frame 32 33 materialId=1 sectionId=2
-member 26 frame 33 20 materialId=1 sectionId=2
-member 27 frame 5 34 materialId=1 sectionId=2
-member 28 frame 34 35 materialId=1 sectionId=2
-member 29 frame 35 36 materialId=1 sectionId=2
-member 30 frame 36 14 materialId=1 sectionId=2
-member 31 frame 14 37 materialId=1 sectionId=2
-member 32 frame 37 38 materialId=1 sectionId=2
-member 33 frame 38 39 materialId=1 sectionId=2
-member 34 frame 39 23 materialId=1 sectionId=2
-member 35 frame 8 40 materialId=1 sectionId=2
-member 36 frame 40 41 materialId=1 sectionId=2
-member 37 frame 41 42 materialId=1 sectionId=2
-member 38 frame 42 17 materialId=1 sectionId=2
-member 39 frame 17 43 materialId=1 sectionId=2
-member 40 frame 43 44 materialId=1 sectionId=2
-member 41 frame 44 45 materialId=1 sectionId=2
-member 42 frame 45 26 materialId=1 sectionId=2
-member 43 frame 2 46 materialId=1 sectionId=2
-member 44 frame 46 47 materialId=1 sectionId=2
-member 45 frame 47 48 materialId=1 sectionId=2
-member 46 frame 48 49 materialId=1 sectionId=2
-member 47 frame 49 5 materialId=1 sectionId=2
-member 48 frame 5 50 materialId=1 sectionId=2
-member 49 frame 50 51 materialId=1 sectionId=2
-member 50 frame 51 52 materialId=1 sectionId=2
-member 51 frame 52 53 materialId=1 sectionId=2
-member 52 frame 53 8 materialId=1 sectionId=2
-member 53 frame 11 54 materialId=1 sectionId=2
-member 54 frame 54 55 materialId=1 sectionId=2
-member 55 frame 55 56 materialId=1 sectionId=2
-member 56 frame 56 57 materialId=1 sectionId=2
-member 57 frame 57 14 materialId=1 sectionId=2
-member 58 frame 14 58 materialId=1 sectionId=2
-member 59 frame 58 59 materialId=1 sectionId=2
-member 60 frame 59 60 materialId=1 sectionId=2
-member 61 frame 60 61 materialId=1 sectionId=2
-member 62 frame 61 17 materialId=1 sectionId=2
-member 63 frame 20 62 materialId=1 sectionId=2
-member 64 frame 62 63 materialId=1 sectionId=2
-member 65 frame 63 64 materialId=1 sectionId=2
-member 66 frame 64 65 materialId=1 sectionId=2
-member 67 frame 65 23 materialId=1 sectionId=2
-member 68 frame 23 66 materialId=1 sectionId=2
-member 69 frame 66 67 materialId=1 sectionId=2
-member 70 frame 67 68 materialId=1 sectionId=2
-member 71 frame 68 69 materialId=1 sectionId=2
-member 72 frame 69 26 materialId=1 sectionId=2
-quad 1 [2,28,70,46] materialId=1 thickness=0.12
-quad 2 [46,70,71,47] materialId=1 thickness=0.12
-quad 3 [47,71,72,48] materialId=1 thickness=0.12
-quad 4 [48,72,73,49] materialId=1 thickness=0.12
-quad 5 [49,73,34,5] materialId=1 thickness=0.12
-quad 6 [5,34,74,50] materialId=1 thickness=0.12
-quad 7 [50,74,75,51] materialId=1 thickness=0.12
-quad 8 [51,75,76,52] materialId=1 thickness=0.12
-quad 9 [52,76,77,53] materialId=1 thickness=0.12
-quad 10 [53,77,40,8] materialId=1 thickness=0.12
-quad 11 [28,29,78,70] materialId=1 thickness=0.12
-quad 12 [70,78,79,71] materialId=1 thickness=0.12
-quad 13 [71,79,80,72] materialId=1 thickness=0.12
-quad 14 [72,80,81,73] materialId=1 thickness=0.12
-quad 15 [73,81,35,34] materialId=1 thickness=0.12
-quad 16 [34,35,82,74] materialId=1 thickness=0.12
-quad 17 [74,82,83,75] materialId=1 thickness=0.12
-quad 18 [75,83,84,76] materialId=1 thickness=0.12
-quad 19 [76,84,85,77] materialId=1 thickness=0.12
-quad 20 [77,85,41,40] materialId=1 thickness=0.12
-quad 21 [29,30,86,78] materialId=1 thickness=0.12
-quad 22 [78,86,87,79] materialId=1 thickness=0.12
-quad 23 [79,87,88,80] materialId=1 thickness=0.12
-quad 24 [80,88,89,81] materialId=1 thickness=0.12
-quad 25 [81,89,36,35] materialId=1 thickness=0.12
-quad 26 [35,36,90,82] materialId=1 thickness=0.12
-quad 27 [82,90,91,83] materialId=1 thickness=0.12
-quad 28 [83,91,92,84] materialId=1 thickness=0.12
-quad 29 [84,92,93,85] materialId=1 thickness=0.12
-quad 30 [85,93,42,41] materialId=1 thickness=0.12
-quad 31 [30,11,54,86] materialId=1 thickness=0.12
-quad 32 [86,54,55,87] materialId=1 thickness=0.12
-quad 33 [87,55,56,88] materialId=1 thickness=0.12
-quad 34 [88,56,57,89] materialId=1 thickness=0.12
-quad 35 [89,57,14,36] materialId=1 thickness=0.12
-quad 36 [36,14,58,90] materialId=1 thickness=0.12
-quad 37 [90,58,59,91] materialId=1 thickness=0.12
-quad 38 [91,59,60,92] materialId=1 thickness=0.12
-quad 39 [92,60,61,93] materialId=1 thickness=0.12
-quad 40 [93,61,17,42] materialId=1 thickness=0.12
-quad 41 [11,31,94,54] materialId=1 thickness=0.12
-quad 42 [54,94,95,55] materialId=1 thickness=0.12
-quad 43 [55,95,96,56] materialId=1 thickness=0.12
-quad 44 [56,96,97,57] materialId=1 thickness=0.12
-quad 45 [57,97,37,14] materialId=1 thickness=0.12
-quad 46 [14,37,98,58] materialId=1 thickness=0.12
-quad 47 [58,98,99,59] materialId=1 thickness=0.12
-quad 48 [59,99,100,60] materialId=1 thickness=0.12
-quad 49 [60,100,101,61] materialId=1 thickness=0.12
-quad 50 [61,101,43,17] materialId=1 thickness=0.12
-quad 51 [31,32,102,94] materialId=1 thickness=0.12
-quad 52 [94,102,103,95] materialId=1 thickness=0.12
-quad 53 [95,103,104,96] materialId=1 thickness=0.12
-quad 54 [96,104,105,97] materialId=1 thickness=0.12
-quad 55 [97,105,38,37] materialId=1 thickness=0.12
-quad 56 [37,38,106,98] materialId=1 thickness=0.12
-quad 57 [98,106,107,99] materialId=1 thickness=0.12
-quad 58 [99,107,108,100] materialId=1 thickness=0.12
-quad 59 [100,108,109,101] materialId=1 thickness=0.12
-quad 60 [101,109,44,43] materialId=1 thickness=0.12
-quad 61 [32,33,110,102] materialId=1 thickness=0.12
-quad 62 [102,110,111,103] materialId=1 thickness=0.12
-quad 63 [103,111,112,104] materialId=1 thickness=0.12
-quad 64 [104,112,113,105] materialId=1 thickness=0.12
-quad 65 [105,113,39,38] materialId=1 thickness=0.12
-quad 66 [38,39,114,106] materialId=1 thickness=0.12
-quad 67 [106,114,115,107] materialId=1 thickness=0.12
-quad 68 [107,115,116,108] materialId=1 thickness=0.12
-quad 69 [108,116,117,109] materialId=1 thickness=0.12
-quad 70 [109,117,45,44] materialId=1 thickness=0.12
-quad 71 [33,20,62,110] materialId=1 thickness=0.12
-quad 72 [110,62,63,111] materialId=1 thickness=0.12
-quad 73 [111,63,64,112] materialId=1 thickness=0.12
-quad 74 [112,64,65,113] materialId=1 thickness=0.12
-quad 75 [113,65,23,39] materialId=1 thickness=0.12
-quad 76 [39,23,66,114] materialId=1 thickness=0.12
-quad 77 [114,66,67,115] materialId=1 thickness=0.12
-quad 78 [115,67,68,116] materialId=1 thickness=0.12
-quad 79 [116,68,69,117] materialId=1 thickness=0.12
-quad 80 [117,69,26,45] materialId=1 thickness=0.12
-member 73 frame 3 118 materialId=1 sectionId=2
-member 74 frame 118 119 materialId=1 sectionId=2
-member 75 frame 119 120 materialId=1 sectionId=2
-member 76 frame 120 12 materialId=1 sectionId=2
-member 77 frame 12 121 materialId=1 sectionId=2
-member 78 frame 121 122 materialId=1 sectionId=2
-member 79 frame 122 123 materialId=1 sectionId=2
-member 80 frame 123 21 materialId=1 sectionId=2
-member 81 frame 6 124 materialId=1 sectionId=2
-member 82 frame 124 125 materialId=1 sectionId=2
-member 83 frame 125 126 materialId=1 sectionId=2
-member 84 frame 126 15 materialId=1 sectionId=2
-member 85 frame 15 127 materialId=1 sectionId=2
-member 86 frame 127 128 materialId=1 sectionId=2
-member 87 frame 128 129 materialId=1 sectionId=2
-member 88 frame 129 24 materialId=1 sectionId=2
-member 89 frame 9 130 materialId=1 sectionId=2
-member 90 frame 130 131 materialId=1 sectionId=2
-member 91 frame 131 132 materialId=1 sectionId=2
-member 92 frame 132 18 materialId=1 sectionId=2
-member 93 frame 18 133 materialId=1 sectionId=2
-member 94 frame 133 134 materialId=1 sectionId=2
-member 95 frame 134 135 materialId=1 sectionId=2
-member 96 frame 135 27 materialId=1 sectionId=2
-member 97 frame 3 136 materialId=1 sectionId=2
-member 98 frame 136 137 materialId=1 sectionId=2
-member 99 frame 137 138 materialId=1 sectionId=2
-member 100 frame 138 139 materialId=1 sectionId=2
-member 101 frame 139 6 materialId=1 sectionId=2
-member 102 frame 6 140 materialId=1 sectionId=2
-member 103 frame 140 141 materialId=1 sectionId=2
-member 104 frame 141 142 materialId=1 sectionId=2
-member 105 frame 142 143 materialId=1 sectionId=2
-member 106 frame 143 9 materialId=1 sectionId=2
-member 107 frame 12 144 materialId=1 sectionId=2
-member 108 frame 144 145 materialId=1 sectionId=2
-member 109 frame 145 146 materialId=1 sectionId=2
-member 110 frame 146 147 materialId=1 sectionId=2
-member 111 frame 147 15 materialId=1 sectionId=2
-member 112 frame 15 148 materialId=1 sectionId=2
-member 113 frame 148 149 materialId=1 sectionId=2
-member 114 frame 149 150 materialId=1 sectionId=2
-member 115 frame 150 151 materialId=1 sectionId=2
-member 116 frame 151 18 materialId=1 sectionId=2
-member 117 frame 21 152 materialId=1 sectionId=2
-member 118 frame 152 153 materialId=1 sectionId=2
-member 119 frame 153 154 materialId=1 sectionId=2
-member 120 frame 154 155 materialId=1 sectionId=2
-member 121 frame 155 24 materialId=1 sectionId=2
-member 122 frame 24 156 materialId=1 sectionId=2
-member 123 frame 156 157 materialId=1 sectionId=2
-member 124 frame 157 158 materialId=1 sectionId=2
-member 125 frame 158 159 materialId=1 sectionId=2
-member 126 frame 159 27 materialId=1 sectionId=2
-quad 81 [3,118,160,136] materialId=1 thickness=0.12
-quad 82 [136,160,161,137] materialId=1 thickness=0.12
-quad 83 [137,161,162,138] materialId=1 thickness=0.12
-quad 84 [138,162,163,139] materialId=1 thickness=0.12
-quad 85 [139,163,124,6] materialId=1 thickness=0.12
-quad 86 [6,124,164,140] materialId=1 thickness=0.12
-quad 87 [140,164,165,141] materialId=1 thickness=0.12
-quad 88 [141,165,166,142] materialId=1 thickness=0.12
-quad 89 [142,166,167,143] materialId=1 thickness=0.12
-quad 90 [143,167,130,9] materialId=1 thickness=0.12
-quad 91 [118,119,168,160] materialId=1 thickness=0.12
-quad 92 [160,168,169,161] materialId=1 thickness=0.12
-quad 93 [161,169,170,162] materialId=1 thickness=0.12
-quad 94 [162,170,171,163] materialId=1 thickness=0.12
-quad 95 [163,171,125,124] materialId=1 thickness=0.12
-quad 96 [124,125,172,164] materialId=1 thickness=0.12
-quad 97 [164,172,173,165] materialId=1 thickness=0.12
-quad 98 [165,173,174,166] materialId=1 thickness=0.12
-quad 99 [166,174,175,167] materialId=1 thickness=0.12
-quad 100 [167,175,131,130] materialId=1 thickness=0.12
-quad 101 [119,120,176,168] materialId=1 thickness=0.12
-quad 102 [168,176,177,169] materialId=1 thickness=0.12
-quad 103 [169,177,178,170] materialId=1 thickness=0.12
-quad 104 [170,178,179,171] materialId=1 thickness=0.12
-quad 105 [171,179,126,125] materialId=1 thickness=0.12
-quad 106 [125,126,180,172] materialId=1 thickness=0.12
-quad 107 [172,180,181,173] materialId=1 thickness=0.12
-quad 108 [173,181,182,174] materialId=1 thickness=0.12
-quad 109 [174,182,183,175] materialId=1 thickness=0.12
-quad 110 [175,183,132,131] materialId=1 thickness=0.12
-quad 111 [120,12,144,176] materialId=1 thickness=0.12
-quad 112 [176,144,145,177] materialId=1 thickness=0.12
-quad 113 [177,145,146,178] materialId=1 thickness=0.12
-quad 114 [178,146,147,179] materialId=1 thickness=0.12
-quad 115 [179,147,15,126] materialId=1 thickness=0.12
-quad 116 [126,15,148,180] materialId=1 thickness=0.12
-quad 117 [180,148,149,181] materialId=1 thickness=0.12
-quad 118 [181,149,150,182] materialId=1 thickness=0.12
-quad 119 [182,150,151,183] materialId=1 thickness=0.12
-quad 120 [183,151,18,132] materialId=1 thickness=0.12
-quad 121 [12,121,184,144] materialId=1 thickness=0.12
-quad 122 [144,184,185,145] materialId=1 thickness=0.12
-quad 123 [145,185,186,146] materialId=1 thickness=0.12
-quad 124 [146,186,187,147] materialId=1 thickness=0.12
-quad 125 [147,187,127,15] materialId=1 thickness=0.12
-quad 126 [15,127,188,148] materialId=1 thickness=0.12
-quad 127 [148,188,189,149] materialId=1 thickness=0.12
-quad 128 [149,189,190,150] materialId=1 thickness=0.12
-quad 129 [150,190,191,151] materialId=1 thickness=0.12
-quad 130 [151,191,133,18] materialId=1 thickness=0.12
-quad 131 [121,122,192,184] materialId=1 thickness=0.12
-quad 132 [184,192,193,185] materialId=1 thickness=0.12
-quad 133 [185,193,194,186] materialId=1 thickness=0.12
-quad 134 [186,194,195,187] materialId=1 thickness=0.12
-quad 135 [187,195,128,127] materialId=1 thickness=0.12
-quad 136 [127,128,196,188] materialId=1 thickness=0.12
-quad 137 [188,196,197,189] materialId=1 thickness=0.12
-quad 138 [189,197,198,190] materialId=1 thickness=0.12
-quad 139 [190,198,199,191] materialId=1 thickness=0.12
-quad 140 [191,199,134,133] materialId=1 thickness=0.12
-quad 141 [122,123,200,192] materialId=1 thickness=0.12
-quad 142 [192,200,201,193] materialId=1 thickness=0.12
-quad 143 [193,201,202,194] materialId=1 thickness=0.12
-quad 144 [194,202,203,195] materialId=1 thickness=0.12
-quad 145 [195,203,129,128] materialId=1 thickness=0.12
-quad 146 [128,129,204,196] materialId=1 thickness=0.12
-quad 147 [196,204,205,197] materialId=1 thickness=0.12
-quad 148 [197,205,206,198] materialId=1 thickness=0.12
-quad 149 [198,206,207,199] materialId=1 thickness=0.12
-quad 150 [199,207,135,134] materialId=1 thickness=0.12
-quad 151 [123,21,152,200] materialId=1 thickness=0.12
-quad 152 [200,152,153,201] materialId=1 thickness=0.12
-quad 153 [201,153,154,202] materialId=1 thickness=0.12
-quad 154 [202,154,155,203] materialId=1 thickness=0.12
-quad 155 [203,155,24,129] materialId=1 thickness=0.12
-quad 156 [129,24,156,204] materialId=1 thickness=0.12
-quad 157 [204,156,157,205] materialId=1 thickness=0.12
-quad 158 [205,157,158,206] materialId=1 thickness=0.12
-quad 159 [206,158,159,207] materialId=1 thickness=0.12
-quad 160 [207,159,27,135] materialId=1 thickness=0.12
+member 19 frame 2 11 materialId=1 sectionId=2
+member 20 frame 11 20 materialId=1 sectionId=2
+member 21 frame 5 14 materialId=1 sectionId=2
+member 22 frame 14 23 materialId=1 sectionId=2
+member 23 frame 8 17 materialId=1 sectionId=2
+member 24 frame 17 26 materialId=1 sectionId=2
+member 25 frame 2 5 materialId=1 sectionId=2
+member 26 frame 5 8 materialId=1 sectionId=2
+member 27 frame 11 14 materialId=1 sectionId=2
+member 28 frame 14 17 materialId=1 sectionId=2
+member 29 frame 20 23 materialId=1 sectionId=2
+member 30 frame 23 26 materialId=1 sectionId=2
+member 31 frame 3 12 materialId=1 sectionId=2
+member 32 frame 12 21 materialId=1 sectionId=2
+member 33 frame 6 15 materialId=1 sectionId=2
+member 34 frame 15 24 materialId=1 sectionId=2
+member 35 frame 9 18 materialId=1 sectionId=2
+member 36 frame 18 27 materialId=1 sectionId=2
+member 37 frame 3 6 materialId=1 sectionId=2
+member 38 frame 6 9 materialId=1 sectionId=2
+member 39 frame 12 15 materialId=1 sectionId=2
+member 40 frame 15 18 materialId=1 sectionId=2
+member 41 frame 21 24 materialId=1 sectionId=2
+member 42 frame 24 27 materialId=1 sectionId=2
 
 grid {"axes":[{"id":"ax-x1","name":"1","axis":"x","at":0},{"id":"ax-x2","name":"2","axis":"x","at":4},{"id":"ax-x3","name":"3","axis":"x","at":8},{"id":"ax-y1","name":"A","axis":"y","at":0},{"id":"ax-y2","name":"B","axis":"y","at":4.5},{"id":"ax-y3","name":"C","axis":"y","at":9}],"levels":[{"id":"lv-0","name":"PB","z":0},{"id":"lv-1","name":"Planta alta","z":2.8},{"id":"lv-2","name":"Azotea","z":5.6}]}
 support 1 1 fixed3d
@@ -513,13 +89,13 @@ support 6 16 fixed3d
 support 7 19 fixed3d
 support 8 22 fixed3d
 support 9 25 fixed3d
-group 1 physicalMember "Losa 1A–2B · Planta alta" members={"quads":[1,2,3,4,5,11,12,13,14,15,21,22,23,24,25,31,32,33,34,35]} data={"kind":"slab","typology":"solid","levelFrom":"lv-1","provenance":"declared"}
-group 2 physicalMember "Losa 1B–2C · Planta alta" members={"quads":[6,7,8,9,10,16,17,18,19,20,26,27,28,29,30,36,37,38,39,40]} data={"kind":"slab","typology":"solid","levelFrom":"lv-1","provenance":"declared"}
-group 3 physicalMember "Losa 2A–3B · Planta alta" members={"quads":[41,42,43,44,45,51,52,53,54,55,61,62,63,64,65,71,72,73,74,75]} data={"kind":"slab","typology":"solid","levelFrom":"lv-1","provenance":"declared"}
-group 4 physicalMember "Losa 2B–3C · Planta alta" members={"quads":[46,47,48,49,50,56,57,58,59,60,66,67,68,69,70,76,77,78,79,80]} data={"kind":"slab","typology":"solid","levelFrom":"lv-1","provenance":"declared"}
-group 5 physicalMember "Losa 1A–2B · Azotea" members={"quads":[81,82,83,84,85,91,92,93,94,95,101,102,103,104,105,111,112,113,114,115]} data={"kind":"slab","typology":"solid","levelFrom":"lv-2","provenance":"declared"}
-group 6 physicalMember "Losa 1B–2C · Azotea" members={"quads":[86,87,88,89,90,96,97,98,99,100,106,107,108,109,110,116,117,118,119,120]} data={"kind":"slab","typology":"solid","levelFrom":"lv-2","provenance":"declared"}
-group 7 physicalMember "Losa 2A–3B · Azotea" members={"quads":[121,122,123,124,125,131,132,133,134,135,141,142,143,144,145,151,152,153,154,155]} data={"kind":"slab","typology":"solid","levelFrom":"lv-2","provenance":"declared"}
-group 8 physicalMember "Losa 2B–3C · Azotea" members={"quads":[126,127,128,129,130,136,137,138,139,140,146,147,148,149,150,156,157,158,159,160]} data={"kind":"slab","typology":"solid","levelFrom":"lv-2","provenance":"declared"}
+group 1 physicalMember "Losa 1A–2B · Planta alta" members={"nodes":[2,11,14,5]} data={"kind":"slab","typology":"solid","levelFrom":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 2 physicalMember "Losa 2A–3B · Planta alta" members={"nodes":[11,20,23,14]} data={"kind":"slab","typology":"solid","levelFrom":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 3 physicalMember "Losa 1B–2C · Planta alta" members={"nodes":[5,14,17,8]} data={"kind":"slab","typology":"solid","levelFrom":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 4 physicalMember "Losa 2B–3C · Planta alta" members={"nodes":[14,23,26,17]} data={"kind":"slab","typology":"solid","levelFrom":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 5 physicalMember "Losa 1A–2B · Azotea" members={"nodes":[3,12,15,6]} data={"kind":"slab","typology":"solid","levelFrom":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 6 physicalMember "Losa 2A–3B · Azotea" members={"nodes":[12,21,24,15]} data={"kind":"slab","typology":"solid","levelFrom":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 7 physicalMember "Losa 1B–2C · Azotea" members={"nodes":[6,15,18,9]} data={"kind":"slab","typology":"solid","levelFrom":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 8 physicalMember "Losa 2B–3C · Azotea" members={"nodes":[15,24,27,18]} data={"kind":"slab","typology":"solid","levelFrom":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
 regulations {"version":2,"roles":{"basis":{"role":"basis","adapterId":"cirsoc101-2025-basis","nameKey":"regulations.name.cirsoc101","edition":"2025","maturity":"VALIDATED","jurisdiction":"","adoption":"unstated","settings":{"generateCombinations":true,"dialog":{"comboSet":"ultimate","comboSource":"regulation","bothSenses":true,"patternsInCompanions":false}},"configComplete":true,"state":"applied","appliedAtRevision":0,"refs":[]},"loads":{"role":"loads","adapterId":"cirsoc101-2025-loads","nameKey":"regulations.name.cirsoc101","edition":"2025","maturity":"VALIDATED","jurisdiction":"","adoption":"unstated","settings":{"occupancyKey":"vivienda","dead":[{"labelKey":"loads.dead.contrapiso_cemento","q":1.44},{"labelKey":"loads.dead.piso_baldosa_ceramica","q":0.28},{"labelKey":"loads.dead.cielo_acustico","q":0.05}],"tributaryWidth":3,"applyLiveReduction":true,"reductionElementKind":"interiorBeam","floorsSupported":1,"dialog":{"deadRows":[{"entryKey":"contrapiso_cemento","thickness":0.08,"onBattens":false,"q":0,"isPartition":false},{"entryKey":"piso_baldosa_ceramica","thickness":0,"onBattens":false,"q":0,"isPartition":false},{"entryKey":"cielo_acustico","thickness":0,"onBattens":false,"q":0,"isPartition":false}],"partitionLive":{"on":true,"q":0.75},"gravityMode":"panels","gravitySlab":"twoWay","gravitySpan":"x","gravityLoadEveryPanel":false,"roofCfg":{"enabled":false,"use":"maintenance","dead":null,"weight":null,"occupancyKey":"azotea_privada","slopeDeg":null},"livePatterns":"all","special":{"thermal":{"on":false,"dt":20,"grad":0},"soil":{"on":false,"gradeZ":0,"gamma":17.3,"k":0.5,"surcharge":0,"permanent":true,"sideOn":false,"sideX":0,"sideY":0},"fluid":{"on":false,"levelZ":3,"gamma":10,"insideOn":false,"insideX":0,"insideY":0}}}},"configComplete":true,"state":"applied","appliedAtRevision":0,"refs":[]},"wind":{"role":"wind","adapterId":"cirsoc102-2025","nameKey":"regulations.name.cirsoc102","edition":"2025","maturity":"VALIDATED","jurisdiction":"","adoption":"unstated","settings":{"basicSpeed":45,"exposure":"B","enclosure":"enclosed","siteAltitudeM":0,"kzt":1,"kztSurveyed":false,"roofSlopeDeg":0,"dynamics":{"n1Source":"modal","beta":0.02,"rigidG":"default"},"dialog":{"windDirs":["+x","-x","+y","-y"],"windCaseSet":"all","windService":{"enabled":false,"v50":0,"mri":10},"windStructure":{"kind":"building","roof":"pitched","blocked":false,"towerSection":"square","round":false,"solidity":0.2,"diagonal":true,"members":"flat","clearance":2,"chimney":"roundRough","width":0,"diameter":0,"areaX":0,"areaY":0}}},"configComplete":true,"state":"applied","appliedAtRevision":0,"refs":[]},"snow":{"role":"snow","adapterId":"cirsoc104-2005","nameKey":"regulations.name.cirsoc104","edition":"2005","maturity":"IMPLEMENTED_PROVISIONAL","jurisdiction":"","adoption":"unstated","settings":{},"configComplete":false,"state":"applied","appliedAtRevision":0,"refs":[]},"seismic":{"role":"seismic","adapterId":null,"nameKey":"","edition":"","maturity":"UNSUPPORTED","jurisdiction":"","adoption":"unstated","settings":{},"configComplete":false,"state":"unset","appliedAtRevision":null,"refs":[]},"thermal":{"role":"thermal","adapterId":"cirsoc101-2025-thermal","nameKey":"regulations.name.cirsoc101Thermal","edition":"2025","maturity":"VALIDATED","jurisdiction":"","adoption":"unstated","settings":{},"configComplete":true,"state":"applied","appliedAtRevision":0,"refs":[]},"concrete":{"role":"concrete","adapterId":"cirsoc","nameKey":"regulations.name.cirsoc201","edition":"2025","maturity":"VALIDATED","jurisdiction":"","adoption":"unstated","settings":{},"configComplete":true,"state":"applied","appliedAtRevision":0,"refs":[]},"steel":{"role":"steel","adapterId":null,"nameKey":"","edition":"","maturity":"UNSUPPORTED","jurisdiction":"","adoption":"unstated","settings":{},"configComplete":false,"state":"unset","appliedAtRevision":null,"refs":[]},"masonry":{"role":"masonry","adapterId":null,"nameKey":"","edition":"","maturity":"UNSUPPORTED","jurisdiction":"","adoption":"unstated","settings":{},"configComplete":false,"state":"unset","appliedAtRevision":null,"refs":[]},"timber":{"role":"timber","adapterId":null,"nameKey":"","edition":"","maturity":"UNSUPPORTED","jurisdiction":"","adoption":"unstated","settings":{},"configComplete":false,"state":"unset","appliedAtRevision":null,"refs":[]}}}
 

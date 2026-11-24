@@ -10,6 +10,7 @@ import { regulationsStore } from '../../store/regulations.svelte';
 import '../../store/index';
 import { initSolver } from '../../engine/wasm-solver';
 import { autoLoadsMemory } from '../../../components/pro/auto-loads-memory';
+import { physicalPlates } from '../../store/physical-plates';
 import es from '../../i18n/locales/es';
 import en from '../../i18n/locales/en';
 import pt from '../../i18n/locales/pt';
@@ -51,9 +52,13 @@ describe('the gallery', () => {
 });
 
 describe.each(PRO_EXAMPLES.filter((e) => e.loads === 'generator').map((e) => [e.id, e] as const))('%s', (_id, ex) => {
-  it('is the size its card says and arrives with the generator\'s loads, wind and no earthquake, its dialog on its settings', async () => {
+  it('is the size its card says, its plates not meshed, and arrives with the generator\'s loads, wind and no earthquake, its dialog on its settings', async () => {
     await ex.load();
     expect([modelStore.nodes.size, modelStore.elements.size, modelStore.quads.size + modelStore.plates.size]).toEqual([ex.stats.nodes, ex.stats.members, ex.stats.shells ?? 0]);
+    expect(physicalPlates().length, 'plates, none meshed').toBe(ex.stats.plates ?? 0);
+    const slabs = physicalPlates().filter((pl) => pl.physical.kind === 'slab').map((pl) => pl.id);
+    const loaded = new Set([...modelStore.model.groups.values()].filter((g) => g.kind === 'floorLoad').map((g) => (g.data as { target: { groupId: number } }).target.groupId));
+    expect(slabs.filter((id) => !loaded.has(id)), 'every slab loaded through a definition on it').toEqual([]);
     expect(modelStore.loads.every((l) => (l.data as { generatedBy?: string }).generatedBy)).toBe(true);
     expect(modelStore.model.loadCases.some((c) => c.type === 'W')).toBe(true);
     expect(modelStore.model.loadCases.some((c) => c.type === 'E')).toBe(false);

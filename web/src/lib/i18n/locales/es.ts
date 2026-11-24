@@ -16,6 +16,7 @@ const es: Record<string, string> = {
   "loadPlan.blocked.concentratedRule": "{occupancy} requiere verificar cargas concentradas según CIRSOC 101 {article}. No se evalúan las posiciones más desfavorables. La generación automática está bloqueada; modelá y verificá estas acciones manualmente.",
   "loadPlan.blocked.concentratedLive": "{occupancy} requiere verificar una sobrecarga concentrada de {force} kN según CIRSOC 101 §4.4. No se evalúan las posiciones más desfavorables ni la alternativa entre carga uniforme y concentrada. La generación automática está bloqueada; modelá y verificá estas acciones manualmente.",
   "loadPlan.blocked.concentratedRoof": "CIRSOC 101 §4.4 exige acciones concentradas de cubierta en las posiciones más desfavorables, separadas de la sobrecarga de cubierta de §4.8. Estas verificaciones no se evalúan. La generación automática está bloqueada; modelá y verificá las acciones de cubierta manualmente.",
+  "loadPlan.blocked.unmeshedPlatePressure": "Hay empuje de suelo o de fluido sobre una placa que todavía no tiene malla. Mallá la placa (o calculá una vez) y volvé a generar las cargas.",
   "loads.asce7.blocked.concentratedLive": "{occupancy} exige verificar una sobrecarga concentrada de {force} kN según ASCE 7-22 §4.4 y la Tabla 4.3-1. No se evalúan las posiciones determinantes ni la alternativa entre carga uniforme y concentrada. La generación automática está bloqueada; modelá y verificá estas acciones manualmente.",
   "loads.asce7.blocked.concentratedRoof": "La Tabla 4.3-1 de ASCE 7-22 exige una carga concentrada de 300 lb (1,33 kN) en cubiertas con acceso de mantenimiento, en su posición más desfavorable y separada de la sobrecarga de cubierta de §4.8. Esta verificación no se evalúa. La generación automática está bloqueada; modelá y verificá las acciones de cubierta manualmente.",
   "loads.ec.live.localQk": "{occupancy}: la carga concentrada Qk = {force} kN actúa sola, para verificaciones locales (EN 1991-1-1 6.2.1(4)). El análisis toma la carga uniforme qk; verificá Qk localmente.",
@@ -1232,6 +1233,11 @@ const es: Record<string, string> = {
   'pro.stats.nodes': 'nodos',
   'pro.stats.members': 'barras',
   'pro.stats.shells': "láminas",
+  "pro.stats.plates": "placas",
+  "pro.examples.loading.title": "Abriendo «{name}»",
+  "pro.examples.loading.model": "Cargando el modelo",
+  "pro.examples.loading.loads": "Generando las cargas por norma y sus combinaciones",
+  "pro.examples.loading.draw": "Dibujando",
   'pro.stats.heavy': "modelo pesado",
 
   // ─── ToolbarProject.svelte ───
@@ -3950,6 +3956,7 @@ const es: Record<string, string> = {
   'file.workspaceBackupFailed': 'No hubo lugar para guardar una copia, así que el espacio de trabajo guardado no se va a sobrescribir mientras esta página esté abierta. Usá Guardar sesión para conservar lo que abras.',
   'file.workspaceNotSaved': 'Tu trabajo NO se está guardando automáticamente: el navegador rechazó la copia de este espacio de trabajo. Guardalo en un archivo para no perderlo.',
   'file.workspaceSaveToFile': 'Guardar sesión en archivo',
+  "file.workspaceNoticeClose": "Cerrar el aviso",
   'file.workspaceDetailingLost': 'El detallado de estas pestañas no se pudo recuperar del navegador y se restauraron sin barras: {names}. Volvé a generar el detallado o abrí el archivo .ded guardado.',
   'file.workspaceDetailingUnread': 'El detallado de estas pestañas no se pudo leer del navegador esta vez y se abrieron sin barras: {names}. Sigue guardado y se va a intentar de nuevo la próxima vez que abras la página; no lo vuelvas a generar si no hace falta.',
   'file.workspaceRestoredBeside': 'Tu espacio de trabajo guardado se abrió en pestañas nuevas, junto a lo que empezaste mientras se cargaba.',

@@ -18,6 +18,7 @@ const fr: Translations = {
   "loadPlan.blocked.concentratedRule": "{occupancy} exige une vérification des charges concentrées selon CIRSOC 101 {article}. Les positions les plus défavorables ne sont pas évaluées. La génération automatique est bloquée ; modélisez et vérifiez ces actions manuellement.",
   "loadPlan.blocked.concentratedLive": "{occupancy} exige la vérification d’une surcharge concentrée de {force} kN selon CIRSOC 101 §4.4. Les positions les plus défavorables et l’alternative entre charge uniforme et concentrée ne sont pas évaluées. La génération automatique est bloquée ; modélisez et vérifiez ces actions manuellement.",
   "loadPlan.blocked.concentratedRoof": "CIRSOC 101 §4.4 exige des actions concentrées de toiture aux positions les plus défavorables, séparément de la surcharge de toiture de §4.8. Ces vérifications ne sont pas évaluées. La génération automatique est bloquée ; modélisez et vérifiez les actions de toiture manuellement.",
+  "loadPlan.blocked.unmeshedPlatePressure": "Une poussée de sol ou de fluide agit sur une plaque qui n'est pas encore maillée. Maillez la plaque (ou lancez un calcul) puis générez à nouveau les charges.",
   "loads.asce7.blocked.concentratedLive": "{occupancy} exige de vérifier une charge d'exploitation concentrée de {force} kN selon l'ASCE 7-22 §4.4 et le tableau 4.3-1. Les positions déterminantes et l'alternative entre charge répartie et concentrée ne sont pas évaluées. La génération automatique est bloquée ; modélisez et vérifiez ces actions manuellement.",
   "loads.asce7.blocked.concentratedRoof": "Le tableau 4.3-1 de l'ASCE 7-22 exige une charge concentrée de 300 lb (1,33 kN) sur les toitures accessibles pour l'entretien, à sa position la plus défavorable et séparément de la charge de toiture de §4.8. Cette vérification n'est pas évaluée. La génération automatique est bloquée ; modélisez et vérifiez les actions de toiture manuellement.",
   "loads.ec.live.localQk": "{occupancy} : la charge concentrée Qk = {force} kN agit seule, pour les vérifications locales (EN 1991-1-1 6.2.1(4)). L'analyse prend la charge répartie qk ; vérifiez Qk localement.",
@@ -889,6 +890,11 @@ const fr: Translations = {
   'pro.stats.nodes': 'nœuds',
   'pro.stats.members': 'barres',
   'pro.stats.shells': 'coques',
+  "pro.stats.plates": "plaques",
+  "pro.examples.loading.title": "Ouverture de « {name} »",
+  "pro.examples.loading.model": "Chargement du modèle",
+  "pro.examples.loading.loads": "Génération des charges réglementaires et de leurs combinaisons",
+  "pro.examples.loading.draw": "Dessin en cours",
   'pro.stats.heavy': 'modèle lourd',
 
   // ─── ToolbarProject.svelte ───
@@ -3584,6 +3590,7 @@ const fr: Translations = {
   'file.workspaceBackupFailed': 'La place manquait pour conserver une copie : l\'espace de travail stocké ne sera donc pas écrasé tant que cette page est ouverte. Utilisez Enregistrer la session pour conserver ce que vous ouvrez.',
   'file.workspaceNotSaved': 'Votre travail N\'est PAS enregistré automatiquement : le navigateur a refusé de stocker cet espace de travail. Enregistrez-le dans un fichier pour ne pas le perdre.',
   'file.workspaceSaveToFile': 'Enregistrer la session dans un fichier',
+  "file.workspaceNoticeClose": "Fermer l'avis",
   'file.workspaceDetailingLost': 'Le ferraillage de ces onglets n\'a pas pu être récupéré depuis le navigateur ; ils ont été restaurés sans barres : {names}. Générez à nouveau le ferraillage ou ouvrez votre fichier .ded enregistré.',
   'file.workspaceDetailingUnread': 'Le ferraillage de ces onglets n\'a pas pu être lu depuis le navigateur cette fois ; ils se sont ouverts sans barres : {names}. Il reste enregistré et sera relu à la prochaine ouverture de la page ; ne le régénérez que si nécessaire.',
   'file.workspaceRestoredBeside': 'Votre espace de travail enregistré s\'est ouvert dans de nouveaux onglets, à côté de ce que vous avez commencé pendant son chargement.',

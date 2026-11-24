@@ -1,8 +1,10 @@
 /**
- * The gallery's buildings, loaded as their cards load them: their loads and combinations written
- * by the load generator from the settings they save, solved with every combination, their statics
- * closed in force and their results held to `baselines/<id>.json`. The wind reaches each member as
- * a few loads, not the thousands of slivers a power-law pressure took to match to the last digit.
+ * The gallery's buildings, loaded as their cards load them: their slabs, walls and stairs plates
+ * not meshed yet, their loads and combinations written by the load generator from the settings they
+ * save, the slabs' as definitions on the plates. Meshed as an analysis meshes them, every cell a
+ * rectangle, solved with every combination, their statics closed in force and their results held
+ * to `baselines/generated/<id>.json`. The wind reaches each member as a few loads, not the
+ * thousands of slivers a power-law pressure took to match to the last digit.
  */
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { fileURLToPath } from 'node:url';
@@ -16,6 +18,9 @@ import { publishCombinations3D } from '../../../store/active-results';
 import { currentWorkbookSheets } from '../../../store/project-workbook';
 import { PRO_EXAMPLES } from '../../../data/pro-examples';
 import { expectBaseline } from '../../__tests__/result-baseline';
+import { meshBeforeAnalysis } from '../../../store/mesh-policy.svelte';
+import { physicalPlates, preparePlatesForAnalysis } from '../../../store/physical-plates';
+import { syncDefinedLoadsForAnalysis } from '../../../store/defined-loads';
 
 const BASELINES = fileURLToPath(new URL('../baselines/generated/', import.meta.url));
 const BUILDINGS = PRO_EXAMPLES.filter((e) => e.loads === 'generator');
@@ -42,6 +47,13 @@ describe.each(BUILDINGS.map((e) => [e.id, e] as const))('%s', (id, ex) => {
         if (d.caseId === caseId && d.elementId !== undefined) perMember.set(d.elementId, (perMember.get(d.elementId) ?? 0) + 1);
       }
       expect(Math.max(0, ...perMember.values()), `wind case ${caseId}: loads on one member`).toBeLessThanOrEqual(24);
+    }
+    expect(modelStore.quads.size, 'nothing meshed before the analysis').toBe(0);
+    meshBeforeAnalysis.value = true;
+    expect(preparePlatesForAnalysis().ok).toBe(true);
+    syncDefinedLoadsForAnalysis();
+    for (const p of physicalPlates()) {
+      expect(p.surface.meshed?.quality.minAngle, `${p.name}: its cells are rectangles`).toBeCloseTo(90, 6);
     }
     const r = modelStore.solveCombinations3D(true, false, true);
     if (!r || typeof r === 'string') throw new Error(`${id}: ${String(r)}`);

@@ -101,7 +101,11 @@ export class Model {
     return id;
   }
 
+  private supported = new Set<number>();
+  /** A support at `node`; the first one given there stands. */
   support(node: number, type: 'fixed3d' | 'pinned3d'): void {
+    if (this.supported.has(node)) return;
+    this.supported.add(node);
     this.tail.push(`support ${++this.n.support} ${node} ${type}`);
   }
 
