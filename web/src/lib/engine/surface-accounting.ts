@@ -98,34 +98,57 @@ const quadCorners = [[0, 0], [1, 0], [1, 1], [0, 1]] as const;
 const linearMass = (a: number, b: number) => a === b ? 1 / 3 : 1 / 6;
 const linearMoment = (a: number, b: number) => a === 1 && b === 1 ? 1 / 4 : 1 / 12;
 
-function wholeQuadForces(q: number[], jac: number, along: number, across: number): number[] {
-  if (q.every(value => value === q[0])) {
-    return quadCorners.map(([s, t]) => q[0]! * ((jac + along * (1 + s) / 3 + across * (1 + t) / 3) / 4));
+class NodalPressureIntegral {
+  private readonly total = new Sum();
+  private readonly magnitude = new Sum();
+  private readonly underflow = new Sum();
+
+  add(pressure: number, weight: number): void {
+    const term = new LoadScalar(pressure).scale(weight);
+    this.total.add(term.value);
+    this.magnitude.add(Math.abs(term.value));
+    this.underflow.add(term.underflow);
   }
+
+  force(direction: LoadVector): LoadVector {
+    return direction.scale(new LoadScalar(this.total.value, this.underflow.value), this.magnitude.value);
+  }
+}
+
+function wholeQuadForces(q: number[], jac: number, along: number, across: number): NodalPressureIntegral[] {
+  const constant = q.every(value => value === q[0]);
   return quadCorners.map(([s, t]) => {
-    const force = new Sum();
+    const force = new NodalPressureIntegral();
+    if (constant) {
+      force.add(q[0]!, (jac + along * (1 + s) / 3 + across * (1 + t) / 3) / 4);
+      return force;
+    }
     for (const [i, [u, v]] of quadCorners.entries()) {
       const sx = linearMass(s, u), ty = linearMass(t, v);
-      force.add(q[i]! * (jac * sx * ty + along * linearMoment(s, u) * ty + across * sx * linearMoment(t, v)));
+      force.add(q[i]!, jac * sx * ty + along * linearMoment(s, u) * ty + across * sx * linearMoment(t, v));
     }
-    return force.value;
+    return force;
   });
 }
 
 type VertexValues = [number, number, number];
 
-function affineProductIntegral(area: number, a: VertexValues, b: VertexValues, c?: VertexValues): number {
+function affinePressureWeights(area: number, shape: VertexValues, other?: VertexValues): number[] {
   const total = ([x, y, z]: VertexValues) => x + y + z;
-  const ab = dot(a, b);
-  if (!c) return area * (total(a) * total(b) + ab) / 12;
-  const abc = a[0] * b[0] * c[0] + a[1] * b[1] * c[1] + a[2] * b[2] * c[2];
-  return area * (total(a) * total(b) * total(c) + ab * total(c) + dot(a, c) * total(b) + dot(b, c) * total(a) + 2 * abc) / 60;
+  const sum = total(shape);
+  if (!other) return shape.map(s => area * (sum + s) / 12);
+  const otherSum = total(other);
+  const common = sum * otherSum + dot(shape, other);
+  return shape.map((s, i) => {
+    const t = other[i]!;
+    return area * (common + s * otherSum + t * sum + 2 * s * t) / 60;
+  });
 }
 
 function clippedAffineForces(
   triangle: boolean, jac: number, rings: Ring[][], coordinate: (p: Vector) => number, spec: ShellLoadSpec,
-): number[] {
-  const result = Array.from({ length: triangle ? 3 : 4 }, () => new Sum());
+): NodalPressureIntegral[] {
+  const result = Array.from({ length: triangle ? 3 : 4 }, () => new NodalPressureIntegral());
   const vary = spec.vary;
   const field = (p: Vector) => vary
     ? vary.q1 + (vary.q2 - vary.q1) * (coordinate(p) - vary.c1) / (vary.c2 - vary.c1)
@@ -146,17 +169,16 @@ function clippedAffineForces(
         const area = jac * orientation * cross(sub(vertices[1], first), sub(vertices[2], first))[2] / 2;
         const atVertices = (f: (p: Vector) => number): VertexValues => [f(vertices[0]), f(vertices[1]), f(vertices[2])];
         const q = atVertices(field);
-        if (triangle) {
-          const shapes = [atVertices(([s, t]) => 1 - s - t), atVertices(([s]) => s), atVertices(([, t]) => t)];
-          shapes.forEach((shape, node) => result[node]!.add(affineProductIntegral(area, q, shape)));
-        } else {
-          quadCorners.forEach(([s, t], node) => result[node]!.add(affineProductIntegral(area, q,
-            atVertices(([x]) => s === 1 ? x : 1 - x), atVertices(([, y]) => t === 1 ? y : 1 - y))));
-        }
+        const weights = triangle
+          ? [atVertices(([s, t]) => 1 - s - t), atVertices(([s]) => s), atVertices(([, t]) => t)]
+            .map(shape => affinePressureWeights(area, shape))
+          : quadCorners.map(([s, t]) => affinePressureWeights(area,
+            atVertices(([x]) => s === 1 ? x : 1 - x), atVertices(([, y]) => t === 1 ? y : 1 - y)));
+        weights.forEach((row, node) => row.forEach((weight, k) => result[node]!.add(q[k]!, weight)));
       }
     }
   }
-  return result.map(force => force.value);
+  return result;
 }
 
 export function expectedSurfaceNodeForces(points: Vector[], spec: ShellLoadSpec): LoadVector[] | null {
@@ -182,14 +204,14 @@ export function expectedSurfaceNodeForces(points: Vector[], spec: ShellLoadSpec)
   if (!spec.region && whole) {
     const q = spec.qNodes ?? coords.map(c => vary
       ? vary.q1 + (vary.q2 - vary.q1) * (c - vary.c1) / (vary.c2 - vary.c1) : spec.q);
-    const magnitudes = triangle
+    const integrals = triangle
       ? q.map((_, i) => {
-        const force = new Sum();
-        q.forEach((qi, j) => force.add(qi * (jac / (i === j ? 12 : 24))));
-        return force.value;
+        const integral = new NodalPressureIntegral();
+        q.forEach((qi, j) => integral.add(qi, jac / (i === j ? 12 : 24)));
+        return integral;
       })
       : wholeQuadForces(q, jac, along, across);
-    return magnitudes.map(qi => force.scale(qi));
+    return integrals.map(integral => integral.force(force));
   }
 
   if (spec.qNodes || norm(w) > roundoff * Math.max(norm(u), norm(v))) return null;
@@ -213,5 +235,5 @@ export function expectedSurfaceNodeForces(points: Vector[], spec: ShellLoadSpec)
     }
   }
   const coordinate = ([s, t]: Vector) => coords[0]! + s * dot(axis, u) + t * dot(axis, v);
-  return clippedAffineForces(triangle, jac, rings, coordinate, spec).map(qi => force.scale(qi));
+  return clippedAffineForces(triangle, jac, rings, coordinate, spec).map(integral => integral.force(force));
 }

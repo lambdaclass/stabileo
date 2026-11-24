@@ -21,7 +21,7 @@ import {
   addPlateLoad, applyPlateMeshes, createPlate, meshBeforeAnalysis, planPlateMesh, plateEntry, plateStatus, setPlateMeshSpec, setPlateSideArc,
 } from '../physical-plates';
 
-const fault = vi.hoisted(() => ({ dropSceneCase: 0, integrateDrift: 0, dropMemberLoad: false, dropLineIntensity: 0, scaleCaseLoad: 1, momentDelta: 0, stalePlanarMoment: 0, surfaceFactorOffset: 0, cornerPressureDelta: 0, assemblyDrift: null as { shell: number; relative: number } | null, combinationDrift: null as { shell: number; relative: number } | null, dropNodalFy: false }));
+const fault = vi.hoisted(() => ({ dropSceneCase: 0, integrateDrift: 0, signedForceDelta: 0, dropMemberLoad: false, dropLineIntensity: 0, scaleCaseLoad: 1, momentDelta: 0, stalePlanarMoment: 0, surfaceFactorOffset: 0, cornerPressureDelta: 0, assemblyDrift: null as { shell: number; relative: number } | null, combinationDrift: null as { shell: number; relative: number } | null, dropNodalFy: false }));
 
 vi.mock('../../engine/case-effects', async importOriginal => {
   const original = await importOriginal<typeof import('../../engine/case-effects')>();
@@ -99,6 +99,11 @@ vi.mock('../../engine/solver-shells', async importOriginal => {
       if (args[0].quadId === fault.combinationDrift?.shell) {
         assembled.forEach((row, i) => combinationSigns.set(row, i % 2 ? -1 : 1));
       }
+      if (fault.signedForceDelta) {
+        assembled.forEach((row, i) => {
+          if (row.type === 'nodal') row.data.fz += i % 2 ? -fault.signedForceDelta : fault.signedForceDelta;
+        });
+      }
       const drift = fault.assemblyDrift;
       if (!drift || args[0].quadId !== drift.shell) return assembled;
       return assembled.map((row, i) => row.type === 'nodal'
@@ -138,6 +143,7 @@ beforeEach(() => {
   uiStore.includeSelfWeight = false;
   meshBeforeAnalysis.value = true;
   fault.dropSceneCase = 0;
+  fault.signedForceDelta = 0;
   fault.integrateDrift = 0;
   fault.dropMemberLoad = false;
   fault.dropLineIntensity = 0;
@@ -612,17 +618,17 @@ const halfRegion: ShellLoadSpec['region'] = {
   normal: [0, 0, 1], points: [[0, 0, 0], [2, 0, 0], [2, 5, 0], [0, 5, 0]],
 };
 
-const signedPressure = process.env.RUN_KNOWN_WRONG === '2479' ? it : it.skip;
-
-signedPressure('known wrong result: #2479 accepts signed pressures with zero equivalent force at two corners', async () => {
+it('#2479 accepts signed pressures with zero equivalent force at two corners', async () => {
   const nodes = [[0, 0], [4, 0], [4, 5], [0, 5]].map(([x, y]) => modelStore.addNode(x!, y!, 0)) as [number, number, number, number];
   for (const node of nodes) modelStore.addSupport(node, 'fixed3d');
+  modelStore.addElement(nodes[0], nodes[1]);
   const quadId = modelStore.addQuad(nodes, 1, 0.2);
   const baseline = { id: 1, caseId: 1, quadId, q: 0, qNodes: [2, -4, -4, 2] };
   const data = { ...baseline, qNodes: baseline.qNodes.map(q => q / 2) };
   const model = modelStore.model;
   model.loads.push(withScenarioSurfaceIntent({ type: 'surface3d', data }, { baseline, factor: 0.5 }));
-  const combo = { id: 1, name: 'Signed pressure', factors: [{ caseId: 1, factor: 2 }] };
+  const comboId = modelStore.addCombination('Signed pressure', [{ caseId: 1, factor: 2 }]);
+  const combo = model.combinations.find(c => c.id === comboId)!;
   const expected = [0, 5, 5, 0];
   const checkWires = (wires: readonly SolverLoad3D[] | undefined, factor = 1) => {
     expect(wires).toHaveLength(nodes.length);
@@ -637,27 +643,60 @@ signedPressure('known wrong result: #2479 accepts signed pressures with zero equ
   checkWires(factored(), 2);
   checkWires(notional());
 
-  for (const solve of [
-    () => modelStore.solve3D(false, false, true),
-    () => modelStore.solve3DAsync(false, false, true),
-  ]) {
-    const result = await solve();
+  const checkReactions = (result: ReturnType<typeof modelStore.solve3D>, factor = 1) => {
     if (!result || typeof result === 'string') throw new Error(String(result));
     for (const [i, nodeId] of nodes.entries()) {
-      expect(result.reactions.find(row => row.nodeId === nodeId)?.fz).toBeCloseTo(-expected[i]!, 10);
+      expect(result.reactions.find(row => row.nodeId === nodeId)?.fz).toBeCloseTo(-expected[i]! * factor, 10);
     }
+  };
+  const checkCombination = (result: ReturnType<typeof modelStore.solveCombinations3D>) => {
+    if (!result || typeof result === 'string') throw new Error(String(result));
+    checkReactions(result.perCombo.get(comboId) ?? null, 2);
+  };
+  checkReactions(modelStore.solve3D(false, false, true));
+  checkReactions(await modelStore.solve3DAsync(false, false, true));
+  checkCombination(modelStore.solveCombinations3D(false, false, true));
+  checkCombination(await modelStore.solveCombinations3DParallel(false, false, true));
+  const direct = await runDirectAnalysis(model, model.loadCases, [combo], { includeSelfWeight: false });
+  if (typeof direct === 'string') throw new Error(direct);
+  checkReactions(direct.perCombo.get(comboId) ?? null, 2);
+  expect(await runGlobalSolve({ directBase: true })).toMatchObject({ ok: true });
+  resultsStore.clear();
+  uiStore.liveCalcError = null;
+  await runLiveCalc('pro', uiStore.axisConvention3D);
+  expect(uiStore.liveCalcError).toBeNull();
+  checkReactions(resultsStore.results3D);
+  modelStore.setAnalysis({ perCombination: 'pdelta' });
+  checkCombination(modelStore.solveCombinations3D(false, false, true));
+  modelStore.updateSupport(nodes[0], { uplift: true });
+  checkReactions(await modelStore.solve3DAsync(false, false, true));
+  checkCombination(await modelStore.solveCombinations3DParallel(false, false, true));
+
+  const nodalRoundoff = roundoff * (2 * 4 * 5 * (1 / 9 + 1 / 18));
+  fault.signedForceDelta = nodalRoundoff / 2;
+  checkWires(buildSolverInput3D(model)?.loads);
+  checkWires(factored(), 2);
+  checkWires(notional());
+  fault.signedForceDelta = 2 * nodalRoundoff;
+  for (const run of [() => buildSolverInput3D(model), factored, notional]) {
+    expect(run).toThrow(/case.*node.*Fz/i);
   }
 });
 
 it.each([
   { name: 'triangle with corner pressures', xy: [[0, 0], [4, 0], [0, 5]], field: { q: 0, qNodes: [0, 6, 0] },
     expected: [2.5, 5, 2.5] },
+  { name: 'triangle with cancelling corner pressures', xy: [[0, 0], [4, 0], [0, 5]], field: { q: 0, qNodes: [2, -4, 0] },
+    expected: [0, -5 / 2, -5 / 6] },
   { name: 'rectangle with corner pressures', xy: [[0, 0], [4, 0], [4, 5], [0, 5]], field: { q: 0, qNodes: [0, 6, 6, 0] },
     expected: [5, 10, 10, 5] },
   { name: 'rectangle with a varying field', xy: [[0, 0], [4, 0], [4, 5], [0, 5]],
     field: { q: 0, vary: { dir: [1, 0, 0], c1: 0, q1: 0, c2: 4, q2: 6 } }, expected: [5, 10, 10, 5] },
   { name: 'rectangle with a clipped field', xy: [[0, 0], [4, 0], [4, 5], [0, 5]], field: { q: 4, region: halfRegion },
     expected: [7.5, 2.5, 2.5, 7.5] },
+  { name: 'rectangle with a clipped signed field', xy: [[0, 0], [4, 0], [4, 5], [0, 5]],
+    field: { q: 0, region: halfRegion, vary: { dir: [1, 0, 0], c1: 0, q1: 8, c2: 2, q2: -10 } },
+    expected: [0, -5 / 2, -5 / 2, 0] },
   { name: 'trapezoid under whole pressure', xy: [[0, 0], [4, 0], [5, 5], [0, 5]], field: { q: 4 },
     expected: [65 / 6, 65 / 6, 35 / 3, 35 / 3] },
   { name: 'trapezoid with nonuniform corner pressures', xy: [[0, 0], [4, 0], [5, 5], [0, 5]], field: { q: 0, qNodes: [0, 0, 6, 6] },

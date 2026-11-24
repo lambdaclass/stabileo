@@ -56,7 +56,7 @@ function verifyScenarioNode(
   const nodeLabel = `${label} · #${shellId} · ${tp('whatif.node', { n: nodeId })}`;
   for (const [i, actual] of [fx, fy, fz, mx, my, mz].entries()) {
     const entered = force.value[i] ?? 0;
-    compareComponent(nodeLabel, components[i]!, entered, actual, Math.max(Math.abs(entered), Math.abs(actual)),
+    compareComponent(nodeLabel, components[i]!, entered, actual, Math.max(force.magnitude[i] ?? 0, Math.abs(entered), Math.abs(actual)),
       force.underflow[i] ?? 0);
   }
 }
