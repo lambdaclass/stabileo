@@ -33,6 +33,31 @@ function tripod(tieDown: boolean) {
   return { ids, hub };
 }
 
+const review2472 = process.env.RUN_KNOWN_WRONG === '2472' ? it : it.skip;
+
+review2472('#2472 cable sag treats omitted density as weightless and refuses invalid density', () => {
+  tripod(false);
+  const solve = () => modelStore.solveCombinations3D(false, false, true);
+  const material = modelStore.materials.values().next().value!;
+  material.rho = 0;
+  const weightless = solve();
+  if (!weightless || typeof weightless === 'string') throw new Error(String(weightless));
+  const zero = [...weightless.perCombo.values()][0]!;
+  Reflect.deleteProperty(material, 'rho');
+  const omitted = solve();
+  expect.soft(omitted).toBeTypeOf('object');
+  if (omitted && typeof omitted !== 'string') {
+    const result = [...omitted.perCombo.values()][0]!;
+    expect(result.reactions).toEqual(zero.reactions);
+    expect(result.displacements).toEqual(zero.displacements);
+    expect(result.nonlinear?.cables).toEqual(zero.nonlinear?.cables);
+  }
+  for (const rho of [-Number.MIN_VALUE, -1, null, '0', Infinity]) {
+    Object.assign(material, { rho });
+    expect(solve()).toMatch(/rho/);
+  }
+});
+
 describe('a cable', () => {
   it('carries the statics tension, and reports its sag and modulus', () => {
     const { ids } = tripod(false);

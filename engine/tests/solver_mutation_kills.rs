@@ -839,6 +839,38 @@ fn shell_loads() -> Vec<SolverLoad3D> {
 }
 
 #[test]
+#[ignore = "known wrong result: #2472"]
+fn issue_2472_raw_shell_self_weight_requires_nonnegative_density() {
+    let model = shell_input();
+    let dofs = DofNumbering::build_3d(&model);
+    let mut failures = Vec::new();
+    for load in shell_loads() {
+        let mut wire = serde_json::to_value(load).unwrap();
+        let Some(density) = wire["data"]["density"].as_f64() else { continue };
+        let kind = wire["type"].as_str().unwrap().to_string();
+        let resultant = |wire: &serde_json::Value| {
+            let parsed = serde_json::from_value(wire.clone()).unwrap();
+            let forces = assemble_load_vector_3d_sparse(&model, &[parsed], &dofs, &[]);
+            dofs.map.iter().filter(|((_, local), _)| *local == 2).map(|(_, &index)| forces[index]).sum::<f64>()
+        };
+        assert!(resultant(&wire) < 0.0, "{kind}");
+        for zero in [0.0, -0.0] {
+            wire["data"]["density"] = json!(zero);
+            assert_eq!(resultant(&wire), 0.0, "{kind}");
+        }
+        for invalid in [json!(-density), json!(-f64::MIN_POSITIVE), json!(null), json!("0")] {
+            wire["data"]["density"] = invalid;
+            let text = wire.to_string();
+            let result = serde_json::from_str::<SolverLoad3D>(&text);
+            if !matches!(&result, Err(error) if error.to_string().contains("density")) {
+                failures.push(format!("{kind}, density={}: {result:?}", wire["data"]["density"]));
+            }
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+#[test]
 fn shell_load_vectors_match_across_paths_and_pressure_resultants() {
     let input = shell_input();
     let dn = DofNumbering::build_3d(&input);

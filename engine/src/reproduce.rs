@@ -193,6 +193,28 @@ mod tests {
     }
 
     #[test]
+    fn issue_2472_native_applies_either_planar_point_moment_alias_with_its_sign() {
+        let input = cantilever(false);
+        let reactions = |wire: &Value| {
+            let input: SolverInput = serde_json::from_value(wire.clone()).unwrap();
+            let linear = solve_2d(&input).unwrap();
+            let pdelta = solve_pdelta_2d(&input, 20, 1e-8).unwrap();
+            assert!(pdelta.converged);
+            (linear.reactions[0].my, pdelta.results.reactions[0].my)
+        };
+        let (linear_base, pdelta_base) = reactions(&input);
+        for field in ["my", "mz"] {
+            for moment in [-5.0, 5.0] {
+                let mut loaded = input.clone();
+                loaded["loads"][0]["data"][field] = json!(moment);
+                let (linear, pdelta) = reactions(&loaded);
+                assert!((linear - linear_base + moment).abs() < 1e-8, "{field}: {linear}");
+                assert!((pdelta - pdelta_base + moment).abs() < 1e-8, "{field}: {pdelta}");
+            }
+        }
+    }
+
+    #[test]
     fn issue_2472_native_keeps_omitted_and_explicit_zero_optional_fields() {
         for space in [false, true] {
             let omitted = cantilever(space);

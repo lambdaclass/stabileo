@@ -1,6 +1,8 @@
 import { beforeEach, expect, it, vi } from 'vitest';
 import { modelStore, uiStore } from '../../store';
-import { t } from '../../i18n';
+import { i18n, setLocale, t } from '../../i18n';
+import { conditionHolds } from '../../provenance/applicability';
+import { G } from '../dynamics/requests';
 import { modelFeatures } from '../../provenance/model-features';
 import resultChange from '../../provenance/result-changes/invalid-solver-numbers.json';
 import { runDirectAnalysis } from '../direct-analysis';
@@ -142,6 +144,74 @@ it('#2472 density can be absent for static solves and is required for self-weigh
   }
 });
 
+const review2472 = process.env.RUN_KNOWN_WRONG === '2472' ? it : it.skip;
+
+review2472('#2472 dynamic mass checks every solver-side carrier of a material', () => {
+  const model = cantilever();
+  const input = buildSolverInput3D(model)!;
+  const element = input.elements.values().next().value!;
+  const material = model.materials.get(element.materialId)!;
+  model.elements.delete(element.id);
+  const shells = new Map([[1, { materialId: material.id }]]);
+  for (const [kind, massInput] of [
+    ['expanded member', input],
+    ...['plates', 'quads', 'quad9s', 'solidShells', 'curvedShells'].map(key => [
+      key, { ...input, elements: new Map(), [key]: shells },
+    ] as const),
+  ] as const) {
+    for (const rho of [undefined, -Number.MIN_VALUE, -1, null, '0', NaN, Infinity]) {
+      if (rho === undefined) Reflect.deleteProperty(material, 'rho');
+      else Object.assign(material, { rho });
+      expect.soft(() => withSectionMass(massInput, model), `${kind}/${rho}`).toThrow(/finite, nonnegative.*rho/);
+    }
+    for (const rho of [0, 1]) {
+      material.rho = rho;
+      expect(withSectionMass(massInput, model).densities.get(material.id), kind).toBe(rho * 1000 / G);
+    }
+  }
+});
+
+review2472('#2472 density refusals share the active locale for self-weight and dynamics', async () => {
+  const savedLocale = i18n.locale;
+  const model = cantilever();
+  const input = buildSolverInput2D(model)!;
+  const material = model.materials.get(model.elements.values().next().value!.materialId)!;
+  material.rho = -1;
+  try {
+    for (const [locale, instruction] of [['en', 'finite, nonnegative'], ['es', 'finito y no negativo']]) {
+      await setLocale(locale);
+      const result = validateAndSolve2D(model, true);
+      expect.soft(result, locale).toContain(instruction);
+      expect.soft(() => withSectionMass(input, model), locale).toThrow(String(result));
+    }
+  } finally {
+    await setLocale(savedLocale);
+  }
+});
+
+review2472('#2472 the null-moment notice follows explicit null and has its own translations', () => {
+  cantilever();
+  const snapshot = modelStore.snapshot();
+  for (const type of ['pointOnElement', 'nodal']) {
+    for (const [fields, applies] of [
+      [{}, false], [{ my: 1 }, false], [{ mz: 1 }, false], [{ my: 1, mz: 2 }, false],
+      [{ my: null }, true], [{ mz: null }, true], [{ my: 0, mx: -1 }, false],
+    ] as const) {
+      const loads = [{ type, data: { ...snapshot.loads[0]!.data, ...fields } }];
+      const features = modelFeatures({ ...snapshot, loads });
+      expect.soft(conditionHolds(resultChange.when, features), JSON.stringify(loads)).toBe(applies);
+      expect.soft(conditionHolds(resultChange.when, modelFeatures(snapshot, { storedLoads: loads }))).toBe(applies);
+    }
+  }
+  for (const locale of ['ar', 'hi', 'id', 'it', 'ja', 'ko', 'ru']) {
+    for (const text of [resultChange.title, resultChange.explanation]) {
+      const translated = (text as Record<string, string>)[locale];
+      expect.soft(translated, locale).toBeTruthy();
+      expect.soft(translated, locale).not.toBe(text.en);
+    }
+  }
+});
+
 it('#2472 the Spanish result notice specifies literal null', () => {
   expect(resultChange.title.es).toBe('Rechazo de momentos planos con valor null');
 });
@@ -220,6 +290,70 @@ it('#2472 WASM linear and P-Delta decode numeric fields before solving', () => {
       Object.assign(Object.values(nonfinite.materials)[0]!, { e: value });
       expect.soft(() => linear(nonfinite)).toThrow(/\be\b/);
     }
+  }
+});
+
+review2472('#2472 raw WASM shell self-weight refuses negative density before solving', () => {
+  const surface = [[0, 0], [2, 0], [2, 2], [0, 2], [1, 0], [2, 1], [1, 2], [0, 1], [1, 1]];
+  for (const [kind, collection, count] of [
+    ['quadSelfWeight', 'quads', 4], ['quad9SelfWeight', 'quad9s', 9],
+    ['curvedShellSelfWeight', 'curvedShells', 4], ['solidShellSelfWeight', 'solidShells', 8],
+  ] as const) {
+    const points = collection === 'solidShells'
+      ? [0, 1].flatMap(z => surface.slice(0, 4).map(([x, y]) => ({ x, y, z })))
+      : surface.slice(0, count).map(([x, y]) => ({ x, y, z: 0 }));
+    const nodes = Object.fromEntries(points.map((point, i) => [i + 1, { id: i + 1, ...point }]));
+    const fixed = collection === 'solidShells' ? [1, 2, 3, 4] : [1, 4];
+    const data = { elementId: 1, density: 1, gz: -G };
+    const input = {
+      nodes, materials: { 1: { id: 1, e: 200000, nu: 0.3 } }, sections: {}, elements: {},
+      supports: Object.fromEntries(fixed.map(nodeId => [nodeId, { nodeId, rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true }])),
+      loads: [{ type: kind, data }],
+      [collection]: { 1: { id: 1, materialId: 1, thickness: 1, nodes: Array.from({ length: count }, (_, i) => i + 1) } },
+    };
+    const session = new wasm.LoadSession3D({ ...input, loads: [] });
+    const reactions = (answer: { reactions: { fz: number }[] }) => answer.reactions.reduce((sum, reaction) => sum + reaction.fz, 0);
+    try {
+      for (const [path, solve] of Object.entries({
+        linear: () => wasm.solve_3d(input),
+        pdelta: () => JSON.parse(wasm.solve_pdelta_3d(JSON.stringify(input), 20, 1e-8)).results,
+        session: () => session.solve(input.loads),
+      })) {
+        data.density = 1;
+        expect(reactions(solve()), `${kind}/${path}`).toBeGreaterThan(0);
+        for (const zero of [0, -0]) {
+          data.density = zero;
+          expect(reactions(solve()), `${kind}/${path}`).toBe(0);
+        }
+        for (const bad of [-1, -Number.MIN_VALUE]) {
+          data.density = bad;
+          expect.soft(solve, `${kind}/${path}/${bad}`).toThrow(/density/);
+        }
+      }
+    } finally {
+      session.free();
+    }
+  }
+});
+
+it('#2472 raw WASM applies either planar point moment alias with its sign', () => {
+  const { plane } = wireInputs();
+  const session = new wasm.LoadSession2D({ ...plane, loads: [] });
+  try {
+    for (const solve of [
+      () => wasm.solve_2d(plane), () => session.solve(plane.loads),
+      () => JSON.parse(wasm.solve_pdelta_2d(JSON.stringify(plane), 20, 1e-8)).results,
+    ]) {
+      const data = plane.loads[0]!.data;
+      const baseline = solve().reactions[0]!.my;
+      for (const field of ['my', 'mz']) for (const moment of [-5, 5]) {
+        Object.assign(data, { [field]: moment });
+        expect(solve().reactions[0]!.my - baseline, field).toBeCloseTo(-moment, 8);
+        Reflect.deleteProperty(data, field);
+      }
+    }
+  } finally {
+    session.free();
   }
 });
 
