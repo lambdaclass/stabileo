@@ -5173,12 +5173,14 @@ export function plannedCaseName(
 export function findPlannedCase<C extends Pick<LoadCase, 'id' | 'type' | 'name' | 'alternatives' | 'snowBasis' | 'group' | 'includes' | 'generated'> & { reduction?: unknown }>(
   cases: readonly C[], name: string | undefined, type: string, opts: PlannedCaseMatch = {},
 ): C | undefined {
-  const open = (c: C) => c.type === type && c.snowBasis === opts.snowBasis && c.group === opts.group
+  const open = (c: C) => c.type === type && c.snowBasis === opts.snowBasis
     && !c.generated && !(opts.reduced && c.reduction !== undefined) && !isCompositeCase(c);
-  const explicit = opts.existingId != null ? cases.find(c => c.id === opts.existingId && open(c)) : undefined;
+  const explicit = opts.existingId != null
+    ? cases.find(c => c.id === opts.existingId && open(c) && (opts.group === undefined || c.group === opts.group))
+    : undefined;
   if (explicit || name === undefined) return explicit;
   const numbered = (n: string) => n === name || (n.startsWith(`${name} (`) && /^\(\d+\)$/.test(n.slice(name.length + 1)));
-  return cases.find(c => open(c) && (opts.own || opts.group !== undefined
+  return cases.find(c => open(c) && c.group === opts.group && (opts.own || opts.group !== undefined
     ? c.alternatives === opts.alternatives && numbered(c.name)
     : c.name === name));
 }

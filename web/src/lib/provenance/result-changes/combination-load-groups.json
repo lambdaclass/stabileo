@@ -8,6 +8,7 @@
   "when": {
     "any": [
       "groupedCombinationRules",
+      "crossSymbolCombinationAlternatives",
       "loadPlanInCompositeCase"
     ]
   },
@@ -27,14 +28,14 @@
     "hu": "A mentett kombinációs szabályok figyelembe veszik a tehercsoportokat"
   },
   "explanation": {
-    "en": "A saved grouped factor could apply to every case of the same load symbol. Regenerate combinations made from grouped rules, including composite cases, then rerun the analyses and envelopes. Review any composite case that already holds loads written by Auto Loads.",
-    "es": "Un factor de grupo guardado podía aplicarse a todos los casos con el mismo símbolo de carga. Regenerá las combinaciones creadas con reglas por grupo, incluidos los casos compuestos, y volvé a calcular los análisis y las envolventes. Revisá los casos compuestos que ya contengan cargas escritas por Cargas automáticas.",
-    "pt": "Um fator de grupo salvo podia ser aplicado a todos os casos com o mesmo símbolo de carga. Gere novamente as combinações criadas com regras por grupo, incluindo os casos compostos, e repita as análises e as envoltórias. Revise os casos compostos que já contêm cargas geradas pelo cálculo automático de cargas.",
-    "de": "Ein gespeicherter Gruppenfaktor konnte auf alle Lastfälle mit demselben Lastsymbol angewendet werden. Erzeugen Sie die aus Gruppenregeln erstellten Kombinationen einschließlich zusammengesetzter Lastfälle neu und berechnen Sie Analysen und Einhüllende erneut. Prüfen Sie zusammengesetzte Lastfälle, die bereits automatisch erzeugte Lasten enthalten.",
-    "fr": "Un coefficient de groupe enregistré pouvait s’appliquer à tous les cas du même symbole de charge. Régénérez les combinaisons issues de règles par groupe, y compris les cas composites, puis relancez les analyses et les enveloppes. Vérifiez les cas composites qui contiennent déjà des charges générées automatiquement.",
-    "tr": "Kayıtlı bir grup katsayısı aynı yük simgesine sahip tüm durumlara uygulanabiliyordu. Bileşik durumlar dahil, gruplu kurallardan oluşturulan birleşimleri yeniden üretin, ardından analizleri ve zarfları yeniden hesaplayın. Otomatik yüklerin daha önce yazıldığı bileşik yük durumlarını gözden geçirin.",
-    "zh": "已保存的组系数可能应用于同一荷载符号的所有工况。请重新生成基于分组规则的组合（包括复合工况），然后重新运行分析并计算包络。 请检查已包含自动生成荷载的组合工况。",
-    "hu": "Egy mentett csoporttényező az azonos teherjellel rendelkező összes teheresetre érvényesülhetett. Készítse újra a csoportszabályokból létrehozott kombinációkat, az összetett tehereseteket is, majd futtassa újra az elemzéseket és a burkológörbék számítását. Ellenőrizze azokat az összetett tehereseteket, amelyek már tartalmaznak automatikusan előállított terheket."
+    "en": "A grouped factor could include cases outside its group. Cases with different load symbols in a shared alternative set could be added together. Review and regenerate the affected combinations and composite cases, then rerun the analyses and envelopes. Review any composite case that already holds loads written by Auto Loads.",
+    "es": "Un factor de grupo podía incluir casos de carga ajenos al grupo. Los casos de un mismo conjunto de alternativas podían sumarse si tenían símbolos de carga distintos. Revisá y regenerá las combinaciones y los casos compuestos afectados, y volvé a calcular los análisis y las envolventes. Revisá los casos compuestos que ya contengan cargas escritas por Cargas automáticas.",
+    "pt": "Um fator de grupo podia incluir casos de carga de fora do grupo. Casos do mesmo conjunto de alternativas podiam ser somados quando tinham símbolos de carga diferentes. Revise e gere novamente as combinações e os casos compostos afetados, e repita as análises e as envoltórias. Revise os casos compostos que já contêm cargas geradas pelo cálculo automático de cargas.",
+    "de": "Ein Gruppenfaktor konnte Lastfälle außerhalb seiner Gruppe erfassen. Lastfälle derselben Alternativgruppe konnten bei unterschiedlichen Lastsymbolen addiert werden. Prüfen und erzeugen Sie die betroffenen Kombinationen und zusammengesetzten Lastfälle neu und berechnen Sie Analysen und Einhüllende erneut. Prüfen Sie zusammengesetzte Lastfälle, die bereits automatisch erzeugte Lasten enthalten.",
+    "fr": "Un coefficient de groupe pouvait inclure des cas de charge hors de son groupe. Des cas du même ensemble de variantes pouvaient être additionnés lorsque leurs symboles de charge différaient. Vérifiez et régénérez les combinaisons et les cas composites concernés, puis relancez les analyses et les enveloppes. Vérifiez les cas composites qui contiennent déjà des charges générées automatiquement.",
+    "tr": "Bir grup katsayısı, grubu dışındaki yük durumlarını içerebiliyordu. Yük simgeleri farklı olduğunda aynı alternatif kümesindeki durumlar toplanabiliyordu. Etkilenen birleşimleri ve bileşik durumları inceleyip yeniden üretin, ardından analizleri ve zarfları yeniden hesaplayın. Otomatik yüklerin daha önce yazıldığı bileşik yük durumlarını gözden geçirin.",
+    "zh": "组系数可能纳入组外工况。同一备选集合中的不同荷载符号工况可能被相加。请检查并重新生成受影响的组合和组合工况，然后重新运行分析并计算包络。请检查已包含自动生成荷载的组合工况。",
+    "hu": "A csoporttényező a csoporton kívüli teheresetekre is érvényesülhetett. Azonos alternatívakészletbe tartozó esetek különböző teherjelek esetén összeadódhattak. Ellenőrizze és hozza létre újra az érintett kombinációkat és összetett tehereseteket, majd futtassa újra az elemzéseket és a burkológörbék számítását. Ellenőrizze azokat az összetett tehereseteket, amelyek már tartalmaznak automatikusan előállított terheket."
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-combination-load-groups.md",

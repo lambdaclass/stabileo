@@ -24,8 +24,6 @@ import { nonlinearWorkerReply, nonlinearWorkerSession } from '../../engine/nonli
 import { solveCombinations2D, solveCombinations3D, solveCombinations3DParallel, type ModelData } from '../../engine/solver-service';
 import { setLocale, tp } from '../../i18n';
 
-const knownWrong = process.env.RUN_KNOWN_WRONG === '2535' ? it : it.skip;
-
 const floor = { id: 1, type: 'L', name: 'Floor live' };
 const roof = { id: 2, type: 'L', name: 'Roof live', group: 'roof' };
 const roofTerm = { symbol: 'L', group: 'roof', factor: 2 } as const;
@@ -111,11 +109,11 @@ it('#2535 one pick per alternative set across grouped terms in Loads, Preview an
   expect(modelStore.combinations.map(c => c.factors)).toEqual(alternativeFactors);
 });
 
-knownWrong('known wrong result: #2535 one alternative set stays exclusive across live and roof-live symbols', () => {
+it('#2535 one alternative set stays exclusive across live and roof-live symbols', () => {
   const roofLiveTerm = { ...roofTerm, symbol: 'Lr' } as const;
   const cases = [{ ...alternativeCases[0]!, type: 'L' }, { ...alternativeCases[1]!, type: 'Lr' }] as const;
   restoreGroupedProject(namedFloorTerm, roofLiveTerm);
-  modelStore.restore({ ...modelStore.snapshot(), loadCases: cases });
+  modelStore.restore({ ...modelStore.snapshot(), loadCases: [...cases] });
   const planned = plan(namedFloorTerm, roofLiveTerm);
   const input = { ...planned, cases: planned.cases.map((c, i) => ({
     ...c, type: cases[i]!.type, existingId: cases[i]!.id, group: cases[i]!.group, alternatives,
@@ -132,7 +130,7 @@ knownWrong('known wrong result: #2535 one alternative set stays exclusive across
   expect(modelStore.combinations.map(c => c.factors)).toEqual(alternativeFactors);
 });
 
-knownWrong('known wrong result: #2535 shared sets also exclude directional alternatives and retain eligible wind senses', () => {
+it('#2535 shared sets also exclude directional alternatives and retain eligible wind senses', () => {
   const wind = { ...alternativeCases[1]!, type: 'W' };
   const otherWind = { id: 3, name: 'Other wind', type: 'W' };
   const terms = [namedFloorTerm, { ...floorTerm, symbol: 'W' }] as const;
@@ -222,14 +220,13 @@ it('#2535 retained grouped aliases resolve in Loads, Preview and Apply without a
 });
 
 for (const group of [undefined, roof.group, 'different'] as const) {
-  const test = group === undefined ? knownWrong : it;
-  test(`${group === undefined ? 'known wrong result: ' : ''}#2535 explicit plan ID resolves a grouped target when group is ${String(group)}`, () => {
+  it(`#2535 explicit plan ID resolves a grouped target when group is ${String(group)}`, () => {
     const term = { ...roofTerm, group: group ?? roof.group };
     restoreGroupedProject(term);
     const tip = modelStore.addNode(0, 0, 0);
     modelStore.addNodalLoad3D(tip, 0, 0, -floorForce, 0, 0, 0, roof.id);
     const planned = plan(term);
-    const input = {
+    const input: LoadPlan = {
       ...planned, cases: [{ ...planned.cases[1]!, existingId: roof.id, own: false, group, nameKey: 'Planned live' }],
       nodal: [{ nodeId: tip, fx: 0, fy: 0, fz: -roofForce, caseType: 'L' }],
     };
@@ -249,7 +246,7 @@ for (const group of [undefined, roof.group, 'different'] as const) {
   });
 }
 
-knownWrong.each([false, true])('known wrong result: #2535 retained cases take their factors in the grouped remainder (replace %s)', clearExisting => {
+it.each([false, true])('#2535 retained cases take their factors in the grouped remainder (replace %s)', clearExisting => {
   restoreGroupedProject(floorTerm, roofTerm);
   const retained = [{ ...floor, type: 'CR' }, { ...roof, type: 'TR' }, { id: 4, type: 'L', name: 'Mezzanine', group: 'mezzanine' }];
   modelStore.restore({ ...modelStore.snapshot(), loadCases: retained });
@@ -260,7 +257,11 @@ knownWrong.each([false, true])('known wrong result: #2535 retained cases take th
   const expected = projectCombinations().map(c => c.factors);
   expect(expected).toEqual([[{ caseId: floor.id, factor: floorTerm.factor }, { caseId: 4, factor: floorTerm.factor },
     { caseId: roof.id, factor: roofTerm.factor }]]);
-  expect.soft(previewLoadPlan(input, applyOptions.nameOf, { replaceExisting: clearExisting }).after.combinations).toBe(1);
+  const preview = previewLoadPlan(input, applyOptions.nameOf, { replaceExisting: clearExisting });
+  expect.soft(preview.after.combinations).toBe(1);
+  expect.soft(preview.dispositions).toEqual(retained.map(c => c.type).sort().map(caseType =>
+    expect.objectContaining({ caseType, action: 'retained', lossy: false })));
+  expect.soft(preview.warnings.map(w => w.key)).not.toContain('loadPlan.warning.caseRetainedNotCombined');
   expect(applyLoadPlan(input, { ...applyOptions, clearExisting })).toBeUndefined();
   expect.soft(modelStore.combinations.map(c => c.factors)).toEqual(expected);
   expect(modelStore.loads.map(l => l.data.caseId)).toEqual(retained.map(c => c.id));
@@ -389,7 +390,7 @@ it('#2535 legacy rules without a group still sum both live cases', () => {
   expect(expandCombinations([spec({ ...roofTerm, factor: 0 })], [floor])[0]?.factors).toEqual([]);
 });
 
-knownWrong('known wrong result: #2535 result notices identify grouped terms and Auto Loads in a composite without combinations', () => {
+it('#2535 result notices identify grouped terms and Auto Loads in a composite without combinations', () => {
   restoreGroupedProject(floorTerm);
   const changes = () => assessProject(modelStore.snapshot(), null, 'pro').changes.map(c => c.id);
   modelStore.restore({ ...modelStore.snapshot(), loadCases: [floor] });
@@ -406,19 +407,22 @@ knownWrong('known wrong result: #2535 result notices identify grouped terms and 
   expect(changes()).toContain('combination-load-groups');
 });
 
-knownWrong('known wrong result: #2535 the result notice covers cross-symbol alternatives with an ungrouped rule', () => {
+it('#2535 the result notice covers cross-symbol alternatives with an ungrouped rule', () => {
   restoreGroupedProject(floorTerm, { ...roofTerm, symbol: 'Lr', group: undefined });
   const cases = [{ ...floor, alternatives }, { ...roof, type: 'Lr', group: undefined, alternatives }];
   modelStore.restore({ ...modelStore.snapshot(), loadCases: cases });
   expect.soft(projectCombinations().map(c => c.factors)).toEqual(alternativeFactors);
   const notices = () => assessProject(modelStore.snapshot(), null, 'pro').changes.map(c => c.id);
   expect.soft(notices()).toContain('combination-load-groups');
+  addCompositeCases(projectCombinations());
+  modelStore.setCombinationRules([]);
+  expect.soft(notices()).toContain('combination-load-groups');
   modelStore.restore({ ...modelStore.snapshot(), loadCases: [cases[0]!, { ...cases[1]!, alternatives: 'independent' }] });
   expect(notices()).not.toContain('combination-load-groups');
 });
 
 function cantilever(dim: '2d' | '3d', exclusive: boolean | 'cross-symbol' = false) {
-  restoreGroupedProject(...(exclusive === 'cross-symbol' ? [namedFloorTerm, { ...roofTerm, symbol: 'Lr' }]
+  restoreGroupedProject(...(exclusive === 'cross-symbol' ? [namedFloorTerm, { ...roofTerm, symbol: 'Lr' as const }]
     : exclusive ? [namedFloorTerm, roofTerm] : [roofTerm]));
   if (exclusive) modelStore.restore({ ...modelStore.snapshot(), loadCases: exclusive === 'cross-symbol'
     ? [alternativeCases[0]!, { ...alternativeCases[1]!, type: 'Lr' }] : alternativeCases });
@@ -443,8 +447,7 @@ it('#2535 the 2D linear combination and envelope exclude the floor live load', (
 });
 
 for (const selection of [true, 'cross-symbol'] as const) {
-  const test = selection === true ? it : knownWrong;
-  test(`${selection === true ? '' : 'known wrong result: '}#2535 2D linear reactions keep ${selection === true ? 'grouped' : selection} alternatives separate`, () => {
+  it(`#2535 2D linear reactions keep ${selection === true ? 'grouped' : selection} alternatives separate`, () => {
     const { base, ids, model } = cantilever('2d', selection);
     const solved = solveCombinations2D(model, modelStore.loadCases, modelStore.combinations);
     if (!solved || typeof solved === 'string') throw new Error(String(solved));
@@ -528,8 +531,7 @@ for (const entry of ['sync', 'async'] as const) for (const method of ['linear', 
   });
 
   for (const selection of [true, 'cross-symbol'] as const) {
-    const test = selection === true ? it : knownWrong;
-    test(`${selection === true ? '' : 'known wrong result: '}#2535 3D ${entry} ${method} reactions keep ${selection === true ? 'grouped' : selection} alternatives separate`, async () => {
+    it(`#2535 3D ${entry} ${method} reactions keep ${selection === true ? 'grouped' : selection} alternatives separate`, async () => {
       const { solved, ids } = await solveFixture(selection);
       expect.soft(ids).toHaveLength(2);
       expect.soft(vertical(solved.perCombo.get(ids[0]!)!.reactions)).toBeCloseTo(floorForce * floorTerm.factor, 8);
@@ -563,8 +565,7 @@ for (const entry of ['main thread', 'worker adapter'] as const) {
 }
 
 for (const entry of ['main thread', 'worker adapter'] as const) for (const selection of [true, 'cross-symbol'] as const) {
-  const test = selection === true ? it : knownWrong;
-  test(`${selection === true ? '' : 'known wrong result: '}#2535 direct analysis via the ${entry} keeps ${selection === true ? 'grouped' : selection} alternatives separate`, async () => {
+  it(`#2535 direct analysis via the ${entry} keeps ${selection === true ? 'grouped' : selection} alternatives separate`, async () => {
     const { base, ids, model } = cantilever('3d', selection);
     const jobs = entry === 'worker adapter' ? recordWorkerJobs() : [];
     const solved = await runDirectAnalysis(model, modelStore.loadCases, modelStore.combinations, {

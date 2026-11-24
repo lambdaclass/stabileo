@@ -65,9 +65,7 @@ describe('the rule library across tabs', () => {
   });
 });
 
-const knownWrong = process.env.RUN_KNOWN_WRONG === '2535' ? it : it.skip;
-
-knownWrong('known wrong result: #2535 the library rejects partial rules and preserves a valid snow basis', async () => {
+it('#2535 the library rejects partial rules and preserves a valid snow basis', async () => {
   const malformed = JSON.stringify({ kind: 'stabileo.combinationRules', rules: [
     { terms: [{ symbol: 'D', factor: 1 }, { symbol: 'L', factor: '2' }] },
   ] });

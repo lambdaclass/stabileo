@@ -65,7 +65,6 @@ export function rulesToTemplate(rules: readonly CombinationRule[], name: string)
   return JSON.stringify({ kind: TEMPLATE_KIND, version: 1, name, rules }, null, 2);
 }
 
-/** Read a template file; null when it is not one. Unknown symbols and non-numeric factors are dropped. */
 export function rulesFromTemplate(text: string): { name: string; rules: CombinationRule[] } | null {
   let doc: unknown;
   try { doc = JSON.parse(text); } catch { return null; }
@@ -74,17 +73,16 @@ export function rulesFromTemplate(text: string): { name: string; rules: Combinat
   const rules: CombinationRule[] = [];
   for (const [i, r] of d.rules.entries()) {
     const x = r as { purpose?: unknown; terms?: unknown };
-    if (!x || !Array.isArray(x.terms)) continue;
+    if (!x || !Array.isArray(x.terms)) return null;
     const terms: CombinationTerm[] = [];
-    for (const t of x.terms as Array<{ symbol?: unknown; factor?: unknown; group?: unknown } | null>) {
+    for (const t of x.terms as Array<{ symbol?: unknown; factor?: unknown; group?: unknown; snowBasis?: unknown } | null>) {
       if (!t || typeof t !== 'object' || Array.isArray(t)) return null;
-      const { symbol, factor, group } = t;
+      const { factor, group, snowBasis } = t;
+      const symbol = RULE_SYMBOLS.find(allowed => allowed === t.symbol);
+      if (symbol === undefined || typeof factor !== 'number' || !Number.isFinite(factor)) return null;
       if (group !== undefined && !isCombinationGroup(group)) return null;
-      if (!RULE_SYMBOLS.includes(symbol as LoadSymbol) || typeof factor !== 'number' || !Number.isFinite(factor)) {
-        if (group !== undefined) return null;
-        continue;
-      }
-      terms.push({ symbol: symbol as LoadSymbol, factor, ...(group === undefined ? {} : { group }) });
+      if (snowBasis !== undefined && (symbol !== 'S' || snowBasis !== 'flatRoof')) return null;
+      terms.push({ symbol, factor, ...(group === undefined ? {} : { group }), ...(snowBasis === undefined ? {} : { snowBasis }) });
     }
     if (terms.length === 0) continue;
     rules.push({ id: `r${i + 1}`, purpose: x.purpose === 'service' ? 'service' : 'strength', terms });

@@ -39,9 +39,8 @@ describe('project combination rules', () => {
     expect(back.rules[0]!.terms).toEqual(rule.terms);
     expect(rulesFromTemplate('{"kind":"other","rules":[]}')).toBeNull();
     expect(rulesFromTemplate('not json')).toBeNull();
-    // An unknown symbol is dropped, not guessed.
-    const odd = rulesFromTemplate(JSON.stringify({ kind: 'stabileo.combinationRules', rules: [{ terms: [{ symbol: 'Q', factor: 1 }, { symbol: 'D', factor: 1.4 }] }] }))!;
-    expect(odd.rules[0]!.terms).toEqual([{ symbol: 'D', factor: 1.4 }]);
+    const odd = rulesFromTemplate(JSON.stringify({ kind: 'stabileo.combinationRules', rules: [{ terms: [{ symbol: 'Q', factor: 1 }, { symbol: 'D', factor: 1.4 }] }] }));
+    expect(odd).toBeNull();
   });
 });
 
@@ -73,21 +72,19 @@ it('#2535 a malformed term rejects a template instead of removing an action', ()
   expect(rulesFromTemplate(template([dead]))?.rules[0]?.terms).toEqual([dead]);
 });
 
-const knownWrong = process.env.RUN_KNOWN_WRONG === '2535' ? it : it.skip;
-
-knownWrong.each([
+it.each([
   { symbol: 'L', factor: '2' },
   { symbol: 'L', factor: null },
   { symbol: 'L' },
   { factor: 2 },
   { symbol: 'S', factor: 2, snowBasis: 'physical' },
   { symbol: 'L', factor: 2, snowBasis: 'flatRoof' },
-])('known wrong result: #2535 rejects the whole template with malformed term %j', live => {
+])('#2535 rejects the whole template with malformed term %j', live => {
   const doc = { kind: 'stabileo.combinationRules', rules: [{ terms: [{ symbol: 'D', factor: 1 }, live] }] };
   expect(rulesFromTemplate(JSON.stringify(doc))).toBeNull();
 });
 
-knownWrong('known wrong result: #2535 imported grouped snow selects its flat-roof basis', () => {
+it('#2535 imported grouped snow selects its flat-roof basis', () => {
   const snowRule: CombinationRule = { id: 'snow', purpose: 'strength', terms: [
     { symbol: 'S', factor: 2, group: 'roof', snowBasis: 'flatRoof' },
   ] };

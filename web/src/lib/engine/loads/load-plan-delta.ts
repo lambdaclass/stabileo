@@ -121,7 +121,12 @@ export function describePlanDelta(
   options: ExpandOptions & { replaceExisting: boolean; alsoUnmarked?: boolean },
   cases?: readonly CombinationCase[],
 ): PlanDelta {
-  const plannedCombinationCount = expandPlannedCombinations(plan, options, cases).length;
+  const expanded = expandPlannedCombinations(plan, options, cases);
+  const plannedCombinationCount = expanded.length;
+  const combinedIds = new Set(expanded.flatMap(c => c.factors.map(f => f.caseId)));
+  const retainedCases = options.retainedCases ?? [];
+  const retainedTypes = new Set(retainedCases.filter(c => combinedIds.has(c.id)).map(c => c.type));
+  for (const c of retainedCases) if (!combinedIds.has(c.id)) retainedTypes.delete(c.type);
   const replace = options.replaceExisting;
   const alsoUnmarked = !!options.alsoUnmarked;
   const afterTypes = [...new Set(plan.cases.map((c) => String(c.type)))].sort();
@@ -161,7 +166,7 @@ export function describePlanDelta(
       reason: msg(clears
         ? 'loadPlan.disposition.cleared'
         : 'loadPlan.disposition.retained', { caseType: t }),
-      lossy: true,
+      lossy: clears || !retainedTypes.has(t),
     });
   }
   dispositions.sort((a, b) => a.caseType.localeCompare(b.caseType));
@@ -202,8 +207,7 @@ export function describePlanDelta(
     }));
   }
   for (const t of removed) {
-    // The load case is one thing; its participation in the combinations is another, and
-    // that participation ends either way. That is the part users were not being told.
+    if (!clears && retainedTypes.has(t)) continue;
     warnings.push(msg(clears
       ? 'loadPlan.warning.caseCleared'
       : 'loadPlan.warning.caseRetainedNotCombined', { caseType: t }));

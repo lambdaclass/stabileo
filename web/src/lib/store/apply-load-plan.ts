@@ -164,10 +164,11 @@ function prepareCombinationCases(p: LoadPlan, nameOf: ApplyLoadPlanOptions['name
   const retained = modelStore.loadCases.filter(c => !removed.has(c.id));
   const projected = new Map(retained.map(c => [c.id, c]));
   let virtualId = retained.reduce((id, c) => Math.min(id, c.id - 1), -1);
-  const bindings = p.cases.map(pc => {
-    const name = nameOf(pc.nameKey, pc.nameParams);
+  const bindings = p.cases.map(planned => {
+    const name = nameOf(planned.nameKey, planned.nameParams);
     const available = [...projected.values()];
-    const found = findPlannedCase(available, name, pc.type, pc);
+    const found = findPlannedCase(available, name, planned.type, planned);
+    const pc = { ...planned, group: found?.group ?? planned.group };
     const projectedCase: LoadCase = {
       ...found,
       id: found?.id ?? virtualId--,
@@ -187,24 +188,24 @@ function prepareCombinationCases(p: LoadPlan, nameOf: ApplyLoadPlanOptions['name
   const extra = retained.filter(c => !c.generated && !isCompositeCase(c) && !planIds.has(c.id)
     && !(c.alternatives && ownGroups.has(c.alternatives)));
   const cases = [...[...planIds].map(id => projected.get(id)!), ...extra.filter(c => ownTypes.has(c.type))];
-  const explicitGroupCases = extra.filter(c => c.group !== undefined && !ownTypes.has(c.type));
-  return { bindings, cases, explicitGroupCases };
+  const retainedCases = extra.filter(c => !ownTypes.has(c.type));
+  return { bindings, cases, retainedCases };
 }
 
 export function previewLoadPlan(
   p: LoadPlan, nameOf: ApplyLoadPlanOptions['nameOf'], options: Parameters<typeof describePlanDelta>[2],
 ) {
   const scope = replaceScope(p, modelStore.loads, modelStore.loadCases, modelStore.combinations, nameOf);
-  const { cases, explicitGroupCases } = prepareCombinationCases(p, nameOf, scope);
-  return describePlanDelta(p, describeCurrentLoads(scope), { ...options, explicitGroupCases }, cases);
+  const { cases, retainedCases } = prepareCombinationCases(p, nameOf, scope);
+  return describePlanDelta(p, describeCurrentLoads(scope), { ...options, retainedCases }, cases);
 }
 
 export function applyLoadPlan(p: LoadPlan, opts: ApplyLoadPlanOptions) {
   if (p.outcome !== 'READY' || p.blockedKeys.length > 0) return p.blockedKeys[0];
   const expandOptions = { bothSenses: { E: opts.bothSenses }, patternsInCompanions: opts.patternsInCompanions };
   const scope = replaceScope(p, modelStore.loads, modelStore.loadCases, modelStore.combinations, opts.nameOf);
-  const { bindings, cases, explicitGroupCases } = prepareCombinationCases(p, opts.nameOf, scope);
-  const expanded = expandPlannedCombinations(p, { ...expandOptions, explicitGroupCases }, cases);
+  const { bindings, cases, retainedCases } = prepareCombinationCases(p, opts.nameOf, scope);
+  const expanded = expandPlannedCombinations(p, { ...expandOptions, retainedCases }, cases);
   if (hasModalSeismicDerivation(p.derivation) || (p.cases.some(c => c.type === 'E') && p.seismicGeneration !== 'static')) {
     return msg(MODAL_SEISMIC_UNAVAILABLE);
   }

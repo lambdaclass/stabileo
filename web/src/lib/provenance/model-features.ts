@@ -1,7 +1,7 @@
 import { POINT_END_TOL } from '../engine/member-point-loads';
 import { planarNodalMoment, planarPointMoment, planarPointMomentWithoutProjection, planarPointProjectionTooShort } from '../engine/planar-point-load';
 import { hasModalSeismicDerivation } from '../engine/loads/seismic-generation';
-import { isCompositeCase, symbolOfType } from '../engine/loads/combination-cases';
+import { isCompositeCase, symbolOfType, symbolsByAlternativeSet } from '../engine/loads/combination-cases';
 /**
  * Which features a saved model has, for deciding which registered result changes concern it.
  *
@@ -55,7 +55,7 @@ export const FEATURE_IDS = [
   'stagedConstruction', 'generatedStructures', 'nodalMoments', 'trussMemberLoads', 'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'generatedLoads', 'generatedWindLoads', 'generatedSeismicLoads', 'unverifiedGeneratedSeismicLoads',
   'generatedWidthGravity', 'generatedPanelGravityShells', 'memberFloorZones', 'magnitudeCombinations',
   'partialDistributedMemberLoads', 'distributedMemberLoads', 'spatialDistributedLoadOrientation', 'unplaceablePlanarPointLoads', 'planarStartCoupleWithoutProjection', 'legacyPlanarPointCoupleAliases', 'invalidPlanarNodalMomentAliases', 'selfWeight', 'nonstandardPlanarSelfWeight', 'standaloneGravityToggleOff', 'nodalForces', 'forceSummaryResults',
-  'ssiHistory', 'movingLoads', 'combinations', 'groupedCombinationRules', 'loadPlanInCompositeCase', 'cirsocCombinations', 'seismic', 'snow', 'wind', 'timeHistorySpec',
+  'ssiHistory', 'movingLoads', 'combinations', 'groupedCombinationRules', 'crossSymbolCombinationAlternatives', 'loadPlanInCompositeCase', 'cirsocCombinations', 'seismic', 'snow', 'wind', 'timeHistorySpec',
   'superposedCombinations', 'repeatedCombinationCases', 'prototypeNamedLoadCase', 'staticCaseEffects', 'projectedSpatialLoads', 'offsetMemberLoadFrame', 'inactiveSpatialMembers',
   ...ANALYSIS_KINDS.map((k) => `analysis:${k}` as const),
 ] as const;
@@ -474,6 +474,10 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   if (types.has('S')) f.add('snow');
   if (types.has('W') || types.has('Wa')) f.add('wind');
   const combos = (Array.isArray(s.combinations) && s.combinations.length > 0) || (Array.isArray(s.combinationRules) && s.combinationRules.length > 0);
+  if (loadPlanInCompositeCase) f.add('loadPlanInCompositeCase');
+  if ((combos || cases.some(isCompositeCase)) && [...symbolsByAlternativeSet(cases).values()].some(symbols => symbols.size > 1)) {
+    f.add('crossSymbolCombinationAlternatives');
+  }
   if (combos) {
     f.add('combinations');
     const groupedRule = Array.isArray(s.combinationRules) && s.combinationRules.some(rule => {
@@ -481,7 +485,6 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
       return Array.isArray(terms) && terms.some(term => term?.group !== undefined);
     });
     if (groupedRule || cases.some(c => c.group !== undefined)) f.add('groupedCombinationRules');
-    if (loadPlanInCompositeCase) f.add('loadPlanInCompositeCase');
     if (cases.some(c => c.name === '__proto__')) f.add('prototypeNamedLoadCase');
     if (Array.isArray(s.combinations) && s.combinations.some(c => {
       const method = (c as { method?: string } | null)?.method;
