@@ -63,6 +63,7 @@ const id: Translations = {
   'landing.heroTitle2': 'Seketika.',
   'landing.heroSub': 'Analisis struktur 2D & 3D tingkat profesional di browser Anda. Tanpa instalasi, tanpa kompromi.',
   'landing.tryApp': 'Coba aplikasi',
+  'landing.openingEditor': 'Membuka editor…',
   'landing.tryTour': 'Coba tur panduan',
   'landing.metricLanguages': 'Bahasa',
   'landing.metricAnalysis': 'Analisis Lengkap',

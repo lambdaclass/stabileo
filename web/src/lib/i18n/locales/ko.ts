@@ -63,6 +63,7 @@ const ko: Translations = {
   'landing.heroTitle2': '즉시.',
   'landing.heroSub': '브라우저에서 전문가 수준의 2D 및 3D 구조 해석. 설치 불필요, 타협 없음.',
   'landing.tryApp': '앱 체험',
+  'landing.openingEditor': '편집기를 여는 중…',
   'landing.tryTour': '가이드 투어 체험',
   'landing.metricLanguages': '언어',
   'landing.metricAnalysis': '완전한 해석',

@@ -315,6 +315,7 @@ const tr: Translations = {
   'landing.navLanguage': 'Dil',
   'landing.navGithubRepo': 'GitHub deposu',
   'landing.navOpenEditor': 'Düzenleyiciyi aç',
+  'landing.openingEditor': 'Düzenleyici açılıyor…',
   'landing.navPricing': 'Fiyatlandırma',
   'landing.navBlog': 'Blog',
   'landing.navPaper': 'Makale',

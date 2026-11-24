@@ -62,6 +62,7 @@ const it: Translations = {
   'landing.heroTitle2': 'Istantanea.',
   'landing.heroSub': 'Analisi strutturale 2D e 3D di livello professionale nel tuo browser. Senza installazione, senza compromessi.',
   'landing.tryApp': 'Prova l\'app',
+  'landing.openingEditor': 'Apertura dell’editor…',
   'landing.tryTour': 'Prova il tour guidato',
   'landing.metricLanguages': 'Lingue',
   'landing.metricAnalysis': 'Analisi completa',

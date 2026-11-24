@@ -63,6 +63,7 @@ const ru: Translations = {
   'landing.heroTitle2': 'Мгновенно.',
   'landing.heroSub': 'Профессиональный 2D и 3D расчёт конструкций в браузере. Без установки, без компромиссов.',
   'landing.tryApp': 'Попробовать приложение',
+  'landing.openingEditor': 'Открывается редактор…',
   'landing.tryTour': 'Попробовать экскурсию',
   'landing.metricLanguages': 'Языки',
   'landing.metricAnalysis': 'Полный расчёт',
