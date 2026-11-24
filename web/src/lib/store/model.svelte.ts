@@ -1,4 +1,4 @@
-import { canonicalizeModelAliases, NO_RELEASE } from '../model/canonical-aliases';
+import { canonicalizeLoadAliases, canonicalizeModelAliases, NO_RELEASE } from '../model/canonical-aliases';
 import { accountingProjection, scenarioSurfaceAdjustment } from '../engine/accounting-source';
 import { globalAxes } from '../features';
 import type { SupportType } from '../model/support-types';
@@ -2374,7 +2374,7 @@ function createModelStore() {
       _captureProvenance = fn;
     },
 
-    restore(rawSnapshot: ModelSnapshot): void {
+    restore(rawSnapshot: ModelSnapshot, beforeInstall?: () => void): void {
       // ── Why the incoming snapshot is unwrapped before anything reads it ──────────
       //
       // Every family below is copied ONE level deep (`{ ...v }`), which is enough to stop the
@@ -2404,6 +2404,7 @@ function createModelStore() {
       // `hydrateProjectProvenance`, which file-open and tab-activation call.
       const { detailing: savedDetailing, ...modelFields } = rawSnapshot;
       const s = canonicalizeModelAliases(plainDeepCopy(modelFields));
+      beforeInstall?.();
       loadEpoch++;
       _onReplaced?.();
       const migratedDetailing = restoreDetailing(savedDetailing);
@@ -2868,16 +2869,19 @@ function createModelStore() {
 
     /** Replace the load list whole, ids kept. For an edit that rewrites loads in place. */
     replaceLoads(loads: Load[]): void {
+      const canonical = loads.map(l => canonicalizeLoadAliases({ type: l.type, data: { ...l.data } } as Load));
       if (!_undoBatching) _pushUndo?.();
-      model.loads = loads.map((l) => ({ type: l.type, data: { ...l.data } }) as Load);
+      model.loads = canonical;
       if (_bulkLoadBuffer) _bulkLoadBuffer = [...model.loads];
     },
 
     /** Add a load of any type, whole, under a new id. For the edit layer; see `addSupportEntry`. */
     addLoadEntry(load: Load): number {
+      const id = nextId.load;
+      const canonical = canonicalizeLoadAliases({ type: load.type, data: { ...load.data, id } } as Load);
+      const entry = { type: canonical.type, data: JSON.parse(JSON.stringify(canonical.data)) } as Load;
       if (!_undoBatching) _pushUndo?.();
-      const id = nextId.load++;
-      const entry = { type: load.type, data: { ...JSON.parse(JSON.stringify(load.data)), id } } as Load;
+      nextId.load++;
       if (_bulkLoadBuffer) _bulkLoadBuffer.push(entry);
       else model.loads = [...model.loads, entry];
       return id;

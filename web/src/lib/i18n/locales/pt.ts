@@ -3650,6 +3650,7 @@ const pt: Translations = {
   'file.autosaveCorrupt': 'Foi encontrado um salvamento automático, mas não foi possível lê-lo, portanto nada dele foi restaurado. Abra o seu arquivo .ded em vez disso.',
   'file.sessionTabUnnamed': 'aba {n}',
   'file.sessionTabsDropped': 'Estas abas da sessão não passaram na validação e não foram abertas: {names}. O restante da sessão foi aberto e o arquivo continua como estava.',
+  'file.sessionHistoryDiscarded': 'O histórico de desfazer e refazer de {names} não passou na validação e foi descartado. Os modelos atuais foram abertos.',
   'file.workspaceTabsDropped': 'Ao restaurar o espaço de trabalho, estas abas não passaram na validação e ficaram de fora: {names}. As demais foram restauradas.',
   'file.workspaceUnreadable': 'Não foi possível ler o espaço de trabalho salvo neste navegador, portanto nenhuma aba foi restaurada.',
   'file.workspaceBackupKept': 'Uma cópia completa do espaço de trabalho anterior foi guardada neste navegador (chave stabileo-workspace-backup).',

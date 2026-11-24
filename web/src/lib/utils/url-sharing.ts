@@ -688,7 +688,7 @@ function decompressV2(data: string, onConflict?: (error: ModelAliasConflict) => 
  * Compress a ModelSnapshot to a URL-safe string (v2 — fflate + base64url, sv:4).
  */
 export function compressSnapshot(snapshot: ModelSnapshot): string {
-  return compressV2(snapshot);
+  return compressV2(canonicalizeModelAliases(snapshot));
 }
 
 /**
@@ -765,20 +765,30 @@ function buildShareMeta(includeViewport: boolean): ShareMeta {
 
 // ─── Generate URLs ────────────────────────────────────────────────────────
 
+function shareableSnapshot(mode: string): ModelSnapshot | null {
+  const snapshot = modelStore.snapshot();
+  if (snapshot.nodes.length === 0) return null;
+  try {
+    return canonicalizeModelAliases({ ...snapshot, analysisMode: sharedMode(mode) });
+  } catch (error) {
+    if (!(error instanceof ModelAliasConflict)) throw error;
+    uiStore.toast(error.message, 'error');
+    return null;
+  }
+}
+
 /**
  * Generate a share URL with the current model compressed in the hash fragment.
  * Returns { url, length } or null if model is empty.
  */
 export function generateShareURL(): { url: string; length: number } | null {
-  const snapshot = modelStore.snapshot();
-  if (snapshot.nodes.length === 0) return null;
-
   const mode = uiStore.analysisMode;
-  snapshot.analysisMode = sharedMode(mode);
+  const snapshot = shareableSnapshot(mode);
+  if (!snapshot) return null;
   // A model the compact format would change (every PRO addition: behaviours, sections' own
   // properties, supports that lift, the analysis rules, the grid…) is shared as its code, which
   // carries all of it. The feedback widget attaches this link to every report, PRO ones included.
-  if (mode === 'pro' || compactLoses(snapshot)) return codeShareUrl(snapshot, `${location.origin}${location.pathname}`);
+  if (mode === 'pro' || compactLosesCanonical(snapshot)) return codeShareUrl(snapshot, `${location.origin}${location.pathname}`);
   const meta = buildShareMeta(true);
 
   const compressed = compressV2(snapshot, meta);
@@ -803,7 +813,11 @@ function memberBehaviour(bh: unknown): MemberBehaviour {
   return bh as MemberBehaviour;
 }
 
-export function compactLoses(snapshot: ModelSnapshot): boolean {
+export function compactLoses(raw: ModelSnapshot): boolean {
+  try { return compactLosesCanonical(canonicalizeModelAliases(raw)); } catch { return true; }
+}
+
+function compactLosesCanonical(snapshot: ModelSnapshot): boolean {
   let back: DecodedCompactSnapshot;
   try { back = canonicalizeModelAliases(fromCompact(JSON.parse(JSON.stringify(toCompact(snapshot))))); } catch { return true; }
   const a = { ...(snapshot as unknown as Record<string, unknown>) }, b = { ...(back as unknown as Record<string, unknown>) };
@@ -845,10 +859,8 @@ function sameValue(x: unknown, y: unknown): boolean {
  * Generate an embed URL (same as share but with #embed= prefix).
  */
 export function generateEmbedURL(): { url: string; length: number } | null {
-  const snapshot = modelStore.snapshot();
-  if (snapshot.nodes.length === 0) return null;
-
-  snapshot.analysisMode = sharedMode(uiStore.analysisMode);
+  const snapshot = shareableSnapshot(uiStore.analysisMode);
+  if (!snapshot) return null;
   const meta = buildShareMeta(false);
 
   const compressed = compressV2(snapshot, meta);

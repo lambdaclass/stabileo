@@ -18,7 +18,7 @@ import { saveFile } from '../export/save-file';
 import { milestone } from '../tracking/activity.svelte';
 import type { TabState } from './tabs.svelte';
 import { resetSwitchBackup } from './switch-2d';
-import { t } from '../i18n';
+import { t, tp } from '../i18n';
 import { plainDeepCopy, findUncloneablePath } from '../utils/plain-deep-copy';
 import {
   LEGACY_AUTOSAVE_KEY,
@@ -330,11 +330,7 @@ function deserializeProject(text: string): boolean {
   if (!isValidDedalFile({ ...d, version: DEDAL_FILE_VERSION })) return false;
 
   const data = d as unknown as DedalFile;
-  adoptStoredProject(data.snapshot, data.name, data.analysisMode);
-  // appMode is derived from analysisMode (getter-only) — assigning it throws
-  // in strict mode, which broke opening any .ded that carried appMode.
-  // Restoring analysisMode below already yields the right appMode.
-  if (data.analysisMode) uiStore.analysisMode = data.analysisMode;
+  const analysisMode = adoptStoredProject(data.snapshot, data.name, data.analysisMode);
   if (data.axisConvention3D) uiStore.axisConvention3D = data.axisConvention3D;
   if (data.viewportPresentation3D) uiStore.viewportPresentation3D = data.viewportPresentation3D;
   // `!== undefined`, not truthiness: `false` is the value that most needs restoring, and a
@@ -343,7 +339,7 @@ function deserializeProject(text: string): boolean {
   uiStore.selfWeightCaseId = data.selfWeightCaseId ?? null;
   noteBasicSelfWeightRuleIfNeeded(data.selfWeightCaseId !== undefined, uiStore.analysisMode);
   viewVisibility.showAll();
-  validateAxisSafety(data);
+  validateAxisSafety(data.snapshot, analysisMode);
   resultsStore.clear(); // stale results dropped — the model must be re-solved
   resultsStore.forgetView();
   onProjectOpened(data.snapshot, uiStore.analysisMode);
@@ -357,11 +353,10 @@ function deserializeProject(text: string): boolean {
  * autosave restore used to do only the `restore()`, so the hand-edit record was the session's
  * empty one: «Size…» then replaced bars edited by hand, and the next autosave wrote it empty.
  */
-export function adoptStoredProject(raw: ModelSnapshot, name: string, analysisMode?: string): void {
-  const snapshot = canonicalizeModelAliases(raw, analysisMode);
+export function adoptStoredProject(raw: ModelSnapshot, name: string, analysisMode?: ModelSnapshot['analysisMode']): ModelSnapshot['analysisMode'] {
+  const snapshot = { ...storedProjectSnapshot(raw, analysisMode), detailing: plainDeepCopy(raw.detailing) };
   forgetSessionDemandRevisions(snapshot);
-  historyStore.pushState();
-  modelStore.restore(snapshot);
+  modelStore.restore(snapshot, () => historyStore.pushState());
   modelStore.announceNewProject();
   // Adopted separately from `restore()`, which is also the undo path — see project-provenance.ts.
   // A file written before these fields existed hydrates to "we do not know", not to "none".
@@ -372,6 +367,12 @@ export function adoptStoredProject(raw: ModelSnapshot, name: string, analysisMod
   // simplified-2D round trip belongs to the model that was just replaced, and
   // restoring it from here on would wipe THIS one. (See switch-2d.ts.)
   resetSwitchBackup();
+  if (snapshot.analysisMode) uiStore.analysisMode = snapshot.analysisMode;
+  return snapshot.analysisMode;
+}
+
+function storedProjectSnapshot(snapshot: ModelSnapshot, mode: ModelSnapshot['analysisMode']): ModelSnapshot {
+  return { ...snapshot, analysisMode: mode ?? snapshot.analysisMode };
 }
 
 /**
@@ -526,6 +527,7 @@ export interface SessionTabsVerdict {
   tabs: TabState[];
   /** The tabs that did not, so the caller can say which. */
   dropped: DroppedSessionTab[];
+  discardedHistory: DroppedSessionTab[];
 }
 
 /**
@@ -542,28 +544,30 @@ export interface SessionTabsVerdict {
  * over the stored one. The refused tabs are returned by name so the caller tells the user.
  */
 export function acceptSessionTabs(rawTabs: unknown): SessionTabsVerdict {
-  const verdict: SessionTabsVerdict = { tabs: [], dropped: [] };
+  const verdict: SessionTabsVerdict = { tabs: [], dropped: [], discardedHistory: [] };
   if (!Array.isArray(rawTabs)) return verdict;
   rawTabs.forEach((raw, index) => {
-    let tab: TabState | null = null;
-    let reason: string | undefined;
+    const name = (raw as { name?: unknown } | null)?.name;
+    const tabName = typeof name === 'string' && name.trim() !== '' ? name : null;
     try {
-      tab = acceptSessionTab(raw);
+      const accepted = acceptSessionTab(raw);
+      if (accepted) {
+        verdict.tabs.push(accepted.tab);
+        if (accepted.discardedHistory) {
+          verdict.discardedHistory.push({ index, name: tabName, ...accepted.discardedHistory });
+        }
+      } else {
+        verdict.dropped.push({ index, name: tabName });
+      }
     } catch (error) {
-      if (error instanceof ModelAliasConflict) reason = error.message;
-      else throw error;
-    }
-    if (tab) {
-      verdict.tabs.push(tab);
-    } else {
-      const name = (raw as { name?: unknown } | null)?.name;
-      verdict.dropped.push({ index, name: typeof name === 'string' && name.trim() !== '' ? name : null, ...(reason && { reason }) });
+      if (!(error instanceof ModelAliasConflict)) throw error;
+      verdict.dropped.push({ index, name: tabName, reason: error.message });
     }
   });
   return verdict;
 }
 
-function acceptSessionTab(raw: unknown): TabState | null {
+function acceptSessionTab(raw: unknown): { tab: TabState; discardedHistory?: { reason?: string } } | null {
   try {
     if (!raw || typeof raw !== 'object') return null;
     const tab = { ...raw } as TabState;
@@ -571,23 +575,28 @@ function acceptSessionTab(raw: unknown): TabState | null {
     if (!SESSION_TAB_MODES.has(tab.analysisMode)) return null;
     const asFile = (snapshot: unknown) => ({ version: DEDAL_FILE_VERSION, name: tab.name, snapshot });
     if (!isValidDedalFile(asFile(tab.modelSnapshot))) return null;
-    const modelSnapshot = canonicalizeModelAliases(tab.modelSnapshot, tab.analysisMode);
-    const stacksOk = [tab.undoStack, tab.redoStack].every(
-      (stack) => Array.isArray(stack) && stack.every((snap) => isValidDedalFile(asFile(snap))),
-    );
-    if (!stacksOk) {
+    tab.modelSnapshot = canonicalizeModelAliases({ ...tab.modelSnapshot, analysisMode: tab.analysisMode });
+    const normalizeHistory = (stack: ModelSnapshot[]) => {
+      if (!Array.isArray(stack) || !stack.every(snap => isValidDedalFile(asFile(snap)))) {
+        throw new Error(t('file.invalidFormat'));
+      }
+      return stack.map(snap => canonicalizeModelAliases({ ...snap, analysisMode: snap.analysisMode ?? tab.analysisMode }));
+    };
+    let discardedHistory: { reason?: string } | undefined;
+    try {
+      tab.undoStack = normalizeHistory(tab.undoStack);
+      tab.redoStack = normalizeHistory(tab.redoStack);
+    } catch (error) {
       tab.undoStack = [];
       tab.redoStack = [];
       tab.undoKinds = [];
       tab.redoKinds = [];
+      discardedHistory = error instanceof ModelAliasConflict ? { reason: error.message } : {};
     }
-    tab.modelSnapshot = modelSnapshot;
-    tab.undoStack = tab.undoStack.map(snap => canonicalizeModelAliases(snap, tab.analysisMode));
-    tab.redoStack = tab.redoStack.map(snap => canonicalizeModelAliases(snap, tab.analysisMode));
     for (const snap of [tab.modelSnapshot, ...tab.undoStack, ...tab.redoStack]) {
       forgetSessionDemandRevisions(snap);
     }
-    return tab;
+    return { tab, discardedHistory };
   } catch (error) {
     if (error instanceof ModelAliasConflict) throw error;
     return null;
@@ -599,6 +608,10 @@ function droppedTabNames(dropped: DroppedSessionTab[]): string {
   return dropped
     .map((d) => `«${d.name ?? t('file.sessionTabUnnamed').replace('{n}', String(d.index + 1))}»${d.reason ? ` (${d.reason})` : ''}`)
     .join(', ');
+}
+
+function sessionHistoryDiscarded(discarded: DroppedSessionTab[]): string {
+  return tp('file.sessionHistoryDiscarded', { names: droppedTabNames(discarded) });
 }
 
 function validateDedalFile(data: unknown): data is DedalFile {
@@ -657,11 +670,10 @@ function validateDedalFile(data: unknown): data is DedalFile {
  * Checks that 2D snapshots don't contain mixed z coordinates that would indicate
  * a 3D model was saved with the wrong analysisMode.
  */
-function validateAxisSafety(data: DedalFile): void {
-  const mode = data.analysisMode ?? '2d';
+function validateAxisSafety(snapshot: ModelSnapshot, mode: NonNullable<ModelSnapshot['analysisMode']> = '2d'): void {
   if (is3DWorkspace(mode)) return; // 3D/PRO files can have any coordinates
 
-  const nodes = data.snapshot.nodes as Array<[number, { x: number; y: number; z?: number }]>;
+  const nodes = snapshot.nodes;
   if (nodes.length === 0) return;
 
   let hasNonZeroZ = false;
@@ -730,12 +742,15 @@ export async function loadFile(file: File): Promise<{ type: 'tab' | 'session'; c
     // The tabs that pass are opened and the others named, rather than refusing the file over
     // one of them. Nothing is lost either way, since the file stays on disk as it was; but
     // refusing it kept every good tab out of reach, and the toast says what did not open.
-    const { tabs, dropped } = acceptSessionTabs(data.tabs);
+    const { tabs, dropped, discardedHistory } = acceptSessionTabs(data.tabs);
     if (tabs.length === 0) throw new Error(dropped.find(d => d.reason)?.reason ?? t('file.invalidFormat'));
     const activeTabId = typeof data.activeTabId === 'string' ? data.activeTabId : '';
     tabManager.restoreSession(tabs, activeTabId);
     if (dropped.length > 0) {
       uiStore.toast(t('file.sessionTabsDropped').replace('{names}', droppedTabNames(dropped)), 'error');
+    }
+    if (discardedHistory.length > 0) {
+      uiStore.toast(sessionHistoryDiscarded(discardedHistory), 'error');
     }
     return { type: 'session', count: tabs.length };
   } else if (isNewerFileVersion(version)) {
@@ -936,7 +951,8 @@ export function acceptAutosavePayload(raw: unknown, onRefusal?: (reason: string)
   if (typeof data.version !== 'string' || !KNOWN_VERSIONS.has(data.version)) return null;
   if (!isValidDedalFile(data)) return null;
   try {
-    data.snapshot = canonicalizeModelAliases(data.snapshot, data.analysisMode);
+    data.snapshot = canonicalizeModelAliases(storedProjectSnapshot(data.snapshot, data.analysisMode));
+    data.analysisMode = data.snapshot.analysisMode;
   } catch (error) {
     if (!(error instanceof ModelAliasConflict)) throw error;
     onRefusal?.(error.message);
@@ -1129,7 +1145,7 @@ export interface WorkspaceBackup {
   /** When the copy was taken (ISO 8601). */
   savedAt: string;
   /** `tabs-dropped`: some or all tabs were refused; `unreadable`: the text is not a session; `save-failed`: a newer save could not replace it. */
-  reason: 'tabs-dropped' | 'unreadable' | 'save-failed';
+  reason: 'tabs-dropped' | 'history-dropped' | 'unreadable' | 'save-failed';
   /** Names of the refused tabs (empty for `unreadable` and `save-failed`). */
   dropped: string[];
   /** The stored workspace text, exactly as it was found. */
@@ -1195,15 +1211,20 @@ function backupStoredWorkspace(raw: string, reason: WorkspaceBackup['reason'], d
  * The stored workspace could not be restored whole: keep a copy, and say so either way.
  * Called before App's first save, which is the first moment it could be overwritten.
  */
-function protectStoredWorkspace(raw: string, reason: WorkspaceBackup['reason'], dropped: DroppedSessionTab[]): void {
-  const names = dropped.map((d) => d.name ?? t('file.sessionTabUnnamed').replace('{n}', String(d.index + 1)));
+function protectStoredWorkspace(
+  raw: string, reason: WorkspaceBackup['reason'], dropped: DroppedSessionTab[], discardedHistory: DroppedSessionTab[] = [],
+): void {
+  const names = [...dropped, ...discardedHistory].map(
+    d => d.name ?? tp('file.sessionTabUnnamed', { n: String(d.index + 1) }),
+  );
   const kept = backupStoredWorkspace(raw, reason, names);
   if (!kept) workspaceOverwriteHeld = true;
-  const head = reason === 'unreadable'
-    ? t('file.workspaceUnreadable')
-    : t('file.workspaceTabsDropped').replace('{names}', droppedTabNames(dropped));
-  const tail = kept ? t('file.workspaceBackupKept') : t('file.workspaceBackupFailed');
-  uiStore.toast(`${head} ${tail}`, 'error');
+  const notices: string[] = [];
+  if (reason === 'unreadable') notices.push(t('file.workspaceUnreadable'));
+  if (dropped.length > 0) notices.push(tp('file.workspaceTabsDropped', { names: droppedTabNames(dropped) }));
+  if (discardedHistory.length > 0) notices.push(sessionHistoryDiscarded(discardedHistory));
+  notices.push(kept ? t('file.workspaceBackupKept') : t('file.workspaceBackupFailed'));
+  uiStore.toast(notices.join(' '), 'error');
 }
 
 let workspaceRestorePending = false;
@@ -1410,9 +1431,9 @@ export function loadWorkspaceFromLocalStorage(): DedalSessionFile | null {
   if (data.tabs.length === 0) return null;
   // localStorage is shared by everything served from this origin and survives the session
   // that wrote it: read back through the same gate as a session file.
-  const { tabs, dropped } = acceptSessionTabs(data.tabs);
-  if (dropped.length > 0) {
-    protectStoredWorkspace(raw, 'tabs-dropped', dropped);
+  const { tabs, dropped, discardedHistory } = acceptSessionTabs(data.tabs);
+  if (dropped.length > 0 || discardedHistory.length > 0) {
+    protectStoredWorkspace(raw, dropped.length > 0 ? 'tabs-dropped' : 'history-dropped', dropped, discardedHistory);
   }
   if (tabs.length === 0) return null;
   // The active tab may be one of the refused; then the first survivor, as `restoreSession` does.

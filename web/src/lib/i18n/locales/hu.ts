@@ -3371,6 +3371,7 @@ const hu: Translations = {
   "file.autosaveCorrupt": "Találtunk egy automatikus mentést, de nem lehetett beolvasni, ezért semmi sem lett visszaállítva belőle. Nyissa meg inkább a .ded fájlját.",
   "file.sessionTabUnnamed": "{n}. lap",
   "file.sessionTabsDropped": "Ezek a munkamenet-lapok nem estek át az ellenőrzésen, és nem nyíltak meg: {names}. A munkamenet többi része megnyílt, a fájl változatlan.",
+  "file.sessionHistoryDiscarded": "A visszavonási és ismétlési előzmények nem mentek át az ellenőrzésen, ezért törlődtek a következő lapokon: {names}. Az aktuális modellek megnyíltak.",
   "file.workspaceTabsDropped": "A munkaterület visszaállításakor ezek a lapok nem estek át az ellenőrzésen, és kimaradtak: {names}. A többi visszaállt.",
   "file.workspaceUnreadable": "A böngészőben tárolt munkaterületet nem lehetett beolvasni, ezért egyetlen lap sem állt vissza.",
   "file.workspaceBackupKept": "Az előző munkaterület teljes másolata megmaradt ebben a böngészőben (kulcs: stabileo-workspace-backup).",

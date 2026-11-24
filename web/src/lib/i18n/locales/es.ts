@@ -3943,6 +3943,7 @@ const es: Record<string, string> = {
   'file.autosaveCorrupt': 'Se encontró un guardado automático pero no se pudo leer, así que no se restauró nada de él. Abrí tu archivo .ded en su lugar.',
   'file.sessionTabUnnamed': 'pestaña {n}',
   'file.sessionTabsDropped': 'Estas pestañas de la sesión no pasaron la validación y no se abrieron: {names}. El resto de la sesión se abrió y el archivo quedó como estaba.',
+  'file.sessionHistoryDiscarded': 'Se descartó el historial de deshacer y rehacer que no pasó la validación en {names}. Se abrieron los modelos actuales.',
   'file.workspaceTabsDropped': 'Al restaurar el espacio de trabajo, estas pestañas no pasaron la validación y quedaron afuera: {names}. Las demás se restauraron.',
   'file.workspaceUnreadable': 'El espacio de trabajo guardado en este navegador no se pudo leer, así que no se restauró ninguna pestaña.',
   'file.workspaceBackupKept': 'Se guardó una copia completa del espacio de trabajo anterior en este navegador (clave stabileo-workspace-backup).',

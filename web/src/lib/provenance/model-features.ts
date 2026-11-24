@@ -44,7 +44,7 @@ export const GLOBAL_AXES_EVIDENCE = 'axisNamedLoads';
 /** Every feature id a registry entry may name. The registry test fails on any other. */
 export const FEATURE_IDS = [
   'gallery:slab-on-columns:walls', 'example:rc-beam-flexure',
-  GLOBAL_AXES_EVIDENCE, 'conflictingModelAliases',
+  GLOBAL_AXES_EVIDENCE, 'conflictingModelAliases', 'duplicateFixtureEndRelease',
   'plane2D', 'space3D', 'members', 'cableMembers', 'contactElements', 'frameMembers', 'trussMembers', 'hinges', 'arcMembers', 'shearAreas', 'thermalAtRelease',
   'steelMembers', 'steelCirsoc301', 'steelTensionWithoutConnection', 'steelDeclaredUnbracedLength', 'steelStaggeredOrUnboltedWebEnd', 'timberOrAluminiumMembers',
   'concreteMembers', 'fiberMembers', 'hognestadFiberMembers', 'cirsoc201', 'aci318', 'footings', 'jointDesigns',
@@ -68,6 +68,7 @@ const staggerGiven = (st: TensionEndSnapshot['stagger']) => !!st && [st.sMm, st.
 interface Elem {
   id: number; type?: string; behaviour?: string; materialId: number; sectionId?: number; nodeI: number; nodeJ: number;
   releaseI?: object; releaseJ?: object;
+  hingeStart?: boolean; hingeEnd?: boolean;
   semiRigid?: unknown; reinforcement?: unknown;
   tensionConnection?: { i?: TensionEndSnapshot; j?: TensionEndSnapshot };
   unbracedLength?: number;
@@ -127,6 +128,7 @@ export interface FeatureSnapshot extends FeatureSnapshotFields {
 
 export interface FeatureContext {
   storedLoads?: FeatureSnapshot['loads'];
+  storedElements?: FeatureSnapshot['elements'];
   /** The workspace the project opens in (the file's `analysisMode`). */
   analysisMode?: string;
   /** Analyses the project's results came from, as its stamp records them; null: not recorded. */
@@ -365,6 +367,14 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   let memberGravity = false;
   let shellGravity = false;
   let generatedSeismic = !!loadBasis?.seismic || loadNoteKeys.has('loadPlan.derivation.seismic');
+  if (values(ctx.storedElements ?? s.elements).some(member => {
+    if (member.type !== 'frame') return false;
+    const { hingeStart, hingeEnd, releaseI, releaseJ } = member;
+    return (hingeStart === true && (releaseI as { mz?: boolean })?.mz === true)
+      || (hingeEnd === true && (releaseJ as { mz?: boolean })?.mz === true);
+  })) {
+    f.add('duplicateFixtureEndRelease');
+  }
   const storedLoads = ctx.storedLoads ?? s.loads;
   if (hasConflictingModelAliases({
     nodes: values(s.nodes),

@@ -3,17 +3,20 @@ import { beforeEach, expect, it, vi } from 'vitest';
 import { deflateSync, inflateSync } from 'fflate';
 import LZString from 'lz-string';
 import { historyStore, modelStore, uiStore } from '..';
+import { addLoads } from '../load-ops';
 import { autosaveClear, autosaveWrite, resetAutosaveDbForTests } from '../autosave-db';
-import { acceptAutosavePayload, acceptSessionTabs, buildProjectFile, deserializeProject, loadAutosave, loadFile, loadProject, loadWorkspaceFromLocalStorage, projectAutosavePolicy } from '../file';
-import { compressSnapshot, decompressSnapshot, loadFromShareLink } from '../../utils/url-sharing';
+import { acceptAutosavePayload, acceptSessionTabs, buildProjectFile, deserializeProject, loadAutosave, loadFile, loadProject, loadWorkspaceFromLocalStorage, projectAutosavePolicy, readWorkspaceBackups } from '../file';
+import { compressSnapshot, decompressSnapshot, generateEmbedURL, generateShareURL, loadFromShareLink } from '../../utils/url-sharing';
 import { applyCode } from '../../model/code/apply';
 import { codeToModel } from '../../model/code/format';
 import { CODE_HASH, encodeCode } from '../../model/code/share';
 import { fragmentFromJSONModel, fragmentFromSnapshot } from '../../model/edit/fragment-code';
 import { modelFeatures } from '../../provenance/model-features';
+import resultChangeQuantities from 'virtual:result-change-quantities';
 import { RESULT_CHANGES } from '../../provenance/full-registry';
 import { conditionHolds } from '../../provenance/applicability';
 import { validateAndSolve2D } from '../../engine/solver-service';
+import { solvePDelta, solvePDelta3D } from '../../engine/wasm-solver';
 import { loadFixture, type JSONModel } from '../../templates/load-fixture';
 
 const conflict = /conflict/i;
@@ -114,7 +117,11 @@ it('#2459 rejects ambiguous moments across project, session, autosave, links, mo
   const file = project();
   nodal(file, { fz: 0, my: 0, mz: 5 });
   const tab = { id: 'one', name: 'Ambiguous', analysisMode: '2d', modelSnapshot: file.snapshot, undoStack: [], redoStack: [] };
-  const compact = compressSnapshot(file.snapshot);
+  expect(() => compressSnapshot(file.snapshot)).toThrow(/my.*mz/);
+  const valid = compressSnapshot({ ...file.snapshot, loads: [] });
+  const raw = JSON.parse(new TextDecoder().decode(inflateSync(Buffer.from(valid.slice(2), 'base64url'))));
+  raw.l = file.snapshot.loads;
+  const compact = '2.' + Buffer.from(deflateSync(new TextEncoder().encode(JSON.stringify(raw)))).toString('base64url');
   const legacy = LZString.compressToEncodedURIComponent(JSON.stringify(file.snapshot));
   const text = 'stabileo-model 1\nnode 1 0 0 0\nload nodal 1 nodeId=1 fx=0 fz=0 my=0 mz=5\n';
   expect.soft(deserializeProject(JSON.stringify(file))).toBe(false);
@@ -173,9 +180,7 @@ it('roadmap 2.4 collapses agreeing aliases and preserves distinct 3D components'
 });
 
 
-const reviewReproducer = process.env.RUN_ALIAS_REVIEW_REPRODUCERS ? it : it.skip;
-
-reviewReproducer('known wrong result: #2532 normalizes legacy edit-layer loads before they enter undo history', () => {
+it('#2532 normalizes legacy edit-layer loads before they enter undo history', () => {
   const file = project();
   const nodeId = file.snapshot.nodes[1]![0];
   modelStore.addLoadEntry({ type: 'nodal', data: { id: 0, nodeId, fx: 0, fy: -7, mz: 2 } as never });
@@ -183,13 +188,20 @@ reviewReproducer('known wrong result: #2532 normalizes legacy edit-layer loads b
   modelStore.restore(before);
   expect.soft(modelStore.snapshot().loads).toEqual(before.loads);
   expect.soft(before.loads).toEqual([{ type: 'nodal', data: { id: 1, nodeId, fx: 0, fz: -7, my: 2 } }]);
+  const legacy = { type: 'nodal' as const, data: { id: 1, nodeId, fx: 0, fy: -7, mz: 2 } as never };
+  modelStore.replaceLoads([legacy]);
+  const beforeRefusal = modelStore.snapshot();
+  expect.soft(beforeRefusal.loads).toEqual(before.loads);
   historyStore.clear();
-  expect.soft(() => modelStore.addLoadEntry({ type: 'nodal', data: { id: 0, nodeId, fx: 0, fz: 0, fy: 1 } as never })).toThrow(/fz.*fy/);
+  const invalid = { ...legacy, data: { id: 1, nodeId, fx: 0, fz: 0, fy: 1 } as never };
+  expect.soft(() => modelStore.addLoadEntry(invalid)).toThrow(/fz.*fy/);
+  expect.soft(() => modelStore.replaceLoads([legacy, invalid])).toThrow(/fz.*fy/);
+  expect.soft(() => addLoads([legacy, invalid])).toThrow(/fz.*fy/);
   expect.soft(historyStore.canUndo).toBe(false);
-  expect(modelStore.snapshot().loads).toEqual(before.loads);
+  expect(modelStore.snapshot()).toEqual(beforeRefusal);
 });
 
-reviewReproducer('known wrong result: #2532 uses the project mode consistently and leaves history intact on refusal', async () => {
+it('#2532 uses the project mode consistently and leaves history intact on refusal', async () => {
   const space = project('3d');
   space.snapshot.analysisMode = '2d';
   space.snapshot.nodes[1]![1].z = 1;
@@ -210,7 +222,7 @@ reviewReproducer('known wrong result: #2532 uses the project mode consistently a
 });
 
 for (const stack of ['undoStack', 'redoStack'] as const) {
-  reviewReproducer(`known wrong result: #2532 opens repaired tabs and reports discarded ${stack} in session and workspace intake`, async () => {
+  it(`#2532 opens repaired tabs and reports discarded ${stack} in session and workspace intake`, async () => {
     const file = project();
     nodal(file, { fz: 0, my: 5, mz: 5 });
     const bad = { ...file.snapshot, loads: [] };
@@ -232,7 +244,8 @@ for (const stack of ['undoStack', 'redoStack'] as const) {
       toast.mockClear();
       const saved = loadWorkspaceFromLocalStorage();
       expect.soft(saved?.tabs[0]).toMatchObject({ id: tab.id, undoStack: [], redoStack: [], undoKinds: [], redoKinds: [] });
-      expect(toast).toHaveBeenCalledWith(expect.stringMatching(/history.*Repaired fixture.*my.*mz/i), 'error');
+      expect.soft(toast).toHaveBeenCalledWith(expect.stringMatching(/history.*Repaired fixture.*my.*mz/i), 'error');
+      expect(readWorkspaceBackups()[0]).toMatchObject({ reason: 'history-dropped', raw: JSON.stringify(session) });
     } finally {
       toast.mockRestore();
       vi.unstubAllGlobals();
@@ -241,7 +254,7 @@ for (const stack of ['undoStack', 'redoStack'] as const) {
 }
 
 for (const [canonical, legacy] of [['dz', 'dy'], ['dry', 'drz']] as const) {
-  reviewReproducer(`known wrong result: #2532 refuses distinct ${canonical}/${legacy} before compact rounding`, () => {
+  it(`#2532 refuses distinct ${canonical}/${legacy} before compact rounding`, () => {
     const file = project();
     const support = file.snapshot.supports[0]![1];
     const value = 0.12345678901;
@@ -251,11 +264,30 @@ for (const [canonical, legacy] of [['dz', 'dy'], ['dry', 'drz']] as const) {
     const agreeing = decompressSnapshot(compressSnapshot(file.snapshot))?.supports[0]![1];
     expect.soft(agreeing?.[canonical]).toBe(0.123456789);
     expect(agreeing).not.toHaveProperty(legacy);
+
+    const liveSupport = modelStore.supports.get(support.id)!;
+    Object.assign(liveSupport, { [canonical]: value, [legacy]: 0.12345678902 });
+    const toast = vi.spyOn(uiStore, 'toast').mockImplementation(() => {});
+    try {
+      for (const generate of [generateShareURL, generateEmbedURL]) {
+        expect(generate()).toBeNull();
+        expect(toast).toHaveBeenCalledWith(expect.stringMatching(new RegExp(`${canonical}.*${legacy}`)), 'error');
+        toast.mockClear();
+      }
+    } finally {
+      toast.mockRestore();
+    }
+
+    const space = project('3d');
+    const spatialSupport = space.snapshot.supports[0]![1];
+    Object.assign(spatialSupport, { type: 'fixed3d', [canonical]: value, [legacy]: -value });
+    const spatial = decompressSnapshot(compressSnapshot(space.snapshot))?.supports[0]![1];
+    expect(spatial).toMatchObject({ [canonical]: 0.123456789, [legacy]: -0.123456789 });
   });
 }
 
 for (const end of ['I', 'J'] as const) {
-  reviewReproducer(`known wrong result: #2532 registers the changed reactions of a fixture with agreeing end ${end} release aliases`, () => {
+  it(`#2532 registers the changed reactions of a fixture with agreeing end ${end} release aliases`, () => {
     const file = project();
     const root = file.snapshot.nodes[0]![0];
     const tip = file.snapshot.nodes[1]![0];
@@ -279,15 +311,63 @@ for (const end of ['I', 'J'] as const) {
     expect.soft(modelStore.elements.get(member.id)?.[release].mz).toBe(true);
 
     const change = RESULT_CHANGES.changes.find(entry => entry.id === 'fixture-release-aliases');
-    expect.soft(change?.quantities).toEqual(['displacements', 'reactions', 'elementForces']);
+    expect.soft(resultChangeQuantities['fixture-release-aliases']).toEqual(['displacements', 'reactions', 'elementForces']);
     const features = () => modelFeatures({ elements: input.elements.map(e => [e.id, e]) });
+    expect(change).toBeDefined();
     if (change) {
-      expect.soft(conditionHolds(change.when, features())).toBe(true);
+      expect.soft(conditionHolds(change.when ?? {}, features())).toBe(true);
       delete member[hinge];
-      expect.soft(conditionHolds(change.when, features())).toBe(false);
+      expect.soft(conditionHolds(change.when ?? {}, features())).toBe(false);
       member[hinge] = false;
       member[release] = { mz: false };
-      expect(conditionHolds(change.when, features())).toBe(false);
+      expect(conditionHolds(change.when ?? {}, features())).toBe(false);
+    }
+  });
+}
+
+
+for (const mode of ['2d', '3d'] as const) {
+  it(`#2532 replays one agreeing release through example loading and ${mode} linear and P-Delta solvers`, async () => {
+    modelStore.clear();
+    uiStore.analysisMode = mode;
+    const root = modelStore.addNode(0, 0, 0);
+    const mid = modelStore.addNode(1, 0, 0);
+    const tip = modelStore.addNode(2, 0, 0);
+    const members = [modelStore.addElement(root, mid), modelStore.addElement(mid, tip)];
+    const supportType = mode === '2d' ? 'fixed' : 'fixed3d';
+    modelStore.addSupport(root, supportType);
+    modelStore.addSupport(tip, supportType);
+    const input = fixture(buildProjectFile());
+    const first = input.elements[0];
+    first.releaseI = { mz: true };
+    input.loads = members.map((elementId, i) => mode === '2d'
+      ? { type: 'distributed', data: { id: i + 1, elementId, qI: -4, qJ: -4 } }
+      : { type: 'distributed3d', data: { id: i + 1, elementId, qYI: -4, qYJ: -4, qZI: 0, qZJ: 0 } });
+
+    const solve = () => {
+      const linear = mode === '2d' ? modelStore.solve() : modelStore.solve3D();
+      const nonlinear = mode === '2d'
+        ? solvePDelta(modelStore.buildSolverInput()!)
+        : solvePDelta3D(modelStore.buildSolverInput3D()!);
+      if (!linear || typeof linear === 'string') throw new Error(String(linear));
+      expect(nonlinear.converged).toBe(true);
+      return [linear, nonlinear.results];
+    };
+
+    await modelStore.loadExample('fixture-release-aliases-test', async () => input);
+    const typed = solve();
+    first.hingeStart = true;
+    await modelStore.loadExample('fixture-release-aliases-test', async () => input);
+    const agreeing = solve();
+    for (const [index, result] of agreeing.entries()) {
+      const reaction = (nodeId: number) => {
+        const row = result.reactions.find((reaction: { nodeId: number }) => reaction.nodeId === nodeId);
+        return mode === '2d' ? row?.rz : row?.fy;
+      };
+      expect.soft(reaction(root)).toBeCloseTo(3, 10);
+      expect.soft(reaction(tip)).toBeCloseTo(5, 10);
+      expect.soft(result.reactions).toEqual(typed[index].reactions);
+      expect.soft(result.displacements).toEqual(typed[index].displacements);
     }
   });
 }

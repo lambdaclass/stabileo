@@ -19,7 +19,7 @@
  * for another reason, is a result change too.
  */
 import { readFileSync } from 'node:fs';
-import { modelFeatures, ANALYSIS_KINDS } from '../provenance/model-features';
+import { modelFeatures, ANALYSIS_KINDS, type FeatureContext } from '../provenance/model-features';
 import { modelStore } from '../store/model.svelte';
 import { historyStore } from '../store/history.svelte';
 import { uiStore } from '../store/ui.svelte';
@@ -33,6 +33,8 @@ import '../store';
 import '../engine/design/adapters/cirsoc201-adapter';
 import '../engine/design/adapters/unsupported-adapter';
 import { deserializeProject } from '../store/file';
+import { getFixture } from '../templates/fixture-index';
+import type { JSONModel } from '../templates/load-fixture';
 import { solveNow } from '../actions/solve';
 import { runSteelCheck } from '../store/steel-check';
 import { centerlineInput, dynamicInput } from '../store/dynamic-input';
@@ -300,8 +302,16 @@ export async function capture(c: SnapshotCase, opts: { afterOpen?: () => void; f
 export async function openedFeatures(c: SnapshotCase, fixture?: unknown): Promise<string[]> {
   if ('snowRoof' in c.source) return ['snow', 'members', 'frameMembers', 'space3D', 'generatedLoads'];
   reset(c);
+  const context: FeatureContext = {
+    analysisMode: c.workspace, analysesRun: ['linear', ...(c.advanced ?? [])], analysesRecorded: ANALYSIS_KINDS,
+  };
+  if ('example' in c.source) {
+    fixture ??= await getFixture(c.source.example)?.();
+    const source = fixture as JSONModel | undefined;
+    context.storedElements = source?.elements.map(member => [member.id, member]);
+  }
   await open(c, fixture);
-  const features: string[] = [...modelFeatures(modelStore.snapshot(), { analysisMode: c.workspace, analysesRun: ['linear', ...(c.advanced ?? [])], analysesRecorded: ANALYSIS_KINDS })];
+  const features: string[] = [...modelFeatures(modelStore.snapshot(), context)];
   if ('example' in c.source) features.push(`example:${c.source.example}`);
   return features;
 }

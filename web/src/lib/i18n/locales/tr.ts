@@ -3586,6 +3586,7 @@ const tr: Translations = {
   'file.autosaveCorrupt': 'Bir otomatik kayıt bulundu ancak okunamadı; bu yüzden ondan hiçbir şey geri yüklenmedi. Bunun yerine .ded dosyanızı açın.',
   'file.sessionTabUnnamed': 'sekme {n}',
   'file.sessionTabsDropped': 'Şu oturum sekmeleri doğrulamadan geçemedi ve açılmadı: {names}. Oturumun geri kalanı açıldı ve dosya değiştirilmedi.',
+  'file.sessionHistoryDiscarded': '{names} sekmelerinin geri alma ve yineleme geçmişi doğrulamadan geçemedi ve silindi. Güncel modeller açıldı.',
   'file.workspaceTabsDropped': 'Çalışma alanı geri yüklenirken şu sekmeler doğrulamadan geçemedi ve dışarıda bırakıldı: {names}. Diğerleri geri yüklendi.',
   'file.workspaceUnreadable': 'Bu tarayıcıda saklanan çalışma alanı okunamadı; bu yüzden hiçbir sekme geri yüklenmedi.',
   'file.workspaceBackupKept': 'Önceki çalışma alanının tam bir kopyası bu tarayıcıda saklandı (anahtar: stabileo-workspace-backup).',

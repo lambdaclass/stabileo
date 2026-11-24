@@ -2,6 +2,8 @@ import { it, expect } from 'vitest';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { CORPUS, type SnapshotCase } from '../corpus';
 import { openedFeatures } from '../capture';
+import { getFixture } from '../../templates/fixture-index';
+import type { JSONModel } from '../../templates/load-fixture';
 import type { ResultChangeRegistry } from '../../provenance/registry';
 import { readRegistry } from '../../../../scripts/result-changes/registry.mjs';
 import { fieldCovered } from '../../../../scripts/results-snapshot/applicability.mjs';
@@ -55,4 +57,27 @@ it('#2276 the corrected bundled beam has narrowly scoped design coverage', async
 it('reads a committed project through the same open path', async () => {
   const c = CORPUS.find((c) => 'ded' in c.source)!;
   expect(await openedFeatures(c)).toContain('footings');
+});
+
+
+it('covers the fixture replay change only when its source declares the same release twice', async () => {
+  const c = CORPUS.find(c => c.name === '2d-in-3d-portal-frame')!;
+  if (!('example' in c.source)) throw new Error('Expected an example');
+  const fixture = structuredClone(await getFixture(c.source.example)?.()) as JSONModel;
+  const member = fixture.elements[0];
+  delete member.hingeStart;
+  member.releaseI = { mz: true };
+
+  const registry: ResultChangeRegistry = readRegistry();
+  const entry = registry.changes.find(change => change.id === 'fixture-release-aliases');
+  if (!entry?.quantities?.every((quantity): quantity is string => typeof quantity === 'string')) {
+    throw new Error('Expected fixture release result changes to declare their fields');
+  }
+  const coverage = { ...entry, quantities: entry.quantities };
+  expect(fieldCovered(coverage, 'base.reactions[n1].my', await openedFeatures(c, fixture))).toBe(false);
+
+  member.hingeStart = true;
+  const features = await openedFeatures(c, fixture);
+  expect(fieldCovered(coverage, 'base.reactions[n1].my', features)).toBe(true);
+  expect(fieldCovered(coverage, 'solve.ok', features)).toBe(false);
 });

@@ -3950,6 +3950,7 @@ const en: Record<string, string> = {
   'file.autosaveCorrupt': 'An automatic save was found but could not be read, so nothing was restored from it. Open your .ded file instead.',
   'file.sessionTabUnnamed': 'tab {n}',
   'file.sessionTabsDropped': 'These session tabs failed validation and were not opened: {names}. The rest of the session was opened and the file is unchanged.',
+  'file.sessionHistoryDiscarded': 'Undo and redo history failed validation and was discarded for {names}. The current models were opened.',
   'file.workspaceTabsDropped': 'While restoring the workspace, these tabs failed validation and were left out: {names}. The others were restored.',
   'file.workspaceUnreadable': 'The workspace stored in this browser could not be read, so no tab was restored.',
   'file.workspaceBackupKept': 'A full copy of the previous workspace was kept in this browser (key stabileo-workspace-backup).',

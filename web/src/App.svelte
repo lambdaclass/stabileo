@@ -777,9 +777,7 @@
   function restoreAutosave() {
     if (autosaveData) {
       // As a .ded open adopts it (`adoptStoredProject`): its hand edits and exports with it.
-      adoptStoredProject(autosaveData.snapshot, autosaveData.name);
-      // Restore analysis mode and axis convention from autosave
-      if (autosaveData.analysisMode) uiStore.analysisMode = autosaveData.analysisMode;
+      adoptStoredProject(autosaveData.snapshot, autosaveData.name, autosaveData.analysisMode);
       if (autosaveData.axisConvention3D) uiStore.axisConvention3D = autosaveData.axisConvention3D;
       if (autosaveData.viewportPresentation3D) uiStore.viewportPresentation3D = autosaveData.viewportPresentation3D;
       // As a .ded open does: the project's own toggle, so an older PRO autosave is migrated with

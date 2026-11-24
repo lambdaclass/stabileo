@@ -11,6 +11,7 @@
  * user's (`userCopy`).
  */
 import { modelStore, type Load } from './model.svelte';
+import { canonicalizeLoadAliases } from '../model/canonical-aliases';
 import { uiStore } from './ui.svelte';
 import { editLeavesNothing, scaledLoad } from '../model/loads/load-magnitudes';
 import { reframedMemberLoad, type LoadFrame } from '../model/loads/load-frame';
@@ -26,8 +27,9 @@ function picked(ids: Iterable<number>): Load[] {
 export function addLoads(loads: readonly Load[]): number[] {
   // An empty batch still pushed an undo step and bumped the model's version, clearing the results.
   if (loads.length === 0) return [];
+  const canonical = loads.map(canonicalizeLoadAliases);
   const out: number[] = [];
-  modelStore.batch(() => { for (const l of loads) out.push(modelStore.addLoadEntry(l)); });
+  modelStore.batch(() => { for (const load of canonical) out.push(modelStore.addLoadEntry(load)); });
   return out;
 }
 

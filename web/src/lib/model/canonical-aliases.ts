@@ -79,7 +79,7 @@ function support(record: object, plane: boolean): object {
   });
 }
 
-function load(record: LoadRecord): LoadRecord {
+export function canonicalizeLoadAliases<T extends LoadRecord>(record: T): T {
   const { type, data } = record;
   if (type !== 'nodal' && type !== 'pointOnElement' && type !== 'distributed') return record;
   return { ...record, data: normalizeRecord(data ?? {}, 'load', (copy, conflict) => {
@@ -115,7 +115,7 @@ export function canonicalizeModelAliases<T extends Input>(model: T, analysisMode
     ...model,
     ...(model.elements && { elements: mapRecords(model.elements, member) }),
     ...(model.supports && { supports: mapRecords(model.supports, record => support(record, plane)) }),
-    ...(model.loads && { loads: model.loads.map(load) }),
+    ...(model.loads && { loads: model.loads.map(canonicalizeLoadAliases) }),
   };
 }
 

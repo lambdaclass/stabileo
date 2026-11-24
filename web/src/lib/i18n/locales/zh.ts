@@ -3790,6 +3790,7 @@ const zh: Translations = {
   "file.autosaveCorrupt": "找到了一份自动保存，但无法读取，因此未从中恢复任何内容。请改为打开您的 .ded 文件。",
   "file.sessionTabUnnamed": "标签页 {n}",
   "file.sessionTabsDropped": "这些会话标签页未通过验证，没有被打开：{names}。会话的其余部分已打开，文件未作更改。",
+  "file.sessionHistoryDiscarded": "{names} 的撤销和重做历史未通过验证，已被丢弃。当前模型已打开。",
   "file.workspaceTabsDropped": "恢复工作区时，这些标签页未通过验证，已被排除：{names}。其他标签页已恢复。",
   "file.workspaceUnreadable": "无法读取此浏览器中存储的工作区，因此没有恢复任何标签页。",
   "file.workspaceBackupKept": "此浏览器中保留了上一个工作区的完整副本（键名 stabileo-workspace-backup）。",

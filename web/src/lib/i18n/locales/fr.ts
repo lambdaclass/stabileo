@@ -3577,6 +3577,7 @@ const fr: Translations = {
   'file.autosaveCorrupt': 'Un enregistrement automatique a été trouvé mais n\'a pas pu être lu ; rien n\'a donc été restauré. Ouvrez plutôt votre fichier .ded.',
   'file.sessionTabUnnamed': 'onglet {n}',
   'file.sessionTabsDropped': 'Ces onglets de la session n\'ont pas passé la validation et n\'ont pas été ouverts : {names}. Le reste de la session a été ouvert et le fichier n\'a pas été modifié.',
+  'file.sessionHistoryDiscarded': 'L’historique d’annulation et de rétablissement de {names} a échoué à la validation et a été écarté. Les modèles actuels ont été ouverts.',
   'file.workspaceTabsDropped': 'Lors de la restauration de l\'espace de travail, ces onglets n\'ont pas passé la validation et ont été écartés : {names}. Les autres ont été restaurés.',
   'file.workspaceUnreadable': 'L\'espace de travail stocké dans ce navigateur n\'a pas pu être lu ; aucun onglet n\'a été restauré.',
   'file.workspaceBackupKept': 'Une copie complète de l\'espace de travail précédent a été conservée dans ce navigateur (clé stabileo-workspace-backup).',

@@ -3577,6 +3577,7 @@ const de: Translations = {
   'file.autosaveCorrupt': 'Eine automatische Speicherung wurde gefunden, konnte aber nicht gelesen werden, daher wurde nichts daraus wiederhergestellt. Öffnen Sie stattdessen Ihre .ded-Datei.',
   'file.sessionTabUnnamed': 'Tab {n}',
   'file.sessionTabsDropped': 'Diese Tabs der Sitzung haben die Validierung nicht bestanden und wurden nicht geöffnet: {names}. Der Rest der Sitzung wurde geöffnet, und die Datei ist unverändert.',
+  'file.sessionHistoryDiscarded': 'Der Verlauf zum Rückgängigmachen und Wiederholen für {names} hat die Validierung nicht bestanden und wurde verworfen. Die aktuellen Modelle wurden geöffnet.',
   'file.workspaceTabsDropped': 'Beim Wiederherstellen des Arbeitsbereichs haben diese Tabs die Validierung nicht bestanden und wurden ausgelassen: {names}. Die übrigen wurden wiederhergestellt.',
   'file.workspaceUnreadable': 'Der in diesem Browser gespeicherte Arbeitsbereich konnte nicht gelesen werden, daher wurde kein Tab wiederhergestellt.',
   'file.workspaceBackupKept': 'Eine vollständige Kopie des vorherigen Arbeitsbereichs wurde in diesem Browser behalten (Schlüssel stabileo-workspace-backup).',
