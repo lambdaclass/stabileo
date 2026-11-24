@@ -1,7 +1,9 @@
 mod adaptive;
 mod anderson;
+mod broyden;
 pub(super) mod incremental;
 mod line_search;
+mod newton_krylov;
 pub(super) mod path_following;
 
 pub use super::arc_length::experimental_nonlinear_continuation::{
