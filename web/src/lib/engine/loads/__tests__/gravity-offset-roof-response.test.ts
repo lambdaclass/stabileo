@@ -54,11 +54,11 @@ it('#2282 shell-borne gravity leaves the restrained offset rafters unloaded', ()
   }
 });
 
-it('#2512 linear and P-Delta reactions include both independently restrained decks', () => {
+it('#2512 linear and P-Delta reactions include both nearby decks sharing a fixed master', () => {
   const { model: roof } = offsetRoof(0.02);
   const ground = 9;
   const nodes = new Map([[ground, { id: ground, x: -1, y: -1, z: 0 }]]);
-  for (const [index, z] of [3, 6].entries()) {
+  for (const [index, z] of [3, 3.02].entries()) {
     for (const [i, [x, y]] of [[0, 0], [10, 0], [10, 6], [0, 6]].entries()) {
       const id = index * 4 + i + 1;
       nodes.set(id, { id, x: x!, y: y!, z });
@@ -79,6 +79,7 @@ it('#2512 linear and P-Delta reactions include both independently restrained dec
   const plan = roofPlan(model);
   expect(plan.outcome).toBe('READY');
   const dead = plan.surface.filter(load => load.caseType === 'D');
+  expect(dead.map(load => load.quadId)).toEqual([1, 2]);
   const pressure = dead[0]!.q;
   const loads: Load[] = dead.map((load, index) => ({
     type: 'surface3d', data: { id: index + 1, quadId: load.quadId, q: load.q },

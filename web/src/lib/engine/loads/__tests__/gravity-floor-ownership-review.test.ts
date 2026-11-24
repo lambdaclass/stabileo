@@ -46,7 +46,7 @@ function modelFixture() {
   const tieRows = (masters: ReturnType<typeof row>, slaves: ReturnType<typeof row>) => {
     masters.forEach((masterNode, i) => constraints.push({ type: 'equalDOF', masterNode, slaveNode: slaves[i]!, dofs: [2] }));
   };
-  return { model, row, beam, shell, tieRows };
+  return { model, node, row, beam, shell, tieRows };
 }
 
 function directlyTiedPlatforms(upper = 6) {
@@ -207,7 +207,7 @@ function restoreAndPlan(model: ReviewModel, setRoof = false) {
     modelStore.addQuad([nodes.get(a)!, nodes.get(b)!, nodes.get(c)!, nodes.get(d)!], materialId, shellThickness));
   for (const { nodeI, nodeJ } of model.elements.values()) modelStore.addElement(nodes.get(nodeI)!, nodes.get(nodeJ)!);
   for (const constraint of model.constraints ?? []) {
-    if (constraint.type === 'equalDOF') modelStore.addConstraint({
+    if (constraint.type === 'equalDOF' || constraint.type === 'eccentricConnection') modelStore.addConstraint({
       ...constraint, masterNode: nodes.get(constraint.masterNode)!, slaveNode: nodes.get(constraint.slaveNode)!,
     });
   }
@@ -429,3 +429,100 @@ it('#2512 directly established bay ownership and separated shells keep their pre
   expect(plan.surface).toEqual([]);
   expect(plan.distributed.some(load => load.caseType === 'D')).toBe(true);
 });
+
+function bayBoundary(beam: (a: number, b: number) => void, left: readonly [number, number], right: readonly [number, number]) {
+  beam(left[0], right[0]);
+  beam(right[0], right[1]);
+  beam(right[1], left[1]);
+  beam(left[1], left[0]);
+}
+
+function baysSharingOneShell(separation: number, secondX = 0) {
+  const { model, row, beam, shell, tieRows } = modelFixture();
+  const lowerLeft = row(0, 3), lowerRight = row(10, 3);
+  const upperLeft = row(secondX, 3 + separation), upperRight = row(10 + secondX, 3 + separation);
+  bayBoundary(beam, lowerLeft, lowerRight);
+  bayBoundary(beam, upperLeft, upperRight);
+  const shellLeft = row(0, 3 + separation / 2), shellRight = row(10 + secondX, 3 + separation / 2);
+  shell(shellLeft, shellRight);
+  tieRows(lowerLeft, shellLeft);
+  tieRows(upperRight, shellRight);
+  return model;
+}
+
+function shellOverhangingBay(rise: number, verticalTies = 4) {
+  const { model, node, row, beam, shell } = modelFixture();
+  const left = row(0, 3), right = row(10, 3);
+  bayBoundary(beam, left, right);
+  const z = 3 + rise;
+  const shellLeft = [node(-1, -1, z), node(-1, 8, z)] as const;
+  const shellRight = [node(12, -1, z), node(12, 8, z)] as const;
+  shell(shellLeft, shellRight);
+  [...left, ...right].forEach((masterNode, i) => {
+    const slaveNode = [...shellLeft, ...shellRight][i]!;
+    const a = model.nodes.get(masterNode)!, b = model.nodes.get(slaveNode)!;
+    model.constraints.push({
+      type: 'eccentricConnection', masterNode, slaveNode,
+      offsetX: b.x - a.x, offsetY: b.y - a.y, offsetZ: b.z! - a.z!,
+      releases: [false, false, i >= verticalTies],
+    });
+  });
+  return model;
+}
+
+const separateBayRefusal = { key: 'loadPlan.gravity.differentDeck' };
+const offsetBayRefusal = { key: 'loadPlan.gravity.offsetShellDeck', params: { id: 1, members: '1, 2, 3, 4' } };
+const review2512 = process.env.RUN_KNOWN_WRONG === '2512' ? it : it.skip;
+
+function expectPanelRefusal(model: ReviewModel, reason: typeof separateBayRefusal | typeof offsetBayRefusal, loadEveryPanel: boolean) {
+  const gravity = { mode: 'panels', loadEveryPanel } as const;
+  const plan = buildLoadPlan(input(model, { gravity, generateCombinations: true }));
+  expect(plan.outcome, JSON.stringify({ blocked: plan.blockedKeys, levels: plan.levels })).toBe('BLOCKED');
+  expect(plan.blockedKeys).toEqual([reason]);
+  expect(plan).toMatchObject({ cases: [], distributed: [], nodal: [], surface: [], combinations: [], levels: [] });
+  expect(() => gravityLayout(model, { ...gravity, tributaryWidth: 3 })).toThrow(expect.objectContaining(reason));
+  expect(() => roofWeightFor(model, gravity, 3, 0)).toThrow(expect.objectContaining(reason));
+  expect(() => snowDriftRefusal(model)).toThrow(expect.objectContaining(reason));
+}
+
+for (const loadEveryPanel of [false, true]) {
+  for (const gap of [0.08, 0.051]) {
+    review2512(`known wrong result: #2512 a shell cannot absorb both overlapping bays separated by ${gap} with loadEveryPanel=${loadEveryPanel}`, () => {
+      expectPanelRefusal(baysSharingOneShell(gap), separateBayRefusal, loadEveryPanel);
+    });
+  }
+
+  for (const rise of [0.02, 0.049]) {
+    review2512(`known wrong result: #2512 unequal corner offsets at ${rise} block duplicate bay gravity with loadEveryPanel=${loadEveryPanel}`, () => {
+      expectPanelRefusal(shellOverhangingBay(rise), offsetBayRefusal, loadEveryPanel);
+    });
+  }
+
+  it(`#2512 same-deck or nonoverlapping bays keep their shared shell with loadEveryPanel=${loadEveryPanel}`, () => {
+    deadResultant(baysSharingOneShell(0.049), loadEveryPanel, [1], area);
+    deadResultant(baysSharingOneShell(0.08, 10), loadEveryPanel, [1], 2 * area);
+  });
+}
+
+it('#2512 a shell at bay level has an established owner despite uneven offsets', () => {
+  deadResultant(shellOverhangingBay(0.0005), true, [1], 13 * 9);
+});
+
+it('#2512 a separate shell or a single attachment retains independent gravity', () => {
+  deadResultant(shellOverhangingBay(0.051), true, [1], 13 * 9 + area);
+  deadResultant(shellOverhangingBay(0.02, 1), true, [1], 13 * 9 + area);
+  deadResultant(baysSharingOneShell(0.102), true, [1], 3 * area);
+});
+
+for (const [name, model, reason] of [
+  ['separated bays under one shell', () => baysSharingOneShell(0.08), separateBayRefusal],
+  ['an overhanging shell with unequal corner offsets', () => shellOverhangingBay(0.02), offsetBayRefusal],
+] as const) {
+  review2512(`known wrong result: #2512 restored apply refuses ${name}`, () => {
+    const { plan } = restoreAndPlan(model());
+    const before = modelStore.snapshot();
+    expect(plan.outcome).toBe('BLOCKED');
+    expect(applyLoadPlan(plan, { clearExisting: true, bothSenses: true, nameOf: key => key })).toEqual(reason);
+    expect(modelStore.snapshot()).toEqual(before);
+  });
+}
