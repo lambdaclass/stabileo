@@ -4,10 +4,11 @@
   import { t } from '../lib/i18n';
 </script>
 
-{#if workspaceSaveStatus.failed}
+{#if workspaceSaveStatus.shown}
   <div class="workspace-save-notice" role="alert" data-testid="workspace-save-notice">
     <p>{t('file.workspaceNotSaved')}</p>
     <button type="button" data-testid="workspace-save-session" onclick={() => saveSession()}>{t('file.workspaceSaveToFile')}</button>
+    <button type="button" class="close" data-testid="workspace-save-dismiss" aria-label={t('file.workspaceNoticeClose')} title={t('file.workspaceNoticeClose')} onclick={() => workspaceSaveStatus.dismiss()}>×</button>
   </div>
 {/if}
 
@@ -46,8 +47,9 @@
     font-weight: 600;
     cursor: pointer;
   }
+  .close { min-width: 44px; padding: 0; border-color: transparent; background: transparent; font-size: 20px; line-height: 1; }
   @media (max-width: 640px) {
     .workspace-save-notice { flex-wrap: wrap; gap: 8px; font-size: 13px; }
-    button { width: 100%; }
+    button:not(.close) { flex: 1; }
   }
 </style>
