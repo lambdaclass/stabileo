@@ -10,8 +10,6 @@ import { initSolver } from '../wasm-solver';
 beforeAll(initSolver);
 beforeEach(() => modelStore.clear());
 
-const knownWrong = process.env.RUN_KNOWN_WRONG === '2297' ? it : it.skip;
-
 function cantilever(planar = false) {
   const base = modelStore.addNode(0, 0, 0);
   const tip = planar ? modelStore.addNode(0, 4) : modelStore.addNode(0, 0, 4);
@@ -38,7 +36,7 @@ function cantilever(planar = false) {
 
 for (const method of ['linear', 'pdelta', 'solveEach', 'superpose'] as const) {
   for (const solve of [solveCombinations3D, solveCombinations3DParallel]) {
-    knownWrong(`#2297 ${solve.name} skips unrelated inclusion overflow for ${method}`, async () => {
+    it(`#2297 ${solve.name} skips unrelated inclusion overflow for ${method}`, async () => {
       const { tip, model, gravity, composite, controlCases, combo, setOverflow, overflowRefusal } = cantilever();
       if (method === 'pdelta') modelStore.adoptAnalysis({ perCombination: 'pdelta' });
       if (method === 'solveEach' || method === 'superpose') {
@@ -72,7 +70,7 @@ for (const method of ['linear', 'pdelta', 'solveEach', 'superpose'] as const) {
 
 for (const dimension of ['planar', 'spatial']) {
   for (const path of ['main thread', 'worker', 'worker fallback']) {
-    knownWrong(`#2297 direct analysis skips unrelated inclusion overflow for ${dimension} on the ${path}`, async () => {
+    it(`#2297 direct analysis skips unrelated inclusion overflow for ${dimension} on the ${path}`, async () => {
       const { model, gravity, composite, controlCases, combo, setOverflow, overflowRefusal } = cantilever(dimension === 'planar');
       let workerCalls = 0;
       const run = path === 'main thread' ? undefined : workerPDelta(async (wire, maxIter, tol) => {
@@ -96,7 +94,7 @@ for (const dimension of ['planar', 'spatial']) {
   }
 }
 
-knownWrong('#2297 scoped inclusion assembly validates active transitive and notional dependencies', () => {
+it('#2297 scoped inclusion assembly validates active transitive and notional dependencies', () => {
   const { model, gravity, composite, setOverflow } = cantilever();
   const opts = { includeSelfWeight: false, leftHand: false };
   const assemble = (target: number) => withCaseEffects(model, model.loadCases, opts, new Set([target]));
@@ -113,7 +111,7 @@ knownWrong('#2297 scoped inclusion assembly validates active transitive and noti
   expect(assemble(notional).loads).toEqual([]);
 });
 
-knownWrong('#2297 single-solve assembly skips unused reference inclusions', () => {
+it('#2297 single-solve assembly skips unused reference inclusions', () => {
   const { model, gravity, composite, controlCases, setOverflow } = cantilever();
   const control = singleSolveModel(model, controlCases).loads;
   expect(control).toHaveLength(1);

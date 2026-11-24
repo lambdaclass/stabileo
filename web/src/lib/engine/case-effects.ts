@@ -113,26 +113,10 @@ export function withCaseEffects<M extends ModelData>(
   const inScope = (id: number) => !scope || scope.has(id) || !byId.has(id);
   const { order, looped } = caseOrder(cases);
   const own = loadCaseBatches(model.loads);
-  const sources = caseSources(own, cases, looped, inScope);
+  const sources = caseSources(own, byId, looped, inScope, { generateNotionals: true });
   if (!hasEffects) {
     return { ...model, [accountingCaseSources]: sources, loads: model.loads.filter(l => inScope(l.data.caseId ?? 1)) };
   }
-  const required = scope && new Set(scope);
-  if (required) {
-    const pending = [...required];
-    for (const id of pending) {
-      const c = byId.get(id);
-      if (!c || looped.has(id)) continue;
-      const deps = sources.cases.get(id)!.includes.map(inc => inc.caseId);
-      if (c.notional) deps.push(c.notional.sourceCaseId);
-      for (const dep of deps) {
-        if (required.has(dep)) continue;
-        required.add(dep);
-        pending.push(dep);
-      }
-    }
-  }
-
   // The self-weight rows, written out: the older switch puts gravity on every dead-load case,
   // not on a composite one typed D, which has it through the cases it takes in.
   const stated: SelfWeightLoad[] = model.analysis?.selfWeight
@@ -149,9 +133,10 @@ export function withCaseEffects<M extends ModelData>(
   };
 
   for (const id of order) {
-    if (required && !required.has(id)) continue;
+    const rule = sources.cases.get(id);
+    if (!rule) continue;
     const c = byId.get(id)!;
-    const { ratio: k, includes } = sources.cases.get(id)!;
+    const { ratio: k, includes } = rule;
     const list = (own.get(id) ?? []).map((l) => (k === 1 ? l : fresh(l, id, k)));
     const swRows = [...(rows.get(id) ?? [])];
     if (c.notional && !looped.has(id)) {
@@ -233,20 +218,28 @@ export function includedCases(
 
 function caseSources(
   authored: ReadonlyMap<number, readonly Load[]>,
-  cases: readonly CaseLike[],
+  byId: ReadonlyMap<number, CaseLike>,
   looped: ReadonlySet<number>,
   inScope: (id: number) => boolean,
-  include?: (id: number) => boolean,
+  opts: { include?: (id: number) => boolean; generateNotionals?: boolean },
 ): AccountingCaseSources {
-  const ids = new Set(cases.map(c => c.id));
+  const targets = new Set([...byId.keys(), ...authored.keys()].filter(inScope));
+  const required = new Set(targets);
+  const cases = new Map<number, { ratio: number; includes: ReturnType<typeof includedCases> }>();
+  for (const id of required) {
+    const c = byId.get(id);
+    if (!c) continue;
+    const active = !looped.has(id);
+    const includes = active ? includedCases(c, byId, opts.include) : [];
+    cases.set(id, { ratio: ratioOf(c), includes });
+    for (const inc of includes) required.add(inc.caseId);
+    if (active && opts.generateNotionals && c.notional) required.add(c.notional.sourceCaseId);
+  }
   return {
     authored: new Map([...authored].map(([id, loads]) => [id, loads.map(copyAccountingLoad)])),
     generated: new Map(),
-    cases: new Map(cases.map(c => [c.id, {
-      ratio: ratioOf(c),
-      includes: looped.has(c.id) ? [] : includedCases(c, ids, include),
-    }])),
-    targets: new Set([...ids, ...authored.keys()].filter(inScope)),
+    cases,
+    targets,
   };
 }
 
@@ -296,7 +289,7 @@ export function singleSolveModel<M extends ModelData>(model: M, cases: readonly 
   const byId = new Map(cases.map((c) => [c.id, c]));
   const own = loadCaseBatches(model.loads);
   const isListed = (id: number) => !byId.has(id) || listed(byId.get(id)!);
-  const sources = caseSources(own, cases, caseOrder(cases).looped, isListed, id => !isListed(id));
+  const sources = caseSources(own, byId, caseOrder(cases).looped, isListed, { include: id => !isListed(id) });
   const stated = model.analysis?.selfWeight;
   let nextId = Math.max(0, ...model.loads.map((l) => l.data.id)) + 1;
   // Loads, and rows, of a case id the model has no case for are kept as they are.
