@@ -362,3 +362,37 @@ it.each(['packed WASM export', 'single recombination', 'bundle enrichment'] as c
     });
   },
 );
+
+const review2297 = process.env.RUN_KNOWN_WRONG === '2297' ? it : it.skip;
+
+review2297('#2297 the shell differential oracle agrees on residual and cancelled factors', () => {
+  const cancelling = q(7, 2);
+  const live = { ...q(7, 4), qx: 3, qy: 4 };
+  const quadRows = new Map([[1, new Map([[7, cancelling]])], [2, new Map([[7, live]])]]);
+  const plateRows = new Map([...quadRows].map(([id, rows]) =>
+    [id, new Map([...rows].map(([elementId, row]) => [elementId, { ...row, sigma1: row.sigmaXx, sigma2: 0 }]))]));
+  const perCase = new Map([...quadRows].map(([id, rows]) => [id, {
+    ...emptyResult([...rows.values()]), plateStresses: [...plateRows.get(id)!.values()],
+  }]));
+  const cases = [
+    { weights: [], stress: 4, shear: 3 },
+    { weights: [1], stress: 6, shear: undefined },
+    { weights: issue2297Factors, stress: 6, shear: undefined },
+    { weights: issue2297Factors.slice(0, -1), stress: 4, shear: 3 },
+  ];
+  for (const { weights, stress, shear } of cases) {
+    const factors = [{ caseId: 2, factor: 1 }, ...weights.map(factor => ({ caseId: 1, factor }))];
+    const actual = combineShellStresses(factors, plateRows, quadRows, new Map());
+    const oracle = combineShellStressesOracle(factors, plateRows, quadRows, new Map());
+    expect(actual.plateStresses[0]?.sigmaXx).toBe(stress);
+    expect(actual.quadStresses[0]?.qx).toBe(shear);
+    expect.soft(oracle).toEqual(actual);
+
+    const raw = new Map([[10, emptyResult([])]]);
+    const reference = new Map([[10, emptyResult([])]]);
+    const combinations = [{ id: 10, factors }];
+    enrichComboShellStresses(perCase, raw, undefined, combinations, new Map());
+    enrichComboShellStressesOracle(perCase, reference, undefined, combinations, new Map());
+    expect.soft(reference).toEqual(raw);
+  }
+});

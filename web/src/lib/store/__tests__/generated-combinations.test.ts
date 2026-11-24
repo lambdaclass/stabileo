@@ -223,3 +223,38 @@ it('#2297 duplicate detection preserves factor values, term order and combinatio
   expect.soft(combinationExists(factors, [{ factors: [factors[0]!, factors[2]!, factors[1]!] }])).toBe(false);
   expect.soft(combinationExists(unit, [magnitude])).toBe(false);
 });
+
+const review2297 = process.env.RUN_KNOWN_WRONG === '2297' ? it : it.skip;
+
+review2297.each(['direct', 'composite roots', 'composite inclusions'] as const)(
+  '#2297 reports overflowing existing %s without blocking duplicate matching',
+  async mode => {
+    const { initSolver } = await import('../../engine/wasm-solver');
+    await initSolver();
+    const dead = model().find(c => c.type === 'D')!.id;
+    const terms = (caseId: number, ...weights: number[]) => weights.map(factor => ({ caseId, factor }));
+    const unit = terms(dead, 1);
+    const max = Number.MAX_VALUE;
+    const invalid = terms(dead, max, max);
+    const representable = terms(dead, max / 2, max / 2);
+    const candidate = terms(dead, max);
+    const wrapper = (name: string, includes: typeof unit) => {
+      const id = modelStore.addLoadCase(name, '', { generated: true });
+      expect(modelStore.updateLoadCaseFields(id, { includes })).toBe(true);
+      return terms(id, 1);
+    };
+    const bad = { name: 'Overflowing combination', factors: mode === 'composite inclusions' ? wrapper('Overflowing wrapper', invalid) : invalid };
+    const good = { name: 'Representable combination', factors: mode === 'direct' ? representable : wrapper('Representable wrapper', representable) };
+    const compositeModel = mode === 'direct' ? undefined : modelStore.model;
+    const reported: Array<[string, string]> = [];
+    const report = (combo: { name: string }, error: Error) => reported.push([combo.name, error.message]);
+    const exists = (factors: typeof unit, combinations: Array<typeof bad>) =>
+      Reflect.apply(combinationExists, undefined, [factors, combinations, compositeModel, report]);
+
+    expect.soft(exists(candidate, [bad, good])).toBe(true);
+    expect.soft(exists(candidate, [good, bad])).toBe(true);
+    expect(exists(unit, [bad])).toBe(false);
+    expect(reported).toEqual(Array.from({ length: 3 }, () => [bad.name, expect.stringMatching(/net factor/)]));
+    expect(() => exists(invalid, [])).toThrow(/net factor/);
+  },
+);
