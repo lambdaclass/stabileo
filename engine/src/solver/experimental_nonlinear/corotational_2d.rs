@@ -80,6 +80,33 @@ pub(super) fn kept_solve(factor: &Option<CachedTangentFactor>, rhs: &[f64]) -> O
     factor.as_ref().map(|factor| solve_with_cached_factor(factor, rhs))
 }
 
+/// Add `damping` times the absolute diagonal of the free tangent to it, in whichever form it is
+/// assembled.
+pub(super) fn damp(
+    (n, nf): (usize, usize),
+    k_t: &mut [f64],
+    (trip_rows, trip_cols, trip_vals): (&mut Vec<usize>, &mut Vec<usize>, &mut Vec<f64>),
+    damping: f64,
+) {
+    if k_t.is_empty() {
+        let mut diagonal = vec![0.0; nf];
+        for ((&i, &j), &value) in trip_rows.iter().zip(trip_cols.iter()).zip(trip_vals.iter()) {
+            if i == j && i < nf {
+                diagonal[i] += value;
+            }
+        }
+        for (i, value) in diagonal.into_iter().enumerate() {
+            trip_rows.push(i);
+            trip_cols.push(i);
+            trip_vals.push(damping * value.abs());
+        }
+    } else {
+        for i in 0..nf {
+            k_t[i * n + i] += damping * k_t[i * n + i].abs();
+        }
+    }
+}
+
 impl incremental::IncrementalProblem for Corotational2D<'_> {
     fn begin_increment(&mut self, load_factor: f64) {
         let (n, nf) = (self.dof_num.n_total, self.dof_num.n_free);
@@ -330,6 +357,18 @@ impl incremental::IncrementalProblem for Corotational2D<'_> {
         };
 
         Ok(delta_u_f)
+    }
+
+    fn damped_correction(&mut self, damping: f64) -> Result<Vec<f64>, String> {
+        if damping != 0.0 {
+            damp(
+                (self.dof_num.n_total, self.dof_num.n_free),
+                &mut self.k_t,
+                (&mut self.trip_rows, &mut self.trip_cols, &mut self.trip_vals),
+                damping,
+            );
+        }
+        incremental::IncrementalProblem::correction(self, false)
     }
 
     fn advance(&mut self, delta_u_f: &[f64]) {
@@ -1220,6 +1259,38 @@ mod shared_driver_equivalence {
                 assert!((k - r).abs() <= 1e-8 * scale, "{n} members: {k} vs {r}");
             }
         }
+    }
+
+    #[test]
+    fn pseudo_transient_continuation_reaches_the_solution_of_many_small_increments() {
+        for n in [4, 12, 30] {
+            for (rise, far_support) in [(0.0, None), (0.4, None), (0.4, Some("pinned"))] {
+                let input = frame(n, rise, far_support);
+                let reference = solve_corotational_2d_by(&input, None, 200, 1e-8, 40, IterationMethod::NewtonLineSearch).unwrap();
+                assert!(reference.converged);
+                let damped = solve_corotational_2d_by(&input, None, 2000, 1e-8, 4, IterationMethod::PseudoTransient { damping: 1e-3 }).unwrap();
+                assert!(damped.converged, "n {n}, rise {rise}, {far_support:?}");
+                assert!(apart(&damped, &reference) <= 1e-6, "n {n}, rise {rise}, {far_support:?}: {}", apart(&damped, &reference));
+            }
+        }
+        let refused = solve_corotational_2d_by(&frame(4, 0.0, None), None, 50, 1e-8, 4, IterationMethod::PseudoTransient { damping: 0.0 });
+        assert_eq!(refused.unwrap_err(), "Pseudo-transient continuation needs a finite, positive first damping");
+    }
+
+    #[test]
+    fn damping_adds_a_share_of_the_absolute_diagonal_however_the_tangent_is_stored() {
+        let (n, nf) = (3, 2);
+        let mut dense = vec![4.0, 1.0, 9.0, 1.0, -2.0, 9.0, 9.0, 9.0, 7.0];
+        damp((n, nf), &mut dense, (&mut Vec::new(), &mut Vec::new(), &mut Vec::new()), 0.5);
+        assert_eq!(dense, vec![6.0, 1.0, 9.0, 1.0, -1.0, 9.0, 9.0, 9.0, 7.0]);
+
+        let (mut rows, mut cols, mut vals) = (vec![0, 0, 1, 0, 1, 2], vec![0, 0, 0, 1, 1, 2], vec![3.0, 1.0, 1.0, 1.0, -2.0, 7.0]);
+        damp((n, nf), &mut [], (&mut rows, &mut cols, &mut vals), 0.5);
+        let mut assembled = vec![0.0; n * n];
+        for ((i, j), value) in rows.iter().zip(&cols).zip(&vals) {
+            assembled[i * n + j] += value;
+        }
+        assert_eq!(assembled, vec![6.0, 1.0, 0.0, 1.0, -1.0, 0.0, 0.0, 0.0, 7.0]);
     }
 
     #[test]

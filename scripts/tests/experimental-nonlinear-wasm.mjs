@@ -83,6 +83,7 @@ for (const [dimension, input, moved] of [[2, mild, (d) => [d.ux, d.uz]], [3, spa
       { lineSearch: { direction: 'newton' } },
       { lineSearch: { direction: 'modifiedNewton' } },
       { lineSearch: { direction: 'newtonKrylov' } },
+      { pseudoTransient: { damping: 0.001 } },
     ]) {
       const result = JSON.parse(run(method));
       const name = JSON.stringify(method);
@@ -98,6 +99,8 @@ for (const [dimension, input, moved] of [[2, mild, (d) => [d.ux, d.uz]], [3, spa
     assert.throws(() => run({ broyden: { memory: 0 } }), /memory from 1 to 50/);
     assert.throws(() => run({ broyden: { memory: 51 } }), /memory from 1 to 50/);
     assert.throws(() => run({ anderson: { depth: 0 } }), /depth from 1 to 50/);
+    assert.throws(() => run({ pseudoTransient: { damping: 0 } }), /finite, positive first damping/);
+    assert.throws(() => run({ pseudoTransient: { damping: -1 } }), /finite, positive first damping/);
     assert.throws(() => run({ lineSearch: { direction: 'anderson' } }), /Parse error/);
     assert.throws(() => run('steepestDescent'), /Parse error/);
   });

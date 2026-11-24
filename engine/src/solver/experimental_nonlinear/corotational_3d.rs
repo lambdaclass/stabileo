@@ -208,6 +208,18 @@ impl incremental::IncrementalProblem for Corotational3D<'_> {
         Ok(delta_u)
     }
 
+    fn damped_correction(&mut self, damping: f64) -> Result<Vec<f64>, String> {
+        if damping != 0.0 {
+            super::experimental_nonlinear_2d::damp(
+                (self.dof_num.n_total, self.dof_num.n_free),
+                &mut self.k_t,
+                (&mut self.trip_rows, &mut self.trip_cols, &mut self.trip_vals),
+                damping,
+            );
+        }
+        incremental::IncrementalProblem::correction(self, false)
+    }
+
     fn advance(&mut self, delta_u: &[f64]) {
         for i in 0..self.dof_num.n_free {
             self.u_full[i] += delta_u[i];
@@ -711,6 +723,18 @@ mod shared_driver_equivalence_3d {
     }
 
     #[test]
+    fn pseudo_transient_continuation_reaches_newtons_solution_of_a_building() {
+        let input = building(3, 4, 20.0);
+        let newton = solve_corotational_3d_by(&input, 40, 1e-8, 2, IterationMethod::Newton).unwrap();
+        assert!(newton.converged);
+        for damping in [1e-3, 0.1] {
+            let damped = solve_corotational_3d_by(&input, 400, 1e-8, 2, IterationMethod::PseudoTransient { damping }).unwrap();
+            assert!(damped.converged, "{damping}");
+            assert!(apart(&damped, &newton) <= 1e-6, "{damping}: {}", apart(&damped, &newton));
+        }
+    }
+
+    #[test]
     fn the_line_search_on_newton_krylov_reaches_newtons_solution_of_a_building() {
         use crate::solver::experimental_nonlinear::Direction;
         for (bays, stories, push) in [(2, 3, 20.0), (3, 6, 150.0)] {
@@ -734,6 +758,7 @@ mod shared_driver_equivalence_3d {
                 for method in [
                     IterationMethod::NewtonLineSearch,
                     IterationMethod::Anderson { depth: 4 },
+                    IterationMethod::PseudoTransient { damping: 1e-3 },
                 ] {
                     let other = solve_corotational_3d_by(&input, 400, 1e-9, 4, method).unwrap();
                     assert!(other.converged, "n {n}, {method:?}");

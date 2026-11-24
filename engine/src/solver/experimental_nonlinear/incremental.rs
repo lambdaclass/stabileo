@@ -4,6 +4,7 @@ use super::{
     broyden::{Broyden, MAX_BROYDEN_MEMORY},
     line_search::{LineSearch, NewtonLineSearch},
     newton_krylov::NewtonKrylov,
+    pseudo_transient::PseudoTransient,
 };
 
 pub(crate) struct Linearization {
@@ -15,6 +16,9 @@ pub(crate) trait IncrementalProblem {
     fn begin_increment(&mut self, load_factor: f64);
     fn linearize(&mut self) -> Result<Linearization, String>;
     fn correction(&mut self, lag_tangent: bool) -> Result<Vec<f64>, String>;
+    /// The correction of the last linearization with `damping` times the absolute diagonal of
+    /// the tangent added to it; with zero, `correction(false)`. Asked once, like `correction`.
+    fn damped_correction(&mut self, damping: f64) -> Result<Vec<f64>, String>;
     fn advance(&mut self, step: &[f64]);
     fn state(&self) -> Vec<f64>;
     fn work(&self, step: &[f64]) -> f64;
@@ -141,6 +145,9 @@ pub(crate) fn validate(method: IterationMethod) -> Result<(), String> {
         IterationMethod::Broyden { memory } if memory == 0 || memory > MAX_BROYDEN_MEMORY => Err(
             format!("Broyden's method needs a memory from 1 to {MAX_BROYDEN_MEMORY}"),
         ),
+        IterationMethod::PseudoTransient { damping } if !(damping.is_finite() && damping > 0.0) => {
+            Err("Pseudo-transient continuation needs a finite, positive first damping".into())
+        }
         _ => Ok(()),
     }
 }
@@ -157,6 +164,9 @@ pub enum IterationMethod {
     NewtonKrylov,
     /// The line search on the step of the direction named.
     LineSearch { direction: Direction },
+    /// Pseudo-transient continuation from a first damping of this share of the tangent's
+    /// diagonal, finite and positive.
+    PseudoTransient { damping: f64 },
 }
 
 /// Where a step comes from: a new tangent factorized, the increment's first one kept, or the
@@ -317,6 +327,14 @@ pub(crate) fn solve_stepped<P: IncrementalProblem + ?Sized>(
             tolerance,
             max_iter,
         ),
+        IterationMethod::PseudoTransient { damping } => run(
+            problem,
+            &PseudoTransient { damping },
+            stepping,
+            n_increments,
+            tolerance,
+            max_iter,
+        ),
     }
 }
 
@@ -460,6 +478,15 @@ mod tests {
                     self.tangent.clone()
                 }
             };
+            solve_dense(&tangent, &self.residual)
+        }
+        fn damped_correction(&mut self, damping: f64) -> Result<Vec<f64>, String> {
+            self.corrected_from.push(self.u[0]);
+            self.tangents += 1;
+            let mut tangent = self.tangent.clone();
+            for (i, row) in tangent.iter_mut().enumerate() {
+                row[i] += damping * row[i].abs();
+            }
             solve_dense(&tangent, &self.residual)
         }
         fn advance(&mut self, step: &[f64]) {
@@ -1266,6 +1293,56 @@ mod tests {
             let error = solve_by_load_increments(&mut failing, &LineSearch { direction }, 2, 1e-10, 50).unwrap_err();
             assert_eq!(error, "the tangent is singular", "{direction:?}");
             assert_eq!(validate(IterationMethod::LineSearch { direction }), Ok(()));
+        }
+    }
+
+    #[test]
+    fn pseudo_transient_continuation_reaches_the_solution_from_any_first_damping() {
+        for damping in [1e-6, 1e-3, 0.1, 1.0, 10.0] {
+            let iteration = PseudoTransient { damping };
+            let mut soft = Chain::spring(softening, 1.3);
+            let outcome = solve_by_load_increments(&mut soft, &iteration, 1, 1e-10, 500).unwrap();
+            assert!(outcome.converged, "{damping}");
+            assert!((soft.u[0] - 1.3_f64.tan()).abs() < 1e-8, "{damping}: {}", soft.u[0]);
+
+            let mut stiff = Chain::spring(stiffening, 30.0);
+            let outcome = solve_by_load_increments(&mut stiff, &iteration, 2, 1e-10, 500).unwrap();
+            assert!(outcome.converged, "{damping}");
+            let (force, _) = stiffening(stiff.u[0]);
+            assert!((force - 30.0).abs() < 1e-8, "{damping}: {force}");
+        }
+    }
+
+    #[test]
+    fn pseudo_transient_continuation_keeps_the_rules_every_iteration_keeps() {
+        let iteration = PseudoTransient { damping: 1e-3 };
+        let mut owed = Chain::spring(stiffening, 0.0);
+        owed.owed = true;
+        let outcome = solve_by_load_increments(&mut owed, &iteration, 1, 1e-10, 50).unwrap();
+        assert_eq!((outcome.iterations, outcome.converged, outcome.load_factor), (2, true, 1.0));
+
+        let mut short = Chain::spring(stiffening, 30.0);
+        let outcome = solve_by_load_increments(&mut short, &iteration, 1, 1e-10, 2).unwrap();
+        assert_eq!((outcome.converged, outcome.load_factor), (false, 0.0));
+        assert_eq!(short.u, vec![0.0]);
+        assert!(short.linearizations <= 2);
+
+        let mut failing = Chain::spring(stiffening, 30.0);
+        failing.fail_at = Some(1);
+        let error = solve_by_load_increments(&mut failing, &iteration, 2, 1e-10, 50).unwrap_err();
+        assert_eq!(error, "the tangent is singular");
+    }
+
+    #[test]
+    fn a_first_damping_the_driver_cannot_run_is_refused() {
+        for damping in [0.0, -1.0, f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+            assert_eq!(
+                validate(IterationMethod::PseudoTransient { damping }).unwrap_err(),
+                "Pseudo-transient continuation needs a finite, positive first damping"
+            );
+        }
+        for damping in [f64::MIN_POSITIVE, 1e-3, 1.0, f64::MAX] {
+            assert_eq!(validate(IterationMethod::PseudoTransient { damping }), Ok(()));
         }
     }
 
