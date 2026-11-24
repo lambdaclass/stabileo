@@ -29,6 +29,7 @@
  * solve distributes them (each quad corner its consistent share of q·A or ρ·t·A, a third to each
  * corner of a triangle), so the moment side agrees with the solve.
  */
+import { sumCombinationFactors } from './wasm-solver';
 import { pointGlobal } from './member-point-loads';
 import { createSectionWeight } from '../section/weight';
 import type { ModelData } from './solver-service';
@@ -351,7 +352,7 @@ export function combinationStatics(
     const applied: Resultant6 = { ...ZERO };
     const uncovered = new Set<string>();
     let selfWeight = false;
-    for (const f of c.factors) {
+    for (const f of sumCombinationFactors(c.factors)) {
       const r = byCase.get(f.caseId);
       if (!r) { uncovered.add(`case ${f.caseId}`); continue; }
       for (const k of ['fx', 'fy', 'fz', 'mx', 'my', 'mz'] as const) applied[k] += f.factor * r.applied[k];
