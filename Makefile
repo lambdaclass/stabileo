@@ -1374,3 +1374,7 @@ test.design.completeness-2096:
 
 test.engine.kinematics-2222:
 	$(NIX_RUN) cargo test -p dedaliano-engine --test integration issue_2222_kinematics_identifies -- --nocapture $(if $(IGNORED),--ignored)
+
+.PHONY: test.engine.prescribed-motion-2227-wasm
+test.engine.prescribed-motion-2227-wasm: wasm
+	$(NIX_RUN) node --test scripts/tests/prescribed-motion-2227-wasm.mjs

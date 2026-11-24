@@ -1,0 +1,39 @@
+{
+  "id": "prescribed-motion-equilibrium",
+  "date": "2026-11-23",
+  "prs": [],
+  "area": "analysis",
+  "when": {
+    "any": [
+      "settlements",
+      "caseDisplacements"
+    ]
+  },
+  "quantities": [
+    "*"
+  ],
+  "title": {
+    "en": "Small prescribed support movements enter static equilibrium",
+    "es": "Los movimientos impuestos pequeños de los apoyos se incluyen en el equilibrio estático",
+    "pt": "Pequenos movimentos impostos nos apoios entram no equilíbrio estático",
+    "de": "Kleine vorgegebene Auflagerbewegungen gehen ins statische Gleichgewicht ein",
+    "fr": "Les petits déplacements imposés des appuis entrent dans l’équilibre statique",
+    "hu": "A kis előírt támaszmozgások beleszámítanak a statikai egyensúlyba",
+    "tr": "Küçük tanımlı mesnet hareketleri statik dengeye dahil edilir",
+    "zh": "微小的给定支座位移计入静力平衡"
+  },
+  "explanation": {
+    "en": "Fully restrained, sparse and iterative static solves use every nonzero prescribed support movement in equilibrium (#2227). Re-run affected analyses, including P-Delta analyses that start from the static solution.",
+    "es": "Los análisis estáticos con todos los grados de libertad restringidos, con matrices dispersas o con métodos iterativos incorporan cada movimiento impuesto no nulo de los apoyos al equilibrio (#2227). Repita los análisis afectados, incluidos los análisis P-Delta que parten de la solución estática.",
+    "pt": "Análises estáticas totalmente restringidas, com matrizes esparsas ou por métodos iterativos incluem no equilíbrio todo movimento imposto não nulo dos apoios (#2227). Execute novamente as análises afetadas, inclusive as análises P-Delta que partem da solução estática.",
+    "de": "Statische Berechnungen mit vollständig gesperrten Freiheitsgraden, dünn besetzten Matrizen oder iterativen Verfahren berücksichtigen jede von null verschiedene vorgegebene Auflagerbewegung im Gleichgewicht (#2227). Betroffene Analysen erneut ausführen, einschließlich P-Delta-Analysen mit der statischen Lösung als Ausgangspunkt.",
+    "fr": "Les calculs statiques entièrement bloqués, à matrices creuses ou itératifs intègrent à l’équilibre tout déplacement imposé non nul des appuis (#2227). Relancer les analyses concernées, y compris les analyses P-Delta qui partent de la solution statique.",
+    "hu": "A teljesen megfogott, ritka mátrixos és iteratív statikai számítások minden nem nulla előírt támaszmozgást figyelembe vesznek az egyensúlyban (#2227). Futtassa újra az érintett vizsgálatokat, beleértve a statikai megoldásból kiinduló P-Delta-vizsgálatokat.",
+    "tr": "Tamamen kısıtlı, seyrek matrisli ve yinelemeli statik çözümler, sıfırdan farklı tüm tanımlı mesnet hareketlerini dengeye katar (#2227). Statik çözümden başlayan P-Delta analizleri dahil, etkilenen analizleri yeniden çalıştırın.",
+    "zh": "全约束、稀疏和迭代静力求解均在平衡方程中计入所有非零的给定支座位移（#2227）。请重新运行受影响的分析，包括以静力解为初始状态的 P-Delta 分析。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-prescribed-motion-equilibrium.md",
+    "heading": "Include small prescribed support movements in static equilibrium (2026-11-23)"
+  }
+}
