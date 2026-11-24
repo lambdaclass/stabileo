@@ -7,3 +7,5 @@ For the all-hinged joint from #458, the assembled response used a numerical spri
 The supplied-result APIs now apply the current linear solver's stability and load checks to every submitted case before evaluating its certificate. A refused case returns an uncertified status with the solver's reason and prevents dependent combinations and envelopes from receiving a bound. A compatible case in the same batch can still be certified. The direct solve-and-certify APIs and bundle exporters already obtain their cases from a successful current solve. Their analysis values and certificate calculation are unchanged.
 
 This change applies to the native single-result, batch and combination certificate APIs for 2D and 3D. It concerns certification status and bounds for supplied results.
+
+The registry entry requires the native supplied-certificate context. Saved web projects and certified WASM exports use solve-and-certify entry points, so a saved project does not receive this notice.

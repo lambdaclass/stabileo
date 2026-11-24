@@ -41,7 +41,7 @@ describe('audited output changes are registered narrowly', () => {
     expect(assessProject(shell, undefined, 'pro').changes.map(c => c.id)).not.toContain(entry!.id);
   });
 
-  it.skip.each(['2d', '3d', 'pro'])('requires native supplied-result evidence for certificate notices in %s (known wrong result: #2533)', (mode) => {
+  it.each(['2d', '3d', 'pro'])('requires native supplied-result evidence for certificate notices in %s', (mode) => {
     const id = 'supplied-linear-certificates';
     const entry = RESULT_CHANGES.changes.find(c => c.id === id)!;
     const stamp = { ...unknownStamp(), resultsVersion: entry.resultsVersion - 1, recorded: [...ANALYSIS_KINDS] };

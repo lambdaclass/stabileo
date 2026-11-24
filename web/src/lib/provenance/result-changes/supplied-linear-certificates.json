@@ -4,7 +4,7 @@
   "prs": [],
   "area": "analysis",
   "when": {
-    "all": ["analysis:linear", "members"]
+    "all": ["analysis:linear", "native:supplied-linear-certificate"]
   },
   "quantities": ["certificate.status", "certificate.absBound", "certificate.relBound"],
   "title": {
