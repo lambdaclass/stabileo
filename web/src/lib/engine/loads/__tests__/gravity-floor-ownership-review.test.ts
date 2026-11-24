@@ -363,3 +363,68 @@ it('#2512 full-span one-way transfer preserves projected area on rising beams', 
   expect(plan.levels.reduce((sum, level) => sum + level.superimposedKN, 0)).toBeCloseTo(area * pressure, 10);
   checkPlanReactions(model, 'D', area * pressure, gravity);
 });
+
+function coincidentBayWithShadowedShell(rise: number, bayAttachments = 0) {
+  const { model, row, beam, shell, tieRows } = modelFixture();
+  const left = row(0, 3), right = row(10, 3);
+  beam(left[0], right[0]);
+  beam(right[0], right[1]);
+  beam(right[1], left[1]);
+  beam(left[1], left[0]);
+  const lowerLeft = row(0, 3);
+  shell(lowerLeft, row(10, 3));
+  const upperLeft = row(0, 3 + rise);
+  shell(upperLeft, row(10, 3 + rise));
+  tieRows(lowerLeft, upperLeft);
+  left.slice(0, bayAttachments).forEach((masterNode, i) => model.constraints.push({
+    type: 'equalDOF', masterNode, slaveNode: lowerLeft[i]!, dofs: [2],
+  }));
+  return model;
+}
+
+const reviewC2 = process.env.RUN_KNOWN_WRONG === '2512' ? it : it.skip;
+const shadowRefusal = { key: 'loadPlan.gravity.overlappingShells', params: { first: 1, second: 2 } };
+
+reviewC2('known wrong result: #2512 shadowed shell ownership cannot put gravity back on a coincident bay', () => {
+  for (const model of [
+    coincidentBayWithShadowedShell(0.02),
+    coincidentBayWithShadowedShell(0.049, 1),
+  ]) {
+    for (const loadEveryPanel of [false, true]) {
+      const gravity = { mode: 'panels', loadEveryPanel } as const;
+      const plan = buildLoadPlan(input(model, { gravity, generateCombinations: true }));
+      expect(plan.outcome, JSON.stringify({
+        blockedKeys: plan.blockedKeys,
+        shells: plan.surface.filter(load => load.caseType === 'D').map(load => load.quadId),
+        beams: [...new Set(plan.distributed.filter(load => load.caseType === 'D').map(load => load.elementId))],
+        gravityKN: plan.levels.reduce((total, level) => total + level.superimposedKN, 0),
+      })).toBe('BLOCKED');
+      expect(plan.blockedKeys).toEqual([shadowRefusal]);
+      expect(plan).toMatchObject({ cases: [], distributed: [], nodal: [], surface: [], combinations: [], levels: [] });
+      expect(() => gravityLayout(model, { ...gravity, tributaryWidth: 3 })).toThrow(expect.objectContaining(shadowRefusal));
+      expect(() => roofWeightFor(model, gravity, 3, 0)).toThrow(expect.objectContaining(shadowRefusal));
+    }
+    expect(() => snowDriftRefusal(model)).toThrow(expect.objectContaining(shadowRefusal));
+  }
+});
+
+reviewC2('known wrong result: #2512 apply refuses to put pressure on a restored coincident bay with ambiguous ownership', () => {
+  const { quads, plan } = restoreAndPlan(coincidentBayWithShadowedShell(0.02));
+  const before = modelStore.snapshot();
+  expect(plan.outcome).toBe('BLOCKED');
+  expect(applyLoadPlan(plan, { clearExisting: true, bothSenses: true, nameOf: key => key })).toEqual({
+    ...shadowRefusal, params: { first: quads[0], second: quads[1] },
+  });
+  expect(modelStore.snapshot()).toEqual(before);
+});
+
+it('#2512 directly established bay ownership and separated shells keep their pressure', () => {
+  for (const loadEveryPanel of [false, true]) {
+    deadResultant(coincidentBayWithShadowedShell(0.02, 2), loadEveryPanel, [2], area);
+    deadResultant(coincidentBayWithShadowedShell(0.051, 1), loadEveryPanel, [1, 2], 2 * area);
+  }
+  const plan = buildLoadPlan(input(coincidentBayWithShadowedShell(0.02)));
+  expect(plan.outcome).toBe('READY');
+  expect(plan.surface).toEqual([]);
+  expect(plan.distributed.some(load => load.caseType === 'D')).toBe(true);
+});
