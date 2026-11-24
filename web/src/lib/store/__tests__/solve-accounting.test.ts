@@ -3,8 +3,10 @@ import { POINT_END_TOL } from '../../engine/member-point-loads';
 import { plateRemeshMessage } from '../../engine/plate-analysis-refusal';
 import { accountingProjection } from '../../engine/accounting-source';
 import {
-  buildSolverInput2D, solveCombinations2D, validateAndSolve2D, validateAndSolve2DAsync, type ModelData,
+  buildSolverInput2D, caseSolverLoads3D, comboSolverLoads3D, solveCombinations2D, validateAndSolve2D, validateAndSolve2DAsync, type ModelData,
 } from '../../engine/solver-service';
+import type { SolverLoad3D } from '../../engine/types-3d';
+import { withCaseEffects } from '../../engine/case-effects';
 import { runDirectAnalysis } from '../../engine/direct-analysis';
 import { agrees, roundoff } from '../../engine/accounting-math';
 import { runGlobalSolve, runLiveCalc } from '../../engine/live-calc';
@@ -17,7 +19,7 @@ import {
   addPlateLoad, applyPlateMeshes, createPlate, meshBeforeAnalysis, planPlateMesh, plateEntry, plateStatus, setPlateMeshSpec, setPlateSideArc,
 } from '../physical-plates';
 
-const fault = vi.hoisted(() => ({ dropMemberLoad: false, dropLineIntensity: 0, scaleCaseLoad: 1, momentDelta: 0, stalePlanarMoment: 0, surfaceFactorOffset: 0, cornerPressureDelta: 0, dropNodalFy: false }));
+const fault = vi.hoisted(() => ({ dropMemberLoad: false, dropLineIntensity: 0, scaleCaseLoad: 1, momentDelta: 0, stalePlanarMoment: 0, surfaceFactorOffset: 0, cornerPressureDelta: 0, assemblyDrift: null as { shell: number; relative: number } | null, combinationDrift: null as { shell: number; relative: number } | null, dropNodalFy: false }));
 
 vi.mock('../../model/loads/load-magnitudes', async importOriginal => {
   const original = await importOriginal<typeof import('../../model/loads/load-magnitudes')>();
@@ -38,6 +40,41 @@ vi.mock('../../model/loads/load-magnitudes', async importOriginal => {
     },
   };
 });
+const combinationSigns = vi.hoisted(() => new WeakMap<SolverLoad3D, number>());
+
+vi.mock('../../engine/accounting-math', async importOriginal => {
+  const original = await importOriginal<typeof import('../../engine/accounting-math')>();
+  return {
+    ...original,
+    scaleAssembledMagnitudes3D: (...args: Parameters<typeof original.scaleAssembledMagnitudes3D>) => {
+      original.scaleAssembledMagnitudes3D(...args);
+      const [source, scaled] = args;
+      const sign = combinationSigns.get(source);
+      if (fault.combinationDrift && sign !== undefined && scaled.type === 'nodal') {
+        scaled.data.fz *= 1 + sign * fault.combinationDrift.relative;
+      }
+    },
+  };
+});
+
+vi.mock('../../engine/solver-shells', async importOriginal => {
+  const original = await importOriginal<typeof import('../../engine/solver-shells')>();
+  return {
+    ...original,
+    convertSurfaceLoad: (...args: Parameters<typeof original.convertSurfaceLoad>) => {
+      const assembled = original.convertSurfaceLoad(...args);
+      if (args[0].quadId === fault.combinationDrift?.shell) {
+        assembled.forEach((row, i) => combinationSigns.set(row, i % 2 ? -1 : 1));
+      }
+      const drift = fault.assemblyDrift;
+      if (!drift || args[0].quadId !== drift.shell) return assembled;
+      return assembled.map((row, i) => row.type === 'nodal'
+        ? { ...row, data: { ...row.data, fz: row.data.fz * (1 + (i % 2 ? -drift.relative : drift.relative)) } }
+        : row);
+    },
+  };
+});
+
 vi.mock('../../engine/member-point-loads', async importOriginal => {
   const original = await importOriginal<typeof import('../../engine/member-point-loads')>();
   return {
@@ -74,6 +111,8 @@ beforeEach(() => {
   fault.stalePlanarMoment = 0;
   fault.surfaceFactorOffset = 0;
   fault.cornerPressureDelta = 0;
+  fault.assemblyDrift = null;
+  fault.combinationDrift = null;
   fault.dropNodalFy = false;
 });
 
@@ -438,7 +477,25 @@ it('#2479 refuses a wrong what-if plate-pressure factor throughout spatial analy
   }
 });
 
+const issue2479Assembly = process.env.RUN_KNOWN_WRONG === '2479' ? it : it.skip;
+
+issue2479Assembly('known wrong result: #2479 refuses alternating equivalent nodal force errors introduced during assembly', async () => {
+  await checkAlternatingExplorePressures('assembly');
+});
+
+issue2479Assembly('known wrong result: #2479 refuses alternating equivalent nodal force errors introduced by combination scaling', async () => {
+  await checkAlternatingExplorePressures('combination');
+});
+
+it('#2479 refuses alternating what-if corner pressures introduced only by case scaling', async () => {
+  await checkAlternatingExplorePressures('case');
+});
+
 it('#2479 refuses alternating what-if corner pressures with unchanged resultants', async () => {
+  await checkAlternatingExplorePressures('slider');
+});
+
+async function checkAlternatingExplorePressures(stage: 'slider' | 'case' | 'assembly' | 'combination') {
   const { id } = floor();
   const [a, b] = modelStore.nodes.keys();
   modelStore.addElement(a!, b!);
@@ -468,20 +525,56 @@ it('#2479 refuses alternating what-if corner pressures with unchanged resultants
     direct: () => runDirectAnalysis(model, model.loadCases, model.combinations, { includeSelfWeight: false }),
   };
 
+  const notional = () => {
+    const id = included + 1;
+    const cases = [...model.loadCases, { id, type: 'L' as const, notional: { sourceCaseId: 1, ratio: 0.002, dir: '+X' as const } }];
+    return withCaseEffects(model, cases, { includeSelfWeight: false, leftHand: false }, new Set([id]));
+  };
+
   const requested = 0.5;
   const apply = async (delta: number) => {
-    fault.cornerPressureDelta = delta;
+    fault.assemblyDrift = null;
+    fault.combinationDrift = null;
+    fault.cornerPressureDelta = stage === 'slider' ? delta : 0;
     whatIf.setLoadFactor(index, requested);
     await vi.advanceTimersByTimeAsync(60);
-    fault.cornerPressureDelta = 0;
+    fault.cornerPressureDelta = stage === 'case' ? delta * 2 : 0;
+    const drift = { shell: target.data.quadId, relative: delta / requested };
+    if (stage === 'assembly') fault.assemblyDrift = drift;
+    if (stage === 'combination') fault.combinationDrift = drift;
   };
   const within = requested * (roundoff - Number.EPSILON);
   const beyond = requested * (roundoff + 2 * Number.EPSILON);
   vi.useFakeTimers();
   try {
     whatIf.open();
+    if (stage === 'combination') {
+      const assembleCombination = () => {
+        const expanded = withCaseEffects(model, model.loadCases, { includeSelfWeight: false, leftHand: false });
+        const cases = caseSolverLoads3D(expanded, model.loadCases, false, false);
+        const combination = model.combinations.find(c => c.id === combo)!;
+        return comboSolverLoads3D(combination, cases);
+      };
+      const diagnostic = expect.stringMatching(/case.*Design pressure.*node.*Fz/i);
+      for (const delta of [0, within]) {
+        await apply(delta);
+        expect(assembleCombination().length).toBeGreaterThan(0);
+      }
+      await apply(beyond);
+      expect.soft(await outcome(assembleCombination), 'just beyond nodal force roundoff').toEqual(diagnostic);
+      await apply(0.25);
+      expect.soft(await outcome(paths.direct), 'direct').toEqual(diagnostic);
+      modelStore.setAnalysis({ perCombination: 'pdelta' });
+      expect.soft(await outcome(paths.combinations), 'P-Delta combinations').toEqual(diagnostic);
+      expect.soft(await outcome(paths.parallel), 'P-Delta parallel').toEqual(diagnostic);
+      modelStore.updateSupport(model.supports.keys().next().value!, { uplift: true });
+      expect.soft(await outcome(paths.combinations), 'nonlinear combinations').toEqual(diagnostic);
+      expect.soft(await outcome(paths.parallel), 'nonlinear parallel').toEqual(diagnostic);
+      return;
+    }
     for (const delta of [0, within]) {
       await apply(delta);
+      if (stage === 'assembly') expect(notional().loads.some(load => load.data.caseId === included + 1)).toBe(true);
       const expected = (20 - area * (1 - requested)) * 2;
       const result = paths.linear();
       if (!result || typeof result === 'string') throw new Error(String(result));
@@ -491,16 +584,23 @@ it('#2479 refuses alternating what-if corner pressures with unchanged resultants
       expect(combinations.perCombo.get(combo)!.reactions.reduce((sum, r) => sum + r.fz, 0)).toBeCloseTo(expected * 1.5, 8);
     }
 
-    const diagnostic = expect.stringMatching(/case.*Test floor.*q\[1\]/i);
+    const diagnostic = expect.stringMatching(stage === 'assembly'
+      ? /case.*Test floor.*node.*Fz/i : /case.*Test floor.*q\[1\]/i);
     await apply(beyond);
     expect.soft(paths.linear(), 'just beyond corner roundoff').toEqual(diagnostic);
 
     await apply(0.25);
-    expect(modelStore.loads[index]!.data).toMatchObject({ q: requested, qNodes: [0.75, 0.25, 0.75, 0.25] });
+    const sliderLoad = modelStore.loads[index];
+    if (sliderLoad?.type !== 'surface3d') throw new Error('Missing floor pressure');
+    expect(sliderLoad.data.q).toBe(requested);
+    expect(sliderLoad.data.qNodes).toEqual(stage === 'slider' ? [0.75, 0.25, 0.75, 0.25] : undefined);
     for (const [name, run] of Object.entries(paths)) {
+      if (stage === 'case' && (name === 'pdelta' || name === 'modal' || name === 'buckling')) continue;
       expect.soft(await outcome(run), name).toEqual(diagnostic);
     }
+    if (stage === 'assembly') expect.soft(await outcome(notional), 'notional source').toEqual(expect.stringMatching(/case.*node.*Fz/i));
     expect.soft(modelStore.singleSolveInput3D(false, false, true), 'input').toBeNull();
+    if (stage !== 'slider') resultsStore.clear3D();
     await runLiveCalc('pro', uiStore.axisConvention3D);
     expect.soft(uiStore.liveCalcError, 'live').toEqual(diagnostic);
     expect.soft(resultsStore.results3D, 'live results').toBeNull();
@@ -513,10 +613,13 @@ it('#2479 refuses alternating what-if corner pressures with unchanged resultants
     expect.soft(await outcome(paths.async), 'nonlinear single').toEqual(diagnostic);
     expect.soft(await outcome(paths.parallel), 'nonlinear combinations').toEqual(diagnostic);
   } finally {
+    fault.cornerPressureDelta = 0;
+    fault.assemblyDrift = null;
+    fault.combinationDrift = null;
     whatIf.abandon();
     vi.useRealTimers();
   }
-});
+}
 
 async function outcome(solve: () => unknown) {
   const result = await refusal(solve);
