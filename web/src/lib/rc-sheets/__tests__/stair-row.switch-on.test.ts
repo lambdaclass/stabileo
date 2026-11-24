@@ -44,6 +44,24 @@ describe('the stairs the sheets find', () => {
     expect(s!.presumed.length).toBeGreaterThan(0);
   });
 
+  it('takes the risers a flight declares instead of presuming them, and only when its shells agree', async () => {
+    const { stairDemands } = await import('../stair-demands');
+    const [s] = stairDemands({ nodes, quads, entries: [], live: 5, declaredSteps: new Map([[2, 11]]) });
+    expect([s!.spec.steps, s!.spec.riser, s!.spec.tread]).toEqual([11, expect.closeTo(1.75 / 11, 12), expect.closeTo(2.52 / 10, 12)]);
+    expect(s!.presumed).not.toContain('rcSheets.stair.presumedRiser');
+    const [p] = stairDemands({ nodes, quads, entries: [], live: 5 });
+    expect([p!.spec.steps, p!.presumed]).toEqual([10, expect.arrayContaining(['rcSheets.stair.presumedRiser'])]);
+  });
+
+  it('ends a landing at the first beam or wall across the flight\'s width, the floor past it not the landing', async () => {
+    const { stairDemands } = await import('../stair-demands');
+    const withWall = new Map(quads);
+    withWall.set(20, { id: 20, nodes: [node(4, 0, 1.75), node(4, 1.2, 1.75), node(4, 1.2, 4.5), node(4, 0, 4.5)], thickness: 0.15 });
+    withWall.set(21, { id: 21, nodes: [node(4.2, 0, 1.75), node(4.2, 0.4, 1.75), node(4.2, 0.4, 4.5), node(4.2, 0, 4.5)], thickness: 0.15 });
+    const [s] = stairDemands({ nodes, quads: withWall, entries: [], live: 5, bars: [[{ x: 0.4, y: -1, z: 0 }, { x: 0.4, y: 3, z: 0 }], [{ x: 0.7, y: 0, z: 0 }, { x: 0.7, y: 0.3, z: 0 }]] });
+    expect([s!.spec.landingBottom, s!.spec.landingTop]).toEqual([expect.closeTo(0.6, 9), expect.closeTo(0.48, 9)]);
+  });
+
   it('finds none where the model has no flight, and takes a desk stair over the flight it is linked to', async () => {
     const { stairDemands } = await import('../stair-demands');
     const flat = new Map([[9, quads.get(9)!]]);

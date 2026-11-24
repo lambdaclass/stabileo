@@ -11415,7 +11415,7 @@ const hu: Translations = {
   "ex.pro-rc-lift-core.purpose": "Vasbeton / mag / falak",
   "ex.pro-rc-lift-core.look": "Szélteher alatt hasonlítsa össze a liftakna által felvett nyíróerőt a keretek által felvettel.",
   "ex.pro-rc-party-wall": "Tűzfalak közötti épület lifttel és lépcsővel",
-  "ex.pro-rc-party-wall.desc": "Földszint és hat emelet egy 8,60 m széles telken, oszlopokkal mindkét tűzfalon, liftaknával, zárt lépcsőházzal és szintenként kétkarú, pihenős U-lépcsővel, mind betonból és héjként modellezve. A szél csak az utcai és a hátsó homlokzatra hat.",
+  "ex.pro-rc-party-wall.desc": "Földszint és hat emelet egy 8,60 m széles telken, oszlopokkal mindkét tűzfalon, liftaknával, a közlekedőre nyíló ajtós lépcsőházzal és szintenként kétkarú, kilencfokos karokkal és pihenővel épült U-lépcsővel, mind betonból és héjként modellezve. A szél csak az utcai és a hátsó homlokzatra hat.",
   "ex.pro-rc-party-wall.purpose": "Vasbeton / tűzfalak / lift és lépcső",
   "ex.pro-rc-party-wall.look": "Nézze meg az igénybevételeket a lépcsőkarokban és a pihenőben, és azt, hogyan veszi fel a mag a szemből érkező szelet.",
   "ex.torre-irregular-con-retiros": "Lépcsőzetesen visszahúzódó torony",

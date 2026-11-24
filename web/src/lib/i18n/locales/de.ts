@@ -11770,7 +11770,7 @@ const de: Translations = {
   "ex.pro-rc-lift-core.purpose": "Stahlbeton / Kern / Wände",
   "ex.pro-rc-lift-core.look": "Vergleichen Sie unter Wind die Querkraft, die der Aufzugsschacht aufnimmt, mit der der Rahmen.",
   "ex.pro-rc-party-wall": "Gebäude zwischen Brandwänden mit Aufzug und Treppe",
-  "ex.pro-rc-party-wall.desc": "Erdgeschoss und sechs Geschosse auf einem 8,60 m breiten Grundstück, mit Stützen an beiden Brandwänden, Aufzugsschacht, geschlossenem Treppenhaus und einer U-Treppe mit zwei Läufen und einem Podest je Geschoss, alles aus Beton und als Schalen vernetzt. Der Wind wirkt nur auf Vorder- und Rückfassade.",
+  "ex.pro-rc-party-wall.desc": "Erdgeschoss und sechs Geschosse auf einem 8,60 m breiten Grundstück, mit Stützen an beiden Brandwänden, Aufzugsschacht, einem Treppenhaus mit Tür zum Flur und einer U-Treppe mit zwei Läufen zu neun Stufen und einem Podest je Geschoss, alles aus Beton und als Schalen vernetzt. Der Wind wirkt nur auf Vorder- und Rückfassade.",
   "ex.pro-rc-party-wall.purpose": "Stahlbeton / Brandwände / Aufzug und Treppe",
   "ex.pro-rc-party-wall.look": "Sehen Sie die Schnittgrößen in den Treppenläufen und im Podest und wie der Kern den Wind von vorn aufnimmt.",
   'ex.torre-irregular-con-retiros': 'Turm mit Rücksprüngen',

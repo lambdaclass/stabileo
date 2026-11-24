@@ -107,9 +107,28 @@ class Building {
     }
   }
 
-  /** An inclined flight across `xa`–`xb`, rising from (`y0`, `z0`) to (`y1`, `z1`). */
-  flight(name: string, xa: number, xb: number, y0: number, y1: number, z0: number, z1: number, t: number, mat: number, k: number): void {
-    this.plate(name, [[xa, y0, z0], [xb, y0, z0], [xb, y1, z1], [xa, y1, z1]], { kind: 'slab', typology: 'solid', levelFrom: `lv-${k}` }, mat, t);
+  /** An inclined flight of `steps` risers across `xa`–`xb`, rising from (`y0`, `z0`) to (`y1`, `z1`). */
+  flight(name: string, xa: number, xb: number, y0: number, y1: number, z0: number, z1: number, steps: number, t: number, mat: number, k: number): void {
+    this.plate(name, [[xa, y0, z0], [xb, y0, z0], [xb, y1, z1], [xa, y1, z1]], { kind: 'slab', typology: 'solid', levelFrom: `lv-${k}`, stair: { steps } }, mat, t);
+  }
+
+  /**
+   * A straight wall from `a` to `b` in plan on each storey from `k0` up to `k1` with a door `width`
+   * wide and `height` high, `from` along it from `a`: the wall beside the door and the lintel over it,
+   * each a plate, cut at the door's head so the pieces meet side to side.
+   */
+  wallWithDoor(name: string, a: [number, number], b: [number, number], k0: number, k1: number, door: { from: number; width: number; height: number }, t: number, mat: number): void {
+    const L = Math.hypot(b[0] - a[0], b[1] - a[1]), at = (u: number): [number, number] => [r(a[0] + ((b[0] - a[0]) * u) / L), r(a[1] + ((b[1] - a[1]) * u) / L)];
+    const d0 = door.from, d1 = door.from + door.width;
+    for (let k = k0; k < k1; k++) {
+      const z0 = this.z(k), z1 = this.z(k + 1), zd = r(z0 + door.height), lv = this.levels[k]!.name;
+      const data = { kind: 'wall', typology: 'concrete', levelFrom: `lv-${k}`, levelTo: `lv-${k + 1}` };
+      const piece = (label: string, u0: number, u1: number, za: number, zb: number) =>
+        this.plate(`Tabique ${name} · ${lv} (${label})`, [[...at(u0), za], [...at(u1), za], [...at(u1), zb], [...at(u0), zb]], data, mat, t, k === 0 && za === z0);
+      if (d0 > EPS) { piece('junto a la puerta', 0, d0, z0, zd); piece('arriba', 0, d0, zd, z1); }
+      if (d1 < L - EPS) { piece('junto a la puerta', d1, L, z0, zd); piece('arriba', d1, L, zd, z1); }
+      piece('dintel', d0, d1, zd, z1);
+    }
   }
 
   /** A level landing over `box` at height `z`. */
@@ -235,14 +254,17 @@ function liftCore(): string {
 // ─── Seven storeys between party walls, with the lift and the stair ──────────────────────────
 function partyWall(): string {
   const levels = storeys([['PB', 0], ['1º piso', 3], ['2º piso', 5.8], ['3º piso', 8.6], ['4º piso', 11.4], ['5º piso', 14.2], ['6º piso', 17], ['Azotea', 19.8], ['Sobre-recorrido', 19.8 + OVERRUN]]);
-  const run = 2.64, landingDepth = 1.2, mid = 3.05, gap = 0.1, top = 7;
-  const shaft = { x0: 0, x1: 1.9, y0: 8.5, y1: 10.46 }, stair = { x0: 1.9, x1: 4.2, y0: 8.5, y1: 8.5 + run + landingDepth };
+  const floorLanding = 1.2, run = 2.64, landingDepth = 1.2, mid = 3.05, gap = 0.1, top = 7, steps = 9, ts = 0.23;
+  const shaft = { x0: 0, x1: 1.9, y0: 8.5, y1: 10.46 }, stair = { x0: 1.9, x1: 4.2, y0: 8.5, y1: 8.5 + floorLanding + run + landingDepth };
+  const foot = stair.y0 + floorLanding, head = foot + run;
   const b = new Building('Edificio entre medianeras de PB y 6 pisos', [
     'A seven-storey concrete block of flats on an 8.6 m city lot, columns against both party walls',
     'and at the ends of the core walls: a lift shaft open through every floor to its overrun over the',
-    'roof and the slab that closes it, a closed stairwell of 15 cm walls, and a U stair of two flights',
-    'and a landing a storey up to the last floor. The wind blows on the front and the back only.',
-  ], { x: axes([0, 4.2, 8.4], '1'), y: axes([0, 4.5, 8.5, 11.7, 16.2, 20.7], 'A') }, levels, { x: [shaft.x1, stair.x0 + gap, mid, stair.x1 - gap], y: [shaft.y1, stair.y0 + run, stair.y1] }, 1.2);
+    'roof and the slab that closes it, and a stairwell of 15 cm walls entered by a door from the hall',
+    'onto the floor\'s landing, with a U stair of two flights of nine risers and a landing a storey up',
+    'to the last floor, 23 cm thick for the 5 m it spans between its walls. The wind blows on the front',
+    'and the back only.',
+  ], { x: axes([0, 4.2, 8.4], '1'), y: axes([0, 4.5, 8.5, 11.7, 16.2, 20.7], 'A') }, levels, { x: [shaft.x1, stair.x0 + gap, mid, stair.x1 - gap], y: [shaft.y1, foot, head, stair.y1] }, 1.2);
   const hc = b.m.material('Hormigón H-25', H25);
   const edge = b.m.rect('Col 20×50', 0.2, 0.5), centre = b.m.rect('Col 30×50', 0.3, 0.5), beam = b.m.rect('Viga 20×45', 0.2, 0.45);
   const small = b.m.declared('Jamba 15×15', { a: 0.0225, iy: 4.22e-5, iz: 4.22e-5, j: 7.13e-5 });
@@ -256,6 +278,7 @@ function partyWall(): string {
   b.wall('escalera 1', [stair.x0, shaft.y1], [stair.x0, stair.y1], 0, top, 0.15, hc, true);
   b.wall('escalera 2', [stair.x0, stair.y1], [stair.x1, stair.y1], 0, top, 0.15, hc, true);
   b.wall('escalera 3', [stair.x1, stair.y0], [stair.x1, stair.y1], 0, top, 0.15, hc, true);
+  b.wallWithDoor('escalera frente', [stair.x0, stair.y0], [stair.x1, stair.y0], 0, top, { from: 0, width: mid - stair.x0, height: 2.1 }, 0.15, hc);
   const onCore = (axis: 'x' | 'y', at: number, from: number) =>
     (axis === 'y' && at === 0 && from === 8.5) || (axis === 'y' && at === 4.2 && from === 8.5) || (axis === 'x' && at === 11.7 && from === 0);
   for (let k = 1; k <= top; k++) {
@@ -263,17 +286,19 @@ function partyWall(): string {
     b.beamY(k, 0, shaft.y1, 11.7, beam, hc);
     b.beamX(k, 11.7, 0, stair.x0, beam, hc);
     b.slab(k, 0.12, hc, { x0: 0, x1: 8.4, y0: 0, y1: 20.7 }, k < top ? [shaft, stair] : [shaft]);
+    if (k < top) b.landing(`Descanso de piso · ${levels[k]!.name}`, { ...stair, y1: foot }, b.z(k), ts, hc, k);
   }
-  // A U stair a storey up to the last floor: up along +Y, a landing against the back wall at mid
-  // height, and back along −Y to the floor above; risers of about 15,5 cm on treads of 33, under
-  // 30°, the slope the load generator still loads as a floor; the flights clear of the side walls,
-  // held at their ends, as an inclined side a wall's grid of rectangles cannot follow.
-  for (const x of [stair.x0 + gap, mid, stair.x1 - gap]) b.m.support(b.m.node(x, stair.y0, 0), 'pinned3d');
+  // A U stair a storey up to the last floor, from the floor's landing inside the door: up along +Y,
+  // a landing against the back wall at mid height, and back along −Y onto the landing of the floor
+  // above; nine risers of 15,5 to 16,7 cm on treads of 33, under 30°, the slope the load generator
+  // still loads as a floor; the flights clear of the side walls, held at their ends, as an inclined
+  // side a wall's grid of rectangles cannot follow.
+  for (const x of [stair.x0 + gap, mid, stair.x1 - gap]) b.m.support(b.m.node(x, foot, 0), 'pinned3d');
   for (let k = 0; k < top - 1; k++) {
     const z0 = b.z(k), z1 = b.z(k + 1), zm = (z0 + z1) / 2, at = levels[k]!.name;
-    b.flight(`Tramo 1 · ${at}`, stair.x0 + gap, mid, stair.y0, stair.y0 + run, z0, zm, 0.15, hc, k);
-    b.landing(`Descanso · ${at}`, { x0: stair.x0, x1: stair.x1, y0: stair.y0 + run, y1: stair.y1 }, zm, 0.15, hc, k);
-    b.flight(`Tramo 2 · ${at}`, stair.x1 - gap, mid, stair.y0 + run, stair.y0, zm, z1, 0.15, hc, k);
+    b.flight(`Tramo 1 · ${at}`, stair.x0 + gap, mid, foot, head, z0, zm, steps, ts, hc, k);
+    b.landing(`Descanso · ${at}`, { x0: stair.x0, x1: stair.x1, y0: head, y1: stair.y1 }, zm, ts, hc, k);
+    b.flight(`Tramo 2 · ${at}`, stair.x1 - gap, mid, head, foot, zm, z1, steps, ts, hc, k);
   }
   return b.text({ ...CITY_WIND, windDirs: ['+y', '-y'], windDyn: approximate('otherSteelOrConcrete') });
 }

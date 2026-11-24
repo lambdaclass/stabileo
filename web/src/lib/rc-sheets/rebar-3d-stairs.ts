@@ -3,7 +3,7 @@
  * the foot support, at its spacing across the width; the distribution bars across at their rows.
  * A stair with no flight in the model has nowhere to stand and gives none.
  */
-import type { Rebar3d, RebarTone, V3 } from './rebar-3d-geometry';
+import type { Frame, Rebar3d, RebarTone, V3 } from './rebar-3d-geometry';
 import type { PieceKind } from './schedule/pieces';
 import type { StairBarRole, StairRow } from './stair-row';
 
@@ -30,4 +30,21 @@ export function stairBars3d(r: StairRow, cover: number): Rebar3d[] {
     }
   }
   return out;
+}
+
+/** A stair's concrete as boxes in the frames its bars are laid in: each landing level, and the waist along the slope from its soffit; the steps over it hold no bar. */
+export function stairGhostBoxes(r: StairRow): Array<{ frame: Frame; from: V3; to: V3 }> {
+  const p = r.demand.place;
+  if (!p || r.unsupported) return [];
+  const { run, rise, landingBottom: Lb, landingTop: Lt, tl, tv, angle } = r.section, w = r.demand.spec.width, h = w / 2;
+  const dir = p.dir, cos = Math.cos(angle), sin = Math.sin(angle);
+  const o: V3 = [p.x - dir.x * Lb, p.y - dir.y * Lb, p.z], across: V3 = [-dir.y, dir.x, 0];
+  const level: Frame = { o, x: [dir.x, dir.y, 0], y: across, z: [0, 0, 1] };
+  const soffit: V3 = [o[0] + dir.x * Lb, o[1] + dir.y * Lb, o[2] - tv];
+  const waist: Frame = { o: soffit, x: [dir.x * cos, dir.y * cos, sin], y: across, z: [-dir.x * sin, -dir.y * sin, cos] };
+  return [
+    { frame: level, from: [0, -h, -tl], to: [Lb, h, 0] },
+    { frame: waist, from: [0, -h, 0], to: [run / cos, h, tv * cos] },
+    { frame: level, from: [Lb + run, -h, rise - tl], to: [Lb + run + Lt, h, rise] },
+  ];
 }

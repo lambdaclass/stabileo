@@ -4,6 +4,7 @@
  */
 import { modelStore } from './model.svelte';
 import { stairEntries } from './stairs-pt';
+import { physicalPlates } from './physical-plates';
 import { findOccupancy } from '../codes/cirsoc101/live-loads';
 import { stairDemands } from '../rc-sheets/stair-demands';
 import { stairRow, type StairAdopted, type StairContext, type StairRow } from '../rc-sheets/stair-row';
@@ -16,7 +17,11 @@ export interface StairInputs { code: SheetCode; fmt: Fmt; adopted: Readonly<Reco
 
 /** Every stair the project has, designed. */
 export function sheetStairs(o: StairInputs): StairRow[] {
-  const demands = stairDemands({ nodes: modelStore.nodes, quads: modelStore.quads, entries: stairEntries(), levelAt: o.levelAt, live: findOccupancy('escalera_otros')?.uniformKNm2 ?? 5 });
+  const declaredSteps = new Map<number, number>();
+  for (const pl of physicalPlates()) if (pl.physical.stair?.steps) for (const q of pl.group.members.quads ?? []) declaredSteps.set(q, pl.physical.stair.steps);
+  const at = (id: number) => { const n = modelStore.nodes.get(id); return n ? { x: n.x, y: n.y, z: n.z ?? 0 } : null; };
+  const bars = [...modelStore.elements.values()].flatMap((e) => { const a = at(e.nodeI), b = at(e.nodeJ); return a && b && Math.abs(a.z - b.z) < 1e-6 ? [[a, b] as const] : []; });
+  const demands = stairDemands({ nodes: modelStore.nodes, quads: modelStore.quads, entries: stairEntries(), levelAt: o.levelAt, live: findOccupancy('escalera_otros')?.uniformKNm2 ?? 5, declaredSteps, bars });
   return demands.map((d) => {
     const c: StairContext = { fc: o.fcOf(d.quads), fy: o.fy, cover: o.cover, diameters: o.diameters };
     const a = o.adopted[d.key];

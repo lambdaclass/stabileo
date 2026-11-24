@@ -11770,7 +11770,7 @@ const fr: Translations = {
   "ex.pro-rc-lift-core.purpose": "Béton armé / noyau / voiles",
   "ex.pro-rc-lift-core.look": "Sous le vent, comparez l'effort tranchant repris par la gaine d'ascenseur avec celui des portiques.",
   "ex.pro-rc-party-wall": "Immeuble entre mitoyens avec ascenseur et escalier",
-  "ex.pro-rc-party-wall.desc": "Un rez-de-chaussée et six étages sur une parcelle de 8,60 m, avec des poteaux sur les deux murs mitoyens, une gaine d'ascenseur, une cage d'escalier fermée et un escalier en U de deux volées et un palier par étage, le tout en béton et maillé en coques. Le vent n'agit que sur les façades avant et arrière.",
+  "ex.pro-rc-party-wall.desc": "Un rez-de-chaussée et six étages sur une parcelle de 8,60 m, avec des poteaux sur les deux murs mitoyens, une gaine d'ascenseur, une cage d'escalier avec une porte sur le palier d'étage et un escalier en U de deux volées de neuf marches et un palier intermédiaire par étage, le tout en béton et maillé en coques. Le vent n'agit que sur les façades avant et arrière.",
   "ex.pro-rc-party-wall.purpose": "Béton armé / mitoyens / ascenseur et escalier",
   "ex.pro-rc-party-wall.look": "Voyez les efforts dans les volées et le palier de l'escalier, et comment le noyau reprend le vent de face.",
   'ex.torre-irregular-con-retiros': 'Tour à retraits',

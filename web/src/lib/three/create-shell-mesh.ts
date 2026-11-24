@@ -48,7 +48,7 @@ type Vec3 = { x: number; y: number; z: number };
 
 /** Build a per-shell face material (cloned per mesh so selection/contour code
  *  can mutate colour/vertexColors without touching other shells). */
-function makeFaceMaterial(color: number, mode: ShellRenderMode): THREE.MeshStandardMaterial {
+export function makeFaceMaterial(color: number, mode: ShellRenderMode): THREE.MeshStandardMaterial {
   const sections = mode === 'sections' || mode === 'physical';
   const wire = mode === 'wireframe';
   return new THREE.MeshStandardMaterial({

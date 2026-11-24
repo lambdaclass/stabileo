@@ -16,6 +16,10 @@ export interface StairModelInput {
   levelAt?: (z: number) => string;
   /** The live load a stair takes where the project states none, kN/m². */
   live: number;
+  /** The risers a shell's flight declares (`PhysicalData.stair`), by shell id. */
+  declaredSteps?: ReadonlyMap<number, number>;
+  /** The level bars a landing may bear on (the beams), each by its two ends. */
+  bars?: ReadonlyArray<readonly [P, P]>;
 }
 
 /** A shell this steep or more, and this shallow or less, is a flight, degrees. */
@@ -26,7 +30,7 @@ export const PRESUMED_RISER = 0.175;
 const LANDING_MAX = 3;
 const TOL = 0.02;
 
-type P = { x: number; y: number; z: number };
+export type P = { x: number; y: number; z: number };
 const pt = (m: StairModelInput, id: number): P | null => { const n = m.nodes.get(id); return n ? { x: n.x, y: n.y, z: n.z ?? 0 } : null; };
 
 function normalOf(ps: readonly P[]): { x: number; y: number; z: number } | null {
@@ -69,6 +73,7 @@ export function stairDemands(m: StairModelInput): StairDemand[] {
   const inclined = [...normals].filter(([id, n]) => { const s = slopeDeg(n); return s >= FLIGHT_SLOPE.min && s <= FLIGHT_SLOPE.max && !linked.has(id); }).map(([id]) => id);
   const level = [...normals].filter(([, n]) => slopeDeg(n) < 2).map(([id]) => id);
   const parallel = (a: number, b: number) => { const p = normals.get(a)!, q = normals.get(b)!; return p.x * q.x + p.y * q.y + p.z * q.z > 0.995; };
+  const bearings = bearingLines(m, normals);
   const out: StairDemand[] = [];
   for (const e of m.entries) {
     const place = flightPlace(m, (e.analysisQuads ?? []).filter((id) => m.quads.has(id)), normals);
@@ -78,9 +83,11 @@ export function stairDemands(m: StairModelInput): StairDemand[] {
   for (const g of groups(inclined, m, parallel)) {
     const f = flightPlace(m, g, normals);
     if (!f) continue;
-    const landing = (z: number, side: -1 | 1) => landingLength(m, level, f, z, side);
+    const landing = (z: number, side: -1 | 1) => landingLength(m, level, f, z, side, bearings);
     const lb = landing(f.z, -1), lt = landing(f.z + f.rise, 1);
-    const steps = Math.max(2, Math.round(f.rise / PRESUMED_RISER)), riser = f.rise / steps, tread = f.run / (steps - 1);
+    const declared = new Set(g.map((id) => m.declaredSteps?.get(id)));
+    const stated = declared.size === 1 ? [...declared][0] : undefined;
+    const steps = stated && stated >= 2 ? Math.round(stated) : Math.max(2, Math.round(f.rise / PRESUMED_RISER)), riser = f.rise / steps, tread = f.run / (steps - 1);
     const waist = Math.min(...g.map((id) => m.quads.get(id)!.thickness));
     const spec: StairDesignSpec = {
       riser, tread, steps, waist, width: f.width,
@@ -91,7 +98,7 @@ export function stairDemands(m: StairModelInput): StairDemand[] {
     out.push({
       key: `stair:q${g[0]}`, name: `E${m.entries.length + k}`, ...(m.levelAt ? { level: m.levelAt(f.z) } : {}), source: 'model', spec,
       place: { x: f.x, y: f.y, z: f.z, dir: f.dir }, quads: g,
-      presumed: ['rcSheets.stair.presumedRiser', 'rcSheets.stair.presumedEnds', 'rcSheets.stair.presumedLoads'],
+      presumed: [...(stated && stated >= 2 ? [] : ['rcSheets.stair.presumedRiser']), 'rcSheets.stair.presumedEnds', 'rcSheets.stair.presumedLoads'],
     });
   }
   return out;
@@ -118,18 +125,46 @@ function flightPlace(m: StairModelInput, ids: readonly number[], normals: Readon
   return { x: s0 * dir.x + wm * across.x, y: s0 * dir.y + wm * across.y, z: Math.min(...z), dir, run: s1 - s0, rise: Math.max(...z) - Math.min(...z), width: w1 - w0, s0, s1, w0, w1 };
 }
 
-/** The level shells at height `z` that the flight's foot (side −1) or head (+1) meets, read within its width: how far they reach from it, m, and their thickness. */
-function landingLength(m: StairModelInput, level: readonly number[], f: FlightPlace, z: number, side: -1 | 1): { length: number; thickness?: number } {
+/** The level lines a landing can bear on: the beams, and the level edges of the walls (shells standing upright). */
+function bearingLines(m: StairModelInput, normals: ReadonlyMap<number, { x: number; y: number; z: number }>): Array<readonly [P, P]> {
+  const out: Array<readonly [P, P]> = [...(m.bars ?? [])].filter(([a, b]) => Math.abs(a.z - b.z) <= TOL);
+  for (const [id, n] of normals) {
+    if (Math.abs(n.z) > 0.1) continue;
+    const ps = m.quads.get(id)!.nodes.map((k) => pt(m, k));
+    for (let i = 0; i < ps.length; i++) {
+      const a = ps[i], b = ps[(i + 1) % ps.length];
+      if (a && b && Math.abs(a.z - b.z) <= TOL && Math.hypot(b.x - a.x, b.y - a.y) > TOL) out.push([a, b]);
+    }
+  }
+  return out;
+}
+
+/**
+ * The level shells at height `z` that the flight's foot (side −1) or head (+1) meets, read within its
+ * width: how far they reach from it, m, and their thickness. A landing ends at the first wall or beam
+ * that crosses the flight's width at its level: past it is the floor it bears on, not the landing.
+ */
+function landingLength(m: StairModelInput, level: readonly number[], f: FlightPlace, z: number, side: -1 | 1, bearings: ReadonlyArray<readonly [P, P]>): { length: number; thickness?: number } {
   const across = { x: -f.dir.y, y: f.dir.x };
   const sOf = (p: P) => p.x * f.dir.x + p.y * f.dir.y, wOf = (p: P) => p.x * across.x + p.y * across.y;
   const edge = side < 0 ? f.s0 : f.s1;
+  const covered = new Map<number, number>();
+  for (const [a, b] of bearings) {
+    if (Math.abs(a.z - z) > TOL) continue;
+    const da = side * (sOf(a) - edge), db = side * (sOf(b) - edge);
+    if (Math.abs(da - db) > TOL || da <= TOL) continue;
+    const lo = Math.max(f.w0, Math.min(wOf(a), wOf(b))), hi = Math.min(f.w1, Math.max(wOf(a), wOf(b)));
+    if (hi > lo) { const k = Math.round(((da + db) / 2) * 100); covered.set(k, (covered.get(k) ?? 0) + hi - lo); }
+  }
+  const stop = Math.min(Infinity, ...[...covered].filter(([, c]) => c >= 0.5 * (f.w1 - f.w0)).map(([k]) => k / 100));
   let reach = 0, thickness: number | undefined;
   for (const id of level) {
     const q = m.quads.get(id)!, ps = q.nodes.map((n) => pt(m, n)).filter((p): p is P => !!p);
     if (!ps.length || Math.abs(ps[0]!.z - z) > TOL) continue;
     const inside = ps.every((p) => wOf(p) >= f.w0 - TOL && wOf(p) <= f.w1 + TOL && side * (sOf(p) - edge) >= -TOL);
     if (!inside) continue;
-    const far = Math.max(...ps.map((p) => side * (sOf(p) - edge)));
+    const d = ps.map((p) => side * (sOf(p) - edge)), far = Math.min(stop, Math.max(...d));
+    if (Math.min(...d) >= stop - TOL) continue;
     if (far > reach) { reach = far; thickness = q.thickness; }
   }
   return { length: Math.round(Math.min(reach, LANDING_MAX) * 1000) / 1000, ...(thickness !== undefined ? { thickness } : {}) };

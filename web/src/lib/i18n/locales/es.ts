@@ -12297,7 +12297,7 @@ const es: Record<string, string> = {
   "ex.pro-rc-lift-core.purpose": "H.A. / núcleo / tabiques",
   "ex.pro-rc-lift-core.look": "Con viento, compará el corte que toma la caja del ascensor con el que toman los pórticos.",
   "ex.pro-rc-party-wall": "Edificio entre medianeras con ascensor y escalera",
-  "ex.pro-rc-party-wall.desc": "Planta baja y seis pisos en un lote de 8,60 m, con columnas sobre las dos medianeras, caja de ascensor, caja de escalera cerrada y una escalera en U de dos tramos y un descanso por piso, todo de hormigón y mallado como láminas. El viento actúa sólo sobre el frente y el contrafrente.",
+  "ex.pro-rc-party-wall.desc": "Planta baja y seis pisos en un lote de 8,60 m, con columnas sobre las dos medianeras, caja de ascensor, caja de escalera con puerta al palier y una escalera en U de dos tramos de nueve escalones y un descanso por piso, todo de hormigón y mallado como láminas. El viento actúa sólo sobre el frente y el contrafrente.",
   "ex.pro-rc-party-wall.purpose": "H.A. / medianeras / ascensor y escalera",
   "ex.pro-rc-party-wall.look": "Mirá los esfuerzos en los tramos y el descanso de la escalera, y cómo el núcleo toma el viento de frente.",
   'ex.torre-irregular-con-retiros': "Torre con retiros",

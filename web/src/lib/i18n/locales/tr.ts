@@ -11779,7 +11779,7 @@ const tr: Translations = {
   "ex.pro-rc-lift-core.purpose": "Betonarme / çekirdek / perdeler",
   "ex.pro-rc-lift-core.look": "Rüzgâr altında asansör kuyusunun aldığı kesme kuvvetini çerçevelerin aldığıyla karşılaştırın.",
   "ex.pro-rc-party-wall": "Komşu duvarlar arasında asansörlü ve merdivenli bina",
-  "ex.pro-rc-party-wall.desc": "8,60 m genişliğinde bir parselde zemin kat ve altı kat; iki komşu duvar üzerinde kolonlar, asansör kuyusu, kapalı merdiven kovası ve her katta iki kollu, sahanlıklı U merdiven; tamamı beton ve kabuk olarak modellenmiş. Rüzgâr yalnızca ön ve arka cepheye etkir.",
+  "ex.pro-rc-party-wall.desc": "8,60 m genişliğinde bir parselde zemin kat ve altı kat; iki komşu duvar üzerinde kolonlar, asansör kuyusu, koridora kapısı olan merdiven kovası ve her katta dokuzar basamaklı iki kollu, sahanlıklı U merdiven; tamamı beton ve kabuk olarak modellenmiş. Rüzgâr yalnızca ön ve arka cepheye etkir.",
   "ex.pro-rc-party-wall.purpose": "Betonarme / komşu duvarlar / asansör ve merdiven",
   "ex.pro-rc-party-wall.look": "Merdiven kollarındaki ve sahanlıktaki iç kuvvetlere ve çekirdeğin ön cepheden gelen rüzgârı nasıl aldığına bakın.",
   'ex.torre-irregular-con-retiros': 'Kademeli kule',

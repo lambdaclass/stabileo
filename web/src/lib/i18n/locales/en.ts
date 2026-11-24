@@ -12308,7 +12308,7 @@ const en: Record<string, string> = {
   "ex.pro-rc-lift-core.purpose": "RC / core / walls",
   "ex.pro-rc-lift-core.look": "Under wind, compare the shear the lift shaft takes with the shear the frames take.",
   "ex.pro-rc-party-wall": "Building between party walls with lift and stair",
-  "ex.pro-rc-party-wall.desc": "A ground floor and six storeys on an 8.60 m lot, with columns on both party walls, a lift shaft, an enclosed stairwell and a U stair of two flights and a landing per storey, all in concrete and meshed as shells. The wind acts on the front and back façades only.",
+  "ex.pro-rc-party-wall.desc": "A ground floor and six storeys on an 8.60 m lot, with columns on both party walls, a lift shaft, a stairwell with a door onto the hall and a U stair of two flights of nine risers and a landing per storey, all in concrete and meshed as shells. The wind acts on the front and back façades only.",
   "ex.pro-rc-party-wall.purpose": "RC / party walls / lift and stair",
   "ex.pro-rc-party-wall.look": "See the forces in the stair's flights and landing, and how the core takes the wind on the front.",
   'ex.torre-irregular-con-retiros': "Setback tower",

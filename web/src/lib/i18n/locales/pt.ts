@@ -11691,7 +11691,7 @@ const pt: Translations = {
   "ex.pro-rc-lift-core.purpose": "Concreto armado / núcleo / paredes",
   "ex.pro-rc-lift-core.look": "Com vento, compare o cortante que a caixa do elevador absorve com o que os pórticos absorvem.",
   "ex.pro-rc-party-wall": "Edifício entre divisas com elevador e escada",
-  "ex.pro-rc-party-wall.desc": "Térreo e seis pavimentos num lote de 8,60 m, com pilares nas duas divisas, caixa de elevador, caixa de escada fechada e uma escada em U de dois lances e um patamar por pavimento, tudo de concreto e discretizado como cascas. O vento atua só na fachada da frente e na dos fundos.",
+  "ex.pro-rc-party-wall.desc": "Térreo e seis pavimentos num lote de 8,60 m, com pilares nas duas divisas, caixa de elevador, caixa de escada com porta para o hall e uma escada em U de dois lances de nove degraus e um patamar por pavimento, tudo de concreto e discretizado como cascas. O vento atua só na fachada da frente e na dos fundos.",
   "ex.pro-rc-party-wall.purpose": "Concreto armado / divisas / elevador e escada",
   "ex.pro-rc-party-wall.look": "Veja os esforços nos lances e no patamar da escada, e como o núcleo absorve o vento de frente.",
   'ex.torre-irregular-con-retiros': "Torre com recuos",

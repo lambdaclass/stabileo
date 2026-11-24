@@ -11872,7 +11872,7 @@ const zh: Translations = {
   "ex.pro-rc-lift-core.purpose": "钢筋混凝土 / 核心筒 / 墙体",
   "ex.pro-rc-lift-core.look": "在风荷载下，比较电梯井承担的剪力与框架承担的剪力。",
   "ex.pro-rc-party-wall": "两侧共用墙之间的带电梯和楼梯的建筑",
-  "ex.pro-rc-party-wall.desc": "在 8.60 m 宽的地块上建首层加六层，两侧共用墙上设柱，并有电梯井、封闭楼梯间和每层两跑带平台的 U 形楼梯，全部为混凝土并按壳单元建模。风只作用于前后立面。",
+  "ex.pro-rc-party-wall.desc": "在 8.60 m 宽的地块上建首层加六层，两侧共用墙上设柱，并有电梯井、设门通向走廊的楼梯间，以及每层两跑、每跑九级踏步并带平台的 U 形楼梯，全部为混凝土并按壳单元建模。风只作用于前后立面。",
   "ex.pro-rc-party-wall.purpose": "钢筋混凝土 / 共用墙 / 电梯和楼梯",
   "ex.pro-rc-party-wall.look": "查看楼梯梯段和平台中的内力，以及核心筒如何承担正面来风。",
   "ex.torre-irregular-con-retiros": "带退台的塔楼",

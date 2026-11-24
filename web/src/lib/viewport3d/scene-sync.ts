@@ -42,6 +42,7 @@ import { hasShellOffset, resolveShellOffsetGlobal } from '../engine/shell-offset
 import { physicalPlates } from '../store/physical-plates';
 import { piece } from '../store/curved-members';
 import { plateGeometry, plateLoops } from '../model/physical/plate';
+import { syncStairSteps } from './stair-steps-sync';
 import type { SolverNode3D } from '../engine/types-3d';
 import {
   get2DDisplayNodalLoadMoment,
@@ -672,6 +673,8 @@ function syncShellsNow(ctx: SceneSyncContext): void {
     ctx.shellGroups.set(key, group);
     seen.add(key);
   }
+
+  syncStairSteps(ctx.shellsParent, renderMode, getNode);
 
   // Re-apply selection tint to surviving/rebuilt shell groups.
   applyShellSelection(ctx);
