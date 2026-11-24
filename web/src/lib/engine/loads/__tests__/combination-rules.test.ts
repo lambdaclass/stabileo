@@ -72,3 +72,30 @@ it('#2535 a malformed term rejects a template instead of removing an action', ()
   expect.soft(rulesFromTemplate(template([dead, null]))).toBeNull();
   expect(rulesFromTemplate(template([dead]))?.rules[0]?.terms).toEqual([dead]);
 });
+
+const knownWrong = process.env.RUN_KNOWN_WRONG === '2535' ? it : it.skip;
+
+knownWrong.each([
+  { symbol: 'L', factor: '2' },
+  { symbol: 'L', factor: null },
+  { symbol: 'L' },
+  { factor: 2 },
+  { symbol: 'S', factor: 2, snowBasis: 'physical' },
+  { symbol: 'L', factor: 2, snowBasis: 'flatRoof' },
+])('known wrong result: #2535 rejects the whole template with malformed term %j', live => {
+  const doc = { kind: 'stabileo.combinationRules', rules: [{ terms: [{ symbol: 'D', factor: 1 }, live] }] };
+  expect(rulesFromTemplate(JSON.stringify(doc))).toBeNull();
+});
+
+knownWrong('known wrong result: #2535 imported grouped snow selects its flat-roof basis', () => {
+  const snowRule: CombinationRule = { id: 'snow', purpose: 'strength', terms: [
+    { symbol: 'S', factor: 2, group: 'roof', snowBasis: 'flatRoof' },
+  ] };
+  const paired = [
+    { id: 1, type: 'S', name: 'Physical snow', group: 'roof' },
+    { id: 2, type: 'S', name: 'Flat-roof snow', group: 'roof', snowBasis: 'flatRoof' as const },
+  ];
+  const parsed = rulesFromTemplate(rulesToTemplate([snowRule], 'Roof'));
+  expect.soft(parsed?.rules[0]?.terms).toEqual(snowRule.terms);
+  expect(expandCombinations(parsed!.rules.map(ruleToSpec), paired)[0]?.factors).toEqual([{ caseId: 2, factor: 2 }]);
+});
