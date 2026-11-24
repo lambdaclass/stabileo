@@ -700,7 +700,7 @@ pub struct SolverQuadSelfWeightLoad {
     #[serde(deserialize_with = "numeric::element_id::required")]
     pub element_id: usize,
     /// Mass density (kg/m³)
-    #[serde(deserialize_with = "numeric::density::required")]
+    #[serde(deserialize_with = "numeric::nonnegative_density")]
     pub density: f64,
     /// Gravity acceleration components (m/s²), global coordinates
     #[serde(default)]
@@ -917,7 +917,7 @@ pub struct SolverSolidShellSelfWeightLoad {
     #[serde(deserialize_with = "numeric::element_id::required")]
     pub element_id: usize,
     /// Mass density (kg/m³)
-    #[serde(deserialize_with = "numeric::density::required")]
+    #[serde(deserialize_with = "numeric::nonnegative_density")]
     pub density: f64,
     #[serde(default)]
     #[serde(deserialize_with = "numeric::gx::required")]

@@ -33,9 +33,7 @@ function tripod(tieDown: boolean) {
   return { ids, hub };
 }
 
-const review2472 = process.env.RUN_KNOWN_WRONG === '2472' ? it : it.skip;
-
-review2472('#2472 cable sag treats omitted density as weightless and refuses invalid density', () => {
+it('#2472 cable sag treats omitted density as weightless and refuses invalid density', () => {
   tripod(false);
   const solve = () => modelStore.solveCombinations3D(false, false, true);
   const material = modelStore.materials.values().next().value!;

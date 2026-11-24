@@ -3769,6 +3769,8 @@ const it: Translations = {
   "autoLoad.work.cancel": "Ferma",
   "svc.engine.unsupportedPointLoadMoment": "Componente del momento incompatibile con un carico puntuale sull’asta",
   "svc.engine.applyPointLoadMomentAtNode": "applicare il momento a un nodo 3D nella posizione originaria del carico",
+  "svc.engine.invalidDensity": "Inserisci una densità finita e non negativa per {path} (valore ricevuto: {value}).",
+  "svc.engine.nonnegativeMassDensity": "La densità di massa deve essere finita e non negativa",
   "svc.engine.nonFiniteNumber": "Inserisci un numero finito per {path} (valore ricevuto: {value}).",
 };
 export default it;

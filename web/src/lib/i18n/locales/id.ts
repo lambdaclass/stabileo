@@ -3758,6 +3758,8 @@ const id: Translations = {
   "autoLoad.work.cancel": "Hentikan",
   "svc.engine.unsupportedPointLoadMoment": "Komponen momen yang tidak didukung untuk beban titik pada batang",
   "svc.engine.applyPointLoadMomentAtNode": "terapkan momen pada simpul 3D di posisi beban semula",
+  "svc.engine.invalidDensity": "Masukkan massa jenis yang berhingga dan tidak negatif untuk {path} (nilai yang diterima: {value}).",
+  "svc.engine.nonnegativeMassDensity": "Massa jenis harus berhingga dan tidak negatif",
   "svc.engine.nonFiniteNumber": "Masukkan bilangan berhingga untuk {path} (nilai yang diterima: {value}).",
 } as const satisfies Record<string, string>;
 

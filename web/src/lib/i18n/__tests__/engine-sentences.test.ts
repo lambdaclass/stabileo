@@ -32,6 +32,12 @@ describe('engine sentences', () => {
       .toBe('Momento no compatible con una carga puntual de barra en mx: aplicá el momento en un nodo 3D en la posición original de la carga');
   });
 
+  it('translates a negative shell self-weight density refusal', () => {
+    setLocale('es');
+    expect(localizeEngineText('Parse error: Mass density must be finite and nonnegative'))
+      .toBe('Parse error: La densidad de masa debe ser finita y no negativa');
+  });
+
   it('leaves a sentence it does not know as it is', () => {
     setLocale('es');
     expect(localizeEngineText('Residual 1.2e-3 exceeds tolerance')).toBe('Residual 1.2e-3 exceeds tolerance');

@@ -3755,6 +3755,8 @@ const ko: Translations = {
   "autoLoad.work.cancel": "중지",
   "svc.engine.unsupportedPointLoadMoment": "부재 집중하중에서 지원하지 않는 모멘트 성분",
   "svc.engine.applyPointLoadMomentAtNode": "원래 하중 위치에 있는 3D 절점에 모멘트를 적용하세요",
+  "svc.engine.invalidDensity": "{path}에 유한한 음이 아닌 밀도를 입력하세요(받은 값: {value}).",
+  "svc.engine.nonnegativeMassDensity": "질량 밀도는 유한한 음이 아닌 값이어야 합니다",
   "svc.engine.nonFiniteNumber": "{path}에 유한한 수를 입력하세요(받은 값: {value}).",
 } as const satisfies Record<string, string>;
 

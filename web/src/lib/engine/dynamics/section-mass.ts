@@ -2,18 +2,17 @@ import type { SolverMaterial } from '../types';
 import type { ModelData } from '../solver-service';
 import { createSectionWeight, requireMaterialDensity } from '../../section/weight';
 import { solvableModel } from '../member-behaviour';
-import { G, massDensities } from './requests';
+import { G } from './requests';
 
 type Shells = ReadonlyMap<number, { materialId: number }>;
 
-interface MassInput {
+const shellCollections = ['plates', 'quads', 'quad9s', 'solidShells', 'curvedShells'] as const;
+
+type MassInput = Partial<Record<(typeof shellCollections)[number], Shells>> & {
   materials: Map<number, SolverMaterial>;
   sections: Map<number, { a: number }>;
   elements: Map<number, { id: number; materialId: number; sectionId: number }>;
-  plates?: Shells;
-  quads?: Shells;
-  curvedShells?: Shells;
-}
+};
 
 /**
  * The engine integrates density × its stiffness area. For a drawn composite that area is
@@ -24,13 +23,17 @@ export function withSectionMass<T extends MassInput>(input: T, model: ModelData)
   // The model as the input was built from it: a variable member's pieces and their sections
   // (`variable-members.ts`), so a drawn composite of variable depth weighs piece by piece too.
   model = solvableModel(model);
-  const densities = massDensities(model.materials, input.materials.keys());
+  const densities = new Map<number, number>();
+  const addMaterialDensity = (id: number) => {
+    if (densities.has(id)) return;
+    const rho = requireMaterialDensity(id, model.materials.get(id));
+    densities.set(id, rho * 1000 / G);
+  };
   const materials = new Map(input.materials);
   const elements = new Map(input.elements);
   const weight = createSectionWeight(model.materials);
-  const used = new Set<number>();
-  for (const shells of [input.plates, input.quads, input.curvedShells]) {
-    for (const shell of shells?.values() ?? []) used.add(shell.materialId);
+  for (const collection of shellCollections) {
+    for (const shell of input[collection]?.values() ?? []) addMaterialDensity(shell.materialId);
   }
   const cloned = new Map<string, number>();
   let next = Math.max(0, ...materials.keys()) + 1;
@@ -38,7 +41,7 @@ export function withSectionMass<T extends MassInput>(input: T, model: ModelData)
     const sectionId = model.elements.get(id)?.sectionId ?? e.sectionId;
     const section = model.sections.get(sectionId);
     if (!section?.drawn) {
-      if (model.elements.has(id)) used.add(e.materialId);
+      addMaterialDensity(e.materialId);
       continue;
     }
     const area = input.sections.get(e.sectionId)?.a;
@@ -55,6 +58,5 @@ export function withSectionMass<T extends MassInput>(input: T, model: ModelData)
     }
     elements.set(id, { ...e, materialId });
   }
-  for (const id of used) requireMaterialDensity(id, model.materials.get(id));
   return { input: { ...input, materials, elements }, densities };
 }

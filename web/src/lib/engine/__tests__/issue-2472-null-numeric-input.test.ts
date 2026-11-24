@@ -1,10 +1,13 @@
 import { beforeEach, expect, it, vi } from 'vitest';
 import { modelStore, uiStore } from '../../store';
-import { i18n, setLocale, t } from '../../i18n';
+import { ensureLocale, i18n, setLocale, t } from '../../i18n';
 import { conditionHolds } from '../../provenance/applicability';
+import { registryLocale } from '../../provenance/registry';
 import { G } from '../dynamics/requests';
 import { modelFeatures } from '../../provenance/model-features';
 import resultChange from '../../provenance/result-changes/invalid-solver-numbers.json';
+import torsionChange from '../../provenance/result-changes/planar-member-torsion-refusal.json';
+import dynamicDensityChange from '../../provenance/result-changes/invalid-dynamic-material-density.json';
 import { runDirectAnalysis } from '../direct-analysis';
 import { withSectionMass } from '../dynamics/section-mass';
 import {
@@ -144,9 +147,7 @@ it('#2472 density can be absent for static solves and is required for self-weigh
   }
 });
 
-const review2472 = process.env.RUN_KNOWN_WRONG === '2472' ? it : it.skip;
-
-review2472('#2472 dynamic mass checks every solver-side carrier of a material', () => {
+it('#2472 dynamic mass checks every solver-side carrier of a material', () => {
   const model = cantilever();
   const input = buildSolverInput3D(model)!;
   const element = input.elements.values().next().value!;
@@ -171,25 +172,26 @@ review2472('#2472 dynamic mass checks every solver-side carrier of a material', 
   }
 });
 
-review2472('#2472 density refusals share the active locale for self-weight and dynamics', async () => {
+it('#2472 density refusals share the active locale for self-weight and dynamics', async () => {
   const savedLocale = i18n.locale;
   const model = cantilever();
   const input = buildSolverInput2D(model)!;
   const material = model.materials.get(model.elements.values().next().value!.materialId)!;
   material.rho = -1;
   try {
-    for (const [locale, instruction] of [['en', 'finite, nonnegative'], ['es', 'finito y no negativo']]) {
-      await setLocale(locale);
+    for (const [locale, instruction] of [['en', 'finite, nonnegative'], ['es', 'finito y no negativo']] as const) {
+      setLocale(locale);
+      await ensureLocale(locale);
       const result = validateAndSolve2D(model, true);
       expect.soft(result, locale).toContain(instruction);
       expect.soft(() => withSectionMass(input, model), locale).toThrow(String(result));
     }
   } finally {
-    await setLocale(savedLocale);
+    setLocale(savedLocale);
   }
 });
 
-review2472('#2472 the null-moment notice follows explicit null and has its own translations', () => {
+it('#2472 the null-moment notice follows explicit null and has its own translations', () => {
   cantilever();
   const snapshot = modelStore.snapshot();
   for (const type of ['pointOnElement', 'nodal']) {
@@ -200,14 +202,34 @@ review2472('#2472 the null-moment notice follows explicit null and has its own t
       const loads = [{ type, data: { ...snapshot.loads[0]!.data, ...fields } }];
       const features = modelFeatures({ ...snapshot, loads });
       expect.soft(conditionHolds(resultChange.when, features), JSON.stringify(loads)).toBe(applies);
+      expect.soft(conditionHolds(torsionChange.when, features), JSON.stringify(loads))
+        .toBe(type === 'pointOnElement' && 'mx' in fields);
       expect.soft(conditionHolds(resultChange.when, modelFeatures(snapshot, { storedLoads: loads }))).toBe(applies);
     }
   }
   for (const locale of ['ar', 'hi', 'id', 'it', 'ja', 'ko', 'ru']) {
-    for (const text of [resultChange.title, resultChange.explanation]) {
+    expect(registryLocale(locale, resultChange.title, resultChange.explanation)).toBe(locale);
+    expect(registryLocale(locale, torsionChange.title, torsionChange.explanation)).toBe(locale);
+    expect(registryLocale(locale, dynamicDensityChange.title, dynamicDensityChange.explanation)).toBe('en');
+    for (const text of [resultChange.title, resultChange.explanation, torsionChange.title, torsionChange.explanation]) {
       const translated = (text as Record<string, string>)[locale];
       expect.soft(translated, locale).toBeTruthy();
       expect.soft(translated, locale).not.toBe(text.en);
+    }
+  }
+});
+
+it('#2472 the dynamic density notice requires an affected material and analysis', () => {
+  const model = cantilever();
+  const material = model.materials.get(model.elements.values().next().value!.materialId)!;
+  for (const rho of [0, 1, undefined, -1, null]) {
+    if (rho === undefined) Reflect.deleteProperty(material, 'rho');
+    else Object.assign(material, { rho });
+    const snapshot = modelStore.snapshot();
+    for (const kind of ['linear', 'modal', 'spectral', 'timeHistory', 'harmonic']) {
+      const features = modelFeatures(snapshot, { analysesRun: [kind], analysesRecorded: ['linear', 'modal', 'spectral', 'timeHistory', 'harmonic'] });
+      expect(conditionHolds(dynamicDensityChange.when, features), `${kind}/${rho}`)
+        .toBe(kind !== 'linear' && (rho === undefined || rho === null || rho < 0));
     }
   }
 });
@@ -293,7 +315,7 @@ it('#2472 WASM linear and P-Delta decode numeric fields before solving', () => {
   }
 });
 
-review2472('#2472 raw WASM shell self-weight refuses negative density before solving', () => {
+it('#2472 raw WASM shell self-weight refuses negative density before solving', () => {
   const surface = [[0, 0], [2, 0], [2, 2], [0, 2], [1, 0], [2, 1], [1, 2], [0, 1], [1, 1]];
   for (const [kind, collection, count] of [
     ['quadSelfWeight', 'quads', 4], ['quad9SelfWeight', 'quad9s', 9],
@@ -318,6 +340,11 @@ review2472('#2472 raw WASM shell self-weight refuses negative density before sol
         linear: () => wasm.solve_3d(input),
         pdelta: () => JSON.parse(wasm.solve_pdelta_3d(JSON.stringify(input), 20, 1e-8)).results,
         session: () => session.solve(input.loads),
+        combinations: () => wasm.solve_multi_case_3d({
+          solver: { ...input, loads: [] },
+          loadCases: [{ name: 'Weight', loads: input.loads }],
+          combinations: [{ name: 'Weight', factors: { Weight: 1 } }],
+        }).combinationResults[0].results,
       })) {
         data.density = 1;
         expect(reactions(solve()), `${kind}/${path}`).toBeGreaterThan(0);
@@ -325,10 +352,12 @@ review2472('#2472 raw WASM shell self-weight refuses negative density before sol
           data.density = zero;
           expect(reactions(solve()), `${kind}/${path}`).toBe(0);
         }
-        for (const bad of [-1, -Number.MIN_VALUE]) {
-          data.density = bad;
+        for (const bad of [-1, -Number.MIN_VALUE, null, '0', NaN, Infinity]) {
+          Object.assign(data, { density: bad });
           expect.soft(solve, `${kind}/${path}/${bad}`).toThrow(/density/);
         }
+        Reflect.deleteProperty(data, 'density');
+        expect.soft(solve, `${kind}/${path}/omitted`).toThrow(/density/);
       }
     } finally {
       session.free();

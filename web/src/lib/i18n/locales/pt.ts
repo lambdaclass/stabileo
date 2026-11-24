@@ -8364,6 +8364,8 @@ const pt: Translations = {
   'svc.engine.cancelledCombination': "Os fatores dos casos de carga repetidos se cancelam e resultam em zero nesta combinação.",
   "svc.engine.unsupportedPointLoadMoment": "Momento incompatível com uma carga pontual na barra em",
   "svc.engine.applyPointLoadMomentAtNode": "aplique o momento num nó 3D na posição original da carga",
+  "svc.engine.invalidDensity": "Insira uma densidade finita e não negativa em {path} (valor recebido: {value}).",
+  "svc.engine.nonnegativeMassDensity": "A massa específica deve ser finita e não negativa",
   "svc.engine.nonFiniteNumber": "Insira um número finito em {path} (valor recebido: {value}).",
   'svc.engine.zeroDiagonal': "Todas as entradas da diagonal são zero: matriz singular",
   'svc.engine.singular': "Matriz de rigidez singular",

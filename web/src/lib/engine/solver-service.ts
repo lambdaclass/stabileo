@@ -54,7 +54,7 @@ import { axialShares, combineShares, giveBackAxialShares } from './axial-shares'
 import { addSettlementCase, addSettlementCase2D, hasSettlement, withoutSettlement, SETTLEMENT_CASE_ID } from './settlement-case';
 import { memberAlphaOf, thermalAlphaOf, ENGINE_ALPHA } from './thermal-alpha';
 import { pointToSolver, pointToEnds, PointLoadNeedsCut, planePointLoad3D, pointWithCoupleToEnds, planarMoment3D, planarPointOrigin, requirePlanarNodalMoment, requirePlanarPointMoment, PlanarLoadMomentError, type PlanePointLoadLike } from './member-point-loads';
-import { InvalidModelNumber, ModelInputError, modelNumberRefusal, requireLoadNumbers, requireModelNumbers } from './model-input-numbers';
+import { ModelInputError, modelNumberRefusal, requireLoadNumbers, requireModelNumbers } from './model-input-numbers';
 import { planarPointMomentWithoutProjection, planarPointProjectionTooShort } from './planar-point-load';
 import { planarLoadDirection } from './planar-load-direction';
 import { prestressToSolver } from './prestress';
@@ -2148,8 +2148,7 @@ function buildSolveInput3D(...args: Parameters<typeof buildValidatedSolverInput3
 
 /** A load the solve cannot place, said by name: a moment on a member that takes no bending. */
 export function loadRefusal(err: unknown): string | null {
-  if (err instanceof InvalidMaterialDensity) return new InvalidModelNumber(`materials.${err.materialId}.rho`, err.value).message;
-  if (err instanceof MemberLoadIntervalError || err instanceof SolveAccountingError || err instanceof ModelInputError) return err.message;
+  if (err instanceof MemberLoadIntervalError || err instanceof SolveAccountingError || err instanceof ModelInputError || err instanceof InvalidMaterialDensity) return err.message;
   if (err instanceof PlaneSelfWeightError || err instanceof PlanarPointLoadProjectionError || err instanceof PlanarLoadMomentError) return err.message;
   return err instanceof PointLoadNeedsCut ? tp('svc.pointMomentOnTruss', { n: err.elementId }) : null;
 }

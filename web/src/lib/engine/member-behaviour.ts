@@ -306,7 +306,9 @@ function* nonlinearSteps(model: ModelData, input: SolverInput3D): Generator<Nonl
   const densities: Record<string, number> = {};
   for (const id of cables) {
     const mid = input.elements.get(id)!.materialId;
-    const rho = requireMaterialDensity(mid, model.materials.get(mid));
+    const material = model.materials.get(mid);
+    if (material?.rho === undefined) continue;
+    const rho = requireMaterialDensity(mid, material);
     if (rho > 0) densities[String(mid)] = rho * 1000 / G;
   }
   // The pretensions given (#527); a cable without one is as long as its chord.

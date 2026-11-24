@@ -1,3 +1,4 @@
+import { tp } from '../i18n';
 import { assembleDrawn, areaOf, type DrawnSection } from './drawn';
 import { catalogueOutline } from './canonical';
 
@@ -24,7 +25,7 @@ export function drawnMaterialAreas(drawn: DrawnSection, memberMaterialId: number
 
 export class InvalidMaterialDensity extends Error {
   constructor(readonly materialId: number, readonly value: unknown) {
-    super(`Section weight: missing or invalid density (rho) for material ${materialId}`);
+    super(tp('svc.engine.invalidDensity', { path: `materials.${materialId}.rho`, value: String(value) }));
   }
 }
 

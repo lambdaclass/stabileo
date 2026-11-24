@@ -29,6 +29,14 @@ where
     Ok(value)
 }
 
+pub(super) fn nonnegative_density<'de, D: Deserializer<'de>>(deserializer: D) -> Result<f64, D::Error> {
+    let density = decode::<_, f64>(deserializer, "density")?;
+    if density < 0.0 {
+        return Err(de::Error::custom("Mass density must be finite and nonnegative"));
+    }
+    Ok(density)
+}
+
 pub(super) mod point_moment {
     use super::{de, decode, Deserializer};
 
@@ -91,7 +99,6 @@ fields!(
     b,
     bimoment,
     bw,
-    density,
     depth,
     depth_y = "depthY",
     depth_z = "depthZ",

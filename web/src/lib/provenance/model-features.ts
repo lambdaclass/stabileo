@@ -1,4 +1,4 @@
-import { invalidPlanarPointTorsion } from '../engine/model-input-numbers';
+import { invalidPlanarPointTorsion, isFiniteInputNumber } from '../engine/model-input-numbers';
 import { POINT_END_TOL } from '../engine/member-point-loads';
 import { planarNodalMoment, planarPointMoment, planarPointMomentWithoutProjection, planarPointProjectionTooShort } from '../engine/planar-point-load';
 import { hasModalSeismicDerivation } from '../engine/loads/seismic-generation';
@@ -54,7 +54,7 @@ export const FEATURE_IDS = [
   'connectors', 'connectorsWithShear', 'pathAnalysis',
   'stagedConstruction', 'generatedStructures', 'nodalMoments', 'trussMemberLoads', 'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'generatedLoads', 'generatedWindLoads', 'generatedSeismicLoads', 'unverifiedGeneratedSeismicLoads',
   'generatedWidthGravity', 'generatedPanelGravityShells', 'memberFloorZones', 'magnitudeCombinations',
-  'partialDistributedMemberLoads', 'distributedMemberLoads', 'spatialDistributedLoadOrientation', 'unplaceablePlanarPointLoads', 'planarStartCoupleWithoutProjection', 'legacyPlanarPointCoupleAliases', 'invalidPlanarNodalMomentAliases', 'invalidPlanarMemberTorsion', 'selfWeight', 'nonstandardPlanarSelfWeight', 'standaloneGravityToggleOff', 'nodalForces', 'forceSummaryResults',
+  'partialDistributedMemberLoads', 'distributedMemberLoads', 'spatialDistributedLoadOrientation', 'unplaceablePlanarPointLoads', 'planarStartCoupleWithoutProjection', 'legacyPlanarPointCoupleAliases', 'invalidPlanarNodalMomentAliases', 'nullPlanarMomentAliases', 'invalidPlanarMemberTorsion', 'invalidDynamicMaterialDensity', 'selfWeight', 'nonstandardPlanarSelfWeight', 'standaloneGravityToggleOff', 'nodalForces', 'forceSummaryResults',
   'ssiHistory', 'movingLoads', 'combinations', 'cirsocCombinations', 'seismic', 'snow', 'wind', 'timeHistorySpec',
   'superposedCombinations', 'repeatedCombinationCases', 'prototypeNamedLoadCase', 'staticCaseEffects', 'projectedSpatialLoads', 'offsetMemberLoadFrame', 'inactiveSpatialMembers',
   ...ANALYSIS_KINDS.map((k) => `analysis:${k}` as const),
@@ -62,7 +62,7 @@ export const FEATURE_IDS = [
 export type FeatureId = (typeof FEATURE_IDS)[number];
 
 type Entries<T> = Array<[number, T]> | undefined;
-interface Mat { id: number; fy?: number; gradeId?: string; name?: string; e?: number }
+interface Mat { id: number; rho?: number; fy?: number; gradeId?: string; name?: string; e?: number }
 interface TensionEndSnapshot { kind?: string; connected?: string; webLines?: number; stagger?: { sMm?: number; gMm?: number } }
 const staggerGiven = (st: TensionEndSnapshot['stagger']) => !!st && [st.sMm, st.gMm].every((v) => typeof v === 'number' && Number.isFinite(v) && v > 0);
 interface Elem {
@@ -85,7 +85,7 @@ interface Sup {
 }
 
 /** What `modelFeatures` reads: the snapshot shape, loosely, so a file from any version is read. */
-type ShellSnapshot = { id?: number; nodes?: number[]; curved?: boolean; offset?: Offset3 };
+type ShellSnapshot = { id?: number; materialId?: number; nodes?: number[]; curved?: boolean; offset?: Offset3 };
 
 interface FeatureSnapshotFields {
   analysisMode?: string;
@@ -105,7 +105,9 @@ interface FeatureSnapshotFields {
   }>;
   combinations?: unknown[];
   combinationRules?: unknown[];
-  solidShells?: Entries<unknown>;
+  solidShells?: Entries<ShellSnapshot>;
+  quad9s?: Entries<ShellSnapshot>;
+  curvedShells?: Entries<ShellSnapshot>;
   plates?: Entries<ShellSnapshot>;
   quads?: Entries<ShellSnapshot>;
   constraints?: Array<Record<string, unknown>>;
@@ -288,6 +290,12 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   if (jd && (Array.isArray(jd) ? jd.length : typeof jd === 'object' && Object.keys(jd as object).length)) f.add('jointDesigns');
 
   const quads = values(s.quads);
+  const massCarriers = [...elements, ...quads, ...values(s.plates), ...values(s.quad9s), ...values(s.solidShells), ...values(s.curvedShells)];
+  if (massCarriers.some(carrier => {
+    if (typeof carrier?.materialId !== 'number') return false;
+    const rho = materials.get(carrier.materialId)?.rho;
+    return !isFiniteInputNumber(rho) || rho < 0;
+  })) f.add('invalidDynamicMaterialDensity');
   if (quads.length || values(s.plates).length || values(s.solidShells).length) f.add('shells');
   if (values(s.groups).some(group => plateSurfaceOf({ data: group?.data as Record<string, unknown> }))) {
     f.add('physicalPlateDefinitions');
@@ -370,6 +378,13 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
       (nonZero(l.data.mz) || planarPointMoment(l.data) === null))) {
     f.add('legacyPlanarPointCoupleAliases');
   }
+  const planarLoadInputs = [...(Array.isArray(storedLoads) ? storedLoads : [])];
+  if (storedLoads !== s.loads && Array.isArray(s.loads)) planarLoadInputs.push(...s.loads);
+  for (const { type, data } of planarLoadInputs) {
+    if (type !== 'pointOnElement' && type !== 'nodal') continue;
+    if (data?.my === null || data?.mz === null) f.add('nullPlanarMomentAliases');
+    if (type === 'pointOnElement' && invalidPlanarPointTorsion(data?.mx)) f.add('invalidPlanarMemberTorsion');
+  }
   for (const l of Array.isArray(s.loads) ? s.loads : []) {
     const t = l.type ?? '';
     const d = l.data ?? {};
@@ -417,7 +432,6 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
     }
     if (t === 'nodal' && planarNodalMoment(d) === null) f.add('invalidPlanarNodalMomentAliases');
     if (t === 'pointOnElement') {
-      if (invalidPlanarPointTorsion(d.mx)) f.add('invalidPlanarMemberTorsion');
       if (planarPointMoment(d) === null) f.add('legacyPlanarPointCoupleAliases');
       const e = elementById.get(d.elementId as number);
       const i = e && nodeById.get(e.nodeI), j = e && nodeById.get(e.nodeJ);

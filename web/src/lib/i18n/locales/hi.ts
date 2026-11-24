@@ -3766,6 +3766,8 @@ const hi: Translations = {
   "autoLoad.work.cancel": "रोकें",
   "svc.engine.unsupportedPointLoadMoment": "सदस्य के बिंदु भार में असमर्थित आघूर्ण घटक",
   "svc.engine.applyPointLoadMomentAtNode": "आघूर्ण को भार की मूल स्थिति पर स्थित 3D नोड पर लगाएँ",
+  "svc.engine.invalidDensity": "{path} में परिमित और गैर-ऋणात्मक घनत्व दर्ज करें (प्राप्त मान: {value})।",
+  "svc.engine.nonnegativeMassDensity": "द्रव्यमान घनत्व परिमित और गैर-ऋणात्मक होना चाहिए",
   "svc.engine.nonFiniteNumber": "{path} में एक परिमित संख्या दर्ज करें (प्राप्त मान: {value})।",
 };
 export default hi;

@@ -444,6 +444,9 @@
       "elements": {
         "1": {
           "id": 1,
+          "localYx": null,
+          "localYy": null,
+          "localYz": null,
           "materialId": 1,
           "nodeI": 1,
           "nodeJ": 2,
@@ -453,6 +456,7 @@
           "releaseMzStart": false,
           "releaseTEnd": false,
           "releaseTStart": false,
+          "rollAngle": null,
           "sectionId": 2,
           "type": "frame"
         }
@@ -712,6 +716,9 @@
       "elements": {
         "1": {
           "id": 1,
+          "localYx": null,
+          "localYy": null,
+          "localYz": null,
           "materialId": 1,
           "nodeI": 3,
           "nodeJ": 1,
@@ -721,11 +728,15 @@
           "releaseMzStart": false,
           "releaseTEnd": false,
           "releaseTStart": false,
+          "rollAngle": null,
           "sectionId": 1,
           "type": "frame"
         },
         "3": {
           "id": 3,
+          "localYx": null,
+          "localYy": null,
+          "localYz": null,
           "materialId": 1,
           "nodeI": 2,
           "nodeJ": 3,
@@ -735,6 +746,7 @@
           "releaseMzStart": false,
           "releaseTEnd": false,
           "releaseTStart": false,
+          "rollAngle": null,
           "sectionId": 2,
           "type": "frame"
         }
@@ -1079,6 +1091,9 @@
       "elements": {
         "1": {
           "id": 1,
+          "localYx": null,
+          "localYy": null,
+          "localYz": null,
           "materialId": 1,
           "nodeI": 2,
           "nodeJ": 1,
@@ -1088,6 +1103,7 @@
           "releaseMzStart": false,
           "releaseTEnd": false,
           "releaseTStart": false,
+          "rollAngle": null,
           "sectionId": 1,
           "type": "frame"
         }
@@ -1231,6 +1247,9 @@
       "elements": {
         "1": {
           "id": 1,
+          "localYx": null,
+          "localYy": null,
+          "localYz": null,
           "materialId": 1,
           "nodeI": 1,
           "nodeJ": 2,
@@ -1240,11 +1259,15 @@
           "releaseMzStart": false,
           "releaseTEnd": false,
           "releaseTStart": false,
+          "rollAngle": null,
           "sectionId": 1,
           "type": "frame"
         },
         "2": {
           "id": 2,
+          "localYx": null,
+          "localYy": null,
+          "localYz": null,
           "materialId": 1,
           "nodeI": 2,
           "nodeJ": 3,
@@ -1272,11 +1295,15 @@
           "releaseMzStart": false,
           "releaseTEnd": false,
           "releaseTStart": false,
+          "rollAngle": null,
           "sectionId": 1,
           "type": "frame"
         },
         "4": {
           "id": 4,
+          "localYx": null,
+          "localYy": null,
+          "localYz": null,
           "materialId": 1,
           "nodeI": 3,
           "nodeJ": 1,
@@ -1286,11 +1313,15 @@
           "releaseMzStart": false,
           "releaseTEnd": false,
           "releaseTStart": false,
+          "rollAngle": null,
           "sectionId": 2,
           "type": "truss"
         },
         "5": {
           "id": 5,
+          "localYx": null,
+          "localYy": null,
+          "localYz": null,
           "materialId": 1,
           "nodeI": 1,
           "nodeJ": 4,
@@ -1300,6 +1331,7 @@
           "releaseMzStart": false,
           "releaseTEnd": false,
           "releaseTStart": false,
+          "rollAngle": null,
           "sectionId": 2,
           "type": "frame"
         }
@@ -1550,6 +1582,9 @@
       "elements": {
         "1": {
           "id": 1,
+          "localYx": null,
+          "localYy": null,
+          "localYz": null,
           "materialId": 2,
           "nodeI": 1,
           "nodeJ": 2,
@@ -1559,6 +1594,7 @@
           "releaseMzStart": false,
           "releaseTEnd": false,
           "releaseTStart": false,
+          "rollAngle": null,
           "sectionId": 1,
           "type": "frame"
         }
@@ -2173,6 +2209,9 @@
       "elements": {
         "1": {
           "id": 1,
+          "localYx": null,
+          "localYy": null,
+          "localYz": null,
           "materialId": 2,
           "nodeI": 2,
           "nodeJ": 1,
@@ -2182,6 +2221,7 @@
           "releaseMzStart": false,
           "releaseTEnd": false,
           "releaseTStart": false,
+          "rollAngle": null,
           "sectionId": 1,
           "type": "frame"
         }
@@ -2297,6 +2337,9 @@
       "elements": {
         "1": {
           "id": 1,
+          "localYx": null,
+          "localYy": null,
+          "localYz": null,
           "materialId": 1,
           "nodeI": 6,
           "nodeJ": 3,
@@ -2306,11 +2349,15 @@
           "releaseMzStart": false,
           "releaseTEnd": false,
           "releaseTStart": false,
+          "rollAngle": null,
           "sectionId": 1,
           "type": "frame"
         },
         "2": {
           "id": 2,
+          "localYx": null,
+          "localYy": null,
+          "localYz": null,
           "materialId": 1,
           "nodeI": 5,
           "nodeJ": 1,
@@ -2320,11 +2367,15 @@
           "releaseMzStart": false,
           "releaseTEnd": false,
           "releaseTStart": false,
+          "rollAngle": null,
           "sectionId": 1,
           "type": "frame"
         },
         "3": {
           "id": 3,
+          "localYx": null,
+          "localYy": null,
+          "localYz": null,
           "materialId": 1,
           "nodeI": 6,
           "nodeJ": 4,
@@ -2334,11 +2385,15 @@
           "releaseMzStart": false,
           "releaseTEnd": false,
           "releaseTStart": false,
+          "rollAngle": null,
           "sectionId": 1,
           "type": "frame"
         },
         "4": {
           "id": 4,
+          "localYx": null,
+          "localYy": null,
+          "localYz": null,
           "materialId": 1,
           "nodeI": 1,
           "nodeJ": 4,
@@ -2348,11 +2403,15 @@
           "releaseMzStart": true,
           "releaseTEnd": false,
           "releaseTStart": false,
+          "rollAngle": null,
           "sectionId": 2,
           "type": "frame"
         },
         "5": {
           "id": 5,
+          "localYx": null,
+          "localYy": null,
+          "localYz": null,
           "materialId": 1,
           "nodeI": 5,
           "nodeJ": 2,
@@ -2362,11 +2421,15 @@
           "releaseMzStart": false,
           "releaseTEnd": false,
           "releaseTStart": false,
+          "rollAngle": null,
           "sectionId": 1,
           "type": "frame"
         },
         "6": {
           "id": 6,
+          "localYx": null,
+          "localYy": null,
+          "localYz": null,
           "materialId": 1,
           "nodeI": 6,
           "nodeJ": 5,
@@ -2376,6 +2439,7 @@
           "releaseMzStart": false,
           "releaseTEnd": false,
           "releaseTStart": false,
+          "rollAngle": null,
           "sectionId": 2,
           "type": "frame"
         }
@@ -2654,6 +2718,9 @@
       "elements": {
         "1": {
           "id": 1,
+          "localYx": null,
+          "localYy": null,
+          "localYz": null,
           "materialId": 2,
           "nodeI": 2,
           "nodeJ": 1,
@@ -2663,6 +2730,7 @@
           "releaseMzStart": true,
           "releaseTEnd": false,
           "releaseTStart": false,
+          "rollAngle": null,
           "sectionId": 1,
           "type": "frame"
         }
@@ -4426,6 +4494,9 @@
       "elements": {
         "1": {
           "id": 1,
+          "localYx": null,
+          "localYy": null,
+          "localYz": null,
           "materialId": 1,
           "nodeI": 2,
           "nodeJ": 1,
@@ -4435,6 +4506,7 @@
           "releaseMzStart": false,
           "releaseTEnd": false,
           "releaseTStart": false,
+          "rollAngle": null,
           "sectionId": 1,
           "type": "frame"
         }

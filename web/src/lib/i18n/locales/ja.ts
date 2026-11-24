@@ -3748,6 +3748,8 @@ const ja: Translations = {
   "autoLoad.work.cancel": "停止",
   "svc.engine.unsupportedPointLoadMoment": "部材集中荷重で指定できないモーメント成分",
   "svc.engine.applyPointLoadMomentAtNode": "荷重の元の位置にある 3D 節点にモーメントを適用してください",
+  "svc.engine.invalidDensity": "{path} に有限かつ非負の密度を入力してください（受け取った値: {value}）。",
+  "svc.engine.nonnegativeMassDensity": "質量密度は有限かつ非負でなければなりません",
   "svc.engine.nonFiniteNumber": "{path} に有限の数値を入力してください（受け取った値: {value}）。",
 } as const satisfies Record<string, string>;
 

@@ -20,12 +20,16 @@ import { REGISTRY_LOCALES, resultChangeLocaleProblems } from '../../../scripts/r
 
 export { REGISTRY_LOCALES };
 export type RegistryLocale = (typeof REGISTRY_LOCALES)[number];
-export type Localised = Record<RegistryLocale, string> & { hu?: string };
+const supplementalLocales = ['ar', 'hi', 'id', 'it', 'ja', 'ko', 'ru'] as const;
+type SupplementalLocale = (typeof supplementalLocales)[number] | 'hu';
+export type Localised = Record<RegistryLocale, string> & Partial<Record<SupplementalLocale, string>>;
 
 export function registryLocale(locale: string): RegistryLocale;
-export function registryLocale(locale: string, first: Localised, ...rest: Localised[]): RegistryLocale | 'hu';
-export function registryLocale(locale: string, ...texts: Localised[]): RegistryLocale | 'hu' {
-  if (locale === 'hu' && researchBuilt() && texts.length > 0 && texts.every(text => typeof text.hu === 'string' && !!text.hu.trim())) return 'hu';
+export function registryLocale(locale: string, first: Localised, ...rest: Localised[]): RegistryLocale | SupplementalLocale;
+export function registryLocale(locale: string, ...texts: Localised[]): RegistryLocale | SupplementalLocale {
+  const supplemental = locale === 'hu' ? researchBuilt() : (supplementalLocales as readonly string[]).includes(locale);
+  const key = locale as SupplementalLocale;
+  if (supplemental && texts.length > 0 && texts.every(text => text[key]?.trim())) return key;
   return (REGISTRY_LOCALES as readonly string[]).includes(locale) ? (locale as RegistryLocale) : 'en';
 }
 

@@ -839,10 +839,14 @@ fn shell_loads() -> Vec<SolverLoad3D> {
 }
 
 #[test]
-#[ignore = "known wrong result: #2472"]
 fn issue_2472_raw_shell_self_weight_requires_nonnegative_density() {
-    let model = shell_input();
+    let mut model = shell_input();
+    for node in [1, 2, 11, 14, 21, 24, 28, 41, 42, 43, 44, 61, 64] {
+        let support = json!({"nodeId": node, "rx": true, "ry": true, "rz": true, "rrx": true, "rry": true, "rrz": true});
+        model.supports.insert(node.to_string(), serde_json::from_value(support).unwrap());
+    }
     let dofs = DofNumbering::build_3d(&model);
+    let mut wire_model = serde_json::to_value(&model).unwrap();
     let mut failures = Vec::new();
     for load in shell_loads() {
         let mut wire = serde_json::to_value(load).unwrap();
@@ -854,9 +858,26 @@ fn issue_2472_raw_shell_self_weight_requires_nonnegative_density() {
             dofs.map.iter().filter(|((_, local), _)| *local == 2).map(|(_, &index)| forces[index]).sum::<f64>()
         };
         assert!(resultant(&wire) < 0.0, "{kind}");
+        let native_solves = |model: &serde_json::Value| {
+            let json = model.to_string();
+            let linear = dedaliano_engine::reproduce::linear_hashes(&json, true).map(|_| ());
+            let pdelta = serde_json::from_str::<SolverInput3D>(&json)
+                .map_err(|error| error.to_string())
+                .and_then(|input| dedaliano_engine::solver::pdelta::solve_pdelta_3d(&input, 20, 1e-8))
+                .map(|result| assert!(result.converged, "{kind}"));
+            [("linear", linear), ("P-Delta", pdelta)]
+        };
+        wire_model["loads"] = json!([wire]);
+        for (path, result) in native_solves(&wire_model) {
+            assert!(result.is_ok(), "{kind}/{path}: {result:?}");
+        }
         for zero in [0.0, -0.0] {
             wire["data"]["density"] = json!(zero);
             assert_eq!(resultant(&wire), 0.0, "{kind}");
+            wire_model["loads"] = json!([wire]);
+            for (path, result) in native_solves(&wire_model) {
+                assert!(result.is_ok(), "{kind}/{path}: {result:?}");
+            }
         }
         for invalid in [json!(-density), json!(-f64::MIN_POSITIVE), json!(null), json!("0")] {
             wire["data"]["density"] = invalid;
@@ -864,6 +885,12 @@ fn issue_2472_raw_shell_self_weight_requires_nonnegative_density() {
             let result = serde_json::from_str::<SolverLoad3D>(&text);
             if !matches!(&result, Err(error) if error.to_string().contains("density")) {
                 failures.push(format!("{kind}, density={}: {result:?}", wire["data"]["density"]));
+            }
+            wire_model["loads"] = json!([wire]);
+            for (path, result) in native_solves(&wire_model) {
+                if !matches!(&result, Err(error) if error.contains("density")) {
+                    failures.push(format!("{kind}/{path}, density={}: {result:?}", wire["data"]["density"]));
+                }
             }
         }
     }
@@ -901,15 +928,19 @@ fn shell_load_vectors_match_across_paths_and_pressure_resultants() {
 }
 
 fn inclined_2d(angle: Option<f64>, dx: f64, dz: f64) -> SolverInput {
-    let mut input = input_2d(
+    let mut roller = json!({ "id": 2, "nodeId": 2, "type": "inclinedRoller", "dx": dx, "dz": dz });
+    if let Some(angle) = angle {
+        roller["angle"] = json!(angle);
+    }
+    let input = input_2d(
         json!({ "1": { "id": 1, "x": 0.0, "z": 0.0 }, "2": { "id": 2, "x": 4.0, "z": 0.0 } }),
         json!({
             "1": { "id": 1, "nodeId": 1, "type": "fixed" },
-            "2": { "id": 2, "nodeId": 2, "type": "inclinedRoller", "dx": dx, "dz": dz }
+            "2": roller
         }),
         json!([{ "type": "nodal", "data": { "nodeId": 2, "fx": 2.0, "fz": -3.0, "my": 0.0 } }]),
     );
-    input.supports.get_mut("2").unwrap().angle = angle;
+    assert_eq!(input.supports["2"].angle, angle);
     input
 }
 

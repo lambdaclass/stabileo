@@ -3922,6 +3922,8 @@ const fr: Translations = {
   'svc.engine.cancelledCombination': "Les coefficients des cas de charge répétés s’annulent dans cette combinaison.",
   "svc.engine.unsupportedPointLoadMoment": "Moment incompatible avec une charge ponctuelle sur une barre selon",
   "svc.engine.applyPointLoadMomentAtNode": "appliquez le moment à un nœud 3D à la position initiale de la charge",
+  "svc.engine.invalidDensity": "Saisissez une masse volumique finie et positive ou nulle pour {path} (valeur reçue : {value}).",
+  "svc.engine.nonnegativeMassDensity": "La masse volumique doit être finie et positive ou nulle",
   "svc.engine.nonFiniteNumber": "Saisissez un nombre fini pour {path} (valeur reçue : {value}).",
   'svc.engine.zeroDiagonal': 'Tous les termes diagonaux sont nuls : matrice singulière',
   'svc.engine.singular': 'Matrice de rigidité singulière',

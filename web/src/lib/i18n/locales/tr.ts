@@ -3931,6 +3931,8 @@ const tr: Translations = {
   'svc.engine.cancelledCombination': "Bu birleşimde yinelenen yük durumlarının katsayıları birbirini götürerek sıfır olur.",
   "svc.engine.unsupportedPointLoadMoment": "Çubuk noktasal yükünde desteklenmeyen moment bileşeni",
   "svc.engine.applyPointLoadMomentAtNode": "momenti yükün özgün konumundaki bir 3B düğüme uygulayın",
+  "svc.engine.invalidDensity": "{path} alanına sonlu ve negatif olmayan bir yoğunluk girin (alınan değer: {value}).",
+  "svc.engine.nonnegativeMassDensity": "Kütle yoğunluğu sonlu ve negatif olmayan bir değer olmalıdır",
   "svc.engine.nonFiniteNumber": "{path} alanına sonlu bir sayı girin (alınan değer: {value}).",
   'svc.engine.zeroDiagonal': 'Köşegen terimlerin tümü sıfır: tekil matris',
   'svc.engine.singular': 'Tekil rijitlik matrisi',
