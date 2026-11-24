@@ -5,3 +5,5 @@ Issue #2100 came from a finite four-member model in the nightly static fuzz run.
 Both dimensions now refuse the result through the same physical equilibrium check before constructing the reported forces and stresses. The structured error includes the relative residual and requested tolerance when finite. Native and WASM callers receive the same reason, including certified solves.
 
 The check still accepts a finite residual at or below the requested tolerance. A passing residual retains the small-displacement solution and the existing warning for a failed displaced-geometry wrench check. The iteration, residual calculation and tolerance are unchanged. Linear solves of the nightly input still return their first-order results.
+
+The project recheck notice requires both P-Delta history evidence and structural stiffness or constraint features. Structural models with unknown solve history remain eligible for the notice.

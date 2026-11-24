@@ -6,6 +6,14 @@
   "when": {
     "allOf": [
       [
+        "members",
+        "shells",
+        "curvedShells",
+        "connectors",
+        "springs",
+        "constraints"
+      ],
+      [
         "analysis:pdelta"
       ]
     ]
