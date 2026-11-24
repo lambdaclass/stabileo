@@ -4314,7 +4314,7 @@ const es: Record<string, string> = {
   'svc.engine.cancelledCombination': "Los factores de los casos de carga repetidos se cancelan y dan cero en esta combinación.",
   "svc.engine.unsupportedPointLoadMoment": "Momento no compatible con una carga puntual de barra en",
   "svc.engine.applyPointLoadMomentAtNode": "aplicá el momento en un nodo 3D en la posición original de la carga",
-  "svc.engine.invalidDensity": "Ingresá un valor de densidad finito y no negativo en {path} (valor recibido: {value}).",
+  "svc.engine.invalidDensity": "Ingresá un valor de densidad (rho) finito y no negativo para el material {id} (valor recibido: {value}).",
   "svc.engine.nonnegativeMassDensity": "La densidad de masa debe ser finita y no negativa",
   "svc.engine.nonFiniteNumber": "Ingresá un número finito en {path} (valor recibido: {value}).",
   'svc.engine.zeroDiagonal': "Todas las entradas de la diagonal son cero: matriz singular",

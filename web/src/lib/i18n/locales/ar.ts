@@ -3756,7 +3756,7 @@ const ar: Translations = {
   "autoLoad.work.cancel": "إيقاف",
   "svc.engine.unsupportedPointLoadMoment": "مركبة عزم غير مدعومة للحمل النقطي على العنصر",
   "svc.engine.applyPointLoadMomentAtNode": "طبّق العزم عند عقدة ثلاثية الأبعاد في موضع الحمل الأصلي",
-  "svc.engine.invalidDensity": "أدخل كثافة منتهية وغير سالبة في الحقل {path} (القيمة الواردة: {value}).",
+  "svc.engine.invalidDensity": "أدخل كثافة (rho) منتهية وغير سالبة للمادة {id} (القيمة الواردة: {value}).",
   "svc.engine.nonnegativeMassDensity": "يجب أن تكون الكثافة الكتلية منتهية وغير سالبة",
   "svc.engine.nonFiniteNumber": "أدخل عددًا منتهيًا في الحقل {path} (القيمة الواردة: {value}).",
 } as const satisfies Record<string, string>;

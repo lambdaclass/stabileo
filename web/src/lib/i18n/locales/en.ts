@@ -4321,7 +4321,7 @@ const en: Record<string, string> = {
   'svc.engine.cancelledCombination': "Repeated load case factors cancel to zero in this combination.",
   "svc.engine.unsupportedPointLoadMoment": "Unsupported member point load moment in",
   "svc.engine.applyPointLoadMomentAtNode": "apply the moment at a 3D node at the original load position",
-  "svc.engine.invalidDensity": "Enter a finite, nonnegative density for {path} (received {value}).",
+  "svc.engine.invalidDensity": "Enter a finite, nonnegative density (rho) for material {id} (received {value}).",
   "svc.engine.nonnegativeMassDensity": "Mass density must be finite and nonnegative",
   "svc.engine.nonFiniteNumber": "Enter a finite number for {path} (received {value}).",
   'svc.engine.zeroDiagonal': "All diagonal entries are zero: singular matrix",

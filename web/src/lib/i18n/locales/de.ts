@@ -3922,7 +3922,7 @@ const de: Translations = {
   'svc.engine.cancelledCombination': "Die Faktoren wiederholter Lastfälle heben sich in dieser Kombination zu null auf.",
   "svc.engine.unsupportedPointLoadMoment": "Nicht unterstütztes Moment einer Stabpunktlast in",
   "svc.engine.applyPointLoadMomentAtNode": "bringen Sie das Moment an einem 3D-Knoten an der ursprünglichen Lastposition auf",
-  "svc.engine.invalidDensity": "Geben Sie für {path} eine endliche, nichtnegative Dichte ein (erhaltener Wert: {value}).",
+  "svc.engine.invalidDensity": "Geben Sie für Material {id} eine endliche, nichtnegative Dichte (rho) ein (erhaltener Wert: {value}).",
   "svc.engine.nonnegativeMassDensity": "Die Massendichte muss endlich und nichtnegativ sein",
   "svc.engine.nonFiniteNumber": "Geben Sie für {path} eine endliche Zahl ein (erhaltener Wert: {value}).",
   'svc.engine.zeroDiagonal': 'Alle Diagonalelemente sind null: singuläre Matrix',

@@ -25,7 +25,7 @@ export function drawnMaterialAreas(drawn: DrawnSection, memberMaterialId: number
 
 export class InvalidMaterialDensity extends Error {
   constructor(readonly materialId: number, readonly value: unknown) {
-    super(tp('svc.engine.invalidDensity', { path: `materials.${materialId}.rho`, value: String(value) }));
+    super(tp('svc.engine.invalidDensity', { id: String(materialId), value: String(value) }));
   }
 }
 
