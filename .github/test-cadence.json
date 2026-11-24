@@ -45,6 +45,7 @@
     {"id": "differential-full", "tier": "daily", "runner": "nightly", "target": "test.engine.differential.full", "budget_min": 90, "what": "cross-method differential tests, full tier"},
     {"id": "mechanism-fuzz", "tier": "daily", "runner": "nightly", "target": "test.engine.mechanism-fuzz.long", "vars": {"DURATION": "45m", "SEED": "{day}000000000"}, "optional": true, "budget_min": 60, "what": "mechanism fuzzing, 45 minutes"},
     {"id": "containment-audit", "tier": "daily", "runner": "nightly", "target": "check.containment", "requires": ["scripts/check-containment.py"], "optional": true, "budget_min": 15, "what": "every open wrong-result issue is contained"},
+    {"id": "engine-benches", "tier": "daily", "runner": "nightly", "target": "test.engine.benches", "budget_min": 30, "what": "every engine benchmark runs once, untimed"},
     {"id": "lighthouse", "tier": "daily", "existing": "performance.yml#lighthouse", "what": "Lighthouse against the deployed site"},
     {"id": "external-references-sampled", "tier": "daily", "existing": "nightly.yml#opensees-diff", "what": "OpenSees and Code_Aster comparisons, sampled counts"},
     {"id": "other-differential", "tier": "daily", "existing": "differential.yml#differential", "what": "Frame3DD, PyNite, Mystran, Kratos, CalculiX"},

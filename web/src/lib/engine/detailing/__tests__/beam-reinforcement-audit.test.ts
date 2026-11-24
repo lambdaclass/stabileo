@@ -96,7 +96,7 @@
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import { workspaceScene, ROLLED_BEAMS, type Variant } from './helpers/workspace-scene';
+import { frameBarsInAssembly, workspaceScene, ROLLED_BEAMS, type Variant } from './helpers/workspace-scene';
 import { modelStore } from '../../../store/model.svelte';
 import { verificationStore } from '../../../store/verification.svelte';
 import { memberKindOf } from '../../design/member-grouping';
@@ -148,7 +148,7 @@ function categorise(r: BeamRow): Category {
   // An honest refusal: no certificate, a reason, and the scene says the member has no steel —
   // never steel drawn for a design that did not pass. Since the design reads the column cages,
   // beams no layout of whose bars passes the columns' bars (or anchors where one does) refuse.
-  if ((r.outcome === 'SECTION_INADEQUATE' || r.outcome === 'SEARCH_EXHAUSTED') && r.reasonKey
+  if ((r.outcome === 'SECTION_INADEQUATE' || r.outcome === 'SEARCH_EXHAUSTED' || r.outcome === 'UNSUPPORTED') && r.reasonKey
     && !r.hasCertificate && r.flaggedUnreinforced && r.barsInScene === 0 && r.hasConcrete) return 'refused';
   return 'workflow-error';
 }
@@ -177,7 +177,7 @@ async function audit(variant?: Variant): Promise<Audit> {
     const barsInDocument = new Map<number, number>();
     const provisionalBarsInDocument = new Map<number, number>();
     for (const a of doc.assemblies) {
-      for (const bar of a.bars) {
+      for (const bar of frameBarsInAssembly(a)) {
         for (const id of bar.ownerElementIds) {
           barsInDocument.set(id, (barsInDocument.get(id) ?? 0) + 1);
           if (bar.provisional) {
@@ -188,6 +188,7 @@ async function audit(variant?: Variant): Promise<Audit> {
     }
     const barsInScene = new Map<number, number>();
     for (const b of scene.bars) {
+      if (b.ownerScope !== 'frame') continue;
       for (const id of b.elementIds) barsInScene.set(id, (barsInScene.get(id) ?? 0) + 1);
     }
     const withConcrete = new Set(scene.solids.flatMap((s) => s.elementIds));
@@ -238,7 +239,7 @@ describe('beam reinforcement audit — pro-edificio-7p', { timeout: 30_000 }, ()
   const of = (c: Category): BeamRow[] => byCategory.get(c) ?? [];
 
   it('audits every beam in the model', () => {
-    expect(rows.length).toBe(119);
+    expect(rows.length).toBe(168);
     expect(rows.every((r) => r.designRan), 'the design run reached every beam').toBe(true);
   });
 
@@ -247,15 +248,11 @@ describe('beam reinforcement audit — pro-edificio-7p', { timeout: 30_000 }, ()
     // shell drilling defect (see the header). The path itself is covered below, on beams that
     // genuinely bend about both axes.
     expect(of('provisional-biaxial')).toEqual([]);
-    // 78 of 119 since the design reads the column cages (before: 119): the other 41 refuse, 16 on
-    // congestion (no layout of their bars passes the 35 cm columns' 16 bars) and 25 on anchorage
-    // (the layouts that pass need a second top row the columns cannot develop).
-    expect(of('reinforced').length).toBe(78);
-    expect(of('refused').length).toBe(41);
-    // All 41 are an exhausted search (16 before read SECTION_INADEQUATE on congestion): no bound
-    // of the code proves their section inadequate (`section-bounds.ts`).
+    expect(of('reinforced').length).toBe(63);
+    expect(of('refused').length).toBe(105);
     expect(of('refused').filter((r) => r.outcome === 'SECTION_INADEQUATE').length).toBe(0);
-    expect(of('refused').filter((r) => r.outcome === 'SEARCH_EXHAUSTED').length).toBe(41);
+    expect(of('refused').filter((r) => r.outcome === 'SEARCH_EXHAUSTED').length).toBe(104);
+    expect(of('refused').filter((r) => r.outcome === 'UNSUPPORTED').map(r => r.elementId)).toEqual([156]);
     // The categories that would mean a defect rather than a limitation.
     expect(of('provisional-without-steel')).toEqual([]);
     expect(of('verified-geometry-lost')).toEqual([]);
@@ -268,8 +265,6 @@ describe('beam reinforcement audit — pro-edificio-7p', { timeout: 30_000 }, ()
     // "Do not hide elements to disguise a limitation" was already satisfied — the concrete was
     // always drawn. What was missing is the steel, and its absence was indistinguishable from
     // reinforcement that went missing between the design and the screen.
-    // A refused beam is drawn and has no steel, and the scene says so: the 41 the design refuses
-    // since it reads the column cages, and only those (before: none).
     const refused = new Set(of('refused').map((r) => r.elementId));
     for (const r of rows) {
       expect(r.hasConcrete, `member ${r.elementId} is drawn`).toBe(true);

@@ -7,7 +7,7 @@ import { historyStore } from '../history.svelte';
 import { uiStore } from '../ui.svelte';
 import { tabManager } from '../tabs.svelte';
 import { setLocale } from '../../i18n';
-import { loadFile, loadProject, serializeProject, isNewerFileVersion } from '../file';
+import { deserializeProject, loadFile, loadProject, serializeProject, isNewerFileVersion } from '../file';
 
 const SESSION_FILE = (JSON.parse(readFileSync(new URL('../../../../legacy-projects/v0.4.0/manifest.json', import.meta.url), 'utf8')) as { session: { file: string } }).session.file;
 const SESSION_BYTES = readFileSync(new URL(`../../../../legacy-projects/v0.4.0/${SESSION_FILE}`, import.meta.url));
@@ -43,14 +43,18 @@ function state() {
   };
 }
 
-const NEWER = /newer version of Stabileo \(file format 3\.0; this version reads up to 2\.0\)/;
+const unified = __PUBLIC_FEATURES__.proPlatesUnified;
+const NEWER = unified
+  ? /newer version of Stabileo \(file format 3\.0; this version reads up to 2\.1\)/
+  : /newer version of Stabileo \(file format 3\.0; this version reads up to 2\.0\)/;
 
 describe('a file from a newer version is refused before anything is changed', () => {
   beforeEach(() => setLocale('en'));
 
   it('compares format versions numerically', () => {
     expect(isNewerFileVersion('3.0')).toBe(true);
-    expect(isNewerFileVersion('2.1')).toBe(true);
+    expect(isNewerFileVersion('2.2')).toBe(true);
+    expect(isNewerFileVersion('2.1')).toBe(!unified);
     expect(isNewerFileVersion('10.0')).toBe(true);
     expect(isNewerFileVersion('2.0')).toBe(false);
     expect(isNewerFileVersion('1.0')).toBe(false);
@@ -58,6 +62,23 @@ describe('a file from a newer version is refused before anything is changed', ()
     expect(isNewerFileVersion('beta')).toBe(false);
     expect(isNewerFileVersion(3)).toBe(false);
   });
+
+  if (!unified) {
+    it('refuses compact 2.1 projects at every opener before adopting the model', async () => {
+      const file = JSON.parse(otherProject('2.1'));
+      file.snapshot.detailing = {
+        designRefusals: { fingerprint: '0000000000000000', records: [], members: [] },
+      };
+      const text = JSON.stringify(file);
+      openModel();
+      const before = state();
+      const message = /newer version of Stabileo \(file format 2\.1; this version reads up to 2\.0\)/;
+      expect(deserializeProject(text)).toBe(false);
+      await expect(loadProject(new File([text], 'compact.ded'))).rejects.toThrow(message);
+      await expect(loadFile(new File([text], 'compact.ded'))).rejects.toThrow(message);
+      expect(state()).toEqual(before);
+    });
+  }
 
   for (const [what, open] of [['loadFile', loadFile], ['loadProject', loadProject]] as const) {
     for (const version of [3, '3.0-rc1', 'beta', null, { major: 3 }]) {

@@ -30,17 +30,25 @@ function floor(z: number) {
   const a = [n(0, 0), n(6, 0), n(6, 5), n(0, 5)];
   const hole = [n(1, 1), n(2, 1), n(2, 2), n(1, 2)];
   const b = [a[1]!, n(10, 0), n(10, 5), a[2]!];
-  const bal = [b[1]!, n(12, 0), n(12, 5), b[2]!];
-  const mid = n(12 + 0.5, 2.5);
   for (const c of [...a, b[1]!, b[2]!]) if (z === 3) modelStore.addSupport(c, 'pinned3d');
   const pa = createPlate({ outline: a, holes: [hole], materialId: 1, thickness: 0.15, name: `A${z}` }) as { id: number };
   const pb = createPlate({ outline: b, materialId: 1, thickness: 0.15, name: `B${z}` }) as { id: number };
-  // The balcony: its far side an arc through (12.5, 2.5).
-  const pc = createPlate({ outline: [bal[0]!, bal[1]!, mid, bal[2]!, bal[3]!], arcMids: [2], materialId: 1, thickness: 0.12, name: `Bal${z}`, followArcs: false }) as { id: number };
-  for (const p of [pa, pb, pc]) expect(p.id).toBeGreaterThan(0);
-  // Columns between the floors keep the structure in one piece.
-  return { pa: pa.id, pb: pb.id, pc: pc.id };
+  for (const p of [pa, pb]) expect(p.id).toBeGreaterThan(0);
+  return [b[1]!, b[2]!] as const;
 }
+
+function floorWithCurvedBalcony(z: number) {
+  const [near, far] = floor(z);
+  const start = modelStore.addNode(12, 0, z);
+  const mid = modelStore.addNode(12.5, 2.5, z);
+  const end = modelStore.addNode(12, 5, z);
+  const balcony = createPlate({
+    outline: [near, start, mid, end, far], arcMids: [2],
+    materialId: 1, thickness: 0.12, name: `Bal${z}`, followArcs: false,
+  }) as { id: number };
+  expect(balcony.id).toBeGreaterThan(0);
+}
+
 const meshAll = (size = 0.5) => applyPlateMeshes(physicalPlates().map((p) => planPlateMesh(p.id, { size, element: 'quad', followMembers: true })!));
 const zone = (pts: Array<[number, number]>, z: number, name: string) => createUseZone(pts.map(([x, y]) => ({ x, y })), z, name);
 /** The live loads the zones wrote, as total force per zone (q × the shell area each load covers). */
@@ -76,7 +84,7 @@ describe('use zones over two floors', () => {
   beforeEach(() => { modelStore.clear(); historyStore.clear(); uiStore.analysisMode = 'pro'; });
 
   it('suggests, assigns, loads the right surfaces, copies, changes, remeshes and opens again', () => {
-    floor(3); floor(6);
+    floorWithCurvedBalcony(3); floorWithCurvedBalcony(6);
     meshAll(0.5);
     const living = zone([[0, 2.5], [3, 2.5], [3, 5], [0, 5]], 3, 'Estar');
     const bedroom = zone([[3, 2.5], [6, 2.5], [6, 5], [3, 5]], 3, 'Dormitorio');
@@ -175,7 +183,7 @@ describe('use zones over two floors', () => {
   it('gives zones a package of finishes as a dead load of its own', async () => {
     const { addFinishPackage, setFinishPackage } = await import('../use-zones');
     modelStore.clear(); historyStore.clear(); uiStore.analysisMode = 'pro';
-    floor(3);
+    floorWithCurvedBalcony(3);
     meshAll(0.5);
     const z1 = zone([[0, 2.5], [3, 2.5], [3, 5], [0, 5]], 3, 'Estar');
     setZoneUse([z1], { occupancy: 'vivienda', provenance: 'confirmed' });
@@ -205,7 +213,7 @@ describe('use zones over two floors', () => {
   it('says when finishes cannot be applied for want of a dead-load case', async () => {
     const { addFinishPackage } = await import('../use-zones');
     modelStore.clear(); historyStore.clear(); uiStore.analysisMode = 'pro';
-    floor(3);
+    floorWithCurvedBalcony(3);
     meshAll(0.5);
     for (const c of modelStore.model.loadCases.filter((c) => c.type === 'D')) modelStore.removeLoadCase(c.id);
     const z1 = zone([[0, 2.5], [3, 2.5], [3, 5], [0, 5]], 3, 'Estar');
@@ -214,6 +222,12 @@ describe('use zones over two floors', () => {
     const plan = zoneLoadPlan()!;
     expect(plan.add.map((a) => a.role)).toEqual(['live']);
     expect(plan.finishNoCase).toEqual([{ zoneId: z1, zone: 'Estar' }]);
+  });
+
+  it('refuses preparation when the curved balcony leaves unmatched stations on the next slab', () => {
+    floorWithCurvedBalcony(3);
+    expect(preparePlatesForAnalysis()).toEqual({ ok: false, reason: 'needsMesh', plates: ['B3'] });
+    expect(modelStore.solve3D(false, false, true)).toEqual(expect.stringContaining('B3'));
   });
 
   it('puts a zone drawn before its plate is meshed onto the slab, not onto the members', () => {

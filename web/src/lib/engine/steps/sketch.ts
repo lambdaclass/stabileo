@@ -36,7 +36,7 @@ export interface Sketch {
   /** Free text at a point. */
   labels?: Array<{ x: number; z: number; text: string; color?: SketchColor; anchor?: 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw' }>;
   /** Degrees of freedom: arrows (ux, uz) and arcs (ry) at nodes, numbered. */
-  dofs?: Array<{ node: number; kind: 'ux' | 'uz' | 'ry'; label: string; color?: SketchColor }>;
+  dofs?: Array<{ node: number; kind: 'ux' | 'uz' | 'ry'; label: string; color?: SketchColor; sign?: -1 }>;
   /** Dimension lines. 'auto': spans along X under the structure and heights on its left. */
   dims?: 'auto' | Array<{ a: { x: number; z: number }; b: { x: number; z: number }; text: string; offset?: number }>;
   /**
@@ -58,6 +58,8 @@ export interface Sketch {
   cut?: { a: { x: number; z: number }; b: { x: number; z: number }; label?: string };
   /** Figure height in px (the width follows the page). */
   height?: number;
+  /** Drawn with x′ = mirror[0]·x and z′ = mirror[1]·z: a document in the user's coordinates with one reversed (`axes/step-doc-frame.ts`). */
+  mirror?: [number, number];
 }
 
 /** A plane-model node and member list as the sketch's structure. */

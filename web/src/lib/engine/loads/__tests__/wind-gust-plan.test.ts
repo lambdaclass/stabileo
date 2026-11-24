@@ -6,8 +6,11 @@
 import { describe, it, expect } from 'vitest';
 import { buildLoadPlan, type LoadModelData, type LoadPlanInput } from '../load-plan';
 import { windEndResultants } from './wind-integration-fixture';
-import { defaultRegulations, type ProjectRegulations } from '../../../codes/roles';
+import { bindRole, defaultRegulations, type ProjectRegulations } from '../../../codes/roles';
 import { defaultWindDynamics, fundamentalFrequencies } from '../wind-dynamics';
+import { initSolver } from '../../wasm-solver';
+import { modelStore, uiStore } from '../../../store';
+import { windFrequenciesForPlan } from '../../../store/seismic-modes';
 
 /** A tower 30 × 20 m in plan, `storeys` of 3 m. */
 function tower(storeys = 20, bx = 30, by = 20): LoadModelData {
@@ -31,8 +34,8 @@ const applied = (reg: ProjectRegulations): ProjectRegulations => {
   for (const k of Object.keys(out) as Array<keyof ProjectRegulations>) if (out[k].adapterId) out[k] = { ...out[k], configComplete: true, state: 'applied' };
   return out;
 };
-const plan = (wind: Partial<NonNullable<LoadPlanInput['wind']>>, model = tower()) => ({ ...buildLoadPlan({
-  regulations: applied(defaultRegulations()), model, dead: [{ labelKey: 'a', q: 1 }], occupancyKey: 'vivienda', tributaryWidth: 3,
+const plan = (wind: Partial<NonNullable<LoadPlanInput['wind']>>, model = tower(), seismic?: LoadPlanInput['seismic']) => ({ ...buildLoadPlan({
+  regulations: applied(seismic ? { ...defaultRegulations(), seismic: bindRole('seismic', 'inpres103-2018') } : defaultRegulations()), model, seismic, dead: [{ labelKey: 'a', q: 1 }], occupancyKey: 'vivienda', tributaryWidth: 3,
   reductionElementKind: 'interiorBeam', floorsSupported: 1, applyLiveReduction: false, generateCombinations: false,
   wind: { enabled: true, basicSpeed: 45, exposure: 'C', enclosure: 'enclosed', siteAltitudeM: 0, kzt: 1, kztSurveyed: true, roofSlopeDeg: 0, rigid: true, directions: { x: false, y: true }, senses: ['+y'], caseSet: 'case1', ...wind },
 }), testModel: model });
@@ -285,4 +288,75 @@ describe('where n₁, B and β come from (C 1.9, C 1.1.2)', () => {
     const p = plan({ dynamics: { n1Source: 'typed', n1: { x: 1.4, y: 1.4 }, beta: 0.02, rigidG: 'default' } }, setback(20, 2, 30, 20, 10));
     expect(sensitive(p)).toEqual(['slender']);
   });
+});
+
+it('#2316 enabling seismic leaves wind levels, frequencies and member loads unchanged', async () => {
+  await initSolver();
+  modelStore.clear();
+  uiStore.analysisMode = 'pro';
+  const model = tower(2);
+  const storyHeight = 12;
+  for (const node of model.nodes.values()) node.z! *= storyHeight / 3;
+  modelStore.updateMaterial(1, { rho: model.materials.get(1)!.rho });
+  modelStore.updateSection(1, { name: 'Square test section', shape: 'rect', b: 0.5, h: 0.5 });
+  const continuous = model.elements.get(1)!;
+  const upper = model.elements.get(9)!;
+  continuous.nodeJ = upper.nodeJ;
+  model.elements.delete(upper.id);
+  const nodeIds = new Map([...model.nodes].map(([id, n]) => [id, modelStore.addNode(n.x, n.y, n.z)]));
+  expect([...nodeIds].every(([id, stored]) => id === stored)).toBe(true);
+  model.elements = new Map([...model.elements.values()].map(el => {
+    const id = modelStore.addElement(nodeIds.get(el.nodeI)!, nodeIds.get(el.nodeJ)!);
+    return [id, { ...el, id }];
+  }));
+  const bases = [...model.nodes.values()].filter(n => n.z === 0).map(n => n.id);
+  for (const id of bases) modelStore.addSupport(nodeIds.get(id)!, 'fixed3d');
+  model.supports = new Map(bases.map(id => [id, { nodeId: id }]));
+  const seismic = { enabled: true, coefficient: 1, liveParticipation: 0, directions: { x: true, y: false } };
+  const off = { ...seismic, enabled: false };
+  const windOptions = { senses: ['+y' as const] };
+  const dynamics = { n1Source: 'approximate', system: 'concreteMomentFrame', beta: 0.02, rigidG: 'calculated' } as const;
+  const approximate = { ...windOptions, dynamics };
+  const windOnly = plan(approximate, model, off);
+  const combined = plan(approximate, model, seismic);
+  expect(windOnly.outcome, JSON.stringify(windOnly.blockedKeys)).toBe('READY');
+  expect(combined.outcome).toBe('BLOCKED');
+  expect(combined.blockedKeys).toEqual([{ key: 'loadPlan.blocked.seismicMass.storyNode', params: { elevation: storyHeight } }]);
+  expect(combined.nodal.some(load => load.caseType === 'E')).toBe(true);
+
+  const windActions = (p: ReturnType<typeof plan>) => ({
+    cases: p.cases.filter(c => c.type === 'W' || c.type === 'Wa'),
+    member: p.distributed.filter(d => d.caseType === 'W' || d.caseType === 'Wa'),
+    nodal: p.nodal.filter(n => n.caseType === 'W' || n.caseType === 'Wa'),
+    gust: p.factors.windGust,
+    pressure: p.factors.windQh,
+  });
+  expect(windOnly.factors.windGust?.y).toBeDefined();
+  expect(windActions(windOnly).member.length).toBeGreaterThan(0);
+  expect(windActions(combined)).toStrictEqual(windActions(windOnly));
+
+  const fOff = windFrequenciesForPlan(windOnly, 0);
+  const fOn = windFrequenciesForPlan(combined, 0);
+  expect(fOff).toMatchObject({ y: { n1: expect.any(Number) } });
+  expect(fOn).toStrictEqual(fOff);
+  if ('error' in fOff || 'error' in fOn) throw new Error('Wind modes were refused');
+  const modalWind = (f: typeof fOff) => ({
+    ...windOptions, dynamics: { ...dynamics, n1Source: 'modal' as const, n1: { x: f.x?.n1, y: f.y?.n1 },
+      modal: { lowest: f.lowest, notes: f.notes } },
+  });
+  const modalOff = plan(modalWind(fOff), model, off);
+  const modalOn = plan(modalWind(fOn), model, seismic);
+  expect(modalOff.factors.windGust?.y, JSON.stringify({ fOff, blocked: modalOff.blockedKeys, unsupported: modalOff.unsupportedKeys })).toBeDefined();
+  expect(windActions(modalOff).member.length).toBeGreaterThan(0);
+  expect(windActions(modalOn)).toStrictEqual(windActions(modalOff));
+
+  const endShare = (3 * storyHeight + 2 * storyHeight) / 2;
+  const floorBeams = 2 * (30 + 20);
+  expect(windOnly.levels.map(l => l.selfWeightKN)).toEqual(
+    [endShare, 3 * storyHeight + floorBeams, endShare + floorBeams].map(length => length * 0.25 * 25));
+  expect(combined.levels).toStrictEqual(windOnly.levels);
+  expect(combined.levels).toStrictEqual(plan(approximate, model).levels);
+  const quarter = storyHeight / 2;
+  expect(combined.seismicModel!.levels.map(l => l.selfWeightKN)).toEqual(
+    [endShare - quarter, 4 * storyHeight + floorBeams, endShare - quarter + floorBeams].map(length => length * 0.25 * 25));
 });

@@ -72,6 +72,8 @@ export function computeElementStress3D(
 
 // ─── Detailed 3D Stress Analysis ─────────────────────────────────────
 
+type CombinedStressRefusal = 'combinedTorsionAndTransverseShear';
+
 export interface StressPoint3D {
   y: number;        // m from centroid
   z: number;        // m from centroid
@@ -79,7 +81,9 @@ export interface StressPoint3D {
   tauVy: number;    // MPa — Jourawsky shear from Vy
   tauVz: number;    // MPa — Jourawsky shear from Vz
   tauT: number;     // MPa — torsion shear
-  vonMises: number; // MPa
+  tauTotal: number | null;
+  vonMises: number | null;
+  refusal: CombinedStressRefusal | null;
 }
 
 export interface NeutralAxisInfo {
@@ -111,16 +115,17 @@ export interface SectionStressResult3D {
   tauVyAtFiber: number;     // MPa — Jourawsky from Vy
   tauVzAtFiber: number;     // MPa — Jourawsky from Vz
   tauTorsion: number;       // MPa — torsion
-  tauTotal: number;         // MPa — combined shear
+  tauTotal: number | null;
+  refusal: CombinedStressRefusal | null;
 
   // Combined neutral axis
   neutralAxis: NeutralAxisInfo;
 
   // Mohr's circle (plane stress: σ_x, τ_total)
-  mohr: MohrCircle;
+  mohr: MohrCircle | null;
 
   // Failure check
-  failure: FailureCheck;
+  failure: FailureCheck | null;
 }
 
 // ─── Normal stress — Navier biaxial ─────────────────────────────────
@@ -403,6 +408,7 @@ function adaptWasm3DResult(r: any): SectionStressResult3D {
     tauVzAtFiber: r.tauVzAtFiber,
     tauTorsion: r.tauTorsion,
     tauTotal: r.tauTotal,
+    refusal: r.refusal,
     neutralAxis: convertWasmNA(r.neutralAxis),
     mohr: r.mohr,
     failure,

@@ -19,11 +19,6 @@
  *   workbook element state · IFC DesignState · document readiness, banner, report certificate
  *   table · the project's verdict in the memoria, the workbook and the IFC.
  *
- * Three fixtures: (a) the span building on 40×40 columns at 6 m, its slab joined to the columns at one node;
- * (b) qa-8 with the beams' lateral role not declared, two beams refused and the others verified,
- * then (b′) the same with its seismic checks run (substitutes); (c) the span building with no
- * slab, whose upper column lifts carry an open splice condition.
- *
  * Written so it runs on the tree before the rule (the APIs it needs that did not exist are read
  * optionally and their absence is itself a violation): `HELD_PRINT=1` prints what each read.
  */
@@ -312,38 +307,37 @@ describe('(b) qa-8, the beams\' lateral role not declared: every member verified
   });
 });
 
-describe('(c) the span building with no slab: a member held by the detailing alone', () => {
+describe('(c) the span building with no slab: detailing holds and shear-depth refusals', () => {
   let r: Reading;
+  let doc: DocumentModel;
   let lifts: number[] = [];
   beforeAll(() => {
     building(null, { columnSide: 0.4 });
-    const doc = designAndDocument();
+    doc = designAndDocument();
     lifts = [...new Set((modelStore.model.detailing?.assemblies ?? []).flatMap((a) => a.unsupported)
       .filter((u) => u.key.startsWith('detailing.lapCheck.')).flatMap((u) => u.scope.elementIds ?? []))];
     r = readSurfaces(doc);
     show('C', r);
   }, 600_000);
 
-  it('it is held by the detailing alone, and no surface reads it or the project as approved', () => {
-    // One member held a detailing condition. Seven before the lower column lifts were cranked
-    // (§10.7.4.1): the six upper lifts held their laps open, each pair on one centreline
-    // (`splice-span-fixture.test.ts`). Nine before the layers were stepped from the largest bar
-    // above them (`stackedLayerDepth`): beam e20's second top row sat 5,1 mm inside the clear
-    // distance it owed the continuous pair through e20/e25, two unresolved clashes that held both.
-    //
-    // Ten since the beams are designed on main's concrete in the engine: adjacent spans choose
-    // different bars over a shared support (e18 4Ø12 top into e23's 3Ø16, e5 3Ø12 bottom into e10's
-    // 4Ø10, and the like), and their bars meet in the joint, lapped or clashing, held: e5, e7, e8,
-    // e10, e12, e18, e20, e23 and e25, besides e21. No column lift is left open.
-    const columns = new Set([...verificationStore.contexts].filter(([, c]) => c.elementType === 'column').map(([id]) => id));
-    expect(lifts.filter((id) => columns.has(id))).toEqual([]);
-    expect(lifts.filter((id) => !columns.has(id)).sort((a, b) => a - b)).toEqual([5, 7, 10, 12, 18, 20, 23, 25]);
-    const held = [...r.held.keys()].sort((a, b) => a - b);
-    expect(held).toEqual([5, 7, 8, 10, 12, 18, 20, 21, 23, 25]);
-    expect(kinds(r)).toEqual({ detailing: 10 });
-    expect([...r.held.values()].some((k) => k.has('analysis'))).toBe(false);
+  it('blocks every member with an open detailing condition or a shear-depth refusal on every surface', () => {
+    const idsHeldBy = (kind: Kind) => [...r.held].filter(([, holds]) => holds.has(kind)).map(([id]) => id).sort((a, b) => a - b);
+    expect(lifts).toEqual([]);
+    expect(idsHeldBy('detailing')).toEqual([3, 5, 7, 10, 12, 13]);
+    const refused = [8, 18, 20, 23, 25];
+    expect(idsHeldBy('refused')).toEqual(refused);
+    expect(kinds(r)).toEqual({ detailing: 6, refused: 5 });
+    for (const id of refused) {
+      expect(verificationStore.outcomeFor(id), `beam ${id}`).toMatchObject({
+        outcome: 'UNSUPPORTED',
+        reasons: expect.arrayContaining([{ key: 'diag.rcShearDepth' }]),
+      });
+      expect(modelStore.elements.get(id)?.reinforcement, `beam ${id}`).toBeUndefined();
+      expect(doc.certificates.some(c => c.elementId === id), `beam ${id}`).toBe(false);
+    }
+    expect(doc.readiness).toBe('REVIEW_DRAFT');
     expect(r.violations).toEqual([]);
     expect(r.localOkHeld).toBeGreaterThan(0);
-    expect(r.project.memoria).toMatch(/^verdict\.project\.held/);
+    expect(r.project.memoria).toMatch(/^verdict\.project\.held\[n=15,total=26\]$/);
   });
 });

@@ -4,6 +4,7 @@
    * a slide, the axis it is measured against. The same control in the element
    * editor, the Explore panel and the members table; see `end-condition.ts`.
    */
+  import { relabelAxes } from '../lib/axes/user-names';
   import { t } from '../lib/i18n';
   import type { Release, SlideAxisMode } from '../lib/store/model.svelte';
   import { END_KIND_LABEL, endKindOf, kindHasSlide, offeredKinds, releaseWithKind, type EndKind } from '../lib/store/end-condition';
@@ -35,7 +36,7 @@
 <span class="ec" class:compact>
   <select value={kind} onchange={(e) => pick(e.currentTarget.value as EndKind)} data-testid={testid}>
     {#each kinds as k (k)}
-      <option value={k}>{t(END_KIND_LABEL[k])}</option>
+      <option value={k}>{axis === 'global' ? relabelAxes(t(END_KIND_LABEL[k])) : t(END_KIND_LABEL[k])}</option>
     {/each}
   </select>
   {#if kindHasSlide(kind)}

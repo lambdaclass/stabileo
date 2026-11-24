@@ -22,7 +22,8 @@
  * Pure: no store, no runes.
  */
 import type { BeamLineBar, BeamLineReinforcement, BeamStirrupZone } from '../../design-contract/beam-line';
-import { lineLaps, type LineLap } from '../design/beam-line';
+import { drawnBeamReinforcement, type DrawnBarEnds, type DrawnBarPlacement, type ProvidedReinforcement, type StirrupInterval } from '../../design-contract/reinforcement';
+import { lineLaps, memberStirrupZones, type LineLap } from '../design/beam-line';
 
 export { lineLaps };
 
@@ -44,6 +45,7 @@ export interface LineBarPiece {
   end: LineBarEnd;
   hookStart?: boolean;
   hookEnd?: boolean;
+  drawnEnds: DrawnBarEnds;
   /** The line bars this one laps with inside the member, by id. */
   lapsWith: string[];
   /**
@@ -52,10 +54,10 @@ export interface LineBarPiece {
    * first, the indices this bar takes, and, for the second bar of a lap, how far beside them it
    * stands in contact (mm, toward the middle). `mirrored` when the member runs against the line.
    */
-  place?: { seats: number; slots: number[]; besideMm?: number; mirrored?: boolean };
+  place?: DrawnBarPlacement;
 }
 
-export interface LineStirrupPiece { from: number; to: number; diameter: number; legs: number; spacing: number }
+export type LineStirrupPiece = StirrupInterval;
 
 export type { LineLap };
 
@@ -65,6 +67,7 @@ export function linePieces(
 ): Map<number, { bars: LineBarPiece[]; stirrups: LineStirrupPiece[] }> {
   const X: number[] = [];
   line.lengths.forEach((_, i) => X.push(i === 0 ? 0 : X[i - 1]! + line.lengths[i - 1]!));
+  const lineEnd = X.length ? X[X.length - 1]! + line.lengths[X.length - 1]! : 0;
   const laps = lineLaps(line);
   const places = linePlaces(line, laps);
   const out = new Map<number, { bars: LineBarPiece[]; stirrups: LineStirrupPiece[] }>();
@@ -73,7 +76,7 @@ export function linePieces(
     const bars: LineBarPiece[] = [];
     for (const bar of line.bars) {
       const s = Math.max(a, bar.from), e = Math.min(b, bar.to);
-      if (e - s < EPS) continue;
+      if (!(e - s >= EPS)) continue;
       // An end on a node inside a lap of this bar is part of the lap, made where it was drawn: not
       // an anchorage in the support (the bar it laps with carries the force through the node).
       const inLap = (x: number) => laps.some((l) => (l.a === bar.id || l.b === bar.id) && l.from <= x + EPS && l.to >= x - EPS && l.to - l.from > EPS);
@@ -83,6 +86,10 @@ export function linePieces(
       const piece: LineBarPiece = {
         lineBarId: bar.id, face: bar.face, row: bar.row, count: bar.count, diameterMm: bar.diameter,
         from: s - a, to: e - a, start: startKind, end: endKind,
+        drawnEnds: {
+          start: { t: (bar.from - a) / L, straightT: (Math.max(0, bar.from) - a) / L, hook: bar.hookStart === true },
+          end: { t: (bar.to - a) / L, straightT: (Math.min(lineEnd, bar.to) - a) / L, hook: bar.hookEnd === true },
+        },
         ...(startKind !== 'continue' && bar.hookStart ? { hookStart: true } : {}),
         ...(endKind !== 'continue' && bar.hookEnd ? { hookEnd: true } : {}),
         lapsWith,
@@ -90,14 +97,7 @@ export function linePieces(
       };
       bars.push(fwd ? piece : mirrorPiece(piece, L));
     }
-    const stirrups: LineStirrupPiece[] = [];
-    for (const z of line.stirrups) {
-      const s = Math.max(a, z.from), e = Math.min(b, z.to);
-      if (e - s < EPS) continue;
-      const p = { from: s - a, to: e - a, diameter: z.diameter, legs: z.legs, spacing: z.spacing };
-      stirrups.push(fwd ? p : { ...p, from: L - p.to, to: L - p.from });
-    }
-    out.set(id, { bars, stirrups: stirrups.sort((p, q) => p.from - q.from) });
+    out.set(id, { bars, stirrups: memberStirrupZones(line.stirrups, a, L, fwd) });
   });
   return out;
 }
@@ -109,13 +109,13 @@ export function linePieces(
  * The second bar of a lap stands in contact beside the first (§25.5.1.2) and takes no position of
  * its own; a third bar lapping that one goes back to the first's positions.
  */
-function linePlaces(line: BeamLineReinforcement, laps: readonly LineLap[]): Map<string, { seats: number; slots: number[]; besideMm?: number }> {
-  const out = new Map<string, { seats: number; slots: number[]; besideMm?: number }>();
+function linePlaces(line: BeamLineReinforcement, laps: readonly LineLap[]): Map<string, DrawnBarPlacement> {
+  const out = new Map<string, DrawnBarPlacement>();
   const overlaps = (p: BeamLineBar, q: BeamLineBar) => p.to > q.from + EPS && p.from < q.to - EPS;
   const lapped = (p: BeamLineBar, q: BeamLineBar) => laps.some((l) => (l.a === p.id && l.b === q.id) || (l.a === q.id && l.b === p.id));
   const keys = [...new Set(line.bars.map((b) => `${b.face}|${b.row}`))];
   for (const key of keys) {
-    const row = line.bars.filter((b) => `${b.face}|${b.row}` === key)
+    const row = line.bars.filter((b) => `${b.face}|${b.row}` === key && Number.isSafeInteger(b.count) && b.count > 0)
       .sort((p, q) => (q.to - q.from) - (p.to - p.from) || p.from - q.from || p.id.localeCompare(q.id));
     const seated: Array<{ bar: BeamLineBar; slots: number[]; beside: boolean }> = [];
     for (const b of row) {
@@ -138,10 +138,55 @@ function linePlaces(line: BeamLineReinforcement, laps: readonly LineLap[]): Map<
   return out;
 }
 
+export function drawnBeamEvidence(
+  members: ReadonlyMap<number, { bars: readonly LineBarPiece[]; stirrups: readonly LineStirrupPiece[] }>,
+  id: number, line: BeamLineReinforcement, forward: boolean, memberLength?: number,
+): NonNullable<ProvidedReinforcement[typeof drawnBeamReinforcement]> {
+  const index = line.members.indexOf(id);
+  const length = memberLength ?? line.lengths[index]!;
+  const pieces = members.get(id);
+  const uniformDiameter = (memberIndex: number) => {
+    const stirrups = members.get(line.members[memberIndex]!)?.stirrups;
+    const diameter = stirrups?.[0]?.diameter;
+    return diameter !== undefined && Number.isFinite(diameter) && diameter > 0 && stirrups?.every(s => s.diameter === diameter)
+      ? diameter : undefined;
+  };
+  let before = 0, after = 0;
+  const diameter = uniformDiameter(index);
+  if (diameter !== undefined) {
+    for (let i = index - 1; i >= 0 && uniformDiameter(i) === diameter; i--) before += line.lengths[i]!;
+    for (let i = index + 1; i < line.members.length && uniformDiameter(i) === diameter; i++) after += line.lengths[i]!;
+  }
+  const firstSeat = -(forward ? before : after) / length;
+  const lastSeat = 1 + (forward ? after : before) / length;
+  return {
+    memberLength: length,
+    lineMembers: line.members,
+    stirrups: (pieces?.stirrups ?? []).filter(({ diameter, legs, spacing }) => Number.isFinite(diameter) && diameter > 0
+      && Number.isSafeInteger(legs) && legs > 0 && Number.isFinite(spacing) && spacing > 0)
+      .map(zone => ({ ...zone, from: zone.from / length, to: zone.to / length })),
+    bars: (pieces?.bars ?? []).flatMap(({ face, row, diameterMm, from, to, drawnEnds, place }) => !place ? [] : [{
+      face, row, diameter: diameterMm, from: from / length, to: to / length, place,
+      ends: {
+        start: { ...drawnEnds.start, straightT: Math.max(firstSeat, drawnEnds.start.straightT) },
+        end: { ...drawnEnds.end, straightT: Math.min(lastSeat, drawnEnds.end.straightT) },
+      },
+    }]),
+  };
+}
+
+export function reverseDrawnBarEnds({ start, end }: DrawnBarEnds): DrawnBarEnds {
+  return {
+    start: { ...end, t: 1 - end.t, straightT: 1 - end.straightT },
+    end: { ...start, t: 1 - start.t, straightT: 1 - start.straightT },
+  };
+}
+
 function mirrorPiece(p: LineBarPiece, L: number): LineBarPiece {
   const { hookStart, hookEnd, ...rest } = p;
   return {
     ...rest, from: L - p.to, to: L - p.from, start: p.end, end: p.start,
+    drawnEnds: reverseDrawnBarEnds(p.drawnEnds),
     ...(hookEnd ? { hookStart: true } : {}), ...(hookStart ? { hookEnd: true } : {}),
   };
 }

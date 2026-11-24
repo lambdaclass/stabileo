@@ -17,6 +17,7 @@
     "de": "CIRSOC 201 prüft die sekundäre Bügelseite",
     "fr": "Le CIRSOC 201 vérifie la face secondaire des étriers",
     "hu": "A CIRSOC 201 a kengyel másodlagos oldalát ellenőrzi",
+    "zh": "CIRSOC 201 采用次要方向的箍筋面",
     "tr": "CIRSOC 201 etriyenin ikincil yüzünü denetler"
   },
   "explanation": {
@@ -26,6 +27,7 @@
     "de": "Querkraft und kombinierte Querkraft und Torsion verwenden jetzt Breite, statische Höhe und Bügelschenkel der sekundären Seite. Der Nachweis verwendet die schwächste vorhandene Bügelbewehrung über das gesamte Bauteil. Nicht vernachlässigbare Torsion erfordert geschlossene rechteckige Bügel. Der Nachweis prüft die Abstände der sekundären Schenkel und berücksichtigt beim Ansatz der Querkraftbewehrung unter Torsion die gleichzeitig wirkende Normalkraft und die gewählte Normausgabe. Bisher bestandene Nachweise können scheitern. Berechnen Sie die betroffenen Betonbauteile neu und prüfen Sie die vorhandene Bewehrung (#2171).",
     "fr": "Le cisaillement secondaire et son interaction avec la torsion utilisent la largeur, la hauteur utile et les brins de la face secondaire. La vérification utilise l'armature transversale la plus faible de l'élément et exige des étriers rectangulaires fermés pour une torsion non négligeable. La vérification contrôle l’espacement des brins secondaires et tient compte de l’effort axial concomitant et de l’édition choisie pour réserver l’armature de cisaillement sous torsion. Des vérifications précédemment satisfaites peuvent échouer. Recalculez les éléments en béton concernés et examinez le ferraillage fourni (#2171).",
     "hu": "A másodlagos nyírás, valamint a nyírás és csavarás együttes ellenőrzése a másodlagos oldal szélességét, hasznos magasságát és kengyelszárait használja. Az ellenőrzés a tag leggyengébb keresztirányú vasalását veszi alapul. Ha a csavarás nem hanyagolható el, zárt téglalap alakú kengyel szükséges. Az ellenőrzés a másodlagos kengyelszárak távolságát is vizsgálja, és a csavarással egyidejű nyíráshoz szükséges vasalásnál az egyidejű normálerőt és a kiválasztott szabványkiadást veszi figyelembe. A korábban elfogadott ellenőrzések sikertelenek lehetnek. Számítsa újra az érintett vasbeton elemeket, és ellenőrizze a megadott vasalást (#2171).",
+    "zh": "次要方向的剪力以及剪扭联合作用采用次要面的宽度、截面有效高度和箍筋肢数。验算采用整根杆件上所配最弱的钢筋笼，存在扭转作用时要求封闭的矩形钢筋笼。验算会强制执行次要方向的箍筋间距，并在为扭转作用下的抗剪预留钢筋时采用同时作用的轴力和所选版本。此前通过的验算可能不再满足。请重新运行受影响的混凝土杆件设计，并复核实配钢筋（#2171）。",
     "tr": "İkincil kesme ve kesme ile burulmanın birlikte denetimi, ikincil yüzün genişliğini, faydalı derinliğini ve etriye kollarını kullanır. Denetimde eleman boyunca en zayıf enine donatı esas alınır. İhmal edilemeyen burulma için kapalı dikdörtgen etriye gerekir. Denetim ikincil etriye kollarının aralığını kontrol eder ve burulma altında kesme donatısını ayırırken eşzamanlı eksenel kuvveti ve seçilen yönetmelik baskısını kullanır. Daha önce kabul edilen denetimler başarısız olabilir. Etkilenen betonarme elemanları yeniden hesaplayın ve mevcut donatıyı inceleyin (#2171)."
   },
   "changelog": {

@@ -1,10 +1,6 @@
 /**
  * The bounded, deterministic candidate search.
  *
- * Every candidate is verified by the ADAPTER'S OWN authoritative verifier — the
- * same function the UI renders — so a "designed" member cannot have been certified
- * by a different standard than the one the engineer sees.
- *
  * Feasibility vs. exhaustion is decided by the evidence:
  *   - a bound of the code no reinforcement lifts is exceeded  → SECTION_INADEQUATE, with the proof
  *     (`section-bounds.ts`: which bound, its clause, its numbers)
@@ -22,7 +18,7 @@ import { beamCornerRecord, columnCageDia, type BeamCornerRecord } from './end-su
 import { columnBarsOf } from '../detailing/joint-threading';
 import type { DesignCodeAdapter } from './code-adapter';
 import type { MemberContext } from './member-context';
-import type { Candidate, CandidateFeedback } from './candidate-generator';
+import type { CandidateFeedback } from './candidate-generator';
 import { compareCandidates, compareFailures, computeCandidateCost, STANDARD_LONG_DIAS } from './objective';
 import type { ProvidedReinforcement } from '../../store/model.svelte';
 import type { ProvidedRebarResult } from '../station-design-forces';
@@ -65,18 +61,10 @@ export function budgetFor(ctx: MemberContext): SearchBudget {
 export type Clock = () => number;
 const defaultClock: Clock = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
 
-function attemptFrom(adapter: DesignCodeAdapter, ctx: MemberContext, c: Candidate): DesignAttempt {
-  const verdict = adapter.verify(ctx, c.reinforcement);
-  const failing = verdict.checks.filter(k => k.status === 'fail').length;
-  const limiting = adapter.classifyFailure(verdict, ctx);
-  return {
-    candidate: c.reinforcement,
-    verdict,
-    worstUtilization: verdict.worstUtilization,
-    failingCheckCount: failing,
-    governing: limiting[0] ?? null,
-    cost: c.meta.cost,
-  };
+function candidateRanker(adapter: DesignCodeAdapter, ctx: MemberContext): (rebar: ProvidedReinforcement) => ProvidedRebarResult {
+  const rank = adapter.rankCandidate?.bind(adapter);
+  if (rank) return (rebar) => rank(ctx, rebar).ranking;
+  return adapter.prepareCandidateRanker?.(ctx) ?? ((rebar) => adapter.verify(ctx, rebar));
 }
 
 /** True when a verdict is a genuine pass under the approved convention. */
@@ -84,6 +72,73 @@ export function isPassingVerdict(a: DesignAttempt): boolean {
   if (a.verdict.strengthCheckCount === 0) return false;   // nothing checked ≠ pass
   if (a.verdict.checks.some(c => c.status === 'fail')) return false;
   return a.worstUtilization <= UTIL_FAIL_THRESHOLD + UTIL_EPSILON;
+}
+
+type SelectedArrangement = Pick<MemberDesignOutcome, 'elementId' | 'elementType' | 'codeId' | 'codeVersion' | 'axes' | 'searchStats'> & {
+  outcome: 'SELECTED';
+  candidate: ProvidedReinforcement;
+  cost: DesignAttempt['cost'];
+};
+
+type MemberSelection = MemberDesignOutcome | SelectedArrangement;
+
+function selectedReinforcement(selection: MemberSelection): ProvidedReinforcement | undefined {
+  return selection.outcome === 'SELECTED' ? selection.candidate : detailableReinforcement(selection)?.rebar;
+}
+
+type MemberSearchOptions = { budget?: SearchBudget; clock?: Clock };
+
+export function designMember(adapter: DesignCodeAdapter, ctx: MemberContext, opts: MemberSearchOptions = {}): MemberDesignOutcome {
+  const selection = selectMember(adapter, ctx, opts);
+  return selection.outcome === 'SELECTED' ? certifySelection(adapter, selection, ctx) : selection;
+}
+
+function designAttempt(adapter: DesignCodeAdapter, ctx: MemberContext, candidate: ProvidedReinforcement,
+  cost: DesignAttempt['cost'], verdict: ProvidedRebarResult,
+): DesignAttempt {
+  return {
+    candidate, cost, verdict, worstUtilization: verdict.worstUtilization,
+    failingCheckCount: verdict.checks.filter((check) => check.status === 'fail').length,
+    governing: adapter.classifyFailure(verdict, ctx)[0] ?? null,
+  };
+}
+
+function failureReasons(elementId: number, attempt: DesignAttempt): DesignReason[] {
+  const diagnostics = new Set(attempt.verdict.checks
+    .filter((check) => check.status === 'fail' && check.description.startsWith('diag.'))
+    .map((check) => check.description));
+  return [{
+    key: 'design.reason.bestCandidateFails',
+    params: {
+      elementId,
+      utilization: Number.isFinite(attempt.worstUtilization) ? +attempt.worstUtilization.toFixed(2) : '∞',
+      failing: attempt.failingCheckCount,
+      governing: attempt.governing ?? '—',
+    },
+  }, ...[...diagnostics].map((key) => ({ key }))];
+}
+
+function certifySelection(adapter: DesignCodeAdapter, selection: SelectedArrangement, ctx: MemberContext): MemberDesignOutcome {
+  const { candidate, cost, ...base } = selection;
+  const verification = adapter.verify(ctx, candidate);
+  const checked = designAttempt(adapter, ctx, candidate, cost, verification);
+  if (isPassingVerdict(checked)) {
+    const outcome: MemberDesignOutcome = {
+      ...base, outcome: 'VERIFIED', accepted: checked.candidate,
+      certificate: certificateFor(adapter, ctx, checked.candidate, checked.verdict), limiting: [], reasons: [],
+    };
+    assertOutcomeInvariants(outcome);
+    return outcome;
+  }
+
+  const limiting = adapter.classifyFailure(verification, ctx);
+  const outcome: MemberDesignOutcome = {
+    ...base, outcome: 'UNSUPPORTED', provisional: checked,
+    limiting: limiting.length ? limiting : ['unsupportedCheck'],
+    reasons: failureReasons(ctx.elementId, checked),
+  };
+  assertOutcomeInvariants(outcome);
+  return outcome;
 }
 
 /**
@@ -95,11 +150,11 @@ export function isPassingVerdict(a: DesignAttempt): boolean {
  * first pass is not automatically accepted, because the design target is 0.95 and a
  * slightly heavier candidate may reach it at no extra reinforcement step (O5).
  */
-export function designMember(
+function selectMember(
   adapter: DesignCodeAdapter,
   ctx: MemberContext,
-  opts: { budget?: SearchBudget; clock?: Clock } = {},
-): MemberDesignOutcome {
+  opts: MemberSearchOptions,
+): MemberSelection {
   const clock = opts.clock ?? defaultClock;
   const t0 = clock();
   const budget = opts.budget ?? budgetFor(ctx);
@@ -237,12 +292,13 @@ export function designMember(
   let truncated = false;
   let feedback: CandidateFeedback | null = null;
 
+  const rank = candidateRanker(adapter, ctx);
   for (;;) {
     if (tried >= budget.maxCandidates || verifierCalls >= budget.maxVerifierCalls) { truncated = true; break; }
     const cand = gen.next(feedback);
     if (!cand) break;
     tried++;
-    const attempt = attemptFrom(adapter, ctx, cand);
+    const attempt = designAttempt(adapter, ctx, cand.reinforcement, cand.meta.cost, rank(cand.reinforcement));
     verifierCalls++;
     if (isPassingVerdict(attempt)) {
       passing.push({ attempt, index: cand.meta.index, cost: attempt.cost });
@@ -267,19 +323,16 @@ export function designMember(
   // ── 5. Best passing candidate wins ──
   if (passing.length > 0) {
     passing.sort((a, b) => compareCandidates(a, b));
-    let win = passing[0].attempt;
+    const win = passing[0].attempt;
     // A bottom group that anchors into its support only with a hook gets the hook (§25.4.3).
     const done = completeAnchorage(adapter, ctx, win.candidate, win.verdict,
-      (v) => isPassingVerdict({ ...win, verdict: v, worstUtilization: v.worstUtilization }));
+      (v) => isPassingVerdict({ ...win, verdict: v, worstUtilization: v.worstUtilization }),
+      (_context, rebar) => rank(rebar));
     if (done.verified) verifierCalls++;
-    if (done.reinf !== win.candidate) win = { ...win, candidate: done.reinf, verdict: done.verdict, worstUtilization: done.verdict.worstUtilization };
-    const certificate = certificateFor(adapter, ctx, win.candidate, win.verdict);
-    return finish({
-      ...base, outcome: 'VERIFIED',
-      accepted: win.candidate, certificate,
-      limiting: [], reasons: [],
+    return {
+      ...base, outcome: 'SELECTED', candidate: done.reinf, cost: win.cost,
       searchStats: stats(tried, verifierCalls, truncated, envelopeExhausted),
-    });
+    };
   }
 
   // ── 6. Nothing passed — classify honestly ──
@@ -289,19 +342,12 @@ export function designMember(
   if (truncated && !limiting.includes('searchBudget')) limiting.push('searchBudget');
   if (limiting.length === 0) limiting.push('searchBudget');
 
-  const reasons: DesignReason[] = [];
-  if (bestFailure) {
-    reasons.push({
-      key: 'design.reason.bestCandidateFails',
-      params: {
-        elementId: ctx.elementId,
-        utilization: Number.isFinite(bestFailure.attempt.worstUtilization)
-          ? +bestFailure.attempt.worstUtilization.toFixed(2) : '∞',
-        failing: bestFailure.attempt.failingCheckCount,
-        governing: bestFailure.attempt.governing ?? '—',
-      },
-    });
+  let provisional = bestFailure?.attempt;
+  if (provisional && (adapter.prepareCandidateRanker || adapter.rankCandidate)) {
+    const { candidate, cost } = provisional;
+    provisional = designAttempt(adapter, ctx, candidate, cost, adapter.verify(ctx, candidate));
   }
+  const reasons = provisional ? failureReasons(ctx.elementId, provisional) : [];
   if (truncated) reasons.push({ key: 'design.reason.searchTruncated', params: { tried, elementId: ctx.elementId } });
   if (reasons.length === 0) reasons.push({ key: 'design.reason.noCandidate', params: { elementId: ctx.elementId } });
 
@@ -322,7 +368,7 @@ export function designMember(
     const sectionAdvice = advice ?? adapter.recommendSection(ctx, [bound]);
     return finish({
       ...base, outcome: 'SECTION_INADEQUATE',
-      provisional: bestFailure?.attempt,
+      provisional,
       limiting: limiting.includes(bound) ? limiting : [bound, ...limiting.filter((l) => l !== 'searchBudget')],
       reasons: [insufficiencyReason(ctx.elementId, proof), ...reasons.filter((r) => r.key !== 'design.reason.searchTruncated')],
       insufficiency: proof,
@@ -334,7 +380,7 @@ export function designMember(
   const exhaustion = exhaustionOf(adapter, ctx, limiting, tried, truncated);
   return finish({
     ...base, outcome: 'SEARCH_EXHAUSTED',
-    provisional: bestFailure?.attempt,
+    provisional,
     limiting,
     reasons: [...reasons, ...exhaustionReasons(ctx.elementId, exhaustion)],
     exhaustion,
@@ -549,7 +595,8 @@ export function* runDesignSteps(
   // beams are designed against the cages just designed, not against a default.
   const rank = (c: MemberContext) => (c.elementType === 'column' ? 0 : 1);
   const list = [...contexts].sort((a, b) => rank(a) - rank(b) || a.elementId - b.elementId);
-  const outcomes: MemberDesignOutcome[] = [];
+  const selections: MemberSelection[] = [];
+  let verifiedSoFar = 0;
   let aborted = false;
   const cages = new Map<number, number>();
   const colBars = new Map<number, { count: number; diameterMm: number }>();
@@ -561,34 +608,26 @@ export function* runDesignSteps(
     if (clock() - t0 > maxRunMs) { aborted = true; break; }
     const ctx = list[i];
     const withCages = ctx.elementType === 'beam' && (cages.size > 0 || corners.size > 0 || absent.size > 0)
-      ? {
-        ...ctx,
-        columnCages: new Map([...(ctx.columnCages ?? []), ...cages]),
-        columnBars: new Map([...(ctx.columnBars ?? []), ...colBars]),
-        beamCorners: new Map([...(ctx.beamCorners ?? []), ...corners]),
-        absentBeams: new Set([...(ctx.absentBeams ?? []), ...absent]),
-      } : ctx;
-    const o = designMember(adapter, withCages, { budget: opts.budget, clock });
-    outcomes.push(o);
+      ? withDesignSeats(ctx, cages, colBars, corners, absent) : ctx;
+    const selection = selectMember(adapter, withCages, { budget: opts.budget, clock });
+    selections.push(selection);
+    const rebar = selectedReinforcement(selection);
     if (ctx.elementType === 'column') {
-      const dia = columnCageDia(detailableReinforcement(o)?.rebar);
+      const dia = columnCageDia(rebar);
       if (dia > 0) cages.set(ctx.elementId, dia);
-      const bars = columnBarsOf(detailableReinforcement(o)?.rebar);
+      const bars = columnBarsOf(rebar);
       if (bars) colBars.set(ctx.elementId, bars);
     } else if (ctx.elementType === 'beam') {
-      const rec = beamCornerRecord(detailableReinforcement(o)?.rebar, ctx.material.stirrupDia);
-      // Every piece of a span holds the span's steel; a refused span holds none.
-      for (const id of ctx.span?.elements ?? [ctx.elementId]) {
-        if (rec) corners.set(id, rec);
-        if (!detailableReinforcement(o)) absent.add(id);
-      }
+      recordBeamSeats(ctx, rebar, corners, absent);
     }
-    if (opts.onProgress && ((i + 1) % every === 0 || i === list.length - 1)) {
-      opts.onProgress({
-        done: i + 1, total: list.length,
-        verified: outcomes.reduce((n, o) => n + (o.outcome === 'VERIFIED' ? 1 : 0), 0),
-        elementId: ctx.elementId,
-      });
+    if (opts.onProgress) {
+      if (selection.outcome === 'SELECTED') {
+        const verdict = adapter.verify(withCages, selection.candidate);
+        if (isPassingVerdict(designAttempt(adapter, withCages, selection.candidate, selection.cost, verdict))) verifiedSoFar++;
+      }
+      if ((i + 1) % every === 0 || i === list.length - 1) {
+        opts.onProgress({ done: i + 1, total: list.length, verified: verifiedSoFar, elementId: ctx.elementId });
+      }
     }
     yield;
   }
@@ -603,15 +642,62 @@ export function* runDesignSteps(
    * what it leaves out is counted in `notReached`; a cancellation still stops the settle, and the
    * run says it was aborted.
    */
-  if (!(yield* settleCrossingSeats(adapter, list, outcomes, cages, colBars, corners, absent, {
+  if (!(yield* settleCrossingSeats(adapter, list, selections, cages, colBars, corners, absent, {
     budget: opts.budget, clock, cancelled: () => !!opts.signal?.aborted,
   }))) aborted = true;
+
+  const outcomes: MemberDesignOutcome[] = [];
+  let refusedBeam: boolean;
+  do {
+    refusedBeam = false;
+    for (const [i, selection] of selections.entries()) {
+      if (selection.outcome !== 'SELECTED') {
+        outcomes[i] = selection;
+        continue;
+      }
+      const isBeam = selection.elementType === 'beam';
+      const prior = outcomes[i];
+      if (prior && (!isBeam || prior.outcome !== 'VERIFIED')) continue;
+      yield;
+      const context = isBeam ? withDesignSeats(list[i]!, cages, colBars, corners, absent) : list[i]!;
+      const outcome = certifySelection(adapter, selection, context);
+      outcomes[i] = outcome;
+      if (isBeam && outcome.outcome !== 'VERIFIED') {
+        recordBeamSeats(context, undefined, corners, absent);
+        refusedBeam = true;
+      }
+    }
+  } while (refusedBeam);
+  if (opts.signal?.aborted) aborted = true;
 
   const prov = adapter.provenance();
   return tallyRunSummary(
     prov.codeId, prov.codeVersion, outcomes,
     +(clock() - t0).toFixed(3), aborted, list.length - outcomes.length,
   );
+}
+
+function recordBeamSeats(ctx: MemberContext, rebar: ProvidedReinforcement | undefined,
+  corners: Map<number, BeamCornerRecord>, absent: Set<number>,
+): void {
+  const record = beamCornerRecord(rebar, ctx.material.stirrupDia);
+  for (const id of ctx.span?.elements ?? [ctx.elementId]) {
+    if (record) corners.set(id, record); else corners.delete(id);
+    if (rebar) absent.delete(id); else absent.add(id);
+  }
+}
+
+function withDesignSeats(ctx: MemberContext,
+  cages: ReadonlyMap<number, number>, colBars: ReadonlyMap<number, { count: number; diameterMm: number }>,
+  corners: ReadonlyMap<number, BeamCornerRecord>, absent: ReadonlySet<number>,
+  guess?: { seats: ReadonlyMap<number, BeamCornerRecord>; present: ReadonlySet<number> },
+): MemberContext {
+  return {
+    ...ctx, columnCages: new Map([...(ctx.columnCages ?? []), ...cages]),
+    columnBars: new Map([...(ctx.columnBars ?? []), ...colBars]),
+    beamCorners: new Map([...(ctx.beamCorners ?? []), ...(guess?.seats ?? []), ...corners]),
+    absentBeams: new Set([...(ctx.absentBeams ?? []), ...absent].filter((id) => !guess?.present.has(id))),
+  };
 }
 
 /**
@@ -636,27 +722,17 @@ export function* runDesignSteps(
  * the detailing lays: never a guess.
  */
 function* settleCrossingSeats(
-  adapter: DesignCodeAdapter, list: MemberContext[], outcomes: MemberDesignOutcome[],
+  adapter: DesignCodeAdapter, list: MemberContext[], outcomes: MemberSelection[],
   cages: Map<number, number>, colBars: Map<number, { count: number; diameterMm: number }>,
   corners: Map<number, BeamCornerRecord>, absent: Set<number>,
   o: { budget?: SearchBudget; clock: Clock; cancelled: () => boolean },
 ): Generator<void, boolean, void> {
-  const refusedOnAnchorage = (x: MemberDesignOutcome) => x.elementType === 'beam' && x.outcome !== 'VERIFIED' && x.limiting.includes('anchorage');
+  const refusedOnAnchorage = (x: MemberSelection) => x.elementType === 'beam' && x.outcome !== 'SELECTED'
+    && x.limiting.some((limit) => limit === 'anchorage');
   const pieces = (c: MemberContext) => c.span?.elements ?? [c.elementId];
-  const record = (i: number) => {
-    const rebar = detailableReinforcement(outcomes[i])?.rebar;
-    const rec = beamCornerRecord(rebar, list[i]!.material.stirrupDia);
-    for (const id of pieces(list[i]!)) {
-      if (rec) corners.set(id, rec); else corners.delete(id);
-      if (rebar) absent.delete(id); else absent.add(id);
-    }
-  };
-  const withSeats = (c: MemberContext, guess?: { seats: ReadonlyMap<number, BeamCornerRecord>; present: ReadonlySet<number> }): MemberContext => ({
-    ...c, columnCages: new Map([...(c.columnCages ?? []), ...cages]),
-    columnBars: new Map([...(c.columnBars ?? []), ...colBars]),
-    beamCorners: new Map([...(c.beamCorners ?? []), ...(guess?.seats ?? []), ...corners]),
-    absentBeams: new Set([...(c.absentBeams ?? []), ...absent].filter((id) => !guess?.present.has(id))),
-  });
+  const record = (i: number) => recordBeamSeats(list[i]!, selectedReinforcement(outcomes[i]!), corners, absent);
+  const withSeats = (ctx: MemberContext, guess?: Parameters<typeof withDesignSeats>[5]) =>
+    withDesignSeats(ctx, cages, colBars, corners, absent, guess);
   // 1. The guess: the beams refused on their anchorage, present at their lightest seat.
   const refused = outcomes.map((x, i) => (refusedOnAnchorage(x) ? i : -1)).filter((i) => i >= 0);
   const lightest = new Map<number, BeamCornerRecord>();
@@ -668,11 +744,11 @@ function* settleCrossingSeats(
   for (const i of refused) {
     yield;
     if (o.cancelled()) return false;
-    const again = designMember(adapter, withSeats(list[i]!, { seats: lightest, present: new Set(lightest.keys()) }), { budget: o.budget, clock: o.clock });
-    if (again.outcome !== 'VERIFIED') {
+    const again = selectMember(adapter, withSeats(list[i]!, { seats: lightest, present: new Set(lightest.keys()) }), { budget: o.budget, clock: o.clock });
+    if (again.outcome !== 'SELECTED') {
       // Tried again with the crossing beams at their lightest seat, and refused again: said so.
       const x = outcomes[i]!;
-      if (x.exhaustion && !x.exhaustion.tried.crossingSeatsRetried) {
+      if (x.outcome !== 'SELECTED' && x.exhaustion && !x.exhaustion.tried.crossingSeatsRetried) {
         const exhaustion = { ...x.exhaustion, tried: { ...x.exhaustion.tried, crossingSeatsRetried: true } };
         outcomes[i] = { ...x, exhaustion, reasons: [...x.reasons, { key: 'design.reason.crossingSeatsRetried', params: { elementId: x.elementId } }] };
       }
@@ -691,11 +767,11 @@ function* settleCrossingSeats(
     for (let i = 0; i < outcomes.length; i++) {
       yield;
       const x = outcomes[i]!;
-      if (x.elementType !== 'beam' || x.outcome !== 'VERIFIED') continue;
-      const rebar = detailableReinforcement(x)?.rebar;
-      if (!rebar || adapter.verify(withSeats(list[i]!), rebar).overallStatus !== 'fail') continue;
+      if (x.elementType !== 'beam' || x.outcome !== 'SELECTED') continue;
+      const rebar = selectedReinforcement(x);
+      if (!rebar || candidateRanker(adapter, withSeats(list[i]!))(rebar).overallStatus !== 'fail') continue;
       if (o.cancelled()) return false;
-      const again = designMember(adapter, withSeats(list[i]!), { budget: o.budget, clock: o.clock });
+      const again = selectMember(adapter, withSeats(list[i]!), { budget: o.budget, clock: o.clock });
       outcomes[i] = again;
       record(i);
       /*
@@ -704,7 +780,7 @@ function* settleCrossingSeats(
        * again to the same bars, VERIFIED: counting that as a change re-ran the sweep up to once
        * per member (103 835 verifier calls on the 408-member frame, for two such beams).
        */
-      const before = detailableReinforcement(x)?.rebar, after = detailableReinforcement(again)?.rebar;
+      const before = selectedReinforcement(x), after = selectedReinforcement(again);
       if (again.outcome !== x.outcome || !before || !after || rebarHash(before) !== rebarHash(after)) changed = true;
     }
     if (!changed) return true;

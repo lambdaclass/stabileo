@@ -1,0 +1,32 @@
+{
+  "id": "solve-load-accounting-active-moments",
+  "date": "2026-11-21",
+  "prs": [2470],
+  "area": "analysis",
+  "when": { "any": ["inactiveSpatialMembers", "projectedSpatialLoads", "staticCaseEffects", "offsetMemberLoadFrame"] },
+  "quantities": ["solve.ok"],
+  "title": {
+    "en": "Active loads and per-component moment checks",
+    "es": "Cargas activas y verificación de momentos por componente",
+    "pt": "Cargas ativas e verificação de momentos por componente",
+    "de": "Aktive Lasten und komponentenweise Momentenprüfung",
+    "fr": "Charges actives et vérification des moments par composante",
+    "hu": "Aktív terhek és a nyomatékok komponensenkénti ellenőrzése",
+    "tr": "Etkin yükler ve bileşen bazında moment denetimi",
+    "zh": "有效荷载与逐分量力矩校核"
+  },
+  "explanation": {
+    "en": "The load check excludes loads on inactive members and their isolated nodes. Analysis stops when a moment mismatch exceeds the roundoff allowance for that component.",
+    "es": "La verificación excluye las cargas de barras inactivas y de sus nodos aislados. El análisis se detiene si la diferencia de momento supera el margen de redondeo de esa componente.",
+    "pt": "A verificação exclui as cargas em barras inativas e nos seus nós isolados. A análise para quando a diferença de momento excede a margem de arredondamento da componente.",
+    "de": "Die Lastprüfung lässt Lasten auf inaktiven Stäben und deren isolierten Knoten aus. Die Berechnung stoppt, wenn eine Momentenabweichung die Rundungstoleranz der jeweiligen Komponente überschreitet.",
+    "fr": "La vérification exclut les charges sur les barres inactives et leurs nœuds isolés. L’analyse s’arrête si un écart de moment dépasse la marge d’arrondi de la composante.",
+    "hu": "Az ellenőrzés kihagyja az inaktív rudak és az elszigetelt csomópontjaik terheit. A számítás leáll, ha a nyomaték eltérése meghaladja a komponens kerekítési határát.",
+    "tr": "Yük denetimi, etkin olmayan elemanlardaki ve bunların yalıtılmış düğümlerindeki yükleri dışarıda bırakır. Moment farkı ilgili bileşenin yuvarlama sınırını aşarsa analiz durur.",
+    "zh": "荷载校核排除非活动杆件及其孤立节点上的荷载。力矩差异超过该分量的舍入误差限值时，分析将停止。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-solve-load-accounting-active-moments.md",
+    "heading": "Active loads and per-component moment checks"
+  }
+}

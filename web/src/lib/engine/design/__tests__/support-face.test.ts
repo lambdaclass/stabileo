@@ -14,8 +14,8 @@ import { designRunStore } from '../../../store/design-run.svelte';
 import { verificationStore } from '../../../store/verification.svelte';
 import * as wasmSolver from '../../wasm-solver';
 import * as anchorage from '../end-support-anchorage';
-import * as supportEnds from '../../detailing/support-anchorage';
 import * as candidates from '../../detailing/candidates';
+import { prepareJointThreading } from '../joint-threading-check';
 import { cirsoc201Adapter } from '../adapters/cirsoc201-adapter';
 
 beforeAll(async () => {
@@ -52,32 +52,37 @@ function cantilever(roll: number) {
 }
 
 describe('support moments at the column face', () => {
-  it('reuses one support plan for reach and anchorage checks within a verification', () => {
+  it('reuses one support plan for reach, anchorage and hook tails within a verification', () => {
     const b = cantilever(0);
     const column = [...modelStore.elements.keys()].find(id => id !== b)!;
     const ctx = { ...verificationStore.contextFor(b)!, columnBars: new Map([[column, { count: 4, diameterMm: 16 }]]) };
     const rebar = modelStore.elements.get(b)!.reinforcement!;
     const input = anchorage.supportInputOf(ctx, rebar)!;
-    const ends = vi.spyOn(supportEnds, 'planSupportEnd');
     const expected = anchorage.endSupportPlan(input);
-    anchorage.bottomReach(input, expected);
-    const endsPlannedOnce = ends.mock.calls.length;
-    expect(endsPlannedOnce).toBeGreaterThan(0);
     expect(anchorage.bottomReach(input, expected)).toEqual(anchorage.bottomReach(input));
+    const threading = prepareJointThreading(ctx)(input, expected);
+    expect(threading.length).toBeGreaterThan(0);
     const spy = vi.spyOn(anchorage, 'endSupportPlan');
+    const tails = vi.spyOn(anchorage, 'hookTails');
     try {
-      ends.mockClear();
       const result = cirsoc201Adapter.verify(ctx, rebar);
       expect(spy).toHaveBeenCalledTimes(1);
-      expect(result.jointThreading?.length).toBeGreaterThan(0);
-      expect(ends).toHaveBeenCalledTimes(endsPlannedOnce);
       expect(result.supportAnchorage).toEqual(expected.verdicts);
+      expect(result.jointThreading).toEqual(threading);
+      expect(tails).toHaveBeenCalledTimes(1);
+      expect(tails.mock.calls[0]![0]).toBe(spy.mock.results[0]!.value.verdicts);
       const changed = structuredClone(rebar);
       changed.regions!.topStart = { count: 2, diameter: 12 };
       changed.regions!.topStartLayers = [{ count: 2, diameter: 12, row: 0 }];
-      cirsoc201Adapter.verify(ctx, changed);
+      const changedResult = cirsoc201Adapter.verify(ctx, changed);
       expect(spy).toHaveBeenCalledTimes(2);
-    } finally { spy.mockRestore(); ends.mockRestore(); }
+      expect(tails).toHaveBeenCalledTimes(2);
+      expect(tails.mock.calls[1]![0]).toBe(spy.mock.results[1]!.value.verdicts);
+      expect(tails.mock.calls[1]![0]).not.toBe(tails.mock.calls[0]![0]);
+      const changedInput = anchorage.supportInputOf(ctx, changed)!;
+      expect(changedResult.supportAnchorage).toEqual(anchorage.endSupportPlan(changedInput).verdicts);
+      expect(changedResult.jointThreading).toEqual(prepareJointThreading(ctx)(changedInput, anchorage.endSupportPlan(changedInput)));
+    } finally { spy.mockRestore(); tails.mockRestore(); }
   });
   it('lays out a row of slots against the same cages once, whatever else the candidate changes', () => {
     const b = cantilever(Math.PI / 2);
@@ -86,18 +91,23 @@ describe('support moments at the column face', () => {
     const rebar = modelStore.elements.get(b)!.reinforcement!;
     const layouts = vi.spyOn(candidates, 'generateLayoutCandidates');
     try {
-      const first = cirsoc201Adapter.verify(ctx, rebar);
-      expect(first.jointThreading?.length).toBeGreaterThan(0);
+      const prepared = prepareJointThreading(ctx);
+      const check = (bars: typeof rebar) => {
+        const input = anchorage.supportInputOf(ctx, bars)!;
+        return prepared(input, anchorage.endSupportPlan(input));
+      };
+      const first = check(rebar);
+      expect(first.length).toBeGreaterThan(0);
       expect(layouts).toHaveBeenCalledTimes(1);
       const closerStirrups = structuredClone(rebar);
       closerStirrups.regions!.stirrupsSpan = { diameter: 8, legs: 2, spacing: 0.12 };
-      expect(cirsoc201Adapter.verify(ctx, closerStirrups).jointThreading).toEqual(first.jointThreading);
-      expect(cirsoc201Adapter.verify(ctx, rebar).jointThreading).toEqual(first.jointThreading);
+      expect(check(closerStirrups)).toEqual(first);
+      expect(check(rebar)).toEqual(first);
       expect(layouts).toHaveBeenCalledTimes(1);
       const moreSlots = structuredClone(rebar);
       moreSlots.regions!.topStart = { count: 5, diameter: 16 };
       moreSlots.regions!.topStartLayers = [{ count: 5, diameter: 16, row: 0 }];
-      cirsoc201Adapter.verify(ctx, moreSlots);
+      check(moreSlots);
       expect(layouts).toHaveBeenCalledTimes(2);
       cirsoc201Adapter.verify({ ...ctx, columnBars: new Map([[column, { count: 8, diameterMm: 20 }]]) }, rebar);
       expect(layouts).toHaveBeenCalledTimes(3);

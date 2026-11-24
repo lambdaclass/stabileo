@@ -255,9 +255,7 @@ export type PlanRegularity = 'regular' | 'medium' | 'irregular';
 export interface ApplicabilityInputs {
   zone: SeismicZone;
   group: DestinationGroup;
-  /** Total height measured to the last mass, m. */
   heightM: number;
-  /** Number of levels or masses. */
   levels: number;
   regularity: PlanRegularity;
   /** The period without the [6.7] cap, s, and the spectrum's T2. */

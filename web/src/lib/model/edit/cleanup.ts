@@ -17,7 +17,7 @@
 
 import { weldTolerance } from '../weld-tolerance';
 import { modelStore } from '../../store/model.svelte';
-import type { Load } from '../../store/model.svelte';
+import type { Load, Node } from '../../store/model.svelte';
 import { WELD_TOL } from '../../engine/mesh-weld';
 import { generatedMetadata } from './generated-metadata';
 
@@ -42,17 +42,17 @@ const empty = (): CleanupReport => ({
 });
 
 /** Groups of coincident nodes, each sorted, lowest id first. Spatial hash on the tolerance. */
-export function coincidentNodeGroups(tol = weldTolerance()): number[][] {
+export function coincidentNodeGroups(tol = weldTolerance(), nodes: ReadonlyMap<number, Node> = modelStore.nodes): number[][] {
   const cells = new Map<string, number[]>();
   const key = (x: number, y: number, z: number) => `${Math.round(x / tol)},${Math.round(y / tol)},${Math.round(z / tol)}`;
   const parent = new Map<number, number>();
   const find = (a: number): number => { while (parent.get(a) !== a) a = parent.get(a)!; return a; };
-  for (const n of modelStore.nodes.values()) parent.set(n.id, n.id);
-  for (const n of modelStore.nodes.values()) {
+  for (const n of nodes.values()) parent.set(n.id, n.id);
+  for (const n of nodes.values()) {
     const [cx, cy, cz] = [Math.round(n.x / tol), Math.round(n.y / tol), Math.round((n.z ?? 0) / tol)];
     for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) for (let dz = -1; dz <= 1; dz++) {
       for (const m of cells.get(`${cx + dx},${cy + dy},${cz + dz}`) ?? []) {
-        const o = modelStore.nodes.get(m)!;
+        const o = nodes.get(m)!;
         if (Math.hypot(o.x - n.x, o.y - n.y, (o.z ?? 0) - (n.z ?? 0)) <= tol) {
           const a = find(n.id), b = find(m);
           if (a !== b) parent.set(Math.max(a, b), Math.min(a, b));

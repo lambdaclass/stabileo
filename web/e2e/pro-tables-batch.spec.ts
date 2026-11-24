@@ -1,3 +1,4 @@
+import { BUILD_FEATURES } from './build-features';
 import { test, expect, loadModel } from './fixtures';
 
 /*
@@ -32,6 +33,7 @@ test.describe('@smoke PRO tables follow the selection, and edit it in a group', 
     await loadModel(page, 'mat-foundation');
     await page.getByTestId('pr-stage-model').click();
     await page.getByTestId('pr-cmd-shells').click();
+    if (BUILD_FEATURES.proPlatesUnified) await page.getByTestId('plates-scope-element').click();
     await page.locator('tr[data-shell="q1"] td.id-cell').click();
     await expect.poll(() => page.evaluate(() => window.__stabileo.selection())).toBeTruthy();
     await page.locator('tr[data-shell="q2"] td.id-cell').click({ modifiers: ['Shift'] });

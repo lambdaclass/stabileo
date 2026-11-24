@@ -25,12 +25,18 @@
 
 import type { AnalysisResults } from '../../lib/engine/types';
 import {
+  TWO_D_REACTION_LABELS,
   get2DDisplayReactionVertical,
   get2DDisplayMoment,
 } from '../../lib/geometry/coordinate-system';
+import { twoD } from '../../lib/axes/display';
 
 /** The reaction components an exercise can ask about. */
 export type ReactionDof = 'Rx' | 'Ry' | 'M';
+
+export function reactionDofLabel(dof: string): string {
+  return dof === 'Rx' ? TWO_D_REACTION_LABELS.horizontal : dof === 'Ry' ? TWO_D_REACTION_LABELS.vertical : dof;
+}
 
 /**
  * Node ids of the model an exercise built, in `addNode()` call order.
@@ -76,14 +82,14 @@ export function readDisplayedReaction(
 
   switch (dof) {
     case 'Rx':
-      return Number.isFinite(reaction.rx) ? reaction.rx : null;
+      return Number.isFinite(reaction.rx) ? twoD.x(reaction.rx) : null;
     case 'Ry': {
       const vertical = get2DDisplayReactionVertical(reaction);
-      return Number.isFinite(vertical) ? vertical : null;
+      return Number.isFinite(vertical) ? twoD.z(vertical) : null;
     }
     case 'M': {
       const moment = get2DDisplayMoment(reaction);
-      return Number.isFinite(moment) ? -moment : null;
+      return Number.isFinite(moment) ? twoD.rot(-moment) : null;
     }
     default:
       return null;

@@ -53,6 +53,7 @@ export function designInputs(m: typeof modelStore.model): unknown {
     loadCases: a.loadCases,
     combinations: a.combinations,
     constraints: m.constraints,
+    ...((a.analysis as { standaloneSelfWeight?: unknown } | undefined)?.standaloneSelfWeight ? { standaloneSelfWeight: 'gravity' } : {}),
     selfWeight: (a.analysis as { selfWeight?: unknown } | undefined)?.selfWeight ?? null,
     physical: [...m.groups.values()]
       .filter((g) => g.kind === PHYSICAL_GROUP_KIND)

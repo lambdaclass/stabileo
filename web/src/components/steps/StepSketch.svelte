@@ -23,10 +23,13 @@
   const PAD = $derived(W < 420 ? 38 : 46);
 
   const nodeById = $derived(new Map(sketch.nodes.map((n) => [n.id, n])));
+  // A document in the user's coordinates with one of them reversed, drawn as the viewport draws the structure.
+  const mx = $derived(sketch.mirror?.[0] ?? 1);
+  const mz = $derived(sketch.mirror?.[1] ?? 1);
 
   // Fit: the structure's box, with room for dimensions under and left.
   const fit = $derived.by(() => {
-    const xs = sketch.nodes.map((n) => n.x), zs = sketch.nodes.map((n) => n.z);
+    const xs = sketch.nodes.map((n) => mx * n.x), zs = sketch.nodes.map((n) => mz * n.z);
     const x0 = Math.min(...xs), x1 = Math.max(...xs), z0 = Math.min(...zs), z1 = Math.max(...zs);
     const w = Math.max(x1 - x0, 1e-6), h = Math.max(z1 - z0, 0);
     const dimsRoom = sketch.dims ? 34 : 0;
@@ -41,8 +44,8 @@
     const oy = PAD + diaRoom + (flat ? innerH / 2 : (innerH - h * k) / 2) + h * k;
     return { x0, z0, k, ox, oy, H, flat };
   });
-  const sx = (x: number) => fit.ox + (x - fit.x0) * fit.k;
-  const sz = (z: number) => fit.oy - (z - fit.z0) * fit.k;
+  const sx = (x: number) => fit.ox + (mx * x - fit.x0) * fit.k;
+  const sz = (z: number) => fit.oy - (mz * z - fit.z0) * fit.k;
   const P = (x: number, z: number) => ({ x: sx(x), y: sz(z) });
 
   function memberGeom(i: number, j: number) {
@@ -53,7 +56,7 @@
   }
 
   // A screen-space unit vector for a model direction (z up → y down).
-  const sdir = (dx: number, dz: number) => { const l = Math.hypot(dx, dz) || 1; return { x: dx / l, y: -dz / l }; };
+  const sdir = (dx: number, dz: number) => { const l = Math.hypot(dx, dz) || 1; return { x: (mx * dx) / l, y: (-mz * dz) / l }; };
 
   function arrowPath(tip: { x: number; y: number }, d: { x: number; y: number }, len = 34) {
     const tail = { x: tip.x - d.x * len, y: tip.y - d.y * len };
@@ -67,7 +70,8 @@
     };
   }
 
-  function coupleArc(p: { x: number; y: number }, ccw: boolean, r = 15) {
+  function coupleArc(p: { x: number; y: number }, turn: boolean, r = 15) {
+    const ccw = mx * mz < 0 ? !turn : turn;
     // A three-quarter arc, the head at its end in the sense of the couple.
     const a0 = ccw ? Math.PI * 0.75 : Math.PI * 0.25, a1 = ccw ? Math.PI * 2.25 : -Math.PI * 1.25;
     const pt = (a: number) => ({ x: p.x + r * Math.cos(a), y: p.y - r * Math.sin(a) });
@@ -335,12 +339,13 @@
     {#if n}
       {@const p = P(n.x, n.z)}
       {#if d.kind === 'ry'}
-        {@const g = coupleArc(p, true, 11)}
+        {@const g = coupleArc(p, d.sign !== -1, 11)}
         <path d={g.arc} class="arrow-line {cls(d.color, 'dof')}" fill="none" />
         <path d={g.head} class="arrow-head {cls(d.color, 'dof')}" />
         <text x={p.x + 14} y={p.y + 16} class="dlabel {cls(d.color, 'dof')}">{@render words(d.label)}</text>
       {:else}
-        {@const dir = d.kind === 'ux' ? { x: 1, y: 0 } : { x: 0, y: -1 }}
+        {@const k = d.sign ?? 1}
+        {@const dir = d.kind === 'ux' ? sdir(k, 0) : sdir(0, k)}
         {@const tip = { x: p.x + dir.x * 30, y: p.y + dir.y * 30 }}
         {@const a = arrowPath(tip, dir, 26)}
         <path d={a.line} class="arrow-line {cls(d.color, 'dof')}" />

@@ -1,5 +1,5 @@
-import { dwellingFloorLoads, expectLoadGenerationRefusal } from './load-generator-inputs';
-import { test, expect, loadModel, alSection, designPlace } from './fixtures';
+import { dwellingFloorLoads, expectGeneratedSeismicStoryLoads, expectLoadGenerationRefusal, loadSeismicFloor, openSeismicLoadGenerator } from './load-generator-inputs';
+import { test, expect, loadModel, alSection } from './fixtures';
 
 async function openDialog(page: import('@playwright/test').Page) {
   await loadModel(page, 'rc-design-qa-8');
@@ -91,28 +91,36 @@ test.describe('@smoke torsion of edge beams under one-sided slab load (#1401)', 
   }
 });
 
-test.describe('@smoke the seismic action: modal method, vertical component, torsion', () => {
-  test('modal response spectrum from the dialog: modes, the derivation, the eccentric cases', async ({ pro: page }) => {
-    await loadModel(page, 'rc-design-qa-8');
-    // The roles live in the project regulations, beside the design data (Prepare › Design data).
-    await designPlace(page, 'designData');
-    await page.getByTestId('role-select-seismic').selectOption('inpres103-2018');
-    await page.getByTestId('pending-review-in-loads').click();
-    await page.getByRole('button', { name: /Auto-generate from code/i }).click();
-    await alSection(page, 'seismic');
-    await page.getByTestId('al-enable-seismic').check();
+test.describe('@smoke seismic generation', () => {
+  test('refuses modal response-spectrum load generation and links the issue', async ({ pro: page }) => {
+    await loadSeismicFloor(page);
+    await openSeismicLoadGenerator(page);
+    await dwellingFloorLoads(page);
     await page.getByTestId('al-seismic-method-select').selectOption('modal');
     await page.getByTestId('al-seismic-torsion').selectOption('medium');
     await expect(page.getByTestId('al-seismic-vertical')).toBeChecked();
-    await dwellingFloorLoads(page);
+    await expectLoadGenerationRefusal(page, /Modal seismic load generation is unavailable until the modal force distribution is corrected\. Use the static method\./, 2319);
+    await page.getByTestId('al-seismic-method-select').selectOption('static');
     await page.getByTestId('al-preview-btn').click();
-    await expect(page.getByTestId('al-apply-error')).toHaveCount(0);
-    await expect(page.getByTestId('al-preview')).toContainText(/Modal response spectrum along X/);
     await expect(page.getByTestId('al-preview')).toContainText(/Vertical component/);
     await page.getByTestId('al-apply').click();
     await expect(page.getByTestId('al-apply')).toHaveCount(0, { timeout: 45_000 });
     const names = await page.evaluate(() => window.__stabileo.loadCaseNames());
-    expect(names.filter((n) => /^Seismic X \(\+5 % eccentricity\)|^Seismic X \(−5 % eccentricity\)/.test(n))).toHaveLength(2);
+    expect(names.filter(name => name.startsWith('Seismic ')).sort()).toEqual([
+      'Seismic X (+5 % eccentricity)',
+      'Seismic X (−5 % eccentricity)',
+      'Seismic Y (+5 % eccentricity)',
+      'Seismic Y (−5 % eccentricity)',
+    ]);
+    await expectGeneratedSeismicStoryLoads(page);
+  });
+
+  test('static generation refuses eccentric floor mass on frame members', async ({ pro: page }) => {
+    await loadModel(page, 'rc-design-qa-8');
+    await openSeismicLoadGenerator(page);
+    await dwellingFloorLoads(page);
+    await page.getByTestId('al-seismic-method-select').selectOption('static');
+    await expectLoadGenerationRefusal(page, /Seismic loading refused at 3[.]2 m[.] The floor tributary region requires eccentric member loads/);
   });
 });
 

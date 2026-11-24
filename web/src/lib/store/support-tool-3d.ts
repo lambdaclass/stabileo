@@ -1,3 +1,4 @@
+import { modelFlags } from '../axes/display';
 /**
  * The 3D support the support tool describes, placed on one node.
  *
@@ -10,9 +11,14 @@ import { modelStore, uiStore } from '.';
 import { support3DFrom } from '../model/support-3d';
 
 export function addSupportFromTool3D(nodeId: number): number {
+  const global = uiStore.supportFrame3D !== 'local';
+  const t = global ? modelFlags(uiStore.sup3dTx, uiStore.sup3dTy, uiStore.sup3dTz) : [uiStore.sup3dTx, uiStore.sup3dTy, uiStore.sup3dTz];
+  const r = global ? modelFlags(uiStore.sup3dRx, uiStore.sup3dRy, uiStore.sup3dRz) : [uiStore.sup3dRx, uiStore.sup3dRy, uiStore.sup3dRz];
+  const k = global ? modelFlags(uiStore.sup3dKx, uiStore.sup3dKy, uiStore.sup3dKz) : [uiStore.sup3dKx, uiStore.sup3dKy, uiStore.sup3dKz];
+  const kr = global ? modelFlags(uiStore.sup3dKrx, uiStore.sup3dKry, uiStore.sup3dKrz) : [uiStore.sup3dKrx, uiStore.sup3dKry, uiStore.sup3dKrz];
   const s = support3DFrom(
-    { tx: uiStore.sup3dTx, ty: uiStore.sup3dTy, tz: uiStore.sup3dTz, rx: uiStore.sup3dRx, ry: uiStore.sup3dRy, rz: uiStore.sup3dRz },
-    { kx: uiStore.sup3dKx, ky: uiStore.sup3dKy, kz: uiStore.sup3dKz, krx: uiStore.sup3dKrx, kry: uiStore.sup3dKry, krz: uiStore.sup3dKrz },
+    { tx: t[0], ty: t[1], tz: t[2], rx: r[0], ry: r[1], rz: r[2] },
+    { kx: k[0], ky: k[1], kz: k[2], krx: kr[0], kry: kr[1], krz: kr[2] },
     uiStore.supportFrame3D,
   );
   return modelStore.addSupport(nodeId, s.type, s.springs, s.opts as any);

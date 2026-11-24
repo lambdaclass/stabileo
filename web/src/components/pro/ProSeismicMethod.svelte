@@ -1,15 +1,5 @@
-<script lang="ts" module>
-  import Hint from './Hint.svelte';
-  // The config and its default live with the dialog's other sections (`auto-loads-sections.ts`).
-  import type { SeismicMethodConfig } from './auto-loads-sections';
-</script>
-
 <script lang="ts">
-  /**
-   * How the regulation load generator makes the seismic action of INPRES-CIRSOC 103: the static
-   * method or the modal response spectrum one, the vertical component, the accidental torsion and
-   * a third direction (`engine/loads/load-plan.ts`, `seismic-modal.ts`, `seismic-cases.ts`).
-   */
+  import type { SeismicMethodConfig } from './auto-loads-sections';
   import { t } from '../../lib/i18n';
 
   interface Props { config: SeismicMethodConfig }
@@ -32,7 +22,6 @@
       </select>
     </label>
   </div>
-  {#if config.method === 'modal'}<Hint text={t('autoLoad.seismic.modalHint')} />{/if}
   <label class="al-check" title={t('autoLoad.seismic.verticalHint')}>
     <input type="checkbox" bind:checked={config.vertical} data-testid="al-seismic-vertical" /> {t('autoLoad.seismic.vertical')}
   </label>

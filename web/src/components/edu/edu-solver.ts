@@ -45,21 +45,17 @@ export function solveForEdu(): void {
   let r: ReturnType<typeof modelStore.solve>;
 
   if (usePDelta) {
-    // Build solver input and run P-Delta
-    const input = modelStore.buildSolverInput(uiStore.includeSelfWeight);
-    if (!input) {
-      uiStore.toast(t('results.emptyModelError'), 'error');
+    try {
+      const input = modelStore.buildSolverInput(uiStore.includeSelfWeight);
+      if (!input) {
+        uiStore.toast(t('results.emptyModelError'), 'error');
+        return;
+      }
+      r = solvePDelta(input).results;
+    } catch (error) {
+      uiStore.toast(errorText(error, t('results.emptyModelError')), 'error');
       return;
     }
-    // A model the static solve refuses (a stray node, a mechanism) is refused by P-Δ with the same
-    // words, thrown: said as the linear exercises say it, not thrown out of the solve.
-    let pdResult: ReturnType<typeof solvePDelta> | string;
-    try { pdResult = solvePDelta(input); } catch (e) { pdResult = errorText(e, t('results.emptyModelError')); }
-    if (typeof pdResult === 'string') {
-      uiStore.toast(pdResult, 'error');
-      return;
-    }
-    r = pdResult.results;
   } else {
     r = modelStore.solve(uiStore.includeSelfWeight, uiStore.drawPlane2D);
   }

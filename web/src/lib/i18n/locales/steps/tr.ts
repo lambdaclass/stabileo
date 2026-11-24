@@ -1,3 +1,4 @@
+import { axialStrainEnergy } from './strain-energy-label';
 import type { Translations } from '../../types';
 import course from '../course/tr';
 
@@ -609,7 +610,7 @@ const stepsTr: Translations = {
   'steps.deformation.axialOffNote': 'Matris yönteminden fark, matris yönteminin hesaba kattığı eksenel terimin dışarıda bırakılmasından gelir.',
   'steps.m.virtualWork.opt.axial.label': 'Eksenel terimi dahil et (N·n·L/EA)',
   'steps.m.virtualWork.opt.axial.help': 'Açıkken yer değiştirmeye eksenel kuvvetin katkısı eklenir ve sonuç, bunu da hesaba katan matris yöntemiyle örtüşür. Daha kesin olan seçenek budur. El çözümleri genellikle bunu ihmal eder, çünkü çerçevelerde ve kirişlerde eğilmeye göre küçüktür; bu klasik çözümü ve sonucu ne kadar değiştirdiğini görmek için kapatın.',
-  'steps.m.castigliano.opt.axial.label': 'Eksenel terimi dahil et (N²/2EA)',
+  'steps.m.castigliano.opt.axial.label': `Eksenel şekil değiştirme enerjisini dahil et (${axialStrainEnergy})`,
   'steps.m.castigliano.opt.axial.help': 'Açıkken şekil değiştirme enerjisine eksenel kuvvetin katkısı eklenir ve sonuç, bunu da hesaba katan matris yöntemiyle örtüşür. Daha kesin olan seçenek budur. El çözümleri genellikle bunu ihmal eder, çünkü çerçevelerde ve kirişlerde eğilmeye göre küçüktür; bu klasik çözümü ve sonucu ne kadar değiştirdiğini görmek için kapatın.',
   'steps.m.castigliano.coefCaptionOff': 'Yalnızca her çubuğun eğilme terimi. Birimler: hiperstatik bilinmeyenlere göre m/kN, rad/kN veya rad/(kN·m).',
   'steps.m.castigliano.reactionsLead': 'Tepkiler, esas sistemin ve hiperstatik bilinmeyenlerin tepkileri süperpoze edilerek:',

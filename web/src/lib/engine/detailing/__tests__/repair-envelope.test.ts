@@ -130,6 +130,24 @@ describe('the repair ladder bounded by the section', () => {
     expect(detectCollisions(r.bars, { requiredClearFor: need25 }).conflicts).toEqual([]);
   });
 
+  it('coordination repairs a clash in a provided beam cage within cover and without giving up depth', () => {
+    const bars = [bar('a', room - 0.03, z), bar('b', room, z)];
+    const result = coordinateFloor({
+      assemblyId: 'L1', label: 'L1', kind: 'beamLine', elementIds: [1],
+      members: [{ elementId: 1, bars, unsupported: [], maturity: 'VALIDATED', refs: [], trace: [] }],
+      joints: [], edition: '2025', verifierId: 'test', demandRevision: 1,
+      cover: BEAM.cover, tieDia: BEAM.stirrupDiaMm, maxAggregateSizeMm: 18, membersVerified: true, coordinated: true,
+      repairEnvelope: env,
+    });
+    expect(result.repair.moved).toEqual([{ id: 'a', offset: { x: 0, y: expect.closeTo(-0.013, 6), z: 0 } }]);
+    expect(result.assembly.conflicts).toEqual([]);
+    expect(result.assembly.unsupported.filter(u => u.key === 'detailing.clash.unresolved')).toEqual([]);
+    for (const b of result.assembly.bars) for (const p of samplePath(b, 0.001)) {
+      expect(Math.abs(p.y)).toBeLessThanOrEqual(room + 1e-9);
+      expect(p.z).toBe(z);
+    }
+  });
+
   it('leaves a clash with no valid move where it was, and returns it with every move tried and why', () => {
     // As above, with c 45 mm further in: a moved inward 13 mm now presses into c.
     const bars = [bar('a', room - 0.03, z), bar('b', room, z), bar('c', room - 0.075, z)];

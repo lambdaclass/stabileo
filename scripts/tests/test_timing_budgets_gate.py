@@ -20,12 +20,13 @@ class TimingBudgetsGate(unittest.TestCase):
         self.body = job('timing-budgets')
         self.steps = steps(self.body)
 
-    def test_only_the_timing_is_soft_and_only_on_pull_requests_and_the_merge_queue(self):
+    def test_e2e_budget_overruns_are_report_only_on_ordinary_pull_requests(self):
         soft = f"WALL_CLOCK_REPORT: ${{{{ ({REPORT_ONLY}) && format('{{0}}/wall-clock-overruns.jsonl', runner.temp) || '' }}}}"
-        for name in ('Scale budgets', 'E2E wall-clock budgets'):
-            with self.subTest(step=name):
-                self.assertIn(soft, self.steps[name])
-                self.assertNotIn('continue-on-error', self.steps[name])
+        self.assertIn(soft, self.steps['Scale budgets'])
+        self.assertIn(
+            soft.replace(f'({REPORT_ONLY})', "github.event_name == 'pull_request' && needs.changes.outputs.run_e2e != 'true'"),
+            self.steps['E2E wall-clock budgets'],
+        )
 
     def test_the_e2e_budgets_still_run_after_a_scale_failure(self):
         self.assertIn("if: ${{ !cancelled() }}", self.steps['E2E wall-clock budgets'])
@@ -40,7 +41,7 @@ class TimingBudgetsGate(unittest.TestCase):
 
     def test_every_wall_clock_budget_goes_through_the_report_aware_helper(self):
         web = ROOT / 'web'
-        for path in ('src/lib/engine/__tests__/scale-budget.test.ts', 'e2e/model-fluidity.spec.ts', 'e2e/rebar-workspace-open.spec.ts'):
+        for path in ('src/lib/engine/__tests__/scale-budget.test.ts', 'e2e/model-fluidity.timing.spec.ts', 'e2e/rebar-workspace-open.timing.spec.ts'):
             text = (web / path).read_text()
             with self.subTest(path=path):
                 self.assertNotIn('NO_WALL_CLOCK', text)

@@ -15,6 +15,7 @@ import { t } from '../i18n';
 import { activeComboIds, designComboIds, isMagnitudeCombination, isServiceCombination, narrowPerCombo } from '../engine/result-scopes';
 import { computeGoverning3D } from '../engine/governing-case';
 import type { AnalysisResults3D, FullEnvelope3D } from '../engine/types-3d';
+import { combinationNameShown } from '../axes/case-names';
 
 /**
  * The ids design reads: the stated active list in PRO, every combination otherwise; never an SRSS
@@ -127,7 +128,7 @@ export function publishCombinations3D(bundle: {
   unstable?: number[];
 }): void {
   resultsStore.setCombinationResults3D(bundle.perCase, bundle.perCombo, bundle.envelope, bundle.unstable);
-  const names = new Map(modelStore.model.combinations.map((c) => [c.id, c.name]));
+  const names = new Map(modelStore.model.combinations.map((c) => [c.id, combinationNameShown(c)]));
   resultsStore.setGoverning3D(computeGoverning3D(activePerCombo3D(), names));
   if (bundle.unstable?.length) {
     const listed = bundle.unstable.map((id) => names.get(id) ?? `#${id}`).join(', ');

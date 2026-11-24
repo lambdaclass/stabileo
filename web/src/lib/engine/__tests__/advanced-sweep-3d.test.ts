@@ -132,7 +132,10 @@ function checkSectionStress(cs: ModelCase, tag: string, input: SolverInput3D, re
       const out = attempt(() => analyzeSectionStress3D(ef, sec, mat.fy, t, yF, zF));
       if (!out.ok) { log.stressForces.push(`${tag} e${id} t=${t}: threw ${out.msg}`); continue; }
       const s = out.value;
-      if (!allFinite([s.sigmaAtFiber, s.tauTotal, s.N, s.My, s.Mz, s.failure?.vonMises ?? 0])) {
+      const combinedValid = s.refusal
+        ? s.tauTotal === null && s.failure === null && s.mohr === null
+        : s.tauTotal !== null && s.failure !== null && allFinite([s.tauTotal, s.failure.vonMises]);
+      if (!combinedValid || !allFinite([s.sigmaAtFiber, s.N, s.My, s.Mz])) {
         log.stressForces.push(`${tag} e${id} t=${t}: non-finite stress`); continue;
       }
       // (a) The resultants at the station are the diagram's.

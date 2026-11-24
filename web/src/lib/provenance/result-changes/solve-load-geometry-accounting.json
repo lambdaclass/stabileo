@@ -1,0 +1,32 @@
+{
+  "id": "solve-load-geometry-accounting",
+  "date": "2026-11-21",
+  "prs": [],
+  "area": "analysis",
+  "when": { "any": ["legacyPlanarPointCoupleAliases", "physicalPlateDefinitions"] },
+  "quantities": ["solve.ok"],
+  "title": {
+    "en": "Refusals for load and plate-geometry discrepancies",
+    "es": "Rechazos por discrepancias de cargas y geometría de placas",
+    "pt": "Recusas por divergências de cargas e geometria de placas",
+    "de": "Ablehnungen bei Abweichungen von Lasten und Plattengeometrie",
+    "fr": "Refus en cas d’écart de charges ou de géométrie de plaque",
+    "hu": "Elutasítás eltérő terhek vagy lemezgeometria esetén",
+    "tr": "Yük ve plak geometrisi uyuşmazlıklarında analiz reddi",
+    "zh": "荷载和板几何不一致时拒绝求解"
+  },
+  "explanation": {
+    "en": "Analysis stops if the entered and assembled static load totals or plate geometry disagree. Remesh stops if it would discard a shell edit.",
+    "es": "El análisis se detiene si difieren los totales de carga estática o la geometría de placa ingresados y ensamblados. El remallado se detiene si perdería una edición de lámina.",
+    "pt": "A análise é interrompida se os totais de carga estática ou a geometria da placa introduzidos divergirem dos montados. A remalhagem para se perderia uma alteração da casca.",
+    "de": "Die Berechnung stoppt bei Abweichungen zwischen eingegebenen und assemblierten statischen Lastsummen oder Plattengeometrien. Die Neuvernetzung stoppt, wenn dabei eine Schalenänderung verloren ginge.",
+    "fr": "L’analyse s’arrête si les résultantes des charges statiques ou la géométrie des plaques saisies et assemblées diffèrent. Le remaillage s’arrête s’il efface une modification de coque.",
+    "hu": "A számítás leáll, ha a megadott és összeállított statikus terhek eredői vagy a lemez geometriája eltér. Az újrahálózás leáll, ha elveszne egy héjmódosítás.",
+    "tr": "Girilen ve birleştirilen statik yük toplamları veya plak geometrisi farklıysa analiz durur. Kabuk düzenlemesi kaybolacaksa yeniden ağ oluşturma durur.",
+    "zh": "输入与组装的静力荷载合力或板几何不一致时停止分析。重新划分网格会丢失壳单元修改时停止操作。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-solve-load-geometry-accounting.md",
+    "heading": "Refusals for load and plate-geometry discrepancies"
+  }
+}

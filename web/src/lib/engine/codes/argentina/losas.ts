@@ -100,13 +100,13 @@ function slabEffectiveDepth(h: number, cover: number, barDia: number): number {
 }
 
 /** [As,min (cm²/m), s,max one-way, s,max two-way, s,max distribution (m)] from the engine. */
-function slabProvisions(edition: RegulationEdition, fy: number, h: number) {
+export function slabProvisions(edition: RegulationEdition, fy: number, h: number) {
   const v = cirsoc201Engine('slabProvisions')(Float64Array.of(edition === '2005' ? 2005 : 2025, fy * 1e6, h));
   return { AsMin: v[0] * 1e4, sOneWay: v[1], sTwoWay: v[2], sDistribution: v[3] };
 }
 
 /** The steel a 1 m strip needs for Mu (kN·m/m), from the engine: cm²/m, or NaN when none works. */
-function computeAsFlexure(
+export function computeAsFlexure(
   Mu: number, h: number, d: number, fc: number, fy: number, edition: RegulationEdition,
 ): { As: number; phi: number; possible: boolean } {
   const v = cirsoc201Engine('designBeam')(Float64Array.of(
@@ -117,7 +117,7 @@ function computeAsFlexure(
 }
 
 /** φMn (kN·m/m) of a 1 m strip with `AsCm2` per metre — the engine's check. */
-function stripCapacity(AsCm2: number, h: number, d: number, fc: number, fy: number, edition: RegulationEdition): number {
+export function stripCapacity(AsCm2: number, h: number, d: number, fc: number, fy: number, edition: RegulationEdition): number {
   const r = evaluateBeamSection({ edition, fc: fc * 1e6, fy: fy * 1e6, b: B_UNIT, h, d, As: AsCm2 * 1e-4 });
   if (!r) throw new Cirsoc201EngineUnavailable('slab strip capacity');
   return r.flexureValid && Number.isFinite(r.phiMn) ? r.phiMn / 1e3 : 0;

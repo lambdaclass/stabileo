@@ -1,3 +1,4 @@
+import { axialStrainEnergy } from './strain-energy-label';
 import type { Translations } from '../../types';
 import course from '../course/fr';
 
@@ -609,7 +610,7 @@ const stepsFr: Translations = {
   'steps.deformation.axialOffNote': 'L\'écart avec la méthode matricielle provient de l\'omission du terme axial, que la méthode matricielle inclut.',
   'steps.m.virtualWork.opt.axial.label': 'Inclure le terme axial (N·n·L/EA)',
   'steps.m.virtualWork.opt.axial.help': 'Activé, le déplacement ajoute la contribution de l\'effort normal et le résultat coïncide avec la méthode matricielle, qui l\'inclut aussi. C\'est le choix le plus exact. Les solutions à la main le négligent généralement, car dans les portiques et les poutres il est faible devant la flexion ; désactivez-le pour voir cette solution classique et de combien elle change.',
-  'steps.m.castigliano.opt.axial.label': 'Inclure le terme axial (N²/2EA)',
+  'steps.m.castigliano.opt.axial.label': `Inclure l’énergie de déformation axiale (${axialStrainEnergy})`,
   'steps.m.castigliano.opt.axial.help': 'Activé, l\'énergie de déformation ajoute la contribution de l\'effort normal et le résultat coïncide avec la méthode matricielle, qui l\'inclut aussi. C\'est le choix le plus exact. Les solutions à la main le négligent généralement, car dans les portiques et les poutres il est faible devant la flexion ; désactivez-le pour voir cette solution classique et de combien elle change.',
   'steps.m.castigliano.coefCaptionOff': 'Terme de flexion de chaque barre uniquement. Unités : m/kN, rad/kN ou rad/(kN·m) selon les inconnues hyperstatiques.',
   'steps.m.castigliano.reactionsLead': 'Les réactions, par superposition de celles de la structure de base et des inconnues hyperstatiques :',

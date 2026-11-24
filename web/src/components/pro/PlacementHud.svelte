@@ -13,10 +13,11 @@
   import { keyPlace, placementKeyAction } from '../../lib/store/placement-keys';
   import QuantityInput from './loads/QuantityInput.svelte';
   import { uiStore } from '../../lib/store';
-  import { TWO_D_VERTICAL_AXIS_LABEL } from '../../lib/geometry/coordinate-system';
+  import { coordLabels, modelCoords, shownCoords } from '../../lib/axes/display';
 
   // In the plane workspace the vertical is stored as `y` and shown as Z, and there is no third axis.
   const plane = $derived(!uiStore.is3DWorkspace);
+  const labels = $derived(coordLabels(!plane));
 
   const mm = (v: number) => Math.round(v * 1000) / 1000;
   let tx = $state(0), ty = $state(0), tz = $state(0);
@@ -31,12 +32,15 @@
     if (!placementStore.active) { untrack(() => { typing = false; }); return; }
     if (untrack(() => typing)) return;
     const p = placementStore.target;
-    tx = mm(p[0]); ty = mm(p[1]); tz = mm(p[2]);
+    const [a, b, c = 0] = shownCoords({ x: p[0], y: p[1], z: p[2] }, !plane);
+    tx = mm(a); ty = mm(b); tz = mm(c);
   });
 
   const typed = $derived.by((): [number, number, number] | null => {
     const v = [tx, ty, tz];
-    return v.every(Number.isFinite) ? (v as [number, number, number]) : null;
+    if (!v.every(Number.isFinite)) return null;
+    const m = modelCoords(v, !plane);
+    return [m.x, m.y, plane ? tz : m.z];
   });
 
   function onKey(e: KeyboardEvent) {
@@ -71,9 +75,9 @@
       {#if preview.supportKept > 0}<span class="ph-welds">{tp('placement.supportKept', { n: preview.supportKept })}</span>{/if}
     </div>
     <div class="ph-row">
-      <label>X <QuantityInput bind:value={() => tx, (v) => { tx = v; typing = true; }} quantity="length" cls="ph-num" testid="placement-x" /></label>
-      <label>{plane ? TWO_D_VERTICAL_AXIS_LABEL : 'Y'} <QuantityInput bind:value={() => ty, (v) => { ty = v; typing = true; }} quantity="length" cls="ph-num" testid="placement-y" /></label>
-      {#if !plane}<label>Z <QuantityInput bind:value={() => tz, (v) => { tz = v; typing = true; }} quantity="length" cls="ph-num" testid="placement-z" /></label>{/if}
+      <label>{labels[0]} <QuantityInput bind:value={() => tx, (v) => { tx = v; typing = true; }} quantity="length" cls="ph-num" testid="placement-x" /></label>
+      <label>{labels[1]} <QuantityInput bind:value={() => ty, (v) => { ty = v; typing = true; }} quantity="length" cls="ph-num" testid="placement-y" /></label>
+      {#if !plane}<label>{labels[2]} <QuantityInput bind:value={() => tz, (v) => { tz = v; typing = true; }} quantity="length" cls="ph-num" testid="placement-z" /></label>{/if}
       {#if placementStore.mode === 'insert'}
         <label class="ph-check"><input type="checkbox" bind:checked={placementStore.withLoads} /> {t('placement.withLoads')}</label>
         <label class="ph-check"><input type="checkbox" bind:checked={placementStore.withSupports} /> {t('placement.withSupports')}</label>

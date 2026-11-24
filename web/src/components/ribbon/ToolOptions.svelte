@@ -5,6 +5,7 @@
    * between its tool buttons and its table on a phone (see ToolOptionsBar and
    * DataTable). One component, so the two places cannot drift apart.
    */
+  import { ilText, relabelAxes } from '../../lib/axes/user-names';
   import { t } from '../../lib/i18n';
   import { IL_QUANTITY_GROUPS, IL_DIRECTIONS } from '../../lib/influence-line-quantities';
   import { setInfluenceDirection, setInfluenceQuantity } from '../../lib/actions/influence-line';
@@ -63,13 +64,13 @@
       {#if gi > 0}<span class="tb-sep" aria-hidden="true"></span>{/if}
       <span class="tb-group-label">{t(group.labelKey)}</span>
       {#each group.quantities as q}
-        <button class="tb-btn" class:on={uiStore.ilQuantity === q.id} onclick={() => setInfluenceQuantity(q.id)} data-testid={`il-q-${q.id}`}>{t(q.labelKey)}</button>
+        <button class="tb-btn" class:on={uiStore.ilQuantity === q.id} onclick={() => setInfluenceQuantity(q.id)} data-testid={`il-q-${q.id}`}>{ilText(q.id, t(q.labelKey))}</button>
       {/each}
     {/each}
     <span class="tb-sep" aria-hidden="true"></span>
     <span class="tb-group-label">{t('float.ilUnitLoad')}</span>
     {#each IL_DIRECTIONS as d (d.id)}
-      <button class="tb-btn" class:on={uiStore.ilDirection === d.id} title={t(d.tip)} data-testid={`il-dir-${d.id}`}
+      <button class="tb-btn" class:on={uiStore.ilDirection === d.id} title={relabelAxes(t(d.tip))} data-testid={`il-dir-${d.id}`}
         onclick={() => setInfluenceDirection(d.id)}>{t(d.key)}</button>
     {/each}
   {/if}

@@ -67,6 +67,261 @@ pub(crate) fn chord_rotation(dx0: f64, dz0: f64, dux: f64, duz: f64) -> f64 {
     )
 }
 
+struct Corotational2D<'a> {
+    input: &'a SolverInput,
+    dof_num: &'a DofNumbering,
+    cs: &'a Option<FreeConstraintSystem>,
+    asm: &'a assembly::AssemblyResult,
+    art: &'a [(usize, f64)],
+    metric: &'a super::convergence::EquilibriumMetric,
+    ns: usize,
+    f_total: &'a [f64],
+    f_base: &'a [f64],
+    u_r_base: &'a [f64],
+    u_r_target: &'a [f64],
+    start_internal: &'a [f64],
+    u_full: Vec<f64>,
+    u_converged: Vec<f64>,
+    sparse_sym_cache: Option<SparseSymbolicCache>,
+    conditioning: Option<StructuredDiagnostic>,
+    f_ext: Vec<f64>,
+    active_supports: Vec<f64>,
+    support_step: Option<Vec<f64>>,
+    cached_factor: Option<CachedTangentFactor>,
+    r_f: Vec<f64>,
+    k_t: Vec<f64>,
+    trip_rows: Vec<usize>,
+    trip_cols: Vec<usize>,
+    trip_vals: Vec<f64>,
+}
+
+impl super::nonlinear::IncrementalProblem for Corotational2D<'_> {
+    fn begin_increment(&mut self, load_factor: f64) {
+        let (n, nf) = (self.dof_num.n_total, self.dof_num.n_free);
+        let (f_base, f_total, u_r_base, u_r_target) = (self.f_base, self.f_total, self.u_r_base, self.u_r_target);
+        self.f_ext = (0..n).map(|i| f_base[i] + load_factor * (f_total[i] - f_base[i])).collect();
+        self.active_supports = u_r_base.iter().zip(u_r_target).map(|(base, target)| base + load_factor * (target - base)).collect();
+        self.support_step = Some(
+            u_r_base.iter().zip(u_r_target).enumerate()
+                .map(|(i, (base, target))| base + load_factor * (target - base) - self.u_full[nf + i])
+                .collect::<Vec<f64>>(),
+        )
+        .filter(|du| du.iter().any(|&v| v != 0.0));
+        self.cached_factor = None;
+    }
+
+    fn linearize(&mut self) -> Result<super::nonlinear::Linearization, String> {
+        let (input, dof_num, asm, art, metric, cs) = (self.input, self.dof_num, self.asm, self.art, self.metric, self.cs);
+        let (f_base, start_internal) = (self.f_base, self.start_internal);
+        let (n, nf, ns) = (dof_num.n_total, dof_num.n_free, self.ns);
+        // Compute internal forces and tangent stiffness from co-rotational formulation.
+        // Below SPARSE_THRESHOLD the tangent is assembled dense (n×n); at
+        // or above it, as lower-triangle COO triplets that feed the CSC
+        // sparse solve directly — no O(n²) dense matrix is ever built.
+        let mut f_int = vec![0.0; n];
+        let sparse_tangent = ns >= SPARSE_THRESHOLD;
+        let mut k_t: Vec<f64> = Vec::new();
+        let mut trip_rows: Vec<usize> = Vec::new();
+        let mut trip_cols: Vec<usize> = Vec::new();
+        let mut trip_vals: Vec<f64> = Vec::new();
+
+        // Elements need TRUE global nodal displacements to compute correct
+        // co-rotational geometry — self.u_full stores inclined-support DOFs in
+        // the rotated (tangent, normal) basis (same "mixed" convention
+        // assemble_2d's solved system produces), so reverse that rotation
+        // on a scratch copy before handing displacements to elements.
+        let mut u_geom = self.u_full.clone();
+        for it in &asm.inclined_transforms_2d {
+            assembly::reverse_inclined_transform_2d(&mut u_geom, &it.dofs, &it.r);
+        }
+
+        if sparse_tangent {
+            assemble_corotational_triplets_2d(
+                input, &dof_num, &u_geom, &mut f_int,
+                &mut trip_rows, &mut trip_cols, &mut trip_vals,
+            );
+            add_spring_contributions(
+                input, &dof_num, &u_geom, &mut f_int, &art,
+                &mut |gi, gj, v| {
+                    if gi >= gj {
+                        trip_rows.push(gi);
+                        trip_cols.push(gj);
+                        trip_vals.push(v);
+                    }
+                },
+            );
+            // Triplet K rotation + f rotation == dense
+            // apply_inclined_transform_2d (see comment below).
+            for it in &asm.inclined_transforms_2d {
+                assembly::apply_inclined_transform_triplets_2d(
+                    &mut trip_rows, &mut trip_cols, &mut trip_vals, &it.dofs, &it.r,
+                );
+                assembly::rotate_inclined_f_2d(&mut f_int, &it.dofs, &it.r);
+            }
+        } else {
+            k_t = vec![0.0; n * n];
+            assemble_corotational(input, &dof_num, &u_geom, &mut f_int, &mut k_t);
+            add_spring_contributions(
+                input, &dof_num, &u_geom, &mut f_int, &art,
+                &mut |gi, gj, v| k_t[gi * n + gj] += v,
+            );
+
+            // Rotate K_T/f_int back into the rotated (tangent, normal) basis
+            // at inclined-support DOFs so they stay consistent with self.f_ext
+            // (already rotated by assemble_2d above) for the residual/solve
+            // below — without this, the tangent-stiffness system enforces
+            // "restrain literal global Z" instead of "restrain normal to
+            // the incline," silently solving the wrong physical problem.
+            for it in &asm.inclined_transforms_2d {
+                assembly::apply_inclined_transform_2d(&mut k_t, &mut f_int, n, &it.dofs, &it.r);
+            }
+        }
+
+        // Residual R = F_ext - f_int
+        let mut residual = vec![0.0; n];
+        for i in 0..n {
+            residual[i] = self.f_ext[i] - f_int[i];
+        }
+
+        // Reduce residual and check convergence on independent DOFs
+        let r_f: Vec<f64> = residual[..nf].to_vec();
+        let rel_error = metric.continuation_residual(&residual,&self.f_ext,&self.active_supports,&f_base,&start_internal,cs.as_ref());
+
+        self.r_f = r_f;
+        self.k_t = k_t;
+        self.trip_rows = trip_rows;
+        self.trip_cols = trip_cols;
+        self.trip_vals = trip_vals;
+        Ok(super::nonlinear::Linearization { measure: rel_error, forced: self.support_step.is_some() })
+    }
+
+    fn correct(&mut self, modified_nr: bool) -> Result<(), String> {
+        let (dof_num, cs) = (self.dof_num, self.cs);
+        let (n, nf, ns) = (dof_num.n_total, dof_num.n_free, self.ns);
+        let sparse_tangent = ns >= SPARSE_THRESHOLD;
+        let r_f = std::mem::take(&mut self.r_f);
+        let k_t = std::mem::take(&mut self.k_t);
+        let (trip_rows, trip_cols, trip_vals) = (std::mem::take(&mut self.trip_rows), std::mem::take(&mut self.trip_cols), std::mem::take(&mut self.trip_vals));
+        // The supports' step enters the first iteration as the tangent
+        // predictor's load −K_fr·Δu_r: moving only the support nodes
+        // would crush the elements next to them.
+        let mut r_f = r_f;
+        if let Some(ref du_r) = self.support_step {
+            let mut known = vec![0.0; n];
+            known[nf..].copy_from_slice(du_r);
+            if let Some(ref cs) = *cs { cs.impose_motion(&mut known); }
+            if sparse_tangent {
+                for ((&i, &j), &v) in trip_rows.iter().zip(&trip_cols).zip(&trip_vals) {
+                    if i < nf { r_f[i] -= v * known[j]; }
+                    if i != j && j < nf { r_f[j] -= v * known[i]; }
+                }
+            } else {
+                for i in 0..nf {
+                    r_f[i] -= (0..n).map(|j| k_t[i * n + j] * known[j]).sum::<f64>();
+                }
+            }
+        }
+
+        // Solve K_T * delta_u = R for free DOFs
+        let r_s = if let Some(ref cs) = *cs {
+            cs.reduce_vector(&r_f)
+        } else {
+            r_f
+        };
+
+        let delta_u_indep = if modified_nr {
+            if let Some(ref factor) = self.cached_factor {
+                solve_with_cached_factor(factor, &r_s)
+            } else if ns >= SPARSE_THRESHOLD {
+                // Sparse path: symbolic factorization is cached across
+                // iterations (pattern is constant); only the numeric
+                // phase runs here, and the resulting factor is reused
+                // for the rest of the increment.
+                let k_s_csc = tangent_free_sparse_triplets(
+                    &trip_rows, &trip_cols, &trip_vals, nf, cs,
+                );
+                let sym = cached_symbolic(&mut self.sparse_sym_cache, &k_s_csc);
+                let factor = numeric_cholesky(sym, &k_s_csc);
+                if let Some(found) = crate::known_issues::sparse_factor_conditioning(&k_s_csc, factor.as_ref()) { self.conditioning = Some(found); }
+                match factor {
+                    Some(num) => {
+                        let result = sparse_cholesky_solve(&num, &r_s);
+                        self.cached_factor = Some(CachedTangentFactor::Sparse(num));
+                        result
+                    }
+                    None => {
+                        // Sparse Cholesky failed — fall back to full NR for this increment
+                        solve_tangent_sparse_diagnosed(&k_s_csc, &r_s, &mut self.sparse_sym_cache, &mut self.conditioning)?
+                    }
+                }
+            } else {
+                let free_idx: Vec<usize> = (0..nf).collect();
+                let k_ff = extract_submatrix(&k_t, n, &free_idx, &free_idx);
+                let k_s = if let Some(ref cs) = *cs {
+                    cs.reduce_matrix(&k_ff)
+                } else {
+                    k_ff
+                };
+                let factor = try_cholesky_factor(&k_s, ns);
+                if let Some(found) = crate::known_issues::dense_factor_conditioning(&k_s, ns, factor.as_ref().map(|f| f.l.as_slice())) { self.conditioning = Some(found); }
+                match factor {
+                    Some(factor) => {
+                        let result = solve_with_cholesky_factor(&factor.l, &r_s, factor.n);
+                        self.cached_factor = Some(CachedTangentFactor::Dense(factor));
+                        result
+                    }
+                    None => {
+                        // Cholesky failed — fall back to full NR for this increment
+                        solve_free_dofs(&k_s, &r_s, ns, &mut self.conditioning)?
+                    }
+                }
+            }
+        } else if ns >= SPARSE_THRESHOLD {
+            let k_s_csc = tangent_free_sparse_triplets(
+                &trip_rows, &trip_cols, &trip_vals, nf, cs,
+            );
+            solve_tangent_sparse_diagnosed(&k_s_csc, &r_s, &mut self.sparse_sym_cache, &mut self.conditioning)?
+        } else {
+            let free_idx: Vec<usize> = (0..nf).collect();
+            let k_ff = extract_submatrix(&k_t, n, &free_idx, &free_idx);
+            let k_s = if let Some(ref cs) = *cs {
+                cs.reduce_matrix(&k_ff)
+            } else {
+                k_ff
+            };
+            solve_free_dofs(&k_s, &r_s, ns, &mut self.conditioning)?
+        };
+
+        let delta_u_f = if let Some(ref cs) = *cs {
+            cs.expand_solution(&delta_u_indep, self.support_step.as_deref().map_or(
+                MasterMotion::Homogeneous,
+                MasterMotion::Prescribed,
+            ))
+        } else {
+            delta_u_indep
+        };
+
+        // Update displacements (free DOFs only)
+        for i in 0..nf {
+            self.u_full[i] += delta_u_f[i];
+        }
+        if let Some(du_r) = self.support_step.take() {
+            for (r, du) in du_r.iter().enumerate() {
+                self.u_full[nf + r] += du;
+            }
+        }
+        Ok(())
+    }
+
+    fn commit(&mut self) {
+        self.u_converged.copy_from_slice(&self.u_full);
+    }
+
+    fn rollback(&mut self) {
+        self.u_full.copy_from_slice(&self.u_converged);
+    }
+}
+
 /// Solve a 2D frame using co-rotational large displacement analysis.
 ///
 /// This wraps the existing linear element formulations, rebuilding
@@ -155,7 +410,7 @@ pub fn solve_corotational_2d_from(
     let f_total = asm.f.clone();
     let art = assembly::artificial_stiffness_entries(&asm);
 
-    let (mut u_full, f_base) = match start {
+    let (u_full, f_base) = match start {
         Some(start) => start_state_2d(input, start, &dof_num)?,
         None => (vec![0.0; n], vec![0.0; n]),
     };
@@ -173,235 +428,36 @@ pub fn solve_corotational_2d_from(
         vec![0.0; n]
     };
 
-    let mut total_iterations = 0;
-    let mut converged = true;
-    // The state and load factor of the last converged increment.
-    let mut u_converged = u_full.clone();
-    let mut converged_factor = 0.0f64;
-
-    // Sparse symbolic factorization cache (ns >= SPARSE_THRESHOLD only): the
-    // tangent's sparsity pattern is constant within a solve call, so the
-    // symbolic phase is computed once and only the numeric phase repeats
-    // per Newton iteration.
-    let mut sparse_sym_cache: Option<SparseSymbolicCache> = None;
-    let mut conditioning = None;
-
-    // Incremental-iterative procedure
-    for increment in 1..=n_increments {
-        let load_factor = increment as f64 / n_increments as f64;
-
-        let f_ext: Vec<f64> = (0..n).map(|i| f_base[i] + load_factor * (f_total[i] - f_base[i])).collect();
-        let active_supports:Vec<_>=u_r_base.iter().zip(&u_r_target).map(|(base,target)|base+load_factor*(target-base)).collect();
-        let mut support_step: Option<Vec<f64>> = Some(
-            u_r_base.iter().zip(&u_r_target).enumerate()
-                .map(|(i, (base, target))| base + load_factor * (target - base) - u_full[nf + i])
-                .collect::<Vec<f64>>(),
-        )
-        .filter(|du| du.iter().any(|&v| v != 0.0));
-
-        // Newton-Raphson inner loop
-        let mut nr_converged = false;
-        let mut cached_factor: Option<CachedTangentFactor> = None;
-        for _iter in 0..max_iter {
-            total_iterations += 1;
-
-            // Compute internal forces and tangent stiffness from co-rotational formulation.
-            // Below SPARSE_THRESHOLD the tangent is assembled dense (n×n); at
-            // or above it, as lower-triangle COO triplets that feed the CSC
-            // sparse solve directly — no O(n²) dense matrix is ever built.
-            let mut f_int = vec![0.0; n];
-            let sparse_tangent = ns >= SPARSE_THRESHOLD;
-            let mut k_t: Vec<f64> = Vec::new();
-            let mut trip_rows: Vec<usize> = Vec::new();
-            let mut trip_cols: Vec<usize> = Vec::new();
-            let mut trip_vals: Vec<f64> = Vec::new();
-
-            // Elements need TRUE global nodal displacements to compute correct
-            // co-rotational geometry — u_full stores inclined-support DOFs in
-            // the rotated (tangent, normal) basis (same "mixed" convention
-            // assemble_2d's solved system produces), so reverse that rotation
-            // on a scratch copy before handing displacements to elements.
-            let mut u_geom = u_full.clone();
-            for it in &asm.inclined_transforms_2d {
-                assembly::reverse_inclined_transform_2d(&mut u_geom, &it.dofs, &it.r);
-            }
-
-            if sparse_tangent {
-                assemble_corotational_triplets_2d(
-                    input, &dof_num, &u_geom, &mut f_int,
-                    &mut trip_rows, &mut trip_cols, &mut trip_vals,
-                );
-                add_spring_contributions(
-                    input, &dof_num, &u_geom, &mut f_int, &art,
-                    &mut |gi, gj, v| {
-                        if gi >= gj {
-                            trip_rows.push(gi);
-                            trip_cols.push(gj);
-                            trip_vals.push(v);
-                        }
-                    },
-                );
-                // Triplet K rotation + f rotation == dense
-                // apply_inclined_transform_2d (see comment below).
-                for it in &asm.inclined_transforms_2d {
-                    assembly::apply_inclined_transform_triplets_2d(
-                        &mut trip_rows, &mut trip_cols, &mut trip_vals, &it.dofs, &it.r,
-                    );
-                    assembly::rotate_inclined_f_2d(&mut f_int, &it.dofs, &it.r);
-                }
-            } else {
-                k_t = vec![0.0; n * n];
-                assemble_corotational(input, &dof_num, &u_geom, &mut f_int, &mut k_t);
-                add_spring_contributions(
-                    input, &dof_num, &u_geom, &mut f_int, &art,
-                    &mut |gi, gj, v| k_t[gi * n + gj] += v,
-                );
-
-                // Rotate K_T/f_int back into the rotated (tangent, normal) basis
-                // at inclined-support DOFs so they stay consistent with f_ext
-                // (already rotated by assemble_2d above) for the residual/solve
-                // below — without this, the tangent-stiffness system enforces
-                // "restrain literal global Z" instead of "restrain normal to
-                // the incline," silently solving the wrong physical problem.
-                for it in &asm.inclined_transforms_2d {
-                    assembly::apply_inclined_transform_2d(&mut k_t, &mut f_int, n, &it.dofs, &it.r);
-                }
-            }
-
-            // Residual R = F_ext - f_int
-            let mut residual = vec![0.0; n];
-            for i in 0..n {
-                residual[i] = f_ext[i] - f_int[i];
-            }
-
-            // Reduce residual and check convergence on independent DOFs
-            let r_f: Vec<f64> = residual[..nf].to_vec();
-            let rel_error = metric.continuation_residual(&residual,&f_ext,&active_supports,&f_base,&start_internal,cs.as_ref());
-
-            if rel_error < tolerance && support_step.is_none() {
-                nr_converged = true;
-                break;
-            }
-
-            // The supports' step enters the first iteration as the tangent
-            // predictor's load −K_fr·Δu_r: moving only the support nodes
-            // would crush the elements next to them.
-            let mut r_f = r_f;
-            if let Some(ref du_r) = support_step {
-                let mut known = vec![0.0; n];
-                known[nf..].copy_from_slice(du_r);
-                if let Some(ref cs) = cs { cs.impose_motion(&mut known); }
-                if sparse_tangent {
-                    for ((&i, &j), &v) in trip_rows.iter().zip(&trip_cols).zip(&trip_vals) {
-                        if i < nf { r_f[i] -= v * known[j]; }
-                        if i != j && j < nf { r_f[j] -= v * known[i]; }
-                    }
-                } else {
-                    for i in 0..nf {
-                        r_f[i] -= (0..n).map(|j| k_t[i * n + j] * known[j]).sum::<f64>();
-                    }
-                }
-            }
-
-            // Solve K_T * delta_u = R for free DOFs
-            let r_s = if let Some(ref cs) = cs {
-                cs.reduce_vector(&r_f)
-            } else {
-                r_f
-            };
-
-            let delta_u_indep = if modified_nr {
-                if let Some(ref factor) = cached_factor {
-                    solve_with_cached_factor(factor, &r_s)
-                } else if ns >= SPARSE_THRESHOLD {
-                    // Sparse path: symbolic factorization is cached across
-                    // iterations (pattern is constant); only the numeric
-                    // phase runs here, and the resulting factor is reused
-                    // for the rest of the increment.
-                    let k_s_csc = tangent_free_sparse_triplets(
-                        &trip_rows, &trip_cols, &trip_vals, nf, &cs,
-                    );
-                    let sym = cached_symbolic(&mut sparse_sym_cache, &k_s_csc);
-                    let factor = numeric_cholesky(sym, &k_s_csc);
-                    if let Some(found) = crate::known_issues::sparse_factor_conditioning(&k_s_csc, factor.as_ref()) { conditioning = Some(found); }
-                    match factor {
-                        Some(num) => {
-                            let result = sparse_cholesky_solve(&num, &r_s);
-                            cached_factor = Some(CachedTangentFactor::Sparse(num));
-                            result
-                        }
-                        None => {
-                            // Sparse Cholesky failed — fall back to full NR for this increment
-                            solve_tangent_sparse_diagnosed(&k_s_csc, &r_s, &mut sparse_sym_cache, &mut conditioning)?
-                        }
-                    }
-                } else {
-                    let free_idx: Vec<usize> = (0..nf).collect();
-                    let k_ff = extract_submatrix(&k_t, n, &free_idx, &free_idx);
-                    let k_s = if let Some(ref cs) = cs {
-                        cs.reduce_matrix(&k_ff)
-                    } else {
-                        k_ff
-                    };
-                    let factor = try_cholesky_factor(&k_s, ns);
-                    if let Some(found) = crate::known_issues::dense_factor_conditioning(&k_s, ns, factor.as_ref().map(|f| f.l.as_slice())) { conditioning = Some(found); }
-                    match factor {
-                        Some(factor) => {
-                            let result = solve_with_cholesky_factor(&factor.l, &r_s, factor.n);
-                            cached_factor = Some(CachedTangentFactor::Dense(factor));
-                            result
-                        }
-                        None => {
-                            // Cholesky failed — fall back to full NR for this increment
-                            solve_free_dofs(&k_s, &r_s, ns, &mut conditioning)?
-                        }
-                    }
-                }
-            } else if ns >= SPARSE_THRESHOLD {
-                let k_s_csc = tangent_free_sparse_triplets(
-                    &trip_rows, &trip_cols, &trip_vals, nf, &cs,
-                );
-                solve_tangent_sparse_diagnosed(&k_s_csc, &r_s, &mut sparse_sym_cache, &mut conditioning)?
-            } else {
-                let free_idx: Vec<usize> = (0..nf).collect();
-                let k_ff = extract_submatrix(&k_t, n, &free_idx, &free_idx);
-                let k_s = if let Some(ref cs) = cs {
-                    cs.reduce_matrix(&k_ff)
-                } else {
-                    k_ff
-                };
-                solve_free_dofs(&k_s, &r_s, ns, &mut conditioning)?
-            };
-
-            let delta_u_f = if let Some(ref cs) = cs {
-                cs.expand_solution(&delta_u_indep, support_step.as_deref().map_or(
-                    MasterMotion::Homogeneous,
-                    MasterMotion::Prescribed,
-                ))
-            } else {
-                delta_u_indep
-            };
-
-            // Update displacements (free DOFs only)
-            for i in 0..nf {
-                u_full[i] += delta_u_f[i];
-            }
-            if let Some(du_r) = support_step.take() {
-                for (r, du) in du_r.iter().enumerate() {
-                    u_full[nf + r] += du;
-                }
-            }
-        }
-
-        if !nr_converged {
-            // Report the last converged increment, not the iterate given up on.
-            converged = false;
-            u_full.copy_from_slice(&u_converged);
-            break;
-        }
-        u_converged.copy_from_slice(&u_full);
-        converged_factor = load_factor;
-    }
+    let mut problem = Corotational2D {
+        input,
+        dof_num: &dof_num,
+        cs: &cs,
+        asm: &asm,
+        art: &art,
+        metric: &metric,
+        ns,
+        f_total: &f_total,
+        f_base: &f_base,
+        u_r_base: &u_r_base,
+        u_r_target: &u_r_target,
+        start_internal: &start_internal,
+        u_converged: u_full.clone(),
+        u_full,
+        sparse_sym_cache: None,
+        conditioning: None,
+        f_ext: Vec::new(),
+        active_supports: Vec::new(),
+        support_step: None,
+        cached_factor: None,
+        r_f: Vec::new(),
+        k_t: Vec::new(),
+        trip_rows: Vec::new(),
+        trip_cols: Vec::new(),
+        trip_vals: Vec::new(),
+    };
+    let outcome = super::nonlinear::solve_by_load_increments(&mut problem, &super::nonlinear::Newton { lag_tangent: modified_nr }, n_increments, tolerance, max_iter)?;
+    let Corotational2D { u_full, conditioning, .. } = problem;
+    let (total_iterations, converged, converged_factor) = (outcome.iterations, outcome.converged, outcome.load_factor);
 
     // Find max displacement magnitude
     let max_displacement = compute_max_displacement(&dof_num, &u_full);
@@ -3540,3 +3596,401 @@ mod infinitesimal_rotation_regressions {
         }
     }
 }
+
+#[cfg(test)]
+mod shared_driver_equivalence {
+    use super::*;
+    use std::collections::HashMap;
+
+    fn before_the_shared_driver(
+        input: &SolverInput,
+        start: Option<&CorotationalStart2D>,
+        max_iter: usize,
+        tolerance: f64,
+        n_increments: usize,
+        modified_nr: bool,
+    ) -> Result<CorotationalResult, String> {
+        let canonical_input = crate::solver::member_loads::plane_input(input);
+        let input = canonical_input.as_ref();
+
+        if n_increments == 0 {
+            return Err("Number of load increments must be at least 1".into());
+        }
+        if max_iter == 0 {
+            return Err("Max iterations must be at least 1".into());
+        }
+        if !tolerance.is_finite() || tolerance <= 0.0 {
+            return Err("Convergence tolerance must be finite and positive".into());
+        }
+
+        crate::solver::linear::validate_input_2d(input)?;
+        crate::solver::feature_gates::refuse_2d(input, "Corotational analysis", &[
+            crate::solver::feature_gates::Feature::ThermalLoads,
+        ])?;
+        crate::element::connector::refuse_for_corotational_2d(input, "Corotational analysis")?;
+        refuse_inclined_motion_2d(input, start.is_some())?;
+
+        let dof_num = DofNumbering::build_2d(input);
+
+        if dof_num.n_free == 0 {
+            return Err("No free DOFs — all nodes are fully restrained".into());
+        }
+
+        let n = dof_num.n_total;
+        let nf = dof_num.n_free;
+
+        let cs = FreeConstraintSystem::build_2d(&input, &dof_num)?;
+        let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
+
+        let asm = assembly::assemble_2d(input, &dof_num);
+        let f_total = asm.f.clone();
+        let art = assembly::artificial_stiffness_entries(&asm);
+
+        let (mut u_full, f_base) = match start {
+            Some(start) => start_state_2d(input, start, &dof_num)?,
+            None => (vec![0.0; n], vec![0.0; n]),
+        };
+        let u_r_base: Vec<f64> = u_full[nf..].to_vec();
+        let u_r_target = crate::solver::linear::prescribed_displacements_2d(input, &dof_num);
+        let support_extent: Vec<_> = u_r_base.iter().zip(&u_r_target)
+            .map(|(a,b)|a.abs()+b.abs()).collect();
+        let metric = crate::solver::convergence::EquilibriumMetric::for_2d_with_state(
+            input, &dof_num, cs.as_ref(), Some(&support_extent), &[],
+        )?;
+
+        let start_internal = if start.is_some() {
+            continuation_internal_2d(input, &dof_num, &u_full, &asm.inclined_transforms_2d, &art)
+        } else {
+            vec![0.0; n]
+        };
+
+        let mut total_iterations = 0;
+        let mut converged = true;
+        let mut u_converged = u_full.clone();
+        let mut converged_factor = 0.0f64;
+
+        let mut sparse_sym_cache: Option<SparseSymbolicCache> = None;
+        let mut conditioning = None;
+
+        for increment in 1..=n_increments {
+            let load_factor = increment as f64 / n_increments as f64;
+
+            let f_ext: Vec<f64> = (0..n).map(|i| f_base[i] + load_factor * (f_total[i] - f_base[i])).collect();
+            let active_supports:Vec<_>=u_r_base.iter().zip(&u_r_target).map(|(base,target)|base+load_factor*(target-base)).collect();
+            let mut support_step: Option<Vec<f64>> = Some(
+                u_r_base.iter().zip(&u_r_target).enumerate()
+                    .map(|(i, (base, target))| base + load_factor * (target - base) - u_full[nf + i])
+                    .collect::<Vec<f64>>(),
+            )
+            .filter(|du| du.iter().any(|&v| v != 0.0));
+
+            let mut nr_converged = false;
+            let mut cached_factor: Option<CachedTangentFactor> = None;
+            for _iter in 0..max_iter {
+                total_iterations += 1;
+
+                let mut f_int = vec![0.0; n];
+                let sparse_tangent = ns >= SPARSE_THRESHOLD;
+                let mut k_t: Vec<f64> = Vec::new();
+                let mut trip_rows: Vec<usize> = Vec::new();
+                let mut trip_cols: Vec<usize> = Vec::new();
+                let mut trip_vals: Vec<f64> = Vec::new();
+
+                let mut u_geom = u_full.clone();
+                for it in &asm.inclined_transforms_2d {
+                    assembly::reverse_inclined_transform_2d(&mut u_geom, &it.dofs, &it.r);
+                }
+
+                if sparse_tangent {
+                    assemble_corotational_triplets_2d(
+                        input, &dof_num, &u_geom, &mut f_int,
+                        &mut trip_rows, &mut trip_cols, &mut trip_vals,
+                    );
+                    add_spring_contributions(
+                        input, &dof_num, &u_geom, &mut f_int, &art,
+                        &mut |gi, gj, v| {
+                            if gi >= gj {
+                                trip_rows.push(gi);
+                                trip_cols.push(gj);
+                                trip_vals.push(v);
+                            }
+                        },
+                    );
+                    for it in &asm.inclined_transforms_2d {
+                        assembly::apply_inclined_transform_triplets_2d(
+                            &mut trip_rows, &mut trip_cols, &mut trip_vals, &it.dofs, &it.r,
+                        );
+                        assembly::rotate_inclined_f_2d(&mut f_int, &it.dofs, &it.r);
+                    }
+                } else {
+                    k_t = vec![0.0; n * n];
+                    assemble_corotational(input, &dof_num, &u_geom, &mut f_int, &mut k_t);
+                    add_spring_contributions(
+                        input, &dof_num, &u_geom, &mut f_int, &art,
+                        &mut |gi, gj, v| k_t[gi * n + gj] += v,
+                    );
+
+                    for it in &asm.inclined_transforms_2d {
+                        assembly::apply_inclined_transform_2d(&mut k_t, &mut f_int, n, &it.dofs, &it.r);
+                    }
+                }
+
+                let mut residual = vec![0.0; n];
+                for i in 0..n {
+                    residual[i] = f_ext[i] - f_int[i];
+                }
+
+                let r_f: Vec<f64> = residual[..nf].to_vec();
+                let rel_error = metric.continuation_residual(&residual,&f_ext,&active_supports,&f_base,&start_internal,cs.as_ref());
+
+                if rel_error < tolerance && support_step.is_none() {
+                    nr_converged = true;
+                    break;
+                }
+
+                let mut r_f = r_f;
+                if let Some(ref du_r) = support_step {
+                    let mut known = vec![0.0; n];
+                    known[nf..].copy_from_slice(du_r);
+                    if let Some(ref cs) = cs { cs.impose_motion(&mut known); }
+                    if sparse_tangent {
+                        for ((&i, &j), &v) in trip_rows.iter().zip(&trip_cols).zip(&trip_vals) {
+                            if i < nf { r_f[i] -= v * known[j]; }
+                            if i != j && j < nf { r_f[j] -= v * known[i]; }
+                        }
+                    } else {
+                        for i in 0..nf {
+                            r_f[i] -= (0..n).map(|j| k_t[i * n + j] * known[j]).sum::<f64>();
+                        }
+                    }
+                }
+
+                let r_s = if let Some(ref cs) = cs {
+                    cs.reduce_vector(&r_f)
+                } else {
+                    r_f
+                };
+
+                let delta_u_indep = if modified_nr {
+                    if let Some(ref factor) = cached_factor {
+                        solve_with_cached_factor(factor, &r_s)
+                    } else if ns >= SPARSE_THRESHOLD {
+                        let k_s_csc = tangent_free_sparse_triplets(
+                            &trip_rows, &trip_cols, &trip_vals, nf, &cs,
+                        );
+                        let sym = cached_symbolic(&mut sparse_sym_cache, &k_s_csc);
+                        let factor = numeric_cholesky(sym, &k_s_csc);
+                        if let Some(found) = crate::known_issues::sparse_factor_conditioning(&k_s_csc, factor.as_ref()) { conditioning = Some(found); }
+                        match factor {
+                            Some(num) => {
+                                let result = sparse_cholesky_solve(&num, &r_s);
+                                cached_factor = Some(CachedTangentFactor::Sparse(num));
+                                result
+                            }
+                            None => {
+                                solve_tangent_sparse_diagnosed(&k_s_csc, &r_s, &mut sparse_sym_cache, &mut conditioning)?
+                            }
+                        }
+                    } else {
+                        let free_idx: Vec<usize> = (0..nf).collect();
+                        let k_ff = extract_submatrix(&k_t, n, &free_idx, &free_idx);
+                        let k_s = if let Some(ref cs) = cs {
+                            cs.reduce_matrix(&k_ff)
+                        } else {
+                            k_ff
+                        };
+                        let factor = try_cholesky_factor(&k_s, ns);
+                        if let Some(found) = crate::known_issues::dense_factor_conditioning(&k_s, ns, factor.as_ref().map(|f| f.l.as_slice())) { conditioning = Some(found); }
+                        match factor {
+                            Some(factor) => {
+                                let result = solve_with_cholesky_factor(&factor.l, &r_s, factor.n);
+                                cached_factor = Some(CachedTangentFactor::Dense(factor));
+                                result
+                            }
+                            None => {
+                                solve_free_dofs(&k_s, &r_s, ns, &mut conditioning)?
+                            }
+                        }
+                    }
+                } else if ns >= SPARSE_THRESHOLD {
+                    let k_s_csc = tangent_free_sparse_triplets(
+                        &trip_rows, &trip_cols, &trip_vals, nf, &cs,
+                    );
+                    solve_tangent_sparse_diagnosed(&k_s_csc, &r_s, &mut sparse_sym_cache, &mut conditioning)?
+                } else {
+                    let free_idx: Vec<usize> = (0..nf).collect();
+                    let k_ff = extract_submatrix(&k_t, n, &free_idx, &free_idx);
+                    let k_s = if let Some(ref cs) = cs {
+                        cs.reduce_matrix(&k_ff)
+                    } else {
+                        k_ff
+                    };
+                    solve_free_dofs(&k_s, &r_s, ns, &mut conditioning)?
+                };
+
+                let delta_u_f = if let Some(ref cs) = cs {
+                    cs.expand_solution(&delta_u_indep, support_step.as_deref().map_or(
+                        MasterMotion::Homogeneous,
+                        MasterMotion::Prescribed,
+                    ))
+                } else {
+                    delta_u_indep
+                };
+
+                for i in 0..nf {
+                    u_full[i] += delta_u_f[i];
+                }
+                if let Some(du_r) = support_step.take() {
+                    for (r, du) in du_r.iter().enumerate() {
+                        u_full[nf + r] += du;
+                    }
+                }
+            }
+
+            if !nr_converged {
+                converged = false;
+                u_full.copy_from_slice(&u_converged);
+                break;
+            }
+            u_converged.copy_from_slice(&u_full);
+            converged_factor = load_factor;
+        }
+
+        let max_displacement = compute_max_displacement(&dof_num, &u_full);
+
+        let scaled;
+        let at_state = if let Some(start) = start {
+            scaled = blended_loads_2d(start.input, input, converged_factor);
+            &scaled
+        } else if converged_factor < 1.0 {
+            scaled = scaled_loads_2d(input, converged_factor);
+            &scaled
+        } else {
+            input
+        };
+        let mut results = build_final_results(at_state, &dof_num, &u_full, &cs, &asm.inclined_transforms_2d)?;
+        crate::known_issues::attach(&mut results.structured_diagnostics, conditioning.into_iter().collect());
+        crate::known_issues::attach(&mut results.structured_diagnostics, crate::known_issues::for_2d(input, crate::known_issues::Analysis::Corotational));
+
+        Ok(CorotationalResult {
+            results,
+            iterations: total_iterations,
+            converged,
+            load_increments: n_increments,
+            load_factor: converged_factor,
+            max_displacement,
+        })
+    }
+
+    fn frame(n: usize, rise: f64, far_support: Option<&str>) -> SolverInput {
+        let (mut nodes, mut elements, mut supports) = (HashMap::new(), HashMap::new(), HashMap::new());
+        for i in 0..=n {
+            let t = i as f64 / n as f64;
+            nodes.insert((i + 1).to_string(), SolverNode { id: i + 1, x: 6.0 * t, z: rise * 4.0 * t * (1.0 - t) });
+        }
+        for i in 0..n {
+            elements.insert((i + 1).to_string(), SolverElement {
+                id: i + 1, elem_type: "frame".into(), node_i: i + 1, node_j: i + 2,
+                material_id: 1, section_id: 1, hinge_start: false, hinge_end: false,
+            });
+        }
+        let support = |id: usize, node_id: usize, kind: &str| SolverSupport {
+            id, node_id, support_type: kind.into(), kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: None,
+        };
+        supports.insert("1".into(), support(1, 1, "fixed"));
+        if let Some(kind) = far_support {
+            supports.insert("2".into(), support(2, n + 1, kind));
+        }
+        let loaded = if far_support.is_some() { n / 2 + 1 } else { n + 1 };
+        SolverInput {
+            solver_options: None, masses: Default::default(), nodes,
+            materials: HashMap::from([("1".to_string(), SolverMaterial { id: 1, e: 200.0, nu: 0.3 })]),
+            sections: HashMap::from([("1".to_string(), SolverSection { id: 1, a: 0.01, iz: 1e-4, as_y: None })]),
+            elements, supports,
+            loads: vec![SolverLoad::Nodal(SolverNodalLoad { node_id: loaded, fx: 2.0, fz: -30.0, my: 4.0 })],
+            constraints: vec![], connectors: HashMap::new(),
+        }
+    }
+
+    fn same(input: &SolverInput, start: Option<&CorotationalStart2D>, max_iter: usize, n_increments: usize, modified: bool) -> Option<CorotationalResult> {
+        let before = before_the_shared_driver(input, start, max_iter, 1e-8, n_increments, modified);
+        let now = solve_corotational_2d_from(input, start, max_iter, 1e-8, n_increments, modified);
+        match (before, now) {
+            (Ok(before), Ok(now)) => {
+                assert_eq!(serde_json::to_string(&before).unwrap(), serde_json::to_string(&now).unwrap());
+                Some(now)
+            }
+            (Err(before), Err(now)) => {
+                assert_eq!(before, now);
+                None
+            }
+            (before, now) => panic!("{:?} against {:?}", before.map(|r| r.converged), now.map(|r| r.converged)),
+        }
+    }
+
+    #[test]
+    fn the_shared_driver_gives_the_results_the_loop_gave_bit_for_bit() {
+        let (mut converged, mut unconverged, mut sparse) = (0, 0, 0);
+        for n in [1, 4, 12, 30] {
+            for (rise, far_support) in [(0.0, None), (0.4, None), (0.4, Some("pinned")), (0.0, Some("rollerX"))] {
+                let input = frame(n, rise, far_support);
+                let dofs = DofNumbering::build_2d(&input);
+                if dofs.n_free >= SPARSE_THRESHOLD { sparse += 1; }
+                for modified in [false, true] {
+                    for (max_iter, n_increments) in [(50, 1), (50, 5), (3, 2), (1, 4), (200, 10)] {
+                        match same(&input, None, max_iter, n_increments, modified) {
+                            Some(result) if result.converged => converged += 1,
+                            Some(_) => unconverged += 1,
+                            None => {}
+                        }
+                    }
+                }
+            }
+        }
+        assert!(converged >= 40 && unconverged >= 20 && sparse >= 3, "{converged} converged, {unconverged} not, {sparse} sparse");
+    }
+
+    #[test]
+    fn a_moving_support_and_a_start_state_go_through_the_shared_driver_unchanged() {
+        for n in [4, 30] {
+            let mut settled = frame(n, 0.2, Some("pinned"));
+            settled.supports.get_mut("2").unwrap().dz = Some(-0.05);
+            settled.supports.get_mut("2").unwrap().dx = Some(0.01);
+            for modified in [false, true] {
+                let result = same(&settled, None, 60, 4, modified).expect("a result");
+                assert!(result.converged || modified);
+                same(&settled, None, 2, 3, modified);
+            }
+
+            let first = frame(n, 0.2, Some("pinned"));
+            let reached = solve_corotational_2d(&first, 60, 1e-8, 4, false).unwrap();
+            assert!(reached.converged);
+            let start = CorotationalStart2D { input: &first, displacements: &reached.results.displacements };
+            let mut next = frame(n, 0.2, Some("pinned"));
+            next.loads = vec![SolverLoad::Nodal(SolverNodalLoad { node_id: n / 2 + 1, fx: -3.0, fz: -45.0, my: 0.0 })];
+            for modified in [false, true] {
+                let result = same(&next, Some(&start), 60, 3, modified).expect("a result");
+                assert!(result.converged || modified);
+                same(&next, Some(&start), 2, 3, modified);
+            }
+        }
+    }
+
+    #[test]
+    fn refused_inputs_are_refused_with_the_same_words() {
+        let input = frame(4, 0.0, None);
+        assert!(same(&input, None, 0, 4, false).is_none());
+        assert!(same(&input, None, 20, 0, false).is_none());
+        let mut held = frame(2, 0.0, Some("fixed"));
+        held.supports.insert("3".into(), SolverSupport { id: 3, node_id: 2, support_type: "fixed".into(), kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: None });
+        assert!(same(&held, None, 20, 2, false).is_none());
+    }
+}
+
+#[cfg(feature = "experimental-nonlinear")]
+#[path = "experimental_nonlinear/corotational_2d.rs"]
+pub(crate) mod experimental_nonlinear_2d;
+
+#[cfg(feature = "experimental-nonlinear")]
+#[path = "experimental_nonlinear/corotational_3d.rs"]
+pub(crate) mod experimental_nonlinear_3d;

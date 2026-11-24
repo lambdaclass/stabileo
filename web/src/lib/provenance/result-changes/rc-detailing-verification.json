@@ -1,0 +1,34 @@
+{
+  "id": "rc-detailing-verification",
+  "date": "2026-11-20",
+  "prs": [],
+  "area": "design",
+  "when": {
+    "all": [
+      "concreteMembers",
+      "cirsoc201"
+    ]
+  },
+  "title": {
+    "en": "RC beam and column detailing verification",
+    "es": "Verificación del detallado de vigas y columnas de hormigón",
+    "pt": "Verificação do detalhamento de vigas e pilares de concreto",
+    "de": "Nachweis der Bewehrungsdetails von Stahlbetonbalken und -stützen",
+    "fr": "Vérification des détails de ferraillage des poutres et poteaux en béton",
+    "tr": "Betonarme kiriş ve kolon donatı detaylarının doğrulanması",
+    "zh": "钢筋混凝土梁柱详图验算"
+  },
+  "explanation": {
+    "en": "CIRSOC 201 verification now uses concurrent axial force for stirrup spacing and checks anchorage at exact moment zeros. It blocks unsupported drawn bar credit and uses the evaluated torsion limit. Physical detailing withholds column cages it cannot reproduce.",
+    "es": "La verificación CIRSOC 201 usa el esfuerzo axial concurrente para la separación de estribos y revisa el anclaje donde el momento es exactamente cero. Bloquea el cómputo de barras dibujadas sin evidencia y usa el límite de torsión evaluado. El detallado no genera las armaduras de columnas que no puede reproducir.",
+    "pt": "A verificação CIRSOC 201 considera a força axial concomitante no espaçamento dos estribos e verifica a ancoragem onde o momento é exatamente zero. Ela bloqueia o uso de barras desenhadas sem comprovação e aplica o limite de torção avaliado. O detalhamento não gera arranjos de pilares que não consegue reproduzir.",
+    "de": "Der Nachweis nach CIRSOC 201 berücksichtigt die gleichzeitige Normalkraft beim Bügelabstand und prüft die Verankerung an exakten Momentennullstellen. Gezeichnete Stäbe ohne Nachweis werden nicht angerechnet. Der ermittelte Torsionsgrenzwert gilt, und nicht reproduzierbare Stützenbewehrungen werden nicht ausgegeben.",
+    "fr": "La vérification CIRSOC 201 tient compte de l’effort normal concomitant pour l’espacement des cadres et contrôle l’ancrage aux points où le moment est exactement nul. Elle bloque la prise en compte de barres dessinées sans justification et applique la limite de torsion évaluée. Le détail des cages de poteaux impossibles à reproduire est bloqué.",
+    "tr": "CIRSOC 201 doğrulaması, etriye aralığı için eşzamanlı eksenel kuvveti kullanır ve momentin tam sıfır olduğu noktalarda kenetlenmeyi denetler. Kanıtı olmayan çizilmiş donatı hesaba katılmaz ve değerlendirilen burulma sınırı uygulanır. Üretilemeyen kolon donatı düzenleri detaylandırılmaz.",
+    "zh": "CIRSOC 201 验算现在按同时作用的轴力确定箍筋间距，并检查弯矩恰为零处的锚固。验算禁止在证据不足时计入图示钢筋，并采用计算得到的受扭限值。无法按指定布置生成的柱钢筋笼将不出详图。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-rc-detailing-verification.md",
+    "heading": "RC beam and column detailing verification"
+  }
+}

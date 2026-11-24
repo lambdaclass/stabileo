@@ -368,22 +368,20 @@ const FORCE_EPS = 1e-9;
 /**
  * `V_s requerido = V_u/φ − V_c`, kN — the quantity Table 9.7.6.2.2 is indexed on.
  *
- * `V_c` is the plain §22.5.5.1 expression `(1/6)·√f'c·bw·d` with no axial interaction. The
- * row index is a coarse two-band classification, and the axial-corrected `V_c` belongs to
- * the capacity verdict, not to the row selection. φ = 0,75 per §21.2.1.
- *
- * Lives here rather than in the engine so that the design path, the detailing path and the
- * legacy estimator all obtain the row from the same arithmetic. When the engine had its own
- * copy, the three disagreed.
  */
 export function requiredVsForTable(Vu: number, bw: number, d: number, fc: number): number {
   // Vc with √f'c ≤ 8,3 MPa (§22.5.3.1).
   const Vc = (1 / 6) * shearSqrtFc(fc) * (bw * 1000) * (d * 1000) / 1000;
-  return Math.max(0, Math.abs(Vu) / PHI_SHEAR - Vc);
+  return requiredVsWithConcrete(Vu, PHI_SHEAR * Vc);
 }
 
 /** §21.2.1 strength-reduction factor for shear. */
 const PHI_SHEAR = 0.75;
+
+export function requiredVsWithConcrete(Vu: number, phiVc: number): number {
+  return Math.max(0, (Math.abs(Vu) - phiVc) / PHI_SHEAR);
+}
+
 
 /**
  * Table 9.7.6.2.2 evaluated straight from a shear demand.

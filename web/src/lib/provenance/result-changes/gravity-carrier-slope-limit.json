@@ -1,0 +1,41 @@
+{
+  "id": "gravity-carrier-slope-limit",
+  "date": "2026-11-20",
+  "prs": [
+    2254
+  ],
+  "area": "loads",
+  "when": {
+    "all": [
+      "generatedLoads",
+      "frameMembers"
+    ]
+  },
+  "quantities": [
+    "*",
+    "solve.ok"
+  ],
+  "requiresLoadRegeneration": true,
+  "title": {
+    "en": "Gravity generation refuses indeterminate carrier slopes",
+    "es": "La generación gravitatoria bloquea pendientes de portantes indeterminadas",
+    "pt": "A geração gravitacional recusa inclinações indeterminadas dos elementos portantes",
+    "de": "Die Schwerkraftlasterzeugung sperrt nicht eindeutig bestimmbare Trägerneigungen",
+    "fr": "La génération gravitaire refuse les pentes indéterminées des barres porteuses",
+    "tr": "Yerçekimi yükü üretimi eğimi belirsiz taşıyıcıları reddeder",
+    "zh": "重力荷载生成拒绝无法确定承载资格的杆件坡度"
+  },
+  "explanation": {
+    "en": "Generation now blocks when coordinate roundoff can change whether a member carries the gravity load. This includes the geodesic dome example. Regenerate affected loads and define the carrier loads explicitly if generation blocks.",
+    "es": "La generación se bloquea cuando el redondeo puede cambiar si una barra recibe carga gravitatoria. Esto incluye el ejemplo de la cúpula geodésica. Regenere las cargas afectadas y defina explícitamente las de las barras portantes si hay un bloqueo.",
+    "pt": "A geração é bloqueada quando o arredondamento pode mudar se uma barra recebe carga gravitacional. Isso inclui o exemplo da cúpula geodésica. Gere novamente as cargas afetadas e defina explicitamente as cargas das barras portantes se houver bloqueio.",
+    "de": "Die Erzeugung wird gesperrt, wenn Koordinatenrundung darüber entscheiden kann, ob ein Stab Schwerkraftlast trägt. Dies betrifft das Beispiel der geodätischen Kuppel. Erzeugen Sie betroffene Lasten neu und geben Sie bei einer Sperre die Trägerlasten explizit an.",
+    "fr": "La génération est bloquée si les arrondis des coordonnées peuvent changer le classement d’une barre comme porteuse. Cela inclut l’exemple du dôme géodésique. Régénérez les charges concernées et définissez les charges des barres explicitement en cas de blocage.",
+    "tr": "Koordinat yuvarlaması bir elemanın yerçekimi yükü taşıyıp taşımadığını değiştirebiliyorsa üretim engellenir. Jeodezik kubbe örneği de buna dahildir. Etkilenen yükleri yeniden üretin ve üretim engellenirse taşıyıcı yüklerini açıkça tanımlayın.",
+    "zh": "当坐标舍入可能改变杆件是否承受重力荷载的判定时，将阻止荷载生成。这包括测地线穹顶示例。请重新生成受影响的荷载，若生成被阻止，请显式定义承载杆件荷载。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-gravity-carrier-refusals.md",
+    "heading": "Gravity generation refuses indeterminate carrier slopes"
+  }
+}

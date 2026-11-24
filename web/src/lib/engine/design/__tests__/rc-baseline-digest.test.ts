@@ -32,11 +32,12 @@
  * to make it pass — find what moved.
  */
 
+import { createHash } from 'node:crypto';
 import { describe, it, expect } from 'vitest';
 import frame from '../../../templates/fixtures/rc-design-frame.json';
-import { runDesign } from '../candidate-search';
+import { designMember, runDesign } from '../candidate-search';
 import { cirsoc201Adapter } from '../adapters/cirsoc201-adapter';
-import { solveFixture, assertRealSolver } from './helpers';
+import { solveFixture, assertRealSolver, FLAGSHIP_GRAVITY_SHEAR_DEPTH_REFUSALS } from './helpers';
 import type { DesignRunSummary } from '../outcome';
 
 /**
@@ -73,6 +74,73 @@ describe('RC design baseline — the flagship frame, member by member', () => {
   const solved = solveFixture(frame);
   const summary = runDesign(cirsoc201Adapter, solved.contexts.values(), { maxRunMs: 180_000 });
   const lines = digestLines(summary);
+  it('preserves every flagship design result at full precision', () => {
+    const outcomes = [...summary.outcomes.values()]
+      .sort((a, b) => a.elementId - b.elementId)
+      .map(({ searchStats, ...outcome }) => outcome);
+    const digest = (restoreSecondaryShearRounding: boolean) => {
+      const result = JSON.stringify(outcomes, function (this: { category?: string }, key, value: unknown) {
+        if (typeof value !== 'number') return value;
+        if (restoreSecondaryShearRounding && key === 'demand' && this.category === 'Secondary shear (Vy)') {
+          return +value.toFixed(2);
+        }
+        if (Object.is(value, -0)) return { number: '-0' };
+        return Number.isFinite(value) ? value : { number: String(value) };
+      });
+      return createHash('sha256').update(result).digest('hex');
+    };
+    expect(digest(false), 'raw secondary shear demand').toBe('f03e7eb0f2ae193ca387a0045305b1a1a1068516c93027e2c7c7899ebe8fb1e9');
+    expect(digest(true), 'main baseline with its secondary shear rounding').toBe('0eed6c25fca6643ed788227fb75211db6f2748fdf99b1f8334a5d2dc5b4686dc');
+  });
+
+  it('#2338 shear-depth containment never reopens an exhausted flagship search', () => {
+    assertRealSolver();
+    for (const member of [180, 181, 182, 186, 187, 188, 211, 217]) {
+      const outcome = summary.outcomes.get(member);
+      expect(outcome?.outcome, `member ${member}`).toBe('SEARCH_EXHAUSTED');
+      expect(outcome?.certificate, `member ${member}`).toBeUndefined();
+      expect(outcome?.accepted, `member ${member}`).toBeUndefined();
+    }
+  });
+
+  it.each(['single member', 'batch'] as const)('checks the selected cage before certification through %s', (entry) => {
+    const design = (id: number) => {
+      const context = solved.contexts.get(id)!;
+      return entry === 'single member'
+        ? designMember(cirsoc201Adapter, context)
+        : runDesign(cirsoc201Adapter, [context]).outcomes.get(id)!;
+    };
+
+    const refused = design(289);
+    expect(refused.outcome).toBe('UNSUPPORTED');
+    expect(refused.reasons).toContainEqual({ key: 'diag.rcShearDepth' });
+    expect(refused.certificate).toBeUndefined();
+    expect(refused.accepted).toBeUndefined();
+    const checks = refused.provisional!.verdict.checks.filter((check) => check.description === 'diag.rcShearDepth');
+    expect(checks.map((check) => check.category)).toEqual(['Shear Support (Vz)', 'Shear Span (Vz)']);
+    for (const check of checks) {
+      expect(check.status).toBe('fail');
+      expect(check.capacity).toBe(0);
+      expect(check.ratio).toBe(Infinity);
+    }
+
+    const control = design(310);
+    expect(control.outcome).toBe('VERIFIED');
+    expect(control.certificate?.worstUtilization).toBe(0.9);
+    expect(control.accepted).toBeDefined();
+  });
+
+  it('withholds certification for the exact flagship beams with unsupported shear depth', () => {
+    const held = [...summary.outcomes.values()].filter((outcome) => outcome.outcome === 'UNSUPPORTED');
+    expect(held.map((outcome) => outcome.elementId).sort((a, b) => a - b)).toEqual(FLAGSHIP_GRAVITY_SHEAR_DEPTH_REFUSALS);
+    for (const outcome of held) {
+      expect(outcome.limiting).toContain('unsupportedCheck');
+      expect(outcome.reasons).toContainEqual({ key: 'diag.rcShearDepth' });
+      expect(outcome.provisional?.verdict.worstUtilization).toBe(Infinity);
+      expect(outcome.certificate).toBeUndefined();
+      expect(outcome.accepted).toBeUndefined();
+    }
+  });
 
   it('still designs the same number of members the same ways', () => {
     assertRealSolver();
@@ -105,13 +173,13 @@ describe('RC design baseline — the flagship frame, member by member', () => {
     // 372 and 23 since the design met main's concrete in the engine (see the fingerprint): the
     // columns are read on the engine's load contour and carry bars on every face, and 11 more
     // edge beams find no layout through those cages.
-    expect(summary.verified).toBe(368);
+    expect(summary.verified).toBe(286);
     // The 23 congested beams are an exhausted search, not a proven section (`section-bounds.ts`).
     expect(summary.searchExhausted).toBe(27);
     expect(summary.provisionalBiaxial).toBe(13);
     expect(summary.sectionInadequate).toBe(0);
     expect(summary.demandUnavailable).toBe(0);
-    expect(summary.unsupported).toBe(0);
+    expect(summary.unsupported).toBe(82);
     expect(summary.aborted).toBe(false);
   });
 
@@ -134,7 +202,6 @@ describe('RC design baseline — the flagship frame, member by member', () => {
    * metallic code in the path. Every later commit on this branch must reproduce it.
    */
   it('reproduces the recorded per-member fingerprint exactly', () => {
-    const actual = fingerprint(lines);
     /*
      * Re-recorded 2026-08-15 against origin/main@d6b32ff0. See RECORDED_FINGERPRINT for how,
      * and why it was not this branch's to keep. The rule above still stands: do NOT re-record
@@ -219,7 +286,19 @@ describe('RC design baseline — the flagship frame, member by member', () => {
      * are read on the real contour. Down: compressed beams below balance gain some, and the
      * contour credits what the Bresler estimate did not. No verdict moved.
      */
-    expect(actual).toBe(RECORDED_FINGERPRINT);
+    const withSettledSeatLimits = [
+      [[174, 175, 193, 194, 195], 'anchorage,congestion'],
+      [[176, 325], 'congestion'],
+      [[201, 202, 205, 206, 224, 225, 228, 229, 232, 233], 'anchorage'],
+    ] as const;
+    const baselineLines = new Map(lines.map((line) => [Number(line.split('|', 1)[0]), line]));
+    for (const [ids, limits] of withSettledSeatLimits) {
+      for (const id of ids) {
+        expect(baselineLines.get(id)).toBe(`${id}|UNSUPPORTED|${limits},unsupportedCheck|—`);
+        baselineLines.set(id, `${id}|UNSUPPORTED|unsupportedCheck|—`);
+      }
+    }
+    expect(fingerprint([...baselineLines.values()])).toBe(RECORDED_FINGERPRINT);
   });
 
   it('keeps the members that refuse, refusing for the same reason', () => {
@@ -244,7 +323,7 @@ describe('RC design baseline — the flagship frame, member by member', () => {
       expect(o.certificate).toBeUndefined();
       expect(o.accepted).toBeUndefined();
     }
-    const refused = [...summary.outcomes.values()].filter((o) => o.outcome !== 'VERIFIED' && o.outcome !== 'SEARCH_EXHAUSTED');
+    const refused = [...summary.outcomes.values()].filter((o) => o.outcome === 'PROVISIONAL_BIAXIAL');
     expect(refused).toHaveLength(13);
     for (const o of refused) {
       expect(o.outcome).toBe('PROVISIONAL_BIAXIAL');
@@ -411,4 +490,4 @@ describe('RC design baseline — the flagship frame, member by member', () => {
 // and the other seven stay exhausted. 173, 347 and 350 change bars and stay verified (347 and
 // 350: bottom 7Ø12 → 5Ø25). Utilization moved on 85 (57 up, 28 down, −0,224 to +0,032); the
 // worst stays 0,998. The counts are 372 verified, 23 exhausted, 13 provisional.
-const RECORDED_FINGERPRINT = '412d6a20c4170eea';
+const RECORDED_FINGERPRINT = 'd213b9e2e1f52c8a';

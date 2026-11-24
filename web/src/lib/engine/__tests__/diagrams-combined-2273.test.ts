@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { computeDiagram3D, computeGlobalMax3D, type Diagram3DKind } from '../diagrams-3d';
+import { computeDiagram3D, computeGlobalMax3D, evaluateDiagramAt, type Diagram3DKind } from '../diagrams-3d';
 import type { ElementForces3D } from '../types-3d';
 
 
@@ -62,4 +62,97 @@ it('#2273 combination minima include sign changes and one-sided jump limits', ()
 it('a monotone combination peaks at its end', () => {
   const forces = { ...empty(), mxStart: 1, mxEnd: 2 };
   expect(computeDiagram3D({ ...empty(), combined: { method: 'abs', parts: [forces] } }, 'torsion').maxValue).toBe(2);
+});
+
+it('#2273 ABS includes the governing station when a constituent uses full-span intensities', () => {
+  const parts = [0.21, 0.66].map(a => ({ ...parabola(a, 'momentY'), distributedLoadsZ: [], qZI: -2, qZJ: -2 }));
+  const forces = { ...empty(), combined: { method: 'abs' as const, parts } };
+  const expected = 2 * (1 - 0.225 ** 2);
+  expect(computeDiagram3D(forces, 'momentY').maxAbsValue).toBeCloseTo(expected, 12);
+});
+
+it('#2252 SRSS finds the interior peak of the combined spatial response', () => {
+  for (const explicit of [false, true]) {
+    const parts = [4.2, 5.2].map(c => ({
+      ...empty(), length: 10, myStart: 25 - c * c, vzStart: 2 * c, qZI: -2, qZJ: -2,
+      distributedLoadsZ: explicit ? [{ a: 0, b: 10, qI: -2, qJ: -2 }] : [],
+    }));
+    const forces = { ...empty(), length: 10, combined: { method: 'srss' as const, parts } };
+    const expected = Math.SQRT2 * (25 - 0.5 ** 2);
+    expect.soft(computeDiagram3D(forces, 'momentY').maxAbsValue, `explicit loads: ${explicit}`).toBeCloseTo(expected, 12);
+    expect.soft(computeDiagram3D(forces, 'momentY').points.some(p => Math.abs(p.t - 0.47) < 1e-10)).toBe(true);
+  }
+});
+
+it('#2273 ABS includes an axial peak between consecutive point loads', () => {
+  const pulse = { ...empty(), pointLoadsX: [{ a: 0.431, p: -2 }, { a: 0.432, p: 2 }] };
+  const baseline = { ...empty(), nStart: 1, nEnd: 1 };
+  const forces = { ...empty(), combined: { method: 'abs' as const, parts: [baseline, pulse] } };
+  const diagram = computeDiagram3D(forces, 'axial');
+  expect(diagram.maxAbsValue).toBe(3);
+  expect(diagram.points.filter(p => p.t === 0.431).map(p => p.value)).toEqual([1, 3]);
+});
+
+it('marks a conservative bound when a magnitude constituent is itself a magnitude combination', () => {
+  const first = parabola(0.21, 'momentY'), second = parabola(0.66, 'momentY');
+  const inner = { ...empty(), combined: { method: 'srss' as const, parts: [first, second] } };
+  const outer = { ...empty(), combined: { method: 'abs' as const, parts: [inner, first] } };
+  const diagram = computeDiagram3D(outer, 'momentY');
+  const dense = Array.from({ length: 1001 }, (_, k) => {
+    const t = k / 1000;
+    const a = 1 - (t - 0.21) ** 2, b = 1 - (t - 0.66) ** 2;
+    return Math.hypot(a, b) + a;
+  });
+  expect(diagram.extrema).toBe('bounded');
+  expect(diagram.maxAbsValue).toBeGreaterThanOrEqual(Math.max(...dense));
+  expect(diagram.maxAbsValue).toBeCloseTo(1 + (1 - 0.225 ** 2) * Math.SQRT2, 12);
+  expect(computeDiagram3D(inner, 'momentY').extrema).toBeUndefined();
+  const constituentPeak = diagram.points.find(p => Math.abs(p.t - 0.21) < Number.EPSILON);
+  const otherMoment = 1 - (0.66 - 0.21) ** 2;
+  expect(constituentPeak?.value).toBeCloseTo(Math.hypot(1, otherMoment) + 1, 12);
+});
+
+it('refuses distinct axial cuts that share the same floating-point normalized station', () => {
+  const length = 3, a = 1.75;
+  const pulse = (b: number) => ({ ...empty(), length, pointLoadsX: [{ a, p: -2 }, { a: b, p: 2 }] });
+  const b = a + Number.EPSILON;
+  expect(b).toBeGreaterThan(a);
+  expect(b / length).toBe(a / length);
+  expect(() => computeDiagram3D(pulse(b), 'axial')).toThrow(/extrema/i);
+  const separated = pulse(a + 2 * Number.EPSILON);
+  expect(computeDiagram3D(separated, 'axial').maxAbsValue).toBe(2);
+  expect(evaluateDiagramAt(separated, 'axial', a / length)).toBe(0);
+  expect(evaluateDiagramAt(separated, 'axial', a / length, true)).toBe(2);
+});
+
+it('refuses aliased normalized jumps across magnitude constituents and retains separated ones', () => {
+  const length = 3, a = 1.75;
+  for (const method of ['abs', 'srss'] as const) {
+    const combined = (b: number) => ({
+      ...empty(), length,
+      combined: { method, parts: [
+        { ...empty(), length, nEnd: 1, pointLoadsX: [{ a, p: -1 }] },
+        { ...empty(), length, nStart: 1, pointLoadsX: [{ a: b, p: 1 }] },
+      ] },
+    });
+    expect(() => computeDiagram3D(combined(a + Number.EPSILON), 'axial')).toThrow(/extrema/i);
+    expect(computeDiagram3D(combined(a + 2 * Number.EPSILON), 'axial').maxAbsValue).toBe(method === 'abs' ? 2 : Math.SQRT2);
+    expect(computeDiagram3D(combined(a), 'axial').maxAbsValue).toBe(1);
+  }
+});
+
+it('#2226 refuses ambiguous point queries at either cut side, including across magnitude constituents', () => {
+  const length = 3, a = 1.75, b = a + Number.EPSILON;
+  const leaf = (pointLoadsX: ElementForces3D['pointLoadsX']) => ({ ...empty(), length, pointLoadsX });
+  const pulse = (end: number) => leaf([{ a, p: -2 }, { a: end, p: 2 }]);
+  const combined = (end: number): ElementForces3D => ({
+    ...empty(), length, combined: { method: 'abs', parts: [leaf([{ a, p: -2 }]), leaf([{ a: end, p: 2 }])] },
+  });
+  for (const forces of [pulse(b), combined(b)]) {
+    for (const right of [false, true]) {
+      expect.soft(() => evaluateDiagramAt(forces, 'axial', a / length, right)).toThrow(/extrema/i);
+    }
+  }
+  expect(evaluateDiagramAt(pulse(a + 2 * Number.EPSILON), 'axial', a / length, true)).toBe(2);
+  expect(evaluateDiagramAt(pulse(a), 'axial', a / length, true)).toBe(0);
 });

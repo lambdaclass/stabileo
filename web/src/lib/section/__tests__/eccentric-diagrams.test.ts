@@ -116,6 +116,33 @@ describe('a transverse load off the shear centre twists the member', () => {
     expect(resolveEccentric({ vz: 100, at: [0.25, 0] }, sc).forces.t).toBeCloseTo(20, 9);
   });
 
+  it('#2366 refuses combined shear for an eccentric planar force routed through the biaxial API', () => {
+    const S = rect();
+    const point: [number, number] = [0.05, 0];
+    const centered = toDiagram(S, resolveEccentric({ vz: 100, at: [0, 0] }).forces, point);
+    const offset = toDiagram(S, resolveEccentric({ vz: 100, at: point }).forces, point);
+    expect(offset.tauVzAtFiber).toBe(centered.tauVzAtFiber);
+    expect(offset.tauTorsion).not.toBe(0);
+    expect(offset).toMatchObject({
+      refusal: 'combinedTorsionAndTransverseShear', tauTotal: null, mohr: null, failure: null,
+    });
+    expect(centered.refusal).toBeNull();
+    expect(centered.tauTotal).toBe(centered.tauVzAtFiber);
+    for (const sample of offset.distributionZ) {
+      expect(sample).toMatchObject({ refusal: offset.refusal, tauTotal: null, vonMises: null });
+    }
+  });
+
+  it('#2366 includes centred planar shear in the width cut diagnostics', () => {
+    const centered = toDiagram(rect(), resolveEccentric({ vz: 100, at: [0, 0] }).forces, [0.05, 0]);
+    expect(centered.tauVzAtFiber).toBeGreaterThan(0);
+    for (const sample of centered.distributionZ) {
+      expect(sample).toMatchObject({ refusal: null, tauVz: 0 });
+      expect(sample.tauTotal, JSON.stringify(sample)).toBeCloseTo(centered.tauVzAtFiber, 12);
+      expect(sample.vonMises).toBeCloseTo(centered.failure!.vonMises, 12);
+    }
+  });
+
   it('a horizontal transverse load twists about the other arm, with opposite sense', () => {
     const t = resolveEccentric({ vy: 100, at: [0, 0.1] }, [0, 0]).forces.t;
     expect(t).toBeCloseTo(-10, 9); // -vy · z
