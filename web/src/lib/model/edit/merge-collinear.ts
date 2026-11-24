@@ -237,7 +237,7 @@ export function mergeCollinear(elementIds: Iterable<number>, preserveNodes?: Rea
       if (segs.some((e) => e.reinforcement)) report.reinforcementDropped++;
       modelStore.updateElement(keep.id, patch);
       for (const n of interior) { modelStore.removeNode(n); report.removedNodes++; }
-      modelStore.addLoadEntries(moved);
+      for (const l of moved) modelStore.addLoadEntry(l);
       report.merged.push({ elementId: keep.id, absorbed: chain.length - 1 });
     }
   });
