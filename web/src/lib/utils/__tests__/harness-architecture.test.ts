@@ -26,7 +26,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { resolve, dirname, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { sharedSwitchOnUnitFiles, switchOnUnitFiles } from '../../../../scripts/switch-on-unit.mjs';
+import { switchOnUnitFiles } from '../../../../scripts/switch-on-unit.mjs';
 import { CORPUS } from '../../results-snapshot/corpus';
 
 const WEB_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..');
@@ -116,15 +116,13 @@ describe('Vitest harness architecture', () => {
     expect(unit![1]).toMatch(/pool: 'threads'/);
   });
 
-  it('the switch-on pass covers opt-in files and the declared shared cases', () => {
+  it('the switch-on pass includes exactly the unit files excluded in production', () => {
     const unit = CONFIG.match(/name: 'unit',([\s\S]*?)\n\s{8}\}/);
     expect(unit).not.toBeNull();
     expect(CONFIG).toContain("const EXCLUDED_SWITCH_ON_UNIT_TESTS = process.env.STABILEO_UNIT_PROFILE === 'production' ? switchOnUnitFiles : []");
-    expect([...unit![1].matchAll(/\binclude: (\w+)/g)].map(match => match[1])).toEqual(['INCLUDED_SWITCH_ON_UNIT_TESTS']);
-    expect(CONFIG).toContain('const INCLUDED_SWITCH_ON_UNIT_TESTS = [...switchOnUnitFiles, ...sharedSwitchOnUnitFiles]');
-    expect(unit![1]).toContain("process.env.STABILEO_UNIT_PROFILE === 'test' ? { include: INCLUDED_SWITCH_ON_UNIT_TESTS } : {}");
-    expect(sharedSwitchOnUnitFiles.filter(file => file.endsWith('.switch-on.test.ts') || switchOnUnitFiles.includes(file))).toEqual([]);
-    for (const file of [...switchOnUnitFiles, ...sharedSwitchOnUnitFiles].filter(file => !file.includes('*'))) {
+    expect([...unit![1].matchAll(/\binclude: (\w+)/g)].map(match => match[1])).toEqual(['switchOnUnitFiles']);
+    expect(unit![1]).toContain("process.env.STABILEO_UNIT_PROFILE === 'test' ? { include: switchOnUnitFiles } : {}");
+    for (const file of switchOnUnitFiles.filter(file => !file.includes('*'))) {
       expect(files).toContain(file);
       expect(PRODUCTION_BUILD_TESTS).not.toContain(file);
       expect(inResultsPass(file)).toBe(false);
