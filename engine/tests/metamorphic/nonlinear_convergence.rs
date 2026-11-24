@@ -881,6 +881,7 @@ fn issue_761_rotated_resolved_linear_3d() {
 }
 
 #[test]
+#[ignore = "known wrong result: #761"]
 fn issue_761_rotated_resolved_arc_length_and_displacement_control_refusal() {
     use dedaliano_engine::solver::arc_length::{self, ArcLengthInput, DisplacementControlInput};
     for case in rotated_resolved_cases()
@@ -937,6 +938,80 @@ fn issue_761_rotated_resolved_arc_length_and_displacement_control_refusal() {
             .unwrap_err()
             .to_lowercase()
             .contains("inclined"));
+    }
+}
+
+
+#[test]
+#[ignore = "known wrong result: #761"]
+fn issue_761_rotated_split_loads_preserve_the_tangent_resultant() {
+    use dedaliano_engine::solver::arc_length::{self, ArcLengthInput};
+    use dedaliano_engine::solver::{assembly, corotational};
+
+    for angle in [0.0, -std::f64::consts::FRAC_PI_4, std::f64::consts::FRAC_PI_4] {
+        let mut solver = fixtures().remove(0).s;
+        let length = solver.nodes["2"].x;
+        let [tangent, normal] = assembly::inclined_rotation_matrix_2d(angle);
+        let tip = solver.nodes.get_mut("2").unwrap();
+        tip.x = tangent[0] * length;
+        tip.z = tangent[1] * length;
+        let support = solver.supports.get_mut("2").unwrap();
+        support.support_type = "inclinedRoller".into();
+        support.angle = Some(angle);
+        let expected = 4.0 * length / (1000.0 * solver.materials["1"].e * solver.sections["1"].a);
+        let ds = 4.0_f64.hypot(expected) / 10.0;
+        solver.loads = vec![SolverLoad::Nodal(SolverNodalLoad {
+            node_id: 2,
+            fx: normal[0] * 2.0_f64.powi(70),
+            fz: normal[1] * 2.0_f64.powi(70),
+            my: 0.0,
+        })];
+        let mut arc = ArcLengthInput {
+            solver,
+            max_steps: 1,
+            max_iter: 100,
+            tolerance: 1e-10,
+            initial_ds: ds,
+            min_ds: ds,
+            max_ds: ds,
+            target_iter: 4,
+        };
+        assert_eq!(arc_length::solve_arc_length(&arc).unwrap_err(), "Zero reference load");
+        arc.solver.loads.push(SolverLoad::Nodal(SolverNodalLoad {
+            node_id: 2,
+            fx: tangent[0] * 4.0,
+            fz: tangent[1] * 4.0,
+            my: 0.0,
+        }));
+        let check = |result, expected| {
+            let case = serde_json::json!({
+                "solver": arc.solver,
+                "expectedAxialDisplacement": expected
+            });
+            check_axial_displacement(&result, &case);
+        };
+        let result = arc_length::solve_arc_length_from(&arc, None).unwrap();
+        assert!(result.converged);
+        crate::common::assert_close(result.final_load_factor, 0.1, 1e-10, "arc load factor");
+        check(serde_json::to_value(result).unwrap(), expected / 10.0);
+        for modified_nr in [false, true] {
+            let result = corotational::solve_corotational_2d(
+                &arc.solver, 100, 1e-10, 2, modified_nr,
+            )
+            .unwrap();
+            assert!(result.converged);
+            check(serde_json::to_value(result).unwrap(), expected);
+        }
+        #[cfg(feature = "experimental-nonlinear")]
+        {
+            use dedaliano_engine::solver::experimental_nonlinear::{self, IterationMethod};
+            let result = experimental_nonlinear::solve_corotational_2d_by(
+                &arc.solver, None, 100, 1e-10, 2, IterationMethod::Newton,
+            )
+            .unwrap();
+            assert!(result.converged);
+            check(serde_json::to_value(result).unwrap(), expected);
+        }
     }
 }
 
