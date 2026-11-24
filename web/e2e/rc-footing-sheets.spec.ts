@@ -112,8 +112,7 @@ if (BUILD_FEATURES.proRcSheets) {
     for (const s of ['Medianera y equilibrio', 'Corte de la viga', 'Reacción bajo la base', 'Alivio de la base vecina']) await expect(steps).toContainText(s);
   });
 
-  test('@smoke property lines are picked first and applied at once, and a layout is shown, adopted and compared by name', async ({ pro: page }) => {
-    test.skip(!BUILD_FEATURES.proPlatesUnified, 'the foundations layout list of the unified plates build');
+  if (BUILD_FEATURES.proPlatesUnified) test('@smoke property lines are picked first and applied at once, and a layout is shown, adopted and compared by name', async ({ pro: page }) => {
     await loadModel(page, 'rc-design-qa-8');
     await solveModel(page);
     await page.getByTestId('pr-stage-analyse').click();
