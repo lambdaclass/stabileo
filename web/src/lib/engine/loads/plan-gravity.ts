@@ -36,12 +36,12 @@
  *
  * Pure: no store.
  */
-import { assertDisjointShells, footprintsOverlap, planarShell, refuseGravityGeometry, ringArea, type ShellPlane, type UncoveredStrips } from './gravity-shell-partition';
-import { physicalRoofRuns, snowCoordinate } from './physical-roof-geometry';
+import { assertDisjointBayShells, assertSeparateShellDecks, footprintsOverlap, planarShell, refuseGravityGeometry, ringArea, type ShellPlane, type UncoveredStrips } from './gravity-shell-partition';
+import { physicalRoofRuns, samePhysicalPoint, snowCoordinate } from './physical-roof-geometry';
 import polygonClipping, { type Polygon } from 'polygon-clipping';
 import { physicalFloorLoad as floorLoad, type FloorBeam, type FloorPanel, type SideStretch } from './floor-loads';
 import { EngineMessageError, msg, round, type EngineMessage } from '../../codes/message';
-import type { Constraint3D, RigidLinkConstraint } from '../types-3d';
+import type { Constraint3D } from '../types-3d';
 
 export interface GravityModel {
   nodes: Map<number, { id: number; x: number; y: number; z?: number }>;
@@ -119,17 +119,28 @@ export interface GravityLayout {
 
 const TOL = 1e-3;
 const MIN_COVER_RISE = 0.05;
-type ShellCarrier = { id: number; z0: number; poly: Polygon[number]; pts: Array<[number, number, number]>; nodes: number[]; plane?: ShellPlane };
-const levelKey = (z: number) => Math.round(z / TOL) * TOL;
+const BEAM_SLOPE_LIMIT = 0.5;
+type ShellCarrier = {
+  id: number; z0: number; poly: Polygon[number]; pts: Array<[number, number, number]>;
+  nodes: number[]; plane?: ShellPlane;
+};
+const levelIndex = (z: number) => Math.round(z / TOL);
+const levelKey = (z: number) => levelIndex(z) * TOL;
 
 /** True when a member is close enough to horizontal to carry an area load (|Δz|/L ≤ 0.5). */
-export function beamLike(model: GravityModel, el: { nodeI: number; nodeJ: number }): { ok: boolean; length: number; horizontalLength: number } {
+export function beamLike(model: GravityModel, el: { id: number; nodeI: number; nodeJ: number }): { ok: boolean; length: number; horizontalLength: number } {
   const nI = model.nodes.get(el.nodeI), nJ = model.nodes.get(el.nodeJ);
   if (!nI || !nJ) return { ok: false, length: 0, horizontalLength: 0 };
   const dx = nJ.x - nI.x, dy = nJ.y - nI.y, dz = (nJ.z ?? 0) - (nI.z ?? 0);
   const L = Math.hypot(dx, dy, dz);
   if (L < 0.01) return { ok: false, length: 0, horizontalLength: 0 };
-  return { ok: Math.abs(dz) / L <= 0.5, length: L, horizontalLength: Math.hypot(dx, dy) };
+  const rise = Math.abs(dz);
+  const limit = L * BEAM_SLOPE_LIMIT;
+  const coordinateScale = Math.max(L, Math.abs(nI.x), Math.abs(nI.y), Math.abs(nI.z ?? 0), Math.abs(nJ.x), Math.abs(nJ.y), Math.abs(nJ.z ?? 0));
+  if (Math.abs(rise - limit) <= 16 * Number.EPSILON * coordinateScale) {
+    refuseGravityGeometry(msg('loadPlan.gravity.memberSlopeLimit', { id: el.id }));
+  }
+  return { ok: rise / L <= BEAM_SLOPE_LIMIT, length: L, horizontalLength: Math.hypot(dx, dy) };
 }
 
 export function gravityLayout(model: GravityModel, opts: GravityOptions): GravityLayout {
@@ -147,10 +158,14 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
   const addArea = (map: Map<number, number>, id: number, a: number) => map.set(id, (map.get(id) ?? 0) + a);
 
   const candidates = [...model.elements.values()].filter((e) => e.type !== 'truss');
-  for (const e of candidates) {
-    const a = model.nodes.get(e.nodeI), b = model.nodes.get(e.nodeJ);
-    if (a && b && beamLike(model, e).ok) out.zOf.set(e.id, ((a.z ?? 0) + (b.z ?? 0)) / 2);
-  }
+  const eligibility = new Map(candidates.map(e => {
+    const member = beamLike(model, e);
+    if (member.ok) {
+      const a = model.nodes.get(e.nodeI)!, b = model.nodes.get(e.nodeJ)!;
+      out.zOf.set(e.id, ((a.z ?? 0) + (b.z ?? 0)) / 2);
+    }
+    return [e.id, member] as const;
+  }));
 
   const quadsAt = new Map<number, Array<{ quadId: number; area: number }>>();
   const slopedQuads: Array<{ quadId: number; area: number; z: number; cos: number }> = [];
@@ -167,13 +182,14 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
     const plan = ringArea(poly);
     const plane = opts.mode === 'panels' && plan > 0 ? planarShell(q.id, xyz) : undefined;
     const carrier = { id: q.id, poly, pts: xyz, nodes: q.nodes, plane };
-    if (Math.max(...zs) - Math.min(...zs) <= TOL) {
+    const low = Math.min(...zs), high = Math.max(...zs);
+    if (high - low <= TOL) {
       const key = levelKey(zs[0]!);
       const list = quadsAt.get(key) ?? [];
       list.push({ quadId: q.id, area: plan });
       quadsAt.set(key, list);
       if (plan > 0) {
-        levelCarriers.push({ ...carrier, z0: key });
+        levelCarriers.push({ ...carrier, z0: levelKey(low) });
         for (const id of q.nodes) shellNodes.add(id);
       }
       continue;
@@ -183,16 +199,15 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
     // |sin| ≤ 0,5, the members' rule: a roof; past 80° a wall; between, named.
     if (cos >= Math.sqrt(0.75) - 1e-9) {
       slopedQuads.push({ quadId: q.id, area: plan, z: zs.reduce((s, z) => s + z, 0) / zs.length, cos });
-      slopedCarriers.push({ ...carrier, z0: levelKey(Math.min(...zs)) });
+      slopedCarriers.push({ ...carrier, z0: levelKey(low) });
       for (const id of q.nodes) shellNodes.add(id);
     } else if (cos > Math.cos((80 * Math.PI) / 180)) steep.push(q.id);
   }
   const carriers = [...levelCarriers, ...slopedCarriers];
   const roofs = opts.mode === 'panels' ? connectedShellGroups(slopedCarriers) : [];
-  if (opts.mode === 'panels') assertDisjointShells(carriers);
-  const rigidLinks = opts.mode === 'panels' ? verticalRigidLinks(model) : [];
-  const linkedDecks = linkedShellDecks(model, carriers, rigidLinks);
-  const offsets = directShellOffsets(model, shellNodes, rigidLinks);
+  const links = opts.mode === 'panels' ? verticalShellLinks(model) : [];
+  const linkedDecks = linkedShellDecks(model, carriers, links);
+  const offsets = directShellOffsets(model, shellNodes, links);
   const attachedCoverage = rigidShellCoverage(model, offsets, carriers, out.zOf.keys());
   const shellMembership = new Map<number, boolean>();
   const inShell = (e: { id: number; nodeI: number; nodeJ: number }): boolean => {
@@ -216,7 +231,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
   for (const e of candidates) {
     const nI = model.nodes.get(e.nodeI), nJ = model.nodes.get(e.nodeJ);
     if (!nI || !nJ) continue;
-    const b = beamLike(model, e);
+    const b = eligibility.get(e.id)!;
     if (!b.ok) continue;
     const horizontal = Math.abs((nI.z ?? 0) - (nJ.z ?? 0)) <= TOL;
     // By width every member takes the width; its floor's panels still say what it covers. A
@@ -241,6 +256,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
     levels.set(z, { beams, res });
     panelsAt.set(z, res.panels.map((pn) => pn.polygon));
   }
+  if (opts.mode === 'panels') assertSeparateShellDecks(carriers, TOL);
   const coverAbove = coverage(model, out.zOf, panelsAt);
   const covered = (pt: [number, number], zTop: number) => Number.isFinite(coverAbove(pt, zTop));
   const panelSides = new Map<number, SideStretch[]>();
@@ -362,7 +378,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
 
   const levelOrder = [...levels.keys()].sort((a, b) => a - b);
   for (const z of levels.keys()) for (const b of flatAt.get(z) ?? []) {
-    const g = beamLike(model, b);
+    const g = eligibility.get(b.id)!;
     width(b.id, g.length, g.horizontalLength);
     byWidth++;
   }
@@ -493,18 +509,42 @@ function attachmentPoint(point: { x: number; y: number; z?: number }, [dx, dy, d
   return [point.x + dx, point.y + dy, (point.z ?? 0) + dz];
 }
 
-function verticalRigidLinks(model: GravityModel): RigidLinkConstraint[] {
-  return (model.constraints ?? []).filter((link): link is RigidLinkConstraint =>
-    link.type === 'rigidLink' && (!link.dofs?.length || link.dofs.includes(2))
-    && model.nodes.has(link.masterNode) && model.nodes.has(link.slaveNode),
-  );
+type VerticalShellLink = {
+  masterNode: number;
+  slaveNode: number;
+  geometry?: { fullMotion: boolean };
+};
+
+function verticalShellLinks(model: GravityModel): VerticalShellLink[] {
+  const links: VerticalShellLink[] = [];
+  for (const constraint of model.constraints ?? []) {
+    if (constraint.type !== 'rigidLink' && constraint.type !== 'eccentricConnection') continue;
+    const { masterNode, slaveNode } = constraint;
+    const master = model.nodes.get(masterNode), slave = model.nodes.get(slaveNode);
+    if (!master || !slave) continue;
+    if (constraint.type === 'rigidLink') {
+      const dofs = constraint.dofs?.length ? constraint.dofs : [0, 1, 2];
+      if (!dofs.includes(2)) continue;
+      const fullMotion = [0, 1, 2, 3, 4, 5].every(dof => dofs.includes(dof));
+      links.push({ masterNode, slaveNode, geometry: { fullMotion } });
+    } else {
+      if (constraint.releases?.[2]) continue;
+      const [x, y, z] = attachmentPoint(master, [constraint.offsetX ?? 0, constraint.offsetY ?? 0, constraint.offsetZ ?? 0]);
+      const geometry = samePhysicalPoint({ x, y, z }, slave)
+        ? { fullMotion: [0, 1, 2, 3, 4, 5].every(dof => !constraint.releases?.[dof]) }
+        : undefined;
+      links.push({ masterNode, slaveNode, geometry });
+    }
+  }
+  return links;
 }
 
 function directShellOffsets(
-  model: GravityModel, shellNodes: ReadonlySet<number>, links: readonly RigidLinkConstraint[],
+  model: GravityModel, shellNodes: ReadonlySet<number>, links: readonly VerticalShellLink[],
 ): Map<number, ShellOffset[]> {
   const offsets = new Map<number, ShellOffset[]>();
   for (const link of links) {
+    if (!link.geometry) continue;
     const masterIsShell = shellNodes.has(link.masterNode), slaveIsShell = shellNodes.has(link.slaveNode);
     if (masterIsShell === slaveIsShell) continue;
     const frameNode = masterIsShell ? link.slaveNode : link.masterNode;
@@ -631,25 +671,37 @@ function connectedShellGroups(carriers: ShellCarrier[], components = new NodeCom
   return [...groups.values()];
 }
 
-function isCoincidentFullRigidLink(model: GravityModel, { masterNode, slaveNode, dofs }: RigidLinkConstraint): boolean {
-  if (!dofs || ![0, 1, 2, 3, 4, 5].every(dof => dofs.includes(dof))) return false;
-  const master = model.nodes.get(masterNode)!;
-  const slave = model.nodes.get(slaveNode)!;
-  return master.x === slave.x && master.y === slave.y && (master.z ?? 0) === (slave.z ?? 0);
+function shellSeamComponents(model: GravityModel, carriers: ShellCarrier[], fullMotion: NodeComponents): NodeComponents {
+  const seams = new NodeComponents();
+  const anchors = new Map<number, Set<number>>();
+  for (const shell of carriers) for (const id of shell.nodes) {
+    if (!fullMotion.has(id)) continue;
+    const root = fullMotion.root(id);
+    const component = anchors.get(root) ?? new Set<number>();
+    if (component.has(id)) continue;
+    const point = model.nodes.get(id)!;
+    for (const other of component) {
+      if (samePhysicalPoint(point, model.nodes.get(other)!)) seams.join(id, other);
+    }
+    component.add(id);
+    anchors.set(root, component);
+  }
+  return seams;
 }
 
 type ShellDecksAtNode = (node: number) => Iterable<ShellCarrier[]>;
 
 function linkedShellDecks(
-  model: GravityModel, carriers: ShellCarrier[], links: readonly RigidLinkConstraint[],
+  model: GravityModel, carriers: ShellCarrier[], links: readonly VerticalShellLink[],
 ): ShellDecksAtNode | undefined {
   if (!carriers.length || !links.length) return;
   const rigid = new NodeComponents();
-  const seams = new NodeComponents();
-  for (const link of links) {
-    rigid.join(link.masterNode, link.slaveNode);
-    if (isCoincidentFullRigidLink(model, link)) seams.join(link.masterNode, link.slaveNode);
+  const fullMotion = new NodeComponents();
+  for (const { masterNode, slaveNode, geometry } of links) {
+    rigid.join(masterNode, slaveNode);
+    if (geometry?.fullMotion) fullMotion.join(masterNode, slaveNode);
   }
+  const seams = shellSeamComponents(model, carriers, fullMotion);
   const decksByRoot = new Map<number, Map<ShellCarrier[], Set<number>>>();
   for (const deck of connectedShellGroups(carriers, seams)) for (const shell of deck) for (const node of shell.nodes) {
     if (!rigid.has(node)) continue;
@@ -676,14 +728,19 @@ function assertNoOffsetShellDeck(
     for (const node of [nodeI, nodeJ]) for (const deck of linkedDecks(node)) decks.add(deck);
   }
   for (const deck of decks) for (const shell of deck) {
-    if (shell.pts.every(p => atDeckLevel(p[2], z))) continue;
+    if (shellServesDeckLevel(shell, z)) continue;
     if (footprintsOverlap(footprint, [shell.poly])) {
-      refuseGravityGeometry(msg('loadPlan.gravity.offsetShellDeck', { id: shell.id }));
+      const members = [...(panel.members ?? [])].sort((a, b) => a - b).join(', ');
+      refuseGravityGeometry(msg('loadPlan.gravity.offsetShellDeck', { id: shell.id, members }));
     }
   }
 }
 
 const atDeckLevel = (height: number, z: number) => height >= z - TOL && height <= z + TOL;
+
+function shellServesDeckLevel(shell: ShellCarrier, z: number): boolean {
+  return shell.pts.every(p => atDeckLevel(p[2], z));
+}
 
 function deckFootprints(
   boundary: Polygon, corners: number[], z: number, level: ShellCarrier[], roofs: ShellCarrier[][],
@@ -691,12 +748,16 @@ function deckFootprints(
   const atLevel = (height: number) => atDeckLevel(height, z);
   const nodesAtLevel = (roof: ShellCarrier[]) =>
     new Set(roof.flatMap(shell => shell.nodes.filter((_, i) => atLevel(shell.pts[i]![2]))));
-  const footprints: Polygon[] = [];
+  const serving = level.filter(shell => shellServesDeckLevel(shell, z));
+  const coveringShells = [...serving];
   const overlaps = (shell: ShellCarrier) => footprintsOverlap(boundary, [shell.poly]);
   try {
+    const served = new Set(serving);
     for (const shell of level) {
-      if (shell.pts.every(p => atLevel(p[2]))) footprints.push([shell.poly]);
-      else if (atLevel(shell.z0) && overlaps(shell)) {
+      if (served.has(shell)) continue;
+      const cornersInBand = shell.pts.some(p => atLevel(p[2]));
+      const allRoundIntoBand = shell.pts.every(p => atLevel(levelKey(p[2])));
+      if ((cornersInBand || allRoundIntoBand) && overlaps(shell)) {
         refuseGravityGeometry(msg('loadPlan.gravity.differentDeck'));
       }
     }
@@ -719,13 +780,14 @@ function deckFootprints(
         || polygonClipping.difference(boundary, projection).length !== 0) {
         refuseGravityGeometry(msg('loadPlan.gravity.differentSlopedDeck'));
       }
-      footprints.push(...polygons);
+      coveringShells.push(...covering);
     }
+    assertDisjointBayShells(coveringShells, boundary);
   } catch (err) {
     if (err instanceof EngineMessageError) throw err;
     refuseGravityGeometry(msg('loadPlan.gravity.deckCheckFailed', { detail: String(err) }));
   }
-  return footprints;
+  return coveringShells.map(shell => [shell.poly]);
 }
 
 function shellAbove(carrier: ShellCarrier, z: number): Polygon[number] {

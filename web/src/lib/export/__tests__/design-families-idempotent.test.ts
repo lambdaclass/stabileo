@@ -5,16 +5,16 @@
 
 import { describe, it, expect } from 'vitest';
 import { modelStore } from '../../store/model.svelte';
-import { ready, designFamiliesThenTurn } from './design-families-fixture';
+import { ready, designFamiliesWithWorkerYields } from './design-families-fixture';
 
 describe('the global command is the individual commands', () => {
   it('running it twice does not duplicate steel', async () => {
     await ready('pro-edificio-7p');
     // Two runs of ~20 s each, with a turn between them: back to back they were one 43 s
     // synchronous stretch, past the worker's 60 s RPC budget on a CI runner.
-    await designFamiliesThenTurn(['column', 'beam', 'slab', 'wall']);
+    await designFamiliesWithWorkerYields(['column', 'beam', 'slab', 'wall']);
     const first = (modelStore.model.detailing?.assemblies ?? []).flatMap((a) => a.bars);
-    await designFamiliesThenTurn(['column', 'beam', 'slab', 'wall']);
+    await designFamiliesWithWorkerYields(['column', 'beam', 'slab', 'wall']);
     const second = (modelStore.model.detailing?.assemblies ?? []).flatMap((a) => a.bars);
 
     expect(second.length).toBe(first.length);

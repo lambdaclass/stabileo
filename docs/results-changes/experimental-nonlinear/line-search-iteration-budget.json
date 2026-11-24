@@ -1,0 +1,16 @@
+{
+  "id": "line-search-iteration-budget",
+  "date": "2026-11-22",
+  "prs": [2401],
+  "area": "analysis",
+  "when": {
+    "cargoFeature": "experimental-nonlinear",
+    "analyses": ["corotational2d", "corotational3d"],
+    "method": "newtonLineSearch"
+  },
+  "quantities": ["solve.ok", "converged", "iterations", "loadFactor", "loadIncrements", "maxDisplacement", "displacements", "reactions", "elementForces"],
+  "changelog": {
+    "file": "docs/results-changes/2026-11-experimental-line-search-budget.md",
+    "heading": "Honor the line-search iteration budget on every load increment (2026-11-22)"
+  }
+}

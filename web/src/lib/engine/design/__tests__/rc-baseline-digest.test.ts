@@ -32,6 +32,7 @@
  * to make it pass — find what moved.
  */
 
+import { createHash } from 'node:crypto';
 import { describe, it, expect } from 'vitest';
 import frame from '../../../templates/fixtures/rc-design-frame.json';
 import { designMember, runDesign } from '../candidate-search';
@@ -73,6 +74,25 @@ describe('RC design baseline — the flagship frame, member by member', () => {
   const solved = solveFixture(frame);
   const summary = runDesign(cirsoc201Adapter, solved.contexts.values(), { maxRunMs: 180_000 });
   const lines = digestLines(summary);
+  it('preserves every flagship design result at full precision', () => {
+    const outcomes = [...summary.outcomes.values()]
+      .sort((a, b) => a.elementId - b.elementId)
+      .map(({ searchStats, ...outcome }) => outcome);
+    const digest = (restoreSecondaryShearRounding: boolean) => {
+      const result = JSON.stringify(outcomes, function (this: { category?: string }, key, value: unknown) {
+        if (typeof value !== 'number') return value;
+        if (restoreSecondaryShearRounding && key === 'demand' && this.category === 'Secondary shear (Vy)') {
+          return +value.toFixed(2);
+        }
+        if (Object.is(value, -0)) return { number: '-0' };
+        return Number.isFinite(value) ? value : { number: String(value) };
+      });
+      return createHash('sha256').update(result).digest('hex');
+    };
+    expect(digest(false), 'raw secondary shear demand').toBe('f03e7eb0f2ae193ca387a0045305b1a1a1068516c93027e2c7c7899ebe8fb1e9');
+    expect(digest(true), 'main baseline with its secondary shear rounding').toBe('0eed6c25fca6643ed788227fb75211db6f2748fdf99b1f8334a5d2dc5b4686dc');
+  });
+
   it('#2338 shear-depth containment never reopens an exhausted flagship search', () => {
     assertRealSolver();
     for (const member of [180, 181, 182, 186, 187, 188, 211, 217]) {

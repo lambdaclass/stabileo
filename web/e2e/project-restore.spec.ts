@@ -231,6 +231,8 @@ async function boot(page: Page) {
       localStorage.clear();
       // Cleared with the rest: the normative design is turned back on, as the specs use it.
       localStorage.setItem('stabileo-design-in-pro', '1');
+      // The building as it comes, one shell per bay: the restore is what is checked, not a mesh.
+      localStorage.setItem('stabileo-mesh-before-analysis', '0');
       localStorage.setItem('stabileo-lang', 'es');
       localStorage.setItem('stabileo-lang-manual', '1');
     } catch { /* private mode */ }

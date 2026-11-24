@@ -40,8 +40,7 @@ describe('column stacks', () => {
   });
 });
 
-const issue2239 = process.env.RUN_KNOWN_WRONG === '2239' ? it : it.skip;
-issue2239('known wrong result: #2239 the lift schedule preserves separate face and corner diameters', () => {
+it('#2239 the lift schedule preserves separate face and corner diameters', () => {
   const rebar = {
     column: { cornerDia: 16, faceDia: 25, nBottom: 1, nTop: 1, nLeft: 0, nRight: 0 },
     longitudinal: { count: 6, diameter: 16 },
@@ -53,4 +52,14 @@ issue2239('known wrong result: #2239 the lift schedule preserves separate face a
   const scheduledSteel = schedule.filter(bar => bar.what === 'long')
     .reduce((total, bar) => total + areaCm2(bar.count, bar.diameter), 0);
   expect(scheduledSteel).toBeCloseTo(expectedSteel, 12);
+});
+
+
+it('#2239 the lift schedule applies each drawn diameter to its own lap', () => {
+  const column = { cornerDia: 25, faceDia: 16, nBottom: 0, nTop: 1, nLeft: 2, nRight: 0 };
+  const schedule = liftBreakdown({ zLo: 0, zHi: 3 }, { column }, diameter => diameter / 100, 1.6);
+  expect(schedule).toEqual([
+    { what: 'long', count: 4, diameter: 25, length: 3.25 },
+    { what: 'long', count: 3, diameter: 16, length: 3.16 },
+  ]);
 });

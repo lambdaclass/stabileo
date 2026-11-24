@@ -29,6 +29,7 @@
   import { drawPlacementGhost } from '../lib/canvas/draw-placement';
   import { drawDiagrams, drawEnvelopeDiagrams, computeDiagramGlobalMax, setDiagramUnitSystem, type DiagramKind } from '../lib/canvas/draw-diagrams';
   import { computeDiagramValueAt, computeDisplacementAt } from '../lib/engine/diagrams';
+  import { DIAGRAM_EXTREMA_UNAVAILABLE } from '../lib/engine/member-diagram';
   import { solverBendingForces2D } from '../lib/engine/transverse-sign-2d';
   import { effectiveBendingInertia } from '../lib/engine/solver-service';
   import { computeLocalAxes3D } from '../lib/engine/local-axes-3d';
@@ -122,7 +123,21 @@
   let diagramQuery: { elementId: number; t: number; value: number; worldX: number; worldY: number } | null = null;
 
   // Diagram hover state (real-time value as mouse moves)
-  let diagramHover: { elementId: number; t: number; value: number; worldX: number; worldY: number; label?: string; unit?: string; qty?: 'force' | 'moment' | 'stress' | null; lines?: string[] } | null = null;
+  let diagramHover: { elementId: number; t: number; value: number | null; worldX: number; worldY: number; label?: string; unit?: string; qty?: 'force' | 'moment' | 'stress' | null; lines?: string[] } | null = null;
+
+  function diagramPointValue(...args: Parameters<typeof computeDiagramValueAt>): number | null {
+    try {
+      return computeDiagramValueAt(...args);
+    } catch (error) {
+      if (!(error instanceof Error) || error.message !== DIAGRAM_EXTREMA_UNAVAILABLE) throw error;
+      return null;
+    }
+  }
+
+  function diagramExtremaNotice(): string {
+    return t(DIAGRAM_EXTREMA_UNAVAILABLE);
+  }
+
 
   // Clear pending node when tool changes away from element
   $effect(() => {
@@ -1377,20 +1392,26 @@
           ctx.restore();
           }
         } else {
-          // Normal mode: overlay + main diagram
-          if (resultsStore.overlayResults && !exportFrame) {
-            // Compute shared globalMax so both diagrams use the same scale
-            const sharedMax = Math.max(
-              computeDiagramGlobalMax(resultsStore.results, dkind),
-              computeDiagramGlobalMax(resultsStore.overlayResults, dkind),
-            );
-            const overlayColors = { fill: 'rgba(255, 165, 0, 0.12)', stroke: 'rgba(255, 165, 0, 0.5)', text: 'rgba(255, 165, 0, 0.6)' };
-            drawDiagrams(resultsStore.overlayResults, dkind, makeDrawContext(), resultsStore.diagramScale, false, overlayColors, sharedMax, resultsStore.drawPositiveTowardLocalAxes);
-            drawDiagrams(resultsStore.results, dkind, { ...makeDrawContext(), extremeBound }, resultsStore.diagramScale, valuesNow(), undefined, sharedMax, resultsStore.drawPositiveTowardLocalAxes);
-          } else {
-            // The certified ± beside the max label on screen only; a figure export stays as it was.
-            const dc = exportFrame ? makeDrawContext() : { ...makeDrawContext(), extremeBound };
-            drawDiagrams(resultsStore.results, dkind, dc, resultsStore.diagramScale, valuesNow(), undefined, undefined, resultsStore.drawPositiveTowardLocalAxes);
+          try {
+            // Normal mode: overlay + main diagram
+            if (resultsStore.overlayResults && !exportFrame) {
+              // Compute shared globalMax so both diagrams use the same scale
+              const sharedMax = Math.max(
+                computeDiagramGlobalMax(resultsStore.results, dkind),
+                computeDiagramGlobalMax(resultsStore.overlayResults, dkind),
+              );
+              const overlayColors = { fill: 'rgba(255, 165, 0, 0.12)', stroke: 'rgba(255, 165, 0, 0.5)', text: 'rgba(255, 165, 0, 0.6)' };
+              drawDiagrams(resultsStore.overlayResults, dkind, makeDrawContext(), resultsStore.diagramScale, false, overlayColors, sharedMax, resultsStore.drawPositiveTowardLocalAxes);
+              drawDiagrams(resultsStore.results, dkind, { ...makeDrawContext(), extremeBound }, resultsStore.diagramScale, valuesNow(), undefined, sharedMax, resultsStore.drawPositiveTowardLocalAxes);
+            } else {
+              // The certified ± beside the max label on screen only; a figure export stays as it was.
+              const dc = exportFrame ? makeDrawContext() : { ...makeDrawContext(), extremeBound };
+              drawDiagrams(resultsStore.results, dkind, dc, resultsStore.diagramScale, valuesNow(), undefined, undefined, resultsStore.drawPositiveTowardLocalAxes);
+            }
+          } catch (error) {
+            if (!(error instanceof Error) || error.message !== DIAGRAM_EXTREMA_UNAVAILABLE) throw error;
+            if (exportFrame) throw error;
+            drawTooltip(12, 32, [diagramExtremaNotice()]);
           }
         }
       } else if (dt === 'influenceLine' && resultsStore.influenceLine) {
@@ -1565,7 +1586,9 @@
         ctx.fill();
 
         const xPos = (diagramHover.t * 100).toFixed(1);
-        if (diagramHover.lines) {
+        if (diagramHover.value === null) {
+          drawTooltip(s.x + 12, s.y - 25, [diagramExtremaNotice(), `x/L = ${xPos}%`]);
+        } else if (diagramHover.lines) {
           // Multi-line tooltip (e.g. deformed mode: ux, uz, θy)
           drawTooltip(s.x + 12, s.y - 25, [
             ...diagramHover.lines,
@@ -2241,8 +2264,14 @@
               if (dt === 'moment' || dt === 'shear' || dt === 'axial') {
                 const ef = resultsStore.getElementForces(nearElem.id);
                 if (ef) {
-                  const value = computeDiagramValueAt(dt as 'moment' | 'shear' | 'axial', t, ef);
-                  diagramQuery = { elementId: nearElem.id, t, value, worldX: wx, worldY: wy };
+                  const value = diagramPointValue(dt, t, ef);
+                  if (value === null) {
+                    resultsStore.stressQuery = null;
+                    diagramQuery = null;
+                    uiStore.toast(diagramExtremaNotice(), 'error');
+                  } else {
+                    diagramQuery = { elementId: nearElem.id, t, value, worldX: wx, worldY: wy };
+                  }
                 }
               }
             }
@@ -2493,7 +2522,7 @@
             if (dt === 'moment' || dt === 'shear' || dt === 'axial') {
               const ef = resultsStore.getElementForces(nearElem.id);
               if (ef) {
-                const value = computeDiagramValueAt(dt as 'moment' | 'shear' | 'axial', t, ef);
+                const value = diagramPointValue(dt, t, ef);
                 diagramHover = { elementId: nearElem.id, t, value, worldX: wx, worldY: wy };
               } else {
                 diagramHover = null;
@@ -2547,17 +2576,17 @@
               const ef = resultsStore.getElementForces(nearElem.id);
               if (ef) {
                 const cmKind = resultsStore.colorMapKind;
-                let value: number;
+                let value: number | null;
                 let label: string;
                 let qty: 'force' | 'moment' | 'stress' | null;
                 if (cmKind === 'moment' || cmKind === 'momentY' || cmKind === 'momentZ') {
-                  value = computeDiagramValueAt('moment', t, ef);
+                  value = diagramPointValue('moment', t, ef);
                   label = 'M'; qty = 'moment';
                 } else if (cmKind === 'shear' || cmKind === 'shearY' || cmKind === 'shearZ') {
-                  value = computeDiagramValueAt('shear', t, ef);
+                  value = diagramPointValue('shear', t, ef);
                   label = 'V'; qty = 'force';
                 } else if (cmKind === 'axial') {
-                  value = computeDiagramValueAt('axial', t, ef);
+                  value = diagramPointValue('axial', t, ef);
                   label = 'N'; qty = 'force';
                 } else {
                   // The painter's own value for the stress maps (MPa, or σ/fy for the ratio). This

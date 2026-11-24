@@ -16,12 +16,12 @@ describe('engine sentences', () => {
 
   it('translates invalid spring stiffness and cancelled combinations (#2292)', async () => {
     for (const [locale, invalid, cancelled] of [
-      ['es', 'Número no finito (NaN) en', 'Los factores de los casos de carga repetidos se cancelan y dan cero en esta combinación.'],
-      ['pt', 'Número não finito (NaN) em', 'Os fatores dos casos de carga repetidos se cancelam e resultam em zero nesta combinação.'],
+      ['es', 'Ingresá un número finito en input.solver.supports.2.kx (valor recibido: NaN).', 'Los factores de los casos de carga repetidos se cancelan y dan cero en esta combinación.'],
+      ['pt', 'Insira um número finito em input.solver.supports.2.kx (valor recebido: NaN).', 'Os fatores dos casos de carga repetidos se cancelam e resultam em zero nesta combinação.'],
     ] as const) {
       await setLocale(locale);
       expect(localizeEngineText('Non-finite number (NaN) at input.solver.supports.2.kx'))
-        .toBe(`${invalid} input.solver.supports.2.kx`);
+        .toBe(invalid);
       expect(localizeEngineText('Repeated load case factors cancel to zero in this combination.')).toBe(cancelled);
     }
   });

@@ -1,0 +1,45 @@
+{
+  "id": "gravity-shared-deck-coverage",
+  "date": "2026-11-22",
+  "prs": [
+    2284,
+    2299,
+    2495
+  ],
+  "area": "loads",
+  "when": {
+    "all": [
+      "space3D",
+      "generatedPanelGravityShells"
+    ]
+  },
+  "quantities": [
+    "*",
+    "solve.ok"
+  ],
+  "requiresLoadRegeneration": true,
+  "title": {
+    "en": "Gravity generation blocks duplicate claims on a deck",
+    "es": "La generación gravitatoria bloquea la asignación doble en un entrepiso",
+    "pt": "A geração de cargas gravitacionais bloqueia a distribuição dupla em um piso",
+    "de": "Die Schwerkraftlasterzeugung sperrt die doppelte Lastzuweisung auf einer Decke",
+    "fr": "La génération des charges de gravité bloque la double affectation sur un plancher",
+    "tr": "Yerçekimi yükü üretimi döşemede çift yük atamasını engeller",
+    "zh": "重力荷载生成会阻止同一楼板面积被重复分配",
+    "hu": "A gravitációs terhek előállítása megakadályozza a födémterhek kettős kiosztását"
+  },
+  "explanation": {
+    "en": "Regenerate panel gravity loads in projects with shells. Generation blocks when horizontal or sloped shells overlap in plan within the deck height tolerance, when two shells claim the same part of a beam bay, or when eccentric connections couple an offset shell vertically to an overlapping loaded beam bay.",
+    "es": "Regenerá las cargas gravitatorias por paños en proyectos con placas. La generación se bloquea si placas horizontales o inclinadas se superponen en planta dentro de la tolerancia de altura del entrepiso, si dos placas reclaman la misma parte de un paño de vigas o si conexiones excéntricas vinculan verticalmente una placa desplazada con un paño de vigas cargado y superpuesto.",
+    "pt": "Gere novamente as cargas gravitacionais por painéis em projetos com cascas. A geração é bloqueada quando cascas horizontais ou inclinadas se sobrepõem em planta dentro da tolerância de altura do piso, quando duas cascas ocupam a mesma parte de um painel de vigas ou quando ligações excêntricas acoplam verticalmente uma casca deslocada a um painel de vigas carregado e sobreposto.",
+    "de": "Erzeugen Sie die Schwerkraftlasten für Projekte mit Schalen im Feldmodus neu. Die Lasterzeugung wird gesperrt, wenn sich horizontale oder geneigte Schalen im Grundriss innerhalb der Höhentoleranz der Decke überlappen, wenn zwei Schalen denselben Teil eines Trägerfelds beanspruchen oder wenn exzentrische Verbindungen eine versetzte Schale vertikal mit einem überlappenden belasteten Trägerfeld koppeln.",
+    "fr": "Régénérez les charges de gravité par panneaux dans les projets avec coques. La génération est bloquée si des coques horizontales ou inclinées se chevauchent en plan dans la tolérance d’altitude du plancher, si deux coques occupent la même partie d’un panneau de poutres ou si des liaisons excentrées couplent verticalement une coque décalée à un panneau de poutres chargé qui la recouvre.",
+    "tr": "Kabuk içeren projelerde panel yerçekimi yüklerini yeniden üretin. Yatay veya eğimli kabuklar döşeme kot toleransı içinde planda çakışırsa, iki kabuk bir kiriş panelinin aynı bölümünü kaplarsa veya eksantrik bağlantılar ötelenmiş bir kabuğu çakışan yüklü bir kiriş paneline düşey yönde bağlarsa yük üretimi engellenir.",
+    "zh": "请为含壳单元的项目重新生成板块重力荷载。若水平或倾斜壳单元在楼板标高容差内的平面投影重叠、两个壳单元占用同一梁板区的同一部分，或偏置壳单元通过偏心连接与投影重叠且已受荷的梁板区竖向耦合，则会阻止荷载生成。",
+    "hu": "Készítse újra a mezőalapú gravitációs terheket a héjakat tartalmazó projektekben. A terhek előállítása blokkolódik, ha vízszintes vagy ferde héjak alaprajzi vetülete a födémszint tűrésén belül átfedi egymást, ha két héj a gerendamező azonos részét fedi, vagy ha excentrikus kapcsolatok függőlegesen összekötnek egy eltolt héjat egy átfedő, terhelt gerendamezővel."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-gravity-shared-deck-coverage.md",
+    "heading": "Gravity generation blocks duplicate claims on a deck"
+  }
+}

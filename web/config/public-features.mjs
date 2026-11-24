@@ -1,7 +1,7 @@
 import committedConfig from './features.json' with { type: 'json' };
 
 const modes = ['production', 'development', 'test'];
-const keys = ['accounts', 'research', 'tools', 'diagramGame', 'globalAxes'];
+const keys = ['accounts', 'research', 'tools', 'diagramGame', 'globalAxes', 'proPlatesUnified', 'proRcSheets'];
 
 function validateKeys(value, keys, label) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(`${label} must be an object`);
@@ -39,4 +39,8 @@ export function featureDefines(features, inline = true) {
     for (const [key, enabled] of Object.entries(features)) defines[`__PUBLIC_FEATURES__.${key}`] = JSON.stringify(enabled);
   }
   return defines;
+}
+
+export function unitFeatureProfile() {
+  return process.env.STABILEO_UNIT_PROFILE || 'test';
 }

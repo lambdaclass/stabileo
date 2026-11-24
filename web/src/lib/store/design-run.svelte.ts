@@ -38,6 +38,7 @@ import { activePerCombo3D, activeCombinations, designCombinationsWithheld, noLin
 import { applyStoreySway } from './storey-sway';
 import { applySoftStoreys } from './seismic-design.svelte';
 import { modelStore } from './model.svelte';
+import { IncompleteConcurrentDemandError } from '../engine/complete-demand-set';
 import { isEngineUnavailable } from '../engine/engine-unavailable';
 import { requestAutosave } from './autosave-service';
 import { regulationsStore } from './regulations.svelte';
@@ -242,7 +243,12 @@ function createDesignRunStore() {
       applyStoreySway(contexts); applySoftStoreys(contexts);
       // A beam the analysis cut into pieces (a slab's mesh nodes) is designed as its span: each
       // piece's context becomes the span's, under the piece's own id (`design-spans.ts`).
-      groupSpanContexts(contexts);
+      try {
+        groupSpanContexts(contexts);
+      } catch (error) {
+        if (!(error instanceof IncompleteConcurrentDemandError)) throw error;
+        return fail('design.error.incompleteSpanStations');
+      }
       // How each member's floor joins its slab to the columns (`analysis-validity.ts`): a one-node
       // joint leaves the split of the slab's load between beams and columns unestablished, and that
       // is stated on the member, the certificate and the document, never read as a pass.
@@ -544,7 +550,7 @@ function createDesignRunStore() {
    */
   function designFamilies(
     selection: DesignFamilySelection,
-    opts: { verifierId?: string; edited?: 'keep' | 'overwrite' } = {},
+    opts: { verifierId?: string; edited?: 'keep' | 'overwrite'; maxRunMs?: number } = {},
   ): DesignRunReport {
     // Recorded before returning, so both the caller and the panel read one report.
     const record = <T extends DesignRunReport>(r: T): T => { lastFamilyReport = r; return r; };
@@ -581,7 +587,7 @@ function createDesignRunStore() {
         if (target.length > 0) {
           // The global command owns detailing, including its verifier. Run its feedback
           // once, before reading the repaired outcomes into the family summaries.
-          autoDesign(target, { deferDetailing: true, ...(opts.edited ? { edited: opts.edited } : {}) });
+          autoDesign(target, { deferDetailing: true, maxRunMs: opts.maxRunMs, ...(opts.edited ? { edited: opts.edited } : {}) });
           detailingStore.generate({ verifierId: opts.verifierId });
         }
 

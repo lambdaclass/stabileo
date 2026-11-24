@@ -30,12 +30,12 @@
  *
  * Pure of stores: the model and its combinations come in, results go out.
  */
+import { plateAnalysisRefusal } from './plate-analysis-refusal';
 import type { ModelData } from './solver-service';
 import { requireCableAnalysis } from './analysis-validity';
 import { materialFamilyOf } from './steel/material-family';
 import { catalogueGradeFamily } from './steel/grade-family';
-import { buildSolverInput3D, caseSolverLoads3D, comboSolverLoads3D, imposedRefusal, loadRefusal, resolveCombinationFactors, orphanLoadRefusal } from './solver-service';
-import { solvableModel } from './member-behaviour';
+import { prepareSolverInput3D, caseSolverLoads3D, comboSolverLoads3D, imposedRefusal, loadRefusal, resolveCombinationFactors, orphanLoadRefusal } from './solver-service';
 import { casesWithDisplacements, imposedOf } from './case-displacements';
 import { collapseVariableResults, variableExpansionFor } from './variable-members';
 import type { LoadCase, LoadCombination } from '../store/model.svelte';
@@ -44,6 +44,7 @@ import { computeLocalAxes3D } from './local-axes-3d';
 import { input3DToWireObject, solvePDelta3D, torsionGapRefusal } from './wasm-solver';
 import { amplification } from './pdelta-amplification';
 import { caseOrder, withCaseEffects } from './case-effects';
+import { combinationCaseIds } from './combination-methods';
 import { isCompositeCase } from './loads/combination-cases';
 export { amplification } from './pdelta-amplification';
 
@@ -234,55 +235,14 @@ export async function runDirectAnalysis(
   combinations: LoadCombination[],
   opts: { includeSelfWeight: boolean; leftHand?: boolean; settings?: DirectAnalysisSettings; run?: PDeltaRunner },
 ): Promise<DirectAnalysisResult | string> {
+  const plateRefusal = plateAnalysisRefusal(model);
+  if (plateRefusal) return plateRefusal;
   const resolved = resolveCombinationFactors(combinations);
   if (typeof resolved === 'string') return resolved;
-  // Each case with what it takes in, its notional loads and its reduction (`case-effects.ts`).
-  model = withCaseEffects(model, loadCases, { includeSelfWeight: opts.includeSelfWeight, leftHand: opts.leftHand ?? false });
   const settings = { ...(opts.settings ?? DEFAULT_DIRECT_SETTINGS) };
   const run = opts.run ?? mainThreadPDelta;
   const leftHand = opts.leftHand ?? false;
   const maxIter = settings.maxIter ?? 30, tol = settings.tol ?? 1e-5;
-  /*
-   * The structure the linear solve solves: its members cut where a moment or an axial force sits
-   * inside a span (`variable-members.ts`), so the base is built from the same expanded model as the
-   * loads, and the results read back as one member each. Its refusals are the linear solve's.
-   */
-  const refused = orphanLoadRefusal(model) ?? imposedRefusal(model);
-  if (refused) return refused;
-  const solvable = solvableModel(model);
-  const expansion = variableExpansionFor(model);
-  let base: SolverInput3D | null;
-  let caseLoads: Map<number, SolverLoad3D[]>;
-  try {
-    base = buildSolverInput3D({ ...solvable, loads: [] }, false, leftHand);
-    caseLoads = caseSolverLoads3D(solvable, loadCases, opts.includeSelfWeight, leftHand);
-  } catch (err) {
-    const said = loadRefusal(err);
-    if (said) return said;
-    throw err;
-  }
-  if (!base) return 'empty';
-  requireCableAnalysis(base.elements.values());
-  // A case's imposed displacements go on the supports, times the case's factor in each combination
-  // (`case-displacements.ts`), as P-Delta per combination puts them.
-  const imposedCases = casesWithDisplacements(model.loads);
-  const parentOf = new Map<number, number>();
-  for (const m of expansion?.members.values() ?? []) for (const p of m.pieces) parentOf.set(p.id, m.parentId);
-
-  // Pns = Fy·Ag for every STEEL member (MPa → kPa). A concrete material carries f'c in `fy`, and
-  // τb on it would cut a column's stiffness, to zero past f'c·Ag; the family decides, as the
-  // steel codes decide which members they check.
-  const pns = new Map<number, number>();
-  for (const [id, el] of base.elements) {
-    const mat = model.materials.get(el.materialId);
-    if (materialFamilyOf(mat as never, catalogueGradeFamily).family !== 'steel') continue;
-    const a = base.sections.get(el.sectionId)?.a;
-    if (mat?.fy && a) pns.set(id, mat.fy * 1000 * a);
-  }
-
-  const perCombo = new Map<number, AnalysisResults3D>();
-  const info = new Map<number, DirectComboInfo>();
-  const extra = settings.tauB === 'unity' ? 0.001 : 0;
   // The notional cases: a combination that takes one has its C2.2b loads already. A composite case
   // is no load type, whatever it is typed: it is read through what it takes in.
   const notionalCases = new Set(loadCases.filter((c) => c.notional || (!isCompositeCase(c) && (c.type ?? '').toUpperCase() === 'N')).map((c) => c.id));
@@ -304,16 +264,68 @@ export async function runDirectAnalysis(
     for (const inc of c.includes ?? []) notionalIn(inc.caseId, k * inc.factor, out, new Set([...seen, id]));
   };
 
+  const caseIds = combinationCaseIds(resolved);
+  const notionalByCombo = new Map(resolved.map(combo => {
+    const share = new Map<number, number>();
+    for (const f of combo.factors) notionalIn(f.caseId, f.factor, share, new Set());
+    const factors = [...share].filter(([, k]) => Math.abs(k) > 1e-12).map(([caseId, factor]) => ({ caseId, factor }));
+    for (const { caseId } of factors) caseIds.add(caseId);
+    return [combo, factors];
+  }));
+  /*
+   * The structure the linear solve solves: its members cut where a moment or an axial force sits
+   * inside a span (`variable-members.ts`), so the base is built from the same expanded model as the
+   * loads, and the results read back as one member each. Its refusals are the linear solve's.
+   */
+  let prepared: ReturnType<typeof prepareSolverInput3D>;
+  let base: SolverInput3D | null;
+  let caseLoads: Map<number, SolverLoad3D[]>;
+  try {
+    const orphan = orphanLoadRefusal(model);
+    if (orphan) return orphan;
+    model = withCaseEffects(model, loadCases, { includeSelfWeight: opts.includeSelfWeight, leftHand }, caseIds);
+    const imposed = imposedRefusal(model);
+    if (imposed) return imposed;
+    prepared = prepareSolverInput3D(model, leftHand);
+    base = prepared.build([]);
+    if (!base) return 'empty';
+    caseLoads = caseSolverLoads3D(prepared.model, loadCases.filter(c => caseIds.has(c.id)), opts.includeSelfWeight, leftHand, base);
+  } catch (err) {
+    const said = loadRefusal(err);
+    if (said) return said;
+    throw err;
+  }
+  const solvable = prepared.model;
+  const expansion = variableExpansionFor(model);
+  requireCableAnalysis(base.elements.values());
+  // A case's imposed displacements go on the supports, times the case's factor in each combination
+  // (`case-displacements.ts`), as P-Delta per combination puts them.
+  const imposedCases = casesWithDisplacements(model.loads);
+  const parentOf = new Map<number, number>();
+  for (const m of expansion?.members.values() ?? []) for (const p of m.pieces) parentOf.set(p.id, m.parentId);
+
+  // Pns = Fy·Ag for every STEEL member (MPa → kPa). A concrete material carries f'c in `fy`, and
+  // τb on it would cut a column's stiffness, to zero past f'c·Ag; the family decides, as the
+  // steel codes decide which members they check.
+  const pns = new Map<number, number>();
+  for (const [id, el] of base.elements) {
+    const mat = model.materials.get(el.materialId);
+    if (materialFamilyOf(mat as never, catalogueGradeFamily).family !== 'steel') continue;
+    const a = base.sections.get(el.sectionId)?.a;
+    if (mat?.fy && a) pns.set(id, mat.fy * 1000 * a);
+  }
+
+  const perCombo = new Map<number, AnalysisResults3D>();
+  const info = new Map<number, DirectComboInfo>();
+  const extra = settings.tauB === 'unity' ? 0.001 : 0;
   await Promise.all(resolved.map(async (combo) => {
     const loads = comboSolverLoads3D(combo, caseLoads);
     const factorOf = (c: number) => combo.factors.find((f) => f.caseId === c)?.factor ?? 0;
     const imposedHere = [...imposedCases].some((c) => factorOf(c) !== 0);
     if (loads.length === 0 && !imposedHere) return;
-    const on = imposedHere ? buildSolverInput3D({ ...solvable, loads: imposedOf(solvable.loads, factorOf) }, false, leftHand) : base;
+    const on = imposedHere ? prepared.build(imposedOf(solvable.loads, factorOf)) : base;
     if (!on) return;
-    const share = new Map<number, number>();
-    for (const f of combo.factors) notionalIn(f.caseId, f.factor, share, new Set());
-    const notionalFactors = [...share].filter(([, k]) => Math.abs(k) > 1e-12).map(([caseId, factor]) => ({ caseId, factor }));
+    const notionalFactors = notionalByCombo.get(combo)!;
     const takesNotional = notionalFactors.length > 0;
     // The notional part, and the rest: the combination's loads less the notional cases' share,
     // which a composite case carries mixed in with its gravity.

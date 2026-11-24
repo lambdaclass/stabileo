@@ -3,6 +3,7 @@
   const copy = $derived(articleStrings(publicI18n.locale));
   import { onMount } from 'svelte';
   import { publicI18n } from '../../../lib/i18n/store.svelte';
+  import { holdPrerender } from '../../../lib/prerender-hold';
   import ExperimentShell from '../shell/ExperimentShell.svelte';
   import PaneTabs from '../shell/PaneTabs.svelte';
   import ScalarFieldViewer from '../../viewport/ScalarFieldViewer.svelte';
@@ -39,7 +40,7 @@
     finally { busy = false; }
   }
   function open() { window.open(editorURL(current, new URL(`${import.meta.env.BASE_URL}app`, location.origin).href), '_blank', 'noopener'); }
-  onMount(() => { showMesh = !window.matchMedia('(max-width: 640px)').matches; void run(); });
+  onMount(() => { showMesh = !window.matchMedia('(max-width: 640px)').matches; void holdPrerender(run()); });
 </script>
 
 <ExperimentShell paperId="shell-obstacle-course" name={copy.shellObstacleCourseBelytschkoEtAl}

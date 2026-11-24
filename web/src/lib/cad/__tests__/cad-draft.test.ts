@@ -75,12 +75,10 @@ describe('generateRcDraft — golden test on the simple architectural plan', () 
     expect(draft.counts.beams).toBe(36);
   });
 
-  it('meshes the slab per floor (with the opening cut out) and walls one quad per story', () => {
-    // 6×5 slab, 2×2 mesh + opening edges as breakpoints → 16 cells/floor minus
-    // the 1 cell inside the [4,3.5]-[5,4.5] opening = 15 × 2 floors = 30.
-    expect(draft.counts.slabQuads).toBe(30);
+  it('meshes each slab with its opening and subdivides the wall at the shared stations', () => {
+    expect(draft.counts.slabQuads).toBe(38);
     expect(draft.counts.openingsCutFromSlabs).toBe(1);
-    expect(draft.counts.wallQuads).toBe(2);          // 1 run × 2 stories
+    expect(draft.counts.wallQuads).toBe(8);
   });
 
   it('uses CAD column sizes where detected and defaults elsewhere', () => {
@@ -96,9 +94,8 @@ describe('generateRcDraft — golden test on the simple architectural plan', () 
     expect(cad30.j).toBeCloseTo(rectJ(0.3, 0.3), 12);
   });
 
-  it('supports every base-level node (columns + wall corners), nothing else', () => {
-    // 5 column bases + 2 wall base corners.
-    expect(draft.counts.supports).toBe(7);
+  it('supports every base-level column and wall node, nothing else', () => {
+    expect(draft.counts.supports).toBe(10);
     const nodeZ = new Map(draft.snapshot.nodes.map(([id, n]) => [id, n.z ?? 0]));
     for (const [, sup] of draft.snapshot.supports) {
       expect(nodeZ.get(sup.nodeId)).toBe(0);
@@ -107,8 +104,7 @@ describe('generateRcDraft — golden test on the simple architectural plan', () 
   });
 
   it('applies only explicit user D/L area loads on slab quads', () => {
-    // 30 slab quads (opening cut) × (D + L).
-    expect(draft.counts.loads).toBe(60);
+    expect(draft.counts.loads).toBe(76);
     for (const load of draft.snapshot.loads) {
       expect(load.type).toBe('surface3d');
       expect([1, 2]).toContain((load.data as { caseId: number }).caseId);
@@ -283,6 +279,7 @@ describe('generateRcDraft — honesty paths', () => {
     const base = fixturePlan();
     const lShape: ArchPlan = {
       ...base,
+      walls: [],
       slabs: [
         {
           outline: [
@@ -357,4 +354,21 @@ describe('generateRcDraft — the draft solves', () => {
       }
     }
   });
+});
+
+it.each([
+  { meshMode: 'fixedDivisions' },
+  { meshMode: 'targetSize', meshTargetSize: 0 },
+] as const)('#2409 a CAD draft shares its slab and wall stations in $meshMode mode', options => {
+  const draft = generateRcDraft(fixturePlan(), assumptions(options), SOURCE);
+  const model = snapshotToModelShape(draft.snapshot);
+  const ids = (quads: typeof draft.snapshot.quads) => new Set((quads ?? []).flatMap(([, q]) => q.nodes)
+    .filter(id => model.nodes.get(id)!.z === 3 && model.nodes.get(id)!.y === 2.1));
+  const slabs = ids(draft.snapshot.quads!.slice(0, draft.counts.slabQuads));
+  const walls = ids(draft.snapshot.quads!.slice(draft.counts.slabQuads));
+  expect(slabs.size).toBeGreaterThan(2);
+  expect(slabs).toEqual(walls);
+  const input = buildSolverInput3D(model as never);
+  expect(input).not.toBeNull();
+  expect(solve3D(input!).reactions.reduce((sum, support) => sum + support.fz, 0)).toBeCloseTo((6 * 5 - 1) * 2 * (3 + 2), 8);
 });

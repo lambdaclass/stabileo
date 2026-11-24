@@ -38,22 +38,23 @@ export function wallVerticalBars(length: number, thickness: number, cover: numbe
 export interface WallCheck { category: string; utilization: number; description: string; ok: boolean }
 
 /** In-plane P–M on the wall's own bars, at its axial load in its own direction. */
-export function wallInPlane(o: { length: number; thickness: number; cover: number; fc: number; fy: number; pu: number; mu: number; r: WallReinforcement }): WallCheck & { phiMn: number } {
+export function wallInPlane(o: { length: number; thickness: number; cover: number; fc: number; fy: number; pu: number; mu: number; r: WallReinforcement }): WallCheck & { phiMn: number; c?: number } {
   const bars = wallVerticalBars(o.length, o.thickness, o.cover, o.r);
   const outline = { kind: 'rect' as const, b: o.length, h: o.thickness };
   const mat = { fc: o.fc, fy: o.fy, edition: CIRSOC201_DESIGN_EDITION };
   const range = axialRange(outline, bars, mat);
-  let u: number, phiMn = 0;
+  let u: number, phiMn = 0, c: number | undefined;
   if (o.pu > range.max || o.pu < range.min) u = Number.POSITIVE_INFINITY;
   else if (o.mu < 1e-6) u = o.pu > 0 ? o.pu / Math.max(range.max, 1e-9) : 0;
   else {
     // In-plane bending: the strain varies along the length, the section's x.
     const cap = momentCapacityAtAxial(outline, bars, mat, o.pu, 1e-9, o.mu);
     phiMn = cap?.phiMn ?? 0;
+    c = cap?.state.c;
     u = phiMn > 1e-9 ? o.mu / phiMn : Number.POSITIVE_INFINITY;
   }
   return {
-    category: 'In-plane P-M', utilization: u, ok: u <= 1 + 1e-9, phiMn,
+    category: 'In-plane P-M', utilization: u, ok: u <= 1 + 1e-9, phiMn, ...(c !== undefined && Number.isFinite(c) ? { c } : {}),
     description: `Pu = ${o.pu.toFixed(0)} kN, Mu = ${o.mu.toFixed(0)} kN·m, φMn = ${phiMn.toFixed(0)} kN·m on ${bars.length} bars (strain compatibility)`,
   };
 }

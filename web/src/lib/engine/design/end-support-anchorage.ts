@@ -12,7 +12,7 @@
  */
 import { seatedLongitudinalHalfExtents } from '../../codes/cirsoc201/transverse-cage';
 import {
-  bottomHookInboard, faceDevelopment, inflectionAnchorage, planSupportEnd, supportRows, topLayout, topRowInboard, topRowsOf,
+  bottomHookInboard, faceDevelopment, inflectionAnchorage, prepareSupportEnd, supportRows, topLayout, topRowInboard, topRowsOf,
   SUPPORT_EMBED_M, cornerDiasOf, crossingSeats, faceCornerDiasOf, type CrossingSeat, type SupportCage, type SupportEndPlan, yieldsTo,
   columnFacesAlong,
 } from '../detailing/support-anchorage';
@@ -237,19 +237,33 @@ export const isSimpleSupport = (c: SupportCage) => !(c.face > 0) && !c.continues
 export function endSupportPlan(input: EndSupportInput): { verdicts: SupportAnchorageVerdict[]; maxTopLayers: number } {
   const { rebar, section, edition } = input;
   const { slots, fewest } = topLayout(rebar, { b: section.b, cover: section.cover, stirrupDiaMm: input.seat.stirrupDiaMm, edition, maxAggregateSizeMm: input.seat.maxAggregateSizeMm });
-  if (slots <= 0) return { verdicts: verdictsIn(input, 0, 1), maxTopLayers: 1 };
+  const atEnd = { start: prepareSupportEnd(input.cages.start), end: prepareSupportEnd(input.cages.end) };
+  const developments = new Map<string, ReturnType<typeof faceDevelopment>>();
+  const development = (face: Parameters<typeof faceDevelopment>[2], diameterMm: number) => {
+    const key = `${face}:${diameterMm}`;
+    let result = developments.get(key);
+    if (!result) {
+      result = faceDevelopment(rebar, section, face, diameterMm, edition);
+      developments.set(key, result);
+    }
+    return result;
+  };
+  if (slots <= 0) return { verdicts: verdictsIn(input, 0, 1, atEnd, development), maxTopLayers: 1 };
   if (fewest + 1 <= slots) {
-    const extra = verdictsIn(input, slots, fewest + 1);
+    const extra = verdictsIn(input, slots, fewest + 1, atEnd, development);
     if (extra.every((v) => v.solution !== 'unresolved')) return { verdicts: extra, maxTopLayers: fewest + 1 };
   }
-  return { verdicts: verdictsIn(input, slots, fewest), maxTopLayers: fewest };
+  return { verdicts: verdictsIn(input, slots, fewest, atEnd, development), maxTopLayers: fewest };
 }
 
 /** The verdicts alone (`endSupportPlan`). */
 export const endSupportVerdicts = (input: EndSupportInput): SupportAnchorageVerdict[] => endSupportPlan(input).verdicts;
 
 /** Every row at both supports with the member's top `slots` laid in `layers` layers. */
-function verdictsIn(input: EndSupportInput, slots: number, layers: number): SupportAnchorageVerdict[] {
+function verdictsIn(input: EndSupportInput, slots: number, layers: number,
+  atEnd: Record<'start' | 'end', ReturnType<typeof prepareSupportEnd>>,
+  development: (face: Parameters<typeof faceDevelopment>[2], diameterMm: number) => ReturnType<typeof faceDevelopment>,
+): SupportAnchorageVerdict[] {
   const { rebar, section, cages, edition } = input;
   // Nested hook tails stand side by side, parallel: §25.2.1's clear of the larger bar, not §25.2.2's
   // between layers (qa-8: a bottom hook 25,0 mm inside a top tail where 25,3 was due).
@@ -267,10 +281,10 @@ function verdictsIn(input: EndSupportInput, slots: number, layers: number): Supp
     const topRows = topRowsOf(rows);
     const topDia = Math.max(0, ...rows.filter((r) => r.position === 'top').map((r) => r.diameterMm));
     for (const r of rows) {
-      const dev = faceDevelopment(rebar, section, r.position === 'bottom' ? 'bottom' : end === 'start' ? 'topStart' : 'topEnd', r.diameterMm, edition);
+      const dev = development(r.position === 'bottom' ? 'bottom' : end === 'start' ? 'topStart' : 'topEnd', r.diameterMm);
       const inboard = r.position === 'top' ? topRowInboard(r.row, r.diameterMm, nestClear(r.diameterMm))
         : r.hook === 'requested' ? bottomHookInboard(topRows, topDia, nestClear(Math.max(topDia, r.diameterMm))) + topRowInboard(r.row, r.diameterMm, nestClear(r.diameterMm)) : 0;
-      const plan = planSupportEnd(cage, {
+      const plan = atEnd[end]({
         diameterMm: r.diameterMm, need: r.need, hook: r.hook, inboard, position: r.position,
         outerAcross: seatedLongitudinalHalfExtents(section.b, section.h, section.cover, input.seat.stirrupDiaMm, r.diameterMm).corner.halfAcross,
         ...(r.position === 'top' ? { rowStep: r.diameterMm / 1000 + nestClear(r.diameterMm) } : {}),
@@ -311,8 +325,9 @@ export function bottomReach(input: EndSupportInput, plan = endSupportPlan(input)
     const topDia = Math.max(0, ...rows.filter((r) => r.position === 'top').map((r) => r.diameterMm));
     const dev = faceDevelopment(rebar, section, 'bottom', bottom.diameterMm, edition);
     const bar = { diameterMm: bottom.diameterMm, need: bottom.need, ld: dev.ld, ldh: dev.ldh, ldc: dev.ldc, stress: 'tension' as const };
-    const straight = planSupportEnd(cage, { ...bar, hook: 'allowed', inboard: 0, position: 'bottom' });
-    const hooked = planSupportEnd(cage, { ...bar, hook: 'requested', inboard: bottomHookInboard(topRowsOf(rows), topDia, nestClear(Math.max(topDia, bottom.diameterMm))), position: 'bottom' });
+    const atEnd = prepareSupportEnd(cage);
+    const straight = atEnd({ ...bar, hook: 'allowed', inboard: 0, position: 'bottom' });
+    const hooked = atEnd({ ...bar, hook: 'requested', inboard: bottomHookInboard(topRowsOf(rows), topDia, nestClear(Math.max(topDia, bottom.diameterMm))), position: 'bottom' });
     if (!straight || !hooked) continue;
     // A straight end that does not develop is held at the ties' plane; a hook's at its outer edge.
     out[end] = { straight: straight.hook ? straight.availableStraight - cage.face : straight.along, hooked: hooked.availableHooked - cage.face };
@@ -380,19 +395,35 @@ export function inflectionChecks(input: EndSupportInput & {
   const mKey = axes.flexure === 'My' ? 'my' : 'mz';
   const vKey = axes.shear === 'Vz' ? 'vz' : 'vy';
   const sag = axes.sagCategory.endsWith('+') ? 1 : -1;
-  let worst: { limit: number; x: number; combo: string; vu: number; mn: number } | null = null;
+  const governing: { root?: { limit: number; x: number; combo: string; vu: number; mn: number } } = {};
   for (const cr of stations.comboResults) {
     const st = [...cr.stations].sort((p, q) => p.x - q.x);
-    for (let i = 1; i < st.length; i++) {
-      const m0 = st[i - 1]![mKey] * sag, m1 = st[i]![mKey] * sag;
-      if (!(m0 * m1 < 0)) continue;
-      const w = Math.abs(m0) / (Math.abs(m0) + Math.abs(m1));
-      const vu = Math.abs(st[i - 1]![vKey] + (st[i]![vKey] - st[i - 1]![vKey]) * w);
+    const consider = (x: number, vu: number) => {
       const r = inflectionAnchorage({ ld, asCm2, fy: section.fy, fc: section.fc, b: section.b, d, diameterMm: dia, vu });
-      if (!worst || r.limit < worst.limit) worst = { limit: r.limit, x: st[i - 1]!.x + (st[i]!.x - st[i - 1]!.x) * w, combo: cr.comboName, vu, mn: r.mnKNm };
+      if (!governing.root || r.limit < governing.root.limit) governing.root = { limit: r.limit, x, combo: cr.comboName, vu, mn: r.mnKNm };
+    };
+    let previous = -1;
+    for (let i = 0; i < st.length; i++) {
+      const current = st[i]!;
+      const m1 = current[mKey] * sag;
+      if (m1 === 0) continue;
+      const before = st[previous];
+      const m0 = before && before[mKey] * sag;
+      if (before && m0 !== undefined && Math.sign(m0) !== Math.sign(m1) && before.x < current.x) {
+        if (i === previous + 1) {
+          const w = Math.abs(m0) / (Math.abs(m0) + Math.abs(m1));
+          consider(before.x + (current.x - before.x) * w, Math.abs(before[vKey] + (current[vKey] - before[vKey]) * w));
+        } else {
+          for (const zero of st.slice(previous + 1, i)) {
+            if (zero.x > before.x && zero.x < current.x) consider(zero.x, Math.abs(zero[vKey]));
+          }
+        }
+      }
+      previous = i;
     }
   }
   const out: ProvidedRebarCheck[] = [];
+  const worst = governing.root;
   if (worst) {
     out.push({
       category: 'Anchorage at inflection (§9.7.3.8.3)', demandCategory: null,
@@ -431,6 +462,10 @@ export function inflectionChecks(input: EndSupportInput & {
  * the model.
  */
 export function supportInputOf(ctx: MemberContext, rebar: ProvidedReinforcement): EndSupportInput | null {
+  return prepareSupportInput(ctx)?.(rebar) ?? null;
+}
+
+export function prepareSupportInput(ctx: MemberContext): ((rebar: ProvidedReinforcement) => EndSupportInput) | null {
   if (ctx.elementType !== 'beam') return null;
   const md = ctx.modelData as unknown as Parameters<typeof beamSupportCage>[0] | undefined;
   const el = md?.elements?.get(ctx.elementId);
@@ -447,11 +482,15 @@ export function supportInputOf(ctx: MemberContext, rebar: ProvidedReinforcement)
   };
   const cages = { start: beamSupportCage(md, nodes, el.nodeI, own, project), end: beamSupportCage(md, nodes, el.nodeJ, own, project) };
   const section = { b: ctx.section.b, h: ctx.section.h, cover: ctx.material.cover, stirrupDia: ctx.material.stirrupDia, fc: ctx.material.fc, fy: ctx.material.fy };
-  // The cage the detailing seats the bars in: the design's own stirrups (`withDesignedStirrups`).
-  const designedStirrup = Math.max(rebar.regions?.stirrupsSupport?.diameter ?? 0, rebar.regions?.stirrupsSpan?.diameter ?? 0, rebar.stirrups?.diameter ?? 0);
-  const seat = { stirrupDiaMm: designedStirrup > 0 ? designedStirrup : ctx.material.stirrupDia, maxAggregateSizeMm: ctx.material.maxAggregateSize.value };
-  // Not declared reads as part of the lateral system: fy at the face (`model/lateral-system.ts`).
-  return { rebar, section, cages, edition: ctx.codeEdition, seat, lateralSystem: developsAtFace(ctx.lateral), lateral: ctx.lateral ?? UNDECLARED };
+  const { codeEdition: edition } = ctx;
+  const lateral = ctx.lateral ?? UNDECLARED;
+  const lateralSystem = developsAtFace(ctx.lateral);
+  const maxAggregateSizeMm = ctx.material.maxAggregateSize.value;
+  return (rebar) => {
+    const designedStirrup = Math.max(rebar.regions?.stirrupsSupport?.diameter ?? 0, rebar.regions?.stirrupsSpan?.diameter ?? 0, rebar.stirrups?.diameter ?? 0);
+    const seat = { stirrupDiaMm: designedStirrup > 0 ? designedStirrup : section.stirrupDia, maxAggregateSizeMm };
+    return { rebar, section, cages, edition, seat, lateralSystem, lateral };
+  };
 }
 
 /**
@@ -459,9 +498,9 @@ export function supportInputOf(ctx: MemberContext, rebar: ProvidedReinforcement)
  * row the plan hooks (`endSupportPlan`), as the detailing lays it (`run-detailing` `hookTails`) —
  * the posts a crossing beam's bars thread past at that joint.
  */
-export function hookTails(input: EndSupportInput, nodes: { start: number; end: number }, plan = endSupportPlan(input)): Array<{ nodeId: number; at: number; diameterMm: number; row: number; position: 'top' | 'bottom' }> {
+export function hookTails(verdicts: readonly SupportAnchorageVerdict[], nodes: { start: number; end: number }): Array<{ nodeId: number; at: number; diameterMm: number; row: number; position: 'top' | 'bottom' }> {
   const out: Array<{ nodeId: number; at: number; diameterMm: number; row: number; position: 'top' | 'bottom' }> = [];
-  for (const v of plan.verdicts) {
+  for (const v of verdicts) {
     if (v.solution !== 'hook') continue;
     out.push({ nodeId: v.end === 'start' ? nodes.start : nodes.end, at: v.available - v.cage.face - v.diameterMm / 2000, diameterMm: v.diameterMm, row: v.row, position: v.position });
   }

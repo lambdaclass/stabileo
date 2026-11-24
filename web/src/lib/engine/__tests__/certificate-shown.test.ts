@@ -10,6 +10,7 @@ import {
   type StationBound2D, type StationBound3D,
 } from '../wasm-solver';
 import { computeDiagramValueAt, computeElementDiagram, computeMomentDiagram, computeDisplacementAt } from '../diagrams';
+import { compute_diagram_value_at, compute_diagram_value_at_3d } from '../../wasm/dedaliano_engine.js';
 import { evaluateDiagramAt } from '../diagrams-3d';
 import { diagramBound2D, diagramBound3D, forceReactionBound } from '../certificate-read';
 
@@ -77,9 +78,24 @@ describe('certified diagrams, deflections and reactions (2D)', () => {
     const out = certifyLinear2D(frame());
     const ef = out.results.elementForces.find((f) => f.elementId === 2)!;
     const d = computeElementDiagram('moment', ef, 0, 4, 7, 4);
-    for (const p of d.points) expect(p.value).toBeCloseTo(computeDiagramValueAtWasm('moment', p.t, ef)!, 9);
+    for (const p of d.points) expect(p.value).toBeCloseTo(computeDiagramValueAtWasm('moment', p.t, ef, p.right)!, 9);
     const legacy = computeMomentDiagram(ef.mStart, ef.mEnd, ef.vStart, ef.qI, ef.qJ, ef.length, 0, 4, 7, 4, ef.pointLoads);
     expect(Math.abs(legacy.maxAbsValue - d.maxAbsValue)).toBeGreaterThan(1);
+  });
+
+  it('known wrong result: #2403 — the WASM point query and canvas distinguish the two sides of a couple', () => {
+    const elementForces = certifyLinear2D(frame()).results.elementForces.find(f => f.elementId === 2)!;
+    const action = elementForces.pointLoads!.find(p => p.my)!;
+    const t = action.a / elementForces.length;
+    const kind = 'moment';
+    const left = compute_diagram_value_at(JSON.stringify({ kind, t, elementForces }));
+    const right = compute_diagram_value_at(JSON.stringify({ kind, t, elementForces, right: true }));
+    expect.soft(right).toBeCloseTo(left + action.my!, 12);
+    const points = computeElementDiagram(kind, elementForces, 0, 4, 7, 4).points.filter(p => p.t === t);
+    expect(points).toHaveLength(2);
+    expect(points[0]).toMatchObject({ value: left });
+    expect(points[1]).toMatchObject({ right: true });
+    expect(points[1]!.value).toBeCloseTo(right, 12);
   });
 
   it('the TypeScript deflection the hover reads lies inside the bound around the engine curve', () => {
@@ -133,6 +149,20 @@ describe('certified diagrams (3D)', () => {
       expect(Number.isFinite(evaluateDiagramAt(ef, kind, 0.5))).toBe(true);
     }
   });
+  it('known wrong result: #2403 — the spatial WASM query distinguishes the two sides of a point load', () => {
+    const elementForces = {
+      elementId: 1, length: 2, nStart: 0, nEnd: 0, vyStart: 0, vyEnd: 0, vzStart: 4, vzEnd: 1,
+      mxStart: 0, mxEnd: 0, myStart: 0, myEnd: 0, mzStart: 0, mzEnd: 0,
+      qYI: 0, qYJ: 0, qZI: 0, qZJ: 0, distributedLoadsY: [], distributedLoadsZ: [],
+      pointLoadsY: [], pointLoadsZ: [{ a: 1, p: -3 }],
+    };
+    const read = (t: number, right?: boolean) => compute_diagram_value_at_3d(
+      JSON.stringify({ kind: 'shearZ', t, elementForces, right }),
+    );
+    expect(read(0.5)).toBe(read(0.25));
+    expect(read(0.5, true)).toBe(read(0.75));
+  });
+
 });
 
 describe('reading a certificate against the screen', () => {

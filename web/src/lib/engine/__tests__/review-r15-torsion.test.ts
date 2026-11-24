@@ -29,12 +29,9 @@ for (const edition of ['2005', '2025'] as const) for (const axis of ['My', 'Mz']
       const need = checkTorsion(p, i.demand, edition);
       const fixed = { shear: { spacing: need.spacingMax! * factor, legs: 2 }, ...(fixedTorsion ? { torsion: { AlProv: need.AlReq } } : {}) };
       const v = entry === 'direct' ? verifyElement(i, fixed) : prepareElementVerification(i)(fixed);
-      const missingPerimeter = fixedTorsion && elementType !== 'column';
-      expect(v.torsion!.status === 'fail').toBe(missingPerimeter || factor > 1);
-      if (missingPerimeter) expect(v.torsion!.refusal).toBe('diag.rcTorsionPerimeter');
+      expect(v.torsion).toMatchObject({ status: 'fail', refusal: 'diag.rcTorsionPerimeter' });
       expect(v.torsion!.AtOverSProv).toBeGreaterThanOrEqual(need.AtOverS);
-      expect(v.torsion!.reinforcementRatio).toBeCloseTo(Math.max(need.AtOverS / v.torsion!.AtOverSProv!, factor,
-        ...(fixedTorsion && elementType === 'column' ? [1] : [])), 12);
+      expect(v.torsion!.reinforcementRatio).toBeCloseTo(Math.max(need.AtOverS / v.torsion!.AtOverSProv!, factor), 12);
     });
   }
   for (const entry of ['direct', 'prepared'] as const) for (const factor of [1 - 1e-8, 1 + 1e-8]) {
@@ -46,7 +43,8 @@ for (const edition of ['2005', '2025'] as const) for (const axis of ['My', 'Mz']
       expect(fixed.shear.spacing).toBeLessThan(need.spacingMax!);
       const v = entry === 'direct' ? verifyElement(i, fixed) : prepareElementVerification(i)(fixed);
       expect(v.torsion!.AtOverSProv).toBeCloseTo(need.AtOverS / factor, 12);
-      expect(v.torsion!.status === 'fail').toBe(factor > 1);
+      expect(v.torsion!.reinforcementRatio).toBeCloseTo(factor, 12);
+      expect(v.torsion).toMatchObject({ status: 'fail', refusal: 'diag.rcTorsionPerimeter' });
     });
   }
   for (const factor of [1 - 1e-8, 1, 1 + 1e-8]) {

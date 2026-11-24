@@ -139,7 +139,9 @@ fn diagram_certificate_bounds_n_between_stations_under_an_axial_span_load() {
             worst = worst.max(n - hi).max(lo - n);
         }
     }
-    assert!(worst > 1e-9, "the case must exercise the gap (worst excursion {worst})");
+    let zero_intensity = (0.37 + (2.91 - 0.37) * 30.0 / (30.0 + 50.0)) / ef.length;
+    assert!(ts.iter().any(|t| (t - zero_intensity).abs() <= f64::EPSILON), "{ts:?}");
+    assert_eq!(worst, 0.0);
     assert!(worst <= gap + 1e-9, "N leaves the station envelope by {worst} > certified gap {gap}");
 }
 

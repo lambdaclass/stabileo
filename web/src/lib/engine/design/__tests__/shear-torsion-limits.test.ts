@@ -48,7 +48,7 @@ describe('CIRSOC 201-2025 shear limits in the verifier', () => {
  */
 describe('CIRSOC 201-2025 torsion limits in the verifier (22.7.2)', () => {
   it('Tth with √f\'c ≤ 8,3 MPa and At/s with fyt ≤ 420 MPa', () => {
-    const r = checkTorsion2025({ b: 0.3, h: 0.6, d: 0.55, dSecondary: 0.25, cover: 0.025, stirrupDiaMm: 10, fc: 80, fy: 500, fyt: 500, demand: torsionDemand(30, 100), stirrup: { diameter: 10, legs: 2, spacing: 0.1 } });
+    const r = checkTorsion2025({ b: 0.3, h: 0.6, d: 0.55, cover: 0.025, stirrupDiaMm: 10, fc: 80, fy: 500, fyt: 500, demand: torsionDemand(30, 100), stirrup: { diameter: 10, legs: 2, spacing: 0.1 } });
     expect(r.phiTth).toBeCloseTo(9.3, 2);
     expect(r.AtOverS * 1e4).toBeCloseTo(4.3227, 3);
   });

@@ -1,12 +1,11 @@
-# Dependency update PRs. Security updates arrive regardless of schedule;
-# the weekly batches keep version drift (and the advisory backlog) small.
+# Version-update PRs are off, and Dependabot still opens security-update PRs.
 version: 2
 updates:
   - package-ecosystem: cargo
     directory: /
     schedule:
       interval: weekly
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 0
     groups:
       cargo-minor:
         update-types: [minor, patch]
@@ -15,7 +14,7 @@ updates:
     directory: /research/fracture/shauer-2025
     schedule:
       interval: weekly
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 0
     groups:
       cargo-minor:
         update-types: [minor, patch]
@@ -24,7 +23,7 @@ updates:
     directory: /research/fracture/shauer-2025/wasm
     schedule:
       interval: weekly
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 0
     groups:
       cargo-minor:
         update-types: [minor, patch]
@@ -33,7 +32,7 @@ updates:
     directory: /research/metamaterials/grossman-2026
     schedule:
       interval: weekly
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 0
     groups:
       cargo-minor:
         update-types: [minor, patch]
@@ -42,7 +41,7 @@ updates:
     directory: /research/metamaterials/grossman-2026/wasm
     schedule:
       interval: weekly
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 0
     groups:
       cargo-minor:
         update-types: [minor, patch]
@@ -51,7 +50,7 @@ updates:
     directory: /web
     schedule:
       interval: weekly
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 0
     groups:
       npm-minor:
         update-types: [minor, patch]
@@ -60,7 +59,7 @@ updates:
     directory: /backend
     schedule:
       interval: weekly
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 0
     groups:
       mix-minor:
         update-types: [minor, patch]
@@ -70,6 +69,7 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    open-pull-requests-limit: 0
     groups:
       actions:
         patterns: ["*"]
@@ -78,3 +78,4 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    open-pull-requests-limit: 0

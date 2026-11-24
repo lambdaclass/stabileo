@@ -89,8 +89,7 @@ issue2216('known wrong result: #2216 missing primary reinforcement cannot pass a
   }
 });
 
-const issue2217 = process.env.RUN_KNOWN_WRONG === '2217' ? it : it.skip;
-issue2217('known wrong result: #2217 layered bars and grouped bars require the same hoop spacing', () => {
+it('#2217 layered bars and grouped bars require the same hoop spacing', () => {
   const largest = { count: 4, diameter: 25 };
   const smallest = { count: 4, diameter: 10 };
   const common = { stirrupsSupport: { diameter: 8, legs: 2, spacing: 0.1 }, regionT: 0.25 };
@@ -104,4 +103,18 @@ issue2217('known wrong result: #2217 layered bars and grouped bars require the s
   const sixSmallestRestrainedBarDiameters = 6 * smallest.diameter / 1000;
   expect(assess(grouped)).toMatchObject({ spacing: sixSmallestRestrainedBarDiameters, spacingOk: false });
   expect(assess(layered)).toMatchObject({ spacing: sixSmallestRestrainedBarDiameters, spacingOk: false });
+});
+
+
+it('#2217 every regional layer or group participates in the smallest-bar limit', () => {
+  const large = { count: 4, diameter: 25, row: 0 };
+  const small = { count: 2, diameter: 10, row: 1 };
+  const mirror = { count: 8, diameter: 8 };
+  const layers = { topStartLayers: [large], topEndLayers: [large], bottomSpanLayers: [large] };
+  expect(beamSteel({ top: mirror, bottom: mirror, regions: layers }).minDia).toBe(25);
+  for (const face of ['topStartLayers', 'topEndLayers', 'bottomSpanLayers'] as const) {
+    const withSmall = { ...layers, [face]: [large, small] };
+    expect(beamSteel({ top: mirror, bottom: mirror, regions: withSmall }).minDia).toBe(10);
+  }
+  expect(beamSteel({ regions: { ...layers, topEndGroups: [{ layers: [large, small] }] } }).minDia).toBe(10);
 });

@@ -14,14 +14,20 @@
   import { detailingStore } from '../../../lib/store/detailing.svelte';
 
   const ready = $derived(detailingStore.readiness);
-  const blockers = $derived(ready.prerequisites.map((p) => tp(p.key, { n: p.count, ids: p.elementIds.slice(0, 6).join(', ') })).join(' '));
+  const blockers = $derived(ready.prerequisites
+    .filter((p) => !ready.ready || p.kind === 'columnBarLayout' || p.kind === 'beamColumnBarLayout')
+    .map((p) => {
+      const ids = p.elementIds.slice(0, 6).join(', ');
+      const message = tp(p.key, { n: p.count, ids });
+      return p.kind === 'columnBarLayout' || p.kind === 'beamColumnBarLayout' ? `${message} (${ids})` : message;
+    }).join(' '));
 </script>
 
 <div class="dt" data-testid="desk-detailing">
   <div class="dt-head">
     <!-- How many coordinated assemblies there are, without opening the list. -->
     {#if detailingStore.assemblies.length > 0}<span class="dt-count" title={t('detailing.title')} data-testid="detailing-count">{detailingStore.assemblies.length}</span>{/if}
-    {#if !ready.ready && blockers}<p class="dt-blockers" data-testid="detailing-prerequisites">{blockers}</p>{/if}
+    {#if blockers}<p class="dt-blockers" data-testid="detailing-prerequisites">{blockers}</p>{/if}
     <label class="dt-auto" data-testid="detailing-auto-label">
       <input type="checkbox" data-testid="detailing-auto" checked={detailingStore.autoGenerate}
         onchange={(e) => detailingStore.setAutoGenerate(e.currentTarget.checked)} />

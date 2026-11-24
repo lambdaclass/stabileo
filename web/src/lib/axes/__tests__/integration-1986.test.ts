@@ -100,7 +100,7 @@ it('known wrong result: #1986 setout angle follows the orientation of reflected 
 it('reported #1986 stored axial point load is projected along the member before global reporting', () => {
   axesStore.choice = { up: '+Z', right: '-X', hand: 'left' };
   const load = { elementId: 1, a: 1, p: 0, px: 5, isGlobal: true };
-  expect(pointOnElementText(load, { global: 'global' }, 'SI', [3, 4])).toBe('Px=-3 kN, Pz=4 kN, a=1 m, global');
+  expect(pointOnElementText(load, { global: 'global' }, 'SI', [3, 4], 'planar')).toBe('Px=-3 kN, Pz=4 kN, a=1 m, global');
   const F = planePointLoad3D(load, 3, 4, true);
   expect(F.px).toBeCloseTo(3, 12);
   expect(F.pz).toBeCloseTo(4, 12);
@@ -109,9 +109,9 @@ it('reported #1986 stored axial point load is projected along the member before 
 it('reported #1986 incomplete LoadData is refused while explicit SelfWeight reads its declared direction', () => {
   const r = parseWorkbook({ [AXES_SHEET]: axes(), Nodes: [head('Nodes'), row('Nodes', { id: 1, x: 1, y: 2, z: 3 })], LoadData: [['load', 'type', 'field', 'value'], [1, 'nodal3d', 'fx', 5]], SelfWeight: [['source', 'case', 'direction', 'factor', 'scope'], ['case', 1, 'Y', -1, 'all']] });
   expect(r.unknownSheets).toEqual([]);
-  expect(r.problems.filter(p => p.sheet === 'LoadData')).toEqual([{ sheet: 'LoadData', row: 1, message: 'LoadData requires one of each exported column.' }]);
-  expect(r.model.loads).toEqual([]);
-  expect(r.problems).toEqual([{ sheet: 'LoadData', row: 1, message: 'LoadData requires one of each exported column.' }]);
+  expect(r.problems).toEqual([{
+    sheet: 'LoadData', row: 1, message: 'Use exactly the nine exported column names in LoadData.', blocking: true,
+  }]);
   expect(r.model.analysis?.selfWeight).toEqual([{ caseId: 1, direction: 'Z', factor: -1 }]);
   expect(r.model.loads).toEqual([]);
 });

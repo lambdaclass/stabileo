@@ -19,6 +19,27 @@ describe('the flagship beam lines, as lines', () => {
     const withheld: number[] = [];
     const transitioned: number[] = [];
     const minimumShortfalls: number[] = [];
+    const topExtentRefusals = new Set([363, 365, 366, 368, 369, 371, 372, 374, 375, 377, 378, 381, 382, 385, 386, 389, 390, 393]);
+    const bottomExtentRefusals = new Set([363, 365, 366, 368, 369, 371, 372, 374, 375, 377, 381, 385, 389, 393]);
+    const secondaryExtentRefusals = new Set([363, 365, 366, 368, 369, 371, 372, 374, 375, 377]);
+    const overallExtentRefusals = new Set([378, 381, 382, 385, 386, 389, 390, 393]);
+    const spanTensionSteelRefusals = new Set([
+      178, 179, 190, 191, 208, 209, 210, 213, 214, 215, 216, 219,
+      220, 221, 222, 239, 240, 241, 242, 243, 244, 245, 246, 247,
+      248, 249, 250, 251, 252, 253, 270, 271, 272, 273, 274, 275,
+      276, 277, 278, 279, 280, 281, 282, 283, 284, 301, 302, 303,
+      304, 305, 306, 307, 308, 309, 310, 311, 312, 313, 314, 315,
+      332, 333, 334, 335, 336, 337, 338, 339, 340, 341, 342, 343,
+      344, 345, 346, 363, 364, 365, 366, 367, 368, 369, 370, 371,
+      372, 373, 374, 375, 376, 377, 394, 395, 396, 397, 398, 399,
+      400, 401, 402, 403, 404, 405, 406, 407, 408,
+    ]);
+    const overallTensionSteelRefusals = new Set([
+      178, 190, 208, 209, 210, 213, 214, 215, 216, 219, 220, 221,
+      222, 240, 243, 246, 249, 252, 271, 274, 280, 283, 302, 314,
+      333, 345, 364, 376, 394, 395, 396, 397, 399, 400, 402, 403,
+      405, 406, 407, 408,
+    ]);
     const primaryShear = (row: { category: string }) => /^Shear (Support|Span) \(Vz\)/.test(row.category);
     const key = (checks: Array<{ category: string; status: string; ratio: number }>) =>
       checks.map(c => `${c.category}|${c.status}|${c.ratio}`).sort();
@@ -53,10 +74,36 @@ describe('the flagship beam lines, as lines', () => {
         const regionRoundTrip = cirsoc201Adapter.verify(ctx, regional);
         const drawn = cirsoc201Adapter.verify(ctx, turned);
         expect(key(regionRoundTrip.checks), `member ${id}`).toEqual(key(original.checks));
-        expect(key(drawn.checks.filter(c => !primaryShear(c))), `member ${id}`)
-          .toEqual(key(original.checks.filter(c => !primaryShear(c))));
+        const extentCategories = [
+          ...(topExtentRefusals.has(id) ? ['Top Span (My-)'] : []),
+          ...(bottomExtentRefusals.has(id) ? ['Bottom Span (My+)'] : []),
+          ...(secondaryExtentRefusals.has(id) ? ['Secondary shear (Vy)'] : []),
+        ].sort();
+        const refusals = drawn.checks.filter(c => c.description === 'diag.rcDrawnBarExtent' || c.description === 'diag.rcDrawnCornerSeat');
+        expect(refusals.map(c => c.category).sort(), `member ${id}`).toEqual(extentCategories);
+        const replaced = new Set(extentCategories.flatMap(category => [category, `${category} ductility`]));
+        expect(key(drawn.checks.filter(c => !primaryShear(c))), `member ${id}`).toEqual([
+          ...key(original.checks.filter(c => !primaryShear(c) && !replaced.has(c.category))),
+          ...extentCategories.map(category => `${category}|fail|Infinity`),
+        ].sort());
+        for (const row of refusals) {
+          expect(row).toMatchObject({ limiting: 'unsupportedCheck', stationX: expect.any(Number),
+            description: row.category === 'Secondary shear (Vy)' ? 'diag.rcDrawnCornerSeat' : 'diag.rcDrawnBarExtent' });
+          expect(original.checks.find(c => c.category === row.category)?.status).toBe('ok');
+        }
+        if (overallExtentRefusals.has(id) || overallTensionSteelRefusals.has(id)) {
+          expect(original.overallStatus).toBe('ok');
+          expect(drawn.overallStatus).toBe('fail');
+          expect(outcomeFromProvided(cirsoc201Adapter, ctx, turned, drawn)).toBeNull();
+        }
         const prescribed = original.checks.filter(primaryShear);
         const projected = drawn.checks.filter(primaryShear);
+        const tensionRefusals = projected.filter(row => row.description === 'diag.rcShearTensionSteel');
+        expect(tensionRefusals.map(row => row.category), `member ${id}`)
+          .toEqual(spanTensionSteelRefusals.has(id) ? ['Shear Span (Vz)'] : []);
+        for (const row of tensionRefusals) {
+          expect(row).toMatchObject({ status: 'fail', ratio: Infinity, capacity: 0, limiting: 'unsupportedCheck' });
+        }
         if (JSON.stringify(key(projected)) !== JSON.stringify(key(prescribed))) transitioned.push(id);
         for (const row of prescribed) {
           const corresponding = projected.find(c => c.category === row.category);
@@ -73,7 +120,7 @@ describe('the flagship beam lines, as lines', () => {
         }
         if (id === 178) {
           expect(key(prescribed)).toEqual(['Shear Span (Vz)|ok|0.582', 'Shear Support (Vz)|ok|0.476']);
-          expect(key(projected)).toEqual(['Shear Span (Vz)|ok|0.714', 'Shear Support (Vz)|ok|0.751']);
+          expect(key(projected)).toEqual(['Shear Span (Vz)|fail|Infinity', 'Shear Support (Vz)|ok|0.751']);
         }
       });
     }

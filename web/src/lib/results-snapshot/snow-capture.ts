@@ -1,4 +1,5 @@
 import type { SnapshotCase } from './corpus';
+import { tAt } from '../i18n/store.svelte';
 import { stepRoof } from '../engine/loads/__tests__/snow-step-fixture';
 import { snow, skewRoof } from '../engine/loads/__tests__/snow-roof-plane-fixture';
 import { asymmetric, concave, disjoint, twoPitch, mesh } from '../engine/loads/__tests__/snow-surface-round2-fixture';
@@ -14,12 +15,14 @@ export function captureSnow(c: SnapshotCase) {
   const model = selected ?? (c.source.snowRoof === 'skew' ? skewRoof() : stepRoof(20, 0, 0.45, c.source.snowRoof === 'rotated-step' ? 0.37 : 0));
   const layout = gravityLayout(model, { mode: 'panels', tributaryWidth: 1 });
   const out = snowLoadCases({ model, snow: { ...snow, partial: c.source.snowRoof !== 'subdivided-override', roofKind: c.source.snowRoof === 'skew' ? 'mono' : 'gable', ...(c.source.snowRoof === 'subdivided-override' ? { roofSlopeDeg: 20 } : {}) }, layout, tributaryWidth: 1 });
-  if (!out || out.result.refused) throw new Error(out?.result.refused ?? 'Missing roof');
+  if (!out) throw new Error('Missing roof');
+  const snapshot = { case: c.name, covers: c.covers, format: FORMAT };
+  if (out.result.refused) return { ...snapshot, values: { 'snowResult.refusal': tAt(out.result.refused, 'en') } };
   const values: Record<string, number | string | boolean | null> = {};
   const indexed = <T>(list: T[]) => Object.fromEntries(list.map((v, k) => [`item${k}`, v]));
   flatten(indexed(out.cases.map(c => ({ ...c, distributed: indexed(c.distributed), nodal: indexed(c.nodal) }))), 'generatedLoads', values, new Set());
   flatten(out.derivation, 'snowDerivation', values);
   if (c.source.snowRoof === 'subdivided-override') flatten(out.geometry, 'snowGeometry', values);
   flatten(out.result, 'snowResult', values);
-  return { case: c.name, covers: c.covers, format: FORMAT, values };
+  return { ...snapshot, values };
 }

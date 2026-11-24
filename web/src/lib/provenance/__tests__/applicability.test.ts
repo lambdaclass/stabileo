@@ -39,6 +39,31 @@ function model(over: Partial<FeatureSnapshot> = {}): FeatureSnapshot {
 const ids = (s: FeatureSnapshot, stamp: SolveStamp | null = null) => assessProject(s, stamp, s.analysisMode).changes.map((c) => c.id);
 
 describe('which registered changes concern a model', () => {
+  it('#2460 and #2461 scope plate remesh notices and their declared result changes', () => {
+    const entry = RESULT_CHANGES.changes.find(change => change.id === 'physical-plate-remesh')!;
+    const surface = { loops: [4], materialId: 1, thickness: 0.2, mesh: { size: 2, element: 'quad', followMembers: false } };
+    const group = { data: { surface }, members: { nodes: [1, 2, 3, 4], quads: [1] } };
+    const quad = { id: 1, nodes: group.members.nodes };
+    const offset = { frame: 'local', x: 0, y: 0, z: 0.1 };
+    const plain = model({ groups: [[1, group]], quads: [[1, quad]] });
+    const arc = model({ ...plain, groups: [[1, { ...group, data: { surface: { ...surface, arcMids: [1] } } }]] });
+    const curved = model({ ...plain, quads: [[1, { ...quad, curved: true }]] });
+    const eccentric = model({ ...plain, quads: [[1, { ...quad, offset }]] });
+    const triangle = model({
+      ...plain, quads: [], plates: [[1, { id: 1, nodes: [1, 2, 3], offset }]],
+      groups: [[1, { ...group, members: { nodes: [1, 2, 3, 4], plates: [1] } }]],
+    });
+    for (const snapshot of [arc, curved, eccentric, triangle]) expect(ids(snapshot)).toContain(entry.id);
+    for (const snapshot of [plain, { ...eccentric, groups: [] }, { ...arc, analysisMode: '2d' }]) {
+      expect(ids(snapshot)).not.toContain(entry.id);
+    }
+    const change = { ...entry, quantities: declaredQuantities[entry.id] };
+    expect(declaresMove(change, 'solve.ok')).toBe(true);
+    expect(declaresMove(change, 'base.reactions[1].fz')).toBe(true);
+    expect(declaresMove(change, 'base.displacements[1].uz')).toBe(true);
+    expect(declaresMove(change, 'base.elementForces[1].nStart')).toBe(false);
+  });
+
   it('known wrong result: #2072: excludes unrelated legacy frames and shells from elastic SSI notices', () => {
     for (const analysisMode of ['2d', 'pro']) {
       for (const snapshot of [

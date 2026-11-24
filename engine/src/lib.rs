@@ -665,7 +665,7 @@ pub fn compute_diagrams_2d(json: &str) -> Result<String, JsValue> {
     for ef in &data.results.element_forces {
         postprocess::diagrams::validate_diagram_input_2d(ef).map_err(|e| JsValue::from_str(&e))?;
     }
-    let diagrams = postprocess::diagrams::compute_diagrams_2d(&data.input, &data.results);
+    let diagrams = postprocess::diagrams::try_compute_diagrams_2d(&data.input, &data.results).map_err(|e| JsValue::from_str(&e))?;
     to_json(&diagrams)
 }
 
@@ -677,7 +677,7 @@ pub fn compute_diagrams_3d(json: &str) -> Result<String, JsValue> {
     for ef in &results.element_forces {
         postprocess::diagrams_3d::validate_diagram_input_3d(ef).map_err(|e| JsValue::from_str(&e))?;
     }
-    let diagrams = postprocess::diagrams_3d::compute_diagrams_3d(&results);
+    let diagrams = postprocess::diagrams_3d::try_compute_diagrams_3d(&results).map_err(|e| JsValue::from_str(&e))?;
     to_json(&diagrams)
 }
 
@@ -920,13 +920,14 @@ pub fn compute_diagram_value_at(json: &str) -> Result<f64, JsValue> {
     struct Input {
         kind: String,
         t: f64,
+        #[serde(default)]
+        right: bool,
         element_forces: types::ElementForces,
     }
     let d: Input = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
-    postprocess::diagrams::validate_diagram_input_2d(&d.element_forces).map_err(|e| JsValue::from_str(&e))?;
-    postprocess::diagrams::check_diagram_kind_2d(&d.kind).map_err(|e| JsValue::from_str(&e))?;
-    boundary::finite_scalar(postprocess::diagrams::compute_diagram_value_at(&d.kind, d.t, &d.element_forces), &d.kind).map_err(|e| JsValue::from_str(&e))
+    let value = postprocess::diagrams::checked_diagram_limit_2d(&d.kind, d.t, &d.element_forces, d.right).map_err(|e| JsValue::from_str(&e))?;
+    boundary::finite_scalar(value, &d.kind).map_err(|e| JsValue::from_str(&e))
 }
 
 /// Compute 3D diagram value at position t for one element. JSON: { kind, t, elementForces }
@@ -937,13 +938,14 @@ pub fn compute_diagram_value_at_3d(json: &str) -> Result<f64, JsValue> {
     struct Input {
         kind: String,
         t: f64,
+        #[serde(default)]
+        right: bool,
         element_forces: types::ElementForces3D,
     }
     let d: Input = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
-    postprocess::diagrams_3d::validate_diagram_input_3d(&d.element_forces).map_err(|e| JsValue::from_str(&e))?;
-    postprocess::diagrams_3d::check_diagram_kind_3d(&d.kind).map_err(|e| JsValue::from_str(&e))?;
-    boundary::finite_scalar(postprocess::diagrams_3d::evaluate_diagram_3d_at(&d.element_forces, &d.kind, d.t), &d.kind).map_err(|e| JsValue::from_str(&e))
+    let value = postprocess::diagrams_3d::checked_diagram_limit_3d(&d.element_forces, &d.kind, d.t, d.right).map_err(|e| JsValue::from_str(&e))?;
+    boundary::finite_scalar(value, &d.kind).map_err(|e| JsValue::from_str(&e))
 }
 
 // ==================== Multi-Case Load Combinations ====================
@@ -1784,7 +1786,7 @@ pub fn extract_beam_stations(json: &str) -> Result<String, JsValue> {
             postprocess::diagrams::validate_diagram_input_2d(ef).map_err(|e| JsValue::from_str(&e))?;
         }
     }
-    let result = postprocess::beam_stations::extract_beam_stations(&input);
+    let result = postprocess::beam_stations::try_extract_beam_stations(&input).map_err(|e| JsValue::from_str(&e))?;
     to_json(&result)
 }
 
@@ -1798,7 +1800,7 @@ pub fn extract_beam_stations_3d(json: &str) -> Result<String, JsValue> {
             postprocess::diagrams_3d::validate_diagram_input_3d(ef).map_err(|e| JsValue::from_str(&e))?;
         }
     }
-    let result = postprocess::beam_stations::extract_beam_stations_3d(&input);
+    let result = postprocess::beam_stations::try_extract_beam_stations_3d(&input).map_err(|e| JsValue::from_str(&e))?;
     to_json(&result)
 }
 
@@ -1812,7 +1814,7 @@ pub fn extract_beam_stations_grouped(json: &str) -> Result<String, JsValue> {
             postprocess::diagrams::validate_diagram_input_2d(ef).map_err(|e| JsValue::from_str(&e))?;
         }
     }
-    let result = postprocess::beam_stations::extract_beam_stations_grouped(&input);
+    let result = postprocess::beam_stations::try_extract_beam_stations_grouped(&input).map_err(|e| JsValue::from_str(&e))?;
     to_json(&result)
 }
 
@@ -1826,7 +1828,7 @@ pub fn extract_beam_stations_grouped_3d(json: &str) -> Result<String, JsValue> {
             postprocess::diagrams_3d::validate_diagram_input_3d(ef).map_err(|e| JsValue::from_str(&e))?;
         }
     }
-    let result = postprocess::beam_stations::extract_beam_stations_grouped_3d(&input);
+    let result = postprocess::beam_stations::try_extract_beam_stations_grouped_3d(&input).map_err(|e| JsValue::from_str(&e))?;
     to_json(&result)
 }
 

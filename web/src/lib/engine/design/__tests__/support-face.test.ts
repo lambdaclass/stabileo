@@ -15,7 +15,7 @@ import { verificationStore } from '../../../store/verification.svelte';
 import * as wasmSolver from '../../wasm-solver';
 import * as anchorage from '../end-support-anchorage';
 import { cirsoc201Adapter } from '../adapters/cirsoc201-adapter';
-import { jointThreading } from '../joint-threading-check';
+import { prepareJointThreading } from '../joint-threading-check';
 
 beforeAll(async () => {
   await new Promise((r) => setTimeout(r, 0));
@@ -59,7 +59,7 @@ describe('support moments at the column face', () => {
     const input = anchorage.supportInputOf(ctx, rebar)!;
     const expected = anchorage.endSupportPlan(input);
     expect(anchorage.bottomReach(input, expected)).toEqual(anchorage.bottomReach(input));
-    const threading = jointThreading(ctx, rebar, input);
+    const threading = prepareJointThreading(ctx)(input, expected);
     expect(threading.length).toBeGreaterThan(0);
     const spy = vi.spyOn(anchorage, 'endSupportPlan');
     const tails = vi.spyOn(anchorage, 'hookTails');
@@ -69,18 +69,18 @@ describe('support moments at the column face', () => {
       expect(result.supportAnchorage).toEqual(expected.verdicts);
       expect(result.jointThreading).toEqual(threading);
       expect(tails).toHaveBeenCalledTimes(1);
-      expect(tails.mock.calls[0]![2]).toBe(spy.mock.results[0]!.value);
+      expect(tails.mock.calls[0]![0]).toBe(spy.mock.results[0]!.value.verdicts);
       const changed = structuredClone(rebar);
       changed.regions!.topStart = { count: 2, diameter: 12 };
       changed.regions!.topStartLayers = [{ count: 2, diameter: 12, row: 0 }];
       const changedResult = cirsoc201Adapter.verify(ctx, changed);
       expect(spy).toHaveBeenCalledTimes(2);
       expect(tails).toHaveBeenCalledTimes(2);
-      expect(tails.mock.calls[1]![2]).toBe(spy.mock.results[1]!.value);
-      expect(tails.mock.calls[1]![2]).not.toBe(tails.mock.calls[0]![2]);
+      expect(tails.mock.calls[1]![0]).toBe(spy.mock.results[1]!.value.verdicts);
+      expect(tails.mock.calls[1]![0]).not.toBe(tails.mock.calls[0]![0]);
       const changedInput = anchorage.supportInputOf(ctx, changed)!;
       expect(changedResult.supportAnchorage).toEqual(anchorage.endSupportPlan(changedInput).verdicts);
-      expect(changedResult.jointThreading).toEqual(jointThreading(ctx, changed, changedInput));
+      expect(changedResult.jointThreading).toEqual(prepareJointThreading(ctx)(changedInput, anchorage.endSupportPlan(changedInput)));
     } finally { spy.mockRestore(); tails.mockRestore(); }
   });
   it('the face follows the column extent along the beam, and the hogging is taken there', () => {

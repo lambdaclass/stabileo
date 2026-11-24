@@ -4,13 +4,12 @@
  * break:
  *  - an undo step shares the copy of the detailing taken for the previous one: the tens of
  *    megabytes of bars are copied once per version of them, not on every edit;
- *  - undoing still restores a detailing the live model owns (never the shared copy itself),
- *    with every field of its assemblies;
  *  - the physical frame is not rebuilt while nothing changed, is kept by an edit that moves no
  *    concrete, and is rebuilt by one that does.
  */
 import { describe, it, expect } from 'vitest';
-import { workspaceScene } from '../../engine/detailing/__tests__/helpers/workspace-scene';
+import { workspaceScene, turn } from '../../engine/detailing/__tests__/helpers/workspace-scene';
+import { detailingStore } from '../detailing.svelte';
 import { modelStore } from '../model.svelte';
 import { historyStore } from '../history.svelte';
 import { projectPhysicalFrame } from '../physical-frame';
@@ -38,16 +37,24 @@ describe('editing a detailed building', () => {
     historyStore.pushState();
     modelStore.updateNode(id, p.x + 0.01, p.y, p.z);
     const s2 = modelStore.snapshot();
-    // The edit retired the document (a new detailing object) but kept the same bars: shared.
     expect(s2.detailing!.assemblies).toBe(s1.detailing!.assemblies);
-    expect(s2.detailing!.assemblies).not.toBe(m.detailing!.assemblies);
+    expect(Object.isFrozen(s2.detailing!.assemblies)).toBe(true);
+    expect(s2.detailing!.documentRevision).toBe(s1.detailing!.documentRevision! + 1);
+    expect(detailingStore.document).toBeNull();
+    expect(detailingStore.modelStale).toBe(true);
 
-    // Undo gives the model a detailing of its own, equal to the one before.
+    await turn();
+    const expected = canon(s1.detailing!.assemblies);
+    await turn();
     historyStore.undo();
+    const restored = canon(m.detailing!.assemblies);
     expect(m.nodes.get(id)!.x).toBeCloseTo(p.x, 9);
-    expect(m.detailing!.assemblies).not.toBe(s1.detailing!.assemblies);
+    expect(Object.isFrozen(m.detailing!.assemblies)).toBe(true);
+    expect(detailingStore.documentRevision).toBe(s1.detailing!.documentRevision);
+    expect(detailingStore.modelStale).toBe(false);
     // Every field of every assembly comes back: the label key, the gate's verdict, the blockers.
-    expect(firstDifference(canon(m.detailing!.assemblies), canon(s1.detailing!.assemblies))).toBe('');
+    await turn();
+    expect(firstDifference(restored, expected)).toBe('');
 
     // The frame: kept while nothing changes and across an edit that moves no concrete.
     const f1 = projectPhysicalFrame();

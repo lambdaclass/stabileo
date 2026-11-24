@@ -67,9 +67,9 @@ describe('§9.7.3.8.2: one beam, its three readings', () => {
     const nodes = { start: 2, end: 3 };
     const plan = endSupportPlan(input);
     const original = structuredClone(plan);
-    const tails = hookTails(input, nodes, plan);
+    const tails = hookTails(plan.verdicts, nodes);
     expect(tails.length).toBeGreaterThan(0);
-    expect(tails).toEqual(hookTails(input, nodes));
+    expect(tails).toEqual(hookTails(endSupportPlan(input).verdicts, nodes));
     const bottom = tails.filter(t => t.position === 'bottom');
     expect(bottom.map(t => t.nodeId)).toEqual(role === 'lateral' ? [2, 3] : []);
     for (const tail of bottom) {
