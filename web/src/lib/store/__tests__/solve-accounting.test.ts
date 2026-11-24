@@ -17,7 +17,7 @@ import {
   addPlateLoad, applyPlateMeshes, createPlate, meshBeforeAnalysis, planPlateMesh, plateEntry, plateStatus, setPlateMeshSpec, setPlateSideArc,
 } from '../physical-plates';
 
-const fault = vi.hoisted(() => ({ dropMemberLoad: false, dropLineIntensity: 0, scaleCaseLoad: 1, momentDelta: 0, stalePlanarMoment: 0, surfaceFactorOffset: 0, dropNodalFy: false }));
+const fault = vi.hoisted(() => ({ dropMemberLoad: false, dropLineIntensity: 0, scaleCaseLoad: 1, momentDelta: 0, stalePlanarMoment: 0, surfaceFactorOffset: 0, cornerPressureDelta: 0, dropNodalFy: false }));
 
 vi.mock('../../model/loads/load-magnitudes', async importOriginal => {
   const original = await importOriginal<typeof import('../../model/loads/load-magnitudes')>();
@@ -26,6 +26,11 @@ vi.mock('../../model/loads/load-magnitudes', async importOriginal => {
     scaledLoad: (load: Parameters<typeof original.scaledLoad>[0], factor: number) => {
       const offset = load.type === 'surface3d' ? fault.surfaceFactorOffset : 0;
       const scaled = original.scaledLoad(load, factor * fault.scaleCaseLoad + offset);
+      if (scaled.type === 'surface3d' && fault.cornerPressureDelta) {
+        const { q } = scaled.data;
+        const delta = fault.cornerPressureDelta;
+        scaled.data.qNodes = [q + delta, q - delta, q + delta, q - delta];
+      }
       if (scaled.type === 'nodal3d' && fault.dropNodalFy) scaled.data.fy = 0;
       return scaled.type === 'nodal3d' && load.data.id === 2
         ? { ...scaled, data: { ...scaled.data, mx: scaled.data.mx + fault.momentDelta } }
@@ -68,6 +73,7 @@ beforeEach(() => {
   fault.momentDelta = 0;
   fault.stalePlanarMoment = 0;
   fault.surfaceFactorOffset = 0;
+  fault.cornerPressureDelta = 0;
   fault.dropNodalFy = false;
 });
 
@@ -398,6 +404,7 @@ it('#2479 refuses a wrong what-if plate-pressure factor throughout spatial analy
     whatIf.setLoadFactor(index, 0.5);
     await vi.advanceTimersByTimeAsync(60);
     expect(modelStore.loads[index]!.data).toMatchObject({ q: 0.75 });
+    fault.surfaceFactorOffset = 0;
     const paths = {
       linear: solve,
       async: () => modelStore.solve3DAsync(false, false, true),
@@ -410,6 +417,88 @@ it('#2479 refuses a wrong what-if plate-pressure factor throughout spatial analy
       direct: () => runDirectAnalysis(model, model.loadCases, model.combinations, { includeSelfWeight: false }),
     };
     const diagnostic = expect.stringMatching(/case.*1.*Test floor.*Fz/i);
+    for (const [name, run] of Object.entries(paths)) {
+      expect.soft(await outcome(run), name).toEqual(diagnostic);
+    }
+    expect.soft(modelStore.singleSolveInput3D(false, false, true), 'input').toBeNull();
+    await runLiveCalc('pro', uiStore.axisConvention3D);
+    expect.soft(uiStore.liveCalcError, 'live').toEqual(diagnostic);
+    expect.soft(resultsStore.results3D, 'live results').toBeNull();
+    expect.soft(await runGlobalSolve({ directBase: true }), 'global').toMatchObject({ ok: false, error: diagnostic });
+
+    modelStore.setAnalysis({ perCombination: 'pdelta' });
+    expect.soft(await outcome(paths.combinations), 'P-Delta combinations').toEqual(diagnostic);
+    expect.soft(await outcome(paths.parallel), 'P-Delta parallel').toEqual(diagnostic);
+    modelStore.updateSupport(model.supports.keys().next().value!, { uplift: true });
+    expect.soft(await outcome(paths.async), 'nonlinear single').toEqual(diagnostic);
+    expect.soft(await outcome(paths.parallel), 'nonlinear combinations').toEqual(diagnostic);
+  } finally {
+    whatIf.abandon();
+    vi.useRealTimers();
+  }
+});
+
+const issue2479Corners = process.env.RUN_KNOWN_WRONG === '2479' ? it : it.skip;
+
+issue2479Corners('#2479 refuses alternating what-if corner pressures with unchanged resultants', async () => {
+  const { id } = floor();
+  const [a, b] = modelStore.nodes.keys();
+  modelStore.addElement(a!, b!);
+  expect(applyPlateMeshes([planPlateMesh(id)!]).plates).toBe(1);
+  syncDefinedLoadsForAnalysis();
+  const index = modelStore.loads.findIndex(load => load.type === 'surface3d');
+  const target = modelStore.loads[index];
+  if (target?.type !== 'surface3d') throw new Error('Missing floor pressure');
+  const corners = modelStore.quads.get(target.data.quadId)!.nodes.map(id => modelStore.nodes.get(id)!);
+  const xs = corners.map(node => node.x), ys = corners.map(node => node.y);
+  const area = (Math.max(...xs) - Math.min(...xs)) * (Math.max(...ys) - Math.min(...ys));
+
+  const included = modelStore.addLoadCase('Included pressure');
+  expect(modelStore.updateLoadCaseFields(1, { reference: true })).toBe(true);
+  expect(modelStore.updateLoadCaseFields(included, { includes: [{ caseId: 1, factor: 2 }] })).toBe(true);
+  const combo = modelStore.addCombination('Design pressure', [{ caseId: included, factor: 1.5 }]);
+  const model = modelStore.model;
+  const paths = {
+    linear: () => modelStore.solve3D(false, false, true),
+    async: () => modelStore.solve3DAsync(false, false, true),
+    combinations: () => modelStore.solveCombinations3D(false, false, true),
+    parallel: () => modelStore.solveCombinations3DParallel(false, false, true),
+    pdelta: () => solvePDelta3D(modelStore.buildSolverInput3D()!),
+    modal: () => solveModal3D(modelStore.buildSolverInput3D()!,
+      new Map([...modelStore.materials].map(([key, material]) => [key, material.rho]))),
+    buckling: () => solveBuckling3D(modelStore.buildSolverInput3D()!),
+    direct: () => runDirectAnalysis(model, model.loadCases, model.combinations, { includeSelfWeight: false }),
+  };
+
+  const requested = 0.5;
+  const apply = async (delta: number) => {
+    fault.cornerPressureDelta = delta;
+    whatIf.setLoadFactor(index, requested);
+    await vi.advanceTimersByTimeAsync(60);
+    fault.cornerPressureDelta = 0;
+  };
+  const within = requested * (roundoff - Number.EPSILON);
+  const beyond = requested * (roundoff + 2 * Number.EPSILON);
+  vi.useFakeTimers();
+  try {
+    whatIf.open();
+    for (const delta of [0, within]) {
+      await apply(delta);
+      const expected = (20 - area * (1 - requested)) * 2;
+      const result = paths.linear();
+      if (!result || typeof result === 'string') throw new Error(String(result));
+      expect(result.reactions.reduce((sum, r) => sum + r.fz, 0)).toBeCloseTo(expected, 8);
+      const combinations = paths.combinations();
+      if (!combinations || typeof combinations === 'string') throw new Error(String(combinations));
+      expect(combinations.perCombo.get(combo)!.reactions.reduce((sum, r) => sum + r.fz, 0)).toBeCloseTo(expected * 1.5, 8);
+    }
+
+    const diagnostic = expect.stringMatching(/case.*Test floor.*q\[1\]/i);
+    await apply(beyond);
+    expect.soft(paths.linear(), 'just beyond corner roundoff').toEqual(diagnostic);
+
+    await apply(0.25);
+    expect(modelStore.loads[index]!.data).toMatchObject({ q: requested, qNodes: [0.75, 0.25, 0.75, 0.25] });
     for (const [name, run] of Object.entries(paths)) {
       expect.soft(await outcome(run), name).toEqual(diagnostic);
     }
