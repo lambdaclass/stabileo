@@ -1,0 +1,243 @@
+import { readFileSync } from 'node:fs';
+import { expect, it } from 'vitest';
+import { solve_3d, solve_pdelta_3d } from '../../../wasm/dedaliano_engine.js';
+import { modelStore } from '../../../store/model.svelte';
+import '../../../store/index';
+import { applyLoadPlan } from '../../../store/apply-load-plan';
+import type { Load } from '../../../store/model.svelte';
+import { buildSolverLoads3D } from '../../solver-service';
+import type { AnalysisResults3D, Constraint3D } from '../../types-3d';
+import { gravityLayout } from '../plan-gravity';
+import { buildLoadPlan, roofWeightFor, type LoadModelData } from '../load-plan';
+import { snowDriftRefusal } from '../snow-drift-loads';
+import { input } from './gravity-width-mass-fixture';
+
+const regression = process.env.RUN_KNOWN_WRONG === '2512' ? it : it.skip;
+const area = 10 * 6;
+const shellThickness = 0.1;
+const pressure = 1;
+const roof = { use: 'maintenance', weight: 'heavy', dead: pressure, slopeDeg: 0 } as const;
+const template = JSON.parse(readFileSync(new URL('../../../../../../engine/tests/fixtures/nightly-2026-11-13.json', import.meta.url), 'utf8'))['2023'];
+
+function modelFixture() {
+  const nodes: LoadModelData['nodes'] = new Map();
+  const elements: LoadModelData['elements'] = new Map();
+  const quads = new Map<number, { id: number; nodes: number[]; materialId: number; thickness: number }>();
+  const constraints: Constraint3D[] = [];
+  const model = {
+    nodes, elements, quads, constraints, loadCases: [],
+    sections: new Map([[1, { id: 1, a: 0.1 }]]), materials: new Map([[1, { id: 1, rho: 25 }]]),
+  } satisfies LoadModelData;
+  const node = (x: number, y: number, z: number) => {
+    const id = nodes.size + 1;
+    nodes.set(id, { id, x, y, z });
+    return id;
+  };
+  const row = (x: number, z: number) => [node(x, 0, z), node(x, 6, z)] as const;
+  const beam = (nodeI: number, nodeJ: number) => {
+    const id = elements.size + 1;
+    elements.set(id, { id, nodeI, nodeJ, type: 'frame', sectionId: 1, materialId: 1 });
+  };
+  const shell = ([a, d]: ReturnType<typeof row>, [b, c]: ReturnType<typeof row>) => {
+    const id = quads.size + 1;
+    quads.set(id, { id, nodes: [a, b, c, d], materialId: 1, thickness: shellThickness });
+  };
+  const tieRows = (masters: ReturnType<typeof row>, slaves: ReturnType<typeof row>) => {
+    masters.forEach((masterNode, i) => constraints.push({ type: 'equalDOF', masterNode, slaveNode: slaves[i]!, dofs: [2] }));
+  };
+  return { model, row, beam, shell, tieRows };
+}
+
+function directlyTiedPlatforms(upper = 6) {
+  const { model, row, shell, tieRows } = modelFixture();
+  const lowerLeft = row(0, 3), upperLeft = row(0, upper);
+  shell(lowerLeft, row(10, 3));
+  shell(upperLeft, row(10, upper));
+  tieRows(lowerLeft, upperLeft);
+  return model;
+}
+
+function stubAttachedShellBay() {
+  const { model, row, beam, shell, tieRows } = modelFixture();
+  const left = row(0, 3), right = row(10, 3), stubs = row(5, 3);
+  beam(left[0], right[0]);
+  beam(right[0], right[1]);
+  beam(right[1], left[1]);
+  beam(left[1], left[0]);
+  beam(left[0], stubs[0]);
+  beam(left[1], stubs[1]);
+  const seam = row(5, 3.02);
+  shell(row(0, 3.02), seam);
+  shell(seam, row(10, 3.02));
+  tieRows(stubs, seam);
+  return model;
+}
+
+function subdividedShellBay(withIndependentOverhead = false) {
+  const { model, row, beam, shell, tieRows } = modelFixture();
+  const left = row(0, 3), center = row(5, 3), right = row(10, 3);
+  for (const [a, b] of [[left, center], [center, right]] as const) {
+    beam(a[0], b[0]);
+    beam(a[1], b[1]);
+  }
+  for (const [a, b] of [left, center, right]) beam(a, b);
+  const shellLeft = row(0, 2.8), shellRight = row(10, 2.8);
+  shell(shellLeft, shellRight);
+  tieRows(left, shellLeft);
+  tieRows(right, shellRight);
+  if (withIndependentOverhead) beam(...row(5, 6));
+  return model;
+}
+
+function deadResultant(model: LoadModelData, loadEveryPanel: boolean, shellOwners: number[], expectedArea: number) {
+  const gravity = { mode: 'panels', loadEveryPanel } as const;
+  const plan = buildLoadPlan(input(model, { gravity }));
+  expect(plan.outcome, JSON.stringify(plan.blockedKeys)).toBe('READY');
+  expect(plan.surface.filter(load => load.caseType === 'D').map(load => load.quadId).sort()).toEqual(shellOwners);
+  expect(plan.levels.reduce((total, level) => total + level.superimposedKN, 0)).toBeCloseTo(expectedArea * pressure, 10);
+  const layout = gravityLayout(model, { ...gravity, tributaryWidth: 3 });
+  expect([...layout.areaByLevel.values()].reduce((total, level) => total + level, 0)).toBeCloseTo(expectedArea, 10);
+  expect(() => snowDriftRefusal(model)).not.toThrow();
+}
+
+regression('known wrong result: #2512 two direct vertical ties preserve loads on separate storeys', () => {
+  for (const loadEveryPanel of [false, true]) deadResultant(directlyTiedPlatforms(), loadEveryPanel, [1, 2], 2 * area);
+});
+
+regression('known wrong result: #2512 tied shells share a deck only within the cover-rise boundary', () => {
+  for (const loadEveryPanel of [false, true]) {
+    deadResultant(directlyTiedPlatforms(3.051), loadEveryPanel, [1, 2], 2 * area);
+    deadResultant(directlyTiedPlatforms(3.049), loadEveryPanel, [2], area);
+  }
+});
+
+regression('known wrong result: #2512 two stub stations attach the offset shell to its bay', () => {
+  for (const loadEveryPanel of [false, true]) {
+    const model = stubAttachedShellBay();
+    deadResultant(model, loadEveryPanel, [1, 2], area);
+    model.constraints.pop();
+    deadResultant(model, loadEveryPanel, [1, 2], 2 * area);
+  }
+});
+
+regression('known wrong result: #2512 the centre beam in a subdivided bay leaves its own shell exposed', () => {
+  for (const loadEveryPanel of [false, true]) {
+    const gravity = { mode: 'panels', loadEveryPanel } as const;
+    const model = subdividedShellBay();
+    const isolated = { ...model, elements: new Map() };
+    const expected = buildLoadPlan(input(isolated, { gravity, roof })).surface.filter(load => load.caseType === 'Lr');
+    expect(expected).toHaveLength(1);
+    const plan = buildLoadPlan(input(model, { gravity, roof }));
+    expect(plan.surface.filter(load => load.caseType === 'Lr')).toEqual(expected);
+    expect(gravityLayout(model, { ...gravity, tributaryWidth: 3 }).roofQuads.has(1)).toBe(true);
+    expect(roofWeightFor(model, gravity, 3, 0)).toBe(roofWeightFor(isolated, gravity, 3, 0));
+    const covered = subdividedShellBay(true);
+    expect(gravityLayout(covered, { ...gravity, tributaryWidth: 3 }).roofQuads.has(1)).toBe(false);
+    expect(buildLoadPlan(input(covered, { gravity, roof })).surface.filter(load => load.caseType === 'Lr')).toEqual([]);
+  }
+});
+
+function checkWasmReactions(model: LoadModelData, loads: Load[], expected: number) {
+  const slaves = new Set(model.constraints?.flatMap(constraint => constraint.type === 'equalDOF' ? [constraint.slaveNode] : []));
+  slaves.add(model.quads!.get(1)!.nodes[1]!);
+  const supports = new Map([...model.nodes.keys()].map(nodeId => [
+    nodeId, { nodeId, rx: true, ry: true, rz: !slaves.has(nodeId), rrx: true, rry: true, rrz: true },
+  ]));
+  const solverInput = {
+    ...structuredClone(template),
+    nodes: Object.fromEntries(model.nodes), elements: Object.fromEntries(model.elements),
+    quads: Object.fromEntries(model.quads ?? []), constraints: model.constraints,
+    supports: Object.fromEntries(supports),
+    loads: buildSolverLoads3D({ ...model, supports, loads } as never, loads, false, false),
+  };
+  const nonlinear = JSON.parse(solve_pdelta_3d(JSON.stringify(solverInput), 100, 1e-10));
+  expect(nonlinear.converged).toBe(true);
+  for (const result of [solve_3d(solverInput), nonlinear.results] as AnalysisResults3D[]) {
+    expect(result.reactions.reduce((total, reaction) => total + reaction.fz, 0)).toBeCloseTo(expected, 8);
+  }
+}
+
+function checkPlanReactions(model: LoadModelData, caseType: 'D' | 'Lr', expected: number) {
+  const plan = buildLoadPlan(input(model, { gravity: { mode: 'panels' }, ...(caseType === 'Lr' ? { roof } : {}) }));
+  const loads: Load[] = [];
+  for (const load of plan.surface.filter(load => load.caseType === caseType)) {
+    loads.push({ type: 'surface3d', data: { id: loads.length + 1, quadId: load.quadId, q: load.q } });
+  }
+  for (const load of plan.distributed.filter(load => load.caseType === caseType)) {
+    loads.push({ type: 'distributed3d', data: {
+      id: loads.length + 1, elementId: load.elementId, qYI: 0, qYJ: 0,
+      qZI: load.q, qZJ: load.qJ ?? load.q, a: load.a, b: load.b, frame: load.frame,
+    } });
+  }
+  for (const load of plan.nodal.filter(load => load.caseType === caseType)) {
+    loads.push({ type: 'nodal3d', data: { id: loads.length + 1, nodeId: load.nodeId, fx: 0, fy: 0, fz: load.fz, mx: 0, my: 0, mz: 0 } });
+  }
+  checkWasmReactions(model, loads, expected);
+}
+
+regression('known wrong result: #2512 WASM reactions include both directly tied storeys', () => {
+  checkPlanReactions(directlyTiedPlatforms(), 'D', 2 * area * pressure);
+});
+
+regression('known wrong result: #2512 WASM reactions include the stub-attached deck once', () => {
+  checkPlanReactions(stubAttachedShellBay(), 'D', area * pressure);
+});
+
+regression('known wrong result: #2512 WASM reactions include roof live load below the same-deck beam', () => {
+  const model = subdividedShellBay();
+  const isolated = buildLoadPlan(input({ ...model, elements: new Map() }, { gravity: { mode: 'panels' }, roof }));
+  const expected = isolated.surface.find(load => load.caseType === 'Lr')!.q * area;
+  expect(expected).toBeGreaterThan(0);
+  checkPlanReactions(model, 'Lr', expected);
+});
+
+function restoreAndPlan(model: LoadModelData, setRoof = false) {
+  modelStore.clear();
+  const nodes = new Map([...model.nodes].map(([id, { x, y, z }]) => [id, modelStore.addNode(x, y, z)]));
+  const materialId = modelStore.model.materials.keys().next().value!;
+  const quads = [...model.quads!.values()].map(quad => modelStore.addQuad(quad.nodes.map(id => nodes.get(id)!), materialId, shellThickness));
+  for (const { nodeI, nodeJ } of model.elements.values()) modelStore.addElement(nodes.get(nodeI)!, nodes.get(nodeJ)!);
+  for (const constraint of model.constraints ?? []) {
+    if (constraint.type === 'equalDOF') modelStore.addConstraint({
+      ...constraint, masterNode: nodes.get(constraint.masterNode)!, slaveNode: nodes.get(constraint.slaveNode)!,
+    });
+  }
+  modelStore.restore(JSON.parse(JSON.stringify(modelStore.snapshot())));
+  const snapshot = modelStore.model;
+  const plan = buildLoadPlan(input(snapshot, {
+    gravity: { mode: 'panels' },
+    ...(setRoof ? { roof } : {}),
+  }));
+  return { quads, plan };
+}
+
+function applyDeadPressure(model: LoadModelData) {
+  const { quads, plan } = restoreAndPlan(model);
+  expect(plan.outcome, JSON.stringify(plan.blockedKeys)).toBe('READY');
+  expect(applyLoadPlan(plan, { clearExisting: true, bothSenses: true, nameOf: key => key })).toBeUndefined();
+  const dead = modelStore.model.loadCases.find(loadCase => loadCase.type === 'D')!;
+  return { quads, loads: modelStore.model.loads.filter(load => load.data.caseId === dead.id) };
+}
+
+regression('known wrong result: #2512 restored directly tied storeys both receive applied pressure', () => {
+  const { quads, loads } = applyDeadPressure(directlyTiedPlatforms());
+  expect(loads.map(load => load.data)).toEqual(quads.map(quadId => expect.objectContaining({ quadId, q: pressure })));
+});
+
+regression('known wrong result: #2512 restored stub ties apply only shell pressure', () => {
+  const { quads, loads } = applyDeadPressure(stubAttachedShellBay());
+  expect(loads.map(load => load.data)).toEqual(quads.map(quadId => expect.objectContaining({ quadId, q: pressure })));
+});
+
+regression('known wrong result: #2512 restored subdivided bay previews uniform roof live load and refuses apply', () => {
+  const model = subdividedShellBay();
+  const { quads, plan } = restoreAndPlan(model, true);
+  const isolated = buildLoadPlan(input({ ...model, elements: new Map() }, { gravity: { mode: 'panels' }, roof }));
+  const expected = isolated.surface.filter(load => load.caseType === 'Lr');
+  expect(expected).toHaveLength(1);
+  expect(plan.surface.filter(load => load.caseType === 'Lr')).toEqual(expected.map(load => ({ ...load, quadId: quads[0] })));
+  expect(plan.outcome).toBe('BLOCKED');
+  const before = modelStore.snapshot();
+  expect(applyLoadPlan(plan, { clearExisting: true, bothSenses: true, nameOf: key => key })).toEqual({ key: 'loadPlan.blocked.concentratedRoof' });
+  expect(modelStore.snapshot()).toEqual(before);
+});
