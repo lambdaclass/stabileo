@@ -29,6 +29,7 @@ function combineMembrane(
     // Q only where every contributing case has it: a sum over part of the cases is no value.
     let qx: number | undefined = 0, qy: number | undefined = 0;
     for (const f of factors) {
+      if (f.factor === 0) continue;
       const s = perCase.get(f.caseId)?.get(id);
       if (!s) continue;
       contributed = true;

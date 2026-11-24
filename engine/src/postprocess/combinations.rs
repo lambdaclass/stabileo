@@ -350,6 +350,9 @@ impl<Id: Copy + Eq + Hash> CaseFactorSums<Id> {
         let mut slots = HashMap::new();
         let mut totals: Vec<(Id, FactorSum)> = Vec::new();
         for &(id, factor) in factors {
+            if factor == 0.0 {
+                continue;
+            }
             let slot = *slots.entry(id).or_insert(totals.len());
             if slot == totals.len() {
                 totals.push((id, FactorSum::Single(factor)));
@@ -357,15 +360,23 @@ impl<Id: Copy + Eq + Hash> CaseFactorSums<Id> {
                 totals[slot].1.add(factor);
             }
         }
-        Self(totals.into_iter().map(|(id, total)| {
-            let factor = match total {
-                FactorSum::Single(factor) => factor,
-                FactorSum::Exact(sum) if sum.is_zero() => 0.0,
-                FactorSum::Exact(sum) => sum.to_f64().unwrap_or(f64::NAN),
-                FactorSum::NonFinite => factors.iter().filter(|(other, _)| *other == id).map(|(_, factor)| factor).sum(),
-            };
-            (id, factor)
-        }).collect())
+        let nonzero = totals
+            .into_iter()
+            .filter_map(|(id, total)| {
+                let factor = match total {
+                    FactorSum::Single(factor) => factor,
+                    FactorSum::Exact(sum) if sum.is_zero() => return None,
+                    FactorSum::Exact(sum) => sum.to_f64().unwrap_or(f64::NAN),
+                    FactorSum::NonFinite => factors
+                        .iter()
+                        .filter(|(other, _)| *other == id)
+                        .map(|(_, factor)| factor)
+                        .sum(),
+                };
+                Some((id, factor))
+            })
+            .collect();
+        Self(nonzero)
     }
 }
 
@@ -397,7 +408,6 @@ impl ResolvedFactors {
             weighted_slots.push((slot, factor));
         }
         let terms: Vec<_> = CaseFactorSums::new(&weighted_slots).0.into_iter()
-            .filter(|&(_, factor)| factor != 0.0)
             .map(|(slot, factor)| (factor, slot))
             .collect();
         if !allow_cancellation && terms.is_empty() && !weighted_slots.is_empty() {

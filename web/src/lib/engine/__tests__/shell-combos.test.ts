@@ -308,10 +308,8 @@ it('#2297 magnitude combinations preserve a repeated case before ABS or SRSS', (
   }
 });
 
-const issue2297RoundTwo = process.env.RUN_KNOWN_WRONG === '2297' ? it : it.skip;
-
-issue2297RoundTwo.each(['packed WASM export', 'single recombination', 'bundle enrichment'] as const)(
-  'known wrong result: #2297 — zero factors leave shell stress and shear intact through %s',
+it.each(['packed WASM export', 'single recombination', 'bundle enrichment'] as const)(
+  '#2297 zero factors leave shell stress and shear intact through %s',
   (path) => {
     const large = 2 ** 54;
     const quads = [q(8, 1), { ...q(8, large), qx: 2, qy: 3 }, { ...q(8, -large), qx: 1, qy: 1 }];

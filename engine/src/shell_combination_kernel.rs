@@ -797,18 +797,19 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "known wrong result: #2297"]
     fn issue_2297_shell_zeros_do_not_set_case_order() {
         let control = [(2.0, 1.0), (3.0, 1.0), (1.0, 1.0)];
         let with_zero = |zero| [(1.0, zero), control[0], control[1], control[2]];
         for factors in [control.as_slice(), &with_zero(0.0), &with_zero(-0.0)] {
             let result = round_two_shell_combination(factors);
-            assert_eq!((result.plate_stresses[0].sigma_xx, result.quad_stresses[0].sigma_xx), (1.0, 1.0));
+            assert_eq!(
+                (result.plate_stresses[0].sigma_xx, result.quad_stresses[0].sigma_xx),
+                (1.0, 1.0)
+            );
         }
     }
 
     #[test]
-    #[ignore = "known wrong result: #2297"]
     fn issue_2297_shell_zeros_do_not_contribute_missing_shear_or_rows() {
         let control = [(2.0, 1.0), (3.0, 1.0)];
         let with_literal_zero = [(1.0, 0.0), control[0], control[1]];
@@ -818,8 +819,13 @@ mod tests {
             let quad = &result.quad_stresses[0];
             assert_eq!((quad.sigma_xx, quad.qx, quad.qy), (0.0, Some(3.0), Some(4.0)));
         }
-        let active = round_two_shell_combination(&[(1.0, 1.0), control[0], control[1]]);
-        assert_eq!((active.quad_stresses[0].qx, active.quad_stresses[0].qy), (None, None));
+        for residual in [f64::from_bits(1), -f64::from_bits(1)] {
+            let active = round_two_shell_combination(&[
+                control[0], control[1], (1.0, 1.0), (1.0, -1.0), (1.0, residual),
+            ]);
+            let quad = &active.quad_stresses[0];
+            assert_eq!((quad.sigma_xx, quad.qx, quad.qy), (residual, None, None));
+        }
         let cancelled = round_two_shell_combination(&[(1.0, 1.0), (1.0, -1.0)]);
         assert!(cancelled.plate_stresses.is_empty() && cancelled.quad_stresses.is_empty());
     }

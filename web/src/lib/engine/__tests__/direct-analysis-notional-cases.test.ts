@@ -90,26 +90,40 @@ describe('notional cases in the direct analysis', () => {
   }
 });
 
-const issue2297RoundTwo = process.env.RUN_KNOWN_WRONG === '2297' ? it : it.skip;
-
-issue2297RoundTwo.each(['main thread', 'worker'] as const)(
-  'known wrong result: #2297 — direct analysis resolves notional factors on the %s',
-  async (path) => {
-    const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(0, 0, 4);
+it.each([
+  ['spatial', 'main thread'], ['spatial', 'worker'], ['spatial', 'worker fallback'],
+  ['planar', 'main thread'], ['planar', 'worker'], ['planar', 'worker fallback'],
+] as const)(
+  '#2297 direct analysis resolves %s notional factors through the %s',
+  async (dimension, path) => {
+    const planar = dimension === 'planar';
+    const a = modelStore.addNode(0, 0, 0);
+    const b = planar ? modelStore.addNode(0, 4) : modelStore.addNode(0, 0, 4);
     modelStore.addElement(a, b, 'frame');
-    modelStore.addSupport(a, 'fixed3d');
+    modelStore.addSupport(a, planar ? 'fixed' : 'fixed3d');
     const D = modelStore.model.loadCases[0]!.id;
     const N = modelStore.addLoadCase('N', 'N');
-    modelStore.addNodalLoad3D(b, 0, 0, -10, 0, 0, 0, D);
-    modelStore.addNodalLoad3D(b, 1, 0, 0, 0, 0, 0, N);
+    if (planar) {
+      modelStore.addNodalLoad(b, 0, -10, 0, D);
+      modelStore.addNodalLoad(b, 1, 0, 0, N);
+    } else {
+      modelStore.addNodalLoad3D(b, 0, 0, -10, 0, 0, 0, D);
+      modelStore.addNodalLoad3D(b, 1, 0, 0, 0, 0, 0, N);
+    }
     const roots = [1, 2, 3, 4].map(i => {
       const id = modelStore.addLoadCase(`Composite ${i}`, '');
       modelStore.updateLoadCaseFields(id, { includes: [{ caseId: N, factor: 3 }] });
       return id;
     });
     const root = roots[0]!;
-    const run = path === 'main thread' ? mainThreadPDelta : workerPDelta(async (wire, maxIter, tol) =>
-      finishPDelta3D(JSON.parse(solve_pdelta_3d(JSON.stringify(wire), maxIter, tol)), wire as Parameters<typeof finishPDelta3D>[1]));
+    let workerCalls = 0, workerAnswers = 0;
+    const run = path === 'main thread' ? mainThreadPDelta : workerPDelta(async (wire, maxIter, tol) => {
+      workerCalls++;
+      if (path === 'worker fallback') throw new Error('Worker unavailable');
+      const answer = finishPDelta3D(JSON.parse(solve_pdelta_3d(JSON.stringify(wire), maxIter, tol)), wire as Parameters<typeof finishPDelta3D>[1]);
+      workerAnswers++;
+      return answer;
+    });
     const solve = async (terms: Array<[number, number]>) => {
       const result = await runDirectAnalysis(data(), modelStore.model.loadCases, [{
         id: 1, name: 'Gravity and notional cases',
@@ -133,5 +147,7 @@ issue2297RoundTwo.each(['main thread', 'worker'] as const)(
     expect.soft(surviving.info.notional).toBe('cases');
     const cancelled = await separate([large, 1, -large, -1]);
     expect.soft(cancelled.info.notional).not.toBe('cases');
+    if (path !== 'main thread') expect(workerCalls).toBeGreaterThan(0);
+    if (path === 'worker') expect(workerAnswers).toBe(workerCalls);
   },
 );

@@ -1,0 +1,34 @@
+{
+  "id": "zero-weight-shell-cases",
+  "date": "2026-11-24",
+  "prs": [],
+  "area": "analysis",
+  "when": {
+    "all": ["shells", "combinations"]
+  },
+  "quantities": ["plateStresses", "quadStresses"],
+  "title": {
+    "en": "Zero factors leave shell combination results intact",
+    "es": "Los factores nulos no alteran los resultados de las combinaciones de placas",
+    "pt": "Fatores nulos não alteram os resultados das combinações de placas",
+    "de": "Nullfaktoren lassen Ergebnisse von Schalenkombinationen unverändert",
+    "fr": "Les coefficients nuls laissent les résultats des combinaisons de coques inchangés",
+    "zh": "零系数不影响壳单元组合结果",
+    "hu": "A zérus tényezők nem módosítják a héjelemek kombinált eredményeit",
+    "tr": "Sıfır katsayılar kabuk birleşimi sonuçlarını değiştirmez"
+  },
+  "explanation": {
+    "en": "Only load cases with a nonzero net factor contribute shell stress and transverse shear. Re-run shell combinations that include zero or cancelling factors.",
+    "es": "Solo los casos de carga con un factor neto distinto de cero aportan tensiones y cortante transversal. Volvé a calcular las combinaciones de placas con factores nulos o que se cancelan.",
+    "pt": "Só os casos de carga com fator resultante diferente de zero contribuem para as tensões e o esforço cortante transversal. Recalcule as combinações de placas com fatores nulos ou que se anulam.",
+    "de": "Nur Lastfälle mit einem Gesamtfaktor ungleich null tragen zu Schalenspannungen und Querkräften bei. Berechnen Sie Schalenkombinationen mit Nullfaktoren oder sich aufhebenden Faktoren neu.",
+    "fr": "Seuls les cas de charge dont le coefficient total est non nul contribuent aux contraintes et au cisaillement transversal. Recalculez les combinaisons de coques comportant des coefficients nuls ou qui s’annulent.",
+    "zh": "只有净系数非零的工况才会计入壳单元应力和横向剪力。请重新计算含有零系数或系数相互抵消的壳单元组合。",
+    "hu": "A héjfeszültséget és a keresztirányú nyíróerőt csak a nem nulla eredő tényezőjű teheresetek befolyásolják. Számítsa újra a nulla vagy egymást kioltó tényezőket tartalmazó héjkombinációkat.",
+    "tr": "Kabuk gerilmesine ve enine kesme kuvvetine yalnızca net katsayısı sıfırdan farklı yük durumları katkıda bulunur. Sıfır veya birbirini götüren katsayılar içeren kabuk birleşimlerini yeniden hesaplayın."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-2297-repeated-case-factor-consumers.md",
+    "heading": "Ignore zero load-case contributions in shell combinations"
+  }
+}
