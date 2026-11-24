@@ -29,9 +29,11 @@ import { punchingLegs } from '../punching-bars';
 import { rulesFor } from '../codes';
 import { closedHoop, crankedBar, crossTie, developedLength, hookLeg, hookedStraight, uBar, type BarShape, type BendRules } from '../shape';
 import type { SheetCode, SheetFamily, Stirrups } from '../types';
+import type { StairBarRole, StairRow } from '../stair-row';
 
 export type PieceKind = LineBar['kind'] | 'stirrup' | 'stirrupTie' | 'hanger' | 'column' | 'cranked' | 'dowel' | 'hoop' | 'crossTie'
-  | 'slabBottom' | 'slabTop' | 'vertical' | 'boundary' | 'horizontal' | 'ubar' | 'wallTie' | 'footingX' | 'footingY' | 'footingTop' | 'footingPunch' | 'pileBar' | 'pileHoop' | 'punchingLeg';
+  | 'slabBottom' | 'slabTop' | 'vertical' | 'boundary' | 'horizontal' | 'ubar' | 'wallTie' | 'footingX' | 'footingY' | 'footingTop' | 'footingPunch' | 'pileBar' | 'pileHoop' | 'punchingLeg'
+  | 'stairMain' | 'stairLanding' | 'stairTop' | 'stairDist';
 
 export interface Piece {
   kind: PieceKind;
@@ -43,7 +45,7 @@ export interface Piece {
 
 export interface ScheduleElement { key: string; name: string; level?: string; family: SheetFamily; pieces: Piece[] }
 
-export interface PieceRows { line: LineLayout[]; column: ColumnRow[]; slab: SlabRow[]; wall: WallRow[]; slabPlan?: readonly LevelPlan[]; footing?: readonly FootingRow[]; punching?: readonly PunchingRow[] }
+export interface PieceRows { line: LineLayout[]; column: ColumnRow[]; slab: SlabRow[]; wall: WallRow[]; slabPlan?: readonly LevelPlan[]; footing?: readonly FootingRow[]; punching?: readonly PunchingRow[]; stair?: readonly StairRow[] }
 
 export interface PieceOptions {
   code: SheetCode;
@@ -305,7 +307,14 @@ function punchingPieces(r: PunchingRow, fig: PunchingFigure, o: PieceOptions, R:
   return { key: r.key, name: r.name, ...(r.level !== undefined ? { level: r.level } : {}), family: 'punching', pieces: [{ kind: 'punchingLeg', count: punchingLegs(fig).length, shape: punchingLeg(r, fig.reinforcement!.legDiameter, o, R) }] };
 }
 
-/** Every element's pieces, beams, columns, slabs, walls, footings and punching joints in that order, each family in the rows' order; a level with a slab plan gives its packages instead of its panels' layers. */
+const STAIR_KIND: Record<StairBarRole, PieceKind> = { main: 'stairMain', landing: 'stairLanding', topFoot: 'stairTop', topFootFlight: 'stairTop', topHead: 'stairTop', dist: 'stairDist', distTop: 'stairDist' };
+
+/** A stair's positions, each bar as it is bent in the stair's section, as many as the width or the run takes. */
+export function stairPieces(r: StairRow): ScheduleElement {
+  return { key: r.key, name: r.name, ...(r.level !== undefined ? { level: r.level } : {}), family: 'stair', pieces: r.bars.map((b) => ({ kind: STAIR_KIND[b.role], count: b.count, shape: b.shape })) };
+}
+
+/** Every element's pieces, beams, columns, slabs, walls, footings, punching joints and stairs in that order, each family in the rows' order; a level with a slab plan gives its packages instead of its panels' layers. */
 export function scheduleElements(rows: PieceRows, o: PieceOptions): ScheduleElement[] {
   const R = rulesFor(o.code).bends;
   const planned = new Set((rows.slabPlan ?? []).filter((p) => p.packages.length).map((p) => p.level));
@@ -318,5 +327,6 @@ export function scheduleElements(rows: PieceRows, o: PieceOptions): ScheduleElem
     ...rows.wall.map((r) => wallPieces(rows.wall, r, o, R)),
     ...(rows.footing ?? []).filter((r) => r.B > 0 && (!r.uncovered || ownStraps(r, rows.footing ?? []).length)).map((r) => footingPieces(r, rows.footing ?? [], R, rows.column)),
     ...(rows.punching ?? []).flatMap((r) => (r.figure?.reinforcement ? [punchingPieces(r, r.figure, o, R)] : [])),
+    ...(rows.stair ?? []).filter((r) => !r.unsupported).map(stairPieces),
   ].map((e) => ({ ...e, pieces: e.pieces.filter((p) => p.count > 0) }));
 }

@@ -10,7 +10,7 @@ import type { Frame, Rebar3d } from '../../rc-sheets/rebar-3d';
 beforeAll(async () => { await wasmSolver.initSolver(); });
 
 const TOL = 1e-6;
-const ALL = { row: null, level: '', families: { beam: true, column: true, slab: true, wall: true, footing: true, punching: true } };
+const ALL = { row: null, level: '', families: { beam: true, column: true, slab: true, wall: true, footing: true, punching: true, stair: true } };
 const own = (ghosts: readonly Ghost3d[], key: string, family: Ghost3d['family']) => ghosts.filter((g) => g.element === key && g.family === family);
 const size = (g: Ghost3d) => g.to.map((v, i) => v - g.from[i]!);
 

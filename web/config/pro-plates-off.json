@@ -5710,7 +5710,7 @@
       ]
     },
     "src/lib/i18n/locales/de.ts": {
-      "source": "827c6ff89f636b6acd3ab737d4f3e309c4f4981f293c36ab8abb18274c74f312",
+      "source": "c34a347d38dea6bc1bf59eb45bb09da49dae7b3a22db7d82ed9ffc04ed2c72e7",
       "original": "0b1cffc73c321c88dd80b93e39f81e925705babc0f2e91df63e10c19111fe052",
       "changes": [
         [
@@ -6031,13 +6031,13 @@
         ],
         [
           16166,
-          973,
+          1009,
           []
         ]
       ]
     },
     "src/lib/i18n/locales/en.ts": {
-      "source": "62b448ad78a37a7e9df3ce127f1ea00945408c5b62751e0db741bd29f6ab9f6c",
+      "source": "6c883b739e421161c9c55deb26d3d2a148690510813955e89c01e7bcea822112",
       "original": "99343e2eeb7cf4140cbbcb69424c37461d3ec4e5c925d64439f6b56ee0e9e6b3",
       "changes": [
         [
@@ -6330,13 +6330,13 @@
         ],
         [
           16328,
-          973,
+          1009,
           []
         ]
       ]
     },
     "src/lib/i18n/locales/es.ts": {
-      "source": "8ee2d262c716c6b4b65bc1cf77c42c251deeb015d3ca7659f18ff91372a11ad8",
+      "source": "ee24b0279aa84b7a7ee6da3da806f0d81f72d5ae574580e0e6023675c1d30fb1",
       "original": "df939d2beed0420d6833617b3561c95098e34704ee1a3b4f15f21dda24fa4e09",
       "changes": [
         [
@@ -6629,13 +6629,13 @@
         ],
         [
           16317,
-          973,
+          1009,
           []
         ]
       ]
     },
     "src/lib/i18n/locales/fr.ts": {
-      "source": "8a815b7ff3465d4b7916e2f9283e3c2e640532dec9598f9667bf7db51fe15568",
+      "source": "1a918098c388a9896563c8d3562a731af7e3627cc6d183340c27d69bff1c2cd4",
       "original": "26693801514fc282fbb8a5a4ad627431cbfce3c6e3f0720639c8cb5cef4e4b20",
       "changes": [
         [
@@ -6956,7 +6956,7 @@
         ],
         [
           16166,
-          973,
+          1009,
           []
         ]
       ]
@@ -6982,7 +6982,7 @@
       ]
     },
     "src/lib/i18n/locales/hu.ts": {
-      "source": "2d086603cb8ddcc27e5ac3380fae68cfed17bd4ed222569809a277e51e7d1a36",
+      "source": "b390e3dc5b8830acd44aab0db966c3bfdad087c224f4eb2ba11f037f01782449",
       "original": "050bb2fb50b6d61761b6836086403490f8b3deedc1ac4af88de298aa3fd3966e",
       "changes": [
         [
@@ -7232,7 +7232,7 @@
         ],
         [
           14765,
-          2087,
+          2123,
           [
             "  \"edu.game.hint\": \"Játék: egy szerkezet, három ábra, és csak az egyik helyes.\"",
             ""
@@ -7321,7 +7321,7 @@
       ]
     },
     "src/lib/i18n/locales/pt.ts": {
-      "source": "3d577c9242a768f69593c9da4c91bec5706358004c3c2135a4ce84fdbc73faa1",
+      "source": "1ad9a39c569ff84c4c81680833819b2163170bc5b0148d9441990545b1f0d78c",
       "original": "f013a27bd1465964fefdc7d531a470bc4855e8593daa03ed54ed7453509bdd37",
       "changes": [
         [
@@ -7614,7 +7614,7 @@
         ],
         [
           15970,
-          973,
+          1009,
           []
         ]
       ]
@@ -7942,7 +7942,7 @@
       ]
     },
     "src/lib/i18n/locales/tr.ts": {
-      "source": "068ed163e55d89a6f976db171a5b2e79cc4456b98ea71941af2b541c4b90b163",
+      "source": "5db52028bfaebe330e374175bfae0d9a8e86aaae95907a3796a09de3c3b29e4d",
       "original": "dfae3be5cd45792b6b2c9720f3433a60bace6b76a70d785cd4f6cc88d7ef096f",
       "changes": [
         [
@@ -8242,13 +8242,13 @@
         ],
         [
           16166,
-          973,
+          1009,
           []
         ]
       ]
     },
     "src/lib/i18n/locales/zh.ts": {
-      "source": "f542482795c3df3d7cc244075db69575725309e2efa9f28cbf11d1478fae1c3d",
+      "source": "9f422e36bc39ebc2a2082496228630f6b693ad5648f963490b9e182338d8e291",
       "original": "187ecdf53aa596a80d7c584c8c8fc84768c7dd6c4d6540750c3a9cdcf2caee26",
       "changes": [
         [
@@ -8482,7 +8482,7 @@
         ],
         [
           14787,
-          2089,
+          2125,
           []
         ]
       ]

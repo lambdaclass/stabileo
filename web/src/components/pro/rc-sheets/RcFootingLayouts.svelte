@@ -8,7 +8,7 @@
   import { modelStore } from '../../../lib/store';
   import { designData, patchDesignData } from '../../../lib/store/design-data';
   import { findProfile } from '../../../lib/model/geotechnical';
-  import { FOUNDING_RANGE, PRESUMED_BEARING_RANGE, PRESUMED_PILE_RANGE, presumedPileOf, type PileLayer, type PresumedPile } from '../../../lib/model/design-data';
+  import { FOUNDING_RANGE, PRESUMED_BEARING_RANGE, PRESUMED_PILE_RANGE, presumedPileOf, type PileLayer } from '../../../lib/model/design-data';
   import { pileSpec } from '../../../lib/store/rc-sheets-footings';
 
   let { layouts, adopted, preview = $bindable() }: { layouts: readonly FoundationLayout[]; adopted: FoundationSystem | null; preview: FoundationSystem } = $props();

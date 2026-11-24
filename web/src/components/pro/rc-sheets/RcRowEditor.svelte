@@ -7,7 +7,7 @@
   import { designData } from '../../../lib/store/design-data';
   import { editorDiameters, numberInput } from '../../../lib/rc-sheets/view-helpers';
 
-  let { row }: { row: Exclude<SheetRow, { family: 'punching' | 'footing' }> } = $props();
+  let { row }: { row: Exclude<SheetRow, { family: 'punching' | 'footing' | 'stair' }> } = $props();
 
   const dd = $derived.by(() => { void modelStore.designData; return designData(); });
   const held = $derived.by((): { long: number[]; tie: number[]; mesh: number[] } => {

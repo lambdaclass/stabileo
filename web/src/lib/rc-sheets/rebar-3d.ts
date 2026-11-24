@@ -3,6 +3,7 @@ import { lineBars3d } from './rebar-3d-lines';
 import { footingBars3d, slabBars3d, wallBars3d } from './rebar-3d-plates';
 import { groupFootingBars3d } from './rebar-3d-footing-groups';
 import { punchingBars3d } from './rebar-3d-punching';
+import { stairBars3d } from './rebar-3d-stairs';
 import { rulesFor } from './codes';
 import type { PieceOptions } from './schedule/pieces';
 import { asFoundation, type Rebar3d, type Rebar3dFrames, type Rebar3dRows } from './rebar-3d-geometry';
@@ -34,5 +35,6 @@ export function rebar3d(rows: Rebar3dRows, frames: Rebar3dFrames, o: PieceOption
     const f = r.figure?.reinforcement ? frames.punching?.(r) : null;
     if (f) out.push(...punchingBars3d(r, r.figure!, f, o, R));
   }
+  for (const r of rows.stair ?? []) out.push(...stairBars3d(r, o.slabCover));
   return out;
 }

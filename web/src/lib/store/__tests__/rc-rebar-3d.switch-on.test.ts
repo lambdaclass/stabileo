@@ -275,7 +275,7 @@ describe('the sheets\' bars in 3D', () => {
 
     const order = rows.levels!;
     const lowest = order.find((l) => rows.column.some((c) => c.level === l))!, next1 = order[order.indexOf(lowest) + 1]!;
-    const onLowest = shownBars(bars, { row: null, level: lowest, families: { beam: true, column: true, slab: true, wall: true, punching: true, footing: true } });
+    const onLowest = shownBars(bars, { row: null, level: lowest, families: { beam: true, column: true, slab: true, wall: true, punching: true, footing: true, stair: true } });
     expect(onLowest.some((b) => b.family === 'column' && b.level === lowest)).toBe(true);
     expect(onLowest.some((b) => (b.family === 'beam' || b.family === 'slab') && b.level === next1)).toBe(true);
     expect(onLowest.every((b) => (b.family === 'column' || b.family === 'wall' ? b.level === lowest : b.level === next1))).toBe(true);
@@ -288,7 +288,7 @@ describe('the sheets\' bars in 3D', () => {
     const next = buildSheetRows();
     const moved = sheetBars3d(next);
     coherent(next, moved);
-    const panelBars = shownBars(moved, { row: { key: panel.key, name: panel.name }, level: '', families: { beam: true, column: true, slab: true, wall: true, footing: true, punching: true } });
+    const panelBars = shownBars(moved, { row: { key: panel.key, name: panel.name }, level: '', families: { beam: true, column: true, slab: true, wall: true, footing: true, punching: true, stair: true } });
     const bx = panelBars.filter((b) => b.tone === 'bottomX');
     expect(bx.length).toBeGreaterThan(0);
     expect(new Set(bx.map((b) => b.dia))).toEqual(new Set([10]));

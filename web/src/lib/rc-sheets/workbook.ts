@@ -9,6 +9,7 @@ import { wallLabel, type WallRow } from './wall-row';
 import type { CheckLine } from './types';
 import type { PunchingRow } from './punching-row';
 import type { FootingRow } from './footing-types';
+import type { StairRow } from './stair-row';
 import { meshText } from './footing-mesh';
 import { dowelsText } from './footing-dowels';
 import { groupDowelRows } from './footing-group-detail';
@@ -23,7 +24,7 @@ const cm = (v: number) => Math.round(v * 100);
 const fmtOf = (v: number, digits = 2): string => v.toFixed(digits);
 const worst = (v: CheckLine[]) => Math.max(0, ...v.map((x) => x.ratio ?? 0));
 
-export function rcSheetsWorkbook(rows: { beam: BeamRow[]; line?: LineLayout[]; column: ColumnRow[]; slab: SlabRow[]; wall: WallRow[]; punching?: PunchingRow[]; footing?: FootingRow[]; code: string }, tr: Tr, bending?: BendingSchedule): WorkbookSheet[] {
+export function rcSheetsWorkbook(rows: { beam: BeamRow[]; line?: LineLayout[]; column: ColumnRow[]; slab: SlabRow[]; wall: WallRow[]; punching?: PunchingRow[]; footing?: FootingRow[]; stair?: StairRow[]; code: string }, tr: Tr, bending?: BendingSchedule): WorkbookSheet[] {
   const head = [`${tr('rcSheets.code')}: ${rows.code}`];
   const state = (s: string) => tr(`rcSheets.status.${s}`);
   const name = tr('rcSheets.col.name'), level = tr('rcSheets.col.level'), status = tr('rcSheets.col.status'), ratio = tr('rcSheets.col.ratio'), req = tr('rcSheets.req');
@@ -86,6 +87,14 @@ export function rcSheetsWorkbook(rows: { beam: BeamRow[]; line?: LineLayout[]; c
     feet.push([safeText(r.name), safeText(r.level ?? ''), kind, cm(r.B), cm(r.L), cm(r.h), r2(r.founding), r2(r.demand.service?.N ?? 0), r2(r.bearing?.qMax ?? 0), r2(r.bearing?.allowable ?? 0),
       meshText(r.adopted.x), meshText(r.adopted.y), tops, dowels, punch, piles, r3(r.utilization), state(r.status)]);
   }
+  const stairs: WorkbookSheet['rows'] = [head, [name, level, tr('rcSheets.stair.col.flight'), 'ℓ (m)', 'h (cm)', 'Mu (kN·m/m)', tr('rcSheets.stair.bars.main'), tr('rcSheets.stair.bars.top'), tr('rcSheets.stair.bars.dist'), ratio, status]];
+  const cm1 = (v: number) => Math.round(v * 1000) / 10;
+  const stairBar = (b: { dia: number; spacing: number } | undefined) => (b ? `Ø${b.dia} c/${cm1(b.spacing)}` : '—');
+  for (const r of rows.stair ?? []) {
+    const s = r.demand.spec;
+    stairs.push([safeText(r.name), safeText(r.level ?? ''), `${s.steps} × ${cm1(s.riser)}/${cm1(s.tread)}`, r.design ? r2(r.design.geometry.span) : '—', cm(s.waist), r.design ? r2(r.design.mu) : '—',
+      stairBar(r.adopted.main), stairBar(r.adopted.top), stairBar(r.adopted.dist), r3(r.utilization), state(r.status)]);
+  }
   return [
     { name: tr('rcSheets.family.beam'), rows: beams },
     { name: tr('rcSheets.sheet.schedule'), rows: schedule },
@@ -94,6 +103,7 @@ export function rcSheetsWorkbook(rows: { beam: BeamRow[]; line?: LineLayout[]; c
     { name: tr('rcSheets.family.slab'), rows: slabs },
     ...((rows.punching ?? []).length ? [{ name: tr('rcSheets.family.punching'), rows: punch }] : []),
     ...((rows.footing ?? []).length ? [{ name: tr('rcSheets.family.footing'), rows: feet }] : []),
+    ...((rows.stair ?? []).length ? [{ name: tr('rcSheets.family.stair'), rows: stairs }] : []),
     ...(bending?.rows.length ? scheduleSheets(bending, tr, rows.code) : []),
   ];
 }

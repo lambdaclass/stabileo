@@ -36,7 +36,7 @@ function targetsOf(row: SheetRow | LineLayout, alt: Alternative): { members: num
       const plates = [...new Set(row.demand.adjoining.map((a) => plateOfShell(`q${a.elementId}`) ?? plateOfShell(`p${a.elementId}`)).filter((x): x is number => x != null))];
       return { members: [], plates };
     }
-    case 'footing': return { members: [], plates: [] };
+    case 'footing': case 'stair': return { members: [], plates: [] };
   }
 }
 

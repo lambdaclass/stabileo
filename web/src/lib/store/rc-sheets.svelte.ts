@@ -1,3 +1,5 @@
+import { sheetStairs } from './rc-sheets-stairs';
+import type { StairRow } from '../rc-sheets/stair-row';
 import { tp } from '../i18n';
 import { uiStore } from './ui.svelte';
 import { modelStore } from './model.svelte';
@@ -52,7 +54,7 @@ import { sheetsLeftOut, type LeftOut } from '../rc-sheets/coverage';
 import { designPierAt, foundationPiers, memberAxes, storeyPiers, withApart, withPierColumns, withPierFeet, withWallFeet, type PierHooks } from './rc-sheets-piers';
 import { legOfPier, type PierDesign } from '../rc-sheets/pier-row';
 
-export type SheetRow = BeamRow | ColumnRow | SlabRow | WallRow | PunchingRow | FootingRow;
+export type SheetRow = BeamRow | ColumnRow | SlabRow | WallRow | PunchingRow | FootingRow | StairRow;
 
 export interface SheetRows {
   beam: BeamRow[];
@@ -66,6 +68,8 @@ export interface SheetRows {
   punching: PunchingRow[];
   /** The adopted foundation layout's footings; none until one is adopted. */
   footing: FootingRow[];
+  /** The stairs the project has: the desk's and the flights of the model. */
+  stair: StairRow[];
   /** Every layout the building's foundation may take, to compare and adopt, the recommendation (`auto`) among them. */
   footingLayouts?: FoundationLayout[];
   /** The layout adopted, or none. */
@@ -505,7 +509,7 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
   const code = sheetCode();
   const rules = rulesFor(code);
   const codeName = SHEET_CODES[code].name;
-  if (!sets.length) return { beam: [], line: [], column: [], slab: [], slabPlan: [], wall: [], punching: [], footing: [], code: codeName, basis, combos: 0 };
+  if (!sets.length) return { beam: [], line: [], column: [], slab: [], slabPlan: [], wall: [], punching: [], footing: [], stair: [], code: codeName, basis, combos: 0 };
   const dd = designData();
   const adoptedNow = liveAdopted(rcSheetsData(), code);
   const data = rcSheetsData();
@@ -813,7 +817,8 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
     name: r.name, level: r.level, b: r.b, h: r.h, fc: fcOfElements(groupOf(r.key)?.members.elements), tu: Math.max(0, ...r.demand.cases.map((c) => c.tu ?? 0)),
   })));
   const apart = rules.piers ? [] : allPiers;
-  return { beam: sort(beam), line: sort(line), column: sort(withApart(columnsFinal, apart)), slab: sort(slab), slabPlan: slabPlans.sort((a, b) => a.level.localeCompare(b.level, undefined, { numeric: true })), wall: sort(withApart(wall, apart)), punching: sort(punching), levels: levelsUp([...beam, ...columnsFinal, ...slab, ...wall, ...punching].map((r) => r.level)), footing, footingLayouts: footingLayouts.map((l) => ({ ...l, summary: layoutSummary(l.rows, code) })), foundation: chosen, code: codeName, basis, combos: sets.length, left };
+  const stair = sheetStairs({ code, fmt, adopted: adoptedNow, diameters: slabBars, cover: dd.covers.slab, fy, fcOf: (q) => fcOfShells(q, []), levelAt: storeyNamer() });
+  return { stair: sort(stair), beam: sort(beam), line: sort(line), column: sort(withApart(columnsFinal, apart)), slab: sort(slab), slabPlan: slabPlans.sort((a, b) => a.level.localeCompare(b.level, undefined, { numeric: true })), wall: sort(withApart(wall, apart)), punching: sort(punching), levels: levelsUp([...beam, ...columnsFinal, ...slab, ...wall, ...punching, ...stair].map((r) => r.level)), footing, footingLayouts: footingLayouts.map((l) => ({ ...l, summary: layoutSummary(l.rows, code) })), foundation: chosen, code: codeName, basis, combos: sets.length, left };
 }
 
 function leftOut(rowKeys: string[], columns: Parameters<typeof sheetsLeftOut>[0]['columns']): LeftOut[] {

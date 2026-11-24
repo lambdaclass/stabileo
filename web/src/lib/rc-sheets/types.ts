@@ -1,11 +1,11 @@
 import type { WallReinforcement } from '../design-contract/reinforcement';
 
-export type SheetFamily = 'beam' | 'column' | 'slab' | 'wall' | 'punching' | 'footing';
-export const SHEET_FAMILIES: readonly SheetFamily[] = ['beam', 'column', 'slab', 'wall', 'punching', 'footing'];
+export type SheetFamily = 'beam' | 'column' | 'slab' | 'wall' | 'punching' | 'footing' | 'stair';
+export const SHEET_FAMILIES: readonly SheetFamily[] = ['beam', 'column', 'slab', 'wall', 'punching', 'footing', 'stair'];
 
-export type SheetTab = 'beam' | 'vertical' | 'slab' | 'punching' | 'footing';
-export const SHEET_TABS: readonly SheetTab[] = ['beam', 'vertical', 'slab', 'punching', 'footing'];
-export const TAB_FAMILIES: Record<SheetTab, readonly SheetFamily[]> = { beam: ['beam'], vertical: ['column', 'wall'], slab: ['slab'], punching: ['punching'], footing: ['footing'] };
+export type SheetTab = 'beam' | 'vertical' | 'slab' | 'punching' | 'footing' | 'stair';
+export const SHEET_TABS: readonly SheetTab[] = ['beam', 'vertical', 'slab', 'punching', 'footing', 'stair'];
+export const TAB_FAMILIES: Record<SheetTab, readonly SheetFamily[]> = { beam: ['beam'], vertical: ['column', 'wall'], slab: ['slab'], punching: ['punching'], footing: ['footing'], stair: ['stair'] };
 export const tabOf = (f: SheetFamily): SheetTab => (f === 'column' || f === 'wall' ? 'vertical' : f);
 
 export type SheetCode = 'cirsoc201-2025' | 'aci318-19' | 'en1992-1-1' | 'bs-en1992-1-1' | 'ts500-2000';
@@ -94,7 +94,7 @@ export interface SlabAdopted { bottomX: MeshBars; bottomY: MeshBars; topX: MeshB
 
 export type WallAdopted = WallReinforcement;
 
-export type Adopted = BeamAdopted | ColumnAdopted | SlabAdopted | WallAdopted | import('./beam-line').LineAdopted | import('./footing-types').FootingAdopted;
+export type Adopted = BeamAdopted | ColumnAdopted | SlabAdopted | WallAdopted | import('./beam-line').LineAdopted | import('./footing-types').FootingAdopted | import('./stair-row').StairAdopted;
 
 export type TorsionMode = 'equilibrium' | 'compatibility';
 
