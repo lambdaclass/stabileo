@@ -3767,6 +3767,7 @@ const it: Translations = {
   "autoLoad.work.draw": "Disegno dei carichi",
   "autoLoad.work.step": "Passo {step} di {total}",
   "autoLoad.work.cancel": "Ferma",
+  "svc.engine.unsupportedPointLoadMoment": "Un carico puntuale su un’asta non può applicare un momento in {field}. Applicare il momento a un nodo 3D nella posizione originaria del carico.",
   "svc.engine.nonFiniteNumber": "Inserisci un numero finito per {path} (valore ricevuto: {value}).",
 };
 export default it;

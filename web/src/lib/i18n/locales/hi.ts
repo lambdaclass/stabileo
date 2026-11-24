@@ -3764,6 +3764,7 @@ const hi: Translations = {
   "autoLoad.work.draw": "भार बनाए जा रहे हैं",
   "autoLoad.work.step": "चरण {step} / {total}",
   "autoLoad.work.cancel": "रोकें",
+  "svc.engine.unsupportedPointLoadMoment": "सदस्य पर बिंदु भार से {field} घटक में आघूर्ण नहीं लगाया जा सकता। आघूर्ण को भार की मूल स्थिति पर स्थित 3D नोड पर लगाएँ।",
   "svc.engine.nonFiniteNumber": "{path} में एक परिमित संख्या दर्ज करें (प्राप्त मान: {value})।",
 };
 export default hi;

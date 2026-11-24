@@ -29,6 +29,31 @@ where
     Ok(value)
 }
 
+pub(super) mod point_moment {
+    use super::{de, decode, Deserializer};
+
+    fn zero<'de, D: Deserializer<'de>>(deserializer: D, field: &str) -> Result<(), D::Error> {
+        if decode::<_, f64>(deserializer, field)? != 0.0 {
+            return Err(de::Error::custom(format!(
+                "Unsupported point load field {field}: apply the moment at a 3D node at the original load position"
+            )));
+        }
+        Ok(())
+    }
+
+    pub(in crate::types) fn mx<'de, D: Deserializer<'de>>(deserializer: D) -> Result<(), D::Error> {
+        zero(deserializer, "mx")
+    }
+
+    pub(in crate::types) fn my<'de, D: Deserializer<'de>>(deserializer: D) -> Result<(), D::Error> {
+        zero(deserializer, "my")
+    }
+
+    pub(in crate::types) fn mz<'de, D: Deserializer<'de>>(deserializer: D) -> Result<(), D::Error> {
+        zero(deserializer, "mz")
+    }
+}
+
 macro_rules! fields {
     ($($name:ident $(= $label:literal)?),+ $(,)?) => {
         $(

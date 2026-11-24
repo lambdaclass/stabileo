@@ -107,9 +107,7 @@ it('#2472 WASM linear and P-Delta decode numeric fields before solving', () => {
   }
 });
 
-const knownWrong = process.env.RUN_KNOWN_WRONG === '2472' ? it : it.skip;
-
-knownWrong('known wrong result: #2472 WASM member point loads reject unsupported moments and accept zero', () => {
+it('#2472 WASM member point loads reject unsupported moments and accept zero', () => {
   const { plane, space } = wireInputs();
   for (const [input, linear, pdelta, Session, fields] of [
     [plane, wasm.solve_2d, wasm.solve_pdelta_2d, wasm.LoadSession2D, ['mx']],

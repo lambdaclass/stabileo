@@ -4312,6 +4312,7 @@ const es: Record<string, string> = {
   'svc.errorInCase3d': 'Error en caso 3D "{n}": {err}',
   'svc.engine.mechanism': "Matriz de rigidez singular: la estructura es un mecanismo",
   'svc.engine.cancelledCombination': "Los factores de los casos de carga repetidos se cancelan y dan cero en esta combinación.",
+  "svc.engine.unsupportedPointLoadMoment": "Una carga puntual en una barra no puede aplicar un momento en {field}. Aplicá el momento en un nodo 3D en la posición original de la carga.",
   "svc.engine.nonFiniteNumber": "Ingresá un número finito en {path} (valor recibido: {value}).",
   'svc.engine.zeroDiagonal': "Todas las entradas de la diagonal son cero: matriz singular",
   'svc.engine.singular': "Matriz de rigidez singular",

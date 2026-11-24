@@ -118,21 +118,48 @@ pub struct SolverDistributedLoad {
     pub b: Option<f64>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct SolverPointLoadOnElement {
-    #[serde(deserialize_with = "numeric::element_id::required")]
+pub struct SolverPointLoadOnElement<L = f64, F = f64, M = f64> {
     pub element_id: usize,
-    #[serde(deserialize_with = "numeric::a::required")]
-    pub a: f64,
-    #[serde(deserialize_with = "numeric::p::required")]
-    pub p: f64,
-    #[serde(default)]
-    #[serde(deserialize_with = "numeric::px::optional", skip_serializing_if = "Option::is_none")]
-    pub px: Option<f64>,
-    #[serde(default, rename = "my", alias = "mz")]
-    #[serde(deserialize_with = "numeric::my_or_mz::optional", skip_serializing_if = "Option::is_none")]
-    pub my: Option<f64>,
+    pub a: L,
+    pub p: F,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub px: Option<F>,
+    #[serde(rename = "my", skip_serializing_if = "Option::is_none")]
+    pub my: Option<M>,
+}
+
+impl<'de, L, F, M> Deserialize<'de> for SolverPointLoadOnElement<L, F, M>
+where
+    L: Deserialize<'de> + numeric::Numeric,
+    F: Deserialize<'de> + numeric::Numeric,
+    M: Deserialize<'de> + numeric::Numeric,
+{
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        #[derive(Deserialize)]
+        #[serde(
+            rename_all = "camelCase",
+            bound(deserialize = "L: Deserialize<'de> + numeric::Numeric, F: Deserialize<'de> + numeric::Numeric, M: Deserialize<'de> + numeric::Numeric")
+        )]
+        struct Fields<L, F, M> {
+            #[serde(deserialize_with = "numeric::element_id::required")]
+            element_id: usize,
+            #[serde(deserialize_with = "numeric::a::required")]
+            a: L,
+            #[serde(deserialize_with = "numeric::p::required")]
+            p: F,
+            #[serde(default, deserialize_with = "numeric::px::optional")]
+            px: Option<F>,
+            #[serde(default, alias = "mz", deserialize_with = "numeric::my_or_mz::optional")]
+            my: Option<M>,
+            #[serde(default, rename = "mx", deserialize_with = "numeric::point_moment::mx")]
+            _mx: (),
+        }
+
+        let Fields { element_id, a, p, px, my, .. } = Fields::deserialize(deserializer)?;
+        Ok(Self { element_id, a, p, px, my })
+    }
 }
 
 /// A load along a plane member's axis, linear from `q_i` at `a` to `q_j` at `b` (kN/m,
@@ -561,18 +588,15 @@ where
             py: F,
             #[serde(deserialize_with = "numeric::pz::required")]
             pz: F,
-            #[serde(flatten)]
-            additional: HashMap<String, serde::de::IgnoredAny>,
+            #[serde(default, rename = "mx", deserialize_with = "numeric::point_moment::mx")]
+            _mx: (),
+            #[serde(default, rename = "my", deserialize_with = "numeric::point_moment::my")]
+            _my: (),
+            #[serde(default, rename = "mz", deserialize_with = "numeric::point_moment::mz")]
+            _mz: (),
         }
 
-        let Fields { element_id, a, px, py, pz, additional } = Fields::deserialize(deserializer)?;
-        for field in ["mx", "my", "mz"] {
-            if additional.contains_key(field) {
-                return Err(serde::de::Error::custom(format!(
-                    "Unsupported point load field {field}: apply the moment at a node"
-                )));
-            }
-        }
+        let Fields { element_id, a, px, py, pz, .. } = Fields::deserialize(deserializer)?;
         Ok(Self { element_id, a, px, py, pz })
     }
 }

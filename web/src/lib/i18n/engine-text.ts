@@ -124,6 +124,8 @@ export function localizeEngineText(message: string): string {
   for (const [en, key] of ENGINE_SENTENCES) if (out.includes(en)) out = out.split(en).join(tAt(key, i18n.locale));
   out = out.replace(/Non-finite number \((NaN|Infinity|-Infinity)\) at (\S+)/g, (_, value: string, path: string) =>
     fill('svc.engine.nonFiniteNumber', { value, path }));
+  out = out.replace(/Unsupported point load field (mx|my|mz): apply the moment at a 3D node at the original load position/g, (_, field: string) =>
+    fill('svc.engine.unsupportedPointLoadMoment', { field }));
   return out.replace(SELF_CHECK_REFUSAL, (whole, check: string, mode: string | undefined, rest: string) => {
     const name = selfCheckName(check, mode);
     if (!name) return whole;

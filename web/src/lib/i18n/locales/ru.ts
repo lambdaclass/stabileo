@@ -3758,6 +3758,7 @@ const ru: Translations = {
   "autoLoad.work.draw": "Отрисовка нагрузок",
   "autoLoad.work.step": "Шаг {step} из {total}",
   "autoLoad.work.cancel": "Остановить",
+  "svc.engine.unsupportedPointLoadMoment": "Сосредоточенная нагрузка на стержень не может приложить момент по {field}. Приложите момент к узлу 3D-модели в исходной точке приложения нагрузки.",
   "svc.engine.nonFiniteNumber": "Введите конечное число для {path} (получено: {value}).",
 } as const satisfies Record<string, string>;
 

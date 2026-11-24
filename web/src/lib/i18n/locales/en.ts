@@ -4319,6 +4319,7 @@ const en: Record<string, string> = {
   'svc.errorInCase3d': 'Error in 3D case "{n}": {err}',
   'svc.engine.mechanism': "Singular stiffness matrix: the structure is a mechanism",
   'svc.engine.cancelledCombination': "Repeated load case factors cancel to zero in this combination.",
+  "svc.engine.unsupportedPointLoadMoment": "A member point load cannot apply a moment in {field}. Apply the moment at a 3D node at the original load position.",
   "svc.engine.nonFiniteNumber": "Enter a finite number for {path} (received {value}).",
   'svc.engine.zeroDiagonal': "All diagonal entries are zero: singular matrix",
   'svc.engine.singular': "Singular stiffness matrix",

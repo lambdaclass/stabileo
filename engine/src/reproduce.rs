@@ -114,13 +114,11 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "known wrong result: #2472"]
     fn issue_2472_native_linear_refuses_null_numeric_fields() {
         check_refusals(|text, space| linear_hashes(text, space).map(|_| ()));
     }
 
     #[test]
-    #[ignore = "known wrong result: #2472"]
     fn issue_2472_native_pdelta_refuses_null_numeric_fields() {
         check_refusals(pdelta);
     }
@@ -156,7 +154,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "known wrong result: #2472"]
     fn issue_2472_native_point_load_requires_supported_moment_components() {
         let mut failures = Vec::new();
         for space in [false, true] {

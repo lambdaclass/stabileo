@@ -669,7 +669,7 @@ fn random_space_frames_solver_is_safe() {
 }
 
 fn portal_sample() -> serde_json::Value {
-    serde_json::from_str(include_str!("../../verify/samples/plastic-3d-portal.input.json")).unwrap()
+    serde_json::from_str(include_str!("fixtures/certificates/plastic-3d-portal.input.json")).unwrap()
 }
 
 fn column_1_on_section_2(mut v: serde_json::Value, plastic_section: Option<serde_json::Value>, mp_override: Option<[f64; 2]>) -> PlasticInput3D {

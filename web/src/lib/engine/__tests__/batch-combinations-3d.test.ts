@@ -222,7 +222,7 @@ it('requires plate thickness and preserves face stresses', () => {
 });
 
 it('preserves the distorted-shell containment refusal', () => {
-  const solver = JSON.parse(readFileSync(new URL('../../../../../verify/samples/plastic-3d-portal.input.json', import.meta.url), 'utf8')).solver;
+  const solver = JSON.parse(readFileSync(new URL('../../../../../engine/tests/fixtures/certificates/plastic-3d-portal.input.json', import.meta.url), 'utf8')).solver;
   Object.assign(solver, { nodes: {}, elements: {}, supports: {}, loads: [], quads: {} });
   solver.materials['1'].e = 10000;
   for (let i = 0; i <= 6; i++) for (let j = 0; j < 2; j++) {

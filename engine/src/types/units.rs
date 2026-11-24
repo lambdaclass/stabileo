@@ -697,22 +697,7 @@ mod wire {
         pub my: Moment,
     }
 
-    #[derive(Debug, Clone, Serialize, Deserialize)]
-    #[serde(rename_all = "camelCase")]
-    pub struct SolverPointLoadOnElement {
-        #[serde(deserialize_with = "numeric::element_id::required")]
-        pub element_id: usize,
-        #[serde(deserialize_with = "numeric::a::required")]
-        pub a: Length,
-        #[serde(deserialize_with = "numeric::p::required")]
-        pub p: Force,
-        #[serde(default)]
-        #[serde(deserialize_with = "numeric::px::optional", skip_serializing_if = "Option::is_none")]
-        pub px: Option<Force>,
-        #[serde(default, rename = "my", alias = "mz")]
-        #[serde(deserialize_with = "numeric::my_or_mz::optional", skip_serializing_if = "Option::is_none")]
-        pub my: Option<Moment>,
-    }
+    pub type SolverPointLoadOnElement = super::super::SolverPointLoadOnElement<Length, Force, Moment>;
 
     #[derive(Debug, Clone, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]

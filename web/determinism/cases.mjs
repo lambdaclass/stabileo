@@ -20,12 +20,12 @@ export const FIXTURES = {
   'space-truss-3d': 'engine/tests/fixtures/ex-3d-space-truss-input.json',
   'tower-3d': 'engine/tests/fixtures/ex-3d-tower-input.json',
   'random-3d': 'engine/tests/fixtures/random3d-12-input.json',
-  'combo-2d': 'verify/samples/combo-2d-frame.input.json',
-  'bundle-3d': 'verify/samples/ex-3d-portal-frame.input.json',
-  'plastic-2d-portal': 'verify/samples/plastic-2d-portal.input.json',
-  'plastic-2d-continuous': 'verify/samples/plastic-2d-continuous.input.json',
-  'plastic-3d-portal': 'verify/samples/plastic-3d-portal.input.json',
-  'plastic-3d-cantilever': 'verify/samples/plastic-3d-cantilever.input.json',
+  'combo-2d': 'engine/tests/fixtures/certificates/combo-2d-frame.input.json',
+  'bundle-3d': 'engine/tests/fixtures/certificates/ex-3d-portal-frame.input.json',
+  'plastic-2d-portal': 'engine/tests/fixtures/certificates/plastic-2d-portal.input.json',
+  'plastic-2d-continuous': 'engine/tests/fixtures/certificates/plastic-2d-continuous.input.json',
+  'plastic-3d-portal': 'engine/tests/fixtures/certificates/plastic-3d-portal.input.json',
+  'plastic-3d-cantilever': 'engine/tests/fixtures/certificates/plastic-3d-cantilever.input.json',
 };
 
 const MODELS_2D = ['portal-2d', 'two-story-2d', 'truss-2d', 'continuous-2d', 'random-2d'];

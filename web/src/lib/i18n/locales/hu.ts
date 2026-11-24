@@ -3690,6 +3690,7 @@ const hu: Translations = {
   "svc.errorInCase3d": "Hiba a(z) „{n}” térbeli tehereseteknél: {err}",
   "svc.engine.mechanism": "Szinguláris merevségi mátrix: a szerkezet mechanizmus",
   'svc.engine.cancelledCombination': "Az ismétlődő teheresetek tényezői ebben a kombinációban nullára összegződnek.",
+  "svc.engine.unsupportedPointLoadMoment": "A rúdra ható pontszerű teher nem adhat át nyomatékot a(z) {field} összetevőben. Adja meg a nyomatékot egy 3D csomóponton a teher eredeti helyén.",
   "svc.engine.nonFiniteNumber": "Adjon meg véges számot itt: {path} (kapott érték: {value}).",
   "svc.engine.zeroDiagonal": "Minden átlóelem nulla: szinguláris mátrix",
   "svc.engine.singular": "Szinguláris merevségi mátrix",

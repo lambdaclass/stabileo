@@ -282,7 +282,11 @@ mod tests {
         v["sections"]["1"]["iy"] = 2e-4.into();
         v["sections"]["1"]["j"] = 1e-5.into();
         for sup in v["supports"].as_object_mut().unwrap().values_mut() {
-            *sup = serde_json::json!({"nodeId":sup["nodeId"],"rx":true,"ry":true,"rz":true,"rrx":true,"rry":true,"rrz":true,"dx":sup["dx"]});
+            let dx = sup.as_object_mut().unwrap().remove("dx");
+            *sup = serde_json::json!({"nodeId":sup["nodeId"],"rx":true,"ry":true,"rz":true,"rrx":true,"rry":true,"rrz":true});
+            if let Some(dx) = dx {
+                sup["dx"] = dx;
+            }
         }
         serde_json::from_value(v).unwrap()
     }

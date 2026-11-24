@@ -25,7 +25,7 @@ const mixed = (code: string) => new Error(JSON.stringify({
   ],
 }));
 function input3D() {
-  const wire = JSON.parse(readFileSync('../verify/samples/plastic-3d-portal.input.json', 'utf8')).solver;
+  const wire = JSON.parse(readFileSync('../engine/tests/fixtures/certificates/plastic-3d-portal.input.json', 'utf8')).solver;
   for (const key of ['nodes', 'elements', 'materials', 'sections', 'supports', 'plates', 'quads', 'quad9s', 'solidShells', 'curvedShells', 'connectors']) {
     wire[key] = new Map(Object.entries(wire[key] ?? {}).map(([id, value]) => [Number(id), value]));
   }

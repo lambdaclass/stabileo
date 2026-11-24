@@ -1440,7 +1440,7 @@ mod tests {
 
     #[test]
     fn issue_1753_balance_cannot_certify_constraints_or_connectors() {
-        let base: PlasticInput3D = serde_json::from_str(include_str!("../../../verify/samples/plastic-3d-portal.input.json")).unwrap();
+        let base: PlasticInput3D = serde_json::from_str(include_str!("../../tests/fixtures/certificates/plastic-3d-portal.input.json")).unwrap();
         let results = crate::solver::linear::solve_3d(&base.solver).unwrap();
         let mut constrained = base.solver.clone();
         constrained.constraints.push(Constraint::EqualDOF(EqualDOFConstraint { master_node: 1, slave_node: 2, dofs: vec![0] }));
@@ -1548,7 +1548,7 @@ mod tests {
 
     #[test]
     fn merged_increment_keeps_solver_diagnostics() {
-        let input: PlasticInput3D = serde_json::from_str(include_str!("../../../verify/samples/plastic-3d-portal.input.json")).unwrap();
+        let input: PlasticInput3D = serde_json::from_str(include_str!("../../tests/fixtures/certificates/plastic-3d-portal.input.json")).unwrap();
         let mut results = crate::solver::linear::solve_3d(&input.solver).unwrap();
         results.structured_diagnostics.push(crate::known_issues::diagnostic("NUM-INVARIANCE"));
         let merged = merged_results(&results, &[], &[], 1.0, &HashSet::new(), &input.solver);
