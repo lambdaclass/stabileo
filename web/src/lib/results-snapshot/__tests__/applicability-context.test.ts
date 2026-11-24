@@ -115,3 +115,28 @@ it.each(['2d', '3d'] as const)('#2532 attributes a blocked %s model open to its 
     });
   }
 });
+
+it('#2370 attributes only the out-of-plane nodal vector refusal to its registry entry', async () => {
+  const c = CORPUS.find(c => c.name === '2d-portal-frame')!;
+  if (!('example' in c.source)) throw new Error('Expected an example');
+  const fixture = structuredClone(await getFixture(c.source.example)?.()) as JSONModel;
+  const [node] = fixture.nodes;
+  const data = { id: 1, nodeId: node.id, fx: 0, fy: 0, fz: -3, mx: 0, my: 3, mz: 0 };
+  fixture.loads = [{ type: 'nodal', data }];
+  const entry = (readRegistry() as ResultChangeRegistry).changes.find(change => change.id === 'planar-nodal-vectors');
+  if (!entry?.quantities?.every((quantity): quantity is string => typeof quantity === 'string')) {
+    throw new Error('Expected the planar nodal vector result change to declare its fields');
+  }
+  const coverage = { ...entry, quantities: entry.quantities };
+  expect(fieldCovered(coverage, 'solve.ok', await openedFeatures(c, fixture))).toBe(false);
+  expect((await capture(c, { fixture })).values['solve.ok']).toBe(true);
+
+  data.mx = 1;
+  const refused = await openedFeatures(c, fixture);
+  expect(refused).not.toContain('conflictingModelAliases');
+  expect(fieldCovered(coverage, 'solve.ok', refused)).toBe(true);
+  expect(fieldCovered(coverage, 'base.reactions[n1].my', refused)).toBe(false);
+  expect((await capture(c, { fixture })).values).toEqual({
+    'solve.ok': false, 'solve.refusal': expect.stringMatching(/outside the plane.*mx/),
+  });
+});

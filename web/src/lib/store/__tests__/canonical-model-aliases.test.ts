@@ -373,7 +373,7 @@ for (const mode of ['2d', '3d'] as const) {
 }
 
 for (const nonlinear of [false, true]) {
-  it.skip(`known wrong result: #2370 preserves cantilever reactions for a zero-padded planar nodal vector (P-Delta=${nonlinear})`, () => {
+  it(`#2370 preserves cantilever reactions for a zero-padded planar nodal vector (P-Delta=${nonlinear})`, () => {
     const file = project();
     const [, tip] = file.snapshot.nodes[1]!;
     tip.x = 4;
@@ -403,7 +403,7 @@ for (const nonlinear of [false, true]) {
   });
 }
 
-it.skip('known wrong result: #2370 strips only zero padding from a complete planar nodal vector across model intake', async () => {
+it('#2370 strips only zero padding from a complete planar nodal vector across model intake', async () => {
   const file = project();
   nodal(file, { fx: 5, fz: -3, my: 3, fy: 0, mx: 0, mz: 0 });
   const entry = file.snapshot.loads[0]!;
@@ -419,10 +419,10 @@ it.skip('known wrong result: #2370 strips only zero padding from a complete plan
   };
 
   accept(() => modelStore.restore(file.snapshot));
-  for (const open of [loadProject, loadFile]) {
-    await expect.soft(open(asFile(file))).resolves.toBeUndefined();
-    check(modelStore.loads[0]?.data);
-  }
+  await expect.soft(loadProject(asFile(file))).resolves.toBeUndefined();
+  check(modelStore.loads[0]?.data);
+  await expect.soft(loadFile(asFile(file))).resolves.toEqual({ type: 'tab', count: 1 });
+  check(modelStore.loads[0]?.data);
   const tab = { id: 'one', name: 'Padded', analysisMode: '2d', modelSnapshot: file.snapshot, undoStack: [], redoStack: [] };
   check(acceptSessionTabs([tab]).tabs[0]?.modelSnapshot.loads[0]?.data);
   check(acceptAutosavePayload(file)?.snapshot.loads[0]?.data);
@@ -443,7 +443,7 @@ it.skip('known wrong result: #2370 strips only zero padding from a complete plan
   accept(() => addLoads([entry as never]));
 });
 
-it.skip('known wrong result: #2370 refuses nonzero or invalid out-of-plane vector components before install', () => {
+it('#2370 refuses nonzero or invalid out-of-plane vector components before install', () => {
   const file = project();
   nodal(file, { fx: 5, fz: -3, my: 3, fy: 0, mx: 0, mz: 0 });
   const baseline = modelStore.snapshot();

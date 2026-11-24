@@ -323,7 +323,7 @@ export async function openedFeatures(c: SnapshotCase, fixture?: unknown): Promis
   }
   const refusal = await open(c, fixture);
   const features: string[] = refusal
-    ? [is3DWorkspace(c.workspace) ? 'space3D' : 'plane2D', 'analysis:linear', 'conflictingModelAliases']
+    ? [is3DWorkspace(c.workspace) ? 'space3D' : 'plane2D', 'analysis:linear', refusal.feature]
     : [...modelFeatures(modelStore.snapshot(), context)];
   if ('example' in c.source) features.push(`example:${c.source.example}`);
   return features;

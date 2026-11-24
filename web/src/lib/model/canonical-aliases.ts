@@ -1,5 +1,5 @@
 import { shouldProjectModelToXZ, type CoordinateNode, type TypedSupportLike } from '../geometry/coordinate-system';
-import { tp } from '../i18n';
+import { t, tp } from '../i18n';
 import type { Release } from '../store/model.svelte';
 import { isAnalysisMode, is3DWorkspace } from '../utils/workspace';
 import { isPlaneSupportType } from './support-types';
@@ -18,13 +18,19 @@ type Input = {
 };
 
 export class ModelAliasConflict extends Error {
+  readonly feature: 'conflictingModelAliases' | 'outOfPlaneNodalComponents';
+
   constructor(
     readonly family: 'member' | 'support' | 'load',
     readonly id: unknown,
     field: string,
-    alias: string,
+    alias?: string,
   ) {
-    super(tp('file.modelAliasConflict', { field, alias, id: String(id ?? '?') }));
+    const recordId = String(id ?? '?');
+    super(alias === undefined
+      ? `${t('xls.err.nodalOutOfPlane')} (#${recordId}, ${field})`
+      : tp('file.modelAliasConflict', { field, alias, id: recordId }));
+    this.feature = alias === undefined ? 'outOfPlaneNodalComponents' : 'conflictingModelAliases';
   }
 }
 
@@ -80,6 +86,15 @@ function support(record: object, plane: boolean): object {
   });
 }
 
+function removePlanarNodalPadding(copy: Fields): void {
+  const complete = ['fx', 'fy', 'fz', 'mx', 'my', 'mz'].every(field => copy[field] !== undefined);
+  for (const field of complete ? ['fy', 'mx', 'mz'] : ['mx']) {
+    if (copy[field] === undefined) continue;
+    if (copy[field] !== 0) throw new ModelAliasConflict('load', copy.id, field);
+    delete copy[field];
+  }
+}
+
 export function canonicalizeLoadAliases<T extends LoadRecord>(record: T): T {
   const { type, data } = record;
   if (type !== 'nodal' && type !== 'pointOnElement' && type !== 'distributed') return record;
@@ -90,6 +105,7 @@ export function canonicalizeLoadAliases<T extends LoadRecord>(record: T): T {
       delete copy.q;
       return;
     }
+    if (type === 'nodal') removePlanarNodalPadding(copy);
     reconcile(copy, 'my', copy.mz, 'mz', conflict);
     delete copy.mz;
     if (copy.enteredZeroMoment === true) reconcile(copy, 'my', 0, 'enteredZeroMoment', conflict);
@@ -121,12 +137,14 @@ export function canonicalizeModelAliases<T extends Input>(model: T, analysisMode
   };
 }
 
-export function hasConflictingModelAliases(model: Input, analysisMode?: string): boolean {
+export function modelAliasRefusalFeature(
+  model: Input, analysisMode?: string,
+): ModelAliasConflict['feature'] | undefined {
   try {
     canonicalizeModelAliases(model, analysisMode);
-    return false;
+    return undefined;
   } catch (error) {
-    if (error instanceof ModelAliasConflict) return true;
+    if (error instanceof ModelAliasConflict) return error.feature;
     throw error;
   }
 }
