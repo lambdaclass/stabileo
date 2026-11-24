@@ -611,7 +611,7 @@ export class LoadArrowsBatched {
       })))));
     }
 
-    for (const l of this.labels) {
+    for (const l of thinLabels(this.labels, LOAD_LABEL_BUDGET)) {
       const sprite = createTextSpriteCached(l.text, l.colorHex, l.fontSize);
       sprite.position.set(l.x, l.y, l.z);
       sprite.renderOrder = 3;
@@ -619,6 +619,26 @@ export class LoadArrowsBatched {
     }
 
     return group;
+  }
+}
+
+/** Most load values drawn at once: each is a draw call, and past a few hundred they cover one another and the model. */
+export const LOAD_LABEL_BUDGET = 250;
+
+/**
+ * At most `budget` labels, spread over the model: one a cell of a grid made coarser until they fit,
+ * the first of each cell kept, so every part of the model still shows its values.
+ */
+export function thinLabels<L extends { x: number; y: number; z: number }>(labels: readonly L[], budget: number): L[] {
+  if (labels.length <= budget) return [...labels];
+  let lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
+  for (const l of labels) { lo = [Math.min(lo[0]!, l.x), Math.min(lo[1]!, l.y), Math.min(lo[2]!, l.z)]; hi = [Math.max(hi[0]!, l.x), Math.max(hi[1]!, l.y), Math.max(hi[2]!, l.z)]; }
+  let cell = Math.max(1e-3, Math.hypot(hi[0]! - lo[0]!, hi[1]! - lo[1]!, hi[2]! - lo[2]!) / Math.sqrt(budget) / 4);
+  for (;;) {
+    const kept = new Map<string, L>();
+    for (const l of labels) { const k = `${Math.floor((l.x - lo[0]!) / cell)},${Math.floor((l.y - lo[1]!) / cell)},${Math.floor((l.z - lo[2]!) / cell)}`; if (!kept.has(k)) kept.set(k, l); }
+    if (kept.size <= budget) return [...kept.values()];
+    cell *= 1.25;
   }
 }
 

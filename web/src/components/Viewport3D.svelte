@@ -77,6 +77,7 @@
   import { jointDesignStore } from '../lib/store/joint-design.svelte';
   import { detectJoints } from '../lib/engine/connection-design';
   import { ElementsBatched } from '../lib/three/elements-batched';
+  import { ShellBatch } from '../lib/three/shell-batch';
   import { ElementsPicking } from '../lib/three/elements-picking';
   import { fatLineResolution } from '../lib/three/create-element-mesh';
   import { resolveHitUserData, shellSelectionKey } from '../lib/viewport3d/picking';
@@ -100,7 +101,7 @@
   import { syncNodes as _syncNodes, syncElements as _syncElements, syncSupports as _syncSupports, syncLoads as _syncLoads, syncShells as _syncShells, syncSelection as _syncSelection, syncLocalAxes as _syncLocalAxes, syncMemberOffsets as _syncMemberOffsets, syncShellOffsets as _syncShellOffsets, applyElementVisibility, type SceneSyncContext } from '../lib/viewport3d/scene-sync';
   import { DIAGRAM_EXTREMA_UNAVAILABLE } from '../lib/engine/member-diagram';
   import { syncDeformed as _syncDeformed, syncDiagrams3D as _syncDiagrams3D, syncColorMap3D as _syncColorMap3D, syncVerificationLabels as _syncVerificationLabels, syncReactions as _syncReactions, syncConstraintForces as _syncConstraintForces, syncLabels3D as _syncLabels3D, DIAGRAM_3D_TYPES, type ResultsSyncContext } from '../lib/viewport3d/results-sync';
-  import { applyLowDetail, isHeavyModel } from '../lib/viewport3d/lod';
+  import { applyLowDetail } from '../lib/viewport3d/lod';
   import { meshHidden } from '../lib/viewport3d/shell-members';
   import { buildTimelapse, FORMAT_SIZE } from '../lib/store/build-timelapse.svelte';
   import { createTimelapseView } from '../lib/viewport3d/build-timelapse-view';
@@ -167,6 +168,8 @@
   let loadsParent: THREE.Group;
   let resultsParent: THREE.Group;
   let shellsParent: THREE.Group;
+  let shellBatch: ShellBatch | null = null;
+  let memberBatches: ShellBatch[] = [];
   let localAxesParent: THREE.Group;
 
   // ─── Clipping plane ─────────────────────────────────────────
@@ -636,6 +639,8 @@
     resultsParent.name = 'results';
     shellsParent = new THREE.Group();
     shellsParent.name = 'shells';
+    shellBatch = new ShellBatch(shellsParent);
+    memberBatches = [new ShellBatch(elementsParent), new ShellBatch(supportsParent)];
     localAxesParent = new THREE.Group();
     localAxesParent.name = 'localAxes';
     // The batched wireframe LineSegments2 lives directly under `scene`, not
@@ -989,6 +994,7 @@
       nodesInstanced.setPixelRatio(renderer.getPixelRatio());
       if (toneDirty) { toneDirty = false; applyCategoryTones(); }
       const soloHidden = sceneHost.solo ? hideAllBut(scene) : null;
+      if (!isOrbiting && dampingFrames === 0) for (const b of [shellBatch, ...memberBatches]) b?.sync(buildTimelapse.active || !!soloHidden);
       try {
         renderer.render(scene, camera);
         if (!soloHidden) splitView?.render();
@@ -1058,11 +1064,9 @@
     // Slight aliasing during drag is acceptable — users perceive smoothness more
     // than pixel fidelity while rotating.
     const idlePixelRatio = window.devicePixelRatio;
-    // Level-of-detail during orbit. Typical models keep full detail while the
-    // camera moves; heavy models (per the isHeavyModel policy in lod.ts, which
-    // weighs shells and the sections render mode) fall back to hiding the
-    // decorative parents + per-element solids and forcing the single batched
-    // LineSegments2 draw call on as the stand-in.
+    // Level-of-detail during orbit: only with the opt-in smooth orbit. Shells, members and
+    // supports are drawn in batches (`three/shell-batch.ts`), so a model keeps its full detail
+    // while the camera moves.
     function setLowDetail(on: boolean): void {
       const dt = resultsStore.diagramType;
       // Despiece manages element visibility itself (the original members are hidden
@@ -1075,14 +1079,7 @@
         && (dt === 'axialColor' || dt === 'colorMap' || dt === 'verification');
       // Opt-in "smooth orbit" forces the heavy-model low-detail path for any
       // model during camera motion (collapse to the single batched wireframe).
-      const heavyModel = uiStore.smoothOrbit3D || isHeavyModel(
-        {
-          elements: modelStore.elements.size,
-          shells: modelStore.plates.size + modelStore.quads.size,
-          supports: modelStore.supports.size,
-        },
-        uiStore.renderMode3D,
-      );
+      const heavyModel = uiStore.smoothOrbit3D;
       applyLowDetail(on, {
         nodesParent, supportsParent, loadsParent, resultsParent, shellsParent,
         localAxesParent,
