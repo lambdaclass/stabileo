@@ -125,3 +125,27 @@ it('#2282 overhead width loads cannot settle partial ownership at the bay level'
     expectBlocked(model, differentDeck, width);
   }
 });
+
+it('#2512 a narrow bay cannot bypass deck ownership when its uncovered strip spans the long direction', () => {
+  for (const span of [MAX_DECK_SPAN - 0.125, MAX_DECK_SPAN, MAX_DECK_SPAN + 0.125]) {
+    const { model } = bay(4);
+    for (const node of model.nodes.values()) if (node.y === 6) node.y = span;
+    expectBlocked(model);
+  }
+});
+
+it('#2512 a wholly beam-owned bay under a separate complete cover keeps its floor transfer', () => {
+  const { model } = bay(0);
+  addShell(model, 0, 10, 6);
+  for (const loadEveryPanel of [false, true]) {
+    const gravity = { mode: 'panels', loadEveryPanel } as const;
+    const layout = gravityLayout(model, { ...gravity, tributaryWidth: 1 });
+    expect(layout.panels).toEqual([expect.objectContaining({ z: 3, roof: false })]);
+    expect(layout.areaByLevel.get(3)).toBeCloseTo(60, 10);
+    const plan = buildLoadPlan(input(model, { gravity }));
+    expect(plan.outcome).toBe('READY');
+    expect(plan.surface.filter(load => load.caseType === 'D')).toEqual([expect.objectContaining({ quadId: 1, q: 1 })]);
+    const liveBeams = new Set(plan.distributed.filter(load => load.caseType === 'L').map(load => load.elementId));
+    expect(liveBeams).toEqual(new Set(model.elements.keys()));
+  }
+});

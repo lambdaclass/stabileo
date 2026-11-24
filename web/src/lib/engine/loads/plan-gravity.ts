@@ -36,7 +36,7 @@
  *
  * Pure: no store.
  */
-import { footprintArea, footprintBounds, planarShell, refuseGravityGeometry, ringArea, samePhysicalDeck, unionFootprints, type ShellPlane } from './gravity-shell-partition';
+import { footprintArea, footprintBounds, footprintIntersection, footprintsOverlap, planarShell, refuseGravityGeometry, ringArea, samePhysicalDeck, unionFootprints, type ShellPlane } from './gravity-shell-partition';
 import { physicalRoofRuns, samePhysicalPoint, snowCoordinate } from './physical-roof-geometry';
 import polygonClipping, { type Polygon } from 'polygon-clipping';
 import { orient2d } from 'robust-predicates';
@@ -344,8 +344,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
     }
   }
   const coverAbove = coverage(model, out.zOf, panelsAt, wide);
-  const covered = (pt: [number, number], zTop: number, ownMembers?: ReadonlySet<number>) =>
-    Number.isFinite(coverAbove.point(pt, zTop, ownMembers));
+  const covered = coverAbove.pointCovered;
   const panelSides = new Map<number, SideStretch[]>();
   for (const { res } of levels.values()) for (const pn of res.panels) for (const [id, sides] of pn.own?.sides ?? []) {
     (panelSides.get(id) ?? panelSides.set(id, []).get(id)!).push(...sides);
@@ -393,6 +392,14 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
         const nested = loading.filter(o => !loading.some(m => within(o, m)));
         const { share, kept } = deck!.uncarried(panel.polygon, z, held, nested.map(o => o.polygon));
         if (share <= 0) { dropped.add(panel); continue; }
+        for (const [, ...holes] of footprint) for (const hole of holes) {
+          const reclaimed = footprintIntersection(kept, [hole]);
+          if (reclaimed.length && carriers.some(({ poly, pts }) =>
+            pts.some(p => p[2] <= z + MIN_COVER_RISE) && pts.some(p => p[2] >= z - MIN_COVER_RISE)
+            && footprintsOverlap(reclaimed, [poly]))) {
+            refuseGravityGeometry(msg('loadPlan.gravity.areaResultant', { z }));
+          }
+        }
         fringeKept.set(panel, kept);
         held.regions.push({ region: kept, z });
         continue;
@@ -410,7 +417,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
         refuseGravityGeometry(msg('loadPlan.gravity.unresolvedMember', { id: e.id }));
       }
       if (why === 'headroomUnclear' || (why === 'lowHeadroom' && floorBeside)) {
-        if (Number.isFinite(coverAbove.memberMidpoint(e.id, [a, b], z))) unclear++; else unclearRoof++;
+        if (coverAbove.memberCovered([a, b], z)) unclear++; else unclearRoof++;
       }
       if (why === 'lowHeadroom' && !floorBeside) {
         const L = Math.hypot(b[0] - a[0], b[1] - a[1]);
@@ -539,7 +546,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
 
   // What goes by width is a roof when nothing higher stands over its midpoint.
   for (const m of out.widthMembers) {
-    const roof = fringeRoof.has(m.elementId) || !Number.isFinite(coverAbove.memberMidpoint(m.elementId, segment(m.elementId)));
+    const roof = fringeRoof.has(m.elementId) || !coverAbove.memberCovered(segment(m.elementId));
     addArea(roof ? out.roofAreaOf : out.areaOf, m.elementId, widthSpans(m, opts.tributaryWidth).reduce((s, w) => s + w.width * (w.t1 - w.t0), 0) * m.horizontalLength);
     if (roof) out.roof.add(m.elementId);
   }
@@ -863,22 +870,31 @@ function notADeck(
   why: (poly: Array<[number, number]>, z: number) => 'lowHeadroom' | 'wide' | 'headroomUnclear' | null;
   uncarried: (area: Array<[number, number]>, z: number, held: Held, holes?: Array<Array<[number, number]>>) => { share: number; kept: Region };
 } {
-  const roofMembers: Array<[[number, number, number], [number, number, number]]> = [];
+  const headroomMembers = new Map<number, Segment>();
+  const roofStatus = new Map<number, boolean>();
   for (const e of model.elements.values()) {
     const a = model.nodes.get(e.nodeI), b = model.nodes.get(e.nodeJ);
     if (!a || !b || !beamLike(model, e).ok) continue;
     const member: Segment = [[a.x, a.y, a.z ?? 0], [b.x, b.y, b.z ?? 0]];
-    if (!Number.isFinite(coverAbove.memberMidpoint(e.id, member))) roofMembers.push(member);
+    headroomMembers.set(e.id, member);
   }
+  const isRoof = (id: number, segment: Segment) => {
+    const known = roofStatus.get(id);
+    if (known !== undefined) return known;
+    const roof = !coverAbove.memberCovered(segment);
+    roofStatus.set(id, roof);
+    return roof;
+  };
   const roofShells = carriers.filter(c => 'nodes' in c);
   const heightAbove = (p: [number, number], z: number): number => {
     let h = Infinity;
-    for (const [a, b] of roofMembers) {
+    for (const [id, segment] of headroomMembers) {
+      const [a, b] = segment;
       if (!nearSegment(p, [a[0], a[1]], [b[0], b[1]], 0.1)) continue;
       const L2 = (b[0] - a[0]) ** 2 + (b[1] - a[1]) ** 2;
       const t = L2 > 0 ? Math.max(0, Math.min(1, ((p[0] - a[0]) * (b[0] - a[0]) + (p[1] - a[1]) * (b[1] - a[1])) / L2)) : 0;
       const dz = a[2] + t * (b[2] - a[2]) - z;
-      if (dz > TOL) h = Math.min(h, dz);
+      if (dz > TOL && dz < h && isRoof(id, segment)) h = dz;
     }
     for (const c of roofShells) {
       if (ringLocation(p, c.poly) === 'outside') continue;
@@ -895,7 +911,8 @@ function notADeck(
       const extent = poly.map(alongOf);
       const lo = Math.min(...extent) - 0.1, hi = Math.max(...extent) + 0.1;
       let below: [number, number] | null = null, above: [number, number] | null = null;
-      for (const [a, b] of roofMembers) {
+      for (const [id, segment] of headroomMembers) {
+        const [a, b] = segment;
         if (Math.max(a[2], b[2]) <= z + TOL) continue;
         const da = across([a[0], a[1]]), db = across([b[0], b[1]]);
         if ((da > 1e-9 && db > 1e-9) || (da < -1e-9 && db < -1e-9) || Math.abs(da - db) <= 1e-12) continue;
@@ -903,8 +920,8 @@ function notADeck(
         const off = alongOf([a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])]);
         const dz = a[2] + t * (b[2] - a[2]) - z;
         if (dz < -TOL || off < lo || off > hi) continue;
-        if (off < 0 && (!below || off > below[0])) below = [off, dz];
-        if (off > 0 && (!above || off < above[0])) above = [off, dz];
+        if (off < 0 && (!below || off > below[0]) && isRoof(id, segment)) below = [off, dz];
+        if (off > 0 && (!above || off < above[0]) && isRoof(id, segment)) above = [off, dz];
       }
       if (below && above) h = Math.min(h, Math.max(0, below[1] + ((above[1] - below[1]) * -below[0]) / (above[0] - below[0])));
     }
@@ -958,7 +975,7 @@ function notADeck(
     const roofed = heights.filter(Number.isFinite);
     const low = roofed.some((h) => h > TOL && h < MIN_STOREY_HEADROOM);
     if (low && roofed.length === probes.length && Math.max(...roofed) < MIN_STOREY_HEADROOM
-      && coverAbove.point(centroid(poly), z) < MIN_STOREY_HEADROOM) return 'lowHeadroom';
+      && coverAbove.pointCovered(centroid(poly), z, undefined, MIN_STOREY_HEADROOM)) return 'lowHeadroom';
     return low ? 'headroomUnclear' : null;
   };
   const why = (poly: Array<[number, number]>, z: number) => {
@@ -1377,39 +1394,46 @@ function withinSegmentBounds(p: readonly [number, number], a: readonly [number, 
     && p[1] >= Math.min(a[1], b[1]) && p[1] <= Math.max(a[1], b[1]);
 }
 
-type MemberMidpoint = { id: number; ends: [[number, number], [number, number]] };
-type RingLocation = 'boundary' | 'inside' | 'outside' | 'roundedInside' | 'roundedOutside';
+type MemberMidpoint = { ends: [[number, number], [number, number]] };
+type RingLocation = 'boundary' | 'inside' | 'outside';
+
+function midpointWithinSegmentBounds([a, b]: MemberMidpoint['ends'], p: [number, number], q: [number, number]): boolean {
+  const compareMidpoint = (first: number, second: number, limit: number) => {
+    if (first <= limit && second <= limit) return first === limit && second === limit ? 0 : -1;
+    if (first >= limit && second >= limit) return 1;
+    const sum = first + second;
+    const target = 2 * limit;
+    if (sum !== target) return sum < target ? -1 : 1;
+    const scale = Number.isFinite(sum) ? 1 : 0.5;
+    const left = first * scale, right = second * scale;
+    const rounded = left + right;
+    if (scale !== 1 && rounded !== limit) return rounded < limit ? -1 : 1;
+    const secondRounded = rounded - left;
+    return (left - (rounded - secondRounded)) + (right - secondRounded);
+  };
+  return ([0, 1] as const).every(i => compareMidpoint(a[i], b[i], Math.min(p[i], q[i])) >= 0
+    && compareMidpoint(a[i], b[i], Math.max(p[i], q[i])) <= 0);
+}
 
 function ringLocation(pt: [number, number], ring: Polygon[number], midpointOf?: MemberMidpoint): RingLocation {
-  let inside = false, roundedBoundary = false;
+  let inside = false;
   for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
     const a = ring[j]!, b = ring[i]!;
     const side = orient2d(...a, ...b, ...pt);
-    if (side === 0 && withinSegmentBounds(pt, a, b)) return 'boundary';
-    if (midpointOf?.ends.every(end => orient2d(...a, ...b, ...end) === 0)) {
-      if (midpointOf.ends.every(end => withinSegmentBounds(end, a, b))) return 'boundary';
-      if (withinSegmentBounds(pt, a, b)) roundedBoundary = true;
+    if (withinSegmentBounds(pt, a, b)) {
+      const ends = midpointOf?.ends;
+      const collinear = ends?.every(end => orient2d(...a, ...b, ...end) === 0);
+      if (ends && collinear ? midpointWithinSegmentBounds(ends, a, b) : side === 0) return 'boundary';
     }
     if ((a[1] > pt[1]) !== (b[1] > pt[1]) && (side < 0) === (b[1] > a[1])) inside = !inside;
   }
-  if (roundedBoundary) return inside ? 'roundedInside' : 'roundedOutside';
   return inside ? 'inside' : 'outside';
 }
 
 function footprintContains(pt: [number, number], [exterior, ...holes]: Polygon, midpointOf?: MemberMidpoint): boolean {
   if (!exterior) return false;
-  const outer = ringLocation(pt, exterior, midpointOf);
-  if (outer === 'outside') return false;
-  let uncertain = outer === 'roundedOutside';
-  for (const hole of holes) {
-    const location = ringLocation(pt, hole, midpointOf);
-    if (location === 'inside') return false;
-    if (location === 'roundedInside') uncertain = true;
-  }
-  if (uncertain && midpointOf) {
-    refuseGravityGeometry(msg('loadPlan.gravity.roundedRoofBoundary', { id: midpointOf.id }));
-  }
-  return true;
+  return ringLocation(pt, exterior, midpointOf) !== 'outside'
+    && holes.every(hole => ringLocation(pt, hole, midpointOf) !== 'inside');
 }
 
 export function connectedRoofFootprints(polys: Array<Array<[number, number]>>) {
@@ -1472,9 +1496,11 @@ function coverage(
     const segments = [...members].map(id => byMember.get(id)!);
     return { segments, ownPanels };
   });
-  const point = (pt: [number, number], zTop: number, ownMembers?: ReadonlySet<number>, midpointOf?: MemberMidpoint) => {
-    let h = covers.reduce((lowest, c) => c.z > zTop + MIN_COVER_RISE && c.polys.some(poly => footprintContains(pt, poly, midpointOf))
-      ? Math.min(lowest, c.z - zTop) : lowest, Infinity);
+  const coveredWithin = (
+    pt: [number, number], zTop: number, limit: number, ownMembers?: ReadonlySet<number>, midpointOf?: MemberMidpoint,
+  ): boolean => {
+    const qualifies = (z: number) => z > zTop + MIN_COVER_RISE && z - zTop < limit;
+    if (covers.some(c => qualifies(c.z) && c.polys.some(poly => footprintContains(pt, poly, midpointOf)))) return true;
     for (const { segments, ownPanels } of runs) {
       if (ownPanels.some(({ z, rings }) => Math.abs(z - zTop) <= TOL && footprintContains(pt, rings, midpointOf))) continue;
       for (const { id, a, b, dx, dy, dz, lh } of segments) {
@@ -1483,20 +1509,22 @@ function coverage(
         if (!withinSegmentBounds(pt, start, end) || snowCoordinate(pt, start, [-dy / lh, dx / lh], [0]) !== 0) continue;
         const fraction = snowCoordinate(pt, start, [dx / lh, dy / lh], [0, lh]) / lh;
         const z = (a.z ?? 0) + fraction * dz;
-        if (z > zTop + MIN_COVER_RISE) h = Math.min(h, z - zTop);
+        if (qualifies(z)) return true;
       }
     }
     for (const [z, polys] of rejected) {
-      if (z > zTop + MIN_COVER_RISE && z - zTop < h && polys.some(poly => footprintContains(pt, poly, midpointOf))) {
+      if (qualifies(z) && polys.some(poly => footprintContains(pt, poly, midpointOf))) {
         refuseGravityGeometry(msg('loadPlan.gravity.widePanels', { n: polys.length, span: MAX_DECK_SPAN }));
       }
     }
-    return h;
+    return false;
   };
-  const memberMidpoint = (id: number, [a, b]: Segment, zTop = Math.max(a[2], b[2])) => point(
-    [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], zTop, undefined, { id, ends: [[a[0], a[1]], [b[0], b[1]]] },
+  const memberCovered = ([a, b]: Segment, zTop = Math.max(a[2], b[2])) => coveredWithin(
+    [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], zTop, Infinity, undefined, { ends: [[a[0], a[1]], [b[0], b[1]]] },
   );
-  return { point, memberMidpoint };
+  const pointCovered = (pt: [number, number], zTop: number, ownMembers?: ReadonlySet<number>, limit = Infinity) =>
+    coveredWithin(pt, zTop, limit, ownMembers);
+  return { pointCovered, memberCovered };
 }
 
 /**

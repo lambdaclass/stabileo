@@ -122,32 +122,31 @@ function lowerOverhang({ shift = 0, start = 0, end = 3, coverZ = 6, upper = 'she
   return { ...model, quads };
 }
 
-const boundaryRefusal = { key: 'loadPlan.gravity.roundedRoofBoundary', params: { id: 1 } };
 const tributaryWidth = 1;
 const siteSnow = { ...snow, enabled: true, source: 'site' } as const;
 
-for (const mode of ['width', 'panels'] as const) for (const upper of ['shell', 'frame']) {
-  it(`#2512 rounded midpoint on an overhanging ${upper} edge blocks ${mode} loads`, () => {
-    const model = lowerOverhang({ upper });
-    const gravity = { mode };
-    const plan = buildLoadPlan(input(model, { gravity, tributaryWidth, snow: siteSnow, generateCombinations: true }));
-    expect(plan.outcome, JSON.stringify(plan.blockedKeys)).toBe('BLOCKED');
-    expect(plan.blockedKeys).toEqual([boundaryRefusal]);
-    expect(plan).toMatchObject({ cases: [], distributed: [], nodal: [], surface: [], combinations: [], levels: [] });
-    expect(() => gravityLayout(model, { ...gravity, tributaryWidth })).toThrow(expect.objectContaining(boundaryRefusal));
-    expect(() => roofWeightFor(model, gravity, tributaryWidth, 0)).toThrow(expect.objectContaining(boundaryRefusal));
-    expect(() => roofMembers(model)).toThrow(expect.objectContaining(boundaryRefusal));
-    expect(() => snowDriftRefusal(model)).toThrow(expect.objectContaining(boundaryRefusal));
-    expect(() => snowLoadCases({ model, snow, tributaryWidth })).toThrow(expect.objectContaining(boundaryRefusal));
-  });
-}
-
-it('#2512 apply refuses the lower roof-edge overhang', () => {
-  const plan = buildLoadPlan(input(lowerOverhang(), { tributaryWidth, snow: siteSnow }));
-  const before = modelStore.snapshot();
-  expect(plan.outcome).toBe('BLOCKED');
-  expect(applyLoadPlan(plan, { clearExisting: true, bothSenses: true, nameOf: key => key })).toEqual(boundaryRefusal);
-  expect(modelStore.snapshot()).toEqual(before);
+it('#2512 applies the covered lower member without assigning it snow', () => {
+  const model = lowerOverhang();
+  modelStore.clear();
+  const materialId = modelStore.model.materials.keys().next().value!;
+  const nodeIds = new Map([...model.nodes].map(([id, node]) => [id, modelStore.addNode(node.x, node.y, node.z)]));
+  const lower = modelStore.addElement(nodeIds.get(1)!, nodeIds.get(2)!);
+  modelStore.addQuad([...model.quads!.get(1)!.nodes.map(id => nodeIds.get(id)!)] as [number, number, number, number], materialId, 0.1);
+  const storedModel = {
+    ...model,
+    nodes: modelStore.nodes,
+    elements: modelStore.elements,
+    sections: modelStore.model.sections,
+    materials: modelStore.model.materials,
+    quads: modelStore.model.quads,
+    loadCases: modelStore.model.loadCases,
+  };
+  const plan = buildLoadPlan(input(storedModel, { tributaryWidth, snow: siteSnow }));
+  expect(plan.outcome, JSON.stringify(plan.blockedKeys)).toBe('READY');
+  expect(applyLoadPlan(plan, { clearExisting: true, bothSenses: true, nameOf: key => key })).toBeUndefined();
+  const snowCase = modelStore.model.loadCases.find(loadCase => loadCase.type === 'S');
+  expect(modelStore.model.loads.some(load => load.type === 'distributed3d' && load.data.elementId === lower
+    && load.data.caseId === snowCase?.id)).toBe(false);
 });
 
 for (const mode of ['width', 'panels'] as const) {
@@ -169,10 +168,8 @@ for (const mode of ['width', 'panels'] as const) {
   });
 }
 
-const review2512Roof = process.env.RUN_KNOWN_WRONG === '2512' ? it : it.skip;
-
 for (const mode of ['width', 'panels'] as const) for (const upper of ['shell', 'frame']) {
-  review2512Roof(`known wrong result: #2512 the exact midpoint on an overhanging ${upper} edge is covered in ${mode}`, () => {
+  it(`#2512 the exact midpoint on an overhanging ${upper} edge is covered in ${mode}`, () => {
     const model = lowerOverhang({ upper });
     const gravity = { mode };
     const plan = buildLoadPlan(input(model, { gravity, tributaryWidth, snow: siteSnow, generateCombinations: true }));
@@ -182,6 +179,7 @@ for (const mode of ['width', 'panels'] as const) for (const upper of ['shell', '
     expect(plan.distributed.some(load => load.elementId === 1 && load.caseType === 'S')).toBe(false);
     expect(() => roofWeightFor(model, gravity, tributaryWidth, 0)).not.toThrow();
     expect(() => snowDriftRefusal(model)).not.toThrow();
-    expect(() => snowLoadCases({ model, snow, tributaryWidth })).not.toThrow();
+    const cases = snowLoadCases({ model, snow, tributaryWidth })?.cases ?? [];
+    expect(cases.flatMap(loadCase => loadCase.distributed).some(load => load.elementId === 1)).toBe(false);
   });
 }

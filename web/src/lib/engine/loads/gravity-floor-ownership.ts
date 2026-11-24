@@ -38,16 +38,18 @@ function clearsTolerance(high: number, low: number, tolerance: number): boolean 
 }
 
 function separated(a: Deck, b: Deck, overlap: MultiPolygon, tolerance: number): boolean {
-  let above = true, below = true;
-  for (const polygon of overlap) for (const ring of polygon) for (const point of ring) {
-    const [aLow, aHigh] = a.heights(point), [bLow, bHigh] = b.heights(point);
-    if (![aLow, aHigh, bLow, bHigh].every(Number.isFinite)) {
-      refuseGravityGeometry(msg('loadPlan.gravity.coveragePrecision'));
+  return overlap.every(polygon => {
+    let above = true, below = true;
+    for (const ring of polygon) for (const point of ring) {
+      const [aLow, aHigh] = a.heights(point), [bLow, bHigh] = b.heights(point);
+      if (![aLow, aHigh, bLow, bHigh].every(Number.isFinite)) {
+        refuseGravityGeometry(msg('loadPlan.gravity.coveragePrecision'));
+      }
+      above &&= clearsTolerance(aLow, bHigh, tolerance);
+      below &&= clearsTolerance(bLow, aHigh, tolerance);
     }
-    above &&= clearsTolerance(aLow, bHigh, tolerance);
-    below &&= clearsTolerance(bLow, aHigh, tolerance);
-  }
-  return above || below;
+    return above || below;
+  });
 }
 
 function separatedByHeightRange(a: Deck, b: Deck, tolerance: number): boolean {
@@ -123,12 +125,6 @@ export function partitionGravityFloors<S extends Shell>(
     const bay = a.kind === 'bay' ? a : b.kind === 'bay' ? b : undefined;
     const shell = a.kind === 'shell' ? a : b.kind === 'shell' ? b : undefined;
     if (!bay || !shell) continue;
-    for (const hole of bay.footprint.slice(1)) {
-      const overlap = positiveOverlap([hole], shell.footprint);
-      if (overlap && !separated(bay.deck, shell.deck, overlap, tolerance)) {
-        refuseGravityGeometry(msg('loadPlan.gravity.differentDeck'));
-      }
-    }
     const overlap = positiveOverlap(bay.footprint, shell.footprint);
     if (!overlap || separated(bay.deck, shell.deck, overlap, tolerance)) continue;
     const basis = bay.deck.basis;

@@ -6,6 +6,8 @@ import { buildSolverLoads3D } from '../../solver-service';
 import type { Load } from '../../../store/model.svelte';
 import type { AnalysisResults3D } from '../../types-3d';
 import type { AnalysisResults } from '../../types';
+import { buildLoadPlan } from '../load-plan';
+import { input as loadPlanInput } from './gravity-width-mass-fixture';
 import { gravityLayout } from '../plan-gravity';
 import { planAreaLoads } from '../plan-area-loads';
 import type { LoadModelData } from '../load-plan';
@@ -76,11 +78,11 @@ it('#2512 linear and P-Delta reactions include both nearby decks sharing a fixed
       { type: 'equalDOF', masterNode: 4, slaveNode: 8, dofs: [2] },
     ],
   };
-  const plan = roofPlan(model);
+  const pressure = 1;
+  const plan = buildLoadPlan(loadPlanInput(model, { gravity: { mode: 'panels' }, dead: [{ labelKey: 'a', q: pressure }] }));
   expect(plan.outcome).toBe('READY');
   const dead = plan.surface.filter(load => load.caseType === 'D');
-  expect(dead.map(load => load.quadId)).toEqual([1, 2]);
-  const pressure = dead[0]!.q;
+  expect(dead.map(load => [load.quadId, load.q])).toEqual([[1, pressure], [2, pressure]]);
   const loads: Load[] = dead.map((load, index) => ({
     type: 'surface3d', data: { id: index + 1, quadId: load.quadId, q: load.q },
   }));

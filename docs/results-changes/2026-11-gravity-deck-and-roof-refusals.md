@@ -4,6 +4,6 @@ Automatic panel gravity checks the original overlapping bay regions before a she
 
 The same check for positive area and deck separation applies when independent eccentric connections have unequal plan offsets. A 13 m × 9 m shell at 3.02 m that overhangs a 10 m × 6 m bay at 3.00 m formerly generated 117 kN of shell pressure and another 60 kN on the bay at the same pressure. Generation now stops when those connections leave the overlapping area without a resolved owner.
 
-For panel and width generation, the roof coverage check refuses when a member extends past a footprint edge and rounding its projected midpoint would exclude it from the cover on that edge. The previous result could apply roof and snow loads to a member below a higher roof.
+For panel and width generation, a member whose exact midpoint lies on a collinear roof edge counts as covered. The coverage check uses both endpoints, including members extending beyond the edge.
 
 Regenerate loads on affected projects. A blocked project needs resolved geometry or explicit load assignment before analysis.

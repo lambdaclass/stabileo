@@ -300,7 +300,19 @@ function gableWithLeanTo(mesh: number, y: number, drop: number, angle = 0) {
 
 it('#2282 the eave bay under a gable with a descending lean-to needs explicit loads', () => {
   for (const [mesh, angle] of [[1, 0], [3, 0.37]] as const) {
-    checkBlockedGravity(gableWithLeanTo(mesh, -4, 1, angle), differentDeck);
+    const model = gableWithLeanTo(mesh, -4, 1, angle);
+    checkBlockedGravity(model, differentDeck);
+    const expected = 2 * 10 * Math.hypot(5, 2) + 10 * Math.hypot(4, 1);
+    for (const slab of ['oneWay', 'twoWay'] as const) for (const loadEveryPanel of [false, true]) {
+      const gravity = { mode: 'panels', slab, loadEveryPanel } as const;
+      const plan = buildLoadPlan(planInput(model, { gravity }));
+      expect(plan).toMatchObject({ outcome: 'BLOCKED', blockedKeys: [differentDeck], surface: [], distributed: [], nodal: [] });
+      const isolated = buildLoadPlan(planInput({ ...model, elements: new Map() }, { gravity, dead: [{ labelKey: 'a', q: 1 }] }));
+      expect(isolated.outcome, JSON.stringify(isolated.blockedKeys)).toBe('READY');
+      const dead = isolated.surface.filter(load => load.caseType === 'D');
+      expect(dead.map(load => load.quadId)).toEqual([...model.quads.keys()]);
+      expect(surfaceKN(dead, model)).toBeCloseTo(expected, 8);
+    }
   }
 });
 
@@ -1344,6 +1356,9 @@ for (const end of [10, 6]) it(`#2512 shell-owned bay area cannot mask a lower ro
       expect(deadLoadKN(plan, model)).toBeCloseTo(60, 10);
       expect(gravityLayout(model, { ...input.gravity, tributaryWidth: 3 }).roofQuads.has(1)).toBe(true);
     } else {
+      expect(plan).toMatchObject({
+        outcome: 'BLOCKED', blockedKeys: [differentDeck], cases: [], surface: [], distributed: [], nodal: [],
+      });
       checkBlockedGravity(model, differentDeck);
     }
 

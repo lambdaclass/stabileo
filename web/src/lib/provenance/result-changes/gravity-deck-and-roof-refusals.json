@@ -28,14 +28,14 @@
     "hu": "A bizonytalan automatikus gravitációs terhek és tetőterhek elutasítása"
   },
   "explanation": {
-    "en": "Regenerate automatic loads. Generation stops if a shell's ownership over overlapping bays is ambiguous or midpoint rounding would hide cover at an overhanging roof edge.",
-    "es": "Regenerá las cargas automáticas. La generación se detiene si la asignación a una placa en paños superpuestos es ambigua o si el redondeo del punto medio oculta la cobertura en el borde de una cubierta.",
-    "pt": "Gere novamente as cargas automáticas. A geração é interrompida se a atribuição a uma casca em painéis sobrepostos for ambígua ou se o arredondamento do ponto médio ocultar a cobertura na sua borda.",
-    "de": "Erzeugen Sie die automatischen Lasten neu. Die Erzeugung wird abgebrochen, wenn die Zuordnung überlappender Trägerfelder zu einer Schale unklar ist oder wenn die Rundung des Stabmittelpunkts die Überdeckung am Dachrand verdecken würde.",
-    "fr": "Régénérez les charges automatiques. La génération s’arrête si l’attribution des travées superposées à une coque est ambiguë ou si l’arrondi du milieu de la barre masque la couverture en rive de toiture.",
-    "tr": "Otomatik yükleri yeniden üretin. Örtüşen kiriş açıklıklarının kabuğa atanması belirsizse veya orta nokta yuvarlaması çatı kenarındaki örtüyü gizlerse yük üretimi durur.",
-    "zh": "请重新生成自动荷载。如果重叠梁格的壳单元归属不明确，或中点舍入会掩盖屋面边缘的遮盖，系统将停止生成。",
-    "hu": "Generálja újra az automatikus terheket. A generálás leáll, ha az átfedő gerendamezők héjhoz rendelése bizonytalan, vagy ha a rúd felezőpontjának kerekítése elfedi a tetőszéli takarást."
+    "en": "Regenerate automatic loads. Generation stops if shell ownership over overlapping bays is ambiguous. A member with its exact midpoint on a collinear roof edge is covered.",
+    "es": "Regenerá las cargas automáticas. La generación se detiene si la asignación de paños superpuestos a una placa es ambigua. Una barra queda cubierta si su punto medio exacto está sobre un borde colineal de la cubierta.",
+    "pt": "Gere novamente as cargas automáticas. A geração é interrompida quando a atribuição de painéis sobrepostos a uma casca é ambígua. Uma barra fica coberta quando seu ponto médio exato está em uma borda colinear da cobertura.",
+    "de": "Erzeugen Sie die automatischen Lasten neu. Bei unklarer Zuordnung überlappender Trägerfelder zu einer Schale wird die Erzeugung abgebrochen. Liegt der exakte Stabmittelpunkt auf einem kollinearen Dachrand, gilt der Stab als überdeckt.",
+    "fr": "Régénérez les charges automatiques. La génération s’arrête si l’attribution de travées superposées à une coque est ambiguë. Une barre est couverte lorsque son milieu exact se trouve sur une rive de toiture colinéaire.",
+    "tr": "Otomatik yükleri yeniden üretin. Örtüşen kiriş açıklıklarının kabuğa atanması belirsizse üretim durur. Kesin orta noktası doğrudaş çatı kenarı üzerinde olan eleman örtülü sayılır.",
+    "zh": "请重新生成自动荷载。如果重叠梁格的壳单元归属不明确，系统将停止生成。构件的精确中点位于与其共线的屋面边缘时，视为受到遮盖。",
+    "hu": "Generálja újra az automatikus terheket. A generálás leáll, ha az átfedő gerendamezők héjhoz rendelése bizonytalan. A rúd fedett, ha pontos felezőpontja a vele egy egyenesbe eső tetőszélen van."
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-gravity-deck-and-roof-refusals.md",

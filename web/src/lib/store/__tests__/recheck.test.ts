@@ -60,7 +60,7 @@ describe('recheckStore', () => {
     recheckStore.openProject(solved as never, 'pro');
     await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
     expect(recheckStore.noticeOpen).toBe(true);
-    expect(recheckStore.assessment?.changes.map((c) => c.id)).toEqual(['generated-area-loads-headroom', 'snow-panel-geometry', 'concentrated-live-actions', 'gravity-width-mass', 'gravity-stations-and-exact-coverage']);
+    expect(recheckStore.assessment?.changes.map((c) => c.id)).toEqual(['generated-area-loads-headroom', 'snow-panel-geometry', 'concentrated-live-actions', 'gravity-width-mass', 'gravity-stations-and-exact-coverage', 'gravity-coverage-decisions']);
     recheckStore.reset();
     recheckStore.openProject({ ...solved, designData: { loadBasis: { resultsVersion: RESULTS_VERSION } } } as never, 'pro');
     await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
@@ -73,7 +73,7 @@ describe('recheckStore', () => {
     recheckStore.reset();
     recheckStore.openProject(generated(headroom), 'pro');
     await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
-    expect(recheckStore.assessment?.changes.map(c => c.id)).toEqual(['snow-panel-geometry', 'concentrated-live-actions', 'gravity-width-mass', 'gravity-stations-and-exact-coverage']);
+    expect(recheckStore.assessment?.changes.map(c => c.id)).toEqual(['snow-panel-geometry', 'concentrated-live-actions', 'gravity-width-mass', 'gravity-stations-and-exact-coverage', 'gravity-coverage-decisions']);
     expect(recheckStore.noticeOpen).toBe(true);
     recheckStore.reset();
     const { designData: _basis, ...unstamped } = generated() as unknown as Record<string, unknown>;

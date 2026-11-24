@@ -465,14 +465,14 @@ function shellOverhangingBay(rise: number, verticalTies = 4) {
 
 const separateBayRefusal = { key: 'loadPlan.gravity.differentDeck' };
 
-function expectPanelRefusal(model: ReviewModel, reason: EngineMessage, loadEveryPanel: boolean) {
+function expectPanelRefusal(model: ReviewModel, reason: EngineMessage, loadEveryPanel: boolean, tributaryWidth = 3) {
   const gravity = { mode: 'panels', loadEveryPanel } as const;
-  const plan = buildLoadPlan(input(model, { gravity, generateCombinations: true }));
+  const plan = buildLoadPlan(input(model, { gravity, tributaryWidth, generateCombinations: true }));
   expect(plan.outcome, JSON.stringify({ blocked: plan.blockedKeys, levels: plan.levels })).toBe('BLOCKED');
   expect(plan.blockedKeys).toEqual([reason]);
   expect(plan).toMatchObject({ cases: [], distributed: [], nodal: [], surface: [], combinations: [], levels: [] });
-  expect(() => gravityLayout(model, { ...gravity, tributaryWidth: 3 })).toThrow(expect.objectContaining(reason));
-  expect(() => roofWeightFor(model, gravity, 3, 0)).toThrow(expect.objectContaining(reason));
+  expect(() => gravityLayout(model, { ...gravity, tributaryWidth })).toThrow(expect.objectContaining(reason));
+  expect(() => roofWeightFor(model, gravity, tributaryWidth, 0)).toThrow(expect.objectContaining(reason));
   expect(() => snowDriftRefusal(model)).toThrow(expect.objectContaining(reason));
 }
 
@@ -550,7 +550,6 @@ function wideCover(span = 13) {
   return model;
 }
 
-const openingRefusal = { key: 'loadPlan.gravity.differentDeck' };
 const wideCoverRefusal = { key: 'loadPlan.gravity.widePanels', params: { n: 1, span: MAX_DECK_SPAN } };
 
 for (const loadEveryPanel of [false, true]) {
@@ -561,10 +560,6 @@ for (const loadEveryPanel of [false, true]) {
   it(`#2512 a shadowed shell cannot return its load to a bay (${loadEveryPanel})`, () => {
     expectPanelRefusal(straddlingShadow(), shadowRefusal, loadEveryPanel);
   });
-
-  it(`#2512 a shell cannot fill a beam bay opening (${loadEveryPanel})`, () => {
-    expectPanelRefusal(openingWithShell(), openingRefusal, loadEveryPanel);
-  });
 }
 
 it('#2512 a rejected wide ring cannot cover a lower member', () => {
@@ -574,7 +569,6 @@ it('#2512 a rejected wide ring cannot cover a lower member', () => {
 for (const [name, fixture, reason] of [
   ['a shell straddling the deck limit', () => tiedShellBay(3.02, 3.06), separateBayRefusal],
   ['a reclaimed shadowed bay', straddlingShadow, shadowRefusal],
-  ['a shell inside a bay opening', openingWithShell, openingRefusal],
   ['an overhead wide ring without a slab', wideCover, wideCoverRefusal],
 ] as const) {
   it(`#2512 restored apply refuses ${name}`, () => {
@@ -595,8 +589,6 @@ it('#2512 a ring at the span limit or explicitly selected can cover a lower memb
   }
 });
 
-const review2512Ownership = process.env.RUN_KNOWN_WRONG === '2512' ? it : it.skip;
-
 function shellAcrossBayGap(overlapGap = false) {
   const { model, node, beam } = modelFixture();
   const corners = [[0, 0], [10, 0], [10, 6], [8, 6], [8, 2], [2, 2], [2, 6], [0, 6]];
@@ -608,15 +600,72 @@ function shellAcrossBayGap(overlapGap = false) {
 }
 
 for (const loadEveryPanel of [false, true]) {
-  review2512Ownership(`known wrong result: #2512 a shell can own the framed opening without loading the opening beams twice (${loadEveryPanel})`, () => {
-    deadResultant(openingWithShell(), loadEveryPanel, [1], area);
+  it(`#2512 a shell can own the framed opening without loading the opening beams twice (${loadEveryPanel})`, () => {
+    const model = openingWithShell();
+    deadResultant(model, loadEveryPanel, [1], area);
+    const plan = buildLoadPlan(input(model, { gravity: { mode: 'panels', loadEveryPanel } }));
+    expect(plan.surface.filter(load => load.caseType === 'D')).toEqual([expect.objectContaining({ quadId: 1, q: pressure })]);
+    const memberForce = plan.distributed.filter(load => load.caseType === 'D').reduce((force, load) => {
+      const beam = model.elements.get(load.elementId)!;
+      const a = model.nodes.get(beam.nodeI)!, b = model.nodes.get(beam.nodeJ)!;
+      const length = Math.hypot(b.x - a.x, b.y - a.y);
+      return force - (load.q + (load.qJ ?? load.q)) * ((load.b ?? length) - (load.a ?? 0)) / 2;
+    }, 0);
+    const nodeForce = -plan.nodal.filter(load => load.caseType === 'D').reduce((force, load) => force + load.fz, 0);
+    expect(memberForce + nodeForce).toBeCloseTo((area - 2 * 2) * pressure, 10);
+    expect(() => roofWeightFor(model, { mode: 'panels', loadEveryPanel }, 3, pressure)).not.toThrow();
+
+    const overhang = modelFixture();
+    for (const [id, point] of model.nodes) overhang.model.nodes.set(id, point);
+    overhang.model.elements = model.elements;
+    const ring = model.quads.get(1)!.nodes;
+    const nodes = ring.map(id => {
+      const { x, y, z } = model.nodes.get(id)!;
+      return overhang.node(x === 4 ? 4.1 : x, y, z ?? 0);
+    }) as [number, number, number, number];
+    overhang.model.quads.set(1, { ...model.quads.get(1)!, nodes });
+    expectPanelRefusal(overhang.model, separateBayRefusal, loadEveryPanel);
   });
 
-  review2512Ownership(`known wrong result: #2512 separation is independent across disconnected bay overlaps (${loadEveryPanel})`, () => {
+  it(`#2512 separation is independent across disconnected bay overlaps (${loadEveryPanel})`, () => {
     const model = shellAcrossBayGap();
-    const gravity = { mode: 'panels', loadEveryPanel } as const;
-    const plan = buildLoadPlan(input(model, { gravity }));
-    expect(plan.blockedKeys).not.toContainEqual(separateBayRefusal);
+    deadResultant(model, loadEveryPanel, [1], 36 + 2 * Math.hypot(10, 0.5), 56);
     expectPanelRefusal(shellAcrossBayGap(true), separateBayRefusal, loadEveryPanel);
+    expect(() => roofWeightFor(model, { mode: 'panels', loadEveryPanel }, 3, pressure)).not.toThrow();
   });
 }
+
+it('#2512 a shared edge does not exempt folded-back shells from overlap checks', () => {
+  const { model, node } = modelFixture();
+  const edge = [node(0, 0, 3), node(4, 0, 3)] as const;
+  for (const direction of [1, -1]) {
+    const id = model.quads.size + 1;
+    const nodes: [number, number, number, number] = [...edge, node(-3, -4 * direction, 3), node(7, direction, 3)];
+    model.quads.set(id, { id, nodes, materialId: 1, thickness: shellThickness });
+  }
+  for (const loadEveryPanel of [false, true]) expectPanelRefusal(model, shadowRefusal, loadEveryPanel);
+});
+
+it('#2512 a low roof fringe cannot reclaim a shell-filled opening', () => {
+  const model = openingWithShell();
+  const node = (x: number, y: number, z: number) => {
+    const id = model.nodes.size + 1;
+    model.nodes.set(id, { id, x, y, z });
+    return id;
+  };
+  const beam = (nodeI: number, nodeJ: number, type: 'frame' | 'truss' = 'frame') => {
+    const id = model.elements.size + 1;
+    model.elements.set(id, { id, nodeI, nodeJ, type, sectionId: 1, materialId: 1 });
+  };
+  const top = [[0, 0], [10, 0], [10, 6], [0, 6]].map(([x, y]) => node(x!, y!, 4));
+  for (const [i, one] of top.entries()) {
+    beam(one, top[(i + 1) % 4]!, 'truss');
+  }
+  beam(node(0, 3, 4), node(10, 3, 4));
+  expectPanelRefusal(model, { key: 'loadPlan.gravity.areaResultant', params: { z: 3 } }, false, 1);
+  const gravity = { mode: 'panels', loadEveryPanel: true } as const;
+  const plan = buildLoadPlan(input(model, { gravity, tributaryWidth: 1 }));
+  expect(plan.outcome, JSON.stringify(plan.blockedKeys)).toBe('READY');
+  expect(plan.levels.find(level => level.elevation === 3)?.planAreaM2).toBeCloseTo(area, 10);
+  expect(plan.surface.filter(load => load.caseType === 'D')).toEqual([expect.objectContaining({ quadId: 1, q: pressure })]);
+});

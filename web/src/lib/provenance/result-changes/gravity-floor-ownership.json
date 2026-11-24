@@ -31,14 +31,14 @@
     "hu": "Az automatikus gravitációs teher minden területének hozzárendelése egyetlen teherhordóhoz"
   },
   "explanation": {
-    "en": "Regenerate panel gravity loads. A shell has precedence over a beam bay on the same floor. Where vertically coupled shells overlap, the upper shell takes the load if it is clearly above and fully covers the lower quad. Unresolved ownership blocks generation.",
-    "es": "Regenerá las cargas gravitatorias por paños. Una placa tiene prioridad sobre un paño de vigas del mismo entrepiso. Si se superponen placas vinculadas verticalmente, la superior toma la carga cuando está claramente por encima y cubre toda la inferior. La asignación ambigua bloquea la generación.",
-    "pt": "Gere novamente as cargas gravitacionais por painéis. Uma casca tem prioridade sobre um painel de vigas no mesmo piso. Quando cascas ligadas verticalmente se sobrepõem, a superior recebe a carga se estiver claramente acima e cobrir toda a inferior. A geração é bloqueada em caso de atribuição ambígua.",
-    "de": "Erzeugen Sie die Schwerkraftlast im Feldmodus neu. Eine Schale hat Vorrang vor einem Trägerfeld auf derselben Ebene. Überlappen vertikal gekoppelte Schalen, trägt die obere Schale die Last, wenn sie eindeutig höher liegt und das untere Element vollständig überdeckt. Bei ungeklärter Zuordnung wird die Erzeugung gesperrt.",
-    "fr": "Régénérez les charges de gravité par panneaux. Une coque est prioritaire sur une travée du même niveau. Lorsque des coques couplées verticalement se chevauchent, la coque supérieure reprend la charge si elle est clairement au-dessus et couvre entièrement la coque inférieure. Une attribution ambiguë bloque la génération.",
-    "tr": "Panel yerçekimi yüklerini yeniden üretin. Aynı kattaki kiriş paneline göre kabuğa öncelik verilir. Düşey bağlı kabuklar çakıştığında, üst kabuk belirgin biçimde yukarıdaysa ve alt elemanı bütünüyle örtüyorsa yükü alır. Yükün nereye atanacağı belirlenemezse üretim durdurulur.",
-    "zh": "请重新生成板块重力荷载。同一楼层的壳单元优先于梁板区。竖向耦合的壳单元重叠时，若上层明显更高且完全覆盖下层，则由上层承载。无法确定归属时停止生成。",
-    "hu": "Generálja újra a mezőnkénti gravitációs terheket. Az azonos szinten lévő héj elsőbbséget élvez a gerendamezővel szemben. Ha függőlegesen összekapcsolt héjak átfedik egymást, a felső héj viseli a terhet, amennyiben egyértelműen magasabban van és teljesen lefedi az alsó héjelemet. Ha a teher hozzárendelése nem egyértelmű, a generálás leáll."
+    "en": "Regenerate panel gravity loads. Shells take over a beam bay when they fully cover the same deck. Shells on separate decks retain their own loads. Generation stops if ownership is unresolved.",
+    "es": "Regenerá las cargas gravitatorias por paños. Las placas toman la carga de un paño de vigas si cubren por completo el mismo entrepiso. Las placas en entrepisos independientes conservan sus cargas. La generación se detiene si no se puede resolver la asignación.",
+    "pt": "Gere novamente as cargas gravitacionais por painéis. As cascas assumem a carga de um painel de vigas quando cobrem todo o mesmo piso. Cascas em pisos independentes conservam suas cargas. A geração é interrompida quando a atribuição é indefinida.",
+    "de": "Erzeugen Sie die Schwerkraftlasten im Feldmodus neu. Schalen übernehmen die Last eines Trägerfelds, wenn sie dasselbe Deck vollständig abdecken. Schalen auf getrennten Decks behalten ihre Lasten. Bei unklarer Zuordnung stoppt die Erzeugung.",
+    "fr": "Régénérez les charges gravitaires par panneaux. Les coques reprennent la charge d’une travée lorsqu’elles couvrent entièrement le même plancher. Les coques sur des planchers distincts conservent leurs charges. La génération s’arrête si l’attribution reste indéterminée.",
+    "tr": "Panel yerçekimi yüklerini yeniden üretin. Kabuklar aynı döşemeyi bütünüyle kapladıklarında kiriş açıklığının yükünü alır. Ayrı döşemelerdeki kabuklar kendi yüklerini korur. Yükün nereye atanacağı belirlenemezse üretim durur.",
+    "zh": "请重新生成板格重力荷载。壳单元完全覆盖同一楼层时，承受梁格荷载。独立楼层上的壳单元保留各自的荷载。无法确定荷载归属时停止生成。",
+    "hu": "Generálja újra a mezőnkénti gravitációs terheket. A héjak átveszik a gerendamező terhét, ha teljesen lefedik ugyanazt a födémet. A különálló födémek héjai megtartják saját terheiket. A generálás leáll, ha a hozzárendelés nem egyértelmű."
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-gravity-floor-ownership.md",

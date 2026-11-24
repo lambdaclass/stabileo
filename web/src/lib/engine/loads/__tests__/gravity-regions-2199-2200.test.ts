@@ -96,10 +96,13 @@ it('a wholly uncovered bay still loads every side', () => {
   expect(out.surface).toEqual([]);
 });
 
-const review2512Coverage = process.env.RUN_KNOWN_WRONG === '2512' ? it : it.skip;
-
-review2512Coverage('known wrong result: #2512 a rotated, mirrored and subdivided bay transfers all gravity to the shell', () => {
-  const { model } = bay(10, 0.37, -1, 3, true);
+it('#2512 a rotated, mirrored and subdivided bay transfers all gravity to the shell', () => {
+  const { model } = bay(10, 0, -1, 3, true);
+  for (const node of model.nodes.values()) {
+    const { x, y } = node;
+    node.x = x - y / 2;
+    node.y = x + y / 2;
+  }
   const loads = areaLoads(model);
   expect(loads.distributed).toEqual([]);
   expect(loads.nodal).toEqual([]);
@@ -107,4 +110,9 @@ review2512Coverage('known wrong result: #2512 a rotated, mirrored and subdivided
   expect(loads.surface.map(load => load.q)).toEqual([1, 1, 1]);
   expect([...gravityLayout(model, { mode: 'panels', tributaryWidth: 1, loadEveryPanel: true }).areaByLevel.values()])
     .toEqual([expect.closeTo(60, 10)]);
+});
+
+it('#2512 separately rounded bay and shell boundaries refuse when the shell union leaves a gap', () => {
+  const { model } = bay(10, 0.37, -1, 3, true);
+  expect(() => areaLoads(model)).toThrow(expect.objectContaining({ key: 'loadPlan.gravity.differentDeck' }));
 });

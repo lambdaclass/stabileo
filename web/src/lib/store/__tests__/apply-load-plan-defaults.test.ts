@@ -133,6 +133,12 @@ it('#2499 restoring then applying refuses two ambiguous shell pressures', () => 
   const lower = addLayer(3), upper = addLayer(3.02);
   const materialId = modelStore.model.materials.keys().next().value!;
   const first = modelStore.addQuad(lower, materialId, 0.1);
+  const gravity = { mode: 'panels' } as const;
+  const dead = [{ labelKey: 'a', q: 1 }];
+  const valid = buildLoadPlan({ ...planInput(), gravity, dead });
+  expect(valid.outcome).toBe('READY');
+  expect(applyLoadPlan(valid, { clearExisting: true, bothSenses: true, nameOf })).toBeUndefined();
+  expect(modelStore.model.loads).toContainEqual(expect.objectContaining({ type: 'surface3d', data: expect.objectContaining({ quadId: first, q: 1 }) }));
   const second = modelStore.addQuad(upper, materialId, 0.1);
   lower.forEach((masterNode, i) => modelStore.addConstraint({
     type: 'eccentricConnection', masterNode, slaveNode: upper[i]!, offsetZ: 0.02,
@@ -140,8 +146,11 @@ it('#2499 restoring then applying refuses two ambiguous shell pressures', () => 
   modelStore.restore(JSON.parse(JSON.stringify(modelStore.snapshot())));
   const input = planInput();
   const model = { ...input.model, constraints: modelStore.model.constraints };
-  const plan = buildLoadPlan({ ...input, model, gravity: { mode: 'panels' }, dead: [{ labelKey: 'a', q: 1 }] });
+  const plan = buildLoadPlan({ ...input, model, gravity, dead });
   const before = modelStore.snapshot();
+  expect(before.loads).toContainEqual(expect.objectContaining({
+    type: 'surface3d', data: expect.objectContaining({ quadId: first, q: 1 }),
+  }));
   const reason = { key: 'loadPlan.gravity.overlappingShells', params: { first, second } };
   expect(plan).toMatchObject({ outcome: 'BLOCKED', blockedKeys: [reason], surface: [], distributed: [], nodal: [] });
   expect(applyLoadPlan(plan, { clearExisting: true, bothSenses: true, nameOf })).toEqual(reason);
