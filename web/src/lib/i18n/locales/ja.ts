@@ -58,6 +58,7 @@ const ja: Translations = {
   'landing.heroTitle2': '瞬時に。',
   'landing.heroSub': 'ブラウザで行うプロ仕様の 2D & 3D 構造解析。インストール不要、妥協なし。',
   'landing.tryApp': 'アプリを試す',
+  'landing.openingEditor': 'エディターを開いています…',
   'landing.tryTour': 'ガイドツアーを試す',
   'landing.metricLanguages': '言語',
   'landing.metricAnalysis': '完全な解析',

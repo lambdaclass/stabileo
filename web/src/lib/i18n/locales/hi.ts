@@ -55,6 +55,7 @@ const hi: Translations = {
   'landing.heroTitle2': 'तुरंत।',
   'landing.heroSub': 'आपके ब्राउज़र में पेशेवर स्तर का 2D और 3D संरचनात्मक विश्लेषण। कोई इंस्टॉलेशन नहीं, कोई समझौता नहीं।',
   'landing.tryApp': 'ऐप आज़माएं',
+  'landing.openingEditor': 'संपादक खुल रहा है…',
   'landing.tryTour': 'गाइडेड टूर आज़माएं',
   'landing.metricLanguages': 'भाषाएँ',
   'landing.metricAnalysis': 'पूर्ण विश्लेषण',

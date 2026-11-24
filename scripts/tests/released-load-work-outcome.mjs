@@ -12,21 +12,28 @@ export function assertExpectedUnresolved(actual) {
   assert.equal(new Set(actual).size,actual.length,'duplicate unresolved case');
   assert.deepEqual([...actual].sort(),[...expectedUnresolved].sort());
 }
-const nanMessage='The result was withheld: it contains NaN at results.reactions[0].fx';
-const nanWithholding={message:nanMessage,structuredDiagnostics:[{
-  code:'non_finite_result',message:nanMessage,phase:'results.reactions[0].fx',severity:'error'
-}]};
+const physicalEquilibriumMessage='P-Delta results were withheld because the physical free-DOF residual did not meet the requested tolerance.';
+const pdeltaTolerance=1e-12;
+function isPdeltaEquilibriumRefusal(error) {
+  try {
+    const payload=JSON.parse(String(error));
+    const value=payload.structuredDiagnostics[0].value;
+    return Number.isFinite(value)&&value>pdeltaTolerance&&isDeepStrictEqual(payload,{
+      message:physicalEquilibriumMessage,structuredDiagnostics:[{
+        code:'result_quantity_unavailable',message:physicalEquilibriumMessage,phase:'equilibrium',
+        severity:'error',threshold:pdeltaTolerance,value
+      }]
+    });
+  } catch {return false;}
+}
 export function allowsUnresolved(reference,result,error,key) {
   if(Object.hasOwn(pdeltaPinned,key)) {
-    if(reference?.ok?.converged!==false||reference?.error!==undefined) return false;
     switch(pdeltaPinned[key].category) {
       case 'matching-non-convergence':
       case 'main-refused-before-pdelta':
-        return error===undefined&&result?.converged===false;
-      case 'nan-withholding':
-        if(result!==undefined) return false;
-        try {return isDeepStrictEqual(JSON.parse(String(error)),nanWithholding);}
-        catch {return false;}
+        return reference?.ok?.converged===false&&reference?.error===undefined&&error===undefined&&result?.converged===false;
+      case 'physical-equilibrium-refusal':
+        return reference?.ok===undefined&&result===undefined&&isPdeltaEquilibriumRefusal(reference?.error)&&isPdeltaEquilibriumRefusal(error);
       default:
         return false;
     }
