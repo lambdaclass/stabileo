@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { tPublic as t } from '../../lib/i18n/store.svelte';
+  import type { Snippet } from 'svelte';
   import { enterApp, prefetchApp } from './landing-utils';
 
-  let { label, class: className }: { label: string; class?: string } = $props();
+  let { children, class: className }: { children: Snippet; class?: string } = $props();
   let pending = $state(false);
 
   function open() {
@@ -23,7 +23,7 @@
   onclick={open}
   onpointerenter={(event) => { if (event.pointerType === 'mouse') prefetchApp(); }}
   onfocus={prefetchApp}
->{t(label)}</button>
+>{@render children()}</button>
 
 <style>
   .pending {

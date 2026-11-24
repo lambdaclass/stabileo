@@ -43,7 +43,7 @@
           <div class="footer-group">
             <p class="footer-head" id="foot-{id}">{t(head)}</p>
             <ul aria-labelledby="foot-{id}">
-              {#if id === 'product'}<li><OpenEditorButton label="landing.footLaunch" /></li>{/if}
+              {#if id === 'product'}<li><OpenEditorButton>{t('landing.footLaunch')}</OpenEditorButton></li>{/if}
               {#each (PUBLIC_POLICY_AVAILABLE ? links.filter(([to]) => publicFeatureEnabled(to)) : links) as [to, key]}<li><PublicLink {to}>{key ? t(key) : 'CIRSOC'}</PublicLink></li>{/each}
               {#if id === 'project'}
                 <li><a href={DOCS_HUB_URL} target="_blank" rel="noreferrer">{t('landing.footDocs')}</a></li>
@@ -76,5 +76,5 @@
 </footer>
 
 <div class="mobile-sticky">
-  <OpenEditorButton class="btn btn-primary" label="landing.navOpenEditor" />
+  <OpenEditorButton class="btn btn-primary">{t('landing.navOpenEditor')}</OpenEditorButton>
 </div>

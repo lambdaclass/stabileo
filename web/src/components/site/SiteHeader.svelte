@@ -69,7 +69,7 @@
           <PublicLink to={item.to} class="nav-link{current === item.id ? ' current' : ''}" data-nav={item.id} aria-current={current === item.id ? 'page' : undefined}>{t(item.key)}</PublicLink>
         {/if}
       {/each}
-      <OpenEditorButton class="btn btn-primary nav-menu-cta" label="landing.navOpenEditor" />
+      <OpenEditorButton class="btn btn-primary nav-menu-cta">{t('landing.navOpenEditor')}</OpenEditorButton>
     </div>
     {/if}
 
@@ -100,7 +100,7 @@
       {#if __PUBLIC_FEATURES__.accounts && actions}
         {@render actions()}
       {:else}
-      <OpenEditorButton class="btn btn-primary btn-sm" label="landing.navOpenEditor" />
+      <OpenEditorButton class="btn btn-primary btn-sm">{t('landing.navOpenEditor')}</OpenEditorButton>
 
       <button
         class="nav-toggle"

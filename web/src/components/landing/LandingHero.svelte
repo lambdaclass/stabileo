@@ -25,7 +25,7 @@
       <p class="lead">{t('landing.heroP')}</p>
 
       <div class="hero-ctas">
-        <OpenEditorButton class="btn btn-primary btn-lg" label="landing.heroCtaPrimary" />
+        <OpenEditorButton class="btn btn-primary btn-lg">{t('landing.heroCtaPrimary')}</OpenEditorButton>
         <PublicLink to={tools() ? '/tools' : '/examples'} class="btn btn-ghost btn-lg">{t(tools() ? 'landing.navTools' : 'landing.navExamples')} →</PublicLink>
       </div>
 
