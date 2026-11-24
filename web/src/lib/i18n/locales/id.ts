@@ -3756,7 +3756,8 @@ const id: Translations = {
   "autoLoad.work.draw": "Menggambar beban",
   "autoLoad.work.step": "Langkah {step} dari {total}",
   "autoLoad.work.cancel": "Hentikan",
-  "svc.engine.unsupportedPointLoadMoment": "Beban titik pada batang tidak dapat menerapkan momen pada komponen {field}. Terapkan momen pada simpul 3D di posisi beban semula.",
+  "svc.engine.unsupportedPointLoadMoment": "Komponen momen yang tidak didukung untuk beban titik pada batang",
+  "svc.engine.applyPointLoadMomentAtNode": "terapkan momen pada simpul 3D di posisi beban semula",
   "svc.engine.nonFiniteNumber": "Masukkan bilangan berhingga untuk {path} (nilai yang diterima: {value}).",
 } as const satisfies Record<string, string>;
 

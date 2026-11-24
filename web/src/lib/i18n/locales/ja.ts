@@ -3746,7 +3746,8 @@ const ja: Translations = {
   "autoLoad.work.draw": "荷重を描画中",
   "autoLoad.work.step": "ステップ {step} / {total}",
   "autoLoad.work.cancel": "停止",
-  "svc.engine.unsupportedPointLoadMoment": "部材の集中荷重では {field} 成分のモーメントを指定できません。荷重の元の位置にある 3D 節点にモーメントを適用してください。",
+  "svc.engine.unsupportedPointLoadMoment": "部材集中荷重で指定できないモーメント成分",
+  "svc.engine.applyPointLoadMomentAtNode": "荷重の元の位置にある 3D 節点にモーメントを適用してください",
   "svc.engine.nonFiniteNumber": "{path} に有限の数値を入力してください（受け取った値: {value}）。",
 } as const satisfies Record<string, string>;
 

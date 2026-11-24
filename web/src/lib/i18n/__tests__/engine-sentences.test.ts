@@ -26,6 +26,12 @@ describe('engine sentences', () => {
     }
   });
 
+  it('translates a member point moment refusal and preserves its component', () => {
+    setLocale('es');
+    expect(localizeEngineText('Unsupported point load field mx: apply the moment at a 3D node at the original load position'))
+      .toBe('Momento no compatible con una carga puntual de barra en mx: aplicá el momento en un nodo 3D en la posición original de la carga');
+  });
+
   it('leaves a sentence it does not know as it is', () => {
     setLocale('es');
     expect(localizeEngineText('Residual 1.2e-3 exceeds tolerance')).toBe('Residual 1.2e-3 exceeds tolerance');

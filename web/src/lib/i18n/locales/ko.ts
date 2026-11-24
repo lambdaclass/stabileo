@@ -3753,7 +3753,8 @@ const ko: Translations = {
   "autoLoad.work.draw": "하중 그리는 중",
   "autoLoad.work.step": "{total}단계 중 {step}단계",
   "autoLoad.work.cancel": "중지",
-  "svc.engine.unsupportedPointLoadMoment": "부재의 집중하중에는 {field} 성분의 모멘트를 적용할 수 없습니다. 원래 하중 위치에 있는 3D 절점에 모멘트를 적용하세요.",
+  "svc.engine.unsupportedPointLoadMoment": "부재 집중하중에서 지원하지 않는 모멘트 성분",
+  "svc.engine.applyPointLoadMomentAtNode": "원래 하중 위치에 있는 3D 절점에 모멘트를 적용하세요",
   "svc.engine.nonFiniteNumber": "{path}에 유한한 수를 입력하세요(받은 값: {value}).",
 } as const satisfies Record<string, string>;
 

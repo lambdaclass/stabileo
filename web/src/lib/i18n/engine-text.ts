@@ -113,6 +113,8 @@ const ENGINE_SENTENCES: ReadonlyArray<[string, string]> = [
   ['non-finite moving load member diagram', DIAGRAM_EXTREMA_UNAVAILABLE],
   ['Repeated load case factors cancel to zero in this combination.', 'svc.engine.cancelledCombination'],
   [AMBIGUOUS_ROLLER_Z, 'svc.engine.ambiguousRollerZ'],
+  ['Unsupported point load field', 'svc.engine.unsupportedPointLoadMoment'],
+  ['apply the moment at a 3D node at the original load position', 'svc.engine.applyPointLoadMomentAtNode'],
   ['exact plastic LP resource budget exceeded', 'plasticDiag.resourceBudget'],
   ['Singular stiffness matrix — structure is a mechanism', 'svc.engine.mechanism'],
   ['All diagonal entries are zero — singular matrix', 'svc.engine.zeroDiagonal'],
@@ -124,8 +126,6 @@ export function localizeEngineText(message: string): string {
   for (const [en, key] of ENGINE_SENTENCES) if (out.includes(en)) out = out.split(en).join(tAt(key, i18n.locale));
   out = out.replace(/Non-finite number \((NaN|Infinity|-Infinity)\) at (\S+)/g, (_, value: string, path: string) =>
     fill('svc.engine.nonFiniteNumber', { value, path }));
-  out = out.replace(/Unsupported point load field (mx|my|mz): apply the moment at a 3D node at the original load position/g, (_, field: string) =>
-    fill('svc.engine.unsupportedPointLoadMoment', { field }));
   return out.replace(SELF_CHECK_REFUSAL, (whole, check: string, mode: string | undefined, rest: string) => {
     const name = selfCheckName(check, mode);
     if (!name) return whole;
