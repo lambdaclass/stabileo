@@ -231,6 +231,8 @@ async function boot(page: Page) {
       localStorage.clear();
       // Cleared with the rest: the normative design is turned back on, as the specs use it.
       localStorage.setItem('stabileo-design-in-pro', '1');
+      // The building as it comes, one shell per bay: the restore is what is checked, not a mesh.
+      localStorage.setItem('stabileo-mesh-before-analysis', '0');
       localStorage.setItem('stabileo-lang', 'es');
       localStorage.setItem('stabileo-lang-manual', '1');
     } catch { /* private mode */ }
@@ -269,10 +271,10 @@ async function calculate(page: Page) {
   const mark = (await toastsSeen(page)).length;
   await page.evaluate(async () => { await window.__stabileoActions.solve(); });
   await expect
-    .poll(() => page.evaluate(() => window.__stabileo.solveCount()), { timeout: 120_000 }) // slow-ok: Helper for the @slow restore/design/rebar journey; the smoke toast-recorder test does not call it.
+    .poll(() => page.evaluate(() => window.__stabileo.solveCount()), { timeout: 120_000 }) // slow-ok: Helper for the @timing restore/design/rebar journey; the smoke toast-recorder test does not call it.
     .toBeGreaterThan(before);
   await expect
-    .poll(async () => (await toastsSeen(page)).slice(mark).join(' | '), { timeout: 120_000 }) // slow-ok: Helper for the @slow restore/design/rebar journey; the smoke toast-recorder test does not call it.
+    .poll(async () => (await toastsSeen(page)).slice(mark).join(' | '), { timeout: 120_000 }) // slow-ok: Helper for the @timing restore/design/rebar journey; the smoke toast-recorder test does not call it.
     .toContain('Análisis 3D exitoso');
 }
 
@@ -325,13 +327,13 @@ async function openViewer(page: Page, step: string) {
   if (await docs.count() > 0 && await docs.getAttribute('open') === null) {
   }
   await page.getByTestId('doc-3d').click();
-  await expect(page.getByTestId('rebar-workspace')).toBeVisible({ timeout: 120_000 }); // slow-ok: Helper for the @slow restore/design/rebar journey; the smoke toast-recorder test does not call it.
+  await expect(page.getByTestId('rebar-workspace')).toBeVisible({ timeout: 120_000 }); // slow-ok: Helper for the @timing restore/design/rebar journey; the smoke toast-recorder test does not call it.
   await expect
-    .poll(() => page.evaluate(() => window.__stabileo.rebarSceneBuilds()), { timeout: 180_000 }) // slow-ok: Helper for the @slow restore/design/rebar journey; the smoke toast-recorder test does not call it.
+    .poll(() => page.evaluate(() => window.__stabileo.rebarSceneBuilds()), { timeout: 180_000 }) // slow-ok: Helper for the @timing restore/design/rebar journey; the smoke toast-recorder test does not call it.
     .toBeGreaterThan(before.builds);
   // A scene that built but drew nothing is an empty viewport, and it looks like a working one.
   await expect
-    .poll(() => page.evaluate(() => window.__stabileo.canvasInkRatio()), { timeout: 120_000 }) // slow-ok: Helper for the @slow restore/design/rebar journey; the smoke toast-recorder test does not call it.
+    .poll(() => page.evaluate(() => window.__stabileo.canvasInkRatio()), { timeout: 120_000 }) // slow-ok: Helper for the @timing restore/design/rebar journey; the smoke toast-recorder test does not call it.
     .toBeGreaterThan(0);
 
   const after = await counters(page);
@@ -363,7 +365,7 @@ async function assertResponsive(page: Page, step: string) {
  * that watched `addedNodes` alone — the first version of this one — silently missed
  * exactly that, which is the case where a new toast replaces one that is dismissing.
  *
- * The @slow journey passes either way, because whether the container happens to empty
+ * The @timing journey passes either way, because whether the container happens to empty
  * first is a timing accident. So the three shapes are pinned here directly, in a second,
  * on every PR rather than only on main.
  */
@@ -406,7 +408,7 @@ test('@smoke the toast recorder catches inserted, recycled and late-filled toast
   await expect.poll(() => toastsSeen(page)).toContain('late message');
 });
 
-test('@slow restore, design, view in 3-D — then reload and do it again', async ({ page }) => {
+test('@timing restore, design, view in 3-D — then reload and do it again', async ({ page }) => {
   test.setTimeout(900_000);
   const w = watchPage(page);
   // Installed once, before the first navigation — not inside `boot`, which runs three

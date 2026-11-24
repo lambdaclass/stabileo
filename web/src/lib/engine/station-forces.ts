@@ -21,7 +21,8 @@
  */
 
 import type { ElementForces3D } from './types-3d';
-import { evaluateDiagramAt } from './diagrams-3d';
+import { criticalDiagramStations3D, evaluateDiagramAt } from './diagrams-3d';
+import { sortedStations, type DiagramStation } from './member-diagram';
 
 /** Full force state at one station of one element. Signs are the solver's and are preserved. */
 export interface StationForces {
@@ -35,64 +36,15 @@ export interface StationForces {
   torsion: number; // torsion about local X (kN·m) — sign preserved
 }
 
-/**
- * Build the set of critical stations for an element.
- * Includes:
- *   - endpoints (t=0, t=1)
- *   - midpoint (t=0.5)
- *   - quarter points (t=0.25, t=0.75)
- *   - point-load positions (from both Y and Z load arrays)
- *   - distributed-load start/end positions
- *   - midpoint of each distributed-load span (where parabolic peak may occur)
- *
- * The quarter grid is seeded UNCONDITIONALLY, which is what makes it a subset of this set on any
- * member of real length — except one: a member of effectively zero length short-circuits to
- * `[0, 1]`. `rc-forces-report.ts` defines the quarter mode as an evaluation rather than a filter
- * for exactly that case.
- */
+export function criticalForceStations(ef: ElementForces3D): DiagramStation[] {
+  if (ef.length < 1e-10) return [{ t: 0 }, { t: 1 }];
+  const cuts = criticalDiagramStations3D(ef);
+  const ts = new Set(cuts.map(cut => cut.t));
+  return [...cuts, ...[0.25, 0.5, 0.75].filter(t => !ts.has(t)).map(t => ({ t }))].sort((a, b) => a.t - b.t);
+}
+
 export function buildCriticalStations(ef: ElementForces3D): number[] {
-  const tSet = new Set<number>();
-
-  // Endpoints + midpoint + quarter points
-  tSet.add(0);
-  tSet.add(0.25);
-  tSet.add(0.5);
-  tSet.add(0.75);
-  tSet.add(1);
-
-  const L = ef.length;
-  if (L < 1e-10) return [0, 1];
-
-  // Point load positions
-  for (const pl of [...(ef.pointLoadsY ?? []), ...(ef.pointLoadsZ ?? [])]) {
-    const t = pl.a / L;
-    if (t > 0 && t < 1) tSet.add(+t.toFixed(8));
-  }
-
-  // Distributed load boundaries and midpoints
-  for (const dl of [...(ef.distributedLoadsY ?? []), ...(ef.distributedLoadsZ ?? [])]) {
-    const tA = dl.a / L;
-    const tB = dl.b / L;
-    if (tA > 0 && tA < 1) tSet.add(+tA.toFixed(8));
-    if (tB > 0 && tB < 1) tSet.add(+tB.toFixed(8));
-    const tMid = (tA + tB) / 2;
-    if (tMid > 0 && tMid < 1) tSet.add(+tMid.toFixed(8));
-  }
-
-  // For uniform loads spanning the whole element, the moment peak is at
-  // t = Vy_start / (q * L) if within [0, 1]. This is the zero-shear point.
-  // We can detect this from the endpoint forces.
-  if (ef.vyStart !== 0 && ef.vyEnd !== 0 && Math.sign(ef.vyStart) !== Math.sign(ef.vyEnd)) {
-    // Shear crosses zero → moment has an interior extremum
-    const tZero = Math.abs(ef.vyStart) / (Math.abs(ef.vyStart) + Math.abs(ef.vyEnd));
-    if (tZero > 0.01 && tZero < 0.99) tSet.add(+tZero.toFixed(8));
-  }
-  if (ef.vzStart !== 0 && ef.vzEnd !== 0 && Math.sign(ef.vzStart) !== Math.sign(ef.vzEnd)) {
-    const tZero = Math.abs(ef.vzStart) / (Math.abs(ef.vzStart) + Math.abs(ef.vzEnd));
-    if (tZero > 0.01 && tZero < 0.99) tSet.add(+tZero.toFixed(8));
-  }
-
-  return Array.from(tSet).sort((a, b) => a - b);
+  return sortedStations(criticalForceStations(ef).map(cut => cut.t));
 }
 
 /**
@@ -109,16 +61,17 @@ export function stationTs(ef: ElementForces3D, spec: StationSpec): number[] {
 }
 
 /** Extract the full force tuple at a single station. */
-export function extractForcesAtStation(ef: ElementForces3D, t: number): StationForces {
+export function extractForcesAtStation(ef: ElementForces3D, station: number | DiagramStation): StationForces {
+  const { t, right } = typeof station === 'number' ? { t: station, right: false } : station;
   const x = t * ef.length;
   return {
     t,
     x: +x.toFixed(4),
-    n: evaluateDiagramAt(ef, 'axial', t),
-    vy: evaluateDiagramAt(ef, 'shearY', t),
-    vz: evaluateDiagramAt(ef, 'shearZ', t),
-    my: evaluateDiagramAt(ef, 'momentY', t),
-    mz: evaluateDiagramAt(ef, 'momentZ', t),
-    torsion: evaluateDiagramAt(ef, 'torsion', t),
+    n: evaluateDiagramAt(ef, 'axial', t, right),
+    vy: evaluateDiagramAt(ef, 'shearY', t, right),
+    vz: evaluateDiagramAt(ef, 'shearZ', t, right),
+    my: evaluateDiagramAt(ef, 'momentY', t, right),
+    mz: evaluateDiagramAt(ef, 'momentZ', t, right),
+    torsion: evaluateDiagramAt(ef, 'torsion', t, right),
   };
 }

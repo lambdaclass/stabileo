@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
+import { e2eBuildFeatures } from './scripts/build-public-features';
 import { SMOKE_PATTERN, SMOKE_TIMEOUT_MS } from './scripts/e2e-budgets';
 import { fileURLToPath } from 'node:url';
 import { existsSync, readdirSync, statSync } from 'node:fs';
@@ -83,6 +84,17 @@ const PREBUILT = process.env.E2E_PREBUILT === '1';
 export const E2E_BUILD_MARKER = 'e2e-build.txt';
 if (PREBUILT && !existsSync(resolve(fileURLToPath(new URL('.', import.meta.url)), 'dist', E2E_BUILD_MARKER))) {
   throw new Error(`E2E_PREBUILT=1 but dist/${E2E_BUILD_MARKER} is missing: dist is not a VITE_E2E=1 build`);
+}
+
+if (PREBUILT && process.env.STABILEO_E2E_PROFILE) e2eBuildFeatures(true);
+
+function reusableProfile(): boolean {
+  try {
+    if (process.env.STABILEO_E2E_PROFILE) e2eBuildFeatures(true);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function distIsStale(): boolean {
@@ -215,7 +227,7 @@ export default defineConfig({
      * build that was never asked for VITE_E2E=1, so every PRO fixture timed out
      * waiting for hooks that bundle does not contain.
      */
-    reuseExistingServer: !process.env.CI && !process.env.E2E_PORT && !distIsStale(),
+    reuseExistingServer: !process.env.CI && !process.env.E2E_PORT && reusableProfile() && !distIsStale(),
     /*
      * The command builds the whole site, prerender included, before serving it. On a busy CI
      * runner that passed 240 s twice on 2026-10-22 ("Timed out waiting 240000ms from

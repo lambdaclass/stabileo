@@ -41,10 +41,11 @@ export function withHooks(r: ProvidedReinforcement, hooks: readonly Hook[]): Pro
 export function completeAnchorage(
   adapter: DesignCodeAdapter, ctx: MemberContext, reinf: ProvidedReinforcement, verdict: ProvidedRebarResult,
   passes: (v: ProvidedRebarResult) => boolean,
+  evaluate = adapter.verify.bind(adapter),
 ): { reinf: ProvidedReinforcement; verdict: ProvidedRebarResult; verified: boolean } {
   if (ctx.elementType !== 'beam') return { reinf, verdict, verified: false };
   const hooked = withHooks(reinf, hooksAsked(verdict.checks));
   if (!hooked) return { reinf, verdict, verified: false };
-  const v = adapter.verify(ctx, hooked);
+  const v = evaluate(ctx, hooked);
   return passes(v) ? { reinf: hooked, verdict: v, verified: true } : { reinf, verdict, verified: true };
 }

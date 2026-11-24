@@ -28,6 +28,7 @@ mod harmonic_direct;
 pub mod load_cases;
 pub mod winkler;
 pub mod line_search;
+pub(crate) mod nonlinear;
 pub mod adaptive_stepping;
 pub mod contact;
 pub mod soil_curves;
@@ -79,3 +80,6 @@ pub(crate) mod reaction_recovery;
 mod applied_loads;
 mod member_loads;
 pub use member_loads::{canonical_interval as canonical_member_load_interval, canonical_interval_values as canonical_member_load_interval_values};
+
+#[cfg(feature = "experimental-nonlinear")]
+pub mod experimental_nonlinear;

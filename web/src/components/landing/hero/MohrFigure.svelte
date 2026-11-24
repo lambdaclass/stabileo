@@ -1,11 +1,10 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { tPublic as t, i18n } from '../../../lib/i18n/store.svelte';
-  import { mouseOnly } from './loop.svelte';
 
   type V3 = [number, number, number];
-  type Props = { prefersReducedMotion?: boolean; paused?: boolean };
-  let { prefersReducedMotion = false, paused = false }: Props = $props();
+  type Props = { prefersReducedMotion?: boolean };
+  let { prefersReducedMotion = false }: Props = $props();
 
   const SIGMA: [V3, V3, V3] = [[80, 30, 0], [30, 20, 0], [0, 0, -30]];
   const MID = 50, RAD = Math.hypot(30, 30);
@@ -16,10 +15,8 @@
   const LIFT_FROM = 0.34, LIFT_SPAN = 0.6;
 
   let u = $state(prefersReducedMotion ? STILL_AT : 0);
-  let hovered = $state(false);
   let focused = $state(false);
-  const hover = mouseOnly((on) => (hovered = on));
-  const running = $derived(!prefersReducedMotion && !paused && !hovered && !focused);
+  const running = $derived(!prefersReducedMotion && !focused);
 
   onMount(() => {
     let raf = 0;
@@ -143,8 +140,6 @@
     viewBox="0 -45 560 270"
     role="img"
     aria-labelledby="mf-title mf-desc"
-    onpointerenter={hover.enter}
-    onpointerleave={hover.leave}
     onfocusin={() => (focused = true)}
     onfocusout={() => (focused = false)}
   >

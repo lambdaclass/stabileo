@@ -17,6 +17,8 @@ import { resultsStore } from '../store/results.svelte';
 import { uiStore } from '../store/ui.svelte';
 import { viewState, visiblePlates, visibleQuads } from '../store/view-state.svelte';
 import { physicalGroups } from '../store/physical';
+import { physicalPlates } from '../store/physical-plates';
+import { plateLoops } from '../model/physical/plate';
 import { buildTimelapse } from '../store/build-timelapse.svelte';
 import { shellColorForMaterial, SHELL_EDGE_COLOR } from '../three/create-shell-mesh';
 import { disposeObject } from '../three/selection-helpers';
@@ -35,6 +37,20 @@ export function meshHidden(): boolean {
   // A result drawn on the shells is drawn on their mesh.
   if (asked === 'hide') return !shellResultDrawn();
   return modelStore.quads.size + modelStore.plates.size > MESH_SHOWN_UP_TO && !resultsStore.results3D;
+}
+
+/** Whether meshed plates are drawn as their pieces: until there are results, unless the plates' switch says otherwise. */
+export function platesAsPieces(): boolean {
+  return !(uiStore.platesShowMesh ?? resultsStore.results3D != null);
+}
+
+/** The nodes a plate's mesh made (its ties and edge supports with it), but for one a load was put on: not drawn while plates are drawn as pieces. */
+export function plateMeshNodes(): Set<number> {
+  const out = new Set<number>();
+  for (const p of physicalPlates()) for (const n of plateLoops(p.group).owned) out.add(n);
+  if (!out.size) return out;
+  for (const l of modelStore.model.loads) if (l.type === 'nodal3d' || l.type === 'nodal') out.delete((l.data as { nodeId: number }).nodeId);
+  return out;
 }
 
 /** Whether a contour is drawn on the shells now. */

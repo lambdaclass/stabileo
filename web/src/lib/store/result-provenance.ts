@@ -23,6 +23,7 @@ import {
 } from '../provenance/result-provenance';
 import { t } from '../i18n';
 import { certifiableInputOf, type CertifiableInput } from '../engine/solver-service';
+import { finiteWireJson } from '../engine/wasm-solver';
 import { runCertify, hasCertify } from '../engine/certify-jobs';
 
 /**
@@ -73,7 +74,7 @@ export async function ensureEngineHashes(): Promise<{ input: string; results: st
   engineHashRuns++;
   const promise = (async () => {
     try {
-      const h = await runCertify('engine_reproduce_hashes', [JSON.stringify(input.wire()), SPACE_INPUT[input.dim]]) as { inputSha256: string; resultsSha256: string };
+      const h = await runCertify('engine_reproduce_hashes', [finiteWireJson(input.wire()), SPACE_INPUT[input.dim]]) as { inputSha256: string; resultsSha256: string };
       return { input: h.inputSha256, results: h.resultsSha256 };
     } catch {
       return null;

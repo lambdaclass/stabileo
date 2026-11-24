@@ -10,13 +10,16 @@
   import ExportSection from '../../export/ExportSection.svelte';
   import DrawingPresets, { type Preset } from '../../export/DrawingPresets.svelte';
   import DrawingLayout from '../../export/DrawingLayout.svelte';
-  import { DXF_CONTENTS, DXF_NEEDS_RESULTS, type DxfContents, type DxfProjection } from '../../../lib/dxf/writer';
+  import { DXF_CONTENTS, DXF_NEEDS_RESULTS, dxfPaperAxes, dxfPaperAxesText, type DxfContents, type DxfProjection } from '../../../lib/dxf/writer';
   import type { DxfUnit } from '../../../lib/dxf/types';
   import { downloadProDxf, downloadProDxfFiles } from '../../../lib/pro/dxf-export';
   import { ensureProResults, hasShells, resultSetChoices } from '../../../lib/pro/export-results';
   import { uiStore } from '../../../lib/store';
   import { modelIsEmpty, tellIfEmpty } from '../../../lib/export/empty-model';
   import CheckGroup from './CheckGroup.svelte';
+  import { axesStore } from '../../../lib/axes/axes.svelte';
+  import { relabelAxes } from '../../../lib/axes/user-names';
+  import { upLabel } from '../../../lib/axes/frame';
 
   let { open = $bindable(false), onformat }: { open: boolean; onformat?: (f: DrawingFormat) => void } = $props();
 
@@ -80,7 +83,17 @@
     ? [chosen.map((k) => t(`proExport.dxf.${k}`)).join(', '), resultsChosen ? t(layers ? 'proExport.dxfLayoutLayers' : 'proExport.dxfLayoutSeparate') : null].filter(Boolean).join(' · ')
     : t('viewExport.nothing'));
   const resultsSummary = $derived(choices.find((c) => c.key === setKey)?.label ?? '—');
-  const drawingSummary = $derived(`${t(PROJECTIONS.find((p) => p.id === projection)!.key)} · ${units}`);
+  const viewName = (key: string) => relabelAxes(t(key));
+  const drawingSummary = $derived(`${viewName(PROJECTIONS.find((p) => p.id === projection)!.key)} · ${units}`);
+  const projectionNote = $derived(projection === 'space'
+    ? t('proExport.dxf3dNote').replace(/\bZ\b/, upLabel(axesStore.frame).replace('+', ''))
+    : t('proExport.dxfProjectedNote'));
+  const axesNote = $derived.by(() => {
+    if (axesStore.frame.identity) return '';
+    const s = t('proExport.dxfAxes').replace('{axes}', dxfPaperAxesText(projection, axesStore.choice));
+    const reversed = dxfPaperAxes(projection, axesStore.choice).find((a) => a.sign < 0);
+    return projection === 'space' && reversed ? `${s} ${t('proExport.dxfLeftHandNote').replace('{axis}', reversed.name)}` : s;
+  });
 
   async function run() {
     if (busy || !anything) return;
@@ -136,7 +149,7 @@
     <label class="xs-field">
       <span>{t('proExport.dxfProjection')}</span>
       <select value={projection} onchange={(e) => { projection = e.currentTarget.value as DxfProjection; save(); }} data-testid="pro-dxf-projection">
-        {#each PROJECTIONS as p (p.id)}<option value={p.id}>{t(p.key)}</option>{/each}
+        {#each PROJECTIONS as p (p.id)}<option value={p.id}>{viewName(p.key)}</option>{/each}
       </select>
     </label>
     <div class="xs-field">
@@ -157,7 +170,7 @@
         </select>
       </label>
     {/if}
-    <Hint class="xs-note" text={projection === 'space' ? t('proExport.dxf3dNote') : t('proExport.dxfProjectedNote')} />
+    <Hint class="xs-note" text={axesNote ? `${projectionNote} ${axesNote}` : projectionNote} />
   </ExportSection>
 
   {#snippet actions()}

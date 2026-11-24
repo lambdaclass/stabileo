@@ -36,7 +36,7 @@ pub const DOCUMENTED_INFINITE: &[&str] = &["relBound", "omega2Upper", "uniquenes
 /// Paths (`$.results.displacements[3].ux`) of every non-finite `f32`/`f64` in
 /// `value`, with `NaN` or `inf` appended (`$.x=NaN`).
 pub fn non_finite_paths<T: Serialize + ?Sized>(value: &T) -> Vec<String> {
-    let mut a = Audit { path: vec!["$".to_string()], bad: Vec::new(), range: None };
+    let mut a = Audit { path: Vec::new(), bad: Vec::new(), range: None };
     // Serialization errors (e.g. non-string map keys) only stop the walk.
     let _ = value.serialize(&mut a);
     a.bad.into_iter().map(|(p, x)| format!("{p}={x}")).collect()
@@ -44,7 +44,7 @@ pub fn non_finite_paths<T: Serialize + ?Sized>(value: &T) -> Vec<String> {
 
 /// Paths of the non-finite numbers in `value` that are not a documented +∞.
 pub fn undocumented_non_finite<T: Serialize + ?Sized>(value: &T) -> Vec<String> {
-    let mut a = Audit { path: vec!["$".to_string()], bad: Vec::new(), range: None };
+    let mut a = Audit { path: Vec::new(), bad: Vec::new(), range: None };
     let _ = value.serialize(&mut a);
     a.bad
         .into_iter()
@@ -57,7 +57,7 @@ pub fn undocumented_non_finite<T: Serialize + ?Sized>(value: &T) -> Vec<String> 
 /// a magnitude outside `[min_abs, max_abs]`. A resource cap for the exact
 /// (rational) certificates, whose work grows with the bit length of the data.
 pub fn check_magnitudes<T: Serialize + ?Sized>(value: &T, min_abs: f64, max_abs: f64) -> Result<(), String> {
-    let mut a = Audit { path: vec!["$".to_string()], bad: Vec::new(), range: Some((min_abs, max_abs)) };
+    let mut a = Audit { path: Vec::new(), bad: Vec::new(), range: Some((min_abs, max_abs)) };
     let _ = value.serialize(&mut a);
     if a.bad.is_empty() {
         return Ok(());
@@ -155,8 +155,19 @@ macro_rules! guarded_enum {
 }
 pub(crate) use guarded_enum;
 
+/// One step of the way to a number. The text is written only for a number that is reported:
+/// almost every number audited is finite, and is never named.
+enum Segment {
+    /// A struct field or an enum variant: `.name`.
+    Named(&'static str),
+    /// A sequence or tuple element: `[i]`.
+    Index(usize),
+    /// A map entry: `["key"]`.
+    Key(String),
+}
+
 struct Audit {
-    path: Vec<String>,
+    path: Vec<Segment>,
     bad: Vec<(String, f64)>,
     /// Also record finite non-zero numbers outside `[lo, hi]` in magnitude.
     range: Option<(f64, f64)>,
@@ -186,10 +197,23 @@ impl Audit {
             None => false,
         };
         if !x.is_finite() || out_of_range {
-            self.bad.push((self.path.concat(), x));
+            self.bad.push((self.written(), x));
         }
     }
-    fn nested<T: Serialize + ?Sized>(&mut self, seg: String, v: &T) -> Result<(), Error> {
+    fn written(&self) -> String {
+        use fmt::Write;
+        let mut text = String::from("$");
+        for segment in &self.path {
+            // Writing to a String cannot fail.
+            let _ = match segment {
+                Segment::Named(name) => write!(text, ".{name}"),
+                Segment::Index(i) => write!(text, "[{i}]"),
+                Segment::Key(key) => write!(text, "[{key:?}]"),
+            };
+        }
+        text
+    }
+    fn nested<T: Serialize + ?Sized>(&mut self, seg: Segment, v: &T) -> Result<(), Error> {
         self.path.push(seg);
         let r = match v.serialize(&mut *self) {
             Err(Error(s)) => match s.strip_prefix(crate::check::NON_FINITE) {
@@ -254,7 +278,7 @@ impl<'a> ser::Serializer for &'a mut Audit {
         variant: &'static str,
         v: &T,
     ) -> R {
-        self.nested(format!(".{variant}"), v)
+        self.nested(Segment::Named(variant), v)
     }
     fn serialize_seq(self, _: Option<usize>) -> Result<Seq<'a>, Error> {
         Ok(Seq { a: self, i: 0 })
@@ -292,7 +316,7 @@ pub struct Seq<'a> {
 
 impl Seq<'_> {
     fn elem<T: Serialize + ?Sized>(&mut self, v: &T) -> R {
-        let seg = format!("[{}]", self.i);
+        let seg = Segment::Index(self.i);
         self.i += 1;
         self.a.nested(seg, v)
     }
@@ -341,7 +365,7 @@ impl ser::SerializeMap for Map<'_> {
         Ok(())
     }
     fn serialize_value<T: Serialize + ?Sized>(&mut self, v: &T) -> R {
-        let seg = format!("[{:?}]", self.key);
+        let seg = Segment::Key(std::mem::take(&mut self.key));
         self.a.nested(seg, v)
     }
     fn end(self) -> R { Ok(()) }
@@ -351,7 +375,7 @@ impl ser::SerializeStruct for &mut Audit {
     type Ok = ();
     type Error = Error;
     fn serialize_field<T: Serialize + ?Sized>(&mut self, key: &'static str, v: &T) -> R {
-        self.nested(format!(".{key}"), v)
+        self.nested(Segment::Named(key), v)
     }
     fn end(self) -> R { Ok(()) }
 }
@@ -360,7 +384,7 @@ impl ser::SerializeStructVariant for &mut Audit {
     type Ok = ();
     type Error = Error;
     fn serialize_field<T: Serialize + ?Sized>(&mut self, key: &'static str, v: &T) -> R {
-        self.nested(format!(".{key}"), v)
+        self.nested(Segment::Named(key), v)
     }
     fn end(self) -> R { Ok(()) }
 }
@@ -418,6 +442,83 @@ mod tests {
             ["$.x=NaN", "$.list[1]=inf", "$.pair[1]=-inf", "$.byId[\"7\"]=NaN", "$.relBound=inf"]
         );
         assert_eq!(undocumented_non_finite(&s), ["$.x=NaN", "$.list[1]=inf", "$.pair[1]=-inf", "$.byId[\"7\"]=NaN"]);
+    }
+
+    #[derive(Serialize)]
+    struct Pair(f64, f64);
+
+    #[derive(Serialize)]
+    enum Shape {
+        Plain,
+        Wrapped(f64),
+        Tuple(f64, Vec<f64>),
+        Named { depth: f64, rows: Vec<Pair> },
+    }
+
+    /// A value whose serializer refuses a non-finite number the way the unit types do.
+    struct Refusing(f64);
+    impl Serialize for Refusing {
+        fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+            if self.0.is_finite() { s.serialize_f64(self.0) } else { Err(serde::ser::Error::custom(format!("{}{}", crate::check::NON_FINITE, self.0))) }
+        }
+    }
+
+    #[derive(Serialize)]
+    struct Deep {
+        shapes: Vec<Shape>,
+        by_number: BTreeMap<u32, Vec<Option<f64>>>,
+        by_name: BTreeMap<String, Pair>,
+        grid: Vec<Vec<(f64, f32)>>,
+        angle: Refusing,
+        angles: Vec<Refusing>,
+        label: &'static str,
+        count: usize,
+    }
+
+    #[test]
+    fn a_path_is_written_only_for_a_number_it_names_and_reads_as_it_always_did() {
+        let nan = f64::NAN;
+        let deep = Deep {
+            shapes: vec![
+                Shape::Plain,
+                Shape::Wrapped(nan),
+                Shape::Tuple(1.0, vec![2.0, f64::INFINITY]),
+                Shape::Named { depth: f64::NEG_INFINITY, rows: vec![Pair(0.0, 1.0), Pair(nan, 2.0)] },
+            ],
+            by_number: BTreeMap::from([(3, vec![Some(1.0), None, Some(nan)]), (40, vec![])]),
+            by_name: BTreeMap::from([("a \"quoted\" key".to_string(), Pair(1.0, f64::INFINITY)), ("[0]".to_string(), Pair(nan, 1.0))]),
+            grid: vec![vec![(1.0, 2.0)], vec![(3.0, f32::NAN), (f64::INFINITY, 4.0)]],
+            angle: Refusing(nan),
+            angles: vec![Refusing(1.0), Refusing(f64::NEG_INFINITY)],
+            label: "inf",
+            count: 7,
+        };
+        assert_eq!(non_finite_paths(&deep), [
+            "$.shapes[1].Wrapped=NaN",
+            "$.shapes[2][1][1]=inf",
+            "$.shapes[3].depth=-inf",
+            "$.shapes[3].rows[1][0]=NaN",
+            "$.by_number[\"3\"][2]=NaN",
+            "$.by_name[\"[0]\"][0]=NaN",
+            "$.by_name[\"a \\\"quoted\\\" key\"][1]=inf",
+            "$.grid[1][0][1]=NaN",
+            "$.grid[1][1][0]=inf",
+            "$.angle=NaN",
+            "$.angles[1]=-inf",
+        ]);
+        assert_eq!(check_results(&deep).unwrap_err(), "non-finite number in the results at $.shapes[1].Wrapped=NaN, $.shapes[2][1][1]=inf, $.shapes[3].depth=-inf and 8 more");
+        let finite = Deep {
+            shapes: vec![Shape::Wrapped(1e-30), Shape::Named { depth: 2e30, rows: vec![Pair(0.0, 5.0)] }],
+            by_number: BTreeMap::from([(3, vec![Some(1e40)])]), by_name: BTreeMap::new(), grid: vec![vec![(1.0, 2.0)]],
+            angle: Refusing(1.0), angles: vec![], label: "", count: 0,
+        };
+        assert!(non_finite_paths(&finite).is_empty());
+        assert!(check_results(&finite).is_ok());
+        let wide = check_magnitudes(&finite, 1e-20, 1e20).unwrap_err();
+        for path in ["$.shapes[0].Wrapped=1e-30", "$.shapes[1].depth=2e30", "$.by_number[\"3\"][0]=1e40"] {
+            assert!(wide.contains(path), "{wide}");
+        }
+        assert!(!wide.contains("rows"), "{wide}");
     }
 
     #[test]

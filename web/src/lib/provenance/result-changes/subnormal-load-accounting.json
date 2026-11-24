@@ -1,0 +1,32 @@
+{
+  "id": "subnormal-load-accounting",
+  "date": "2026-11-22",
+  "prs": [2470],
+  "area": "analysis",
+  "when": { "any": ["tinyDistributedLoads"] },
+  "quantities": ["solve.ok", "reactions", "elementForces"],
+  "title": {
+    "en": "Underflow in applied load accounting",
+    "es": "Subdesbordamiento en la verificación de cargas aplicadas",
+    "pt": "Subfluxo na verificação das cargas aplicadas",
+    "de": "Unterlauf bei der Prüfung aufgebrachter Lasten",
+    "fr": "Sous-dépassement dans la vérification des charges appliquées",
+    "hu": "Alulcsordulás az alkalmazott terhek ellenőrzésében",
+    "tr": "Uygulanan yüklerin denetiminde alt taşma",
+    "zh": "施加荷载校核中的浮点下溢"
+  },
+  "explanation": {
+    "en": "The load check allows for floating-point underflow in each component. Spatial frame assembly retains nonzero distributed loads below its former cutoff.",
+    "es": "La verificación de cargas contempla el subdesbordamiento de punto flotante en cada componente. El ensamblaje del pórtico espacial conserva las cargas distribuidas no nulas por debajo del umbral anterior.",
+    "pt": "A verificação das cargas considera o subfluxo de ponto flutuante em cada componente. A montagem do pórtico espacial preserva cargas distribuídas não nulas abaixo do limite anterior.",
+    "de": "Die Lastprüfung berücksichtigt Gleitkommaunterlauf je Komponente. Bei der Assemblierung räumlicher Rahmen bleiben Streckenlasten ungleich null auch unterhalb der bisherigen Schwelle erhalten.",
+    "fr": "La vérification des charges tient compte du sous-dépassement en virgule flottante dans chaque composante. L’assemblage du portique spatial conserve les charges réparties non nulles sous l’ancien seuil.",
+    "hu": "A terhek ellenőrzése komponensenként figyelembe veszi a lebegőpontos alulcsordulást. A térbeli keret összeállítása a korábbi küszöb alatti nem nulla megoszló terheket is megtartja.",
+    "tr": "Yük denetimi, her bileşendeki kayan nokta alt taşmasını hesaba katar. Uzay çerçeve montajı, önceki eşiğin altındaki sıfırdan farklı yayılı yükleri korur.",
+    "zh": "荷载校核考虑每个分量的浮点下溢。空间框架组装保留低于原阈值的非零分布荷载。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-subnormal-load-accounting.md",
+    "heading": "Underflow in applied load accounting"
+  }
+}

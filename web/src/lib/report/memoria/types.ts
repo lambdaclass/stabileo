@@ -97,7 +97,7 @@ export interface MemoriaInput {
   };
   global: {
     modal?: Array<{ mode: number; period: number; mx: number; my: number; cumX: number; cumY: number }>;
-    storeyShear?: Array<{ level: string; vx: number; vy: number; kx: number | null; ky: number | null; soft: boolean }>;
+    storeyShear?: Array<{ level: string; vxMagnitude: number; vyMagnitude: number; kx: number | null; ky: number | null; soft: boolean }>;
     drift?: { limit: number; cd: number; rows: Array<{ level: string; ratioX: number; ratioY: number; status: string }> };
   };
   elements: MemoriaElement[];

@@ -52,7 +52,7 @@ test('admin dictionaries retain user, privacy and project labels independently o
   const config = await resolveConfig({ root, logLevel: 'silent' }, 'build', 'production');
   const plugin = config.plugins.find(plugin => plugin.name === 'public-i18n');
   const load = typeof plugin.load === 'function' ? plugin.load : plugin.load.handler;
-  const code = load.call({ addWatchFile() {} }, '\0virtual:app-i18n/en');
+  const code = ['\0virtual:app-i18n/en', '\0virtual:public-i18n/en'].map(id => load.call({ addWatchFile() {} }, id)).join('\n');
   for (const key of ['admin.metrics.lede', 'account.name', 'legal.termsLink', 'usage.whatIsSent', 'cloud.modeBasic']) assert.ok(code.includes(JSON.stringify(key)) || code.includes(`'${key}'`), key);
 }));
 

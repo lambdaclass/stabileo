@@ -16,6 +16,7 @@ import { createTextSprite } from './selection-helpers';
 import { structureNodes } from './node-scale';
 import type { UnitSystem } from '../utils/units';
 import { GLOBAL_Z } from '../geometry/coordinate-system';
+import { t } from '../i18n';
 
 // ─── Shared display-direction helper ────────────────────────────
 // Centralised so that createDiagramGroup3D and createEnvelopeDiagramGroup3D
@@ -273,6 +274,15 @@ export function createDiagramGroup3D(
           group.add(sprite);
         }
       };
+
+      if (diagram.extrema === 'bounded') {
+        const text = `${t('figures.diagramMagnitudeBound')} ${formatDiagramValue3D(Math.abs(diagram.maxAbsValue), kind, unitSystem).replace(/^[-−]/, '')}`;
+        const sprite = createTextSprite(text, colors.text, 28);
+        sprite.position.copy(baselinePoints[Math.floor(baselinePoints.length / 2)]!);
+        sprite.scale.set(spriteScale, spriteScale, 1);
+        group.add(sprite);
+        continue;
+      }
 
       // Always add max absolute value marker
       if (Math.abs(maxVal) >= Math.abs(minVal)) {

@@ -420,6 +420,16 @@ export function cornerSeatHold(stirrupDiaMm: number, barDiaMm: number): number {
   return Math.max(0, Math.sqrt(Math.max(0, reach * reach - inset * inset)) - inset);
 }
 
+export function stirrupBendHoldsBar(
+  bar: Pick<LongitudinalBarRef, 'across' | 'up' | 'diameterMm'>,
+  acrossOffset: number, upOffset: number, stirrupDiaMm: number,
+  bendCentrelineRadius = centrelineRadius(minMandrelDiameter(stirrupDiaMm, 'transverse').value, stirrupDiaMm),
+  tolerance = CORNER_SEAT_TOLERANCE,
+): boolean {
+  return Math.hypot(bar.across - acrossOffset, bar.up - upOffset)
+    <= bendCentrelineRadius + stirrupDiaMm / 2000 + tolerance + bar.diameterMm / 2000;
+}
+
 function barAtCorner(
   bars: readonly LongitudinalBarRef[],
   acrossOffset: number, upOffset: number,
@@ -436,10 +446,9 @@ function barAtCorner(
   // leg centreline; a flat 5 mm tolerance failed for the same reason. Neither cage was wrong —
   // the check was.
   let best: { id: string; d: number } | null = null;
-  const reachBase = bendCentrelineRadius + stirrupDiaMm / 2000 + tolerance;
   for (const bar of bars) {
     const d = Math.hypot(bar.across - acrossOffset, bar.up - upOffset);
-    if (d <= reachBase + bar.diameterMm / 2000 && (best === null || d < best.d)) {
+    if ((best === null || d < best.d) && stirrupBendHoldsBar(bar, acrossOffset, upOffset, stirrupDiaMm, bendCentrelineRadius, tolerance)) {
       best = { id: bar.id, d };
     }
   }
@@ -1240,6 +1249,9 @@ export interface UnbracedBarReport {
   refs: ClauseRef[];
 }
 
+/** §25.7.2.3(b): the clear distance an unbraced bar may keep from a braced one, m. */
+export const unbracedClearLimit = (stirrupDiaMm: number): number => Math.min(15 * stirrupDiaMm / 1000, 0.150);
+
 /**
  * §25.7.2.3(b) — "Ninguna barra que no esté arriostrada lateralmente puede estar separada
  * más de 15·d_be o 150 mm libres de una barra arriostrada."
@@ -1248,6 +1260,7 @@ export interface UnbracedBarReport {
  * across-offset coincides with a leg offset. The limit is the LESSER of the two terms, and it
  * is a CLEAR distance, so the two bar radii come off the centre-to-centre distance.
  */
+
 export function unbracedBarReport(
   bars: readonly LongitudinalBarRef[],
   /**
@@ -1259,7 +1272,7 @@ export function unbracedBarReport(
   stirrupDiaMm: number,
   tolerance = 0.002,
 ): UnbracedBarReport {
-  const limit = Math.min(15 * stirrupDiaMm / 1000, 0.150);
+  const limit = unbracedClearLimit(stirrupDiaMm);
 
   // ── What "laterally supported" means, per §25.7.2.3(a) ─────────────
   //

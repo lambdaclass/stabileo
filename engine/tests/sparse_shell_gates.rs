@@ -2220,12 +2220,36 @@ fn shifted_ic_factorizes_shell_pattern_that_breaks_ic0() {
     );
 }
 
+#[test]
+fn shifted_ic_is_finite_on_plates_and_conjugate_gradients_converges_with_it() {
+    for (n, most) in [(10usize, 40usize), (20, 60), (30, 80)] {
+        let input = make_ss_plate(n, n);
+        let dof_num = DofNumbering::build_3d(&input);
+        let asm = assemble_sparse_3d(&input, &dof_num, false);
+        let nf = dof_num.n_free;
+        let f_f = &asm.f[..nf];
+        let pre = ShiftedIcPreconditioner::new(&asm.k_ff, 0.0);
+        let mut z = vec![0.0; nf];
+        pre.apply(f_f, &mut z);
+        assert!(z.iter().all(|v| v.is_finite()), "{n}x{n}: non-finite preconditioned vector");
+
+        let result = pcg_solve(&asm.k_ff, f_f, &pre, 1e-8, 1000usize.max(nf / 4));
+        assert!(result.converged, "{n}x{n}: residual {:.2e}", result.final_rel_residual);
+        assert!(result.iterations <= most, "{n}x{n}: {} iterations", result.iterations);
+        let jacobi = pcg_solve(&asm.k_ff, f_f, &JacobiPreconditioner::new(&asm.k_ff).unwrap(), 1e-8, 1000usize.max(nf / 4));
+        assert!(jacobi.converged && result.iterations * 2 < jacobi.iterations, "{n}x{n}: {} against jacobi's {}", result.iterations, jacobi.iterations);
+
+        let sym = std::rc::Rc::new(symbolic_cholesky(&asm.k_ff));
+        let direct = dedaliano_engine::linalg::sparse_cholesky_solve(&numeric_cholesky(&sym, &asm.k_ff).unwrap(), f_f);
+        let largest = direct.iter().fold(0.0f64, |m, v| m.max(v.abs()));
+        for (got, want) in result.x.iter().zip(&direct) {
+            assert!((got - want).abs() <= 1e-6 * largest, "{n}x{n}: {got} vs {want}");
+        }
+    }
+}
+
 /// Gate: a forced PCG solve on a large MITC4 shell (30×30, nf=5644) never
-/// returns an unverified result. Measured 2026-09-22 (after the size-scaled
-/// stall window in `pcg_solve`): shifted-IC breaks down at iteration 0
-/// (restored drilling pivots make M non-SPD) and the chain degrades to
-/// Jacobi, which converges — the path is `pcg_jacobi` with displacements
-/// matching the direct solve. If a future change makes every preconditioner
+/// returns an unverified result. If a future change makes every preconditioner
 /// fail here, the verified direct fallback keeps this gate green as well.
 #[test]
 fn pcg_shell_30x30_verified_or_direct_fallback() {

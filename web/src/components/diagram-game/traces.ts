@@ -1,4 +1,4 @@
-import { computeDiagramValueAt, computeDisplacementAt } from '../../lib/engine/diagrams';
+import { computeDisplacementAt, prepareDiagramValueAt } from '../../lib/engine/diagrams';
 import type { ElementForces } from '../../lib/engine/types';
 import { EI, memberLength, memberSign, type GameModel, type Solved } from './game-model';
 
@@ -37,8 +37,9 @@ function loadBreaks(m: GameModel, e: number): number[] {
   return (m.pointLoads ?? []).filter((l) => l.element === e).map((l) => l.a / L).filter((t) => t > 1e-6 && t < 1 - 1e-6);
 }
 
-export function forceValue(kind: 'N' | 'V' | 'M', ef: ElementForces, t: number): number {
-  return computeDiagramValueAt(FORCE[kind], Math.min(1, Math.max(0, t)), ef);
+export function memberForceReader(kind: 'N' | 'V' | 'M', ef: ElementForces): (t: number) => number {
+  const at = prepareDiagramValueAt(FORCE[kind], ef);
+  return t => at(Math.min(1, Math.max(0, t)));
 }
 
 export function diagramOf(s: Solved, kind: DiagramKind): Diagram {
@@ -48,8 +49,8 @@ export function diagramOf(s: Solved, kind: DiagramKind): Diagram {
     const { normal, start, end, length } = memberAxis(m, e);
     const breaks = loadBreaks(m, e);
     if (kind !== 'D') {
-      const k = kind;
-      return { at: (t) => { const v = forceValue(k, ef, t); return [v * normal[0], v * normal[1]]; }, breaks };
+      const force = memberForceReader(kind, ef);
+      return { at: (t) => { const v = force(t); return [v * normal[0], v * normal[1]]; }, breaks };
     }
     const [i, j] = m.elements[e]!;
     const di = s.displacements[i]!, dj = s.displacements[j]!;

@@ -1,0 +1,40 @@
+{
+  "id": "planar-start-couple-without-projection",
+  "date": "2026-11-21",
+  "prs": [],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "space3D",
+      "planarStartCoupleWithoutProjection"
+    ]
+  },
+  "quantities": [
+    "solve.ok",
+    "reactions.mz"
+  ],
+  "title": {
+    "en": "Planar start couples on spatial members",
+    "es": "Pares planos en el inicio de barras espaciales",
+    "pt": "Binários planos no início de barras espaciais",
+    "de": "Ebene Momente am Anfang räumlicher Stäbe",
+    "fr": "Couples plans au début des barres spatiales",
+    "hu": "Síkbeli nyomaték a térbeli rúd kezdőpontján",
+    "tr": "Uzay çubuklarının başlangıcındaki düzlemsel momentler",
+    "zh": "空间杆件起点的平面力偶"
+  },
+  "explanation": {
+    "en": "A pure planar couple at the start of a spatial member without a usable projection now acts at the start node about the load-plane normal. Rerun affected analyses.",
+    "es": "Un par puro plano en el inicio de una barra espacial sin proyección utilizable ahora actúa en el nodo inicial alrededor de la normal al plano de la carga. Volvé a ejecutar los análisis afectados.",
+    "pt": "Um binário puro plano no início de uma barra espacial sem projeção utilizável passa a atuar no nó inicial em torno da normal ao plano da carga. Execute novamente as análises afetadas.",
+    "de": "Ein reines ebenes Moment am Anfang eines räumlichen Stabs ohne nutzbare Projektion wirkt jetzt am Anfangsknoten um die Normale der Lastebene. Führen Sie die betroffenen Analysen erneut aus.",
+    "fr": "Un couple plan pur au début d’une barre spatiale sans projection exploitable agit désormais au nœud initial autour de la normale au plan de la charge. Relancez les analyses concernées.",
+    "hu": "A használható vetület nélküli térbeli rúd kezdőpontján megadott tiszta síkbeli nyomaték most a kezdőcsomóponton, a teher síkjára merőleges tengely körül hat. Futtassa újra az érintett elemzéseket.",
+    "tr": "Kullanılabilir izdüşümü olmayan bir uzay çubuğunun başlangıcındaki düzlemsel saf moment artık başlangıç düğümünde yük düzleminin normali etrafında etkir. Etkilenen analizleri yeniden çalıştırın.",
+    "zh": "没有可用投影的空间杆件，其起点处的平面纯力偶现在直接作用于起始节点，转轴为荷载平面的法线。请重新运行受影响的分析。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-planar-start-couples.md",
+    "heading": "Planar start couples and spatial combination scope"
+  }
+}

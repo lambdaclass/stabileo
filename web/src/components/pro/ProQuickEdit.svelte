@@ -1,5 +1,4 @@
 <script lang="ts">
-  import Hint from './Hint.svelte';
   import { parseDecimal } from '../../lib/utils/numeric-input';
   /**
    * PRO's double-click editor: what Basic's node and member cards offer, in PRO's terms, and a
@@ -18,9 +17,9 @@
   import { t, tp } from '../../lib/i18n';
   import EditorCard from '../EditorCard.svelte';
   import { quickEdit } from '../../lib/store/pro-quick-edit.svelte';
-  import { setShellProperties } from '../../lib/store/physical-plates';
+  import { plateOfShell, setShellProperties } from '../../lib/store/physical-plates';
+  import PlateMeshDialog from './plates/PlateMeshDialog.svelte';
   import { AXIAL_CHOICES, axialOf, setAxial, type Axial } from '../../lib/pro/member-axial';
-  import { meshQuad } from '../../lib/model/edit/mesh-region';
   import { parseIdList } from '../../lib/model/select-ops';
   import QuantityInput from './loads/QuantityInput.svelte';
 
@@ -122,21 +121,12 @@
     if (plates.length) uiStore.toast(tp('plates.editedWhole', { names: plates.map((id) => modelStore.model.groups.get(id)?.name ?? `#${id}`).join(', '), n: plates.length }), 'info');
   }
 
-  /**
-   * Mesh a quad into a grid of the size given, welded to the members around it; one undo step.
-   * The mesh keeps the quad's loads and groups (`meshQuad`); a region the mesher refuses leaves
-   * the quad as it was.
-   */
-  let meshSize = $state(0.5);
-  let meshNote = $state<string | null>(null);
-  function mesh() {
-    if (!shell || target?.kind !== 'quad' || !(meshSize > 0)) return;
-    const r = meshQuad(shell.id, { density: { mode: 'targetSize', size: meshSize }, splitBeams: true });
-    if (!r) return;
-    if ('refused' in r) { uiStore.toast(t(r.refused === 'occupied' ? 'mesher.occupied' : 'mesher.failed'), 'error'); return; }
-    meshNote = tp('quickEdit.meshed', { n: r.quadCount });
-    uiStore.toast(meshNote, 'success');
-    quickEdit.close();
+  const ownerPlate = $derived(shell && target && (target.kind === 'plate' || target.kind === 'quad') ? plateOfShell(`${target.kind === 'plate' ? 'p' : 'q'}${shell.id}`) : null);
+  let meshing = $state<number[] | null>(null);
+  /** The button names one plate, so it meshes that one alone, whatever else is selected. */
+  function meshPlate() {
+    if (ownerPlate === null) return;
+    meshing = [ownerPlate];
   }
 </script>
 
@@ -201,18 +191,13 @@
           </label>
         </div>
         <button class="qe-btn" onclick={flip} title={t('quickEdit.flipHint')} data-testid="qe-flip">{t('quickEdit.flip')}</button>
-        {#if target.kind === 'quad'}
-          <div class="qe-row">
-            <label class="qe-field qe-narrow"><span>{t('quickEdit.meshSize')}</span>
-              <QuantityInput min={0.05} bind:value={meshSize} quantity="length" cls="qe-num" testid="qe-mesh-size" />
-            </label>
-            <button class="qe-btn" onclick={mesh} disabled={!(meshSize > 0)} data-testid="qe-mesh">{t('quickEdit.mesh')}</button>
-          </div>
-          <Hint text={t('quickEdit.meshHint')} />
+        {#if ownerPlate !== null}
+          <button class="qe-btn" onclick={meshPlate} data-testid="qe-mesh-plate">{t('quickEdit.meshPlate')}…</button>
         {/if}
       {/if}
     </div>
   </EditorCard>
+{#if meshing}<PlateMeshDialog ids={meshing} onclose={() => { meshing = null; quickEdit.close(); }} />{/if}
 {/if}
 
 <style>

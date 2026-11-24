@@ -63,6 +63,14 @@ export interface WriteForm {
 }
 
 type P3 = { x: number; y: number; z?: number };
+type V3 = [number, number, number];
+
+export interface ToModelFrame {
+  vec(v: V3): V3;
+  rot(v: V3): V3;
+}
+
+const SAME_FRAME: ToModelFrame = { vec: (v) => v, rot: (v) => v };
 
 /** What the form's loads go on, and the model they are read in. */
 export interface WriteContext {
@@ -76,6 +84,7 @@ export interface WriteContext {
   /** The member's local frame and the length its loads are measured on. */
   axes(id: number): MemberAxes | null;
   length(id: number): number;
+  toModel?: ToModelFrame;
 }
 
 /** The reason nothing is added: an i18n key and its values. */
@@ -93,10 +102,19 @@ const opt = (v: N): number | undefined => v ?? undefined;
 const ends = (i: N, j: N): [number, number] => [i ?? 0, j ?? i ?? 0];
 /** A length for a message: to the millimetre. */
 const m3 = (v: number) => String(Math.round(v * 1000) / 1000);
+const clean = (v: V3): V3 => v.map((x) => (x === 0 ? 0 : x)) as V3;
 
 /** The loads the form describes, on its targets; a reason when it describes none. */
 export function buildWrittenLoads(form: WriteForm, ctx: WriteContext): WriteOutcome | WriteRefusal {
   const { kind, f, u, q, p, th, ps, tq, frame, shape } = form;
+  const T = ctx.toModel ?? SAME_FRAME;
+  const vec = (v: V3) => clean(T.vec(v));
+  const rot = (v: V3) => clean(T.rot(v));
+  const along = (c: 'x' | 'y' | 'z') => {
+    const e = vec(['x', 'y', 'z'].map((k) => (k === c ? 1 : 0)) as V3);
+    const i = e.findIndex((x) => x !== 0);
+    return { comp: (['x', 'y', 'z'] as const)[i]!, sign: e[i]! };
+  };
   const ids = ctx.ids;
   if (ids.length === 0) return { error: 'writeLoad.noTarget' };
   const c = { caseId: ctx.caseId };
@@ -131,7 +149,8 @@ export function buildWrittenLoads(form: WriteForm, ctx: WriteContext): WriteOutc
         } else {
           const o = form.incFrom;
           if (o.x === null && o.y === null && o.z === null) return { error: 'writeLoad.inclinedNoDirection' };
-          from = { x: num(o.x), y: num(o.y), z: num(o.z) };
+          const [x, y, z] = vec([num(o.x), num(o.y), num(o.z)]);
+          from = { x, y, z };
         }
         // A loaded node on the origin has no direction to take: left out, and said.
         const loads: Load[] = [], skipped: number[] = [];
@@ -144,13 +163,17 @@ export function buildWrittenLoads(form: WriteForm, ctx: WriteContext): WriteOutc
         if (loads.length === 0) return { error: 'writeLoad.fromSelf', params: { list: skipped.join(', ') } };
         return { loads, ...(skipped.length ? { skipped: { key: 'writeLoad.fromSelf', ids: skipped } } : {}) };
       }
-      const v = { fx: num(f.fx), fy: num(f.fy), fz: num(f.fz), mx: num(f.mx), my: num(f.my), mz: num(f.mz) };
+      const [fx, fy, fz] = vec([num(f.fx), num(f.fy), num(f.fz)]);
+      const [mx, my, mz] = rot([num(f.mx), num(f.my), num(f.mz)]);
+      const v = { fx, fy, fz, mx, my, mz };
       if (Object.values(v).every((x) => x === 0)) return ZERO;
       return nodeLoads((id) => ({ type: 'nodal3d', data: { id: 0, nodeId: id, ...v, ...c } }));
     }
     case 'displacement': {
-      const r = (v: N) => (v === null || v === 0 ? undefined : v);
-      const d = { dx: r(u.dx), dy: r(u.dy), dz: r(u.dz), drx: r(u.drx), dry: r(u.dry), drz: r(u.drz) };
+      const r = (v: number) => (v === 0 ? undefined : v);
+      const [dx, dy, dz] = vec([num(u.dx), num(u.dy), num(u.dz)]).map(r);
+      const [drx, dry, drz] = rot([num(u.drx), num(u.dry), num(u.drz)]).map(r);
+      const d = { dx, dy, dz, drx, dry, drz };
       if (Object.values(d).every((x) => x === undefined)) return ZERO;
       const clean = Object.fromEntries(Object.entries(d).filter(([, x]) => x !== undefined));
       return nodeLoads((id) => ({ type: 'displacement3d', data: { id: 0, nodeId: id, ...clean, ...c } }) as Load);
@@ -161,22 +184,30 @@ export function buildWrittenLoads(form: WriteForm, ctx: WriteContext): WriteOutc
           const e = ctx.element(id)!;
           return { id, i: ctx.node(e.nodeI)!, j: ctx.node(e.nodeJ)! };
         });
-        const res = hydrostaticLoads(members, form.hydroAxis, num(form.w1), num(form.w2), form.hydroComp, frame);
+        const ax = along(form.hydroAxis.toLowerCase() as 'x');
+        const comp = frame === 'local' ? { comp: form.hydroComp, sign: 1 } : along(form.hydroComp);
+        const [lo, hi] = ax.sign > 0 ? [form.w1, form.w2] : [form.w2, form.w1];
+        const res = hydrostaticLoads(members, ax.comp.toUpperCase() as GlobalAxis, comp.sign * num(lo), comp.sign * num(hi), comp.comp, frame);
         return res.length ? out(res.map((d) => ({ type: 'distributed3d', data: { ...d, id: 0, ...c } }) as Load)) : ZERO;
       }
       if (shape === 'triangle') {
-        const pk = opt(form.peak);
-        if (pk === undefined || pk === 0) return ZERO;
+        const pk0 = opt(form.peak);
+        if (pk0 === undefined || pk0 === 0) return ZERO;
+        const pc = frame === 'local' ? { comp: form.peakComp, sign: 1 } : along(form.peakComp);
+        const pk = pc.sign * pk0;
         const at = opt(form.peakAt);
         const off = misfits((id) => checkPosition(at ?? lengthOf(id) / 2, lengthOf(id)) !== null, 'writeLoad.pointOutside', { a: at ?? '' });
         if (off) return off;
         return out(ids.flatMap((id) => {
           const L = lengthOf(id);
-          return triangularPeak(id, L, pk, form.peakComp, frame, at ?? L / 2).map((d) => ({ type: 'distributed3d', data: { ...d, id: 0, ...c } }) as Load);
+          return triangularPeak(id, L, pk, pc.comp, frame, at ?? L / 2).map((d) => ({ type: 'distributed3d', data: { ...d, id: 0, ...c } }) as Load);
         }));
       }
       // An empty J is the I value: a uniform load needs one row. A zero typed is a zero.
-      const [[xI, xJ], [yI, yJ], [zI, zJ]] = [ends(q.xI, q.xJ), ends(q.yI, q.yJ), ends(q.zI, q.zJ)];
+      const [[uxI, uxJ], [uyI, uyJ], [uzI, uzJ]] = [ends(q.xI, q.xJ), ends(q.yI, q.yJ), ends(q.zI, q.zJ)];
+      const inFrame = (v: V3): V3 => (frame === 'local' ? v : vec(v));
+      const [xI, yI, zI] = inFrame([uxI, uyI, uzI]);
+      const [xJ, yJ, zJ] = inFrame([uxJ, uyJ, uzJ]);
       if ([xI, xJ, yI, yJ, zI, zJ].every((x) => x === 0)) return ZERO;
       const a = opt(form.qa), b = opt(form.qb);
       if (ctx.chain) {
@@ -202,7 +233,10 @@ export function buildWrittenLoads(form: WriteForm, ctx: WriteContext): WriteOutc
       }));
     }
     case 'point': {
-      const v = { px: num(p.px), py: num(p.py), pz: num(p.pz), mx: num(p.mx), my: num(p.my), mz: num(p.mz) };
+      const global = form.pFrame === 'global';
+      const [px, py, pz] = global ? vec([num(p.px), num(p.py), num(p.pz)]) : [num(p.px), num(p.py), num(p.pz)];
+      const [mx, my, mz] = global ? rot([num(p.mx), num(p.my), num(p.mz)]) : [num(p.mx), num(p.my), num(p.mz)];
+      const v = { px, py, pz, mx, my, mz };
       if (Object.values(v).every((x) => x === 0)) return ZERO;
       const moment = v.mx !== 0 || v.my !== 0 || v.mz !== 0;
       if (moment && ids.some((id) => !bends(id))) return { error: 'writeLoad.momentOnTruss' };

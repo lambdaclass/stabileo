@@ -22,6 +22,7 @@
     "de": "Geschossmassen im Breitenmodus folgen den belasteten Stäben",
     "fr": "La masse par niveau en mode largeur suit les barres chargées",
     "tr": "Genişlik modunda kat kütlesi yüklenen elemanları izler",
+    "zh": "宽度模式下的楼层质量依据受荷承载杆件确定",
     "hu": "Szélességalapú módban a szinttömeg a terhelt rudakat követi"
   },
   "explanation": {
@@ -31,6 +32,7 @@
     "de": "Geschossfläche und Erdbebengewicht im Breitenmodus konnten von den erzeugten Stablasten abweichen, da Knotenausdehnungen verwendet oder geschlossene Flächen verlangt wurden. Nun gelten die Lasteinzugsflächen der belasteten Stäbe. Schwerkraftlastpläne, Erdbebengewichte und Erdbebenlasten neu erzeugen, dann abhängige Analysen, Kombinationen und Nachweise wiederholen. Erneutes Lösen gespeicherter Lasten korrigiert die Erdbebeneinwirkungen nicht (#2269).",
     "fr": "La surface par niveau et le poids sismique en mode largeur pouvaient différer des charges de barre générées en utilisant l’emprise des nœuds ou en exigeant une région fermée. Ils utilisent désormais les surfaces tributaires des barres chargées. Régénérez les plans gravitaires, poids et charges sismiques, puis relancez analyses, combinaisons et vérifications dépendantes. Recalculer les charges enregistrées ne corrige pas les actions sismiques (#2269).",
     "tr": "Genişlik modunda kat alanı ve deprem ağırlığı, düğüm sınırlarını kullandığı veya kapalı bölge gerektirdiği için üretilen eleman yüklerinden farklı olabiliyordu. Artık yüklenen elemanların yük alanlarını kullanır. Yerçekimi planlarını, deprem ağırlıklarını ve deprem yüklerini yeniden üretin; bağlı analizleri, birleşimleri ve kontrolleri tekrarlayın. Kayıtlı yükleri yeniden çözmek deprem etkilerini düzeltmez (#2269).",
+    "zh": "宽度模式下的楼层面积和地震重量此前使用节点范围或要求封闭区域，因此可能与生成的杆件荷载不一致。现在它们采用受荷承载杆件的从属面积。请重新生成重力荷载方案、地震重量和地震荷载，然后重新运行相关的分析、组合和设计验算。仅重新求解已存储的荷载并不能纠正地震作用（#2269）。",
     "hu": "Szélességalapú módban a szintterület és a szeizmikus súly eltérhetett a generált rúdterhektől, mert csomóponti kiterjedést használt vagy zárt tartományt igényelt. Most a terhelt rudak hatásterületeit használja. Generálja újra a gravitációs terveket, szeizmikus súlyokat és terheket, majd ismételje meg a kapcsolódó elemzéseket, kombinációkat és ellenőrzéseket. A mentett terhek újraszámítása nem javítja a szeizmikus hatásokat (#2269)."
   },
   "changelog": {

@@ -41,7 +41,7 @@ function basicTwoNodeFrame3D(): SolverInput3D {
       [2, { nodeId: 2, rx: false, ry: true, rz: true, rrx: true, rry: true, rrz: true }],
     ]),
     loads: [
-      { type: 'nodal', data: { id: 1, nodeId: 2, fx: 10, fy: 0, fz: 0, mx: 0, my: 0, mz: 0 } },
+      { type: 'nodal', data: { nodeId: 2, fx: 10, fy: 0, fz: 0, mx: 0, my: 0, mz: 0 } },
     ],
   };
 }

@@ -1,3 +1,4 @@
+import { drawnBeamReinforcement } from '../design-contract/reinforcement';
 import { completeMemberDemands } from '../engine/member-demand-gate';
 import { ConcurrentDemand } from '../engine/concurrent-demand';
 // Verification store — the single source of truth for RC design state.
@@ -316,7 +317,7 @@ function createVerificationStore() {
     // previous one.
     const codeId = regulationsStore.concreteDesignCode();
     if (!codeId) return null;
-    const key = `${rebarHash(reinf)}|${demandRevision}|${codeId}`;
+    const key = `${rebarHash(reinf)}|${JSON.stringify(reinf[drawnBeamReinforcement])}|${demandRevision}|${codeId}`;
     validateCachedDemands();
     const hit = providedCache.get(elementId);
     if (hit && hit.key === key) return hit.result;
@@ -355,7 +356,12 @@ function createVerificationStore() {
     reinforcement?: ProvidedReinforcement,
   ): 'ok' | 'warn' | 'fail' {
     const ctx = withSavedColumns(contexts.get(elementId));
-    const reinf = reinforcement ?? reinforcementProvider?.(elementId);
+    let reinf = reinforcement;
+    if (!reinf?.[drawnBeamReinforcement]) {
+      const saved = reinforcementProvider?.(elementId);
+      const drawing = saved?.[drawnBeamReinforcement];
+      reinf = reinf && drawing ? { ...reinf, [drawnBeamReinforcement]: drawing } : reinf ?? saved;
+    }
     if (!ctx || !reinf) return 'fail';
     // Same source as every other design decision: the project's `concrete` role.
     const codeId = regulationsStore.concreteDesignCode();

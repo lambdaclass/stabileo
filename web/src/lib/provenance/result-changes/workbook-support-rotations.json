@@ -1,0 +1,38 @@
+{
+  "id": "workbook-support-rotations",
+  "date": "2026-11-19",
+  "prs": [
+    2364
+  ],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "axisNamedLoads",
+      "settlements"
+    ]
+  },
+  "title": {
+    "en": "Workbook support rotations",
+    "es": "Giros de apoyos en libros",
+    "pt": "Rotações dos apoios nas folhas de cálculo",
+    "de": "Lagerdrehungen in Arbeitsmappen",
+    "fr": "Rotations d’appui dans les classeurs",
+    "tr": "Çalışma kitaplarında mesnet dönmeleri",
+    "hu": "Támaszelfordulások a munkafüzetekben",
+    "zh": "工作簿中的支座转角"
+  },
+  "explanation": {
+    "en": "Workbook exports include prescribed support rotations in every frame. Recompute affected results, and export the original model again if a workbook omitted rotations.",
+    "es": "Los libros exportan los giros prescritos de los apoyos en todos los marcos. Vuelva a calcular los resultados afectados y exporte de nuevo el modelo original si el libro omitió giros.",
+    "pt": "As folhas de cálculo exportam as rotações impostas em todos os referenciais. Volte a calcular os resultados afetados e a exportar o modelo original se faltarem rotações.",
+    "de": "Arbeitsmappen exportieren vorgeschriebene Lagerdrehungen in jedem Koordinatensystem. Berechnen Sie betroffene Ergebnisse erneut und exportieren Sie das ursprüngliche Modell erneut, wenn Drehungen fehlen.",
+    "fr": "Les classeurs exportent les rotations d’appui imposées dans tous les repères. Recalculez les résultats concernés et exportez de nouveau le modèle d’origine si des rotations manquent.",
+    "tr": "Çalışma kitapları her koordinat sisteminde verilen mesnet dönmelerini dışa aktarır. Etkilenen sonuçları yeniden hesaplayın ve dönmeler eksikse özgün modeli yeniden dışa aktarın.",
+    "hu": "A munkafüzet minden koordináta-rendszerben tartalmazza az előírt támaszelfordulásokat. Számítsa újra az érintett eredményeket, és exportálja újra az eredeti modellt, ha a munkafüzetből hiányoznak az elfordulások.",
+    "zh": "工作簿在所有坐标系下均导出支座的指定转角。请重新计算受影响的结果。如果工作簿遗漏了转角，请从原始模型重新导出。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-plane-self-weight-and-workbook-rotations.md",
+    "heading": "Workbook support rotations"
+  }
+}

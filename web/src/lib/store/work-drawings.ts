@@ -52,6 +52,7 @@ import { ptPanels, stairChecks, stressingPlan } from './stairs-pt';
 import { expandKey, siteData } from './site.svelte';
 import { builtBy, phaseEnd } from '../engine/site/phases';
 import { phasePlan, phaseSchedule, type PhaseGeometry } from '../sheets/plans/phase-plans';
+import { caseNameShown } from '../axes/case-names';
 
 /** What a set can contain, in the order it is issued. `detailing` is the assemblies' own drawings. */
 export const PLAN_KINDS = ['notes', 'loads', 'formwork', 'setout', 'columns', 'colElev', 'beams', 'slabs', 'walls', 'detailing', 'foundations', 'fdnLoads', 'punching', 'stairs', 'tendons', 'steel', 'anchors', 'joints', 'bbs', 'details', 'corbels', 'phases'] as const;
@@ -365,7 +366,7 @@ function setout(c: PlanContext, axes: PlanAxis[]): DrawingInput[] {
 /** The reactions under each column base, per load case: what goes to the foundation. */
 export function foundationLoads(): FoundationLoad[] {
   const m = modelStore.model, cols = frames().filter(isVertical), names = columnNames(cols), out: FoundationLoad[] = [];
-  const caseName = (id: number) => m.loadCases.find((lc) => lc.id === id)?.name ?? `#${id}`;
+  const caseName = (id: number) => { const lc = m.loadCases.find((x) => x.id === id); return lc ? caseNameShown(lc) : `#${id}`; };
   for (const [cid, r] of resultsStore.perCase3D) {
     for (const re of r.reactions ?? []) {
       const n = m.nodes.get(re.nodeId);
@@ -380,7 +381,7 @@ export function foundationLoads(): FoundationLoad[] {
 /** A floor's loads as applied, by case: on its beams, at its nodes, over its slabs. */
 function appliedLoads(c: PlanContext, axes: PlanAxis[], levels: Array<{ name: string; z: number }>): DrawingInput[] {
   const m = modelStore.model, out: DrawingInput[] = [];
-  const caseName = (id?: number) => m.loadCases.find((lc) => lc.id === (id ?? 1))?.name ?? '';
+  const caseName = (id?: number) => { const lc = m.loadCases.find((x) => x.id === (id ?? 1)); return lc ? caseNameShown(lc) : ''; };
   const at = (id: number) => m.nodes.get(id);
   for (const lv of levels) {
     const on = (z?: number) => Math.abs((z ?? 0) - lv.z) < TOL;

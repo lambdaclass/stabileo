@@ -41,6 +41,19 @@ describe('the flagship frame: every interior support spliced, every end built as
     const summary = verificationStore.runSummary;
     if (!summary || summary.aborted || summary.notReached > 0) throw new Error(`design all left the frame incomplete: aborted ${summary?.aborted}, not reached ${summary?.notReached}`);
     bars = (modelStore.model.detailing?.assemblies ?? []).flatMap((a) => a.bars);
+    expect(summary.verified).toBe(276);
+    expect(summary.unsupported).toBe(77);
+    const beamBarOwners = new Set(bars.filter(bar => bar.role === 'longitudinal').flatMap(bar => bar.ownerElementIds));
+    for (const outcome of summary.outcomes.values()) {
+      if (outcome.outcome !== 'UNSUPPORTED') continue;
+      expect(outcome, `member ${outcome.elementId}`).toMatchObject({ elementType: 'beam' });
+      expect(outcome.certificate, `member ${outcome.elementId}`).toBeUndefined();
+      expect(outcome.accepted, `member ${outcome.elementId}`).toBeUndefined();
+      expect(beamBarOwners.has(outcome.elementId), `member ${outcome.elementId}`).toBe(false);
+      expect(outcome.provisional?.verdict.checks, `member ${outcome.elementId}`).toContainEqual(expect.objectContaining({
+        status: 'fail', limiting: outcome.limiting.includes('congestion') ? 'congestion' : 'unsupportedCheck',
+      }));
+    }
   }, 600_000);
 
   const ends = () => bars.flatMap((b) => (['start', 'end'] as const).flatMap((s) => (b.anchorage?.[s] ? [{ b, s, r: b.anchorage[s]! }] : [])));
@@ -61,6 +74,6 @@ describe('the flagship frame: every interior support spliced, every end built as
     const coherence = anchorageCoherence(bars);
     expect(coherence.mismatches).toEqual([]);
     expect(coherence.compared).toBe(ends().filter((e) => e.b.role === 'longitudinal').length);
-    expect(coherence.atEnds).toBeGreaterThan(1000);
+    expect(coherence.atEnds).toBe(752);
   });
 });

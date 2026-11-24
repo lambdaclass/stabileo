@@ -9,6 +9,7 @@ pub mod sparse_chol;
 pub mod lanczos;
 pub mod preconditioner;
 pub mod pcg;
+pub mod gmres;
 
 pub use dense::*;
 pub use cholesky::*;
@@ -28,3 +29,4 @@ pub use preconditioner::{
     Ic0Preconditioner, ShiftedIcPreconditioner, MicPreconditioner,
 };
 pub use pcg::{pcg_solve, PcgResult};
+pub use gmres::{gmres_solve, GmresResult};

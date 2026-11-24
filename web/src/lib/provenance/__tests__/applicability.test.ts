@@ -8,7 +8,9 @@ import reactionRecoveryChange from '../result-changes/arc-length-reactions.json'
 import { fieldCovered } from '../../../../scripts/results-snapshot/applicability.mjs';
 import { RESULT_CHANGES } from '../full-registry';
 import declaredQuantities from 'virtual:result-change-quantities';
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+import { featuresForMode } from '../../../../config/public-features.mjs';
+import { GRAVITY_SELF_WEIGHT } from '../../engine/analysis-settings';
 import { assessProject, conditionHolds } from '../applicability';
 import { modelFeatures, type FeatureSnapshot } from '../model-features';
 import { RESULTS_VERSION, type ResultChangeRegistry } from '../registry';
@@ -37,6 +39,31 @@ function model(over: Partial<FeatureSnapshot> = {}): FeatureSnapshot {
 const ids = (s: FeatureSnapshot, stamp: SolveStamp | null = null) => assessProject(s, stamp, s.analysisMode).changes.map((c) => c.id);
 
 describe('which registered changes concern a model', () => {
+  it('#2460 and #2461 scope plate remesh notices and their declared result changes', () => {
+    const entry = RESULT_CHANGES.changes.find(change => change.id === 'physical-plate-remesh')!;
+    const surface = { loops: [4], materialId: 1, thickness: 0.2, mesh: { size: 2, element: 'quad', followMembers: false } };
+    const group = { data: { surface }, members: { nodes: [1, 2, 3, 4], quads: [1] } };
+    const quad = { id: 1, nodes: group.members.nodes };
+    const offset = { frame: 'local', x: 0, y: 0, z: 0.1 };
+    const plain = model({ groups: [[1, group]], quads: [[1, quad]] });
+    const arc = model({ ...plain, groups: [[1, { ...group, data: { surface: { ...surface, arcMids: [1] } } }]] });
+    const curved = model({ ...plain, quads: [[1, { ...quad, curved: true }]] });
+    const eccentric = model({ ...plain, quads: [[1, { ...quad, offset }]] });
+    const triangle = model({
+      ...plain, quads: [], plates: [[1, { id: 1, nodes: [1, 2, 3], offset }]],
+      groups: [[1, { ...group, members: { nodes: [1, 2, 3, 4], plates: [1] } }]],
+    });
+    for (const snapshot of [arc, curved, eccentric, triangle]) expect(ids(snapshot)).toContain(entry.id);
+    for (const snapshot of [plain, { ...eccentric, groups: [] }, { ...arc, analysisMode: '2d' }]) {
+      expect(ids(snapshot)).not.toContain(entry.id);
+    }
+    const change = { ...entry, quantities: declaredQuantities[entry.id] };
+    expect(declaresMove(change, 'solve.ok')).toBe(true);
+    expect(declaresMove(change, 'base.reactions[1].fz')).toBe(true);
+    expect(declaresMove(change, 'base.displacements[1].uz')).toBe(true);
+    expect(declaresMove(change, 'base.elementForces[1].nStart')).toBe(false);
+  });
+
   it('known wrong result: #2072: excludes unrelated legacy frames and shells from elastic SSI notices', () => {
     for (const analysisMode of ['2d', 'pro']) {
       for (const snapshot of [
@@ -1119,5 +1146,33 @@ it('#2074: release basis notice covers spatial releases and excludes planar and 
       expect(ids(snapshot, before).includes(entry.id)).toBe(analysisMode === 'pro' && released);
       expect(ids(snapshot, { ...before, resultsVersion: entry.resultsVersion })).not.toContain(entry.id);
     }
+  }
+});
+
+it.each(['production', 'test'] as const)('#2364 uses stable self-weight and settlement evidence in the %s build', mode => {
+  vi.stubGlobal('__PUBLIC_FEATURES__', featuresForMode(mode));
+  try {
+    const base = model({ analysisMode: '2d', supports: [[1, { nodeId: 1, type: 'fixed', drz: 0 }]] });
+    const changeIds = ['exact-plane-self-weight', 'workbook-support-rotations', 'global-axes-inputs'];
+    const relevant = (snapshot: FeatureSnapshot) => ids(snapshot).filter(id => changeIds.includes(id));
+
+    const marked = { ...base, loadCases: [{ id: 1, type: 'D', axisNamed: true }] };
+    const withToggle = { ...marked, includeSelfWeight: true };
+    const withRule = { ...marked, analysis: { selfWeight: [{ caseId: 1, ...GRAVITY_SELF_WEIGHT }] } };
+    const withRotation: FeatureSnapshot = {
+      ...marked, supports: [[1, { nodeId: 1, type: 'fixed', drz: Math.PI / 180 }]],
+    };
+    const axesIds = mode === 'test' ? ['global-axes-inputs'] : [];
+    expect(relevant(base)).toEqual([]);
+    expect(modelFeatures(withToggle)).toContain('selfWeight');
+    expect(modelFeatures(withRule)).toContain('selfWeight');
+    expect(modelFeatures(withRotation)).toContain('settlements');
+    expect(modelFeatures(marked)).not.toContain('settlements');
+    expect(relevant(marked)).toEqual(axesIds);
+    expect(relevant(withToggle)).toEqual(axesIds);
+    expect(relevant(withRule)).toEqual(axesIds);
+    expect(relevant(withRotation)).toEqual(mode === 'test' ? [...axesIds, 'workbook-support-rotations'] : []);
+  } finally {
+    vi.unstubAllGlobals();
   }
 });

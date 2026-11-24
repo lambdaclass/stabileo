@@ -45,6 +45,7 @@ import { withoutSettlement } from '../settlement-case';
 import { runLegacyPlasticCollapse } from './legacy-plastic-helper';
 import { generateKinematicReport } from '../kinematic-report';
 import { inspectMember, inspectNode, computeDespieceVectors } from '../../canvas/draw-despiece';
+import { TWO_D_NODAL_LOAD_LABELS } from '../../geometry/coordinate-system';
 import { analyzeSectionStress } from '../section-stress';
 import { canonicalPanelResult, stationForces2D } from '../../section/panel';
 import { canonicalStressState } from '../../section/stress-state';
@@ -262,15 +263,6 @@ function despieceArgs(forces: ForcesOf) {
   };
 }
 
-const comp = (a: { components: Array<{ label: string; value: number }> }, k: string) => a.components.find((c) => c.label === k)?.value ?? 0;
-
-/**
- * Each member as the despiece shows it: the two end actions it draws, the
- * member's own loads, ΣFx = ΣFz = 0 and ΣM = 0. The moment glyph is CCW when
- * zs·m·towardJ > 0 (draw-despiece.ts `endMomentCcw`, zs = transverseSign of the
- * member), so the CCW end actions it draws are zs·mStart at I and −zs·mEnd at J.
- * Forces and moments are checked separately: they are different defects.
- */
 function despieceMemberEquilibrium(label: string, input: SolverInput, forces: ForcesOf) {
   const args = despieceArgs(forces);
   let fDone = false, mDone = false;
@@ -280,9 +272,8 @@ function despieceMemberEquilibrium(label: string, input: SolverInput, forces: Fo
     const [I, J] = ins.ends;
     const { L, c, s } = geom(input, id);
     const ld = memberLoads(input, id);
-    const fIx = comp(I, 'Fx'), fIz = comp(I, 'Fz'), fJx = comp(J, 'Fx'), fJz = comp(J, 'Fz');
-    const zs = signOf(id);
-    const mI = zs * comp(I, 'M'), mJ = -zs * comp(J, 'M');
+    const { fx: fIx, fz: fIz, moment: mI } = I.action;
+    const { fx: fJx, fz: fJz, moment: mJ } = J.action;
     const sx = fIx + fJx + ld.fx, sz = fIz + fJz + ld.fz;
     const fs = Math.max(1, maxAbs([fIx, fIz, fJx, fJz, ld.scale]));
     const tag = signOf(id) < 0 ? '[drawn opposite to the solver axis]' : '[drawn along the solver axis]';
@@ -334,10 +325,11 @@ function nodeEquilibrium(check: string, label: string, input: SolverInput, res: 
     const acts = inspectNode(args, n).actions;
     let fx = 0, fz = 0, mm = 0, scale = 1;
     for (const a of acts) {
-      fx += comp(a, 'Fx'); fz += comp(a, 'Fz');
-      // CCW moment on the member: zs·M at I, −zs·M at J (draw-despiece.ts endMomentCcw).
-      mm += (a.end === 'I' ? 1 : -1) * signOf(a.elementId) * comp(a, 'M');
-      scale = Math.max(scale, Math.abs(comp(a, 'Fx')), Math.abs(comp(a, 'Fz')), Math.abs(comp(a, 'M')));
+      const { fx: endFx, fz: endFz, moment } = a.action;
+      fx += endFx;
+      fz += endFz;
+      mm += moment;
+      scale = Math.max(scale, Math.abs(endFx), Math.abs(endFz), Math.abs(moment));
     }
     for (const l of input.loads) if (l.type === 'nodal' && l.data.nodeId === n) { fx -= l.data.fx; fz -= l.data.fz; mm -= l.data.my; scale = Math.max(scale, Math.abs(l.data.fx), Math.abs(l.data.fz), Math.abs(l.data.my)); }
     const rev = acts.some((a) => signOf(a.elementId) < 0) ? '[a member drawn opposite to the solver axis] ' : '[all members along the solver axis] ';
@@ -1439,7 +1431,7 @@ describe('hand-built: textbook values', () => {
     build(() => { const a = N(0, 0), b = N(6, 0); E(b, a); modelStore.addSupport(a, 'pinned'); modelStore.addSupport(b, 'rollerX'); modelStore.addDistributedLoad(1, -10); });
     resultsStore.setResults(solved());
     const ends = inspectMember(despieceArgs((id) => resultsStore.getElementForces(id)), 1)!.ends;
-    for (const e of ends) expect(comp(e, 'Fz')).toBeGreaterThan(0);
+    for (const e of ends) expect(e.components.find(c => c.label === TWO_D_NODAL_LOAD_LABELS.vertical)!.value).toBeGreaterThan(0);
   });
 
   // D6, fixed, kept as a regression check. It was: a point moment on a member, scaled by the what-if load slider.

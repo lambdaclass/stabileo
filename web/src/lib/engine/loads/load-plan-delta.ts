@@ -12,9 +12,9 @@ import type { LoadPlan } from './load-plan';
  * (`combination-cases.ts`), so the two cannot disagree. Counting one per wind or seismic case
  * by hand missed both senses of the earthquake, the Wa cases and the snow patterns.
  */
-function plannedCombinationCount(plan: LoadPlan, bothSenses: ExpandOptions['bothSenses'], patternsInCompanions?: boolean): number {
+export function expandPlannedCombinations(plan: LoadPlan, options: ExpandOptions) {
   const cases = plan.cases.map((c, i) => ({ ...c, id: i + 1, name: String(i) }));
-  return expandCombinations(plan.combinations, cases, { bothSenses, patternsInCompanions }).length;
+  return expandCombinations(plan.combinations, cases, options);
 }
 
 
@@ -118,6 +118,7 @@ export function describePlanDelta(
   current: CurrentLoadState,
   options: { replaceExisting: boolean; bothSenses?: ExpandOptions['bothSenses']; patternsInCompanions?: boolean; alsoUnmarked?: boolean },
 ): PlanDelta {
+  const plannedCombinationCount = expandPlannedCombinations(plan, options).length;
   const replace = options.replaceExisting;
   const alsoUnmarked = !!options.alsoUnmarked;
   const afterTypes = [...new Set(plan.cases.map((c) => String(c.type)))].sort();
@@ -176,18 +177,18 @@ export function describePlanDelta(
     ? {
         distributed: current.distributed - gone.distributed + plan.distributed.length,
         nodal: current.nodal - gone.nodal + plan.nodal.length,
-        combinations: current.combinations - g.combinations - defaultCombos - (takenUnmarked?.combinations ?? 0) + plannedCombinationCount(plan, options.bothSenses, options.patternsInCompanions),
+        combinations: current.combinations - g.combinations - defaultCombos - (takenUnmarked?.combinations ?? 0) + plannedCombinationCount,
         cases: [...new Set([...beforeTypes.filter((t) => !goneTypes.has(t)), ...afterTypes])].sort(),
       }
     : replace
     ? {
         distributed: plan.distributed.length, nodal: plan.nodal.length,
-        combinations: plannedCombinationCount(plan, options.bothSenses, options.patternsInCompanions), cases: afterTypes,
+        combinations: plannedCombinationCount, cases: afterTypes,
       }
     : {
         distributed: current.distributed + plan.distributed.length,
         nodal: current.nodal + plan.nodal.length,
-        combinations: current.combinations - defaultCombos + plannedCombinationCount(plan, options.bothSenses, options.patternsInCompanions),
+        combinations: current.combinations - defaultCombos + plannedCombinationCount,
         cases: [...new Set([...beforeTypes.filter((t) => !goneTypes.has(t)), ...afterTypes])].sort(),
       };
 

@@ -259,8 +259,8 @@ function createUIStore() {
   let selectedPlates = $state<Set<number>>(new Set());
   /** What a click on a plate's mesh picks: the plate whole, or the one element clicked. */
   let shellPickScope = $state<'plate' | 'element'>('plate');
-  /** Whether a meshed physical plate is drawn with its mesh's edges, or as the piece (its outline). Picking does not depend on it. */
-  let platesShowMesh = $state(true);
+  /** Whether a meshed physical plate is drawn with its mesh's edges or as the piece (its outline); null follows whether there are results. Picking does not depend on it. */
+  let platesShowMesh = $state<boolean | null>(null);
   let plateShells: ((id: number) => string[]) | null = null;
   /** What a click on a member picks in PRO: the whole piece (an arc, a member a mesh cut) or one segment. */
   let memberPickScope = $state<'piece' | 'segment'>('piece');
@@ -316,7 +316,7 @@ function createUIStore() {
    */
   let selfWeightCaseId = $state<number | null>(null);
   /** Basic 3D distributed loads: along the global axes (default) or the member's local ones. */
-  let distLoadFrame3D = $state<'global' | 'local'>('global');
+  let distLoadFrame3D = $state<'global' | 'local' | 'projected'>('global');
   let showSupports_basic = $state<boolean>(true);
   let showSupports_pro = $state<boolean>(true);
   /** Size of the text on the drawing (ids, values, labels), 2D and 3D; persisted. */
@@ -974,7 +974,7 @@ function createUIStore() {
       setShells(new Set());
     },
     get platesShowMesh() { return platesShowMesh; },
-    set platesShowMesh(v: boolean) { platesShowMesh = v; },
+    set platesShowMesh(v: boolean | null) { platesShowMesh = v; },
     set shellPickScope(v: 'plate' | 'element') { shellPickScope = v; },
     /** How the store finds a plate's shells; set once by `physical-plates.ts`. */
     setPlateShellResolver(fn: (id: number) => string[]) { plateShells = fn; },
@@ -1115,7 +1115,7 @@ function createUIStore() {
      * Saved with the project, and reset for a new one.
      */
     get distLoadFrame3D() { return distLoadFrame3D; },
-    set distLoadFrame3D(v: 'global' | 'local') { distLoadFrame3D = v; },
+    set distLoadFrame3D(v: 'global' | 'local' | 'projected') { distLoadFrame3D = v; },
     get selfWeightCaseId() { return selfWeightCaseId; },
     set selfWeightCaseId(v: number | null) { selfWeightCaseId = v; },
 

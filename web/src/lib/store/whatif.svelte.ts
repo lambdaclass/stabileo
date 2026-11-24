@@ -1,3 +1,4 @@
+import { scenarioSurfaceAdjustment } from '../engine/accounting-source';
 /**
  * "What if…?" — the session behind the Explore panel.
  *
@@ -49,11 +50,10 @@ let ownVersion = -1;
 /** The project's solve stamp when Explore opened, put back when it closes. */
 let stampAtOpen: SolveStamp | undefined;
 
-const snapshotOptions = { preserveSupportTypes: true };
 const ONE: MemberFactors = { e: 1, a: 1, iy: 1 };
 
 function restoreBaseline(snap: ModelSnapshot): void {
-  modelStore.restore(snap, snapshotOptions);
+  modelStore.restore(snap);
   if (snap.presentation3D) uiStore.viewportPresentation3D = snap.presentation3D;
 }
 
@@ -95,7 +95,13 @@ function scaleLoads(): void {
     if (f === 1) continue;
     // What every scaling of a load scales: a shell's values per corner and its variation too (a
     // soil or a fluid on a wall is q = 0, all of it in the variation).
-    loads[i] = scaledLoad(loads[i], f);
+    const original = loads[i]!;
+    const scaled = scaledLoad(original, f);
+    if (original.type === 'surface3d' && original.data.fromDef !== undefined && scaled.type === 'surface3d') {
+      const adjustment = scaledLoad(original, f - 1);
+      if (adjustment.type === 'surface3d') scaled.data[scenarioSurfaceAdjustment] = adjustment.data;
+    }
+    loads[i] = scaled;
   }
 }
 
@@ -184,7 +190,7 @@ export const whatIf = {
   /** Enter: remember the model and whether live calc was on, and turn it on. */
   open(): void {
     if (baseline) return;
-    baseline = { ...modelStore.snapshot(snapshotOptions), presentation3D: uiStore.viewportPresentation3D };
+    baseline = { ...modelStore.snapshot(), presentation3D: uiStore.viewportPresentation3D };
     stampAtOpen = recheckStore.capture();
     loadFactors = modelStore.model.loads.map(() => 1);
     all = { ...ONE };

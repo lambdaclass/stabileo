@@ -55,7 +55,7 @@ const words: Translations = {
   'course.kinematics.gic.cmp.equal': 'Les deux méthodes demandent le même nombre d’équations : {gh}.',
 
   'course.kinematics.dm.intro': 'Les inconnues sont les déplacements des nœuds : rotations et translations. On les bloque toutes par des liaisons fictives, on résout les charges ainsi (état 0), puis on donne à chaque inconnue une valeur unité séparément (états 1…n). La condition que les liaisons fictives finissent sans effort donne le système K·D = −R⁰.',
-  'course.kinematics.dm.introStates': 'Dans chaque état les barres travaillent comme encastrées à leurs extrémités, ou articulées là où elles le sont, donc leurs moments viennent de coefficients connus : 4EI/L et 2EI/L pour une rotation, 6EI/L² pour une translation transversale, 3EI/L quand l’autre extrémité est articulée et EA/L pour un allongement.',
+  'course.kinematics.dm.introStates': 'Dans chaque état les barres travaillent comme encastrées à leurs extrémités, ou articulées là où elles le sont, donc leurs moments viennent de coefficients connus : 4EI/L et 2EI/L pour une rotation, 6EI/L² pour une translation transversale, 3EI/L quand l’autre extrémité est articulée. Si la déformation axiale est prise en compte, l’effort normal N = (EA/L)·ΔL se déduit de l’allongement ΔL.',
   'course.kinematics.dm.introRigid': 'Les barres sont supposées axialement rigides : elles gardent leur longueur. Les bielles, elles, s’allongent comme des ressorts axiaux EA/L.',
   'course.kinematics.dm.introAxial': 'Les barres ont une rigidité axiale EA/L : elles peuvent s’allonger et chaque translation libre de chaque nœud est une inconnue. Le résultat coïncide alors avec le calcul matriciel.',
   'course.kinematics.dm.membersCaption': 'Barres : longueur et rigidités.',

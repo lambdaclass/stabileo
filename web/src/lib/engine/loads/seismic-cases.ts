@@ -1,75 +1,170 @@
-/**
- * The seismic load cases of a plan, from the force each level takes in each direction
- * (`load-plan.ts`, by the static method of Cap. 6 or the modal one of Cap. 7).
- *
- * ── Accidental torsion, §6.2.4.2 ───────────────────────────────────
- *
- * Each level adds a moment Mta,k = Fk·eak about the vertical, eak from Tabla 6.3 by the torsional
- * irregularity: none for a regular plan or a low irregularity, 5 % of the plan's length across
- * the forces for a medium one, 10 % for an extreme one. Its sign is either, so a direction with
- * torsion is two cases, +e and −e. The moment is spread over the level's nodes the way the wind's
- * torsion is (`wind-cases.ts`): forces with no resultant and moment Mta about the plan's centre.
- *
- * ── A third direction, §3.2 ──────────────────────────────────────
- *
- * When the lateral systems are not in two perpendicular directions, the action is also applied at
- * 45° to them: the larger of the two directions' forces, split equally along X and Y.
- *
- * Pure: no store.
- */
-import { levelLoads, type WindModel } from './wind-cases';
+import { msg } from '../../codes/message';
+import type { PlannedDistributed, PlannedNodal, PlannedSurface } from './load-plan';
+import { massSamples, type MassRefusal, type SeismicLevel } from './seismic-mass';
 
 export type TorsionalIrregularity = 'low' | 'medium' | 'extreme';
-/** Tabla 6.3: eak as a fraction of the plan's length across the forces. */
 export const ACCIDENTAL_ECCENTRICITY: Readonly<Record<TorsionalIrregularity, number>> = Object.freeze({ low: 0, medium: 0.05, extreme: 0.1 });
 
-export interface SeismicCasesInput {
-  nodes: WindModel['nodes'];
-  levels: ReadonlyArray<{ elevation: number; nodeIds: number[] }>;
-  /** The force at each level, kN, in each direction. */
-  forcesX: readonly number[];
-  forcesY: readonly number[];
-  directions: { x: boolean; y: boolean };
-  torsion?: TorsionalIrregularity;
-  diagonal?: boolean;
+type Directions = { x: boolean; y: boolean };
+type Selection = { directions: Directions } & (
+  { diagonal: true; torsion: 'low' } | { diagonal: false; torsion: TorsionalIrregularity }
+);
+
+export function staticSeismicSelection({ directions, diagonal, torsion = 'low' }: {
+  directions: Directions; diagonal?: boolean; torsion?: TorsionalIrregularity;
+}): Selection | { blocked: ReturnType<typeof msg> } {
+  if (!diagonal) return { directions, diagonal: false, torsion };
+  if (torsion === 'low') return { directions, diagonal: true, torsion };
+  return { blocked: msg('loadPlan.blocked.seismicDiagonalTorsion') };
 }
 
-export interface SeismicCase {
+type Case = {
   nameKey: string;
   nameParams: Record<string, string | number>;
-  /** Which `directions` axis it is (for a case already in the model), or 'diagonal'. */
   axis: 'X' | 'Y' | 'diagonal';
-  nodal: Array<{ nodeId: number; fx: number; fy: number; mz: number }>;
+  force: (k: number) => [number, number];
+  eccentricity: number;
+};
+
+type SeismicCasesInput = {
+  levels: readonly SeismicLevel[];
+  forces: readonly number[];
+  selection: Selection;
+};
+
+type CaseLoad<T> = Omit<T, 'caseType' | 'caseIndex'>;
+type StoryLoads = {
+  nodal: CaseLoad<PlannedNodal>[];
+  distributed: CaseLoad<PlannedDistributed>[];
+  surface: CaseLoad<PlannedSurface>[];
+};
+
+function geometryOf(level: SeismicLevel) {
+  const first = level.mass[0]!;
+  const origin = first.kind === 'shell' ? first.nodes[0]! : first.nodeI;
+  let sx = 0, sy = 0, weight = 0;
+  for (const mass of level.mass) massSamples(mass, (w, x, y) => {
+    sx += w * (x - origin.x);
+    sy += w * (y - origin.y);
+    weight += w;
+  });
+  const x = sx / weight, y = sy / weight;
+  let polar = 0;
+  for (const mass of level.mass) massSamples(mass, (w, px, py) => {
+    polar += w * (((px - origin.x) - x) ** 2 + ((py - origin.y) - y) ** 2);
+  });
+  return { origin, x, y, polar, weight };
 }
 
-export function seismicCases(i: SeismicCasesInput): SeismicCase[] {
-  const e = ACCIDENTAL_ECCENTRICITY[i.torsion ?? 'low'];
-  const extent = (ids: number[], axis: 'x' | 'y') => {
-    const v = ids.map((id) => i.nodes.get(id)).filter((n): n is NonNullable<typeof n> => !!n).map((n) => n[axis]);
-    return v.length ? Math.max(...v) - Math.min(...v) : 0;
-  };
-  const out: SeismicCase[] = [];
-  for (const axis of ['X', 'Y'] as const) {
-    if (!(axis === 'X' ? i.directions.x : i.directions.y)) continue;
-    const forces = axis === 'X' ? i.forcesX : i.forcesY;
-    for (const sign of e > 0 ? [1, -1] : [0]) {
-      const nodal = i.levels.flatMap((lv, k) => {
-        const F = forces[k] ?? 0;
-        // The plan's length across the forces: along Y for forces along X.
-        const mt = sign * F * e * extent(lv.nodeIds, axis === 'X' ? 'y' : 'x');
-        return levelLoads(i.nodes, lv.nodeIds, axis === 'X' ? F : 0, axis === 'Y' ? F : 0, mt);
-      });
-      out.push(sign === 0
-        ? { nameKey: 'autoLoad.seismicCaseDir', nameParams: { dir: axis }, axis, nodal }
-        : { nameKey: 'autoLoad.seismicCaseEcc', nameParams: { dir: axis, sign: sign > 0 ? '+' : '−', e: Math.round(e * 100) }, axis, nodal });
+function levelLoading(level: SeismicLevel, g: ReturnType<typeof geometryOf>, fx: number, fy: number, eccentricity: number, axis: Case['axis']):
+  StoryLoads | { reason: MassRefusal } {
+  const loads: StoryLoads = { nodal: [], distributed: [], surface: [] };
+  if (fx === 0 && fy === 0) return loads;
+  if (![fx, fy, g.weight, level.weightKN].every(Number.isFinite) || g.weight <= 0 || level.weightKN <= 0) return { reason: 'weight' };
+  if (eccentricity !== 0 && level.mass.some(m => m.kind !== 'shell' && !!m.width)) return { reason: 'eccentric' };
+  const moment = eccentricity * (axis === 'X' ? fx * level.planWidth.y : fy * level.planWidth.x);
+  if (![g.x, g.y, g.polar, moment].every(Number.isFinite) || (moment !== 0 && !(g.polar > 0))) return { reason: 'torsion' };
+  const spin = moment === 0 ? 0 : moment / g.polar;
+  const ax = fx / level.weightKN, ay = fy / level.weightKN;
+  const acceleration = Math.hypot(ax, ay);
+  if (![acceleration, spin].every(Number.isFinite)) return { reason: 'torsion' };
+  const turnX = (y: number) => -spin * ((y - g.origin.y) - g.y);
+  const turnY = (x: number) => spin * ((x - g.origin.x) - g.x);
+  const actions = new Map<number, CaseLoad<PlannedNodal>>();
+
+  for (const mass of level.mass) {
+    switch (mass.kind) {
+      case 'member': {
+        if (spin !== 0 && mass.wi !== mass.wj) return { reason: 'torsion' };
+        const x = (s: number) => mass.nodeI.x + (mass.nodeJ.x - mass.nodeI.x) * (s / mass.length);
+        const y = (s: number) => mass.nodeI.y + (mass.nodeJ.y - mass.nodeI.y) * (s / mass.length);
+        const qX = mass.wi * (ax + turnX(y(mass.a))), qXJ = mass.wj * (ax + turnX(y(mass.b)));
+        const qY = mass.wi * (ay + turnY(x(mass.a))), qYJ = mass.wj * (ay + turnY(x(mass.b)));
+        if (![qX, qXJ, qY, qYJ].every(Number.isFinite)) return { reason: 'torsion' };
+        if (qX || qXJ || qY || qYJ) {
+          loads.distributed.push({ elementId: mass.elementId, frame: 'global', a: mass.a, b: mass.b, q: 0, qX, qXJ, qY, qYJ });
+        }
+        break;
+      }
+      case 'shell': {
+        const q = mass.density * acceleration;
+        if (!Number.isFinite(q)) return { reason: 'torsion' };
+        if (q) loads.surface.push({ quadId: mass.quadId, on: mass.on, frame: 'global', q, dir: [ax / acceleration, ay / acceleration, 0] });
+        if (spin === 0) break;
+        for (const [dir, along, turn] of [
+          [[1, 0, 0], 'y', turnX], [[0, 1, 0], 'x', turnY],
+        ] as const) {
+          const coords = mass.nodes.map(n => n[along]);
+          const c1 = Math.min(...coords), c2 = Math.max(...coords);
+          const q1 = mass.density * turn(c1), q2 = mass.density * turn(c2);
+          if (![q1, q2].every(Number.isFinite) || c1 === c2) return { reason: 'torsion' };
+          if (q1 || q2) loads.surface.push({
+            quadId: mass.quadId, on: mass.on, frame: 'global', q: 0, dir: [...dir],
+            vary: { dir: along === 'x' ? [1, 0, 0] : [0, 1, 0], c1, c2, q1, q2 },
+          });
+        }
+        break;
+      }
+      case 'nodal': {
+        const { node } = mass;
+        const load = actions.get(node.id) ?? { nodeId: node.id, fx: 0, fy: 0, fz: 0 };
+        const share = (mass.b - mass.a) * (mass.wi + mass.wj) / 2 / level.weightKN;
+        load.fx += share * fx;
+        load.fy += share * fy;
+        massSamples(mass, (w, x, y) => {
+          const spinX = w * turnX(y), spinY = w * turnY(x);
+          load.fx += spinX;
+          load.fy += spinY;
+          const mz = (x - node.x) * (w * ay + spinY) - (y - node.y) * (w * ax + spinX);
+          if (mz !== 0) load.mz = (load.mz ?? 0) + mz;
+        });
+        actions.set(node.id, load);
+        break;
+      }
     }
   }
-  if (i.diagonal) {
-    const nodal = i.levels.flatMap((lv, k) => {
-      const F = Math.max(Math.abs(i.forcesX[k] ?? 0), Math.abs(i.forcesY[k] ?? 0)) / Math.SQRT2;
-      return levelLoads(i.nodes, lv.nodeIds, F, F, 0);
-    });
-    out.push({ nameKey: 'autoLoad.seismicCaseDir', nameParams: { dir: '45°' }, axis: 'diagonal', nodal });
+
+  const nodal = [...actions.values()].sort((a, b) => a.nodeId - b.nodeId);
+  if (nodal.some(n => ![n.fx, n.fy, n.mz ?? 0].every(Number.isFinite))) return { reason: 'torsion' };
+  loads.nodal = nodal.filter(n => n.fx !== 0 || n.fy !== 0 || n.mz);
+  return loads;
+}
+
+export function staticSeismicCases(i: SeismicCasesInput, refuse: (level: SeismicLevel, reason: MassRefusal) => void) {
+  const { directions, diagonal, torsion } = i.selection;
+  const e = ACCIDENTAL_ECCENTRICITY[torsion];
+  const cases: Case[] = [];
+  for (const axis of ['X', 'Y'] as const) {
+    if (!(axis === 'X' ? directions.x : directions.y)) continue;
+    const force: Case['force'] = k => axis === 'X' ? [i.forces[k]!, 0] : [0, i.forces[k]!];
+    for (const sign of e > 0 ? [1, -1] : [0]) {
+      cases.push(sign === 0
+        ? { nameKey: 'autoLoad.seismicCaseDir', nameParams: { dir: axis }, axis, force, eccentricity: 0 }
+        : { nameKey: 'autoLoad.seismicCaseEcc', nameParams: { dir: axis, sign: sign > 0 ? '+' : '−', e: Math.round(e * 100) }, axis, force, eccentricity: sign * e });
+    }
   }
-  return out;
+  if (diagonal) cases.push({
+    nameKey: 'autoLoad.seismicCaseDir', nameParams: { dir: '45°' }, axis: 'diagonal', eccentricity: 0,
+    force: k => {
+      const f = Math.abs(i.forces[k]!) / Math.SQRT2;
+      return [f, f];
+    },
+  });
+  const perCase = cases.map((c): Case & StoryLoads => ({ ...c, nodal: [], distributed: [], surface: [] }));
+  i.levels.forEach((level, k) => {
+    if (level.refusals.size > 0) return;
+    if (level.mass.length === 0) { refuse(level, 'weight'); return; }
+    const geometry = geometryOf(level);
+    const loads = cases.map(c => levelLoading(level, geometry, ...c.force(k), c.eccentricity, c.axis));
+    const refused = loads.find(l => 'reason' in l);
+    if (refused) { refuse(level, refused.reason); return; }
+    loads.forEach((load, index) => {
+      if ('reason' in load) return;
+      const target = perCase[index]!;
+      for (const n of load.nodal) target.nodal.push(n);
+      for (const d of load.distributed) target.distributed.push(d);
+      for (const s of load.surface) target.surface.push(s);
+    });
+  });
+  return perCase;
 }

@@ -174,7 +174,6 @@ describe('every published URL is served, not redirected', () => {
       ['/hu/research/', flags.research],
       ['/en/tools/', true],
       ['/en/tools/mohr-2d/', flags.tools],
-      ['/en/register/', flags.accounts],
       ['/en/terms/', flags.accounts],
       ['/en/privacy/', flags.accounts],
       ['/en/usage-data/', flags.accounts],
@@ -294,7 +293,8 @@ describe('every published URL is served, not redirected', () => {
     const html = (url: string) => readFileSync(join(DIST, new URL(url).pathname, 'index.html'), 'utf8');
     const prerendered = (page: string) => page.match(/<div id="prerender">([\s\S]*)<div id="app">/)?.[1] ?? '';
     const text = (s: string) => s.replace(/<(script|style|svg)[\s\S]*?<\/\1>/g, '').replace(/<[^>]+>/g, '\n').replace(/&[a-z#0-9]+;/g, ' ');
-    const lines = (s: string) => text(s).split('\n').map((l) => l.trim()).filter((l) => l.length >= 30 && /[a-z]{3}/.test(l));
+    // A Chinese character fills the width of two Latin letters, so a Chinese line counts it twice.
+    const lines = (s: string) => text(s).split('\n').map((l) => l.trim()).filter((l) => l.length + (l.match(/\p{Script=Han}/gu)?.length ?? 0) >= 30 && /[a-z]{3}|\p{Script=Han}{3}/u.test(l));
     const title = (page: string) => page.match(/<title>([^<]*)<\/title>/)?.[1] ?? '';
 
     it('lists every published research page in the sitemap, dated by its latest review', () => {

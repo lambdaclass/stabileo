@@ -15,7 +15,8 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { initSolver, solve } from '../wasm-solver';
 import { computeInfluenceLine } from '../influence-service';
-import { solveMovingLoads, PREDEFINED_TRAINS, type MovingLoadEnvelope } from '../moving-loads';
+import { computeDiagramValueAt } from '../diagrams';
+import { solveMovingLoads, solveMovingLoadsAsync, PREDEFINED_TRAINS, type MovingLoadEnvelope } from '../moving-loads';
 import type { SolverInput } from '../types';
 
 beforeAll(async () => { await initSolver(); });
@@ -151,4 +152,40 @@ describe('moving loads', () => {
       expect(t.axles[0].offset, `${t.name} first offset`).toBe(0);
     }
   });
+});
+
+it('#2375 — both plane sweeps retain the axial jump at an interior axle', async () => {
+  const solver = solverBeam(4);
+  solver.nodes.set(2, { id: 2, x: 0, z: 4 });
+  solver.supports.delete(2);
+  solver.supports.set(1, { id: 1, nodeId: 1, type: 'fixed' });
+  const config = { train: { name: 'single', axles: [{ offset: 0, weight: 1 }] }, step: 1, pathElementIds: [1] };
+  for (const sweep of [solveMovingLoads, solveMovingLoadsAsync]) {
+    const result = await sweep(solver, config);
+    if (typeof result === 'string') throw new Error(result);
+    const axialAt = (position: number, t: number) => {
+      const station = result.positions.find(entry => entry.refPosition === position)!;
+      return computeDiagramValueAt('axial', t, station.results.elementForces[0]);
+    };
+    expect.soft(axialAt(2, 0.25)).toBeCloseTo(-1, 9);
+    expect.soft(axialAt(2, 0.75)).toBeCloseTo(0, 9);
+    expect.soft(axialAt(0, 0.5)).toBeCloseTo(0, 9);
+    expect.soft(axialAt(4, 0.5)).toBeCloseTo(-1, 9);
+    expect.soft(result.elements.get(1)!.nMaxNeg).toBeCloseTo(-1, 9);
+  }
+});
+
+it('#2375 — an inclined frame axle retains both force components', () => {
+  const solver = solverBeam(5);
+  solver.nodes.set(2, { id: 2, x: 3, z: 4 });
+  solver.supports.delete(2);
+  solver.supports.set(1, { id: 1, nodeId: 1, type: 'fixed' });
+  const result = solveMovingLoads(solver, { train: { name: 'single', axles: [{ offset: 0, weight: 1 }] }, step: 0.5 });
+  if (typeof result === 'string') throw new Error(result);
+  const force = result.positions.find(entry => entry.refPosition === 2.5)!.results.elementForces[0];
+  expect.soft(computeDiagramValueAt('axial', 0.25, force)).toBeCloseTo(-4 / 5, 9);
+  expect.soft(computeDiagramValueAt('axial', 0.75, force)).toBeCloseTo(0, 9);
+  expect.soft(Math.abs(computeDiagramValueAt('shear', 0.25, force))).toBeCloseTo(3 / 5, 9);
+  expect.soft(computeDiagramValueAt('shear', 0.75, force)).toBeCloseTo(0, 9);
+  expect.soft(Math.abs(computeDiagramValueAt('moment', 0, force))).toBeCloseTo(1.5, 9);
 });

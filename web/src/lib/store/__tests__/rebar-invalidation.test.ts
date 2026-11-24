@@ -305,21 +305,36 @@ describe('reinforcement edits preserve analysis state', () => {
     expect(designRunStore.manualOverrides.has(ids[0])).toBe(true);
   });
 
-  it('10. display status is provided-first: weakening rebar turns the member red', () => {
+  it('10. display status is provided-first for a shear refusal and after weakening verified rebar', () => {
     const beam = ids.find(id => verificationStore.contextFor(id)!.elementType === 'beam')!;
     expect(verificationStore.getDisplayStatus(beam)).toBe('unavailable');   // no rebar
-    // REBAR's 3Ø20 top bars do not hook into these 40 cm columns (ℓdh 36,8 cm against 28,4 cm with
-    // the columns read at their default Ø32 cage, `end-support-anchorage.ts`); a member that passes
-    // carries the same steel as 8Ø12, whose ℓdh is 22,1 cm.
+    const anchoringLayers = [{ count: 4, diameter: 12, row: 0 }, { count: 4, diameter: 12, row: 1 }];
+    const anchoringBars = { count: 8, diameter: 12 };
     const anchoring: ProvidedReinforcement = { regions: {
       ...REBAR.regions!,
-      topStartLayers: [{ count: 4, diameter: 12, row: 0 }, { count: 4, diameter: 12, row: 1 }], topStart: { count: 8, diameter: 12 },
-      topEndLayers: [{ count: 4, diameter: 12, row: 0 }, { count: 4, diameter: 12, row: 1 }], topEnd: { count: 8, diameter: 12 },
+      topStartLayers: anchoringLayers, topStart: anchoringBars,
+      topEndLayers: anchoringLayers, topEnd: anchoringBars,
     } };
     commitManual(beam, anchoring);
+    expect(verificationStore.getDisplayStatus(beam)).toBe('fail');
+    expect(verificationStore.getStatus(beam)).toBe('fail');
+    expect(verificationStore.getMaxRatio(beam)).toBeNull();
+    expect(verificationStore.providedFor(beam)?.checks).toContainEqual(expect.objectContaining({
+      category: 'Shear Support (Vz)',
+      status: 'fail',
+      description: 'diag.rcShearDepth',
+      ratio: Infinity,
+    }));
+
+    commitManual(beam, { regions: {
+      ...anchoring.regions!,
+      bottomSpanLayers: anchoringLayers,
+      bottomSpan: anchoringBars,
+      bottomGroups: [{ ...REBAR.regions!.bottomGroups![0], layers: anchoringLayers }],
+    } });
     const good = verificationStore.getDisplayStatus(beam);
     expect(['ok', 'warn']).toContain(good);
-    setRegionLayers(beam, 'bottomSpanLayers', [{ count: 2, diameter: 10, row: 0 }]);
+    setRegionLayers(beam, 'bottomSpanLayers', [{ count: 2, diameter: 12, row: 0 }, { count: 2, diameter: 12, row: 1 }]);
     expect(verificationStore.getDisplayStatus(beam)).toBe('fail');
     // The viewport reads the same source.
     expect(verificationStore.getStatus(beam)).toBe('fail');

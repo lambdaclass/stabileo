@@ -1,3 +1,4 @@
+import { factorsWithExactCancellation, factorsWithUnitResidual } from './combination-factor-fixture';
 import { beforeAll, expect, it } from 'vitest';
 import { initSolver, solve3D, netCombinationFactors, combineResults, combineResults3D, combineResultsBatch3D, combineResultsEnvelope3D, computeEnvelope3D } from '../wasm-solver';
 import type { AnalysisResults3D, SolverInput3D } from '../types-3d';
@@ -437,4 +438,115 @@ it('preserves 2D results after repeated case cancellation in the wrapper and exp
     expect(raw([big, 1, -big])).toStrictEqual(raw([1]));
     expect(combineResults(splitFactors([big, 1, -big]), perCase)).toStrictEqual(combineResults(splitFactors([1]), perCase));
   }
+});
+
+const cancelled = /Repeated load case factors cancel to zero in this combination/;
+
+it('#2292 spatial combination routes refuse complete case cancellation', () => {
+  const model = readFileSync(new URL('../../../../../engine/tests/fixtures/distorted-single-quad-combination.json', import.meta.url), 'utf8');
+  for (const result of [solve_3d(JSON.parse(model)), JSON.parse(solve_pdelta_3d(model, 20, 1e-9)).results]) {
+    const perCase = new Map([[1, result]]);
+    for (const [path, combine] of Object.entries(combinationPaths3D)) {
+      const run = (weights: number[]) => combine(splitFactors(weights), perCase);
+      expect(run([1]).displacements.some((row: { uz: number }) => row.uz !== 0), path).toBe(true);
+      expect(run([2 ** 54, 1, -(2 ** 54)]), path).toStrictEqual(run([1]));
+      expect(run([1, -1 - Number.EPSILON]), path).toStrictEqual(run([-Number.EPSILON]));
+      expect(run([1, -1 + Number.EPSILON]), path).toStrictEqual(run([Number.EPSILON]));
+      expect(run([0, -0]).displacements.every((row: { uz: number }) => row.uz === 0), path).toBe(true);
+      expect.soft(() => run([1, -1]), path).toThrow(cancelled);
+    }
+  }
+});
+
+it('#2292 planar combination routes refuse complete case cancellation', () => {
+  const model = portalInput('2d');
+  for (const result of [solve_2d(JSON.parse(model)), JSON.parse(solve_pdelta_2d(model, 20, 1e-9)).results]) {
+    const perCase = new Map([[1, result]]);
+    for (const combine of [
+      (weights: number[]) => combineResults(splitFactors(weights), perCase),
+      (weights: number[]) => combine_results_2d({ factors: splitFactors(weights), cases: [{ caseId: 1, results: result }] }),
+    ]) {
+      expect(combine([1]).displacements.some((row: { uz: number }) => row.uz !== 0)).toBe(true);
+      expect(combine([2 ** 54, 1, -(2 ** 54)])).toStrictEqual(combine([1]));
+      expect(combine([1, -1 - Number.EPSILON])).toStrictEqual(combine([-Number.EPSILON]));
+      expect(combine([1, -1 + Number.EPSILON])).toStrictEqual(combine([Number.EPSILON]));
+      expect(combine([0, -0]).displacements.every((row: { uz: number }) => row.uz === 0)).toBe(true);
+      expect.soft(() => combine([1, -1])).toThrow(cancelled);
+    }
+  }
+  for (const net of [netCombinationFactors, net_combination_factors]) {
+    expect.soft(() => net(splitFactors([1, -1]))).toThrow(cancelled);
+    expect(net([...splitFactors([1, -1]), { caseId: 2, factor: 1 }]))
+      .toStrictEqual([{ caseId: 2, factor: 1 }, { caseId: 1, factor: 0 }]);
+  }
+});
+
+function resultOrRefusal<T>(run: () => T): T | string {
+  try { return run(); } catch (error) { return String(error); }
+}
+
+it('#2292 WASM combination routes distinguish exact cancellation from a unit residual', () => {
+  const models = [
+    [portalInput('2d'), solve_2d, solve_pdelta_2d],
+    [portalInput('3d'), solve_3d, solve_pdelta_3d],
+  ] as const;
+  for (const [index, [model, linear, nonlinear]] of models.entries()) {
+    for (const result of [linear(JSON.parse(model)), JSON.parse(nonlinear(model, 20, 1e-9)).results]) {
+      const perCase = new Map([[1, result]]);
+      const paths = index === 0 ? {
+        'planar wrapper': (weights: number[]) => combineResults(splitFactors(weights), perCase),
+        'planar export': (weights: number[]) => combine_results_2d({ factors: splitFactors(weights), cases: [{ caseId: 1, results: result }] }),
+      } : Object.fromEntries(Object.entries(combinationPaths3D).map(([path, combine]) => [
+        path, (weights: number[]) => combine(splitFactors(weights), perCase),
+      ]));
+      for (const [path, run] of Object.entries(paths)) {
+        const control = run([1]);
+        expect(control.displacements.some((row: { uz: number }) => row.uz !== 0), path).toBe(true);
+        expect.soft(() => run(factorsWithExactCancellation), path).toThrow(cancelled);
+        expect.soft(resultOrRefusal(() => run(factorsWithUnitResidual)), path).toStrictEqual(control);
+      }
+    }
+  }
+});
+
+it('#2292 case-factor resolution preserves exact signed residuals and rounds once', () => {
+  const subnormal = Number.MIN_VALUE;
+  const halfUlp = Number.EPSILON / 2;
+  const halfMaxUlp = 2 ** 970;
+  for (const resolver of [net_combination_factors, netCombinationFactors]) {
+    const run = (weights: number[]) => resolver(splitFactors(weights));
+    expect.soft(() => run(factorsWithExactCancellation)).toThrow(cancelled);
+    expect.soft(resultOrRefusal(() => run(factorsWithUnitResidual))).toStrictEqual(splitFactors([1]));
+    expect.soft(run([...factorsWithUnitResidual, -2])).toStrictEqual(splitFactors([-1]));
+    const tinyResidual = factorsWithUnitResidual.map((factor, index) => index === 2 ? subnormal : factor);
+    expect.soft(resultOrRefusal(() => run(tinyResidual))).toStrictEqual(splitFactors([subnormal]));
+    expect.soft(resultOrRefusal(() => run(tinyResidual.map(factor => -factor)))).toStrictEqual(splitFactors([-subnormal]));
+    expect(run([1, halfUlp])).toStrictEqual(splitFactors([1]));
+    expect(run([1 + Number.EPSILON, halfUlp])).toStrictEqual(splitFactors([1 + 2 * Number.EPSILON]));
+    expect(run([Number.MAX_VALUE, halfMaxUlp - 2 ** 917])).toStrictEqual(splitFactors([Number.MAX_VALUE]));
+    expect(failure(() => run([Number.MAX_VALUE, halfMaxUlp]))).toBe(netFactorOverflow);
+    expect.soft(resolver([...splitFactors(factorsWithExactCancellation), { caseId: 2, factor: 1 }]))
+      .toStrictEqual([{ caseId: 2, factor: 1 }, { caseId: 1, factor: 0 }]);
+  }
+});
+
+it.each([
+  ['planar linear', 'ex-portal-frame-input.json', compute_envelope_2d, solve_2d, 'vStart', 'moment', 1],
+  ['planar P-Delta', 'ex-portal-frame-input.json', compute_envelope_2d,
+    (model: object) => JSON.parse(solve_pdelta_2d(JSON.stringify(model), 20, 1e-9)).results, 'vStart', 'moment', 1],
+  ['spatial linear', 'ex-3d-portal-frame-input.json', compute_envelope_3d, solve_3d, 'vzStart', 'momentY', -1],
+  ['spatial P-Delta', 'ex-3d-portal-frame-input.json', compute_envelope_3d,
+    (model: object) => JSON.parse(solve_pdelta_3d(JSON.stringify(model), 20, 1e-9)).results, 'vzStart', 'momentY', -1],
+] as const)('known wrong result: #1350 — %s WASM envelope locates overflow in a later case', (_name, fixture, envelope, solve, component, kind, sign) => {
+  const model = JSON.parse(readFileSync(new URL(`../../../../../engine/tests/fixtures/${fixture}`, import.meta.url), 'utf8'));
+  const result = solve(model);
+  const force = result.elementForces[0];
+  const changed = (slope: number) => ({
+    ...result,
+    elementForces: [{ ...force, [component]: slope }, ...result.elementForces.slice(1)],
+  });
+  const finite = changed(sign * (Number.MAX_VALUE / force.length / 2));
+  expect(envelope([result, finite])).toBeTruthy();
+  expect(() => envelope([result, changed(sign * Number.MAX_VALUE)]))
+    .toThrow(new RegExp(`${kind} of element ${force.elementId}.*result 1`));
 });
