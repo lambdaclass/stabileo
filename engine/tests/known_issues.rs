@@ -4,7 +4,7 @@
 use crate::common;
 use common::{make_3d_beam, make_beam};
 use dedaliano_engine::known_issues::{for_3d, Analysis};
-use dedaliano_engine::solver::linear::{prepare_static_2d, solve_2d};
+use dedaliano_engine::solver::linear::{prepare_static_2d, solve_2d, solve_3d};
 use dedaliano_engine::solver::constraints::{solve_constrained_2d, ConstrainedInput};
 use dedaliano_engine::solver::ssi::{solve_ssi_2d, SSIInput, SoilSpring};
 use dedaliano_engine::solver::material_nonlinear::solve_nonlinear_material_2d;
@@ -3003,4 +3003,73 @@ fn accepted_3d_cantilever_retains_conditioning_in_both_diagnostic_lists() {
             assert!(result.structured_diagnostics.iter().any(|d| d.code == DiagnosticCode::NearZeroDiagonal && d.phase.as_deref() == Some("conditioning") && d.severity == Severity::Warning), "padded={padded} pcg={pcg}: {:?}", result.structured_diagnostics);
         }
     }
+}
+
+#[test]
+#[ignore = "known wrong result: #2535"]
+fn issue_2535_warped_mitc_uses_node_ids_in_linear_and_nonlinear_solves() {
+    use dedaliano_engine::solver::{linear::prepare_static_3d, pdelta::solve_pdelta_3d};
+    for (quad9, nx, ny) in [(false, 12, 4), (true, 6, 2)] {
+        let (mut input, _) = twisted_strip(quad9, nx, ny, 90.0, 0.32, [0.0, 0.0, 1.0]);
+        input.nodes = input.nodes.into_values().map(|n| (format!("corner-{}", n.id), n)).collect();
+        let input: SolverInput3D = serde_json::from_value(serde_json::to_value(input).unwrap()).unwrap();
+        let issue = warped_id(quad9);
+        let linear = solve_3d(&input);
+        let prepared = prepare_static_3d(&input).and_then(|solver| solver.solve_loads(&input.loads));
+        let nonlinear = solve_pdelta_3d(&input, 10, 1e-6);
+        for (name, result) in [("linear", linear.as_ref().err()), ("prepared", prepared.as_ref().err()), ("P-Delta", nonlinear.as_ref().err())] {
+            assert!(result.is_some_and(|error| error.contains(issue)), "{issue} {name}: {result:?}");
+        }
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #2535"]
+fn issue_2535_warped_mitc_preserves_both_bands_with_labelled_nodes() {
+    use dedaliano_engine::element::{quad::quad_twist_curvature, quad9::quad9_twist_curvature};
+    use dedaliano_engine::known_issues::{WARPED_MITC4_TWIST, WARPED_MITC9_TWIST};
+
+    let corners = [
+        [0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [1.0, 1.0, 0.01], [0.0, 1.0, 0.0],
+        [0.5, 0.0, 0.0], [1.0, 0.5, 0.005], [0.5, 1.0, 0.005], [0.0, 0.5, 0.0], [0.5, 0.5, 0.0025],
+    ];
+    for (quad9, (warn, refuse)) in [(false, WARPED_MITC4_TWIST), (true, WARPED_MITC9_TWIST)] {
+        let kappa = if quad9 { quad9_twist_curvature(&corners) } else { quad_twist_curvature(&corners[..4].try_into().unwrap()) };
+        let n = if quad9 { 9 } else { 4 };
+        let nodes = corners[..n].iter().enumerate().map(|(i, &[x, y, z])| (i + 1, x, y, z)).collect();
+        let load = SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: 3, fx: 0.0, fy: 0.0, fz: -1.0, mx: 0.0, my: 0.0, mz: 0.0, bw: None });
+        let fixed = if quad9 { vec![1, 4, 8] } else { vec![1, 4] };
+        let mut input = common::make_3d_input(nodes, vec![(1, 29_000.0, 0.22)], vec![], vec![],
+            fixed.into_iter().map(|id| (id, vec![true; 6])).collect(), vec![load]);
+        input.nodes = input.nodes.into_values().map(|node| (format!("corner-{}", node.id), node)).collect();
+
+        for (kt, expected) in [(0.999 * warn, None), (1.001 * warn, Some(Severity::Warning)), (0.999 * refuse, Some(Severity::Warning)), (1.001 * refuse, Some(Severity::Error))] {
+            if quad9 {
+                input.quad9s.insert("1".into(), SolverQuad9Element { id: 1, nodes: std::array::from_fn(|i| i + 1), material_id: 1, thickness: kt / kappa });
+            } else {
+                input.quads.insert("1".into(), SolverQuadElement { id: 1, nodes: [1, 2, 3, 4], material_id: 1, thickness: kt / kappa });
+            }
+            let result = solve_3d(&input);
+            if expected == Some(Severity::Error) {
+                common::assert_containment(result, warped_id(quad9));
+            } else {
+                let result = result.unwrap();
+                let findings = warped_findings(&result.structured_diagnostics);
+                assert_eq!(findings.first().map(|d| d.severity), expected, "{} at {kt}", warped_id(quad9));
+                assert!(result.displacements.iter().any(|d| d.node_id == 3 && d.uz < 0.0));
+            }
+        }
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #2535"]
+fn issue_2535_plane_wire_input_rejects_shells_before_they_disappear() {
+    let input = make_beam(2, 4.0, E, 0.045, 3.375e-4, "fixed", None, tip(-10.0));
+    let mut wire = serde_json::to_value(input).unwrap();
+    wire["quads"] = serde_json::json!({});
+    assert!(solve_2d(&serde_json::from_value(wire.clone()).unwrap()).is_ok());
+    wire["quads"] = serde_json::json!({"1": {"id": 1, "nodes": [1, 2, 3, 4], "materialId": 1, "thickness": 0.32}});
+    let error = serde_json::from_value::<SolverInput>(wire).unwrap_err();
+    assert!(error.to_string().contains("Shell elements require 3D analysis"), "{error}");
 }
