@@ -1117,6 +1117,44 @@ mod shared_driver_equivalence {
     }
 
     #[test]
+    fn the_line_search_on_newton_krylov_reaches_the_solution_of_many_small_increments() {
+        use crate::solver::experimental_nonlinear::Direction;
+        let searched = IterationMethod::LineSearch { direction: Direction::NewtonKrylov };
+        let (mut reached, mut cases) = (0, 0);
+        for n in [4, 12, 30] {
+            for (rise, far_support) in [(0.0, None), (0.4, None), (0.4, Some("pinned"))] {
+                let input = frame(n, rise, far_support);
+                let reference = solve_corotational_2d_by(&input, None, 200, 1e-8, 40, IterationMethod::NewtonLineSearch).unwrap();
+                assert!(reference.converged);
+                for n_increments in [1, 4] {
+                    let result = solve_corotational_2d_by(&input, None, 200, 1e-8, n_increments, searched).unwrap();
+                    cases += 1;
+                    if result.converged {
+                        reached += 1;
+                        assert_eq!(result.load_factor, 1.0);
+                        assert!(apart(&result, &reference) <= 1e-7, "n {n}, rise {rise}, {n_increments} increments: {}", apart(&result, &reference));
+                    }
+                    if far_support.is_some() {
+                        assert!(result.converged, "the propped arch of {n} members, {n_increments} increments");
+                    }
+                }
+            }
+        }
+        assert!(reached + 2 >= cases, "{reached} of {cases}");
+    }
+
+    #[test]
+    fn the_line_search_on_newton_is_the_line_search_there_was() {
+        use crate::solver::experimental_nonlinear::Direction;
+        for (n, rise, far_support) in [(4, 0.0, None), (12, 0.4, Some("pinned")), (30, 0.4, None)] {
+            let input = frame(n, rise, far_support);
+            let before = solve_corotational_2d_by(&input, None, 200, 1e-8, 4, IterationMethod::NewtonLineSearch).unwrap();
+            let composed = solve_corotational_2d_by(&input, None, 200, 1e-8, 4, IterationMethod::LineSearch { direction: Direction::Newton }).unwrap();
+            assert_eq!(serde_json::to_string(&before).unwrap(), serde_json::to_string(&composed).unwrap());
+        }
+    }
+
+    #[test]
     fn an_iteration_that_does_not_converge_reports_the_last_increment_that_did() {
         let input = frame(12, 0.0, None);
         for method in [

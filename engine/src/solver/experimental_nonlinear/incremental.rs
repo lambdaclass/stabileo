@@ -2,7 +2,7 @@ use super::{
     adaptive::solve_by_adaptive_increments,
     anderson::{Anderson, MAX_ANDERSON_DEPTH},
     broyden::{Broyden, MAX_BROYDEN_MEMORY},
-    line_search::NewtonLineSearch,
+    line_search::{LineSearch, NewtonLineSearch},
     newton_krylov::NewtonKrylov,
 };
 
@@ -155,6 +155,19 @@ pub enum IterationMethod {
     Anderson { depth: usize },
     Broyden { memory: usize },
     NewtonKrylov,
+    /// The line search on the step of the direction named.
+    LineSearch { direction: Direction },
+}
+
+/// Where a step comes from: a new tangent factorized, the increment's first one kept, or the
+/// current tangent applied in conjugate gradients preconditioned by that first one.
+#[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(target_arch = "wasm32", derive(serde::Deserialize))]
+#[cfg_attr(target_arch = "wasm32", serde(rename_all = "camelCase"))]
+pub enum Direction {
+    Newton,
+    ModifiedNewton,
+    NewtonKrylov,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -291,6 +304,14 @@ pub(crate) fn solve_stepped<P: IncrementalProblem + ?Sized>(
         IterationMethod::NewtonKrylov => run(
             problem,
             &NewtonKrylov,
+            stepping,
+            n_increments,
+            tolerance,
+            max_iter,
+        ),
+        IterationMethod::LineSearch { direction } => run(
+            problem,
+            &LineSearch { direction },
             stepping,
             n_increments,
             tolerance,
@@ -1181,6 +1202,71 @@ mod tests {
         assert_eq!(error, "the tangent is singular");
         assert_eq!(failing.linearizations, 3);
         assert_eq!(validate(IterationMethod::NewtonKrylov), Ok(()));
+    }
+
+    #[test]
+    fn a_line_search_on_newtons_direction_is_the_newton_line_search() {
+        for (load, start) in [(0.0, 3.0), (0.0, -2.5), (1.2, 0.0)] {
+            let mut before = Chain::spring(softening, load).starting_at(&[start]);
+            let mut composed = Chain::spring(softening, load).starting_at(&[start]);
+            let old = solve_by_load_increments(&mut before, &NewtonLineSearch, 1, 1e-10, 60).unwrap();
+            let new = solve_by_load_increments(&mut composed, &LineSearch { direction: Direction::Newton }, 1, 1e-10, 60).unwrap();
+            assert_eq!(old, new);
+            assert_eq!(before.u, composed.u);
+            assert_eq!(before.trace, composed.trace);
+        }
+    }
+
+    #[test]
+    fn a_line_search_on_the_krylov_direction_converges_from_one_tangent_per_increment() {
+        let load = [4.0, -1.0, 2.5, 0.5, 3.0];
+        let mut newton = Chain::new(mild, 0.7, &load);
+        solve_by_load_increments(&mut newton, &Newton { lag_tangent: false }, 3, 1e-12, 200).unwrap();
+        for direction in [Direction::NewtonKrylov, Direction::ModifiedNewton] {
+            let mut searched = Chain::new(mild, 0.7, &load);
+            let outcome = solve_stepped(&mut searched, IterationMethod::LineSearch { direction }, LoadStepping::Equal, 3, 1e-10, 400).unwrap();
+            assert!(outcome.converged, "{direction:?}");
+            assert_eq!(searched.tangents, 3, "{direction:?}");
+            assert_eq!(outcome.iterations, searched.linearizations);
+            for (got, want) in searched.u.iter().zip(&newton.u) {
+                assert!((got - want).abs() <= 1e-8, "{direction:?}: {got} vs {want}");
+            }
+        }
+    }
+
+    #[test]
+    fn a_line_search_holds_the_krylov_step_that_would_run_away() {
+        let mut plain = Chain::spring(softening, 0.0).starting_at(&[3.0]);
+        let ran_away = solve_by_load_increments(&mut plain, &NewtonKrylov, 1, 1e-10, 30);
+        assert!(!ran_away.is_ok_and(|outcome| outcome.converged));
+
+        let mut searched = Chain::spring(softening, 0.0).starting_at(&[3.0]);
+        let outcome = solve_by_load_increments(&mut searched, &LineSearch { direction: Direction::NewtonKrylov }, 1, 1e-10, 80).unwrap();
+        assert!(outcome.converged);
+        assert!(searched.u[0].abs() <= 1e-9, "{}", searched.u[0]);
+        assert_eq!(outcome.iterations, searched.linearizations);
+    }
+
+    #[test]
+    fn a_line_search_on_any_direction_keeps_the_rules_every_iteration_keeps() {
+        for direction in [Direction::Newton, Direction::ModifiedNewton, Direction::NewtonKrylov] {
+            let mut owed = Chain::spring(stiffening, 0.0);
+            owed.owed = true;
+            let outcome = solve_by_load_increments(&mut owed, &LineSearch { direction }, 1, 1e-10, 50).unwrap();
+            assert_eq!((outcome.iterations, outcome.converged, outcome.load_factor), (2, true, 1.0), "{direction:?}");
+
+            let mut short = Chain::spring(stiffening, 30.0);
+            let outcome = solve_by_load_increments(&mut short, &LineSearch { direction }, 1, 1e-10, 2).unwrap();
+            assert_eq!((outcome.converged, outcome.load_factor), (false, 0.0), "{direction:?}");
+            assert_eq!(short.u, vec![0.0], "{direction:?}");
+            assert!(short.linearizations <= 2, "{direction:?}");
+
+            let mut failing = Chain::spring(stiffening, 30.0);
+            failing.fail_at = Some(1);
+            let error = solve_by_load_increments(&mut failing, &LineSearch { direction }, 2, 1e-10, 50).unwrap_err();
+            assert_eq!(error, "the tangent is singular", "{direction:?}");
+            assert_eq!(validate(IterationMethod::LineSearch { direction }), Ok(()));
+        }
     }
 
     #[test]

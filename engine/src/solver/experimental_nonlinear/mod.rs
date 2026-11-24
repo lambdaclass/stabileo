@@ -15,7 +15,7 @@ pub use super::corotational::experimental_nonlinear_2d::{
 pub use super::corotational::experimental_nonlinear_3d::{
     solve_corotational_3d_by, solve_corotational_3d_stepped,
 };
-pub use incremental::{IterationMethod, LoadStepping};
+pub use incremental::{Direction, IterationMethod, LoadStepping};
 
 #[cfg(target_arch = "wasm32")]
 mod wasm;

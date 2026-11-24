@@ -711,6 +711,18 @@ mod shared_driver_equivalence_3d {
     }
 
     #[test]
+    fn the_line_search_on_newton_krylov_reaches_newtons_solution_of_a_building() {
+        use crate::solver::experimental_nonlinear::Direction;
+        for (bays, stories, push) in [(2, 3, 20.0), (3, 6, 150.0)] {
+            let input = building(bays, stories, push);
+            let newton = solve_corotational_3d_by(&input, 60, 1e-8, 2, IterationMethod::Newton).unwrap();
+            let composed = solve_corotational_3d_by(&input, 60, 1e-8, 2, IterationMethod::LineSearch { direction: Direction::NewtonKrylov }).unwrap();
+            assert!(newton.converged && composed.converged, "{bays} bays, {stories} stories");
+            assert!(apart(&composed, &newton) <= 1e-7, "{}", apart(&composed, &newton));
+        }
+    }
+
+    #[test]
     fn the_other_iterations_reach_the_3d_solution_newton_reaches() {
         for n in [4, 12] {
             for (rise, propped) in [(0.0, false), (0.3, true)] {

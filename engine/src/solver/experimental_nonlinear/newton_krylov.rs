@@ -1,4 +1,6 @@
-use super::incremental::{IncrementalProblem, Iteration, IterationBudget, IterationError};
+use super::incremental::{
+    Direction, IncrementalProblem, Iteration, IterationBudget, IterationError,
+};
 
 const FORCING: f64 = 1e-3;
 const MAX_INNER: usize = 50;
@@ -25,18 +27,31 @@ impl Iteration for NewtonKrylov {
             if at.measure < tolerance && !at.forced {
                 return Ok(true);
             }
-            let step = if at.forced {
-                problem.correction(true)?
-            } else {
-                match inexact(problem) {
-                    Inexact::Step(step) => step,
-                    Inexact::NoFactor => problem.correction(true)?,
-                    Inexact::BrokeDown => problem.correction(false)?,
-                }
-            };
+            let step = Direction::NewtonKrylov.step(problem, at.forced)?;
             problem.advance(&step);
         }
         Ok(false)
+    }
+}
+
+impl Direction {
+    /// The step this direction gives for the last linearization. A forced correction is the
+    /// problem's own, whole.
+    pub(crate) fn step<P: IncrementalProblem + ?Sized>(
+        self,
+        problem: &mut P,
+        forced: bool,
+    ) -> Result<Vec<f64>, String> {
+        match self {
+            Direction::Newton => problem.correction(false),
+            Direction::ModifiedNewton => problem.correction(true),
+            Direction::NewtonKrylov if forced => problem.correction(true),
+            Direction::NewtonKrylov => match inexact(problem) {
+                Inexact::Step(step) => Ok(step),
+                Inexact::NoFactor => problem.correction(true),
+                Inexact::BrokeDown => problem.correction(false),
+            },
+        }
     }
 }
 
