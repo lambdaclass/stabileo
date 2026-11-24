@@ -371,3 +371,88 @@ for (const mode of ['2d', '3d'] as const) {
     }
   });
 }
+
+for (const nonlinear of [false, true]) {
+  it.skip(`known wrong result: #2370 preserves cantilever reactions for a zero-padded planar nodal vector (P-Delta=${nonlinear})`, () => {
+    const file = project();
+    const [, tip] = file.snapshot.nodes[1]!;
+    tip.x = 4;
+    const fx = nonlinear ? 0 : 5;
+    const fz = -3;
+    const moment = -3;
+    nodal(file, { fx, fz, my: -moment });
+    const solve = () => {
+      if (!nonlinear) {
+        const result = modelStore.solve();
+        if (!result || typeof result === 'string') throw new Error(String(result));
+        return result.reactions;
+      }
+      const result = solvePDelta(modelStore.buildSolverInput()!);
+      expect(result.converged).toBe(true);
+      return result.results.reactions;
+    };
+    expect(deserializeProject(JSON.stringify(file))).toBe(true);
+    const reference = solve();
+    expect(reference).toHaveLength(1);
+    expect(reference[0]!.rx + fx).toBeCloseTo(0, 4);
+    expect(reference[0]!.rz + fz).toBeCloseTo(0, 4);
+    expect(-reference[0]!.my + moment - tip.x * fz).toBeCloseTo(0, 4);
+    Object.assign(file.snapshot.loads[0]!.data, { fy: 0, mx: 0, mz: 0 });
+    expect(deserializeProject(JSON.stringify(file))).toBe(true);
+    expect(solve()).toEqual(reference);
+  });
+}
+
+it.skip('known wrong result: #2370 strips only zero padding from a complete planar nodal vector across model intake', async () => {
+  const file = project();
+  nodal(file, { fx: 5, fz: -3, my: 3, fy: 0, mx: 0, mz: 0 });
+  const entry = file.snapshot.loads[0]!;
+  const nodeId = file.snapshot.nodes[1]![0];
+  const canonical = { fx: 5, fz: -3, my: 3 };
+  const check = (data: object | undefined) => {
+    expect.soft(data).toMatchObject(canonical);
+    for (const axis of ['fy', 'mx', 'mz']) expect.soft(data).not.toHaveProperty(axis);
+  };
+  const accept = (load: () => unknown) => {
+    expect.soft(load).not.toThrow();
+    check(modelStore.loads[0]?.data);
+  };
+
+  accept(() => modelStore.restore(file.snapshot));
+  for (const open of [loadProject, loadFile]) {
+    await expect.soft(open(asFile(file))).resolves.toBeUndefined();
+    check(modelStore.loads[0]?.data);
+  }
+  const tab = { id: 'one', name: 'Padded', analysisMode: '2d', modelSnapshot: file.snapshot, undoStack: [], redoStack: [] };
+  check(acceptSessionTabs([tab]).tabs[0]?.modelSnapshot.loads[0]?.data);
+  check(acceptAutosavePayload(file)?.snapshot.loads[0]?.data);
+  expect.soft(() => check(decompressSnapshot(compressSnapshot(file.snapshot))?.loads[0]?.data)).not.toThrow();
+  check(decompressSnapshot(LZString.compressToEncodedURIComponent(JSON.stringify(file.snapshot)))?.loads[0]?.data);
+  const text = `stabileo-model 1\nnode ${nodeId} 4 0 0\nload nodal 1 nodeId=${nodeId} fx=5 fy=0 fz=-3 mx=0 my=3 mz=0\n`;
+  const parsed = codeToModel(text);
+  expect.soft(parsed.errors).toEqual([]);
+  check(parsed.snapshot?.loads?.[0]?.data);
+  expect.soft(() => fragmentFromSnapshot(file.snapshot)).not.toThrow();
+  expect.soft(() => fragmentFromJSONModel(fixture(file))).not.toThrow();
+  modelStore.clear();
+  accept(() => loadFixture(fixture(file), modelStore.fixtureApi() as never));
+  await expect.soft(modelStore.loadExample('padded-vector-test', async () => fixture(file))).resolves.toBeUndefined();
+  check(modelStore.loads[0]?.data);
+  accept(() => modelStore.replaceLoads([entry as never]));
+  modelStore.replaceLoads([]);
+  accept(() => addLoads([entry as never]));
+});
+
+it.skip('known wrong result: #2370 refuses nonzero or invalid out-of-plane vector components before install', () => {
+  const file = project();
+  nodal(file, { fx: 5, fz: -3, my: 3, fy: 0, mx: 0, mz: 0 });
+  const baseline = modelStore.snapshot();
+  const entry = file.snapshot.loads[0]!;
+  for (const [field, value] of [['fy', -3], ['mx', Number.EPSILON], ['mz', 3], ['mx', null], ['mz', '0']] as const) {
+    const snapshot = { ...file.snapshot, loads: [{ ...entry, data: { ...entry.data, [field]: value } }] };
+    expect.soft(() => modelStore.restore(snapshot)).toThrow(/outside the plane/);
+    expect.soft(modelStore.snapshot()).toEqual(baseline);
+  }
+  const { mx: _mx, ...withoutMx } = entry.data as Record<string, unknown>;
+  expect(() => modelStore.restore({ ...file.snapshot, loads: [{ ...entry, data: withoutMx }] })).toThrow(/my.*mz/);
+});
