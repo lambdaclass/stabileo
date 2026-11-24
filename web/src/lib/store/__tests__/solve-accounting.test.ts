@@ -1,9 +1,9 @@
 import { beforeEach, expect, it, vi } from 'vitest';
 import { POINT_END_TOL } from '../../engine/member-point-loads';
 import { plateRemeshMessage } from '../../engine/plate-analysis-refusal';
-import { accountingProjection } from '../../engine/accounting-source';
+import { accountingProjection, withScenarioSurfaceIntent } from '../../engine/accounting-source';
 import {
-  buildSolverInput2D, caseSolverLoads3D, comboSolverLoads3D, solveCombinations2D, validateAndSolve2D, validateAndSolve2DAsync, type ModelData,
+  buildSolverInput2D, prepareSolverInput3D, caseSolverLoads3D, comboSolverLoads3D, solveCombinations2D, validateAndSolve2D, validateAndSolve2DAsync, type ModelData,
 } from '../../engine/solver-service';
 import type { SolverLoad3D } from '../../engine/types-3d';
 import { withCaseEffects } from '../../engine/case-effects';
@@ -19,7 +19,37 @@ import {
   addPlateLoad, applyPlateMeshes, createPlate, meshBeforeAnalysis, planPlateMesh, plateEntry, plateStatus, setPlateMeshSpec, setPlateSideArc,
 } from '../physical-plates';
 
-const fault = vi.hoisted(() => ({ dropMemberLoad: false, dropLineIntensity: 0, scaleCaseLoad: 1, momentDelta: 0, stalePlanarMoment: 0, surfaceFactorOffset: 0, cornerPressureDelta: 0, assemblyDrift: null as { shell: number; relative: number } | null, combinationDrift: null as { shell: number; relative: number } | null, dropNodalFy: false }));
+const fault = vi.hoisted(() => ({ dropSceneCase: 0, integrateDrift: 0, dropMemberLoad: false, dropLineIntensity: 0, scaleCaseLoad: 1, momentDelta: 0, stalePlanarMoment: 0, surfaceFactorOffset: 0, cornerPressureDelta: 0, assemblyDrift: null as { shell: number; relative: number } | null, combinationDrift: null as { shell: number; relative: number } | null, dropNodalFy: false }));
+
+vi.mock('../../engine/case-effects', async importOriginal => {
+  const original = await importOriginal<typeof import('../../engine/case-effects')>();
+  function drop<M extends ModelData>(expanded: M): M {
+    return fault.dropSceneCase ? {
+      ...expanded,
+      loads: expanded.loads.filter(load => load.type !== 'surface3d' || load.data.caseId !== fault.dropSceneCase),
+    } : expanded;
+  }
+  return {
+    ...original,
+    singleSolveModel: (...args: Parameters<typeof original.singleSolveModel>) => drop(original.singleSolveModel(...args)),
+    withCaseEffects: (...args: Parameters<typeof original.withCaseEffects>) => drop(original.withCaseEffects(...args)),
+  };
+});
+
+vi.mock('../../engine/shell-load-integration', async importOriginal => {
+  const original = await importOriginal<typeof import('../../engine/shell-load-integration')>();
+  return {
+    ...original,
+    shellLoadForces: (...args: Parameters<typeof original.shellLoadForces>) => {
+      const result = original.shellLoadForces(...args);
+      if (!result || args[0] !== 'quad' || !fault.integrateDrift) return result;
+      return {
+        ...result,
+        forces: result.forces.map(([x, y, z], i) => [x, y, z * (1 + (i % 2 ? -1 : 1) * fault.integrateDrift)]),
+      };
+    },
+  };
+});
 
 vi.mock('../../model/loads/load-magnitudes', async importOriginal => {
   const original = await importOriginal<typeof import('../../model/loads/load-magnitudes')>();
@@ -104,6 +134,8 @@ beforeEach(() => {
   uiStore.useNative3DPresentation();
   uiStore.includeSelfWeight = false;
   meshBeforeAnalysis.value = true;
+  fault.dropSceneCase = 0;
+  fault.integrateDrift = 0;
   fault.dropMemberLoad = false;
   fault.dropLineIntensity = 0;
   fault.scaleCaseLoad = 1;
@@ -477,6 +509,94 @@ it('#2479 refuses a wrong what-if plate-pressure factor throughout spatial analy
   }
 });
 
+const pressureReview = process.env.RUN_KNOWN_WRONG === '2479' ? it : it.skip;
+
+pressureReview('known wrong result: #2479 refuses a missing reference case with cancelling pressures on two floors', async () => {
+  const source = modelStore.addLoadCase('Opposite pressures');
+  expect(modelStore.updateLoadCaseFields(source, { reference: true })).toBe(true);
+  const setFactor = (factor: number) =>
+    expect(modelStore.updateLoadCaseFields(1, { includes: [{ caseId: source, factor }] })).toBe(true);
+  setFactor(2);
+  const combo = modelStore.addCombination('Floor pressures', [{ caseId: 1, factor: 1 }]);
+  const model = modelStore.model;
+  const floors = [0, 3].map(z => {
+    const nodes = [[0, 0], [4, 0], [4, 5], [0, 5]].map(([x, y]) => modelStore.addNode(x!, y!, z)) as [number, number, number, number];
+    for (const node of nodes) modelStore.addSupport(node, 'fixed3d');
+    return { nodes, quadId: modelStore.addQuad(nodes, 1, 0.2) };
+  });
+  modelStore.addElement(floors[0]!.nodes[0], floors[1]!.nodes[0]);
+  for (const [i, { quadId }] of floors.entries()) {
+    const baseline = { id: i + 1, quadId, q: i === 0 ? 1 : -1, caseId: source };
+    model.loads.push(withScenarioSurfaceIntent({ type: 'surface3d', data: { ...baseline, q: baseline.q / 2 } },
+      { baseline, factor: 0.5 }));
+  }
+  const opts = { includeSelfWeight: false, leftHand: false };
+  const linear = () => modelStore.solve3D(false, false, true);
+  const perCase = () => modelStore.solveCombinations3D(false, false, true);
+  const parallel = () => modelStore.solveCombinations3DParallel(false, false, true);
+  function checkReactions(result: ReturnType<typeof linear>) {
+    if (!result || typeof result === 'string') throw new Error(String(result));
+    for (const [i, { nodes }] of floors.entries()) {
+      for (const node of nodes) {
+        expect(result.reactions.find(row => row.nodeId === node)?.fz).toBeCloseTo((i === 0 ? 1 : -1) * 4 * 5 / 4, 8);
+      }
+    }
+  }
+  checkReactions(linear());
+  const combinations = perCase();
+  if (!combinations || typeof combinations === 'string') throw new Error(String(combinations));
+  checkReactions(combinations.perCombo.get(combo)!);
+
+  fault.dropSceneCase = 1;
+  const diagnostic = expect.stringMatching(/case.*(?:surface3d|shell)/i);
+  for (const [name, run] of Object.entries({
+    linear, perCase, parallel,
+    async: () => modelStore.solve3DAsync(false, false, true),
+    direct: () => runDirectAnalysis(model, model.loadCases, model.combinations, opts),
+  })) expect.soft(await outcome(run), name).toEqual(diagnostic);
+  expect.soft(modelStore.singleSolveInput3D(false, false, true), 'input').toBeNull();
+  expect.soft(await runGlobalSolve({ directBase: true }), 'global').toMatchObject({ ok: false, error: diagnostic });
+  modelStore.setAnalysis({ perCombination: 'pdelta' });
+  expect.soft(await outcome(perCase), 'P-Delta').toEqual(diagnostic);
+  expect.soft(await outcome(parallel), 'P-Delta parallel').toEqual(diagnostic);
+  modelStore.updateSupport(model.supports.keys().next().value!, { uplift: true });
+  expect.soft(await outcome(() => modelStore.solve3DAsync(false, false, true)), 'nonlinear single').toEqual(diagnostic);
+  expect.soft(await outcome(parallel), 'nonlinear combinations').toEqual(diagnostic);
+
+  setFactor(0);
+  expect(linear()).toMatchObject({ reactions: expect.any(Array) });
+});
+
+pressureReview('known wrong result: #2479 checks nodal pressure independently of the production integrator', async () => {
+  await checkAlternatingExplorePressures('integration');
+});
+
+pressureReview('known wrong result: #2479 accounts for declared factors when checking supplied solver loads', () => {
+  const { id } = floor();
+  expect(applyPlateMeshes([planPlateMesh(id)!]).plates).toBe(1);
+  syncDefinedLoadsForAnalysis();
+  const model = modelStore.model;
+  const source = modelStore.addLoadCase('Reference pressure');
+  model.loads = model.loads.map(load => {
+    if (load.type !== 'surface3d') return load;
+    const baseline = { ...load.data, caseId: source };
+    return withScenarioSurfaceIntent({ ...load, data: { ...baseline, q: baseline.q / 2 } }, { baseline, factor: 0.5 });
+  });
+  expect(modelStore.updateLoadCaseFields(source, { reference: true })).toBe(true);
+  expect(modelStore.updateLoadCaseFields(1, { includes: [{ caseId: source, factor: 2 }] })).toBe(true);
+  const expanded = withCaseEffects(model, model.loadCases, { includeSelfWeight: false, leftHand: false }, new Set([1]));
+  const prepared = prepareSolverInput3D(expanded, false);
+  const input = prepared.build(prepared.model.loads);
+  const loads = input?.loads.filter(load => load.type === 'nodal') ?? [];
+  expect(loads.length).toBeGreaterThan(0);
+  expect(loads.reduce((total, load) => total + load.data.fz, 0)).toBeCloseTo(-4 * 5, 8);
+});
+
+pressureReview.each(['case', 'assembly'] as const)(
+  'known wrong result: #2479 clears a successful live result after a %s refusal',
+  async stage => checkAlternatingExplorePressures(stage, true),
+);
+
 it('#2479 refuses alternating equivalent nodal force errors introduced during assembly', async () => {
   await checkAlternatingExplorePressures('assembly');
 });
@@ -493,7 +613,7 @@ it('#2479 refuses alternating what-if corner pressures with unchanged resultants
   await checkAlternatingExplorePressures('slider');
 });
 
-async function checkAlternatingExplorePressures(stage: 'slider' | 'case' | 'assembly' | 'combination') {
+async function checkAlternatingExplorePressures(stage: 'slider' | 'case' | 'assembly' | 'integration' | 'combination', liveOnly = false) {
   const { id } = floor();
   const [a, b] = modelStore.nodes.keys();
   modelStore.addElement(a!, b!);
@@ -533,22 +653,40 @@ async function checkAlternatingExplorePressures(stage: 'slider' | 'case' | 'asse
     { includeSelfWeight: false, leftHand: false }, new Set([notionalCase.id]));
 
   const requested = 0.5;
+  const inject = (delta: number) => {
+    fault.cornerPressureDelta = stage === 'case' ? delta * 2 : 0;
+    const drift = { shell: target.data.quadId, relative: delta / requested };
+    if (stage === 'assembly') fault.assemblyDrift = drift;
+    if (stage === 'integration') fault.integrateDrift = drift.relative;
+    if (stage === 'combination') fault.combinationDrift = drift;
+  };
   const apply = async (delta: number) => {
+    fault.integrateDrift = 0;
     fault.assemblyDrift = null;
     fault.combinationDrift = null;
     fault.cornerPressureDelta = stage === 'slider' ? delta : 0;
     whatIf.setLoadFactor(index, requested);
     await vi.advanceTimersByTimeAsync(60);
-    fault.cornerPressureDelta = stage === 'case' ? delta * 2 : 0;
-    const drift = { shell: target.data.quadId, relative: delta / requested };
-    if (stage === 'assembly') fault.assemblyDrift = drift;
-    if (stage === 'combination') fault.combinationDrift = drift;
+    if (stage !== 'slider') inject(delta);
   };
   const within = requested * (roundoff - Number.EPSILON);
   const beyond = requested * (roundoff + 2 * Number.EPSILON);
   vi.useFakeTimers();
   try {
     whatIf.open();
+    const nodalDrift = stage === 'assembly' || stage === 'integration';
+    const diagnostic = expect.stringMatching(nodalDrift
+      ? /case.*Test floor.*node.*Fz/i : /case.*Test floor.*q\[1\]/i);
+    if (liveOnly) {
+      await apply(0);
+      await runLiveCalc('pro', uiStore.axisConvention3D);
+      expect(resultsStore.results3D).toMatchObject({ reactions: expect.any(Array) });
+      inject(0.25);
+      await runLiveCalc('pro', uiStore.axisConvention3D);
+      expect.soft(uiStore.liveCalcError).toEqual(diagnostic);
+      expect.soft(resultsStore.results3D).toBeNull();
+      return;
+    }
     if (stage === 'combination') {
       const assembleCombination = () => {
         const expanded = withCaseEffects(model, model.loadCases, { includeSelfWeight: false, leftHand: false });
@@ -581,7 +719,7 @@ async function checkAlternatingExplorePressures(stage: 'slider' | 'case' | 'asse
     }
     for (const delta of [0, within]) {
       await apply(delta);
-      if (stage === 'assembly') expect(notional().loads.some(load => load.data.caseId === notionalCase.id)).toBe(true);
+      if (nodalDrift) expect(notional().loads.some(load => load.data.caseId === notionalCase.id)).toBe(true);
       const expected = (20 - area * (1 - requested)) * 2;
       const result = paths.linear();
       if (!result || typeof result === 'string') throw new Error(String(result));
@@ -591,8 +729,6 @@ async function checkAlternatingExplorePressures(stage: 'slider' | 'case' | 'asse
       expect(combinations.perCombo.get(combo)!.reactions.reduce((sum, r) => sum + r.fz, 0)).toBeCloseTo(expected * 1.5, 8);
     }
 
-    const diagnostic = expect.stringMatching(stage === 'assembly'
-      ? /case.*Test floor.*node.*Fz/i : /case.*Test floor.*q\[1\]/i);
     await apply(beyond);
     expect.soft(paths.linear(), 'just beyond corner roundoff').toEqual(diagnostic);
 
@@ -605,7 +741,7 @@ async function checkAlternatingExplorePressures(stage: 'slider' | 'case' | 'asse
       if (stage === 'case' && (name === 'pdelta' || name === 'modal' || name === 'buckling')) continue;
       expect.soft(await outcome(run), name).toEqual(diagnostic);
     }
-    if (stage === 'assembly') expect.soft(await outcome(notional), 'notional source').toEqual(expect.stringMatching(/case.*node.*Fz/i));
+    if (nodalDrift) expect.soft(await outcome(notional), 'notional source').toEqual(expect.stringMatching(/case.*node.*Fz/i));
     expect.soft(modelStore.singleSolveInput3D(false, false, true), 'input').toBeNull();
     if (stage !== 'slider') resultsStore.clear3D();
     await runLiveCalc('pro', uiStore.axisConvention3D);
@@ -620,6 +756,7 @@ async function checkAlternatingExplorePressures(stage: 'slider' | 'case' | 'asse
     expect.soft(await outcome(paths.async), 'nonlinear single').toEqual(diagnostic);
     expect.soft(await outcome(paths.parallel), 'nonlinear combinations').toEqual(diagnostic);
   } finally {
+    fault.integrateDrift = 0;
     fault.cornerPressureDelta = 0;
     fault.assemblyDrift = null;
     fault.combinationDrift = null;
