@@ -10,6 +10,7 @@ import type { CheckLine } from './types';
 import type { PunchingRow } from './punching-row';
 import type { FootingRow } from './footing-types';
 import type { StairRow } from './stair-row';
+import { purchaseOrder, type PurchaseOrder } from './schedule/order';
 import { meshText } from './footing-mesh';
 import { dowelsText } from './footing-dowels';
 import { groupDowelRows } from './footing-group-detail';
@@ -24,7 +25,7 @@ const cm = (v: number) => Math.round(v * 100);
 const fmtOf = (v: number, digits = 2): string => v.toFixed(digits);
 const worst = (v: CheckLine[]) => Math.max(0, ...v.map((x) => x.ratio ?? 0));
 
-export function rcSheetsWorkbook(rows: { beam: BeamRow[]; line?: LineLayout[]; column: ColumnRow[]; slab: SlabRow[]; wall: WallRow[]; punching?: PunchingRow[]; footing?: FootingRow[]; stair?: StairRow[]; code: string }, tr: Tr, bending?: BendingSchedule): WorkbookSheet[] {
+export function rcSheetsWorkbook(rows: { beam: BeamRow[]; line?: LineLayout[]; column: ColumnRow[]; slab: SlabRow[]; wall: WallRow[]; punching?: PunchingRow[]; footing?: FootingRow[]; stair?: StairRow[]; levels?: string[]; code: string }, tr: Tr, bending?: BendingSchedule): WorkbookSheet[] {
   const head = [`${tr('rcSheets.code')}: ${rows.code}`];
   const state = (s: string) => tr(`rcSheets.status.${s}`);
   const name = tr('rcSheets.col.name'), level = tr('rcSheets.col.level'), status = tr('rcSheets.col.status'), ratio = tr('rcSheets.col.ratio'), req = tr('rcSheets.req');
@@ -105,5 +106,14 @@ export function rcSheetsWorkbook(rows: { beam: BeamRow[]; line?: LineLayout[]; c
     ...((rows.footing ?? []).length ? [{ name: tr('rcSheets.family.footing'), rows: feet }] : []),
     ...((rows.stair ?? []).length ? [{ name: tr('rcSheets.family.stair'), rows: stairs }] : []),
     ...(bending?.rows.length ? scheduleSheets(bending, tr, rows.code) : []),
+    ...(bending?.rows.length ? [orderSheet(purchaseOrder({ line: rows.line ?? [], column: rows.column, slab: rows.slab, wall: rows.wall, footing: rows.footing ?? [], stair: rows.stair ?? [] }, bending, rows.levels ?? []), tr)] : []),
   ];
+}
+
+/** The purchase order's sheet: each level's concrete, its steel with the waste, kg per m³ and its stock bars by diameter, and the total. */
+function orderSheet(o: PurchaseOrder, tr: Tr): WorkbookSheet {
+  const dias = o.total.bars.map((b) => b.dia);
+  const rows: WorkbookSheet['rows'] = [[tr('rcSheets.order.title'), `${o.stockLength} m · ${Math.round(o.waste * 100)} %`], [tr('rcSheets.col.level'), tr('rcSheets.order.concrete'), 'kg', 'kg/m³', ...dias.map((d) => `Ø${d}`)]];
+  for (const l of [...o.levels, o.total]) rows.push([l === o.total ? tr('rcSheets.order.total') : safeText(l.level || '—'), Math.round(l.concrete * 100) / 100, Math.round(l.withWaste), l.ratio === null ? '—' : Math.round(l.ratio), ...dias.map((d) => l.bars.find((b) => b.dia === d)?.stockBars ?? 0)]);
+  return { name: tr('rcSheets.order.title'), rows };
 }

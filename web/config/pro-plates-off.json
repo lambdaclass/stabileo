@@ -3103,6 +3103,8 @@
     "src/components/pro/rc-sheets/RcSheetsWorkspace.svelte": null,
     "src/components/pro/rc-sheets/RcSlabLayers.svelte": null,
     "src/components/pro/rc-sheets/RcSlabPlan.svelte": null,
+    "src/components/pro/rc-sheets/RcStairDetail.svelte": null,
+    "src/components/pro/rc-sheets/RcStairSvg.svelte": null,
     "src/components/pro/rc-sheets/RcSteps.svelte": null,
     "src/components/pro/rc-sheets/RcStructurePlan.svelte": null,
     "src/components/pro/rc-sheets/RcVerticalTable.svelte": null,
@@ -5710,7 +5712,7 @@
       ]
     },
     "src/lib/i18n/locales/de.ts": {
-      "source": "c34a347d38dea6bc1bf59eb45bb09da49dae7b3a22db7d82ed9ffc04ed2c72e7",
+      "source": "a00989b32d3020b1c4ea2452e1c7adeba82cfd697c92b93842b9ea0ee1ccf620",
       "original": "0b1cffc73c321c88dd80b93e39f81e925705babc0f2e91df63e10c19111fe052",
       "changes": [
         [
@@ -6031,13 +6033,13 @@
         ],
         [
           16166,
-          1009,
+          1019,
           []
         ]
       ]
     },
     "src/lib/i18n/locales/en.ts": {
-      "source": "6c883b739e421161c9c55deb26d3d2a148690510813955e89c01e7bcea822112",
+      "source": "06ce9c166bee6ce88ce729629337882faf5f0bc561ad01c27f52d22c1a641db9",
       "original": "99343e2eeb7cf4140cbbcb69424c37461d3ec4e5c925d64439f6b56ee0e9e6b3",
       "changes": [
         [
@@ -6330,13 +6332,13 @@
         ],
         [
           16328,
-          1009,
+          1019,
           []
         ]
       ]
     },
     "src/lib/i18n/locales/es.ts": {
-      "source": "ee24b0279aa84b7a7ee6da3da806f0d81f72d5ae574580e0e6023675c1d30fb1",
+      "source": "b1c932ac58855574315be787bbb5ef3856e27699b1c3761797eba1eca99421d2",
       "original": "df939d2beed0420d6833617b3561c95098e34704ee1a3b4f15f21dda24fa4e09",
       "changes": [
         [
@@ -6629,13 +6631,13 @@
         ],
         [
           16317,
-          1009,
+          1019,
           []
         ]
       ]
     },
     "src/lib/i18n/locales/fr.ts": {
-      "source": "1a918098c388a9896563c8d3562a731af7e3627cc6d183340c27d69bff1c2cd4",
+      "source": "875c0edd3c5cecc6e8df1ff5f5ed065cec666163eec812775f31dddfb2289412",
       "original": "26693801514fc282fbb8a5a4ad627431cbfce3c6e3f0720639c8cb5cef4e4b20",
       "changes": [
         [
@@ -6956,7 +6958,7 @@
         ],
         [
           16166,
-          1009,
+          1019,
           []
         ]
       ]
@@ -6982,7 +6984,7 @@
       ]
     },
     "src/lib/i18n/locales/hu.ts": {
-      "source": "b390e3dc5b8830acd44aab0db966c3bfdad087c224f4eb2ba11f037f01782449",
+      "source": "561dedcebeb3f17a1452aa77ad30425c3316f714deff38af716a18f9d7a923f3",
       "original": "050bb2fb50b6d61761b6836086403490f8b3deedc1ac4af88de298aa3fd3966e",
       "changes": [
         [
@@ -7232,7 +7234,7 @@
         ],
         [
           14765,
-          2123,
+          2133,
           [
             "  \"edu.game.hint\": \"Játék: egy szerkezet, három ábra, és csak az egyik helyes.\"",
             ""
@@ -7321,7 +7323,7 @@
       ]
     },
     "src/lib/i18n/locales/pt.ts": {
-      "source": "1ad9a39c569ff84c4c81680833819b2163170bc5b0148d9441990545b1f0d78c",
+      "source": "8078fd9e14ec1ba81e38dacc5373573a4dcaa120bc72fb73d58e53caaddab6e6",
       "original": "f013a27bd1465964fefdc7d531a470bc4855e8593daa03ed54ed7453509bdd37",
       "changes": [
         [
@@ -7614,7 +7616,7 @@
         ],
         [
           15970,
-          1009,
+          1019,
           []
         ]
       ]
@@ -7942,7 +7944,7 @@
       ]
     },
     "src/lib/i18n/locales/tr.ts": {
-      "source": "5db52028bfaebe330e374175bfae0d9a8e86aaae95907a3796a09de3c3b29e4d",
+      "source": "77e2c91f96bbc785d62c7106ef4b13b65c6d301f6d768084240d9e486dccc083",
       "original": "dfae3be5cd45792b6b2c9720f3433a60bace6b76a70d785cd4f6cc88d7ef096f",
       "changes": [
         [
@@ -8242,13 +8244,13 @@
         ],
         [
           16166,
-          1009,
+          1019,
           []
         ]
       ]
     },
     "src/lib/i18n/locales/zh.ts": {
-      "source": "9f422e36bc39ebc2a2082496228630f6b693ad5648f963490b9e182338d8e291",
+      "source": "5ef643e73f93d9d83b08b12fdb667ab484d4cf437a5fb4e30eed617b8fa56ed4",
       "original": "187ecdf53aa596a80d7c584c8c8fc84768c7dd6c4d6540750c3a9cdcf2caee26",
       "changes": [
         [
@@ -8482,7 +8484,7 @@
         ],
         [
           14787,
-          2125,
+          2135,
           []
         ]
       ]
@@ -9468,6 +9470,7 @@
     "src/lib/rc-sheets/plans/section.ts": null,
     "src/lib/rc-sheets/plans/sheets.ts": null,
     "src/lib/rc-sheets/plans/slab-level.ts": null,
+    "src/lib/rc-sheets/plans/stair-detail.ts": null,
     "src/lib/rc-sheets/plans/structure-plan.ts": null,
     "src/lib/rc-sheets/plans/wall-detail.ts": null,
     "src/lib/rc-sheets/punching-bars.ts": null,
@@ -9479,6 +9482,7 @@
     "src/lib/rc-sheets/rebar-3d-lines.ts": null,
     "src/lib/rc-sheets/rebar-3d-plates.ts": null,
     "src/lib/rc-sheets/rebar-3d-punching.ts": null,
+    "src/lib/rc-sheets/rebar-3d-stairs.ts": null,
     "src/lib/rc-sheets/rebar-3d.ts": null,
     "src/lib/rc-sheets/schedule/bar-shape-diagram.ts": null,
     "src/lib/rc-sheets/schedule/bvbs.ts": null,
@@ -9495,6 +9499,8 @@
     "src/lib/rc-sheets/slab-plan.ts": null,
     "src/lib/rc-sheets/slab-punching.ts": null,
     "src/lib/rc-sheets/slab-row.ts": null,
+    "src/lib/rc-sheets/stair-demands.ts": null,
+    "src/lib/rc-sheets/stair-row.ts": null,
     "src/lib/rc-sheets/storeys.ts": null,
     "src/lib/rc-sheets/structure-plan-labels.ts": null,
     "src/lib/rc-sheets/structure-plan.ts": null,
@@ -11072,6 +11078,7 @@
     "src/lib/store/rc-sheets-schedule.ts": null,
     "src/lib/store/rc-sheets-service.ts": null,
     "src/lib/store/rc-sheets-solve.svelte.ts": null,
+    "src/lib/store/rc-sheets-stairs.ts": null,
     "src/lib/store/rc-sheets-sway.ts": null,
     "src/lib/store/rc-sheets-view.svelte.ts": null,
     "src/lib/store/rc-sheets.svelte.ts": null,
