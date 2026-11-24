@@ -120,14 +120,14 @@ it('#2535 the nonlinear 2D WASM export refuses a quad carried in the wire input'
   expect(() => solve_pdelta_2d(JSON.stringify(planeWireWithQuad()), 20, 1e-4)).toThrow(/Shell elements require 3D analysis/);
 });
 
-it.skip.each([
+it.each([
   ['linear', (wire: ReturnType<typeof planeWire>) => solve_2d(wire)],
   ['P-Delta', (wire: ReturnType<typeof planeWire>) => JSON.parse(solve_pdelta_2d(JSON.stringify(wire), 20, 1e-4))],
   ['staged', (wire: ReturnType<typeof planeWire>) => JSON.parse(solve_staged_2d(JSON.stringify({
     ...wire,
     stages: [{ name: 'Load the beam', elementsAdded: [1], supportsAdded: [1], loadIndices: [0] }],
   })))],
-] as const)('known wrong result: #2535 — %s WASM accepts empty legacy shell lists only', (_analysis, solvePlane) => {
+] as const)('#2535 %s WASM accepts empty legacy shell lists only', (_analysis, solvePlane) => {
   const wire = planeWire();
   const expected = solvePlane(wire);
   for (const field of ['plates', 'quads', 'quad9s', 'curvedShells', 'solidShells']) {

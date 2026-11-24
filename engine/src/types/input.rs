@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize};
+use serde::{de, Deserialize, Serialize};
 use std::collections::HashMap;
 
 // ==================== 2D Input Types ====================
@@ -250,24 +250,56 @@ pub struct SolverInput<M = SolverMaterial, S = SolverSection, N = SolverNode, L 
 
 #[derive(Deserialize)]
 struct UnsupportedShells2D {
-    #[serde(default, rename = "plates", deserialize_with = "empty_shell_map_2d")]
+    #[serde(default, rename = "plates", deserialize_with = "empty_shell_collection_2d")]
     _plates: (),
-    #[serde(default, rename = "quads", deserialize_with = "empty_shell_map_2d")]
+    #[serde(default, rename = "quads", deserialize_with = "empty_shell_collection_2d")]
     _quads: (),
-    #[serde(default, rename = "quad9s", deserialize_with = "empty_shell_map_2d")]
+    #[serde(default, rename = "quad9s", deserialize_with = "empty_shell_collection_2d")]
     _quad9s: (),
-    #[serde(default, rename = "curvedShells", deserialize_with = "empty_shell_map_2d")]
+    #[serde(default, rename = "curvedShells", deserialize_with = "empty_shell_collection_2d")]
     _curved_shells: (),
-    #[serde(default, rename = "solidShells", deserialize_with = "empty_shell_map_2d")]
+    #[serde(default, rename = "solidShells", deserialize_with = "empty_shell_collection_2d")]
     _solid_shells: (),
 }
 
-fn empty_shell_map_2d<'de, D: serde::Deserializer<'de>>(d: D) -> Result<(), D::Error> {
-    let shells = Option::<HashMap<String, serde::de::IgnoredAny>>::deserialize(d)?;
-    if shells.is_some_and(|shells| !shells.is_empty()) {
-        return Err(serde::de::Error::custom("Shell elements require 3D analysis"));
+fn empty_shell_collection_2d<'de, D: de::Deserializer<'de>>(d: D) -> Result<(), D::Error> {
+    d.deserialize_any(EmptyShellCollection2D)
+}
+
+struct EmptyShellCollection2D;
+
+impl EmptyShellCollection2D {
+    fn require_empty<E: de::Error>(empty: bool) -> Result<(), E> {
+        if empty {
+            Ok(())
+        } else {
+            Err(E::custom("Shell elements require 3D analysis"))
+        }
     }
-    Ok(())
+}
+
+impl<'de> de::Visitor<'de> for EmptyShellCollection2D {
+    type Value = ();
+
+    fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("an empty shell map or list")
+    }
+
+    fn visit_unit<E: de::Error>(self) -> Result<(), E> {
+        Ok(())
+    }
+
+    fn visit_none<E: de::Error>(self) -> Result<(), E> {
+        Ok(())
+    }
+
+    fn visit_map<A: de::MapAccess<'de>>(self, mut map: A) -> Result<(), A::Error> {
+        Self::require_empty(map.next_key::<de::IgnoredAny>()?.is_none())
+    }
+
+    fn visit_seq<A: de::SeqAccess<'de>>(self, mut seq: A) -> Result<(), A::Error> {
+        Self::require_empty(seq.next_element::<de::IgnoredAny>()?.is_none())
+    }
 }
 
 #[derive(Deserialize)]

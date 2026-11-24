@@ -13,7 +13,7 @@ use crate::element::solid_shell::{solid_shell_quality_metrics, solid_shell_check
 use crate::element::curved_shell::{compute_element_directors, curved_shell_check_jacobian};
 use crate::element::plate::plate_element_quality;
 use crate::types::{
-    SolverInput, SolverInput3D, SolverNode, SolverNode3D, DiagnosticCode, Severity,
+    SolverInput, SolverInput3D, SolverNode, DiagnosticCode, Severity,
     StructuredDiagnostic, ElementKind, node_positions_3d,
 };
 

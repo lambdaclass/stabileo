@@ -3081,7 +3081,6 @@ fn issue_2535_plane_wire_input_rejects_shells_before_they_disappear() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2535"]
 fn issue_2535_plane_wire_accepts_empty_legacy_shell_lists_and_refuses_populated_lists() {
     use dedaliano_engine::solver::staged::{parse_staged_2d, solve_staged_2d};
 

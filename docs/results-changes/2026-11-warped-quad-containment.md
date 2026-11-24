@@ -9,8 +9,9 @@ The existing #1057 twist times thickness bands still govern warnings and
 refusals for both families.
 
 Basic 2D and Basic 3D now refuse a model with shell elements. Open it in PRO
-to include shell stiffness. Direct 2D solver payloads also refuse a nonempty
-shell map. On main at `b78c25769`, a frame with a drawn warped quad returned a
+to include shell stiffness. Direct 2D solver payloads also refuse nonempty
+shell maps and lists. Plane inputs with empty shell collections still solve.
+On main at `b78c25769`, a frame with a drawn warped quad returned a
 Basic 3D frame result with the quad omitted. A direct 2D payload with a
 nonempty quad map was accepted as the frame alone. The same drawn quad was
 already refused by PRO with the usual numeric node keys.
