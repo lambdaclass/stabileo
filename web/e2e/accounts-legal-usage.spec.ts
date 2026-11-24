@@ -157,7 +157,7 @@ async function boot(
   });
 
   await page.goto(opts.path ?? '/app/basic?e2e=1');
-  await page.waitForFunction(() => !!window.__stabileo && window.__stabileo.solverReady(), null, { timeout: 60_000 });
+  await page.waitForFunction(() => !!window.__stabileo && window.__stabileo.solverReady(), null, { timeout: 45_000 });
   return backend;
 }
 
@@ -255,7 +255,7 @@ test.describe('accounts, legal and anonymous usage', () => {
     expect(events.find((e) => e.name === 'example.open')?.props).toEqual({ example: 'portal-frame' });
 
     await page.reload();
-    await page.waitForFunction(() => !!window.__stabileo && window.__stabileo.solverReady(), null, { timeout: 60_000 });
+    await page.waitForFunction(() => !!window.__stabileo && window.__stabileo.solverReady(), null, { timeout: 45_000 });
     await solvePortal(page);
     await expect(page.getByTestId('results-disclaimer')).toHaveCount(0);
     await expect(page.getByTestId('usage-notice')).toHaveCount(0);
@@ -708,7 +708,7 @@ test.describe('@smoke the editor behind an account', () => {
     await expect.poll(() => page.evaluate(() => window.__stabileo.elementIds().length)).toBe(3);
 
     await page.reload();
-    await page.waitForFunction(() => !!window.__stabileo && window.__stabileo.solverReady(), null, { timeout: 60_000 });
+    await page.waitForFunction(() => !!window.__stabileo && window.__stabileo.solverReady(), null, { timeout: 45_000 });
     await expect(page.getByTestId('account-button')).toBeVisible();
     await page.waitForTimeout(500);
     await expect(dialog).toHaveCount(0);
