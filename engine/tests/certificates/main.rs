@@ -44,3 +44,6 @@ mod certify_shown;
 mod properties_2d;
 #[path = "../properties_3d.rs"]
 mod properties_3d;
+
+#[path = "../prescribed_motion_2227.rs"]
+mod prescribed_motion_2227;
