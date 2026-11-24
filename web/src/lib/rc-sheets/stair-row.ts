@@ -17,11 +17,11 @@
  * which reads CIRSOC 201: the sheets design stairs under it and ACI 318, whose provisions there are
  * the same, and say so under the others. m, kN, MPa.
  */
-import { deriveDevelopment } from '../codes/cirsoc201/anchorage';
 import { stairDesign, type StairDesign, type StairDesignSpec } from '../engine/design/slabs/stairs';
 import { slabVc } from '../engine/design/slabs/one-way-shear';
 import { treadCount } from '../model/stair';
 import { barArea } from './bars';
+import { cirsocSlabDevelopment } from './slab-row';
 import type { Fmt } from './format';
 import type { BarShape } from './shape';
 import { check, ratioOf, type CheckLine, type RowStatus, type SheetCode, type StepGroup } from './types';
@@ -237,7 +237,7 @@ export function stairRow(d: StairDemand, c: StairContext, adopted: StairAdopted 
   const dz = supported ? stairDesign(spec, { fc: c.fc, fy: c.fy, cover: c.cover, barDia: c.diameters[0] ?? 12, distDia: 8 }) : null;
   const proposed = dz ? proposeStair(dz, spec, c) : { main: { dia: 12, spacing: 0.15 }, dist: { dia: 8, spacing: 0.25 } };
   const a = adopted ?? proposed;
-  const ld = deriveDevelopment({ diameterMm: a.main.dia, fy: c.fy, fc: c.fc, favourableSpacing: a.main.spacing - a.main.dia / 1000 >= (2 * a.main.dia) / 1000, edition: '2025' }).ldM;
+  const ld = cirsocSlabDevelopment({ fc: c.fc, fy: c.fy }, a.main.dia, false, spec.waist, { cover: c.cover, spacing: a.main.spacing }).ldM;
   const monolithic = spec.ends === 'monolithic';
   const bars = stairBars(spec, sec, a, c, ld, monolithic);
   if (!dz) {
