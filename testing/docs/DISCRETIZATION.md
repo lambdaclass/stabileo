@@ -143,12 +143,13 @@ shows a warning.
 
 ## 3. Adaptive refinement: split where the estimate says the error is
 
-`adapt::adapt_3d(input, options)`. Engine only: no WASM export and nothing in the web app
-calls it yet.
+`adapt::adapt_3d(input, options)` (WASM `adapt_mesh_3d`, run on demand; `options` may be null).
+Nothing in the web app's interface calls it yet.
 
 * **Loop.** Solve, estimate (section 1), stop when the relative error is at or under `target`
   (default 5 %), otherwise mark, refine the marked elements and solve again. It also stops at
-  `maxPasses` (8) and before a pass that would exceed `maxElements` (20 000), and says which
+  `maxPasses` (8; at most 50) and before a pass that would exceed `maxElements` (20 000; at most
+  200 000), and says which
   (`status`: `converged`, `passLimit`, `elementLimit`, `unestimable`, `nothingToRefine`). Every
   pass is reported with its element, node and hanging-node counts and its estimate. The result
   is the last model solved and its estimate. Like the estimate that drives it, it is not a
@@ -162,14 +163,19 @@ calls it yet.
   translations their mean plus ⅛ n (n · (θa − θb) × (xb − xa)), the deflection normal to the
   shell that the difference of the end rotations bends the edge by. The plain mean alone locks
   a thin plate: the two half edges and the whole one can then only be free of transverse shear
-  together when the end rotations are equal. Three rules keep the mesh sound, each by splitting
+  together when the end rotations are equal. Four rules keep the mesh sound, each by splitting
   one more element: no hanging node on half of an edge that already has one; none on two edges
-  of one element; none on an edge of **another family**. So a mesh of DKT triangles, MITC9
+  of one element; none on an edge where the shell folds or branches (elements more than the
+  crease angle apart, or three or more), where no one normal says which way the edge bends;
+  none on an edge of **another family**. So a mesh of DKT triangles, MITC9
   quads, curved shells or solid-shells is refined as far as it is connected, which for a mesh
   of one family is the uniform refinement: for them this loop gains nothing over section 2. I
   tried hanging nodes on curved shells and a roof with them was no better than the coarse
   mesh, so they are not offered.
-* **What a hanging node changes elsewhere.** A frame member along an edge with a hanging node
+* **What a hanging node changes elsewhere.** It sits at the middle of the chord of its edge in
+  both geometry modes, where the element that spans the edge has it, and moves to the smooth
+  surface when it stops hanging; on the surface from the start, a curved roof came out a fifth
+  too stiff. A frame member along an edge with a hanging node
   is left whole, and split when the other side is split too. The recovery patch of a hanging
   node takes in the element across its edge; alone it would be the two elements on the split
   side. The model given back carries those constraints and no others, and can be refined
@@ -184,7 +190,9 @@ Measured on an L-shaped domain (the unit square without a quarter), MITC4, from 
 | Plate, clamped on two edges, uniform pressure | 4 % | 1 374 elements | between 768 (5.8 %) and 3 072 (3.0 %) |
 
 The membrane has a stress singularity at the re-entrant corner and gains most. The plate's
-error is spread over the domain, so there is less to gain.
+error is spread over the domain, so there is less to gain. On the Scordelis-Lo roof (curved,
+4 × 4 MITC4) six adaptive passes give the free-edge deflection of three uniform refinements
+(1 024 elements) to 0.7 % with 472 elements in smooth mode and to 0.2 % with 412 in faceted.
 
 ## Validation
 
@@ -261,6 +269,13 @@ plate refined six times where the estimate points has the strain energy of a uni
 under a fifth of it after the first pass. The adaptive
 loop on the L-shaped membrane reaches its target with under a third of the elements uniform
 refinement needs, at the same strain energy to 2 %, and gives the same model when run twice.
+A square plate bent to a constant curvature, flat or tilted in space, keeps that curvature at
+every node to 10⁻⁸ after three local refinements one inside the other. Six rounds of
+refinement at elements picked by a fixed pseudo-random sequence leave no crack and keep the
+uniform strain. The curved roof refined locally deflects as the one refined everywhere to
+2 %, in both geometry modes. No hanging node is left on a fold. Over WASM
+(`web/src/lib/engine/__tests__/discretization.test.ts`), the model given back, sent to
+`estimate_discretization_3d`, gives the estimate that came with it.
 
 ## References
 

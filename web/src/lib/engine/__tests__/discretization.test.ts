@@ -43,6 +43,45 @@ describe('discretization error', () => {
   it('the WASM build carries the exports', () => {
     expect(hasCertify('estimate_discretization_3d')).toBe(true);
     expect(hasCertify('convergence_study_3d')).toBe(true);
+    expect(hasCertify('adapt_mesh_3d')).toBe(true);
+  });
+
+  it('adaptive refinement lowers the estimate and gives back a model that solves to it', () => {
+    const coarse = callCertify('estimate_discretization_3d', [plateWire(4)]);
+    const out = callCertify('adapt_mesh_3d', [plateWire(4), { target: coarse.relativeError / 3, maxPasses: 12 }]);
+    expect(out.certified).toBe(false);
+    expect(out.status).toBe('converged');
+    expect(out.estimate.relativeError).toBeLessThanOrEqual(coarse.relativeError / 3);
+    expect(out.passes[0].shellElements).toBe(16);
+    expect(out.passes[0].relativeError).toBeCloseTo(coarse.relativeError, 12);
+    const last = out.passes[out.passes.length - 1];
+    expect(Object.keys(out.input.quads)).toHaveLength(last.shellElements);
+    expect(Object.keys(out.input.nodes)).toHaveLength(last.nodes);
+    expect(last.shellElements).toBeGreaterThan(16);
+
+    const again = callCertify('estimate_discretization_3d', [out.input]);
+    expect(again.relativeError).toBe(out.estimate.relativeError);
+    expect(again.elements).toHaveLength(last.shellElements);
+  });
+
+  it('adaptive refinement with no options uses the defaults, and stops where it is told', () => {
+    const defaults = callCertify('adapt_mesh_3d', [plateWire(4), null]);
+    expect(['converged', 'passLimit']).toContain(defaults.status);
+    expect(defaults.passes.length).toBeLessThanOrEqual(9);
+    const one = callCertify('adapt_mesh_3d', [plateWire(4), { target: 1e-6, maxPasses: 1 }]);
+    expect(one.status).toBe('passLimit');
+    expect(one.passes).toHaveLength(2);
+    expect(one.passes[0].marked).toBeGreaterThan(0);
+    expect(one.passes[1].marked).toBe(0);
+  });
+
+  it('adaptive refinement refuses what it cannot run', () => {
+    const tied = plateWire(2, { constraints: [{ type: 'equalDOF', masterNode: 5, slaveNode: 6, dofs: [0] }] });
+    expect(() => callCertify('adapt_mesh_3d', [tied, null])).toThrow(/constraints/);
+    expect(() => callCertify('adapt_mesh_3d', [plateWire(2), { target: 0 }])).toThrow(/target error must be finite and positive/);
+    expect(() => callCertify('adapt_mesh_3d', [plateWire(2), { fraction: 2 }])).toThrow(/marked fraction/);
+    expect(() => callCertify('adapt_mesh_3d', [plateWire(2), { maxPasses: 1000 }])).toThrow(/At most 50 passes/);
+    expect(() => callCertify('adapt_mesh_3d', [plateWire(2), { maxElements: 1e9 }])).toThrow(/At most 200000 shell elements/);
   });
 
   it('the estimate is never certified, and falls as the mesh is refined', () => {

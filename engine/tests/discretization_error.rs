@@ -1496,6 +1496,7 @@ fn adaptive_refinement_reaches_the_target_with_far_fewer_elements_than_uniform()
     let options = AdaptOptions { target, max_passes: 20, geometry: GeometryMode::Faceted, ..AdaptOptions::default() };
     let out = adapt_3d(&coarse, &options).unwrap();
     assert_eq!(out.status, "converged");
+    assert!(!out.certified && !out.estimate.certified);
     assert!(out.estimate.relative_error.unwrap() <= target);
     let last = out.passes.last().unwrap();
     assert_eq!((last.shell_elements, last.nodes, last.marked), (out.input.quads.len(), out.input.nodes.len(), 0));
@@ -1522,6 +1523,9 @@ fn adaptive_refinement_stops_at_its_limits_and_says_which() {
     assert_eq!((none.status.as_str(), none.passes.len()), ("passLimit", 1));
     assert!(same_model(&none.input, &coarse));
 
+    let options: AdaptOptions = serde_json::from_str(r#"{"target": 0.2, "maxPasses": 3}"#).unwrap();
+    assert_eq!((options.target, options.max_passes, options.fraction, options.max_elements), (0.2, 3, 0.5, 20_000));
+
     let capped = adapt_3d(&coarse, &AdaptOptions { max_elements: 40, max_passes: 50, ..tight.clone() }).unwrap();
     assert_eq!(capped.status, "elementLimit");
     assert!(capped.input.quads.len() <= 40 && capped.input.quads.len() > coarse.quads.len());
@@ -1544,6 +1548,9 @@ fn adaptive_refinement_stops_at_its_limits_and_says_which() {
         (AdaptOptions { fraction: 0.0, ..tight.clone() }, "The marked fraction must be over 0 and at most 1"),
         (AdaptOptions { fraction: 1.01, ..tight.clone() }, "The marked fraction must be over 0 and at most 1"),
         (AdaptOptions { fraction: f64::NAN, ..tight.clone() }, "The marked fraction must be over 0 and at most 1"),
+        (AdaptOptions { max_passes: 51, ..tight.clone() }, "At most 50 passes"),
+        (AdaptOptions { max_passes: usize::MAX, ..tight.clone() }, "At most 50 passes"),
+        (AdaptOptions { max_elements: 200_001, ..tight.clone() }, "At most 200000 shell elements"),
     ] {
         assert_eq!(adapt_3d(&coarse, &options).unwrap_err(), message);
     }
@@ -1551,4 +1558,128 @@ fn adaptive_refinement_stops_at_its_limits_and_says_which() {
     let mut tied = coarse.clone();
     tied.constraints.push(Constraint::EqualDOF(EqualDOFConstraint { master_node: 1, slave_node: 2, dofs: vec![0] }));
     assert_eq!(adapt_3d(&tied, &tight).unwrap_err(), "constraints");
+}
+
+fn rotated(tilt: bool, p: [f64; 3]) -> [f64; 3] {
+    if !tilt {
+        return p;
+    }
+    let (a, b) = (0.6_f64, 0.9_f64);
+    let q = [p[0], p[1] * a.cos() - p[2] * a.sin(), p[1] * a.sin() + p[2] * a.cos()];
+    [q[0] * b.cos() - q[1] * b.sin(), q[0] * b.sin() + q[1] * b.cos(), q[2]]
+}
+
+/// An n × n MITC4 square with ν = 0, clamped along u = 0 and bent by a uniform moment along
+/// u = 1: a cylinder of constant curvature.
+fn bent_square(n: usize, tilt: bool) -> Model {
+    let map = move |u: f64, v: f64| (rotated(tilt, [u, v, 0.0]), rotated(tilt, [0.0, 0.0, 1.0]));
+    let bc = |i: usize, _j: usize, _mx: usize, _my: usize| -> Option<[bool; 6]> { (i == 0).then_some([true; 6]) };
+    let mut m = surface(Fam::Mitc4, n, n, 0.01, 200_000.0, 0.0, &map, &bc, Load::None);
+    let axis = rotated(tilt, [0.0, 1.0, 0.0]);
+    for j in 0..=n {
+        let share = if j == 0 || j == n { 0.5 } else { 1.0 } / n as f64;
+        m.input.loads.push(SolverLoad3D::Nodal(SolverNodalLoad3D {
+            node_id: m.grid[n][j].0, fx: 0.0, fy: 0.0, fz: 0.0, mx: share * axis[0], my: share * axis[1], mz: share * axis[2], bw: None,
+        }));
+    }
+    m
+}
+
+fn element_at(input: &SolverInput3D, tilt: bool, u: f64, v: f64) -> ElementKey {
+    let target = rotated(tilt, [u, v, 0.0]);
+    let c: HashMap<usize, [f64; 3]> = input.nodes.values().map(|n| (n.id, [n.x, n.y, n.z])).collect();
+    let far = |q: &SolverQuadElement| {
+        let mid = q.nodes.iter().fold([0.0; 3], |a, n| [a[0] + c[n][0] / 4.0, a[1] + c[n][1] / 4.0, a[2] + c[n][2] / 4.0]);
+        (0..3).map(|k| (mid[k] - target[k]).powi(2)).sum::<f64>()
+    };
+    ("quad", input.quads.values().min_by(|a, b| far(a).total_cmp(&far(b))).unwrap().id)
+}
+
+#[test]
+fn a_locally_refined_plate_reproduces_a_constant_curvature_in_any_plane() {
+    for tilt in [false, true] {
+        let m = bent_square(4, tilt).input;
+        let (normal, along) = (rotated(tilt, [0.0, 0.0, 1.0]), rotated(tilt, [1.0, 0.0, 0.0]));
+        let once = refine_marked(&m, GeometryMode::Faceted, &only(&[element_at(&m, tilt, 0.375, 0.375)])).unwrap().input;
+        let twice = refine_marked(&once, GeometryMode::Faceted, &only(&[element_at(&once, tilt, 0.3, 0.3)])).unwrap().input;
+        let thrice = refine_marked(&twice, GeometryMode::Faceted, &only(&[element_at(&twice, tilt, 0.27, 0.27)])).unwrap().input;
+        assert_eq!(hanging_nodes(&thrice).unwrap().len(), 16);
+        let coarse_tip = { let r = solve(&m); let d = disp(&r, m.nodes.values().find(|n| n.id == 25).unwrap().id); dot3(d, normal) };
+        for model in [&m, &once, &twice, &thrice] {
+            let r = solve(model);
+            for n in model.nodes.values() {
+                let u = dot3([n.x, n.y, n.z], along);
+                let w = dot3(disp(&r, n.id), normal);
+                assert!((w - coarse_tip * u * u).abs() <= 1e-8 * coarse_tip.abs(), "tilt {tilt}, node {} at {u}: {w} vs {}", n.id, coarse_tip * u * u);
+            }
+        }
+    }
+}
+
+fn dot3(a: [f64; 3], b: [f64; 3]) -> f64 {
+    a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
+}
+
+#[test]
+fn local_refinements_one_after_another_leave_no_crack_and_keep_a_uniform_strain() {
+    let (pull, t, e) = (10.0, 0.01, 200_000.0 * 1000.0);
+    let mut seed: u64 = 12345;
+    let mut next = move || { seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407); (seed >> 33) as usize };
+    let mut model = pulled_square(4, pull).input;
+    for round in 0..6 {
+        let mut ids: Vec<usize> = model.quads.values().map(|q| q.id).collect();
+        ids.sort_unstable();
+        let picks: Vec<ElementKey> = (0..1 + ids.len() / 12).map(|_| ("quad", ids[next() % ids.len()])).collect();
+        model = refine_marked(&model, GeometryMode::Faceted, &only(&picks)).unwrap().input;
+        assert_eq!(cracks(&model), vec![], "round {round}");
+        let r = solve(&model);
+        let strain = pull / t / e;
+        for n in model.nodes.values() {
+            assert!((disp(&r, n.id)[0] - strain * n.x).abs() <= 1e-9 * strain, "round {round}, node {}", n.id);
+        }
+    }
+    assert!(model.quads.len() > 300 && !hanging_nodes(&model).unwrap().is_empty());
+}
+
+#[test]
+fn a_curved_roof_refined_locally_deflects_as_the_one_refined_everywhere() {
+    let m = scordelis(Fam::Mitc4, 4);
+    let free_edge = m.grid[0][4];
+    for mode in [GeometryMode::Smooth, GeometryMode::Faceted] {
+        let mut uniform = m.input.clone();
+        for _ in 0..3 {
+            uniform = refine_uniform(&uniform, mode).unwrap().input;
+        }
+        let reference = mid_disp(&solve(&uniform), free_edge)[2];
+        let mut model = m.input.clone();
+        for _ in 0..6 {
+            let r = solve(&model);
+            model = refine_marked(&model, mode, &marked(&estimate(&model, &r), 0.5)).unwrap().input;
+        }
+        assert!(!hanging_nodes(&model).unwrap().is_empty());
+        assert!(model.quads.len() < uniform.quads.len());
+        let got = mid_disp(&solve(&model), free_edge)[2];
+        assert!((got - reference).abs() < 0.02 * reference.abs(), "{mode:?}: {got} vs {reference}");
+    }
+}
+
+#[test]
+fn no_hanging_node_is_left_on_a_fold() {
+    let map = |u: f64, v: f64| if u <= 0.5 { ([u, v, 0.0], [0.0, 0.0, 1.0]) } else { ([0.5, v, u - 0.5], [-1.0, 0.0, 0.0]) };
+    let bc = |i: usize, _j: usize, _mx: usize, _my: usize| -> Option<[bool; 6]> { (i == 0).then_some([true; 6]) };
+    let mut m = surface(Fam::Mitc4, 4, 2, 0.01, 200_000.0, 0.3, &map, &bc, Load::None);
+    for j in 0..=2 {
+        m.input.loads.push(nodal(m.grid[4][j].0, [1.0, 0.0, 0.0]));
+    }
+    let c: HashMap<usize, [f64; 3]> = m.input.nodes.values().map(|n| (n.id, [n.x, n.y, n.z])).collect();
+    let beside = m.input.quads.values().find(|q| q.nodes.iter().all(|n| c[n][2] == 0.0 && c[n][0] >= 0.25 && c[n][1] <= 0.5)).unwrap().id;
+    let refined = refine_marked(&m.input, GeometryMode::Faceted, &only(&[("quad", beside)])).unwrap().input;
+    let cr: HashMap<usize, [f64; 3]> = refined.nodes.values().map(|n| (n.id, [n.x, n.y, n.z])).collect();
+    let hanging = hanging_nodes(&refined).unwrap();
+    assert!(!hanging.is_empty());
+    assert!(hanging.keys().all(|n| !(cr[n][0] == 0.5 && cr[n][2] == 0.0)), "{hanging:?}");
+    let across = refined.quads.values().filter(|q| q.nodes.iter().all(|n| cr[n][0] == 0.5 && cr[n][1] <= 0.5 && cr[n][2] <= 0.25)).count();
+    assert_eq!(across, 4, "the element across the fold is split with it");
+    let total = total_reaction(&solve(&refined));
+    assert!((total[0] + 3.0).abs() < 1e-9, "{total:?}");
 }

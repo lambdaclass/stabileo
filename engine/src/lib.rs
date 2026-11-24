@@ -148,6 +148,19 @@ pub fn convergence_study_3d(input: JsValue, options: JsValue) -> Result<JsValue,
     to_js_value(&out)
 }
 
+/// Refine the shell mesh of a 3D linear static model where its estimated discretization error
+/// is largest, until the estimate is under a target (testing/docs/DISCRETIZATION.md). Returns
+/// the refined model, its estimate and every pass. `options` may be null for the defaults.
+/// Like the estimate, never a certificate.
+#[wasm_bindgen]
+pub fn adapt_mesh_3d(input: JsValue, options: JsValue) -> Result<JsValue, JsValue> {
+    let input = from_js_value::<types::units::ElasticInput3D>(input)?.into_legacy();
+    let opts: postprocess::discretization::adapt::AdaptOptions =
+        if options.is_null() || options.is_undefined() { Default::default() } else { from_js_value(options)? };
+    let out = postprocess::discretization::adapt::adapt_3d(&input, &opts).map_err(|e| JsValue::from_str(&e))?;
+    to_js_value(&out)
+}
+
 /// Solve 2D linear static analysis and certify the displacements
 /// (testing/docs/CERTIFY.md). JsValue in → `{ results, certificate }`.
 #[wasm_bindgen]

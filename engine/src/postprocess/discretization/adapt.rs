@@ -22,11 +22,16 @@ pub struct AdaptOptions {
     pub target: f64,
     /// Share of the squared error the elements split in one pass carry, in (0, 1].
     pub fraction: f64,
+    /// At most `MOST_PASSES`.
     pub max_passes: usize,
-    /// A pass that would leave more shell-type elements than this is not made.
+    /// A pass that would leave more shell-type elements than this is not made. At most
+    /// `MOST_ELEMENTS`.
     pub max_elements: usize,
     pub geometry: GeometryMode,
 }
+
+pub const MOST_PASSES: usize = 50;
+pub const MOST_ELEMENTS: usize = 200_000;
 
 impl Default for AdaptOptions {
     fn default() -> Self {
@@ -50,6 +55,8 @@ pub struct AdaptPass {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Adapted {
+    /// Always false: the estimate that drives the refinement is not a bound.
+    pub certified: bool,
     /// The last model solved.
     pub input: SolverInput3D,
     /// The estimate of that model.
@@ -102,6 +109,12 @@ pub fn adapt_3d(input: &SolverInput3D, options: &AdaptOptions) -> Result<Adapted
     if !(options.fraction > 0.0 && options.fraction <= 1.0) {
         return Err("The marked fraction must be over 0 and at most 1".into());
     }
+    if options.max_passes > MOST_PASSES {
+        return Err(format!("At most {MOST_PASSES} passes"));
+    }
+    if options.max_elements > MOST_ELEMENTS {
+        return Err(format!("At most {MOST_ELEMENTS} shell elements"));
+    }
     let mut model = input.clone();
     let mut passes = Vec::new();
     let mut caveats: Vec<String> = Vec::new();
@@ -118,7 +131,7 @@ pub fn adapt_3d(input: &SolverInput3D, options: &AdaptOptions) -> Result<Adapted
         };
         let done = |status: &str, pass: AdaptPass, mut passes: Vec<AdaptPass>, model: SolverInput3D, caveats: Vec<String>| {
             passes.push(pass);
-            Ok(Adapted { input: model, estimate: estimate.clone(), passes, status: status.into(), caveats, supports_inferred })
+            Ok(Adapted { certified: false, input: model, estimate: estimate.clone(), passes, status: status.into(), caveats, supports_inferred })
         };
         let Some(relative_error) = estimate.relative_error else {
             return done("unestimable", pass, passes, model, caveats);

@@ -36,6 +36,7 @@ const entries = {
   certify_linear_3d: s => wasm.certify_linear_3d(s),
   export_linear_bundle_3d: s => wasm.export_linear_bundle_3d(stringify(s)),
   estimate_discretization_3d: s => wasm.estimate_discretization_3d(s),
+  adapt_mesh_3d: s => wasm.adapt_mesh_3d(s, null),
 };
 for (const [name, solve] of Object.entries(entries)) {
   test(`${name} refuses MITC4 membrane bending with its structured identity`, () => {
@@ -144,6 +145,9 @@ for (const [name, solve] of Object.entries(solidEntries)) {
     const displacements = r.displacements ?? r.results?.displacements;
     if (name === 'export_linear_bundle_3d') {
       assert.ok(r.u.length === r.n && r.n > 0 && r.u.every(([m, e]) => Number.isFinite(m) && Number.isFinite(e)) && r.u.some(([m]) => m !== 0));
+    } else if (name === 'adapt_mesh_3d') {
+      assert.ok(r.certified === false && r.status === 'unestimable' && r.passes.length === 1 && Object.keys(r.input.solidShells).length === 1);
+      assert.ok(r.estimate.elements.length === 1 && r.estimate.elements[0].kind === 'solidShell' && r.estimate.elements[0].energyNorm > 0);
     } else if (name === 'estimate_discretization_3d') {
       assert.ok(r.elements.length === 1 && r.elements[0].kind === 'solidShell' && Number.isFinite(r.elements[0].energyNorm) && r.elements[0].energyNorm > 0);
     } else {

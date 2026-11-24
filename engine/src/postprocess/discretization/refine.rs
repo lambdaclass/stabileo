@@ -41,8 +41,10 @@
 //! its own output. A hanging node is never left on an edge of another family (the element
 //! across is split instead, so a mesh of DKT triangles, MITC9 quads, curved shells or
 //! solid-shells is refined as far as it is connected), nor on half of an edge that already
-//! has one, nor on two edges of one element. A frame member
-//! along an edge with a hanging node is left whole.
+//! has one, nor on two edges of one element, nor on an edge where the shell folds or branches,
+//! where no one normal says which way an edge bends. A frame member
+//! along an edge with a hanging node is left whole. A hanging node sits at the middle of the
+//! chord in both geometry modes, and moves to the smooth surface when it stops hanging.
 
 use std::collections::{HashMap, HashSet};
 
@@ -192,13 +194,15 @@ fn element_edges(input: &SolverInput3D) -> Vec<(ElementKey, Vec<(usize, usize)>)
 }
 
 /// `marked` and every element splitting them forces to be split too: a neighbour across an edge
-/// that cannot carry a hanging node, the element across an edge that already has one when
+/// that cannot carry a hanging node (its family, or the edge is `creased`), the element across
+/// an edge that already has one when
 /// half of that edge is to be split, and an element that would be left with hanging nodes on
 /// more than `MOST_HANGING_EDGES` of its edges.
 fn closed(
     edges: &[(ElementKey, Vec<(usize, usize)>)],
     marked: &HashSet<ElementKey>,
     hanging: &HashMap<usize, (usize, usize)>,
+    creased: &HashSet<(usize, usize)>,
 ) -> Result<HashSet<ElementKey>, String> {
     let index: HashMap<ElementKey, usize> = edges.iter().enumerate().map(|(i, (element, _))| (*element, i)).collect();
     let mut sharing: HashMap<(usize, usize), Vec<usize>> = HashMap::new();
@@ -219,7 +223,8 @@ fn closed(
     loop {
         while let Some(i) = pending.pop() {
             for &(p, q) in &edges[i].1 {
-                let mut forced: Vec<usize> = sharing[&(p, q)].iter().copied().filter(|&o| !takes_hanging_nodes(edges[o].0 .0)).collect();
+                let folded = creased.contains(&(p, q));
+                let mut forced: Vec<usize> = sharing[&(p, q)].iter().copied().filter(|&o| folded || !takes_hanging_nodes(edges[o].0 .0)).collect();
                 for (node, other) in [(p, q), (q, p)] {
                     if let Some(&(a, b)) = hanging.get(&node) {
                         if a == other || b == other {
@@ -424,21 +429,41 @@ impl<'a> Builder<'a> {
         id
     }
 
+    /// Where the node at the middle of shell edge a–b goes when it does not hang.
+    fn mid_position(&self, a: usize, b: usize) -> [f64; 3] {
+        let (pa, pb) = (self.c(a), self.c(b));
+        let lin = scale(&add(&pa, &pb), 0.5);
+        if self.mode == GeometryMode::Faceted || self.frame_edges.contains(&key(a, b)) {
+            lin
+        } else {
+            self.surface_point(a, b).unwrap_or(lin)
+        }
+    }
+
     /// The (shared) node at the middle of shell edge a–b.
     fn edge_mid(&mut self, a: usize, b: usize) -> usize {
         if let Some(&m) = self.mids.get(&key(a, b)) {
             return m;
         }
-        let (pa, pb) = (self.c(a), self.c(b));
-        let lin = scale(&add(&pa, &pb), 0.5);
-        let pos = if self.mode == GeometryMode::Faceted || self.frame_edges.contains(&key(a, b)) {
-            lin
-        } else {
-            self.surface_point(a, b).unwrap_or(lin)
-        };
+        let pos = self.mid_position(a, b);
         let m = self.new_node(pos, vec![a, b]);
         self.mids.insert(key(a, b), m);
         m
+    }
+
+    /// Edges where the shell folds or branches: three or more elements, or two whose normals
+    /// are more than `CREASE_ANGLE_DEG` apart.
+    fn creases(&self) -> HashSet<(usize, usize)> {
+        let cos_c = CREASE_ANGLE_DEG.to_radians().cos();
+        self.edge_facets
+            .iter()
+            .filter(|(_, facets)| match facets.as_slice() {
+                [_] => false,
+                [f, g] => dot(&self.facet_normal(*f), &self.facet_normal(*g)).abs() < cos_c,
+                _ => true,
+            })
+            .map(|(edge, _)| *edge)
+            .collect()
     }
 
     fn facet_normal(&self, fi: usize) -> [f64; 3] {
@@ -498,7 +523,7 @@ pub fn refine_uniform(input: &SolverInput3D, mode: GeometryMode) -> Result<Refin
 pub fn refine_marked(input: &SolverInput3D, mode: GeometryMode, marked: &HashSet<ElementKey>) -> Result<Refined, String> {
     check_unconstrained(input)?;
     let hanging = hanging_nodes(input)?;
-    let split = closed(&element_edges(input), marked, &hanging)?;
+    let split = closed(&element_edges(input), marked, &hanging, &Builder::new(input, mode).creases())?;
     refine(input, mode, Some(&split), &hanging)
 }
 
@@ -702,6 +727,26 @@ fn refine(
         None => HashSet::new(),
         Some(_) => element_edges(&out).into_iter().flat_map(|(_, edges)| edges).filter(|edge| b.mids.contains_key(edge)).collect(),
     };
+
+    // A hanging node sits on the chord of the edge it hangs on, which is where the element
+    // that spans the edge has it; one that hung and no longer does goes where it would have
+    // been put.
+    let mut moved: HashMap<usize, [f64; 3]> = HashMap::new();
+    for (&(a, c), &node) in &b.mids {
+        if spanned.contains(&(a, c)) {
+            moved.insert(node, scale(&add(&b.c(a), &b.c(c)), 0.5));
+        } else if hanging.contains_key(&node) {
+            moved.insert(node, b.mid_position(a, c));
+        }
+    }
+    for (node, pos) in &moved {
+        b.coords.insert(*node, *pos);
+    }
+    for n in b.new_nodes.iter_mut().chain(out.nodes.values_mut()) {
+        if let Some(pos) = moved.get(&n.id) {
+            (n.x, n.y, n.z) = (pos[0], pos[1], pos[2]);
+        }
+    }
 
     // Frames along split edges.
     let mut frame_halves: HashMap<usize, (usize, usize, f64)> = HashMap::new(); // parent → (child1, child2, L1/L)
