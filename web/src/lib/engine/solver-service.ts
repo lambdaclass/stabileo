@@ -229,9 +229,19 @@ export function spaceBendingInertias(
   };
 }
 
+function omitUnsetSupportFields<T extends object>(supports: Map<number, T>): Map<number, T> {
+  for (const support of supports.values()) {
+    const fields = support as Record<string, unknown>;
+    for (const key of Object.keys(fields)) {
+      if (fields[key] === undefined) delete fields[key];
+    }
+  }
+  return supports;
+}
+
 /** Build solver supports map (2D), handling roller angle/inclined roller and spring rotation. */
 function buildSolverSupports2D(model: ModelData): Map<number, any> {
-  return new Map(Array.from(model.supports.entries()).map(([id, s]) => {
+  const supports = new Map(Array.from(model.supports.entries()).map(([id, s]) => {
     const isRoller = isPlaneRoller(s.type);
     const { dz: supportDz, dry: supportDry } = resolvePlaneSupportSettlement(s);
     if (isRoller) {
@@ -276,6 +286,7 @@ function buildSolverSupports2D(model: ModelData): Map<number, any> {
     }
     return [id, { id: s.id, nodeId: s.nodeId, type: s.type === 'rollerY' ? 'rollerZ' : s.type, kx: s.kx, ky: s.ky, kz: s.kz, dx: s.dx, dz: supportDz, dry: supportDry }];
   }));
+  return omitUnsetSupportFields(supports);
 }
 
 // ─── 2D: validateAndSolve2D ───────────────────────────────────────
@@ -2067,7 +2078,7 @@ function buildValidatedSolverInput3D(
           }
         }
       }
-      return supMap;
+      return omitUnsetSupportFields(supMap);
     })(),
     loads: [],
     plates: model.plates ? new Map(Array.from(model.plates.entries()).map(([id, p]) => [id, { id: p.id, nodes: p.nodes, materialId: p.materialId, thickness: p.thickness }])) : new Map(),
