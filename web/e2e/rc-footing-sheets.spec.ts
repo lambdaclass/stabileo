@@ -111,4 +111,49 @@ if (BUILD_FEATURES.proRcSheets) {
     const steps = ws.getByTestId('rc-steps');
     for (const s of ['Medianera y equilibrio', 'Corte de la viga', 'Reacción bajo la base', 'Alivio de la base vecina']) await expect(steps).toContainText(s);
   });
+
+  test('@smoke property lines are picked first and applied at once, and a layout is shown, adopted and compared by name', async ({ pro: page }) => {
+    test.skip(!BUILD_FEATURES.proPlatesUnified, 'the foundations layout list of the unified plates build');
+    await loadModel(page, 'rc-design-qa-8');
+    await solveModel(page);
+    await page.getByTestId('pr-stage-analyse').click();
+    await page.getByTestId('pr-cmd-rcSheets').click();
+    await page.getByTestId('rc-design').click();
+    await expect(page.getByTestId('rc-building')).toHaveCount(0, { timeout: 20_000 });
+    await page.getByTestId('rc-open-footing').click();
+    const ws = page.getByTestId('rc-sheets-workspace');
+    const rows = ws.getByTestId('rc-row');
+    const edges = rows.filter({ has: page.locator('[data-kind="edge"], [data-kind="corner"]') });
+    await expect(rows.first()).toBeVisible();
+    await expect(edges).toHaveCount(0);
+
+    await ws.getByTestId('rc-property-chip-minX').click();
+    await ws.getByTestId('rc-property-chip-maxX').click();
+    await expect(ws.getByTestId('rc-property-chip-minX')).toHaveAttribute('aria-pressed', 'true');
+    await expect(ws.getByTestId('rc-property-apply')).toBeVisible();
+    await expect(edges).toHaveCount(0);
+    await ws.getByTestId('rc-property-discard').click();
+    await expect(ws.getByTestId('rc-property-chip-minX')).toHaveAttribute('aria-pressed', 'false');
+    await expect(ws.getByTestId('rc-property-apply')).toHaveCount(0);
+
+    await ws.getByTestId('rc-property-chip-minX').click();
+    await ws.getByTestId('rc-property-apply').click();
+    await expect(edges).toHaveCount(2, { timeout: 20_000 });
+    await expect(ws.getByTestId('rc-property-apply')).toHaveCount(0);
+
+    await expect(ws.locator('input[type="radio"]')).toHaveCount(0);
+    await ws.getByTestId('rc-foundation-view-footings').click();
+    await expect(ws.getByTestId('rc-foundation-layout-footings').getByTestId('rc-foundation-shown-tag')).toBeVisible();
+    await ws.getByTestId('rc-foundation-adopt-footings').click();
+    await expect(ws.getByTestId('rc-foundation-layout-footings').getByTestId('rc-foundation-adopted-tag')).toBeVisible();
+    await expect(ws.getByTestId('rc-foundation-adopt-footings')).toHaveCount(0);
+
+    await ws.getByTestId('rc-foundation-clear').click();
+    await ws.getByTestId('rc-foundation-compare').click();
+    await expect(ws.getByTestId('rc-foundation-pending-mat')).toHaveCount(0, { timeout: 30_000 });
+    await expect(ws.getByTestId('rc-foundation-compare-off')).toBeVisible();
+    await ws.getByTestId('rc-foundation-compare-off').click();
+    await expect(ws.getByTestId('rc-foundation-compare-off')).toHaveCount(0);
+    await expect(ws.getByTestId('rc-foundation-view-mat')).toBeVisible();
+  });
 }
