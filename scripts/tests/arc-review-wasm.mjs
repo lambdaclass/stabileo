@@ -58,6 +58,48 @@ export function registerDisplacementFixture(solve) {
 export function registerRoundTwoTests({ arc, displacement, corotational }) {
   const readFixture = (name) => JSON.parse(readFileSync(new URL(`./fixtures/${name}.json`, import.meta.url)));
 
+  test('issue 761 rotated split loads preserve the tangent resultant', () => {
+    for (const angle of [0, Math.PI / 4]) {
+      const solver = readFixture('displacement-control-axial');
+      const tangent = [-Math.cos(angle), Math.sin(angle)];
+      const normal = [tangent[1], -tangent[0]];
+      const tip = solver.nodes[2];
+      const length = tip.x;
+      [tip.x, tip.z] = tangent.map(component => length * component);
+      Object.assign(solver.supports[2], { type: 'inclinedRoller', angle });
+
+      const load = ([x, z], magnitude) => ({
+        type: 'nodal', data: { nodeId: 2, fx: x * magnitude, fz: z * magnitude, my: 0 },
+      });
+      const force = 0.25;
+      const axial = force * length / (1000 * solver.materials[1].e * solver.sections[1].a);
+      const ds = Math.hypot(force, axial) / 10;
+      const input = { solver, maxSteps: 1, maxIter: 100, tolerance: 1e-10,
+        initialDs: ds, minDs: ds, maxDs: ds };
+      solver.loads = [load(normal, 2 ** 70)];
+      assert.throws(() => arc(input), /Zero reference load/);
+      solver.loads.push(load(tangent, force));
+
+      const result = arc(input);
+      assert.ok(Math.abs(result.finalLoadFactor / 0.1 - 1) < input.tolerance);
+      for (const [answer, factor] of [[result, 0.1], ...corotational(solver, 2).map(r => [r, 1])]) {
+        assert.equal(answer.converged, true);
+        const { ux, uz } = answer.results.displacements.find(d => d.nodeId === 2);
+        const expected = axial * factor;
+        assert.ok(Math.hypot(ux - expected * tangent[0], uz - expected * tangent[1]) < expected * input.tolerance);
+        const { nStart, nEnd } = answer.results.elementForces.find(e => e.elementId === 1);
+        for (const end of [nStart, nEnd]) {
+          assert.ok(Math.abs(end / (force * factor) - 1) < input.tolerance);
+        }
+      }
+
+      assert.throws(() => displacement({
+        solver, controlNode: 2, controlDof: 0, targetDisplacement: axial * tangent[0],
+        nSteps: 2, maxIter: input.maxIter, tolerance: input.tolerance,
+      }), /inclined supports/);
+    }
+  });
+
   test('round two co-rotation reconstructs the absolute scaled tie', () => {
     const solver = readFixture('arc-tied-springs');
     solver.supports[1].dx = 0.1;

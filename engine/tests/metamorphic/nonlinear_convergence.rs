@@ -881,7 +881,6 @@ fn issue_761_rotated_resolved_linear_3d() {
 }
 
 #[test]
-#[ignore = "known wrong result: #761"]
 fn issue_761_rotated_resolved_arc_length_and_displacement_control_refusal() {
     use dedaliano_engine::solver::arc_length::{self, ArcLengthInput, DisplacementControlInput};
     for case in rotated_resolved_cases()
@@ -911,6 +910,9 @@ fn issue_761_rotated_resolved_arc_length_and_displacement_control_refusal() {
             1e-10,
             "inclined arc-length load factor",
         );
+        let mut expected_case = case;
+        expected_case["expectedAxialDisplacement"] = serde_json::json!(expected * 0.1);
+        check_axial_displacement(&serde_json::to_value(r).unwrap(), &expected_case);
         let r: serde_json::Value = serde_json::from_str(
             &dedaliano_engine::solve_arc_length(&serde_json::to_string(&input).unwrap()).unwrap(),
         )
@@ -922,8 +924,6 @@ fn issue_761_rotated_resolved_arc_length_and_displacement_control_refusal() {
             1e-10,
             "exported inclined arc-length load factor",
         );
-        let mut expected_case = case;
-        expected_case["expectedAxialDisplacement"] = serde_json::json!(expected * 0.1);
         check_axial_displacement(&r, &expected_case);
         let control = DisplacementControlInput {
             solver,
@@ -941,11 +941,9 @@ fn issue_761_rotated_resolved_arc_length_and_displacement_control_refusal() {
     }
 }
 
-
 #[test]
-#[ignore = "known wrong result: #761"]
 fn issue_761_rotated_split_loads_preserve_the_tangent_resultant() {
-    use dedaliano_engine::solver::arc_length::{self, ArcLengthInput};
+    use dedaliano_engine::solver::arc_length::{self, ArcLengthInput, DisplacementControlInput};
     use dedaliano_engine::solver::{assembly, corotational};
 
     for angle in [0.0, -std::f64::consts::FRAC_PI_4, std::f64::consts::FRAC_PI_4] {
@@ -1000,6 +998,28 @@ fn issue_761_rotated_split_loads_preserve_the_tangent_resultant() {
             )
             .unwrap();
             assert!(result.converged);
+            check(serde_json::to_value(result).unwrap(), expected);
+        }
+        let mut control = DisplacementControlInput {
+            solver: arc.solver.clone(),
+            control_node: 2,
+            control_dof: 0,
+            target_displacement: tangent[0] * expected,
+            n_steps: 2,
+            max_iter: 100,
+            tolerance: 1e-10,
+        };
+        let refusal = arc_length::solve_displacement_control(&control).unwrap_err();
+        assert!(refusal.contains("inclined supports (support 2 (node 2))"));
+        if angle == 0.0 {
+            let support = control.solver.supports.get_mut("2").unwrap();
+            support.support_type = "rollerX".into();
+            support.angle = None;
+            let result = arc_length::solve_displacement_control(&control).unwrap();
+            assert!(result.converged);
+            crate::common::assert_close(
+                result.final_load_factor, 1.0, 1e-10, "displacement-control load factor",
+            );
             check(serde_json::to_value(result).unwrap(), expected);
         }
         #[cfg(feature = "experimental-nonlinear")]

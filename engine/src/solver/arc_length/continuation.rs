@@ -135,7 +135,7 @@ impl PathProblem for ArcLength2D<'_> {
         let Some(asm_t) = self.asm_t.as_ref() else {
             return f64::INFINITY;
         };
-        let applied = self.loads.at(lambda).forces(self.its);
+        let applied = self.loads.at(lambda).forces();
         let residual: Vec<_> = (0..nf).map(|i| applied[i] - asm_t.f_int[i]).collect();
         let measure = self.metric.continuation_residual(
             &residual,
@@ -281,10 +281,11 @@ fn solve_arc_length_contained(
         Some(start) => start_displacements_2d(solver, start, &dof_num)?,
         None => vec![0.0; n],
     };
-    let loads = PlanarLoadPath::continuation(solver, start.map(|start| start.input), &dof_num);
-    let f_ref_full = loads.reference().forces(&its);
+    let loads =
+        PlanarLoadPath::continuation(solver, start.map(|start| start.input), &dof_num, &its);
+    let f_ref_full = loads.reference().forces();
     let f_ref = &f_ref_full[..nf];
-    let f_start = loads.base().forces(&its);
+    let f_start = loads.base().forces();
     let u_r_start: Vec<f64> = u_full[nf..].to_vec();
     let du_support = crate::solver::linear::prescribed_displacements_2d(solver, &dof_num);
     let moves_supports = du_support.iter().any(|&v| v != 0.0);
@@ -428,7 +429,7 @@ impl PathProblem for DisplacementControl2D<'_> {
         let Some(asm_t) = self.asm_t.as_ref() else {
             return f64::INFINITY;
         };
-        let applied = self.loads.at(lambda).forces(self.its);
+        let applied = self.loads.at(lambda).forces();
         let residual: Vec<_> = (0..nf).map(|i| applied[i] - asm_t.f_int[i]).collect();
         let rel_error = self
             .metric
@@ -553,8 +554,8 @@ fn solve_displacement_control_contained(
     let asm = assembly::assemble_stiffness_2d(solver, &dof_num);
     let art = asm.artificial_stiffness_entries();
     let its = asm.inclined_transforms_2d;
-    let loads = PlanarLoadPath::continuation(solver, None, &dof_num);
-    let f_ref_full = loads.reference().forces(&its);
+    let loads = PlanarLoadPath::continuation(solver, None, &dof_num, &its);
+    let f_ref_full = loads.reference().forces();
     let f_ref = &f_ref_full[..nf];
     let f_ref_s_dc = if let Some(ref cs) = cs_dc {
         cs.reduce_vector(f_ref)

@@ -171,7 +171,7 @@ impl super::nonlinear::IncrementalProblem for Corotational2D<'_> {
     fn begin_increment(&mut self, load_factor: f64) {
         let nf = self.dof_num.n_free;
         self.targets = IncrementTargets2D::new(
-            self.loads.at(load_factor).forces(&self.asm.inclined_transforms_2d),
+            self.loads.at(load_factor).forces(),
             self.u_r_base,
             self.u_r_target,
             &self.u_full[nf..],
@@ -512,8 +512,13 @@ pub fn solve_corotational_2d_from(
         Some(start) => start_displacements_2d(input, start, &dof_num)?,
         None => vec![0.0; n],
     };
-    let loads = PlanarLoadPath::increments(input, start.map(|start| start.input), &dof_num);
-    let f_base = loads.base().forces(&asm.inclined_transforms_2d);
+    let loads = PlanarLoadPath::increments(
+        input,
+        start.map(|start| start.input),
+        &dof_num,
+        &asm.inclined_transforms_2d,
+    );
+    let f_base = loads.base().forces();
     if let Some(cs) = &cs {
         cs.impose_motion(&mut u_full);
     }
@@ -1306,7 +1311,7 @@ fn finish_planar_results(
 ) -> Result<AnalysisResults, String> {
     let f_applied = loads.map_or_else(
         || assembly::assemble_load_vector_2d(input, &input.loads, dof_num, its),
-        |loads| loads.forces(its),
+        PlanarLoadState::forces,
     );
     if f_applied.iter().any(|force| !force.is_finite()) {
         return Err("Applied load vector is not finite".into());

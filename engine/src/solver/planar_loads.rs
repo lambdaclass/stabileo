@@ -22,6 +22,20 @@ impl ExactSum {
             }
         }
     }
+
+    fn projected(row: [f64; 2], components: &[Option<Self>; 2]) -> Option<Self> {
+        let mut result = Self::default();
+        for (coefficient, component) in row.into_iter().zip(components) {
+            if let Some(component) = component {
+                match BigRational::from_float(coefficient) {
+                    Some(coefficient) => result.value += coefficient * &component.value,
+                    None => result.nonfinite = true,
+                }
+                result.nonfinite |= component.nonfinite;
+            }
+        }
+        (result.nonfinite || !result.value.is_zero()).then_some(result)
+    }
 }
 
 struct Weight {
@@ -121,14 +135,18 @@ fn set_member_load_components(load: &mut SolverLoad, [first, second, third]: [f6
     }
 }
 
-pub(super) struct PlanarLoadPattern {
+struct PlanarLoadPattern {
     forces: Vec<Option<ExactSum>>,
     actions: BTreeMap<usize, MemberActions>,
     descriptions: Vec<SolverLoad>,
 }
 
 impl PlanarLoadPattern {
-    pub(super) fn assemble(input: &SolverInput, dofs: &DofNumbering) -> Self {
+    fn assemble(
+        input: &SolverInput,
+        dofs: &DofNumbering,
+        transforms: &[InclinedTransformData2D],
+    ) -> Self {
         let mut forces = Vec::new();
         forces.resize_with(dofs.n_total, || None::<ExactSum>);
         let mut actions: BTreeMap<usize, MemberActions> = BTreeMap::new();
@@ -155,6 +173,12 @@ impl PlanarLoadPattern {
                 }
             },
         );
+        for transform in transforms {
+            let components = transform.dofs.map(|i| forces[i].take());
+            for (dof, row) in transform.dofs.into_iter().zip(transform.r) {
+                forces[dof] = ExactSum::projected(row, &components);
+            }
+        }
         let descriptions = input
             .loads
             .iter()
@@ -180,27 +204,30 @@ impl PlanarLoadPath {
         input: &SolverInput,
         base: Option<&SolverInput>,
         dofs: &DofNumbering,
+        transforms: &[InclinedTransformData2D],
     ) -> Self {
-        Self::new(input, base, dofs, true)
+        Self::new(input, base, dofs, transforms, true)
     }
 
     pub(super) fn continuation(
         input: &SolverInput,
         base: Option<&SolverInput>,
         dofs: &DofNumbering,
+        transforms: &[InclinedTransformData2D],
     ) -> Self {
-        Self::new(input, base, dofs, false)
+        Self::new(input, base, dofs, transforms, false)
     }
 
     fn new(
         input: &SolverInput,
         base: Option<&SolverInput>,
         dofs: &DofNumbering,
+        transforms: &[InclinedTransformData2D],
         interpolate_base: bool,
     ) -> Self {
         Self {
-            target: PlanarLoadPattern::assemble(input, dofs),
-            base: base.map(|input| PlanarLoadPattern::assemble(input, dofs)),
+            target: PlanarLoadPattern::assemble(input, dofs, transforms),
+            base: base.map(|input| PlanarLoadPattern::assemble(input, dofs, transforms)),
             interpolate_base,
         }
     }
@@ -247,14 +274,10 @@ impl PlanarLoadState<'_> {
             .chain(self.base.iter().map(|(pattern, weight)| (*pattern, weight)))
     }
 
-    pub(super) fn forces(&self, its: &[InclinedTransformData2D]) -> Vec<f64> {
-        let mut result: Vec<_> = (0..self.target.0.forces.len())
+    pub(super) fn forces(&self) -> Vec<f64> {
+        (0..self.target.0.forces.len())
             .map(|i| combined(self.patterns().map(|(p, w)| (p.forces[i].as_ref(), w))))
-            .collect();
-        for it in its {
-            assembly::rotate_inclined_f_2d(&mut result, &it.dofs, &it.r);
-        }
-        result
+            .collect()
     }
 
     pub(super) fn actions(&self, id: usize, thermal: bool) -> [f64; 6] {
