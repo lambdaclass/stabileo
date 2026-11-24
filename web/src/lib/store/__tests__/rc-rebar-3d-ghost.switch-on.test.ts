@@ -113,7 +113,7 @@ describe('the concrete ghost of the sheets\' bars', () => {
   }, 600_000);
 
   it('a small frame on footings: its footings and strap beams have their ghosts', async () => {
-    await solvedExample('pro-rc-frame-area-loads');
+    await solvedExample('pro-rc-house');
     const rows = buildSheetRows();
     const bars = sheetBars3d(rows), ghosts = sheetGhosts3d(rows);
     expect(rows.footing.length).toBeGreaterThan(0);

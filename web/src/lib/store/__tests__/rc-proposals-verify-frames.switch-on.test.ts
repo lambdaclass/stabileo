@@ -10,7 +10,7 @@ import { CODES, failingUnder, solveExample } from './rc-proposals-verify';
 beforeAll(async () => { await wasmSolver.initSolver(); });
 
 describe('the proposals of framed examples verify in every code', () => {
-  for (const id of ['rc-qa-diagnostic', '3d-building', 'pro-rc-frame-area-loads', 'pro-concrete-wall-storehouse']) {
+  for (const id of ['rc-qa-diagnostic', '3d-building', 'pro-rc-house', 'pro-concrete-wall-storehouse']) {
     it(id, async () => {
       await solveExample(id);
       for (const code of CODES) expect(failingUnder(code), code).toEqual([]);

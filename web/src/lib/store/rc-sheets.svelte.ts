@@ -294,6 +294,12 @@ function storeyNamer(): (z: number) => string {
   return (z) => { const i = zs.findIndex((v) => Math.abs(v - z) < 0.05); return i >= 0 ? defaultLevelName(i) : `+${z.toFixed(2)}`; };
 }
 
+/** The storey a height stands in, by name: the highest level at or below it, as a stair is the stair of the floor it leaves. */
+function storeyBelowNamer(): (z: number) => string {
+  const named = storeyNamer(), zs = storeyElevations().sort((p, q) => p - q);
+  return (z) => { const below = zs.filter((v) => v <= z + 0.05); return named(below.length ? below[below.length - 1]! : z); };
+}
+
 /** The levels' names from the lowest up, those the rows name besides the grid's or the members' by their elevation. */
 function levelsUp(named: Iterable<string | undefined>): string[] {
   const grid = sortedLevels(modelStore.grid).map((l) => l.name);
@@ -817,7 +823,7 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
     name: r.name, level: r.level, b: r.b, h: r.h, fc: fcOfElements(groupOf(r.key)?.members.elements), tu: Math.max(0, ...r.demand.cases.map((c) => c.tu ?? 0)),
   })));
   const apart = rules.piers ? [] : allPiers;
-  const stair = sheetStairs({ code, fmt, adopted: adoptedNow, diameters: slabBars, cover: dd.covers.slab, fy, fcOf: (q) => fcOfShells(q, []), levelAt: storeyNamer() });
+  const stair = sheetStairs({ code, fmt, adopted: adoptedNow, diameters: slabBars, cover: dd.covers.slab, fy, fcOf: (q) => fcOfShells(q, []), levelAt: storeyBelowNamer() });
   return { stair: sort(stair), beam: sort(beam), line: sort(line), column: sort(withApart(columnsFinal, apart)), slab: sort(slab), slabPlan: slabPlans.sort((a, b) => a.level.localeCompare(b.level, undefined, { numeric: true })), wall: sort(withApart(wall, apart)), punching: sort(punching), levels: levelsUp([...beam, ...columnsFinal, ...slab, ...wall, ...punching, ...stair].map((r) => r.level)), footing, footingLayouts: footingLayouts.map((l) => ({ ...l, summary: layoutSummary(l.rows, code) })), foundation: chosen, code: codeName, basis, combos: sets.length, left };
 }
 

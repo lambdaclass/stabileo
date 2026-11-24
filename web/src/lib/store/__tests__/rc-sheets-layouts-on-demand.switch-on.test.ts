@@ -11,7 +11,7 @@ import { sheetRowsSteps, setSheetCode, type SheetProgress } from '../rc-sheets.s
 import { setFoundationSystem } from '../rc-sheets-footings';
 import { footingPreview } from '../rc-sheets-footing-preview.svelte';
 import { makeFmt } from '../../rc-sheets/format';
-import { PRO_EXAMPLES } from '../../data/pro-examples';
+import { galleryExample } from '../../data/__tests__/gallery-examples';
 
 function design() {
   const seen: SheetProgress[] = [];
@@ -24,7 +24,7 @@ describe('the foundation layouts of a building with footings', () => {
   beforeAll(async () => {
     await wasmSolver.initSolver();
     modelStore.clear(); historyStore.clear(); resultsStore.clear(); uiStore.analysisMode = 'pro';
-    await PRO_EXAMPLES.find((e) => e.id === 'rc-qa-diagnostic')!.load();
+    await galleryExample('rc-qa-diagnostic').load();
     ensurePhysicalModel();
     meshBeforeAnalysis.value = true;
     preparePlatesForAnalysis();

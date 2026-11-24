@@ -18,7 +18,7 @@ import { buildSheetRows, setSheetCode } from '../rc-sheets.svelte';
 import { designData, patchDesignData } from '../design-data';
 import { setFootingSetup, setFoundationSystem, writeFootingToModel } from '../rc-sheets-footings';
 import { footingOverlaps } from '../../rc-sheets/footing-overlaps';
-import { PRO_EXAMPLES } from '../../data/pro-examples';
+import { galleryExample } from '../../data/__tests__/gallery-examples';
 import type { PropertyLines } from '../../model/foundation/edges';
 import type { FootingRow, FoundationSystem } from '../../rc-sheets/footing-types';
 import { sheetBars3d, pieceOptions } from '../rc-rebar-3d.svelte';
@@ -29,7 +29,7 @@ import { footingPreview } from '../rc-sheets-footing-preview.svelte';
 beforeAll(async () => {
   await wasmSolver.initSolver();
   modelStore.clear(); historyStore.clear(); resultsStore.clear(); uiStore.analysisMode = 'pro';
-  await PRO_EXAMPLES.find((e) => e.id === 'pro-edificio-7p')!.load();
+  await galleryExample('pro-edificio-7p').load();
   ensurePhysicalModel();
   meshBeforeAnalysis.value = true;
   preparePlatesForAnalysis();

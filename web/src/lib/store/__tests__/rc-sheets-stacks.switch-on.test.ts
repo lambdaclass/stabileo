@@ -11,7 +11,7 @@ import { syncDefinedLoadsForAnalysis } from '../defined-loads';
 import { publishCombinations3D } from '../active-results';
 import { recognizePhysicalElements } from '../physical';
 import { buildSheetRows } from '../rc-sheets.svelte';
-import { PRO_EXAMPLES } from '../../data/pro-examples';
+import { galleryExample } from '../../data/__tests__/gallery-examples';
 import { scheduleElements } from '../../rc-sheets/schedule/pieces';
 import { developedLength } from '../../rc-sheets/shape';
 
@@ -20,7 +20,7 @@ beforeAll(async () => { await wasmSolver.initSolver(); });
 describe('the seven-storey example\'s stacks', () => {
   it('laps each storey\'s wall verticals into the wall above, and cranks the column bars where the faces step in', async () => {
     modelStore.clear(); historyStore.clear(); resultsStore.clear(); uiStore.analysisMode = 'pro';
-    await PRO_EXAMPLES.find((e) => e.id === 'pro-edificio-7p')!.load();
+    await galleryExample('pro-edificio-7p').load();
     ensurePhysicalModel();
     syncDefinedLoadsForAnalysis(); recognizePhysicalElements();
     resultsStore.setResults3D(modelStore.solve3D(false, false, true) as never);

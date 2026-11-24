@@ -3,7 +3,8 @@
  *
  * Built by `scripts/build-pro-examples.ts` from their dimensions, and kept as code rather than
  * fixture JSON because the fixture loader carries neither member behaviour, releases per axis,
- * offsets nor self-weight as a case load, and these use them. They load as they are.
+ * offsets nor self-weight as a case load, and these use them. They load as they are; the buildings
+ * bring the load generator's settings, and the gallery writes their loads from them.
  */
 import { modelStore } from '../../store/model.svelte';
 import { uiStore } from '../../store/ui.svelte';
@@ -11,8 +12,12 @@ import { codeToModel } from '../../model/code/format';
 import { mergeCode } from '../../model/code/apply';
 
 export const CODE_EXAMPLES = {
+  'pro-rc-house': () => import('./pro-rc-house.stabileo.txt?raw'),
+  'pro-rc-four-storey': () => import('./pro-rc-four-storey.stabileo.txt?raw'),
+  'pro-rc-steel-columns': () => import('./pro-rc-steel-columns.stabileo.txt?raw'),
+  'pro-rc-lift-core': () => import('./pro-rc-lift-core.stabileo.txt?raw'),
+  'pro-rc-party-wall': () => import('./pro-rc-party-wall.stabileo.txt?raw'),
   'pro-plane-frame-seismic': () => import('./pro-plane-frame-seismic.stabileo.txt?raw'),
-  'pro-rc-frame-area-loads': () => import('./pro-rc-frame-area-loads.stabileo.txt?raw'),
   'pro-steel-building-slabs': () => import('./pro-steel-building-slabs.stabileo.txt?raw'),
   'pro-simple-shed': () => import('./pro-simple-shed.stabileo.txt?raw'),
   'pro-concrete-wall-storehouse': () => import('./pro-concrete-wall-storehouse.stabileo.txt?raw'),

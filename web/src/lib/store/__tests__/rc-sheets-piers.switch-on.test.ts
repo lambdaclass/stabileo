@@ -21,7 +21,7 @@ import { setFoundationSystem, writeFootingToModel } from '../rc-sheets-footings'
 import { pierCombos } from '../../rc-sheets/pier-design';
 import { verticalItems } from '../../rc-sheets/vertical-list';
 import { pierSection } from '../../rc-sheets/pier-section';
-import { PRO_EXAMPLES } from '../../data/pro-examples';
+import { galleryExample } from '../../data/__tests__/gallery-examples';
 import type { AnalysisResults3D } from '../../engine/types-3d';
 
 beforeAll(async () => { await wasmSolver.initSolver(); });
@@ -29,7 +29,7 @@ beforeAll(async () => { await wasmSolver.initSolver(); });
 describe('the seven-storey core as one element', () => {
   it('integrates C1 into the walls, checks the core whole and stands it on one footing', async () => {
     modelStore.clear(); historyStore.clear(); resultsStore.clear(); uiStore.analysisMode = 'pro';
-    await PRO_EXAMPLES.find((e) => e.id === 'pro-edificio-7p')!.load();
+    await galleryExample('pro-edificio-7p').load();
     ensurePhysicalModel();
     meshBeforeAnalysis.value = true;
     preparePlatesForAnalysis();

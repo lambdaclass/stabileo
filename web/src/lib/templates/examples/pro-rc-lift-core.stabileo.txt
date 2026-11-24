@@ -1,0 +1,2395 @@
+stabileo-model 1
+# A six-storey concrete residential building, three by two bays of 5.5 m, with a lift shaft of
+# 15 cm walls against the back façade: three walls meshed as shells and a lintel beam at its door.
+name "Edificio de H.A. de 6 plantas con caja de ascensor"
+mode pro
+axes zUpStrongAxis
+
+node 1 0 0 0
+node 2 0 0 3.2
+node 3 0 0 6.2
+node 4 0 0 9.2
+node 5 0 0 12.2
+node 6 0 0 15.2
+node 7 0 0 18.2
+node 8 0 5.5 0
+node 9 0 5.5 3.2
+node 10 0 5.5 6.2
+node 11 0 5.5 9.2
+node 12 0 5.5 12.2
+node 13 0 5.5 15.2
+node 14 0 5.5 18.2
+node 15 0 11 0
+node 16 0 11 3.2
+node 17 0 11 6.2
+node 18 0 11 9.2
+node 19 0 11 12.2
+node 20 0 11 15.2
+node 21 0 11 18.2
+node 22 5.5 0 0
+node 23 5.5 0 3.2
+node 24 5.5 0 6.2
+node 25 5.5 0 9.2
+node 26 5.5 0 12.2
+node 27 5.5 0 15.2
+node 28 5.5 0 18.2
+node 29 5.5 5.5 0
+node 30 5.5 5.5 3.2
+node 31 5.5 5.5 6.2
+node 32 5.5 5.5 9.2
+node 33 5.5 5.5 12.2
+node 34 5.5 5.5 15.2
+node 35 5.5 5.5 18.2
+node 36 5.5 11 0
+node 37 5.5 11 3.2
+node 38 5.5 11 6.2
+node 39 5.5 11 9.2
+node 40 5.5 11 12.2
+node 41 5.5 11 15.2
+node 42 5.5 11 18.2
+node 43 11 0 0
+node 44 11 0 3.2
+node 45 11 0 6.2
+node 46 11 0 9.2
+node 47 11 0 12.2
+node 48 11 0 15.2
+node 49 11 0 18.2
+node 50 11 5.5 0
+node 51 11 5.5 3.2
+node 52 11 5.5 6.2
+node 53 11 5.5 9.2
+node 54 11 5.5 12.2
+node 55 11 5.5 15.2
+node 56 11 5.5 18.2
+node 57 11 11 0
+node 58 11 11 3.2
+node 59 11 11 6.2
+node 60 11 11 9.2
+node 61 11 11 12.2
+node 62 11 11 15.2
+node 63 11 11 18.2
+node 64 16.5 0 0
+node 65 16.5 0 3.2
+node 66 16.5 0 6.2
+node 67 16.5 0 9.2
+node 68 16.5 0 12.2
+node 69 16.5 0 15.2
+node 70 16.5 0 18.2
+node 71 16.5 5.5 0
+node 72 16.5 5.5 3.2
+node 73 16.5 5.5 6.2
+node 74 16.5 5.5 9.2
+node 75 16.5 5.5 12.2
+node 76 16.5 5.5 15.2
+node 77 16.5 5.5 18.2
+node 78 16.5 11 0
+node 79 16.5 11 3.2
+node 80 16.5 11 6.2
+node 81 16.5 11 9.2
+node 82 16.5 11 12.2
+node 83 16.5 11 15.2
+node 84 16.5 11 18.2
+node 85 7.25 9 0
+node 86 7.25 10 0
+node 87 7.25 11 0
+node 88 7.25 10 1.6
+node 89 7.25 9 1.6
+node 90 7.25 10 3.2
+node 91 7.25 9 3.2
+node 92 7.25 11 1.6
+node 93 7.25 11 3.2
+node 94 7.25 10 4.7
+node 95 7.25 9 4.7
+node 96 7.25 10 6.2
+node 97 7.25 9 6.2
+node 98 7.25 11 4.7
+node 99 7.25 11 6.2
+node 100 7.25 10 7.7
+node 101 7.25 9 7.7
+node 102 7.25 10 9.2
+node 103 7.25 9 9.2
+node 104 7.25 11 7.7
+node 105 7.25 11 9.2
+node 106 7.25 10 10.7
+node 107 7.25 9 10.7
+node 108 7.25 10 12.2
+node 109 7.25 9 12.2
+node 110 7.25 11 10.7
+node 111 7.25 11 12.2
+node 112 7.25 10 13.7
+node 113 7.25 9 13.7
+node 114 7.25 10 15.2
+node 115 7.25 9 15.2
+node 116 7.25 11 13.7
+node 117 7.25 11 15.2
+node 118 7.25 10 16.7
+node 119 7.25 9 16.7
+node 120 7.25 10 18.2
+node 121 7.25 9 18.2
+node 122 7.25 11 16.7
+node 123 7.25 11 18.2
+node 124 8.25 11 0
+node 125 9.25 11 0
+node 126 8.25 11 1.6
+node 127 8.25 11 3.2
+node 128 9.25 11 1.6
+node 129 9.25 11 3.2
+node 130 8.25 11 4.7
+node 131 8.25 11 6.2
+node 132 9.25 11 4.7
+node 133 9.25 11 6.2
+node 134 8.25 11 7.7
+node 135 8.25 11 9.2
+node 136 9.25 11 7.7
+node 137 9.25 11 9.2
+node 138 8.25 11 10.7
+node 139 8.25 11 12.2
+node 140 9.25 11 10.7
+node 141 9.25 11 12.2
+node 142 8.25 11 13.7
+node 143 8.25 11 15.2
+node 144 9.25 11 13.7
+node 145 9.25 11 15.2
+node 146 8.25 11 16.7
+node 147 8.25 11 18.2
+node 148 9.25 11 16.7
+node 149 9.25 11 18.2
+node 150 9.25 9 0
+node 151 9.25 10 0
+node 152 9.25 10 1.6
+node 153 9.25 9 1.6
+node 154 9.25 10 3.2
+node 155 9.25 9 3.2
+node 156 9.25 10 4.7
+node 157 9.25 9 4.7
+node 158 9.25 10 6.2
+node 159 9.25 9 6.2
+node 160 9.25 10 7.7
+node 161 9.25 9 7.7
+node 162 9.25 10 9.2
+node 163 9.25 9 9.2
+node 164 9.25 10 10.7
+node 165 9.25 9 10.7
+node 166 9.25 10 12.2
+node 167 9.25 9 12.2
+node 168 9.25 10 13.7
+node 169 9.25 9 13.7
+node 170 9.25 10 15.2
+node 171 9.25 9 15.2
+node 172 9.25 10 16.7
+node 173 9.25 9 16.7
+node 174 9.25 10 18.2
+node 175 9.25 9 18.2
+node 176 1.375 0 3.2
+node 177 2.75 0 3.2
+node 178 4.125 0 3.2
+node 179 6.375 0 3.2
+node 180 7.25 0 3.2
+node 181 8.25 0 3.2
+node 182 9.25 0 3.2
+node 183 10.125 0 3.2
+node 184 12.375 0 3.2
+node 185 13.75 0 3.2
+node 186 15.125 0 3.2
+node 187 1.375 5.5 3.2
+node 188 2.75 5.5 3.2
+node 189 4.125 5.5 3.2
+node 190 6.375 5.5 3.2
+node 191 7.25 5.5 3.2
+node 192 8.25 5.5 3.2
+node 193 9.25 5.5 3.2
+node 194 10.125 5.5 3.2
+node 195 12.375 5.5 3.2
+node 196 13.75 5.5 3.2
+node 197 15.125 5.5 3.2
+node 198 1.375 11 3.2
+node 199 2.75 11 3.2
+node 200 4.125 11 3.2
+node 201 12.375 11 3.2
+node 202 13.75 11 3.2
+node 203 15.125 11 3.2
+node 204 0 1.375 3.2
+node 205 0 2.75 3.2
+node 206 0 4.125 3.2
+node 207 0 6.666666667 3.2
+node 208 0 7.833333333 3.2
+node 209 0 9 3.2
+node 210 0 10 3.2
+node 211 5.5 1.375 3.2
+node 212 5.5 2.75 3.2
+node 213 5.5 4.125 3.2
+node 214 5.5 6.666666667 3.2
+node 215 5.5 7.833333333 3.2
+node 216 5.5 9 3.2
+node 217 5.5 10 3.2
+node 218 11 1.375 3.2
+node 219 11 2.75 3.2
+node 220 11 4.125 3.2
+node 221 11 6.666666667 3.2
+node 222 11 7.833333333 3.2
+node 223 11 9 3.2
+node 224 11 10 3.2
+node 225 16.5 1.375 3.2
+node 226 16.5 2.75 3.2
+node 227 16.5 4.125 3.2
+node 228 16.5 6.666666667 3.2
+node 229 16.5 7.833333333 3.2
+node 230 16.5 9 3.2
+node 231 16.5 10 3.2
+node 232 6.375 11 3.2
+node 233 10.125 11 3.2
+node 234 8.25 9 3.2
+node 235 1.375 1.375 3.2
+node 236 1.375 2.75 3.2
+node 237 1.375 4.125 3.2
+node 238 1.375 6.666666667 3.2
+node 239 1.375 7.833333333 3.2
+node 240 1.375 9 3.2
+node 241 1.375 10 3.2
+node 242 2.75 1.375 3.2
+node 243 2.75 2.75 3.2
+node 244 2.75 4.125 3.2
+node 245 2.75 6.666666667 3.2
+node 246 2.75 7.833333333 3.2
+node 247 2.75 9 3.2
+node 248 2.75 10 3.2
+node 249 4.125 1.375 3.2
+node 250 4.125 2.75 3.2
+node 251 4.125 4.125 3.2
+node 252 4.125 6.666666667 3.2
+node 253 4.125 7.833333333 3.2
+node 254 4.125 9 3.2
+node 255 4.125 10 3.2
+node 256 6.375 1.375 3.2
+node 257 6.375 2.75 3.2
+node 258 6.375 4.125 3.2
+node 259 6.375 6.666666667 3.2
+node 260 6.375 7.833333333 3.2
+node 261 6.375 9 3.2
+node 262 6.375 10 3.2
+node 263 7.25 1.375 3.2
+node 264 7.25 2.75 3.2
+node 265 7.25 4.125 3.2
+node 266 7.25 6.666666667 3.2
+node 267 7.25 7.833333333 3.2
+node 268 8.25 1.375 3.2
+node 269 8.25 2.75 3.2
+node 270 8.25 4.125 3.2
+node 271 8.25 6.666666667 3.2
+node 272 8.25 7.833333333 3.2
+node 273 9.25 1.375 3.2
+node 274 9.25 2.75 3.2
+node 275 9.25 4.125 3.2
+node 276 9.25 6.666666667 3.2
+node 277 9.25 7.833333333 3.2
+node 278 10.125 1.375 3.2
+node 279 10.125 2.75 3.2
+node 280 10.125 4.125 3.2
+node 281 10.125 6.666666667 3.2
+node 282 10.125 7.833333333 3.2
+node 283 10.125 9 3.2
+node 284 10.125 10 3.2
+node 285 12.375 1.375 3.2
+node 286 12.375 2.75 3.2
+node 287 12.375 4.125 3.2
+node 288 12.375 6.666666667 3.2
+node 289 12.375 7.833333333 3.2
+node 290 12.375 9 3.2
+node 291 12.375 10 3.2
+node 292 13.75 1.375 3.2
+node 293 13.75 2.75 3.2
+node 294 13.75 4.125 3.2
+node 295 13.75 6.666666667 3.2
+node 296 13.75 7.833333333 3.2
+node 297 13.75 9 3.2
+node 298 13.75 10 3.2
+node 299 15.125 1.375 3.2
+node 300 15.125 2.75 3.2
+node 301 15.125 4.125 3.2
+node 302 15.125 6.666666667 3.2
+node 303 15.125 7.833333333 3.2
+node 304 15.125 9 3.2
+node 305 15.125 10 3.2
+node 306 1.375 0 6.2
+node 307 2.75 0 6.2
+node 308 4.125 0 6.2
+node 309 6.375 0 6.2
+node 310 7.25 0 6.2
+node 311 8.25 0 6.2
+node 312 9.25 0 6.2
+node 313 10.125 0 6.2
+node 314 12.375 0 6.2
+node 315 13.75 0 6.2
+node 316 15.125 0 6.2
+node 317 1.375 5.5 6.2
+node 318 2.75 5.5 6.2
+node 319 4.125 5.5 6.2
+node 320 6.375 5.5 6.2
+node 321 7.25 5.5 6.2
+node 322 8.25 5.5 6.2
+node 323 9.25 5.5 6.2
+node 324 10.125 5.5 6.2
+node 325 12.375 5.5 6.2
+node 326 13.75 5.5 6.2
+node 327 15.125 5.5 6.2
+node 328 1.375 11 6.2
+node 329 2.75 11 6.2
+node 330 4.125 11 6.2
+node 331 12.375 11 6.2
+node 332 13.75 11 6.2
+node 333 15.125 11 6.2
+node 334 0 1.375 6.2
+node 335 0 2.75 6.2
+node 336 0 4.125 6.2
+node 337 0 6.666666667 6.2
+node 338 0 7.833333333 6.2
+node 339 0 9 6.2
+node 340 0 10 6.2
+node 341 5.5 1.375 6.2
+node 342 5.5 2.75 6.2
+node 343 5.5 4.125 6.2
+node 344 5.5 6.666666667 6.2
+node 345 5.5 7.833333333 6.2
+node 346 5.5 9 6.2
+node 347 5.5 10 6.2
+node 348 11 1.375 6.2
+node 349 11 2.75 6.2
+node 350 11 4.125 6.2
+node 351 11 6.666666667 6.2
+node 352 11 7.833333333 6.2
+node 353 11 9 6.2
+node 354 11 10 6.2
+node 355 16.5 1.375 6.2
+node 356 16.5 2.75 6.2
+node 357 16.5 4.125 6.2
+node 358 16.5 6.666666667 6.2
+node 359 16.5 7.833333333 6.2
+node 360 16.5 9 6.2
+node 361 16.5 10 6.2
+node 362 6.375 11 6.2
+node 363 10.125 11 6.2
+node 364 8.25 9 6.2
+node 365 1.375 1.375 6.2
+node 366 1.375 2.75 6.2
+node 367 1.375 4.125 6.2
+node 368 1.375 6.666666667 6.2
+node 369 1.375 7.833333333 6.2
+node 370 1.375 9 6.2
+node 371 1.375 10 6.2
+node 372 2.75 1.375 6.2
+node 373 2.75 2.75 6.2
+node 374 2.75 4.125 6.2
+node 375 2.75 6.666666667 6.2
+node 376 2.75 7.833333333 6.2
+node 377 2.75 9 6.2
+node 378 2.75 10 6.2
+node 379 4.125 1.375 6.2
+node 380 4.125 2.75 6.2
+node 381 4.125 4.125 6.2
+node 382 4.125 6.666666667 6.2
+node 383 4.125 7.833333333 6.2
+node 384 4.125 9 6.2
+node 385 4.125 10 6.2
+node 386 6.375 1.375 6.2
+node 387 6.375 2.75 6.2
+node 388 6.375 4.125 6.2
+node 389 6.375 6.666666667 6.2
+node 390 6.375 7.833333333 6.2
+node 391 6.375 9 6.2
+node 392 6.375 10 6.2
+node 393 7.25 1.375 6.2
+node 394 7.25 2.75 6.2
+node 395 7.25 4.125 6.2
+node 396 7.25 6.666666667 6.2
+node 397 7.25 7.833333333 6.2
+node 398 8.25 1.375 6.2
+node 399 8.25 2.75 6.2
+node 400 8.25 4.125 6.2
+node 401 8.25 6.666666667 6.2
+node 402 8.25 7.833333333 6.2
+node 403 9.25 1.375 6.2
+node 404 9.25 2.75 6.2
+node 405 9.25 4.125 6.2
+node 406 9.25 6.666666667 6.2
+node 407 9.25 7.833333333 6.2
+node 408 10.125 1.375 6.2
+node 409 10.125 2.75 6.2
+node 410 10.125 4.125 6.2
+node 411 10.125 6.666666667 6.2
+node 412 10.125 7.833333333 6.2
+node 413 10.125 9 6.2
+node 414 10.125 10 6.2
+node 415 12.375 1.375 6.2
+node 416 12.375 2.75 6.2
+node 417 12.375 4.125 6.2
+node 418 12.375 6.666666667 6.2
+node 419 12.375 7.833333333 6.2
+node 420 12.375 9 6.2
+node 421 12.375 10 6.2
+node 422 13.75 1.375 6.2
+node 423 13.75 2.75 6.2
+node 424 13.75 4.125 6.2
+node 425 13.75 6.666666667 6.2
+node 426 13.75 7.833333333 6.2
+node 427 13.75 9 6.2
+node 428 13.75 10 6.2
+node 429 15.125 1.375 6.2
+node 430 15.125 2.75 6.2
+node 431 15.125 4.125 6.2
+node 432 15.125 6.666666667 6.2
+node 433 15.125 7.833333333 6.2
+node 434 15.125 9 6.2
+node 435 15.125 10 6.2
+node 436 1.375 0 9.2
+node 437 2.75 0 9.2
+node 438 4.125 0 9.2
+node 439 6.375 0 9.2
+node 440 7.25 0 9.2
+node 441 8.25 0 9.2
+node 442 9.25 0 9.2
+node 443 10.125 0 9.2
+node 444 12.375 0 9.2
+node 445 13.75 0 9.2
+node 446 15.125 0 9.2
+node 447 1.375 5.5 9.2
+node 448 2.75 5.5 9.2
+node 449 4.125 5.5 9.2
+node 450 6.375 5.5 9.2
+node 451 7.25 5.5 9.2
+node 452 8.25 5.5 9.2
+node 453 9.25 5.5 9.2
+node 454 10.125 5.5 9.2
+node 455 12.375 5.5 9.2
+node 456 13.75 5.5 9.2
+node 457 15.125 5.5 9.2
+node 458 1.375 11 9.2
+node 459 2.75 11 9.2
+node 460 4.125 11 9.2
+node 461 12.375 11 9.2
+node 462 13.75 11 9.2
+node 463 15.125 11 9.2
+node 464 0 1.375 9.2
+node 465 0 2.75 9.2
+node 466 0 4.125 9.2
+node 467 0 6.666666667 9.2
+node 468 0 7.833333333 9.2
+node 469 0 9 9.2
+node 470 0 10 9.2
+node 471 5.5 1.375 9.2
+node 472 5.5 2.75 9.2
+node 473 5.5 4.125 9.2
+node 474 5.5 6.666666667 9.2
+node 475 5.5 7.833333333 9.2
+node 476 5.5 9 9.2
+node 477 5.5 10 9.2
+node 478 11 1.375 9.2
+node 479 11 2.75 9.2
+node 480 11 4.125 9.2
+node 481 11 6.666666667 9.2
+node 482 11 7.833333333 9.2
+node 483 11 9 9.2
+node 484 11 10 9.2
+node 485 16.5 1.375 9.2
+node 486 16.5 2.75 9.2
+node 487 16.5 4.125 9.2
+node 488 16.5 6.666666667 9.2
+node 489 16.5 7.833333333 9.2
+node 490 16.5 9 9.2
+node 491 16.5 10 9.2
+node 492 6.375 11 9.2
+node 493 10.125 11 9.2
+node 494 8.25 9 9.2
+node 495 1.375 1.375 9.2
+node 496 1.375 2.75 9.2
+node 497 1.375 4.125 9.2
+node 498 1.375 6.666666667 9.2
+node 499 1.375 7.833333333 9.2
+node 500 1.375 9 9.2
+node 501 1.375 10 9.2
+node 502 2.75 1.375 9.2
+node 503 2.75 2.75 9.2
+node 504 2.75 4.125 9.2
+node 505 2.75 6.666666667 9.2
+node 506 2.75 7.833333333 9.2
+node 507 2.75 9 9.2
+node 508 2.75 10 9.2
+node 509 4.125 1.375 9.2
+node 510 4.125 2.75 9.2
+node 511 4.125 4.125 9.2
+node 512 4.125 6.666666667 9.2
+node 513 4.125 7.833333333 9.2
+node 514 4.125 9 9.2
+node 515 4.125 10 9.2
+node 516 6.375 1.375 9.2
+node 517 6.375 2.75 9.2
+node 518 6.375 4.125 9.2
+node 519 6.375 6.666666667 9.2
+node 520 6.375 7.833333333 9.2
+node 521 6.375 9 9.2
+node 522 6.375 10 9.2
+node 523 7.25 1.375 9.2
+node 524 7.25 2.75 9.2
+node 525 7.25 4.125 9.2
+node 526 7.25 6.666666667 9.2
+node 527 7.25 7.833333333 9.2
+node 528 8.25 1.375 9.2
+node 529 8.25 2.75 9.2
+node 530 8.25 4.125 9.2
+node 531 8.25 6.666666667 9.2
+node 532 8.25 7.833333333 9.2
+node 533 9.25 1.375 9.2
+node 534 9.25 2.75 9.2
+node 535 9.25 4.125 9.2
+node 536 9.25 6.666666667 9.2
+node 537 9.25 7.833333333 9.2
+node 538 10.125 1.375 9.2
+node 539 10.125 2.75 9.2
+node 540 10.125 4.125 9.2
+node 541 10.125 6.666666667 9.2
+node 542 10.125 7.833333333 9.2
+node 543 10.125 9 9.2
+node 544 10.125 10 9.2
+node 545 12.375 1.375 9.2
+node 546 12.375 2.75 9.2
+node 547 12.375 4.125 9.2
+node 548 12.375 6.666666667 9.2
+node 549 12.375 7.833333333 9.2
+node 550 12.375 9 9.2
+node 551 12.375 10 9.2
+node 552 13.75 1.375 9.2
+node 553 13.75 2.75 9.2
+node 554 13.75 4.125 9.2
+node 555 13.75 6.666666667 9.2
+node 556 13.75 7.833333333 9.2
+node 557 13.75 9 9.2
+node 558 13.75 10 9.2
+node 559 15.125 1.375 9.2
+node 560 15.125 2.75 9.2
+node 561 15.125 4.125 9.2
+node 562 15.125 6.666666667 9.2
+node 563 15.125 7.833333333 9.2
+node 564 15.125 9 9.2
+node 565 15.125 10 9.2
+node 566 1.375 0 12.2
+node 567 2.75 0 12.2
+node 568 4.125 0 12.2
+node 569 6.375 0 12.2
+node 570 7.25 0 12.2
+node 571 8.25 0 12.2
+node 572 9.25 0 12.2
+node 573 10.125 0 12.2
+node 574 12.375 0 12.2
+node 575 13.75 0 12.2
+node 576 15.125 0 12.2
+node 577 1.375 5.5 12.2
+node 578 2.75 5.5 12.2
+node 579 4.125 5.5 12.2
+node 580 6.375 5.5 12.2
+node 581 7.25 5.5 12.2
+node 582 8.25 5.5 12.2
+node 583 9.25 5.5 12.2
+node 584 10.125 5.5 12.2
+node 585 12.375 5.5 12.2
+node 586 13.75 5.5 12.2
+node 587 15.125 5.5 12.2
+node 588 1.375 11 12.2
+node 589 2.75 11 12.2
+node 590 4.125 11 12.2
+node 591 12.375 11 12.2
+node 592 13.75 11 12.2
+node 593 15.125 11 12.2
+node 594 0 1.375 12.2
+node 595 0 2.75 12.2
+node 596 0 4.125 12.2
+node 597 0 6.666666667 12.2
+node 598 0 7.833333333 12.2
+node 599 0 9 12.2
+node 600 0 10 12.2
+node 601 5.5 1.375 12.2
+node 602 5.5 2.75 12.2
+node 603 5.5 4.125 12.2
+node 604 5.5 6.666666667 12.2
+node 605 5.5 7.833333333 12.2
+node 606 5.5 9 12.2
+node 607 5.5 10 12.2
+node 608 11 1.375 12.2
+node 609 11 2.75 12.2
+node 610 11 4.125 12.2
+node 611 11 6.666666667 12.2
+node 612 11 7.833333333 12.2
+node 613 11 9 12.2
+node 614 11 10 12.2
+node 615 16.5 1.375 12.2
+node 616 16.5 2.75 12.2
+node 617 16.5 4.125 12.2
+node 618 16.5 6.666666667 12.2
+node 619 16.5 7.833333333 12.2
+node 620 16.5 9 12.2
+node 621 16.5 10 12.2
+node 622 6.375 11 12.2
+node 623 10.125 11 12.2
+node 624 8.25 9 12.2
+node 625 1.375 1.375 12.2
+node 626 1.375 2.75 12.2
+node 627 1.375 4.125 12.2
+node 628 1.375 6.666666667 12.2
+node 629 1.375 7.833333333 12.2
+node 630 1.375 9 12.2
+node 631 1.375 10 12.2
+node 632 2.75 1.375 12.2
+node 633 2.75 2.75 12.2
+node 634 2.75 4.125 12.2
+node 635 2.75 6.666666667 12.2
+node 636 2.75 7.833333333 12.2
+node 637 2.75 9 12.2
+node 638 2.75 10 12.2
+node 639 4.125 1.375 12.2
+node 640 4.125 2.75 12.2
+node 641 4.125 4.125 12.2
+node 642 4.125 6.666666667 12.2
+node 643 4.125 7.833333333 12.2
+node 644 4.125 9 12.2
+node 645 4.125 10 12.2
+node 646 6.375 1.375 12.2
+node 647 6.375 2.75 12.2
+node 648 6.375 4.125 12.2
+node 649 6.375 6.666666667 12.2
+node 650 6.375 7.833333333 12.2
+node 651 6.375 9 12.2
+node 652 6.375 10 12.2
+node 653 7.25 1.375 12.2
+node 654 7.25 2.75 12.2
+node 655 7.25 4.125 12.2
+node 656 7.25 6.666666667 12.2
+node 657 7.25 7.833333333 12.2
+node 658 8.25 1.375 12.2
+node 659 8.25 2.75 12.2
+node 660 8.25 4.125 12.2
+node 661 8.25 6.666666667 12.2
+node 662 8.25 7.833333333 12.2
+node 663 9.25 1.375 12.2
+node 664 9.25 2.75 12.2
+node 665 9.25 4.125 12.2
+node 666 9.25 6.666666667 12.2
+node 667 9.25 7.833333333 12.2
+node 668 10.125 1.375 12.2
+node 669 10.125 2.75 12.2
+node 670 10.125 4.125 12.2
+node 671 10.125 6.666666667 12.2
+node 672 10.125 7.833333333 12.2
+node 673 10.125 9 12.2
+node 674 10.125 10 12.2
+node 675 12.375 1.375 12.2
+node 676 12.375 2.75 12.2
+node 677 12.375 4.125 12.2
+node 678 12.375 6.666666667 12.2
+node 679 12.375 7.833333333 12.2
+node 680 12.375 9 12.2
+node 681 12.375 10 12.2
+node 682 13.75 1.375 12.2
+node 683 13.75 2.75 12.2
+node 684 13.75 4.125 12.2
+node 685 13.75 6.666666667 12.2
+node 686 13.75 7.833333333 12.2
+node 687 13.75 9 12.2
+node 688 13.75 10 12.2
+node 689 15.125 1.375 12.2
+node 690 15.125 2.75 12.2
+node 691 15.125 4.125 12.2
+node 692 15.125 6.666666667 12.2
+node 693 15.125 7.833333333 12.2
+node 694 15.125 9 12.2
+node 695 15.125 10 12.2
+node 696 1.375 0 15.2
+node 697 2.75 0 15.2
+node 698 4.125 0 15.2
+node 699 6.375 0 15.2
+node 700 7.25 0 15.2
+node 701 8.25 0 15.2
+node 702 9.25 0 15.2
+node 703 10.125 0 15.2
+node 704 12.375 0 15.2
+node 705 13.75 0 15.2
+node 706 15.125 0 15.2
+node 707 1.375 5.5 15.2
+node 708 2.75 5.5 15.2
+node 709 4.125 5.5 15.2
+node 710 6.375 5.5 15.2
+node 711 7.25 5.5 15.2
+node 712 8.25 5.5 15.2
+node 713 9.25 5.5 15.2
+node 714 10.125 5.5 15.2
+node 715 12.375 5.5 15.2
+node 716 13.75 5.5 15.2
+node 717 15.125 5.5 15.2
+node 718 1.375 11 15.2
+node 719 2.75 11 15.2
+node 720 4.125 11 15.2
+node 721 12.375 11 15.2
+node 722 13.75 11 15.2
+node 723 15.125 11 15.2
+node 724 0 1.375 15.2
+node 725 0 2.75 15.2
+node 726 0 4.125 15.2
+node 727 0 6.666666667 15.2
+node 728 0 7.833333333 15.2
+node 729 0 9 15.2
+node 730 0 10 15.2
+node 731 5.5 1.375 15.2
+node 732 5.5 2.75 15.2
+node 733 5.5 4.125 15.2
+node 734 5.5 6.666666667 15.2
+node 735 5.5 7.833333333 15.2
+node 736 5.5 9 15.2
+node 737 5.5 10 15.2
+node 738 11 1.375 15.2
+node 739 11 2.75 15.2
+node 740 11 4.125 15.2
+node 741 11 6.666666667 15.2
+node 742 11 7.833333333 15.2
+node 743 11 9 15.2
+node 744 11 10 15.2
+node 745 16.5 1.375 15.2
+node 746 16.5 2.75 15.2
+node 747 16.5 4.125 15.2
+node 748 16.5 6.666666667 15.2
+node 749 16.5 7.833333333 15.2
+node 750 16.5 9 15.2
+node 751 16.5 10 15.2
+node 752 6.375 11 15.2
+node 753 10.125 11 15.2
+node 754 8.25 9 15.2
+node 755 1.375 1.375 15.2
+node 756 1.375 2.75 15.2
+node 757 1.375 4.125 15.2
+node 758 1.375 6.666666667 15.2
+node 759 1.375 7.833333333 15.2
+node 760 1.375 9 15.2
+node 761 1.375 10 15.2
+node 762 2.75 1.375 15.2
+node 763 2.75 2.75 15.2
+node 764 2.75 4.125 15.2
+node 765 2.75 6.666666667 15.2
+node 766 2.75 7.833333333 15.2
+node 767 2.75 9 15.2
+node 768 2.75 10 15.2
+node 769 4.125 1.375 15.2
+node 770 4.125 2.75 15.2
+node 771 4.125 4.125 15.2
+node 772 4.125 6.666666667 15.2
+node 773 4.125 7.833333333 15.2
+node 774 4.125 9 15.2
+node 775 4.125 10 15.2
+node 776 6.375 1.375 15.2
+node 777 6.375 2.75 15.2
+node 778 6.375 4.125 15.2
+node 779 6.375 6.666666667 15.2
+node 780 6.375 7.833333333 15.2
+node 781 6.375 9 15.2
+node 782 6.375 10 15.2
+node 783 7.25 1.375 15.2
+node 784 7.25 2.75 15.2
+node 785 7.25 4.125 15.2
+node 786 7.25 6.666666667 15.2
+node 787 7.25 7.833333333 15.2
+node 788 8.25 1.375 15.2
+node 789 8.25 2.75 15.2
+node 790 8.25 4.125 15.2
+node 791 8.25 6.666666667 15.2
+node 792 8.25 7.833333333 15.2
+node 793 9.25 1.375 15.2
+node 794 9.25 2.75 15.2
+node 795 9.25 4.125 15.2
+node 796 9.25 6.666666667 15.2
+node 797 9.25 7.833333333 15.2
+node 798 10.125 1.375 15.2
+node 799 10.125 2.75 15.2
+node 800 10.125 4.125 15.2
+node 801 10.125 6.666666667 15.2
+node 802 10.125 7.833333333 15.2
+node 803 10.125 9 15.2
+node 804 10.125 10 15.2
+node 805 12.375 1.375 15.2
+node 806 12.375 2.75 15.2
+node 807 12.375 4.125 15.2
+node 808 12.375 6.666666667 15.2
+node 809 12.375 7.833333333 15.2
+node 810 12.375 9 15.2
+node 811 12.375 10 15.2
+node 812 13.75 1.375 15.2
+node 813 13.75 2.75 15.2
+node 814 13.75 4.125 15.2
+node 815 13.75 6.666666667 15.2
+node 816 13.75 7.833333333 15.2
+node 817 13.75 9 15.2
+node 818 13.75 10 15.2
+node 819 15.125 1.375 15.2
+node 820 15.125 2.75 15.2
+node 821 15.125 4.125 15.2
+node 822 15.125 6.666666667 15.2
+node 823 15.125 7.833333333 15.2
+node 824 15.125 9 15.2
+node 825 15.125 10 15.2
+node 826 1.375 0 18.2
+node 827 2.75 0 18.2
+node 828 4.125 0 18.2
+node 829 6.375 0 18.2
+node 830 7.25 0 18.2
+node 831 8.25 0 18.2
+node 832 9.25 0 18.2
+node 833 10.125 0 18.2
+node 834 12.375 0 18.2
+node 835 13.75 0 18.2
+node 836 15.125 0 18.2
+node 837 1.375 5.5 18.2
+node 838 2.75 5.5 18.2
+node 839 4.125 5.5 18.2
+node 840 6.375 5.5 18.2
+node 841 7.25 5.5 18.2
+node 842 8.25 5.5 18.2
+node 843 9.25 5.5 18.2
+node 844 10.125 5.5 18.2
+node 845 12.375 5.5 18.2
+node 846 13.75 5.5 18.2
+node 847 15.125 5.5 18.2
+node 848 1.375 11 18.2
+node 849 2.75 11 18.2
+node 850 4.125 11 18.2
+node 851 12.375 11 18.2
+node 852 13.75 11 18.2
+node 853 15.125 11 18.2
+node 854 0 1.375 18.2
+node 855 0 2.75 18.2
+node 856 0 4.125 18.2
+node 857 0 6.666666667 18.2
+node 858 0 7.833333333 18.2
+node 859 0 9 18.2
+node 860 0 10 18.2
+node 861 5.5 1.375 18.2
+node 862 5.5 2.75 18.2
+node 863 5.5 4.125 18.2
+node 864 5.5 6.666666667 18.2
+node 865 5.5 7.833333333 18.2
+node 866 5.5 9 18.2
+node 867 5.5 10 18.2
+node 868 11 1.375 18.2
+node 869 11 2.75 18.2
+node 870 11 4.125 18.2
+node 871 11 6.666666667 18.2
+node 872 11 7.833333333 18.2
+node 873 11 9 18.2
+node 874 11 10 18.2
+node 875 16.5 1.375 18.2
+node 876 16.5 2.75 18.2
+node 877 16.5 4.125 18.2
+node 878 16.5 6.666666667 18.2
+node 879 16.5 7.833333333 18.2
+node 880 16.5 9 18.2
+node 881 16.5 10 18.2
+node 882 6.375 11 18.2
+node 883 10.125 11 18.2
+node 884 8.25 9 18.2
+node 885 1.375 1.375 18.2
+node 886 1.375 2.75 18.2
+node 887 1.375 4.125 18.2
+node 888 1.375 6.666666667 18.2
+node 889 1.375 7.833333333 18.2
+node 890 1.375 9 18.2
+node 891 1.375 10 18.2
+node 892 2.75 1.375 18.2
+node 893 2.75 2.75 18.2
+node 894 2.75 4.125 18.2
+node 895 2.75 6.666666667 18.2
+node 896 2.75 7.833333333 18.2
+node 897 2.75 9 18.2
+node 898 2.75 10 18.2
+node 899 4.125 1.375 18.2
+node 900 4.125 2.75 18.2
+node 901 4.125 4.125 18.2
+node 902 4.125 6.666666667 18.2
+node 903 4.125 7.833333333 18.2
+node 904 4.125 9 18.2
+node 905 4.125 10 18.2
+node 906 6.375 1.375 18.2
+node 907 6.375 2.75 18.2
+node 908 6.375 4.125 18.2
+node 909 6.375 6.666666667 18.2
+node 910 6.375 7.833333333 18.2
+node 911 6.375 9 18.2
+node 912 6.375 10 18.2
+node 913 7.25 1.375 18.2
+node 914 7.25 2.75 18.2
+node 915 7.25 4.125 18.2
+node 916 7.25 6.666666667 18.2
+node 917 7.25 7.833333333 18.2
+node 918 8.25 1.375 18.2
+node 919 8.25 2.75 18.2
+node 920 8.25 4.125 18.2
+node 921 8.25 6.666666667 18.2
+node 922 8.25 7.833333333 18.2
+node 923 8.25 10 18.2
+node 924 9.25 1.375 18.2
+node 925 9.25 2.75 18.2
+node 926 9.25 4.125 18.2
+node 927 9.25 6.666666667 18.2
+node 928 9.25 7.833333333 18.2
+node 929 10.125 1.375 18.2
+node 930 10.125 2.75 18.2
+node 931 10.125 4.125 18.2
+node 932 10.125 6.666666667 18.2
+node 933 10.125 7.833333333 18.2
+node 934 10.125 9 18.2
+node 935 10.125 10 18.2
+node 936 12.375 1.375 18.2
+node 937 12.375 2.75 18.2
+node 938 12.375 4.125 18.2
+node 939 12.375 6.666666667 18.2
+node 940 12.375 7.833333333 18.2
+node 941 12.375 9 18.2
+node 942 12.375 10 18.2
+node 943 13.75 1.375 18.2
+node 944 13.75 2.75 18.2
+node 945 13.75 4.125 18.2
+node 946 13.75 6.666666667 18.2
+node 947 13.75 7.833333333 18.2
+node 948 13.75 9 18.2
+node 949 13.75 10 18.2
+node 950 15.125 1.375 18.2
+node 951 15.125 2.75 18.2
+node 952 15.125 4.125 18.2
+node 953 15.125 6.666666667 18.2
+node 954 15.125 7.833333333 18.2
+node 955 15.125 9 18.2
+node 956 15.125 10 18.2
+
+material 1 name="Hormigón H-25" e=23500 nu=0.2 rho=25 alpha=0.00001 fy=25
+section 1 name="Col 40×40" shape="rect" b=0.4 h=0.4 a=0.16 iy=0.002133333333 iz=0.002133333333 j=0.003605333333
+section 2 name="Col 35×35" shape="rect" b=0.35 h=0.35 a=0.1225 iy=0.001250520833 iz=0.001250520833 j=0.002113380208
+section 3 name="Viga 25×50" shape="rect" b=0.25 h=0.5 a=0.125 iy=0.002604166667 iz=0.0006510416667 j=0.001788126628
+member 1 frame 1 2 materialId=1 sectionId=1
+member 2 frame 2 3 materialId=1 sectionId=1
+member 3 frame 3 4 materialId=1 sectionId=1
+member 4 frame 4 5 materialId=1 sectionId=2
+member 5 frame 5 6 materialId=1 sectionId=2
+member 6 frame 6 7 materialId=1 sectionId=2
+member 7 frame 8 9 materialId=1 sectionId=1
+member 8 frame 9 10 materialId=1 sectionId=1
+member 9 frame 10 11 materialId=1 sectionId=1
+member 10 frame 11 12 materialId=1 sectionId=2
+member 11 frame 12 13 materialId=1 sectionId=2
+member 12 frame 13 14 materialId=1 sectionId=2
+member 13 frame 15 16 materialId=1 sectionId=1
+member 14 frame 16 17 materialId=1 sectionId=1
+member 15 frame 17 18 materialId=1 sectionId=1
+member 16 frame 18 19 materialId=1 sectionId=2
+member 17 frame 19 20 materialId=1 sectionId=2
+member 18 frame 20 21 materialId=1 sectionId=2
+member 19 frame 22 23 materialId=1 sectionId=1
+member 20 frame 23 24 materialId=1 sectionId=1
+member 21 frame 24 25 materialId=1 sectionId=1
+member 22 frame 25 26 materialId=1 sectionId=2
+member 23 frame 26 27 materialId=1 sectionId=2
+member 24 frame 27 28 materialId=1 sectionId=2
+member 25 frame 29 30 materialId=1 sectionId=1
+member 26 frame 30 31 materialId=1 sectionId=1
+member 27 frame 31 32 materialId=1 sectionId=1
+member 28 frame 32 33 materialId=1 sectionId=2
+member 29 frame 33 34 materialId=1 sectionId=2
+member 30 frame 34 35 materialId=1 sectionId=2
+member 31 frame 36 37 materialId=1 sectionId=1
+member 32 frame 37 38 materialId=1 sectionId=1
+member 33 frame 38 39 materialId=1 sectionId=1
+member 34 frame 39 40 materialId=1 sectionId=2
+member 35 frame 40 41 materialId=1 sectionId=2
+member 36 frame 41 42 materialId=1 sectionId=2
+member 37 frame 43 44 materialId=1 sectionId=1
+member 38 frame 44 45 materialId=1 sectionId=1
+member 39 frame 45 46 materialId=1 sectionId=1
+member 40 frame 46 47 materialId=1 sectionId=2
+member 41 frame 47 48 materialId=1 sectionId=2
+member 42 frame 48 49 materialId=1 sectionId=2
+member 43 frame 50 51 materialId=1 sectionId=1
+member 44 frame 51 52 materialId=1 sectionId=1
+member 45 frame 52 53 materialId=1 sectionId=1
+member 46 frame 53 54 materialId=1 sectionId=2
+member 47 frame 54 55 materialId=1 sectionId=2
+member 48 frame 55 56 materialId=1 sectionId=2
+member 49 frame 57 58 materialId=1 sectionId=1
+member 50 frame 58 59 materialId=1 sectionId=1
+member 51 frame 59 60 materialId=1 sectionId=1
+member 52 frame 60 61 materialId=1 sectionId=2
+member 53 frame 61 62 materialId=1 sectionId=2
+member 54 frame 62 63 materialId=1 sectionId=2
+member 55 frame 64 65 materialId=1 sectionId=1
+member 56 frame 65 66 materialId=1 sectionId=1
+member 57 frame 66 67 materialId=1 sectionId=1
+member 58 frame 67 68 materialId=1 sectionId=2
+member 59 frame 68 69 materialId=1 sectionId=2
+member 60 frame 69 70 materialId=1 sectionId=2
+member 61 frame 71 72 materialId=1 sectionId=1
+member 62 frame 72 73 materialId=1 sectionId=1
+member 63 frame 73 74 materialId=1 sectionId=1
+member 64 frame 74 75 materialId=1 sectionId=2
+member 65 frame 75 76 materialId=1 sectionId=2
+member 66 frame 76 77 materialId=1 sectionId=2
+member 67 frame 78 79 materialId=1 sectionId=1
+member 68 frame 79 80 materialId=1 sectionId=1
+member 69 frame 80 81 materialId=1 sectionId=1
+member 70 frame 81 82 materialId=1 sectionId=2
+member 71 frame 82 83 materialId=1 sectionId=2
+member 72 frame 83 84 materialId=1 sectionId=2
+quad 1 [85,86,88,89] materialId=1 thickness=0.15
+quad 2 [89,88,90,91] materialId=1 thickness=0.15
+quad 3 [86,87,92,88] materialId=1 thickness=0.15
+quad 4 [88,92,93,90] materialId=1 thickness=0.15
+quad 5 [91,90,94,95] materialId=1 thickness=0.15
+quad 6 [95,94,96,97] materialId=1 thickness=0.15
+quad 7 [90,93,98,94] materialId=1 thickness=0.15
+quad 8 [94,98,99,96] materialId=1 thickness=0.15
+quad 9 [97,96,100,101] materialId=1 thickness=0.15
+quad 10 [101,100,102,103] materialId=1 thickness=0.15
+quad 11 [96,99,104,100] materialId=1 thickness=0.15
+quad 12 [100,104,105,102] materialId=1 thickness=0.15
+quad 13 [103,102,106,107] materialId=1 thickness=0.15
+quad 14 [107,106,108,109] materialId=1 thickness=0.15
+quad 15 [102,105,110,106] materialId=1 thickness=0.15
+quad 16 [106,110,111,108] materialId=1 thickness=0.15
+quad 17 [109,108,112,113] materialId=1 thickness=0.15
+quad 18 [113,112,114,115] materialId=1 thickness=0.15
+quad 19 [108,111,116,112] materialId=1 thickness=0.15
+quad 20 [112,116,117,114] materialId=1 thickness=0.15
+quad 21 [115,114,118,119] materialId=1 thickness=0.15
+quad 22 [119,118,120,121] materialId=1 thickness=0.15
+quad 23 [114,117,122,118] materialId=1 thickness=0.15
+quad 24 [118,122,123,120] materialId=1 thickness=0.15
+quad 25 [87,124,126,92] materialId=1 thickness=0.15
+quad 26 [92,126,127,93] materialId=1 thickness=0.15
+quad 27 [124,125,128,126] materialId=1 thickness=0.15
+quad 28 [126,128,129,127] materialId=1 thickness=0.15
+quad 29 [93,127,130,98] materialId=1 thickness=0.15
+quad 30 [98,130,131,99] materialId=1 thickness=0.15
+quad 31 [127,129,132,130] materialId=1 thickness=0.15
+quad 32 [130,132,133,131] materialId=1 thickness=0.15
+quad 33 [99,131,134,104] materialId=1 thickness=0.15
+quad 34 [104,134,135,105] materialId=1 thickness=0.15
+quad 35 [131,133,136,134] materialId=1 thickness=0.15
+quad 36 [134,136,137,135] materialId=1 thickness=0.15
+quad 37 [105,135,138,110] materialId=1 thickness=0.15
+quad 38 [110,138,139,111] materialId=1 thickness=0.15
+quad 39 [135,137,140,138] materialId=1 thickness=0.15
+quad 40 [138,140,141,139] materialId=1 thickness=0.15
+quad 41 [111,139,142,116] materialId=1 thickness=0.15
+quad 42 [116,142,143,117] materialId=1 thickness=0.15
+quad 43 [139,141,144,142] materialId=1 thickness=0.15
+quad 44 [142,144,145,143] materialId=1 thickness=0.15
+quad 45 [117,143,146,122] materialId=1 thickness=0.15
+quad 46 [122,146,147,123] materialId=1 thickness=0.15
+quad 47 [143,145,148,146] materialId=1 thickness=0.15
+quad 48 [146,148,149,147] materialId=1 thickness=0.15
+quad 49 [150,151,152,153] materialId=1 thickness=0.15
+quad 50 [153,152,154,155] materialId=1 thickness=0.15
+quad 51 [151,125,128,152] materialId=1 thickness=0.15
+quad 52 [152,128,129,154] materialId=1 thickness=0.15
+quad 53 [155,154,156,157] materialId=1 thickness=0.15
+quad 54 [157,156,158,159] materialId=1 thickness=0.15
+quad 55 [154,129,132,156] materialId=1 thickness=0.15
+quad 56 [156,132,133,158] materialId=1 thickness=0.15
+quad 57 [159,158,160,161] materialId=1 thickness=0.15
+quad 58 [161,160,162,163] materialId=1 thickness=0.15
+quad 59 [158,133,136,160] materialId=1 thickness=0.15
+quad 60 [160,136,137,162] materialId=1 thickness=0.15
+quad 61 [163,162,164,165] materialId=1 thickness=0.15
+quad 62 [165,164,166,167] materialId=1 thickness=0.15
+quad 63 [162,137,140,164] materialId=1 thickness=0.15
+quad 64 [164,140,141,166] materialId=1 thickness=0.15
+quad 65 [167,166,168,169] materialId=1 thickness=0.15
+quad 66 [169,168,170,171] materialId=1 thickness=0.15
+quad 67 [166,141,144,168] materialId=1 thickness=0.15
+quad 68 [168,144,145,170] materialId=1 thickness=0.15
+quad 69 [171,170,172,173] materialId=1 thickness=0.15
+quad 70 [173,172,174,175] materialId=1 thickness=0.15
+quad 71 [170,145,148,172] materialId=1 thickness=0.15
+quad 72 [172,148,149,174] materialId=1 thickness=0.15
+member 73 frame 2 176 materialId=1 sectionId=3
+member 74 frame 176 177 materialId=1 sectionId=3
+member 75 frame 177 178 materialId=1 sectionId=3
+member 76 frame 178 23 materialId=1 sectionId=3
+member 77 frame 23 179 materialId=1 sectionId=3
+member 78 frame 179 180 materialId=1 sectionId=3
+member 79 frame 180 181 materialId=1 sectionId=3
+member 80 frame 181 182 materialId=1 sectionId=3
+member 81 frame 182 183 materialId=1 sectionId=3
+member 82 frame 183 44 materialId=1 sectionId=3
+member 83 frame 44 184 materialId=1 sectionId=3
+member 84 frame 184 185 materialId=1 sectionId=3
+member 85 frame 185 186 materialId=1 sectionId=3
+member 86 frame 186 65 materialId=1 sectionId=3
+member 87 frame 9 187 materialId=1 sectionId=3
+member 88 frame 187 188 materialId=1 sectionId=3
+member 89 frame 188 189 materialId=1 sectionId=3
+member 90 frame 189 30 materialId=1 sectionId=3
+member 91 frame 30 190 materialId=1 sectionId=3
+member 92 frame 190 191 materialId=1 sectionId=3
+member 93 frame 191 192 materialId=1 sectionId=3
+member 94 frame 192 193 materialId=1 sectionId=3
+member 95 frame 193 194 materialId=1 sectionId=3
+member 96 frame 194 51 materialId=1 sectionId=3
+member 97 frame 51 195 materialId=1 sectionId=3
+member 98 frame 195 196 materialId=1 sectionId=3
+member 99 frame 196 197 materialId=1 sectionId=3
+member 100 frame 197 72 materialId=1 sectionId=3
+member 101 frame 16 198 materialId=1 sectionId=3
+member 102 frame 198 199 materialId=1 sectionId=3
+member 103 frame 199 200 materialId=1 sectionId=3
+member 104 frame 200 37 materialId=1 sectionId=3
+member 105 frame 58 201 materialId=1 sectionId=3
+member 106 frame 201 202 materialId=1 sectionId=3
+member 107 frame 202 203 materialId=1 sectionId=3
+member 108 frame 203 79 materialId=1 sectionId=3
+member 109 frame 2 204 materialId=1 sectionId=3
+member 110 frame 204 205 materialId=1 sectionId=3
+member 111 frame 205 206 materialId=1 sectionId=3
+member 112 frame 206 9 materialId=1 sectionId=3
+member 113 frame 9 207 materialId=1 sectionId=3
+member 114 frame 207 208 materialId=1 sectionId=3
+member 115 frame 208 209 materialId=1 sectionId=3
+member 116 frame 209 210 materialId=1 sectionId=3
+member 117 frame 210 16 materialId=1 sectionId=3
+member 118 frame 23 211 materialId=1 sectionId=3
+member 119 frame 211 212 materialId=1 sectionId=3
+member 120 frame 212 213 materialId=1 sectionId=3
+member 121 frame 213 30 materialId=1 sectionId=3
+member 122 frame 30 214 materialId=1 sectionId=3
+member 123 frame 214 215 materialId=1 sectionId=3
+member 124 frame 215 216 materialId=1 sectionId=3
+member 125 frame 216 217 materialId=1 sectionId=3
+member 126 frame 217 37 materialId=1 sectionId=3
+member 127 frame 44 218 materialId=1 sectionId=3
+member 128 frame 218 219 materialId=1 sectionId=3
+member 129 frame 219 220 materialId=1 sectionId=3
+member 130 frame 220 51 materialId=1 sectionId=3
+member 131 frame 51 221 materialId=1 sectionId=3
+member 132 frame 221 222 materialId=1 sectionId=3
+member 133 frame 222 223 materialId=1 sectionId=3
+member 134 frame 223 224 materialId=1 sectionId=3
+member 135 frame 224 58 materialId=1 sectionId=3
+member 136 frame 65 225 materialId=1 sectionId=3
+member 137 frame 225 226 materialId=1 sectionId=3
+member 138 frame 226 227 materialId=1 sectionId=3
+member 139 frame 227 72 materialId=1 sectionId=3
+member 140 frame 72 228 materialId=1 sectionId=3
+member 141 frame 228 229 materialId=1 sectionId=3
+member 142 frame 229 230 materialId=1 sectionId=3
+member 143 frame 230 231 materialId=1 sectionId=3
+member 144 frame 231 79 materialId=1 sectionId=3
+member 145 frame 37 232 materialId=1 sectionId=3
+member 146 frame 232 93 materialId=1 sectionId=3
+member 147 frame 129 233 materialId=1 sectionId=3
+member 148 frame 233 58 materialId=1 sectionId=3
+member 149 frame 91 234 materialId=1 sectionId=3
+member 150 frame 234 155 materialId=1 sectionId=3
+quad 73 [2,176,235,204] materialId=1 thickness=0.13
+quad 74 [204,235,236,205] materialId=1 thickness=0.13
+quad 75 [205,236,237,206] materialId=1 thickness=0.13
+quad 76 [206,237,187,9] materialId=1 thickness=0.13
+quad 77 [9,187,238,207] materialId=1 thickness=0.13
+quad 78 [207,238,239,208] materialId=1 thickness=0.13
+quad 79 [208,239,240,209] materialId=1 thickness=0.13
+quad 80 [209,240,241,210] materialId=1 thickness=0.13
+quad 81 [210,241,198,16] materialId=1 thickness=0.13
+quad 82 [176,177,242,235] materialId=1 thickness=0.13
+quad 83 [235,242,243,236] materialId=1 thickness=0.13
+quad 84 [236,243,244,237] materialId=1 thickness=0.13
+quad 85 [237,244,188,187] materialId=1 thickness=0.13
+quad 86 [187,188,245,238] materialId=1 thickness=0.13
+quad 87 [238,245,246,239] materialId=1 thickness=0.13
+quad 88 [239,246,247,240] materialId=1 thickness=0.13
+quad 89 [240,247,248,241] materialId=1 thickness=0.13
+quad 90 [241,248,199,198] materialId=1 thickness=0.13
+quad 91 [177,178,249,242] materialId=1 thickness=0.13
+quad 92 [242,249,250,243] materialId=1 thickness=0.13
+quad 93 [243,250,251,244] materialId=1 thickness=0.13
+quad 94 [244,251,189,188] materialId=1 thickness=0.13
+quad 95 [188,189,252,245] materialId=1 thickness=0.13
+quad 96 [245,252,253,246] materialId=1 thickness=0.13
+quad 97 [246,253,254,247] materialId=1 thickness=0.13
+quad 98 [247,254,255,248] materialId=1 thickness=0.13
+quad 99 [248,255,200,199] materialId=1 thickness=0.13
+quad 100 [178,23,211,249] materialId=1 thickness=0.13
+quad 101 [249,211,212,250] materialId=1 thickness=0.13
+quad 102 [250,212,213,251] materialId=1 thickness=0.13
+quad 103 [251,213,30,189] materialId=1 thickness=0.13
+quad 104 [189,30,214,252] materialId=1 thickness=0.13
+quad 105 [252,214,215,253] materialId=1 thickness=0.13
+quad 106 [253,215,216,254] materialId=1 thickness=0.13
+quad 107 [254,216,217,255] materialId=1 thickness=0.13
+quad 108 [255,217,37,200] materialId=1 thickness=0.13
+quad 109 [23,179,256,211] materialId=1 thickness=0.13
+quad 110 [211,256,257,212] materialId=1 thickness=0.13
+quad 111 [212,257,258,213] materialId=1 thickness=0.13
+quad 112 [213,258,190,30] materialId=1 thickness=0.13
+quad 113 [30,190,259,214] materialId=1 thickness=0.13
+quad 114 [214,259,260,215] materialId=1 thickness=0.13
+quad 115 [215,260,261,216] materialId=1 thickness=0.13
+quad 116 [216,261,262,217] materialId=1 thickness=0.13
+quad 117 [217,262,232,37] materialId=1 thickness=0.13
+quad 118 [179,180,263,256] materialId=1 thickness=0.13
+quad 119 [256,263,264,257] materialId=1 thickness=0.13
+quad 120 [257,264,265,258] materialId=1 thickness=0.13
+quad 121 [258,265,191,190] materialId=1 thickness=0.13
+quad 122 [190,191,266,259] materialId=1 thickness=0.13
+quad 123 [259,266,267,260] materialId=1 thickness=0.13
+quad 124 [260,267,91,261] materialId=1 thickness=0.13
+quad 125 [261,91,90,262] materialId=1 thickness=0.13
+quad 126 [262,90,93,232] materialId=1 thickness=0.13
+quad 127 [180,181,268,263] materialId=1 thickness=0.13
+quad 128 [263,268,269,264] materialId=1 thickness=0.13
+quad 129 [264,269,270,265] materialId=1 thickness=0.13
+quad 130 [265,270,192,191] materialId=1 thickness=0.13
+quad 131 [191,192,271,266] materialId=1 thickness=0.13
+quad 132 [266,271,272,267] materialId=1 thickness=0.13
+quad 133 [267,272,234,91] materialId=1 thickness=0.13
+quad 134 [181,182,273,268] materialId=1 thickness=0.13
+quad 135 [268,273,274,269] materialId=1 thickness=0.13
+quad 136 [269,274,275,270] materialId=1 thickness=0.13
+quad 137 [270,275,193,192] materialId=1 thickness=0.13
+quad 138 [192,193,276,271] materialId=1 thickness=0.13
+quad 139 [271,276,277,272] materialId=1 thickness=0.13
+quad 140 [272,277,155,234] materialId=1 thickness=0.13
+quad 141 [182,183,278,273] materialId=1 thickness=0.13
+quad 142 [273,278,279,274] materialId=1 thickness=0.13
+quad 143 [274,279,280,275] materialId=1 thickness=0.13
+quad 144 [275,280,194,193] materialId=1 thickness=0.13
+quad 145 [193,194,281,276] materialId=1 thickness=0.13
+quad 146 [276,281,282,277] materialId=1 thickness=0.13
+quad 147 [277,282,283,155] materialId=1 thickness=0.13
+quad 148 [155,283,284,154] materialId=1 thickness=0.13
+quad 149 [154,284,233,129] materialId=1 thickness=0.13
+quad 150 [183,44,218,278] materialId=1 thickness=0.13
+quad 151 [278,218,219,279] materialId=1 thickness=0.13
+quad 152 [279,219,220,280] materialId=1 thickness=0.13
+quad 153 [280,220,51,194] materialId=1 thickness=0.13
+quad 154 [194,51,221,281] materialId=1 thickness=0.13
+quad 155 [281,221,222,282] materialId=1 thickness=0.13
+quad 156 [282,222,223,283] materialId=1 thickness=0.13
+quad 157 [283,223,224,284] materialId=1 thickness=0.13
+quad 158 [284,224,58,233] materialId=1 thickness=0.13
+quad 159 [44,184,285,218] materialId=1 thickness=0.13
+quad 160 [218,285,286,219] materialId=1 thickness=0.13
+quad 161 [219,286,287,220] materialId=1 thickness=0.13
+quad 162 [220,287,195,51] materialId=1 thickness=0.13
+quad 163 [51,195,288,221] materialId=1 thickness=0.13
+quad 164 [221,288,289,222] materialId=1 thickness=0.13
+quad 165 [222,289,290,223] materialId=1 thickness=0.13
+quad 166 [223,290,291,224] materialId=1 thickness=0.13
+quad 167 [224,291,201,58] materialId=1 thickness=0.13
+quad 168 [184,185,292,285] materialId=1 thickness=0.13
+quad 169 [285,292,293,286] materialId=1 thickness=0.13
+quad 170 [286,293,294,287] materialId=1 thickness=0.13
+quad 171 [287,294,196,195] materialId=1 thickness=0.13
+quad 172 [195,196,295,288] materialId=1 thickness=0.13
+quad 173 [288,295,296,289] materialId=1 thickness=0.13
+quad 174 [289,296,297,290] materialId=1 thickness=0.13
+quad 175 [290,297,298,291] materialId=1 thickness=0.13
+quad 176 [291,298,202,201] materialId=1 thickness=0.13
+quad 177 [185,186,299,292] materialId=1 thickness=0.13
+quad 178 [292,299,300,293] materialId=1 thickness=0.13
+quad 179 [293,300,301,294] materialId=1 thickness=0.13
+quad 180 [294,301,197,196] materialId=1 thickness=0.13
+quad 181 [196,197,302,295] materialId=1 thickness=0.13
+quad 182 [295,302,303,296] materialId=1 thickness=0.13
+quad 183 [296,303,304,297] materialId=1 thickness=0.13
+quad 184 [297,304,305,298] materialId=1 thickness=0.13
+quad 185 [298,305,203,202] materialId=1 thickness=0.13
+quad 186 [186,65,225,299] materialId=1 thickness=0.13
+quad 187 [299,225,226,300] materialId=1 thickness=0.13
+quad 188 [300,226,227,301] materialId=1 thickness=0.13
+quad 189 [301,227,72,197] materialId=1 thickness=0.13
+quad 190 [197,72,228,302] materialId=1 thickness=0.13
+quad 191 [302,228,229,303] materialId=1 thickness=0.13
+quad 192 [303,229,230,304] materialId=1 thickness=0.13
+quad 193 [304,230,231,305] materialId=1 thickness=0.13
+quad 194 [305,231,79,203] materialId=1 thickness=0.13
+member 151 frame 3 306 materialId=1 sectionId=3
+member 152 frame 306 307 materialId=1 sectionId=3
+member 153 frame 307 308 materialId=1 sectionId=3
+member 154 frame 308 24 materialId=1 sectionId=3
+member 155 frame 24 309 materialId=1 sectionId=3
+member 156 frame 309 310 materialId=1 sectionId=3
+member 157 frame 310 311 materialId=1 sectionId=3
+member 158 frame 311 312 materialId=1 sectionId=3
+member 159 frame 312 313 materialId=1 sectionId=3
+member 160 frame 313 45 materialId=1 sectionId=3
+member 161 frame 45 314 materialId=1 sectionId=3
+member 162 frame 314 315 materialId=1 sectionId=3
+member 163 frame 315 316 materialId=1 sectionId=3
+member 164 frame 316 66 materialId=1 sectionId=3
+member 165 frame 10 317 materialId=1 sectionId=3
+member 166 frame 317 318 materialId=1 sectionId=3
+member 167 frame 318 319 materialId=1 sectionId=3
+member 168 frame 319 31 materialId=1 sectionId=3
+member 169 frame 31 320 materialId=1 sectionId=3
+member 170 frame 320 321 materialId=1 sectionId=3
+member 171 frame 321 322 materialId=1 sectionId=3
+member 172 frame 322 323 materialId=1 sectionId=3
+member 173 frame 323 324 materialId=1 sectionId=3
+member 174 frame 324 52 materialId=1 sectionId=3
+member 175 frame 52 325 materialId=1 sectionId=3
+member 176 frame 325 326 materialId=1 sectionId=3
+member 177 frame 326 327 materialId=1 sectionId=3
+member 178 frame 327 73 materialId=1 sectionId=3
+member 179 frame 17 328 materialId=1 sectionId=3
+member 180 frame 328 329 materialId=1 sectionId=3
+member 181 frame 329 330 materialId=1 sectionId=3
+member 182 frame 330 38 materialId=1 sectionId=3
+member 183 frame 59 331 materialId=1 sectionId=3
+member 184 frame 331 332 materialId=1 sectionId=3
+member 185 frame 332 333 materialId=1 sectionId=3
+member 186 frame 333 80 materialId=1 sectionId=3
+member 187 frame 3 334 materialId=1 sectionId=3
+member 188 frame 334 335 materialId=1 sectionId=3
+member 189 frame 335 336 materialId=1 sectionId=3
+member 190 frame 336 10 materialId=1 sectionId=3
+member 191 frame 10 337 materialId=1 sectionId=3
+member 192 frame 337 338 materialId=1 sectionId=3
+member 193 frame 338 339 materialId=1 sectionId=3
+member 194 frame 339 340 materialId=1 sectionId=3
+member 195 frame 340 17 materialId=1 sectionId=3
+member 196 frame 24 341 materialId=1 sectionId=3
+member 197 frame 341 342 materialId=1 sectionId=3
+member 198 frame 342 343 materialId=1 sectionId=3
+member 199 frame 343 31 materialId=1 sectionId=3
+member 200 frame 31 344 materialId=1 sectionId=3
+member 201 frame 344 345 materialId=1 sectionId=3
+member 202 frame 345 346 materialId=1 sectionId=3
+member 203 frame 346 347 materialId=1 sectionId=3
+member 204 frame 347 38 materialId=1 sectionId=3
+member 205 frame 45 348 materialId=1 sectionId=3
+member 206 frame 348 349 materialId=1 sectionId=3
+member 207 frame 349 350 materialId=1 sectionId=3
+member 208 frame 350 52 materialId=1 sectionId=3
+member 209 frame 52 351 materialId=1 sectionId=3
+member 210 frame 351 352 materialId=1 sectionId=3
+member 211 frame 352 353 materialId=1 sectionId=3
+member 212 frame 353 354 materialId=1 sectionId=3
+member 213 frame 354 59 materialId=1 sectionId=3
+member 214 frame 66 355 materialId=1 sectionId=3
+member 215 frame 355 356 materialId=1 sectionId=3
+member 216 frame 356 357 materialId=1 sectionId=3
+member 217 frame 357 73 materialId=1 sectionId=3
+member 218 frame 73 358 materialId=1 sectionId=3
+member 219 frame 358 359 materialId=1 sectionId=3
+member 220 frame 359 360 materialId=1 sectionId=3
+member 221 frame 360 361 materialId=1 sectionId=3
+member 222 frame 361 80 materialId=1 sectionId=3
+member 223 frame 38 362 materialId=1 sectionId=3
+member 224 frame 362 99 materialId=1 sectionId=3
+member 225 frame 133 363 materialId=1 sectionId=3
+member 226 frame 363 59 materialId=1 sectionId=3
+member 227 frame 97 364 materialId=1 sectionId=3
+member 228 frame 364 159 materialId=1 sectionId=3
+quad 195 [3,306,365,334] materialId=1 thickness=0.13
+quad 196 [334,365,366,335] materialId=1 thickness=0.13
+quad 197 [335,366,367,336] materialId=1 thickness=0.13
+quad 198 [336,367,317,10] materialId=1 thickness=0.13
+quad 199 [10,317,368,337] materialId=1 thickness=0.13
+quad 200 [337,368,369,338] materialId=1 thickness=0.13
+quad 201 [338,369,370,339] materialId=1 thickness=0.13
+quad 202 [339,370,371,340] materialId=1 thickness=0.13
+quad 203 [340,371,328,17] materialId=1 thickness=0.13
+quad 204 [306,307,372,365] materialId=1 thickness=0.13
+quad 205 [365,372,373,366] materialId=1 thickness=0.13
+quad 206 [366,373,374,367] materialId=1 thickness=0.13
+quad 207 [367,374,318,317] materialId=1 thickness=0.13
+quad 208 [317,318,375,368] materialId=1 thickness=0.13
+quad 209 [368,375,376,369] materialId=1 thickness=0.13
+quad 210 [369,376,377,370] materialId=1 thickness=0.13
+quad 211 [370,377,378,371] materialId=1 thickness=0.13
+quad 212 [371,378,329,328] materialId=1 thickness=0.13
+quad 213 [307,308,379,372] materialId=1 thickness=0.13
+quad 214 [372,379,380,373] materialId=1 thickness=0.13
+quad 215 [373,380,381,374] materialId=1 thickness=0.13
+quad 216 [374,381,319,318] materialId=1 thickness=0.13
+quad 217 [318,319,382,375] materialId=1 thickness=0.13
+quad 218 [375,382,383,376] materialId=1 thickness=0.13
+quad 219 [376,383,384,377] materialId=1 thickness=0.13
+quad 220 [377,384,385,378] materialId=1 thickness=0.13
+quad 221 [378,385,330,329] materialId=1 thickness=0.13
+quad 222 [308,24,341,379] materialId=1 thickness=0.13
+quad 223 [379,341,342,380] materialId=1 thickness=0.13
+quad 224 [380,342,343,381] materialId=1 thickness=0.13
+quad 225 [381,343,31,319] materialId=1 thickness=0.13
+quad 226 [319,31,344,382] materialId=1 thickness=0.13
+quad 227 [382,344,345,383] materialId=1 thickness=0.13
+quad 228 [383,345,346,384] materialId=1 thickness=0.13
+quad 229 [384,346,347,385] materialId=1 thickness=0.13
+quad 230 [385,347,38,330] materialId=1 thickness=0.13
+quad 231 [24,309,386,341] materialId=1 thickness=0.13
+quad 232 [341,386,387,342] materialId=1 thickness=0.13
+quad 233 [342,387,388,343] materialId=1 thickness=0.13
+quad 234 [343,388,320,31] materialId=1 thickness=0.13
+quad 235 [31,320,389,344] materialId=1 thickness=0.13
+quad 236 [344,389,390,345] materialId=1 thickness=0.13
+quad 237 [345,390,391,346] materialId=1 thickness=0.13
+quad 238 [346,391,392,347] materialId=1 thickness=0.13
+quad 239 [347,392,362,38] materialId=1 thickness=0.13
+quad 240 [309,310,393,386] materialId=1 thickness=0.13
+quad 241 [386,393,394,387] materialId=1 thickness=0.13
+quad 242 [387,394,395,388] materialId=1 thickness=0.13
+quad 243 [388,395,321,320] materialId=1 thickness=0.13
+quad 244 [320,321,396,389] materialId=1 thickness=0.13
+quad 245 [389,396,397,390] materialId=1 thickness=0.13
+quad 246 [390,397,97,391] materialId=1 thickness=0.13
+quad 247 [391,97,96,392] materialId=1 thickness=0.13
+quad 248 [392,96,99,362] materialId=1 thickness=0.13
+quad 249 [310,311,398,393] materialId=1 thickness=0.13
+quad 250 [393,398,399,394] materialId=1 thickness=0.13
+quad 251 [394,399,400,395] materialId=1 thickness=0.13
+quad 252 [395,400,322,321] materialId=1 thickness=0.13
+quad 253 [321,322,401,396] materialId=1 thickness=0.13
+quad 254 [396,401,402,397] materialId=1 thickness=0.13
+quad 255 [397,402,364,97] materialId=1 thickness=0.13
+quad 256 [311,312,403,398] materialId=1 thickness=0.13
+quad 257 [398,403,404,399] materialId=1 thickness=0.13
+quad 258 [399,404,405,400] materialId=1 thickness=0.13
+quad 259 [400,405,323,322] materialId=1 thickness=0.13
+quad 260 [322,323,406,401] materialId=1 thickness=0.13
+quad 261 [401,406,407,402] materialId=1 thickness=0.13
+quad 262 [402,407,159,364] materialId=1 thickness=0.13
+quad 263 [312,313,408,403] materialId=1 thickness=0.13
+quad 264 [403,408,409,404] materialId=1 thickness=0.13
+quad 265 [404,409,410,405] materialId=1 thickness=0.13
+quad 266 [405,410,324,323] materialId=1 thickness=0.13
+quad 267 [323,324,411,406] materialId=1 thickness=0.13
+quad 268 [406,411,412,407] materialId=1 thickness=0.13
+quad 269 [407,412,413,159] materialId=1 thickness=0.13
+quad 270 [159,413,414,158] materialId=1 thickness=0.13
+quad 271 [158,414,363,133] materialId=1 thickness=0.13
+quad 272 [313,45,348,408] materialId=1 thickness=0.13
+quad 273 [408,348,349,409] materialId=1 thickness=0.13
+quad 274 [409,349,350,410] materialId=1 thickness=0.13
+quad 275 [410,350,52,324] materialId=1 thickness=0.13
+quad 276 [324,52,351,411] materialId=1 thickness=0.13
+quad 277 [411,351,352,412] materialId=1 thickness=0.13
+quad 278 [412,352,353,413] materialId=1 thickness=0.13
+quad 279 [413,353,354,414] materialId=1 thickness=0.13
+quad 280 [414,354,59,363] materialId=1 thickness=0.13
+quad 281 [45,314,415,348] materialId=1 thickness=0.13
+quad 282 [348,415,416,349] materialId=1 thickness=0.13
+quad 283 [349,416,417,350] materialId=1 thickness=0.13
+quad 284 [350,417,325,52] materialId=1 thickness=0.13
+quad 285 [52,325,418,351] materialId=1 thickness=0.13
+quad 286 [351,418,419,352] materialId=1 thickness=0.13
+quad 287 [352,419,420,353] materialId=1 thickness=0.13
+quad 288 [353,420,421,354] materialId=1 thickness=0.13
+quad 289 [354,421,331,59] materialId=1 thickness=0.13
+quad 290 [314,315,422,415] materialId=1 thickness=0.13
+quad 291 [415,422,423,416] materialId=1 thickness=0.13
+quad 292 [416,423,424,417] materialId=1 thickness=0.13
+quad 293 [417,424,326,325] materialId=1 thickness=0.13
+quad 294 [325,326,425,418] materialId=1 thickness=0.13
+quad 295 [418,425,426,419] materialId=1 thickness=0.13
+quad 296 [419,426,427,420] materialId=1 thickness=0.13
+quad 297 [420,427,428,421] materialId=1 thickness=0.13
+quad 298 [421,428,332,331] materialId=1 thickness=0.13
+quad 299 [315,316,429,422] materialId=1 thickness=0.13
+quad 300 [422,429,430,423] materialId=1 thickness=0.13
+quad 301 [423,430,431,424] materialId=1 thickness=0.13
+quad 302 [424,431,327,326] materialId=1 thickness=0.13
+quad 303 [326,327,432,425] materialId=1 thickness=0.13
+quad 304 [425,432,433,426] materialId=1 thickness=0.13
+quad 305 [426,433,434,427] materialId=1 thickness=0.13
+quad 306 [427,434,435,428] materialId=1 thickness=0.13
+quad 307 [428,435,333,332] materialId=1 thickness=0.13
+quad 308 [316,66,355,429] materialId=1 thickness=0.13
+quad 309 [429,355,356,430] materialId=1 thickness=0.13
+quad 310 [430,356,357,431] materialId=1 thickness=0.13
+quad 311 [431,357,73,327] materialId=1 thickness=0.13
+quad 312 [327,73,358,432] materialId=1 thickness=0.13
+quad 313 [432,358,359,433] materialId=1 thickness=0.13
+quad 314 [433,359,360,434] materialId=1 thickness=0.13
+quad 315 [434,360,361,435] materialId=1 thickness=0.13
+quad 316 [435,361,80,333] materialId=1 thickness=0.13
+member 229 frame 4 436 materialId=1 sectionId=3
+member 230 frame 436 437 materialId=1 sectionId=3
+member 231 frame 437 438 materialId=1 sectionId=3
+member 232 frame 438 25 materialId=1 sectionId=3
+member 233 frame 25 439 materialId=1 sectionId=3
+member 234 frame 439 440 materialId=1 sectionId=3
+member 235 frame 440 441 materialId=1 sectionId=3
+member 236 frame 441 442 materialId=1 sectionId=3
+member 237 frame 442 443 materialId=1 sectionId=3
+member 238 frame 443 46 materialId=1 sectionId=3
+member 239 frame 46 444 materialId=1 sectionId=3
+member 240 frame 444 445 materialId=1 sectionId=3
+member 241 frame 445 446 materialId=1 sectionId=3
+member 242 frame 446 67 materialId=1 sectionId=3
+member 243 frame 11 447 materialId=1 sectionId=3
+member 244 frame 447 448 materialId=1 sectionId=3
+member 245 frame 448 449 materialId=1 sectionId=3
+member 246 frame 449 32 materialId=1 sectionId=3
+member 247 frame 32 450 materialId=1 sectionId=3
+member 248 frame 450 451 materialId=1 sectionId=3
+member 249 frame 451 452 materialId=1 sectionId=3
+member 250 frame 452 453 materialId=1 sectionId=3
+member 251 frame 453 454 materialId=1 sectionId=3
+member 252 frame 454 53 materialId=1 sectionId=3
+member 253 frame 53 455 materialId=1 sectionId=3
+member 254 frame 455 456 materialId=1 sectionId=3
+member 255 frame 456 457 materialId=1 sectionId=3
+member 256 frame 457 74 materialId=1 sectionId=3
+member 257 frame 18 458 materialId=1 sectionId=3
+member 258 frame 458 459 materialId=1 sectionId=3
+member 259 frame 459 460 materialId=1 sectionId=3
+member 260 frame 460 39 materialId=1 sectionId=3
+member 261 frame 60 461 materialId=1 sectionId=3
+member 262 frame 461 462 materialId=1 sectionId=3
+member 263 frame 462 463 materialId=1 sectionId=3
+member 264 frame 463 81 materialId=1 sectionId=3
+member 265 frame 4 464 materialId=1 sectionId=3
+member 266 frame 464 465 materialId=1 sectionId=3
+member 267 frame 465 466 materialId=1 sectionId=3
+member 268 frame 466 11 materialId=1 sectionId=3
+member 269 frame 11 467 materialId=1 sectionId=3
+member 270 frame 467 468 materialId=1 sectionId=3
+member 271 frame 468 469 materialId=1 sectionId=3
+member 272 frame 469 470 materialId=1 sectionId=3
+member 273 frame 470 18 materialId=1 sectionId=3
+member 274 frame 25 471 materialId=1 sectionId=3
+member 275 frame 471 472 materialId=1 sectionId=3
+member 276 frame 472 473 materialId=1 sectionId=3
+member 277 frame 473 32 materialId=1 sectionId=3
+member 278 frame 32 474 materialId=1 sectionId=3
+member 279 frame 474 475 materialId=1 sectionId=3
+member 280 frame 475 476 materialId=1 sectionId=3
+member 281 frame 476 477 materialId=1 sectionId=3
+member 282 frame 477 39 materialId=1 sectionId=3
+member 283 frame 46 478 materialId=1 sectionId=3
+member 284 frame 478 479 materialId=1 sectionId=3
+member 285 frame 479 480 materialId=1 sectionId=3
+member 286 frame 480 53 materialId=1 sectionId=3
+member 287 frame 53 481 materialId=1 sectionId=3
+member 288 frame 481 482 materialId=1 sectionId=3
+member 289 frame 482 483 materialId=1 sectionId=3
+member 290 frame 483 484 materialId=1 sectionId=3
+member 291 frame 484 60 materialId=1 sectionId=3
+member 292 frame 67 485 materialId=1 sectionId=3
+member 293 frame 485 486 materialId=1 sectionId=3
+member 294 frame 486 487 materialId=1 sectionId=3
+member 295 frame 487 74 materialId=1 sectionId=3
+member 296 frame 74 488 materialId=1 sectionId=3
+member 297 frame 488 489 materialId=1 sectionId=3
+member 298 frame 489 490 materialId=1 sectionId=3
+member 299 frame 490 491 materialId=1 sectionId=3
+member 300 frame 491 81 materialId=1 sectionId=3
+member 301 frame 39 492 materialId=1 sectionId=3
+member 302 frame 492 105 materialId=1 sectionId=3
+member 303 frame 137 493 materialId=1 sectionId=3
+member 304 frame 493 60 materialId=1 sectionId=3
+member 305 frame 103 494 materialId=1 sectionId=3
+member 306 frame 494 163 materialId=1 sectionId=3
+quad 317 [4,436,495,464] materialId=1 thickness=0.13
+quad 318 [464,495,496,465] materialId=1 thickness=0.13
+quad 319 [465,496,497,466] materialId=1 thickness=0.13
+quad 320 [466,497,447,11] materialId=1 thickness=0.13
+quad 321 [11,447,498,467] materialId=1 thickness=0.13
+quad 322 [467,498,499,468] materialId=1 thickness=0.13
+quad 323 [468,499,500,469] materialId=1 thickness=0.13
+quad 324 [469,500,501,470] materialId=1 thickness=0.13
+quad 325 [470,501,458,18] materialId=1 thickness=0.13
+quad 326 [436,437,502,495] materialId=1 thickness=0.13
+quad 327 [495,502,503,496] materialId=1 thickness=0.13
+quad 328 [496,503,504,497] materialId=1 thickness=0.13
+quad 329 [497,504,448,447] materialId=1 thickness=0.13
+quad 330 [447,448,505,498] materialId=1 thickness=0.13
+quad 331 [498,505,506,499] materialId=1 thickness=0.13
+quad 332 [499,506,507,500] materialId=1 thickness=0.13
+quad 333 [500,507,508,501] materialId=1 thickness=0.13
+quad 334 [501,508,459,458] materialId=1 thickness=0.13
+quad 335 [437,438,509,502] materialId=1 thickness=0.13
+quad 336 [502,509,510,503] materialId=1 thickness=0.13
+quad 337 [503,510,511,504] materialId=1 thickness=0.13
+quad 338 [504,511,449,448] materialId=1 thickness=0.13
+quad 339 [448,449,512,505] materialId=1 thickness=0.13
+quad 340 [505,512,513,506] materialId=1 thickness=0.13
+quad 341 [506,513,514,507] materialId=1 thickness=0.13
+quad 342 [507,514,515,508] materialId=1 thickness=0.13
+quad 343 [508,515,460,459] materialId=1 thickness=0.13
+quad 344 [438,25,471,509] materialId=1 thickness=0.13
+quad 345 [509,471,472,510] materialId=1 thickness=0.13
+quad 346 [510,472,473,511] materialId=1 thickness=0.13
+quad 347 [511,473,32,449] materialId=1 thickness=0.13
+quad 348 [449,32,474,512] materialId=1 thickness=0.13
+quad 349 [512,474,475,513] materialId=1 thickness=0.13
+quad 350 [513,475,476,514] materialId=1 thickness=0.13
+quad 351 [514,476,477,515] materialId=1 thickness=0.13
+quad 352 [515,477,39,460] materialId=1 thickness=0.13
+quad 353 [25,439,516,471] materialId=1 thickness=0.13
+quad 354 [471,516,517,472] materialId=1 thickness=0.13
+quad 355 [472,517,518,473] materialId=1 thickness=0.13
+quad 356 [473,518,450,32] materialId=1 thickness=0.13
+quad 357 [32,450,519,474] materialId=1 thickness=0.13
+quad 358 [474,519,520,475] materialId=1 thickness=0.13
+quad 359 [475,520,521,476] materialId=1 thickness=0.13
+quad 360 [476,521,522,477] materialId=1 thickness=0.13
+quad 361 [477,522,492,39] materialId=1 thickness=0.13
+quad 362 [439,440,523,516] materialId=1 thickness=0.13
+quad 363 [516,523,524,517] materialId=1 thickness=0.13
+quad 364 [517,524,525,518] materialId=1 thickness=0.13
+quad 365 [518,525,451,450] materialId=1 thickness=0.13
+quad 366 [450,451,526,519] materialId=1 thickness=0.13
+quad 367 [519,526,527,520] materialId=1 thickness=0.13
+quad 368 [520,527,103,521] materialId=1 thickness=0.13
+quad 369 [521,103,102,522] materialId=1 thickness=0.13
+quad 370 [522,102,105,492] materialId=1 thickness=0.13
+quad 371 [440,441,528,523] materialId=1 thickness=0.13
+quad 372 [523,528,529,524] materialId=1 thickness=0.13
+quad 373 [524,529,530,525] materialId=1 thickness=0.13
+quad 374 [525,530,452,451] materialId=1 thickness=0.13
+quad 375 [451,452,531,526] materialId=1 thickness=0.13
+quad 376 [526,531,532,527] materialId=1 thickness=0.13
+quad 377 [527,532,494,103] materialId=1 thickness=0.13
+quad 378 [441,442,533,528] materialId=1 thickness=0.13
+quad 379 [528,533,534,529] materialId=1 thickness=0.13
+quad 380 [529,534,535,530] materialId=1 thickness=0.13
+quad 381 [530,535,453,452] materialId=1 thickness=0.13
+quad 382 [452,453,536,531] materialId=1 thickness=0.13
+quad 383 [531,536,537,532] materialId=1 thickness=0.13
+quad 384 [532,537,163,494] materialId=1 thickness=0.13
+quad 385 [442,443,538,533] materialId=1 thickness=0.13
+quad 386 [533,538,539,534] materialId=1 thickness=0.13
+quad 387 [534,539,540,535] materialId=1 thickness=0.13
+quad 388 [535,540,454,453] materialId=1 thickness=0.13
+quad 389 [453,454,541,536] materialId=1 thickness=0.13
+quad 390 [536,541,542,537] materialId=1 thickness=0.13
+quad 391 [537,542,543,163] materialId=1 thickness=0.13
+quad 392 [163,543,544,162] materialId=1 thickness=0.13
+quad 393 [162,544,493,137] materialId=1 thickness=0.13
+quad 394 [443,46,478,538] materialId=1 thickness=0.13
+quad 395 [538,478,479,539] materialId=1 thickness=0.13
+quad 396 [539,479,480,540] materialId=1 thickness=0.13
+quad 397 [540,480,53,454] materialId=1 thickness=0.13
+quad 398 [454,53,481,541] materialId=1 thickness=0.13
+quad 399 [541,481,482,542] materialId=1 thickness=0.13
+quad 400 [542,482,483,543] materialId=1 thickness=0.13
+quad 401 [543,483,484,544] materialId=1 thickness=0.13
+quad 402 [544,484,60,493] materialId=1 thickness=0.13
+quad 403 [46,444,545,478] materialId=1 thickness=0.13
+quad 404 [478,545,546,479] materialId=1 thickness=0.13
+quad 405 [479,546,547,480] materialId=1 thickness=0.13
+quad 406 [480,547,455,53] materialId=1 thickness=0.13
+quad 407 [53,455,548,481] materialId=1 thickness=0.13
+quad 408 [481,548,549,482] materialId=1 thickness=0.13
+quad 409 [482,549,550,483] materialId=1 thickness=0.13
+quad 410 [483,550,551,484] materialId=1 thickness=0.13
+quad 411 [484,551,461,60] materialId=1 thickness=0.13
+quad 412 [444,445,552,545] materialId=1 thickness=0.13
+quad 413 [545,552,553,546] materialId=1 thickness=0.13
+quad 414 [546,553,554,547] materialId=1 thickness=0.13
+quad 415 [547,554,456,455] materialId=1 thickness=0.13
+quad 416 [455,456,555,548] materialId=1 thickness=0.13
+quad 417 [548,555,556,549] materialId=1 thickness=0.13
+quad 418 [549,556,557,550] materialId=1 thickness=0.13
+quad 419 [550,557,558,551] materialId=1 thickness=0.13
+quad 420 [551,558,462,461] materialId=1 thickness=0.13
+quad 421 [445,446,559,552] materialId=1 thickness=0.13
+quad 422 [552,559,560,553] materialId=1 thickness=0.13
+quad 423 [553,560,561,554] materialId=1 thickness=0.13
+quad 424 [554,561,457,456] materialId=1 thickness=0.13
+quad 425 [456,457,562,555] materialId=1 thickness=0.13
+quad 426 [555,562,563,556] materialId=1 thickness=0.13
+quad 427 [556,563,564,557] materialId=1 thickness=0.13
+quad 428 [557,564,565,558] materialId=1 thickness=0.13
+quad 429 [558,565,463,462] materialId=1 thickness=0.13
+quad 430 [446,67,485,559] materialId=1 thickness=0.13
+quad 431 [559,485,486,560] materialId=1 thickness=0.13
+quad 432 [560,486,487,561] materialId=1 thickness=0.13
+quad 433 [561,487,74,457] materialId=1 thickness=0.13
+quad 434 [457,74,488,562] materialId=1 thickness=0.13
+quad 435 [562,488,489,563] materialId=1 thickness=0.13
+quad 436 [563,489,490,564] materialId=1 thickness=0.13
+quad 437 [564,490,491,565] materialId=1 thickness=0.13
+quad 438 [565,491,81,463] materialId=1 thickness=0.13
+member 307 frame 5 566 materialId=1 sectionId=3
+member 308 frame 566 567 materialId=1 sectionId=3
+member 309 frame 567 568 materialId=1 sectionId=3
+member 310 frame 568 26 materialId=1 sectionId=3
+member 311 frame 26 569 materialId=1 sectionId=3
+member 312 frame 569 570 materialId=1 sectionId=3
+member 313 frame 570 571 materialId=1 sectionId=3
+member 314 frame 571 572 materialId=1 sectionId=3
+member 315 frame 572 573 materialId=1 sectionId=3
+member 316 frame 573 47 materialId=1 sectionId=3
+member 317 frame 47 574 materialId=1 sectionId=3
+member 318 frame 574 575 materialId=1 sectionId=3
+member 319 frame 575 576 materialId=1 sectionId=3
+member 320 frame 576 68 materialId=1 sectionId=3
+member 321 frame 12 577 materialId=1 sectionId=3
+member 322 frame 577 578 materialId=1 sectionId=3
+member 323 frame 578 579 materialId=1 sectionId=3
+member 324 frame 579 33 materialId=1 sectionId=3
+member 325 frame 33 580 materialId=1 sectionId=3
+member 326 frame 580 581 materialId=1 sectionId=3
+member 327 frame 581 582 materialId=1 sectionId=3
+member 328 frame 582 583 materialId=1 sectionId=3
+member 329 frame 583 584 materialId=1 sectionId=3
+member 330 frame 584 54 materialId=1 sectionId=3
+member 331 frame 54 585 materialId=1 sectionId=3
+member 332 frame 585 586 materialId=1 sectionId=3
+member 333 frame 586 587 materialId=1 sectionId=3
+member 334 frame 587 75 materialId=1 sectionId=3
+member 335 frame 19 588 materialId=1 sectionId=3
+member 336 frame 588 589 materialId=1 sectionId=3
+member 337 frame 589 590 materialId=1 sectionId=3
+member 338 frame 590 40 materialId=1 sectionId=3
+member 339 frame 61 591 materialId=1 sectionId=3
+member 340 frame 591 592 materialId=1 sectionId=3
+member 341 frame 592 593 materialId=1 sectionId=3
+member 342 frame 593 82 materialId=1 sectionId=3
+member 343 frame 5 594 materialId=1 sectionId=3
+member 344 frame 594 595 materialId=1 sectionId=3
+member 345 frame 595 596 materialId=1 sectionId=3
+member 346 frame 596 12 materialId=1 sectionId=3
+member 347 frame 12 597 materialId=1 sectionId=3
+member 348 frame 597 598 materialId=1 sectionId=3
+member 349 frame 598 599 materialId=1 sectionId=3
+member 350 frame 599 600 materialId=1 sectionId=3
+member 351 frame 600 19 materialId=1 sectionId=3
+member 352 frame 26 601 materialId=1 sectionId=3
+member 353 frame 601 602 materialId=1 sectionId=3
+member 354 frame 602 603 materialId=1 sectionId=3
+member 355 frame 603 33 materialId=1 sectionId=3
+member 356 frame 33 604 materialId=1 sectionId=3
+member 357 frame 604 605 materialId=1 sectionId=3
+member 358 frame 605 606 materialId=1 sectionId=3
+member 359 frame 606 607 materialId=1 sectionId=3
+member 360 frame 607 40 materialId=1 sectionId=3
+member 361 frame 47 608 materialId=1 sectionId=3
+member 362 frame 608 609 materialId=1 sectionId=3
+member 363 frame 609 610 materialId=1 sectionId=3
+member 364 frame 610 54 materialId=1 sectionId=3
+member 365 frame 54 611 materialId=1 sectionId=3
+member 366 frame 611 612 materialId=1 sectionId=3
+member 367 frame 612 613 materialId=1 sectionId=3
+member 368 frame 613 614 materialId=1 sectionId=3
+member 369 frame 614 61 materialId=1 sectionId=3
+member 370 frame 68 615 materialId=1 sectionId=3
+member 371 frame 615 616 materialId=1 sectionId=3
+member 372 frame 616 617 materialId=1 sectionId=3
+member 373 frame 617 75 materialId=1 sectionId=3
+member 374 frame 75 618 materialId=1 sectionId=3
+member 375 frame 618 619 materialId=1 sectionId=3
+member 376 frame 619 620 materialId=1 sectionId=3
+member 377 frame 620 621 materialId=1 sectionId=3
+member 378 frame 621 82 materialId=1 sectionId=3
+member 379 frame 40 622 materialId=1 sectionId=3
+member 380 frame 622 111 materialId=1 sectionId=3
+member 381 frame 141 623 materialId=1 sectionId=3
+member 382 frame 623 61 materialId=1 sectionId=3
+member 383 frame 109 624 materialId=1 sectionId=3
+member 384 frame 624 167 materialId=1 sectionId=3
+quad 439 [5,566,625,594] materialId=1 thickness=0.13
+quad 440 [594,625,626,595] materialId=1 thickness=0.13
+quad 441 [595,626,627,596] materialId=1 thickness=0.13
+quad 442 [596,627,577,12] materialId=1 thickness=0.13
+quad 443 [12,577,628,597] materialId=1 thickness=0.13
+quad 444 [597,628,629,598] materialId=1 thickness=0.13
+quad 445 [598,629,630,599] materialId=1 thickness=0.13
+quad 446 [599,630,631,600] materialId=1 thickness=0.13
+quad 447 [600,631,588,19] materialId=1 thickness=0.13
+quad 448 [566,567,632,625] materialId=1 thickness=0.13
+quad 449 [625,632,633,626] materialId=1 thickness=0.13
+quad 450 [626,633,634,627] materialId=1 thickness=0.13
+quad 451 [627,634,578,577] materialId=1 thickness=0.13
+quad 452 [577,578,635,628] materialId=1 thickness=0.13
+quad 453 [628,635,636,629] materialId=1 thickness=0.13
+quad 454 [629,636,637,630] materialId=1 thickness=0.13
+quad 455 [630,637,638,631] materialId=1 thickness=0.13
+quad 456 [631,638,589,588] materialId=1 thickness=0.13
+quad 457 [567,568,639,632] materialId=1 thickness=0.13
+quad 458 [632,639,640,633] materialId=1 thickness=0.13
+quad 459 [633,640,641,634] materialId=1 thickness=0.13
+quad 460 [634,641,579,578] materialId=1 thickness=0.13
+quad 461 [578,579,642,635] materialId=1 thickness=0.13
+quad 462 [635,642,643,636] materialId=1 thickness=0.13
+quad 463 [636,643,644,637] materialId=1 thickness=0.13
+quad 464 [637,644,645,638] materialId=1 thickness=0.13
+quad 465 [638,645,590,589] materialId=1 thickness=0.13
+quad 466 [568,26,601,639] materialId=1 thickness=0.13
+quad 467 [639,601,602,640] materialId=1 thickness=0.13
+quad 468 [640,602,603,641] materialId=1 thickness=0.13
+quad 469 [641,603,33,579] materialId=1 thickness=0.13
+quad 470 [579,33,604,642] materialId=1 thickness=0.13
+quad 471 [642,604,605,643] materialId=1 thickness=0.13
+quad 472 [643,605,606,644] materialId=1 thickness=0.13
+quad 473 [644,606,607,645] materialId=1 thickness=0.13
+quad 474 [645,607,40,590] materialId=1 thickness=0.13
+quad 475 [26,569,646,601] materialId=1 thickness=0.13
+quad 476 [601,646,647,602] materialId=1 thickness=0.13
+quad 477 [602,647,648,603] materialId=1 thickness=0.13
+quad 478 [603,648,580,33] materialId=1 thickness=0.13
+quad 479 [33,580,649,604] materialId=1 thickness=0.13
+quad 480 [604,649,650,605] materialId=1 thickness=0.13
+quad 481 [605,650,651,606] materialId=1 thickness=0.13
+quad 482 [606,651,652,607] materialId=1 thickness=0.13
+quad 483 [607,652,622,40] materialId=1 thickness=0.13
+quad 484 [569,570,653,646] materialId=1 thickness=0.13
+quad 485 [646,653,654,647] materialId=1 thickness=0.13
+quad 486 [647,654,655,648] materialId=1 thickness=0.13
+quad 487 [648,655,581,580] materialId=1 thickness=0.13
+quad 488 [580,581,656,649] materialId=1 thickness=0.13
+quad 489 [649,656,657,650] materialId=1 thickness=0.13
+quad 490 [650,657,109,651] materialId=1 thickness=0.13
+quad 491 [651,109,108,652] materialId=1 thickness=0.13
+quad 492 [652,108,111,622] materialId=1 thickness=0.13
+quad 493 [570,571,658,653] materialId=1 thickness=0.13
+quad 494 [653,658,659,654] materialId=1 thickness=0.13
+quad 495 [654,659,660,655] materialId=1 thickness=0.13
+quad 496 [655,660,582,581] materialId=1 thickness=0.13
+quad 497 [581,582,661,656] materialId=1 thickness=0.13
+quad 498 [656,661,662,657] materialId=1 thickness=0.13
+quad 499 [657,662,624,109] materialId=1 thickness=0.13
+quad 500 [571,572,663,658] materialId=1 thickness=0.13
+quad 501 [658,663,664,659] materialId=1 thickness=0.13
+quad 502 [659,664,665,660] materialId=1 thickness=0.13
+quad 503 [660,665,583,582] materialId=1 thickness=0.13
+quad 504 [582,583,666,661] materialId=1 thickness=0.13
+quad 505 [661,666,667,662] materialId=1 thickness=0.13
+quad 506 [662,667,167,624] materialId=1 thickness=0.13
+quad 507 [572,573,668,663] materialId=1 thickness=0.13
+quad 508 [663,668,669,664] materialId=1 thickness=0.13
+quad 509 [664,669,670,665] materialId=1 thickness=0.13
+quad 510 [665,670,584,583] materialId=1 thickness=0.13
+quad 511 [583,584,671,666] materialId=1 thickness=0.13
+quad 512 [666,671,672,667] materialId=1 thickness=0.13
+quad 513 [667,672,673,167] materialId=1 thickness=0.13
+quad 514 [167,673,674,166] materialId=1 thickness=0.13
+quad 515 [166,674,623,141] materialId=1 thickness=0.13
+quad 516 [573,47,608,668] materialId=1 thickness=0.13
+quad 517 [668,608,609,669] materialId=1 thickness=0.13
+quad 518 [669,609,610,670] materialId=1 thickness=0.13
+quad 519 [670,610,54,584] materialId=1 thickness=0.13
+quad 520 [584,54,611,671] materialId=1 thickness=0.13
+quad 521 [671,611,612,672] materialId=1 thickness=0.13
+quad 522 [672,612,613,673] materialId=1 thickness=0.13
+quad 523 [673,613,614,674] materialId=1 thickness=0.13
+quad 524 [674,614,61,623] materialId=1 thickness=0.13
+quad 525 [47,574,675,608] materialId=1 thickness=0.13
+quad 526 [608,675,676,609] materialId=1 thickness=0.13
+quad 527 [609,676,677,610] materialId=1 thickness=0.13
+quad 528 [610,677,585,54] materialId=1 thickness=0.13
+quad 529 [54,585,678,611] materialId=1 thickness=0.13
+quad 530 [611,678,679,612] materialId=1 thickness=0.13
+quad 531 [612,679,680,613] materialId=1 thickness=0.13
+quad 532 [613,680,681,614] materialId=1 thickness=0.13
+quad 533 [614,681,591,61] materialId=1 thickness=0.13
+quad 534 [574,575,682,675] materialId=1 thickness=0.13
+quad 535 [675,682,683,676] materialId=1 thickness=0.13
+quad 536 [676,683,684,677] materialId=1 thickness=0.13
+quad 537 [677,684,586,585] materialId=1 thickness=0.13
+quad 538 [585,586,685,678] materialId=1 thickness=0.13
+quad 539 [678,685,686,679] materialId=1 thickness=0.13
+quad 540 [679,686,687,680] materialId=1 thickness=0.13
+quad 541 [680,687,688,681] materialId=1 thickness=0.13
+quad 542 [681,688,592,591] materialId=1 thickness=0.13
+quad 543 [575,576,689,682] materialId=1 thickness=0.13
+quad 544 [682,689,690,683] materialId=1 thickness=0.13
+quad 545 [683,690,691,684] materialId=1 thickness=0.13
+quad 546 [684,691,587,586] materialId=1 thickness=0.13
+quad 547 [586,587,692,685] materialId=1 thickness=0.13
+quad 548 [685,692,693,686] materialId=1 thickness=0.13
+quad 549 [686,693,694,687] materialId=1 thickness=0.13
+quad 550 [687,694,695,688] materialId=1 thickness=0.13
+quad 551 [688,695,593,592] materialId=1 thickness=0.13
+quad 552 [576,68,615,689] materialId=1 thickness=0.13
+quad 553 [689,615,616,690] materialId=1 thickness=0.13
+quad 554 [690,616,617,691] materialId=1 thickness=0.13
+quad 555 [691,617,75,587] materialId=1 thickness=0.13
+quad 556 [587,75,618,692] materialId=1 thickness=0.13
+quad 557 [692,618,619,693] materialId=1 thickness=0.13
+quad 558 [693,619,620,694] materialId=1 thickness=0.13
+quad 559 [694,620,621,695] materialId=1 thickness=0.13
+quad 560 [695,621,82,593] materialId=1 thickness=0.13
+member 385 frame 6 696 materialId=1 sectionId=3
+member 386 frame 696 697 materialId=1 sectionId=3
+member 387 frame 697 698 materialId=1 sectionId=3
+member 388 frame 698 27 materialId=1 sectionId=3
+member 389 frame 27 699 materialId=1 sectionId=3
+member 390 frame 699 700 materialId=1 sectionId=3
+member 391 frame 700 701 materialId=1 sectionId=3
+member 392 frame 701 702 materialId=1 sectionId=3
+member 393 frame 702 703 materialId=1 sectionId=3
+member 394 frame 703 48 materialId=1 sectionId=3
+member 395 frame 48 704 materialId=1 sectionId=3
+member 396 frame 704 705 materialId=1 sectionId=3
+member 397 frame 705 706 materialId=1 sectionId=3
+member 398 frame 706 69 materialId=1 sectionId=3
+member 399 frame 13 707 materialId=1 sectionId=3
+member 400 frame 707 708 materialId=1 sectionId=3
+member 401 frame 708 709 materialId=1 sectionId=3
+member 402 frame 709 34 materialId=1 sectionId=3
+member 403 frame 34 710 materialId=1 sectionId=3
+member 404 frame 710 711 materialId=1 sectionId=3
+member 405 frame 711 712 materialId=1 sectionId=3
+member 406 frame 712 713 materialId=1 sectionId=3
+member 407 frame 713 714 materialId=1 sectionId=3
+member 408 frame 714 55 materialId=1 sectionId=3
+member 409 frame 55 715 materialId=1 sectionId=3
+member 410 frame 715 716 materialId=1 sectionId=3
+member 411 frame 716 717 materialId=1 sectionId=3
+member 412 frame 717 76 materialId=1 sectionId=3
+member 413 frame 20 718 materialId=1 sectionId=3
+member 414 frame 718 719 materialId=1 sectionId=3
+member 415 frame 719 720 materialId=1 sectionId=3
+member 416 frame 720 41 materialId=1 sectionId=3
+member 417 frame 62 721 materialId=1 sectionId=3
+member 418 frame 721 722 materialId=1 sectionId=3
+member 419 frame 722 723 materialId=1 sectionId=3
+member 420 frame 723 83 materialId=1 sectionId=3
+member 421 frame 6 724 materialId=1 sectionId=3
+member 422 frame 724 725 materialId=1 sectionId=3
+member 423 frame 725 726 materialId=1 sectionId=3
+member 424 frame 726 13 materialId=1 sectionId=3
+member 425 frame 13 727 materialId=1 sectionId=3
+member 426 frame 727 728 materialId=1 sectionId=3
+member 427 frame 728 729 materialId=1 sectionId=3
+member 428 frame 729 730 materialId=1 sectionId=3
+member 429 frame 730 20 materialId=1 sectionId=3
+member 430 frame 27 731 materialId=1 sectionId=3
+member 431 frame 731 732 materialId=1 sectionId=3
+member 432 frame 732 733 materialId=1 sectionId=3
+member 433 frame 733 34 materialId=1 sectionId=3
+member 434 frame 34 734 materialId=1 sectionId=3
+member 435 frame 734 735 materialId=1 sectionId=3
+member 436 frame 735 736 materialId=1 sectionId=3
+member 437 frame 736 737 materialId=1 sectionId=3
+member 438 frame 737 41 materialId=1 sectionId=3
+member 439 frame 48 738 materialId=1 sectionId=3
+member 440 frame 738 739 materialId=1 sectionId=3
+member 441 frame 739 740 materialId=1 sectionId=3
+member 442 frame 740 55 materialId=1 sectionId=3
+member 443 frame 55 741 materialId=1 sectionId=3
+member 444 frame 741 742 materialId=1 sectionId=3
+member 445 frame 742 743 materialId=1 sectionId=3
+member 446 frame 743 744 materialId=1 sectionId=3
+member 447 frame 744 62 materialId=1 sectionId=3
+member 448 frame 69 745 materialId=1 sectionId=3
+member 449 frame 745 746 materialId=1 sectionId=3
+member 450 frame 746 747 materialId=1 sectionId=3
+member 451 frame 747 76 materialId=1 sectionId=3
+member 452 frame 76 748 materialId=1 sectionId=3
+member 453 frame 748 749 materialId=1 sectionId=3
+member 454 frame 749 750 materialId=1 sectionId=3
+member 455 frame 750 751 materialId=1 sectionId=3
+member 456 frame 751 83 materialId=1 sectionId=3
+member 457 frame 41 752 materialId=1 sectionId=3
+member 458 frame 752 117 materialId=1 sectionId=3
+member 459 frame 145 753 materialId=1 sectionId=3
+member 460 frame 753 62 materialId=1 sectionId=3
+member 461 frame 115 754 materialId=1 sectionId=3
+member 462 frame 754 171 materialId=1 sectionId=3
+quad 561 [6,696,755,724] materialId=1 thickness=0.13
+quad 562 [724,755,756,725] materialId=1 thickness=0.13
+quad 563 [725,756,757,726] materialId=1 thickness=0.13
+quad 564 [726,757,707,13] materialId=1 thickness=0.13
+quad 565 [13,707,758,727] materialId=1 thickness=0.13
+quad 566 [727,758,759,728] materialId=1 thickness=0.13
+quad 567 [728,759,760,729] materialId=1 thickness=0.13
+quad 568 [729,760,761,730] materialId=1 thickness=0.13
+quad 569 [730,761,718,20] materialId=1 thickness=0.13
+quad 570 [696,697,762,755] materialId=1 thickness=0.13
+quad 571 [755,762,763,756] materialId=1 thickness=0.13
+quad 572 [756,763,764,757] materialId=1 thickness=0.13
+quad 573 [757,764,708,707] materialId=1 thickness=0.13
+quad 574 [707,708,765,758] materialId=1 thickness=0.13
+quad 575 [758,765,766,759] materialId=1 thickness=0.13
+quad 576 [759,766,767,760] materialId=1 thickness=0.13
+quad 577 [760,767,768,761] materialId=1 thickness=0.13
+quad 578 [761,768,719,718] materialId=1 thickness=0.13
+quad 579 [697,698,769,762] materialId=1 thickness=0.13
+quad 580 [762,769,770,763] materialId=1 thickness=0.13
+quad 581 [763,770,771,764] materialId=1 thickness=0.13
+quad 582 [764,771,709,708] materialId=1 thickness=0.13
+quad 583 [708,709,772,765] materialId=1 thickness=0.13
+quad 584 [765,772,773,766] materialId=1 thickness=0.13
+quad 585 [766,773,774,767] materialId=1 thickness=0.13
+quad 586 [767,774,775,768] materialId=1 thickness=0.13
+quad 587 [768,775,720,719] materialId=1 thickness=0.13
+quad 588 [698,27,731,769] materialId=1 thickness=0.13
+quad 589 [769,731,732,770] materialId=1 thickness=0.13
+quad 590 [770,732,733,771] materialId=1 thickness=0.13
+quad 591 [771,733,34,709] materialId=1 thickness=0.13
+quad 592 [709,34,734,772] materialId=1 thickness=0.13
+quad 593 [772,734,735,773] materialId=1 thickness=0.13
+quad 594 [773,735,736,774] materialId=1 thickness=0.13
+quad 595 [774,736,737,775] materialId=1 thickness=0.13
+quad 596 [775,737,41,720] materialId=1 thickness=0.13
+quad 597 [27,699,776,731] materialId=1 thickness=0.13
+quad 598 [731,776,777,732] materialId=1 thickness=0.13
+quad 599 [732,777,778,733] materialId=1 thickness=0.13
+quad 600 [733,778,710,34] materialId=1 thickness=0.13
+quad 601 [34,710,779,734] materialId=1 thickness=0.13
+quad 602 [734,779,780,735] materialId=1 thickness=0.13
+quad 603 [735,780,781,736] materialId=1 thickness=0.13
+quad 604 [736,781,782,737] materialId=1 thickness=0.13
+quad 605 [737,782,752,41] materialId=1 thickness=0.13
+quad 606 [699,700,783,776] materialId=1 thickness=0.13
+quad 607 [776,783,784,777] materialId=1 thickness=0.13
+quad 608 [777,784,785,778] materialId=1 thickness=0.13
+quad 609 [778,785,711,710] materialId=1 thickness=0.13
+quad 610 [710,711,786,779] materialId=1 thickness=0.13
+quad 611 [779,786,787,780] materialId=1 thickness=0.13
+quad 612 [780,787,115,781] materialId=1 thickness=0.13
+quad 613 [781,115,114,782] materialId=1 thickness=0.13
+quad 614 [782,114,117,752] materialId=1 thickness=0.13
+quad 615 [700,701,788,783] materialId=1 thickness=0.13
+quad 616 [783,788,789,784] materialId=1 thickness=0.13
+quad 617 [784,789,790,785] materialId=1 thickness=0.13
+quad 618 [785,790,712,711] materialId=1 thickness=0.13
+quad 619 [711,712,791,786] materialId=1 thickness=0.13
+quad 620 [786,791,792,787] materialId=1 thickness=0.13
+quad 621 [787,792,754,115] materialId=1 thickness=0.13
+quad 622 [701,702,793,788] materialId=1 thickness=0.13
+quad 623 [788,793,794,789] materialId=1 thickness=0.13
+quad 624 [789,794,795,790] materialId=1 thickness=0.13
+quad 625 [790,795,713,712] materialId=1 thickness=0.13
+quad 626 [712,713,796,791] materialId=1 thickness=0.13
+quad 627 [791,796,797,792] materialId=1 thickness=0.13
+quad 628 [792,797,171,754] materialId=1 thickness=0.13
+quad 629 [702,703,798,793] materialId=1 thickness=0.13
+quad 630 [793,798,799,794] materialId=1 thickness=0.13
+quad 631 [794,799,800,795] materialId=1 thickness=0.13
+quad 632 [795,800,714,713] materialId=1 thickness=0.13
+quad 633 [713,714,801,796] materialId=1 thickness=0.13
+quad 634 [796,801,802,797] materialId=1 thickness=0.13
+quad 635 [797,802,803,171] materialId=1 thickness=0.13
+quad 636 [171,803,804,170] materialId=1 thickness=0.13
+quad 637 [170,804,753,145] materialId=1 thickness=0.13
+quad 638 [703,48,738,798] materialId=1 thickness=0.13
+quad 639 [798,738,739,799] materialId=1 thickness=0.13
+quad 640 [799,739,740,800] materialId=1 thickness=0.13
+quad 641 [800,740,55,714] materialId=1 thickness=0.13
+quad 642 [714,55,741,801] materialId=1 thickness=0.13
+quad 643 [801,741,742,802] materialId=1 thickness=0.13
+quad 644 [802,742,743,803] materialId=1 thickness=0.13
+quad 645 [803,743,744,804] materialId=1 thickness=0.13
+quad 646 [804,744,62,753] materialId=1 thickness=0.13
+quad 647 [48,704,805,738] materialId=1 thickness=0.13
+quad 648 [738,805,806,739] materialId=1 thickness=0.13
+quad 649 [739,806,807,740] materialId=1 thickness=0.13
+quad 650 [740,807,715,55] materialId=1 thickness=0.13
+quad 651 [55,715,808,741] materialId=1 thickness=0.13
+quad 652 [741,808,809,742] materialId=1 thickness=0.13
+quad 653 [742,809,810,743] materialId=1 thickness=0.13
+quad 654 [743,810,811,744] materialId=1 thickness=0.13
+quad 655 [744,811,721,62] materialId=1 thickness=0.13
+quad 656 [704,705,812,805] materialId=1 thickness=0.13
+quad 657 [805,812,813,806] materialId=1 thickness=0.13
+quad 658 [806,813,814,807] materialId=1 thickness=0.13
+quad 659 [807,814,716,715] materialId=1 thickness=0.13
+quad 660 [715,716,815,808] materialId=1 thickness=0.13
+quad 661 [808,815,816,809] materialId=1 thickness=0.13
+quad 662 [809,816,817,810] materialId=1 thickness=0.13
+quad 663 [810,817,818,811] materialId=1 thickness=0.13
+quad 664 [811,818,722,721] materialId=1 thickness=0.13
+quad 665 [705,706,819,812] materialId=1 thickness=0.13
+quad 666 [812,819,820,813] materialId=1 thickness=0.13
+quad 667 [813,820,821,814] materialId=1 thickness=0.13
+quad 668 [814,821,717,716] materialId=1 thickness=0.13
+quad 669 [716,717,822,815] materialId=1 thickness=0.13
+quad 670 [815,822,823,816] materialId=1 thickness=0.13
+quad 671 [816,823,824,817] materialId=1 thickness=0.13
+quad 672 [817,824,825,818] materialId=1 thickness=0.13
+quad 673 [818,825,723,722] materialId=1 thickness=0.13
+quad 674 [706,69,745,819] materialId=1 thickness=0.13
+quad 675 [819,745,746,820] materialId=1 thickness=0.13
+quad 676 [820,746,747,821] materialId=1 thickness=0.13
+quad 677 [821,747,76,717] materialId=1 thickness=0.13
+quad 678 [717,76,748,822] materialId=1 thickness=0.13
+quad 679 [822,748,749,823] materialId=1 thickness=0.13
+quad 680 [823,749,750,824] materialId=1 thickness=0.13
+quad 681 [824,750,751,825] materialId=1 thickness=0.13
+quad 682 [825,751,83,723] materialId=1 thickness=0.13
+member 463 frame 7 826 materialId=1 sectionId=3
+member 464 frame 826 827 materialId=1 sectionId=3
+member 465 frame 827 828 materialId=1 sectionId=3
+member 466 frame 828 28 materialId=1 sectionId=3
+member 467 frame 28 829 materialId=1 sectionId=3
+member 468 frame 829 830 materialId=1 sectionId=3
+member 469 frame 830 831 materialId=1 sectionId=3
+member 470 frame 831 832 materialId=1 sectionId=3
+member 471 frame 832 833 materialId=1 sectionId=3
+member 472 frame 833 49 materialId=1 sectionId=3
+member 473 frame 49 834 materialId=1 sectionId=3
+member 474 frame 834 835 materialId=1 sectionId=3
+member 475 frame 835 836 materialId=1 sectionId=3
+member 476 frame 836 70 materialId=1 sectionId=3
+member 477 frame 14 837 materialId=1 sectionId=3
+member 478 frame 837 838 materialId=1 sectionId=3
+member 479 frame 838 839 materialId=1 sectionId=3
+member 480 frame 839 35 materialId=1 sectionId=3
+member 481 frame 35 840 materialId=1 sectionId=3
+member 482 frame 840 841 materialId=1 sectionId=3
+member 483 frame 841 842 materialId=1 sectionId=3
+member 484 frame 842 843 materialId=1 sectionId=3
+member 485 frame 843 844 materialId=1 sectionId=3
+member 486 frame 844 56 materialId=1 sectionId=3
+member 487 frame 56 845 materialId=1 sectionId=3
+member 488 frame 845 846 materialId=1 sectionId=3
+member 489 frame 846 847 materialId=1 sectionId=3
+member 490 frame 847 77 materialId=1 sectionId=3
+member 491 frame 21 848 materialId=1 sectionId=3
+member 492 frame 848 849 materialId=1 sectionId=3
+member 493 frame 849 850 materialId=1 sectionId=3
+member 494 frame 850 42 materialId=1 sectionId=3
+member 495 frame 63 851 materialId=1 sectionId=3
+member 496 frame 851 852 materialId=1 sectionId=3
+member 497 frame 852 853 materialId=1 sectionId=3
+member 498 frame 853 84 materialId=1 sectionId=3
+member 499 frame 7 854 materialId=1 sectionId=3
+member 500 frame 854 855 materialId=1 sectionId=3
+member 501 frame 855 856 materialId=1 sectionId=3
+member 502 frame 856 14 materialId=1 sectionId=3
+member 503 frame 14 857 materialId=1 sectionId=3
+member 504 frame 857 858 materialId=1 sectionId=3
+member 505 frame 858 859 materialId=1 sectionId=3
+member 506 frame 859 860 materialId=1 sectionId=3
+member 507 frame 860 21 materialId=1 sectionId=3
+member 508 frame 28 861 materialId=1 sectionId=3
+member 509 frame 861 862 materialId=1 sectionId=3
+member 510 frame 862 863 materialId=1 sectionId=3
+member 511 frame 863 35 materialId=1 sectionId=3
+member 512 frame 35 864 materialId=1 sectionId=3
+member 513 frame 864 865 materialId=1 sectionId=3
+member 514 frame 865 866 materialId=1 sectionId=3
+member 515 frame 866 867 materialId=1 sectionId=3
+member 516 frame 867 42 materialId=1 sectionId=3
+member 517 frame 49 868 materialId=1 sectionId=3
+member 518 frame 868 869 materialId=1 sectionId=3
+member 519 frame 869 870 materialId=1 sectionId=3
+member 520 frame 870 56 materialId=1 sectionId=3
+member 521 frame 56 871 materialId=1 sectionId=3
+member 522 frame 871 872 materialId=1 sectionId=3
+member 523 frame 872 873 materialId=1 sectionId=3
+member 524 frame 873 874 materialId=1 sectionId=3
+member 525 frame 874 63 materialId=1 sectionId=3
+member 526 frame 70 875 materialId=1 sectionId=3
+member 527 frame 875 876 materialId=1 sectionId=3
+member 528 frame 876 877 materialId=1 sectionId=3
+member 529 frame 877 77 materialId=1 sectionId=3
+member 530 frame 77 878 materialId=1 sectionId=3
+member 531 frame 878 879 materialId=1 sectionId=3
+member 532 frame 879 880 materialId=1 sectionId=3
+member 533 frame 880 881 materialId=1 sectionId=3
+member 534 frame 881 84 materialId=1 sectionId=3
+member 535 frame 42 882 materialId=1 sectionId=3
+member 536 frame 882 123 materialId=1 sectionId=3
+member 537 frame 149 883 materialId=1 sectionId=3
+member 538 frame 883 63 materialId=1 sectionId=3
+member 539 frame 121 884 materialId=1 sectionId=3
+member 540 frame 884 175 materialId=1 sectionId=3
+quad 683 [7,826,885,854] materialId=1 thickness=0.13
+quad 684 [854,885,886,855] materialId=1 thickness=0.13
+quad 685 [855,886,887,856] materialId=1 thickness=0.13
+quad 686 [856,887,837,14] materialId=1 thickness=0.13
+quad 687 [14,837,888,857] materialId=1 thickness=0.13
+quad 688 [857,888,889,858] materialId=1 thickness=0.13
+quad 689 [858,889,890,859] materialId=1 thickness=0.13
+quad 690 [859,890,891,860] materialId=1 thickness=0.13
+quad 691 [860,891,848,21] materialId=1 thickness=0.13
+quad 692 [826,827,892,885] materialId=1 thickness=0.13
+quad 693 [885,892,893,886] materialId=1 thickness=0.13
+quad 694 [886,893,894,887] materialId=1 thickness=0.13
+quad 695 [887,894,838,837] materialId=1 thickness=0.13
+quad 696 [837,838,895,888] materialId=1 thickness=0.13
+quad 697 [888,895,896,889] materialId=1 thickness=0.13
+quad 698 [889,896,897,890] materialId=1 thickness=0.13
+quad 699 [890,897,898,891] materialId=1 thickness=0.13
+quad 700 [891,898,849,848] materialId=1 thickness=0.13
+quad 701 [827,828,899,892] materialId=1 thickness=0.13
+quad 702 [892,899,900,893] materialId=1 thickness=0.13
+quad 703 [893,900,901,894] materialId=1 thickness=0.13
+quad 704 [894,901,839,838] materialId=1 thickness=0.13
+quad 705 [838,839,902,895] materialId=1 thickness=0.13
+quad 706 [895,902,903,896] materialId=1 thickness=0.13
+quad 707 [896,903,904,897] materialId=1 thickness=0.13
+quad 708 [897,904,905,898] materialId=1 thickness=0.13
+quad 709 [898,905,850,849] materialId=1 thickness=0.13
+quad 710 [828,28,861,899] materialId=1 thickness=0.13
+quad 711 [899,861,862,900] materialId=1 thickness=0.13
+quad 712 [900,862,863,901] materialId=1 thickness=0.13
+quad 713 [901,863,35,839] materialId=1 thickness=0.13
+quad 714 [839,35,864,902] materialId=1 thickness=0.13
+quad 715 [902,864,865,903] materialId=1 thickness=0.13
+quad 716 [903,865,866,904] materialId=1 thickness=0.13
+quad 717 [904,866,867,905] materialId=1 thickness=0.13
+quad 718 [905,867,42,850] materialId=1 thickness=0.13
+quad 719 [28,829,906,861] materialId=1 thickness=0.13
+quad 720 [861,906,907,862] materialId=1 thickness=0.13
+quad 721 [862,907,908,863] materialId=1 thickness=0.13
+quad 722 [863,908,840,35] materialId=1 thickness=0.13
+quad 723 [35,840,909,864] materialId=1 thickness=0.13
+quad 724 [864,909,910,865] materialId=1 thickness=0.13
+quad 725 [865,910,911,866] materialId=1 thickness=0.13
+quad 726 [866,911,912,867] materialId=1 thickness=0.13
+quad 727 [867,912,882,42] materialId=1 thickness=0.13
+quad 728 [829,830,913,906] materialId=1 thickness=0.13
+quad 729 [906,913,914,907] materialId=1 thickness=0.13
+quad 730 [907,914,915,908] materialId=1 thickness=0.13
+quad 731 [908,915,841,840] materialId=1 thickness=0.13
+quad 732 [840,841,916,909] materialId=1 thickness=0.13
+quad 733 [909,916,917,910] materialId=1 thickness=0.13
+quad 734 [910,917,121,911] materialId=1 thickness=0.13
+quad 735 [911,121,120,912] materialId=1 thickness=0.13
+quad 736 [912,120,123,882] materialId=1 thickness=0.13
+quad 737 [830,831,918,913] materialId=1 thickness=0.13
+quad 738 [913,918,919,914] materialId=1 thickness=0.13
+quad 739 [914,919,920,915] materialId=1 thickness=0.13
+quad 740 [915,920,842,841] materialId=1 thickness=0.13
+quad 741 [841,842,921,916] materialId=1 thickness=0.13
+quad 742 [916,921,922,917] materialId=1 thickness=0.13
+quad 743 [917,922,884,121] materialId=1 thickness=0.13
+quad 744 [121,884,923,120] materialId=1 thickness=0.13
+quad 745 [120,923,147,123] materialId=1 thickness=0.13
+quad 746 [831,832,924,918] materialId=1 thickness=0.13
+quad 747 [918,924,925,919] materialId=1 thickness=0.13
+quad 748 [919,925,926,920] materialId=1 thickness=0.13
+quad 749 [920,926,843,842] materialId=1 thickness=0.13
+quad 750 [842,843,927,921] materialId=1 thickness=0.13
+quad 751 [921,927,928,922] materialId=1 thickness=0.13
+quad 752 [922,928,175,884] materialId=1 thickness=0.13
+quad 753 [884,175,174,923] materialId=1 thickness=0.13
+quad 754 [923,174,149,147] materialId=1 thickness=0.13
+quad 755 [832,833,929,924] materialId=1 thickness=0.13
+quad 756 [924,929,930,925] materialId=1 thickness=0.13
+quad 757 [925,930,931,926] materialId=1 thickness=0.13
+quad 758 [926,931,844,843] materialId=1 thickness=0.13
+quad 759 [843,844,932,927] materialId=1 thickness=0.13
+quad 760 [927,932,933,928] materialId=1 thickness=0.13
+quad 761 [928,933,934,175] materialId=1 thickness=0.13
+quad 762 [175,934,935,174] materialId=1 thickness=0.13
+quad 763 [174,935,883,149] materialId=1 thickness=0.13
+quad 764 [833,49,868,929] materialId=1 thickness=0.13
+quad 765 [929,868,869,930] materialId=1 thickness=0.13
+quad 766 [930,869,870,931] materialId=1 thickness=0.13
+quad 767 [931,870,56,844] materialId=1 thickness=0.13
+quad 768 [844,56,871,932] materialId=1 thickness=0.13
+quad 769 [932,871,872,933] materialId=1 thickness=0.13
+quad 770 [933,872,873,934] materialId=1 thickness=0.13
+quad 771 [934,873,874,935] materialId=1 thickness=0.13
+quad 772 [935,874,63,883] materialId=1 thickness=0.13
+quad 773 [49,834,936,868] materialId=1 thickness=0.13
+quad 774 [868,936,937,869] materialId=1 thickness=0.13
+quad 775 [869,937,938,870] materialId=1 thickness=0.13
+quad 776 [870,938,845,56] materialId=1 thickness=0.13
+quad 777 [56,845,939,871] materialId=1 thickness=0.13
+quad 778 [871,939,940,872] materialId=1 thickness=0.13
+quad 779 [872,940,941,873] materialId=1 thickness=0.13
+quad 780 [873,941,942,874] materialId=1 thickness=0.13
+quad 781 [874,942,851,63] materialId=1 thickness=0.13
+quad 782 [834,835,943,936] materialId=1 thickness=0.13
+quad 783 [936,943,944,937] materialId=1 thickness=0.13
+quad 784 [937,944,945,938] materialId=1 thickness=0.13
+quad 785 [938,945,846,845] materialId=1 thickness=0.13
+quad 786 [845,846,946,939] materialId=1 thickness=0.13
+quad 787 [939,946,947,940] materialId=1 thickness=0.13
+quad 788 [940,947,948,941] materialId=1 thickness=0.13
+quad 789 [941,948,949,942] materialId=1 thickness=0.13
+quad 790 [942,949,852,851] materialId=1 thickness=0.13
+quad 791 [835,836,950,943] materialId=1 thickness=0.13
+quad 792 [943,950,951,944] materialId=1 thickness=0.13
+quad 793 [944,951,952,945] materialId=1 thickness=0.13
+quad 794 [945,952,847,846] materialId=1 thickness=0.13
+quad 795 [846,847,953,946] materialId=1 thickness=0.13
+quad 796 [946,953,954,947] materialId=1 thickness=0.13
+quad 797 [947,954,955,948] materialId=1 thickness=0.13
+quad 798 [948,955,956,949] materialId=1 thickness=0.13
+quad 799 [949,956,853,852] materialId=1 thickness=0.13
+quad 800 [836,70,875,950] materialId=1 thickness=0.13
+quad 801 [950,875,876,951] materialId=1 thickness=0.13
+quad 802 [951,876,877,952] materialId=1 thickness=0.13
+quad 803 [952,877,77,847] materialId=1 thickness=0.13
+quad 804 [847,77,878,953] materialId=1 thickness=0.13
+quad 805 [953,878,879,954] materialId=1 thickness=0.13
+quad 806 [954,879,880,955] materialId=1 thickness=0.13
+quad 807 [955,880,881,956] materialId=1 thickness=0.13
+quad 808 [956,881,84,853] materialId=1 thickness=0.13
+
+grid {"axes":[{"id":"ax-x1","name":"1","axis":"x","at":0},{"id":"ax-x2","name":"2","axis":"x","at":5.5},{"id":"ax-x3","name":"3","axis":"x","at":11},{"id":"ax-x4","name":"4","axis":"x","at":16.5},{"id":"ax-y1","name":"A","axis":"y","at":0},{"id":"ax-y2","name":"B","axis":"y","at":5.5},{"id":"ax-y3","name":"C","axis":"y","at":11}],"levels":[{"id":"lv-0","name":"PB","z":0},{"id":"lv-1","name":"1º piso","z":3.2},{"id":"lv-2","name":"2º piso","z":6.2},{"id":"lv-3","name":"3º piso","z":9.2},{"id":"lv-4","name":"4º piso","z":12.2},{"id":"lv-5","name":"5º piso","z":15.2},{"id":"lv-6","name":"Azotea","z":18.2}]}
+support 1 1 fixed3d
+support 2 8 fixed3d
+support 3 15 fixed3d
+support 4 22 fixed3d
+support 5 29 fixed3d
+support 6 36 fixed3d
+support 7 43 fixed3d
+support 8 50 fixed3d
+support 9 57 fixed3d
+support 10 64 fixed3d
+support 11 71 fixed3d
+support 12 78 fixed3d
+support 13 85 fixed3d
+support 14 86 fixed3d
+support 15 87 fixed3d
+group 1 physicalMember "Tabique caja 1 · PB" members={"quads":[1,2,3,4]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-0","levelTo":"lv-1","provenance":"declared"}
+group 2 physicalMember "Tabique caja 1 · 1º piso" members={"quads":[5,6,7,8]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-1","levelTo":"lv-2","provenance":"declared"}
+group 3 physicalMember "Tabique caja 1 · 2º piso" members={"quads":[9,10,11,12]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-2","levelTo":"lv-3","provenance":"declared"}
+group 4 physicalMember "Tabique caja 1 · 3º piso" members={"quads":[13,14,15,16]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-3","levelTo":"lv-4","provenance":"declared"}
+group 5 physicalMember "Tabique caja 1 · 4º piso" members={"quads":[17,18,19,20]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-4","levelTo":"lv-5","provenance":"declared"}
+group 6 physicalMember "Tabique caja 1 · 5º piso" members={"quads":[21,22,23,24]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-5","levelTo":"lv-6","provenance":"declared"}
+support 16 87 fixed3d
+support 17 124 fixed3d
+support 18 125 fixed3d
+group 7 physicalMember "Tabique caja 2 · PB" members={"quads":[25,26,27,28]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-0","levelTo":"lv-1","provenance":"declared"}
+group 8 physicalMember "Tabique caja 2 · 1º piso" members={"quads":[29,30,31,32]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-1","levelTo":"lv-2","provenance":"declared"}
+group 9 physicalMember "Tabique caja 2 · 2º piso" members={"quads":[33,34,35,36]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-2","levelTo":"lv-3","provenance":"declared"}
+group 10 physicalMember "Tabique caja 2 · 3º piso" members={"quads":[37,38,39,40]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-3","levelTo":"lv-4","provenance":"declared"}
+group 11 physicalMember "Tabique caja 2 · 4º piso" members={"quads":[41,42,43,44]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-4","levelTo":"lv-5","provenance":"declared"}
+group 12 physicalMember "Tabique caja 2 · 5º piso" members={"quads":[45,46,47,48]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-5","levelTo":"lv-6","provenance":"declared"}
+support 19 150 fixed3d
+support 20 151 fixed3d
+support 21 125 fixed3d
+group 13 physicalMember "Tabique caja 3 · PB" members={"quads":[49,50,51,52]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-0","levelTo":"lv-1","provenance":"declared"}
+group 14 physicalMember "Tabique caja 3 · 1º piso" members={"quads":[53,54,55,56]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-1","levelTo":"lv-2","provenance":"declared"}
+group 15 physicalMember "Tabique caja 3 · 2º piso" members={"quads":[57,58,59,60]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-2","levelTo":"lv-3","provenance":"declared"}
+group 16 physicalMember "Tabique caja 3 · 3º piso" members={"quads":[61,62,63,64]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-3","levelTo":"lv-4","provenance":"declared"}
+group 17 physicalMember "Tabique caja 3 · 4º piso" members={"quads":[65,66,67,68]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-4","levelTo":"lv-5","provenance":"declared"}
+group 18 physicalMember "Tabique caja 3 · 5º piso" members={"quads":[69,70,71,72]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-5","levelTo":"lv-6","provenance":"declared"}
+group 19 physicalMember "Losa 1A–2B · 1º piso" members={"quads":[73,74,75,76,82,83,84,85,91,92,93,94,100,101,102,103]} data={"kind":"slab","typology":"solid","levelFrom":"lv-1","provenance":"declared"}
+group 20 physicalMember "Losa 1B–2C · 1º piso" members={"quads":[77,78,79,80,81,86,87,88,89,90,95,96,97,98,99,104,105,106,107,108]} data={"kind":"slab","typology":"solid","levelFrom":"lv-1","provenance":"declared"}
+group 21 physicalMember "Losa 2A–3B · 1º piso" members={"quads":[109,110,111,112,118,119,120,121,127,128,129,130,134,135,136,137,141,142,143,144,150,151,152,153]} data={"kind":"slab","typology":"solid","levelFrom":"lv-1","provenance":"declared"}
+group 22 physicalMember "Losa 2B–3C · 1º piso" members={"quads":[113,114,115,116,117,122,123,124,125,126,131,132,133,138,139,140,145,146,147,148,149,154,155,156,157,158]} data={"kind":"slab","typology":"solid","levelFrom":"lv-1","provenance":"declared"}
+group 23 physicalMember "Losa 3A–4B · 1º piso" members={"quads":[159,160,161,162,168,169,170,171,177,178,179,180,186,187,188,189]} data={"kind":"slab","typology":"solid","levelFrom":"lv-1","provenance":"declared"}
+group 24 physicalMember "Losa 3B–4C · 1º piso" members={"quads":[163,164,165,166,167,172,173,174,175,176,181,182,183,184,185,190,191,192,193,194]} data={"kind":"slab","typology":"solid","levelFrom":"lv-1","provenance":"declared"}
+group 25 physicalMember "Losa 1A–2B · 2º piso" members={"quads":[195,196,197,198,204,205,206,207,213,214,215,216,222,223,224,225]} data={"kind":"slab","typology":"solid","levelFrom":"lv-2","provenance":"declared"}
+group 26 physicalMember "Losa 1B–2C · 2º piso" members={"quads":[199,200,201,202,203,208,209,210,211,212,217,218,219,220,221,226,227,228,229,230]} data={"kind":"slab","typology":"solid","levelFrom":"lv-2","provenance":"declared"}
+group 27 physicalMember "Losa 2A–3B · 2º piso" members={"quads":[231,232,233,234,240,241,242,243,249,250,251,252,256,257,258,259,263,264,265,266,272,273,274,275]} data={"kind":"slab","typology":"solid","levelFrom":"lv-2","provenance":"declared"}
+group 28 physicalMember "Losa 2B–3C · 2º piso" members={"quads":[235,236,237,238,239,244,245,246,247,248,253,254,255,260,261,262,267,268,269,270,271,276,277,278,279,280]} data={"kind":"slab","typology":"solid","levelFrom":"lv-2","provenance":"declared"}
+group 29 physicalMember "Losa 3A–4B · 2º piso" members={"quads":[281,282,283,284,290,291,292,293,299,300,301,302,308,309,310,311]} data={"kind":"slab","typology":"solid","levelFrom":"lv-2","provenance":"declared"}
+group 30 physicalMember "Losa 3B–4C · 2º piso" members={"quads":[285,286,287,288,289,294,295,296,297,298,303,304,305,306,307,312,313,314,315,316]} data={"kind":"slab","typology":"solid","levelFrom":"lv-2","provenance":"declared"}
+group 31 physicalMember "Losa 1A–2B · 3º piso" members={"quads":[317,318,319,320,326,327,328,329,335,336,337,338,344,345,346,347]} data={"kind":"slab","typology":"solid","levelFrom":"lv-3","provenance":"declared"}
+group 32 physicalMember "Losa 1B–2C · 3º piso" members={"quads":[321,322,323,324,325,330,331,332,333,334,339,340,341,342,343,348,349,350,351,352]} data={"kind":"slab","typology":"solid","levelFrom":"lv-3","provenance":"declared"}
+group 33 physicalMember "Losa 2A–3B · 3º piso" members={"quads":[353,354,355,356,362,363,364,365,371,372,373,374,378,379,380,381,385,386,387,388,394,395,396,397]} data={"kind":"slab","typology":"solid","levelFrom":"lv-3","provenance":"declared"}
+group 34 physicalMember "Losa 2B–3C · 3º piso" members={"quads":[357,358,359,360,361,366,367,368,369,370,375,376,377,382,383,384,389,390,391,392,393,398,399,400,401,402]} data={"kind":"slab","typology":"solid","levelFrom":"lv-3","provenance":"declared"}
+group 35 physicalMember "Losa 3A–4B · 3º piso" members={"quads":[403,404,405,406,412,413,414,415,421,422,423,424,430,431,432,433]} data={"kind":"slab","typology":"solid","levelFrom":"lv-3","provenance":"declared"}
+group 36 physicalMember "Losa 3B–4C · 3º piso" members={"quads":[407,408,409,410,411,416,417,418,419,420,425,426,427,428,429,434,435,436,437,438]} data={"kind":"slab","typology":"solid","levelFrom":"lv-3","provenance":"declared"}
+group 37 physicalMember "Losa 1A–2B · 4º piso" members={"quads":[439,440,441,442,448,449,450,451,457,458,459,460,466,467,468,469]} data={"kind":"slab","typology":"solid","levelFrom":"lv-4","provenance":"declared"}
+group 38 physicalMember "Losa 1B–2C · 4º piso" members={"quads":[443,444,445,446,447,452,453,454,455,456,461,462,463,464,465,470,471,472,473,474]} data={"kind":"slab","typology":"solid","levelFrom":"lv-4","provenance":"declared"}
+group 39 physicalMember "Losa 2A–3B · 4º piso" members={"quads":[475,476,477,478,484,485,486,487,493,494,495,496,500,501,502,503,507,508,509,510,516,517,518,519]} data={"kind":"slab","typology":"solid","levelFrom":"lv-4","provenance":"declared"}
+group 40 physicalMember "Losa 2B–3C · 4º piso" members={"quads":[479,480,481,482,483,488,489,490,491,492,497,498,499,504,505,506,511,512,513,514,515,520,521,522,523,524]} data={"kind":"slab","typology":"solid","levelFrom":"lv-4","provenance":"declared"}
+group 41 physicalMember "Losa 3A–4B · 4º piso" members={"quads":[525,526,527,528,534,535,536,537,543,544,545,546,552,553,554,555]} data={"kind":"slab","typology":"solid","levelFrom":"lv-4","provenance":"declared"}
+group 42 physicalMember "Losa 3B–4C · 4º piso" members={"quads":[529,530,531,532,533,538,539,540,541,542,547,548,549,550,551,556,557,558,559,560]} data={"kind":"slab","typology":"solid","levelFrom":"lv-4","provenance":"declared"}
+group 43 physicalMember "Losa 1A–2B · 5º piso" members={"quads":[561,562,563,564,570,571,572,573,579,580,581,582,588,589,590,591]} data={"kind":"slab","typology":"solid","levelFrom":"lv-5","provenance":"declared"}
+group 44 physicalMember "Losa 1B–2C · 5º piso" members={"quads":[565,566,567,568,569,574,575,576,577,578,583,584,585,586,587,592,593,594,595,596]} data={"kind":"slab","typology":"solid","levelFrom":"lv-5","provenance":"declared"}
+group 45 physicalMember "Losa 2A–3B · 5º piso" members={"quads":[597,598,599,600,606,607,608,609,615,616,617,618,622,623,624,625,629,630,631,632,638,639,640,641]} data={"kind":"slab","typology":"solid","levelFrom":"lv-5","provenance":"declared"}
+group 46 physicalMember "Losa 2B–3C · 5º piso" members={"quads":[601,602,603,604,605,610,611,612,613,614,619,620,621,626,627,628,633,634,635,636,637,642,643,644,645,646]} data={"kind":"slab","typology":"solid","levelFrom":"lv-5","provenance":"declared"}
+group 47 physicalMember "Losa 3A–4B · 5º piso" members={"quads":[647,648,649,650,656,657,658,659,665,666,667,668,674,675,676,677]} data={"kind":"slab","typology":"solid","levelFrom":"lv-5","provenance":"declared"}
+group 48 physicalMember "Losa 3B–4C · 5º piso" members={"quads":[651,652,653,654,655,660,661,662,663,664,669,670,671,672,673,678,679,680,681,682]} data={"kind":"slab","typology":"solid","levelFrom":"lv-5","provenance":"declared"}
+group 49 physicalMember "Losa 1A–2B · Azotea" members={"quads":[683,684,685,686,692,693,694,695,701,702,703,704,710,711,712,713]} data={"kind":"slab","typology":"solid","levelFrom":"lv-6","provenance":"declared"}
+group 50 physicalMember "Losa 1B–2C · Azotea" members={"quads":[687,688,689,690,691,696,697,698,699,700,705,706,707,708,709,714,715,716,717,718]} data={"kind":"slab","typology":"solid","levelFrom":"lv-6","provenance":"declared"}
+group 51 physicalMember "Losa 2A–3B · Azotea" members={"quads":[719,720,721,722,728,729,730,731,737,738,739,740,746,747,748,749,755,756,757,758,764,765,766,767]} data={"kind":"slab","typology":"solid","levelFrom":"lv-6","provenance":"declared"}
+group 52 physicalMember "Losa 2B–3C · Azotea" members={"quads":[723,724,725,726,727,732,733,734,735,736,741,742,743,744,745,750,751,752,753,754,759,760,761,762,763,768,769,770,771,772]} data={"kind":"slab","typology":"solid","levelFrom":"lv-6","provenance":"declared"}
+group 53 physicalMember "Losa 3A–4B · Azotea" members={"quads":[773,774,775,776,782,783,784,785,791,792,793,794,800,801,802,803]} data={"kind":"slab","typology":"solid","levelFrom":"lv-6","provenance":"declared"}
+group 54 physicalMember "Losa 3B–4C · Azotea" members={"quads":[777,778,779,780,781,786,787,788,789,790,795,796,797,798,799,804,805,806,807,808]} data={"kind":"slab","typology":"solid","levelFrom":"lv-6","provenance":"declared"}
+regulations {"version":2,"roles":{"basis":{"role":"basis","adapterId":"cirsoc101-2025-basis","nameKey":"regulations.name.cirsoc101","edition":"2025","maturity":"VALIDATED","jurisdiction":"","adoption":"unstated","settings":{"generateCombinations":true,"dialog":{"comboSet":"ultimate","comboSource":"regulation","bothSenses":true,"patternsInCompanions":false}},"configComplete":true,"state":"applied","appliedAtRevision":0,"refs":[]},"loads":{"role":"loads","adapterId":"cirsoc101-2025-loads","nameKey":"regulations.name.cirsoc101","edition":"2025","maturity":"VALIDATED","jurisdiction":"","adoption":"unstated","settings":{"occupancyKey":"vivienda","dead":[{"labelKey":"loads.dead.contrapiso_cemento","q":1.44},{"labelKey":"loads.dead.piso_baldosa_ceramica","q":0.28},{"labelKey":"loads.dead.cielo_acustico","q":0.05}],"tributaryWidth":3,"applyLiveReduction":true,"reductionElementKind":"interiorBeam","floorsSupported":1,"dialog":{"deadRows":[{"entryKey":"contrapiso_cemento","thickness":0.08,"onBattens":false,"q":0,"isPartition":false},{"entryKey":"piso_baldosa_ceramica","thickness":0,"onBattens":false,"q":0,"isPartition":false},{"entryKey":"cielo_acustico","thickness":0,"onBattens":false,"q":0,"isPartition":false}],"partitionLive":{"on":true,"q":0.75},"gravityMode":"panels","gravitySlab":"twoWay","gravitySpan":"x","gravityLoadEveryPanel":false,"roofCfg":{"enabled":false,"use":"maintenance","dead":null,"weight":null,"occupancyKey":"azotea_privada","slopeDeg":null},"livePatterns":"all","special":{"thermal":{"on":false,"dt":20,"grad":0},"soil":{"on":false,"gradeZ":0,"gamma":17.3,"k":0.5,"surcharge":0,"permanent":true,"sideOn":false,"sideX":0,"sideY":0},"fluid":{"on":false,"levelZ":3,"gamma":10,"insideOn":false,"insideX":0,"insideY":0}}}},"configComplete":true,"state":"applied","appliedAtRevision":0,"refs":[]},"wind":{"role":"wind","adapterId":"cirsoc102-2025","nameKey":"regulations.name.cirsoc102","edition":"2025","maturity":"VALIDATED","jurisdiction":"","adoption":"unstated","settings":{"basicSpeed":45,"exposure":"B","enclosure":"enclosed","siteAltitudeM":0,"kzt":1,"kztSurveyed":false,"roofSlopeDeg":0,"dynamics":{"n1Source":"approximate","system":"otherSteelOrConcrete","beta":0.02,"rigidG":"default"},"dialog":{"windDirs":["+x","-x","+y","-y"],"windCaseSet":"all","windService":{"enabled":false,"v50":0,"mri":10},"windStructure":{"kind":"building","roof":"pitched","blocked":false,"towerSection":"square","round":false,"solidity":0.2,"diagonal":true,"members":"flat","clearance":2,"chimney":"roundRough","width":0,"diameter":0,"areaX":0,"areaY":0}}},"configComplete":true,"state":"applied","appliedAtRevision":0,"refs":[]},"snow":{"role":"snow","adapterId":"cirsoc104-2005","nameKey":"regulations.name.cirsoc104","edition":"2005","maturity":"IMPLEMENTED_PROVISIONAL","jurisdiction":"","adoption":"unstated","settings":{},"configComplete":false,"state":"applied","appliedAtRevision":0,"refs":[]},"seismic":{"role":"seismic","adapterId":null,"nameKey":"","edition":"","maturity":"UNSUPPORTED","jurisdiction":"","adoption":"unstated","settings":{},"configComplete":false,"state":"unset","appliedAtRevision":null,"refs":[]},"thermal":{"role":"thermal","adapterId":"cirsoc101-2025-thermal","nameKey":"regulations.name.cirsoc101Thermal","edition":"2025","maturity":"VALIDATED","jurisdiction":"","adoption":"unstated","settings":{},"configComplete":true,"state":"applied","appliedAtRevision":0,"refs":[]},"concrete":{"role":"concrete","adapterId":"cirsoc","nameKey":"regulations.name.cirsoc201","edition":"2025","maturity":"VALIDATED","jurisdiction":"","adoption":"unstated","settings":{},"configComplete":true,"state":"applied","appliedAtRevision":0,"refs":[]},"steel":{"role":"steel","adapterId":null,"nameKey":"","edition":"","maturity":"UNSUPPORTED","jurisdiction":"","adoption":"unstated","settings":{},"configComplete":false,"state":"unset","appliedAtRevision":null,"refs":[]},"masonry":{"role":"masonry","adapterId":null,"nameKey":"","edition":"","maturity":"UNSUPPORTED","jurisdiction":"","adoption":"unstated","settings":{},"configComplete":false,"state":"unset","appliedAtRevision":null,"refs":[]},"timber":{"role":"timber","adapterId":null,"nameKey":"","edition":"","maturity":"UNSUPPORTED","jurisdiction":"","adoption":"unstated","settings":{},"configComplete":false,"state":"unset","appliedAtRevision":null,"refs":[]}}}
+
