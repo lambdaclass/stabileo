@@ -798,6 +798,68 @@ fn issue_1949_guyan_springs_3d() {
 }
 
 #[test]
+#[ignore = "known wrong result: #1949"]
+fn issue_1949_planar_wire_refuses_a_second_coordinate_in_every_solver() {
+    for z in [0.0, 1.0, -1.0] {
+        let mut m = model(2, false);
+        m["nodes"]["1"]["z"] = json!(z);
+        let parses = |model: &Value| {
+            let path = json!({"solver": model, "controlNode": 1, "controlDof": 1, "targetDisplacement": -0.005});
+            let mut staged = model.clone();
+            staged["stages"] = json!([]);
+            [
+                serde_json::from_value::<SolverInput>(model.clone()).map(|_| ()),
+                serde_json::from_value::<units::ElasticInput2D>(model.clone()).map(|_| ()),
+                serde_json::from_value::<arc_length::ArcLengthInput>(path.clone()).map(|_| ()),
+                serde_json::from_value::<arc_length::DisplacementControlInput>(path).map(|_| ()),
+                serde_json::from_value::<StagedInput>(staged).map(|_| ()),
+            ]
+        };
+
+        assert!(parses(&m).into_iter().all(|result| result.is_ok()));
+        let mut legacy = m.clone();
+        let node = legacy["nodes"]["1"].as_object_mut().unwrap();
+        let transverse = node.remove("z").unwrap();
+        node.insert("y".into(), transverse);
+        assert!(parses(&legacy).into_iter().all(|result| result.is_ok()));
+
+        for y in [z, z + 1.0] {
+            m["nodes"]["1"]["y"] = json!(y);
+            for (entry, result) in ["native", "typed", "arc", "displacement", "staged"]
+                .into_iter()
+                .zip(parses(&m))
+            {
+                assert!(
+                    result.unwrap_err().to_string().contains("duplicate field `z`"),
+                    "{entry}: y={y}, z={z}"
+                );
+            }
+        }
+    }
+
+    let mut legacy = model(2, false);
+    let node = legacy["nodes"]["1"].as_object_mut().unwrap();
+    let transverse = node.remove("z").unwrap();
+    node.insert("y".into(), transverse);
+    for kind in ["linear", "pdelta", "arc", "displacement"] {
+        let (reference, reference_factor) = run(kind, 2, &model(2, false));
+        let (actual, actual_factor) = run(kind, 2, &legacy);
+        assert_eq!(actual_factor, reference_factor, "{kind}");
+        for field in ["displacements", "reactions", "elementForces"] {
+            assert_eq!(actual[field], reference[field], "{kind} {field}");
+        }
+    }
+
+    let mut spatial = model(3, false);
+    spatial["nodes"]["1"]["y"] = json!(1.0);
+    spatial["nodes"]["1"]["z"] = json!(1.0);
+    for kind in ["linear", "pdelta"] {
+        let (results, _) = run(kind, 3, &spatial);
+        assert_eq!(results["displacements"].as_array().unwrap().len(), 2);
+    }
+}
+
+#[test]
 fn arc_spatial_fields_are_refused_before_projection() {
     for y in [0.0, 1.0, -1.0] {
         let mut m = model(2, false);
