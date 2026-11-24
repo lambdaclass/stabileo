@@ -1,7 +1,8 @@
 import { it, expect } from 'vitest';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { CORPUS, type SnapshotCase } from '../corpus';
-import { openedFeatures } from '../capture';
+import { capture, openedFeatures } from '../capture';
+import { buildProjectFile } from '../../store/file';
 import { getFixture } from '../../templates/fixture-index';
 import type { JSONModel } from '../../templates/load-fixture';
 import type { ResultChangeRegistry } from '../../provenance/registry';
@@ -80,4 +81,37 @@ it('covers the fixture replay change only when its source declares the same rele
   const features = await openedFeatures(c, fixture);
   expect(fieldCovered(coverage, 'base.reactions[n1].my', features)).toBe(true);
   expect(fieldCovered(coverage, 'solve.ok', features)).toBe(false);
+});
+
+it.skip.each(['2d', '3d'] as const)('known wrong result: #2532 attributes a blocked %s model open to its source alias conflict', async workspace => {
+  const c = CORPUS.find(c => c.name === (workspace === '2d' ? '2d-portal-frame' : '2d-in-3d-portal-frame'))!;
+  if (!('example' in c.source)) throw new Error('Expected an example');
+  const fixture = structuredClone(await getFixture(c.source.example)?.()) as JSONModel;
+  const member = fixture.elements[0];
+  member.releaseI = { mz: true };
+  member.hingeStart = true;
+  const features = await openedFeatures(c, fixture);
+  expect(features).not.toContain('conflictingModelAliases');
+  expect((await capture(c, { fixture })).values['solve.ok']).toBe(true);
+
+  const project = buildProjectFile();
+  const projectCase = { ...c, source: { ded: 'alias-conflict.ded' } };
+  const stored = project.snapshot.elements[0][1];
+  Object.assign(stored, { hingeStart: false });
+  member.hingeStart = false;
+  const entry = (readRegistry() as ResultChangeRegistry).changes.find(change => change.id === 'canonical-model-aliases');
+  if (!entry?.quantities?.every((quantity): quantity is string => typeof quantity === 'string')) {
+    throw new Error('Expected the alias refusal result change to declare its fields');
+  }
+  const coverage = { ...entry, quantities: entry.quantities };
+  const openings = [{ c, fixture }, { c: projectCase, fixture: project }];
+  for (const opening of openings) {
+    const refused = await openedFeatures(opening.c, opening.fixture);
+    expect(refused).toContain(workspace === '2d' ? 'plane2D' : 'space3D');
+    expect(fieldCovered(coverage, 'solve.ok', refused)).toBe(true);
+    expect(fieldCovered(coverage, 'base.reactions[n1].my', refused)).toBe(false);
+    expect((await capture(opening.c, { fixture: opening.fixture })).values).toEqual({
+      'solve.ok': false, 'solve.refusal': expect.stringMatching(/releaseI\.mz.*hingeStart/),
+    });
+  }
 });

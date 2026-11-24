@@ -1,6 +1,6 @@
 import { beforeAll, expect, it } from 'vitest';
 import { initSolver } from '../wasm-solver';
-import { solve_2d, solve_3d, solve_arc_length, solve_displacement_control, solve_pdelta_2d, solve_pdelta_3d } from '../../wasm/dedaliano_engine.js';
+import { engine_reproduce_hashes, solve_2d, solve_3d, solve_arc_length, solve_displacement_control, solve_pdelta_2d, solve_pdelta_3d } from '../../wasm/dedaliano_engine.js';
 
 beforeAll(async () => { await initSolver(); });
 
@@ -78,4 +78,14 @@ it('#1949 WASM planar solvers refuse a second node coordinate', () => {
       }
     }
   }
+});
+
+it.skip('known wrong result: #2532 WASM JSON solvers preserve positional settlements and rotations', () => {
+  const named = { ...planar, supports: indexed({ id: 1, nodeId: 1, type: 'fixed', dz: 0.01, dry: 0.02, angle: 0.02 }) };
+  const positional = { ...planar, supports: indexed([1, 1, 'fixed', null, null, null, null, 0.01, 0.02, 0.02]) };
+  const linear = (input: object) => JSON.parse(engine_reproduce_hashes(JSON.stringify(input), false));
+  const reference = planarSolvers.pdelta(named);
+  expect(reference.displacements).toHaveLength(2);
+  expect.soft(planarSolvers.pdelta(positional)).toEqual(reference);
+  expect(linear(positional)).toEqual(linear(named));
 });
