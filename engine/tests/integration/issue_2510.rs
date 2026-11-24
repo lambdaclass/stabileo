@@ -289,3 +289,151 @@ fn displacement_control_recovers_the_same_member_load_pattern_it_solves() {
     let [raw, canonical] = member_loads();
     assert_eq!(solve(raw), solve(canonical));
 }
+
+fn tied_springs() -> SolverInput {
+    serde_json::from_str(include_str!(
+        "../../../scripts/tests/fixtures/arc-tied-springs.json"
+    ))
+    .unwrap()
+}
+
+#[test]
+#[ignore = "known wrong result: #2510"]
+fn review_2539_arc_tie_is_rebuilt_from_each_absolute_support_position() {
+    let mut base = tied_springs();
+    base.supports.get_mut("1").unwrap().dx = Some(2f64.powi(54));
+    base.loads.clear();
+    let initial = solve_corotational_2d(&base, 20, 1e-8, 1, false).unwrap();
+    assert!(initial.converged);
+    let start = CorotationalStart2D {
+        input: &base,
+        displacements: &initial.results.displacements,
+    };
+
+    let mut input = two_bar(1.0, 1.0, 2f64.sqrt(), 5, 80);
+    input.solver = tied_springs();
+    input.solver.supports.get_mut("1").unwrap().dx = Some(1.0);
+    for start in [Some(&start), None] {
+        let result = solve_arc_length_from(&input, start).unwrap();
+        assert!(!result.steps.is_empty());
+        for (step, state) in result
+            .steps
+            .iter()
+            .map(|s| (s.step, &s.displacements))
+            .chain([(result.steps.len(), &result.results.displacements)])
+        {
+            assert_eq!(state[1].ux, state[0].ux, "step {step}");
+        }
+        if start.is_none() {
+            assert!(result.converged);
+        }
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #2510"]
+fn review_2539_partial_warm_start_recovers_the_load_it_solved() {
+    let large = 2f64.powi(54);
+    let mut base = tied_springs();
+    base.constraints.clear();
+    base.supports.get_mut("2").unwrap().kx = Some(3.0);
+    base.loads = serde_json::from_value(serde_json::json!([
+        {"type":"nodal","data":{"nodeId":1,"fx":large,"fz":0,"my":0}},
+        {"type":"nodal","data":{"nodeId":2,"fx":large-2.0,"fz":0,"my":0}},
+        {"type":"nodal","data":{"nodeId":3,"fx":large,"fz":0,"my":0}}
+    ]))
+    .unwrap();
+    let mut target = base.clone();
+    for (load, force) in target
+        .loads
+        .iter_mut()
+        .zip([2.0 - large, 2.0 - large, 2.0 - large])
+    {
+        let SolverLoad::Nodal(load) = load else {
+            unreachable!()
+        };
+        load.fx = force;
+    }
+    let initial = solve_corotational_2d(&base, 20, 1e-8, 1, false).unwrap();
+    assert!(initial.converged);
+    let start = CorotationalStart2D {
+        input: &base,
+        displacements: &initial.results.displacements,
+    };
+    let check = |result: dedaliano_engine::types::CorotationalResult| {
+        assert!(!result.converged);
+        assert_eq!(result.load_factor, 0.5);
+        assert_eq!(result.results.displacements[2].ux, 1.0);
+        assert_eq!(
+            result
+                .results
+                .reactions
+                .iter()
+                .find(|r| r.node_id == 1)
+                .unwrap()
+                .rx,
+            -1.0
+        );
+    };
+    for modified in [false, true] {
+        check(solve_corotational_2d_from(&target, Some(&start), 6, 1e-20, 2, modified).unwrap());
+    }
+    #[cfg(feature = "experimental-nonlinear")]
+    {
+        use dedaliano_engine::solver::experimental_nonlinear::{
+            solve_corotational_2d_by, solve_corotational_2d_stepped, IterationMethod, LoadStepping,
+        };
+        for method in [IterationMethod::Newton, IterationMethod::ModifiedNewton] {
+            check(solve_corotational_2d_by(&target, Some(&start), 6, 1e-20, 2, method).unwrap());
+            check(
+                solve_corotational_2d_stepped(
+                    &target,
+                    Some(&start),
+                    6,
+                    1e-20,
+                    2,
+                    method,
+                    LoadStepping::Equal,
+                )
+                .unwrap(),
+            );
+        }
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #2510"]
+fn review_2539_arc_requires_finite_ordered_controls() {
+    let base = two_bar(1.0, 0.01, 0.25, 1, 20);
+    for (initial_ds, min_ds, max_ds, tolerance) in [
+        (0.125, 0.25, 0.5, base.tolerance),
+        (0.5, 0.125, 0.25, base.tolerance),
+        (0.25, 0.0, 0.5, base.tolerance),
+        (0.25, 0.5, 0.125, base.tolerance),
+        (0.25, 0.125, f64::INFINITY, base.tolerance),
+        (f64::NAN, 0.125, 0.5, base.tolerance),
+        (0.25, 0.125, 0.5, f64::INFINITY),
+        (0.25, 0.125, 0.5, 0.0),
+    ] {
+        let input = ArcLengthInput {
+            solver: base.solver.clone(),
+            initial_ds,
+            min_ds,
+            max_ds,
+            tolerance,
+            ..base
+        };
+        assert!(solve_arc_length(&input).is_err(), "{input:?}");
+        assert!(solve_arc_length_from(&input, None).is_err(), "{input:?}");
+    }
+    for initial_ds in [0.125, 0.25] {
+        let input = ArcLengthInput {
+            solver: base.solver.clone(),
+            initial_ds,
+            min_ds: 0.125,
+            max_ds: 0.25,
+            ..base
+        };
+        assert!(solve_arc_length(&input).unwrap().converged);
+    }
+}

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { test } from 'node:test';
+import { registerArcReviewTests } from './arc-review-wasm.mjs';
 
 const require = createRequire(import.meta.url);
 const engine = require('../../target/experimental-nonlinear-wasm/dedaliano_engine.js');
@@ -160,3 +161,5 @@ test('issue 2484 the final arc state matches its last accepted point', () => {
   assert.equal(result.finalLoadFactor, last.loadFactor);
   assert.equal(result.results.displacements.find((d) => d.nodeId === 2).uz, last.controlDisplacement);
 });
+
+registerArcReviewTests(engine.solve_experimental_arc_length);

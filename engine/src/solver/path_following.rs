@@ -336,6 +336,9 @@ mod tests {
         fn responses(&mut self) -> Result<(Vec<f64>, Vec<f64>), String> {
             let u = self.displacement / self.scale;
             let reference = 1.0 / (self.tangent)(u);
+            if !reference.is_finite() {
+                return Err("Singular tangent stiffness".into());
+            }
             let correction = self
                 .failed_correction
                 .unwrap_or((self.load - self.scale * (self.force)(u)) * reference);
@@ -458,6 +461,33 @@ mod tests {
                 &probe.checkpoints[1..],
                 vec![(1.0, 1.0); if min_ds == ds { 1 } else { 2 }]
             );
+        }
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #2510"]
+    fn review_2539_singular_trial_retries_or_returns_the_checkpoint() {
+        let ds = std::f64::consts::SQRT_2;
+        for min_ds in [ds / 2.0, ds] {
+            let mut probe = Probe::new(
+                |u| u - (u - 1.5).max(0.0).powi(2),
+                |u| 1.0 - 2.0 * (u - 1.5).max(0.0),
+            );
+            let limits = ArcLengthControl {
+                initial_ds: ds,
+                min_ds,
+                max_ds: ds,
+                ..control(2)
+            };
+            let outcome = solve_by_arc_length(&mut probe, &limits).unwrap();
+            assert_eq!(probe.trials[1], (2.0, 2.0));
+            assert_eq!(probe.accepted[0], (1.0, 1.0));
+            let expected = if min_ds < ds { (1.5, 1.5) } else { (1.0, 1.0) };
+            assert_eq!(probe.accepted.last().copied(), Some(expected));
+            assert_eq!((probe.displacement, outcome.load_factor), expected);
+            assert_eq!(outcome.converged, min_ds < ds);
+            assert_eq!(outcome.steps, if min_ds < ds { 2 } else { 1 });
+            assert_eq!(outcome.iterations, if min_ds < ds { 3 } else { 2 });
         }
     }
 
