@@ -11,7 +11,8 @@
 import { globalAxes } from '../features';
 import { concernsLoadBasis, registryLocale, type ResultChange, type ResultChangeRegistry } from './registry';
 import { RESULT_CHANGES } from './full-registry';
-import { GLOBAL_AXES_EVIDENCE, LEGACY_RECORDED_ANALYSES, loadsGeneratedWith, modelFeatures, UNVERIFIED_SEISMIC_FEATURE, type FeatureSnapshot } from './model-features';
+import { GLOBAL_AXES_EVIDENCE, LEGACY_RECORDED_ANALYSES, loadsGeneratedWith, UNVERIFIED_SEISMIC_FEATURE, type FeatureSnapshot } from './model-features';
+import { recheckFeatures } from './recheck-features';
 import { analysesContext, type SolveStamp } from './solve-stamp';
 import { advisoriesFor, type Advisory } from './advisories';
 
@@ -50,7 +51,7 @@ export function assessProject(
 ): RecheckAssessment {
   const solvedVersion = stamp?.resultsVersion ?? 0;
   const currentVersion = registry.currentResultsVersion;
-  const evidence = originalFeatures ?? modelFeatures(snapshot, { analysisMode, ...(stamp ? analysesContext(stamp) : { analysesRun: null }) });
+  const evidence = originalFeatures ?? recheckFeatures(snapshot, { analysisMode, ...(stamp ? analysesContext(stamp) : { analysesRun: null }) });
   const features = !globalAxes() && evidence.has(GLOBAL_AXES_EVIDENCE)
     ? new Set([...evidence].filter(feature => feature !== GLOBAL_AXES_EVIDENCE))
     : evidence;
