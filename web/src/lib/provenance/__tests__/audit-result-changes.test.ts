@@ -41,6 +41,21 @@ describe('audited output changes are registered narrowly', () => {
     expect(assessProject(shell, undefined, 'pro').changes.map(c => c.id)).not.toContain(entry!.id);
   });
 
+  it.skip.each(['2d', '3d', 'pro'])('requires native supplied-result evidence for certificate notices in %s (known wrong result: #2533)', (mode) => {
+    const id = 'supplied-linear-certificates';
+    const entry = RESULT_CHANGES.changes.find(c => c.id === id)!;
+    const stamp = { ...unknownStamp(), resultsVersion: entry.resultsVersion - 1, recorded: [...ANALYSIS_KINDS] };
+    const notices = (saved: typeof stamp | undefined, evidence?: ReadonlySet<string>) =>
+      assessProject(model, saved, mode, RESULT_CHANGES, evidence).changes.map(c => c.id);
+
+    expect(notices(undefined)).not.toContain(id);
+    expect(notices({ ...stamp, analyses: ['modal'] })).not.toContain(id);
+    expect(notices({ ...stamp, analyses: ['linear'] })).not.toContain(id);
+    const native = new Set(['native:supplied-linear-certificate', 'analysis:linear']);
+    expect(notices(stamp, native)).toContain(id);
+    expect(notices({ ...stamp, resultsVersion: entry.resultsVersion }, native)).not.toContain(id);
+  });
+
   it.each([
     ['ssi-support-reactions', 'pro', 'ssi'],
     ['arc-length-reference-norm', '2d', 'nonlinear'],
