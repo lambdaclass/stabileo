@@ -1155,6 +1155,74 @@ mod shared_driver_equivalence {
     }
 
     #[test]
+    fn the_tangent_product_is_the_free_block_times_the_vector_however_the_tangent_is_stored() {
+        let (n, nf) = (4, 3);
+        let full = [
+            [4.0, -1.0, 0.5, 9.0],
+            [-1.0, 3.0, -2.0, 8.0],
+            [0.5, -2.0, 5.0, 7.0],
+            [9.0, 8.0, 7.0, 6.0],
+        ];
+        let dense: Vec<f64> = full.iter().flatten().copied().collect();
+        let (mut rows, mut cols, mut vals) = (Vec::new(), Vec::new(), Vec::new());
+        for i in 0..n {
+            for j in 0..=i {
+                rows.push(i);
+                cols.push(j);
+                vals.push(full[i][j]);
+            }
+        }
+        for v in [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.3, -2.0, 1.5]] {
+            let expected: Vec<f64> = (0..nf).map(|i| (0..nf).map(|j| full[i][j] * v[j]).sum()).collect();
+            let from_dense = tangent_product(&None, (n, nf), &dense, (&[], &[], &[]), &v);
+            let from_triplets = tangent_product(&None, (n, nf), &[], (&rows, &cols, &vals), &v);
+            for i in 0..nf {
+                assert!((from_dense[i] - expected[i]).abs() <= 1e-14, "dense, row {i}: {} vs {}", from_dense[i], expected[i]);
+                assert!((from_triplets[i] - expected[i]).abs() <= 1e-14, "triplets, row {i}: {} vs {}", from_triplets[i], expected[i]);
+            }
+        }
+    }
+
+    #[test]
+    fn the_tangent_a_frame_assembles_times_its_newton_step_is_its_residual() {
+        for n in [4, 30] {
+            let mut input = frame(n, 0.4, Some("pinned"));
+            for load in input.loads.iter_mut() {
+                if let SolverLoad::Nodal(nodal) = load { nodal.fx *= 0.01; nodal.fz *= 0.01; nodal.my *= 0.01; }
+            }
+            let dof_num = DofNumbering::build_2d(&input);
+            let cs = FreeConstraintSystem::build_2d(&input, &dof_num).unwrap();
+            let asm = assembly::assemble_2d(&input, &dof_num);
+            let art = assembly::artificial_stiffness_entries(&asm);
+            let metric = crate::solver::convergence::EquilibriumMetric::for_2d(&input, &dof_num, cs.as_ref()).unwrap();
+            let zero = vec![0.0; dof_num.n_total];
+            let f_total = asm.f.clone();
+            let supports = vec![0.0; dof_num.n_total - dof_num.n_free];
+            let mut problem = Corotational2D {
+                input: &input, dof_num: &dof_num, cs: &cs, asm: &asm, art: &art, metric: &metric,
+                ns: dof_num.n_free, f_total: &f_total, f_base: &zero, u_r_base: &supports, u_r_target: &supports,
+                start_internal: &zero, u_full: zero.clone(), u_converged: zero.clone(),
+                sparse_sym_cache: None, conditioning: None, f_ext: Vec::new(), active_supports: Vec::new(),
+                support_step: None, cached_factor: None, r_f: Vec::new(), unbalance: Vec::new(),
+                k_t: Vec::new(), trip_rows: Vec::new(), trip_cols: Vec::new(), trip_vals: Vec::new(),
+            };
+            use incremental::IncrementalProblem;
+            problem.begin_increment(1.0);
+            problem.linearize().unwrap();
+            let residual = problem.residual();
+            let (k_t, rows, cols, vals) = (problem.k_t.clone(), problem.trip_rows.clone(), problem.trip_cols.clone(), problem.trip_vals.clone());
+            assert_eq!(k_t.is_empty(), dof_num.n_free >= SPARSE_THRESHOLD);
+            let step = problem.correction(false).unwrap();
+            let product = tangent_product(&cs, (dof_num.n_total, dof_num.n_free), &k_t, (&rows, &cols, &vals), &step[..dof_num.n_free]);
+            let scale = residual.iter().fold(0.0f64, |m, r| m.max(r.abs()));
+            assert!(scale > 0.0);
+            for (k, r) in product.iter().zip(&residual) {
+                assert!((k - r).abs() <= 1e-8 * scale, "{n} members: {k} vs {r}");
+            }
+        }
+    }
+
+    #[test]
     fn an_iteration_that_does_not_converge_reports_the_last_increment_that_did() {
         let input = frame(12, 0.0, None);
         for method in [
