@@ -3079,3 +3079,38 @@ fn issue_2535_plane_wire_input_rejects_shells_before_they_disappear() {
     let error = dedaliano_engine::solver::staged::parse_staged_2d(&staged.to_string()).unwrap_err();
     assert!(error.contains("Shell elements require 3D analysis"), "{error}");
 }
+
+#[test]
+#[ignore = "known wrong result: #2535"]
+fn issue_2535_plane_wire_accepts_empty_legacy_shell_lists_and_refuses_populated_lists() {
+    use dedaliano_engine::solver::staged::{parse_staged_2d, solve_staged_2d};
+
+    let input = make_beam(4, 4.0, E, 0.045, 3.375e-4, "fixed", None, tip(-10.0));
+    let mut wire = serde_json::to_value(input).unwrap();
+    wire["stages"] = serde_json::json!([{
+        "name": "Load the beam",
+        "elementsAdded": [1, 2, 3, 4],
+        "supportsAdded": [1],
+        "loadIndices": [0]
+    }]);
+    let values = |wire: &serde_json::Value| {
+        let plane: SolverInput = serde_json::from_value(wire.clone()).unwrap();
+        let linear = solve_2d(&plane).unwrap();
+        let nonlinear = dedaliano_engine::solver::pdelta::solve_pdelta_2d(&plane, 20, 1e-4).unwrap();
+        let staged = solve_staged_2d(&parse_staged_2d(&wire.to_string()).unwrap()).unwrap();
+        serde_json::to_value((linear, nonlinear, staged)).unwrap()
+    };
+    let expected = values(&wire);
+
+    for field in ["plates", "quads", "quad9s", "curvedShells", "solidShells"] {
+        let mut legacy = wire.clone();
+        legacy[field] = serde_json::json!([]);
+        assert_eq!(values(&legacy), expected, "{field}");
+
+        legacy[field] = serde_json::json!([{"id": 1}]);
+        let error = serde_json::from_value::<SolverInput>(legacy.clone()).unwrap_err();
+        assert!(error.to_string().contains("Shell elements require 3D analysis"), "{field}: {error}");
+        let error = parse_staged_2d(&legacy.to_string()).unwrap_err();
+        assert!(error.contains("Shell elements require 3D analysis"), "{field}: {error}");
+    }
+}

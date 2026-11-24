@@ -2,7 +2,7 @@ import { beforeAll, beforeEach, expect, it } from 'vitest';
 import { t } from '../../i18n';
 import { initSolver, input2DToWireObject, input3DToWireObject } from '../../engine/wasm-solver';
 import { tallyRoles } from '../../engine/generators/member-roles';
-import { solve_2d, solve_3d, solve_pdelta_2d, solve_pdelta_3d } from '../../wasm/dedaliano_engine.js';
+import { solve_2d, solve_3d, solve_pdelta_2d, solve_pdelta_3d, solve_staged_2d } from '../../wasm/dedaliano_engine.js';
 import { applyPlacedMesh } from '../../model/edit/mesh-apply';
 import type { MeshOutput } from '../../model/edit/mesher';
 import { applyGeneratedModel } from '../generator-apply';
@@ -97,13 +97,17 @@ it('#2535 still solves a planar quad and an explicitly curved quad', () => {
   }
 });
 
-function planeWireWithQuad() {
+function planeWire() {
   const a = modelStore.addNode(0, 0);
   const b = modelStore.addNode(1, 0);
   modelStore.addElement(a, b);
   modelStore.addSupport(a, 'fixed');
   modelStore.addNodalLoad(b, 0, -1);
-  const wire = input2DToWireObject(modelStore.buildSolverInput()!);
+  return input2DToWireObject(modelStore.buildSolverInput()!);
+}
+
+function planeWireWithQuad() {
+  const wire = planeWire();
   expect(solve_2d({ ...wire, quads: {} }).displacements).toHaveLength(2);
   return { ...wire, quads: { 1: { id: 1, nodes: [1, 2, 3, 4], materialId: 1, thickness: 0.32 } } };
 }
@@ -114,6 +118,22 @@ it('#2535 the linear 2D WASM export refuses a quad carried in the wire input', (
 
 it('#2535 the nonlinear 2D WASM export refuses a quad carried in the wire input', () => {
   expect(() => solve_pdelta_2d(JSON.stringify(planeWireWithQuad()), 20, 1e-4)).toThrow(/Shell elements require 3D analysis/);
+});
+
+it.skip.each([
+  ['linear', (wire: ReturnType<typeof planeWire>) => solve_2d(wire)],
+  ['P-Delta', (wire: ReturnType<typeof planeWire>) => JSON.parse(solve_pdelta_2d(JSON.stringify(wire), 20, 1e-4))],
+  ['staged', (wire: ReturnType<typeof planeWire>) => JSON.parse(solve_staged_2d(JSON.stringify({
+    ...wire,
+    stages: [{ name: 'Load the beam', elementsAdded: [1], supportsAdded: [1], loadIndices: [0] }],
+  })))],
+] as const)('known wrong result: #2535 — %s WASM accepts empty legacy shell lists only', (_analysis, solvePlane) => {
+  const wire = planeWire();
+  const expected = solvePlane(wire);
+  for (const field of ['plates', 'quads', 'quad9s', 'curvedShells', 'solidShells']) {
+    expect(solvePlane({ ...wire, [field]: [] })).toEqual(expected);
+    expect(() => solvePlane({ ...wire, [field]: [{ id: 1 }] })).toThrow(/Shell elements require 3D analysis/);
+  }
 });
 
 it('#2535 sends applied mesh cells through the same PRO warp check', () => {
