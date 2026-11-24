@@ -64,7 +64,7 @@ const setAll = (k: number) => { whatIf.loadFactors.forEach((_, i) => whatIf.setL
 
 let solve: () => Vec;
 
-beforeEach(async () => {
+beforeEach(() => {
   whatIf.abandon();
   historyStore.clear();
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
@@ -128,8 +128,6 @@ function proveLinear(types: Load['type'][]) {
   });
 
   it('closing Explore restores the model exactly', async () => {
-    // In PRO the workspace reads the physical model as the model changes, before anything is explored.
-    if (__PUBLIC_FEATURES__.proPlatesUnified) (await import('../plates-from-shells')).ensurePhysicalModel();
     const snap = structuredClone(modelStore.snapshot());
     const base = solve();
     whatIf.open();
@@ -148,7 +146,7 @@ function proveLinear(types: Load['type'][]) {
 }
 
 describe('2D: every plane load type', () => {
-  beforeEach(async () => {
+  beforeEach(() => {
     uiStore.analysisMode = '2d';
     modelStore.clear();
     solve = () => {
