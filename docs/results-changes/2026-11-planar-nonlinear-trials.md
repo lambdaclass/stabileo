@@ -32,3 +32,11 @@ bracket changes from 1253 to 1262, and the apex displacement relative error
 changes from 0.0001026254819899245 to 0.000011491338515220323. The independent
 equilibrium and limit checks use their existing references and tolerances,
 and the browser WASM result is checked against the native path.
+
+The native and WASM #2008 controls with zero support motion also capture
+the new arc predictor arithmetic. Combining the reference displacement and
+load direction with a Euclidean norm changes the lowest-order bits of the
+load factor and its axial response. All 18 cases still converge in one
+iteration per step. The exact fingerprints were refreshed for those arc
+cases. The equilibrium, support balance and constraint assertions still
+apply at their existing tolerances.
