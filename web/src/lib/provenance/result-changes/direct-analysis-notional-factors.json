@@ -7,16 +7,9 @@
   "area": "analysis",
   "when": {
     "all": [
-      "combinations"
+      "explicitNotionalCombinationCases"
     ]
   },
-  "quantities": [
-    "displacements",
-    "reactions",
-    "elementForces",
-    "constraintForces",
-    "secondOrder"
-  ],
   "title": {
     "en": "Direct analysis retains small explicit notional factors",
     "es": "El análisis directo conserva los factores pequeños de cargas nocionales explícitas",

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import declaredQuantities from 'virtual:result-change-quantities';
 import { assessProject } from '../applicability';
 import { unknownStamp } from '../solve-stamp';
 import { RESULT_CHANGES } from '../full-registry';
@@ -55,9 +56,7 @@ describe('audited output changes are registered narrowly', () => {
   });
 });
 
-const noticeRegression = process.env.RUN_KNOWN_WRONG === '2297' ? it : it.skip;
-
-noticeRegression('known wrong result: #2297 direct analysis notices require a combination using an explicit notional case', () => {
+it('#2297 direct analysis notices require a combination using an explicit notional case', () => {
   const loadCases = [
     { id: 1, type: 'D' },
     { id: 2, type: 'N' },
@@ -77,10 +76,10 @@ noticeRegression('known wrong result: #2297 direct analysis notices require a co
 
   const change = RESULT_CHANGES.changes.find(c => c.id === 'direct-analysis-notional-factors')!;
   expect(assessProject({ loadCases, combinations: [{ factors: [{ caseId: 2, factor: 1e-13 }] }] }, undefined).changes).toContain(change);
-  expect(change.quantities).toBeUndefined();
+  expect(declaredQuantities[change.id]).toBeUndefined();
 });
 
-noticeRegression('known wrong result: #2297 shell notices require a zero or possibly cancelling factor', () => {
+it('#2297 shell notices require a zero or possibly cancelling factor', () => {
   const dead = { caseId: 1, factor: 1 };
   const notice = (factors: Array<{ caseId: number; factor: number }>, shells = true) =>
     applicable('zero-weight-shell-cases', 'pro', ['linear'], {
@@ -91,5 +90,6 @@ noticeRegression('known wrong result: #2297 shell notices require a zero or poss
   expect(notice([dead, { caseId: 2, factor: 1 }, { caseId: 2, factor: -1 }])).toBe(true);
   expect(notice([dead, { caseId: 2, factor: 0 }], false)).toBe(false);
   expect.soft(notice([dead])).toBe(false);
+  expect(notice([dead, { caseId: 1, factor: 2 }])).toBe(false);
   expect.soft(notice([dead, { caseId: 2, factor: Number.MIN_VALUE }])).toBe(false);
 });

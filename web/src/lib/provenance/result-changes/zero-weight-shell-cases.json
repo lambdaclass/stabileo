@@ -4,7 +4,7 @@
   "prs": [],
   "area": "analysis",
   "when": {
-    "all": ["shells", "combinations"]
+    "all": ["shells", "zeroOrOpposingCombinationFactors"]
   },
   "quantities": ["plateStresses", "quadStresses"],
   "title": {
