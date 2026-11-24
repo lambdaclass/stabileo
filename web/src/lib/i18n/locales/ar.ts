@@ -22,6 +22,7 @@ const ar: Translations = {
   'loadPlan.gravity.memberSlopeLimit': "ميل العنصر {id} قريب جدًا من الحد بحيث لا يمكن تصنيفه بثقة كعنصر حامل لأحمال الجاذبية. حدّد أحماله صراحةً.",
   'snow.refused.stepDriftTransfer': "يتعذر نقل حمل تراكم الثلوج عند فرق منسوب السقف إلى العناصر الحاملة بشكل موثوق. حدّد أحمال الثلوج صراحةً.",
   'loadPlan.gravity.unresolvedMember': "العنصر {id} مغطى جزئيًا بقشرية ولم يتحدد انتقال الحمل من اللوح.",
+  'loadPlan.gravity.offsetRafter': "العضو {id} متصل بشكل صلب بغلاف السقف بإزاحة لا يمكن معها تحديد حامل حمل الجاذبية تلقائيًا. عيّن حمل المساحة مرة واحدة يدويًا.",
   'loadPlan.gravity.differentDeck': "يجب أن تنتمي القشرية التي تغطي لوح الكمرات إلى البلاطة نفسها.",
   'loadPlan.gravity.differentSlopedDeck': "يجب أن تنتمي القشرية المائلة التي تغطي لوح الكمرات إلى البلاطة نفسها.",
   'loadPlan.gravity.deckCheckFailed': "تعذر التحقق من تغطية البلاطة بالقشريات: {detail}",

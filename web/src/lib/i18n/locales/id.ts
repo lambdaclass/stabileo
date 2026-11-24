@@ -22,6 +22,7 @@ const id: Translations = {
   'loadPlan.gravity.memberSlopeLimit': "Batang {id} terlalu dekat dengan batas kemiringan untuk dipastikan sebagai pemikul beban gravitasi. Tetapkan bebannya secara eksplisit.",
   'snow.refused.stepDriftTransfer': "Pembangkitan beban salju tidak dapat menyalurkan timbunan pada undakan atap ke batang pemikul secara andal. Tetapkan beban salju secara eksplisit.",
   'loadPlan.gravity.unresolvedMember': "Batang {id} hanya tertutup sebagian oleh cangkang dan penyaluran beban panel belum dapat ditentukan.",
+  'loadPlan.gravity.offsetRafter': "Batang {id} terhubung kaku ke cangkang atap pada offset yang menghalangi penetapan beban gravitasi secara otomatis. Tetapkan beban area satu kali secara manual.",
   'loadPlan.gravity.differentDeck': "Cangkang yang menutupi panel balok harus berada pada pelat yang sama.",
   'loadPlan.gravity.differentSlopedDeck': "Cangkang miring yang menutupi panel balok harus berada pada pelat yang sama.",
   'loadPlan.gravity.deckCheckFailed': "Pemeriksaan cakupan cangkang pada pelat gagal: {detail}",

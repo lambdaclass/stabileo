@@ -148,8 +148,6 @@ describe('a floor carries q times its area, once', () => {
   });
 });
 
-const known2512 = process.env.RUN_KNOWN_WRONG === '2512' ? it : it.skip;
-
 describe('slabs and roofs drawn with shells', () => {
   it('a level with a slab over one of its two bays still loads the other bay through its beams', () => {
     const m = mk(); grid(m, 2, 1, 5, 4, 3);
@@ -186,7 +184,7 @@ describe('slabs and roofs drawn with shells', () => {
     expect(top).toBeCloseTo(1.5 * surface, 4);
   });
 
-  known2512('known wrong result: #2512 the ring beams, rafters and ridge under a roof of shells take nothing: the shells carry the roof', () => {
+  it('#2512 the ring beams, rafters and ridge under a roof of shells take nothing: the shells carry the roof', () => {
     const m = mk();
     const a = m.node(0, 0, 3), b = m.node(6, 0, 3), c = m.node(6, 3, 4), d = m.node(0, 3, 4), e = m.node(6, 6, 3), f = m.node(0, 6, 3);
     for (const [x, y] of [[0, 0], [6, 0], [6, 6], [0, 6]] as const) m.bar(m.node(x, y, 0), m.node(x, y, 3));
@@ -196,7 +194,7 @@ describe('slabs and roofs drawn with shells', () => {
     const quads = new Map([[1, { id: 1, nodes: [a, b, c, d] }], [2, { id: 2, nodes: [d, c, e, f] }]]);
     const model = { ...m.model(), quads };
     const p = buildLoadPlan(input(model, { roof: { use: 'maintenance', weight: 'heavy', dead: 1.5, slopeDeg: 18.43 } }));
-    expect(p.outcome, JSON.stringify(p.blockedKeys)).toBe('READY');
+    expect(p.blockedKeys).toEqual([{ key: 'loadPlan.blocked.concentratedRoof' }]);
     expect(p.distributed.filter((x) => x.caseType === 'D')).toEqual([]);
     expect(surfKN(p, model, 'D')).toBeCloseTo(1.5 * 2 * 6 * Math.hypot(3, 1), 4);
   });

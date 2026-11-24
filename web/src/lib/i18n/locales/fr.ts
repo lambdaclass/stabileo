@@ -7805,6 +7805,7 @@ const fr: Translations = {
   'loadPlan.gravity.offsetShellDeck': "La coque {id} est liée verticalement à un panneau de poutres qui la recouvre (barres {members}) à une autre altitude. Corrigez la géométrie de la coque, de la liaison ou du panneau, ou appliquez manuellement la charge surfacique une seule fois.",
   'loadPlan.gravity.memberSlopeLimit': "La barre {id} est trop proche de la limite de pente pour déterminer si elle porte les charges de gravité. Définissez explicitement ses charges.",
   'loadPlan.gravity.unresolvedMember': "La barre {id} n’est que partiellement recouverte par une coque et le transfert de charge du panneau n’a pas pu être déterminé.",
+  'loadPlan.gravity.offsetRafter': "La barre {id} est liée rigidement à une coque de toiture avec un décalage qui empêche l’attribution automatique de la charge gravitaire. Appliquez la charge surfacique une seule fois manuellement.",
   'loadPlan.gravity.differentDeck': "La coque qui recouvre le panneau de poutres doit appartenir au même plancher.",
   'loadPlan.gravity.differentSlopedDeck': "La coque inclinée qui recouvre le panneau de poutres doit appartenir au même plancher.",
   'loadPlan.gravity.deckCheckFailed': "Échec de la vérification du recouvrement du plancher par les coques : {detail}",

@@ -7805,6 +7805,7 @@ const de: Translations = {
   'loadPlan.gravity.offsetShellDeck': "Schale {id} ist vertikal an ein überlappendes Trägerfeld (Stäbe {members}) auf anderer Höhe gekoppelt. Korrigieren Sie die Geometrie der Schale, der Verbindung oder des Trägerfelds oder weisen Sie die Flächenlast einmal von Hand zu.",
   'loadPlan.gravity.memberSlopeLimit': "Stab {id} liegt zu nahe am Neigungsgrenzwert, um ihn als Träger von Schwerelasten sicher einzustufen. Geben Sie seine Lasten explizit an.",
   'loadPlan.gravity.unresolvedMember': "Stab {id} ist nur teilweise von einer Schale bedeckt und die Lastübertragung aus dem Feld ist ungeklärt.",
+  'loadPlan.gravity.offsetRafter': "Stab {id} ist mit einem Versatz starr an eine Dachschale gekoppelt. Die automatische Zuordnung der Schwerkraftlast ist damit nicht eindeutig. Weisen Sie die Flächenlast einmal manuell zu.",
   'loadPlan.gravity.differentDeck': "Die abdeckende Schale muss zur selben Decke wie das Trägerfeld gehören.",
   'loadPlan.gravity.differentSlopedDeck': "Die geneigte abdeckende Schale muss zur selben Decke wie das Trägerfeld gehören.",
   'loadPlan.gravity.deckCheckFailed': "Die Prüfung der Schalenabdeckung der Decke ist fehlgeschlagen: {detail}",

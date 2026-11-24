@@ -21,6 +21,7 @@ const it: Translations = {
   'loadPlan.gravity.memberSlopeLimit': "L’asta {id} è troppo vicina al limite di pendenza per stabilire se porta i carichi gravitazionali. Definisci esplicitamente i suoi carichi.",
   'snow.refused.stepDriftTransfer': "La generazione dei carichi da neve non può trasferire in modo affidabile l’accumulo sul salto di quota della copertura alle aste portanti. Definisci esplicitamente i carichi da neve.",
   'loadPlan.gravity.unresolvedMember': "L’elemento {id} è coperto solo in parte da un guscio e il trasferimento di carico del pannello è indeterminato.",
+  'loadPlan.gravity.offsetRafter': "L’asta {id} è collegata rigidamente a un guscio di copertura con un disassamento che impedisce l’assegnazione automatica del carico gravitazionale. Assegnare manualmente il carico superficiale una sola volta.",
   'loadPlan.gravity.differentDeck': "Il guscio di copertura deve appartenere allo stesso impalcato del pannello di travi.",
   'loadPlan.gravity.differentSlopedDeck': "Il guscio inclinato di copertura deve appartenere allo stesso impalcato del pannello di travi.",
   'loadPlan.gravity.deckCheckFailed': "Verifica della copertura dell’impalcato con gusci non riuscita: {detail}",

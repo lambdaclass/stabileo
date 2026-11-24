@@ -220,7 +220,7 @@ function restoreAndPlan(model: LoadModelData, setRoof = false) {
   return { quads, plan };
 }
 
-function applyDeadPressure(model: ReviewModel) {
+function applyDeadPressure(model: LoadModelData) {
   const { quads, plan } = restoreAndPlan(model);
   expect(plan.outcome, JSON.stringify(plan.blockedKeys)).toBe('READY');
   expect(applyLoadPlan(plan, { clearExisting: true, bothSenses: true, nameOf: key => key })).toBeUndefined();
@@ -313,12 +313,12 @@ it('#2512 applying a restored model emits beam loads for the separate bay', () =
 });
 
 it('#2512 a rigid offset cannot make a separate rafter part of the roof shell', () => {
-  for (const loadEveryPanel of [false, true]) for (const offset of [-3, 0.049, 0.051, 3]) {
+  for (const loadEveryPanel of [false, true]) for (const offset of [-3, 0.049, 0.05, MIN_STOREY_HEADROOM, MIN_STOREY_HEADROOM + 0.125, 3]) {
     const model = offsetRoof(offset).model;
     const gravity = { mode: 'panels', loadEveryPanel } as const;
     const plan = buildLoadPlan(input(model, { gravity }));
     expect(plan.outcome, JSON.stringify(plan.blockedKeys)).toBe('READY');
-    expect(plan.distributed.filter(load => load.caseType === 'D')).toEqual(offset === 0.049 ? [] : [
+    expect(plan.distributed.filter(load => load.caseType === 'D')).toEqual(offset <= 0.05 && offset > 0 ? [] : [
       { caseType: 'D', elementId: 1, q: -3 * pressure, frame: 'global' },
     ]);
     expect(plan.surface.filter(load => load.caseType === 'D')).toEqual([{ caseType: 'D', quadId: 1, q: pressure }]);
@@ -670,7 +670,6 @@ it('#2512 a low roof fringe cannot reclaim a shell-filled opening', () => {
   expect(plan.surface.filter(load => load.caseType === 'D')).toEqual([expect.objectContaining({ quadId: 1, q: pressure })]);
 });
 
-const known2512 = process.env.RUN_KNOWN_WRONG === '2512' ? it : it.skip;
 const offsetRafterRefusal = { key: 'loadPlan.gravity.offsetRafter', params: { id: 1 } };
 
 function framedGable(mesh: boolean, gap = false, detached = false) {
@@ -703,20 +702,21 @@ function framedGable(mesh: boolean, gap = false, detached = false) {
 }
 
 for (const loadEveryPanel of [false, true]) {
-  known2512(`known wrong result: #2512 attached gable shells own the eave ring with loadEveryPanel=${loadEveryPanel}`, () => {
+  it(`#2512 attached gable shells own the eave ring with loadEveryPanel=${loadEveryPanel}`, () => {
     const gravity = { mode: 'panels', loadEveryPanel } as const;
+    const gableRoof = { ...roof, slopeDeg: Math.atan2(1, 5) * 180 / Math.PI };
     for (const mesh of [false, true]) {
       const model = framedGable(mesh);
       const isolated = { ...model, elements: new Map([...model.elements].filter(([, { nodeI, nodeJ }]) => {
         const a = model.nodes.get(nodeI)!, b = model.nodes.get(nodeJ)!;
         return a.x === b.x && a.y === b.y;
       })) };
-      const expected = buildLoadPlan(input(isolated, { gravity, roof }));
-      expect(expected.outcome, JSON.stringify(expected.blockedKeys)).toBe('READY');
+      const expected = buildLoadPlan(input(isolated, { gravity, roof: gableRoof }));
+      expect(expected.blockedKeys).toEqual([{ key: 'loadPlan.blocked.concentratedRoof' }]);
       expect(expected.surface.filter(load => load.caseType === 'D')).toHaveLength(model.quads.size);
       expect(expected.surface.filter(load => load.caseType === 'Lr')).toHaveLength(model.quads.size);
-      const plan = buildLoadPlan(input(model, { gravity, roof }));
-      expect(plan.outcome, JSON.stringify(plan.blockedKeys)).toBe('READY');
+      const plan = buildLoadPlan(input(model, { gravity, roof: gableRoof }));
+      expect(plan.blockedKeys).toEqual(expected.blockedKeys);
       expect(plan.surface).toEqual(expected.surface);
       expect(plan.distributed).toEqual([]);
       expect(plan.nodal).toEqual([]);
@@ -731,14 +731,14 @@ for (const loadEveryPanel of [false, true]) {
   });
 
   for (const offset of [0.051, 0.2, -0.2, MIN_STOREY_HEADROOM - 0.125]) {
-    known2512(`known wrong result: #2512 a matched rafter at offset ${offset} refuses with loadEveryPanel=${loadEveryPanel}`, () => {
+    it(`#2512 a matched rafter at offset ${offset} refuses with loadEveryPanel=${loadEveryPanel}`, () => {
       const { model } = offsetRoof(offset);
       expectPanelRefusal(model, offsetRafterRefusal, loadEveryPanel);
     });
   }
 }
 
-known2512('known wrong result: #2512 restored gable loads reach the linear and P-Delta reactions', () => {
+it('#2512 restored gable loads reach the linear and P-Delta reactions', () => {
   const model = framedGable(false);
   const { quads, loads } = applyDeadPressure(model);
   expect(loads.map(load => load.type)).toEqual(['surface3d', 'surface3d']);
@@ -746,11 +746,62 @@ known2512('known wrong result: #2512 restored gable loads reach the linear and P
   checkPlanReactions(model, 'D', 2 * 6 * Math.hypot(5, 1) * pressure);
 });
 
-known2512('known wrong result: #2512 restored apply blocks the matched 200 mm offset rafter', () => {
+it('#2512 restored apply blocks the matched 200 mm offset rafter', () => {
   const { model } = offsetRoof(0.2);
   const { plan } = restoreAndPlan(model);
   const before = modelStore.snapshot();
   expect(plan.outcome, JSON.stringify(plan.blockedKeys)).toBe('BLOCKED');
   expect(applyLoadPlan(plan, { clearExisting: true, bothSenses: true, nameOf: key => key })).toEqual(offsetRafterRefusal);
   expect(modelStore.snapshot()).toEqual(before);
+});
+
+it('#2512 a detached or gapped pitched shell cannot take ownership of a framed bay', () => {
+  for (const loadEveryPanel of [false, true]) {
+    expectPanelRefusal(framedGable(false, true), separateBayRefusal, loadEveryPanel);
+    expectPanelRefusal(framedGable(false, false, true), separateBayRefusal, loadEveryPanel);
+    const model = framedGable(false, false, true);
+    model.quads.clear();
+    const plan = buildLoadPlan(input(model, { gravity: { mode: 'panels', loadEveryPanel } }));
+    expect(plan.outcome, JSON.stringify(plan.blockedKeys)).toBe('READY');
+    expect(plan.surface).toEqual([]);
+    expect(plan.levels.reduce((total, level) => total + level.superimposedKN, 0)).toBeCloseTo(area * pressure, 10);
+  }
+});
+
+it('#2512 a 200 mm offset without a rigid attachment keeps member and shell gravity', () => {
+  const { model } = offsetRoof(0.2);
+  model.constraints.length = 0;
+  const gravity = { mode: 'panels' } as const;
+  const plan = buildLoadPlan(input(model, { gravity }));
+  expect(plan.outcome, JSON.stringify(plan.blockedKeys)).toBe('READY');
+  expect(plan.distributed.filter(load => load.caseType === 'D')).toEqual([
+    { caseType: 'D', elementId: 1, q: -3 * pressure, frame: 'global' },
+  ]);
+  expect(plan.surface.filter(load => load.caseType === 'D')).toEqual([{ caseType: 'D', quadId: 1, q: pressure }]);
+  expect(teAt(offsetRafterRefusal, 'en')).toContain('Member 1');
+  const attached = offsetRoof(0.2).model;
+  const width = buildLoadPlan(input(attached, { gravity: { mode: 'width' } }));
+  expect(width.outcome, JSON.stringify(width.blockedKeys)).toBe('READY');
+  expect(width.distributed.filter(load => load.caseType === 'D')).toEqual(plan.distributed.filter(load => load.caseType === 'D'));
+  expect(width.surface).toEqual([]);
+});
+
+it('#2512 a shell-owned central strip under matching overhead cannot classify the exposed sides', () => {
+  const { model, row, beam, shell } = modelFixture();
+  bayBoundary(beam, row(0, 3), row(10, 3));
+  shell(row(4, 3), row(6, 3));
+  shell(row(4, 6), row(6, 6));
+  for (const loadEveryPanel of [false, true]) expectPanelRefusal(model, separateBayRefusal, loadEveryPanel);
+});
+
+it('#2512 a low roof cannot reclaim a shell strip along the lower bay perimeter', () => {
+  const { model, row, beam, shell, node } = modelFixture();
+  bayBoundary(beam, row(0, 3), row(10, 3));
+  shell(row(0, 3), row(4, 3));
+  shell(row(3, 4), row(7, 4));
+  const top = [row(0, 4), row(10, 4)] as const;
+  bayBoundary(beam, ...top);
+  for (const element of [...model.elements.values()].slice(4)) element.type = 'truss';
+  beam(node(0, 3, 4), node(10, 3, 4));
+  for (const loadEveryPanel of [false, true]) expectPanelRefusal(model, separateBayRefusal, loadEveryPanel, 1);
 });

@@ -8263,6 +8263,7 @@ const en: Record<string, string> = {
   'loadPlan.gravity.offsetShellDeck': "Shell {id} is vertically coupled to an overlapping beam bay (members {members}) at a different elevation. Correct the shell, connection or bay geometry, or assign the area load once by hand.",
   'loadPlan.gravity.memberSlopeLimit': "Member {id} is too close to the gravity carrier slope limit to classify reliably. Define its loads explicitly.",
   'loadPlan.gravity.unresolvedMember': "Member {id} is only partly covered by a shell and has no resolved panel transfer.",
+  'loadPlan.gravity.offsetRafter': "Member {id} is rigidly attached to a roof shell at an offset that prevents automatic gravity assignment. Assign the area load once by hand.",
   'loadPlan.gravity.differentDeck': "A covering shell must represent the same deck as the beam panel.",
   'loadPlan.gravity.differentSlopedDeck': "A sloped covering shell must represent the same deck as the beam panel.",
   'loadPlan.gravity.deckCheckFailed': "Shell deck coverage check failed: {detail}",

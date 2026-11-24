@@ -8256,6 +8256,7 @@ const es: Record<string, string> = {
   'loadPlan.gravity.offsetShellDeck': "La placa {id} está vinculada verticalmente a un paño de vigas superpuesto (barras {members}) a otra cota. Corregí la geometría de la placa, la conexión o el paño, o asigná manualmente la carga de área una sola vez.",
   'loadPlan.gravity.memberSlopeLimit': "La barra {id} está demasiado cerca del límite de pendiente para clasificarla como portante de cargas gravitatorias. Defina sus cargas explícitamente.",
   'loadPlan.gravity.unresolvedMember': "La barra {id} está cubierta solo en parte por una placa y no se pudo resolver la transferencia de carga del paño.",
+  'loadPlan.gravity.offsetRafter': "La barra {id} está unida rígidamente a una lámina de cubierta con un desfase que impide asignar la carga gravitatoria automáticamente. Asigná la carga superficial una sola vez a mano.",
   'loadPlan.gravity.differentDeck': "La placa que cubre el paño de vigas debe pertenecer al mismo tablero.",
   'loadPlan.gravity.differentSlopedDeck': "La placa inclinada que cubre el paño de vigas debe pertenecer al mismo tablero.",
   'loadPlan.gravity.deckCheckFailed': "Falló la verificación de cobertura del tablero con placas: {detail}",

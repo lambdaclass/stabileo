@@ -7814,6 +7814,7 @@ const tr: Translations = {
   'loadPlan.gravity.offsetShellDeck': "{id} numaralı kabuk, farklı bir kotta ve izdüşümü çakışan bir kiriş paneline (çubuklar {members}) düşey yönde bağlı. Kabuk, bağlantı veya panel geometrisini düzeltin ya da alan yükünü elle bir kez atayın.",
   'loadPlan.gravity.memberSlopeLimit': "{id} numaralı elemanın eğimi, yerçekimi yükünü taşıyıp taşımadığını güvenilir biçimde belirlemek için sınır değere çok yakın. Yüklerini açıkça tanımlayın.",
   'loadPlan.gravity.unresolvedMember': "{id} numaralı eleman bir kabukla kısmen örtülü ve panelden yük aktarımı belirlenemedi.",
+  'loadPlan.gravity.offsetRafter': "{id} numaralı eleman, yerçekimi yükünün otomatik atanmasını engelleyen bir ötelenmeyle çatı kabuğuna rijit bağlanmıştır. Alan yükünü elle bir kez atayın.",
   'loadPlan.gravity.differentDeck': "Örten kabuk, kiriş paneliyle aynı döşemeye ait olmalıdır.",
   'loadPlan.gravity.differentSlopedDeck': "Örten eğimli kabuk, kiriş paneliyle aynı döşemeye ait olmalıdır.",
   'loadPlan.gravity.deckCheckFailed': "Döşemenin kabuk örtüsü denetlenemedi: {detail}",

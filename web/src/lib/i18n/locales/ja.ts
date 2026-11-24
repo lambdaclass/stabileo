@@ -22,6 +22,7 @@ const ja: Translations = {
   'loadPlan.gravity.memberSlopeLimit': "部材 {id} の勾配は重力荷重を負担する部材の判定限界に近すぎます。荷重を明示的に設定してください。",
   'snow.refused.stepDriftTransfer': "屋根段差部の吹きだまり荷重を支持部材に確実に伝達できません。積雪荷重を明示的に設定してください。",
   'loadPlan.gravity.unresolvedMember': "部材 {id} はシェルに一部だけ覆われており、パネルからの荷重伝達を特定できません。",
+  'loadPlan.gravity.offsetRafter': "部材 {id} は屋根シェルに剛結されていますが、オフセットがあるため重力荷重を自動で割り当てられません。面荷重を手動で一度だけ割り当ててください。",
   'loadPlan.gravity.differentDeck': "梁パネルを覆うシェルは、梁パネルと同じデッキに属する必要があります。",
   'loadPlan.gravity.differentSlopedDeck': "梁パネルを覆う傾斜シェルは、梁パネルと同じデッキに属する必要があります。",
   'loadPlan.gravity.deckCheckFailed': "シェルによるデッキの被覆を確認できませんでした：{detail}",

@@ -80,7 +80,35 @@ function shareOnlyAnEdge(first: Polygon[number], second: Polygon[number]): boole
   });
 }
 
-type Shell = ShellFootprint & { nodes: number[] };
+type Shell = ShellFootprint & { nodes: number[]; pitched: boolean };
+type ShellDeck<S extends Shell> = { kind: 'shell'; shell: S; footprint: Polygon; deck: Deck };
+
+function connectedPitchedRoofs<S extends Shell>(shells: readonly ShellDeck<S>[]) {
+  const edges = ({ shell: { nodes } }: ShellDeck<S>) => nodes.map((a, i) => {
+    const b = nodes[(i + 1) % nodes.length]!;
+    return a < b ? `${a}:${b}` : `${b}:${a}`;
+  });
+  const pitched = shells.filter(({ shell }) => shell.pitched);
+  const byEdge = new Map<string, ShellDeck<S>[]>();
+  for (const shell of pitched) for (const edge of edges(shell)) {
+    const adjacent = byEdge.get(edge) ?? [];
+    adjacent.push(shell);
+    byEdge.set(edge, adjacent);
+  }
+  const roofs = new Map<ShellDeck<S>, ShellDeck<S>[]>();
+  for (const seed of pitched) {
+    if (roofs.has(seed)) continue;
+    const connected = new Set([seed]);
+    for (const shell of connected) for (const edge of edges(shell)) {
+      for (const neighbour of byEdge.get(edge) ?? []) connected.add(neighbour);
+      byEdge.delete(edge);
+    }
+    const roof = [...connected];
+    for (const shell of roof) roofs.set(shell, roof);
+  }
+  return roofs;
+}
+
 export type BayAssignment =
   | { partition: { kind: 'uncovered' }; region: [Polygon] }
   | { partition: { kind: 'shell' }; region: [] };
@@ -95,7 +123,7 @@ export function partitionGravityFloors<S extends Shell>(
   hasBoundaryAttachment: (shell: S, bay: FloorBay) => boolean,
   shellSeparation: (first: S, second: S) => number,
 ): { shellBayMembers: ReadonlyMap<number, ReadonlySet<number>>; bays: Map<FloorBay, BayAssignment> } {
-  const shellCarriers = shells.map(shell => ({
+  const shellCarriers: ShellDeck<S>[] = shells.map(shell => ({
     kind: 'shell' as const, shell, footprint: [canonicalFootprint(shell.poly)], deck: deck(shell.pts, shell.plane, shell.id),
   }));
   const bayCarriers = bays.map(bay => {
@@ -103,7 +131,13 @@ export function partitionGravityFloors<S extends Shell>(
     const points = bay.boundaryNodes.flat().map(coordinates);
     return { kind: 'bay' as const, bay, boundaryNodes, footprint: bay.boundary, deck: deck(points) };
   });
-  const matches = new Map<FloorBay, typeof shellCarriers>();
+  type BayMatches = { covering: ShellDeck<S>[]; roof?: ShellDeck<S>[] };
+  const matches = new Map<FloorBay, BayMatches>();
+  const matchesFor = (bay: FloorBay) => {
+    const match: BayMatches = matches.get(bay) ?? { covering: [] };
+    matches.set(bay, match);
+    return match;
+  };
   const carrierOutline = (carrier: (typeof bayCarriers | typeof shellCarriers)[number]) => carrier.footprint[0]!;
   for (const [a, b] of potentiallyOverlapping(shellCarriers, carrierOutline)) {
     const limit = shellSeparation(a.shell, b.shell);
@@ -113,9 +147,10 @@ export function partitionGravityFloors<S extends Shell>(
       refuseGravityGeometry(shellOverlapMessage(a.shell, b.shell));
     }
   }
+  let pitchedRoofs: ReturnType<typeof connectedPitchedRoofs<S>> | undefined;
   for (const [a, b] of potentiallyOverlapping([...shellCarriers, ...bayCarriers], carrierOutline)) {
-    if ((a.kind === 'shell' && b.kind === 'shell') || separatedByHeightRange(a.deck, b.deck, tolerance)) continue;
     if (a.kind === 'bay' && b.kind === 'bay') {
+      if (separatedByHeightRange(a.deck, b.deck, tolerance)) continue;
       const overlap = positiveOverlap(a.footprint, b.footprint);
       if (overlap && !separated(a.deck, b.deck, overlap, tolerance)) {
         refuseGravityGeometry(msg('loadPlan.gravity.overlappingBays', { first: bayMembers(a.bay), second: bayMembers(b.bay) }));
@@ -125,26 +160,42 @@ export function partitionGravityFloors<S extends Shell>(
     const bay = a.kind === 'bay' ? a : b.kind === 'bay' ? b : undefined;
     const shell = a.kind === 'shell' ? a : b.kind === 'shell' ? b : undefined;
     if (!bay || !shell) continue;
+    if (separatedByHeightRange(bay.deck, shell.deck, tolerance)) continue;
     const overlap = positiveOverlap(bay.footprint, shell.footprint);
     if (!overlap || separated(bay.deck, shell.deck, overlap, tolerance)) continue;
     const basis = bay.deck.basis;
     if (!basis || !shell.deck.basis) refuseGravityGeometry(msg('loadPlan.gravity.differentDeck'));
     const [p, q, r] = basis;
     const coplanar = shell.deck.points.every(point => orient3d(...p, ...q, ...r, ...point) === 0);
-    if (!coplanar && (bay.footprint.length !== 1 || !hasBoundaryAttachment(shell.shell, bay.bay)
-      || subtractFootprints(bay.footprint, [shell.footprint]).length !== 0)) {
+    const match = matchesFor(bay.bay);
+    const attached = !coplanar && bay.footprint.length === 1 && hasBoundaryAttachment(shell.shell, bay.bay)
+      && subtractFootprints(bay.footprint, [shell.footprint]).length === 0;
+    const [bayLow, bayHigh] = bay.deck.range;
+    const mayCoverEaves = bay.footprint.length === 1 && bayLow === bayHigh && shell.shell.pitched && shell.deck.range[0] >= bayHigh;
+    if (coplanar || attached) {
+      if (match.roof) refuseGravityGeometry(msg('loadPlan.gravity.differentDeck'));
+      match.covering.push(shell);
+      continue;
+    }
+    if (!mayCoverEaves || match.covering.length) refuseGravityGeometry(msg('loadPlan.gravity.differentDeck'));
+    pitchedRoofs ??= connectedPitchedRoofs(shellCarriers);
+    const roof = pitchedRoofs.get(shell)!;
+    if (match.roof === roof) continue;
+    const nodes = new Set(roof.flatMap(({ shell }) => shell.nodes));
+    if (match.roof || roof.some(part => !part.deck.basis || part.deck.range[0] < bayHigh) ||
+      !bay.bay.sides.every(side => nodes.has(side.nodeA)) ||
+      roof.some(part => subtractFootprints(part.footprint, [bay.footprint]).length !== 0)) {
       refuseGravityGeometry(msg('loadPlan.gravity.differentDeck'));
     }
-    const covering = matches.get(bay.bay) ?? [];
-    covering.push(shell);
-    matches.set(bay.bay, covering);
+    match.roof = roof;
   }
 
   const assignments = new Map<FloorBay, BayAssignment>();
   const shellBayMembers = new Map<number, Set<number>>();
   for (const { bay, footprint, boundaryNodes } of bayCarriers) {
-    const covering = matches.get(bay);
-    if (!covering) {
+    const match = matches.get(bay);
+    const covering = match?.roof ?? match?.covering ?? [];
+    if (!covering.length) {
       assignments.set(bay, { partition: { kind: 'uncovered' }, region: [footprint] });
       continue;
     }

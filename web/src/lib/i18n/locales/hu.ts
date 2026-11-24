@@ -7501,6 +7501,7 @@ const hu: Translations = {
   'loadPlan.gravity.offsetShellDeck': "A(z) {id} héj függőleges irányban egy másik szinten fekvő, átfedő gerendamezőhöz kapcsolódik (rudak: {members}). Javítsa a héj, a kapcsolat vagy a gerendamező geometriáját, vagy kézzel, egyszer adja meg a felületi terhet.",
   'loadPlan.gravity.memberSlopeLimit': "A(z) {id} rúd túl közel van a lejtéshatárhoz annak megállapításához, hogy visel-e gravitációs terheket. Adja meg közvetlenül a terheit.",
   'loadPlan.gravity.unresolvedMember': "A(z) {id} rudat csak részben fedi héj, és a mező teherátadása nem határozható meg.",
+  'loadPlan.gravity.offsetRafter': "A(z) {id}. rúd olyan eltolással csatlakozik mereven a tetőhéjhoz, amely megakadályozza a gravitációs teher automatikus hozzárendelését. A felületi terhet kézzel, egyszer adja meg.",
   'loadPlan.gravity.differentDeck': "A fedő héjnak és a gerendamezőnek ugyanahhoz a födémhez kell tartoznia.",
   'loadPlan.gravity.differentSlopedDeck': "A ferde fedő héjnak és a gerendamezőnek ugyanahhoz a födémhez kell tartoznia.",
   'loadPlan.gravity.deckCheckFailed': "A födém héjfedésének ellenőrzése sikertelen: {detail}",

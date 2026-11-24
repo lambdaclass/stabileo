@@ -135,7 +135,7 @@ const MIN_COVER_RISE = 0.05;
 const BEAM_SLOPE_LIMIT = 0.5;
 type ShellCarrier = {
   id: number; poly: Polygon[number]; pts: Array<[number, number, number]>;
-  nodes: number[]; plane?: ShellPlane;
+  nodes: number[]; pitched: boolean; plane?: ShellPlane;
 };
 const levelIndex = (z: number) => Math.round(z / TOL);
 const levelKey = (z: number) => levelIndex(z) * TOL;
@@ -195,11 +195,12 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
     const poly = xyz.map((p) => [p[0], p[1]] as [number, number]);
     const plan = ringArea(poly);
     const plane = opts.mode === 'panels' && plan > 0 ? planarShell(q.id, xyz) : undefined;
-    const carrier = { id: q.id, poly, pts: xyz, nodes: q.nodes, plane };
     const low = Math.min(...zs), high = Math.max(...zs);
+    const pitched = high - low > TOL;
+    const carrier = { id: q.id, poly, pts: xyz, nodes: q.nodes, plane, pitched };
     const surface = surfaceArea(xyz);
     const cos = surface > 0 ? plan / surface : 0;
-    if (high - low <= TOL) {
+    if (!pitched) {
       const key = levelKey(low + (high - low) / 2);
       const list = quadsAt.get(key) ?? [];
       list.push({ quadId: q.id, area: plan, surface, cos });
@@ -235,6 +236,9 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
     const p: Segment[0] = [a.x, a.y, a.z ?? 0], q: Segment[1] = [b.x, b.y, b.z ?? 0];
     const original = shellCoverage([p, q], carriers);
     const attached = attachedCoverage.get(e.id);
+    if (original !== 'full' && attached === 'unresolvedOffset') {
+      refuseGravityGeometry(msg('loadPlan.gravity.offsetRafter', { id: e.id }));
+    }
     if (original === 'partial' || (original !== 'full' && attached === 'partial')) {
       refuseGravityGeometry(msg('loadPlan.gravity.unresolvedMember', { id: e.id }));
     }
@@ -576,6 +580,7 @@ const FRINGE_BINS = 200;
 export const MAX_DECK_SPAN = 12;
 
 type ShellCoverage = 'none' | 'partial' | 'full';
+type AttachmentCoverage = ShellCoverage | 'unresolvedOffset';
 type ShellOffset = { offset: Segment[0]; error: number };
 type ShellAttachment = { offset: Segment[0]; anchors: Set<number>; error: number };
 
@@ -659,8 +664,8 @@ function shellOffsets(
 
 function rigidShellCoverage(
   model: GravityModel, offsets: ReadonlyMap<number, ShellOffset[]>, carriers: ShellCarrier[], members: Iterable<number>,
-): Map<number, ShellCoverage> {
-  const byMember = new Map<number, ShellCoverage>();
+): Map<number, AttachmentCoverage> {
+  const byMember = new Map<number, AttachmentCoverage>();
   if (!offsets.size) return byMember;
   const axes = memberGeometry(model, members);
   const axesById = new Map(axes.map(axis => [axis.id, axis]));
@@ -676,14 +681,19 @@ function rigidShellCoverage(
       if (matching) matching.anchors.add(nodeId);
       else attachments.push({ offset, error, anchors: new Set([nodeId]) });
     }
-    let coverage: ShellCoverage = 'none';
+    let coverage: AttachmentCoverage = 'none';
     for (const { offset, anchors } of attachments) {
-      if (!samePhysicalDeck([[offset[2], 0]], MIN_COVER_RISE)) continue;
+      if (Math.abs(offset[2]) >= MIN_STOREY_HEADROOM) continue;
       const traces: Segment[] = [...ids].map(id => {
         const { a, b } = axesById.get(id)!;
         return [attachmentPoint(a, offset), attachmentPoint(b, offset)];
       });
       const covered = traces.map(trace => shellCoverage(trace, carriers));
+      if (!samePhysicalDeck([[offset[2], 0]], MIN_COVER_RISE)) {
+        if (covered.every(state => state === 'none')) continue;
+        coverage = 'unresolvedOffset';
+        break;
+      }
       if (anchors.size > 1 && covered.every(state => state === 'full')) {
         coverage = 'full';
       } else if (covered.some(state => state !== 'none') || traces.some(trace => shellCoverage(trace, carriers, false) !== 'none')) {

@@ -342,17 +342,28 @@ it('the eave bay under a gable with an ascending extension needs explicit loads'
 });
 
 describe('a ring of beams under a roof of shells', () => {
-  it('requires explicit loads for the eave bay and still loads the gable by itself', () => {
+  it('loads a closed gable once and refuses unproven coverage after rotation', () => {
     for (const n of [1, 2, 3]) for (const angle of [0, 0.37]) {
       const model = gable(n);
       rotatePlan(model, angle);
-      checkBlockedGravity(model, differentDeck);
       const roof = { ...model, elements: new Map() };
       const plan = buildLoadPlan(planInput(roof));
       expect(plan.outcome).toBe('READY');
       expect(plan.distributed).toEqual([]);
       expect(plan.nodal).toEqual([]);
       expect(surfaceKN(plan.surface.filter(load => load.caseType === 'D'), roof)).toBeCloseTo(2 * Math.hypot(5, 2) * 10 * 2, 3);
+      if (angle) {
+        checkBlockedGravity(model, differentDeck);
+        continue;
+      }
+      for (const loadEveryPanel of [false, true]) {
+        const gravity = { mode: 'panels', loadEveryPanel } as const;
+        const framed = buildLoadPlan(planInput(model, { gravity }));
+        expect(framed.outcome, JSON.stringify({ n, angle, blocked: framed.blockedKeys })).toBe('READY');
+        expect(framed.surface).toEqual(plan.surface);
+        expect(framed.distributed).toEqual([]);
+        expect(framed.nodal).toEqual([]);
+      }
     }
   });
 
