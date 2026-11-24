@@ -8,7 +8,9 @@ import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import { modelStore } from '../../store/model.svelte';
 import '../../store/index';
 import { initSolver } from '../wasm-solver';
-import { runDirectAnalysis } from '../direct-analysis';
+import { mainThreadPDelta, runDirectAnalysis, workerPDelta } from '../direct-analysis';
+import { finishPDelta3D } from '../solve-finish';
+import { solve_pdelta_3d } from '../../wasm/dedaliano_engine.js';
 
 beforeAll(async () => { await initSolver(); });
 beforeEach(() => { modelStore.clear(); });
@@ -87,3 +89,137 @@ describe('notional cases in the direct analysis', () => {
     });
   }
 });
+
+it.each([
+  ['spatial', 'main thread'], ['spatial', 'worker'], ['spatial', 'worker fallback'],
+  ['planar', 'main thread'], ['planar', 'worker'], ['planar', 'worker fallback'],
+] as const)(
+  '#2297 direct analysis resolves %s notional factors through the %s',
+  async (dimension, path) => {
+    const planar = dimension === 'planar';
+    const a = modelStore.addNode(0, 0, 0);
+    const b = planar ? modelStore.addNode(0, 4) : modelStore.addNode(0, 0, 4);
+    modelStore.addElement(a, b, 'frame');
+    modelStore.addSupport(a, planar ? 'fixed' : 'fixed3d');
+    const D = modelStore.model.loadCases[0]!.id;
+    const N = modelStore.addLoadCase('N', 'N');
+    if (planar) {
+      modelStore.addNodalLoad(b, 0, -10, 0, D);
+      modelStore.addNodalLoad(b, 1, 0, 0, N);
+    } else {
+      modelStore.addNodalLoad3D(b, 0, 0, -10, 0, 0, 0, D);
+      modelStore.addNodalLoad3D(b, 1, 0, 0, 0, 0, 0, N);
+    }
+    const roots = [1, 2, 3, 4].map(i => {
+      const id = modelStore.addLoadCase(`Composite ${i}`, '');
+      modelStore.updateLoadCaseFields(id, { includes: [{ caseId: N, factor: 3 }] });
+      return id;
+    });
+    const root = roots[0]!;
+    let workerCalls = 0, workerAnswers = 0;
+    const run = path === 'main thread' ? mainThreadPDelta : workerPDelta(async (wire, maxIter, tol) => {
+      workerCalls++;
+      if (path === 'worker fallback') throw new Error('Worker unavailable');
+      const answer = finishPDelta3D(JSON.parse(solve_pdelta_3d(JSON.stringify(wire), maxIter, tol)), wire as Parameters<typeof finishPDelta3D>[1]);
+      workerAnswers++;
+      return answer;
+    });
+    const solve = async (terms: Array<[number, number]>) => {
+      const result = await runDirectAnalysis(data(), modelStore.model.loadCases, [{
+        id: 1, name: 'Gravity and notional cases',
+        factors: [{ caseId: D, factor: 1 }, ...terms.map(([caseId, factor]) => ({ caseId, factor }))],
+      }], { includeSelfWeight: false, settings: { notional: 0.002, tauB: 'unity' }, run });
+      if (typeof result === 'string') throw new Error(result);
+      return { result: result.perCombo.get(1)!, info: result.info.get(1)! };
+    };
+
+    const exact = await solve([[N, 6]]);
+    expect(exact.info.notional).toBe('cases');
+    expect(exact.result.displacements.find(row => row.nodeId === b)?.ux).toBeGreaterThan(0);
+    const big = 2 ** 53;
+    const repeated = await solve([[root, big], [root, 1], [root, -(big - 1)]]);
+    expect.soft(repeated.info.notional).toBe('cases');
+    expect.soft(repeated.result.displacements).toEqual(exact.result.displacements);
+
+    const large = 2 ** 54;
+    const separate = (weights: number[]) => solve(weights.map((factor, i) => [roots[i]!, factor]));
+    const surviving = await separate([large, 1, -large]);
+    expect.soft(surviving.info.notional).toBe('cases');
+    const cancelled = await separate([large, 1, -large, -1]);
+    expect.soft(cancelled.info.notional).not.toBe('cases');
+    if (path !== 'main thread') expect(workerCalls).toBeGreaterThan(0);
+    if (path === 'worker') expect(workerAnswers).toBe(workerCalls);
+  },
+);
+
+it.each([
+  ['spatial', 'main thread'], ['spatial', 'worker'], ['spatial', 'worker fallback'],
+  ['planar', 'main thread'], ['planar', 'worker'], ['planar', 'worker fallback'],
+] as const)(
+  '#2297 direct analysis retains tiny explicit notional loads in %s through the %s',
+  async (dimension, path) => {
+    const planar = dimension === 'planar';
+    const a = modelStore.addNode(0, 0, 0);
+    const b = planar ? modelStore.addNode(0, 4) : modelStore.addNode(0, 0, 4);
+    modelStore.addElement(a, b, 'frame');
+    modelStore.addSupport(a, planar ? 'fixed' : 'fixed3d');
+
+    const gravity = modelStore.model.loadCases[0]!.id;
+    const small = modelStore.addLoadCase('Scaled notional', 'N');
+    const unit = modelStore.addLoadCase('Unit notional', 'N');
+    const addLoad = (caseId: number, fx: number, fz: number) => planar
+      ? modelStore.addNodalLoad(b, fx, fz, 0, caseId)
+      : modelStore.addNodalLoad3D(b, fx, 0, fz, 0, 0, 0, caseId);
+    addLoad(gravity, 0.5, -10);
+    addLoad(small, 1e13, 0);
+    addLoad(unit, 1, 0);
+
+    const roots = ['First path', 'Second path'].map(name => {
+      const id = modelStore.addLoadCase(name, '');
+      modelStore.updateLoadCaseFields(id, { includes: [{ caseId: small, factor: 1 }] });
+      return id;
+    });
+    let workerCalls = 0, workerAnswers = 0;
+    const run = path === 'main thread' ? mainThreadPDelta : workerPDelta(async (wire, maxIter, tol) => {
+      workerCalls++;
+      if (path === 'worker fallback') throw new Error('Worker unavailable');
+      const answer = finishPDelta3D(JSON.parse(solve_pdelta_3d(JSON.stringify(wire), maxIter, tol)), wire as Parameters<typeof finishPDelta3D>[1]);
+      workerAnswers++;
+      return answer;
+    });
+    const combo = (name: string, terms: Array<[number, number]>) =>
+      modelStore.addCombination(name, [{ caseId: gravity, factor: 1 }, ...terms.map(([caseId, factor]) => ({ caseId, factor }))]);
+    const controls = [combo('Positive unit', [[unit, 1]]), combo('Negative unit', [[unit, -1]])];
+    const scaled = [combo('Positive tiny', [[small, 1e-13]]), combo('Negative tiny', [[small, -1e-13]])];
+    const without = combo('No notional case', []);
+    const zero = combo('Literal zero', [[small, 0]]);
+    const cancelled = combo('Cancelled paths', [[roots[0]!, 1e-13], [roots[1]!, -1e-13]]);
+
+    const solved = await runDirectAnalysis(data(), modelStore.model.loadCases, modelStore.model.combinations, {
+      includeSelfWeight: false, settings: { notional: 0.002, tauB: 'unity' }, run,
+    });
+    if (typeof solved === 'string') throw new Error(solved);
+    const response = (id: number) => {
+      const r = solved.perCombo.get(id);
+      if (!r) throw new Error(`Missing response for combination ${id}`);
+      return {
+        displacement: r.displacements.find(row => row.nodeId === b)!.ux,
+        reaction: r.reactions.find(row => row.nodeId === a)!.fx,
+      };
+    };
+    for (const [i, id] of scaled.entries()) {
+      const expected = controls[i]!;
+      expect(solved.info.get(expected)!.notional).toBe('cases');
+      expect(response(expected).reaction).not.toBe(response(without).reaction);
+      expect.soft(solved.info.get(id)!.notional).toBe('cases');
+      expect.soft(response(id)).toEqual(response(expected));
+    }
+    expect(solved.info.get(without)!.notional).toBe('lateral');
+    for (const id of [zero, cancelled]) {
+      expect(solved.info.get(id)!.notional).toBe(solved.info.get(without)!.notional);
+      expect(response(id)).toEqual(response(without));
+    }
+    if (path !== 'main thread') expect(workerCalls).toBeGreaterThan(0);
+    if (path === 'worker') expect(workerAnswers).toBe(workerCalls);
+  },
+);

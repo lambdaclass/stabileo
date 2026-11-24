@@ -1179,3 +1179,99 @@ fn issue_2222_overflow_cannot_omit_one_of_several_combinations_2d() {
         dedaliano_engine::boundary::require_finite(&answer).unwrap();
     }
 }
+
+fn assert_issue_2100_refusal(error: &str) {
+    let refusal: serde_json::Value = serde_json::from_str(error).expect(error);
+    let diagnostic = &refusal["structuredDiagnostics"][0];
+    assert_eq!(
+        diagnostic["code"],
+        "result_quantity_unavailable",
+        "{error}"
+    );
+    assert_eq!(diagnostic["severity"], "error");
+    assert_eq!(diagnostic["phase"], "equilibrium");
+    assert_eq!(diagnostic["threshold"].as_f64(), Some(1e-8));
+    assert!(diagnostic["value"].as_f64().unwrap() > 1e-8);
+    assert_eq!(refusal["message"], diagnostic["message"]);
+    assert!(
+        refusal["message"].as_str().unwrap().contains("physical free-DOF residual"),
+        "{error}"
+    );
+}
+
+#[test]
+fn issue_2100_nightly_native_pdelta_3d_refuses_failed_physical_equilibrium() {
+    use dedaliano_engine::{
+        certify,
+        solver::{linear, pdelta},
+        types::SolverInput3D,
+    };
+
+    let input: SolverInput3D =
+        serde_json::from_str(include_str!("fixtures/issue-2100-pdelta.json")).unwrap();
+    let linear = linear::solve_3d(&input).unwrap();
+    assert_eq!(linear.displacements.len(), input.nodes.len());
+    assert_eq!(linear.reactions.len(), input.supports.len());
+    assert!(certify::finite::non_finite_paths(&linear).is_empty());
+
+    match pdelta::solve_pdelta_3d(&input, 31, 1e-8) {
+        Err(error) => assert_issue_2100_refusal(&error),
+        Ok(result) => panic!(
+            "P-Delta returned Ok, converged={}, equilibrium={:?}, first reaction={:?}",
+            result.converged,
+            result.results.equilibrium,
+            result.results.reactions.first()
+        ),
+    }
+}
+
+#[test]
+fn issue_2100_native_certifier_refuses_the_nightly_model_at_the_solver() {
+    use dedaliano_engine::{certify::pdelta, types::SolverInput3D};
+
+    let input: SolverInput3D =
+        serde_json::from_str(include_str!("fixtures/issue-2100-pdelta.json")).unwrap();
+    assert_issue_2100_refusal(&pdelta::certify_pdelta_3d(&input, 31, 1e-8).unwrap_err());
+}
+
+#[test]
+fn issue_2100_native_pdelta_2d_refuses_unbalanced_iterate() {
+    use dedaliano_engine::{certify, solver::pdelta, types::SolverInput};
+
+    let mut model: serde_json::Value =
+        serde_json::from_str(include_str!("fixtures/reaction-recovery-2d.json")).unwrap();
+    let base_input: SolverInput = serde_json::from_value(model.clone()).unwrap();
+    let base = pdelta::solve_pdelta_2d(&base_input, 0, 1e-8).unwrap();
+    let fz = model["loads"][0]["data"]["fz"].as_f64().unwrap();
+    assert_eq!(base.results.reactions.len(), 1);
+    assert!((base.results.reactions[0].rz + fz).abs() < 1e-12);
+    assert!(base.results.equilibrium.unwrap().residual_ok);
+
+    model["loads"][0]["data"]["fx"] = json!(-3.0);
+    let input: SolverInput = serde_json::from_value(model).unwrap();
+    let (solve, certify) = (
+        pdelta::solve_pdelta_2d(&input, 0, 1e-8),
+        certify::pdelta::certify_pdelta_2d(&input, 0, 1e-8),
+    );
+    assert_issue_2100_refusal(&solve.unwrap_err());
+    assert_issue_2100_refusal(&certify.unwrap_err());
+}
+
+#[test]
+fn issue_2100_native_pdelta_3d_refuses_unbalanced_iterate() {
+    use dedaliano_engine::{certify, solver::pdelta, types::SolverInput3D};
+
+    let mut model: serde_json::Value =
+        serde_json::from_str(include_str!("fixtures/reaction-recovery-3d.json")).unwrap();
+    let base_input: SolverInput3D = serde_json::from_value(model.clone()).unwrap();
+    let base = pdelta::solve_pdelta_3d(&base_input, 0, 1e-8).unwrap();
+    let fz = model["loads"][0]["data"]["fz"].as_f64().unwrap();
+    assert_eq!(base.results.reactions.len(), 1);
+    assert!((base.results.reactions[0].fz + fz).abs() < 1e-12);
+    assert!(base.results.equilibrium.unwrap().residual_ok);
+
+    model["loads"][0]["data"]["fx"] = json!(-3.0);
+    let input: SolverInput3D = serde_json::from_value(model).unwrap();
+    assert_issue_2100_refusal(&pdelta::solve_pdelta_3d(&input, 0, 1e-8).unwrap_err());
+    assert_issue_2100_refusal(&certify::pdelta::certify_pdelta_3d(&input, 0, 1e-8).unwrap_err());
+}

@@ -75,7 +75,7 @@ let wasmAnalyzeKinematics3d: ((json: string) => string) | null = null;
 let wasmReviewModelSanity: ((json: string) => string) | null = null;
 
 // Combinations & Envelope
-let wasmNetCombinationFactors: ((input: unknown) => unknown) | null = null;
+let wasmNetCombinationFactors: ((input: unknown, allowCancellation?: boolean) => unknown) | null = null;
 let wasmCombineResults2d: ((input: any) => any) | null = null;
 let wasmCombineResults3d: ((input: any) => any) | null = null;
 let wasmCombineResultsBatch3d: ((input: any) => any) | null = null;
@@ -1541,11 +1541,21 @@ function combinationCases<T>(factors: Array<{ caseId: number }>, perCase: Map<nu
     .map(caseId => ({ caseId, results: perCase.get(caseId)! }));
 }
 
-export function netCombinationFactors(factors: Array<{ caseId: number; factor: number }>): typeof factors {
+type CaseFactor = { caseId: number; factor: number };
+
+export function netCombinationFactors(factors: CaseFactor[], allowCancellation?: boolean): CaseFactor[] {
   assertFiniteWire(factors);
   if (factors.length <= 1 || new Set(factors.map(f => f.caseId)).size === factors.length) return factors;
-  if (!wasmNetCombinationFactors) throw new Error('WASM solver not initialized.');
-  return wasmNetCombinationFactors(factors) as typeof factors;
+  if (!wasmNetCombinationFactors) throw new EngineUnavailableError('load case factors');
+  return wasmNetCombinationFactors(factors, allowCancellation) as CaseFactor[];
+}
+
+export function sumCombinationFactors(factors: readonly CaseFactor[]): CaseFactor[] {
+  try { return netCombinationFactors([...factors], true); }
+  catch (err) {
+    if (err instanceof EngineUnavailableError) throw err;
+    throw new EngineCheckError('load case factors', errorText(err, String(err)));
+  }
 }
 
 /** Combine 2D results with factors via WASM. JsValue in/out — no JSON round trip. */
