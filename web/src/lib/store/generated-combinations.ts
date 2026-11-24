@@ -16,6 +16,7 @@
  * Run inside the caller's batch: one command, one undo step.
  */
 import { caseOrder } from '../engine/case-effects';
+import { EngineCheckError } from '../engine/engine-unavailable';
 import { sumCombinationFactors } from '../engine/wasm-solver';
 import { modelStore, type LoadCombination, type StructureModel } from './model.svelte';
 import type { CaseCombination } from '../engine/loads/combination-cases';
@@ -131,33 +132,56 @@ export function activeCombinationFactors(factors: Factors): LoadCombination['fac
   return sumCombinationFactors(factors).filter(({ factor }) => factor !== 0);
 }
 
+type ExistingCombination = Pick<LoadCombination, 'factors' | 'method'> & Partial<Pick<LoadCombination, 'name'>>;
+type CompositeModel = Pick<StructureModel, 'loadCases' | 'loads' | 'analysis'>;
+type ReportInvalid = (combination: ExistingCombination, error: EngineCheckError) => void;
+
 export function combinationExists(
   factors: Factors,
-  combinations: ReadonlyArray<Pick<LoadCombination, 'factors' | 'method'>>,
-  compositeModel?: Pick<StructureModel, 'loadCases' | 'loads' | 'analysis'>,
+  combinations: readonly ExistingCombination[],
+  compositeModel?: CompositeModel,
+  reportInvalid?: ReportInvalid,
 ): boolean {
-  const expected = activeCombinationFactors(factors);
-  if (expected.length === 0) return false;
-  const sameFactors = (actual: Factors) =>
-    actual.length === expected.length && actual.every(({ caseId, factor }, i) =>
-      caseId === expected[i]!.caseId && factor === expected[i]!.factor);
-  const linear = combinations.filter(c => c.method === undefined || c.method === 'linear');
+  return generatedCombinationMatcher(combinations, compositeModel, reportInvalid)(factors);
+}
 
-  if (!compositeModel) return linear.some(c => sameFactors(activeCombinationFactors(c.factors)));
-
-  const { loadCases, loads, analysis } = compositeModel;
+function generatedWrappers({ loadCases, loads, analysis }: CompositeModel): Map<number, Factors> {
   const occupied = new Set([
     ...loads.map(load => load.data.caseId ?? 1),
     ...(analysis?.selfWeight ?? []).map(row => row.caseId),
     ...caseOrder(loadCases).looped,
   ]);
-  const wrappers = new Map(loadCases
+  return new Map(loadCases
     .filter(c => c.generated && c.includes?.length && c.type === '' && !c.notional && !c.spectral && !occupied.has(c.id))
     .map(c => [c.id, c.includes!]));
-  return linear.some(c => {
-    const roots = activeCombinationFactors(c.factors);
-    if (roots.length !== 1 || roots[0]!.factor !== 1) return false;
-    const includes = wrappers.get(roots[0]!.caseId);
-    return includes !== undefined && sameFactors(activeCombinationFactors(includes));
-  });
+}
+
+export function generatedCombinationMatcher(
+  combinations: readonly ExistingCombination[],
+  compositeModel?: CompositeModel,
+  reportInvalid?: ReportInvalid,
+): (factors: Factors) => boolean {
+  const wrappers = compositeModel && generatedWrappers(compositeModel);
+  const existing: Factors[] = [];
+  for (const combination of combinations) {
+    if (combination.method !== undefined && combination.method !== 'linear') continue;
+    try {
+      const roots = activeCombinationFactors(combination.factors);
+      if (!wrappers) {
+        existing.push(roots);
+      } else if (roots.length === 1 && roots[0]!.factor === 1) {
+        const includes = wrappers.get(roots[0]!.caseId);
+        if (includes) existing.push(activeCombinationFactors(includes));
+      }
+    } catch (error) {
+      if (!(error instanceof EngineCheckError)) throw error;
+      reportInvalid?.(combination, error);
+    }
+  }
+  return factors => {
+    const expected = activeCombinationFactors(factors);
+    return expected.length > 0 && existing.some(actual =>
+      actual.length === expected.length && actual.every(({ caseId, factor }, i) =>
+        caseId === expected[i]!.caseId && factor === expected[i]!.factor));
+  };
 }

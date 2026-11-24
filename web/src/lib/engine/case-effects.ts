@@ -222,6 +222,11 @@ function sourceGravity(model: ModelData, srcLoads: Load[], srcRows: SelfWeightLo
   return out;
 }
 
+function includedCases(c: CaseLike, accepts: (id: number) => boolean): NonNullable<LoadCase['includes']> {
+  return sumCombinationFactors((c.includes ?? []).filter(({ caseId }) => accepts(caseId)))
+    .filter(({ factor }) => factor !== 0);
+}
+
 function caseSources(
   authored: ReadonlyMap<number, readonly Load[]>,
   cases: readonly CaseLike[],
@@ -235,9 +240,7 @@ function caseSources(
     generated: new Map(),
     cases: new Map(cases.map(c => [c.id, {
       ratio: ratioOf(c),
-      includes: looped.has(c.id) ? [] : sumCombinationFactors((c.includes ?? []).filter(
-        inc => ids.has(inc.caseId) && include(inc.caseId),
-      )).filter(({ factor }) => factor !== 0),
+      includes: looped.has(c.id) ? [] : includedCases(c, id => ids.has(id) && include(id)),
     }])),
     targets: new Set([...ids, ...authored.keys()].filter(inScope)),
   };
@@ -327,13 +330,18 @@ export function singleSolveFactors(cases: readonly SingleCase[], opts: { legacyS
   const { looped } = caseOrder(cases);
   if (cases.some((c) => c.notional && !looped.has(c.id) && byId.has(c.notional.sourceCaseId))) return null;
   const terms = cases.filter(listed).map(({ id }) => ({ caseId: id, factor: 1 }));
-  const includes = new Map(cases.map(c => [c.id, sumCombinationFactors(c.includes ?? [])]));
+  const includes = new Map<number, ReturnType<typeof includedCases>>();
+  const includesOf = (id: number) => {
+    const cached = includes.get(id);
+    if (cached) return cached;
+    const resolved = looped.has(id) ? [] : includedCases(byId.get(id)!, caseId => byId.has(caseId));
+    includes.set(id, resolved);
+    return resolved;
+  };
   // What a case's result holds besides what it brings to the single solve, on listed results.
   const lessOf = (id: number, k: number) => {
-    if (looped.has(id)) return;
-    for (const inc of includes.get(id) ?? []) {
-      const part = byId.get(inc.caseId);
-      if (!part || inc.factor === 0) continue;
+    for (const inc of includesOf(id)) {
+      const part = byId.get(inc.caseId)!;
       if (listed(part)) terms.push({ caseId: part.id, factor: -k * inc.factor });
       else lessOf(part.id, k * inc.factor);
     }
@@ -347,7 +355,7 @@ export function singleSolveFactors(cases: readonly SingleCase[], opts: { legacyS
       if (weight.has(id)) return weight.get(id)!;
       const c = byId.get(id)!;
       let w = c.type === 'D' && !isCompositeCase(c) ? 1 : 0;
-      if (!looped.has(id)) for (const inc of includes.get(id) ?? []) if (inc.factor !== 0 && byId.has(inc.caseId)) w += inc.factor * weightOf(inc.caseId);
+      for (const inc of includesOf(id)) w += inc.factor * weightOf(inc.caseId);
       weight.set(id, w);
       return w;
     };

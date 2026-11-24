@@ -13,6 +13,38 @@ import { woodArmer } from '../../wood-armer';
 
 type Membrane = { sigmaXx: number; sigmaYy: number; tauXy: number; mx: number; my: number; mxy: number; qx?: number; qy?: number };
 
+function exactShellFactors(factors: ComboFactor[]): ComboFactor[] {
+  const bits = new DataView(new ArrayBuffer(8));
+  const fractionMask = (1n << 52n) - 1n;
+  const totals = new Map<number, bigint>();
+  for (const { caseId, factor } of factors) {
+    if (factor === 0) continue;
+    if (!Number.isFinite(factor)) throw new Error('Expected a finite shell factor');
+    bits.setFloat64(0, factor);
+    const encoded = bits.getBigUint64(0);
+    const exponent = Number((encoded >> 52n) & 0x7ffn);
+    const fraction = encoded & fractionMask;
+    const significand = exponent === 0 ? fraction : fraction | (1n << 52n);
+    const units = significand << BigInt(Math.max(0, exponent - 1));
+    const signed = factor < 0 ? -units : units;
+    totals.set(caseId, (totals.get(caseId) ?? 0n) + signed);
+  }
+  return [...totals].flatMap(([caseId, total]) => {
+    if (total === 0n) return [];
+    const magnitude = total < 0n ? -total : total;
+    const shift = Math.max(0, magnitude.toString(2).length - 53);
+    let significand = magnitude >> BigInt(shift);
+    if (shift > 0) {
+      const remainder = magnitude - (significand << BigInt(shift));
+      const half = 1n << BigInt(shift - 1);
+      if (remainder > half || (remainder === half && (significand & 1n) === 1n)) significand++;
+    }
+    const factor = (total < 0n ? -1 : 1) * Number(significand) * 2 ** (shift - 1074);
+    if (!Number.isFinite(factor)) throw new Error('Overflowing net shell factor');
+    return [{ caseId, factor }];
+  });
+}
+
 function combineMembrane(
   factors: ComboFactor[],
   perCase: Map<number, Map<number, Membrane>>,
@@ -29,7 +61,6 @@ function combineMembrane(
     // Q only where every contributing case has it: a sum over part of the cases is no value.
     let qx: number | undefined = 0, qy: number | undefined = 0;
     for (const f of factors) {
-      if (f.factor === 0) continue;
       const s = perCase.get(f.caseId)?.get(id);
       if (!s) continue;
       contributed = true;
@@ -59,15 +90,16 @@ export function combineShellStressesOracle(
   plates: PlateThickness,
   ids?: { plates: Set<number>; quads: Set<number> },
 ): { plateStresses: PlateStress[]; quadStresses: QuadStress[] } {
+  const resolved = exactShellFactors(factors.filter(({ caseId }) => perCasePlates.has(caseId) || perCaseQuads.has(caseId)));
   const plateOut: PlateStress[] = [];
-  for (const [id, m] of combineMembrane(factors, perCasePlates, ids?.plates)) {
+  for (const [id, m] of combineMembrane(resolved, perCasePlates, ids?.plates)) {
     const t = plates.get(id)?.thickness ?? 0;
     // No thickness, no faces: the membrane is all that can be said.
     const pr = t > 0 ? worseFace(m, t) : { ...principalStresses(m.sigmaXx, m.sigmaYy, m.tauXy), vonMises: vonMisesPlane(m.sigmaXx, m.sigmaYy, m.tauXy) };
     plateOut.push({ elementId: id, sigmaXx: m.sigmaXx, sigmaYy: m.sigmaYy, tauXy: m.tauXy, mx: m.mx, my: m.my, mxy: m.mxy, sigma1: pr.sigma1, sigma2: pr.sigma2, vonMises: pr.vonMises });
   }
   const quads: QuadStress[] = [];
-  for (const [id, m] of combineMembrane(factors, perCaseQuads, ids?.quads)) {
+  for (const [id, m] of combineMembrane(resolved, perCaseQuads, ids?.quads)) {
     quads.push({ elementId: id, sigmaXx: m.sigmaXx, sigmaYy: m.sigmaYy, tauXy: m.tauXy, mx: m.mx, my: m.my, mxy: m.mxy, vonMises: vonMisesPlane(m.sigmaXx, m.sigmaYy, m.tauXy), ...(m.qx !== undefined ? { qx: m.qx, qy: m.qy } : {}) });
   }
   return { plateStresses: plateOut, quadStresses: quads };

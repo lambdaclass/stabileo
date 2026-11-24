@@ -363,9 +363,7 @@ it.each(['packed WASM export', 'single recombination', 'bundle enrichment'] as c
   },
 );
 
-const review2297 = process.env.RUN_KNOWN_WRONG === '2297' ? it : it.skip;
-
-review2297('#2297 the shell differential oracle agrees on residual and cancelled factors', () => {
+it('#2297 the shell differential oracle agrees on residual and cancelled factors', () => {
   const cancelling = q(7, 2);
   const live = { ...q(7, 4), qx: 3, qy: 4 };
   const quadRows = new Map([[1, new Map([[7, cancelling]])], [2, new Map([[7, live]])]]);

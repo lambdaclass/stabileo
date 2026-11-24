@@ -7,10 +7,10 @@
   import { windCaseReversible } from '../../lib/store/wind-reversal';
   import ProFloorLoadSection from './ProFloorLoadSection.svelte';
   import { expandCombinations, presentSymbols, type CaseCombination } from '../../lib/engine/loads/combination-cases';
-  import { activeCombinationFactors, addGeneratedCombinations, addCompositeCases, combinationExists, templateCombinationSpecs } from '../../lib/store/generated-combinations';
+  import { activeCombinationFactors, addGeneratedCombinations, addCompositeCases, generatedCombinationMatcher, templateCombinationSpecs } from '../../lib/store/generated-combinations';
   import { withNotionalVariants } from '../../lib/engine/loads/notional-combinations';
   import { modelStore, uiStore } from '../../lib/store';
-  import { runEngineAction } from '../../lib/store/engine-action';
+  import { errorText, runEngineAction } from '../../lib/store/engine-action';
   import { t, tp, capitalized } from '../../lib/i18n';
   import WriteInPanelButton from './WriteInPanelButton.svelte';
   import WriteCard from './WriteCard.svelte';
@@ -84,10 +84,13 @@
       // A wind case with roof suction is not reversed by sign (store/wind-reversal.ts).
       reversible: (id) => windCaseReversible(modelStore.model, id),
     });
+    const alreadyExists = generatedCombinationMatcher(combinations, asComposite ? modelStore.model : undefined, (combo, error) => {
+      uiStore.toast(`${combo.name} — ${errorText(error)}`, 'error');
+    });
     // The notional cases, each with its source's factor, in the combinations without lateral load.
     const out = (addNotionals ? withNotionalVariants(expanded, cases) : expanded).map((c) => {
       const factors = activeCombinationFactors(c.factors);
-      const exists = combinationExists(factors, combinations, asComposite ? modelStore.model : undefined);
+      const exists = alreadyExists(factors);
       return { name: c.name, factors, exists, selected: !exists, template, generated: c };
     });
     return out;

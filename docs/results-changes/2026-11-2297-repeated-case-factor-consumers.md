@@ -6,6 +6,8 @@ The shared resolver adds a case's factors exactly and rounds its total once befo
 
 Direct analysis resolves repeated top-level factors before multiplying them by composite inclusion factors. It sums the resulting notional contributions by case across the paths. This preserves the distinction between a surviving notional load and one that cancels before the method decides whether to apply its own notional loads.
 
+All-loads result recovery applies the same inclusion filter as load assembly before resolving repeated factors. References to cases absent from the model do not contribute to the recovered result.
+
 Re-run affected combinations and review the shell stresses and applied loads. Regenerate any notional variants previously created from rules that repeated a source case. Previously stored composite entries with repeated factors are resolved when the model is solved.
 
 ## Ignore zero load-case contributions in shell combinations

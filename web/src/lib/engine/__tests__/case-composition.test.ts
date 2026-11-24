@@ -173,9 +173,7 @@ it('preserves a 2D multi-case containment refusal', () => {
   } finally { multi.mockRestore(); single.mockRestore(); }
 });
 
-const review2297 = process.env.RUN_KNOWN_WRONG === '2297' ? it : it.skip;
-
-review2297.each([false, true])('#2297 ignores missing inclusions in single-solve recovery with legacy self-weight %s', legacySelfWeight => {
+it.each([false, true])('#2297 ignores missing inclusions in single-solve recovery with legacy self-weight %s', legacySelfWeight => {
   const { D, W } = portal();
   const c = modelStore.addLoadCase('Composite', '');
   const model = md();

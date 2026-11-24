@@ -224,9 +224,7 @@ it('#2297 duplicate detection preserves factor values, term order and combinatio
   expect.soft(combinationExists(unit, [magnitude])).toBe(false);
 });
 
-const review2297 = process.env.RUN_KNOWN_WRONG === '2297' ? it : it.skip;
-
-review2297.each(['direct', 'composite roots', 'composite inclusions'] as const)(
+it.each(['direct', 'composite roots', 'composite inclusions'] as const)(
   '#2297 reports overflowing existing %s without blocking duplicate matching',
   async mode => {
     const { initSolver } = await import('../../engine/wasm-solver');
@@ -247,9 +245,9 @@ review2297.each(['direct', 'composite roots', 'composite inclusions'] as const)(
     const good = { name: 'Representable combination', factors: mode === 'direct' ? representable : wrapper('Representable wrapper', representable) };
     const compositeModel = mode === 'direct' ? undefined : modelStore.model;
     const reported: Array<[string, string]> = [];
-    const report = (combo: { name: string }, error: Error) => reported.push([combo.name, error.message]);
+    const report = (combo: { name?: string }, error: Error) => reported.push([combo.name ?? '', error.message]);
     const exists = (factors: typeof unit, combinations: Array<typeof bad>) =>
-      Reflect.apply(combinationExists, undefined, [factors, combinations, compositeModel, report]);
+      combinationExists(factors, combinations, compositeModel, report);
 
     expect.soft(exists(candidate, [bad, good])).toBe(true);
     expect.soft(exists(candidate, [good, bad])).toBe(true);
