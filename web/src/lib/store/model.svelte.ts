@@ -51,6 +51,7 @@ import type { ModelSnapshot, SnapshotKind } from './history.svelte';
 import { normalizeMassSource, type MassSource } from '../engine/dynamics/mass-source';
 import { pruneScopes, scopeBundle3D, type ResultScopes } from '../engine/result-scopes';
 import type { CombinationRule } from '../engine/loads/combination-rules';
+import { isCompositeCase } from '../engine/loads/combination-cases';
 import { splitElementLoads, segmentFields, memberLoadGeometry } from '../model/edit/member-split';
 import { variableCutSection, variableRefusal } from '../section/variable';
 import { findCoincidentNode } from '../engine/mesh-weld';
@@ -5170,16 +5171,16 @@ export function plannedCaseName(
 }
 
 export function findPlannedCase<C extends Pick<LoadCase, 'id' | 'type' | 'name' | 'alternatives' | 'snowBasis' | 'group' | 'includes' | 'generated'> & { reduction?: unknown }>(
-  cases: readonly C[], name: string, type: string, opts: PlannedCaseMatch = {},
+  cases: readonly C[], name: string | undefined, type: string, opts: PlannedCaseMatch = {},
 ): C | undefined {
-  const numbered = (n: string) => n === name || (n.startsWith(`${name} (`) && /^\(\d+\)$/.test(n.slice(name.length + 1)));
   const open = (c: C) => c.type === type && c.snowBasis === opts.snowBasis && c.group === opts.group
-    && !c.generated && !(opts.reduced && c.reduction !== undefined)
-    && (opts.group === undefined || !c.includes?.length);
-  return (opts.existingId != null ? cases.find((c) => c.id === opts.existingId && open(c)) : undefined)
-    ?? (opts.own || opts.group !== undefined
-      ? cases.find((c) => c.alternatives === opts.alternatives && numbered(c.name) && open(c))
-      : cases.find((c) => c.name === name && open(c)));
+    && !c.generated && !(opts.reduced && c.reduction !== undefined) && !isCompositeCase(c);
+  const explicit = opts.existingId != null ? cases.find(c => c.id === opts.existingId && open(c)) : undefined;
+  if (explicit || name === undefined) return explicit;
+  const numbered = (n: string) => n === name || (n.startsWith(`${name} (`) && /^\(\d+\)$/.test(n.slice(name.length + 1)));
+  return cases.find(c => open(c) && (opts.own || opts.group !== undefined
+    ? c.alternatives === opts.alternatives && numbered(c.name)
+    : c.name === name));
 }
 
 function withAxisNamedCases(store: ReturnType<typeof createModelStore>) {

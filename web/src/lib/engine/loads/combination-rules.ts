@@ -77,7 +77,7 @@ export function rulesFromTemplate(text: string): { name: string; rules: Combinat
     if (!x || !Array.isArray(x.terms)) continue;
     const terms: CombinationTerm[] = [];
     for (const t of x.terms as Array<{ symbol?: unknown; factor?: unknown; group?: unknown } | null>) {
-      if (!t) continue;
+      if (!t || typeof t !== 'object' || Array.isArray(t)) return null;
       const { symbol, factor, group } = t;
       if (group !== undefined && !isCombinationGroup(group)) return null;
       if (!RULE_SYMBOLS.includes(symbol as LoadSymbol) || typeof factor !== 'number' || !Number.isFinite(factor)) {

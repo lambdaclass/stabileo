@@ -8,6 +8,7 @@
 import { modelStore } from './index';
 import { addGeneratedCombinations, takeBackCompositeCases } from './generated-combinations';
 import type { LoadPlan } from '../engine/loads/load-plan';
+import { isCompositeCase } from '../engine/loads/combination-cases';
 import { describePlanDelta, expandPlannedCombinations, type CurrentLoadState } from '../engine/loads/load-plan-delta';
 import { findPlannedCase, plannedCaseName, type Load, type LoadCase } from './model.svelte';
 import { designData, patchDesignData } from './design-data';
@@ -77,12 +78,9 @@ export function replaceScope(
 ): ReplaceScope {
   const types = new Set(p.cases.map((c) => String(c.type)));
   const caseType = new Map(cases.map((c) => [c.id, c.type]));
-  // The cases apply writes into, found as `ensureLoadCase` finds them. Without names, by id alone.
   const targets = new Set<number>();
   for (const pc of p.cases) {
-    const found = nameOf
-      ? findPlannedCase(cases, nameOf(pc.nameKey, pc.nameParams), pc.type, pc)
-      : cases.find((c) => c.id === pc.existingId);
+    const found = findPlannedCase(cases, nameOf?.(pc.nameKey, pc.nameParams), pc.type, pc);
     if (found) targets.add(found.id);
   }
   // A default case the plan writes into is the plan's target and stays; the rest of the untouched ones go.
@@ -186,26 +184,27 @@ function prepareCombinationCases(p: LoadPlan, nameOf: ApplyLoadPlanOptions['name
   const planIds = new Set(bindings.map(b => b.projectedId));
   const ownTypes = new Set<string>(p.cases.filter(c => c.own).map(c => c.type));
   const ownGroups = new Set(p.cases.filter(c => c.own).map(c => c.alternatives).filter(Boolean));
-  const extra = retained.filter(c => !c.generated && ownTypes.has(c.type) && !planIds.has(c.id)
+  const extra = retained.filter(c => !c.generated && !isCompositeCase(c) && !planIds.has(c.id)
     && !(c.alternatives && ownGroups.has(c.alternatives)));
-  const cases = [...[...planIds].map(id => projected.get(id)!), ...extra];
-  return { bindings, cases };
+  const cases = [...[...planIds].map(id => projected.get(id)!), ...extra.filter(c => ownTypes.has(c.type))];
+  const explicitGroupCases = extra.filter(c => c.group !== undefined && !ownTypes.has(c.type));
+  return { bindings, cases, explicitGroupCases };
 }
 
 export function previewLoadPlan(
   p: LoadPlan, nameOf: ApplyLoadPlanOptions['nameOf'], options: Parameters<typeof describePlanDelta>[2],
 ) {
   const scope = replaceScope(p, modelStore.loads, modelStore.loadCases, modelStore.combinations, nameOf);
-  const { cases } = prepareCombinationCases(p, nameOf, scope);
-  return describePlanDelta(p, describeCurrentLoads(scope), options, cases);
+  const { cases, explicitGroupCases } = prepareCombinationCases(p, nameOf, scope);
+  return describePlanDelta(p, describeCurrentLoads(scope), { ...options, explicitGroupCases }, cases);
 }
 
 export function applyLoadPlan(p: LoadPlan, opts: ApplyLoadPlanOptions) {
   if (p.outcome !== 'READY' || p.blockedKeys.length > 0) return p.blockedKeys[0];
   const expandOptions = { bothSenses: { E: opts.bothSenses }, patternsInCompanions: opts.patternsInCompanions };
   const scope = replaceScope(p, modelStore.loads, modelStore.loadCases, modelStore.combinations, opts.nameOf);
-  const { bindings, cases } = prepareCombinationCases(p, opts.nameOf, scope);
-  const expanded = expandPlannedCombinations(p, expandOptions, cases);
+  const { bindings, cases, explicitGroupCases } = prepareCombinationCases(p, opts.nameOf, scope);
+  const expanded = expandPlannedCombinations(p, { ...expandOptions, explicitGroupCases }, cases);
   if (hasModalSeismicDerivation(p.derivation) || (p.cases.some(c => c.type === 'E') && p.seismicGeneration !== 'static')) {
     return msg(MODAL_SEISMIC_UNAVAILABLE);
   }

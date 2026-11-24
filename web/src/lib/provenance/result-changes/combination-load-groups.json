@@ -6,8 +6,9 @@
   ],
   "area": "loads",
   "when": {
-    "all": [
-      "groupedCombinationRules"
+    "any": [
+      "groupedCombinationRules",
+      "loadPlanInCompositeCase"
     ]
   },
   "quantities": [
@@ -26,14 +27,14 @@
     "hu": "A mentett kombinációs szabályok figyelembe veszik a tehercsoportokat"
   },
   "explanation": {
-    "en": "A saved grouped factor could apply to every case of the same load symbol. Regenerate combinations made from grouped rules, including composite cases, then rerun the analyses and envelopes.",
-    "es": "Un factor de grupo guardado podía aplicarse a todos los casos con el mismo símbolo de carga. Regenerá las combinaciones creadas con reglas por grupo, incluidos los casos compuestos, y volvé a calcular los análisis y las envolventes.",
-    "pt": "Um fator de grupo salvo podia ser aplicado a todos os casos com o mesmo símbolo de carga. Gere novamente as combinações criadas com regras por grupo, incluindo os casos compostos, e repita as análises e as envoltórias.",
-    "de": "Ein gespeicherter Gruppenfaktor konnte auf alle Lastfälle mit demselben Lastsymbol angewendet werden. Erzeugen Sie die aus Gruppenregeln erstellten Kombinationen einschließlich zusammengesetzter Lastfälle neu und berechnen Sie Analysen und Einhüllende erneut.",
-    "fr": "Un coefficient de groupe enregistré pouvait s’appliquer à tous les cas du même symbole de charge. Régénérez les combinaisons issues de règles par groupe, y compris les cas composites, puis relancez les analyses et les enveloppes.",
-    "tr": "Kayıtlı bir grup katsayısı aynı yük simgesine sahip tüm durumlara uygulanabiliyordu. Bileşik durumlar dahil, gruplu kurallardan oluşturulan birleşimleri yeniden üretin, ardından analizleri ve zarfları yeniden hesaplayın.",
-    "zh": "已保存的组系数可能应用于同一荷载符号的所有工况。请重新生成基于分组规则的组合（包括复合工况），然后重新运行分析并计算包络。",
-    "hu": "Egy mentett csoporttényező az azonos teherjellel rendelkező összes teheresetre érvényesülhetett. Készítse újra a csoportszabályokból létrehozott kombinációkat, az összetett tehereseteket is, majd futtassa újra az elemzéseket és a burkológörbék számítását."
+    "en": "A saved grouped factor could apply to every case of the same load symbol. Regenerate combinations made from grouped rules, including composite cases, then rerun the analyses and envelopes. Review any composite case that already holds loads written by Auto Loads.",
+    "es": "Un factor de grupo guardado podía aplicarse a todos los casos con el mismo símbolo de carga. Regenerá las combinaciones creadas con reglas por grupo, incluidos los casos compuestos, y volvé a calcular los análisis y las envolventes. Revisá los casos compuestos que ya contengan cargas escritas por Cargas automáticas.",
+    "pt": "Um fator de grupo salvo podia ser aplicado a todos os casos com o mesmo símbolo de carga. Gere novamente as combinações criadas com regras por grupo, incluindo os casos compostos, e repita as análises e as envoltórias. Revise os casos compostos que já contêm cargas geradas pelo cálculo automático de cargas.",
+    "de": "Ein gespeicherter Gruppenfaktor konnte auf alle Lastfälle mit demselben Lastsymbol angewendet werden. Erzeugen Sie die aus Gruppenregeln erstellten Kombinationen einschließlich zusammengesetzter Lastfälle neu und berechnen Sie Analysen und Einhüllende erneut. Prüfen Sie zusammengesetzte Lastfälle, die bereits automatisch erzeugte Lasten enthalten.",
+    "fr": "Un coefficient de groupe enregistré pouvait s’appliquer à tous les cas du même symbole de charge. Régénérez les combinaisons issues de règles par groupe, y compris les cas composites, puis relancez les analyses et les enveloppes. Vérifiez les cas composites qui contiennent déjà des charges générées automatiquement.",
+    "tr": "Kayıtlı bir grup katsayısı aynı yük simgesine sahip tüm durumlara uygulanabiliyordu. Bileşik durumlar dahil, gruplu kurallardan oluşturulan birleşimleri yeniden üretin, ardından analizleri ve zarfları yeniden hesaplayın. Otomatik yüklerin daha önce yazıldığı bileşik yük durumlarını gözden geçirin.",
+    "zh": "已保存的组系数可能应用于同一荷载符号的所有工况。请重新生成基于分组规则的组合（包括复合工况），然后重新运行分析并计算包络。 请检查已包含自动生成荷载的组合工况。",
+    "hu": "Egy mentett csoporttényező az azonos teherjellel rendelkező összes teheresetre érvényesülhetett. Készítse újra a csoportszabályokból létrehozott kombinációkat, az összetett tehereseteket is, majd futtassa újra az elemzéseket és a burkológörbék számítását. Ellenőrizze azokat az összetett tehereseteket, amelyek már tartalmaznak automatikusan előállított terheket."
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-combination-load-groups.md",

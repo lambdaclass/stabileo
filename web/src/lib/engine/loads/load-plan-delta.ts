@@ -118,7 +118,7 @@ export interface CurrentLoadState {
 export function describePlanDelta(
   plan: LoadPlan,
   current: CurrentLoadState,
-  options: { replaceExisting: boolean; bothSenses?: ExpandOptions['bothSenses']; patternsInCompanions?: boolean; alsoUnmarked?: boolean },
+  options: ExpandOptions & { replaceExisting: boolean; alsoUnmarked?: boolean },
   cases?: readonly CombinationCase[],
 ): PlanDelta {
   const plannedCombinationCount = expandPlannedCombinations(plan, options, cases).length;

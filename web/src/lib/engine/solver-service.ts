@@ -28,7 +28,7 @@ import { sectionShearAreas } from '../section/shear-areas';
 import { transverseSign } from './transverse-sign-2d';
 import { SupportMappingError, supportDofs3D } from './support-dofs-3d';
 import { isPlaneRoller, planeMemberAngle, resolvePlaneSupportSettlement } from '../model/support-types';
-import { solve as solveStructure, solve3D as solve3DEngine, setAdvancedGuards, assertFiniteWire, finiteWireJson, netCombinationFactors, combineResults, combineResults3D, combineResultsBatch3D, combineResultsEnvelope3D, computeEnvelope, computeEnvelope3D, solveMultiCase2D, solveMultiCase3D, input2DToWireObject, input3DToWireObject, solvePDelta3D } from './wasm-solver';
+import { solve as solveStructure, solve3D as solve3DEngine, setAdvancedGuards, assertFiniteWire, finiteWireJson, netCombinationFactors, combineResults, combineResults3D, combineResultsBatch3D, combineResultsEnvelope3D, computeEnvelope, computeEnvelope3D, solveMultiCase2D, solveMultiCase3D, input2DToWireObject, input3DToWireObject, solvePDelta3D, solvePDelta3DAsync } from './wasm-solver';
 import { solverProperties } from '../section/state';
 import type { SolverInput, SolverSupport, FullEnvelope, AnalysisResults } from './types';
 import { stabiliseOrphanRotations3D, unheldNodalMoment3D, exactOrphanRotations3D } from './orphan-rotations-3d';
@@ -59,7 +59,7 @@ import { planarLoadDirection } from './planar-load-direction';
 import { prestressToSolver } from './prestress';
 import { hasCaseDisplacements, imposedOf, imposedUnsupported, supportsWithImposed, casesWithDisplacements } from './case-displacements';
 import { constraintsTo2D } from './constraint-2d-remap';
-import { initPool, isPoolReady, solveParallel, solve2DInWorker, solve3DInWorker, PoolUnavailableError, nonlinearSessionInWorker, checkSolveCancelled, type NonlinearSolveOptions } from './solver-pool';
+import { initPool, isPoolReady, solveParallel, solve2DInWorker, solve3DInWorker, pdelta3DInWorker, PoolUnavailableError, nonlinearSessionInWorker, checkSolveCancelled, type NonlinearSolveOptions } from './solver-pool';
 import { i18n, t, tp } from '../i18n';
 // Counts app-side structural-solve dispatches so browser tests can assert that a
 // reinforcement-only edit triggers none. Not part of the solver.
@@ -2669,7 +2669,9 @@ export function solveCombinations3D(
     const { solving, resolved } = prepared;
     model = prepared.model;
     const plan = combinationsPlan3D(solvableModel(model), solving, resolved, includeSelfWeight, leftHand);
-    const solved = 'done' in plan ? plan.done : plan.finish(solveCombinations3DCore(plan.forces, solving, resolved, includeSelfWeight, leftHand));
+    const solved = 'done' in plan ? plan.done
+      : 'pdelta' in plan ? runPDeltaCombinationSteps(plan.pdelta)
+      : plan.finish(solveCombinations3DCore(plan.forces, solving, resolved, includeSelfWeight, leftHand));
     return finishBundle(withDeclaredInactiveBundle(solved, model), loadCases, resolved, magnitudeOptions(model), spectral);
   } catch (err) {
     if (err instanceof SupportMappingError) return localizeEngineText(err.message);
@@ -2685,11 +2687,6 @@ export function solveCombinations3D(
  * workers' (`solveCombinations3DParallel`), which PRO's Solve takes. They differ in the core only,
  * so a rule one honours the other cannot skip; the workers' entry once skipped P-Delta per
  * combination, and then the cases' imposed displacements.
- *
- * A model that is not linear, or P-Delta per combination, is solved here (`done`). Otherwise the
- * core solves `forces`, the model without its settlement and without the cases' imposed
- * displacements, and `finish` adds the settlement once and each case's displacements to its case
- * (`case-displacements.ts`).
  */
 function combinationsPlan3D(
   model: ModelData,
@@ -2697,10 +2694,11 @@ function combinationsPlan3D(
   combinations: LoadCombination[],
   includeSelfWeight: boolean,
   leftHand: boolean,
-): { done: Bundle3D | string | null } | { forces: ModelData; finish: (solved: Bundle3D | string | null) => Bundle3D | string | null } {
+): { done: Bundle3D | string | null } | { pdelta: ReturnType<typeof pdeltaCombinationSteps> }
+  | { forces: ModelData; finish: (solved: Bundle3D | string | null) => Bundle3D | string | null } {
   if (hasNonlinearBehaviour(model)) return { done: solveCombinations3DNonlinear(model, loadCases, combinations, includeSelfWeight, leftHand) };
   if (model.analysis?.perCombination === 'pdelta') {
-    return { done: solveCombinations3DPDelta(model, loadCases, combinations, includeSelfWeight, leftHand) };
+    return { pdelta: pdeltaCombinationSteps(model, loadCases, combinations, includeSelfWeight, leftHand) };
   }
   const imposed = casesWithDisplacements(model.loads);
   const loaded = imposed.size ? { ...model, loads: model.loads.filter((l) => l.type !== 'displacement3d') } : model;
@@ -3051,6 +3049,43 @@ function* nonlinearCombinationSteps(
   }
 }
 
+const COMBINATION_PDELTA_ITERATIONS = 30;
+const COMBINATION_PDELTA_TOLERANCE = 1e-6;
+
+function runPDeltaCombinationSteps(steps: ReturnType<typeof pdeltaCombinationSteps>): Bundle3D | string | null {
+  let next = steps.next();
+  while (!next.done) {
+    let response;
+    try {
+      response = solvePDelta3D(next.value, COMBINATION_PDELTA_ITERATIONS, COMBINATION_PDELTA_TOLERANCE);
+    } catch (error) {
+      next = steps.throw(error);
+      continue;
+    }
+    next = steps.next(response);
+  }
+  return next.value;
+}
+
+async function runPDeltaCombinationStepsAsync(
+  steps: ReturnType<typeof pdeltaCombinationSteps>, options: NonlinearSolveOptions,
+): Promise<Bundle3D | string | null> {
+  let next = steps.next();
+  while (!next.done) {
+    checkSolveCancelled(options);
+    let response;
+    try {
+      response = await solvePDelta3DAsync(next.value, COMBINATION_PDELTA_ITERATIONS, COMBINATION_PDELTA_TOLERANCE, pdelta3DInWorker);
+    } catch (error) {
+      next = steps.throw(error);
+      continue;
+    }
+    checkSolveCancelled(options);
+    next = steps.next(response);
+  }
+  return next.value;
+}
+
 /**
  * Combinations solved with P-Delta, each on its own factored loads (`analysis.perCombination`).
  *
@@ -3059,13 +3094,13 @@ function* nonlinearCombinationSteps(
  * forces carry the geometric part, (K + Kg)·u, and whether a second-order equilibrium exists
  * is read from the displacements rather than from the engine's flag (`direct-analysis.ts`).
  */
-function solveCombinations3DPDelta(
+function* pdeltaCombinationSteps(
   model: ModelData,
   loadCases: LoadCase[],
   combinations: LoadCombination[],
   includeSelfWeight: boolean,
   leftHand: boolean,
-): Bundle3D | string | null {
+): Generator<SolverInput3D, Bundle3D | string | null, ReturnType<typeof solvePDelta3D>> {
   const settled = hasSettlement(model.supports.values());
   const free = settled ? { ...model, supports: withoutSettlement(model.supports) } : model;
   const base = buildSolveInput3D({ ...model, loads: [] }, [], leftHand, { plateCases: false });
@@ -3105,8 +3140,7 @@ function solveCombinations3DPDelta(
       const on = imposedHere ? buildSolveInput3D({ ...model, loads: imposedOf(model.loads, factorOf) }, [], leftHand, { plateCases: false }) : base;
       if (!on) return t('svc.emptyModel');
       if (typeof on === 'string') return on;
-      const full = { ...on, loads };
-      const r = solvePDelta3D(full, 30, 1e-6);
+      const r = yield { ...on, loads };
       const amp = amplification(r);
       if (!amp.stable) { unstable.push(combo.id); continue; }
       const results: AnalysisResults3D = { ...r.results, secondOrder: { converged: !!r.converged, iterations: r.iterations ?? 0, stable: amp.stable, b2: amp.b2 } };
@@ -3248,7 +3282,7 @@ export async function solveCombinations3DParallel(
 ): Promise<Bundle3D | string | null> {
   // Share refusals and finishing with the synchronous entry; native solves yield to workers.
   checkSolveCancelled(options);
-  if (hasNonlinearBehaviour(model)) {
+  if (hasNonlinearBehaviour(model) || model.analysis?.perCombination === 'pdelta') {
     model = snapshotNonlinearModel(model);
     loadCases = plainDeepCopy(loadCases);
     combinations = plainDeepCopy(combinations);
@@ -3267,7 +3301,9 @@ export async function solveCombinations3DParallel(
       solved = await solveCombinations3DNonlinearAsync([active, solving, resolved, includeSelfWeight, leftHand], options);
     } else {
       const plan = combinationsPlan3D(active, solving, resolved, includeSelfWeight, leftHand);
-      solved = 'done' in plan ? plan.done : plan.finish(await solveCombinations3DParallelCore(plan.forces, solving, resolved, includeSelfWeight, leftHand));
+      solved = 'done' in plan ? plan.done
+        : 'pdelta' in plan ? await runPDeltaCombinationStepsAsync(plan.pdelta, options)
+        : plan.finish(await solveCombinations3DParallelCore(plan.forces, solving, resolved, includeSelfWeight, leftHand));
     }
     checkSolveCancelled(options);
     return finishBundle(withDeclaredInactiveBundle(solved, model), loadCases, resolved, magnitudeOptions(model), spectral);

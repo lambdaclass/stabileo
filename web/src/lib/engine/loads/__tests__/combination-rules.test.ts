@@ -65,9 +65,7 @@ describe('service wind in project rules', () => {
   });
 });
 
-const regression = process.env.RUN_KNOWN_WRONG === '2535' ? it : it.skip;
-
-regression('known wrong result: #2535 a malformed term rejects a template instead of removing an action', () => {
+it('#2535 a malformed term rejects a template instead of removing an action', () => {
   const template = (terms: unknown[]) => JSON.stringify({ kind: 'stabileo.combinationRules', rules: [{ terms }] });
   const dead = { symbol: 'D', factor: 1 };
   expect.soft(rulesFromTemplate(template([null]))).toBeNull();

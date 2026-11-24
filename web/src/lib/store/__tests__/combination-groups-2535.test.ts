@@ -18,13 +18,12 @@ import { assessProject } from '../../provenance/applicability';
 import { runDirectAnalysis, workerPDelta } from '../../engine/direct-analysis';
 import { pdelta3DInWorker, setWorkerFactoryForTests, type WorkerLike } from '../../engine/solver-pool';
 import * as wasm from '../../wasm/dedaliano_engine.js';
-import { finiteWireJson } from '../../engine/wasm-solver';
-import { finishPDelta3D, finishSolve3D } from '../../engine/solve-finish';
+import { solvePDelta3DWire } from '../../engine/wasm-solver';
+import { finishSolve3D } from '../../engine/solve-finish';
 import { nonlinearWorkerReply, nonlinearWorkerSession } from '../../engine/nonlinear-worker-session';
 import { solveCombinations2D, solveCombinations3D, solveCombinations3DParallel, type ModelData } from '../../engine/solver-service';
 import { setLocale, tp } from '../../i18n';
 
-const regression = process.env.RUN_KNOWN_WRONG === '2535' ? it : it.skip;
 const floor = { id: 1, type: 'L', name: 'Floor live' };
 const roof = { id: 2, type: 'L', name: 'Roof live', group: 'roof' };
 const roofTerm = { symbol: 'L', group: 'roof', factor: 2 } as const;
@@ -88,7 +87,7 @@ it('#2535 generated preview and Apply give each live case its own factor', () =>
   ]);
 });
 
-regression('known wrong result: #2535 one pick per alternative set across grouped terms in Loads, Preview and Apply', () => {
+it('#2535 one pick per alternative set across grouped terms in Loads, Preview and Apply', () => {
   restoreGroupedProject(namedFloorTerm, roofTerm);
   modelStore.restore({ ...modelStore.snapshot(), loadCases: alternativeCases });
   const planned = plan(namedFloorTerm, roofTerm);
@@ -110,7 +109,7 @@ regression('known wrong result: #2535 one pick per alternative set across groupe
   expect(modelStore.combinations.map(c => c.factors)).toEqual(alternativeFactors);
 });
 
-regression('known wrong result: #2535 cross-term patterns respect companion selection and independent cases still sum', () => {
+it('#2535 cross-term patterns respect companion selection and independent cases still sum', () => {
   const companion = { id: 3, type: 'W', name: 'Wind' };
   const plain = { id: 4, type: 'L', name: 'Other roof live', group: roof.group };
   const separate = { id: 5, type: 'L', name: 'Separate roof live', group: roof.group, alternatives: 'separate' };
@@ -124,7 +123,7 @@ regression('known wrong result: #2535 cross-term patterns respect companion sele
     .toEqual(alternativeFactors.map(factors => [...factors, ...common]));
 });
 
-regression('known wrong result: #2535 directional picks retain the factor and the allowed senses of each case', () => {
+it('#2535 directional picks retain the factor and the allowed senses of each case', () => {
   const cases = alternativeCases.map(c => ({ ...c, type: 'W' }));
   const terms = [namedFloorTerm, roofTerm].map(t => ({ ...t, symbol: 'W' as const }));
   const selections = expandCombinations([spec(...terms)], cases, {
@@ -135,7 +134,7 @@ regression('known wrong result: #2535 directional picks retain the factor and th
   ]);
 });
 
-regression('known wrong result: #2535 two terms selecting the same case contribute both factors to one pick', () => {
+it('#2535 two terms selecting the same case contribute both factors to one pick', () => {
   const second = { ...namedFloorTerm, factor: -namedFloorTerm.factor };
   const selections = expandCombinations([spec(namedFloorTerm, roofTerm, second)], alternativeCases);
   expect(selections.map(c => c.factors)).toEqual([
@@ -144,7 +143,7 @@ regression('known wrong result: #2535 two terms selecting the same case contribu
 });
 
 for (const group of [undefined, roof.group]) for (const match of ['name', 'explicit ID'] as const) {
-  regression(`known wrong result: #2535 ${group ?? 'ungrouped'} plan bypasses a composite matched by ${match}`, () => {
+  it(`#2535 ${group ?? 'ungrouped'} plan bypasses a composite matched by ${match}`, () => {
     const composite = { ...roof, group, includes: [{ caseId: floor.id, factor: 1 }] };
     const term = { ...roofTerm, group };
     restoreGroupedProject(term);
@@ -168,7 +167,7 @@ for (const group of [undefined, roof.group]) for (const match of ['name', 'expli
   });
 }
 
-regression('known wrong result: #2535 retained grouped aliases resolve in Loads, Preview and Apply without a planned case of that type', () => {
+it('#2535 retained grouped aliases resolve in Loads, Preview and Apply without a planned case of that type', () => {
   restoreGroupedProject(floorTerm, roofTerm);
   const retained = { ...roof, type: 'CR' };
   modelStore.restore({ ...modelStore.snapshot(), loadCases: [floor, retained] });
@@ -306,6 +305,15 @@ it('#2535 result notices identify projects with grouped terms', () => {
   expect(changes()).not.toContain('combination-load-groups');
   modelStore.setCombinationRules([{ id: 'grouped', purpose: 'strength', terms: [roofTerm] }]);
   expect(changes()).toContain('combination-load-groups');
+  modelStore.setCombinationRules([]);
+  const composite = { ...roof, group: undefined, includes: [{ caseId: floor.id, factor: 1 }] };
+  modelStore.restore({ ...modelStore.snapshot(), loadCases: [floor, composite] });
+  const tip = modelStore.addNode(0, 0, 0);
+  const load = modelStore.addNodalLoad3D(tip, 0, 0, -roofForce, 0, 0, 0, roof.id);
+  modelStore.replaceLoads(modelStore.loads.map(l =>
+    l.data.id === load ? { ...l, data: { ...l.data, generatedBy: 'generator' } } as typeof l : l));
+  modelStore.addCombination('Generated', [{ caseId: roof.id, factor: 1 }]);
+  expect(changes()).toContain('combination-load-groups');
 });
 
 function cantilever(dim: '2d' | '3d', exclusive = false) {
@@ -331,7 +339,7 @@ it('#2535 the 2D linear combination and envelope exclude the floor live load', (
   expect(solved.envelope.maxAbsResults.reactions.find(r => r.nodeId === base)?.rz).toBeCloseTo(roofForce * roofTerm.factor, 8);
 });
 
-regression('known wrong result: #2535 2D linear reactions keep grouped alternatives separate', () => {
+it('#2535 2D linear reactions keep grouped alternatives separate', () => {
   const { base, ids, model } = cantilever('2d', true);
   const solved = solveCombinations2D(model, modelStore.loadCases, modelStore.combinations);
   if (!solved || typeof solved === 'string') throw new Error(String(solved));
@@ -362,8 +370,7 @@ function recordWorkerJobs() {
             if (type === 'solve3d') {
               send({ type: 'result', id, result: finishSolve3D(wasm.solve_3d(input), input) });
             } else if (type === 'pdelta3d') {
-              const result = JSON.parse(wasm.solve_pdelta_3d(finiteWireJson(input, { maxIter, tolerance: tol }), maxIter, tol));
-              finishPDelta3D(result, input);
+              const result = solvePDelta3DWire(input, maxIter, tol, wasm.solve_pdelta_3d);
               jobs.push(type);
               send({ type: 'result', id, result });
             } else {
@@ -408,12 +415,13 @@ for (const entry of ['sync', 'async'] as const) for (const method of ['linear', 
   it(`#2535 the 3D ${entry} ${method} combination and envelope exclude the floor live load`, async () => {
     const { solved, ids, jobs } = await solveFixture(false);
     if (entry === 'async' && method === 'linear') expect(jobs).toContain('solve3d');
+    if (entry === 'async' && method === 'pdelta') expect(jobs).toContain('pdelta3d');
     if (entry === 'async' && method === 'uplift') expect(jobs).toContain('nonlinear-step');
     expect.soft(vertical(solved.perCombo.get(ids[0]!)!.reactions)).toBeCloseTo(roofForce * roofTerm.factor, 8);
     expect(vertical(solved.envelope.maxAbsResults3D.reactions)).toBeCloseTo(roofForce * roofTerm.factor, 8);
   });
 
-  regression(`known wrong result: #2535 3D ${entry} ${method} reactions keep grouped alternatives separate`, async () => {
+  it(`#2535 3D ${entry} ${method} reactions keep grouped alternatives separate`, async () => {
     const { solved, ids } = await solveFixture(true);
     expect.soft(ids).toHaveLength(2);
     expect.soft(vertical(solved.perCombo.get(ids[0]!)!.reactions)).toBeCloseTo(floorForce * floorTerm.factor, 8);
@@ -422,7 +430,7 @@ for (const entry of ['sync', 'async'] as const) for (const method of ['linear', 
   });
 
   if (entry === 'async' && method === 'pdelta') {
-    regression('known wrong result: #2535 async P-Delta combinations complete a worker solve and report second order', async () => {
+    it('#2535 async P-Delta combinations complete a worker solve and report second order', async () => {
       const { solved, ids, jobs } = await solveFixture(false);
       expect.soft(jobs).toContain('pdelta3d');
       expect(solved.perCombo.get(ids[0]!)?.secondOrder).toMatchObject({ stable: true, converged: true });
@@ -446,7 +454,7 @@ for (const entry of ['main thread', 'worker adapter'] as const) {
 }
 
 for (const entry of ['main thread', 'worker adapter'] as const) {
-  regression(`known wrong result: #2535 direct analysis via the ${entry} keeps grouped alternatives separate`, async () => {
+  it(`#2535 direct analysis via the ${entry} keeps grouped alternatives separate`, async () => {
     const { base, ids, model } = cantilever('3d', true);
     const jobs = entry === 'worker adapter' ? recordWorkerJobs() : [];
     const solved = await runDirectAnalysis(model, modelStore.loadCases, modelStore.combinations, {
