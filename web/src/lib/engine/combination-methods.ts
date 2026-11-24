@@ -1,3 +1,4 @@
+import { sumCombinationFactors } from './wasm-solver';
 import { fullSpanFallback } from './member-diagram';
 /**
  * What a combination bundle is made of, after the cases are solved:
@@ -334,11 +335,9 @@ export function magnitudeCombination(
   factors: ReadonlyArray<{ caseId: number; factor: number }>,
   perCase: ReadonlyMap<number, AnalysisResults3D>,
 ): AnalysisResults3D | null {
-  // A case named twice enters once, with its factors added, as a linear combination takes it:
-  // 1,2 D and 0,2 D are 1,4 D, not two terms squared apart.
-  const summed = new Map<number, number>();
-  for (const f of factors) if (perCase.has(f.caseId) && f.caseId !== SETTLEMENT_CASE_ID) summed.set(f.caseId, (summed.get(f.caseId) ?? 0) + f.factor);
-  const terms = [...summed].filter(([, f]) => f !== 0);
+  const terms: [number, number][] = sumCombinationFactors(factors.filter(
+    ({ caseId }) => perCase.has(caseId) && caseId !== SETTLEMENT_CASE_ID,
+  )).filter(({ factor }) => factor !== 0).map(({ caseId, factor }) => [caseId, factor]);
   if (!terms.length) return null;
   // The settlement, once with factor 1, as every linear combination takes it (`settlement-case.ts`).
   if (perCase.has(SETTLEMENT_CASE_ID)) terms.push([SETTLEMENT_CASE_ID, 1]);

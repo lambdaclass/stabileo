@@ -15,6 +15,19 @@ fn finite<T: serde::Serialize>(r: &T) {
     assert!(certify::finite::non_finite_paths(r).is_empty());
 }
 
+fn assert_physical_equilibrium_refusal(error: &str) {
+    let refusal: serde_json::Value = serde_json::from_str(error).unwrap();
+    let diagnostics = refusal["structuredDiagnostics"].as_array().unwrap();
+    assert_eq!(diagnostics.len(), 1);
+    let diagnostic = &diagnostics[0];
+    assert_eq!(diagnostic["code"], "result_quantity_unavailable");
+    assert_eq!(diagnostic["severity"], "error");
+    assert_eq!(diagnostic["phase"], "equilibrium");
+    assert_eq!(diagnostic["threshold"].as_f64(), Some(f64::EPSILON));
+    let residual = diagnostic["value"].as_f64().unwrap();
+    assert!(residual.is_finite() && residual > f64::EPSILON);
+}
+
 fn assert_displacements<T: serde::Serialize>(a: &T, b: &T) {
     fn compare(a: &serde_json::Value, b: &serde_json::Value) {
         match (a, b) {
@@ -85,10 +98,14 @@ fn issue_1969_transverse_truss_actions_survive_a_3d_embedding() {
 fn issue_1969_nonlinear_initial_balance_accepts_member_actions() {
     let input = witness("1969");
     let input3 = embed_2d(&input, Plane::XZ).unwrap();
-    let r = pdelta::solve_pdelta_2d(&input, 1, f64::EPSILON).unwrap();
-    finite(&r.linear_results);
-    let r = pdelta::solve_pdelta_3d(&input3, 1, f64::EPSILON).unwrap();
-    finite(&r.linear_results);
+    finite(&linear::solve_2d(&input).unwrap());
+    finite(&linear::solve_3d(&input3).unwrap());
+    assert_physical_equilibrium_refusal(
+        &pdelta::solve_pdelta_2d(&input, 1, f64::EPSILON).err().expect("2D must refuse"),
+    );
+    assert_physical_equilibrium_refusal(
+        &pdelta::solve_pdelta_3d(&input3, 1, f64::EPSILON).err().expect("3D must refuse"),
+    );
 }
 
 #[test]
@@ -217,17 +234,13 @@ fn member_load_class(kind: &str) {
                 .unwrap();
         }
         finite(&linear::solve_2d(&input).unwrap());
-        finite(
-            &pdelta::solve_pdelta_2d(&input, 1, f64::EPSILON)
-                .unwrap()
-                .linear_results,
+        assert_physical_equilibrium_refusal(
+            &pdelta::solve_pdelta_2d(&input, 1, f64::EPSILON).err().expect("2D must refuse"),
         );
         let input = embed_2d(&input, Plane::XZ).unwrap();
         finite(&linear::solve_3d(&input).unwrap());
-        finite(
-            &pdelta::solve_pdelta_3d(&input, 1, f64::EPSILON)
-                .unwrap()
-                .linear_results,
+        assert_physical_equilibrium_refusal(
+            &pdelta::solve_pdelta_3d(&input, 1, f64::EPSILON).err().expect("3D must refuse"),
         );
     }
 }

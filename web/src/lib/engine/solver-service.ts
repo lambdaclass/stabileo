@@ -1,4 +1,5 @@
 import { accountingCaseSources, accountingProjection, accountingSource, copyAccountingLoad, type AccountingCaseSources } from './accounting-source';
+import { EngineCheckError, EngineUnavailableError } from './engine-unavailable';
 import { scaleAssembledMagnitudes3D, type Wrench } from './accounting-math';
 import { accountCombination, accountLoads2D, loadAccounting3D, loadCaseBatches } from './load-accounting';
 import { accountPlateGeometry, SolveAccountingError } from './plate-accounting';
@@ -520,6 +521,10 @@ function convertSolverLoads2D(
   return solverLoads;
 }
 
+export function shellsRequirePro3D(model: Pick<ModelData, 'plates' | 'quads'>): string | null {
+  return model.plates?.size || model.quads?.size ? t('svc.shellsRequirePro3d') : null;
+}
+
 /**
  * Model-level rejections the 2D solver cannot honor: disconnected nodes,
  * zero-length elements, and 3D-only features (support types / z-coords).
@@ -531,6 +536,8 @@ function convertSolverLoads2D(
  * reuses downstream.
  */
 function preflightModel2D(model: ModelData): { error: string | null; connectedNodes: Set<number> } {
+  const shellRefusal = shellsRequirePro3D(model);
+  if (shellRefusal) return { error: shellRefusal, connectedNodes: new Set() };
   // Constraints are stored in 3D semantics; the 2D solver speaks [ux, uz, ry].
   // Remap ONCE and use the result for both the connectivity preflight and the
   // wire, so the preflight only credits constraints that actually reach the
@@ -1308,6 +1315,7 @@ export async function validateAndSolve2DAsync(
 
 export function buildSolverInput2D(model: ModelData, includeSelfWeight = false): SolverInput | null {
   requireModelNumbers(model);
+  if (shellsRequirePro3D(model)) return null;
   if (model.nodes.size < 2 || model.elements.size < 1 || model.supports.size < 1) return null;
   // The same builder as every 2D path, material α included (buildSolverLoads2D).
   const input = solverFrame2D(model);
@@ -2148,6 +2156,8 @@ function buildSolveInput3D(...args: Parameters<typeof buildValidatedSolverInput3
 
 /** A load the solve cannot place, said by name: a moment on a member that takes no bending. */
 export function loadRefusal(err: unknown): string | null {
+  if (err instanceof EngineCheckError) return localizeEngineText(err.engineMessage);
+  if (err instanceof EngineUnavailableError) return t('engine.unavailable');
   if (err instanceof MemberLoadIntervalError || err instanceof SolveAccountingError || err instanceof ModelInputError || err instanceof InvalidMaterialDensity) return err.message;
   if (err instanceof PlaneSelfWeightError || err instanceof PlanarPointLoadProjectionError || err instanceof PlanarLoadMomentError) return err.message;
   return err instanceof PointLoadNeedsCut ? tp('svc.pointMomentOnTruss', { n: err.elementId }) : null;
@@ -3121,7 +3131,7 @@ function solveCombinations3DPDelta(
       perCombo.set(combo.id, results);
     }
   } catch (err: any) {
-    return knownIssueRefusal(err) ?? t('svc.solver3dError').replace('{n}', err.message);
+    return knownIssueRefusal(err) ?? t('svc.solver3dError').replace('{n}', localizeEngineText(errorText(err, String(err))));
   }
   if (perCombo.size === 0) return unstable.length > 0 ? t('svc.pdeltaNoneStable') : t('svc.noLoadsApplied');
   const envelope = computeEnvelope3D([...perCombo.values()]);

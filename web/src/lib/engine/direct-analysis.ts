@@ -42,9 +42,9 @@ import { collapseVariableResults, variableExpansionFor } from './variable-member
 import type { LoadCase, LoadCombination } from '../store/model.svelte';
 import type { SolverInput3D, SolverLoad3D, AnalysisResults3D, SolverNode3D } from './types-3d';
 import { computeLocalAxes3D } from './local-axes-3d';
-import { input3DToWireObject, solvePDelta3D, torsionGapRefusal } from './wasm-solver';
+import { input3DToWireObject, solvePDelta3D, sumCombinationFactors, torsionGapRefusal } from './wasm-solver';
 import { amplification } from './pdelta-amplification';
-import { caseOrder, withCaseEffects } from './case-effects';
+import { caseOrder, includedCases, withCaseEffects } from './case-effects';
 import { combinationCaseIds } from './combination-methods';
 import { isCompositeCase } from './loads/combination-cases';
 export { amplification } from './pdelta-amplification';
@@ -255,24 +255,17 @@ export async function runDirectAnalysis(
    * analysis added its own 0.002 on top. A case in a loop takes nothing in, as `withCaseEffects`
    * solves it.
    */
-  const caseById = new Map(loadCases.map((c) => [c.id, c]));
+  const byId = new Map(loadCases.map(c => [c.id, c]));
   const { looped } = caseOrder(loadCases);
-  const notionalIn = (id: number, k: number, out: Map<number, number>, seen: ReadonlySet<number>) => {
+  const notionalIn = (id: number, k: number, out: LoadCombination['factors'], seen: ReadonlySet<number>) => {
     if (k === 0 || seen.has(id)) return;
-    if (notionalCases.has(id)) { out.set(id, (out.get(id) ?? 0) + k); return; }
-    const c = caseById.get(id);
+    if (notionalCases.has(id)) { out.push({ caseId: id, factor: k }); return; }
+    const c = byId.get(id);
     if (!c || looped.has(id)) return;
-    for (const inc of c.includes ?? []) notionalIn(inc.caseId, k * inc.factor, out, new Set([...seen, id]));
+    for (const inc of includedCases(c, byId)) notionalIn(inc.caseId, k * inc.factor, out, new Set([...seen, id]));
   };
 
   const caseIds = combinationCaseIds(resolved);
-  const notionalByCombo = new Map(resolved.map(combo => {
-    const share = new Map<number, number>();
-    for (const f of combo.factors) notionalIn(f.caseId, f.factor, share, new Set());
-    const factors = [...share].filter(([, k]) => Math.abs(k) > 1e-12).map(([caseId, factor]) => ({ caseId, factor }));
-    for (const { caseId } of factors) caseIds.add(caseId);
-    return [combo, factors];
-  }));
   /*
    * The structure the linear solve solves: its members cut where a moment or an axial force sits
    * inside a span (`variable-members.ts`), so the base is built from the same expanded model as the
@@ -281,7 +274,15 @@ export async function runDirectAnalysis(
   let prepared: ReturnType<typeof prepareSolverInput3D>;
   let base: SolverInput3D | null;
   let caseLoads: Map<number, SolverLoad3D[]>;
+  const notionalByCombo = new Map<LoadCombination, LoadCombination['factors']>();
   try {
+    for (const combo of resolved) {
+      const terms: LoadCombination['factors'] = [];
+      for (const f of combo.factors) notionalIn(f.caseId, f.factor, terms, new Set());
+      const factors = sumCombinationFactors(terms).filter(({ factor }) => factor !== 0);
+      for (const { caseId } of factors) caseIds.add(caseId);
+      notionalByCombo.set(combo, factors);
+    }
     const orphan = modelNumberRefusal(model) ?? orphanLoadRefusal(model);
     if (orphan) return orphan;
     model = withCaseEffects(model, loadCases, { includeSelfWeight: opts.includeSelfWeight, leftHand }, caseIds);

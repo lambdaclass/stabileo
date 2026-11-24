@@ -58,6 +58,7 @@ const ar: Translations = {
   'landing.heroTitle2': 'فوري.',
   'landing.heroSub': 'تحليل إنشائي احترافي ثنائي وثلاثي الأبعاد في متصفحك. بدون تثبيت، بدون تنازلات.',
   'landing.tryApp': 'جرّب التطبيق',
+  'landing.openingEditor': 'جارٍ فتح المحرر…',
   'landing.tryTour': 'جرّب الجولة الإرشادية',
   'landing.metricLanguages': 'اللغات',
   'landing.metricAnalysis': 'تحليل كامل',

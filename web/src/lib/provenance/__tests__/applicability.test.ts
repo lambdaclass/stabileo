@@ -508,6 +508,39 @@ describe('which registered changes concern a model', () => {
     expect(ids(model())).not.toContain(change);
   });
 
+  it('known wrong result: #2100: P-Delta refusal notices require structural stiffness and applicable solve history', () => {
+    const entry = RESULT_CHANGES.changes.find(c => c.id === 'pdelta-equilibrium-refusal')!;
+    const before = { ...stampSolve('pdelta', null), resultsVersion: entry.resultsVersion - 1 };
+    const current = { ...before, resultsVersion: entry.resultsVersion };
+    for (const analysisMode of ['2d', 'pro']) {
+      const empty = model({ analysisMode });
+      for (const stamp of [null, unknownStamp(), before]) {
+        expect(ids(empty, stamp)).not.toContain(entry.id);
+      }
+      for (const snapshot of [
+        { ...empty, elements: [member(1, 1, 'frame')] },
+        { ...empty, elements: [member(1, 1, 'truss')] },
+        model({ ...empty, supports: [[1, { nodeId: 1, type: 'spring', kx: 1 }]] }),
+      ]) {
+        expect(ids(snapshot)).toContain(entry.id);
+        expect(ids(snapshot, before)).toContain(entry.id);
+        expect(ids(snapshot, current)).not.toContain(entry.id);
+        for (const analysis of ['linear', 'nonlinear'] as const) {
+          const other = { ...stampSolve(analysis, null), resultsVersion: before.resultsVersion };
+          expect(ids(snapshot, other)).not.toContain(entry.id);
+        }
+      }
+    }
+    for (const snapshot of [
+      model({ quads: [[1, {}]] }),
+      model({ quads: [[1, { curved: true }]] }),
+      model({ connectors: [[1, { kShear: 1 }]] }),
+      model({ constraints: [{ type: 'equalDOF', masterNode: 1, slaveNode: 2, dofs: [0] }] }),
+    ]) {
+      expect(ids(snapshot, before)).toContain(entry.id);
+    }
+  });
+
   it('unknown analysis history without stiffness elements has no linear result to re-check', () => {
     expect(ids(model({ supports: [], loadCases: [] }))).toEqual([]);
   });

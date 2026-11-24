@@ -62,10 +62,10 @@ describe('combinations generated as composite cases', () => {
     for (const id of made) expect(modelStore.model.loadCases.find((c) => c.id === id)!.generated).toBe(true);
 
     // A second run sees every one of them, as the combination its case is.
-    for (const c of list) expect(combinationExists(c.factors, modelStore.combinations, modelStore.model.loadCases)).toBe(true);
+    for (const c of list) expect(combinationExists(c.factors, modelStore.combinations, modelStore.model)).toBe(true);
     // And not one with other factors.
     const other = list[0]!.factors.map((f) => ({ ...f, factor: f.factor * 2 }));
-    expect(combinationExists(other, modelStore.combinations, modelStore.model.loadCases)).toBe(false);
+    expect(combinationExists(other, modelStore.combinations, modelStore.model)).toBe(false);
 
     // "Replace": the combinations go, and the cases with them; none taken by nothing is left.
     applyLoadPlan(plan, { clearExisting: true, bothSenses: true, nameOf });
@@ -73,6 +73,22 @@ describe('combinations generated as composite cases', () => {
     for (const id of made) expect(ids.has(id)).toBe(false);
     expect(modelStore.model.loadCases.some((c) => c.generated)).toBe(false);
     for (const c of modelStore.combinations) for (const f of c.factors) expect(ids.has(f.caseId)).toBe(true);
+  });
+
+  it('matches only an unmodified unit wrapper for a composite candidate', () => {
+    const dead = modelStore.addLoadCase('Dead', 'D');
+    const factors = [{ caseId: dead, factor: 1 }];
+    const [wrapper] = addCompositeCases([{ name: 'Unit', factors, purpose: 'strength', specId: 'unit' }]);
+    const existing = modelStore.combinations;
+    expect(combinationExists(factors, existing, modelStore.model)).toBe(true);
+    expect(combinationExists(factors, existing)).toBe(false);
+    expect(combinationExists(factors, [{ factors }], modelStore.model)).toBe(false);
+    for (const factor of [1 - Number.EPSILON, 1 + Number.EPSILON]) {
+      expect(combinationExists(factors, [{ factors: [{ caseId: wrapper!, factor }] }], modelStore.model)).toBe(false);
+    }
+    const node = modelStore.nodes.keys().next().value!;
+    modelStore.addNodalLoad3D(node, 1, 0, 0, 0, 0, 0, wrapper!);
+    expect(combinationExists(factors, existing, modelStore.model)).toBe(false);
   });
 
   it('a generated case something else takes stays, and a case of the user\'s is never taken back', () => {
