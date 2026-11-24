@@ -1574,7 +1574,7 @@
       ]
     },
     "src/components/pro/ProPanel.svelte": {
-      "source": "240dfd79b493ec929bfabdbfa8254bb49ba399a3a7f0cafefa978c964461bf30",
+      "source": "e33a9dc4e9c87c0d8eeed0f251408805567023a01f73ea623fd79ef88f96a644",
       "original": "490b90da003f2364b35280da388b93a0ce4f26b543832b092b765492bec17d9a",
       "changes": [
         [
@@ -1626,13 +1626,16 @@
         ],
         [
           462,
-          1,
-          []
-        ],
-        [
-          464,
-          3,
-          []
+          2,
+          [
+            "  .pro-solve-error {",
+            "    padding: 4px 10px;",
+            "    font-size: 0.7rem;",
+            "    color: var(--st-danger);",
+            "    background: rgba(229, 72, 42, 0.1);",
+            "    border-bottom: 1px solid var(--st-surface-3);",
+            "  }"
+          ]
         ]
       ]
     },
