@@ -44,6 +44,7 @@
  * cases the regulation generator makes (the same forces on every node of a level, mirrored),
  * and a statement about any case loaded by hand, which the option says where it is offered.
  */
+import { isCombinationGroup } from './combination-rules';
 import { EngineMessageError, msg } from '../../codes/message';
 import type { LoadCombinationSpec, LoadSymbol, CombinationInputs } from '../../codes/cirsoc101/combinations';
 
@@ -126,29 +127,56 @@ function hasSeismicProvenance(spec: LoadCombinationSpec): boolean {
       && n.params.loads.split(',').some(s => s.trim() === 'E')));
 }
 
+export interface CombinationCase {
+  id: number;
+  type?: string;
+  name: string;
+  group?: string;
+  alternatives?: string;
+  pattern?: boolean;
+  includes?: ReadonlyArray<unknown>;
+  snowBasis?: 'flatRoof';
+}
+
 export function expandCombinations(
   specs: readonly LoadCombinationSpec[],
-  cases: ReadonlyArray<{ id: number; type?: string; name: string; alternatives?: string; pattern?: boolean; includes?: ReadonlyArray<unknown>; snowBasis?: 'flatRoof' }>,
+  cases: readonly CombinationCase[],
   opts: ExpandOptions = {},
 ): CaseCombination[] {
-  type Case = { id: number; name: string; alternatives?: string; pattern?: boolean; snowBasis?: 'flatRoof' };
-  const bySymbol = new Map<LoadSymbol, Case[]>();
+  const bySymbol = new Map<LoadSymbol, CombinationCase[]>();
   for (const c of cases) {
     const s = symbolOfCase(c);
     if (!s) continue;
-    bySymbol.set(s, [...(bySymbol.get(s) ?? []), { id: c.id, name: c.name, alternatives: c.alternatives, pattern: c.pattern, snowBasis: c.snowBasis }]);
+    const matching = bySymbol.get(s);
+    if (matching) matching.push(c);
+    else bySymbol.set(s, [c]);
   }
   /** One way of taking a term: the cases it adds, their sign, and what names it. */
-  type Pick = { cases: Case[]; sense: 1 | -1; label: string };
+  type Pick = { cases: CombinationCase[]; sense: 1 | -1; label: string };
   const out: CaseCombination[] = [];
   for (const spec of specs) {
-    const terms = spec.terms.filter((t) => t.factor !== 0);
+    const unresolvedGroup = (symbol: LoadSymbol, group: unknown) =>
+      new EngineMessageError(msg('combos.refused.unresolvedGroup', { symbol, group: typeof group === 'string' ? group : '—' }));
+    const namedGroups = new Map<LoadSymbol, Set<string>>();
+    for (const t of spec.terms) {
+      if (t.group === undefined) continue;
+      if (!isCombinationGroup(t.group)) throw unresolvedGroup(t.symbol, t.group);
+      const groups = namedGroups.get(t.symbol) ?? new Set<string>();
+      groups.add(t.group);
+      namedGroups.set(t.symbol, groups);
+    }
+    const activeTerms = spec.terms.filter((t) => t.factor !== 0);
     const legacyFlatRoof = spec.notes?.some(n => n.key === 'loads.cirsoc101.note.snowAsFlatRoof');
     const seismic = hasSeismicProvenance(spec);
-    const selected = new Map(terms.map(t => {
+    const selected = new Map(activeTerms.map(t => {
       if (t.snowBasis && t.symbol !== 'S') throw new EngineMessageError(msg('snow.refused.flatRoofCase'));
       if (t.symbol === 'S' && !t.snowBasis && legacyFlatRoof && seismic) throw new EngineMessageError(msg('snow.refused.legacyCombination'));
-      const all = bySymbol.get(t.symbol) ?? [];
+      const symbolCases = bySymbol.get(t.symbol) ?? [];
+      const named = namedGroups.get(t.symbol);
+      const all = t.group === undefined
+        ? symbolCases.filter(c => c.group === undefined || !named?.has(c.group))
+        : symbolCases.filter(c => c.group === t.group);
+      if (t.group !== undefined && all.length === 0) throw unresolvedGroup(t.symbol, t.group);
       const basis = t.snowBasis ?? (t.symbol === 'S' && legacyFlatRoof ? 'flatRoof' : undefined);
       const matching = all.filter(c => t.symbol !== 'S' || c.snowBasis === basis);
       const missingSnowCase = basis === 'flatRoof' ? msg('snow.refused.flatRoofCase') : msg('snow.refused.physicalCase');
@@ -156,7 +184,7 @@ export function expandCombinations(
         const counterparts = all.filter(c => c.snowBasis !== basis);
         const ungroupedPair = counterparts.filter(c => !c.alternatives).length === 1
           && matching.filter(c => !c.alternatives).length === 1;
-        const covered = (c: Case) => c.alternatives
+        const covered = (c: CombinationCase) => c.alternatives
           ? matching.some(m => m.alternatives === c.alternatives)
           : ungroupedPair;
         if (counterparts.some(c => !covered(c))) throw new EngineMessageError(missingSnowCase);
@@ -164,8 +192,9 @@ export function expandCombinations(
       if ((basis === 'flatRoof' || all.length > 0) && !matching.length) throw new EngineMessageError(missingSnowCase);
       return [t, matching] as const;
     }));
-    if (terms.some((t) => !bySymbol.has(t.symbol))) continue;
-    const casesFor = (t: (typeof terms)[number]) => selected.get(t)!;
+    if (activeTerms.some(t => !bySymbol.has(t.symbol))) continue;
+    const casesFor = (t: (typeof activeTerms)[number]) => selected.get(t)!;
+    const terms = activeTerms.filter(t => casesFor(t).length > 0);
     /*
      * Each term offers one or more picks, and a combination takes one pick of every term.
      * A directional symbol (W, Wa, E) offers each of its cases on its own, and each sense when
@@ -185,7 +214,7 @@ export function expandCombinations(
         const all = casesFor(t);
         if (ALTERNATIVE.has(t.symbol)) {
           const reverse = !!opts.bothSenses?.[t.symbol as 'W' | 'E'];
-          const sensesOf = (c: Case): Array<1 | -1> =>
+          const sensesOf = (c: CombinationCase): Array<1 | -1> =>
             reverse && (t.symbol !== 'W' || !opts.reversible || opts.reversible(c.id)) ? [1, -1] : [1];
           const named = all.length > 1 || all.some((c) => sensesOf(c).length > 1);
           slots.push({ factor: t.factor, picks: all.flatMap((c) => sensesOf(c).map((sense) => ({
@@ -195,7 +224,7 @@ export function expandCombinations(
         }
         const plain = all.filter((c) => !c.alternatives);
         if (plain.length > 0) slots.push({ factor: t.factor, picks: [{ cases: plain, sense: 1, label: '' }] });
-        const groups = new Map<string, Case[]>();
+        const groups = new Map<string, CombinationCase[]>();
         for (const c of all) if (c.alternatives) groups.set(c.alternatives, [...(groups.get(c.alternatives) ?? []), c]);
         const companion = !opts.patternsInCompanions && i !== varying;
         for (const g0 of groups.values()) {

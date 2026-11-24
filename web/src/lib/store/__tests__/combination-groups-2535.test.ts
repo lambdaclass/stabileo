@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, it } from 'vitest';
 import { historyStore, modelStore, uiStore } from '../index';
-import { applyLoadPlan } from '../apply-load-plan';
+import { applyLoadPlan, previewLoadPlan } from '../apply-load-plan';
 import { addCompositeCases, addGeneratedCombinations, templateCombinationSpecs } from '../generated-combinations';
 import { deserializeProject, serializeProject } from '../file';
 import { engineGuarded, runEngineAction, runEngineActionAsync } from '../engine-action';
@@ -14,6 +14,7 @@ import type { CombinationTerm, LoadCombinationSpec } from '../../codes/cirsoc101
 import { modelToCode } from '../../model/code/format';
 import { applyCode } from '../../model/code/apply';
 import { fragmentOf, mapDefinitions } from '../../model/edit/fragment';
+import { assessProject } from '../../provenance/applicability';
 import { runDirectAnalysis, workerPDelta } from '../../engine/direct-analysis';
 import { pdelta3DInWorker, setWorkerFactoryForTests, type WorkerLike } from '../../engine/solver-pool';
 import * as wasm from '../../wasm/dedaliano_engine.js';
@@ -23,8 +24,6 @@ import { nonlinearWorkerReply, nonlinearWorkerSession } from '../../engine/nonli
 import { solveCombinations2D, solveCombinations3D, solveCombinations3DParallel, type ModelData } from '../../engine/solver-service';
 import { setLocale, tp } from '../../i18n';
 
-const regression = process.env.RUN_KNOWN_WRONG === '2535' ? it : it.skip;
-type GroupedTerm = CombinationTerm & { group?: string };
 const floor = { id: 1, type: 'L', name: 'Floor live' };
 const roof = { id: 2, type: 'L', name: 'Roof live', group: 'roof' };
 const roofTerm = { symbol: 'L', group: 'roof', factor: 2 } as const;
@@ -34,11 +33,11 @@ const roofForce = 5;
 const empty = { distributed: 0, nodal: 0, combinations: 0, caseTypes: [] };
 const applyOptions = { clearExisting: true, bothSenses: false, nameOf: (key: string) => key };
 
-function spec(...terms: GroupedTerm[]): LoadCombinationSpec {
+function spec(...terms: CombinationTerm[]): LoadCombinationSpec {
   return { id: 'grouped', label: 'Grouped live', refs: [], notes: [], terms };
 }
 
-function plan(...terms: GroupedTerm[]): LoadPlan {
+function plan(...terms: CombinationTerm[]): LoadPlan {
   const base = buildLoadPlan({ model: mesh([[[0, 0, 3], [10, 0, 3]]]), regulations: regulations(), dead: [],
     occupancyKey: 'vivienda', tributaryWidth: 1, reductionElementKind: 'interiorBeam', floorsSupported: 1,
     applyLiveReduction: false, generateCombinations: true, projectCombinations: [spec(...terms)] });
@@ -53,7 +52,7 @@ function projectCombinations() {
   return expandCombinations(templateCombinationSpecs('project', presentSymbols(cases), modelStore.combinationRules), cases);
 }
 
-function restoreGroupedProject(...terms: GroupedTerm[]) {
+function restoreGroupedProject(...terms: CombinationTerm[]) {
   const rule: CombinationRule = { id: 'grouped', purpose: 'strength', terms };
   modelStore.restore({ ...modelStore.snapshot(), loadCases: [floor, roof], combinationRules: [rule], combinations: [] });
   return rule;
@@ -65,12 +64,13 @@ beforeEach(() => {
   historyStore.clear();
 });
 
-regression('known wrong result: #2535 generated preview and Apply give each live case its own factor', () => {
+it('#2535 generated preview and Apply give each live case its own factor', () => {
   const input = plan(floorTerm, roofTerm);
   expect.soft(expandPlannedCombinations(input, {})[0]?.factors).toEqual([
     { caseId: 1, factor: floorTerm.factor }, { caseId: 2, factor: roofTerm.factor },
   ]);
   expect.soft(describePlanDelta(input, empty, { replaceExisting: true }).after.combinations).toBe(1);
+  expect(previewLoadPlan(input, applyOptions.nameOf, { replaceExisting: true }).after.combinations).toBe(1);
   expect(applyLoadPlan(input, applyOptions)).toBeUndefined();
   const byName = new Map(modelStore.loadCases.map(c => [c.name, c]));
   expect.soft(byName.get(roof.name)).toMatchObject({ group: 'roof' });
@@ -80,19 +80,19 @@ regression('known wrong result: #2535 generated preview and Apply give each live
   ]);
 });
 
-regression('known wrong result: #2535 generated loads cannot reuse a same-named floor case for a grouped roof', () => {
+it('#2535 generated loads cannot reuse a same-named floor case for a grouped roof', () => {
   modelStore.addLoadCase(roof.name, 'L');
   const input = plan(roofTerm);
   expect(applyLoadPlan(input, applyOptions)).toBeUndefined();
-  const roofCase = modelStore.loadCases.find(c => 'group' in c && c.group === roof.group);
+  const roofCase = modelStore.loadCases.find(c => c.group === roof.group);
   expect(roofCase).toBeDefined();
   expect(modelStore.combinations[0]?.factors).toEqual([{ caseId: roofCase?.id, factor: roofTerm.factor }]);
   expect(applyLoadPlan(input, applyOptions)).toBeUndefined();
-  expect(modelStore.loadCases.filter(c => 'group' in c && c.group === roof.group)).toHaveLength(1);
+  expect(modelStore.loadCases.filter(c => c.group === roof.group)).toHaveLength(1);
 });
 
 for (const entry of ['snapshot', 'project file', 'model code', 'rule template'] as const) {
-  regression(`known wrong result: #2535 ${entry} restores a roof-only project rule for combination and composite output`, () => {
+  it(`#2535 ${entry} restores a roof-only project rule for combination and composite output`, () => {
     const rule = restoreGroupedProject(roofTerm);
     if (entry === 'project file') expect(deserializeProject(serializeProject())).toBe(true);
     if (entry === 'model code') {
@@ -113,7 +113,7 @@ for (const entry of ['snapshot', 'project file', 'model code', 'rule template'] 
   });
 }
 
-regression('known wrong result: #2535 detached model fragments keep roof loads separate from a same-named floor case', () => {
+it('#2535 detached model fragments keep roof loads separate from a same-named floor case', () => {
   restoreGroupedProject(roofTerm);
   const node = modelStore.addNode(0, 0, 0);
   modelStore.addNodalLoad3D(node, 0, 0, -roofForce, 0, 0, 0, roof.id);
@@ -126,13 +126,14 @@ regression('known wrong result: #2535 detached model fragments keep roof loads s
   expect(projectCombinations()[0]?.factors).toEqual([{ caseId: imported, factor: roofTerm.factor }]);
 });
 
-regression('known wrong result: #2535 an unresolved group is translated and Apply preserves the model', async () => {
+it('#2535 an unresolved group is translated and Apply preserves the model', async () => {
   restoreGroupedProject({ ...roofTerm, group: 'missing' });
   const input = plan({ ...roofTerm, group: 'missing' });
   const before = JSON.stringify(modelStore.snapshot());
   const actions = [
     projectCombinations,
     () => describePlanDelta(input, empty, { replaceExisting: true }),
+    () => previewLoadPlan(input, applyOptions.nameOf, { replaceExisting: true }),
     () => applyLoadPlan(input, applyOptions),
   ];
   try {
@@ -153,7 +154,7 @@ regression('known wrong result: #2535 an unresolved group is translated and Appl
   }
 });
 
-regression('known wrong result: #2535 a group on another symbol, composite or alternative set cannot satisfy the term', () => {
+it('#2535 a group on another symbol, composite or alternative set cannot satisfy the term', () => {
   const otherCases = [
     { ...roof, type: 'D' },
     { ...roof, includes: [{ caseId: floor.id, factor: 1 }] },
@@ -166,7 +167,7 @@ regression('known wrong result: #2535 a group on another symbol, composite or al
   expect(() => expandCombinations([spec(roofTerm)], [])).toThrow('combos.refused.unresolvedGroup');
 });
 
-regression('known wrong result: #2535 importing an invalid group never turns it into an ungrouped term', () => {
+it('#2535 importing an invalid group never turns it into an ungrouped term', () => {
   const rule = restoreGroupedProject(roofTerm);
   for (const group of ['', null, 42]) {
     const text = JSON.stringify({ kind: 'stabileo.combinationRules', version: 1, rules: [
@@ -176,7 +177,7 @@ regression('known wrong result: #2535 importing an invalid group never turns it 
   }
 });
 
-regression('known wrong result: #2535 explicit zero and empty remainder preserve grouped selection', () => {
+it('#2535 explicit zero and empty remainder preserve grouped selection', () => {
   expect.soft(expandCombinations([spec(floorTerm, { ...roofTerm, factor: 0 })], [floor, roof])[0]?.factors)
     .toEqual([{ caseId: floor.id, factor: floorTerm.factor }]);
   restoreGroupedProject(floorTerm, { ...roofTerm, factor: 0 });
@@ -193,6 +194,15 @@ it('#2535 legacy rules without a group still sum both live cases', () => {
   expect(expandCombinations([spec({ ...roofTerm, factor: 0 })], [floor])[0]?.factors).toEqual([]);
 });
 
+it('#2535 result notices identify projects with grouped terms', () => {
+  restoreGroupedProject(floorTerm);
+  const changes = () => assessProject(modelStore.snapshot(), null, 'pro').changes.map(c => c.id);
+  modelStore.restore({ ...modelStore.snapshot(), loadCases: [floor] });
+  expect(changes()).not.toContain('combination-load-groups');
+  modelStore.setCombinationRules([{ id: 'grouped', purpose: 'strength', terms: [roofTerm] }]);
+  expect(changes()).toContain('combination-load-groups');
+});
+
 function cantilever(dim: '2d' | '3d') {
   restoreGroupedProject(roofTerm);
   const base = modelStore.addNode(0, 0, 0);
@@ -207,7 +217,7 @@ function cantilever(dim: '2d' | '3d') {
   return { base, tip, id: id!, model: modelStore.model as ModelData };
 }
 
-regression('known wrong result: #2535 the 2D linear combination and envelope exclude the floor live load', () => {
+it('#2535 the 2D linear combination and envelope exclude the floor live load', () => {
   const { base, id, model } = cantilever('2d');
   const solved = solveCombinations2D(model, modelStore.loadCases, modelStore.combinations);
   if (!solved || typeof solved === 'string') throw new Error(String(solved));
@@ -260,7 +270,7 @@ function recordWorkerJobs() {
 afterEach(() => { setWorkerFactoryForTests(null); });
 
 for (const entry of ['sync', 'async'] as const) for (const method of ['linear', 'pdelta', 'uplift'] as const) {
-  regression(`known wrong result: #2535 the 3D ${entry} ${method} combination and envelope exclude the floor live load`, async () => {
+  it(`#2535 the 3D ${entry} ${method} combination and envelope exclude the floor live load`, async () => {
     const { tip, id, model } = cantilever('3d');
     const jobs = entry === 'async' ? recordWorkerJobs() : [];
     if (method === 'uplift') {
@@ -283,7 +293,7 @@ for (const entry of ['sync', 'async'] as const) for (const method of ['linear', 
 }
 
 for (const entry of ['main thread', 'worker adapter'] as const) {
-  regression(`known wrong result: #2535 3D direct analysis via the ${entry} excludes the floor live load`, async () => {
+  it(`#2535 3D direct analysis via the ${entry} excludes the floor live load`, async () => {
     const { base, id, model } = cantilever('3d');
     const jobs = entry === 'worker adapter' ? recordWorkerJobs() : [];
     const solved = await runDirectAnalysis(model, modelStore.loadCases, modelStore.combinations, {

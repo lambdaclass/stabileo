@@ -11086,6 +11086,7 @@ const hu: Translations = {
   "snow.case.flatRoof": "Lapos tető kísérő hóterhe (pf)",
   "snow.refused.legacyCombination": "A mentett földrengési kombináció hóteheralapja nem egyértelmű. Használat előtt generálja újra a kombinációkat; önmagában a hóterhek újragenerálása nem elegendő.",
   "snow.refused.flatRoofCase": "Ehhez a kombinációhoz külön lapostető-hótehereset szükséges. A kombinációk létrehozása előtt generálja újra a hóterheket.",
+  "combos.refused.unresolvedGroup": "Egyetlen tehereset sem felel meg a(z) {symbol} jelnek és a(z) „{group}” csoportnak. Ellenőrizze a mentett kombinációs szabályt és a hozzá tartozó tehereseteket.",
   "snow.refused.physicalCase": "Ehhez a kombinációhoz külön fizikai hótehereset szükséges. A kombinációk létrehozása előtt generálja újra a hóterheket.",
   "snow.case.balanced": "Kiegyensúlyozott hó (ps = {ps} kN/m²)",
   "snow.derivation.multipleUnbalanced": "Kiegyensúlyozatlan (§6.3, 6. ábra): a gerinceknél 0,5 pf-től a völgyekben {valley} kN/m²-ig, a völgy feletti hó a gerinc feletti hó alatt tartva.",

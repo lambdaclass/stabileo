@@ -1,7 +1,7 @@
 /**
  * The before/after preview of applying a load plan. Moved out of `load-plan.ts` as it was.
  */
-import { expandCombinations, type ExpandOptions } from './combination-cases';
+import { expandCombinations, type CombinationCase, type ExpandOptions } from './combination-cases';
 import { msg, type EngineMessage } from '../../codes/message';
 import type { LoadPlan } from './load-plan';
 
@@ -12,8 +12,10 @@ import type { LoadPlan } from './load-plan';
  * (`combination-cases.ts`), so the two cannot disagree. Counting one per wind or seismic case
  * by hand missed both senses of the earthquake, the Wa cases and the snow patterns.
  */
-export function expandPlannedCombinations(plan: LoadPlan, options: ExpandOptions) {
-  const cases = plan.cases.map((c, i) => ({ ...c, id: i + 1, name: String(i) }));
+export function expandPlannedCombinations(
+  plan: LoadPlan, options: ExpandOptions,
+  cases: readonly CombinationCase[] = plan.cases.map((c, i) => ({ ...c, id: i + 1, name: String(i) })),
+) {
   return expandCombinations(plan.combinations, cases, options);
 }
 
@@ -117,8 +119,9 @@ export function describePlanDelta(
   plan: LoadPlan,
   current: CurrentLoadState,
   options: { replaceExisting: boolean; bothSenses?: ExpandOptions['bothSenses']; patternsInCompanions?: boolean; alsoUnmarked?: boolean },
+  cases?: readonly CombinationCase[],
 ): PlanDelta {
-  const plannedCombinationCount = expandPlannedCombinations(plan, options).length;
+  const plannedCombinationCount = expandPlannedCombinations(plan, options, cases).length;
   const replace = options.replaceExisting;
   const alsoUnmarked = !!options.alsoUnmarked;
   const afterTypes = [...new Set(plan.cases.map((c) => String(c.type)))].sort();
