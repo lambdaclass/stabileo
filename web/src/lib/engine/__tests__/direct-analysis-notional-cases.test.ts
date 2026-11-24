@@ -8,7 +8,9 @@ import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import { modelStore } from '../../store/model.svelte';
 import '../../store/index';
 import { initSolver } from '../wasm-solver';
-import { runDirectAnalysis } from '../direct-analysis';
+import { mainThreadPDelta, runDirectAnalysis, workerPDelta } from '../direct-analysis';
+import { finishPDelta3D } from '../solve-finish';
+import { solve_pdelta_3d } from '../../wasm/dedaliano_engine.js';
 
 beforeAll(async () => { await initSolver(); });
 beforeEach(() => { modelStore.clear(); });
@@ -87,3 +89,49 @@ describe('notional cases in the direct analysis', () => {
     });
   }
 });
+
+const issue2297RoundTwo = process.env.RUN_KNOWN_WRONG === '2297' ? it : it.skip;
+
+issue2297RoundTwo.each(['main thread', 'worker'] as const)(
+  'known wrong result: #2297 — direct analysis resolves notional factors on the %s',
+  async (path) => {
+    const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(0, 0, 4);
+    modelStore.addElement(a, b, 'frame');
+    modelStore.addSupport(a, 'fixed3d');
+    const D = modelStore.model.loadCases[0]!.id;
+    const N = modelStore.addLoadCase('N', 'N');
+    modelStore.addNodalLoad3D(b, 0, 0, -10, 0, 0, 0, D);
+    modelStore.addNodalLoad3D(b, 1, 0, 0, 0, 0, 0, N);
+    const roots = [1, 2, 3, 4].map(i => {
+      const id = modelStore.addLoadCase(`Composite ${i}`, '');
+      modelStore.updateLoadCaseFields(id, { includes: [{ caseId: N, factor: 3 }] });
+      return id;
+    });
+    const root = roots[0]!;
+    const run = path === 'main thread' ? mainThreadPDelta : workerPDelta(async (wire, maxIter, tol) =>
+      finishPDelta3D(JSON.parse(solve_pdelta_3d(JSON.stringify(wire), maxIter, tol)), wire as Parameters<typeof finishPDelta3D>[1]));
+    const solve = async (terms: Array<[number, number]>) => {
+      const result = await runDirectAnalysis(data(), modelStore.model.loadCases, [{
+        id: 1, name: 'Gravity and notional cases',
+        factors: [{ caseId: D, factor: 1 }, ...terms.map(([caseId, factor]) => ({ caseId, factor }))],
+      }], { includeSelfWeight: false, settings: { notional: 0.002, tauB: 'unity' }, run });
+      if (typeof result === 'string') throw new Error(result);
+      return { result: result.perCombo.get(1)!, info: result.info.get(1)! };
+    };
+
+    const exact = await solve([[N, 6]]);
+    expect(exact.info.notional).toBe('cases');
+    expect(exact.result.displacements.find(row => row.nodeId === b)?.ux).toBeGreaterThan(0);
+    const big = 2 ** 53;
+    const repeated = await solve([[root, big], [root, 1], [root, -(big - 1)]]);
+    expect.soft(repeated.info.notional).toBe('cases');
+    expect.soft(repeated.result.displacements).toEqual(exact.result.displacements);
+
+    const large = 2 ** 54;
+    const separate = (weights: number[]) => solve(weights.map((factor, i) => [roots[i]!, factor]));
+    const surviving = await separate([large, 1, -large]);
+    expect.soft(surviving.info.notional).toBe('cases');
+    const cancelled = await separate([large, 1, -large, -1]);
+    expect.soft(cancelled.info.notional).not.toBe('cases');
+  },
+);

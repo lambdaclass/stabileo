@@ -13,7 +13,7 @@ import { magnitudeCombination, superposed } from '../combination-methods';
 import { combineModes, type ModeCoefficient } from '../spectral-case';
 import { combineShellStressesOracle, enrichComboShellStressesOracle, envelopeShellStressesOracle } from './differential/shell-combos-oracle';
 import { EngineUnavailableError } from '../engine-unavailable';
-import type { AnalysisResults3D, QuadStress } from '../types-3d';
+import type { AnalysisResults3D, PlateStress, QuadStress } from '../types-3d';
 
 const emptyResult = (quadStresses: QuadStress[]): AnalysisResults3D => ({
   displacements: [], reactions: [], elementForces: [], quadStresses, plateStresses: [],
@@ -307,3 +307,60 @@ it('#2297 magnitude combinations preserve a repeated case before ABS or SRSS', (
     expect.soft(run(rotated)).toStrictEqual(control);
   }
 });
+
+const issue2297RoundTwo = process.env.RUN_KNOWN_WRONG === '2297' ? it : it.skip;
+
+issue2297RoundTwo.each(['packed WASM export', 'single recombination', 'bundle enrichment'] as const)(
+  'known wrong result: #2297 — zero factors leave shell stress and shear intact through %s',
+  (path) => {
+    const large = 2 ** 54;
+    const quads = [q(8, 1), { ...q(8, large), qx: 2, qy: 3 }, { ...q(8, -large), qx: 1, qy: 1 }];
+    const plates: PlateStress[] = quads.map(({ sigmaXx }) => ({
+      ...q(7, sigmaXx), mx: 0, sigma1: Math.max(sigmaXx, 0), sigma2: Math.min(sigmaXx, 0),
+    }));
+    const cases = quads.map((quad, i) => ({ id: i + 1, plateStresses: [plates[i]!], quadStresses: [quad] }));
+    const perCase = new Map(cases.map(c => [c.id, { ...emptyResult(c.quadStresses), plateStresses: c.plateStresses }]));
+    const byPlate = new Map(cases.map(c => [c.id, new Map([[7, c.plateStresses[0]!]])]));
+    const byQuad = new Map(cases.map(c => [c.id, new Map([[8, c.quadStresses[0]!]])]));
+    const run = (terms: Array<[number, number]>) => {
+      const factors = terms.map(([caseId, factor]) => ({ caseId, factor }));
+      const combinations = [{ id: 10, factors }];
+      if (path === 'packed WASM export') {
+        const result = packedShellCombinationKernel(combine_shell_stresses)({
+          cases, combinations, thicknesses: [],
+          envelopeOrder: [{ id: 10, plateStresses: [], quadStresses: [] }],
+        });
+        return {
+          sigmaXx: result.envelope.plates[0]?.extremes.sigmaXx?.max,
+          quadXx: result.envelope.quads[0]?.extremes.sigmaXx?.max,
+          qx: result.envelope.quads[0]?.extremes.qx?.max,
+          qy: result.envelope.quads[0]?.extremes.qy?.max,
+        };
+      }
+      const bundle = { ...emptyResult([]), plateStresses: [] };
+      const result = path === 'single recombination'
+        ? combineShellStresses(factors, byPlate, byQuad, new Map())
+        : bundle;
+      if (path === 'bundle enrichment') {
+        enrichComboShellStresses(perCase, new Map([[10, bundle]]), undefined, combinations, new Map());
+      }
+      const quad = result.quadStresses?.[0];
+      return { sigmaXx: result.plateStresses?.[0]?.sigmaXx, quadXx: quad?.sigmaXx, qx: quad?.qx, qy: quad?.qy };
+    };
+
+    const live: Array<[number, number]> = [[2, 1], [3, 1]];
+    const active: Array<[number, number]> = [...live, [1, 1]];
+    const zeros = { sigmaXx: 0, quadXx: 0, qx: 3, qy: 4 };
+    const residual = { sigmaXx: 1, quadXx: 1, qx: undefined, qy: undefined };
+    expect.soft(run(live)).toEqual(zeros);
+    expect.soft(run(active)).toEqual(residual);
+    for (const zero of [0, -0]) {
+      expect.soft(run([[1, zero], ...active])).toEqual(residual);
+      expect.soft(run([[1, zero], ...live])).toEqual(zeros);
+    }
+    expect.soft(run([[1, 1], ...live, [1, -1]])).toEqual(zeros);
+    expect.soft(run([[1, 1], [1, -1]])).toEqual({
+      sigmaXx: undefined, quadXx: undefined, qx: undefined, qy: undefined,
+    });
+  },
+);

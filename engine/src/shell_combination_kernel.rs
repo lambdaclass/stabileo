@@ -776,6 +776,54 @@ mod tests {
         assert_eq!(run(&factors[..6]), (4.0, 4.0));
     }
 
+    fn round_two_shell_combination(factors: &[(f64, f64)]) -> Shells {
+        let large = 2.0_f64.powi(54);
+        let mut data = vec![3.0];
+        for (id, stress, qx, qy) in [
+            (1.0, 1.0, f64::NAN, f64::NAN),
+            (2.0, large, 2.0, 3.0),
+            (3.0, -large, 1.0, 1.0),
+        ] {
+            data.extend([id, 1.0, 1.0]);
+            data.extend([7.0, stress, 0.0, 0.0, 0.0, 0.0, 0.0, f64::NAN, f64::NAN]);
+            data.extend([8.0, stress, 0.0, 0.0, 0.0, 0.0, 0.0, qx, qy]);
+        }
+        data.extend([1.0, 9.0, factors.len() as f64]);
+        for &(id, factor) in factors {
+            data.extend([id, factor]);
+        }
+        data.extend([0.0, 0.0]);
+        combine(decode(&data).unwrap()).unwrap().combinations.remove(0)
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #2297"]
+    fn issue_2297_shell_zeros_do_not_set_case_order() {
+        let control = [(2.0, 1.0), (3.0, 1.0), (1.0, 1.0)];
+        let with_zero = |zero| [(1.0, zero), control[0], control[1], control[2]];
+        for factors in [control.as_slice(), &with_zero(0.0), &with_zero(-0.0)] {
+            let result = round_two_shell_combination(factors);
+            assert_eq!((result.plate_stresses[0].sigma_xx, result.quad_stresses[0].sigma_xx), (1.0, 1.0));
+        }
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #2297"]
+    fn issue_2297_shell_zeros_do_not_contribute_missing_shear_or_rows() {
+        let control = [(2.0, 1.0), (3.0, 1.0)];
+        let with_literal_zero = [(1.0, 0.0), control[0], control[1]];
+        let with_cancellation = [(1.0, 1.0), control[0], control[1], (1.0, -1.0)];
+        for factors in [control.as_slice(), &with_literal_zero, &with_cancellation] {
+            let result = round_two_shell_combination(factors);
+            let quad = &result.quad_stresses[0];
+            assert_eq!((quad.sigma_xx, quad.qx, quad.qy), (0.0, Some(3.0), Some(4.0)));
+        }
+        let active = round_two_shell_combination(&[(1.0, 1.0), control[0], control[1]]);
+        assert_eq!((active.quad_stresses[0].qx, active.quad_stresses[0].qy), (None, None));
+        let cancelled = round_two_shell_combination(&[(1.0, 1.0), (1.0, -1.0)]);
+        assert!(cancelled.plate_stresses.is_empty() && cancelled.quad_stresses.is_empty());
+    }
+
     fn mitc4_and_mitc9_both_numbered_7(shells_per_set: usize) -> Vec<f64> {
         let mitc4 = [7., 10., 0., 0., 2., 0., 0., 1., 1.];
         let mitc9 = [7., 1000., 0., 0., 200., 0., 0., f64::NAN, f64::NAN];
