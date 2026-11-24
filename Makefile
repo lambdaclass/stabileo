@@ -250,7 +250,7 @@ test.engine.lib:
 test.engine.experimental-nonlinear:
 	$(MAKE) test.engine.lib ENGINE_FEATURES=experimental-nonlinear FILTER="$(or $(FILTER),experimental_nonlinear)"
 
-test.engine.experimental-nonlinear-wasm:
+test.engine.experimental-nonlinear-wasm: scripts/tests/arc-review-wasm.mjs
 	$(NIX_RUN) wasm-pack build engine --target nodejs --out-dir ../target/experimental-nonlinear-wasm --no-opt -- --features experimental-nonlinear
 	$(NIX_RUN) node --test $(if $(FILTER),--test-name-pattern="$(FILTER)") scripts/tests/experimental-nonlinear-wasm.mjs
 
@@ -1376,5 +1376,5 @@ test.engine.kinematics-2222:
 	$(NIX_RUN) cargo test -p dedaliano-engine --test integration issue_2222_kinematics_identifies -- --nocapture $(if $(IGNORED),--ignored)
 
 .PHONY: test.engine.nonlinear-drivers-2510-wasm
-test.engine.nonlinear-drivers-2510-wasm: wasm
+test.engine.nonlinear-drivers-2510-wasm: wasm scripts/tests/arc-review-wasm.mjs
 	$(NIX_RUN) node --test scripts/tests/nonlinear-drivers-2510-wasm.mjs
