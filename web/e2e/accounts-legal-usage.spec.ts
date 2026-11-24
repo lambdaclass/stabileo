@@ -58,7 +58,7 @@ const savedProject = (id: string, name: string, revision = 1) => ({
 async function boot(
   page: Page,
   opts: {
-    termsCurrent?: boolean; usageOff?: boolean; signedIn?: boolean; saveRequiresAccount?: boolean; googleLogin?: boolean; exchangeFails?: boolean;
+    termsCurrent?: boolean; usageOff?: boolean; signedIn?: boolean; saveRequiresAccount?: boolean; editorRequiresAccount?: boolean; googleLogin?: boolean; exchangeFails?: boolean;
     saved?: ReturnType<typeof savedProject>[]; maxProjects?: number; knownToGoogle?: boolean; path?: string;
   } = {},
 ): Promise<Backend> {
@@ -90,7 +90,7 @@ async function boot(
     route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(data) });
 
   await page.route('**/api/v1/auth/config', (r) =>
-    json(r, 200, { user_login_enabled: true, terms_version: TERMS_VERSION, usage_telemetry_enabled: true, cloud_projects_enabled: true, save_requires_account: opts.saveRequiresAccount === true, google_login: opts.googleLogin !== false }),
+    json(r, 200, { user_login_enabled: true, terms_version: TERMS_VERSION, usage_telemetry_enabled: true, cloud_projects_enabled: true, save_requires_account: opts.saveRequiresAccount === true, editor_requires_account: opts.editorRequiresAccount === true, google_login: opts.googleLogin !== false }),
   );
   await page.context().route(/\/api\/v1\/auth\/google(\?|$)/, async (r) => {
     backend.googleOpened += 1;
@@ -687,4 +687,55 @@ test.describe('accounts, legal and anonymous usage', () => {
       await expect(page.locator('main, body').first()).toContainText('Stabileo');
     });
   }
+});
+
+test.describe('@smoke the editor behind an account', () => {
+  async function signUp(page: Page) {
+    await continueWithGoogle(page);
+    await page.getByTestId('auth-accept-terms').check();
+    await page.getByTestId('auth-submit').click();
+    await expect(page.getByTestId('auth-dialog')).toHaveCount(0);
+  }
+
+  test('opening the editor asks first; once signed in it is usable, and a reload keeps the session', async ({ page }) => {
+    const backend = await boot(page, { editorRequiresAccount: true });
+    const dialog = page.getByTestId('auth-dialog');
+    await expect(dialog).toBeVisible();
+    await expect(page.getByTestId('auth-reason')).toContainText('Para usar el editor necesitás una cuenta');
+    await signUp(page);
+    expect(backend.register).toHaveLength(1);
+    await page.evaluate(() => window.__stabileoActions.loadExample('portal-frame'));
+    await expect.poll(() => page.evaluate(() => window.__stabileo.elementIds().length)).toBe(3);
+
+    await page.reload();
+    await page.waitForFunction(() => !!window.__stabileo && window.__stabileo.solverReady(), null, { timeout: 60_000 });
+    await expect(page.getByTestId('account-button')).toBeVisible();
+    await page.waitForTimeout(500);
+    await expect(dialog).toHaveCount(0);
+  });
+
+  test('turning it down goes back to the home page', async ({ page }) => {
+    await boot(page, { editorRequiresAccount: true });
+    await expect(page.getByTestId('auth-dialog')).toBeVisible();
+    await page.getByTestId('auth-dialog').getByRole('button', { name: 'Cancelar' }).click();
+    await expect(page.getByTestId('auth-dialog')).toHaveCount(0);
+    await expect.poll(() => new URL(page.url()).pathname).not.toMatch(/\/app\//);
+  });
+
+  test('signing out in the editor asks again', async ({ page }) => {
+    await page.route('**/api/v1/auth/logout', (r) => r.fulfill({ status: 204 }));
+    await boot(page, { editorRequiresAccount: true, signedIn: true });
+    await expect(page.getByTestId('account-button')).toBeVisible();
+    await expect(page.getByTestId('auth-dialog')).toHaveCount(0);
+    await page.getByTestId('account-button').click();
+    await page.getByTestId('account-logout').click();
+    await expect(page.getByTestId('auth-dialog')).toBeVisible();
+    await expect(page.getByTestId('auth-reason')).toContainText('Para usar el editor necesitás una cuenta');
+  });
+
+  test('an editor embedded in another page does not ask', async ({ page }) => {
+    await boot(page, { editorRequiresAccount: true, path: '/app/basic?e2e=1&embed' });
+    await page.waitForTimeout(800);
+    await expect(page.getByTestId('auth-dialog')).toHaveCount(0);
+  });
 });

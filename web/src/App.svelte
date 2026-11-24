@@ -3,6 +3,7 @@
   import { modelAuditFeatures } from './lib/provenance/under-audit';
   import { verificationStore } from './lib/store/verification.svelte';
   import { accountGate } from './lib/store/account-gate.svelte';
+  import { editorNeedsAccount, framedByAnotherPage } from './lib/store/editor-gate';
   import { userComponent, axisName, twoD } from './lib/axes/display';
   import { provideEditorActivity } from './lib/utils/editor-activity';
   // First: every dictionary entry, before anything here renders (the store starts with the public
@@ -954,6 +955,19 @@
     if (fig) { downloadDataUrlPNG(fig.dataUrl, embed); return; }
     if (canvas) downloadCanvasPNG(canvas, embed);
   }
+
+  /* Opening the editor asks for the account first when the admin site says so; turning it down goes back home. */
+  $effect(() => {
+    const needed = accountsEnabled && editorNeedsAccount({
+      configKnown: authStore.configKnown,
+      restoring: authStore.status === 'loading',
+      required: authStore.editorRequiresAccount,
+      signedIn: authStore.isAuthenticated,
+      embedded: uiStore.embedMode || uiStore.viewerMode || framedByAnotherPage(),
+      editorShown: !publicActive,
+    });
+    if (needed) untrack(() => accountGate.requireForEditor(() => navigatePublic('/')));
+  });
 
   onMount(() => {
     if (accountsEnabled) void authStore.init();
