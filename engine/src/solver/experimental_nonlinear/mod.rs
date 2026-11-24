@@ -5,6 +5,7 @@ pub(super) mod incremental;
 mod line_search;
 mod newton_krylov;
 mod pseudo_transient;
+mod trust_region;
 pub(super) mod path_following;
 
 pub use super::arc_length::experimental_nonlinear_continuation::{

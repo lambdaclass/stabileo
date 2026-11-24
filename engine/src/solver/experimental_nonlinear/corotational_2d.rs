@@ -1294,6 +1294,20 @@ mod shared_driver_equivalence {
     }
 
     #[test]
+    fn the_trust_region_reaches_the_solution_of_many_small_increments() {
+        for n in [4, 12, 30] {
+            for (rise, far_support) in [(0.0, None), (0.4, None), (0.4, Some("pinned"))] {
+                let input = frame(n, rise, far_support);
+                let reference = solve_corotational_2d_by(&input, None, 200, 1e-8, 40, IterationMethod::NewtonLineSearch).unwrap();
+                assert!(reference.converged);
+                let bounded = solve_corotational_2d_by(&input, None, 1000, 1e-8, 4, IterationMethod::TrustRegion).unwrap();
+                assert!(bounded.converged, "n {n}, rise {rise}, {far_support:?}");
+                assert!(apart(&bounded, &reference) <= 1e-6, "n {n}, rise {rise}, {far_support:?}: {}", apart(&bounded, &reference));
+            }
+        }
+    }
+
+    #[test]
     fn an_iteration_that_does_not_converge_reports_the_last_increment_that_did() {
         let input = frame(12, 0.0, None);
         for method in [

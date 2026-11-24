@@ -5,6 +5,7 @@ use super::{
     line_search::{LineSearch, NewtonLineSearch},
     newton_krylov::NewtonKrylov,
     pseudo_transient::PseudoTransient,
+    trust_region::TrustRegion,
 };
 
 pub(crate) struct Linearization {
@@ -167,6 +168,8 @@ pub enum IterationMethod {
     /// Pseudo-transient continuation from a first damping of this share of the tangent's
     /// diagonal, finite and positive.
     PseudoTransient { damping: f64 },
+    /// Newton inside a trust region, by the dogleg.
+    TrustRegion,
 }
 
 /// Where a step comes from: a new tangent factorized, the increment's first one kept, or the
@@ -330,6 +333,14 @@ pub(crate) fn solve_stepped<P: IncrementalProblem + ?Sized>(
         IterationMethod::PseudoTransient { damping } => run(
             problem,
             &PseudoTransient { damping },
+            stepping,
+            n_increments,
+            tolerance,
+            max_iter,
+        ),
+        IterationMethod::TrustRegion => run(
+            problem,
+            &TrustRegion,
             stepping,
             n_increments,
             tolerance,
@@ -1344,6 +1355,42 @@ mod tests {
         for damping in [f64::MIN_POSITIVE, 1e-3, 1.0, f64::MAX] {
             assert_eq!(validate(IterationMethod::PseudoTransient { damping }), Ok(()));
         }
+    }
+
+    #[test]
+    fn the_trust_region_reaches_the_solution_of_a_softening_and_of_a_stiffening_spring() {
+        let mut soft = Chain::spring(softening, 1.3);
+        let outcome = solve_by_load_increments(&mut soft, &TrustRegion, 1, 1e-10, 200).unwrap();
+        assert!(outcome.converged);
+        assert!((soft.u[0] - 1.3_f64.tan()).abs() < 1e-8, "{}", soft.u[0]);
+
+        for increments in [1, 3] {
+            let mut stiff = Chain::spring(stiffening, 30.0);
+            let outcome = solve_by_load_increments(&mut stiff, &TrustRegion, increments, 1e-10, 200).unwrap();
+            assert!(outcome.converged, "{increments}");
+            let (force, _) = stiffening(stiff.u[0]);
+            assert!((force - 30.0).abs() < 1e-8, "{increments}: {force}");
+        }
+    }
+
+    #[test]
+    fn the_trust_region_keeps_the_rules_every_iteration_keeps() {
+        let mut owed = Chain::spring(stiffening, 0.0);
+        owed.owed = true;
+        let outcome = solve_by_load_increments(&mut owed, &TrustRegion, 1, 1e-10, 50).unwrap();
+        assert_eq!((outcome.iterations, outcome.converged, outcome.load_factor), (2, true, 1.0));
+
+        let mut short = Chain::spring(stiffening, 30.0);
+        let outcome = solve_by_load_increments(&mut short, &TrustRegion, 1, 1e-10, 2).unwrap();
+        assert_eq!((outcome.converged, outcome.load_factor), (false, 0.0));
+        assert_eq!(short.u, vec![0.0]);
+        assert!(short.linearizations <= 2);
+
+        let mut failing = Chain::spring(stiffening, 30.0);
+        failing.fail_at = Some(1);
+        let error = solve_by_load_increments(&mut failing, &TrustRegion, 2, 1e-10, 50).unwrap_err();
+        assert_eq!(error, "the tangent is singular");
+        assert_eq!(validate(IterationMethod::TrustRegion), Ok(()));
     }
 
     #[test]

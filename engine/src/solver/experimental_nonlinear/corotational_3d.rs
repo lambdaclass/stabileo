@@ -735,6 +735,18 @@ mod shared_driver_equivalence_3d {
     }
 
     #[test]
+    fn the_trust_region_reaches_newtons_solution_of_a_building() {
+        for push in [20.0, 150.0] {
+            let input = building(3, 4, push);
+            let newton = solve_corotational_3d_by(&input, 40, 1e-8, 2, IterationMethod::Newton).unwrap();
+            assert!(newton.converged);
+            let bounded = solve_corotational_3d_by(&input, 400, 1e-8, 2, IterationMethod::TrustRegion).unwrap();
+            assert!(bounded.converged, "{push}");
+            assert!(apart(&bounded, &newton) <= 1e-6, "{push}: {}", apart(&bounded, &newton));
+        }
+    }
+
+    #[test]
     fn the_line_search_on_newton_krylov_reaches_newtons_solution_of_a_building() {
         use crate::solver::experimental_nonlinear::Direction;
         for (bays, stories, push) in [(2, 3, 20.0), (3, 6, 150.0)] {
@@ -759,6 +771,7 @@ mod shared_driver_equivalence_3d {
                     IterationMethod::NewtonLineSearch,
                     IterationMethod::Anderson { depth: 4 },
                     IterationMethod::PseudoTransient { damping: 1e-3 },
+                    IterationMethod::TrustRegion,
                 ] {
                     let other = solve_corotational_3d_by(&input, 400, 1e-9, 4, method).unwrap();
                     assert!(other.converged, "n {n}, {method:?}");

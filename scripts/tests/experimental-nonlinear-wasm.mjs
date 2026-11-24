@@ -84,6 +84,7 @@ for (const [dimension, input, moved] of [[2, mild, (d) => [d.ux, d.uz]], [3, spa
       { lineSearch: { direction: 'modifiedNewton' } },
       { lineSearch: { direction: 'newtonKrylov' } },
       { pseudoTransient: { damping: 0.001 } },
+      'trustRegion',
     ]) {
       const result = JSON.parse(run(method));
       const name = JSON.stringify(method);
