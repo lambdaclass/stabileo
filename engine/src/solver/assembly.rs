@@ -1197,8 +1197,7 @@ pub fn assemble_stiffness_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> S
     let left_hand = input.left_hand.unwrap_or(false);
 
     // Pre-build O(1) lookup maps
-    let node_map: std::collections::HashMap<usize, &SolverNode3D> =
-        crate::ordered::values(&input.nodes).map(|n| (n.id, n)).collect();
+    let node_map = input.nodes_by_id();
     let mat_map: std::collections::HashMap<usize, &SolverMaterial> =
         crate::ordered::values(&input.materials).map(|m| (m.id, m)).collect();
     let sec_map: std::collections::HashMap<usize, &SolverSection3D> =
@@ -1339,16 +1338,7 @@ pub fn assemble_stiffness_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> S
         let e = mat.e * 1000.0; // MPa → kN/m²
         let nu = mat.nu;
 
-        let n0 = node_map[&quad.nodes[0]];
-        let n1 = node_map[&quad.nodes[1]];
-        let n2 = node_map[&quad.nodes[2]];
-        let n3 = node_map[&quad.nodes[3]];
-        let coords = [
-            [n0.x, n0.y, n0.z],
-            [n1.x, n1.y, n1.z],
-            [n2.x, n2.y, n2.z],
-            [n3.x, n3.y, n3.z],
-        ];
+        let coords = node_positions_3d(&node_map, &quad.nodes).expect("validated quad nodes");
 
         let k_local = crate::element::quad::mitc4_local_stiffness(&coords, e, nu, quad.thickness);
         let t_quad = crate::element::quad::quad_transform_3d(&coords);
@@ -1370,7 +1360,7 @@ pub fn assemble_stiffness_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> S
         let mat = mat_map[&quad9.material_id];
         let e = mat.e * 1000.0;
         let nu = mat.nu;
-        let coords = quad9_coords(&node_map, quad9);
+        let coords = node_positions_3d(&node_map, &quad9.nodes).expect("validated quad9 nodes");
         let k_local = crate::element::quad9::mitc9_local_stiffness(&coords, e, nu, quad9.thickness);
         let t_q9 = crate::element::quad9::quad9_transform_3d(&coords);
         let k_glob = transform_stiffness(&k_local, &t_q9, 54);
@@ -1606,7 +1596,7 @@ pub fn assemble_stiffness_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> S
 
     // Quad9 diagnostics (dense path)
     for q9 in crate::ordered::values(&input.quad9s) {
-        let coords = quad9_coords(&node_map, q9);
+        let coords = node_positions_3d(&node_map, &q9.nodes).expect("validated quad9 nodes");
         let (_, _, has_neg_j) = crate::element::quad9::quad9_check_jacobian(&coords);
         if has_neg_j {
             diagnostics.push(crate::types::AssemblyDiagnostic {
@@ -1714,8 +1704,7 @@ fn assemble_frame_loads_3d(
         return;
     }
 
-    let node_map: std::collections::HashMap<usize, &SolverNode3D> =
-        crate::ordered::values(&input.nodes).map(|n| (n.id, n)).collect();
+    let node_map = input.nodes_by_id();
     let mat_map: std::collections::HashMap<usize, &SolverMaterial> =
         crate::ordered::values(&input.materials).map(|m| (m.id, m)).collect();
     let sec_map: std::collections::HashMap<usize, &SolverSection3D> =
@@ -1806,8 +1795,7 @@ pub(crate) fn assemble_load_vector_3d_with_rounding(
     let mut rounding = track_rounding.then(|| super::load_work::AssemblyRoundoff::new(n));
 
     // Pre-build O(1) lookup maps
-    let node_map: std::collections::HashMap<usize, &SolverNode3D> =
-        crate::ordered::values(&input.nodes).map(|n| (n.id, n)).collect();
+    let node_map = input.nodes_by_id();
     let mat_map: std::collections::HashMap<usize, &SolverMaterial> =
         crate::ordered::values(&input.materials).map(|m| (m.id, m)).collect();
     let plate_map: std::collections::HashMap<usize, &SolverPlateElement> =
@@ -1896,16 +1884,7 @@ pub(crate) fn assemble_load_vector_3d_with_rounding(
         // Quad pressure loads
         if let SolverLoad3D::QuadPressure(pl) = load {
             if let Some(&quad) = quad_map.get(&pl.element_id) {
-                let n0 = node_map[&quad.nodes[0]];
-                let n1 = node_map[&quad.nodes[1]];
-                let n2 = node_map[&quad.nodes[2]];
-                let n3 = node_map[&quad.nodes[3]];
-                let coords = [
-                    [n0.x, n0.y, n0.z],
-                    [n1.x, n1.y, n1.z],
-                    [n2.x, n2.y, n2.z],
-                    [n3.x, n3.y, n3.z],
-                ];
+                let coords = node_positions_3d(&node_map, &quad.nodes).expect("validated quad nodes");
                 let f_press = crate::element::quad::quad_pressure_load(&coords, pl.pressure);
                 let quad_dofs = dof_num.quad_element_dofs(&quad.nodes);
                 for (i, &dof) in quad_dofs.iter().enumerate() {
@@ -1922,16 +1901,7 @@ pub(crate) fn assemble_load_vector_3d_with_rounding(
                 let e = mat.e * 1000.0;
                 let nu = mat.nu;
                 let alpha = tl.alpha.unwrap_or(1.2e-5);
-                let n0 = node_map[&quad.nodes[0]];
-                let n1 = node_map[&quad.nodes[1]];
-                let n2 = node_map[&quad.nodes[2]];
-                let n3 = node_map[&quad.nodes[3]];
-                let coords = [
-                    [n0.x, n0.y, n0.z],
-                    [n1.x, n1.y, n1.z],
-                    [n2.x, n2.y, n2.z],
-                    [n3.x, n3.y, n3.z],
-                ];
+                let coords = node_positions_3d(&node_map, &quad.nodes).expect("validated quad nodes");
                 let f_th = crate::element::quad::quad_thermal_load(
                     &coords, e, nu, quad.thickness, alpha,
                     tl.dt_uniform, tl.dt_gradient,
@@ -1947,16 +1917,7 @@ pub(crate) fn assemble_load_vector_3d_with_rounding(
         // Quad self-weight loads
         if let SolverLoad3D::QuadSelfWeight(sw) = load {
             if let Some(&quad) = quad_map.get(&sw.element_id) {
-                let n0 = node_map[&quad.nodes[0]];
-                let n1 = node_map[&quad.nodes[1]];
-                let n2 = node_map[&quad.nodes[2]];
-                let n3 = node_map[&quad.nodes[3]];
-                let coords = [
-                    [n0.x, n0.y, n0.z],
-                    [n1.x, n1.y, n1.z],
-                    [n2.x, n2.y, n2.z],
-                    [n3.x, n3.y, n3.z],
-                ];
+                let coords = node_positions_3d(&node_map, &quad.nodes).expect("validated quad nodes");
                 let f_sw_local = crate::element::quad::quad_self_weight_load(
                     &coords, sw.density, quad.thickness, sw.gx, sw.gy, sw.gz,
                 );
@@ -1973,16 +1934,7 @@ pub(crate) fn assemble_load_vector_3d_with_rounding(
         // Quad edge loads
         if let SolverLoad3D::QuadEdge(el) = load {
             if let Some(&quad) = quad_map.get(&el.element_id) {
-                let n0 = node_map[&quad.nodes[0]];
-                let n1 = node_map[&quad.nodes[1]];
-                let n2 = node_map[&quad.nodes[2]];
-                let n3 = node_map[&quad.nodes[3]];
-                let coords = [
-                    [n0.x, n0.y, n0.z],
-                    [n1.x, n1.y, n1.z],
-                    [n2.x, n2.y, n2.z],
-                    [n3.x, n3.y, n3.z],
-                ];
+                let coords = node_positions_3d(&node_map, &quad.nodes).expect("validated quad nodes");
                 let f_edge = crate::element::quad::quad_edge_load(&coords, el.edge, el.qn, el.qt);
                 let quad_dofs = dof_num.quad_element_dofs(&quad.nodes);
                 for (i, &dof) in quad_dofs.iter().enumerate() {
@@ -2000,7 +1952,7 @@ pub(crate) fn assemble_load_vector_3d_with_rounding(
     for load in loads {
         if let SolverLoad3D::Quad9Pressure(pl) = load {
             if let Some(&q9) = quad9_map.get(&pl.element_id) {
-                let coords = quad9_coords(&node_map, q9);
+                let coords = node_positions_3d(&node_map, &q9.nodes).expect("validated quad9 nodes");
                 let f_p = crate::element::quad9::quad9_pressure_load(&coords, pl.pressure);
                 let dofs = dof_num.quad9_element_dofs(&q9.nodes);
                 for (i, &dof) in dofs.iter().enumerate() {
@@ -2014,7 +1966,7 @@ pub(crate) fn assemble_load_vector_3d_with_rounding(
                 let e = mat.e * 1000.0;
                 let nu = mat.nu;
                 let alpha = tl.alpha.unwrap_or(1.2e-5);
-                let coords = quad9_coords(&node_map, q9);
+                let coords = node_positions_3d(&node_map, &q9.nodes).expect("validated quad9 nodes");
                 let f_th = crate::element::quad9::quad9_thermal_load(
                     &coords, e, nu, q9.thickness, alpha, tl.dt_uniform, tl.dt_gradient,
                 );
@@ -2026,7 +1978,7 @@ pub(crate) fn assemble_load_vector_3d_with_rounding(
         }
         if let SolverLoad3D::Quad9SelfWeight(sw) = load {
             if let Some(&q9) = quad9_map.get(&sw.element_id) {
-                let coords = quad9_coords(&node_map, q9);
+                let coords = node_positions_3d(&node_map, &q9.nodes).expect("validated quad9 nodes");
                 let f_sw_local = crate::element::quad9::quad9_self_weight_load(
                     &coords, sw.density, q9.thickness, sw.gx, sw.gy, sw.gz,
                 );
@@ -2040,7 +1992,7 @@ pub(crate) fn assemble_load_vector_3d_with_rounding(
         }
         if let SolverLoad3D::Quad9Edge(el) = load {
             if let Some(&q9) = quad9_map.get(&el.element_id) {
-                let coords = quad9_coords(&node_map, q9);
+                let coords = node_positions_3d(&node_map, &q9.nodes).expect("validated quad9 nodes");
                 let f_edge = crate::element::quad9::quad9_edge_load(&coords, el.edge, el.qn, el.qt);
                 let dofs = dof_num.quad9_element_dofs(&q9.nodes);
                 for (i, &dof) in dofs.iter().enumerate() {
@@ -2708,8 +2660,7 @@ pub fn assemble_stiffness_sparse_3d(input: &SolverInput3D, dof_num: &DofNumberin
     let mut diag_vals = vec![0.0f64; n];
 
     // Pre-build O(1) lookup maps
-    let node_map: std::collections::HashMap<usize, &SolverNode3D> =
-        crate::ordered::values(&input.nodes).map(|n| (n.id, n)).collect();
+    let node_map = input.nodes_by_id();
     let mat_map: std::collections::HashMap<usize, &SolverMaterial> =
         crate::ordered::values(&input.materials).map(|m| (m.id, m)).collect();
     let sec_map: std::collections::HashMap<usize, &SolverSection3D> =
@@ -2862,11 +2813,7 @@ pub fn assemble_stiffness_sparse_3d(input: &SolverInput3D, dof_num: &DofNumberin
         let mat = mat_map[&quad.material_id];
         let e = mat.e * 1000.0;
         let nu = mat.nu;
-        let n0 = node_map[&quad.nodes[0]];
-        let n1 = node_map[&quad.nodes[1]];
-        let n2 = node_map[&quad.nodes[2]];
-        let n3 = node_map[&quad.nodes[3]];
-        let coords = [[n0.x, n0.y, n0.z], [n1.x, n1.y, n1.z], [n2.x, n2.y, n2.z], [n3.x, n3.y, n3.z]];
+        let coords = node_positions_3d(&node_map, &quad.nodes).expect("validated quad nodes");
         let k_local = crate::element::quad::mitc4_local_stiffness(&coords, e, nu, quad.thickness);
         let t_quad = crate::element::quad::quad_transform_3d(&coords);
         let k_glob = transform_stiffness(&k_local, &t_quad, 24);
@@ -2882,7 +2829,7 @@ pub fn assemble_stiffness_sparse_3d(input: &SolverInput3D, dof_num: &DofNumberin
         let mat = mat_map[&q9.material_id];
         let e = mat.e * 1000.0;
         let nu = mat.nu;
-        let coords = quad9_coords(&node_map, q9);
+        let coords = node_positions_3d(&node_map, &q9.nodes).expect("validated quad9 nodes");
         let k_local = crate::element::quad9::mitc9_local_stiffness(&coords, e, nu, q9.thickness);
         let t_q9 = crate::element::quad9::quad9_transform_3d(&coords);
         let k_glob = transform_stiffness(&k_local, &t_q9, 54);
@@ -3080,7 +3027,7 @@ pub fn assemble_stiffness_sparse_3d(input: &SolverInput3D, dof_num: &DofNumberin
 
     // Quad9 diagnostics (sparse path)
     for q9 in crate::ordered::values(&input.quad9s) {
-        let coords = quad9_coords(&node_map, q9);
+        let coords = node_positions_3d(&node_map, &q9.nodes).expect("validated quad9 nodes");
         let (_, _, has_neg_j) = crate::element::quad9::quad9_check_jacobian(&coords);
         if has_neg_j {
             diagnostics.push(crate::types::AssemblyDiagnostic {
@@ -3145,25 +3092,6 @@ pub fn assemble_sparse_3d(input: &SolverInput3D, dof_num: &DofNumbering, build_k
         inclined_transforms: stiff.inclined_transforms,
         diagnostics: stiff.diagnostics,
     }
-}
-
-/// Helper to extract quad node coordinates.
-fn quad_coords(node_map: &std::collections::HashMap<usize, &SolverNode3D>, quad: &SolverQuadElement) -> [[f64; 3]; 4] {
-    let n0 = node_map[&quad.nodes[0]];
-    let n1 = node_map[&quad.nodes[1]];
-    let n2 = node_map[&quad.nodes[2]];
-    let n3 = node_map[&quad.nodes[3]];
-    [[n0.x, n0.y, n0.z], [n1.x, n1.y, n1.z], [n2.x, n2.y, n2.z], [n3.x, n3.y, n3.z]]
-}
-
-/// Helper to extract quad9 node coordinates.
-fn quad9_coords(node_map: &std::collections::HashMap<usize, &SolverNode3D>, q9: &SolverQuad9Element) -> [[f64; 3]; 9] {
-    let mut coords = [[0.0; 3]; 9];
-    for (i, &nid) in q9.nodes.iter().enumerate() {
-        let n = node_map[&nid];
-        coords[i] = [n.x, n.y, n.z];
-    }
-    coords
 }
 
 /// Helper to extract solid-shell node coordinates.

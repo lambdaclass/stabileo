@@ -902,8 +902,7 @@ pub fn assemble_stiffness_sparse_3d_parallel(input: &SolverInput3D, dof_num: &Do
     let left_hand = input.left_hand.unwrap_or(false);
 
     // Pre-build O(1) lookup maps
-    let node_map: std::collections::HashMap<usize, &SolverNode3D> =
-        crate::ordered::values(&input.nodes).map(|n| (n.id, n)).collect();
+    let node_map = input.nodes_by_id();
     let mat_map: std::collections::HashMap<usize, &SolverMaterial> =
         crate::ordered::values(&input.materials).map(|m| (m.id, m)).collect();
     let sec_map: std::collections::HashMap<usize, &SolverSection3D> =
@@ -1081,11 +1080,7 @@ pub fn assemble_stiffness_sparse_3d_parallel(input: &SolverInput3D, dof_num: &Do
                 let mat = mat_map[&quad.material_id];
                 let e = mat.e * 1000.0;
                 let nu = mat.nu;
-                let n0 = node_map[&quad.nodes[0]];
-                let n1 = node_map[&quad.nodes[1]];
-                let n2 = node_map[&quad.nodes[2]];
-                let n3 = node_map[&quad.nodes[3]];
-                let coords = [[n0.x, n0.y, n0.z], [n1.x, n1.y, n1.z], [n2.x, n2.y, n2.z], [n3.x, n3.y, n3.z]];
+                let coords = node_positions_3d(&node_map, &quad.nodes).expect("validated quad nodes");
                 let k_local = element::quad::mitc4_local_stiffness(&coords, e, nu, quad.thickness);
                 let t_quad = element::quad::quad_transform_3d(&coords);
                 let k_glob = transform_stiffness(&k_local, &t_quad, 24);
@@ -1136,7 +1131,7 @@ pub fn assemble_stiffness_sparse_3d_parallel(input: &SolverInput3D, dof_num: &Do
                 let mat = mat_map[&q9.material_id];
                 let e = mat.e * 1000.0;
                 let nu = mat.nu;
-                let coords = quad9_node_coords(&node_map, q9);
+                let coords = node_positions_3d(&node_map, &q9.nodes).expect("validated quad9 nodes");
                 let k_local = element::quad9::mitc9_local_stiffness(&coords, e, nu, q9.thickness);
                 let t_q9 = element::quad9::quad9_transform_3d(&coords);
                 let k_glob = transform_stiffness(&k_local, &t_q9, 54);
@@ -1389,16 +1384,6 @@ pub fn assemble_stiffness_sparse_3d_parallel(input: &SolverInput3D, dof_num: &Do
 }
 
 /// Coordinate helpers for the parallel path (avoid name collision with assembly.rs).
-#[cfg(feature = "parallel")]
-fn quad9_node_coords(node_map: &std::collections::HashMap<usize, &SolverNode3D>, q9: &SolverQuad9Element) -> [[f64; 3]; 9] {
-    let mut coords = [[0.0; 3]; 9];
-    for (i, &nid) in q9.nodes.iter().enumerate() {
-        let n = node_map[&nid];
-        coords[i] = [n.x, n.y, n.z];
-    }
-    coords
-}
-
 #[cfg(feature = "parallel")]
 fn solid_shell_node_coords(node_map: &std::collections::HashMap<usize, &SolverNode3D>, ss: &SolverSolidShellElement) -> [[f64; 3]; 8] {
     let mut coords = [[0.0; 3]; 8];
