@@ -1,5 +1,6 @@
 import { ownStrapResults } from './schedule/pieces';
 import { dropRect } from './footing-punching';
+import { stairGhostBoxes } from './rebar-3d-stairs';
 import type { LineLayout } from './beam-line';
 import type { Frame, Rebar3d, Rebar3dFrames, Rebar3dRows, V3 } from './rebar-3d-geometry';
 import { WORLD } from './rebar-3d-geometry';
@@ -19,10 +20,13 @@ function push(out: Ghost3d[], base: Base, frame: Frame, from: V3, to: V3): void 
   if (solid(from, to)) out.push({ ...base, frame, from, to });
 }
 
-function lineGhosts(out: Ghost3d[], l: LineLayout, f: Frame, base: Base): void {
+function lineGhosts(out: Ghost3d[], l: LineLayout, f: Frame, base: Base, intoSupports = false): void {
   if (!l.spans.length) return;
-  const hMax = Math.max(...l.spans.map((s) => s.h));
-  for (const s of l.spans) push(out, base, f, [s.x0, -s.b / 2, hMax / 2 - s.h], [s.x1, s.b / 2, hMax / 2]);
+  const hMax = Math.max(...l.spans.map((s) => s.h)), last = l.spans.length - 1;
+  l.spans.forEach((s, i) => {
+    const x0 = s.x0 - (intoSupports && i === 0 ? (l.supportWidths[0] ?? 0) / 2 : 0), x1 = s.x1 + (intoSupports && i === last ? (l.supportWidths[last + 1] ?? 0) / 2 : 0);
+    push(out, base, f, [x0, -s.b / 2, hMax / 2 - s.h], [x1, s.b / 2, hMax / 2]);
+  });
 }
 
 export function ghost3d(rows: Rebar3dRows, frames: Rebar3dFrames): Ghost3d[] {
@@ -43,6 +47,9 @@ export function ghost3d(rows: Rebar3dRows, frames: Rebar3dFrames): Ghost3d[] {
     const f = frames.wall(r);
     if (f) push(out, { element: r.key, rows: [r.key], family: 'wall', ...levelOf(r.level) }, f, [0, -r.thickness / 2, 0], [r.length, r.thickness / 2, r.height]);
   }
+  for (const r of rows.stair ?? []) {
+    for (const g of stairGhostBoxes(r)) push(out, { element: r.key, rows: [r.key], family: 'stair', ...levelOf(r.level) }, g.frame, g.from, g.to);
+  }
   for (const r of rows.footing ?? []) {
     if (!(r.B > 0)) continue;
     const base: Base = { element: r.key, rows: [r.key], family: 'footing', ...levelOf(r.level) }, a = r.adopted, f = frames.footing(r);
@@ -56,7 +63,7 @@ export function ghost3d(rows: Rebar3dRows, frames: Rebar3dFrames): Ghost3d[] {
     }
     for (const s of ownStrapResults(r, rows.footing ?? [])) {
       const sf = frames.strap(r, s);
-      if (sf && s.line) lineGhosts(out, s.line, sf, base);
+      if (sf && s.line) lineGhosts(out, s.line, sf, base, true);
     }
   }
   return out;

@@ -132,11 +132,11 @@ function sizeStrap(rules: Pick<SheetRules, 'beamRow' | 'beamLine'>, ctx: BeamCon
 }
 
 /** The footing's row with its straps' beams (a strip's, one from each column): each strap's line and span, and a line on the footing for each that says whether its beam verifies. */
-export function withStrapBeams(row: FootingRow, beams: ReadonlyMap<string, { beam: BeamRow; line: LineLayout; b: number; h: number }>, keyOf: (s: StrapResult) => string): FootingRow {
+export function withStrapBeams(row: FootingRow, beams: ReadonlyMap<string, { beam: BeamRow; line: LineLayout; b: number; h: number; lineFrom?: string }>, keyOf: (s: StrapResult) => string): FootingRow {
   if (!row.edge?.straps.length && !row.group?.straps.length) return row;
   const fit = <T extends StrapResult>(s: T): T => {
     const k = beams.get(keyOf(s));
-    return k ? { ...s, b: k.b, h: k.h, beam: k.beam, line: k.line } : s;
+    return k ? { ...s, b: k.b, h: k.h, beam: k.beam, line: k.line, ...(k.lineFrom ? { lineFrom: k.lineFrom } : {}) } : s;
   };
   const edge = row.edge ? { ...row.edge, straps: row.edge.straps.map(fit) } : undefined;
   const group = row.group ? { ...row.group, straps: row.group.straps.map(fit) } : undefined;

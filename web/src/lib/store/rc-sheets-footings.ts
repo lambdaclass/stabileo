@@ -373,7 +373,7 @@ function strapHolders(row: FootingRow): Array<{ row: FootingRow; s: StrapResult 
   return [...own, ...grouped];
 }
 
-export interface StrapDesign { beam: BeamRow; line: LineLayout; b: number; h: number; group?: number; redo: (b: number, h: number, fc?: number) => { beam: BeamRow; line: LineLayout } }
+export interface StrapDesign { beam: BeamRow; line: LineLayout; b: number; h: number; group?: number; lineFrom: string; redo: (b: number, h: number, fc?: number) => { beam: BeamRow; line: LineLayout } }
 
 /**
  * Every strap beam of the footings, designed once with all it balances: a member the model has
@@ -417,7 +417,7 @@ export function designFootingStraps(rows: readonly FootingRow[], o: {
     const ctx = o.ctxOf(base, first.row);
     const adopted = base?.line ? o.adoptedOf(base.line.group) : undefined;
     const d = designStrap(o.rules, ctx, demand, section, !!base || !!own, o.fmt, adopted);
-    out.set(k, { ...d, ...(base?.line ? { group: base.line.group } : {}), redo: (b, h, fc) => { const r = designStrap(o.rules, fc ? { ...ctx, mat: { ...ctx.mat, fc } } : ctx, demand, { b, h }, true, o.fmt); return { beam: r.beam, line: r.line }; } });
+    out.set(k, { ...d, ...(base?.line ? { group: base.line.group } : {}), lineFrom: isOrigin(first.row) ? first.row.key : first.s.partnerKey, redo: (b, h, fc) => { const r = designStrap(o.rules, fc ? { ...ctx, mat: { ...ctx.mat, fc } } : ctx, demand, { b, h }, true, o.fmt); return { beam: r.beam, line: r.line }; } });
   }
   return out;
 }

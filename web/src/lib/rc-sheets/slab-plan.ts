@@ -178,6 +178,15 @@ function subtract(from: number, to: number, cuts: Array<[number, number]>): Arra
 
 interface Panel { key: string; name: string; rect: PlanRect; h: number; row: SlabRow }
 
+/** The panels of a level at its floor's height, the one most of its area is at: a landing between floors is a panel of its own, not of the floor's plan. */
+export function atFloorHeight<R extends Pick<SlabRow, 'demand'>>(rows: readonly R[]): R[] {
+  const area = new Map<number, number>();
+  for (const r of rows) { const b = r.demand.bounds; if (b) area.set(Math.round(b.z * 100), (area.get(Math.round(b.z * 100)) ?? 0) + (b.x1 - b.x0) * (b.y1 - b.y0)); }
+  if (area.size < 2) return [...rows];
+  const floor = [...area].reduce((a, b) => (b[1] > a[1] ? b : a))[0];
+  return rows.filter((r) => !r.demand.bounds || Math.round(r.demand.bounds.z * 100) === floor);
+}
+
 export function slabPlan(level: string, rows: readonly SlabRow[], geom: LevelGeometry, c: SlabPlanContext, code: SlabPlanCode = CIRSOC_SLAB_PLAN): LevelPlan {
   const panels: Panel[] = rows.filter((r) => r.demand.bounds).map((r) => {
     const b = r.demand.bounds!;

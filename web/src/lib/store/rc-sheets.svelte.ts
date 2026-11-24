@@ -26,7 +26,7 @@ import { columnLeastMn } from '../engine/design/seismic/frame-checks';
 import { concreteFc, type DesignKind, type ProjectDesignData } from '../model/design-data';
 import { developsAtFace, lateralReadingOf, spanLateralReading } from '../model/lateral-system';
 import { beamDemands, columnDemands, levelGeometry, punchingDemands, slabDemands, wallDemands, type DemandGroup, type DemandInput, type DemandSet } from '../rc-sheets/demands';
-import { slabPlan, type LevelGeometry, type LevelPlan } from '../rc-sheets/slab-plan';
+import { atFloorHeight, slabPlan, type LevelGeometry, type LevelPlan } from '../rc-sheets/slab-plan';
 import type { PunchingRow } from '../rc-sheets/punching-row';
 import { FOUNDATION_SYSTEMS, type FootingRow, type FoundationSystem } from '../rc-sheets/footing-types';
 import { layoutSummary, type FoundationLayout } from '../rc-sheets/footing-layouts';
@@ -666,7 +666,7 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
     yield step();
   }
   const planOf = (g: LevelGeometry) => {
-    const rows = slab.filter((r) => (r.level ?? '') === g.level);
+    const rows = atFloorHeight(slab.filter((r) => (r.level ?? '') === g.level));
     const first = groupOf(rows[0]?.key ?? '');
     const ctx = { mat: { fc: fcOfShells(first?.members.quads ?? [], first?.members.plates ?? []), fy }, cover: dd.covers.slab, diameters: slabBars, bent: data.slabBentBars === true, columnInset: dd.covers.column + dd.stirrupDiaMm / 1000 + Math.max(0, ...dd.longDiametersMm.filter((x) => x <= 16)) / 2000, criteria: crit };
     return slabPlan(g.level, rows, g, ctx, rules.slabPlan);

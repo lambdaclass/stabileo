@@ -414,6 +414,8 @@ export interface StrapResult {
   /** The model's strap member it is, when there is one. */
   group?: number;
   beam?: BeamRow; line?: LineLayout;
+  /** The row key of the footing its line starts at: its stations run from there to the other end. */
+  lineFrom?: string;
   /** On a strip, the row key of the footing (column) it starts from, and where that column stands in plan, m. */
   holder?: string; from?: { x: number; y: number };
 }
