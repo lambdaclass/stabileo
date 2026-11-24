@@ -3,7 +3,7 @@ use std::collections::HashMap;
 
 // ==================== 2D Input Types ====================
 
-crate::types::model_aliases::node!(f64);
+pub type SolverNode = super::model_aliases::PlanarNode<f64>;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -41,9 +41,9 @@ pub struct SolverElement {
     pub hinge_end: bool,
 }
 
-crate::types::model_aliases::support!(f64, f64, f64, f64);
+pub type SolverSupport = super::model_aliases::PlanarSupport<f64, f64, f64, f64>;
 
-crate::types::model_aliases::nodal_load!(f64, f64);
+pub type SolverNodalLoad = super::model_aliases::PlanarNodalLoad<f64, f64>;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -59,7 +59,7 @@ pub struct SolverDistributedLoad {
     pub b: Option<f64>,
 }
 
-crate::types::model_aliases::point_load!(f64, f64, f64);
+pub type SolverPointLoadOnElement = super::model_aliases::PlanarPointLoad<f64, f64, f64>;
 
 /// A load along a plane member's axis, linear from `q_i` at `a` to `q_j` at `b` (kN/m,
 /// positive toward J). The part of a load in global axes, or at an angle, that runs along an
@@ -212,25 +212,21 @@ impl MassInput {
     pub fn is_empty(&self) -> bool { self.nodal.is_empty() && self.line.is_empty() }
 }
 
-crate::types::model_aliases::aliased_input! {
-    /// A lumped mass at a 2D node: translational mass (t) in X and Z, and rotary
-    /// inertia (t·m²) about the out-of-plane axis.
-    ///
-    /// `mass` applies to both translations; `massX`/`massZ` replace it in their
-    /// direction when given (a mass that moves with the floor horizontally but
-    /// not vertically, say).
-    #[serde(rename_all = "camelCase", deny_unknown_fields)]
-    pub struct NodalMass {
-        pub node_id: usize,
-        #[serde(default)]
-        pub mass: f64,
-        #[serde(default)]
-        pub mass_x: Option<f64>,
-    }
-    aliases {
-        mass_z: Option<f64> => "massZ", mass_y => "massY", defaulted;
-        rotary_inertia: f64 => "iy", iz => "iz", defaulted;
-    }
+/// A lumped mass at a 2D node: translational mass (t) in X and Z, and rotary
+/// inertia (t·m²) about the out-of-plane axis.
+///
+/// `mass` applies to both translations; `massX`/`massZ` replace it in their
+/// direction when given (a mass that moves with the floor horizontally but
+/// not vertically, say).
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NodalMass {
+    pub node_id: usize,
+    pub mass: f64,
+    pub mass_x: Option<f64>,
+    pub mass_z: Option<f64>,
+    #[serde(rename = "iy")]
+    pub rotary_inertia: f64,
 }
 
 impl NodalMass {
@@ -794,16 +790,13 @@ pub struct SpectralModeInput {
     pub effective_mass_y: f64,
 }
 
-crate::types::model_aliases::aliased_input! {
-    #[serde(rename_all = "camelCase")]
-    pub struct SpectralModeDisp {
-        pub node_id: usize,
-        pub ux: f64,
-    }
-    aliases {
-        uz: f64 => "uz", uy => "uy", required;
-        ry: f64 => "ry", rz => "rz", required;
-    }
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SpectralModeDisp {
+    pub node_id: usize,
+    pub ux: f64,
+    pub uz: f64,
+    pub ry: f64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

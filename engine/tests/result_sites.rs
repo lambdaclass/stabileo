@@ -790,7 +790,6 @@ fn a_generic_instance_found_only_inside_another_is_still_settled() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2532"]
 fn serialized_alias_records_are_visible_to_the_result_site_generator() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let mut schema = Schema::build(root);
@@ -801,6 +800,10 @@ fn serialized_alias_records_are_visible_to_the_result_site_generator() {
         "SolverPointLoadOnElement",
         "SolverSupport",
         "SpectralModeDisp",
+        "TypedNodalLoad",
+        "TypedNode",
+        "TypedPointLoad",
+        "TypedSupport",
     ] {
         schema.has(&Shape::Named(name.into(), vec![]));
     }

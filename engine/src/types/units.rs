@@ -655,8 +655,6 @@ mod wire {
         pub shear_center_z: Option<Length>,
     }
 
-    crate::types::model_aliases::node!(Length);
-
     #[derive(Debug, Clone, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
     pub struct SolverNode3D {
@@ -665,10 +663,6 @@ mod wire {
         pub y: Length,
         pub z: Length,
     }
-
-    crate::types::model_aliases::nodal_load!(Force, Moment);
-
-    crate::types::model_aliases::point_load!(Length, Force, Moment);
 
     #[derive(Debug, Clone, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
@@ -800,8 +794,6 @@ mod wire {
         #[serde(default)]
         pub qt: LineLoad,
     }
-
-    crate::types::model_aliases::support!(Length, Angle, TranslationalStiffness, RotationalStiffness);
 
     #[derive(Debug, Clone, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
@@ -1043,11 +1035,11 @@ mod wire {
     #[serde(tag = "type", content = "data")]
     pub enum SolverLoad {
         #[serde(rename = "nodal")]
-        Nodal(SolverNodalLoad),
+        Nodal(TypedNodalLoad),
         #[serde(rename = "distributed")]
         Distributed(SolverDistributedLoad),
         #[serde(rename = "pointOnElement")]
-        PointOnElement(SolverPointLoadOnElement),
+        PointOnElement(TypedPointLoad),
         #[serde(rename = "thermal")]
         Thermal(SolverThermalLoad),
         #[serde(rename = "axialDistributed")]
@@ -1102,17 +1094,23 @@ mod wire {
         CurvedShellSelfWeight(crate::types::SolverQuadSelfWeightLoad),
     }
 }
+pub type TypedNode = super::model_aliases::PlanarNode<Length>;
+pub type TypedNodalLoad = super::model_aliases::PlanarNodalLoad<Force, Moment>;
+pub type TypedPointLoad = super::model_aliases::PlanarPointLoad<Length, Force, Moment>;
+pub type TypedSupport =
+    super::model_aliases::PlanarSupport<Length, Angle, TranslationalStiffness, RotationalStiffness>;
+
 pub use wire::{
     Displacement as TypedDisplacement, Displacement3D as TypedDisplacement3D, DistributedLoadInfo as TypedDistributedLoadInfo,
     ElementForces as TypedElementForces, ElementForces3D as TypedElementForces3D, PointLoadInfo as TypedPointLoadInfo,
     PointLoadInfo3D as TypedPointLoadInfo3D, Reaction as TypedReaction, Reaction3D as TypedReaction3D,
     SolverAxialDistributedLoad as TypedAxialDistributedLoad, SolverDistributedLoad as TypedDistributedLoad,
     SolverDistributedLoad3D as TypedDistributedLoad3D, SolverElement3D as TypedElement3D, SolverLoad as TypedLoad,
-    SolverLoad3D as TypedLoad3D, SolverMaterial as ElasticMaterial, SolverNodalLoad as TypedNodalLoad,
-    SolverNodalLoad3D as TypedNodalLoad3D, SolverNode as TypedNode, SolverNode3D as TypedNode3D,
+    SolverLoad3D as TypedLoad3D, SolverMaterial as ElasticMaterial,
+    SolverNodalLoad3D as TypedNodalLoad3D, SolverNode3D as TypedNode3D,
     SolverPlateThermalLoad as TypedPlateThermalLoad, SolverPointLoad3D as TypedPointLoad3D,
-    SolverPointLoadOnElement as TypedPointLoad, SolverPressureLoad as TypedPressureLoad, SolverQuadEdgeLoad as TypedQuadEdgeLoad,
-    SolverSection as ElasticSection2D, SolverSection3D as ElasticSection3D, SolverSupport as TypedSupport,
+    SolverPressureLoad as TypedPressureLoad, SolverQuadEdgeLoad as TypedQuadEdgeLoad,
+    SolverSection as ElasticSection2D, SolverSection3D as ElasticSection3D,
     SolverSupport3D as TypedSupport3D, SolverThermalLoad as TypedThermalLoad, SolverThermalLoad3D as TypedThermalLoad3D,
 };
 impl ElasticSection2D {
