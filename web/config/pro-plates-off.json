@@ -459,7 +459,7 @@
     },
     "src/components/SolveProgressCard.svelte": null,
     "src/components/Viewport3D.svelte": {
-      "source": "0012fe824755e86817b1d01e61c217324701b7e488f23ac506ad2e8c9442fafa",
+      "source": "17191720dc73ee0873eb741939a9d5e1e8a4dd7588257ed6e8ef730dcb07a767",
       "original": "b028c491dd62e39094084fc590add218b3c158013c71b8792cab1e32a94a0084",
       "changes": [
         [
@@ -473,8 +473,30 @@
           []
         ],
         [
-          990,
-          10,
+          79,
+          1,
+          []
+        ],
+        [
+          103,
+          1,
+          [
+            "  import { applyLowDetail, isHeavyModel } from '../lib/viewport3d/lod';"
+          ]
+        ],
+        [
+          170,
+          2,
+          []
+        ],
+        [
+          641,
+          2,
+          []
+        ],
+        [
+          995,
+          11,
           [
             "      renderer.render(scene, camera);",
             "      splitView?.render();",
@@ -484,19 +506,44 @@
           ]
         ],
         [
-          1410,
+          1066,
+          3,
+          [
+            "    // Level-of-detail during orbit. Typical models keep full detail while the",
+            "    // camera moves; heavy models (per the isHeavyModel policy in lod.ts, which",
+            "    // weighs shells and the sections render mode) fall back to hiding the",
+            "    // decorative parents + per-element solids and forcing the single batched",
+            "    // LineSegments2 draw call on as the stand-in."
+          ]
+        ],
+        [
+          1081,
+          1,
+          [
+            "      const heavyModel = uiStore.smoothOrbit3D || isHeavyModel(",
+            "        {",
+            "          elements: modelStore.elements.size,",
+            "          shells: modelStore.plates.size + modelStore.quads.size,",
+            "          supports: modelStore.supports.size,",
+            "        },",
+            "        uiStore.renderMode3D,",
+            "      );"
+          ]
+        ],
+        [
+          1407,
           1,
           [
             "    const on = resultsStore.diagramType === 'despiece' && !!resultsStore.results3D && !buildTimelapse.active;"
           ]
         ],
         [
-          1517,
+          1514,
           2,
           []
         ],
         [
-          1521,
+          1518,
           2,
           [
             "    void uiStore.platesShowMesh;",
@@ -504,14 +551,14 @@
           ]
         ],
         [
-          4341,
+          4338,
           1,
           [
             "  onmousedown={handleMouseDown}"
           ]
         ],
         [
-          4344,
+          4341,
           3,
           [
             "  onmouseup={handleMouseUp}",
@@ -520,14 +567,14 @@
           ]
         ],
         [
-          4348,
+          4345,
           2,
           [
             "  oncontextmenu={handleContextMenu3D}"
           ]
         ],
         [
-          4750,
+          4747,
           1,
           []
         ]
@@ -4110,7 +4157,7 @@
       ]
     },
     "src/lib/data/pro-examples.ts": {
-      "source": "e4846a2bb02c256e246cc488012134306a34af151bb8ba6452d085d50d912b27",
+      "source": "98af22b2e7df8e730ed51359dcc0edf31cd7871f7f2370908946c0f7bd63c0e3",
       "original": "3cf070d6b00c33f840b2813f6b8ceaeb24071def5db135129be8885102ee1eaa",
       "changes": [
         [
@@ -6181,7 +6228,7 @@
       ]
     },
     "src/lib/i18n/locales/de.ts": {
-      "source": "d7da0698cd2e1a39f5f02f48270c0b76d71345f72c0448c8f3df26d7a5198671",
+      "source": "1d0e333181c3ac5ff7b23b5198ed9f3f79d1f69f163a4663d009ed1ce69c7111",
       "original": "0b1cffc73c321c88dd80b93e39f81e925705babc0f2e91df63e10c19111fe052",
       "changes": [
         [
@@ -6569,7 +6616,7 @@
       ]
     },
     "src/lib/i18n/locales/en.ts": {
-      "source": "f4db8e5595a2f6625df8eb7f48b581de1c60f64c46cf13691eb633ea85c977e2",
+      "source": "845670fadaaad16eb8945c12dc521f67c6de225396a115e2289333edb04c5ea2",
       "original": "99343e2eeb7cf4140cbbcb69424c37461d3ec4e5c925d64439f6b56ee0e9e6b3",
       "changes": [
         [
@@ -6929,7 +6976,7 @@
       ]
     },
     "src/lib/i18n/locales/es.ts": {
-      "source": "24bf8502ab380ccf260fd85e9d92faf64368652990607feb54e919a260c14179",
+      "source": "bb05238e092ee34275d01cac2bc70d11e8df53bdde122ca6890f87518ddb9ca6",
       "original": "df939d2beed0420d6833617b3561c95098e34704ee1a3b4f15f21dda24fa4e09",
       "changes": [
         [
@@ -7289,7 +7336,7 @@
       ]
     },
     "src/lib/i18n/locales/fr.ts": {
-      "source": "ace4abd7b6eed8c237ac1d509072cc719380662094197e56e198fa24ccbac479",
+      "source": "24fd50bc033df18f63635c74d3fdf2b0b46f1349003fd23d2aeb2b194b77b32c",
       "original": "26693801514fc282fbb8a5a4ad627431cbfce3c6e3f0720639c8cb5cef4e4b20",
       "changes": [
         [
@@ -7697,7 +7744,7 @@
       ]
     },
     "src/lib/i18n/locales/hu.ts": {
-      "source": "7543588cc13af512903b2a003b465c9814668787f5e0e55c60a8e1815a1c8f0e",
+      "source": "01c56b7c8fcc872fcbdbe077e8a868905e26d5d958f3d8c8f3794d1b39113694",
       "original": "050bb2fb50b6d61761b6836086403490f8b3deedc1ac4af88de298aa3fd3966e",
       "changes": [
         [
@@ -8097,7 +8144,7 @@
       ]
     },
     "src/lib/i18n/locales/pt.ts": {
-      "source": "46364121d095dbbb5bdefbf9683dc8e7a16061972bb14daca2aa604da932f679",
+      "source": "878fd9bf8c6e98364aa8dcbea123b5e0d857fcfc273c13f528f7ce069e5d0f06",
       "original": "f013a27bd1465964fefdc7d531a470bc4855e8593daa03ed54ed7453509bdd37",
       "changes": [
         [
@@ -8779,7 +8826,7 @@
       ]
     },
     "src/lib/i18n/locales/tr.ts": {
-      "source": "3bfaaf4ee74832d1b80e3403000d7f0c45bc111352c98e66f0077cb8760651ea",
+      "source": "f7d2d7975528c128a0630568dd6b6c5990b34787855aa1d05691ebde6fed6be9",
       "original": "dfae3be5cd45792b6b2c9720f3433a60bace6b76a70d785cd4f6cc88d7ef096f",
       "changes": [
         [
@@ -9146,7 +9193,7 @@
       ]
     },
     "src/lib/i18n/locales/zh.ts": {
-      "source": "bf37b6939a200f868c645347aac56dd14f9748e1989e39185e4e0da8b6eefdb9",
+      "source": "638a7e30e07351d874f8610b33c9a0960c661b9b8778e1c8dae5ec73a9286724",
       "original": "187ecdf53aa596a80d7c584c8c8fc84768c7dd6c4d6540750c3a9cdcf2caee26",
       "changes": [
         [
@@ -10244,12 +10291,12 @@
       ]
     },
     "src/lib/model/physical/types.ts": {
-      "source": "87621d0b780ad139fc0601b78ef8dad49c83674a44053e07e9e5f50f62d76166",
+      "source": "65eade3843885c95b13f753218e76ba23512105faaba14071eab834198acb466",
       "original": "4d61694e8d7f3a9cb4d159dbd700437cb7fa16d1a0673c44621d904ac988455d",
       "changes": [
         [
           35,
-          1,
+          3,
           [
             "  /**",
             "   * A slab placed as one shell per panel and meshed at `size` (m) by the first solve",
@@ -15801,19 +15848,46 @@
         ]
       ]
     },
+    "src/lib/three/create-shell-mesh.ts": {
+      "source": "644743b2080c829d212872bd7e3cb1a94bfe58970d426fac243c3f07d9a2fd27",
+      "original": "3b2681edd4f7b261fdc6432b7563c1199883527e62f5afe73d8e0a03f2c2306a",
+      "changes": [
+        [
+          50,
+          1,
+          [
+            "function makeFaceMaterial(color: number, mode: ShellRenderMode): THREE.MeshStandardMaterial {"
+          ]
+        ]
+      ]
+    },
     "src/lib/three/load-arrows-batched.ts": {
-      "source": "3460bbb07a434d7671600ea5fdce3a4137378eb9d78e0b6cd40db448ee04fb47",
+      "source": "6845d4f25b20b1b26c21ae7cf7edf2a17e8452dca2df59ed821fcb67f9b408e3",
       "original": "cae43d4cbef80c38b9634dfeedf84e6fb697423349d88f8a5169001060a27a14",
       "changes": [
         [
           409,
           55,
           []
+        ],
+        [
+          613,
+          1,
+          [
+            "    for (const l of this.labels) {"
+          ]
+        ],
+        [
+          621,
+          20,
+          []
         ]
       ]
     },
     "src/lib/three/rebar-3d-layer.ts": null,
     "src/lib/three/rebar-ghost-layer.ts": null,
+    "src/lib/three/shell-batch.ts": null,
+    "src/lib/three/stair-steps.ts": null,
     "src/lib/three/use-zone-map-3d.ts": {
       "source": "60afe97ad6e987e1758c67b0081d26d95cadda73dabfb649d29420cc3ae43f99",
       "original": "90f79cc45842937fbbc681798f1322373191285cfdf3c7cc1c19e59d79218325",
@@ -15934,7 +16008,7 @@
     },
     "src/lib/viewport3d/scene-solo.ts": null,
     "src/lib/viewport3d/scene-sync.ts": {
-      "source": "5cdd580dfda1f86514eb052c50a36bbd6436173f723e6ebd0f55dc9e9f8fd58f",
+      "source": "a2bd8c42efe047da98ee1f332fdd9ea3e06bc4298bf909a5b0f5c7ec02116768",
       "original": "4d82e54161660a2ce53f2eecf254fcf5e649309ac07497f14caef35f1f3c4c20",
       "changes": [
         [
@@ -15946,14 +16020,19 @@
           ]
         ],
         [
-          160,
+          44,
+          1,
+          []
+        ],
+        [
+          161,
           1,
           [
             "  const meshOnly = meshHidden() ? meshOnlyNodes() : null;"
           ]
         ],
         [
-          625,
+          626,
           3,
           [
             "    const loops = plateLoops(pl.group);",
@@ -15963,43 +16042,48 @@
           ]
         ],
         [
-          633,
+          634,
           1,
           [
             "    const signature = `${renderMode}|${pl.surface.materialId}|${pl.surface.thickness}|` + [outer, ...holes].map((l) => l.map((n) => `${n!.x}:${n!.y}:${n!.z}`).join(';')).join('|');"
           ]
         ],
         [
-          637,
+          638,
           1,
           [
             "    const group = createPhysicalPlateMesh(outer as Array<{ x: number; y: number; z: number }>, holes as Array<Array<{ x: number; y: number; z: number }>>,"
           ]
         ],
         [
-          647,
+          648,
           1,
           [
             "  const pieceView = !uiStore.platesShowMesh;"
           ]
         ],
         [
-          762,
+          675,
+          2,
+          []
+        ],
+        [
+          765,
           1,
           []
         ],
         [
-          875,
+          878,
           40,
           []
         ],
         [
-          918,
+          921,
           1,
           []
         ],
         [
-          1198,
+          1201,
           6,
           []
         ]
@@ -16021,6 +16105,7 @@
         ]
       ]
     },
+    "src/lib/viewport3d/stair-steps-sync.ts": null,
     "src/vite-env.d.ts": {
       "source": "eefa374e11c3ac3274cc428cfdee19fff3fe84235e7710afc703900f3a0ba584",
       "original": "c395115c6ad619edcbb9ad736a2fb52cb5b20ec521bab8249af28158081ac8d3",
