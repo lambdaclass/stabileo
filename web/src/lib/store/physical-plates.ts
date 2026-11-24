@@ -992,16 +992,29 @@ function withSharedMesh(p: ReadyPlateMesh, mesh: MeshOutput): ReadyPlateMesh {
   return { ...p, mesh, cells: mesh.cells.length, quality: meshQuality(mesh), mixed: p.spec.element === 'quad' && !mesh.structured };
 }
 
-function refinePerforatedGrid(p: ReadyPlateMesh, stationsOn: (a: Vec3, b: Vec3) => Vec3[], weld: number): ReadyPlateMesh {
+/** A slab panel's column-section grid again, with a line through each of `fixedPoints` (`footprintGrid`). */
+function footprintRefined(p: ReadyPlateMesh, outer: readonly Vec3[], fixedPoints: readonly Vec3[]): MeshOutput | null {
+  const grid = gridOfSpec(p.spec), alongX = (p.aDir?.[0] ?? 1) !== 0;
+  const a = grid?.a ?? p.spec.size, b = grid?.b ?? p.spec.size;
+  return footprintGrid(outer.map(([x, y, z]) => ({ x, y, z })), { ax: alongX ? a : b, ay: alongX ? b : a, element: p.spec.element }, p.footprints!.columns, {
+    xs: fixedPoints.map((q) => q[0]), ys: fixedPoints.map((q) => q[1]),
+  });
+}
+
+/**
+ * A structured grid of quads met by its neighbours' nodes, meshed again with a line through each,
+ * so it stays a grid of rectangles where splitting its edge cells would skew them.
+ */
+function refineGridToStations(p: ReadyPlateMesh, stationsOn: (a: Vec3, b: Vec3) => Vec3[], weld: number): ReadyPlateMesh {
   const { outer, holes } = p.input;
-  if (!p.mesh.structured || p.spec.element !== 'quad' || !holes.length || outer.kind !== 'polygon') return p;
+  if (!p.mesh.structured || p.spec.element !== 'quad' || outer.kind !== 'polygon') return p;
   const holePoints = holes.flatMap(hole => hole.kind === 'polygon' ? [hole.points] : []);
   if (holePoints.length !== holes.length) return p;
   const stations = addedMeshStations(p.mesh, stationsOn, weld);
   if (!stations.length) return p;
   const { plane } = p.mesh;
   const fixedPoints = [...p.mesh.points, ...stations];
-  const refined = rectGrid({
+  const refined = p.footprints ? footprintRefined(p, outer.points, fixedPoints) : rectGrid({
     frame: { ...plane, n: cross(plane.u, plane.v) }, outer: outer.points, holes: holePoints,
     a: p.grid?.cellA ?? p.spec.size, b: p.grid?.cellB ?? p.spec.size, element: 'quad',
     fixedPoints, maxCells: MAX_MESH_CELLS,
@@ -1062,9 +1075,16 @@ function planConformingMeshes(plans: readonly PlateMeshPlan[], report: PlateMesh
     const frameNodes = memberChains(plateModel(), owned).flat();
     const frame = stationIndex([...new Set(frameNodes)].map(v3).filter((p): p is Vec3 => p !== null));
     const existing = [...untouched].map(([id, cells]) => ({ id, cells, stations: stationIndex(cells.flat()) }));
-    const preliminary = sharedStationsFor(drafts, existing, frame);
-    const grids = drafts.map((p, i) => refinePerforatedGrid(p, preliminary[i]!, weld));
-    const stationsFor = grids.some((p, i) => p !== drafts[i]) ? sharedStationsFor(grids, existing, frame) : preliminary;
+    // A grid met again passes the new stations on to its own neighbours, one plate further a pass
+    // (down a stack of walls a storey at a time): refined until none changes.
+    let grids: ReadyPlateMesh[] = drafts;
+    let stationsFor = sharedStationsFor(grids, existing, frame);
+    for (let pass = 0; pass <= drafts.length; pass++) {
+      const next = grids.map((p, i) => refineGridToStations(p, stationsFor[i]!, weld));
+      if (next.every((p, i) => p === grids[i])) break;
+      grids = next;
+      stationsFor = sharedStationsFor(grids, existing, frame);
+    }
     const final: ReadyPlateMesh[] = [];
     for (const [i, p] of grids.entries()) {
       const mesh = meshStations(p.mesh, stationsFor[i]!, weld);
