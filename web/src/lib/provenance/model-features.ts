@@ -1,7 +1,8 @@
 import { POINT_END_TOL } from '../engine/member-point-loads';
 import { planarNodalMoment, planarPointMoment, planarPointMomentWithoutProjection, planarPointProjectionTooShort } from '../engine/planar-point-load';
 import { hasModalSeismicDerivation } from '../engine/loads/seismic-generation';
-import { isCompositeCase, symbolOfType, symbolsByAlternativeSet } from '../engine/loads/combination-cases';
+import { isCompositeCase } from '../engine/loads/combination-cases';
+import { symbolOfType, symbolsByAlternativeSet } from '../engine/loads/combination-cases';
 /**
  * Which features a saved model has, for deciding which registered result changes concern it.
  *
