@@ -12135,7 +12135,7 @@
     "src/lib/templates/examples/baselines/generated/pro-rc-steel-columns.json": null,
     "src/lib/templates/examples/baselines/generated/pro-steel-building-slabs.json": null,
     "src/lib/templates/examples/index.ts": {
-      "source": "c764697dce47a4c9e22543bb81fde53a8cca894dcbef7bb6b8222c38d7c64f36",
+      "source": "c320d1c23398669de1bbefc1869561152a749bcca3b7842cf56005d06ad02512",
       "original": "9b287e269819f1c04ee0f4a558aa8a747e0534f8ed82a5bfb4fd5cd927f88af7",
       "changes": [
         [
@@ -12149,13 +12149,6 @@
           14,
           5,
           []
-        ],
-        [
-          20,
-          0,
-          [
-            "  'pro-rc-frame-area-loads': () => import('./pro-rc-frame-area-loads.stabileo.txt?raw'),"
-          ]
         ]
       ]
     },
