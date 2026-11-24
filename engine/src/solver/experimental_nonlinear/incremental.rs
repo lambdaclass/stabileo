@@ -1065,6 +1065,8 @@ mod tests {
 
         assert_eq!(updated(&[1.0, 0.0], &[vec![1.0, 0.0]]), None);
         assert_eq!(updated(&[1.0 - 1e-9, 0.0], &[vec![1.0, 0.0]]), None);
+        assert_eq!(updated(&[1e-300 * (1.0 - 1e-9), 0.0], &[vec![1e-300, 0.0]]), None);
+        assert!(updated(&[0.999, 0.0], &[vec![1.0, 0.0]]).is_some());
         assert_eq!(updated(&correction, &[vec![0.0, 0.0]]), None);
         assert_eq!(updated(&correction, &[vec![f64::NAN, 1.0]]), None);
     }

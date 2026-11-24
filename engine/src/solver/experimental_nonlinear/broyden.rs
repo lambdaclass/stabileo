@@ -2,6 +2,7 @@ use super::incremental::{IncrementalProblem, Iteration, IterationBudget, Iterati
 
 pub(crate) const MAX_BROYDEN_MEMORY: usize = 50;
 const LONGEST_STEP: f64 = 1e3;
+const SMALLEST_DENOMINATOR: f64 = 1e-8;
 
 /// Broyden's method on the corrections of modified Newton, in Kelley's limited-memory form
 /// ("Iterative Methods for Linear and Nonlinear Equations", algorithm brsol): the tangent of
@@ -51,8 +52,8 @@ impl Iteration for Broyden {
 }
 
 /// The step Broyden's updated Jacobian gives for `correction`, the step of the lagged tangent.
-/// `None` when the last secant denominator vanishes, or the step is non-finite or more than
-/// `LONGEST_STEP` times the correction.
+/// `None` when the last secant denominator is under `SMALLEST_DENOMINATOR` or not a number, or
+/// the step is non-finite or more than `LONGEST_STEP` times the correction.
 pub(super) fn updated(correction: &[f64], steps: &[Vec<f64>]) -> Option<Vec<f64>> {
     let dot = |a: &[f64], b: &[f64]| a.iter().zip(b).map(|(x, y)| x * y).sum::<f64>();
     let Some((last, earlier)) = steps.split_last() else {
@@ -66,6 +67,9 @@ pub(super) fn updated(correction: &[f64], steps: &[Vec<f64>]) -> Option<Vec<f64>
             .for_each(|(value, s)| *value += weight * s);
     }
     let denominator = 1.0 - dot(last, &z) / dot(last, last);
+    if !(denominator.abs() >= SMALLEST_DENOMINATOR) {
+        return None;
+    }
     let step: Vec<f64> = z.iter().map(|value| value / denominator).collect();
     let longest = |v: &[f64]| v.iter().fold(0.0f64, |m, x| m.max(x.abs()));
     if step.iter().any(|v| !v.is_finite()) || longest(&step) > LONGEST_STEP * longest(correction) {
