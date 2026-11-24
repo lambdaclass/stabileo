@@ -24,7 +24,7 @@ export const FIXTURES = {
   'bundle-3d': 'engine/tests/fixtures/certificates/ex-3d-portal-frame.input.json',
   'plastic-2d-portal': 'engine/tests/fixtures/certificates/plastic-2d-portal.input.json',
   'plastic-2d-continuous': 'engine/tests/fixtures/certificates/plastic-2d-continuous.input.json',
-  'plastic-3d-portal': 'engine/tests/fixtures/certificates/plastic-3d-portal.input.json',
+  'plastic-3d-portal': 'verify/samples/plastic-3d-portal.input.json',
   'plastic-3d-cantilever': 'engine/tests/fixtures/certificates/plastic-3d-cantilever.input.json',
 };
 

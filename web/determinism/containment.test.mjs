@@ -5,7 +5,7 @@ import * as wasm from '../src/lib/wasm/dedaliano_engine.js';
 wasm.initSync({ module: readFileSync(new URL('../src/lib/wasm/dedaliano_engine_bg.wasm', import.meta.url)) });
 
 function shell(direction = 'fy') {
-  const solver = JSON.parse(readFileSync(new URL('../../engine/tests/fixtures/certificates/plastic-3d-portal.input.json', import.meta.url))).solver;
+  const solver = JSON.parse(readFileSync(new URL('../../verify/samples/plastic-3d-portal.input.json', import.meta.url))).solver;
   Object.assign(solver, { nodes: {}, elements: {}, supports: {}, loads: [], quads: {} });
   solver.materials['1'].e = 10000;
   for (let i = 0; i <= 6; i++) for (let j = 0; j < 2; j++) {

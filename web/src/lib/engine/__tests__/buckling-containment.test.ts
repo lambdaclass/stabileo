@@ -17,7 +17,7 @@ import { knownIssueResultDisposition } from '../known-issues';
 
 const refusal = JSON.stringify({ message: 'withheld', structuredDiagnostics: [{ code: 'known_issue', severity: 'error', phase: 'BU-BOUND', value: 741, message: 'withheld' }] });
 function input() {
-  const wire = JSON.parse(readFileSync('../engine/tests/fixtures/certificates/plastic-3d-portal.input.json', 'utf8')).solver;
+  const wire = JSON.parse(readFileSync('../verify/samples/plastic-3d-portal.input.json', 'utf8')).solver;
   for (const key of ['nodes', 'elements', 'materials', 'sections', 'supports', 'plates', 'quads', 'quad9s', 'solidShells', 'curvedShells', 'connectors']) {
     wire[key] = new Map(Object.entries(wire[key] ?? {}).map(([id, value]) => [Number(id), value]));
   }
