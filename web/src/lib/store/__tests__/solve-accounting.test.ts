@@ -438,9 +438,7 @@ it('#2479 refuses a wrong what-if plate-pressure factor throughout spatial analy
   }
 });
 
-const issue2479Corners = process.env.RUN_KNOWN_WRONG === '2479' ? it : it.skip;
-
-issue2479Corners('#2479 refuses alternating what-if corner pressures with unchanged resultants', async () => {
+it('#2479 refuses alternating what-if corner pressures with unchanged resultants', async () => {
   const { id } = floor();
   const [a, b] = modelStore.nodes.keys();
   modelStore.addElement(a!, b!);

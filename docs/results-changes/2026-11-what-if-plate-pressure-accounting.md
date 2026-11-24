@@ -1,5 +1,5 @@
 # Independent pressure accounting in Explore
 
-When an Explore slider changes a pressure generated from a physical plate definition, analysis checks the requested change using the baseline pressure field and the slider factor. It integrates the baseline field on its original shell independently of the load scaler, then applies the slider's change to the integrated force and moment. Declared case and combination factors apply to the checked totals.
+When an Explore slider changes pressure generated from a physical plate definition, analysis checks the assembled loads against the original pressure field and the requested slider factor. The force and moment check is independent of the load scaler. The pressure check compares values at each shell corner, or at the two endpoints of a varying pressure field. The expected pressure includes each applicable case factor. The combination check uses the verified cases.
 
-A mismatch beyond the affected component's roundoff allowance stops analysis and identifies the load case, plate and component. The pressure sent to the solver and the solver equations are unchanged. Correctly scaled cases retain their results.
+Alternating pressure errors on a rectangular shell can change equivalent nodal forces while leaving the total force and moment equal to the request. A pressure mismatch beyond roundoff stops analysis and identifies the load case, shell and pressure value. Correctly scaled cases retain their results.

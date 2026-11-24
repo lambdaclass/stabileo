@@ -1,4 +1,4 @@
-import { accountingCaseSources, copyAccountingLoad, type AccountingCaseSources } from './accounting-source';
+import { accountingCaseSources, copyAccountingLoad, scenarioSurfaceIntentOf, withScenarioSurfaceIntent, type AccountingCaseSources } from './accounting-source';
 import { loadCaseBatches } from './load-accounting';
 /**
  * The loads each case carries when solved, from what the model states about the case:
@@ -29,6 +29,15 @@ import { isCompositeCase } from './loads/combination-cases';
 import { variableExpansionFor } from './variable-members';
 import { caseReductionRefusal } from './loads/case-reduction';
 import { listed } from './combination-methods';
+
+function scaleCaseLoad(load: Load, factor: number): Load {
+  const scaled = scaledLoad(load, factor);
+  if (load.type !== 'surface3d' || scaled.type !== 'surface3d') return scaled;
+  const intent = scenarioSurfaceIntentOf(load);
+  return intent ? withScenarioSurfaceIntent(scaled, {
+    ...intent, caseFactors: [...(intent.caseFactors ?? []), factor],
+  }) : scaled;
+}
 
 type CaseLike = Pick<LoadCase, 'id' | 'type' | 'includes' | 'notional' | 'reduction'>;
 
@@ -143,7 +152,7 @@ export function withCaseEffects<M extends ModelData>(
   const generated = new Map<number, Load[]>();
   let nextId = Math.max(0, ...model.loads.map((l) => l.data.id)) + 1;
   const fresh = (l: Load, caseId: number, k: number): Load => {
-    const s = k === 1 ? l : scaledLoad(l, k);
+    const s = k === 1 ? l : scaleCaseLoad(l, k);
     return { ...s, data: { ...s.data, id: nextId++, caseId } } as Load;
   };
 
@@ -299,7 +308,7 @@ export function singleSolveModel<M extends ModelData>(model: M, cases: readonly 
       const k = factor * sources.cases.get(caseId)!.ratio;
       for (const l of own.get(caseId) ?? []) {
         if (k === 1 && caseId === as) { loads.push(l); continue; }
-        const s = scaledLoad(l, k);
+        const s = scaleCaseLoad(l, k);
         loads.push({ ...s, data: { ...s.data, id: nextId++, caseId: as } } as Load);
       }
       for (const r of stated ?? []) if (r.caseId === caseId) rows.push({ ...r, caseId: as, factor: r.factor * factor });

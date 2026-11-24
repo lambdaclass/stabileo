@@ -19,6 +19,7 @@ export const accountingProjection = Symbol();
 export interface ScenarioSurfaceIntent {
   readonly baseline: Omit<SurfaceLoad3D, typeof scenarioSurfaceAdjustment>;
   readonly factor: number;
+  readonly caseFactors?: readonly number[];
 }
 
 type SurfaceLoad = Extract<Load, { type: 'surface3d' }>;

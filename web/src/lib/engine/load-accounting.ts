@@ -27,12 +27,56 @@ function unsupported(model: ModelData, caseId: number, kind: string, id: number)
   throw new SolveAccountingError(tp('svc.accountingUnsupported', { case: caseLabel(model, caseId), kind, id }));
 }
 
+function compareComponent(
+  label: string, component: string, entered: number, assembled: number, scale: number, underflow: number,
+): void {
+  if (!agreesAtScale(entered, assembled, scale, underflow)) {
+    throw new SolveAccountingError(tp('svc.accountingMismatch', { case: label, component, entered, assembled }));
+  }
+}
+
 function compare(label: string, entered: Wrench, assembled: Wrench): void {
   for (let i = 0; i < components.length; i++) {
     const a = entered.component(i), b = assembled.component(i);
-    if (!agreesAtScale(a.value, b.value, Math.max(a.scale, b.scale), a.underflow + b.underflow)) throw new SolveAccountingError(tp('svc.accountingMismatch', {
-      case: label, component: components[i]!, entered: a.value, assembled: b.value,
-    }));
+    compareComponent(label, components[i]!, a.value, b.value, Math.max(a.scale, b.scale), a.underflow + b.underflow);
+  }
+}
+
+function verifyScenarioPressures(model: ModelData, caseId: number, label: string, loads: readonly Load[]): void {
+  for (const load of loads) {
+    if (load.type !== 'surface3d') continue;
+    const intent = scenarioSurfaceIntentOf(load);
+    if (!intent) continue;
+    const { data } = load;
+    const { baseline, factor } = intent;
+    const shell = (baseline.on === 'plate' ? model.plates : model.quads)?.get(baseline.quadId);
+    if (!shell || data.quadId !== baseline.quadId || data.on !== baseline.on) {
+      unsupported(model, caseId, load.type, data.id);
+    }
+    const corners = shell.nodes.length;
+    const comparePressure = (component: string, baselinePressure: number, assembled: number) => {
+      const entered = (intent.caseFactors ?? []).reduce(
+        (pressure, caseFactor) => pressure.scale(caseFactor), new LoadScalar(baselinePressure).scale(factor),
+      );
+      compareComponent(`${label} · #${data.quadId}`, component, entered.value, assembled,
+        Math.max(Math.abs(entered.value), Math.abs(assembled)), entered.underflow);
+    };
+
+    if (baseline.vary || data.vary) {
+      if (!baseline.vary || !data.vary || baseline.qNodes || data.qNodes) {
+        unsupported(model, caseId, load.type, data.id);
+      }
+      comparePressure('q1', baseline.vary.q1, data.vary.q1);
+      comparePressure('q2', baseline.vary.q2, data.vary.q2);
+      continue;
+    }
+    if ((baseline.qNodes && baseline.qNodes.length !== corners) || (data.qNodes && data.qNodes.length !== corners)) {
+      unsupported(model, caseId, load.type, data.id);
+    }
+    for (let i = 0; i < corners; i++) {
+      comparePressure(`q[${i + 1}]`, baseline.qNodes ? baseline.qNodes[i]! : baseline.q,
+        data.qNodes ? data.qNodes[i]! : data.q);
+    }
   }
 }
 
@@ -360,6 +404,7 @@ export function loadAccounting3D(
           : expected(caseId);
       const label = [caseLabel(model, caseId), ...names].join(' · ');
       compare(label, totals, assembled3D(model, input, assembled, caseId));
+      verifyScenarioPressures(source, caseId, label, loads);
       return totals;
     },
   };
