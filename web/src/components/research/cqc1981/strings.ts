@@ -31,7 +31,7 @@ const en = {
 
 export type CqcStrings = typeof en;
 
-export const translations: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr' | 'hu', CqcStrings> = {
+export const translations: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr' | 'hu' | 'zh', CqcStrings> = {
   en,
   es: {
     srss: 'SRSS', cqc: 'CQC',
@@ -200,6 +200,34 @@ export const translations: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr' | 'hu'
     viewer: 'A tető X irányú elmozdulása · mm', viewNote: 'Axonometrikus vetület a Stabileo nézőjében. Torzítás ×40; az animáció a burkolót skálázza, nem időtörténeti analízis.',
     step: 'Burkoló megjelenítése', rule: 'Kombináció',
     error: 'Az élő számítás nem sikerült',
+  },
+  zh: {
+    srss: 'SRSS', cqc: 'CQC',
+    title: '密集模态：SRSS 与 CQC',
+    metaTitle: 'SRSS 与 CQC (1981) — Stabileo Research',
+    metaDescription: '将一栋建筑的密集模态与闭合解参考值进行比较。',
+    lead: '一个简化为剪切型建筑的小型 3D 算例，由生产环境的模态与反应谱计算引擎求解。',
+    citation: '」，方法示意依据：',
+    model: '算例', description: '四根固接柱，高 3 m，平面为 4 × 3 m。每个屋面节点承担 X 向 5 t 质量。屋面转动及 Y/Z 向平动受到约束；等 X 位移约束连接每一对横向节点。两根轴向屋面拉杆耦合其余两个坐标。这是我们对该方法的示意，不是论文原有的建筑。',
+    method: '闭合解参考值', equations: '缩减后的矩阵为 M = diag(10, 10) t 和 K = [[1020, −20], [−20, 1230]] kN/m。求解 det(K − ω²M) = 0；将每个模态归一化为单位模态质量。当 Sa = 1 m/s² 时，各模态基底剪力为 Γ²Sa。SRSS 舍去交叉项；CQC 保留其在等阻尼比 ξ = 5% 下的相关性。',
+    rhoSource: '这是 Wilson、Der Kiureghian 和 Bayo (1981) 的等阻尼相关系数，式 (14)，第 191 页；第 190 页解释了交叉项为何保留其符号。它假定各模态阻尼相同、地面运动持续时间相对于模态周期较长、谱宽而平滑。下方的参考值是本算例的闭合解结果，不是论文表 I 中的数据。',
+    explanation: '论文提出用 CQC 来减小模态组合误差，并指出对于频率相隔较远的情形，CQC 退化为 SRSS。这里 SRSS 的基底剪力低于 CQC。该差异是相对于 CQC 估计值而言的，不是相对于地震记录实测得到的误差。',
+    referenceLabel: '对照闭合解',
+    publishedNote: '未使用论文中的建筑和表格：本页将自己的双模态算例与闭合解进行核对。',
+    comparison: '基底剪力 · kN', roofHeading: '屋面 X 向位移包络 · mm', node: '节点',
+    modalHeading: '模态数据', quantity: '量', f1: '频率 1 · Hz', f2: '频率 2 · Hz', rho: '模态相关系数 ρ',
+    impliedNote: 'Stabileo 的 ρ 由其自身结果反算得到：ρ = (V_CQC² − V_SRSS²) / (2 V₁ V₂)，其中 Vᵢ 为各模态基底剪力。',
+    reference: '闭合解', result: 'Stabileo', delta: '差异 · %',
+    deficit: 'SRSS 相对于 CQC · %',
+    checksHeading: '检查',
+    tolerance: '回归界限：两个频率、X 向质量参与、两个基底剪力和两个屋面位移的相对差异均低于 1 × 10⁻⁸（共 9 项检查）。原生运行的差异最大为 6.4 × 10⁻¹⁵。该界限用于防止这个小型、条件良好的双坐标问题出现回归；它不是精度目标，求解器与闭合解一致并不能说明物理精度。',
+    scope: '范围',
+    limitations: ['比较对象是这个双坐标算例的闭合解；并未复现论文自己的建筑和数值表。', '没有时程：两种方法都未与地震动记录对比。', '单层，无扭转响应，也无参数扫描。'],
+    run: '实时重新计算', stop: '停止', restart: '重新开始', running: '计算中…',
+    replay: '预先计算的回放（同一求解器）', live: '实时结果（生产环境 WASM）',
+    viewer: '屋面 X 向位移 · mm', viewNote: 'Stabileo 查看器中的轴测投影。变形 ×40；动画对包络进行缩放，并非时程。',
+    step: '包络显示', rule: '组合方法',
+    error: '实时计算失败',
   },
 };
 

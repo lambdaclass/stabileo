@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { axisName } from '../../lib/axes/display';
   import Hint from './Hint.svelte';
   /**
    * How the generated area loads reach the model (`engine/loads/plan-gravity.ts`): by the real
@@ -40,8 +41,8 @@
         {#if slab === 'oneWay'}
           <label class="al-field al-field-narrow"><span class="al-label">{t('floorLoad.span')}</span>
             <select bind:value={spanAxis} data-testid="al-gravity-span">
-              <option value="x">X</option>
-              <option value="y">Y</option>
+              <option value="x">{axisName(0)}</option>
+              <option value="y">{axisName(1)}</option>
             </select>
           </label>
         {/if}

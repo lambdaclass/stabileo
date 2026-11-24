@@ -64,6 +64,7 @@ web/src/lib/engine/live-calc.ts: return lc.includes('mecanismo') || lc.includes(
 web/src/lib/engine/live-calc.ts: || lc.includes('mechanism') || lc.includes('hypostatic') || lc.includes('unstable');
 web/src/lib/engine/verification-service.ts: if (steps[steps.length - 1]?.startsWith('=== Resultado global')) steps[steps.length - 1] = steelResultLine(overallStatus);
 web/src/lib/i18n/engine-text.ts: for (const [en, key] of ENGINE_SENTENCES) if (out.includes(en)) out = out.split(en).join(tAt(key, i18n.locale));
+web/src/lib/i18n/engine-text.ts: out = out.replace(/Non-finite number \((NaN|Infinity|-Infinity)\) at (\S+)/g, (_, value: string, path: string) =>
 web/src/lib/i18n/engine-text.ts: const known = SELF_CHECK_REASONS.find(([pattern]) => pattern.test(reason));
 
 ## Matches an i18n key, a code prefix, an enum value or the JSON payload of a structured refusal carried in a message-named field, or a prefix shared through one constant with its producer: not prose.
@@ -88,7 +89,6 @@ web/src/lib/engine/design/candidate-search.ts: limiting: limiting.includes(bound
 web/src/lib/engine/design/candidate-search.ts: if (limiting.includes('anchorage')) { gaps.add('headedBars'); gaps.add('mechanicalAnchorage'); gaps.add('columnCageChange'); }
 web/src/lib/engine/design/candidate-search.ts: if (limiting.includes('anchorage') && ctx.elementType === 'beam' && (ctx.lateral?.role ?? 'undeclared') === 'undeclared') gaps.add('lateralRoleUndeclared');
 web/src/lib/engine/design/candidate-search.ts: if (limiting.includes('congestion') && ctx.elementType !== 'column') gaps.add('columnCageChange');
-web/src/lib/engine/design/candidate-search.ts: const refusedOnAnchorage = (x: MemberDesignOutcome) => x.elementType === 'beam' && x.outcome !== 'VERIFIED' && x.limiting.includes('anchorage');
 web/src/lib/engine/design/final-geometry-feedback.ts: if (stats.truncated && !limiting.includes('searchBudget')) limiting.push('searchBudget');
 web/src/lib/engine/detailing/element-status.ts: && EXPLAINS_ITS_OWN_FAILURE.includes(summary.outcome);
 web/src/lib/engine/known-issues.ts: const data = JSON.parse(error.slice(error.indexOf('{')));
@@ -136,8 +136,6 @@ web/src/components/research/pastrana2026/FormPage.svelte: <p>{s.formPositionErro
 web/src/components/research/pastrana2026/FormPage.svelte: {s.formForceError}: <Sci value={Math.max(...validation.checks.filter(c => c.metric.startsWith('jax_fdm tension')).map(c => c.observed))} /> kN.</p>
 web/src/lib/cad/draft.ts: if (/replicated across all/i.test(line)) return true;
 web/src/lib/engine/model-sanity.ts: if (typeof v === 'number' && /node/i.test(key)) out.push(v);
-web/src/lib/excel-import/parse.ts: return ['si', 'sí', 'yes', 'y', 'true', 'verdadero', 'x', '1'].includes(v.trim().toLowerCase());
-web/src/lib/excel-import/parse.ts: const wantsNode = type.startsWith('nodal');
 web/src/lib/export/containment.ts: return [...html.matchAll(WARNING_SECTION)].flatMap(([section]) => [...section.matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/g)].map(m => unescape(m[1]!)));
 web/src/lib/export/containment.ts: const body = /<body\b[^>]*>/i.exec(html);
 web/src/lib/export/provenance-attach.ts: const i = html.lastIndexOf('</body>');

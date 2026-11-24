@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { publicI18n } from '../../../lib/i18n/store.svelte';
+  import { holdPrerender } from '../../../lib/prerender-hold';
   import ExperimentShell from '../shell/ExperimentShell.svelte';
   import PaneTabs from '../shell/PaneTabs.svelte';
   import { Playback } from '../shell/playback.svelte';
@@ -53,7 +54,7 @@
     observer.observe(pane);
     const visibility = () => playback.setVisible(inView && !document.hidden);
     document.addEventListener('visibilitychange', visibility);
-    void run();
+    void holdPrerender(run());
     return () => { cancelled = true; playback.dispose(); observer.disconnect(); document.removeEventListener('visibilitychange', visibility); window.removeEventListener('pointerdown', interaction, true); window.removeEventListener('keydown', interaction, true); window.removeEventListener('wheel', interaction, true); };
   });
 </script>

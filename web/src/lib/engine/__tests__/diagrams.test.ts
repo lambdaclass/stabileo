@@ -15,6 +15,8 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import { computeDiagramValueAtWasm, computeDiagrams2D, computeEnvelope, extractBeamStations, extractBeamStationsGrouped, solve, solveMovingLoads, solvePDelta } from '../wasm-solver';
+import type { AnalysisResults, SolverInput } from '../types';
 import {
   computeElementDiagram,
   computeMomentDiagram,
@@ -379,8 +381,7 @@ describe('a point couple on a member', () => {
   });
 });
 
-const issue2226 = process.env.RUN_KNOWN_WRONG === '2226' ? it : it.skip;
-issue2226('known wrong result: #2226 planar shear and moment jump immediately after a concentrated action', () => {
+it('#2226 planar shear and moment jump immediately after a concentrated action', () => {
   const length = 3;
   const station = 1.5;
   const force = 1;
@@ -397,8 +398,7 @@ issue2226('known wrong result: #2226 planar shear and moment jump immediately af
   expect.soft(computeDiagramValueAt('moment', justAfter, endForces)).toBeCloseTo(0, 12);
 });
 
-const issue2250 = process.env.RUN_KNOWN_WRONG === '2250' ? it : it.skip;
-issue2250('known wrong result: #2250 planar shear diagram includes the peak inside a partial load', () => {
+it('#2250 planar shear diagram includes the peak inside a partial load', () => {
   const length = 100;
   const a = 1;
   const b = 2;
@@ -413,4 +413,132 @@ issue2250('known wrong result: #2250 planar shear diagram includes the peak insi
   const integratedTriangle = (zeroOfLoad - a) * qI / 2;
   expect(computeDiagramValueAt('shear', zeroOfLoad / length, endForces)).toBeCloseTo(integratedTriangle, 12);
   expect(computeElementDiagram('shear', endForces, 0, 0, length, 0).maxAbsValue).toBeCloseTo(integratedTriangle, 12);
+});
+
+it('#2250 planar WASM diagrams, envelopes and default design stations agree on a partial load peak', () => {
+  const length = 100, a = 1, b = 2;
+  const input: SolverInput = {
+    nodes: new Map([[1, { id: 1, x: 0, z: 0 }], [2, { id: 2, x: length, z: 0 }]]),
+    materials: new Map([[1, { id: 1, e: 200000, nu: 0.3 }]]),
+    sections: new Map([[1, { id: 1, a: 0.01, iz: 0.0001 }]]),
+    elements: new Map([[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, sectionId: 1, materialId: 1, hingeStart: false, hingeEnd: false }]]),
+    supports: new Map([[1, { id: 1, nodeId: 1, type: 'fixed' }]]),
+    loads: [{ type: 'distributed', data: { elementId: 1, qI: 1, qJ: -1, a, b } }],
+  };
+  const nonlinear = solvePDelta(input, 20, 1e-10);
+  expect(nonlinear.converged).toBe(true);
+  const expected = (b - a) / 4;
+  for (const result of [solve(input), nonlinear.results as AnalysisResults]) {
+    expect.soft(computeDiagrams2D(input, result).shear[0].maxAbsValue).toBeCloseTo(expected, 12);
+    expect.soft(computeEnvelope([result])?.shear.globalMax).toBeCloseTo(expected, 12);
+    const stations = extractBeamStations({
+      members: [{ elementId: 1, length, sectionId: 1, materialId: 1 }],
+      combinations: [{ comboId: 1, results: result }],
+    });
+    expect.soft(Math.max(...stations.stations.map(s => Math.abs(s.comboForces[0]!.v)))).toBeCloseTo(expected, 12);
+  }
+});
+
+it('#2226 the planar WASM evaluator reads both sides of a solved force and couple', () => {
+  const length = 3;
+  const input: SolverInput = {
+    nodes: new Map([[1, { id: 1, x: 0, z: 0 }], [2, { id: 2, x: length, z: 0 }]]),
+    materials: new Map([[1, { id: 1, e: 200000, nu: 0.3 }]]),
+    sections: new Map([[1, { id: 1, a: 0.01, iz: 0.0001 }]]),
+    elements: new Map([[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, sectionId: 1, materialId: 1, hingeStart: false, hingeEnd: false }]]),
+    supports: new Map([[1, { id: 1, nodeId: 1, type: 'fixed' }]]),
+    loads: [],
+  };
+  for (const a of [1.5, length - 5e-11]) {
+    input.loads = [{ type: 'pointOnElement', data: { elementId: 1, a, p: 1, my: 2 } }];
+    const nonlinear = solvePDelta(input, 20, 1e-10);
+    expect(nonlinear.converged).toBe(true);
+    for (const result of [solve(input), nonlinear.results as AnalysisResults]) {
+      const ef = result.elementForces[0]!;
+      for (const x of [a - 5e-11, a, a + 5e-11]) {
+        const t = x / length;
+        const shear = x > a ? 0 : -1;
+        const moment = x > a ? 0 : -(a - x) - 2;
+        expect.soft(computeDiagramValueAt('shear', t, ef)).toBeCloseTo(shear, 12);
+        expect.soft(computeDiagramValueAt('moment', t, ef)).toBeCloseTo(moment, 12);
+        expect.soft(computeDiagramValueAtWasm('shear', t, ef)).toBeCloseTo(shear, 12);
+        expect.soft(computeDiagramValueAtWasm('moment', t, ef)).toBeCloseTo(moment, 12);
+      }
+    }
+  }
+});
+
+it('#2226 refuses aliased axial cuts in planar web and WASM queries', () => {
+  const length = 3, a = 1.75;
+  const ef = {
+    elementId: 1, length, qI: 0, qJ: 0, nStart: 0, nEnd: 0, vStart: 0, vEnd: 0, mStart: 0, mEnd: 0,
+    distributedLoads: [], hingeStart: false, hingeEnd: false,
+    pointLoads: [{ a, p: 0, px: -2 }, { a: a + Number.EPSILON, p: 0, px: 2 }],
+  };
+  expect(() => computeDiagramValueAt('axial', a / length, ef)).toThrow(/extrema/i);
+  expect(() => computeDiagramValueAtWasm('axial', a / length, ef)).toThrow(/normalized station/i);
+  ef.pointLoads[1]!.a = a + 2 * Number.EPSILON;
+  expect(computeDiagramValueAtWasm('axial', a / length, ef)).toBe(0);
+  expect(computeDiagramValueAtWasm('axial', ef.pointLoads[1]!.a / length, ef)).toBe(2);
+});
+
+it('#2250 planar WASM station tuples refuse distinct aliased cuts and retain a resolved intermediate section', () => {
+  const length = 3, a = 1.75, force = 40;
+  for (const b of [a + Number.EPSILON, a + 2 * Number.EPSILON]) {
+    const ef = { elementId: 1, length, qI: 0, qJ: 0, nStart: 0, nEnd: -force, vStart: force, vEnd: 0, mStart: 0, mEnd: 0,
+      distributedLoads: [], hingeStart: false, hingeEnd: false, pointLoads: [{ a, p: 0, px: force }, { a: b, p: -force }] };
+    const input = { members: [{ elementId: 1, length, sectionId: 1, materialId: 1 }],
+      combinations: [{ comboId: 1, results: { displacements: [], reactions: [], elementForces: [ef] } }] };
+    if (a / length === b / length) {
+      expect.soft(() => extractBeamStations(input)).toThrow(/normalized station/i);
+      expect.soft(() => extractBeamStationsGrouped(input)).toThrow(/normalized station/i);
+    } else {
+      const concurrent = ({ n, v }: { n: number; v: number }) => n === -force && v === force;
+      expect(extractBeamStations(input).stations.some(s => s.comboForces.some(concurrent))).toBe(true);
+      expect(extractBeamStationsGrouped(input).members[0]!.stations.some(s => s.comboForces.some(concurrent))).toBe(true);
+    }
+  }
+});
+
+it('#1782 the planar WASM moving envelope uses the in-member shear at either end', () => {
+  const length = 8, force = 40;
+  for (const reverse of [false, true]) for (const atRoot of [false, true]) {
+    const input: SolverInput = {
+      nodes: new Map([[1, { id: 1, x: 0, z: 0 }], [2, { id: 2, x: length, z: 0 }]]),
+      materials: new Map([[1, { id: 1, e: 200000, nu: 0.3 }]]),
+      sections: new Map([[1, { id: 1, a: 0.01, iz: 0.0001 }]]),
+      elements: new Map([[1, { id: 1, type: 'frame', nodeI: reverse ? 2 : 1, nodeJ: reverse ? 1 : 2,
+        sectionId: 1, materialId: 1, hingeStart: false, hingeEnd: false }]]),
+      supports: new Map([[1, { id: 1, nodeId: 1, type: 'fixed' }]]),
+      loads: [{ type: 'pointOnElement', data: { elementId: 1, a: reverse === atRoot ? length : 0, p: force } }],
+    };
+    const envelope = solveMovingLoads({ solver: input, train: { name: 'static control', axles: [] }, step: length }).elements['1'];
+    const want = atRoot ? 0 : (reverse ? force : -force);
+    expect.soft(envelope.vMaxNeg).toBeCloseTo(Math.min(want, 0), 12);
+    expect.soft(envelope.vMaxPos).toBeCloseTo(Math.max(want, 0), 12);
+  }
+});
+
+it('known wrong result: #1782 — the planar WASM moving sweep resolves an axle at a rounded support', () => {
+  const length = 1 + Number.EPSILON, weight = 40;
+  const solver: SolverInput = {
+    nodes: new Map([[1, { id: 1, x: 0, z: 0 }], [2, { id: 2, x: length, z: 0 }]]),
+    materials: new Map([[1, { id: 1, e: 200000, nu: 0.3 }]]),
+    sections: new Map([[1, { id: 1, a: 0.01, iz: 0.0001 }]]),
+    elements: new Map([[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, sectionId: 1, materialId: 1,
+      hingeStart: false, hingeEnd: false }]]),
+    supports: new Map([[1, { id: 1, nodeId: 1, type: 'fixed' }], [2, { id: 2, nodeId: 2, type: 'fixed' }]]),
+    loads: [],
+  };
+  const run = (offset: number, step: number) => solveMovingLoads({
+    solver, train: { name: 'one axle', axles: [{ offset, weight }] }, step,
+  }).elements['1'];
+  expect.soft(run(8, length).vMaxPos).toBeCloseTo(0, 12);
+  expect.soft(run(8, length).vMaxNeg).toBeCloseTo(0, 12);
+  expect(run(0, length / 2).vMaxPos).toBeCloseTo(weight / 2, 12);
+  expect(run(0, length / 2).vMaxNeg).toBeCloseTo(-weight / 2, 12);
+  const within = run(0, length - 8 * Number.EPSILON);
+  const outside = run(0, length - 9 * Number.EPSILON);
+  expect(within.vMaxPos - within.vMaxNeg).toBeCloseTo(0, 12);
+  expect(outside.vMaxPos - outside.vMaxNeg).toBeCloseTo(weight, 12);
 });

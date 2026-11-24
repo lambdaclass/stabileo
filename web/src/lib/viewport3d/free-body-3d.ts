@@ -6,6 +6,7 @@
  * along the member's own axes (N, Vy, Vz; T, My, Mz) or the world's (Fx, Fy, Fz), or composed
  * into one force and one moment. A joint's action is the member's, reversed.
  */
+import { axisLetter } from '../axes/display';
 import { computeLocalAxes3D } from '../engine/local-axes-3d';
 import { distributedGlobalEnds, pointResultants } from '../engine/member-loads';
 import { pointGlobal } from '../engine/member-point-loads';
@@ -124,9 +125,9 @@ export function freeBodyActions3D(opts: {
           return list;
         }
         if (opts.basis === 'global') {
-          push('Fx', 'force', [1, 0, 0], F[0], DESPIECE_COL.axial);
-          push('Fy', 'force', [0, 1, 0], F[1], DESPIECE_COL.axial);
-          push('Fz', 'force', [0, 0, 1], F[2], DESPIECE_COL.axial);
+          push(`F${axisLetter(0)}`, 'force', [1, 0, 0], F[0], DESPIECE_COL.axial);
+          push(`F${axisLetter(1)}`, 'force', [0, 1, 0], F[1], DESPIECE_COL.axial);
+          push(`F${axisLetter(2)}`, 'force', [0, 0, 1], F[2], DESPIECE_COL.axial);
         } else {
           push('N', 'force', ex, dot(F, ex), DESPIECE_COL.axial);
           push('Vy', 'force', ey, dot(F, ey), DESPIECE_COL.shear);
@@ -157,8 +158,8 @@ export function freeBodyActions3D(opts: {
           list.push({ name, kind, dir: unit(scale(axis, Math.sign(v))), magnitude: Math.abs(v), color: DESPIECE_COL.reaction });
         }
       };
-      push('Rx', 'force', [1, 0, 0], r.fx); push('Ry', 'force', [0, 1, 0], r.fy); push('Rz', 'force', [0, 0, 1], r.fz);
-      push('Mx', 'moment', [1, 0, 0], r.mx ?? 0); push('My', 'moment', [0, 1, 0], r.my ?? 0); push('Mz', 'moment', [0, 0, 1], r.mz ?? 0);
+      push(`R${axisLetter(0)}`, 'force', [1, 0, 0], r.fx); push(`R${axisLetter(1)}`, 'force', [0, 1, 0], r.fy); push(`R${axisLetter(2)}`, 'force', [0, 0, 1], r.fz);
+      push(`M${axisLetter(0)}`, 'moment', [1, 0, 0], r.mx ?? 0); push(`M${axisLetter(1)}`, 'moment', [0, 1, 0], r.my ?? 0); push(`M${axisLetter(2)}`, 'moment', [0, 0, 1], r.mz ?? 0);
       if (list.length) supports.push({ nodeId: r.nodeId, actions: list });
     }
   }

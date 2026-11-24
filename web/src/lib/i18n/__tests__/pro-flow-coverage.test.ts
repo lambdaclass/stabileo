@@ -32,12 +32,10 @@
  * family and piece names live, and it is invisible to a naive `grep`.
  */
 import { describe, it, expect } from 'vitest';
-import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { SOURCE_ROOT as SRC, profileSourceFiles, readProfileSource } from './profile-sources';
 import { allDictFor as dictFor, allShippedLocales, completeLocales } from '../locales/all';
 const OFFERED_LOCALES = completeLocales();
-
-const SRC = new URL('../../..', import.meta.url).pathname;
 
 /**
  * The modules that produce what a PRO user reads.
@@ -54,26 +52,12 @@ const PRO_DIRS = [
   'lib/export',
 ];
 
-function walk(dir: string): string[] {
-  const out: string[] = [];
-  for (const name of readdirSync(dir)) {
-    const full = join(dir, name);
-    if (statSync(full).isDirectory()) {
-      if (name === '__tests__' || name === '__fixtures__') continue;
-      out.push(...walk(full));
-    } else if (name.endsWith('.ts') || name.endsWith('.svelte')) {
-      out.push(full);
-    }
-  }
-  return out;
-}
-
-const files = PRO_DIRS.flatMap((d) => walk(join(SRC, d)));
+const files = profileSourceFiles(PRO_DIRS, /\.(?:ts|svelte)$/);
 
 const staticKeys = new Set<string>();
 const dynamicPrefixes = new Set<string>();
 for (const file of files) {
-  const src = readFileSync(file, 'utf8');
+  const src = readProfileSource(file);
   for (const m of src.matchAll(/\bt[ep]?\(\s*'([^']+)'/g)) staticKeys.add(m[1]);
   for (const m of src.matchAll(/(?:labelKey|titleKey|key|reasonKey|refusedKey)\s*:\s*'([a-z][\w.]*\.[\w.]+)'/gi)) {
     staticKeys.add(m[1]);
@@ -119,7 +103,7 @@ describe('the PRO workflow speaks every language it is offered in', () => {
     it(`declares no key twice in ${locale}`, () => {
       // The dictionaries are object literals: a repeated key is silently the last one, so the
       // translation someone wrote can be shadowed by an older one with no error anywhere.
-      const src = readFileSync(join(SRC, `lib/i18n/locales/${locale}.ts`), 'utf8');
+      const src = readProfileSource(join(SRC, `lib/i18n/locales/${locale}.ts`));
       const seen = new Set<string>();
       const dupes = new Set<string>();
       for (const m of src.matchAll(/^\s*'([^']+)'\s*:/gm)) {
@@ -187,6 +171,16 @@ describe('the PRO workflow speaks every language it is offered in', () => {
     }
     expect(wrong).toEqual([]);
   });
+});
+
+it('the free and structured PRO mesh summaries preserve both counts in every offered locale', () => {
+  const summaries = ['mesher.summary', 'mesher.summaryStructured'];
+  const missingOrIncomplete = OFFERED_LOCALES.flatMap(locale => summaries.flatMap(key => {
+    const value = dictFor(locale)[key] ?? '';
+    const placeholders = value.match(/\{\w+\}/g)?.sort();
+    return placeholders?.join(' ') === '{cells} {points}' ? [] : [`${locale} ${key}`];
+  }));
+  expect(missingOrIncomplete).toEqual([]);
 });
 
 it('#2319 every shipped dictionary translates the modal generation refusal', () => {

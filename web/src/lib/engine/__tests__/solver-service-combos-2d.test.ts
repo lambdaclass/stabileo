@@ -8,9 +8,13 @@
  *  - error conditions still surfacing as string returns.
  */
 
+import { factorsWithExactCancellation, factorsWithUnitResidual, issue2297Factors } from './combination-factor-fixture';
 import { describe, it, expect, beforeAll } from 'vitest';
-import { initSolver } from '../wasm-solver';
-import { solveCombinations2D, validateAndSolve2D, type ModelData } from '../solver-service';
+import { modelStore, uiStore } from '../../store';
+import { deserializeProject, serializeProject } from '../../store/file';
+import { modelFeatures } from '../../provenance/model-features';
+import { initSolver, solvePDelta } from '../wasm-solver';
+import { buildSolverInput2D, certifiableMultiCaseOf, solveCombinations2D, validateAndSolve2D, validateAndSolve2DAsync, type ModelData } from '../solver-service';
 
 /** Cantilever: fixed at node 1, tip loads at node 2 split across two cases. */
 function beamModel(): ModelData {
@@ -219,4 +223,160 @@ it.each([false, true])('preserves the planar combination after case cancellation
   expect(reference.displacements.some(row => row.uz !== 0)).toBe(true);
   const big = 2 ** 54;
   expect(run([big, 1, -big])).toStrictEqual(reference);
+});
+
+async function checkNamedPlanarCancellation(residual: number[], cancelledWeights: number[]) {
+  await initSolver();
+  const model = beamModel();
+  for (const active of [cases, [cases[0], { ...cases[1], name: cases[0].name }]]) {
+    const run = (weights: number[]) => solveCombinations2D(model, active, [
+      { ...combos[0], factors: weights.map(factor => ({ caseId: 1, factor })) },
+    ]);
+    const reference = run([1]);
+    if (!reference || typeof reference === 'string') throw new Error(String(reference));
+    const tip = reference.perCombo.get(combos[0].id)!.displacements.find(row => row.nodeId === 2)!;
+    expect(tip.uz).not.toBe(0);
+    const preserved = run(residual);
+    expect.soft(typeof preserved === 'string' ? preserved : preserved?.perCombo.get(combos[0].id))
+      .toStrictEqual(reference.perCombo.get(combos[0].id));
+    const refused = run(cancelledWeights);
+    expect.soft(typeof refused === 'string' ? refused : refused?.perCombo.get(combos[0].id)?.displacements)
+      .toEqual(expect.stringMatching(/Repeated load case factors cancel to zero in this combination/));
+  }
+}
+
+it('#2292 the planar named cantilever combination refuses complete case cancellation', async () => {
+  await checkNamedPlanarCancellation([2 ** 54, 1, -(2 ** 54)], [1, -1]);
+});
+
+it('#2292 the planar named cantilever combination distinguishes exact cancellation from a unit residual', async () => {
+  await checkNamedPlanarCancellation(factorsWithUnitResidual, factorsWithExactCancellation);
+});
+
+describe('explicit planar self-weight rules', () => {
+  beforeAll(async () => { await initSolver(); });
+
+  function weightedBeam(): ModelData {
+    const model = beamModel();
+    model.materials.set(1, { ...model.materials.get(1)!, rho: 20 });
+    model.loads = [];
+    return model;
+  }
+
+  for (const route of ['batch', 'fallback']) it('known wrong result: #1986 ' + route + ' uses the exact case self-weight in 2D', () => {
+    const model = weightedBeam();
+    model.analysis = { selfWeight: [{ caseId: 1, direction: 'Z', factor: -2 }, { caseId: 2, direction: 'X', factor: 3 }] };
+    const first = model.nodes.get(1)!;
+    const last = model.nodes.get(2)!;
+    const weight = (last.x - first.x) * model.materials.get(1)!.rho * model.sections.get(1)!.a;
+    const loadCases = route === 'batch' ? cases : cases.map((c: { name: string }) => ({ ...c, name: 'Same' }));
+    const solved = solveCombinations2D(model, loadCases, combos);
+    if (!solved || typeof solved === 'string') throw new Error(String(solved));
+    const firstReaction = solved.perCase.get(1)!.reactions[0]!;
+    const secondReaction = solved.perCase.get(2)!.reactions[0]!;
+    expect(firstReaction.rx).toBe(0);
+    expect(firstReaction.rz).toBeCloseTo(2 * weight, 10);
+    expect(secondReaction.rx).toBeCloseTo(-3 * weight, 10);
+    expect(secondReaction.rz).toBe(0);
+  });
+
+  it('known wrong result: #1986 standalone synchronous and async planar solves use the same explicit weight', async () => {
+    const model = weightedBeam();
+    model.analysis = { selfWeight: [{ caseId: 1, direction: 'Z', factor: 2, elements: [1] }] };
+    const input = buildSolverInput2D(model)!;
+    expect(input.loads).toEqual([{ type: 'distributed', data: { elementId: 1, qI: 0.4, qJ: 0.4 } }]);
+    for (const solved of [validateAndSolve2D(model), await validateAndSolve2DAsync(model)]) {
+      if (!solved || typeof solved === 'string') throw new Error(String(solved));
+      expect(solved.reactions[0]!.rz).toBeCloseTo(-2, 10);
+    }
+    const nonlinear = solvePDelta(input);
+    expect(nonlinear.converged).toBe(true);
+    expect(nonlinear.results.reactions[0]!.rz).toBeCloseTo(-2, 10);
+    expect(buildSolverInput2D({ ...model, analysis: { selfWeight: [] } }, true)!.loads).toEqual([]);
+    expect(buildSolverInput2D({ ...model, analysis: undefined }, true)!.loads).toEqual([
+      { type: 'distributed', data: { elementId: 1, qI: -0.2, qJ: -0.2 } },
+    ]);
+    model.nodes.set(3, { ...model.nodes.get(2)!, id: 3, x: 7 });
+    model.elements.set(2, { ...model.elements.get(1)!, id: 2, nodeI: 2, nodeJ: 3 });
+    expect(buildSolverInput2D(model)!.loads).toEqual(input.loads);
+
+  });
+
+  it('known wrong result: #1986 nonzero out-of-plane case weight is refused and zero remains valid', async () => {
+    const model = weightedBeam();
+    for (const factor of [-1, 0, 1]) {
+      model.analysis = { selfWeight: [
+        { caseId: 1, direction: 'Z', factor: -1 }, { caseId: 1, direction: 'Y', factor },
+      ] };
+      const results = [
+        validateAndSolve2D(model), await validateAndSolve2DAsync(model), solveCombinations2D(model, cases, combos),
+        solveCombinations2D(model, cases.map((c: { name: string }) => ({ ...c, name: 'Same' })), combos),
+      ];
+      for (const result of results) {
+        if (factor !== 0) {
+          expect(result).toEqual(expect.stringMatching(/self-weight.*outside the plane/i));
+          continue;
+        }
+        if (!result || typeof result === 'string') throw new Error(String(result));
+        const solved = 'perCase' in result ? result.perCase.get(1) : result;
+        expect(solved?.reactions).toHaveLength(1);
+        const length = model.nodes.get(2)!.x - model.nodes.get(1)!.x;
+        const weight = length * model.sections.get(1)!.a * model.materials.get(1)!.rho;
+        expect(solved!.reactions[0]!.rz).toBeCloseTo(weight, 10);
+        expect(solved!.reactions[0]!.rx).toBe(0);
+      }
+    }
+  });
+});
+
+it('#2292 a repeated planar case with a reserved name keeps its exact residual', async () => {
+  await initSolver();
+  const model = beamModel();
+  const weights = issue2297Factors;
+  const run = (name: string, factors: number[]) => {
+    const loadCases = [{ ...cases[0], name }, cases[1]];
+    const result = solveCombinations2D(model, loadCases, [{ ...combos[0], factors: [
+      ...factors.map(factor => ({ caseId: 1, factor })), { caseId: 2, factor: 1 },
+    ] }]);
+    if (!result || typeof result === 'string') throw new Error(String(result));
+    const wire = certifiableMultiCaseOf(result.perCase, result.perCombo)!.input.wire();
+    const wireFactors = wire.combinations[0].factors;
+    expect.soft(Object.hasOwn(wireFactors, name), name).toBe(true);
+    expect.soft(wireFactors[name], name).toBe(1);
+    return result.perCombo.get(combos[0].id)!.displacements.find(row => row.nodeId === 2)!;
+  };
+  const control = run('Dead', [1]);
+  expect(control.uz).toBeLessThan(0);
+  expect(run('Dead', weights)).toStrictEqual(control);
+  expect.soft(run('__proto__', weights)).toStrictEqual(control);
+
+  uiStore.analysisMode = '2d';
+  modelStore.clear();
+  const fixed = modelStore.addNode(0, 0);
+  const tip = modelStore.addNode(5, 0);
+  modelStore.addElement(fixed, tip, 'frame');
+  modelStore.addSupport(fixed, 'fixed');
+  const dead = modelStore.addLoadCase('Control', 'D');
+  const live = modelStore.addLoadCase('Control axial', 'L');
+  modelStore.addNodalLoad(tip, 0, -10, 0, dead);
+  modelStore.addNodalLoad(tip, 4, 0, 0, live);
+  const combination = modelStore.addCombination('Combination', [
+    ...weights.map(factor => ({ caseId: dead, factor })), { caseId: live, factor: 1 },
+  ]);
+  const solveStored = () => {
+    const stored = modelStore.model;
+    const result = solveCombinations2D(stored, stored.loadCases, stored.combinations);
+    if (!result || typeof result === 'string') throw new Error(String(result));
+    return result.perCombo.get(combination)!.displacements.find(row => row.nodeId === tip)!;
+  };
+  const beforeRename = solveStored();
+  expect(beforeRename.uz).toBeLessThan(0);
+  modelStore.updateLoadCase(dead, '__proto__');
+  expect(deserializeProject(serializeProject())).toBe(true);
+  expect(modelFeatures(modelStore.snapshot(), { analysisMode: '2d' }).has('prototypeNamedLoadCase')).toBe(true);
+  expect(solveStored()).toStrictEqual(beforeRename);
+});
+
+it('#2297 the reported seven factors preserve the unit case response', async () => {
+  await checkNamedPlanarCancellation(issue2297Factors, [...issue2297Factors, -1]);
 });

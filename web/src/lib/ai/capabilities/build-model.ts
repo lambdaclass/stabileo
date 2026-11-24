@@ -1,4 +1,7 @@
+import { is3DWorkspace } from '../../utils/workspace';
+import { twoD } from '../../axes/display';
 import type { ConversationMessage, ModelContext, SolverDiagnosticMsg } from '../client';
+import { gravityLabel, signedLabel, userAxisAlong, planeSigns, type AxesFrame } from '../../axes/frame';
 import { type BuildAction, isEdit, isPlainObject, parseAction, parseActionResponse, validateAction } from './actions';
 import { applyEdit } from './edit-executor';
 import { executeAction } from './generators';
@@ -9,6 +12,7 @@ import { type AnalysisMode, promptText } from './registry';
 import { validateSnapshot } from './validate-snapshot';
 import { asU64 } from './snapshot-json';
 import { t, tp } from '../../i18n';
+import { supportTypeShown } from '../../axes/user-names';
 
 export type ToolOutcome =
   | { kind: 'snapshot'; snapshot: Record<string, unknown>; message: string; changeSummary?: string }
@@ -109,10 +113,27 @@ function snapshotSection(snapshot: Record<string, unknown>): string {
   return `\n\n## Current model (JSON, entries are [id, data])\nUse these IDs for edits; never invent one.\n${json}`;
 }
 
-export function buildSystemPrompt(locale: string, mode: string, ctx?: ModelContext, snapshot?: Record<string, unknown>): string {
+export function userAxesSection(f: AxesFrame, mode: string, inModelAxes = 'Tools, JSON and the current model below'): string {
+  if (f.identity) return '';
+  const name = (k: 0 | 1 | 2) => signedLabel(userAxisAlong(f, k));
+  const p = planeSigns(f);
+  const signed = (sign: number, axis: string) => `${sign === 1 ? '+' : '−'}${axis}`;
+  const convention = is3DWorkspace(mode)
+    ? `Model +X is the user's ${name(0)}, model +Y is the user's ${name(1)}, model +Z (up) is the user's ${name(2)}; gravity is the user's ${gravityLabel(f)}. The frame is ${f.det === 1 ? 'right' : 'left'}-handed: moments and rotations convert like the axis they turn about${f.det === 1 ? '' : ', times −1'}.`
+    : `The 2D model uses a plane: model x → ${signed(p.sx, p.h)}, model z → ${signed(p.sz, p.v)}. Coordinates and force components follow those plane axes; model My and in-plane rotation → ${signed(p.sr, p.n)}. Use this in-plane moment and rotation sign for loads and results. Gravity is the user's ${gravityLabel(f)}.`;
+  return `
+
+## The user's axes
+The user works with their own global axes. ${convention}
+- ${inModelAxes} stay in MODEL axes, exactly as the rules say.
+- When you write to the user, name axes, coordinates, loads, reactions and directions in THE USER'S axes.
+- When the user gives coordinates, loads or directions, read them in their axes and convert them to model axes before calling a tool.`;
+}
+
+export function buildSystemPrompt(locale: string, mode: string, ctx?: ModelContext, snapshot?: Record<string, unknown>, axes?: AxesFrame): string {
   const safeLocale = sanitizeLocale(locale);
   const capabilities = promptText(mode);
-  const context = (ctx ? contextSection(ctx) : '') + (snapshot ? snapshotSection(snapshot) : '');
+  const context = (ctx ? contextSection(ctx) : '') + (snapshot ? snapshotSection(snapshot) : '') + (axes ? userAxesSection(axes, mode) : '');
   return `You are a helpful assistant embedded in Stabileo, a structural analysis app.
 
 Respond in locale: ${safeLocale}
@@ -225,9 +246,9 @@ export function actionSummary(a: BuildAction): string {
     case 'add_bay': return `${tp(a.params.side?.trim().toLowerCase() === 'left' ? 'ai.sum.addBayLeft' : 'ai.sum.addBayRight', { width: a.params.width })}. ${t('ai.sum.newMembersUnloaded')}`;
     case 'add_story': return `${tp('ai.sum.addStory', { height: a.params.height })}. ${t('ai.sum.newMembersUnloaded')}`;
     case 'change_section': return sectionSummary(a.params);
-    case 'set_all_supports': return tp('ai.sum.supports', { type: a.params.support_type });
+    case 'set_all_supports': return tp('ai.sum.supports', { type: supportTypeShown(String(a.params.support_type), false) });
     case 'set_all_beam_loads': return tp('ai.sum.beamLoads', { q: a.params.q });
-    case 'add_lateral_loads': return tp('ai.sum.lateral', { h: a.params.h });
+    case 'add_lateral_loads': return `${tp('ai.sum.lateral', { h: twoD.x(a.params.h) })} (${twoD.horizontal})`;
     case 'add_distributed_load': return tp('ai.sum.distLoad', { q: a.params.q, id: a.params.element_id });
     case 'add_nodal_load': return tp('ai.sum.nodalLoad', { id: a.params.node_id });
     case 'delete_element': return tp('ai.sum.deleteElement', { id: a.params.element_id });

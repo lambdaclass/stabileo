@@ -1,0 +1,51 @@
+{
+  "id": "member-diagram-extrema",
+  "date": "2026-11-20",
+  "prs": [
+    2226,
+    2250,
+    2252,
+    2273
+  ],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "members"
+    ],
+    "any": [
+      "memberLoads",
+      "selfWeight",
+      "magnitudeCombinations"
+    ]
+  },
+  "quantities": [
+    "envelope",
+    "diagrams",
+    "beamStations",
+    "movingLoads"
+  ],
+  "title": {
+    "en": "Member diagram extrema",
+    "es": "Extremos de diagramas de barras",
+    "pt": "Extremos dos diagramas de barras",
+    "de": "Extremwerte der Stabdiagramme",
+    "fr": "Extrema des diagrammes de barres",
+    "tr": "Eleman diyagramı uç değerleri",
+    "zh": "杆件内力图极值",
+    "hu": "A rúdábrák szélsőértékei"
+  },
+  "explanation": {
+    "en": "Member diagrams and envelopes include load boundaries, one-sided jumps and interior extrema, including ABS and SRSS combinations. Rerun analyses and review governing diagram values.",
+    "es": "Los diagramas y envolventes incluyen límites de carga, ambos lados de los saltos y extremos interiores, también en combinaciones ABS y SRSS. Repita el análisis y revise los valores determinantes.",
+    "pt": "Os diagramas e as envoltórias incluem limites de carga, ambos os lados dos saltos e extremos internos, inclusive em combinações ABS e SRSS. Refaça as análises e revise os valores determinantes.",
+    "de": "Stabdiagramme und Einhüllende enthalten Lastgrenzen, beide Seiten von Sprüngen und innere Extremwerte, auch bei ABS- und SRSS-Kombinationen. Berechnungen erneut ausführen und maßgebende Werte prüfen.",
+    "fr": "Les diagrammes et les enveloppes incluent les limites de charge, les deux côtés des sauts et les extrema intérieurs, y compris dans les combinaisons ABS et SRSS. Relancez les analyses et vérifiez les valeurs déterminantes.",
+    "tr": "Diyagramlar ve zarflar yük sınırlarını, sıçramaların iki yanını ve iç uç değerleri, ABS ve SRSS birleşimleri dahil, içerir. Analizleri yineleyin ve belirleyici değerleri inceleyin.",
+    "zh": "杆件内力图及包络计入荷载边界、跳跃两侧和区间内极值，也适用于 ABS 和 SRSS 组合。请重新分析并检查控制值。",
+    "hu": "A rúdábrák és burkolók tartalmazzák a teherhatárokat, az ugrások mindkét oldalát és a belső szélsőértékeket, az ABS és SRSS kombinációkban is. Futtassa újra az elemzést, és ellenőrizze a mértékadó értékeket."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-member-diagram-extrema.md",
+    "heading": "Member diagrams use load boundaries and analytic extrema"
+  }
+}

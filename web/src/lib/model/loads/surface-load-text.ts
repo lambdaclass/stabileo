@@ -30,13 +30,14 @@ export function surfaceValueText(d: SurfaceLoad3D): string {
  * names the floor-load definition that wrote it as the definitions list does
  * (`floor-definitions.ts` `definitionName`); without it, by its number.
  */
-export function surfaceHowText(d: SurfaceLoad3D, defName: (id: number) => string = (id) => `#${id}`): string {
+export function surfaceHowText(d: SurfaceLoad3D, defName: (id: number) => string = (id) => `#${id}`, shown: (v: [number, number, number]) => [number, number, number] = (v) => v): string {
   const parts: string[] = [];
+  const dirText = (v: readonly number[]) => directionText(shown([v[0], v[1], v[2]]));
   if (d.frame === 'local') parts.push(t('loads.surface.local'));
-  else if (d.frame === 'global') parts.push(tp('loads.surface.global', { dir: directionText(d.dir ?? [0, 0, -1]) }));
-  else if (d.frame === 'projected') parts.push(tp('loads.surface.projected', { dir: directionText(d.dir ?? [0, 0, -1]) }));
+  else if (d.frame === 'global') parts.push(tp('loads.surface.global', { dir: dirText(d.dir ?? [0, 0, -1]) }));
+  else if (d.frame === 'projected') parts.push(tp('loads.surface.projected', { dir: dirText(d.dir ?? [0, 0, -1]) }));
   if (d.qNodes) parts.push(t('loads.surface.byCorner'));
-  if (d.vary) parts.push(tp('loads.surface.vary', { dir: directionText(d.vary.dir), c1: n(d.vary.c1), c2: n(d.vary.c2) }));
+  if (d.vary) parts.push(tp('loads.surface.vary', { dir: dirText(d.vary.dir), c1: n(d.vary.c1), c2: n(d.vary.c2) }));
   if (d.region) parts.push(d.region.holes?.length ? tp('loads.surface.regionHoles', { n: d.region.holes.length }) : t('loads.surface.region'));
   if (d.fromDef !== undefined) parts.push(tp('loads.surface.fromDef', { name: defName(d.fromDef) }));
   return parts.join(' · ');

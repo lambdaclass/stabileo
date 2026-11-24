@@ -1340,8 +1340,8 @@ fn moving_reference_2d(ana: &str, c: &Case2) -> Result<Out, String> {
                 } else { (a0, a1) };
                 let ef = interior.as_ref().unwrap_or(ef);
                 let (mut lo, mut hi) = (a0.min(a1), a0.max(a1));
-                for t in dedaliano_engine::postprocess::diagrams::diagram_positions_2d(ef, kind) {
-                    let v = dedaliano_engine::postprocess::diagrams::compute_diagram_value_at(kind, t.clamp(0.0, 1.0), ef);
+                for t in dedaliano_engine::postprocess::diagrams::diagram_positions_2d(ef, kind).into_iter().filter(|t| *t > 0.0 && *t < 1.0) {
+                    let v = dedaliano_engine::postprocess::diagrams::compute_diagram_value_at(kind, t, ef);
                     if v.is_finite() { lo = lo.min(v); hi = hi.max(v); }
                 }
                 (lo, hi)
@@ -3389,4 +3389,15 @@ fn issue_1782_endpoint_3d_reference_obeys_equilibrium() {
         let Out::S(values, _) = moving_reference_3d("moving loads", &c).unwrap() else { panic!("scalar envelope required") };
         for value in values { assert!(value.abs() < 1e-9, "support carries endpoint loads: {value}"); }
     }
+}
+
+#[test]
+fn issue_1782_planar_thermal_moving_limits_match_position_solves() {
+    let case = cases_2d().into_iter().find(|c| c.feature == "thermal load" && c.variant == "free cantilever").unwrap();
+    let analysis = other_rows_2d().into_iter().find(|a| a.name == "moving loads").unwrap();
+    let cell = run_2d(&case, &analysis);
+    assert_eq!(
+        cell.verdict, Verdict::Supported, "{}: computed {:?}, reference {:?}",
+        cell.note, (analysis.run)(&case.with, &case), moving_reference_2d(analysis.name, &case),
+    );
 }

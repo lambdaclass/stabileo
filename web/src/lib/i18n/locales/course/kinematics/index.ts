@@ -55,7 +55,7 @@ export const es: Translations = {
   'course.kinematics.gic.cmp.equal': 'Los dos métodos plantean la misma cantidad de ecuaciones: {gh}.',
 
   'course.kinematics.dm.intro': 'Las incógnitas son los desplazamientos de los nudos: giros y traslaciones. Se traban todos con restricciones ficticias, se calcula lo que hacen las cargas así (estado 0) y después se da a cada incógnita un valor unitario por separado (estados 1…n). La condición de que las restricciones ficticias terminen sin fuerza da el sistema K·D = −R⁰.',
-  'course.kinematics.dm.introStates': 'En cada estado las barras trabajan como empotradas en sus extremos, o articuladas donde corresponde, así que sus momentos salen de coeficientes conocidos: 4EI/L y 2EI/L por un giro, 6EI/L² por una traslación perpendicular, 3EI/L si el otro extremo está articulado y EA/L por un alargamiento.',
+  'course.kinematics.dm.introStates': 'En cada estado las barras trabajan como empotradas en sus extremos, o articuladas donde corresponde, así que sus momentos salen de coeficientes conocidos: 4EI/L y 2EI/L por un giro, 6EI/L² por una traslación perpendicular y 3EI/L si el otro extremo está articulado. Si se permite la deformación axial, la fuerza axial N = (EA/L)·ΔL se calcula con el alargamiento ΔL.',
   'course.kinematics.dm.introRigid': 'Las barras se consideran axialmente rígidas: conservan su longitud. Las bielas, en cambio, se alargan como resortes axiales EA/L.',
   'course.kinematics.dm.introAxial': 'Las barras tienen rigidez axil EA/L: pueden alargarse, y cada traslación libre de cada nudo es una incógnita. Así el resultado coincide con el cálculo matricial.',
   'course.kinematics.dm.membersCaption': 'Barras: longitud y rigideces.',
@@ -198,7 +198,7 @@ export const en: Translations = {
   'course.kinematics.gic.cmp.equal': 'Both methods need the same number of equations: {gh}.',
 
   'course.kinematics.dm.intro': 'The unknowns are the joint displacements: rotations and translations. All of them are locked with fictitious restraints, the loads are solved that way (state 0), and then each unknown is given a unit value on its own (states 1…n). Requiring the fictitious restraints to end up carrying no force gives the system K·D = −R⁰.',
-  'course.kinematics.dm.introStates': 'In each state the members act as fixed at their ends, or pinned where they are, so their moments come from known coefficients: 4EI/L and 2EI/L for a rotation, 6EI/L² for a transverse translation, 3EI/L when the far end is pinned and EA/L for an elongation.',
+  'course.kinematics.dm.introStates': 'In each state the members act as fixed at their ends, or pinned where they are, so their moments come from known coefficients: 4EI/L and 2EI/L for a rotation, 6EI/L² for a transverse translation and 3EI/L when the far end is pinned. When axial deformation is included, the axial force N = (EA/L)·ΔL comes from the elongation ΔL.',
   'course.kinematics.dm.introRigid': 'Members are taken as axially rigid: they keep their length. Two-force members, instead, stretch like axial springs EA/L.',
   'course.kinematics.dm.introAxial': 'Members have axial stiffness EA/L: they can stretch, and every free translation of every joint is an unknown. The result then matches the matrix solve.',
   'course.kinematics.dm.membersCaption': 'Members: length and stiffnesses.',
@@ -341,7 +341,7 @@ export const pt: Translations = {
   'course.kinematics.gic.cmp.equal': 'Os dois métodos pedem a mesma quantidade de equações: {gh}.',
 
   'course.kinematics.dm.intro': 'As incógnitas são os deslocamentos dos nós: rotações e translações. Todos são travados com restrições fictícias, as cargas são resolvidas assim (estado 0) e depois cada incógnita recebe um valor unitário separadamente (estados 1…n). A condição de que as restrições fictícias terminem sem força dá o sistema K·D = −R⁰.',
-  'course.kinematics.dm.introStates': 'Em cada estado as barras trabalham como engastadas em seus extremos, ou articuladas onde for o caso, então seus momentos vêm de coeficientes conhecidos: 4EI/L e 2EI/L por uma rotação, 6EI/L² por uma translação transversal, 3EI/L quando o outro extremo é articulado e EA/L por um alongamento.',
+  'course.kinematics.dm.introStates': 'Em cada estado as barras trabalham como engastadas em seus extremos, ou articuladas onde for o caso, então seus momentos vêm de coeficientes conhecidos: 4EI/L e 2EI/L por uma rotação, 6EI/L² por uma translação transversal e 3EI/L quando a outra extremidade é articulada. Se a deformação axial for considerada, o esforço axial N = (EA/L)·ΔL é calculado a partir do alongamento ΔL.',
   'course.kinematics.dm.introRigid': 'As barras são consideradas axialmente rígidas: conservam o comprimento. As bielas, ao contrário, se alongam como molas axiais EA/L.',
   'course.kinematics.dm.introAxial': 'As barras têm rigidez axial EA/L: podem se alongar, e cada translação livre de cada nó é uma incógnita. Assim o resultado coincide com o cálculo matricial.',
   'course.kinematics.dm.membersCaption': 'Barras: comprimento e rigidezes.',

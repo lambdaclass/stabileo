@@ -2,6 +2,8 @@ import type { Support } from '../store/model.svelte';
 
 export class SupportMappingError extends Error {}
 
+export const AMBIGUOUS_ROLLER_Z = 'rollerZ is ambiguous in 3D. Set explicit 3D restraints before solving.';
+
 type Restraints3D = { rx: boolean; ry: boolean; rz: boolean; rrx: boolean; rry: boolean; rrz: boolean };
 
 function explicitDofs(r: NonNullable<Support['dofRestraints']>): Restraints3D {
@@ -14,7 +16,7 @@ export function supportDofs3D(s: Support, project2DToXZ = false): Restraints3D {
   if (named) return named;
   const reason = s.type === 'custom3d'
     ? 'custom support without restraints; set them explicitly.'
-    : 'rollerZ is ambiguous in 3D. Set explicit 3D restraints before solving.';
+    : AMBIGUOUS_ROLLER_Z;
   throw new SupportMappingError(`Support ${s.id} (node ${s.nodeId}): ${reason}`);
 }
 

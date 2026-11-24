@@ -1,0 +1,4 @@
+@keyframes st-sheet-slide-up {
+  from { bottom: calc(var(--st-sheet-bottom) - var(--st-sheet-h)); }
+  to { bottom: var(--st-sheet-bottom); }
+}

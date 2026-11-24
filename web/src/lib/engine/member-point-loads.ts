@@ -20,9 +20,11 @@
  *
  * Local y is the displayed axis, which the left-handed convention flips (`member-loads.ts`).
  */
+import { tp } from '../i18n';
 import type { SolverLoad3D } from './types-3d';
 import { dot, type MemberAxes, type MemberRef, type Vec3 } from './member-loads';
 import { transverseSign } from './transverse-sign-2d';
+import { planarNodalMoment, planarPointMoment, type PlanarMomentFields } from './planar-point-load';
 
 export type PointFrame = 'local' | 'global';
 
@@ -38,7 +40,6 @@ export interface PointLoad3DLike {
   frame?: PointFrame;
 }
 
-/** Within a micron of an end, a load is at the end. */
 export const POINT_END_TOL = 1e-6;
 
 const add3 = (a: Vec3, b: Vec3, k = 1): Vec3 => [a[0] + k * b[0], a[1] + k * b[1], a[2] + k * b[2]];
@@ -82,12 +83,15 @@ export function pointToSolver(m: MemberRef, d: PointLoad3DLike, leftHand = false
     return { type: 'nodal', data: { nodeId, fx: f[0], fy: f[1], fz: f[2], mx: mm[0] + c[0], my: mm[1] + c[1], mz: mm[2] + c[2] } };
   };
   const none = F.every(tiny) && M.every(tiny);
-  if (d.a <= POINT_END_TOL) return none ? [] : [nodal(m.nodeI, F, M, m.armI)];
-  if (d.a >= L - POINT_END_TOL) return none ? [] : [nodal(m.nodeJ, F, M, m.armJ)];
+  const px = dot(F, ex);
+  const needsNode = !tiny(px) || !M.every(tiny);
+  const endTolerance = needsNode ? POINT_END_TOL : 0;
+  if (d.a <= endTolerance) return none ? [] : [nodal(m.nodeI, F, M, m.armI)];
+  if (d.a >= L - endTolerance) return none ? [] : [nodal(m.nodeJ, F, M, m.armJ)];
   const out: SolverLoad3D[] = [];
-  const py = dot(F, ey), pz = dot(F, ez), px = dot(F, ex);
+  const py = dot(F, ey), pz = dot(F, ez);
   if (!tiny(py) || !tiny(pz)) out.push({ type: 'pointOnElement', data: { elementId: m.elementId, a: d.a, py, pz } });
-  if (tiny(px) && M.every(tiny)) return out;
+  if (!needsNode) return out;
   if (!forcesOnly) throw new PointLoadNeedsCut(m.elementId);
   if (!tiny(px)) {
     const t = d.a / L, fx = scale3(ex, px);
@@ -125,8 +129,12 @@ export function pointHasExtras(d: PointLoad3DLike): boolean {
   return (d.frame ?? 'local') === 'global' || [d.px, d.mx, d.my, d.mz].some((v) => v !== undefined && !tiny(v));
 }
 
+export const planarPointOrigin = Symbol();
+
 /** A plane model's point load on a member, as drawn: across it (or at an angle), with an axial part and a couple. */
 export interface PlanePointLoadLike {
+  id?: number;
+  [planarPointOrigin]?: { a: number; nodeI: number; loadId: number; elementId: number; shortProjection: boolean };
   elementId: number;
   a: number;
   p: number;
@@ -135,6 +143,31 @@ export interface PlanePointLoadLike {
   mz?: number;
   angle?: number;
   isGlobal?: boolean;
+}
+
+export class PlanarLoadMomentError extends Error {}
+
+export function requirePlanarNodalMoment(fields: PlanarMomentFields & { id?: number; nodeId: number }): number {
+  const moment = planarNodalMoment(fields);
+  if (moment === null) {
+    throw new PlanarLoadMomentError(tp('svc.planarNodalLoadMomentAliases', { load: fields.id ?? '—', n: fields.nodeId }));
+  }
+  return moment ?? 0;
+}
+
+export function requirePlanarPointMoment(d: PlanarMomentFields & Pick<PlanePointLoadLike, 'id' | 'elementId' | typeof planarPointOrigin>): number | undefined {
+  const moment = planarPointMoment(d);
+  if (moment === null) {
+    const origin = d[planarPointOrigin];
+    throw new PlanarLoadMomentError(tp('svc.planarPointLoadMomentAliases', {
+      load: origin?.loadId ?? d.id ?? '—', n: origin?.elementId ?? d.elementId,
+    }));
+  }
+  return moment;
+}
+
+export function planarMoment3D(moment: number, project2DToXZ: boolean) {
+  return project2DToXZ ? { mx: 0, my: -moment, mz: 0 } : { mx: 0, my: 0, mz: moment };
 }
 
 /**
@@ -146,6 +179,7 @@ export interface PlanePointLoadLike {
  * to be dropped, and the axial part lumped at the member's ends.
  */
 export function planePointLoad3D(d: PlanePointLoadLike, dx: number, dPlan: number, project2DToXZ: boolean): PointLoad3DLike {
+  const moment = requirePlanarPointMoment(d) ?? 0;
   const L = Math.hypot(dx, dPlan);
   const c = L > 0 ? dx / L : 1, s = L > 0 ? dPlan / L : 0;
   const ang = ((d.angle ?? 0) * Math.PI) / 180;
@@ -159,10 +193,11 @@ export function planePointLoad3D(d: PlanePointLoadLike, dx: number, dPlan: numbe
     gx = -s * across + c * along; gv = c * across + s * along;
   }
   gx += c * (d.px ?? 0); gv += s * (d.px ?? 0);
-  const m = d.my ?? d.mz ?? 0;
-  return project2DToXZ
-    ? { elementId: d.elementId, a: d.a, frame: 'global', px: gx, py: 0, pz: gv, mx: 0, my: -m, mz: 0 }
-    : { elementId: d.elementId, a: d.a, frame: 'global', px: gx, py: gv, pz: 0, mx: 0, my: 0, mz: m };
+  return {
+    elementId: d.elementId, a: d.a, frame: 'global', px: gx,
+    py: project2DToXZ ? 0 : gv, pz: project2DToXZ ? gv : 0,
+    ...planarMoment3D(moment, project2DToXZ),
+  };
 }
 
 /** A force at a point of a member that takes no bending and a couple there: both to its end nodes. */

@@ -5,17 +5,13 @@ import { buildLoadPlan } from '../load-plan';
 import { snow, run, pressure, skewRoof, regulations } from './snow-roof-plane-fixture';
 import { stepRoof } from './snow-step-fixture';
 
-it('keeps the low-step drift on the pitched receiving roof #2082', () => {
+it('refuses low-step drift on the pitched receiving roof #2082 #2218', () => {
   const out = run();
-  const gamma = 0.426 + 2.2, ps = (70 - 20) / 65, hc = 0.45 - ps / gamma;
-  const width = Math.min(4 * 0.381 ** 2 / hc, 8 * hc);
-  expect(out.derivation.map(d => d.key)).toContain('snow.derivation.drift');
-  expect(pressure(out.cases[0]!.distributed, 500)).toBeCloseTo(ps + hc * gamma * (1 - 0.1 / width), 6);
+  expect(out).toMatchObject({ result: { refused: 'snow.refused.stepDriftTransfer' }, cases: [] });
+  expect(out.flatRoof).toBeUndefined();
   const model = stepRoof();
   const plan = buildLoadPlan({ regulations: regulations(), dead: [], occupancyKey: 'vivienda', reductionElementKind: 'interiorBeam', floorsSupported: 1, applyLiveReduction: false, generateCombinations: true, model, gravity: { mode: 'panels' }, tributaryWidth: 1, snow: { ...snow, enabled: true, source: 'site' } });
-  expect(plan.outcome).toBe('READY');
-  const index = plan.cases.findIndex(c => c.type === 'S');
-  expect(pressure(plan.distributed.filter(d => d.caseIndex === index), 500)).toBeCloseTo(pressure(out.cases[0]!.distributed, 500), 9);
+  expect(plan).toMatchObject({ outcome: 'BLOCKED', blockedKeys: [{ key: 'snow.refused.stepDriftTransfer' }], cases: [], distributed: [] });
 });
 
 it('balanced snow is unchanged by pure plan rotation #2093', () => {

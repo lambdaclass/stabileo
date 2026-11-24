@@ -70,7 +70,7 @@ export interface CodeMaterials {
 export interface ContextModelData {
   nodes: Map<number, { id: number; x: number; y: number; z?: number }>;
   elements: Map<number, { id: number; nodeI: number; nodeJ: number; sectionId: number; materialId: number; type: string }>;
-  sections: Map<number, { id: number; name: string; b?: number; h?: number }>;
+  sections: Map<number, { id: number; name: string; b?: number; h?: number; rotation?: number }>;
   /**
    * `gradeId` is PR #132's declared grade, and it is what decides the material FAMILY.
    *

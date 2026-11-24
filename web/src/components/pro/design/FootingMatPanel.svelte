@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { planNamesIn } from '../../../lib/axes/typed-frame';
   /**
    * The designed bottom mat of ONE footing.
    *
@@ -104,8 +105,8 @@
     {@const m = outcome.mat}
     <div class="directions">
       {#each [
-        { key: 'X', label: t('footing.ui.matDirectionX'), dir: m.x },
-        { key: 'Y', label: t('footing.ui.matDirectionY'), dir: m.y },
+        { key: 'X', label: planNamesIn(t('footing.ui.matDirectionX')), dir: m.x },
+        { key: 'Y', label: planNamesIn(t('footing.ui.matDirectionY')), dir: m.y },
       ] as col (col.key)}
         <div class="direction" data-testid={`footing-mat-${col.key}`}>
           <h6>

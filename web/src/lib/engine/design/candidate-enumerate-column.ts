@@ -114,7 +114,12 @@ type Knob = 'long' | 'tie';
  */
 export function endZoneFor(ctx: MemberContext, spacing: number): ProvidedReinforcement['tieZones'] {
   if (!ctx.material.columnEndZones) return undefined;
-  const endLength = +Math.max(Math.max(ctx.section.b, ctx.section.h), ctx.L / 6, 0.45).toFixed(3);
+  return columnEndZone(ctx.section.b, ctx.section.h, ctx.L, spacing);
+}
+
+/** The end zone of a b × h column of clear height `clear` tied at `spacing`, m: what `columnEndZones` asks, wherever it is drawn or designed. */
+export function columnEndZone(b: number, h: number, clear: number, spacing: number): { endLength: number; endSpacing: number } {
+  const endLength = +Math.max(Math.max(b, h), clear / 6, 0.45).toFixed(3);
   const endSpacing = Math.max(COLUMN_LIMITS.minSpacing, Math.floor((spacing / 2) / SPACING_GRID + 1e-9) * SPACING_GRID);
   return { endLength, endSpacing: +endSpacing.toFixed(4) };
 }

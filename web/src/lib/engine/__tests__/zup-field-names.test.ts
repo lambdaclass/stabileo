@@ -88,10 +88,10 @@ describe('Bug 1: 2D Displacement uses uz/ry (not uy/rz)', () => {
     const selectedEntityPanel = readFileSync(new URL('../../../components/floating-tools/SelectedEntityPanel.svelte', import.meta.url), 'utf8');
 
     expect(toolLoadOptions).toMatch(/float\.loadForceYGlobal/);
-    expect(toolLoadOptions).toContain('>Z</button>');
+    expect(toolLoadOptions).toContain("title={planeLettersShown(t('float.loadGlobalYDir'))}>{twoD.vertical}</button>");
     expect(toolLoadOptions).not.toContain('title={t(\'float.loadGlobalYDir\')}>Y</button>');
 
-    expect(selectedEntityPanel).toContain('>Z</button>');
+    expect(selectedEntityPanel).toContain("title={planeLettersShown(t('float.loadGlobalYDir'))}>{twoD.vertical}</button>");
     expect(selectedEntityPanel).not.toContain('title={t(\'float.loadGlobalYDir\')}>Y</button>');
   });
 
@@ -120,7 +120,7 @@ describe('Bug 1: 2D Displacement uses uz/ry (not uy/rz)', () => {
     }
 
     expect(drawLoads, 'draw-loads.ts should accept canonical 2D point moments as my').toContain('load.my ?? load.mz');
-    expect(drawLoads, 'draw-loads.ts should label 2D point moments as My').toContain('My=');
+    expect(drawLoads, 'draw-loads.ts should label 2D point moments as My').toContain('${TWO_D_NODAL_LOAD_LABELS.moment}=');
   });
 
   it('manual solve buttons should validate 2D results via shared Z-up helpers', () => {
@@ -194,7 +194,7 @@ describe('Bug 2: 3D self-weight must apply gravity to fz (not fy)', () => {
 
     expect(loads.length).toBe(3);
     for (const load of loads) {
-      expect(load.type).toBe('nodal');
+      if (load.type !== 'nodal') throw new Error('Expected a nodal load');
       // Gravity must be in fz (downward = negative Z in Z-up)
       expect(load.data.fz).toBeLessThan(0);
       // fy must be zero — gravity does NOT act sideways
@@ -221,6 +221,7 @@ describe('Bug 2: 3D self-weight must apply gravity to fz (not fy)', () => {
 
     expect(loads.length).toBe(4);
     for (const load of loads) {
+      if (load.type !== 'nodal') throw new Error('Expected a nodal load');
       expect(load.data.fz).toBeLessThan(0);
       expect(load.data.fy).toBe(0);
     }
@@ -243,6 +244,7 @@ describe('Bug 2: 3D self-weight must apply gravity to fz (not fy)', () => {
 
     expect(loads.length).toBe(4);
     for (const load of loads) {
+      if (load.type !== 'nodal') throw new Error('Expected a nodal load');
       // Pressure on horizontal surface acts in Z
       expect(load.data.fz).not.toBe(0);
       expect(load.data.fy).toBe(0);

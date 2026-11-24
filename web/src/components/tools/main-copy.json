@@ -28,5 +28,10 @@
     "tools.index": "Ücretsiz mühendislik hesaplayıcıları",
     "tools.lead": "Kirişler, kolonlar, çerçeveler, kafes sistemler, tesir çizgileri ve doğal frekanslar; üretimdeki Stabileo motoruyla çözülür ve klasik formüllerle karşılaştırılır.",
     "tools.indexAssumptions": "Doğrusal elastik, küçük yer değiştirmeler, prizmatik Euler–Bernoulli elemanları; kafes çubukları yalnız eksenel kuvvet taşır. SI birimleri. Öz ağırlık hariçtir. Her araç kendi varsayımlarını, işaret kuralını ve klasik referansını belirtir. Yönetmelik tasarım kontrolü değildir."
+  },
+  "zh": {
+    "tools.index": "免费工程计算器",
+    "tools.lead": "梁、柱、框架、桁架、影响线和自振频率，由 Stabileo 生产版计算引擎求解，并与经典公式对比。",
+    "tools.indexAssumptions": "线弹性、小位移、等截面 Euler–Bernoulli 杆件；桁架杆只承受轴力。采用国际单位制（SI）。不计自重。每个工具都会说明各自的假定、符号约定和经典参考解。不是规范设计验算。"
   }
 }

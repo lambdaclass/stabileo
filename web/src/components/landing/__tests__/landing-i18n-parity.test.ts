@@ -131,6 +131,8 @@ describe('public landing i18n', () => {
 
     const numbers = (v: string) => (v.match(/\d+(?:[.,]\d+)?/g) ?? []).sort();
     const tech = (v: string) => [...new Set(v.match(TECH) ?? [])].sort();
+    // A Chinese character carries about what three Latin letters do; counted as one, every complete translation reads as a third of the English.
+    const visualLength = (v: string) => v.length + 2 * (v.match(/\p{Script=Han}/gu)?.length ?? 0);
 
     it('has a plausible number of public keys to check', () => {
       /*
@@ -164,7 +166,7 @@ describe('public landing i18n', () => {
         const d = dictFor(locale) as Record<string, string>;
         const wrong = publicKeys
           .filter((k) => k in d && enDict[k].length > 60)
-          .map((k) => [k, d[k].length / enDict[k].length] as const)
+          .map((k) => [k, visualLength(d[k]) / enDict[k].length] as const)
           .filter(([, r]) => r < 0.6 || r > 1.7);
         expect(wrong.map(([k, r]) => `${k}: ${r.toFixed(2)}× the English length`)).toEqual([]);
       });

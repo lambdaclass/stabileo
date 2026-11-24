@@ -4,6 +4,9 @@
  */
 import { describe, it, expect } from 'vitest';
 import { designSpans, mergeSpanStations, spanModelData, type SpanSourceModel } from '../design-spans';
+import { evaluateDiagramAt } from '../../diagrams-3d';
+import { solve3D } from '../../wasm-solver';
+import type { SolverInput3D } from '../../types-3d';
 import { computeLocalAxes3D } from '../../local-axes-3d';
 import { computeBeamCriticalSections, type ElementStationResult } from '../../station-design-forces';
 
@@ -85,8 +88,7 @@ describe('design spans', () => {
   });
 });
 
-const issue2238 = process.env.RUN_KNOWN_WRONG === '2238' ? it : it.skip;
-issue2238('known wrong result: #2238 reversing every piece keeps the physical hogging and sagging faces', () => {
+it('#2238 reversing every piece keeps the physical hogging and sagging faces', () => {
   const L = 6;
   const q = 60;
   const moment = (x: number) => q * (x * (L - x) / 2 - L ** 2 / 12);
@@ -119,4 +121,93 @@ issue2238('known wrong result: #2238 reversing every piece keeps the physical ho
       expect.soft(stations.find(s => s.x === x)?.my, `x = ${x} m, reversed = ${reversed}`).toBeCloseTo(moment(x), 12);
     }
   }
+});
+
+it('#2238 a solved fixed beam keeps its governing faces when mesh pieces are reversed', () => {
+  const length = 6;
+  const q = 60;
+  const ts = [0, 0.5, 1];
+  for (const directions of [[false, false, false], [false, true, false], [true, true, true]]) {
+    const structure = model();
+    for (const node of structure.nodes.values()) node.x *= 2;
+    for (const [k, reversed] of directions.entries()) {
+      const member = structure.elements.get(k + 1)!;
+      member.nodeI = reversed ? k + 1 : k;
+      member.nodeJ = reversed ? k : k + 1;
+    }
+    const [span] = designSpans(structure, beams);
+    const input: SolverInput3D = {
+      nodes: new Map([...structure.nodes].filter(([id]) => id <= 3).map(([id, n]) => [id, { ...n, z: n.z ?? 0 }])),
+      elements: new Map([...structure.elements].filter(([id]) => beams(id)).map(([id, e]) => [id, {
+        ...e, type: 'frame', releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false,
+        releaseMzEnd: false, releaseTStart: false, releaseTEnd: false,
+      }])),
+      materials: new Map([[1, { id: 1, e: 30000, nu: 0.2 }]]),
+      sections: new Map([[1, { id: 1, a: 0.3 * 0.5, iy: 0.3 * 0.5 ** 3 / 12, iz: 0.5 * 0.3 ** 3 / 12, j: 0.002 }]]),
+      supports: new Map([0, 3].map(nodeId => [nodeId, { nodeId, rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true }])),
+      loads: [1, 2, 3].map(elementId => ({ type: 'distributed', data: { elementId, qYI: 0, qYJ: 0, qZI: -q, qZJ: -q } })),
+    };
+    const result = solve3D(input);
+    if (typeof result === 'string') throw new Error(result);
+    const merged = mergeSpanStations(structure, span!, elementId => {
+      const ef = result.elementForces.find(f => f.elementId === elementId)!;
+      return {
+        elementId, length: ef.length, stationTs: ts,
+        comboResults: [{ comboId: 1, comboName: 'U', stations: ts.map(t => ({
+          t, x: t * ef.length, n: evaluateDiagramAt(ef, 'axial', t), vy: evaluateDiagramAt(ef, 'shearY', t),
+          vz: evaluateDiagramAt(ef, 'shearZ', t), my: evaluateDiagramAt(ef, 'momentY', t),
+          mz: evaluateDiagramAt(ef, 'momentZ', t), torsion: evaluateDiagramAt(ef, 'torsion', t),
+        })) }],
+      };
+    });
+    const moments = merged!.comboResults[0]!.stations.map(s => s.my);
+    expect.soft(Math.min(...moments), directions.join(',')).toBeCloseTo(-q * length ** 2 / 12, 12);
+    expect.soft(Math.max(...moments), directions.join(',')).toBeCloseTo(q * length ** 2 / 24, 12);
+  }
+});
+
+it('#2238 rolled and explicitly oriented pieces keep the same demands in the span frame', () => {
+  const angle = Math.PI / 6;
+  const refY = { localYx: 0, localYy: Math.cos(angle), localYz: Math.sin(angle) };
+  for (const reversed of [false, true]) {
+    const structure = model();
+    for (const [k, id] of [1, 2, 3].entries()) {
+      Object.assign(structure.elements.get(id)!, refY, {
+        nodeI: reversed ? k + 1 : k, nodeJ: reversed ? k : k + 1,
+      });
+    }
+    const [span] = designSpans(structure, beams);
+    expect(span).toBeDefined();
+    const stations = (elementId: number): ElementStationResult => ({
+      elementId, length: 1, stationTs: [0, 1],
+      comboResults: [{ comboId: 1, comboName: 'U', stations: [0, 1].map(t => ({
+        t, x: t, n: -4, my: reversed ? -3 : 3, mz: 5, vy: reversed ? -2 : 2, vz: 7, torsion: 1,
+      })) }],
+    });
+    for (const station of mergeSpanStations(structure, span!, stations)!.comboResults[0]!.stations) {
+      for (const [key, value] of Object.entries({ n: -4, my: 3, mz: 5, vy: 2, vz: 7, torsion: 1 })) {
+        expect(station[key as keyof typeof station]).toBeCloseTo(value, 12);
+      }
+    }
+    Object.assign(structure.elements.get(2)!, { localYx: 0, localYy: 0, localYz: 1 });
+    expect(mergeSpanStations(structure, span!, stations)).toBeNull();
+  }
+});
+
+it('#2238 splits a run at a half turn of the physical section', () => {
+  const structure = model();
+  Object.assign(structure.sections.get(1)!, { shape: 'T' });
+  const third = structure.elements.get(3)!;
+  Object.assign(third, { rollAngle: 180 });
+  expect(designSpans(structure, beams).map(s => s.elements)).toEqual([[1, 2]]);
+  Object.assign(third, { rollAngle: 360 });
+  expect(designSpans(structure, beams).map(s => s.elements)).toEqual([[1, 2, 3]]);
+});
+
+it('#2238 preserves both physical section axes when reversed angles share a span', () => {
+  const structure = model();
+  Object.assign(structure.sections.get(1)!, { shape: 'L' });
+  for (const id of [1, 2, 3]) Object.assign(structure.elements.get(id)!, { nodeI: id, nodeJ: id - 1 });
+  const [span] = designSpans(structure, beams);
+  expect(span).toMatchObject({ start: 3, end: 0, elements: [3, 2, 1], reversed: [false, false, false] });
 });

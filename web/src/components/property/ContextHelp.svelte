@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { relabelComponents } from '../../lib/axes/user-names';
   import { modelStore, uiStore, resultsStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
 
@@ -35,7 +36,7 @@
     },
     'influenceLine': {
       title: t('ctxHelp.influenceLine'),
-      steps: [t('ctxHelp.influenceLine.step1'), t('ctxHelp.influenceLine.step2'), t('ctxHelp.influenceLine.step3')],
+      steps: [relabelComponents(t('ctxHelp.influenceLine.step1')), t('ctxHelp.influenceLine.step2'), t('ctxHelp.influenceLine.step3')],
       tip: t('ctxHelp.influenceLine.tip'),
     },
     'pan': {

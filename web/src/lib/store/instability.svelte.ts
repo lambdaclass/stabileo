@@ -6,6 +6,8 @@
  * (`engine/kinematic-3d.ts`, the rank analysis of K_ff). This asks it, when a solve fails, and
  * keeps the answer for the results panel to show — with the nodes one click from selected.
  */
+import { SolveAccountingError } from '../engine/plate-accounting';
+import { PlateAnalysisError } from '../engine/plate-analysis-refusal';
 import { modelStore } from './model.svelte';
 import { analyzeKinematics3D, type KinematicResult3D } from '../engine/kinematic-3d';
 
@@ -21,13 +23,14 @@ export const instability = {
   explain(includeSelfWeight: boolean, leftHand: boolean): KinematicResult3D | null {
     report = null;
     // The model's own nodes: no member cut for a load inside its span, whose node would be named.
-    const input = modelStore.buildSolverInput3D(includeSelfWeight, leftHand, { expandMemberOffsets: false, uncut: true });
-    if (!input) return null;
     let r: KinematicResult3D;
     try {
+      const input = modelStore.buildSolverInput3D(includeSelfWeight, leftHand, { expandMemberOffsets: false, uncut: true });
+      if (!input) return null;
       r = analyzeKinematics3D(input);
-    } catch {
-      return null;
+    } catch (error) {
+      if (error instanceof PlateAnalysisError || error instanceof SolveAccountingError) return null;
+      throw error;
     }
     if (r.isSolvable && r.mechanismModes === 0 && r.unconstrainedDofs.length === 0) return null;
     report = r;

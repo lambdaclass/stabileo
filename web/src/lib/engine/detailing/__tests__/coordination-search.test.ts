@@ -15,6 +15,8 @@ import {
   coordinate, pairCompatible, DEFAULT_LIMITS,
   type JointConstraint, type MemberVariable,
 } from '../coordination-search';
+import { jointThreadingChecks } from '../../design/joint-threading-check';
+import { threadsJoint } from '../joint-threading';
 import { minClearSpacingFor } from '../../../codes/cirsoc201/spacing';
 
 const EDITION = '2025' as const;
@@ -400,4 +402,19 @@ describe('pairCompatible reads the relation, not just the geometry', () => {
     expect(r.ok).toBe(false);
     expect(r.worstOverlap).toBeLessThan(0);
   });
+});
+
+it('known wrong result: #2338 joint rows distinguish exact clearance from interference', () => {
+  const diameter = 16;
+  const domain = candidates(2, diameter, 0.2);
+  expect(domain.length).toBeGreaterThan(0);
+  const layout = domain[0]!;
+  const at = layout.slots[0]!.across - diameter / 2000 - 0.02;
+  for (const [halfWidth, ok] of [[0.019, true], [0.02, true], [0.021, false]] as const) {
+    const verdict = threadsJoint([layout], diameter, [{ at, halfWidth }]);
+    expect(verdict.ok).toBe(ok);
+    expect.soft(jointThreadingChecks([{
+      ...verdict, end: 'start', nodeId: 1, slots: 2, rowDia: diameter, dia: diameter, columnBars: 1,
+    }])).toEqual([expect.objectContaining({ status: ok ? 'ok' : 'fail', ratio: ok ? 0 : Infinity })]);
+  }
 });

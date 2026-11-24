@@ -1,3 +1,6 @@
+import { computeDiagram3D } from './diagrams-3d';
+import { unavailableDiagramExtrema } from './member-diagram';
+import { collapseVariableEnvelope, reexpandVariableResults, sameVariableLayout } from './variable-member-results';
 import { registerMemberIntervalKernel } from './member-interval-kernel';
 import { CodedRefusal, asCodedRefusal, isContainmentRefusal, refusedWithCode } from './containment-error';
 import { element3DToWire, results3DFromWasm, resultsFromWasm, type AnalysisResultsWire, type AnalysisResults3DWire, load3DToWire, loadToWire, materialToWire, node3DToWire, nodeToWire, section3DToWire, sectionToWire, support3DToWire, supportToWire, type Element3DWire, type ElasticMaterialWire, type ElasticSection3DWire, type ElasticSectionWire, type Load3DWire, type LoadWire, type Node3DWire, type NodeWire, type Support3DWire, type SupportWire } from './unit-types';
@@ -464,10 +467,16 @@ function mapToPlainObj<T>(map: Map<number, T>): Record<string, T> {
  * the solver. serde-wasm-bindgen would pass them through as f64. This walk
  * restores the old rejection semantics without a string round trip.
  */
-export function assertFiniteWire(value: any, path = 'input'): void {
+class NonFiniteWireInput extends CodedRefusal {
+  constructor(readonly path: string, readonly value: number) {
+    super(`Non-finite number (${value}) at ${path}`, 'non_finite_result');
+  }
+}
+
+export function assertFiniteWire(value: unknown, path = 'input'): void {
   if (typeof value === 'number') {
     if (!Number.isFinite(value)) {
-      throw new Error(`Non-finite number (${value}) at ${path}`);
+      throw new NonFiniteWireInput(path, value);
     }
     return;
   }
@@ -476,8 +485,21 @@ export function assertFiniteWire(value: any, path = 'input'): void {
     return;
   }
   if (value !== null && typeof value === 'object') {
-    for (const k of Object.keys(value)) assertFiniteWire(value[k], `${path}.${k}`);
+    for (const k of Object.keys(value)) assertFiniteWire((value as Record<string, unknown>)[k], `${path}.${k}`);
   }
+}
+
+export function finiteWireJson(payload: unknown, options?: Record<string, number>): string {
+  try {
+    assertFiniteWire(payload);
+    assertFiniteWire(options, 'options');
+  } catch (error) {
+    if (guards && error instanceof NonFiniteWireInput) {
+      throw new CodedRefusal(guards.text('svc.engine.nonFiniteNumber', { path: error.path, value: error.value }), error.code);
+    }
+    throw error;
+  }
+  return JSON.stringify(payload);
 }
 
 /** Convert SolverInput (with Maps) to the plain JSON-ready wire object,
@@ -503,8 +525,8 @@ export function input2DToWireObject(input: SolverInput): Record<string, any> & {
 }
 
 /** Serialize SolverInput (with Maps) to JSON string for WASM. */
-function serializeInput2D(input: SolverInput): string {
-  return JSON.stringify(input2DToWireObject(input));
+function serializeInput2D(input: SolverInput, options?: Record<string, number>): string {
+  return finiteWireJson(input2DToWireObject(input), options);
 }
 
 /**
@@ -564,8 +586,8 @@ export function input3DToWireObject(input: SolverInput3D): Record<string, any> &
 }
 
 /** Serialize SolverInput3D (with Maps) to JSON string for WASM. */
-export function serializeInput3D(input: SolverInput3D): string {
-  return JSON.stringify(input3DToWireObject(input));
+export function serializeInput3D(input: SolverInput3D, options?: Record<string, number>): string {
+  return finiteWireJson(input3DToWireObject(input), options);
 }
 
 /**
@@ -1139,7 +1161,7 @@ export function solvePDelta(input: SolverInput, maxIter = 20, tolerance = 1e-4) 
   refuse(guards?.refuse2D(input));
   const merged = mergeAllHingedJoints2D(input);
   let result;
-  const json = serializeInput2D(merged);
+  const json = serializeInput2D(merged, { maxIter, tolerance });
   try {
     result = normalizePDeltaResult(JSON.parse(wasmSolvePdelta2d(json, maxIter, tolerance)));
   } catch (e) {
@@ -1161,7 +1183,7 @@ export function solveBuckling(input: SolverInput, numModes = 4) {
   const merged = mergeAllHingedJoints2D(input);
   let result;
   try {
-    const json = serializeInput2D(restrainOrphanRotations2D(merged));
+    const json = serializeInput2D(restrainOrphanRotations2D(merged), { numModes });
     result = bucklingWithCertificate(wasmCertifyBuckling2d, json, numModes) ?? JSON.parse(wasmSolveBuckling2d(json, numModes));
   } catch (e) {
     if (noFreeDofsRefusal(e)) noFreeDofs('buckling', () => solve(merged));
@@ -1180,10 +1202,10 @@ export function solveModal(
   refuse(guards?.refuse2D(input));
   input = restrainOrphanRotations2D(mergeAllHingedJoints2D(input));
   // The whole model, constraints and connectors included, as every other 2D analysis sends it.
-  const payload = JSON.stringify({
+  const payload = finiteWireJson({
     solver: input2DToWireObject(input),
     densities: mapToObj(densities),
-  });
+  }, { numModes });
   let result;
   try {
     result = JSON.parse(wasmSolveModal2d(payload, numModes));
@@ -1209,7 +1231,7 @@ export function solveSpectral(config: {
 }) {
   if (!wasmReady || !wasmSolveSpectral2d) throw new Error('WASM solver not available.');
   config = { ...config, solver: mergeAllHingedJoints2D(config.solver) };
-  const payload = JSON.stringify({
+  const payload = finiteWireJson({
     solver: {
       nodes: mapToObj(config.solver.nodes),
       materials: mapToObj(config.solver.materials),
@@ -1240,7 +1262,7 @@ export function solvePlastic(config: {
   mpOverrides?: Map<number, number>;
 }) {
   if (!wasmReady || !wasmSolvePlastic2d) throw new Error('WASM solver not available.');
-  const payload = JSON.stringify({
+  const payload = finiteWireJson({
     solver: {
       nodes: mapToObj(config.solver.nodes),
       materials: mapToObj(config.solver.materials),
@@ -1266,7 +1288,7 @@ export function solveMovingLoads(config: {
   pathElementIds?: number[];
 }) {
   if (!wasmReady || !wasmSolveMovingLoads2d) throw new Error('WASM solver not available.');
-  const payload = JSON.stringify({
+  const payload = finiteWireJson({
     solver: {
       nodes: mapToObj(config.solver.nodes),
       materials: mapToObj(config.solver.materials),
@@ -1295,7 +1317,7 @@ export function solvePDelta3D(input: SolverInput3D, maxIter = 20, tolerance = 1e
   refuse(guards?.refuse3D(input));
   refuse(torsionGapRefusal(input, 'pdelta'));
   let result;
-  const json = JSON.stringify(wire);
+  const json = finiteWireJson(wire, { maxIter, tolerance });
   try {
     result = JSON.parse(wasmSolvePdelta3d(json, maxIter, tolerance));
   } catch (e) {
@@ -1316,13 +1338,13 @@ export function solveModal3D(input: SolverInput3D, densities: Map<number, number
   let run;
   let payload = '';
   try {
-    run = eigen3D(guards ? guards.eigenInput3D(input) : input, (i) => JSON.parse(wasmSolveModal3d!(payload = JSON.stringify({
+    run = eigen3D(guards ? guards.eigenInput3D(input) : input, (i) => JSON.parse(wasmSolveModal3d!(payload = finiteWireJson({
       // The whole model, through the same serializer every other 3D analysis uses. This built its
       // own subset and left out quads, plates, constraints and connectors — so a slab contributed
       // neither stiffness nor mass to PRO's modal analysis.
       solver: input3DToWireObject(i),
       densities: mapToObj(densities),
-    }), numModes)));
+    }, { numModes }), numModes)));
   } catch (e) {
     if (noFreeDofsRefusal(e)) noFreeDofs('modal');
     translateModalMechanism(e);
@@ -1354,7 +1376,7 @@ export function solveBuckling3D(input: SolverInput3D, numModes = 4) {
     run = eigen3D(guards ? guards.eigenInput3D(input) : input, (i) => {
       const w = axial ? bucklingWarpingInput(i, axial) : { input: i, warped: [] };
       warpingMembers = w.warped;
-      const json = serializeInput3D(w.input);
+      const json = serializeInput3D(w.input, { numModes });
       return bucklingWithCertificate(wasmCertifyBuckling3d, json, numModes) ?? JSON.parse(wasmSolveBuckling3d!(json, numModes));
     });
   } catch (e) {
@@ -1402,7 +1424,7 @@ export function solveSpectral3D(config: {
   reductionFactor?: number;
 }) {
   if (!wasmReady || !wasmSolveSpectral3d) throw new Error('WASM Spectral 3D solver not available.');
-  const payload = JSON.stringify({
+  const payload = finiteWireJson({
     solver: input3DToWireObject(config.solver),
     modes: config.modes,
     densities: mapToObj(config.densities),
@@ -1420,7 +1442,7 @@ export function solveSpectral3D(config: {
 /** Solve 2D corotational (large displacement) analysis via WASM. */
 export function solveCorotational2D(input: SolverInput, maxIter = 50, tolerance = 1e-6, nIncrements = 10) {
   if (!wasmReady || !wasmSolveCorotational2d) throw new Error('WASM Corotational solver not available.');
-  const json = serializeInput2D(input);
+  const json = serializeInput2D(input, { maxIter, tolerance, nIncrements });
   const resultJson = wasmSolveCorotational2d(json, maxIter, tolerance, nIncrements);
   return JSON.parse(resultJson);
 }
@@ -1440,14 +1462,14 @@ export function solveTimeHistory2D(config: {
   dampingXi?: number;
 }) {
   if (!wasmReady || !wasmSolveTimeHistory2d) throw new Error('WASM Time History solver not available.');
-  const payload = JSON.stringify({
+  const payload = finiteWireJson({
     solver: input2DToWireObject(config.solver),
     densities: mapToObj(config.densities),
     timeStep: config.timeStep,
     nSteps: config.nSteps,
     ...(config.groundAccel ? { groundAccel: config.groundAccel, groundDirection: config.groundDirection ?? 'X' } : {}),
     ...(config.forceHistory ? { forceHistory: config.forceHistory } : {}),
-    ...(config.dampingXi ? { dampingXi: config.dampingXi } : {}),
+    dampingXi: config.dampingXi === 0 ? undefined : config.dampingXi,
   });
   const resultJson = wasmSolveTimeHistory2d(payload);
   return tagCertifyJob(JSON.parse(resultJson), { name: 'certify_time_history_2d', args: [payload] });
@@ -1487,9 +1509,9 @@ function combinationCases<T>(factors: Array<{ caseId: number }>, perCase: Map<nu
 }
 
 export function netCombinationFactors(factors: Array<{ caseId: number; factor: number }>): typeof factors {
+  assertFiniteWire(factors);
   if (factors.length <= 1 || new Set(factors.map(f => f.caseId)).size === factors.length) return factors;
   if (!wasmNetCombinationFactors) throw new Error('WASM solver not initialized.');
-  assertFiniteWire(factors);
   return wasmNetCombinationFactors(factors) as typeof factors;
 }
 
@@ -1568,7 +1590,18 @@ export function computeEnvelope3D(results: AnalysisResults3D[]): FullEnvelope3D 
   if (!wasmReady || !wasmComputeEnvelope3d) throw new Error('WASM solver not initialized.');
   if (results.length === 0) return null;
   // Solver output — no guard (see combineResults).
-  return wasmComputeEnvelope3d(results);
+  if (results.some(r => r.magnitude || r.elementForces.some(f => f.combined))) throw unavailableDiagramExtrema();
+  if (!results.some(r => r.elementForces.some(f => f.pieces?.length))) return wasmComputeEnvelope3d(results);
+  const expanded = results.map(reexpandVariableResults);
+  if (expanded.some(r => r.results.elementForces.some(f => f.pieces?.length))) throw unavailableDiagramExtrema();
+  const reference = expanded[0]!;
+  if (!reference.exp) throw unavailableDiagramExtrema();
+  const layout = reference.exp;
+  const lengths = new Map(reference.results.elementForces.map(ef => [ef.elementId, ef.length]));
+  if (expanded.some(({ results, exp }) => !sameVariableLayout(layout, exp) ||
+    results.elementForces.some(ef => lengths.get(ef.elementId) !== ef.length))) throw unavailableDiagramExtrema();
+  const raw = wasmComputeEnvelope3d(expanded.map(r => r.results));
+  return raw && collapseVariableEnvelope(raw, layout);
 }
 
 // ─── Influence Lines ─────────────────────────────────────────────
@@ -1583,7 +1616,7 @@ export function computeInfluenceLineWasm(ilInput: {
   nPointsPerElement?: number;
 }) {
   if (!wasmReady || !wasmComputeInfluenceLine) throw new Error('WASM solver not initialized.');
-  const payload = JSON.stringify({
+  const payload = finiteWireJson({
     solver: {
       nodes: mapToObj(ilInput.solver.nodes),
       materials: mapToObj(ilInput.solver.materials),
@@ -1653,20 +1686,13 @@ export function computeDiagrams2D(input: SolverInput, results: AnalysisResults) 
 }
 
 /** Compute 3D diagrams (My, Mz, Vy, Vz, N, T) via WASM. */
-export function computeDiagrams3D(input: SolverInput3D, results: AnalysisResults3D) {
+export function computeDiagrams3D(_input: SolverInput3D, results: AnalysisResults3D) {
   if (!wasmReady || !wasmComputeDiagrams3d) throw new Error('WASM solver not initialized.');
-  const payload = JSON.stringify({
-    input: {
-      nodes: mapToObj(input.nodes),
-      materials: mapToObj(input.materials),
-      sections: mapToObj(input.sections),
-      elements: mapToObj(input.elements),
-      supports: mapToObj(input.supports),
-      loads: input.loads,
-    },
-    results,
-  });
-  return JSON.parse(wasmComputeDiagrams3d(payload));
+  if (results.elementForces.some(f => f.combined || f.pieces?.length)) {
+    return Object.fromEntries(['momentY', 'momentZ', 'shearY', 'shearZ', 'axial', 'torsion'].map(kind =>
+      [kind, results.elementForces.map(ef => computeDiagram3D(ef, kind as Parameters<typeof computeDiagram3D>[1]))]));
+  }
+  return JSON.parse(wasmComputeDiagrams3d(JSON.stringify(results)));
 }
 
 /** Compute deformed shape for one element via WASM. */
@@ -1693,15 +1719,15 @@ export function computeDeformedShape(input: any) {
 }
 
 /** Compute 2D diagram value at position t for one element via WASM. Returns null if WASM not available. */
-export function computeDiagramValueAtWasm(kind: string, t: number, elementForces: any): number | null {
+export function computeDiagramValueAtWasm(kind: string, t: number, elementForces: any, right?: boolean): number | null {
   if (!wasmReady || !wasmComputeDiagramValueAt) return null;
-  return wasmComputeDiagramValueAt(JSON.stringify({ kind, t, elementForces }));
+  return wasmComputeDiagramValueAt(JSON.stringify({ kind, t, elementForces, right }));
 }
 
 /** Compute 3D diagram value at position t for one element via WASM. Returns null if WASM not available. */
-export function computeDiagramValueAt3DWasm(kind: string, t: number, elementForces: any): number | null {
+export function computeDiagramValueAt3DWasm(kind: string, t: number, elementForces: any, right?: boolean): number | null {
   if (!wasmReady || !wasmComputeDiagramValueAt3d) return null;
-  return wasmComputeDiagramValueAt3d(JSON.stringify({ kind, t, elementForces }));
+  return wasmComputeDiagramValueAt3d(JSON.stringify({ kind, t, elementForces, right }));
 }
 
 /** Check if WASM solver is ready. */
@@ -1833,7 +1859,7 @@ export function solveNonlinearMaterial2D(config: {
   nIncrements?: number;
 }) {
   if (!wasmReady || !wasmSolveNonlinearMaterial2d) throw new Error('WASM nonlinear material solver not available.');
-  const payload = JSON.stringify({
+  const payload = finiteWireJson({
     solver: {
       nodes: mapToObj(config.solver.nodes),
       materials: mapToObj(config.solver.materials),
@@ -1857,25 +1883,25 @@ export function solveNonlinearMaterial2D(config: {
 export function solveCorotational3D(input: SolverInput3D, maxIter = 50, tolerance = 1e-6, nIncrements = 10): any {
   if (!wasmReady || !wasmSolveCorotational3d) throw new Error('WASM Corotational 3D solver not available.');
   refuse(torsionGapRefusal(input, 'nonlinear'));
-  return JSON.parse(wasmSolveCorotational3d(serializeInput3D(input), maxIter, tolerance, nIncrements));
+  return JSON.parse(wasmSolveCorotational3d(serializeInput3D(input, { maxIter, tolerance, nIncrements }), maxIter, tolerance, nIncrements));
 }
 
 /** Solve 3D nonlinear material analysis via WASM. */
 export function solveNonlinearMaterial3D(config: any): any {
   if (!wasmReady || !wasmSolveNonlinearMaterial3d) throw new Error('WASM nonlinear material 3D solver not available.');
   if (config.solver && config.solver.nodes instanceof Map) {
-    config = { ...config, solver: JSON.parse(serializeInput3D(config.solver)) };
+    config = { ...config, solver: input3DToWireObject(config.solver) };
   }
-  return JSON.parse(wasmSolveNonlinearMaterial3d(JSON.stringify(config)));
+  return JSON.parse(wasmSolveNonlinearMaterial3d(finiteWireJson(config)));
 }
 
 /** Solve 3D time history analysis via WASM. */
 export function solveTimeHistory3D(config: any): any {
   if (!wasmReady || !wasmSolveTimeHistory3d) throw new Error('WASM time history 3D solver not available.');
   if (config.solver && config.solver.nodes instanceof Map) {
-    config = { ...config, solver: JSON.parse(serializeInput3D(config.solver)) };
+    config = { ...config, solver: input3DToWireObject(config.solver) };
   }
-  const json = JSON.stringify(config);
+  const json = finiteWireJson(config);
   return tagCertifyJob(JSON.parse(wasmSolveTimeHistory3d(json)), { name: 'certify_time_history_3d', args: [json] });
 }
 
@@ -1883,18 +1909,18 @@ export function solveTimeHistory3D(config: any): any {
 export function solvePlastic3D(config: any): any {
   if (!wasmReady || !wasmSolvePlastic3d) throw new Error('WASM plastic 3D solver not available.');
   if (config.solver && config.solver.nodes instanceof Map) {
-    config = { ...config, solver: JSON.parse(serializeInput3D(config.solver)) };
+    config = { ...config, solver: input3DToWireObject(config.solver) };
   }
-  return JSON.parse(wasmSolvePlastic3d(JSON.stringify(config)));
+  return JSON.parse(wasmSolvePlastic3d(finiteWireJson(config)));
 }
 
 /** Solve 3D moving loads analysis via WASM. */
 export function solveMovingLoads3D(config: any): any {
   if (!wasmReady || !wasmSolveMovingLoads3d) throw new Error('WASM moving loads 3D solver not available.');
   if (config.solver && config.solver.nodes instanceof Map) {
-    config = { ...config, solver: JSON.parse(serializeInput3D(config.solver)) };
+    config = { ...config, solver: input3DToWireObject(config.solver) };
   }
-  return JSON.parse(wasmSolveMovingLoads3d(JSON.stringify(config)));
+  return JSON.parse(wasmSolveMovingLoads3d(finiteWireJson(config)));
 }
 
 // ─── Constrained / Contact / SSI / Winkler Solvers ────────────────
@@ -1903,73 +1929,73 @@ export function solveMovingLoads3D(config: any): any {
 export function solveConstrained2D(config: any): any {
   if (!wasmReady || !wasmSolveConstrained2d) throw new Error('WASM constrained 2D solver not available.');
   if (config.solver && config.solver.nodes instanceof Map) {
-    config = { ...config, solver: JSON.parse(serializeInput2D(config.solver)) };
+    config = { ...config, solver: input2DToWireObject(config.solver) };
   }
-  return JSON.parse(wasmSolveConstrained2d(JSON.stringify(config)));
+  return JSON.parse(wasmSolveConstrained2d(finiteWireJson(config)));
 }
 
 /** Solve 3D constrained analysis via WASM. */
 export function solveConstrained3D(config: any): any {
   if (!wasmReady || !wasmSolveConstrained3d) throw new Error('WASM constrained 3D solver not available.');
   if (config.solver && config.solver.nodes instanceof Map) {
-    config = { ...config, solver: JSON.parse(serializeInput3D(config.solver)) };
+    config = { ...config, solver: input3DToWireObject(config.solver) };
   }
-  return JSON.parse(wasmSolveConstrained3d(JSON.stringify(config)));
+  return JSON.parse(wasmSolveConstrained3d(finiteWireJson(config)));
 }
 
 /** Solve 2D contact analysis via WASM. */
 export function solveContact2D(config: any): any {
   if (!wasmReady || !wasmSolveContact2d) throw new Error('WASM contact 2D solver not available.');
   if (config.solver && config.solver.nodes instanceof Map) {
-    config = { ...config, solver: JSON.parse(serializeInput2D(config.solver)) };
+    config = { ...config, solver: input2DToWireObject(config.solver) };
   }
-  return JSON.parse(wasmSolveContact2d(JSON.stringify(config)));
+  return JSON.parse(wasmSolveContact2d(finiteWireJson(config)));
 }
 
 /** Solve 3D contact analysis via WASM. */
 export function solveContact3D(config: any): any {
   if (!wasmReady || !wasmSolveContact3d) throw new Error('WASM contact 3D solver not available.');
   if (config.solver && config.solver.nodes instanceof Map) {
-    config = { ...config, solver: JSON.parse(serializeInput3D(config.solver)) };
+    config = { ...config, solver: input3DToWireObject(config.solver) };
   }
-  return JSON.parse(wasmSolveContact3d(JSON.stringify(config)));
+  return JSON.parse(wasmSolveContact3d(finiteWireJson(config)));
 }
 
 /** Solve 2D soil-structure interaction via WASM. */
 export function solveSSI2D(config: any): any {
   if (!wasmReady || !wasmSolveSsi2d) throw new Error('WASM SSI 2D solver not available.');
   if (config.solver && config.solver.nodes instanceof Map) {
-    config = { ...config, solver: JSON.parse(serializeInput2D(config.solver)) };
+    config = { ...config, solver: input2DToWireObject(config.solver) };
   }
-  return JSON.parse(wasmSolveSsi2d(JSON.stringify(config)));
+  return JSON.parse(wasmSolveSsi2d(finiteWireJson(config)));
 }
 
 /** Solve 3D soil-structure interaction via WASM. */
 export function solveSSI3D(config: any): any {
   if (!wasmReady || !wasmSolveSsi3d) throw new Error('WASM SSI 3D solver not available.');
   if (config.solver && config.solver.nodes instanceof Map) {
-    config = { ...config, solver: JSON.parse(serializeInput3D(config.solver)) };
+    config = { ...config, solver: input3DToWireObject(config.solver) };
   }
   // As the engine answers: its caller finishes what it reads (`solve-finish.ts`).
-  return JSON.parse(wasmSolveSsi3d(JSON.stringify(config)));
+  return JSON.parse(wasmSolveSsi3d(finiteWireJson(config)));
 }
 
 /** Solve 2D Winkler foundation analysis via WASM. */
 export function solveWinkler2D(config: any): any {
   if (!wasmReady || !wasmSolveWinkler2d) throw new Error('WASM Winkler 2D solver not available.');
   if (config.solver && config.solver.nodes instanceof Map) {
-    config = { ...config, solver: JSON.parse(serializeInput2D(config.solver)) };
+    config = { ...config, solver: input2DToWireObject(config.solver) };
   }
-  return JSON.parse(wasmSolveWinkler2d(JSON.stringify(config)));
+  return JSON.parse(wasmSolveWinkler2d(finiteWireJson(config)));
 }
 
 /** Solve 3D Winkler foundation analysis via WASM. */
 export function solveWinkler3D(config: any): any {
   if (!wasmReady || !wasmSolveWinkler3d) throw new Error('WASM Winkler 3D solver not available.');
   if (config.solver && config.solver.nodes instanceof Map) {
-    config = { ...config, solver: JSON.parse(serializeInput3D(config.solver)) };
+    config = { ...config, solver: input3DToWireObject(config.solver) };
   }
-  return JSON.parse(wasmSolveWinkler3d(JSON.stringify(config)));
+  return JSON.parse(wasmSolveWinkler3d(finiteWireJson(config)));
 }
 
 // ─── Fiber Nonlinear Solvers ──────────────────────────────────────
@@ -1978,18 +2004,18 @@ export function solveWinkler3D(config: any): any {
 export function solveFiberNonlinear2D(config: any): any {
   if (!wasmReady || !wasmSolveFiberNonlinear2d) throw new Error('WASM fiber nonlinear 2D solver not available.');
   if (config.solver && config.solver.nodes instanceof Map) {
-    config = { ...config, solver: JSON.parse(serializeInput2D(config.solver)) };
+    config = { ...config, solver: input2DToWireObject(config.solver) };
   }
-  return JSON.parse(wasmSolveFiberNonlinear2d(JSON.stringify(config)));
+  return JSON.parse(wasmSolveFiberNonlinear2d(finiteWireJson(config)));
 }
 
 /** Solve 3D fiber nonlinear analysis via WASM. */
 export function solveFiberNonlinear3D(config: any): any {
   if (!wasmReady || !wasmSolveFiberNonlinear3d) throw new Error('WASM fiber nonlinear 3D solver not available.');
   if (config.solver && config.solver.nodes instanceof Map) {
-    config = { ...config, solver: JSON.parse(serializeInput3D(config.solver)) };
+    config = { ...config, solver: input3DToWireObject(config.solver) };
   }
-  return JSON.parse(wasmSolveFiberNonlinear3d(JSON.stringify(config)));
+  return JSON.parse(wasmSolveFiberNonlinear3d(finiteWireJson(config)));
 }
 
 // ─── Staged Construction Solvers ──────────────────────────────────
@@ -1998,9 +2024,9 @@ export function solveFiberNonlinear3D(config: any): any {
 export function solveStaged2D(config: any): any {
   if (!wasmReady || !wasmSolveStaged2d) throw new Error('WASM staged 2D solver not available.');
   if (config.solver && config.solver.nodes instanceof Map) {
-    config = { ...config, solver: JSON.parse(serializeInput2D(config.solver)) };
+    config = { ...config, solver: input2DToWireObject(config.solver) };
   }
-  return JSON.parse(wasmSolveStaged2d(JSON.stringify(config)));
+  return JSON.parse(wasmSolveStaged2d(finiteWireJson(config)));
 }
 
 /** Solve 3D staged construction analysis via WASM.
@@ -2014,9 +2040,9 @@ export function solveStaged3D(config: any): any {
   if (!wasmReady || !wasmSolveStaged3d) throw new Error('WASM staged 3D solver not available.');
   const { solver, ...rest } = config;
   const wire = solver && solver.nodes instanceof Map
-    ? JSON.parse(serializeInput3D(solver))
+    ? input3DToWireObject(solver)
     : solver;
-  return JSON.parse(wasmSolveStaged3d(JSON.stringify({ ...wire, ...rest })));
+  return JSON.parse(wasmSolveStaged3d(finiteWireJson({ ...wire, ...rest })));
 }
 
 // ─── Cable Solver ─────────────────────────────────────────────────
@@ -2034,8 +2060,8 @@ export function solveCable2D(
   densities: Record<string, number> = {},
 ): any {
   if (!wasmReady || !wasmSolveCable2d) throw new Error('WASM cable 2D solver not available.');
-  const payload = { solver: JSON.parse(serializeInput2D(input)), densities };
-  return JSON.parse(wasmSolveCable2d(JSON.stringify(payload), maxIter, tolerance));
+  const payload = { solver: input2DToWireObject(input), densities };
+  return JSON.parse(wasmSolveCable2d(finiteWireJson(payload, { maxIter, tolerance }), maxIter, tolerance));
 }
 
 /** One cable element of a 3D cable analysis, SI units (kN, m). */
@@ -2075,9 +2101,9 @@ export function solveCable3D(
 ): CableAnalysis3D {
   if (!wasmReady || !wasmSolveCable3d) throw new Error('WASM cable 3D solver not available.');
   // The wire form does not look at the member type; it passes `cable` through to the engine.
-  const payload = { solver: JSON.parse(serializeInput3D(input as unknown as SolverInput3D)), densities, pretension };
+  const payload = { solver: input3DToWireObject(input), densities, pretension };
   // As the engine answers: its caller finishes the results (`solve-finish.ts`, member-behaviour.ts).
-  return JSON.parse(wasmSolveCable3d(JSON.stringify(payload), maxIter, tolerance)) as CableAnalysis3D;
+  return JSON.parse(wasmSolveCable3d(finiteWireJson(payload, { maxIter, tolerance }), maxIter, tolerance)) as CableAnalysis3D;
 }
 
 // ─── Harmonic Solvers ─────────────────────────────────────────────
@@ -2086,9 +2112,9 @@ export function solveCable3D(
 export function solveHarmonic2D(config: any): any {
   if (!wasmReady || !wasmSolveHarmonic2d) throw new Error('WASM harmonic 2D solver not available.');
   if (config.solver && config.solver.nodes instanceof Map) {
-    config = { ...config, solver: JSON.parse(serializeInput2D(config.solver)) };
+    config = { ...config, solver: input2DToWireObject(config.solver) };
   }
-  const json = JSON.stringify(config);
+  const json = finiteWireJson(config);
   return tagCertifyJob(JSON.parse(wasmSolveHarmonic2d(json)), { name: 'certify_harmonic_2d', args: [json] });
 }
 
@@ -2096,9 +2122,9 @@ export function solveHarmonic2D(config: any): any {
 export function solveHarmonic3D(config: any): any {
   if (!wasmReady || !wasmSolveHarmonic3d) throw new Error('WASM harmonic 3D solver not available.');
   if (config.solver && config.solver.nodes instanceof Map) {
-    config = { ...config, solver: JSON.parse(serializeInput3D(config.solver)) };
+    config = { ...config, solver: input3DToWireObject(config.solver) };
   }
-  const json = JSON.stringify(config);
+  const json = finiteWireJson(config);
   return tagCertifyJob(JSON.parse(wasmSolveHarmonic3d(json)), { name: 'certify_harmonic_3d', args: [json] });
 }
 
@@ -2108,18 +2134,18 @@ export function solveHarmonic3D(config: any): any {
 export function solveCreepShrinkage2D(config: any): any {
   if (!wasmReady || !wasmSolveCreepShrinkage2d) throw new Error('WASM creep/shrinkage 2D solver not available.');
   if (config.solver && config.solver.nodes instanceof Map) {
-    config = { ...config, solver: JSON.parse(serializeInput2D(config.solver)) };
+    config = { ...config, solver: input2DToWireObject(config.solver) };
   }
-  return JSON.parse(wasmSolveCreepShrinkage2d(JSON.stringify(config)));
+  return JSON.parse(wasmSolveCreepShrinkage2d(finiteWireJson(config)));
 }
 
 /** Solve 3D creep & shrinkage analysis via WASM. */
 export function solveCreepShrinkage3D(config: any): any {
   if (!wasmReady || !wasmSolveCreepShrinkage3d) throw new Error('WASM creep/shrinkage 3D solver not available.');
   if (config.solver && config.solver.nodes instanceof Map) {
-    config = { ...config, solver: JSON.parse(serializeInput3D(config.solver)) };
+    config = { ...config, solver: input3DToWireObject(config.solver) };
   }
-  return JSON.parse(wasmSolveCreepShrinkage3d(JSON.stringify(config)));
+  return JSON.parse(wasmSolveCreepShrinkage3d(finiteWireJson(config)));
 }
 
 // ─── Multi-Case Solvers ───────────────────────────────────────────
@@ -2175,9 +2201,9 @@ export function solveArcLength(config: any): any {
   if (!wasmReady || !wasmSolveArcLength) throw new Error('WASM arc-length solver not available.');
   if (config.solver && config.solver.nodes instanceof Map) {
     const is3D = config.solver.plates || config.solver.quads || config.solver.constraints;
-    config = { ...config, solver: JSON.parse(is3D ? serializeInput3D(config.solver) : serializeInput2D(config.solver)) };
+    config = { ...config, solver: is3D ? input3DToWireObject(config.solver) : input2DToWireObject(config.solver) };
   }
-  return JSON.parse(wasmSolveArcLength(JSON.stringify(config)));
+  return JSON.parse(wasmSolveArcLength(finiteWireJson(config)));
 }
 
 /** Solve displacement-control analysis via WASM. */
@@ -2185,9 +2211,9 @@ export function solveDisplacementControl(config: any): any {
   if (!wasmReady || !wasmSolveDisplacementControl) throw new Error('WASM displacement-control solver not available.');
   if (config.solver && config.solver.nodes instanceof Map) {
     const is3D = config.solver.plates || config.solver.quads || config.solver.constraints;
-    config = { ...config, solver: JSON.parse(is3D ? serializeInput3D(config.solver) : serializeInput2D(config.solver)) };
+    config = { ...config, solver: is3D ? input3DToWireObject(config.solver) : input2DToWireObject(config.solver) };
   }
-  return JSON.parse(wasmSolveDisplacementControl(JSON.stringify(config)));
+  return JSON.parse(wasmSolveDisplacementControl(finiteWireJson(config)));
 }
 
 // ─── Imperfection Solvers ─────────────────────────────────────────
@@ -2196,9 +2222,9 @@ export function solveDisplacementControl(config: any): any {
 export function solveWithImperfections2D(config: any): any {
   if (!wasmReady || !wasmSolveWithImperfections2d) throw new Error('WASM imperfections 2D solver not available.');
   if (config.solver && config.solver.nodes instanceof Map) {
-    config = { ...config, solver: JSON.parse(serializeInput2D(config.solver)) };
+    config = { ...config, solver: input2DToWireObject(config.solver) };
   }
-  return JSON.parse(wasmSolveWithImperfections2d(JSON.stringify(config)));
+  return JSON.parse(wasmSolveWithImperfections2d(finiteWireJson(config)));
 }
 
 /** Solve 3D analysis with geometric imperfections via WASM. */
@@ -2206,9 +2232,9 @@ export function solveWithImperfections3D(config: any): any {
   if (!wasmReady || !wasmSolveWithImperfections3d) throw new Error('WASM imperfections 3D solver not available.');
   if (config.solver && config.solver.nodes instanceof Map) {
     refuse(torsionGapRefusal(config.solver, 'nonlinear'));
-    config = { ...config, solver: JSON.parse(serializeInput3D(config.solver)) };
+    config = { ...config, solver: input3DToWireObject(config.solver) };
   }
-  return JSON.parse(wasmSolveWithImperfections3d(JSON.stringify(config)));
+  return JSON.parse(wasmSolveWithImperfections3d(finiteWireJson(config)));
 }
 
 // ─── 3D Influence Line ────────────────────────────────────────────
@@ -2217,9 +2243,9 @@ export function solveWithImperfections3D(config: any): any {
 export function computeInfluenceLine3D(config: any): any {
   if (!wasmReady || !wasmComputeInfluenceLine3d) throw new Error('WASM influence line 3D not available.');
   if (config.solver && config.solver.nodes instanceof Map) {
-    config = { ...config, solver: JSON.parse(serializeInput3D(config.solver)) };
+    config = { ...config, solver: input3DToWireObject(config.solver) };
   }
-  return JSON.parse(wasmComputeInfluenceLine3d(JSON.stringify(config)));
+  return JSON.parse(wasmComputeInfluenceLine3d(finiteWireJson(config)));
 }
 
 // ─── Section Analysis ─────────────────────────────────────────────
@@ -2227,7 +2253,7 @@ export function computeInfluenceLine3D(config: any): any {
 /** Analyze cross-section properties via WASM. */
 export function analyzeSection(input: any): any {
   if (!wasmReady || !wasmAnalyzeSection) throw new Error('WASM section analysis not available.');
-  return JSON.parse(wasmAnalyzeSection(JSON.stringify(input)));
+  return JSON.parse(wasmAnalyzeSection(finiteWireJson(input)));
 }
 
 // ─── Model Reduction ──────────────────────────────────────────────
@@ -2236,18 +2262,18 @@ export function analyzeSection(input: any): any {
 export function guyanReduce2D(config: any): any {
   if (!wasmReady || !wasmGuyanReduce2d) throw new Error('WASM Guyan reduction not available.');
   if (config.solver && config.solver.nodes instanceof Map) {
-    config = { ...config, solver: JSON.parse(serializeInput2D(config.solver)) };
+    config = { ...config, solver: input2DToWireObject(config.solver) };
   }
-  return JSON.parse(wasmGuyanReduce2d(JSON.stringify(config)));
+  return JSON.parse(wasmGuyanReduce2d(finiteWireJson(config)));
 }
 
 /** Craig-Bampton substructure reduction of a 2D model via WASM. */
 export function craigBampton2D(config: any): any {
   if (!wasmReady || !wasmCraigBampton2d) throw new Error('WASM Craig-Bampton reduction not available.');
   if (config.solver && config.solver.nodes instanceof Map) {
-    config = { ...config, solver: JSON.parse(serializeInput2D(config.solver)) };
+    config = { ...config, solver: input2DToWireObject(config.solver) };
   }
-  return JSON.parse(wasmCraigBampton2d(JSON.stringify(config)));
+  return JSON.parse(wasmCraigBampton2d(finiteWireJson(config)));
 }
 
 // ─── Beam Station Extraction ─────────────────────────────────────

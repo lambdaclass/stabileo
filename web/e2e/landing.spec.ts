@@ -8,9 +8,10 @@ import fullDe from '../src/lib/i18n/locales/full/de';
 import fullFr from '../src/lib/i18n/locales/full/fr';
 import fullTr from '../src/lib/i18n/locales/full/tr';
 import fullHu from '../src/lib/i18n/locales/full/hu';
+import fullZh from '../src/lib/i18n/locales/full/zh';
 
-const NAME: Record<Locale, string> = { en: 'English', es: 'Español', pt: 'Português', de: 'Deutsch', fr: 'Français', tr: 'Türkçe', hu: 'Magyar' };
-const OG: Record<Locale, string> = { en: 'en_US', es: 'es_AR', pt: 'pt_BR', de: 'de_DE', fr: 'fr_FR', tr: 'tr_TR', hu: 'hu_HU' };
+const NAME: Record<Locale, string> = { en: 'English', es: 'Español', pt: 'Português', de: 'Deutsch', fr: 'Français', tr: 'Türkçe', hu: 'Magyar', zh: '中文' };
+const OG: Record<Locale, string> = { en: 'en_US', es: 'es_AR', pt: 'pt_BR', de: 'de_DE', fr: 'fr_FR', tr: 'tr_TR', hu: 'hu_HU', zh: 'zh_CN' };
 /** The Open Graph alternates a public page in `locale` declares: every other public language. */
 const ogAlternates = (locale: Locale) => BUILD_PUBLIC_LOCALES.filter((l) => l !== locale).map((l) => OG[l]);
 
@@ -665,16 +666,13 @@ test.describe('@landing landing page', () => {
     }
   });
 
-  test('the hero animation pauses on hover', async ({ page }) => {
+  test('the hero animation keeps moving under the mouse', async ({ page }) => {
     await bootLanding(page);
     await showHeroTruss(page);
-    const svg = page.locator('.landing .hero-figure svg');
-    await svg.hover();
-    await page.waitForTimeout(400);
-    const a = await page.locator('.landing .hero-figure .tf-load').getAttribute('transform');
-    await page.waitForTimeout(1200);
-    const b = await page.locator('.landing .hero-figure .tf-load').getAttribute('transform');
-    expect(b, 'hovering must freeze the sweep').toBe(a);
+    await page.locator('.landing .hero-figure svg').hover();
+    const load = page.locator('.landing .hero-figure .tf-load');
+    const a = await load.getAttribute('transform');
+    await expect.poll(() => load.getAttribute('transform'), { message: 'hovering must not hold the sweep', timeout: 3000 }).not.toBe(a);
   });
 
   test('reduced motion gets a static, representative state', async ({ browser }) => {
@@ -1171,12 +1169,12 @@ test.describe('@landing every language gets the whole deck', () => {
     es: 'Cómo pensamos sostener un proyecto abierto',
     en: 'How we plan to sustain an open project',
     pt: 'Como pensamos sustentar um projeto aberto',
-    de: fullDe['landing.pricingH'], fr: fullFr['landing.pricingH'], tr: fullTr['landing.pricingH'], hu: fullHu['landing.pricingH'],
+    de: fullDe['landing.pricingH'], fr: fullFr['landing.pricingH'], tr: fullTr['landing.pricingH'], hu: fullHu['landing.pricingH'], zh: fullZh['landing.pricingH'],
   };
 
   const FREE: Record<Locale, string> = {
     es: 'Gratis', en: 'Free', pt: 'Grátis',
-    de: fullDe['landing.priceFree'], fr: fullFr['landing.priceFree'], tr: fullTr['landing.priceFree'], hu: fullHu['landing.priceFree'],
+    de: fullDe['landing.priceFree'], fr: fullFr['landing.priceFree'], tr: fullTr['landing.priceFree'], hu: fullHu['landing.priceFree'], zh: fullZh['landing.priceFree'],
   };
 
   for (const locale of BUILD_PUBLIC_LOCALES) {

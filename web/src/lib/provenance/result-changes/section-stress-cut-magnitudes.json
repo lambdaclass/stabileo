@@ -1,0 +1,41 @@
+{
+  "id": "section-stress-cut-magnitudes",
+  "date": "2026-11-20",
+  "prs": [
+    2372
+  ],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "frameMembers"
+    ]
+  },
+  "quantities": [
+    "sectionStress.distributionY",
+    "sectionStress.distributionZ"
+  ],
+  "title": {
+    "en": "Full shear magnitudes on section stress cuts",
+    "es": "Corte total en los diagramas de tensiones de la sección",
+    "pt": "Cisalhamento total nos diagramas de tensão da seção",
+    "de": "Gesamtschubspannung in den Querschnittsschnitten",
+    "fr": "Cisaillement total sur les coupes de contraintes de section",
+    "hu": "Teljes nyírófeszültség a keresztmetszeti feszültségdiagramokon",
+    "tr": "Kesit gerilmesi diyagramlarında toplam kayma gerilmesi",
+    "zh": "截面应力分布图中的总剪应力"
+  },
+  "explanation": {
+    "en": "Total shear and von Mises on both cuts now account for both transverse shear components.",
+    "es": "El corte total y la tensión de von Mises en ambos diagramas ahora tienen en cuenta las dos componentes transversales del corte.",
+    "pt": "O cisalhamento total e a tensão de von Mises nos dois diagramas agora consideram as duas componentes transversais do cisalhamento.",
+    "de": "Die Gesamtschubspannung und die von-Mises-Spannung berücksichtigen jetzt in beiden Schnitten beide Querkraftschubkomponenten.",
+    "fr": "Le cisaillement total et la contrainte de von Mises tiennent désormais compte des deux composantes du cisaillement transversal sur les deux coupes.",
+    "hu": "A két diagramon a teljes nyírófeszültség és a von Mises-feszültség most mindkét keresztirányú nyírófeszültség-komponenst figyelembe veszi.",
+    "tr": "Her iki diyagramda toplam kayma ve von Mises gerilmeleri artık iki enine kayma bileşenini de hesaba katıyor.",
+    "zh": "两条截面剖线上的总剪应力和 von Mises 等效应力现均计入两个横向剪应力分量。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-section-stress-cut-magnitudes.md",
+    "heading": "Full shear magnitudes on section stress cuts"
+  }
+}

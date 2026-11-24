@@ -24,7 +24,7 @@ export const es: Translations = {
   'course.plastic.req.mechanisms': 'Hay {n} mecanismos independientes; a mano se trabaja con hasta {max}.',
 
   'course.plastic.doc.assumptions': 'Material rígido-plástico: cada sección queda rígida hasta que su momento llega a Mp y ahí gira libremente sin que el momento crezca (rótula plástica). Se desprecian la interacción con el esfuerzo axil y el corte, los efectos de segundo orden y la descarga de las rótulas.',
-  'course.plastic.doc.signs': 'Momentos positivos cuando traccionan la cara inferior de la barra recorrida de su nudo inicial al final (cara −y local). Un giro de rótula θ es positivo cuando la barra se quiebra en el sentido en que la flexionaría un momento positivo; en cada rótula M·θ es el trabajo que absorbe.',
+  'course.plastic.doc.signs': 'En este análisis plástico plano, el eje local x va del nudo inicial al final y el eje local y resulta de girar x 90° en sentido antihorario. El momento es positivo cuando tracciona la cara local −y, que en una viga dibujada de izquierda a derecha coincide con la cara local −z de la lección de líneas de influencia. Un giro de rótula θ es positivo cuando la barra se quiebra en el sentido en que la flexionaría un momento positivo; en cada rótula M·θ es el trabajo que absorbe.',
   'course.plastic.doc.mpCaption': 'Momento plástico de cada barra, Mp = fy·Zp.',
   'course.plastic.doc.gh': 'Grado de hiperestaticidad',
   'course.plastic.doc.axialRedundant': '{s} de esas incógnitas no intervienen en la flexión (un esfuerzo axil que ningún mecanismo moviliza). Para contar mecanismos se usa GH = {gh}.',
@@ -207,7 +207,7 @@ export const en: Translations = {
   'course.plastic.req.mechanisms': 'There are {n} independent mechanisms; by hand, up to {max}.',
 
   'course.plastic.doc.assumptions': 'Rigid-plastic material: each section stays rigid until its moment reaches Mp, and then it rotates freely while the moment stays at Mp (plastic hinge). Interaction with axial and shear force, second-order effects and hinge unloading are neglected.',
-  'course.plastic.doc.signs': 'Moments are positive when they put the bottom face in tension, with the member read from its start node to its end node (local −y face). A hinge rotation θ is positive when the member kinks the way a positive moment would bend it; at each hinge M·θ is the work it absorbs.',
+  'course.plastic.doc.signs': 'In this planar plastic analysis, local x runs from the start node to the end node and local y is x rotated 90° counterclockwise. Positive bending puts the local −y face in tension. For a beam drawn from left to right, this is the face called local −z in the influence-line lesson. A hinge rotation θ is positive when the member kinks the way a positive moment would bend it; at each hinge M·θ is the work it absorbs.',
   'course.plastic.doc.mpCaption': 'Plastic moment of each member, Mp = fy·Zp.',
   'course.plastic.doc.gh': 'Degree of static indeterminacy',
   'course.plastic.doc.axialRedundant': '{s} of those redundants take no part in bending (an axial force that no mechanism mobilises). Mechanisms are counted with GH = {gh}.',
@@ -390,7 +390,7 @@ export const pt: Translations = {
   'course.plastic.req.mechanisms': 'Há {n} mecanismos independentes; à mão se trabalha com até {max}.',
 
   'course.plastic.doc.assumptions': 'Material rígido-plástico: cada seção permanece rígida até seu momento chegar a Mp e então gira livremente sem que o momento aumente (rótula plástica). Desprezam-se a interação com o esforço normal e o cortante, os efeitos de segunda ordem e o descarregamento das rótulas.',
-  'course.plastic.doc.signs': 'Momentos positivos quando tracionam a face inferior da barra percorrida do nó inicial ao final (face −y local). Um giro de rótula θ é positivo quando a barra se dobra no sentido em que um momento positivo a fletiria; em cada rótula M·θ é o trabalho que ela absorve.',
+  'course.plastic.doc.signs': 'Nesta análise plástica plana, o eixo local x vai do nó inicial ao final e o eixo local y é obtido girando x 90° no sentido anti-horário. O momento positivo traciona a face local −y, que, em uma viga desenhada da esquerda para a direita, corresponde à face local −z da lição de linhas de influência. Um giro de rótula θ é positivo quando a barra se dobra no sentido em que um momento positivo a fletiria; em cada rótula M·θ é o trabalho que ela absorve.',
   'course.plastic.doc.mpCaption': 'Momento plástico de cada barra, Mp = fy·Zp.',
   'course.plastic.doc.gh': 'Grau de hiperestaticidade',
   'course.plastic.doc.axialRedundant': '{s} dessas incógnitas não participam da flexão (um esforço normal que nenhum mecanismo mobiliza). Para contar mecanismos usa-se GH = {gh}.',

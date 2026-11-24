@@ -127,6 +127,15 @@ test.describe('the ads sign-up page', () => {
     expect(await page.evaluate(() => 'fbq' in window)).toBe(false);
   });
 
+  test('the hero shows the landing\'s rotating figures, and the brand leads to the landing', async ({ page }) => {
+    await boot(page, '');
+    await expect(page.locator('[data-testid="register-page"] .hero-fig-switch button')).toHaveCount(7);
+    await expect(page.locator('[data-testid="register-page"] .rg-features li')).toHaveCount(2);
+    await page.locator('.nav-brand').click();
+    await expect(page).toHaveURL(/\/es\/$/);
+    await expect(page.locator('[data-section="hero"] #hero-title')).toBeVisible();
+  });
+
   test('the wheel scrolls down to the editor, which loads only when asked, on the portal frame', async ({ page }) => {
     await boot(page, '');
     await expect(page.getByTestId('register-editor')).toHaveCount(0);
