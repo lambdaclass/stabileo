@@ -406,7 +406,7 @@ describe('edited projects with older provenance', () => {
     const combined = createRecheckStore();
     const snapshot: import('../../provenance/model-features').FeatureSnapshot & { solvedWith: unknown } = {
       ...frame(),
-      materials: [[1, { id: 1, name: 'H30', e: 25000, fy: 30 }], [2, { ...STEEL, id: 2 }]],
+      materials: [[1, { id: 1, name: 'H30', e: 25000, rho: 25, fy: 30 }], [2, { ...STEEL, id: 2 }]],
       elements: [...frame().elements!, [2, { id: 2, type: 'frame', nodeI: 2, nodeJ: 3, materialId: 2 }]],
       solvedWith: { ...oldStamp(), resultsVersion: 30 },
     };
