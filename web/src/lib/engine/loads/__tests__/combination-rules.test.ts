@@ -64,3 +64,13 @@ describe('service wind in project rules', () => {
     expect(back.rules[0]!.terms).toEqual(rule.terms);
   });
 });
+
+const regression = process.env.RUN_KNOWN_WRONG === '2535' ? it : it.skip;
+
+regression('known wrong result: #2535 a malformed term rejects a template instead of removing an action', () => {
+  const template = (terms: unknown[]) => JSON.stringify({ kind: 'stabileo.combinationRules', rules: [{ terms }] });
+  const dead = { symbol: 'D', factor: 1 };
+  expect.soft(rulesFromTemplate(template([null]))).toBeNull();
+  expect.soft(rulesFromTemplate(template([dead, null]))).toBeNull();
+  expect(rulesFromTemplate(template([dead]))?.rules[0]?.terms).toEqual([dead]);
+});
