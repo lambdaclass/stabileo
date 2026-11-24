@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, expect, it } from 'vitest';
+import { addCirsocCombinations } from '../../actions/load-states';
+import { fixtureLoadCases } from '../../templates/load-fixture';
 import { historyStore, modelStore, uiStore } from '../index';
 import { applyLoadPlan, previewLoadPlan, replaceScope } from '../apply-load-plan';
 import { addCompositeCases, addGeneratedCombinations, templateCombinationSpecs } from '../generated-combinations';
@@ -24,6 +26,8 @@ import { nonlinearWorkerReply, nonlinearWorkerSession } from '../../engine/nonli
 import { solveCombinations2D, solveCombinations3D, solveCombinations3DParallel, type ModelData } from '../../engine/solver-service';
 import { setLocale, tp } from '../../i18n';
 
+const knownWrong2535 = process.env.RUN_KNOWN_WRONG === '2535' ? it : it.skip;
+
 const floor = { id: 1, type: 'L', name: 'Floor live' };
 const roof = { id: 2, type: 'L', name: 'Roof live', group: 'roof' };
 const roofTerm = { symbol: 'L', group: 'roof', factor: 2 } as const;
@@ -35,7 +39,18 @@ const alternativeFactors = [
   [{ caseId: floor.id, factor: floorTerm.factor }],
   [{ caseId: roof.id, factor: roofTerm.factor }],
 ];
+const windTerm = { symbol: 'W', factor: 2 } as const;
+const companionPatternTerms = [floorTerm, windTerm] as const;
+const companionPatternCases = [
+  { ...floor, type: 'L' as const, name: 'Live pattern', alternatives, pattern: true },
+  { id: roof.id, type: 'W' as const, name: 'Whole wind', alternatives },
+];
+const companionPatternFactors = [
+  [{ caseId: floor.id, factor: floorTerm.factor }],
+  [{ caseId: roof.id, factor: windTerm.factor }],
+];
 const floorForce = 3;
+const livePatternForce = 13;
 const roofForce = 5;
 const empty = { distributed: 0, nodal: 0, combinations: 0, caseTypes: [] };
 const applyOptions = { clearExisting: true, bothSenses: false, nameOf: (key: string) => key };
@@ -142,6 +157,79 @@ it('#2535 shared sets also exclude directional alternatives and retain eligible 
     [{ caseId: wind.id, factor: floorTerm.factor }],
     [{ caseId: wind.id, factor: -floorTerm.factor }],
   ]);
+});
+
+knownWrong2535('known wrong result: #2535 companion live patterns survive a whole wind case in Loads and Auto Loads', () => {
+  restoreGroupedProject(...companionPatternTerms);
+  modelStore.restore({ ...modelStore.snapshot(), loadCases: companionPatternCases });
+  const input = {
+    ...plan(...companionPatternTerms),
+    combinations: [spec(...companionPatternTerms)],
+    cases: companionPatternCases.map(({ id, name, ...c }) => ({ ...c, existingId: id, nameKey: name, own: true })),
+  };
+
+  const expanded = projectCombinations();
+  expect.soft(expanded.map(c => c.factors)).toEqual(companionPatternFactors);
+  addCompositeCases(expanded);
+  expect.soft(modelStore.loadCases.filter(c => c.includes?.length).map(c => c.includes)).toEqual(companionPatternFactors);
+  expect.soft(expandPlannedCombinations(input, {}).map(c => c.factors)).toEqual(companionPatternFactors);
+  expect.soft(describePlanDelta(input, empty, { replaceExisting: true }).after.combinations).toBe(2);
+  expect.soft(previewLoadPlan(input, applyOptions.nameOf, { replaceExisting: true }).after.combinations).toBe(2);
+  expect(applyLoadPlan(input, applyOptions)).toBeUndefined();
+  expect(modelStore.combinations.map(c => c.factors)).toEqual(companionPatternFactors);
+});
+
+knownWrong2535('known wrong result: #2535 a whole roof-live case cannot suppress a companion floor-live pattern', () => {
+  const roofLive = { ...companionPatternCases[1]!, type: 'Lr' };
+  const rule = spec(floorTerm, { ...windTerm, symbol: 'Lr' });
+  expect(expandCombinations([rule], [companionPatternCases[0]!, roofLive]).map(c => c.factors))
+    .toEqual(companionPatternFactors);
+});
+
+it('#2535 only a whole live case in the same set can replace a companion live pattern', () => {
+  const whole = { id: 3, type: 'L', name: 'Whole live', alternatives };
+  const rule = spec(...companionPatternTerms);
+  const cases = [...companionPatternCases, whole];
+  const wholeFactor = { caseId: whole.id, factor: floorTerm.factor };
+
+  expect(expandCombinations([rule], cases).map(c => c.factors)).toEqual([
+    [wholeFactor], companionPatternFactors[1],
+  ]);
+  expect(expandCombinations([rule], cases, { patternsInCompanions: true }).map(c => c.factors)).toEqual([
+    companionPatternFactors[0], [wholeFactor], companionPatternFactors[1],
+  ]);
+  const separate = [companionPatternCases[0]!, { ...companionPatternCases[1]!, alternatives: 'wind' },
+    { ...whole, alternatives: 'separate' }];
+  expect(expandCombinations([rule], separate).map(c => c.factors)).toEqual([
+    [...companionPatternFactors[0]!, wholeFactor, ...companionPatternFactors[1]!],
+  ]);
+});
+
+knownWrong2535('known wrong result: #2535 Basic and rebuilt fixtures retain a companion roof-live pattern in a shared wind set', () => {
+  const loadCases = [
+    { ...companionPatternCases[0]!, type: 'Lr' },
+    companionPatternCases[1]!,
+    { id: 3, type: 'D', name: 'Dead' },
+    { id: 4, type: 'L', name: 'Floor live' },
+  ];
+  modelStore.restore({ ...modelStore.snapshot(), loadCases, combinations: [] });
+
+  const windRule = templateCombinationSpecs('lrfd', presentSymbols(loadCases), []).find(s => s.basic === 4)!;
+  const roofFactor = windRule.terms.find(t => t.symbol === 'Lr')!.factor;
+  expect(roofFactor).toBeLessThan(windRule.terms.find(t => t.symbol === 'L')!.factor);
+  const expected = windRule.terms.filter(t => t.symbol !== 'W').map(t => ({
+    caseId: loadCases.find(c => c.type === t.symbol)!.id,
+    factor: t.factor,
+  }));
+
+  expect(addCirsocCombinations()).toBeGreaterThan(0);
+  const fixture = fixtureLoadCases({ name: 'Shared wind set', loadCases, combinations: [],
+    loads: [{ type: 'nodal', data: { caseId: loadCases[0]!.id } }] }, { loadCases: [], combinations: [] });
+  expect(fixture.rebuilt).toBe(true);
+
+  const sorted = (factors: typeof expected) => [...factors].sort((a, b) => a.caseId - b.caseId);
+  expect.soft(modelStore.combinations.map(c => sorted(c.factors))).toContainEqual(sorted(expected));
+  expect(fixture.combinations.map(c => sorted(c.factors))).toContainEqual(sorted(expected));
 });
 
 it('#2535 cross-term patterns respect companion selection and independent cases still sum', () => {
@@ -421,21 +509,31 @@ it('#2535 the result notice covers cross-symbol alternatives with an ungrouped r
   expect(notices()).not.toContain('combination-load-groups');
 });
 
-function cantilever(dim: '2d' | '3d', exclusive: boolean | 'cross-symbol' = false) {
-  restoreGroupedProject(...(exclusive === 'cross-symbol' ? [namedFloorTerm, { ...roofTerm, symbol: 'Lr' as const }]
-    : exclusive ? [namedFloorTerm, roofTerm] : [roofTerm]));
-  if (exclusive) modelStore.restore({ ...modelStore.snapshot(), loadCases: exclusive === 'cross-symbol'
-    ? [alternativeCases[0]!, { ...alternativeCases[1]!, type: 'Lr' }] : alternativeCases });
+const alternativeSelections = ['grouped', 'cross-symbol', 'companion pattern'] as const;
+type AlternativeSelection = typeof alternativeSelections[number];
+
+function cantilever(dim: '2d' | '3d', selection: AlternativeSelection | false = false) {
+  if (selection === 'companion pattern') {
+    restoreGroupedProject(...companionPatternTerms);
+    modelStore.restore({ ...modelStore.snapshot(), loadCases: companionPatternCases });
+  } else {
+    restoreGroupedProject(...(selection === 'cross-symbol' ? [namedFloorTerm, { ...roofTerm, symbol: 'Lr' as const }]
+      : selection === 'grouped' ? [namedFloorTerm, roofTerm] : [roofTerm]));
+    if (selection) modelStore.restore({ ...modelStore.snapshot(), loadCases: selection === 'cross-symbol'
+      ? [alternativeCases[0]!, { ...alternativeCases[1]!, type: 'Lr' }] : alternativeCases });
+  }
+  const liveForce = selection === 'companion pattern' ? livePatternForce : floorForce;
   const base = modelStore.addNode(0, 0, 0);
   const tip = dim === '2d' ? modelStore.addNode(4, 0) : modelStore.addNode(0, 0, 4);
   modelStore.addElement(base, tip, 'frame');
   modelStore.addSupport(base, dim === '2d' ? 'fixed' : 'fixed3d');
-  for (const [caseId, force] of [[floor.id, floorForce], [roof.id, roofForce]] as const) {
+  for (const [caseId, force] of [[floor.id, liveForce], [roof.id, roofForce]] as const) {
     if (dim === '2d') modelStore.addNodalLoad(tip, 0, -force, 0, caseId);
     else modelStore.addNodalLoad3D(tip, 0, 0, -force, 0, 0, 0, caseId);
   }
   const ids = addGeneratedCombinations(projectCombinations());
-  return { base, tip, ids, id: ids[0]!, model: modelStore.model as ModelData };
+  const reactions = [liveForce * floorTerm.factor, roofForce * (selection === 'companion pattern' ? windTerm.factor : roofTerm.factor)] as const;
+  return { base, tip, ids, id: ids[0]!, model: modelStore.model as ModelData, reactions };
 }
 
 it('#2535 the 2D linear combination and envelope exclude the floor live load', () => {
@@ -446,15 +544,15 @@ it('#2535 the 2D linear combination and envelope exclude the floor live load', (
   expect(solved.envelope.maxAbsResults.reactions.find(r => r.nodeId === base)?.rz).toBeCloseTo(roofForce * roofTerm.factor, 8);
 });
 
-for (const selection of [true, 'cross-symbol'] as const) {
-  it(`#2535 2D linear reactions keep ${selection === true ? 'grouped' : selection} alternatives separate`, () => {
-    const { base, ids, model } = cantilever('2d', selection);
+for (const selection of alternativeSelections) {
+  (selection === 'companion pattern' ? knownWrong2535 : it)(`${selection === 'companion pattern' ? 'known wrong result: ' : ''}#2535 2D linear reactions keep ${selection} alternatives separate`, () => {
+    const { base, ids, model, reactions } = cantilever('2d', selection);
     const solved = solveCombinations2D(model, modelStore.loadCases, modelStore.combinations);
     if (!solved || typeof solved === 'string') throw new Error(String(solved));
     expect.soft(ids).toHaveLength(2);
-    expect.soft(solved.perCombo.get(ids[0]!)?.reactions.find(r => r.nodeId === base)?.rz).toBeCloseTo(floorForce * floorTerm.factor, 8);
-    expect.soft(solved.perCombo.get(ids[1]!)?.reactions.find(r => r.nodeId === base)?.rz).toBeCloseTo(roofForce * roofTerm.factor, 8);
-    expect(solved.envelope.maxAbsResults.reactions.find(r => r.nodeId === base)?.rz).toBeCloseTo(roofForce * roofTerm.factor, 8);
+    expect.soft(solved.perCombo.get(ids[0]!)?.reactions.find(r => r.nodeId === base)?.rz).toBeCloseTo(reactions[0], 8);
+    expect.soft(solved.perCombo.get(ids[1]!)?.reactions.find(r => r.nodeId === base)?.rz).toBeCloseTo(reactions[1], 8);
+    expect(solved.envelope.maxAbsResults.reactions.find(r => r.nodeId === base)?.rz).toBeCloseTo(Math.max(...reactions), 8);
   });
 }
 
@@ -503,8 +601,8 @@ function recordWorkerJobs() {
 afterEach(() => { setWorkerFactoryForTests(null); });
 
 for (const entry of ['sync', 'async'] as const) for (const method of ['linear', 'pdelta', 'uplift'] as const) {
-  async function solveFixture(exclusive: boolean | 'cross-symbol') {
-    const { tip, ids, model } = cantilever('3d', exclusive);
+  async function solveFixture(selection: AlternativeSelection | false) {
+    const { tip, ids, model, reactions } = cantilever('3d', selection);
     const jobs = entry === 'async' ? recordWorkerJobs() : [];
     if (method === 'uplift') {
       const support = modelStore.addSupport(tip, 'custom3d', undefined, {
@@ -517,7 +615,7 @@ for (const entry of ['sync', 'async'] as const) for (const method of ['linear', 
     const solve = entry === 'sync' ? solveCombinations3D : solveCombinations3DParallel;
     const solved = await solve(model, modelStore.loadCases, modelStore.combinations);
     if (!solved || typeof solved === 'string') throw new Error(String(solved));
-    return { solved, ids, jobs };
+    return { solved, ids, jobs, reactions };
   }
 
   const vertical = (r: { fz: number }[]) => r.reduce((sum, row) => sum + row.fz, 0);
@@ -530,13 +628,16 @@ for (const entry of ['sync', 'async'] as const) for (const method of ['linear', 
     expect(vertical(solved.envelope.maxAbsResults3D.reactions)).toBeCloseTo(roofForce * roofTerm.factor, 8);
   });
 
-  for (const selection of [true, 'cross-symbol'] as const) {
-    it(`#2535 3D ${entry} ${method} reactions keep ${selection === true ? 'grouped' : selection} alternatives separate`, async () => {
-      const { solved, ids } = await solveFixture(selection);
+  for (const selection of alternativeSelections) {
+    (selection === 'companion pattern' ? knownWrong2535 : it)(`${selection === 'companion pattern' ? 'known wrong result: ' : ''}#2535 3D ${entry} ${method} reactions keep ${selection} alternatives separate`, async () => {
+      const { solved, ids, jobs, reactions } = await solveFixture(selection);
+      if (entry === 'async' && method === 'linear') expect(jobs).toContain('solve3d');
+      if (entry === 'async' && method === 'pdelta') expect(jobs).toContain('pdelta3d');
+      if (entry === 'async' && method === 'uplift') expect(jobs).toContain('nonlinear-step');
       expect.soft(ids).toHaveLength(2);
-      expect.soft(vertical(solved.perCombo.get(ids[0]!)!.reactions)).toBeCloseTo(floorForce * floorTerm.factor, 8);
-      expect.soft(vertical(solved.perCombo.get(ids[1]!)?.reactions ?? [])).toBeCloseTo(roofForce * roofTerm.factor, 8);
-      expect(vertical(solved.envelope.maxAbsResults3D.reactions)).toBeCloseTo(roofForce * roofTerm.factor, 8);
+      expect.soft(vertical(solved.perCombo.get(ids[0]!)!.reactions)).toBeCloseTo(reactions[0], 8);
+      expect.soft(vertical(solved.perCombo.get(ids[1]!)?.reactions ?? [])).toBeCloseTo(reactions[1], 8);
+      expect(vertical(solved.envelope.maxAbsResults3D.reactions)).toBeCloseTo(Math.max(...reactions), 8);
     });
   }
 
@@ -564,9 +665,9 @@ for (const entry of ['main thread', 'worker adapter'] as const) {
   });
 }
 
-for (const entry of ['main thread', 'worker adapter'] as const) for (const selection of [true, 'cross-symbol'] as const) {
-  it(`#2535 direct analysis via the ${entry} keeps ${selection === true ? 'grouped' : selection} alternatives separate`, async () => {
-    const { base, ids, model } = cantilever('3d', selection);
+for (const entry of ['main thread', 'worker adapter'] as const) for (const selection of alternativeSelections) {
+  (selection === 'companion pattern' ? knownWrong2535 : it)(`${selection === 'companion pattern' ? 'known wrong result: ' : ''}#2535 direct analysis via the ${entry} keeps ${selection} alternatives separate`, async () => {
+    const { base, ids, model, reactions } = cantilever('3d', selection);
     const jobs = entry === 'worker adapter' ? recordWorkerJobs() : [];
     const solved = await runDirectAnalysis(model, modelStore.loadCases, modelStore.combinations, {
       includeSelfWeight: false, settings: { notional: 0, tauB: 'unity' },
@@ -575,7 +676,7 @@ for (const entry of ['main thread', 'worker adapter'] as const) for (const selec
     if (typeof solved === 'string') throw new Error(solved);
     if (entry === 'worker adapter') expect(jobs).toContain('pdelta3d');
     expect.soft(ids).toHaveLength(2);
-    for (const [i, force] of [floorForce * floorTerm.factor, roofForce * roofTerm.factor].entries()) {
+    for (const [i, force] of reactions.entries()) {
       expect.soft(solved.info.get(ids[i]!)).toMatchObject({ stable: true, converged: true });
       expect.soft(solved.perCombo.get(ids[i]!)?.reactions.find(r => r.nodeId === base)?.fz).toBeCloseTo(force, 8);
     }
