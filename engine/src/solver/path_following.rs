@@ -426,6 +426,36 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "known wrong result: #2510"]
+    fn review_round_two_arc_rejects_return_to_the_previous_point() {
+        let spring = || Probe::new(
+            |u| u + u * u * (u - 1.0).powi(2) * (2.5 * u - 6.0),
+            |u| {
+                let product = u * (u - 1.0);
+                1.0 + 2.0 * product * (2.0 * u - 1.0) * (2.5 * u - 6.0)
+                    + 2.5 * product * product
+            },
+        );
+        let mut fixed = spring();
+        let mut limits = control(2);
+        limits.initial_ds = std::f64::consts::SQRT_2;
+        limits.min_ds = limits.initial_ds;
+        limits.max_ds = limits.initial_ds;
+        assert!(!solve_by_arc_length(&mut fixed, &limits).unwrap().converged);
+        assert_eq!(fixed.accepted, [(1.0, 1.0)]);
+        assert_eq!((fixed.displacement, fixed.load), (1.0, 1.0));
+
+        let mut retried = spring();
+        limits.min_ds = limits.initial_ds * 0.5;
+        assert!(solve_by_arc_length(&mut retried, &limits).unwrap().converged);
+        assert_eq!(retried.accepted.len(), 2);
+        assert_eq!(retried.accepted[0], (1.0, 1.0));
+        let (u, load) = retried.accepted[1];
+        assert!(u - 1.0 + load - 1.0 > 0.0);
+        assert!((load - (retried.force)(u)).abs() < limits.tolerance);
+    }
+
+    #[test]
     fn issue_2484_predictor_direction_does_not_depend_on_radius() {
         for scale in [1.0, 0.5, 0.25, 0.125] {
             let mut probe = Probe::new(

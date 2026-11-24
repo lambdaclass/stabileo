@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { test } from 'node:test';
-import { registerArcReviewTests, registerDisplacementFixture } from './arc-review-wasm.mjs';
+import { registerArcReviewTests, registerDisplacementFixture, registerRoundTwoTests } from './arc-review-wasm.mjs';
 
 const require = createRequire(import.meta.url);
 const engine = require('../../target/experimental-nonlinear-wasm/dedaliano_engine.js');
@@ -164,3 +164,13 @@ test('issue 2484 the final arc state matches its last accepted point', () => {
 
 registerArcReviewTests(engine.solve_experimental_arc_length);
 registerDisplacementFixture(engine.solve_experimental_displacement_control);
+
+registerRoundTwoTests({
+  arc: (input) => JSON.parse(engine.solve_experimental_arc_length(JSON.stringify(input))),
+  displacement: (input) => JSON.parse(engine.solve_experimental_displacement_control(JSON.stringify(input))),
+  corotational: (solver, nIncrements) => ['newton', 'modifiedNewton', 'newtonLineSearch'].map((method) =>
+    JSON.parse(engine.solve_experimental_corotational_2d(JSON.stringify(solver), JSON.stringify({
+      method, stepping: 'equal', nIncrements, maxIter: 20, tolerance: 1e-8,
+    }))),
+  ),
+});

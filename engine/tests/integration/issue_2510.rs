@@ -473,3 +473,246 @@ fn displacement_control_matches_the_axial_bar_equilibrium() {
     #[cfg(feature = "experimental-nonlinear")]
     check(dedaliano_engine::solver::experimental_nonlinear::solve_displacement_control(&input).unwrap());
 }
+
+
+fn round_two_tied_springs() -> SolverInput {
+    serde_json::from_str(include_str!("../../../scripts/tests/fixtures/arc-tied-springs.json"))
+        .unwrap()
+}
+
+#[test]
+#[ignore = "known wrong result: #2510"]
+fn review_round_two_cold_corotation_reconstructs_a_scaled_tie() {
+    let mut input = round_two_tied_springs();
+    input.constraints = serde_json::from_value(serde_json::json!([{
+        "type": "linearMPC",
+        "terms": [
+            {"nodeId": 2, "dof": 0, "coefficient": 1},
+            {"nodeId": 1, "dof": 0, "coefficient": -3}
+        ]
+    }])).unwrap();
+    input.supports.get_mut("1").unwrap().dx = Some(0.1);
+    for increments in [1, 7] {
+        for modified in [false, true] {
+            let result = solve_corotational_2d(&input, 20, 1e-8, increments, modified).unwrap();
+            assert!(result.converged);
+            let displacements = &result.results.displacements;
+            assert_eq!(displacements[0].ux, 0.1);
+            assert_eq!(displacements[1].ux, 3.0 * displacements[0].ux);
+            assert_eq!(displacements[2].ux, 1.0);
+        }
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #2510"]
+fn review_round_two_warm_corotation_preserves_the_absolute_tie() {
+    let mut first = round_two_tied_springs();
+    first.supports.get_mut("1").unwrap().dx = Some(1.0);
+    let initial = solve_corotational_2d(&first, 20, 1e-8, 1, false).unwrap();
+    assert!(initial.converged);
+    assert_eq!(initial.results.displacements[0].ux, 1.0);
+    assert_eq!(initial.results.displacements[1].ux, 1.0);
+    let start = CorotationalStart2D {
+        input: &first,
+        displacements: &initial.results.displacements,
+    };
+    for target in [0.25, 0.0, 1e-20, -1e-20] {
+        let mut input = first.clone();
+        input.supports.get_mut("1").unwrap().dx = Some(target);
+        for modified in [false, true] {
+            let result =
+                solve_corotational_2d_from(&input, Some(&start), 20, 1e-8, 1, modified).unwrap();
+            assert!(result.converged);
+            let displacements = &result.results.displacements;
+            assert_eq!((displacements[0].ux, displacements[1].ux), (target, target));
+            assert_eq!(displacements[2].ux, 1.0);
+        }
+    }
+}
+
+fn round_two_cancelling_loads(node_id: usize) -> [SolverLoad; 2] {
+    let b = 3.0 * 2f64.powi(51);
+    [b + 3.0, -(b + 2.0)].map(|fx| {
+        SolverLoad::Nodal(dedaliano_engine::types::SolverNodalLoad {
+            node_id,
+            fx,
+            fz: 0.0,
+            my: 0.0,
+        })
+    })
+}
+
+#[test]
+#[ignore = "known wrong result: #2510"]
+fn review_round_two_warm_corotation_keeps_a_constant_resultant_at_every_increment() {
+    let mut input = axial_spring(1.0);
+    let initial = solve_corotational_2d(&input, 20, 1e-8, 1, false).unwrap();
+    assert!(initial.converged);
+    assert_eq!(initial.results.displacements[0].ux, 1.0);
+    input.loads = round_two_cancelling_loads(1).to_vec();
+    let start = CorotationalStart2D {
+        input: &input,
+        displacements: &initial.results.displacements,
+    };
+    for modified in [false, true] {
+        let result =
+            solve_corotational_2d_from(&input, Some(&start), 1, 1e-8, 4, modified).unwrap();
+        assert!(result.converged, "stopped at {}", result.load_factor);
+        assert_eq!(result.load_factor, 1.0);
+        assert_eq!(result.results.displacements[0].ux, 1.0);
+    }
+}
+
+fn round_two_axial_cancellation() -> SolverInput {
+    let mut solver: SolverInput = serde_json::from_str(include_str!(
+        "../../../scripts/tests/fixtures/displacement-control-axial.json"
+    )).unwrap();
+    let SolverLoad::Nodal(load) = &mut solver.loads[0] else { unreachable!() };
+    load.fx = 1.0;
+    solver.loads.extend(round_two_cancelling_loads(1));
+    solver
+}
+
+#[test]
+#[ignore = "known wrong result: #2510"]
+fn review_round_two_arc_recovers_the_scaled_exact_resultant() {
+    for factor in [0.5, 0.75, 1.0] {
+        let radius = factor * std::f64::consts::SQRT_2;
+        let input = ArcLengthInput {
+            solver: round_two_axial_cancellation(),
+            max_steps: 1,
+            max_iter: 20,
+            tolerance: 1e-8,
+            initial_ds: radius,
+            min_ds: radius,
+            max_ds: radius,
+            target_iter: 5,
+        };
+        for result in arc_runs(&input) {
+            assert!(result.converged);
+            assert_eq!(result.final_load_factor, factor);
+            assert_eq!(result.results.displacements[1].ux, factor);
+            assert_eq!(result.results.reactions[0].rx, -2.0 * factor);
+        }
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #2510"]
+fn review_round_two_displacement_control_recovers_the_scaled_exact_resultant() {
+    for factor in [0.5, 0.75, 1.0] {
+        let input = DisplacementControlInput {
+            solver: round_two_axial_cancellation(),
+            control_node: 2,
+            control_dof: 0,
+            target_displacement: factor,
+            n_steps: 1,
+            max_iter: 20,
+            tolerance: 1e-8,
+        };
+        let result = solve_displacement_control(&input).unwrap();
+        assert!(result.converged);
+        assert_eq!(result.final_load_factor, factor);
+        assert_eq!(result.results.reactions[0].rx, -2.0 * factor);
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #2510"]
+fn review_round_two_public_arc_rejects_a_backwards_corrector() {
+    let mut input = two_bar(0.5, 0.01, 0.375, 1, 30);
+    let first = arc_runs(&input);
+    input.max_steps = 2;
+    for (first, fixed) in first.iter().zip(arc_runs(&input)) {
+        assert!(first.converged);
+        assert!(!fixed.converged);
+        assert_eq!(fixed.steps.len(), 1);
+        assert_eq!(fixed.final_load_factor, first.final_load_factor);
+        assert_eq!(fixed.steps[0].control_displacement, first.steps[0].control_displacement);
+        assert_eq!(fixed.results.displacements[1].uz, first.steps[0].control_displacement);
+    }
+
+    input.min_ds = 0.1875;
+    for (first, retried) in first.iter().zip(arc_runs(&input)) {
+        assert!(retried.converged);
+        assert_eq!(retried.steps.len(), 2);
+        let (a, b) = (&retried.steps[0], &retried.steps[1]);
+        assert_eq!(a.load_factor, first.final_load_factor);
+        assert_eq!(a.control_displacement, first.steps[0].control_displacement);
+        let du = b.control_displacement - a.control_displacement;
+        let dl = b.load_factor - a.load_factor;
+        assert!(a.control_displacement * du + a.load_factor * dl > 0.0);
+        assert!((du.hypot(dl) / input.min_ds - 1.0).abs() <= input.tolerance);
+    }
+}
+
+
+#[test]
+#[ignore = "known wrong result: #2510"]
+fn review_round_two_arc_scales_the_axial_member_resultant() {
+    let mut solver = round_two_axial_cancellation();
+    solver.loads.truncate(1);
+    let SolverLoad::Nodal(load) = &mut solver.loads[0] else { unreachable!() };
+    load.fx = 0.5;
+    let b = 3.0 * 2f64.powi(51);
+    solver.loads.extend([b + 3.0, -(b + 2.0)].map(|px| {
+        serde_json::from_value(serde_json::json!({
+            "type": "pointOnElement",
+            "data": {"elementId": 1, "a": 1, "p": 0, "px": px}
+        })).unwrap()
+    }));
+    let factor = 0.75;
+    let radius = factor * std::f64::consts::SQRT_2;
+    let input = ArcLengthInput {
+        solver,
+        max_steps: 1,
+        max_iter: 20,
+        tolerance: 1e-8,
+        initial_ds: radius,
+        min_ds: radius,
+        max_ds: radius,
+        target_iter: 5,
+    };
+    for result in arc_runs(&input) {
+        assert!(result.converged);
+        assert_eq!(result.final_load_factor, factor);
+        assert_eq!(result.results.displacements[1].ux, factor);
+        assert_eq!(result.results.reactions[0].rx, -1.5 * factor);
+        let forces = &result.results.element_forces[0];
+        assert_eq!(forces.n_start, 1.5 * factor);
+        assert_eq!(forces.n_end, 0.5 * factor);
+        assert_eq!(forces.point_loads.iter().map(|load| load.px.unwrap()).sum::<f64>(), factor);
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #2510"]
+fn review_round_two_arc_assembles_loads_before_rounding_the_reference() {
+    let mut solver = round_two_axial_cancellation();
+    solver.loads.clear();
+    let large = 2f64.powi(54);
+    solver.loads.extend([large, 1.0, -large].map(|fx| {
+        SolverLoad::Nodal(dedaliano_engine::types::SolverNodalLoad {
+            node_id: 2, fx, fz: 0.0, my: 0.0,
+        })
+    }));
+    let factor = 0.75;
+    let radius = factor * std::f64::consts::SQRT_2;
+    let input = ArcLengthInput {
+        solver,
+        max_steps: 1,
+        max_iter: 20,
+        tolerance: 1e-8,
+        initial_ds: radius,
+        min_ds: radius,
+        max_ds: radius,
+        target_iter: 5,
+    };
+    for result in arc_runs(&input) {
+        assert!(result.converged);
+        assert_eq!(result.final_load_factor, factor);
+        assert_eq!(result.results.displacements[1].ux, factor);
+        assert_eq!(result.results.reactions[0].rx, -factor);
+    }
+}

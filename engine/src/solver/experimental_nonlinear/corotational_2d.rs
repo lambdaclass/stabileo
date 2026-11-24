@@ -513,6 +513,71 @@ mod shared_driver_equivalence {
     }
 
     #[test]
+    #[ignore = "known wrong result: #2510"]
+    fn review_round_two_warm_corotation_preserves_the_absolute_tie() {
+        let mut first: SolverInput = serde_json::from_str(include_str!(
+            "../../../../scripts/tests/fixtures/arc-tied-springs.json"
+        )).unwrap();
+        first.supports.get_mut("1").unwrap().dx = Some(1.0);
+        let initial =
+            solve_corotational_2d_by(&first, None, 20, 1e-8, 1, IterationMethod::Newton).unwrap();
+        assert!(initial.converged);
+        assert_eq!(initial.results.displacements[1].ux, 1.0);
+        let start = CorotationalStart2D {
+            input: &first,
+            displacements: &initial.results.displacements,
+        };
+        for target in [0.25, 0.0, 1e-20, -1e-20] {
+            let mut input = first.clone();
+            input.supports.get_mut("1").unwrap().dx = Some(target);
+            for method in [
+                IterationMethod::Newton,
+                IterationMethod::ModifiedNewton,
+                IterationMethod::NewtonLineSearch,
+                IterationMethod::Anderson { depth: 2 },
+            ] {
+                for result in [
+                    solve_corotational_2d_by(&input, Some(&start), 20, 1e-8, 1, method),
+                    solve_corotational_2d_stepped(
+                        &input, Some(&start), 20, 1e-8, 1, method, LoadStepping::Adaptive,
+                    ),
+                ] {
+                    let result = result.unwrap();
+                    assert!(result.converged);
+                    let displacements = &result.results.displacements;
+                    assert_eq!((displacements[0].ux, displacements[1].ux), (target, target));
+                    assert_eq!(displacements[2].ux, 1.0);
+                }
+            }
+        }
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #2510"]
+    fn review_round_two_warm_corotation_keeps_a_constant_resultant_at_every_increment() {
+        let mut input = axial_spring(1.0);
+        let initial =
+            solve_corotational_2d_by(&input, None, 20, 1e-8, 1, IterationMethod::Newton).unwrap();
+        assert!(initial.converged);
+        assert_eq!(initial.results.displacements[0].ux, 1.0);
+        let b = 3.0 * 2f64.powi(51);
+        input.loads = [b + 3.0, -(b + 2.0)].map(|fx| {
+            SolverLoad::Nodal(SolverNodalLoad { node_id: 1, fx, fz: 0.0, my: 0.0 })
+        }).to_vec();
+        let start = CorotationalStart2D {
+            input: &input,
+            displacements: &initial.results.displacements,
+        };
+        for modified in [IterationMethod::Newton, IterationMethod::ModifiedNewton] {
+            let result =
+                solve_corotational_2d_by(&input, Some(&start), 1, 1e-8, 4, modified).unwrap();
+            assert!(result.converged, "stopped at {}", result.load_factor);
+            assert_eq!(result.load_factor, 1.0);
+            assert_eq!(result.results.displacements[0].ux, 1.0);
+        }
+    }
+
+    #[test]
     fn issue_2484_warm_start_reaches_the_exact_target_force() {
         for (base, target) in [(2f64.powi(54), 1.0), (1.0, 1e-20), (1.0, -1e-20), (1.0, 0.25), (1.0, 0.0)] {
             let first = axial_spring(base);
