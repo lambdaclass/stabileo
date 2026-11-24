@@ -29,7 +29,7 @@ export function registryLocale(locale: string, first: Localised, ...rest: Locali
 export function registryLocale(locale: string, ...texts: Localised[]): RegistryLocale | SupplementalLocale {
   const supplemental = locale === 'hu' ? researchBuilt() : (supplementalLocales as readonly string[]).includes(locale);
   const key = locale as SupplementalLocale;
-  if (supplemental && texts.length > 0 && texts.every(text => text[key]?.trim())) return key;
+  if (supplemental && texts.length > 0 && texts.every(text => typeof text[key] === 'string' && !!text[key]?.trim())) return key;
   return (REGISTRY_LOCALES as readonly string[]).includes(locale) ? (locale as RegistryLocale) : 'en';
 }
 
