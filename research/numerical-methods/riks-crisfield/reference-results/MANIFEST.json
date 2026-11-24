@@ -1,8 +1,8 @@
 {
   "files_sha256": {
-    "VALIDATION.json": "58b4821da3cb9c1c9e2b08647aa93eceffea1630cbad8a6e6f2e0f3e8011e66d",
+    "VALIDATION.json": "b3d1a5ccb0ff03984865ca0f2d29daa8ad9c9d6fa74a0953b542266dcae30d8c",
     "arc_length_snap_through.json": "ae9a23d8d9d5e86be7ac4b9bc2eaf727f0a914d75ab09293de5bdeafdfe49103",
-    "native-results.json": "ce08a66e3d06bcc5350155e462dbdb800fab0874cee24c126a7e8a8d745e3b28"
+    "native-results.json": "300f16195ce4d01199da753ccab14f47728438859d7b6ede04990c065f67d456"
   },
   "produced_by": "cargo run --release -- generate in research/numerical-methods/riks-crisfield/native"
 }
