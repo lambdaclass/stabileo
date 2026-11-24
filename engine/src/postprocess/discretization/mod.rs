@@ -19,6 +19,7 @@
 //! with warping torsion (Cw > 0, cubic Hermite warping field) and curved beams (straight
 //! segments) are approximate, and are listed as not estimated instead.
 
+pub mod adapt;
 pub mod convergence;
 pub mod recovery;
 pub mod refine;
@@ -121,7 +122,8 @@ fn is_loaded(results: &AnalysisResults3D) -> bool {
 pub(crate) fn raw_estimate(input: &SolverInput3D, results: &AnalysisResults3D) -> Result<RawEstimate, String> {
     let elems = samples::sample_elements(input, results)?;
     let coords: HashMap<usize, [f64; 3]> = input.nodes.values().map(|n| (n.id, [n.x, n.y, n.z])).collect();
-    let patches = recovery::patches(&elems);
+    let hanging = refine::hanging_nodes(input).unwrap_or_default();
+    let patches = recovery::patches_with_hanging(&elems, &hanging);
     let rec = recovery::recover(&elems, &coords, &patches);
     let isolated = recovery::isolated(&elems, &patches);
     let mut per_element = Vec::with_capacity(elems.len());

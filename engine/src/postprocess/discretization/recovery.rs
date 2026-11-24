@@ -26,18 +26,42 @@ pub const CREASE_ANGLE_DEG: f64 = 30.0;
 pub type NodeValue = ([f64; 6], [f64; 6]);
 
 /// A recovery patch: the node, and its elements as (element index, local node index,
-/// orientation sign relative to the patch's seed).
+/// orientation sign relative to the patch's seed). An element with `ACROSS` for local node
+/// index does not have the node: it spans the edge a hanging node is on, and is fitted over
+/// without being given the value.
 pub type Patch = (usize, Vec<(usize, usize, f64)>);
+
+pub const ACROSS: usize = usize::MAX;
 
 /// The recovery patches of every node: the elements around it split by family, material,
 /// thickness and normals within `CREASE_ANGLE_DEG` of the patch's first element. The one
 /// definition of a patch: recovery fits over these, and an element alone in all of its patches
 /// has nothing to be compared with (`isolated`).
 pub fn patches(elems: &[ElemSamples]) -> Vec<Patch> {
+    patches_with_hanging(elems, &HashMap::new())
+}
+
+/// `patches`, with the elements across the edge of every hanging node (node → the ends of the
+/// edge it is on) in that node's patches: without them the patch is the two elements on the
+/// split side alone.
+pub fn patches_with_hanging(elems: &[ElemSamples], hanging: &HashMap<usize, (usize, usize)>) -> Vec<Patch> {
     let mut incidence: HashMap<usize, Vec<(usize, usize)>> = HashMap::new();
     for (ei, e) in elems.iter().enumerate() {
         for (li, &n) in e.nodes.iter().enumerate() {
             incidence.entry(n).or_default().push((ei, li));
+        }
+    }
+    let mut hung: Vec<(usize, (usize, usize))> = hanging.iter().map(|(node, ends)| (*node, *ends)).collect();
+    hung.sort_unstable();
+    for (node, (a, b)) in hung {
+        let Some(at_a) = incidence.get(&a) else { continue };
+        let across: Vec<(usize, usize)> = at_a
+            .iter()
+            .filter(|(ei, _)| elems[*ei].nodes.contains(&b) && !elems[*ei].nodes.contains(&node))
+            .map(|(ei, _)| (*ei, ACROSS))
+            .collect();
+        if let Some(own) = incidence.get_mut(&node) {
+            own.extend(across);
         }
     }
     let cos_crease = CREASE_ANGLE_DEG.to_radians().cos();
@@ -71,8 +95,10 @@ pub fn isolated(elems: &[ElemSamples], patches: &[Patch]) -> Vec<bool> {
     let mut alone = vec![true; elems.len()];
     for (_, members) in patches {
         if members.len() > 1 {
-            for &(ei, _, _) in members {
-                alone[ei] = false;
+            for &(ei, li, _) in members {
+                if li != ACROSS {
+                    alone[ei] = false;
+                }
             }
         }
     }
@@ -87,7 +113,9 @@ pub fn recover(elems: &[ElemSamples], coords: &HashMap<usize, [f64; 3]>, patches
         let family = elems[members[0].0].family;
         let (a0, a1) = fit_patch(elems, members, xn, family);
         for &(ei, li, sign) in members {
-            out[ei][li] = (a0, a1.map(|v| v * sign));
+            if li != ACROSS {
+                out[ei][li] = (a0, a1.map(|v| v * sign));
+            }
         }
     }
     out
