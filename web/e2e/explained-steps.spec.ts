@@ -75,6 +75,27 @@ test.describe('explained step by step', () => {
     expect(errors).toEqual([]);
   });
 
+  test('@smoke the Galerkin example walks from the weak form to the numerical answer and refinement', async ({ page }) => {
+    const errors: string[] = [];
+    page.on('pageerror', (e) => errors.push(String(e)));
+    await boot(page);
+    await openCatalog(page);
+    await page.getByTestId('steps-example-galerkin').click();
+    const doc = page.getByTestId('steps-doc');
+    await expect(doc).toBeVisible();
+    await expect(doc).toContainText(/Galerkin/);
+    await page.getByTestId('steps-tab').nth(7).click();
+    await expect(doc).toContainText(/0[.,]01/);
+    await page.getByTestId('steps-tab').nth(8).click();
+    await expect(doc).toContainText(/20/);
+    await expect(doc.locator('.sb-compare')).toBeVisible();
+    await page.getByTestId('steps-tab').nth(9).click();
+    await expect(doc).toContainText(/0[.,]0025/);
+    await expect(doc.getByTestId('step-plot')).toBeVisible();
+    await expect(page.getByTestId('steps-next')).toBeDisabled();
+    expect(errors).toEqual([]);
+  });
+
   test('@smoke the stiffness method from its example: classification and fixed-end actions', async ({ page }) => {
     await boot(page);
     await openCatalog(page);

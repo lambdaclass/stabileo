@@ -145,9 +145,9 @@ export function planeModel(input: SolverInput): PlaneModel {
     } else if (l.type === 'thermal') {
       memberLoads.push({ kind: 'thermal', member: l.data.elementId, dtUniform: l.data.dtUniform, dtGradient: l.data.dtGradient });    } else if (l.type === 'axialDistributed') {
       /*
-       * A load along an inclined member (the axial part of one in global axes). The methods
-       * here take member loads across the member; this one reaches them as its consistent end
-       * loads — the same reactions and displacements, N constant along that member.
+       * Equivalent end loads preserve reactions and nodal displacements, but not the axial-force
+       * variation within the member. Methods that need that variation must read the original
+       * input or refuse the load; Galerkin reads it directly.
        */
       for (const n of axialSpanToNodal2D(input, l.data)) {
         if (n.type === 'nodal') nodalLoads.push({ node: n.data.nodeId, fx: n.data.fx, fz: n.data.fz, my: n.data.my });

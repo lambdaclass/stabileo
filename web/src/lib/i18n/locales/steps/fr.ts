@@ -1,6 +1,8 @@
 import { axialStrainEnergy } from './strain-energy-label';
 import type { Translations } from '../../types';
 import course from '../course/fr';
+import { galerkinFr } from './galerkin';
+import { fr as axialLoadFr } from './axial-load';
 
 const stepsFr: Translations = {
   'steps.dsm.classification': 'Classification statique',
@@ -925,4 +927,4 @@ const stepsFr: Translations = {
   'course.statics.vw.p.help': 'La charge virtuelle dépend de ce que vous cherchez : une force unitaire pour un déplacement, un couple unitaire pour une rotation, deux forces opposées pour un déplacement relatif entre deux nœuds et deux couples opposés pour une rotation relative. Automatique prend le nœud sélectionné dans le modèle ou celui qui se déplace le plus ; pour une grandeur relative, la direction automatique est la droite qui relie les deux nœuds.',
 };
 
-export default { ...stepsFr, ...course };
+export default { ...stepsFr, ...galerkinFr, ...axialLoadFr, ...course };

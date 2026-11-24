@@ -1,13 +1,13 @@
 /**
- * The stiffness and flexibility methods in the catalog. They keep their own
- * interactive wizards (dsm/StepWizard, fm/FmWizard); here they only say what
- * the model must be, with the same limits the wizards apply.
+ * The core catalog entries: the two interactive wizards and the Galerkin
+ * worked example, with the same applicability checks used to build them.
  */
 import type { ExplainedMethod } from '../registry';
 import { tx } from '../doc';
 import { stepByStepScope, STEP_BY_STEP_MAX_DOFS } from '../../step-by-step-scope';
 import { countIndeterminacy } from '../../force-method/primary';
 import { FM_MAX_GH } from '../../force-method/solve';
+import { buildGalerkin, galerkinApplies } from '../galerkin';
 
 const scope = (input: Parameters<typeof stepByStepScope>[0]) => {
   const v = stepByStepScope(input, false);
@@ -22,6 +22,7 @@ export const methods: ExplainedMethod[] = [
       return r ? { ok: false, reason: r } : { ok: true };
     },
   },
+  { id: 'galerkin', group: 'stiffness', example: 'galerkin-bar', applies: galerkinApplies, build: buildGalerkin },
   {
     id: 'fm', group: 'flexibility', example: 'portal-frame', wizard: 'fm',
     applies: ({ input }) => {
