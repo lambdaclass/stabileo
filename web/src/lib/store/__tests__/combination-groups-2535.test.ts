@@ -26,8 +26,6 @@ import { nonlinearWorkerReply, nonlinearWorkerSession } from '../../engine/nonli
 import { solveCombinations2D, solveCombinations3D, solveCombinations3DParallel, type ModelData } from '../../engine/solver-service';
 import { setLocale, tp } from '../../i18n';
 
-const knownWrong2535 = process.env.RUN_KNOWN_WRONG === '2535' ? it : it.skip;
-
 const floor = { id: 1, type: 'L', name: 'Floor live' };
 const roof = { id: 2, type: 'L', name: 'Roof live', group: 'roof' };
 const roofTerm = { symbol: 'L', group: 'roof', factor: 2 } as const;
@@ -159,7 +157,7 @@ it('#2535 shared sets also exclude directional alternatives and retain eligible 
   ]);
 });
 
-knownWrong2535('known wrong result: #2535 companion live patterns survive a whole wind case in Loads and Auto Loads', () => {
+it('#2535 companion live patterns survive a whole wind case in Loads and Auto Loads', () => {
   restoreGroupedProject(...companionPatternTerms);
   modelStore.restore({ ...modelStore.snapshot(), loadCases: companionPatternCases });
   const input = {
@@ -179,7 +177,7 @@ knownWrong2535('known wrong result: #2535 companion live patterns survive a whol
   expect(modelStore.combinations.map(c => c.factors)).toEqual(companionPatternFactors);
 });
 
-knownWrong2535('known wrong result: #2535 a whole roof-live case cannot suppress a companion floor-live pattern', () => {
+it('#2535 a whole roof-live case cannot suppress a companion floor-live pattern', () => {
   const roofLive = { ...companionPatternCases[1]!, type: 'Lr' };
   const rule = spec(floorTerm, { ...windTerm, symbol: 'Lr' });
   expect(expandCombinations([rule], [companionPatternCases[0]!, roofLive]).map(c => c.factors))
@@ -205,7 +203,7 @@ it('#2535 only a whole live case in the same set can replace a companion live pa
   ]);
 });
 
-knownWrong2535('known wrong result: #2535 Basic and rebuilt fixtures retain a companion roof-live pattern in a shared wind set', () => {
+it('#2535 Basic and rebuilt fixtures retain a companion roof-live pattern in a shared wind set', () => {
   const loadCases = [
     { ...companionPatternCases[0]!, type: 'Lr' },
     companionPatternCases[1]!,
@@ -545,7 +543,7 @@ it('#2535 the 2D linear combination and envelope exclude the floor live load', (
 });
 
 for (const selection of alternativeSelections) {
-  (selection === 'companion pattern' ? knownWrong2535 : it)(`${selection === 'companion pattern' ? 'known wrong result: ' : ''}#2535 2D linear reactions keep ${selection} alternatives separate`, () => {
+  it(`#2535 2D linear reactions keep ${selection} alternatives separate`, () => {
     const { base, ids, model, reactions } = cantilever('2d', selection);
     const solved = solveCombinations2D(model, modelStore.loadCases, modelStore.combinations);
     if (!solved || typeof solved === 'string') throw new Error(String(solved));
@@ -629,7 +627,7 @@ for (const entry of ['sync', 'async'] as const) for (const method of ['linear', 
   });
 
   for (const selection of alternativeSelections) {
-    (selection === 'companion pattern' ? knownWrong2535 : it)(`${selection === 'companion pattern' ? 'known wrong result: ' : ''}#2535 3D ${entry} ${method} reactions keep ${selection} alternatives separate`, async () => {
+    it(`#2535 3D ${entry} ${method} reactions keep ${selection} alternatives separate`, async () => {
       const { solved, ids, jobs, reactions } = await solveFixture(selection);
       if (entry === 'async' && method === 'linear') expect(jobs).toContain('solve3d');
       if (entry === 'async' && method === 'pdelta') expect(jobs).toContain('pdelta3d');
@@ -666,7 +664,7 @@ for (const entry of ['main thread', 'worker adapter'] as const) {
 }
 
 for (const entry of ['main thread', 'worker adapter'] as const) for (const selection of alternativeSelections) {
-  (selection === 'companion pattern' ? knownWrong2535 : it)(`${selection === 'companion pattern' ? 'known wrong result: ' : ''}#2535 direct analysis via the ${entry} keeps ${selection} alternatives separate`, async () => {
+  it(`#2535 direct analysis via the ${entry} keeps ${selection} alternatives separate`, async () => {
     const { base, ids, model, reactions } = cantilever('3d', selection);
     const jobs = entry === 'worker adapter' ? recordWorkerJobs() : [];
     const solved = await runDirectAnalysis(model, modelStore.loadCases, modelStore.combinations, {

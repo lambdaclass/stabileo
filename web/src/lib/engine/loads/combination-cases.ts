@@ -170,15 +170,16 @@ export function symbolsByAlternativeSet(
 }
 
 type CasePick = { factors: CaseCombination['factors']; label: string; direction?: DirectionalSymbol };
-type CaseChoice = { loadCase: CombinationCase; factors: number[]; allowPattern: boolean; direction?: DirectionalSymbol };
+type CaseChoice = { loadCase: CombinationCase; symbol: LoadSymbol; factors: number[]; allowPattern: boolean };
 type ChoiceSlot = { choices: Map<number, CaseChoice>; directional: boolean };
 
 function choicePicks({ choices, directional }: ChoiceSlot, opts: ExpandOptions): CasePick[] {
   const candidates = [...choices.values()];
-  const hasWhole = candidates.some(({ loadCase }) => !loadCase.pattern);
-  const eligible = candidates.filter(({ loadCase, allowPattern, direction }) =>
-    direction || !hasWhole || !loadCase.pattern || allowPattern);
-  const picks = eligible.flatMap(({ loadCase, factors, direction }) => {
+  const wholeSymbols = new Set(candidates.filter(({ loadCase }) => !loadCase.pattern).map(({ symbol }) => symbol));
+  const eligible = candidates.filter(({ loadCase, symbol, allowPattern }) =>
+    !loadCase.pattern || allowPattern || isDirectional(symbol) || !wholeSymbols.has(symbol));
+  const picks = eligible.flatMap(({ loadCase, symbol, factors }) => {
+    const direction = isDirectional(symbol) ? symbol : undefined;
     const reverse = (direction === 'W' || direction === 'E') && opts.bothSenses?.[direction];
     const reversible = reverse && (direction !== 'W' || !opts.reversible || opts.reversible(loadCase.id));
     const senses = reversible ? [1, -1] : [1];
@@ -295,7 +296,7 @@ export function expandCombinations(
           }
           let choice = slot.choices.get(c.id);
           if (!choice) {
-            choice = { loadCase: c, factors: [], allowPattern: false, direction };
+            choice = { loadCase: c, symbol: t.symbol, factors: [], allowPattern: false };
             slot.choices.set(c.id, choice);
           }
           choice.factors.push(t.factor);
