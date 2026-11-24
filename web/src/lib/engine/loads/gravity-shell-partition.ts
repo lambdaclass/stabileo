@@ -12,6 +12,16 @@ export function refuseGravityGeometry(reason: EngineMessage): never {
   throw new EngineMessageError(reason);
 }
 
+export function samePhysicalDeck(elevations: ReadonlyArray<readonly [number, number]>, tolerance: number): boolean {
+  let matches = true;
+  for (const [height, reference] of elevations) {
+    const separation = height - reference;
+    if (!Number.isFinite(separation)) refuseGravityGeometry(msg('loadPlan.gravity.coveragePrecision'));
+    if (Math.abs(separation) > tolerance) matches = false;
+  }
+  return elevations.length > 0 && matches;
+}
+
 export function ringArea(ring: Point[]): number {
   const [x, y] = ring[0] ?? [0, 0];
   const local = ring.map(([px, py]) => [px - x, py - y] as Point);

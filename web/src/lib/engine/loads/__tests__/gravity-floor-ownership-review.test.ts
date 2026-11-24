@@ -73,7 +73,7 @@ function stubAttachedShellBay() {
   return model;
 }
 
-function subdividedShellBay(withIndependentOverhead = false) {
+function subdividedShellBay(withIndependentOverhead = false, shellZ = 2.96) {
   const { model, row, beam, shell, tieRows } = modelFixture();
   const left = row(0, 3), center = row(5, 3), right = row(10, 3);
   for (const [a, b] of [[left, center], [center, right]] as const) {
@@ -81,7 +81,7 @@ function subdividedShellBay(withIndependentOverhead = false) {
     beam(a[1], b[1]);
   }
   for (const [a, b] of [left, center, right]) beam(a, b);
-  const shellLeft = row(0, 2.8), shellRight = row(10, 2.8);
+  const shellLeft = row(0, shellZ), shellRight = row(10, shellZ);
   shell(shellLeft, shellRight);
   tieRows(left, shellLeft);
   tieRows(right, shellRight);
@@ -134,15 +134,19 @@ it('#2512 the centre beam in a subdivided bay leaves its own shell exposed', () 
     const covered = subdividedShellBay(true);
     expect(gravityLayout(covered, { ...gravity, tributaryWidth: 3 }).roofQuads.has(1)).toBe(false);
     expect(buildLoadPlan(input(covered, { gravity, roof })).surface.filter(load => load.caseType === 'Lr')).toEqual([]);
+    const separate = subdividedShellBay(false, 2.8);
+    expect(gravityLayout(separate, { ...gravity, tributaryWidth: 3 }).roofQuads.has(1)).toBe(false);
+    expect(buildLoadPlan(input(separate, { gravity, roof })).surface.filter(load => load.caseType === 'Lr')).toEqual([]);
+    deadResultant(separate, loadEveryPanel, [1], 2 * area);
   }
 });
 
 function checkWasmReactions(model: LoadModelData, loads: Load[], expected: number) {
-  const slaves = new Set(model.constraints?.flatMap(constraint => constraint.type === 'equalDOF' ? [constraint.slaveNode] : []));
+  const freeVertical = new Set(model.constraints?.flatMap(constraint => constraint.type === 'equalDOF' ? [constraint.slaveNode] : []));
   const shell = model.quads?.get(1);
-  if (shell) slaves.add(shell.nodes[1]!);
+  freeVertical.add(shell?.nodes[1] ?? model.elements.values().next().value!.nodeI);
   const supports = new Map([...model.nodes.keys()].map(nodeId => [
-    nodeId, { nodeId, rx: true, ry: true, rz: !slaves.has(nodeId), rrx: true, rry: true, rrz: true },
+    nodeId, { nodeId, rx: true, ry: true, rz: !freeVertical.has(nodeId), rrx: true, rry: true, rrz: true },
   ]));
   const solverInput = {
     ...structuredClone(template),
@@ -153,9 +157,9 @@ function checkWasmReactions(model: LoadModelData, loads: Load[], expected: numbe
   };
   const nonlinear = JSON.parse(solve_pdelta_3d(JSON.stringify(solverInput), 100, 1e-10));
   expect(nonlinear.converged).toBe(true);
-  for (const result of [solve_3d(solverInput), nonlinear.results] as AnalysisResults3D[]) {
-    expect(result.reactions.reduce((total, reaction) => total + reaction.fz, 0)).toBeCloseTo(expected, 8);
-  }
+  const totals = ([solve_3d(solverInput), nonlinear.results] as AnalysisResults3D[]).map(result =>
+    result.reactions.reduce((total, reaction) => total + reaction.fz, 0));
+  expect(totals).toEqual([expect.closeTo(expected, 8), expect.closeTo(expected, 8)]);
 }
 
 function checkPlanReactions(model: LoadModelData, caseType: 'D' | 'Lr', expected: number, gravity: LoadPlanInput['gravity'] = { mode: 'panels' }) {
@@ -246,8 +250,6 @@ it('#2512 restored subdivided bay previews uniform roof live load and refuses ap
   expect(modelStore.snapshot()).toEqual(before);
 });
 
-const regression = process.env.RUN_KNOWN_WRONG === '2512' ? it : it.skip;
-
 function tiedShellBay(shellZ: number, endZ = shellZ, tied = true, start = 0) {
   const { model, row, beam, shell, tieRows } = modelFixture();
   const left = row(0, 3), right = row(10, 3);
@@ -261,11 +263,19 @@ function tiedShellBay(shellZ: number, endZ = shellZ, tied = true, start = 0) {
   return model;
 }
 
-regression('known wrong result: #2512 two aligned stations keep the elevated shell and lower bay independent', () => {
-  for (const loadEveryPanel of [false, true]) deadResultant(tiedShellBay(6), loadEveryPanel, [1], 2 * area);
+it('#2512 two aligned stations keep the elevated shell and lower bay independent', () => {
+  for (const loadEveryPanel of [false, true]) {
+    const model = tiedShellBay(6);
+    deadResultant(model, loadEveryPanel, [1], 2 * area);
+    model.constraints = model.constraints.map(constraint => {
+      if (constraint.type !== 'equalDOF') return constraint;
+      return { type: 'rigidLink', masterNode: constraint.masterNode, slaveNode: constraint.slaveNode };
+    });
+    deadResultant(model, loadEveryPanel, [1], 2 * area);
+  }
 });
 
-regression('known wrong result: #2512 attached bay ownership checks both ends of the overlap', () => {
+it('#2512 attached bay ownership checks both ends of the overlap', () => {
   deadResultant(tiedShellBay(3.049), true, [1], area);
   deadResultant(tiedShellBay(3.051), true, [1], 2 * area);
   const model = tiedShellBay(3.02, 3.06);
@@ -275,7 +285,7 @@ regression('known wrong result: #2512 attached bay ownership checks both ends of
   expect(plan.levels.reduce((sum, level) => sum + level.superimposedKN, 0)).toBeCloseTo(expected, 10);
 });
 
-regression('known wrong result: #2512 an untied shell needs to match the bay only over their overlap', () => {
+it('#2512 an untied shell needs to match the bay only over their overlap', () => {
   const model = tiedShellBay(2.9989, 2.9998, false, -10);
   const gravity = { mode: 'panels', loadEveryPanel: true } as const;
   const plan = buildLoadPlan(input(model, { gravity }));
@@ -284,11 +294,11 @@ regression('known wrong result: #2512 an untied shell needs to match the bay onl
   expect(plan.levels.reduce((sum, level) => sum + level.superimposedKN, 0)).toBeCloseTo(pressure * 6 * Math.hypot(20, 0.0009), 10);
 });
 
-regression('known wrong result: #2512 3D linear and nonlinear WASM reactions include the shell and separate bay', () => {
+it('#2512 3D linear and nonlinear WASM reactions include the shell and separate bay', () => {
   checkPlanReactions(tiedShellBay(6), 'D', 2 * area * pressure);
 });
 
-regression('known wrong result: #2512 applying a restored model emits beam loads for the separate bay', () => {
+it('#2512 applying a restored model emits beam loads for the separate bay', () => {
   const { quads, loads } = applyDeadPressure(tiedShellBay(6));
   const surfaces = loads.filter(load => load.type === 'surface3d');
   expect(surfaces.map(load => load.data)).toEqual(quads.map(quadId => expect.objectContaining({ quadId, q: pressure })));
@@ -304,17 +314,20 @@ regression('known wrong result: #2512 applying a restored model emits beam loads
   expect(resultant).toBeCloseTo(area * pressure, 10);
 });
 
-regression('known wrong result: #2512 a rigid offset cannot make a separate rafter part of the roof shell', () => {
-  const model = offsetRoof(3).model;
-  const plan = buildLoadPlan(input(model, { gravity: { mode: 'panels', loadEveryPanel: true } }));
-  expect(plan.outcome, JSON.stringify(plan.blockedKeys)).toBe('READY');
-  expect(plan.distributed.filter(load => load.caseType === 'D')).toEqual([
-    { caseType: 'D', elementId: 1, q: -3 * pressure, frame: 'global' },
-  ]);
-  expect(plan.surface.filter(load => load.caseType === 'D')).toEqual([{ caseType: 'D', quadId: 1, q: pressure }]);
+it('#2512 a rigid offset cannot make a separate rafter part of the roof shell', () => {
+  for (const loadEveryPanel of [false, true]) for (const offset of [-3, 0.049, 0.051, 3]) {
+    const model = offsetRoof(offset).model;
+    const gravity = { mode: 'panels', loadEveryPanel } as const;
+    const plan = buildLoadPlan(input(model, { gravity }));
+    expect(plan.outcome, JSON.stringify(plan.blockedKeys)).toBe('READY');
+    expect(plan.distributed.filter(load => load.caseType === 'D')).toEqual(offset === 0.049 ? [] : [
+      { caseType: 'D', elementId: 1, q: -3 * pressure, frame: 'global' },
+    ]);
+    expect(plan.surface.filter(load => load.caseType === 'D')).toEqual([{ caseType: 'D', quadId: 1, q: pressure }]);
+  }
 });
 
-regression('known wrong result: #2512 shell shadowing requires a final owner within the deck boundary', () => {
+it('#2512 shell shadowing requires a final owner within the deck boundary', () => {
   const { model, row, shell, tieRows } = modelFixture();
   const station = [3, 3.04, 3.08].map(z => {
     const left = row(0, z);
@@ -328,7 +341,19 @@ regression('known wrong result: #2512 shell shadowing requires a final owner wit
   expect(plan).toMatchObject({ outcome: 'BLOCKED', distributed: [], nodal: [], surface: [] });
 });
 
-regression('known wrong result: #2512 full-span one-way transfer preserves projected area on rising beams', () => {
+it('#2512 an offset shell cannot pass its bay to a shadowing shell outside the deck boundary', () => {
+  const model = tiedShellBay(3.04);
+  const upper = tiedShellBay(3.08);
+  const shell = upper.quads.get(1)!;
+  const nodes = shell.nodes.map(id => id + model.nodes.size) as typeof shell.nodes;
+  nodes.forEach((id, i) => model.nodes.set(id, { ...upper.nodes.get(shell.nodes[i]!)!, id }));
+  model.quads.set(2, { ...shell, id: 2, nodes });
+  model.quads.get(1)!.nodes.forEach((masterNode, i) =>
+    model.constraints.push({ type: 'equalDOF', masterNode, slaveNode: nodes[i]!, dofs: [2] }));
+  deadResultant(model, true, [2], 2 * area);
+});
+
+it('#2512 full-span one-way transfer preserves projected area on rising beams', () => {
   const model = tiedShellBay(6, 6, false);
   model.quads.clear();
   for (const node of model.nodes.values()) if (node.z === 3) node.z += node.x === 10 ? 0.00045 : -0.00045;

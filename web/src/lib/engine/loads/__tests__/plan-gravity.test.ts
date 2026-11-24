@@ -9,7 +9,7 @@ import { expandDefinition } from '../../../model/loads/floor-definitions';
 import { buildSolverInput3D } from '../../solver-service';
 import { withMassSource } from '../../dynamics/mass-source-model';
 import { G } from '../../dynamics/requests';
-import { buildLoadPlan, roofWeightFor, type LoadModelData, type LoadPlanInput } from '../load-plan';
+import { buildLoadPlan, roofWeightFor, roofWeightOf, type LoadModelData, type LoadPlanInput } from '../load-plan';
 import { defaultRegulations, type ProjectRegulations } from '../../../codes/roles';
 import { snowDriftRefusal } from '../snow-drift-loads';
 import type { EngineMessage } from '../../../codes/message';
@@ -998,6 +998,8 @@ for (const [name, tie] of Object.entries(verticalTies)) {
 it('#2499 roof weight includes both structural shells per square metre of owned roof', () => {
   const model = connectedShells();
   for (const shell of model.quads!.values()) Object.assign(shell, { materialId: 1, thickness: 0.02 });
+  const layout = gravityLayout(model, { mode: 'panels', tributaryWidth: 3 });
+  expect(roofWeightOf(model, layout, 0).structure).toBeCloseTo(2 * 0.02 * model.materials.get(1)!.rho, 10);
   expect(roofWeightFor(model, { mode: 'panels' }, 3, 0)).toBe('heavy');
 });
 
@@ -1419,7 +1421,7 @@ it('#2512 two independent aligned attachment stations identify one deck', () => 
 for (const end of [10, 6]) it(`#2512 shell-owned bay area cannot mask a lower roof at x=${end}`, () => {
   const roof = { use: 'maintenance', weight: 'heavy', dead: 1, slopeDeg: 0 } as const;
   for (const loadEveryPanel of [false, true]) {
-    const model = linkedShellBay(2.8);
+    const model = linkedShellBay(2.96);
     const shell = model.quads!.get(1)!;
     for (const id of shell.nodes) {
       const node = model.nodes.get(id)!;
@@ -1437,7 +1439,7 @@ for (const end of [10, 6]) it(`#2512 shell-owned bay area cannot mask a lower ro
     expect(deadLoadKN(plan, model)).toBeCloseTo(60, 10);
     expect(gravityLayout(model, { ...input.gravity, tributaryWidth: 3 }).roofQuads.has(1)).toBe(true);
 
-    model.constraints = [];
+    for (const id of shell.nodes) model.nodes.get(id)!.z = 2.8;
     const separate = buildLoadPlan(planInput(model, input));
     expect(separate.blockedKeys).toEqual(isolated.blockedKeys);
     expect(separate.surface.filter(load => load.caseType === 'Lr')).toEqual([]);

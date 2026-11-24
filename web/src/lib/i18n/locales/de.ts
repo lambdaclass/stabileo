@@ -7793,7 +7793,7 @@ const de: Translations = {
   'loadPlan.gravity.nonplanarShell': "Das Viereck {id} ist nicht eben. Für die Schalenabdeckung unter Schwerkraftlasten sind ebene Schalen erforderlich.",
   'loadPlan.gravity.areaResultant': "Die erzeugten Lasten entsprechen nicht der zugewiesenen Deckenfläche auf Höhe {z}.",
   'loadPlan.gravity.caseResultant': "Die erzeugten Lasten {action} auf Höhe {z} stimmen nicht mit dem Druck auf der zugewiesenen Fläche überein.",
-  'loadPlan.gravity.overlappingBays': "Die von den Stäben {first} und {second} begrenzten Felder überlappen auf derselben Ebene. Weisen Sie die Last einem einzigen Feld zu.",
+  'loadPlan.gravity.overlappingBays': "Die von den Stäben {first} und {second} begrenzten Felder desselben Geschosses überlappen. Weisen Sie die Last einem einzigen Feld zu.",
   'loadPlan.gravity.overlappingShells': "Die Schalen {first} und {second} überlappen, und die automatische Schwerkraftlasterzeugung kann die gemeinsame Fläche keiner einzelnen Schale zuweisen. Korrigieren Sie die Geometrie oder weisen Sie die Flächenlast einmal manuell zu.",
   'loadPlan.gravity.offsetShellDeck': "Schale {id} ist vertikal an ein überlappendes Trägerfeld (Stäbe {members}) auf anderer Höhe gekoppelt. Korrigieren Sie die Geometrie der Schale, der Verbindung oder des Trägerfelds oder weisen Sie die Flächenlast einmal von Hand zu.",
   'loadPlan.gravity.memberSlopeLimit': "Stab {id} liegt zu nahe am Neigungsgrenzwert, um ihn als Träger von Schwerelasten sicher einzustufen. Geben Sie seine Lasten explizit an.",

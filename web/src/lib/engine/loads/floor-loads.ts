@@ -164,11 +164,11 @@ export function physicalFloorLoad(input: FloorLoadInput): FloorLoadResult {
   return preparePhysicalFloorLoad(input).generate();
 }
 
-export function preparePhysicalFloorLoad(input: FloorLoadInput): PreparedFloorLoad {
-  return prepareFloorLoad(input, value => value);
+export function preparePhysicalFloorLoad(input: FloorLoadInput, inPlan = false): PreparedFloorLoad {
+  return prepareFloorLoad(input, value => value, inPlan);
 }
 
-function prepareFloorLoad(input: FloorLoadInput, round: (value: number) => number): PreparedFloorLoad {
+function prepareFloorLoad(input: FloorLoadInput, round: (value: number) => number, inPlan = false): PreparedFloorLoad {
   const tol = input.tol ?? 1e-3;
   const skipped = { trusses: 0, notHorizontal: 0, otherLevel: 0, open: 0, crossings: 0, zoneAcrossSpan: 0, unresolved: 0 };
   const res: FloorLoadResult = { z: null, panels: [], loads: [], nodal: [], normal: [0, 0, 1], perBeam: new Map(), loadedArea: 0, totalKN: 0, skipped };
@@ -186,7 +186,7 @@ function prepareFloorLoad(input: FloorLoadInput, round: (value: number) => numbe
     if (b.type === 'truss') { skipped.trusses++; continue; }
     frames.push(b);
   }
-  const plane = inclinedPlane(frames.flatMap((b) => [P(b.nodeI), P(b.nodeJ)]), tol);
+  const plane = inPlan ? null : inclinedPlane(frames.flatMap((b) => [P(b.nodeI), P(b.nodeJ)]), tol);
   let beams: FloorBeam[];
   let toPlane: (p: P3) => P2;
   if (plane) {
