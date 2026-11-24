@@ -1,7 +1,9 @@
 mod adaptive;
 mod anderson;
+mod broyden;
 pub(super) mod incremental;
 mod line_search;
+mod newton_krylov;
 pub(super) mod path_following;
 
 pub use super::arc_length::experimental_nonlinear_continuation::{
@@ -13,7 +15,7 @@ pub use super::corotational::experimental_nonlinear_2d::{
 pub use super::corotational::experimental_nonlinear_3d::{
     solve_corotational_3d_by, solve_corotational_3d_stepped,
 };
-pub use incremental::{IterationMethod, LoadStepping};
+pub use incremental::{Direction, IterationMethod, LoadStepping};
 
 #[cfg(target_arch = "wasm32")]
 mod wasm;

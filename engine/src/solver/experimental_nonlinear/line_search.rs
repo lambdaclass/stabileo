@@ -1,5 +1,5 @@
 use super::incremental::{
-    IncrementalProblem, Iteration, IterationBudget, IterationError, Linearization,
+    Direction, IncrementalProblem, Iteration, IterationBudget, IterationError, Linearization,
 };
 
 const ENOUGH: f64 = 0.8;
@@ -14,6 +14,26 @@ impl Iteration for NewtonLineSearch {
         tolerance: f64,
         budget: &mut IterationBudget<'_>,
     ) -> Result<bool, IterationError> {
+        LineSearch {
+            direction: Direction::Newton,
+        }
+        .iterate(problem, tolerance, budget)
+    }
+}
+
+/// The line search on the step of any [`Direction`]: where the step comes from and how much of
+/// it is taken are separate choices.
+pub(crate) struct LineSearch {
+    pub direction: Direction,
+}
+
+impl Iteration for LineSearch {
+    fn iterate<P: IncrementalProblem + ?Sized>(
+        &self,
+        problem: &mut P,
+        tolerance: f64,
+        budget: &mut IterationBudget<'_>,
+    ) -> Result<bool, IterationError> {
         let mut at = budget.linearize(problem)?;
         loop {
             if at.measure < tolerance && !at.forced {
@@ -22,7 +42,7 @@ impl Iteration for NewtonLineSearch {
             if !budget.has_remaining() {
                 return Ok(false);
             }
-            let step = problem.correction(false)?;
+            let step = self.direction.step(problem, at.forced)?;
             let start_work = problem.work(&step);
             if at.forced {
                 problem.advance(&step);

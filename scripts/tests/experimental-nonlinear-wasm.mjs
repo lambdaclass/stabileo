@@ -57,3 +57,48 @@ test('experimental WASM continuation agrees with production on the same input', 
     assert.deepEqual(JSON.parse(engine[`solve_experimental_${method}`](input)), production);
   }
 });
+
+const mild = {
+  ...plane,
+  loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0.4, fz: -6, my: 0.8 } }],
+};
+
+for (const [dimension, input, moved] of [[2, mild, (d) => [d.ux, d.uz]], [3, space, (d) => [d.ux, d.uy, d.uz]]]) {
+  const solve = engine[`solve_experimental_corotational_${dimension}d`];
+  const run = (method) => solve(JSON.stringify(input), JSON.stringify({
+    method, stepping: 'adaptive', nIncrements: 4, maxIter: 200, tolerance: 1e-9,
+  }));
+  test(`${dimension}D every iteration method reaches Newton's displacements`, () => {
+    const newton = JSON.parse(run('newton'));
+    assert.equal(newton.converged, true);
+    const reference = moved(newton.results.displacements.find((d) => d.nodeId === 2));
+    const largest = Math.max(...reference.map(Math.abs));
+    assert.ok(largest > 0);
+    for (const method of [
+      'modifiedNewton',
+      'newtonLineSearch',
+      'newtonKrylov',
+      { anderson: { depth: 3 } },
+      { broyden: { memory: 10 } },
+      { lineSearch: { direction: 'newton' } },
+      { lineSearch: { direction: 'modifiedNewton' } },
+      { lineSearch: { direction: 'newtonKrylov' } },
+    ]) {
+      const result = JSON.parse(run(method));
+      const name = JSON.stringify(method);
+      assert.equal(result.converged, true, name);
+      assert.equal(result.loadFactor, 1, name);
+      moved(result.results.displacements.find((d) => d.nodeId === 2)).forEach((value, i) => {
+        assert.ok(Number.isFinite(value) && Math.abs(value - reference[i]) <= 1e-6 * largest, `${name}: ${value} vs ${reference[i]}`);
+      });
+    }
+  });
+
+  test(`${dimension}D a method the driver cannot run is refused`, () => {
+    assert.throws(() => run({ broyden: { memory: 0 } }), /memory from 1 to 50/);
+    assert.throws(() => run({ broyden: { memory: 51 } }), /memory from 1 to 50/);
+    assert.throws(() => run({ anderson: { depth: 0 } }), /depth from 1 to 50/);
+    assert.throws(() => run({ lineSearch: { direction: 'anderson' } }), /Parse error/);
+    assert.throws(() => run('steepestDescent'), /Parse error/);
+  });
+}
