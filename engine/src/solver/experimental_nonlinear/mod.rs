@@ -13,6 +13,9 @@ pub use super::corotational::experimental_nonlinear_2d::{
 pub use super::corotational::experimental_nonlinear_3d::{
     solve_corotational_3d_by, solve_corotational_3d_stepped,
 };
+pub use super::corotational::experimental_nonlinear_arc_length_3d::{
+    solve_arc_length_3d, ArcLengthInput3D, ArcLengthResult3D, EquilibriumStep3D,
+};
 pub use incremental::{IterationMethod, LoadStepping};
 
 #[cfg(target_arch = "wasm32")]

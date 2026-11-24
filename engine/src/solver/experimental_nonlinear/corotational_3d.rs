@@ -275,28 +275,13 @@ pub fn solve_corotational_3d_by(
     )
 }
 
-fn corotational_3d(
+/// What 3D co-rotational analysis accepts, with its curved beams expanded: validation, the
+/// pre-solve gates, and the refusals of shells, shear-centre offsets, prescribed
+/// displacements, thermal loads, warping and connectors, in that order.
+pub(super) fn admitted_3d(
     input: &SolverInput3D,
-    max_iter: usize,
-    tolerance: f64,
-    n_increments: usize,
-    method: IterationMethod,
-    stepping: LoadStepping,
-) -> Result<CorotationalResult3D, String> {
-    let canonical_input = crate::solver::member_loads::space_input(input);
-    let input = canonical_input.as_ref();
-
-    if n_increments == 0 {
-        return Err("Number of load increments must be at least 1".into());
-    }
-    if max_iter == 0 {
-        return Err("Max iterations must be at least 1".into());
-    }
-    if !tolerance.is_finite() || tolerance <= 0.0 {
-        return Err("Convergence tolerance must be finite and positive".into());
-    }
-    incremental::validate(method)?;
-
+    analysis: &str,
+) -> Result<(SolverInput3D, Vec<StructuredDiagnostic>), String> {
     crate::solver::linear::validate_input_3d(input)?;
     crate::solver::linear::refuse_initial_free_rotation_loads_3d(input)?;
     let pre_solve_diags = crate::solver::pre_solve_gates::run_pre_solve_gates_3d(input);
@@ -330,15 +315,41 @@ fn corotational_3d(
 
     crate::solver::feature_gates::refuse_3d(
         input,
-        "Corotational analysis",
+        analysis,
         &[
             crate::solver::feature_gates::Feature::PrescribedDisplacements,
             crate::solver::feature_gates::Feature::ThermalLoads,
             crate::solver::feature_gates::Feature::Warping,
         ],
     )?;
-    crate::element::connector::refuse_for_corotational_3d(input, "Corotational analysis")?;
-    let input = &crate::solver::linear::expand_curved_beams_3d(input);
+    crate::element::connector::refuse_for_corotational_3d(input, analysis)?;
+    Ok((crate::solver::linear::expand_curved_beams_3d(input), pre_solve_diags))
+}
+
+fn corotational_3d(
+    input: &SolverInput3D,
+    max_iter: usize,
+    tolerance: f64,
+    n_increments: usize,
+    method: IterationMethod,
+    stepping: LoadStepping,
+) -> Result<CorotationalResult3D, String> {
+    let canonical_input = crate::solver::member_loads::space_input(input);
+    let input = canonical_input.as_ref();
+
+    if n_increments == 0 {
+        return Err("Number of load increments must be at least 1".into());
+    }
+    if max_iter == 0 {
+        return Err("Max iterations must be at least 1".into());
+    }
+    if !tolerance.is_finite() || tolerance <= 0.0 {
+        return Err("Convergence tolerance must be finite and positive".into());
+    }
+    incremental::validate(method)?;
+
+    let (expanded, pre_solve_diags) = admitted_3d(input, "Corotational analysis")?;
+    let input = &expanded;
     let dof_num = DofNumbering::build_3d(input);
 
     if dof_num.n_free == 0 {

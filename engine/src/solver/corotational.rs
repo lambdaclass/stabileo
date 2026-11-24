@@ -3994,3 +3994,7 @@ pub(crate) mod experimental_nonlinear_2d;
 #[cfg(feature = "experimental-nonlinear")]
 #[path = "experimental_nonlinear/corotational_3d.rs"]
 pub(crate) mod experimental_nonlinear_3d;
+
+#[cfg(feature = "experimental-nonlinear")]
+#[path = "experimental_nonlinear/arc_length_3d.rs"]
+pub(crate) mod experimental_nonlinear_arc_length_3d;
