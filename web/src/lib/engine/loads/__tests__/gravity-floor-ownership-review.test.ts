@@ -9,7 +9,7 @@ import { teAt } from '../../../i18n/engine-text';
 import type { Load } from '../../../store/model.svelte';
 import { buildSolverLoads3D } from '../../solver-service';
 import type { AnalysisResults3D, Constraint3D } from '../../types-3d';
-import { gravityLayout, MAX_DECK_SPAN, MIN_STOREY_HEADROOM } from '../plan-gravity';
+import { gravityLayout, loadSpanLength, MAX_DECK_SPAN, MIN_STOREY_HEADROOM } from '../plan-gravity';
 import { buildLoadPlan, roofWeightFor, type LoadModelData, type LoadPlanInput } from '../load-plan';
 import { snowDriftRefusal } from '../snow-drift-loads';
 import { input } from './gravity-width-mass-fixture';
@@ -495,7 +495,6 @@ for (const loadEveryPanel of [false, true]) {
 }
 
 const explicitlySelectedBays = { mode: 'panels', loadEveryPanel: true } as const;
-const knownWrongCloseBays = process.env.RUN_KNOWN_WRONG === '2512' ? it : it.skip;
 const overlappingBays = { key: 'loadPlan.gravity.overlappingBays', params: { first: '1, 2, 3, 4', second: '5, 6, 7, 8' } };
 
 function stackedBeamBays(gap: number) {
@@ -513,15 +512,23 @@ for (const gap of [0.001001, 0.049, 0.051]) {
     expect([...layout.areaByLevel.values()]).toEqual([area, area]);
     const plan = buildLoadPlan(input(model, { gravity: explicitlySelectedBays }));
     expect(plan.outcome, JSON.stringify(plan.blockedKeys)).toBe('READY');
-    expect(plan.levels.map(level => level.superimposedKN)).toEqual([expect.closeTo(area * pressure, 10), expect.closeTo(area * pressure, 10)]);
+    const dead = plan.distributed.filter(load => load.caseType === 'D');
+    for (const first of [1, 5]) {
+      const force = dead.filter(load => load.elementId >= first && load.elementId < first + 4)
+        .reduce((sum, load) => sum + (load.q + (load.qJ ?? load.q)) / 2 *
+          loadSpanLength(load, layout.memberMeasures.get(load.elementId)!.length), 0);
+      expect(force).toBeCloseTo(-area * pressure, 10);
+    }
+    const reportedDead = gap <= 0.05 ? [2 * area * pressure] : [area * pressure, area * pressure];
+    expect(plan.levels.map(level => level.superimposedKN)).toEqual(reportedDead.map(force => expect.closeTo(force, 10)));
     const singleBay = { ...model, elements: new Map([...model.elements].slice(0, 4)) };
     expect(roofWeightFor(model, explicitlySelectedBays, 3, pressure)).toBe(roofWeightFor(singleBay, explicitlySelectedBays, 3, pressure));
   };
-  if (gap <= 0.05) knownWrongCloseBays(`known wrong result: #2512 — explicit flat beam bays at gap ${gap} retain independent loads`, verify);
+  if (gap <= 0.05) it(`#2512 — explicit flat beam bays at gap ${gap} retain independent loads`, verify);
   else it('#2512 explicit flat beam bays beyond the roof-cover cutoff retain independent loads', verify);
 }
 
-knownWrongCloseBays('known wrong result: #2512 — restored explicit beam bays at 49 mm can apply dead load', () => {
+it('#2512 — restored explicit beam bays at 49 mm can apply dead load', () => {
   const { model } = stackedBeamBays(0.049);
   const { plan } = restoreAndPlan(model, false, explicitlySelectedBays);
   expect(plan.outcome, JSON.stringify(plan.blockedKeys)).toBe('READY');
@@ -532,7 +539,7 @@ knownWrongCloseBays('known wrong result: #2512 — restored explicit beam bays a
   expect(loadedMembers).toEqual(new Set(modelStore.model.elements.keys()));
 });
 
-knownWrongCloseBays('known wrong result: #2512 — WASM reactions include both explicitly selected beam bays at 49 mm', () => {
+it('#2512 — WASM reactions include both explicitly selected beam bays at 49 mm', () => {
   checkPlanReactions(stackedBeamBays(0.049).model, 'D', 2 * area * pressure, explicitlySelectedBays);
 });
 

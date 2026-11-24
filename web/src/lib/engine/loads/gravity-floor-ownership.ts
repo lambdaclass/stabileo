@@ -115,10 +115,12 @@ export type BayAssignment =
 
 const bayMembers = (bay: FloorBay) => [...bay.members].sort((a, b) => a - b).join(', ');
 
+type BayLevelSeparation = { tolerance: number; componentOf: (node: number) => number };
+
 export function partitionGravityFloors<S extends Shell>(
   shells: readonly S[],
   bays: readonly FloorBay[],
-  tolerance: number,
+  { deck: tolerance, explicitBeamBays }: { deck: number; explicitBeamBays?: BayLevelSeparation },
   coordinates: (node: number) => Point3,
   hasBoundaryAttachment: (shell: S, bay: FloorBay) => boolean,
   shellSeparation: (first: S, second: S) => number,
@@ -128,8 +130,12 @@ export function partitionGravityFloors<S extends Shell>(
   }));
   const bayCarriers = bays.map(bay => {
     const boundaryNodes = bay.boundaryNodes[0]!;
-    const points = bay.boundaryNodes.flat().map(coordinates);
-    return { kind: 'bay' as const, bay, boundaryNodes, footprint: bay.boundary, deck: deck(points) };
+    const nodes = bay.boundaryNodes.flat();
+    const geometry = deck(nodes.map(coordinates));
+    const [low, high] = geometry.range;
+    const flatFrameComponents = explicitBeamBays && Number.isFinite(low) && low === high
+      ? new Set(nodes.map(explicitBeamBays.componentOf)) : undefined;
+    return { kind: 'bay' as const, bay, boundaryNodes, footprint: bay.boundary, deck: geometry, flatFrameComponents };
   });
   type BayMatches = { covering: ShellDeck<S>[]; roof?: ShellDeck<S>[] };
   const matches = new Map<FloorBay, BayMatches>();
@@ -150,9 +156,12 @@ export function partitionGravityFloors<S extends Shell>(
   let pitchedRoofs: ReturnType<typeof connectedPitchedRoofs<S>> | undefined;
   for (const [a, b] of potentiallyOverlapping([...shellCarriers, ...bayCarriers], carrierOutline)) {
     if (a.kind === 'bay' && b.kind === 'bay') {
-      if (separatedByHeightRange(a.deck, b.deck, tolerance)) continue;
+      const first = a.flatFrameComponents, second = b.flatFrameComponents;
+      const independentLevels = explicitBeamBays && first && second && ![...first].some(root => second.has(root));
+      const limit = independentLevels ? explicitBeamBays.tolerance : tolerance;
+      if (separatedByHeightRange(a.deck, b.deck, limit)) continue;
       const overlap = positiveOverlap(a.footprint, b.footprint);
-      if (overlap && !separated(a.deck, b.deck, overlap, tolerance)) {
+      if (overlap && !separated(a.deck, b.deck, overlap, limit)) {
         refuseGravityGeometry(msg('loadPlan.gravity.overlappingBays', { first: bayMembers(a.bay), second: bayMembers(b.bay) }));
       }
       continue;

@@ -300,8 +300,16 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
     return [x, y, z];
   };
   const fixedShellStations = directlyGroundedShells(model, carriers, terminals);
+  const frameComponents = opts.mode === 'panels' && opts.loadEveryPanel && !model.quads?.size && !model.constraints?.length
+    ? new NodeComponents() : undefined;
+  if (frameComponents) {
+    for (const { nodeI, nodeJ } of model.elements.values()) frameComponents.join(nodeI, nodeJ);
+  }
   const ownership = opts.mode === 'panels' ? partitionGravityFloors(
-    carriers, prepared.flatMap(({ floor }) => floor.bays), MIN_COVER_RISE, coordinates, shellBoundaryAttachments(model, beamsAt, links, terminals),
+    carriers, prepared.flatMap(({ floor }) => floor.bays), {
+      deck: MIN_COVER_RISE,
+      explicitBeamBays: frameComponents && { tolerance: TOL, componentOf: node => frameComponents.root(node) },
+    }, coordinates, shellBoundaryAttachments(model, beamsAt, links, terminals),
     (first, second) => fixedShellStations.get(first)?.some(node => fixedShellStations.get(second)?.includes(node))
       ? TOL : MIN_COVER_RISE,
   ) : undefined;
