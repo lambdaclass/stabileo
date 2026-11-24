@@ -1,4 +1,4 @@
-import { accountingCaseSources, copyAccountingLoad, scenarioSurfaceIntentOf, withScenarioSurfaceIntent, type AccountingCaseSources } from './accounting-source';
+import { accountingCaseSources, copyAccountingLoad, scenarioSurfaceExpectations, scenarioSurfaceIntentOf, withScenarioSurfaceIntent, type AccountingCaseSources, type ScenarioSurfaceIntent } from './accounting-source';
 import { loadCaseBatches } from './load-accounting';
 /**
  * The loads each case carries when solved, from what the model states about the case:
@@ -150,6 +150,7 @@ export function withCaseEffects<M extends ModelData>(
 
   const loads = new Map<number, Load[]>();
   const generated = new Map<number, Load[]>();
+  let expectedPressures: ReturnType<typeof scenarioSurfaceExpectations> | undefined;
   let nextId = Math.max(0, ...model.loads.map((l) => l.data.id)) + 1;
   const fresh = (l: Load, caseId: number, k: number): Load => {
     const s = k === 1 ? l : scaleCaseLoad(l, k);
@@ -164,7 +165,9 @@ export function withCaseEffects<M extends ModelData>(
     const swRows = [...(rows.get(id) ?? [])];
     if (c.notional && !looped.has(id)) {
       const src = c.notional.sourceCaseId;
-      const gravity = sourceGravity(model, loads.get(src) ?? own.get(src) ?? [], rows.get(src) ?? [], opts.leftHand);
+      expectedPressures ??= scenarioSurfaceExpectations(sources);
+      const gravity = sourceGravity(model, src, loads.get(src) ?? own.get(src) ?? [], rows.get(src) ?? [],
+        opts.leftHand, expectedPressures(src));
       if (gravity) {
         const [ux, uy] = DIRS[c.notional.dir];
         const actions: Load[] = notionalLoads(gravity, c.notional.ratio, ux, uy).flatMap(n => n.type === 'nodal' ? [{
@@ -202,13 +205,15 @@ export function withCaseEffects<M extends ModelData>(
  * own ends by the lever rule, as `nodeGravity` shares out a member load, so every notional load is
  * on a node the model has.
  */
-function sourceGravity(model: ModelData, srcLoads: Load[], srcRows: SelfWeightLoad[], leftHand: boolean): Map<number, number> | null {
+function sourceGravity(
+  model: ModelData, caseId: number, srcLoads: Load[], srcRows: SelfWeightLoad[], leftHand: boolean, expectedPressures: readonly ScenarioSurfaceIntent[],
+): Map<number, number> | null {
   const of = { ...model, loads: srcLoads, analysis: { ...(model.analysis ?? {}), selfWeight: srcRows } } as ModelData;
   const prepared = prepareSolverInput3D(of, leftHand);
   const { model: solvable } = prepared;
   const base = prepared.build([]);
   if (!base) return null;
-  const { gravity } = nodeGravity(base, notionalSourceLoads3D(solvable, leftHand), leftHand);
+  const { gravity } = nodeGravity(base, notionalSourceLoads3D(solvable, leftHand, caseId, expectedPressures), leftHand);
   const exp = variableExpansionFor(of);
   if (!exp) return gravity;
   const at = new Map<number, { parent: number; t: number }>();
@@ -314,7 +319,7 @@ export function singleSolveModel<M extends ModelData>(model: M, cases: readonly 
       for (const r of stated ?? []) if (r.caseId === caseId) rows.push({ ...r, caseId: as, factor: r.factor * factor });
     }
   }
-  return { ...model, [accountingCaseSources]: sources, loads, ...(stated ? { analysis: { ...model.analysis, selfWeight: rows } } : {}) };
+  return { ...model, [accountingCaseSources]: { ...sources, single: true }, loads, ...(stated ? { analysis: { ...model.analysis, selfWeight: rows } } : {}) };
 }
 
 /**

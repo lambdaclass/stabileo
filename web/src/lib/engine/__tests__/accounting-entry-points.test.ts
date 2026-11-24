@@ -121,7 +121,6 @@ it('keeps WASM structural entry points and raw load conversion in the audited ca
     'lib/engine/wasm-solver.ts',
   ]);
   expect([...converters].sort()).toEqual([
-    'lib/engine/case-effects.ts',
     'lib/engine/dynamics/mass-source-model.ts',
     'lib/engine/solver-service.ts',
     'lib/store/materialize-space.ts',

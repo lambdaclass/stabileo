@@ -1,12 +1,14 @@
 import { beforeEach, expect, it, vi } from 'vitest';
 import { POINT_END_TOL } from '../../engine/member-point-loads';
 import { plateRemeshMessage } from '../../engine/plate-analysis-refusal';
-import { accountingProjection, withScenarioSurfaceIntent } from '../../engine/accounting-source';
+import { accountingCaseSources, accountingProjection, scenarioSurfaceExpectations, withScenarioSurfaceIntent } from '../../engine/accounting-source';
 import {
-  buildSolverInput2D, prepareSolverInput3D, caseSolverLoads3D, comboSolverLoads3D, solveCombinations2D, validateAndSolve2D, validateAndSolve2DAsync, type ModelData,
+  buildSolverInput2D, buildSolverInput3D, notionalSourceLoads3D, prepareSolverInput3D, caseSolverLoads3D, comboSolverLoads3D, solveCombinations2D, validateAndSolve2D, validateAndSolve2DAsync, type ModelData,
 } from '../../engine/solver-service';
+import type { ShellLoadSpec } from '../../engine/shell-load-integration';
 import type { SolverLoad3D } from '../../engine/types-3d';
 import { withCaseEffects } from '../../engine/case-effects';
+import { caseMassLoads } from '../../engine/dynamics/mass-source-model';
 import { runDirectAnalysis } from '../../engine/direct-analysis';
 import { agrees, roundoff } from '../../engine/accounting-math';
 import { runGlobalSolve, runLiveCalc } from '../../engine/live-calc';
@@ -29,10 +31,11 @@ vi.mock('../../engine/case-effects', async importOriginal => {
       loads: expanded.loads.filter(load => load.type !== 'surface3d' || load.data.caseId !== fault.dropSceneCase),
     } : expanded;
   }
+  const expand = original.withCaseEffects;
+  vi.spyOn(original, 'withCaseEffects').mockImplementation((...args) => drop(expand(...args)));
   return {
     ...original,
     singleSolveModel: (...args: Parameters<typeof original.singleSolveModel>) => drop(original.singleSolveModel(...args)),
-    withCaseEffects: (...args: Parameters<typeof original.withCaseEffects>) => drop(original.withCaseEffects(...args)),
   };
 });
 
@@ -509,9 +512,7 @@ it('#2479 refuses a wrong what-if plate-pressure factor throughout spatial analy
   }
 });
 
-const pressureReview = process.env.RUN_KNOWN_WRONG === '2479' ? it : it.skip;
-
-pressureReview('known wrong result: #2479 refuses a missing reference case with cancelling pressures on two floors', async () => {
+it('#2479 refuses a missing reference case with cancelling pressures on two floors', async () => {
   const source = modelStore.addLoadCase('Opposite pressures');
   expect(modelStore.updateLoadCaseFields(source, { reference: true })).toBe(true);
   const setFactor = (factor: number) =>
@@ -546,6 +547,12 @@ pressureReview('known wrong result: #2479 refuses a missing reference case with 
   const combinations = perCase();
   if (!combinations || typeof combinations === 'string') throw new Error(String(combinations));
   checkReactions(combinations.perCombo.get(combo)!);
+  const scope = new Set([1]);
+  const massFactors = [{ caseId: 1, name: 'Dead load', type: 'D', factor: 1, basis: 'stated' as const }];
+  const expanded = (): ModelData => withCaseEffects(model, model.loadCases, opts, scope);
+  expect(caseMassLoads(expanded(), massFactors, false)[0]?.surface).toEqual(
+    floors.map(({ quadId }, i) => ({ quadId, q: i === 0 ? 1 : -1 })),
+  );
 
   fault.dropSceneCase = 1;
   const diagnostic = expect.stringMatching(/case.*(?:surface3d|shell)/i);
@@ -554,6 +561,10 @@ pressureReview('known wrong result: #2479 refuses a missing reference case with 
     async: () => modelStore.solve3DAsync(false, false, true),
     direct: () => runDirectAnalysis(model, model.loadCases, model.combinations, opts),
   })) expect.soft(await outcome(run), name).toEqual(diagnostic);
+  const missing = expanded();
+  expect.soft(() => caseMassLoads(missing, massFactors, false), 'mass source').toThrow(/case.*surface3d/i);
+  expect.soft(() => notionalSourceLoads3D(missing, false, 1, scenarioSurfaceExpectations(missing[accountingCaseSources]!)(1)), 'notional source')
+    .toThrow(/case.*surface3d/i);
   expect.soft(modelStore.singleSolveInput3D(false, false, true), 'input').toBeNull();
   expect.soft(await runGlobalSolve({ directBase: true }), 'global').toMatchObject({ ok: false, error: diagnostic });
   modelStore.setAnalysis({ perCombination: 'pdelta' });
@@ -567,11 +578,11 @@ pressureReview('known wrong result: #2479 refuses a missing reference case with 
   expect(linear()).toMatchObject({ reactions: expect.any(Array) });
 });
 
-pressureReview('known wrong result: #2479 checks nodal pressure independently of the production integrator', async () => {
+it('#2479 checks nodal pressure independently of the production integrator', async () => {
   await checkAlternatingExplorePressures('integration');
 });
 
-pressureReview('known wrong result: #2479 accounts for declared factors when checking supplied solver loads', () => {
+it('#2479 accounts for declared factors when checking supplied solver loads', () => {
   const { id } = floor();
   expect(applyPlateMeshes([planPlateMesh(id)!]).plates).toBe(1);
   syncDefinedLoadsForAnalysis();
@@ -592,9 +603,55 @@ pressureReview('known wrong result: #2479 accounts for declared factors when che
   expect(loads.reduce((total, load) => total + load.data.fz, 0)).toBeCloseTo(-4 * 5, 8);
 });
 
-pressureReview.each(['case', 'assembly'] as const)(
-  'known wrong result: #2479 clears a successful live result after a %s refusal',
+it.each(['case', 'assembly'] as const)(
+  '#2479 clears a successful live result after a %s refusal',
   async stage => checkAlternatingExplorePressures(stage, true),
+);
+
+const halfRegion: ShellLoadSpec['region'] = {
+  normal: [0, 0, 1], points: [[0, 0, 0], [2, 0, 0], [2, 5, 0], [0, 5, 0]],
+};
+
+it.each([
+  { name: 'triangle with corner pressures', xy: [[0, 0], [4, 0], [0, 5]], field: { q: 0, qNodes: [0, 6, 0] },
+    expected: [2.5, 5, 2.5] },
+  { name: 'rectangle with corner pressures', xy: [[0, 0], [4, 0], [4, 5], [0, 5]], field: { q: 0, qNodes: [0, 6, 6, 0] },
+    expected: [5, 10, 10, 5] },
+  { name: 'rectangle with a varying field', xy: [[0, 0], [4, 0], [4, 5], [0, 5]],
+    field: { q: 0, vary: { dir: [1, 0, 0], c1: 0, q1: 0, c2: 4, q2: 6 } }, expected: [5, 10, 10, 5] },
+  { name: 'rectangle with a clipped field', xy: [[0, 0], [4, 0], [4, 5], [0, 5]], field: { q: 4, region: halfRegion },
+    expected: [7.5, 2.5, 2.5, 7.5] },
+  { name: 'trapezoid under whole pressure', xy: [[0, 0], [4, 0], [5, 5], [0, 5]], field: { q: 4 },
+    expected: [65 / 6, 65 / 6, 35 / 3, 35 / 3] },
+  { name: 'trapezoid under partial pressure', xy: [[0, 0], [4, 0], [5, 5], [0, 5]], field: { q: 4, region: halfRegion },
+    expected: null },
+] satisfies { name: string; xy: number[][]; field: ShellLoadSpec; expected: number[] | null }[])(
+  '#2479 checks $name against analytic nodal forces',
+  ({ xy, field, expected }) => {
+    const nodes = xy.map(([x, y]) => modelStore.addNode(x!, y!, 0));
+    for (const node of nodes) modelStore.addSupport(node, 'fixed3d');
+    const triangle = nodes.length === 3;
+    const quadId = triangle
+      ? modelStore.addPlate(nodes as [number, number, number], 1, 0.2)
+      : modelStore.addQuad(nodes as [number, number, number, number], 1, 0.2);
+    const baseline = { ...field, id: 1, caseId: 1, quadId, ...(triangle ? { on: 'plate' as const } : {}) };
+    const data = {
+      ...baseline, q: baseline.q / 2, qNodes: baseline.qNodes?.map(q => q / 2),
+      vary: baseline.vary && { ...baseline.vary, q1: baseline.vary.q1 / 2, q2: baseline.vary.q2 / 2 },
+    };
+    const model = modelStore.model;
+    model.loads.push(withScenarioSurfaceIntent({ type: 'surface3d', data }, { baseline, factor: 0.5 }));
+    if (!expected) {
+      expect(() => buildSolverInput3D(model)).toThrow(/case.*surface3d/i);
+      return;
+    }
+    const loads = buildSolverInput3D(model)?.loads;
+    expect(loads).toHaveLength(nodes.length);
+    nodes.forEach((nodeId, i) => {
+      const wire = loads?.find(load => load.type === 'nodal' && load.data.nodeId === nodeId);
+      expect(wire?.type === 'nodal' && wire.data.fz).toBeCloseTo(-expected[i]!, 10);
+    });
+  },
 );
 
 it('#2479 refuses alternating equivalent nodal force errors introduced during assembly', async () => {
@@ -667,7 +724,7 @@ async function checkAlternatingExplorePressures(stage: 'slider' | 'case' | 'asse
     fault.cornerPressureDelta = stage === 'slider' ? delta : 0;
     whatIf.setLoadFactor(index, requested);
     await vi.advanceTimersByTimeAsync(60);
-    if (stage !== 'slider') inject(delta);
+    inject(delta);
   };
   const within = requested * (roundoff - Number.EPSILON);
   const beyond = requested * (roundoff + 2 * Number.EPSILON);
@@ -743,7 +800,6 @@ async function checkAlternatingExplorePressures(stage: 'slider' | 'case' | 'asse
     }
     if (nodalDrift) expect.soft(await outcome(notional), 'notional source').toEqual(expect.stringMatching(/case.*node.*Fz/i));
     expect.soft(modelStore.singleSolveInput3D(false, false, true), 'input').toBeNull();
-    if (stage !== 'slider') resultsStore.clear3D();
     await runLiveCalc('pro', uiStore.axisConvention3D);
     expect.soft(uiStore.liveCalcError, 'live').toEqual(diagnostic);
     expect.soft(resultsStore.results3D, 'live results').toBeNull();

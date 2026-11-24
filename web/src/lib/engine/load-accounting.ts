@@ -1,4 +1,4 @@
-import { accountingCaseSources, accountingProjection, accountingSource, scenarioSurfaceIntentOf } from './accounting-source';
+import { accountingCaseSources, accountingProjection, accountingSource, scenarioIntents, scenarioSurfaceExpectations, scenarioSurfaceIntentOf, type ScenarioSurfaceIntent } from './accounting-source';
 import { tp } from '../i18n';
 import type { Load, PointLoadOnElement } from '../store/model.svelte';
 import type { FloorLoadDef } from '../model/loads/floor-definitions';
@@ -10,8 +10,8 @@ import { memberFrame3D } from './member-loads';
 import { planarLoadDirection } from './planar-load-direction';
 import { transverseSign } from './transverse-sign-2d';
 import { agreesAtScale, assembledMagnitudes3D, LoadScalar, LoadVector, norm, positionAt, sub, unit, xyz, zero, Wrench, type Vector } from './accounting-math';
-import { accountSurface } from './surface-accounting';
-import { shellLoadForces, type ShellLoadSpec } from './shell-load-integration';
+import { accountSurface, expectedSurfaceNodeForces } from './surface-accounting';
+import type { ShellLoadSpec } from './shell-load-integration';
 import { SolveAccountingError, type PlateMeasure } from './plate-accounting';
 
 type Frame = 'xy' | 'xz' | 'space';
@@ -68,14 +68,41 @@ export function verifyFactoredScenarioNode(
   if (expected) verifyScenarioNode(model, id, `#${id} (${name})`, scaled, { ...expected, force: expected.force.scale(factor) });
 }
 
-export function verifyScenarioSurfaceLoads(
-  model: ModelData, caseId: number, loads: readonly Load[], sources: ReadonlyMap<Load, readonly SolverLoad3D[]> | undefined,
-  label = caseLabel(model, caseId),
-): void {
+function scenarioKey(intent: ScenarioSurfaceIntent): string {
+  const { baseline, caseFactors = [] } = intent;
+  return [baseline.caseId ?? 1, baseline.id, ...caseFactors.filter(factor => factor !== 1)].join(':');
+}
+
+export function matchScenarioSurfaces(
+  model: ModelData, caseId: number, loads: readonly Load[], expectedIntents?: readonly ScenarioSurfaceIntent[],
+) {
+  const pending = new Map<string, ScenarioSurfaceIntent[]>();
+  for (const intent of expectedIntents ?? []) {
+    const key = scenarioKey(intent);
+    const same = pending.get(key);
+    if (same) same.push(intent);
+    else pending.set(key, [intent]);
+  }
+  const matched = [];
   for (const load of loads) {
     if (load.type !== 'surface3d') continue;
-    const intent = scenarioSurfaceIntentOf(load);
-    if (!intent) continue;
+    const actual = scenarioSurfaceIntentOf(load);
+    if (!actual) continue;
+    const intent = expectedIntents ? pending.get(scenarioKey(actual))?.pop() : actual;
+    if (!intent) unsupported(model, caseId, 'surface3d', actual.baseline.quadId);
+    matched.push({ load, intent });
+  }
+  for (const [missing] of pending.values()) {
+    if (missing) unsupported(model, caseId, 'surface3d', missing.baseline.quadId);
+  }
+  return matched;
+}
+
+export function verifyScenarioSurfaceLoads(
+  model: ModelData, caseId: number, loads: readonly Load[], sources: ReadonlyMap<Load, readonly SolverLoad3D[]> | undefined,
+  label = caseLabel(model, caseId), expectedIntents?: readonly ScenarioSurfaceIntent[],
+): void {
+  for (const { load, intent } of matchScenarioSurfaces(model, caseId, loads, expectedIntents)) {
     const { data } = load;
     const { baseline, factor } = intent;
     const shell = (baseline.on === 'plate' ? model.plates : model.quads)?.get(baseline.quadId);
@@ -111,17 +138,17 @@ export function verifyScenarioSurfaceLoads(
       if (baseline.qNodes) expected.qNodes = pressures;
     }
 
-    const points = shell.nodes.map(nodeId => model.nodes.get(nodeId) ?? unsupported(model, caseId, 'node', nodeId));
-    const forces = shellLoadForces(baseline.on === 'plate' ? 'plate' : 'quad', points, expected);
+    const points = shell.nodes.map(nodeId => xyz(model.nodes.get(nodeId) ?? unsupported(model, caseId, 'node', nodeId)));
+    const forces = expectedSurfaceNodeForces(points, expected);
     const batch = sources?.get(load) ?? [];
-    if (!forces || batch.length !== shell.nodes.length) unsupported(model, caseId, load.type, data.id);
+    if (!forces || batch.length !== shell.nodes.length) unsupported(model, caseId, load.type, baseline.quadId);
     const byNode = new Map(batch.map(wire => {
       if (wire.type !== 'nodal') unsupported(model, caseId, load.type, data.id);
       return [wire.data.nodeId, wire] as const;
     }));
     for (const [i, nodeId] of shell.nodes.entries()) {
       const wire = byNode.get(nodeId) ?? unsupported(model, caseId, load.type, data.id);
-      const expectedNode = { shellId: baseline.quadId, nodeId, force: LoadVector.from(forces.forces[i]!) };
+      const expectedNode = { shellId: baseline.quadId, nodeId, force: forces[i]! };
       verifyScenarioNode(model, caseId, label, wire, expectedNode);
       scenarioNodeForces.set(wire, expectedNode);
     }
@@ -204,7 +231,16 @@ function enteredLoads(model: ModelData, loads: readonly Load[], frame: Frame, le
         if (!shell || frame !== 'space' || !accountSurface(surface, shell.nodes.map(at), spec)) {
           unsupported(model, caseId, load.type, spec.id);
         }
-        if (intent) out.addScaled(surface, intent.factor - (coveredByDefinition ? 1 : 0));
+        if (intent) {
+          let adjusted = surface;
+          for (const factor of [intent.factor - (coveredByDefinition ? 1 : 0), ...(intent.caseFactors ?? [])]) {
+            if (factor === 1) continue;
+            const scaled = new Wrench();
+            scaled.addScaled(adjusted, factor);
+            adjusted = scaled;
+          }
+          out.addScaled(adjusted, 1);
+        }
         continue;
       }
       case 'distributed':
@@ -404,6 +440,9 @@ export function loadAccounting3D(
   const source = (checkAuthored ? model[accountingSource] : undefined) ?? model;
   const effects = checkAuthored ? model[accountingCaseSources] : undefined;
   const authored = effects?.authored ?? loadCaseBatches(source.loads);
+  const scenarioExpected = effects
+    ? scenarioSurfaceExpectations(effects)
+    : (id: number) => scenarioIntents(authored.get(id) ?? []);
   const pressures = new Map<number, Array<{ id: number; plate: PlateMeasure; pressure: LoadVector }>>();
   for (const [id, group] of source.groups ?? []) {
     if (group.kind !== 'floorLoad') continue;
@@ -455,7 +494,8 @@ export function loadAccounting3D(
           : expected(caseId);
       const label = [caseLabel(model, caseId), ...names].join(' · ');
       compare(label, totals, assembled3D(model, input, assembled, caseId));
-      verifyScenarioSurfaceLoads(source, caseId, loads, sources, label);
+      const intents = checkAuthored ? (!effects || effects.targets.has(caseId) ? scenarioExpected(caseId) : []) : undefined;
+      verifyScenarioSurfaceLoads(source, caseId, loads, sources, label, intents);
       return totals;
     },
   };

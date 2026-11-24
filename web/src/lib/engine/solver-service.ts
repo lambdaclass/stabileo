@@ -1,4 +1,4 @@
-import { accountingCaseSources, accountingProjection, accountingSource, copyAccountingLoad, scenarioSurfaceIntentOf, type AccountingCaseSources } from './accounting-source';
+import { accountingCaseSources, accountingProjection, accountingSource, copyAccountingLoad, scenarioSurfaceIntentOf, type AccountingCaseSources, type ScenarioSurfaceIntent } from './accounting-source';
 import { scaleAssembledMagnitudes3D, type Wrench } from './accounting-math';
 import { accountCombination, accountLoads2D, loadAccounting3D, loadCaseBatches, verifyFactoredScenarioNode, verifyScenarioSurfaceLoads } from './load-accounting';
 import { accountPlateGeometry, SolveAccountingError } from './plate-accounting';
@@ -147,6 +147,7 @@ function snapshotNonlinearModel(model: ModelData): ModelData {
     generated: new Map([...cases.generated].map(([id, loads]) => [id, loads.map(copyAccountingLoad)])),
     cases: snapshotMap(cases.cases),
     targets: new Set(cases.targets),
+    single: cases.single,
   };
   const source = model[accountingSource];
   if (source) snapshot[accountingSource] = snapshotNonlinearModel(source);
@@ -1887,9 +1888,11 @@ function recordedSolverLoads3D(model: ModelData, loads: Load[], weights: boolean
   return accountAssembly<SolverLoad3D>(record => buildSolverLoads3D(model, loads, weights, leftHand, { record }));
 }
 
-export function notionalSourceLoads3D(model: ModelData, leftHand: boolean): SolverLoad3D[] {
+export function notionalSourceLoads3D(
+  model: ModelData, leftHand: boolean, caseId: number, expectedPressures: readonly ScenarioSurfaceIntent[],
+): SolverLoad3D[] {
   const { loads, sources } = recordedSolverLoads3D(model, model.loads, model.analysis?.selfWeight ?? [], leftHand);
-  for (const [caseId, entered] of loadCaseBatches(model.loads)) verifyScenarioSurfaceLoads(model, caseId, entered, sources);
+  verifyScenarioSurfaceLoads(model, caseId, model.loads, sources, undefined, expectedPressures);
   return loads;
 }
 
