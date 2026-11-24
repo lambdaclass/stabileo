@@ -17011,6 +17011,8 @@ const fr: Translations = {
   "rcSheets.v.capStmTieY": "Tirant en Y",
   "rcSheets.v.capSecondaryX": "Nappe répartie en X (¼ des bandes)",
   "rcSheets.v.capSecondaryY": "Nappe répartie en Y (¼ des bandes)",
+  "rcSheets.v.capBandSpacingX": "Espacement des barres de la bande en X",
+  "rcSheets.v.capBandSpacingY": "Espacement des barres de la bande en Y",
   "rcSheets.v.capTopX": "Moment négatif en X : armatures supérieures à la charge de l'ingénieur",
   "rcSheets.v.capTopY": "Moment négatif en Y : armatures supérieures à la charge de l'ingénieur",
   "rcSheets.v.capTie": "Longrines entre semelles en traction ou compression",

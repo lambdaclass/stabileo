@@ -16719,6 +16719,8 @@ const hu: Translations = {
   "rcSheets.v.capStmTieY": "Húzott rúd Y irányban",
   "rcSheets.v.capSecondaryX": "Elosztott háló X irányban (a sávok ¼-e)",
   "rcSheets.v.capSecondaryY": "Elosztott háló Y irányban (a sávok ¼-e)",
+  "rcSheets.v.capBandSpacingX": "A sáv betonacéljainak távolsága X irányban",
+  "rcSheets.v.capBandSpacingY": "A sáv betonacéljainak távolsága Y irányban",
   "rcSheets.v.capTopX": "Negatív nyomaték X irányban: a felső vasalás a tervezőre marad",
   "rcSheets.v.capTopY": "Negatív nyomaték Y irányban: a felső vasalás a tervezőre marad",
   "rcSheets.v.capTie": "Fejgerendák közötti húzott vagy nyomott kötőgerendák",

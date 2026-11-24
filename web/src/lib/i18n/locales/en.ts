@@ -17173,6 +17173,8 @@ const en: Record<string, string> = {
   "rcSheets.v.capStmTieY": "Tie along Y",
   "rcSheets.v.capSecondaryX": "Distributed mesh along X (¼ of the bands)",
   "rcSheets.v.capSecondaryY": "Distributed mesh along Y (¼ of the bands)",
+  "rcSheets.v.capBandSpacingX": "Bar spacing in the band along X",
+  "rcSheets.v.capBandSpacingY": "Bar spacing in the band along Y",
   "rcSheets.v.capTopX": "Hogging moment along X: top bars for the engineer",
   "rcSheets.v.capTopY": "Hogging moment along Y: top bars for the engineer",
   "rcSheets.v.capTie": "Ties between caps in tension or compression",

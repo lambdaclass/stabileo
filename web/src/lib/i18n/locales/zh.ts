@@ -16748,6 +16748,8 @@ const zh: Translations = {
   "rcSheets.v.capStmTieY": "沿 Y 向的拉杆",
   "rcSheets.v.capSecondaryX": "沿 X 向的分布钢筋网（条带的 ¼）",
   "rcSheets.v.capSecondaryY": "沿 Y 向的分布钢筋网（条带的 ¼）",
+  "rcSheets.v.capBandSpacingX": "沿 X 向条带内的钢筋间距",
+  "rcSheets.v.capBandSpacingY": "沿 Y 向条带内的钢筋间距",
   "rcSheets.v.capTopX": "沿 X 向的负弯矩：顶部钢筋由工程师确定",
   "rcSheets.v.capTopY": "沿 Y 向的负弯矩：顶部钢筋由工程师确定",
   "rcSheets.v.capTie": "承台之间受拉或受压的拉梁",

@@ -31,9 +31,10 @@ describe('a deep cap\'s ties in bands over its piles', () => {
     expect(x.bands!.count).toBe(Math.max(2, Math.ceil(t.asx / barArea(x.dia) - 1e-9)));
     expect(t.tie.x).toBeCloseTo(x.bands!.count * barArea(x.dia), 9);
     expect(t.tie.x).toBeGreaterThanOrEqual(t.asx - 1e-9);
-    expect(t.mesh.x).toBeGreaterThanOrEqual(CAP_SECONDARY * t.asx - 1e-9);
+    expect(t.mesh.x).toBeNull();
+    expect(r.verifications.some((v) => v.label === 'rcSheets.v.capSecondaryX')).toBe(false);
+    expect(r.verifications.find((v) => v.label === 'rcSheets.v.capBandSpacingX')?.ok).toBe(true);
     expect(r.adopted.y.bands).toBeUndefined();
-    expect(r.verifications.find((v) => v.label === 'rcSheets.v.capSecondaryX')?.ok).toBe(true);
     expect(r.status, r.verifications.filter((v) => !v.ok).map((v) => v.label).join(', ')).toBe('ok');
   });
 
@@ -64,11 +65,24 @@ describe('a deep cap\'s ties in bands over its piles', () => {
     expect(bandLines(at, 'x')).toHaveLength(2);
     expect(r.cap!.stm!.tie.x).toBeGreaterThanOrEqual(r.cap!.stm!.asx - 1e-9);
     expect(r.cap!.stm!.tie.y).toBeGreaterThanOrEqual(r.cap!.stm!.asy - 1e-9);
+    for (const dir of ['x', 'y'] as const) {
+      const m = r.adopted[dir], laid = meshSpan(dir, { B: r.B, L: r.L, ex: 0, ey: 0 }, m, r.cover);
+      expect(r.cap!.stm!.mesh[dir]).toBeCloseTo((laid.positions.length - laid.inBand) * barArea(m.dia), 9);
+      expect(r.cap!.stm!.mesh[dir]!).toBeGreaterThanOrEqual(CAP_SECONDARY * (dir === 'x' ? r.cap!.stm!.asx : r.cap!.stm!.asy) - 1e-9);
+    }
+    expect(r.verifications.filter((v) => v.label.startsWith('rcSheets.v.capSecondary')).every((v) => v.ok)).toBe(true);
   });
 
   it('counts a band only where two piles or more stand in a line', () => {
     expect(bandLines([[-0.75, -0.43], [0.75, -0.43], [0, 0.87]], 'x')).toEqual([-0.43]);
     expect(bandLines([[-0.75, -0.43], [0.75, -0.43], [0, 0.87]], 'y')).toEqual([]);
     expect(bandWidth(0.6, 0.05, 16)).toBeCloseTo(0.6 + 2 * (0.125 + 0.008 - 0.1), 9);
+  });
+
+  it('fails a band its bars cannot fit in, a bar\'s pitch apart, instead of crowding them unsaid', () => {
+    const r = rules.footingRow(demand(700), ctx, undefined, fmt), a = r.adopted, x = a.x;
+    const crowded = { ...a, x: { ...x, bands: { ...x.bands!, count: 20 } } };
+    const v = rules.footingRow(demand(700), ctx, crowded as never, fmt).verifications.find((l) => l.label === 'rcSheets.v.capBandSpacingX')!;
+    expect(v.ok).toBe(false);
   });
 });

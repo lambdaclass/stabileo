@@ -17011,6 +17011,8 @@ const de: Translations = {
   "rcSheets.v.capStmTieY": "Zugband in Y",
   "rcSheets.v.capSecondaryX": "Verteilte Bewehrung in X (¼ der Streifen)",
   "rcSheets.v.capSecondaryY": "Verteilte Bewehrung in Y (¼ der Streifen)",
+  "rcSheets.v.capBandSpacingX": "Stababstand im Streifen in X",
+  "rcSheets.v.capBandSpacingY": "Stababstand im Streifen in Y",
   "rcSheets.v.capTopX": "Stützmoment in X: obere Bewehrung durch den Tragwerksplaner",
   "rcSheets.v.capTopY": "Stützmoment in Y: obere Bewehrung durch den Tragwerksplaner",
   "rcSheets.v.capTie": "Zerrbalken zwischen Pfahlkopfplatten auf Zug oder Druck",

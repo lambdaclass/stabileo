@@ -99,7 +99,10 @@ function verifications(r: CapAnalysis, a: CapAdopted, c: FootingContext, code: F
     const tie = k.stm ? (x.dir === 'x' ? k.stm.asx : k.stm.asy) : 0;
     const held = k.stm ? k.stm.tie[x.dir] : 0;
     out.push(check(k.stm ? `rcSheets.v.capStmTie${X}` : `rcSheets.v.footFlexure${X}`, k.stm ? held >= tie - 1e-6 : x.mu <= x.phiMn + 1e-6, k.stm ? { clause: k.stm.banded[x.dir] ? withCriterion('§23.7, §23.8') : '§23.7', demand: cm2(tie), capacity: cm2(held), ratio: ratioOf(tie, held) } : { clause: '§13.2.7.1', demand: `${fmt(x.mu, 1)} kN·m`, capacity: `${fmt(x.phiMn, 1)} kN·m`, ratio: ratioOf(x.mu, x.phiMn) }));
-    if (k.stm?.banded[x.dir] && tie > 1e-9) out.push(check(`rcSheets.v.capSecondary${X}`, k.stm.mesh[x.dir] >= CAP_SECONDARY * tie - 1e-6, { clause: CRITERION, demand: `${fmt(CAP_SECONDARY, 2)} · ${cm2(tie)} = ${cm2(CAP_SECONDARY * tie)}`, capacity: cm2(k.stm.mesh[x.dir]), ratio: ratioOf(CAP_SECONDARY * tie, k.stm.mesh[x.dir]) }));
+    const bp = k.stm?.pitch[x.dir];
+    if (bp) out.push(check(`rcSheets.v.capBandSpacing${X}`, bp.at >= bp.least - 1e-9, { clause: '§25.2.1', demand: cm(bp.at), capacity: `≥ ${cm(bp.least)}` }));
+    const between = k.stm?.mesh[x.dir] ?? null;
+    if (between !== null && tie > 1e-9) out.push(check(`rcSheets.v.capSecondary${X}`, between >= CAP_SECONDARY * tie - 1e-6, { clause: CRITERION, demand: `${fmt(CAP_SECONDARY, 2)} · ${cm2(tie)} = ${cm2(CAP_SECONDARY * tie)}`, capacity: cm2(between), ratio: ratioOf(CAP_SECONDARY * tie, between) }));
     out.push(check(`rcSheets.v.footMin${X}`, x.asProvided >= x.asMin - 1e-6, { clause: '§8.6.1.1', demand: cm2(x.asMin), capacity: cm2(x.asProvided) }));
     out.push(check(`rcSheets.v.footSpacing${X}`, m.spacing <= Math.min(0.45, cr.footingMaxSpacing) + 1e-9, { clause: spacingClause(cr.footingMaxSpacing, a.h), demand: cm(m.spacing), capacity: `≤ ${cm(Math.min(0.45, cr.footingMaxSpacing))}` }));
     if ((x as { mTop?: number }).mTop! > 1e-6 && !k.stm) out.push(check(`rcSheets.v.capTop${X}`, true, { clause: '§13.2.7.1', demand: `${fmt((x as { mTop?: number }).mTop!, 1)} kN·m` }));

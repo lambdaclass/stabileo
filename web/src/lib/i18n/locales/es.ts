@@ -17162,6 +17162,8 @@ const es: Record<string, string> = {
   "rcSheets.v.capStmTieY": "Tensor en Y",
   "rcSheets.v.capSecondaryX": "Parrilla repartida en X (¼ de las bandas)",
   "rcSheets.v.capSecondaryY": "Parrilla repartida en Y (¼ de las bandas)",
+  "rcSheets.v.capBandSpacingX": "Separación de las barras de la banda en X",
+  "rcSheets.v.capBandSpacingY": "Separación de las barras de la banda en Y",
   "rcSheets.v.capTopX": "Momento negativo en X: armadura superior a cargo del proyectista",
   "rcSheets.v.capTopY": "Momento negativo en Y: armadura superior a cargo del proyectista",
   "rcSheets.v.capTie": "Riostras entre cabezales a tracción o compresión",

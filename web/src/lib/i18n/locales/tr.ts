@@ -17011,6 +17011,8 @@ const tr: Translations = {
   "rcSheets.v.capStmTieY": "Y yönünde çekme elemanı",
   "rcSheets.v.capSecondaryX": "X yönünde yayılı hasır (şeritlerin ¼'ü)",
   "rcSheets.v.capSecondaryY": "Y yönünde yayılı hasır (şeritlerin ¼'ü)",
+  "rcSheets.v.capBandSpacingX": "X yönünde şeritteki donatı aralığı",
+  "rcSheets.v.capBandSpacingY": "Y yönünde şeritteki donatı aralığı",
   "rcSheets.v.capTopX": "X yönünde negatif moment: üst donatı mühendise bırakılır",
   "rcSheets.v.capTopY": "Y yönünde negatif moment: üst donatı mühendise bırakılır",
   "rcSheets.v.capTie": "Başlıklar arası çekme veya basınç bağ kirişleri",

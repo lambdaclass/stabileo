@@ -16815,6 +16815,8 @@ const pt: Translations = {
   "rcSheets.v.capStmTieY": "Tirante em Y",
   "rcSheets.v.capSecondaryX": "Malha distribuída em X (¼ das faixas)",
   "rcSheets.v.capSecondaryY": "Malha distribuída em Y (¼ das faixas)",
+  "rcSheets.v.capBandSpacingX": "Espaçamento das barras da faixa em X",
+  "rcSheets.v.capBandSpacingY": "Espaçamento das barras da faixa em Y",
   "rcSheets.v.capTopX": "Momento negativo em X: armadura superior a cargo do projetista",
   "rcSheets.v.capTopY": "Momento negativo em Y: armadura superior a cargo do projetista",
   "rcSheets.v.capTie": "Travamentos entre blocos à tração ou compressão",
