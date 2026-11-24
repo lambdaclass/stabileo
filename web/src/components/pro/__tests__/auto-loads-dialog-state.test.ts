@@ -59,7 +59,8 @@ describe('closing the dialog', () => {
 });
 
 it('passes the selected seismic method to the planner without requesting modes for automatic loads', () => {
-  expect(dialog).toMatch(/seismic: enableSeismic \? \{[\s\S]*?method: seismicMethod\.method/);
+  expect(dialog).toMatch(/planInputOf\(memoryNow\(\)/);
+  expect(readFileSync(join(process.cwd(), 'src/components/pro/auto-loads-plan.ts'), 'utf8')).toMatch(/seismic: m\.enableSeismic \? \{[\s\S]*?method: m\.seismicMethod\.method/);
   expect(dialog).not.toMatch(/\bmodesForPlan\b/);
 });
 

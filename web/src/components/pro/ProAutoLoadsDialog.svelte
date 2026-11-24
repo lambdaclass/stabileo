@@ -19,7 +19,6 @@
     buildLoadPlan, describePlanDelta, levelsWithPlanArea, roofWeightFor, type LoadPlan, type LoadPlanInput, type PlanDelta,
   } from '../../lib/engine/loads/load-plan';
   import { OCCUPANCY_TABLE_2025, PARTITION_LIVE_MINIMUM_KNM2, partitionLiveAllowance } from '../../lib/codes/cirsoc101/live-loads';
-  import { findDeadEntry, deadComponentLoad } from '../../lib/codes/cirsoc101/dead-loads';
   import ProDeadLoadBuilder from './ProDeadLoadBuilder.svelte';
   import type { ComboSource, DeadRow, GravityMode } from './auto-loads-sections';
   import type { ElementKind } from '../../lib/codes/cirsoc101/live-loads';
@@ -37,7 +36,8 @@
   import { windFrequenciesForPlan } from '../../lib/store/seismic-modes';
   import { MODAL_SEISMIC_ISSUE_URL, MODAL_SEISMIC_UNAVAILABLE } from '../../lib/engine/loads/seismic-generation';
   import ProWindDynamics from './ProWindDynamics.svelte';
-  import { autoLoadsDefaults, autoLoadsMemory } from './auto-loads-memory';
+  import { autoLoadsDefaults, autoLoadsMemory, type AutoLoadsMemory } from './auto-loads-memory';
+  import { deadComponent, planInputOf, roleSettingsOf } from './auto-loads-plan';
   import QuantityInput from './loads/QuantityInput.svelte';
   import ProActionRegion from './loads/ProActionRegion.svelte';
   import ProfileChart from './loads/ProfileChart.svelte';
@@ -51,8 +51,9 @@
   import { CODE_INPUTS } from './load-codes/registry';
   import { defaultBeta, isBuildingKind, isLowRise, type WindDynamics, type fundamentalFrequencies } from '../../lib/engine/loads/wind-dynamics';
   import { applyLoadPlan, loadStateForPlan } from '../../lib/store/apply-load-plan';
+  import { loadPlanModel } from '../../lib/store/saved-loads';
   import { ruleToSpec } from '../../lib/engine/loads/combination-rules';
-  import { snowPg, snowPreview, type SnowConfig } from '../../lib/engine/loads/snow-config';
+  import { snowPreview, type SnowConfig } from '../../lib/engine/loads/snow-config';
   import { roofGeometry } from '../../lib/engine/loads/snow-loads';
   import { regulationsStore } from '../../lib/store/regulations.svelte';
   import { allOptionsForRole, bindingLabel, optionIsAvailable, optionLabel } from '../../lib/codes/roles';
@@ -108,15 +109,7 @@
   const start = autoLoadsDefaults();
   let deadRows = $state<DeadRow[]>(start.deadRows);
 
-  /** One row's contribution, resolved the same way the builder resolves it. */
-  function rowLoad(row: DeadRow): { labelKey: string; q: number } {
-    if (row.entryKey === null) return { labelKey: 'loads.dead.custom', q: row.q };
-    const entry = findDeadEntry(row.entryKey);
-    if (!entry) return { labelKey: 'loads.dead.custom', q: 0 };
-    const r = deadComponentLoad(entry, { thicknessM: row.thickness, onBattens: row.onBattens });
-    return { labelKey: entry.labelKey, q: r.qKNm2 };
-  }
-  const deadComponents = $derived(deadRows.map(rowLoad));
+  const deadComponents = $derived(deadRows.map(deadComponent));
   const totalDead = $derived(deadComponents.reduce((s, c) => s + c.q, 0));
 
   // ─── Live load config ──────────────────
@@ -357,7 +350,7 @@
   const autoRoofWeight = $derived(open && roofCfg.enabled && !roofCfg.weight
     ? (() => {
         try {
-          return roofWeightFor(modelSlice(), { mode: gravityMode, slab: gravitySlab, spanAxis: gravitySpan, loadEveryPanel: gravityLoadEveryPanel }, tributaryWidth, roofCfg.dead ?? totalDead);
+          return roofWeightFor(loadPlanModel(), { mode: gravityMode, slab: gravitySlab, spanAxis: gravitySpan, loadEveryPanel: gravityLoadEveryPanel }, tributaryWidth, roofCfg.dead ?? totalDead);
         } catch (error) {
           const message = engineFailureMessage(error);
           if (!message) throw error;
@@ -393,36 +386,7 @@
     });
   });
 
-  function windStructurePlan(): NonNullable<LoadPlanInput['wind']>['structure'] {
-    const w = windStructure;
-    switch (w.kind) {
-      case 'freeRoof': {
-        // Af per axis for §2.1.5; an axis left at 0 takes the whole vertical projection.
-        const area = { ...((w.areaX ?? 0) > 0 ? { x: w.areaX } : {}), ...((w.areaY ?? 0) > 0 ? { y: w.areaY } : {}) };
-        return { kind: 'freeRoof', roof: w.roof, blocked: w.blocked, ...(Object.keys(area).length ? { area } : {}) };
-      }
-      case 'latticeTower': return { kind: 'latticeTower', section: w.towerSection, round: w.round, solidity: w.solidity, diagonal: w.diagonal, ...(w.width > 0 ? { width: w.width } : {}) };
-      case 'openSign': return { kind: 'openSign', members: w.members, solidity: w.solidity, ...(w.width > 0 ? { width: w.width } : {}) };
-      case 'solidSign': return { kind: 'solidSign', clearance: w.clearance };
-      case 'chimney': return { kind: 'chimney', section: w.chimney, ...(w.diameter > 0 ? { diameter: w.diameter } : {}) };
-      default: return { kind: 'building' };
-    }
-  }
 
-  /** The model as the plan reads it. */
-  function modelSlice(): LoadPlanInput['model'] {
-    return {
-      nodes: modelStore.nodes as never,
-      elements: modelStore.elements as never,
-      sections: modelStore.model.sections as never,
-      materials: modelStore.model.materials as never,
-      loadCases: modelStore.model.loadCases,
-      quads: modelStore.model.quads as never,
-      plates: modelStore.model.plates as never,
-      supports: modelStore.supports,
-      constraints: modelStore.model.constraints,
-    };
-  }
 
   /** Each non-CIRSOC code's own inputs, by adapter (`load-codes/registry.ts`). */
   let codeInputs = $state<Record<string, unknown>>({});
@@ -437,73 +401,29 @@
     plan = null; delta = null;
   }
 
+  /** The dialog's settings as they stand. */
+  function memoryNow(): AutoLoadsMemory {
+    return $state.snapshot({
+      genCombos, comboSet, comboSource, bothSenses, patternsInCompanions, selectedOccupancy, tributaryWidth, applyLiveReduction,
+      reductionElementKind, floorsSupported, deadRows, partitionLive, gravityMode, gravitySlab, gravitySpan, gravityLoadEveryPanel,
+      roofCfg, livePatterns, special, enableWind, windV, windExposure, windEnclosure, windAltitude, windKzt, windKztSurveyed,
+      windRoofSlope, windDyn, windDirs, windCaseSet, windService, windStructure, snowCfg, enableSeismic, seismicZone, siteClass,
+      destinationGroup, systemKey, periodSystem, regularity, seismicOccupancy, elasticDesign, seismicMethod, seismicDirectionX, seismicDirectionZ,
+    }) as AutoLoadsMemory;
+  }
+
   function planInput(): LoadPlanInput {
-    return {
-      regulations: regulationsStore.roles,
+    return planInputOf(memoryNow(), {
+      roles: regulationsStore.roles,
       codeInputs: $state.snapshot(codeInputs),
-      model: modelSlice(),
-      dead: deadComponents.map(d => ({ labelKey: d.labelKey, q: d.q })),
-      occupancyKey: selectedOccupancy,
-      partitionLive: partitionLive.on ? partitionLive.q : 0,
-      tributaryWidth,
-      gravity: { mode: gravityMode, slab: gravitySlab, spanAxis: gravitySpan, loadEveryPanel: gravityLoadEveryPanel },
-      patterns: livePatterns,
-      thermal: special.thermal.on ? { dtUniform: special.thermal.dt, dtGradient: special.thermal.grad } : undefined,
-      soil: special.soil.on ? { gradeZ: special.soil.gradeZ, gamma: special.soil.gamma, k: special.soil.k, surcharge: special.soil.surcharge, permanent: special.soil.permanent,
-        ...(special.soil.sideOn ? { side: { x: special.soil.sideX, y: special.soil.sideY } } : {}) } : undefined,
-      fluid: special.fluid.on ? { levelZ: special.fluid.levelZ, gamma: special.fluid.gamma,
-        ...(special.fluid.insideOn ? { inside: { x: special.fluid.insideX, y: special.fluid.insideY } } : {}) } : undefined,
-      roof: roofCfg.enabled ? {
-        use: roofCfg.use, dead: roofCfg.dead ?? totalDead, deadFromFloors: roofCfg.dead === null,
-        // Absent unless chosen: the plan weighs the roof's structure with its cladding (§4.8.1,
-        // `roofWeightOf`); the dead load alone took a concrete roof with light finishes for light.
-        ...(roofCfg.weight ? { weight: roofCfg.weight } : {}),
-        occupancyKey: roofCfg.occupancyKey, slopeDeg: roofCfg.slopeDeg ?? (snowRoof?.slopeDeg ?? windRoofSlope),
-      } : undefined,
-      reductionElementKind,
-      floorsSupported,
-      applyLiveReduction,
-      wind: enableWind ? {
-        enabled: true, basicSpeed: windV, exposure: windExposure,
-        enclosure: windEnclosure, siteAltitudeM: windAltitude,
-        kzt: windKzt, kztSurveyed: windKztSurveyed,
-        roofSlopeDeg: windRoofSlope, rigid: windDyn.n1Source === 'declaredRigid', dynamics: planDynamics(),
-        directions: { x: windDirs.some((d) => d.endsWith('x')), y: windDirs.some((d) => d.endsWith('y')) },
-        caseSet: windCaseSet, senses: [...windDirs],
-        service: windService.enabled ? { ...windService } : undefined,
-        structure: windStructurePlan(),
-        ...(windRegionNodes ? { region: windRegionNodes } : {}),
-        ...(windProfileOn && windProfile ? { profile: windProfile } : {}),
-      } : undefined,
-      snow: snowCfg.enabled ? {
-        enabled: true, ...snowPg(snowCfg),
-        terrain: snowCfg.terrain, exposure: snowCfg.exposure, thermal: snowCfg.thermal,
-        category: snowCfg.category, roofKind: snowCfg.roofKind, slippery: snowCfg.slippery,
-        ...(snowCfg.roofKind === 'curved' && snowCfg.abutting ? { abutting: true } : {}),
-        partial: snowCfg.partial,
-        ...(snowRoofMembers ? { roof: snowRoofMembers } : {}),
-        ...(snowCfg.parapet > 0 ? { parapet: { height: snowCfg.parapet } } : {}),
-        ...(snowCfg.adjacent.length ? { adjacent: $state.snapshot(snowCfg.adjacent) } : {}),
-      } : undefined,
-      seismic: enableSeismic ? {
-        /* `coefficient` is the fallback the plan uses only when `code` is absent or
-           blocked; the 103 path below is what normally produces C. */
-        enabled: true, coefficient: 0, method: seismicMethod.method,
-        code: {
-          zone: seismicZone, site: siteClass, group: destinationGroup,
-          systemKey, periodSystem, regularity, occupancy: seismicOccupancy,
-          elastic: elasticDesign,
-        },
-        liveParticipation: null,
-        directions: { x: seismicDirectionX, y: seismicDirectionZ },
-        // Read by INPRES-CIRSOC 103 alone: the other codes decide the vertical component themselves (`verticalByCode`).
-        vertical: seismicMethod.vertical, torsion: seismicMethod.torsion, diagonal: seismicMethod.diagonal,
-      } : undefined,
-      generateCombinations: genCombos,
-      combinationSet: comboSet,
-      projectCombinations: comboSource === 'project' && modelStore.combinationRules.length > 0
-        ? modelStore.combinationRules.map(ruleToSpec) : undefined,
-    };
+      model: loadPlanModel(),
+      windDynamics: planDynamics(),
+      ...(windRegionNodes ? { windRegion: windRegionNodes } : {}),
+      ...(windProfileOn && windProfile ? { windProfile } : {}),
+      ...(snowRoof?.slopeDeg !== undefined ? { snowRoofSlope: snowRoof.slopeDeg } : {}),
+      ...(snowRoofMembers ? { snowRoofMembers } : {}),
+      projectCombinations: modelStore.combinationRules.length > 0 ? modelStore.combinationRules.map(ruleToSpec) : undefined,
+    });
   }
 
   /**
@@ -516,38 +436,10 @@
    * instead of reporting a blocked plan with no way to unblock it.
    */
   function recordRoleConfiguration() {
-    regulationsStore.configureRole('basis', {
-      generateCombinations: genCombos,
-      dialog: $state.snapshot({ comboSet, comboSource, bothSenses, patternsInCompanions }),
-    }, true);
-    regulationsStore.configureRole('loads', {
-      occupancyKey: selectedOccupancy,
-      dead: deadComponents.map(d => ({ labelKey: d.labelKey, q: d.q })),
-      tributaryWidth, applyLiveReduction, reductionElementKind, floorsSupported,
-      // The dialog's own state, to start from next time (`restoreFromRoles`).
-      dialog: $state.snapshot({ deadRows, partitionLive, gravityMode, gravitySlab, gravitySpan, gravityLoadEveryPanel, roofCfg, livePatterns, special }),
-    }, true);
-    if (enableWind) {
-      regulationsStore.configureRole('wind', {
-        basicSpeed: windV, exposure: windExposure, enclosure: windEnclosure,
-        siteAltitudeM: windAltitude, kzt: windKzt, kztSurveyed: windKztSurveyed,
-        roofSlopeDeg: windRoofSlope, dynamics: { ...$state.snapshot(windDyn) },
-        dialog: $state.snapshot({ windDirs, windCaseSet, windService, windStructure }),
-      }, true);
-    }
-    if (snowCfg.enabled) {
-      regulationsStore.configureRole('snow', { ...$state.snapshot(snowCfg) }, true);
-    }
+    for (const [role, settings] of roleSettingsOf(memoryNow())) regulationsStore.configureRole(role, settings, true);
     for (const role of ['wind', 'snow', 'seismic'] as const) {
       const id = codeAdapter(role);
       if (CODE_INPUTS[id] && codeInputs[id] !== undefined) regulationsStore.configureRole(role, { codeInput: $state.snapshot(codeInputs[id]) }, true);
-    }
-    if (enableSeismic) {
-      regulationsStore.configureRole('seismic', {
-        zone: seismicZone, site: siteClass, destinationGroup, systemKey,
-        periodSystem, regularity, occupancy: seismicOccupancy, elastic: elasticDesign,
-        dialog: $state.snapshot({ seismicMethod, seismicDirectionX, seismicDirectionZ }),
-      }, true);
     }
   }
 
