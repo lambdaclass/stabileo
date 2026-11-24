@@ -1,6 +1,7 @@
 import { shouldProjectModelToXZ, type CoordinateNode, type TypedSupportLike } from '../geometry/coordinate-system';
 import { tp } from '../i18n';
 import type { Release } from '../store/model.svelte';
+import { isAnalysisMode, is3DWorkspace } from '../utils/workspace';
 import { isPlaneSupportType } from './support-types';
 
 type Fields = Record<string, unknown>;
@@ -104,7 +105,8 @@ export function canonicalizeLoadAliases<T extends LoadRecord>(record: T): T {
 }
 
 export function canonicalizeModelAliases<T extends Input>(model: T, analysisMode = model.analysisMode): T {
-  const plane = analysisMode === '2d' || shouldProjectModelToXZ({
+  const explicitlyPlanar = isAnalysisMode(analysisMode) && analysisMode !== 'edu' && !is3DWorkspace(analysisMode);
+  const plane = explicitlyPlanar || shouldProjectModelToXZ({
     nodes: values(model.nodes),
     supports: values(model.supports) as TypedSupportLike[],
     loads: model.loads,

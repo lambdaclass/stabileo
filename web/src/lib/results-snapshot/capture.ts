@@ -47,6 +47,7 @@ import { isBlocked, spectrumPoints, RISK_FACTOR } from '../codes/cirsoc103/spect
 import { findBehaviour, R_ELASTIC } from '../codes/cirsoc103/behaviour';
 import { setLocale } from '../i18n';
 import { errorText } from '../utils/error-text';
+import { is3DWorkspace } from '../utils/workspace';
 import { flatten, FORMAT, DEFAULT_SKIP } from '../../../scripts/results-snapshot/compare.mjs';
 import type { SnapshotCase } from './corpus';
 import { captureSnow } from './snow-capture';
@@ -322,7 +323,7 @@ export async function openedFeatures(c: SnapshotCase, fixture?: unknown): Promis
   }
   const refusal = await open(c, fixture);
   const features: string[] = refusal
-    ? [c.workspace === '2d' ? 'plane2D' : 'space3D', 'analysis:linear', 'conflictingModelAliases']
+    ? [is3DWorkspace(c.workspace) ? 'space3D' : 'plane2D', 'analysis:linear', 'conflictingModelAliases']
     : [...modelFeatures(modelStore.snapshot(), context)];
   if ('example' in c.source) features.push(`example:${c.source.example}`);
   return features;
