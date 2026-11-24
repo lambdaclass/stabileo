@@ -11,7 +11,15 @@ import '../index';
 import { initSolver } from '../../engine/wasm-solver';
 import { loadCodeExample } from '../../templates/examples';
 import { bindRole, REGULATIONS_SCHEMA_VERSION } from '../../codes/roles';
-import { generateSavedLoads } from '../saved-loads';
+import { generateSavedLoads, loadPlanModel } from '../saved-loads';
+import { applyLoadPlan } from '../apply-load-plan';
+import { buildLoadPlan } from '../../engine/loads/load-plan';
+import { autoLoadsMemory } from '../../../components/pro/auto-loads-memory';
+import { planInputOf } from '../../../components/pro/auto-loads-plan';
+import { tp } from '../../i18n';
+import { meshBeforeAnalysis } from '../mesh-policy.svelte';
+import { preparePlatesForAnalysis } from '../physical-plates';
+import { syncDefinedLoadsForAnalysis } from '../defined-loads';
 
 beforeAll(async () => { await initSolver(); });
 beforeEach(async () => {
@@ -31,6 +39,36 @@ describe('loads from the saved settings', () => {
     expect(modelStore.loads.every((l) => (l.data as { generatedBy?: string }).generatedBy === 'cirsoc101-2025-basis')).toBe(true);
     expect(modelStore.combinations.length).toBeGreaterThan(0);
     expect(modelStore.combinations.every((c) => c.origin?.code === 'cirsoc101-2025-basis')).toBe(true);
+  });
+
+  it('puts each slab\'s loads, a plate not meshed yet, in a definition on it that the mesh takes at the analysis', () => {
+    expect(generateSavedLoads()).toBeNull();
+    const slabs = [...modelStore.model.groups.values()].filter((g) => g.kind === 'physicalMember' && (g.data as { kind?: string }).kind === 'slab').map((g) => g.id);
+    const defs = [...modelStore.model.groups.values()].filter((g) => g.kind === 'floorLoad').map((g) => ({ id: g.id, ...(g.data as { caseId: number; target: { groupId: number }; generatedBy?: string }) }));
+    const caseType = (id: number) => modelStore.model.loadCases.find((c) => c.id === id)!.type;
+    expect(defs.map((d) => `${d.target.groupId}:${caseType(d.caseId)}`).sort()).toEqual(slabs.flatMap((id) => [`${id}:D`, `${id}:L`]).sort());
+    expect(defs.every((d) => d.generatedBy === 'cirsoc101-2025-basis')).toBe(true);
+    expect(modelStore.loads.some((l) => l.type === 'surface3d')).toBe(false);
+
+    meshBeforeAnalysis.value = true;
+    expect(preparePlatesForAnalysis().ok).toBe(true);
+    syncDefinedLoadsForAnalysis();
+    for (const d of defs) {
+      const shells = new Set(modelStore.model.groups.get(d.target.groupId)!.members.quads ?? []);
+      const on = modelStore.loads.filter((l) => (l.data as { fromDef?: number }).fromDef === d.id).map((l) => (l.data as { quadId: number }).quadId);
+      expect(shells.size).toBeGreaterThan(0);
+      expect(new Set(on)).toEqual(shells);
+    }
+  });
+
+  it('replacing the generated loads takes the slabs\' definitions back with them, and writes them once', () => {
+    expect(generateSavedLoads()).toBeNull();
+    const count = () => [...modelStore.model.groups.values()].filter((g) => g.kind === 'floorLoad').length;
+    const before = count();
+    const memory = autoLoadsMemory(regulationsStore.roles, { wind: true, seismic: false });
+    const plan = buildLoadPlan(planInputOf(memory, { roles: regulationsStore.roles, model: loadPlanModel() }));
+    expect(applyLoadPlan(plan, { clearExisting: true, bothSenses: true, nameOf: (k, p) => tp(k, p) })).toBeUndefined();
+    expect(count()).toBe(before);
   });
 
   it('refuses what the regulation refuses and leaves the model as it was', () => {
