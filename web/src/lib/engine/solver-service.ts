@@ -19,7 +19,7 @@ import { collapseVariableResults, collapseVariableEnvelope, variableExpansionFor
 import { nodesOnMembers } from './nodes-on-members';
 import { localizeEngineText } from '../i18n/engine-text';
 import { errorText } from '../utils/error-text';
-import { createSectionWeight } from '../section/weight';
+import { createSectionWeight, InvalidMaterialDensity } from '../section/weight';
 import { expandSemiRigid3D, SemiRigidError } from './expand-semi-rigid-3d';
 import { solvableModel, applyStiffnessModifiers, hasNonlinearBehaviour, solveNonlinear3D, solveNonlinear3DAsync, withZeroRows } from './member-behaviour';
 import { amplification } from './pdelta-amplification';
@@ -28,7 +28,7 @@ import { sectionShearAreas } from '../section/shear-areas';
 import { transverseSign } from './transverse-sign-2d';
 import { SupportMappingError, supportDofs3D } from './support-dofs-3d';
 import { isPlaneRoller, planeMemberAngle, resolvePlaneSupportSettlement } from '../model/support-types';
-import { solve as solveStructure, solve3D as solve3DEngine, setAdvancedGuards, assertFiniteWire, finiteWireJson, netCombinationFactors, combineResults, combineResults3D, combineResultsBatch3D, combineResultsEnvelope3D, computeEnvelope, computeEnvelope3D, solveMultiCase2D, solveMultiCase3D, input2DToWireObject, input3DToWireObject, solvePDelta3D } from './wasm-solver';
+import { solve as solveStructure, solve3D as solve3DEngine, setAdvancedGuards, assertFiniteWire, finiteObjectWire, finiteWireJson, netCombinationFactors, combineResults, combineResults3D, combineResultsBatch3D, combineResultsEnvelope3D, computeEnvelope, computeEnvelope3D, solveMultiCase2D, solveMultiCase3D, input2DToWireObject, input3DToWireObject, solvePDelta3D } from './wasm-solver';
 import { solverProperties } from '../section/state';
 import type { SolverInput, SolverSupport, FullEnvelope, AnalysisResults } from './types';
 import { stabiliseOrphanRotations3D, unheldNodalMoment3D, exactOrphanRotations3D } from './orphan-rotations-3d';
@@ -54,7 +54,7 @@ import { axialShares, combineShares, giveBackAxialShares } from './axial-shares'
 import { addSettlementCase, addSettlementCase2D, hasSettlement, withoutSettlement, SETTLEMENT_CASE_ID } from './settlement-case';
 import { memberAlphaOf, thermalAlphaOf, ENGINE_ALPHA } from './thermal-alpha';
 import { pointToSolver, pointToEnds, PointLoadNeedsCut, planePointLoad3D, pointWithCoupleToEnds, planarMoment3D, planarPointOrigin, requirePlanarNodalMoment, requirePlanarPointMoment, PlanarLoadMomentError, type PlanePointLoadLike } from './member-point-loads';
-import { InvalidModelNumber, modelNumberRefusal, requireLoadNumbers, requireModelNumbers } from './model-input-numbers';
+import { InvalidModelNumber, ModelInputError, modelNumberRefusal, requireLoadNumbers, requireModelNumbers } from './model-input-numbers';
 import { planarPointMomentWithoutProjection, planarPointProjectionTooShort } from './planar-point-load';
 import { planarLoadDirection } from './planar-load-direction';
 import { prestressToSolver } from './prestress';
@@ -1288,7 +1288,7 @@ export async function validateAndSolve2DAsync(
     const t0 = performance.now();
     let results: AnalysisResults;
     try {
-      results = await solve2DInWorker(input2DToWireObject(prep.input));
+      results = await solve2DInWorker(finiteObjectWire(input2DToWireObject(prep.input)));
     } catch (e) {
       if (!(e instanceof PoolUnavailableError)) throw e;
       results = solveStructure(prep.input);
@@ -2148,7 +2148,8 @@ function buildSolveInput3D(...args: Parameters<typeof buildValidatedSolverInput3
 
 /** A load the solve cannot place, said by name: a moment on a member that takes no bending. */
 export function loadRefusal(err: unknown): string | null {
-  if (err instanceof MemberLoadIntervalError || err instanceof SolveAccountingError || err instanceof InvalidModelNumber) return err.message;
+  if (err instanceof InvalidMaterialDensity) return new InvalidModelNumber(`materials.${err.materialId}.rho`, err.value).message;
+  if (err instanceof MemberLoadIntervalError || err instanceof SolveAccountingError || err instanceof ModelInputError) return err.message;
   if (err instanceof PlaneSelfWeightError || err instanceof PlanarPointLoadProjectionError || err instanceof PlanarLoadMomentError) return err.message;
   return err instanceof PointLoadNeedsCut ? tp('svc.pointMomentOnTruss', { n: err.elementId }) : null;
 }
@@ -2538,7 +2539,7 @@ export async function validateAndSolve3DAsync(model: ModelData, includeSelfWeigh
     let results: AnalysisResults3D;
     try {
       // The worker finishes the result as the main thread does (`solve-finish.ts`).
-      results = await solve3DInWorker(wire);
+      results = await solve3DInWorker(finiteObjectWire(wire));
     } catch (e) {
       if (!(e instanceof PoolUnavailableError)) throw e;
       results = solve3DEngine(input);
@@ -3334,9 +3335,11 @@ async function solveCombinations3DParallelCore(
     }
 
     const t0 = performance.now();
-    const caseResults = await solveParallel(
-      caseInputs.map(c => ({ id: c.caseId, input: c.input })),
-    );
+    const workerBase = finiteObjectWire(baseWire);
+    const caseResults = await solveParallel(caseInputs.map(c => ({
+      id: c.caseId,
+      input: { ...workerBase, loads: finiteObjectWire(c.input.loads, 'loads') },
+    })));
     const tSolve = performance.now() - t0;
 
     // Collect results (already plain objects — no JSON.parse) and build per-case map

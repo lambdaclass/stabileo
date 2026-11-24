@@ -13,7 +13,7 @@ const E = 200_000, I = 9.8e-5, A = 0.0069;
 function column(L: number, P: number, H = 0) {
   return {
     nodes: new Map([[1, { id: 1, x: 0, y: 0 }], [2, { id: 2, x: 0, y: L }]]),
-    materials: new Map([[1, { id: 1, e: E, nu: 0.3, rho: 0 }]]),
+    materials: new Map([[1, { id: 1, e: E, nu: 0.3 }]]),
     sections: new Map([[1, { id: 1, a: A, iz: I }]]),
     elements: new Map([[1, { id: 1, nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, type: 'frame' }]]),
     supports: new Map([[1, { id: 1, nodeId: 1, type: 'fixed' }]]),

@@ -1,8 +1,10 @@
 import { beforeEach, expect, it, vi } from 'vitest';
 import { modelStore, uiStore } from '../../store';
 import { t } from '../../i18n';
+import { modelFeatures } from '../../provenance/model-features';
 import resultChange from '../../provenance/result-changes/invalid-solver-numbers.json';
 import { runDirectAnalysis } from '../direct-analysis';
+import { withSectionMass } from '../dynamics/section-mass';
 import {
   buildSolverInput2D, buildSolverInput3D, solveCombinations2D, solveCombinations3D,
   solveCombinations3DParallel, validateAndSolve2D, validateAndSolve2DAsync, validateAndSolve3D,
@@ -10,8 +12,6 @@ import {
 } from '../solver-service';
 import { finiteObjectWire, input2DToWireObject, input3DToWireObject } from '../wasm-solver';
 import * as wasm from '../../wasm/dedaliano_engine.js';
-
-const review2472 = process.env.RUN_KNOWN_WRONG === '2472' ? it : it.skip;
 
 const cases = [{ id: 1, name: 'Load', type: 'D' as const }];
 const combinations = [{ id: 1, name: 'Load', factors: [{ caseId: 1, factor: 1 }] }];
@@ -78,7 +78,7 @@ it('#2472 malformed model numbers refuse before projection and defaults', async 
   }
 });
 
-review2472('known wrong result: #2472 stored planar member loads refuse an unsupported mx before either projection', async () => {
+it('#2472 stored planar member loads refuse an unsupported mx before either projection', async () => {
   for (const [space, uplift] of [[false, false], [true, false], [true, true]] as const) {
     const model = cantilever(uplift);
     const snap = modelStore.snapshot();
@@ -92,7 +92,9 @@ review2472('known wrong result: #2472 stored planar member loads refuse an unsup
     for (const mx of [0, -0, Number.MIN_VALUE, -5, null, '0', NaN, Infinity]) {
       modelStore.restore(snap);
       Object.assign(modelStore.model.loads[0]!.data, { mx });
-      modelStore.restore(modelStore.snapshot());
+      const stored = modelStore.snapshot();
+      modelStore.restore(stored);
+      expect.soft(modelFeatures(stored).has('invalidPlanarMemberTorsion')).toBe(mx !== 0);
       for (const [path, answer] of Object.entries(await modelSolves(modelStore.model, space))) {
         const label = `${space}/${uplift}/${path}/${String(mx)}`;
         if (mx === 0) expect.soft(result(answer), label).toBe(result(baseline[path as keyof typeof baseline]));
@@ -106,11 +108,12 @@ review2472('known wrong result: #2472 stored planar member loads refuse an unsup
   }
 });
 
-review2472('known wrong result: #2472 density can be absent for static solves and is required for self-weight', async () => {
+it('#2472 density can be absent for static solves and is required for self-weight', async () => {
   for (const [space, uplift] of [[false, false], [true, false], [true, true]] as const) {
     const model = cantilever(uplift);
     const material = model.materials.get(model.elements.values().next().value!.materialId)!;
     const solve = space ? validateAndSolve3D : validateAndSolve2D;
+    const input = space ? buildSolverInput3D(model)! : buildSolverInput2D(model)!;
     const baseline = solve(model);
     if (!baseline || typeof baseline === 'string') throw new Error(String(baseline));
     Reflect.deleteProperty(material, 'rho');
@@ -125,11 +128,13 @@ review2472('known wrong result: #2472 density can be absent for static solves an
       expect.soft(answer, path).not.toBeNull();
     }
     expect.soft(solve(model, true)).toMatch(/\brho\b/);
+    expect.soft(() => withSectionMass(input, model)).toThrow(/\brho\b/);
     for (const rho of [null, '0', Infinity]) {
       Object.assign(material, { rho });
       expect.soft(solve(model)).toMatch(/\brho\b/);
     }
     material.rho = 0;
+    expect(withSectionMass(input, model).densities.get(material.id)).toBe(0);
     const zero = solve(model, true);
     if (!zero || typeof zero === 'string') throw new Error(String(zero));
     expect(zero.reactions).toEqual(baseline.reactions);
@@ -137,7 +142,7 @@ review2472('known wrong result: #2472 density can be absent for static solves an
   }
 });
 
-review2472('known wrong result: #2472 the Spanish result notice specifies literal null', () => {
+it('#2472 the Spanish result notice specifies literal null', () => {
   expect(resultChange.title.es).toBe('Rechazo de momentos planos con valor null');
 });
 
@@ -158,21 +163,30 @@ it('#2472 malformed planar nodal aliases refuse before projection', async () => 
   }
 });
 
-review2472('known wrong result: #2472 wire adapters omit undefined numbers for object and JSON dispatch', () => {
-  const model = cantilever();
-  const plane = input2DToWireObject(buildSolverInput2D(model)!);
-  const space = input3DToWireObject(buildSolverInput3D(model)!);
-  for (const [wire, field, linear, pdelta] of [
-    [plane, 'kx', wasm.solve_2d, wasm.solve_pdelta_2d],
-    [space, 'krx', wasm.solve_3d, wasm.solve_pdelta_3d],
+it('#2472 wire adapters omit undefined numbers for object and JSON dispatch', async () => {
+  const pool = await import('../solver-pool');
+  for (const [field, worker, solve, linear, pdelta] of [
+    ['kx', 'solve2DInWorker', validateAndSolve2DAsync, wasm.solve_2d, wasm.solve_pdelta_2d],
+    ['krx', 'solve3DInWorker', validateAndSolve3DAsync, wasm.solve_3d, wasm.solve_pdelta_3d],
   ] as const) {
-    const support = Object.values(wire.supports)[0]!;
-    expect.soft(support, field).not.toHaveProperty(field);
-    expect.soft(() => linear(wire)).not.toThrow();
-    expect(JSON.parse(pdelta(JSON.stringify(wire), 20, 1e-8)).results.reactions.length).toBeGreaterThan(0);
-    Object.assign(support, { [field]: null });
-    expect.soft(() => linear(wire)).toThrow(new RegExp(`\\b${field}\\b`));
-    expect.soft(() => pdelta(JSON.stringify(wire), 20, 1e-8)).toThrow(new RegExp(`\\b${field}\\b`));
+    const model = cantilever();
+    Object.assign(model.loads[0]!.data, { p: -11 });
+    const spy = vi.spyOn(pool, worker).mockImplementation(async wire => linear(wire));
+    try {
+      const answer = await solve(model);
+      expect.soft(answer, field).toBeTypeOf('object');
+      expect(spy).toHaveBeenCalledOnce();
+      const [wire] = spy.mock.calls[0]!;
+      const support = Object.values(wire.supports)[0]!;
+      expect.soft(support, field).not.toHaveProperty(field);
+      expect(JSON.parse(pdelta(JSON.stringify(wire), 20, 1e-8)).results.reactions.length).toBeGreaterThan(0);
+      const invalid = structuredClone(wire);
+      Object.assign(Object.values(invalid.supports)[0]!, { [field]: null });
+      expect.soft(() => linear(invalid)).toThrow(new RegExp(`\\b${field}\\b`));
+      expect.soft(() => pdelta(JSON.stringify(invalid), 20, 1e-8)).toThrow(new RegExp(`\\b${field}\\b`));
+    } finally {
+      spy.mockRestore();
+    }
   }
 });
 
@@ -263,7 +277,7 @@ it('#2472 keeps omitted and explicit-zero planar moments and applies a finite le
     Object.assign(load, { my: 0 });
     expect(result()).toBe(omitted);
     Object.assign(load, { mz: 5 });
-    expect(result() - omitted).toBeCloseTo(space ? 5 : -5, 8);
+    expect.soft(result() - omitted, space ? '3D' : '2D').toBeCloseTo(space ? 5 : -5, 8);
   }
 });
 

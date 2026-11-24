@@ -1,13 +1,18 @@
 import type { SolverMaterial } from '../types';
 import type { ModelData } from '../solver-service';
-import { createSectionWeight } from '../../section/weight';
+import { createSectionWeight, requireMaterialDensity } from '../../section/weight';
 import { solvableModel } from '../member-behaviour';
 import { G, massDensities } from './requests';
+
+type Shells = ReadonlyMap<number, { materialId: number }>;
 
 interface MassInput {
   materials: Map<number, SolverMaterial>;
   sections: Map<number, { a: number }>;
   elements: Map<number, { id: number; materialId: number; sectionId: number }>;
+  plates?: Shells;
+  quads?: Shells;
+  curvedShells?: Shells;
 }
 
 /**
@@ -23,12 +28,19 @@ export function withSectionMass<T extends MassInput>(input: T, model: ModelData)
   const materials = new Map(input.materials);
   const elements = new Map(input.elements);
   const weight = createSectionWeight(model.materials);
+  const used = new Set<number>();
+  for (const shells of [input.plates, input.quads, input.curvedShells]) {
+    for (const shell of shells?.values() ?? []) used.add(shell.materialId);
+  }
   const cloned = new Map<string, number>();
   let next = Math.max(0, ...materials.keys()) + 1;
   for (const [id, e] of input.elements) {
     const sectionId = model.elements.get(id)?.sectionId ?? e.sectionId;
     const section = model.sections.get(sectionId);
-    if (!section?.drawn) continue;
+    if (!section?.drawn) {
+      if (model.elements.has(id)) used.add(e.materialId);
+      continue;
+    }
     const area = input.sections.get(e.sectionId)?.a;
     const material = materials.get(e.materialId);
     if (!material || area === undefined || !(area > 0)) throw new Error('Composite mass requires a positive area and a material');
@@ -43,5 +55,6 @@ export function withSectionMass<T extends MassInput>(input: T, model: ModelData)
     }
     elements.set(id, { ...e, materialId });
   }
+  for (const id of used) requireMaterialDensity(id, model.materials.get(id));
   return { input: { ...input, materials, elements }, densities };
 }

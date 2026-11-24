@@ -1,4 +1,4 @@
-import { tp } from '../i18n';
+import { t, tp } from '../i18n';
 import type { Load, Material, Support } from '../store/model.svelte';
 import type { ModelData } from './solver-service';
 
@@ -28,11 +28,13 @@ const supportFields: Fields<Support> = {
 };
 
 const materialFields: Fields<Material> = {
-  required: ['id', 'e', 'nu', 'rho'],
-  optional: ['alpha', 'fy', 'fu', 'fc'],
+  required: ['id', 'e', 'nu'],
+  optional: ['rho', 'alpha', 'fy', 'fu', 'fc'],
 };
 
-export class InvalidModelNumber extends Error {
+export class ModelInputError extends Error {}
+
+export class InvalidModelNumber extends ModelInputError {
   constructor(path: string, value: unknown) {
     super(tp('svc.engine.nonFiniteNumber', { path, value: String(value) }));
   }
@@ -64,12 +66,24 @@ function arrayOf<T>(path: string, value: readonly T[], check: (path: string, val
 const vector = (path: string, value: readonly number[]) => arrayOf(path, value, numberAt, 3);
 const polygon = (path: string, value: readonly (readonly number[])[]) => arrayOf(path, value, vector);
 
+export function invalidPlanarPointTorsion(mx: unknown): boolean {
+  return mx !== undefined && mx !== 0;
+}
+
 export function requireLoadNumbers(loads: readonly Load[]): void {
   for (const [i, load] of loads.entries()) {
     const path = `loads[${i}].data`;
     const { data } = load;
     recordNumbers(path, data, loadFields[load.type]);
     recordNumbers(path, data, { required: [], optional: ['id', 'caseId'] });
+    if (load.type === 'pointOnElement') {
+      const mx = (data as { mx?: unknown }).mx;
+      if (invalidPlanarPointTorsion(mx)) {
+        const field = `${path}.mx`;
+        numberAt(field, mx);
+        throw new ModelInputError(`${t('svc.engine.unsupportedPointLoadMoment')} ${field}: ${t('svc.engine.applyPointLoadMomentAtNode')}`);
+      }
+    }
     if (load.type === 'nodal') numberAt(`${path}.fz/fy`, load.data.fz ?? load.data.fy);
     if (load.type === 'surface3d') {
       const { dir, qNodes, vary, region } = load.data;
@@ -115,7 +129,7 @@ export function modelNumberRefusal(model: ModelData): string | null {
     requireModelNumbers(model);
     return null;
   } catch (error) {
-    if (error instanceof InvalidModelNumber) return error.message;
+    if (error instanceof ModelInputError) return error.message;
     throw error;
   }
 }

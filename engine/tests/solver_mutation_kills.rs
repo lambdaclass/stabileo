@@ -198,11 +198,11 @@ fn inclined_roller_restrains_the_normal_only() {
 /// with its flags; it is rejected now.
 #[test]
 fn inclined_support_without_normal_is_rejected() {
-    for extra in [
-        json!({ "normalX": null }),
-        json!({ "normalX": 0.0, "normalY": 0.0, "normalZ": 0.0 }),
-    ] {
-        let err = solve_3d(&inclined_tip(extra, None)).unwrap_err();
+    let mut missing = inclined_tip(json!({}), None);
+    missing.supports.get_mut("2").unwrap().normal_x = None;
+    let zero = inclined_tip(json!({ "normalX": 0.0, "normalY": 0.0, "normalZ": 0.0 }), None);
+    for input in [missing, zero] {
+        let err = solve_3d(&input).unwrap_err();
         assert!(
             err.contains("inclined support needs a non-zero normal"),
             "{err}"
@@ -869,14 +869,16 @@ fn shell_load_vectors_match_across_paths_and_pressure_resultants() {
 }
 
 fn inclined_2d(angle: Option<f64>, dx: f64, dz: f64) -> SolverInput {
-    input_2d(
+    let mut input = input_2d(
         json!({ "1": { "id": 1, "x": 0.0, "z": 0.0 }, "2": { "id": 2, "x": 4.0, "z": 0.0 } }),
         json!({
             "1": { "id": 1, "nodeId": 1, "type": "fixed" },
-            "2": { "id": 2, "nodeId": 2, "type": "inclinedRoller", "angle": angle, "dx": dx, "dz": dz }
+            "2": { "id": 2, "nodeId": 2, "type": "inclinedRoller", "dx": dx, "dz": dz }
         }),
         json!([{ "type": "nodal", "data": { "nodeId": 2, "fx": 2.0, "fz": -3.0, "my": 0.0 } }]),
-    )
+    );
+    input.supports.get_mut("2").unwrap().angle = angle;
+    input
 }
 
 fn inclined_3d(normal: [f64; 3], prescribed: [f64; 3]) -> SolverInput3D {
