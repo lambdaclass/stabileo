@@ -33,6 +33,7 @@ import '../store';
 import '../engine/design/adapters/cirsoc201-adapter';
 import '../engine/design/adapters/unsupported-adapter';
 import { deserializeProject } from '../store/file';
+import { meshBeforeAnalysis } from '../store/mesh-policy.svelte';
 import { solveNow } from '../actions/solve';
 import { runSteelCheck } from '../store/steel-check';
 import { centerlineInput, dynamicInput } from '../store/dynamic-input';
@@ -44,9 +45,9 @@ import { isBlocked, spectrumPoints, RISK_FACTOR } from '../codes/cirsoc103/spect
 import { findBehaviour, R_ELASTIC } from '../codes/cirsoc103/behaviour';
 import { setLocale } from '../i18n';
 import { errorText } from '../utils/error-text';
-// @ts-expect-error plain JavaScript shared with the CI gate (no declaration file)
 import { flatten, FORMAT, DEFAULT_SKIP } from '../../../scripts/results-snapshot/compare.mjs';
 import type { SnapshotCase } from './corpus';
+import { captureSnow } from './snow-capture';
 import { governingCombos } from './governing-ties';
 
 export interface Snapshot {
@@ -86,12 +87,15 @@ function reset(c: SnapshotCase): void {
   // Basic with it off.
   uiStore.includeSelfWeight = c.workspace === 'pro';
   uiStore.designInPro = !!c.design;
+  // A case is the model it was recorded on: plates that came as one shell per bay are solved as
+  // they came, not meshed at 0.5 m, which made the mat's snapshot thirty times its size.
+  meshBeforeAnalysis.value = false;
 }
 
 async function open(c: SnapshotCase, fixture?: unknown): Promise<void> {
   if ('example' in c.source) {
     await modelStore.loadExample(c.source.example, fixture === undefined ? undefined : async () => structuredClone(fixture));
-  } else {
+  } else if ('ded' in c.source) {
     const text = fixture === undefined ? readFileSync(new URL(`../../../${c.source.ded}`, import.meta.url), 'utf8') : JSON.stringify(fixture);
     if (!deserializeProject(text)) throw new Error(`${c.source.ded} does not open`);
     uiStore.analysisMode = c.workspace;
@@ -275,6 +279,7 @@ function captureAdvanced(c: SnapshotCase, out: Values): void {
  * example from that fixture instead of the bundled one: the example as another commit had it.
  */
 export async function capture(c: SnapshotCase, opts: { afterOpen?: () => void; fixture?: unknown } = {}): Promise<Snapshot> {
+  if ('snowRoof' in c.source) return captureSnow(c);
   containmentFindings.clear();
   setLocale('en');
   reset(c);
@@ -297,7 +302,10 @@ export async function capture(c: SnapshotCase, opts: { afterOpen?: () => void; f
 }
 
 export async function openedFeatures(c: SnapshotCase, fixture?: unknown): Promise<string[]> {
+  if ('snowRoof' in c.source) return ['snow', 'members', 'frameMembers', 'space3D', 'generatedLoads'];
   reset(c);
   await open(c, fixture);
-  return [...modelFeatures(modelStore.snapshot(), { analysisMode: c.workspace, analysesRun: ['linear', ...(c.advanced ?? [])], analysesRecorded: ANALYSIS_KINDS })];
+  const features: string[] = [...modelFeatures(modelStore.snapshot(), { analysisMode: c.workspace, analysesRun: ['linear', ...(c.advanced ?? [])], analysesRecorded: ANALYSIS_KINDS })];
+  if ('example' in c.source) features.push(`example:${c.source.example}`);
+  return features;
 }

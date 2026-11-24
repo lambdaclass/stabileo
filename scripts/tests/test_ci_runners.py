@@ -142,10 +142,11 @@ class CiRunners(unittest.TestCase):
     def test_routing(self):
         ci = jobs('ci.yml')
         hosted = {name for name, job in ci.items() if job.get('runs-on') == 'ubuntu-24.04'}
-        self.assertEqual(hosted, {'changes', 'caddy-routing', 'docker-smoke', 'determinism', 'timing-budgets', 'timing-budgets-alert', 'e2e', 'e2e-flaky', 'e2e-timings', 'ci-ok', 'superseded', 'web-typecheck',
-                                  'test-ci-scripts', 'lint-backend', 'check-migrations-immutable', 'check-migrations', 'results-snapshot', 'revert-check'})
+        self.assertEqual(hosted, {'changes', 'caddy-routing', 'docker-smoke', 'determinism', 'timing-budgets-alert', 'e2e', 'e2e-flaky', 'e2e-timings', 'ci-ok', 'superseded', 'web-typecheck',
+                                  'test-ci-scripts', 'lint-backend', 'check-migrations-immutable', 'check-migrations', 'results-snapshot', 'revert-check',
+                                  'wasm-switch-on', 'web-unit-switch-on', 'e2e-switch-on', 'production-parity-research', 'production-parity-build', 'production-parity'})
         self.assertEqual({name for name, job in jobs('research.yml').items() if job.get('runs-on') == 'ubuntu-24.04'}, {'isolation', 'catalog'})
-        for name in ['test-engine-gates', 'web-unit']:
+        for name in ['test-engine-gates', 'web-unit', 'timing-budgets']:
             self.assertEqual(labels(ci[name]['runs-on']), {'stabileo-timing'})
         self.assertEqual(labels(jobs('research.yml')['engine-benchmarks']['runs-on']), {'stabileo-timing'})
         self.assertEqual(labels(ci['wasm']['runs-on']), {'stabileo', 'stabileo-pr'})
@@ -267,7 +268,7 @@ class CiRunners(unittest.TestCase):
             fake.chmod(0o755)
             output = pathlib.Path(directory) / 'output'
             env = {**os.environ, 'PATH': f'{directory}:{os.environ["PATH"]}', 'GITHUB_OUTPUT': str(output), 'EVENT': event,
-                   'NIGHT_END_HOUR': '7', 'ONLY': '', 'SHARDS': '', 'TOTAL': '', 'MUTANTS_TOTAL': '512', 'MUTANTS_SLOTS': '32',
+                   'NIGHT_END_HOUR': '7', 'ONLY': '', 'SHARDS': '', 'TOTAL': '', 'MUTANTS_TOTAL': '2560', 'MUTANTS_SLOTS': '160',
                    'FORCE_FAILURE': 'false'}
             result = subprocess.run(['bash', '-e', '-c', script], env=env, capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
@@ -343,6 +344,9 @@ class CiRunners(unittest.TestCase):
                     self.assertIn("github.event_name != 'pull_request'", condition.group(1))
                     self.assertNotIn('||', condition.group(1))
         self.assertGreater(found, 20)
+
+    def test_the_deploy_build_does_not_start_magic_nix_cache(self):
+        self.assertNotIn('magic-nix-cache-action', (WORKFLOWS / 'deploy.yml').read_text())
 
     def test_superseded_runs_cancel_but_the_merge_queue_never_does(self):
         for workflow in ['research.yml', 'supply-chain.yml']:

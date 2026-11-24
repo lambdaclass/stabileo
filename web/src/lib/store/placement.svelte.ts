@@ -240,7 +240,7 @@ function createPlacementStore() {
       let report: EditReport | null = null;
       if (mode === 'move' && moveSet && !opts.copy) {
         const r = transformInPlace(moveSet, T, { leftHand: uiStore.axisConvention3D === 'leftHand' });
-        void r;
+        if (r.refused) return null;
         const c = closure(moveSet);
         uiStore.setSelection(new Set(c.nodes), new Set(c.elements), false,
           new Set([...[...c.quads].map((id) => `q${id}`), ...[...c.plates].map((id) => `p${id}`)]));
@@ -250,6 +250,7 @@ function createPlacementStore() {
           : insertFragment(fragment, [T], { withLoads, withSupports, leftHand: uiStore.axisConvention3D === 'leftHand' });
         if (session !== mySession) return report; // the committer started the next step
         if (!report) { store.cancel(); return null; }
+        if (report.refused) return report;
         uiStore.setSelection(new Set(report.nodes), new Set(report.elements), false,
           new Set([...report.quads.map((id) => `q${id}`), ...report.plates.map((id) => `p${id}`)]));
       }

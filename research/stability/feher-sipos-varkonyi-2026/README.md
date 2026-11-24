@@ -33,11 +33,27 @@ B = (sin 1, 0), with rotary actuators at both ends and a dead load q·Q(s) pushi
 shapes of Figure 9(c) fall on the corners of the rectangle labelled in Figure 9(b). Reading Δ as
 the half sum puts them halfway along the sides and sends the path through much sharper shapes.
 
+## The page
+
+It opens on the paper's case (Section 3.4) and replays our run of it. Sliders change the load q
+(0–4), its distribution (uniform, or Q = 2 on the first half of the arc length), the number of
+members (20–120) and the far corner of the rectangle; each change recomputes live in the browser
+through `run::path_with`. "Back to the paper" restores Section 3.4 and its replay. Below the
+comparison table, one collapsible item per open difference says where it comes from.
+
+| Setting | What the strip does |
+|---|---|
+| Paper (q = 2.5, uniform, corner (1.3, 1.3)) | ends inverted without a jump |
+| q = 1.5 | comes back as an arch: the cusp has moved |
+| q = 3 or 3.5 | the path meets a fold and stops |
+| q = 4 | snaps on the first leg |
+| q = 2.5 on half the span | the arch snaps while it is loaded (q_lim ≈ 2.37), before the path starts |
+
 ## Running
 
 ```sh
 make evidence.research.feher   # replay.json, VALIDATION.json, MANIFEST.json
-make test.research.feher       # validation and the engine's co-rotational tests
+make test.research.feher       # validation, the crate's path tests and the engine's co-rotational tests
 research/stability/feher-sipos-varkonyi-2026/build.sh   # the page's WASM
 ```
 

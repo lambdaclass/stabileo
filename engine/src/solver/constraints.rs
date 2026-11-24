@@ -335,7 +335,7 @@ pub struct ConstrainedInput3D {
 /// Constraint equations are written in global components. Every analysis
 /// assembles K (and M, Kg, loads) in these rotated frames, so the constraint
 /// transform must be built in them too, or the solve enforces the wrong
-/// equations (found by tools/differential/codeaster, aster3d-16).
+/// equations (found by testing/differential/codeaster, aster3d-16).
 #[derive(Debug, Clone)]
 pub struct InclinedDofs {
     pub node_id: usize,
@@ -619,7 +619,7 @@ pub fn validate_constraints(
 /// |coefficient| among the terms on *free* DOFs. A restrained DOF must not
 /// be the dependent one: the support keeps it at its prescribed value and the
 /// equation would be dropped, so the results silently violated it (found by
-/// tools/differential/codeaster, aster3d-43: u_3y = 1.76 rx_2 with rx_2
+/// testing/differential/codeaster, aster3d-43: u_3y = 1.76 rx_2 with rx_2
 /// restrained gave u_3y != 0). Only when every term is restrained (the
 /// equation then constrains prescribed values, flagged over-constrained)
 /// does it fall back to the largest coefficient overall.
@@ -1605,20 +1605,7 @@ fn solve_constrained_2d_dense_validated(
     // Particular solution: free slaves of restrained (prescribed) masters must
     // follow them. u_f = C_ff * q + u_p with u_p = C_fr * u_r (restrained
     // independent columns of C times their prescribed values).
-    let mut u_p = vec![0.0; nf];
-    for (j, &d) in ct.independent_dofs.iter().enumerate() {
-        if d >= nf {
-            let v = u_r[d - nf];
-            if v != 0.0 {
-                for p in ct.c.col_ptr[j]..ct.c.col_ptr[j + 1] {
-                    let i = ct.c.row_idx[p];
-                    if i < nf {
-                        u_p[i] += ct.c.csc_vals[p] * v;
-                    }
-                }
-            }
-        }
-    }
+    let u_p = fcs.prescribed_free(&u_r);
     let has_up = u_p.iter().any(|&v| v != 0.0);
     // Kept only when has_up: K_ff*u_p, needed later to un-do the RHS
     // correction when recovering the true (non-double-counted) constraint
@@ -1636,9 +1623,11 @@ fn solve_constrained_2d_dense_validated(
     // K_reduced = C_ff^T * K_ff * C_ff
     // F_reduced = C_ff^T * F_f
     let k_reduced = fcs.reduce_matrix(&k_ff);
+    let load_rounding = super::load_work::assembly_rounding_2d(&input.solver,&input.solver.loads,dof_num,&asm.inclined_transforms_2d);
+    let load_rounding = fcs.reduce_load_rounding(&f_f,&load_rounding);
     let f_reduced = fcs.reduce_vector(&f_f);
     let stability = fcs.stability(&crate::linalg::sparse::CscMatrix::from_dense_symmetric(&k_reduced, n_free_indep), dof_num, &CscMatrix::from_dense_symmetric(&k_ff, nf), &super::stability::coupling_2d(&input.solver, dof_num), &super::stability::ReleasedRotations::default());
-    refuse_unstable(&stability, &f_reduced)?;
+    refuse_unstable(&stability, &f_reduced, &load_rounding)?;
     let u_indep = {
         let mut k_work = k_reduced.clone();
         stability.pin_dense(&mut k_work, n_free_indep);
@@ -1649,15 +1638,10 @@ fn solve_constrained_2d_dense_validated(
         linear::conditional_dense_refinement(&stability, &k_pinned, &f_reduced, u,
             |rhs| back_solve(&k_work, &forward_solve(&k_work, rhs, n_free_indep), n_free_indep))?
     };
-    stability.check_pins(&u_indep, &f_reduced, &[])?;
+    stability.check_pins_with_rounding(&u_indep, &f_reduced, &[], &load_rounding)?;
 
     // Recover free DOF displacements: u_f = C_ff * u_indep
-    let mut u_f = fcs.expand_solution(&u_indep);
-    if has_up {
-        for i in 0..nf {
-            u_f[i] += u_p[i];
-        }
-    }
+    let u_f = fcs.expand_solution(&u_indep, MasterMotion::Prescribed(&u_r));
 
     // NaN/Inf guard, matching the unconstrained paths. `cholesky_solve` reports success on
     // any pivot > 1e-15 without inspecting the solved values, so a blown-up reduced system
@@ -1704,15 +1688,7 @@ fn solve_constrained_2d_dense_validated(
     // the restrained-independent columns of C — this keeps ΣReactions in
     // equilibrium with the applied load both for pure settlement (prescribed
     // u_r) and for a loaded slave tied to a fixed (u_r = 0) master.
-    for &(i, g_i) in &raw_forces {
-        for p in ct.c.row_ptr[i]..ct.c.row_ptr[i + 1] {
-            let (j, coeff) = (ct.c.col_idx[p], ct.c.vals[p]);
-            let d = ct.independent_dofs[j];
-            if d >= nf {
-                reactions_vec[d - nf] += coeff * g_i;
-            }
-        }
-    }
+    fcs.add_restrained_master_forces(&raw_forces, &mut reactions_vec);
 
     // Reverse inclined transforms on displacements before building results —
     // mirrors linear::solve_2d so the constrained path reports reactions and
@@ -1724,7 +1700,7 @@ fn solve_constrained_2d_dense_validated(
 
     let displacements = linear::build_displacements_2d(&dof_num, &u_full);
     let mut reactions = linear::build_reactions_2d_inclined(
-        &input.solver, &dof_num, &reactions_vec, &f_r, nf, &u_full, &asm.inclined_transforms_2d,
+        &super::reaction_recovery::ExpandedReactionModel2D::from_assembly(&input.solver), &dof_num, &reactions_vec, &f_r, nf, &u_full, &asm.inclined_transforms_2d,
     );
     reactions.sort_by_key(|r| r.node_id);
     let mut element_forces = linear::compute_internal_forces_2d(
@@ -1795,7 +1771,7 @@ fn solve_constrained_2d_dense_validated(
     };
     let resultant = self_check_constraint_resultant(&raw_forces, &ct, &fcs, &dof_num, 2);
     super::conditioning_accuracy::member_balance_2d(&input.solver, &input.solver.loads, &dof_num, &stability, &result, Some(&fcs))?;
-    super::self_checks::static_2d(&mut result, &resultant)?;
+    super::self_checks::static_2d(&mut result, &resultant, &input.solver, &input.solver.loads)?;
     Ok(result)
 }
 
@@ -1852,20 +1828,7 @@ pub(super) fn solve_constrained_2d_sparse(
     let n_free_indep = fcs.n_free_indep;
 
     // Particular solution: free slaves of restrained (prescribed) masters.
-    let mut u_p = vec![0.0; nf];
-    for (j, &d) in ct.independent_dofs.iter().enumerate() {
-        if d >= nf {
-            let v = u_r[d - nf];
-            if v != 0.0 {
-                for p in ct.c.col_ptr[j]..ct.c.col_ptr[j + 1] {
-                    let i = ct.c.row_idx[p];
-                    if i < nf {
-                        u_p[i] += ct.c.csc_vals[p] * v;
-                    }
-                }
-            }
-        }
-    }
+    let u_p = fcs.prescribed_free(&u_r);
     let has_up = u_p.iter().any(|&v| v != 0.0);
     let mut k_ff_up_opt: Option<Vec<f64>> = None;
     if has_up {
@@ -1878,21 +1841,18 @@ pub(super) fn solve_constrained_2d_sparse(
 
     // K_reduced = C_ff^T * K_ff * C_ff as a sparse triple product.
     let k_reduced = fcs.reduce_matrix_sparse(k_ff);
+    let load_rounding = super::load_work::assembly_rounding_2d(&input.solver,&input.solver.loads,dof_num,&stiff.inclined_transforms_2d);
+    let load_rounding = fcs.reduce_load_rounding(&f_f,&load_rounding);
     let f_reduced = fcs.reduce_vector(&f_f);
     let stability = fcs.stability(&k_reduced, dof_num, k_ff, &super::stability::coupling_2d(&input.solver, dof_num), &super::stability::ReleasedRotations::default());
-    refuse_unstable(&stability, &f_reduced)?;
+    refuse_unstable(&stability, &f_reduced, &load_rounding)?;
     let k_pinned = stability.pin_sparse(&k_reduced);
     let num = numeric_cholesky(&std::rc::Rc::new(symbolic_cholesky(&k_pinned)), &k_pinned).ok_or_else(linear::not_positive_definite)?;
     let u_indep = sparse_cholesky_solve(&num, &f_reduced);
     let u_indep = linear::conditional_sparse_refinement(&stability, &k_pinned, &f_reduced, u_indep, |rhs| sparse_cholesky_solve(&num, rhs))?;
-    stability.check_pins(&u_indep, &f_reduced, &[])?;
+    stability.check_pins_with_rounding(&u_indep, &f_reduced, &[], &load_rounding)?;
 
-    let mut u_f = fcs.expand_solution(&u_indep);
-    if has_up {
-        for i in 0..nf {
-            u_f[i] += u_p[i];
-        }
-    }
+    let u_f = fcs.expand_solution(&u_indep, MasterMotion::Prescribed(&u_r));
 
     super::linear::assert_finite_3d(&u_f)?;
 
@@ -1942,15 +1902,7 @@ pub(super) fn solve_constrained_2d_sparse(
     let constraint_forces = fcs.constraint_forces(&raw_forces, dof_num);
 
     // A constraint force carried into a RESTRAINED master joins its reaction.
-    for &(i, g_i) in &raw_forces {
-        for p in ct.c.row_ptr[i]..ct.c.row_ptr[i + 1] {
-            let (j, coeff) = (ct.c.col_idx[p], ct.c.vals[p]);
-            let d = ct.independent_dofs[j];
-            if d >= nf {
-                reactions_vec[d - nf] += coeff * g_i;
-            }
-        }
-    }
+    fcs.add_restrained_master_forces(&raw_forces, &mut reactions_vec);
 
     // Displacements back to global axes; reactions_vec/f_r stay rotated.
     for it in &stiff.inclined_transforms_2d {
@@ -1959,7 +1911,7 @@ pub(super) fn solve_constrained_2d_sparse(
 
     let displacements = linear::build_displacements_2d(dof_num, &u_full);
     let mut reactions = linear::build_reactions_2d_inclined(
-        &input.solver, dof_num, &reactions_vec, &f_r, nf, &u_full, &stiff.inclined_transforms_2d,
+        &super::reaction_recovery::ExpandedReactionModel2D::from_assembly(&input.solver), dof_num, &reactions_vec, &f_r, nf, &u_full, &stiff.inclined_transforms_2d,
     );
     reactions.sort_by_key(|r| r.node_id);
     let mut element_forces = linear::compute_internal_forces_2d(&input.solver, dof_num, &u_full);
@@ -2006,7 +1958,7 @@ pub(super) fn solve_constrained_2d_sparse(
     };
     let resultant = self_check_constraint_resultant(&raw_forces, &ct, &fcs, dof_num, 2);
     super::conditioning_accuracy::member_balance_2d(&input.solver, &input.solver.loads, &dof_num, &stability, &result, Some(&fcs))?;
-    super::self_checks::static_2d(&mut result, &resultant)?;
+    super::self_checks::static_2d(&mut result, &resultant, &input.solver, &input.solver.loads)?;
     Ok(Some(result))
 }
 
@@ -2109,20 +2061,7 @@ pub(crate) fn solve_constrained_3d_inner(input: &ConstrainedInput3D, analysis: c
     // Particular solution: free slaves of restrained (prescribed) masters must
     // follow them. u_f = C_ff * q + u_p with u_p = C_fr * u_r (restrained
     // independent columns of C times their prescribed values).
-    let mut u_p = vec![0.0; nf];
-    for (j, &d) in ct.independent_dofs.iter().enumerate() {
-        if d >= nf {
-            let v = u_r[d - nf];
-            if v != 0.0 {
-                for p in ct.c.col_ptr[j]..ct.c.col_ptr[j + 1] {
-                    let i = ct.c.row_idx[p];
-                    if i < nf {
-                        u_p[i] += ct.c.csc_vals[p] * v;
-                    }
-                }
-            }
-        }
-    }
+    let u_p = fcs.prescribed_free(&u_r);
     let has_up = u_p.iter().any(|&v| v != 0.0);
     // Kept only when has_up: K_ff*u_p, needed later to un-do the RHS
     // correction when recovering the true (non-double-counted) constraint
@@ -2140,23 +2079,20 @@ pub(crate) fn solve_constrained_3d_inner(input: &ConstrainedInput3D, analysis: c
     // K_reduced = C_ff^T * K_ff * C_ff, computed as a sparse triple product
     // over the triplets of K (near-linear in nnz(K) for MPC transforms).
     let k_reduced = fcs.reduce_matrix_sparse(k_ff);
+    let load_rounding = super::load_work::assembly_rounding_3d(&input.solver,&input.solver.loads,&dof_num,&sasm.inclined_transforms);
+    let load_rounding = fcs.reduce_load_rounding(&f_f,&load_rounding);
     let f_reduced = fcs.reduce_vector(&f_f);
     let containment_conditioning = crate::known_issues::sparse_conditioning(k_ff)
         .or_else(|| crate::known_issues::sparse_conditioning(&k_reduced));
     let stability = fcs.stability(&k_reduced, &dof_num, k_ff, &super::stability::coupling_3d(&input.solver, &dof_num), &super::stability::released_rotations_3d(&input.solver, &dof_num));
-    refuse_unstable(&stability, &f_reduced)?;
+    refuse_unstable(&stability, &f_reduced, &load_rounding)?;
     let k_pinned = stability.pin_sparse(&k_reduced);
     let num = numeric_cholesky(&std::rc::Rc::new(symbolic_cholesky(&k_pinned)), &k_pinned).ok_or_else(linear::not_positive_definite)?;
     let u_indep = sparse_cholesky_solve(&num, &f_reduced);
     let u_indep = linear::conditional_sparse_refinement(&stability, &k_pinned, &f_reduced, u_indep, |rhs| sparse_cholesky_solve(&num, rhs))?;
-    stability.check_pins(&u_indep, &f_reduced, &[])?;
+    stability.check_pins_with_rounding(&u_indep, &f_reduced, &[], &load_rounding)?;
 
-    let mut u_f = fcs.expand_solution(&u_indep);
-    if has_up {
-        for i in 0..nf {
-            u_f[i] += u_p[i];
-        }
-    }
+    let u_f = fcs.expand_solution(&u_indep, MasterMotion::Prescribed(&u_r));
 
     // NaN/Inf guard, matching the unconstrained paths. The sparse Cholesky
     // reports success on any pivot > 1e-15 without inspecting the solved
@@ -2201,15 +2137,7 @@ pub(crate) fn solve_constrained_3d_inner(input: &ConstrainedInput3D, analysis: c
     // the restrained-independent columns of C — this keeps ΣReactions in
     // equilibrium with the applied load both for pure settlement (prescribed
     // u_r) and for a loaded slave tied to a fixed (u_r = 0) master.
-    for &(i, g_i) in &raw_forces {
-        for p in ct.c.row_ptr[i]..ct.c.row_ptr[i + 1] {
-            let (j, coeff) = (ct.c.col_idx[p], ct.c.vals[p]);
-            let d = ct.independent_dofs[j];
-            if d >= nf {
-                reactions_vec[d - nf] += coeff * g_i;
-            }
-        }
-    }
+    fcs.add_restrained_master_forces(&raw_forces, &mut reactions_vec);
 
     // Reverse inclined transforms on displacements before building results —
     // mirrors linear::solve_3d so the constrained path reports reactions and
@@ -2224,7 +2152,7 @@ pub(crate) fn solve_constrained_3d_inner(input: &ConstrainedInput3D, analysis: c
 
     // Build reactions for output
     let mut reactions = linear::build_reactions_3d_inclined(
-        &input.solver, &dof_num, &reactions_vec, &f_r, nf, &u_full, &sasm.inclined_transforms,
+        &super::reaction_recovery::ExpandedReactionModel3D::from_assembly(&input.solver), &dof_num, &reactions_vec, &f_r, nf, &u_full, &sasm.inclined_transforms,
     );
     reactions.sort_by_key(|r| r.node_id);
 
@@ -2292,15 +2220,15 @@ pub(crate) fn solve_constrained_3d_inner(input: &ConstrainedInput3D, analysis: c
     };
     let resultant = self_check_constraint_resultant(&raw_forces, &ct, &fcs, &dof_num, 3);
     super::conditioning_accuracy::member_balance_3d(&input.solver, &input.solver.loads, &dof_num, &stability, &result, Some(&fcs))?;
-    super::self_checks::static_3d(&mut result, &resultant)?;
+    super::self_checks::static_3d(&mut result, &resultant, &input.solver, &input.solver.loads)?;
     Ok(result)
 }
 
 // ==================== Helper functions ====================
 
-fn refuse_unstable(stability: &super::stability::Stability, f_reduced: &[f64]) -> Result<(), String> {
+fn refuse_unstable(stability: &super::stability::Stability, f_reduced: &[f64], rounding: &[f64]) -> Result<(), String> {
     if let Some(refusal) = stability.refusal() { return Err(refusal); }
-    if let Some(node) = stability.load_on_free_rotation(f_reduced) {
+    if let Some(node) = stability.load_on_free_rotation_with_rounding(f_reduced,rounding) {
         return Err(format!("Nodal moment at node {node} is not supported: no member, support or spring stiffens that rotation, so the moment would not reach the structure. Apply it as a force couple, or connect the node to a frame or shell"));
     }
     Ok(())
@@ -2367,6 +2295,11 @@ fn reduced_relative_residual(fcs: &FreeConstraintSystem, r_full: &[f64], f_reduc
     norm(&fcs.reduce_vector(r_full)) / norm(f_reduced).max(1e-30)
 }
 
+pub enum MasterMotion<'a> {
+    Homogeneous,
+    Prescribed(&'a [f64]),
+}
+
 /// Pre-computed constraint system for use by any solver.
 ///
 /// Encapsulates the C_ff matrix (free-free portion of the constraint
@@ -2390,6 +2323,7 @@ pub struct FreeConstraintSystem {
     /// and dropped their constraint forces from the results entirely.
     dependent: Vec<bool>,
     independent: Vec<usize>,
+    n_restrained: usize,
     restrained_masters: Vec<Vec<(usize, f64)>>,
     /// Inclined-support frames the transform was built in (constraint
     /// forces there are rotated back to global components).
@@ -2471,6 +2405,7 @@ impl FreeConstraintSystem {
             nf,
             dependent,
             independent,
+            n_restrained: ct.n_total - nf,
             restrained_masters,
             inclined: Vec::new(),
             dimensions,
@@ -2516,6 +2451,24 @@ impl FreeConstraintSystem {
         super::stability::analyze_excluding(k_reduced, &reduced_tags, &moves, &coupling, Some(&rounding), &releases.project(c), inactive)
     }
 
+    pub(crate) fn reduce_load_rounding(&self, values: &[f64], rounding: &[f64]) -> Vec<f64> {
+        let c = &self.c_ff;
+        (0..self.n_free_indep).map(|j| {
+            let mut sum = 0.0;
+            let mut bound = 0.0;
+            for p in c.col_ptr[j]..c.col_ptr[j+1] {
+                let i = c.row_idx[p];
+                let a = c.csc_vals[p];
+                let product = a * values[i];
+                bound = super::load_work::add_up(bound,super::load_work::mul_up(a.abs(),rounding.get(i).copied().unwrap_or(0.0)));
+                bound = super::load_work::add_up(bound,super::load_work::product_rounding(a,values[i],product));
+                bound = super::load_work::add_up(bound,super::load_work::sum_rounding(sum,product));
+                sum += product;
+            }
+            bound
+        }).collect()
+    }
+
     /// Reduce a dense symmetric matrix: K_reduced = C_ff^T * K_ff * C_ff
     /// (dense p×p out; the nonlinear/dynamic paths feed dense matrices).
     pub fn reduce_matrix(&self, k_ff: &[f64]) -> Vec<f64> {
@@ -2542,6 +2495,7 @@ impl FreeConstraintSystem {
     }
 
     pub(super) fn prescribed_free(&self, restrained: &[f64]) -> Vec<f64> {
+        assert_eq!(restrained.len(), self.n_restrained);
         self.restrained_masters.iter().map(|terms| terms.iter().map(|&(i, c)| c * restrained[i]).sum()).collect()
     }
 
@@ -2550,9 +2504,30 @@ impl FreeConstraintSystem {
         self.c_ff.mul_transpose_vec(f_f)
     }
 
-    /// Expand solution: u_f = C_ff * u_indep
-    pub fn expand_solution(&self, u_indep: &[f64]) -> Vec<f64> {
-        self.c_ff.mul_vec(u_indep)
+    pub fn expand_solution(&self, u_indep: &[f64], motion: MasterMotion<'_>) -> Vec<f64> {
+        assert_eq!(u_indep.len(), self.n_free_indep);
+        let mut free = self.c_ff.mul_vec(u_indep);
+        if let MasterMotion::Prescribed(restrained) = motion {
+            for (u, p) in free.iter_mut().zip(self.prescribed_free(restrained)) {
+                if p != 0.0 { *u += p; }
+            }
+        }
+        free
+    }
+
+    pub(super) fn subtract_prescribed_force(&self, k_ff: &CscMatrix, rhs: &mut [f64], restrained: &[f64]) {
+        assert_eq!(k_ff.n, self.nf);
+        assert_eq!(rhs.len(), self.nf);
+        let particular = self.prescribed_free(restrained);
+        if particular.iter().any(|&p| p != 0.0) {
+            for (f, kp) in rhs.iter_mut().zip(k_ff.sym_mat_vec(&particular)) { *f -= kp; }
+        }
+    }
+
+    pub(super) fn impose_motion(&self, full: &mut [f64]) {
+        let independent: Vec<_> = self.independent.iter().map(|&d| full[d]).collect();
+        let free = self.expand_solution(&independent, MasterMotion::Prescribed(&full[self.nf..]));
+        full[..self.nf].copy_from_slice(&free);
     }
 
     /// Map reduced-space DOF indices back to physical free DOF indices.
@@ -2664,6 +2639,42 @@ impl FreeConstraintSystem {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn constraint_2013_independent_cancellation_and_conditioning_boundaries() {
+        use super::super::stability::{ReleasedRotations, Verdict, RESOLVABLE};
+        use crate::linalg::sparse::CscMatrix;
+        for dimensions in [2, 3] {
+            for (stiff, gap, admitted) in [
+                (1e8, 1e-5, true),
+                ((RESOLVABLE - 2.0) / 4.0, 1e-5, true),
+                (RESOLVABLE / 4.0, 1e-5, false),
+                (1.0, 1e-10, true),
+                (1.0, 1e-13, false),
+                (1.0, 0.0, false),
+            ] {
+                let k = CscMatrix::from_dense_symmetric(&[
+                    1.0, 1.0-gap, 0.0, 0.0,
+                    1.0-gap, 1.0, 0.0, 0.0,
+                    0.0, 0.0, stiff+0.5, -stiff,
+                    0.0, 0.0, -stiff, stiff+0.5,
+                ], 4);
+                let ct = ConstraintTransform {
+                    c: SparseTransform::from_rows(4, 3, vec![vec![(0,1.0)], vec![(1,1.0)], vec![(2,1.0)], vec![(2,1.0)]]),
+                    n_independent: 3, n_total: 4, independent_dofs: vec![0,1,2], dependent_dofs: [3].into_iter().collect(),
+                };
+                let cs = FreeConstraintSystem::from_transform(&ct, 4, dimensions);
+                let dof = DofNumbering {
+                    map: (0..4).map(|i| ((i+1,0),i)).collect(), n_free:4, n_total:4,
+                    dofs_per_node: if dimensions==2 {3} else {6}, node_order: vec![1,2,3,4],
+                };
+                let reduced = cs.reduce_matrix_sparse(&k);
+                assert_eq!(reduced.diagonal(), vec![1.0;3]);
+                let actual = cs.stability(&reduced, &dof, &k, &[], &ReleasedRotations::default());
+                assert_eq!(actual.verdict == Verdict::Stable, admitted, "{dimensions}D stiff={stiff} gap={gap}: {actual:?}");
+            }
+        }
+    }
 
     #[test]
     fn buckling_818_coupled_constraints_preserve_eigenvectors() {

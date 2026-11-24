@@ -1,0 +1,35 @@
+{
+  "id": "seismic-zero-weight-geometry",
+  "date": "2026-11-19",
+  "prs": [2316],
+  "area": "loads",
+  "when": {
+    "all": ["generatedSeismicLoads"]
+  },
+  "quantities": ["*", "solve.ok"],
+  "requiresLoadRegeneration": true,
+  "title": {
+    "en": "Static seismic loads account for zero-weight structural geometry",
+    "es": "Las cargas sísmicas estáticas tienen en cuenta la geometría estructural de peso nulo",
+    "pt": "As cargas sísmicas estáticas consideram a geometria estrutural de peso nulo",
+    "de": "Statische Erdbebenlasten berücksichtigen Tragwerksgeometrie ohne Gewicht",
+    "fr": "Les charges sismiques statiques tiennent compte de la géométrie structurelle de poids nul",
+    "tr": "Statik deprem yükleri ağırlığı sıfır olan taşıyıcı geometrisini dikkate alır",
+    "zh": "等效静力地震荷载计及重量为零的结构几何",
+    "hu": "A statikus szeizmikus terhek figyelembe veszik a súly nélküli szerkezeti geometriát"
+  },
+  "explanation": {
+    "en": "Zero-weight stories count toward the static period and applicability limits. Member offsets in the seismic footprint block generation. Regenerate affected E loads (#2316).",
+    "es": "Los niveles de peso nulo cuentan para el período y los límites del método estático. Las excentricidades de las barras en la planta sísmica bloquean la generación. Regenerá las cargas E afectadas (#2316).",
+    "pt": "Os pavimentos de peso nulo contam para o período e os limites do método estático. As excentricidades das barras na planta sísmica impedem a geração. Gere novamente as cargas E afetadas (#2316).",
+    "de": "Geschosse ohne Gewicht zählen für die Periode und die Anwendungsgrenzen des statischen Verfahrens. Stabversätze im Erdbebengrundriss verhindern die Lasterzeugung. Erzeugen Sie betroffene E-Lasten neu (#2316).",
+    "fr": "Les étages de poids nul comptent pour la période et les limites de la méthode statique. Les excentrements des barres dans l’emprise sismique empêchent la génération. Régénérez les charges E concernées (#2316).",
+    "tr": "Ağırlığı sıfır olan katlar periyot ve statik yöntem sınırlarına dahildir. Sismik plandaki eleman eksen kaçıklıkları yük üretimini engeller. Etkilenen E yüklerini yeniden oluşturun (#2316).",
+    "zh": "零重量楼层也纳入等效静力法的周期和适用范围判定。地震计算范围内存在构件偏移时，将阻止生成。请重新生成受影响的 E 荷载（#2316）。",
+    "hu": "A súly nélküli szintek beleszámítanak a periódusba és a statikus módszer alkalmazási határaiba. A szeizmikus alaprajzon belüli rúdkülpontosság megakadályozza a terhek előállítását. Generálja újra az érintett E terheket (#2316)."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-seismic-zero-weight-geometry.md",
+    "heading": "Static seismic loads account for zero-weight structural geometry"
+  }
+}

@@ -1,0 +1,152 @@
+{
+  "main": {
+    "depth": 0.366,
+    "barDia": 20,
+    "torsion": {
+      "Tu": 30,
+      "Tcr": 29.700000000000006,
+      "phiTn": 58.0552538223597,
+      "AtOverS": 4.271172651305651,
+      "AlReq": 6.69719871724726,
+      "neglect": false,
+      "ratio": 0.5167490971927444,
+      "status": "ok",
+      "steps": [
+        "Tu = 30.000 kN·m",
+        "Tcr = 0.33·√f'c·Acp²/pcp = 29.700 kN·m",
+        "Aoh = 1311.6 cm², ph = 156.8 cm",
+        "At/s,req = 4.27 cm²/m (una rama)",
+        "Al,req = 6.70 cm² (longitudinal por torsión)",
+        "φTn,máx = 58.055 kN·m con Vu = 0.00 kN (§22.7.7.1) → Tu/φTn = 0.517"
+      ]
+    },
+    "shear": {
+      "Vu": 0,
+      "d": 0.5589999999999999,
+      "phiVc": 106.90875,
+      "Vs": 0,
+      "AvOverS": 2.5,
+      "AvOverSReq": 0,
+      "AvOverSMin": 2.5,
+      "spacing": 0.275,
+      "stirrupDia": 8,
+      "stirrupLegs": 2,
+      "phiVn": 171.32384454545453,
+      "ratio": 0,
+      "status": "ok",
+      "steps": [
+        "Vu = 0.00 kN",
+        "d = 55.9 cm",
+        "φVc (motor, CIRSOC 201-2025) = 106.91 kN",
+        "Vs,req = 0.00 kN",
+        "Av/s,req = 2.50 cm²/m",
+        "Estribos: 2 ramas Ø8 c/28 cm",
+        "φVn = 171.32 kN"
+      ]
+    },
+    "overall": "ok"
+  },
+  "independent": {
+    "phiTth": 5.602500000000001,
+    "neglect": false,
+    "sectionRatio": 0.5167490971927444,
+    "transverseRequired": 0.0008542345302611303,
+    "AtOverS": 0.00042711726513056515,
+    "transverseProvided": 0.0003655671451449941,
+    "outerLegProvided": 0.00018278357257249704,
+    "Al": 0.0006697198717247261,
+    "AlMin": 0.0002302801282752739,
+    "sMax": 0.19599999999999998,
+    "ratio": 2.3367377008738495
+  },
+  "mainSha": "013485aa2629a05672403919060cc1397f510fd1",
+  "parentSha": "bc350f029ff6255e75170b595939716e6cc9e7c5",
+  "introducingDepthCommit": "823da327c1c0a15065fc5cb49f335de3df388fa6",
+  "parent": {
+    "before": {
+      "d": 0.366,
+      "AsFlexural": 4.145275990221593,
+      "phiMn": 74.17022647341176
+    },
+    "introduced": {
+      "d": 0.364,
+      "AsFlexural": 4.145275990221593,
+      "phiMn": 74.17022647341176
+    },
+    "current": {
+      "d": 0.364,
+      "AsFlexural": 4.145275990221593,
+      "phiMn": 74.17022647341176
+    },
+    "torsion": {
+      "Tu": 30,
+      "Tcr": 29.700000000000006,
+      "phiTn": 58.0552538223597,
+      "AtOverS": 4.271172651305651,
+      "AlReq": 6.69719871724726,
+      "neglect": false,
+      "ratio": 0.5167490971927444,
+      "status": "ok",
+      "steps": [
+        "Tu = 30.000 kN·m",
+        "Tcr = 0.33·√f'c·Acp²/pcp = 29.700 kN·m",
+        "Aoh = 1311.6 cm², ph = 156.8 cm",
+        "At/s,req = 4.27 cm²/m (una rama)",
+        "Al,req = 6.70 cm² (longitudinal por torsión)",
+        "φTn,máx = 58.055 kN·m con Vu = 0.00 kN (§22.7.7.1) → Tu/φTn = 0.517"
+      ],
+      "spacingMax": 0.19599999999999998
+    },
+    "overall": "ok"
+  },
+  "fixed": {
+    "before": {
+      "d": 0.366,
+      "AsFlexural": 4.145275990221593,
+      "phiMn": 74.17022647341176
+    },
+    "introduced": {
+      "d": 0.364,
+      "AsFlexural": 4.145275990221593,
+      "phiMn": 74.17022647341176
+    },
+    "current": {
+      "d": 0.366,
+      "providedDepth": 0.364,
+      "AsFlexural": 4.145275990221593,
+      "phiMn": 74.17022647341176
+    },
+    "torsion": {
+      "Tu": 30,
+      "Tcr": 29.700000000000006,
+      "phiTn": 58.0552538223597,
+      "AtOverS": 4.271172651305651,
+      "AlReq": 6.69719871724726,
+      "neglect": false,
+      "ratio": 0.5167490971927444,
+      "status": "fail",
+      "steps": [
+        "Tu = 30.000 kN·m",
+        "Tcr = 0.33·√f'c·Acp²/pcp = 29.700 kN·m",
+        "Aoh = 1311.6 cm², ph = 156.8 cm",
+        "At/s,req = 4.27 cm²/m (una rama)",
+        "Al,req = 6.70 cm² (longitudinal por torsión)",
+        "φTn,máx = 58.055 kN·m con Vu = 0.00 kN (§22.7.7.1) → Tu/φTn = 0.517",
+        "At/s,prov = 1.83 cm²/m (descontando corte), Al,prov = 6.70 cm²",
+        "Armadura de torsión y separación: demanda/provisión = 2.337"
+      ],
+      "spacingMax": 0.19599999999999998,
+      "AtOverSProv": 1.8278357257249704,
+      "AlProv": 6.69719871724726,
+      "reinforcementRatio": 2.3367377008738495
+    },
+    "overall": "fail"
+  },
+  "sourceSha256": {
+    "origin/main": "52fa26ce7f5938703a950b6d90c13cdc9acc5f4ffbe243432290503e4a0906ec",
+    "bc350f029": "448830e8a8b397ff0e64f9e74823d2f7b1732e4c02b67be6ac5ddfe9613bb689",
+    "823da327c^": "a810e29464b7496ee00bf8b17512e591fd31f2ffb3d5a70c2208400d29cc7ced",
+    "823da327c": "11d2c30a1f18c8cc89833582d6641a4daa3c0914b93efa42b48c03ee2df7c2cf",
+    "fixed": "b5e29b3f2d0f08a33747a88938087a804b6ea51c7feced0643c4cc03d2c94977"
+  }
+}

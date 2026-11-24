@@ -1,12 +1,10 @@
 // Diagram calculation: M(x), V(x), N(x) along each element
 // Given end forces and distributed load, compute intermediate values
 
-import { computeDeformedShape as wasmComputeDeformedShape, isWasmReady } from './wasm-solver';
-import { axialLoadUpTo } from './axial-span-2d';
+import { computeDeformedShape as wasmComputeDeformedShape } from './wasm-solver';
+import { checkedCurveValue, curveExtrema, diagramCurvePoints, diagramLineValue, distributedActionTerms, fullSpanFallback, indexDiagramExtrema, memberDiagram, unavailableDiagramExtrema, type DiagramStation } from './member-diagram';
 
-export interface DiagramPoint {
-  /** Position along element [0, 1] normalized */
-  t: number;
+export interface DiagramPoint extends DiagramStation {
   /** World coordinates */
   x: number;
   y: number;
@@ -24,60 +22,50 @@ export interface ElementDiagram {
   maxAbsValue: number;
 }
 
-const NUM_POINTS = 21; // number of sampling points per element
+type PlanarKind = 'moment' | 'shear' | 'axial';
 
-/**
- * Build sorted, unique sampling positions (as t ∈ [0,1]) including
- * regular grid points and positions just before/after each point load
- * to capture discontinuities.
- */
-function buildSamplingPositions(
-  length: number,
-  pointLoads: Array<{ a: number; p: number; px?: number; my?: number }>,
-): number[] {
-  const tSet = new Set<number>();
+type PlanarForces = {
+  mStart: number; mEnd: number; vStart: number; vEnd: number; nStart: number; nEnd: number;
+  qI: number; qJ: number; length: number;
+  pointLoads?: Array<{ a: number; p: number; px?: number; my?: number }>;
+  distributedLoads?: Array<{ qI: number; qJ: number; a: number; b: number }>;
+  distributedLoadsX?: Array<{ qI: number; qJ: number; a: number; b: number }>;
+};
 
-  // Regular grid
-  for (let i = 0; i < NUM_POINTS; i++) {
-    tSet.add(i / (NUM_POINTS - 1));
+function planarCurve(kind: PlanarKind, ef: PlanarForces) {
+  const { length } = ef;
+  const points = [...(ef.pointLoads ?? [])].sort((a, b) => a.a - b.a);
+  if (kind === 'axial') {
+    const loads = ef.distributedLoadsX ?? [];
+    const axial = points.filter(p => p.px).map(p => ({ a: p.a, jump: -p.px! }));
+    const pointTotal = axial.reduce((sum, p) => sum - p.jump, 0);
+    const distributedTotal = loads.reduce((sum, load) => sum + distributedActionTerms(load, length)[0], 0);
+    return memberDiagram(length, ef.nStart, ef.nEnd + pointTotal + distributedTotal - ef.nStart, loads, axial, 'force', -1);
   }
-
-  // Add positions around point loads
-  const eps = 1e-6;
-  for (const pl of pointLoads) {
-    const tPl = pl.a / length;
-    if (tPl > eps) tSet.add(tPl - eps);
-    tSet.add(tPl);
-    if (tPl < 1 - eps) tSet.add(tPl + eps);
-  }
-
-  return Array.from(tSet).sort((a, b) => a - b);
+  const loads = fullSpanFallback(length, ef.distributedLoads, ef.qI, ef.qJ);
+  return kind === 'moment'
+    ? memberDiagram(length, ef.mStart, 0, loads,
+      points.map(p => ({ a: p.a, jump: p.my ?? 0, slope: -p.p })), 'moment', -1, -ef.vStart)
+    : memberDiagram(length, ef.vStart, 0, loads, points.map(p => ({ a: p.a, jump: p.p })));
 }
 
-/**
- * Helper: build an ElementDiagram by sampling computeDiagramValueAt at each position.
- */
 function buildDiagram(
-  kind: 'moment' | 'shear' | 'axial',
-  ef: Parameters<typeof computeDiagramValueAt>[2],
+  kind: PlanarKind,
+  ef: PlanarForces,
   nodeIx: number, nodeIy: number,
   nodeJx: number, nodeJy: number,
-  pointLoads: Array<{ a: number; p: number; px?: number; my?: number }>,
 ): ElementDiagram {
-  const positions = kind === 'axial' && !pointLoads.some(pl => pl.px && Math.abs(pl.px) > 1e-15)
-    ? Array.from({ length: NUM_POINTS }, (_, i) => i / (NUM_POINTS - 1))
-    : buildSamplingPositions(ef.length, pointLoads);
-
+  const curve = planarCurve(kind, ef);
   const points: DiagramPoint[] = [];
   let maxVal = -Infinity, minVal = Infinity;
   let maxAbsT = 0, maxAbsValue = 0;
 
-  for (const t of positions) {
-    const value = computeDiagramValueAt(kind, t, ef);
+  for (const point of diagramCurvePoints(curve, curveExtrema(curve, ef.length))) {
+    const { t, value } = point;
     const x = nodeIx + t * (nodeJx - nodeIx);
     const y = nodeIy + t * (nodeJy - nodeIy);
 
-    points.push({ t, x, y, value });
+    points.push({ ...point, x, y });
 
     if (value > maxVal) maxVal = value;
     if (value < minVal) minVal = value;
@@ -90,17 +78,13 @@ function buildDiagram(
   return { elementId: 0, points, maxValue: maxVal, minValue: minVal, maxAbsT, maxAbsValue };
 }
 
-/**
- * The diagram of one member from its full element forces: partial distributed loads included,
- * at the engine's stations (`diagram_positions_2d`). The canvas draws this one.
- */
 export function computeElementDiagram(
   kind: 'moment' | 'shear' | 'axial',
   ef: Parameters<typeof computeDiagramValueAt>[2],
   nodeIx: number, nodeIy: number,
   nodeJx: number, nodeJy: number,
 ): ElementDiagram {
-  return buildDiagram(kind, ef, nodeIx, nodeIy, nodeJx, nodeJy, ef.pointLoads ?? []);
+  return buildDiagram(kind, ef, nodeIx, nodeIy, nodeJx, nodeJy);
 }
 
 /**
@@ -115,7 +99,7 @@ export function computeMomentDiagram(
   pointLoads: Array<{ a: number; p: number; px?: number; my?: number }> = [],
 ): ElementDiagram {
   const ef = { mStart, mEnd: _mEnd, vStart, vEnd: 0, nStart: 0, nEnd: 0, qI, qJ, length, pointLoads };
-  return buildDiagram('moment', ef, nodeIx, nodeIy, nodeJx, nodeJy, pointLoads);
+  return buildDiagram('moment', ef, nodeIx, nodeIy, nodeJx, nodeJy);
 }
 
 /**
@@ -129,7 +113,7 @@ export function computeShearDiagram(
   pointLoads: Array<{ a: number; p: number; px?: number; my?: number }> = [],
 ): ElementDiagram {
   const ef = { mStart: 0, mEnd: 0, vStart, vEnd: 0, nStart: 0, nEnd: 0, qI, qJ, length, pointLoads };
-  return buildDiagram('shear', ef, nodeIx, nodeIy, nodeJx, nodeJy, pointLoads);
+  return buildDiagram('shear', ef, nodeIx, nodeIy, nodeJx, nodeJy);
 }
 
 /**
@@ -143,104 +127,54 @@ export function computeAxialDiagram(
   pointLoads: Array<{ a: number; p: number; px?: number; my?: number }> = [],
 ): ElementDiagram {
   const ef = { mStart: 0, mEnd: 0, vStart: 0, vEnd: 0, nStart, nEnd, qI: 0, qJ: 0, length, pointLoads };
-  return buildDiagram('axial', ef, nodeIx, nodeIy, nodeJx, nodeJy, pointLoads);
+  return buildDiagram('axial', ef, nodeIx, nodeIy, nodeJx, nodeJy);
 }
 
 /**
  * Compute the value of a diagram (M, V, or N) at a given normalized position t ∈ [0,1]
  */
-export function computeDiagramValueAt(
-  kind: 'moment' | 'shear' | 'axial',
-  t: number,
-  ef: { mStart: number; mEnd: number; vStart: number; vEnd: number; nStart: number; nEnd: number; qI: number; qJ: number; length: number; pointLoads?: Array<{ a: number; p: number; px?: number; my?: number }>; distributedLoads?: Array<{ qI: number; qJ: number; a: number; b: number }>; distributedLoadsX?: Array<{ qI: number; qJ: number; a: number; b: number }> },
-): number {
-  const xi = t * ef.length;
-  const sortedPL = [...(ef.pointLoads ?? [])].sort((a, b) => a.a - b.a);
-
-  // Use distributedLoads array if available (supports partial loads), otherwise fall back to legacy qI/qJ
-  const dLoads = ef.distributedLoads ?? (
-    (Math.abs(ef.qI) > 1e-10 || Math.abs(ef.qJ) > 1e-10)
-      ? [{ qI: ef.qI, qJ: ef.qJ, a: 0, b: ef.length }]
-      : []
-  );
-
-  if (kind === 'moment') {
-    let value = ef.mStart - ef.vStart * xi;
-    // Distributed load contributions: -∫_a^min(xi,b) q(ξ)·(xi-ξ) dξ
-    for (const dl of dLoads) {
-      if (xi > dl.a + 1e-10) {
-        const xEnd = Math.min(xi, dl.b);
-        const s = xEnd - dl.a;
-        const span = dl.b - dl.a;
-        if (span < 1e-12 || s < 1e-12) continue;
-        const dq = (dl.qJ - dl.qI) / span;
-        const d = xi - dl.a;
-        value -= dl.qI * (d * s - s * s / 2) + dq * (d * s * s / 2 - s * s * s / 3);
-      }
+export function computeDiagramValueAt(kind: PlanarKind, t: number, ef: PlanarForces): number {
+  const { length } = ef;
+  if (!(length > 0 && Number.isFinite(length))) throw unavailableDiagramExtrema();
+  if (kind === 'axial') {
+    if (!ef.distributedLoadsX?.length && !ef.pointLoads?.some(p => p.px)) {
+      return diagramLineValue(ef.nStart, ef.nEnd - ef.nStart, 0, t * length, t);
     }
-    for (const pl of sortedPL) {
-      if (pl.a < xi - 1e-10) {
-        value -= pl.p * (xi - pl.a);
-        /*
-         * A couple jumps the diagram by +my. With m(x) = mStart − vStart·x
-         * and a load P entering as −P·(x − a), the equilibrium of the piece
-         * left of x puts a counter-clockwise couple in with a plus: on a
-         * cantilever carrying only a couple the moment has to fall back to
-         * zero past it, and it did not — it doubled.
-         */
-        if (pl.my) value += pl.my;
-      }
-    }
-    return value;
-  } else if (kind === 'shear') {
-    let value = ef.vStart;
-    for (const dl of dLoads) {
-      if (xi > dl.a + 1e-10) {
-        const xEnd = Math.min(xi, dl.b);
-        const s = xEnd - dl.a;
-        const span = dl.b - dl.a;
-        if (span < 1e-12 || s < 1e-12) continue;
-        const dq = (dl.qJ - dl.qI) / span;
-        value += dl.qI * s + dq * s * s / 2;
-      }
-    }
-    for (const pl of sortedPL) {
-      if (pl.a < xi - 1e-10) {
-        value += pl.p;
-      }
-    }
-    return value;
-  } else {
-    /*
-     * An axial point load px (towards J) drops the tension past it by px, a
-     * step. The linear part left between the ends is whatever the step does
-     * not explain (nEnd = nStart − Σpx when nothing else acts). This used to
-     * interpolate from nStart to nEnd across the whole member and then ADD
-     * px past the load, so a cantilever pulled at midspan read 5 → 2.5, a
-     * jump up to 7.5, and 5 again at the free end instead of 5 then 0.
-     *
-     * An axial span load (`distributedLoadsX`, towards J) lowers it by what of the load lies
-     * left of x: linearly under a uniform one, quadratically under a trapezoid, not at all
-     * outside a partial one.
-     */
-    const pxAll = sortedPL.reduce((s, pl) => s + (pl.px ?? 0), 0);
-    const axial = ef.distributedLoadsX ?? [];
-    const qxAll = axial.reduce((s, d) => s + axialLoadUpTo(d, ef.length), 0);
-    let value = ef.nStart + t * (ef.nEnd + pxAll + qxAll - ef.nStart);
-    for (const pl of sortedPL) {
-      if (pl.px && pl.a < xi - 1e-10) {
-        value -= pl.px;
-      }
-    }
-    for (const d of axial) value -= axialLoadUpTo(d, xi);
-    return value;
+  } else if (!ef.distributedLoads?.length && !ef.pointLoads?.length && !ef.qI && !ef.qJ) {
+    const moment = kind === 'moment';
+    return diagramLineValue(moment ? ef.mStart : ef.vStart, 0, moment ? -ef.vStart : 0, t * length, t);
   }
+  const curve = planarCurve(kind, ef);
+  if (!curve.hasDistributedActions) return curve.value({ t });
+  return checkedCurveValue(curve, { t }, indexDiagramExtrema(curveExtrema(curve, length, t)));
 }
 
-/**
- * Compute deformed shape points using Hermite cubic interpolation + particular solution.
- * Delegates to WASM when available, falls back to TS implementation.
- */
+export function prepareDiagramValueAt(kind: PlanarKind, ef: PlanarForces): (t: number) => number {
+  const curve = planarCurve(kind, ef);
+  if (!curve.hasDistributedActions) return t => curve.value({ t });
+  let extrema: ReturnType<typeof indexDiagramExtrema> | undefined;
+  return t => {
+    extrema ??= indexDiagramExtrema(curveExtrema(curve, ef.length));
+    return checkedCurveValue(curve, { t }, extrema);
+  };
+}
+
+type PlanarRecoveryRequest = {
+  nodeIx: number; nodeIy: number; nodeJx: number; nodeJy: number;
+  uIx: number; uIy: number; rIz: number; uJx: number; uJy: number; rJz: number;
+  length: number; hingeStart: boolean; hingeEnd: boolean;
+  ei: number | undefined; gas: number | undefined;
+  loadQi: number | undefined; loadQj: number | undefined;
+  loadPoints: Array<{ a: number; p: number; my?: number }> | undefined;
+  distLoads: Array<{ qI: number; qJ: number; a: number; b: number }> | undefined;
+};
+
+function planarRecoveryRequest({ distLoads, loadPoints, ...input }: PlanarRecoveryRequest) {
+  return { ...input, scale: 1, loadPoints: loadPoints ?? [],
+    distLoads: (distLoads?.length ? distLoads : [{ qI: input.loadQi ?? 0, qJ: input.loadQj ?? 0, a: 0, b: input.length }])
+      .map(d => [d.qI, d.qJ, d.a, d.b]) };
+}
+
 export function computeDeformedShape(
   nodeIx: number, nodeIy: number,
   nodeJx: number, nodeJy: number,
@@ -253,36 +187,14 @@ export function computeDeformedShape(
   EI?: number,
   loadQI?: number,
   loadQJ?: number,
-  loadPoints?: Array<{ a: number; p: number }>,
+  loadPoints?: Array<{ a: number; p: number; my?: number }>,
   distLoads?: Array<{ qI: number; qJ: number; a: number; b: number }>,
+  gas?: number,
 ): { x: number; y: number }[] {
-  if (isWasmReady()) {
-    return wasmComputeDeformedShape({
-      nodeIx, nodeIy, nodeJx, nodeJy,
-      uIx, uIy, rIz, uJx, uJy, rJz,
-      scale, length, hingeStart, hingeEnd,
-      ei: EI ?? null,
-      loadQi: loadQI ?? null,
-      loadQj: loadQJ ?? null,
-      loadPoints: (loadPoints ?? []).map(p => [p.a, p.p]),
-      distLoads: (distLoads ?? []).map(d => [d.qI, d.qJ, d.a, d.b]),
-    });
-  }
-
-  // TS fallback: sample computeDisplacementAt at NUM_POINTS positions
-  const points: { x: number; y: number }[] = [];
-  for (let i = 0; i < NUM_POINTS; i++) {
-    const t = i / (NUM_POINTS - 1);
-    const { ux, uz } = computeDisplacementAt(
-      t, nodeIx, nodeIy, nodeJx, nodeJy,
-      uIx, uIy, rIz, uJx, uJy, rJz,
-      length, hingeStart, hingeEnd, EI, loadQI, loadQJ, loadPoints, distLoads,
-    );
-    const baseX = nodeIx + t * (nodeJx - nodeIx);
-    const baseY = nodeIy + t * (nodeJy - nodeIy);
-    points.push({ x: baseX + ux * scale, y: baseY + uz * scale });
-  }
-  return points;
+  return wasmComputeDeformedShape({ ...planarRecoveryRequest({
+    nodeIx, nodeIy, nodeJx, nodeJy, uIx, uIy, rIz, uJx, uJy, rJz,
+    length, hingeStart, hingeEnd, ei: EI, gas, loadQi: loadQI, loadQj: loadQJ, loadPoints, distLoads,
+  }), scale });
 }
 
 /**
@@ -304,169 +216,17 @@ export function computeDisplacementAt(
   EI?: number,
   loadQI?: number,
   loadQJ?: number,
-  loadPoints?: Array<{ a: number; p: number }>,
+  loadPoints?: Array<{ a: number; p: number; my?: number }>,
   distLoads?: Array<{ qI: number; qJ: number; a: number; b: number }>,
-): { ux: number; uz: number } {
-  const L = length;
-  if (L < 1e-12) return { ux: uIx, uz: uIy };
-
-  const cosA = (nodeJx - nodeIx) / L;
-  const sinA = (nodeJy - nodeIy) / L;
-
-  // Transform end displacements to local (axial u, transversal v)
-  const vI = -uIx * sinA + uIy * cosA;
-  const vJ = -uJx * sinA + uJy * cosA;
-  const uI_loc = uIx * cosA + uIy * sinA;
-  const uJ_loc = uJx * cosA + uJy * sinA;
-
-  const L2 = L * L;
-  const L3 = L2 * L;
-
-  // ── Particular solution setup ──
-  const allDistLoads: Array<{ qI: number; qJ: number; a: number; b: number }> = [];
-  if (distLoads && distLoads.length > 0) {
-    allDistLoads.push(...distLoads);
-  } else {
-    const q0 = loadQI ?? 0;
-    const q1 = loadQJ ?? 0;
-    if (Math.abs(q0) > 1e-10 || Math.abs(q1) > 1e-10) {
-      allDistLoads.push({ qI: q0, qJ: q1, a: 0, b: L });
-    }
+  gas?: number,
+): { ux: number; uz: number; ry: number } {
+  if (length < 1e-12) return { ux: uIx, uz: uIy, ry: rIz };
+  const sample = wasmComputeDeformedShape({ ...planarRecoveryRequest({
+    nodeIx, nodeIy, nodeJx, nodeJy, uIx, uIy, rIz, uJx, uJy, rJz,
+    length, hingeStart, hingeEnd, ei: EI, gas, loadQi: loadQI, loadQj: loadQJ, loadPoints, distLoads,
+  }), displacementsOnly: true, positions: [Math.max(0, Math.min(1, t))] })[0];
+  if (!sample || !Number.isFinite(sample.ux) || !Number.isFinite(sample.uz) || !Number.isFinite(sample.ry)) {
+    throw new Error('Member displacement recovery did not return finite displacement and rotation.');
   }
-  const hasDistLoad = allDistLoads.length > 0;
-  const hasPtLoads = loadPoints && loadPoints.length > 0;
-  const hasLoads = EI && EI > 1e-6 && (hasDistLoad || hasPtLoads);
-
-  const pointVpp = (P: number, aP: number) => {
-    const bP = L - aP;
-    return {
-      vpp0: P * aP * bP * bP / (EI! * L2),
-      vppL: P * aP * aP * bP / (EI! * L2),
-    };
-  };
-
-  let vpp_p0 = 0;
-  let vpp_pL = 0;
-  if (hasLoads) {
-    for (const dl of allDistLoads) {
-      const isFullLength = dl.a < 1e-10 && Math.abs(dl.b - L) < 1e-10;
-      if (isFullLength) {
-        vpp_p0 += L2 * (4 * dl.qI + dl.qJ) / (60 * EI!);
-        vpp_pL += L2 * (dl.qI + 4 * dl.qJ) / (60 * EI!);
-      } else {
-        const N_SIMP = 20;
-        const span = dl.b - dl.a;
-        if (span < 1e-12) continue;
-        const h = span / N_SIMP;
-        for (let j = 0; j <= N_SIMP; j++) {
-          const tt = j / N_SIMP;
-          const xLoad = dl.a + tt * span;
-          const qAt = dl.qI + (dl.qJ - dl.qI) * tt;
-          let w: number;
-          if (j === 0 || j === N_SIMP) w = h / 3;
-          else if (j % 2 === 1) w = 4 * h / 3;
-          else w = 2 * h / 3;
-          const dP = qAt * w;
-          if (Math.abs(dP) < 1e-15) continue;
-          const { vpp0, vppL } = pointVpp(dP, xLoad);
-          vpp_p0 += vpp0;
-          vpp_pL += vppL;
-        }
-      }
-    }
-    if (hasPtLoads) {
-      for (const pl of loadPoints!) {
-        const { vpp0, vppL } = pointVpp(pl.p, pl.a);
-        vpp_p0 += vpp0;
-        vpp_pL += vppL;
-      }
-    }
-  }
-
-  // Adjust rotations for hinges
-  let thetaI = rIz;
-  let thetaJ = rJz;
-  const dv = vJ - vI;
-
-  if (hingeStart && hingeEnd) {
-    thetaI = dv / L + L * vpp_p0 / 3 + L * vpp_pL / 6;
-    thetaJ = dv / L - L * vpp_p0 / 6 - L * vpp_pL / 3;
-  } else if (hingeStart) {
-    thetaI = 3 * dv / (2 * L) - thetaJ / 2 + L * vpp_p0 / 4;
-  } else if (hingeEnd) {
-    thetaJ = 3 * dv / (2 * L) - thetaI / 2 - L * vpp_pL / 4;
-  }
-
-  // ── Evaluate at parameter t ──
-  const xi = Math.max(0, Math.min(1, t));
-  const x = xi * L;
-  const xi2 = xi * xi;
-  const xi3 = xi2 * xi;
-
-  // Hermite shape functions
-  const N1 = 1 - 3 * xi2 + 2 * xi3;
-  const N2 = (xi - 2 * xi2 + xi3) * L;
-  const N3 = 3 * xi2 - 2 * xi3;
-  const N4 = (-xi2 + xi3) * L;
-
-  let vLocal = N1 * vI + N2 * thetaI + N3 * vJ + N4 * thetaJ;
-
-  // Add particular solution
-  if (hasLoads) {
-    let vp = 0;
-    if (hasDistLoad) {
-      for (const dl of allDistLoads) {
-        const isFullLength = dl.a < 1e-10 && Math.abs(dl.b - L) < 1e-10;
-        if (isFullLength) {
-          const Lmx = L - x;
-          const x2Lmx2 = x * x * Lmx * Lmx;
-          vp += x2Lmx2 * (dl.qI / 24 + (dl.qJ - dl.qI) * (L + x) / (120 * L)) / EI!;
-        } else {
-          const N_SIMP = 20;
-          const span = dl.b - dl.a;
-          if (span < 1e-12) continue;
-          const h = span / N_SIMP;
-          for (let j = 0; j <= N_SIMP; j++) {
-            const tt = j / N_SIMP;
-            const xLoad = dl.a + tt * span;
-            const qAt = dl.qI + (dl.qJ - dl.qI) * tt;
-            let w: number;
-            if (j === 0 || j === N_SIMP) w = h / 3;
-            else if (j % 2 === 1) w = 4 * h / 3;
-            else w = 2 * h / 3;
-            const dP = qAt * w;
-            if (Math.abs(dP) < 1e-15) continue;
-            const aP = xLoad, bP = L - xLoad;
-            if (x <= xLoad) {
-              vp += dP * bP * bP * x * x * (3 * aP * L - x * (3 * aP + bP)) / (6 * EI! * L3);
-            } else {
-              const Lmx = L - x;
-              vp += dP * aP * aP * Lmx * Lmx * (3 * bP * L - Lmx * (3 * bP + aP)) / (6 * EI! * L3);
-            }
-          }
-        }
-      }
-    }
-    if (hasPtLoads) {
-      for (const pl of loadPoints!) {
-        const a = pl.a, P = pl.p, b = L - a;
-        if (x <= a) {
-          vp += P * b * b * x * x * (3 * a * L - x * (3 * a + b)) / (6 * EI! * L3);
-        } else {
-          const Lmx = L - x;
-          vp += P * a * a * Lmx * Lmx * (3 * b * L - Lmx * (3 * b + a)) / (6 * EI! * L3);
-        }
-      }
-    }
-    vLocal += vp;
-  }
-
-  // Axial (linear)
-  const uLocal = uI_loc + xi * (uJ_loc - uI_loc);
-
-  // Transform back to global
-  const ux = uLocal * cosA - vLocal * sinA;
-  const uz = uLocal * sinA + vLocal * cosA;
-
-  return { ux, uz };
+  return sample;
 }

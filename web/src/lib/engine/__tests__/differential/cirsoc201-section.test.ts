@@ -10,7 +10,7 @@
  * inside; ties or spiral; deducting the displaced concrete or not; any neutral-axis direction
  * and depth) the two must give the same state.
  *
- * Disagreements found and resolved against the clause (docs/verification/TS_ENGINE_LOGIC.md):
+ * Disagreements found and resolved against the clause (testing/docs/TS_ENGINE_LOGIC.md):
  *   - none in the 2005 state: Pn, Mnx, Mny, εt, φ, φPn agree to 1e-9;
  *   - the oracle has no 2025: the engine's φ follows Tabla 21.2.2 (tension-controlled at
  *     εty + 0,003, a spiral at 0,75), pinned below against the clause text.

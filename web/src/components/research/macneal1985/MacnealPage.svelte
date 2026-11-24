@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
   import { publicI18n } from '../../../lib/i18n/store.svelte';
+  import { holdPrerender } from '../../../lib/prerender-hold';
   import ExperimentShell from '../shell/ExperimentShell.svelte';
   import PaneTabs from '../shell/PaneTabs.svelte';
   import ScalarFieldViewer from '../../viewport/ScalarFieldViewer.svelte';
@@ -42,7 +43,7 @@
     await tick();
     document.getElementById('rs-tab-viewer')?.focus();
   }
-  onMount(() => { void run(); });
+  onMount(() => { void holdPrerender(run()); });
 </script>
 
 <ExperimentShell paperId="macneal-harder-1985" name={s.title}
@@ -77,7 +78,7 @@
       {#if failure}<p role="alert">{s.failed}: {failure}</p>{/if}
       <PaneTabs tabs={[{ id: 'viewer', label: s.viewer }, { id: 'results', label: s.results }]} bind:active={tab} />
       <div id="rs-panel-viewer" role="tabpanel" aria-labelledby="rs-tab-viewer" hidden={tab !== 'viewer'}>
-        <ScalarFieldViewer {...view} cellSize={current.dimension === 2 ? 2 : 4} deformScale={scale} showMesh={true} title={s.field} ariaLabel={`${caseLabel(current.id, s)} · ${s.field} (m)`} unit="m" height="20rem" editorButton={false} />
+        <ScalarFieldViewer plane={current.dimension === 2 ? 'elevation' : 'plan'} {...view} cellSize={current.dimension === 2 ? 2 : 4} deformScale={scale} showMesh={true} title={s.field} ariaLabel={`${caseLabel(current.id, s)} · ${s.field} (m)`} unit="m" height="20rem" editorButton={false} />
         <label class="mh-control">{s.select}<select bind:value={selected}>{#each cases as c (c.id)}<option value={c.id}>{caseLabel(c.id, s)}</option>{/each}</select></label>
         <label class="mh-control">{s.scale}<span class="mh-range"><input type="range" min="0" max="20" step="0.5" bind:value={scale} /><output>{scale}</output></span></label>
         <div class="mh-actions">

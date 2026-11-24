@@ -48,7 +48,7 @@ defmodule StabileoAuth.AdminTest do
 
     test "refuses a product refresh token" do
       account = Factory.insert(:account)
-      {:ok, session} = StabileoAuth.login(account.email, Factory.password())
+      {:ok, session} = StabileoAuth.sign_in(account, %{}, "app")
       assert {:error, :invalid_token_type} = Admin.refresh(session.refresh_token)
     end
 

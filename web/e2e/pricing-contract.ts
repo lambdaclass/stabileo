@@ -127,6 +127,48 @@ export const PRICING = {
       "Bazı uzmanlaşmış modüller ücretlidir; üniversiteler bu modülleri ücretsiz alır.",
       "Stabileo AI ve yoğun bulut hesaplamaları, üniversiteler dahil herkes için ücretlidir; fiyatları maliyetlerini karşılayacak şekilde belirlenir."
     ]
+  },
+  "hu": {
+    "modules": [
+      "Alap",
+      "PRO · Analízis",
+      "PRO · Szabványos méretezés",
+      "Stabileo AI",
+      "Oktatás"
+    ],
+    "audiences": [
+      "Cégek és magánszemélyek",
+      "Egyetemek"
+    ],
+    "free": "Ingyenes",
+    "paid": "Fizetős",
+    "atCost": "Önköltségi áron",
+    "intro": "Az alapprogram, amely a böngészőben végzi a szerkezetszámítást, nyílt forráskódú és mindenki számára ingyenes. Néhány speciális modul fizetős; az egyetemek ezeket a modulokat ingyen kapják. A Stabileo AI-t és a nagy felhőalapú számítási kapacitást mindenki fizeti, az egyetemek is, a költségeket fedező áron.",
+    "notes": [
+      "Néhány speciális modul fizetős; az egyetemek ezeket a modulokat ingyen kapják.",
+      "A Stabileo AI-t és a nagy felhőalapú számítási kapacitást mindenki fizeti, az egyetemek is, a költségeket fedező áron."
+    ]
+  },
+  "zh": {
+    "modules": [
+      "基础",
+      "PRO · 分析",
+      "PRO · 规范设计",
+      "Stabileo AI",
+      "教学"
+    ],
+    "audiences": [
+      "企业和个人",
+      "高校"
+    ],
+    "free": "免费",
+    "paid": "付费",
+    "atCost": "按成本收费",
+    "intro": "用于浏览器中结构分析的核心程序是开源的，对所有人免费。部分专业模块为付费功能；高校可免费使用这些模块。Stabileo AI 和大规模云计算对所有人（包括高校）均为付费，价格按成本核定。",
+    "notes": [
+      "部分专业模块为付费功能；高校可免费使用这些模块。",
+      "Stabileo AI 和大规模云计算对所有人（包括高校）均为付费，价格按成本核定。"
+    ]
   }
 } satisfies Record<Locale, { modules: string[]; audiences: string[]; free: string; paid: string; atCost: string; intro: string; notes: string[] }>;
 
@@ -138,5 +180,7 @@ export const OBSOLETE_PRICING: Record<Locale, RegExp> = {
   de: /kostenlos,? (?:während|solange)|so lange kostenlos|(?:während|solange)[^.]*kostenlos|alles (?:ist )?kostenlos|ohne Ausnahmen|öffentlichen? Universitäten|an seiner Entwicklung beteilig/i,
   fr: /gratuit(?:e|s)? (?:pendant|durant|tant qu)|tout est gratuit|sans exception|universités publiques|particip\w+ à son développement/i,
   tr: /geliştirme (?:süresince|boyunca|aşamasında)[^.]*ücretsiz|her şey ücretsiz|istisnasız|devlet üniversiteleri|geliştirilmesine katkıda/i,
+  hu: /fejleszt\w* (?:alatt|idején|során)[^.]*ingyenes|minden ingyenes|kivétel nélkül|állami egyetemek|fejlesztésében részt/i,
+  zh: /开发期间[^。]*免费|开发阶段[^。]*免费|一切(?:均)?免费|全部免费|无一例外|公立高校|参与其开发|参与开发/,
 };
 

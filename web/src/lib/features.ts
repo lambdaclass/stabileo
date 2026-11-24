@@ -6,6 +6,10 @@
  * scope; one that is cheap can be read on every access.
  */
 
+import { buildFeatures } from '../../config/public-features.mjs';
+import { publicFeatureEnabledWithFlags, type PublicFeatures } from './public-feature-policy';
+export type { PublicFeatures } from './public-feature-policy';
+
 const PREFIX = 'stabileo-feature-';
 
 function readFlag(name: string, defaultValue: boolean): boolean {
@@ -35,8 +39,41 @@ export function canonicalSections(): boolean {
   return readFlag('canonical-sections', true);
 }
 
+export const PUBLIC_POLICY_AVAILABLE = typeof __PUBLIC_FEATURES_COMPILED__ === 'undefined'
+  ? (['research', 'tools', 'diagramGame', 'accounts'] as const).some(key => buildFeatures()[key])
+  : __PUBLIC_FEATURES__.research || __PUBLIC_FEATURES__.tools || __PUBLIC_FEATURES__.diagramGame || __PUBLIC_FEATURES__.accounts;
+
+export function globalAxes(): boolean {
+  return typeof __PUBLIC_FEATURES_COMPILED__ === 'undefined' ? buildFeatures().globalAxes : __PUBLIC_FEATURES__.globalAxes;
+}
+
 export function accounts(): boolean {
-  return readFlag('accounts', import.meta.env.DEV || import.meta.env.VITE_ACCOUNTS === '1');
+  const built = typeof __PUBLIC_FEATURES_COMPILED__ === 'undefined' ? buildFeatures().accounts : __PUBLIC_FEATURES__.accounts;
+  return built && readFlag('accounts', true);
+}
+
+export function researchBuilt(): boolean {
+  return typeof __PUBLIC_FEATURES_COMPILED__ === 'undefined' ? buildFeatures().research : __PUBLIC_FEATURES__.research;
+}
+
+export function research(): boolean {
+  return researchBuilt() && readFlag('research', true);
+}
+
+export function tools(): boolean {
+  const built = typeof __PUBLIC_FEATURES_COMPILED__ === 'undefined' ? buildFeatures().tools : __PUBLIC_FEATURES__.tools;
+  return built && readFlag('tools', true);
+}
+
+export function diagramGame(): boolean {
+  const built = typeof __PUBLIC_FEATURES_COMPILED__ === 'undefined' ? buildFeatures().diagramGame : __PUBLIC_FEATURES__.diagramGame;
+  return built && readFlag('diagram-game', true);
+}
+
+export const publicFeatures = (): PublicFeatures => ({ research: research(), tools: tools(), diagramGame: diagramGame(), accounts: accounts() });
+
+export function publicFeatureEnabled(path: string, flags: PublicFeatures = publicFeatures()): boolean {
+  return publicFeatureEnabledWithFlags(path, { ...flags, accounts: flags.accounts ?? accounts() });
 }
 
 /** Override a flag for the current session (used by tests and support). */
@@ -46,4 +83,9 @@ export function setFeatureFlag(name: string, value: boolean): void {
   } catch {
     // private mode — ignore
   }
+}
+
+export function publicLocaleEnabled(path: string, locale: string, flags: PublicFeatures = publicFeatures()): boolean {
+  const route = path.split(/[?#]/)[0].replace(/\/+$/, '');
+  return locale !== 'hu' || !(route === '/research' || route.startsWith('/research/')) || flags.research;
 }

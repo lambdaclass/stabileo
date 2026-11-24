@@ -1,4 +1,8 @@
 <script lang="ts">
+  import { plateSurfaceOf } from '../../lib/model/physical/plate';
+  import OutdatedNotice from './design/OutdatedNotice.svelte';
+  import { caseNameShown } from '../../lib/axes/case-names';
+  import { axisName } from '../../lib/axes/display';
   import Hint from './Hint.svelte';
   import PickKind from './PickKind.svelte';
   import QuantityInput from './loads/QuantityInput.svelte';
@@ -17,11 +21,15 @@
   import { addFloorLoadDef, removeFloorLoadDef, expandDefinitions } from '../../lib/store/defined-loads';
   import { fmtQ, unitQ } from '../../lib/store/display-units.svelte';
   import { physicalGroups } from '../../lib/store/physical';
+  import { floorLoadRequest } from '../../lib/store/floor-load-request.svelte';
+  import { pickedPlateDefs, plateEntry, previewPlateDefs } from '../../lib/store/physical-plates';
 
   const floorGroups = $derived([...modelStore.model.groups.values()].filter((g) => g.kind === 'floor' && (g.members.elements?.length ?? 0) > 0));
   const zones = $derived([...modelStore.model.groups.values()].filter((g) => g.kind === 'loadZone'));
-  /** The slabs placed or recognised (`model/physical`): a load on one goes onto its shells. */
-  const slabs = $derived(physicalGroups().filter((g) => g.physical.kind === 'slab' && (g.members.quads?.length ?? 0) + (g.members.plates?.length ?? 0) > 0));
+  /** The slabs and walls placed or recognised (`model/physical`): a load on one goes onto its shells, normal to a wall. */
+  const slabs = $derived(physicalGroups().filter((g) => (g.physical.kind === 'slab' || g.physical.kind === 'wall') && ((g.members.quads?.length ?? 0) + (g.members.plates?.length ?? 0) > 0 || !!plateSurfaceOf(g))));
+  /** The plates selected whole: one definition each, so every one follows its own plate. */
+  const pickedPlates = $derived([...uiStore.selectedPlates].filter((id) => !!plateEntry(id)));
   /** The levels to offer: the grid's, or else every elevation that has horizontal beams. */
   const levels = $derived.by(() => {
     const named = sortedLevels(modelStore.grid);
@@ -48,7 +56,8 @@
   const targets = $derived<Array<{ key: string; label: string }>>([
     ...levels.map((l) => ({ key: `z:${l.z}`, label: l.name })),
     ...floorGroups.map((g) => ({ key: `g:${g.id}`, label: g.name })),
-    ...slabs.map((g) => ({ key: `g:${g.id}`, label: `${t('physical.kind.slab')} · ${g.name}` })),
+    ...(pickedPlates.length > 1 ? [{ key: 'plates', label: tp('floorLoad.pickedPlates', { n: pickedPlates.length }) }] : []),
+    ...slabs.map((g) => ({ key: `g:${g.id}`, label: `${t(`physical.kind.${g.physical.kind}`)} · ${g.name}` })),
     ...zones.map((g) => ({ key: `zone:${g.id}`, label: `${t('loadZone.zone')} · ${g.name}` })),
     { key: 'sel', label: t('floorLoad.selection') },
     { key: 'range', label: t('floorLoad.range') },
@@ -56,8 +65,22 @@
   // A slab is loaded on its own shells.
   let lastTarget = '';
   $effect(() => {
-    if (targetKey !== lastTarget && slabs.some((g) => `g:${g.id}` === targetKey)) distribution = 'slab';
+    if (targetKey !== lastTarget && (targetKey === 'plates' || slabs.some((g) => `g:${g.id}` === targetKey))) distribution = 'slab';
     lastTarget = targetKey;
+  });
+  // Asked for from a plate's panel, or the plates selected whole as the panel opens.
+  $effect(() => {
+    const asked = floorLoadRequest.target;
+    if (asked) { targetKey = asked; floorLoadRequest.target = null; }
+  });
+  // Only a new selection moves the target: the list is rebuilt on every model change, and a target picked by hand stays.
+  let lastPicked = '';
+  $effect(() => {
+    const picked = pickedPlates.join(',');
+    if (picked === lastPicked) return;
+    lastPicked = picked;
+    if (pickedPlates.length > 1) targetKey = 'plates';
+    else if (pickedPlates.length === 1) targetKey = `g:${pickedPlates[0]}`;
   });
   $effect(() => {
     if (!targets.some((x) => x.key === targetKey)) targetKey = targets[0]?.key ?? 'sel';
@@ -84,6 +107,7 @@
   const target = $derived.by((): FloorTarget | null => {
     if (targetKey.startsWith('z:')) return { by: 'level', z: Number(targetKey.slice(2)) };
     if (targetKey.startsWith('g:')) return { by: 'group', groupId: Number(targetKey.slice(2)) };
+    if (targetKey === 'plates') return pickedPlates.length ? { by: 'group', groupId: pickedPlates[0]! } : null;
     if (targetKey.startsWith('zone:')) return { by: 'zone', zoneId: Number(targetKey.slice(5)) };
     if (targetKey === 'range') return rangeOf(range);
     return { by: 'own' };
@@ -96,16 +120,29 @@
   const def = $derived<FloorLoadDef | null>(caseId === null || target === null ? null : {
     caseId, q, target, distribution, ...(distribution === 'oneWay' ? { spanAxis } : {}), ...(perPlanArea ? { perPlanArea } : {}),
   });
+  const plateDefs = $derived(targetKey === 'plates' && def ? pickedPlateDefs(pickedPlates, def) : []);
   const preview = $derived(def && q !== 0
-    ? expandDefinition(modelStore.model as unknown as DefinitionModel, def, own, -1, { leftHand: uiStore.axisConvention3D === 'leftHand' })
+    ? targetKey === 'plates'
+      ? previewPlateDefs(plateDefs, { leftHand: uiStore.axisConvention3D === 'leftHand' })
+      : expandDefinition(modelStore.model as unknown as DefinitionModel, def, own, -1, { leftHand: uiStore.axisConvention3D === 'leftHand' })
     : null);
   const result = $derived(preview?.result ?? null);
+  /** A slab plate waiting for its mesh takes its load now, which lands on its shells when it is meshed. */
+  const waitingPlate = $derived(def?.target.by === 'group' && def.distribution === 'slab' && !!plateSurfaceOf(modelStore.model.groups.get(def.target.groupId)));
+  const canAdd = $derived(!!def && !!preview && (preview.loads.length > 0 || waitingPlate || targetKey === 'plates'));
 
   function add() {
-    if (!def || !preview || preview.loads.length === 0) return;
+    if (!def || !canAdd) return;
+    if (targetKey === 'plates') {
+      const label = name.trim() || t('floorLoad.plateDefault');
+      modelStore.batch(() => { for (const p of plateDefs) addFloorLoadDef(`${label} · ${plateEntry(p.id)!.name}`, p.def); });
+      applied = tp('floorLoad.addedPlates', { n: plateDefs.length });
+      name = '';
+      return;
+    }
     const label = name.trim() || tp('floorLoad.defaultName', { n: [...modelStore.model.groups.values()].filter((g) => g.kind === 'floorLoad').length + 1 });
     addFloorLoadDef(label, def, own);
-    applied = tp('floorLoad.added', { name: label, n: preview.loads.length });
+    applied = tp('floorLoad.added', { name: label, n: preview?.loads.length ?? 0 });
     name = '';
   }
 
@@ -137,6 +174,7 @@
 </script>
 
 <div class="fl" data-testid="floor-load">
+  <OutdatedNotice audit={['floor-regions']} />
   <Hint text={t('floorLoad.hint')} />
   <div class="fl-grid">
     <label for="fl-target">{t('floorLoad.target')}</label>
@@ -158,7 +196,7 @@
     <QuantityInput bind:value={q} quantity="areaLoad" testid="fl-q" wrap="fl-unit" />
     <label for="fl-case">{t('floorLoad.case')}</label>
     <select id="fl-case" bind:value={caseId} data-testid="fl-case">
-      {#each modelStore.model.loadCases as c (c.id)}<option value={c.id}>{c.name}</option>{/each}
+      {#each modelStore.model.loadCases as c (c.id)}<option value={c.id}>{caseNameShown(c)}</option>{/each}
     </select>
     <label for="fl-dist">{t('floorLoad.distribution')}</label>
     <select id="fl-dist" bind:value={distribution} data-testid="fl-distribution">
@@ -169,8 +207,8 @@
     {#if distribution === 'oneWay'}
       <label for="fl-span">{t('floorLoad.span')}</label>
       <select id="fl-span" bind:value={spanAxis} data-testid="fl-span">
-        <option value="x">X</option>
-        <option value="y">Y</option>
+        <option value="x">{axisName(0)}</option>
+        <option value="y">{axisName(1)}</option>
       </select>
     {/if}
     <label for="fl-name">{t('floorLoad.name')}</label>
@@ -197,6 +235,7 @@
       {tp('floorLoad.summary', { panels: result.panels.filter((p) => p.loaded).length, area: result.loadedArea.toFixed(2), total: result.totalKN.toFixed(1), beams: result.perBeam.size })}
     </p>
     {#if result.normal[2] < 0.999999}<p class="fl-hint" data-testid="fl-inclined">{tp('floorLoad.inclined', { deg: (Math.acos(result.normal[2]) * 180 / Math.PI).toFixed(1) })}</p>{/if}
+    {#if result.refusal}<p class="fl-warn">{t(`floorLoad.problem.${result.refusal}`)}</p>{/if}
     {#if result.skipped.zoneAcrossSpan}<p class="fl-warn">{tp('floorLoad.skip.zoneAcrossSpan', { n: result.skipped.zoneAcrossSpan })}</p>{/if}
     {#if result.skipped.unresolved}<p class="fl-warn">{tp('floorLoad.skip.unresolved', { n: result.skipped.unresolved })}</p>{/if}
     {#if result.skipped.crossings}<p class="fl-warn">{tp('floorLoad.skip.crossings', { n: result.skipped.crossings })}</p>{/if}
@@ -210,7 +249,7 @@
     <p class="fl-hint">{t(preview.problem === 'noZone' ? 'floorLoad.noZone' : 'floorLoad.none')}</p>
   {/if}
 
-  <button class="pk-btn pk-btn-primary" disabled={!preview || preview.loads.length === 0} onclick={add} data-testid="fl-apply">{t('floorLoad.add')}</button>
+  <button class="pk-btn pk-btn-primary" disabled={!canAdd} onclick={add} data-testid="fl-apply">{t('floorLoad.add')}</button>
   {#if applied}<p class="fl-hint" data-testid="fl-applied">{applied}</p>{/if}
 
   {#if defs.length}

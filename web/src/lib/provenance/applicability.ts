@@ -8,9 +8,10 @@
  *
  * Pure: the store (`store/recheck.svelte.ts`) calls it on open, the tests call it directly.
  */
-import { concernsGeneratedLoads, type ResultChange, type ResultChangeRegistry } from './registry';
+import { globalAxes } from '../features';
+import { concernsLoadBasis, registryLocale, type ResultChange, type ResultChangeRegistry } from './registry';
 import { RESULT_CHANGES } from './full-registry';
-import { LEGACY_RECORDED_ANALYSES, loadsGeneratedWith, modelFeatures, type FeatureSnapshot } from './model-features';
+import { GLOBAL_AXES_EVIDENCE, LEGACY_RECORDED_ANALYSES, loadsGeneratedWith, modelFeatures, UNVERIFIED_SEISMIC_FEATURE, type FeatureSnapshot } from './model-features';
 import { analysesContext, type SolveStamp } from './solve-stamp';
 import { advisoriesFor, type Advisory } from './advisories';
 
@@ -34,6 +35,11 @@ export interface RecheckAssessment {
   maybe: string[];
 }
 
+export function combinedSectionShearExplanation(locale: string): string | undefined {
+  const notice = RESULT_CHANGES.changes.find(change => change.id === 'combined-section-shear-refusal');
+  return notice ? notice.explanation[registryLocale(locale, notice.explanation)] : undefined;
+}
+
 export function assessProject(
   snapshot: FeatureSnapshot,
   stamp: SolveStamp | null | undefined,
@@ -44,10 +50,14 @@ export function assessProject(
 ): RecheckAssessment {
   const solvedVersion = stamp?.resultsVersion ?? 0;
   const currentVersion = registry.currentResultsVersion;
-  const features = originalFeatures ?? modelFeatures(snapshot, { analysisMode, ...(stamp ? analysesContext(stamp) : { analysesRun: null }) });
+  const evidence = originalFeatures ?? modelFeatures(snapshot, { analysisMode, ...(stamp ? analysesContext(stamp) : { analysesRun: null }) });
+  const features = !globalAxes() && evidence.has(GLOBAL_AXES_EVIDENCE)
+    ? new Set([...evidence].filter(feature => feature !== GLOBAL_AXES_EVIDENCE))
+    : evidence;
   const changes = registry.changes
     .filter((c) => c.resultsVersion <= currentVersion && c.scope !== 'examples')
-    .filter((c) => c.resultsVersion > solvedVersion || (c.resultsVersion > loadsVersion && concernsGeneratedLoads(c.when)))
+    .filter((c) => c.resultsVersion > solvedVersion || (concernsLoadBasis(c) &&
+      (c.resultsVersion > loadsVersion || c.when?.all?.includes(UNVERIFIED_SEISMIC_FEATURE))))
     .filter((c) => conditionHolds(c.when ?? {}, features))
     .sort((a, b) => a.resultsVersion - b.resultsVersion || a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
   const advisories = advisoriesFor(solvedVersion, (w) => conditionHolds(w, features), registry);

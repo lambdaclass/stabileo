@@ -1,0 +1,35 @@
+{
+  "id": "seismic-support-datum",
+  "date": "2026-11-19",
+  "prs": [2316],
+  "area": "loads",
+  "when": {
+    "all": ["generatedSeismicLoads"]
+  },
+  "quantities": ["*", "solve.ok"],
+  "requiresLoadRegeneration": true,
+  "title": {
+    "en": "Static seismic loads use the lowest support elevation",
+    "es": "Las cargas sísmicas estáticas usan la cota del apoyo más bajo",
+    "pt": "As cargas sísmicas estáticas usam a cota do apoio mais baixo",
+    "de": "Statische Erdbebenlasten beziehen sich auf das tiefste Auflager",
+    "fr": "Les charges sismiques statiques se réfèrent à la cote de l’appui le plus bas",
+    "tr": "Statik deprem yükleri en düşük mesnet kotunu kullanır",
+    "zh": "等效静力地震荷载以最低支座标高为基准",
+    "hu": "A statikus szeizmikus terhek a legalacsonyabb támasz magasságához igazodnak"
+  },
+  "explanation": {
+    "en": "Story heights are measured from the lowest support. Regenerate affected E loads and repeat analyses and design checks (#2316).",
+    "es": "Las alturas de los niveles se miden desde el apoyo más bajo. Regenerá las cargas E afectadas y repetí los análisis y verificaciones (#2316).",
+    "pt": "As alturas dos pavimentos são medidas a partir do apoio mais baixo. Gere novamente as cargas E afetadas e refaça as análises e verificações (#2316).",
+    "de": "Die Geschosshöhen werden vom tiefsten Auflager aus gemessen. Erzeugen Sie betroffene E-Lasten neu und wiederholen Sie Analysen und Nachweise (#2316).",
+    "fr": "Les hauteurs d’étage sont mesurées depuis l’appui le plus bas. Régénérez les charges E concernées, puis répétez les analyses et vérifications (#2316).",
+    "tr": "Kat yükseklikleri en düşük mesnetten itibaren ölçülür. Etkilenen E yüklerini yeniden oluşturun, analizleri ve kontrolleri tekrarlayın (#2316).",
+    "zh": "楼层高度从最低支座标高量起。请重新生成受影响的 E 荷载并重做分析和设计验算（#2316）。",
+    "hu": "A szintek magasságát a legalacsonyabb támasztól mérjük. Generálja újra az érintett E terheket, és ismételje meg az elemzéseket és ellenőrzéseket (#2316)."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-seismic-support-datum.md",
+    "heading": "Static seismic loads use the lowest support elevation"
+  }
+}

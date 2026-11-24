@@ -1,4 +1,4 @@
-//! Planted assembly bugs (docs/verification/CERTIFY.md, "End-to-end
+//! Planted assembly bugs (testing/docs/CERTIFY.md, "End-to-end
 //! certificates"): an engine whose assembly has a wrong sign in a transform,
 //! a missing Timoshenko term or a wrong fixed-end force solves its own K and f
 //! correctly, so the assembled-level certificate certifies the wrong answer.
@@ -8,7 +8,7 @@
 //! Each bug is planted by recomputing one element's contribution the buggy
 //! way (with the engine's own element routines) and swapping it into the
 //! engine's assembled K or f; the buggy system is then solved in f64 as the
-//! engine would. `scripts/e2e-planted-bugs.sh` plants the same bugs in the
+//! engine would. `testing/scripts/e2e-planted-bugs.sh` plants the same bugs in the
 //! engine's source instead and runs the end-to-end tests.
 
 use dedaliano_engine::certify::linear::certify_linear_system_auto;

@@ -99,3 +99,59 @@ pub(super) fn refine(
     }
     u
 }
+
+
+pub(super) fn refine_solution(
+    mut u: Vec<f64>,
+    mut correction: impl FnMut(&[f64]) -> Result<Vec<f64>, String>,
+    accepted: impl Fn(&[f64], &[f64]) -> Result<bool, String>,
+) -> Result<(Vec<f64>, bool), String> {
+    for _ in 0..6 {
+        let delta = correction(&u)?;
+        super::linear::assert_finite_3d(&u)?;
+        super::linear::assert_finite_3d(&delta)?;
+        assert_eq!(u.len(), delta.len());
+        if accepted(&u, &delta)? {
+            return Ok((u, true));
+        }
+        for (u, delta) in u.iter_mut().zip(delta) {
+            *u += delta;
+        }
+    }
+    Ok((u, false))
+}
+
+pub(super) fn round_solution(
+    u: Vec<f64>,
+    round: f64,
+    measure: impl Fn(&[f64]) -> Result<f64, String>,
+    accepted: impl Fn(f64) -> bool,
+    polish: impl Fn(&[f64]) -> Result<Vec<f64>, String>,
+) -> Result<Vec<f64>, String> {
+    let mut best = u.clone();
+    let mut smallest = measure(&best)?;
+    for step in 1..=f64::MANTISSA_DIGITS {
+        for sign in [-1.0, 1.0] {
+            let factor = 1.0
+                + sign * (round * f64::from(f64::MANTISSA_DIGITS) + f64::from(step)) * f64::EPSILON;
+            let mut candidate: Vec<_> = u.iter().map(|u| u * factor).collect();
+            for pass in 0..=2 {
+                if pass > 0 {
+                    let delta = polish(&candidate)?;
+                    for (value, delta) in candidate.iter_mut().zip(delta) {
+                        *value += delta;
+                    }
+                }
+                let value = measure(&candidate)?;
+                if value.is_finite() && value < smallest {
+                    smallest = value;
+                    best = candidate.clone();
+                    if accepted(value) {
+                        return Ok(best);
+                    }
+                }
+            }
+        }
+    }
+    Ok(best)
+}

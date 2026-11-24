@@ -21,7 +21,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { runSteelVerification, steelSegmentDiagram } from '../verification-service';
+import { computeStationDemands, runSteelVerification, steelSegmentDiagram } from '../verification-service';
 import { memberLengths } from '../steel/unbraced-length';
 import { momentGradient } from '../steel/moment-gradient';
 import type { AnalysisResults3D } from '../types-3d';
@@ -148,10 +148,7 @@ describe('Cb over the unbraced segment, not the element', () => {
     }
   });
 
-  it('bounds the read to a declared Lb shorter than the chain', () => {
-    // Element 1 declares Lb = 3 m: its unbraced segment is no longer the whole chain, and the
-    // read is bounded to a 3 m window. Centred on element 1 that window IS element 1's extent,
-    // so the element-local triangle half — 1,667 — is here the CORRECT segment value.
+  it('withholds Cb when a declared shorter length has no brace locations', () => {
     const model = chainModel({ el1DeclaredLb: 3 });
     const lengths = memberLengths(model);
     expect(lengths.get(1)?.Lb).toBeCloseTo(3, 9);
@@ -160,7 +157,7 @@ describe('Cb over the unbraced segment, not the element', () => {
     const verifs = runSteelVerification(resultsFor(), model, undefined, stationDiagrams(), lengths);
     const v1 = verifs.find((v) => v.elementId === 1)!;
     const v2 = verifs.find((v) => v.elementId === 2)!;
-    expect(cbOf(v1)).toBeCloseTo(CB_ELEMENT_LOCAL, 3);
+    expect(cbOf(v1)).toBeCloseTo(1, 3);
     expect(cbOf(v2)).toBeCloseTo(CB_SEGMENT, 3);
   });
 });
@@ -194,14 +191,14 @@ describe('steelSegmentDiagram — the stitched segment diagram', () => {
     expect(momentGradient({ stations: seg.stations, shape: 'I' }).cb).toBeCloseTo(CB_SEGMENT, 3);
   });
 
-  it('centres a shorter declared Lb on the element that declared it', () => {
+  it('keeps the whole diagram without inventing a shorter brace interval', () => {
     const model = chainModel({ el1DeclaredLb: 3 });
     const lengths = memberLengths(model);
     const seg1 = steelSegmentDiagram(1, lengths.get(1), stationDiagrams(), model)!;
     expect(seg1.tStart).toBeCloseTo(0, 9);
-    expect(seg1.tEnd).toBeCloseTo(0.5, 9);
+    expect(seg1.tEnd).toBeCloseTo(1, 9);
     expect(momentGradient({ stations: seg1.stations, tStart: seg1.tStart, tEnd: seg1.tEnd, shape: 'I' }).cb)
-      .toBeCloseTo(CB_ELEMENT_LOCAL, 3);
+      .toBeCloseTo(CB_SEGMENT, 3);
 
     // The same declaration seen from element 2 — which did NOT declare — keeps the whole chain.
     const seg2 = steelSegmentDiagram(2, lengths.get(2), stationDiagrams(), model)!;
@@ -217,3 +214,42 @@ describe('steelSegmentDiagram — the stitched segment diagram', () => {
     expect(steelSegmentDiagram(1, undefined, stationDiagrams(), model)).toBeUndefined();
   });
 });
+
+for (const [el2Reversed, mixed] of [[false, false], [true, false], [false, true]] as const) {
+  it(`known wrong result: #2403 uses only supported Cb on an unequal chain reversed=${el2Reversed} mixed=${mixed}`, () => {
+    const model = chainModel({ el2Reversed });
+    if (mixed) {
+      model.materials.set(2, { id: 2, name: 'H30', fc: 30, fy: 30, e: 25000 });
+      model.elements.get(2)!.materialId = 2;
+    }
+    model.nodes.get(2)!.x = 2;
+    const moment = (x: number) => 5 + x * (4 - x);
+    const raw = resultsFor(el2Reversed);
+    for (const ef of raw.elementForces) {
+      const reverse = ef.elementId === 2 && el2Reversed;
+      const start = ef.elementId === 1 ? 0 : reverse ? 6 : 2;
+      const end = ef.elementId === 1 ? 2 : reverse ? 2 : 6;
+      const sign = reverse ? -1 : 1;
+      Object.assign(ef, { length: Math.abs(end - start), myStart: sign * moment(start), myEnd: sign * moment(end),
+        vzStart: 4 - 2 * start, vzEnd: 4 - 2 * end, qYI: 0, qYJ: 0, qZI: -2 * sign, qZJ: -2 * sign,
+        distributedLoadsY: [], distributedLoadsZ: [], pointLoadsY: [], pointLoadsZ: [],
+        releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false,
+        releaseTStart: false, releaseTEnd: false });
+    }
+    const lengths = memberLengths(model);
+    expect(lengths.get(2)?.chain).toEqual([1, 2]);
+    const { demands, stations } = computeStationDemands(new Map([[1, raw]]), [{ id: 1, name: 'C1', factors: [] }], model);
+    const checks = runSteelVerification(raw, model, demands, stations, lengths);
+    const max = moment(2);
+    const cb = 12.5 * max / (2.5 * max + 3 * moment(1.5) + 4 * moment(3) + 3 * Math.abs(moment(4.5)));
+    expect(checks).toHaveLength(mixed ? 1 : 2);
+    for (const check of checks) {
+      expect(check.inputs!.length).toBeGreaterThan(0);
+      if (mixed) expect(cbOf(check)).toBe(1);
+      for (const input of check.inputs!) {
+        if (mixed) expect(input.Cb).toBeUndefined();
+        else expect(input.Cb).toBeCloseTo(cb, 12);
+      }
+    }
+  });
+}

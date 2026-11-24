@@ -1652,6 +1652,166 @@ fn issue_1753_retained_pcg_units_inventory_accepts_verified_comparisons() {
 }
 
 #[test]
+fn audit_issue_1361_published_model() {
+    holds(1361, 20761, &[("influence line", "units")]);
+}
+
+#[test]
+fn audit_issue_1360_published_model() {
+    holds(1360, 20761, &[("moving loads", "units")]);
+}
+
+#[test]
+fn audit_issue_1280_published_model() {
+    holds(1280, 2026110305390, &[("time history", "mirror")]);
+}
+
+#[test]
+fn audit_issue_1279_published_model() {
+    holds(1279, 2026110302874, &[("time history", "superposition")]);
+}
+
+#[test]
+fn audit_issue_1277_published_model() {
+    holds(1277, 2026110305390, &[("time history", "superposition")]);
+}
+
+#[test]
+fn audit_issue_1271_published_model() {
+    holds(1271, 2026110303425, &[("time history (ground motion)", "rotation")]);
+}
+
+#[test]
+fn audit_issue_1270_published_model() {
+    holds(1270, 2026110303425, &[("time history", "superposition")]);
+}
+
+#[test]
+fn audit_issue_1269_published_model() {
+    holds(1269, 2026110305390, &[("time history", "rotation")]);
+}
+
+#[test]
+fn audit_issue_1212_published_model() {
+    holds(1212, 2026110202027, &[("time history (ground motion)", "units")]);
+}
+
+#[test]
+fn audit_issue_1210_published_model() {
+    holds(1210, 2026110201877, &[("time history", "superposition")]);
+}
+
+#[test]
+fn audit_issue_1208_published_model() {
+    holds(1208, 2026110202027, &[("time history", "units")]);
+}
+
+#[test]
+fn audit_issue_1207_published_model() {
+    holds(1207, 2026110202027, &[("time history (ground motion)", "rotation")]);
+}
+
+#[test]
+fn audit_issue_1205_published_model() {
+    holds(1205, 2026110302735, &[("time history (ground motion)", "units")]);
+}
+
+#[test]
+fn audit_issue_1196_published_model() {
+    holds(1196, 2026110300429, &[("time history (ground motion)", "units")]);
+}
+
+#[test]
+fn audit_issue_1009_published_model() {
+    holds(1009, 20758, &[("time history", "reciprocity")]);
+}
+
+#[test]
+fn audit_issue_969_published_model() {
+    holds(969, 20760, &[("modal", "modal orthogonality")]);
+}
+
+#[test]
+fn audit_issue_1272_published_model() {
+    holds(1272, 2026110303871, &[("plastic collapse", "units")]);
+}
+
+#[test]
+fn audit_issue_1265_published_model() {
+    holds(1265, 20760, &[("harmonic", "units")]);
+}
+
+#[test]
+fn audit_issue_1216_published_model() {
+    holds(1216, 2026110204962, &[("harmonic", "rotation")]);
+}
+
+#[test]
+fn audit_issue_1118_published_model() {
+    holds(1118, 20759, &[("time history", "units")]);
+}
+
+#[test]
+fn audit_issue_1117_published_model() {
+    holds(1117, 2026110201645, &[("harmonic", "rotation")]);
+}
+
+#[test]
+fn audit_issue_1115_published_model() {
+    holds(1115, 2026110202157, &[("harmonic", "units")]);
+}
+
+#[test]
+fn audit_issue_1102_published_model() {
+    holds(1102, 20759, &[("time history", "units")]);
+}
+
+#[test]
+fn audit_issue_994_published_model() {
+    holds(994, 20758, &[("harmonic", "units")]);
+}
+
+#[test]
+fn audit_issue_993_published_model() {
+    holds(993, 20758, &[("linear (sparse path)", "units")]);
+}
+
+#[test]
+fn audit_issue_960_published_model() {
+    holds(960, 2026103105180, &[("harmonic", "units")]);
+}
+
+#[test]
+fn audit_issue_954_published_model() {
+    holds(954, 20757, &[("linear (PCG)", "relabel")]);
+}
+
+#[test]
+fn audit_issue_994_harmonic_oracle_rejects_a_planted_physical_response() {
+    holds(994, 20758, &[("harmonic", "units")]);
+    let Model::D2(c) = model(994) else { panic!("2D") };
+    let a = ana2("harmonic");
+    let cond = crate::checks2::with_eigen_2d(conditioning::of_2d(&c.s).unwrap(), &c);
+    let rel = crate::checks2::rel_for(a.name, a.iter_tol, &cond);
+    let expected = (a.run)(&c).unwrap();
+    let mut got = expected.clone();
+    let cmp = |g: &Resp| crate::checks2::judge_split(g, &expected, rel, rel, |g, e, rel| {
+        compare_with_compliance(&g.flat(), &e.flat(), cond.lchar, rel,
+            crate::checks2::load_floor_2d(&c.s, cond.lchar), crate::checks2::compliance(a.name, &cond))
+    });
+    assert!(matches!(cmp(&got), Verdict::Pass(_)));
+    let statics = dedaliano_engine::solver::linear::solve_2d(&c.s).unwrap();
+    let length = crate::case::extent(c.s.nodes.values().map(|n| [n.x, n.z, 0.0]));
+    let physical = statics.displacements.iter().fold(0.0f64, |m, d| {
+        m.max(d.ux.abs()).max(d.uz.abs()).max(d.ry.abs() * length)
+    });
+    assert!(physical.is_finite() && physical > 0.0);
+    let node = got.0.iter().find(|i| i.tag == "H_re0").unwrap().node;
+    nudge(&mut got, "H_re0", node, 0, physical);
+    assert!(matches!(cmp(&got), Verdict::Fail(_)), "a planted physical harmonic response passed");
+}
+
+#[test]
 fn issue_1100_nonlinear_mirror_convergence() {
     issue_1100_supported_nonlinear_mirrors_complete_comparisons();
 }

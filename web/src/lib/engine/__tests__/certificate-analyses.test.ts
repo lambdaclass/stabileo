@@ -1,6 +1,6 @@
 /**
  * The certificates beyond the base linear solve, as the results UI reads them
- * (docs/verification/CERTIFY.md): load cases, combinations and the envelope; the certificate
+ * (testing/docs/CERTIFY.md): load cases, combinations and the envelope; the certificate
  * bundle; the design checks; and the modal, P-Delta, spectral, harmonic, time-history and plastic
  * certificates computed in the background from the job their solve noted (`certify-tags.ts`).
  * Against the real engine.

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { caseNameShown, combinationNameShown } from '../../../lib/axes/case-names';
   import Hint from '../Hint.svelte';
   /**
    * Excel and CSV: the project's data, chosen sheet by sheet.
@@ -188,10 +189,10 @@
   {#if wantsResults && (cases.length > 1 || combos.length > 0)}
     <ExportSection title={t('proExport.sectionSets')} summary={setsSummary} testid="pro-data-export-sets">
       <div class="dx-cols">
-        <CheckGroup title={t('proExport.groupCases')} items={cases.map((c) => ({ id: String(c.id), label: c.name }))}
+        <CheckGroup title={t('proExport.groupCases')} items={cases.map((c) => ({ id: String(c.id), label: caseNameShown(c) }))}
           on={(id) => !casesOff.has(Number(id))} toggle={(id) => flipId('cases', Number(id))}
           setAll={(v) => (casesOff = v ? new Set() : new Set(cases.map((c) => c.id)))} />
-        <CheckGroup title={t('proExport.groupCombos')} items={combos.map((c) => ({ id: String(c.id), label: c.name }))}
+        <CheckGroup title={t('proExport.groupCombos')} items={combos.map((c) => ({ id: String(c.id), label: combinationNameShown(c) }))}
           on={(id) => !combosOff.has(Number(id))} toggle={(id) => flipId('combos', Number(id))}
           setAll={(v) => (combosOff = v ? new Set() : new Set(combos.map((c) => c.id)))} />
       </div>

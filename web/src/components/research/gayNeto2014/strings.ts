@@ -1,9 +1,9 @@
-import { riserTitle } from './card';
+import { riserHook, riserTitle } from './card';
 import { publicI18n } from '../../../lib/i18n/store.svelte';
 
 const en = {
   title: riserTitle.en,
-  lead: 'An 835 m line lies on the seabed, is pulled by its free end and lifted 186 m. Watch where it leaves the ground and how bending peaks there.',
+  lead: riserHook.en,
   model: 'The model',
   theory: 'A geometrically exact rod: each section moves and rotates freely, and the energy depends on stretch, shear, bending and twist measured in the section’s own frame. Three-node elements with two Gauss points. The seabed is a rigid plane that pushes back with a penalty spring at each node, with Coulomb friction.',
   method: 'We read the reference code’s own input files and solve the same three static steps: self-weight with contact, a 1 MN horizontal pull, then a 186 m lift of the free end. The solver is a new Rust crate, compiled to WASM for this page. Its tangent comes from differentiating the element energy twice, so Newton converges quadratically.',
@@ -45,7 +45,7 @@ type Strings = typeof en;
 
 const es: Strings = {
   title: riserTitle.es,
-  lead: 'Una línea de 835 m apoyada en el fondo se tira desde su extremo libre y se levanta 186 m. Mirá dónde se despega del suelo y cómo ahí la flexión llega a su máximo.',
+  lead: riserHook.es,
   model: 'El modelo',
   theory: 'Una barra geométricamente exacta: cada sección se mueve y gira libremente, y la energía depende del estiramiento, el corte, la flexión y la torsión medidos en el sistema propio de la sección. Elementos de tres nodos con dos puntos de Gauss. El fondo es un plano rígido que empuja con un resorte de penalidad en cada nodo, con fricción de Coulomb.',
   method: 'Leemos los archivos de entrada del código de referencia y resolvemos los mismos tres pasos estáticos: peso propio con contacto, un tiro horizontal de 1 MN y un izado de 186 m del extremo libre. El cálculo es un crate nuevo en Rust, compilado a WASM para esta página. La tangente sale de derivar dos veces la energía del elemento, así que Newton converge cuadráticamente.',
@@ -85,7 +85,7 @@ const es: Strings = {
 
 const pt: Strings = {
   title: riserTitle.pt,
-  lead: 'Uma linha de 835 m apoiada no fundo é puxada pela extremidade livre e levantada 186 m. Veja onde ela se descola do solo e como a flexão atinge o máximo ali.',
+  lead: riserHook.pt,
   model: 'O modelo',
   theory: 'Uma barra geometricamente exata: cada seção se move e gira livremente, e a energia depende do estiramento, do cisalhamento, da flexão e da torção medidos no sistema da própria seção. Elementos de três nós com dois pontos de Gauss. O fundo é um plano rígido que reage com uma mola de penalidade em cada nó, com atrito de Coulomb.',
   method: 'Lemos os arquivos de entrada do código de referência e resolvemos os mesmos três passos estáticos: peso próprio com contato, uma tração horizontal de 1 MN e um içamento de 186 m da extremidade livre. O cálculo é um crate novo em Rust, compilado para WASM nesta página. A tangente vem da derivada segunda da energia do elemento, então Newton converge quadraticamente.',
@@ -125,7 +125,7 @@ const pt: Strings = {
 
 const de: Strings = {
   title: riserTitle.de,
-  lead: 'Eine 835 m lange Leitung liegt auf dem Meeresboden, wird am freien Ende gezogen und 186 m angehoben. Sehen Sie, wo sie vom Boden abhebt und wie dort die Biegung ihr Maximum erreicht.',
+  lead: riserHook.de,
   model: 'Das Modell',
   theory: 'Ein geometrisch exakter Stab: Jeder Querschnitt verschiebt und dreht sich frei, und die Energie hängt von Dehnung, Schub, Biegung und Torsion im eigenen System des Querschnitts ab. Dreiknotige Elemente mit zwei Gaußpunkten. Der Meeresboden ist eine starre Ebene, die an jedem Knoten über eine Penalty-Feder mit Coulomb-Reibung zurückdrückt.',
   method: 'Wir lesen die Eingabedateien des Referenzcodes und lösen dieselben drei statischen Schritte: Eigengewicht mit Kontakt, ein horizontaler Zug von 1 MN und ein Anheben des freien Endes um 186 m. Der Löser ist ein neues Rust-Crate, für diese Seite nach WASM kompiliert. Die Tangente entsteht aus der zweiten Ableitung der Elementenergie, daher konvergiert Newton quadratisch.',
@@ -165,7 +165,7 @@ const de: Strings = {
 
 const fr: Strings = {
   title: riserTitle.fr,
-  lead: 'Une ligne de 835 m posée sur le fond est tirée par son extrémité libre puis soulevée de 186 m. Observez où elle quitte le sol et comment la flexion y atteint son maximum.',
+  lead: riserHook.fr,
   model: 'Le modèle',
   theory: 'Une poutre géométriquement exacte : chaque section se déplace et tourne librement, et l’énergie dépend de l’allongement, du cisaillement, de la flexion et de la torsion mesurés dans le repère propre de la section. Éléments à trois nœuds avec deux points de Gauss. Le fond est un plan rigide qui repousse chaque nœud par un ressort de pénalité, avec un frottement de Coulomb.',
   method: 'Nous lisons les fichiers d’entrée du code de référence et résolvons les mêmes trois pas statiques : poids propre avec contact, une traction horizontale de 1 MN, puis un relevage de 186 m de l’extrémité libre. Le solveur est un nouveau crate Rust, compilé en WASM pour cette page. La tangente provient de la dérivée seconde de l’énergie de l’élément, donc Newton converge quadratiquement.',
@@ -205,7 +205,7 @@ const fr: Strings = {
 
 const tr: Strings = {
   title: riserTitle.tr,
-  lead: 'Deniz tabanında yatan 835 m’lik bir hat serbest ucundan çekilir ve 186 m kaldırılır. Hattın zeminden nerede ayrıldığını ve eğilmenin orada nasıl en büyük değerine ulaştığını izleyin.',
+  lead: riserHook.tr,
   model: 'Model',
   theory: 'Geometrik olarak kesin bir çubuk: her kesit serbestçe yer değiştirir ve döner; enerji, kesitin kendi eksen takımında ölçülen uzama, kayma, eğilme ve burulmaya bağlıdır. İki Gauss noktalı üç düğümlü elemanlar. Deniz tabanı, her düğümü bir ceza yayıyla geri iten ve Coulomb sürtünmesi olan rijit bir düzlemdir.',
   method: 'Referans kodun kendi girdi dosyalarını okuyup aynı üç statik adımı çözüyoruz: temaslı öz ağırlık, 1 MN yatay çekme ve serbest ucun 186 m kaldırılması. Çözücü, bu sayfa için WASM’a derlenmiş yeni bir Rust crate’idir. Teğet, eleman enerjisinin ikinci türevinden gelir; bu yüzden Newton karesel yakınsar.',
@@ -243,5 +243,85 @@ const tr: Strings = {
   wholeLine: 'tüm hat',
 };
 
-export const translations: Record<string, Strings> = { en, es, pt, de, fr, tr };
+const hu: Strings = {
+  title: riserTitle.hu,
+  lead: riserHook.hu,
+  model: 'A modell',
+  theory: 'Geometriailag egzakt rúd: minden keresztmetszet szabadon elmozdul és elfordul, az energia pedig a keresztmetszet saját koordináta-rendszerében mért nyúlástól, nyírástól, hajlítástól és csavarodástól függ. Háromcsomópontos elemek két Gauss-ponttal. A tengerfenék merev sík, amely minden csomópontban büntetőrugóval, Coulomb-súrlódással nyom vissza.',
+  method: 'Beolvassuk a referenciakód saját bemeneti fájljait, és ugyanazt a három statikus lépést oldjuk meg: önsúly érintkezéssel, 1 MN vízszintes húzás, majd a szabad vég 186 m-es megemelése. A megoldó egy új Rust-crate, amelyet ehhez az oldalhoz WASM-ra fordítottunk. Az érintőmátrixot az elemenergia kétszeri deriválásával kapjuk, így a Newton-iteráció kvadratikusan konvergál.',
+  comparison: 'A 3. lépés végén mind a 134 elem hajlítónyomatékát és nyíróerejét összevetjük a referenciakód oktatási útmutatójában tárolt értékekkel. A felfekvési pontot és a lógó alakot a rugalmas láncgörbével is ellenőrizzük. Egy 1 m-es konzol (1. oktatási példa) önmagában ellenőrzi a gerendaelemet.',
+  limits: 'Csak statika: nincs tengeráramlás, nincs hullám- vagy közegellenállási teher, nincs vezetékek közötti érintkezés. A referenciakóddal való egyezés numerikus; nem kísérlet és nem méretezési ellenőrzés.',
+  checks: 'Validáció és források',
+  checkLabels: {
+    'T1 tip X and Z at t = 0.1 … 1.0 vs reference Figure 1-6 [m, max abs]': 'Konzol: a végpont X, Z a futás végén (m)',
+    'T1 tip at t = 1, 5 elements vs Reissner rod boundary-value solution [m, max abs]': 'Konzol, 5 elem: végpont X, Z (m)',
+    'T1 tip at t = 1, 40 elements vs Reissner rod boundary-value solution [m, max abs]': 'Konzol, 40 elem: végpont X, Z (m)',
+    'T16 step 3: M(e1) per element vs reference Figure 16-12 data [N·m, max abs over 134 elements]': 'Riser: legnagyobb hajlítónyomaték (N·m)',
+    'T16 step 3: V(e2) per element vs reference Figure 16-13 data [N, max abs over 134 elements]': 'Riser: legnagyobb nyíróerő (N)',
+    'T16 step 3: touchdown (moment at half its plateau) vs reference data [m]': 'Riser: felfekvési pont (m a vezeték mentén)',
+    'T16 step 3: touchdown, last node on the seabed vs elastic catenary [m of line]': 'Riser: felfekvési pont (m a vezeték mentén)',
+    'T16 step 3: suspended shape vs elastic catenary hung from the computed fairlead [m, max distance]': 'Riser: lógó alak (m)',
+  },
+  riser: 'Riser', forces: 'Igénybevételek', cantilever: 'Konzol',
+  pull: 'Vízszintes húzás', lift: 'A szabad vég megemelése', friction: 'Talajsúrlódás μ',
+  run: 'Újraszámítás élőben', stop: 'Leállítás', restart: 'Újraindítás',
+  computing: 'Számítás a Stabileóval… (néhány másodperc)',
+  caseLabel: 'Eset',
+  error: 'A megoldó nem töltődött be, vagy nem futott le. Az előző eredmény továbbra is elérhető.',
+  ours: 'Stabileo', reference: 'Referenciakód, a 3. lépés vége', figure: 'Referenciakód, 1-6. ábra',
+  moment: 'Hajlítónyomaték M(e1)', shear: 'Nyíróerő V(e2)', length: 'Helyzet a vezeték mentén (m)', time: 'Teherszorzó',
+  tipX: 'Végpont X (m)', tipZ: 'Végpont Z (m)',
+  steps: ['Önsúly a tengerfenéken', 'Vízszintes húzás', 'A szabad vég megemelése'],
+  fairlead: 'Szabad vég', touchdown: 'Felfekvési pont (a vezeték mentén)', anchor: 'Húzóerő a horgonynál',
+  defaults: 'A referenciaértékek az oktatási példa saját paramétereire vonatkoznak (1 MN, 186 m, μ = 0,2).',
+  coordinates: 'Valós lépték, x a tengerfenék mentén, z felfelé, méterben. Szín: hajlítónyomaték.',
+  cantileverNote: 'Egy 1 m-es konzol, végén 1000 N keresztirányú erővel, tíz lépésben.',
+  inputs: 'Bemeneti fájlok', code: 'Referenciakód (BSD-3-Clause)',
+  tableIntro: 'A cikk ábráival nem vetettük össze az eredményeket, mert a teljes szöveghez nem fértünk hozzá. A referenciák a szerző kódjával, a GIRAFFE-fal közölt eredmények, a konzolra egy független egzakt megoldás, a riserre pedig az analitikus láncgörbe. Az eltérés a legnagyobb érték mindarra, amit összevetettünk: a konzol tíz lépése az ábrával szemben, a riser 134 eleme nyomatékra és nyíróerőre, valamint a vezeték teljes lógó szakasza.',
+  table: { quantity: 'Mennyiség', reference: 'Referencia', ours: 'Stabileo', difference: 'Legnagyobb eltérés', tolerance: 'Tűrés' },
+  sources: { figure: 'GIRAFFE, az útmutató 1-6. ábrája', exact: 'Egzakt rúdmegoldás, független', giraffe: 'GIRAFFE, a 16. oktatási példa eredményei', catenary: 'Analitikus rugalmas láncgörbe' } as Record<string, string>,
+  wholeLine: 'a teljes vezeték',
+};
+
+const zh: Strings = {
+  title: riserTitle.zh,
+  lead: riserHook.zh,
+  model: '模型',
+  theory: '几何精确的杆：每个截面可自由移动和转动，能量取决于在截面自身坐标系中度量的拉伸、剪切、弯曲和扭转。采用带两个高斯点的三节点单元。海床是刚性平面，在每个节点处用罚弹簧顶回，并考虑库仑摩擦。',
+  method: '我们读取参考代码自己的输入文件，并求解同样的三个静力步：含接触的自重、1 MN 的水平拉力，然后将自由端抬起 186 m。求解器是一个新的 Rust crate，为本页编译为 WASM。其切线刚度由对单元能量二次求导得到，因此牛顿法呈二次收敛。',
+  comparison: '在第 3 步结束时，我们将全部 134 个单元的弯矩和剪力，与参考代码教程指南中存储的数值比较。触底点和悬挂形状也与弹性悬链线核对。一根 1 m 的悬臂梁（教程 1）单独检验梁单元。',
+  limits: '仅限静力：不含海流、波浪或拖曳荷载，也不含管线之间的接触。与参考代码一致只是数值上的一致；它不是试验，也不是设计验算。',
+  checks: '验证与来源',
+  checkLabels: {
+    'T1 tip X and Z at t = 0.1 … 1.0 vs reference Figure 1-6 [m, max abs]': '悬臂梁：末端的端点 X、Z (m)',
+    'T1 tip at t = 1, 5 elements vs Reissner rod boundary-value solution [m, max abs]': '悬臂梁，5 个单元：端点 X、Z (m)',
+    'T1 tip at t = 1, 40 elements vs Reissner rod boundary-value solution [m, max abs]': '悬臂梁，40 个单元：端点 X、Z (m)',
+    'T16 step 3: M(e1) per element vs reference Figure 16-12 data [N·m, max abs over 134 elements]': '立管：逐单元弯矩对比（最大绝对差，N·m）',
+    'T16 step 3: V(e2) per element vs reference Figure 16-13 data [N, max abs over 134 elements]': '立管：逐单元剪力对比（最大绝对差，N）',
+    'T16 step 3: touchdown (moment at half its plateau) vs reference data [m]': '立管：触底点（沿管线 m）',
+    'T16 step 3: touchdown, last node on the seabed vs elastic catenary [m of line]': '立管：触底点（沿管线 m）',
+    'T16 step 3: suspended shape vs elastic catenary hung from the computed fairlead [m, max distance]': '立管：悬挂形状 (m)',
+  } as Record<string, string>,
+  riser: '立管', forces: '内力', cantilever: '悬臂梁',
+  pull: '水平拉力', lift: '自由端抬升', friction: '海床摩擦系数 μ',
+  run: '实时重新计算', stop: '停止', restart: '重新开始',
+  computing: '正在用 Stabileo 计算…（需几秒）',
+  caseLabel: '工况',
+  error: '求解器无法加载或未能完成。之前的结果仍可使用。',
+  ours: 'Stabileo', reference: '参考代码，第 3 步结束时', figure: '参考代码，图 1-6',
+  moment: '弯矩 M(e1)', shear: '剪力 V(e2)', length: '沿管线的位置 (m)', time: '荷载系数',
+  tipX: '端点 X (m)', tipZ: '端点 Z (m)',
+  steps: ['海床上的自重', '水平拉力', '自由端抬升'],
+  fairlead: '自由端', touchdown: '触底点（沿管线）', anchor: '锚固处的拉力',
+  defaults: '参考值对应教程自己的参数（1 MN，186 m，μ = 0.2）。',
+  coordinates: '真实比例，x 沿海床，z 向上，单位为 m。颜色：弯矩。',
+  cantileverNote: '一根 1 m 的悬臂梁，端部受 1000 N 的横向力，分十个增量施加。',
+  inputs: '输入文件', code: '参考代码 (BSD-3-Clause)',
+  tableIntro: '我们没有与文章中的图比较：我们无法获取全文。参考值包括随 GIRAFFE（作者的代码）发布的结果、悬臂梁的独立精确解，以及立管的解析悬链线。差异取所有比较对象中的最大值：悬臂梁十个增量与图的比较，立管 134 个单元的弯矩和剪力，以及管线整个悬挂部分。',
+  table: { quantity: '量', reference: '参考值', ours: 'Stabileo', difference: '最大差异', tolerance: '容差' },
+  sources: { figure: 'GIRAFFE，其指南中的图 1-6', exact: '杆的精确解，独立', giraffe: 'GIRAFFE，教程 16 的结果', catenary: '解析弹性悬链线' } as Record<string, string>,
+  wholeLine: '整条管线',
+};
+
+export const translations: Record<string, Strings> = { en, es, pt, de, fr, tr, hu, zh };
 export const riserStrings = (): Strings => translations[publicI18n.locale] ?? en;

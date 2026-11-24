@@ -1,3 +1,4 @@
+import { resultComponents } from '../axes/result-components';
 import { exportMessages, warningImage, warningCanvas } from '../export/containment';
 // File operations: save/load projects, export results, autosave
 
@@ -12,6 +13,9 @@ import type { ModelSnapshot } from './history.svelte';
 import { NO_RELEASE, type Release } from './model.svelte';
 import { exportToExcel } from '../export/excel';
 import { tabManager } from './tabs.svelte';
+import { accountGate } from './account-gate.svelte';
+import { saveFile } from '../export/save-file';
+import { milestone } from '../tracking/activity.svelte';
 import type { TabState } from './tabs.svelte';
 import { resetSwitchBackup } from './switch-2d';
 import { t } from '../i18n';
@@ -22,6 +26,7 @@ import {
   type AutosaveFingerprint, type AutosavePolicy, type AutosaveReadResult, type AutosaveWriteResult,
 } from './autosave-db';
 import { noteDetailingKnown, onDetailingWrite, pruneDetailing, readDetailing, splitDetailing, stageDetailing, storeDetailing, type HeavyDetailing, type StagedDetailing } from './workspace-detailing';
+import { compactDesignRefusals, expandDesignRefusals, hasCompactRefusals } from './ded-design-refusals';
 import { workspaceSaveStatus } from './workspace-save-status.svelte';
 import {
   type ViewportPresentation3D,
@@ -29,7 +34,12 @@ import {
   get2DDisplayMoment,
   get2DDisplayReactionVertical,
   get2DDisplayRotation,
+  TWO_D_DISPLACEMENT_LABELS,
+  TWO_D_REACTION_LABELS,
 } from '../geometry/coordinate-system';
+import { twoD } from '../axes/display';
+import { axesStore } from '../axes/axes.svelte';
+import { axesStatement } from '../axes/statement';
 
 // ─── File Format ────────────────────────────────────────────────
 
@@ -39,6 +49,7 @@ import {
  * Unknown versions are rejected.
  */
 export const DEDAL_FILE_VERSION = '2.0' as const;
+const COMPACT_REFUSALS_FILE_VERSION = '2.1' as const;
 const KNOWN_VERSIONS = new Set(['1.0', '2.0']);
 /** The session envelope (`DedalSessionFile`): every release so far has written 1.0. */
 export const SESSION_FILE_VERSION = '1.0' as const;
@@ -51,7 +62,7 @@ export const SESSION_FILE_VERSION = '1.0' as const;
  * opens it. Never read partially: fields this build does not know would be dropped in silence,
  * and saving it back would overwrite the newer file with less than it had (#718).
  */
-export function isNewerFileVersion(version: unknown, newest: string = DEDAL_FILE_VERSION): boolean {
+export function isNewerFileVersion(version: unknown, newest: string = COMPACT_REFUSALS_FILE_VERSION): boolean {
   if (typeof version !== 'string' || !/^\d+(\.\d+)*$/.test(version)) return false;
   const a = version.split('.').map(Number);
   const b = newest.split('.').map(Number);
@@ -120,20 +131,12 @@ export interface DedalSessionFile {
 
 // ─── Download Helpers ───────────────────────────────────────────
 
-export function downloadBlob(blob: Blob, filename: string): void {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+export function downloadBlob(blob: Blob, filename: string, sources?: unknown): void {
+  saveFile(filename, () => blob, 'export', sources);
 }
 
-export function downloadText(content: string, filename: string, mime: string): void {
-  const blob = new Blob([content], { type: mime });
-  downloadBlob(blob, filename);
+export function downloadText(content: string, filename: string, mime: string, sources?: unknown): void {
+  saveFile(filename, () => new Blob([content], { type: mime }), 'export', sources);
 }
 
 /**
@@ -160,11 +163,20 @@ export function canChooseSaveLocation(): boolean {
  * and quietly downloading anyway would ignore it. `AbortError` is therefore
  * the one failure that does nothing at all.
  */
-export async function saveTextTo(
+export function saveTextTo(
   content: string,
   filename: string,
   mime: string,
   opts: { chooseLocation?: boolean } = {},
+): Promise<'saved' | 'downloaded' | 'cancelled'> {
+  return accountGate.run('save', () => writeTextTo(content, filename, mime, opts), 'cancelled');
+}
+
+async function writeTextTo(
+  content: string,
+  filename: string,
+  mime: string,
+  opts: { chooseLocation?: boolean },
 ): Promise<'saved' | 'downloaded' | 'cancelled'> {
   if (opts.chooseLocation && canChooseSaveLocation()) {
     try {
@@ -180,6 +192,7 @@ export async function saveTextTo(
       const w = await handle.createWritable();
       await w.write(content);
       await w.close();
+      milestone('first_save');
       return 'saved';
     } catch (err) {
       if ((err as { name?: string })?.name === 'AbortError') return 'cancelled';
@@ -268,37 +281,17 @@ export function statedSelfWeightCaseId(): number | null {
   return chosen !== null && modelStore.model.loadCases.some((c) => c.id === chosen) ? chosen : null;
 }
 
-/**
- * The project as a `.ded`, serialised COMPACT.
- *
- * ── What the indentation was costing ───────────────────────────────
- *
- * Measured on `pro-edificio-7p` after the whole chain — 203 members solved, designed, detailed,
- * floors designed, about 21 000 bars in the coordinated document:
- *
- *     JSON.stringify(payload, null, 2)   110 341 310 bytes    202 ms
- *     JSON.stringify(payload)             47 783 950 bytes     56 ms
- *
- * Sixty-two megabytes of a hundred-and-ten were spaces and newlines. A detailing document is
- * mostly deeply-nested arrays of numbers, and at that depth `null, 2` spends about twenty bytes
- * of indentation on every six-byte coordinate.
- *
- * ── Why this is safe ───────────────────────────────────────────────
- *
- * Whitespace is not part of the format. `deserializeProject` and `loadFile` both go through
- * `JSON.parse`, which does not care, and every `.ded` ever written — including the committed
- * `rc-footing-cad-poc.ded.json`, which stays pretty-printed on disk — still opens. The change is
- * one-directional and needs no migration: new files are smaller, old files are unaffected.
- *
- * One consequence worth knowing rather than discovering: regenerating that committed fixture
- * (`WRITE_FIXTURE=1`) now writes it on one line, because it is deliberately produced by this
- * same production writer.
- *
- * `saveSession` keeps its indentation. A session is a handful of tab records and is read by
- * people far more often than it is large.
- */
 export function serializeProject(): string {
-  return JSON.stringify(buildProjectFile());
+  const file = buildProjectFile();
+  const detailing = file.snapshot.detailing;
+  const refusals = detailing?.designRefusals;
+  const compact = refusals && compactDesignRefusals(refusals);
+  if (!compact) return JSON.stringify(file);
+  return JSON.stringify({
+    ...file,
+    version: COMPACT_REFUSALS_FILE_VERSION,
+    snapshot: { ...file.snapshot, detailing: { ...detailing, designRefusals: compact } },
+  });
 }
 
 /**
@@ -313,15 +306,25 @@ export function deserializeProject(text: string): boolean {
   } catch {
     return false;
   }
+  return openProjectData(parsed);
+}
+
+function openProjectData(parsed: unknown): boolean {
   if (!parsed || typeof parsed !== 'object') return false;
   const d = parsed as Record<string, unknown>;
-  if (typeof d.version !== 'string' || !KNOWN_VERSIONS.has(d.version)) return false;
+  const compact = d.version === COMPACT_REFUSALS_FILE_VERSION;
+  if (!compact && (typeof d.version !== 'string' || !KNOWN_VERSIONS.has(d.version))) return false;
   const snapshot = d.snapshot as Record<string, unknown> | undefined;
   if (!snapshot) return false;
   if (d.version === '1.0') migrateSnapshotV1ToV2(snapshot);
-  if (!isValidDedalFile({ ...d, version: DEDAL_FILE_VERSION })) return false;
-
-  const data = d as unknown as DedalFile;
+  if (compact) {
+    const detailing = snapshot.detailing as Record<string, unknown> | undefined;
+    const refusals = expandDesignRefusals(detailing?.designRefusals);
+    if (!detailing || !refusals) return false;
+    detailing.designRefusals = refusals;
+  }
+  const data = { ...d, version: DEDAL_FILE_VERSION };
+  if (!isValidDedalFile(data)) return false;
   adoptStoredProject(data.snapshot, data.name);
   // appMode is derived from analysisMode (getter-only) — assigning it throws
   // in strict mode, which broke opening any .ded that carried appMode.
@@ -379,11 +382,15 @@ export function onProjectOpened(snap: ModelSnapshot | undefined, analysisMode: s
     // Otherwise reloading that save adds applicability to the unread notice and
     // changes the snapshot. Provenance still belongs to the opened project, not
     // the previous project's session state captured by modelStore.snapshot().
+    const current = modelStore.snapshot();
+    const usesSelfWeightToggle = analysisMode !== 'pro' || current.analysis?.selfWeight === undefined
+      || current.analysis.standaloneSelfWeight === 'gravity';
     recheckStore.openProject({
-      ...modelStore.snapshot(),
+      ...current,
+      includeSelfWeight: usesSelfWeightToggle && uiStore.includeSelfWeight,
       solvedWith: snap.solvedWith,
       pendingRecheckNotice: snap.pendingRecheckNotice,
-    } as never, analysisMode);
+    } as never, analysisMode, snap.loads);
   }
   // Design kept in the project while it is off in PRO's settings: offered, not switched on.
   noteDesignHeldIfOff(analysisMode);
@@ -592,6 +599,9 @@ function validateDedalFile(data: unknown): data is DedalFile {
   if (!Array.isArray(s.supports)) return false;
   if (!Array.isArray(s.loads)) return false;
 
+  const detailing = s.detailing as { designRefusals?: unknown } | undefined;
+  if (hasCompactRefusals(detailing?.designRefusals)) return false;
+
   const nextId = s.nextId as Record<string, unknown> | undefined;
   if (!nextId || typeof nextId.node !== 'number') return false;
 
@@ -658,9 +668,8 @@ function validateAxisSafety(data: DedalFile): void {
 // ─── Save / Load ────────────────────────────────────────────────
 
 export function saveProject(): void {
-  const json = serializeProject();
-  const safeName = modelStore.model.name.replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ _-]/g, '').trim() || t('file.defaultProject');
-  downloadText(json, `${safeName}.ded`, 'application/json');
+  const { content, filename } = projectPayload();
+  saveFile(filename, () => new Blob([content], { type: 'application/json' }), 'save');
 }
 
 export async function loadProject(file: File): Promise<void> {
@@ -668,9 +677,9 @@ export async function loadProject(file: File): Promise<void> {
   let data: unknown;
   try { data = JSON.parse(text); } catch { throw new Error(t('file.invalidFormat')); }
   const version = (data as { version?: unknown } | null)?.version;
-  const newest = isSessionFile(data) ? SESSION_FILE_VERSION : DEDAL_FILE_VERSION;
+  const newest = isSessionFile(data) ? SESSION_FILE_VERSION : COMPACT_REFUSALS_FILE_VERSION;
   if (isNewerFileVersion(version, newest)) throw newerVersionError(String(version), newest);
-  if (!deserializeProject(text)) throw new Error(t('file.invalidFormat'));
+  if (!openProjectData(data)) throw new Error(t('file.invalidFormat'));
   // Members lying over each other: ask about each, as drawing one would.
   askAboutOverlapsInModel();
 }
@@ -678,18 +687,8 @@ export async function loadProject(file: File): Promise<void> {
 // ─── Session Save / Load (all tabs) ─────────────────────────────
 
 export function saveSession(): void {
-  // Ensure the active tab is up-to-date before serializing
-  tabManager.syncCurrentTab();
-  const session: DedalSessionFile = {
-    version: '1.0',
-    type: 'session',
-    timestamp: new Date().toISOString(),
-    activeTabId: tabManager.activeTabId ?? '',
-    tabs: sessionTabsCopy(),
-  };
-  const json = JSON.stringify(session, null, 2);
-  const tabCount = session.tabs.length;
-  downloadText(json, `${t('file.session')}-${tabCount}-${t('file.tabs')}.ded`, 'application/json');
+  const { content, filename } = sessionPayload();
+  saveFile(filename, () => new Blob([content], { type: 'application/json' }), 'save');
 }
 
 function isSessionFile(data: unknown): data is DedalSessionFile {
@@ -725,8 +724,8 @@ export async function loadFile(file: File): Promise<{ type: 'tab' | 'session'; c
     }
     return { type: 'session', count: tabs.length };
   } else if (isNewerFileVersion(version)) {
-    throw newerVersionError(String(version), DEDAL_FILE_VERSION);
-  } else if (deserializeProject(text)) {
+    throw newerVersionError(String(version), COMPACT_REFUSALS_FILE_VERSION);
+  } else if (openProjectData(data)) {
     askAboutOverlapsInModel();
     return { type: 'tab', count: 1 };
   } else {
@@ -754,6 +753,7 @@ export function exportResultsCSV(solveError?: string, record?: ResultProvenance)
   // Which build produced these numbers from which model and settings (`provenance/result-provenance.ts`).
   // The status row comes first and says STALE when the results predate registered changes.
   for (const [k, v] of provenanceTextLines(record ?? currentResultProvenance(), provenanceLabels())) lines.push(`# ${k}: ${v}`);
+  if (!axesStore.frame.identity) lines.push(`# ${axesStatement(t, axesStore.choice)}`);
   lines.push('');
   if (!r3d && !r2d) {
     lines.push(`# ${t('excel.solveFailed')}`);
@@ -767,7 +767,7 @@ export function exportResultsCSV(solveError?: string, record?: ResultProvenance)
     lines.push(`# ${t('file.displacements')}`);
     lines.push(`${t('file.node')},ux (m),uy (m),uz (m),rx (rad),ry (rad),rz (rad)`);
     for (const d of r3d.displacements) {
-      lines.push(`${d.nodeId},${d.ux},${d.uy},${d.uz},${d.rx},${d.ry},${d.rz}`);
+      lines.push([d.nodeId, ...resultComponents(axesStore.frame, r3d).vec(d.ux, d.uy, d.uz), ...resultComponents(axesStore.frame, r3d).rot(d.rx, d.ry, d.rz)].join(','));
     }
     lines.push('');
 
@@ -775,7 +775,7 @@ export function exportResultsCSV(solveError?: string, record?: ResultProvenance)
     lines.push(`# ${t('file.reactions')}`);
     lines.push(`${t('file.node')},Fx (kN),Fy (kN),Fz (kN),Mx (kN·m),My (kN·m),Mz (kN·m)`);
     for (const r of r3d.reactions) {
-      lines.push(`${r.nodeId},${r.fx},${r.fy},${r.fz},${r.mx},${r.my},${r.mz}`);
+      lines.push([r.nodeId, ...resultComponents(axesStore.frame, r3d).vec(r.fx, r.fy, r.fz), ...resultComponents(axesStore.frame, r3d).rot(r.mx, r.my, r.mz)].join(','));
     }
     lines.push('');
 
@@ -788,17 +788,17 @@ export function exportResultsCSV(solveError?: string, record?: ResultProvenance)
   } else if (r2d) {
     // 2D Displacements
     lines.push(`# ${t('file.displacements')}`);
-    lines.push(`${t('file.node')},ux (m),uz (m),ry (rad)`);
+    lines.push(`${t('file.node')},${TWO_D_DISPLACEMENT_LABELS.horizontal} (m),${TWO_D_DISPLACEMENT_LABELS.vertical} (m),r${twoD.normal.toLowerCase()} (rad)`);
     for (const d of r2d.displacements) {
-      lines.push(`${d.nodeId},${d.ux},${get2DDisplayDisplacementVertical(d)},${get2DDisplayRotation(d)}`);
+      lines.push(`${d.nodeId},${resultComponents(axesStore.frame, r2d).plane(d.ux, 'x')},${resultComponents(axesStore.frame, r2d).plane(get2DDisplayDisplacementVertical(d), 'z')},${resultComponents(axesStore.frame, r2d).plane(get2DDisplayRotation(d), 'rot')}`);
     }
     lines.push('');
 
     // 2D Reactions
     lines.push(`# ${t('file.reactions')}`);
-    lines.push(`${t('file.node')},Rx (kN),Rz (kN),My (kN·m)`);
+    lines.push(`${t('file.node')},${TWO_D_REACTION_LABELS.horizontal} (kN),${TWO_D_REACTION_LABELS.vertical} (kN),${TWO_D_REACTION_LABELS.moment} (kN·m)`);
     for (const r of r2d.reactions) {
-      lines.push(`${r.nodeId},${r.rx},${get2DDisplayReactionVertical(r)},${get2DDisplayMoment(r)}`);
+      lines.push(`${r.nodeId},${resultComponents(axesStore.frame, r2d).plane(r.rx, 'x')},${resultComponents(axesStore.frame, r2d).plane(get2DDisplayReactionVertical(r), 'z')},${resultComponents(axesStore.frame, r2d).plane(get2DDisplayMoment(r), 'rot')}`);
     }
     lines.push('');
 

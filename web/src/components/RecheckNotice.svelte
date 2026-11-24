@@ -2,7 +2,7 @@
   import { saveWorkspaceSettled, saveSession } from '../lib/store/file';
   import { recheckStore } from '../lib/store/recheck.svelte';
   import { rerunAnalysisAndDesign, recheckKey } from '../lib/actions/recheck';
-  import { changelogUrl, concernsGeneratedLoads, registryLocale } from '../lib/provenance/registry';
+  import { changelogUrl, concernsLoadBasis, registryLocale, type ResultChange } from '../lib/provenance/registry';
   import { advisoryName, type Advisory } from '../lib/provenance/advisories';
   import { cycleTabWithin } from '../lib/utils/dialog-focus';
   import { t, tp, i18n } from '../lib/i18n';
@@ -33,14 +33,15 @@
 
   const a = $derived(recheckStore.assessment);
   const open = $derived((recheckStore.noticeOpen && (details || loadFailed || checkingLong)) || reviewing);
-  const regenerate = $derived(!!a?.changes.some((c) => concernsGeneratedLoads(c.when)));
-  const resolve = $derived(!a || !a.changes.length || a.changes.some((c) => !concernsGeneratedLoads(c.when)));
-  const loc = $derived(registryLocale(i18n.locale));
+  const regenerate = $derived(!!a?.changes.some((c) => concernsLoadBasis(c)));
+  const resolve = $derived(!a || !a.changes.length || a.changes.some((c) => !concernsLoadBasis(c)));
+  const changeLocale = (c: ResultChange) => registryLocale(i18n.locale, c.title, c.explanation);
+  const advisoryLocale = (x: Advisory) => registryLocale(i18n.locale, x.title, ...(x.ifUsed ? [x.ifUsed] : []));
   const openAdvisories = $derived(recheckStore.openAdvisories);
   const maybe = (x: Advisory) => !!a?.maybe.includes(x.id);
   const certain = $derived(openAdvisories.filter((x) => !x.analysis && !maybe(x)));
   const listed = $derived(recheckStore.noticeOpen ? a?.advisories ?? [] : openAdvisories);
-  const analysisLabel = (x: Advisory) => x.ifUsed?.[loc] ?? x.analysis ?? '';
+  const analysisLabel = (x: Advisory) => x.ifUsed?.[advisoryLocale(x)] ?? x.analysis ?? '';
   const advisoryText = (x: Advisory, banner: boolean) => {
     const vars = { name: advisoryName(x), analysis: analysisLabel(x) };
     if (maybe(x) && !x.analysis) return tp(banner ? 'recheck.advisoryBannerMaybeIf' : 'recheck.advisoryMaybeIf', vars);
@@ -126,7 +127,7 @@
           {#each listed as adv (adv.id)}
             <li class="rc-item rc-advisory" data-advisory-id={adv.id}>
               <span class="rc-item-title">{advisoryText(adv, false)}</span>
-              <p class="rc-item-text">{adv.title[loc]}</p>
+              <p class="rc-item-text">{adv.title[advisoryLocale(adv)]}</p>
               <a class="rc-link" href={adv.url} target="_blank" rel="noopener noreferrer">{t('recheck.advisoryLink')}</a>
             </li>
           {/each}
@@ -137,9 +138,9 @@
           <li class="rc-item" data-change-id={c.id}>
             <div class="rc-item-head">
               <span class="rc-area rc-area-{c.area}">{t(`recheck.area.${c.area}`)}</span>
-              <span class="rc-item-title">{c.title[loc]}</span>
+              <span class="rc-item-title">{c.title[changeLocale(c)]}</span>
             </div>
-            <p class="rc-item-text">{c.explanation[loc]}</p>
+            <p class="rc-item-text">{c.explanation[changeLocale(c)]}</p>
             <a class="rc-link" href={changelogUrl(c)} target="_blank" rel="noopener noreferrer">{t('recheck.details')}</a>
           </li>
         {/each}

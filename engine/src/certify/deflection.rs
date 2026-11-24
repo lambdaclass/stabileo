@@ -1,6 +1,6 @@
 //! Certified bounds on the member deflection curves the deformed-shape views
 //! draw and the hover reads. See "Diagrams, extremes, deflections and
-//! reactions" in `docs/verification/CERTIFY.md`.
+//! reactions" in `testing/docs/CERTIFY.md`.
 //!
 //! The curve of one member (`postprocess::diagrams::compute_deformed_shape`;
 //! TypeScript `computeDisplacementAt` and `memberLocalCurve`, which implement
@@ -23,9 +23,7 @@
 //! the curve at every x is within `√max(1, S)·‖T‖²·‖u* − ũ‖₂` of its exact value.
 //! `S` is enclosed by evaluating the cubics in interval arithmetic on 64
 //! subintervals of [0, L]. Both the Euler–Bernoulli curve and, when the section
-//! has a shear area, the Timoshenko one are covered (the max is taken). Member
-//! rotations along the curve are not bounded (the views do not show them, the
-//! 2D hover interpolates the end rotations, each bounded by `‖u* − ũ‖₂`).
+//! has a shear area, the Timoshenko one are covered (the max is taken).
 
 use std::collections::HashMap;
 

@@ -14,7 +14,7 @@ use crate::element::fiber_beam::*;
 use crate::element::{frame_transform_2d, compute_local_axes_3d, frame_transform_3d, Hinge3D};
 use super::dof::DofNumbering;
 use super::assembly::{self, InclinedFrame};
-use super::constraints::FreeConstraintSystem;
+use super::constraints::{FreeConstraintSystem, MasterMotion};
 use super::sparse_tangent::{SparseSymbolicCache, cached_symbolic, tangent_free_sparse_triplets, solve_tangent_sparse_diagnosed};
 
 /// Fiber nonlinear analysis input.
@@ -49,7 +49,7 @@ fn default_n_inc() -> usize { 10 }
 
 /// Per-element fiber state.
 #[derive(Clone)]
-struct ElementFiberState {
+pub(super) struct ElementFiberState {
     _section_id: String,
     section_states: Vec<SectionState>, // One per integration point
 }
@@ -337,8 +337,14 @@ fn solve_fiber_nonlinear_2d_contained(input: &FiberNonlinearInput) -> Result<Fib
                 }
             }
             if rel_error < input.tolerance {
-                nr_converged = true;
-                break;
+                let (_, balance) = fiber_reactions_and_equilibrium_2d(
+                    input, &dof_num, &u_full, &elem_states, n_ip, &f_total, load_factor,
+                    &its, &art, cs.as_ref(), &metric,
+                )?;
+                if balance.accepts_increment() {
+                    nr_converged = true;
+                    break;
+                }
             }
 
             // Solve
@@ -451,7 +457,7 @@ fn solve_fiber_nonlinear_2d_contained(input: &FiberNonlinearInput) -> Result<Fib
             };
 
             let delta_u_f = if let Some(ref cs) = cs {
-                cs.expand_solution(&delta_u_indep)
+                cs.expand_solution(&delta_u_indep, MasterMotion::Homogeneous)
             } else {
                 delta_u_indep
             };
@@ -549,8 +555,8 @@ fn solve_fiber_nonlinear_2d_contained(input: &FiberNonlinearInput) -> Result<Fib
 
     let (reactions, balance) = fiber_reactions_and_equilibrium_2d(
         input, &dof_num, &u_full, &elem_states, n_ip, &f_total, last_lf, &its, &art, cs.as_ref(), &metric,
-    );
-    if !balance.summary.residual_ok || !balance.gate {
+    )?;
+    if !balance.accepts_increment() {
         return Err(not_in_equilibrium(last_lf, &balance.summary));
     }
     let equilibrium = balance.summary;
@@ -790,7 +796,7 @@ fn fiber_member_forces_3d(
 ///
 /// `scatter(gi, gj, v)` accumulates one tangent entry: dense `k_t[gi*n+gj]`
 /// for the small-model path, lower-triangle triplets for the sparse path.
-fn assemble_fiber_elements(
+pub(super) fn assemble_fiber_elements(
     solver: &SolverInput,
     fiber_sections: &HashMap<String, FiberSectionDef>,
     dof_num: &DofNumbering,
@@ -870,7 +876,7 @@ fn assemble_fiber_elements(
 
 /// Assemble elastic (non-fiber) frame elements.
 /// `scatter` receives the tangent entries (see `assemble_fiber_elements`).
-fn assemble_elastic_elements(
+pub(super) fn assemble_elastic_elements(
     solver: &SolverInput,
     fiber_sections: &HashMap<String, FiberSectionDef>,
     dof_num: &DofNumbering,
@@ -958,7 +964,7 @@ fn assemble_elastic_elements(
 
 /// Add spring stiffness and forces.
 /// `scatter` receives the diagonal stiffness entries (see above).
-fn add_springs(
+pub(super) fn add_springs(
     solver: &SolverInput,
     dof_num: &DofNumbering,
     u_full: &[f64],
@@ -1199,8 +1205,14 @@ fn solve_fiber_nonlinear_3d_contained(input: &FiberNonlinearInput3D) -> Result<F
 
             inc_residual = rel_error;
             if rel_error < input.tolerance {
-                nr_converged = true;
-                break;
+                let (_, balance) = fiber_reactions_and_equilibrium_3d(
+                    input, &dof_num, &u_full, &elem_states, n_ip, &f_total, load_factor,
+                    &its, cs.as_ref(), &metric,
+                )?;
+                if balance.accepts_increment() {
+                    nr_converged = true;
+                    break;
+                }
             }
 
             let r_s = if let Some(ref cs) = cs {
@@ -1302,7 +1314,7 @@ fn solve_fiber_nonlinear_3d_contained(input: &FiberNonlinearInput3D) -> Result<F
             };
 
             let delta_u_f = if let Some(ref cs) = cs {
-                cs.expand_solution(&delta_u_indep)
+                cs.expand_solution(&delta_u_indep, MasterMotion::Homogeneous)
             } else {
                 delta_u_indep
             };
@@ -1366,8 +1378,8 @@ fn solve_fiber_nonlinear_3d_contained(input: &FiberNonlinearInput3D) -> Result<F
 
     let (reactions, balance) = fiber_reactions_and_equilibrium_3d(
         input, &dof_num, &u_full, &elem_states, n_ip, &f_total, last_lf, &its, cs.as_ref(), &metric,
-    );
-    if !balance.summary.residual_ok || !balance.gate {
+    )?;
+    if !balance.accepts_increment() {
         return Err(not_in_equilibrium(last_lf, &balance.summary));
     }
     let equilibrium = balance.summary;
@@ -1428,7 +1440,7 @@ fn solve_fiber_nonlinear_3d_contained(input: &FiberNonlinearInput3D) -> Result<F
 
 /// Support springs, 3D. The 3D fiber solver had none: a spring support was a
 /// free node, and a beam propped by a spring was solved as a cantilever.
-fn add_springs_3d(
+pub(super) fn add_springs_3d(
     solver: &SolverInput3D,
     dof_num: &DofNumbering,
     u_full: &[f64],
@@ -1449,7 +1461,7 @@ fn add_springs_3d(
 ///
 /// `scatter(gi, gj, v)` accumulates one tangent entry: dense `k_t[gi*n+gj]`
 /// for the small-model path, lower-triangle triplets for the sparse path.
-fn assemble_fiber_elements_3d(
+pub(super) fn assemble_fiber_elements_3d(
     solver: &SolverInput3D,
     fiber_sections: &HashMap<String, FiberSectionDef>,
     dof_num: &DofNumbering,
@@ -1539,7 +1551,7 @@ fn assemble_fiber_elements_3d(
 
 /// Assemble elastic (non-fiber) 3D frame elements.
 /// `scatter` receives the tangent entries (see `assemble_fiber_elements_3d`).
-fn assemble_elastic_elements_3d(
+pub(super) fn assemble_elastic_elements_3d(
     solver: &SolverInput3D,
     fiber_sections: &HashMap<String, FiberSectionDef>,
     dof_num: &DofNumbering,
@@ -1696,41 +1708,16 @@ pub(crate) struct WrenchBalance {
     pub gate: bool,
 }
 
+impl WrenchBalance {
+    fn accepts_increment(&self) -> bool {
+        self.summary.residual_ok && self.gate
+    }
+}
+
 /// Support reactions in global axes: on restrained DOFs the unbalanced force, on free DOFs only
 /// the support springs' force, so constraint forces on a free DOF are not taken as reactions.
-fn support_forces<T: InclinedFrame>(
-    f_int: &[f64],
-    f_ext: &[f64],
-    springs: Vec<(usize, usize, f64)>,
-    u_full: &[f64],
-    its: &[T],
-    nf: usize,
-) -> Vec<f64> {
-    let mut unbalanced: Vec<f64> = f_int.iter().zip(f_ext).map(|(i, e)| i - e).collect();
-    let mut spring = vec![0.0; f_int.len()];
-    for (i, j, k) in springs {
-        spring[i] -= k * u_full[j];
-    }
-    for it in its {
-        it.rotate(&mut unbalanced);
-        it.rotate(&mut spring);
-    }
-    let mut reaction: Vec<f64> = (0..f_int.len()).map(|d| if d >= nf { unbalanced[d] } else { spring[d] }).collect();
-    for it in its {
-        it.reverse(&mut reaction);
-    }
-    reaction
-}
-
-fn support_nodes<I: Iterator<Item = usize>>(ids: I) -> Vec<usize> {
-    let mut nodes: Vec<usize> = ids.collect();
-    nodes.sort_unstable();
-    nodes.dedup();
-    nodes
-}
-
 #[allow(clippy::too_many_arguments)]
-fn fiber_reactions_and_equilibrium_2d<T: InclinedFrame>(
+fn fiber_reactions_and_equilibrium_2d(
     input: &FiberNonlinearInput,
     dof_num: &DofNumbering,
     u_full: &[f64],
@@ -1738,21 +1725,21 @@ fn fiber_reactions_and_equilibrium_2d<T: InclinedFrame>(
     n_ip: usize,
     f_total: &[f64],
     load_factor: f64,
-    its: &[T],
-    art: &[(usize, f64)],
+    its: &[assembly::InclinedTransformData2D],
+    _art: &[(usize, f64)],
     cs: Option<&FreeConstraintSystem>,
     metric: &super::convergence::EquilibriumMetric,
-) -> (Vec<Reaction>, WrenchBalance) {
+) -> Result<(Vec<Reaction>, WrenchBalance), String> {
     let n = dof_num.n_total;
     let f_ext: Vec<f64> = f_total.iter().map(|&f| load_factor * f).collect();
-    let mut f_int = vec![0.0; n];
-    let mut probe = elem_states.clone();
-    let mut ignore = |_: usize, _: usize, _: f64| {};
-    assemble_fiber_elements(&input.solver, &input.fiber_sections, dof_num, u_full, &mut probe, n_ip, &mut f_int, &mut ignore);
-    assemble_elastic_elements(&input.solver, &input.fiber_sections, dof_num, u_full, &mut f_int, &mut ignore);
-    add_springs(&input.solver, dof_num, u_full, &mut f_int, art, &mut ignore);
+    let physical = super::reaction_recovery::PhysicalForces::fiber_2d(input, dof_num, u_full, elem_states, n_ip);
+    let f_int = physical.as_slice();
     let rel_residual = metric.global_residual(&f_ext, &f_int, its, cs, false);
-    let support_force = support_forces(&f_int, &f_ext, assembly::support_spring_entries_2d(&input.solver, dof_num), u_full, its, dof_num.n_free);
+    let recovered = super::reaction_recovery::RecoveredForces::from_physical(
+        &physical.in_frame(its),
+        &assembly::to_inclined_free(f_ext.clone(), its, n), dof_num, cs,
+    );
+    let reactions = recovered.reactions_2d(dof_num, &crate::solver::reaction_recovery::GlobalDisplacements::from_global(u_full), its)?;
     let at = |node: usize, k: usize, v: &[f64]| dof_num.global_dof(node, k).map_or(0.0, |d| v[d]);
     let position = |node: usize| {
         let nd = crate::ordered::values(&input.solver.nodes).find(|nd| nd.id == node).expect("validated node");
@@ -1763,24 +1750,22 @@ fn fiber_reactions_and_equilibrium_2d<T: InclinedFrame>(
         f: [at(node, 0, v), 0.0, at(node, 1, v)],
         m: [0.0, -at(node, 2, v), 0.0],
     };
-    let reaction_nodes = support_nodes(crate::ordered::values(&input.solver.supports).map(|s| s.node_id));
-    let reactions: Vec<Reaction> = reaction_nodes
-        .iter()
-        .map(|&node| Reaction { node_id: node, rx: at(node, 0, &support_force), rz: at(node, 1, &support_force), my: at(node, 2, &support_force) })
-        .collect();
     let node_ids: Vec<usize> = crate::ordered::values(&input.solver.nodes).map(|nd| nd.id).collect();
     let points: Vec<[f64; 3]> = node_ids.iter().map(|&id| position(id)).collect();
     let applied: Vec<NodalWrench> = node_ids.iter().map(|&id| wrench(id, &f_ext)).collect();
-    let reacting: Vec<NodalWrench> = reaction_nodes.iter().map(|&id| wrench(id, &support_force)).collect();
+    let reacting: Vec<NodalWrench> = reactions.iter().map(|r| NodalWrench { r: position(r.node_id), f: [r.rx, 0.0, r.rz], m: [0.0, -r.my, 0.0] }).collect();
     let mut balance = wrench_equilibrium(&points, &applied, &reacting, rel_residual, input.tolerance, dof_num.n_free);
     let (a, r) = (balance.applied, balance.reactions);
     balance.summary.applied_force_sum = vec![a[0], a[2], -a[4]];
     balance.summary.reaction_force_sum = vec![r[0], r[2], -r[4]];
-    (reactions, balance)
+    let forces=super::applied_loads::plane(&input.solver,&input.solver.loads).into_iter().map(|f| f.into_iter().map(|v| v*load_factor).collect()).collect();
+    super::applied_loads::replace(&mut balance.summary,forces);
+    balance.gate &= balance.summary.equilibrium_ok;
+    Ok((reactions, balance))
 }
 
 #[allow(clippy::too_many_arguments)]
-fn fiber_reactions_and_equilibrium_3d<T: InclinedFrame>(
+fn fiber_reactions_and_equilibrium_3d(
     input: &FiberNonlinearInput3D,
     dof_num: &DofNumbering,
     u_full: &[f64],
@@ -1788,20 +1773,20 @@ fn fiber_reactions_and_equilibrium_3d<T: InclinedFrame>(
     n_ip: usize,
     f_total: &[f64],
     load_factor: f64,
-    its: &[T],
+    its: &[assembly::InclinedTransformData],
     cs: Option<&FreeConstraintSystem>,
     metric: &super::convergence::EquilibriumMetric,
-) -> (Vec<Reaction3D>, WrenchBalance) {
+) -> Result<(Vec<Reaction3D>, WrenchBalance), String> {
     let n = dof_num.n_total;
     let f_ext: Vec<f64> = f_total.iter().map(|&f| load_factor * f).collect();
-    let mut f_int = vec![0.0; n];
-    let mut probe = elem_states.clone();
-    let mut ignore = |_: usize, _: usize, _: f64| {};
-    assemble_fiber_elements_3d(&input.solver, &input.fiber_sections, dof_num, u_full, &mut probe, n_ip, &mut f_int, &mut ignore);
-    assemble_elastic_elements_3d(&input.solver, &input.fiber_sections, dof_num, u_full, &mut f_int, &mut ignore);
-    add_springs_3d(&input.solver, dof_num, u_full, &mut f_int, &mut ignore);
+    let physical = super::reaction_recovery::PhysicalForces::fiber_3d(input, dof_num, u_full, elem_states, n_ip);
+    let f_int = physical.as_slice();
     let rel_residual = metric.global_residual(&f_ext, &f_int, its, cs, false);
-    let support_force = support_forces(&f_int, &f_ext, assembly::support_spring_entries_3d(&input.solver, dof_num), u_full, its, dof_num.n_free);
+    let recovered = super::reaction_recovery::RecoveredForces::from_physical(
+        &physical.in_frame(its),
+        &assembly::to_inclined_free(f_ext.clone(), its, n), dof_num, cs,
+    );
+    let reactions = recovered.reactions_3d(dof_num, &crate::solver::reaction_recovery::GlobalDisplacements::from_global(u_full), its)?;
     let at = |node: usize, k: usize, v: &[f64]| dof_num.global_dof(node, k).map_or(0.0, |d| v[d]);
     let position = |node: usize| {
         let nd = crate::ordered::values(&input.solver.nodes).find(|nd| nd.id == node).expect("validated node");
@@ -1812,22 +1797,17 @@ fn fiber_reactions_and_equilibrium_3d<T: InclinedFrame>(
         f: [at(node, 0, v), at(node, 1, v), at(node, 2, v)],
         m: [at(node, 3, v), at(node, 4, v), at(node, 5, v)],
     };
-    let reaction_nodes = support_nodes(crate::ordered::values(&input.solver.supports).map(|s| s.node_id));
-    let reactions: Vec<Reaction3D> = reaction_nodes
-        .iter()
-        .map(|&node| {
-            let w = wrench(node, &support_force);
-            Reaction3D { node_id: node, fx: w.f[0], fy: w.f[1], fz: w.f[2], mx: w.m[0], my: w.m[1], mz: w.m[2], bimoment: None }
-        })
-        .collect();
     let node_ids: Vec<usize> = crate::ordered::values(&input.solver.nodes).map(|nd| nd.id).collect();
     let points: Vec<[f64; 3]> = node_ids.iter().map(|&id| position(id)).collect();
     let applied: Vec<NodalWrench> = node_ids.iter().map(|&id| wrench(id, &f_ext)).collect();
-    let reacting: Vec<NodalWrench> = reaction_nodes.iter().map(|&id| wrench(id, &support_force)).collect();
+    let reacting: Vec<NodalWrench> = reactions.iter().map(|r| NodalWrench { r: position(r.node_id), f: [r.fx, r.fy, r.fz], m: [r.mx, r.my, r.mz] }).collect();
     let mut balance = wrench_equilibrium(&points, &applied, &reacting, rel_residual, input.tolerance, dof_num.n_free);
     balance.summary.applied_force_sum = balance.applied.to_vec();
     balance.summary.reaction_force_sum = balance.reactions.to_vec();
-    (reactions, balance)
+    let forces=super::applied_loads::space(&input.solver,&input.solver.loads).into_iter().map(|f| f.into_iter().map(|v| v*load_factor).collect()).collect();
+    super::applied_loads::replace(&mut balance.summary,forces);
+    balance.gate &= balance.summary.equilibrium_ok;
+    Ok((reactions, balance))
 }
 
 #[cfg(test)]

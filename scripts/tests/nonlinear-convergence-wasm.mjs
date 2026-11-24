@@ -245,7 +245,7 @@ let checked = 0;
 for (const test of cases) {
   if (test.api) {
     const invoke = () => invokeCase(test);
-    if (test.error) { assert.throws(invoke, new RegExp(test.error, 'i')); checked++; continue; }
+    if (test.error || test.wasmError) { assert.throws(invoke, new RegExp(test.error ?? test.wasmError, 'i')); checked++; continue; }
     let result;
     try { result = JSON.parse(invoke()); } catch (error) { if (test.unconvergedOrError || test.allowRefusal) { checked++; continue; } throw error; }
     if (test.allowRefusal) {

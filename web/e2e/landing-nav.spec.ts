@@ -1,14 +1,13 @@
+import { LANDING_NAV } from './public-navigation-contract';
 import { test, expect } from '@playwright/test';
 
-const ITEMS = [['basic', 'Product', '/en/#basic'], ['examples', 'Examples', '/en/examples/'], ['tools', 'Tools', '/en/tools/'], ['research', 'Research', '/en/research/'], ['pricing', 'Pricing', '/en/#pricing'], ['blog', 'Blog', '/en/blog/']];
-
 test.describe('@smoke landing nav', () => {
-  test('six items and the editor button on a wide screen', async ({ page }) => {
+  test('expected items and the editor button on a wide screen', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto('/en/');
     const header = page.locator('nav.site-header');
     const items = await header.locator('.nav-links [data-nav]').evaluateAll((els) => els.map((e) => [e.getAttribute('data-nav'), e.textContent?.trim(), e.getAttribute('href')]));
-    expect(items).toEqual(ITEMS);
+    expect(items).toEqual(LANDING_NAV);
     for (const link of await header.locator('.nav-links [data-nav]').all()) {
       await expect(link).toBeVisible();
       const pad = await link.evaluate((e) => parseFloat(getComputedStyle(e).paddingLeft));
@@ -29,7 +28,7 @@ test.describe('@smoke landing nav', () => {
   });
 
   for (const viewport of [{ width: 390, height: 844 }, { width: 820, height: 1180 }]) {
-    test(`the menu at ${viewport.width}px holds the six items${viewport.width < 761 ? ', then the editor button' : ''}`, async ({ page }) => {
+    test(`the menu at ${viewport.width}px holds the expected items${viewport.width < 761 ? ', then the editor button' : ''}`, async ({ page }) => {
       await page.setViewportSize(viewport);
       await page.goto('/en/research/');
       const header = page.locator('nav.site-header');
@@ -40,7 +39,7 @@ test.describe('@smoke landing nav', () => {
         return { nav: e.getAttribute('data-nav'), text: e.textContent?.trim(), top: b.top, bottom: b.bottom, left: b.left, right: b.right, height: b.height, font: parseFloat(getComputedStyle(e).fontSize) };
       }));
       const phone = viewport.width < 761;
-      expect(children.map((c) => c.nav)).toEqual([...ITEMS.map(([id]) => id), ...(phone ? [null] : [])]);
+      expect(children.map((c) => c.nav)).toEqual([...LANDING_NAV.map(([id]) => id), ...(phone ? [null] : [])]);
       if (phone) expect(children.at(-1)!.text).toBe('Open the editor');
       for (const c of children) {
         expect(c.height, `${c.text} tap target`).toBeGreaterThanOrEqual(44);

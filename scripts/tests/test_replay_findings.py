@@ -294,7 +294,7 @@ class ReplayAndClassificationTest(unittest.TestCase):
                     }
                 results_path.write_text(json.dumps(payload))
                 return subprocess.CompletedProcess(cmd, 0, "", "")
-            if "tools/opensees/compare.py" in cmd:
+            if "testing/opensees/compare.py" in cmd:
                 report_path = Path(cmd[cmd.index("--report") + 1])
                 report_path.write_text(
                     json.dumps([{"name": "model.json", "status": "mismatch", "n_bad": 2, "max_err": {"disp": 3.1e-2}}])

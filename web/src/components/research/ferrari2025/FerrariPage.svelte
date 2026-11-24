@@ -87,7 +87,7 @@
         {#if failed}<p role="alert">{s.ferrariFailed}</p>{/if}
         <p data-testid="ferrari-buckling">λ₁ = {format(lambda)}</p>
       </div>
-      <StabileoViewer xy={replay.nodes} cells={replay.cells} cellSize={2} values={null} displayMode="geometry" renderDiagnostics range={{ min: 0, max: 1 }}
+      <StabileoViewer plane="elevation" xy={replay.nodes} cells={replay.cells} cellSize={2} values={null} displayMode="geometry" renderDiagnostics range={{ min: 0, max: 1 }}
         displacement={shown.displacement} deformScale={1} showMesh={false} title={s.ferrariViewer}
         height="min(52vh, 24rem)" view={[-0.1, -0.1, 1.1, 1.1]} editorButton={false} oninteract={() => { playback.interact(); playback.follow = false; }} />
       <label>{s.ferrariStep} {format(playback.shown + 1)} / {format(frames.length)}

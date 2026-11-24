@@ -80,7 +80,7 @@ it('offers both actions when a notice mixes generated-load and solve changes', a
   expect(html).toContain(t('recheck.staleWarning'));
 });
 
-it.each(OFFERED_LOCALES.filter((l) => l !== 'en'))('shows each change in the reader\'s language (%s), not in English', async (locale) => {
+it.each(OFFERED_LOCALES.filter((l) => l !== 'en'))('shows the complete result-change notice for language %s', async (locale) => {
   const project = {
     analysisMode: 'pro',
     materials: [[1, { id: 1, e: 200000, fy: 250 }]],
@@ -94,9 +94,17 @@ it.each(OFFERED_LOCALES.filter((l) => l !== 'en'))('shows each change in the rea
   const html = render(RecheckNotice).body;
   const text = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   for (const change of changes) {
-    expect(change.title[locale], change.id).not.toBe(change.title.en);
-    expect(html).toContain(text(change.title[locale]));
-    expect(html).toContain(text(change.explanation[locale]));
+    const title = change.title[locale], explanation = change.explanation[locale];
+    if (locale === 'hu' && (!title || !explanation)) {
+      const notice = html.split(`data-change-id="${change.id}"`)[1].split('</li>')[0];
+      expect(notice).toContain(text(change.title.en));
+      expect(notice).toContain(text(change.explanation.en));
+      continue;
+    }
+    if (title === undefined || explanation === undefined) throw new Error(`Missing ${locale} notice for ${change.id}`);
+    expect(title, change.id).not.toBe(change.title.en);
+    expect(html).toContain(text(title));
+    expect(html).toContain(text(explanation));
     expect(html).not.toContain(text(change.explanation.en));
   }
 });
@@ -112,4 +120,46 @@ it('does not claim results changed when the change list could not be loaded', ()
   expect(html).toContain(t('recheck.loadFailed'));
   expect(html).not.toContain(t('recheck.title'));
   expect(html).toMatch(/<input[^>]*disabled[^>]*data-testid="recheck-ack"/);
+});
+
+
+it('known wrong result: #2099 — renders a complete English snow notice when Hungarian is incomplete', async () => {
+  const { RESULT_CHANGES } = await import('../../lib/provenance/full-registry');
+  const { i18n } = await import('../../lib/i18n');
+  const entry = RESULT_CHANGES.changes.find(c => c.id === 'snow-roof-step')!;
+  vi.stubGlobal('__PUBLIC_FEATURES__', { ...__PUBLIC_FEATURES__, research: true });
+  vi.spyOn(i18n, 'locale', 'get').mockReturnValue('hu');
+  vi.spyOn(recheckStore, 'pending', 'get').mockReturnValue(false);
+  vi.spyOn(recheckStore, 'noticeOpen', 'get').mockReturnValue(true);
+  try {
+    for (const translated of ['neither', 'title', 'explanation', 'both']) {
+      const change = {
+        ...entry,
+        title: { ...entry.title, ...(translated === 'title' || translated === 'both' ? { hu: 'Magyar cím' } : {}) },
+        explanation: { ...entry.explanation, ...(translated === 'explanation' || translated === 'both' ? { hu: 'Magyar magyarázat' } : {}) },
+      };
+      vi.spyOn(recheckStore, 'assessment', 'get').mockReturnValue({ solvedVersion: 1, currentVersion: RESULT_CHANGES.currentResultsVersion, older: true, newer: false, changes: [change], advisories: [], maybe: [] });
+      const html = render(RecheckNotice).body;
+      const escaped = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      expect(html).toContain(escaped(translated === 'both' ? change.title.hu! : change.title.en));
+      expect(html).toContain(escaped(translated === 'both' ? change.explanation.hu! : change.explanation.en));
+    }
+  } finally { vi.unstubAllGlobals(); }
+});
+
+it('known wrong result: #2233 hand-entered snow still offers regeneration after a current solve', async () => {
+  recheckStore.reset();
+  recheckStore.noteSolved('linear');
+  recheckStore.openProject({
+    analysisMode: 'pro',
+    loadCases: [{ id: 1, type: 'S' }],
+    loads: [{ type: 'distributed3d', data: { caseId: 1, elementId: 1 } }],
+    combinations: [{ id: 1, name: 'Saved CIRSOC companion', factors: [{ caseId: 1, factor: 0.5 }] }],
+    solvedWith: recheckStore.capture(),
+  });
+  await recheckStore.retry();
+  const html = render(RecheckNotice).body;
+  for (const id of ['snow-companion-basis', 'snow-combination-validation', 'snow-pair-coverage']) expect(html).toContain(`data-change-id="${id}"`);
+  expect(html).toContain('data-testid="recheck-regenerate"');
+  expect(html).not.toContain('data-testid="recheck-rerun"');
 });

@@ -1,10 +1,11 @@
+import { featureDefines, featuresForMode } from '../config/public-features.mjs';
 import { fileURLToPath } from 'node:url';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 import { resultChangeMetadataPlugin } from './result-change-metadata.mjs';
 
 const PUBLIC = 'virtual:public-i18n';
 const APP = 'virtual:app-i18n';
-const LAZY_LOCALES = ['de', 'fr', 'tr'];
+const LAZY_LOCALES = ['de', 'fr', 'tr', 'hu', 'zh'];
 
 function localeExport(locale, path) {
   const file = fileURLToPath(new URL(`../src/lib/i18n/locales/${path}.ts`, import.meta.url));
@@ -17,12 +18,13 @@ export function benchmarkPlugins() {
   const ids = [PUBLIC, APP, ...LAZY_LOCALES.map(locale => `${APP}/${locale}`)];
   return [resultChangeMetadataPlugin(), {
     name: 'benchmark-i18n',
+    config(_config, { mode }) { return { define: featureDefines(featuresForMode(mode)) }; },
     resolveId(source) { return ids.includes(source) ? '\0' + source : null; },
     load(resolved) {
       const id = resolved.slice(1);
       if (resolved[0] !== '\0' || !ids.includes(id)) return null;
       if (id === PUBLIC) {
-        return ['en', 'es', 'pt', 'de', 'fr', 'tr']
+        return ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu', 'zh']
           .map(locale => localeExport(locale, LAZY_LOCALES.includes(locale) ? `full/${locale}` : locale)).join('\n') + '\nexport const loaders = {};';
       }
       if (id === APP) return ['en', 'es', 'pt'].map(locale => localeExport(locale, locale)).join('\n');

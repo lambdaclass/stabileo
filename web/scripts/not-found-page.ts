@@ -17,6 +17,8 @@ const LANGUAGE: Record<Locale, string> = {
   de: 'Deutsch',
   fr: 'Français',
   tr: 'Türkçe',
+  hu: 'Magyar',
+  zh: '中文',
 };
 
 const COPY: Record<Locale, Copy> = {
@@ -73,6 +75,24 @@ const COPY: Record<Locale, Copy> = {
     tools: 'Araçlar',
     blog: 'Blog',
     app: 'Uygulamayı aç',
+  },
+  hu: {
+    title: 'Az oldal nem található',
+    lead: 'Ezen a címen nincs oldal. Lehet, hogy áthelyezték, vagy a hivatkozás el van írva.',
+    home: 'Kezdőlap',
+    research: 'Kutatás',
+    tools: 'Eszközök',
+    blog: 'Blog',
+    app: 'Az alkalmazás megnyitása',
+  },
+  zh: {
+    title: '页面未找到',
+    lead: '此地址没有页面。它可能已被移动，或者链接拼写有误。',
+    home: '首页',
+    research: '研究',
+    tools: '工具',
+    blog: '博客',
+    app: '打开应用',
   },
 };
 

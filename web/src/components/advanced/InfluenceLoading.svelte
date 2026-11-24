@@ -4,6 +4,7 @@
    * quantity most, a concentrated P at the peak. The largest and smallest values, where each load
    * goes, the same values from a direct solve, and the envelope along the members.
    */
+  import { ilShown } from '../../lib/axes/user-names';
   import { t, tp } from '../../lib/i18n';
   import { influenceTool } from '../../lib/store/influence-tool.svelte';
   import UnitInput from '../UnitInput.svelte';
@@ -29,7 +30,10 @@
     try { return { reading: readLine(unit, il, loads, influenceTool.placement, loadedIds, dir), error: null }; } catch (e) { return { reading: null, error: message(e) }; }
   });
   const reading = $derived(attempt.reading);
-  const extremes = $derived(reading ? ([['max', reading.max, reading.direct.max], ['min', reading.min, reading.direct.min]] as const) : []);
+  const sign = $derived(ilShown(q).sign);
+  const extremes = $derived(!reading ? [] : sign > 0
+    ? ([['max', reading.max, reading.direct.max], ['min', reading.min, reading.direct.min]] as const)
+    : ([['max', { ...reading.min, value: -reading.min.value }, -reading.direct.min], ['min', { ...reading.max, value: -reading.max.value }, -reading.direct.max]] as const));
   const fmt = (v: number) => `${fmtQ(v, kind)} ${unitQ(kind)}`;
   const agrees = (a: number, b: number) => Math.abs(a - b) <= 1e-3 * Math.max(Math.abs(a), Math.abs(b)) + 1e-9;
   const zonesText = (zones: Zone[]) => zones.length === 0 ? t('course.influence.load.nowhere') : zones.map((z) => {

@@ -1,5 +1,5 @@
 /**
- * The engine is the only source of engineering results (docs/verification/TS_ENGINE_LOGIC.md).
+ * The engine is the only source of engineering results (testing/docs/TS_ENGINE_LOGIC.md).
  *
  * The TypeScript copies that used to stand in for the engine, silently, when it was not loaded
  * are test oracles now (`__tests__/differential/*-oracle.ts`, `sectionPoint` behind

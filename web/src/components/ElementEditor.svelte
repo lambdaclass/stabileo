@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { relabelComponents } from '../lib/axes/user-names';
   /**
    * The member card, opened by double-clicking a member.
    *
@@ -12,6 +13,7 @@
    *
    * One undo step covers everything done while the card is open.
    */
+  import { modelDofIndex } from '../lib/axes/user-names';
   import { modelStore, uiStore, historyStore } from '../lib/store';
   import type { Element, Load, Release } from '../lib/store/model.svelte';
   import { t } from '../lib/i18n';
@@ -167,14 +169,14 @@
     </div>
 
     {#if is3DMode && elem.type === 'frame'}
-      <div class="joint3d" title={t('editor.joint3dHint')}>
+      <div class="joint3d" title={relabelComponents(t('editor.joint3dHint'))}>
         <div class="joint3d-title">{t('editor.joint3dTitle')}</div>
         {#each [{ end: 'i', label: 'I' }, { end: 'j', label: 'J' }] as const as row (row.end)}
           {@const dof = (row.end === 'i' ? elem.jointI?.dof : elem.jointJ?.dof) ?? [false, false, false, false, false, false]}
           <div class="joint3d-row">
             <span class="joint3d-end">{row.label}</span>
             {#each DOF3D_LABELS as label, i}
-              <label class="joint3d-dof"><input type="checkbox" checked={dof[i]} onchange={(e) => setJoint(row.end, i, e.currentTarget.checked)} />{label}</label>
+              <label class="joint3d-dof"><input type="checkbox" checked={dof[modelDofIndex(i)]} onchange={(e) => setJoint(row.end, modelDofIndex(i), e.currentTarget.checked)} />{label}</label>
             {/each}
           </div>
         {/each}

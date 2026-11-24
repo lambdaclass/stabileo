@@ -5,13 +5,22 @@
   /**
    * Stabileo's viewer on a research page: the app's ScalarFieldViewer from its own bundle
    * (research-wasm/viewer/, built by research/fracture/shauer-2025/wasm/build.sh), mounted here and
-   * fed with this component's props. Takes the props of ScalarFieldViewer, plain data only.
+   * fed with this component's props. Takes the props of ScalarFieldViewer, plain data only, and
+   * requires `plane`.
    */
   import { viewerInteraction } from './viewer-interaction';
   import { holdPrerender } from '../../../lib/prerender-hold';
   import { onDestroy, onMount } from 'svelte';
+  import type { ScalarFieldPlane } from '../../viewport/scalar-field-plane';
 
-  let { oninteract = () => {}, ...props }: Record<string, unknown> & { oninteract?: () => void } = $props();
+  type Props = Record<string, unknown> & {
+    /** The plane the paper draws the model in: 'elevation' for anything standing (arches, frames, beams, specimens), 'plan' for plates and slabs seen from above. */
+    plane: ScalarFieldPlane;
+    oninteract?: () => void;
+  };
+  let { oninteract = () => {}, plane, ...props }: Props = $props();
+  const diagnostics = import.meta.env.VITE_E2E === '1';
+  const viewerProps = () => ({ locale: publicI18n.locale, renderDiagnostics: diagnostics, ...props, plane });
   let host: HTMLDivElement;
   let handle: { update(p: Record<string, unknown>): void; destroy(): void } | null = null;
   let failed = $state(false);
@@ -34,7 +43,7 @@
     holdPrerender(import(/* @vite-ignore */ `${BASE}viewer.js`))
       .then((m: { mountScalarFieldViewer: (el: HTMLElement, p: Record<string, unknown>) => typeof handle }) => {
         if (cancelled) return;
-        handle = m.mountScalarFieldViewer(host, { locale: publicI18n.locale, ...props });
+        handle = m.mountScalarFieldViewer(host, viewerProps());
       })
       .catch((err) => {
         console.warn('research: the viewer bundle could not be loaded', err);
@@ -46,7 +55,7 @@
   });
 
   $effect(() => {
-    const next = { locale: publicI18n.locale, ...props };
+    const next = viewerProps();
     handle?.update(next);
   });
 

@@ -4,6 +4,7 @@
   runs alongside it on the same analysis.
 -->
 <script lang="ts">
+  import OutdatedNotice from '../../design/OutdatedNotice.svelte';
   import { t, tp } from '../../../../lib/i18n';
   import { FOREIGN_MATRIX, foreignCodes, foreignRun, loadMismatch, setForeignCodes, type ForeignRun } from '../../../../lib/store/foreign-design';
   import { steelOptimise } from '../../../../lib/store/steel-optimise.svelte';
@@ -32,6 +33,7 @@
 </script>
 
 <div class="sf" data-testid="foreign-codes">
+  <OutdatedNotice audit={fc.concrete && fc.concrete !== 'cirsoc' ? ['rc-design'] : []} />
   <p class="muted">{t('fx.ui.lead')}</p>
   <div class="sf-form">
     <label>{t('fx.ui.concrete')}

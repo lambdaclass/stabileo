@@ -125,10 +125,15 @@
     background: var(--st-surface-2);
     border: 1px solid var(--st-hair);
   }
+  .ai-key-provider,
+  .ai-key-input,
+  .ai-key-btn {
+    box-sizing: border-box;
+    min-width: 44px;
+    min-height: 44px;
+  }
   .ai-key-provider {
     flex: 1;
-    min-width: 0;
-    min-height: 32px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -157,8 +162,6 @@
   .ai-key-row { display: flex; gap: 0.4rem; min-width: 0; }
   .ai-key-input {
     flex: 1;
-    min-width: 0;
-    min-height: 32px;
     background: var(--st-hair);
     border: 1px solid var(--st-surface-3);
     border-radius: 6px;
@@ -169,7 +172,6 @@
   }
   .ai-key-input:focus { outline: none; border-color: var(--st-accent); }
   .ai-key-btn {
-    min-height: 32px;
     padding: 0 0.8rem;
     border-radius: 6px;
     border: 1px solid var(--st-surface-3);
@@ -192,9 +194,6 @@
   .ai-key-saved-text { font-size: 0.72rem; color: var(--st-text-2); overflow-wrap: anywhere; }
 
   @media (pointer: coarse) {
-    .ai-key-provider,
-    .ai-key-input,
-    .ai-key-btn { min-height: 44px; }
     .ai-key-input { font-size: 16px; }
   }
 </style>

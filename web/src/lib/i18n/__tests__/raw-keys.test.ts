@@ -32,7 +32,7 @@ describe('findRawKeys', () => {
   it('leaves ordinary text alone', () => {
     for (const s of [
       'Sign in to Stabileo', 'stabileo.com', 'design.ded', 'pro.json', 'https://stabileo.com/blog/x.y', 'model.ded', 'portico.ded.json',
-      'e.g. 3.14 kN·m', 'v0.3.0', 'IPN 300', 'N.m', 'a.b', 'user@mail.com', 'docs/verification/PROVENANCE.md',
+      'e.g. 3.14 kN·m', 'v0.3.0', 'IPN 300', 'N.m', 'a.b', 'user@mail.com', 'testing/docs/PROVENANCE.md',
     ]) expect(findRawKeys(s, index), s).toEqual([]);
   });
 

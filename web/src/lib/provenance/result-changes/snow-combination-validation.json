@@ -1,0 +1,39 @@
+{
+  "id": "snow-combination-validation",
+  "date": "2026-11-16",
+  "prs": [],
+  "area": "loads",
+  "when": {
+    "all": [
+      "snow"
+    ]
+  },
+  "quantities": [
+    "*"
+  ],
+  "title": {
+    "en": "Refuse ambiguous or unavailable companion snow",
+    "es": "Rechazar nieve complementaria ambigua o ausente",
+    "pt": "Recusar neve acompanhante ambígua ou ausente",
+    "de": "Mehrdeutigen oder fehlenden Begleitschnee ablehnen",
+    "fr": "Refuser la neige accompagnatrice ambiguë ou absente",
+    "tr": "Belirsiz veya eksik eşlikçi kar yükünü reddetme",
+    "zh": "拒绝不明确或不可用的伴随雪荷载",
+    "hu": "Nem egyértelmű vagy hiányzó kísérő hóteher elutasítása"
+  },
+  "explanation": {
+    "en": "SA-2026-082, #2211, #2233. Companion combinations silently used slope-reduced snow instead of flat-roof member loading. Legacy seismic specifications can also conflate physical snow and flat-roof snow. Regenerate snow loads and combinations, then rerun analyses and design checks. (#2211).",
+    "es": "SA-2026-082, #2211, #2233. Las combinaciones complementarias usaban nieve reducida por pendiente en lugar de carga de miembro de cubierta plana, sin aviso. Las especificaciones sísmicas antiguas también pueden confundir la nieve física con la de cubierta plana. Regenere las cargas de nieve y las combinaciones y repita los análisis y verificaciones. (#2211).",
+    "pt": "SA-2026-082, #2211, #2233. As combinações acompanhantes usavam neve reduzida pela inclinação em vez da carga de membro de cobertura plana, sem aviso. Especificações sísmicas antigas também podem confundir a neve física com a de cobertura plana. Gere novamente as cargas de neve e combinações e repita análises e verificações. (#2211).",
+    "de": "SA-2026-082, #2211, #2233. Begleitkombinationen verwendeten ohne Warnung neigungsreduzierten Schnee statt Flachdach-Stablasten. Alte Erdbebenspezifikationen können zudem physischen Schnee und Flachdachschnee vermischen. Schneelasten und Kombinationen neu erzeugen, danach Analysen und Nachweise wiederholen. (#2211).",
+    "fr": "SA-2026-082, #2211, #2233. Les combinaisons accompagnatrices utilisaient sans avertissement la neige réduite par la pente au lieu de la charge de barre de toiture plate. Les anciennes spécifications sismiques peuvent aussi confondre neige physique et neige de toiture plate. Régénérez les charges de neige et les combinaisons, puis relancez analyses et vérifications. (#2211).",
+    "tr": "SA-2026-082, #2211, #2233. Eşlikçi birleşimler düz çatı eleman yükü yerine eğimle azaltılmış karı uyarısız kullanıyordu. Eski deprem tanımları fiziksel karı düz çatı karıyla da karıştırabilir. Kar yüklerini ve birleşimleri yeniden üretip analizleri ve kontrolleri tekrarlayın. (#2211).",
+    "zh": "SA-2026-082，#2211，#2233。伴随组合曾在无提示的情况下使用经坡度折减的雪荷载，而不是平屋面杆件荷载。旧版地震组合设定也可能混淆实际雪荷载与平屋面雪荷载。请重新生成雪荷载和组合，然后重新运行分析和设计验算。（#2211）。",
+    "hu": "SA-2026-082, #2211, #2233. A kísérő kombinációk figyelmeztetés nélkül a lejtéssel csökkentett havat használták a lapos tető rúdterhe helyett. A régi földrengési előírások a fizikai havat és a lapos tető havát is összekeverhetik. Generálja újra a hóterheket és a kombinációkat, majd futtassa újra az analíziseket és ellenőrzéseket. (#2211)."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-snow-combination-validation.md",
+    "heading": "Refuse ambiguous or unavailable companion snow"
+  },
+  "requiresLoadRegeneration": true
+}

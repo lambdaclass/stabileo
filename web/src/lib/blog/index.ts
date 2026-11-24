@@ -5,6 +5,7 @@
  * with no backend of its own, so posts ship with the application and are as
  * available offline as the solver is.
  */
+import { buildFeatures } from '../../../config/public-features.mjs';
 import { readingMinutes, inLocale, addTranslations, type Post } from './types';
 import type { PublicLocale } from '../i18n/store.svelte';
 import { determinismBoundary } from './posts/determinism-boundary';
@@ -23,6 +24,8 @@ import { stepByStepCourse } from './posts/step-by-step-course';
 import { jaie2026Talk } from './posts/jaie-2026-talk';
 import { tiic2026SecondPlace } from './posts/tiic-2026-second-place';
 import { release050 } from './posts/release-0-5-0';
+import { release060 } from './posts/release-0-6-0';
+import { release061 } from './posts/release-0-6-1';
 
 /**
  * By `order`, not by date.
@@ -48,9 +51,15 @@ export const POSTS: Post[] = [
   jaie2026Talk,
   tiic2026SecondPlace,
   release050,
+  release060,
+  release061,
 ].sort((a, b) => a.order - b.order);
 
-addTranslations(POSTS, (p) => p.slug, import.meta.glob(['./translations/*/*.ts', '!./translations/*/page-*.ts'], { eager: true, import: 'default' }));
+const researchBuilt = typeof __PUBLIC_FEATURES_COMPILED__ === 'undefined' ? buildFeatures().research : __PUBLIC_FEATURES__.research;
+
+addTranslations(POSTS, (p) => p.slug, researchBuilt
+  ? import.meta.glob(['./translations/*/*.ts', '!./translations/*/page-*.ts'], { eager: true, import: 'default' })
+  : import.meta.glob(['./translations/*/*.ts', '!./translations/*/page-*.ts', '!./translations/hu/**'], { eager: true, import: 'default' }));
 
 /**
  * What a reader looking for news expects: newest first (by date, then by series order). The blog

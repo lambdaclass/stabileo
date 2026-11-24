@@ -4,7 +4,7 @@ const body: StandingPage['i18n']['en'] = {
   "title": "Stabileo ne kadar güvenilir? Sonuçları nasıl kontrol ediliyor",
   "description": "Stabileo'nun sonuç kontrolleri: diğer yedi sonlu eleman programı, yayımlanmış örnekler, Lean'de kanıtlanmış hata sınırları, açık uyarılar ve bunların sınırları.",
   "eyebrow": "Güvenilirlik",
-  "lead": "Stabileo'nun sonuçları, diğer yedi sonlu eleman programıyla karşılaştırma ve temel matematiği Lean'de kanıtlanmış hata sınırları dahil, birbirinden bağımsız beş yolla kontrol edilir. Hâlihazırda kullanılan sonuçları etkilemiş olabilecek kusurlar güvenlik uyarısı olarak yayımlanır (bazı bulguların sınıflandırılması herkesin gözü önünde sürüyor) ve yayımlanan yirmi dört uyarının tamamı düzeltildi (son dördü 0.4.0 sürümünde). Her analiz programı gibi modelinizi kontrol etmez: yükler, mesnetler ve idealleştirme mühendisin kararlarıdır.",
+  "lead": "Stabileo'nun sonuçları, diğer yedi sonlu eleman programıyla karşılaştırma ve temel matematiği Lean'de kanıtlanmış hata sınırları dahil, birbirinden bağımsız beş yolla kontrol edilir. Hâlihazırda kullanılan sonuçları etkilemiş olabilecek kusurlar güvenlik uyarısı olarak yayımlanır (bazı bulguların sınıflandırılması herkesin gözü önünde sürüyor); hangilerinin hangi sürümde düzeltildiği aşağıdaki listede yazar. Her analiz programı gibi modelinizi kontrol etmez: yükler, mesnetler ve idealleştirme mühendisin kararlarıdır.",
   "blocks": [
     {
       "k": "h",
@@ -81,7 +81,7 @@ const body: StandingPage['i18n']['en'] = {
     },
     {
       "k": "ext",
-      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/verification/MATURITY.md",
+      "href": "https://github.com/lambdaclass/stabileo/blob/main/testing/docs/MATURITY.md",
       "label": "Olgunluk matrisi",
       "t": "Her parçanın doğrulama düzeyi:"
     }

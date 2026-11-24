@@ -66,7 +66,57 @@ const pt: Strings = {
   speed: 'A reprodução é {x} vezes mais lenta que o tempo real em qualquer passo de tempo, então um período mais longo realmente demora mais.',
   displacement: 'Deslocamento axial', time: 'Tempo (s)', scaled: 'Deformação ×10; nó esquerdo fixo, nó direito guiado axialmente.', tryCoarse: 'Testar o maior passo de tempo', failure: 'O cálculo falhou; o resultado anterior foi mantido.', paper: 'O artigo descreve um procedimento de integração temporal para dinâmica estrutural. Aqui testamos sua especialização de aceleração média em um pequeno ensaio linear; não afirmamos reproduzir uma figura do artigo.', alt: 'Histórico de deslocamento axial da nossa execução de Newmark de produção',
 };
-export const translations = { en, es, pt };
+const hu: Strings = {
+  title: 'Newmark-féle átlagos gyorsulás',
+  metaTitle: 'Newmark (1959) — Stabileo Research',
+  metaDescription: 'A termékben használt Newmark-féle átlagosgyorsulás-módszer összevetése egy egy szabadságfokú rendszer pontos ugrásválaszával.',
+  lead: 'Egyetlen csillapítatlan szabadságfok hirtelen ráadott, állandó erő alatt. Növelje az időlépést, és figyelje, hogyan nő a numerikus periódus.',
+  model: 'A példa',
+  description: 'Egy {L} m hosszú, normálerővel terhelt keretrúd, bal végén befogva, jobb végén csak a tengelyirányú eltolódás szabad. E = {E} MPa, A = {A} m², szintetikus sűrűség = {rho} kg/m³. A konzisztens tengelyirányú tömeg m = ρAL/3 = {m} t, és k = EA/L = {k} kN/m. Egy {F} kN nagyságú ugrásszerű erő hat t = 0-tól; a kezdeti elmozdulás és sebesség zérus. Ez egy egy szabadságfokú végeselemes referenciafeladat pontos megoldással, nem egy kontinuumrúd megoldása.',
+  method: 'A termékben használt 3D időtörténeti megoldó a meglévő WASM-burkolón keresztül fut, β = ¼, γ = ½ értékkel, csillapítás nélkül. A visszajátszás ugyanennek a Rust-megoldónak natív futtatása. Új integrátor nincs használatban.',
+  reference: 'Pontos referencia', difference: 'Eltérés', measured: 'Stabileo T (s)', predicted: 'Diszkrét előrejelzés Tₙ (s)',
+  formula: 'u(t) = (F/k)[1 − cos(ωt)], ω = √(k/m) = {omega} rad/s, T = 2π/ω = {T} s. Az átlagos gyorsulás diszkrét megoldása uₙ = (F/k)[1 − cos(nθ)], ahol θ = 2 atan(ωΔt/2), így a periódusa Tₙ = πΔt / atan(ωΔt/2). Az alábbi periódusokat az u = F/k szint egymást követő felfelé irányuló metszéseiből mérjük; durva lépésnél az interpoláció befolyásolja a mérést.',
+  comparison: 'A periódus megnyúlása az időlépés függvényében', elongation: 'Megnyúlás T-hez képest (%)',
+  errors: 'Elmozduláseltérések', discreteError: 'Max. |u − uₙ| (m)', continuousError: 'Max. |u − u(t)| (mm)', bound: 'Fáziskésési korlát (mm)',
+  error: 'Legnagyobb elmozduláseltérés (mm)',
+  tolerance: 'Ellenőrzések, a megjelenített időtörténetekből számítva (élő újraszámítás után azt követik): minden minta 10⁻¹⁰ m-en belül egyezik az uₙ diszkrét megoldással; minden mért periódus 0,5%-on belül egyezik Tₙ-nel; a folytonos megoldástól való legnagyobb eltérés a (F/k)·min(2, N(ωΔt − θ)) fáziskésési korlát alatt marad, amely az N lépésen át vett uₙ-ből következik; Δt/T = 0,025 esetén négy perióduson át 0,5 mm alatt is marad. A durvább lépések szándékosan nagyobb hibát mutatnak.',
+  published: 'Nincs: ez az oldal a módszert pontos, zárt alakú megoldásokkal ellenőrzi; nem reprodukál a cikkben közölt ábrát vagy táblázatot.',
+  notYet: 'Még nincs', limitations: ['A cikkben közölt ábrák és numerikus példák.', 'Csillapítás, harmonikus teher, nemlineáris válasz és több szabadságfokú keretek.', 'Ez nem mérnöki tanúsítás.'],
+  replay: 'Előre kiszámított visszajátszás (ugyanaz a megoldó)', live: 'Élő számítás a böngészőben', cached: 'Tárolt eredmény (ebben a böngészőben számítva)',
+  run: 'Újraszámítás élőben', stop: 'Leállítás', restart: 'Újraindítás', busy: 'Számítás…', step: 'Időlépés', sample: 'Minta',
+  sampleValue: '{i}. minta / {n}, t = {t} s',
+  speed: 'A lejátszás minden időlépésnél {x}-szer lassabb a valós időnél, így a hosszabb periódus valóban tovább tart.',
+  displacement: 'Tengelyirányú elmozdulás', time: 'Idő (s)', scaled: 'Alakváltozás ×10; a bal csomópont befogott, a jobb tengelyirányban vezetett.',
+  tryCoarse: 'A legdurvább időlépés kipróbálása', failure: 'A számítás sikertelen; az előző eredmény megmaradt.',
+  paper: 'A cikk egy időléptetéses eljárást ír le a szerkezetdinamikához. Itt annak átlagos gyorsulású változatát próbáljuk ki egy szándékosan kicsi lineáris referenciafeladaton; nem állítjuk, hogy a cikk valamelyik ábráját reprodukáljuk.',
+  alt: 'Tengelyirányú elmozdulás időtörténete a termékben használt Newmark-megoldó futtatásából',
+};
+const zh: Strings = {
+  title: 'Newmark 平均加速度法',
+  metaTitle: 'Newmark (1959) — Stabileo Research',
+  metaDescription: '将生产环境的 Newmark 平均加速度法与单自由度阶跃响应的精确解进行对比。',
+  lead: '一个无阻尼自由度，受突然施加的恒定力作用。增大时间步长，观察数值周期如何变长。',
+  model: '算例',
+  description: '一根长 {L} m 的轴向框架杆件，左端固定，右端仅轴向平动自由。E = {E} MPa，A = {A} m²，人为设定的密度 = {rho} kg/m³。一致轴向质量给出 m = ρAL/3 = {m} t 和 k = EA/L = {k} kN/m。自 t = 0 起作用一个 {F} kN 的阶跃力；初始位移和速度均为零。这是一个有精确解的单自由度有限元基准算例，不是连续杆的解。',
+  method: '生产环境的 3D 时程求解器通过现有的 WASM 封装运行，取 β = ¼、γ = ½，无阻尼。回放是同一个 Rust 求解器的原生运行结果。没有使用新的积分器。',
+  reference: '精确参考解', difference: '差异', measured: 'Stabileo T (s)', predicted: '离散预测值 Tₙ (s)',
+  formula: 'u(t) = (F/k)[1 − cos(ωt)]，ω = √(k/m) = {omega} rad/s，T = 2π/ω = {T} s。平均加速度法的离散解为 uₙ = (F/k)[1 − cos(nθ)]，其中 θ = 2 atan(ωΔt/2)，因此其周期为 Tₙ = πΔt / atan(ωΔt/2)。下方的周期取自 u = F/k 的相继向上穿越；在较大步长下，插值会影响测量结果。',
+  comparison: '周期延长与时间步长的关系', elongation: '相对于 T 的延长 (%)',
+  errors: '位移差异', discreteError: '最大 |u − uₙ| (m)', continuousError: '最大 |u − u(t)| (mm)', bound: '相位滞后界限 (mm)',
+  error: '最大位移差异 (mm)',
+  tolerance: '检查项，依据所示的时程计算（实时重新计算后随之更新）：每个采样点与离散解 uₙ 的偏差在 10⁻¹⁰ m 以内；每个测得的周期与 Tₙ 的偏差在 0.5% 以内；与连续解的最大差异低于相位滞后界限 (F/k)·min(2, N(ωΔt − θ))，该界限由 N 步内的 uₙ 得出；在 Δt/T = 0.025 时，四个周期内的最大差异还低于 0.5 mm。较粗的步长有意显示出较大的误差。',
+  published: '无：本页是将该方法与精确的闭合解进行核对；并未复现论文中印出的图或表。',
+  notYet: '尚未完成', limitations: ['论文中已发表的图和数值算例。', '阻尼、简谐荷载、非线性响应以及多自由度框架。', '这不是工程认证。'],
+  replay: '预先计算的回放（同一求解器）', live: '在浏览器中实时计算', cached: '缓存的结果（在此浏览器中计算）',
+  run: '实时重新计算', stop: '停止', restart: '重新开始', busy: '计算中…', step: '时间步长', sample: '采样点',
+  sampleValue: '第 {i} 个采样点，共 {n} 个，t = {t} s',
+  speed: '在每个时间步长下，回放速度都比真实时间慢 {x} 倍，因此周期越长，确实耗时越久。',
+  displacement: '轴向位移', time: '时间 (s)', scaled: '变形 ×10；左节点固定，右节点沿轴向导向。',
+  tryCoarse: '试试最大的时间步长', failure: '计算失败；已保留之前的结果。',
+  paper: '论文描述了一种用于结构动力学的时间步进方法。这里我们在一个有意设计得很小的线性基准算例上，运用其平均加速度的特例；我们并不声称复现了论文中的某幅图。',
+  alt: '生产环境 Newmark 运行得到的轴向位移时程',
+};
+export const translations = { en, es, pt, hu, zh };
 export const strings = () => translations[researchLocale() as keyof typeof translations] ?? translations.en;
 export const fill = (template: string, values: Record<string, string>) =>
   template.replace(/\{(\w+)\}/g, (match, key: string) => values[key] ?? match);

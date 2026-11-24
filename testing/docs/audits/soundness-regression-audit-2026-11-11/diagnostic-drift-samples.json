@@ -1,0 +1,99 @@
+[
+  {
+    "model": "solve_modal_2d-0530e461b7e8db65.json",
+    "analysis": "solve_modal_2d",
+    "test": "benchmarks::nafems_benchmarks::validation_nafems_fv72_free_free_beam_indirect",
+    "changes": [
+      {
+        "path": "Ok.structuredDiagnostics[2].message",
+        "before": "PASS: self-check modal_orthogonality:1: 2.220e-16 (warning at 1.000e-6, refusal at 1.000e-3)",
+        "after": "PASS: self-check modal_orthogonality:1: 2.220e-16 (warning at 1.000e-10, refusal at 2.000e-10)"
+      },
+      {
+        "path": "Ok.structuredDiagnostics[2].threshold",
+        "before": 1e-06,
+        "after": 1.0001500935305242e-10
+      },
+      {
+        "path": "Ok.structuredDiagnostics[4].message",
+        "before": "PASS: self-check modal_orthogonality:2: 4.441e-16 (warning at 1.000e-6, refusal at 1.000e-3)",
+        "after": "PASS: self-check modal_orthogonality:2: 5.046e-16 (warning at 2.000e-10, refusal at 4.001e-10)"
+      },
+      {
+        "path": "Ok.structuredDiagnostics[4].threshold",
+        "before": 1e-06,
+        "after": 2.000267337848352e-10
+      },
+      {
+        "path": "Ok.structuredDiagnostics[4].value",
+        "before": 4.440892098500626e-16,
+        "after": 5.045713369222093e-16
+      }
+    ]
+  },
+  {
+    "model": "solve_modal_3d-01a7e00ba9330dc2.json",
+    "analysis": "solve_modal_3d",
+    "test": "cqc_1981::close_modes_against_closed_form",
+    "changes": [
+      {
+        "path": "Ok.structuredDiagnostics[3].message",
+        "before": "PASS: self-check modal_orthogonality:1: 2.220e-16 (warning at 1.000e-6, refusal at 1.000e-3)",
+        "after": "PASS: self-check modal_orthogonality:1: 2.220e-16 (warning at 1.000e-10, refusal at 2.000e-10)"
+      },
+      {
+        "path": "Ok.structuredDiagnostics[3].threshold",
+        "before": 1e-06,
+        "after": 1.0000155431723448e-10
+      },
+      {
+        "path": "Ok.structuredDiagnostics[5].message",
+        "before": "PASS: self-check modal_orthogonality:2: 2.220e-16 (warning at 1.000e-6, refusal at 1.000e-3)",
+        "after": "PASS: self-check modal_orthogonality:2: 3.165e-16 (warning at 2.000e-10, refusal at 4.000e-10)"
+      },
+      {
+        "path": "Ok.structuredDiagnostics[5].threshold",
+        "before": 1e-06,
+        "after": 2.0000184515686393e-10
+      },
+      {
+        "path": "Ok.structuredDiagnostics[5].value",
+        "before": 2.220446049250313e-16,
+        "after": 3.164622522642097e-16
+      }
+    ]
+  },
+  {
+    "model": "solve_pdelta_2d-02dd1ed655af84ea.json",
+    "analysis": "solve_pdelta_2d",
+    "test": "benchmarks::pdelta_benchmarks_extended::validation_pdelta_b2_factor_aisc",
+    "changes": [
+      {
+        "path": "Ok.linearResults.resultSummary.memberSpans[0].curvature",
+        "after": [
+          0.0,
+          0.0
+        ]
+      },
+      {
+        "path": "Ok.linearResults.resultSummary.memberSpans[1].curvature",
+        "after": [
+          0.0,
+          0.0
+        ]
+      },
+      {
+        "path": "Ok.linearResults.resultSummary.memberSpans[2].curvature",
+        "after": [
+          0.0,
+          0.0
+        ]
+      },
+      {
+        "path": "Ok.linearResults.solverRunMeta.engineVersion",
+        "before": "0.4.0",
+        "after": "0.5.0"
+      }
+    ]
+  }
+]

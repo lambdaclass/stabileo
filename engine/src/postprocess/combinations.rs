@@ -1,7 +1,11 @@
 use crate::types::*;
-use crate::postprocess::diagrams::{compute_diagram_value_at_sorted, diagram_peak_stations_2d, sorted_point_loads};
-use crate::postprocess::diagrams_3d::evaluate_diagram_3d_at;
+use super::diagram_extrema::{distributed_actions, sort_cuts, uniform_cuts, Cut};
+use super::diagrams::{diagram_critical_cuts_2d, try_evaluate_diagram_cut_2d, sorted_point_loads};
+use super::diagrams_3d::{diagram_critical_cuts_3d, try_evaluate_diagram_cut_3d};
+use num_rational::BigRational;
+use num_traits::{ToPrimitive, Zero};
 use serde::{Deserialize, Serialize};
+use std::{borrow::Cow, collections::{HashMap, HashSet}};
 
 // ==================== Input Types ====================
 
@@ -33,6 +37,33 @@ pub struct CombinationInput3D {
     pub cases: Vec<CaseEntry3D>,
     #[serde(default)]
     pub plate_thicknesses: Vec<(usize, f64)>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BatchCombinationInput3D {
+    pub combinations: Vec<Vec<CombinationFactor>>,
+    pub cases: Vec<CaseEntry3D>,
+    #[serde(default)]
+    pub plate_thicknesses: Vec<(usize, f64)>,
+}
+
+pub fn combine_results_batch_3d(input: &BatchCombinationInput3D) -> Result<Vec<Option<AnalysisResults3D>>, String> {
+    let thicknesses = input.plate_thicknesses.iter().copied().collect();
+    let mut by_id = std::collections::HashMap::new();
+    for case in &input.cases {
+        if by_id.insert(case.case_id, &case.results).is_some() {
+            return Err(format!("Cannot combine results: duplicate case id {}", case.case_id));
+        }
+    }
+    input.combinations.iter().map(|factors| {
+        let mut seen = HashSet::with_capacity(factors.len());
+        let cases: Vec<_> = factors.iter().map(|f| f.case_id)
+            .filter(|&id| seen.insert(id))
+            .filter_map(|id| by_id.get(&id).map(|&result| (id, result)))
+            .collect();
+        combine_results_3d_refs_with_thickness(factors, &cases, &thicknesses)
+    }).collect()
 }
 
 /// Plate id → thickness, which a combined plate's face stresses need.
@@ -108,14 +139,117 @@ struct EnvelopedFields<'a, D, R, E> {
     element_forces: &'a [E],
 }
 
-fn check_enveloped_inputs<'a, D: Serialize + 'a, R: Serialize + 'a, E: Serialize + 'a>(
+struct RowLayout<'a, T, Id> {
+    rows: &'a [T],
+    slots: HashMap<usize, usize>,
+    id: Id,
+    field: &'static str,
+    entity: &'static str,
+}
+
+impl<'a, T: Clone, Id: Fn(&T) -> usize> RowLayout<'a, T, Id> {
+    fn new(rows: &'a [T], id: Id, field: &'static str, entity: &'static str) -> Result<Self, String> {
+        let mut slots = HashMap::with_capacity(rows.len());
+        for (slot, row) in rows.iter().enumerate() {
+            let key = id(row);
+            if slots.insert(key, slot).is_some() {
+                return Err(format!("{field} contain duplicate {entity} id {key}"));
+            }
+        }
+        Ok(Self { rows, slots, id, field, entity })
+    }
+
+    fn align(&self, rows: &'a [T]) -> Result<Cow<'a, [T]>, String> {
+        if self.rows.iter().map(&self.id).eq(rows.iter().map(&self.id)) {
+            return Ok(Cow::Borrowed(rows));
+        }
+
+        let mut ordered = vec![None; self.rows.len()];
+        for row in rows {
+            let key = (self.id)(row);
+            let Some(&slot) = self.slots.get(&key) else {
+                return Err(format!("{} contain unexpected {} id {key}", self.field, self.entity));
+            };
+            if ordered[slot].replace(row).is_some() {
+                return Err(format!("{} contain duplicate {} id {key}", self.field, self.entity));
+            }
+        }
+        if let Some(slot) = ordered.iter().position(Option::is_none) {
+            let key = (self.id)(&self.rows[slot]);
+            return Err(format!("{} are missing {} id {key}", self.field, self.entity));
+        }
+        Ok(Cow::Owned(ordered.into_iter().flatten().cloned().collect()))
+    }
+}
+
+struct AlignedResultFields<'a, D: Clone, R: Clone, E: Clone> {
+    displacements: Cow<'a, [D]>,
+    reactions: Cow<'a, [R]>,
+    element_forces: Cow<'a, [E]>,
+}
+
+fn align_result_fields<'a, D: Clone, R: Clone, E: Clone>(
+    operation: &str,
+    label: &str,
+    mut cases: impl Iterator<Item = (usize, EnvelopedFields<'a, D, R, E>)>,
+    displacement_id: impl Fn(&D) -> usize,
+    reaction_id: impl Fn(&R) -> usize,
+    element_id: impl Fn(&E) -> usize,
+) -> Result<Vec<AlignedResultFields<'a, D, R, E>>, String> {
+    let Some((first_id, first)) = cases.next() else { return Ok(Vec::new()) };
+    let err = |id, reason| format!("{operation}: {label} {id} {reason}");
+    let displacements = RowLayout::new(first.displacements, displacement_id, "displacements", "node")
+        .map_err(|reason| err(first_id, reason))?;
+    let reactions = RowLayout::new(first.reactions, reaction_id, "reactions", "node")
+        .map_err(|reason| err(first_id, reason))?;
+    let element_forces = RowLayout::new(first.element_forces, element_id, "element forces", "element")
+        .map_err(|reason| err(first_id, reason))?;
+
+    let mut aligned = Vec::with_capacity(1 + cases.size_hint().0);
+    aligned.push(AlignedResultFields {
+        displacements: Cow::Borrowed(first.displacements),
+        reactions: Cow::Borrowed(first.reactions),
+        element_forces: Cow::Borrowed(first.element_forces),
+    });
+    for (id, fields) in cases {
+        aligned.push(AlignedResultFields {
+            displacements: displacements.align(fields.displacements).map_err(|reason| err(id, reason))?,
+            reactions: reactions.align(fields.reactions).map_err(|reason| err(id, reason))?,
+            element_forces: element_forces.align(fields.element_forces).map_err(|reason| err(id, reason))?,
+        });
+    }
+    Ok(aligned)
+}
+
+impl<'a, D, R, E> From<&'a AnalysisResults<D, R, E>> for EnvelopedFields<'a, D, R, E> {
+    fn from(result: &'a AnalysisResults<D, R, E>) -> Self {
+        Self {
+            displacements: &result.displacements,
+            reactions: &result.reactions,
+            element_forces: &result.element_forces,
+        }
+    }
+}
+
+impl<'a, D, R, E> From<&'a AnalysisResults3D<D, R, E>> for EnvelopedFields<'a, D, R, E> {
+    fn from(result: &'a AnalysisResults3D<D, R, E>) -> Self {
+        Self {
+            displacements: &result.displacements,
+            reactions: &result.reactions,
+            element_forces: &result.element_forces,
+        }
+    }
+}
+
+fn check_result_fields<'a, D: Serialize + 'a, R: Serialize + 'a, E: Serialize + 'a>(
+    operation: &str,
     cases: impl Iterator<Item = (usize, EnvelopedFields<'a, D, R, E>)>,
 ) -> Result<(), String> {
     for (i, fields) in cases {
         let bad = crate::certify::finite::non_finite_paths(&fields);
         if let Some(first) = bad.first() {
             return Err(format!(
-                "Cannot compute the envelope: result {i} has a non-finite number at {}",
+                "{operation}: result {i} has a non-finite number at {}",
                 first.strip_prefix("$.").unwrap_or(first)
             ));
         }
@@ -123,10 +257,49 @@ fn check_enveloped_inputs<'a, D: Serialize + 'a, R: Serialize + 'a, E: Serialize
     Ok(())
 }
 
-fn envelope_station_overflow(kind: &str, element_id: usize, t: f64, r_idx: usize, val: f64) -> String {
-    format!(
-        "Cannot compute the envelope: {kind} of element {element_id} at t = {t} in result {r_idx} evaluates to {val}, beyond the range of f64"
-    )
+fn member_envelope<C>(
+    kind: &str,
+    element_id: usize,
+    cases: &[C],
+    critical_cuts: impl Fn(&C) -> Result<Vec<Cut>, String>,
+    evaluate: impl Fn(&C, Cut) -> Result<f64, String>,
+) -> Result<(ElementEnvelopeDiagram, f64), String> {
+    let context = || format!("Cannot compute the envelope: {kind} of element {element_id}");
+    let mut stations: Vec<_> = uniform_cuts(N_POINTS).collect();
+    for (result, case) in cases.iter().enumerate() {
+        stations.extend(critical_cuts(case).map_err(|error| format!("{} in result {result}: {error}", context()))?);
+    }
+    sort_cuts(&mut stations).map_err(|error| format!("{}: {error}", context()))?;
+
+    let mut t_positions = Vec::with_capacity(stations.len());
+    let mut pos_values = Vec::with_capacity(stations.len());
+    let mut neg_values = Vec::with_capacity(stations.len());
+    let mut global_max = 0.0_f64;
+    for cuts in stations.chunk_by(|a, b| a.t == b.t && a.right == b.right) {
+        let t = cuts[0].t;
+        let mut max_pos = 0.0_f64;
+        let mut max_neg = 0.0_f64;
+        for &cut in cuts {
+            for (result, case) in cases.iter().enumerate() {
+                let location = || format!("{} at t = {t} in result {result}", context());
+                let val = evaluate(case, cut).map_err(|error| format!("{}: {error}", location()))?;
+                if !val.is_finite() {
+                    return Err(format!("{} evaluates to {val}, beyond the range of f64", location()));
+                }
+                if val > max_pos {
+                    max_pos = val;
+                }
+                if val < max_neg {
+                    max_neg = val;
+                }
+            }
+        }
+        t_positions.push(t);
+        pos_values.push(max_pos);
+        neg_values.push(max_neg);
+        global_max = global_max.max(max_pos).max(-max_neg);
+    }
+    Ok((ElementEnvelopeDiagram { element_id, t_positions, pos_values, neg_values }, global_max))
 }
 
 /// Map each id to its slot index. Later duplicates keep the first slot, which
@@ -140,6 +313,94 @@ fn index_by_id(ids: impl Iterator<Item = usize>) -> std::collections::HashMap<us
 }
 
 // ==================== 2D Combination ====================
+
+struct ResolvedFactors {
+    terms: Vec<(f64, usize)>,
+}
+
+impl ResolvedFactors {
+    fn new<T>(factors: &[CombinationFactor], cases: &[(usize, &T)]) -> Result<Self, String> {
+        let mut slots = HashMap::with_capacity(cases.len());
+        for (slot, &(id, _)) in cases.iter().enumerate() {
+            if slots.insert(id, slot).is_some() {
+                return Err(format!("Cannot combine results: duplicate case id {id}"));
+            }
+        }
+
+        let mut ordered_slots = Vec::with_capacity(cases.len());
+        let mut totals = vec![None; cases.len()];
+        for &CombinationFactor { case_id, factor } in factors {
+            let Some(&slot) = slots.get(&case_id) else {
+                if factor == 0.0 {
+                    continue;
+                }
+                return Err(format!("Cannot combine results: missing result for load case {case_id}"));
+            };
+            if factor == 0.0 {
+                continue;
+            }
+            let total = totals[slot].get_or_insert_with(|| {
+                ordered_slots.push(slot);
+                Some(BigRational::zero())
+            });
+            let Some(sum) = total else { continue };
+            if let Some(value) = BigRational::from_float(factor) {
+                *sum += value;
+            } else {
+                *total = None;
+            }
+        }
+
+        let has_nonzero_factors = !ordered_slots.is_empty();
+        let terms: Vec<_> = ordered_slots.into_iter().filter_map(|slot| {
+            let factor = match totals[slot].take().unwrap() {
+                Some(sum) if sum.is_zero() => return None,
+                Some(sum) => sum.to_f64().unwrap_or(f64::NAN),
+                None => factors.iter().filter(|f| f.case_id == cases[slot].0).map(|f| f.factor).sum(),
+            };
+            Some((factor, slot))
+        }).collect();
+
+        if terms.is_empty() && has_nonzero_factors {
+            return Err("Repeated load case factors cancel to zero in this combination.".into());
+        }
+        Ok(Self { terms })
+    }
+
+    fn contributions<'a, T>(&'a self, cases: &'a [(usize, &'a T)]) -> impl Iterator<Item = (f64, usize, &'a T)> + 'a {
+        self.terms.iter().map(|&(factor, slot)| {
+            let (id, result) = cases[slot];
+            (factor, id, result)
+        })
+    }
+
+    fn case_factors<T>(&self, cases: &[(usize, &T)]) -> Vec<CombinationFactor> {
+        self.contributions(cases).map(|(factor, case_id, _)| CombinationFactor { case_id, factor }).collect()
+    }
+
+    fn require_finite<T>(&self, cases: &[(usize, &T)]) -> Result<(), String> {
+        if let Some(&(factor, slot)) = self.terms.iter().find(|(factor, _)| !factor.is_finite()) {
+            let case_id = cases[slot].0;
+            return Err(format!(
+                "Cannot combine results: load case {case_id} has a non-finite number at net factor={factor}"
+            ));
+        }
+        Ok(())
+    }
+}
+
+pub(crate) fn net_combination_factors(factors: &[CombinationFactor]) -> Result<Vec<CombinationFactor>, String> {
+    let mut seen = HashSet::with_capacity(factors.len());
+    let cases: Vec<_> = factors.iter().map(|f| f.case_id).filter(|&id| seen.insert(id)).map(|id| (id, &())).collect();
+    let resolved = ResolvedFactors::new(factors, &cases)?;
+    resolved.require_finite(&cases)?;
+
+    seen.clear();
+    let mut net = resolved.case_factors(&cases);
+    seen.extend(net.iter().map(|f| f.case_id));
+    net.extend(cases.iter().filter(|(id, _)| !seen.contains(id)).map(|&(case_id, _)| CombinationFactor { case_id, factor: 0.0 }));
+    Ok(net)
+}
 
 /// Whether a case may compress a member, for a case without a screened ratio: compression from an
 /// axial span load can leave both end forces at zero or in tension.
@@ -162,10 +423,50 @@ pub fn combine_results(input: &CombinationInput) -> Option<AnalysisResults> {
 /// avoiding per-combination clones of every case.
 /// `None` when a contributing case carries a refusal; `combine_results_checked` says which.
 pub fn combine_results_refs(factors: &[CombinationFactor], cases: &[(usize, &AnalysisResults)]) -> Option<AnalysisResults> {
-    if cases.iter().any(|(id, r)| factors.iter().any(|f| f.case_id == *id && f.factor != 0.0) && crate::known_issues::refuse_contained(&r.structured_diagnostics, *r).is_err()) {
-        return None;
+    match combine_results_refs_checked(factors, cases) {
+        Ok(result) => result,
+        Err(_) => {
+            let resolved = ResolvedFactors::new(factors, cases).ok()?;
+            for (_, result) in cases {
+                for ef in &result.element_forces {
+                    super::diagrams::validate_diagram_loads_2d(ef).ok()?;
+                }
+            }
+            let non_finite = cases.iter()
+                .filter(|(id, _)| factors.iter().any(|f| f.case_id == *id && f.factor != 0.0))
+                .find_map(|(_, r)| crate::boundary::find_non_finite(*r).ok().flatten())?;
+            let mut structured_diagnostics = vec![non_finite.diagnostic()];
+            let factors = &resolved.case_factors(cases);
+            let (_, screen) = combined_screen_2d(factors, cases, &[]);
+            crate::known_issues::attach(&mut structured_diagnostics, screen);
+            Some(AnalysisResults {
+                displacements: vec![], reactions: vec![], element_forces: vec![], constraint_forces: vec![],
+                diagnostics: vec![], solver_diagnostics: vec![], structured_diagnostics, equilibrium: None,
+                result_summary: None, solver_run_meta: None,
+            })
+        }
     }
-    let template = cases.first()?;
+}
+
+fn combined_screen_2d(factors: &[CombinationFactor], cases: &[(usize, &AnalysisResults)], carried: &[StructuredDiagnostic]) -> (Option<f64>, Vec<StructuredDiagnostic>) {
+    let ratio = crate::known_issues::combined_ratio(cases.iter().map(|(id, r)| (factors.iter().filter(|f| f.case_id == *id).map(|f| f.factor.abs()).sum(), r.result_summary.as_ref(), r.element_forces.iter().any(axial_2d))));
+    let diagnostics = crate::known_issues::combined_second_order(carried.iter(), factors.iter().any(|f| f.factor < 0.0 && cases.iter().any(|(id, _)| *id == f.case_id)), ratio);
+    (ratio, diagnostics)
+}
+
+pub(crate) fn combine_results_refs_checked(factors: &[CombinationFactor], cases: &[(usize, &AnalysisResults)]) -> Result<Option<AnalysisResults>, String> {
+    let resolved = ResolvedFactors::new(factors, cases)?;
+    if cases.iter().any(|(id, r)| factors.iter().any(|f| f.case_id == *id && f.factor != 0.0) && crate::known_issues::refuse_contained(&r.structured_diagnostics, *r).is_err()) {
+        return Ok(None);
+    }
+    resolved.require_finite(cases)?;
+    for (_, result) in cases {
+        crate::boundary::require_finite(*result)?;
+        for ef in &result.element_forces {
+            super::diagrams::validate_diagram_input_2d(ef)?;
+        }
+    }
+    let Some(template) = cases.first() else { return Ok(None) };
     let tr = template.1;
 
     let mut displacements: Vec<Displacement> = tr.displacements.iter()
@@ -191,14 +492,8 @@ pub fn combine_results_refs(factors: &[CombinationFactor], cases: &[(usize, &Ana
     let disp_slot = index_by_id(displacements.iter().map(|d| d.node_id));
     let reaction_slot = index_by_id(reactions.iter().map(|r| r.node_id));
     let element_slot = index_by_id(element_forces.iter().map(|e| e.element_id));
-    let case_slot = index_by_id(cases.iter().map(|c| c.0));
-
-    for cf in factors {
-        let r = match case_slot.get(&cf.case_id) {
-            Some(&i) => cases[i].1,
-            None => continue,
-        };
-        let f = cf.factor;
+    for &(f, slot) in &resolved.terms {
+        let r = cases[slot].1;
 
         for d in &r.displacements {
             let Some(&i) = disp_slot.get(&d.node_id) else { continue };
@@ -223,7 +518,7 @@ pub fn combine_results_refs(factors: &[CombinationFactor], cases: &[(usize, &Ana
             out.m_end += f * ef.m_end;
             out.q_i += f * ef.q_i;
             out.q_j += f * ef.q_j;
-            for dl in &ef.distributed_loads {
+            for dl in distributed_actions(ef.length, &ef.distributed_loads, ef.q_i, ef.q_j) {
                 out.distributed_loads.push(DistributedLoadInfo {
                     q_i: dl.q_i * f, q_j: dl.q_j * f, a: dl.a, b: dl.b,
                 });
@@ -250,23 +545,30 @@ pub fn combine_results_refs(factors: &[CombinationFactor], cases: &[(usize, &Ana
     let mut structured_diagnostics = Vec::new();
     let mut carried = Vec::new();
     let mut second_order = Vec::new();
-    for (_, result) in cases.iter().filter(|(id, _)| factors.iter().any(|f| f.case_id == *id && f.factor != 0.0)) {
+    for (_, _, result) in resolved.contributions(cases) {
         let (small, others): (Vec<_>, Vec<_>) = crate::result_sites::known_issues(result).into_iter().partition(|d| d.phase.as_deref() == Some("LIN-SMALL-DISPLACEMENT"));
         let (second, others): (Vec<_>, Vec<_>) = others.into_iter().partition(crate::known_issues::is_second_order);
         carried.extend(small);
         second_order.extend(second);
         crate::known_issues::attach(&mut structured_diagnostics, others);
     }
-    let ratio = crate::known_issues::combined_ratio(cases.iter().map(|(id, r)| (factors.iter().filter(|f| f.case_id == *id).map(|f| f.factor.abs()).sum(), r.result_summary.as_ref(), r.element_forces.iter().any(axial_2d))));
-    crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::combined_second_order(second_order.iter(), factors.iter().any(|f| f.factor < 0.0 && cases.iter().any(|(id, _)| *id == f.case_id)), ratio));
+    let factors = &resolved.case_factors(cases);
+    let (ratio, screen) = combined_screen_2d(factors, cases, &second_order);
+    crate::known_issues::attach(&mut structured_diagnostics, screen);
     let mut combined = AnalysisResults { displacements, reactions, element_forces, constraint_forces: vec![], diagnostics: vec![], solver_diagnostics: vec![], structured_diagnostics, equilibrium: None, result_summary: Some(ResultSummary { second_order_ratio: ratio, ..Default::default() }), solver_run_meta: None };
-    let factored = factors.iter().filter(|f| f.factor != 0.0).filter_map(|f| case_slot.get(&f.case_id).map(|&i| (f.factor, cases[i].1))).map(|(f, r)| (f, r.result_summary.as_ref()));
+    check_result_fields("Cannot combine results", std::iter::once((0, EnvelopedFields {
+        displacements: &combined.displacements, reactions: &combined.reactions, element_forces: &combined.element_forces,
+    })))?;
+    for ef in &combined.element_forces {
+        super::diagrams::validate_diagram_input_2d(ef)?;
+    }
+    let factored = resolved.contributions(cases).map(|(f, _, case)| (f, case.result_summary.as_ref()));
     let (beyond, chords, spans) = crate::known_issues::combined_small_displacement(crate::known_issues::rotated_nodes_2d(&combined), factored, &carried, |spans| crate::known_issues::span_rotations_2d(spans, &combined));
     crate::known_issues::attach(&mut combined.structured_diagnostics, beyond.into_iter().collect());
     let summary = combined.result_summary.get_or_insert_with(Default::default);
     summary.member_chords = chords;
     summary.member_spans = spans;
-    Some(combined)
+    Ok(Some(combined))
 }
 
 /// `combine_results` for results received from outside the engine: a contributing case that
@@ -275,7 +577,14 @@ pub fn combine_results_checked(input: &CombinationInput) -> Result<Option<Analys
     for case in input.cases.iter().filter(|c| input.factors.iter().any(|f| f.case_id == c.case_id && f.factor != 0.0)) {
         crate::known_issues::refuse_contained(&case.results.structured_diagnostics, &case.results)?;
     }
-    Ok(combine_results(input))
+    for case in &input.cases {
+        crate::boundary::require_finite(&case.results)?;
+        for ef in &case.results.element_forces {
+            super::diagrams::validate_diagram_input_2d(ef)?;
+        }
+    }
+    let cases: Vec<_> = input.cases.iter().map(|c| (c.case_id, &c.results)).collect();
+    combine_results_refs_checked(&input.factors, &cases)
 }
 
 // ==================== 2D Envelope ====================
@@ -286,39 +595,45 @@ pub fn compute_envelope(results: &[AnalysisResults]) -> Result<FullEnvelope, Str
         crate::known_issues::refuse_contained(&result.structured_diagnostics, result)?;
     }
     let first = results.first().ok_or_else(|| "Cannot compute the envelope of no results".to_string())?;
-    check_enveloped_inputs(results.iter().enumerate().map(|(i, r)| {
-        (i, EnvelopedFields { displacements: &r.displacements, reactions: &r.reactions, element_forces: &r.element_forces })
+    check_result_fields("Cannot compute the envelope", results.iter().enumerate().map(|(i, r)| {
+        (i, EnvelopedFields::from(r))
     }))?;
+    for result in results {
+        for ef in &result.element_forces {
+            super::diagrams::validate_diagram_input_2d(ef)?;
+        }
+    }
 
-    // maxAbsResults
+    let aligned = align_result_fields(
+        "Cannot compute the envelope",
+        "result",
+        results.iter().map(EnvelopedFields::from).enumerate(),
+        |row| row.node_id,
+        |row| row.node_id,
+        |row| row.element_id,
+    )?;
     let mut displacements = first.displacements.clone();
     let mut reactions = first.reactions.clone();
     let mut element_forces = first.element_forces.clone();
 
-    for r in results.iter().skip(1) {
-        for (i, d) in r.displacements.iter().enumerate() {
-            if i < displacements.len() {
-                if d.ux.abs() > displacements[i].ux.abs() { displacements[i].ux = d.ux; }
-                if d.uz.abs() > displacements[i].uz.abs() { displacements[i].uz = d.uz; }
-                if d.ry.abs() > displacements[i].ry.abs() { displacements[i].ry = d.ry; }
-            }
+    for result in &aligned[1..] {
+        for (out, d) in displacements.iter_mut().zip(result.displacements.iter()) {
+            if d.ux.abs() > out.ux.abs() { out.ux = d.ux; }
+            if d.uz.abs() > out.uz.abs() { out.uz = d.uz; }
+            if d.ry.abs() > out.ry.abs() { out.ry = d.ry; }
         }
-        for (i, rx) in r.reactions.iter().enumerate() {
-            if i < reactions.len() {
-                if rx.rx.abs() > reactions[i].rx.abs() { reactions[i].rx = rx.rx; }
-                if rx.rz.abs() > reactions[i].rz.abs() { reactions[i].rz = rx.rz; }
-                if rx.my.abs() > reactions[i].my.abs() { reactions[i].my = rx.my; }
-            }
+        for (out, rx) in reactions.iter_mut().zip(result.reactions.iter()) {
+            if rx.rx.abs() > out.rx.abs() { out.rx = rx.rx; }
+            if rx.rz.abs() > out.rz.abs() { out.rz = rx.rz; }
+            if rx.my.abs() > out.my.abs() { out.my = rx.my; }
         }
-        for (i, ef) in r.element_forces.iter().enumerate() {
-            if i < element_forces.len() {
-                if ef.n_start.abs() > element_forces[i].n_start.abs() { element_forces[i].n_start = ef.n_start; }
-                if ef.n_end.abs() > element_forces[i].n_end.abs() { element_forces[i].n_end = ef.n_end; }
-                if ef.v_start.abs() > element_forces[i].v_start.abs() { element_forces[i].v_start = ef.v_start; }
-                if ef.v_end.abs() > element_forces[i].v_end.abs() { element_forces[i].v_end = ef.v_end; }
-                if ef.m_start.abs() > element_forces[i].m_start.abs() { element_forces[i].m_start = ef.m_start; }
-                if ef.m_end.abs() > element_forces[i].m_end.abs() { element_forces[i].m_end = ef.m_end; }
-            }
+        for (out, ef) in element_forces.iter_mut().zip(result.element_forces.iter()) {
+            if ef.n_start.abs() > out.n_start.abs() { out.n_start = ef.n_start; }
+            if ef.n_end.abs() > out.n_end.abs() { out.n_end = ef.n_end; }
+            if ef.v_start.abs() > out.v_start.abs() { out.v_start = ef.v_start; }
+            if ef.v_end.abs() > out.v_end.abs() { out.v_end = ef.v_end; }
+            if ef.m_start.abs() > out.m_start.abs() { out.m_start = ef.m_start; }
+            if ef.m_end.abs() > out.m_end.abs() { out.m_end = ef.m_end; }
         }
     }
 
@@ -328,69 +643,32 @@ pub fn compute_envelope(results: &[AnalysisResults]) -> Result<FullEnvelope, Str
     }
     let max_abs_results = AnalysisResults { displacements, reactions, element_forces, constraint_forces: vec![], diagnostics: vec![], solver_diagnostics: vec![], structured_diagnostics, equilibrium: None, result_summary: None, solver_run_meta: None };
 
-    fn compute_env_diagram(kind: &str, results: &[AnalysisResults]) -> Result<EnvelopeDiagramData, String> {
+    fn compute_env_diagram(kind: &str, results: &[AlignedResultFields<'_, Displacement, Reaction, ElementForces>]) -> Result<EnvelopeDiagramData, String> {
         let first = &results[0];
         let mut elements = Vec::new();
         let mut global_max = 0.0f64;
 
-        for (e_idx, _ef) in first.element_forces.iter().enumerate() {
-            let elem_id = first.element_forces[e_idx].element_id;
-            let mut t_positions = Vec::new();
-            let mut pos_values = Vec::new();
-            let mut neg_values = Vec::new();
-
-            // Sort point loads once per element-force record (invariant across
-            // stations) instead of on every diagram evaluation.
-            let sorted_pls: Vec<Option<Vec<PointLoadInfo>>> = results
-                .iter()
-                .map(|res| {
-                    if e_idx >= res.element_forces.len() {
-                        None
-                    } else {
-                        Some(sorted_point_loads(&res.element_forces[e_idx]))
-                    }
-                })
-                .collect();
-
-            let mut stations: Vec<f64> = (0..N_POINTS).map(|j| j as f64 / (N_POINTS - 1) as f64).collect();
-            for (r_idx, res) in results.iter().enumerate() {
-                if let Some(ref spl) = sorted_pls[r_idx] {
-                    stations.extend(diagram_peak_stations_2d(&res.element_forces[e_idx], kind, spl));
-                }
-            }
-            stations.sort_by(|a, b| a.total_cmp(b));
-            stations.dedup_by(|b, a| (*b - *a).abs() <= 1e-12);
-
-            for t in stations {
-                t_positions.push(t);
-                let mut max_pos = 0.0f64;
-                let mut max_neg = 0.0f64;
-
-                for (r_idx, res) in results.iter().enumerate() {
-                    let Some(ref spl) = sorted_pls[r_idx] else { continue; };
-                    let val = compute_diagram_value_at_sorted(kind, t, &res.element_forces[e_idx], spl);
-                    if !val.is_finite() {
-                        return Err(envelope_station_overflow(kind, elem_id, t, r_idx, val));
-                    }
-                    if val > max_pos { max_pos = val; }
-                    if val < max_neg { max_neg = val; }
-                }
-
-                pos_values.push(max_pos);
-                neg_values.push(max_neg);
-                global_max = global_max.max(max_pos.abs()).max(max_neg.abs());
-            }
-
-            elements.push(ElementEnvelopeDiagram { element_id: elem_id, t_positions, pos_values, neg_values });
+        for (e_idx, ef) in first.element_forces.iter().enumerate() {
+            let cases: Vec<_> = results.iter().map(|res| {
+                let forces = &res.element_forces[e_idx];
+                (forces, sorted_point_loads(forces))
+            }).collect();
+            let (element, peak) = member_envelope(
+                kind, ef.element_id, &cases,
+                |(forces, points)| diagram_critical_cuts_2d(forces, kind, points),
+                |(forces, points), cut| try_evaluate_diagram_cut_2d(kind, cut, forces, points),
+            )?;
+            elements.push(element);
+            global_max = global_max.max(peak);
         }
 
         Ok(EnvelopeDiagramData { kind: kind.to_string(), elements, global_max })
     }
 
     Ok(FullEnvelope {
-        moment: compute_env_diagram("moment", results)?,
-        shear: compute_env_diagram("shear", results)?,
-        axial: compute_env_diagram("axial", results)?,
+        moment: compute_env_diagram("moment", &aligned)?,
+        shear: compute_env_diagram("shear", &aligned)?,
+        axial: compute_env_diagram("axial", &aligned)?,
         max_abs_results,
     })
 }
@@ -415,15 +693,18 @@ pub fn combine_results_3d_refs(factors: &[CombinationFactor], cases: &[(usize, &
 /// Shell stresses are refused unless every contributing case lists the same shells in the same
 /// order, and plate stresses unless `plate_thickness` has each plate.
 pub fn combine_results_3d_refs_with_thickness(factors: &[CombinationFactor], cases: &[(usize, &AnalysisResults3D)], plate_thickness: &PlateThicknesses) -> Result<Option<AnalysisResults3D>, String> {
-    let contributing: Vec<_> = cases.iter().filter(|(id, _)| factors.iter().any(|f| f.case_id == *id && f.factor != 0.0)).collect();
-    let weight: f64 = factors.iter().filter(|f| cases.iter().any(|(id, _)| *id == f.case_id)).map(|f| f.factor.abs()).sum();
-    for (_, result) in &contributing {
+    let resolved = ResolvedFactors::new(factors, cases)?;
+    let contributing = cases.iter().filter(|(id, _)| factors.iter().any(|f| f.case_id == *id && f.factor != 0.0));
+    let weight: f64 = resolved.terms.iter().map(|(factor, _)| factor.abs()).sum();
+    for (_, result) in contributing {
         crate::known_issues::refuse_contained(&result.structured_diagnostics, result)?;
+    }
+    for (_, _, result) in resolved.contributions(cases) {
         if !(weight <= 1.0) && crate::result_sites::known_issues(result).iter().any(|d| d.phase.as_deref() == Some("SH-MITC4-DISTORTION")) {
             crate::known_issues::refuse(&[crate::known_issues::diagnostic("SH-MITC4-DISTORTION")])?;
         }
     }
-    combine_results_3d_refs_unchecked(factors, cases, plate_thickness)
+    combine_resolved_results_3d(cases, &resolved, plate_thickness)
 }
 
 struct CombinedShells {
@@ -542,8 +823,32 @@ fn combine_shells(terms: &[(f64, usize, &AnalysisResults3D)], template: (usize, 
 }
 
 pub(crate) fn combine_results_3d_refs_unchecked(factors: &[CombinationFactor], cases: &[(usize, &AnalysisResults3D)], plate_thickness: &PlateThicknesses) -> Result<Option<AnalysisResults3D>, String> {
+    let resolved = ResolvedFactors::new(factors, cases)?;
+    combine_resolved_results_3d(cases, &resolved, plate_thickness)
+}
+
+fn combine_resolved_results_3d(
+    cases: &[(usize, &AnalysisResults3D)],
+    resolved: &ResolvedFactors,
+    plate_thickness: &PlateThicknesses,
+) -> Result<Option<AnalysisResults3D>, String> {
+    resolved.require_finite(cases)?;
+    for (_, result) in cases {
+        crate::boundary::require_finite(*result)?;
+        for ef in &result.element_forces {
+            super::diagrams_3d::validate_diagram_input_3d(ef)?;
+        }
+    }
     let Some(template) = cases.first() else { return Ok(None) };
     let tr = template.1;
+    let aligned = align_result_fields(
+        "Cannot combine results",
+        "case",
+        cases.iter().map(|&(id, result)| (id, EnvelopedFields::from(result))),
+        |row| row.node_id,
+        |row| row.node_id,
+        |row| row.element_id,
+    )?;
 
     let mut displacements: Vec<Displacement3D> = tr.displacements.iter()
         .map(|d| Displacement3D { node_id: d.node_id, ux: 0.0, uy: 0.0, uz: 0.0, rx: 0.0, ry: 0.0, rz: 0.0, warping: None })
@@ -566,39 +871,26 @@ pub(crate) fn combine_results_3d_refs_unchecked(factors: &[CombinationFactor], c
             distributed_loads_z: Vec::new(), point_loads_x: Vec::new(), point_loads_z: Vec::new(), bimoment_start: None, bimoment_end: None })
         .collect();
 
-    let disp_slot = index_by_id(displacements.iter().map(|d| d.node_id));
-    let reaction_slot = index_by_id(reactions.iter().map(|r| r.node_id));
-    let element_slot = index_by_id(element_forces.iter().map(|e| e.element_id));
-    let case_slot = index_by_id(cases.iter().map(|c| c.0));
+    for &(f, slot) in &resolved.terms {
+        let r = &aligned[slot];
 
-    for cf in factors {
-        let r = match case_slot.get(&cf.case_id) {
-            Some(&i) => cases[i].1,
-            None => continue,
-        };
-        let f = cf.factor;
-
-        for d in &r.displacements {
-            let Some(&i) = disp_slot.get(&d.node_id) else { continue };
-            displacements[i].ux += f * d.ux;
-            displacements[i].uy += f * d.uy;
-            displacements[i].uz += f * d.uz;
-            displacements[i].rx += f * d.rx;
-            displacements[i].ry += f * d.ry;
-            displacements[i].rz += f * d.rz;
+        for (out, d) in displacements.iter_mut().zip(r.displacements.iter()) {
+            out.ux += f * d.ux;
+            out.uy += f * d.uy;
+            out.uz += f * d.uz;
+            out.rx += f * d.rx;
+            out.ry += f * d.ry;
+            out.rz += f * d.rz;
         }
-        for rx in &r.reactions {
-            let Some(&i) = reaction_slot.get(&rx.node_id) else { continue };
-            reactions[i].fx += f * rx.fx;
-            reactions[i].fy += f * rx.fy;
-            reactions[i].fz += f * rx.fz;
-            reactions[i].mx += f * rx.mx;
-            reactions[i].my += f * rx.my;
-            reactions[i].mz += f * rx.mz;
+        for (out, rx) in reactions.iter_mut().zip(r.reactions.iter()) {
+            out.fx += f * rx.fx;
+            out.fy += f * rx.fy;
+            out.fz += f * rx.fz;
+            out.mx += f * rx.mx;
+            out.my += f * rx.my;
+            out.mz += f * rx.mz;
         }
-        for ef in &r.element_forces {
-            let Some(&i) = element_slot.get(&ef.element_id) else { continue };
-            let out = &mut element_forces[i];
+        for (out, ef) in element_forces.iter_mut().zip(r.element_forces.iter()) {
             out.n_start += f * ef.n_start;
             out.n_end += f * ef.n_end;
             out.vy_start += f * ef.vy_start;
@@ -615,13 +907,13 @@ pub(crate) fn combine_results_3d_refs_unchecked(factors: &[CombinationFactor], c
             out.q_yj += f * ef.q_yj;
             out.q_zi += f * ef.q_zi;
             out.q_zj += f * ef.q_zj;
-            for dl in &ef.distributed_loads_y {
+            for dl in distributed_actions(ef.length, &ef.distributed_loads_y, ef.q_yi, ef.q_yj) {
                 out.distributed_loads_y.push(DistributedLoadInfo { q_i: dl.q_i * f, q_j: dl.q_j * f, a: dl.a, b: dl.b });
             }
             for dl in &ef.distributed_loads_x {
                 out.distributed_loads_x.push(DistributedLoadInfo { q_i: dl.q_i * f, q_j: dl.q_j * f, a: dl.a, b: dl.b });
             }
-            for dl in &ef.distributed_loads_z {
+            for dl in distributed_actions(ef.length, &ef.distributed_loads_z, ef.q_zi, ef.q_zj) {
                 out.distributed_loads_z.push(DistributedLoadInfo { q_i: dl.q_i * f, q_j: dl.q_j * f, a: dl.a, b: dl.b });
             }
             for pl in &ef.point_loads_x {
@@ -639,19 +931,25 @@ pub(crate) fn combine_results_3d_refs_unchecked(factors: &[CombinationFactor], c
     let mut structured_diagnostics = Vec::new();
     let mut carried = Vec::new();
     let mut second_order = Vec::new();
-    for (_, result) in cases.iter().filter(|(id, _)| factors.iter().any(|f| f.case_id == *id && f.factor != 0.0)) {
+    for (_, _, result) in resolved.contributions(cases) {
         let (small, others): (Vec<_>, Vec<_>) = crate::result_sites::known_issues(result).into_iter().partition(|d| d.phase.as_deref() == Some("LIN-SMALL-DISPLACEMENT"));
         let (second, others): (Vec<_>, Vec<_>) = others.into_iter().partition(crate::known_issues::is_second_order);
         carried.extend(small);
         second_order.extend(second);
         crate::known_issues::attach(&mut structured_diagnostics, others);
     }
-    let ratio = crate::known_issues::combined_ratio(cases.iter().map(|(id, r)| (factors.iter().filter(|f| f.case_id == *id).map(|f| f.factor.abs()).sum(), r.result_summary.as_ref(), r.element_forces.iter().any(axial_3d))));
-    crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::combined_second_order(second_order.iter(), factors.iter().any(|f| f.factor < 0.0 && cases.iter().any(|(id, _)| *id == f.case_id)), ratio));
-    let terms: Vec<(f64, usize, &AnalysisResults3D)> = factors.iter().filter(|f| f.factor != 0.0).filter_map(|f| case_slot.get(&f.case_id).map(|&i| (f.factor, cases[i].0, cases[i].1))).collect();
+    let ratio = crate::known_issues::combined_ratio(resolved.contributions(cases).map(|(factor, _, r)| (factor, r.result_summary.as_ref(), r.element_forces.iter().any(axial_3d))));
+    crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::combined_second_order(second_order.iter(), resolved.terms.iter().any(|&(factor, _)| factor < 0.0), ratio));
+    let terms: Vec<_> = resolved.contributions(cases).collect();
     let shells = combine_shells(&terms, terms.first().map_or((template.0, tr), |&(_, id, r)| (id, r)), plate_thickness)?;
     let mut combined = AnalysisResults3D { displacements, reactions, element_forces, plate_stresses: shells.plates, quad_stresses: shells.quads, quad_nodal_stresses: shells.nodal, constraint_forces: vec![], diagnostics: vec![], solver_diagnostics: vec![], structured_diagnostics, equilibrium: None, timings: None, result_summary: Some(ResultSummary { second_order_ratio: ratio, ..Default::default() }), solver_run_meta: None };
-    let factored = factors.iter().filter(|f| f.factor != 0.0).filter_map(|f| case_slot.get(&f.case_id).map(|&i| (f.factor, cases[i].1))).map(|(f, r)| (f, r.result_summary.as_ref()));
+    check_result_fields("Cannot combine results", std::iter::once((0, EnvelopedFields {
+        displacements: &combined.displacements, reactions: &combined.reactions, element_forces: &combined.element_forces,
+    })))?;
+    for ef in &combined.element_forces {
+        super::diagrams_3d::validate_diagram_input_3d(ef)?;
+    }
+    let factored = resolved.contributions(cases).map(|(f, _, case)| (f, case.result_summary.as_ref()));
     let (beyond, chords, spans) = crate::known_issues::combined_small_displacement(crate::known_issues::rotated_nodes_3d(&combined), factored, &carried, |spans| crate::known_issues::span_rotations_3d(spans, &combined));
     crate::known_issues::attach(&mut combined.structured_diagnostics, beyond.into_iter().collect());
     let summary = combined.result_summary.get_or_insert_with(Default::default);
@@ -676,52 +974,57 @@ pub fn compute_envelope_3d(results: &[AnalysisResults3D]) -> Result<FullEnvelope
 
 pub(crate) fn compute_envelope_3d_checked(results: &[AnalysisResults3D]) -> Result<FullEnvelope3D, String> {
     let first = results.first().ok_or_else(|| "Cannot compute the envelope of no results".to_string())?;
-    check_enveloped_inputs(results.iter().enumerate().map(|(i, r)| {
-        (i, EnvelopedFields { displacements: &r.displacements, reactions: &r.reactions, element_forces: &r.element_forces })
+    check_result_fields("Cannot compute the envelope", results.iter().enumerate().map(|(i, r)| {
+        (i, EnvelopedFields::from(r))
     }))?;
+    for result in results {
+        for ef in &result.element_forces {
+            super::diagrams_3d::validate_diagram_input_3d(ef)?;
+        }
+    }
 
-    // maxAbsResults3D
+    let aligned = align_result_fields(
+        "Cannot compute the envelope",
+        "result",
+        results.iter().map(EnvelopedFields::from).enumerate(),
+        |row| row.node_id,
+        |row| row.node_id,
+        |row| row.element_id,
+    )?;
     let mut displacements = first.displacements.clone();
     let mut reactions = first.reactions.clone();
     let mut element_forces = first.element_forces.clone();
 
-    for r in results.iter().skip(1) {
-        for (i, d) in r.displacements.iter().enumerate() {
-            if i < displacements.len() {
-                if d.ux.abs() > displacements[i].ux.abs() { displacements[i].ux = d.ux; }
-                if d.uy.abs() > displacements[i].uy.abs() { displacements[i].uy = d.uy; }
-                if d.uz.abs() > displacements[i].uz.abs() { displacements[i].uz = d.uz; }
-                if d.rx.abs() > displacements[i].rx.abs() { displacements[i].rx = d.rx; }
-                if d.ry.abs() > displacements[i].ry.abs() { displacements[i].ry = d.ry; }
-                if d.rz.abs() > displacements[i].rz.abs() { displacements[i].rz = d.rz; }
-            }
+    for result in &aligned[1..] {
+        for (out, d) in displacements.iter_mut().zip(result.displacements.iter()) {
+            if d.ux.abs() > out.ux.abs() { out.ux = d.ux; }
+            if d.uy.abs() > out.uy.abs() { out.uy = d.uy; }
+            if d.uz.abs() > out.uz.abs() { out.uz = d.uz; }
+            if d.rx.abs() > out.rx.abs() { out.rx = d.rx; }
+            if d.ry.abs() > out.ry.abs() { out.ry = d.ry; }
+            if d.rz.abs() > out.rz.abs() { out.rz = d.rz; }
         }
-        for (i, rx) in r.reactions.iter().enumerate() {
-            if i < reactions.len() {
-                if rx.fx.abs() > reactions[i].fx.abs() { reactions[i].fx = rx.fx; }
-                if rx.fy.abs() > reactions[i].fy.abs() { reactions[i].fy = rx.fy; }
-                if rx.fz.abs() > reactions[i].fz.abs() { reactions[i].fz = rx.fz; }
-                if rx.mx.abs() > reactions[i].mx.abs() { reactions[i].mx = rx.mx; }
-                if rx.my.abs() > reactions[i].my.abs() { reactions[i].my = rx.my; }
-                if rx.mz.abs() > reactions[i].mz.abs() { reactions[i].mz = rx.mz; }
-            }
+        for (out, rx) in reactions.iter_mut().zip(result.reactions.iter()) {
+            if rx.fx.abs() > out.fx.abs() { out.fx = rx.fx; }
+            if rx.fy.abs() > out.fy.abs() { out.fy = rx.fy; }
+            if rx.fz.abs() > out.fz.abs() { out.fz = rx.fz; }
+            if rx.mx.abs() > out.mx.abs() { out.mx = rx.mx; }
+            if rx.my.abs() > out.my.abs() { out.my = rx.my; }
+            if rx.mz.abs() > out.mz.abs() { out.mz = rx.mz; }
         }
-        for (i, ef) in r.element_forces.iter().enumerate() {
-            if i < element_forces.len() {
-                let o = &mut element_forces[i];
-                if ef.n_start.abs() > o.n_start.abs() { o.n_start = ef.n_start; }
-                if ef.n_end.abs() > o.n_end.abs() { o.n_end = ef.n_end; }
-                if ef.vy_start.abs() > o.vy_start.abs() { o.vy_start = ef.vy_start; }
-                if ef.vy_end.abs() > o.vy_end.abs() { o.vy_end = ef.vy_end; }
-                if ef.vz_start.abs() > o.vz_start.abs() { o.vz_start = ef.vz_start; }
-                if ef.vz_end.abs() > o.vz_end.abs() { o.vz_end = ef.vz_end; }
-                if ef.mx_start.abs() > o.mx_start.abs() { o.mx_start = ef.mx_start; }
-                if ef.mx_end.abs() > o.mx_end.abs() { o.mx_end = ef.mx_end; }
-                if ef.my_start.abs() > o.my_start.abs() { o.my_start = ef.my_start; }
-                if ef.my_end.abs() > o.my_end.abs() { o.my_end = ef.my_end; }
-                if ef.mz_start.abs() > o.mz_start.abs() { o.mz_start = ef.mz_start; }
-                if ef.mz_end.abs() > o.mz_end.abs() { o.mz_end = ef.mz_end; }
-            }
+        for (out, ef) in element_forces.iter_mut().zip(result.element_forces.iter()) {
+            if ef.n_start.abs() > out.n_start.abs() { out.n_start = ef.n_start; }
+            if ef.n_end.abs() > out.n_end.abs() { out.n_end = ef.n_end; }
+            if ef.vy_start.abs() > out.vy_start.abs() { out.vy_start = ef.vy_start; }
+            if ef.vy_end.abs() > out.vy_end.abs() { out.vy_end = ef.vy_end; }
+            if ef.vz_start.abs() > out.vz_start.abs() { out.vz_start = ef.vz_start; }
+            if ef.vz_end.abs() > out.vz_end.abs() { out.vz_end = ef.vz_end; }
+            if ef.mx_start.abs() > out.mx_start.abs() { out.mx_start = ef.mx_start; }
+            if ef.mx_end.abs() > out.mx_end.abs() { out.mx_end = ef.mx_end; }
+            if ef.my_start.abs() > out.my_start.abs() { out.my_start = ef.my_start; }
+            if ef.my_end.abs() > out.my_end.abs() { out.my_end = ef.my_end; }
+            if ef.mz_start.abs() > out.mz_start.abs() { out.mz_start = ef.mz_start; }
+            if ef.mz_end.abs() > out.mz_end.abs() { out.mz_end = ef.mz_end; }
         }
     }
 
@@ -731,59 +1034,32 @@ pub(crate) fn compute_envelope_3d_checked(results: &[AnalysisResults3D]) -> Resu
     }
     let max_abs_results_3d = AnalysisResults3D { displacements, reactions, element_forces, plate_stresses: vec![], quad_stresses: vec![], quad_nodal_stresses: vec![], constraint_forces: vec![], diagnostics: vec![], solver_diagnostics: vec![], structured_diagnostics, equilibrium: None, timings: None, result_summary: None, solver_run_meta: None };
 
-    fn compute_env_3d(kind: &str, results: &[AnalysisResults3D]) -> Result<EnvelopeDiagramData, String> {
+    fn compute_env_3d(kind: &str, results: &[AlignedResultFields<'_, Displacement3D, Reaction3D, ElementForces3D>]) -> Result<EnvelopeDiagramData, String> {
         let first = &results[0];
         let mut elements = Vec::new();
         let mut global_max = 0.0f64;
 
-        for (e_idx, _) in first.element_forces.iter().enumerate() {
-            let elem_id = first.element_forces[e_idx].element_id;
-            let mut t_positions = Vec::with_capacity(N_POINTS);
-            let mut pos_values = Vec::with_capacity(N_POINTS);
-            let mut neg_values = Vec::with_capacity(N_POINTS);
-
-            // Collect the force records for this element once instead of
-            // re-indexing and bounds-checking every result at every station —
-            // the 2D path already hoists its per-element work this way.
-            let element_cases: Vec<(usize, &ElementForces3D)> = results
-                .iter()
-                .enumerate()
-                .filter_map(|(r_idx, res)| res.element_forces.get(e_idx).map(|ef| (r_idx, ef)))
-                .collect();
-
-            for j in 0..N_POINTS {
-                let t = j as f64 / (N_POINTS - 1) as f64;
-                t_positions.push(t);
-                let mut max_pos = 0.0f64;
-                let mut max_neg = 0.0f64;
-
-                for &(r_idx, ef) in &element_cases {
-                    let val = evaluate_diagram_3d_at(ef, kind, t);
-                    if !val.is_finite() {
-                        return Err(envelope_station_overflow(kind, elem_id, t, r_idx, val));
-                    }
-                    if val > max_pos { max_pos = val; }
-                    if val < max_neg { max_neg = val; }
-                }
-
-                pos_values.push(max_pos);
-                neg_values.push(max_neg);
-                global_max = global_max.max(max_pos.abs()).max(max_neg.abs());
-            }
-
-            elements.push(ElementEnvelopeDiagram { element_id: elem_id, t_positions, pos_values, neg_values });
+        for (e_idx, ef) in first.element_forces.iter().enumerate() {
+            let cases: Vec<_> = results.iter().map(|res| &res.element_forces[e_idx]).collect();
+            let (element, peak) = member_envelope(
+                kind, ef.element_id, &cases,
+                |forces| diagram_critical_cuts_3d(forces, kind),
+                |forces, cut| try_evaluate_diagram_cut_3d(forces, kind, cut),
+            )?;
+            elements.push(element);
+            global_max = global_max.max(peak);
         }
 
         Ok(EnvelopeDiagramData { kind: kind.to_string(), elements, global_max })
     }
 
     Ok(FullEnvelope3D {
-        moment_y: compute_env_3d("momentY", results)?,
-        moment_z: compute_env_3d("momentZ", results)?,
-        shear_y: compute_env_3d("shearY", results)?,
-        shear_z: compute_env_3d("shearZ", results)?,
-        axial: compute_env_3d("axial", results)?,
-        torsion: compute_env_3d("torsion", results)?,
+        moment_y: compute_env_3d("momentY", &aligned)?,
+        moment_z: compute_env_3d("momentZ", &aligned)?,
+        shear_y: compute_env_3d("shearY", &aligned)?,
+        shear_z: compute_env_3d("shearZ", &aligned)?,
+        axial: compute_env_3d("axial", &aligned)?,
+        torsion: compute_env_3d("torsion", &aligned)?,
         max_abs_results_3d,
     })
 }

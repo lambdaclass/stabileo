@@ -21,7 +21,7 @@ const words: Translations = {
   'course.plastic.req.mechanisms': '{n} bağımsız mekanizma var; elle en fazla {max} mekanizmayla çalışılır.',
 
   'course.plastic.doc.assumptions': 'Rijit-plastik malzeme: her kesit momenti Mp değerine ulaşana kadar rijit kalır, sonra moment artmadan serbestçe döner (plastik mafsal). Eksenel kuvvet ve kesme kuvvetiyle etkileşim, ikinci mertebe etkileri ve mafsalların boşalması ihmal edilir.',
-  'course.plastic.doc.signs': 'Momentler, çubuk başlangıç düğümünden bitiş düğümüne doğru okunduğunda alt yüzü (yerel −y yüzü) çektiklerinde pozitiftir. Bir mafsal dönmesi θ, çubuk pozitif bir momentin eğeceği yönde kırıldığında pozitiftir; her mafsalda M·θ, mafsalın yuttuğu iştir.',
+  'course.plastic.doc.signs': 'Bu düzlem plastik analizinde yerel x ekseni başlangıç düğümünden bitiş düğümüne uzanır. Yerel y ekseni, x ekseninin saat yönünün tersine 90° döndürülmesiyle elde edilir. Pozitif eğilme momenti yerel −y yüzünde çekme oluşturur. Soldan sağa çizilen bir kirişte bu yüz, tesir çizgisi dersindeki yerel −z yüzüdür. Bir mafsal dönmesi θ, çubuk pozitif bir momentin eğeceği yönde kırıldığında pozitiftir; her mafsalda M·θ, mafsalın yuttuğu iştir.',
   'course.plastic.doc.mpCaption': 'Her çubuğun plastik momenti, Mp = fy·Zp.',
   'course.plastic.doc.gh': 'Hiperstatiklik derecesi',
   'course.plastic.doc.axialRedundant': 'Bu bilinmeyenlerden {s} tanesi eğilmeye katılmaz (hiçbir mekanizmanın harekete geçirmediği bir eksenel kuvvet). Mekanizmalar GH = {gh} ile sayılır.',

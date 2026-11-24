@@ -1,0 +1,37 @@
+{
+  "id": "weld-zero-size-pieces",
+  "date": "2026-11-16",
+  "prs": [
+    2258
+  ],
+  "area": "design",
+  "when": {
+    "any": [
+      "jointDesigns"
+    ]
+  },
+  "title": {
+    "en": "Zero-size weld pieces supply no resistance or stress points",
+    "es": "Los tramos de soldadura de tamaño cero no aportan resistencia ni puntos de tensión",
+    "pt": "Trechos de solda de tamanho zero não fornecem resistência nem pontos de tensão",
+    "de": "Nahtstücke mit Größe null liefern weder Widerstand noch Spannungspunkte",
+    "fr": "Les segments de soudure de taille nulle ne fournissent ni résistance ni points de contrainte",
+    "hu": "A nulla méretű varratszakaszok nem adnak ellenállást vagy feszültségi pontokat",
+    "zh": "零尺寸焊缝段不提供承载力，也不作为应力点",
+    "tr": "Sıfır boyutlu kaynak parçaları dayanım veya gerilme noktası sağlamaz"
+  },
+  "explanation": {
+    "en": "Zero-size pieces could refuse valid weld groups as ambiguous branches and inflate eccentric stress at nonresisting endpoints. Native and WASM checks now use only positive-size, positive-length physical runs for connectivity and stress, while retaining all geometric lengths in the reported total. Non-finite total length is explicitly unevaluated. Re-run saved weld-group checks containing zero-size pieces.",
+    "es": "Los tramos de tamaño cero podían rechazar grupos válidos como ramificaciones ambiguas e incrementar la tensión excéntrica en extremos sin resistencia. Las verificaciones nativas y WASM ahora usan solo cordones físicos de tamaño y longitud positivos para conectividad y tensión, conservando todas las longitudes geométricas en el total informado. La longitud total no finita queda sin evaluar. Recalculá los grupos guardados con tramos de tamaño cero.",
+    "pt": "Trechos de tamanho zero podiam recusar grupos válidos como ramificações ambíguas e aumentar a tensão excêntrica em extremidades sem resistência. As verificações nativas e WASM agora usam apenas cordões físicos de tamanho e comprimento positivos para conectividade e tensão, mantendo todos os comprimentos geométricos no total informado. Comprimento total não finito fica sem avaliação. Recalcule grupos salvos com trechos de tamanho zero.",
+    "de": "Nahtstücke mit Größe null konnten gültige Gruppen als mehrdeutige Verzweigungen ablehnen und exzentrische Spannungen an nicht tragenden Endpunkten erhöhen. Native und WASM-Prüfungen verwenden für Verbindung und Spannung nur physische Nähte mit positiver Größe und Länge, behalten aber alle geometrischen Längen in der Gesamtlänge. Eine nicht endliche Gesamtlänge bleibt ungeprüft. Gespeicherte Nahtgruppen mit Nullstücken erneut prüfen.",
+    "fr": "Les segments de taille nulle pouvaient refuser des groupes valides comme branchements ambigus et augmenter la contrainte excentrée aux extrémités non résistantes. Les vérifications natives et WASM utilisent désormais uniquement des cordons physiques de taille et longueur positives pour la connectivité et les contraintes, tout en conservant toutes les longueurs géométriques dans le total. Une longueur totale non finie reste non évaluée. Recalculer les groupes enregistrés contenant des segments de taille nulle.",
+    "hu": "A nulla méretű szakaszok érvényes varratcsoportokat utasíthattak el bizonytalan elágazásként, és növelhették a külpontos feszültséget a nem teherhordó végpontokon. A natív és WASM-ellenőrzések most csak pozitív méretű és hosszú fizikai varratokat használnak a kapcsolódáshoz és feszültséghez, de minden geometriai hosszt megtartanak az összhosszban. A nem véges összhossz nem értékelhető. A nulla méretű szakaszokat tartalmazó mentett varratcsoportokat újra kell számítani.",
+    "zh": "零尺寸焊缝段可能使有效的焊缝组被当作分支不明确而拒绝，并在不承载的端点处放大偏心应力。原生和 WASM 验算现在只用尺寸和长度均为正的实体焊缝段来判断连通性和计算应力，同时在报告的总长中保留全部几何长度。总长为非有限值时明确标为不予评估。请重新运行含零尺寸焊缝段的已保存焊缝组验算。",
+    "tr": "Sıfır boyutlu parçalar geçerli kaynak gruplarını belirsiz dallanma nedeniyle reddedebiliyor ve yük taşımayan uçlarda eksantrik gerilmeyi artırabiliyordu. Yerel ve WASM denetimleri artık bağlantı ve gerilme için yalnızca pozitif boyutlu ve uzunluklu fiziksel dikişleri kullanırken tüm geometrik uzunlukları toplamda korur. Sonlu olmayan toplam uzunluk değerlendirilmez. Sıfır boyutlu parçalar içeren kayıtlı kaynak gruplarını yeniden hesaplayın."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-fillet-weld-physical-runs.md",
+    "heading": "Zero-size pieces do not resist load (#2258)"
+  }
+}

@@ -479,16 +479,16 @@ test.describe('@slow RC design at scale', () => {
      * that moves on this branch is member 185's.
      */
     const counts = (await page.evaluate(() => window.__stabileo.runCounts()))!;
-    expect(counts.verified).toBe(359);
+    expect(counts.verified).toBe(276);
     expect(counts.sectionInadequate, 'nothing is called inadequate without a proof').toBe(0);
-    expect(counts.searchExhausted, 'the members no implemented layout threads and anchors').toBe(36);
-    expect(counts.unsupported, 'and nothing is refused outright any more').toBe(0);
+    expect(counts.searchExhausted, 'the members for which the bounded search found no verified candidate').toBe(42);
+    expect(counts.unsupported, 'members refused at final verification').toBe(77);
     expect(counts.provisionalBiaxial, 'the 13 are proposals').toBe(13);
     expect(counts.aborted).toBe(0);
     expect(counts.notReached).toBe(0);
     // Every member is accounted for by exactly one bucket. A member that fell out of the
     // classification would otherwise hide inside the 408.
-    expect(counts.verified + counts.provisionalBiaxial + counts.searchExhausted, 'nothing unclassified').toBe(408);
+    expect(counts.verified + counts.provisionalBiaxial + counts.searchExhausted + counts.unsupported, 'nothing unclassified').toBe(408);
 
     /**
      * The proposals, member by member.
@@ -601,26 +601,30 @@ test.describe('@slow RC design at scale', () => {
      * 36 refused, member 185 among them, read unavailable.
      */
     const display = await page.evaluate(() => window.__stabileo.counts());
-    expect(display.ok + display.warn + display.fail, 'the fully checked members').toBe(359);
+    expect(display.ok + display.warn + display.fail, 'the fully checked members').toBe(276);
     expect(display.provisional, 'the proposals, named as proposals').toBe(13);
-    expect(display.fail, 'and only what the detailing could not build is called a failure').toBe(289);
-    expect(display.unavailable, 'only the refused members are left without steel').toBe(36);
+    expect(display.fail, 'the checked members held by detailing').toBe(164);
+    expect(display.unavailable, 'the refused members are left without approved steel').toBe(119);
     // A proposal is never folded into the passes. This is the assertion that would catch the
     // exception being widened into a way of making red things green.
-    expect(display.ok + display.warn, 'proposals are not counted as verified').toBe(70);
+    expect(display.ok + display.warn, 'proposals are not counted as verified').toBe(112);
     // Every member lands in exactly one display bucket. A member missing from all of them
     // would be a row the summary bar does not describe.
     expect(display.ok + display.warn + display.fail + display.provisional
       + display.unavailable + display.stale,
     'every member is described by the summary bar').toBe(408);
-    // The per-member view agrees with the aggregate: each proposal reports `provisional`.
-    const perMember = await page.evaluate(() => {
+    const refused = outcomes.filter((o) => o.outcome === 'UNSUPPORTED');
+    expect(refused).toHaveLength(counts.unsupported);
+    const displayByMember = new Map(await page.evaluate(() => {
       const h = window.__stabileo;
-      return h.elementIds().map((id) => ({ id, display: h.displayStatus(id) }));
-    });
+      return h.elementIds().map((id) => [id, h.displayStatus(id)] as const);
+    }));
     for (const p of proposals) {
-      expect(perMember.find((x) => x.id === p.id)!.display, `member ${p.id} display status`)
-        .toBe('provisional');
+      expect(displayByMember.get(p.id), `member ${p.id} display status`).toBe('provisional');
+    }
+    for (const o of refused) {
+      expect(o.certificate, `member ${o.id} certificate`).toBe(false);
+      expect(displayByMember.get(o.id), `member ${o.id} display status`).toBe('unavailable');
     }
     // The counts are the project's status, the first place of design.
     await designPlace(page, 'prepare');
@@ -628,17 +632,8 @@ test.describe('@slow RC design at scale', () => {
     await expect(page.getByTestId('summary-count-warn')).toContainText(String(display.warn));
     await expect(page.getByTestId('summary-count-fail')).toContainText(String(display.fail));
     await expect(page.getByTestId('summary-count-unavailable')).toContainText(String(display.unavailable));
-    /**
-     * And the bar itself says so.
-     *
-     * The run-outcome chips hide at zero, so `unsupported` is gone because nothing landed in it;
-     * `exhausted` holds the 35 (absent while the refused read SECTION_INADEQUATE). The
-     * provisional chip lives with the DISPLAY counts, which are always rendered — it reports what
-     * the members ARE rather than what the last run decided, and those two can diverge the
-     * moment a user edits a member's steel.
-     */
     await expect(page.getByTestId('summary-count-exhausted')).toContainText(String(counts.searchExhausted));
-    await expect(page.getByTestId('summary-count-unsupported')).toHaveCount(0);
+    await expect(page.getByTestId('summary-count-unsupported')).toContainText(String(counts.unsupported));
     await expect(page.getByTestId('summary-count-provisional'))
       .toContainText(String(display.provisional));
 

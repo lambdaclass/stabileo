@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { tPublic as t } from '../../lib/i18n/store.svelte';
+  import { tPublic as t, i18n } from '../../lib/i18n/store.svelte';
   import {
     NODES, MEMBERS, DECK, SUPPORTS, FORCE_MAX, FORCE_EPS, DISP_SCALE, stateAt,
   } from './truss-data';
@@ -39,11 +39,9 @@
 
   let s = $state(mode === 'still' ? position : prefersReducedMotion ? REPRESENTATIVE : SWEEP_MIN);
   let direction = 1;
-  let paused = $state(false);
-  let hovered = $state(false);
   let focused = $state(false);
 
-  const running = $derived(mode === 'animate' && !prefersReducedMotion && !hovered && !focused);
+  const running = $derived(mode === 'animate' && !prefersReducedMotion && !focused);
   const state = $derived(stateAt(mode === 'still' ? position : s));
 
   onMount(() => {
@@ -54,7 +52,8 @@
     const tick = (now: number) => {
       const dt = (now - last) / 1000;
       last = now;
-      if (running) {
+      if (prefersReducedMotion) s = REPRESENTATIVE;
+      else if (running) {
         s += (direction * dt * (SWEEP_MAX - SWEEP_MIN)) / SECONDS_PER_SWEEP;
         if (s >= SWEEP_MAX) { s = SWEEP_MAX; direction = -1; }
         else if (s <= SWEEP_MIN) { s = SWEEP_MIN; direction = 1; }
@@ -112,6 +111,9 @@
   const deckLeft = $derived(at('B0'));
   const deckRight = $derived(at('B6'));
 
+  const forceRange = $derived({ max: Math.max(0, ...state.forces), min: Math.min(0, ...state.forces) });
+  const fmtP = $derived(new Intl.NumberFormat(i18n.locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+
   const titleId = `tf-title-${Math.round(position * 1000)}-${mode}`;
   const descId = `tf-desc-${Math.round(position * 1000)}-${mode}`;
 </script>
@@ -124,16 +126,16 @@
     readers.
   -->
   <svg
-    viewBox={compact ? '24 8 512 150' : '0 12 560 150'}
+    viewBox={compact ? '24 8 512 150' : '0 -48 560 270'}
     role="img"
     aria-labelledby="{titleId} {descId}"
-    onmouseenter={() => (hovered = true)}
-    onmouseleave={() => (hovered = false)}
     onfocusin={() => (focused = true)}
     onfocusout={() => (focused = false)}
   >
     <title id={titleId}>{t('landing.figTitle')}</title>
     <desc id={descId}>{t('landing.figDesc')}</desc>
+
+    <g>
 
     <!-- undeformed reference -->
     <g class="tf-ghost" aria-hidden="true">
@@ -194,17 +196,19 @@
       <line x1="0" y1="-30" x2="0" y2="-9" />
       <path d="M-4.5 -15 L0 -6 L4.5 -15 z" />
     </g>
+    </g>
+
   </svg>
 
   {#if compact}
     <figcaption class="tf-caption">{captionKey ? t(captionKey) : ''}</figcaption>
   {:else}
-    <figcaption class="tf-legend">
-      <span class="tf-key tf-key-t">{t('landing.figTension')}</span>
-      <span class="tf-key tf-key-c">{t('landing.figCompression')}</span>
-      <span class="tf-key tf-key-z">{t('landing.figZero')}</span>
-      <span class="tf-key tf-key-g">{t('landing.figUndeformed')}</span>
-      <span class="tf-key tf-key-n">{t('landing.figDeformedNorm')}</span>
+    <figcaption class="hf-row">
+      <span class="hf-tag">{t('landing.trussTag')}</span>
+      <span class="hf-item">{t('landing.figDeformedNorm')}</span>
+      <span class="hf-item"><i class="hf-sw" style="background: var(--tf-zero)"></i>{t('landing.figZero')}</span>
+      <span class="hf-item"><i class="hf-sw" style="background: var(--tf-tension)"></i>{t('landing.trussTension')} + <b>{t('landing.trussTMax')} {fmtP.format(forceRange.max)} P</b></span>
+      <span class="hf-item"><i class="hf-sw" style="background: var(--tf-compression)"></i>{t('landing.trussCompression')} − <b>{t('landing.trussCMax')} {fmtP.format(-forceRange.min)} P</b></span>
     </figcaption>
   {/if}
 </figure>

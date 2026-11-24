@@ -108,10 +108,10 @@ jobs:
             echo allowances=true >> "$GITHUB_OUTPUT"
           fi
       - if: runner.environment == 'github-hosted'
-        uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
+        uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
         continue-on-error: true
       - if: runner.environment == 'github-hosted' && github.event_name != 'pull_request'
-        uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
+        uses: DeterminateSystems/magic-nix-cache-action@84c0677f58dcedf3b91f8223ce36a9ea5b3c84b7 # v15
         continue-on-error: true
         with:
           use-flakehub: false
@@ -130,6 +130,11 @@ jobs:
           fi
           .github/scripts/retry-infra.sh nix develop . -c sh -c 'cd route-main/web && npm ci'
           .github/scripts/retry-infra.sh nix develop . -c sh -c 'cd web && npm ci'
+          if [ ! -f route-main/web/config/features.json ] && [ -f web/config/features.json ]; then
+            legacy_features=$(nix develop . -c node --input-type=module -e 'import { featuresForMode } from "./web/config/public-features.mjs"; const { research, tools } = featuresForMode("production"); console.log(Number(research), Number(tools));')
+            read -r VITE_RESEARCH VITE_TOOLS <<< "$legacy_features"
+            export VITE_RESEARCH VITE_TOOLS STABILEO_ROUTE_BUDGET_LEGACY=1
+          fi
           nix develop . -c sh -c "cd route-main/web && node scripts/check-research-route-size.mjs --baseline '$RUNNER_TEMP/route-main.json' --update"
           nix develop . -c sh -c "cd web && node --test scripts/research-route-budget.test.mjs scripts/research-cargo-notices.test.mjs && node .route-base/check-research-route-size.mjs --baseline '$RUNNER_TEMP/route-main.json'"
       - run: nix develop . -c node --test research/fracture/shauer-2025/wasm/check.test.mjs
@@ -234,7 +239,7 @@ jobs:
           fetch-depth: 0
           filter: blob:none
       - if: runner.environment == 'github-hosted'
-        uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a
+        uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa
       - name: Prepare Nix shell (infrastructure retries)
         run: |
           .github/scripts/retry-infra.sh nix develop --command true
@@ -256,10 +261,10 @@ jobs:
           fetch-depth: 0
           filter: blob:none
       - if: runner.environment == 'github-hosted'
-        uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
+        uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
         continue-on-error: true
       - if: runner.environment == 'github-hosted' && github.event_name != 'pull_request'
-        uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
+        uses: DeterminateSystems/magic-nix-cache-action@84c0677f58dcedf3b91f8223ce36a9ea5b3c84b7 # v15
         continue-on-error: true
         with:
           use-flakehub: false
@@ -401,7 +406,7 @@ jobs:
         with:
           persist-credentials: false
       - if: runner.environment == 'github-hosted'
-        uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a
+        uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa
       - name: Prepare Nix shell (infrastructure retries)
         run: |
           .github/scripts/retry-infra.sh nix develop --command true
@@ -416,13 +421,30 @@ jobs:
         with:
           persist-credentials: false
       - if: runner.environment == 'github-hosted'
-        uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a
+        uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa
       - name: Prepare Nix shell (infrastructure retries)
         run: |
           .github/scripts/retry-infra.sh nix develop --command true
       - run: nix develop -c cargo test --release --locked --manifest-path research/mechanics/gay-neto-2014/Cargo.toml
       - run: nix develop -c cargo clippy --release --locked --all-targets --manifest-path research/mechanics/gay-neto-2014/Cargo.toml -- -D warnings
       - run: python3 -I -c "import json, sys; c = json.load(open('research/mechanics/gay-neto-2014/VALIDATION.json'))['checks']; sys.exit(not c or not all(x['passed'] for x in c))"
+  heyman:
+    if: ${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name == 'schedule') }}
+    name: Masonry arches (Heyman 1966) validation
+    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'merge_group' && fromJSON('["self-hosted","stabileo"]') || (github.ref == 'refs/heads/main' && github.event_name != 'schedule') && (vars.STABILEO_PR_POOL == 'true' && fromJSON('["self-hosted","stabileo-pr"]') || fromJSON('["self-hosted","stabileo"]'))) || 'ubuntu-24.04' }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - if: runner.environment == 'github-hosted'
+        uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa
+      - name: Prepare Nix shell (infrastructure retries)
+        run: |
+          .github/scripts/retry-infra.sh nix develop --command true
+      - run: nix develop -c cargo test --release --locked --manifest-path research/mechanics/heyman-1966/Cargo.toml
+      - run: nix develop -c cargo clippy --release --locked --all-targets --manifest-path research/mechanics/heyman-1966/Cargo.toml -- -D warnings
+      - run: nix develop -c cargo run --release --locked --manifest-path research/mechanics/heyman-1966/Cargo.toml --bin validate
   riks-crisfield:
     if: ${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name == 'schedule') }}
     name: Arc-length (Riks–Crisfield) native and WASM validation
@@ -433,10 +455,10 @@ jobs:
         with:
           persist-credentials: false
       - if: runner.environment == 'github-hosted'
-        uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
+        uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
         continue-on-error: true
       - if: runner.environment == 'github-hosted' && github.event_name != 'pull_request'
-        uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
+        uses: DeterminateSystems/magic-nix-cache-action@84c0677f58dcedf3b91f8223ce36a9ea5b3c84b7 # v15
         continue-on-error: true
         with:
           use-flakehub: false

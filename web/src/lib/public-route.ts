@@ -4,7 +4,11 @@
  * render the public pages without it, so both decide the same way.
  */
 import { parsePublicPath, publicHref } from './i18n/public-routes';
+import { isResearchRoute } from './i18n/research-path';
 import { isStandingPagePath } from './blog/pages/paths';
+import { publicFeatureEnabled, PUBLIC_POLICY_AVAILABLE } from './features';
+import { isMainToolPath } from './main-tool-routes';
+import { movedRoute } from './legacy-routes';
 
 /**
  * The fragments `utils/url-sharing.ts` restores a model from (`CODE_HASH` is '#code='; not
@@ -12,7 +16,7 @@ import { isStandingPagePath } from './blog/pages/paths';
  */
 const SHARED_MODEL = /^#(data=|embed=|code=)/;
 
-export type RouteKind = 'app' | 'blog' | 'research' | 'paper' | 'tools' | 'examples' | 'landing';
+export type RouteKind = 'app' | 'blog' | 'research' | 'paper' | 'tools' | 'examples' | 'game' | 'register' | 'landing';
 
 /** `/app` and everything under it: the application's own addresses. */
 export function isAppPath(pathname: string): boolean {
@@ -20,13 +24,20 @@ export function isAppPath(pathname: string): boolean {
 }
 
 /** `/research` and its papers: Stabileo Research, rendered without the application. */
-export function isResearchPath(path: string): boolean {
-  return path === '/research' || path.startsWith('/research/');
-}
+export { isResearchRoute as isResearchPath };
 
 /** `/paper`: the JAIE 2026 paper in full. */
 export function isPaperPath(path: string): boolean {
   return path === '/paper' || path === '/paper/';
+}
+
+/** `/diagram-game`: the diagram game, which loads the engine but not the application. */
+export function isGamePath(path: string): boolean {
+  return path === '/diagram-game' || path === '/diagram-game/';
+}
+
+export function isRegisterPath(path: string): boolean {
+  return path === '/register' || path === '/register/';
 }
 
 /** `/demo`: the application, on its demo model. */
@@ -35,18 +46,21 @@ export function isDemoPath(pathname: string): boolean {
 }
 
 export function routeKind(loc: Pick<Location, 'pathname' | 'search' | 'hash'> = location): { kind: RouteKind; path: string } {
-  const { path } = parsePublicPath(loc.pathname);
+  const parsed = parsePublicPath(loc.pathname).path;
+  const path = PUBLIC_POLICY_AVAILABLE ? (__PUBLIC_FEATURES__.tools ? movedRoute(parsed) : null) ?? (parsed.replace(/\/+$/, '') || '/') : parsed;
   const params = new URLSearchParams(loc.search);
   const p = loc.pathname;
-  if (params.has('embed') || isAppPath(p) || isDemoPath(p)) return { kind: 'app', path };
+  if (params.has('embed') || isAppPath(p) || isDemoPath(p) || SHARED_MODEL.test(loc.hash)) return { kind: 'app', path };
   // A shared model (`/#data=…`, `#embed=…`, `#code=…`) is the application's to restore
   // (`loadFromURLHash`): it used to be mounted behind the landing and read the fragment.
-  if (SHARED_MODEL.test(loc.hash)) return { kind: 'app', path };
+  if (PUBLIC_POLICY_AVAILABLE && !publicFeatureEnabled(path)) return { kind: 'landing', path };
   if (path === '/blog' || path.startsWith('/blog/') || isStandingPagePath(path)) return { kind: 'blog', path };
   const top = path.split('/')[1];
-  if (top === 'tools' || top === 'examples') return { kind: top, path };
-  if (isResearchPath(path)) return { kind: 'research', path };
+  if (top === 'tools' || top === 'examples') return { kind: top === 'tools' && !PUBLIC_POLICY_AVAILABLE && !/^\/tools\/?$/.test(path) && !isMainToolPath(path) ? 'landing' : top, path };
+  if (__PUBLIC_FEATURES__.diagramGame && isGamePath(path)) return { kind: 'game', path };
+  if (isResearchRoute(path)) return { kind: 'research', path };
   if (isPaperPath(path)) return { kind: 'paper', path };
+  if (__PUBLIC_FEATURES__.accounts && isRegisterPath(path)) return { kind: 'register', path };
   return { kind: 'landing', path };
 }
 

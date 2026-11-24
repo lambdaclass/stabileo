@@ -1,0 +1,50 @@
+{
+  "id": "member-diagram-peak-transfer",
+  "date": "2026-11-20",
+  "prs": [
+    2403
+  ],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "members"
+    ],
+    "any": [
+      "memberLoads",
+      "selfWeight",
+      "magnitudeCombinations",
+      "movingLoads",
+      "combinations"
+    ]
+  },
+  "quantities": [
+    "envelope",
+    "diagrams",
+    "beamStations",
+    "movingLoads"
+  ],
+  "title": {
+    "en": "Member diagram peaks and in-member limits",
+    "es": "Picos y límites interiores de los diagramas de barras",
+    "pt": "Picos e limites internos dos diagramas de barras",
+    "de": "Spitzenwerte und innere Grenzwerte der Stabdiagramme",
+    "fr": "Pics et limites intérieures des diagrammes de barres",
+    "tr": "Eleman diyagramı tepe değerleri ve iç sınırları",
+    "zh": "杆件内力图峰值和内侧极限",
+    "hu": "A rúdábrák csúcsértékei és belső határértékei"
+  },
+  "explanation": {
+    "en": "Diagrams retain analytic peaks and moving loads use the in-member end limits. Review the governing results and resolve any station or segment refusals.",
+    "es": "Los diagramas conservan los picos analíticos y las cargas móviles usan los límites interiores de la barra. Revise los resultados determinantes y resuelva los rechazos de estaciones o segmentos.",
+    "pt": "Os diagramas preservam os picos analíticos e as cargas móveis usam os limites internos nas extremidades da barra. Revise os resultados determinantes e resolva as recusas de estações ou segmentos.",
+    "de": "Diagramme behalten analytische Spitzenwerte bei. Wanderlasten verwenden die inneren Grenzwerte an den Stabenden. Prüfen Sie die maßgebenden Ergebnisse und beheben Sie Ablehnungen von Stationen oder Segmenten.",
+    "fr": "Les diagrammes conservent les pics analytiques. Les charges mobiles utilisent les limites intérieures aux extrémités des barres. Vérifiez les résultats déterminants et résolvez les refus de stations ou de segments.",
+    "tr": "Diyagramlar analitik tepe değerlerini korur ve hareketli yükler elemanın iç uç sınırlarını kullanır. Belirleyici sonuçları inceleyin ve istasyon ya da parça retlerini giderin.",
+    "zh": "内力图保留解析峰值，移动荷载采用杆端内侧极限。请检查控制结果，并处理测站或分段被拒绝的情况。",
+    "hu": "Az ábrák megőrzik az analitikus csúcsértékeket, a mozgó terhek pedig a rúdvégek belső határértékeit használják. Ellenőrizze a mértékadó eredményeket, és oldja meg a szelvények vagy szakaszok elutasítását."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-member-diagram-peak-transfer.md",
+    "heading": "Member diagram peaks and in-member limits"
+  }
+}

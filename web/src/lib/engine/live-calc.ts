@@ -13,10 +13,12 @@ import { knownIssueRefusal } from './known-issues';
  * stays thin.
  */
 
+import { noteSolve } from '../telemetry/instrument.svelte';
 import { meshDeferredSlabs, representFootprints } from '../model/building/deferred-slabs';
-import { platesNeedingMesh, preparePlatesForAnalysis } from '../store/physical-plates';
+import { ensurePhysicalModel } from '../store/plates-from-shells';
+import { physicalPlates, platesNeedingMesh, preparePlatesForAnalysisAsync } from '../store/physical-plates';
 import { noteBaseSolveInput } from '../store/result-provenance';
-import { syncDefinedLoadsForAnalysis } from '../store/defined-loads';
+import { floorLoadBlockMessage, syncDefinedLoadsForAnalysis } from '../store/defined-loads';
 import { spectralOrSay } from '../actions/solve';
 import { nodesOnMembers } from './nodes-on-members';
 import { localizeEngineText } from '../i18n/engine-text';
@@ -115,7 +117,17 @@ export async function runLiveCalc(analysisMode: string, axisConvention3D: string
   if (modelStore.nodes.size < 2 || modelStore.elements.size < 1) return;
   // Floor loads kept as definitions, current before the guard is taken: the edit that started this
   // solve may not have been rewritten yet (`store/defined-loads.ts`).
-  if (is3DWorkspace(analysisMode)) syncDefinedLoadsForAnalysis();
+  if (is3DWorkspace(analysisMode)) {
+    ensurePhysicalModel();
+    const blocked = floorLoadBlockMessage();
+    if (blocked) {
+      nextSolveGuard();
+      resultsStore.clear3D();
+      uiStore.liveCalcError = blocked;
+      return;
+    }
+    syncDefinedLoadsForAnalysis();
+  }
   const isStale = nextSolveGuard();
   try {
     if (is3DWorkspace(analysisMode)) {
@@ -163,12 +175,12 @@ async function liveCalc3D(axisConvention: string, isStale: () => boolean): Promi
   const isPro = uiStore.analysisMode === 'pro';
   // A plate with no mesh, or one out of date, is not in the model the solve reads: results now would
   // leave it out. Live calc does not mesh behind an edit; the manual analysis does.
-  const unmeshed = platesNeedingMesh();
+  const unmeshed = platesNeedingMesh({ coarse: false });
   if (unmeshed.length > 0) {
     uiStore.liveCalcError = tp('plates.liveNeedsMesh', { n: unmeshed.length });
     return;
   }
-  const r = await modelStore.solve3DAsync(uiStore.includeSelfWeight, axisConvention === 'leftHand', isPro);
+  const r = await modelStore.solve3DAsync(uiStore.includeSelfWeight, axisConvention === 'leftHand', isPro, { isCancelled: isStale });
   if (isStale()) return;
   if (typeof r === 'string') {
     uiStore.liveCalcError = r;
@@ -191,7 +203,10 @@ async function liveCalc3D(axisConvention: string, isStale: () => boolean): Promi
    */
   const v = resultsStore.pendingView;
   if (v && modelStore.model.combinations.length > 0 && (v.view !== 'single' || v.caseId !== null)) {
-    const combo = modelStore.solveCombinations3D(uiStore.includeSelfWeight, axisConvention === 'leftHand', isPro);
+    const combo = hasNonlinearBehaviour(modelStore.model)
+      ? await modelStore.solveCombinations3DParallel(uiStore.includeSelfWeight, axisConvention === 'leftHand', isPro, undefined, { isCancelled: isStale })
+      : modelStore.solveCombinations3D(uiStore.includeSelfWeight, axisConvention === 'leftHand', isPro);
+    if (isStale()) return;
     if (typeof combo === 'string' || !combo) {
       uiStore.liveCalcError = errorText(combo, t('results.emptyModelError'));
       return;
@@ -259,33 +274,54 @@ export function registerLiveCalcCanceller(cancel: (() => void) | null): void {
 }
 
 export async function runGlobalSolve(options: { directBase?: boolean } = {}): Promise<GlobalSolveOutcome> {
+  const startedAt = performance.now();
   cancelPendingLiveCalc?.();
   // A solve that was asked for the combinations and did not get them must not end the stale state
   // (`store/recheck.svelte.ts`): its single-solve publish stamps the project, so the stamp before it
   // is put back below. Every entry point, not only the re-check's re-run.
   const stampBefore = recheckStore.capture();
-  // Slabs placed to be meshed at the analysis get their mesh first, so what follows (the floor
-  // loads, the solve, the results, the slab design) reads the mesh (`deferred-slabs.ts`).
   if (uiStore.is3DWorkspace) {
-    // A slab meshed before its columns' sections were represented is meshed again with them
-    // (`column-footprints.ts`): held at one node, its load split is the mesh's, not the building's.
-    const f = representFootprints();
-    if (f.slabs > 0) uiStore.toast(tp('building.slabs.footprintsAtSolve', { n: f.slabs }), 'info');
-    const m = meshDeferredSlabs();
-    if (m.slabs > 0) uiStore.toast(tp('building.slabs.meshedAtSolve', { n: m.slabs, shells: m.shells }), 'info');
+    // Basic 3D has no plates: a slab waiting for the analysis is meshed in place (`deferred-slabs.ts`).
+    if (uiStore.analysisMode !== 'pro') {
+      // A slab meshed before its columns' sections were represented is meshed again with them
+      // (`column-footprints.ts`): held at one node, its load split is the mesh's, not the building's.
+      const f = representFootprints();
+      if (f.slabs > 0) uiStore.toast(tp('building.slabs.footprintsAtSolve', { n: f.slabs }), 'info');
+      const m = meshDeferredSlabs();
+      if (m.slabs > 0) uiStore.toast(tp('building.slabs.meshedAtSolve', { n: m.slabs, shells: m.shells }), 'info');
+    }
     // Physical plates with no mesh or an out-of-date one (`store/physical-plates.ts`): meshed here,
     // once for the whole solve and before its inputs are taken, or the solve stops and says which.
-    const p = preparePlatesForAnalysis();
+    const p = await preparePlatesForAnalysisAsync(ensurePhysicalModel);
     if (!p.ok) {
-      const error = tp(p.reason === 'needsMesh' ? 'plates.analysisNeedsMesh' : p.reason === 'localLoads' ? 'plates.analysisLocalLoads' : 'plates.analysisMeshRefused', { names: p.plates.join(', ') });
+      const error = 'error' in p ? p.error : tp({
+        needsMesh: 'plates.analysisNeedsMesh',
+        invalid: 'plates.analysisInvalid',
+        localLoads: 'plates.analysisLocalLoads',
+        refused: 'plates.analysisMeshRefused',
+      }[p.reason], { names: p.plates.join(', ') });
+      nextSolveGuard();
+      resultsStore.clear3D();
       uiStore.toast(error, 'error');
       return { ok: false, error };
     }
-    if (p.meshed > 0) uiStore.toast(tp('plates.meshedAtAnalysis', { n: p.meshed, cells: p.cells }), 'info');
+    if (p.meshed > 0) {
+      const kept = physicalPlates().length - p.meshed;
+      uiStore.toast(tp(kept > 0 ? 'plates.meshedAtAnalysisKept' : 'plates.meshedAtAnalysis', { n: p.meshed, cells: p.cells, kept }), 'info');
+    }
   }
   // Floor loads kept as definitions are rewritten first when the model moved under them, so the
   // guard below starts from the model that is solved (`store/defined-loads.ts`).
-  if (uiStore.is3DWorkspace) syncDefinedLoadsForAnalysis();
+  if (uiStore.is3DWorkspace) {
+    const error = floorLoadBlockMessage();
+    if (error) {
+      nextSolveGuard();
+      resultsStore.clear3D();
+      uiStore.toast(error, 'error');
+      return { ok: false, error };
+    }
+    syncDefinedLoadsForAnalysis();
+  }
   // Supersede any in-flight solve (live calc or an earlier manual solve).
   const isStale = nextSolveGuard();
   const input = solveInputKey();
@@ -325,6 +361,7 @@ export async function runGlobalSolve(options: { directBase?: boolean } = {}): Pr
   // A solve is minutes of computed state produced by one click. Waiting for the 30 s timer
   // to notice is how a run gets lost to a closed tab.
   void requestAutosave('solve');
+  noteSolve(outcome.ok, startedAt);
   return outcome;
 }
 
@@ -371,7 +408,7 @@ async function globalSolve3D(isStale: () => boolean, directBase: boolean): Promi
   const failed = (error: string): GlobalSolveOutcome => ({ ok: false, error });
 
   const runSingleSolve = async (announceSuccess = true): Promise<GlobalSolveOutcome> => {
-    const r = await modelStore.solve3DAsync(uiStore.includeSelfWeight, leftHand, isPro);
+    const r = await modelStore.solve3DAsync(uiStore.includeSelfWeight, leftHand, isPro, { isCancelled: isStale });
     if (isStale()) return stale;
     if (typeof r === 'string') {
       uiStore.toast(knownIssueRefusal(r) ?? localizeEngineText(r), 'error', solveErrorAction(r));
@@ -407,7 +444,7 @@ async function globalSolve3D(isStale: () => boolean, directBase: boolean): Promi
     // edit already cleared. Discard silently instead (no fallback re-solve, no
     // toast): the next live-calc pass / manual solve will pick up the new model.
     const solveEpoch = modelStore.modelVersion;
-    const comboResult = await modelStore.solveCombinations3DParallel(uiStore.includeSelfWeight, leftHand, isPro, isPro ? spectralOrSay() : undefined);
+    const comboResult = await modelStore.solveCombinations3DParallel(uiStore.includeSelfWeight, leftHand, isPro, isPro ? spectralOrSay() : undefined, { isCancelled: isStale });
     if (isStale()) return stale;
     if (typeof comboResult === 'string') return comboResult;
     if (!comboResult) return t('results.emptyModelError');
@@ -430,7 +467,7 @@ async function globalSolve3D(isStale: () => boolean, directBase: boolean): Promi
     const factors = caseIds.map((caseId) => ({ caseId, factor: listedFactors?.get(caseId) ?? 1 })).filter((f) => f.factor !== 0);
     let firstCaseResult;
     if (listedFactors === null || factors.length === 0) {
-      const single = await modelStore.solve3DAsync(uiStore.includeSelfWeight, leftHand, isPro);
+      const single = await modelStore.solve3DAsync(uiStore.includeSelfWeight, leftHand, isPro, { isCancelled: isStale });
       if (isStale() || modelStore.modelVersion !== solveEpoch) return stale;
       if (typeof single === 'string') return single;
       firstCaseResult = single;

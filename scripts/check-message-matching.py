@@ -19,6 +19,7 @@ SOURCES = (
     ('web/src', ('.ts', '.svelte', '.js', '.mjs', '.cjs')),
     ('web/scripts', ('.ts', '.js', '.mjs', '.cjs')),
     ('scripts', ('.py', '.js', '.mjs', '.cjs')),
+    ('testing/scripts', ('.py', '.js', '.mjs', '.cjs')),
     ('.github/scripts', ('.py', '.js', '.mjs', '.cjs')),
 )
 SKIP = re.compile(r'(^|/)(__tests__|tests|e2e|node_modules)/|\.(test|spec)\.[a-z]+$|^web/src/lib/wasm/|^scripts/check-message-matching\.py$')

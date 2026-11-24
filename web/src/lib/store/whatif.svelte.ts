@@ -1,3 +1,4 @@
+import { scenarioSurfaceAdjustment } from '../engine/accounting-source';
 /**
  * "What if…?" — the session behind the Explore panel.
  *
@@ -29,7 +30,6 @@ import { uiStore } from './ui.svelte';
 import type { ModelSnapshot } from './history.svelte';
 import type { Release, Section, SupportType } from './model.svelte';
 import { solverProperties } from '../section/state';
-import { defaultDofs } from './support-dofs';
 
 export interface MemberFactors { e: number; a: number; iy: number }
 
@@ -50,7 +50,6 @@ let ownVersion = -1;
 /** The project's solve stamp when Explore opened, put back when it closes. */
 let stampAtOpen: SolveStamp | undefined;
 
-const is3D = () => uiStore.is3DWorkspace;
 const ONE: MemberFactors = { e: 1, a: 1, iy: 1 };
 
 function restoreBaseline(snap: ModelSnapshot): void {
@@ -96,7 +95,13 @@ function scaleLoads(): void {
     if (f === 1) continue;
     // What every scaling of a load scales: a shell's values per corner and its variation too (a
     // soil or a fluid on a wall is q = 0, all of it in the variation).
-    loads[i] = scaledLoad(loads[i], f);
+    const original = loads[i]!;
+    const scaled = scaledLoad(original, f);
+    if (original.type === 'surface3d' && original.data.fromDef !== undefined && scaled.type === 'surface3d') {
+      const adjustment = scaledLoad(original, f - 1);
+      if (adjustment.type === 'surface3d') scaled.data[scenarioSurfaceAdjustment] = adjustment.data;
+    }
+    loads[i] = scaled;
   }
 }
 
@@ -145,26 +150,20 @@ function apply(): void {
     m.elements.set(id, { ...el, ...patch });
   }
 
-  // A space support disables the standing-plane projection. Convert the
-  // geometry and its existing loads/supports before applying space overrides.
-  // Each slider starts from the original presentation as well as its model.
-  if (is3D() && Object.keys(supportTypes).length > 0) modelStore.ensureSpaceCoordinates();
+  modelStore.withoutUndo(() => {
+    for (const [key, type] of Object.entries(supportTypes)) {
+      modelStore.updateSupport(Number(key), { type });
+    }
+  });
 
   for (const [key, r] of Object.entries(releases)) {
     const el = m.elements.get(Number(key));
     if (el) m.elements.set(el.id, { ...el, ...(r.i ? { releaseI: r.i } : {}), ...(r.j ? { releaseJ: r.j } : {}) });
   }
 
-  for (const [key, type] of Object.entries(supportTypes)) {
-    const s = m.supports.get(Number(key));
-    if (!s) continue;
-    m.supports.set(s.id, is3D() ? { ...s, type, dofRestraints: defaultDofs(type) } : { ...s, type });
-  }
-
   m.materials = new Map(m.materials);
   m.sections = new Map(m.sections);
   m.elements = new Map(m.elements);
-  m.supports = new Map(m.supports);
   m.loads = [...m.loads];
   ownVersion = modelStore.modelVersion;
   // restore() moved the model version, so live calc re-solves what is now here.

@@ -1,0 +1,372 @@
+{
+  "cases/12/pdelta": {
+    "category": "nan-withholding"
+  },
+  "cases/13/pdelta": {
+    "category": "nan-withholding"
+  },
+  "cases/14/pdelta": {
+    "category": "nan-withholding"
+  },
+  "cases/15/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/17/pdelta": {
+    "category": "nan-withholding"
+  },
+  "cases/18/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/20/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/24/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/36/pdelta": {
+    "category": "main-refused-before-pdelta",
+    "mainRefusal": "Nodal moment at node 1 is not supported: a loaded released rotation or unstiffened rotational/warping direction is present; free directions [rx=-2.228344e-1, ry=-2.971125e-1, rz=9.284767e-1] have no resolvable stiffness, so the moment would not reach the structure. Apply it as a force couple, or connect the node to a frame or shell"
+  },
+  "cases/37/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/38/pdelta": {
+    "category": "main-refused-before-pdelta",
+    "mainRefusal": "Nodal moment at node 1 is not supported: a loaded released rotation or unstiffened rotational/warping direction is present; free directions [rx=-2.228344e-1, ry=-2.971125e-1, rz=9.284767e-1] have no resolvable stiffness, so the moment would not reach the structure. Apply it as a force couple, or connect the node to a frame or shell"
+  },
+  "cases/42/pdelta": {
+    "category": "nan-withholding"
+  },
+  "cases/43/pdelta": {
+    "category": "nan-withholding"
+  },
+  "cases/51/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/53/pdelta": {
+    "category": "nan-withholding"
+  },
+  "cases/54/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/55/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/56/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/57/pdelta": {
+    "category": "nan-withholding"
+  },
+  "cases/58/pdelta": {
+    "category": "nan-withholding"
+  },
+  "cases/62/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/66/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/67/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/68/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/69/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/70/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/71/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/72/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/73/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/74/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/75/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/76/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/77/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/78/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/79/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/80/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/84/pdelta": {
+    "category": "nan-withholding"
+  },
+  "cases/85/pdelta": {
+    "category": "nan-withholding"
+  },
+  "cases/86/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/87/pdelta": {
+    "category": "nan-withholding"
+  },
+  "cases/88/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/89/pdelta": {
+    "category": "nan-withholding"
+  },
+  "cases/90/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/91/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/92/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/93/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/94/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/95/pdelta": {
+    "category": "nan-withholding"
+  },
+  "cases/96/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/97/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/105/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/106/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/107/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/109/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/110/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/111/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/112/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/113/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/114/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/115/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/116/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/129/pdelta": {
+    "category": "nan-withholding"
+  },
+  "cases/130/pdelta": {
+    "category": "nan-withholding"
+  },
+  "cases/131/pdelta": {
+    "category": "nan-withholding"
+  },
+  "cases/132/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/134/pdelta": {
+    "category": "nan-withholding"
+  },
+  "cases/135/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/137/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/141/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/153/pdelta": {
+    "category": "main-refused-before-pdelta",
+    "mainRefusal": "Nodal moment at node 2 is not supported: a loaded released rotation or unstiffened rotational/warping direction is present; free directions [rx=-2.228344e-1, ry=-2.971125e-1, rz=9.284767e-1] have no resolvable stiffness, so the moment would not reach the structure. Apply it as a force couple, or connect the node to a frame or shell"
+  },
+  "cases/154/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/155/pdelta": {
+    "category": "main-refused-before-pdelta",
+    "mainRefusal": "Nodal moment at node 2 is not supported: a loaded released rotation or unstiffened rotational/warping direction is present; free directions [rx=-2.228344e-1, ry=-2.971125e-1, rz=9.284767e-1] have no resolvable stiffness, so the moment would not reach the structure. Apply it as a force couple, or connect the node to a frame or shell"
+  },
+  "cases/159/pdelta": {
+    "category": "nan-withholding"
+  },
+  "cases/160/pdelta": {
+    "category": "nan-withholding"
+  },
+  "cases/168/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/170/pdelta": {
+    "category": "nan-withholding"
+  },
+  "cases/171/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/172/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/173/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/174/pdelta": {
+    "category": "nan-withholding"
+  },
+  "cases/175/pdelta": {
+    "category": "nan-withholding"
+  },
+  "cases/179/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/183/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/184/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/185/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/186/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/187/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/188/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/189/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/190/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/191/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/192/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/193/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/194/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/195/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/196/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/197/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/201/pdelta": {
+    "category": "nan-withholding"
+  },
+  "cases/202/pdelta": {
+    "category": "nan-withholding"
+  },
+  "cases/203/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/204/pdelta": {
+    "category": "nan-withholding"
+  },
+  "cases/205/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/206/pdelta": {
+    "category": "nan-withholding"
+  },
+  "cases/207/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/208/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/209/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/210/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/211/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/212/pdelta": {
+    "category": "nan-withholding"
+  },
+  "cases/213/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/214/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/222/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/223/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/224/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/226/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/227/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/228/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/229/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/230/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/231/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/232/pdelta": {
+    "category": "matching-non-convergence"
+  },
+  "cases/233/pdelta": {
+    "category": "matching-non-convergence"
+  }
+}

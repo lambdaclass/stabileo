@@ -1,5 +1,5 @@
 //! What the end-to-end certificate says about models where the engine's
-//! answer is not the model's (docs/verification/CERTIFY.md, "End-to-end
+//! answer is not the model's (testing/docs/CERTIFY.md, "End-to-end
 //! certificates", findings). Each test pins the current behaviour.
 
 use dedaliano_engine::certify::reassembly::EndToEnd;

@@ -8,6 +8,10 @@
   import { generateShareURL, MAX_URL_SAFE } from '../../lib/utils/url-sharing';
   import { t } from '../../lib/i18n';
   import ToolbarExamples from './ToolbarExamples.svelte';
+  import CloudProjectsDialog from '../account/CloudProjectsDialog.svelte';
+  import SignInNotice from '../account/SignInNotice.svelte';
+  import { authStore } from '../../lib/store/auth.svelte';
+  import { accountGate } from '../../lib/store/account-gate.svelte';
   import DemoMenu from '../DemoMenu.svelte';
   import CalcReportDialog from '../CalcReportDialog.svelte';
   import ExportViewDialog from '../export/ExportViewDialog.svelte';
@@ -185,6 +189,8 @@
    * what they explicitly asked to see.
    */
   let { flat = false }: { flat?: boolean } = $props();
+  let cloudOpen = $state(false);
+  const locked = $derived(__PUBLIC_FEATURES__.accounts && accountGate.required);
 </script>
 
 <div class="toolbar-section" data-tour="project-section">
@@ -194,13 +200,17 @@
   {/if}
   {#if flat || showProject}
   {#if flat}<h4 class="proj-heading">{t('project.fileSection')}</h4>{/if}
-  <div class="file-grid">
+  {#if __PUBLIC_FEATURES__.accounts && locked}<SignInNotice text={t('account.notice.files')} action placement="project_files" />{/if}
+  <div class="file-grid" class:locked>
     <button class="file-btn" onclick={() => (showSave = true)} title={t('project.saveTooltip')} data-testid="save-open">
       {t('project.save')}
     </button>
     <button class="file-btn" onclick={() => fileInput?.click()} title={t('project.openTooltip')}>
       {t('project.open')}
     </button>
+    {#if __PUBLIC_FEATURES__.accounts && authStore.isAuthenticated && authStore.cloudProjectsEnabled}
+      <button class="file-btn" onclick={() => (cloudOpen = true)} data-testid="cloud-projects-open">{t('account.myProjects')}</button>
+    {/if}
     <!--
       Beside Abrir, because that is the pair a reader thinks in: a model
       arrives as a file or as a link, and the two ways in belong together.
@@ -218,7 +228,7 @@
       <button
         class="file-btn"
         data-testid="project-share-link"
-        onclick={handleCopyShareLink}
+        onclick={() => accountGate.guard('share', handleCopyShareLink)}
         aria-disabled={linkTooLong ? 'true' : undefined}
         aria-describedby={linkTooLong ? 'project-share-too-long' : undefined}
       >
@@ -301,7 +311,8 @@
     </button>
   {/if}
   {#if flat || showProjectExtras}
-    <div class="sub-section-content">
+    {#if __PUBLIC_FEATURES__.accounts && locked}<SignInNotice text={t('account.notice.io')} placement="project_io" />{/if}
+    <div class="sub-section-content" class:locked>
       {#snippet helpPanel(key: string, labelKey: string, textKey: string)}
         {#if helpKey === key}
           <div class="proj-help-panel">
@@ -409,6 +420,8 @@
 <CalcReportDialog bind:open={showCalcReport} />
 <ExportViewDialog bind:open={viewExportOpen} bind:format={viewExport} />
 <ResultsExportDialog bind:open={resultsOpen} />
+
+{#if __PUBLIC_FEATURES__.accounts}<CloudProjectsDialog bind:open={cloudOpen} />{/if}
 
 <style>
   /* ─── The Excel import report ────────────────────────────────────
@@ -609,6 +622,13 @@
   }
 
   .proj-heading:first-child { margin-top: 0; }
+
+  .locked {
+    opacity: 0.45;
+    filter: grayscale(1);
+    transition: opacity 0.15s;
+  }
+  .locked:hover, .locked:focus-within { opacity: 0.7; }
 
 
   /* Examples brings its own headings, so it only needs the spacing. */

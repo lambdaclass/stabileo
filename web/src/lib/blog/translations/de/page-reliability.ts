@@ -4,7 +4,7 @@ const body: StandingPage['i18n']['en'] = {
   "title": "Wie zuverlässig ist Stabileo? Wie seine Ergebnisse geprüft werden",
   "description": "Wie Stabileo prüft: sieben andere FE-Programme, publizierte Beispiele, in Lean bewiesene Fehlerschranken, öffentliche Hinweise. Und was keine Prüfung zusagt.",
   "eyebrow": "Zuverlässigkeit",
-  "lead": "Die Ergebnisse von Stabileo werden auf fünf unabhängigen Wegen geprüft, darunter der Vergleich mit sieben anderen Finite-Elemente-Programmen und Fehlerschranken, deren mathematischer Kern in Lean bewiesen ist. Fehler, die bereits verwendete Ergebnisse beeinflusst haben könnten, werden als Sicherheitshinweise veröffentlicht (einige Befunde werden noch bewertet, öffentlich), und alle vierundzwanzig veröffentlichten Hinweise sind behoben (die letzten vier in Version 0.4.0). Wie jedes Berechnungsprogramm prüft Stabileo Ihr Modell nicht: Lasten, Auflager und Idealisierung sind Entscheidungen des Ingenieurs.",
+  "lead": "Die Ergebnisse von Stabileo werden auf fünf unabhängigen Wegen geprüft, darunter der Vergleich mit sieben anderen Finite-Elemente-Programmen und Fehlerschranken, deren mathematischer Kern in Lean bewiesen ist. Fehler, die bereits verwendete Ergebnisse beeinflusst haben könnten, werden als Sicherheitshinweise veröffentlicht (einige Befunde werden noch bewertet, öffentlich), und die Liste unten nennt, welche behoben sind und in welcher Version. Wie jedes Berechnungsprogramm prüft Stabileo Ihr Modell nicht: Lasten, Auflager und Idealisierung sind Entscheidungen des Ingenieurs.",
   "blocks": [
     {
       "k": "h",
@@ -81,7 +81,7 @@ const body: StandingPage['i18n']['en'] = {
     },
     {
       "k": "ext",
-      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/verification/MATURITY.md",
+      "href": "https://github.com/lambdaclass/stabileo/blob/main/testing/docs/MATURITY.md",
       "label": "Reifegradmatrix",
       "t": "Der Verifikationsstand jedes Teils:"
     }

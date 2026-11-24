@@ -1,4 +1,4 @@
-//! Certified linear static results (docs/verification/CERTIFY.md).
+//! Certified linear static results (testing/docs/CERTIFY.md).
 //!
 //! Honesty is checked against a reference solution of the same reduced f64
 //! system computed by iterative refinement with double-double residuals and a

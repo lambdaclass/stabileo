@@ -19,6 +19,15 @@ import { runOrientationDiagnostic } from '../orientation-diagnostic';
 import { lateralReadingOf, type LateralSystemData } from '../../../model/lateral-system';
 import type { AnalysisResults3D } from '../../types-3d';
 
+export const FLAGSHIP_GRAVITY_SHEAR_DEPTH_REFUSALS: readonly number[] = [
+  173, 174, 175, 176, 192, 193, 194, 195, 200, 201, 202, 203, 204, 205,
+  206, 207, 223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 234,
+  235, 236, 237, 238, 254, 255, 256, 257, 258, 259, 260, 261, 262, 263,
+  264, 265, 266, 267, 268, 269, 285, 286, 287, 288, 289, 290, 291, 292,
+  293, 294, 295, 296, 297, 298, 299, 300, 316, 317, 318, 319, 320, 321,
+  322, 323, 324, 325, 326, 327, 328, 329, 330, 331, 347, 350,
+];
+
 /** A stubbed WASM solver makes design tests meaningless — fail loudly. */
 export function assertRealSolver(): void {
   expect(isSolverReady(), 'real WASM solver must be initialised (not the Vite stub)').toBe(true);

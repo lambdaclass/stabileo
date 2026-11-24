@@ -20,6 +20,108 @@ const body: PostBody = {
       "k": "note",
       "t": "SA-2026-058 — PR #1922 ile düzeltildi, sürüm yayını bekleniyor."
     },
+    {
+      "k": "note",
+      "t": "SA-2026-061 — PR #1952 içinde düzeltildi, yayın bekleniyor."
+    },
+    {
+      "k": "note",
+      "t": "SA-2026-063 — PR #2009 ile düzeltildi, sürüm yayını bekleniyor."
+    },
+    {"k": "note", "t": "SA-2026-064 — 0.6.1 sürümünde düzeltildi."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-064-steel-cb-combination.md", "label": "SA-2026-064", "t": "Etkilenen girdiler ve yapılacak işlemler."},
+    {"k": "note", "t": "SA-2026-065 — 0.6.1 sürümünde düzeltildi."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-065-snow-roof-step.md", "label": "SA-2026-065", "t": "Etkilenen girdiler ve yapılacak işlemler."},
+    {"k": "note", "t": "SA-2026-066 — 0.6.1 sürümünde düzeltildi."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-066-cirsoc201-transverse-cm.md", "label": "SA-2026-066", "t": "Etkilenen girdiler ve yapılacak işlemler."},
+    {"k": "note", "t": "SA-2026-067 — 0.6.1 sürümünde düzeltildi."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-067-snow-roof-rotation.md", "label": "SA-2026-067", "t": "Etkilenen girdiler ve yapılacak işlemler."},
+    {"k": "note", "t": "SA-2026-068 — 0.6.1 sürümünde düzeltildi."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-068-provided-torsion-stirrups.md", "label": "SA-2026-068", "t": "Etkilenen girdiler ve yapılacak işlemler."},
+    {"k": "note", "t": "SA-2026-069 — 0.6.2 sürümünde düzeltildi."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-069-torsion-secondary-shear.md", "label": "SA-2026-069", "t": "Etkilenen girdiler ve yapılacak işlemler."},
+    {"k": "note", "t": "SA-2026-070 — 0.6.2 sürümünde düzeltildi."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-070-interior-member-couples.md", "label": "SA-2026-070", "t": "Etkilenen girdiler ve yapılacak işlemler."},
+    {"k": "note", "t": "SA-2026-071 — 0.6.2 sürümünde düzeltildi."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-071-incomplete-concurrent-demands.md", "label": "SA-2026-071", "t": "Etkilenen girdiler ve yapılacak işlemler."},
+    {"k": "note", "t": "SA-2026-072 — 0.6.2 sürümünde düzeltildi."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-072-snow-ridge-subdivision.md", "label": "SA-2026-072", "t": "Etkilenen girdiler ve yapılacak işlemler."},
+    {"k": "note", "t": "SA-2026-073 — 0.6.2 sürümünde düzeltildi."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-073-snow-crossing-moment.md", "label": "SA-2026-073", "t": "Etkilenen girdiler ve yapılacak işlemler."},
+    {"k": "note", "t": "SA-2026-074 — 0.6.2 sürümünde düzeltildi."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-074-snow-panel-subdivision.md", "label": "SA-2026-074", "t": "Etkilenen girdiler ve yapılacak işlemler."},
+    {"k": "note", "t": "SA-2026-075 — 0.6.2 sürümünde düzeltildi."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-075-cirsoc201-secondary-stirrup-legs.md", "label": "SA-2026-075", "t": "Etkilenen girdiler ve yapılacak işlemler."},
+    {"k": "note", "t": "SA-2026-076 — 0.6.2 sürümünde düzeltildi."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-076-wind-enclosure.md", "label": "SA-2026-076", "t": "Etkilenen girdiler ve yapılacak işlemler."},
+    {"k": "note", "t": "SA-2026-077 — 0.6.2 sürümünde düzeltildi."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-077-wind-wall-height-transfer.md", "label": "SA-2026-077", "t": "Etkilenen girdiler ve yapılacak işlemler."},
+    {"k": "note", "t": "SA-2026-078 — 0.6.2 sürümünde düzeltildi."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-078-wind-roof-pressure-zones.md", "label": "SA-2026-078", "t": "Etkilenen girdiler ve yapılacak işlemler."},
+    {"k": "note", "t": "SA-2026-079 — 0.6.2 sürümünde düzeltildi."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-079-gravity-shell-coverage.md", "label": "SA-2026-079", "t": "Etkilenen girdiler ve yapılacak işlemler."},
+    {"k": "note", "t": "SA-2026-080 — 0.6.2 sürümünde düzeltildi."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-080-floor-zone-eccentricity.md", "label": "SA-2026-080", "t": "Etkilenen girdiler ve yapılacak işlemler."},
+    {"k": "note", "t": "SA-2026-082 — 0.6.2 sürümünde düzeltildi."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-082-snow-companion-basis.md", "label": "SA-2026-082", "t": "Etkilenen girdiler ve yapılacak işlemler."},
+    {"k": "note", "t": "SA-2026-083 — 0.6.2 sürümünde düzeltildi."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-083-concentrated-live-actions.md", "label": "SA-2026-083", "t": "Etkilenen girdiler ve yapılacak işlemler."},
+    {"k": "note", "t": "SA-2026-084 — 0.6.2 sürümünde düzeltildi."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/results-changes/2026-11-fillet-weld-physical-runs.md", "label": "SA-2026-084", "t": "Etkilenen girdiler ve yapılacak işlemler."},
+    {"k": "note", "t": "SA-2026-085 — 0.6.2 sürümünde düzeltildi."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/results-changes/2026-11-fillet-weld-physical-runs.md", "label": "SA-2026-085", "t": "Etkilenen girdiler ve yapılacak işlemler."},
+    {"k": "note", "t": "SA-2026-086 — #2316 ile düzeltildi, sürüm bekleniyor."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-086-seismic-static-story-forces.md", "label": "SA-2026-086", "t": "Etkilenen girdiler ve yapılacak işlemler."},
+    {"k": "note", "t": "SA-2026-087 — #2316 ile yük üretimi engellendi, sürüm bekleniyor."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-087-seismic-modal-load-generation.md", "label": "SA-2026-087", "t": "Etkilenen girdiler ve yapılacak işlemler."},
+    {"k": "note", "t": "SA-2026-088 — 0.6.2 sürümünde düzeltildi."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/results-changes/2026-11-gravity-core.md#combined-member-diagram-extrema", "label": "SA-2026-088", "t": "Etkilenen girdiler ve yapılacak işlemler."},
+    {"k": "note", "t": "SA-2026-089 — 0.6.2 sürümünde düzeltildi."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-089-roller-z-fixed.md", "label": "SA-2026-089", "t": "Etkilenen girdiler ve yapılacak işlemler."},
+    {"k": "note", "t": "SA-2026-090 — 0.6.2 sürümünde düzeltildi."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/results-changes/2026-11-gravity-core.md#width-mode-level-mass-follows-loaded-carriers", "label": "SA-2026-090", "t": "Etkilenen girdiler ve yapılacak işlemler."},
+    {"k": "note", "t": "SA-2026-091 — Etkilenen kontroller #2338 ile engellendi, sürüm bekleniyor."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-091-rc-torsion-shear-verification.md", "label": "SA-2026-091", "t": "Etkilenen girdiler ve yapılacak işlemler."},
+    {"k": "note", "t": "SA-2026-092 — Birleşik durum #2372 ile engellendi, kesit çizgileri #2382 ile düzeltildi, sürüm bekleniyor."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-092-section-stress-shear.md", "label": "SA-2026-092", "t": "İnce cidarlı boru örneğinde lif, elemanın yerel eksenlerinde y = 0,0995 m ve z = 0 konumundadır. Önceki hesap, toplam kayma gerilmesini 4,5697 MPa, von Mises gerilmesini 7,9149 MPa olarak veriyordu ve burulma momentinin her iki işareti için de kontrol sağlanıyordu. Katkılar aynı yönde olduğunda kayma gerilmelerinin işaretli toplamı 6,4625 MPa olur. Buna karşılık gelen von Mises gerilmesi 11,1934 MPa olup 9 MPa akma sınırını aşar. Katkılar birbirini götürdüğünde von Mises gerilmesi yaklaşık sıfır olur ve kontrol sağlanır."},
+    {"k": "note", "t": "SA-2026-093 — #2381 ile düzeltildi, sürüm bekleniyor."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-093-plane-moving-load-axial-force.md", "label": "SA-2026-093", "t": "Etkilenen girdiler ve yapılacak işlemler."},
+    {"k": "note", "t": "SA-2026-094 — #2364 ile düzeltildi, sürüm bekleniyor."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-094-plane-free-body-end-moments.md", "label": "SA-2026-094", "t": "Etkilenen girdiler ve yapılacak işlemler."},
+    {"k": "note", "t": "SA-2026-095 — #2364 ile düzeltildi, sürüm bekleniyor."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-095-plane-signed-scoped-self-weight.md", "label": "SA-2026-095", "t": "Etkilenen girdiler ve yapılacak işlemler."},
+    {"k": "note", "t": "SA-2026-096 — 0.6.3 sürümünde düzeltildi."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-096-static-seismic-stories-and-rafters.md", "label": "SA-2026-096", "t": "Etkilenen girdiler ve gerekli işlemler."},
+    {"k": "note", "t": "SA-2026-097 — 0.6.3 sürümünde düzeltildi."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-097-workbook-inputs-and-plane-springs.md", "label": "SA-2026-097", "t": "Etkilenen girdiler ve gerekli işlemler."},
+    {"k": "note", "t": "SA-2026-098 — 0.6.3 sürümünde düzeltildi."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-098-rc-drawn-reinforcement-verification.md", "label": "SA-2026-098", "t": "Etkilenen girdiler ve gerekli işlemler."},
+    {"k": "note", "t": "SA-2026-099 — 0.6.3 sürümünde engellendi."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-099-gravity-and-roof-step-loads.md", "label": "SA-2026-099", "t": "Etkilenen girdiler ve gerekli işlemler."},
+    {"k": "note", "t": "SA-2026-100 — Sonraki sürüm (0.6.4)."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-100-result-display-signs.md", "label": "SA-2026-100", "t": "Etkilenen girdiler ve yapılması gerekenler."},
+    {"k": "note", "t": "SA-2026-101 — Sonraki sürüm (0.6.4)."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-101-plate-analysis-conformity.md", "label": "SA-2026-101", "t": "Etkilenen girdiler ve yapılması gerekenler."},
+    {"k": "note", "t": "SA-2026-102 — Sonraki sürüm (0.6.4)."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-102-diagram-extrema-and-span-demands.md", "label": "SA-2026-102", "t": "Etkilenen girdiler ve yapılması gerekenler."},
+    {"k": "note", "t": "SA-2026-103 — Sonraki sürüm (0.6.4)."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-103-rc-torsion-evidence.md", "label": "SA-2026-103", "t": "Etkilenen girdiler ve yapılması gerekenler."},
+    {"k": "note", "t": "SA-2026-104 — Sonraki sürüm (0.6.4)."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-104-member-load-reversal-and-planar-couples.md", "label": "SA-2026-104", "t": "Etkilenen girdiler ve yapılması gerekenler."},
+    {"k": "note", "t": "SA-2026-105 — 0.6.3’ten sonraki ilk sürüm."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-105-restored-planar-moment-edits.md", "label": "SA-2026-105", "t": "Etkilenen girdiler ve yapılması gerekenler."},
+    {"k": "note", "t": "SA-2026-106 — 0.6.3’ten sonraki ilk sürüm (koruma önlemi)."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-106-complementary-plate-remesh-arc.md", "label": "SA-2026-106", "t": "Etkilenen girdiler ve yapılması gerekenler."},
+    {"k": "note", "t": "SA-2026-107 — 0.6.3’ten sonraki ilk sürüm (koruma önlemi)."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-107-plate-remesh-shell-edits.md", "label": "SA-2026-107", "t": "Etkilenen girdiler ve yapılması gerekenler."},
+    {"k": "note", "t": "SA-2026-108 — 0.6.4’ten sonraki ilk sürüm."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-108-planar-projection-nodal-forces.md", "label": "SA-2026-108", "t": "Etkilenen girdiler ve yapılması gerekenler."},
+    {"k": "note", "t": "SA-2026-109 — 0.6.4’ten sonraki ilk sürüm."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-109-dxf-support-labels.md", "label": "SA-2026-109", "t": "Etkilenen girdiler ve yapılması gerekenler."},
+    {"k": "note", "t": "SA-2026-110 — 0.6.4’ten sonraki ilk sürüm."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-110-solver-json-boundary.md", "label": "SA-2026-110", "t": "Etkilenen girdiler ve yapılması gerekenler."},
+    {"k": "note", "t": "SA-2026-111 — 0.6.4’ten sonraki ilk sürüm."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-111-gravity-shared-deck-coverage.md", "label": "SA-2026-111", "t": "Etkilenen girdiler ve yapılması gerekenler."},
     {"k": "img", "base": "blog/recheck-stale", "w": 1600, "h": 1000, "alt": "Sonuçlar sürümlenmeden önce kaydedilmiş bir betonarme çerçeve ile Stabileo PRO. Alttaki bir şerit, projenin eski bir sürümle çözüldüğünü ve kayıtlı 19 değişikliğin onu ilgilendirdiğini, yani sonuçların eskidiğini söylüyor; yanında neyin değiştiğini görme ve yeniden çözme düğmeleri var.", "caption": "Bir düzeltme kayıtlı bir projeye böyle ulaşır: yeniden çözülene kadar sonuçları eskimiş olarak işaretli kalır ve onu ilgilendiren değişiklikler bir tık uzaktadır."},
     {
       "k": "h",
@@ -183,139 +285,139 @@ const body: PostBody = {
           "SA-2026-025",
           "AISC 360 G2 kesme (yalnızca hesap motoru ve WASM): gövde alanı olmadan oran 0 ile geçiyordu ve sertifikalanıyordu",
           "Orta",
-          "stabileo.com'da düzeltildi (#1234)"
+          "0.5.0'da düzeltildi (#1234)"
         ],
         [
           "SA-2026-026",
           "EC3 6.2.6 kesme (yalnızca hesap motoru ve WASM): kesme alanı olmadan Av = 0,5·A alınıyordu, HEB 300'de Vpl,Rd %57 yüksek, ve sertifikalanıyordu",
           "Orta",
-          "stabileo.com'da düzeltildi (#1234)"
+          "0.5.0'da düzeltildi (#1234)"
         ],
         [
           "SA-2026-027",
           "Kabuk zarfı: her bileşenin uç değeri yerine en büyük Von Mises gerilmesine sahip kombinasyonu alıyordu (bir örnekte mx %14 düşük)",
           "Yüksek",
-          "Düzeltme incelemede"
+          "0.5.0'da düzeltildi"
         ],
         [
           "SA-2026-028",
           "EN 1992-1-1 eğilme (PRO diğer yönetmelikler, sertifikalı): çekme donatısının aktığını varsayıyor ve üst donatıyı yinelemiyordu; MRd %22’ye kadar yüksek",
           "Yüksek",
-          "0.4.0 sonrasında düzeltildi"
+          "0.5.0'da düzeltildi"
         ],
         [
           "SA-2026-029",
           "3B: uygulamadaki CIRSOC 201 kolonları Mz kesit yüksekliği üzerinden tasarlanıyordu (bir örnekte %36 eksik donatı); motorun sertifikalı 3B kontrolleri yanal kesme Vy'yi gövde kesmesi olarak okuyordu",
           "Kritik",
-          "Bir sonraki sürümde düzeltildi"
+          "0.5.0'da düzeltildi"
         ],
         [
           "SA-2026-030",
           "CIRSOC 301 basınç: alanı levhalarından küçük olan bir kesit negatif bir Qa ve tam plastik eksenel yükün üzerinde bir dayanım veriyor ve geçiyordu",
           "Yüksek",
-          "Bir sonraki sürümde düzeltildi"
+          "0.5.0'da düzeltildi"
         ],
         [
           "SA-2026-031",
           "Zaman tanım alanında analiz: kütlesiz bir serbestlik derecesine t = 0'da uygulanan yük ilk adımda kayboluyordu (karşıtlık 33 katına kadar bozuk, iki serbestlik dereceli bir zincir kapalı çözümünden %24 farklı)",
           "Orta",
-          "Bir sonraki sürümde düzeltildi"
+          "0.5.0'da düzeltildi"
         ],
         [
           "SA-2026-032",
           "Modal analiz: bir mekanizmanın sıfır frekanslı modu atılıyor ve diğer modlar eksiksizmiş gibi döndürülüyordu",
           "Orta",
-          "Bir sonraki sürümde düzeltildi"
+          "0.5.0'da düzeltildi"
         ],
         [
           "SA-2026-033",
           "Yük üreteci: bir kısmının üstünde tek bir alçak eleman olan bir döşeme bütün alan yükünü kaybediyordu (bir örnekte 6 × 6 m'lik bir döşemenin 36 m²'si); kafes kirişler çatı taşıyıcı sistemi sayılmıyordu",
           "Yüksek",
-          "Bir sonraki sürümde düzeltildi"
+          "0.5.0'da düzeltildi"
         ],
         [
           "SA-2026-034",
           "Denge kontrolü, kontrolünün yükleri dışarıda bıraktığı durumlarda yükleri ve tepkileri uyuşuyor olarak bildiriyordu; benzer katlardaki düzenlemeler diğer türdeki çubuklara ulaşıyor ve kopyalar mafsallarını kaybediyordu",
           "Orta",
-          "Bir sonraki sürümde düzeltildi"
+          "0.5.0'da düzeltildi"
         ],
         [
           "SA-2026-035",
           "3D'den 2D'ye geçiş: kesit, elemanları yanlış kesit ekseni etrafında eğiyordu (Y–Z düzlemindeki bir çerçeve 13,5 kat fazla rijit)",
           "Yüksek",
-          "Bir sonraki sürümde düzeltildi"
+          "0.5.0'da düzeltildi"
         ],
         [
           "SA-2026-036",
           "Y–Z veya X–Y üzerinde 3D'den 2D'ye geçiş: kısıtlar çerçeve X–Z'deymiş gibi okunuyordu (yer değiştirme bağları kayboluyor ya da düzlem dışına uygulanıyordu)",
           "Yüksek",
-          "Bir sonraki sürümde düzeltildi"
+          "0.5.0'da düzeltildi"
         ],
         [
           "SA-2026-037",
           "3B eşdönel analiz: dönme vektörleri çıkarılıyordu (Bathe–Bolourchi eğrisi %1,3 sapmalı, ağ sıklaştırmayla düzelmiyordu)",
           "Orta",
-          "Bir sonraki sürümde düzeltildi"
+          "0.5.0'da düzeltildi"
         ],
         [
           "SA-2026-038",
           "3B burkulma: ekseni boyunca yük altında basıncı boyunca artan çubukların katsayısı yüksek çıkıyordu (tek çubukta +%43) ve yalnızca uçları arasında basınç altındaki bir çubuk reddediliyordu",
           "Yüksek",
-          "Bir sonraki sürümde düzeltildi"
+          "0.5.0'da düzeltildi"
         ],
         [
           "SA-2026-039",
           "Excel ve IFC içe aktarma: dikdörtgen ve boru kesitlerde Iy ile Iz yer değiştirmişti (20 × 40 bir konsol 4 kat fazla esnek, 40 × 20 bir konsol 4 kat fazla rijit)",
           "Yüksek",
-          "Bir sonraki sürümde düzeltildi"
+          "0.5.0'da düzeltildi"
         ],
         [
           "SA-2026-040",
           "ACI 318 ve EN 1992 kontrolleri: betonarme çubuklar burulmaları kontrol edilmeden geçiyordu",
           "Yüksek",
-          "Bir sonraki sürümde sınırlandırıldı"
+          "0.5.0 sürümünde sınırlandırıldı"
         ],
         [
           "SA-2026-041",
           "Betonarme kolonlar: en büyük moment yalnızca en büyük basınçla kontrol ediliyordu",
           "Yüksek",
-          "Bir sonraki sürümde düzeltildi"
+          "0.5.0'da düzeltildi"
         ],
         [
           "SA-2026-042",
           "2B burkulma: ekseni boyunca yük altında basıncı boyunca artan çubukların katsayısı yüksek çıkıyordu (tek çubukta +%43 ile +%68)",
           "Yüksek",
-          "Bir sonraki sürümde düzeltildi"
+          "0.5.0'da düzeltildi"
         ],
         [
           "SA-2026-043",
           "Harmonik analiz: bir mod diğerlerinden çok daha yumuşak olduğunda atlanan modların düzeltmesi basamaklarını kaybediyordu (bir örnekte 2,3 Hz'de 79 kat)",
           "Yüksek",
-          "Bir sonraki sürümde düzeltildi"
+          "0.5.0'da düzeltildi"
         ],
         [
           "SA-2026-044",
           "2B plastik göçme: göçme katsayısı düğüm numaralandırması, çubuk yönü ve birimlerle değişiyordu (aynı yapıda 4,6 kata kadar)",
           "Yüksek",
-          "Limit analizi bir sonraki sürümde düzeltildi; 2B plastik göçme #758 kapanana kadar geri tutuluyor"
+          "0.5.0 sürümünde düzeltilmedi: 2B plastik göçme hesabı #758 kapanana kadar reddedilir. Limit analizi 0.5.0 sürümünde yer alır."
         ],
         [
           "SA-2026-045",
           "3B plastik göçme: kullanılabilir plastik momenti olmayan bir çubuk hiç akmayan bir çubuk gibi ele alınıyordu (bir örnekte 6 kat yüksek ve sertifikalı)",
           "Yüksek",
-          "Bir sonraki sürümde düzeltildi"
+          "0.5.0'da düzeltildi"
         ],
         [
           "SA-2026-046",
           "Harmonik analiz: modal süperpozisyon ile doğrudan çözüm arasında yüke göre seçim yapıyordu; süperpozisyon ve karşılıklılık bozuluyordu (bir örnekte bir düğümde %107); 5 Kasım 2026'dan düzeltmeye kadar stabileo.com ve main dalının motor/WASM derlemeleri",
           "Yüksek",
-          "Bir sonraki sürümde düzeltildi"
+          "0.5.0'da düzeltildi"
         ],
         [
           "SA-2026-047",
           "Kabuklar: mesnet yer değiştirmesi zorlayan bir yük durumu kabuk gerilmelerini kaybediyor, kombinasyonlar ve zarflar yalnızca diğer durumlarınkini topluyordu (güvensiz tarafta kalabiliyordu, uyarısız); 0.2.0 ile 0.4.0 arası",
           "Yüksek",
-          "Bir sonraki sürümde düzeltildi"
+          "0.5.0'da düzeltildi"
         ],
         [
           "SA-2026-048",
@@ -385,7 +487,61 @@ const body: PostBody = {
           "PR #1921 ile düzeltildi, sürüm yayını bekleniyor"
         ],
         ["SA-2026-060", "Aşamalı analiz, birim değişiminden sonra veya mesnet yaylı mafsallı uçlarda gerçek dönmeleri uyarı vermeden sertleştirebiliyordu; serbestlik içeren aşamalı modelleri yeniden kontrol edin", "Yüksek", "Taslak: yerel düzeltme inceleme ve yayın bekliyor"],
+        [
+          "SA-2026-061",
+          "Yay uzunluğu ve yer değiştirme kontrolü tepkileri atlıyor ve ölçeklenmemiş eleman yüklerini kullanıyordu; 2D/3D kısıt, Guyan, aşamalı ve zaman tanım alanı sonuçlarındaki eksiklikler de incelenmelidir. Etkilenen sonuçları yeniden hesaplayın veya bağımsız doğrulayın; 0.2.0–0.5.0 ve etkilenen sonraki main derlemeleri.",
+          "Yüksek",
+          "PR #1952 içinde düzeltildi, yayın bekleniyor"
+        ],
         ["SA-2026-062", "Ham 3D plastik analiz, başlangıç elastik durumu çözülemediğinde uyarısız sıfır bildirebiliyordu; eski sertifikalı sürümler bu katsayıyı koruyordu. Main artık uyarıyla pozitif sertifikalı sınır döndürüyor; PR #1943 başlangıç reddini iletiyor", "Yüksek", "Taslak: yerel düzeltme inceleme ve yayın bekliyor"],
+        ["SA-2026-063", "Kısıtlı aşamalı ve doğrusal olmayan analizler tanımlı ana düğüm hareketini kaybediyordu; kablo ve zaman tanım alanı analizleri artık desteklenmeyen mesnet hareketlerini reddediyor. Mevcut genel dinamik uyarıları bu eksikliği belirtmiyordu", "Yüksek", "PR #2009 ile düzeltildi, sürüm yayını bekleniyor"],
+        ["SA-2026-064", "Çelik Cb katsayısı başka bir birleşimden veya yanal mesnet konumları bilinmeyen kısa bir aralıktan alınabiliyordu (#1316, #2088). CIRSOC 301 çelik kontrollerini yeniden çalıştırıp eğilme kapasitesini, etkileşim kullanım oranını ve belirleyici birleşimleri inceleyin.", "Yüksek", "0.6.1 sürümünde düzeltildi"],
+        ["SA-2026-065", "Eğimli alıcı çatıda kot farkındaki kar birikimi atlanabiliyordu (#2082). CIRSOC 104 kar yüklerini yeniden üretip etkilenen analizleri ve tasarım kontrollerini yeniden hesaplayın.", "Yüksek", "0.6.1 sürümünde düzeltildi"],
+        ["SA-2026-066", "Mesnetler arasında enine yük varken beton Cm katsayısına uç momentlerinden azaltma uygulanabiliyordu (#2089). Narin kolon ve perdeleri, büyütülmüş momentleri ve donatıyı yeniden kontrol edin.", "Yüksek", "0.6.1 sürümünde düzeltildi"],
+        ["SA-2026-067", "Plandaki dönme üretilen kar yüklerini değiştirebiliyordu (#2093). Gerçek çatı geometrisiyle yükleri yeniden üretip analizleri ve kontrolleri tekrarlayın; eski modeli geri döndürmek sonuçları düzeltmez.", "Yüksek", "0.6.1 sürümünde düzeltildi"],
+        ["SA-2026-068", "Burulma kontrolü yetersiz tasarlanmış etriyelerle başarılı olabiliyordu (#2141). Beton kontrollerini yeniden çalıştırıp gerçek enine kapasiteyi, etriye aralığını ve burulma başarısızlıklarını inceleyin. Kontrol edilmemiş boyuna donatı, başarılı bir donatı kafesi anlamına gelmez.", "Yüksek", "0.6.1 sürümünde düzeltildi"],
+        ["SA-2026-069", "Burulma kesit sınırı eşzamanlı ikincil kesmeyi atlıyordu (#2142). Betonarme tasarımlarını yeniden çalıştırın, kesit hatalarını ve eksik etriyeleri inceleyin; etriye eklemek aşılmış kesit sınırını gidermez.", "Yüksek", "0.6.2 sürümünde düzeltildi"],
+        ["SA-2026-070", "Eleman içi sehim ve dönme, eleman yüklerini atlıyordu (#2143). Tam ve kısmi trapez yükler dahil deforme şekilleri, eğitim okumalarını ve çelik/beton kullanılabilirlik kontrollerini inceleyin. Yeterli EI olmadan yüklü elemanın hesabı artık açıkça reddedilir.", "Yüksek", "0.6.2 sürümünde düzeltildi"],
+        ["SA-2026-071", "Eleman kontrolü eksik eşzamanlı taleplerle başarılı olabiliyordu (#2096). Beton ve çelik tasarımlarını yeniden çalıştırın; birleşimleri, elemanları, istasyonları ve sertifikaları inceleyin.", "Yüksek", "0.6.2 sürümünde düzeltildi"],
+        ["SA-2026-072", "Çatı kenarlarının eşit olmayan bölünmesi mahyayı kaydırıp üretilen kar yüklerini değiştirebiliyordu (#2144). Kar yüklerini yeniden üretip analizleri, birleşimleri ve kontrolleri tekrarlayın. Kayıtlı yükleri yalnızca yeniden çözmek yükleri düzeltmez.", "Yüksek", "0.6.2 sürümünde düzeltildi"],
+        ["SA-2026-073", "Mahyayı geçen çubuklara düzgün basınç uygulanıyor ve fiziksel yük momenti kayboluyordu. Yükler artık fiziksel mahyada bölünür. Etkilenen tüm üretilmiş alan yüklerini yeniden üretip analizleri, birleşimleri ve kontrolleri tekrarlayın. Kayıtlı yükleri yalnızca yeniden çözmek yükleri düzeltmez. (#2176).", "Yüksek", "0.6.2 sürümünde düzeltildi"],
+        ["SA-2026-074", "Eğimli bir merteğin bölünmesi, açık çatı panelini döşeme olarak sınıflandırıp saçak karını uyarı vermeden kaldırabiliyordu. Sınıflandırma artık fiziksel panel izdüşümlerini kullanır. Etkilenen tüm üretilmiş alan yüklerini yeniden üretip analizleri, birleşimleri ve kontrolleri tekrarlayın. Kayıtlı yükleri yalnızca yeniden çözmek yükleri düzeltmez. (#2172). Ayrı bir alt panelin üzerindeki bölünmemiş eğimli mertek de paneli çatı olarak sınıflandırabiliyor, çatı ve döşeme alan yüklerini değiştiriyor ve genişlik modunda uyarısız kar ekleyebiliyordu.", "Yüksek", "0.6.2 sürümünde düzeltildi"],
+        ["SA-2026-075", "CIRSOC 201-2005 ve 2025 kapsamında ikincil kesme ve burulma denetimleri, birincil yöndeki etriye kollarını ve kesit genişliğini hesaba katabiliyordu. Kiriş ve kolonlar, ikincil yöndeki donatı yetersiz olsa bile uyarı verilmeden denetimi geçebiliyordu (#2171). Güncellemeden sonra betonarme tasarımını yeniden çalıştırın ve kayıtlı projenin yeniden denetim bildirimini inceleyin.", "Yüksek", "0.6.2 sürümünde düzeltildi"],
+        ["SA-2026-076", "Tek bir açık duvar, binanın açık sınıflandırılmasına ve iç basıncın kaldırılmasına yol açabiliyordu (#2203). Her duvar ve çatının açıklıklarını inceleyin, yeniden sınıflandırın, W ve Wa yüklerini yeniden üretin ve analiz, birleşim ve kontrolleri tekrarlayın. Yalnızca kayıtlı yükleri yeniden çözmek bunları düzeltmez.", "Yüksek", "0.6.2 sürümünde düzeltildi"],
+        ["SA-2026-077", "Duvar rüzgâr yüklerinde temel kuvvetleri eksikti ve yükler bölünmeye göre değişiyordu (#2204). Her duvar ve çatının açıklıklarını inceleyin, yeniden sınıflandırın, W ve Wa yüklerini yeniden üretin ve analiz, birleşim ve kontrolleri tekrarlayın. Yalnızca kayıtlı yükleri yeniden çözmek bunları düzeltmez.", "Yüksek", "0.6.2 sürümünde düzeltildi"],
+        ["SA-2026-078", "Çatı basınç bölgeleri ve bunların birinci momentleri bölünmeye bağlıydı (#2205). Her duvar ve çatının açıklıklarını inceleyin, yeniden sınıflandırın, W ve Wa yüklerini yeniden üretin ve analiz, birleşim ve kontrolleri tekrarlayın. Yalnızca kayıtlı yükleri yeniden çözmek bunları düzeltmez.", "Yüksek", "0.6.2 sürümünde düzeltildi"],
+        ["SA-2026-079", "Kısmi kabuk örtüsü, yerçekimi yükünün kaybolmasına veya yanlış konumlarda uygulanmasına yol açabiliyordu. Kabuk içeren panel modu yerçekimi yüklerini yeniden üretin, ardından analiz ve tasarımı tekrarlayın. (#2199, #2200)", "Yüksek", "0.6.2 sürümünde düzeltildi"],
+        ["SA-2026-080", "Eksantrik eleman yükü gerektiren bölgeler reddedilir. Çözümden önce döşeme yükü tanımını gözden geçirin. Bir paneli tamamen kaplayan bölge, panelin olağan mesnet tepkilerini uygular. (#2201)", "Yüksek", "0.6.2 sürümünde düzeltildi"],
+        ["SA-2026-082", "Eşlikçi birleşimler düz çatı eleman yükü yerine eğimle azaltılmış karı uyarısız kullanıyordu. Eski deprem tanımları fiziksel karı düz çatı karıyla da karıştırabilir. Kar yüklerini ve birleşimleri yeniden üretip analizleri ve kontrolleri tekrarlayın. (#2211).", "Yüksek", "0.6.2 sürümünde düzeltildi"],
+        ["SA-2026-083", "SA-2026-083: CIRSOC 101 otomatik yük üretimi, en elverişsiz konumları değerlendirilmeyen tekil kullanım ve çatı etkilerini engeller (§4.4). Önceden üretilen düzgün yayılı yükler belirleyici etkileri atlamış olabilir. Analiz ve tasarımı yenilemeden önce etkilenen modelleri inceleyip tekil etkileri elle kontrol edin. (#2207).", "Yüksek", "0.6.2 sürümünde düzeltildi"],
+        ["SA-2026-084", "Uçtan yüklenen bir köşe kaynağını bölmek, etkin uzunluk azaltmasını kaldırabiliyordu (#2243). Etkilenen kaynak grubu kontrollerini tekrarlayın.", "—", "0.6.2 sürümünde düzeltildi"],
+        ["SA-2026-085", "Kısa bir köşe kaynağına gereğinden büyük etkin kenar boyu verilebiliyordu (#2244). Etkilenen kaynak grubu kontrollerini tekrarlayın.", "—", "0.6.2 sürümünde düzeltildi"],
+        ["SA-2026-086", "Üretilen statik deprem yükleri hatalı kat kuvvetlerine ve eleman iç kuvvetlerine yol açabiliyordu. Etkilenen yükleri yeniden üretin ve analiz ile tasarım kontrollerini tekrarlayın.", "Yüksek", "#2316 ile düzeltildi, sürüm bekleniyor"],
+        ["SA-2026-087", "Modal deprem yükü üretimi hatalı eleman iç kuvvetleri verebiliyordu. Uygun olduğunda yükleri statik yöntemle yeniden üretin veya #2319’un çözülmesini bekleyin.", "Yüksek", "#2316 ile yük üretimi engellendi, sürüm bekleniyor"],
+        ["SA-2026-088", "ABS ve SRSS eleman diyagramları yük sınırları arasındaki birleşik fonksiyonun uç değerlerini içerir. Birleşimleri, diyagramları ve bağlı kontrolleri yineleyin (#2273).", "—", "0.6.2 sürümünde düzeltildi"],
+        ["SA-2026-089", "Açık kısıtları olmayan rollerZ veya custom3d türündeki bir 3B mesnet ya da bilinmeyen bir mesnet türü, uyarı verilmeden tam ankastre olarak analiz ediliyordu. Amaçlanan mesnet kısıtlarını gözden geçirip analizi, birleşimleri ve tasarımı yeniden çalıştırın. (#2276).", "Yüksek", "0.6.2 sürümünde düzeltildi"],
+        ["SA-2026-090", "Genişlik modunda kat alanı ve deprem ağırlığı, düğüm sınırlarını kullandığı veya kapalı bölge gerektirdiği için üretilen eleman yüklerinden farklı olabiliyordu. Artık yüklenen elemanların yük alanlarını kullanır. Yerçekimi planlarını, deprem ağırlıklarını ve deprem yüklerini yeniden üretin; bağlı analizleri, birleşimleri ve kontrolleri tekrarlayın. Kayıtlı yükleri yeniden çözmek deprem etkilerini düzeltmez (#2269). (#2210)", "—", "0.6.2 sürümünde düzeltildi"],
+        ["SA-2026-091", "Betonarme kesme, burulma ve deprem etriyesi kontrolleri donatı kanıtı olmadan geçebiliyordu. Sertifikalı tasarımları yeniden doğrulayın ve belirleyici kesitleri, donatı çizimlerini ve raporları inceleyin.", "Yüksek", "Etkilenen kontroller #2338 ile engellendi, sürüm bekleniyor"],
+        ["SA-2026-092", "Ayrıntılı kesit gerilmesi hesabı toplam kayma ve von Mises gerilmelerini düşük gösterip uygunluk sonucu verebiliyordu. Etkilenen gerilmeleri yeniden hesaplayın ve diyagramları, kontrolleri ve raporları inceleyin.", "Yüksek", "Birleşik durum #2372 ile engellendi, kesit çizgileri #2382 ile düzeltildi, sürüm bekleniyor"],
+        ["SA-2026-093", "Düzlem hareketli yükler, tekil dingil yüklerindeki eksenel kuvvet sıçramalarını yayabiliyordu. Etkilenen zarfları ve eksenel kuvvet tesir çizgilerini yeniden hesaplayıp ilgili raporları inceleyin.", "Yüksek", "#2381 ile düzeltildi, sürüm bekleniyor"],
+        ["SA-2026-094", "2B serbest cisim inceleyicisi, global eksenlerdeki eleman uç momentlerini yanlış işaretle gösterebiliyordu. Analiz sonuçları etkilenmedi. Elemanları yeniden inceleyin, etkilenen raporları yeniden oluşturup gözden geçirin.", "Orta", "#2364 ile düzeltildi, sürüm bekleniyor"],
+        ["SA-2026-095", "İşaretli veya belirli elemanlarla sınırlı öz ağırlık kuralları içeren kayıtlı 2B projeler, uyarı vermeden yanlış mesnet tepkileri döndürebiliyordu. Etkilenen bir proje açıldığında yeniden hesaplama bildirimi gösterilir. Sonuçları yeniden hesaplayın, etkilenen raporları yeniden oluşturup gözden geçirin.", "Yüksek", "#2364 ile düzeltildi, sürüm bekleniyor"],
+        ["SA-2026-096", "Statik deprem yükü üretimi, çapraz veya ağ düğümlerini kat sayabiliyor ve çatı elemanlarının atalet yükünü uç düğümlere uygulayabiliyordu. Kat kotlarını ve çatı elemanlarının yüklerini kontrol edin. Analiz ve tasarım kontrollerini yinelemeden önce yük durumlarını yeniden üretin.", "Yüksek", "0.6.3 sürümünde düzeltildi"],
+        ["SA-2026-097", "Çalışma kitabı içe aktarılırken model verileri atlanabiliyor, 2B dışa aktarımda dönme yayı öteleme yayı olarak etiketlenebiliyordu. İçe aktarılan modeli özgün çalışma kitabıyla karşılaştırın, dosyayı düzeltip yeniden içe aktarın. Mesnetleri ve yükleri doğrulayın, etkilenen analizleri ve dışa aktarımları yineleyin.", "Yüksek", "0.6.3 sürümünde düzeltildi"],
+        ["SA-2026-098", "Betonarme kontrolleri aşırı etriye aralığını kabul edebiliyor veya kesitte bulunmayan donatıyı hesaba katabiliyordu. Kolon çizimlerinde yanlış donatı çapları gösterilebiliyordu. Belirtilen donatıyı eşzamanlı iç kuvvetlerle yeniden kontrol edin ve etkilenen çizimleri, donatı listelerini ve raporları inceleyin.", "Yüksek", "0.6.3 sürümünde düzeltildi"],
+        ["SA-2026-099", "Yerçekimi yükü üretimi kabuk ve kiriş alanlarını iki kez yükleyebiliyor veya plan dönüşü ya da bölme sonrasında yük taşıyan elemanları değiştirebiliyordu. Çatı kot farkındaki kar birikiminin aktarımında kuvvet ve moment kaybı olabiliyordu. Yükleri yeniden üretin ve üretim engellenirse bağımsız olarak doğrulanmış yük durumlarını kullanın.", "Yüksek", "0.6.3 sürümünde engellendi"],
+        ["SA-2026-100", "Mesnet momentleri, serbest cisim okumaları ve tekil yük listeleri yanlış işaret veya eksen gösterebiliyordu. Değerleri dengeye ve yük yönlerine göre doğrulayın. Etkilenen sonuçları tekrar inceleyin ve raporları yeniden oluşturun.", "Orta", "Sonraki sürüm (0.6.4)"],
+        ["SA-2026-101", "PRO, eksik plaklarla, eksik girdilerden oluşturulan ağlarla veya bağlantısız perde-döşeme birleşimleriyle çözüm yapabiliyordu. Ağı amaçlanan geometriyle karşılaştırın, etkilenen plakları ve birleşimleri düzeltin, ardından analizi ve tasarım kontrollerini yineleyin.", "Yüksek", "Sonraki sürüm (0.6.4)"],
+        ["SA-2026-102", "Diyagramlar tekil etkilerin yakınında yanlış en büyük değerler veya kesit tesirleri verebiliyordu. Ters yönlü parçalar betonarme tasarım yüzlerini değiştirebiliyordu. Belirleyici tesirleri, donatı yüzlerini ve çelik moment gradyanı girdilerini kontrol edip etkilenen analizleri ve kontrolleri yineleyin.", "Yüksek", "Sonraki sürüm (0.6.4)"],
+        ["SA-2026-103", "Betonarme burulma ve kesme kontrolleri yetersiz enine donatıyı kabul edebiliyor veya doğrulanmamış çevre ya da çekme donatısını hesaba katabiliyordu. Gerçek donatı ve eşzamanlı kesit tesirleriyle kontrolleri yineleyin ve etkilenen raporları inceleyin.", "Yüksek", "Sonraki sürüm (0.6.4)"],
+        ["SA-2026-104", "Elemanları ters çevirmek yayılı yüklerin yönünü değiştirebiliyor ve analiz eski düzlemsel tekil momentleri atlayabiliyordu. Kaydedilen yük yönlerini, uç değerlerini ve moment alanlarını kontrol edin. Yükleri düzeltip etkilenen analizleri ve tasarım kontrollerini yineleyin.", "Yüksek", "Sonraki sürüm (0.6.4)"],
+        ["SA-2026-105", "Geri yüklenen düzlemsel bir tekil moment sıfırlandığında eski moment uygulanmaya devam edebiliyordu. Amaçlanan momentleri doğrulayıp yeniden girin, ardından etkilenen analizleri ve tasarım kontrollerini yineleyin.", "Yüksek", "0.6.3’ten sonraki ilk sürüm"],
+        ["SA-2026-106", "Ağ yenileme, eğri plak kenarının tamamlayıcı yayını kullanabiliyordu. Ağı belirtilen yayla karşılaştırın, etkilenen ağları yeniden oluşturun ve analizi ve tasarım kontrollerini yineleyin.", "Yüksek", "0.6.3’ten sonraki ilk sürüm (koruma önlemi)"],
+        ["SA-2026-107", "Ağ yenileme, kabuk ofseti ve eğrilik düzenlemelerini silebiliyordu. Analizi ve tasarım kontrollerini yinelemeden önce amaçlanan kabuk özelliklerini doğrulayıp geri yükleyin.", "Yüksek", "0.6.3’ten sonraki ilk sürüm (koruma önlemi)"],
+        ["SA-2026-108", "XZ veya YZ düzlemine izdüşüm, düğüm kuvvetinin analiz düzlemine dik bileşenini uyarı vermeden atlayabiliyordu. Her yük durumundaki düğüm kuvvetlerini kontrol edin ve etkilenen analizleri ve tasarım kontrollerini uzamsal modelle yineleyin.", "Yüksek", "0.6.4’ten sonraki ilk sürüm"],
+        ["SA-2026-109", "Düzlemsel DXF çizimlerindeki tanınmayan mesnet etiketleri uyarı verilmeden mafsallı mesnet olarak içe aktarılabiliyordu. İçe aktarılan mesnetleri özgün çizimle karşılaştırın, farklılıkları düzeltin ve etkilenen analizleri yineleyin.", "Yüksek", "0.6.4’ten sonraki ilk sürüm"],
+        ["SA-2026-110", "Web analizi, sonlu olmayan rijitlikteki bir yayı veya bir birleşimdeki yük durumunu uyarı vermeden atlayabiliyordu. Yay rijitliklerini, yük durumu adlarını ve net katsayıları kontrol edip etkilenen analizleri ve birleşimleri yeniden hesaplayın.", "Yüksek", "0.6.4’ten sonraki ilk sürüm"],
+        ["SA-2026-111", "Panel yöntemiyle otomatik yerçekimi yükü oluşturma, aynı döşeme yükünü iki kez hesaba katabiliyordu. Örtüşen kabukları ve bunlara bağlı kiriş gözlerini kontrol edin, etkilenen kayıtlı yerçekimi yükü planlarını yeniden oluşturun ve ilgili analizleri yineleyin.", "Yüksek", "0.6.4’ten sonraki ilk sürüm"]
       ]
     },
     {
@@ -710,7 +866,7 @@ const body: PostBody = {
       "k": "ul",
       "items": [
         "Nasıl anlarsınız: modelde “kablo” davranışlı çubuklar vardır, bunların malzemesinin yoğunluğu tanımlıdır ve kablo tek yük aktarım yolu değildir.",
-        "Ne yapmalı: belirleyici kablo ve ankraj kuvvetlerini elle kontrol edin ya da kablo malzemesinde yoğunluk olmadan çözün (ağırlık olmadan bağıntı doğruydu); düzeltme yayımlandıktan sonra yeniden çalıştırın.",
+        "Ne yapmalı: Belirleyici kablo ve ankraj kuvvetlerini kablonun öz ağırlığını hesaba katarak bağımsız olarak doğrulayın. Analizi düzeltilmiş bir sürümle yeniden çalıştırın.",
         "Durum: 0.3.0'da düzeltildi. Kablo analizi artık kord bağıntısının kendisini Newton iterasyonuyla çözüyor."
       ]
     },

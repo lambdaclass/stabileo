@@ -21,7 +21,7 @@ it('renders citations without empty separators and descriptive leads for every l
       const byline = card.match(/<p class="rs-g-by[^>]*>([\s\S]*?)<\/p>/)![1].replace(/<[^>]*>/g, '');
       expect(byline).not.toMatch(/(?:[,·]\s*[,·]|\.\s+[,·])/);
       const lead = card.match(/<p class="rs-g-hook[^>]*>([\s\S]*?)<\/p>/)![1].replace(/<[^>]*>/g, '');
-      expect(lead.length).toBeGreaterThan(30);
+      expect(lead.length).toBeGreaterThan(locale === 'zh' ? 12 : 30);
       expect(lead).not.toMatch(/^(First version|Primera versión|Primeira versão).*\d+ (reviews|revisiones|revisões)/);
     }
   }
@@ -29,9 +29,9 @@ it('renders citations without empty separators and descriptive leads for every l
 /** Papers whose second review round (Kimi, Codex, Claude; 2026-10-30) is fixed and recorded. */
 const SECOND_ROUND = new Set(['mattiasson-elastica', 'ferrari-2025', 'shauer-2025', 'grossman-2026', 'fairclough-2026', 'zmyslony-2026', 'pastrana-2026', 'riks-1979', 'horne-1979', 'macneal-harder-1985', 'cqc-1981', 'newmark-1959', 'navier-plate', 'dadeppo-arch-1975', 'lee-frame-1968', 'andreassen-2011']);
 const ROUNDS: Record<string, number> = { 'mattiasson-elastica': 3 };
-const AWAITING_REVIEW = new Set(['gay-neto-2014', 'feher-sipos-varkonyi-2026']);
+const AWAITING_REVIEW = new Set(['gay-neto-2014', 'feher-sipos-varkonyi-2026', 'heyman-1966']);
 const REVIEWED = EXPERIMENTS.filter(e => !AWAITING_REVIEW.has(e.paperId));
-const REVIEW_NOTE = /First version|Primera versión|Primeira versão|Erste Version|Première version|İlk sürüm|review rounds?\b|rondas? de revisión|rodadas? de revisão|Prüfrunden?|cycles? de revue|inceleme turu/;
+const REVIEW_NOTE = /First version|Primera versión|Primeira versão|Erste Version|Première version|İlk sürüm|review rounds?\b|rondas? de revisión|rodadas? de revisão|Prüfrunden?|cycles? de revue|inceleme turu|Első változat|felülvizsgálati köre?\b/;
 it.each(EXPERIMENTS)('$paperId has authors, publication, year and its completed review rounds', e => {
   const paper = catalog.papers.find(p => p.id === e.paperId)!;
   const b = bibliography(paper);
@@ -59,7 +59,7 @@ it('translates the gallery scope in all six locales', () => {
   for (const locale of PUBLIC_LOCALES) {
     setLocale(locale);
     titles.add(rs().researchTitle);
-    expect(rs().galleryLead.length).toBeGreaterThan(80);
+    expect(rs().galleryLead.length).toBeGreaterThan(locale === 'zh' ? 30 : 80);
     expect(rs().galleryLead).toContain('Stabileo');
   }
   expect(titles.size).toBe(PUBLIC_LOCALES.length);
@@ -91,8 +91,9 @@ it('titles the Riks card in the language its article is written in', async () =>
 
 it('names each thumbnail link by its localized card title and keeps the image decorative', async () => {
   const { cardTitle } = await import('../card-title');
-  for (const locale of ['en', 'es', 'pt']) {
+  for (const locale of PUBLIC_LOCALES.filter(locale => ['en', 'es', 'pt', 'hu', 'zh'].includes(locale))) {
     setLocale(locale);
+    expect(publicI18n.locale).toBe(locale);
     const { body } = render(Gallery);
     const thumbs = [...body.matchAll(/<a[^>]*class="rs-g-thumb[^"]*"[^>]*>([\s\S]*?)<\/a>/g)];
     expect(thumbs).toHaveLength(EXPERIMENTS.length);
@@ -105,12 +106,30 @@ it('names each thumbnail link by its localized card title and keeps the image de
 
 it('the bent-strip card shows its own localized lead', async () => {
   const { translations } = await import('../feher2026/strings');
-  for (const locale of ['en', 'es', 'pt']) {
+  for (const locale of PUBLIC_LOCALES.filter(locale => ['en', 'es', 'pt', 'hu', 'zh'].includes(locale))) {
     setLocale(locale);
+    expect(publicI18n.locale).toBe(locale);
     const { body } = render(Gallery);
     const cards = [...body.matchAll(/<li class="rs-g-runcard[^>]*>([\s\S]*?)<\/li>/g)];
     const card = cards.find(([html]) => html.includes('/research/stability/feher-sipos-varkonyi-2026'))![0];
     const lead = card.match(/<p class="rs-g-hook[^>]*>([\s\S]*?)<\/p>/)![1].replace(/<[^>]*>/g, '');
     expect(lead).toBe(translations[locale].lead);
+  }
+});
+
+it('gives every card its own paper’s lead in every language, never another paper’s', async () => {
+  const { cardHook } = await import('../card-hook');
+  const { riserHook } = await import('../gayNeto2014/card');
+  for (const locale of PUBLIC_LOCALES) {
+    setLocale(locale);
+    const hooks = EXPERIMENTS.map((e) => [e.paperId, cardHook(e)] as const);
+    for (const [paperId, hook] of hooks) {
+      const sharing = hooks.filter(([, other]) => other === hook).map(([id]) => id);
+      expect(sharing, `${locale}: ${paperId}`).toEqual([paperId]);
+    }
+    const riser = EXPERIMENTS.find((e) => e.paperId === 'gay-neto-2014')!;
+    expect(cardHook(riser)).toBe(riserHook[locale as keyof typeof riserHook]);
+    const { body } = render(Gallery);
+    for (const [, hook] of hooks) expect(body).toContain(hook.replace(/&/g, '&amp;').replace(/</g, '&lt;'));
   }
 });

@@ -1,0 +1,43 @@
+{
+  "id": "floor-zone-eccentricity",
+  "date": "2026-11-17",
+  "prs": [
+    2201,
+    2282
+  ],
+  "area": "loads",
+  "when": {
+    "all": [
+      "space3D",
+      "memberFloorZones"
+    ]
+  },
+  "quantities": [
+    "*",
+    "solve.ok"
+  ],
+  "title": {
+    "en": "Eccentric floor-load zones are refused",
+    "es": "Se rechazan las zonas de carga excéntricas",
+    "pt": "Zonas de piso excêntricas são recusadas",
+    "de": "Exzentrische Flächenlastbereiche werden abgelehnt",
+    "fr": "Les zones de charge de plancher excentrées sont refusées",
+    "tr": "Eksantrik döşeme yükü bölgeleri reddedilir",
+    "zh": "偏心的楼面荷载区域会被拒绝",
+    "hu": "A külpontos födémteher-zónák elutasítása"
+  },
+  "explanation": {
+    "en": "Floor zones that require eccentric member loads are refused. Review the floor-load definition before solving. A zone covering a complete panel applies the ordinary panel reactions.",
+    "es": "Las zonas que requieren cargas excéntricas en las barras se rechazan. Revisá la definición de carga de piso antes de calcular. Una zona que cubre todo un paño aplica las reacciones habituales del paño.",
+    "pt": "Zonas que exigem cargas excêntricas nas barras são recusadas. Revise a definição da carga de piso antes do cálculo. Uma zona que cobre um painel inteiro aplica as reações usuais do painel.",
+    "de": "Lastbereiche mit erforderlichen exzentrischen Stablasten werden abgelehnt. Prüfen Sie die Flächenlastdefinition vor der Berechnung. Ein Lastbereich, der ein ganzes Feld abdeckt, verwendet die üblichen Feldreaktionen.",
+    "fr": "Les zones nécessitant des charges excentrées sur les barres sont refusées. Vérifiez la définition de la charge de plancher avant de calculer. Une zone qui couvre un panneau entier applique les réactions habituelles du panneau.",
+    "tr": "Eksantrik eleman yükü gerektiren bölgeler reddedilir. Çözümden önce döşeme yükü tanımını gözden geçirin. Bir paneli tamamen kaplayan bölge, panelin olağan mesnet tepkilerini uygular.",
+    "zh": "需要施加偏心杆件荷载的楼面区域会被拒绝。求解前请复核楼面荷载的定义。覆盖完整板块的区域施加普通的板块支座反力。",
+    "hu": "A külpontos rúdterhet igénylő zónák nem használhatók. Számítás előtt ellenőrizze a födémteher meghatározását. A teljes mezőt lefedő zóna a mező szokásos támaszreakcióit adja."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-gravity-core.md",
+    "heading": "Eccentric floor-load zones are refused"
+  }
+}

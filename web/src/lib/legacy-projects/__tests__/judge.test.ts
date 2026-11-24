@@ -1,18 +1,23 @@
 /** The verdicts of the legacy-projects test (#718), and the negative tests that prove they fail. */
 import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { modelFeatures, type FeatureSnapshot } from '../../provenance/model-features';
 import * as applicability from '../../provenance/applicability';
 import refinementEvidence from '../../../../../docs/results-changes/1753-refinement-corpus-evidence.json';
-import { initSolver } from '../../engine/wasm-solver';
+import appliedForceEvidence from '../../../../../docs/results-changes/2223-independent-applied-force-corpus-evidence.json';
+import declaredQuantities from 'virtual:result-change-quantities';
+import frozenInputs from '../../results-snapshot/frozen-inputs.json';
+import { initSolver, solveSSI3D } from '../../engine/wasm-solver';
 import type { ResultChange } from '../../provenance/registry';
-import { RESULT_CHANGES } from '../../provenance/full-registry';
+import { RESULT_CHANGES, RESULT_CHANGES as CURRENT_RESULT_CHANGES } from '../../provenance/full-registry';
 import {
-  againstExample, captureExample, currentFixtureBlob, declaresMove, fingerprintDifference, judge, modelFingerprint, migrationMessage, openAndSolve, openSession,
+  againstExample, captureExample, currentFixtureBlob, declaresMove, fingerprintDifference, judge, modelFingerprint, migrationMessage, openAndSolve, openExample, openSession,
   readCorpusText, readManifest, readResults, resultFingerprint, savedFixture, unexplainedMessage,
 } from '../legacy';
 import type { Values } from '../capture-results';
+import { fieldCovered } from '../../../../scripts/results-snapshot/applicability.mjs';
 import { modelStore } from '../../store/model.svelte';
 
-const change = (id: string, quantities?: ResultChange['quantities']): ResultChange => ({ ...RESULT_CHANGES.changes[0], id, resultsVersion: 1, quantities });
+const change = (id: string, quantities?: ResultChange['quantities']): ResultChange => ({ ...RESULT_CHANGES.changes[0], id, area: 'analysis', resultsVersion: 1, when: {}, quantities });
 const designOnly = change('design-only');
 const shellStresses = change('shell-stresses', ['quadStresses.sigmaXx', 'quadStresses.sigmaYy']);
 const everything = change('everything', ['*']);
@@ -54,6 +59,94 @@ describe('which values a registered change declares it moves', () => {
     expect(declaresMove(change('r', ['reactions']), 'unstableCombinations')).toBe(false);
     expect(declaresMove(everything, 'model.nodes')).toBe(false);
     expect(declaresMove(refusals, 'base.reactions[n1].rz')).toBe(false);
+  });
+});
+
+describe('analysis-specific result changes', () => {
+  it.each(['generated-member-cuts', 'wind-endpoint-arithmetic'])('known wrong result: #2223 — %s cannot explain unrelated full-length member responses', (id) => {
+    for (const analysisMode of ['2d', '3d']) for (const analysis of ['linear', 'pdelta', 'nonlinear']) {
+      for (const explicitEndpoints of [false, true]) {
+        const snapshot: FeatureSnapshot = {
+          analysisMode,
+          elements: [[1, { id: 1, nodeI: 1, nodeJ: 2, materialId: 1, type: 'frame' }]],
+          loads: [{ type: analysisMode === '2d' ? 'distributed' : 'distributed3d', data: { elementId: 1, ...(explicitEndpoints ? { a: 1, b: 2 } : {}) } }],
+        };
+        const features = modelFeatures(snapshot);
+        const registered = RESULT_CHANGES.changes.find(c => c.id === id)!;
+        const entry = { ...registered, quantities: declaredQuantities[id]!.filter((q): q is string => typeof q === 'string') };
+        const applicable = applicability.conditionHolds(entry.when ?? {}, features) ? [entry] : [];
+        const prefix = analysis === 'linear' ? 'base' : `${analysis}.results`;
+        for (const field of ['displacements[n2].uz', 'reactions[n1].mz', 'elementForces[e1].nStart']) {
+          const path = `${prefix}.${field}`;
+          const covers = id === 'wind-endpoint-arithmetic' && explicitEndpoints;
+          expect(fieldCovered(entry, path, [...features]), `${id} ${analysisMode} ${analysis} ${explicitEndpoints} ${field}`).toBe(covers);
+          if (analysis === 'linear') for (const family of ['base', 'case[1]', 'combo[1]']) {
+            const linearPath = `${family}.${field}`;
+            expect(judge('unrelated response', { [linearPath]: 1 }, { [linearPath]: 2 }, applicable).kind).toBe(covers ? 'explained' : 'unexplained');
+            expect(judge('unchanged response', { [linearPath]: 1 }, { [linearPath]: 1 }, applicable).kind).toBe('same');
+          }
+        }
+        if (id === 'generated-member-cuts') expect(fieldCovered(entry, 'solve.ok', [...features])).toBe(true);
+        if (id === 'wind-endpoint-arithmetic') expect(fieldCovered(entry, 'solve.ok', [...features])).toBe(explicitEndpoints);
+      }
+    }
+  });
+
+  it('#2222 keeps point-load changes unexplained and covers partial-load subdivision corrections', () => {
+    const registered = RESULT_CHANGES.changes.find(c => c.id === 'narrow-partial-loads')!;
+    const entry = { ...registered, quantities: declaredQuantities[registered.id]!.filter((q): q is string => typeof q === 'string') };
+    const summary = RESULT_CHANGES.changes.find(c => c.id === 'independent-applied-force-checks')!;
+    const summaryEntry = { ...summary, quantities: declaredQuantities[summary.id]!.filter((q): q is string => typeof q === 'string') };
+    for (const analysisMode of ['2d', '3d']) for (const analysis of ['linear', 'pdelta', 'nonlinear']) {
+      for (const type of ['pointOnElement', 'pointOnElement3d', 'distributed', 'distributed3d', 'nodal']) {
+        const features = [...modelFeatures({ analysisMode, loads: [{ type, data: { a: 1.5, b: 1.5 + 5e-13 } }] }), `analysis:${analysis}`];
+        const prefix = analysis === 'linear' ? 'base' : `${analysis}.results`;
+        for (const field of ['elementForces[e1].nStart', 'displacements[n2].uz']) {
+          expect(fieldCovered(entry, `${prefix}.${field}`, features), `${type}: ${field}`).toBe(type.startsWith('distributed'));
+          expect(fieldCovered(summaryEntry, `${prefix}.${field}`, features)).toBe(false);
+        }
+        expect(fieldCovered(summaryEntry, `${prefix}.equilibrium.appliedForceSum`, features)).toBe(type !== 'nodal');
+      }
+    }
+  });
+
+  it('nonlinear and SSI notices cannot explain linear results', () => {
+    for (const id of ['arc-length-reference-norm', 'ssi-support-reactions']) {
+      const registered = RESULT_CHANGES.changes.find(c => c.id === id)!;
+      const entry = { ...registered, quantities: declaredQuantities[id]!.filter((q): q is string => typeof q === 'string') };
+      expect(entry.quantities).toBeDefined();
+      const field = id === 'ssi-support-reactions' ? 'reactions[n1].rz' : 'elementForces[e1].nStart';
+      const analysis = id === 'ssi-support-reactions' ? 'ssi' : 'nonlinear';
+      for (const dimension of ['plane2D', 'space3D']) {
+        expect(fieldCovered(entry, `${analysis}.results.${field}`, [dimension, 'members', `analysis:${analysis}`])).toBe(id === 'ssi-support-reactions' || dimension === 'plane2D');
+      }
+      for (const prefix of ['base', 'case[2]', 'combo[1]']) {
+        const path = `${prefix}.${field}`;
+        expect(declaresMove(entry, path), `${id}: ${path}`).toBe(false);
+        expect(judge(id, reference, moved({ [path]: 99 }), [entry]).kind).toBe('unexplained');
+      }
+      expect(judge(id, reference, reference, [entry]).kind).toBe('same');
+    }
+  });
+
+  it('analysis conditions agree with the snapshot gate', () => {
+    for (const analysis of ['linear', 'pdelta', 'modal', 'buckling', 'spectral', 'timeHistory', 'plastic', 'nonlinear', 'harmonic', 'ssi']) {
+      const entry = { ...change(analysis), quantities: ['reactions'], when: { all: [`analysis:${analysis}`] } };
+      const features = ['plane2D', 'space3D', 'members', `analysis:${analysis}`];
+      for (const prefix of ['base', 'case[2]', 'combo[1]']) {
+        const path = `${prefix}.reactions[n1].rz`;
+        expect(declaresMove(entry, path), analysis).toBe(analysis === 'linear');
+        expect(declaresMove(entry, path), analysis).toBe(fieldCovered(entry, path, features));
+      }
+    }
+    for (const when of [{ any: ['analysis:nonlinear', 'analysis:ssi'] }, { allOf: [['analysis:nonlinear', 'analysis:ssi']] }]) {
+      const scoped = { ...change('advanced-only', ['reactions', 'solve.ok']), when };
+      expect(declaresMove(scoped, 'base.reactions[n1].rz')).toBe(false);
+      expect(declaresMove(scoped, 'solve.ok')).toBe(false);
+    }
+    for (const when of [{ any: ['analysis:linear', 'analysis:nonlinear'] }, { allOf: [['analysis:linear', 'analysis:ssi']] }]) {
+      expect(declaresMove({ ...change('either', ['reactions']), when }, 'base.reactions[n1].rz')).toBe(true);
+    }
   });
 });
 
@@ -199,6 +292,21 @@ describe('against real corpus files', () => {
     expect(v.report).toContain('base.elementForces[e1].nStart');
   }, 120_000);
 
+  it('the legacy deep-beam shell has SSI support reactions even without soil springs', async () => {
+    const opened = await openAndSolve(readCorpusText('v0.4.0/deep-beam-shell.ded'));
+    expect(opened.changes.map(c => c.id)).toContain('ssi-support-reactions');
+    const solver = modelStore.buildSolverInput3D(true);
+    expect(solver).not.toBeNull();
+    const control = frozenInputs.find(c => c.analysis === 'solve_ssi_3d')!;
+    const response = solveSSI3D({ ...control.input[0], solver });
+    expect(response.converged).toBe(true);
+    expect(response.results.reactions.length).toBeGreaterThan(0);
+    expect(response.results.reactions.some((r: Record<string, unknown>) =>
+      Object.entries(r).some(([key, value]) => key !== 'nodeId' && typeof value === 'number' && value !== 0))).toBe(true);
+  });
+
+  describe.each([false, true])('SSI notice registered: %s', (includeSSI) => {
+    const RESULT_CHANGES = includeSSI ? CURRENT_RESULT_CHANGES : { ...CURRENT_RESULT_CHANGES, changes: CURRENT_RESULT_CHANGES.changes.filter(c => c.id !== 'ssi-support-reactions') };
   for (const [mainFirst, sharedVersion] of [[false, false], [true, false], [true, true]]) {
     it(`NEGATIVE: v0.4.0 deep-beam-shell: with the linear re-check notice, only stresses are explained (${mainFirst ? 'main-first order' : 'checkout order'}${sharedVersion ? ', shared pending version' : ''})`, async () => {
       const registry = mainFirst ? {
@@ -225,8 +333,14 @@ describe('against real corpus files', () => {
           'shell-envelope-per-component', 'modal-mechanism-refused', 'shell-figures-paint-the-screen-field', 'safety-containment-diagnostics',
           'harmonic-modal-residual-checked', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-supported-and-soil-equilibrium', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-reference-and-initial-shaft-stiffness',
           'soft-rotation-not-orphan', 'linear-small-displacement-warning', 'harmonic-modal-or-direct-per-frequency', 'combined-shell-stresses', 'linear-stability-refusals', 'harmonic-omitted-modes', 'linear-pin-coupling',
+          'time-history-reaction-availability', 'time-history-withheld-reaction-estimates', 'independent-applied-force-checks', 'compensated-applied-force-totals',
+          ...(includeSSI ? ['ssi-support-reactions'] : []),
         ]));
-        if (mainFirst) expect(opened.changes.slice(-8).map(c => c.id)).toEqual(orderedIds(['harmonic-omitted-modes', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-supported-and-soil-equilibrium', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-reference-and-initial-shaft-stiffness', 'linear-stability-refusals', 'linear-pin-coupling']));
+        if (includeSSI) {
+        if (mainFirst) expect(opened.changes.slice(-13).map(c => c.id)).toEqual(orderedIds(['compensated-applied-force-totals', 'independent-applied-force-checks', 'time-history-reaction-availability', 'time-history-withheld-reaction-estimates', 'harmonic-omitted-modes', 'ssi-support-reactions', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-supported-and-soil-equilibrium', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-reference-and-initial-shaft-stiffness', 'linear-stability-refusals', 'linear-pin-coupling']));
+        } else {
+        if (mainFirst) expect(opened.changes.slice(-12).map(c => c.id)).toEqual(orderedIds(['compensated-applied-force-totals', 'independent-applied-force-checks', 'time-history-reaction-availability', 'time-history-withheld-reaction-estimates', 'harmonic-omitted-modes', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-supported-and-soil-equilibrium', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-reference-and-initial-shaft-stiffness', 'linear-stability-refusals', 'linear-pin-coupling']));
+        }
         const then = readResults(`v0.4.0/${entry.results}`);
         const stress = Object.keys(then).find((k) => /^base\.quadStresses\[[^\]]+\]\.sigmaXx$/.test(k))!;
         const disp = Object.keys(then).find((k) => /^base\.displacements\[[^\]]+\]\.uz$/.test(k) && then[k] !== 0)!;
@@ -240,6 +354,7 @@ describe('against real corpus files', () => {
       }
     }, 120_000);
   }
+  });
 
   it('the numerical evidence fingerprints the unchanged historical corpus files', () => {
     for (const entry of refinementEvidence.cases) {
@@ -253,9 +368,16 @@ describe('against real corpus files', () => {
     const opened = await openAndSolve(readCorpusText('v0.4.0/cable-stayed-bridge.ded'));
     const entry = readManifest('v0.4.0').examples.find((e) => e.example === 'cable-stayed-bridge')!;
     const then = readResults(`v0.4.0/${entry.results}`);
+    expect(resultFingerprint(opened.values)).toBe(appliedForceEvidence.mainFingerprint);
+    const uncompensatedValues = { ...opened.values };
+    for (const delta of appliedForceEvidence.changes) {
+      expect(opened.values[delta.path]).toBe(delta.before);
+      uncompensatedValues[delta.path] = delta.after;
+    }
+    expect(resultFingerprint(uncompensatedValues)).toBe(appliedForceEvidence.afterFingerprint);
     const baseline = judge('recorded bridge', then, opened.values, opened.changes);
-    expect(baseline.kind).toBe('explained');
-    expect(baseline.explainedBy.some((id) => id.startsWith('linear-stability-refusals '))).toBe(true);
+    expect(baseline.kind, baseline.report).toBe('explained');
+    expect(baseline.explainedBy).toEqual([`linear-stability-refusals (results v${RESULT_CHANGES.changes.find(c => c.id === 'linear-stability-refusals')!.resultsVersion})`]);
     for (const field of ['displacements.rz', 'displacements.uz', 'reactions.mz', 'elementForces.nStart']) {
       const [collection, component] = field.split('.');
       const path = Object.keys(then).find((k) => k.startsWith(`base.${collection}[`) && k.endsWith(`.${component}`) && typeof then[k] === 'number' && then[k] !== 0 && typeof opened.values[k] === 'number' && opened.values[k] !== 0)!;
@@ -398,7 +520,8 @@ describe('against real corpus files', () => {
 
       it('NEGATIVE: loaded by today\'s loader, its rebuilt combinations differ from the file\'s', async () => {
         const opened = await openAndSolve(readCorpusText(`v0.4.0/${shed.file}`));
-        const { failure } = await againstExample('shed', 'v9.9.9', shed, opened, false);
+        const current = await openExample(shed.example, shed.workspace, { solve: false, fixture: savedFixture(shed.example, shed.fixtureBlob).fixture });
+        const failure = fingerprintDifference('shed with current combinations', current.fingerprint, opened.fingerprint);
         expect(failure).toContain('combination[1].factors: "1:1.4" → "1:1.2 2:1.6"');
       }, 120_000);
     });

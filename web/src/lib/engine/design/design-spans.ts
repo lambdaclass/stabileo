@@ -1,3 +1,7 @@
+import { tp } from '../../i18n';
+import { CompleteDemandSet, type ScopedDemand } from '../complete-demand-set';
+import { completeMemberDemands } from '../member-demand-gate';
+import { ConcurrentDemand } from '../concurrent-demand';
 /**
  * The span a beam is designed as: from support to support, whatever the analysis cut it into.
  *
@@ -35,12 +39,13 @@ import {
   computeBeamCriticalSections, extractGoverningDemands,
   type ElementStationResult, type StationForces,
 } from '../station-design-forces';
-import { resolveDesignAxes, uprightBeam } from './design-axes';
-import type { ContextModelData, MemberContext } from './member-context';
+import { resolveDesignAxes } from './design-axes';
+import { declaredContextMembers, type ContextModelData, type MemberContext } from './member-context';
 import type { LimitingConstraint } from './outcome';
 import { spanLateralReading } from '../../model/lateral-system';
 
 type Vec = [number, number, number];
+type SpanAxesModel = Pick<SpanSourceModel, 'nodes' | 'elements' | 'sections'>;
 
 /** The model slice the spans are read from. */
 export interface SpanSourceModel extends Omit<SpanModel, 'nodes' | 'elements'> {
@@ -49,7 +54,7 @@ export interface SpanSourceModel extends Omit<SpanModel, 'nodes' | 'elements'> {
     id: number; nodeI: number; nodeJ: number; type: string; sectionId: number; materialId: number;
     rollAngle?: number; localYx?: number; localYy?: number; localYz?: number;
   }>;
-  sections?: ReadonlyMap<number, { rotation?: number }>;
+  sections?: ReadonlyMap<number, { rotation?: number; shape?: string }>;
 }
 
 /** A beam span of two or more elements, laid from its start node to its end node. */
@@ -108,19 +113,20 @@ export function designSpans(
   const out: DesignSpan[] = [];
   for (const span of new Set(all.values())) {
     if (span.elements.length < 2 || !span.elements.every(isBeam)) continue;
-    // Cut where the section, the material, the roll or the physical member changes.
     const sameAs = (a: number, b: number) => {
       const p = model.elements.get(a)!, q = model.elements.get(b)!;
       return p.sectionId === q.sectionId && p.materialId === q.materialId
-        && memberRoll(p, model.sections) === memberRoll(q, model.sections) && groupOf(a) === groupOf(b);
+        && groupOf(a) === groupOf(b)
+        && compatibleSectionAxes(model, p.sectionId, axes.get(a)!, axes.get(b)!);
     };
+    const axes = new Map(span.elements.map(id => [id, axesOf(model, id)]));
     let run: number[] = [];
     const flush = () => {
       if (run.length >= 2) out.push(laid(model, span.elements, span.reversed, run));
       run = [];
     };
     span.elements.forEach((id, k) => {
-      if (k > 0 && !sameAs(span.elements[k - 1]!, id)) flush();
+      if (run.some(i => !sameAs(span.elements[i]!, id))) flush();
       run.push(k);
     });
     flush();
@@ -136,7 +142,11 @@ function laid(model: SpanSourceModel, ids: number[], rev: boolean[], run: number
     return first === !reversed[k] ? e.nodeI : e.nodeJ;
   };
   let start = endOf(0, true), end = endOf(elements.length - 1, false);
-  if (before(model.nodes.get(end)!, model.nodes.get(start)!)) {
+  const sectionId = model.elements.get(elements[0]!)!.sectionId;
+  const reverseOrder = sectionAllowsSideReflection(model, sectionId)
+    ? before(model.nodes.get(end)!, model.nodes.get(start)!)
+    : reversed[0];
+  if (reverseOrder) {
     elements = [...elements].reverse(); reversed = [...reversed].reverse().map((r) => !r);
     [start, end] = [end, start];
   }
@@ -156,7 +166,7 @@ function laid(model: SpanSourceModel, ids: number[], rev: boolean[], run: number
 const dot = (a: Vec, b: Vec) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 
 /** An element's local axes, as the solve reads them. */
-function axesOf(model: SpanSourceModel, id: number): LocalAxes3D {
+function axesOf(model: SpanAxesModel, id: number): LocalAxes3D {
   const e = model.elements.get(id)!;
   const a = model.nodes.get(e.nodeI)!, b = model.nodes.get(e.nodeJ)!;
   const localY = e.localYx !== undefined && e.localYy !== undefined && e.localYz !== undefined
@@ -164,15 +174,44 @@ function axesOf(model: SpanSourceModel, id: number): LocalAxes3D {
   return computeLocalAxes3D({ id: a.id, ...P(a) }, { id: b.id, ...P(b) }, localY, memberRoll(e, model.sections));
 }
 
-/**
- * The span's local axes: a piece that runs along it lends its own; when every piece runs against
- * it, the first one's turned end for end (x and z reversed, y kept: `flip-members.ts`).
- */
-function spanAxes(model: SpanSourceModel, span: DesignSpan): { ex: Vec; ey: Vec; ez: Vec } {
-  const k = span.reversed.findIndex((r) => !r);
-  const ax = axesOf(model, span.elements[Math.max(0, k)]!);
-  if (k >= 0) return ax;
-  return { ex: ax.ex.map((v) => -v) as Vec, ey: ax.ey, ez: ax.ez.map((v) => -v) as Vec };
+function halfTurnSymmetric(model: SpanAxesModel, sectionId: number): boolean {
+  const shape = model.sections?.get(sectionId)?.shape;
+  return shape === undefined || ['rect', 'CHS', 'RHS', 'I', 'H', 'Z'].includes(shape);
+}
+
+function sectionAllowsSideReflection(model: SpanAxesModel, sectionId: number): boolean {
+  const shape = model.sections?.get(sectionId)?.shape;
+  return shape === undefined || ['rect', 'CHS', 'RHS', 'I', 'H', 'T'].includes(shape);
+}
+
+function compatibleSectionAxes(model: SpanAxesModel, sectionId: number, a: LocalAxes3D, b: LocalAxes3D): boolean {
+  const depth = dot(a.ez, b.ez);
+  const reverse = dot(a.ex, b.ex) < 0;
+  const sameDepth = depth > 1 - 1e-10;
+  if (!sectionAllowsSideReflection(model, sectionId)) return sameDepth && dot(a.ey, b.ey) > 1 - 1e-10;
+  return sameDepth || (reverse && halfTurnSymmetric(model, sectionId) && depth < -1 + 1e-10);
+}
+
+function chordAxes(model: SpanAxesModel, start: number, end: number, sectionUp?: Vec, canonicalizeDepth = true): LocalAxes3D {
+  const i = { id: start, ...P(model.nodes.get(start)!) };
+  const j = { id: end, ...P(model.nodes.get(end)!) };
+  const base = computeLocalAxes3D(i, j);
+  if (!sectionUp) return base;
+  const upProjection = dot(sectionUp, base.ez);
+  const sign = canonicalizeDepth && (Math.abs(upProjection) > 1e-10 ? upProjection : dot(sectionUp, base.ey)) < 0 ? -1 : 1;
+  const [x, y, z] = base.ex;
+  const [u, v, w] = sectionUp;
+  return computeLocalAxes3D(i, j, { x: sign * (v * z - w * y), y: sign * (w * x - u * z), z: sign * (u * y - v * x) });
+}
+
+function spanAxes(model: SpanAxesModel, span: DesignSpan): LocalAxes3D | null {
+  const first = span.elements[0]!;
+  const sectionId = model.elements.get(first)!.sectionId;
+  const axes = span.elements.map(id => axesOf(model, id));
+  if (axes.some((a, i) => axes.slice(0, i).some(b => !compatibleSectionAxes(model, sectionId, a, b)))) return null;
+  const ref = chordAxes(model, span.start, span.end, axes[0]!.ez, sectionAllowsSideReflection(model, sectionId) && halfTurnSymmetric(model, sectionId));
+  if (!sectionAllowsSideReflection(model, sectionId) && dot(ref.ey, axes[0]!.ey) <= 1 - 1e-10) return null;
+  return ref;
 }
 
 /**
@@ -190,28 +229,50 @@ export function mergeSpanStations(
   stationsOf: (id: number) => ElementStationResult | undefined,
 ): ElementStationResult | null {
   const ref = spanAxes(model, span);
+  if (!ref) return null;
   const byCombo = new Map<number, { comboId: number; comboName: string; stations: StationForces[] }>();
+  const expectedCombinationIds = new Set<number>();
+  const declaredPieces: { elementId: number; stationTs: number[] }[] = [];
+  const spanGrid = new Set<number>();
+  const rows: ScopedDemand[] = [];
+  let hasPieceWithoutStations = false;
   for (const [k, id] of span.elements.entries()) {
     const st = stationsOf(id);
-    if (!st || st.comboResults.length === 0) return null;
+    if (!st || (st.stationTs.length === 0 && st.comboResults.length === 0)) {
+      hasPieceWithoutStations = true;
+      continue;
+    }
     const ax = axesOf(model, id), L = span.lengths[k]!, off = span.offsets[k]!;
+    const spanX = (t: number) => off + L * (span.reversed[k] ? 1 - t : t);
+    if (st.stationTs.length) declaredPieces.push({ elementId: id, stationTs: st.stationTs });
+    for (const t of st.stationTs) spanGrid.add(spanX(t) / span.length);
+    for (const comboId of st.expectedCombinationIds ?? []) expectedCombinationIds.add(comboId);
     const s = Math.sign(dot(ax.ex, ref.ex)) || 1;
     // Rows: the span's axes in the piece's (R_span·R_pieceᵀ), times s.
     const T = [ref.ex, ref.ey, ref.ez].map((r) => [dot(r, ax.ex), dot(r, ax.ey), dot(r, ax.ez)].map((v) => s * v));
     const turn = (a: number, b: number, c: number) => T.map((row) => row[0]! * a + row[1]! * b + row[2]! * c);
     for (const cr of st.comboResults) {
+      expectedCombinationIds.add(cr.comboId);
       const acc = byCombo.get(cr.comboId) ?? { comboId: cr.comboId, comboName: cr.comboName, stations: [] };
       for (const f of cr.stations) {
-        const along = span.reversed[k] ? L * (1 - f.t) : L * f.t;
+        rows.push({ elementId: id, comboId: cr.comboId, stationT: f.t });
+        const x = spanX(f.t);
         const [n, vy, vz] = turn(f.n, f.vy, f.vz);
         const [torsion, my, mz] = turn(f.torsion, f.my, f.mz);
-        acc.stations.push({ t: (off + along) / span.length, x: off + along, n: n!, vy: vy!, vz: vz!, my: my!, mz: mz!, torsion: torsion! });
+        acc.stations.push({ t: x / span.length, x, n: n!, vy: vy!, vz: vz!, my: my!, mz: mz!, torsion: torsion! });
       }
       byCombo.set(cr.comboId, acc);
     }
   }
+  CompleteDemandSet.require({
+    missingMembers: expectedCombinationIds.size === 0 ? declaredPieces.map(piece => piece.elementId) : [],
+    combinations: [...expectedCombinationIds].map(comboId => ({
+      comboId, comboName: byCombo.get(comboId)?.comboName, members: declaredPieces,
+    })),
+  }, rows);
+  if (hasPieceWithoutStations) return null;
   const comboResults = [...byCombo.values()].map((c) => ({ ...c, stations: c.stations.sort((a, b) => a.t - b.t) }));
-  const stationTs = [...new Set(comboResults[0]?.stations.map((s) => s.t) ?? [])];
+  const stationTs = [...spanGrid].sort((a, b) => a - b);
   return { elementId: span.representative, length: span.length, stationTs, comboResults };
 }
 
@@ -224,14 +285,19 @@ export function mergeSpanStations(
  * function only looks at the member and at what meets its two end nodes, so those are what the
  * slice holds.
  */
-export function spanModelData(model: ContextModelData, span: DesignSpan): ContextModelData {
+export function spanModelData(model: ContextModelData, span: DesignSpan, source: SpanAxesModel = model): ContextModelData {
+  const ref = spanAxes(source, span);
+  if (!ref) throw new Error(tp('design.reason.orientationSuspect', { elementId: span.representative }));
+  const [localYx, localYy, localYz] = ref.ey;
   const elements = new Map<number, ContextModelData['elements'] extends Map<number, infer E> ? E : never>();
   for (const e of model.elements.values()) {
     if (e.nodeI === span.start || e.nodeJ === span.start || e.nodeI === span.end || e.nodeJ === span.end) elements.set(e.id, e);
   }
   for (const id of span.elements) {
     const e = model.elements.get(id)!;
-    elements.set(id, { ...e, nodeI: span.start, nodeJ: span.end });
+    const rollAngle = -(source.sections?.get(e.sectionId)?.rotation ?? 0);
+    const chord = { ...e, nodeI: span.start, nodeJ: span.end, localYx, localYy, localYz, rollAngle };
+    elements.set(id, chord);
   }
   return { ...model, elements };
 }
@@ -249,15 +315,28 @@ export function applySpanContexts(
   spans: readonly DesignSpan[],
   label: (span: DesignSpan) => string | undefined = () => undefined,
 ): DesignSpan[] {
+  completeMemberDemands([...contexts.values()].filter(c => c.stations || c.demands).map(c => ({ elementId: c.elementId,
+    demands: c.demands?.demands ?? [], tuples: c.stations ? ConcurrentDemand.fromStations(c.stations) : c.demands?.concurrent,
+    expectedCombinationIds: c.demands?.expectedCombinationIds, stationTs: c.stations?.stationTs,
+  })), declaredContextMembers([...contexts.values()]));
   const done: DesignSpan[] = [];
   for (const span of spans) {
     const pieces = span.elements.map((id) => contexts.get(id));
     if (pieces.some((c) => !c || c.elementType !== 'beam' || !c.stations)) continue;
+    const ref = spanAxes(model, span);
+    if (!ref) {
+      for (const c of pieces) {
+        if (!c) continue;
+        contexts.set(c.elementId, { ...c, orientationSuspect: true,
+          blocking: [...new Set<LimitingConstraint>([...c.blocking, 'memberOrientationSuspect'])] });
+      }
+      continue;
+    }
     const rep = contexts.get(span.representative)!;
     const merged = mergeSpanStations(model, span, (id) => contexts.get(id)?.stations);
     if (!merged) continue;
     const demands = extractGoverningDemands(merged);
-    const modelData = spanModelData(rep.modelData, span);
+    const modelData = spanModelData(rep.modelData, span, model);
     const criticalSections = computeBeamCriticalSections(
       span.representative, modelData.nodes, modelData.elements, modelData.sections, modelData.supports,
       { b: rep.section.b, h: rep.section.h, cover: rep.material.cover, stirrupDia: rep.material.stirrupDia },
@@ -273,7 +352,7 @@ export function applySpanContexts(
       demands,
       criticalSections,
       // As `buildMemberContext` reads a piece: the slab takes the in-plane axis of an upright beam with one.
-      axes: resolveDesignAxes('beam', { b: rep.section.b, h: rep.section.h }, demands, { slab: (!!rep.flange || pieces.some((c) => c!.inSlabPlane)) && uprightBeam(rep.modelData.elements.get(span.representative) as { rollAngle?: number } | undefined) }),
+      axes: resolveDesignAxes('beam', { b: rep.section.b, h: rep.section.h }, demands, { slab: (!!rep.flange || pieces.some((c) => c!.inSlabPlane)) && dot(ref.ez, chordAxes(model, span.start, span.end).ez) > Math.cos(5 * Math.PI / 180) }),
       orientationSuspect: pieces.some((c) => c!.orientationSuspect),
       blocking,
       modelData,
@@ -281,9 +360,24 @@ export function applySpanContexts(
       ...(pieces.some((c) => c!.lateral) ? { lateral: spanLateralReading(pieces.map((c) => c!.lateral)) } : {}),
     };
     span.elements.forEach((id, index) => {
-      contexts.set(id, { ...base, elementId: id, span: { ...span, ...(name ? { label: name } : {}), index } });
+      contexts.set(id, { ...base, elementId: id,
+        stations: { ...merged, elementId: id }, demands: { ...demands, elementId: id },
+        span: { ...span, ...(name ? { label: name } : {}), index } });
     });
     done.push(span);
+  }
+  if (done.length) {
+    const stations = [...contexts.values()].flatMap(c => c.stations ? [{ ...c.stations, elementId: c.elementId }] : []);
+    const inventory = ConcurrentDemand.inventoryForStations(stations);
+    const converted = new WeakMap<readonly ConcurrentDemand[], readonly ConcurrentDemand[]>();
+    for (const c of contexts.values()) {
+      if (!c.stations || !c.demands) continue;
+      c.stations = { ...c.stations, elementId: c.elementId, inventory };
+      const source = c.demands.concurrent;
+      const concurrent = source && converted.get(source) || ConcurrentDemand.fromStations(c.stations);
+      if (source) converted.set(source, concurrent);
+      c.demands = { ...c.demands, concurrent };
+    }
   }
   return done;
 }

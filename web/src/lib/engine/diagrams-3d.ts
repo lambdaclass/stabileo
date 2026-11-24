@@ -3,13 +3,12 @@
 // using equilibrium equations with distributed and point loads.
 
 import { type UnitSystem, formatDiagramValue } from '../utils/units';
+import { addMagnitudeBounds, checkedCurveValue, diagramCurvePoints, fullSpanFallback, indexDiagramExtrema, memberDiagram, prepareCurveExtrema, prepareMagnitudeExtrema, sortedStations, unavailableDiagramExtrema, type DiagramCurve, type DiagramExtremum, type DiagramStation } from './member-diagram';
 import type { ElementForces3D, EnvelopeDiagramData3D } from './types-3d';
 
 export type Diagram3DKind = 'momentY' | 'momentZ' | 'shearY' | 'shearZ' | 'axial' | 'torsion';
 
-export interface DiagramPoint3D {
-  /** Normalized position along element [0, 1] */
-  t: number;
+export interface DiagramPoint3D extends DiagramStation {
   /** Diagram value at this point (kN or kN·m) */
   value: number;
 }
@@ -20,68 +19,180 @@ export interface ElementDiagram3D {
   maxValue: number;
   minValue: number;
   maxAbsValue: number;
+  extrema?: 'bounded';
 }
 
-const NUM_POINTS = 21;
+const diagramKinds = ['momentY', 'momentZ', 'shearY', 'shearZ', 'axial', 'torsion'] as const;
 
-/**
- * Build sorted, unique sampling positions (as t ∈ [0,1]) including
- * regular grid points and positions just before/after each point load
- * to capture discontinuities in shear diagrams.
- */
-function buildSamplingPositions(
-  length: number,
-  pointLoads: Array<{ a: number; p: number }>,
-  pieces?: ElementForces3D['pieces'],
-): number[] {
-  const tSet = new Set<number>();
-
-  for (let i = 0; i < NUM_POINTS; i++) {
-    tSet.add(i / (NUM_POINTS - 1));
-  }
-  // A member of variable section: each piece's ends too, where the diagram may kink.
-  for (const p of pieces ?? []) tSet.add(Math.min(1, p.x1 / length));
-
-  const eps = 1e-6;
-  for (const pl of pointLoads) {
-    const tPl = pl.a / length;
-    if (tPl > eps) tSet.add(tPl - eps);
-    tSet.add(tPl);
-    if (tPl < 1 - eps) tSet.add(tPl + eps);
-  }
-
-  return Array.from(tSet).sort((a, b) => a - b);
+interface SpatialCurve extends Pick<DiagramCurve, 'cuts' | 'cutDistances' | 'value'> {
+  polynomial?: DiagramCurve['polynomial'];
+  extrema: (at?: number) => DiagramExtremum[];
+  magnitudeBound?: () => number;
 }
 
-/**
- * Compute a 3D diagram for one element.
- * Delegates to evaluateDiagramAt for each sample point.
- */
+function maxMagnitude(curve: SpatialCurve): number {
+  if (curve.magnitudeBound) return curve.magnitudeBound();
+  return diagramCurvePoints(curve, curve.extrema()).reduce((max, p) => Math.max(max, Math.abs(p.value)), 0);
+}
+
+function transverseActions(ef: ElementForces3D, aboutY: boolean) {
+  const loads = aboutY ? fullSpanFallback(ef.length, ef.distributedLoadsZ, ef.qZI, ef.qZJ)
+    : fullSpanFallback(ef.length, ef.distributedLoadsY, ef.qYI, ef.qYJ);
+  const points = (aboutY ? ef.pointLoadsZ : ef.pointLoadsY) ?? [];
+  return { loads, points };
+}
+
+function usesSampledBending(ef: ElementForces3D, kind: Diagram3DKind): boolean {
+  if (ef.combined || ef.pieces?.length || (kind !== 'momentY' && kind !== 'momentZ')) return false;
+  const { loads, points } = transverseActions(ef, kind === 'momentY');
+  return points.length === 0 && loads.every(d => d.a === 0 && d.b === ef.length && d.qI === d.qJ);
+}
+
+function leafCurve(ef: ElementForces3D, kind: Diagram3DKind): DiagramCurve {
+  const L = ef.length;
+  if (kind === 'axial') {
+    const points = ef.pointLoadsX ?? [];
+    const loads = ef.distributedLoadsX ?? [];
+    const change = points.length || loads.length ? 0 : ef.nEnd - ef.nStart;
+    return memberDiagram(L, ef.nStart, change, loads, points.map(p => ({ a: p.a, jump: -p.p })), 'force', -1);
+  }
+  if (kind === 'torsion') return memberDiagram(L, ef.mxStart, ef.mxEnd - ef.mxStart, [], []);
+  const aboutY = kind === 'momentY' || kind === 'shearZ';
+  const { loads, points } = transverseActions(ef, aboutY);
+  const shear = aboutY ? ef.vzStart : ef.vyStart;
+  if (kind === 'shearY' || kind === 'shearZ') {
+    return memberDiagram(L, shear, 0, loads, points.map(p => ({ a: p.a, jump: p.p })));
+  }
+  const sign = aboutY ? 1 : -1;
+  return memberDiagram(L, aboutY ? ef.myStart : ef.mzStart, 0, loads,
+    points.map(p => ({ a: p.a, jump: 0, slope: sign * p.p })), 'moment', sign, sign * shear);
+}
+
+function joinedCutDistances(curves: Iterable<ReadonlyMap<number, number>>): Map<number, number> {
+  const distances = new Map<number, number>();
+  for (const curve of curves) {
+    for (const [t, x] of curve) {
+      const existing = distances.get(t);
+      if (existing !== undefined && existing !== x) throw unavailableDiagramExtrema();
+      distances.set(t, x);
+    }
+  }
+  return distances;
+}
+
+function spatialCurve(ef: ElementForces3D, kind: Diagram3DKind): SpatialCurve {
+  if (ef.combined) {
+    const { method, parts } = ef.combined;
+    const curves = parts.map(p => spatialCurve(p, kind));
+    let cutDistances: Map<number, number> | undefined;
+    const distances = () => cutDistances ??= joinedCutDistances([new Map([[0, 0], [1, ef.length]]), ...curves.map(c => c.cutDistances)]);
+    const cuts = () => sortedStations(distances().keys());
+    const polynomialParts = curves.flatMap(c => c.polynomial ? [{ polynomial: c.polynomial }] : []);
+    const exact = polynomialParts.length === curves.length;
+    const combine = (station: DiagramStation) => {
+      distances();
+      const values = curves.map(curve => curve.value(station));
+      return method === 'srss' ? Math.hypot(...values) : values.reduce((sum, value) => sum + Math.abs(value), 0);
+    };
+    const magnitudeBound = () => curves.reduce((bound, curve) => addMagnitudeBounds(bound, maxMagnitude(curve)), 0);
+    return {
+      get cuts() { return cuts(); },
+      get cutDistances() { return distances(); },
+      extrema: exact ? prepareMagnitudeExtrema(polynomialParts, method, distances, ef.length)
+        : () => curves.flatMap(curve => curve.extrema().map(({ t }) => ({ t, value: combine({ t }), canTransfer: () => false }))),
+      ...(!exact ? { magnitudeBound } : {}),
+      value: combine,
+    };
+  }
+  if (ef.pieces?.length) {
+    const pieces = ef.pieces.map(p => {
+      const start = p.x0 / ef.length, end = p.x1 / ef.length;
+      const curve = spatialCurve(p.forces, kind);
+      const distance = (t: number) => t === 0 ? p.x0 : t === 1 ? p.x1 : p.x0 + (p.x1 - p.x0) * t;
+      const parent = (t: number) => distance(t) / ef.length;
+      let boundaries: Map<number, number> | undefined;
+      const cutMap = () => {
+        if (boundaries) return boundaries;
+        const mapped = new Map(curve.cuts.map(t => [parent(t), t]));
+        if (mapped.size !== curve.cuts.length) throw unavailableDiagramExtrema();
+        return boundaries = mapped;
+      };
+      const local = (t: number) => cutMap().get(t) ?? Math.max(0, Math.min(1, (t - start) / (end - start)));
+      return { end, curve, parent, local, cutMap, distance };
+    });
+    const pieceAt = ({ t, right }: DiagramStation) =>
+      pieces.find(p => right ? t < p.end : t <= p.end) ?? pieces[pieces.length - 1]!;
+    const magnitudeBound = pieces.some(p => p.curve.magnitudeBound) ? () => Math.max(...pieces.map(p => maxMagnitude(p.curve))) : undefined;
+    let cutDistances: Map<number, number> | undefined;
+    const distances = () => cutDistances ??= joinedCutDistances(pieces.map(p =>
+      new Map([...p.cutMap()].map(([t, local]) => [t, p.distance(local)]))));
+    let extrema: DiagramExtremum[] | undefined;
+    return {
+      magnitudeBound,
+      get cuts() { return sortedStations(this.cutDistances.keys()); },
+      get cutDistances() { return distances(); },
+      extrema: () => extrema ??= pieces.flatMap(p => p.curve.extrema().map(peak => {
+        const t = p.parent(peak.t);
+        if (p.cutMap().has(t)) throw unavailableDiagramExtrema();
+        return { t, value: peak.value, canTransfer: station => p === pieceAt({ t: station }) && peak.canTransfer(p.local(station)) };
+      })),
+      value(station) {
+        distances();
+        const p = pieceAt(station);
+        const t = p.local(station.t);
+        return p.curve.value({ t, right: station.right || p.parent(t) < station.t });
+      },
+      ...(pieces.every(p => p.curve.polynomial) ? { polynomial(lo: number, hi: number) {
+        const p = pieceAt({ t: lo, right: true });
+        return p.curve.polynomial!(p.local(lo), p.local(hi));
+      } } : {}),
+    };
+  }
+  const curve = leafCurve(ef, kind);
+  return {
+    get cuts() { return curve.cuts; },
+    get cutDistances() { return curve.cutDistances; },
+    value: curve.value, polynomial: curve.polynomial, extrema: prepareCurveExtrema(curve, ef.length),
+  };
+}
+
+export function criticalDiagramStations3D(ef: ElementForces3D, purpose: 'diagram' | 'concrete-design' = 'diagram'): DiagramStation[] {
+  const curves = diagramKinds.map(kind => ({ kind, curve: spatialCurve(ef, kind) }));
+  if (curves.some(({ curve }) => curve.magnitudeBound)) throw unavailableDiagramExtrema();
+  const cuts = joinedCutDistances(curves.map(({ curve }) => curve.cutDistances));
+  const extrema = curves.flatMap(({ kind, curve }) => {
+    const peaks = [...indexDiagramExtrema(curve.extrema()).values()];
+    if (peaks.some(peak => cuts.has(peak.t) || !peak.canTransfer(peak.t))) throw unavailableDiagramExtrema();
+    return purpose === 'concrete-design' && usesSampledBending(ef, kind) ? [] : peaks;
+  });
+  return sortedStations([...cuts.keys(), ...extrema.map(peak => peak.t)]).flatMap(t => {
+    const left = { t };
+    const right = { t, right: true };
+    return t < 1 && cuts.has(t) && curves.some(({ curve }) => curve.value(left) !== curve.value(right)) ? [left, right] : [left];
+  });
+}
+
 export function computeDiagram3D(
   ef: ElementForces3D,
   kind: Diagram3DKind,
 ): ElementDiagram3D {
-  const relevantPointLoads =
-    kind === 'momentZ' || kind === 'shearY'
-      ? ef.pointLoadsY
-      : kind === 'momentY' || kind === 'shearZ'
-        ? ef.pointLoadsZ
-        : [];
-
-  const positions = buildSamplingPositions(ef.length, relevantPointLoads, ef.pieces);
-  const points: DiagramPoint3D[] = [];
+  const curve = spatialCurve(ef, kind);
+  const points = diagramCurvePoints(curve, curve.extrema());
   let maxVal = -Infinity;
   let minVal = Infinity;
   let maxAbsValue = 0;
 
-  for (const t of positions) {
-    const value = evaluateDiagramAt(ef, kind, t);
-    points.push({ t, value });
+  for (const { value } of points) {
     if (value > maxVal) maxVal = value;
     if (value < minVal) minVal = value;
     if (Math.abs(value) > Math.abs(maxAbsValue)) maxAbsValue = value;
   }
 
+  if (curve.magnitudeBound) {
+    const bound = curve.magnitudeBound();
+    if (!Number.isFinite(bound)) throw unavailableDiagramExtrema();
+    return { elementId: ef.elementId, points, maxValue: bound, minValue: ef.combined ? 0 : -bound, maxAbsValue: bound, extrema: 'bounded' };
+  }
   return { elementId: ef.elementId, points, maxValue: maxVal, minValue: minVal, maxAbsValue };
 }
 
@@ -144,113 +255,19 @@ export function getDiagramLocalDirection(kind: Diagram3DKind): 'y' | 'z' {
  * Evaluate the diagram value at a specific normalized position t ∈ [0,1].
  * Uses analytical equilibrium equations.
  */
-export function evaluateDiagramAt(
-  ef: ElementForces3D,
-  kind: Diagram3DKind,
-  t: number,
-): number {
-  // A combination by SRSS or ABS: its cases' values here, combined (`combination-methods.ts`).
-  if (ef.combined) {
-    const vs = ef.combined.parts.map((p) => evaluateDiagramAt(p, kind, t));
-    return ef.combined.method === 'srss' ? Math.sqrt(vs.reduce((s, v) => s + v * v, 0)) : vs.reduce((s, v) => s + Math.abs(v), 0);
-  }
-  const L = ef.length;
-  const x = t * L;
-  // A member of variable section is read on the piece the point falls in (`variable-members.ts`).
-  if (ef.pieces?.length) {
-    const p = ef.pieces.find((q) => x <= q.x1 + 1e-9) ?? ef.pieces[ef.pieces.length - 1]!;
-    return evaluateDiagramAt(p.forces, kind, Math.min(1, Math.max(0, (x - p.x0) / Math.max(p.x1 - p.x0, 1e-12))));
-  }
+export function evaluateDiagramAt(ef: ElementForces3D, kind: Diagram3DKind, t: number, right = false): number {
+  return evaluateSpatialCurve(spatialCurve(ef, kind), { t, right });
+}
 
-  switch (kind) {
-    case 'momentZ': {
-      let value = ef.mzStart - ef.vyStart * x;
-      for (const dl of ef.distributedLoadsY ?? []) {
-        const a = dl.a;
-        const b = dl.b;
-        const span = b - a;
-        if (span < 1e-12) continue;
-        const dq = dl.qJ - dl.qI;
-        const xClamp = Math.min(x, b);
-        if (xClamp <= a) continue;
-        const s = xClamp - a;
-        value -= dl.qI * (s * (x - a) - s * s / 2)
-               + dq / span * (s * s / 2 * (x - a) - s * s * s / 3);
-      }
-      for (const pl of ef.pointLoadsY ?? []) {
-        if (pl.a < x - 1e-10) value -= pl.p * (x - pl.a);
-      }
-      return value;
-    }
-    case 'momentY': {
-      let value = ef.myStart + ef.vzStart * x;
-      for (const dl of ef.distributedLoadsZ ?? []) {
-        const a = dl.a;
-        const b = dl.b;
-        const span = b - a;
-        if (span < 1e-12) continue;
-        const dq = dl.qJ - dl.qI;
-        const xClamp = Math.min(x, b);
-        if (xClamp <= a) continue;
-        const s = xClamp - a;
-        value += dl.qI * (s * (x - a) - s * s / 2)
-               + dq / span * (s * s / 2 * (x - a) - s * s * s / 3);
-      }
-      for (const pl of ef.pointLoadsZ ?? []) {
-        if (pl.a < x - 1e-10) value += pl.p * (x - pl.a);
-      }
-      return value;
-    }
-    case 'shearY': {
-      let value = ef.vyStart;
-      for (const dl of ef.distributedLoadsY ?? []) {
-        const a = dl.a;
-        const b = dl.b;
-        const span = b - a;
-        if (span < 1e-12) continue;
-        const dq = dl.qJ - dl.qI;
-        const xClamp = Math.min(x, b);
-        if (xClamp <= a) continue;
-        const s = xClamp - a;
-        value += dl.qI * s + dq * s * s / (2 * span);
-      }
-      for (const pl of ef.pointLoadsY ?? []) {
-        if (pl.a < x - 1e-10) value += pl.p;
-      }
-      return value;
-    }
-    case 'shearZ': {
-      let value = ef.vzStart;
-      for (const dl of ef.distributedLoadsZ ?? []) {
-        const a = dl.a;
-        const b = dl.b;
-        const span = b - a;
-        if (span < 1e-12) continue;
-        const dq = dl.qJ - dl.qI;
-        const xClamp = Math.min(x, b);
-        if (xClamp <= a) continue;
-        const s = xClamp - a;
-        value += dl.qI * s + dq * s * s / (2 * span);
-      }
-      for (const pl of ef.pointLoadsZ ?? []) {
-        if (pl.a < x - 1e-10) value += pl.p;
-      }
-      return value;
-    }
-    case 'axial': {
-      if (!ef.distributedLoadsX?.length) return ef.nStart + t * (ef.nEnd - ef.nStart);
-      let value = ef.nStart;
-      for (const dl of ef.distributedLoadsX) {
-        const span = dl.b - dl.a;
-        if (span <= 0) continue;
-        const s = Math.max(0, Math.min(x - dl.a, span));
-        value -= dl.qI * s + (dl.qJ - dl.qI) * s * s / (2 * span);
-      }
-      return value;
-    }
-    case 'torsion':
-      return ef.mxStart + t * (ef.mxEnd - ef.mxStart);
-  }
+export function prepareDiagramEvaluator3D(ef: ElementForces3D, kind: Diagram3DKind): (t: number, right?: boolean) => number {
+  const curve = spatialCurve(ef, kind);
+  return (t, right = false) => evaluateSpatialCurve(curve, { t, right });
+}
+
+function evaluateSpatialCurve(curve: SpatialCurve, station: DiagramStation): number {
+  if (curve.magnitudeBound) return curve.value(station);
+  const extrema = curve.extrema(station.t);
+  return extrema.length === 0 ? curve.value(station) : checkedCurveValue(curve, station, indexDiagramExtrema(extrema));
 }
 
 /** Format a 3D diagram value for display.

@@ -20,6 +20,10 @@ backend/
 | Prefix | Router | App |
 |--------|--------|-----|
 | `/api/v1/auth` | `StabileoAuth.Router` | `stabileo_auth` |
+| `/api/v1/projects` | `StabileoProjects.Router` | `stabileo_projects` |
+| `/api/v1/insights` | `StabileoInsights.Router` | `stabileo_insights` |
+| `/api/v1/admin/projects` | `StabileoProjects.AdminRouter` | `stabileo_projects` |
+| `/api/v1/admin/insights` | `StabileoInsights.AdminRouter` | `stabileo_insights` |
 | `/api/v1/admin` | `StabileoAuth.AdminRouter` | `stabileo_auth` |
 | `/api/v1/health` | `StabileoWeb.Router` | `stabileo_web` |
 
@@ -35,6 +39,7 @@ The solver stays in Rust (`engine/`) and runs in the browser as WASM. The backen
 - `StabileoAuth.Plugs.Authenticate` assigns `current_account` and `current_session_id`; a disabled account is a 401
 - Two apps: product (`app: "app"`) and admin site (`app: "admin"`). Tokens carry the app and each side rejects the other's. An admin is an email at an allowed Google Workspace domain (`ADMIN_DOMAINS`, default `lambdaclass.com`, `ergodicgroup.com`) that is on the `admin_allowed_emails` allowlist, both re-checked on every request. Admins sign in with Google (verified email, allowed `hd`); password sign-in is dev/test only. Admin refresh tokens live 4 hours. See `specs/services/admin.md`
 - Product sign-up and sign-in sit behind the runtime flag `user_login_enabled` (`StabileoRepo.Features`, `system_settings`), off by default and toggled from the admin site
+- Sign-up needs `accept_terms: true`; the acceptance of the terms in force (`StabileoAuth.Consents.terms_version/0`) is written with the account. An account under older terms is told so in `consents.terms_current` and accepts again with `POST /consents`
 
 ## Concurrency invariants
 
@@ -50,6 +55,11 @@ Every new table answers in its PR: does any operation on it have a concurrency i
 | `accounts` | One account per email: unique index on `email`, stored lowercased. Pinned by `account_test.exs` ("rejects a duplicate email regardless of case") |
 | `system_settings` | One value per key: unique index on `key`; writes upsert on it |
 | `admin_allowed_emails` | One row per email: unique index on `email`, stored lowercased; re-adding reactivates the row. Pinned by `admin_allowed_email_test.exs` ("rejects a duplicate email regardless of case") |
+| `consents` | None: append-only; an account's current decision of a kind is its latest row, ordered by a microsecond `inserted_at` so two decisions in one second still order |
+| `projects` | At most 100 active per account: `create` takes an advisory lock on the account before counting. Pinned sequentially by `projects_test.exs` |
+| `usage_events` | None: append-only, never tied to an account |
+| `feedback` | None: admins set the status, last write wins |
+| `admin_actions` | None: append-only |
 | `sessions` | One rotation per refresh token: `rotate_session/2` locks the row and refuses a revoked one. The two-connection race is not reachable under the Ecto sandbox; pinned sequentially by `sessions_test.exs` ("a second rotation of the same session fails without minting another") |
 
 ## Configuration

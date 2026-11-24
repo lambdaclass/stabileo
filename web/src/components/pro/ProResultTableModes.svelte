@@ -6,6 +6,7 @@
 </script>
 
 <script lang="ts">
+  import { axesStore } from '../../lib/axes/axes.svelte';
   import { resultCaseName } from '../../lib/engine/settlement-case';
   import { engineGuarded } from '../../lib/store/engine-action';
   /**
@@ -76,7 +77,7 @@
     }
     return nodes;
   });
-  const opts = $derived<TableOptions>({ entities, resultant, stations: isNode ? 2 : stations });
+  const opts = $derived<TableOptions>({ entities, resultant, stations: isNode ? 2 : stations, axes: axesStore.choice });
   const withStations = $derived(!isNode && stations > 2);
   const cols = $derived(columnsOf(kind, opts));
 
@@ -89,7 +90,7 @@
     const md = { elements: modelStore.elements, nodes: modelStore.nodes, sections: modelStore.sections, materials: modelStore.materials, supports: modelStore.supports };
     let perCombo: Map<number, AnalysisResults3D> = activePerCombo3D();
     let combos = activeCombinations();
-    if (perCombo.size === 0 && resultsStore.results3D) {
+    if (perCombo.size === 0 && combos.length === 0 && resultsStore.results3D) {
       // Nothing combined: the result set on screen, named as what it is.
       perCombo = new Map([[0, resultsStore.results3D]]);
       combos = [{ id: 0, name: t('tables.shown'), factors: [] }] as never;

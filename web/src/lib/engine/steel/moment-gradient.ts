@@ -36,6 +36,23 @@ export interface MomentGradientInput {
   cantileverFreeEnd?: boolean;
 }
 
+export type MomentReader = (t: number, right: boolean) => number;
+
+export function momentGradientStations(
+  stations: readonly StationMoment[], read: MomentReader, tStart: number, tEnd: number,
+): StationMoment[] {
+  const quarterPoints = [0.25, 0.5, 0.75].map(fraction => tStart + fraction * (tEnd - tStart));
+  const exact = quarterPoints.flatMap(t => {
+    const left = read(t, false), right = read(t, true);
+    if (left === right) return [{ t, m: left }];
+    return (Math.abs(left) >= Math.abs(right) ? [left, right] : [right, left]).map(m => ({ t, m }));
+  });
+  return [
+    { t: tStart, m: read(tStart, true) }, ...exact, { t: tEnd, m: read(tEnd, false) },
+    ...stations.filter(({ t }) => t > tStart && t < tEnd && !quarterPoints.includes(t)),
+  ];
+}
+
 export function momentGradient(input: MomentGradientInput): MomentGradient {
   return cirsoc301InputsRequest<MomentGradient>('momentGradient', 'the CIRSOC 301 moment gradient Cb', input);
 }

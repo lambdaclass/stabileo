@@ -3,53 +3,35 @@
 This is the single entry point for Stabileo's plans. Read this page first; it says which document
 answers which question, how current each one is, and where the work is tracked.
 
-**The backlog lives in one place:** the backlog sections of
-[PRODUCT_ROADMAP.md](PRODUCT_ROADMAP.md) (Multipliers, Trust and verification, Engineering
-coverage, Solver and proof depth, Release safety, Platform and architecture, Growth and
-housekeeping). Every item there links to its GitHub issue;
+**The backlogs live in [PRODUCT_ROADMAP.md](PRODUCT_ROADMAP.md) and
+[testing/ROADMAP.md](../../testing/ROADMAP.md):** testing owns Prevention, Soundness multipliers,
+Trust and verification, Solver and proof depth, and CI; the product roadmap owns Release safety,
+Engineering coverage, Multipliers, performance, platform, growth and housekeeping. Every item links to its GitHub issue;
 the tracker is [#396](https://github.com/lambdaclass/stabileo/issues/396). What comes first right now is
-the **Overall order** and **Priority now** in the Now section of PRODUCT_ROADMAP: soundness first (wrong-result bugs, the tests
-that catch them, the verification safety net and release safety), then other bugs, then features. Each section has
+the **Overall order** and **Priority now** in the Now section of PRODUCT_ROADMAP: soundness first, ranked from (a) uncontained
+silent wrong results down to (g) growth and SaaS; sections 3 to 6 follow the same ranking. Each section has
 measurable exit criteria, and the metrics behind them are regenerated on the
-[verification dashboard](../verification/DASHBOARD.md).
+[verification dashboard](../../testing/docs/DASHBOARD.md).
 
-As of **2026-11-12**, confirmed silent-result fixes come first:
-[#1949](https://github.com/lambdaclass/stabileo/issues/1949) (reactions and final-state forces,
-[#1952](https://github.com/lambdaclass/stabileo/pull/1952)) and
-[#1846](https://github.com/lambdaclass/stabileo/issues/1846) + [#1085](https://github.com/lambdaclass/stabileo/issues/1085)
-(staged analysis, [#1943](https://github.com/lambdaclass/stabileo/pull/1943)). Nonlinear convergence
-[#761](https://github.com/lambdaclass/stabileo/issues/761) + [#1100](https://github.com/lambdaclass/stabileo/issues/1100)
-is in [#1940](https://github.com/lambdaclass/stabileo/pull/1940), with
-[#971](https://github.com/lambdaclass/stabileo/issues/971) pending verification; buckling accuracy
-[#818](https://github.com/lambdaclass/stabileo/issues/818) is in [#1939](https://github.com/lambdaclass/stabileo/pull/1939).
-These fixes remain unmerged. [#1756](https://github.com/lambdaclass/stabileo/issues/1756) is done in
-[#1947](https://github.com/lambdaclass/stabileo/pull/1947).
+## Current status (2026-11-23)
 
-The candidate replay [#1941](https://github.com/lambdaclass/stabileo/pull/1941) and seven shell-refusal
-checks [#1948](https://github.com/lambdaclass/stabileo/pull/1948) have merged; unresolved replay
-witnesses and the regression audit [#1946](https://github.com/lambdaclass/stabileo/pull/1946) continue.
-New nightly failures [#1953](https://github.com/lambdaclass/stabileo/issues/1953)/[#1954](https://github.com/lambdaclass/stabileo/issues/1954)
-are in [#1957](https://github.com/lambdaclass/stabileo/pull/1957); the outrigger sweep timeout
-[#1958](https://github.com/lambdaclass/stabileo/issues/1958) also remains open. Conservative false-refusal
-follow-ups [#1951](https://github.com/lambdaclass/stabileo/issues/1951) and
-[#1956](https://github.com/lambdaclass/stabileo/issues/1956) are deferred behind confirmed wrong results.
-Next: [#1040](https://github.com/lambdaclass/stabileo/issues/1040), [#972](https://github.com/lambdaclass/stabileo/issues/972),
-[#1453](https://github.com/lambdaclass/stabileo/issues/1453), [#742](https://github.com/lambdaclass/stabileo/issues/742),
-then causes H, B, G, D, F and harness checks, before 2D/3D unification
-([#1781](https://github.com/lambdaclass/stabileo/pull/1781)). The product roadmap dates its historical
-cause-count snapshot separately from these priorities; the dashboard has its own generation date.
+- **Release baseline: [`v0.6.4`](../releases/v0.6.4.md)** (released 2026-11-21; full release notes for [`v0.6.0`](../releases/v0.6.0.md)–[`v0.6.4`](../releases/v0.6.4.md) and history in [`CHANGELOG.md`](../../CHANGELOG.md); safety advisories through `SA-2026-107` shipped in `0.6.4`, and `SA-2026-108`–`111` published for post-`0.6.4` fixes on `main` in [`docs/advisories/README.md`](../advisories/README.md)). Where advisories affect generated area, roof, wind, snow, or seismic loads, **regenerate those loads before re-solving** — re-running stored loads alone is insufficient (see each release note's "Your results may change" checklist).
+- **Soundness remains first.** Pre-solve load and plate-geometry accounting ([#2470](https://github.com/lambdaclass/stabileo/pull/2470)) and DXF/JSON/shared-deck containments ([#2494](https://github.com/lambdaclass/stabileo/pull/2494)–[#2496](https://github.com/lambdaclass/stabileo/pull/2496)) landed on `main`, alongside default-off PRO plate modelling ([#2365](https://github.com/lambdaclass/stabileo/pull/2365)) and shared nonlinear drivers ([#2483](https://github.com/lambdaclass/stabileo/pull/2483)). The **under audit** notice for generated loads and concrete design is live ([#2228](https://github.com/lambdaclass/stabileo/pull/2228)). Active open audit findings, remaining wrong-result candidates, and the six structural wrong-result elimination tracks live in [`PRODUCT_ROADMAP.md` §2](PRODUCT_ROADMAP.md#2-now-soundness-first-updated-2026-11-22).
+- **Post-soundness execution waves (Waves 1–4):** once Wave 0 soundness holds, execution follows Waves 1–4 (Physical IR, Executable Design-Code IR, constrained `PreparedStatic` + adjoint/Woodbury, `verify.stabileo.com`, local ETABS/SAP2000 certified audit, `stabileo-mcp` + `pip install stabileo`, SOCP/CBFEM/CUFSM/PT studio), summarized in [`PRODUCT_ROADMAP.md` §5](PRODUCT_ROADMAP.md#5-later-and-parked) and detailed with first vertical slices in [`high_leverage_solver_and_product_plan.md`](../research/high_leverage_solver_and_product_plan.md).
+- **Dashboard freshness notice:** [`testing/docs/DASHBOARD.md`](../../testing/docs/DASHBOARD.md) and [`testing/docs/MATURITY.md`](../../testing/docs/MATURITY.md) were last regenerated on **2026-10-19 (`v0.2.0`)** (regeneration PR [#1698](https://github.com/lambdaclass/stabileo/pull/1698) has not merged yet). Treat their counts and open-issue lists as historical snapshots until regenerated.
 
 ## Documents
 
 | Document | Answers | Status | Owner |
 |---|---|---|---|
-| [PRODUCT_ROADMAP.md](PRODUCT_ROADMAP.md) | What we build and in what order; **the backlog with issue links and exit criteria** | Current (2026-11-12): merged buckling and replay work, in-flight fixes, deferred refusals and regression audit | Federico Carrone |
-| [SOLVER_ROADMAP.md](SOLVER_ROADMAP.md) | Solver mechanics, numerical methods, long-term solver sequence (Steps 1–14+) | Long-term sequence current; its "Where we are" and "Wave 1" sections predate v0.2.0 (see the note at its top) | Diego K (last editor) |
+| [PRODUCT_ROADMAP.md](PRODUCT_ROADMAP.md) | What we build and in what order; **the backlog with issue links and exit criteria** | Current (2026-11-22). Release baseline `v0.6.4`; soundness first, Waves 1–4 integrated, pre-v0.2.0 sequence archived. | Federico Carrone |
+| [testing/ROADMAP.md](../../testing/ROADMAP.md) | Testing and verification backlog, solver proofs, prevention and CI feedback; follows PRODUCT_ROADMAP “Priority now” item 7 | Current (2026-11-22) | Maintainers |
+| [SOLVER_ROADMAP.md](SOLVER_ROADMAP.md) | Solver mechanics, numerical methods, high-leverage solver tracks (2026-11-22) and Steps 1–23 capability reference | Current (2026-11-22); pre-v0.2.0 snapshots archived in [`SOLVER_SNAPSHOT_PRE_V0_2.md`](../archive/roadmap/SOLVER_SNAPSHOT_PRE_V0_2.md) | Diego K (last editor) |
 | [../../research/DESIGN.md](../../research/DESIGN.md) | Stabileo Research: what it is, its rules, the engine-benchmarks track and the ordered paper queue (summary in PRODUCT_ROADMAP "Stabileo Research") | Current (2026-10-29) | Federico Carrone |
-| [AI_ROADMAP.md](AI_ROADMAP.md) | AI capabilities, their order, prerequisites and safety rules | Current as of 2026-10-07 | Diego K (last editor) |
-| [INFRASTRUCTURE_ROADMAP.md](INFRASTRUCTURE_ROADMAP.md) | Backend, deployment, auth, persistence, observability | Current as of 2026-10-07 | Diego K (last editor) |
-| [../verification/DASHBOARD.md](../verification/DASHBOARD.md) | The numbers: open `safety` issues, Rust vs TypeScript share, certified share, mutation score, coverage, differential and fuzz volume, per release | Generated by `scripts/verification-metrics.py` | CI (`verification-dashboard` workflow) |
-| [../verification/MATURITY.md](../verification/MATURITY.md) | How well verified each analysis, element family and design check is (Certified > Benchmarked > Differential > Tested > Unverified), with evidence | Generated by the same script | CI |
+| [AI_ROADMAP.md](AI_ROADMAP.md) | AI capabilities, ecosystem-first MCP/Python/eval track, prerequisites and safety rules | Current (2026-11-22) | Diego K (last editor) |
+| [INFRASTRUCTURE_ROADMAP.md](INFRASTRUCTURE_ROADMAP.md) | Elixir/Phoenix umbrella backend, Caddy edge, auth, storage, `verify.stabileo.com` signing, observability, and Waves 1–3 ops | Current (2026-11-22); prior Axum snapshot archived in [`INFRASTRUCTURE_AXUM_2026_10.md`](../archive/roadmap/INFRASTRUCTURE_AXUM_2026_10.md) | Diego K (last editor) |
+| [../../testing/docs/DASHBOARD.md](../../testing/docs/DASHBOARD.md) | The numbers: open `safety` issues, Rust vs TypeScript share, certified share, mutation score, coverage, differential and fuzz volume, per release | Generated by `scripts/verification-metrics.py` *(stale at 2026-10-19 / v0.2.0; pending [#1698](https://github.com/lambdaclass/stabileo/pull/1698))* | CI (`verification-dashboard` workflow) |
+| [../../testing/docs/MATURITY.md](../../testing/docs/MATURITY.md) | How well verified each analysis, element family and design check is (Certified > Benchmarked > Differential > Tested > Unverified), with evidence | Generated by the same script *(stale at 2026-10-19 / v0.2.0; pending [#1698](https://github.com/lambdaclass/stabileo/pull/1698))* | CI |
 | [../SAFETY_ADVISORIES.md](../SAFETY_ADVISORIES.md) | What we do when a released version produced a wrong or unconservative result; advisories in [../advisories/](../advisories/) | Current | Release manager |
 | [../WORKFLOW.md](../WORKFLOW.md) | How work is done: one branch + PR per workstream, review before merge, integration branch per wave, labels | Current | Maintainers |
 | [../POSITIONING.md](../POSITIONING.md) | Market framing and competitive wedge | Current | Federico Carrone |
@@ -60,14 +42,16 @@ documents yet (see [#355](https://github.com/lambdaclass/stabileo/issues/355)).
 ## Supporting material (not roadmaps)
 
 - [../research/](../research/README.md): research notes, including
+  [high_leverage_solver_and_product_plan.md](../research/high_leverage_solver_and_product_plan.md)
+  (2026-11-22 reprioritized solver and product architecture plan across Waves 0–4 with first vertical slices),
   [beyond_roadmap_opportunities.md](../research/beyond_roadmap_opportunities.md) (frontier
   opportunities: GNN surrogates, digital twins, UQ) and
   [post_roadmap_software_stack.md](../research/post_roadmap_software_stack.md) (software to
   build on top of the solver; summarised in PRODUCT_ROADMAP "Post-Core Software Stack"). Both
-  moved here from `docs/roadmap/` on 2026-10-18.
-- [../verification/](../VERIFICATION.md): how each result is verified (certificates, Lean, Kani,
+  earlier notes moved here from `docs/roadmap/` on 2026-10-18.
+- [../VERIFICATION.md](../VERIFICATION.md): how each result is verified (certificates, Lean, Kani,
   differential testing, feature matrix, worked examples).
-- [../releases/](../releases/v0.2.0.md): release notes; [../../CHANGELOG.md](../../CHANGELOG.md).
+- [../releases/v0.6.4.md](../releases/v0.6.4.md): latest release notes (`v0.2.0`–`v0.6.4` in `docs/releases/`); [../../CHANGELOG.md](../../CHANGELOG.md).
 - [../MERGE_PLAN_SAFETY_WAVE.md](../MERGE_PLAN_SAFETY_WAVE.md): the record of how the October 2026
   safety wave (#275–#302) was merged; referenced by the v0.2.0 release notes.
 - [../handoffs/](../handoffs/): historical working notes from the PR15–PR20 RC/steel workstreams
@@ -76,10 +60,13 @@ documents yet (see [#355](https://github.com/lambdaclass/stabileo/issues/355)).
 
 ## Archived
 
-Superseded documents are in [../archive/](../archive/README.md), each with the reason and its
-replacement: the old workflow (stacked PRs, solver off-limits), the July 2026 "current
-state" and PR-restructure notes, the wave-1 agent prompts, and the stub
-`ai_structural_engineering_roadmap.md`.
+Superseded documents and extracted pre-v0.2.0 roadmap layers are in
+[../archive/](../archive/README.md), each with the reason and its replacement: the old workflow
+(stacked PRs, solver off-limits), the July 2026 "current state" and PR-restructure notes, the
+wave-1 agent prompts, the stub `ai_structural_engineering_roadmap.md`, the pre-v0.2.0 Dedaliano
+product sequence (`PRODUCT_SEQUENCE_PRE_V0_2.md`), the pre-v0.2.0 solver snapshots
+(`SOLVER_SNAPSHOT_PRE_V0_2.md`), and the October 2026 Axum infrastructure roadmap
+(`INFRASTRUCTURE_AXUM_2026_10.md`).
 
 ## Rules for these documents
 

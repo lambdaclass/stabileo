@@ -3,11 +3,18 @@
   import { adminUsers } from './admin-users.svelte';
   import { adminSettings } from './admin-settings.svelte';
   import { adminAllowlist } from './admin-allowlist.svelte';
+  import { adminMetrics, adminProjects, adminFeedback, adminAudit } from './admin-insights.svelte';
+  import { acquisition, marketingSettings } from './admin-marketing.svelte';
   import { adminRoute, PAGE_PATHS, type AdminPage } from './admin-route.svelte';
   import { t } from '../lib/i18n';
 
   const NAV: { page: AdminPage; label: string }[] = [
     { page: 'users', label: 'admin.nav.users' },
+    { page: 'metrics', label: 'admin.nav.metrics' },
+    { page: 'ads', label: 'admin.nav.ads' },
+    { page: 'projects', label: 'admin.nav.projects' },
+    { page: 'feedback', label: 'admin.nav.feedback' },
+    { page: 'audit', label: 'admin.nav.audit' },
     { page: 'settings', label: 'admin.nav.settings' },
     { page: 'allowlist', label: 'admin.nav.allowlist' },
   ];
@@ -28,6 +35,12 @@
       adminUsers.reset();
       adminSettings.reset();
       adminAllowlist.reset();
+      adminMetrics.reset();
+      adminProjects.reset();
+      adminFeedback.reset();
+      adminAudit.reset();
+      acquisition.reset();
+      marketingSettings.reset();
     } finally {
       busy = false;
     }

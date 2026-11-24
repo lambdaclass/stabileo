@@ -1,0 +1,40 @@
+{
+  "id": "wind-physical-pressure-field",
+  "date": "2026-11-16",
+  "prs": [
+    2220
+  ],
+  "area": "loads",
+  "when": {
+    "all": [
+      "generatedWindLoads"
+    ]
+  },
+  "quantities": [
+    "*"
+  ],
+  "title": {
+    "en": "Wind enclosure and pressure fields follow the physical structure",
+    "es": "La clasificación y las presiones de viento siguen la estructura física",
+    "pt": "A classificação e as pressões de vento seguem a estrutura física",
+    "de": "Windklassifizierung und Druckfelder folgen der physischen Struktur",
+    "fr": "Le classement et les pressions du vent suivent la structure physique",
+    "tr": "Rüzgâr sınıflandırması ve basınç alanları fiziksel yapıyı izler",
+    "zh": "风荷载围护分类和压力场按实际结构确定",
+    "hu": "A szél besorolása és nyomásmezői követik a fizikai szerkezetet"
+  },
+  "explanation": {
+    "en": "One open wall could incorrectly classify an otherwise closed building as open. Generated wall wind omitted foundation force; roof and other-structure pressure placement depended on member subdivision. Review every wall and roof opening area, reclassify the enclosure, regenerate W and Wa loads, then rerun analyses, combinations and design checks. Re-solving stored loads alone does not correct them (#2203–#2206). Minimum horizontal cases are kept separate from calculated pressure fields. SA-2026-076 (#2203); SA-2026-077 (#2204); SA-2026-078 (#2205). Eccentric cases now transfer the plan force couple as distributed member loading; solid-sign width excludes supports below the face.",
+    "es": "Una pared abierta podía clasificar erróneamente como abierto un edificio con las demás paredes cerradas. El viento generado omitía fuerzas en la fundación y las presiones de cubiertas y otras estructuras dependían de la subdivisión. Revisá las aberturas de todas las paredes y la cubierta, reclasificá, regenerá W y Wa y repetí análisis, combinaciones y verificaciones. Recalcular las cargas guardadas no las corrige (#2203–#2206). Los casos mínimos horizontales se mantienen separados de las presiones calculadas. SA-2026-076 (#2203); SA-2026-077 (#2204); SA-2026-078 (#2205). Los casos excéntricos transfieren el par de fuerzas en planta como cargas distribuidas de miembro; el ancho de carteles macizos excluye los apoyos bajo la cara.",
+    "pt": "Uma parede aberta podia classificar incorretamente como aberto um edifício com as outras paredes fechadas. O vento gerado omitia forças na fundação e as pressões de coberturas e outras estruturas dependiam da subdivisão. Revise todas as aberturas, reclassifique, gere W e Wa novamente e recalcule análises, combinações e verificações. Recalcular apenas as cargas salvas não as corrige (#2203–#2206). Os casos mínimos horizontais permanecem separados das pressões calculadas. SA-2026-076 (#2203); SA-2026-077 (#2204); SA-2026-078 (#2205). Os casos excêntricos transferem o binário de forças em planta como cargas distribuídas de barra; a largura de placas sólidas exclui os apoios abaixo da face.",
+    "de": "Eine offene Wand konnte ein sonst geschlossenes Gebäude fälschlich als offen einstufen. Erzeugte Windlasten ließen Fundamentkräfte aus; Dachlasten und Lasten anderer Strukturen hingen von der Stabteilung ab. Alle Wand- und Dachöffnungen prüfen, neu einstufen, W und Wa neu erzeugen und Analysen, Kombinationen und Nachweise wiederholen. Erneutes Lösen gespeicherter Lasten allein korrigiert sie nicht (#2203–#2206). Horizontale Mindestlastfälle bleiben von berechneten Druckfeldern getrennt. SA-2026-076 (#2203); SA-2026-077 (#2204); SA-2026-078 (#2205). Exzentrische Fälle übertragen das Kräftepaar im Grundriss als verteilte Stablasten; die Breite geschlossener Schilder schließt Stützen unter der Fläche aus.",
+    "fr": "Une paroi ouverte pouvait faire classer comme ouvert un bâtiment autrement fermé. Les charges générées omettaient des forces aux fondations ; les pressions sur les toits et autres structures dépendaient de la subdivision. Vérifiez toutes les ouvertures, reclassez le bâtiment, régénérez W et Wa puis relancez analyses, combinaisons et vérifications. Recalculer les charges enregistrées seules ne les corrige pas (#2203–#2206). Les cas horizontaux minimaux restent séparés des pressions calculées. SA-2026-076 (#2203); SA-2026-077 (#2204); SA-2026-078 (#2205). Les cas excentrés transfèrent le couple de forces en plan sous forme de charges réparties sur les barres ; la largeur des panneaux pleins exclut les supports sous la face.",
+    "tr": "Tek bir açık duvar, diğer duvarları kapalı bir binayı yanlışlıkla açık sınıflandırabiliyordu. Üretilen rüzgâr yüklerinde temel kuvvetleri eksikti; çatı ve diğer yapı basınçları çubuk bölünmesine bağlıydı. Tüm duvar ve çatı açıklıklarını inceleyin, yeniden sınıflandırın, W ve Wa yüklerini yeniden üretin ve analiz, birleşim ve kontrolleri tekrarlayın. Yalnızca kayıtlı yükleri yeniden çözmek bunları düzeltmez (#2203–#2206). Asgari yatay yük durumları hesaplanan basınç alanlarından ayrı tutulur. SA-2026-076 (#2203); SA-2026-077 (#2204); SA-2026-078 (#2205). Eksantrik durumlarda plandaki kuvvet çifti yayılı çubuk yükü olarak aktarılır; dolu levha genişliğine yüzey altındaki mesnetler dahil edilmez.",
+    "zh": "一面开敞的墙可能把原本封闭的建筑错误地归类为开敞式。生成的墙面风荷载遗漏了基础处的力；屋面和其他结构的压力分布取决于杆件细分。请检查每面墙和屋面的开洞面积，重新进行围护分类，重新生成 W 和 Wa 荷载，然后重新运行分析、组合和设计验算。仅重新求解已存储的荷载并不能纠正它们（#2203–#2206）。最小水平荷载工况与计算得到的压力场分开保留。SA-2026-076（#2203）；SA-2026-077（#2204）；SA-2026-078（#2205）。偏心工况现在把平面内的力偶作为沿杆件分布的荷载传递；实体标牌的宽度不计入其表面以下的支承。",
+    "hu": "Egy nyitott fal tévesen nyitottnak minősíthetett egy egyébként zárt épületet. A falak szélterhéből hiányzott az alapra jutó erőrész; a tető és más szerkezetek nyomáseloszlása a felosztástól függött. Ellenőrizze minden fal és a tető nyílásait, sorolja be újra az épületet, állítsa elő újra a W és Wa terheket, majd ismételje meg az elemzéseket, kombinációkat és ellenőrzéseket. A mentett terhek újraszámítása nem javítja ki őket (#2203–#2206). A minimális vízszintes teheresetek elkülönülnek a számított nyomásmezőktől. SA-2026-076 (#2203); SA-2026-077 (#2204); SA-2026-078 (#2205). Az excentrikus esetek az aktív keresztmetszeten erőpárt osztanak el, megoszló rúderőként. A tömör tábla szélessége nem tartalmazza a felület alatti támaszokat."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-wind-physical-pressure-field.md",
+    "heading": "Wind enclosure and pressure fields follow the physical structure"
+  }
+}

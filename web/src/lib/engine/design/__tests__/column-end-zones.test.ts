@@ -5,7 +5,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { endZoneFor } from '../candidate-enumerate-column';
-import { computeShearCapacity, verifyProvidedReinforcement } from '../../station-design-forces';
+import { extractGoverningDemands, verifyProvidedReinforcement } from '../../station-design-forces';
 
 describe('column end zones', () => {
   it('are proposed only when the project asks', () => {
@@ -22,13 +22,20 @@ describe('column end zones', () => {
     };
     const base = { column: { cornerDia: 20, faceDia: 20, nBottom: 1, nTop: 1, nLeft: 1, nRight: 1 }, longitudinal: { count: 8, diameter: 20 }, stirrups: { diameter: 8, legs: 2, spacing: 0.25 } };
     const sec = { b: 0.4, h: 0.4, fc: 25, fy: 420, cover: 0.025, stirrupDia: 8 };
-    const ties = (r: object) => verifyProvidedReinforcement(1, 'column', r as never, undefined, {}, sec, stations as never).checks.filter((c) => c.category.startsWith('Ties'));
-    const plain = ties(base), zoned = ties({ ...base, tieZones: { endLength: 0.5, endSpacing: 0.125 } });
-    const vy = (cs: typeof plain) => cs.find((c) => c.demand !== undefined && Math.abs(c.demand - 200) < 1e-6)!;
-    // The worst station moves to the middle, where the spacing is still 25 cm.
-    const mid = computeShearCapacity(8, 2, 0.25, 0.4, 0.4 - 0.025 - 0.008 - 0.008, 25, 420, 500, { Ag: 0.16, rhoW: 0 } as never).phiVn;
-    expect(vy(zoned).capacity).toBeCloseTo(mid, 1);
-    expect(vy(plain).capacity).toBeCloseTo(mid, 1);
-    expect(vy(zoned).stationX).toBeCloseTo(1.5, 9);
+    const ties = (r: object, extracted: boolean) => verifyProvidedReinforcement(1, 'column', r as never,
+      extracted ? extractGoverningDemands(stations) : undefined, {}, sec, extracted ? undefined : stations,
+    ).checks.filter((c) => c.category.startsWith('Ties'));
+    const vy = (cs: ReturnType<typeof ties>) => cs.find((c) => c.demand === 200)!;
+    const d = sec.b - sec.cover - base.stirrups.diameter / 1000 - base.column.cornerDia / 2000;
+    const gross = sec.b * sec.h;
+    const mid = 0.75 * d * ((0.17 * Math.sqrt(sec.fc) * 1000 + 500 / (6 * gross)) * sec.h
+      + 2 * 0.503e-4 * sec.fy * 1000 / base.stirrups.spacing);
+    for (const extracted of [false, true]) {
+      const plain = ties(base, extracted);
+      const zoned = ties({ ...base, tieZones: { endLength: 0.5, endSpacing: 0.125 } }, extracted);
+      expect(vy(plain).capacity).toBeCloseTo(mid, 1);
+      expect(vy(zoned).capacity).toBeCloseTo(mid, 1);
+      expect(vy(zoned).stationX).toBeCloseTo(1.5, 9);
+    }
   });
 });

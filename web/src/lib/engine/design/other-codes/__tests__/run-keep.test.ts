@@ -7,7 +7,7 @@ import { runOtherCode } from '../run';
 import type { MemberContext, OtherCode } from '../types';
 
 const demand = (k: number) => ({ category: 'My+' as const, value: 1, absValue: 1, comboId: k, comboName: `C${k}`, stationT: 0, stationX: 0, forces: { t: 0, x: 0, n: 0, vy: 0, vz: 0, my: 1, mz: 0, torsion: 0 } });
-const ctx = { elementId: 7, demands: [demand(1), demand(2)] } as unknown as MemberContext;
+const ctx = { elementId: 7, stationTs: [0], expectedCombinationIds: [1, 2], demands: [demand(1), demand(2)], tuples: [demand(1), demand(2)] } as unknown as MemberContext;
 
 /** A checker that reads 0,5 with one check left out at the first demand, and 0,8 with none at the second. */
 const fake: OtherCode = {

@@ -122,6 +122,22 @@ fn check_export(
             "{}_pdelta_{dimension}d",
             if certified { "certify" } else { "solve" }
         );
+        if expected["results"]["equilibrium"]["residualOk"] == false {
+            let error = if dimension == 2 {
+                let model = serde_json::from_value(input.clone()).unwrap();
+                dedaliano_engine::certify::pdelta::certify_pdelta_2d(&model, max_iter, 1e-12).unwrap_err()
+            } else {
+                let model = serde_json::from_value(input.clone()).unwrap();
+                dedaliano_engine::certify::pdelta::certify_pdelta_3d(&model, max_iter, 1e-12).unwrap_err()
+            };
+            assert!(error.contains("non-finite"), "{error}");
+            assert!(expected["results"]["reactions"].as_array().unwrap().iter().all(|r| r[if dimension == 2 {"rx"} else {"fx"}].is_null()));
+            assert!(expected["results"]["elementForces"].as_array().unwrap().iter().all(|r| r["nStart"].is_null()));
+            let mut refused = expected.clone();
+            refused["refused"] = json!(true);
+            record(cases, &api, input.clone(), max_iter, refused);
+            continue;
+        }
         let result = match (dimension, certified) {
             (2, false) => dedaliano_engine::solve_pdelta_2d(&text, max_iter, 1e-12),
             (2, true) => dedaliano_engine::certify_pdelta_2d(&text, max_iter, 1e-12),

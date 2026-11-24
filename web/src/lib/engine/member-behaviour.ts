@@ -1,3 +1,5 @@
+import { accountingCaseSources, accountingSource } from './accounting-source';
+import type { Load } from '../store/model.svelte';
 /**
  * What a member or a support does beyond the linear, stored on it and honoured by every solve.
  *
@@ -71,7 +73,12 @@ export function solvableModel<M extends ModelData>(model: M): M {
   // Variable members become chains of prismatic pieces for the solve (`variable-members.ts`).
   // Ids counted from the model given, so a reader of the results can plan the same expansion from
   // it (`variableExpansionFor`).
-  return expandVariableMembers(pruneModel(model, true), model);
+  const active = pruneModel(model, true);
+  const solved = expandVariableMembers(active, model);
+  return solved === model || solved[accountingSource] ? solved : {
+    ...solved,
+    [accountingSource]: { ...active, nodes: model.nodes },
+  };
 }
 
 function pruneModel<M extends ModelData>(model: M, dropLoose: boolean): M {
@@ -81,25 +88,34 @@ function pruneModel<M extends ModelData>(model: M, dropLoose: boolean): M {
   const elements = inactive.size === 0 ? model.elements : new Map([...model.elements].filter(([id]) => !inactive.has(id)));
   const used = nodesInUse(model, elements);
   const heldByAny = inactive.size === 0 ? used : nodesInUse(model, model.elements);
-  for (const id of model.nodes.keys()) if (!dropLoose && !heldByAny.has(id)) used.add(id);
+  if (!dropLoose) {
+    for (const id of model.nodes.keys()) {
+      if (!heldByAny.has(id)) used.add(id);
+    }
+  }
   for (const l of model.loads) {
     const n = (l.data as { nodeId?: number }).nodeId;
     if (n !== undefined && !heldByAny.has(n)) used.add(n);
   }
   const keepNode = (id: number) => used.has(id);
   if (inactive.size === 0 && [...model.nodes.keys()].every(keepNode)) return model;
-  const loads = model.loads.filter((l) => {
-    const d = l.data as { elementId?: number; nodeId?: number };
-    if (d.elementId !== undefined && inactive.has(d.elementId)) return false;
-    if (d.nodeId !== undefined && !keepNode(d.nodeId)) return false;
-    return true;
-  });
+  const keepLoad = (load: Load) => {
+    const { elementId, nodeId } = load.data as { elementId?: number; nodeId?: number };
+    return (elementId === undefined || !inactive.has(elementId))
+      && (nodeId === undefined || !heldByAny.has(nodeId) || keepNode(nodeId));
+  };
+  const cases = model[accountingCaseSources];
+  const keepBatches = (batches: ReadonlyMap<number, readonly Load[]>) =>
+    new Map([...batches].map(([id, loads]) => [id, loads.filter(keepLoad)]));
   return {
     ...model,
     elements,
     nodes: new Map([...model.nodes].filter(([id]) => keepNode(id))),
     supports: new Map([...model.supports].filter(([, s]) => keepNode(s.nodeId))),
-    loads,
+    loads: model.loads.filter(keepLoad),
+    ...(cases && inactive.size > 0 ? {
+      [accountingCaseSources]: { ...cases, authored: keepBatches(cases.authored), generated: keepBatches(cases.generated) },
+    } : {}),
   };
 }
 
@@ -224,7 +240,34 @@ export function withZeroRows(results: AnalysisResults3D, members: Iterable<{ id:
  * or at 30 passes. Members that are out carry exact zeros, and the results keep their
  * reactions.
  */
-export function solveNonlinear3D(model: ModelData, input: SolverInput3D): { results: AnalysisResults3D; report: NonlinearReport } {
+export type NonlinearStep =
+  | { kind: 'linear'; input: SolverInput3D; reuse: boolean }
+  | { kind: 'ssi'; input: SolverInput3D; soilSprings: unknown[] }
+  | { kind: 'cable'; input: SolverInputCable3D; densities: Record<string, number>; pretension: Record<string, number> };
+type NonlinearResult = { results: AnalysisResults3D; report: NonlinearReport };
+
+export function solveNonlinear3D(model: ModelData, input: SolverInput3D, solveLinear: (input: SolverInput3D) => AnalysisResults3D = solve3D): NonlinearResult {
+  const steps = nonlinearSteps(model, input);
+  let next = steps.next();
+  while (!next.done) {
+    const step = next.value;
+    const result = step.kind === 'linear' ? (step.reuse ? solveLinear : solve3D)(step.input)
+      : step.kind === 'ssi' ? solveSSI3D({ solver: step.input, soilSprings: step.soilSprings })
+      : solveCable3D(step.input, 50, 1e-8, step.densities, step.pretension);
+    next = steps.next(result);
+  }
+  return next.value;
+}
+
+/** The same active-set decisions, yielding each expensive native solve to a worker. */
+export async function solveNonlinear3DAsync(model: ModelData, input: SolverInput3D, solveStep: (step: NonlinearStep) => Promise<any>): Promise<NonlinearResult> {
+  const steps = nonlinearSteps(model, input);
+  let next = steps.next();
+  while (!next.done) next = steps.next(await solveStep(next.value));
+  return next.value;
+}
+
+function* nonlinearSteps(model: ModelData, input: SolverInput3D): Generator<NonlinearStep, NonlinearResult, any> {
   const oneWay = new Map<number, 'tension' | 'compression'>();
   for (const e of model.elements.values()) {
     if (!input.elements.has(e.id)) continue;
@@ -287,10 +330,10 @@ export function solveNonlinear3D(model: ModelData, input: SolverInput3D): { resu
   // with the last iteration's results, as the active-set loop reports its own; it does not abort
   // the whole analysis.
   let cablesConverged = true;
-  const linearSolve = (trial: SolverInput3D): AnalysisResults3D => {
-    if (cables.size === 0) return solve3D(trial);
+  const linearSolve = function* (trial: SolverInput3D): Generator<NonlinearStep, AnalysisResults3D, any> {
+    if (cables.size === 0) return yield { kind: 'linear', input: trial, reuse: true };
     const typed: SolverInputCable3D = { ...trial, elements: new Map([...trial.elements].map(([id, e]) => [id, cables.has(id) ? { ...e, type: 'cable' as const } : e])) };
-    const r = solveCable3D(typed, 50, 1e-8, densities, pretension);
+    const r: ReturnType<typeof solveCable3D> = yield { kind: 'cable', input: typed, densities, pretension };
     cablesConverged = r.converged;
     cableForces = r.cableForces.map((c) => ({ elementId: c.elementId, tension: c.tension, horizontalThrust: c.horizontalThrust, sag: c.sag, ernstModulus: c.ernstModulus }));
     // Finished as a linear solve is: the other members keep the axial part of their loads.
@@ -343,7 +386,7 @@ export function solveNonlinear3D(model: ModelData, input: SolverInput3D): { resu
     let results: AnalysisResults3D;
     if (soilSprings.length) {
       const live = soilSprings.filter((x) => !(lifted.has(x.nodeId) && x.direction === 2));
-      const r = solveSSI3D({ solver: trial, soilSprings: live });
+      const r = yield { kind: 'ssi', input: trial, soilSprings: live };
       if (r.converged !== true) throw new Error('Multilinear spring analysis did not converge');
       const supports = new Map(trial.supports);
       for (const spring of r.springResults as Array<{ nodeId: number; direction: number; secantStiffness: number }>) {
@@ -352,9 +395,9 @@ export function solveNonlinear3D(model: ModelData, input: SolverInput3D): { resu
         if (!support || !key || !Number.isFinite(spring.secantStiffness) || spring.secantStiffness < 0) throw new Error('Invalid converged spring stiffness');
         supports.set(spring.nodeId, { ...support, [key]: spring.secantStiffness });
       }
-      results = solve3D({ ...trial, supports });
+      results = yield { kind: 'linear', input: { ...trial, supports }, reuse: false };
     } else {
-      results = linearSolve(trial);
+      results = yield* linearSolve(trial);
     }
     results = stripStabilisedReactions(results, trial);
     last = results;
@@ -364,6 +407,7 @@ export function solveNonlinear3D(model: ModelData, input: SolverInput3D): { resu
     const force = new Map(results.elementForces.map((f) => [f.elementId, (f.nStart + f.nEnd) / 2]));
     const nMax = Math.max(1e-9, ...[...force.values()].map((v) => Math.abs(v)));
     const disp = new Map(results.displacements.map((d) => [d.nodeId, d]));
+    let scaleU: number | undefined;
     for (const [id, kind] of oneWay) {
       if (!off.has(id)) {
         const n = force.get(id) ?? 0;
@@ -373,7 +417,7 @@ export function solveNonlinear3D(model: ModelData, input: SolverInput3D): { resu
         const a = r && disp.get(r.nodeI), b = r && disp.get(r.nodeJ);
         if (!r || !a || !b) continue;
         const stretch = (b.ux - a.ux) * r.axes.ex[0] + (b.uy - a.uy) * r.axes.ex[1] + (b.uz - a.uz) * r.axes.ex[2];
-        const scaleU = Math.max(1e-12, ...results.displacements.map((d) => Math.hypot(d.ux, d.uy, d.uz)));
+        scaleU ??= Math.max(1e-12, ...results.displacements.map((d) => Math.hypot(d.ux, d.uy, d.uz)));
         if ((kind === 'tension' && stretch > 1e-9 * scaleU) || (kind === 'compression' && stretch < -1e-9 * scaleU)) { off.delete(id); changed = true; }
       }
     }

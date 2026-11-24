@@ -1,0 +1,42 @@
+{
+  "id": "seismic-story-member-inertia",
+  "date": "2026-11-19",
+  "prs": [
+    2316
+  ],
+  "area": "loads",
+  "when": {
+    "all": [
+      "generatedSeismicLoads"
+    ]
+  },
+  "quantities": [
+    "*",
+    "solve.ok"
+  ],
+  "requiresLoadRegeneration": true,
+  "title": {
+    "en": "Static seismic inertia stays on story-level members and shells",
+    "es": "La inercia sísmica estática actúa sobre los miembros y las superficies de cada piso",
+    "pt": "A inércia sísmica estática atua nas barras e superfícies de cada pavimento",
+    "de": "Statische Erdbebenträgheitskräfte wirken auf Stäbe und Flächen auf Geschosshöhe",
+    "fr": "Les forces d’inertie sismique statique agissent sur les barres et les surfaces des étages",
+    "tr": "Statik deprem atalet kuvvetleri kat seviyesindeki eleman ve yüzeylere etkir",
+    "zh": "等效静力地震惯性力由楼层标高处的构件和壳单元承担",
+    "hu": "A statikus szeizmikus tehetetlenségi erők a szint rúd- és felületelemeire hatnak"
+  },
+  "explanation": {
+    "en": "Mass at a story elevation produces distributed loads on its members and surfaces. The 45° case is refused with medium or extreme accidental torsion. Regenerate affected E loads and repeat analyses and design checks (#2316).",
+    "es": "La masa a la cota de un piso genera cargas distribuidas en sus miembros y superficies. Se rechaza el caso a 45° con torsión accidental media o extrema. Regenerá las cargas E afectadas y repetí los análisis y verificaciones (#2316).",
+    "pt": "A massa na cota de um pavimento gera cargas distribuídas em suas barras e superfícies. O caso a 45° é recusado com torção acidental média ou extrema. Regenere as cargas E afetadas e repita as análises e verificações (#2316).",
+    "de": "Masse auf Geschosshöhe erzeugt verteilte Lasten auf den dortigen Stäben und Flächen. Der 45°-Lastfall wird bei mittlerer oder extremer zufälliger Torsion abgelehnt. Erzeugen Sie betroffene E-Lasten neu und wiederholen Sie Analysen und Nachweise (#2316).",
+    "fr": "La masse à la cote d’un étage produit des charges réparties sur ses barres et ses surfaces. Le cas à 45° est refusé avec une torsion accidentelle moyenne ou extrême. Régénérez les charges E concernées et répétez les analyses et les vérifications (#2316).",
+    "tr": "Kat kotundaki kütle eleman ve yüzeylerde yayılı yük oluşturur. Orta veya aşırı tesadüfi burulmada 45° yük durumu reddedilir. Etkilenen E yüklerini yeniden oluşturun ve analizleri ve tasarım kontrollerini tekrarlayın (#2316).",
+    "zh": "楼层标高处的质量在该层构件和面单元上产生分布荷载。考虑中等或极端程度的偶然扭转时，将拒绝生成 45° 方向的荷载工况。请重新生成受影响的 E 荷载并重做分析和设计验算（#2316）。",
+    "hu": "A szint magasságában lévő tömeg megoszló terheket hoz létre a rúd- és felületelemeken. Közepes vagy szélsőséges véletlen csavarás esetén a 45°-os tehereset nem hozható létre. Generálja újra az érintett E terheket, és ismételje meg az elemzéseket és ellenőrzéseket (#2316)."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-seismic-story-member-inertia.md",
+    "heading": "Static seismic inertia stays on story-level members and shells"
+  }
+}

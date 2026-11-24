@@ -17,39 +17,36 @@
  * published results), read out of the file and written down below as
  * constants, the way one would quote a textbook example.
  *
- * ── Reading the inputs across ──────────────────────────────────────
- *
- * The workbook takes `d's`, the distance from the compressed face to the bar
- * CENTRE. This module takes clear cover and adds the stirrup and half a bar
- * itself. So `cover` here is `d's` minus what `effectiveDepth` will add back
- * — with no stirrup and the assumed Ø16, that is `d's − 8 mm`. Getting this
- * wrong was the first run's whole discrepancy, and it is the kind of mismatch
- * that looks like a code error and is a units error.
  */
 
 import { describe, it, expect } from 'vitest';
 import { checkFlexure } from '../cirsoc201';
 import { checkFlexureFlanged } from '../cirsoc201-flanged';
-import { checkColumn } from '../cirsoc201';
+import { checkColumn } from '../../../__tests__/helpers/manual-interactions';
 import { designCircular, checkColumnCircular } from '../cirsoc201-circular';
 import { COLUMN_STEEL_RATIO } from '../cirsoc201-basis';
 import { designRectColumn } from '../cirsoc201-capacity';
 
-/** `d's` minus the 8 mm `effectiveDepth` adds for the assumed Ø16 bar. */
-const coverFor = (dPrimeS: number) => dPrimeS - 0.008;
+const coverFor = (dPrimeS: number, barDiameterMm = 16) => dPrimeS - barDiameterMm / 2000;
 
 describe('FSR — rectangular section in simple bending', () => {
+  const barDiameterMm = 20;
   /*
    * The sheet as it ships: f'c 25, fy 420, b 0.12, h 0.40, d's 0.034,
    * Mu 52 kN·m.
    */
   const r = checkFlexure(
-    { fc: 25, fy: 420, cover: coverFor(0.034), b: 0.12, h: 0.40, stirrupDia: 0 },
-    52, 0, { edition: '2005' }, // the workbook is a CIRSOC 201-2005 document
+    { fc: 25, fy: 420, cover: coverFor(0.034, barDiameterMm), b: 0.12, h: 0.40, stirrupDia: 0 },
+    52, 0, { edition: '2005', barDiameterMm }, // the workbook is a CIRSOC 201-2005 document
   );
 
   it('reaches the same effective depth', () => {
     expect(r.d).toBeCloseTo(0.366, 6);
+  });
+
+  it('places the provided bars at the published centroid', () => {
+    expect(r.d).toBeCloseTo(0.40 - 0.034, 12);
+    expect(r.designDepth).toBe(r.d);
   });
 
   it('asks for the same steel', () => {

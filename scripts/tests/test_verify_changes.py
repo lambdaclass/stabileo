@@ -122,10 +122,10 @@ class VerifyChanges(unittest.TestCase):
     def test_kani_runs_only_when_its_inputs_change(self):
         for paths, verify, kani in [
             (['engine/src/solver/buckling.rs'], True, False),
-            (['engine/src/certify/buckling.rs', 'docs/verification/CONTAINMENT.md'], True, False),
+            (['engine/src/certify/buckling.rs', 'testing/docs/CONTAINMENT.md'], True, False),
             (['engine/tests/metamorphic/regressions.rs', 'web/src/App.svelte'], False, False),
             (['verify/Certify/Bundle.lean'], True, False),
-            (['tools/symbolic/gen.py'], True, False),
+            (['testing/symbolic/gen.py'], True, False),
             (['engine/src/kani_proofs.rs'], True, True),
             (['engine/src/element/frame.rs'], True, True),
             (['engine/src/linalg/amd.rs'], True, True),
@@ -145,8 +145,8 @@ class VerifyChanges(unittest.TestCase):
             (['research/.cargo/config.toml'], False, False),
             (['flake.nix'], True, True),
             (['flake.lock'], True, True),
-            (['scripts/kani-safe.sh'], True, True),
-            (['scripts/kani-setup.sh'], True, True),
+            (['testing/scripts/kani-safe.sh'], True, True),
+            (['testing/scripts/kani-setup.sh'], True, True),
             (['.github/workflows/verify.yml'], True, True),
             (['.github/scripts/verify-changes.py'], True, True),
             (['web/src/App.svelte', 'engine/src/element/truss.rs'], True, True),

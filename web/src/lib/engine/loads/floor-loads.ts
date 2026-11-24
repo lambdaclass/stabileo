@@ -42,8 +42,12 @@
  *
  * Pure: no store.
  */
+import { msg } from '../../codes/message';
 import { computeLocalAxes3D } from '../local-axes-3d';
-import { twoWayShares, oneWayShares, signedArea, type Piece, type Side, type SideShare, type Zone2D } from './floor-tributary';
+import { twoWayShares, oneWayShares, quadraticAt, signedArea, type Piece, type Side, type SideShare, type Zone2D } from './floor-tributary';
+import { partitionShellCoverage, refuseGravityGeometry, type ShellCoverage } from './gravity-shell-partition';
+import { MEMBER_GEOMETRY_LIMIT } from '../member-span-loads';
+import polygonClipping, { type Polygon } from 'polygon-clipping';
 import type { P2 } from './floor-skeleton';
 
 type P3 = [number, number, number];
@@ -69,6 +73,7 @@ export interface FloorLoadInput {
   zone?: { outer: P3[]; holes?: P3[][] };
   /** An inclined floor's q per plan area (q·cos of the slope) instead of per true area. */
   perPlanArea?: boolean;
+  shellFootprints?: Polygon[] | ((boundary: Polygon, corners: number[]) => Polygon[]);
   distribution: 'twoWay' | 'oneWay';
   /** One way: the plan direction the slab spans. */
   spanAxis?: 'x' | 'y';
@@ -94,6 +99,7 @@ export interface FloorMemberLoad {
 
 export interface FloorPanel {
   polygon: P2[];
+  holes?: P2[][];
   area: number;
   loaded: boolean;
   /**
@@ -108,6 +114,7 @@ export interface FloorPanel {
    * ring's area is in its own part, never in the part of the panel around it.
    */
   own?: { loads: FloorMemberLoad[]; nodal: FloorLoadResult['nodal']; perBeam: Map<number, number>; area: number; sides: Map<number, SideStretch[]> };
+  shellCoverage?: ShellCoverage;
   reason?: 'crossing' | 'zoneAcrossSpan' | 'unresolved';
 }
 
@@ -115,6 +122,7 @@ export interface FloorPanel {
 export interface SideStretch { t0: number; t1: number; side: 1 | -1 }
 
 export interface FloorLoadResult {
+  refusal?: 'eccentricZone' | 'zoneWithShellFootprints';
   z: number | null;
   panels: FloorPanel[];
   loads: FloorMemberLoad[];
@@ -131,10 +139,21 @@ export interface FloorLoadResult {
 
 const EPS = 1e-9;
 
+export function floorLoad(input: FloorLoadInput & { shellFootprints?: undefined }): FloorLoadResult & { refusal?: 'eccentricZone' };
+export function floorLoad(input: FloorLoadInput): FloorLoadResult;
 export function floorLoad(input: FloorLoadInput): FloorLoadResult {
+  return calculateFloorLoad(input, round);
+}
+
+export function physicalFloorLoad(input: FloorLoadInput): FloorLoadResult {
+  return calculateFloorLoad(input, value => value);
+}
+
+function calculateFloorLoad(input: FloorLoadInput, round: (value: number) => number): FloorLoadResult {
   const tol = input.tol ?? 1e-3;
   const skipped = { trusses: 0, notHorizontal: 0, otherLevel: 0, open: 0, crossings: 0, zoneAcrossSpan: 0, unresolved: 0 };
   const res: FloorLoadResult = { z: null, panels: [], loads: [], nodal: [], normal: [0, 0, 1], perBeam: new Map(), loadedArea: 0, totalKN: 0, skipped };
+  if (input.zone !== undefined && input.shellFootprints !== undefined) return { ...res, refusal: 'zoneWithShellFootprints' };
   const pos = (id: number) => input.nodes.get(id);
   const P = (id: number): P3 => { const n = pos(id)!; return [n.x, n.y, n.z ?? 0]; };
 
@@ -191,7 +210,11 @@ export function floorLoad(input: FloorLoadInput): FloorLoadResult {
   const spanDir = ((): P2 => { const d = plane ? [dot3(spanAxis, plane.e1), dot3(spanAxis, plane.e2)] : [spanAxis[0], spanAxis[1]]; const l = Math.hypot(d[0]!, d[1]!); return [d[0]! / l, d[1]! / l]; })();
   const beamById = new Map(beams.map((b) => [b.id, b]));
   /** Pieces of load per member, each with the panel it comes from. */
-  const raw = new Map<number, Array<{ a: number; b: number; qa: number; qb: number; len: number; panel: number; side: 1 | -1 }>>();
+  type LoadPiece = {
+    a: number; b: number; qa: number; qb: number; len: number; panel: number; side: 1 | -1;
+    offset?: Piece['offset'];
+  };
+  const raw = new Map<number, LoadPiece[]>();
   /** The panel each nodal load comes from. */
   const nodalPanel: number[] = [];
 
@@ -318,32 +341,57 @@ export function floorLoad(input: FloorLoadInput): FloorLoadResult {
   const beamsXY = beams.map((b) => ({ id: b.id, p: xy(b.nodeI), q: xy(b.nodeJ) }));
 
   panelsFound.forEach(({ face, cycle, poly, area, inner, ties }, k) => {
+    if (res.refusal) return;
     const sides = mergeSides(cycle, poly, elementOf, (e, p) => beamById.get(e)!.nodeI === p);
     const holeCycles = [...inner, ...(holesOf.get(k) ?? [])];
     const panel: FloorPanel = { polygon: poly, area, loaded: false };
+    if (holeCycles.length) panel.holes = holeCycles.map(hole => hole.map(xy));
     res.panels.push(panel);
     if (face.some((n) => invalid.has(n))) { panel.reason = 'crossing'; return; }
     if (holeCycles.some((h) => h.some((n) => invalid.has(n)))) { panel.reason = 'crossing'; return; }
     const holes = holeCycles.map((h) => mergeSides(h, h.map(xy), elementOf, (e, p) => beamById.get(e)!.nodeI === p));
-    // Shares at unit load: the area each side takes, scaled by q when written.
-    const shares: SideShare[] | null = input.distribution === 'oneWay'
-      ? oneWayShares(sides, holes, spanDir, 1, zone)
-      : twoWayShares(sides, holes, 1, zone);
-    if (!shares) {
-      panel.reason = input.distribution === 'oneWay' && zone ? 'zoneAcrossSpan' : 'unresolved';
-      if (panel.reason === 'zoneAcrossSpan') skipped.zoneAcrossSpan++; else skipped.unresolved++;
-      return;
-    }
     const all = [...sides, ...holes.flat()];
     // The members along its sides: those the graph kept, and any other lying on a side (a second
     // member between two nodes, a stub along a side), which the panel loads through the first.
     const onSides = (p: P2) => all.some((sd) => nearSegment(p, sd.a, sd.b, tol));
     const along = beamsXY.filter((b) => onSides(b.p) && onSides(b.q) && onSides([(b.p[0] + b.q[0]) / 2, (b.p[1] + b.q[1]) / 2])).map((b) => b.id);
     panel.members = [...new Set([...all.flatMap((sd) => sd.segments.map((g) => g.elementId)), ...along, ...ties])];
+    const footprints = typeof input.shellFootprints === 'function'
+      ? input.shellFootprints([sides.map(side => side.a), ...holes.map(hole => hole.map(side => side.a))], sides.map(side => side.nodeA))
+      : input.shellFootprints ?? [];
+    const partition = partitionShellCoverage(sides, holes, footprints, input.distribution === 'oneWay' ? spanDir : undefined);
+    if (partition.kind !== 'uncovered') panel.shellCoverage = partition;
+    if (partition.kind === 'shell') return;
+    let panelZone = zone;
+    if (zone) {
+      const boundary: Polygon = [sides.map(side => side.a), ...holes.map(hole => hole.map(side => side.a))];
+      const footprint: Polygon = [zone.outer, ...zone.holes];
+      try {
+        if (polygonClipping.intersection(boundary, footprint).length === 0) return;
+        if (polygonClipping.difference(boundary, footprint).length === 0) panelZone = undefined;
+      } catch {
+        res.refusal = 'eccentricZone';
+        return;
+      }
+    }
+    const shares: SideShare[] | null = partition.kind === 'strips' ? partition.shares : input.distribution === 'oneWay'
+      ? oneWayShares(sides, holes, spanDir, 1, panelZone)
+      : twoWayShares(sides, holes, 1, panelZone);
+    if (!shares) {
+      if (zone && input.distribution === 'oneWay') res.refusal = 'eccentricZone';
+      panel.reason = input.distribution === 'oneWay' && zone ? 'zoneAcrossSpan' : 'unresolved';
+      if (panel.reason === 'zoneAcrossSpan') skipped.zoneAcrossSpan++; else skipped.unresolved++;
+      return;
+    }
+    if (zone && qEff !== 0 && shares.some(share => share.atA || share.atB)) {
+      res.refusal = 'eccentricZone';
+      return;
+    }
+    const exact = !!zone || partition.kind === 'strips';
     let carried = 0;
     all.forEach((side, i) => {
       const sh = shares[i]!;
-      for (const pc of sh.pieces) { emit(side, { ...pc, q0: pc.q0 * qEff, q1: pc.q1 * qEff }, k); carried += (pc.q0 + pc.q1) / 2 * (pc.s1 - pc.s0); }
+      for (const pc of sh.pieces) { emit(side, { ...pc, q0: pc.q0 * qEff, q1: pc.q1 * qEff }, k, exact); carried += (pc.q0 + pc.q1) / 2 * (pc.s1 - pc.s0); }
       for (const [node, a, seg] of [[side.nodeA, sh.atA, side.segments[0]!], [side.nodeB, sh.atB, side.segments[side.segments.length - 1]!]] as const) {
         if (Math.abs(a) < 1e-12) continue;
         res.nodal.push({ nodeId: node, fz: -qEff * a, elementId: seg.elementId });
@@ -352,32 +400,51 @@ export function floorLoad(input: FloorLoadInput): FloorLoadResult {
         carried += a;
       }
     });
-    if (carried <= 1e-12) return;
+    if (carried <= (exact ? 0 : 1e-12)) return;
     panel.loaded = true;
     panel.own = { loads: [], nodal: res.nodal.filter((_, i) => nodalPanel[i] === k), perBeam: new Map(), area: carried, sides: new Map() };
     res.loadedArea += carried;
   });
 
-  function emit(side: Side, pc: Piece, panel: number) {
+  if (zone && [...raw.values()].some(requiresEccentricLoad)) res.refusal = 'eccentricZone';
+  if (res.refusal) return { ...res, nodal: [], loadedArea: 0, totalKN: 0,
+    panels: res.panels.map(({ own: _own, ...panel }) => ({ ...panel, loaded: false })),
+  };
+
+  function emit(side: Side, pc: Piece, panel: number, exact: boolean) {
     for (const seg of side.segments) {
       const s0 = Math.max(pc.s0, seg.s0), s1 = Math.min(pc.s1, seg.s1);
-      if (s1 - s0 < 1e-6) continue;
-      const at = (s: number) => pc.q0 + ((pc.q1 - pc.q0) * (s - pc.s0)) / (pc.s1 - pc.s0 || 1);
+      if (s1 <= s0) continue;
+      if (exact && (s1 - s0) / (seg.s1 - seg.s0) < MEMBER_GEOMETRY_LIMIT) {
+        if (!zone) refuseGravityGeometry(msg('loadPlan.gravity.stripInterval', { id: seg.elementId }));
+        res.refusal = 'eccentricZone';
+        return;
+      }
+      if (!exact && s1 - s0 < 1e-6) continue;
+      const at = (s: number) => {
+        const value = pc.q0 + ((pc.q1 - pc.q0) * (s - pc.s0)) / (pc.s1 - pc.s0 || 1);
+        const error = 16 * Number.EPSILON * (Math.abs(pc.q0) + Math.abs(pc.q1));
+        return Math.abs(value) <= error ? 0 : value;
+      };
       const q0 = at(s0), q1 = at(s1);
       const len = seg.s1 - seg.s0;
       // Along the member, from node I.
       const [a, b, qa, qb] = seg.forward ? [s0 - seg.s0, s1 - seg.s0, q0, q1] : [seg.s1 - s1, seg.s1 - s0, q1, q0];
-      if (Math.abs(qa) < 1e-12 && Math.abs(qb) < 1e-12) continue;
-      addLoad(seg.elementId, a, b, qa, qb, len, panel, seg.forward ? 1 : -1);
+      if (exact ? qa === 0 && qb === 0 : Math.abs(qa) < 1e-12 && Math.abs(qb) < 1e-12) continue;
+      const sign = seg.forward ? 1 : -1;
+      const moment = (x: number) => sign * quadraticAt(pc.offset!, (x - pc.s0) / (pc.s1 - pc.s0));
+      const offset = pc.offset
+        ? [moment(seg.forward ? s0 : s1), moment((s0 + s1) / 2), moment(seg.forward ? s1 : s0)] as Piece['offset']
+        : undefined;
+      const piece = { a, b, qa, qb, len, panel, side: sign as 1 | -1, offset };
+      const list = raw.get(seg.elementId) ?? [];
+      list.push(piece);
+      raw.set(seg.elementId, list);
     }
   }
 
-  function addLoad(elementId: number, a: number, b: number, qa: number, qb: number, len: number, panel: number, side: 1 | -1) {
-    (raw.get(elementId) ?? raw.set(elementId, []).get(elementId)!).push({ a, b, qa, qb, len, panel, side });
-  }
-
   /** A member's pieces as loads in its local axes, and the kN they add up to. */
-  const asLoads = (elementId: number, list: Array<{ a: number; b: number; qa: number; qb: number; len: number }>): { loads: FloorMemberLoad[]; total: number } => {
+  const asLoads = (elementId: number, list: LoadPiece[]): { loads: FloorMemberLoad[]; total: number } => {
     const beam = beamById.get(elementId)!;
     const ni = pos(beam.nodeI)!, nj = pos(beam.nodeJ)!;
     const axes = computeLocalAxes3D(
@@ -391,14 +458,19 @@ export function floorLoad(input: FloorLoadInput): FloorLoadResult {
     const fx = -axes.ex[2], fy = -axes.ey[2] * ySign, fz = -axes.ez[2];
     const loads: FloorMemberLoad[] = [];
     let total = 0;
-    for (const p of mergePieces(list)) {
-      const full = p.a < 1e-6 && p.b > p.len - 1e-6;
+    const exact = !!zone || list.some(p => res.panels[p.panel]?.shellCoverage?.kind === 'strips');
+    for (const p of exact ? list : mergePieces(list)) {
+      const error = 32 * Number.EPSILON * (Math.abs(ni.x) + Math.abs(ni.y) + Math.abs(ni.z ?? 0) + Math.abs(nj.x) + Math.abs(nj.y) + Math.abs(nj.z ?? 0) + p.len);
+      const station = (x: number) => Math.abs(x) <= error ? 0 : Math.abs(x - p.len) <= error ? p.len : x;
+      const start = station(p.a), end = station(p.b);
+      const full = exact ? start === 0 && end === p.len : p.a < 1e-6 && p.b > p.len - 1e-6;
+      const value = exact ? (v: number) => v === 0 ? 0 : v : round;
       loads.push({
         elementId,
-        ...(full ? {} : { a: round(p.a), b: round(p.b) }),
-        qI: round(p.qa), qJ: round(p.qb),
-        qXI: round(fx * p.qa), qXJ: round(fx * p.qb),
-        qYI: round(fy * p.qa), qYJ: round(fy * p.qb), qZI: round(fz * p.qa), qZJ: round(fz * p.qb),
+        ...(full ? {} : { a: value(start), b: exact && end === p.len ? undefined : value(end) }),
+        qI: value(p.qa), qJ: value(p.qb),
+        qXI: value(fx * p.qa), qXJ: value(fx * p.qb),
+        qYI: value(fy * p.qa), qYJ: value(fy * p.qb), qZI: value(fz * p.qa), qZJ: value(fz * p.qb),
       });
       total += ((p.qa + p.qb) / 2) * (p.b - p.a);
     }
@@ -426,6 +498,22 @@ export function floorLoad(input: FloorLoadInput): FloorLoadResult {
   return res;
 }
 
+function requiresEccentricLoad(list: Array<{ a: number; b: number; offset?: Piece['offset'] }>): boolean {
+  const pieces = list.filter(p => p.offset);
+  const stations = [...new Set(pieces.flatMap(p => [p.a, p.b]))].sort((a, b) => a - b);
+  return stations.slice(1).some((end, i) => {
+    const start = stations[i]!;
+    const mid = start + (end - start) / 2;
+    const active = pieces.filter(p => p.a <= start && p.b >= end);
+    return [start, mid, end].some(x => {
+      const moments = active.map(p => quadraticAt(p.offset!, (x - p.a) / (p.b - p.a)));
+      const sum = moments.reduce((total, value) => total + value, 0);
+      const scale = active.reduce((total, p) => total + Math.max(...p.offset!.map(Math.abs)), 0);
+      return Math.abs(sum) > 128 * Number.EPSILON * scale;
+    });
+  });
+}
+
 /**
  * A face's closed walk without its bridges (members it runs along both ways): the walks they
  * joined, and the bridges' members. A face's walk crosses each bridge out and back with what
@@ -450,15 +538,10 @@ function splitAtBridges(face: number[], elementOf: (p: number, q: number) => num
 }
 
 function nearSegment(p: P2, a: P2, b: P2, tol: number): boolean {
-  // A point outside the segment's box widened by `tol` is farther than `tol` from it; the
-  // distance is compared squared. The same test as `plan-gravity.ts`'s.
-  if (p[0] < Math.min(a[0], b[0]) - tol || p[0] > Math.max(a[0], b[0]) + tol
-    || p[1] < Math.min(a[1], b[1]) - tol || p[1] > Math.max(a[1], b[1]) + tol) return false;
   const dx = b[0] - a[0], dy = b[1] - a[1];
   const L2 = dx * dx + dy * dy;
   const t = L2 > 0 ? Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / L2)) : 0;
-  const ex = p[0] - (a[0] + t * dx), ey = p[1] - (a[1] + t * dy);
-  return ex * ex + ey * ey <= tol * tol;
+  return Math.hypot(p[0] - (a[0] + t * dx), p[1] - (a[1] + t * dy)) <= tol;
 }
 
 // ─── Geometry ─────────────────────────────────────────────────────

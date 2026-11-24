@@ -2,7 +2,9 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import toolReviews from '../../../../../research/tools/batches/VALIDATION.json';
-import { BATCH_IDS } from '../../../components/tools/batch';
+import { TOOLS, findTool, toolLastmod } from '../../../components/tools/registry';
+import { buildPublicFeatures } from '../../../../scripts/build-public-features';
+import { isMainToolPath } from '../../../lib/main-tool-routes';
 import { EXPERIMENTS } from '../../../components/research/experiments';
 import { webpSize } from '../../../../scripts/research-card';
 
@@ -17,6 +19,7 @@ type Page = { url: string; locale: string; path: string; html: string; head: str
 
 const decode = (s: string) =>
   s.replace(/&nbsp;/g, ' ').replace(/&quot;/g, '"').replace(/&#39;|&#x27;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+const width = (s: string) => s.length + (s.match(/[\p{Script=Han}\u3000-\u303f\uff00-\uffef]/gu)?.length ?? 0);
 const stripTags = (s: string) => decode(s.replace(/<[^>]+>/g, '')).replace(/\s+/g, ' ').trim();
 
 function graphOf(page: Page): Node[] {
@@ -66,9 +69,10 @@ export function searchMetadataSuite(dist: string) {
         const out: string[] = [];
         if ((p.head.match(/<title>/g) ?? []).length !== 1) out.push(`${p.url}: ${(p.head.match(/<title>/g) ?? []).length} <title> elements`);
         if ((p.head.match(/<meta name="description"/g) ?? []).length !== 1) out.push(`${p.url}: not exactly one meta description`);
-        const t = title(p).length, d = description(p).length;
-        if (t < 25 || t > 120) out.push(`${p.url}: title is ${t} characters: ${title(p)}`);
-        if (d < 90 || d > 300) out.push(`${p.url}: description is ${d} characters: ${description(p)}`);
+        // Measured in the width a result page gives it: a Chinese character takes the room of two Latin letters.
+        const t = width(title(p)), d = width(description(p));
+        if (t < 25 || t > 120) out.push(`${p.url}: title is ${t} characters wide: ${title(p)}`);
+        if (d < 90 || d > 300) out.push(`${p.url}: description is ${d} characters wide: ${description(p)}`);
         return out;
       });
       expect(problems, report(problems)).toEqual([]);
@@ -136,6 +140,8 @@ export function searchMetadataSuite(dist: string) {
         de: ['quelloffene', 'software für die tragwerksplanung'],
         fr: ['logiciel open source d’ingénierie des structures'],
         tr: ['açık kaynaklı yapı mühendisliği yazılımı'],
+        hu: ['nyílt forráskódú szerkezettervező szoftver'],
+        zh: ['开源结构工程软件'],
       };
       const aiInDevelopment: Record<string, string> = {
         en: 'AI assistant in development',
@@ -144,6 +150,8 @@ export function searchMetadataSuite(dist: string) {
         de: 'KI-Assistent in Entwicklung',
         fr: 'assistant IA en développement',
         tr: 'geliştirilmekte olan yapay zekâ asistanı',
+        hu: 'AI-asszisztens fejlesztés alatt áll',
+        zh: 'AI 助手开发中',
       };
       const problems = ownPages()
         .filter((p) => p.path === '/' || p.path === '/tools')
@@ -241,14 +249,13 @@ export function searchMetadataSuite(dist: string) {
       expect(problems, report(problems)).toEqual([]);
     });
 
-    it('dates the blog index by its newest post and each calculator by its latest review, not by the build', () => {
+    it('dates the blog index by its newest post and each tool by its latest review or stated change, not by the build', () => {
       const lastmod = new Map(
         [...readFileSync(join(dist, 'sitemap.xml'), 'utf8').matchAll(/<loc>([^<]+)<\/loc>\s*<lastmod>([^<]+)<\/lastmod>/g)].map(([, url, day]) => [url, day]),
       );
-      const latest = (batch: string) => toolReviews.batches.find((b) => b.id === batch)!.reviews.map((r) => r.date).sort().at(-1);
       const reviewed = (path: string) => path === '/tools'
-        ? toolReviews.batches.flatMap((b) => b.reviews.map((r) => r.date)).sort().at(-1)
-        : latest((BATCH_IDS as readonly string[]).includes(path.slice('/tools/'.length)) ? 'tools-batch-2' : 'tools-batch-1');
+        ? TOOLS.filter(tool => buildPublicFeatures().tools || isMainToolPath(`/tools/${tool.id}`)).map((tool) => toolLastmod(tool, toolReviews.batches)).sort().at(-1)
+        : toolLastmod(findTool(path)!, toolReviews.batches);
       const problems = ownPages().flatMap((p) => {
         const day = lastmod.get(p.url);
         if (p.path === '/blog') {

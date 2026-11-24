@@ -1,5 +1,5 @@
 /**
- * Provenance on every exported file (docs/verification/PROVENANCE.md).
+ * Provenance on every exported file (testing/docs/PROVENANCE.md).
  *
  * Every export of results takes its record through `prepareExportProvenance`: captured in the
  * same tick as the caller built the file's content, engine hashes awaited off the main thread,
@@ -208,6 +208,6 @@ export async function downloadResultText(content: string, filename: string, mime
     : ext === 'dxf' ? dxfWithProvenance(content, p, warnings)
     : ext === 'svg' ? svgWithProvenance(content, p, warnings)
     : content;
-  downloadText(out, filename, mime);
+  downloadText(out, filename, mime, record ? sources : undefined);
   return true;
 }

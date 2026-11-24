@@ -3,6 +3,7 @@
   const copy = $derived(articleStrings(publicI18n.locale));
   import { onMount } from 'svelte';
   import { publicI18n } from '../../../lib/i18n/store.svelte';
+  import { holdPrerender } from '../../../lib/prerender-hold';
   import ExperimentShell from '../shell/ExperimentShell.svelte';
   import PaneTabs from '../shell/PaneTabs.svelte';
   import ScalarFieldViewer from '../../viewport/ScalarFieldViewer.svelte';
@@ -39,7 +40,7 @@
     finally { busy = false; }
   }
   function open() { window.open(editorURL(current, new URL(`${import.meta.env.BASE_URL}app`, location.origin).href), '_blank', 'noopener'); }
-  onMount(() => { showMesh = !window.matchMedia('(max-width: 640px)').matches; void run(); });
+  onMount(() => { showMesh = !window.matchMedia('(max-width: 640px)').matches; void holdPrerender(run()); });
 </script>
 
 <ExperimentShell paperId="shell-obstacle-course" name={copy.shellObstacleCourseBelytschkoEtAl}
@@ -77,7 +78,7 @@
         <label>{s.mesh}<input data-testid="mesh-slider" type="range" min="0" max={meshes.length - 1} step="1" bind:value={meshIndex} />{current.mesh} × {current.mesh}</label>
         <label>{s.scale}<input type="range" min="0" max="10" step="0.5" bind:value={scale} />×{fmt(deformation)}</label>
         <label><input type="checkbox" bind:checked={showMesh} />{s.mesh}</label>
-        <ScalarFieldViewer {...view} cellSize={4} deformScale={deformation} {showMesh} title={label(selected)} unit="" height="23rem" onOpenEditor={open} />
+        <ScalarFieldViewer plane="elevation" {...view} cellSize={4} deformScale={deformation} {showMesh} title={label(selected)} unit="" height="23rem" onOpenEditor={open} />
         <p>{s.projection}</p>
         <button onclick={open}>{s.open}</button>
         <p data-testid="selected-result">{current.mesh} × {current.mesh} · {s.reference}: {fmt(signedReference(current))}{copy.stabileo}{fmt(shown(result).value)} · {s.error}: {fmt(shown(result).error == null ? null : shown(result).error! * 100)}% · {result ? (result.refused ? s.withheld : result.pass ? s.pass : s.fail) : s.pending}</p>

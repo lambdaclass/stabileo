@@ -11,6 +11,8 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { verifyProvidedReinforcement } from '../station-design-forces';
+import type { StirrupDef } from '../../design-contract/reinforcement';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const read = (p: string) => readFileSync(resolve(__dirname, p), 'utf8');
@@ -106,9 +108,34 @@ describe('GATE: verification is axis-agnostic', () => {
   });
 
   it('column ties check BOTH shear components', () => {
-    expect(sdf).toContain('axes.secondaryShear');
-    expect(sdf).toContain("{ axis: axes.shear, read: V, width: section.b, dTie: dTieFor(section.h) }");
-    expect(sdf).toContain("{ axis: axes.secondaryShear, read: V2, width: section.h, dTie: dTieFor(section.b) }");
+    const section = { b: 0.3, h: 0.6, fc: 25, fy: 420, cover: 0.025, stirrupDia: 8 };
+    const stirrups = { legs: 4, diameter: 8, spacing: 0.1 };
+    const strength = (width: number, depth: number, legs: number) => {
+      const d = depth - section.cover - stirrups.diameter / 1000 - 0.008;
+      return 0.75 * d * (Math.sqrt(section.fc) / 6 * 1000 * width + legs * 0.503e-4 * section.fy * 1000 / stirrups.spacing);
+    };
+    const primary = strength(section.b, section.h, 4);
+    const secondary = strength(section.h, section.b, 2);
+    for (const flexure of ['My', 'Mz'] as const) {
+      const usingMy = flexure === 'My';
+      const shear = usingMy ? 'Vz' : 'Vy';
+      const secondaryFlexure = usingMy ? 'Mz' : 'My';
+      const secondaryShear = usingMy ? 'Vy' : 'Vz';
+      const stations = [0, 0.5, 1].map(t => ({
+        t, x: 4 * t, n: 0, my: 0, mz: 0, torsion: 0,
+        vy: usingMy ? 1.05 * secondary : 0.85 * primary,
+        vz: usingMy ? 0.85 * primary : 1.05 * secondary,
+      }));
+      const result = verifyProvidedReinforcement(1, 'column', { stirrups, longitudinal: { count: 4, diameter: 16 } },
+        undefined, {}, section, { elementId: 1, length: 4, stationTs: [0, 0.5, 1], comboResults: [{ comboId: 1, comboName: 'C1', stations }] },
+        undefined, { spacingRule: { edition: '2005', maxAggregateSizeMm: 0 },
+          axes: { flexure, shear, secondaryFlexure, secondaryShear, bFlex: section.b, hFlex: section.h, biaxial: false,
+            sagCategory: `${flexure}+`, hogCategory: `${flexure}-`, basis: 'stress-proxy', secondaryRatio: 0 } });
+      expect(result.checks.find(c => c.demandCategory === shear))
+        .toMatchObject({ category: `Ties (${shear})`, capacity: +primary.toFixed(2), ratio: 0.85, status: 'ok' });
+      expect(result.checks.find(c => c.demandCategory === secondaryShear))
+        .toMatchObject({ category: `Ties (${secondaryShear})`, capacity: +secondary.toFixed(2), ratio: 1.05, status: 'fail' });
+    }
   });
 
   it('slenderness magnification reaches the verifier', () => {
@@ -119,7 +146,41 @@ describe('GATE: verification is axis-agnostic', () => {
   it('missing reinforcement is an explicit failure, never a skipped check', () => {
     expect(sdf).toContain('missingReinforcement: true');
     expect(sdf).toContain('no reinforcement provided in this region');
-    expect(sdf).toContain('no stirrups provided in this region');
+  });
+
+  it.each(['My', 'Mz'] as const)('missing beam stirrups explicitly fail the shear check for %s', (flexure) => {
+    const usingMy = flexure === 'My';
+    const shear = usingMy ? 'Vz' : 'Vy';
+    const section = { b: 0.3, h: 0.6, fc: 25, fy: 420, cover: 0.025, stirrupDia: 8 };
+    const bars = { count: 4, diameter: 16 };
+    const stationTs = [0, 0.5, 1];
+    const demand = 10;
+    const stations = stationTs.map(t => ({
+      t, x: 4 * t, n: 0, my: 0, mz: 0, torsion: 0,
+      vy: usingMy ? 0 : demand, vz: usingMy ? demand : 0,
+    }));
+    const check = (stirrups?: StirrupDef) =>
+      verifyProvidedReinforcement(1, 'beam', { top: bars, bottom: bars, ...(stirrups ? { stirrups } : {}) },
+        undefined, {}, section, { elementId: 1, length: 4, stationTs, comboResults: [{ comboId: 1, comboName: 'C1', stations }] },
+        undefined, {
+          spacingRule: { edition: '2005', maxAggregateSizeMm: 0 },
+          axes: { flexure, shear, secondaryFlexure: usingMy ? 'Mz' : 'My', secondaryShear: usingMy ? 'Vy' : 'Vz',
+            bFlex: section.b, hFlex: section.h, biaxial: false,
+            sagCategory: `${flexure}+`, hogCategory: `${flexure}-`, basis: 'stress-proxy', secondaryRatio: 0 },
+        });
+    const missing = check();
+    const provided = check({ legs: 4, diameter: 8, spacing: 0.1 });
+    expect(missing.overallStatus).toBe('fail');
+    for (const region of ['Support', 'Span']) {
+      const category = `Shear ${region} (${shear})`;
+      expect(missing.checks.find(row => row.category === category)).toMatchObject({
+        demandCategory: shear, demand, capacity: 0, status: 'fail', ratio: Infinity,
+        missingReinforcement: true, description: 'diag.rcShearGap',
+      });
+      expect(provided.checks.find(row => row.category === category)).toMatchObject({
+        demandCategory: shear, demand, status: 'ok',
+      });
+    }
   });
 
   it('provided-check utilization is demand/capacity with a warn band', () => {
@@ -160,7 +221,7 @@ describe('GATE: lib/engine stays store-free (the code-adapter seam)', () => {
 describe('GATE: outcome contract and verifier version', () => {
   it('the CIRSOC verifier is versioned so corrected results are never confused with old ones', () => {
     const s = read('../design/adapters/cirsoc201-adapter.ts');
-    expect(s).toContain("export const CIRSOC_VERIFIER_ID = 'cirsoc201.provided.v2'");
+    expect(s).toContain("export const CIRSOC_VERIFIER_ID = 'cirsoc201.provided.v3'");
     expect(s).toContain('v1 → v2');
   });
 
@@ -169,7 +230,14 @@ describe('GATE: outcome contract and verifier version', () => {
     expect(s).toContain('assertOutcomeInvariants(o)');
     // Only VERIFIED may carry accepted reinforcement + a certificate.
     expect(s).toContain("outcome: 'VERIFIED'");
-    expect(s).toContain('provisional: bestFailure?.attempt');
+    expect(s).toContain('let provisional = bestFailure?.attempt');
+    expect(s).toContain('provisional = designAttempt(adapter, ctx, candidate, cost, adapter.verify(ctx, candidate))');
+    expect(s).toContain("outcome: 'SELECTED', candidate: done.reinf");
+    expect(s).toContain('const verification = adapter.verify(ctx, candidate);');
+    expect(s).toContain('const outcome = certifySelection(adapter, selection, context);');
+    expect(s).not.toContain('selection.verification');
+    expect(s).toContain('if (isPassingVerdict(checked))');
+    expect(s).toContain('assertOutcomeInvariants(outcome)');
   });
 
   it('per-member bounds are count-based, so the outcome class is deterministic', () => {

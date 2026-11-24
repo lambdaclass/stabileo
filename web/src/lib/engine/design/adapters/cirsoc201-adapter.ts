@@ -1,3 +1,6 @@
+import { ConcurrentDemand } from '../../concurrent-demand';
+import { completeMemberDemands } from '../../member-demand-gate';
+import { IncompleteConcurrentDemandError, type IncompleteDemandDiagnostic } from '../../complete-demand-set';
 /**
  * CIRSOC 201 design-code adapter.
  *
@@ -9,7 +12,6 @@
  * particular was the source of generator/verifier disagreement and never decides
  * pass/fail again.
  *
- * VERIFIER VERSION: 'cirsoc201.provided.v2'.
  *   v1 → v2 corrected the governing-axis selection (beams and columns), turned
  *   missing-reinforcement from a skipped check into an explicit failure, switched
  *   utilization to demand/capacity with a warn band, checked both column shear
@@ -17,7 +19,7 @@
  *   are NOT comparable with v2 — v1 issued false passes.
  */
 
-import { verifyProvidedReinforcement, requiredLd, requiredLdh } from '../../station-design-forces';
+import { prepareProvidedReinforcementRanker, verifyProvidedReinforcement, requiredLd, requiredLdh } from '../../station-design-forces';
 import { concreteBelowTopBars } from '../../../codes/cirsoc201/anchorage';
 import type { ProvidedRebarResult } from '../../station-design-forces';
 import type { ProvidedReinforcement } from '../../../store/model.svelte';
@@ -37,19 +39,19 @@ import {
 import {
   transverseSpacingSupportedForEdition,
 } from '../../../codes/cirsoc201/transverse-spacing';
-import { jointThreading, jointThreadingChecks } from '../joint-threading-check';
-import { supportInputOf, bottomReach, endSupportChecks, endSupportVerdicts, inflectionChecks, type EndSupportInput } from '../end-support-anchorage';
+import { prepareJointThreading, jointThreadingChecks } from '../joint-threading-check';
+import { prepareSupportInput, bottomReach, endSupportChecks, endSupportPlan, inflectionChecks, type EndSupportInput } from '../end-support-anchorage';
 
 /**
  * Every row of bars that ends in a column, checked by `planSupportEnd` on that column, and
  * §9.7.3.8.3 for the positive steel. An end no column can anchor fails here, so the search looks
  * for bars that anchor.
  */
-function withSupportAnchorage(ctx: MemberContext, input: EndSupportInput, res: ProvidedRebarResult): ProvidedRebarResult {
-  const verdicts = endSupportVerdicts(input);
+function withSupportAnchorage(ctx: MemberContext, input: EndSupportInput, res: ProvidedRebarResult, plan: ReturnType<typeof endSupportPlan>,
+  threading: ReturnType<ReturnType<typeof prepareJointThreading>>,
+): ProvidedRebarResult {
+  const { verdicts } = plan;
   const extra = [...endSupportChecks(verdicts, input.lateral), ...inflectionChecks({ ...input, ...(ctx.stations ? { stations: ctx.stations } : {}), axes: ctx.axes, L: ctx.L })];
-  // The bars through the column cages at its joints, as the detailing coordinates them.
-  const threading = jointThreading(ctx, input.rebar, input);
   const checks = [...res.checks, ...extra, ...jointThreadingChecks(threading)];
   const rank = { none: -1, ok: 0, warn: 1, fail: 2 } as const;
   const overallStatus = checks.reduce<ProvidedRebarResult['overallStatus']>((w, c) => (rank[c.status] > rank[w] ? c.status : w), res.overallStatus);
@@ -65,7 +67,7 @@ import {
   type DesignCodeAdapter, type DetailingLimits, type InputValidation,
 } from '../code-adapter';
 
-export const CIRSOC_VERIFIER_ID = 'cirsoc201.provided.v2';
+export const CIRSOC_VERIFIER_ID = 'cirsoc201.provided.v3';
 
 /**
  * Legacy coarse flags, kept because the UI still reads them.
@@ -106,7 +108,17 @@ function makeAdapter(edition: RegulationEdition): DesignCodeAdapter {
   validateInputs(ctx: MemberContext): InputValidation {
     const blocking: LimitingConstraint[] = [];
     const reasons: DesignReason[] = [];
-    for (const b of ctx.blocking) {
+    let diagnostics: readonly IncompleteDemandDiagnostic[] = [];
+    try {
+      completeMemberDemands([{ elementId: ctx.elementId, demands: ctx.demands?.demands ?? [],
+        tuples: ctx.stations ? ConcurrentDemand.fromStations(ctx.stations) : undefined,
+        expectedCombinationIds: ctx.demands?.expectedCombinationIds, stationTs: ctx.demands?.stationTs ?? ctx.stations?.stationTs }], [ctx.elementId]);
+    } catch (error) {
+      if (!(error instanceof IncompleteConcurrentDemandError)) throw error;
+      diagnostics = error.diagnostics;
+    }
+    const missingStations = diagnostics.length > 0;
+    for (const b of new Set([...ctx.blocking, ...(missingStations ? ['missingDemand' as const] : [])])) {
       blocking.push(b);
       switch (b) {
         case 'missingCombinations':
@@ -129,7 +141,7 @@ function makeAdapter(edition: RegulationEdition): DesignCodeAdapter {
       blocking.push('missingMaterial');
       reasons.push({ key: 'design.reason.notConcrete', params: { fc: ctx.material.fc } });
     }
-    return { ok: blocking.length === 0, blocking: [...new Set(blocking)], reasons };
+    return { ok: blocking.length === 0, blocking: [...new Set(blocking)], reasons, diagnostics };
   },
 
   detailingLimits(ctx: MemberContext): DetailingLimits {
@@ -173,53 +185,11 @@ function makeAdapter(edition: RegulationEdition): DesignCodeAdapter {
   },
 
   verify(ctx: MemberContext, rebar: ProvidedReinforcement): ProvidedRebarResult {
-    const support = supportInputOf(ctx, rebar);
-    const res = verifyProvidedReinforcement(
-      ctx.elementId,
-      ctx.elementType,
-      rebar,
-      ctx.demands,
-      {
-        // Area-based fallbacks are only used when no station data exists; the
-        // capacity path is preferred and is what actually decides the verdict.
-        flexure: { AsReq: 0 },
-        shear: { AvOverS: 0, AvOverSMin: 0 },
-      },
-      {
-        b: ctx.axes.bFlex, h: ctx.axes.hFlex,
-        fc: ctx.material.fc, fy: ctx.material.fy,
-        cover: ctx.material.cover, stirrupDia: ctx.material.stirrupDia,
-      },
-      ctx.stations,
-      ctx.modelData as never,
-      {
-        axes: ctx.axes,
-        // A sway storey's δs magnifies the column's moments too (§6.6.4.6), on top of δns.
-        slenderDeltaNs: ctx.slenderDeltaNs * (ctx.slenderDeltaS ?? 1),
-        ...(ctx.torsionStiffness !== undefined ? { torsionStiffness: ctx.torsionStiffness } : {}),
-        ...(ctx.shape ? { shape: ctx.shape } : {}),
-        spacingRule: {
-          edition: ctx.codeEdition,
-          maxAggregateSizeMm: ctx.material.maxAggregateSize.value,
-        },
-        // Present only after coordination has moved this member's steel. It shifts the
-        // layer centroids and nothing else — the section and its true cover are unchanged.
-        finalGeometry: ctx.finalGeometry,
-        // The bottom bars' ends as the detailing lays them: the region rows measure to there.
-        ...(support ? { bottomReach: bottomReach(support) } : {}),
-      },
-    );
-    if (support && res.hasProvided) return withSupportAnchorage(ctx, support, res);
-    // A wall's own minimum, Tabla 11.6.1 (or §11.6.2), besides the flexural one of the beam path.
-    if (ctx.elementType !== 'wall' || !res.hasProvided) return res;
-    const { b, h } = ctx.section;
-    const vu = h >= b ? peakVz(ctx.demands) : peakVy(ctx.demands);
-    const extra = wallMemberMinimumChecks(rebar, { b, h, L: ctx.L, fc: ctx.material.fc, fy: ctx.material.fy, vu });
-    if (!extra.length) return res;
-    const checks = [...res.checks, ...extra];
-    const rank = { none: -1, ok: 0, warn: 1, fail: 2 } as const;
-    const overallStatus = checks.reduce<ProvidedRebarResult['overallStatus']>((w, c) => (rank[c.status] > rank[w] ? c.status : w), res.overallStatus);
-    return { ...res, checks, overallStatus };
+    return prepareCirsocEvaluation(ctx, 'verify')(rebar);
+  },
+
+  prepareCandidateRanker(ctx: MemberContext) {
+    return prepareCirsocEvaluation(ctx, 'rank');
   },
 
   classifyFailure(v: ProvidedRebarResult, ctx: MemberContext): LimitingConstraint[] {
@@ -337,6 +307,52 @@ function makeAdapter(edition: RegulationEdition): DesignCodeAdapter {
 }
 
 /** CIRSOC 201-2025 — the edition in force. Default for new projects. */
+function prepareCirsocEvaluation(ctx: MemberContext, mode: 'verify' | 'rank'): (rebar: ProvidedReinforcement) => ProvidedRebarResult {
+  const supportInput = prepareSupportInput(ctx);
+  const threading = supportInput ? prepareJointThreading(ctx) : undefined;
+  const autoDesign = { flexure: { AsReq: 0 }, shear: { AvOverS: 0, AvOverSMin: 0 } };
+  const section = {
+    b: ctx.axes.bFlex, h: ctx.axes.hFlex,
+    fc: ctx.material.fc, fy: ctx.material.fy,
+    cover: ctx.material.cover, stirrupDia: ctx.material.stirrupDia,
+  };
+  const options = {
+    axes: ctx.axes,
+    slenderDeltaNs: ctx.slenderDeltaNs * (ctx.slenderDeltaS ?? 1),
+    ...(ctx.torsionStiffness !== undefined ? { torsionStiffness: ctx.torsionStiffness } : {}),
+    ...(ctx.shape ? { shape: ctx.shape } : {}),
+    spacingRule: {
+      edition: ctx.codeEdition,
+      maxAggregateSizeMm: ctx.material.maxAggregateSize.value,
+    },
+    finalGeometry: ctx.finalGeometry,
+  };
+  const evaluate = mode === 'rank'
+    ? prepareProvidedReinforcementRanker(ctx.elementId, ctx.elementType, ctx.demands,
+      autoDesign, section, ctx.stations, ctx.modelData, options)
+    : (rebar: ProvidedReinforcement, reach?: ReturnType<typeof bottomReach>) =>
+      verifyProvidedReinforcement(ctx.elementId, ctx.elementType, rebar, ctx.demands,
+        autoDesign, section, ctx.stations, ctx.modelData, reach ? { ...options, bottomReach: reach } : options);
+  return (rebar) => {
+    const support = supportInput?.(rebar);
+    const plan = support ? endSupportPlan(support) : null;
+    const res = evaluate(rebar, support && plan ? bottomReach(support, plan) : undefined);
+    if (support && plan && threading && res.hasProvided) {
+      return withSupportAnchorage(ctx, support, res, plan, threading(support, plan));
+    }
+    // A wall's own minimum, Tabla 11.6.1 (or §11.6.2), besides the flexural one of the beam path.
+    if (ctx.elementType !== 'wall' || !res.hasProvided) return res;
+    const { b, h } = ctx.section;
+    const vu = h >= b ? peakVz(ctx.demands) : peakVy(ctx.demands);
+    const extra = wallMemberMinimumChecks(rebar, { b, h, L: ctx.L, fc: ctx.material.fc, fy: ctx.material.fy, vu });
+    if (!extra.length) return res;
+    const checks = [...res.checks, ...extra];
+    const rank = { none: -1, ok: 0, warn: 1, fail: 2 } as const;
+    const overallStatus = checks.reduce<ProvidedRebarResult['overallStatus']>((w, c) => (rank[c.status] > rank[w] ? c.status : w), res.overallStatus);
+    return { ...res, checks, overallStatus };
+  };
+}
+
 export const cirsoc201Adapter2025: DesignCodeAdapter = makeAdapter('2025');
 
 /**

@@ -1,0 +1,2432 @@
+{
+  "cases": 12,
+  "references": 105,
+  "changed": 0,
+  "farther": [],
+  "comparisons": [
+    {
+      "case": "asce_shm_120dof_damage_i",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 1,
+        "value": 5.47,
+        "tolAbs": 0.005,
+        "direction": "y",
+        "tolBasis": "Table 2 prints 5.47 Hz; half a unit in the last printed digit"
+      },
+      "before": 5.468152643603059,
+      "after": 5.468152643603059,
+      "before_error": 0.0018473563969410023,
+      "after_error": 0.0018473563969410023,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 2 (natural frequencies, 120DOF lumped mass); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_120dof_damage_i",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 2,
+        "value": 7.37,
+        "tolAbs": 0.005,
+        "direction": "x",
+        "tolBasis": "Table 2 prints 7.37 Hz; half a unit in the last printed digit"
+      },
+      "before": 7.372574633439827,
+      "after": 7.372574633439827,
+      "before_error": 0.00257463343982689,
+      "after_error": 0.00257463343982689,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 2 (natural frequencies, 120DOF lumped mass); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_120dof_damage_i",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 3,
+        "value": 9.69,
+        "tolAbs": 0.005,
+        "direction": "\u03b8",
+        "tolBasis": "Table 2 prints 9.69 Hz; half a unit in the last printed digit"
+      },
+      "before": 9.691085939040109,
+      "after": 9.691085939040109,
+      "before_error": 0.0010859390401094515,
+      "after_error": 0.0010859390401094515,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 2 (natural frequencies, 120DOF lumped mass); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_120dof_damage_i",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 4,
+        "value": 19.31,
+        "tolAbs": 0.005,
+        "direction": "y",
+        "tolBasis": "Table 2 prints 19.31 Hz; half a unit in the last printed digit"
+      },
+      "before": 19.314795206512247,
+      "after": 19.314795206512247,
+      "before_error": 0.00479520651224874,
+      "after_error": 0.00479520651224874,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 2 (natural frequencies, 120DOF lumped mass); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_120dof_damage_i",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 5,
+        "value": 22.77,
+        "tolAbs": 0.005,
+        "direction": "x",
+        "tolBasis": "Table 2 prints 22.77 Hz; half a unit in the last printed digit"
+      },
+      "before": 22.769143558862755,
+      "after": 22.769143558862755,
+      "before_error": 0.0008564411372447012,
+      "after_error": 0.0008564411372447012,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 2 (natural frequencies, 120DOF lumped mass); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_120dof_damage_i",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 6,
+        "value": 34.18,
+        "tolAbs": 0.005,
+        "direction": "\u03b8",
+        "tolBasis": "Table 2 prints 34.18 Hz; half a unit in the last printed digit"
+      },
+      "before": 34.175596204094774,
+      "after": 34.175596204094774,
+      "before_error": 0.004403795905226104,
+      "after_error": 0.004403795905226104,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 2 (natural frequencies, 120DOF lumped mass); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_120dof_damage_i",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 7,
+        "value": 35.29,
+        "tolAbs": 0.005,
+        "direction": "y",
+        "tolBasis": "Table 2 prints 35.29 Hz; half a unit in the last printed digit"
+      },
+      "before": 35.29083828718249,
+      "after": 35.29083828718249,
+      "before_error": 0.0008382871824892391,
+      "after_error": 0.0008382871824892391,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 2 (natural frequencies, 120DOF lumped mass); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_120dof_damage_i",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 8,
+        "value": 40.66,
+        "tolAbs": 0.005,
+        "direction": "x",
+        "tolBasis": "Table 2 prints 40.66 Hz; half a unit in the last printed digit"
+      },
+      "before": 40.65692936684446,
+      "after": 40.65692936684446,
+      "before_error": 0.003070633155537905,
+      "after_error": 0.003070633155537905,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 2 (natural frequencies, 120DOF lumped mass); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_120dof_damage_i",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 9,
+        "value": 46.73,
+        "tolAbs": 0.005,
+        "direction": "y",
+        "tolBasis": "Table 2 prints 46.73 Hz; half a unit in the last printed digit"
+      },
+      "before": 46.729382851108376,
+      "after": 46.729382851108376,
+      "before_error": 0.0006171488916209,
+      "after_error": 0.0006171488916209,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 2 (natural frequencies, 120DOF lumped mass); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_120dof_damage_i",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 10,
+        "value": 56.38,
+        "tolAbs": 0.005,
+        "direction": "x",
+        "tolBasis": "Table 2 prints 56.38 Hz; half a unit in the last printed digit"
+      },
+      "before": 56.3790128699614,
+      "after": 56.3790128699614,
+      "before_error": 0.0009871300386024018,
+      "after_error": 0.0009871300386024018,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 2 (natural frequencies, 120DOF lumped mass); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_120dof_damage_i",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 11,
+        "value": 60.43,
+        "tolAbs": 0.005,
+        "direction": "\u03b8",
+        "tolBasis": "Table 2 prints 60.43 Hz; half a unit in the last printed digit"
+      },
+      "before": 60.42504304329113,
+      "after": 60.42504304329113,
+      "before_error": 0.0049569567088667554,
+      "after_error": 0.0049569567088667554,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 2 (natural frequencies, 120DOF lumped mass); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_120dof_damage_i",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 12,
+        "value": 80.53,
+        "tolAbs": 0.005,
+        "direction": "\u03b8",
+        "tolBasis": "Table 2 prints 80.53 Hz; half a unit in the last printed digit"
+      },
+      "before": 80.52860025828262,
+      "after": 80.52860025828262,
+      "before_error": 0.0013997417173783333,
+      "after_error": 0.0013997417173783333,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 2 (natural frequencies, 120DOF lumped mass); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "sac_la_9story",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 1,
+        "value": 0.443,
+        "tolAbs": 0.0005,
+        "tolBasis": "paper prints 0.443 Hz; half a unit in the last printed digit"
+      },
+      "before": 0.44272724548769354,
+      "after": 0.44272724548769354,
+      "before_error": 0.0002727545123064612,
+      "after_error": 0.0002727545123064612,
+      "allowed": 0.0005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Ohtori, Christenson, Spencer, Dyke (2004). Benchmark Control Problems for Seismically Excited Nonlinear Buildings. J. Eng. Mech. 130(4):366-385.",
+        "where": "Report_bldg_full3.pdf p.12 (natural frequencies of the evaluation model); model data struct9.m and Bld_NLBM.m in Files_bldg_full3.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model; not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "sac_la_9story",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 2,
+        "value": 1.18,
+        "tolAbs": 0.005,
+        "tolBasis": "paper prints 1.18 Hz; half a unit in the last printed digit"
+      },
+      "before": 1.177650526379507,
+      "after": 1.177650526379507,
+      "before_error": 0.002349473620492981,
+      "after_error": 0.002349473620492981,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Ohtori, Christenson, Spencer, Dyke (2004). Benchmark Control Problems for Seismically Excited Nonlinear Buildings. J. Eng. Mech. 130(4):366-385.",
+        "where": "Report_bldg_full3.pdf p.12 (natural frequencies of the evaluation model); model data struct9.m and Bld_NLBM.m in Files_bldg_full3.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model; not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "sac_la_9story",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 3,
+        "value": 2.05,
+        "tolAbs": 0.005,
+        "tolBasis": "paper prints 2.05 Hz; half a unit in the last printed digit"
+      },
+      "before": 2.0467281395943564,
+      "after": 2.0467281395943564,
+      "before_error": 0.003271860405643423,
+      "after_error": 0.003271860405643423,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Ohtori, Christenson, Spencer, Dyke (2004). Benchmark Control Problems for Seismically Excited Nonlinear Buildings. J. Eng. Mech. 130(4):366-385.",
+        "where": "Report_bldg_full3.pdf p.12 (natural frequencies of the evaluation model); model data struct9.m and Bld_NLBM.m in Files_bldg_full3.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model; not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "sac_la_9story",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 4,
+        "value": 3.09,
+        "tolAbs": 0.005,
+        "tolBasis": "paper prints 3.09 Hz; half a unit in the last printed digit"
+      },
+      "before": 3.0946064241921416,
+      "after": 3.0946064241921416,
+      "before_error": 0.004606424192141745,
+      "after_error": 0.004606424192141745,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Ohtori, Christenson, Spencer, Dyke (2004). Benchmark Control Problems for Seismically Excited Nonlinear Buildings. J. Eng. Mech. 130(4):366-385.",
+        "where": "Report_bldg_full3.pdf p.12 (natural frequencies of the evaluation model); model data struct9.m and Bld_NLBM.m in Files_bldg_full3.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model; not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "sac_la_9story",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 5,
+        "value": 4.27,
+        "tolAbs": 0.005,
+        "tolBasis": "paper prints 4.27 Hz; half a unit in the last printed digit"
+      },
+      "before": 4.274220681750881,
+      "after": 4.274220681750881,
+      "before_error": 0.0042206817508816385,
+      "after_error": 0.0042206817508816385,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Ohtori, Christenson, Spencer, Dyke (2004). Benchmark Control Problems for Seismically Excited Nonlinear Buildings. J. Eng. Mech. 130(4):366-385.",
+        "where": "Report_bldg_full3.pdf p.12 (natural frequencies of the evaluation model); model data struct9.m and Bld_NLBM.m in Files_bldg_full3.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model; not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_120dof_undamaged",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 1,
+        "value": 8.59,
+        "tolAbs": 0.005,
+        "direction": "y",
+        "tolBasis": "Table 2 prints 8.59 Hz; half a unit in the last printed digit"
+      },
+      "before": 8.587962646881351,
+      "after": 8.587962646881351,
+      "before_error": 0.0020373531186486105,
+      "after_error": 0.0020373531186486105,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 2 (natural frequencies, 120DOF lumped mass); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_120dof_undamaged",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 2,
+        "value": 9.18,
+        "tolAbs": 0.005,
+        "direction": "x",
+        "tolBasis": "Table 2 prints 9.18 Hz; half a unit in the last printed digit"
+      },
+      "before": 9.180671994649147,
+      "after": 9.180671994649147,
+      "before_error": 0.0006719946491475781,
+      "after_error": 0.0006719946491475781,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 2 (natural frequencies, 120DOF lumped mass); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_120dof_undamaged",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 3,
+        "value": 14.58,
+        "tolAbs": 0.005,
+        "direction": "\u03b8",
+        "tolBasis": "Table 2 prints 14.58 Hz; half a unit in the last printed digit"
+      },
+      "before": 14.579659849274407,
+      "after": 14.579659849274407,
+      "before_error": 0.0003401507255933467,
+      "after_error": 0.0003401507255933467,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 2 (natural frequencies, 120DOF lumped mass); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_120dof_undamaged",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 4,
+        "value": 23.45,
+        "tolAbs": 0.005,
+        "direction": "y",
+        "tolBasis": "Table 2 prints 23.45 Hz; half a unit in the last printed digit"
+      },
+      "before": 23.452222101122544,
+      "after": 23.452222101122544,
+      "before_error": 0.0022221011225447285,
+      "after_error": 0.0022221011225447285,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 2 (natural frequencies, 120DOF lumped mass); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_120dof_undamaged",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 5,
+        "value": 25.95,
+        "tolAbs": 0.005,
+        "direction": "x",
+        "tolBasis": "Table 2 prints 25.95 Hz; half a unit in the last printed digit"
+      },
+      "before": 25.94592039089098,
+      "after": 25.94592039089098,
+      "before_error": 0.004079609109020055,
+      "after_error": 0.004079609109020055,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 2 (natural frequencies, 120DOF lumped mass); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_120dof_undamaged",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 6,
+        "value": 36.81,
+        "tolAbs": 0.005,
+        "direction": "y",
+        "tolBasis": "Table 2 prints 36.81 Hz; half a unit in the last printed digit"
+      },
+      "before": 36.813004715983084,
+      "after": 36.813004715983084,
+      "before_error": 0.0030047159830814962,
+      "after_error": 0.0030047159830814962,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 2 (natural frequencies, 120DOF lumped mass); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_120dof_undamaged",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 7,
+        "value": 40.65,
+        "tolAbs": 0.005,
+        "direction": "\u03b8",
+        "tolBasis": "Table 2 prints 40.65 Hz; half a unit in the last printed digit"
+      },
+      "before": 40.6459044000558,
+      "after": 40.6459044000558,
+      "before_error": 0.004095599944200501,
+      "after_error": 0.004095599944200501,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 2 (natural frequencies, 120DOF lumped mass); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_120dof_undamaged",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 8,
+        "value": 42.21,
+        "tolAbs": 0.005,
+        "direction": "x",
+        "tolBasis": "Table 2 prints 42.21 Hz; half a unit in the last printed digit"
+      },
+      "before": 42.20974241052742,
+      "after": 42.20974241052742,
+      "before_error": 0.0002575894725822536,
+      "after_error": 0.0002575894725822536,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 2 (natural frequencies, 120DOF lumped mass); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_120dof_undamaged",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 9,
+        "value": 46.98,
+        "tolAbs": 0.005,
+        "direction": "y",
+        "tolBasis": "Table 2 prints 46.98 Hz; half a unit in the last printed digit"
+      },
+      "before": 46.97828888781423,
+      "after": 46.97828888781423,
+      "before_error": 0.0017111121857666944,
+      "after_error": 0.0017111121857666944,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 2 (natural frequencies, 120DOF lumped mass); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_120dof_undamaged",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 10,
+        "value": 56.74,
+        "tolAbs": 0.005,
+        "direction": "x",
+        "tolBasis": "Table 2 prints 56.74 Hz; half a unit in the last printed digit"
+      },
+      "before": 56.73734154138887,
+      "after": 56.73734154138887,
+      "before_error": 0.002658458611129788,
+      "after_error": 0.002658458611129788,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 2 (natural frequencies, 120DOF lumped mass); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_120dof_undamaged",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 11,
+        "value": 62.96,
+        "tolAbs": 0.005,
+        "direction": "\u03b8",
+        "tolBasis": "Table 2 prints 62.96 Hz; half a unit in the last printed digit"
+      },
+      "before": 62.963600611323834,
+      "after": 62.963600611323834,
+      "before_error": 0.0036006113238329363,
+      "after_error": 0.0036006113238329363,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 2 (natural frequencies, 120DOF lumped mass); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_120dof_undamaged",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 12,
+        "value": 81.05,
+        "tolAbs": 0.005,
+        "direction": "\u03b8",
+        "tolBasis": "Table 2 prints 81.05 Hz; half a unit in the last printed digit"
+      },
+      "before": 81.04582256566151,
+      "after": 81.04582256566151,
+      "before_error": 0.004177434338487274,
+      "after_error": 0.004177434338487274,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 2 (natural frequencies, 120DOF lumped mass); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "sac_la_3story",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 1,
+        "value": 0.99,
+        "tolAbs": 0.005,
+        "tolBasis": "paper prints 0.99 Hz; half a unit in the last printed digit"
+      },
+      "before": 0.9903258633756588,
+      "after": 0.9903258633756588,
+      "before_error": 0.00032586337565876367,
+      "after_error": 0.00032586337565876367,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Ohtori, Christenson, Spencer, Dyke (2004). Benchmark Control Problems for Seismically Excited Nonlinear Buildings. J. Eng. Mech. 130(4):366-385.",
+        "where": "Report_bldg_full3.pdf p.12 (natural frequencies of the evaluation model); model data struct3.m and Bld_NLBM.m in Files_bldg_full3.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model; not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "sac_la_3story",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 2,
+        "value": 3.06,
+        "tolAbs": 0.005,
+        "tolBasis": "paper prints 3.06 Hz; half a unit in the last printed digit"
+      },
+      "before": 3.0560540140866195,
+      "after": 3.0560540140866195,
+      "before_error": 0.003945985913380579,
+      "after_error": 0.003945985913380579,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Ohtori, Christenson, Spencer, Dyke (2004). Benchmark Control Problems for Seismically Excited Nonlinear Buildings. J. Eng. Mech. 130(4):366-385.",
+        "where": "Report_bldg_full3.pdf p.12 (natural frequencies of the evaluation model); model data struct3.m and Bld_NLBM.m in Files_bldg_full3.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model; not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "sac_la_3story",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 3,
+        "value": 5.83,
+        "tolAbs": 0.005,
+        "tolBasis": "paper prints 5.83 Hz; half a unit in the last printed digit"
+      },
+      "before": 5.8272435681944055,
+      "after": 5.8272435681944055,
+      "before_error": 0.0027564318055945947,
+      "after_error": 0.0027564318055945947,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Ohtori, Christenson, Spencer, Dyke (2004). Benchmark Control Problems for Seismically Excited Nonlinear Buildings. J. Eng. Mech. 130(4):366-385.",
+        "where": "Report_bldg_full3.pdf p.12 (natural frequencies of the evaluation model); model data struct3.m and Bld_NLBM.m in Files_bldg_full3.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model; not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "sac_la_20story",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 1,
+        "value": 0.261,
+        "tolAbs": 0.0005,
+        "tolBasis": "paper prints 0.261 Hz; half a unit in the last printed digit"
+      },
+      "before": 0.26130439887594015,
+      "after": 0.26130439887594015,
+      "before_error": 0.00030439887594013726,
+      "after_error": 0.00030439887594013726,
+      "allowed": 0.0005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Ohtori, Christenson, Spencer, Dyke (2004). Benchmark Control Problems for Seismically Excited Nonlinear Buildings. J. Eng. Mech. 130(4):366-385.",
+        "where": "Report_bldg_full3.pdf p.12 (natural frequencies of the evaluation model); model data struct20.m and Bld_NLBM.m in Files_bldg_full3.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model; not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "sac_la_20story",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 2,
+        "value": 0.753,
+        "tolAbs": 0.0005,
+        "tolBasis": "paper prints 0.753 Hz; half a unit in the last printed digit"
+      },
+      "before": 0.752646380214388,
+      "after": 0.752646380214388,
+      "before_error": 0.0003536197856119916,
+      "after_error": 0.0003536197856119916,
+      "allowed": 0.0005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Ohtori, Christenson, Spencer, Dyke (2004). Benchmark Control Problems for Seismically Excited Nonlinear Buildings. J. Eng. Mech. 130(4):366-385.",
+        "where": "Report_bldg_full3.pdf p.12 (natural frequencies of the evaluation model); model data struct20.m and Bld_NLBM.m in Files_bldg_full3.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model; not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "sac_la_20story",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 3,
+        "value": 1.3,
+        "tolAbs": 0.005,
+        "tolBasis": "paper prints 1.30 Hz; half a unit in the last printed digit"
+      },
+      "before": 1.298987675352361,
+      "after": 1.298987675352361,
+      "before_error": 0.0010123246476390069,
+      "after_error": 0.0010123246476390069,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Ohtori, Christenson, Spencer, Dyke (2004). Benchmark Control Problems for Seismically Excited Nonlinear Buildings. J. Eng. Mech. 130(4):366-385.",
+        "where": "Report_bldg_full3.pdf p.12 (natural frequencies of the evaluation model); model data struct20.m and Bld_NLBM.m in Files_bldg_full3.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model; not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "sac_la_20story",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 4,
+        "value": 1.83,
+        "tolAbs": 0.005,
+        "tolBasis": "paper prints 1.83 Hz; half a unit in the last printed digit"
+      },
+      "before": 1.827194798379363,
+      "after": 1.827194798379363,
+      "before_error": 0.002805201620637021,
+      "after_error": 0.002805201620637021,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Ohtori, Christenson, Spencer, Dyke (2004). Benchmark Control Problems for Seismically Excited Nonlinear Buildings. J. Eng. Mech. 130(4):366-385.",
+        "where": "Report_bldg_full3.pdf p.12 (natural frequencies of the evaluation model); model data struct20.m and Bld_NLBM.m in Files_bldg_full3.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model; not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "sac_la_20story",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 5,
+        "value": 2.4,
+        "tolAbs": 0.005,
+        "tolBasis": "paper prints 2.40 Hz; half a unit in the last printed digit"
+      },
+      "before": 2.3981949074218836,
+      "after": 2.3981949074218836,
+      "before_error": 0.0018050925781163407,
+      "after_error": 0.0018050925781163407,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Ohtori, Christenson, Spencer, Dyke (2004). Benchmark Control Problems for Seismically Excited Nonlinear Buildings. J. Eng. Mech. 130(4):366-385.",
+        "where": "Report_bldg_full3.pdf p.12 (natural frequencies of the evaluation model); model data struct20.m and Bld_NLBM.m in Files_bldg_full3.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model; not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "sac_la_20story",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 6,
+        "value": 2.44,
+        "tolAbs": 0.005,
+        "tolBasis": "paper prints 2.44 Hz; half a unit in the last printed digit"
+      },
+      "before": 2.441561151195758,
+      "after": 2.441561151195758,
+      "before_error": 0.0015611511957578372,
+      "after_error": 0.0015611511957578372,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Ohtori, Christenson, Spencer, Dyke (2004). Benchmark Control Problems for Seismically Excited Nonlinear Buildings. J. Eng. Mech. 130(4):366-385.",
+        "where": "Report_bldg_full3.pdf p.12 (natural frequencies of the evaluation model); model data struct20.m and Bld_NLBM.m in Files_bldg_full3.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model; not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "sac_la_20story",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 7,
+        "value": 2.92,
+        "tolAbs": 0.005,
+        "tolBasis": "paper prints 2.92 Hz; half a unit in the last printed digit"
+      },
+      "before": 2.9225390500874395,
+      "after": 2.9225390500874395,
+      "before_error": 0.0025390500874395983,
+      "after_error": 0.0025390500874395983,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Ohtori, Christenson, Spencer, Dyke (2004). Benchmark Control Problems for Seismically Excited Nonlinear Buildings. J. Eng. Mech. 130(4):366-385.",
+        "where": "Report_bldg_full3.pdf p.12 (natural frequencies of the evaluation model); model data struct20.m and Bld_NLBM.m in Files_bldg_full3.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model; not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "sac_la_20story",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 8,
+        "value": 3.01,
+        "tolAbs": 0.005,
+        "tolBasis": "paper prints 3.01 Hz; half a unit in the last printed digit"
+      },
+      "before": 3.005583564958289,
+      "after": 3.005583564958289,
+      "before_error": 0.004416435041710631,
+      "after_error": 0.004416435041710631,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Ohtori, Christenson, Spencer, Dyke (2004). Benchmark Control Problems for Seismically Excited Nonlinear Buildings. J. Eng. Mech. 130(4):366-385.",
+        "where": "Report_bldg_full3.pdf p.12 (natural frequencies of the evaluation model); model data struct20.m and Bld_NLBM.m in Files_bldg_full3.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model; not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "sac_la_20story",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 9,
+        "value": 3.63,
+        "tolAbs": 0.005,
+        "tolBasis": "paper prints 3.63 Hz; half a unit in the last printed digit"
+      },
+      "before": 3.6316228301202176,
+      "after": 3.6316228301202176,
+      "before_error": 0.0016228301202176887,
+      "after_error": 0.0016228301202176887,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Ohtori, Christenson, Spencer, Dyke (2004). Benchmark Control Problems for Seismically Excited Nonlinear Buildings. J. Eng. Mech. 130(4):366-385.",
+        "where": "Report_bldg_full3.pdf p.12 (natural frequencies of the evaluation model); model data struct20.m and Bld_NLBM.m in Files_bldg_full3.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model; not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "sac_la_20story",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 10,
+        "value": 3.68,
+        "tolAbs": 0.005,
+        "tolBasis": "paper prints 3.68 Hz; half a unit in the last printed digit"
+      },
+      "before": 3.683356184366673,
+      "after": 3.683356184366673,
+      "before_error": 0.003356184366672732,
+      "after_error": 0.003356184366672732,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Ohtori, Christenson, Spencer, Dyke (2004). Benchmark Control Problems for Seismically Excited Nonlinear Buildings. J. Eng. Mech. 130(4):366-385.",
+        "where": "Report_bldg_full3.pdf p.12 (natural frequencies of the evaluation model); model data struct20.m and Bld_NLBM.m in Files_bldg_full3.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model; not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_12dof_undamaged",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 1,
+        "value": 9.41,
+        "tolAbs": 0.005,
+        "direction": "y",
+        "tolBasis": "Table 2 prints 9.41 Hz; half a unit in the last printed digit"
+      },
+      "before": 9.410929873195546,
+      "after": 9.410929873195546,
+      "before_error": 0.0009298731955453832,
+      "after_error": 0.0009298731955453832,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 2 (natural frequencies, 12DOF lumped mass); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_12dof_undamaged",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 2,
+        "value": 11.79,
+        "tolAbs": 0.005,
+        "direction": "x",
+        "tolBasis": "Table 2 prints 11.79 Hz; half a unit in the last printed digit"
+      },
+      "before": 11.791323043674252,
+      "after": 11.791323043674252,
+      "before_error": 0.001323043674252844,
+      "after_error": 0.001323043674252844,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 2 (natural frequencies, 12DOF lumped mass); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_12dof_undamaged",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 3,
+        "value": 16.38,
+        "tolAbs": 0.005,
+        "direction": "\u03b8",
+        "tolBasis": "Table 2 prints 16.38 Hz; half a unit in the last printed digit"
+      },
+      "before": 16.38301164456665,
+      "after": 16.38301164456665,
+      "before_error": 0.0030116445666514835,
+      "after_error": 0.0030116445666514835,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 2 (natural frequencies, 12DOF lumped mass); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_12dof_undamaged",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 4,
+        "value": 25.54,
+        "tolAbs": 0.005,
+        "direction": "y",
+        "tolBasis": "Table 2 prints 25.54 Hz; half a unit in the last printed digit"
+      },
+      "before": 25.544952631948433,
+      "after": 25.544952631948433,
+      "before_error": 0.004952631948434316,
+      "after_error": 0.004952631948434316,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 2 (natural frequencies, 12DOF lumped mass); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_12dof_undamaged",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 5,
+        "value": 32.01,
+        "tolAbs": 0.005,
+        "direction": "x",
+        "tolBasis": "Table 2 prints 32.01 Hz; half a unit in the last printed digit"
+      },
+      "before": 32.006344919312816,
+      "after": 32.006344919312816,
+      "before_error": 0.0036550806871815666,
+      "after_error": 0.0036550806871815666,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 2 (natural frequencies, 12DOF lumped mass); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_12dof_undamaged",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 6,
+        "value": 38.66,
+        "tolAbs": 0.005,
+        "direction": "y",
+        "tolBasis": "Table 2 prints 38.66 Hz; half a unit in the last printed digit"
+      },
+      "before": 38.663372450832185,
+      "after": 38.663372450832185,
+      "before_error": 0.0033724508321881785,
+      "after_error": 0.0033724508321881785,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 2 (natural frequencies, 12DOF lumped mass); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_12dof_undamaged",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 7,
+        "value": 44.64,
+        "tolAbs": 0.005,
+        "direction": "\u03b8",
+        "tolBasis": "Table 2 prints 44.64 Hz; half a unit in the last printed digit"
+      },
+      "before": 44.642693115494026,
+      "after": 44.642693115494026,
+      "before_error": 0.002693115494025733,
+      "after_error": 0.002693115494025733,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 2 (natural frequencies, 12DOF lumped mass); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_12dof_undamaged",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 8,
+        "value": 48.01,
+        "tolAbs": 0.005,
+        "direction": "y",
+        "tolBasis": "Table 2 prints 48.01 Hz; half a unit in the last printed digit"
+      },
+      "before": 48.00735287077038,
+      "after": 48.00735287077038,
+      "before_error": 0.002647129229615075,
+      "after_error": 0.002647129229615075,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 2 (natural frequencies, 12DOF lumped mass); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_12dof_undamaged",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 9,
+        "value": 48.44,
+        "tolAbs": 0.005,
+        "direction": "x",
+        "tolBasis": "Table 2 prints 48.44 Hz; half a unit in the last printed digit"
+      },
+      "before": 48.44297278730302,
+      "after": 48.44297278730302,
+      "before_error": 0.0029727873030225282,
+      "after_error": 0.0029727873030225282,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 2 (natural frequencies, 12DOF lumped mass); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_12dof_undamaged",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 10,
+        "value": 60.15,
+        "tolAbs": 0.005,
+        "direction": "x",
+        "tolBasis": "Table 2 prints 60.15 Hz; half a unit in the last printed digit"
+      },
+      "before": 60.150443525408846,
+      "after": 60.150443525408846,
+      "before_error": 0.0004435254088477336,
+      "after_error": 0.0004435254088477336,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 2 (natural frequencies, 12DOF lumped mass); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_12dof_undamaged",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 11,
+        "value": 67.48,
+        "tolAbs": 0.005,
+        "direction": "\u03b8",
+        "tolBasis": "Table 2 prints 67.48 Hz; half a unit in the last printed digit"
+      },
+      "before": 67.47844049889127,
+      "after": 67.47844049889127,
+      "before_error": 0.0015595011087299326,
+      "after_error": 0.0015595011087299326,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 2 (natural frequencies, 12DOF lumped mass); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_12dof_undamaged",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 12,
+        "value": 83.62,
+        "tolAbs": 0.005,
+        "direction": "\u03b8",
+        "tolBasis": "Table 2 prints 83.62 Hz; half a unit in the last printed digit"
+      },
+      "before": 83.6242602665945,
+      "after": 83.6242602665945,
+      "before_error": 0.00426026659449974,
+      "after_error": 0.00426026659449974,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 2 (natural frequencies, 12DOF lumped mass); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_12dof_storey_stiffness_undamaged",
+      "selector": {
+        "quantity": "displacement",
+        "node": 14,
+        "component": "ux",
+        "value": 0.0009380863039399625,
+        "tolAbs": 4.400235958253026e-08,
+        "sourceValue": "1/106.60",
+        "sourceUnit": "MN/m",
+        "tolBasis": "F * sum of 1/K over storeys 1..1 with Table 3's K printed to 0.01; tolerance propagates half a unit in each printed K"
+      },
+      "before": 0.0009380805701258955,
+      "after": 0.0009380805701258955,
+      "before_error": 5.733814066989987e-09,
+      "after_error": 5.733814066989987e-09,
+      "allowed": 4.400235958253026e-08,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 3 (horizontal storey stiffnesses, 12DOF model); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_12dof_storey_stiffness_undamaged",
+      "selector": {
+        "quantity": "displacement",
+        "node": 41,
+        "component": "ux",
+        "value": 0.00375234521575985,
+        "tolAbs": 1.7600943833012103e-07,
+        "sourceValue": "1/106.60 + 1/106.60 + 1/106.60 + 1/106.60",
+        "sourceUnit": "MN/m",
+        "tolBasis": "F * sum of 1/K over storeys 1..4 with Table 3's K printed to 0.01; tolerance propagates half a unit in each printed K"
+      },
+      "before": 0.003752322280503592,
+      "after": 0.003752322280503592,
+      "before_error": 2.2935256257985287e-08,
+      "after_error": 2.2935256257985287e-08,
+      "allowed": 1.7600943833012103e-07,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 3 (horizontal storey stiffnesses, 12DOF model); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_12dof_storey_stiffness_undamaged",
+      "selector": {
+        "quantity": "displacement",
+        "node": 14,
+        "component": "uy",
+        "value": 0.0014727540500736377,
+        "tolAbs": 1.084582112139066e-07,
+        "sourceValue": "1/67.90",
+        "sourceUnit": "MN/m",
+        "tolBasis": "F * sum of 1/K over storeys 1..1 with Table 3's K printed to 0.01; tolerance propagates half a unit in each printed K"
+      },
+      "before": 0.0014726595900636406,
+      "after": 0.0014726595900636406,
+      "before_error": 9.446000999707022e-08,
+      "after_error": 9.446000999707022e-08,
+      "allowed": 1.084582112139066e-07,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 3 (horizontal storey stiffnesses, 12DOF model); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_12dof_storey_stiffness_undamaged",
+      "selector": {
+        "quantity": "displacement",
+        "node": 41,
+        "component": "uy",
+        "value": 0.005891016200294551,
+        "tolAbs": 4.338328448556264e-07,
+        "sourceValue": "1/67.90 + 1/67.90 + 1/67.90 + 1/67.90",
+        "sourceUnit": "MN/m",
+        "tolBasis": "F * sum of 1/K over storeys 1..4 with Table 3's K printed to 0.01; tolerance propagates half a unit in each printed K"
+      },
+      "before": 0.005890638360254545,
+      "after": 0.005890638360254545,
+      "before_error": 3.778400400056281e-07,
+      "after_error": 3.778400400056281e-07,
+      "allowed": 4.338328448556264e-07,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 3 (horizontal storey stiffnesses, 12DOF model); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_12dof_storey_stiffness_undamaged",
+      "selector": {
+        "quantity": "displacement",
+        "node": 14,
+        "component": "rz",
+        "value": 0.00043099732781656753,
+        "tolAbs": 9.288134987319085e-09,
+        "sourceValue": "1/232.02",
+        "sourceUnit": "MN m/rad",
+        "tolBasis": "F * sum of 1/K over storeys 1..1 with Table 3's K printed to 0.01; tolerance propagates half a unit in each printed K"
+      },
+      "before": 0.00043099345184450903,
+      "after": 0.00043099345184450903,
+      "before_error": 3.875972058500071e-09,
+      "after_error": 3.875972058500071e-09,
+      "allowed": 9.288134987319085e-09,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 3 (horizontal storey stiffnesses, 12DOF model); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_12dof_storey_stiffness_undamaged",
+      "selector": {
+        "quantity": "displacement",
+        "node": 41,
+        "component": "rz",
+        "value": 0.0017239893112662701,
+        "tolAbs": 3.715253994927634e-08,
+        "sourceValue": "1/232.02 + 1/232.02 + 1/232.02 + 1/232.02",
+        "sourceUnit": "MN m/rad",
+        "tolBasis": "F * sum of 1/K over storeys 1..4 with Table 3's K printed to 0.01; tolerance propagates half a unit in each printed K"
+      },
+      "before": 0.001723973807378031,
+      "after": 0.001723973807378031,
+      "before_error": 1.5503888239204455e-08,
+      "after_error": 1.5503888239204455e-08,
+      "allowed": 3.715253994927634e-08,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 3 (horizontal storey stiffnesses, 12DOF model); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_120dof_damage_ii",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 1,
+        "value": 4.96,
+        "tolAbs": 0.005,
+        "direction": "y",
+        "tolBasis": "Table 2 prints 4.96 Hz; half a unit in the last printed digit"
+      },
+      "before": 4.964842139870905,
+      "after": 4.964842139870905,
+      "before_error": 0.004842139870905093,
+      "after_error": 0.004842139870905093,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 2 (natural frequencies, 120DOF lumped mass); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_120dof_damage_ii",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 2,
+        "value": 6.68,
+        "tolAbs": 0.005,
+        "direction": "x",
+        "tolBasis": "Table 2 prints 6.68 Hz; half a unit in the last printed digit"
+      },
+      "before": 6.684918824256893,
+      "after": 6.684918824256893,
+      "before_error": 0.00491882425689294,
+      "after_error": 0.00491882425689294,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 2 (natural frequencies, 120DOF lumped mass); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_120dof_damage_ii",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 3,
+        "value": 8.7,
+        "tolAbs": 0.005,
+        "direction": "\u03b8",
+        "tolBasis": "Table 2 prints 8.70 Hz; half a unit in the last printed digit"
+      },
+      "before": 8.703101577661661,
+      "after": 8.703101577661661,
+      "before_error": 0.0031015776616616364,
+      "after_error": 0.0031015776616616364,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 2 (natural frequencies, 120DOF lumped mass); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_120dof_damage_ii",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 4,
+        "value": 12.34,
+        "tolAbs": 0.005,
+        "direction": "y",
+        "tolBasis": "Table 2 prints 12.34 Hz; half a unit in the last printed digit"
+      },
+      "before": 12.340416973187542,
+      "after": 12.340416973187542,
+      "before_error": 0.0004169731875425242,
+      "after_error": 0.0004169731875425242,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 2 (natural frequencies, 120DOF lumped mass); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_120dof_damage_ii",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 5,
+        "value": 17.79,
+        "tolAbs": 0.005,
+        "direction": "x",
+        "tolBasis": "Table 2 prints 17.79 Hz; half a unit in the last printed digit"
+      },
+      "before": 17.787188540759093,
+      "after": 17.787188540759093,
+      "before_error": 0.002811459240906089,
+      "after_error": 0.002811459240906089,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 2 (natural frequencies, 120DOF lumped mass); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_120dof_damage_ii",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 6,
+        "value": 21.56,
+        "tolAbs": 0.005,
+        "direction": "\u03b8",
+        "tolBasis": "Table 2 prints 21.56 Hz; half a unit in the last printed digit"
+      },
+      "before": 21.56259832186347,
+      "after": 21.56259832186347,
+      "before_error": 0.0025983218634699767,
+      "after_error": 0.0025983218634699767,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 2 (natural frequencies, 120DOF lumped mass); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_120dof_damage_ii",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 7,
+        "value": 34.79,
+        "tolAbs": 0.005,
+        "direction": "y",
+        "tolBasis": "Table 2 prints 34.79 Hz; half a unit in the last printed digit"
+      },
+      "before": 34.79282577722808,
+      "after": 34.79282577722808,
+      "before_error": 0.0028257772280824156,
+      "after_error": 0.0028257772280824156,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 2 (natural frequencies, 120DOF lumped mass); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_120dof_damage_ii",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 8,
+        "value": 38.75,
+        "tolAbs": 0.005,
+        "direction": "y",
+        "tolBasis": "Table 2 prints 38.75 Hz; half a unit in the last printed digit"
+      },
+      "before": 38.75496069843117,
+      "after": 38.75496069843117,
+      "before_error": 0.004960698431169419,
+      "after_error": 0.004960698431169419,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 2 (natural frequencies, 120DOF lumped mass); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_120dof_damage_ii",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 9,
+        "value": 40.62,
+        "tolAbs": 0.005,
+        "direction": "x",
+        "tolBasis": "Table 2 prints 40.62 Hz; half a unit in the last printed digit"
+      },
+      "before": 40.62334775053193,
+      "after": 40.62334775053193,
+      "before_error": 0.003347750531929705,
+      "after_error": 0.003347750531929705,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 2 (natural frequencies, 120DOF lumped mass); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_120dof_damage_ii",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 10,
+        "value": 49.47,
+        "tolAbs": 0.005,
+        "direction": "x",
+        "tolBasis": "Table 2 prints 49.47 Hz; half a unit in the last printed digit"
+      },
+      "before": 49.47158849121689,
+      "after": 49.47158849121689,
+      "before_error": 0.0015884912168928622,
+      "after_error": 0.0015884912168928622,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 2 (natural frequencies, 120DOF lumped mass); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_120dof_damage_ii",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 11,
+        "value": 59.98,
+        "tolAbs": 0.005,
+        "direction": "\u03b8",
+        "tolBasis": "Table 2 prints 59.98 Hz; half a unit in the last printed digit"
+      },
+      "before": 59.98475456478601,
+      "after": 59.98475456478601,
+      "before_error": 0.004754564786011883,
+      "after_error": 0.004754564786011883,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 2 (natural frequencies, 120DOF lumped mass); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_120dof_damage_ii",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 12,
+        "value": 68.57,
+        "tolAbs": 0.005,
+        "direction": "\u03b8",
+        "tolBasis": "Table 2 prints 68.57 Hz; half a unit in the last printed digit"
+      },
+      "before": 68.57165138555825,
+      "after": 68.57165138555825,
+      "before_error": 0.0016513855582616088,
+      "after_error": 0.0016513855582616088,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 2 (natural frequencies, 120DOF lumped mass); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_12dof_storey_stiffness_damage_i",
+      "selector": {
+        "quantity": "displacement",
+        "node": 14,
+        "component": "ux",
+        "value": 0.001713208840157615,
+        "tolAbs": 1.4676679860855094e-07,
+        "sourceValue": "1/58.37",
+        "sourceUnit": "MN/m",
+        "tolBasis": "F * sum of 1/K over storeys 1..1 with Table 3's K printed to 0.01; tolerance propagates half a unit in each printed K"
+      },
+      "before": 0.0017131979695431526,
+      "after": 0.0017131979695431526,
+      "before_error": 1.0870614462407668e-08,
+      "after_error": 1.0870614462407668e-08,
+      "allowed": 1.4676679860855094e-07,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 3 (horizontal storey stiffnesses, 12DOF model); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_12dof_storey_stiffness_damage_i",
+      "selector": {
+        "quantity": "displacement",
+        "node": 41,
+        "component": "ux",
+        "value": 0.004527467751977502,
+        "tolAbs": 2.787738773561417e-07,
+        "sourceValue": "1/58.37 + 1/106.60 + 1/106.60 + 1/106.60",
+        "sourceUnit": "MN/m",
+        "tolBasis": "F * sum of 1/K over storeys 1..4 with Table 3's K printed to 0.01; tolerance propagates half a unit in each printed K"
+      },
+      "before": 0.00452743967992085,
+      "after": 0.00452743967992085,
+      "before_error": 2.8072056652318766e-08,
+      "after_error": 2.8072056652318766e-08,
+      "allowed": 2.787738773561417e-07,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 3 (horizontal storey stiffnesses, 12DOF model); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_12dof_storey_stiffness_damage_i",
+      "selector": {
+        "quantity": "displacement",
+        "node": 14,
+        "component": "uy",
+        "value": 0.005083884087442806,
+        "tolAbs": 1.2926224478623966e-06,
+        "sourceValue": "1/19.67",
+        "sourceUnit": "MN/m",
+        "tolBasis": "F * sum of 1/K over storeys 1..1 with Table 3's K printed to 0.01; tolerance propagates half a unit in each printed K"
+      },
+      "before": 0.005082831325301289,
+      "after": 0.005082831325301289,
+      "before_error": 1.0527621415170815e-06,
+      "after_error": 1.0527621415170815e-06,
+      "allowed": 1.2926224478623966e-06,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 3 (horizontal storey stiffnesses, 12DOF model); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_12dof_storey_stiffness_damage_i",
+      "selector": {
+        "quantity": "displacement",
+        "node": 41,
+        "component": "uy",
+        "value": 0.00950214623766372,
+        "tolAbs": 1.6179970815041162e-06,
+        "sourceValue": "1/19.67 + 1/67.90 + 1/67.90 + 1/67.90",
+        "sourceUnit": "MN/m",
+        "tolBasis": "F * sum of 1/K over storeys 1..4 with Table 3's K printed to 0.01; tolerance propagates half a unit in each printed K"
+      },
+      "before": 0.009500810095492187,
+      "after": 0.009500810095492187,
+      "before_error": 1.3361421715325783e-06,
+      "after_error": 1.3361421715325783e-06,
+      "allowed": 1.6179970815041162e-06,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 3 (horizontal storey stiffnesses, 12DOF model); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_12dof_storey_stiffness_damage_i",
+      "selector": {
+        "quantity": "displacement",
+        "node": 14,
+        "component": "rz",
+        "value": 0.0012300123001230013,
+        "tolAbs": 7.565116551589895e-08,
+        "sourceValue": "1/81.30",
+        "sourceUnit": "MN m/rad",
+        "tolBasis": "F * sum of 1/K over storeys 1..1 with Table 3's K printed to 0.01; tolerance propagates half a unit in each printed K"
+      },
+      "before": 0.001229975115921413,
+      "after": 0.001229975115921413,
+      "before_error": 3.718420158826778e-08,
+      "after_error": 3.718420158826778e-08,
+      "allowed": 7.565116551589895e-08,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 3 (horizontal storey stiffnesses, 12DOF model); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_12dof_storey_stiffness_damage_i",
+      "selector": {
+        "quantity": "displacement",
+        "node": 41,
+        "component": "rz",
+        "value": 0.0025230042835727036,
+        "tolAbs": 1.035155704778562e-07,
+        "sourceValue": "1/81.30 + 1/232.02 + 1/232.02 + 1/232.02",
+        "sourceUnit": "MN m/rad",
+        "tolBasis": "F * sum of 1/K over storeys 1..4 with Table 3's K printed to 0.01; tolerance propagates half a unit in each printed K"
+      },
+      "before": 0.0025229554714549306,
+      "after": 0.0025229554714549306,
+      "before_error": 4.8812117773092134e-08,
+      "after_error": 4.8812117773092134e-08,
+      "allowed": 1.035155704778562e-07,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 3 (horizontal storey stiffnesses, 12DOF model); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_12dof_damage_i",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 1,
+        "value": 6.24,
+        "tolAbs": 0.005,
+        "direction": "y",
+        "tolBasis": "Table 2 prints 6.24 Hz; half a unit in the last printed digit"
+      },
+      "before": 6.240693470083178,
+      "after": 6.240693470083178,
+      "before_error": 0.0006934700831777718,
+      "after_error": 0.0006934700831777718,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 2 (natural frequencies, 12DOF lumped mass); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_12dof_damage_i",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 2,
+        "value": 9.91,
+        "tolAbs": 0.005,
+        "direction": "x",
+        "tolBasis": "Table 2 prints 9.91 Hz; half a unit in the last printed digit"
+      },
+      "before": 9.908918732342503,
+      "after": 9.908918732342503,
+      "before_error": 0.0010812676574971647,
+      "after_error": 0.0010812676574971647,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 2 (natural frequencies, 12DOF lumped mass); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_12dof_damage_i",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 3,
+        "value": 11.73,
+        "tolAbs": 0.005,
+        "direction": "\u03b8",
+        "tolBasis": "Table 2 prints 11.73 Hz; half a unit in the last printed digit"
+      },
+      "before": 11.731297868997137,
+      "after": 11.731297868997137,
+      "before_error": 0.0012978689971365753,
+      "after_error": 0.0012978689971365753,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 2 (natural frequencies, 12DOF lumped mass); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_12dof_damage_i",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 4,
+        "value": 21.53,
+        "tolAbs": 0.005,
+        "direction": "y",
+        "tolBasis": "Table 2 prints 21.53 Hz; half a unit in the last printed digit"
+      },
+      "before": 21.531101403940504,
+      "after": 21.531101403940504,
+      "before_error": 0.001101403940502621,
+      "after_error": 0.001101403940502621,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 2 (natural frequencies, 12DOF lumped mass); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_12dof_damage_i",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 5,
+        "value": 28.92,
+        "tolAbs": 0.005,
+        "direction": "x",
+        "tolBasis": "Table 2 prints 28.92 Hz; half a unit in the last printed digit"
+      },
+      "before": 28.917593213418566,
+      "after": 28.917593213418566,
+      "before_error": 0.0024067865814352274,
+      "after_error": 0.0024067865814352274,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 2 (natural frequencies, 12DOF lumped mass); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_12dof_damage_i",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 6,
+        "value": 37.37,
+        "tolAbs": 0.005,
+        "direction": "y",
+        "tolBasis": "Table 2 prints 37.37 Hz; half a unit in the last printed digit"
+      },
+      "before": 37.374359829269984,
+      "after": 37.374359829269984,
+      "before_error": 0.0043598292699869035,
+      "after_error": 0.0043598292699869035,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 2 (natural frequencies, 12DOF lumped mass); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_12dof_damage_i",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 7,
+        "value": 38.28,
+        "tolAbs": 0.005,
+        "direction": "\u03b8",
+        "tolBasis": "Table 2 prints 38.28 Hz; half a unit in the last printed digit"
+      },
+      "before": 38.27665982472023,
+      "after": 38.27665982472023,
+      "before_error": 0.003340175279774371,
+      "after_error": 0.003340175279774371,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 2 (natural frequencies, 12DOF lumped mass); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_12dof_damage_i",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 8,
+        "value": 47.34,
+        "tolAbs": 0.005,
+        "direction": "x",
+        "tolBasis": "Table 2 prints 47.34 Hz; half a unit in the last printed digit"
+      },
+      "before": 47.33552057944951,
+      "after": 47.33552057944951,
+      "before_error": 0.004479420550495661,
+      "after_error": 0.004479420550495661,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 2 (natural frequencies, 12DOF lumped mass); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_12dof_damage_i",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 9,
+        "value": 47.83,
+        "tolAbs": 0.005,
+        "direction": "y",
+        "tolBasis": "Table 2 prints 47.83 Hz; half a unit in the last printed digit"
+      },
+      "before": 47.82712279792797,
+      "after": 47.82712279792797,
+      "before_error": 0.00287720207202824,
+      "after_error": 0.00287720207202824,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 2 (natural frequencies, 12DOF lumped mass); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_12dof_damage_i",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 10,
+        "value": 59.99,
+        "tolAbs": 0.005,
+        "direction": "x",
+        "tolBasis": "Table 2 prints 59.99 Hz; half a unit in the last printed digit"
+      },
+      "before": 59.99426666117953,
+      "after": 59.99426666117953,
+      "before_error": 0.0042666611795283416,
+      "after_error": 0.0042666611795283416,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 2 (natural frequencies, 12DOF lumped mass); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_12dof_damage_i",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 11,
+        "value": 65.31,
+        "tolAbs": 0.005,
+        "direction": "\u03b8",
+        "tolBasis": "Table 2 prints 65.31 Hz; half a unit in the last printed digit"
+      },
+      "before": 65.30612281075527,
+      "after": 65.30612281075527,
+      "before_error": 0.0038771892447329037,
+      "after_error": 0.0038771892447329037,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 2 (natural frequencies, 12DOF lumped mass); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_12dof_damage_i",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 12,
+        "value": 83.31,
+        "tolAbs": 0.005,
+        "direction": "\u03b8",
+        "tolBasis": "Table 2 prints 83.31 Hz; half a unit in the last printed digit"
+      },
+      "before": 83.30988276143167,
+      "after": 83.30988276143167,
+      "before_error": 0.0001172385683361199,
+      "after_error": 0.0001172385683361199,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 2 (natural frequencies, 12DOF lumped mass); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_12dof_damage_ii",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 1,
+        "value": 5.82,
+        "tolAbs": 0.005,
+        "direction": "y",
+        "tolBasis": "Table 2 prints 5.82 Hz; half a unit in the last printed digit"
+      },
+      "before": 5.824164935568963,
+      "after": 5.824164935568963,
+      "before_error": 0.004164935568963024,
+      "after_error": 0.004164935568963024,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 2 (natural frequencies, 12DOF lumped mass); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_12dof_damage_ii",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 2,
+        "value": 9.51,
+        "tolAbs": 0.005,
+        "direction": "x",
+        "tolBasis": "Table 2 prints 9.51 Hz; half a unit in the last printed digit"
+      },
+      "before": 9.507486344217234,
+      "after": 9.507486344217234,
+      "before_error": 0.0025136557827654116,
+      "after_error": 0.0025136557827654116,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 2 (natural frequencies, 12DOF lumped mass); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_12dof_damage_ii",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 3,
+        "value": 11.01,
+        "tolAbs": 0.005,
+        "direction": "\u03b8",
+        "tolBasis": "Table 2 prints 11.01 Hz; half a unit in the last printed digit"
+      },
+      "before": 11.014546702395593,
+      "after": 11.014546702395593,
+      "before_error": 0.004546702395593627,
+      "after_error": 0.004546702395593627,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 2 (natural frequencies, 12DOF lumped mass); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_12dof_damage_ii",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 4,
+        "value": 14.89,
+        "tolAbs": 0.005,
+        "direction": "y",
+        "tolBasis": "Table 2 prints 14.89 Hz; half a unit in the last printed digit"
+      },
+      "before": 14.887501170978538,
+      "after": 14.887501170978538,
+      "before_error": 0.0024988290214622566,
+      "after_error": 0.0024988290214622566,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 2 (natural frequencies, 12DOF lumped mass); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_12dof_damage_ii",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 5,
+        "value": 24.91,
+        "tolAbs": 0.005,
+        "direction": "x",
+        "tolBasis": "Table 2 prints 24.91 Hz; half a unit in the last printed digit"
+      },
+      "before": 24.90776478248268,
+      "after": 24.90776478248268,
+      "before_error": 0.0022352175173203648,
+      "after_error": 0.0022352175173203648,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 2 (natural frequencies, 12DOF lumped mass); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_12dof_damage_ii",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 6,
+        "value": 28.41,
+        "tolAbs": 0.005,
+        "direction": "\u03b8",
+        "tolBasis": "Table 2 prints 28.41 Hz; half a unit in the last printed digit"
+      },
+      "before": 28.4127746442067,
+      "after": 28.4127746442067,
+      "before_error": 0.0027746442066991506,
+      "after_error": 0.0027746442066991506,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 2 (natural frequencies, 12DOF lumped mass); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_12dof_damage_ii",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 7,
+        "value": 36.06,
+        "tolAbs": 0.005,
+        "direction": "y",
+        "tolBasis": "Table 2 prints 36.06 Hz; half a unit in the last printed digit"
+      },
+      "before": 36.05989359187117,
+      "after": 36.05989359187117,
+      "before_error": 0.00010640812882911632,
+      "after_error": 0.00010640812882911632,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 2 (natural frequencies, 12DOF lumped mass); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_12dof_damage_ii",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 8,
+        "value": 41.35,
+        "tolAbs": 0.005,
+        "direction": "y",
+        "tolBasis": "Table 2 prints 41.35 Hz; half a unit in the last printed digit"
+      },
+      "before": 41.349223723915436,
+      "after": 41.349223723915436,
+      "before_error": 0.0007762760845650973,
+      "after_error": 0.0007762760845650973,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 2 (natural frequencies, 12DOF lumped mass); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_12dof_damage_ii",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 9,
+        "value": 46.79,
+        "tolAbs": 0.005,
+        "direction": "x",
+        "tolBasis": "Table 2 prints 46.79 Hz; half a unit in the last printed digit"
+      },
+      "before": 46.79373849665328,
+      "after": 46.79373849665328,
+      "before_error": 0.0037384966532840735,
+      "after_error": 0.0037384966532840735,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 2 (natural frequencies, 12DOF lumped mass); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_12dof_damage_ii",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 10,
+        "value": 54.34,
+        "tolAbs": 0.005,
+        "direction": "x",
+        "tolBasis": "Table 2 prints 54.34 Hz; half a unit in the last printed digit"
+      },
+      "before": 54.339269310621724,
+      "after": 54.339269310621724,
+      "before_error": 0.0007306893782796919,
+      "after_error": 0.0007306893782796919,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 2 (natural frequencies, 12DOF lumped mass); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_12dof_damage_ii",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 11,
+        "value": 63.64,
+        "tolAbs": 0.005,
+        "direction": "\u03b8",
+        "tolBasis": "Table 2 prints 63.64 Hz; half a unit in the last printed digit"
+      },
+      "before": 63.64184783843241,
+      "after": 63.64184783843241,
+      "before_error": 0.0018478384324112085,
+      "after_error": 0.0018478384324112085,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 2 (natural frequencies, 12DOF lumped mass); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "asce_shm_12dof_damage_ii",
+      "selector": {
+        "quantity": "frequency",
+        "mode": 12,
+        "value": 72.61,
+        "tolAbs": 0.005,
+        "direction": "\u03b8",
+        "tolBasis": "Table 2 prints 72.61 Hz; half a unit in the last printed digit"
+      },
+      "before": 72.6098571291516,
+      "after": 72.6098571291516,
+      "before_error": 0.0001428708483928176,
+      "after_error": 0.0001428708483928176,
+      "allowed": 0.005,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Johnson, Lam, Katafygiotis, Beck (2004). Phase I IASC-ASCE Structural Health Monitoring Benchmark Problem Using Simulated Data. J. Eng. Mech. 130(1):3-15.",
+        "where": "Report_bldg_shm_ana1.pdf Table 1 (members) and Table 2 (natural frequencies, 12DOF lumped mass); model DataGen/cal_model.m in Files_bldg_shm_ana1.zip, NEES database doi:10.4231/D3Q52FC7T",
+        "independence": "Published by the benchmark authors from their own MATLAB model (HKUST code); not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "bathe_wilson_10bay_9storey",
+      "selector": {
+        "quantity": "eigenvalue",
+        "mode": 1,
+        "value": 0.5895414999999999,
+        "tolAbs": 5e-07,
+        "sourceValue": 0.589541,
+        "sourceUnit": "(rad/s)^2",
+        "tolBasis": "Bathe & Wilson print 0.589541, truncated to 6 significant figures (see generator): true value in [0.589541, 0.589541 + 1e-06)"
+      },
+      "before": 0.5895417021552835,
+      "after": 0.5895417021552835,
+      "before_error": 2.0215528351297252e-07,
+      "after_error": 2.0215528351297252e-07,
+      "allowed": 5e-07,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Bathe, K.J., Wilson, E.L. (1972). Large Eigenvalue Problems in Dynamic Analysis. J. Eng. Mech. Div. ASCE 98(EM6):1471-1485.",
+        "where": "Eigenvalues 0.589541, 5.52695, 16.5878 as quoted (independent reference column) in CSI SAP2000 Software Verification, Example 1-021 'Bathe and Wilson eigenvalue problem'; same data in the ETABS verification manual.",
+        "independence": "Bathe & Wilson's own subspace-iteration results (1972); not a commercial program's output, not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "bathe_wilson_10bay_9storey",
+      "selector": {
+        "quantity": "eigenvalue",
+        "mode": 2,
+        "value": 5.526955,
+        "tolAbs": 5e-06,
+        "sourceValue": 5.52695,
+        "sourceUnit": "(rad/s)^2",
+        "tolBasis": "Bathe & Wilson print 5.52695, truncated to 6 significant figures (see generator): true value in [5.52695, 5.52695 + 1e-05)"
+      },
+      "before": 5.5269563333508955,
+      "after": 5.5269563333508955,
+      "before_error": 1.3333508954715967e-06,
+      "after_error": 1.3333508954715967e-06,
+      "allowed": 5e-06,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Bathe, K.J., Wilson, E.L. (1972). Large Eigenvalue Problems in Dynamic Analysis. J. Eng. Mech. Div. ASCE 98(EM6):1471-1485.",
+        "where": "Eigenvalues 0.589541, 5.52695, 16.5878 as quoted (independent reference column) in CSI SAP2000 Software Verification, Example 1-021 'Bathe and Wilson eigenvalue problem'; same data in the ETABS verification manual.",
+        "independence": "Bathe & Wilson's own subspace-iteration results (1972); not a commercial program's output, not computed by stabileo or by this generator."
+      }
+    },
+    {
+      "case": "bathe_wilson_10bay_9storey",
+      "selector": {
+        "quantity": "eigenvalue",
+        "mode": 3,
+        "value": 16.587850000000003,
+        "tolAbs": 5e-05,
+        "sourceValue": 16.5878,
+        "sourceUnit": "(rad/s)^2",
+        "tolBasis": "Bathe & Wilson print 16.5878, truncated to 6 significant figures (see generator): true value in [16.5878, 16.5878 + 0.0001)"
+      },
+      "before": 16.58787002363653,
+      "after": 16.58787002363653,
+      "before_error": 2.002363652664485e-05,
+      "after_error": 2.002363652664485e-05,
+      "allowed": 5e-05,
+      "before_pass": true,
+      "after_pass": true,
+      "source": {
+        "citation": "Bathe, K.J., Wilson, E.L. (1972). Large Eigenvalue Problems in Dynamic Analysis. J. Eng. Mech. Div. ASCE 98(EM6):1471-1485.",
+        "where": "Eigenvalues 0.589541, 5.52695, 16.5878 as quoted (independent reference column) in CSI SAP2000 Software Verification, Example 1-021 'Bathe and Wilson eigenvalue problem'; same data in the ETABS verification manual.",
+        "independence": "Bathe & Wilson's own subspace-iteration results (1972); not a commercial program's output, not computed by stabileo or by this generator."
+      }
+    }
+  ]
+}

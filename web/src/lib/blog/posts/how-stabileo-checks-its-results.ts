@@ -3,13 +3,13 @@
  *
  * Every claim here has a source in the repository and must stay no stronger
  * than it:
- *  - the trusted base and what Lean proves: docs/verification/TRUSTED_BASE.md
+ *  - the trusted base and what Lean proves: testing/docs/TRUSTED_BASE.md
  *    (assembly of K and f is NOT certified; Rust is not proved to match the
  *    Lean algorithm except the bundle checkers, which are Lean code; design
  *    formulas are not formalized; 37 top-level theorems are axiom-checked);
- *  - the acceptance suite: docs/verification/ACCEPTANCE.md (12 cases, 105
+ *  - the acceptance suite: testing/docs/ACCEPTANCE.md (12 cases, 105
  *    published values, mostly frequencies of building frames);
- *  - the seven differential programs: tools/differential, tools/opensees;
+ *  - the seven differential programs: testing/differential, testing/opensees;
  *  - the AI boundary: the-determinism-boundary post and web/src/lib/ai
  *    (the assistant calls a server; the solver does not).
  * If one of those changes, this post changes with it. "Certified" is never
@@ -86,8 +86,8 @@ export const howStabileoChecksItsResults: Post = {
         { k: 'h', t: 'Cuando algo falla' },
         { k: 'p', t: 'Los errores que pueden haber afectado resultados ya usados los publicamos como avisos de seguridad, con cómo reconocer un modelo afectado y qué hacer mientras tanto; otros defectos de seguridad están en evaluación y se agregan cuando corresponde. Los avisos abiertos se cierran cuando la corrección está publicada en stabileo.com.' },
         { k: 'link', slug: 'safety-advisories', t: 'Los avisos publicados, con su estado:' },
-        { k: 'ext', href: `${REPO}/docs/verification/TRUSTED_BASE.md`, label: 'Base de confianza de los certificados', t: 'Qué está demostrado, qué está probado y qué se confía, componente por componente:' },
-        { k: 'ext', href: `${REPO}/docs/verification/MATURITY.md`, label: 'Matriz de madurez de la verificación', t: 'Para cada análisis, elemento y norma, el nivel de verificación que alcanzó y la evidencia:' },
+        { k: 'ext', href: `${REPO}/testing/docs/TRUSTED_BASE.md`, label: 'Base de confianza de los certificados', t: 'Qué está demostrado, qué está probado y qué se confía, componente por componente:' },
+        { k: 'ext', href: `${REPO}/testing/docs/MATURITY.md`, label: 'Matriz de madurez de la verificación', t: 'Para cada análisis, elemento y norma, el nivel de verificación que alcanzó y la evidencia:' },
       ],
     },
     en: {
@@ -148,8 +148,8 @@ export const howStabileoChecksItsResults: Post = {
         { k: 'h', t: 'When something fails' },
         { k: 'p', t: 'Defects that may have affected results already in use are published as safety advisories, with how to recognise an affected model and what to do in the meantime; other safety defects are being triaged and are added when they warrant one. Open advisories are closed when the fix is live on stabileo.com.' },
         { k: 'link', slug: 'safety-advisories', t: 'The published advisories and their status:' },
-        { k: 'ext', href: `${REPO}/docs/verification/TRUSTED_BASE.md`, label: 'Trusted base of the certificates', t: 'What is proved, what is tested and what is trusted, component by component:' },
-        { k: 'ext', href: `${REPO}/docs/verification/MATURITY.md`, label: 'Verification maturity matrix', t: 'For every analysis, element and design code, the verification level it has reached and the evidence:' },
+        { k: 'ext', href: `${REPO}/testing/docs/TRUSTED_BASE.md`, label: 'Trusted base of the certificates', t: 'What is proved, what is tested and what is trusted, component by component:' },
+        { k: 'ext', href: `${REPO}/testing/docs/MATURITY.md`, label: 'Verification maturity matrix', t: 'For every analysis, element and design code, the verification level it has reached and the evidence:' },
       ],
     },
     pt: {
@@ -210,8 +210,8 @@ export const howStabileoChecksItsResults: Post = {
         { k: 'h', t: 'Quando algo falha' },
         { k: 'p', t: 'Os defeitos que podem ter afetado resultados já usados são publicados como avisos de segurança, com como reconhecer um modelo afetado e o que fazer enquanto isso; outros defeitos de segurança estão em avaliação e são acrescentados quando cabe. Os avisos abertos são fechados quando a correção está publicada em stabileo.com.' },
         { k: 'link', slug: 'safety-advisories', t: 'Os avisos publicados e sua situação:' },
-        { k: 'ext', href: `${REPO}/docs/verification/TRUSTED_BASE.md`, label: 'Base de confiança dos certificados', t: 'O que está demonstrado, o que está testado e o que é confiado, componente por componente:' },
-        { k: 'ext', href: `${REPO}/docs/verification/MATURITY.md`, label: 'Matriz de maturidade da verificação', t: 'Para cada análise, elemento e norma, o nível de verificação alcançado e a evidência:' },
+        { k: 'ext', href: `${REPO}/testing/docs/TRUSTED_BASE.md`, label: 'Base de confiança dos certificados', t: 'O que está demonstrado, o que está testado e o que é confiado, componente por componente:' },
+        { k: 'ext', href: `${REPO}/testing/docs/MATURITY.md`, label: 'Matriz de maturidade da verificação', t: 'Para cada análise, elemento e norma, o nível de verificação alcançado e a evidência:' },
       ],
     },
   },

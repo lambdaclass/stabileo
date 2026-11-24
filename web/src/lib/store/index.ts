@@ -1,3 +1,4 @@
+import { withSavedBeamEvidence } from './beam-line-store';
 import { collapseVariableResults, collapseVariableEnvelope, collapseVariablePDelta, collapseVariableModes, variableExpansionFor } from '../engine/variable-members';
 import { clearMaterialChecks } from './material-check.svelte';
 import { modelStore } from './model.svelte';
@@ -9,6 +10,7 @@ import { historyStore } from './history.svelte';
 import { dsmStepsStore } from './dsmSteps.svelte';
 import { fmStepsStore } from './fmSteps.svelte';
 import { tabManager } from './tabs.svelte';
+import { cloudLink } from './cloud-link.svelte';
 import { tourStore } from './tour.svelte';
 import { verificationStore } from './verification.svelte';
 import { storedRefusal } from './design-refusals';
@@ -67,6 +69,7 @@ modelStore._setOnNewProject(() => {
   clearMaterialChecks();
   // A new project was made in this build: nothing of it is stale.
   recheckStore.reset();
+  if (!tabManager.isTabSwitching) cloudLink.forgetTab(tabManager.activeTabId ?? 'default');
 });
 
 /*
@@ -210,7 +213,7 @@ resultsStore._setOnResultsPublish(() => {
 // Let verificationStore read the current provided reinforcement without importing
 // modelStore (which would create a circular dependency).
 verificationStore._setReinforcementProvider(
-  (elementId) => modelStore.elements.get(elementId)?.reinforcement,
+  (elementId) => withSavedBeamEvidence(elementId, modelStore.elements.get(elementId)?.reinforcement),
 );
 
 // The refusals kept with the project, for a member that has no bars now (an edit after the

@@ -1,0 +1,87 @@
+[
+  {
+    "probe": "coverage-frontier-probe-5397407e1^1.log",
+    "failures": [
+      954,
+      993,
+      994,
+      1102,
+      1117,
+      1216,
+      1265,
+      1360,
+      1361
+    ],
+    "result": [
+      "test result: FAILED. 18 passed; 9 failed; 0 ignored; 0 measured; 77 filtered out; finished in 0.07s"
+    ]
+  },
+  {
+    "probe": "coverage-frontier-fix1285.log",
+    "failures": [
+      954,
+      993,
+      994,
+      1102,
+      1117,
+      1216,
+      1265,
+      1360,
+      1361
+    ],
+    "result": [
+      "test result: FAILED. 18 passed; 9 failed; 0 ignored; 0 measured; 63 filtered out; finished in 0.07s"
+    ]
+  },
+  {
+    "probe": "coverage-frontier-probe-5397407e1.log",
+    "failures": [
+      994,
+      1117,
+      1216
+    ],
+    "result": [
+      "test result: FAILED. 24 passed; 3 failed; 0 ignored; 0 measured; 77 filtered out; finished in 0.07s"
+    ]
+  },
+  {
+    "probe": "coverage-frontier-probe-d59aacb0f.log",
+    "failures": [],
+    "result": [
+      "test result: ok. 27 passed; 0 failed; 0 ignored; 0 measured; 98 filtered out; finished in 0.07s"
+    ]
+  },
+  {
+    "probe": "harmonic-fix-a9d72cbe6^1.log",
+    "failures": [
+      1117,
+      1216
+    ],
+    "result": [
+      "test result: FAILED. 1 passed; 2 failed; 0 ignored; 0 measured; 97 filtered out; finished in 0.02s"
+    ]
+  },
+  {
+    "probe": "harmonic-fix-a9d72cbe6.log",
+    "failures": [],
+    "result": [
+      "test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 98 filtered out; finished in 0.01s"
+    ]
+  },
+  {
+    "probe": "units994-fix-245807d67^1.log",
+    "failures": [
+      994
+    ],
+    "result": [
+      "test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 82 filtered out; finished in 0.01s"
+    ]
+  },
+  {
+    "probe": "units994-fix-245807d67.log",
+    "failures": [],
+    "result": [
+      "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 97 filtered out; finished in 0.01s"
+    ]
+  }
+]

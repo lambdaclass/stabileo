@@ -1,11 +1,12 @@
-import { describe, it, expect, beforeAll, afterEach } from 'vitest';
+import { featuresForMode } from '../../../../config/public-features.mjs';
+import { describe, it, expect, beforeAll, afterEach, vi } from 'vitest';
 import { readdirSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { fixtureLoadCases, loadFixture, type JSONModel } from '../load-fixture';
 import { defaultCombinations, defaultLoadCases } from '../../model/default-loads';
 import { generateCombinations } from '../../codes/cirsoc101/combinations';
 import { expandCombinations, presentSymbols } from '../../engine/loads/combination-cases';
-import { initSolver } from '../../engine/wasm-solver';
+import { initSolver, solvePDelta, solvePDelta3D } from '../../engine/wasm-solver';
 import { modelStore, uiStore } from '../../store';
 
 const DIR = 'src/lib/templates/fixtures';
@@ -23,6 +24,11 @@ const emptyFixture = (over: Partial<JSONModel>): JSONModel => ({
   name: 'probe', materials: [], sections: [], nodes: [], elements: [], supports: [], loads: [],
   plates: [], quads: [], constraints: [], loadCases: [], combinations: [], ...over,
 });
+
+const snowCases = [
+  { id: 5, type: 'S', name: 'Snow', alternatives: 'fixture-roof' },
+  { id: 6, type: 'S', name: 'Flat-roof snow', alternatives: 'fixture-roof', snowBasis: 'flatRoof' as const },
+];
 
 const startMode = uiStore.analysisMode;
 
@@ -107,20 +113,20 @@ describe('a fixture that brings its own cases', () => {
   });
 
   it('gets them when it loads a case no default combines', () => {
-    const cases = [...defaultLoadCases(), { id: 5, type: 'S', name: 'Snow' }];
-    const loads = [1, 5].map((caseId) => ({ type: 'nodal3d', data: { nodeId: 1, fx: 0, fy: 0, fz: -1, mx: 0, my: 0, mz: 0, caseId } }));
+    const cases = [...defaultLoadCases(), ...snowCases];
+    const loads = [1, 5, 6].map((caseId) => ({ type: 'nodal3d', data: { nodeId: 1, fx: 0, fy: 0, fz: -1, mx: 0, my: 0, mz: 0, caseId } }));
     const { combinations, rebuilt } = fixtureLoadCases(emptyFixture({ loadCases: cases, loads }), { loadCases: defaultLoadCases(), combinations: defaultCombinations() });
     expect(rebuilt).toBe(true);
-    expect(combinations.some((c) => c.factors.some((f) => f.caseId === 5 && f.factor !== 0))).toBe(true);
+    for (const { id } of snowCases) expect(combinations.some((c) => c.factors.some((f) => f.caseId === id && f.factor !== 0))).toBe(true);
     expect(missingCases(cases, combinations)).toEqual([]);
   });
 
-  it('gets them when the only case it loads is one no default combines', () => {
-    const cases = [...defaultLoadCases(), { id: 5, type: 'S', name: 'Snow' }];
-    const loads = [{ type: 'nodal3d', data: { nodeId: 1, fx: 0, fy: 0, fz: -1, mx: 0, my: 0, mz: 0, caseId: 5 } }];
+  it('gets them when it only loads cases no default combines', () => {
+    const cases = [...defaultLoadCases(), ...snowCases];
+    const loads = [5, 6].map((caseId) => ({ type: 'nodal3d', data: { nodeId: 1, fx: 0, fy: 0, fz: -1, mx: 0, my: 0, mz: 0, caseId } }));
     const { combinations, rebuilt } = fixtureLoadCases(emptyFixture({ loadCases: cases, loads }), { loadCases: defaultLoadCases(), combinations: defaultCombinations() });
     expect(rebuilt).toBe(true);
-    expect(combinations.some((c) => c.factors.some((f) => f.caseId === 5 && f.factor !== 0))).toBe(true);
+    for (const { id } of snowCases) expect(combinations.some((c) => c.factors.some((f) => f.caseId === id && f.factor !== 0))).toBe(true);
   });
 
   it('is refused when its own combination has no factor list, a null factor or a factor that is not a number', () => {
@@ -166,3 +172,66 @@ describe('a fixture that brings its own cases', () => {
     expect(combinations).toEqual(defaultCombinations());
   });
 });
+
+const modes = ['2d', '3d'] as const;
+
+it.each(modes)('known wrong result: #1986 %s fixture replay preserves partial-load stations', async mode => {
+  vi.stubGlobal('__PUBLIC_FEATURES__', featuresForMode('production'));
+  try {
+    uiStore.analysisMode = mode;
+    const span = 6, start = 1, end = 4, q = -5;
+    const loads = [
+      { type: 'distributed', data: { elementId: 7, qI: q, qJ: q, a: start, b: end, caseId: 2 } },
+      { type: 'distributed', data: { elementId: 7, qI: q, qJ: q, caseId: 1 } },
+    ];
+    const fixture = replayBeam({ loads, nodes: [{ id: 4, x: 0, y: 0, z: 0 }, { id: 9, x: span, y: 0, z: 0 }] });
+    await modelStore.loadExample('cantilever', async () => fixture, { keepCombinations: mode === '3d' });
+    const result = mode === '2d' ? modelStore.solveCombinations(false) : modelStore.solveCombinations3D(false, false, true);
+    if (!result || typeof result === 'string') throw new Error(String(result));
+    for (const [caseId, expected] of [[1, -q * span], [2, -q * (end - start)]] as const) {
+      const reaction = result.perCase.get(caseId)!.reactions[0]!;
+      expect('rz' in reaction ? reaction.rz : reaction.fz).toBeCloseTo(expected, 10);
+    }
+    expect(modelStore.loads[0]?.data).toMatchObject({ a: start, b: end, caseId: 2 });
+    expect(modelStore.loads[1]?.data).not.toHaveProperty('b');
+    const nonlinear = mode === '2d' ? solvePDelta(modelStore.buildSolverInput(false)!) : solvePDelta3D(modelStore.buildSolverInput3D(false)!);
+    expect(nonlinear.converged).toBe(true);
+    const reaction = nonlinear.results.reactions[0]!;
+    expect('rz' in reaction ? reaction.rz : reaction.fz).toBeCloseTo(-q * (span + end - start), 10);
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
+
+it.each(modes)('known wrong result: #1986 %s fixture replay retains the thermal case in combinations', async mode => {
+  vi.stubGlobal('__PUBLIC_FEATURES__', featuresForMode('production'));
+  try {
+    uiStore.analysisMode = mode;
+    const fixture = replayBeam({
+      supports: [{ id: 1, nodeId: 4, type: 'fixed' }, { id: 2, nodeId: 9, type: 'fixed' }],
+      loads: [{ type: 'thermal', data: { elementId: 7, dtUniform: 25, dtGradient: 0, caseId: 2 } }],
+    });
+    await modelStore.loadExample('cantilever', async () => fixture, { keepCombinations: mode === '3d' });
+    const result = mode === '2d' ? modelStore.solveCombinations(false) : modelStore.solveCombinations3D(false, false, true);
+    if (!result || typeof result === 'string') throw new Error(String(result));
+    const axial = (reaction: { rx: number } | { fx: number }) => 'rx' in reaction ? reaction.rx : reaction.fx;
+    const hot = axial(result.perCase.get(2)!.reactions[0]!);
+    expect(Math.abs(hot)).toBeGreaterThan(0);
+    expect(axial(result.perCase.get(1)!.reactions[0]!)).toBe(0);
+    expect(axial(result.perCombo.get(1)!.reactions[0]!)).toBeCloseTo(hot, 10);
+    expect(modelStore.loads[0]?.data).toMatchObject({ caseId: 2 });
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
+
+function replayBeam(overrides: Partial<JSONModel>): JSONModel {
+  return emptyFixture({
+    nodes: [{ id: 4, x: 0, y: 0, z: 0 }, { id: 9, x: 6, y: 0, z: 0 }],
+    elements: [{ id: 7, nodeI: 4, nodeJ: 9, type: 'frame', sectionId: 1, materialId: 1 }],
+    supports: [{ id: 1, nodeId: 4, type: 'fixed' }],
+    loadCases: [{ id: 1, name: 'D', type: 'D' }, { id: 2, name: 'L', type: 'L' }],
+    combinations: [{ id: 1, name: 'L', factors: [{ caseId: 2, factor: 1 }] }],
+    ...overrides,
+  });
+}

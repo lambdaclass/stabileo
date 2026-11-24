@@ -12,14 +12,18 @@ export function loadPublicPage(path: string): Promise<Page | null> {
   if (!pending.has(key)) {
     const loading = route.kind === 'research'
       ? import('../components/research/load-page').then(m => m.loadResearchPage(key))
+      : route.kind === 'examples'
+        ? import('../components/examples/load-page').then(m => m.loadExamplesPage())
       : route.kind === 'tools'
         ? import('../components/tools/load-page').then(m => m.loadToolsPage(key))
-        : route.kind === 'examples'
-          ? import('../components/examples/load-page').then(m => m.loadExamplesPage())
+        : __PUBLIC_FEATURES__.diagramGame && route.kind === 'game'
+          ? import('../components/diagram-game/load-page').then(m => m.loadDiagramGamePage())
         : route.kind === 'blog'
           ? import('../components/blog/BlogPage.svelte').then(m => m.default)
         : route.kind === 'paper'
           ? import('../components/paper/PaperPage.svelte').then(m => m.default)
+        : __PUBLIC_FEATURES__.accounts && route.kind === 'register'
+          ? import('../components/register/RegisterPage.svelte').then(m => m.default as unknown as Page)
         : route.kind === 'landing'
           ? import('../components/LandingPage.svelte').then(m => m.default as unknown as Page)
           : Promise.resolve(null);

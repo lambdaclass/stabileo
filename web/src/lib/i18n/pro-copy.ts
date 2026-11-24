@@ -1,6 +1,6 @@
 /** Plain TypeScript with no import from the store, so Playwright can load it in Node. */
 
-export type CopyLocale = 'es' | 'en' | 'pt' | 'de' | 'fr' | 'tr';
+export type CopyLocale = 'es' | 'en' | 'pt' | 'de' | 'fr' | 'tr' | 'hu' | 'zh';
 
 const UNFINISHED: Record<CopyLocale, RegExp> = {
   es: /desarrollo|\bbeta\b/i,
@@ -9,6 +9,8 @@ const UNFINISHED: Record<CopyLocale, RegExp> = {
   de: /Entwicklung|\bBeta\b/i,
   fr: /développement|\bb[eê]ta\b/i,
   tr: /geliştirme aşamas|geliştiriliyor|\bbeta\b/i,
+  hu: /fejlesztés alatt|fejlesztési fázis|fejleszt(jük|ik)\b|\bb[eé]t[aá](?:ban\b|verzió|változat|\b)/i,
+  zh: /开发中|正在开发|开发阶段|测试版|\b[Bb]eta\b/,
 };
 
 const DESIGN_OR_AI: Record<CopyLocale, RegExp> = {
@@ -18,13 +20,15 @@ const DESIGN_OR_AI: Record<CopyLocale, RegExp> = {
   de: /Bemessung|Bewehrung|\bKI\b/,
   fr: /dimensionnement|ferraillage|armature|\bIA\b/i,
   tr: /tasarım|donatı|yapay zek|\bYZ\b/i,
+  hu: /[Mm]éretez|[Vv]asal|[Rr]észletez|[Mm]esterséges intelligenci|\b(MI|AI)\b/,
+  zh: /设计|配筋|详图|人工智能|\bAI\b/,
 };
 
 function sentences(text: string): string[] {
   return text
     .replace(/<br\s*\/?>/gi, '\n')
     .replace(/<[^>]+>/g, ' ')
-    .split(/(?<=[.!?;:])\s+|\n+/)
+    .split(/(?<=[.!?;:])\s+|(?<=[。！？；：])|\n+/)
     .map((s) => s.trim())
     .filter(Boolean);
 }

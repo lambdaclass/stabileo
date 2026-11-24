@@ -1,3 +1,4 @@
+import { axialStrainEnergy } from './strain-energy-label';
 import type { Translations } from '../../types';
 import course from '../course/fr';
 
@@ -571,7 +572,7 @@ const stepsFr: Translations = {
   'steps.trusses.compat.meaning': 'Effort',
   'steps.trusses.compat.PTable': 'Déformations p et efforts P de chaque coordonnée de barre.',
   'steps.trusses.compat.endsTitle': 'Réactions et équilibre',
-  'steps.trusses.compat.endsLeadTruss': 'Chaque barre tire ou pousse sur ses nœuds selon son effort normal. À un appui, la réaction est la somme de ces efforts sur les barres k qui y concourent, moins la charge nodale.',
+  "steps.trusses.compat.endsLeadTruss": "Chaque barre tire ou pousse sur ses nœuds selon son effort normal. À un appui, la réaction est l’opposé de la somme de ces efforts sur les barres k qui y concourent, moins la charge nodale appliquée P : R = −ΣF_k − P.",
   'steps.trusses.compat.endsLeadFrame': 'Les moments d\'extrémité complètent les efforts tranchants de chaque barre, et l\'équilibre de chaque nœud d\'appui donne sa réaction : la somme des efforts d\'extrémité des barres k qui y concourent, moins la charge nodale.',
   'steps.trusses.compat.shearNote': 'V^s sont les réactions à la charge de la barre supposée sur appuis simples ; le second terme équilibre les moments d\'extrémité.',
   'steps.trusses.compat.endsTable': 'Efforts d\'extrémité des barres (N positif en traction, V selon +y local, M dans le sens antihoraire).',
@@ -609,7 +610,7 @@ const stepsFr: Translations = {
   'steps.deformation.axialOffNote': 'L\'écart avec la méthode matricielle provient de l\'omission du terme axial, que la méthode matricielle inclut.',
   'steps.m.virtualWork.opt.axial.label': 'Inclure le terme axial (N·n·L/EA)',
   'steps.m.virtualWork.opt.axial.help': 'Activé, le déplacement ajoute la contribution de l\'effort normal et le résultat coïncide avec la méthode matricielle, qui l\'inclut aussi. C\'est le choix le plus exact. Les solutions à la main le négligent généralement, car dans les portiques et les poutres il est faible devant la flexion ; désactivez-le pour voir cette solution classique et de combien elle change.',
-  'steps.m.castigliano.opt.axial.label': 'Inclure le terme axial (N²/2EA)',
+  'steps.m.castigliano.opt.axial.label': `Inclure l’énergie de déformation axiale (${axialStrainEnergy})`,
   'steps.m.castigliano.opt.axial.help': 'Activé, l\'énergie de déformation ajoute la contribution de l\'effort normal et le résultat coïncide avec la méthode matricielle, qui l\'inclut aussi. C\'est le choix le plus exact. Les solutions à la main le négligent généralement, car dans les portiques et les poutres il est faible devant la flexion ; désactivez-le pour voir cette solution classique et de combien elle change.',
   'steps.m.castigliano.coefCaptionOff': 'Terme de flexion de chaque barre uniquement. Unités : m/kN, rad/kN ou rad/(kN·m) selon les inconnues hyperstatiques.',
   'steps.m.castigliano.reactionsLead': 'Les réactions, par superposition de celles de la structure de base et des inconnues hyperstatiques :',

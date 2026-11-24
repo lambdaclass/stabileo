@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { axesStore } from '../../lib/axes/axes.svelte';
+  import { stepTextIn } from '../../lib/axes/step-doc-frame';
   /**
    * The blocks of a step-by-step document (engine/steps/doc), drawn. Words are
    * translated here, mathematics goes through KaTeX, figures through the one
@@ -16,7 +18,7 @@
 
   let { blocks, detail = true, narrow = false }: { blocks: Block[]; detail?: boolean; narrow?: boolean } = $props();
 
-  const say = (x: Txt | string) => (typeof x === 'string' ? x : tp(x.key, x.params));
+  const say = (x: Txt | string) => (typeof x === 'string' ? x : stepTextIn(axesStore.frame, x.key, tp(x.key, x.params)));
 
   function matrixTex(name: string, rows: number[][], scale?: number): string {
     const s = scale && scale !== 1 ? scale : 1;

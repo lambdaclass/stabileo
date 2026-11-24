@@ -3,10 +3,11 @@
 | | |
 |---|---|
 | Severity | High |
-| Status | Draft 2026-11-10; fixed in PR #1921, pending release |
+| Status | Published 2026-11-13 (drafted 2026-11-10) |
 | Issue | [#417](https://github.com/lambdaclass/stabileo/issues/417) |
-| Fix | PR [#1921](https://github.com/lambdaclass/stabileo/pull/1921); not yet released |
-| Affected versions | Web cable mapping introduced in `84a014d46` (2026-09-28); present in 0.2.0, 0.3.0, 0.4.0 and 0.5.0 and subsequent main builds through verified `52619652ecb9d801af1868b34936518965c92d69` (2026-11-10); pending release of #1921 |
+| Fix | PR [#1921](https://github.com/lambdaclass/stabileo/pull/1921), included in 0.6.0 |
+| Fixed release | 0.6.0 (2026-11-13) |
+| Affected versions | Web cable mapping introduced in `84a014d46` (2026-09-28); present in 0.2.0, 0.3.0, 0.4.0 and 0.5.0 and subsequent main builds through verified `52619652ecb9d801af1868b34936518965c92d69` (2026-11-10); corrected in 0.6.0 by #1921 |
 | Re-check registry | [`contact-and-cable-validity`](../../web/src/lib/provenance/result-changes/contact-and-cable-validity.json) |
 
 ## Affected features
@@ -35,7 +36,7 @@ The re-check registry flags models with cable members or contact features, inclu
 
 ## Fixed in
 
-Fixed in PR #1921, pending release. Web builders preserve cable identity. Shared engine validation refuses every cable in analyses outside the dedicated cable solver, including 2D and 3D staged construction, with the structured, translated `cable_analysis_required` error, including tensile and unloaded cable inputs. Teaching solvers refuse them as well. The automatic dedicated cable route remains available. No released fix or deployment is claimed by this draft.
+0.6.0, containing merged PR #1921. Web builders preserve cable identity. Shared engine validation refuses every cable in analyses outside the dedicated cable solver, including 2D and 3D staged construction, with the structured, translated `cable_analysis_required` error, including tensile and unloaded cable inputs. Teaching solvers refuse them as well. The automatic dedicated cable route remains available.
 
 ## Workaround
 

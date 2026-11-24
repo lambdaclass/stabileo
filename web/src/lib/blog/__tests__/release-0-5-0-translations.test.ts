@@ -1,8 +1,14 @@
-import { describe, expect, it } from 'vitest';
+import { buildFeatures } from '../../../../config/public-features.mjs';
+import { PUBLIC_LOCALES } from '../../i18n/offered';
+import { describe, expect, it, vi } from 'vitest';
 import { findPost, type Block } from '..';
 
+
+const research = buildFeatures().research;
+const reviewedLocales = ['de', 'fr', 'tr', ...(research ? ['hu' as const] : [])] as const;
+
 function safetyTokens(text: string, locale: string): string[] {
-  const grouping = new Intl.NumberFormat(locale).format(1000).charAt(1);
+  const grouping = new Intl.NumberFormat(locale).format(10000).charAt(2);
   const pattern = new RegExp(`\\b\\d{1,3}(?:${grouping === '.' ? '\\.' : grouping}\\d{3})+\\b`, 'g');
   const normalized = text.replace(pattern, (count) => count.split(grouping).join(''));
   return (normalized.match(/SA-\d{4}-\d{3}|#\d+|\d+(?:\.\d+){2,}|(?:(?<![\p{L}\p{N}_])[+−-])?\d+(?:[.,]\d+)?(?:\s*(?:[kMGTmunµμ]?(?:Hz|rad|s)|%)(?![\p{L}\p{N}_]))?|\b(?:Qa|MRd|Mz|mx|Iy|Iz|MITC4|MITC9)\b|P-Δ|Y–Z|X–Y|[+≤%]/gu) ?? [])
@@ -37,7 +43,8 @@ function safetyData(block: Block, locale = 'en') {
 }
 
 describe('0.5.0 release notes in the newly offered languages', () => {
-  it.each(['de', 'fr', 'tr'] as const)('%s preserves every block and its safety data', (locale) => {
+  it.each(reviewedLocales)('%s preserves every block and its safety data', (locale) => {
+    expect(PUBLIC_LOCALES).toContain(locale);
     const post = findPost('stabileo-0-5-0')!;
     const body = post.i18n[locale];
     expect(body, `${locale}: missing release notes`).toBeDefined();
@@ -52,9 +59,10 @@ describe('0.5.0 release notes in the newly offered languages', () => {
     });
   });
 
-  it.each(['de', 'fr', 'tr'] as const)('%s writes integer counts with local grouping and preserves their values', (locale) => {
+  it.each(reviewedLocales)('%s writes integer counts with local grouping and preserves their values', (locale) => {
+    expect(PUBLIC_LOCALES).toContain(locale);
     const post = findPost('stabileo-0-5-0')!;
-    const grouping = new Intl.NumberFormat(locale).format(1000).charAt(1);
+    const grouping = new Intl.NumberFormat(locale).format(10000).charAt(2);
     const pattern = new RegExp(`\\b\\d{1,3}(?:${grouping === '.' ? '\\.' : grouping}\\d{3})+\\b`, 'g');
     const sourceCounts = JSON.stringify(post.i18n.en.blocks).match(/\b\d{1,3}(?:,\d{3})+\b/g)!;
     const localCounts = JSON.stringify(post.i18n[locale]!.blocks).match(pattern) ?? [];
@@ -63,7 +71,8 @@ describe('0.5.0 release notes in the newly offered languages', () => {
       .toEqual(sourceCounts.map((count) => Number(count.replaceAll(',', ''))));
   });
 
-  it.each(['de', 'fr', 'tr'] as const)('%s rejects magnitudes swapped between advisories', (locale) => {
+  it.each(reviewedLocales)('%s rejects magnitudes swapped between advisories', (locale) => {
+    expect(PUBLIC_LOCALES).toContain(locale);
     const post = findPost('stabileo-0-5-0')!;
     const source = post.i18n.en.blocks.find((block) => block.k === 'table')!;
     const table = structuredClone(post.i18n[locale]!.blocks.find((block) => block.k === 'table')!);
@@ -76,14 +85,16 @@ describe('0.5.0 release notes in the newly offered languages', () => {
 });
 
 describe('0.5.0 release-note review regressions', () => {
-  it.each([
+  it.each(([
     ['en', 'German, French and Turkish are offered again.'],
     ['es', 'El alemán, el francés y el turco vuelven a estar disponibles.'],
     ['pt', 'Alemão, francês e turco voltam a ser oferecidos.'],
     ['de', 'Deutsch, Französisch und Türkisch werden wieder angeboten.'],
     ['fr', 'L’allemand, le français et le turc sont à nouveau proposés.'],
     ['tr', 'Almanca, Fransızca ve Türkçe yeniden sunuluyor.'],
-  ] as const)('%s describes the languages as available again', (locale, wording) => {
+    ['hu', 'A német, a francia és a török nyelv ismét elérhető.'],
+  ] as const).filter(([locale]) => locale !== 'hu' || research))('%s describes the languages as available again', (locale, wording) => {
+    expect(PUBLIC_LOCALES).toContain(locale);
     const post = findPost('stabileo-0-5-0')!;
     const blockIndex = post.i18n.en.blocks.findIndex((block) =>
       block.k === 'ul' && block.items.some((item) => item.startsWith('German, French and Turkish')));
@@ -97,7 +108,8 @@ describe('0.5.0 release-note review regressions', () => {
     expect(translated.items[itemIndex]).toBe(wording);
   });
 
-  it.each(['de', 'fr', 'tr'] as const)('%s writes every decimal value with a decimal comma', (locale) => {
+  it.each(reviewedLocales)('%s writes every decimal value with a decimal comma', (locale) => {
+    expect(PUBLIC_LOCALES).toContain(locale);
     const post = findPost('stabileo-0-5-0')!;
     const source = JSON.stringify(post.i18n.en.blocks);
     const translated = JSON.stringify(post.i18n[locale]!.blocks);
@@ -108,13 +120,14 @@ describe('0.5.0 release-note review regressions', () => {
     expect(safetyTokens(translated, locale)).toEqual(safetyTokens(source, 'en'));
   });
 
-  describe.each(['de', 'fr', 'tr'] as const)('%s signed quantities and units', (locale) => {
+  describe.each(reviewedLocales)('%s signed quantities and units', (locale) => {
     it.each([
       ['unit prefix', (quantity: string) => quantity.replace('Hz', 'kHz')],
       ['missing unit', (quantity: string) => quantity.replace('Hz', '')],
       ['minus sign', (quantity: string) => `-${quantity}`],
       ['Unicode minus sign', (quantity: string) => `−${quantity}`],
     ] as const)('rejects a changed %s in an advisory', (_, mutate) => {
+      expect(PUBLIC_LOCALES).toContain(locale);
       const post = findPost('stabileo-0-5-0')!;
       const source = post.i18n.en.blocks.find((block) => block.k === 'table')!;
       const table = structuredClone(post.i18n[locale]!.blocks.find((block) => block.k === 'table')!);
@@ -124,5 +137,35 @@ describe('0.5.0 release-note review regressions', () => {
       row[2] = row[2].replace(quantity, mutate(quantity));
       expect(() => expect(safetyData(table, locale)).toEqual(safetyData(source))).toThrow();
     });
+  });
+});
+
+it.each(['', '0'])('keeps main release-note languages public with research=%j', async (research) => {
+  vi.stubGlobal('__PUBLIC_FEATURES__', { ...__PUBLIC_FEATURES__, research: research === '1' });
+  vi.resetModules();
+  try {
+    const { PUBLIC_LOCALES: defaults } = await import('../../i18n/offered');
+    for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr'] as const) expect(defaults).toContain(locale);
+  } finally {
+    vi.unstubAllGlobals();
+    vi.resetModules();
+  }
+});
+
+it('publishes the Hungarian 0.6.1 article with every block and its safety data when research is built', () => {
+  const post = findPost('stabileo-0-6-1')!;
+  const body = post.i18n.hu;
+  expect(PUBLIC_LOCALES.includes('hu')).toBe(research);
+  if (!research) {
+    expect(body).toBeUndefined();
+    return;
+  }
+  expect(body).toBeDefined();
+  expect(body!.blocks.map((block) => block.k)).toEqual(post.i18n.en.blocks.map((block) => block.k));
+  body!.blocks.forEach((block, index) => {
+    const source = post.i18n.en.blocks[index];
+    expect(safetyData(block, 'hu'), `hu: block ${index}`).toEqual(safetyData(source));
+    if (block.k === 'ext' && source.k === 'ext') expect(block.href).toBe(source.href.replace(/\/docs\/releases\/v0\.6\.1\.md$/, '/docs/releases/v0.6.1.hu.md'));
+    if (block.k === 'link' && source.k === 'link') expect(block.slug).toBe(source.slug);
   });
 });

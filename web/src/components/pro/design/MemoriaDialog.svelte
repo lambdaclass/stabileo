@@ -9,6 +9,9 @@
   import RecheckNotice from './RecheckNotice.svelte';
   import ReportFormats from '../export/ReportFormats.svelte';
   import { downloadReport } from '../../../lib/export/report-download';
+  import { modelStore } from '../../../lib/store/model.svelte';
+  import { modelAuditFeatures, MEMBER_AUDIT_FEATURES } from '../../../lib/provenance/under-audit';
+  import { accountGate } from '../../../lib/store/account-gate.svelte';
   import { t, tp, i18n, OFFERED_LOCALES } from '../../../lib/i18n';
   import { teAt } from '../../../lib/i18n/engine-text';
   import { memoriaInput } from '../../../lib/store/memoria-inputs';
@@ -52,6 +55,7 @@
    * writes nothing and says so.
    */
   async function print() {
+    if (accountGate.defer('export', print)) return;
     const doc = html;
     const w = window.open('', '_blank');
     const record = await prepareExportProvenance();
@@ -86,6 +90,7 @@
       <RecheckNotice />
       <button class="close" data-testid="memoria-close" onclick={onclose} aria-label={t('memo.ui.close')}>&times;</button>
     </header>
+    <OutdatedNotice audit={[...modelAuditFeatures(modelStore.model), ...input.elements.map((e) => MEMBER_AUDIT_FEATURES[e.family])]} />
     <div class="memo-body">
       <aside>
         <label class="lang">{t('memo.ui.language')}

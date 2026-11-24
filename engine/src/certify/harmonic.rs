@@ -1,5 +1,5 @@
 //! Certified harmonic (steady-state) response. See "Harmonic response" in
-//! `docs/verification/CERTIFY.md`.
+//! `testing/docs/CERTIFY.md`.
 //!
 //! At each frequency the exact steady state solves the complex system
 //! `A u = f`, `A = K_d + iωC`, `K_d = K − ω²M`, `C = a₀M + a₁K` (the Rayleigh

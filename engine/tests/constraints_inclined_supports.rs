@@ -5,7 +5,7 @@
 //! The constraint transform used to be built in global components over those
 //! rotated DOFs, so the solve enforced the wrong equations and returned
 //! results that violated the constraint with no warning (found by
-//! tools/differential/codeaster, aster3d-16). The transform is now built in
+//! testing/differential/codeaster, aster3d-16). The transform is now built in
 //! the support frames.
 //!
 //! Each case is checked against a reference that has no inclined frame:

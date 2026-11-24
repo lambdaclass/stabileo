@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { recheckStore, createRecheckStore } from '../recheck.svelte';
 import { RESULTS_VERSION } from '../../provenance/registry';
-import { RESULT_CHANGES } from '../../provenance/full-registry';
+import { RESULT_CHANGES, RESULT_CHANGES as CURRENT_RESULT_CHANGES } from '../../provenance/full-registry';
 import { resultsStore } from '../results.svelte';
 import '../index';
 
@@ -60,7 +60,7 @@ describe('recheckStore', () => {
     recheckStore.openProject(solved as never, 'pro');
     await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
     expect(recheckStore.noticeOpen).toBe(true);
-    expect(recheckStore.assessment?.changes.map((c) => c.id)).toEqual(['generated-area-loads-headroom']);
+    expect(recheckStore.assessment?.changes.map((c) => c.id)).toEqual(['generated-area-loads-headroom', 'snow-panel-geometry', 'concentrated-live-actions', 'gravity-width-mass']);
     recheckStore.reset();
     recheckStore.openProject({ ...solved, designData: { loadBasis: { resultsVersion: RESULTS_VERSION } } } as never, 'pro');
     await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
@@ -73,12 +73,74 @@ describe('recheckStore', () => {
     recheckStore.reset();
     recheckStore.openProject(generated(headroom), 'pro');
     await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
-    expect(recheckStore.noticeOpen).toBe(false);
+    expect(recheckStore.assessment?.changes.map(c => c.id)).toEqual(['snow-panel-geometry', 'concentrated-live-actions', 'gravity-width-mass']);
+    expect(recheckStore.noticeOpen).toBe(true);
     recheckStore.reset();
     const { designData: _basis, ...unstamped } = generated() as unknown as Record<string, unknown>;
     recheckStore.openProject(unstamped as never, 'pro');
     await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
     expect(recheckStore.assessment?.changes.map((c) => c.id)).toContain('generated-area-loads-headroom');
+  });
+
+  it.each(['2d', '3d', 'pro'])('#2144 keeps the exact snow regeneration notices after re-solving in %s', async mode => {
+    const snapshot = {
+      analysisMode: mode,
+      loadCases: [{ id: 1, type: 'S' }],
+      loads: [{ type: 'distributed', data: { caseId: 1, generatedBy: 'load-plan' } }],
+      designData: { loadBasis: { resultsVersion: 0 } },
+      solvedWith: recheckStore.capture(),
+    };
+    const expected = [
+      'snow-combination-provenance', 'snow-combination-validation', 'snow-companion-basis', 'snow-pair-coverage',
+      'concentrated-live-actions', 'generated-area-loads-headroom', 'snow-crossing-profile', 'snow-drift-coverage', 'snow-fallback-runs',
+      'snow-flat-frame', 'snow-local-boundaries', 'snow-member-loading', 'snow-orientation-factors', 'snow-panel-geometry', 'snow-quadratic-intensity',
+      'snow-ridge-mesh', 'snow-ridge-orientations', 'snow-roof-connectivity',
+      'snow-roof-rotation', 'snow-roof-step', 'snow-selected-subsets', 'snow-surface-regions', 'snow-surface-support',
+    ].sort();
+    recheckStore.openProject(snapshot, mode);
+    await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
+    expect(recheckStore.assessment?.changes.map(c => c.id).sort()).toEqual(expected);
+    recheckStore.acknowledge();
+    for (const analysis of ['linear', 'pdelta', 'plastic'] as const) {
+      recheckStore.noteSolved(analysis);
+      const saved = { ...snapshot, solvedWith: recheckStore.capture() };
+      recheckStore.reset();
+      recheckStore.openProject(saved, mode);
+      await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
+      expect(recheckStore.assessment?.changes.map(c => c.id).sort()).toEqual(expected);
+      expect(recheckStore.noticeOpen).toBe(true);
+    }
+    recheckStore.reset();
+    recheckStore.openProject({ ...snapshot, designData: { loadBasis: { resultsVersion: RESULTS_VERSION } } }, mode);
+    await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
+    expect(recheckStore.assessment?.changes.map(c => c.id)).toEqual([]);
+    expect(recheckStore.noticeOpen).toBe(false);
+  });
+
+  it.each(['2d', '3d', 'pro'])('keeps the exact wind regeneration notices after re-solving in %s', async mode => {
+    for (const type of ['W', 'Wa']) {
+      const snapshot = { analysisMode: mode, loadCases: [{ id: 1, type }], loads: [{ type: 'distributed', data: { caseId: 1, generatedBy: 'load-plan' } }], designData: { loadBasis: { resultsVersion: 0 } }, solvedWith: recheckStore.capture() };
+      const expected = ['generated-area-loads-headroom', 'snow-panel-geometry', 'wind-apex-torque', 'wind-band-width-and-shares', 'wind-carriers-and-continuous-width', 'wind-member-pressure-transfer', 'wind-physical-apex', 'wind-physical-pressure-field', 'wind-plan-couple-and-sign-face', 'wind-pressure-work-moments', 'wind-triangular-and-sign-minimum', 'wind-triangular-centroid'];
+      expected.unshift('concentrated-live-actions');
+      recheckStore.openProject(snapshot, mode);
+      await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
+      expect(recheckStore.assessment?.changes.map(c => c.id).sort()).toEqual(expected);
+      recheckStore.acknowledge();
+      for (const analysis of ['linear', 'pdelta', 'plastic'] as const) {
+        recheckStore.noteSolved(analysis);
+        const saved = { ...snapshot, solvedWith: recheckStore.capture() };
+        recheckStore.reset();
+        recheckStore.openProject(saved, mode);
+        await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
+        expect(recheckStore.assessment?.changes.map(c => c.id).sort()).toEqual(expected);
+        expect(recheckStore.noticeOpen).toBe(true);
+      }
+      recheckStore.reset();
+      recheckStore.openProject({ ...snapshot, designData: { loadBasis: { resultsVersion: RESULTS_VERSION } } }, mode);
+      await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
+      expect(recheckStore.assessment?.changes.map(c => c.id)).toEqual([]);
+      expect(recheckStore.noticeOpen).toBe(false);
+    }
   });
 
   it('keeps the notice up when live calc re-solves before it was read', async () => {
@@ -317,7 +379,20 @@ describe('edited projects with older provenance', () => {
     expect(store.stale).toBe(false);
   });
 
-  it('a frame solved before the containment diagnostics opens with exactly that notice and the ones after it', async () => {
+  it('known wrong result: #1952: opening ordinary linear frames excludes staged path corrections', async () => {
+    for (const analysisMode of ['2d', '3d', 'pro']) {
+      const store = createRecheckStore();
+      store.openProject({ ...frame(), analysisMode, solvedWith: { ...oldStamp(), resultsVersion: 30 } }, analysisMode);
+      await vi.waitFor(() => expect(store.pending).toBe(false));
+      expect(store.assessment?.changes.map(c => c.id)).not.toContain('staged-history-forces-unavailable');
+      expect(store.noticeOpen).toBe(true);
+      expect(store.stale).toBe(true);
+    }
+  });
+
+  describe.each([false, true])('SSI notice registered: %s', (includeSSI) => {
+    const RESULT_CHANGES = includeSSI ? CURRENT_RESULT_CHANGES : { ...CURRENT_RESULT_CHANGES, changes: CURRENT_RESULT_CHANGES.changes.filter(c => c.id !== 'ssi-support-reactions') };
+  it('#2080 a frame solved before the containment diagnostics opens with exactly that notice and the ones after it', async () => {
     const module = await import('../../provenance/applicability');
     const precedingRegistry = {
       ...RESULT_CHANGES,
@@ -329,29 +404,56 @@ describe('edited projects with older provenance', () => {
         module.assessProject(args[0], args[1], args[2], precedingRegistry, args[4], args[5]),
     }));
     const combined = createRecheckStore();
-    const snapshot = { ...frame(), solvedWith: { ...oldStamp(), resultsVersion: 30 } };
+    const snapshot: import('../../provenance/model-features').FeatureSnapshot & { solvedWith: unknown } = {
+      ...frame(),
+      materials: [[1, { id: 1, name: 'H30', e: 25000, fy: 30 }], [2, { ...STEEL, id: 2 }]],
+      elements: [...frame().elements!, [2, { id: 2, type: 'frame', nodeI: 2, nodeJ: 3, materialId: 2 }]],
+      solvedWith: { ...oldStamp(), resultsVersion: 30 },
+    };
     store.openProject(snapshot, 'pro');
     combined.openProject(snapshot, 'pro');
     await vi.waitFor(() => expect(store.pending || combined.pending).toBe(false));
+    if (includeSSI) {
     expect(combined.assessment?.changes.map(c => c.id).sort()).toEqual([
       ...store.assessment!.changes.map(c => c.id), 'kinematic-translation-motion',
     ].sort());
+    } else {
+    expect(combined.assessment?.changes.map(c => c.id).sort()).toEqual([
+      ...store.assessment!.changes.map(c => c.id), 'kinematic-translation-motion', 'ssi-support-reactions',
+    ].sort());
+    }
     expect(combined.noticeOpen).toBe(true);
     expect(combined.stale).toBe(true);
-    expect(store.assessment?.changes.map(c => c.id).sort()).toEqual(['fail-closed-ratios', 'harmonic-modal-or-direct-per-frequency', 'harmonic-modal-residual-checked', 'harmonic-omitted-modes', 'linear-pin-coupling', 'linear-second-order-warning', 'linear-small-displacement-warning', 'linear-span-rotation-warning', 'linear-stability-refusals', 'material-nonlinear-3d-orphan-dofs', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-reference-and-initial-shaft-stiffness', 'nonlinear-supported-and-soil-equilibrium', 'plastic-3d-member-without-capacity-refused', 'safety-containment-diagnostics', 'soft-rotation-not-orphan', 'span-check-shear-thermal']);
+    const allChanges = store.assessment?.changes ?? [];
+    expect(allChanges?.filter(c => c.id === 'compensated-applied-force-totals')).toHaveLength(1);
+    const rcNoticeIds = ['rc-beam-line-check-parity', 'rc-detailing-verification', 'rc-drawn-hoop-verification', 'rc-drawn-joint-and-corner-verification', 'rc-drawn-station-checks', 'rc-final-depth-drawing', 'rc-settled-seat-certification', 'rc-torsion-evidence', 'rc-torsion-shear-containment'];
+    const rcNotices = new Set(rcNoticeIds);
+    expect(allChanges.filter(c => rcNotices.has(c.id)).map(c => c.id).sort()).toEqual(rcNoticeIds);
+    {
+      const store = { assessment: { changes: allChanges.filter(c => c.id !== 'compensated-applied-force-totals' && !rcNotices.has(c.id)) } };
+    if (includeSSI) {
+    expect(store.assessment?.changes.map(c => c.id).sort()).toEqual(['active-combination-completeness', 'cirsoc-axial-torsion-threshold', 'cirsoc-torsion-cage-verification', 'combined-section-shear-refusal', 'complete-concurrent-demands', 'concurrent-check-demands', 'concurrent-depth-and-load-context', 'concurrent-design-demands', 'concurrent-secondary-slenderness', 'concurrent-torsion-reinforcement', 'design-span-station-coverage', 'fail-closed-ratios', 'fixed-reinforcement-practical-maximum', 'flange-spans-and-behaviour', 'harmonic-modal-or-direct-per-frequency', 'harmonic-modal-residual-checked', 'harmonic-omitted-modes', 'linear-pin-coupling', 'linear-second-order-warning', 'linear-small-displacement-warning', 'linear-span-rotation-warning', 'linear-stability-refusals', 'material-nonlinear-3d-orphan-dofs', 'member-diagram-extrema-design', 'member-recovery-round4', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-reference-and-initial-shaft-stiffness', 'nonlinear-supported-and-soil-equilibrium', 'plastic-3d-member-without-capacity-refused', 'provided-torsion-stirrups', 'safety-containment-diagnostics', 'secondary-shear-longitudinal', 'secondary-stirrup-legs', 'section-stress-cut-magnitudes', 'shared-demand-completeness', 'shared-span-axis-and-torsion-provision', 'soft-rotation-not-orphan', 'span-check-shear-thermal', 'ssi-support-reactions', 'steel-cb-combination', 'steel-diagram-moment-gradient', 'steel-station-coordinates-and-shear', 'time-history-reaction-availability', 'time-history-withheld-reaction-estimates', 'torsion-secondary-shear']);
+    } else {
+    expect(store.assessment?.changes.map(c => c.id).sort()).toEqual(['active-combination-completeness', 'cirsoc-axial-torsion-threshold', 'cirsoc-torsion-cage-verification', 'combined-section-shear-refusal', 'complete-concurrent-demands', 'concurrent-check-demands', 'concurrent-depth-and-load-context', 'concurrent-design-demands', 'concurrent-secondary-slenderness', 'concurrent-torsion-reinforcement', 'design-span-station-coverage', 'fail-closed-ratios', 'fixed-reinforcement-practical-maximum', 'flange-spans-and-behaviour', 'harmonic-modal-or-direct-per-frequency', 'harmonic-modal-residual-checked', 'harmonic-omitted-modes', 'linear-pin-coupling', 'linear-second-order-warning', 'linear-small-displacement-warning', 'linear-span-rotation-warning', 'linear-stability-refusals', 'material-nonlinear-3d-orphan-dofs', 'member-diagram-extrema-design', 'member-recovery-round4', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-reference-and-initial-shaft-stiffness', 'nonlinear-supported-and-soil-equilibrium', 'plastic-3d-member-without-capacity-refused', 'provided-torsion-stirrups', 'safety-containment-diagnostics', 'secondary-shear-longitudinal', 'secondary-stirrup-legs', 'section-stress-cut-magnitudes', 'shared-demand-completeness', 'shared-span-axis-and-torsion-provision', 'soft-rotation-not-orphan', 'span-check-shear-thermal', 'steel-cb-combination', 'steel-diagram-moment-gradient', 'steel-station-coordinates-and-shear', 'time-history-reaction-availability', 'time-history-withheld-reaction-estimates', 'torsion-secondary-shear']);
+    }
+    }
     expect(store.noticeOpen).toBe(true);
     expect(store.stale).toBe(true);
   });
+  });
 
   const openingNoticeIds = (registry = RESULT_CHANGES) => [
-    'modal-repeated-eigenspace-completeness', 'static-modal-runtime-self-checks',
+    'compensated-applied-force-totals', 'modal-repeated-eigenspace-completeness', 'static-modal-runtime-self-checks',
     'safety-containment-diagnostics', 'harmonic-modal-residual-checked',
     'linear-small-displacement-warning', 'harmonic-modal-or-direct-per-frequency',
     'connector-arm-mechanism-3d-refused', 'harmonic-omitted-modes', 'linear-stability-refusals', 'linear-pin-coupling', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-supported-and-soil-equilibrium', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-reference-and-initial-shaft-stiffness',
+    ...(registry.changes.some(c => c.id === 'ssi-support-reactions') ? ['ssi-support-reactions'] : []),
   ].map(id => registry.changes.find(c => c.id === id)!)
     .sort((a, b) => a.resultsVersion - b.resultsVersion || a.date.localeCompare(b.date) || a.id.localeCompare(b.id))
     .map(c => c.id);
 
+  describe.each([false, true])('SSI notice registered: %s', (includeSSI) => {
+    const RESULT_CHANGES = includeSSI ? CURRENT_RESULT_CHANGES : { ...CURRENT_RESULT_CHANGES, changes: CURRENT_RESULT_CHANGES.changes.filter(c => c.id !== 'ssi-support-reactions') };
   it.each([false, true])('#1753: connector-only opening notices follow main-first merge order (shared pending version: %s)', async (sharedVersion) => {
     const module = await import('../../provenance/applicability');
     const mergedRegistry = {
@@ -374,12 +476,21 @@ describe('edited projects with older provenance', () => {
     await vi.waitFor(() => expect(store.pending).toBe(false));
     const received = store.assessment?.changes.map(c => c.id);
     const expected = openingNoticeIds(mergedRegistry);
-    const tail = ['connector-arm-mechanism-3d-refused', 'harmonic-omitted-modes', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-supported-and-soil-equilibrium', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-reference-and-initial-shaft-stiffness']
+    const tail = ['compensated-applied-force-totals', 'connector-arm-mechanism-3d-refused', 'harmonic-omitted-modes', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-supported-and-soil-equilibrium', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-reference-and-initial-shaft-stiffness']
       .map(id => mergedRegistry.changes.find(c => c.id === id)!)
       .sort((a, b) => a.resultsVersion - b.resultsVersion || a.date.localeCompare(b.date) || a.id.localeCompare(b.id))
       .map(c => c.id);
-    expect(expected.slice(-9)).toEqual([...tail, 'linear-stability-refusals', 'linear-pin-coupling']);
+    if (includeSSI) {
+      const combinedTail = [...tail, 'ssi-support-reactions']
+        .map(id => mergedRegistry.changes.find(c => c.id === id)!)
+        .sort((a, b) => a.resultsVersion - b.resultsVersion || a.date.localeCompare(b.date) || a.id.localeCompare(b.id))
+        .map(c => c.id);
+      expect(expected.slice(-11)).toEqual([...combinedTail, 'linear-stability-refusals', 'linear-pin-coupling']);
+    } else {
+    expect(expected.slice(-10)).toEqual([...tail, 'linear-stability-refusals', 'linear-pin-coupling']);
+    }
     expect(received, JSON.stringify({ expected, received }, null, 2)).toEqual(expected);
+  });
   });
 
   it('clears an acknowledged linear notice before adding shells, saving and reopening without a solve', async () => {

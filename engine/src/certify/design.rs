@@ -1,5 +1,5 @@
 //! Certified design-code utilization. See "Certified design checks" in
-//! `docs/verification/CERTIFY.md`.
+//! `testing/docs/CERTIFY.md`.
 //!
 //! Given demand enclosures `[F − ΔF, F + ΔF]` (from the force / combination
 //! certificates), the code formulas are evaluated in outward-rounded interval
@@ -459,6 +459,7 @@ pub fn steel_demands_from_combinations_2d(
         }
         let sb: HashMap<usize, _> = cc.station_bounds.iter().map(|s| (s.element_id, s)).collect();
         for ef in &cr.results.element_forces {
+            crate::postprocess::diagrams::validate_diagram_input_2d(ef)?;
             let pl = sorted_point_loads(ef);
             let bound = sb
                 .get(&ef.element_id)
@@ -494,6 +495,7 @@ pub fn steel_demands_from_combinations_3d(
         }
         let sb: HashMap<usize, _> = cc.station_bounds.iter().map(|s| (s.element_id, s)).collect();
         for ef in &cr.results.element_forces {
+            crate::postprocess::diagrams_3d::validate_diagram_input_3d(ef)?;
             let bound = sb
                 .get(&ef.element_id)
                 .map(|s| demand_bound(AxisDemand::bound_3d(s)))

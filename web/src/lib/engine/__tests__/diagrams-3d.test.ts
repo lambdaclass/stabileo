@@ -12,8 +12,8 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { computeDiagram3D, computeGlobalMax3D, type Diagram3DKind } from '../diagrams-3d';
-import { solve3D } from '../wasm-solver';
+import { computeDiagram3D, computeGlobalMax3D, evaluateDiagramAt, type Diagram3DKind } from '../diagrams-3d';
+import { computeDiagramValueAt3DWasm, computeDiagrams3D, computeEnvelope3D, extractBeamStations3D, extractBeamStationsGrouped3D, solve3D, solveMovingLoads3D, solvePDelta3D } from '../wasm-solver';
 import type {
   SolverInput3D, SolverNode3D, SolverSection3D, SolverElement3D,
   SolverSupport3D, AnalysisResults3D, ElementForces3D,
@@ -412,4 +412,165 @@ describe('formatDiagramValue3D: the sign a label shows', () => {
     const { formatDiagramValue3D } = await import('../diagrams-3d');
     expect(formatDiagramValue3D(-3, 'axial')).toBe('-3.00 kN');
   });
+});
+
+it('#2226 spatial shear jumps immediately after a concentrated force', () => {
+  const length = 3;
+  const force = 1;
+  for (const station of [1.5, length - 5e-11]) {
+    const input = buildInput(
+      [{ id: 1, x: 0, y: 0, z: 0 }, { id: 2, x: length, y: 0, z: 0 }],
+      [frameElement(1, 1, 2)], [fixedSupport(1)],
+      [{ type: 'pointOnElement', data: { elementId: 1, a: station, py: 0, pz: force } }],
+    );
+    const nonlinear = solvePDelta3D(input, 20, 1e-10);
+    expect(nonlinear.converged).toBe(true);
+    for (const result of [solve3D(input), nonlinear.results as AnalysisResults3D]) {
+      assertSuccess(result);
+      const endForces = getEF(result, 1);
+      for (const x of [station - 5e-11, station, station + 5e-11]) {
+        const want = x > station ? 0 : -force;
+        expect.soft(evaluateDiagramAt(endForces, 'shearZ', x / length)).toBeCloseTo(want, 12);
+        expect.soft(computeDiagramValueAt3DWasm('shearZ', x / length, endForces)).toBeCloseTo(want, 12);
+      }
+    }
+  }
+});
+
+it('#2250 spatial diagrams and envelopes include the peak inside a partial load', () => {
+  const length = 100;
+  const a = 1;
+  const b = 2;
+  const input = buildInput(
+    [{ id: 1, x: 0, y: 0, z: 0 }, { id: 2, x: length, y: 0, z: 0 }],
+    [frameElement(1, 1, 2)], [fixedSupport(1)],
+    [{ type: 'distributed', data: { elementId: 1, a, b, qYI: 0, qYJ: 0, qZI: 1, qZJ: -1 } }],
+  );
+  const nonlinear = solvePDelta3D(input, 20, 1e-10);
+  expect(nonlinear.converged).toBe(true);
+  const expected = (b - a) / 4;
+  for (const result of [solve3D(input), nonlinear.results as AnalysisResults3D]) {
+    assertSuccess(result);
+    const endForces = getEF(result, 1);
+    expect.soft(computeDiagram3D(endForces, 'shearZ').maxAbsValue).toBeCloseTo(expected, 12);
+    expect.soft(computeDiagrams3D(input, result)?.shearZ[0].maxAbsValue).toBeCloseTo(expected, 12);
+    expect.soft(computeEnvelope3D([result])?.shearZ.globalMax).toBeCloseTo(expected, 12);
+    const stations = extractBeamStations3D({
+      members: [{ elementId: 1, length, sectionId: 1, materialId: 1 }],
+      combinations: [{ comboId: 1, results: result }],
+    });
+    expect.soft(Math.max(...stations.stations.map(s => Math.abs(s.comboForces[0]!.vz)))).toBeCloseTo(expected, 12);
+  }
+});
+
+it('#2250 refuses a spatial shear peak whose cuts leave no normalized station for its root', () => {
+  const length = 3, a = 1.75, qI = 2 ** 52;
+  const input = buildInput(
+    [{ id: 1, x: 0, y: 0, z: 0 }, { id: 2, x: length, y: 0, z: 0 }],
+    [frameElement(1, 1, 2)], [fixedSupport(1)],
+  );
+  const result = solve3D(input);
+  assertSuccess(result);
+  const ef = getEF(result, 1);
+  ef.distributedLoadsZ = [{ a, b: a + 2 * Number.EPSILON, qI, qJ: -qI }];
+  expect(() => computeDiagram3D(ef, 'shearZ')).toThrow(/extrema/i);
+  expect(() => computeDiagrams3D(input, result)).toThrow(/relative geometry limit/i);
+  ef.distributedLoadsZ[0]!.b = a + 4 * Number.EPSILON;
+  expect(computeDiagram3D(ef, 'shearZ').maxValue).toBe(1);
+});
+
+it('#2226 refuses aliased axial cuts in the spatial WASM query for linear and P-Delta results', () => {
+  const length = 3, a = 1.75;
+  const input = buildInput(
+    [{ id: 1, x: 0, y: 0, z: 0 }, { id: 2, x: length, y: 0, z: 0 }],
+    [frameElement(1, 1, 2)], [fixedSupport(1)],
+  );
+  const nonlinear = solvePDelta3D(input, 20, 1e-10);
+  expect(nonlinear.converged).toBe(true);
+  for (const result of [solve3D(input), nonlinear.results as AnalysisResults3D]) {
+    assertSuccess(result);
+    const ef = getEF(result, 1);
+    ef.pointLoadsX = [{ a, p: -2 }, { a: a + Number.EPSILON, p: 2 }];
+    expect(() => computeDiagramValueAt3DWasm('axial', a / length, ef)).toThrow(/normalized station/i);
+    ef.pointLoadsX[1]!.a = a + 2 * Number.EPSILON;
+    expect(computeDiagramValueAt3DWasm('axial', a / length, ef)).toBe(0);
+    expect(computeDiagramValueAt3DWasm('axial', ef.pointLoadsX[1]!.a / length, ef)).toBe(2);
+  }
+});
+
+it('#2250 the WASM moving envelope includes the inside limit beside a retained tip load', () => {
+  const length = 10, intensity = -1, tip = -length * intensity;
+  const input = buildInput(
+    [{ id: 1, x: 0, y: 0, z: 0 }, { id: 2, x: length, y: 0, z: 0 }],
+    [frameElement(1, 1, 2)], [fixedSupport(1)],
+    [{ type: 'distributed', data: { elementId: 1, qYI: 0, qYJ: 0, qZI: intensity, qZJ: intensity } },
+      { type: 'pointOnElement', data: { elementId: 1, a: length, py: 0, pz: tip } }],
+  );
+  const result = solve3D(input);
+  assertSuccess(result);
+  const ef = getEF(result, 1);
+  expect(ef.vzStart).toBeCloseTo(0, 12);
+  expect(ef.vzEnd).toBeCloseTo(0, 12);
+  const moving = solveMovingLoads3D({ solver: input, train: { name: 'static control', axles: [] }, step: length });
+  expect(moving.elements['1'].vzMaxNeg).toBeCloseTo(intensity * length, 12);
+  expect(moving.elements['1'].vzMaxPos).toBeCloseTo(0, 12);
+});
+
+it('#2250 spatial WASM station tuples refuse distinct aliased cuts and retain a resolved intermediate section', () => {
+  const length = 3, a = 1.75, force = 40;
+  const input = buildInput(
+    [{ id: 1, x: 0, y: 0, z: 0 }, { id: 2, x: length, y: 0, z: 0 }],
+    [frameElement(1, 1, 2)], [fixedSupport(1)],
+  );
+  const nonlinear = solvePDelta3D(input, 20, 1e-10);
+  expect(nonlinear.converged).toBe(true);
+  for (const result of [solve3D(input), nonlinear.results as AnalysisResults3D]) {
+    const ef = getEF(result, 1);
+    ef.vzStart = force;
+    ef.nEnd = -force;
+    ef.pointLoadsX = [{ a, p: force }];
+    ef.pointLoadsZ = [{ a: a + Number.EPSILON, p: -force }];
+    const stations = { members: [{ elementId: 1, length, sectionId: 1, materialId: 1 }],
+      combinations: [{ comboId: 1, results: result }] };
+    expect.soft(() => extractBeamStations3D(stations)).toThrow(/normalized station/i);
+    expect.soft(() => extractBeamStationsGrouped3D(stations)).toThrow(/normalized station/i);
+    ef.pointLoadsZ[0]!.a = a + 2 * Number.EPSILON;
+    const concurrent = ({ n, vz }: { n: number; vz: number }) => n === -force && vz === force;
+    expect(extractBeamStations3D(stations).stations.some(s => s.comboForces.some(concurrent))).toBe(true);
+    expect(extractBeamStationsGrouped3D(stations).members[0]!.stations.some(s => s.comboForces.some(concurrent))).toBe(true);
+  }
+});
+
+it('#1782 the spatial WASM moving envelope uses the in-member shear at either end', () => {
+  const length = 8, force = 40;
+  for (const reverse of [false, true]) for (const atRoot of [false, true]) {
+    const input = buildInput(
+      [{ id: 1, x: 0, y: 0, z: 0 }, { id: 2, x: length, y: 0, z: 0 }],
+      [frameElement(1, reverse ? 2 : 1, reverse ? 1 : 2)], [fixedSupport(1)],
+      [{ type: 'pointOnElement', data: { elementId: 1, a: reverse === atRoot ? length : 0, py: 0, pz: force } }],
+    );
+    const envelope = solveMovingLoads3D({ solver: input, train: { name: 'static control', axles: [] }, step: length }).elements['1'];
+    const want = atRoot ? 0 : (reverse ? force : -force);
+    expect.soft(envelope.vzMaxNeg).toBeCloseTo(Math.min(want, 0), 12);
+    expect.soft(envelope.vzMaxPos).toBeCloseTo(Math.max(want, 0), 12);
+  }
+});
+
+it('known wrong result: #1782 — the spatial WASM moving sweep resolves an axle at a rounded support', () => {
+  const length = 1 + Number.EPSILON, weight = 40;
+  const solver = buildInput(
+    [{ id: 1, x: 0, y: 0, z: 0 }, { id: 2, x: length, y: 0, z: 0 }],
+    [frameElement(1, 1, 2)], [fixedSupport(1), fixedSupport(2)],
+  );
+  const run = (offset: number, step: number) => solveMovingLoads3D({
+    solver, train: { name: 'one axle', axles: [{ offset, weight }] }, step,
+  }).elements['1'];
+  expect.soft(run(8, length).vzMaxPos).toBeCloseTo(0, 12);
+  expect.soft(run(8, length).vzMaxNeg).toBeCloseTo(0, 12);
+  expect(run(0, length / 2).vzMaxPos).toBeCloseTo(weight / 2, 12);
+  expect(run(0, length / 2).vzMaxNeg).toBeCloseTo(-weight / 2, 12);
+  const within = run(0, length - 8 * Number.EPSILON);
+  const outside = run(0, length - 9 * Number.EPSILON);
+  expect(within.vzMaxPos - within.vzMaxNeg).toBeCloseTo(0, 12);
+  expect(outside.vzMaxPos - outside.vzMaxNeg).toBeCloseTo(weight, 12);
 });

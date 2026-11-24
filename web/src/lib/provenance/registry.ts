@@ -12,14 +12,19 @@
  * change that makes the same saved model give different numbers gets an entry here. The versions
  * in `numbered.json` are frozen; each later merge to main that adds entries takes the next one.
  */
+import { researchBuilt } from '../features';
 import metadata from 'virtual:result-change-metadata';
 import { conditionGroups } from '../../../scripts/results-snapshot/applicability.mjs';
+import { REGISTRY_LOCALES, resultChangeLocaleProblems } from '../../../scripts/result-changes/locales.mjs';
 
-export const REGISTRY_LOCALES = ['en', 'es', 'pt', 'de', 'fr', 'tr'] as const;
+export { REGISTRY_LOCALES };
 export type RegistryLocale = (typeof REGISTRY_LOCALES)[number];
-export type Localised = Record<RegistryLocale, string>;
+export type Localised = Record<RegistryLocale, string> & { hu?: string };
 
-export function registryLocale(locale: string): RegistryLocale {
+export function registryLocale(locale: string): RegistryLocale;
+export function registryLocale(locale: string, first: Localised, ...rest: Localised[]): RegistryLocale | 'hu';
+export function registryLocale(locale: string, ...texts: Localised[]): RegistryLocale | 'hu' {
+  if (locale === 'hu' && researchBuilt() && texts.length > 0 && texts.every(text => typeof text.hu === 'string' && !!text.hu.trim())) return 'hu';
   return (REGISTRY_LOCALES as readonly string[]).includes(locale) ? (locale as RegistryLocale) : 'en';
 }
 
@@ -50,6 +55,7 @@ export interface ResultChange {
   date: string;
   prs: number[];
   area: 'analysis' | 'design' | 'loads';
+  requiresLoadRegeneration?: boolean;
   /**
    * Absent for an entry with `scope: 'examples'`, which concerns no saved model and is never
    * shown on opening one.
@@ -98,7 +104,11 @@ export function changelogUrl(c: Pick<ResultChange, 'changelog'>): string {
 }
 
 export function concernsGeneratedLoads(w: ChangeCondition = {}): boolean {
-  return conditionGroups(w).some((g) => g.includes('generatedLoads'));
+  return conditionGroups(w).some((g) => g.includes('generatedLoads') || g.includes('generatedWindLoads'));
+}
+
+export function concernsLoadBasis(c: ResultChange): boolean {
+  return c.requiresLoadRegeneration === true || concernsGeneratedLoads(c.when ?? {});
 }
 
 /** Every condition group of an entry, normalised to OR-groups that must all hold. */
@@ -123,11 +133,9 @@ export function validateRegistry(r: ResultChangeRegistry, knownFeatures: Readonl
       problems.push(`${where}: resultsVersion ${c.resultsVersion} outside 1..${r.currentResultsVersion}`);
     }
     if (!/^\d{4}-\d{2}-\d{2}$/.test(c.date)) problems.push(`${where}: date must be YYYY-MM-DD`);
+    if (!Array.isArray(c.prs) || c.prs.some(pr => !Number.isInteger(pr) || pr <= 0)) problems.push(`${where}: prs must be a list of positive integer issue or PR numbers`);
     if (!['analysis', 'design', 'loads'].includes(c.area)) problems.push(`${where}: unknown area ${c.area}`);
-    for (const loc of REGISTRY_LOCALES) {
-      if (!c.title?.[loc]?.trim()) problems.push(`${where}: missing title.${loc}`);
-      if (!c.explanation?.[loc]?.trim()) problems.push(`${where}: missing explanation.${loc}`);
-    }
+    problems.push(...resultChangeLocaleProblems(c));
     if (!c.changelog?.file || !c.changelog?.heading) problems.push(`${where}: missing changelog link`);
     if (c.quantities !== undefined && (!Array.isArray(c.quantities) || c.quantities.length === 0
       || c.quantities.some((q) => typeof q === 'string' ? !QUANTITY.test(q)
@@ -137,6 +145,7 @@ export function validateRegistry(r: ResultChangeRegistry, knownFeatures: Readonl
           || !/^[a-f0-9]{64}$/.test(q.before) || !/^[a-f0-9]{64}$/.test(q.after)))) {
       problems.push(`${where}: quantities must be a non-empty list of "*", "solve.ok", a collection or collection.field`);
     }
+    if (c.requiresLoadRegeneration !== undefined && typeof c.requiresLoadRegeneration !== 'boolean') problems.push(`${where}: requiresLoadRegeneration must be a boolean`);
     if (c.scope !== undefined && c.scope !== 'examples') problems.push(`${where}: unknown scope "${c.scope}"`);
     if (c.scope === 'examples') {
       if (c.when !== undefined) problems.push(`${where}: an examples-scoped entry concerns no saved model and takes no when`);

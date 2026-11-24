@@ -52,10 +52,10 @@ class RebaseLinks(unittest.TestCase):
             root = pathlib.Path(d)
             (root / "docs/releases").mkdir(parents=True)
             self.assertEqual(step.notes_line("9.9.9", root), "")
-            for name in ["v9.9.9.md", "v9.9.9.es.md", "v9.9.9.tr.md"]:
+            for name in ["v9.9.9.md", "v9.9.9.es.md", "v9.9.9.tr.md", "v9.9.9.hu.md"]:
                 (root / "docs/releases" / name).write_text("x")
             line = step.notes_line("9.9.9", root)
-            self.assertIn("[Spanish](docs/releases/v9.9.9.es.md) and [Turkish](docs/releases/v9.9.9.tr.md)", line)
+            self.assertIn("[Spanish](docs/releases/v9.9.9.es.md), [Turkish](docs/releases/v9.9.9.tr.md) and [Hungarian](docs/releases/v9.9.9.hu.md)", line)
             self.assertNotIn("Portuguese", line)
 
 

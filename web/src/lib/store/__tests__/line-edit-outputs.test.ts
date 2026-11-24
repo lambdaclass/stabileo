@@ -111,7 +111,7 @@ describe('an edit in the frame editor reaches every output', () => {
     expect(outputsOf(again, right.id)).toEqual(R);
   });
 
-  it('cross-sections placed on the line are drawn as sections on the beam sheets, and nowhere else', () => {
+  it('draws a placed cross-section only for the beam that passes drawing verification', () => {
     designedFrame();
     const line = modelBeamLines()[0]!;
     const open = openLine(line.members[0]!)!;
@@ -124,7 +124,10 @@ describe('an edit in the frame editor reaches every output', () => {
     const set = renderDrawings(doc, { locale: 'es', projectName: 'QA', members: sheetMembers() });
     const names = set.sheets.map((s) => s.name);
     expect(names.filter((n) => /-section-A$/.test(n))).toHaveLength(1);
-    expect(names.filter((n) => /-section-B$/.test(n))).toHaveLength(1);
+    expect(names.filter((n) => /-section-B$/.test(n))).toHaveLength(0);
+    expect(verificationStore.providedFor(line.members[1]!)?.checks).toContainEqual(expect.objectContaining({
+      description: 'diag.rcDrawnBarExtent', status: 'fail', ratio: Infinity,
+    }));
     // The assemblies with no placed cut keep their one section.
     expect(names.some((n) => /-section$/.test(n))).toBe(true);
     const a = set.sheets.find((s) => /-section-A$/.test(s.name))!;

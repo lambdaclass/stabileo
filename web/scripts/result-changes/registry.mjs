@@ -3,6 +3,8 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { inflateSync } from 'node:zlib';
+import { readProPlatesManifest } from '../pro-plates-source.mjs';
 
 export const DIR = 'web/src/lib/provenance/result-changes';
 export const NUMBERED = 'numbered.json';
@@ -55,6 +57,14 @@ function gitIn(root) {
  * introduced the numbered file on. A fragment added twice counts at its last addition.
  */
 export function landingsAt(git, rev) {
+  let releaseBase;
+  try { releaseBase = git('show', `${rev}:web/.result-change-release-base`).trim(); } catch {}
+  if (releaseBase !== undefined) {
+    if (!/^[0-9a-f]{40}$/.test(releaseBase)) throw new Error(`${rev}: invalid release results base`);
+    git('merge-base', '--is-ancestor', releaseBase, rev);
+    const firstParent = git('rev-list', '--first-parent', rev).split('\n');
+    if (!firstParent.includes(releaseBase)) rev = releaseBase;
+  }
   const log = git('log', '--first-parent', '--diff-merges=first-parent', '--no-renames', '--reverse',
     '--diff-filter=A', '--name-only', '--format=%x00%H', rev, '--', DIR);
   const commits = log.split('\0').filter((c) => c.trim()).map((block) => {
@@ -118,8 +128,12 @@ function orderFromFile(root, fingerprint) {
   return order.landings;
 }
 
-/** The registry of the checkout at `root`: its files as they are on disk, ordered by its history. */
-export function readRegistry(root = REPO) {
+export function readRegistry(root, { proPlatesUnified = globalThis.__PUBLIC_FEATURES__?.proPlatesUnified ?? true } = {}) {
+  if (root === undefined && !proPlatesUnified) {
+    const { resultsRegistry } = readProPlatesManifest();
+    return JSON.parse(inflateSync(Buffer.from(resultsRegistry, 'base64')).toString('utf8'));
+  }
+  root ??= REPO;
   const { numbered, fragments, fingerprint } = readWorkingTree(root);
   const landings = insideGit(root) ? landingsAt(gitIn(root), 'HEAD') : orderFromFile(root, fingerprint);
   return assemble({ numbered, fragments, landings });

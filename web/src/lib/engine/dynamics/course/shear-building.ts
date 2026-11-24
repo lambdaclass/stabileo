@@ -12,6 +12,7 @@
  * or vertically moving mass on a beam turning with it, would sway the floor, so
  * those are refused rather than dropped.
  */
+import { planarPointMoment } from '../../planar-point-load';
 import type { ModelData } from '../../solver-service';
 import type { PointMass } from '../mass-source';
 import { massDensities } from '../requests';
@@ -163,7 +164,11 @@ export function shearBuilding(model: ModelData, points: readonly PointMass[], ba
   };
   const vertical = (ld: (typeof model.loads)[number]): boolean => {
     if (ld.type === 'distributed') return onBeam(ld.data.elementId) && !ld.data.isGlobal && !ld.data.angle;
-    if (ld.type === 'pointOnElement') return onBeam(ld.data.elementId) && !ld.data.isGlobal && !ld.data.angle && !ld.data.px && !(ld.data.my ?? ld.data.mz);
+    if (ld.type === 'pointOnElement') {
+      const moment = planarPointMoment(ld.data);
+      return onBeam(ld.data.elementId) && !ld.data.isGlobal && !ld.data.angle && !ld.data.px
+        && (moment === undefined || moment === 0);
+    }
     return false;
   };
   const swayed = [...turning].some((n) => beams.some((b) => (b.nodeI === n || b.nodeJ === n) && rigidAt(b, n)));

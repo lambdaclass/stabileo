@@ -1,0 +1,41 @@
+{
+  "id": "truss-load-direction-rounding",
+  "date": "2026-11-13",
+  "prs": [],
+  "area": "analysis",
+  "when": {
+    "allOf": [
+      [
+        "trussMemberLoads"
+      ]
+    ]
+  },
+  "quantities": [
+    "*",
+    "solve.ok"
+  ],
+  "title": {
+    "en": "Truss load direction rounding",
+    "es": "Redondeo de la dirección de cargas en barras articuladas",
+    "pt": "Arredondamento da direção de cargas em treliças",
+    "de": "Rundung der Lastrichtung an Fachwerkstäben",
+    "fr": "Arrondi de direction des charges de treillis",
+    "hu": "A rácsrúdterhek irányának kerekítése",
+    "tr": "Kafes çubuk yük yönü yuvarlaması",
+    "zh": "桁架荷载方向的舍入"
+  },
+  "explanation": {
+    "en": "Truss and cable member loads now include direction-rounding uncertainty in 2D and 3D. Compatible loads retain their response; residual loads beyond the calculated bound remain refused. Re-run models with loads applied to these members (#2074).",
+    "es": "Las cargas de barras articuladas y cables incluyen ahora la incertidumbre de redondeo de dirección en 2D y 3D. Las cargas compatibles conservan su respuesta; los residuos que superan el límite calculado siguen rechazándose. Recalculá los modelos con cargas en estas barras (#2074).",
+    "pt": "As cargas em treliças e cabos incluem agora a incerteza de arredondamento da direção em 2D e 3D. Cargas compatíveis mantêm sua resposta; resíduos além do limite calculado continuam recusados. Recalcule os modelos com cargas nessas barras (#2074).",
+    "de": "Lasten an Fachwerkstäben und Seilen berücksichtigen jetzt die Rundungsunsicherheit der Richtung in 2D und 3D. Kompatible Lasten behalten ihre Antwort; Restlasten über der berechneten Grenze werden weiterhin abgelehnt. Modelle mit Lasten an diesen Stäben neu berechnen (#2074).",
+    "fr": "Les charges de treillis et de câbles incluent désormais l’incertitude d’arrondi de direction en 2D et 3D. Les charges compatibles conservent leur réponse ; les charges résiduelles dépassant la limite calculée restent refusées. Recalculer les modèles chargés sur ces barres (#2074).",
+    "hu": "A rácsrudak és kábelek terhei most 2D-ben és 3D-ben is tartalmazzák az irány kerekítésének bizonytalanságát. Az összeférő terhek szerkezeti válasza megmarad; a számított korlátot meghaladó maradó terhek elutasítása továbbra is érvényes. Futtassa újra azokat a modelleket, amelyekben ilyen rudakra működnek terhek (#2074).",
+    "tr": "Kafes çubuk ve kablo yükleri artık 2B ve 3B yön yuvarlama belirsizliğini içerir. Uyumlu yükler yanıtlarını korur; hesaplanan sınırın üzerindeki artık yükler reddedilmeye devam eder. Bu çubuklara yük uygulanan modelleri yeniden çözün (#2074).",
+    "zh": "桁架和索的杆件荷载现在在 2D 和 3D 中包含方向舍入的不确定性。相容的荷载保留其响应；超出所计算界限的残余荷载仍会被拒绝。请重新运行带有作用在这些杆件上的荷载的模型（#2074）。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-truss-load-direction-rounding.md",
+    "heading": "Truss load direction rounding (2026-11-13)"
+  }
+}

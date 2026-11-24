@@ -1,0 +1,553 @@
+{
+  "mainCommit": "d877e0b532004e9383663731f64bb908fbc84221",
+  "source": "docs/codes/CIRSOC/markdown/cirsoc-301-2018/capitulo-j-proyecto-de-uniones-juntas-y-me.md:453-459,521-545",
+  "mainReplay": {
+    "native": "26 failed, 18 passed when all reproducer ignores are removed",
+    "wasm": "26 failed, 18 passed with ordinary assertions"
+  },
+  "auditWitnesses": [
+    {
+      "witness": "weld-subdivision",
+      "beta": 0.36000000000000004,
+      "capacity": 824644.7999999999,
+      "expectedRatio": 1.212643310186398,
+      "whole": {
+        "connectionId": 1,
+        "unityRatio": 1.2126433101863976,
+        "maxWeldStress": 218275795.83355156,
+        "phiFnw": 180000000,
+        "totalLength": 3,
+        "totalThroatArea": 0.004581360000000001,
+        "minBeta": 0.36000000000000004
+      },
+      "split": {
+        "connectionId": 1,
+        "unityRatio": 0.43655159166710317,
+        "maxWeldStress": 78579286.50007857,
+        "phiFnw": 180000000,
+        "totalLength": 3,
+        "totalThroatArea": 0.012726000000000001,
+        "minBeta": 0.9999999999999999
+      }
+    },
+    {
+      "witness": "short-weld",
+      "ratio": 2,
+      "capacity": 4581.36,
+      "expectedRatio": 1.0913789791677582,
+      "result": {
+        "connectionId": 1,
+        "unityRatio": 0.5456894895838791,
+        "maxWeldStress": 98224108.12509823,
+        "phiFnw": 180000000,
+        "totalLength": 0.012,
+        "totalThroatArea": 5.0904e-05,
+        "minBeta": 1
+      }
+    }
+  ],
+  "cases": [
+    {
+      "name": "issue_2243_witness",
+      "issue": 2243,
+      "input": {
+        "groups": [
+          {
+            "connectionId": 1,
+            "segments": [
+              {
+                "x1": 0,
+                "y1": 0,
+                "x2": 0.6,
+                "y2": 0,
+                "size": 0.006,
+                "endLoaded": true
+              },
+              {
+                "x1": 0.6,
+                "y1": 0,
+                "x2": 1.2,
+                "y2": 0,
+                "size": 0.006,
+                "endLoaded": true
+              },
+              {
+                "x1": 1.2,
+                "y1": 0,
+                "x2": 1.8,
+                "y2": 0,
+                "size": 0.006,
+                "endLoaded": true
+              },
+              {
+                "x1": 1.8,
+                "y1": 0,
+                "x2": 2.4,
+                "y2": 0,
+                "size": 0.006,
+                "endLoaded": true
+              },
+              {
+                "x1": 2.4,
+                "y1": 0,
+                "x2": 3,
+                "y2": 0,
+                "size": 0.006,
+                "endLoaded": true
+              }
+            ],
+            "fexx": 400000000,
+            "phi": 0.75
+          }
+        ],
+        "forces": [
+          {
+            "connectionId": 1,
+            "vx": 1000000,
+            "vy": 0,
+            "m": 0
+          }
+        ]
+      },
+      "reference": {
+        "totalLength": 3,
+        "totalThroatArea": 0.0045813600000000005,
+        "minBeta": 0.36,
+        "phiFnw": 179999999.99999997,
+        "maxWeldStress": 218275795.8335516,
+        "unityRatio": 1.2126433101863978
+      },
+      "after": {
+        "connectionId": 1,
+        "unityRatio": 1.2126433101863976,
+        "maxWeldStress": 218275795.8335516,
+        "phiFnw": 180000000,
+        "totalLength": 3,
+        "totalThroatArea": 0.0045813600000000005,
+        "minBeta": 0.36000000000000004
+      }
+    },
+    {
+      "name": "issue_2244_witness_true",
+      "issue": 2244,
+      "input": {
+        "groups": [
+          {
+            "connectionId": 1,
+            "segments": [
+              {
+                "x1": 0,
+                "y1": 0,
+                "x2": 0.012,
+                "y2": 0,
+                "size": 0.006,
+                "endLoaded": true
+              }
+            ],
+            "fexx": 400000000,
+            "phi": 0.75
+          }
+        ],
+        "forces": [
+          {
+            "connectionId": 1,
+            "vx": 5000,
+            "vy": 0,
+            "m": 0
+          }
+        ]
+      },
+      "reference": {
+        "totalLength": 0.012,
+        "totalThroatArea": 2.5452e-05,
+        "minBeta": 1,
+        "phiFnw": 179999999.99999997,
+        "maxWeldStress": 196448216.25019646,
+        "unityRatio": 1.0913789791677582
+      },
+      "after": {
+        "connectionId": 1,
+        "unityRatio": 1.0913789791677582,
+        "maxWeldStress": 196448216.25019646,
+        "phiFnw": 180000000,
+        "totalLength": 0.012,
+        "totalThroatArea": 2.5452e-05,
+        "minBeta": 1
+      }
+    },
+    {
+      "name": "issue_2244_witness_false",
+      "issue": 2244,
+      "input": {
+        "groups": [
+          {
+            "connectionId": 1,
+            "segments": [
+              {
+                "x1": 0,
+                "y1": 0,
+                "x2": 0.012,
+                "y2": 0,
+                "size": 0.006,
+                "endLoaded": false
+              }
+            ],
+            "fexx": 400000000,
+            "phi": 0.75
+          }
+        ],
+        "forces": [
+          {
+            "connectionId": 1,
+            "vx": 5000,
+            "vy": 0,
+            "m": 0
+          }
+        ]
+      },
+      "reference": {
+        "totalLength": 0.012,
+        "totalThroatArea": 2.5452e-05,
+        "minBeta": 1,
+        "phiFnw": 179999999.99999997,
+        "maxWeldStress": 196448216.25019646,
+        "unityRatio": 1.0913789791677582
+      },
+      "after": {
+        "connectionId": 1,
+        "unityRatio": 1.0913789791677582,
+        "maxWeldStress": 196448216.25019646,
+        "phiFnw": 180000000,
+        "totalLength": 0.012,
+        "totalThroatArea": 2.5452e-05,
+        "minBeta": 1
+      }
+    },
+    {
+      "name": "issue_2244_witness_none",
+      "issue": 2244,
+      "input": {
+        "groups": [
+          {
+            "connectionId": 1,
+            "segments": [
+              {
+                "x1": 0,
+                "y1": 0,
+                "x2": 0.012,
+                "y2": 0,
+                "size": 0.006,
+                "endLoaded": null
+              }
+            ],
+            "fexx": 400000000,
+            "phi": 0.75
+          }
+        ],
+        "forces": [
+          {
+            "connectionId": 1,
+            "vx": 5000,
+            "vy": 0,
+            "m": 0
+          }
+        ]
+      },
+      "reference": {
+        "totalLength": 0.012,
+        "totalThroatArea": 2.5452e-05,
+        "minBeta": 1,
+        "phiFnw": 179999999.99999997,
+        "maxWeldStress": 196448216.25019646,
+        "unityRatio": 1.0913789791677582
+      },
+      "after": {
+        "connectionId": 1,
+        "unityRatio": 1.0913789791677582,
+        "maxWeldStress": 196448216.25019646,
+        "phiFnw": 180000000,
+        "totalLength": 0.012,
+        "totalThroatArea": 2.5452e-05,
+        "minBeta": 1
+      }
+    },
+    {
+      "name": "correct_unreduced_answer",
+      "issue": null,
+      "input": {
+        "groups": [
+          {
+            "connectionId": 1,
+            "segments": [
+              {
+                "x1": 0,
+                "y1": 0,
+                "x2": 0.2,
+                "y2": 0,
+                "size": 0.006,
+                "endLoaded": true
+              }
+            ],
+            "fexx": 400000000,
+            "phi": 0.75
+          }
+        ],
+        "forces": [
+          {
+            "connectionId": 1,
+            "vx": 5000,
+            "vy": 0,
+            "m": 0
+          }
+        ]
+      },
+      "reference": {
+        "totalLength": 0.2,
+        "totalThroatArea": 0.0008484,
+        "minBeta": 1,
+        "phiFnw": 179999999.99999997,
+        "maxWeldStress": 5893446.487505893,
+        "unityRatio": 0.03274136937503275
+      },
+      "after": {
+        "connectionId": 1,
+        "unityRatio": 0.03274136937503274,
+        "maxWeldStress": 5893446.487505893,
+        "phiFnw": 180000000,
+        "totalLength": 0.2,
+        "totalThroatArea": 0.0008484,
+        "minBeta": 1
+      }
+    },
+    {
+      "name": "correct_along_length_long_answer",
+      "issue": null,
+      "input": {
+        "groups": [
+          {
+            "connectionId": 1,
+            "segments": [
+              {
+                "x1": 0,
+                "y1": 0,
+                "x2": 0.6,
+                "y2": 0,
+                "size": 0.006,
+                "endLoaded": false
+              },
+              {
+                "x1": 0.6,
+                "y1": 0,
+                "x2": 1.2,
+                "y2": 0,
+                "size": 0.006,
+                "endLoaded": false
+              },
+              {
+                "x1": 1.2,
+                "y1": 0,
+                "x2": 1.8,
+                "y2": 0,
+                "size": 0.006,
+                "endLoaded": false
+              },
+              {
+                "x1": 1.8,
+                "y1": 0,
+                "x2": 2.4,
+                "y2": 0,
+                "size": 0.006,
+                "endLoaded": false
+              },
+              {
+                "x1": 2.4,
+                "y1": 0,
+                "x2": 3,
+                "y2": 0,
+                "size": 0.006,
+                "endLoaded": false
+              }
+            ],
+            "fexx": 400000000,
+            "phi": 0.75
+          }
+        ],
+        "forces": [
+          {
+            "connectionId": 1,
+            "vx": 5000,
+            "vy": 0,
+            "m": 0
+          }
+        ]
+      },
+      "reference": {
+        "totalLength": 3,
+        "totalThroatArea": 0.012726000000000001,
+        "minBeta": 1,
+        "phiFnw": 179999999.99999997,
+        "maxWeldStress": 392896.43250039284,
+        "unityRatio": 0.002182757958335516
+      },
+      "after": {
+        "connectionId": 1,
+        "unityRatio": 0.0021827579583355156,
+        "maxWeldStress": 392896.43250039284,
+        "phiFnw": 180000000,
+        "totalLength": 3,
+        "totalThroatArea": 0.012726000000000001,
+        "minBeta": 1
+      }
+    },
+    {
+      "name": "issue_2243_eccentric_centroid_inertia_uniform",
+      "issue": 2243,
+      "input": {
+        "groups": [
+          {
+            "connectionId": 1,
+            "segments": [
+              {
+                "x1": 0,
+                "y1": 0,
+                "x2": 0.6,
+                "y2": 0,
+                "size": 0.006,
+                "endLoaded": true
+              },
+              {
+                "x1": 0.6,
+                "y1": 0,
+                "x2": 1.2,
+                "y2": 0,
+                "size": 0.006,
+                "endLoaded": true
+              },
+              {
+                "x1": 1.2,
+                "y1": 0,
+                "x2": 1.8,
+                "y2": 0,
+                "size": 0.006,
+                "endLoaded": true
+              },
+              {
+                "x1": 1.8,
+                "y1": 0,
+                "x2": 2.4,
+                "y2": 0,
+                "size": 0.006,
+                "endLoaded": true
+              },
+              {
+                "x1": 2.4,
+                "y1": 0,
+                "x2": 3,
+                "y2": 0,
+                "size": 0.006,
+                "endLoaded": true
+              },
+              {
+                "x1": 4,
+                "y1": 1,
+                "x2": 4,
+                "y2": 1.6,
+                "size": 0.009,
+                "endLoaded": false
+              }
+            ],
+            "fexx": 400000000,
+            "phi": 0.75
+          }
+        ],
+        "forces": [
+          {
+            "connectionId": 1,
+            "vx": 15000,
+            "vy": 10000,
+            "m": 10000
+          }
+        ]
+      },
+      "reference": {
+        "totalLength": 3.6,
+        "totalThroatArea": 0.008399160000000001,
+        "minBeta": 0.36,
+        "phiFnw": 179999999.99999997,
+        "maxWeldStress": 2491626.47371171,
+        "unityRatio": 0.013842369298398391
+      },
+      "after": {
+        "connectionId": 1,
+        "unityRatio": 0.013842369298398388,
+        "maxWeldStress": 2491626.47371171,
+        "phiFnw": 180000000,
+        "totalLength": 3.6,
+        "totalThroatArea": 0.008399160000000001,
+        "minBeta": 0.36000000000000004
+      }
+    },
+    {
+      "name": "issue_2243_ambiguous_branch",
+      "issue": 2243,
+      "input": {
+        "groups": [
+          {
+            "connectionId": 1,
+            "segments": [
+              {
+                "x1": 0,
+                "y1": 0,
+                "x2": 1,
+                "y2": 0,
+                "size": 0.006,
+                "endLoaded": true
+              },
+              {
+                "x1": 1,
+                "y1": 0,
+                "x2": 2,
+                "y2": 0,
+                "size": 0.006,
+                "endLoaded": true
+              },
+              {
+                "x1": 1,
+                "y1": 0,
+                "x2": 1,
+                "y2": 1,
+                "size": 0.006,
+                "endLoaded": true
+              }
+            ],
+            "fexx": 400000000,
+            "phi": 0.75
+          }
+        ],
+        "forces": [
+          {
+            "connectionId": 1,
+            "vx": 1000,
+            "vy": 0,
+            "m": 0
+          }
+        ]
+      },
+      "reference": {
+        "unevaluated": "ambiguous physical weld run at a branching endpoint"
+      },
+      "after": {
+        "connectionId": 1,
+        "unityRatio": null,
+        "unevaluated": [
+          "ambiguous physical weld run at a branching endpoint"
+        ],
+        "maxWeldStress": null,
+        "phiFnw": 180000000,
+        "totalLength": 0,
+        "totalThroatArea": 0,
+        "minBeta": 1
+      }
+    }
+  ]
+}

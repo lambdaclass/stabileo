@@ -1,3 +1,5 @@
+import { BUILD_FEATURES } from './build-features';
+import { dwellingFloorLoads } from './load-generator-inputs';
 /**
  * Acceptance of the two PRO journeys on one comparable building (two bays of 6 m by one of 5 m,
  * two storeys of 3 m, columns, beams and slabs), driven through the interface:
@@ -105,12 +107,12 @@ async function buildFromScratch(page: Page, j: string): Promise<void> {
   await step(page, j, 'physical elements listed', async () => physical(page));
 }
 
-/** Automatic loads with the dialog's defaults. */
 async function loads(page: Page, j: string): Promise<void> {
   await step(page, j, 'automatic loads', async () => {
     await page.getByTestId('pr-stage-model').click();
     await page.getByTestId('pr-cmd-loads').click();
     await page.getByTestId('pro-auto-loads-btn').click();
+    await dwellingFloorLoads(page);
     await page.getByTestId('al-preview-btn').click();
     const outcome = await page.getByTestId('al-apply').isEnabled();
     if (!outcome) throw new Error('apply disabled: ' + (await page.getByTestId('al-preview').innerText().catch(() => '')).slice(0, 400));
@@ -330,8 +332,10 @@ test.describe('@slow acceptance of the two journeys', () => {
     await step(page, j, 'recognise', async () => {
       await page.getByTestId('pr-stage-model').click();
       await ribbonCmd(page, 'physical');
-      await page.getByTestId('physical-recognize').click();
-      await page.getByTestId('recognition-apply').click();
+      if (!BUILD_FEATURES.proPlatesUnified) {
+        await page.getByTestId('physical-recognize').click();
+        await page.getByTestId('recognition-apply').click();
+      }
       await expect(page.getByTestId('physical-table')).toBeVisible();
       return physical(page);
     });

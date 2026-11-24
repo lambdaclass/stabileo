@@ -1,3 +1,5 @@
+import { physicalSnowCases } from './snow-physical-cases';
+import { transverseSnowLoads } from './snow-roof-plane-fixture';
 /**
  * Snow on the model's roof: a single-bay gable shed, where the balanced case must put exactly
  * p_s × tributary width × horizontal length on the rafters, and the unbalanced cases must load
@@ -108,7 +110,8 @@ describe('snow: each roof surface takes C_s from its own slope', () => {
     // The rafters keep the 25° roof's value.
     const raf = bal.distributed.find((d) => d.elementId === 1)!;
     const cos = Math.cos((25 * Math.PI) / 180);
-    expect(raf.q).toBeCloseTo(-out.result.ps * 2 * cos * cos, 9);
+    expect(raf.frame).toBe('projected');
+    expect(transverseSnowLoads(m, [raf])[0]!.q).toBeCloseTo(-out.result.ps * 2 * cos * cos, 9);
   });
 
   it('by panels: the lower panel carries p_f over its 36 m², and a parapet drift reads h_b from it', () => {
@@ -160,7 +163,7 @@ describe('snow in the load plan', () => {
   it('adds the snow cases and puts S in the combinations', () => {
     const p = buildLoadPlan(input());
     expect(p.outcome).toBe('READY');
-    expect(p.cases.filter((c) => c.type === 'S')).toHaveLength(3);
+    expect(physicalSnowCases(p)).toHaveLength(3);
     expect(p.combinations.some((c) => c.terms.some((t) => t.symbol === 'S' && t.factor === 1.6))).toBe(true);
     expect(p.derivation.some((m) => m.key === 'snow.derivation.pf')).toBe(true);
     expect(p.unsupportedKeys.some((m) => m.key === 'snow.note.notCovered')).toBe(true);

@@ -1,6 +1,7 @@
 <script lang="ts" module>
   import DespieceOptions from '../DespieceOptions.svelte';
   import { untrack } from 'svelte';
+  import { trackUsage } from '../../lib/telemetry/usage';
   import { uiStore, modelStore, resultsStore, dsmStepsStore, fmStepsStore } from '../../lib/store';
 
   const threeD = (): boolean => uiStore.is3DWorkspace;
@@ -68,6 +69,7 @@
   import { t } from '../../lib/i18n';
   import { localizeEngineText } from '../../lib/i18n/engine-text';
   import { DOF_LABEL_KEY } from '../../lib/engine/kinematic-2d';
+  import { ratiosText, shownDof } from '../../lib/axes/user-names';
   import { withBasicMass } from '../../lib/engine/dynamics/basic-mass';
   import { variableRefusal2D, imposedRefusal } from '../../lib/engine/solver-service';
   import { formatPDeltaFactor } from '../../lib/engine/pdelta-result';
@@ -92,6 +94,8 @@
   import { collapseVerdict } from '../advanced/plastic/user-compare';
   import InfluencePanel from '../advanced/InfluencePanel.svelte';
   import LoadStatesPanel from '../advanced/LoadStatesPanel.svelte';
+  import { tools } from '../../lib/features';
+  import { mohrPanel, openMohr, closeMohr } from '../../lib/mohr/panel.svelte';
 
   let showAdvanced = $state(false);
   let showTrainPanel = $state(false);
@@ -169,6 +173,10 @@
       labelKey: 'advHelp.stress.label',
       textKey: 'advHelp.stress.text',
     },
+    ...(__PUBLIC_FEATURES__.tools ? { mohr: {
+      labelKey: 'advHelp.mohr.label',
+      textKey: 'advHelp.mohr.text',
+    } } : {}),
     'despiece': {
       labelKey: 'advHelp.despiece.label',
       textKey: 'advHelp.despiece.text',
@@ -251,6 +259,9 @@
     { key: 'stress', labelKey: 'advanced.sectionAnalysis',
       isActive: () => uiStore.currentTool === 'select' && uiStore.selectMode === 'stress',
       close: () => { uiStore.selectMode = 'elements'; resultsStore.stressQuery = null; } },
+    ...(__PUBLIC_FEATURES__.tools ? [{ key: 'mohr', labelKey: 'advanced.mohr',
+      isActive: () => mohrPanel.open,
+      close: () => closeMohr() }] : []),
     { key: 'pdelta', labelKey: 'advanced.pdelta',
       isActive: () => !!(is3D ? resultsStore.pdeltaResult3D : resultsStore.pdeltaResult),
       close: () => (is3D ? resultsStore.clearPDelta3D() : resultsStore.clearPDelta()) },
@@ -286,6 +297,10 @@
 
 
   const active = $derived(ADV.find(a => a.isActive()) ?? null);
+  $effect(() => {
+    const key = active?.key;
+    if (key) untrack(() => trackUsage('advanced.open', { analysis: key }));
+  });
 
   /**
    * Close one function, as "← Back" and the list's own toggle-off both do: its
@@ -379,7 +394,7 @@
     const d = result?.discardedModes as Array<{ nodeId: number; dof: string }> | undefined;
     if (!d?.length) return;
     const dof = plane ? (DOF_2D[d[0].dof] ?? d[0].dof) : d[0].dof;
-    const where = `${t('kin.nodeLC')} ${d[0].nodeId}${DOF_LABEL_KEY[dof] ? `, ${t(DOF_LABEL_KEY[dof])}` : ''}`;
+    const where = `${t('kin.nodeLC')} ${d[0].nodeId}${DOF_LABEL_KEY[shownDof(dof)] ? `, ${t(DOF_LABEL_KEY[shownDof(dof)])}` : ''}`;
     uiStore.toast(t('advanced.nullModesDiscarded').replace('{n}', String(d.length)).replace('{where}', where), 'info');
   }
 
@@ -427,9 +442,9 @@
 
   function handlePDelta() {
     if (blockedBySlidingJoints()) return;
-    const input = modelStore.buildSolverInput(uiStore.includeSelfWeight);
-    if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
     try {
+      const input = modelStore.buildSolverInput(uiStore.includeSelfWeight);
+      if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
       const t0 = performance.now();
       const result = pdeltaBasic2D(input);
       const dt = performance.now() - t0;
@@ -442,9 +457,9 @@
 
   function handleModal() {
     if (blockedBySlidingJoints()) return;
-    const input = modelStore.buildSolverInput(uiStore.includeSelfWeight);
-    if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
     try {
+      const input = modelStore.buildSolverInput(uiStore.includeSelfWeight);
+      if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
       const t0 = performance.now();
       const physical = withBasicMass(input, modelStore.model, 'iy');
       const result = solveModal(physical.input, physical.densities);
@@ -452,8 +467,7 @@
       if (typeof result === 'string') { uiStore.toast(eigenRefusalText(result, t), 'error'); return; }
       resultsStore.setModalResult(result);
       const rayleighInfo = result.rayleigh ? ` | Rayleigh: a\u2080=${result.rayleigh.a0.toFixed(3)}, a\u2081=${result.rayleigh.a1.toFixed(5)}` : '';
-      // The plane solver's y is the vertical, labelled Z everywhere else.
-      const cumMassInfo = ` | \u03a3Meff: X=${(result.cumulativeMassRatioX * 100).toFixed(0)}%, Z=${(result.cumulativeMassRatioY * 100).toFixed(0)}%`;
+      const cumMassInfo = ` | \u03a3Meff: ${ratiosText([result.cumulativeMassRatioX, 0, result.cumulativeMassRatioY], false, 0, ', ')}`;
       uiStore.toast([finiteSpectrumWarning(result, t), t('toast.modalSuccess').replace('{modes}', String(result.modes.length)).replace('{cumMass}', cumMassInfo).replace('{rayleigh}', rayleighInfo).replace('{ms}', dt.toFixed(0))].filter(Boolean).join(' '), result.finiteSpectrumDiagnostic ? 'info' : 'success');
       nullModesToast(result, true);
     } catch (e: any) {
@@ -464,9 +478,9 @@
 
   function handleBuckling() {
     if (blockedBySlidingJoints()) return;
-    const input = modelStore.buildSolverInput(uiStore.includeSelfWeight);
-    if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
     try {
+      const input = modelStore.buildSolverInput(uiStore.includeSelfWeight);
+      if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
       const t0 = performance.now();
       const result = bucklingBasic2D(input);
       const dt = performance.now() - t0;
@@ -511,14 +525,14 @@
   async function handleMovingLoad(trainIndex: number) {
     if (blockedBySlidingJoints()) return;
     // The train alone: the sweep drops the model's loads and settlements (`trainBase`).
-    const input = modelStore.buildSolverInput(false);
-    if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
     const train = getPredefinedTrains()[trainIndex];
     if (!train) return;
 
     const abortController = resultsStore.startMovingLoadAnalysis();
 
     try {
+      const input = modelStore.buildSolverInput(false);
+      if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
       const t0 = performance.now();
       const result = await solveMovingLoadsAsync(
         input,
@@ -555,9 +569,9 @@
     const refused = imposedRefusal(modelStore.model);
     if (refused) { uiStore.toast(refused, 'error'); return; }
     // Every load, the cases' imposed displacements with them, as the linear "All loads" solve.
-    const input = modelStore.buildSolverInput3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand', { basic: uiStore.analysisMode !== 'pro', expandMemberOffsets: false, caseDisplacements: true });
-    if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
     try {
+      const input = modelStore.buildSolverInput3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand', { basic: uiStore.analysisMode !== 'pro', expandMemberOffsets: false, caseDisplacements: true });
+      if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
       const t0 = performance.now();
       let result: any;
       result = wasmPDelta3D(input);
@@ -573,9 +587,9 @@
   async function handleModal3D() {
     if (blockedBySlidingJoints()) return;
     if (!await ensureWasmReady('handleModal3D')) return;
-    const input = modelStore.buildSolverInput3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand', { basic: uiStore.analysisMode !== 'pro', expandMemberOffsets: false });
-    if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
     try {
+      const input = modelStore.buildSolverInput3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand', { basic: uiStore.analysisMode !== 'pro', expandMemberOffsets: false });
+      if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
       const t0 = performance.now();
       let result: any;
       const physical = withBasicMass(input, modelStore.model, 'izz');
@@ -583,7 +597,7 @@
       const dt = performance.now() - t0;
       if (typeof result === 'string') { uiStore.toast(eigenRefusalText(result, t), 'error'); return; }
       resultsStore.setModalResult3D(result);
-      const cumMassInfo = ` | \u03a3Meff: X=${(result.cumulativeMassRatioX * 100).toFixed(0)}%, Y=${(result.cumulativeMassRatioY * 100).toFixed(0)}%, Z=${(result.cumulativeMassRatioZ * 100).toFixed(0)}%`;
+      const cumMassInfo = ` | \u03a3Meff: ${ratiosText([result.cumulativeMassRatioX, result.cumulativeMassRatioY, result.cumulativeMassRatioZ], true, 0, ', ')}`;
       uiStore.toast([finiteSpectrumWarning(result, t), t('toast.modalSuccess').replace('{modes}', String(result.modes.length)).replace('{cumMass}', cumMassInfo).replace('{rayleigh}', '').replace('{ms}', dt.toFixed(0))].filter(Boolean).join(' '), result.finiteSpectrumDiagnostic ? 'info' : 'success');
       nullModesToast(result, false);
     } catch (e: any) {
@@ -594,9 +608,9 @@
   async function handleBuckling3D() {
     if (blockedBySlidingJoints()) return;
     if (!await ensureWasmReady('handleBuckling3D')) return;
-    const input = modelStore.buildSolverInput3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand', { basic: uiStore.analysisMode !== 'pro', expandMemberOffsets: false });
-    if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
     try {
+      const input = modelStore.buildSolverInput3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand', { basic: uiStore.analysisMode !== 'pro', expandMemberOffsets: false });
+      if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
       const t0 = performance.now();
       let result: any;
       result = wasmBuckling3D(input);
@@ -668,7 +682,7 @@
 
   {#if courseReady}
   <div class="advanced-grid">
-    {#if !(flat && active) && (shown('kinematic') || shown('despiece') || shown('stress'))}
+    {#if !(flat && active) && (shown('kinematic') || shown('despiece') || shown('stress') || shown('mohr'))}
     <!-- How the structure holds together, member by member, and what a section carries. -->
     <div class="adv-group" style="grid-column: span 2" data-testid="adv-group-structure">{t('advanced.group.structure')}</div>
     {/if}
@@ -738,6 +752,20 @@
       <button class="adv-help-btn" onclick={(e) => toggleAdvHelp('stress', e)} class:active={advHelpKey === 'stress'}>?</button>
     </div>
     {@render helpPanel('stress')}
+      {/if}
+    {/if}
+    {#if __PUBLIC_FEATURES__.tools && shown('mohr')}
+      {#if !flat || active?.key !== 'mohr'}
+    <div class="adv-btn-wrap" style="grid-column: span 2">
+      {#if tools()}
+      <button class="adv-btn" style="flex:1" class:active={mohrPanel.open} data-testid="adv-mohr"
+        onclick={() => { if (mohrPanel.open) closeEntry('mohr'); else openMohr({ kind: is3D ? 'space' : 'plane' }); }}>
+        {t('advanced.mohr')}
+      </button>
+      {/if}
+      <button class="adv-help-btn" onclick={(e) => toggleAdvHelp('mohr', e)} class:active={advHelpKey === 'mohr'}>?</button>
+    </div>
+    {@render helpPanel('mohr')}
       {/if}
     {/if}
     {#if !(flat && active) && (shown('pdelta') || shown('buckling'))}
@@ -1021,15 +1049,14 @@
         T = {mode.period.toFixed(3)} s
       </div>
       <div class="adv-result-info" style="opacity:0.8">
-        <!-- The plane solver's second axis is the vertical, Z on screen; a space model has all three. -->
         {#if is3D}
           {@const m3 = mode as { massRatioZ?: number }}
           {@const r3 = moR as { cumulativeMassRatioZ?: number }}
-          Meff: X={(mode.massRatioX * 100).toFixed(1)}% Y={(mode.massRatioY * 100).toFixed(1)}% Z={((m3.massRatioZ ?? 0) * 100).toFixed(1)}% |
-          Σ: X={(moR.cumulativeMassRatioX * 100).toFixed(1)}% Y={(moR.cumulativeMassRatioY * 100).toFixed(1)}% Z={((r3.cumulativeMassRatioZ ?? 0) * 100).toFixed(1)}%
+          Meff: {ratiosText([mode.massRatioX, mode.massRatioY, m3.massRatioZ ?? 0], true, 1, ' ')} |
+          Σ: {ratiosText([moR.cumulativeMassRatioX, moR.cumulativeMassRatioY, r3.cumulativeMassRatioZ ?? 0], true, 1, ' ')}
         {:else}
-          Meff: X={(mode.massRatioX * 100).toFixed(1)}% Z={(mode.massRatioY * 100).toFixed(1)}% |
-          Σ: X={(moR.cumulativeMassRatioX * 100).toFixed(1)}% Z={(moR.cumulativeMassRatioY * 100).toFixed(1)}%
+          Meff: {ratiosText([mode.massRatioX, 0, mode.massRatioY], false, 1, ' ')} |
+          Σ: {ratiosText([moR.cumulativeMassRatioX, 0, moR.cumulativeMassRatioY], false, 1, ' ')}
         {/if}
       </div>
       <DynamicsCourse result={moR} mode={resultsStore.activeModeIndex} {is3D} onRerun={() => (is3D ? handleModal3D() : handleModal())} />

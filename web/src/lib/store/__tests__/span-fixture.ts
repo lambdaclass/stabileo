@@ -1,3 +1,6 @@
+import { DemandInventory, memberDemandScope, type DemandCoverage } from '../../engine/complete-demand-set';
+import { ConcurrentDemand } from '../../engine/concurrent-demand';
+import { completeMemberDemands } from '../../engine/member-demand-gate';
 /**
  * The building the per-span tests read, and what the documents print of it.
  *
@@ -13,6 +16,7 @@
  * for columns that hold the beams' hooks, `columnSide: 0.4`.
  */
 import { expect } from 'vitest';
+import { runBetweenWorkerTurns } from '../../../__tests__/worker-yield';
 import { historyStore, modelStore, resultsStore, uiStore } from '..';
 import { designRunStore } from '../design-run.svelte';
 import { verificationStore } from '../verification.svelte';
@@ -22,6 +26,7 @@ import { PHYSICAL_GROUP_KIND } from '../../model/physical/types';
 import { bendingSchedule } from '../../sheets/plans/bending-schedule';
 import { extractGoverningDemands, type ElementStationResult } from '../../engine/station-design-forces';
 import { resolveDesignAxes } from '../../engine/design/design-axes';
+import type { AnalysisResults3D } from '../../engine/types-3d';
 import type { MemberContext } from '../../engine/design/member-context';
 import type { DocumentModel } from '../../engine/detailing/document-model';
 import type { StructuralGrid } from '../../model/grid';
@@ -43,7 +48,7 @@ export const grid: StructuralGrid = {
  * under (`suite-lateral.ts`, outside the system); `null`, none declared.
  */
 export function building(mesh: number | null, o: {
-  columnSide?: number; lateral?: LateralRole | null;
+  columnSide?: number; lateral?: LateralRole | null; prescribedZeroBeamTorque?: boolean; surfaceLoadFactor?: number;
   /** Tie each column's section to the slab as a rigid body (`tieColumnFootprints`): the reference joint. */
   footprint?: boolean;
   /** Multiply the beams' modulus (a material of their own), for the reference's stiffness study. */
@@ -66,7 +71,11 @@ export function building(mesh: number | null, o: {
   placeFrame(grid, { x: ['A', 'C'], y: ['1', '2'], levels: ['N0', 'N2'], columns: S(col), beamsX: S(bm, beamMat), beamsY: S(bm, beamMat) }, { fixBase: true });
   if (mesh !== null) {
     placeSlabs(grid, { levels: ['N1', 'N2'], thickness: 0.15, materialId: mat, meshSize: mesh, typology: 'solid' });
-    for (const q of modelStore.quads.values()) { modelStore.addSurfaceLoad3D(q.id, 1.5, 1); modelStore.addSurfaceLoad3D(q.id, 2, 2); }
+    const factor = o.surfaceLoadFactor ?? 1;
+    for (const q of modelStore.quads.values()) {
+      modelStore.addSurfaceLoad3D(q.id, 1.5 * factor, 1);
+      modelStore.addSurfaceLoad3D(q.id, 2 * factor, 2);
+    }
   } else {
     for (const e of modelStore.elements.values()) {
       const a = modelStore.nodes.get(e.nodeI)!, b = modelStore.nodes.get(e.nodeJ)!;
@@ -79,7 +88,16 @@ export function building(mesh: number | null, o: {
   if (o.footprint) tieColumnFootprints(side);
   const combo = modelStore.solveCombinations3D(true, false, true);
   if (!combo || typeof combo === 'string') throw new Error(String(combo));
-  resultsStore.setCombinationResults3D(combo.perCase, combo.perCombo, combo.envelope);
+  const perCombo = o.prescribedZeroBeamTorque ? withZeroBeamTorque(combo.perCombo) : combo.perCombo;
+  resultsStore.setCombinationResults3D(combo.perCase, perCombo, combo.envelope);
+}
+
+export function withZeroBeamTorque(perCombo: ReadonlyMap<number, AnalysisResults3D>): Map<number, AnalysisResults3D> {
+  const beamIds = new Set(physicalBeams().flatMap(beam => beam.elements));
+  return new Map([...perCombo].map(([id, result]) => [id, {
+    ...result,
+    elementForces: result.elementForces.map(force => beamIds.has(force.elementId) ? { ...force, mxStart: 0, mxEnd: 0 } : force),
+  }]));
 }
 
 /**
@@ -114,6 +132,15 @@ export function tieColumnFootprints(side: number): number {
 /** Design columns and beams, detail them and build the document the sheets print. */
 export function designAndDocument(): DocumentModel {
   designRunStore.designFamilies(['column', 'beam']);
+  return buildTestDocument();
+}
+
+export async function designAndDocumentWithWorkerYields(): Promise<DocumentModel> {
+  await runBetweenWorkerTurns(() => designRunStore.designFamilies(['column', 'beam']));
+  return buildTestDocument();
+}
+
+function buildTestDocument(): DocumentModel {
   const doc = detailingStore.buildDocument({ author: 'test', at: '2026-10-11T00:00:00Z' });
   expect(doc, 'document built').toBeTruthy();
   return doc!;
@@ -132,7 +159,7 @@ export function designPlace(c: MemberContext): string {
 }
 
 /** What the design reads of the analysis for one member: its stations and slenderness factors. */
-export interface PrescribedForces { stations: ElementStationResult; slenderDeltaNs: number; slenderDeltaS: number }
+export interface PrescribedForces { coverage: DemandCoverage; stations: ElementStationResult; slenderDeltaNs: number; slenderDeltaS: number }
 
 /**
  * The design forces of the building as solved, by place: every design member's stations (for a
@@ -141,10 +168,15 @@ export interface PrescribedForces { stations: ElementStationResult; slenderDelta
  */
 export function forcesByPlace(compute = true): Map<string, PrescribedForces> {
   if (compute) designRunStore.computeDemands();
+  completeMemberDemands([...verificationStore.contexts.values()].filter(c => c.stations).map(c => ({ elementId: c.elementId,
+    demands: c.demands?.demands ?? [], tuples: ConcurrentDemand.fromStations(c.stations!),
+    expectedCombinationIds: c.demands?.expectedCombinationIds, stationTs: c.stations!.stationTs,
+  })));
   const out = new Map<string, PrescribedForces>();
   for (const c of verificationStore.contexts.values()) {
     if (!c.stations || out.has(designPlace(c))) continue;
-    out.set(designPlace(c), { stations: structuredClone(c.stations), slenderDeltaNs: c.slenderDeltaNs, slenderDeltaS: c.slenderDeltaS });
+    const { inventory: _sourceInventory, ...coverage } = ConcurrentDemand.completeStations(c.stations).inventory.coverageForMember(c.elementId);
+    out.set(designPlace(c), { coverage, stations: structuredClone({ ...c.stations, inventory: undefined }), slenderDeltaNs: c.slenderDeltaNs, slenderDeltaS: c.slenderDeltaS });
   }
   return out;
 }
@@ -158,18 +190,7 @@ export function forcesByPlace(compute = true): Map<string, PrescribedForces> {
  * the same steps as `designFamilies(['column', 'beam'])`: code check, design, detailing.
  */
 export function designAndDocumentUnder(forces: ReadonlyMap<string, PrescribedForces>): DocumentModel {
-  designRunStore.computeDemands();
-  const next = new Map<number, MemberContext>();
-  for (const [id, c] of verificationStore.contexts) {
-    const f = forces.get(designPlace(c));
-    expect(f, `forces for ${designPlace(c)}`).toBeTruthy();
-    const stations: ElementStationResult = { ...structuredClone(f!.stations), elementId: c.stations!.elementId };
-    const demands = extractGoverningDemands(stations);
-    next.set(id, {
-      ...c, stations, demands, axes: resolveDesignAxes(c.elementType, { b: c.section.b, h: c.section.h }, demands),
-      slenderDeltaNs: f!.slenderDeltaNs, slenderDeltaS: f!.slenderDeltaS,
-    });
-  }
+  const next = contextsUnder(forces);
   verificationStore.setDemandData(next, verificationStore.orientationIssues);
   expect(designRunStore.runCodeCheck().ok).toBe(true);
   const ids = [...next.values()].filter((c) => c.elementType === 'beam' || c.elementType === 'column').map((c) => c.elementId);
@@ -178,6 +199,30 @@ export function designAndDocumentUnder(forces: ReadonlyMap<string, PrescribedFor
   const doc = detailingStore.buildDocument({ author: 'test', at: '2026-10-11T00:00:00Z' });
   expect(doc, 'document built').toBeTruthy();
   return doc!;
+}
+
+export function contextsUnder(forces: ReadonlyMap<string, PrescribedForces>): Map<number, MemberContext> {
+  designRunStore.computeDemands();
+  const next = new Map<number, MemberContext>();
+  const transferred = new Map<number, { context: MemberContext; forces: PrescribedForces; stations: ElementStationResult }>();
+  for (const [id, c] of verificationStore.contexts) {
+    const f = forces.get(designPlace(c));
+    expect(f, `forces for ${designPlace(c)}`).toBeTruthy();
+    const stations: ElementStationResult = { ...structuredClone(f!.stations), inventory: undefined, elementId: c.stations!.elementId };
+    transferred.set(id, { context: c, forces: f!, stations });
+  }
+  const inventory = DemandInventory.declare(memberDemandScope([...transferred.values()].map(r => ({
+    elementId: r.stations.elementId, ...r.forces.coverage,
+  }))));
+  for (const [id, { context: c, forces: f, stations: source }] of transferred) {
+    const stations = { ...source, inventory };
+    const demands = extractGoverningDemands(stations);
+    next.set(id, {
+      ...c, stations, demands, axes: resolveDesignAxes(c.elementType, { b: c.section.b, h: c.section.h }, demands),
+      slenderDeltaNs: f!.slenderDeltaNs, slenderDeltaS: f!.slenderDeltaS,
+    });
+  }
+  return next;
 }
 
 export interface PhysicalBeam { id: string; name: string; elements: number[] }

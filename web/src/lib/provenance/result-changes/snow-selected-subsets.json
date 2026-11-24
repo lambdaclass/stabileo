@@ -1,0 +1,41 @@
+{
+  "id": "snow-selected-subsets",
+  "date": "2026-11-16",
+  "prs": [
+    2197
+  ],
+  "area": "loads",
+  "when": {
+    "all": [
+      "snow",
+      "generatedLoads"
+    ]
+  },
+  "quantities": [
+    "*"
+  ],
+  "title": {
+    "en": "Selected snow carriers retain force and plan moments",
+    "es": "Los miembros seleccionados conservan fuerza y momentos de nieve en planta",
+    "pt": "Os membros selecionados preservam força e momentos da neve em planta",
+    "de": "Ausgewählte Schneelastträger erhalten Kraft und Grundrissmomente",
+    "fr": "Les barres sélectionnées conservent la force et les moments de neige en plan",
+    "tr": "Seçili kar yükü taşıyıcılarında kuvvet ve plan momentleri korunur",
+    "hu": "A kijelölt hóteherhordozók megőrzik az erőt és az alaprajzi nyomatékokat",
+    "zh": "所选的雪荷载承载杆件保留合力和平面力矩"
+  },
+  "explanation": {
+    "en": "Selecting only part of a subdivided carrier run now splits the physical snow strip at active selection boundaries before fitting member loads. Clipping a previously fitted full strip could lose force and both plan moments. Regenerate affected generated snow loads, then rerun analyses, combinations and design checks. (#2197).",
+    "es": "Al seleccionar parte de una alineación subdividida, la franja física de nieve se divide en los límites de selección activos antes de aproximar las cargas de miembro. Recortar la aproximación de la franja completa podía perder fuerza y ambos momentos en planta. Regenere las cargas de nieve generadas afectadas y repita análisis, combinaciones y verificaciones. (#2197).",
+    "pt": "Ao selecionar parte de uma sequência subdividida, a faixa física de neve é dividida nos limites ativos da seleção antes de aproximar as cargas nos membros. Recortar a aproximação da faixa completa podia perder força e ambos os momentos em planta. Gere novamente as cargas de neve geradas afetadas e repita análises, combinações e verificações. (#2197).",
+    "de": "Bei Auswahl eines Teils eines unterteilten Stabzugs wird der physische Schneelaststreifen vor der Stablastapproximation an den aktiven Auswahlgrenzen geteilt. Das Abschneiden eines bereits approximierten vollständigen Streifens konnte Kraft und beide Grundrissmomente verändern. Betroffene erzeugte Schneelasten neu erzeugen und Analysen, Kombinationen und Nachweise wiederholen. (#2197).",
+    "fr": "La sélection partielle d’un alignement subdivisé découpe désormais la bande physique de neige aux limites actives avant l’approximation des charges de barre. Le découpage d’une bande complète déjà approchée pouvait perdre la force et les deux moments en plan. Régénérez les charges de neige générées concernées puis relancez analyses, combinaisons et vérifications. (#2197).",
+    "tr": "Bölünmüş bir taşıyıcı dizisinin yalnızca bir kısmı seçildiğinde fiziksel kar şeridi, eleman yükleri yaklaştırılmadan önce etkin seçim sınırlarında bölünür. Daha önce yaklaştırılmış tam şeridin kesilmesi kuvveti ve plandaki iki momenti değiştirebiliyordu. Etkilenen üretilmiş kar yüklerini yeniden üretip analizleri, birleşimleri ve kontrolleri tekrarlayın. (#2197).",
+    "hu": "Felosztott rúdsor részleges kijelölésekor a fizikai hótehersáv most az aktív kijelölési határoknál oszlik szét a rúdterhek közelítése előtt. A teljes sáv korábbi közelítésének levágása megváltoztathatta az erőt és mindkét alaprajzi nyomatékot. Állítsa elő újra az érintett generált hóterheket, majd futtassa újra az analíziseket, kombinációkat és méretezési ellenőrzéseket. (#2197).",
+    "zh": "只选中已细分的承载杆件连续段的一部分时，现在会在拟合杆件荷载之前，于有效选择边界处拆分实际的雪荷载条带。裁剪以前已拟合的整条条带，可能丢失合力和两个平面力矩。请重新生成受影响的生成雪荷载，然后重新运行分析、组合和设计验算。（#2197）。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-snow-selected-subsets.md",
+    "heading": "Selected snow carriers retain force and plan moments"
+  }
+}

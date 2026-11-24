@@ -1,0 +1,43 @@
+{
+  "id": "snow-roof-step",
+  "date": "2026-11-14",
+  "area": "loads",
+  "when": {
+    "allOf": [
+      [
+        "snow"
+      ],
+      [
+        "generatedLoads"
+      ]
+    ]
+  },
+  "quantities": [
+    "*"
+  ],
+  "title": {
+    "en": "Roof-step drift uses the receiving roof plane",
+    "es": "La acumulación en desniveles usa el plano receptor",
+    "pt": "A acumulação em desníveis usa o plano receptor",
+    "de": "Schneeverwehungen an Dachstufen verwenden die aufnehmende Dachebene",
+    "fr": "Les accumulations aux décrochements utilisent le plan récepteur",
+    "tr": "Çatı kot farkındaki kar birikimi alıcı çatı düzlemini kullanıyor",
+    "zh": "屋面高差处的堆积使用接收屋面的平面"
+  },
+  "explanation": {
+    "en": "CIRSOC 104 roof-step drift could be silently omitted on a pitched receiving roof. Roof planes now determine pitch, local elevations and the receiving balanced snow depth. Ambiguous surface geometry is refused. Regenerate snow loads and re-run all affected analyses, combinations and design checks (SA-2026-065, #2082). The fix is included in 0.6.1.",
+    "es": "La acumulación CIRSOC 104 podía omitirse sin aviso sobre una cubierta receptora inclinada. Los planos ahora determinan la pendiente, las cotas locales y la profundidad de nieve balanceada receptora. Se rechaza la geometría indeterminada. Regenere las cargas y recalcule análisis, combinaciones y verificaciones afectados (SA-2026-065, #2082). La corrección está incluida en 0.6.1.",
+    "pt": "A acumulação CIRSOC 104 podia ser omitida sem aviso sobre uma cobertura receptora inclinada. Os planos agora determinam inclinação, cotas locais e profundidade da neve balanceada receptora. Geometria indeterminada é recusada. Gere novamente as cargas e recalcule análises, combinações e verificações afetadas (SA-2026-065, #2082). A correção está incluída na versão 0.6.1.",
+    "de": "CIRSOC 104 konnte Verwehungen auf einer geneigten unteren Dachfläche ohne Warnung auslassen. Dachebenen bestimmen jetzt Neigung, örtliche Höhen und die ausgeglichene Schneehöhe der aufnehmenden Fläche. Unbestimmte Flächengeometrie wird abgelehnt. Schneelasten neu erzeugen und betroffene Analysen, Kombinationen und Nachweise neu berechnen (SA-2026-065, #2082). Die Korrektur ist in 0.6.1 enthalten.",
+    "fr": "CIRSOC 104 pouvait omettre sans avertissement une accumulation sur une toiture réceptrice inclinée. Les plans déterminent désormais pente, altitudes locales et hauteur de neige équilibrée de la surface réceptrice. Une géométrie indéterminée est refusée. Régénérez les charges et recalculez analyses, combinaisons et vérifications concernées (SA-2026-065, #2082). La correction est incluse dans 0.6.1.",
+    "tr": "CIRSOC 104 eğimli alıcı çatıda kar birikimini uyarı vermeden atlayabiliyordu. Çatı düzlemleri artık eğimi, yerel kotları ve alıcı yüzeyin dengeli kar yüksekliğini belirliyor. Belirsiz yüzey geometrisi reddediliyor. Kar yüklerini yeniden üretip etkilenen analizleri, birleşimleri ve tasarım kontrollerini yeniden hesaplayın (SA-2026-065, #2082). Düzeltme 0.6.1 sürümüne dahildir.",
+    "zh": "CIRSOC 104 的屋面高差堆积，在坡屋面作为接收屋面时可能被悄悄遗漏。现在由屋面平面确定坡度、局部标高和接收屋面的平衡雪深。几何含糊的表面会被拒绝。请重新生成雪荷载，并重新运行所有受影响的分析、组合和设计验算（SA-2026-065，#2082）。此修复已包含在 0.6.1 中。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-snow-roof-step.md",
+    "heading": "CIRSOC 104 roof-step drift uses the receiving roof plane"
+  },
+  "prs": [
+    2095
+  ]
+}

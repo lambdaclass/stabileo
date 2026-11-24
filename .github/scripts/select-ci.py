@@ -11,6 +11,7 @@ import os
 import re
 from pathlib import Path
 import subprocess
+from collections import defaultdict
 
 SPECS = {
     'research': ['research*.spec.ts'],
@@ -45,23 +46,34 @@ def _resolve(base, spec):
     return None
 
 
-def _reaches_slow(path, seen):
-    if path in seen:
-        return False
-    seen.add(path)
-    source = path.read_text(errors='replace')
-    if SLOW_TAG.search(source):
-        return True
-    for spec in IMPORT.findall(source):
-        target = _resolve(path, spec)
-        if target is not None and target.suffix in ('.ts', '.mjs', '.js') and _reaches_slow(target, seen):
-            return True
-    return False
-
-
 def discover_slow_specs(e2e_dir):
-    return tuple(p.name for p in sorted(e2e_dir.glob('*.spec.ts'))
-                 if p.name != 'rc-design-visual.spec.ts' and _reaches_slow(p.resolve(), set()))
+    specs = [(p.name, p.resolve()) for p in sorted(e2e_dir.glob('*.spec.ts'))
+             if p.name != 'rc-design-visual.spec.ts' and not p.name.endswith('.timing.spec.ts')]
+    pending = {path for _, path in specs}
+    scanned = set()
+    importers = defaultdict(list)
+    reaches_slow = set()
+    while pending:
+        path = pending.pop()
+        scanned.add(path)
+        source = path.read_text(errors='replace')
+        if SLOW_TAG.search(source):
+            reaches_slow.add(path)
+            continue
+        for spec in IMPORT.findall(source):
+            target = _resolve(path, spec)
+            if target is not None and target.suffix in ('.ts', '.mjs', '.js'):
+                importers[target].append(path)
+                if target not in scanned:
+                    pending.add(target)
+
+    slow = list(reaches_slow)
+    while slow:
+        for importer in importers.get(slow.pop(), ()):
+            if importer not in reaches_slow:
+                reaches_slow.add(importer)
+                slow.append(importer)
+    return tuple(name for name, path in specs if path in reaches_slow)
 
 
 ALL_SLOW_SPECS = discover_slow_specs(REPO_ROOT / 'web/e2e')
@@ -73,9 +85,10 @@ def slow_specs_for_path(path):
     if not isinstance(path, str) or not path or path.startswith('/') or '..' in path.split('/'):
         return ALL_SLOW_SPECS
     if path.startswith(('docs/', 'changelog.d/', 'specs/', 'backend/', 'verify/', 'tools/', 'ai-backend/',
-                        'engine/tests/', 'engine/benches/', 'scripts/tests/')):
+                        'engine/tests/', 'engine/benches/', 'scripts/tests/', 'testing/scripts/tests/',
+                        'testing/differential/', 'testing/opensees/', 'testing/symbolic/', 'testing/docs/')):
         return ()
-    if '/' not in path and path.endswith('.md'):
+    if path == 'testing/ROADMAP.md' or ('/' not in path and path.endswith('.md')):
         return ()
     if path.startswith('research/') and path.endswith('.md') and not path.startswith('research/tools/'):
         return ()
@@ -114,7 +127,9 @@ def select_slow_specs(paths):
 def area(path):
     if not isinstance(path, str) or path.startswith('/') or '..' in path.split('/'):
         return 'full'
-    if path.startswith(('docs/', 'changelog.d/')) or ('/' not in path and path.endswith('.md')):
+    if (path.startswith(('docs/', 'testing/docs/', 'changelog.d/'))
+            or path == 'testing/ROADMAP.md'
+            or ('/' not in path and path.endswith('.md'))):
         return 'docs'
     if path.startswith('specs/') and path.endswith('.md'):
         return 'docs'
@@ -126,7 +141,7 @@ def area(path):
         return 'research'
     if path.startswith('web/src/components/tools/') or re.fullmatch(r'web/e2e/tools[^/]*\.spec\.ts', path):
         return 'tools'
-    if path.startswith('engine/'):
+    if path.startswith(('engine/', 'testing/fuzz/')):
         return 'engine'
     if path.startswith('web/') and not path.startswith(SITE_EXCLUDED):
         return 'site'

@@ -1,5 +1,5 @@
 /// Sparse Cholesky factorization (supernodal: left-looking between supernodes,
-/// dense right-looking within each supernode panel).
+/// dense left-looking within each supernode panel).
 ///
 /// Two-phase: symbolic (AMD + elimination tree + column counts + supernode
 /// partition) then numeric. Symbolic phase can be reused when sparsity
@@ -432,6 +432,8 @@ pub fn numeric_cholesky(sym: &Rc<SymbolicCholesky>, a: &CscMatrix) -> Option<Num
     // positions in K's row list and matching positions in J's panel.
     let mut pair_k: Vec<usize> = Vec::new();
     let mut pair_j: Vec<usize> = Vec::new();
+    // Maximal stretches of the pairs over which both positions advance by one: (first, end).
+    let mut runs: Vec<(usize, usize)> = Vec::new();
 
     for t in 0..ns {
         let s = sym.snode_start[t];
@@ -494,6 +496,15 @@ pub fn numeric_cholesky(sym: &Rc<SymbolicCholesky>, a: &CscMatrix) -> Option<Num
                 }
             }
 
+            runs.clear();
+            let mut first = 0;
+            for idx in 1..=pair_k.len() {
+                if idx == pair_k.len() || pair_k[idx] != pair_k[idx - 1] + 1 || pair_j[idx] != pair_j[idx - 1] + 1 {
+                    runs.push((first, idx));
+                    first = idx;
+                }
+            }
+
             // Column ks+d of K starts at l_col_ptr[ks+d]; entry (row position
             // q, column d) of the dense trapezoid lives at l_col_ptr[ks+d]+q-d.
             for d in 0..kw {
@@ -501,6 +512,7 @@ pub fn numeric_cholesky(sym: &Rc<SymbolicCholesky>, a: &CscMatrix) -> Option<Num
                 // Only pairs with q >= pj contribute to panel column j;
                 // both are ascending, so the start index only moves forward.
                 let mut idx0 = 0;
+                let mut run0 = 0;
                 for pj in p_lo..p_hi {
                     let jcol = k_row[pj] - s; // column within the panel
                     while idx0 < pair_k.len() && pair_k[idx0] < pj {
@@ -510,16 +522,36 @@ pub fn numeric_cholesky(sym: &Rc<SymbolicCholesky>, a: &CscMatrix) -> Option<Num
                     if u == 0.0 {
                         continue;
                     }
-                    for idx in idx0..pair_k.len() {
-                        panel[jcol * rows + pair_j[idx]] -= l_values[col_base + pair_k[idx]] * u;
+                    while run0 < runs.len() && runs[run0].1 <= idx0 {
+                        run0 += 1;
+                    }
+                    // Each entry takes the same subtraction as before, a stretch at a time.
+                    for &(first, end) in &runs[run0..] {
+                        let from = first.max(idx0);
+                        let len = end - from;
+                        let target = &mut panel[jcol * rows + pair_j[from]..][..len];
+                        let source = &l_values[col_base + pair_k[from]..][..len];
+                        for (t, &l) in target.iter_mut().zip(source) {
+                            *t -= l * u;
+                        }
                     }
                 }
             }
         }
 
-        // Dense partial Cholesky of the panel: factor the leading width×width
-        // block, then scale the subdiagonal block (right-looking, in cache).
         for d in 0..width {
+            for k in 0..d {
+                let f = panel[k * rows + d];
+                if f == 0.0 {
+                    continue;
+                }
+                let (before, after) = panel.split_at_mut(d * rows);
+                let source = &before[k * rows + d..k * rows + rows];
+                let target = &mut after[d..rows];
+                for (value, &source) in target.iter_mut().zip(source) {
+                    *value -= f * source;
+                }
+            }
             let diag = panel[d * rows + d];
             // `!(diag > t)` (not `diag <= t`) so a NaN pivot — where every
             // comparison is false — is also rejected instead of producing a
@@ -531,15 +563,6 @@ pub fn numeric_cholesky(sym: &Rc<SymbolicCholesky>, a: &CscMatrix) -> Option<Num
             panel[d * rows + d] = l;
             for p in (d + 1)..rows {
                 panel[d * rows + p] /= l;
-            }
-            for d2 in (d + 1)..width {
-                let f = panel[d * rows + d2]; // L[s+d2, s+d]
-                if f == 0.0 {
-                    continue;
-                }
-                for p in d2..rows {
-                    panel[d2 * rows + p] -= f * panel[d * rows + p];
-                }
             }
         }
 
@@ -638,6 +661,296 @@ pub fn sparse_condition_estimate(factor: &NumericCholesky) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The factorization with every update applied pair by pair through the two index lists,
+    /// as it was written before the pairs were taken a stretch at a time.
+    fn numeric_cholesky_by_pairs(sym: &Rc<SymbolicCholesky>, a: &CscMatrix) -> Option<NumericCholesky> {
+        let n = sym.n;
+
+        // Permuted values come from the map precomputed in the symbolic phase: an
+        // O(nnz) gather, no triplet rebuild, no sort.
+        //
+        // That turns a SOFT contract into a HARD one, and the guard has to match.
+        // The `permute_symmetric(&sym.perm)` this replaces recomputed the permuted
+        // matrix from whatever was passed in, so reuse tolerated a drifting
+        // pattern; `pa_src` holds positions into the values array of the matrix the
+        // symbolic was built from, and reading them against a different pattern
+        // gathers neighbouring entries into every slot past the first divergence.
+        // Cholesky then succeeds and returns displacements for a matrix nobody
+        // assembled.
+        //
+        // This is reachable, not hypothetical. Both P-Delta loops cache one
+        // symbolic (`pdelta.rs:88`, `:331`) and rebuild `k_csc` every iteration
+        // through `CscMatrix::from_dense_symmetric`, whose `|v| > 1e-30` filter
+        // makes the pattern VALUE-dependent — and the geometric stiffness changes
+        // every iteration by design. On the unconstrained path the pattern is
+        // pinned by K's element topology, since K_G occupies the same DOF pairs;
+        // with constraints, `reduce_matrix` can produce entries that cancel, and
+        // where they cancel moves as K_G moves.
+        //
+        // So: `assert!`, not `debug_assert!` — the release wasm32 build is the one
+        // that ships, and `permute_symmetric` ran its own `assert_eq!` there on
+        // every factorization, so debug-only would be a downgrade of a live check.
+        // And the fingerprint, not nnz: one entry dropping below the threshold
+        // while another rises above it leaves nnz identical.
+        assert_eq!(a.n, n, "numeric_cholesky: matrix order does not match the symbolic");
+        assert_eq!(a.col_ptr.len(), n + 1, "numeric_cholesky: malformed column pointers");
+        assert_eq!(
+            structural_fingerprint(a),
+            sym.pa_fingerprint,
+            "numeric_cholesky: sparsity pattern differs from the one the symbolic \
+             factorization was built for ({} nonzeros now, {} then) — symbolic reuse \
+             requires an unchanged pattern, not merely an unchanged shape",
+            a.col_ptr[n],
+            sym.pa_src.len(),
+        );
+
+        let pa_col_ptr = &sym.pa_col_ptr;
+        let pa_row_idx = &sym.pa_row_idx;
+
+        let mut l_values = vec![0.0f64; sym.l_nnz];
+
+        // Strict threshold: use absolute threshold like dense Cholesky.
+        // A previous 1e-12 * max_diag relative threshold was too aggressive for
+        // shell matrices where drilling DOF pivots are naturally 4+ orders
+        // smaller than membrane pivots.
+        let strict_threshold = 1e-15;
+
+        let ns = sym.snode_start.len();
+        let snode_end = |t: usize| -> usize {
+            if t + 1 < ns { sym.snode_start[t + 1] } else { n }
+        };
+
+        // Panel capacity: max over supernodes of rows × width.
+        let mut max_panel = 0usize;
+        for t in 0..ns {
+            let s = sym.snode_start[t];
+            let rows = sym.l_col_ptr[s + 1] - sym.l_col_ptr[s];
+            max_panel = max_panel.max(rows * snode_end(t).saturating_sub(s));
+        }
+        // Dense supernode panel, column-major: panel[d * rows + p] holds the
+        // value for column s+d at the row l_row_idx[l_col_ptr[s]+p].
+        let mut panel = vec![0.0f64; max_panel.max(1)];
+        // Generation-stamped row -> panel position map (valid when gen matches).
+        let mut map_pos = vec![0usize; n.max(1)];
+        let mut map_gen = vec![0usize; n.max(1)];
+        let mut gen = 0usize;
+        // Row correspondence for the current (K, J) update pair:
+        // positions in K's row list and matching positions in J's panel.
+        let mut pair_k: Vec<usize> = Vec::new();
+        let mut pair_j: Vec<usize> = Vec::new();
+
+        for t in 0..ns {
+            let s = sym.snode_start[t];
+            let e = snode_end(t);
+            let width = e - s;
+            let jb = sym.l_col_ptr[s];
+            let rows = sym.l_col_ptr[s + 1] - jb;
+
+            gen += 1;
+            for p in 0..rows {
+                let r = sym.l_row_idx[jb + p];
+                map_pos[r] = p;
+                map_gen[r] = gen;
+            }
+
+            // Zero the panel and scatter A's columns s..e into it.
+            for v in panel[..width * rows].iter_mut() {
+                *v = 0.0;
+            }
+            for d in 0..width {
+                let j = s + d;
+                for p in pa_col_ptr[j]..pa_col_ptr[j + 1] {
+                    let i = pa_row_idx[p];
+                    // struct(A[:,j]) ⊆ struct(L[:,j]) ⊆ panel rows
+                    debug_assert_eq!(map_gen[i], gen);
+                    // Gathered straight from the source. Staging these into an
+                    // nnz-sized `pa_values` first meant one heap allocation and a
+                    // full write-then-read pass over nnz per factorization — the
+                    // per-call work this map exists to remove.
+                    panel[d * rows + map_pos[i]] = a.values[sym.pa_src[p]];
+                }
+            }
+
+            // Gather updates from prior supernodes.
+            for &tk in &sym.snode_upd[t] {
+                let ks = sym.snode_start[tk];
+                let kw = snode_end(tk) - ks;
+                let kb = sym.l_col_ptr[ks];
+                let krows = sym.l_col_ptr[ks + 1] - kb;
+                let k_row = &sym.l_row_idx[kb..kb + krows];
+
+                // Positions of J's columns [s, e) inside K's (sorted) row list.
+                let p_lo = k_row.partition_point(|&r| r < s);
+                let p_hi = k_row.partition_point(|&r| r < e);
+                debug_assert!(p_lo < p_hi, "updater supernode must touch J's columns");
+                debug_assert!(p_lo >= kw, "J's columns lie below K's diagonal block");
+
+                // Rows of K at or below s that belong to J's panel. This must
+                // include J's own diagonal-block rows (positions p_lo..p_hi):
+                // the update for panel column j covers every row i >= j in K's
+                // structure — including i = j (the L[j,k]^2 diagonal term) and
+                // i in (j, e) — not just the rows below the block.
+                pair_k.clear();
+                pair_j.clear();
+                for q in p_lo..krows {
+                    let r = k_row[q];
+                    if map_gen[r] == gen {
+                        pair_k.push(q);
+                        pair_j.push(map_pos[r]);
+                    }
+                }
+
+                // Column ks+d of K starts at l_col_ptr[ks+d]; entry (row position
+                // q, column d) of the dense trapezoid lives at l_col_ptr[ks+d]+q-d.
+                for d in 0..kw {
+                    let col_base = sym.l_col_ptr[ks + d] - d;
+                    // Only pairs with q >= pj contribute to panel column j;
+                    // both are ascending, so the start index only moves forward.
+                    let mut idx0 = 0;
+                    for pj in p_lo..p_hi {
+                        let jcol = k_row[pj] - s; // column within the panel
+                        while idx0 < pair_k.len() && pair_k[idx0] < pj {
+                            idx0 += 1;
+                        }
+                        let u = l_values[col_base + pj];
+                        if u == 0.0 {
+                            continue;
+                        }
+                        for idx in idx0..pair_k.len() {
+                            panel[jcol * rows + pair_j[idx]] -= l_values[col_base + pair_k[idx]] * u;
+                        }
+                    }
+                }
+            }
+
+            // Dense partial Cholesky of the panel: factor the leading width×width
+            // block, then scale the subdiagonal block (right-looking, in cache).
+            for d in 0..width {
+                let diag = panel[d * rows + d];
+                // `!(diag > t)` (not `diag <= t`) so a NaN pivot — where every
+                // comparison is false — is also rejected instead of producing a
+                // NaN-filled factor reported as success.
+                if !(diag > strict_threshold) {
+                    return None;
+                }
+                let l = diag.sqrt();
+                panel[d * rows + d] = l;
+                for p in (d + 1)..rows {
+                    panel[d * rows + p] /= l;
+                }
+                for d2 in (d + 1)..width {
+                    let f = panel[d * rows + d2]; // L[s+d2, s+d]
+                    if f == 0.0 {
+                        continue;
+                    }
+                    for p in d2..rows {
+                        panel[d2 * rows + p] -= f * panel[d * rows + p];
+                    }
+                }
+            }
+
+            // Scatter back into CSC storage: column s+d keeps panel rows d..rows.
+            for d in 0..width {
+                let j = s + d;
+                let dst = sym.l_col_ptr[j];
+                for q in 0..(rows - d) {
+                    l_values[dst + q] = panel[d * rows + d + q];
+                }
+            }
+        }
+
+        Some(NumericCholesky {
+            symbolic: Rc::clone(sym),
+            l_values,
+        })
+    }
+
+    #[test]
+    fn factor_has_the_bits_of_the_pair_by_pair_updates() {
+        let mut state = 0xD1B54A32D192ED03u64;
+        let mut unit = || {
+            state ^= state << 13;
+            state ^= state >> 7;
+            state ^= state << 17;
+            (state >> 11) as f64 / (1u64 << 53) as f64
+        };
+        let mut compared = 0;
+        for case in 0..60 {
+            let n = 1 + (case * 37) % 420;
+            let block = [1usize, 2, 3, 6][case % 4];
+            let (mut rows, mut cols, mut vals) = (Vec::new(), Vec::new(), Vec::new());
+            let mut diagonal = vec![0.0f64; n];
+            let mut couple = |i: usize, j: usize, v: f64, diagonal: &mut Vec<f64>| {
+                if i == j || i >= n || j >= n { return; }
+                let (i, j) = (i.max(j), i.min(j));
+                rows.push(i); cols.push(j); vals.push(v);
+                diagonal[i] += v.abs();
+                diagonal[j] += v.abs();
+            };
+            for j in 0..n {
+                let node = j / block;
+                // Its own block, the next node along a line, the node a row away on a grid, and a far one.
+                for other in [node, node + 1, node + 9, node + 9 * 7] {
+                    for d in 0..block {
+                        let i = other * block + d;
+                        if i > j && unit() < 0.8 { couple(i, j, 2.0 * unit() - 1.0, &mut diagonal); }
+                    }
+                }
+                if case % 5 == 0 && unit() < 0.05 { couple((unit() * n as f64) as usize, j, unit(), &mut diagonal); }
+            }
+            for (j, sum) in diagonal.iter().enumerate() {
+                rows.push(j); cols.push(j); vals.push(sum * (1.0 + 0.5 * unit()) + 1e-3);
+            }
+            let matrix = CscMatrix::from_triplets(n, &rows, &cols, &vals);
+            let symbolic = Rc::new(symbolic_cholesky(&matrix));
+            let (now, before) = (numeric_cholesky(&symbolic, &matrix).expect("positive definite"), numeric_cholesky_by_pairs(&symbolic, &matrix).expect("positive definite"));
+            assert_eq!(now.l_values.len(), before.l_values.len());
+            assert!(now.l_values.iter().zip(&before.l_values).all(|(a, b)| a.to_bits() == b.to_bits()), "case {case}, order {n}, block {block}");
+            compared += now.l_values.len();
+            // A matrix that is not positive definite is refused by both, at the same pivot or not at all.
+            let mut broken = matrix.clone();
+            let column = n / 2;
+            let at = (broken.col_ptr[column]..broken.col_ptr[column + 1]).find(|&q| broken.row_idx[q] == column).expect("a diagonal entry");
+            broken.values[at] = -1.0;
+            assert_eq!(numeric_cholesky(&symbolic, &broken).is_none(), numeric_cholesky_by_pairs(&symbolic, &broken).is_none(), "case {case}");
+            assert!(numeric_cholesky(&symbolic, &broken).is_none());
+        }
+        assert!(compared > 200_000, "{compared} factor entries compared");
+    }
+
+    #[test]
+    fn panel_columns_preserve_factor_bits_and_rejection_after_extreme_values() {
+        for n in [2, 8, 32, 128] {
+            let (mut rows, mut cols, mut values) = (Vec::new(), Vec::new(), Vec::new());
+            for j in 0..n {
+                for i in j..n {
+                    rows.push(i);
+                    cols.push(j);
+                    values.push(if i == j { n as f64 } else { ((i * 17 + j * 31) % 23) as f64 / 23.0 - 0.5 });
+                }
+            }
+            let matrix = CscMatrix::from_triplets(n, &rows, &cols, &values);
+            let sym = Rc::new(symbolic_cholesky_with_perm(&matrix, &(0..n).collect::<Vec<_>>()));
+            assert_eq!(sym.snode_start, vec![0]);
+            for value in [0.0, -0.0, 1e-300, 1e-15, f64::from_bits(1e-15f64.to_bits() + 1), -1.0, f64::MAX, f64::INFINITY, f64::NEG_INFINITY, f64::NAN] {
+                for at in [0, 1, matrix.col_ptr[n / 2], matrix.values.len() - 1] {
+                    let mut changed = matrix.clone();
+                    changed.values[at] = value;
+                    for input in [&changed, &matrix] {
+                        let expected = numeric_cholesky_by_pairs(&sym, input);
+                        let actual = numeric_cholesky(&sym, input);
+                        assert_eq!(actual.is_some(), expected.is_some(), "n={n}, at={at}, value={value:?}");
+                        if let (Some(actual), Some(expected)) = (actual, expected) {
+                            assert_eq!(actual.l_values.iter().map(|x| x.to_bits()).collect::<Vec<_>>(), expected.l_values.iter().map(|x| x.to_bits()).collect::<Vec<_>>());
+                            let rhs = vec![1.0; n];
+                            assert_eq!(sparse_cholesky_solve(&actual, &rhs).iter().map(|x| x.to_bits()).collect::<Vec<_>>(), sparse_cholesky_solve(&expected, &rhs).iter().map(|x| x.to_bits()).collect::<Vec<_>>());
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     fn make_spd(dense: &[f64], n: usize) -> CscMatrix {
         CscMatrix::from_dense_symmetric(dense, n)

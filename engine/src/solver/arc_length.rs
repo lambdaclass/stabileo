@@ -13,7 +13,7 @@ use crate::linalg::*;
 use super::dof::DofNumbering;
 use super::assembly::{self, InclinedFrame, InclinedTransformData2D};
 use super::corotational::{add_spring_contributions, assemble_corotational_public, assemble_corotational_triplets_2d};
-use super::constraints::FreeConstraintSystem;
+use super::constraints::{FreeConstraintSystem, MasterMotion};
 use super::linear::SPARSE_THRESHOLD;
 use super::sparse_tangent::{
     cached_symbolic, tangent_free_sparse, tangent_free_sparse_triplets, SparseSymbolicCache,
@@ -186,6 +186,9 @@ fn solve_arc_length_contained(input: &ArcLengthInput, start: Option<&super::coro
     let u_r_start: Vec<f64> = u_full[nf..].to_vec();
     let du_support = super::linear::prescribed_displacements_2d(&input.solver, &dof_num);
     let moves_supports = du_support.iter().any(|&v| v != 0.0);
+    let mut support_direction = vec![0.0; n];
+    support_direction[nf..].copy_from_slice(&du_support);
+    if let Some(ref cs) = cs { cs.impose_motion(&mut support_direction); }
     let support_extent: Vec<_> = u_r_start.iter().zip(&du_support)
         .map(|(a,b)|a.abs()+b.abs()).collect();
     let metric = super::convergence::EquilibriumMetric::for_2d_with_state(
@@ -215,15 +218,12 @@ fn solve_arc_length_contained(input: &ArcLengthInput, start: Option<&super::coro
         if moves_supports {
             if sparse {
                 for ((&i, &j), &v) in asm_t.trip_rows.iter().zip(&asm_t.trip_cols).zip(&asm_t.trip_vals) {
-                    if i >= nf && j < nf {
-                        g[j] -= v * du_support[i - nf];
-                    } else if j >= nf && i < nf {
-                        g[i] -= v * du_support[j - nf];
-                    }
+                    if i < nf { g[i] -= v * support_direction[j]; }
+                    if i != j && j < nf { g[j] -= v * support_direction[i]; }
                 }
             } else {
                 for (i, gi) in g.iter_mut().enumerate() {
-                    *gi -= (0..n - nf).map(|r| asm_t.k_t[i * n + nf + r] * du_support[r]).sum::<f64>();
+                    *gi -= (0..n).map(|j| asm_t.k_t[i * n + j] * support_direction[j]).sum::<f64>();
                 }
             }
         }
@@ -252,7 +252,7 @@ fn solve_arc_length_contained(input: &ArcLengthInput, start: Option<&super::coro
             let tangent = factor_assembled(&asm_t, n, nf, ns, &cs, &mut sparse_sym_cache)?;
             solve_with_tangent(&tangent, &reduce(&reference(&asm_t)), ns)?
         };
-        let du_hat = if let Some(ref cs) = cs { cs.expand_solution(&du_hat_s) } else { du_hat_s };
+        let du_hat = if let Some(ref cs) = cs { cs.expand_solution(&du_hat_s, MasterMotion::Prescribed(&du_support)) } else { du_hat_s };
 
         // Determine Δλ from arc-length constraint
         // ||Δu||² + Δλ² × ||f_ref||² = Δs²
@@ -307,8 +307,8 @@ fn solve_arc_length_contained(input: &ArcLengthInput, start: Option<&super::coro
             let tangent = factor_assembled(&asm_t, n, nf, ns, &cs, &mut sparse_sym_cache)?;
             let du_r_s = solve_with_tangent(&tangent, &residual_s, ns)?;
             let du_t_s = solve_with_tangent(&tangent, &reduce(&reference(&asm_t)), ns)?;
-            let du_r = if let Some(ref cs) = cs { cs.expand_solution(&du_r_s) } else { du_r_s };
-            let du_t = if let Some(ref cs) = cs { cs.expand_solution(&du_t_s) } else { du_t_s };
+            let du_r = if let Some(ref cs) = cs { cs.expand_solution(&du_r_s, MasterMotion::Homogeneous) } else { du_r_s };
+            let du_t = if let Some(ref cs) = cs { cs.expand_solution(&du_t_s, MasterMotion::Prescribed(&du_support)) } else { du_t_s };
 
             // Arc-length constraint: quadratic equation for δλ
             // a*δλ² + b*δλ + c = 0
@@ -393,42 +393,14 @@ fn solve_arc_length_contained(input: &ArcLengthInput, start: Option<&super::coro
 
     // Build final results using corotational forces (not linear)
     set_supports(&mut u_full, lambda);
-    let u_global = assembly::to_global(&u_full, n, &its);
-    let displacements = super::linear::build_displacements_2d(&dof_num, &u_global);
-    let element_forces = super::corotational::compute_corotational_forces(&input.solver, &dof_num, &u_global);
-
-    // Compute constraint forces using final tangent stiffness
-    let constraint_forces = if let Some(ref fcs) = cs {
-        let asm_final = assemble_tangent(&input.solver, &dof_num, &u_full, &art, sparse, &its);
-        let raw = if sparse {
-            // Unreduced free-block CSC (lower triangle) for K_ff * u_f — the
-            // dense final tangent is never built on the sparse path.
-            let k_ff_csc = tangent_free_sparse_triplets(
-                &asm_final.trip_rows, &asm_final.trip_cols, &asm_final.trip_vals, nf, &None,
-            );
-            fcs.compute_constraint_forces_sparse(&k_ff_csc, &u_full[..nf], &asm_final.f_int[..nf])
-        } else {
-            let free_idx: Vec<usize> = (0..nf).collect();
-            let k_ff = extract_submatrix(&asm_final.k_t, n, &free_idx, &free_idx);
-            fcs.compute_constraint_forces(&k_ff, &u_full[..nf], &asm_final.f_int[..nf])
-        };
-        fcs.constraint_forces(&raw, &dof_num)
-    } else {
-        vec![]
-    };
+    let mut at_state = super::corotational::scaled_loads_2d(&input.solver, lambda);
+    if let Some(start) = start {
+        at_state.loads.extend(start.input.loads.clone());
+    }
+    let results = super::corotational::build_final_results(&at_state, &dof_num, &u_full, &cs, &its)?;
 
     Ok(ArcLengthResult {
-        results: AnalysisResults {
-            displacements,
-            reactions: vec![],
-            element_forces,
-            constraint_forces,
-            diagnostics: vec![],
-            solver_diagnostics: vec![],
-            structured_diagnostics: vec![],
-            equilibrium: None,
-            result_summary: None, solver_run_meta: None,
-        },
+        results,
         steps,
         final_load_factor: lambda,
         converged: overall_converged,
@@ -613,8 +585,8 @@ fn solve_displacement_control_contained(input: &DisplacementControlInput) -> Res
             let tangent = factor_assembled(&asm_t, n, nf, ns_dc, &cs_dc, &mut sparse_sym_cache)?;
             let du_r_s = solve_with_tangent(&tangent, &residual_s, ns_dc)?;
             let du_t_s = solve_with_tangent(&tangent, &f_ref_s_dc, ns_dc)?;
-            let du_r = if let Some(ref cs) = cs_dc { cs.expand_solution(&du_r_s) } else { du_r_s };
-            let du_t = if let Some(ref cs) = cs_dc { cs.expand_solution(&du_t_s) } else { du_t_s };
+            let du_r = if let Some(ref cs) = cs_dc { cs.expand_solution(&du_r_s, MasterMotion::Homogeneous) } else { du_r_s };
+            let du_t = if let Some(ref cs) = cs_dc { cs.expand_solution(&du_t_s, MasterMotion::Homogeneous) } else { du_t_s };
 
             // Determine δλ from displacement constraint:
             // (u[ctrl] + δu_r[ctrl] + δλ * δu_t[ctrl]) = target_disp
@@ -639,7 +611,7 @@ fn solve_displacement_control_contained(input: &DisplacementControlInput) -> Res
             control_displacement: u_full[ctrl],
             converged: step_converged,
             iterations: step_iters,
-            displacements: Vec::new(),
+            displacements: super::linear::build_displacements_2d(&dof_num, &assembly::to_global(&u_full, n, &its)),
         });
 
         if !step_converged {
@@ -648,42 +620,11 @@ fn solve_displacement_control_contained(input: &DisplacementControlInput) -> Res
         }
     }
 
-    let u_global = assembly::to_global(&u_full[..nf], n, &its);
-    let displacements = super::linear::build_displacements_2d(&dof_num, &u_global);
-    let element_forces = super::corotational::compute_corotational_forces(&input.solver, &dof_num, &u_global);
-
-    // Compute constraint forces using final tangent stiffness
-    let constraint_forces = if let Some(ref fcs) = cs_dc {
-        let asm_final = assemble_tangent(&input.solver, &dof_num, &u_full, &art, sparse, &its);
-        let raw = if sparse {
-            // Unreduced free-block CSC (lower triangle) for K_ff * u_f — the
-            // dense final tangent is never built on the sparse path.
-            let k_ff_csc = tangent_free_sparse_triplets(
-                &asm_final.trip_rows, &asm_final.trip_cols, &asm_final.trip_vals, nf, &None,
-            );
-            fcs.compute_constraint_forces_sparse(&k_ff_csc, &u_full[..nf], &asm_final.f_int[..nf])
-        } else {
-            let free_idx: Vec<usize> = (0..nf).collect();
-            let k_ff = extract_submatrix(&asm_final.k_t, n, &free_idx, &free_idx);
-            fcs.compute_constraint_forces(&k_ff, &u_full[..nf], &asm_final.f_int[..nf])
-        };
-        fcs.constraint_forces(&raw, &dof_num)
-    } else {
-        vec![]
-    };
+    let at_state = super::corotational::scaled_loads_2d(&input.solver, lambda);
+    let results = super::corotational::build_final_results(&at_state, &dof_num, &u_full, &cs_dc, &its)?;
 
     Ok(DisplacementControlResult {
-        results: AnalysisResults {
-            displacements,
-            reactions: vec![],
-            element_forces,
-            constraint_forces,
-            diagnostics: vec![],
-            solver_diagnostics: vec![],
-            structured_diagnostics: vec![],
-            equilibrium: None,
-            result_summary: None, solver_run_meta: None,
-        },
+        results,
         steps,
         final_load_factor: lambda,
         converged: overall_converged,
@@ -1059,3 +1000,7 @@ mod tests {
         }
     }
 }
+
+#[cfg(feature = "experimental-nonlinear")]
+#[path = "experimental_nonlinear/continuation.rs"]
+pub(crate) mod experimental_nonlinear_continuation;

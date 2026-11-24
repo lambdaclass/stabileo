@@ -1,12 +1,17 @@
+import { MAIN_BATCH_IDS as BATCH_IDS } from '../../lib/main-tool-routes';
 import type { SolverInput, SupportType } from '../../lib/engine/types';
 import { MESH_TOLERANCE, MIN_EI } from './validity';
-export const BATCH_IDS = ['continuous-beam', 'portal-frame', 'truss-2d', 'influence-line', 'beam-natural-frequency'] as const;
+export { BATCH_IDS };
 export type BatchId = typeof BATCH_IDS[number];
 export type BatchParameters = { e: number; i: number; area: number; length: number; height: number; load: number; horizontal: number; spans: string; loads: string; ends: 'pinned' | 'fixed'; rightEnd: 'pinned' | 'fixed'; boundary: 'simple' | 'cantilever' | 'fixed'; count: number; quantity: 'reaction' | 'moment' | 'shear'; position: number; mass: number; nodes: string; members: string; supports: string; nodalLoads: string };
 export const DEFAULT_BATCH: BatchParameters = { e: 200000, i: .00008, area: .01, length: 6, height: 3, load: 10, horizontal: 10, spans: '6, 6', loads: '10, 10', ends: 'pinned', rightEnd: 'pinned', boundary: 'simple', count: 1, quantity: 'moment', position: 3, mass: 100,
   nodes: '1, 0, 0\n2, 3, 0\n3, 6, 0\n4, 9, 0\n5, 12, 0\n6, 3, 3\n7, 6, 3\n8, 9, 3',
   members: '1, 2\n2, 3\n3, 4\n4, 5\n1, 6\n6, 7\n7, 8\n8, 5\n2, 6\n3, 7\n4, 8\n6, 3\n3, 8', supports: '1, pinned\n5, rollerX', nodalLoads: '6, 0, -10\n7, 0, -10\n8, 0, -10' };
-const check = (ok: boolean, key = 'tools.batch.invalid') => { if (!ok) throw new Error(key); };
+export class BatchToolError extends Error {
+  constructor(readonly key: string) { super(key); }
+}
+
+const check = (ok: boolean, key = 'tools.batch.invalid') => { if (!ok) throw new BatchToolError(key); };
 const decimalComma = (text: string) => check(!/\d,\d/.test(text), 'tools.batch.decimalComma');
 export function numbers(text: string): number[] {
   decimalComma(text);

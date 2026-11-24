@@ -1,3 +1,4 @@
+import { axialStrainEnergy } from './strain-energy-label';
 import type { Translations } from '../../types';
 import course from '../course/tr';
 
@@ -571,7 +572,7 @@ const stepsTr: Translations = {
   'steps.trusses.compat.meaning': 'Kuvvet',
   'steps.trusses.compat.PTable': 'Her eleman koordinatının p şekil değiştirmeleri ve P kuvvetleri.',
   'steps.trusses.compat.endsTitle': 'Tepkiler ve denge',
-  'steps.trusses.compat.endsLeadTruss': 'Her çubuk, eksenel kuvvetine göre düğümlerini çeker veya iter. Bir mesnette tepki, orada birleşen k çubuklarının bu kuvvetlerinin toplamı eksi düğüm yüküdür.',
+  "steps.trusses.compat.endsLeadTruss": "Her çubuk, eksenel kuvvetine göre düğümlerini çeker veya iter. Bir mesnette tepki, orada birleşen k çubuklarının bu kuvvetlerinin toplamının negatifi eksi uygulanan P düğüm yüküdür: R = −ΣF_k − P.",
   'steps.trusses.compat.endsLeadFrame': 'Uç momentleri her çubuğun kesme kuvvetlerini tamamlar ve her mesnet düğümünün dengesi tepkisini verir: orada birleşen k çubuklarının uç kuvvetlerinin toplamı eksi düğüm yükü.',
   'steps.trusses.compat.shearNote': 'V^s, çubuk basit mesnetliyken çubuk yüküne karşı oluşan tepkilerdir; ikinci terim uç momentlerini dengeler.',
   'steps.trusses.compat.endsTable': 'Çubuk uç kuvvetleri (N çekmede pozitif, V yerel +y boyunca, M saat yönünün tersine).',
@@ -609,7 +610,7 @@ const stepsTr: Translations = {
   'steps.deformation.axialOffNote': 'Matris yönteminden fark, matris yönteminin hesaba kattığı eksenel terimin dışarıda bırakılmasından gelir.',
   'steps.m.virtualWork.opt.axial.label': 'Eksenel terimi dahil et (N·n·L/EA)',
   'steps.m.virtualWork.opt.axial.help': 'Açıkken yer değiştirmeye eksenel kuvvetin katkısı eklenir ve sonuç, bunu da hesaba katan matris yöntemiyle örtüşür. Daha kesin olan seçenek budur. El çözümleri genellikle bunu ihmal eder, çünkü çerçevelerde ve kirişlerde eğilmeye göre küçüktür; bu klasik çözümü ve sonucu ne kadar değiştirdiğini görmek için kapatın.',
-  'steps.m.castigliano.opt.axial.label': 'Eksenel terimi dahil et (N²/2EA)',
+  'steps.m.castigliano.opt.axial.label': `Eksenel şekil değiştirme enerjisini dahil et (${axialStrainEnergy})`,
   'steps.m.castigliano.opt.axial.help': 'Açıkken şekil değiştirme enerjisine eksenel kuvvetin katkısı eklenir ve sonuç, bunu da hesaba katan matris yöntemiyle örtüşür. Daha kesin olan seçenek budur. El çözümleri genellikle bunu ihmal eder, çünkü çerçevelerde ve kirişlerde eğilmeye göre küçüktür; bu klasik çözümü ve sonucu ne kadar değiştirdiğini görmek için kapatın.',
   'steps.m.castigliano.coefCaptionOff': 'Yalnızca her çubuğun eğilme terimi. Birimler: hiperstatik bilinmeyenlere göre m/kN, rad/kN veya rad/(kN·m).',
   'steps.m.castigliano.reactionsLead': 'Tepkiler, esas sistemin ve hiperstatik bilinmeyenlerin tepkileri süperpoze edilerek:',

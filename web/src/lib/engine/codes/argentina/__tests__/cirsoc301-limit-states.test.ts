@@ -11,7 +11,8 @@
  * the connection data.
  */
 import { describe, it, expect } from 'vitest';
-import { checkSteelCompression, checkSteelFlexure, checkSteelShear, checkSteelTension, verifySteelElement, type SteelDesignParams } from '../cirsoc301';
+import { checkSteelCompression, checkSteelFlexure, checkSteelShear, checkSteelTension, type SteelDesignParams } from '../cirsoc301';
+import { verifySteelElement } from '../../../__tests__/helpers/manual-interactions';
 
 const IPE200 = (over: Partial<SteelDesignParams> = {}): SteelDesignParams => ({
   Fy: 235, Fu: 360, E: 200_000, A: 28.5e-4, Iz: 1943e-8, Iy: 142e-8,

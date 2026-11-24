@@ -27,7 +27,7 @@
  *   ten-millionth of the largest moment in the model is not a result.
  *
  * Against last-bit noise: the WASM engine is bit-for-bit deterministic for one build
- * (docs/verification/PROVENANCE.md, "Determinism"), so the same build reproduces the snapshot
+ * (testing/docs/PROVENANCE.md, "Determinism"), so the same build reproduces the snapshot
  * exactly. What the tolerance absorbs is a refactor that reorders floating-point operations
  * (a sum in another order, a factorisation with another pivot sequence): its error is about
  * κ·ε, with ε = 2.2e-16 and κ the stiffness's condition number, up to ~1e8 on the slender
@@ -126,11 +126,32 @@ export function compareValues(reference, current) {
  */
 export function mergeValues(reference, current) {
   const peak = peaks(reference ?? {}, current);
+  const envelopes = new Map();
+  for (const [path, value] of Object.entries(current)) {
+    const station = /^envelope\.(\w+)\[e(\d+)\]\.(?:pos|neg)Values\[\d+\]$/.exec(path);
+    if (!station || typeof value !== 'number') continue;
+    const [, kind, id] = station;
+    const key = `envelope.governing[e${id}].${kind}.value`;
+    const member = envelopes.get(key) ?? [];
+    member.push([path, Math.abs(value)]);
+    envelopes.set(key, member);
+  }
+  const exact = new Set();
+  for (const [key, stations] of envelopes) {
+    const governing = current[key];
+    if (typeof governing !== 'number' || !stations.some(([, value]) => value === governing)) continue;
+    if (stations.some(([, value]) => value > governing)) continue;
+    exact.add(key);
+    for (const [path, value] of stations) {
+      if (value === governing || Math.abs(reference?.[path]) > governing) exact.add(path);
+    }
+  }
   const out = {};
   for (const path of Object.keys(current).sort()) {
     const b = current[path];
     const a = reference?.[path];
-    const kept = a !== undefined && sameLeaf(a, b, peak.get(groupOf(path)) ?? 0, path) ? a : b;
+    const keep = !exact.has(path) && a !== undefined && sameLeaf(a, b, peak.get(groupOf(path)) ?? 0, path);
+    const kept = keep ? a : b;
     out[path] = SIGN_FREE.test(path) && typeof kept === 'number' ? Math.abs(kept) : kept;
   }
   return out;

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import OutdatedNotice from './design/OutdatedNotice.svelte';
   /**
    * Member checks under a code other than CIRSOC, through the engine's own checkers.
    *
@@ -60,10 +61,8 @@
     try {
       const forces = direct ? directAnalysis.forces() : activePerCombo3D();
       if (!forces) { otherCodesRun.fail(); return; }
-      // Direct forces are available only when every active combination is fit for design. Linear
-      // ones only for the combinations that solved: an unstable one publishes none, and is named.
       const active = activeCombinations();
-      const combos = direct ? active : active.filter((c) => forces.has(c.id));
+      const combos = active;
       const missingNow = direct ? [] : active.filter((c) => !forces.has(c.id)).map((c) => c.id);
       // The concrete is read with the project's cover and bar steel, as the CIRSOC design reads it.
       const ctxs = memberContexts(modelStore.model as never, forces, combos, undefined, { unitK: direct, designData: otherCodesDesignData() });
@@ -77,7 +76,7 @@
   }
 
   /*
-   * ── Certified utilizations (docs/verification/CERTIFY.md, "Certified design checks") ──
+   * ── Certified utilizations (testing/docs/CERTIFY.md, "Certified design checks") ──
    *
    * Once the check is shown and the combinations it read are certified (`certificate.svelte.ts`),
    * the same members and demands go to the code's certified checker, each force with its certified
@@ -215,6 +214,7 @@
     {#if failure && failure.key !== 'engine.unavailable'}<p class="pk-warn">{failure.message}</p>{/if}
   {:else if run}
     <section class="pk-card" data-testid="other-codes-results">
+      <OutdatedNotice audit={code.family === 'concrete' ? ['rc-design'] : []} />
       <ProDesignCompleteness {missing} />
       {#if run.errorKey}
         <p class="pk-warn" data-testid="other-codes-run-error">{t(run.errorKey)}</p>

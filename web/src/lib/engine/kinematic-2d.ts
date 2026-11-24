@@ -2,6 +2,7 @@
 // computeStaticDegree is pure counting math (no solver dependency).
 // analyzeKinematics delegates to the WASM engine for the heavy LU rank analysis.
 
+import { shownDof } from '../axes/user-names';
 import type { SolverInput } from './types';
 import { analyzeKinematics as wasmAnalyzeKinematics, isWasmReady } from './wasm-solver';
 import { t, tp } from '../i18n';
@@ -49,6 +50,7 @@ export interface KinematicResult {
    * must be in (-1, 0.5)"). Absent otherwise.
    */
   invalidInput?: string;
+  invalidInputKind?: 'unsupportedNodalMoment';
   /**
    * Raw DOF codes the engine reported that this boundary does not recognise.
    * Normally empty; non-empty means the engine's vocabulary drifted again and
@@ -279,7 +281,7 @@ export function localizeKinematicDiagnosis(r: {
   const nodeList = nodes.slice(0, 8).join(', ');
   const dofList = r.unconstrainedDofs
     .slice(0, 8)
-    .map((d) => `${t('kin.nodeLC')} ${d.nodeId} (${DOF_LABEL_KEY[d.dof] ? t(DOF_LABEL_KEY[d.dof]) : d.dof})`)
+    .map((d) => `${t('kin.nodeLC')} ${d.nodeId} (${DOF_LABEL_KEY[shownDof(d.dof)] ? t(DOF_LABEL_KEY[shownDof(d.dof)]) : d.dof})`)
     .join('; ');
   const ms = r.mechanismModes > 1 ? 's' : '';
   if (nodes.length <= 3) {
@@ -306,6 +308,7 @@ export function normalizeKinematicResult(raw: {
   diagnosis: string;
   isSolvable: boolean;
   invalidInput?: string;
+  invalidInputKind?: 'unsupportedNodalMoment';
 }): KinematicResult {
   const unconstrainedDofs: Array<{ nodeId: number; dof: Dof2D }> = [];
   const unmappedDofs: string[] = [];
@@ -335,7 +338,7 @@ export function normalizeKinematicResult(raw: {
     // a finding. Reported as 'available', the kinematic report read it as
     // "no mechanisms — the structure is stable".
     rankAnalysis: raw.invalidInput ? 'invalid' : 'available',
-    ...(raw.invalidInput ? { invalidInput: raw.invalidInput } : {}),
+    ...(raw.invalidInput ? { invalidInput: raw.invalidInput, invalidInputKind: raw.invalidInputKind } : {}),
     unmappedDofs,
   };
 }

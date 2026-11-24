@@ -1,0 +1,39 @@
+{
+  "id": "concurrent-torsion-reinforcement",
+  "date": "2026-11-14",
+  "prs": [
+    2080
+  ],
+  "area": "design",
+  "when": {
+    "any": [
+      "concreteMembers"
+    ]
+  },
+  "quantities": [
+    "member",
+    "rc"
+  ],
+  "title": {
+    "en": "Concurrent cases retain all required torsion reinforcement",
+    "es": "Los casos concurrentes conservan toda la armadura de torsión requerida",
+    "pt": "Os casos concorrentes mantêm toda a armadura de torção necessária",
+    "de": "Gleichzeitige Lastfälle behalten die gesamte erforderliche Torsionsbewehrung",
+    "fr": "Les cas concomitants conservent toutes les armatures de torsion requises",
+    "tr": "Eşzamanlı yük durumları gerekli burulma donatısının tamamını korur",
+    "zh": "同时作用的工况保留全部所需的抗扭配筋"
+  },
+  "explanation": {
+    "en": "The case governing torsion utilization could require less steel than another case. Concrete summaries now retain the largest transverse and longitudinal torsion requirements and check the common reinforcement against every case, including combined shear and torsion. Incomplete station combinations stop candidate search with demand unavailable. Re-run saved concrete designs and review reinforcement and failures (PR #2080).",
+    "es": "El caso que gobierna la utilización por torsión podía requerir menos armadura que otro. El resumen de hormigón conserva ahora los máximos requisitos transversales y longitudinales y verifica la armadura común en cada caso, incluido corte con torsión. Las combinaciones con estaciones incompletas detienen la búsqueda con demanda no disponible. Repetí los diseños guardados y revisá la armadura y las fallas (PR #2080).",
+    "pt": "O caso que governa a utilização por torção podia exigir menos armadura que outro. O resumo de concreto mantém agora os maiores requisitos transversais e longitudinais e verifica a armadura comum em cada caso, incluindo cisalhamento com torção. Combinações com estações incompletas interrompem a busca por demanda indisponível. Refaça os projetos salvos e revise a armadura e as falhas (PR #2080).",
+    "de": "Der für die Torsionsausnutzung maßgebende Fall konnte weniger Bewehrung erfordern als ein anderer. Betonzusammenfassungen behalten nun die größten Quer- und Längsbewehrungsanforderungen und prüfen die gemeinsame Bewehrung für jeden Fall, einschließlich Querkraft mit Torsion. Unvollständige Stationskombinationen stoppen die Suche mit nicht verfügbaren Lastdaten. Gespeicherte Betonbemessungen erneut ausführen und Bewehrung und Fehler prüfen (PR #2080).",
+    "fr": "Le cas gouvernant le taux de travail en torsion pouvait exiger moins d’armatures qu’un autre. Le résumé béton conserve désormais les exigences transversales et longitudinales maximales et vérifie les armatures communes pour chaque cas, y compris effort tranchant et torsion combinés. Les combinaisons de stations incomplètes arrêtent la recherche pour sollicitations indisponibles. Relancer les calculs enregistrés et examiner les armatures et les échecs (PR #2080).",
+    "tr": "Burulma kullanımını belirleyen durum, başka bir durumdan daha az donatı gerektirebiliyordu. Beton özetleri artık en büyük enine ve boyuna burulma donatısı gereksinimlerini korur ve ortak donatıyı birleşik kesme ve burulma dahil her durumda kontrol eder. Eksik istasyon kombinasyonları, yük verisi mevcut değil sonucu ile aday aramasını durdurur. Kayıtlı beton tasarımlarını yeniden çalıştırıp donatıyı ve başarısızlıkları inceleyin (PR #2080).",
+    "zh": "控制抗扭利用率的工况，所需钢筋可能少于另一个工况。混凝土汇总结果现在保留最大的横向和纵向抗扭需求，并针对每个工况（包括剪扭联合作用）检查共用配筋。站点组合不完整时，候选方案的搜索会停止，并提示内力需求不可用。请重新运行已保存的混凝土设计，并复核配筋和不满足项（PR #2080）。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-concurrent-torsion-reinforcement.md",
+    "heading": "Concurrent torsion reinforcement retained across cases (2026-11-14)"
+  }
+}

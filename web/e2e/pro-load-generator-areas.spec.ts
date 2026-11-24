@@ -1,10 +1,6 @@
-import { test, expect, loadModel, alSection, designPlace } from './fixtures';
+import { dwellingFloorLoads, expectGeneratedSeismicStoryLoads, expectLoadGenerationRefusal, loadSeismicFloor, openSeismicLoadGenerator } from './load-generator-inputs';
+import { test, expect, loadModel, alSection } from './fixtures';
 
-/*
- * The regulation load generator puts area loads where the structure carries them: by the
- * tributary area of the panels its beams close, with the roof's own dead load and roof live
- * load Lr, and as one undo step.
- */
 async function openDialog(page: import('@playwright/test').Page) {
   await loadModel(page, 'rc-design-qa-8');
   await page.getByTestId('pr-stage-model').click();
@@ -14,7 +10,7 @@ async function openDialog(page: import('@playwright/test').Page) {
 }
 
 test.describe('@smoke area loads by tributary area, the roof apart', () => {
-  test('by panels, with a maintenance roof: an Lr case, the derivation says how, one undo', async ({ pro: page }) => {
+  test('a maintenance roof refuses; dwelling panels apply with a derivation and one undo', async ({ pro: page }) => {
     await openDialog(page);
     await alSection(page, 'applying');
     await expect(page.getByTestId('al-gravity-mode')).toHaveValue('panels');
@@ -23,12 +19,14 @@ test.describe('@smoke area loads by tributary area, the roof apart', () => {
     await expect(page.getByTestId('al-roof-use')).toHaveValue('maintenance');
     await expect(page.getByTestId('al-roof-lr')).toContainText(/Lr 0\.\d\d–0\.\d\d kN\/m²/);
     const before = await page.evaluate(() => window.__stabileo.modelCensus());
+    await expectLoadGenerationRefusal(page, /concentrated roof actions/);
+    await dwellingFloorLoads(page);
     await page.getByTestId('al-preview-btn').click();
     await expect(page.getByTestId('al-preview')).toContainText(/tributary area/i);
     await page.getByTestId('al-apply').click();
     await expect(page.getByTestId('al-apply')).toHaveCount(0, { timeout: 45_000 });
     const names = await page.evaluate(() => window.__stabileo.loadCaseNames());
-    expect(names).toEqual(expect.arrayContaining(['Roof live']));
+    expect(names).not.toContain('Roof live');
     const after = await page.evaluate(() => window.__stabileo.modelCensus());
     expect(after.loads).toBeGreaterThan(before.loads);
     // The whole application is one step back.
@@ -37,13 +35,15 @@ test.describe('@smoke area loads by tributary area, the roof apart', () => {
     expect((await page.evaluate(() => window.__stabileo.modelCensus())).combinations).toBe(before.combinations);
   });
 
-  test('the uniform width is still there, and a roof with an occupancy carries L', async ({ pro: page }) => {
+  test('an occupied roof refuses; dwelling floors still accept a uniform width', async ({ pro: page }) => {
     await openDialog(page);
     await alSection(page, 'applying');
     await page.getByTestId('al-gravity-mode').selectOption('width');
     await alSection(page, 'roof');
     await page.getByTestId('al-roof-use').selectOption('occupancy');
     await page.getByTestId('al-roof-occupancy').selectOption('azotea_privada');
+    await expectLoadGenerationRefusal(page, /concentrated roof actions/);
+    await dwellingFloorLoads(page);
     await page.getByTestId('al-preview-btn').click();
     await page.getByTestId('al-apply').click();
     await expect(page.getByTestId('al-apply')).toHaveCount(0, { timeout: 45_000 });
@@ -55,6 +55,7 @@ test.describe('@smoke area loads by tributary area, the roof apart', () => {
 test.describe('@smoke torsion of edge beams under one-sided slab load (#1401)', () => {
   test('the preview names the edge beams for a torsion check', async ({ pro: page }) => {
     await openDialog(page);
+    await dwellingFloorLoads(page);
     await page.getByTestId('al-preview-btn').click();
     const box = page.getByTestId('al-assumptions');
     await expect(box).toContainText('Torsion from one-sided slab load is not included');
@@ -75,6 +76,7 @@ test.describe('@smoke torsion of edge beams under one-sided slab load (#1401)', 
       } else {
         await openDialog(page);
       }
+      await dwellingFloorLoads(page);
       await page.getByTestId('al-preview-btn').click();
       const item = page.getByTestId('al-assumptions').locator('li', { hasText: 'edge beams' });
       await item.scrollIntoViewIfNeeded();
@@ -89,27 +91,36 @@ test.describe('@smoke torsion of edge beams under one-sided slab load (#1401)', 
   }
 });
 
-test.describe('@smoke the seismic action: modal method, vertical component, torsion', () => {
-  test('modal response spectrum from the dialog: modes, the derivation, the eccentric cases', async ({ pro: page }) => {
-    await loadModel(page, 'rc-design-qa-8');
-    // The roles live in the project regulations, beside the design data (Prepare › Design data).
-    await designPlace(page, 'designData');
-    await page.getByTestId('role-select-seismic').selectOption('inpres103-2018');
-    await page.getByTestId('pending-review-in-loads').click();
-    await page.getByRole('button', { name: /Auto-generate from code/i }).click();
-    await alSection(page, 'seismic');
-    await page.getByTestId('al-enable-seismic').check();
+test.describe('@smoke seismic generation', () => {
+  test('refuses modal response-spectrum load generation and links the issue', async ({ pro: page }) => {
+    await loadSeismicFloor(page);
+    await openSeismicLoadGenerator(page);
+    await dwellingFloorLoads(page);
     await page.getByTestId('al-seismic-method-select').selectOption('modal');
     await page.getByTestId('al-seismic-torsion').selectOption('medium');
     await expect(page.getByTestId('al-seismic-vertical')).toBeChecked();
+    await expectLoadGenerationRefusal(page, /Modal seismic load generation is unavailable until the modal force distribution is corrected\. Use the static method\./, 2319);
+    await page.getByTestId('al-seismic-method-select').selectOption('static');
     await page.getByTestId('al-preview-btn').click();
-    await expect(page.getByTestId('al-apply-error')).toHaveCount(0);
-    await expect(page.getByTestId('al-preview')).toContainText(/Modal response spectrum along X/);
     await expect(page.getByTestId('al-preview')).toContainText(/Vertical component/);
     await page.getByTestId('al-apply').click();
     await expect(page.getByTestId('al-apply')).toHaveCount(0, { timeout: 45_000 });
     const names = await page.evaluate(() => window.__stabileo.loadCaseNames());
-    expect(names.filter((n) => /^Seismic X \(\+5 % eccentricity\)|^Seismic X \(−5 % eccentricity\)/.test(n))).toHaveLength(2);
+    expect(names.filter(name => name.startsWith('Seismic ')).sort()).toEqual([
+      'Seismic X (+5 % eccentricity)',
+      'Seismic X (−5 % eccentricity)',
+      'Seismic Y (+5 % eccentricity)',
+      'Seismic Y (−5 % eccentricity)',
+    ]);
+    await expectGeneratedSeismicStoryLoads(page);
+  });
+
+  test('static generation refuses eccentric floor mass on frame members', async ({ pro: page }) => {
+    await loadModel(page, 'rc-design-qa-8');
+    await openSeismicLoadGenerator(page);
+    await dwellingFloorLoads(page);
+    await page.getByTestId('al-seismic-method-select').selectOption('static');
+    await expectLoadGenerationRefusal(page, /Seismic loading refused at 3[.]2 m[.] The floor tributary region requires eccentric member loads/);
   });
 });
 
@@ -124,6 +135,7 @@ test.describe('@smoke wind on other structures and the cladding table', () => {
     await expect(page.getByTestId('al-cladding-table').locator('tbody tr')).not.toHaveCount(0);
     await page.getByTestId('al-wind-kind').selectOption('freeRoof');
     await expect(page.getByTestId('al-cladding')).toHaveCount(0);
+    await dwellingFloorLoads(page);
     await page.getByTestId('al-preview-btn').click();
     await page.getByTestId('al-apply').click();
     await expect(page.getByTestId('al-apply')).toHaveCount(0, { timeout: 45_000 });
@@ -138,6 +150,7 @@ test.describe('@smoke T, H and F from the dialog', () => {
     await alSection(page, 'special');
     await page.getByTestId('al-thermal').check();
     await page.getByTestId('al-thermal-dt').fill('25');
+    await dwellingFloorLoads(page);
     await page.getByTestId('al-preview-btn').click();
     await page.getByTestId('al-apply').click();
     await expect(page.getByTestId('al-apply')).toHaveCount(0, { timeout: 45_000 });
@@ -185,6 +198,7 @@ test.describe('@smoke the generator one section at a time', () => {
     await expect(page.getByTestId('al-nav-status-snow')).toContainText('kN/m²');
     await expect(page.getByTestId('al-summary')).toContainText('S');
     // The preview takes the section's place, and a section chosen from it goes back to editing.
+    await dwellingFloorLoads(page);
     await page.getByTestId('al-preview-btn').click();
     await expect(page.getByTestId('al-preview')).toBeVisible();
     await alSection(page, 'live');
@@ -202,6 +216,7 @@ test.describe('@smoke the generator one section at a time', () => {
     await page.getByTestId('al-snow-parapet').blur();
     await page.getByTestId('al-snow-adjacent-add').click();
     await expect(page.getByTestId('al-snow-adjacent-0')).toBeVisible();
+    await dwellingFloorLoads(page);
     await page.getByTestId('al-preview-btn').click();
     await page.getByTestId('al-derivation').locator('summary').click();
     await expect(page.getByTestId('al-derivation')).toContainText(/parapet on an edge/);

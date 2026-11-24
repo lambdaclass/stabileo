@@ -4,6 +4,11 @@
  */
 import { describe, it, expect, beforeEach } from 'vitest';
 import { historyStore, modelStore, uiStore } from '..';
+import { buildSolverInput2D, buildSolverInput3D, validateAndSolve2D, validateAndSolve3D } from '../../engine/solver-service';
+import { solvePDelta, solvePDelta3D } from '../../engine/wasm-solver';
+import { flipMembers } from '../../model/edit/flip-members';
+import { modelFeatures } from '../../provenance/model-features';
+import type { AnalysisResults } from '../../engine/types';
 import type { AnalysisResults3D } from '../../engine/types-3d';
 
 function spaceResults() {
@@ -130,4 +135,137 @@ describe('reverseElement', () => {
     const after = modelStore.solve3D(false, false, false) as never;
     expect(reactions(after)).toEqual(reactions(before));
   });
+});
+
+for (const [qI, qJ] of [[2, 2], [2, 5]] as const) {
+  it(`#2268 a reversed member preserves the physical axial load ${qI} to ${qJ}`, () => {
+    uiStore.analysisMode = '3d';
+    const length = 4;
+    const root = modelStore.addNode(0, 0, 0);
+    const tip = modelStore.addNode(length, 0, 0);
+    const member = modelStore.addElement(root, tip);
+    modelStore.addSupport(root, 'fixed3d');
+    modelStore.addDistributedLoad3D(member, 0, 0, 0, 0, undefined, undefined, undefined, { qXI: qI, qXJ: qJ });
+    const expectedReaction = -length * (qI + qJ) / 2;
+    expect(spaceResults().reactions.find(({ nodeId }) => nodeId === root)?.fx).toBeCloseTo(expectedReaction, 12);
+    modelStore.reverseElement(member);
+    expect(spaceResults().reactions.find(({ nodeId }) => nodeId === root)?.fx).toBeCloseTo(expectedReaction, 12);
+  });
+}
+
+const axialLength = 4;
+const a = 0.5;
+const b = 3;
+const physicalTotal = (qI: number, qJ: number) => (b - a) * (qI + qJ) / 2;
+
+function axialModel(mode: '2d' | '3d') {
+  uiStore.analysisMode = mode;
+  uiStore.useNative3DPresentation();
+  const plane = mode === '2d';
+  const root = modelStore.addNode(0, 0, plane ? undefined : 0);
+  const tip = modelStore.addNode(axialLength, 0, plane ? undefined : 0);
+  const member = modelStore.addElement(root, tip);
+  modelStore.addSupport(root, plane ? 'fixed' : 'fixed3d');
+  return { root, member };
+}
+
+function planeAxialResults(): AnalysisResults[] {
+  const model = modelStore.model;
+  const linear = validateAndSolve2D(model);
+  const input = buildSolverInput2D(model);
+  if (!input || !linear || typeof linear === 'string') throw new Error(String(linear));
+  const secondOrder = solvePDelta(input);
+  expect(secondOrder.isStable).toBe(true);
+  return [linear, secondOrder.results];
+}
+
+function spaceAxialResults(): AnalysisResults3D[] {
+  const model = modelStore.model;
+  const linear = validateAndSolve3D(model);
+  const input = buildSolverInput3D(model);
+  if (!input || !linear || typeof linear === 'string') throw new Error(String(linear));
+  const secondOrder = solvePDelta3D(input);
+  expect(secondOrder.isStable).toBe(true);
+  return [linear, secondOrder.results];
+}
+
+function expectAxial(
+  root: number, member: number, mode: '2d' | '3d', qI: number, qJ: number, reversed: boolean,
+) {
+  const total = physicalTotal(qI, qJ);
+  const results = mode === '2d' ? planeAxialResults() : spaceAxialResults();
+  const close = (actual: number | undefined, expected: number) => expect.soft(actual).toBeCloseTo(expected, 12);
+  for (const result of results) {
+    const reaction = result.reactions.find(r => r.nodeId === root)!;
+    const forces = result.elementForces.find(f => f.elementId === member)!;
+    close('fx' in reaction ? reaction.fx : reaction.rx, -total);
+    close(forces.nStart, reversed ? 0 : total);
+    close(forces.nEnd, reversed ? total : 0);
+    const [span] = forces.distributedLoadsX ?? [];
+    close(span?.qI, reversed ? -qJ : qI);
+    close(span?.qJ, reversed ? -qI : qJ);
+    close(span?.a, reversed ? axialLength - b : a);
+    close(span?.b, reversed ? axialLength - a : b);
+  }
+}
+
+for (const [qI, qJ] of [[2, 2], [2, 5]] as const) {
+  it(`#2268 preserves a spatial axial load over a partial span ${qI} to ${qJ}`, () => {
+    const { root, member } = axialModel('3d');
+    modelStore.addDistributedLoad3D(member, 0, 0, 0, 0, a, b, undefined, { qXI: qI, qXJ: qJ });
+    expect(modelFeatures(modelStore.snapshot()).has('spatialDistributedLoadOrientation')).toBe(true);
+    expectAxial(root, member, '3d', qI, qJ, false);
+    modelStore.reverseElement(member);
+    expectAxial(root, member, '3d', qI, qJ, true);
+    modelStore.reverseElement(member);
+    expectAxial(root, member, '3d', qI, qJ, false);
+    expect(flipMembers([member]).flipped).toEqual([member]);
+    expectAxial(root, member, '3d', qI, qJ, true);
+  });
+
+  for (const mode of ['2d', '3d'] as const) {
+    it(`#2268 preserves a drawn axial load ${qI} to ${qJ} in the ${mode} solve`, () => {
+      const { root, member } = axialModel('2d');
+      modelStore.addDistributedLoad(member, qI, qJ, 90, false, undefined, a, b);
+      expectAxial(root, member, mode, qI, qJ, false);
+      modelStore.reverseElement(member);
+      expectAxial(root, member, mode, qI, qJ, true);
+      expect(flipMembers([member]).flipped).toEqual([member]);
+      expectAxial(root, member, mode, qI, qJ, false);
+    });
+  }
+}
+
+for (const frame of ['global', 'projected'] as const) {
+  it(`#2268 reverses the span profile in the fixed ${frame} frame`, () => {
+    uiStore.analysisMode = '3d';
+    const root = modelStore.addNode(0, 0, 0);
+    const tip = modelStore.addNode(4, 0, 3);
+    const member = modelStore.addElement(root, tip);
+    modelStore.addSupport(root, 'fixed3d');
+    const qI = 2, qJ = 5, qYI = 3, qYJ = 7;
+    const length = 5;
+    modelStore.addDistributedLoad3D(member, qYI, qYJ, 0, 0, a, b, undefined, { frame, qXI: qI, qXJ: qJ });
+    const projection = frame === 'projected' ? 3 / length : 1;
+    const expected = -physicalTotal(qI, qJ) * projection;
+    const before = spaceResults();
+    expect(before.reactions.find(r => r.nodeId === root)?.fx).toBeCloseTo(expected, 12);
+    modelStore.reverseElement(member);
+    expect.soft(modelStore.loads[0]?.data).toMatchObject({ qXI: qJ, qXJ: qI, qYI: qYJ, qYJ: qYI, a: length - b, b: length - a });
+    sameSpaceResults(spaceResults(), before);
+    expect(flipMembers([member]).flipped).toEqual([member]);
+    expect(modelStore.loads[0]?.data).toMatchObject({ qXI: qI, qXJ: qJ, qYI, qYJ, a, b });
+    sameSpaceResults(spaceResults(), before);
+  });
+}
+
+it('#2268 reverses a one-sided axial profile from a saved model', () => {
+  const { root, member } = axialModel('3d');
+  modelStore.model.loads = [{
+    type: 'distributed3d', data: { id: 1, elementId: member, qYI: 0, qYJ: 0, qZI: 0, qZJ: 0, qXJ: 5, a, b },
+  }];
+  modelStore.restore(JSON.parse(JSON.stringify(modelStore.snapshot())));
+  expectAxial(root, member, '3d', 0, 5, false);
+  modelStore.reverseElement(member);
+  expectAxial(root, member, '3d', 0, 5, true);
 });

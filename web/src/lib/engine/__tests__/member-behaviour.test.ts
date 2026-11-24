@@ -3,14 +3,14 @@
  * to: a slack diagonal is the frame without it, a lifted support is the beam without it, an
  * inactive member is not there, and a modified stiffness scales the deflection it controls.
  */
-import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest';
 import { modelStore } from '../../store/model.svelte';
 import { historyStore } from '../../store/history.svelte';
 import '../../store';
 import * as wasmSolver from '../wasm-solver';
 import { solveDetailed } from '../solver-detailed';
 import { solveDetailed3D } from '../solver-detailed-3d';
-import { buildSolverInput2D, buildSolverInput3D, validateAndSolve3D, solveCombinations3D, scaleSolverLoad } from '../solver-service';
+import { buildSolverInput3D, validateAndSolve3D, solveCombinations3D, scaleSolverLoad } from '../solver-service';
 import { SETTLEMENT_CASE_ID } from '../settlement-case';
 import { presetModifiers, CIRSOC201_STIFFNESS, solveNonlinear3D } from '../member-behaviour';
 import { modelHasJoints3D } from '../expand-joints-3d';
@@ -457,7 +457,7 @@ it('preserves cable identity so bar analyses refuse it and cable analysis remain
   modelStore.updateElement(d5, { behaviour: 'cable' });
   const input = buildSolverInput3D(md())!;
   expect(input.elements.get(d5)?.type).toBe('cable');
-  const plane = buildSolverInput2D(md())!;
+  const plane = modelStore.buildSolverInput(false, 'xz')!;
   expect(plane.elements.get(d5)?.type).toBe('cable');
   for (const run of [() => solveDetailed(plane), () => solveDetailed3D(input)]) {
     let caught: unknown;
@@ -491,4 +491,27 @@ it('a cable diagonal that a bar solve compresses goes slack and leaves the frame
   expect(cable.reactions.reduce((sum, r) => sum + r.fx, 0)).toBeCloseTo(50, 6);
   modelStore.removeElement(d5);
   expect(disp(cable, n3).ux).toBeCloseTo(disp(solve(), n3).ux, 9);
+});
+
+
+it('scans displacement magnitudes once when several inactive members are checked', () => {
+  const { d6 } = bracedBay('tensionOnly');
+  const model = md();
+  const compressed = model.elements.get(d6)!;
+  for (let id = 100; id < 104; id++) model.elements.set(id, { ...compressed, id });
+  const input = buildSolverInput3D(model)!;
+  const hypot = vi.spyOn(Math, 'hypot');
+  let lastDisplacements = 0;
+  try {
+    const answer = solveNonlinear3D(model, input, trial => {
+      const result = wasmSolver.solve3D(trial);
+      lastDisplacements = result.displacements.length;
+      // Count the active-set decision after the native solve, excluding preparation.
+      hypot.mockClear();
+      return result;
+    });
+    expect(answer.report.iterations).toBe(2);
+    expect(answer.report.slack).toHaveLength(5);
+    expect(hypot).toHaveBeenCalledTimes(lastDisplacements);
+  } finally { hypot.mockRestore(); }
 });

@@ -1,3 +1,4 @@
+import { axialStrainEnergy } from './strain-energy-label';
 import type { Translations } from '../../types';
 import course from '../course/de';
 
@@ -571,7 +572,7 @@ const stepsDe: Translations = {
   'steps.trusses.compat.meaning': 'Kraft',
   'steps.trusses.compat.PTable': 'Verformungen p und Kräfte P jeder Elementkoordinate.',
   'steps.trusses.compat.endsTitle': 'Auflagerreaktionen und Gleichgewicht',
-  'steps.trusses.compat.endsLeadTruss': 'Jeder Stab zieht oder drückt entsprechend seiner Normalkraft an seinen Knoten. An einem Auflager ist die Reaktion die Summe dieser Kräfte über die dort anschließenden Stäbe k, abzüglich der Knotenlast.',
+  "steps.trusses.compat.endsLeadTruss": "Jeder Stab zieht oder drückt entsprechend seiner Normalkraft an seinen Knoten. An einem Auflager ist die Reaktion die negative Summe dieser Kräfte der dort anschließenden Stäbe k, abzüglich der aufgebrachten Knotenlast P: R = −ΣF_k − P.",
   'steps.trusses.compat.endsLeadFrame': 'Die Endmomente ergänzen die Querkräfte jedes Stabes, und das Gleichgewicht jedes Auflagerknotens liefert seine Reaktion: die Summe der Stabendkräfte der dort anschließenden Stäbe k, abzüglich der Knotenlast.',
   'steps.trusses.compat.shearNote': 'V^s sind die Auflagerreaktionen aus der Stablast am Stab als Einfeldträger; der zweite Term gleicht die Endmomente aus.',
   'steps.trusses.compat.endsTable': 'Stabendkräfte (N bei Zug positiv, V in lokaler +y-Richtung, M gegen den Uhrzeigersinn).',
@@ -609,7 +610,7 @@ const stepsDe: Translations = {
   'steps.deformation.axialOffNote': 'Der Unterschied zum Matrizenverfahren rührt vom Weglassen des Normalkraftanteils her, den das Matrizenverfahren berücksichtigt.',
   'steps.m.virtualWork.opt.axial.label': 'Normalkraftanteil berücksichtigen (N·n·L/EA)',
   'steps.m.virtualWork.opt.axial.help': 'Eingeschaltet enthält die Verschiebung den Beitrag der Normalkraft, und das Ergebnis stimmt mit dem Matrizenverfahren überein, das ihn ebenfalls berücksichtigt. Das ist die genauere Wahl. Handrechnungen vernachlässigen ihn meist, weil er bei Rahmen und Balken im Vergleich zur Biegung klein ist; schalten Sie ihn aus, um diese klassische Lösung zu sehen und wie stark sie sich ändert.',
-  'steps.m.castigliano.opt.axial.label': 'Normalkraftanteil berücksichtigen (N²/2EA)',
+  'steps.m.castigliano.opt.axial.label': `Formänderungsenergie aus Normalkraft berücksichtigen (${axialStrainEnergy})`,
   'steps.m.castigliano.opt.axial.help': 'Eingeschaltet enthält die Formänderungsenergie den Beitrag der Normalkraft, und das Ergebnis stimmt mit dem Matrizenverfahren überein, das ihn ebenfalls berücksichtigt. Das ist die genauere Wahl. Handrechnungen vernachlässigen ihn meist, weil er bei Rahmen und Balken im Vergleich zur Biegung klein ist; schalten Sie ihn aus, um diese klassische Lösung zu sehen und wie stark sie sich ändert.',
   'steps.m.castigliano.coefCaptionOff': 'Nur der Biegeanteil jedes Stabes. Einheiten: m/kN, rad/kN oder rad/(kN·m), je nach den Überzähligen.',
   'steps.m.castigliano.reactionsLead': 'Die Auflagerreaktionen durch Überlagerung derjenigen des Grundsystems und der Überzähligen:',

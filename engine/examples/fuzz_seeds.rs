@@ -1,4 +1,4 @@
-//! Seed corpora for the fuzz targets in engine/fuzz (docs/verification/FUZZ_MUTANTS.md).
+//! Seed corpora for the fuzz targets in testing/fuzz (testing/docs/FUZZ_MUTANTS.md).
 //!
 //!   cargo run --release --example fuzz_seeds [OUT_DIR]
 //!
@@ -7,7 +7,7 @@
 //! input per entry point of each JSON target: selector byte, parameter byte,
 //! then the JSON the entry point takes (the model itself, or the model wrapped
 //! with densities, load cases, time-history or plastic data). OUT_DIR defaults
-//! to fuzz/corpus. The inputs of past findings (fuzz/regressions/<target>/,
+//! to ../testing/fuzz/corpus. The inputs of past findings (../testing/fuzz/regressions/<target>/,
 //! kept in git) are copied in too, so every run starts from them.
 
 use dedaliano_engine::solver::modal;
@@ -28,7 +28,7 @@ fn is_seed(name: &str) -> bool {
 }
 
 fn main() {
-    let out = std::env::args().nth(1).unwrap_or_else(|| "fuzz/corpus".to_string());
+    let out = std::env::args().nth(1).unwrap_or_else(|| "../testing/fuzz/corpus".to_string());
     let out = Path::new(&out);
     let mut files: Vec<_> = fs::read_dir("tests/fixtures")
         .expect("run from engine/")
@@ -59,8 +59,8 @@ fn main() {
             count += 1;
         }
     }
-    // Past findings (docs/verification/FUZZ_MUTANTS.md), one directory per target.
-    if let Ok(targets) = fs::read_dir("fuzz/regressions") {
+    // Past findings (testing/docs/FUZZ_MUTANTS.md), one directory per target.
+    if let Ok(targets) = fs::read_dir("../testing/fuzz/regressions") {
         for t in targets.filter_map(|e| e.ok()).filter(|e| e.path().is_dir()) {
             let dir = out.join(t.file_name());
             fs::create_dir_all(&dir).unwrap();
@@ -70,7 +70,7 @@ fn main() {
             }
         }
     }
-    eprintln!("wrote {count} seeds from {} fixtures and fuzz/regressions to {}", files.len(), out.display());
+    eprintln!("wrote {count} seeds from {} fixtures and ../testing/fuzz/regressions to {}", files.len(), out.display());
 }
 
 fn is_3d(v: &Value) -> bool {

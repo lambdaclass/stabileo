@@ -1,4 +1,4 @@
-//! Certified 3D plastic collapse load factor (docs/verification/CERTIFY.md,
+//! Certified 3D plastic collapse load factor (testing/docs/CERTIFY.md,
 //! "Plastic collapse load factor, 3D"), and the 3D event-to-event solver
 //! against it.
 //!

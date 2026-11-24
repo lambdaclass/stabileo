@@ -163,7 +163,7 @@ const body: PostBody = {
       "items": [
         "Basic enseigne l’analyse des structures pas à pas : statique, méthodes des forces et des déplacements, lignes d’influence, second ordre et flambement, analyse plastique et dynamique, chaque sujet étant expliqué pas à pas dans l’application. Son module de ruine plastique reste retenu avec le reste du calcul de ruine plastique 2D tant que #758 n’est pas corrigé.",
         "L’allemand, le français et le turc sont à nouveau proposés.",
-        "L’assistant IA fonctionne avec votre propre clé Anthropic ou OpenAI, conservée uniquement dans votre navigateur, et /examples propose des modèles interactifs que le moteur recalcule lorsque vous déplacez un curseur.",
+        "L’assistant IA fonctionne avec votre propre clé Anthropic ou OpenAI, conservée uniquement dans votre navigateur, et /tools propose des modèles interactifs que le moteur recalcule lorsque vous déplacez un curseur.",
         "PRO : étages maîtres et étages similaires, résultats de plaques par unité de largeur avec moments et directions principaux, rapport après l’analyse, visualiseur en lecture seule avec « Dupliquer et modifier », et fichier IFC lié dessiné comme référence 3D.",
         "Les fichiers enregistrés par les versions 0.2.0, 0.3.0 et 0.4.0 s’ouvrent, sont migrés et donnent les mêmes résultats à chaque modification, sauf lorsqu’une modification de résultats enregistrée s’applique ; un fichier enregistré par une version plus récente est refusé avec un message qui le précise.",
         "La même structure mise à l’échelle, renumérotée, inversée ou déplacée doit donner la même réponse : cela est vérifié sur 17 types d’analyse à chaque modification et sur 8 192 modèles générés chaque nuit.",

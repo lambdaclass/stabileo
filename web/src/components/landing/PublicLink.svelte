@@ -28,9 +28,12 @@
    */
   import type { Snippet } from 'svelte';
   import { publicI18n } from '../../lib/i18n/store.svelte';
+  import { publishedLocale } from '../../lib/i18n/published';
   import { publicHref } from '../../lib/i18n/public-routes';
   import { prefetchPublicLink } from '../../lib/public-navigation';
   import { goPublic } from './landing-utils';
+  import { publicFeatureEnabled } from '../../lib/features';
+  import { movedRoute } from '../../lib/legacy-routes';
 
   type Props = {
     /** Unprefixed: '/', '/blog', '/blog/<slug>'. The language is added here. */
@@ -44,14 +47,17 @@
   };
   let { to, class: cls = '', children, ...rest }: Props = $props();
 
-  const href = $derived(publicHref(to, publicI18n.locale));
+  const target = $derived(__PUBLIC_FEATURES__.tools ? movedRoute(to) ?? to : to);
+  const href = $derived(publicHref(target, __PUBLIC_FEATURES__.research ? publishedLocale(target, publicI18n.locale) : publicI18n.locale));
 
   function onclick(e: MouseEvent) {
     // Anything but a plain left click belongs to the browser.
     if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
     e.preventDefault();
-    goPublic(to);
+    goPublic(target);
   }
 </script>
 
-<a use:prefetchPublicLink={to} {href} class={cls} {onclick} {...rest}>{@render children()}</a>
+{#if (__PUBLIC_FEATURES__.research || __PUBLIC_FEATURES__.tools || __PUBLIC_FEATURES__.diagramGame || __PUBLIC_FEATURES__.accounts) ? publicFeatureEnabled(target) : true}
+<a use:prefetchPublicLink={target} {href} class={cls} {onclick} {...rest}>{@render children()}</a>
+{/if}

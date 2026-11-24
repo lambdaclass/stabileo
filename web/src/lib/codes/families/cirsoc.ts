@@ -35,8 +35,17 @@ export const CIRSOC101_BASIS: CombinationCode = {
 
 export const CIRSOC101_LOADS: ImposedLoadCode = {
   adapterId: 'cirsoc101-2025-loads', role: 'loads', family: 'cirsoc', edition: '2025',
-  title: 'CIRSOC 101-2025', sections: { dead: 'Tabla 3.1', live: 'Tabla 4.1', roof: '§4.8' },
+  title: 'CIRSOC 101-2025', sections: { dead: 'Tabla 3.1', live: 'Tabla 4.1', roof: '§4.8', partition: '§4.3.2', reduction: '§4.7.2', patterns: '§4.3.3' },
   occupancy: (key) => findOccupancy(key),
+  generationBlockers({ occupancies, roof }) {
+    const messages = [...new Map(occupancies.map(o => [o.key, o])).values()]
+      .flatMap(o => o.concentratedRule
+        ? [msg('loadPlan.blocked.concentratedRule', { occupancy: msg(o.labelKey), article: o.concentratedRule })]
+        : o.concentratedKN !== null && o.concentratedKN > 0
+          ? [msg('loadPlan.blocked.concentratedLive', { occupancy: msg(o.labelKey), force: o.concentratedKN })] : []);
+    if (roof || occupancies.some(o => o.category === 'roof')) messages.push(msg('loadPlan.blocked.concentratedRoof'));
+    return { messages, refs: messages.length ? [clause('cirsoc-101', '2025', '4.4', 'cargas concentradas')] : [] };
+  },
   reduce: (o) => reduceLiveLoad(o),
 };
 
@@ -51,9 +60,9 @@ export const CIRSOC104_SNOW: SnowCode = {
   plan: (input, sink, layout) => planSnow(input, sink, layout),
 };
 
-export const INPRES103_SEISMIC: SeismicCode = {
+export const INPRES103_SEISMIC = {
   adapterId: 'inpres103-2018', role: 'seismic', family: 'cirsoc', edition: '2018', title: 'INPRES-CIRSOC 103-2018',
-  plan: (input, levels, sink) => planSeismic(input, levels, sink),
+  plan: planSeismic,
   liveInMass: (occupancy) => SIMULTANEITY_F1[occupancy as OccupancyProbability],
   /** E = EH ± EV, EV = (Ca/2)·γr·D (§3.5.2): each seismic combination twice, D's factor ± (Ca/2)·γr. */
   vertical(combinations, detail, sink) {
@@ -74,7 +83,7 @@ export const INPRES103_SEISMIC: SeismicCode = {
     return out;
   },
   defaults: { zone: 4, site: 'SD', group: 'B' },
-};
+} satisfies SeismicCode;
 
 export const CIRSOC101_THERMAL: ThermalCode = {
   adapterId: 'cirsoc101-2025-thermal', role: 'thermal', family: 'cirsoc', edition: '2025', title: 'CIRSOC 101-2025',

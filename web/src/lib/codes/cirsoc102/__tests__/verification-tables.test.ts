@@ -160,19 +160,19 @@ describe('Tabla 1.11-1: (GCpi) and the enclosure criteria (p. 76)', () => {
   });
   it('criteria at their boundaries: A0 = 0,8 Ag, A0 = min(0,01 Ag; 0,4 m²), A0 = 1,10 A0i, A0i/Agi = 0,20', () => {
     expect(t).toMatch(/A0 ≥ 0,8Ag/);
-    expect(classifyEnclosure({ a0: 80, ag: 100, a0i: 0, agi: 100 })).toBe('open');
-    expect(classifyEnclosure({ a0: 79.9, ag: 100, a0i: 0, agi: 100 })).toBe('partiallyEnclosed');
+    expect(classifyEnclosure({ walls: [{ openings: 80, gross: 100 }, { openings: 0, gross: 1 }], roof: { openings: 0, gross: 100 - 1 } })).toBe('partiallyEnclosed');
+    expect(classifyEnclosure({ walls: [{ openings: 79.9, gross: 100 }, { openings: 0, gross: 1 }], roof: { openings: 0, gross: 100 - 1 } })).toBe('partiallyEnclosed');
     // 0,01·Ag = 0,3 m² < 0,4 m²: the limit is 0,3.
-    expect(classifyEnclosure({ a0: 0.3, ag: 30, a0i: 0, agi: 100 })).toBe('enclosed');
-    expect(classifyEnclosure({ a0: 0.31, ag: 30, a0i: 0, agi: 100 })).toBe('partiallyEnclosed');
+    expect(classifyEnclosure({ walls: [{ openings: 0.3, gross: 30 }, { openings: 0, gross: 1 }], roof: { openings: 0, gross: 100 - 1 } })).toBe('enclosed');
+    expect(classifyEnclosure({ walls: [{ openings: 0.31, gross: 30 }, { openings: 0, gross: 1 }], roof: { openings: 0, gross: 100 - 1 } })).toBe('partiallyEnclosed');
     // 0,01·Ag = 1 m² > 0,4 m²: the limit is 0,4.
-    expect(classifyEnclosure({ a0: 0.4, ag: 100, a0i: 0, agi: 100 })).toBe('enclosed');
-    expect(classifyEnclosure({ a0: 0.41, ag: 100, a0i: 0, agi: 100 })).toBe('partiallyEnclosed');
+    expect(classifyEnclosure({ walls: [{ openings: 0.4, gross: 100 }, { openings: 0, gross: 1 }], roof: { openings: 0, gross: 100 - 1 } })).toBe('enclosed');
+    expect(classifyEnclosure({ walls: [{ openings: 0.41, gross: 100 }, { openings: 0, gross: 1 }], roof: { openings: 0, gross: 100 - 1 } })).toBe('partiallyEnclosed');
     // A0 must exceed 1,10 A0i strictly, and A0i/Agi ≤ 0,20 holds at equality.
-    expect(classifyEnclosure({ a0: 11, ag: 100, a0i: 10, agi: 50 })).toBe('partiallyOpen');
-    expect(classifyEnclosure({ a0: 11.1, ag: 100, a0i: 10, agi: 50 })).toBe('partiallyEnclosed');
-    expect(classifyEnclosure({ a0: 30, ag: 100, a0i: 10, agi: 50 })).toBe('partiallyEnclosed');
-    expect(classifyEnclosure({ a0: 30, ag: 100, a0i: 10.1, agi: 50 })).toBe('partiallyOpen');
+    expect(classifyEnclosure({ walls: [{ openings: 11, gross: 100 }, { openings: 0, gross: 1 }], roof: { openings: 10, gross: 50 - 1 } })).toBe('partiallyOpen');
+    expect(classifyEnclosure({ walls: [{ openings: 11.1, gross: 100 }, { openings: 0, gross: 1 }], roof: { openings: 10, gross: 50 - 1 } })).toBe('partiallyEnclosed');
+    expect(classifyEnclosure({ walls: [{ openings: 30, gross: 100 }, { openings: 0, gross: 1 }], roof: { openings: 10, gross: 50 - 1 } })).toBe('partiallyEnclosed');
+    expect(classifyEnclosure({ walls: [{ openings: 30, gross: 100 }, { openings: 0, gross: 1 }], roof: { openings: 10.1, gross: 50 - 1 } })).toBe('partiallyOpen');
   });
 });
 

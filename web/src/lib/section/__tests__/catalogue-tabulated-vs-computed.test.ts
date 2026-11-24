@@ -10,7 +10,7 @@
  * rounding) and bounded, so a transcription slip — a digit, a column shift — still fails.
  *
  * External cross-checks of the same rows against the producers' tables (ArcelorMittal Orange
- * Book, AISC Shapes Database v16.0) are recorded in docs/verification/SECTIONS_CONNECTIONS.md.
+ * Book, AISC Shapes Database v16.0) are recorded in testing/docs/SECTIONS_CONNECTIONS.md.
  */
 import { describe, it, expect, beforeAll } from 'vitest';
 import { initSolver, analyzeSectionTorsion } from '../../engine/wasm-solver';

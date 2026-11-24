@@ -2,7 +2,7 @@ export type { AnalysisMode, ToolDef } from './registry';
 export { toolDefinitions, promptText, isSpaceProtocol } from './registry';
 export type { ToolOutcome, ChatTurn } from './build-model';
 export {
-  buildSystemPrompt, buildConversation, outcomeFromToolCall, outcomeFromText, validateBuildRequest, actionSummary,
+  buildSystemPrompt, userAxesSection, buildConversation, outcomeFromToolCall, outcomeFromText, validateBuildRequest, actionSummary,
 } from './build-model';
 export {
   AiActionError, checkText, checkListLen, checkPromptSize, sanitizeLocale, promptLabel,

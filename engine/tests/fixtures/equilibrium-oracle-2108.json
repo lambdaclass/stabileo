@@ -1,0 +1,117 @@
+{
+  "connectors": {},
+  "constraints": [],
+  "elements": {
+    "1": {
+      "hingeEnd": false,
+      "hingeStart": false,
+      "id": 1,
+      "materialId": 1,
+      "nodeI": 1,
+      "nodeJ": 2,
+      "sectionId": 1,
+      "type": "frame"
+    },
+    "2": {
+      "hingeEnd": false,
+      "hingeStart": false,
+      "id": 2,
+      "materialId": 1,
+      "nodeI": 1,
+      "nodeJ": 3,
+      "sectionId": 1,
+      "type": "frame"
+    },
+    "3": {
+      "hingeEnd": false,
+      "hingeStart": false,
+      "id": 3,
+      "materialId": 1,
+      "nodeI": 1,
+      "nodeJ": 4,
+      "sectionId": 1,
+      "type": "frame"
+    }
+  },
+  "loads": [
+    {
+      "data": {
+        "fx": 90.54683980804009,
+        "fz": 30.680799794454988,
+        "my": -35.611203545514,
+        "nodeId": 1
+      },
+      "type": "nodal"
+    },
+    {
+      "data": {
+        "fx": -89.24420043726529,
+        "fz": -36.27987607049991,
+        "my": -10.353475065014303,
+        "nodeId": 1
+      },
+      "type": "nodal"
+    },
+    {
+      "data": {
+        "fx": 4.778904625960666,
+        "fz": -28.39860972103782,
+        "my": 47.58246835653471,
+        "nodeId": 1
+      },
+      "type": "nodal"
+    }
+  ],
+  "materials": {
+    "1": {
+      "e": 25000,
+      "id": 1,
+      "nu": 0.15
+    }
+  },
+  "nodes": {
+    "1": {
+      "id": 1,
+      "x": 0,
+      "z": 0
+    },
+    "2": {
+      "id": 2,
+      "x": 0,
+      "z": 11.743451104415728
+    },
+    "3": {
+      "id": 3,
+      "x": 8.471074222958507,
+      "z": 0
+    },
+    "4": {
+      "id": 4,
+      "x": 0,
+      "z": 1.9727149261870043
+    }
+  },
+  "sections": {
+    "1": {
+      "a": 0.002,
+      "asY": null,
+      "id": 1,
+      "iz": 5e-06
+    }
+  },
+  "solverOptions": null,
+  "supports": {
+    "1": {
+      "angle": null,
+      "dry": null,
+      "dx": null,
+      "dz": null,
+      "id": 1,
+      "kx": null,
+      "ky": null,
+      "kz": null,
+      "nodeId": 1,
+      "type": "fixed"
+    }
+  }
+}

@@ -53,16 +53,19 @@
  * Pure: no store.
  */
 import type { ModelData } from './solver-service';
-import type { AnalysisResults3D, ElementForces3D, Displacement3D, FullEnvelope3D, EnvelopeDiagramData3D, Constraint3D, ConnectorElement } from './types-3d';
+import type { AnalysisResults3D, ElementForces3D, Displacement3D, Constraint3D, ConnectorElement } from './types-3d';
 import type { ElementBucklingData3D } from './result-types';
 import type { Element, Section } from '../store/model.svelte';
-import { segmentBounds, segmentFields, splitElementLoads, flexibleMemberLength } from '../model/edit/member-split';
+import { segmentBounds, segmentFields, splitElementLoads, memberLoadGeometry } from '../model/edit/member-split';
 import { variableSectionPlan, isVariableMember as solvedAsVariable } from '../section/variable';
 import { eiOf, type ElementEI } from './member-deflection';
 import { memberFrame3D, takesNoBending, type Vec3 } from './member-loads';
-import { pointNeedsCut, planePointLoad3D, POINT_END_TOL } from './member-point-loads';
+import { pointNeedsCut, planePointLoad3D, POINT_END_TOL, planarPointOrigin } from './member-point-loads';
+import { planarPointMoment, planarPointProjectionTooShort } from './planar-point-load';
 import { hasMemberOffset } from './member-offsets';
 import { globalAxis, CONNECTOR_ROT } from './expand-semi-rigid-3d';
+import { collapseVariableResults } from './variable-member-results';
+export { collapseVariableEnvelope, collapseVariableResults } from './variable-member-results';
 
 /** Pieces a variable member is cut into when it states none. */
 export const DEFAULT_VARIABLE_SEGMENTS = 12;
@@ -117,7 +120,6 @@ interface Planned {
   exp: VariableExpansion;
   nodes: Array<{ id: number; x: number; y: number; z?: number }>;
   pieces: Array<{ parent: El; k: number; n: number; t0: number; t1: number; piece: VariablePiece; section: Section }>;
-  bounds: Map<number, number[]>;
   /** The joined ends given a node of their own: the node, its helper, and how they are tied. */
   ends: Array<{ parentId: number; node: number; helper: number; tie: AnchorEnd }>;
 }
@@ -141,6 +143,7 @@ function loadCuts(model: ModelData): Map<number, number[]> {
     // of the analysis carries none.
     if (!e || takesNoBending(e) || e.behaviour === 'inactive') continue;
     if (l.type === 'pointOnElement') {
+      if (planarPointMoment(l.data) === null) continue;
       // A plane model's point load (an embedded plane model): its couple and its axial part, in
       // the plane, as the solve reads them (`planePointLoad3D`).
       const ni = model.nodes.get(e.nodeI), nj = model.nodes.get(e.nodeJ);
@@ -242,7 +245,7 @@ export function anchorEndsUnplaced(model: ModelData): number[] {
 
 /** Which members, and every id: from `base`'s highest ids, so the same model always plans alike. */
 function planExpansion(model: ModelData, base: ModelData): Planned {
-  const out: Planned = { exp: { members: new Map(), innerNodes: new Set() }, nodes: [], pieces: [], bounds: new Map(), ends: [] };
+  const out: Planned = { exp: { members: new Map(), innerNodes: new Set() }, nodes: [], pieces: [], ends: [] };
   const cuts = loadCuts(model);
   const anchored = anchorEnds(model);
   const vars = [...model.elements.values()].filter((e) => isVariableMember(model, e as El) || cuts.has(e.id) || anchored.has(e.id)) as El[];
@@ -251,6 +254,7 @@ function planExpansion(model: ModelData, base: ModelData): Planned {
   let nextNode = Math.max(maxOf(base.nodes.keys()), maxOf(model.nodes.keys())) + 1;
   let nextElem = Math.max(maxOf(base.elements.keys()), maxOf(model.elements.keys())) + 1;
   let nextSec = Math.max(maxOf(base.sections.keys()), maxOf(model.sections.keys())) + 1;
+  const geometry = memberLoadGeometry(model);
   for (const e of vars) {
     const ni = model.nodes.get(e.nodeI), nj = model.nodes.get(e.nodeJ);
     if (!ni || !nj) continue;
@@ -284,9 +288,7 @@ function planExpansion(model: ModelData, base: ModelData): Planned {
       return id;
     };
     const chain = [endNode('i', e.nodeI, ni), ...inner, endNode('j', e.nodeJ, nj)];
-    const L = e.offset
-      ? flexibleMemberLength(e, ni, nj, model.sections.get(e.sectionId)?.rotation)
-      : Math.hypot(nj.x - ni.x, nj.y - ni.y, (nj.z ?? 0) - (ni.z ?? 0));
+    const L = geometry.length(e);
     const bounds = segmentBounds(L, ts);
     const pieces: VariablePiece[] = [];
     for (let k = 0; k < n; k++) {
@@ -299,7 +301,6 @@ function planExpansion(model: ModelData, base: ModelData): Planned {
       pieces.push(piece);
       out.pieces.push({ parent: e, k, n, t0: fractions[k]!, t1: fractions[k + 1]!, piece, section });
     }
-    out.bounds.set(e.id, bounds);
     out.exp.members.set(e.id, { parentId: e.id, length: L, pieces, innerNodes: inner });
   }
   return out;
@@ -317,7 +318,17 @@ export function expandVariableMembers<M extends ModelData>(model: M, base: Model
   const nodes = new Map(model.nodes);
   const elements = new Map(model.elements);
   const sections = new Map(model.sections);
-  let loads = model.loads;
+  let loads = model.loads.map(l => {
+    if (l.type !== 'pointOnElement' || !exp.members.has(l.data.elementId)) return l;
+    const e = model.elements.get(l.data.elementId)!;
+    const i = model.nodes.get(e.nodeI), j = model.nodes.get(e.nodeJ);
+    if (!i || !j) return l;
+    const origin = {
+      a: l.data.a, nodeI: e.nodeI, loadId: l.data.id, elementId: e.id,
+      shortProjection: planarPointProjectionTooShort(j.x - i.x, j.y - i.y),
+    };
+    return { ...l, data: { ...l.data, [planarPointOrigin]: origin } };
+  });
   for (const nd of planned.nodes) nodes.set(nd.id, nd as never);
   for (const m of exp.members.values()) elements.delete(m.parentId);
   for (const { parent, k, n, t0, t1, piece, section } of planned.pieces) {
@@ -351,10 +362,14 @@ export function expandVariableMembers<M extends ModelData>(model: M, base: Model
       connectors = new Map(connectors ?? []).set(id, { id, nodeI: node, nodeJ: helper, ...c } as unknown as ConnectorElement);
     }
   }
+  const geometry = memberLoadGeometry({ ...model, sections });
   const renamed = new Map<number, number[]>();
   for (const m of exp.members.values()) {
     const ids = m.pieces.map((p) => p.id);
-    const split = splitElementLoads(loads, m.parentId, planned.bounds.get(m.parentId)!, ids, () => nextLoad++);
+    const partition = geometry.partition(model.elements.get(m.parentId)!, nodes, elements, ids);
+    const bounds = partition.bounds(), lengths = partition.lengths;
+    m.pieces.forEach((p, k) => { p.x0 = bounds[k]; p.x1 = bounds[k + 1]; });
+    const split = splitElementLoads(loads, m.parentId, bounds, ids, () => nextLoad++, lengths, partition.points);
     loads = [...split.kept, ...split.added];
     renamed.set(m.parentId, ids);
   }
@@ -379,117 +394,6 @@ export function expandVariableMembers<M extends ModelData>(model: M, base: Model
 }
 
 // ─── Back to one member ───────────────────────────────────────────
-
-function parentForces(m: VariableMember, byId: Map<number, ElementForces3D>, disp: Map<number, Displacement3D>): ElementForces3D | null {
-  const fs = m.pieces.map((p) => byId.get(p.id));
-  if (fs.some((f) => !f)) return null;
-  const first = fs[0]!, last = fs[fs.length - 1]!;
-  const shift = <T extends { a: number }>(list: T[] | undefined, x0: number): T[] => (list ?? []).map((l) => ({ ...l, a: l.a + x0 }));
-  const shiftD = (list: Array<{ qI: number; qJ: number; a: number; b: number }> | undefined, x0: number) =>
-    (list ?? []).map((l) => ({ ...l, a: l.a + x0, b: l.b + x0 }));
-  const pieces: ResultPiece[] = m.pieces.map((p, k) => ({
-    x0: p.x0, x1: p.x1, sectionId: p.sectionId, forces: fs[k]!, ...(p.ei ? { ei: p.ei } : {}),
-    ...(disp.get(p.nodeI) ? { dI: disp.get(p.nodeI) } : {}), ...(disp.get(p.nodeJ) ? { dJ: disp.get(p.nodeJ) } : {}),
-  }));
-  const along = (pick: (f: ElementForces3D) => Array<{ qI: number; qJ: number; a: number; b: number }> | undefined) =>
-    m.pieces.flatMap((p, k) => shiftD(pick(fs[k]!), p.x0));
-  const xLoads = m.pieces.some((_, k) => fs[k]!.distributedLoadsX) ? { distributedLoadsX: along((f) => f.distributedLoadsX) } : {};
-  return {
-    ...first,
-    elementId: m.parentId, length: m.length,
-    nStart: first.nStart, vyStart: first.vyStart, vzStart: first.vzStart, mxStart: first.mxStart, myStart: first.myStart, mzStart: first.mzStart,
-    nEnd: last.nEnd, vyEnd: last.vyEnd, vzEnd: last.vzEnd, mxEnd: last.mxEnd, myEnd: last.myEnd, mzEnd: last.mzEnd,
-    releaseMyEnd: last.releaseMyEnd, releaseMzEnd: last.releaseMzEnd, releaseTEnd: last.releaseTEnd,
-    qYI: 0, qYJ: 0, qZI: 0, qZJ: 0,
-    distributedLoadsY: along((f) => f.distributedLoadsY),
-    distributedLoadsZ: along((f) => f.distributedLoadsZ),
-    ...xLoads,
-    pointLoadsY: m.pieces.flatMap((p, k) => shift(fs[k]!.pointLoadsY, p.x0)),
-    pointLoadsZ: m.pieces.flatMap((p, k) => shift(fs[k]!.pointLoadsZ, p.x0)),
-    pieces,
-  } as ElementForces3D;
-}
-
-/** One result with its variable members back to one member each (see the header). */
-export function collapseVariableResults(r: AnalysisResults3D, exp: VariableExpansion | undefined): AnalysisResults3D {
-  if (!exp || exp.members.size === 0) return r;
-  const pieceIds = new Set<number>();
-  for (const m of exp.members.values()) for (const p of m.pieces) pieceIds.add(p.id);
-  const byId = new Map(r.elementForces.map((f) => [f.elementId, f]));
-  const disp = new Map(r.displacements.map((d) => [d.nodeId, d]));
-  const parents: ElementForces3D[] = [];
-  for (const m of exp.members.values()) { const f = parentForces(m, byId, disp); if (f) parents.push(f); }
-  return {
-    ...r,
-    displacements: r.displacements.filter((d) => !exp.innerNodes.has(d.nodeId)),
-    reactions: r.reactions.filter((x) => !exp.innerNodes.has(x.nodeId)),
-    // A joined end's own node is tied by a constraint (see the header), whose forces are its.
-    ...(r.constraintForces ? { constraintForces: r.constraintForces.filter((c) => !exp.innerNodes.has(c.nodeId)) } : {}),
-    elementForces: [...r.elementForces.filter((f) => !pieceIds.has(f.elementId)), ...parents],
-  };
-}
-
-/**
- * A result already back to one member each, as its pieces again, with the expansion that puts it
- * back together: read off the pieces it keeps (`ResultPiece`), each with its own forces and end
- * displacements. For what is computed again from collapsed results, an envelope over some of the
- * combinations: taken over the members, it lost the pieces and so their EI and interior nodes.
- * Undefined expansion when no member has pieces.
- */
-export function reexpandVariableResults(r: AnalysisResults3D): { results: AnalysisResults3D; exp: VariableExpansion | undefined } {
-  const exp: VariableExpansion = { members: new Map(), innerNodes: new Set() };
-  const forces: ElementForces3D[] = [];
-  const extra = new Map<number, Displacement3D>();
-  const known = new Set(r.displacements.map((d) => d.nodeId));
-  for (const f of r.elementForces) {
-    const ps = f.pieces;
-    if (!ps?.length || ps.some((p) => !p.dI || !p.dJ)) { forces.push(f); continue; }
-    const pieces: VariablePiece[] = ps.map((p) => ({
-      id: p.forces.elementId, sectionId: p.sectionId, x0: p.x0, x1: p.x1, nodeI: p.dI!.nodeId, nodeJ: p.dJ!.nodeId, ...(p.ei ? { ei: p.ei } : {}),
-    }));
-    const innerNodes = pieces.slice(1).map((p) => p.nodeI);
-    exp.members.set(f.elementId, { parentId: f.elementId, length: f.length, pieces, innerNodes });
-    for (const n of innerNodes) exp.innerNodes.add(n);
-    for (const p of ps) { forces.push(p.forces); extra.set(p.dJ!.nodeId, p.dJ!); }
-    // A joined end's own node (see the header) is no node of the model either.
-    const first = ps[0]!.dI!, last = ps[ps.length - 1]!.dJ!;
-    for (const d of [first, last]) if (!known.has(d.nodeId)) { exp.innerNodes.add(d.nodeId); extra.set(d.nodeId, d); }
-  }
-  if (exp.members.size === 0) return { results: r, exp: undefined };
-  const displacements = [...r.displacements, ...[...exp.innerNodes].map((n) => extra.get(n)!)];
-  return { results: { ...r, elementForces: forces, displacements }, exp };
-}
-
-function collapseDiagram(d: EnvelopeDiagramData3D, exp: VariableExpansion): EnvelopeDiagramData3D {
-  const byId = new Map(d.elements.map((e) => [e.elementId, e]));
-  const pieceIds = new Set<number>();
-  const parents = [];
-  for (const m of exp.members.values()) {
-    const tPositions: number[] = [], posValues: number[] = [], negValues: number[] = [];
-    let complete = true;
-    for (const p of m.pieces) {
-      pieceIds.add(p.id);
-      const e = byId.get(p.id);
-      if (!e) { complete = false; continue; }
-      e.tPositions.forEach((t, i) => {
-        tPositions.push((p.x0 + t * (p.x1 - p.x0)) / m.length);
-        posValues.push(e.posValues[i]!); negValues.push(e.negValues[i]!);
-      });
-    }
-    if (complete) parents.push({ elementId: m.parentId, tPositions, posValues, negValues });
-  }
-  return { ...d, elements: [...d.elements.filter((e) => !pieceIds.has(e.elementId)), ...parents] };
-}
-
-export function collapseVariableEnvelope(env: FullEnvelope3D, exp: VariableExpansion | undefined): FullEnvelope3D {
-  if (!exp || exp.members.size === 0) return env;
-  return {
-    momentY: collapseDiagram(env.momentY, exp), momentZ: collapseDiagram(env.momentZ, exp),
-    shearY: collapseDiagram(env.shearY, exp), shearZ: collapseDiagram(env.shearZ, exp),
-    axial: collapseDiagram(env.axial, exp), torsion: collapseDiagram(env.torsion, exp),
-    maxAbsResults3D: collapseVariableResults(env.maxAbsResults3D, exp),
-  };
-}
 
 /**
  * A P-Delta result with its variable members back to one member each: its second-order results and

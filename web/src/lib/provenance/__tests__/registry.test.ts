@@ -3,9 +3,9 @@ import { RESULT_CHANGES } from '../full-registry';
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
-import { validateRegistry, githubSlug, changelogUrl, conditionGroups, type ResultChangeRegistry } from '../registry';
+import { REGISTRY_LOCALES, validateRegistry, githubSlug, changelogUrl, conditionGroups, type ResultChangeRegistry } from '../registry';
 import { FEATURE_IDS } from '../model-features';
-import { readRegistry } from '../../../../scripts/result-changes/registry.mjs';
+import { readProfileResultChanges } from '../../../../scripts/result-change-metadata.mjs';
 
 const repo = resolve(__dirname, '../../../../..');
 
@@ -18,16 +18,17 @@ describe('result-change registry', () => {
     expect(JSON.stringify(metadata)).not.toContain('title');
   });
 
-  const source = (): ResultChangeRegistry => readRegistry();
+  const source = (): ResultChangeRegistry => readProfileResultChanges(__PUBLIC_FEATURES__.proPlatesUnified);
 
-  it('decodes the complete source registry except the test-only quantities', () => {
+  it('decodes the complete registry for the active profile except the test-only quantities', () => {
     const registry = source();
     expect(registry.changes.some((c) => c.quantities)).toBe(true);
     expect(RESULT_CHANGES.changes.some((c) => 'quantities' in c)).toBe(false);
     expect(RESULT_CHANGES).toEqual({ ...registry, changes: registry.changes.map(({ quantities: _, ...c }) => c) });
+    expect(RESULT_CHANGES.changes.some((c) => c.id === 'perforated-plate-grid')).toBe(__PUBLIC_FEATURES__.proPlatesUnified);
   });
 
-  it('is well formed: ids, versions, six languages, known features, quantities', () => {
+  it('is well formed: ids, versions, required languages, known features, quantities', () => {
     expect(validateRegistry(RESULT_CHANGES, new Set(FEATURE_IDS))).toEqual([]);
     expect(validateRegistry(source(), new Set(FEATURE_IDS))).toEqual([]);
   });
@@ -52,16 +53,17 @@ describe('result-change registry', () => {
   });
 
   it('refuses an entry naming an unknown feature or a version beyond the current one', () => {
+    const nextVersion = RESULT_CHANGES.currentResultsVersion + 1;
     const bad = {
       ...RESULT_CHANGES,
-      changes: [{ ...RESULT_CHANGES.changes[0], id: 'x', resultsVersion: 99, when: { any: ['noSuchFeature'] } }],
+      changes: [{ ...RESULT_CHANGES.changes[0], id: 'x', resultsVersion: nextVersion, when: { any: ['noSuchFeature'] } }],
     };
     const problems = validateRegistry(bad, new Set(FEATURE_IDS));
     expect(problems.some((p) => p.includes('noSuchFeature'))).toBe(true);
-    expect(problems.some((p) => p.includes('resultsVersion 99'))).toBe(true);
+    expect(problems).toContain(`change x: resultsVersion ${nextVersion} outside 1..${RESULT_CHANGES.currentResultsVersion}`);
   });
 
-  it.each(['en', 'es', 'pt', 'de', 'fr', 'tr'] as const)('refuses an entry without its %s title or explanation', (locale) => {
+  it.each(REGISTRY_LOCALES)('refuses an entry without its %s title or explanation', (locale) => {
     const entry = RESULT_CHANGES.changes[0];
     const title = { ...entry.title, [locale]: ' ' };
     const explanation: Partial<typeof entry.explanation> = { ...entry.explanation };
@@ -119,4 +121,11 @@ describe('result-change registry', () => {
   it('normalises conditions to OR-groups that must all hold', () => {
     expect(conditionGroups({ any: ['a', 'b'], all: ['c'], allOf: [['d', 'e']] })).toEqual([['a', 'b'], ['c'], ['d', 'e']]);
   });
+});
+
+it('rejects missing or malformed PR metadata before a consumer reads includes', () => {
+  const entry = { ...RESULT_CHANGES.changes[0], resultsVersion: RESULT_CHANGES.currentResultsVersion };
+  for (const prs of [undefined, null, '2095', [0], [-1], [1.5], ['2095']]) {
+    expect(validateRegistry({ ...RESULT_CHANGES, changes: [{ ...entry, prs } as typeof entry] }, new Set(FEATURE_IDS))).toContain(`change ${entry.id}: prs must be a list of positive integer issue or PR numbers`);
+  }
 });

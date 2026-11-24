@@ -1,0 +1,42 @@
+{
+  "id": "member-combined-diagram-extrema",
+  "date": "2026-11-17",
+  "prs": [
+    2273
+  ],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "space3D",
+      "frameMembers",
+      "magnitudeCombinations"
+    ]
+  },
+  "quantities": [
+    "envelope"
+  ],
+  "title": {
+    "en": "Combined member diagram extrema",
+    "es": "Extremos de diagramas combinados",
+    "pt": "Extremos dos diagramas combinados",
+    "de": "Extrema kombinierter Stabdiagramme",
+    "fr": "Extrema des diagrammes combinés",
+    "tr": "Birleşik eleman diyagramı uç değerleri",
+    "zh": "杆件组合内力图的极值",
+    "hu": "Kombinált rúddiagramok szélsőértékei"
+  },
+  "explanation": {
+    "en": "ABS and SRSS member diagrams include extrema of the combined function between load boundaries. Rerun combinations, diagrams and dependent checks (#2273).",
+    "es": "Los diagramas ABS y SRSS incluyen los extremos de la función combinada entre límites de carga. Repita combinaciones, diagramas y verificaciones dependientes (#2273).",
+    "pt": "Os diagramas ABS e SRSS incluem os extremos da função combinada entre limites de carga. Refaça combinações, diagramas e verificações dependentes (#2273).",
+    "de": "ABS- und SRSS-Stabdiagramme enthalten die Extrema der kombinierten Funktion zwischen Lastgrenzen. Kombinationen, Diagramme und abhängige Nachweise erneut ausführen (#2273).",
+    "fr": "Les diagrammes ABS et SRSS incluent les extrema de la fonction combinée entre les limites de charge. Relancez combinaisons, diagrammes et vérifications associées (#2273).",
+    "tr": "ABS ve SRSS eleman diyagramları yük sınırları arasındaki birleşik fonksiyonun uç değerlerini içerir. Birleşimleri, diyagramları ve bağlı kontrolleri yineleyin (#2273).",
+    "zh": "ABS 和 SRSS 杆件内力图包含荷载分界点之间组合函数的极值。请重新运行组合、内力图和相关验算（#2273）。",
+    "hu": "Az ABS és SRSS rúddiagramok tartalmazzák a kombinált függvény teherhatárok közötti szélsőértékeit. Ismételje meg a kombinációkat, diagramokat és kapcsolódó ellenőrzéseket (#2273)."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-gravity-core.md",
+    "heading": "Combined member diagram extrema"
+  }
+}

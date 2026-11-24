@@ -4,7 +4,7 @@ const body: StandingPage['i18n']['en'] = {
   "title": "Stabileo est-il fiable ? Comment ses résultats sont vérifiés",
   "description": "Vérification des résultats de Stabileo : sept autres programmes EF, exemples publiés, bornes d'erreur prouvées en Lean, avis publics. Et ce qu'aucune ne promet.",
   "eyebrow": "Fiabilité",
-  "lead": "Les résultats de Stabileo sont vérifiés de cinq façons indépendantes, dont la comparaison avec sept autres programmes d'éléments finis et des bornes d'erreur dont les mathématiques de base sont prouvées en Lean. Les défauts qui ont pu affecter des résultats déjà utilisés sont publiés sous forme d'avis de sécurité (certains constats sont encore en cours d'évaluation, publiquement), et les vingt-quatre avis publiés sont tous corrigés (les quatre derniers dans la version 0.4.0). Comme tout programme d'analyse, il ne vérifie pas votre modèle : les charges, les appuis et l'idéalisation sont des décisions de l'ingénieur.",
+  "lead": "Les résultats de Stabileo sont vérifiés de cinq façons indépendantes, dont la comparaison avec sept autres programmes d'éléments finis et des bornes d'erreur dont les mathématiques de base sont prouvées en Lean. Les défauts qui ont pu affecter des résultats déjà utilisés sont publiés sous forme d'avis de sécurité (certains constats sont encore en cours d'évaluation, publiquement), et la liste ci-dessous indique lesquels sont corrigés et dans quelle version. Comme tout programme d'analyse, il ne vérifie pas votre modèle : les charges, les appuis et l'idéalisation sont des décisions de l'ingénieur.",
   "blocks": [
     {
       "k": "h",
@@ -81,7 +81,7 @@ const body: StandingPage['i18n']['en'] = {
     },
     {
       "k": "ext",
-      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/verification/MATURITY.md",
+      "href": "https://github.com/lambdaclass/stabileo/blob/main/testing/docs/MATURITY.md",
       "label": "Matrice de maturité",
       "t": "Le niveau de vérification de chaque partie :"
     }

@@ -150,6 +150,51 @@ fn matlock_j(curve: &str, j: Option<f64>) -> Result<f64, String> {
 }
 
 impl SoilCurve {
+    pub(crate) fn is_in_initial_linear_range(&self, displacement: f64) -> bool {
+        if !displacement.is_finite() {
+            return false;
+        }
+        let limit = match self {
+            Self::PySoftClay { d, eps_50, .. } => {
+                normalized_linear_limit(2.5 * eps_50 * d, &API_SOFT_CLAY_STATIC)
+            }
+            Self::PyStiffClay { d, eps_50, .. } => WELCH_REESE_ABSCISSAE[1] * (2.5 * eps_50 * d),
+            Self::PySand {
+                phi,
+                gamma_eff,
+                d,
+                depth,
+                loading,
+            } => {
+                return loading.is_some_and(|loading| {
+                    api_sand_a(loading, *d, *depth) * api_sand_pu(*phi, *gamma_eff, *d, *depth)
+                        <= 0.0
+                });
+            }
+            Self::Tz { t_ult, z_ult, .. } => {
+                if *t_ult == 0.0 {
+                    return true;
+                }
+                tz_linear_limit(*z_ult)
+            }
+            Self::Qz { q_ult, d, .. } => {
+                if *q_ult == 0.0 {
+                    return true;
+                }
+                if displacement > 0.0 {
+                    return false;
+                }
+                normalized_linear_limit(*d, &API_QZ)
+            }
+            Self::Custom { points } => {
+                if points.iter().all(|p| p[1] == 0.0) {
+                    return true;
+                }
+                points.iter().find(|p| p[0] > 0.0).map_or(0.0, |p| p[0])
+            }
+        };
+        displacement.abs() <= limit
+    }
     /// Whether the curve is a point spring (q-z at the tip), whose reaction
     /// is a force: the SSI solver does not multiply it by a tributary length.
     pub fn is_point_spring(&self) -> bool {
@@ -254,12 +299,16 @@ pub fn matlock_pu(su: f64, gamma_eff: f64, d: f64, depth: f64, j: f64) -> f64 {
 /// points, linear between, p_u beyond 8 y_c.
 pub const API_SOFT_CLAY_STATIC: [(f64, f64); 6] = [(0.0, 0.0), (0.1, 0.23), (0.3, 0.33), (1.0, 0.50), (3.0, 0.72), (8.0, 1.00)];
 
+fn normalized_linear_limit(y_c: f64, pts: &[(f64, f64)]) -> f64 {
+    pts[1].0 * y_c
+}
+
 /// A normalized multilinear curve: (y/y_c, p/p_u) points from the origin,
 /// linear between, the last p/p_u beyond. (p, secant); the secant at y = 0
 /// is the first segment's slope.
 fn normalized_curve(p_u: f64, y_c: f64, pts: &[(f64, f64)], y: f64) -> (f64, f64) {
     let y_abs = y.abs();
-    if y_abs <= pts[1].0 * y_c {
+    if y_abs <= normalized_linear_limit(y_c, pts) {
         let k=p_u * pts[1].1 / (pts[1].0 * y_c);
         return (k*y,k);
     }
@@ -363,13 +412,17 @@ pub fn py_stiff_clay(su: f64, gamma_eff: f64, d: f64, depth: f64, eps_50: f64, j
 /// The y/y50 at which [`py_stiff_clay`] samples Welch & Reese's curve.
 pub const WELCH_REESE_ABSCISSAE: [f64; 11] = [0.0, 0.001, 0.003, 0.01, 0.03, 0.1, 0.3, 1.0, 3.0, 8.0, 16.0];
 
+fn tz_linear_limit(z_ult: f64) -> f64 {
+    1e-6 * z_ult
+}
+
 /// Unit shaft friction t-z curve (kPa, kPa/m): t = t_ult √(z/z_ult) for
 /// z ≤ z_ult, t_ult beyond. [`evaluate_soil_curve`] multiplies by the shaft
 /// perimeter. At z = 0 the secant is taken at z = 1e-6·z_ult.
 pub fn tz_curve(t_ult: f64, z_ult: f64, z: f64) -> (f64, f64) {
     let curve = |za: f64| if za < z_ult { t_ult * (za / z_ult).sqrt() } else { t_ult };
     let z_abs = z.abs();
-    let z0 = 1e-6 * z_ult;
+    let z0 = tz_linear_limit(z_ult);
     if z_abs <= z0 {
         let k = curve(z0) / z0;
         return (k * z, k);

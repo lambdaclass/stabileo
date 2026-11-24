@@ -26,6 +26,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { resolve, dirname, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { sharedSwitchOnUnitFiles, switchOnUnitFiles } from '../../../../scripts/switch-on-unit.mjs';
 import { CORPUS } from '../../results-snapshot/corpus';
 
 const WEB_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..');
@@ -98,14 +99,11 @@ describe('Vitest harness architecture', () => {
       + 'or stop them spawning processes').toEqual([]);
   });
 
-  it('the unit pass excludes ONLY dependencies, Playwright, the build tests and the results snapshots', () => {
-    // The split must never become a way to drop a file. The only legitimate exclusions are
-    // the two known groups; anything else means a test stopped running and nobody noticed.
+  it('the unit pass excludes only files covered by another runner or profile', () => {
     const unitExclude = CONFIG.match(/name: 'unit',[\s\S]*?exclude: \[([\s\S]*?)\]/);
     expect(unitExclude, "the 'unit' project no longer declares an exclude list").not.toBeNull();
     const spread = [...unitExclude![1].matchAll(/\.\.\.(\w+)/g)].map((m) => m[1]).sort();
-    expect(spread).toEqual(['NOT_VITEST', 'PRODUCTION_BUILD_TESTS', 'RESULTS_SNAPSHOT_TESTS']);
-    // and no extra inline literal alongside the two spreads
+    expect(spread).toEqual(['EXCLUDED_SWITCH_ON_UNIT_TESTS', 'NOT_VITEST', 'PRODUCTION_BUILD_TESTS', 'RESULTS_SNAPSHOT_TESTS']);
     expect([...unitExclude![1].matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1])).toEqual([]);
   });
 
@@ -118,11 +116,19 @@ describe('Vitest harness architecture', () => {
     expect(unit![1]).toMatch(/pool: 'threads'/);
   });
 
-  it('the unit pass does not narrow its include glob', () => {
-    // An `include` on the unit project would silently define the suite as a subset.
+  it('the switch-on pass covers opt-in files and the declared shared cases', () => {
     const unit = CONFIG.match(/name: 'unit',([\s\S]*?)\n\s{8}\}/);
     expect(unit).not.toBeNull();
-    expect(unit![1]).not.toMatch(/\binclude:/);
+    expect(CONFIG).toContain("const EXCLUDED_SWITCH_ON_UNIT_TESTS = process.env.STABILEO_UNIT_PROFILE === 'production' ? switchOnUnitFiles : []");
+    expect([...unit![1].matchAll(/\binclude: (\w+)/g)].map(match => match[1])).toEqual(['INCLUDED_SWITCH_ON_UNIT_TESTS']);
+    expect(CONFIG).toContain('const INCLUDED_SWITCH_ON_UNIT_TESTS = [...switchOnUnitFiles, ...sharedSwitchOnUnitFiles]');
+    expect(unit![1]).toContain("process.env.STABILEO_UNIT_PROFILE === 'test' ? { include: INCLUDED_SWITCH_ON_UNIT_TESTS } : {}");
+    expect(sharedSwitchOnUnitFiles.filter(file => file.endsWith('.switch-on.test.ts') || switchOnUnitFiles.includes(file))).toEqual([]);
+    for (const file of [...switchOnUnitFiles, ...sharedSwitchOnUnitFiles].filter(file => !file.includes('*'))) {
+      expect(files).toContain(file);
+      expect(PRODUCTION_BUILD_TESTS).not.toContain(file);
+      expect(inResultsPass(file)).toBe(false);
+    }
   });
 
   it('the build pass runs the build tests, serially, and only them', () => {
@@ -159,9 +165,17 @@ describe('Vitest harness architecture', () => {
     // self-check tests: a group whose file went missing would leave its cases unrun (`results-snapshot/coverage.ts`).
     const groups = [...new Set(CORPUS.map((c) => c.group))].sort();
     expect(files.filter(inResultsPass).map((f) => f.split('/').pop()).sort()).toEqual([
-      'applicability-context.test.ts', 'coverage.test.ts', 'examples-equivalence.test.ts', 'governing-envelope.test.ts', 'negative.test.ts', 'self-checks-preserve-snapshots.test.ts',
+      'applicability-context.test.ts', 'coverage.test.ts', 'examples-equivalence.test.ts', 'frozen-engine.test.ts', 'governing-envelope.test.ts', 'negative.test.ts', 'self-checks-preserve-snapshots.test.ts',
+      'gallery-isolation-2099.test.ts',
       ...groups.map((g) => `snapshot-${g}.test.ts`),
     ].sort());
+  });
+
+  it('frozen exclusion policy checks run in the unit pass (#1946)', () => {
+    const file = 'src/lib/results-snapshot/frozen-exclusions.test.ts';
+    expect(files).toContain(file);
+    expect(inResultsPass(file)).toBe(false);
+    expect(PRODUCTION_BUILD_TESTS).not.toContain(file);
   });
 
   it('the project-scale timing budgets run outside the parallel unit pool', () => {

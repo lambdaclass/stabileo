@@ -1,7 +1,12 @@
+import { BUILD_FEATURES, TOOLS_SKIP_REASON } from './build-features';
+import { BUILD_PUBLIC_LOCALES } from './build-locales';
 import { test, expect, type Locator, type Page } from '@playwright/test';
 import { BATCH_IDS } from '../src/components/tools/batch';
 import { TOOL_IDS, formula, format, workedExamples } from '../src/components/tools/calculators';
-import { PUBLIC_LOCALES, isComplete } from '../src/lib/i18n/offered';
+import { isComplete } from '../src/lib/i18n/offered';
+import { TOOLS, TOPICS } from '../src/components/tools/registry';
+
+test.skip(!BUILD_FEATURES.tools, TOOLS_SKIP_REASON);
 
 const difference = async (agreement: Locator) => {
   const raw = await agreement.getAttribute('data-difference');
@@ -38,8 +43,14 @@ for (const id of TOOL_IDS) test(`@smoke tools ${id} computes and opens the same 
   for (const [j, value] of literal.entries()) near(Number(await page.getByTestId('worked-example').nth(j).getAttribute('data-value')), Number(value), 1e-11);
   for (const [j, p] of workedExamples(id).entries()) await expect(page.getByTestId('worked-example').nth(j)).toHaveAttribute('data-value', format(formula(id, p).value));
   const before = await page.getByTestId('engine-value').textContent();
-  await page.getByTestId('e').fill('100000');
-  await expect(agreement).toHaveCount(0);
+  const stale = await page.getByTestId('e').evaluate(async (node: HTMLInputElement) => {
+    node.value = '100000';
+    node.dispatchEvent(new Event('input', { bubbles: true }));
+    await Promise.resolve();
+    await Promise.resolve();
+    return document.querySelector('[data-testid="tool-results"]')?.getAttribute('aria-busy');
+  });
+  expect(stale).toBe('true');
   await expect(page.getByTestId('engine-value')).not.toHaveText(before!);
   await expect(agreement).toBeVisible();
   const expectedMembers = id === 'column-buckling' ? 32 : id === 'cantilever-beam' ? 1 : 2;
@@ -52,20 +63,26 @@ for (const id of TOOL_IDS) test(`@smoke tools ${id} computes and opens the same 
   expect(section.iz).toBe(0.00008);
 });
 
-for (const [width, height] of [[360, 800], [390, 844], [844, 390], [810, 1080]]) {
+const figuresBelowForm = async (page: Page) => {
+  const form = (await page.locator('.tool-inputs form').boundingBox())!;
+  const figures = (await page.getByTestId('figures').boundingBox())!;
+  return figures.y >= form.y + form.height - 1;
+};
+
+for (const [width, height] of [[360, 640], [390, 844], [844, 390], [810, 1080], [1280, 720]]) {
   for (const id of [...TOOL_IDS, ...BATCH_IDS]) test(`@smoke tools ${id} at ${width}x${height}`, async ({ page }) => {
     await page.setViewportSize({ width, height });
     await page.goto(`/en/tools/${id}/?e2e=1`);
     await expect(page.getByTestId('agreement')).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     expect(await pageOverflow(page)).toEqual([]);
-    expect((await page.locator('.tool-viewer').boundingBox())!.y).toBeLessThan(height <= 400 ? height - 120 : 450);
-    if (width < 1120) {
-      const title = (await page.locator('h1').boundingBox())!;
-      const viewer = (await page.locator('.tool-viewer').boundingBox())!;
-      const form = (await page.locator('form').boundingBox())!;
-      expect(viewer.y).toBeGreaterThan(title.y + title.height);
-      expect(form.y).toBeGreaterThan(viewer.y + viewer.height);
+    const figures = (await page.getByTestId('figures').boundingBox())!;
+    if (width >= 992 || (width >= 704 && height <= 500)) {
+      expect(figures.y).toBeLessThan(height / 3);
+      const form = (await page.locator('.tool-inputs form').boundingBox())!;
+      expect(figures.x).toBeGreaterThan(form.x + form.width);
+    } else {
+      expect(await figuresBelowForm(page)).toBe(true);
     }
     for (const control of await page.locator('main input, main textarea, main select, main button, main summary, main a, .open-editor').all()) {
       if (!await control.isVisible()) continue;
@@ -74,24 +91,166 @@ for (const [width, height] of [[360, 800], [390, 844], [844, 390], [810, 1080]])
       expect(box.width).toBeGreaterThanOrEqual(44);
       expect(await control.evaluate(el => parseFloat(getComputedStyle(el).fontSize))).toBeGreaterThanOrEqual(12);
     }
+    for (const label of await page.locator('[data-testid=figures] figcaption > span').all()) {
+      const [box, parent] = await label.evaluate(el => [el.getBoundingClientRect().right, el.closest('figure')!.getBoundingClientRect().right]);
+      expect(box).toBeLessThanOrEqual(parent + 0.5);
+    }
   });
 }
-for (const locale of PUBLIC_LOCALES) test(`@smoke tools localized index ${locale}`, async ({ page }) => {
+
+const FIGURES: Record<string, string[]> = {
+  'simply-supported-beam': ['structure', 'deflection', 'shear', 'moment'],
+  'cantilever-beam': ['structure', 'deflection', 'shear', 'moment'],
+  'column-buckling': ['structure', 'buckling'],
+  'continuous-beam': ['structure', 'deflection', 'shear', 'moment'],
+  'influence-line': ['structure', 'influence', 'deflection', 'shear', 'moment'],
+  'portal-frame': ['structure', 'deflection', 'moment', 'shear', 'axial'],
+  'truss-2d': ['structure', 'axial', 'deflection'],
+  'beam-natural-frequency': ['structure', 'mode1', 'mode2', 'mode3'],
+  'beam-frame': ['structure', 'moment', 'shear', 'deflection'],
+  'slab-on-columns': ['deflection'],
+  'earthquake-frame': ['deformed', 'roof', 'ground'],
+  'rc-column': ['section', 'elevation', 'interaction'],
+  outrigger: ['outrigger', 'driftSweep'],
+  tower: ['mode1', 'mode2', 'mode3', 'buckling'],
+};
+
+for (const { id } of TOOLS.filter(tool => tool.kind !== 'page')) test(`@smoke tools ${id} draws every result diagram at once, each with its title, unit and largest value, and no tabs`, async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.goto(`/en/tools/${id}/?e2e=1`);
+  const board = page.getByTestId('figures');
+  await expect(board.locator('figure')).toHaveCount(FIGURES[id].length, { timeout: 30000 });
+  expect(await board.locator('figure').evaluateAll(els => els.map(el => el.getAttribute('data-testid')))).toEqual(FIGURES[id].map(key => `figure-${key}`));
+  await expect(page.locator('main [role=tablist], main [role=tab], main [role=tabpanel]')).toHaveCount(0);
+  for (const key of FIGURES[id]) {
+    const figure = page.getByTestId(`figure-${key}`);
+    await figure.scrollIntoViewIfNeeded();
+    await expect(figure).toBeVisible();
+    await expect(figure.locator('figcaption .fig-title')).not.toHaveText('');
+    await expect(figure.locator('svg').first()).toBeVisible();
+    const box = (await figure.locator('svg').first().boundingBox())!;
+    expect(box.height).toBeGreaterThanOrEqual(80);
+    if (key === 'structure' || key === 'section' || key === 'elevation') continue;
+    const peak = page.getByTestId(`peak-${key}`);
+    await expect(peak).toBeVisible();
+    expect(Number.isFinite(Number(await peak.getAttribute('data-value')))).toBe(true);
+    if (id === 'beam-natural-frequency' && key.startsWith('mode')) continue;
+    const dot = figure.locator('[data-testid=chart-point], [data-testid=sketch-peak]');
+    await expect(dot).toHaveCount(1);
+    const [cx, cy] = (await dot.evaluate(el => [Number(el.getAttribute('cx')), Number(el.getAttribute('cy'))]));
+    const svg = (await dot.evaluate(el => { const r = el.ownerSVGElement!.viewBox.baseVal; return [r.x, r.y, r.width, r.height]; }));
+    expect(cx >= svg[0] && cx <= svg[0] + svg[2] && cy >= svg[1] && cy <= svg[1] + svg[3], `${key} dot at ${cx},${cy} in ${svg}`).toBe(true);
+  }
+});
+
+for (const id of ['simply-supported-beam', 'cantilever-beam']) {
+  test(`@smoke tools ${id} keeps the SVG coordinate frame in sync with the diagram`, async ({ page }) => {
+    await page.goto(`/en/tools/${id}/?e2e=1`);
+    for (const width of [1280, 390]) {
+      await page.setViewportSize({ width, height: 720 });
+      for (const key of FIGURES[id]) {
+        const svg = page.getByTestId(`figure-${key}`).locator('svg');
+        await expect(svg).toBeVisible();
+        await expect.poll(() => svg.evaluate(el => {
+          const node = el as SVGSVGElement;
+          const { x, y, width, height } = node.viewBox.baseVal;
+          return x === 0 && y === 0 && width > 0 && height > 0
+            && width === node.width.baseVal.value && height === node.height.baseVal.value
+            && width === node.parentElement!.clientWidth;
+        }), { message: `${key} uses its rendered dimensions as the SVG coordinate frame` }).toBe(true);
+      }
+    }
+  });
+}
+
+test('@smoke tools a value typed past a slider\'s span stays, and the slider grows to hold it', async ({ page }) => {
+  await page.goto('/en/tools/simply-supported-beam/?e2e=1');
+  await expect(page.getByTestId('peak-moment')).toBeVisible();
+  await page.getByTestId('load').fill('200');
+  await page.getByTestId('length').fill('50');
+  await expect.poll(() => peak(page, 'moment')).toBeCloseTo(200 * 50 ** 2 / 8, 6);
+  await page.getByTestId('e').fill('150000');
+  await expect.poll(() => peak(page, 'deflection')).toBeCloseTo(5 * 200 * 50 ** 4 / (384 * 150000e3 * 0.00008), 3);
+  await expect(page.getByTestId('load')).toHaveValue('200');
+  await expect(page.getByTestId('length')).toHaveValue('50');
+  near(await peak(page, 'moment'), 200 * 50 ** 2 / 8, 1e-9);
+  for (const [key, value] of [['load', '200'], ['length', '50']]) {
+    const slider = page.getByTestId(`slider-${key}`);
+    await expect(slider).toHaveValue(value);
+    expect(Number(await slider.getAttribute('max'))).toBeGreaterThanOrEqual(Number(value));
+  }
+  await slide(page, 'slider-load', 100);
+  await expect.poll(() => peak(page, 'moment')).toBeCloseTo(100 * 50 ** 2 / 8, 6);
+  await page.goto('/en/tools/portal-frame/?e2e=1');
+  await expect(page.getByTestId('peak-moment')).toBeVisible();
+  await page.getByTestId('height').fill('40');
+  await page.getByTestId('load').fill('500');
+  await page.getByTestId('e').fill('150000');
+  await expect(page.getByTestId('agreement')).toBeVisible();
+  await expect(page.getByTestId('height')).toHaveValue('40');
+  await expect(page.getByTestId('load')).toHaveValue('500');
+  await expect(page.getByTestId('slider-height')).toHaveValue('40');
+});
+
+test('@smoke tools the parameter column stays below the header while the results scroll', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.goto('/en/tools/portal-frame/?e2e=1');
+  await expect(page.getByTestId('peak-moment')).toBeVisible();
+  const box = await page.evaluate(async () => {
+    document.querySelector('.landing')!.scrollTo({ top: 900, behavior: 'instant' });
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    const side = document.querySelector('.tool-side')!.getBoundingClientRect();
+    return { top: side.top, bottom: side.bottom, nav: document.querySelector('nav.site-header')!.getBoundingClientRect().bottom, scrolled: document.querySelector('.landing')!.scrollTop };
+  });
+  expect(box.scrolled).toBeGreaterThan(0);
+  expect(box.top).toBeGreaterThanOrEqual(box.nav);
+  expect(box.bottom).toBeLessThanOrEqual(720);
+});
+
+const slide = (page: Page, testId: string, to: number) => page.getByTestId(testId).evaluate((el: HTMLInputElement, v) => { el.value = String(v); el.dispatchEvent(new Event('input', { bubbles: true })); }, to);
+const peak = async (page: Page, key: string) => Number(await page.getByTestId(`peak-${key}`).getAttribute('data-value'));
+
+test('@smoke tools a slider moves every diagram live, and the diagrams never blank between solves', async ({ page }) => {
+  await page.goto('/en/tools/simply-supported-beam/?e2e=1');
+  await expect(page.getByTestId('peak-moment')).toBeVisible();
+  near(await peak(page, 'moment'), 10 * 36 / 8, 1e-9);
+  const shown = await page.getByTestId('peak-moment').textContent();
+  await page.evaluate(() => {
+    const counts: number[] = [];
+    const board = () => document.querySelector('[data-testid=figures]');
+    new MutationObserver(() => counts.push(board()?.querySelectorAll('figure svg').length ?? 0)).observe(document.querySelector('main')!, { subtree: true, childList: true });
+    (window as unknown as { figureCounts: number[] }).figureCounts = counts;
+  });
+  for (const load of [12, 15, 20, 25, 30]) await slide(page, 'slider-load', load);
+  await expect.poll(() => peak(page, 'moment')).toBeCloseTo(30 * 36 / 8, 6);
+  await expect(page.getByTestId('peak-moment')).not.toHaveText(shown!);
+  near(await peak(page, 'shear'), 30 * 6 / 2, 1e-9);
+  near(await peak(page, 'deflection'), 5 * 30 * 6 ** 4 / (384 * 200000e3 * 0.00008), 1e-4);
+  expect(await page.evaluate(() => (window as unknown as { figureCounts: number[] }).figureCounts.every(n => n === 4))).toBe(true);
+  await expect(page.getByTestId('slider-load')).toHaveValue('30');
+  await expect(page.getByTestId('load')).toHaveValue('30');
+});
+
+for (const locale of BUILD_PUBLIC_LOCALES) test(`@smoke tools localized index ${locale}`, async ({ page }) => {
   await page.goto(`/${locale}/tools/`);
   await expect(page.locator('h1')).toBeVisible();
-  await expect(page.locator('.tool-card h2 a')).toHaveCount(8);
-  await expect(page.locator('.tool-card')).toHaveCount(8);
+  await expect(page.locator('section.topic')).toHaveCount(TOPICS.length);
+  await expect(page.locator('.tool-card h3 a')).toHaveCount(TOOLS.length);
+  await expect(page.locator('.tool-card')).toHaveCount(TOOLS.length);
+  for (const topic of TOPICS) await expect(page.locator(`section.topic[data-topic="${topic}"] .tool-card`)).toHaveCount(TOOLS.filter(tool => tool.topic === topic).length);
   await expect(page.locator('.tool-card .badge')).toHaveCount(0);
-  for (const link of await page.locator('.tool-card h2 a, main .btn').all()) {
+  for (const link of await page.locator('.tool-card h3 a').all()) {
     const box = (await link.boundingBox())!;
     expect(box.height).toBeGreaterThanOrEqual(44);
     expect(box.width).toBeGreaterThanOrEqual(44);
   }
   await expect(page.locator('nav [data-nav="tools"]')).toBeVisible();
+  await expect(page.locator('nav [data-nav="examples"]')).toHaveCount(0);
   await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', `https://stabileo.com/${locale}/tools/`);
-  for (const lang of PUBLIC_LOCALES) await expect(page.locator(`link[hreflang="${lang}"]`)).toHaveAttribute('href', `https://stabileo.com/${lang}/tools/`);
-  for (const lang of ['de', 'fr', 'tr'].filter((l) => !isComplete(l))) await expect(page.locator(`link[hreflang="${lang}"]`)).toHaveCount(0);
+  for (const lang of BUILD_PUBLIC_LOCALES) await expect(page.locator(`link[hreflang="${lang}"]`)).toHaveAttribute('href', `https://stabileo.com/${lang}/tools/`);
+  for (const lang of ['de', 'fr', 'tr', 'zh'].filter((l) => !isComplete(l))) await expect(page.locator(`link[hreflang="${lang}"]`)).toHaveCount(0);
 });
+
 
 for (const id of BATCH_IDS) test(`@smoke tools ${id} prerender and editor handoff`, async ({ page, request }) => {
   const html = await (await request.get(`/en/tools/${id}/`)).text();
@@ -113,6 +272,60 @@ for (const id of BATCH_IDS) test(`@smoke tools ${id} prerender and editor handof
   const materials = await page.evaluate(() => (window as any).__stabileo.entityData('setting', 'materials'));
   expect(materials[0][1].e).toBe(100000);
 });
+
+for (const toolsEnabled of [true, false]) {
+  for (const id of ['influence-line', 'simply-supported-beam']) {
+    test(`@smoke tools ${id} only offers an editor handoff for the current model (Tools ${toolsEnabled ? 'on' : 'off'})`, async ({ page }) => {
+      const encoderRequested = Promise.withResolvers<void>();
+      const releaseEncoder = Promise.withResolvers<void>();
+      await page.route('**/assets/share-*.js', async route => {
+        encoderRequested.resolve();
+        await releaseEncoder.promise;
+        await route.continue();
+      });
+      const wasmRequested = Promise.withResolvers<void>();
+      const releaseWasm = Promise.withResolvers<void>();
+      await page.route(/dedaliano_engine_bg[^/]*\.wasm$/, async route => {
+        wasmRequested.resolve();
+        await releaseWasm.promise;
+        await route.continue();
+      });
+      await page.addInitScript(enabled => {
+        localStorage.setItem('stabileo-feature-tools', enabled ? '1' : '0');
+      }, toolsEnabled);
+      const link = page.locator('#app').getByRole('link', { name: /^Open in Stabileo/ });
+      const editorUrl = /\/app\/basic\?e2e=1#data=2\./;
+      try {
+        await page.goto(`/en/tools/${id}/?e2e=1`, { waitUntil: 'domcontentloaded' });
+        await expect(page.locator('#app').getByTestId('agreement')).toBeVisible();
+        await encoderRequested.promise;
+        await expect(link).toHaveCount(0);
+        releaseEncoder.resolve();
+        await expect(link).toHaveAttribute('href', editorUrl);
+        const initialHref = await link.getAttribute('href');
+
+        const modulus = page.getByTestId('e');
+        await modulus.fill('100000');
+        await wasmRequested.promise;
+        await expect(link).toHaveCount(0);
+        releaseWasm.resolve();
+        await expect(link).toHaveAttribute('href', editorUrl);
+        await expect(link).not.toHaveAttribute('href', initialHref!);
+
+        await modulus.fill('0');
+        await expect(page.locator('#app').getByRole('alert')).toBeVisible();
+        await expect(link).toHaveCount(0);
+        await modulus.fill('100000');
+        await link.click();
+        await expect(page).toHaveURL(editorUrl);
+        await expect.poll(() => page.evaluate(() => (window as any).__stabileo?.entityData('setting', 'materials')?.[0]?.[1]?.e)).toBe(100000);
+      } finally {
+        releaseEncoder.resolve();
+        releaseWasm.resolve();
+      }
+    });
+  }
+}
 
 // Exercise Root's in-place lazy mount separately from the ordinary full-document links.
 test('@smoke tools shared model survives a client-side editor transition', async ({ page }) => {
@@ -178,10 +391,11 @@ test('@smoke tools refuse a decimal comma in span lists', async ({ page }) => {
 for (const id of ['simply-supported-beam', 'beam-natural-frequency']) test(`@smoke tools ${id} localized at 390x844 and 844x390`, async ({ page }) => {
   for (const [width, height] of [[390, 844], [844, 390]]) {
     await page.setViewportSize({ width, height });
-    await page.goto(`/${PUBLIC_LOCALES.find((l) => l !== 'en')}/tools/${id}/?e2e=1`);
+    await page.goto(`/${BUILD_PUBLIC_LOCALES.find((l) => l !== 'en')}/tools/${id}/?e2e=1`);
     await expect(page.getByTestId('agreement')).toBeVisible();
     expect(await pageOverflow(page)).toEqual([]);
-    expect((await page.locator('.tool-viewer').boundingBox())!.y).toBeLessThan(height <= 400 ? height - 120 : 450);
+    if (height <= 400) expect((await page.getByTestId('figures').boundingBox())!.y).toBeLessThan(height - 120);
+    else expect(await figuresBelowForm(page)).toBe(true);
     await expect(page.locator('main')).not.toContainText('Dense solver');
     await expect(page.locator('main')).not.toContainText('Residual');
   }
@@ -194,9 +408,9 @@ test('@smoke a calculator and its research benchmarks link to each other, each i
   await expect(related).toBeVisible();
   await expect(related.locator('a[href="/es/research/metamaterials/grossman-2026/"]')).toHaveCount(1);
   await expect(related.locator('a[href="/es/research/benchmarks/riks-crisfield/"]')).toHaveCount(1);
-  await expect(related.locator('a[href="/es/tools/"]')).toHaveCount(1);
+  await expect(related.locator('a[href="/es/tools/"]').first()).toBeVisible();
   await expect(related.locator('a[href="/es/research/"]')).toHaveCount(1);
-  await expect(related.locator('a[href="/es/examples/"]')).toHaveText('Ejemplos');
+  await expect(related.locator('a[href*="/examples"]')).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await related.locator('a[href="/es/research/metamaterials/grossman-2026/"]').click();
   await expect(page).toHaveURL(/\/es\/research\/metamaterials\/grossman-2026\/$/);

@@ -1,0 +1,32 @@
+{
+  "id": "support-type-resubmission",
+  "date": "2026-11-17",
+  "prs": [],
+  "area": "analysis",
+  "when": {
+    "all": ["space3D"],
+    "any": ["rollerSupports", "namedSupportRestraintMasks"]
+  },
+  "title": {
+    "en": "Unchanged support types preserve bearing directions",
+    "es": "Conservar el tipo de apoyo mantiene su dirección de restricción",
+    "pt": "Manter o tipo de apoio preserva sua direção de restrição",
+    "de": "Ein unveränderter Lagertyp behält seine Bindungsrichtung bei",
+    "fr": "Un type d’appui inchangé conserve sa direction de blocage",
+    "zh": "未更改的支座类型保留支承方向",
+    "tr": "Mesnet tipi değişmediğinde kısıtlama yönü korunur"
+  },
+  "explanation": {
+    "en": "Resubmitting a support type during an edit or an Explore trial could change its restraints. Check the bearing directions and rerun affected analyses.",
+    "es": "Volver a enviar el mismo tipo de apoyo durante una edición o una prueba en Explorar podía cambiar sus restricciones. Compruebe las direcciones de restricción y repita los análisis afectados.",
+    "pt": "Reenviar o mesmo tipo de apoio durante uma edição ou um teste em Explorar podia alterar suas restrições. Confira as direções de restrição e repita as análises afetadas.",
+    "de": "Bei einer Bearbeitung oder einem Versuch in Erkunden konnte die erneute Auswahl desselben Lagertyps seine Bindungen ändern. Prüfen Sie die Bindungsrichtungen und wiederholen Sie die betroffenen Berechnungen.",
+    "fr": "La nouvelle sélection du même type d’appui lors d’une modification ou d’un essai dans Explorer pouvait modifier ses blocages. Vérifiez les directions de blocage et relancez les analyses concernées.",
+    "zh": "在编辑或 Explore 试算中重新提交支座类型，可能会改变其约束。请检查支承方向，并重新运行受影响的分析。",
+    "tr": "Düzenleme veya Keşfet denemesi sırasında aynı mesnet tipinin yeniden seçilmesi kısıtlamaları değiştirebiliyordu. Mesnetlerin kısıtlama yönlerini kontrol edin ve etkilenen analizleri yeniden çalıştırın."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-support-lifecycle.md",
+    "heading": "Unchanged support types preserve bearing directions"
+  }
+}

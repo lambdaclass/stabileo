@@ -1,3 +1,4 @@
+import type { ConcurrentDemand } from '../../concurrent-demand';
 /**
  * Member checks under codes other than CIRSOC, through the engine's own checkers.
  *
@@ -41,6 +42,8 @@ export interface MemberContext {
    * force's peak (a column's smaller compression with nearly its largest moment) is only here.
    */
   tuples?: StationTuple[];
+  readonly expectedCombinationIds?: readonly number[];
+  readonly stationTs?: readonly number[];
   /** The clear cover of the member's kind (m), from the project's design data; else the default. */
   cover?: number;
   /** The bar steel's fy (MPa), from the project's design data; else the default. */
@@ -48,7 +51,7 @@ export interface MemberContext {
 }
 
 /** One combination at one station: the forces that act together there. */
-export type StationTuple = Pick<GoverningDemand, 'comboId' | 'comboName' | 'stationT' | 'stationX' | 'forces'>;
+export type StationTuple = Pick<GoverningDemand, 'comboId' | 'comboName' | 'stationT' | 'stationX' | 'forces'> & { readonly inventory?: import('../../complete-demand-set').DemandInventory; readonly coverage?: import('../../complete-demand-set').DemandCoverage };
 
 /** What a code's checker returned for one member, read into one shape. */
 export interface CheckReading {
@@ -90,11 +93,11 @@ export interface OtherCode {
    * every demand. A `reading` settles the demand without the engine (no steel on the face in
    * tension); `unevaluated` adds checks this adapter knows the checker leaves out for it.
    */
-  at?(ctx: MemberContext, d: StationTuple, data: Record<string, unknown>):
+  at?(ctx: MemberContext, d: ConcurrentDemand, data: Record<string, unknown>):
     | { data: Record<string, unknown>; unevaluated?: string[] }
     | { reading: CheckReading };
   /** One demand as the checker's force row. `data` is what `member` returned. */
-  forces(ctx: MemberContext, d: StationTuple, data: Record<string, unknown>): Record<string, unknown>;
+  forces(ctx: MemberContext, d: ConcurrentDemand, data: Record<string, unknown>): Record<string, unknown>;
   /**
    * The engine call. Throws `EngineUnavailableError` when the checker is not loaded and
    * `EngineCheckError` (with the engine's message) when it refused the input.
@@ -102,16 +105,16 @@ export interface OtherCode {
   run(input: { members: unknown[]; forces: unknown[] }): unknown[];
   read(result: Record<string, unknown>): CheckReading;
   /**
-   * The certified version of the check (docs/verification/CERTIFY.md, "Certified design checks"),
+   * The certified version of the check (testing/docs/CERTIFY.md, "Certified design checks"),
    * when the engine has one: its export, and the bound on each force `forces` sends, in the
    * checker's units, from the combination's certified station bound (kN, kN·m) of the member.
    */
   certify?: {
     name: 'certify_steel_members' | 'certify_ec3_members' | 'certify_ec2_members' | 'certify_rc_members';
-    bound(ctx: MemberContext, d: GoverningDemand, data: Record<string, unknown>, sb: StationBound3D): DemandBound;
+    bound(ctx: MemberContext, d: ConcurrentDemand, data: Record<string, unknown>, sb: StationBound3D): DemandBound;
   };
   /** Parts the adapter computes itself, for a demand, besides the checker's (`read`). */
-  extraParts?(ctx: MemberContext, d: StationTuple, data: Record<string, unknown>): Array<{ kind: CheckKind; clause: string; ratio: number }>;
+  extraParts?(ctx: MemberContext, d: ConcurrentDemand, data: Record<string, unknown>): Array<{ kind: CheckKind; clause: string; ratio: number }>;
   /** Which parts of the reading an `unevaluated` key leaves without a clause behind them. */
   disables?: Readonly<Record<string, readonly CheckKind[]>>;
 }

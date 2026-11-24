@@ -127,7 +127,8 @@ describe('each entry point, with the engine down', () => {
     const tab = read('components/pro/ProLoadsTab.svelte');
     expect(tab).toMatch(/runEngineAction\(\(\) => buildCandidates\(template\)\)/);
     expect(tab.match(/candidateCombos = buildCandidates\(/g)).toBeNull();
-    expect(read('components/pro/ProCombinationRules.svelte')).toMatch(/runEngineAction\(\(\) => \[\.\.\.generateCombinations/);
+    // The seed runs the bound basis code's combinations, CIRSOC 101's among them, inside it.
+    expect(read('components/pro/ProCombinationRules.svelte')).toMatch(/runEngineAction\(\(\) => \(b\s*\?\s*\[\.\.\.b\.strength[\s\S]*?\[\.\.\.generateCombinations/);
   });
 
   it('opening a PRO example while the engine failed to load: a toast, nothing half-loaded', async () => {
@@ -173,7 +174,7 @@ describe('the remaining entry points route the engine error to the screen', () =
     ['lib/store/design-run.svelte.ts', /isEngineUnavailable\(err\)/, /fail\('engine\.unavailable'\)/],
     ['lib/export/excel.ts', /runEngineActionAsync\(\(\) => buildExcelWorkbook/, /export async function buildExcelWorkbook/],
     ['lib/pro/report-export.ts', /runEngineActionAsync\(\(\) => exportReportWithEngine/, /async function exportReportWithEngine/],
-    ['lib/store/model.svelte.ts', /engineFailureMessage\(err\)/, /return tp\(m\.key, m\.params \?\? \{\}\);/],
+    ['lib/store/model.svelte.ts', /engineFailureMessage\(err\)/, /return te\(m\);/],
     ['lib/engine/codes/argentina/serviceability.ts', /isEngineUnavailable\(err\)/, /no verificado/],
     ['components/pro/ProAdvancedTab.svelte', /previewCodeSpectrum\(/, /from '..\/..\/lib\/store\/spectrum-preview'/],
     ['components/pro/ProAutoLoadsDialog.svelte', /previewCodeSpectrum\(/, /from '..\/..\/lib\/store\/spectrum-preview'/],

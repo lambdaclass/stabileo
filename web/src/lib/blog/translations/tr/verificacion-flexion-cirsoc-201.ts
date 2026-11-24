@@ -1,4 +1,5 @@
 import type { PostBody } from '../../types';
+import { flexureExampleRows, flexureExampleSteps } from '../../flexure-example';
 
 const body: PostBody = {
   "title": "CIRSOC 201'e göre eğilme kontrolü, adım adım",
@@ -14,18 +15,7 @@ const body: PostBody = {
     },
     {
       "k": "ol",
-      "items": [
-        "d = 35,9 cm, d' = 4,1 cm",
-        "Mu = 60,00 kN·m",
-        "As,min = 2,39 cm²",
-        "As,max (tek donatılı) = 11,58 cm²",
-        "As,req (çekme) = 4,73 cm²",
-        "Çekme donatısı: 2 Ø20 (6,28 cm²)",
-        "a = 6,21 cm, c = 7,31 cm",
-        "εt = 11,74‰",
-        "εt ≥ 5‰ → çekme kontrollü → φ = 0,90",
-        "φMn = 77,90 kN·m"
-      ]
+      "items": flexureExampleSteps("Çekme donatısı: 2 Ø20 (6,28 cm²)")
     },
     {
       "k": "p",
@@ -143,46 +133,18 @@ const body: PostBody = {
         "Donatı",
         "εt [‰]",
         "φ",
-        "φMn [kN·m]"
+        "φMn [kN·m]",
+        "Süneklik"
       ],
-      "rows": [
-        [
-          "30",
-          "2 Ø16",
-          "20,03",
-          "0,90",
-          "51,6"
-        ],
-        [
-          "60",
-          "2 Ø20",
-          "11,74",
-          "0,90",
-          "77,9"
-        ],
-        [
-          "90",
-          "2 Ø25",
-          "6,44",
-          "0,90",
-          "115,2"
-        ],
-        [
-          "120",
-          "2 Ø32",
-          "2,76",
-          "0,707",
-          "133,5"
-        ]
-      ]
+      "rows": flexureExampleRows("Uygun", "Uygun değil")
     },
     {
       "k": "p",
-      "t": "Son satırda kesit geçiş bölgesine girdi ve φ 0,707'ye düştü. Kapasite, çelikle aynı oranda artmadı: son iki satır arasında donatı alanı nominal olarak 9,82'den 16,08 cm²'ye çıkarken φMn yalnızca 115,2'den 133,5 kN·m'ye yükseliyor. Eklenenin önemli bir kısmı katsayıda kayboluyor."
+      "t": "2 Ø32 donatılı kesit uygun değildir: çekme birim şekil değiştirmesi gerekli alt sınırın altındadır. φ değerini azaltmak süneklik kontrolünü sağlamaz. Kesiti veya donatıyı yeniden boyutlandırın."
     },
     {
       "k": "quote",
-      "t": "Aşırı donatılı bir kesit kontrolden kalmaz. φ'de kaybeder ve sonuç yine de kontrolü sağladığını söyler."
+      "t": "2 Ø32 donatılı kesit uygun değildir: çekme birim şekil değiştirmesi gerekli alt sınırın altındadır. φ değerini azaltmak süneklik kontrolünü sağlamaz. Kesiti veya donatıyı yeniden boyutlandırın."
     },
     {
       "k": "h",
@@ -190,7 +152,7 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "Alışılmış cevap “çubuklar sığsın diye”dir. Bu nedeni değil, sonucudur. Aynı kirişte Mu = 200 kN·m için modül εt = 1,51‰ bulur, yani sınırın altında, ve basınç donatısı ekler. Bununla tarafsız eksen yukarı çıkar, εt 7,46‰'e döner ve φ yeniden 0,90 olur."
+      "t": "Basınç donatısı süneklik sınırında gerekli olabilir. Çekme çeliğinin akmayı bırakmasını beklemeyin; yeniden boyutlandırılan kesiti gerçek çubuk derinlikleriyle kontrol edin."
     },
     {
       "k": "p",
@@ -198,7 +160,7 @@ const body: PostBody = {
     },
     {
       "k": "note",
-      "t": "Modülün bu durum için ürettiği adımlar bunu tam bu sırayla söyler: önce “εt = 1,51‰ < 2,1‰ → A's gerekli”, sonra “ΔM = 144,50 kN·m, A's,req = 11,40 cm²” ve ancak en sonda “εt = 7,46‰ → çekme kontrollü → φ = 0,90”."
+      "t": "Basınç donatısı süneklik sınırında gerekli olabilir. Çekme çeliğinin akmayı bırakmasını beklemeyin; yeniden boyutlandırılan kesiti gerçek çubuk derinlikleriyle kontrol edin."
     },
     {
       "k": "h",
@@ -208,12 +170,19 @@ const body: PostBody = {
       "k": "p",
       "t": "Aşağıda model yer alıyor: 5 m açıklıklı, basit mesnetli, 20×40, H-25 bir kiriş; 12 kN/m ölü yük ve 8 kN/m hareketli yükün yanında kendi öz ağırlığı da var. PRO'nun tasarım akışında, geçerli tasarım yönetmeliği CIRSOC 201 olarak açılır."
     },
-    {"k": "img", "base": "blog/cirsoc-201-beam", "w": 1600, "h": 1000, "alt": "Stabileo PRO, Tasarım alanı, Boyutlandırma adımı; çözüm ve tasarımdan sonra 20×40 kiriş seçili. Eleman paneli CIRSOC 201 (2025) ile “doğrulandı, yerel η 0,90” gösteriyor; My ve Vz eksenlerinde 13 kontrol ve en yüksek kullanım oranı 0,900.", "caption": "Aşağıdaki kiriş “Boyutlandır…” sonrasında: CIRSOC 201 onu 0,90 kullanım oranıyla doğruluyor."},
+    {
+      "k": "img",
+      "base": "blog/cirsoc-201-beam",
+      "w": 1600,
+      "h": 1000,
+      "alt": "20×40 kiriş seçiliyken Stabileo PRO tasarım kontrolleri.",
+      "caption": "Bu ekran görüntüsü mesnetler düzeltilmeden önce alınmıştır. Aşağıdaki etkileşimli örnek güncel sonucu gösterir."
+    },
     {
       "k": "embed",
       "mode": "pro",
       "query": "example=rc-beam-flexure&proTab=design",
-      "label": "Stabileo'daki kiriş, PRO'nun tasarım akışında. Tasarım kapalıysa bildirimdeki “Bu ziyaret için tasarımı aç” düğmesine basın. Bu sırayla üç düğme: “İstemleri hesapla”, “Gerekli donatıyı hesapla” ve “Boyutlandır…”. Çubukları yalnızca üçüncüsü seçer ve çubuk olmadan kontrol edilecek bir şey yoktur: tablo “donatısız” yazar. 5 m'lik açıklık iki eleman olarak modellenmiştir; ikisi de açıklıktaki kesme kuvvetinin belirleyici olduğu D/C = 0,90 ile kapanır: eğilme ve donatı ankrajı bunun altında kalır. Yükü değiştirip yeniden çalıştırın. PRO'daki yönetmeliğe göre tasarım hâlâ geliştirme aşamasındadır; betonarme modülü, uygulanmış ve test edilmiş olan kısımdır."
+      "label": "Stabileo'daki kiriş, PRO'nun tasarım akışında. Tasarım kapalıysa bildirimdeki “Bu ziyaret için tasarımı aç” düğmesine basın. Bu sırayla üç düğme: “İstemleri hesapla”, “Gerekli donatıyı hesapla” ve “Boyutlandır…”. Çubukları yalnızca üçüncüsü seçer ve çubuk olmadan kontrol edilecek bir şey yoktur: tablo “donatısız” yazar. 5 m'lik açıklık iki eleman olarak modellenmiştir; ikisi de D/C = 0,91 ile doğrulanır. Açıklıkta pozitif eğilme (My+) belirleyicidir. Yükü değiştirip yeniden çalıştırın. PRO'daki yönetmeliğe göre tasarım hâlâ geliştirme aşamasındadır; betonarme modülü, uygulanmış ve test edilmiş olan kısımdır."
     },
     {
       "k": "h",
@@ -230,7 +199,7 @@ const body: PostBody = {
     },
     {
       "k": "note",
-      "t": "Buradaki her sayı bir tablodan değil, adı geçen kesitler üzerinde çalıştırılan Stabileo CIRSOC 201 modülünden gelir. Aktarmaya değer bir uyarı var, çünkü bu yazının ilk taslağı bunu yanlış yapmıştı: elle yapılan hesap D/C = 0,74, uygulama ise 0,81 verdi. Fark, uygulamanın ölü yük durumuna eklediği 2 kN/m'lik öz ağırlıktı. Uygulama haklıydı. Yukarıdaki düzenleyiciyle ilgili de bir not, iki sayı birbirine karışmasın diye: o 0,81, bu yazının üzerinde çalıştığı donatı olan 2 Ø25'i varsayar; düzenleyicinin gösterdiği 0,90 ise boyutlandırma yaparken kendi seçtiği çubuklarla elde edilir. Aynı kiriş, iki farklı donatı. Buradaki bir sayı bir gün düzenleyiciyle uyuşmazsa düzenleyiciye inanın."
+      "t": "Her seçilen çubuk çapı için faydalı yüksekliği yeniden hesaplayın. Kapasite tablosu güncel hesap çekirdeğiyle kontrol edilir; kapasite tek başına tam bir doğrulama değildir."
     }
   ]
 };

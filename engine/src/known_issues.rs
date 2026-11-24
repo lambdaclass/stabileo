@@ -1,5 +1,5 @@
 //! Known issues that can give a wrong result, contained until they are fixed (roadmap Release
-//! safety item 7, #447; the triage is docs/verification/DERIVATION_TRIAGE.md).
+//! safety item 7, #447; the triage is testing/docs/DERIVATION_TRIAGE.md).
 //!
 //! Each entry is a finding with a stable id (its code in the derivation review), the issue that
 //! tracks it, a test on the input saying whether this result is affected, and a message. Every
@@ -63,7 +63,6 @@ pub const ENTRIES: &[Entry] = &[
     Entry { id: "LIN-SECOND-ORDER", issue: 1551, mode: Mode::Warn, message: "Axial compression is a significant fraction of the critical load: second-order effects may amplify these linear displacements and moments by more than 10 % (N/Ncr > 0.075, CIRSOC 301 Appendix 7). Run a P-Delta or second-order analysis before using these moments for design" },
     Entry { id: "LIN-SECOND-ORDER-NEAR", issue: 1551, mode: Mode::Warn, message: "Axial compression is near the second-order limit (N/Ncr above 0.047, the limit 0.075 over the largest CIRSOC 301 load factor 1.6): a combination that factors this case up may pass it. Check the combinations with a P-Delta or second-order analysis" },
     Entry { id: "LIN-SECOND-ORDER-UNBOUNDED", issue: 1551, mode: Mode::Warn, message: "Members are in compression and the critical load could not be bounded from the members alone, so it is unknown whether second-order effects amplify these linear displacements and moments by more than 10 %. Run a P-Delta or second-order analysis before using these moments for design" },
-    Entry { id: "RC-NM-PAIRING", issue: 1316, mode: Mode::Warn, message: "This CIRSOC 201 column check pairs the axial force of one combination with the moment of another, which can be unconservative below the balance point. Check the column under each named combination" },
 ];
 
 pub fn diagnostic(id: &str) -> StructuredDiagnostic {
@@ -77,7 +76,7 @@ pub fn diagnostic(id: &str) -> StructuredDiagnostic {
 }
 
 pub fn refuse(diagnostics: &[StructuredDiagnostic]) -> Result<(), String> {
-    match diagnostics.iter().find(|d| d.code == DiagnosticCode::KnownIssue && d.severity == Severity::Error) {
+    match diagnostics.iter().find(|d| matches!(d.code, DiagnosticCode::KnownIssue | DiagnosticCode::NonFiniteResult) && d.severity == Severity::Error) {
         Some(d) => Err(serde_json::json!({"message": d.message, "structuredDiagnostics": diagnostics}).to_string()),
         None => Ok(()),
     }
@@ -657,41 +656,46 @@ pub fn small_displacement_3d(input: &SolverInput3D, loads: &[SolverLoad3D], r: &
 
 const SPAN_STATIONS: usize = 64;
 
+#[derive(Debug)]
+struct UnitRoots { values: [f64; 3], len: usize }
+
+impl std::ops::Deref for UnitRoots {
+    type Target = [f64];
+    fn deref(&self) -> &[f64] { &self.values[..self.len] }
+}
+
+impl IntoIterator for UnitRoots {
+    type Item = f64;
+    type IntoIter = std::iter::Take<std::array::IntoIter<f64, 3>>;
+    fn into_iter(self) -> Self::IntoIter { self.values.into_iter().take(self.len) }
+}
+
 /// The real roots in (0, 1) of the cubic `c[0] + c[1]·t + c[2]·t² + c[3]·t³`: the interval is
 /// split where the cubic turns, so each piece holds at most one root.
-fn cubic_roots_in_unit(c: [f64; 4]) -> ([f64; 3], usize) {
+fn cubic_roots_in_unit(c: [f64; 4]) -> UnitRoots {
     let size = c.iter().map(|v| v.abs()).filter(|v| v.is_finite() && *v > 0.0).fold(0.0, f64::max);
     let c = if size > 0.0 { c.map(|v| v / size) } else { c };
     let p = |t: f64| ((c[3] * t + c[2]) * t + c[1]) * t + c[0];
     let (qa, qb, qc) = (3.0 * c[3], 2.0 * c[2], c[1]);
-    // The ends and the turning points, at most four; kept in [0, 1] and sorted. Fixed arrays: this
-    // runs for every window of every member of every load case.
-    let mut candidates = [0.0, 1.0, 0.0, 0.0];
-    let mut n_candidates = 2;
+    let mut cuts = [0.0, 1.0, f64::NAN, f64::NAN];
     let disc = qb * qb - 4.0 * qa * qc;
     if disc >= 0.0 {
         let q = -0.5 * (qb + qb.signum() * disc.sqrt());
         if q != 0.0 {
-            candidates[2] = q / qa;
-            candidates[3] = qc / q;
-            n_candidates = 4;
+            cuts[2] = q / qa;
+            cuts[3] = qc / q;
         } else if qa != 0.0 {
-            candidates[2] = 0.0;
-            n_candidates = 3;
+            cuts[2] = 0.0;
         }
     }
-    let mut cuts = [0.0; 4];
-    let mut n_cuts = 0;
-    for &t in &candidates[..n_candidates] {
-        if (0.0..=1.0).contains(&t) {
-            cuts[n_cuts] = t;
-            n_cuts += 1;
-        }
+    let mut n = 0;
+    for t in cuts {
+        if (0.0..=1.0).contains(&t) { cuts[n] = t; n += 1; }
     }
-    cuts[..n_cuts].sort_by(f64::total_cmp);
-    let mut roots = [0.0; 3];
-    let mut n_roots = 0;
-    for w in cuts[..n_cuts].windows(2) {
+    let cuts = &mut cuts[..n];
+    cuts.sort_by(f64::total_cmp);
+    let mut roots = UnitRoots { values: [0.0; 3], len: 0 };
+    for w in cuts.windows(2) {
         let (mut lo, mut hi) = (w[0], w[1]);
         let (plo, phi) = (p(lo), p(hi));
         if !(plo * phi <= 0.0) || plo == phi {
@@ -699,22 +703,13 @@ fn cubic_roots_in_unit(c: [f64; 4]) -> ([f64; 3], usize) {
         }
         for _ in 0..80 {
             let mid = 0.5 * (lo + hi);
-            // Adjacent doubles: the midpoint is an end, and every further step would leave the
-            // interval as it is.
             if mid == lo || mid == hi { break; }
             if (p(mid) <= 0.0) == (plo <= 0.0) { lo = mid } else { hi = mid }
         }
-        roots[n_roots] = 0.5 * (lo + hi);
-        n_roots += 1;
+        roots.values[roots.len] = 0.5 * (lo + hi);
+        roots.len += 1;
     }
-    (roots, n_roots)
-}
-
-/// The roots of [`cubic_roots_in_unit`] as a list, for the tests' assertions.
-#[cfg(test)]
-fn cubic_roots(c: [f64; 4]) -> Vec<f64> {
-    let (roots, n) = cubic_roots_in_unit(c);
-    roots[..n].to_vec()
+    roots
 }
 
 /// The largest rotation along a member, its bending planes' section rotations ψ and axis slopes
@@ -724,30 +719,18 @@ fn cubic_roots(c: [f64; 4]) -> Vec<f64> {
 /// extreme, are found exactly, and the slope is taken on both sides of a point load. The section rotation vector and
 /// the axis slope vector are bounded apart, each by the norm of its parts' largest magnitudes on
 /// the interval, and the interval's value is the larger bound.
-#[cfg(test)]
 fn largest_span_rotation(l: f64, planes: &[crate::postprocess::diagrams::SpanRotation], twist: (f64, f64)) -> f64 {
-    span_rotation_bound(l, planes, twist, SPAN_STATIONS)
-}
-
-/// Whether [`largest_span_rotation`] is beyond the small-displacement limit, decided first with
-/// one window per load interval. Between load positions each plane's EI·ψ' is a cubic and its
-/// shear a quadratic, so that window's maxima are the exact maxima of its functions: with one
-/// plane and no twist the one-window value is the exact largest rotation, and with several it
-/// bounds the [`SPAN_STATIONS`]-window value from above (a window's maxima can only shrink when
-/// it is split). A value within the limit therefore settles the member; only a 3D member beyond
-/// the coarse bound is measured with the finer windows. Each load case of a combination ran the
-/// finer measure on every member, 64 windows of two cubics each, at 15 times the cost of its solve.
-fn span_rotation_beyond(l: f64, planes: &[crate::postprocess::diagrams::SpanRotation], twist: (f64, f64)) -> bool {
-    if !beyond_small_displacement(span_rotation_bound(l, planes, twist, 1)) { return false; }
-    if planes.len() == 1 && twist == (0.0, 0.0) { return true; }
-    beyond_small_displacement(span_rotation_bound(l, planes, twist, SPAN_STATIONS))
-}
-
-fn span_rotation_bound(l: f64, planes: &[crate::postprocess::diagrams::SpanRotation], twist: (f64, f64), stations: usize) -> f64 {
-    let mut stations: Vec<f64> = (0..=stations).map(|k| l * k as f64 / stations as f64).chain(planes.iter().flat_map(|p| p.breaks().iter().copied())).collect();
+    let mut stations: Vec<f64> = (0..=SPAN_STATIONS).map(|k| l * k as f64 / SPAN_STATIONS as f64).chain(planes.iter().flat_map(|p| p.breaks().iter().copied())).collect();
     stations.sort_by(f64::total_cmp);
     stations.dedup();
     let nodes: [f64; 4] = std::array::from_fn(|k| 0.5 * (1.0 - ((2 * k + 1) as f64 * std::f64::consts::PI / 8.0).cos()));
+    let basis: [([f64; 3], f64); 4] = std::array::from_fn(|k| {
+        let others = std::array::from_fn(|j| nodes[if j < k { j } else { j + 1 }]);
+        let denominator = others.iter().map(|&t| nodes[k] - t).product::<f64>();
+        (others, denominator)
+    });
+    let thirds = [0.5 - 0.5 * 0.75f64.sqrt(), 0.5, 0.5 + 0.5 * 0.75f64.sqrt()];
+    let shear_denominators: [f64; 3] = std::array::from_fn(|k| thirds.iter().enumerate().filter(|&(j, _)| j != k).map(|(_, &t)| thirds[k] - t).product());
     let mut worst = 0.0f64;
     for w in stations.windows(2) {
         let (a, b) = (w[0], w[1]);
@@ -756,20 +739,16 @@ fn span_rotation_bound(l: f64, planes: &[crate::postprocess::diagrams::SpanRotat
         for p in planes {
             let m = nodes.map(|t| p.moment(a + (b - a) * t));
             let mut c = [0.0; 4];
-            for (k, &tk) in nodes.iter().enumerate() {
-                let mut others = [0.0; 3];
-                for (o, (_, &t)) in nodes.iter().enumerate().filter(|&(j, _)| j != k).enumerate() { others[o] = t; }
-                let scale = m[k] / others.iter().map(|&t| tk - t).product::<f64>();
-                let (r0, r1, r2) = (others[0], others[1], others[2]);
+            for (k, &([r0, r1, r2], denominator)) in basis.iter().enumerate() {
+                let scale = m[k] / denominator;
                 c[0] -= scale * r0 * r1 * r2;
                 c[1] += scale * (r0 * r1 + r0 * r2 + r1 * r2);
                 c[2] -= scale * (r0 + r1 + r2);
                 c[3] += scale;
             }
             let (h, f, ei) = (b - a, p.shear_flexibility(), p.ei());
-            let thirds = [0.5 - 0.5 * 0.75f64.sqrt(), 0.5, 0.5 + 0.5 * 0.75f64.sqrt()];
             let v = thirds.map(|t| p.shear(a + h * t));
-            let w = std::array::from_fn::<f64, 3, _>(|k| v[k] / thirds.iter().enumerate().filter(|&(j, _)| j != k).map(|(_, &t)| thirds[k] - t).product::<f64>());
+            let w = std::array::from_fn::<f64, 3, _>(|k| v[k] / shear_denominators[k]);
             let s = [
                 w[0] * thirds[1] * thirds[2] + w[1] * thirds[0] * thirds[2] + w[2] * thirds[0] * thirds[1],
                 -(w[0] * (thirds[1] + thirds[2]) + w[1] * (thirds[0] + thirds[2]) + w[2] * (thirds[0] + thirds[1])),
@@ -779,18 +758,10 @@ fn span_rotation_bound(l: f64, planes: &[crate::postprocess::diagrams::SpanRotat
                 let psi = p.at(a + h * t);
                 (psi.abs(), (psi - f * (s[0] + (s[1] + s[2] * t) * t)).abs())
             };
-            // The window's ends and the zeros of the two cubics: at most eight points.
-            let mut at = [0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
-            let mut n_at = 2;
-            let (roots, n) = cubic_roots_in_unit(c);
-            at[n_at..n_at + n].copy_from_slice(&roots[..n]);
-            n_at += n;
-            if f != 0.0 {
-                let (roots, n) = cubic_roots_in_unit([c[0] / ei - f * s[1] / h, c[1] / ei - 2.0 * f * s[2] / h, c[2] / ei, c[3] / ei]);
-                at[n_at..n_at + n].copy_from_slice(&roots[..n]);
-                n_at += n;
-            }
-            let (section, axis) = at[..n_at].iter().copied().map(turn).fold((0.0, 0.0), |(s, x), (ps, px)| (nan_max(s, ps), nan_max(x, px)));
+            let section_roots = cubic_roots_in_unit(c);
+            let axis_roots = (f != 0.0).then(|| cubic_roots_in_unit([c[0] / ei - f * s[1] / h, c[1] / ei - 2.0 * f * s[2] / h, c[2] / ei, c[3] / ei]));
+            let at = [0.0, 1.0].into_iter().chain(section_roots).chain(axis_roots.into_iter().flatten());
+            let (section, axis) = at.map(turn).fold((0.0, 0.0), |(s, x), (ps, px)| (nan_max(s, ps), nan_max(x, px)));
             sections += section * section;
             axes += axis * axis;
         }
@@ -805,7 +776,6 @@ fn nan_max(x: f64, y: f64) -> f64 {
 
 fn member_spans_2d(input: &SolverInput, loads: &[SolverLoad]) -> Vec<MemberSpan> {
     let at: std::collections::HashMap<usize, &SolverNode> = input.nodes.values().map(|n| (n.id, n)).collect();
-    let any_thermal = loads.iter().any(|l| matches!(l, SolverLoad::Thermal(_)));
     let mut out = Vec::new();
     for e in crate::ordered::values(&input.elements).filter(|e| e.elem_type == "frame") {
         let (Some(a), Some(b)) = (at.get(&e.node_i), at.get(&e.node_j)) else { continue };
@@ -817,13 +787,10 @@ fn member_spans_2d(input: &SolverInput, loads: &[SolverLoad]) -> Vec<MemberSpan>
         }
         let (cos, sin) = ((b.x - a.x) / length, (b.z - a.z) / length);
         let shear = sec.as_y.filter(|&s| s > 0.0).map_or(0.0, |s| 2.0 * (1.0 + mat.nu) / (e_mod * s));
-        // Without a thermal load the sum over every load is a sum of zeros: the sum's identity
-        // when there is no load, else +0,0 (the identity plus a positive zero), without reading the
-        // whole load set once per member.
-        let curvature = if any_thermal { loads.iter().map(|l| match l {
+        let curvature = loads.iter().map(|l| match l {
             SolverLoad::Thermal(t) if t.element_id == e.id => THERMAL_CURVATURE_2D * t.alpha() * t.dt_gradient / t.depth(sec.a, sec.iz),
             _ => 0.0,
-        }).sum() } else if loads.is_empty() { std::iter::empty::<f64>().sum() } else { 0.0 };
+        }).sum();
         out.push(MemberSpan { element_id: e.id, nodes: [e.node_i, e.node_j], length, axes: [[cos, 0.0, sin], [-sin, 0.0, cos], [0.0, 1.0, 0.0]], ei: [e_mod * sec.iz, 0.0], shear_flexibility: [shear, 0.0], curvature: Some([curvature, 0.0]) });
     }
     out
@@ -831,7 +798,6 @@ fn member_spans_2d(input: &SolverInput, loads: &[SolverLoad]) -> Vec<MemberSpan>
 
 fn member_spans_3d(input: &SolverInput3D, loads: &[SolverLoad3D]) -> Vec<MemberSpan> {
     let at: std::collections::HashMap<usize, &SolverNode3D> = input.nodes.values().map(|n| (n.id, n)).collect();
-    let any_thermal = loads.iter().any(|l| matches!(l, SolverLoad3D::Thermal(_)));
     let left_hand = input.left_hand.unwrap_or(false);
     let mut out = Vec::new();
     for e in crate::ordered::values(&input.elements).filter(|e| e.elem_type == "frame") {
@@ -845,7 +811,7 @@ fn member_spans_3d(input: &SolverInput3D, loads: &[SolverLoad3D]) -> Vec<MemberS
         let (ex, ey, ez) = crate::element::compute_local_axes_3d(a.x, a.y, a.z, b.x, b.y, b.z, e.local_yx, e.local_yy, e.local_yz, e.roll_angle, left_hand);
         let shear = |area: Option<f64>| area.filter(|&s| s > 0.0).map_or(0.0, |s| 1.0 / (g * s));
         let mut curvature = [0.0; 2];
-        for l in if any_thermal { loads } else { &[] } {
+        for l in loads {
             if let SolverLoad3D::Thermal(t) = l {
                 if t.element_id == e.id {
                     curvature[0] += THERMAL_CURVATURE_3D[0] * t.alpha() * t.dt_gradient_y / t.depth_y(sec.a, sec.iz);
@@ -868,7 +834,7 @@ fn dot(a: [f64; 3], b: [f64; 3]) -> f64 {
 /// Frame members whose section rotation inside the span exceeds [`SMALL_DISPLACEMENT_LIMIT`]:
 /// a member held at both ends can turn far between them under a span load.
 pub(crate) fn span_rotations_2d(spans: &[MemberSpan], r: &AnalysisResults) -> Vec<usize> {
-    span_planes_2d(spans, r).into_iter().filter(|(_, length, plane)| span_rotation_beyond(*length, std::slice::from_ref(plane), (0.0, 0.0))).map(|(id, _, _)| id).collect()
+    span_planes_2d(spans, r).into_iter().filter(|(_, length, plane)| beyond_small_displacement(largest_span_rotation(*length, std::slice::from_ref(plane), (0.0, 0.0)))).map(|(id, _, _)| id).collect()
 }
 
 fn span_planes_2d(spans: &[MemberSpan], r: &AnalysisResults) -> Vec<(usize, f64, crate::postprocess::diagrams::SpanRotation)> {
@@ -882,11 +848,11 @@ fn span_planes_2d(spans: &[MemberSpan], r: &AnalysisResults) -> Vec<(usize, f64,
         let ((v_i, r_i), (v_j, r_j)) = (end(span.nodes[0]), end(span.nodes[1]));
         let mut dist: Vec<(f64, f64, f64, f64)> = ef.distributed_loads.iter().map(|d| (d.q_i, d.q_j, d.a, d.b)).collect();
         if dist.is_empty() && (ef.q_i != 0.0 || ef.q_j != 0.0) {
-            dist.push((ef.q_i, ef.q_j, 0.0, span.length));
+            dist.push((ef.q_i, ef.q_j, 0.0, ef.length));
         }
         let points = ef.point_loads.iter().map(|p| (p.a, p.p)).collect();
         let couples = ef.point_loads.iter().filter_map(|p| p.my.map(|m| (p.a, m))).collect();
-        out.push((span.element_id, span.length, SpanRotation::new(span.length, span.ei[0], span.shear_flexibility[0], v_i, r_i, v_j, r_j, ef.hinge_start, ef.hinge_end, points, dist, couples, span.curvature.unwrap_or_default()[0])));
+        out.push((span.element_id, ef.length, SpanRotation::new(ef.length, span.ei[0], span.shear_flexibility[0], v_i, r_i, v_j, r_j, ef.hinge_start, ef.hinge_end, points, dist, couples, span.curvature.unwrap_or_default()[0])));
     }
     out
 }
@@ -894,7 +860,7 @@ fn span_planes_2d(spans: &[MemberSpan], r: &AnalysisResults) -> Vec<(usize, f64,
 /// [`span_rotations_2d`] in 3D: both bending planes, in the axes the app's 3D deformed shape uses, and the
 /// twist, judged together as the norm of the rotation vector.
 pub(crate) fn span_rotations_3d(spans: &[MemberSpan], r: &AnalysisResults3D) -> Vec<usize> {
-    span_planes_3d(spans, r).into_iter().filter(|(_, length, planes, twist)| span_rotation_beyond(*length, planes, *twist)).map(|(id, ..)| id).collect()
+    span_planes_3d(spans, r).into_iter().filter(|(_, length, planes, twist)| beyond_small_displacement(largest_span_rotation(*length, planes, *twist))).map(|(id, ..)| id).collect()
 }
 
 type SpanPlanes3D = (usize, f64, [crate::postprocess::diagrams::SpanRotation; 2], (f64, f64));
@@ -915,15 +881,15 @@ fn span_planes_3d(spans: &[MemberSpan], r: &AnalysisResults3D) -> Vec<SpanPlanes
         let loads = |dist: &[DistributedLoadInfo], q: (f64, f64), points: &[PointLoadInfo3D]| {
             let mut d: Vec<(f64, f64, f64, f64)> = dist.iter().map(|d| (d.q_i, d.q_j, d.a, d.b)).collect();
             if d.is_empty() && (q.0 != 0.0 || q.1 != 0.0) {
-                d.push((q.0, q.1, 0.0, span.length));
+                d.push((q.0, q.1, 0.0, ef.length));
             }
             (points.iter().map(|p| (p.a, p.p)).collect(), d)
         };
         let (py, dy) = loads(&ef.distributed_loads_y, (ef.q_yi, ef.q_yj), &ef.point_loads_y);
         let (pz, dz) = loads(&ef.distributed_loads_z, (ef.q_zi, ef.q_zj), &ef.point_loads_z);
         let planes = [
-            SpanRotation::new(span.length, span.ei[0], span.shear_flexibility[0], ti[0], ri[2], tj[0], rj[2], ef.release_mz_start, ef.release_mz_end, py, dy, Vec::new(), span.curvature.unwrap_or_default()[0]),
-            SpanRotation::new(span.length, span.ei[1], span.shear_flexibility[1], ti[1], -ri[1], tj[1], -rj[1], ef.release_my_start, ef.release_my_end, pz, dz, Vec::new(), span.curvature.unwrap_or_default()[1]),
+            SpanRotation::new(ef.length, span.ei[0], span.shear_flexibility[0], ti[0], ri[2], tj[0], rj[2], ef.release_mz_start, ef.release_mz_end, py, dy, Vec::new(), span.curvature.unwrap_or_default()[0]),
+            SpanRotation::new(ef.length, span.ei[1], span.shear_flexibility[1], ti[1], -ri[1], tj[1], -rj[1], ef.release_my_start, ef.release_my_end, pz, dz, Vec::new(), span.curvature.unwrap_or_default()[1]),
         ];
         let twist = match (ef.release_t_start, ef.release_t_end) {
             (false, false) => (ri[0], rj[0]),
@@ -931,7 +897,7 @@ fn span_planes_3d(spans: &[MemberSpan], r: &AnalysisResults3D) -> Vec<SpanPlanes
             (false, true) => (ri[0], ri[0]),
             (true, true) => (0.0, 0.0),
         };
-        out.push((span.element_id, span.length, planes, twist));
+        out.push((span.element_id, ef.length, planes, twist));
     }
     out
 }
@@ -1147,12 +1113,11 @@ fn compression(n_start: f64, n_end: f64, span: Option<&f64>) -> f64 {
 
 /// [`second_order`] for a 2D result.
 pub fn second_order_2d(input: &SolverInput, loads: &[SolverLoad], r: &AnalysisResults) -> (Vec<StructuredDiagnostic>, f64) {
-    let lengths: std::collections::HashMap<usize, f64> = r.element_forces.iter().map(|f| (f.element_id, f.length)).collect();
     let mut span: std::collections::HashMap<usize, f64> = std::collections::HashMap::new();
     for load in loads {
         let (id, total) = match load {
             SolverLoad::PointOnElement(p) => (p.element_id, p.px.unwrap_or(0.0).abs()),
-            SolverLoad::AxialDistributed(q) => (q.element_id, q.q_i.abs().max(q.q_j.abs()) * span_length(q.a, q.b, lengths.get(&q.element_id).copied())),
+            SolverLoad::AxialDistributed(q) => (q.element_id, q.q_i.abs().max(q.q_j.abs()) * span_length(q.a, q.b, r.element_forces.iter().find(|f| f.element_id == q.element_id).map(|f| f.length))),
             _ => continue,
         };
         *span.entry(id).or_default() += total;
@@ -1177,11 +1142,10 @@ pub fn second_order_2d(input: &SolverInput, loads: &[SolverLoad], r: &AnalysisRe
 
 /// [`second_order`] for a 3D result: I_min is the lesser of Iy and Iz.
 pub fn second_order_3d(input: &SolverInput3D, loads: &[SolverLoad3D], r: &AnalysisResults3D) -> (Vec<StructuredDiagnostic>, f64) {
-    let lengths: std::collections::HashMap<usize, f64> = r.element_forces.iter().map(|f| (f.element_id, f.length)).collect();
     let mut span: std::collections::HashMap<usize, f64> = std::collections::HashMap::new();
     for load in loads {
         if let SolverLoad3D::Distributed(q) = load {
-            let length = lengths.get(&q.element_id).copied();
+            let length = r.element_forces.iter().find(|f| f.element_id == q.element_id).map(|f| f.length);
             *span.entry(q.element_id).or_default() += q.q_xi.abs().max(q.q_xj.abs()) * span_length(q.a, q.b, length);
         }
     }
@@ -1385,7 +1349,7 @@ mod tests {
         assert_eq!(entry.id, "MD-ORTHOGONALITY");
         assert_eq!(entry.mode, Mode::Warn);
         assert!(has(&for_3d(&input3(), Analysis::Modal), entry.id));
-        let ledger = include_str!("../../docs/verification/CONTAINMENT.md");
+        let ledger = include_str!("../../testing/docs/CONTAINMENT.md");
         let row = ledger.lines().find(|line| line.starts_with("| #759 |")).unwrap();
         let cells: Vec<_> = row.split('|').map(str::trim).collect();
         assert_eq!(cells[2], "`MD-ORTHOGONALITY`");
@@ -1398,8 +1362,16 @@ mod tests {
     }
 
     #[test]
+    fn corrected_rc_nm_pairing_is_retired_from_registry() {
+        assert!(!ENTRIES.iter().any(|entry| entry.issue == 1316));
+        let ledger = include_str!("../../testing/docs/CONTAINMENT.md");
+        let row = ledger.lines().find(|line| line.starts_with("| #1316 |")).unwrap();
+        assert_eq!(row.split('|').nth(3).unwrap().trim(), "CORRECTED");
+    }
+
+    #[test]
     fn known_issues_registry_and_ledger_agree() {
-        let ledger = include_str!("../../docs/verification/CONTAINMENT.md");
+        let ledger = include_str!("../../testing/docs/CONTAINMENT.md");
         let mut contained = std::collections::BTreeSet::new();
         for line in ledger.lines().filter(|l| l.starts_with("| #") && l.split('|').nth(3).is_some_and(|modes| modes.contains("WARN") || modes.contains("REFUSE"))) {
             for number in line.split('|').nth(1).unwrap().split(',') {
@@ -1571,9 +1543,9 @@ mod span_tests {
     #[test]
     fn cubic_roots_in_the_unit_interval_do_not_depend_on_the_cubic_scale_1506() {
         for scale in [1e-200, 1e200, -1e-200, -1e200] {
-            let pair = cubic_roots([0.16, -1.0, 1.0, 0.0].map(|v| v * scale));
+            let pair = cubic_roots_in_unit([0.16, -1.0, 1.0, 0.0].map(|v| v * scale));
             assert!(pair.len() == 2 && (pair[0] - 0.2).abs() < 1e-12 && (pair[1] - 0.8).abs() < 1e-12, "{scale:e}: {pair:?}");
-            let three = cubic_roots([-0.18, 1.46, -3.2, 2.0].map(|v| v * scale));
+            let three = cubic_roots_in_unit([-0.18, 1.46, -3.2, 2.0].map(|v| v * scale));
             assert!(three.len() == 3 && three.iter().zip([0.2, 0.5, 0.9]).all(|(r, e)| (r - e).abs() < 1e-12), "{scale:e}: {three:?}");
         }
     }
@@ -1867,27 +1839,27 @@ mod span_tests {
 
     #[test]
     fn cubic_roots_without_a_quadratic_term_are_found_1569() {
-        let roots = cubic_roots([0.1, -0.75, 0.0, 1.0]);
+        let roots = cubic_roots_in_unit([0.1, -0.75, 0.0, 1.0]);
         assert_eq!(roots.len(), 2, "{roots:?}");
         for r in roots {
             assert!((0.1 - 0.75 * r + r * r * r).abs() < 1e-12, "{r}");
         }
-        let pair = cubic_roots([-0.16, 0.84, 0.0, -1.0]);
+        let pair = cubic_roots_in_unit([-0.16, 0.84, 0.0, -1.0]);
         assert!(pair.len() == 2 && (pair[0] - 0.2).abs() < 1e-12 && (pair[1] - 0.8).abs() < 1e-12, "{pair:?}");
     }
 
     #[test]
     fn cubic_roots_in_the_unit_interval_include_both_of_a_close_pair_1506() {
-        let roots = cubic_roots([-0.18, 1.46, -3.2, 2.0]);
+        let roots = cubic_roots_in_unit([-0.18, 1.46, -3.2, 2.0]);
         let expected = [0.2, 0.5, 0.9];
         assert_eq!(roots.len(), 3, "{roots:?}");
         for (r, e) in roots.iter().zip(expected) {
             assert!((r - e).abs() < 1e-12, "{roots:?}");
         }
-        let pair = cubic_roots([0.24, -1.0, 1.0, 0.0]);
+        let pair = cubic_roots_in_unit([0.24, -1.0, 1.0, 0.0]);
         assert!(pair.len() == 2 && (pair[0] - 0.4).abs() < 1e-12 && (pair[1] - 0.6).abs() < 1e-12, "{pair:?}");
         for tiny in [1e-16, -1e-16, 1e-300, 1e-8] {
-            let nearly = cubic_roots([0.16, -1.0, 1.0, tiny]);
+            let nearly = cubic_roots_in_unit([0.16, -1.0, 1.0, tiny]);
             assert!(nearly.len() == 2 && (nearly[0] - 0.2).abs() < 1e-7 && (nearly[1] - 0.8).abs() < 1e-7, "{tiny:e}: {nearly:?}");
         }
     }
@@ -1896,7 +1868,7 @@ mod span_tests {
     fn cubic_roots_in_the_unit_interval_without_a_square_term_1506() {
         for c2 in [0.0, -0.0] {
             let c = [0.2, -0.75, c2, 1.0];
-            let roots = cubic_roots(c);
+            let roots = cubic_roots_in_unit(c);
             assert_eq!(roots.len(), 2, "{c2:?}: {roots:?}");
             assert!(roots[0] > 0.0 && roots[0] < 0.5 && roots[1] > 0.5 && roots[1] < 1.0, "{c2:?}: {roots:?}");
             for t in roots {
@@ -1905,3 +1877,6 @@ mod span_tests {
         }
     }
 }
+
+#[cfg(test)]
+mod span_rotation_tests;

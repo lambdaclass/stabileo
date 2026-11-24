@@ -385,7 +385,7 @@ def _run_metamorphic_model(model, seed, metamorphic_bin, runner):
 
 
 def _run_diff_model(source, model, solve_bin, python_bin, runner):
-    script = "tools/opensees/compare.py" if source == "opensees" else "tools/differential/codeaster/run.py"
+    script = "testing/opensees/compare.py" if source == "opensees" else "testing/differential/codeaster/run.py"
     with tempfile.TemporaryDirectory() as tmp:
         model_path = Path(tmp) / "model.json"
         report_path = Path(tmp) / "report.json"
@@ -426,6 +426,8 @@ def _run_fuzz_model(spec, triple, runner):
             "+nightly-2026-10-15",
             "fuzz",
             "run",
+            "--fuzz-dir",
+            "../testing/fuzz",
             "--target",
             triple,
             spec["target"],

@@ -74,7 +74,8 @@ describe('a saved line its members no longer match', () => {
     const id = line.members[0]!;
     // Another arrangement written over the member, as «Size…» with overwrite would.
     const r = JSON.parse(JSON.stringify(modelStore.elements.get(id)!.reinforcement!));
-    r.regions.stirrupsSpan = { ...(r.regions.stirrupsSpan ?? { diameter: 8, legs: 2 }), spacing: 0.1 };
+    const span = r.regions.stirrupsSpan ?? { diameter: 8, legs: 2, spacing: 0.1 };
+    r.regions.stirrupsSpan = { ...span, spacing: span.spacing * 0.9 };
     modelStore.reinforcementTransaction((api) => api.setReinforcement(id, r));
     const st = staleLines();
     expect(st.map((s) => [s.key, s.reason, s.changed.map((c) => c.id)])).toEqual([[lineKey(line.members), 'redesigned', [id]]]);

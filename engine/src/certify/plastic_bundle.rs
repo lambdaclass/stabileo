@@ -2,7 +2,7 @@
 //! 2D or 3D plastic model and both plastic-theorem certificates, in exact rationals,
 //! re-checked by the verified Lean checker `lake exe certcheck`
 //! (`verify/Certify/PlasticCheck.lean`, soundness `Certify.Plastic.check_sound`). See
-//! "Independent checking: certificate bundles" in `docs/verification/CERTIFY.md`.
+//! "Independent checking: certificate bundles" in `testing/docs/CERTIFY.md`.
 //!
 //! The problem (`LimitProblem`) is generic: unknown member end forces `x`, load factor
 //! `λ`, equilibrium rows `Σ aᵢxᵢ = λp`, and per yield member pieces `[a, b]` on which

@@ -27,7 +27,9 @@ import type { Quantity } from '../utils/units';
 import { csvCell } from './result-query';
 import type { ElementDesignDemands, GoverningDemand } from './station-design-forces';
 import { stationTs, type StationSpec } from './station-forces';
-import { evaluateDiagramAt } from './diagrams-3d';
+import { prepareDiagramEvaluator3D } from './diagrams-3d';
+import { resultComponents } from '../axes/result-components';
+import { makeFrame, type AxesChoice } from '../axes/frame';
 
 export type TableKind = 'displacements' | 'reactions' | 'forces';
 
@@ -57,6 +59,7 @@ export const RESULTANTS: Readonly<Record<TableKind, readonly Column[]>> = Object
 });
 
 export interface TableOptions {
+  axes: AxesChoice;
   /** Only these nodes (displacements, reactions) or members (forces). Absent: all. */
   entities?: ReadonlySet<number> | null;
   /** Add the resultant columns: |u|; |F| and |M|; V = √(Vy² + Vz²) and M = √(My² + Mz²). */
@@ -69,7 +72,7 @@ export interface TableOptions {
 }
 
 /** The columns a table has under `opts`. */
-export function columnsOf(kind: TableKind, opts: TableOptions = {}): Column[] {
+export function columnsOf(kind: TableKind, opts: Pick<TableOptions, 'resultant'> = {}): Column[] {
   return [...COLUMNS[kind], ...(opts.resultant ? RESULTANTS[kind] : [])];
 }
 
@@ -99,12 +102,13 @@ export interface Row { entity: number; end?: 'i' | 'j'; x?: number; values: numb
 function eachRow(kind: TableKind, r: AnalysisResults3D, opts: TableOptions, visit: (entity: number, end: 'i' | 'j' | undefined, x: number | undefined, values: number[]) => void): void {
   const keep = (id: number) => !opts.entities || opts.entities.has(id);
   const fin = (v: number[]) => (opts.resultant ? withResultants(kind, v) : v);
+  const { vec, rot } = resultComponents(makeFrame(opts.axes), r);
   if (kind === 'displacements') {
-    for (const d of r.displacements) if (keep(d.nodeId)) visit(d.nodeId, undefined, undefined, fin([d.ux, d.uy, d.uz, d.rx, d.ry, d.rz]));
+    for (const d of r.displacements) if (keep(d.nodeId)) visit(d.nodeId, undefined, undefined, fin([...vec(d.ux, d.uy, d.uz), ...rot(d.rx, d.ry, d.rz)]));
     return;
   }
   if (kind === 'reactions') {
-    for (const x of r.reactions) if (keep(x.nodeId)) visit(x.nodeId, undefined, undefined, fin([x.fx, x.fy, x.fz, x.mx, x.my, x.mz]));
+    for (const x of r.reactions) if (keep(x.nodeId)) visit(x.nodeId, undefined, undefined, fin([...vec(x.fx, x.fy, x.fz), ...rot(x.mx, x.my, x.mz)]));
     return;
   }
   const spec = opts.stations ?? 2;
@@ -117,18 +121,23 @@ function eachRow(kind: TableKind, r: AnalysisResults3D, opts: TableOptions, visi
       continue;
     }
     const ts = stationTs(f, spec);
+    if (!ts.length) continue;
+    const axial = prepareDiagramEvaluator3D(f, 'axial');
+    const shearY = prepareDiagramEvaluator3D(f, 'shearY');
+    const shearZ = prepareDiagramEvaluator3D(f, 'shearZ');
+    const torsion = prepareDiagramEvaluator3D(f, 'torsion');
+    const momentY = prepareDiagramEvaluator3D(f, 'momentY');
+    const momentZ = prepareDiagramEvaluator3D(f, 'momentZ');
     for (let k = 0; k < ts.length; k++) {
       const t = ts[k]!;
-      // `extractForcesAtStation`'s six diagrams, without the station record it also builds.
-      const v = [evaluateDiagramAt(f, 'axial', t), evaluateDiagramAt(f, 'shearY', t), evaluateDiagramAt(f, 'shearZ', t),
-        evaluateDiagramAt(f, 'torsion', t), evaluateDiagramAt(f, 'momentY', t), evaluateDiagramAt(f, 'momentZ', t)];
+      const v = [axial(t), shearY(t), shearZ(t), torsion(t), momentY(t), momentZ(t)];
       visit(f.elementId, k === 0 ? 'i' : k === ts.length - 1 ? 'j' : undefined, t * f.length, fin(v));
     }
   }
 }
 
 /** The rows of one result set, in the order the tables list them. */
-export function rowsOf(kind: TableKind, r: AnalysisResults3D, opts: TableOptions = {}): Row[] {
+export function rowsOf(kind: TableKind, r: AnalysisResults3D, opts: TableOptions): Row[] {
   const out: Row[] = [];
   eachRow(kind, r, opts, (entity, end, x, values) => {
     out.push(kind === 'forces' ? { entity, ...(end ? { end } : {}), x, values } : { entity, values });
@@ -141,7 +150,7 @@ export function rowsOf(kind: TableKind, r: AnalysisResults3D, opts: TableOptions
  * another. By entity: each node or member together, its ends or stations in order, every source
  * under each.
  */
-export function allRows(kind: TableKind, sources: readonly Source[], opts: TableOptions = {}, order: 'source' | 'entity' = 'source'): Array<Row & { source: Source }> {
+export function allRows(kind: TableKind, sources: readonly Source[], opts: TableOptions, order: 'source' | 'entity' = 'source'): Array<Row & { source: Source }> {
   const rows = sources.flatMap((s, si) => rowsOf(kind, s.results, opts).map((row, ri) => ({ ...row, source: s, si, ri })));
   if (order === 'entity') rows.sort((a, b) => a.entity - b.entity || (a.x ?? 0) - (b.x ?? 0) || a.si - b.si || a.ri - b.ri);
   return rows.map(({ si: _s, ri: _r, ...row }) => row);
@@ -170,7 +179,7 @@ export function beatsExtreme(sign: 1 | -1, v: number, entity: number, x: number 
 }
 
 /** For each column, the largest and the smallest value over every row of every source. */
-export function summaryRows(kind: TableKind, sources: readonly Source[], opts: TableOptions = {}): Array<{ column: Column; max: Extreme | null; min: Extreme | null }> {
+export function summaryRows(kind: TableKind, sources: readonly Source[], opts: TableOptions): Array<{ column: Column; max: Extreme | null; min: Extreme | null }> {
   const cols = columnsOf(kind, opts);
   const max: Array<Extreme | null> = cols.map(() => null);
   const min: Array<Extreme | null> = cols.map(() => null);
@@ -191,7 +200,7 @@ export function summaryRows(kind: TableKind, sources: readonly Source[], opts: T
 export interface EnvelopeRow { entity: number; end?: 'i' | 'j'; x?: number; max: Array<{ value: number; source: Source }>; min: Array<{ value: number; source: Source }> }
 
 /** For each node or member end (or station), the largest and smallest value of each column over the sources. */
-export function envelopeRows(kind: TableKind, sources: readonly Source[], opts: TableOptions = {}): EnvelopeRow[] {
+export function envelopeRows(kind: TableKind, sources: readonly Source[], opts: TableOptions): EnvelopeRow[] {
   const byKey = new Map<string, EnvelopeRow>();
   for (const s of sources) {
     for (const row of rowsOf(kind, s.results, opts)) {

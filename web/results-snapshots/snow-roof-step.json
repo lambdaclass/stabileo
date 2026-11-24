@@ -1,0 +1,8 @@
+{
+  "case": "snow-roof-step",
+  "covers": "Step drift refusal on a pitched receiving roof",
+  "format": 2,
+  "values": {
+    "snowResult.refusal": "Snow generation cannot transfer the drift at a roof step to its carrier members reliably. Define the snow loads explicitly."
+  }
+}

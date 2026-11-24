@@ -19,6 +19,7 @@
  */
 
 import { expect } from 'vitest';
+import { yieldToEventLoop } from '../../../../../__tests__/worker-yield';
 import { modelStore } from '../../../../store/model.svelte';
 import { resultsStore } from '../../../../store/results.svelte';
 import { detailingStore } from '../../../../store/detailing.svelte';
@@ -27,7 +28,7 @@ import { verificationStore } from '../../../../store/verification.svelte';
 import { isSolverReady } from '../../../wasm-solver';
 import { buildSceneModel, type SceneModel } from '../../scene-model';
 import { membersFromModel } from '../../member-geometry';
-import type { DocumentModel } from '../../document-model';
+import type { DocumentAssembly, DocumentModel } from '../../document-model';
 import type { DesignOutcomeSummary } from '../../element-status';
 import '../../../design/adapters/cirsoc201-adapter';
 import '../../../design/adapters/unsupported-adapter';
@@ -64,6 +65,21 @@ export function applyVariant(variant: Variant): void {
   }
 }
 
+export const GALLERY_REFUSED_BEAM_IDS = [
+  88, 91, 109, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123,
+  124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138,
+  139, 140, 141, 142, 143, 144, 145, 146, 147, 150, 156, 168, 170, 172, 173,
+  174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188,
+  189, 190, 191, 192, 193, 194, 195, 196, 198, 199, 200, 201, 202, 203, 205,
+  206, 213, 214, 216, 217, 218, 219, 220, 221, 222, 223, 226, 230, 234, 235,
+  236, 237, 238, 239, 240, 241, 242, 243, 244, 246, 247, 248, 250, 251, 252,
+];
+
+export function frameBarsInAssembly(assembly: DocumentAssembly) {
+  const familyBars = new Set(assembly.families.flatMap(family => family.barIds));
+  return assembly.bars.filter(bar => !familyBars.has(bar.id));
+}
+
 /**
  * One turn of the worker's event loop, between long synchronous stages.
  *
@@ -78,7 +94,7 @@ export function applyVariant(variant: Variant): void {
  * loop reaches the poll phase where the message is read; an immediate runs after it.
  */
 export function turn(): Promise<void> {
-  return new Promise((resolve) => setImmediate(resolve));
+  return yieldToEventLoop();
 }
 
 async function compute(example: string, variant?: Variant): Promise<WorkspaceScene> {
@@ -101,9 +117,11 @@ async function compute(example: string, variant?: Variant): Promise<WorkspaceSce
   resultsStore.setCombinationResults3D(r.perCase, r.perCombo, r.envelope);
 
   designRunStore.computeDemands();
+  await turn();
   designRunStore.runCodeCheck();
   await turn();
-  designRunStore.designAll();
+  designRunStore.designAll({ maxRunMs: 180_000 });
+  expect(verificationStore.runSummary?.aborted, 'the integration design ran to completion').toBe(false);
   await turn();
   detailingStore.generate({ verifierId: 'cirsoc201.provided.v2.2025' });
   await turn();

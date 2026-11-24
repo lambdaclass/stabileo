@@ -29,21 +29,7 @@ import { EMBED_XZ_DOF_PERMUTATION } from '../engine/expand-joints-3d';
 import { buildSolverLoads3D, shouldEmbedFlat2DModelIn3D, type ModelData } from '../engine/solver-service';
 import { planePointLoad3D } from '../engine/member-point-loads';
 import { takesNoBending } from '../engine/member-loads';
-
-type Dofs = { tx: boolean; ty: boolean; tz: boolean; rx: boolean; ry: boolean; rz: boolean };
-
-/** The embedded-plane support table of buildSolverInput3D, as model restraints. */
-function planeSupportDofs(type: string): Dofs {
-  switch (type) {
-    case 'fixed': return { tx: true, ty: true, tz: true, rx: true, ry: true, rz: true };
-    case 'pinned': return { tx: true, ty: true, tz: true, rx: true, ry: false, rz: true };
-    case 'rollerX': return { tx: false, ty: true, tz: true, rx: true, ry: false, rz: true };
-    case 'rollerY':
-    case 'rollerZ': return { tx: true, ty: true, tz: false, rx: true, ry: false, rz: true };
-    case 'spring': return { tx: false, ty: true, tz: false, rx: true, ry: false, rz: true };
-    default: return { tx: true, ty: true, tz: true, rx: true, ry: true, rz: true };
-  }
-}
+import { supportDofs3D } from '../engine/support-dofs-3d';
 
 const PLANE_SUPPORTS = new Set(['fixed', 'pinned', 'rollerX', 'rollerY', 'rollerZ', 'spring']);
 
@@ -105,14 +91,16 @@ export function materializeStandingPlaneModel(model: ModelData, nextLoadId: () =
   const supports = new Map<number, Support>();
   for (const [id, s] of model.supports) {
     if (!PLANE_SUPPORTS.has(s.type) || s.dofRestraints) { supports.set(id, s); continue; }
-    const dofRestraints = planeSupportDofs(s.type);
+    const r = supportDofs3D(s, true);
+    const dofRestraints = { tx: r.rx, ty: r.ry, tz: r.rz, rx: r.rrx, ry: r.rry, rz: r.rrz };
     const all = Object.values(dofRestraints).every(Boolean);
     const next: Support = {
       id: s.id,
       nodeId: s.nodeId,
       type: all ? 'fixed3d' : (s.type === 'spring' ? 'spring3d' : 'custom3d'),
       dofRestraints,
-      dofFrame: 'global',
+      dofFrame: s.dofFrame ?? (s.dofLocalElementId === undefined ? 'global' : undefined),
+      ...(s.dofLocalElementId !== undefined ? { dofLocalElementId: s.dofLocalElementId } : {}),
     } as Support;
     if (s.type === 'spring') {
       if (s.kx) next.kx = s.kx;

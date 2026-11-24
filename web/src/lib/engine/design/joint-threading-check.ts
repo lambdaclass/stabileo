@@ -12,12 +12,10 @@
  * Pure.
  */
 import { beamGroups, hoggingAtSupports } from '../detailing/beam-groups';
-import { beamLayoutDomain, beamRow, columnKeepOuts, columnPlan, columnTailPosts, threadsJoint } from '../detailing/joint-threading';
+import { beamLayoutDomain, beamRow, columnPlan, columnTailPosts, projectColumnPlan, threadsJoint } from '../detailing/joint-threading';
 import { minClearSpacingColumn } from '../../codes/cirsoc201/spacing';
-import { endSupportPlan, hookTails, type EndSupportInput } from './end-support-anchorage';
-import type { KeepOut } from '../detailing/candidates';
+import { hookTails, type endSupportPlan, type EndSupportInput } from './end-support-anchorage';
 import type { MemberContext } from './member-context';
-import type { ProvidedReinforcement } from '../../design-contract/reinforcement';
 import type { ProvidedRebarCheck } from '../station-design-forces';
 import { memberOffsetAt, type OffsetCarrier } from '../member-offsets';
 
@@ -43,27 +41,19 @@ export interface JointThreadingVerdict {
  * The columns read are the ones the run has designed (`MemberContext.columnBars`); a column with
  * no design is not detailed and has no bars to pass, as in the detailing.
  */
-export function jointThreading(ctx: MemberContext, rebar: ProvidedReinforcement, support: EndSupportInput): JointThreadingVerdict[] {
+export function prepareJointThreading(ctx: MemberContext): (support: EndSupportInput, plan: ReturnType<typeof endSupportPlan>) => JointThreadingVerdict[] {
   const md = ctx.modelData as unknown as ModelSlice | undefined;
   const el = md?.elements?.get(ctx.elementId);
-  if (!md?.nodes || !el || !md.sections || !ctx.columnBars) return [];
+  if (!md?.nodes || !el || !md.sections || !ctx.columnBars) return () => [];
   const a = md.nodes.get(el.nodeI), b = md.nodes.get(el.nodeJ);
-  if (!a || !b) return [];
+  if (!a || !b) return () => [];
   const L = Math.hypot(b.x - a.x, b.y - a.y) || 1;
-  // As `generateBeamBars`' transverse axis (axis × up): the detailing's `t`.
   const t = { x: (b.y - a.y) / L, y: -(b.x - a.x) / L };
-  const stirrupDiaMm = support.seat.stirrupDiaMm;
-  const seated: MemberContext = { ...ctx, material: { ...ctx.material, stirrupDia: stirrupDiaMm } };
-  const groups = beamGroups(rebar as never, {
-    ctx: seated, edition: ctx.codeEdition, maxAggregateSizeMm: ctx.material.maxAggregateSize.value, hogging: hoggingAtSupports(ctx),
-  });
-  if (!groups) return [];
-  const row = beamRow(groups);
-  const ownTails = hookTails(support, { start: el.nodeI, end: el.nodeJ });
-  const keepAt = (nodeId: number): { keep: KeepOut[]; bars: number } => {
-    // Where this beam ends here, its own tails stand beside the column's bars (below).
-    const cage = nodeId === el.nodeI ? support.cages.start : support.cages.end;
-    const ours = cage.continues ? undefined : ownTails.filter((x) => x.nodeId === nodeId);
+  const u = { x: (b.x - a.x) / L, y: (b.y - a.y) / L };
+  const { codeEdition: edition, material: { cover, stirrupDia: tieDiaMm, maxAggregateSize }, section } = ctx;
+  const maxAggregateSizeMm = maxAggregateSize.value;
+  const ends = (['start', 'end'] as const).map((end) => {
+    const nodeId = end === 'start' ? el.nodeI : el.nodeJ;
     // The column bars that pass through the joint: the column below's, which run up through
     // it into their lap; the column above stands on the joint's top face (`generate-column`
     // `jointBand`), so its bars are read only where no column runs up into the node.
@@ -76,7 +66,7 @@ export function jointThreading(ctx: MemberContext, rebar: ProvidedReinforcement,
       return [{ e, below: (far.z ?? 0) < (node.z ?? 0) }];
     });
     const through = atNode.some((x) => x.below) ? atNode.filter((x) => x.below) : atNode;
-    const cols: Parameters<typeof columnKeepOuts>[0][number][] = [];
+    const cols: Parameters<typeof columnPlan>[0][number][] = [];
     // The slots are measured from the beam's axis, the node plus its declared insertion; each
     // column's cage stands on its own (`columnPlan` `shift`), as the detailing lays them.
     const beamOff = memberOffsetAt(el, nodeId, md.nodes, md.sections);
@@ -86,7 +76,7 @@ export function jointThreading(ctx: MemberContext, rebar: ProvidedReinforcement,
       if (!bars || !s?.b || !s.h || (s.shape && s.shape !== 'rect')) continue;
       const c = memberOffsetAt(e, nodeId, md.nodes, md.sections);
       const shift = { x: c.x - beamOff.x, y: c.y - beamOff.y };
-      cols.push({ b: s.b, h: s.h, cover: ctx.material.cover, tieDiaMm: ctx.material.stirrupDia, ...bars,
+      cols.push({ b: s.b, h: s.h, cover, tieDiaMm, ...bars,
         ...(Math.abs(shift.x) > 1e-12 || Math.abs(shift.y) > 1e-12 ? { shift } : {}) });
     }
     // The beams crossing this one here are not read: where their hooks stand depends on how the
@@ -99,32 +89,67 @@ export function jointThreading(ctx: MemberContext, rebar: ProvidedReinforcement,
     // Where it ends here, its own tails stand beside the column's bars (`columnTailPosts`).
     const out = nodeId === el.nodeI ? { x: -(b.x - a.x) / L, y: -(b.y - a.y) / L } : { x: (b.x - a.x) / L, y: (b.y - a.y) / L };
     const plan = columnPlan(cols);
-    const tailPosts = ours?.length ? columnTailPosts({
-      bars: plan.map((p) => ({ along: p.x * out.x + p.y * out.y, across: p.x * t.x + p.y * t.y, diameterMm: p.diameterMm })),
-      plan, u: { x: (b.x - a.x) / L, y: (b.y - a.y) / L }, t,
-      ours, placement: 0, tieDiaMm: ctx.material.stirrupDia, clearedAtMm: row.dia,
-      clear: (d) => minClearSpacingColumn(ctx.codeEdition, { barDiameterMm: d, maxAggregateSizeMm: ctx.material.maxAggregateSize.value }).minClear,
-    }) : [];
-    return { keep: [...columnKeepOuts(cols, t, 0), ...tailPosts], bars: cols.reduce((n, c) => n + c.count, 0) };
+    return {
+      end, nodeId, plan, keep: projectColumnPlan(plan, t, 0), bars: cols.reduce((n, c) => n + c.count, 0),
+      projected: plan.map((p) => ({ along: p.x * out.x + p.y * out.y, across: p.x * t.x + p.y * t.y, diameterMm: p.diameterMm })),
+    };
+  });
+  if (ends.every((x) => x.bars === 0)) return () => [];
+  const hogging = hoggingAtSupports(ctx);
+  const clear = (d: number) => minClearSpacingColumn(edition, { barDiameterMm: d, maxAggregateSizeMm }).minClear;
+  const cache = new Map<string, JointThreadingVerdict[]>();
+  return (support, supportPlan) => {
+    const stirrupDiaMm = support.seat.stirrupDiaMm;
+    const seated: MemberContext = { ...ctx, material: { ...ctx.material, stirrupDia: stirrupDiaMm } };
+    const groups = beamGroups(support.rebar as never, { ctx: seated, edition, maxAggregateSizeMm, hogging });
+    if (!groups) return [];
+    const row = beamRow(groups);
+    const ownTails = hookTails(supportPlan.verdicts, { start: el.nodeI, end: el.nodeJ });
+    const tails = ends.map(({ nodeId }) => support.cages[nodeId === el.nodeI ? 'start' : 'end'].continues
+      ? [] : ownTails.filter((x) => x.nodeId === nodeId));
+    const request = { row, stirrupDiaMm, maxTopLayers: supportPlan.maxTopLayers, tails };
+    const key = JSON.stringify(request, (_key, value: unknown) => {
+      if (typeof value !== 'number') return value;
+      if (Object.is(value, -0)) return '-0';
+      return Number.isFinite(value) ? value : String(value);
+    });
+    let verdicts = cache.get(key);
+    if (!verdicts) {
+      verdicts = check(request);
+      cache.set(key, verdicts);
+    }
+    return verdicts.map((verdict) => ({ ...verdict }));
   };
-  const ends = [{ end: 'start' as const, nodeId: el.nodeI }, { end: 'end' as const, nodeId: el.nodeJ }].map((x) => ({ ...x, ...keepAt(x.nodeId) }));
-  if (ends.every((x) => x.bars === 0)) return [];
-  const domain = beamLayoutDomain({
-    row, section: ctx.section, cover: ctx.material.cover, stirrupDiaMm,
-    edition: ctx.codeEdition, maxAggregateSizeMm: ctx.material.maxAggregateSize.value, placement: 0,
-    obstacles: ends.flatMap((x) => x.keep), maxTopLayers: endSupportPlan(support).maxTopLayers,
-  });
-  return ends.filter((x) => x.bars > 0).map((x) => {
-    const r = domain.length ? threadsJoint(domain, row.dia, x.keep) : { ok: false, worstOverlap: 0 };
-    return { end: x.end, nodeId: x.nodeId, ok: r.ok, worstOverlap: r.worstOverlap, slots: row.count, rowDia: row.rowDia, dia: row.dia, columnBars: x.bars };
-  });
+
+  function check({ row, stirrupDiaMm, maxTopLayers, tails }: {
+    row: ReturnType<typeof beamRow>;
+    stirrupDiaMm: number;
+    maxTopLayers: number;
+    tails: ReturnType<typeof hookTails>[];
+  }): JointThreadingVerdict[] {
+    const joints = ends.map(({ end, nodeId, keep, bars, plan, projected }, i) => {
+      const ours = tails[i]!;
+      const tailPosts = ours.length ? columnTailPosts({
+        bars: projected, plan, u, t, ours, placement: 0, tieDiaMm, clearedAtMm: row.dia, clear,
+      }) : [];
+      return { end, nodeId, keep: [...keep, ...tailPosts], bars };
+    });
+    const domain = beamLayoutDomain({
+      row, section, cover, stirrupDiaMm, edition, maxAggregateSizeMm, placement: 0,
+      obstacles: joints.flatMap((x) => x.keep), maxTopLayers,
+    });
+    return joints.filter((x) => x.bars > 0).map((x) => {
+      const r = domain.length ? threadsJoint(domain, row.dia, x.keep) : { ok: false, worstOverlap: 0 };
+      return { end: x.end, nodeId: x.nodeId, ok: r.ok, worstOverlap: r.worstOverlap, slots: row.count, rowDia: row.rowDia, dia: row.dia, columnBars: x.bars };
+    });
+  }
 }
 
 /** The verdicts as rows of the verifier: a joint no layout passes fails the member. */
 export function jointThreadingChecks(verdicts: readonly JointThreadingVerdict[]): ProvidedRebarCheck[] {
   return verdicts.map((v) => ({
     category: `Bars through the joint (${v.end})`, demandCategory: null,
-    status: v.ok ? 'ok' : 'fail', ratio: Number.NaN,
+    status: v.ok ? 'ok' : 'fail', ratio: v.ok ? 0 : Number.POSITIVE_INFINITY,
     unit: 'mm', method: 'area', tuplesChecked: 0,
     description: v.ok
       ? `${v.slots} slots Ø${v.rowDia} pass the ${v.columnBars} column bars`

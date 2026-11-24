@@ -20,7 +20,7 @@ The first line is the section, one of: `BREAKING (results)`, `Security`, `Added`
   title.
 - A pull request that changes a committed results snapshot (`web/results-snapshots/`) must add a
   fragment under `BREAKING (results)` and an entry file to `web/src/lib/provenance/result-changes/`
-  (the `Results Snapshot` job, `docs/verification/PROVENANCE.md`).
+  (the `Results Snapshot` job, `testing/docs/PROVENANCE.md`).
 - A release runs `make release.step VERSION=0.5.0 DATE=2026-11-06` (`scripts/release-step.py`). It
   runs `changelog.py --release`, adds the release-notes line, rebases the moved text's `../` links
   to the root, points result-change entries at CHANGELOG.md, and relocks `dedaliano-engine` in

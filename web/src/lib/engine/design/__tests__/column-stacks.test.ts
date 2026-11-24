@@ -39,3 +39,27 @@ describe('column stacks', () => {
     expect(b).toEqual([{ what: 'long', count: 8, diameter: 16, length: 3.6 }, { what: 'tie', count: 21, diameter: 8, length: 1.55 }]);
   });
 });
+
+it('#2239 the lift schedule preserves separate face and corner diameters', () => {
+  const rebar = {
+    column: { cornerDia: 16, faceDia: 25, nBottom: 1, nTop: 1, nLeft: 0, nRight: 0 },
+    longitudinal: { count: 6, diameter: 16 },
+  };
+  const areaCm2 = (count: number, diameter: number) => count * Math.PI * diameter ** 2 / 400;
+  const expectedSteel = areaCm2(4, 16) + areaCm2(2, 25);
+  expect(columnSteel(rebar)).toBeCloseTo(expectedSteel, 12);
+  const schedule = liftBreakdown({ zLo: 0, zHi: 3 }, rebar, () => 0, 1.6);
+  const scheduledSteel = schedule.filter(bar => bar.what === 'long')
+    .reduce((total, bar) => total + areaCm2(bar.count, bar.diameter), 0);
+  expect(scheduledSteel).toBeCloseTo(expectedSteel, 12);
+});
+
+
+it('#2239 the lift schedule applies each drawn diameter to its own lap', () => {
+  const column = { cornerDia: 25, faceDia: 16, nBottom: 0, nTop: 1, nLeft: 2, nRight: 0 };
+  const schedule = liftBreakdown({ zLo: 0, zHi: 3 }, { column }, diameter => diameter / 100, 1.6);
+  expect(schedule).toEqual([
+    { what: 'long', count: 4, diameter: 25, length: 3.25 },
+    { what: 'long', count: 3, diameter: 16, length: 3.16 },
+  ]);
+});

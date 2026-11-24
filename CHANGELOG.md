@@ -11,992 +11,1193 @@ It should capture what changed, not what should be built next.
 
 One file per change in [`changelog.d/`](changelog.d/README.md); `scripts/changelog.py --release` moves them here.
 
+## 0.6.4 (2026-11-21)
+
+Release notes: [`docs/releases/v0.6.4.md`](docs/releases/v0.6.4.md) (also in [Spanish](docs/releases/v0.6.4.es.md), [Portuguese](docs/releases/v0.6.4.pt.md), [German](docs/releases/v0.6.4.de.md), [French](docs/releases/v0.6.4.fr.md), [Turkish](docs/releases/v0.6.4.tr.md), [Hungarian](docs/releases/v0.6.4.hu.md) and [Chinese](docs/releases/v0.6.4.zh.md)).
+
+### BREAKING (results)
+
+#### Refuse omitted plates and hanging wall–slab nodes in PRO (#2368, #2376, #2388)
+
+Analysis stops and names invalid physical plates or wall–slab junctions with unshared edge nodes. The mesh generator requires every outline and hole field to be valid before Apply is enabled. The seven-storey gallery example has a conforming slab mesh at the core, which changes its displacements and internal forces.
+
+#### Keep gallery combinations and mesh CAD wall junctions (#2409)
+
+The seven-storey gallery now uses rectangular slabs with shared nodes at the core walls and along the subdivided beams. Signed combinations reach design and detailing again. New meshed CAD drafts put slab and wall stations at the same nodes. Direct constraints that enforce full shell-edge interpolation are accepted, and model-only workbooks can export a plate before meshing.
+
+#### Refuse stale plate meshes and uncoupled wall–slab endpoints in PRO (#2409)
+
+Direct and advanced analysis now stop when a plate's mesh is out of date, including after an outline edit that leaves the old shell IDs in place. A wall and slab must share node IDs at coincident endpoints along overlapping edges. The architecture-only DXF example now shares these nodes and produces revised displacements and member forces.
+
+#### Apply planar start couples and refuse ambiguous loads on short projections
+
+Spatial analysis applies a pure, unambiguous legacy planar couple at the start node even when the member projection is too short. Both moment aliases are checked for activity before assembly can omit a legacy load, and combination preparation expands the cases needed for the solve. See [the results changes](docs/results-changes/2026-11-planar-start-couples.md). (#2411)
+
+#### Resolve legacy planar point-couple aliases before assembly
+
+Planar point couples use the nonzero alias when the other field is zero. Conflicting or invalid values stop analysis with a translated refusal. See [the results changes](docs/results-changes/2026-11-planar-point-couple-aliases.md). (#2411)
+
+#### Complete station grids for design spans (2026-11-21)
+
+Beam-span design refuses incomplete combination results when a declared piece station has no force tuple, including when the piece has lost its only combination. Combination-specific extrema remain available to design.
+
+#### Diagram section limits and governing claims (2026-11-20)
+
+Moving-load envelopes include recovered member-end limits, axial diagram jumps follow equilibrium, and unrepresentable extrema and ambiguous point queries are refused. Nested magnitude bounds cannot govern as attained peaks. Design spans separate incompatible section orientations.
+
+#### Refuse ambiguous diagram stations (2026-11-21)
+
+Point queries refuse when a normalized station cannot reproduce its analytic peak. Envelopes refuse when a peak and a jump occupy the same normalized station at different physical positions. Plots refuse different ordinates mapped to one station.
+
+#### Member diagrams use load boundaries and analytic extrema (2026-11-20)
+
+Diagrams and envelopes include interior extrema and both sides of concentrated actions. Design retains both sides of concentrated actions and adds interior extrema for varying loads. ABS and SRSS combinations include peaks between constituent stations, and reversed span pieces keep the physical top and bottom bending demands (#2226, #2238, #2250, #2252, #2273).
+
+#### Member diagram peaks and in-member limits (2026-11-20)
+
+Member diagrams keep the force at the analytic peak. Moving-load envelopes use the inside limits at both ends. Design station transfers refuse ambiguous force tuples, and variable-member envelopes refuse incompatible piece layouts.
+
+#### Preserve spatial distributed loads on member reversal and refuse unplaceable planar point loads
+
+Reversing a member now preserves the direction and endpoint profile of its distributed loads. Spatial analysis stops if a legacy planar point load cannot be placed without a usable member projection in the load plane. Review the loads on previously reversed members and replace any refused planar point loads with explicitly oriented spatial loads before rerunning analysis. See [the results changes](docs/results-changes/2026-11-member-load-orientation.md). (#2268, #2411)
+
+#### Moving axles at rounded member ends (2026-11-20)
+
+Planar and spatial moving-load sweeps retain the in-member force limits at member ends when axle positions round near a joint. Case envelopes identify the result and member when a diagram overflows. Diagram points retain the side of a force jump.
+
+Diagram recovery accepts a rounded extremum when it has the same recovered ordinate as its boundary. An indistinguishable station with a different ordinate still causes a refusal.
+
+#### Refuse CIRSOC torsion and shear checks with missing reinforcement evidence (2026-11-21)
+
+Active CIRSOC 201-2025 torsion checks the transverse steel minimum in both directions. Active pure torsion uses the evaluated concrete section limit when a cage is available. Fixed cages require longitudinal perimeter evidence. Beam and wall torsion with concurrent secondary shear requires a supported effective depth. Drawn bars cannot contribute development across joints with unconfirmed matching seats, and primary shear checks for section evidence between sampled stations.
+
+#### Use equilibrium moments in steel design (2026-11-21)
+
+Steel checks and profile searches retain off-grid bending peaks under uniform loads and read the moment-gradient inputs at the ends and quarter points of the unbraced segment from the solved diagram. Rerun steel design and review the governing demands and checks.
+
+The shed calculation report reflects the corrected rafter strength and interaction ratio.
+
+#### Apply edits to restored planar moments
+
+Finite edits to restored planar point couples and nodal moments replace the stored moment. Empty or invalid edits preserve the original load. Conflicting aliases and saved invalid moment values stop analysis until a finite moment is entered. The refusal survives saving and reopening the project. [Results change](docs/results-changes/2026-11-restored-planar-moment-edits.md) (#2459)
+
+#### Preserve the plate definition when remeshing (#2460, #2461)
+
+Curved boundaries follow the sweep through the plate’s intermediate point. An ambiguous sweep blocks remeshing. Plate meshes carry shell offsets and curvature edits to exactly matching shells and refuse replacement when an edit has no exact match. See [the results change](docs/results-changes/2026-11-plate-remesh.md).
+
+### Changed
+
+#### Prioritize work that prevents recurring wrong results
+
+The product roadmap puts independent load and plate area checks first. It also records plans for exact internal-force functions, complete design evidence and one canonical model with checks across transformations.
+
+### Fixed
+
+#### Safety advisories for results in 0.6.3 (2026-11-21)
+
+[SA-2026-100](docs/advisories/SA-2026-100-result-display-signs.md) covers incorrect reaction and free-body readouts and point-load report axes. [SA-2026-101](docs/advisories/SA-2026-101-plate-analysis-conformity.md) covers omitted plates, malformed mesher inputs and disconnected wall–slab junctions. [SA-2026-102](docs/advisories/SA-2026-102-diagram-extrema-and-span-demands.md) covers wrong member diagram peaks and design demands. [SA-2026-103](docs/advisories/SA-2026-103-rc-torsion-evidence.md) covers concrete torsion and shear verdicts based on insufficient evidence. [SA-2026-104](docs/advisories/SA-2026-104-member-load-reversal-and-planar-couples.md) covers redirected distributed loads and omitted planar point couples. The corrections and refusals in 0.6.4 address the cases described in these advisories. Follow the applicable advisories before relying on earlier results.
+
+#### Document affected results and rechecks in Stabileo 0.6.4
+
+The release notes in all eight languages link SA-2026-100 through SA-2026-104 and explain which models to repair, which analyses and checks to rerun, and which results and reports to review. The notes also cover SA-2026-105 for restored planar moment edits and SA-2026-106 and SA-2026-107 for curved plate boundaries and shell edits during remeshing.
+
+#### AI key settings meet the 44 px tap target minimum (2026-11-21)
+
+Provider buttons, the key field and key actions have a 44 CSS px minimum in both dimensions. The mobile sheet keeps those dimensions as it slides into view.
+
+#### Preserve the declared bending grid under uniform member loads (2026-11-21)
+
+Concrete members under full-length uniform bending loads use the requested design stations. The flagship concrete frame retains its full-precision design results. Diagram displays and peak queries still recover analytic extrema.
+
+#### Verify drawn CIRSOC shear steel across overlapping layouts
+
+CIRSOC 201-2025 shear verification can use distinct tension bars present at the same cut to substantiate the credited steel area. The drawn bars must also substantiate the effective depth used in the check.
+
+#### Wait for initial research benchmark results before prerendering (2026-11-21)
+
+Prerendering waits for the Mattiasson elastica, MacNeal–Harder and shell obstacle-course benchmark runs to finish. The published pages capture the completed result or its reported refusal.
+
+#### Reaction moments and load directions in result displays (2026-11-20)
+
+The Basic 3D Reactions table uses the solver's global moment signs. Global free-body inspection expresses spatial end moments in global axes, and signed planar node-side labels follow the directions of their arrows. Reports resolve the axial part of a global planar point load along the member before printing its global force components. The Basic and PRO reports use the solver’s plane when naming these force components in spatial models. Both reports use the solver’s spatial moment vector for legacy point couples, including the negative Y sign in XZ embeddings and the Z axis in native XY models.
+
+Basic and PRO use the shared workspace dimension check to select the point-load report plane.
+
+### Performance
+
+#### Faster reports on large models (2026-11-21)
+
+Result tables and report summaries reuse each member's prepared force diagrams across stations in the same result set. The station values, extrema checks and printed results stay the same.
+
+#### Faster opening of the 3-D reinforcement workspace (2026-11-21)
+
+The workspace reads published detailing without deep reactive wrapping. Each open still builds a current document and draws the full cage with the selected layers.
+
+#### Faster restore and save for large reinforcement workspaces (2026-11-21)
+
+Workspace restore and capture reuse immutable reinforcement geometry, reducing the cost of saving a detailed building and switching between its tabs.
+
+#### Save and restore large reinforcement workspaces faster (2026-11-21)
+
+Workspace snapshots reuse immutable detailing. Restoring imported detailing copies each shared part once and avoids the growing registry of frozen objects that slowed repeated restores.
+
+Moving concrete retires the previous detailing document and marks its bars out of date. Undo and redo restore the detailing that goes with the corresponding concrete geometry.
+
+## 0.6.3 (2026-11-20)
+
+Release notes: [`docs/releases/v0.6.3.md`](docs/releases/v0.6.3.md) (also in [Spanish](docs/releases/v0.6.3.es.md), [Portuguese](docs/releases/v0.6.3.pt.md), [German](docs/releases/v0.6.3.de.md), [French](docs/releases/v0.6.3.fr.md), [Turkish](docs/releases/v0.6.3.tr.md), [Hungarian](docs/releases/v0.6.3.hu.md) and [Chinese](docs/releases/v0.6.3.zh.md)).
+
+### BREAKING (results)
+
+#### Refuse ambiguous gravity carriers and roof step drift
+
+Panel gravity blocks duplicate loading of overlapping beam bays and shell decks through fully tied seams, including ties through off-seam master nodes and seam coordinates that differ by roundoff. The Automatic Loads dialog blocks before preview when roundoff makes a gravity carrier’s slope classification indeterminate. Snow generation blocks when positive on-site roof step drift would need to be transferred to members or applicability is indeterminate, including on pitched roofs. Regenerate affected gravity or snow loads before analysis. If generation is blocked, resolve the reported issue and regenerate, or replace the saved loads with independently verified loads, before relying on the results. See [the results changes](docs/results-changes/2026-11-gravity-carrier-refusals.md). (#2347, #2254, #2218, #2406)
+
+#### Static seismic runs end at floor joints and ridges require floor evidence
+
+Inclined members above an evidenced floor receive span inertia even when they are collinear with a member reaching the support datum. Static seismic generation refuses ridge joints whose only floor evidence is an adjoining beam. Review and regenerate affected seismic cases. (#2332, #2404)
+
+#### Static seismic generation checks story geometry and loads supported rafters along their spans
+
+Static seismic generation refuses brace and roof joints whose geometry does not establish a story. It accounts for coordinate rounding when identifying straight subdivisions and refuses when the available precision is insufficient. When an elevated inclined member has floor evidence at both ends, the generator applies inertia along its participating span. Regenerate affected static seismic cases before repeating analyses or design checks, and review base shear, story forces and member actions. See [the results change](docs/results-changes/2026-11-seismic-story-resolution.md). (#2330, #2331, #2332, #2404)
+
+#### Scale each case once in 3D load combinations (2026-11-19)
+
+3D combination analysis uses the net factor for each repeated load case. P-Delta, nonlinear solves and direct analysis apply that factor once to the case's loads and imposed displacements. Named SRSS, ABS and spectral combinations use the same net factors. Re-run affected combinations (#2292).
+
+#### Resolve repeated load case factors exactly (2026-11-19)
+
+2D and 3D combination analysis sum each case's repeated factors exactly before rounding the net factor. A nonzero residual is retained, and combinations whose nonzero factors cancel for every case are refused. Re-run affected combinations (#2292).
+
+#### Consistent RC beam-line and member checks (2026-11-20)
+
+CIRSOC primary shear checks use the diameter of the evaluated stirrup in both representations. Support embedment reports the required-to-available length ratio, and a joint layout that clears the column cage reports zero interference (#2338).
+
+#### Honor the standalone gravity toggle after workbook import (#2364)
+
+Turning self-weight off removes standalone gravity from imported models and from saved projects that carry the import setting. Explicit self-weight rules still contribute to their load cases.
+
+#### Refusal for combined torsional and transverse shear
+
+Detailed section stress now withholds combined shear, derived stresses and pass/fail when torsional and transverse shear are both nonzero at the evaluated fibre or cut sample. Both cuts evaluate the transverse component perpendicular to the cut for this check. Individual stress components remain available. See [the results change](docs/results-changes/2026-11-combined-section-shear-refusal.md) (#2366).
+
+#### Full shear magnitudes on section stress cuts
+
+Detailed biaxial section stress now includes both transverse shear components in total shear and von Mises on the depth and width cuts. Plotted shear remains projected onto each cut. See [the results change](docs/results-changes/2026-11-section-stress-cut-magnitudes.md) (#2366).
+
+#### Concentrated axial forces in plane moving loads (2026-11-20)
+
+Preserve axial force jumps at concentrated loads in plane moving-load diagrams and envelopes and in axial influence lines (#2375).
+
+#### Gravity generation requires unambiguous shell coverage
+
+Panel-mode gravity generation blocks coplanar shell overlaps and overlapping beam panels rigidly linked to offset shell decks, including through common masters and connections at the edge of a meshed deck whose faces share nodes or are joined by fully tied coincident seams. Regenerate gravity in affected projects before relying on analysis or design results. (#2284, #2299)
+
+#### Static seismic loads require a common elevation at connected supports
+
+Only supports connected to participating seismic mass through members or shells set the static seismic datum. Generation stops when those supports span different elevations. Regenerate affected E cases before repeating analyses and design checks. (#2316)
+
+#### Static seismic loads require a single supported structure
+
+Seismic mass, plan width and the support datum now use one structure connected by members, shells, plates or rigid-floor diaphragms. The planner refuses disconnected geometry. Regenerate affected E cases before repeating analyses and design checks. (#2316)
+
+#### Seismic mass retains diaphragm-defined stories
+
+Seismic load generation retains intermediate floors defined by rigid diaphragms, even when their columns are collinear and there are no beams or shells at the floor. Regenerate affected seismic load cases before repeating analyses and design checks. (#2316)
+
+#### Static seismic generation requires finite shell corners
+
+Static seismic generation blocks when a shell or plate corner is missing or has a non-finite coordinate. Repair the geometry, regenerate affected seismic cases and repeat the analyses and design checks that use them. (#2316)
+
+#### Static seismic forces act at story levels
+
+Static seismic story forces now act at the story nodes in proportion to their tributary seismic mass. The loads preserve story shear, overturning and the plan moment about the mass centroid. A model with participating mass below its support datum is refused. Regenerate affected E cases before repeating analyses, combinations and design checks. (#2316)
+
+#### Static seismic inertia stays on story-level members and shells
+
+Static seismic generation now applies inertia from mass at a story elevation as distributed loading on its members and surfaces. Mass tributary to a story from above or below still loads that story's attachment nodes. The 45° case is refused when medium or extreme accidental torsion is selected. Regenerate affected E loads and repeat analyses, combinations and design checks. (#2316)
+
+#### Static seismic loads preserve story overturning
+
+Static seismic carrier loads preserve each story force and its overturning moment at the story elevation. The planner refuses a story when its carriers cannot represent the required action. Regenerate affected E cases before repeating analyses and design checks. Projects with unverified legacy E loads retain their regeneration notice after wind generation or a new solve. (#2316)
+
+#### Static seismic loads use the lowest support elevation
+
+The static seismic planner measures story heights from the lowest support. Moving the model vertically preserves the seismic weight, base shear and member loads. Regenerate affected E cases before repeating analyses and design checks. (#2316)
+
+#### Static seismic loads account for zero-weight structural geometry
+
+The static period and applicability checks include all structural stories above the lowest support. Static generation refuses member offsets in the seismic footprint, including offsets on members with zero weight. Regenerate affected E cases before repeating analysis and design checks. (#2316)
+
+#### Block edits that can change a roller’s restrained axes (2026-11-19)
+
+Transforms refuse an ambiguous memberless 3D roller, and copies that carry a local plane roller require its reference members. Moves and copies are refused if their final geometry would redirect a local plane roller, including after a weld, a repeat link, or a rigid turn without welds. Snapshots preserve the recorded roller type. Selecting an ambiguous 3D Z roller after a snapshot requires explicit restraints (#2289, #2294, #2304).
+
+### Added
+
+#### Public Terms of Use, Privacy Policy and results disclaimer
+
+The public build includes the Terms of Use and Privacy Policy pages, links to them in the footer, and the results disclaimer. Sign-in remains disabled (#2358).
+
+#### Add opt-in global coordinate axes (#1986)
+
+- Add a global coordinate frame for the editor and its model code, workbooks, drawings and reports. The production build keeps it disabled.
+- Preserve load directions, support geometry, draft coordinates and result components across changes to the selected frame.
+
+#### GMRES in the engine's linear algebra (2026-11-19)
+
+`linalg::gmres_solve` solves a general square system by restarted GMRES with a
+right preconditioner: unsymmetric or indefinite systems, which the conjugate
+gradient solver cannot take. It reports the residual recomputed from the
+solution and stops unconverged on a step limit, a stagnating restart or a
+non-finite number. No analysis uses it yet.
+
+#### Simplified Chinese is offered as the eighth language (2026-11-16)
+
+The app (Basic, PRO, steel, the step-by-step documents and the course), the landing, the blog and
+standing pages, Research, the tools, the examples, the diagram game, the changelog, the release
+notes and every result-change record are written in Simplified Chinese. A browser set to any
+Chinese variant (`zh`, `zh-CN`, `zh-TW`, `zh-Hant`) opens in it, and the public pages are published
+under `/zh/`. Results do not change. A native review by structural engineers is still pending.
+
+### Changed
+
+#### Distinguish capped and uncapped CIRSOC 201-2005 torsion verdicts (2026-11-18)
+
+The opt-in torsion case now uses a cage that fails at the 420 MPa yield cap and passes with uncapped 500 MPa steel. The reviewed beam checks also use controls for the wider-face torsion minimum, concurrent axial tension in spacing checks, and bars outside the checked section.
+
+#### Signed out, the project panel says what needs an account, and /register uses the landing's hero (2026-11-18)
+
+With saving behind an account, the project panel now shows, before any click, that saving, opening, sharing, importing and exporting need one: those buttons are dimmed under a notice, and the file row carries a "Continue with Google" button. The top bar shows a short line beside Sign in. /register's hero has the landing's rotating figures, its two feature lines no longer run together, and the brand in its header leads to the landing instead of scrolling the page.
+
+#### Add an opt-in check for non-finite spring stiffness in advanced solver inputs (2026-11-18)
+
+The synchronous cable and soil–structure interaction cases require rejection of non-finite stiffness before serialization (#2292).
+
+#### Add an opt-in check for copying a local bearing without its member (2026-11-18)
+
+The copied bearing must preserve its physical restraint or report that its reference frame is unavailable (#2294).
+
+#### Add opt-in checks for concrete design and detailing (2026-11-18)
+
+The cases cover reinforcement layout and schedules, concurrent design forces, shear and torsion, seismic detailing, and the reuse of final-geometry verification.
+
+#### Add opt-in regression tests for member diagrams (2026-11-18)
+
+The tests pin concentrated-load jumps and the peak shear inside a partial load against section equilibrium (#2226, #2250).
+
+#### Add opt-in checks for Eurocode 2 provided reinforcement (2026-11-18)
+
+The cases require the verifier to read both sides of a concentrated action and respect the extent of span bars (#2240, #2246).
+
+#### Add an opt-in check for gravity loading under plan rotation (2026-11-18)
+
+The geodesic dome example checks that rotating the complete model preserves the applied dead-load resultant (#2254).
+
+#### Add an opt-in check for gravity conservation at an uncovered roof edge (2026-11-18)
+
+The retained load is checked against the unsnapped edges of the tributary strip (#2260).
+
+#### Add opt-in regression tests for load planning (2026-11-18)
+
+The tests exercise a flat-ridge snow cap, subdivision in seismic loading, and duplicate loading of shell-supported areas (#2202, #2208, #2209, #2284, #2299).
+
+#### Add opt-in regression tests for model editing and import (2026-11-18)
+
+The tests cover axial load direction on reversal, native roller persistence and unrecognised DXF support labels (#2268, #2278, #2304).
+
+#### Add opt-in checks for native analysis results (2026-11-18)
+
+The cases cover collapse under unequal capacity scales, symmetry in a ground-motion history, reactions to small prescribed motion, and force equilibrium after cancellation (#1453, #2125, #2227, #2262).
+
+#### Add an opt-in check for the steel moment-gradient factor (2026-11-18)
+
+The case compares the factor derived from the station diagram of a fixed-end beam with its analytical quarter-point moments (#2247).
+
+#### The landing's animated figures keep moving under the mouse (2026-11-18)
+
+Bringing the mouse over a figure on the landing froze it, which read as a broken animation. Each figure now keeps moving; the rotation to the next figure still waits while the mouse is over the drawing, so the one being watched stays on screen. Reduced motion and keyboard focus still hold the figure still.
+
+#### Release guidance for Stabileo 0.6.3
+
+The [release notes](docs/releases/v0.6.3.md) cover safety advisories, affected results, new refusals and the steps for regenerating loads and reviewing reports. The notes are available in all eight release-note languages.
+
+### Fixed
+
+#### Clarify regeneration, workbook import and beam verification guidance for 0.6.3
+
+The release notes explain how to handle saved loads when generation is blocked and which workbooks to re-export. The release notes and site changelog identify rejected planar-load moment components in workbook axes and clarify the requirements for concrete-only secondary shear and final-depth verification. (#2413)
+
+#### Clarify the Stabileo 0.6.3 safety guidance
+
+All eight release notes now include saved projects that retain an imported gravity setting with standalone self-weight turned off in the rerun guidance. The notes clarify when to replace generated modal seismic cases, which supports set the static seismic datum, what section shear plots show, what to verify against the actual reinforcement, and when workbook imports or checks are refused (#2400).
+
+#### Safety advisories for automatic loads, workbooks and concrete detailing (2026-11-21)
+
+[SA-2026-096](docs/advisories/SA-2026-096-static-seismic-stories-and-rafters.md) covers incorrect static seismic storeys and rafter load placement. [SA-2026-097](docs/advisories/SA-2026-097-workbook-inputs-and-plane-springs.md) covers silent workbook data loss and mislabeled planar rotational springs. [SA-2026-098](docs/advisories/SA-2026-098-rc-drawn-reinforcement-verification.md) covers unconservative concrete verification and incorrect column bar detailing. [SA-2026-099](docs/advisories/SA-2026-099-gravity-and-roof-step-loads.md) covers incorrect generated gravity and roof-step snow loads. Follow the advisory for each affected project before relying on existing results.
+
+The advisories also describe independent roof-force and base-shear checks after successful seismic regeneration, identify unsupported 2D moment axes in workbooks, and include perimeter-bar development and stirrup-bend checks when reviewing earlier concrete design results.
+
+#### Safety advisories for 2D free-body end moments and self-weight rules (2026-11-20)
+
+[SA-2026-094](docs/advisories/SA-2026-094-plane-free-body-end-moments.md) covers incorrect global end-moment signs in the 2D free-body inspector. [SA-2026-095](docs/advisories/SA-2026-095-plane-signed-scoped-self-weight.md) covers wrong reactions in 2D projects with signed or scoped self-weight rules and the project-open re-check notice. Revisit affected inspections and analyses, then regenerate and review the affected reports.
+
+#### Verify concurrent spacing and withhold unsupported RC detailing results (2026-11-20)
+
+CIRSOC 201 beam checks use concurrent axial force for stirrup spacing, include exact moment-zero stations in anchorage, and account for local stirrup intervals and layered end bars. Verification refuses unsupported drawn bar credit and reports torsion capacity and utilization using the lower evaluated limit. Column schedules retain mixed bar diameters, and physical detailing withholds cages it cannot reproduce. Rerun verification against current drawings and review governing combinations, verdicts and reports. See [the results change](docs/results-changes/2026-11-rc-detailing-verification.md). (#2398)
+
+#### Verify drawn beam bar ends and corner seats (2026-11-20)
+
+CIRSOC 201 beam verification refuses longitudinal torsion when the drawn perimeter bars lack confirmed development at a joint or bar end. The concrete-only secondary shear check requires longitudinal bars seated in both upper stirrup bends and uses their drawn positions to bound effective depth. See [the results change](docs/results-changes/2026-11-rc-drawn-joint-and-corner-verification.md). (#2398)
+
+#### Use replacement beam drawings for final-depth verification (2026-11-20)
+
+Final-depth verification uses the bar extents from a replacement drawing when one is supplied. A regional-only replacement inherits the saved drawing. See [the results change](docs/results-changes/2026-11-rc-final-depth-drawing.md). (#2398)
+
+#### Reject ambiguous workbook coordinates and loads and preserve explicit restraints (2026-11-20)
+
+Excel import blocks malformed coordinate unit headers and populated columns that do not apply to the load type on that row. Project workbooks preserve explicit spatial restraint flags in workbook axes before the model has been solved (#2395).
+
+#### Refuse spreadsheet errors and ambiguous support and gravity inputs (2026-11-20)
+
+Excel import blocks spreadsheet error cells on model sheets and rejects restraint flags that conflict with the named support. Complete explicit spatial restraint masks are preserved. The SelfWeight sheet requires a unitless `factor` header and rejects percentage and other unit suffixes (#2395).
+
+#### Preserve workbook restraint axes and require valid headers (2026-11-20)
+
+Project workbooks write explicit restraint flags in their declared axes and keep blank flags blank. Excel import blocks incomplete rotational spring unit suffixes and populated model sheets that lack required headers, including headerless sheets with just one load (#2395).
+
+#### Block Excel imports that would drop model data (2026-11-20)
+
+Excel import now refuses ambiguous sheet names and repeated headers, invalid coordinate units, populated unsupported columns and member point-load fields, and incompatible plane load components before replacing the current model. For planar loads, Excel import rejects nonzero moment components about either of the two declared workbook axes that lie in the model plane. Planar rotational springs export under `kr [kN·m/rad]`, and legacy spring workbooks remain readable. Reimport affected workbooks from source, check the coordinates, loads, gravity and restraints, then rerun the model. Re-export affected workbooks containing springs or restraints (#2370, #2383, #2395).
+
+#### Safety advisories for concrete verification, section stress and moving loads (2026-11-20)
+
+[SA-2026-091](docs/advisories/SA-2026-091-rc-torsion-shear-verification.md) covers blocked concrete shear, torsion and seismic hoop checks. [SA-2026-092](docs/advisories/SA-2026-092-section-stress-shear.md) explains the combined shear refusal and corrected section stress cuts. [SA-2026-093](docs/advisories/SA-2026-093-plane-moving-load-axial-force.md) covers axial force jumps in plane moving loads and influence lines. Re-run affected checks and analyses and review the reports that depend on them.
+
+#### Thin-tube stress values in the safety advisory post
+
+The safety advisories post now labels the signed shear sum and the corresponding von Mises stress in all eight translations of the [SA-2026-092 thin-tube example](docs/advisories/SA-2026-092-section-stress-shear.md#thin-tube-worked-example) and compares the von Mises stress with the yield strength.
+
+#### Section stress advisory worked example
+
+[SA-2026-092](docs/advisories/SA-2026-092-section-stress-shear.md#thin-tube-worked-example) now identifies the thin-tube fibre in both member-local and section-drawing coordinates and gives the replayed von Mises verdicts for both torque signs.
+
+#### Safety advisory status across release languages (2026-11-18)
+
+All seven safety-advisories posts list every advisory in their summary tables and show the same fixes shipped in 0.6.2. The Hungarian post also carries the advisory descriptions and links added on main.
+
+#### Advisory locale coverage in CI (2026-11-18)
+
+- Check each public advisory locale exactly once, including Hungarian, with either research setting.
+- Verify the release article and its metadata against the languages published with each research setting.
+
+#### Keep production feature configuration out of browser bundles and restore diagram viewBoxes (2026-11-18)
+
+- Inline the resolved feature switches and omit account and tracking code when the accounts switch is off.
+- Load shared viewer translations with the pages that use the viewer.
+- Give tool charts and sketches viewBoxes that match the coordinates of their result diagrams.
+
+#### Public site tests follow the build settings (2026-11-18)
+
+- Check the exact footer and header links and published languages for the configured build. Check optional pages and bundled sign-in and game UI against the same settings.
+
+#### Hungarian landing figure descriptions match English (2026-11-18)
+
+- Align the Hungarian hero titles and descriptions with the figures in the English copy.
+- Check translation parity for Hungarian even when the research switch hides it.
+
+#### Hungarian research viewer keyboard help (2026-11-18)
+
+- Keep keyboard instructions in Hungarian on research pages and mark Navier’s benchmark equation as language-independent.
+- Load the configured feature switches in responsive browser checks.
+
+#### Public header checks in CI (2026-11-18)
+
+- Check the exact public header links at desktop and mobile widths using the build's tools and diagram game settings.
+
+#### Restore production route budget comparisons and Hungarian locale coverage (2026-11-17)
+
+- Measure the same production routes on both sides of the feature configuration migration.
+- Translate the notice for incomplete station forces under active combinations into Hungarian.
+
+#### Translate scalar viewer keyboard help (2026-11-18)
+
+- Load keyboard help with the scalar viewer and include its dictionary in Basic mode translation coverage.
+
+#### Keep Shauer fracture charts readable on phones and tablets (2026-11-18)
+
+- Keep the Force and Convergence charts at stable heights so their labels remain readable when switching tabs or resizing the page.
+
+#### Keep calculator editor links tied to the current model (2026-11-18)
+
+- Show Open in Stabileo once the current calculator model is ready to open, and withdraw the link while updated inputs are being solved or refused.
+
+#### Refuse non-finite support springs and fully cancelled combinations (2026-11-19)
+
+Cable and soil–structure interaction now refuse non-finite spring stiffness before encoding the input. Load combinations are refused when repeated case factors cancel every nonzero contribution (#2292).
+
+#### Check generated seismic loads on their physical carriers in browser tests (#2316)
+
+The drift and modal-refusal browser tests now verify the static case names and check distributed beam loads, shell traction, and story nodal loads on the modeled floor.
+
+#### Check RC containment across the web test fixtures (2026-11-20)
+
+The concurrent RC test asserts the existing torsion-depth refusal and checks the exact utilisation for supported demand tuples. The span, deep-beam and flagship tests exercise anchorage, splices, resizing and skin reinforcement on supported inputs and check that refused cages receive no certificate. The beam-line test preserves exact regional round trips and checks that the drawn hoop transitions block certification when minimum shear reinforcement is missing (#2338).
+
+#### Check flagship lap coverage after RC refusals in CI (2026-11-20)
+
+The flagship detailing test checks the exact lap count for each eligible beam pair and verifies that refused members have no laps, bar ownership, or approved assembly. Assembly coverage also checks the exact set of verified and provisional members (#2338).
+
+#### Check flagship RC design refusals in CI (2026-11-20)
+
+The flagship tests pin the members refused for unsupported shear depth or joint congestion and check that those beams receive no certificate or accepted reinforcement. The browser checks count the refusals without reporting them as verified (#2338).
+
+#### Support hover in the 3D stress view
+
+Keep the 3D stress view responsive when the pointer crosses a support, including in the grid-beams example. Directional support labels follow the active global axes (#2364).
+
+#### Recheck older planar self-weight results (#2364)
+
+Older planar projects with signed, scoped, or multiple self-weight rules now open with a recheck notice even when they use ordinary load case names and global axes are disabled.
+
+#### Chinese text for global-axis result notices
+
+Add Simplified Chinese titles and explanations for four result-change notices so the site can build and saved-project rechecks can load. Complete the Simplified Chinese interface, import diagnostics and influence-line labels added by the integration (#2364).
+
+#### CI timing and layout flakes (2026-11-19)
+
+The Timing Budgets job runs wall-clock browser checks on the dedicated runner for trusted CI runs. Research layout checks wait for the live page, and each of the 32 generated plastic mechanism cases runs under its own test deadline. (#2314, #2311, #2290)
+
+#### Refuse invalid support values in declared workbook frames (#2364)
+
+Malformed stiffnesses, prescribed displacements and support angles, incompatible units, and nonfinite conversions now block import. The diagnostic identifies the row and column, and the open model is preserved.
+
+#### Faster concrete span verification (2026-11-20)
+
+Span code checks reuse deferred report formatting and avoid redundant demand-inventory scans. The preliminary pass sizes the shared cage and leaves diagnostics and detailing to the final check.
+
+#### Report signed end moments in the 2D free-body inspector (#2364)
+
+The global inspector reports the moment that acts on each member end, with the same rotation sense as the diagram. The reported actions balance for members drawn in either direction, including when global axes are enabled and the displayed plane is reflected.
+
+#### Engine benchmarks run to the end again (2026-11-19)
+
+Nine benchmark groups in four of the five engine bench files stopped at a
+model the engine now refuses, and took the rest of their file with them. The
+benchmark plates were pinned at one corner only and so free to turn in their
+plane; the cable model was a chain of links with nothing to hold its shape; the
+2,000-element beam is past the conditioning limit; the staged model added a
+support in its second stage; and every 2D plastic result is withheld while
+known issue #758 is open. The models are now ones the engine solves, the
+plastic benchmark is skipped with a message until the issue is closed, and
+`make test.engine.benches` runs every benchmark once each night.
+
+#### Scope global-axes recheck notices and refuse ambiguous workbook inputs (#2364)
+
+Global-axes recheck notices require saved evidence of feature use. Workbook import refuses invalid physical load fields in declared frames, duplicate physical columns in those frames, duplicate prescribed rotation columns, and duplicate LoadData or SelfWeight sheets. A refusal preserves the open model.
+
+#### Preserve workbook loads and coordinate-frame declarations (#2364)
+
+- Refuse ambiguous coordinate-frame declarations and unsupported workbook load data before applying the model.
+- Keep prescribed support rotations in workbook exports, and use the workbook's declared frame for global results.
+- Apply each 2D self-weight rule's signed factor, direction and member scope in direct and combination solves.
+- Correct the reflected grid elevations, stiffness wizard, influence envelopes and shell point-load sketch.
+
+#### Preserve loads and coordinate conventions across replay and workbook exchange (#2364)
+
+- Preserve partial distributed load spans and thermal load cases when replaying fixtures. Show existing axial distributed loads when the global axes switch is off.
+- Use the export frame for workbook reactions, displacements and their extrema. Convert declared flat support components and refuse out-of-plane supports, unresolved load cases and incompatible standalone gravity rules.
+- Distinguish transverse translation from normal rotation in the stiffness wizard. Preserve spatial coordinates in framed model-code fragments.
+
+#### Refuse workbooks that would lose loads or prescribed rotations (#2364)
+
+Workbook import preserves the current model if a declared planar nodal load has a nonzero out-of-plane component or a prescribed support rotation has an invalid value or incompatible unit.
+
+#### Configure public web features in version control (2026-11-17)
+
+- Enable research and tools in production, with accounts and the diagram game disabled.
+- Read public feature settings from a validated JSON file so missing deployment variables cannot expose account UI.
+
+#### Check seismic hoops against the drawing and preserve RC refusals (2026-11-19)
+
+RC frame checks use the diameter, leg count and spacing of drawn hoops throughout each credited end zone. Concrete member exports retain a code-check refusal even when deflection passes.
+
+#### Verify RC beam strength at drawn cage transitions and bar cutoffs (2026-11-19)
+
+CIRSOC beam checks use each drawn stirrup zone at the sections it covers and include both cages at a transition. Interpolated bar cutoffs can govern torsion strength. Longitudinal torsion bars must meet the edition’s minimum diameter.
+
+#### Check how lateral design readers report refused RC spans (2026-11-19)
+
+Web Unit checks the exact torsion-perimeter and shear-depth refusals in the lateral design fixture. It verifies that affected spans have no certificate or drawn bars and that the desk, memoria, IFC and workbook withhold approval.
+
+#### Keep the RC slab mesh guard independent of runner speed (2026-11-20)
+
+Mesh comparisons now require a complete design run and use a deterministic clock for design in the test. The guard still checks the exact torsion refusal for each affected beam and checks the scheduled mass of the beams that can be detailed.
+
+#### Reuse the uncut design in the RC numbering test (2026-11-20)
+
+The mesh guard solves and designs the uncut model once under the prescribed forces. Its numbering test reuses that design and checks the same detailing output under all three numberings within the existing deadline.
+
+#### Verify RC beam certificates against settled crossing seats (2026-11-19)
+
+Automatic design verifies each selected cage against the settled crossing seats before certification and repeats verification when a refusal removes a seat. Exhausted beam designs report the blocking diagnostic and leave their reinforcement quantities unavailable.
+
+#### Withhold RC beam certificates when the selected cage has unsupported shear depth (2026-11-19)
+
+The automatic design run reports the shear-depth refusal, retains exhausted searches, and rechecks surviving beams against the resulting crossing seats.
+
+#### Exercise RC span reuse with exact zero-shear demands (2026-11-20)
+
+The RC span-reuse test now prescribes zero shear for a cantilever loaded by an end couple, so solver roundoff cannot trigger the torsion-depth refusal before the test reaches the certificate hold. The project recheck test preserves the upstream notice assertions and checks the four RC notices explicitly.
+
+#### Block unverified concrete shear, torsion, and seismic hoop checks (2026-11-19)
+
+CIRSOC 201 verification blocks torsion and shear results when the section limit relies on overstated concrete strength or effective depth, when longitudinal torsion bars end or lack verified perimeter coverage, or when a drawn shear section has no stirrups. Fixed cages report a detailing shortfall using their declared legs. CIRSOC 201-2005 section torsion refuses reinforcement above the supported yield limit. Seismic beam checks use the continuous dense hoop zones at both ends of the drawing.
+
+#### Verify concrete reinforcement at the sections it reaches (2026-11-19)
+
+CIRSOC 201 beam torsion cannot be approved from a scalar longitudinal steel area. Verification blocks longitudinal torsion where perimeter bars end between sampled sections, even with continuous stirrups. It also blocks drawn stirrup gaps under either shear axis or active torsion, including gaps between sampled sections. Seismic beam checks measure dense hoop coverage from the support faces.
+
+#### Correct the 0.6.2 release status and PRO design link (2026-11-19)
+
+The roadmap and website changelog now show that the 0.6.2 fixes shipped.
+The PRO design section links to the remaining 3D design work in the roadmap.
+
+#### Require a coordinate frame when reading result rows (#2364)
+
+Result table readers require an explicit coordinate frame so an equilibrium check cannot silently combine canonical reaction components with loads and coordinates in the user frame.
+
+#### Independent verification for the cable tension advisory (2026-11-20)
+
+Keep cable self-weight in the independent force verification advised by SA-2026-015.
+
+#### Restore the save rejection and account gate tests in CI (#2364)
+
+The save rejection and account gate tests preserve the feature exports used to initialize the axes store, so CI can exercise download error propagation and authorization.
+
+#### Preserve saved-project recheck notices through self-weight migration (#2364)
+
+Migrating legacy self-weight settings preserves the saved notice stamp and features. With global axes off, saved projects use the same notice features as before the global-axes changes.
+
+#### Accidental eccentricity uses the structural plan width (2026-11-18)
+
+Accidental eccentricity uses the structural plan width, including massless framing. Regenerate affected seismic load cases before repeating analyses and design checks. (#2316)
+
+#### Seismic load generation smoke tests (2026-11-18)
+
+The browser tests check static seismic loading on frame and shell carriers, refusal of floor loads requiring unsupported eccentric member loading, and the modal generation refusal. (#2316, #2319)
+
+#### Reachable story drift controls (2026-11-18)
+
+The Pro Results panel scrolls as one pane, keeping the story drift controls and tables reachable when Result Checks opens a warning. (#2316)
+
+#### Static seismic member loads and modal generation refusal (2026-11-19)
+
+Static equivalent seismic forces follow the mass on each carrier as member and shell loads. Modal seismic load generation is temporarily unavailable because its force distribution can give incorrect member forces and deflections. Use the static method where applicable. (#2208, #2209, #2316, #2319)
+
+#### Review saved modal seismic loads (2026-11-19)
+
+Opening a project flags earlier generated seismic loads when their static origin cannot be verified. Review or replace those loads before repeating analyses and design checks. (#2319)
+
+#### Support-relative seismic preview stories
+
+The seismic load preview shows the stories used by the static planner and measures their heights from the lowest support. (#2316)
+
+#### Document static and modal seismic load generation defects (2026-11-19)
+
+[SA-2026-086](docs/advisories/SA-2026-086-seismic-static-story-forces.md) requires regenerating affected static seismic loads and rerunning analyses and designs. [SA-2026-087](docs/advisories/SA-2026-087-seismic-modal-load-generation.md) covers the modal generation refusal and asks users to replace earlier loads using the static method where applicable or wait for #2319. (#2316)
+
+#### Keep wind levels independent and preserve snow refusals
+
+- Preserve the wind plan's level weights when generating static seismic loads, and report missing physical or flat-roof snow in Apply even when the plan also contains an unverified seismic case. (#2316, #2233)
+
+#### The incomplete Cholesky preconditioner works on plates (2026-11-19)
+
+On a shell model the shifted incomplete Cholesky preconditioner overflowed and
+returned NaN, so a solve that asked for the conjugate gradient method fell back
+to the Jacobi preconditioner. When the factor overflows it is now rebuilt on the
+matrix scaled to a unit diagonal, with a small diagonal shift and ten extra
+entries per column. On a 50x50 plate the conjugate gradient solve takes 48
+iterations instead of Jacobi's 495, and 75 ms against 152 ms. Models where the
+preconditioner already worked get the same factor as before. The default
+direct solver is not affected.
+
+#### Preserve slab-column point-joint notices when reinforcement verification is refused (2026-11-19)
+
+The document lists every member flagged for a slab-column point joint and includes them all in the review banner, even when reinforcement verification withholds their steel certificates.
+
+#### Engineering explanations in Simplified Chinese (2026-11-19)
+
+Corrected signs, moment arms, units and formulas in the stress panel, worked steel checks, course and analysis steps, research controls, blog examples and result-change notices. The numerical calculations are unchanged.
+
+#### Engineering guidance across translations (2026-11-20)
+
+The modal analysis warning now gives material unit weight in kN/m³. The beam, frame and influence-line tools explain the cut-face directions of positive shear. The course and worked steps clarify how damping controls transient decay, how the planar plastic axes relate to the influence-line axes, how elongation gives axial force, and how Castigliano's method integrates axial strain energy along a member.
+
+#### Simplified Chinese engineering and verification guidance (2026-11-20)
+
+Corrected rotation labels, 3D bending signs, workbook material strength help, and explanations for dynamics, influence lines, steel calculations, and frame walkthroughs. Clarified the torsion comparison, safety advisory guidance and release notices.
+
+#### Chinese landing and engineering help (2026-11-19)
+
+Translated the 3D design roadmap link and corrected the Chinese explanations of T-beam minimum reinforcement, section fibre axes, fixed-end equilibrium, stiffness ratios and the Müller–Breslau sign convention.
+
+#### Chinese release notice validation (2026-11-20)
+
+The Chinese release notes check requires one matching notice each for results versions 91 and 93, with the expected title and section link on the same row.
+
+#### Chinese section-stress recheck notice (2026-11-20)
+
+The recheck notice about shear and von Mises stress on section cuts appears in Simplified Chinese. Builds refuse to package notices with missing translations for a supported product language.
+
+### Performance
+
+#### Faster automatic concrete design (2026-11-20)
+
+Automatic design reuses verified demand inventories, support plans and identical joint layout checks while ranking reinforcement candidates. Automatic design returns the same member-by-member results for the 408-member example.
+
+#### Clear plate meshes faster and share the 2D co-rotational driver
+
+Clearing a plate mesh takes less work, including when rebuilding slab meshes. The 2D co-rotational analysis uses a shared nonlinear driver and retains its existing Newton and modified Newton results (#2394).
+
+#### Name a number's path only when it is refused (2026-11-19)
+
+Two checks wrote text for every value they passed. The non-finite audit
+formatted the path of every field and array element it visited, and the
+diagram evaluator formatted its member's name before validating the member's
+load intervals, at every station of every diagram. Both now keep what they
+would name and write it only in the refusal. Every value is still audited and
+every interval still validated, and the refusals read as before. A solve with
+35 combinations on a 203-member building takes 141 ms where it took 239.
+
+#### Apply sparse Cholesky updates a stretch of rows at a time (2026-11-18)
+
+The sparse factorization subtracted each earlier supernode's contribution one
+entry at a time through two index lists, which was 85 to 90 % of its time. The
+rows an update touches come in contiguous stretches, so each stretch is now
+subtracted as one pass over adjacent memory. Every entry receives the same
+subtractions in the same order and the factor is bit-identical. A 136,000
+unknown plate factors in 1.4 s where it took 6.6, and a 92,000 unknown
+building frame in 62 s where it took 170.
+
+#### Factor Cholesky panels one column at a time (2026-11-19)
+
+Reduce factorization time for wide supernodes while preserving per-entry arithmetic order, pivot checks, and numerical results.
+
+#### Frames and beams pass the stability check without the iterative estimate (2026-11-19)
+
+A linear solve above 64 unknowns first proves its stiffness is well enough
+conditioned. The quick proof (two factorizations) only tried a condition number
+of 1e6, which slabs meet and ordinary frames and beams do not, so those fell
+back to an iterative estimate that took most of the solve. The quick proof now
+also tries 1e8 and 1e10, with a factor of 8 in hand on the limits so that it
+accepts nothing the estimate would refuse. A 100-storey 2D frame solves in
+15 ms instead of 46 ms, a 20-storey 3D frame in 6.4 ms instead of 11.6 ms and a
+64-element beam in 0.8 ms instead of 15.6 ms. Results are unchanged.
+
+## 0.6.2 (2026-11-18)
+
+Release notes: [`docs/releases/v0.6.2.md`](docs/releases/v0.6.2.md) (also in [Spanish](docs/releases/v0.6.2.es.md), [Portuguese](docs/releases/v0.6.2.pt.md), [German](docs/releases/v0.6.2.de.md), [French](docs/releases/v0.6.2.fr.md), [Turkish](docs/releases/v0.6.2.tr.md) and [Hungarian](docs/releases/v0.6.2.hu.md)).
+
+### BREAKING (results)
+
+#### Refuse member design with incomplete requested demands (2026-11-15)
+
+Member design and certification now require every active combination, every member in scope and every declared station, including both ends. Missing raw member records also refuse when station demands survive. EC2 peak design and foreign-code consumers preserve the requested active combination inventory. Previously a subset could return a verdict. Re-run saved concrete and steel designs and review refusals and certificates. Grouped beam spans retain each mesh piece’s identity and complete demands, avoiding false refusals. Complete-input numerical rules are unchanged. See [the results-change record](docs/results-changes/2026-11-shared-demand-completeness.md) and [SA-2026-071](docs/advisories/SA-2026-071-incomplete-concurrent-demands.md), fixed in 0.6.2 by PR #2173 (#2096).
+
+#### Planar displacement recovery retains concentrated couples (2026-11-15)
+
+- Include concentrated member moments in reconstructed 2D displacement curves and diagram-game answers, including released ends. Solver nodal results are unchanged. See [the results-change record](docs/results-changes/2026-11-planar-couple-displacement.md) (#2099).
+
+#### Snow ridges and slopes follow physical roof geometry (2026-11-15)
+
+Unequal subdivision of roof edges could move the inferred snow ridge and change
+snow loads without warning, including on flat models with an entered roof slope.
+The shared roof-surface path now derives ridges, slopes and shaped-roof profiles
+from complete physical runs, so inserting nodes does not change that geometry
+(#2144). Each member segment
+uses its own position relative to the stable ridge for side pressure, restoring
+the correct force and moment on members split at the ridge. Ridge-crossing members also retain the physical load moment through the correction for #2176 in this release.
+Highest profile points are grouped with the existing elevation tolerance, preventing tiny corner-height changes from moving the ridge;
+points above that tolerance remain distinct. Regenerate affected snow loads,
+then rerun analyses, combinations and design checks; re-solving stored generated loads is insufficient.
+See [the results-change record](docs/results-changes/2026-11-snow-ridge-mesh.md).
+See [SA-2026-072](docs/advisories/SA-2026-072-snow-ridge-subdivision.md), fixed in 0.6.2.
+
+#### Snow panels follow physical roof geometry (2026-11-16)
+
+Subdividing sloped rafters no longer turns explicit roof panels into floors
+and silently removes eave snow (#2172). Panel classification uses the physical
+roof envelope. Generated widths retain full precision and snow tributary
+resultants follow complete physical strips. Regenerate all affected generated area loads, then rerun analyses,
+combinations and design checks; re-solving stored loads alone is insufficient.
+See the [results-change record](docs/results-changes/2026-11-snow-panel-geometry.md)
+and [SA-2026-074](docs/advisories/SA-2026-074-snow-panel-subdivision.md). Fixed in 0.6.2.
+
+#### Snow loads retain their ridge-crossing moment (2026-11-16)
+
+Snow loads now split at the physical ridge, preserving force and moment on
+crossing members in projected, width and panel allocation (#2176). Regenerate
+saved snow loads, then rerun analyses, combinations and design checks; re-solving
+stored loads alone is insufficient. See the [results-change record](docs/results-changes/2026-11-snow-crossing-profile.md)
+and [SA-2026-073](docs/advisories/SA-2026-073-snow-crossing-moment.md). Fixed in 0.6.2.
+
+#### Snow tributary intensities retain force and moments (2026-11-16)
+
+Quadratic snow tributary loads now retain force and both plan moments with an explicit pointwise intensity error bound, reported in the derivation. Regenerate affected snow loads, then rerun analyses, combinations and design checks. See the [results-change record](docs/results-changes/2026-11-snow-quadratic-intensity.md).
+
+#### Partial snow remains member loading (2026-11-16)
+
+Inclined members retain axial and transverse snow as projected member loading over the actual interval. Connected panel footprints retain their own roof across panel subdivision. Regenerate affected generated area loads and rerun analyses, combinations and design checks. See the [results-change record](docs/results-changes/2026-11-snow-member-loading.md).
+
+#### Selected snow carriers retain force and plan moments (2026-11-16)
+
+Snow strips now split at the boundaries of selected carriers before loads are approximated. A partial selection on a subdivided roof run retains force and both plan moments. Regenerate affected generated snow loads, then rerun analyses, combinations and design checks. See the [results-change record](docs/results-changes/2026-11-snow-selected-subsets.md).
+
+#### Interior deflection and rotation retain concentrated member couples (2026-11-15)
+
+Member hover readings and deformed shapes now include concentrated couples inside a span. The hover and both spatial bending curves use the engine's shared recovery, including point and distributed loads and released ends. Reopen saved projects with member loads, rerun analysis, and review displayed deflections and serviceability checks. Loaded recovery without sufficient bending stiffness is refused explicitly. Recovered curves also retain shear rigidity and valid spatial stiffness; see [the recovery notice](docs/results-changes/2026-11-member-recovery-round4.md). Nodal solutions and member forces are unchanged. See [the results-change record](docs/results-changes/2026-11-interior-member-couples.md) ([SA-2026-070](docs/advisories/SA-2026-070-interior-member-couples.md), #2143; fixed in 0.6.2).
+
+#### CIRSOC 201 torsion section limits include both concurrent shear axes (2026-11-15)
+
+The solid-section shear–torsion limit now checks both orientations from the complete concurrent demand, for beams, columns and walls in both supported editions. The provided-beam verifier also checks torsion when primary shear is zero or stirrups are absent; non-negligible torsion without stirrups explicitly fails. Previously accepted sections can fail; additional stirrups cannot repair an exceeded concrete-section limit. Re-run saved concrete member designs and review section failures. See the [results-change record](docs/results-changes/2026-11-torsion-secondary-shear.md) and [SA-2026-069](docs/advisories/SA-2026-069-torsion-secondary-shear.md) (#2142, PR #2169).
+
+#### Gravity carrier loads, seismic mass and combined diagram peaks (2026-11-17)
+
+Gravity plans subtract shell footprints in the carrier geometry. Supported uncovered strips apply reactions at their physical stations. Covered, exposed and ambiguous strips follow the deck and roof geometry, including connected lean-tos and offset rafters attached to carrying shells. Unsupported partial coverage or mixed exposure blocks the plan. Floor zones that require eccentric loading refuse the whole definition. A zone that covers an entire bay uses that panel’s ordinary member loads. Regenerate panel-mode gravity loads and review affected floor definitions, then re-run dependent checks. [SA-2026-079](docs/advisories/SA-2026-079-gravity-shell-coverage.md), [SA-2026-080](docs/advisories/SA-2026-080-floor-zone-eccentricity.md), #2199–#2201.
+
+Width-mode seismic mass uses the areas of the loaded carriers. Regenerate gravity plans, seismic weights and seismic actions, including legacy plans with zero member gravity loads. [SA-2026-090](docs/results-changes/2026-11-gravity-core.md#width-mode-level-mass-follows-loaded-carriers), #2210 and #2269.
+
+Combined 3D ABS and SRSS member diagrams evaluate extrema between load boundaries and both sides of jumps. Recompute diagrams and dependent peak checks. [SA-2026-088](docs/results-changes/2026-11-gravity-core.md#combined-member-diagram-extrema), #2273. All four corrections shipped in 0.6.2 via [#2282](https://github.com/lambdaclass/stabileo/pull/2282).
+
+#### Wind enclosure and pressure transfer follow the physical structure (2026-11-16)
+
+Wind generation classifies the enclosure using openings in every wall and the roof. Pressure integration follows physical zones, bands and carrier widths on walls, roofs, free roofs, towers, chimneys, lattices and signs. It preserves foundation forces and first moments, includes eccentric plan loading and retains the appropriate separate minimum cases. Incomplete or unsupported inputs refuse. Review and reclassify affected enclosures, regenerate W and Wa, and re-run analysis, combinations and design checks. [Results-change record](docs/results-changes/2026-11-wind-physical-pressure-field.md), [SA-2026-076](docs/advisories/SA-2026-076-wind-enclosure.md), [SA-2026-077](docs/advisories/SA-2026-077-wind-wall-height-transfer.md), [SA-2026-078](docs/advisories/SA-2026-078-wind-roof-pressure-zones.md), #2203–#2206.
+
+#### Companion combinations use their own flat-roof snow loading (2026-11-16)
+
+Companion combinations select the required flat-roof member load case. Principal and seismic combinations retain physical snow. The combination builder checks for missing counterparts and refuses ambiguous legacy seismic snow definitions. Regenerate both snow loads and combinations, then re-run analysis and design. [Results-change record](docs/results-changes/2026-11-snow-combination-validation.md), [SA-2026-082](docs/advisories/SA-2026-082-snow-companion-basis.md), #2211.
+
+#### Concentrated live and roof actions must be checked before applying generated loads (2026-11-16)
+
+Automatic CIRSOC 101 generation refuses plans whose governing concentrated actions have not been evaluated. Review affected occupancies and roof uses, then independently model the required actions and governing placements before re-running checks. [Results-change record](docs/results-changes/2026-11-concentrated-live-actions.md), [SA-2026-083](docs/advisories/SA-2026-083-concentrated-live-actions.md), #2207.
+
+#### Distributed member loads keep their intervals and independent equilibrium checks (2026-11-17)
+
+Distributed member loads with unsupported intervals now refuse explicitly, including after remapping or subdivision. Supported automatic member cuts preserve the load geometry and integrals. The equilibrium check derives applied loads independently of assembly and preserves small resultants when large forces cancel. Fiber increments must pass the same equilibrium checks as the final state. Review earlier results for affected partial loads, recreate any load lost in an earlier edit, then re-run analysis and downstream checks. [Results-change record](docs/results-changes/2026-11-narrow-partial-loads.md), [generated cuts](docs/results-changes/2026-11-generated-member-cuts.md), #2222 and #2223.
+
+#### Fillet weld checks use the physical run (2026-11-16)
+
+Continuous fillets retain their effective-length reduction across drawn segments. Short runs enforce the leg limit, zero-size pieces contribute no resistance or stress points, and ambiguous branches refuse evaluation. Re-run affected weld-group checks. [SA-2026-084](docs/results-changes/2026-11-fillet-weld-physical-runs.md) (#2243) and [SA-2026-085](docs/results-changes/2026-11-fillet-weld-physical-runs.md) (#2244), fixed in 0.6.2 by [#2258](https://github.com/lambdaclass/stabileo/pull/2258).
+
+#### Ambiguous 3D supports require explicit restraints (2026-11-17)
+
+Unmasked 3D `rollerZ` and `custom3d` supports and unrecognized support names no longer act as fixed bearings. New rollers and bundled examples use their stated restraints. Plane roller rotation carries explicit restraints and prescribed movements, and resubmitting an unchanged support type preserves its bearing direction. Confirm intended restraints before re-running saved analyses and design. [Results-change record](docs/results-changes/2026-11-roller-z-fixed.md), [support edits](docs/results-changes/2026-11-support-lifecycle.md), [SA-2026-089](docs/advisories/SA-2026-089-roller-z-fixed.md), #2276.
+
+#### CIRSOC 201 shear and torsion evaluate the actual reinforcement (2026-11-18)
+
+Secondary shear uses the secondary face geometry and reinforcement, including the resolved longitudinal layout. Torsion uses its threshold at the concurrent axial force and checks the evaluated closed cage. The check refuses insufficient reinforcement information and applies the weakest reported stirrup cage along a member when provision varies. Re-run affected concrete beam and column designs and review changed checks and refusals. [Results-change record](docs/results-changes/2026-11-secondary-stirrup-legs.md), [torsion threshold](docs/results-changes/2026-11-cirsoc-axial-torsion-threshold.md), [cage verification](docs/results-changes/2026-11-cirsoc-torsion-cage-verification.md), [SA-2026-075](docs/advisories/SA-2026-075-cirsoc201-secondary-stirrup-legs.md), #2171.
+
+#### Nonlinear combinations retain the response of the specified cases (2026-11-17)
+
+Empty cases contribute zero rather than duplicating the unloaded response of a pretensioned cable. Screening uses the summed factor per case, and the combination refuses a non-finite net factor. Re-run affected combinations and envelopes. [Empty nonlinear cases](docs/results-changes/2026-11-empty-nonlinear-combination-cases.md), [case screening](docs/results-changes/2026-11-repeated-combination-case-screening.md).
+
+### Added
+
+#### A blog post on Stabileo 0.6.1 (2026-11-15)
+
+The blog announces 0.6.1 in English, Spanish, Portuguese, German, French and Turkish.
+It leads with re-running affected member checks and regenerating snow loads before
+recalculating, covers fixed advisories SA-2026-064 through SA-2026-068 and all 24 new
+results-change notices, and preserves the known open wrong results and limitations.
+Its facts follow `docs/releases/v0.6.1*.md` and the 0.6.1 changelog. Release-note links
+open in the reader's language.
+
+#### An optional game for reading structural diagrams (2026-11-16)
+
+The diagram game asks readers to choose the right diagram, identify the odd one or match a diagram to its structure, with an explanation after each answer. It remains disabled by default alongside the optional tools integration.
+
+#### Hungarian public guidance and translations (2026-11-16)
+
+Hungarian public copy, release notes and saved-project guidance are available. Optional research, tools and diagram-game additions remain disabled by default. Existing public research, calculator and example pages remain available.
+
+#### Audit notice beside generated loads and concrete results (2026-11-16)
+
+Automatically generated loads and reinforced-concrete design and detailing results show a notice linked to the open audit findings. The notice appears in all seven app languages (#2228).
+
+#### Animated structural figures on the landing page (2026-11-18)
+
+The landing page rotates through structural examples. Building and section figures identify the correct force and stress signs, and the displayed mode shapes play at relative speeds consistent with their frequency ratios (#2285). After the first figure, the others load on demand and preload during idle time when data saving is off (#2090).
+
+#### Interactive masonry-arch research (2026-11-16)
+
+The optional research collection adds a circular masonry-arch experiment based on Heyman’s *The Stone Skeleton*, with least thickness, thrust lines and collapse mechanisms (#2257).
+
+### Changed
+
+#### Release 0.6.2 guidance in seven languages (2026-11-18)
+
+Release notes cover all 57 results-change notices through results version 95 and the advisory fixes since 0.6.1. Re-run affected analyses and member checks, regenerate affected wind, gravity, snow and seismic loads, and regenerate combinations that used the wrong snow basis. Check the intended restraints of ambiguous 3D supports before re-solving.
+
+### Fixed
+
+#### Mohr calculations and shared links retain small stresses (2026-11-16)
+
+Plane and spatial Mohr calculations preserve small nonzero principal stresses and rotated stress components when other components are much larger. Shared links preserve stresses and angles when reopened in every display unit. Mohr plots select the shear point for the displayed convention. Tool exercises retain authored decimals and bounds, and unloaded truss bars remain unloaded. The flexure article uses actual bar depths and rejects the nonductile example in every published translation.
+
+#### Reports reject changed results and teaching explains reactions correctly (2026-11-16)
+
+Reports, printable calculations and workbooks reject results changed while signing in. Truss support-reaction explanations now use the correct force signs in all seven languages. Research results identify the inputs that produced them and remain marked when controls change or computation fails. Failed numerical starts are not presented as physical snap events. Project research requires explicit consent, refusal of terms is honored, and account actions retain the current consent choice. Withdrawing advertising consent removes advertising cookies.
+
+#### Combination envelopes match the entities named in the result (2026-11-17)
+
+Envelopes match nodal displacements and reactions by node ID, and member forces by element ID. Mismatched or duplicate IDs cause a refusal. Nonlinear analysis also rejects non-finite inputs sent to the cable and soil–structure solvers and discards superseded results. [Envelope result scope](docs/results-changes/2026-11-envelope-entity-ids.md), #2283.
+
+### Performance
+
+#### Reinforcement workspace avoids repeated coordinate reads (2026-11-16)
+
+Opening and reopening the reinforcement workspace samples bar coordinates once before projection. Sampling tolerance, geometry and analysis results are unchanged.
+
+#### Responsive nonlinear solves and less repeated design work (2026-11-17)
+
+Nonlinear solves now report progress and support cancellation. Cases sharing structural inputs reuse the initial factorization. Large 3D combinations and envelopes keep more of their calculation together, and diagram sampling, span rotation, anchorage and plastic stability checks reuse work (#2283).
+
+## 0.6.1 (2026-11-15)
+
+Release notes: [`docs/releases/v0.6.1.md`](docs/releases/v0.6.1.md) (also in [Spanish](docs/releases/v0.6.1.es.md), [Portuguese](docs/releases/v0.6.1.pt.md), [German](docs/releases/v0.6.1.de.md), [French](docs/releases/v0.6.1.fr.md) and [Turkish](docs/releases/v0.6.1.tr.md)).
+
+### BREAKING (results)
+
+#### Interaction checks retain concurrent forces and provenance (#1316)
+
+Member interaction checks now use each combination's concurrent station forces and retain that combination's name. CIRSOC 201 no longer pairs enveloped N, M, shear or torque; CIRSOC 301's endpoint and variable-section paths use concurrent tuples too. Steel moment-gradient capacity factors now use the same combination as the interaction forces, including the complete unbraced chain. The other-code dispatcher always checks the complete station set. Re-run saved concrete and steel member designs and review utilization, reinforcement and governing combinations. See [the results-change record](docs/results-changes/2026-11-concurrent-design-demands.md). Fixes #1316.
+
+#### Refuse partial active combinations and concurrent member data
+
+- Member design now requires results for every active combination, station entries for every supplied member and concurrent tuples covering every expected combination. Incomplete supplied station maps cannot fall back to endpoint forces. Re-run saved concrete and steel checks. Register and retire the main designer's inadequate torsion stirrup witness as #2141 (#2080).
+
+#### Refuse incomplete concurrent results and separate concrete strain states
+
+- Refuse missing station combinations and missing or empty foreign-code tuples before verification or certification. Report concrete minimum reinforcement at the selected bars’ depth, preserve required-solution strain during shared-cage checks, and expose the provided-steel strain separately. Re-run affected concrete and steel designs (#2080).
+
+#### Concurrent checks retain governing demands
+
+- Preserve each steel check's governing demand and combination when interactions use concurrent forces. Held tension checks retain maximum tension; interior axial forces survive zero endpoint summaries; negative moments select the declared bottom-flange unbraced length in both interaction entry points. Concrete certification aggregates every concurrent case. Saved designs can change demands, utilization, certification and combination labels. Re-run affected checks. See [the results-change record](docs/results-changes/2026-11-concurrent-check-demands.md) (#1316, #2080).
+
+#### Retain torsion reinforcement required by every concurrent case
+
+- Report maximum transverse and longitudinal torsion requirements independently of the case governing utilization. Size shared stirrups for shear plus torsion and check the shared reinforcement under every case. Re-run saved concrete designs and review reinforcement and failures (#2080).
+- Return demand unavailable before candidate search for incomplete station combinations, instead of throwing during verification.
+
+#### Keep excessive required reinforcement failing with a fixed cage
+
+- Apply the same practical maximum of required steel to independently sized and fixed-cage concrete flexure results. Shared-cage verification retains the failure and its explanation; re-run saved concrete designs and review statuses (#2080).
+- Include the applicable complete-concurrent-demands notice in the mixed concrete/steel frame recheck expectation.
+
+#### Apply member behaviour and flange spans consistently
+
+- Mask excluded axial force in every governing and concurrent design record. Compute steel Cb over the selected flange span and withhold diagram credit when that span is unavailable. Rebuild concrete shared-cage calculation traces from the evaluated reinforcement. Re-run affected designs and review utilization, combinations, certificates and reports (#2080).
+
+#### Check torsion against every returned stirrup cage
+
+- Check transverse torsion capacity and spacing for fixed or designed stirrups even when longitudinal torsion steel is not fixed. Insufficient cages fail verification (#2080).
+- Restore flexural sizing depth alongside required-steel quantities and expose the checked bars' depth as `providedDepth`. Keep strength and ductility checks at the actual bars. The original INTI example passes at its unchanged tolerance.
+
+#### Concrete checks retain secondary slenderness
+
+- Keep each concrete column or wall’s governing secondary-axis slenderness and calculation memo independently of the biaxial check. Previously the concurrent aggregator could omit that result or select a smaller amplification. Re-run saved concrete checks and review the secondary-axis memo. See [the results-change record](docs/results-changes/2026-11-concurrent-secondary-slenderness.md) (#1316, #2080).
+
+#### Check selected reinforcement and each demand's span loading
+
+- Evaluate shared concrete cages at the depth of their selected bars. Withhold concrete end-gradient reduction for transverse or unknown loading. Compute steel Cb only over the brace interval containing the demand, with unity for an unknown interval. Re-run affected saved designs and review utilization, governing cases and certificates (#2080).
+
+#### Preserve physical steel stations and governing shear reports
+
+- Convert legacy steel tuple stations to metres before selecting brace intervals, and withhold computed Cb credit when the element length is unknown. Report the selected strong-axis shear demand alongside its check while retaining the separate weak-axis check. Re-run affected steel designs and review capacities, utilization and shear demands. Complete the existing SA-2026-066 blog summary in all six locales and strengthen axis and saved-project regressions. See [the results-change record](docs/results-changes/2026-11-steel-station-coordinates-and-shear.md) (#2080, #2089).
+
+#### Snow loads use roof planes and roof axes
+
+- Correct CIRSOC 104 roof-step drift on pitched receiving roofs (#2082, SA-2026-065) and rotation-dependent snow loads (#2093, SA-2026-067). Shared geometric roof planes supply pitch, elevations and roof-axis widths/spans; ambiguous footprint geometry refuses explicitly. Regenerate snow loads and rerun affected analyses, combinations and design checks.
+
+#### Snow drift coverage follows continuous roof edges
+
+- Carry drift and sliding bands and fetch across continuous pitched panel edges, using actual edge elevations. Measure pitched tributary depth horizontally. Refuse partial or disconnected eave coverage before generating any snow loads (#2095). Regenerate affected snow loads and rerun analyses, combinations and design checks.
+
+#### Snow overrides preserve unbalanced sides and section runs
+
+- Restore coordinate-based unbalanced snow pressures and ridge sharing for flat models with a roof-slope override. Derive section width from connected collinear members of the same gradient so splitting a roof run preserves its loads (#2095). Regenerate affected snow loads and rerun analyses, combinations and design checks.
+
+#### Flat snow frames follow connected roof runs
+
+- Derive a flat roof's snow frame from complete connected collinear runs, preserving its width and generated loads when long beams are subdivided (#2095). Retain the exact windward-width boundary under rotation using bounded floating-point coordinate normalization. Regenerate affected snow loads and rerun analyses, combinations and design checks.
+
+#### Snow loads respect local positions and drift boundaries
+
+- Evaluate nodal snow at its tributary node, split drift and sliding loads at applicability and band boundaries, and compare actual roof elevations along exterior edges. Refuse crossing roof order consistently under rotation (#2095). Regenerate affected snow loads and rerun analyses, combinations and design checks.
+
+#### Snow factors follow each roof orientation
+
+- Apply partial snow exemptions per tributary surface and pattern direction, retaining required patterns along perpendicular ridges. Keep balanced pressure on facets whose ridge follows the wind; average only the real surfaces adjoining a shared member (#2095). Regenerate affected snow loads and rerun analyses, combinations and checks.
+
+#### Snow cases cover every ridge orientation
+
+- Generate both unbalanced directions for every distinct roof orientation, preserving bounded hip facets and the governing leeward loads on perpendicular and L-shaped gables (#2095). Selected covered roofs remain loadable with their full surface geometry. Refuse indeterminate sources crossing any part of a receiving panel. Report adjacent drift over its applicable edge intervals and retain its references. Regenerate snow loads and rerun affected analyses and checks.
+
+#### Snow fetch follows continuous roofs and selected geometry
+
+- Check every surface boundary across a roof join before extending drift fetch or the receiving roof for sliding snow. Keep roofs with an intermediate elevation mismatch separate and refuse unavailable continuity. Derive the selected roof's snow frame, width and directions from its own supporting geometry (#2095). Regenerate snow loads and rerun analyses, combinations and design checks.
+
+#### Snow loads use connected roof regions
+
+- Correct snow loads on selected eaves, asymmetric roofs, roofs with recesses or gaps, and continuous sources with changing pitch (#2095). Use each tributary region's surface geometry for balanced, unbalanced and partial snow. Follow connected sliding sources to the ridge and refuse unresolved spatial sources. Regenerate snow loads and rerun affected analyses and design checks. Correct missing snow-notice PR metadata; notices continue to require generated snow loads.
+
+#### Snow tributaries use interior roof surfaces
+
+- Resolve concave snow tributaries from polygon winding and refuse unresolved pitched strips. Exclude point-only facet contact from ridge loads and refuse incomplete member support instead of applying it to the whole member (#2095). Regenerate affected snow loads and rerun analyses, combinations and design checks.
+
+### Added
+
+#### Steel combination-specific Cb safety advisory
+
+- Publish SA-2026-064 for steel interaction checks that used Cb from another combination's diagram, corrected in PR #2080. Include generated main/fixed replay evidence, affected release tags, summaries in every locale and a saved steel-project notice asking users to re-run interaction checks after upgrading. Distinguish the silent passing witness from the variant that already emits an interaction failure diagnostic.
+
+#### Stabileo 0.6.1 release notes and safety actions (2026-11-15)
+
+Release notes in English, Spanish, Portuguese, German, French and Turkish cover every new results-change notice since v0.6.0, fixed advisories SA-2026-064 through SA-2026-068, and known open wrong results. Re-run affected steel and concrete checks; regenerate snow loads before recalculating affected analyses. The application links the new notes after upgrading. Advisory publication records preserve the original draft dates. The public safety-advisory catalog links all five fixed advisories and their user actions in the same six languages.
+
+### Fixed
+
+#### Legacy-project regression checks include material strengths and section design properties (2026-11-14)
+
+The legacy-project corpus now detects removed or changed steel Fy, concrete f'c, ultimate strength, thermal properties, timber reference values, section geometry and design metadata. One exhaustive material/section property policy drives the fingerprint; typechecking and a schema test require every new field to be classified. Nested properties and undeclared legacy fields are included conservatively, with exact input comparisons.
+
+This corrects the regression oracle (#1318, cause:B). Analysis, design and project migrations are unchanged. A direct audit of all 187 released corpus projects preserves every saved material property. The stricter comparison exposed older files without Fu against today's example-loader default; #2091 now constructs those references from the release's recorded defaults, with no baseline or tolerance adjustment. See [the verification record](testing/docs/audits/legacy-migration-fingerprint-1318.md).
+
+#### Keep shared beam axes independent and report missing torsion provision
+
+- Include every station's section-demand axis and all verification inputs in shared-span reuse, so reversed sections cannot inherit another beam's demands, capacities or certificate (#2080).
+- Keep longitudinal torsion steel unresolved until provision is supplied; retain required steel, actual transverse-cage checks and proven failures. Unresolved designs are held and cannot receive a passing certificate (#2080).
+
+#### Read concurrent steel interaction once
+
+- Batch complete steel station checks and reuse their interaction rankings instead of checking every station twice. Skip calculation rendering during optimizer screening while keeping all concurrent demands, governing traces and the certified gate (#2080).
+
+#### Avoid duplicate concrete work on meshed spans
+
+- Avoid repeated concrete beam-section and basis kernel queries, prepare each complete biaxial section once per member verification, defer beam calculation-step formatting, reuse complete shared-span checks that retain an explicit longitudinal-torsion hold, and copy station verification records only when requested. Engineering results and verification holds are unchanged. Keep the full meshed-building cache parity oracle in dedicated tests so IFC and detailing regressions measure production work without duplicate reference runs.
+
+#### Concurrent concrete verification avoids repeated sizing
+
+- Size each station once before checking the shared reinforcement, preserving every station result and certificate. Retire the corrected #1316 RC pairing entry from the known-issue registry so it agrees with the containment ledger (#2080).
+
+#### Document steel Cb and concrete Cm corrections
+
+- Register the #2088 and #2089 regressions under their issue numbers. Extend SA-2026-064 for unlocated short steel spans and add SA-2026-066 for CIRSOC 201 moment magnification with transverse load. Re-check affected steel members and slender concrete columns and walls with load between supports (PR #2080).
+
+#### Check concurrent-demand coverage without repeated scans
+
+- Index available combination IDs and member station results once, so coverage validation scales with the tuples and combinations supplied. Preserve missing-data refusals and every station check, and remove stale peak-fallback documentation. Engineering results and the IFC test timeout are unchanged (#2080).
+
+#### Match the workbook centroid and scope steel result notices
+
+- Translate the CIRSOC_FLEX rectangular worked example's bar-centroid cover using the selected bar diameter, retaining every published expected value and tolerance. Declare member and steel quantities for the existing steel Cb results-change notice. Add regressions for tower e12's engine summary and each biaxial row's concurrent resultant; both already agree at the reviewed head. No numerical engine results change (#2080).
+
+#### Check shared-cage memo capacity at the provided bars' depth
+
+- Correct the shared-cage memo test oracle to use `providedDepth`, derived independently from the section, cover, stirrups and selected bar diameter. The old oracle used the sizing depth; the memo already reports the correct capacity of the provided cage. Engine results are unchanged (#2080).
+
+#### Regenerate the shared reinforcement witness
+
+Regenerate the #2080 shared-cage fixture with its existing witness generator after the flexural depth correction. Four rendered minimum or required steel-area steps now use the current bar-depth calculation; depths, selected bars, capacities and ratios are unchanged.
+
+#### Keep the steel report unit regression small
+
+- Exercise exact steel verification output, bounded governing-station traces and report reuse on a three-member portal with three combinations. The existing E2E test retains the full industrial shed. No engineering results or test timeouts change.
+
+#### Restore the steel Cb advisory draft status
+
+Preserve the original SA-2026-064 draft date alongside its 0.6.1 publication and fixed-release records.
+
+#### Avoid discarded calculation traces in concurrent steel reports
+
+- Check every steel station without rendering its calculation, then trace only the cases retained in the report. Reuse the governing case's interaction result. Steel shed reports retain identical results, calculation text, refusals and certificates while avoiding detailed traces for discarded stations. No numerical engine results change.
+
+#### Identify unchecked longitudinal torsion certificates by code
+
+- Carry the existing longitudinal torsion diagnostic code on CIRSOC 201 certificates and preserve it through compatible concurrent checks. Shared verification reuse now branches on the typed code, independently of display wording. Unrelated or missing certificates cannot acquire this code. Numerical engine results and the existing unchecked-provision hold are unchanged (#2080).
+
+#### Preserve the torsion section row with unchecked longitudinal steel
+
+- Keep the CIRSOC concrete torsion section row, its design capacity and its calculated utilization available when longitudinal torsion reinforcement has not been checked. Carry that unchecked provision as an explicit separate state; the member remains held and the calculation still states that the longitudinal provision is not checked. Numerical engine results are unchanged.
+
+#### Legacy example comparisons use the release's recorded defaults (2026-11-14)
+
+Saved projects are compared with the release's fixture and default material and section, verified against its recorded commit. New default fields cannot enter an older reference. Both models still use the current loader and solver, and the exact material/section fingerprint still rejects lost or changed saved strengths. No corpus, tolerance, project migration, design check or engine result changed (#2091, #1318).
+
+#### Legacy fixture materials resolve against historical defaults (2026-11-14)
+
+Release example references install their recorded material and section defaults before fixture resolution, so future default name or stiffness changes cannot alter material reuse or member references. The numeric fingerprint edge-case test retains its synthetic null and undefined inputs under strict typechecking. No engine result, tolerance or saved project changes (#2091).
+
+#### Indexed snow derivations retain generated-load applicability
+
+- Recognize bracket-indexed snow derivation fields in the results snapshot gate without requiring a solver run. Retain all generated-load, condition, area and quantity checks (#2095).
+
+### Performance
+
+#### Reuse identical concurrent flexural sizing
+
+- Reuse byte-identical CIRSOC 201 flexural sizing queries across concurrent stations and members. The bounded engine-local cache preserves every checked demand and result, copies answer storage, and resets when the engine is registered again (#2080).
+
+- Verify certified shared beam-span demands once per run when all verification parameters match, while preserving each mesh piece's independent results and diagnostic IDs (#2080).
+
+## 0.6.0 (2026-11-13)
+
+Release notes: [`docs/releases/v0.6.0.md`](docs/releases/v0.6.0.md) (also in [Spanish](docs/releases/v0.6.0.es.md), [Portuguese](docs/releases/v0.6.0.pt.md), [German](docs/releases/v0.6.0.de.md), [French](docs/releases/v0.6.0.fr.md) and [Turkish](docs/releases/v0.6.0.tr.md)).
+
 ### BREAKING (results)
 
 #### 2D: rotations that only connectors hold, left free by them, are refused (2026-11-08)
 
-Two nodes that only trusses reach, joined by a finite-length connector with shear stiffness and no `kMoment`, can turn in opposite directions with no energy (the connector's shear row sees the relative transverse displacement less (L/2)(θᵢ + θⱼ), so θᵢ = −θⱼ is a zero mode): the node rotations are undetermined. The linear solver, dense and sparse, factored the singular stiffness with a round-off pivot and returned those rotations with only a `StiffnessNotPositiveDefinite` warning, so they changed with the load scale: on the nightly model a rotation differed by 12 % between a load and 2.5 times it (#1099). Every 2D analysis now checks the block of the stiffness that only connectors reach (rotations no unhinged frame end, rotational support, rotational spring or constraint holds) and refuses the model, naming the connectors and the nodes, when that block is singular. The same check now also refuses the #1414 case (a rotational spring between two rotations nothing else holds) on its own, instead of relying on the factorization's pivot. Under loads that do no work on the mechanism (no nodal moment on those nodes), translations and member forces were not affected; a nodal moment there made the system inconsistent and every result of the old solve unreliable. Give the connector a rotational stiffness, or hold one of its rotations with a support or an unhinged member.
+2D analyses refuse undetermined connector-node rotations instead of solving a singular structure. Review the physical restraints and connector rotational stiffness before solving again (#1099).
 
 #### P-Delta integrates the axial force distribution under span loads (2026-11-10)
 
-2D and 3D P-Delta now integrate the varying axial force under distributed and point loads along frame members, including geometric end forces and the certified model. The mean-force stiffness could understate amplification and report stability above the discrete critical load (#1329). In the measured one-element column, sway changes from 2.0562 to 3.2470 mm (continuum 3.3352 mm), and the base moment from 7.0843 to 10.1658 kN·m (continuum 10.3961 kN·m). The `PD-SPAN-AXIAL` warning is removed. Re-run affected P-Delta analyses and derived checks. See `docs/results-changes/2026-11-pdelta-span-axial.md` and draft advisory `docs/advisories/SA-2026-055-pdelta-span-axial.md`.
-
-The advisory is listed as a high-severity pending draft in all six blog languages; no merge, release or deployment is claimed.
-
-#### Rigid restraints and springs on the same DOF are refused in 2D and 3D (2026-11-08)
-
-The engine now refuses a positive spring on a rigidly restrained DOF with a structured `conflicting_support_spring` error naming the support, node and conflicting fields. Previously 2D kept the rigid restraint while 3D freed the DOF and solved it as elastic, changing displacements, reactions, member forces, modal frequencies and buckling factors (#1636–#1646). Dense, sparse, constrained, prepared, typed, certified and load-session paths use the same support rule. Springs on free DOFs remain elastic. Inclined supports retain their normal restraint and global-axis translational springs; these use different frames. See [the results change](docs/results-changes/2026-11-support-spring-conflicts.md) and [SA-2026-049](docs/advisories/SA-2026-049-support-spring-conflicts.md). This fix is not yet released or deployed.
-
-#### 3D: node rotations a connector couples but leaves free are refused (2026-11-08)
-
-The shear springs of a finite-length 3D connector see e·(u_j − u_i) + L(e × e_x)·θ̄ with θ̄ the mean of the end rotations, so its rigid arms hold only that mean across the axis. When nothing else holds the rotations of its nodes (only trusses reach them, or the member there releases bending), the opposite rotations across the axis and the common twist about it cost no energy and the rotations are undetermined. The linear solver answered such models after a diagonal shift of 1.2e2 (sparse) or through LU (dense), with only a `StiffnessNotPositiveDefinite` warning, rotations the load did not determine, and translations off by up to 1.2e-9 relative (#1748). Every 3D analysis now factors the block of the assembled stiffness for the rotations the connectors couple, and every rotation coupled to those in turn, so partial member releases, rotational springs and supports count in each DOF exactly. When that block is singular, the model is refused with the connectors and nodes named. Rotations the orphan guard holds with artificial stiffness keep it, as in the solve, so a free twist about a connector along a global axis is still answered with twist 0, while the same twist about a skew axis is refused. Nodes of constraints that tie a rotation are not checked (#1749). Hold the rotations of one node with an unreleased member end, a shell or a rotational support, and give the connector the rotational springs (`kMoment` for twist, `kBendY`, `kBendZ`) the other node needs.
-
-#### Register the three-hinged arch diagnostic changes (2026-11-10)
-
-Register the three-hinged arch's diagnostic changes under the linear stability notice. Exact elimination of its free crown rotation removes the obsolete HighDiagonalRatio and conditioning NUM-INVARIANCE warnings; the numerical snapshot values remain unchanged. The results snapshot gate now checks this documented diagnostic change against the notice's declared quantities.
-
-#### Refresh the three-hinged arch warnings and scope linear stability explanations (2026-11-10)
-
-Regenerate the three-hinged arch snapshot to remove its obsolete conditioning warnings. Its numerical values are unchanged and are verified against closed-form equilibrium and an independent Decimal displacement reference. Apply the linear-stability re-check notice to every saved linear result whose model contains members, shells, connectors or springs, including ordinary trusses and deep-beam shells, consistently with SA-2026-054. Numerical changes are explained only by the registered complete-response fingerprints; model features cannot explain an arbitrary wrong force or displacement. See [the results-change evidence](docs/results-changes/2026-11-linear-stability-refusals.md#ci-follow-up-arch-warnings-and-registry-applicability).
-
-#### Constraint reduction retains cancelled stiffness magnitudes; independent rotations and unloaded oblique releases solve (2026-11-10)
-
-Linear 2D and 3D stability checks now carry the absolute pre-reduction stiffness contributions through constraints, refusing a reduced system whose remaining stiffness cannot be resolved. Free-direction classification uses each connected component’s own scale, so an independent soft rotational spring can resist its applied moment. Off-node coupling is compared with the rounding of its matrix-vector products, allowing an unloaded oblique release while still refusing a moment on that release. The precision thresholds are unchanged. See [the results-change evidence](docs/results-changes/2026-11-linear-stability-refusals.md).
-
-#### Invalidate edited prepared stiffness and check dimensionally matching recovered forces (2026-11-11)
-
-Prepared 2D solves compare a complete structural wire snapshot before reusing stiffness, including in-place geometry, member-property and spring edits. Conditional linear admission checks forces, moments and bimoments separately in the constraint-reduced free equations, excludes restrained loads from forcing scales, and includes settlement forcing and roundoff. Require designated C08 copies to solve and compare successfully, validate every refusal reason, and regenerate the independent Decimal references with explicit native-to-physical support conversion. Align the stability documentation and re-check scope with SA-2026-054. See [the final-round evidence](docs/results-changes/2026-11-linear-stability-refusals.md#final-round-prepared-model-edits-and-dimensional-balance).
-
-#### Generated structures receive their missing stability restraints (2026-11-10)
-
-Standalone planar trusses and beams now emit lateral panel restraints and fork bearings; lattice columns default to fixed bases; sheds default to wall, roof and vertical truss bracing. Lattice-girder, Howe-roof and sawtooth generators inherit the corresponding support repairs. Geometry, loads and existing sections are retained. Saved models require regeneration to obtain these changes. All 32 original web failures have explicit physical null modes and remain refusal controls; no stability or accuracy limit changes. The XZ arch fixture uses local My for the intended global-Y pins and checks force balance, with an Mz mechanism control. See `docs/results-changes/2026-11-generated-structure-stability.md` for the per-test proof and generator changes.
-
-#### Refuse free-axis moments despite independent large loads and prepare alternate cases (2026-11-10)
-
-Tighten free-rotation load and pin rounding bounds to their contributing projection terms, so an independent large moment cannot hide an unsupported moment. Prepare released 3D structures independently of their stored default case and validate each supplied case in `solve_loads`. Verify PCG residuals per row as well as globally, preserving weak-axis equilibrium under disparate loads. A detached main probe confirmed a silent component error at load ratio `1e8` with preconditioning disabled; the loaded free-rotation probes refused through `1e9`. Require the expected metamorphic transformations and fail differential checks on unexpected solver errors. See [the results-change evidence](docs/results-changes/2026-11-linear-stability-refusals.md#review-round-2-unrelated-moments-and-alternate-load-cases) and [SA-2026-054](docs/advisories/SA-2026-054-unresolved-linear-stiffness.md). Fix prepared locally for #1753; pending merge and deployment.
-
-#### Keep artificial springs out of conditional recovered-force balance (2026-11-11)
-
-Sparse assembly now honors artificial-stiffness suppression, including orphan rotations and floating warping DOFs. Conditional balance reassembly no longer invents rotational spring torques when members are removed, so accurate soft-spring answers can pass the unchanged dimensional accuracy checks. Large moments and restrained forces still cannot mask a recovered free-force imbalance. Correct the independent truss point-load reference to preserve its applied resultant with nonzero shear area; the 23 regenerated stored references are unchanged. Retain tight spectrum bounds and reconcile the release notes with conservative raw-diagonal warnings on accepted 3D solves. See [the CI follow-up evidence](docs/results-changes/2026-11-linear-stability-refusals.md#ci-follow-up-sparse-balance-without-artificial-springs).
-
-#### Buckling round-off bounds follow actual constraint coupling (2026-11-11)
-
-2D and 3D buckling now propagate axial-force round-off bounds only through connected stiffness, member and constraint-transform DOFs. A constraint wholly inside a separate structure no longer makes that structure's large forces suppress a resolved column compression. Native and WASM buckling, the omitted-member check and the certificate entry points use the same bounds. Genuinely coupled round-off compressions still refuse at the unchanged thresholds. See [the results-change evidence](docs/results-changes/2026-11-buckling-component-round-off.md).
-
-Unconstrained 3D members sharing a free warping DOF also share their round-off bounds, including when all six ordinary joint DOFs are restrained. Compression within that coupled uncertainty can newly be refused. Only members that actually transmit warping join through that DOF; non-warping sections, trusses and torsion releases preserve independent column modes and factors. An unrelated warping section cannot join their bounds. The results-change notice covers member buckling and web P-Delta without requiring constraints, including saved P-Delta B2 factors, stability and second-order metadata.
-
-#### 3D inclined supports count restraints in a common frame (2026-11-08)
-
-The 3D kinematic degree now counts the rank of the inclined normal and positive global-axis spring directions together. PR [#1780](https://github.com/lambdaclass/stabileo/pull/1780) had combined the local normal slot with the global-X spring slot, undercounting independent directions and sometimes counting coincident directions twice. A normal `(0, 0, 1)` and a positive `kx` contribute two translational restraints. The exact reproducer and 48 direction combinations derive their expected counts geometrically. See [the results change](docs/results-changes/2026-11-inclined-3d-restraint-directions.md). This branch correction is not released or deployed.
-
-#### 3D moving loads include interior peaks and axial axle weight (2026-11-08)
-
-3D moving-load envelopes now evaluate interior diagram stations, including each axle position and both sides of point loads, using the same sampling and range rules as 2D. Axle gravity is projected onto all three local member axes; the axial component reaches fixed-end forces, assembly, recovered member forces and diagrams. Previously a simply supported member could report a zero bending envelope and an inclined path lost part of every axle's weight, without a warning (#1782). Re-run affected 3D moving-load analyses and any checks or sizing based on their envelopes. See [the results change](docs/results-changes/2026-11-moving-loads-3d.md) and [SA-2026-051](docs/advisories/SA-2026-051-moving-loads-3d.md).
-
-#### Moving-load axial envelopes evaluate every distributed-load boundary (2026-11-08)
-
-2D and 3D moving-load axial envelopes now evaluate every distributed-load start and end boundary alongside the existing sign roots. Short opposite-sign patches could previously report a zero envelope despite an interior axial force (#1782, PR #1783). Re-run affected envelopes and any design or sizing based on their axial extrema. See [the results change](docs/results-changes/2026-11-moving-axial-patch-boundaries.md) and [SA-2026-052](docs/advisories/SA-2026-052-moving-axial-patch-boundaries.md). The 3D re-check notice now requires saved moving-load position cases, and negative tests guard the plastic certificate's refusal of axial point loads.
-
-#### Moving-load envelopes use interior force limits at member ends (2026-11-09)
-
-2D and 3D moving-load axial/shear envelopes now exclude force limits outside the member when a point load lies exactly at either end (#1782, PR #1783). A load carried entirely by a support could previously appear as member force. Re-run affected envelopes and review sizing based on them. See [the results change](docs/results-changes/2026-11-moving-load-endpoint-forces.md) and [SA-2026-053](docs/advisories/SA-2026-053-moving-load-endpoint-forces.md).
-
-#### Modal bases use the rounding scale of each mass Gram entry (2026-11-10)
-
-The modal-basis guard now evaluates absolute mass products per Gram entry instead of a global mass norm. Valid orthogonal bases with strongly contrasting masses are no longer refused solely by that norm; unresolved cancellation and inaccurate bases still refuse at the existing limits. This also restores the full-spectrum conditioning solve used by the #1267 metamorphic regression without changing test tolerances. The #759 containment row remains WARN: this guard change does not establish a complete fix across all modal consumers. Registry: `modal-basis-entrywise-rounding`; details in `docs/results-changes/2026-11-modal-basis-rounding.md`.
-
-#### Force-based geometric stiffness includes axial span work (2026-11-10)
-
-The public 2D and 3D force-based geometric-stiffness builders now include the same axial span integration as P-Delta assembly, end-force recovery and certificates (#1329, PR #1895). The correction is applied before inclined-support rotation and constraint reduction, including both 3D bending planes and member releases. Existing application solvers already use the corrected displacement-based assembly; this follow-up changes the force-based Rust API. See `docs/results-changes/2026-11-pdelta-span-axial.md` and `docs/advisories/SA-2026-055-pdelta-span-axial.md`.
-
-#### Keep endpoint axial point loads consistent in force-based geometric stiffness
-
-Restore the force offset from the integrated length mean plus half the total applied axial load, including point loads at both endpoints, in 2D and 3D frame/truss builders (#1329, PR #1895). Endpoint equivalent nodal forces shift the recovered end average even when the interior force is constant; eight corrected closed-form regressions compare the independent displacement assembly, fail before the fix and pass after it. The aca7eb07a endpoint-centring regression existed only on this unmerged branch, never on main or in a release; see `docs/results-changes/2026-11-pdelta-span-axial.md` and draft SA-2026-055. Complete the advisory summary rows in English, Spanish and Portuguese and date all six status notes 10 November 2026.
-
-#### Force geometric stiffness uses the length-average axial force (2026-11-10)
-
-The public 2D and 3D force-based geometric-stiffness builders now centre their constant and span terms on the same length-average axial force. Off-centre point loads and trapezoidal loads previously omitted or added constant geometric work even after the span correction (#1329, PR #1895). Independent regressions cover both builders and displacement assembly; the latter retains its corrected values. The crane-hangar example baseline also records the original P-Delta span correction after verifying unchanged linear outputs. See `docs/results-changes/2026-11-pdelta-span-axial.md` and `docs/advisories/SA-2026-055-pdelta-span-axial.md`.
-
-#### Restore equivalent nodal axial forces in endpoint geometric stiffness
-
-Undo the incorrect solver centring in unmerged commit aca7eb07a while retaining its advisory-table and date changes (#1329, PR #1895). Include every span and point load in N_delta = (n_start + n_end)/2 - (F_i - F_j)/2. A base point load leaves the cantilever interior compression intact; an opposing tip point load cancels the tip thrust. Eight corrected 2D/3D frame/truss regressions fail on that commit and pass with the restored code, matching both closed forms and displacement-based assembly. Correct endpoint descriptions in the results-change write-up, six-language registry entry and existing draft SA-2026-055. The endpoint-centring regression existed only on this unmerged branch, never on main or in a release, so no separate advisory is needed. Application displacement assembly already handles these endpoints correctly.
-
-#### Register P-Delta displacement amplification in the results snapshots (2026-11-10)
-
-Register `b2` alongside the engine's distinct `b2Factor` in the pending #1329 results-change entry, so PR #1895's Results Snapshot gate covers the app's displacement amplification. The axial span-stiffness correction changes portal B₂ from 1.006424741 to 1.006402477 and tower B₂ from 1.000275385 to 1.000273522. A controlled replay with only that stiffness correction disabled reproduces both old values; the corrected response is smaller with identical first-order results. See `docs/results-changes/2026-11-pdelta-span-axial.md`. No additional engine or snapshot changes are introduced by this registration repair.
-
-#### Consistent teaching P-Delta integrates axial span loads (2026-11-10)
-
-The consistent second-order teaching solver now integrates varying axial force under member span loads in stiffness, end forces and reactions, matching the corrected engine (#1329, PR #1895). Independent cubic integration confirms the teaching cantilever's base moment is 10.490333626707253 kN·m; the previous teaching value was 10.508408979997858 kN·m. Refresh only P-Delta quantities in the PRO 3d-portal-frame and 3d-tower snapshots (144 and 246 values); linear results and every other analysis are unchanged between main and the fixed engine. The recheck notice now includes generated self-weight even without saved member loads. See `docs/results-changes/2026-11-pdelta-span-axial.md` and `docs/advisories/SA-2026-055-pdelta-span-axial.md`.
-
-#### Record validation-04 second-order workbook results after axial span integration
-
-Refresh only validation-04's workbook baseline for the P-Delta span correction (#1329, PR #1895). All 72 changed cells belong to P-Delta combinations: displacement and rotation extrema, member forces, reactions and derived statics residuals and summaries. Its 22 linear cases are unchanged. Fresh main and branch linear-case statics are bit-identical across seven audited baselines; the other six baseline files retain their stored bytes. See `docs/results-changes/2026-11-pdelta-span-axial.md` and draft advisory `docs/advisories/SA-2026-055-pdelta-span-axial.md`.
-
-#### Frozen surface contacts check the equilibrated spring force (2026-11-10)
-
-Frozen surface checks now validate the signed force in the actual final assembly as well as the final opening, withholding tensile states that a rotated master could previously hide behind a negative gap (#432, PR #1921). Reported normal force uses the same assembly. The sparse/dense linear connector fixture uses trusses instead of unsupported cables with all parity assertions retained. Historical SA-2026-059 evidence now lives beside its imports, executes complete panel handlers and explicitly checks member identity, force signs and warnings; replay instructions and control descriptions are corrected. Details: [results-change write-up](docs/results-changes/2026-11-frozen-surface-assembled-traction.md).
-
-#### Frozen bearings permit penalty compression and surface AL pushes apart (2026-11-10)
-
-Frozen active contacts now permit ordinary compressive penalty penetration while tensile closed contacts, penetrating open contacts and separated contacts retaining compression still refuse (#432, PR #1921). Surface augmented-Lagrangian multipliers now push the surfaces apart, and validation uses the same signed force as assembly. Invalid contact tolerance refusals are structured and translated in all six languages. Contact/cable provenance notices now concern only models with those features. Details: [results-change write-up](docs/results-changes/2026-11-frozen-contact-bearing-and-surface-al.md).
-
-#### Frozen surface geometry check superseded; cable refusals retained (2026-11-10)
-
-The initial final-gap surface check was superseded by validation of the actual final assembled spring traction (#432, PR #1921); see the [current contact correction](docs/results-changes/2026-11-frozen-surface-assembled-traction.md). Cable refusals retain their structured code in both flexibility wizards, direct analysis refuses unloaded cable models, and moving envelopes propagate the cable refusal instead of returning an empty envelope (#417). The SA-2026-059 replays now run in the web engine unit area and assert refusal or cable equilibrium for every documented path. Linear certificate generators use linear truss braces with their original certification thresholds; cable variants explicitly assert refusal. Details: [results-change write-up](docs/results-changes/2026-11-frozen-surface-final-state.md).
-
-#### Linear pin checks retain small couplings
-
-Linear analysis now refuses indirect loading of an unresolved rotation even when its stiffness coupling falls below the spectral rounding filter. Earlier revisions of #1753 could return materially wrong rotations, including a wrong sign. Only explicit release information permits complete removal of a coupling within projection rounding. Spectral thresholds and pin-check tolerances are unchanged. See [the results-change evidence](docs/results-changes/2026-11-linear-pin-coupling.md) (#1931).
-
-#### Frozen contact states and cable bar analyses are withheld (2026-11-10)
-
-2D/3D contact now refuses frozen states that fail contact conditions after the final solve without damping (#432). Frozen states within the contact tolerance can converge. Analyses outside the dedicated cable solver now refuse cable elements because their two-way bar formulation does not enforce slackening, including tensile and unloaded cases (#417). Structured errors are translated in all six languages. The native base reproducers carried warnings; web requests now preserve cable identity so advanced analyses cannot bypass cable validation. Details: [results-change write-up](docs/results-changes/2026-11-contact-and-cable-validity.md).
-
-#### Buckling no longer takes geometric stiffness from round-off axial forces (2026-11-08)
-
-2D and 3D buckling built geometric stiffness from every member's axial force, including members whose force is only round-off, and could return an extra mode with λ ≈ 1e10 depending on the orientation, units and load scale (#982). Those members now contribute no geometric stiffness; the round-off bound is 100 ε of the largest elongation or end-force scale (N, V, M/L) among the members coupled to it through K, with no absolute 1e-6 kN floor, so it does not depend on units; and a 1/λ below 100 ε of the largest is dropped as eigensolver round-off. When those members, compressed by their whole round-off, could lower the critical factor by more than 1 %, the analysis is refused as not determinable. Through the compression of members left out of Kg the critical factor can drop by at most 1 % before the analysis is refused, and in the documented cases it moved only by round-off. A tension left out of Kg, up to N = its bound, can lower the critical factor by more than 1 %; that change is conservative. Higher factors are not bounded; spurious modes disappear. Details: [docs/results-changes/2026-11-buckling-round-off-member-kg.md](docs/results-changes/2026-11-buckling-round-off-member-kg.md).
-
-#### Concrete fibre load control refines its stopping interval (2026-11-10)
-
-Two-dimensional fibre runs with Hognestad concrete in sections assigned to analysed frame elements now cut back failed or non-positive-tangent trials from the last committed state. The stopping load interval is refined to at most a quarter of the requested load-factor tolerance and returned as `loadLimit`, explicitly uncertified. Successful cutbacks are recorded in `history`, whose length can exceed `n_increments`. Unassigned concrete sections leave steel-only results unchanged. The last converged equilibrium is not a capacity certificate. Re-run concrete fibre pushovers that stopped early; their carried load, displacements and reactions can change. See [the results-change write-up](docs/results-changes/2026-11-fibre-load-control-refinement.md).
-
-#### The linear solvers refuse a mechanism or an unresolvable stiffness instead of solving it behind a spring, a shift or LU (2026-11-08)
-
-The linear 2D and 3D solves (dense, sparse, PCG, the prepared multi-case path and the constrained solvers) now check a load-independent stability and precision bound ([stability argument](docs/solver/stability.md)) on the stiffness they factor, before factorizing it. A Mechanism or Singular verdict is refused with a message naming the nodes. Solved transformed copies must agree under equivalent units, orientation and numbering; a copy whose accuracy is uncertain may refuse. The artificial rotation springs (`1e-10 · max_diag`), the diagonal-shift ladder of the 3D sparse and PCG paths and the dense LU fallback after a failed Cholesky are gone from these solves: a rotation nothing stiffens is eliminated exactly, a load on it is refused, and a rotation far softer than the others at its node that the solution loads through its connections is refused rather than held (#1496, which retires `ORPHAN-SOFT-ROTATION`). A stiffness that is not positive definite (a negative spring) is refused, never solved with a `StiffnessNotPositiveDefinite` warning. Accepted 3D solves retain the conservative raw-diagonal warnings `HighDiagonalRatio`, `ExtremelyHighDiagonalRatio` and `NearZeroDiagonal`; these warnings are not the stability verdict. A failed positive-definiteness check refuses instead of returning `StiffnessNotPositiveDefinite`. `NUM-INVARIANCE` remains attached for an excessive displacement. The recorded stable example and fixture corpus retains its displacements and reactions. Other stable responses can change: PCG now returns corrected components that an aggregate residual previously missed, and sparse direct residual refinement improves displacement accuracy. Models that were solved with those warnings may now be refused ([docs/results-changes/2026-11-linear-stability-refusals.md](docs/results-changes/2026-11-linear-stability-refusals.md)).
-
-#### Ae takes every staggered chain, and a bolted all-elements end needs web bolts (2026-11-08)
-
-The net area of a staggered bolted end (CIRSOC 301 §B.4.2.2) compared only the straight chain and
-the zig-zag through every line, and took the stagger s even when the diagonal to the next bolt
-is shorter. A chain through some of the lines could govern unseen: 2.6 % too much Ae on a
-300 × 12 plate with four lines. A bolted end marked as connecting every element, with no lines
-in the web or the second leg, got U = 1. The engine now takes the worst chain and refuses that
-end. Re-check CIRSOC 301 members with those ends ([write-up](docs/results-changes/net-area-chains-and-web-lines.md)).
-
-#### Buckling and multi-case analysis refuse non-finite results (2026-11-08)
-
-2D and 3D buckling could accept a truss section with negative inertia and return NaN effective lengths, with a failed slenderness calculation converted to zero (#1759). Multi-case analysis could return an `Ok` result containing non-finite values after finite inputs overflowed (#1761). Buckling now validates every section property it reads and refuses an invalid radius of gyration instead of reporting zero slenderness. Buckling and 2D/3D multi-case results are also checked for finiteness before being returned. Valid finite results are unchanged. Details: [docs/results-changes/2026-11-non-finite-analysis-results.md](docs/results-changes/2026-11-non-finite-analysis-results.md) and [SA-2026-050](docs/advisories/SA-2026-050-non-finite-analysis-results.md).
-
-#### Checked 3D plastic analysis returns the certified lower bound (2026-11-10)
-
-The combined `certify_plastic_3d` API now reports the certified lower bound as `collapseFactor` whenever a sound finite ordered interval exists, whichever side of the interval the raw factor falls on. It preserves the raw factor and reports mismatches in either direction as warnings. It refuses when no sound certificate is available. See the [results change](docs/results-changes/2026-11-plastic-3d-certified-lower-bound.md).
-
-#### Exact plastic certification refuses excessive LP construction work (2026-11-10)
-
-The exact 2D/3D plastic candidate construction and the combined checked 3D API refuse LPs whose summed storage forecast, exact elimination workspace or rational limb growth exceeds the engine resource budget. A second check budgets the simplex workspace using the actual reduced dimension. Sample counts are derived before constructing floating element copies or samples, so a model with many load pieces can refuse with bounded additional memory. The initial pivot-cell counter is diagnostic metadata and does not decide admission. The small-storage 24-member grid (#743) is admitted by the engine and fuzz storage checks, but stays out of the live fuzz corpus because of its recorded runtime; it is covered only by timed replay. This changes availability rather than a numerical collapse factor. Details: [storage policy](docs/results-changes/2026-11-plastic-exact-storage-accounting.md) and [bounded replay report](docs/verification/PLASTIC_LP_BUDGET.md).
-
-#### Exact plastic certification budgets overlapping storage and rational growth (2026-11-10)
-
-Plastic certificate admission sums live storage and bounds exact elimination limbs. It admits the small-storage grid previously refused by a pivot-work counter and names the actual exceeded limit on resource refusals. Replay checks include the first call and single-call leaks. PR #1888 also repairs the engine lint and required script-test targets. See the [results change](docs/results-changes/2026-11-plastic-exact-storage-accounting.md).
-
-#### Plastic mechanism resource refusals and exact interval readings (2026-11-10)
-
-Exact plastic mechanism extraction preserves resource refusals in 2D and 3D. The app marks factors outside the certified interval as outside without a comparison slack. See the [results change](docs/results-changes/2026-11-plastic-mechanism-refusal-propagation.md) and [SA-2026-057](docs/advisories/SA-2026-057-plastic-interval-and-resource-refusals.md). PR #1888.
-
-#### Cb reads the moment at both ends of the unbraced segment (2026-11-08)
-
-When a declared unbraced length is shorter than the member, Cb (CIRSOC 301 Ec. F.1-1) was read
-from the stations inside the segment only. A sign change at an interpolated end was missed, so a
-channel or tee in double curvature, where §F.1(4) requires both flanges to be checked and the app
-therefore takes the conservative Cb = 1, could get Cb = 2.55, and a larger
-end moment was left out of Mmáx. The engine now reads both ends. Re-check CIRSOC 301 members with
-a declared Lb shorter than the member ([write-up](docs/results-changes/cb-segment-ends.md)).
-
-### Security
-
-#### Revert Check also runs from a definition the pull request cannot edit (2026-11-08)
-
-- A new workflow, Revert Check (trusted), runs on `pull_request_target` and on every merge-queue CI
-  run (`workflow_run`), always from the base branch: the base's workflow, the base's checker
-  (`.github/scripts/revert-check-trusted.sh`, `revert-check.py`), and the pull request's commits
-  only fetched as data, never checked out or run. The job that reads them has a read-only token;
-  two small jobs with only `statuses: write`, and no checkout, set the `Revert Check (trusted)`
-  commit status on the pull request's head or the queue group's head. Labels are read live, and a
-  `reverts-ok` label that cannot be read live never counts. Editing `ci.yml` or the checker in a
-  pull request no longer skips this check once the status is required.
-
-#### Update rustix to fix RUSTSEC-2026-0486 (2026-11-11)
-
-Update the root lockfile from rustix 1.1.4 to 1.1.6, the first patched version for
-unsound zero-length buffers in extended-attribute functions. This dependency is
-pulled in through tempfile by the engine's proptest development dependency. No
-other crate versions change, and no audit exceptions are added.
-
-### Added
-
-#### Verify axial point-load signs against closed-form geometric stiffness
-
-Added closed-form verification of force-based geometric stiffness for opposing quarter-span axial point loads, pure midpoint axial loads, and mixed point/trapezoidal axial loads in 2D and 3D frames, trusses and cables. These checks pass on the existing engine; no engine result or baseline is changed.
-
-#### Static solver closed-form mutation regressions
-
-Static solver tests now check prescribed support movements, member loads, nodal displacements, end forces and reactions against closed forms in 2D and 3D. Fixed-end cases cover warping members and ordinary members in a warping model. The solver mutation scope includes these tests (#1920, first slice of #1378). Engine results are unchanged. See `docs/verification/STATIC_SOLVER_MUTANTS.md` for the selected historical survivors and replay evidence.
-
-#### Direct harmonic residual refusal coverage (2026-11-11)
-
-Add negative tests on both dense and sparse direct paths for excessive component residuals, dilution by an independent large load, and nonzero residuals in a zero-load component. The cases pass factorization and require the convergence refusal. A test-only response perturbation exercises the zero-load guard. Disabling the convergence check makes all six tests fail. No engine results change. PR #1922.
-
-#### Safety advisory for omitted harmonic modes above the dense ceiling (2026-11-10)
-
-Document [SA-2026-058](docs/advisories/SA-2026-058-harmonic-omitted-modes.md) for large 2D and 3D harmonic models, with the first affected tagged release (0.5.0), the measured 8.079% complex target-response error, detection guidance and re-check actions. The full main replay warns about two later frequencies, while the measured error occurs at a frequency outside that warning’s coverage; retain the exact replay output and correct the earlier warning-free-sweep claim. Add its index entry and all six blog-language listings and status notes as fixed in PR #1922, pending release. Link the existing results-change write-up and registry to PR #1922. This documentation change does not change engine results.
-
-#### Restrained thermal sign cross-check
-
-Static solver regressions now compare restrained thermal bending with imposed mechanical curvature and the 2D thermal solve. The verification derivation records that positive `dtGradientY` heats the minus-y face and gives a positive start `Mz` reaction. Warping-member reactions must include a bimoment, and thermal load inputs and reference calculations share their fixture constants. Engine results are unchanged (#1925).
-
-#### A blog post on Stabileo 0.5.0 (2026-11-06)
-
-The blog announces 0.5.0 in English, Spanish and Portuguese: the twenty-three advisories published since
-0.4.0, twenty-two of them fixed, the results version of each, the other changes that move results, what is warned or refused until its fix
-lands, and what else is new. Its numbers follow `docs/releases/v0.5.0.md`.
-
-#### Replay the remaining open wrong-result candidates on current main
-
-Record all 94 candidates outside the existing cause-C replay, with exact body/comment inputs, targeted native and public WASM observations, independent references and explicit unresolved evidence. Add 28 exact-model refusal regressions and an independent buckling control; prove the refusal tests fail on historical main parents. Extend the replay audit to check both archives and record the silently wrong staged-analysis witness for coordinator review. Engine results, oracles and tolerances are unchanged.
-
-#### Conditioning issue replay after the linear stability and pin-coupling fixes (2026-11-11)
-
-Record targeted native replays of the first 30 open cause:C issues, including supplied nightly comment models, and list the remaining 35 for the next batch. Add seven exact-model refusal regressions; retain the existing absolute-reference regression for the corrected soft-axis cantilever. The report distinguishes confirmed refusals and correct answers from false refusals, contradicted raw limit-analysis bounds, and missing reference evidence. Engine results and tolerances are unchanged.
-
-#### Complete the remaining conditioning issue replays (2026-11-11)
-
-Classify the remaining 35 cause:C issues using targeted native witnesses, add thirteen permanent refusal regressions, and record unresolved warned results, false refusals and oracle defects. Compact both batches' JSON evidence into input references, key observations and verdicts. Engine results and tolerances are unchanged.
-
-#### Combination-only overflow regression coverage (2026-11-08)
-
-Added 2D and 3D multi-case regressions for prepared and settlement-triggered per-case solves where every individual case returns finite results, but the combination overflows (#1761). The prepared regressions also verify the aggregate non-finite-result guard for an overflowing combined second-order ratio with finite displacements, reactions and member forces. Engine behavior is unchanged.
-
-#### Verify the seven frozen shell refusals from the regression audit (2026-11-11)
-
-Preserve all seven frozen models, prove their physical in-plane rigid rotation, and compare their displacements with two restrained references. Add targeted native dense/sparse and real WASM checks. The static refusals are correct; engine results and benchmark expectations are unchanged. Record the separate staged-construction coverage gap in [the verification report](docs/verification/1753-frozen-shell-refusals.md).
-
-#### One stability verdict that does not depend on units, orientation or numbering (2026-11-08)
-
-`solver::stability` decides whether a free stiffness matrix is stable, a mechanism, or too close to singular to tell, from the spectrum of the matrix scaled node block by node block. That spectrum is the same under a change of units, a rigid rotation or mirror and a relabelling, and every C08 reproducer gets the same verdict in all its transformed copies. Two exceptions are refused rather than solved: a free rotation that rounding leaves coupled, or swinging a rigid-link slave, is Singular in frames where rounding makes that motion non-zero and may be Stable in an axis-aligned frame where it is exactly zero (docs/solver/stability.md §2.4 lists the cases with their numbers). No solver calls it yet and no result changes; the following slices make every solver entry refuse what it refuses (docs/solver/stability.md).
-
-### Changed
-
-#### Avoid repeated preparation and unused stability eigenvectors in 2D sweeps (#1753)
-
-Compute full stability eigenvalues without accumulating eigenvectors for accepted matrices, retaining the same eigenvalue operations, conditioning limits, constraint-rounding checks and refusal modes. Reuse a load session across JavaScript influence force sweeps, including truss ordinates and section jumps, and free it on success or refusal. Keep displacement influence models on their existing split-model solve path. No timeout, tolerance or assertion is relaxed.
-
-#### BREAKING (results): condition loaded linear responses above the product fast accept (2026-11-10)
-
-Keep the product precision fast accept and conditionally admit matrices within the separate condition-number and node-anisotropy limits. Compensated refinement and recovered member-force equilibrium must pass the shared accuracy limit on each load case. Restore all four main shell benchmarks with their original assertions; retain thin-strip and Winkler/SSI references. Loaded C08 copies must match independent 90-digit physical references and one another; uncertain copies may refuse. Newly admitted models remain Refs and the original #993 reproducer remains ignored. Retain the two SA-2026-054 containments and conservative raw-diagonal warnings on accepted 3D solves. No benchmark tolerance or historical baseline changes.
-
-#### Preserve linear conditioning and P-Delta changes when merging main (2026-11-10)
-
-Merge main into PR #1753, retaining the existing SA-2026-054 and SA-2026-055 advisory rows and separate pending status notes in all six blog languages. Preserve both results-change registry entries, write-ups and snapshot changes, together with the merge-queue snapshot gate's full-history fetch. No additional engine result changes.
-
-#### Certify well-conditioned slab stiffness without full spectral iteration (#1753)
-
-Use conservative eigenvalue bounds verified by shifted Cholesky before computing a full sparse stability spectrum. Accept this path only within the existing product and constraint-rounding limits and with no off-node coupling of dropped rotations. Keep the full spectral and conditional-accuracy paths for all other cases, and reuse symbolic Cholesky analysis across shifted bounds. Preserve the seeded slab sweep, its assertions and its timeout.
-
-#### Target store and legacy-project library tests through make (2026-11-10)
-
-The web unit-test target accepts `UNIT_AREA=store` and `UNIT_AREA=legacy-projects`, so each library area can be checked independently.
-
-#### Preserve gate and advisory additions when merging main (2026-11-10)
-
-Merge main into PR #1893, retaining both benchmark metadata allow-list entries
-and plastic replay warning assertions, along with both branches’ Makefile targets
-and advisory listings in every language. No additional engine result changes.
-
-#### Preserve pending safety advisories when merging main (2026-11-10)
-
-Merge main into PR #1895, retaining SA-2026-055, SA-2026-056 and SA-2026-057 in order in the advisory index and all six blog languages. Each blog status note lists all three advisories separately and preserves SA-2026-056 as unresolved. No additional engine result changes.
-
-#### Preserve contact and cable containment with linear stability checks (2026-11-11)
-
-Merge main after PR #1753 into PR #1921, retaining both branches' solver checks, results-change records, containment entries and existing advisories. Keep the SA-2026-054 and SA-2026-059 status notices together in all six blog languages. No additional engine result changes.
-
-#### Preserve advisory listings and result-change records when merging main (2026-11-10)
-
-Merge main into PR #1921, retaining both branches’ advisory listings in number order and combining their status notes in all six languages. Preserve the P-Delta, contact and cable registry entries, changelog fragments and results-change write-ups. No additional engine result changes.
-
-#### Preserve main's result changes and safety listings in the fibre solver branch (2026-11-10)
-
-Merge main into the fibre load-control branch, retaining both parents' advisory records, status notes in all six blog languages, result-change registry entries, write-ups and changelog fragments. List advisory summaries in number order. The merge retains main's P-Delta correction alongside the branch's fibre load-control refinement.
-
-#### Tighten candidate replay evidence and diagnostic assertions
-
-Link the silent multi-member and multi-stage comment witnesses to the existing #1846 coordinator escalation. Record exact regression symbols and audit historical test inventories, qualify unretained warning evidence, and assert every expected structured diagnostic field, including messages for all 13 support-conflict regressions. Engine results and tolerances are unchanged.
-
-#### Changelogs and soundness priorities through November 11 (2026-11-11)
-
-The website changelog summarizes the weeks ending November 6 and November 11 in all six public languages. The roadmap records merged soundness work, current issue counts by cause, the replay and regression audits, and the bug-first order of the remaining work. `make changelog.unreleased` refreshes CHANGELOG.md from the current fragments without removing them; releases still consume the fragments.
-
-#### Changelogs and soundness priorities through November 12 (2026-11-12)
-
-Extend the current website changelog week in all six public languages with component-local buckling bounds, saved buckling/P-Delta rechecks, candidate replay evidence and the seven justified shell refusals. Refresh the file changelog from fragments and the roadmap from merged work and open PRs, keeping silent-result fixes ahead of false refusals and recording deferred follow-ups. Engine results are unchanged by this documentation update.
-
-#### Heavy dispatches get their own runners, and Runner Pools watches the engine pool (2026-11-08)
-
-- Heavy daytime dispatches (`nightly.yml`'s `pool=stabileo-heavy`) run only on stabileo-ci-1's
-  sgha7-8, the runners that carry `stabileo-heavy`, so they never take the merge queue's engine runners.
-- Runner Pools fails when fewer than 6 runners carrying `stabileo-engine` are online (7 today; the
-  3 left on concrete-ci-3 are what made the merge queue wait 84 minutes) or fewer than 2 carrying
-  `stabileo-heavy`.
-
-#### Backend-only and spec-only changes skip the engine and web jobs in CI and the merge queue (2026-11-08)
-
-- A pull request or merge-queue entry that changes only `backend/` (with or without docs) runs the
-  backend lint, tests and migration checks and skips the engine suite, WASM, site and E2E jobs,
-  which nothing under `backend/` feeds. Backend mixed with any other area still runs everything.
-- Markdown under `specs/` counts as docs, like `docs/` and `changelog.d/`.
-
-#### Revert Check reads the labels live, and the reverts-ok label reruns it without a push (2026-11-08)
-
-- Revert Check reads the pull request's labels when it runs, so a re-run sees a label added after
-  the run started. A `reverts-ok` label it cannot read live never acknowledges: the check fails
-  until it is re-run. On a branch of this repository, adding or removing the label reruns Revert
-  Check (and CI OK) once the head's CI run has finished; from a fork, re-run the job by hand.
-
-#### Reuse linear factorizations in the independent 3D feature-matrix reference (2026-11-09)
-
-- Prepare each unconstrained model once for the position-by-position moving-load
-  and influence-line references. Constrained models keep full independent linear
-  solves. Every axle position, load, interior-force sample, and assertion remains.
-  Engine results and the generated feature matrix are unchanged.
-
-#### A dispatched OpenSees run can use stabileo-ci-1 outside the nightly window (2026-11-08)
-
-- `nightly.yml` has a new `pool` input (`stabileo-heavy`, the default, or `nightly` or `ubuntu-24.04`)
-  that picks where `opensees-diff` runs. `stabileo-heavy` puts it on stabileo-ci-1's sgha7-8 from
-  07:00 to 24:00 UTC and on the nightly pool from 00:00 to 07:00 UTC. Scheduled runs always use the
-  nightly pool. To dispatch it: `gh workflow run nightly.yml --ref main -f only=opensees-diff -f pool=stabileo-heavy`.
-
-#### Clarify pricing across the public site
-
-State the decided pricing in English, Spanish, Portuguese, German, French and Turkish: open-source browser analysis is free for everyone; some specialised modules are paid and free for universities; Stabileo AI and heavy cloud compute are paid by everyone, universities included, at cost. Align the pricing table, public comparison pages and positioning and research documentation, removing development and contributor exceptions.
-
-Keep both pricing audiences visible on narrow screens with wrapping cells and headings and development badges of at least 12 px. Cover the current prices, explanations and distinct footnote references in every published locale at 360 px, 390 px and 810 px in the blocking smoke suite, with a fresh browser per case to avoid shared-browser hangs.
-
-#### Advisories SA-2026-025…047 published with 0.5.0, and the roadmap puts soundness first (2026-11-08)
-
-The advisories SA-2026-025…047 are marked published with release 0.5.0, each with its fix PR and
-merge date; SA-2026-044 is published unfixed, with 2D plastic collapse refused until #758 is fixed.
-The safety-advisories post, the reliability page and the app's "your results may have changed"
-notice, which still described the fixes of 0.2.0, now describe 0.5.0. The product roadmap makes
-soundness the top priority, in four groups: the wrong results still on main, test strength, the
-verification safety net and release safety. CHANGELOG.md links to the roadmap and benchmarks
-relative to the repository.
-
-#### Preserve the shape-control layout and gallery isolation (2026-11-10)
-
-The bent-strip experiment keeps its two-pane article and interactive viewer, path view, and paper comparison table in English, Spanish, and Portuguese. Its gallery card continues to load only the localized title and teaser, keeping the article dictionaries behind the experiment route.
-
-#### Cb of the CIRSOC 301 check comes from the engine (2026-11-08)
-
-The moment gradient factor Cb (CIRSOC 301 §F.1(3), Ec. F.1-1) and the scope rules that set it to 1
-(a cantilever's free end, a singly symmetric section in double curvature, a section with no axis
-of symmetry, no diagram) are computed by the Rust engine (`cirsoc301_inputs`), not TypeScript.
-Wherever the old read saw the whole segment, the engine's Cb, moments, basis and curvature are
-bit-identical to the TypeScript's (37 029 of 38 760 inputs). The one result change, reading the
-segment ends, is listed under BREAKING (results). A non-finite moment diagram is refused
-by name instead of giving Cb = NaN. The TypeScript is kept only as the test oracle. The ranked
-plan for the rest of the TypeScript engineering math is in `docs/verification/TS_ENGINE_LOGIC.md`.
-
-#### Ae of a tension member's end connections comes from the engine (2026-11-08)
-
-The effective net area of CIRSOC 301 §D.3 and §B.4.2.2 is computed by the Rust engine
-(`cirsoc301_inputs`, op `netArea`), not TypeScript. That covers x̄, the hole chains with s²/4g,
-An, the shear-lag factor U and the refusals. The TypeScript copy is deleted. Before the two fixes of
-[the net-area results change](docs/results-changes/net-area-chains-and-web-lines.md), on 946
-sections, 55 295 resolved ends and 323 105 refusals, the engine matched the TypeScript to the
-last bit, steps included.
-
-#### J, Cw, c and Sy of the CIRSOC 301 check come from the engine (2026-11-08)
-
-The thin-walled torsion constant J of an I or H, the warping constant Cw of an I and of a channel,
-F.2's c and a channel's weak-axis modulus to the flange tip (AISC Design Guide 9) are computed by
-the Rust engine (`cirsoc301_inputs`), not TypeScript. The TypeScript copy is deleted. On 3 508
-sections the engine's values match the TypeScript's to the last bit or within 4 ulp. The
-4 ulp is `pow` rounding, so no result changes at any displayed precision.
-
-#### Improve sparse direct 3D static displacement accuracy (#1753)
-
-Sparse direct 3D static solves refine a compensated residual and refuse unresolved corrections.
-This improves the last displayed sub-micrometre digit on an extreme soft-spring model whose
-pre-refinement answer retained seven correct significant digits. The regression checks the
-stored-matrix answer against an independent decimal reference.
-
-The #1465 loaded-release diagnostic now names the node and rotation. Its Euler control
-removes only the incidental strong-plane release and keeps both reference assertions and
-tolerances. Main's warned unresolved answer is covered by SA-054. The #983 regression proves
-its free truss-end mechanisms and accepts consistent original refusals.
-
-#### 3D analyses read their materials and sections through unit-typed records (2026-11-08)
-
-Every 3D engine entry point except staged construction now parses E, ν, A, Iy, Iz, J, Cw, the shear areas and the shear-centre offsets into unit types, and the web app builds them with branded types, so assigning, for example, an area to a moment of inertia or a warping constant to a torsion constant no longer compiles. No result changes: the same input parses to the same bits and gives byte-identical results. Plan for the remaining slices: docs/safety/units-in-types.md.
-
-#### Node coordinates and nodal and point loads go through unit-typed records (2026-11-08)
-
-The 2D linear solve and every 3D engine entry point except staged construction now parse node coordinates, nodal forces and moments, the warping bimoment and point-on-member loads into unit types, and the web app builds them with branded types, so assigning a moment to a force or a force to a coordinate no longer compiles. Every parse of a 3D model now goes through the typed records, including one whose type is only inferred. No result changes: the same input parses to the same bits, gives byte-identical results and the same error text, and the web app sends byte-identical JSON. Plan for the remaining slices: docs/safety/units-in-types.md.
-
-#### Distributed, thermal and support inputs go through unit-typed records (2026-11-08)
-
-The 2D linear solve and every 3D engine entry point except staged construction now parse member line loads (kN/m), shell pressures (kN/m²) and edge loads (kN/m), temperature differences (°C) and expansion coefficients (1/°C), support springs (kN/m and kN·m/rad), prescribed displacements (m) and rotations (rad), the 2D support angle (rad) and the 3D member roll angle (degrees, as the wire carries it) into unit types, and the web app builds the member loads, shell temperature loads, supports and roll angle with branded types and has branded adapters for shell pressures and edge loads (which it does not send today: it turns surface loads into nodal forces), so assigning a rotational spring to a translational one, a line load to a force, or a radian to the roll angle no longer compiles. No result changes: the same input parses to the same bits, gives byte-identical results and the same error text, and the web app sends byte-identical JSON. Plan for the remaining slices: docs/safety/units-in-types.md.
-
-#### Displacements, reactions and element forces go through unit-typed result records (2026-11-08)
-
-Every serialization of a displacement, reaction or element-force record (2D and 3D, in every result that carries one) now goes through unit-typed records: lengths in m, rotations in rad, forces in kN, moments in kN·m, line loads in kN/m and the warping bimoment in kN·m². The 2D and 3D linear solve exports build the typed results at one named point (`into_typed`). The web app admits the solve results through branded result types and has typed display conversions, so showing a moment as a force or a rotation as a displacement no longer compiles. No result changes: the serialized results are byte-identical to the previous serializer's, signed zeros and absent optionals included. Plan for the remaining slices: docs/safety/units-in-types.md.
-
-#### The warping displacement and combined results go through unit-typed records (2026-11-08)
-
-The 3D warping displacement is now typed as a rate of twist (rad/m), distinct from a rotation, in the engine and in the web app, and the 2D and 3D load-combination exports serialize their results through the typed result records and reach the web app with branded types, as the solve results do since slice 5. No result changes: the serialized results are byte-identical. Plan for the remaining slices: docs/safety/units-in-types.md.
-
-### Fixed
-
-#### Compare zero ground-motion responses on their inertial load scale (2026-11-09)
-
-The metamorphic harness includes mass times the prescribed ground acceleration in its independently computed action scale. Ground-motion responses that vanish through symmetry are compared using that load scale and the model stiffness, preserving the relative tolerance and the ordinary-response comparison. Replays cover the 13 published near-zero findings, with injected ordinary and near-zero errors that must still fail. No analysis results change.
+2D and 3D P-Delta, including the consistent teaching solver, integrate varying axial force under member span loads. Geometric end forces, amplification and certificates use the corrected distribution. Re-run affected analyses, including generated self-weight, and check mesh convergence. Previously reported stable results can become unstable. See [SA-2026-055](docs/advisories/SA-2026-055-pdelta-span-axial.md).
 
 #### Harmonic response resolves omitted modes beyond the dense ceiling (2026-11-10)
 
-**BREAKING (results):** Harmonic analysis now solves frequencies outside the existing modal truncation range with a full sparse solve when the dense system would exceed its ceiling. In the main replay, the sweep warned about two uncorrected frequencies; the 8.079% complex response error at 15.756339366097638 Hz and the wrong points near 15.9 and 16.07 Hz were outside that warning’s source list. The UI displays the warning once per sweep. A small global residual admitted those inaccurate responses. Both dense and sparse harmonic solves also scale columns by stiffness, inertia and damping contributions so structural-scale undamped resonance refuses rather than returning huge finite amplitudes from roundoff pivots. The truncation and residual thresholds remain unchanged in 2D and 3D; excessive sparse fill or a singular solve returns an error. Re-check harmonic responses above 3000 independent free DOFs near or above omitted modes. See [the results-change write-up](docs/results-changes/2026-11-harmonic-omitted-modes.md) and #1434.
+Harmonic analysis solves the full system at frequencies outside the modal truncation range even above the dense-solver size limit. Singular, unresolved or excessive-resource solves refuse instead of returning the truncated approximation. Re-run affected harmonic sweeps. See [SA-2026-058](docs/advisories/SA-2026-058-harmonic-omitted-modes.md).
 
-#### Preserve both advisory drafts when merging linear conditioning and plastic budget changes (2026-11-10)
+#### Rigid restraints and springs on the same DOF are refused in 2D and 3D (2026-11-08)
 
-Retain SA-2026-054 and SA-2026-057 in the advisory index and all six blog languages, including both draft status notes. Web unit area selection covers component and library tests. Both branches’ allow-list entries and Makefile targets are retained.
+Rigid restraints and positive springs on the same degree of freedom are refused in both dimensions. Choose the intended rigid or elastic boundary condition explicitly, then re-run the model. See [SA-2026-049](docs/advisories/SA-2026-049-support-spring-conflicts.md).
 
-#### Every saved linear result receives the stability re-check notice (2026-11-10)
+#### 3D: node rotations a connector couples but leaves free are refused (2026-11-08)
 
-The linear-stability notice now covers all previously accepted linear analysis results, including plain frame, truss and cable mechanisms that model-feature gating missed. Ordinary legacy truss and shell projects receive the notice too; projects without a linear analysis result remain outside its scope. Shed regressions now check the documented mechanism refusal for unbraced and incompletely braced configurations under longitudinal and vertical loads, including roof-only bracing in every bay without purlins. Stable, fully braced displacement bounds are unchanged.
+3D analyses refuse undetermined rotations coupled by connectors. Review member releases, rotational restraints and connector stiffness before solving again (#1748).
 
-#### Keep CI regressions aligned with verified linear admission (2026-11-10)
+#### Generated structures receive their missing stability restraints (2026-11-10)
 
-Retain the corrected PCG units cell as a required numerical pass, independently verify the five unloaded released rotations in the certificate oracle, and restore the original MITC9 accuracy and warning-band checks now that conditional admission solves those strips. Route the generated-model regression corpus through the typed 3D boundary. Position the generator hover regression on a reachable field while retaining its help and layout assertions; the shared-link smoke tests pass unchanged. Engine outputs, tolerances and numerical baselines are unchanged by this follow-up.
+Generated planar structures receive explicit lateral restraints and fork bearings; lattice columns default to fixed bases and sheds to physical bracing. Existing saved models are unchanged. Regenerate, review the supports and bracing, and solve again.
 
-#### Linear factorization refusals distinguish unresolved accuracy from negative stiffness
+#### 3D inclined supports count restraints in a common frame (2026-11-08)
 
-A failed Cholesky factorization after the stability check now reports unresolved numerical accuracy and returns no result. The negative-stiffness diagnosis remains reserved for confirmed negative modes. Solve/refuse decisions and numerical values are unchanged; see [the results-change write-up](docs/results-changes/2026-11-linear-factorization-diagnostic.md).
+Inclined support normals and global-axis springs are counted in a common frame. The diagnostic restraint count and classification can change in both dimensions. Numerical stiffness checks remain independent of this diagnostic count.
 
-The legacy deep-beam-shell regression now checks the exact notice list in registry order for both branch and main-first merge history. The harmonic notice still applies to legacy files with unknown analysis history, and it cannot explain an unrelated static displacement change. Seed 20761 now always requires the loaded-release refusal.
+#### 3D moving loads include interior peaks and axial axle weight (2026-11-08)
 
-#### Check the certified stability bound without requiring a tight spectrum (#1753)
+3D moving-load envelopes include interior peaks and all components of axle gravity. Both dimensions evaluate axial patch boundaries and use interior force limits at member ends. Re-run affected envelopes and review sizing based on their extrema. See [SA-2026-051](docs/advisories/SA-2026-051-moving-loads-3d.md), [SA-2026-052](docs/advisories/SA-2026-052-moving-axial-patch-boundaries.md) and [SA-2026-053](docs/advisories/SA-2026-053-moving-load-endpoint-forces.md).
 
-Correct the continuous-beam and permuted coupled-mode metamorphic checks to verify the certified upper-bound contract of fast-accepted stiffnesses. Independently certify the beam bound against its assembled stiffness and retain the original tightness assertion on explicit full sparse spectrum tests. Document why the fast bound cannot change conditional accuracy decisions or displayed results. Preserve the slab sweep assertions and timeout. No engine solve or result format changes.
+#### Staged rotations retain physical stiffness after unit changes (2026-11-11)
 
-#### Certify stalled spectral estimates and restore structural validation coverage (#1753)
+Staged analysis uses regular physical stiffness assembly. Member releases and changes of units no longer add artificial stiffness to real rotations or support springs. Staged histories also preserve free-rotation subspaces and distinguish physical mechanisms from numerical refusals. Re-run complete affected histories. See [SA-2026-060](docs/advisories/SA-2026-060-staged-orphan-rotations.md).
 
-Require an upper spectral certificate before Lanczos accepts a stalled or exhausted estimate. Preserve the existing precision gate and certification budget. Restore the Q9 cap convergence assertion, Raasch response bounds, the 32x32 cap containment identity and the original axial contrast. Prove the original truss mechanisms and check the renamed braced fixtures against independent signed forces. Reject nonfinite invariance comparisons and require complete zero displacements for empty prepared cases. See [the results-change evidence](docs/results-changes/2026-11-linear-stability-refusals.md#final-review-bounded-lanczos-acceptance-and-restored-fixture-checks). Deferred review findings are tracked in [#1891](https://github.com/lambdaclass/stabileo/issues/1891).
+#### Initial plastic refusals and unloaded staged rotations
 
-#### Recover constrained C08 reference reactions and clarify conditional admission (#1753)
+An initial elastic refusal in 3D incremental plastic analysis now remains a refusal instead of becoming a successful zero collapse factor. Unloaded staged rotations are handled separately. Re-run affected plastic analyses. See [SA-2026-062](docs/advisories/SA-2026-062-plastic-conditioning-zero-collapse.md).
 
-Recover support and constraint multipliers together in the independent C08 reference generator, including slave-load force and rigid-link moment transfers. Add exact equilibrium regressions in 2D and 3D. Clarify SA-2026-054: the product threshold is a fast accept; conditional admission requires separate conditioning limits, compensated refinement and recovered-force equilibrium. Engine results and acceptance limits are unchanged. See [the reference correction evidence](docs/results-changes/2026-11-linear-stability-refusals.md#final-review-recover-c08-support-and-constraint-multipliers-together).
+#### Recover reactions from the reported equilibrium state (2026-11-11)
 
-#### Reuse the unchanged influence-line stiffness between axle positions (2026-11-10)
+Path solvers recover reactions, constraint forces and member loads from the reported equilibrium state and actual load factor. Staged and P-Delta forces require physical equilibrium checks; unsupported quantities are explicitly unavailable or refused. Total dynamic support forces remain unavailable in time history. Re-check connection and foundation demands as well as displacements. See [SA-2026-061](docs/advisories/SA-2026-061-path-solver-reactions.md).
 
-The influence-line calculator now reuses the existing prepared 2D load session, checks every load case and frees the session on success or failure. Twenty-one strict full-result comparisons agree with independent solves, and the original near-mesh analytical and timeout assertions pass unchanged.
+#### Preserve the physical mass range in modal analysis (#1965, 2026-11-12)
 
-#### Preserve influence position warnings through the shared solve entry point (#1753)
+Modal analysis retains the physical mass range and checks each mass-orthogonality entry on its own scale. Re-run affected modal and dependent dynamic analyses. These changes do not establish a complete fix for every dynamic issue.
 
-Route every JavaScript influence position through the ordinary solve entry point while reusing its prepared load session. Collect all position diagnostics, including distinct warnings from later positions, before displaying the line and its containment banner. Use an independent solve when the candidate model differs from the session model. Keep the existing containment tests, numerical results, tolerances and refusal cleanup unchanged.
+#### Include transverse truss actions in conditional member balance (#1969, 2026-11-12)
 
-#### List the linear-stiffness advisory draft in every blog language (2026-11-10)
+Conditional member equilibrium includes transverse truss actions. Re-run affected truss analyses and review their solve status and forces.
 
-The safety-advisories post now lists SA-2026-054 with High severity in all six
-written languages. Its summary and status note explicitly say the fix has not
-been merged or deployed, following the draft convention used for SA-2026-049
-through 053 before publication. The advisory and index consistently mark it as a
-draft. Advisory completeness checks remain unchanged, and `make test.web.unit UNIT_AREA=blog`
-now selects the blog unit files.
+#### Preserve prescribed master motion in constrained solutions (2026-11-12)
 
-#### Preserve linear stability and modal basis re-check notices together (2026-11-10)
+Constrained analyses retain prescribed motion at restrained masters through expansion, equilibrium and each history increment. Cable and time-history analyses refuse unsupported nonzero prescribed support motion. Re-run the complete affected history; copying a displacement into an old result cannot repair it. See [SA-2026-063](docs/advisories/SA-2026-063-prescribed-master-motion.md).
 
-The PR #1753 merge with main retains both the linear-stability and modal-basis results-change notices in the saved-project version assertions. Both branches’ engine checks, tests, containment records and results-change documentation are preserved. No numerical tolerance or assertion is relaxed; the merge adds no engine result change beyond the merged commits.
+#### Refine elastic SSI solutions against physical equilibrium
 
-#### Refuse negative node stiffness and skip linear re-checks without stiffness elements (2026-11-10)
+Elastic SSI solves refine against physical equilibrium instead of stopping on a residual plateau. Nonlinear soil retains its own solve path. Re-run affected elastic SSI histories.
 
-Linear analysis checks each diagonal against the rounding of that entry before decomposing a node block. A much stiffer direction can no longer hide a negative diagonal and cause a negative rotation to be pinned away. Negative eigenvalues within the spectral rounding bound are refused unless the explicit member releases establish zero physical rotational stiffness; ordinary translation mechanisms retain their mechanism refusal. Release evidence follows constrained DOFs. No numerical tolerance or baseline changes.
+#### Constraint reduction preserves resolvable physical stiffness (#2013–#2018)
 
-The linear-stability re-check notice still covers every linear result, with members, shells, connectors or springs required to establish that a model has stiffness elements. Empty models have no linear result to re-check. See the final-review section of `docs/results-changes/2026-11-linear-stability-refusals.md` for the measured main comparison.
+Constraint reduction retains directional rounding uncertainty and resolvable physical stiffness. Re-run constrained analyses; unresolved stiffness remains refused.
 
-#### Saved-project re-check tests include the notice for every older linear result (2026-11-10)
+#### Preserve compatible loads on released rotations across frames and units
 
-The store tests now require the exact notice set, including `linear-stability-refusals`, for a frame solved before containment diagnostics. The shell-edit regression acknowledges the older linear result's notice before saving and reopening with new shells. A saved project with no analysis results opens without a notice. This updates test expectations for the existing all-linear re-check policy; application behavior and engine results are unchanged.
+Shared released-rotation checks accept compatible loads across rotations and units while refusing unsupported residual moments. Independent released directions are selected without amplifying nearly parallel bases. Transformed truss loads retain direction uncertainty and nodal moments cancel exactly. Re-run models with member-end releases and oblique trusses; existing conditioning and response warnings still apply.
 
-#### Refuse negative rotations outside the released direction and preserve legacy regression detection (2026-11-10)
+#### Frozen contact states and cable bar analyses are withheld (2026-11-10)
 
-A permitted release now replaces a slightly negative rotational mode only when it spans that eigenvector within the projection rounding bound. An unrelated release leaves the negative mode unresolved and the solve refuses. Aligned releases remain accepted. The linear-stability notice still covers every linear result with stiffness elements, but explains only solve outcomes generally. Exact before/after response fingerprints restrict the documented bridge small-component changes; fabricated displacement, reaction and member-force errors remain unexplained. No tolerance, historical baseline or assertion is loosened. See [the results-change evidence](docs/results-changes/2026-11-linear-stability-refusals.md#final-two-fixes-release-alignment-and-exact-numerical-explanations).
+Cable identity is preserved and analyses outside the dedicated cable solver refuse cables, including staged analysis. Frozen contacts and one-way members check their final force, opening and activation state. Invalid contact states are withheld, and surface augmented-Lagrangian forces push the surfaces apart. Re-run affected models with a solver that supports their physical behaviour. See [SA-2026-059](docs/advisories/SA-2026-059-web-cable-compression.md).
 
-#### Saved-project notice expectations follow the registry landing order (2026-11-10)
+#### Nonlinear convergence follows physical equilibrium
 
-Keep the exact eight notices for the connector-only project in the shell-edit regression, ordered by their registry versions, dates and IDs. A main-first CI merge places the connector notice before the pending linear-stability notice; the branch history places them in the opposite order. Add a regression for the main-first order while retaining acknowledgement, save/reopen and stale-result assertions. This corrects test expectations after empty models were excluded from linear re-checks; application behavior and engine results are unchanged.
+Nonlinear convergence checks physical equilibrium in the admissible free directions. P-Delta, SSI, contact and material-nonlinear paths preserve small forces through cancellation, rotations and unit changes. Arc-length and displacement-control histories can change. Re-run affected analyses and respect convergence warnings and unavailable quantities.
 
-#### Keep the support and non-finite-result advisories together (2026-11-09)
+#### Buckling factors use the original stiffness pencil (#818, 2026-11-11)
 
-The advisory index and all six blog languages retain SA-2026-048, SA-2026-049 and
-SA-2026-050 in their existing list order. The status notes now include both 049
-and 050, and 049 uses the exact localized status wording recorded for 050 on main
-by #1784.
+Buckling factors use the original stiffness system and preserve resolved high factors. In 2D and 3D, members whose axial forces cannot be distinguished from round-off contribute no geometric stiffness. The analysis is refused if their possible compression could lower the critical factor by more than 1 %. Uncertainty follows actual member and constraint coupling, including shared warping. Re-run buckling analyses and P-Delta stability checks.
 
-#### Classify the inclined-support count correction as diagnostic (2026-11-08)
+#### Concrete fibre load control refines its stopping interval (2026-11-10)
 
-The inclined 3D restraint-count correction in PR [#1780](https://github.com/lambdaclass/stabileo/pull/1780) retains its [results-change write-up](docs/results-changes/2026-11-inclined-3d-restraint-directions.md) and registry entry, with a brief mention in [SA-2026-049](docs/advisories/SA-2026-049-support-spring-conflicts.md). The degree-of-indeterminacy count is a diagnostic, not a design result, so its separate safety advisory and summary-table rows have been removed.
+Concrete fibre load control refines its stopping interval. Re-run affected load-controlled material-nonlinear analyses and compare the reported load factor and final state.
+
+#### The linear solvers refuse a mechanism or an unresolvable stiffness instead of solving it behind a spring, a shift or LU (2026-11-08)
+
+Linear analysis checks physical stiffness and each loaded response before returning an answer. Mechanisms, unresolved numerical accuracy and unsupported moments are refused. Independent soft springs and compatible unloaded releases retain their physical response. Prepared models are invalidated after structural edits. Other stable responses can change: PCG now returns corrected components that an aggregate residual previously missed, and sparse direct residual refinement improves displacement accuracy. Re-run saved linear analyses; a refusal supplies no replacement result. See [SA-2026-054](docs/advisories/SA-2026-054-unresolved-linear-stiffness.md).
+
+#### Ae takes every staggered chain, and a bolted all-elements end needs web bolts (2026-11-08)
+
+The effective net area checks every staggered bolt chain. An end connection declared bolted through all elements requires web bolts. Re-run affected tension-member checks and steel optimisation.
+
+#### Buckling and multi-case analysis refuse non-finite results (2026-11-08)
+
+Buckling and multi-case analysis refuse non-finite results. Failed slenderness calculations no longer become zero. Re-run affected analyses and discard earlier non-finite values or unresolved slenderness results. See [SA-2026-050](docs/advisories/SA-2026-050-non-finite-analysis-results.md).
+
+#### Plastic mechanism resource refusals and exact interval readings (2026-11-10)
+
+Plastic interval displays compare against the exact certificate endpoints. Resource refusals propagate instead of being interpreted as an absent mechanism. Checked 3D plastic analysis returns the certified lower bound; raw hinge histories remain separate. Certification refuses excessive work or storage explicitly. Re-run affected certificates. See [SA-2026-057](docs/advisories/SA-2026-057-plastic-interval-and-resource-refusals.md).
+
+#### Cb reads the moment at both ends of the unbraced segment (2026-11-08)
+
+CIRSOC 301 reads the moment at both ends of a declared unbraced segment for curvature and Mmax. Previously, end moments could be omitted from Mmax for any section; channels and tees in double curvature could also miss a sign change. Re-check all CIRSOC 301 members with a declared Lb shorter than the member, including steel checks and optimiser proposals. See [SA-2026-048](docs/advisories/SA-2026-048-cb-segment-ends.md).
+
+### Security
+
+#### Dependency vulnerability fixes and trusted Revert Check
+
+- Update quinn-udp from 0.5.14 to 0.5.16 for RUSTSEC-2026-0538, fixing a receive loop that can spin after a truncated datagram.
+- Update rustix from 1.1.4 to 1.1.6 for RUSTSEC-2026-0486, fixing unsound zero-length buffers in extended-attribute functions.
+- Revert Check (trusted) uses the base branch workflow and checker; pull request commits are fetched only as data and never checked out or run. Labels are read live; an unreadable `reverts-ok` label never counts.
+
+### Added
+
+#### Interactive bent-strip shape control
+
+The Fehér, Sipos and Várkonyi experiment provides an interactive bent-strip solver, actuator paths and a comparison with the paper in English, Spanish and Portuguese. The cut-strip research summary is also translated into Spanish and Portuguese.
+
+### Changed
+
+#### Release 0.6.0: safety fixes and complete results-change notices (2026-11-13)
+
+Version 0.6.0 includes six-language release notes, advisories SA-2026-048 through SA-2026-063 with user actions, and the results-change notices added since v0.5.0. SA-2026-056 remains unfixed: independently verify affected constrained frame-and-shell dynamic models. The notes distinguish newly registered older behaviour from changes to 0.5.0 results.
+
+### Fixed
 
 #### Omitted 2D inclined-support angles use zero consistently (2026-11-09)
 
-A 2D inclined roller with an omitted angle and a positive global Y spring now solves like the same support with explicit zero. Dense and sparse assembly, constraint frames and reaction recovery use the same zero-angle frame; already solved omitted-angle inputs may change final floating-point digits. Exact result regressions cover linear, P-Delta, sparse and constrained paths with settlements. Ordinary rigid support and spring conflicts remain refused. The previously refused input had no saved result, and final-digit rounding changes do not warrant a saved-result recheck notice.
-
-#### 2D inclined supports count restraints in a common frame (2026-11-08)
-
-Inclined 2D support normals and positive global-axis springs now contribute their joint directional rank to the diagnostic kinematic degree. Independent directions that shared an array slot were undercounted; coincident directions in different slots were counted twice. A relative component tolerance keeps periodic and near-cardinal normals from gaining a spurious direction through floating-point roundoff. The displayed degree, classification and diagnosis can change. Solve acceptance uses input validation and stiffness rank independently of this count; assembly and numerical static solutions are unchanged. This correction to PR [#1780](https://github.com/lambdaclass/stabileo/pull/1780) is not released or deployed.
-
-#### Record the support-rule correction and list its safety advisory (2026-11-08)
-
-The containment ledger marks #1636–#1646 as corrected by #1780: rejecting a rigid restraint
-and positive spring on the same degree of freedom is the intended input contract. The safety
-advisories blog now lists SA-2026-049 in English, Spanish, Portuguese,
-German, French and Turkish, retaining its draft, unreleased and undeployed status.
-
-#### Keep the valid P-Delta unit-invariance failure tracked (2026-11-09)
-
-The quick metamorphic tier correctly refuses the contradictory guided support in `fuzz_rich_2d/20772`. Removing only its conflicting X spring still reproduces #971 for both quick seeds, so expected failures now use that valid control with the original transform stream. #971 remains tracked; no tolerance or convergence criterion changed.
-
-#### Multi-turn 2D inclined-support angles preserve the diagnostic restraint count (2026-11-09)
-
-The 2D kinematic restraint counter reduces an inclined-support angle to one turn before constructing its normal. At 20π with only a positive global Y spring, trigonometric roundoff previously created a spurious second translation restraint and reported degree 1 (hyperstatic) instead of degree 0 (isostatic) in the regression fixture. The existing relative component threshold is unchanged, as are solve acceptance, stiffness assembly and numerical displacements, member forces and reactions. Direct 3D linear and buckling-preload solves now explicitly read loads from their prepared model. Numerical controls confirm that curved-beam expansion already preserves the load vector, including through load sessions and the typed input boundary; no dropped-load result was reproduced on head 146e26346. This correction to PR [#1780](https://github.com/lambdaclass/stabileo/pull/1780) is local and unreleased.
+An omitted 2D inclined-support angle consistently means zero. Valid models with springs or settlements use the same frame in assembly and reaction recovery; final floating-point digits can change.
 
 #### Static solves and sessions share the first input refusal (2026-11-08)
 
-Regular 2D/3D static solves, typed inputs and load sessions now use the same input validator before preparing or retaining a model. Models with several faults report the same first reason, including unsupported left-handed axes before support conflicts. Sessions validate the supplied input before clearing its initial loads. The support conflict rule stays enforced, and a refused settlement on a free elastic DOF names the spring. Existing valid-model numerical assertions and tolerances are unchanged; regression controls explicitly declare rigid or elastic supports, and additional unchanged fuzz seeds retain the existing solved-model quotas. Valid models keep bit-identical results; refused models have no saved results. Refusal ordering therefore adds no saved-result recheck notice.
-
-#### Correct the inclined moving-load regression evidence (2026-11-09)
-
-SA-2026-051 and its results-change write-up now derive the inclined regression's axial extrema from equilibrium and report the endpoint-corrected envelope, confirmed by the test output. Analytical assertions check both extrema in 2D and all three 3D plane embeddings, three sampled axle positions and zero endpoint-only axial demand. A regression ties the documented extrema to the fixture's equilibrium calculation. This follow-up changes documentation and tests; it does not change engine results.
-
-The advisory index retains SA-2026-053 inside its table. The six-language status notes retain main's release history and cover SA-2026-049 through SA-2026-053 consistently as drafts.
-
-#### Preserve advisory listings and align pending-fix status across languages (2026-11-09)
-
-Keep SA-2026-050, SA-2026-051 and SA-2026-052 in the advisory index and all six
-blog languages when merging the non-finite-results and moving-load fixes. The
-status notes mention all three advisories, and the status cells for 051 and 052
-use the exact pending-fix wording already used for 050 in each language.
-
-#### List both moving-load safety advisories in every blog language (2026-11-08)
-
-The safety-advisories post now includes SA-2026-051 (3D interior force peaks and axial axle weight) and SA-2026-052 (2D/3D axial load-patch boundary peaks) in English, Spanish, Portuguese, German, French and Turkish. Both retain their draft, unreleased status from the advisory files. A content regression checks every advisory against every written translation.
-
-#### List the endpoint-force advisory in every blog language (2026-11-09)
-
-The safety-advisories post now includes SA-2026-053 (spurious force extrema from endpoint point loads in moving-load envelopes) in English, Spanish, Portuguese, German, French and Turkish. Its summary row retains Low severity and draft status, with the fix not yet merged or deployed. The status notes include the draft, and a regression checks its severity and status in all six languages.
-
-#### Correct point-load sampling before release
-
-3D moving-load envelopes use recovered member-end forces and evaluate both shear and axial limits at each point load's actual coordinate (#1782, PR #1783). This corrects a regression introduced on this branch before release; no released results were affected.
-
-#### Subprocess time limits run without competing engine tests (2026-11-09)
-
-- Reserve all nextest test threads for engine subprocess-limit tests, including the
-  issue #1760 plastic regression, so heavy tests cannot consume their wall-clock
-  budgets. The 60 s deadline and memory limits are unchanged. Fixes #1870.
-
-#### Record OpenSees support-check crashes per model (2026-11-09)
-
-The OpenSees comparison now runs support-contract checks inside the existing engine failure handlers. A solver crash or malformed engine output is recorded for the affected model instead of aborting the comparison run. Regression tests require a flagged failure when the reference stiffness is regular, with the engine exit status and diagnostic preserved. Engine calculations and comparison tolerances are unchanged.
-
-#### Recognize the bent-strip solver in the required research CI check (2026-11-10)
-
-The Research catalog check now expects the Fehér, Sipos & Várkonyi bundle already registered in CI. Its engine-dependency and cache-invalidation checks include that crate, so its own inputs invalidate its cache while shared engine inputs invalidate every bundle. Solver code and computed results are unchanged.
-
-#### Preserve both Fehér papers when combining the research gallery splits (2026-11-10)
-
-Merge the shape-control and cut-strip catalogue splits into one shared gallery design. Keep the shape-control card and article on the same localized title and teaser, preserve both papers’ English, Spanish and Portuguese summaries, and retain both branches’ gallery isolation, teaser and translation tests.
-
-#### Keep Fehér notice checks outside product sources and preserve gallery tests (2026-11-10)
-
-Move the Fehér browser lockfile notice check into the Node tooling tests so research files stay outside product sources. Restore the shape-control gallery test declarations and existing summary documentation lost during the merge, while retaining both papers’ localized gallery data. Add a repository isolation regression check.
-
-#### Reject non-finite dynamic quadratic forms in symmetry checks (2026-11-10)
-
-The metamorphic dynamic accuracy harness rejects non-finite load-energy, translation-compliance and modal-residual quadratic forms before clamping finite negative roundoff to zero. Three NaN regressions prevent these forms from silently becoming zero comparison scales or residuals. The singular-mass harmonic regression now rebuilds the symmetry expectation from each mutated response: an allowed X perturbation passes, while a physical-scale forbidden Z perturbation fails under antisymmetric loading. Production analysis results are unchanged. Zero-frequency anchor coverage remains deferred within [#1889](https://github.com/lambdaclass/stabileo/issues/1889), whose scope already includes the static-frequency limit and focused regressions.
-
-#### Select harmonic fallback modes in eigenvalue order (2026-11-10)
-
-The metamorphic dynamic accuracy harness sorts a copy of the generalized eigenvalues before inspecting the two lowest modes for single-mode fallback. Regression coverage checks every ordering of three synthetic spectra and permits single-mode fallback in the uncertain-second-anchor test, so certifying before selecting anchors now fails that test. Production analysis results are unchanged. Zero-frequency anchor coverage remains deferred to [#1889](https://github.com/lambdaclass/stabileo/issues/1889).
-
-#### Preserve harmonic and small-cluster nightly regression coverage together (2026-11-10)
-
-The PR #1887 merge with main retains both the harmonic and spectral symmetry regressions and PR #1894's effective-mass, shell-stress and unresolved-case regressions. All held cells, assertions, tolerances and existing ignore attributes are preserved. This merge changes verification coverage only; production engine results are unchanged.
-
-#### Plastic replay test isolation and pending advisory listings
-
-PR #1888: script replay unit tests use an injected executable without building Rust; the real engine replay runs in Engine Gates and the existing nightly plastic checks with the same certificate, timeout and allocation assertions.
-
-List draft advisory SA-2026-057 in all six blog languages, with the fix still pending merge and deployment. Keep superseded grid refusals outside the current replay evidence, and describe rational limbs as machine words in the five translated historical registry explanations. Engine calculations and resource budgets are unchanged.
-
-#### Show the modal-basis rounding notice only for modal analyses (2026-11-10)
-
-The modal-basis rounding results-change entry now requires a modal or spectral analysis. A static project's earthquake load case alone no longer triggers the notice. Modal-derived workflows remain covered through their modal analysis; direct time integration alone is unaffected. The v0.4.0 deep-beam-shell legacy regression retains its expected changes and assertions. No engine results change.
-
-#### Keep the modal issue #759 containment ledger consistent (2026-11-10)
-
-The #759 ledger row remains WARN under `MD-ORTHOGONALITY`, matching the runtime registry. PR #1890 strengthens the standalone modal basis check but does not establish a complete fix across harmonic modal superposition and Craig–Bampton reduction, which call the eigensolver without that check. A focused regression prevents the premature CORRECTED disposition from returning. Runtime warnings and numerical results are unchanged.
-
-#### Preserve both nightly regression blocks when merging PR #1894 into PR #1892 (2026-11-10)
-
-Keep the analysis-accuracy, retained-failure, and dynamic-mirror checks alongside the effective-mass and shell-stress integrity checks and unresolved regressions. Preserve every test, held cell, assertion, ignore, and comparison tolerance from both branches. This merge adds no engine result changes.
-
-#### Certify correct discrete trajectories and require dynamic mirror coverage (2026-11-10)
-
-Time-history accuracy certification now checks the assembled Newmark recurrence to operation-count roundoff before allowing damping uncertainty to contribute to the comparison budget. Correct trajectories remain certifiable; zero and scaled trajectories still fail. The generated 3D time-history and harmonic masks require all 128 mirror comparisons, and the PR coverage table records these passing cells. Preserve main's harmonic symmetry floors when merging public-result diagnostic checks. No engine result, relative tolerance or numeric coverage baseline changes.
-
-#### Reject unexpected metamorphic failures and validate reported dynamic samples (2026-11-10)
-
-Record passing and failing cells separately in the analysis-accuracy coverage baseline and check the exact retained failure set for each seed, including dynamic mirrors. Check reported time-history translations and rotations against the trace after constraint expansion and inclined-support mapping. Keep harmonic symmetry comparisons available when the optional accuracy estimate is missing, with no additional allowance. Limit moving-load moment recovery allowances to the distance along the response member instead of the full route. These changes affect verification only; engine results and the results-change registry are unchanged. The retained engine findings, including SA-2026-056, remain failures.
-
-#### Bound verification allowances before adding uncertainty (2026-11-10)
-
-Cap time-history recurrence, state, mapping and numerical-error allowances with independent load-energy and assembled-system scales before damping uncertainty is added. Cap static functionals and recovery arithmetic with the independent inverse/load reference. Reject the semidefinite-mass small-step trajectory and random amplified candidates that previously certified themselves. Preserve all 128 generated dynamic mirror comparisons. Production engine results, comparison tolerances and retained issue outcomes are unchanged.
-
-#### Cap axial recovery allowances and preserve harmonic integrity checks (2026-11-10)
-
-Reject buckling accuracy certificates when recovered axial forces differ from the verified displacement-based forces beyond the existing static accuracy ceiling and independent geometry and action bounds. Validate the harmonic modal residual even when the optional accuracy estimate is absent. Correct the shared #1369/#1370 regression documentation. These changes affect verification only; production engine results and the results-change registry are unchanged.
-
-#### Accept store snapshots as applicability inputs (2026-11-10)
-
-Align feature snapshot types with the store snapshot: releases are objects whose
-values are inspected, supports declare the spring and settlement fields that
-feature detection reads, and shell entries can carry their stored identifiers.
-Remove an unused registry type import and add a compile-time compatibility
-regression check. This fixes Web Typecheck without casts or baseline changes.
-Engine results and snapshot gate registration requirements are unchanged.
-
-#### Require active, asserting benchmark tolerance consumers (2026-11-10)
-
-The benchmark gate now detects disabling attributes on enclosing Rust modules
-and at file scope. Case-file consumers must assert the pointer field, directly
-or through tracked bindings; storing a JSON verdict does not count. Register
-shell tolerance contract assertions and correct other field-to-assertion links.
-Remove the obsolete nearly inextensible beam claim; the tolerance audit remains
-the source. No engine results, tolerance values or existing assertions change.
-
-#### Allow benchmark source parsing and PR metadata in message matching lint (2026-11-10)
-
-Document the benchmark gate's Rust declaration search and pull request
-`Tolerance-change reason:` field extraction as precise message matching lint
-exceptions. Neither search reads an engine message. Lint Engine can pass without
-changing the checker, benchmark assertions, tolerances or engine results.
-
-#### Match the snapshot gate positive fixture to its result change (2026-11-10)
-
-Give the deliberate beam-load change test an explicit registration for linear
-2D frame results, declared result quantities, and features from the opened
-corpus case. Retain rejection of a context-free registration even with a
-BREAKING (results) fragment. This corrects the Results Snapshot test fixture
-while preserving the gate requirements introduced for #1508.
-
-#### Assembly oracle counts axial span stiffness once (2026-11-10)
-
-Correct the 2D and 3D affine geometric-stiffness references to include the constant axial span contribution once, and remove its duplicate from the 3D buckling reference (PR #1895, #1329). Independent Simpson integration checks the reused span contribution in both dimensions. Comparisons, assertions, seeds and tolerances are unchanged. This changes test references only; engine results are unchanged.
-
-#### Result checks reject seeded wrong solver outputs (#1919)
-
-Add lightweight seeded-failure self-tests for the shared nightly metamorphic relations, cross-method differential checks and certificate oracles. Every seeded check has a passing control and must report a numerical failure for deliberately wrong solver output. Exercise the nightly collector through its real replay executable and verify its exit status and finding artifact.
-
-Reject empty linear-agreement comparisons and differential fields, zero-work responses to nonzero energy probes, missing nightly failure records and false generalized relative certificate bounds. Fault injection is confined to integration tests; production numerics, engine results, tolerances and baselines are unchanged.
-
-#### Real modal fixture checks reject missing results (#1919)
-
-Share nonempty and equal-length checks between real modal fixtures, constrained modal checks and seeded certificate tests. Exercise dropped and truncated result and certificate lists through those checks. Use the shared steel density for modal seed controls, require the sign-fault replay to reach the real replay assertion, and describe nightly failure reconciliation as a comparison of test identities. Production engine results, tolerances and baselines are unchanged.
-
-#### Self-tests catch missing modal results and preserve nightly findings (#1919)
-
-Require matching nonempty modal result and certificate mode lists, enforce strict relative certificate bounds, and verify the specific assertions reached by buckling, relative-bound, empty-field and absolute-frequency seeds. Reconcile nightly failure objects with failed analysis/invariant rows independently of diagnostic detail counts, and retain refusal-only comparisons in coverage records. Add failing reproducers and passing controls; production engine results and numerical baselines are unchanged.
-
-#### Refuse staged cables and respect contact tolerance (2026-11-11)
-
-Both staged solvers refuse every cable with `cable_analysis_required`. The 2D Ernst
-iteration exception is withdrawn because positive end forces and convergence do not
-prove equilibrium with sag. Cable parity requires identical structured refusals; numeric
-staged parity uses truss stays and linear references. Closed surface contact checks use
-the configured tolerance scaled by stiffness, retaining refusal above that limit
-(#417, #432; PR #1921). See the [results-change write-up](docs/results-changes/2026-11-staged-cable-refusal-and-contact-tolerance.md).
-
-#### Contact validity history identifies the superseded geometry check (2026-11-10)
-
-The PR #1921 results-change account now marks the final-gap force check and rotating-master acceptance as superseded, links the current assembled-traction correction and documents the structured refusal. The duplicate contact regression is consolidated with all refusal assertions retained. Engine behavior is unchanged.
-
-#### Validate frozen one-way member forces (2026-11-11)
-
-BREAKING (results): 2D and 3D contact analyses enforce the flip limit for tension-only
-and compression-only members, retain freezing history across augmented-Lagrangian
-passes and refuse incompatible final axial forces with `contact_state_invalid`.
-The force limit uses the unchanged contact tolerance scaled by axial stiffness.
-Gap-free negative controls, permitted-sign controls and scaled-tolerance and AL-history
-controls cover #432 (PR #1921). See the [results-change write-up](docs/results-changes/2026-11-frozen-one-way-members.md).
-
-#### Require assembled contact bearing (2026-11-11)
-
-Active frozen contact states must carry assembled compression consistent with penetration.
-Closed surface pairs with assembled tension exceeding the contact tolerance are refused.
-The panel refusal regression verifies clearing a previously successful result from both stores
-(#432, #417; PR #1921).
-
-#### Preserve contact, cable and harmonic containment when merging main (2026-11-11)
-
-Merge the harmonic corrections from PR #1922 into PR #1921, retaining both results-change records and existing advisories. Retire the corrected cable, contact and harmonic warnings together while retaining permanent validation and harmonic solve refusals.
-
-#### Restore the safety advisory blog tables to main’s order (2026-11-10)
-
-Restore main’s exact advisory and worked-example table order and content in all six languages after the PR #1921 merge resolution reordered them. Retain only the existing SA-2026-059 row beside main’s newest entries and its appended status sentence. Restore main’s blog test expectations. No engine results change.
-
-#### Use API spectrum points in the cable safety replay (2026-11-10)
-
-The SA-2026-059 spectral refusal replay now passes named period and acceleration fields to the WASM API, fixing two new Web Typecheck errors in PR #1921. Saved project spectra retain their tuple format. The branch also retains main’s fibre load-control changelog and result-change records, and main’s advisory summary order with the existing SA-2026-059 additions.
-
-#### Restore interrupted what-if sweeps and bound each generated test (2026-11-11)
-
-Restore the model in `finally` and clean up after each advanced sweep what-if
-session, including injected mid-session failures (#1921). Run the same 350
-2D models in fourteen tests of 25 models, retaining every check, sampled run,
-known-defect expectation and aggregate finding. Report timings for those chunks
-and the existing 3D family hooks. No engine results change.
-
-#### Use US English in contact and cable validation text (2026-11-11)
-
-Correct "behaviour" to "behavior" in the English frozen-member warning, cable refusal message, and English results-change descriptions introduced by PR #1921. Other locales and analysis behavior are unchanged.
-
-#### Record silent web cable compression and its pending fix
-
-SA-2026-059 records real-WASM replays on origin/main showing cable members carrying compression without a warning in advanced web analyses. Publish the measured forces, displayed diagnostics, affected-version history and workflow inventory; list the advisory in all six blog languages as fixed in PR #1921, pending release. Link the existing contact/cable results-change record and re-check registry to the advisory. This documentation adds no engine result change.
-
-#### Harmonic direct solves preserve accuracy on coupled systems (2026-11-10)
-
-**BREAKING (results):** Dense and sparse harmonic direct solves now use exact binary column scaling and compensated residual refinement against the original dynamic system. This corrects rounding error introduced by column normalization on ill-conditioned coupled systems while retaining the existing resonance refusal. The independent harmonic regression reference now uses exact rational elimination; its assertions and tolerances are unchanged. The corrected #1434 truncation entry is retired from the active known-issues registry. See [the results-change write-up](docs/results-changes/2026-11-harmonic-direct-refinement.md), #1539 and PR #1922.
-
-#### Independent loads cannot hide unconverged harmonic components (2026-11-10)
-
-**BREAKING (results):** Dense and sparse harmonic direct solves now require residual convergence separately within each connected dynamic component. Large, exactly solved independent loads can no longer hide an inconsistent singular block. The existing tolerance and pivot cutoff are unchanged. See [the results-change write-up](docs/results-changes/2026-11-harmonic-independent-load-convergence.md) and PR #1922.
-
-#### Load-independent numerical singularity refusal for harmonic direct solves (2026-11-10)
-
-**BREAKING (results):** After factorization, dense and sparse harmonic direct solves now refuse a pivot smaller than 1e-12 times the scaled dynamic matrix infinity norm, independently of the load. Connected large loads can no longer hide numerical singularity. Per-component residual convergence, the absolute pivot cutoff and existing tolerances remain required. See [the results-change write-up](docs/results-changes/2026-11-harmonic-load-independent-singularity.md) and PR #1922.
-
-#### Harmonic recheck notices do not explain unrelated static result changes
-
-Keep the omitted-mode correction restricted to harmonic structural analyses. Older stamps that did not record harmonic runs still receive the recheck notice, while a modern linear-only stamp does not. Remove the blanket result-quantity declaration: a harmonic correction cannot explain a wrong static member force or displacement in legacy-project checks.
-
-#### Harmonic direct refinement refuses unconverged responses (2026-11-10)
-
-**BREAKING (results):** Dense and sparse direct harmonic solves now require the final compensated load residual to meet the existing harmonic tolerance after refinement. Singular inconsistent systems that previously returned finite responses now refuse. Sweep regressions require every requested frequency and verify all-direct warning cleanup. The SA-2026-058 main replay now fails the reference assertions while retaining its printed values. See [the results-change write-up](docs/results-changes/2026-11-harmonic-direct-residual-convergence.md) and PR #1922.
-
-#### One complete harmonic recheck notice for PR #1922
-
-Consolidate the direct-refinement explanation into the omitted-mode correction's harmonic-scoped registration in all six languages. Keep conservative notices for unknown legacy analyses and exclude recorded linear-only solves. Legacy-project checks retain their exact expected notice list and reject unexplained static displacement changes.
-
-Preserve main’s advisory table order and status paragraphs during the merge; show the existing SA-2026-058 status in a separate note.
-
-#### Validate activation of frozen inactive one-way members (2026-11-11)
-
-BREAKING (results): 2D and 3D contact analyses refuse frozen inactive tension-only
-or compression-only members whose full-stiffness trial axial force on the final
-geometry requires reactivation beyond the unchanged contact tolerance scaled by
-axial stiffness. Recovered axial force sign checks remain in place. Invalid states
-return `contact_state_invalid` without results (#1932, follow-up to #1921).
-See the [results-change write-up](docs/results-changes/2026-11-frozen-inactive-one-way-members.md).
-
-#### Retain the unresolved warped-shell warning in the website changelog (2026-11-11)
-
-The November 6 entry again warns in all six public languages about the MITC4/MITC9 warped-shell formulation defect tracked by [#1057](https://github.com/lambdaclass/stabileo/issues/1057). It distinguishes the warnings and refusals merged in [#1074](https://github.com/lambdaclass/stabileo/pull/1074) from the formulation correction, which remains outstanding. Engine behavior is unchanged.
-
-#### Reject self-certified buckling and time-history comparison allowances (2026-11-10)
-
-Buckling comparison budgets check the matching reciprocal interval and zero crossings independently of the returned factor. Time-history defects must satisfy an independent load-based accuracy ceiling. Betti checks reject invalid projected bounds directly, and an absent zero-load item contributes zero error. The 3D harmonic and forced time-history mirror checks now compare representable models and record refusals and unrepresentable transforms for the rest. The retained dynamic wrong-result advisory is SA-2026-056 and appears as a pending draft in all six blog languages. No engine results or fixed comparison tolerances change.
-
-#### Cap pre-stress, moving-load recovery and trajectory certification independently (2026-11-10)
-
-Buckling pre-stress and moving-load force recovery now apply the same independent static accuracy ceiling as PCG before their residuals can supply comparison allowances. Time-history certification caps trajectory defects using the model-derived comparison tolerance and load energy, independently of the candidate amplitude. Negative response scaling preserves floor magnitudes. Planted errors precede certification in regressions. The blog tests verify SA-2026-056 remains a pending draft in all six languages, including the existing Spanish and Portuguese rows. The duplicate #1370 corpus model and test entry were removed after checking that its published model is identical to #1369. No engine results, comparison tolerances or coverage baselines change.
-
-#### Bound invariance comparisons by the analysis that produced the result (2026-11-10)
-
-Metamorphic comparisons account for true linear residuals, damping and resonance, Newmark trajectory defects, the buckling pencil, and force-diagram recovery before envelope selection. The relative comparison and inconclusive limit remain unchanged. Eight published issue models are regressions; planted errors and a 200-seed sweep protect discrimination and coverage. No engine results change. A separate, unfixed 3D dynamic wrong-result reproducer is retained and described in SA-2026-056.
-
-#### Reject self-certified invariance errors and exercise public dynamic entry points (2026-11-10)
-
-Metamorphic PCG residual allowances now require an independent accuracy ceiling. Negative buckling factors use the absolute reciprocal radius, and intervals crossing zero grant no finite allowance. Dynamic adapters compare public solver results and verify diagnostic results before using their error data. Regressions lock retained failures, every documented #1763 relation, and successful 3D moving-load comparisons with planted errors. No engine results change.
-
-#### Enforce both-copy silence evidence and per-mode replay accuracy
-
-Require diagnostics for both compared staged unit copies before establishing a silent discrepancy. Retain transformed warnings for three related comments and withdraw their unsupported silence claims. Compare each buckling control mode directly against the unchanged relative-error budget, with negative and boundary self-tests. Engine results and issue body classifications are unchanged.
-
-#### Derive replay warning flags from retained diagnostics
-
-Correct the three stale #1101 comment 5 near-mechanism flags and mark flags without matching retained diagnostics as unverifiable. Retain a reproducible audit/regeneration script and clarify warning provenance in the replay table. Engine results and issue classifications are unchanged.
-
-#### Correct conditioning replay evidence summaries
-
-Record both selected #761 fiber convergence refusals alongside the P-Delta false refusals, and include the archived #1530 comment refusal in the JSON summary to match the report table. Issue classifications and engine results are unchanged.
-
-#### Install browser system dependencies from cached packages before contacting apt mirrors
-
-Key the existing browser .deb cache on Playwright's actual package list and the runner image and architecture. Try installation with cached .debs and downloads disabled before updating apt. If Azure's Ubuntu mirror cannot resolve, use temporary apt sources pointing to archive.ubuntu.com and security.ubuntu.com for this dependency step. Retry apt DNS and fetch failures as infrastructure failures. Preserve the tested browsers, test assertions and timeout budgets.
-
-#### Share browser system dependency installation across workflows
-
-Route deployment, performance and production health browser packages through the same cached installer as Determinism and E2E. Support standalone pinned Playwright installations without requiring Nix. Verify the Linux package planning contract against a recording from lockfile-pinned Playwright 1.60.0, including refusal when the expected apt simulation is absent.
-
-#### Results Snapshot keeps the full registry history in the merge queue (2026-11-10)
-
-Fetching the merge-queue base no longer makes the checkout shallow. The Results Snapshot gate
-can read the first-parent history that assigns results versions, so a registered result change
-is no longer rejected because the registry introduction appears to have no parent.
-
-#### Revert Check in the merge queue rejects a step the API cannot confirm, by its own guard (2026-11-08)
-
-- In the merge queue, Revert Check compares the API's head sha for each pull request with the
-  step's second parent. When the API call failed and the step had one parent, both sides were empty
-  and the guard let the step through; only a later traceback in the checker failed the job. The
-  guard now requires both a second parent and a head sha from the API, and fails with its message.
-
-#### Resolve independent beam directions without relaxing the stability product gate (2026-11-09)
-
-Linear analysis measures node anisotropy within connected coupling components, including
-incident transformations whose off-diagonal entries cancel during assembly. The unchanged
-load-independent `κ_S A` gate restores the axis-aligned Winkler/SSI limit cases and the thin
-cantilever strip's closed-form check; rotated copies must agree or refuse. Unverified,
-ill-conditioned shell benchmark meshes now assert their refusal. Plastic 3D refuses soft-spring
-hinge states with constraints or connectors that its force-balance check cannot verify.
-[SA-2026-054](docs/advisories/SA-2026-054-unresolved-linear-stiffness.md) warns about past
-linear results returned silently beyond the matrix precision bound (PR #1753).
-
-#### Bound the mass Gram error of every returned modal basis (2026-11-10)
-
-Modal analysis now checks the Frobenius norm of the normalized mass Gram matrix against a bound derived from the basis accuracy target and matrix-product rounding. Repeated frequencies receive the same check as separated frequencies. A basis that fails is refused before modes are returned; an exact eigenpair residual alone cannot establish independence. The existing refusal threshold is not increased. Current-main regressions for #759 and #760 already pass, including dense modal references, repeated frequencies, the massless two-DOF analytic response and time-history reciprocity. No new wrong public solver result was reproduced.
-
-#### Translate the Fehér cut-strip research summary into Spanish and Portuguese (2026-11-10)
-
-The Fehér 2026 cut-strip entry now shows Spanish and Portuguese translations of its current English summary instead of falling back to English. The translations preserve the initially flat strip, vertical clamps, midpoint loading and variable bending stiffness of the elastica model.
-
-#### Reject nonfinite frozen shell test responses (#1948)
-
-Require finite reference, solver and dense-solution components before reducing displacement errors or norms. Share the native comparison check across the restrained controls and dense/sparse test, add NaN and infinity regressions, and move the test helpers into `engine/tests`. Production engine results are unchanged.
-
-#### Certify both harmonic damping anchors and retain spectral checks without a residual (2026-11-10)
-
-The metamorphic harness selects the two largest eligible inverse eigenvalues before checking their uncertainty, and accepts a single anchor only when the solver's single-mode fallback is confirmed. Forward spectra and inverse anchor selection are sorted explicitly; harmonic error budgets are unchanged by the sign of the excitation frequency. Harmonic dense certification observes the existing size ceiling and expresses its anchor cutoff as the reciprocal of the solver cutoff. Spectral clustering retains the existing relative-gap rule when a residual is unavailable and applies the additional Weyl test only to finite residuals. Negative tests now require static-translation-scale errors in antisymmetric singular-mass responses to fail. No production analysis results change.
-
-#### Keep harmonic certification conservative at zero load and usable below the damping cutoff (2026-11-10)
-
-The metamorphic harness preserves an infinite error floor when zero forcing meets an unbounded numerical or modal-truncation estimate. Inverse-pencil modes wholly below the solver's positive-mode cutoff are excluded from damping-anchor selection while remaining in the resolvent bound; intervals touching or crossing the cutoff remain uncertifiable. Seeded resonance regressions now require actual passes, zero inconclusive outcomes, and a finite error budget. Ordinary harmonic invariance checks again exercise the public solver wrappers, restoring the engine lint coverage gate. No production analysis results change.
-
-#### Keep non-finite harmonic comparison bounds inconclusive (2026-11-10)
-
-The metamorphic harness returns positive infinity for every non-finite harmonic error bound, including an infinite resonant gain multiplied by zero perturbation and overflow during final floor scaling. Both forward and inverse certificates reject negative or non-finite Rayleigh coefficients and invalid assembly-error inputs. Regression coverage requires NaN-producing resonant bounds to yield an inconclusive verdict for matching and differing responses. Production analysis results are unchanged. The deferred zero-frequency anchor and single-mode cutoff reviews are tracked in [#1889](https://github.com/lambdaclass/stabileo/issues/1889).
-
-#### Bound dynamic symmetry comparisons with eigen residuals and resonance amplification (2026-11-10)
-
-The metamorphic harness derives harmonic cancellation floors from the assembled stiffness and mass pencil, its eigen residual and modal basis conditioning, Rayleigh damping uncertainty, and the harmonic resolvent. Uncertifiable comparisons are inconclusive, and ordinary response ratios retain their existing tolerance. Spectral mode selection keeps modes whose eigenvalue error intervals overlap across the truncation boundary; peak responses continue to compare pair magnitudes. Twelve published seeds, resonance sweeps, and planted physical-scale errors are regressions. No production analysis results change. See `docs/verification/HARMONIC_SPECTRAL_SYMMETRY.md` for the replay table and derivation.
-
-#### Preserve harmonic symmetry comparisons with finite error bounds (2026-11-10)
-
-The metamorphic harness retains finite harmonic cancellation bounds and uses a stiffness-normalized inverse pencil when massless directions or eigenvalue conditioning prevent the forward certificate from bounding the result. Mass uses the solver's inclined support frames; modal responses include their energy residual bound. All twelve published harmonic/spectral regressions assert passes, including the five temporarily made inconclusive. Before/after sweeps cover 200 supported seeds per dimension plus the rich generator, with unchanged inconclusive fractions and planted-error rejection. No production analysis results change. See `docs/verification/HARMONIC_SPECTRAL_SYMMETRY.md` for the derivation and measurements.
-
-#### Non-finite metamorphic values fail before a comparison becomes inconclusive (2026-11-10)
-
-The verification harness now rejects NaN and infinite response values before conditioning or modal-gap limits can classify them as inconclusive. Published effective-mass and shell-stress replays retain their existing inconclusive and refusal counts. No engine results, numerical tolerances or reliability limits change. Separate unresolved numerical and convergence reproducers remain ignored and documented in `docs/verification/HARNESS_SMALL_CLUSTERS.md`.
-
-#### A 3D load session retains a successful loaded preparation retry (2026-11-10)
-
-If preparation without the initial loads fails, a successful retry with those loads now creates the session. If both attempts fail, the original preparation error is retained. The linear-stability documentation also distinguishes the solved axis-aligned #1496 cantilever from its refused coupled orientation and discloses corrected PCG components and sparse direct residual refinement.
-
-#### Compare support refusals against the original input (2026-11-09)
-
-The OpenSees comparison now checks the support contract independently before using reference stiffness to judge an engine refusal. Prescribed movement on a free direction or a direction without rotational DOFs, and a spring conflicting with a rigid restraint, make the input invalid. An engine refusal identifying the detected support defect is recorded as correct; an engine result that accepts that input is flagged and saved as a mismatch. Valid settlements still undergo the existing result comparison at unchanged tolerances. This corrects the shared cause of 52 harness findings, including #1120, #1121 and #1191, without changing engine results.
-
-#### Require the actual support diagnostic for a correct OpenSees refusal (2026-11-09)
-
-The OpenSees support-contract check now reports `refused` only when the engine identifies an independently detected support defect. Spring conflicts must match the diagnostic code, message, support, node and DOF; settlement refusals must match the support, prescribed direction, value and reason. An unrelated refusal remains `stabileo_failed` with its original error, instead of being counted as correct. Engine calculations, model-wide rotational DOF validation and positive-only spring rules are unchanged. Replaying the same 52 published issue models produced no classification changes: all remain verified support refusals. Addresses review of #1882.
-
-#### Plastic budget refusals avoid constructing oversized sample sets
-
-Exact 2D/3D plastic admission counts samples before allocating them. The slow 24-member grid remains storage-admitted but is excluded from the live nightly fuzz corpus and retained under the replay watchdog. The budget and containment documentation now distinguishes storage admission, timed replay and historical mismatch refusals.
+Static solves, typed inputs and load sessions share input validation and report the same first refusal. Contradictory support conditions remain refused.
 
 #### Plastic certificate warnings and resource refusals in every offered language
 
-The 3D plastic certificate mismatch warning now explains in English, Spanish, Portuguese, German, French and Turkish that the returned collapse factor is the certified lower bound, while incremental steps and hinges retain raw solver values that the interval does not certify. The warning preserves the raw engine detail so the factor and interval remain visible. Plastic resource-budget refusals also have a translated sentence, preserving the engine’s storage and limit details. Engine results and containment severity are unchanged.
-
-#### Exact plastic fuzz work follows the LP construction
-
-The plastic fuzz harness now budgets the dense LP tableau from the engine's section samples, load pieces, force variables and bounded refinement loops, rather than counting 3D members alone. Bounded single-artifact replay measures repeated calls in one process, live and peak allocations, allocation traffic, RSS and time. Seeded controls demonstrate that an admitted model with a planted hang or allocation leak still fails the replay watchdog. All fourteen issue artifacts and the measured before/after classifications are preserved in [the replay report](docs/verification/PLASTIC_LP_BUDGET.md).
-
-#### Build plastic replay before script tests
-
-Plastic replay script tests build their real replay example before running, using the same make build target as bounded replay and nightly checks. PR #1888. The build pins the output directory used by the replay scripts, including when Cargo has a target-directory override. All watchdog, certificate and allocation assertions remain active.
-
-#### Publish safety advisories SA-2026-049 through SA-2026-053 (2026-11-09)
-
-Publish the five advisories with the merge timestamps of #1780, #1784 and #1783, their status on stabileo.com after 0.5.0, and matching status notes and summary rows in all six blog languages. Correct SA-2026-051 and its results-change evidence using the pre-fix engine: the inclined fixture gave an axial envelope of [0, +60] kN over axle positions 0, 5 and 10 m, with +30 kN tension at the midpoint, rather than zero (#1874). The corrected envelope is [−30, +30] kN. No engine results change in this documentation update.
+Plastic certificate warnings and resource refusals are translated into every offered language.
 
 #### Complete 0.5.0 release notes in German, French and Turkish (2026-11-08)
 
-The 0.5.0 release notes now have full German, French and Turkish translations,
-including the safety advisory table, re-check instructions, warnings, image text
-and links. Each translation uses the existing blog translation loader and retains
-the English numbers, versions, issue references, advisory IDs and engineering
-identifiers. Regression tests check the translated blocks and safety data against
-English. All six offered languages now cover every blog post.
-
-#### Correct release-note language availability and localized quantities (2026-11-08)
-
-Correct the 0.5.0 release notes in all six languages to say that German, French
-and Turkish are offered again. Use decimal commas for quantities in those three
-translations while preserving release versions, identifiers and links. The
-translation safety comparison now binds signs and units to numeric values and
-rejects changed or missing units and added minus signs, including Unicode minus.
-No calculated engineering results change.
-
-#### Fit translated release notes within search metadata limits (2026-11-08)
-
-Shorten the German, French and Turkish 0.5.0 release titles and the German
-excerpt to fit the published-page search metadata limits. Format integer counts
-with local thousands separators. Regression checks now preserve each advisory's
-row and cell associations, reject swapped magnitudes, compare numeric values
-across local formatting, and check metadata lengths for every de/fr/tr blog post.
-No calculated engineering results change.
-
-#### Ship the bent-strip solver with CI-built sites (2026-11-10)
-
-CI now builds and caches the Fehér, Sipos & Várkonyi research solver alongside the other research bundles, so changing its actuator path can run the live solver instead of failing to load its manifest. Third-party notices include the dependencies resolved by its locked Cargo tree. The gallery smoke test now checks this paper's pending review status, matching the catalogue and unit tests.
-
-The solver equations, recorded results, numerical assertions, and route budgets are unchanged.
-
-#### Restore the Fehér cut-strip branch's web build and gallery budget (2026-11-10)
-
-Regenerate the third-party notices for the locked research browser dependencies. The Fehér shape-control card shares only its localized title and teaser with the article, and the gallery loads only the catalogue summaries it renders, including the cut-strip translations. The shape-control card also shows its own teaser instead of the fracture paper's text.
-
-The measured `/en/research/` footprint falls from 2,019,882 to 1,994,323 bytes, below main's 1,999,211 bytes. No budget, tolerance, baseline or allowance changes.
-
-#### Results-pass inventory includes snapshot gate applicability checks (2026-11-10)
-
-The harness architecture check now expects `applicability-context.test.ts` in the results pass because it checks snapshot gate behaviour against the results corpus. The exact file-list assertion remains enforced. No engine results or numerical tolerances change.
-
-#### Create unique scratch directories for harness self-tests (2026-11-11)
-
-The seeded replay and nightly findings self-tests now create unique temporary directories and clean them up on exit, including assertion failures. They run when `CARGO_TARGET_DIR` points elsewhere and the repository's `target/` directory does not exist. Replay output write errors identify the destination path. No engine results or numerical assertions change.
-
-#### Support-angle validation and rotation consistency (2026-11-09)
-
-Validation and consistency fix: 2D support angles must be finite with magnitude at most 1,000,000 radians; larger inputs are refused with `invalid_support_angle` and a request to give the angle within one turn. Restraint counting, assembly, spring reactions and prescribed translations now share the same angle reduction. Previously, the diagnostic restraint count reduced angles while assembly used the raw angle. Accepted angles (`|angle| <= 1e6` radians) are reduced to one turn with an orientation change of at most about 1.29e-10 radians.
-
-#### Require applicable snapshot registrations and detect weakened benchmarks (2026-11-10)
-
-The results-snapshot gate now requires a new registration to match the opened model, the
-analysis that produced each changed field, and the declared quantities. An unrelated registration
-cannot acknowledge a changed snapshot, including beside an examples-scoped entry.
-
-The benchmark gate now checks Rust consumers of case-file tolerances and detects disabled,
-removed or disconnected benchmark tests relative to base. A weakening needs the
-`tolerance-change` label and a written reason. Seeded good and bad cases cover both gates.
-
-Tighten the loose benchmark checks from #1490 using targeted measurements, per-case Navier
-bounds and explicit uncertainty records. Keep distorted SHB8 accuracy floors and add tight
-regression pins. Correct the legacy elastica test references to the existing audited references.
-No engine results change. See [the tolerance audit](docs/verification/benchmark-tolerances-1490.md).
-
-#### Bound Vitest worker concurrency on shared CI runners
-
-Cap Web Unit and Timing Budgets at two Vitest workers per job, with an optional `VITEST_WORKERS` Makefile knob and unchanged local defaults. Fourteen self-hosted runners share 30 cores: two workers per runner limits their combined Vitest workers to 28 instead of hundreds. Remove the global afterEach event-loop yield, which charged deferred application work to its 10-second hook limit. Keep the targeted in-test yields and resumable candidate search, and preserve the scale model, timing assertions and all timeouts.
-
-#### Keep Web Unit workers responsive inside long hooks and tests
-
-Yield between mesh solves and member checks, share the autodesign fixture solve, resume long design runs between members and settling checks, yield outside each rebar timing sample, split frame and floor preparation for the drawing tests, and reuse the slab reference readings for its indicator assertions. Clear completed analysis-validity results before yielding so deferred certification cannot overrun the existing teardown hook limit. Preserve every test, numerical assertion and timeout.
-
-#### Keep Web Unit workers responsive between synchronous analyses
-
-Yield to the event loop between models in the 3D modal, sway-frame and what-if sweeps and the slab-column reference audit. Clear completed slab-audit fixture results before yielding so their deferred background certification cannot outlive the assertions. This lets workers receive pending progress RPC replies instead of timing out after a sequence of passing synchronous tests. Keep every model, sample, numerical assertion and timeout unchanged.
-
-### Performance
-
-#### Keep the bent-strip article out of the research gallery (2026-11-10)
-
-The Fehér, Sipos & Várkonyi shape-control card now loads only its localized title and teaser; the article dictionaries stay behind the paper route. Catalogue summary bundles include only the papers whose summaries the gallery renders, while the complete translations remain available. The bent-strip card also shows its own teaser instead of the fracture paper's text.
-
-The measured `/en/research/` dependency footprint falls from 2,018,762 to 1,993,203 bytes, below main's 1,999,211 bytes. No route budget, tolerance, baseline or allowance changes.
+The 0.5.0 blog release article is fully translated into German, French and Turkish. Localized metadata, language availability and quantity wording are corrected.
 
 ## 0.5.0 (2026-11-07)
 
@@ -3602,7 +3803,7 @@ member temperature loads (#407, FR-4, SA-2026-019; feature `memberThermalLoads`)
 material-nonlinear yield surface (SA-2026-020) stays out: no screen of the app runs that solver.
 A project solved on 0.3.0 itself also carries version 1 and is shown these entries once more.
 `results-version.test.ts` pins each version's entries, so adding one to a version already on main
-fails, and `docs/verification/PROVENANCE.md` states the rule. The committed `.ded` fixture is
+fails, and `testing/docs/PROVENANCE.md` states the rule. The committed `.ded` fixture is
 restamped at version 2. (Version 2 was taken on main first, by #582 and #597; these entries share
 it — a build stamping 2 already carries the five fixes, so it is never shown them, and a project
 stamped 1 is shown every entry that followed.)
@@ -3690,7 +3891,7 @@ settlements, inclined supports, rigid links, diaphragms, equal-DOF, eccentric co
 MPCs, nodal, distributed, point and thermal loads; shells, connectors, curved beams and
 warping are reported out of scope. Every fixture and 350 stable random frames agree and are
 certified end to end; planted assembly bugs make it fail. Lean: `Certify.end_to_end_bound`.
-Docs: `docs/verification/CERTIFY.md`, "End-to-end certificates".
+Docs: `testing/docs/CERTIFY.md`, "End-to-end certificates".
 
 Found by it (pinned in `engine/tests/certify_end_to_end_findings.rs`): 3D diaphragms in the
 XZ plane tied the slaves with the rotation of the wrong sign (since fixed, #342); in 2D a nodal
@@ -3704,7 +3905,7 @@ certifies a model that has no solution.
 **Results move in the last bits:** the engine now iterates its inputs in a fixed order, so a model
 solves to the same bits every time; before, two solves of the same model in one session could
 differ in the last digits (2D displacements, equilibrium sums, inclined-support models) and list
-3D plate stresses in a different order. See `docs/verification/PROVENANCE.md`.
+3D plate stresses in a different order. See `testing/docs/PROVENANCE.md`.
 
 - `web/src/lib/provenance/result-changes.json`: machine-readable registry of result-affecting
   changes (results version, model features, en/es/pt explanation, changelog link), seeded with
@@ -3721,7 +3922,7 @@ differ in the last digits (2D displacements, equilibrium sums, inclined-support 
 #### Discretization error: estimated next to every certified shell result (2026-10-18)
 
 Certificates bound the algebraic error of the assembled system, not the mesh error. The engine
-now estimates the second one, and never presents it as certified (docs/verification/DISCRETIZATION.md).
+now estimates the second one, and never presents it as certified (testing/docs/DISCRETIZATION.md).
 
 - `engine/src/postprocess/discretization/`: Zienkiewicz–Zhu estimator with superconvergent
   patch recovery for DKT, MITC4, MITC9, curved shells and SHB8 solid-shells (element and global
@@ -3753,7 +3954,7 @@ now estimates the second one, and never presents it as certified (docs/verificat
 **BREAKING (results): cold-formed columns, steel columns braced about their weak axis, masonry
 walls and partially grouted masonry shear walls get lower (correct) strengths; cold-formed
 compression without `xo` is reported unevaluated.** Examples, sources and discrepancies in
-`docs/verification/DESIGN_EXAMPLES.md` (D18–D31); tests in `engine/tests/design_worked_examples_2.rs`.
+`testing/docs/DESIGN_EXAMPLES.md` (D18–D31); tests in `engine/tests/design_worked_examples_2.rs`.
 
 - `cfs_check`: flexural-torsional buckling (AISI S100 E2.2) from the new `xo`, `kx_lx`, `kt_lt`.
   It was weak-axis flexural buckling only: AISI Design Manual Ex. III-3 gave Pn = 10.4 against
@@ -4361,7 +4562,7 @@ a hand-kept copy of the 2D assembler that had drifted from the dense and linear 
 with warping members (`cw` set) — static, buckling and modal — solve differently.** Found by
 deriving the frame-family element matrices from shape functions and energy in SymPy and comparing
 the Rust kernels exactly (`tools/symbolic/`, `engine/tests/symbolic_elements.rs`,
-`docs/verification/SYMBOLIC.md`); each fix has a regression test.
+`testing/docs/SYMBOLIC.md`); each fix has a regression test.
 
 - **The 2D geometric stiffness ignored hinges.** A hinged rotation kept the fixed-fixed −4PL/30,
   held only by the solver's artificial rotational stiffness, so a plane frame with a pin-ended
@@ -4424,7 +4625,7 @@ regression test in `engine/tests/opensees_differential_regressions.rs`.
 supports, 3D modal, buckling, harmonic and reduction analyses of models with curved beams, and
 regularized sparse 3D solves solve differently.** Each was found by
 `engine/tests/assembly_paths.rs`, which compares every path that assembles the same K, load
-vector, M or K_G entry by entry (`docs/verification/ASSEMBLY.md`), and each has a regression
+vector, M or K_G entry by entry (`testing/docs/ASSEMBLY.md`), and each has a regression
 test there.
 
 - **The sparse 3D assemblers took the largest diagonal over the free DOFs only.** The dense
@@ -4547,7 +4748,7 @@ inputs needed to compute them safely are absent.**
 CIRSOC 301 noncompact/slender I-girders, CIRSOC 301 lateral-torsional buckling and EC3
 members in compression plus bending give lower capacities.** These were the unsafe
 disagreements left open by the published-example verification
-(`docs/verification/DESIGN_EXAMPLES.md`, D5, D6, D8, D11); each example is now a regression test.
+(`testing/docs/DESIGN_EXAMPLES.md`, D5, D6, D8, D11); each example is now a regression test.
 
 - **Weld groups ignored the end-loaded fillet length reduction β** (AISC 360-22 J2.2b(d),
   CIRSOC 301-2018 §J.2.2(b) eq. J.2.1). AISC Example J.1 (two 27 in. runs of a 3/16 in.
@@ -4596,7 +4797,7 @@ disagreements left open by the published-example verification
 **BREAKING (results): CIRSOC 201 shear, CIRSOC 301 web shear, doubly reinforced ACI 318 / CIRSOC 201 flexure,
 AISC flexure of sections given a flange slenderness, and EC3 strong-axis checks with
 Lb = 0 give different numbers.** Each was found by reproducing a published worked example
-clause by clause (`docs/verification/DESIGN_EXAMPLES.md`,
+clause by clause (`testing/docs/DESIGN_EXAMPLES.md`,
 `engine/tests/design_worked_examples.rs`), and each example is now a regression test.
 
 - **AISC F3/F6.2 flange local buckling was not implemented.** Every W-shape was treated as
@@ -4734,7 +4935,7 @@ they now solve the model as given or refuse it with an error that names the feat
 it is.** `engine/tests/feature_matrix.rs` runs every (feature, analysis) pair on a small model
 where the feature matters and compares it with the same structure expressed without the
 feature, an analytical value or the linear solution; the result is in
-[`docs/verification/FEATURE_MATRIX.md`](docs/verification/FEATURE_MATRIX.md), and the test fails
+[`testing/docs/FEATURE_MATRIX.md`](testing/docs/FEATURE_MATRIX.md), and the test fails
 when the file drifts or when a cell is silently ignored or wrong without a branch fixing it.
 
 Now supported (results change):
@@ -4788,7 +4989,7 @@ Now refused by name (previously solved without the feature):
 **BREAKING (results): asymmetric sections wound clockwise, the shear centre, shear areas and
 warping constant of sections with a product of inertia, thin-walled J, bolt bearing, long
 end-loaded welds, and models using the IRAM steels or the concrete/aluminium presets solve or
-check differently.** Each was found by `docs/verification/SECTIONS_CONNECTIONS.md` and has a
+check differently.** Each was found by `testing/docs/SECTIONS_CONNECTIONS.md` and has a
 regression test.
 
 - **Product of inertia ignored the winding.** `analyze_section` fixed the sign of `Iy`/`Iz`
@@ -4848,7 +5049,7 @@ regression test.
 
 **BREAKING (results): generated combinations, seismic weights and wind roof pressures change.**
 Every load table and combination rule was re-read from the official texts and checked against
-published worked examples where any exist (`docs/verification/LOADS.md`). The errors found
+published worked examples where any exist (`testing/docs/LOADS.md`). The errors found
 were all unsafe, and each has a regression test.
 
 - **Combinations with companion loads not acting were never generated.** CIRSOC 101-2025
@@ -4929,7 +5130,7 @@ constraint slave sits on a support, solve differently in every analysis.**
 
 #### Fixes found by fuzzing the WASM entry points (2026-10-17)
 
-Found by the cargo-fuzz targets in `engine/fuzz` (`docs/verification/FUZZ_MUTANTS.md`),
+Found by the cargo-fuzz targets in `engine/fuzz` (`testing/docs/FUZZ_MUTANTS.md`),
 each with a regression test.
 
 - **Several supports on one node double-counted its reaction.** Linear 2D/3D results listed
@@ -4972,7 +5173,7 @@ each with a regression test.
 **BREAKING (results): models with Timoshenko members under member loads, plastic analyses,
 HHT-α time histories, spectral member forces, harmonic responses, partial distributed loads,
 2D truss axial point loads and 2D spring rollers solve differently.** Each was found by a
-certificate disagreeing with the solver (`docs/verification/CERTIFY.md`) or by the
+certificate disagreeing with the solver (`testing/docs/CERTIFY.md`) or by the
 comparison against OpenSees (`tools/opensees/`), and each has a regression test.
 
 - **Timoshenko members used Euler–Bernoulli fixed-end forces.** Members with shear areas
@@ -5302,8 +5503,8 @@ was missed), spectral, harmonic, P-Delta, plastic collapse (2D and 3D, exact rat
 and time integration. Their soundness is proved in Lean (`verify/`), and a verified Lean
 checker re-checks exported certificate bundles. The web shows the certificates beside the
 results. Kani proves the element kernels, interval rounding and sparse index code
-(`docs/verification/KANI.md`); `scripts/kani-safe.sh` runs the harnesses one at a time
-under a memory watchdog. See `docs/verification/CERTIFY.md`.
+(`testing/docs/KANI.md`); `scripts/kani-safe.sh` runs the harnesses one at a time
+under a memory watchdog. See `testing/docs/CERTIFY.md`.
 
 #### Step 4 runtime gates and CI improvements (2026-04-19)
 

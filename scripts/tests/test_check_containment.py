@@ -89,7 +89,7 @@ class ContainmentTests(unittest.TestCase):
         self.assertIn('unbalancedparentheses,Batuis', (Path(__file__).parents[1] / 'check-containment.py').read_text())
 
     def test_repository_ledger(self):
-        self.assertTrue(m.decisions((Path(__file__).parents[2] / 'docs/verification/CONTAINMENT.md').read_text()))
+        self.assertTrue(m.decisions((Path(__file__).parents[2] / 'testing/docs/CONTAINMENT.md').read_text()))
 
     def test_the_refusal_bypass_exists_only_in_the_engines_unit_test_build(self):
         root = Path(__file__).parents[2]

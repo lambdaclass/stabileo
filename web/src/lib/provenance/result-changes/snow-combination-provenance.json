@@ -1,0 +1,41 @@
+{
+  "id": "snow-combination-provenance",
+  "date": "2026-11-16",
+  "prs": [
+    2233
+  ],
+  "area": "loads",
+  "when": {
+    "all": [
+      "snow"
+    ]
+  },
+  "quantities": [
+    "*"
+  ],
+  "title": {
+    "en": "Validate snow provenance and ungrouped pairs",
+    "es": "Validar la procedencia de nieve y los pares sin grupo",
+    "pt": "Validar a origem da neve e os pares sem grupo",
+    "de": "Schneeherkunft und Paare ohne Gruppe prüfen",
+    "fr": "Valider la provenance de la neige et les paires sans groupe",
+    "tr": "Kar kökenini ve gruplandırılmamış çiftleri doğrulama",
+    "zh": "验证雪荷载来源和未分组的荷载对",
+    "hu": "A hóteher eredetének és a csoport nélküli pároknak az ellenőrzése"
+  },
+  "explanation": {
+    "en": "Legacy seismic snow remains ambiguous when E is not acting. Regenerate snow combinations to separate physical snow from flat-roof snow, then rerun analyses and checks. A complete single ungrouped physical/flat-roof pair is now accepted; ambiguous independent actions still refuse. (#2211, #2233).",
+    "es": "La nieve sísmica antigua sigue siendo ambigua cuando E no actúa. Regenere las combinaciones de nieve para separar la nieve física de la de cubierta plana y repita los análisis y verificaciones. Ahora se acepta un único par completo sin grupo; las acciones independientes ambiguas siguen rechazándose. (#2211, #2233).",
+    "pt": "A neve sísmica antiga continua ambígua quando E não atua. Gere novamente as combinações de neve para separar a neve física da neve de cobertura plana e repita as análises e verificações. Um único par completo sem grupo agora é aceito; ações independentes ambíguas continuam recusadas. (#2211, #2233).",
+    "de": "Alte Erdbeben-Schneekombinationen bleiben mehrdeutig, wenn E nicht wirkt. Schneekombinationen neu erzeugen, um physischen Schnee und Flachdachschnee zu trennen; danach Analysen und Nachweise wiederholen. Ein einzelnes vollständiges Paar ohne Gruppe wird akzeptiert; mehrdeutige unabhängige Einwirkungen werden weiterhin abgelehnt. (#2211, #2233).",
+    "fr": "Les anciennes combinaisons sismiques de neige restent ambiguës lorsque E est absent. Régénérez les combinaisons pour séparer la neige physique de la neige de toiture plate, puis relancez analyses et vérifications. Une paire unique complète sans groupe est acceptée ; les actions indépendantes ambiguës restent refusées. (#2211, #2233).",
+    "tr": "E etkisi yokken eski deprem kar birleşimleri belirsiz kalır. Fiziksel karı düz çatı karından ayırmak için kar birleşimlerini yeniden üretin, ardından analizleri ve kontrolleri tekrarlayın. Gruplandırılmamış tek bir tam çift artık kabul edilir; belirsiz bağımsız etkiler reddedilmeye devam eder. (#2211, #2233).",
+    "zh": "当 E 不作用时，旧版地震雪荷载仍不明确。请重新生成雪荷载组合，以区分实际雪荷载与平屋面雪荷载，然后重新运行分析和验算。完整的单一未分组实际/平屋面荷载对现在会被接受；不明确的独立作用仍会被拒绝。（#2211，#2233）。",
+    "hu": "A régi földrengési hókombinációk E hiányában is többértelműek. Generálja újra a hókombinációkat a fizikai és a lapos tető hóterhének elkülönítéséhez, majd ismételje meg az analíziseket és ellenőrzéseket. Egyetlen teljes, csoport nélküli pár elfogadható; a többértelmű független hatások továbbra is elutasításra kerülnek. (#2211, #2233)."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-snow-combination-provenance.md",
+    "heading": "Validate snow provenance and ungrouped pairs"
+  },
+  "requiresLoadRegeneration": true
+}

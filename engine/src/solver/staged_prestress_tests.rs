@@ -189,6 +189,8 @@ fn staged_review_numeric_nonfinite_solutions_are_refused() {
                     &f,
                     &f,
                     &f,
+                    &[],
+                    &[],
                     sparse,
                     &mut None,
                     &mut None,
@@ -220,24 +222,17 @@ fn round4_reaction_check(prestress_only: bool) {
                 }
                 let stage = stage(profile, force);
                 let dof = DofNumbering::build_2d(&input);
-                let sparse = assemble_staged_2d_triplets(&input, &dof, &stage);
                 let dense = assemble_staged_2d(&input, &dof, &stage);
-                let k_full =
-                    CscMatrix::from_triplets(dof.n_total, &sparse.rows, &sparse.cols, &sparse.vals);
                 let free: Vec<_> = (0..dof.n_free).collect();
                 let mut kff = extract_submatrix(&dense.k, dof.n_total, &free, &free);
                 let uf = cholesky_solve(&mut kff, &dense.f[..dof.n_free], dof.n_free).unwrap();
                 let mut u = vec![0.0; dof.n_total];
                 u[..dof.n_free].copy_from_slice(&uf);
-                let r = sparse.cumulative_reactions(&k_full, &input, &stage, &dof, &u);
-                let expected = compute_stage_reactions_vec(
-                    &dense,
-                    dof.n_total,
-                    dof.n_free,
-                    dof.n_total - dof.n_free,
-                    &u,
-                    &vec![0.0; dof.n_total - dof.n_free],
-                );
+                let r = physical_recovery::recover(
+                    physical_recovery::StageModel::Plane(&input, &stage), &dof, &u,
+                ).as_slice().to_vec();
+                let expected: Vec<_> = mat_vec(&dense.k, &u, dof.n_total).iter().zip(&dense.f)
+                    .map(|(ku, f)| ku - f).collect();
                 close(&r, &expected);
                 let independent = equivalent(&input, &stage);
                 let asm = super::super::assembly::without_artificial_stiffness(|| {
@@ -247,6 +242,7 @@ fn round4_reaction_check(prestress_only: bool) {
                 for (r, f) in full_r.iter_mut().zip(&dense.f) {
                     *r -= f;
                 }
+                let r = &r[dof.n_free..];
                 full_r[dof.n_free..].copy_from_slice(&r);
                 for it in &asm.inclined_transforms_2d {
                     super::super::assembly::reverse_inclined_transform_2d(
@@ -302,7 +298,7 @@ fn staged_final_zero_stiffness_uses_accumulated_load() {
                 let solve = |increment: f64, applied: f64| solve_stage_free(
                     &k, &dof, None, true, &connected, &[],
                     &super::super::stability::ReleasedRotations::default(),
-                    &[increment * force_scale], &[increment * force_scale], &[applied * force_scale], sparse, &mut None, &mut None,
+                    &[increment * force_scale], &[increment * force_scale], &[applied * force_scale], &[], &[], sparse, &mut None, &mut None,
                 );
                 let u = solve(-1.0, 0.0).unwrap();
                 close(&u, &[if stiffness == 0.0 { 0.0 } else { -1.0 / stiffness }]);
@@ -339,7 +335,7 @@ fn staged_round8_multiple_null_rotations_keep_supported_loads() {
             let u = solve_stage_free(
                 &k, &dof, None, false, &HashSet::from([1,2]), &[],
                 &super::super::stability::ReleasedRotations::default(),
-                &increment, &increment, &applied, sparse, &mut None, &mut None,
+                &increment, &increment, &applied, &[], &[], sparse, &mut None, &mut None,
             ).unwrap();
             close(&u, &expected);
         }
@@ -360,7 +356,7 @@ fn staged_round8_projection_preserves_prescribed_drive_and_positive_stiffness() 
         let driven = solve_stage_free(
             &oblique, &dof, None, false, &HashSet::from([1,2]), &[],
             &super::super::stability::ReleasedRotations::default(),
-            &[-1.0,-1.0,0.0], &[0.0;3], &[0.0;3], sparse, &mut None, &mut None,
+            &[-1.0,-1.0,0.0], &[0.0;3], &[0.0;3], &[], &[], sparse, &mut None, &mut None,
         );
         assert!(driven.unwrap_err().contains("rotation"));
         let tiny = 1e-13;
@@ -368,7 +364,7 @@ fn staged_round8_projection_preserves_prescribed_drive_and_positive_stiffness() 
         let loaded = solve_stage_free(
             &unresolved, &dof, None, false, &HashSet::from([1,2]), &[],
             &super::super::stability::ReleasedRotations::default(),
-            &[-1.0,-1.0,0.0], &[-1.0,-1.0,0.0], &[0.0;3], sparse, &mut None, &mut None,
+            &[-1.0,-1.0,0.0], &[-1.0,-1.0,0.0], &[0.0;3], &[], &[], sparse, &mut None, &mut None,
         );
         assert!(loaded.unwrap_err().contains("rotation"));
         for stiffness in [-1e-30, 0.0, 1e-30, 1e-13, 1e-11, 1.0] {
@@ -377,7 +373,7 @@ fn staged_round8_projection_preserves_prescribed_drive_and_positive_stiffness() 
             let solve = |applied: &[f64]| solve_stage_free(
                 &k, &dof, None, false, &HashSet::from([1,2]), &[],
                 &super::super::stability::ReleasedRotations::default(),
-                &[-force_scale,0.0,0.0], &applied.iter().map(|x| x * force_scale).collect::<Vec<_>>(), &[0.0;3], sparse, &mut None, &mut None,
+                &[-force_scale,0.0,0.0], &applied.iter().map(|x| x * force_scale).collect::<Vec<_>>(), &[0.0;3], &[], &[], sparse, &mut None, &mut None,
             );
             if stiffness == 0.0 {
                 close(&solve(&[-1.0,0.0,0.0]).unwrap(), &[0.0;3]);
@@ -400,7 +396,7 @@ fn staged_round8_null_witness_does_not_round_away_positive_stiffness() {
     let k = CscMatrix::from_dense_symmetric_exact(&[large,1.0,-large,1.0,large,-large,-large,-large,2.0*large], 3);
     let direction = super::super::stability::FreeDirection {
         node: 2, kind: super::super::stability::DofKind::Rotation, moves_translation: false,
-        dofs: vec![0,1,2], direction: vec![1.0;3], scale: large, coupling: Vec::new(),
+        dofs: vec![0,1,2], direction: vec![1.0;3], direction_rounding: vec![0.0;3], scale: large, coupling: Vec::new(),
     };
     assert_eq!(k.sym_mat_vec(&direction.direction), vec![0.0;3]);
     assert!(!annihilates_rotation(&k, &direction));
@@ -486,9 +482,16 @@ fn staged_round7_inclined_disconnected_tangent_load() {
                     assert!(error.contains("translation") || error.contains("mechanism"), "{error}");
                 } else {
                     let result = result.unwrap();
-                    let r = result.final_results.reactions.iter().find(|r| r.node_id == 2).unwrap();
-                    round7_close(r.rx, 0.0);
-                    round7_close(r.rz, -fz);
+                    if pads == 0 {
+                        assert!(result.final_results.reactions.is_empty());
+                        assert!(result.final_results.element_forces.is_empty());
+                        assert!(result.final_results.constraint_forces.is_empty());
+                        assert!(result.final_results.structured_diagnostics.iter().any(|d| d.code == DiagnosticCode::ResultQuantityUnavailable && d.phase.as_deref() == Some("stageResults")));
+                    } else {
+                        let r = result.final_results.reactions.iter().find(|r| r.node_id == 2).unwrap();
+                        round7_close(r.rx, 0.0);
+                        round7_close(r.rz, -fz);
+                    }
                 }
             }
         }

@@ -1,0 +1,2058 @@
+{
+  "mainSource": "8e5c026b7125f920c7a29141aa375c98c178f9b3",
+  "branchParent": "797452d93",
+  "testSource": "web/src/lib/engine/__tests__/issue-2142-torsion.test.ts",
+  "mainSourceFilesSha256": {
+    "web/src/lib/codes/cirsoc201/torsion.ts": "b3e6e4e50a794c253be1c2b82448922d2dbe13b3496bd22160d828b0e0ceee99",
+    "web/src/lib/engine/codes/argentina/cirsoc201.ts": "80fd2eb43536d9cf11688e5b5407b453a2ab95291ac0992ba7caf81e57d8211f",
+    "web/src/lib/engine/concurrent-verification.ts": "b9e115f4645711202a847b95f0b196454c7c79755bae080c879ce99c4aa0a7fd",
+    "web/src/lib/engine/station-design-forces.ts": "0ce3d33c64c399de514e0678de85694303bc80b8997431f39b42516fce7ac32b"
+  },
+  "fixedSourceFilesSha256": {
+    "web/src/lib/codes/cirsoc201/torsion.ts": "b440ebfae87d776416bf6f952f9873d1b5721ba55a73ecdc075ab864d2568d18",
+    "web/src/lib/engine/codes/argentina/cirsoc201.ts": "4c412434afd896d0dac4efc63d58655016dade3676a4d786ba57c2bdcfb9003c",
+    "web/src/lib/engine/concurrent-verification.ts": "1571ea12957c55ee230033d26507809c8d49fe4c17eaa3e82b7e3db1e9ed0509",
+    "web/src/lib/engine/station-design-forces.ts": "69092ac045f9def39e38a849e7839f285ec75c9f1f47cb3da4f18848f3e26420"
+  },
+  "notes": [
+    "Source replay with the initialized current WASM kernels; no historical binary claim.",
+    "The independent section ratio is recorded even when the absent cage makes overall torsion utilization infinite.",
+    "The nominal section stirrup diameter defines the section geometry when stirrups are absent."
+  ],
+  "before": [
+    {
+      "label": "negligible control",
+      "edition": "2005",
+      "axis": "My",
+      "torque": 5.602443975000001,
+      "layout": "none",
+      "oracle": {
+        "sectionRatio": 0.09650192887180604,
+        "phiTn": 58.05525382235969,
+        "ratio": 0.09650192887180604
+      },
+      "result": {
+        "overallStatus": "ok",
+        "checkedAxes": [
+          "My"
+        ],
+        "torsionChecks": []
+      }
+    },
+    {
+      "label": "neglect boundary without stirrups",
+      "edition": "2005",
+      "axis": "My",
+      "torque": 5.602500000000001,
+      "layout": "none",
+      "oracle": {
+        "sectionRatio": 0.09650289390074505,
+        "phiTn": 58.05525382235969,
+        "ratio": 0.09650289390074505
+      },
+      "result": {
+        "overallStatus": "ok",
+        "checkedAxes": [
+          "My"
+        ],
+        "torsionChecks": []
+      }
+    },
+    {
+      "label": "non-negligible torque without stirrups",
+      "edition": "2005",
+      "axis": "My",
+      "torque": 30,
+      "layout": "none",
+      "oracle": {
+        "sectionRatio": 0.5167490971927445,
+        "phiTn": 58.05525382235969,
+        "ratio": 0.5167490971927445
+      },
+      "result": {
+        "overallStatus": "ok",
+        "checkedAxes": [
+          "My"
+        ],
+        "torsionChecks": []
+      }
+    },
+    {
+      "label": "exceeded section without stirrups",
+      "edition": "2005",
+      "axis": "My",
+      "torque": 58.11330907618204,
+      "layout": "none",
+      "oracle": {
+        "sectionRatio": 1.001,
+        "phiTn": 58.05525382235969,
+        "ratio": 1.001
+      },
+      "result": {
+        "overallStatus": "ok",
+        "checkedAxes": [
+          "My"
+        ],
+        "torsionChecks": []
+      }
+    },
+    {
+      "label": "adequate cage control",
+      "edition": "2005",
+      "axis": "My",
+      "torque": 30,
+      "layout": "all",
+      "oracle": {
+        "sectionRatio": 0.5167490971927445,
+        "phiTn": 58.05525382235969,
+        "ratio": 0.5167490971927445
+      },
+      "result": {
+        "overallStatus": "ok",
+        "checkedAxes": [
+          "My"
+        ],
+        "torsionChecks": []
+      }
+    },
+    {
+      "label": "negligible control",
+      "edition": "2005",
+      "axis": "Mz",
+      "torque": 5.602443975000001,
+      "layout": "none",
+      "oracle": {
+        "sectionRatio": 0.09650192887180604,
+        "phiTn": 58.05525382235969,
+        "ratio": 0.09650192887180604
+      },
+      "result": {
+        "overallStatus": "ok",
+        "checkedAxes": [
+          "Mz"
+        ],
+        "torsionChecks": []
+      }
+    },
+    {
+      "label": "neglect boundary without stirrups",
+      "edition": "2005",
+      "axis": "Mz",
+      "torque": 5.602500000000001,
+      "layout": "none",
+      "oracle": {
+        "sectionRatio": 0.09650289390074505,
+        "phiTn": 58.05525382235969,
+        "ratio": 0.09650289390074505
+      },
+      "result": {
+        "overallStatus": "ok",
+        "checkedAxes": [
+          "Mz"
+        ],
+        "torsionChecks": []
+      }
+    },
+    {
+      "label": "non-negligible torque without stirrups",
+      "edition": "2005",
+      "axis": "Mz",
+      "torque": 30,
+      "layout": "none",
+      "oracle": {
+        "sectionRatio": 0.5167490971927445,
+        "phiTn": 58.05525382235969,
+        "ratio": 0.5167490971927445
+      },
+      "result": {
+        "overallStatus": "ok",
+        "checkedAxes": [
+          "Mz"
+        ],
+        "torsionChecks": []
+      }
+    },
+    {
+      "label": "exceeded section without stirrups",
+      "edition": "2005",
+      "axis": "Mz",
+      "torque": 58.11330907618204,
+      "layout": "none",
+      "oracle": {
+        "sectionRatio": 1.001,
+        "phiTn": 58.05525382235969,
+        "ratio": 1.001
+      },
+      "result": {
+        "overallStatus": "ok",
+        "checkedAxes": [
+          "Mz"
+        ],
+        "torsionChecks": []
+      }
+    },
+    {
+      "label": "adequate cage control",
+      "edition": "2005",
+      "axis": "Mz",
+      "torque": 30,
+      "layout": "all",
+      "oracle": {
+        "sectionRatio": 0.5167490971927445,
+        "phiTn": 58.05525382235969,
+        "ratio": 0.5167490971927445
+      },
+      "result": {
+        "overallStatus": "ok",
+        "checkedAxes": [
+          "Mz"
+        ],
+        "torsionChecks": []
+      }
+    },
+    {
+      "label": "negligible control",
+      "edition": "2025",
+      "axis": "My",
+      "torque": 5.602443975000001,
+      "layout": "none",
+      "oracle": {
+        "sectionRatio": 0.09650192887180604,
+        "phiTn": 58.05525382235969,
+        "ratio": 0.09650192887180604
+      },
+      "result": {
+        "overallStatus": "ok",
+        "checkedAxes": [
+          "My"
+        ],
+        "torsionChecks": []
+      }
+    },
+    {
+      "label": "neglect boundary without stirrups",
+      "edition": "2025",
+      "axis": "My",
+      "torque": 5.602500000000001,
+      "layout": "none",
+      "oracle": {
+        "sectionRatio": 0.09650289390074505,
+        "phiTn": 58.05525382235969,
+        "ratio": 0.09650289390074505
+      },
+      "result": {
+        "overallStatus": "ok",
+        "checkedAxes": [
+          "My"
+        ],
+        "torsionChecks": []
+      }
+    },
+    {
+      "label": "non-negligible torque without stirrups",
+      "edition": "2025",
+      "axis": "My",
+      "torque": 30,
+      "layout": "none",
+      "oracle": {
+        "sectionRatio": 0.5167490971927445,
+        "phiTn": 58.05525382235969,
+        "ratio": 0.5167490971927445
+      },
+      "result": {
+        "overallStatus": "ok",
+        "checkedAxes": [
+          "My"
+        ],
+        "torsionChecks": []
+      }
+    },
+    {
+      "label": "exceeded section without stirrups",
+      "edition": "2025",
+      "axis": "My",
+      "torque": 58.11330907618204,
+      "layout": "none",
+      "oracle": {
+        "sectionRatio": 1.001,
+        "phiTn": 58.05525382235969,
+        "ratio": 1.001
+      },
+      "result": {
+        "overallStatus": "ok",
+        "checkedAxes": [
+          "My"
+        ],
+        "torsionChecks": []
+      }
+    },
+    {
+      "label": "adequate cage control",
+      "edition": "2025",
+      "axis": "My",
+      "torque": 30,
+      "layout": "all",
+      "oracle": {
+        "sectionRatio": 0.5167490971927445,
+        "phiTn": 58.05525382235969,
+        "ratio": 0.5167490971927445
+      },
+      "result": {
+        "overallStatus": "ok",
+        "checkedAxes": [
+          "My"
+        ],
+        "torsionChecks": []
+      }
+    },
+    {
+      "label": "negligible control",
+      "edition": "2025",
+      "axis": "Mz",
+      "torque": 5.602443975000001,
+      "layout": "none",
+      "oracle": {
+        "sectionRatio": 0.09650192887180604,
+        "phiTn": 58.05525382235969,
+        "ratio": 0.09650192887180604
+      },
+      "result": {
+        "overallStatus": "ok",
+        "checkedAxes": [
+          "Mz"
+        ],
+        "torsionChecks": []
+      }
+    },
+    {
+      "label": "neglect boundary without stirrups",
+      "edition": "2025",
+      "axis": "Mz",
+      "torque": 5.602500000000001,
+      "layout": "none",
+      "oracle": {
+        "sectionRatio": 0.09650289390074505,
+        "phiTn": 58.05525382235969,
+        "ratio": 0.09650289390074505
+      },
+      "result": {
+        "overallStatus": "ok",
+        "checkedAxes": [
+          "Mz"
+        ],
+        "torsionChecks": []
+      }
+    },
+    {
+      "label": "non-negligible torque without stirrups",
+      "edition": "2025",
+      "axis": "Mz",
+      "torque": 30,
+      "layout": "none",
+      "oracle": {
+        "sectionRatio": 0.5167490971927445,
+        "phiTn": 58.05525382235969,
+        "ratio": 0.5167490971927445
+      },
+      "result": {
+        "overallStatus": "ok",
+        "checkedAxes": [
+          "Mz"
+        ],
+        "torsionChecks": []
+      }
+    },
+    {
+      "label": "exceeded section without stirrups",
+      "edition": "2025",
+      "axis": "Mz",
+      "torque": 58.11330907618204,
+      "layout": "none",
+      "oracle": {
+        "sectionRatio": 1.001,
+        "phiTn": 58.05525382235969,
+        "ratio": 1.001
+      },
+      "result": {
+        "overallStatus": "ok",
+        "checkedAxes": [
+          "Mz"
+        ],
+        "torsionChecks": []
+      }
+    },
+    {
+      "label": "adequate cage control",
+      "edition": "2025",
+      "axis": "Mz",
+      "torque": 30,
+      "layout": "all",
+      "oracle": {
+        "sectionRatio": 0.5167490971927445,
+        "phiTn": 58.05525382235969,
+        "ratio": 0.5167490971927445
+      },
+      "result": {
+        "overallStatus": "ok",
+        "checkedAxes": [
+          "Mz"
+        ],
+        "torsionChecks": []
+      }
+    }
+  ],
+  "after": [
+    {
+      "label": "negligible control",
+      "edition": "2005",
+      "axis": "My",
+      "torque": 5.602443975000001,
+      "layout": "none",
+      "oracle": {
+        "sectionRatio": 0.09650192887180604,
+        "phiTn": 58.05525382235969,
+        "ratio": 0.09650192887180604
+      },
+      "result": {
+        "overallStatus": "ok",
+        "checkedAxes": [
+          "My"
+        ],
+        "torsionChecks": []
+      }
+    },
+    {
+      "label": "neglect boundary without stirrups",
+      "edition": "2005",
+      "axis": "My",
+      "torque": 5.602500000000001,
+      "layout": "none",
+      "oracle": {
+        "sectionRatio": 0.09650289390074505,
+        "phiTn": 58.05525382235969,
+        "ratio": 0.09650289390074505
+      },
+      "result": {
+        "overallStatus": "fail",
+        "checkedAxes": [
+          "My",
+          "T"
+        ],
+        "torsionChecks": [
+          {
+            "category": "Torsion Support (Vz)",
+            "demandCategory": null,
+            "demand": 5.6,
+            "capacity": 0,
+            "unit": "kN·m",
+            "method": "capacity",
+            "tuplesChecked": 2,
+            "regionRange": [
+              0,
+              0.25
+            ],
+            "description": "no stirrups provided in this region — §22.7: Tu=5.6 > φTth=5.6 kN·m; sección 0.10; (Av+2At)/s 2.50 de 0.00 cm²/m; s ≤ 19.6 cm; Al 7.04 cm²",
+            "comboName": "pure torque",
+            "stationX": 0,
+            "limiting": "torsion",
+            "missingReinforcement": true,
+            "ratio": "Infinity",
+            "status": "fail"
+          },
+          {
+            "category": "Torsion Al Support (Vz)",
+            "demandCategory": null,
+            "required": 4.57,
+            "provided": 8.04,
+            "unit": "cm²",
+            "method": "area",
+            "tuplesChecked": 2,
+            "regionRange": [
+              0,
+              0.25
+            ],
+            "description": "Al=7.04 cm² (Al,min §9.6.4.3, Tu=5.6 ≥ φTth=5.6 kN·m) sobre As de flexión ≈ 1.05 cm²; cara inferior: 4.57 de 8.04 cm² (Al/2 por cara)",
+            "comboName": "pure torque",
+            "stationX": 0,
+            "limiting": "torsion",
+            "ratio": 0.568,
+            "status": "ok"
+          },
+          {
+            "category": "Torsion Span (Vz)",
+            "demandCategory": null,
+            "demand": 5.6,
+            "capacity": 0,
+            "unit": "kN·m",
+            "method": "capacity",
+            "tuplesChecked": 1,
+            "regionRange": [
+              0.25,
+              0.75
+            ],
+            "description": "no stirrups provided in this region — §22.7: Tu=5.6 > φTth=5.6 kN·m; sección 0.10; (Av+2At)/s 2.50 de 0.00 cm²/m; s ≤ 19.6 cm; Al 7.04 cm²",
+            "comboName": "pure torque",
+            "stationX": 3,
+            "limiting": "torsion",
+            "missingReinforcement": true,
+            "ratio": "Infinity",
+            "status": "fail"
+          },
+          {
+            "category": "Torsion Al Span (Vz)",
+            "demandCategory": null,
+            "required": 4.57,
+            "provided": 8.04,
+            "unit": "cm²",
+            "method": "area",
+            "tuplesChecked": 1,
+            "regionRange": [
+              0.25,
+              0.75
+            ],
+            "description": "Al=7.04 cm² (Al,min §9.6.4.3, Tu=5.6 ≥ φTth=5.6 kN·m) sobre As de flexión ≈ 1.05 cm²; cara inferior: 4.57 de 8.04 cm² (Al/2 por cara)",
+            "comboName": "pure torque",
+            "stationX": 3,
+            "limiting": "torsion",
+            "ratio": 0.568,
+            "status": "ok"
+          }
+        ]
+      }
+    },
+    {
+      "label": "non-negligible torque without stirrups",
+      "edition": "2005",
+      "axis": "My",
+      "torque": 30,
+      "layout": "none",
+      "oracle": {
+        "sectionRatio": 0.5167490971927445,
+        "phiTn": 58.05525382235969,
+        "ratio": 0.5167490971927445
+      },
+      "result": {
+        "overallStatus": "fail",
+        "checkedAxes": [
+          "My",
+          "T"
+        ],
+        "torsionChecks": [
+          {
+            "category": "Torsion Support (Vz)",
+            "demandCategory": null,
+            "demand": 30,
+            "capacity": 0,
+            "unit": "kN·m",
+            "method": "capacity",
+            "tuplesChecked": 2,
+            "regionRange": [
+              0,
+              0.25
+            ],
+            "description": "no stirrups provided in this region — §22.7: Tu=30.0 > φTth=5.6 kN·m; sección 0.52; (Av+2At)/s 8.54 de 0.00 cm²/m; s ≤ 19.6 cm; Al 6.70 cm²",
+            "comboName": "pure torque",
+            "stationX": 0,
+            "limiting": "torsion",
+            "missingReinforcement": true,
+            "ratio": "Infinity",
+            "status": "fail"
+          },
+          {
+            "category": "Torsion Al Support (Vz)",
+            "demandCategory": null,
+            "required": 4.4,
+            "provided": 8.04,
+            "unit": "cm²",
+            "method": "area",
+            "tuplesChecked": 2,
+            "regionRange": [
+              0,
+              0.25
+            ],
+            "description": "Al=6.70 cm² (§22.7.6.1, Tu=30.0 ≥ φTth=5.6 kN·m) sobre As de flexión ≈ 1.05 cm²; cara inferior: 4.40 de 8.04 cm² (Al/2 por cara)",
+            "comboName": "pure torque",
+            "stationX": 0,
+            "limiting": "torsion",
+            "ratio": 0.547,
+            "status": "ok"
+          },
+          {
+            "category": "Torsion Span (Vz)",
+            "demandCategory": null,
+            "demand": 30,
+            "capacity": 0,
+            "unit": "kN·m",
+            "method": "capacity",
+            "tuplesChecked": 1,
+            "regionRange": [
+              0.25,
+              0.75
+            ],
+            "description": "no stirrups provided in this region — §22.7: Tu=30.0 > φTth=5.6 kN·m; sección 0.52; (Av+2At)/s 8.54 de 0.00 cm²/m; s ≤ 19.6 cm; Al 6.70 cm²",
+            "comboName": "pure torque",
+            "stationX": 3,
+            "limiting": "torsion",
+            "missingReinforcement": true,
+            "ratio": "Infinity",
+            "status": "fail"
+          },
+          {
+            "category": "Torsion Al Span (Vz)",
+            "demandCategory": null,
+            "required": 4.4,
+            "provided": 8.04,
+            "unit": "cm²",
+            "method": "area",
+            "tuplesChecked": 1,
+            "regionRange": [
+              0.25,
+              0.75
+            ],
+            "description": "Al=6.70 cm² (§22.7.6.1, Tu=30.0 ≥ φTth=5.6 kN·m) sobre As de flexión ≈ 1.05 cm²; cara inferior: 4.40 de 8.04 cm² (Al/2 por cara)",
+            "comboName": "pure torque",
+            "stationX": 3,
+            "limiting": "torsion",
+            "ratio": 0.547,
+            "status": "ok"
+          }
+        ]
+      }
+    },
+    {
+      "label": "exceeded section without stirrups",
+      "edition": "2005",
+      "axis": "My",
+      "torque": 58.11330907618204,
+      "layout": "none",
+      "oracle": {
+        "sectionRatio": 1.001,
+        "phiTn": 58.05525382235969,
+        "ratio": 1.001
+      },
+      "result": {
+        "overallStatus": "fail",
+        "checkedAxes": [
+          "My",
+          "T"
+        ],
+        "torsionChecks": [
+          {
+            "category": "Torsion Support (Vz)",
+            "demandCategory": null,
+            "demand": 58.11,
+            "capacity": 0,
+            "unit": "kN·m",
+            "method": "capacity",
+            "tuplesChecked": 2,
+            "regionRange": [
+              0,
+              0.25
+            ],
+            "description": "no stirrups provided in this region — §22.7: Tu=58.1 > φTth=5.6 kN·m; sección 1.00; (Av+2At)/s 16.55 de 0.00 cm²/m; s ≤ 19.6 cm; Al 12.97 cm²",
+            "comboName": "pure torque",
+            "stationX": 0,
+            "limiting": "torsion",
+            "missingReinforcement": true,
+            "ratio": "Infinity",
+            "status": "fail"
+          },
+          {
+            "category": "Torsion Al Support (Vz)",
+            "demandCategory": null,
+            "required": 7.54,
+            "provided": 8.04,
+            "unit": "cm²",
+            "method": "area",
+            "tuplesChecked": 2,
+            "regionRange": [
+              0,
+              0.25
+            ],
+            "description": "Al=12.97 cm² (§22.7.6.1, Tu=58.1 ≥ φTth=5.6 kN·m) sobre As de flexión ≈ 1.05 cm²; cara inferior: 7.54 de 8.04 cm² (Al/2 por cara)",
+            "comboName": "pure torque",
+            "stationX": 0,
+            "limiting": "torsion",
+            "ratio": 0.937,
+            "status": "ok"
+          },
+          {
+            "category": "Torsion Span (Vz)",
+            "demandCategory": null,
+            "demand": 58.11,
+            "capacity": 0,
+            "unit": "kN·m",
+            "method": "capacity",
+            "tuplesChecked": 1,
+            "regionRange": [
+              0.25,
+              0.75
+            ],
+            "description": "no stirrups provided in this region — §22.7: Tu=58.1 > φTth=5.6 kN·m; sección 1.00; (Av+2At)/s 16.55 de 0.00 cm²/m; s ≤ 19.6 cm; Al 12.97 cm²",
+            "comboName": "pure torque",
+            "stationX": 3,
+            "limiting": "torsion",
+            "missingReinforcement": true,
+            "ratio": "Infinity",
+            "status": "fail"
+          },
+          {
+            "category": "Torsion Al Span (Vz)",
+            "demandCategory": null,
+            "required": 7.54,
+            "provided": 8.04,
+            "unit": "cm²",
+            "method": "area",
+            "tuplesChecked": 1,
+            "regionRange": [
+              0.25,
+              0.75
+            ],
+            "description": "Al=12.97 cm² (§22.7.6.1, Tu=58.1 ≥ φTth=5.6 kN·m) sobre As de flexión ≈ 1.05 cm²; cara inferior: 7.54 de 8.04 cm² (Al/2 por cara)",
+            "comboName": "pure torque",
+            "stationX": 3,
+            "limiting": "torsion",
+            "ratio": 0.937,
+            "status": "ok"
+          }
+        ]
+      }
+    },
+    {
+      "label": "adequate cage control",
+      "edition": "2005",
+      "axis": "My",
+      "torque": 30,
+      "layout": "all",
+      "oracle": {
+        "sectionRatio": 0.5167490971927445,
+        "phiTn": 58.05525382235969,
+        "ratio": 0.5167490971927445
+      },
+      "result": {
+        "overallStatus": "ok",
+        "checkedAxes": [
+          "My",
+          "T"
+        ],
+        "torsionChecks": [
+          {
+            "category": "Torsion Support (Vz)",
+            "demandCategory": null,
+            "demand": 30,
+            "capacity": 0,
+            "unit": "kN·m",
+            "method": "capacity",
+            "tuplesChecked": 2,
+            "regionRange": [
+              0,
+              0.25
+            ],
+            "description": "§22.7: Tu=30.0 > φTth=5.6 kN·m; sección 0.52; (Av+2At)/s 8.54 de 40.21 cm²/m; s ≤ 19.6 cm; Al 6.70 cm²",
+            "comboName": "pure torque",
+            "stationX": 0,
+            "limiting": "torsion",
+            "ratio": 0.517,
+            "status": "ok"
+          },
+          {
+            "category": "Torsion Al Support (Vz)",
+            "demandCategory": null,
+            "required": 4.4,
+            "provided": 8.04,
+            "unit": "cm²",
+            "method": "area",
+            "tuplesChecked": 2,
+            "regionRange": [
+              0,
+              0.25
+            ],
+            "description": "Al=6.70 cm² (§22.7.6.1, Tu=30.0 ≥ φTth=5.6 kN·m) sobre As de flexión ≈ 1.05 cm²; cara inferior: 4.40 de 8.04 cm² (Al/2 por cara)",
+            "comboName": "pure torque",
+            "stationX": 0,
+            "limiting": "torsion",
+            "ratio": 0.547,
+            "status": "ok"
+          },
+          {
+            "category": "Torsion Span (Vz)",
+            "demandCategory": null,
+            "demand": 30,
+            "capacity": 0,
+            "unit": "kN·m",
+            "method": "capacity",
+            "tuplesChecked": 1,
+            "regionRange": [
+              0.25,
+              0.75
+            ],
+            "description": "§22.7: Tu=30.0 > φTth=5.6 kN·m; sección 0.52; (Av+2At)/s 8.54 de 40.21 cm²/m; s ≤ 19.6 cm; Al 6.70 cm²",
+            "comboName": "pure torque",
+            "stationX": 3,
+            "limiting": "torsion",
+            "ratio": 0.517,
+            "status": "ok"
+          },
+          {
+            "category": "Torsion Al Span (Vz)",
+            "demandCategory": null,
+            "required": 4.4,
+            "provided": 8.04,
+            "unit": "cm²",
+            "method": "area",
+            "tuplesChecked": 1,
+            "regionRange": [
+              0.25,
+              0.75
+            ],
+            "description": "Al=6.70 cm² (§22.7.6.1, Tu=30.0 ≥ φTth=5.6 kN·m) sobre As de flexión ≈ 1.05 cm²; cara inferior: 4.40 de 8.04 cm² (Al/2 por cara)",
+            "comboName": "pure torque",
+            "stationX": 3,
+            "limiting": "torsion",
+            "ratio": 0.547,
+            "status": "ok"
+          }
+        ]
+      }
+    },
+    {
+      "label": "negligible control",
+      "edition": "2005",
+      "axis": "Mz",
+      "torque": 5.602443975000001,
+      "layout": "none",
+      "oracle": {
+        "sectionRatio": 0.09650192887180604,
+        "phiTn": 58.05525382235969,
+        "ratio": 0.09650192887180604
+      },
+      "result": {
+        "overallStatus": "ok",
+        "checkedAxes": [
+          "Mz"
+        ],
+        "torsionChecks": []
+      }
+    },
+    {
+      "label": "neglect boundary without stirrups",
+      "edition": "2005",
+      "axis": "Mz",
+      "torque": 5.602500000000001,
+      "layout": "none",
+      "oracle": {
+        "sectionRatio": 0.09650289390074505,
+        "phiTn": 58.05525382235969,
+        "ratio": 0.09650289390074505
+      },
+      "result": {
+        "overallStatus": "fail",
+        "checkedAxes": [
+          "Mz",
+          "T"
+        ],
+        "torsionChecks": [
+          {
+            "category": "Torsion Support (Vy)",
+            "demandCategory": null,
+            "demand": 5.6,
+            "capacity": 0,
+            "unit": "kN·m",
+            "method": "capacity",
+            "tuplesChecked": 2,
+            "regionRange": [
+              0,
+              0.25
+            ],
+            "description": "no stirrups provided in this region — §22.7: Tu=5.6 > φTth=5.6 kN·m; sección 0.10; (Av+2At)/s 2.50 de 0.00 cm²/m; s ≤ 19.6 cm; Al 7.04 cm²",
+            "comboName": "pure torque",
+            "stationX": 0,
+            "limiting": "torsion",
+            "missingReinforcement": true,
+            "ratio": "Infinity",
+            "status": "fail"
+          },
+          {
+            "category": "Torsion Al Support (Vy)",
+            "demandCategory": null,
+            "required": 4.57,
+            "provided": 8.04,
+            "unit": "cm²",
+            "method": "area",
+            "tuplesChecked": 2,
+            "regionRange": [
+              0,
+              0.25
+            ],
+            "description": "Al=7.04 cm² (Al,min §9.6.4.3, Tu=5.6 ≥ φTth=5.6 kN·m) sobre As de flexión ≈ 1.05 cm²; cara inferior: 4.57 de 8.04 cm² (Al/2 por cara)",
+            "comboName": "pure torque",
+            "stationX": 0,
+            "limiting": "torsion",
+            "ratio": 0.568,
+            "status": "ok"
+          },
+          {
+            "category": "Torsion Span (Vy)",
+            "demandCategory": null,
+            "demand": 5.6,
+            "capacity": 0,
+            "unit": "kN·m",
+            "method": "capacity",
+            "tuplesChecked": 1,
+            "regionRange": [
+              0.25,
+              0.75
+            ],
+            "description": "no stirrups provided in this region — §22.7: Tu=5.6 > φTth=5.6 kN·m; sección 0.10; (Av+2At)/s 2.50 de 0.00 cm²/m; s ≤ 19.6 cm; Al 7.04 cm²",
+            "comboName": "pure torque",
+            "stationX": 3,
+            "limiting": "torsion",
+            "missingReinforcement": true,
+            "ratio": "Infinity",
+            "status": "fail"
+          },
+          {
+            "category": "Torsion Al Span (Vy)",
+            "demandCategory": null,
+            "required": 4.57,
+            "provided": 8.04,
+            "unit": "cm²",
+            "method": "area",
+            "tuplesChecked": 1,
+            "regionRange": [
+              0.25,
+              0.75
+            ],
+            "description": "Al=7.04 cm² (Al,min §9.6.4.3, Tu=5.6 ≥ φTth=5.6 kN·m) sobre As de flexión ≈ 1.05 cm²; cara inferior: 4.57 de 8.04 cm² (Al/2 por cara)",
+            "comboName": "pure torque",
+            "stationX": 3,
+            "limiting": "torsion",
+            "ratio": 0.568,
+            "status": "ok"
+          }
+        ]
+      }
+    },
+    {
+      "label": "non-negligible torque without stirrups",
+      "edition": "2005",
+      "axis": "Mz",
+      "torque": 30,
+      "layout": "none",
+      "oracle": {
+        "sectionRatio": 0.5167490971927445,
+        "phiTn": 58.05525382235969,
+        "ratio": 0.5167490971927445
+      },
+      "result": {
+        "overallStatus": "fail",
+        "checkedAxes": [
+          "Mz",
+          "T"
+        ],
+        "torsionChecks": [
+          {
+            "category": "Torsion Support (Vy)",
+            "demandCategory": null,
+            "demand": 30,
+            "capacity": 0,
+            "unit": "kN·m",
+            "method": "capacity",
+            "tuplesChecked": 2,
+            "regionRange": [
+              0,
+              0.25
+            ],
+            "description": "no stirrups provided in this region — §22.7: Tu=30.0 > φTth=5.6 kN·m; sección 0.52; (Av+2At)/s 8.54 de 0.00 cm²/m; s ≤ 19.6 cm; Al 6.70 cm²",
+            "comboName": "pure torque",
+            "stationX": 0,
+            "limiting": "torsion",
+            "missingReinforcement": true,
+            "ratio": "Infinity",
+            "status": "fail"
+          },
+          {
+            "category": "Torsion Al Support (Vy)",
+            "demandCategory": null,
+            "required": 4.4,
+            "provided": 8.04,
+            "unit": "cm²",
+            "method": "area",
+            "tuplesChecked": 2,
+            "regionRange": [
+              0,
+              0.25
+            ],
+            "description": "Al=6.70 cm² (§22.7.6.1, Tu=30.0 ≥ φTth=5.6 kN·m) sobre As de flexión ≈ 1.05 cm²; cara inferior: 4.40 de 8.04 cm² (Al/2 por cara)",
+            "comboName": "pure torque",
+            "stationX": 0,
+            "limiting": "torsion",
+            "ratio": 0.547,
+            "status": "ok"
+          },
+          {
+            "category": "Torsion Span (Vy)",
+            "demandCategory": null,
+            "demand": 30,
+            "capacity": 0,
+            "unit": "kN·m",
+            "method": "capacity",
+            "tuplesChecked": 1,
+            "regionRange": [
+              0.25,
+              0.75
+            ],
+            "description": "no stirrups provided in this region — §22.7: Tu=30.0 > φTth=5.6 kN·m; sección 0.52; (Av+2At)/s 8.54 de 0.00 cm²/m; s ≤ 19.6 cm; Al 6.70 cm²",
+            "comboName": "pure torque",
+            "stationX": 3,
+            "limiting": "torsion",
+            "missingReinforcement": true,
+            "ratio": "Infinity",
+            "status": "fail"
+          },
+          {
+            "category": "Torsion Al Span (Vy)",
+            "demandCategory": null,
+            "required": 4.4,
+            "provided": 8.04,
+            "unit": "cm²",
+            "method": "area",
+            "tuplesChecked": 1,
+            "regionRange": [
+              0.25,
+              0.75
+            ],
+            "description": "Al=6.70 cm² (§22.7.6.1, Tu=30.0 ≥ φTth=5.6 kN·m) sobre As de flexión ≈ 1.05 cm²; cara inferior: 4.40 de 8.04 cm² (Al/2 por cara)",
+            "comboName": "pure torque",
+            "stationX": 3,
+            "limiting": "torsion",
+            "ratio": 0.547,
+            "status": "ok"
+          }
+        ]
+      }
+    },
+    {
+      "label": "exceeded section without stirrups",
+      "edition": "2005",
+      "axis": "Mz",
+      "torque": 58.11330907618204,
+      "layout": "none",
+      "oracle": {
+        "sectionRatio": 1.001,
+        "phiTn": 58.05525382235969,
+        "ratio": 1.001
+      },
+      "result": {
+        "overallStatus": "fail",
+        "checkedAxes": [
+          "Mz",
+          "T"
+        ],
+        "torsionChecks": [
+          {
+            "category": "Torsion Support (Vy)",
+            "demandCategory": null,
+            "demand": 58.11,
+            "capacity": 0,
+            "unit": "kN·m",
+            "method": "capacity",
+            "tuplesChecked": 2,
+            "regionRange": [
+              0,
+              0.25
+            ],
+            "description": "no stirrups provided in this region — §22.7: Tu=58.1 > φTth=5.6 kN·m; sección 1.00; (Av+2At)/s 16.55 de 0.00 cm²/m; s ≤ 19.6 cm; Al 12.97 cm²",
+            "comboName": "pure torque",
+            "stationX": 0,
+            "limiting": "torsion",
+            "missingReinforcement": true,
+            "ratio": "Infinity",
+            "status": "fail"
+          },
+          {
+            "category": "Torsion Al Support (Vy)",
+            "demandCategory": null,
+            "required": 7.54,
+            "provided": 8.04,
+            "unit": "cm²",
+            "method": "area",
+            "tuplesChecked": 2,
+            "regionRange": [
+              0,
+              0.25
+            ],
+            "description": "Al=12.97 cm² (§22.7.6.1, Tu=58.1 ≥ φTth=5.6 kN·m) sobre As de flexión ≈ 1.05 cm²; cara inferior: 7.54 de 8.04 cm² (Al/2 por cara)",
+            "comboName": "pure torque",
+            "stationX": 0,
+            "limiting": "torsion",
+            "ratio": 0.937,
+            "status": "ok"
+          },
+          {
+            "category": "Torsion Span (Vy)",
+            "demandCategory": null,
+            "demand": 58.11,
+            "capacity": 0,
+            "unit": "kN·m",
+            "method": "capacity",
+            "tuplesChecked": 1,
+            "regionRange": [
+              0.25,
+              0.75
+            ],
+            "description": "no stirrups provided in this region — §22.7: Tu=58.1 > φTth=5.6 kN·m; sección 1.00; (Av+2At)/s 16.55 de 0.00 cm²/m; s ≤ 19.6 cm; Al 12.97 cm²",
+            "comboName": "pure torque",
+            "stationX": 3,
+            "limiting": "torsion",
+            "missingReinforcement": true,
+            "ratio": "Infinity",
+            "status": "fail"
+          },
+          {
+            "category": "Torsion Al Span (Vy)",
+            "demandCategory": null,
+            "required": 7.54,
+            "provided": 8.04,
+            "unit": "cm²",
+            "method": "area",
+            "tuplesChecked": 1,
+            "regionRange": [
+              0.25,
+              0.75
+            ],
+            "description": "Al=12.97 cm² (§22.7.6.1, Tu=58.1 ≥ φTth=5.6 kN·m) sobre As de flexión ≈ 1.05 cm²; cara inferior: 7.54 de 8.04 cm² (Al/2 por cara)",
+            "comboName": "pure torque",
+            "stationX": 3,
+            "limiting": "torsion",
+            "ratio": 0.937,
+            "status": "ok"
+          }
+        ]
+      }
+    },
+    {
+      "label": "adequate cage control",
+      "edition": "2005",
+      "axis": "Mz",
+      "torque": 30,
+      "layout": "all",
+      "oracle": {
+        "sectionRatio": 0.5167490971927445,
+        "phiTn": 58.05525382235969,
+        "ratio": 0.5167490971927445
+      },
+      "result": {
+        "overallStatus": "ok",
+        "checkedAxes": [
+          "Mz",
+          "T"
+        ],
+        "torsionChecks": [
+          {
+            "category": "Torsion Support (Vy)",
+            "demandCategory": null,
+            "demand": 30,
+            "capacity": 0,
+            "unit": "kN·m",
+            "method": "capacity",
+            "tuplesChecked": 2,
+            "regionRange": [
+              0,
+              0.25
+            ],
+            "description": "§22.7: Tu=30.0 > φTth=5.6 kN·m; sección 0.52; (Av+2At)/s 8.54 de 40.21 cm²/m; s ≤ 19.6 cm; Al 6.70 cm²",
+            "comboName": "pure torque",
+            "stationX": 0,
+            "limiting": "torsion",
+            "ratio": 0.517,
+            "status": "ok"
+          },
+          {
+            "category": "Torsion Al Support (Vy)",
+            "demandCategory": null,
+            "required": 4.4,
+            "provided": 8.04,
+            "unit": "cm²",
+            "method": "area",
+            "tuplesChecked": 2,
+            "regionRange": [
+              0,
+              0.25
+            ],
+            "description": "Al=6.70 cm² (§22.7.6.1, Tu=30.0 ≥ φTth=5.6 kN·m) sobre As de flexión ≈ 1.05 cm²; cara inferior: 4.40 de 8.04 cm² (Al/2 por cara)",
+            "comboName": "pure torque",
+            "stationX": 0,
+            "limiting": "torsion",
+            "ratio": 0.547,
+            "status": "ok"
+          },
+          {
+            "category": "Torsion Span (Vy)",
+            "demandCategory": null,
+            "demand": 30,
+            "capacity": 0,
+            "unit": "kN·m",
+            "method": "capacity",
+            "tuplesChecked": 1,
+            "regionRange": [
+              0.25,
+              0.75
+            ],
+            "description": "§22.7: Tu=30.0 > φTth=5.6 kN·m; sección 0.52; (Av+2At)/s 8.54 de 40.21 cm²/m; s ≤ 19.6 cm; Al 6.70 cm²",
+            "comboName": "pure torque",
+            "stationX": 3,
+            "limiting": "torsion",
+            "ratio": 0.517,
+            "status": "ok"
+          },
+          {
+            "category": "Torsion Al Span (Vy)",
+            "demandCategory": null,
+            "required": 4.4,
+            "provided": 8.04,
+            "unit": "cm²",
+            "method": "area",
+            "tuplesChecked": 1,
+            "regionRange": [
+              0.25,
+              0.75
+            ],
+            "description": "Al=6.70 cm² (§22.7.6.1, Tu=30.0 ≥ φTth=5.6 kN·m) sobre As de flexión ≈ 1.05 cm²; cara inferior: 4.40 de 8.04 cm² (Al/2 por cara)",
+            "comboName": "pure torque",
+            "stationX": 3,
+            "limiting": "torsion",
+            "ratio": 0.547,
+            "status": "ok"
+          }
+        ]
+      }
+    },
+    {
+      "label": "negligible control",
+      "edition": "2025",
+      "axis": "My",
+      "torque": 5.602443975000001,
+      "layout": "none",
+      "oracle": {
+        "sectionRatio": 0.09650192887180604,
+        "phiTn": 58.05525382235969,
+        "ratio": 0.09650192887180604
+      },
+      "result": {
+        "overallStatus": "ok",
+        "checkedAxes": [
+          "My"
+        ],
+        "torsionChecks": []
+      }
+    },
+    {
+      "label": "neglect boundary without stirrups",
+      "edition": "2025",
+      "axis": "My",
+      "torque": 5.602500000000001,
+      "layout": "none",
+      "oracle": {
+        "sectionRatio": 0.09650289390074505,
+        "phiTn": 58.05525382235969,
+        "ratio": 0.09650289390074505
+      },
+      "result": {
+        "overallStatus": "fail",
+        "checkedAxes": [
+          "My",
+          "T"
+        ],
+        "torsionChecks": [
+          {
+            "category": "Torsion Support (Vz)",
+            "demandCategory": null,
+            "demand": 5.6,
+            "capacity": 0,
+            "unit": "kN·m",
+            "method": "capacity",
+            "tuplesChecked": 2,
+            "regionRange": [
+              0,
+              0.25
+            ],
+            "description": "no stirrups provided in this region — §22.7: Tu=5.6 > φTth=5.6 kN·m; sección 0.10; (Av+2At)/s 2.50 de 0.00 cm²/m; s ≤ 19.6 cm; Al 7.04 cm²",
+            "comboName": "pure torque",
+            "stationX": 0,
+            "limiting": "torsion",
+            "missingReinforcement": true,
+            "ratio": "Infinity",
+            "status": "fail"
+          },
+          {
+            "category": "Torsion Al Support (Vz)",
+            "demandCategory": null,
+            "required": 4.57,
+            "provided": 8.04,
+            "unit": "cm²",
+            "method": "area",
+            "tuplesChecked": 2,
+            "regionRange": [
+              0,
+              0.25
+            ],
+            "description": "Al=7.04 cm² (Al,min §9.6.4.3, Tu=5.6 ≥ φTth=5.6 kN·m) sobre As de flexión ≈ 1.05 cm²; cara inferior: 4.57 de 8.04 cm² (Al/2 por cara)",
+            "comboName": "pure torque",
+            "stationX": 0,
+            "limiting": "torsion",
+            "ratio": 0.568,
+            "status": "ok"
+          },
+          {
+            "category": "Torsion Span (Vz)",
+            "demandCategory": null,
+            "demand": 5.6,
+            "capacity": 0,
+            "unit": "kN·m",
+            "method": "capacity",
+            "tuplesChecked": 1,
+            "regionRange": [
+              0.25,
+              0.75
+            ],
+            "description": "no stirrups provided in this region — §22.7: Tu=5.6 > φTth=5.6 kN·m; sección 0.10; (Av+2At)/s 2.50 de 0.00 cm²/m; s ≤ 19.6 cm; Al 7.04 cm²",
+            "comboName": "pure torque",
+            "stationX": 3,
+            "limiting": "torsion",
+            "missingReinforcement": true,
+            "ratio": "Infinity",
+            "status": "fail"
+          },
+          {
+            "category": "Torsion Al Span (Vz)",
+            "demandCategory": null,
+            "required": 4.57,
+            "provided": 8.04,
+            "unit": "cm²",
+            "method": "area",
+            "tuplesChecked": 1,
+            "regionRange": [
+              0.25,
+              0.75
+            ],
+            "description": "Al=7.04 cm² (Al,min §9.6.4.3, Tu=5.6 ≥ φTth=5.6 kN·m) sobre As de flexión ≈ 1.05 cm²; cara inferior: 4.57 de 8.04 cm² (Al/2 por cara)",
+            "comboName": "pure torque",
+            "stationX": 3,
+            "limiting": "torsion",
+            "ratio": 0.568,
+            "status": "ok"
+          }
+        ]
+      }
+    },
+    {
+      "label": "non-negligible torque without stirrups",
+      "edition": "2025",
+      "axis": "My",
+      "torque": 30,
+      "layout": "none",
+      "oracle": {
+        "sectionRatio": 0.5167490971927445,
+        "phiTn": 58.05525382235969,
+        "ratio": 0.5167490971927445
+      },
+      "result": {
+        "overallStatus": "fail",
+        "checkedAxes": [
+          "My",
+          "T"
+        ],
+        "torsionChecks": [
+          {
+            "category": "Torsion Support (Vz)",
+            "demandCategory": null,
+            "demand": 30,
+            "capacity": 0,
+            "unit": "kN·m",
+            "method": "capacity",
+            "tuplesChecked": 2,
+            "regionRange": [
+              0,
+              0.25
+            ],
+            "description": "no stirrups provided in this region — §22.7: Tu=30.0 > φTth=5.6 kN·m; sección 0.52; (Av+2At)/s 8.54 de 0.00 cm²/m; s ≤ 19.6 cm; Al 6.70 cm²",
+            "comboName": "pure torque",
+            "stationX": 0,
+            "limiting": "torsion",
+            "missingReinforcement": true,
+            "ratio": "Infinity",
+            "status": "fail"
+          },
+          {
+            "category": "Torsion Al Support (Vz)",
+            "demandCategory": null,
+            "required": 4.4,
+            "provided": 8.04,
+            "unit": "cm²",
+            "method": "area",
+            "tuplesChecked": 2,
+            "regionRange": [
+              0,
+              0.25
+            ],
+            "description": "Al=6.70 cm² (§22.7.6.1, Tu=30.0 ≥ φTth=5.6 kN·m) sobre As de flexión ≈ 1.05 cm²; cara inferior: 4.40 de 8.04 cm² (Al/2 por cara)",
+            "comboName": "pure torque",
+            "stationX": 0,
+            "limiting": "torsion",
+            "ratio": 0.547,
+            "status": "ok"
+          },
+          {
+            "category": "Torsion Span (Vz)",
+            "demandCategory": null,
+            "demand": 30,
+            "capacity": 0,
+            "unit": "kN·m",
+            "method": "capacity",
+            "tuplesChecked": 1,
+            "regionRange": [
+              0.25,
+              0.75
+            ],
+            "description": "no stirrups provided in this region — §22.7: Tu=30.0 > φTth=5.6 kN·m; sección 0.52; (Av+2At)/s 8.54 de 0.00 cm²/m; s ≤ 19.6 cm; Al 6.70 cm²",
+            "comboName": "pure torque",
+            "stationX": 3,
+            "limiting": "torsion",
+            "missingReinforcement": true,
+            "ratio": "Infinity",
+            "status": "fail"
+          },
+          {
+            "category": "Torsion Al Span (Vz)",
+            "demandCategory": null,
+            "required": 4.4,
+            "provided": 8.04,
+            "unit": "cm²",
+            "method": "area",
+            "tuplesChecked": 1,
+            "regionRange": [
+              0.25,
+              0.75
+            ],
+            "description": "Al=6.70 cm² (§22.7.6.1, Tu=30.0 ≥ φTth=5.6 kN·m) sobre As de flexión ≈ 1.05 cm²; cara inferior: 4.40 de 8.04 cm² (Al/2 por cara)",
+            "comboName": "pure torque",
+            "stationX": 3,
+            "limiting": "torsion",
+            "ratio": 0.547,
+            "status": "ok"
+          }
+        ]
+      }
+    },
+    {
+      "label": "exceeded section without stirrups",
+      "edition": "2025",
+      "axis": "My",
+      "torque": 58.11330907618204,
+      "layout": "none",
+      "oracle": {
+        "sectionRatio": 1.001,
+        "phiTn": 58.05525382235969,
+        "ratio": 1.001
+      },
+      "result": {
+        "overallStatus": "fail",
+        "checkedAxes": [
+          "My",
+          "T"
+        ],
+        "torsionChecks": [
+          {
+            "category": "Torsion Support (Vz)",
+            "demandCategory": null,
+            "demand": 58.11,
+            "capacity": 0,
+            "unit": "kN·m",
+            "method": "capacity",
+            "tuplesChecked": 2,
+            "regionRange": [
+              0,
+              0.25
+            ],
+            "description": "no stirrups provided in this region — §22.7: Tu=58.1 > φTth=5.6 kN·m; sección 1.00; (Av+2At)/s 16.55 de 0.00 cm²/m; s ≤ 19.6 cm; Al 12.97 cm²",
+            "comboName": "pure torque",
+            "stationX": 0,
+            "limiting": "torsion",
+            "missingReinforcement": true,
+            "ratio": "Infinity",
+            "status": "fail"
+          },
+          {
+            "category": "Torsion Al Support (Vz)",
+            "demandCategory": null,
+            "required": 7.54,
+            "provided": 8.04,
+            "unit": "cm²",
+            "method": "area",
+            "tuplesChecked": 2,
+            "regionRange": [
+              0,
+              0.25
+            ],
+            "description": "Al=12.97 cm² (§22.7.6.1, Tu=58.1 ≥ φTth=5.6 kN·m) sobre As de flexión ≈ 1.05 cm²; cara inferior: 7.54 de 8.04 cm² (Al/2 por cara)",
+            "comboName": "pure torque",
+            "stationX": 0,
+            "limiting": "torsion",
+            "ratio": 0.937,
+            "status": "ok"
+          },
+          {
+            "category": "Torsion Span (Vz)",
+            "demandCategory": null,
+            "demand": 58.11,
+            "capacity": 0,
+            "unit": "kN·m",
+            "method": "capacity",
+            "tuplesChecked": 1,
+            "regionRange": [
+              0.25,
+              0.75
+            ],
+            "description": "no stirrups provided in this region — §22.7: Tu=58.1 > φTth=5.6 kN·m; sección 1.00; (Av+2At)/s 16.55 de 0.00 cm²/m; s ≤ 19.6 cm; Al 12.97 cm²",
+            "comboName": "pure torque",
+            "stationX": 3,
+            "limiting": "torsion",
+            "missingReinforcement": true,
+            "ratio": "Infinity",
+            "status": "fail"
+          },
+          {
+            "category": "Torsion Al Span (Vz)",
+            "demandCategory": null,
+            "required": 7.54,
+            "provided": 8.04,
+            "unit": "cm²",
+            "method": "area",
+            "tuplesChecked": 1,
+            "regionRange": [
+              0.25,
+              0.75
+            ],
+            "description": "Al=12.97 cm² (§22.7.6.1, Tu=58.1 ≥ φTth=5.6 kN·m) sobre As de flexión ≈ 1.05 cm²; cara inferior: 7.54 de 8.04 cm² (Al/2 por cara)",
+            "comboName": "pure torque",
+            "stationX": 3,
+            "limiting": "torsion",
+            "ratio": 0.937,
+            "status": "ok"
+          }
+        ]
+      }
+    },
+    {
+      "label": "adequate cage control",
+      "edition": "2025",
+      "axis": "My",
+      "torque": 30,
+      "layout": "all",
+      "oracle": {
+        "sectionRatio": 0.5167490971927445,
+        "phiTn": 58.05525382235969,
+        "ratio": 0.5167490971927445
+      },
+      "result": {
+        "overallStatus": "ok",
+        "checkedAxes": [
+          "My",
+          "T"
+        ],
+        "torsionChecks": [
+          {
+            "category": "Torsion Support (Vz)",
+            "demandCategory": null,
+            "demand": 30,
+            "capacity": 0,
+            "unit": "kN·m",
+            "method": "capacity",
+            "tuplesChecked": 2,
+            "regionRange": [
+              0,
+              0.25
+            ],
+            "description": "§22.7: Tu=30.0 > φTth=5.6 kN·m; sección 0.52; (Av+2At)/s 8.54 de 40.21 cm²/m; s ≤ 19.6 cm; Al 6.70 cm²",
+            "comboName": "pure torque",
+            "stationX": 0,
+            "limiting": "torsion",
+            "ratio": 0.517,
+            "status": "ok"
+          },
+          {
+            "category": "Torsion Al Support (Vz)",
+            "demandCategory": null,
+            "required": 4.4,
+            "provided": 8.04,
+            "unit": "cm²",
+            "method": "area",
+            "tuplesChecked": 2,
+            "regionRange": [
+              0,
+              0.25
+            ],
+            "description": "Al=6.70 cm² (§22.7.6.1, Tu=30.0 ≥ φTth=5.6 kN·m) sobre As de flexión ≈ 1.05 cm²; cara inferior: 4.40 de 8.04 cm² (Al/2 por cara)",
+            "comboName": "pure torque",
+            "stationX": 0,
+            "limiting": "torsion",
+            "ratio": 0.547,
+            "status": "ok"
+          },
+          {
+            "category": "Torsion Span (Vz)",
+            "demandCategory": null,
+            "demand": 30,
+            "capacity": 0,
+            "unit": "kN·m",
+            "method": "capacity",
+            "tuplesChecked": 1,
+            "regionRange": [
+              0.25,
+              0.75
+            ],
+            "description": "§22.7: Tu=30.0 > φTth=5.6 kN·m; sección 0.52; (Av+2At)/s 8.54 de 40.21 cm²/m; s ≤ 19.6 cm; Al 6.70 cm²",
+            "comboName": "pure torque",
+            "stationX": 3,
+            "limiting": "torsion",
+            "ratio": 0.517,
+            "status": "ok"
+          },
+          {
+            "category": "Torsion Al Span (Vz)",
+            "demandCategory": null,
+            "required": 4.4,
+            "provided": 8.04,
+            "unit": "cm²",
+            "method": "area",
+            "tuplesChecked": 1,
+            "regionRange": [
+              0.25,
+              0.75
+            ],
+            "description": "Al=6.70 cm² (§22.7.6.1, Tu=30.0 ≥ φTth=5.6 kN·m) sobre As de flexión ≈ 1.05 cm²; cara inferior: 4.40 de 8.04 cm² (Al/2 por cara)",
+            "comboName": "pure torque",
+            "stationX": 3,
+            "limiting": "torsion",
+            "ratio": 0.547,
+            "status": "ok"
+          }
+        ]
+      }
+    },
+    {
+      "label": "negligible control",
+      "edition": "2025",
+      "axis": "Mz",
+      "torque": 5.602443975000001,
+      "layout": "none",
+      "oracle": {
+        "sectionRatio": 0.09650192887180604,
+        "phiTn": 58.05525382235969,
+        "ratio": 0.09650192887180604
+      },
+      "result": {
+        "overallStatus": "ok",
+        "checkedAxes": [
+          "Mz"
+        ],
+        "torsionChecks": []
+      }
+    },
+    {
+      "label": "neglect boundary without stirrups",
+      "edition": "2025",
+      "axis": "Mz",
+      "torque": 5.602500000000001,
+      "layout": "none",
+      "oracle": {
+        "sectionRatio": 0.09650289390074505,
+        "phiTn": 58.05525382235969,
+        "ratio": 0.09650289390074505
+      },
+      "result": {
+        "overallStatus": "fail",
+        "checkedAxes": [
+          "Mz",
+          "T"
+        ],
+        "torsionChecks": [
+          {
+            "category": "Torsion Support (Vy)",
+            "demandCategory": null,
+            "demand": 5.6,
+            "capacity": 0,
+            "unit": "kN·m",
+            "method": "capacity",
+            "tuplesChecked": 2,
+            "regionRange": [
+              0,
+              0.25
+            ],
+            "description": "no stirrups provided in this region — §22.7: Tu=5.6 > φTth=5.6 kN·m; sección 0.10; (Av+2At)/s 2.50 de 0.00 cm²/m; s ≤ 19.6 cm; Al 7.04 cm²",
+            "comboName": "pure torque",
+            "stationX": 0,
+            "limiting": "torsion",
+            "missingReinforcement": true,
+            "ratio": "Infinity",
+            "status": "fail"
+          },
+          {
+            "category": "Torsion Al Support (Vy)",
+            "demandCategory": null,
+            "required": 4.57,
+            "provided": 8.04,
+            "unit": "cm²",
+            "method": "area",
+            "tuplesChecked": 2,
+            "regionRange": [
+              0,
+              0.25
+            ],
+            "description": "Al=7.04 cm² (Al,min §9.6.4.3, Tu=5.6 ≥ φTth=5.6 kN·m) sobre As de flexión ≈ 1.05 cm²; cara inferior: 4.57 de 8.04 cm² (Al/2 por cara)",
+            "comboName": "pure torque",
+            "stationX": 0,
+            "limiting": "torsion",
+            "ratio": 0.568,
+            "status": "ok"
+          },
+          {
+            "category": "Torsion Span (Vy)",
+            "demandCategory": null,
+            "demand": 5.6,
+            "capacity": 0,
+            "unit": "kN·m",
+            "method": "capacity",
+            "tuplesChecked": 1,
+            "regionRange": [
+              0.25,
+              0.75
+            ],
+            "description": "no stirrups provided in this region — §22.7: Tu=5.6 > φTth=5.6 kN·m; sección 0.10; (Av+2At)/s 2.50 de 0.00 cm²/m; s ≤ 19.6 cm; Al 7.04 cm²",
+            "comboName": "pure torque",
+            "stationX": 3,
+            "limiting": "torsion",
+            "missingReinforcement": true,
+            "ratio": "Infinity",
+            "status": "fail"
+          },
+          {
+            "category": "Torsion Al Span (Vy)",
+            "demandCategory": null,
+            "required": 4.57,
+            "provided": 8.04,
+            "unit": "cm²",
+            "method": "area",
+            "tuplesChecked": 1,
+            "regionRange": [
+              0.25,
+              0.75
+            ],
+            "description": "Al=7.04 cm² (Al,min §9.6.4.3, Tu=5.6 ≥ φTth=5.6 kN·m) sobre As de flexión ≈ 1.05 cm²; cara inferior: 4.57 de 8.04 cm² (Al/2 por cara)",
+            "comboName": "pure torque",
+            "stationX": 3,
+            "limiting": "torsion",
+            "ratio": 0.568,
+            "status": "ok"
+          }
+        ]
+      }
+    },
+    {
+      "label": "non-negligible torque without stirrups",
+      "edition": "2025",
+      "axis": "Mz",
+      "torque": 30,
+      "layout": "none",
+      "oracle": {
+        "sectionRatio": 0.5167490971927445,
+        "phiTn": 58.05525382235969,
+        "ratio": 0.5167490971927445
+      },
+      "result": {
+        "overallStatus": "fail",
+        "checkedAxes": [
+          "Mz",
+          "T"
+        ],
+        "torsionChecks": [
+          {
+            "category": "Torsion Support (Vy)",
+            "demandCategory": null,
+            "demand": 30,
+            "capacity": 0,
+            "unit": "kN·m",
+            "method": "capacity",
+            "tuplesChecked": 2,
+            "regionRange": [
+              0,
+              0.25
+            ],
+            "description": "no stirrups provided in this region — §22.7: Tu=30.0 > φTth=5.6 kN·m; sección 0.52; (Av+2At)/s 8.54 de 0.00 cm²/m; s ≤ 19.6 cm; Al 6.70 cm²",
+            "comboName": "pure torque",
+            "stationX": 0,
+            "limiting": "torsion",
+            "missingReinforcement": true,
+            "ratio": "Infinity",
+            "status": "fail"
+          },
+          {
+            "category": "Torsion Al Support (Vy)",
+            "demandCategory": null,
+            "required": 4.4,
+            "provided": 8.04,
+            "unit": "cm²",
+            "method": "area",
+            "tuplesChecked": 2,
+            "regionRange": [
+              0,
+              0.25
+            ],
+            "description": "Al=6.70 cm² (§22.7.6.1, Tu=30.0 ≥ φTth=5.6 kN·m) sobre As de flexión ≈ 1.05 cm²; cara inferior: 4.40 de 8.04 cm² (Al/2 por cara)",
+            "comboName": "pure torque",
+            "stationX": 0,
+            "limiting": "torsion",
+            "ratio": 0.547,
+            "status": "ok"
+          },
+          {
+            "category": "Torsion Span (Vy)",
+            "demandCategory": null,
+            "demand": 30,
+            "capacity": 0,
+            "unit": "kN·m",
+            "method": "capacity",
+            "tuplesChecked": 1,
+            "regionRange": [
+              0.25,
+              0.75
+            ],
+            "description": "no stirrups provided in this region — §22.7: Tu=30.0 > φTth=5.6 kN·m; sección 0.52; (Av+2At)/s 8.54 de 0.00 cm²/m; s ≤ 19.6 cm; Al 6.70 cm²",
+            "comboName": "pure torque",
+            "stationX": 3,
+            "limiting": "torsion",
+            "missingReinforcement": true,
+            "ratio": "Infinity",
+            "status": "fail"
+          },
+          {
+            "category": "Torsion Al Span (Vy)",
+            "demandCategory": null,
+            "required": 4.4,
+            "provided": 8.04,
+            "unit": "cm²",
+            "method": "area",
+            "tuplesChecked": 1,
+            "regionRange": [
+              0.25,
+              0.75
+            ],
+            "description": "Al=6.70 cm² (§22.7.6.1, Tu=30.0 ≥ φTth=5.6 kN·m) sobre As de flexión ≈ 1.05 cm²; cara inferior: 4.40 de 8.04 cm² (Al/2 por cara)",
+            "comboName": "pure torque",
+            "stationX": 3,
+            "limiting": "torsion",
+            "ratio": 0.547,
+            "status": "ok"
+          }
+        ]
+      }
+    },
+    {
+      "label": "exceeded section without stirrups",
+      "edition": "2025",
+      "axis": "Mz",
+      "torque": 58.11330907618204,
+      "layout": "none",
+      "oracle": {
+        "sectionRatio": 1.001,
+        "phiTn": 58.05525382235969,
+        "ratio": 1.001
+      },
+      "result": {
+        "overallStatus": "fail",
+        "checkedAxes": [
+          "Mz",
+          "T"
+        ],
+        "torsionChecks": [
+          {
+            "category": "Torsion Support (Vy)",
+            "demandCategory": null,
+            "demand": 58.11,
+            "capacity": 0,
+            "unit": "kN·m",
+            "method": "capacity",
+            "tuplesChecked": 2,
+            "regionRange": [
+              0,
+              0.25
+            ],
+            "description": "no stirrups provided in this region — §22.7: Tu=58.1 > φTth=5.6 kN·m; sección 1.00; (Av+2At)/s 16.55 de 0.00 cm²/m; s ≤ 19.6 cm; Al 12.97 cm²",
+            "comboName": "pure torque",
+            "stationX": 0,
+            "limiting": "torsion",
+            "missingReinforcement": true,
+            "ratio": "Infinity",
+            "status": "fail"
+          },
+          {
+            "category": "Torsion Al Support (Vy)",
+            "demandCategory": null,
+            "required": 7.54,
+            "provided": 8.04,
+            "unit": "cm²",
+            "method": "area",
+            "tuplesChecked": 2,
+            "regionRange": [
+              0,
+              0.25
+            ],
+            "description": "Al=12.97 cm² (§22.7.6.1, Tu=58.1 ≥ φTth=5.6 kN·m) sobre As de flexión ≈ 1.05 cm²; cara inferior: 7.54 de 8.04 cm² (Al/2 por cara)",
+            "comboName": "pure torque",
+            "stationX": 0,
+            "limiting": "torsion",
+            "ratio": 0.937,
+            "status": "ok"
+          },
+          {
+            "category": "Torsion Span (Vy)",
+            "demandCategory": null,
+            "demand": 58.11,
+            "capacity": 0,
+            "unit": "kN·m",
+            "method": "capacity",
+            "tuplesChecked": 1,
+            "regionRange": [
+              0.25,
+              0.75
+            ],
+            "description": "no stirrups provided in this region — §22.7: Tu=58.1 > φTth=5.6 kN·m; sección 1.00; (Av+2At)/s 16.55 de 0.00 cm²/m; s ≤ 19.6 cm; Al 12.97 cm²",
+            "comboName": "pure torque",
+            "stationX": 3,
+            "limiting": "torsion",
+            "missingReinforcement": true,
+            "ratio": "Infinity",
+            "status": "fail"
+          },
+          {
+            "category": "Torsion Al Span (Vy)",
+            "demandCategory": null,
+            "required": 7.54,
+            "provided": 8.04,
+            "unit": "cm²",
+            "method": "area",
+            "tuplesChecked": 1,
+            "regionRange": [
+              0.25,
+              0.75
+            ],
+            "description": "Al=12.97 cm² (§22.7.6.1, Tu=58.1 ≥ φTth=5.6 kN·m) sobre As de flexión ≈ 1.05 cm²; cara inferior: 7.54 de 8.04 cm² (Al/2 por cara)",
+            "comboName": "pure torque",
+            "stationX": 3,
+            "limiting": "torsion",
+            "ratio": 0.937,
+            "status": "ok"
+          }
+        ]
+      }
+    },
+    {
+      "label": "adequate cage control",
+      "edition": "2025",
+      "axis": "Mz",
+      "torque": 30,
+      "layout": "all",
+      "oracle": {
+        "sectionRatio": 0.5167490971927445,
+        "phiTn": 58.05525382235969,
+        "ratio": 0.5167490971927445
+      },
+      "result": {
+        "overallStatus": "ok",
+        "checkedAxes": [
+          "Mz",
+          "T"
+        ],
+        "torsionChecks": [
+          {
+            "category": "Torsion Support (Vy)",
+            "demandCategory": null,
+            "demand": 30,
+            "capacity": 0,
+            "unit": "kN·m",
+            "method": "capacity",
+            "tuplesChecked": 2,
+            "regionRange": [
+              0,
+              0.25
+            ],
+            "description": "§22.7: Tu=30.0 > φTth=5.6 kN·m; sección 0.52; (Av+2At)/s 8.54 de 40.21 cm²/m; s ≤ 19.6 cm; Al 6.70 cm²",
+            "comboName": "pure torque",
+            "stationX": 0,
+            "limiting": "torsion",
+            "ratio": 0.517,
+            "status": "ok"
+          },
+          {
+            "category": "Torsion Al Support (Vy)",
+            "demandCategory": null,
+            "required": 4.4,
+            "provided": 8.04,
+            "unit": "cm²",
+            "method": "area",
+            "tuplesChecked": 2,
+            "regionRange": [
+              0,
+              0.25
+            ],
+            "description": "Al=6.70 cm² (§22.7.6.1, Tu=30.0 ≥ φTth=5.6 kN·m) sobre As de flexión ≈ 1.05 cm²; cara inferior: 4.40 de 8.04 cm² (Al/2 por cara)",
+            "comboName": "pure torque",
+            "stationX": 0,
+            "limiting": "torsion",
+            "ratio": 0.547,
+            "status": "ok"
+          },
+          {
+            "category": "Torsion Span (Vy)",
+            "demandCategory": null,
+            "demand": 30,
+            "capacity": 0,
+            "unit": "kN·m",
+            "method": "capacity",
+            "tuplesChecked": 1,
+            "regionRange": [
+              0.25,
+              0.75
+            ],
+            "description": "§22.7: Tu=30.0 > φTth=5.6 kN·m; sección 0.52; (Av+2At)/s 8.54 de 40.21 cm²/m; s ≤ 19.6 cm; Al 6.70 cm²",
+            "comboName": "pure torque",
+            "stationX": 3,
+            "limiting": "torsion",
+            "ratio": 0.517,
+            "status": "ok"
+          },
+          {
+            "category": "Torsion Al Span (Vy)",
+            "demandCategory": null,
+            "required": 4.4,
+            "provided": 8.04,
+            "unit": "cm²",
+            "method": "area",
+            "tuplesChecked": 1,
+            "regionRange": [
+              0.25,
+              0.75
+            ],
+            "description": "Al=6.70 cm² (§22.7.6.1, Tu=30.0 ≥ φTth=5.6 kN·m) sobre As de flexión ≈ 1.05 cm²; cara inferior: 4.40 de 8.04 cm² (Al/2 por cara)",
+            "comboName": "pure torque",
+            "stationX": 3,
+            "limiting": "torsion",
+            "ratio": 0.547,
+            "status": "ok"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -28,7 +28,7 @@
 //!   * N/A       — the feature does not change this analysis' answer (e.g. a
 //!                 member load in a modal analysis), so nothing is checked.
 //!
-//! The matrix is rendered into `docs/verification/FEATURE_MATRIX.md`, and the
+//! The matrix is rendered into `testing/docs/FEATURE_MATRIX.md`, and the
 //! test fails if the file is out of date (regenerate with
 //! `UPDATE_FEATURE_MATRIX=1 cargo test --release --test robustness feature_matrix::`) or if
 //! any IGNORED/WRONG cell is not listed in `KNOWN` with the branch fixing it.
@@ -1340,8 +1340,8 @@ fn moving_reference_2d(ana: &str, c: &Case2) -> Result<Out, String> {
                 } else { (a0, a1) };
                 let ef = interior.as_ref().unwrap_or(ef);
                 let (mut lo, mut hi) = (a0.min(a1), a0.max(a1));
-                for t in dedaliano_engine::postprocess::diagrams::diagram_positions_2d(ef, kind) {
-                    let v = dedaliano_engine::postprocess::diagrams::compute_diagram_value_at(kind, t.clamp(0.0, 1.0), ef);
+                for t in dedaliano_engine::postprocess::diagrams::diagram_positions_2d(ef, kind).into_iter().filter(|t| *t > 0.0 && *t < 1.0) {
+                    let v = dedaliano_engine::postprocess::diagrams::compute_diagram_value_at(kind, t, ef);
                     if v.is_finite() { lo = lo.min(v); hi = hi.max(v); }
                 }
                 (lo, hi)
@@ -1765,7 +1765,7 @@ fn feature_matrix() {
     let ms = vec![matrix_2d(), matrix_3d()];
     let text = render(&ms);
     println!("{text}");
-    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../docs/verification/FEATURE_MATRIX.md");
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../testing/docs/FEATURE_MATRIX.md");
     if std::env::var("UPDATE_FEATURE_MATRIX").is_ok() {
         std::fs::write(&path, &text).unwrap();
     }
@@ -1779,7 +1779,7 @@ fn feature_matrix() {
     }
     assert!(bad.is_empty(), "analyses that silently ignore, mishandle or fail on a feature:\n{}", bad.join("\n"));
     let on_disk = std::fs::read_to_string(&path).unwrap_or_default();
-    assert!(on_disk == text, "docs/verification/FEATURE_MATRIX.md is out of date: rerun with UPDATE_FEATURE_MATRIX=1");
+    assert!(on_disk == text, "testing/docs/FEATURE_MATRIX.md is out of date: rerun with UPDATE_FEATURE_MATRIX=1");
 }
 
 // ==================== 3D model builder ====================
@@ -3389,4 +3389,15 @@ fn issue_1782_endpoint_3d_reference_obeys_equilibrium() {
         let Out::S(values, _) = moving_reference_3d("moving loads", &c).unwrap() else { panic!("scalar envelope required") };
         for value in values { assert!(value.abs() < 1e-9, "support carries endpoint loads: {value}"); }
     }
+}
+
+#[test]
+fn issue_1782_planar_thermal_moving_limits_match_position_solves() {
+    let case = cases_2d().into_iter().find(|c| c.feature == "thermal load" && c.variant == "free cantilever").unwrap();
+    let analysis = other_rows_2d().into_iter().find(|a| a.name == "moving loads").unwrap();
+    let cell = run_2d(&case, &analysis);
+    assert_eq!(
+        cell.verdict, Verdict::Supported, "{}: computed {:?}, reference {:?}",
+        cell.note, (analysis.run)(&case.with, &case), moving_reference_2d(analysis.name, &case),
+    );
 }

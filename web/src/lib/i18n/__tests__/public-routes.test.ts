@@ -117,3 +117,9 @@ it('preserves query and fragment when changing a public route locale', () => {
   expect(publicHref('/research/fracture/shauer-2025?step=56&mesh=0#model', 'es'))
     .toBe('/es/research/fracture/shauer-2025/?step=56&mesh=0#model');
 });
+
+
+it.each(['/', '', '/?q=landing#top', '?q=landing#top'])('keeps the root URL suffix for %s', path => {
+  const suffix = path.includes('?') ? '?q=landing#top' : '';
+  expect(publicHref(path, 'en')).toBe(`/en/${suffix}`);
+});

@@ -18,7 +18,9 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { gunzipSync } from 'node:zlib';
 import { createHash } from 'node:crypto';
-import { modelStore } from '../store/model.svelte';
+import { modelStore, type Section } from '../store/model.svelte';
+import releaseDefaults from './release-defaults.json';
+import { resultPropertyFingerprint } from '../model/result-properties';
 import { historyStore } from '../store/history.svelte';
 import { uiStore } from '../store/ui.svelte';
 import { resultsStore } from '../store/results.svelte';
@@ -30,15 +32,16 @@ import '../store';
 import { deserializeProject, loadFile } from '../store/file';
 import { tabManager } from '../store/tabs.svelte';
 import { solveNow } from '../actions/solve';
+import { meshBeforeAnalysis } from '../store/mesh-policy.svelte';
 import { setLocale } from '../i18n';
 import { ANALYSIS_KINDS, modelFeatures } from '../provenance/model-features';
 import { conditionHolds } from '../provenance/applicability';
 import type { ResultChange } from '../provenance/registry';
 import declaredQuantities from 'virtual:result-change-quantities';
 import { resultValues, type Values } from './capture-results';
-// @ts-expect-error plain JavaScript shared with the results snapshot gate (no declaration file)
-import { compareValues, formatCaseReport, parseSnapshot, storeNumber } from '../../../scripts/results-snapshot/compare.mjs';
+import { compareValues, formatCaseReport, parseSnapshot, storeNumber, type SnapshotDiff } from '../../../scripts/results-snapshot/compare.mjs';
 import { compareLegacy } from './vector-floor';
+import { conditionAllowsResult } from '../../../scripts/results-snapshot/applicability.mjs';
 
 export type Workspace = '2d' | '3d' | 'pro';
 
@@ -114,16 +117,16 @@ export function currentFixtureBlob(id: string): string | null {
  * against the blob id). An example edited since with no recorded fixture fails: without it
  * nothing tells a fixture edit from a migration that reads the old file as another model.
  */
-export function savedFixture(id: string, blob: string): { fixture?: () => Promise<unknown>; edited: boolean } {
-  if (blob === currentFixtureBlob(id)) return { edited: false };
-  const f = new URL(`${id}@${blob}.json`, EDITED_FIXTURE_DIR);
+export function savedFixture(id: string, blob: string): { fixture: () => Promise<unknown>; edited: boolean } {
+  const edited = blob !== currentFixtureBlob(id);
+  const f = edited ? new URL(`${id}@${blob}.json`, EDITED_FIXTURE_DIR) : new URL(`${id}.json`, FIXTURE_DIR);
   if (!existsSync(f)) {
     throw new Error(`${id}: the fixture the version saved (blob ${blob}) is not today's, and legacy-projects/fixtures/${id}@${blob}.json does not record it. Regenerate the corpus (generate.mjs writes it) so the file is compared with the example it was saved from.`);
   }
   const bytes = readFileSync(f);
   if (gitBlob(bytes) !== blob) throw new Error(`legacy-projects/fixtures/${id}@${blob}.json is not that blob (${gitBlob(bytes)}): it was edited.`);
   const json = JSON.parse(bytes.toString('utf8')) as unknown;
-  return { fixture: async () => json, edited: true };
+  return { fixture: async () => structuredClone(json), edited };
 }
 
 /** Every store an open writes to, back to a fresh session's state (the snapshot gate's reset). */
@@ -142,9 +145,12 @@ export function reset(workspace: Workspace): void {
   uiStore.includeSelfWeight = workspace === 'pro';
 }
 
-/** Solve what is on screen through Calcular's entry point and record the results. */
+/** Solve what is on screen through Calcular's entry point and record the results, as the file was built (as the results corpus is): coarse plates are not meshed first. */
 export async function solveAndRecord(values: Values): Promise<void> {
-  const outcome = await solveNow();
+  const meshing = meshBeforeAnalysis.value;
+  meshBeforeAnalysis.value = false;
+  let outcome: Awaited<ReturnType<typeof solveNow>>;
+  try { outcome = await solveNow(); } finally { meshBeforeAnalysis.value = meshing; }
   values['solve.ok'] = outcome.ok;
   if (!outcome.ok) values['solve.refusal'] = outcome.error ?? '';
   else resultValues(resultsStore as never, uiStore.is3DWorkspace, values);
@@ -236,11 +242,19 @@ export async function captureExample(
   return (await openExample(id, workspace, opts)).values;
 }
 
+type ExampleOptions = { solve?: boolean; keepCombinations?: boolean } & (
+  { release?: never; fixture?: () => Promise<unknown> } | { release: string; fixture: () => Promise<unknown> }
+);
+
 export async function openExample(
-  id: string, workspace: Workspace, opts: { solve?: boolean; fixture?: () => Promise<unknown>; keepCombinations?: boolean } = {},
+  id: string, workspace: Workspace, opts: ExampleOptions = {},
 ): Promise<{ values: Values; fingerprint: Values }> {
+  const defaults = opts.release === undefined ? undefined : defaultsForRelease(opts.release);
   reset(workspace);
-  await modelStore.loadExample(id, opts.fixture, { keepCombinations: opts.keepCombinations });
+  await modelStore.loadExample(id, opts.fixture, {
+    keepCombinations: opts.keepCombinations,
+    defaults: defaults ? { material: defaults.material, section: defaults.section as Section } : undefined,
+  });
   const values = modelCounts();
   const fingerprint = modelFingerprint();
   if (opts.solve !== false) await solveAndRecord(values);
@@ -281,10 +295,10 @@ export function modelFingerprint(): Values {
     out[`node[${n.id}].z`] = n.z ?? 0;
   }
   for (const m of modelStore.materials.values()) {
-    for (const f of ['e', 'nu', 'rho'] as const) out[`material[${m.id}].${f}`] = m[f];
+    Object.assign(out, resultPropertyFingerprint('material', m));
   }
   for (const sec of modelStore.sections.values()) {
-    for (const f of ['a', 'iz', 'iy', 'j', 'rotation'] as const) if (sec[f] !== undefined) out[`section[${sec.id}].${f}`] = sec[f]!;
+    Object.assign(out, resultPropertyFingerprint('section', sec));
   }
   for (const [kind, shells] of [['quad', modelStore.quads], ['plate', modelStore.plates]] as const) {
     for (const q of shells.values()) {
@@ -324,35 +338,35 @@ export function modelFingerprint(): Values {
   return out;
 }
 
-/**
- * A legacy file as the current code opened it (and solved it, when `solved`), against the example
- * it was saved from opened by the current code (an edited example's combinations loaded as its
- * release did, `KEPT_COMBINATIONS`): the same model (`modelFingerprint`) and, when
- * solved, the same results under the snapshot gate's tolerance. Both sides ran the current code,
- * so no registered result change can excuse a difference. The solved reference is the results
- * snapshot gate's committed snapshot (#716) when there is one for today's fixture, else solved here.
- */
+function defaultsForRelease(version: string) {
+  const defaults = releaseDefaults[version as keyof typeof releaseDefaults];
+  if (!defaults || readManifest(version).commit !== defaults.commit) {
+    throw new Error(`${version}: no verified example defaults recorded for this release`);
+  }
+  return defaults;
+}
+
 export async function againstExample(
   name: string, version: string, entry: Pick<ManifestEntry, 'example' | 'workspace' | 'fixtureBlob'>,
   opened: Pick<Opened, 'values' | 'fingerprint'>, solved: boolean,
 ): Promise<{ failure: string | null; verdict: Verdict | null; reference: string }> {
-  const { fixture, edited } = savedFixture(entry.example, entry.fixtureBlob);
-  const snap = solved && !edited ? committedSnapshot(entry.example, entry.workspace) : null;
-  const keepCombinations = edited && KEPT_COMBINATIONS.has(version);
-  const ref = await openExample(entry.example, entry.workspace, { solve: solved && !snap, fixture, keepCombinations });
-  const reference = snap ? snap.name : edited ? `${entry.example} as ${version} saved it (${entry.fixtureBlob.slice(0, 9)})` : `today's ${entry.example}`;
+  const { fixture } = savedFixture(entry.example, entry.fixtureBlob);
+  const ref = await openExample(entry.example, entry.workspace, {
+    solve: solved, fixture, release: version, keepCombinations: KEPT_COMBINATIONS.has(version),
+  });
+  const reference = `${entry.example} as ${version} defined it (${entry.fixtureBlob.slice(0, 9)})`;
   const model = fingerprintDifference(`${name} against ${reference}: the model`, ref.fingerprint, opened.fingerprint);
   if (model) return { failure: model, verdict: null, reference };
   if (!solved) return { failure: null, verdict: null, reference };
-  const verdict = judge(`${name} against ${reference}`, snap?.values ?? ref.values, opened.values, []);
+  const verdict = judge(`${name} against ${reference}`, ref.values, opened.values, []);
   return { failure: verdict.kind === 'same' ? null : migrationMessage(verdict, version), verdict, reference };
 }
 
 /** What differs between two model fingerprints, for a person, or null when they are the same model. */
 export function fingerprintDifference(name: string, reference: Values, current: Values): string | null {
-  const diff = compareValues(reference, current) as Diff;
+  const diff = compareValues(reference, current);
   if (!diff.differs && diff.added.length === 0) return null;
-  const lines = [formatCaseReport(name, diff) as string];
+  const lines = [formatCaseReport(name, diff)];
   for (const p of diff.added) lines.push(`    ${p}: only in the migrated file, ${JSON.stringify(current[p])}`);
   lines.push('', 'The file, opened by the current code, is another model than the example it was saved from (the same code opened both). No registered result change explains it: the migration reads the old file wrongly. Fix the migration, not the corpus.');
   return lines.join('\n');
@@ -406,7 +420,8 @@ export function resultFingerprint(values: Values): string {
  * file must open as the same model whatever the solver does. `*` covers a result set's values,
  * not whether the solve refuses, raises an error or finds a combination unstable.
  */
-export function declaresMove(change: Pick<ResultChange, 'quantities'>, path: string, results?: { before: string; after: string }): boolean {
+export function declaresMove(change: Pick<ResultChange, 'quantities' | 'when'>, path: string, results?: { before: string; after: string }): boolean {
+  if (!conditionAllowsResult(change.when ?? {}, path)) return false;
   const declared = (change.quantities ?? []).flatMap((q) => typeof q === 'string' ? [q]
     : results?.before && results.after && q.before === results.before && q.after === results.after ? [q.quantity] : []);
   if (path === 'solve.ok' || path === 'unstableCombinations') return declared.includes(path);
@@ -434,12 +449,7 @@ export interface Verdict {
   notes: string[];
 }
 
-interface Diff {
-  changed: Array<{ path: string }>;
-  removed: string[];
-  added: string[];
-  differs: boolean;
-}
+type Diff = SnapshotDiff<unknown>;
 
 const OUTSIDE_RESULTS = /^(model\.|solve\.ok$)/;
 
@@ -448,7 +458,7 @@ function outsideResults(v: Values): Values {
 }
 
 function report(name: string, diff: Diff, solve: Verdict['solve'], current: Values): string {
-  const lines = [formatCaseReport(name, diff) as string];
+  const lines = [formatCaseReport(name, diff)];
   for (const p of diff.added) lines.push(`    ${p}: newly produced, ${JSON.stringify(current[p])}`);
   if (solve === 'now refuses') lines.push(`    the solve now refuses (${JSON.stringify(current['solve.refusal'] ?? '')}); no result value is compared`);
   if (solve === 'now solves') lines.push('    the solve refused then and solves now; no result value is compared');
@@ -502,7 +512,7 @@ export function unexplainedMessage(v: Verdict, version: string): string {
     v.applicable.length === 0
       ? `No registered result change explains it: the registry lists none introduced after ${version} that applies to this model.`
       : `No registered result change explains these values: of the entries introduced after ${version} that apply to this model (${v.applicable.join(', ')}), none declares in its "quantities" that it moves them.`,
-    'If the change is deliberate, register it, or declare the quantities an existing entry moves (docs/verification/PROVENANCE.md). If not, it is a regression, or a migration that reads the old file wrongly: fix the code, not the corpus.',
+    'If the change is deliberate, register it, or declare the quantities an existing entry moves (testing/docs/PROVENANCE.md). If not, it is a regression, or a migration that reads the old file wrongly: fix the code, not the corpus.',
   ].join('\n');
 }
 

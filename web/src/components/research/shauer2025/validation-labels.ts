@@ -228,6 +228,38 @@ const labels: Record<string, Record<string, string>> = {
     "preDamage": "Tepeye kadar en büyük hasar",
     "force": "Kırılma dahil kuvvet",
     "mirror": "Düğüm hasarı, referans veya ayna görüntüsü"
+  },
+  "hu": {
+    "mesh": "Háló ujjlenyomatai",
+    "steps": "Teherlépések száma",
+    "iterations": "Iterációk minden lépésben",
+    "damage": "Legnagyobb károsodás minden lépésben",
+    "stress": "Középponti feszültség minden lépésben",
+    "damageField": "Csomóponti károsodás",
+    "displacementField": "Csomóponti elmozdulás",
+    "analytic": "Középponti feszültség / 1D AT2 megoldás, max d < 0.25",
+    "peakStep": "A csúcserő lépése",
+    "peak": "Csúcserő",
+    "preForce": "Erő a csúcsig",
+    "preDamage": "Legnagyobb károsodás a csúcsig",
+    "force": "Erő a töréssel együtt",
+    "mirror": "Csomóponti károsodás, referencia vagy tükörkép"
+  },
+  "zh": {
+    "mesh": "网格指纹",
+    "steps": "荷载步数",
+    "iterations": "每一步的迭代次数",
+    "damage": "每一步的最大损伤",
+    "stress": "每一步的中心应力",
+    "damageField": "节点损伤",
+    "displacementField": "节点位移",
+    "analytic": "中心应力 / 一维 AT2 解，max d < 0.25",
+    "peakStep": "峰值力所在步",
+    "peak": "峰值力",
+    "preForce": "直至峰值的力",
+    "preDamage": "直至峰值的最大损伤",
+    "force": "含断裂阶段的力",
+    "mirror": "节点损伤，参考值或镜像"
   }
 };
 const metrics: Record<string, Record<string, string>> = {
@@ -274,6 +306,22 @@ const metrics: Record<string, Record<string, string>> = {
   "tr": {
     "exact": "Tam",
     "relative difference": "Bağıl fark",
+    "absolute difference / AT2 peak stress": "|Δσ| / σc",
+    "max absolute difference": "max |Δd|",
+    "max absolute difference / max |u|": "max |Δu| / max |u|",
+    "absolute difference, kN": "|ΔF| (kN)"
+  },
+  "hu": {
+    "exact": "Pontos",
+    "relative difference": "Relatív eltérés",
+    "absolute difference / AT2 peak stress": "|Δσ| / σc",
+    "max absolute difference": "max |Δd|",
+    "max absolute difference / max |u|": "max |Δu| / max |u|",
+    "absolute difference, kN": "|ΔF| (kN)"
+  },
+  "zh": {
+    "exact": "精确",
+    "relative difference": "相对差异",
     "absolute difference / AT2 peak stress": "|Δσ| / σc",
     "max absolute difference": "max |Δd|",
     "max absolute difference / max |u|": "max |Δu| / max |u|",

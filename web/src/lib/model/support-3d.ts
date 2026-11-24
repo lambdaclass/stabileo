@@ -42,7 +42,39 @@ export function is3DSupportType(type: SupportType): boolean {
 }
 
 /** The degrees of freedom a named 3D support type holds (the solver's own mapping). */
-export function dofRestraintsOfType3D(type: SupportType): Record<Dof3D, boolean> {
-  const d = supportDofs3D({ type } as Support);
+export function dofRestraintsOfType3D(type: SupportType, embeddedPlane = false): Record<Dof3D, boolean> {
+  const d = supportDofs3D({ type } as Support, embeddedPlane);
   return { tx: d.rx, ty: d.ry, tz: d.rz, rx: d.rrx, ry: d.rry, rz: d.rrz };
+}
+
+export function hasYRollerMaskOnZRoller(support: Support): boolean {
+  const { type, dofRestraints } = support;
+  if (type !== 'rollerZ' || !dofRestraints) return false;
+  const yRoller = dofRestraintsOfType3D('rollerY');
+  return DOF_SPRING.every(([dof]) => dofRestraints[dof] === yRoller[dof]);
+}
+
+type SupportConfiguration = Pick<Support, 'dofRestraints' | 'dofFrame' | 'dofLocalElementId'>;
+
+export function supportConfiguration(
+  edit: SupportConfiguration,
+  base?: SupportConfiguration | SupportType,
+): SupportConfiguration {
+  const inherited = typeof base === 'object' ? base : undefined;
+  const preset = typeof base === 'string' && base.startsWith('roller') && base !== 'rollerZ' && !edit.dofRestraints
+    ? base : undefined;
+  const restraints = edit.dofRestraints ?? (preset ? dofRestraintsOfType3D(preset) : inherited?.dofRestraints);
+  const reference = edit.dofFrame === 'global' ? undefined
+    : 'dofLocalElementId' in edit ? edit.dofLocalElementId : inherited?.dofLocalElementId;
+  const frame = 'dofFrame' in edit ? edit.dofFrame
+    : preset && reference === undefined ? 'global' : inherited?.dofFrame;
+  return {
+    ...(restraints ? { dofRestraints: { ...restraints } } : {}),
+    ...(frame !== undefined ? { dofFrame: frame } : {}),
+    ...(reference !== undefined ? { dofLocalElementId: reference } : {}),
+  };
+}
+
+export function supportIsLocal(support: { dofFrame?: string; dofLocalElementId?: number }): boolean {
+  return support.dofFrame === 'local' || support.dofLocalElementId !== undefined;
 }

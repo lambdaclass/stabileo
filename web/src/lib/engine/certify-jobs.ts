@@ -1,5 +1,5 @@
 /**
- * Run a certify export (docs/verification/CERTIFY.md) off the main thread when it can be: in an
+ * Run a certify export (testing/docs/CERTIFY.md) off the main thread when it can be: in an
  * idle worker of the solver pool, else here. Certifying re-solves and checks in interval
  * arithmetic, a few times the cost of the solve, so callers start it after the result is shown
  * (`store/analysis-certificate.svelte.ts`, `store/certificate.svelte.ts`).

@@ -109,6 +109,7 @@ export interface MemberRef {
   elementId: number; nodeI: number; nodeJ: number; axes: MemberAxes;
   /** From each node to its member end, when an offset separates them. */
   armI?: Vec3; armJ?: Vec3;
+  points?: readonly [Vec3, Vec3];
 }
 
 /**
@@ -138,7 +139,7 @@ export function globalDistributedToSolver(m: MemberRef, gI: Vec3, gJ: Vec3, a: n
     // The transverse part and the axial part separately: the axial one is tagged.
     if (![yI, yJ, zI, zJ].every(tiny)) toNodes(add(scale(ey, yI), ez, zI), add(scale(ey, yJ), ez, zJ));
     if (!(tiny(xI) && tiny(xJ))) toNodes(scale(ex, xI), scale(ex, xJ), true);
-  } else if (![xI, xJ, yI, yJ, zI, zJ].every(tiny)) {
+  } else if ([xI, xJ, yI, yJ, zI, zJ].some(v => v !== 0)) {
     out.push({ type: 'distributed', data: { elementId: m.elementId, qXI: xI, qXJ: xJ, qYI: yI, qYJ: yJ, qZI: zI, qZJ: zJ, a, b } });
   }
   return out;
@@ -193,7 +194,7 @@ export function transverseToNodes(loads: SolverLoad3D[], axialOnly: (elementId: 
 export function memberFrame3D(
   model: Pick<ModelData, 'nodes' | 'sections'>,
   el: { type?: string; nodeI: number; nodeJ: number; sectionId: number; localYx?: number; localYy?: number; localYz?: number; rollAngle?: number; offset?: import('../model/element-3d-metadata').MemberOffset },
-): { ni: [number, number, number]; ax: ReturnType<typeof computeLocalAxes3D>; armI?: Vec3; armJ?: Vec3 } | null {
+): { ni: [number, number, number]; nj: [number, number, number]; ax: ReturnType<typeof computeLocalAxes3D>; armI?: Vec3; armJ?: Vec3 } | null {
   const a = model.nodes.get(el.nodeI);
   const b = model.nodes.get(el.nodeJ);
   if (!a || !b) return null;
@@ -209,7 +210,7 @@ export function memberFrame3D(
   }
   let ax;
   try { ax = computeLocalAxes3D(A, B, localY, roll, false); } catch { return null; }
-  if (!hasMemberOffset(el)) return { ni: [A.x, A.y, A.z], ax };
+  if (!hasMemberOffset(el)) return { ni: [A.x, A.y, A.z], nj: [B.x, B.y, B.z], ax };
   const shift = (p: typeof A, v: import('../model/element-3d-metadata').MemberOffsetVec | undefined) => {
     if (!v) return p;
     const g = offsetVecToSolver(v, el.offset!.frame, ax!);
@@ -218,7 +219,7 @@ export function memberFrame3D(
   const A2 = shift(A, el.offset!.i), B2 = shift(B, el.offset!.j);
   try { ax = computeLocalAxes3D(A2, B2, localY, roll, false); } catch { return null; }
   return {
-    ni: [A2.x, A2.y, A2.z], ax,
+    ni: [A2.x, A2.y, A2.z], nj: [B2.x, B2.y, B2.z], ax,
     armI: [A2.x - A.x, A2.y - A.y, A2.z - A.z], armJ: [B2.x - B.x, B2.y - B.y, B2.z - B.z],
   };
 }

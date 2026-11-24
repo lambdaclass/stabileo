@@ -1,0 +1,65 @@
+{
+  "id": "independent-applied-force-checks",
+  "date": "2026-11-16",
+  "prs": [
+    2222,
+    2223
+  ],
+  "area": "analysis",
+  "quantities": [
+    "equilibrium",
+    "diagnosticCodes",
+    "solve.ok",
+    {
+      "quantity": "displacements.rz",
+      "before": "24e63275a3345aeddfc2ad71b82681632ba27dbff47949a92a7535c82791a772",
+      "after": "9e8ca34acf8fac86dc0f1ee456e66ae095b80412e4e96dccadd865f31ef01e3e"
+    },
+    {
+      "quantity": "reactions.mz",
+      "before": "24e63275a3345aeddfc2ad71b82681632ba27dbff47949a92a7535c82791a772",
+      "after": "9e8ca34acf8fac86dc0f1ee456e66ae095b80412e4e96dccadd865f31ef01e3e"
+    },
+    {
+      "quantity": "displacements.rz",
+      "before": "625f64fe96b0fa8aeeea95de8d5fa15c3973e8e41c5ce98c3583c406c52031a8",
+      "after": "9e8ca34acf8fac86dc0f1ee456e66ae095b80412e4e96dccadd865f31ef01e3e"
+    },
+    {
+      "quantity": "reactions.mz",
+      "before": "625f64fe96b0fa8aeeea95de8d5fa15c3973e8e41c5ce98c3583c406c52031a8",
+      "after": "9e8ca34acf8fac86dc0f1ee456e66ae095b80412e4e96dccadd865f31ef01e3e"
+    }
+  ],
+  "title": {
+    "en": "Applied-force totals are checked independently of assembly",
+    "es": "Los totales de fuerza se verifican independientemente del ensamblaje",
+    "pt": "Totais de força verificados independentemente da montagem",
+    "de": "Lastsummen werden unabhängig von der Assemblierung geprüft",
+    "fr": "Les totaux de forces sont vérifiés indépendamment de l’assemblage",
+    "hu": "A terhek összege az összeállítástól függetlenül ellenőrzött",
+    "zh": "外加力合计独立于装配进行检查",
+    "tr": "Uygulanan kuvvet toplamları montajdan bağımsız denetlenir"
+  },
+  "explanation": {
+    "en": "Equilibrium summaries integrate applied load definitions directly, so an omitted assembled force cannot also disappear from the balance check. Applied totals can differ from totals reconstructed through inclined support transformations. The independent force check preserves the existing force and moment verdict and uses its own force imbalance; its tolerance is unchanged (#2222, #2223).",
+    "es": "El equilibrio integra directamente las definiciones de carga; una fuerza omitida en el ensamblaje no desaparece de su verificación. Los totales pueden diferir de los reconstruidos mediante apoyos inclinados. La comprobación independiente conserva el dictamen de fuerzas y momentos y evalúa su propio desequilibrio sin cambiar la tolerancia (#2222, #2223).",
+    "pt": "O equilíbrio integra diretamente as definições das cargas; uma força omitida na montagem não desaparece da verificação. Os totais podem diferir dos reconstruídos por apoios inclinados. A verificação independente preserva o parecer de forças e momentos e avalia seu próprio desequilíbrio sem alterar a tolerância (#2222, #2223).",
+    "de": "Die Gleichgewichtssummen integrieren die Lastdefinitionen direkt, damit eine bei der Assemblierung ausgelassene Kraft nicht auch aus der Prüfung verschwindet. Summen können von der Rücktransformation geneigter Auflager abweichen. Die unabhängige Kraftprüfung erhält das bisherige Kraft- und Momentenurteil und prüft ihre eigene Kraftabweichung mit unveränderter Toleranz (#2222, #2223).",
+    "fr": "Les totaux intègrent directement les charges définies, pour qu’une force omise à l’assemblage reste visible au contrôle. Ils peuvent différer des totaux reconstruits par transformation des appuis inclinés. Le contrôle indépendant conserve le verdict des forces et moments et évalue son propre déséquilibre sans modifier la tolérance (#2222, #2223).",
+    "hu": "Az egyensúlyi összegek közvetlenül a teherdefiníciókból készülnek, így az összeállításkor kihagyott erő az ellenőrzésből nem tűnik el. Az összegek eltérhetnek a ferde támaszokból visszatranszformált értékektől. A független erőellenőrzés megtartja az erő- és nyomatékellenőrzés eredményét, saját erőeltérését változatlan tűréssel vizsgálja (#2222, #2223).",
+    "zh": "平衡汇总直接对外加荷载定义积分，因此装配时遗漏的力不会同时从平衡检查中消失。外加合计可能与经斜支座变换重建的合计不同。独立的力检查保留现有的力和弯矩判定，并使用其自身的力不平衡量；其容差不变（#2222，#2223）。",
+    "tr": "Denge toplamları yük tanımlarını doğrudan bütünler; montajda atlanan bir kuvvet denetimden kaybolmaz. Toplamlar eğik mesnet dönüşümlerinden hesaplananlardan farklı olabilir. Bağımsız kuvvet denetimi mevcut kuvvet ve moment kararını korur, kendi kuvvet dengesizliğini değişmeyen toleransla değerlendirir (#2222, #2223)."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-narrow-partial-loads.md",
+    "heading": "Independent applied-force checks (2026-11-16)"
+  },
+  "when": {
+    "any": [
+      "memberLoads",
+      "shells",
+      "inclinedSupports"
+    ]
+  }
+}

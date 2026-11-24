@@ -1,6 +1,6 @@
 //! Load generation from the Argentine regulations: the coefficient and clause arithmetic the app
-//! used to do in TypeScript. See `docs/verification/LOADS.md` for the clause-by-clause
-//! verification and `docs/verification/TS_ENGINE_LOGIC.md` for what is still TypeScript.
+//! used to do in TypeScript. See `testing/docs/LOADS.md` for the clause-by-clause
+//! verification and `testing/docs/TS_ENGINE_LOGIC.md` for what is still TypeScript.
 
 pub mod cirsoc101_combinations;
 pub mod cirsoc103_seismic;

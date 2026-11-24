@@ -10,6 +10,7 @@ pub mod geometric_stiffness;
 pub mod mass_matrix;
 pub mod buckling;
 pub mod modal;
+mod modal_mass;
 pub mod spectral;
 pub mod plastic;
 pub mod plastic_limit;
@@ -27,6 +28,7 @@ mod harmonic_direct;
 pub mod load_cases;
 pub mod winkler;
 pub mod line_search;
+pub(crate) mod nonlinear;
 pub mod adaptive_stepping;
 pub mod contact;
 pub mod soil_curves;
@@ -67,6 +69,17 @@ pub use winkler::*;
 pub(crate) mod self_checks;
 
 pub(crate) mod conditioning_accuracy;
+mod member_actions;
 
 #[cfg(test)]
 mod web_mechanism_regressions;
+
+pub(crate) mod load_work;
+pub(crate) mod reaction_recovery;
+
+mod applied_loads;
+mod member_loads;
+pub use member_loads::{canonical_interval as canonical_member_load_interval, canonical_interval_values as canonical_member_load_interval_values};
+
+#[cfg(feature = "experimental-nonlinear")]
+pub mod experimental_nonlinear;

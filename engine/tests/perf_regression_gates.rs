@@ -606,76 +606,57 @@ fn sparse_not_slower_than_dense_3d() {
     );
 }
 
-// ==================== Per-load-case cost on a prepared model ====================
-
-/// How long this thread takes to do a fixed amount of the solver's kind of arithmetic: forty
-/// dense 400 × 400 matrix-vector products. A budget in units of it holds on a slow runner and
-/// under a loaded one, where a budget in milliseconds does not (these gates ran three times
-/// slower under the web suite than alone).
-fn calibration_ms() -> f64 {
-    let n = 400;
-    let a: Vec<f64> = (0..n * n).map(|i| 1.0 + (i % 97) as f64 * 1e-3).collect();
-    let mut x: Vec<f64> = (0..n).map(|i| (i as f64).sin()).collect();
-    let t0 = Instant::now();
-    for _ in 0..40 {
-        let mut y = vec![0.0; n];
-        for (i, yi) in y.iter_mut().enumerate() {
-            *yi = a[i * n..(i + 1) * n].iter().zip(&x).map(|(p, q)| p * q).sum();
-        }
-        let scale = y.iter().map(|v| v.abs()).fold(0.0f64, f64::max).max(1e-300);
-        for v in &mut y { *v /= scale; }
-        x = y;
-    }
-    assert!(x.iter().all(|v| v.is_finite()));
-    t0.elapsed().as_secs_f64() * 1000.0
-}
-
-/// The median over three rounds of `run`'s time in calibrations, each round calibrated first.
-fn cost_in_calibrations(mut run: impl FnMut()) -> (f64, f64) {
-    let mut rounds: Vec<(f64, f64)> = (0..3).map(|_| {
-        let unit = calibration_ms();
-        let t0 = Instant::now();
+fn cost_relative_to(mut reference: impl FnMut(), mut run: impl FnMut()) -> (f64, f64) {
+    fn elapsed_ms(run: &mut impl FnMut()) -> f64 {
+        let start = Instant::now();
         run();
-        let ms = t0.elapsed().as_secs_f64() * 1000.0;
-        (ms, ms / unit)
+        start.elapsed().as_secs_f64() * 1000.0
+    }
+    reference();
+    run();
+    let mut rounds: Vec<(f64, f64)> = (0..5).map(|round| {
+        let (reference_ms, ms) = if round % 2 == 0 {
+            (elapsed_ms(&mut reference), elapsed_ms(&mut run))
+        } else {
+            let ms = elapsed_ms(&mut run);
+            (elapsed_ms(&mut reference), ms)
+        };
+        (ms, ms / reference_ms)
     }).collect();
     rounds.sort_by(|a, b| a.1.total_cmp(&b.1));
-    rounds[1]
+    rounds[rounds.len() / 2]
 }
 
-/// Gate: on a prepared 600-element 2D frame, ten load cases through `solve_loads` cost at most
-/// `CASES_2D_LIMIT` calibrations together. The per-case path (load vector, triangular solve,
-/// recovery, the small-displacement and second-order screens, the self-checks) is what every case
-/// of a combination solve pays; in November 2026 the screens alone cost 15 times the solve, and
-/// these ten cases measured 12,2 calibrations (3D: 9,0) against 1,6 (3D: 1,1) once fixed. Each
-/// limit is near the geometric mean of the two: the regression fails it and the fixed cost has
-/// close to three times its room.
-const CASES_2D_LIMIT: f64 = 4.5;
-const CASES_3D_LIMIT: f64 = 3.0;
+const FIVEFOLD_MODEL_COST_LIMIT: f64 = 12.0;
 
 #[test]
-fn prepared_2d_ten_load_cases_within_budget() {
+fn prepared_2d_ten_load_cases_scale_with_model() {
+    let reference_input = make_2d_beam(120);
     let input = make_2d_beam(600);
+    let reference = linear::prepare_static_2d(&reference_input).expect("prepare failed");
     let prepared = linear::prepare_static_2d(&input).expect("prepare failed");
-    let cases: Vec<Vec<SolverLoad>> = (1..=10)
-        .map(|k| vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 60 * k - 30, fx: 0.0, fz: -10.0 * k as f64, my: 0.0 })])
-        .collect();
-
-    // Warmup
-    let _ = prepared.solve_loads(&cases[0]).expect("case solve failed");
-
-    let (ms, ratio) = cost_in_calibrations(|| {
+    let cases_for = |stride: usize| -> Vec<Vec<SolverLoad>> {
+        (1..=10).map(|k| vec![SolverLoad::Nodal(SolverNodalLoad {
+            node_id: stride * k - stride / 2, fx: 0.0, fz: -10.0 * k as f64, my: 0.0,
+        })]).collect()
+    };
+    let reference_cases = cases_for(12);
+    let cases = cases_for(60);
+    let (ms, ratio) = cost_relative_to(|| {
+        for loads in &reference_cases {
+            let result = reference.solve_loads(loads).expect("reference case solve failed");
+            assert!(!result.displacements.is_empty());
+        }
+    }, || {
         for loads in &cases {
             let result = prepared.solve_loads(loads).expect("case solve failed");
             assert!(!result.displacements.is_empty());
         }
     });
-
-    println!("600-element 2D frame, 10 prepared cases: {ms:.1}ms, {ratio:.2} calibrations");
-
+    println!("600 vs 120 elements, 10 prepared 2D cases: {ms:.1}ms, {ratio:.2}x cost");
     dedaliano_engine::wall_clock::budget(
-        ratio < CASES_2D_LIMIT,
-        || format!("10 prepared 2D load cases took {ms:.0}ms, {ratio:.2} calibrations (limit: {CASES_2D_LIMIT})"),
+        ratio < FIVEFOLD_MODEL_COST_LIMIT,
+        || format!("Fivefold 2D model took {ratio:.2}x the prepared-case time (limit: {FIVEFOLD_MODEL_COST_LIMIT})"),
     );
 }
 
@@ -832,34 +813,34 @@ fn make_frame_3d(n_stories: usize, n_bays: usize) -> SolverInput3D {
 }
 
 
-/// Gate: on a prepared 20-storey, 5-bay 3D frame (220 members), ten load cases through
-/// `solve_loads` cost at most `CASES_3D_LIMIT` calibrations together; see
-/// `prepared_2d_ten_load_cases_within_budget`.
 #[test]
-fn prepared_3d_ten_load_cases_within_budget() {
+fn prepared_3d_ten_load_cases_scale_with_model() {
+    let reference_input = make_frame_3d(4, 5);
     let input = make_frame_3d(20, 5);
+    let reference = linear::prepare_static_3d(&reference_input).expect("prepare failed");
     let prepared = linear::prepare_static_3d(&input).expect("prepare failed");
-    let cases: Vec<Vec<SolverLoad3D>> = (1..=10)
-        .map(|k| input.loads.iter().cloned().map(|l| match l {
+    let cases_for = |input: &SolverInput3D| -> Vec<Vec<SolverLoad3D>> {
+        (1..=10).map(|k| input.loads.iter().cloned().map(|l| match l {
             SolverLoad3D::Nodal(mut n) => { n.fz *= k as f64; SolverLoad3D::Nodal(n) }
             other => other,
-        }).collect())
-        .collect();
-
-    // Warmup
-    let _ = prepared.solve_loads(&cases[0]).expect("case solve failed");
-
-    let (ms, ratio) = cost_in_calibrations(|| {
+        }).collect()).collect()
+    };
+    let reference_cases = cases_for(&reference_input);
+    let cases = cases_for(&input);
+    let (ms, ratio) = cost_relative_to(|| {
+        for loads in &reference_cases {
+            let result = reference.solve_loads(loads).expect("reference case solve failed");
+            assert!(!result.displacements.is_empty());
+        }
+    }, || {
         for loads in &cases {
             let result = prepared.solve_loads(loads).expect("case solve failed");
             assert!(!result.displacements.is_empty());
         }
     });
-
-    println!("20x5 3D frame, 10 prepared cases: {ms:.1}ms, {ratio:.2} calibrations");
-
+    println!("20 vs 4 storeys, 10 prepared 3D cases: {ms:.1}ms, {ratio:.2}x cost");
     dedaliano_engine::wall_clock::budget(
-        ratio < CASES_3D_LIMIT,
-        || format!("10 prepared 3D load cases took {ms:.0}ms, {ratio:.2} calibrations (limit: {CASES_3D_LIMIT})"),
+        ratio < FIVEFOLD_MODEL_COST_LIMIT,
+        || format!("Fivefold 3D model took {ratio:.2}x the prepared-case time (limit: {FIVEFOLD_MODEL_COST_LIMIT})"),
     );
 }

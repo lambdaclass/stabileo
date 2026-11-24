@@ -180,5 +180,83 @@ const tr: Strings = {
     "Euler f1 relative error": "İkinci Euler yükü"
   }
 };
-export const translations: Record<string, Strings> = { en, es, pt, de, fr, tr };
+const hu: Strings = {
+  "title": "Átpattanó ívek görbületi mintázattal",
+  "lead": "Változtassa meg egy görbült szakasz szélességét, és tolja el azt a küszöböt, amelynél egy lapos ív átpattan a másik oldalra.",
+  "model": "Az Euler-kihajlástól az egyensúlyi ugrásig",
+  "theory": "A két végén vízszintesen befogott ív a végpontok közeledését az alakjában tárolja. A preferált görbület mintázata a kihajlási alakokhoz csatolódik. Az arXiv v2 3–4. oldalán közölt (2) és (3) egyenlet adja a kis szögű egyensúlyt és a nyomási spektrumot. A kísérletet középre helyezett, téglalap alakú mintázatra korlátozzuk.",
+  "method": "A Stabileo alkalmazásban futó 2D keretkihajlási megoldó 64 elemen 16 kihajlási alakot számít. Egy kutatási réteg ezekre az alakokra vetíti a görbületet, és megoldja a cikk nyomási kényszerfeltételét. Ugyanez a Rust-kód fut itt WASM-ként, és ez állítja elő a visszajátszást is.",
+  "limits": "Ez egy lapos, nyúlásmentes egyensúlyi modell. Az ugrás egyensúlyi állapotokat köt össze; nem szimulálja az átpattanás dinamikáját, és nem reprodukál laboratóriumi méréseket. Az alkalmazás ívhossz-módszere nem fogad el előírt elmozdulásokat és hőmérsékleti terhet, ezért ezt a görbület által vezérelt utat nem azzal követjük. Csak középre helyezett mintázatokat és kis végponti rövidülést vizsgálunk.",
+  "evidence": "70%-os gerjesztett szélességnél a cikk α/√ε = {threshold} értéket ad (arXiv v2, 3. oldal, a (2) egyenlet után). Az összehasonlító görbét a szerzők kis szögű szoftverével állítjuk elő újra, amely a Zenodo 18256271 rekordban érhető el CC-BY-4.0 licenccel. Ez numerikus referencia, nem kísérleti validáció.",
+  "checks": "Validáció és források",
+  "publishedValue": "Közölt küszöb 70%-os szélességnél",
+  "width": "Gerjesztett szélesség γ",
+  "compression": "Végponti rövidülés ε",
+  "threshold": "Átpattanási küszöb α",
+  "normalized": "Normalizált küszöb α/√ε",
+  "mode": "Első antimetrikus kihajlási alak",
+  "arch": "Az ív egyensúlya",
+  "jump": "Egyensúlyi sorozat; az ugrásnak nincs fizikai időtartama",
+  "run": "Újraszámítás élőben",
+  "stop": "Leállítás",
+  "restart": "Újraindítás",
+  "error": "A megoldó nem töltődött be, vagy nem futott le. Az előző eredmény továbbra is elérhető.",
+  "computing": "Számítás a Stabileóval…",
+  "paper": "Cikk és kiegészítő egyenletek",
+  "data": "Zenodo-adatok és -szoftver",
+  "ours": "Stabileo-kihajlási alakok + a lapos ív egyenletei",
+  "reference": "A szerzők Zenodo-szoftvere",
+  "parameterNotice": "A megjelenített eredmények az újraszámítás befejezéséig megőrzik azokat a paramétereket, amelyekkel kiszámították őket.",
+  "resultParameters": "Számított paraméterek",
+  "alpha": "Preferált görbület α = Lκ₀",
+  "force": "Normálerő f = NL²/EI (pozitív: nyomás; negatív: húzás)",
+  "coordinates": "Mindkét végén befogott. A koordináták x/L és w/L; α a preferált görbület és az L fesztáv szorzata.",
+  "referenceCaveat": "A szerzők alapértelmezett optimalizálója és téglalapszabályos kvadratúrája kis egyenetlenségeket okoz; 70%-nál a szoftverük {software} értéket ad, a cikk viszont {published} értéket közöl.",
+  "checkLabels": {
+    "max relative threshold error against 31 Zenodo software outputs": "Zenodo-görbe: legnagyobb relatív hiba",
+    "64 elements / 16 modes vs 96 elements / 24 modes: max relative threshold change": "Háló- és alakfinomítás",
+    "Euler f0 relative error": "Első Euler-teher",
+    "Euler f1 relative error": "Második Euler-teher"
+  }
+};
+const zh: Strings = {
+  "title": "曲率分布诱发拱的突跳屈曲",
+  "lead": "改变曲线段的宽度，移动浅拱换向的阈值。",
+  "model": "从 Euler 屈曲到平衡跳变",
+  "theory": "两端固定的平拱把端部缩短储存在其形状中。预设曲率分布与其屈曲模态耦合。式 (2) 和式 (3)（arXiv v2 第 3–4 页）给出小角度平衡和压缩谱。我们将该试验限定为居中的矩形分布。",
+  "method": "Stabileo 生产环境的 2D 框架屈曲求解器用 64 个单元计算 16 个模态。研究层将曲率投影到这些模态上，并求解论文的压缩约束。同一份 Rust 代码在此以 WASM 运行，并生成回放。",
+  "limits": "这是一个浅拱、不可伸长的平衡模型。跳变连接的是各平衡状态；它不模拟突跳的动力过程，也不复现实验室测量。生产环境计算引擎中的弧长法不接受给定位移和温度荷载，因此不用于这条由曲率驱动的路径。仅涵盖居中的分布和较小的端部缩短。",
+  "evidence": "在受激宽度为 70% 时，论文给出 α/√ε = {threshold}（arXiv v2 第 3 页，式 2 之后）。叠加曲线由作者在 Zenodo 记录 18256271 中的小角度软件重新生成，许可为 CC-BY-4.0。这是数值参考，不是试验验证。",
+  "checks": "验证与来源",
+  "publishedValue": "宽度 70% 时已发表的阈值",
+  "width": "受激宽度 γ",
+  "compression": "端部缩短 ε",
+  "threshold": "突跳阈值 α",
+  "normalized": "归一化阈值 α/√ε",
+  "mode": "第一反对称屈曲模态",
+  "arch": "拱的平衡",
+  "jump": "平衡序列；跳变没有物理持续时间",
+  "run": "实时重新计算",
+  "stop": "停止",
+  "restart": "重新开始",
+  "error": "求解器无法加载或未能完成。之前的结果仍可使用。",
+  "computing": "正在用 Stabileo 计算…",
+  "paper": "论文与补充公式",
+  "data": "Zenodo 数据与软件",
+  "ours": "Stabileo 模态 + 浅拱公式",
+  "reference": "作者的 Zenodo 软件",
+  "parameterNotice": "在重新计算完成之前，显示的结果会保留其计算时所用的参数。",
+  "resultParameters": "计算参数",
+  "alpha": "预设曲率 α = Lκ₀",
+  "force": "轴力 f = NL²/EI（正：受压；负：受拉）",
+  "coordinates": "两端固定。坐标为 x/L 和 w/L；α 为预设曲率乘以跨度 L。",
+  "referenceCaveat": "作者默认的优化器和矩形剖面求积会产生小的不规则；其软件在 70% 时给出 {software}，而论文报告的是 {published}。",
+  "checkLabels": {
+    "max relative threshold error against 31 Zenodo software outputs": "Zenodo 曲线：最大相对误差",
+    "64 elements / 16 modes vs 96 elements / 24 modes: max relative threshold change": "网格与模态加密",
+    "Euler f0 relative error": "第一 Euler 荷载",
+    "Euler f1 relative error": "第二 Euler 荷载"
+  }
+};
+export const translations: Record<string, Strings> = { en, es, pt, de, fr, tr, hu, zh };
 export const archStrings = (): Strings => translations[publicI18n.locale] ?? en;

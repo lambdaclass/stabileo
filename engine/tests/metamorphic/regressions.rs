@@ -1,6 +1,6 @@
 //! Minimal reproductions of the violations the metamorphic harness found,
 //! one per bug, each stated as the physics it must obey
-//! (docs/verification/METAMORPHIC.md, "Violations found").
+//! (testing/docs/METAMORPHIC.md, "Violations found").
 
 use crate::case::Case2;
 use dedaliano_engine::solver::plastic_limit::limit_analysis_2d_input;
@@ -544,7 +544,7 @@ fn plastic_3d_frame3d_2_is_a_lower_bound_of_its_certificate() {
     assert!(!r.warnings.iter().any(|w| w.contains("exceeds the yield surface")), "{:?}", r.warnings);
 }
 
-/// Nightly findings that were harness defects (docs/verification/CONTAINMENT.md): each model,
+/// Nightly findings that were harness defects (testing/docs/CONTAINMENT.md): each model,
 /// replayed with its reported seed, holds the invariant it was reported to violate.
 #[test]
 fn nightly_harness_findings_hold() {
@@ -1424,4 +1424,39 @@ fn r8_shell_invariants_reject_refused_and_skipped_comparisons() {
     }
     check_shell_invariants(&tally);
     assert!(accepted.is_empty(), "accepted unchecked comparisons: {accepted:?}");
+}
+
+#[test]
+#[ignore = "known wrong result: #1453"]
+fn issue_1453_fixed_end_beam_retains_redistribution_across_capacity_scales() {
+    let length = 1.0;
+    let governing_mp = 1e10;
+    let governing_udl = 1e10;
+    let solver = crate::common::make_input(
+        vec![(1, 0.0, 0.0), (2, length, 0.0), (3, 0.0, 2.0), (4, length, 2.0)],
+        vec![(1, 200_000.0, 0.3)],
+        vec![(1, 0.01, 1e-4)],
+        vec![
+            (1, "frame", 1, 2, 1, 1, false, false),
+            (2, "frame", 3, 4, 1, 1, false, false),
+        ],
+        vec![(1, 1, "fixed"), (2, 2, "fixed"), (3, 3, "fixed"), (4, 4, "fixed")],
+        [(1, 1e-12), (2, governing_udl)]
+            .into_iter()
+            .map(|(element_id, q)| SolverLoad::Distributed(SolverDistributedLoad {
+                element_id, q_i: -q, q_j: -q, a: None, b: None,
+            }))
+            .collect(),
+    );
+    let result = dedaliano_engine::solver::plastic_limit::limit_analysis_2d(
+        &solver,
+        &std::collections::HashMap::from([(1, 1.0), (2, governing_mp)]),
+        &Default::default(),
+    )
+    .unwrap();
+    let hinge_rotation = 1.0;
+    let dissipation = governing_mp * (hinge_rotation + 2.0 * hinge_rotation + hinge_rotation);
+    let unit_load_work = governing_udl * length * (length / 4.0) * hinge_rotation;
+    let collapse_factor = dissipation / unit_load_work;
+    assert!((result.lambda - collapse_factor).abs() < 1e-10, "collapse factor {}, expected {collapse_factor}", result.lambda);
 }

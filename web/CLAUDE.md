@@ -38,6 +38,8 @@ Educational tool with step-by-step solver visualization for civil/structural eng
 
 ## Commands
 
+`web/config/features.json` controls which public features are compiled into the site. Vite uses the `production` entry for builds and `development` for the dev server. Vitest uses `test`. Each entry must give a boolean for `accounts`, `research`, `tools`, and `diagramGame`. Production enables accounts, research and tools. Sign-in itself stays off until `user_login_enabled` is turned on from the admin site's Settings page.
+
 - `npm run dev` — Start dev server (port 4000)
 - `npm run build` — Production build to `dist/`
 - `npm run test` — The full Vitest gate. Runs **three passes** and fails if any fails:
@@ -50,7 +52,7 @@ Educational tool with step-by-step solver visualization for civil/structural eng
 - `npm run test:unit` / `npm run test:build` / `npm run test:results` — one pass on its own.
   `results` is the results snapshot gate (#716): a reference corpus solved through the app's
   path against `results-snapshots/`; after a deliberate result change, `npm run snapshots:update`
-  and register it (`docs/verification/PROVENANCE.md`, "Results snapshot gate").
+  and register it (`testing/docs/PROVENANCE.md`, "Results snapshot gate").
 - `npm run test:watch` — Watch mode (the `unit` pass)
 - In CI the three passes run as separate jobs (`results` as Results Snapshot): `web-unit` shards the unit pass two ways
   (`vitest run --project unit --shard=i/2`), `web-build` builds and runs the build pass. A test
@@ -72,6 +74,7 @@ Educational tool with step-by-step solver visualization for civil/structural eng
 - `npm run wasm` — Build the Rust/WASM engine into `src/lib/wasm` (needs Rust and wasm-pack). Required
   to run the app or any test that solves: without it `vite.config.ts` substitutes a stub, so
   `npm run build` still succeeds in CI, but the stub's `solve_3d` returns `{}`.
+- `make check.fast` from the repo root runs targeted web tests, typecheck, and cheap CI gates after `make web.deps` and `make wasm`.
 - `npm run typecheck` — Explicit `tsc` gate. `npm run build` is `vite build` and does **not**
   typecheck, so a type defect can otherwise reach a commit unseen. The project carries a large
   set of pre-existing errors (mostly test fixtures building partial literals on purpose), so
@@ -327,12 +330,12 @@ the first commit (February 2026) to April, marked `period: 'month'`, then one pe
 `/<locale>/changelog`, linked from the landing nav beside Blog and from the footer, draws them on a
 timeline by month with a filter by area (`src/components/blog/ChangelogView.svelte`).
 `src/lib/blog/pages/changelog.ts` only gives that page its address, date and metadata (es, en and pt;
-de, fr and tr in `src/lib/blog/translations/<code>/page-changelog.ts`). Items are
+de, fr, tr and hu in `src/lib/blog/translations/<code>/page-changelog.ts`). Items are
 grouped by area on screen, so their order within an area is the order they are read in.
 
 Every Friday, with the weekly report, add one entry dated that Friday:
-- only what was merged to `main` that week, in the six languages (es, en, pt, de, fr, tr; the type
-  requires all six, and so does the alt of a screenshot), one item per area in `areas`, translated
+- only what was merged to `main` that week, in the seven languages (es, en, pt, de, fr, tr, hu; the type
+  requires all seven, and so does the alt of a screenshot), one item per area in `areas`, translated
   with the glossary the dictionaries use;
 - optionally one screenshot under `public/screenshots/` at 800 and 1600 px, AVIF and WebP
   (see `scripts/take-screenshots.ts` for the conversion);
@@ -341,52 +344,15 @@ Every Friday, with the weekly report, add one entry dated that Friday:
 
 ## Feedback System
 
-Los usuarios pueden enviar feedback desde stabileo.com usando el widget flotante (botón rojo abajo a la derecha).
+Users send comments from the app with "Enviar un comentario", in the header's contact menu
+(`ContactMenu.svelte`) or in their profile. Both open `components/account/FeedbackDialog.svelte`,
+which posts to the backend inbox (`POST /api/v1/insights/feedback`, `specs/services/insights.md`).
+It needs a signed-in account: while sign-in is open, `accountGate.requireSignIn('feedback', …)`
+asks for one first. Each comment carries the sender, the page, the app version and, when the
+user ticks it, the model's share link.
 
-### Dónde se almacenan los feedbacks
-
-Los reportes se crean como **GitHub Issues** en el repo privado `Batuis/dedaliano`:
-- **URL**: https://github.com/Batuis/dedaliano/issues
-- **Arquitectura**: `FeedbackWidget.svelte` → POST `/api/feedback` → Cloudflare Pages Function (`functions/api/feedback.ts`) → GitHub Issues API
-
-### Labels automáticos
-
-| Tipo de feedback | Label en GitHub | Título del issue |
-|-----------------|----------------|------------------|
-| Bug / Error | `bug` | `[Bug] descripción...` |
-| Sugerencia | `enhancement` | `[Sugerencia] descripción...` |
-| Otro | `feedback` | `[Otro] descripción...` |
-
-### Cómo revisar feedback pendiente
-
-Ejecutar: `gh issue list --state open --label bug,enhancement,feedback`
-
-O por separado:
-```bash
-gh issue list --state open --label bug        # Bugs/errores
-gh issue list --state open --label enhancement # Sugerencias
-gh issue list --state open --label feedback    # Otros
-```
-
-Para ver el detalle de un issue: `gh issue view <número>`
-
-### Protocolo de revisión
-
-Cuando el usuario pida "revisá el feedback pendiente":
-
-1. **Primero listar bugs** (`--label bug`) con sugerencias de corrección y prioridad
-2. **Luego sugerencias** (`--label enhancement`) con opinión técnica y plan de implementación
-3. **Por último "otro"** (`--label feedback`) con análisis pertinente
-4. Cerrar issues resueltos con `gh issue close <número>` solo cuando el usuario lo apruebe
-
-### Datos incluidos en cada issue
-
-Cada feedback incluye automáticamente:
-- Nombre/alias del autor (opcional — campo en el formulario)
-- Descripción del usuario
-- Share link (URL con el estado del modelo al momento del reporte)
-- Modo (2D o 3D)
-- User agent del navegador
+The team reads and answers them on the admin site, under Comentarios (`src/admin/FeedbackPage.svelte`):
+mark them read or done, filter by sender, reply by email.
 
 ## Known Limitations (3D)
 

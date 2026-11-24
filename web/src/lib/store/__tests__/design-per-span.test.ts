@@ -13,7 +13,12 @@
  * at any of the 14 spans (`span-fixture.ts`, `design-anchorage-coherence.test.ts`), and what this
  * file reads is how the mesh's pieces become spans, which needs spans that design.
  */
-import { describe, it, expect, beforeAll } from 'vitest';
+import { deepStrictEqual } from 'node:assert';
+import { describe, it, expect, beforeAll, vi } from 'vitest';
+import * as stationVerification from '../../engine/station-design-forces';
+import * as concurrentVerification from '../../engine/concurrent-verification';
+import * as verificationService from '../../engine/verification-service';
+import * as autoVerification from '../../engine/auto-verify';
 import { historyStore, modelStore, resultsStore, uiStore } from '..';
 import { designRunStore } from '../design-run.svelte';
 import { verificationStore } from '../verification.svelte';
@@ -43,7 +48,7 @@ const grid: StructuralGrid = {
 };
 
 /** The building, solved: slabs meshed at `mesh` m (none: no slab, beams loaded along their length). */
-function building(mesh: number | null, o: { flip?: (ids: number[]) => number[] } = {}) {
+function building(mesh: number | null, o: { flip?: (ids: number[]) => number[]; prescribedZeroTorque?: boolean } = {}) {
   modelStore.clear(); historyStore.clear(); resultsStore.clear(); verificationStore.clear(); detailingStore.clear();
   designRunStore.resetMarks();
   uiStore.analysisMode = 'pro';
@@ -73,7 +78,12 @@ function building(mesh: number | null, o: { flip?: (ids: number[]) => number[] }
   if (flipped.length) expect(flipMembers(flipped).flipped).toEqual(flipped);
   const combo = modelStore.solveCombinations3D(true, false, true);
   if (!combo || typeof combo === 'string') throw new Error(String(combo));
-  resultsStore.setCombinationResults3D(combo.perCase, combo.perCombo, combo.envelope);
+  const perCombo = o.prescribedZeroTorque
+    ? new Map([...combo.perCombo].map(([id, res]) => [id, {
+      ...res, elementForces: res.elementForces.map(force => ({ ...force, mxStart: 0, mxEnd: 0 })),
+    }]))
+    : combo.perCombo;
+  resultsStore.setCombinationResults3D(combo.perCase, perCombo, combo.envelope);
   return { flipped };
 }
 
@@ -88,17 +98,78 @@ const interiorPiece = (ids: number[]) => ids.filter((id) => {
 });
 
 describe('a beam cut by the slab mesh is designed as its span', () => {
-  it('the IFC has one beam per span, not one per mesh piece', async () => {
-    building(1);
+  it.each([
+    { name: 'meshed', mesh: 1, flipped: false },
+    { name: 'reversed piece', mesh: 1, flipped: true },
+    { name: 'single elements', mesh: null, flipped: false },
+  ])('$name cached checks equal every uncached member check', ({ mesh, flipped }) => {
+    building(mesh, flipped ? { flip: interiorPiece } : {});
+    let comparedFixtureRuns = 0;
+    const original = autoVerification.autoVerifyFromResults;
+    const verify = vi.spyOn(concurrentVerification, 'verifyConcurrentElement');
+    const spy = vi.spyOn(autoVerification, 'autoVerifyFromResults').mockImplementation((results, model, governing, options, demands) => {
+      comparedFixtureRuns++;
+      const cached = original(results, model, governing, options, demands);
+      const uncachedDemands = demands && new Map([...demands].map(([id, d]) =>
+        [id, { ...d, concurrent: d.concurrent ? [...d.concurrent] : undefined }]));
+      verify.mockClear();
+      const uncached = original(results, model, governing, options, uncachedDemands).concrete;
+      expect(verify).toHaveBeenCalledTimes(cached.concrete.length);
+      deepStrictEqual(cached.concrete, uncached);
+      return cached;
+    });
+    try {
+      expect(designRunStore.runCodeCheck()).toEqual({ ok: true });
+      expect(comparedFixtureRuns).toBe(1);
+    } finally {
+      spy.mockRestore();
+      verify.mockRestore();
+    }
+  });
+
+  it('concrete reports reuse the current provided reinforcement checks', async () => {
+    building(null);
     designRunStore.designFamilies(['column', 'beam']);
-    const { exportProjectIfc } = await import('../ifc-export');
-    const ifc = exportProjectIfc((k) => k, 'en', 'spans');
+    const { memoriaInput } = await import('../memoria-inputs');
+    const before = memoriaInput((k) => k, 'en');
+    const verify = vi.spyOn(stationVerification, 'verifyProvidedReinforcement');
+    try {
+      expect(memoriaInput((k) => k, 'en')).toEqual(before);
+      expect(verify).not.toHaveBeenCalled();
+    } finally {
+      verify.mockRestore();
+    }
+  });
+
+  it('the IFC has one beam per span with prescribed zero torque', async () => {
+    building(1, { prescribedZeroTorque: true });
+    designRunStore.designFamilies(['column', 'beam']);
+    const calls = [
+      vi.spyOn(autoVerification, 'autoVerifyFromResults'),
+      vi.spyOn(concurrentVerification, 'verifyConcurrentElement'),
+      vi.spyOn(stationVerification, 'verifyProvidedReinforcement'),
+      vi.spyOn(verificationService, 'computeStationDemands'),
+      vi.spyOn(wasmSolver, 'solve3D'),
+      vi.spyOn(wasmSolver, 'solveMultiCase3D'),
+    ];
+    let ifc: string;
+    try {
+      const { exportProjectIfc } = await import('../ifc-export');
+      ifc = exportProjectIfc((k) => k, 'en', 'spans');
+      for (const call of calls.filter(call => call !== calls[2])) expect(call).not.toHaveBeenCalled();
+      const checked = calls[2]!.mock.calls.map(args => args[0]);
+      expect(checked).toHaveLength(90);
+      expect(new Set(checked).size).toBe(90);
+
+    } finally {
+      for (const call of calls) call.mockRestore();
+    }
     expect((ifc.match(/IFCBEAM\(/g) ?? []).length).toBe(14);
     expect((ifc.match(/IFCCOLUMN\(/g) ?? []).length).toBe(12);
   });
 
-  it('78 pieces in 14 spans, every one verified, and the detailing covers 12 columns and 78 pieces', () => {
-    building(1);
+  it('prescribed zero torque lets all 14 spans verify and detail all 78 pieces', () => {
+    building(1, { prescribedZeroTorque: true });
     designRunStore.designFamilies(['column', 'beam']);
     const beams = beamIds();
     expect(beams).toHaveLength(78);
@@ -199,7 +270,23 @@ describe('a beam cut by the slab mesh is designed as its span', () => {
     expect(got.length).toBe(ref.length);
     got.forEach((combo, k) => combo.forEach((st, i) => st.forEach((v, j) => expect(v).toBeCloseTo(ref[k]![i]![j]!, 6))));
     designRunStore.designFamilies(['column', 'beam']);
-    expect(beamIds().filter((id) => verificationStore.outcomeFor(id)?.outcome !== 'VERIFIED')).toEqual([]);
+    expect(verificationStore.runSummary).toMatchObject({ aborted: false, notReached: 0 });
+    const verified = [44, 45, 46, 47, 48, 83, 84, 85, 86, 87];
+    expect(beamIds().filter(id => verificationStore.outcomeFor(id)?.outcome === 'VERIFIED')).toEqual(verified);
+    const owners = new Set((modelStore.model.detailing?.assemblies ?? []).flatMap(a => a.bars.flatMap(b => b.ownerElementIds)));
+    for (const id of beamIds().filter(id => !verified.includes(id))) {
+      const outcome = verificationStore.outcomeFor(id);
+      expect(outcome, `piece ${id}`).toMatchObject({
+        outcome: 'SEARCH_EXHAUSTED', limiting: ['minSteel', 'unsupportedCheck'],
+      });
+      for (const description of ['diag.rcTorsionPerimeter', 'diag.rcTorsionSecondaryFace']) {
+        expect(outcome?.provisional?.verdict.checks, `piece ${id}`).toContainEqual(expect.objectContaining({
+          status: 'fail', description, ratio: Infinity,
+        }));
+      }
+      expect(outcome?.certificate, `piece ${id}`).toBeUndefined();
+      expect(owners.has(id), `piece ${id} has beam-owned steel`).toBe(false);
+    }
   }, 120_000);
 
   it('a beam that is one element keeps its own context, exactly as before', () => {
@@ -218,6 +305,14 @@ describe('a beam cut by the slab mesh is designed as its span', () => {
         { b: 0.2, h: 0.5, cover: c.material.cover, stirrupDia: c.material.stirrupDia }));
     }
     designRunStore.designFamilies(['column', 'beam']);
-    expect(beams.filter((id) => verificationStore.outcomeFor(id)?.outcome !== 'VERIFIED')).toEqual([]);
+    const refused = beams.filter((id) => verificationStore.outcomeFor(id)?.outcome !== 'VERIFIED');
+    expect(refused).toEqual([8, 18, 20, 23, 25]);
+    for (const id of refused) {
+      const outcome = verificationStore.outcomeFor(id);
+      expect(outcome?.outcome).toBe('UNSUPPORTED');
+      expect(outcome?.reasons).toContainEqual({ key: 'diag.rcShearDepth' });
+      expect(outcome?.certificate).toBeUndefined();
+      expect(outcome?.accepted).toBeUndefined();
+    }
   }, 120_000);
 });

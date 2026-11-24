@@ -1,5 +1,5 @@
 //! Certified load combinations and envelopes. See "Load combinations and
-//! envelopes" in `docs/verification/CERTIFY.md`.
+//! envelopes" in `testing/docs/CERTIFY.md`.
 //!
 //! A combination is `Σ cᵢ · (case i)`. Its exact value is defined as the same
 //! linear combination of the exact case solutions `u*ᵢ` (equivalently, the exact
@@ -467,6 +467,11 @@ pub fn certify_multi_case_results_2d(input: &MultiCaseInput, results: MultiCaseR
         }
         // Nothing is certified on non-finite input or reported results.
         super::finite::check_input(input)?;
+        for result in results.case_results.iter().map(|c| &c.results).chain(results.combination_results.iter().map(|c| &c.results)) {
+            for ef in &result.element_forces {
+                crate::postprocess::diagrams::validate_diagram_input_2d(ef)?;
+            }
+        }
         super::finite::check_results(&results)
     }();
 
@@ -765,6 +770,11 @@ pub fn certify_multi_case_results_3d(input: &MultiCaseInput3D, results: MultiCas
         }
         // Nothing is certified on non-finite input or reported results.
         super::finite::check_input(input)?;
+        for result in results.case_results.iter().map(|c| &c.results).chain(results.combination_results.iter().map(|c| &c.results)) {
+            for ef in &result.element_forces {
+                crate::postprocess::diagrams_3d::validate_diagram_input_3d(ef)?;
+            }
+        }
         super::finite::check_results(&results)
     }();
 

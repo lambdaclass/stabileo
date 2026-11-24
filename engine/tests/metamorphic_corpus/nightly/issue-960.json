@@ -1,0 +1,102 @@
+{
+  "nodes": {
+    "1": {
+      "id": 1,
+      "x": 70.0699558425473,
+      "z": 68.80575517991505
+    },
+    "2": {
+      "id": 2,
+      "x": 81.76277252685333,
+      "z": -38.046514061450495
+    },
+    "3": {
+      "id": 3,
+      "x": 48.39920756716461,
+      "z": -54.98448239151523
+    }
+  },
+  "materials": {
+    "1": {
+      "id": 1,
+      "e": 316674694.18664646,
+      "nu": 0.42750185208544356
+    },
+    "2": {
+      "id": 2,
+      "e": 1448.7543719066184,
+      "nu": 0.2114960139371477
+    }
+  },
+  "sections": {
+    "1": {
+      "id": 1,
+      "a": 0.004146731325764736,
+      "iz": 2.3852510354277576e-08,
+      "asY": null
+    }
+  },
+  "elements": {
+    "1": {
+      "id": 1,
+      "type": "truss",
+      "nodeI": 2,
+      "nodeJ": 3,
+      "materialId": 1,
+      "sectionId": 1,
+      "hingeStart": false,
+      "hingeEnd": false
+    },
+    "2": {
+      "id": 2,
+      "type": "frame",
+      "nodeI": 1,
+      "nodeJ": 3,
+      "materialId": 2,
+      "sectionId": 1,
+      "hingeStart": false,
+      "hingeEnd": false
+    }
+  },
+  "supports": {
+    "1": {
+      "id": 1,
+      "nodeId": 1,
+      "type": "fixed",
+      "kx": null,
+      "ky": null,
+      "kz": null,
+      "dx": null,
+      "dz": null,
+      "dry": null,
+      "angle": null
+    },
+    "2": {
+      "id": 2,
+      "nodeId": 2,
+      "type": "fixed",
+      "kx": null,
+      "ky": null,
+      "kz": null,
+      "dx": null,
+      "dz": null,
+      "dry": null,
+      "angle": null
+    }
+  },
+  "loads": [
+    {
+      "type": "pointOnElement",
+      "data": {
+        "elementId": 2,
+        "a": 0.3564529976096825,
+        "p": -22.320912706072193,
+        "px": null,
+        "my": null
+      }
+    }
+  ],
+  "constraints": [],
+  "connectors": {},
+  "solverOptions": null
+}

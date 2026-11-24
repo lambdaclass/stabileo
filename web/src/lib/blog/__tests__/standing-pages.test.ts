@@ -1,3 +1,4 @@
+import { buildFeatures } from '../../../../config/public-features.mjs';
 import { describe, it, expect } from 'vitest';
 import { cirsocPage } from '../pages/cirsoc';
 import { STANDING_PAGES } from '../pages';
@@ -36,7 +37,7 @@ describe('the CIRSOC page', () => {
   });
 
   it('keeps steel labelled experimental and names the CIRSOC 201 editions, in every language', () => {
-    const experimental: Record<string, RegExp> = { de: /experimentell/i, fr: /expérimental/i, tr: /deneysel/i };
+    const experimental: Record<string, RegExp> = { de: /experimentell/i, fr: /expérimental/i, tr: /deneysel/i, hu: /kísérleti/i, zh: /试验/ };
     for (const l of LOCALES) {
       const text = JSON.stringify(cirsocPage.i18n[l]);
       expect(text).toMatch(experimental[l] ?? /experimental/);
@@ -96,7 +97,9 @@ describe('the obsolete-pricing patterns', () => {
 
 describe('the standing page paths', () => {
   it('name exactly the standing pages, so the public router needs no page content', () => {
-    expect([...STANDING_PAGE_PATHS]).toEqual(STANDING_PAGES.map((p) => p.path));
+    const { accounts } = buildFeatures();
+    const legal = ['/terms', '/privacy', '/usage-data'];
+    expect([...STANDING_PAGE_PATHS]).toEqual(STANDING_PAGES.map(page => page.path).filter(path => accounts || !legal.includes(path)));
   });
 
   it('match with or without a trailing slash, and nothing else', () => {

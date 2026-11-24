@@ -12,6 +12,7 @@
 import { modelStore } from './model.svelte';
 import { uiStore } from './ui.svelte';
 import { whatIf } from './whatif.svelte';
+import { t } from '../i18n';
 import { expandAll, definitionsCurrent, isDefinedLoad, zoneOutlineProblem, type DefinitionModel, type Expansion, type FloorLoadDef, type ZoneData } from '../model/loads/floor-definitions';
 import type { GroupMembers, Load } from './model.svelte';
 
@@ -67,7 +68,7 @@ export function syncDefinedLoads(): number | null {
       delete data.fromDef;
       return [{ ...l, data } as unknown as Load];
     }));
-    for (const l of fresh) modelStore.addLoadEntry(l as Load);
+    modelStore.addLoadEntries(fresh as Load[]);
   });
   return fresh.length;
 }
@@ -80,6 +81,11 @@ export function syncDefinedLoads(): number | null {
 export function syncDefinedLoadsForAnalysis(): number | null {
   return whatIf.active ? null : syncDefinedLoads();
 }
+
+export function floorLoadBlockMessage(): string | null {
+  return expandDefinitions().some(e => e.problem === 'eccentricZone') ? t('floorLoad.problem.eccentricZone') : null;
+}
+
 
 /** Whether the model has anything to keep in step: a definition, or a load one wrote. */
 function hasDefinitions(): boolean {

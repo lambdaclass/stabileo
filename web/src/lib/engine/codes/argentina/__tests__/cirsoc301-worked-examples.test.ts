@@ -7,7 +7,7 @@
  * Inputs are the example's printed inputs; expected values are the numbers it prints, compared
  * at their printed rounding (three significant figures → 0.5 % relative, which also absorbs the
  * example's habit of rounding intermediates before reusing them). Coverage and the root cause of
- * every disagreement: `docs/verification/DESIGN_EXAMPLES.md`.
+ * every disagreement: `testing/docs/DESIGN_EXAMPLES.md`.
  *
  * The checker's axis naming is the opposite of the app's: `Iz` is the STRONG axis, `Iy` the weak.
  */

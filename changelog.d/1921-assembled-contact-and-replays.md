@@ -1,4 +1,0 @@
-### BREAKING (results)
-#### Frozen surface contacts check the equilibrated spring force (2026-11-10)
-
-Frozen surface checks now validate the signed force in the actual final assembly as well as the final opening, withholding tensile states that a rotated master could previously hide behind a negative gap (#432, PR #1921). Reported normal force uses the same assembly. The sparse/dense linear connector fixture uses trusses instead of unsupported cables with all parity assertions retained. Historical SA-2026-059 evidence now lives beside its imports, executes complete panel handlers and explicitly checks member identity, force signs and warnings; replay instructions and control descriptions are corrected. Details: [results-change write-up](../docs/results-changes/2026-11-frozen-surface-assembled-traction.md).

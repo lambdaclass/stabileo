@@ -1,3 +1,4 @@
+import { drawnBeamEvidence, linePieces } from '../detailing/line-bars';
 /**
  * A beam line's reinforcement as bars along the line, read from its members' three regions and
  * projected back onto them, and the edits the frame editor makes on it.
@@ -12,7 +13,7 @@
  * support stirrups are the weaker of its two end zones, so the check never credits the stronger.
  * The round trip reproduces what the verifier reads.
  */
-import type { ProvidedReinforcement, LongBarGroup, RebarLayer, StirrupDef } from '../../design-contract/reinforcement';
+import { drawnBeamReinforcement, type ProvidedReinforcement, type LongBarGroup, type RebarLayer, type StirrupDef } from '../../design-contract/reinforcement';
 import { BEAM_LINE_VERSION, type BeamLineBar, type BeamLineReinforcement, type BeamStirrupZone } from '../../design-contract/beam-line';
 import { resolveBarGroups, resolveLayers } from '../station-design-forces';
 
@@ -70,6 +71,14 @@ const offsets = (ms: readonly { L: number }[]): number[] => {
 let seq = 0;
 const nextId = (p: string) => `${p}${Date.now().toString(36)}${(++seq).toString(36)}`;
 
+export function memberStirrupZones(stirrups: readonly BeamStirrupZone[], offset: number, length: number, forward = true) {
+  return stirrups.flatMap(({ from, to, diameter, legs, spacing }) => {
+    const start = Math.max(0, from - offset), end = Math.min(length, to - offset);
+    if (!(end > start)) return [];
+    return [{ from: forward ? start : length - end, to: forward ? end : length - start, diameter, legs, spacing }];
+  }).sort((a, b) => a.from - b.from);
+}
+
 /** Read a line from its members' regions. */
 export function lineFromMembers(members: readonly LineMember[]): BeamLineReinforcement {
   const X = offsets(members);
@@ -78,7 +87,7 @@ export function lineFromMembers(members: readonly LineMember[]): BeamLineReinfor
   const skin: Record<string, { diameter: number; spacing: number }> = {};
   let n = 0;
   const bar = (b: Omit<BeamLineBar, 'id'>) => bars.push({ ...b, id: `b${++n}` });
-  const zone = (from: number, to: number, s?: StirrupDef) => { if (s && to > from + EPS) stirrups.push({ id: `z${stirrups.length + 1}`, from, to, diameter: s.diameter, legs: s.legs, spacing: s.spacing }); };
+  const zone = (from: number, to: number, s?: StirrupDef) => { if (s && to > from) stirrups.push({ id: `z${stirrups.length + 1}`, from, to, diameter: s.diameter, legs: s.legs, spacing: s.spacing }); };
 
   members.forEach((m, k) => {
     const r = m.reinforcement;
@@ -137,13 +146,13 @@ function mergeOverSupports(bars: BeamLineBar[]): BeamLineBar[] {
   return out;
 }
 
-const sameZone = (p: BeamStirrupZone, q: BeamStirrupZone) => p.diameter === q.diameter && p.legs === q.legs && Math.abs(p.spacing - q.spacing) < EPS;
+const sameZone = (p: BeamStirrupZone, q: BeamStirrupZone) => p.diameter === q.diameter && p.legs === q.legs && p.spacing === q.spacing;
 
 function mergeZones(zs: BeamStirrupZone[]): BeamStirrupZone[] {
   const out: BeamStirrupZone[] = [];
   for (const z of [...zs].sort((p, q) => p.from - q.from)) {
     const last = out[out.length - 1];
-    if (last && sameZone(last, z) && Math.abs(last.to - z.from) < EPS) out[out.length - 1] = { ...last, to: z.to };
+    if (last && sameZone(last, z) && last.to === z.from) out[out.length - 1] = { ...last, to: z.to };
     else out.push({ ...z });
   }
   return out;
@@ -218,6 +227,7 @@ const stirrupOf = (z?: BeamStirrupZone): StirrupDef | undefined => (z ? { diamet
 export function membersFromLine(line: BeamLineReinforcement, members: readonly LineMember[]): Map<number, ProvidedReinforcement> {
   const X = offsets(members);
   const out = new Map<number, ProvidedReinforcement>();
+  const pieces = linePieces(line, members.map(() => true));
   members.forEach((m, k) => {
     const a = X[k]!, b = a + m.L, s = a + m.tStart * m.L, e = b - m.tEnd * m.L, mid = (s + e) / 2;
     const pS = a + Math.max(m.faceStart, 1e-3), pE = b - Math.max(m.faceEnd, 1e-3);
@@ -275,7 +285,7 @@ export function membersFromLine(line: BeamLineReinforcement, members: readonly L
     if (skin) regions.skin = { ...skin };
     const prior = m.reinforcement?.regions?.regionT;
     if (prior !== undefined) regions.regionT = prior;
-    out.set(m.id, { regions });
+    out.set(m.id, { regions, [drawnBeamReinforcement]: drawnBeamEvidence(pieces, m.id, line, true, m.L) });
   });
   return out;
 }

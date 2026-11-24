@@ -4,12 +4,14 @@
  * When the WASM engine is not loaded (init not finished, a missing build, a failed fetch) a
  * computation that needs it throws `EngineUnavailableError`, and the screen that asked shows
  * "engine not available". It never falls back to a TypeScript duplicate: those sit outside the
- * engine's verification (docs/verification/TS_ENGINE_LOGIC.md) and are kept only as test
+ * engine's verification (testing/docs/TS_ENGINE_LOGIC.md) and are kept only as test
  * oracles.
  *
  * When the engine is loaded but refuses or fails, `EngineCheckError` carries the engine's own
  * message, so the reader sees why and not a blank.
  */
+
+import { EngineMessageError, type EngineMessage } from '../codes/message';
 
 export class EngineUnavailableError extends Error {
   readonly code = 'ENGINE_UNAVAILABLE' as const;
@@ -58,7 +60,8 @@ export function isEngineError(e: unknown): e is EngineUnavailableError | EngineC
  * The message a screen shows for an engine error (`{ key, params }`, rendered at the boundary),
  * or null when `e` is not one: "engine not available", or the engine's own words.
  */
-export function engineFailureMessage(e: unknown): { key: string; params?: Record<string, string> } | null {
+export function engineFailureMessage(e: unknown): EngineMessage | null {
+  if (e instanceof EngineMessageError) return { key: e.key, params: e.params };
   if (isEngineUnavailable(e)) return { key: 'engine.unavailable' };
   if (isEngineError(e)) return { key: 'engine.failedWith', params: { message: engineFailureText(e) } };
   return null;

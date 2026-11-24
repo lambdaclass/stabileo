@@ -312,7 +312,7 @@ const body: PostBody = {
     },
     {
       "k": "ext",
-      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/verification/PROVENANCE.md",
+      "href": "https://github.com/lambdaclass/stabileo/blob/main/testing/docs/PROVENANCE.md",
       "label": "Meldung zur erneuten Prüfung, Herkunft und Reproduzierbarkeit",
       "t": "Wie Ergebnisversionen, Stempel und die Meldung im Detail funktionieren:"
     },

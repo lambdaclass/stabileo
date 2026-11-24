@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { autoVerifyFromResults } from '../auto-verify';
 import { extractGoverningDemands, type ElementStationResult } from '../station-design-forces';
+import { verifyElement } from './helpers/verify-element';
 import { maskDemands } from '../design/behaviour-demands';
 
 const stations = (n: number, mz: number) => [0, 0.5, 1].map((t) => ({ t, x: 3 * t, n, vy: 10, vz: 0, my: 0, mz, torsion: 0 }));
@@ -37,40 +38,28 @@ describe('an RC column is checked under its least compression as well as its lar
     expect(extractGoverningDemands(tensioned).leastCompression).toBeUndefined();
   });
 
-  it('the wind moment is checked with the wind compression, where the column is weaker', () => {
-    const demands = extractGoverningDemands(esr);
-    const { leastCompression: _, ...withoutLeast } = demands;
-    const column = (d: typeof demands) => autoVerifyFromResults(results, model, null, undefined, new Map([[1, d]])).concrete[0]!.column!;
-    const checked = column(demands), squeezedOnly = column(withoutLeast);
-    expect(checked.steps[0]).toContain('80.00');
-    expect(checked.phiMn).toBeLessThan(squeezedOnly.phiMn);
-    expect(checked.AsProv).toBeGreaterThan(squeezedOnly.AsProv);
-    expect(checked.phiMn).toBeGreaterThanOrEqual(150);
-  });
-
-  it('a combination that leaves the column unloaded axially checks the moment in pure bending', () => {
-    const unloaded = { ...esr, comboResults: [esr.comboResults[0]!, { comboId: 2, comboName: '0.9D+1.6W', stations: stations(0, 150) }] };
-    const demands = extractGoverningDemands(unloaded);
-    expect(demands.leastCompression).toBe(0);
-    expect(Object.is(demands.leastCompression, -0)).toBe(false);
-    const { leastCompression: _, ...withoutLeast } = demands;
-    const column = (d: typeof demands) => autoVerifyFromResults(results, model, null, undefined, new Map([[1, d]])).concrete[0]!.column!;
-    const checked = column(demands), squeezedOnly = column(withoutLeast);
-    expect(checked.phiMn).toBeLessThan(squeezedOnly.phiMn);
-    expect(checked.AsProv).toBeGreaterThan(squeezedOnly.AsProv);
-    expect(checked.phiMn).toBeGreaterThanOrEqual(150);
-  });
-
-  it('a compression-only column pulled slack by one combination is checked in pure bending', () => {
-    const slackened = { ...esr, comboResults: [esr.comboResults[0]!, { comboId: 2, comboName: '0.9D+1.6W', stations: stations(20, 150) }] };
-    const masked = maskDemands(extractGoverningDemands(slackened), 'compressionOnly');
-    expect(masked.leastCompression).toBe(0);
-    expect(masked.demands.some((x) => x.category === 'N_tension')).toBe(false);
-    expect(maskDemands(extractGoverningDemands(esr), 'compressionOnly').leastCompression).toBe(80);
-    expect(maskDemands(extractGoverningDemands(slackened), 'tensionOnly').leastCompression).toBeUndefined();
-    const { leastCompression: _, ...withoutLeast } = masked;
-    const column = (d: typeof masked) => autoVerifyFromResults(results, model, null, undefined, new Map([[1, d]])).concrete[0]!.column!;
-    expect(column(masked).phiMn).toBeLessThan(column(withoutLeast).phiMn);
-    expect(column(masked).phiMn).toBeGreaterThanOrEqual(150);
-  });
+  for (const windN of [80, 0, -20]) {
+    it(`checks the wind's own signed axial force ${windN}, independently of the retired least-compression envelope`, () => {
+      const own = { ...esr, comboResults: [esr.comboResults[0]!, { comboId: 2, comboName: 'wind', stations: stations(-windN, 150) }] };
+      const demands = extractGoverningDemands(own);
+      const masked = windN < 0 ? maskDemands(demands, 'compressionOnly') : demands;
+      const signedN = Math.max(0, windN);
+      const column = (d: typeof demands) => autoVerifyFromResults(results, model, null, undefined, new Map([[1, d]])).concrete[0]!;
+      const checked = column(masked);
+      const wind = checked.concurrentChecks!.filter(c => c.demand.comboId === 2);
+      expect(wind).toHaveLength(3);
+      for (const c of wind) {
+        expect(c.verification.column!.Nu).toBe(signedN);
+        expect(c.verification.column!.Mu).toBeGreaterThanOrEqual(150);
+        expect(c.verification.column!.phiMn).toBeGreaterThanOrEqual(c.verification.column!.Mu);
+      }
+      const single = verifyElement({ elementId: 1, elementType: 'column', Mu: 150, Vu: 10, Nu: signedN,
+        b: 0.5, h: 0.3, fc: 30, fy: 420, cover: 0.025, stirrupDia: 8 });
+      expect(checked.column!.AsProv).toBeGreaterThanOrEqual(single.column!.AsProv);
+      const { leastCompression: _, ...withoutLeast } = masked;
+      const { stationDemands: _old, ...before } = checked;
+      const { stationDemands: _new, ...after } = column(withoutLeast);
+      expect(after).toEqual(before);
+    });
+  }
 });

@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { caseNameShown } from '../../../lib/axes/case-names';
+  import { relabelAxes } from '../../../lib/axes/user-names';
   import Hint from '../Hint.svelte';
   /**
    * PRO's "Exportar imagen": Basic's figures (`lib/export/view-figure.ts`), with what a PRO model
@@ -105,7 +107,7 @@
     : t('viewExport.nothing'));
   const resultsSummary = $derived(choices.find((c) => c.key === setKey)?.label ?? choices[0]?.label ?? '—');
   const drawingSummary = $derived([
-    t(VIEWS.find((v) => v.id === (options.view ?? 'screen'))!.key),
+    relabelAxes(t(VIEWS.find((v) => v.id === (options.view ?? 'screen'))!.key)),
     options.loads ? t('viewExport.optLoads') : null,
     options.numbering ? t('viewExport.optNumbering') : null,
     options.values ? t('viewExport.optValues') : null,
@@ -179,7 +181,7 @@
     <label class="xs-field">
       <span>{t('proExport.view')}</span>
       <select value={options.view ?? 'screen'} onchange={(e) => { options.view = e.currentTarget.value as FigureView; save(); }} data-testid="pro-view-export-view">
-        {#each VIEWS as v (v.id)}<option value={v.id}>{t(v.key)}</option>{/each}
+        {#each VIEWS as v (v.id)}<option value={v.id}>{relabelAxes(t(v.key))}</option>{/each}
       </select>
     </label>
     <label class="xs-check"><input type="checkbox" bind:checked={options.loads} onchange={save} />{t('viewExport.optLoadsLong')}</label>
@@ -188,7 +190,7 @@
         <span>{t('proExport.loadsOf')}</span>
         <select value={String(loadsOf)} onchange={(e) => { const v = e.currentTarget.value; loadsOf = v === 'screen' ? 'screen' : Number(v); }} data-testid="pro-view-export-loads-of">
           <option value="screen">{t('proExport.loadsOfScreen')}</option>
-          {#each loadedCases as c (c.id)}<option value={String(c.id)}>{c.name}</option>{/each}
+          {#each loadedCases as c (c.id)}<option value={String(c.id)}>{caseNameShown(c)}</option>{/each}
         </select>
       </label>
     {/if}

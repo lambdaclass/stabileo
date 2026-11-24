@@ -1,9 +1,12 @@
 import { beforeAll, beforeEach, afterEach, expect, it, vi } from 'vitest';
-const output = vi.hoisted(() => ({ texts: [] as string[], blobs: [] as Blob[] }));
+const output = vi.hoisted(() => ({ texts: [] as string[], blobs: [] as Blob[], saved: [] as string[] }));
 vi.mock('../../store/file', async orig => ({ ...(await orig<typeof import('../../store/file')>()),
   downloadText: (content: string) => output.texts.push(content),
   downloadBlob: (blob: Blob) => output.blobs.push(blob),
 }));
+// The browser download behind the account gate: the tests read what reached the object URL.
+vi.mock('../save-file', async original => ({ ...(await original<typeof import('../save-file')>()), saveFile: (name: string, build: () => Blob) => { output.saved.push(name); URL.createObjectURL(build()); } }));
+const workbooksSaved = () => output.saved.filter(n => n.endsWith('.xlsx')).length;
 vi.mock('xlsx', async orig => ({ ...(await orig<typeof import('xlsx')>()), writeFile: vi.fn() }));
 import * as XLSX from 'xlsx';
 import { unzipSync, strFromU8 } from 'fflate';
@@ -19,7 +22,7 @@ import { copyView } from '../view-export';
 beforeAll(async () => { await initSolver(); });
 beforeEach(() => {
   modelStore.clear(); resultsStore.clear(); uiStore.analysisMode = 'pro';
-  output.texts.length = 0; output.blobs.length = 0; vi.clearAllMocks(); setLocale('es');
+  output.texts.length = 0; output.blobs.length = 0; output.saved.length = 0; vi.clearAllMocks(); setLocale('es');
 });
 afterEach(() => { vi.restoreAllMocks(); resultsStore.clear(); setLocale('en'); });
 function publish(severity: 'warning' | 'error') {
@@ -38,6 +41,7 @@ it('CSV and XLSX refuse unsafe payloads with localized feedback, including extra
   expect(await exportToExcel({ onlyExtras: true, extraSheets: [{ name: 'Table', rows: [['987654']] }] })).toBe(false);
   expect(output.texts).toEqual([]);
   expect(XLSX.writeFile).not.toHaveBeenCalled();
+  expect(workbooksSaved()).toBe(0);
   expect(toast.mock.calls).toHaveLength(2);
   const spanish = t('knownIssue.BU-BOUND');
   expect(spanish).toMatch(/Resultados bloqueados/);
@@ -51,6 +55,7 @@ it('both project workbook download formats refuse without an unhandled rejection
   await expect(downloadProjectWorkbook(2)).resolves.toBeUndefined();
   expect(output.blobs).toEqual([]);
   expect(XLSX.writeFile).not.toHaveBeenCalled();
+  expect(workbooksSaved()).toBe(0);
   expect(toast.mock.calls.length).toBeGreaterThanOrEqual(2);
   for (const [message] of toast.mock.calls) { expect(message).toContain('#741'); expect(message).toContain(t('knownIssue.BU-BOUND')); }
 });
@@ -79,8 +84,9 @@ it('warning-only CSV, XLSX and zipped workbooks preserve numbers and mandatory w
   expect(wb!.SheetNames).toContain('Warnings');
   expect(XLSX.utils.sheet_to_csv(wb!.Sheets.Warnings!)).toContain('#741');
   expect(XLSX.utils.sheet_to_csv(wb!.Sheets.Table!)).toContain('987654');
+  output.saved.length = 0;
   await downloadProjectWorkbook(2);
-  expect(XLSX.writeFile).toHaveBeenCalledTimes(1);
+  expect(workbooksSaved()).toBe(1);
   const sheets = currentWorkbookSheets(2);
   expect(sheets.find(s => s.name === 'Warnings')!.rows.flat().join(' ')).toContain('#741');
   await downloadProjectCsv(2);
@@ -254,12 +260,12 @@ it.each(['csv', 'docx'] as const)('a generated report re-exported as %s from a c
 it('a model-only project workbook exports from a refused workspace; one with results does not', async () => {
   publish('error');
   const toast = vi.spyOn(uiStore, 'toast');
-  vi.mocked(XLSX.writeFile).mockClear();
+  output.saved.length = 0;
   await downloadProjectWorkbook(2, { results: false, design: false });
-  expect(XLSX.writeFile).toHaveBeenCalledTimes(1);
+  expect(workbooksSaved()).toBe(1);
   expect(toast.mock.calls.filter(([, kind]) => kind === 'error')).toEqual([]);
   await downloadProjectWorkbook(2);
-  expect(XLSX.writeFile).toHaveBeenCalledTimes(1);
+  expect(workbooksSaved()).toBe(1);
   expect(toast.mock.calls.at(-1)![0]).toContain('#741');
 });
 
@@ -321,4 +327,28 @@ it('a warned SVG with a tiny coordinate system is enlarged so its warnings stay 
   expect(Number(nested[2])).toBe(w);
   expect(Number(nested[3])).toBe(w);
   expect(Number(nested[1]) + Number(nested[3])).toBeCloseTo(h, 6);
+});
+
+it('#2409 an unmeshed plate allows model-only workbook exports', async () => {
+  const { createPlate } = await import('../../store/physical-plates');
+  const outline = [[0, 0], [4, 0], [4, 4], [0, 4]].map(([x, y]) => modelStore.addNode(x!, y!, 0));
+  expect(createPlate({ outline, name: 'Draft slab', materialId: 1, thickness: 0.15 })).toHaveProperty('id');
+  const opts = { results: false, design: false };
+  const sheets = currentWorkbookSheets(2, opts);
+  expect(sheets.find(s => s.name === 'Nodes')?.rows.slice(1)).toHaveLength(outline.length);
+  expect(sheets.find(s => s.name === 'Groups')?.rows.flat()).toContain('Draft slab');
+  expect(sheets.some(s => s.name === 'Reactions')).toBe(false);
+  await downloadProjectWorkbook(2, opts);
+  expect(workbooksSaved()).toBe(1);
+  await downloadProjectCsv(2, opts);
+  const zipped = unzipSync(new Uint8Array(await output.blobs[0]!.arrayBuffer()));
+  const groups = Object.entries(zipped).find(([name]) => name.endsWith('-Groups.csv'));
+  expect(strFromU8(groups![1])).toContain('Draft slab');
+  expect(() => currentWorkbookSheets(2)).toThrow(/Draft slab/);
+  const toast = vi.spyOn(uiStore, 'toast');
+  await expect(downloadProjectWorkbook(2)).resolves.toBeUndefined();
+  await expect(downloadProjectCsv(2)).resolves.toBeUndefined();
+  expect(toast.mock.calls).toEqual([[expect.stringContaining('Draft slab'), 'error'], [expect.stringContaining('Draft slab'), 'error']]);
+  expect(workbooksSaved()).toBe(1);
+  expect(output.blobs).toHaveLength(1);
 });

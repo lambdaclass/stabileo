@@ -10,7 +10,7 @@ import {
   groupTopRow, inflectionAnchorage, planSupportEnd, supportPlanes, supportRows, topLayout, faceDevelopment,
   SUPPORT_EMBED_M, type SupportCage, type SupportBar,
 } from '../support-anchorage';
-import { endSupportPlan } from '../../design/end-support-anchorage';
+import { endSupportChecks, endSupportPlan, inflectionChecks } from '../../design/end-support-anchorage';
 import { deriveHookedDevelopment } from '../../../codes/cirsoc201/anchorage';
 
 const cage = (o: Partial<SupportCage> = {}): SupportCage => ({
@@ -182,4 +182,67 @@ describe('§9.7.3.8.3 at a point of inflection', () => {
     expect(r.holds).toBe(true);
     expect(inflectionAnchorage({ ld: 2.0, asCm2: as, fy: 420, fc: 30, b: 0.2, d: 0.45, diameterMm: 16, vu: 60 }).holds).toBe(false);
   });
+});
+
+it('#2249 a station at moment zero still triggers inflection anchorage', () => {
+  const section = { b: 0.3, h: 0.2, fc: 30, fy: 420, cover: 0.025, stirrupDia: 8 };
+  const L = 6;
+  const diameter = 16;
+  const end = cage({ continues: true });
+  const axes = {
+    flexure: 'My', shear: 'Vz', secondaryFlexure: 'Mz', secondaryShear: 'Vy',
+    bFlex: section.b, hFlex: section.h, biaxial: false, sagCategory: 'My+', hogCategory: 'My-',
+    basis: 'stress-proxy', secondaryRatio: 0,
+  } as const;
+  const check = (samples: Array<[number, number, number?]>, reverseAxis = false) => {
+    const stations = samples.map(([x, m, v = 100]) => ({
+      x, t: x / L, my: reverseAxis ? 0 : m, mz: reverseAxis ? -m : 0,
+      vz: reverseAxis ? 0 : v, vy: reverseAxis ? -v : 0, n: 0, torsion: 0,
+    }));
+    const selectedAxes = reverseAxis ? { ...axes, flexure: 'Mz', shear: 'Vy', secondaryFlexure: 'My', secondaryShear: 'Vz',
+      sagCategory: 'Mz-', hogCategory: 'Mz+' } as const : axes;
+    return inflectionChecks({
+      section, L, axes: selectedAxes, rebar: { bottom: { count: 3, diameter } }, edition: '2025',
+      seat: { stirrupDiaMm: 8, maxAggregateSizeMm: 20 }, cages: { start: end, end },
+      stations: { elementId: 1, length: L, stationTs: stations.map(s => s.t), comboResults: [{ comboId: 1, comboName: 'C1', stations }] },
+    });
+  };
+  const barArea = 2 * Math.PI * (diameter / 1000) ** 2 / 4;
+  const d = section.h - section.cover - (section.stirrupDia + diameter / 2) / 1000;
+  const block = barArea * section.fy / (0.85 * section.fc * section.b);
+  const mn = barArea * section.fy * 1000 * (d - block / 2);
+  const permitted = mn / 100 + Math.max(d, 12 * diameter / 1000);
+  const required = section.fy * diameter / 1000 / (2.1 * Math.sqrt(section.fc));
+  expect(required).toBeGreaterThan(permitted);
+  const verdict = { stationX: 3, status: 'fail' };
+  expect(check([[2.9, -10], [3.1, 10]])).toMatchObject([verdict]);
+  expect(check([[2.9, 10], [3.1, 10]])).toEqual([]);
+  for (const reverseAxis of [false, true]) {
+    expect(check([[2.9, -10], [3, 0], [3.1, 10]], reverseAxis)).toMatchObject([verdict]);
+    expect(check([[2.9, 10], [3, 0, 25], [3.05, 0, 100], [3.1, -10]], reverseAxis))
+      .toMatchObject([{ ...verdict, stationX: 3.05 }]);
+    expect(check([[0, 0], [3, -10], [L, 0]], reverseAxis)).toEqual([]);
+    expect(check([[2.9, 10], [3, 0], [3.1, 10]], reverseAxis)).toEqual([]);
+    expect(check([[3, -10], [3, 10]], reverseAxis)).toEqual([]);
+    expect(check([[2.9, -10, 25], [3, 0, 25], [3.1, 10, 25]], reverseAxis))
+      .toMatchObject([{ ...verdict, status: 'ok' }]);
+  }
+});
+
+it('known wrong result: #2338 embedment rows report the checked length ratio', () => {
+  const support = cage();
+  const faceAtLimit = support.face + (SUPPORT_EMBED_M - support.face - supportPlanes(support).straight) / 2;
+  for (const change of [-0.001, 0, 0.001]) {
+    const geometry = cage({ face: faceAtLimit + change });
+    const plan = planSupportEnd(geometry, bar({ need: 'embed' }))!;
+    expect(plan.record.rule).toBe('9.7.3.8.2');
+    const available = SUPPORT_EMBED_M + 2 * Math.min(change, 0);
+    expect(plan.record.available).toBeCloseTo(available, 12);
+    expect.soft(endSupportChecks([{
+      ...plan.record, end: 'start', position: 'bottom', row: 0, diameterMm: 10,
+      count: 2, continuousPair: false, cause: plan.cause, cage: geometry,
+    }])).toEqual([expect.objectContaining({
+      status: change < 0 ? 'fail' : 'ok', ratio: r3(SUPPORT_EMBED_M / available),
+    })]);
+  }
 });

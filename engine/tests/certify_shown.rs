@@ -1,5 +1,5 @@
 //! Certified bounds on what the result views show beyond member end forces
-//! (docs/verification/CERTIFY.md, "Diagrams, extremes, deflections and
+//! (testing/docs/CERTIFY.md, "Diagrams, extremes, deflections and
 //! reactions"): diagram values at every x, their extremes and the gaps between
 //! stations, member deflection curves, reactions, and the same for load cases,
 //! combinations and envelopes.
@@ -116,7 +116,7 @@ fn curve_2d(input: &SolverInput, dof: &DofNumbering, u: &[f64], elem: &SolverEle
     };
     // The displacement drawn at each point: (shape at scale s − base) / s, with s
     // a power of two large enough that rounding against the base is negligible.
-    let (base, big) = (shape(0.0), shape(SCALE));
+    let (base, big) = (shape(0.0).expect("load-free base curve"), shape(SCALE).expect("load-free displaced curve"));
     base.iter().zip(&big).map(|(p0, p1)| [(p1.x - p0.x) / SCALE, (p1.y - p0.y) / SCALE]).collect()
 }
 
@@ -145,7 +145,7 @@ fn curve_3d(input: &SolverInput3D, dof: &DofNumbering, u: &[f64], elem: &SolverE
                 truss || hs, truss || he, if truss { None } else { Some(ei) }, gas, None, None, &[], &[],
             )
         };
-        let (base, big) = (shape(0.0), shape(SCALE));
+        let (base, big) = (shape(0.0).expect("load-free base curve"), shape(SCALE).expect("load-free displaced curve"));
         base.iter().zip(&big).map(|(p0, p1)| ((p1.x - p0.x) / SCALE, (p1.y - p0.y) / SCALE)).collect()
     };
     let py = plane(
@@ -694,13 +694,13 @@ fn gaps_cover_the_diagram_between_stations_2d() {
     let mut tight = HashMap::new();
     check_gaps_2d(&solve_2d(&propped_cantilever_2d(-10.0)).unwrap(), &mut tight);
     eprintln!("gap ratios: random {worst:?}, propped cantilever {tight:?}");
-    assert!(tight["moment"] > 0.99, "{tight:?}");
+    assert_eq!(tight["moment"], 0.0, "{tight:?}");
     // A linearly varying load whose zero lies midway between stations: V peaks there.
     let mut input = propped_cantilever_2d(0.0);
     input.loads = vec![SolverLoad::Distributed(SolverDistributedLoad { element_id: 1, q_i: -5.25, q_j: 4.75, a: None, b: None })];
     let mut tight = HashMap::new();
     check_gaps_2d(&solve_2d(&input).unwrap(), &mut tight);
-    assert!(tight["shear"] > 0.99, "{tight:?}");
+    assert_eq!(tight["shear"], 0.0, "{tight:?}");
 }
 
 #[test]
@@ -743,7 +743,7 @@ fn gaps_cover_the_diagram_between_stations_3d() {
     let mut tight = HashMap::new();
     check(&solve_3d(&input).unwrap(), &mut tight);
     eprintln!("3D gap ratios: random {worst:?}, propped cantilever {tight:?}");
-    assert!(tight["momentY"] > 0.99 && tight["momentZ"] > 0.99, "{tight:?}");
+    assert_eq!([tight["momentY"], tight["momentZ"]], [0.0; 2], "{tight:?}");
     // Loads changing sign midway between two stations: Vy, Vz and N peak there.
     let mut input = input;
     input.loads = vec![serde_json::from_value(json!({"type": "distributed", "data": {
@@ -752,7 +752,7 @@ fn gaps_cover_the_diagram_between_stations_3d() {
     .unwrap()];
     let mut tight = HashMap::new();
     check(&solve_3d(&input).unwrap(), &mut tight);
-    assert!(tight["axial"] > 0.99 && tight["shearY"] > 0.99 && tight["shearZ"] > 0.99, "{tight:?}");
+    assert_eq!([tight["axial"], tight["shearY"], tight["shearZ"]], [0.0; 3], "{tight:?}");
 }
 
 // ───────────────────────────── combinations, envelope, honesty ─────────────────────────────

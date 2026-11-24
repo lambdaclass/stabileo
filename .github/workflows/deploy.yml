@@ -52,13 +52,7 @@ jobs:
           NIX_SIGNING_KEY SECRET_KEY_BASE JWT_SECRET DATABASE_URL PHX_HOST API_URL ADMIN_FRONTEND_URL
 
       - name: Install Nix
-        uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
-
-      - name: Cache Nix store
-        uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
-        continue-on-error: true
-        with:
-          use-flakehub: false
+        uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
 
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
@@ -86,7 +80,6 @@ jobs:
       - name: Build the app
         env:
           BASE_PATH: /
-          VITE_ACCOUNTS: ${{ vars.VITE_ACCOUNTS }}
         run: make web.build
 
       - name: Build the admin site
@@ -186,7 +179,7 @@ jobs:
           known-hosts: ${{ vars.DEPLOY_KNOWN_HOSTS }}
 
       - name: Download release artifact
-        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: stabileo-release-${{ github.sha }}
 
@@ -213,6 +206,13 @@ jobs:
           ADMIN_FRONTEND_URL: ${{ vars.ADMIN_FRONTEND_URL }}
           GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID }}
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          GOOGLE_APP_CLIENT_ID: ${{ vars.GOOGLE_APP_CLIENT_ID }}
+          GOOGLE_APP_CLIENT_SECRET: ${{ secrets.GOOGLE_APP_CLIENT_SECRET }}
+          APP_URL: ${{ vars.APP_URL }}
+          META_PIXEL_ID: ${{ vars.META_PIXEL_ID }}
+          META_CAPI_ACCESS_TOKEN: ${{ secrets.META_CAPI_ACCESS_TOKEN }}
+          META_CAPI_TEST_EVENT_CODE: ${{ vars.META_CAPI_TEST_EVENT_CODE }}
+          GTM_CONTAINER_ID: ${{ vars.GTM_CONTAINER_ID }}
           PORT: ${{ vars.PORT }}
           BIND_ADDRESS: ${{ vars.BIND_ADDRESS }}
           POOL_SIZE: ${{ vars.POOL_SIZE }}

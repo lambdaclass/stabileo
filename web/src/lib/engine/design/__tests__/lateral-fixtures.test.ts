@@ -33,25 +33,61 @@ import qa8 from '../../../templates/fixtures/rc-design-qa-8.json';
 import frame from '../../../templates/fixtures/rc-design-frame.json';
 import { runDesign } from '../candidate-search';
 import { cirsoc201Adapter } from '../adapters/cirsoc201-adapter';
-import { solveFixture } from './helpers';
+import { assertRealSolver, FLAGSHIP_GRAVITY_SHEAR_DEPTH_REFUSALS, solveFixture } from './helpers';
+import type { DesignOutcomeKind, DesignRunSummary } from '../outcome';
 import type { LateralSystemData } from '../../../model/lateral-system';
 
 function run(fixture: unknown, lateral: LateralSystemData | null) {
   const solved = solveFixture(fixture as never, { lateral });
   return { solved, s: runDesign(cirsoc201Adapter, solved.contexts.values(), { maxRunMs: 180_000 }) };
 }
-const counts = (s: ReturnType<typeof run>['s']) => ({ verified: s.verified, searchExhausted: s.searchExhausted, provisionalBiaxial: s.provisionalBiaxial, sectionInadequate: s.sectionInadequate });
-/** The members one reading designs and the other does not, by what limits them under the second. */
-function lost(a: ReturnType<typeof run>['s'], b: ReturnType<typeof run>['s']) {
+const counts = (s: DesignRunSummary) => ({
+  verified: s.verified,
+  searchExhausted: s.searchExhausted,
+  provisionalBiaxial: s.provisionalBiaxial,
+  sectionInadequate: s.sectionInadequate,
+  unsupported: s.unsupported,
+});
+
+function changedFrom(a: DesignRunSummary, b: DesignRunSummary, from: DesignOutcomeKind = 'VERIFIED') {
   const by: Record<string, number> = {}, ids: number[] = [];
   for (const [id, o] of a.outcomes) {
     const x = b.outcomes.get(id)!;
-    if (o.outcome !== 'VERIFIED' || x.outcome === 'VERIFIED') continue;
+    if (o.outcome !== from || x.outcome === from) continue;
     ids.push(id);
     const k = `${x.outcome} ${[...x.limiting].sort().join(',')}`;
     by[k] = (by[k] ?? 0) + 1;
   }
   return { ids: ids.sort((p, q) => p - q), by };
+}
+
+function expectRefusals(s: DesignRunSummary, shearDepth: readonly number[], congestion: readonly number[] = []) {
+  const refused = [...s.outcomes.values()].filter((outcome) => outcome.outcome === 'UNSUPPORTED');
+  expect(refused.map((outcome) => outcome.elementId).sort((a, b) => a - b))
+    .toEqual([...shearDepth, ...congestion].sort((a, b) => a - b));
+  for (const outcome of refused) {
+    const member = `member ${outcome.elementId}`;
+    expect(outcome.elementType, member).toBe('beam');
+    expect(outcome.certificate, member).toBeUndefined();
+    expect(outcome.accepted, member).toBeUndefined();
+    if (congestion.includes(outcome.elementId)) {
+      expect(outcome.limiting, member).toEqual(['congestion']);
+      expect(outcome.reasons, member).toContainEqual(expect.objectContaining({
+        key: 'design.reason.bestCandidateFails',
+        params: expect.objectContaining({ governing: 'congestion' }),
+      }));
+      expect(outcome.provisional?.verdict.checks, member).toContainEqual(expect.objectContaining({
+        limiting: 'congestion', status: 'fail',
+      }));
+    } else {
+      expect(outcome.limiting, member).toContain('unsupportedCheck');
+      expect(outcome.reasons, member).toContainEqual({ key: 'diag.rcShearDepth' });
+      expect(outcome.provisional?.verdict.worstUtilization, member).toBe(Infinity);
+      expect(outcome.provisional?.verdict.checks, member).toContainEqual(expect.objectContaining({
+        description: 'diag.rcShearDepth', status: 'fail',
+      }));
+    }
+  }
 }
 
 describe('rc-design-qa-8', () => {
@@ -63,10 +99,10 @@ describe('rc-design-qa-8', () => {
    * lifts their φMn enough for 7Ø10, whose ends anchor. With that check off they are refused again.
    */
   it('outside the system 8 of 8; not declared 8 of 8 too', () => {
-    expect(counts(gravity.s)).toEqual({ verified: 8, searchExhausted: 0, provisionalBiaxial: 0, sectionInadequate: 0 });
-    expect(counts(undeclared.s)).toEqual({ verified: 8, searchExhausted: 0, provisionalBiaxial: 0, sectionInadequate: 0 });
-    expect(lost(gravity.s, undeclared.s)).toEqual({ ids: [], by: {} });
-    expect(lost(undeclared.s, gravity.s).ids).toEqual([]);
+    expect(counts(gravity.s)).toEqual({ verified: 8, searchExhausted: 0, provisionalBiaxial: 0, sectionInadequate: 0, unsupported: 0 });
+    expect(counts(undeclared.s)).toEqual({ verified: 8, searchExhausted: 0, provisionalBiaxial: 0, sectionInadequate: 0, unsupported: 0 });
+    expect(changedFrom(gravity.s, undeclared.s)).toEqual({ ids: [], by: {} });
+    expect(changedFrom(undeclared.s, gravity.s).ids).toEqual([]);
   });
 
   it('not declared designs exactly as declared part of the system: same outcomes, same bars', () => {
@@ -81,13 +117,32 @@ describe('rc-design-qa-8', () => {
 describe('rc-design-frame, 408 members', () => {
   const gravity = run(frame, { beams: 'gravity' }), undeclared = run(frame, null);
 
-  // 372 since main's concrete in the engine (rc-baseline-digest.test.ts, fingerprint): the columns read on the load contour carry bars on every face, and 11 more edge beams find no layout through those cages. Not declared: 359; of the 13 it loses, 6 refuse on their anchorage and 7 on congestion.
-  it('outside the system 372 designed; not declared 359, the 13 it loses refusing on their anchorage or congestion', () => {
-    expect(counts(gravity.s)).toEqual({ verified: 372, searchExhausted: 23, provisionalBiaxial: 13, sectionInadequate: 0 });
-    expect(counts(undeclared.s)).toEqual({ verified: 359, searchExhausted: 36, provisionalBiaxial: 13, sectionInadequate: 0 });
-    const l = lost(gravity.s, undeclared.s);
-    expect(l.ids).toHaveLength(13);
-    expect(l.by).toEqual({ 'SEARCH_EXHAUSTED anchorage': 6, 'SEARCH_EXHAUSTED congestion': 7 });
-    expect(lost(undeclared.s, gravity.s).ids).toEqual([]);
+  it('certifies supported flagship beams and reports each role’s refusals', () => {
+    assertRealSolver();
+    expect(counts(gravity.s)).toEqual({
+      verified: 286, searchExhausted: 27, provisionalBiaxial: 13, sectionInadequate: 0, unsupported: 82,
+    });
+    expect(counts(undeclared.s)).toEqual({
+      verified: 276, searchExhausted: 42, provisionalBiaxial: 13, sectionInadequate: 0, unsupported: 77,
+    });
+
+    const exhausted = [173, 174, 175, 176, 192, 193, 194, 195, 200, 203, 226, 258, 261, 324, 327];
+    const additionalShearDepth = [177, 179, 189, 191, 212, 214, 218];
+    const congestion = [178, 190, 215];
+    expectRefusals(gravity.s, FLAGSHIP_GRAVITY_SHEAR_DEPTH_REFUSALS);
+    expectRefusals(undeclared.s, [
+      ...FLAGSHIP_GRAVITY_SHEAR_DEPTH_REFUSALS.filter((id) => !exhausted.includes(id)),
+      ...additionalShearDepth,
+    ], congestion);
+
+    expect(changedFrom(gravity.s, undeclared.s, 'UNSUPPORTED')).toEqual({
+      ids: exhausted,
+      by: { 'SEARCH_EXHAUSTED anchorage': 6, 'SEARCH_EXHAUSTED congestion': 7, 'SEARCH_EXHAUSTED flexure': 2 },
+    });
+    expect(changedFrom(gravity.s, undeclared.s)).toEqual({
+      ids: [...additionalShearDepth, ...congestion].sort((a, b) => a - b),
+      by: { 'UNSUPPORTED unsupportedCheck': 5, 'UNSUPPORTED congestion': 3, 'UNSUPPORTED congestion,unsupportedCheck': 2 },
+    });
+    expect(changedFrom(undeclared.s, gravity.s).ids).toEqual([]);
   });
 });

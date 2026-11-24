@@ -1,4 +1,5 @@
-import { test, expect, loadModel, alSection, designPlace } from './fixtures';
+import { dwellingFloorLoads, expectGeneratedSeismicStoryLoads, loadSeismicFloor, openSeismicLoadGenerator } from './load-generator-inputs';
+import { test, expect, loadModel, alSection } from './fixtures';
 
 /**
  * The code-backed load generator, on the two halves that were not code-backed.
@@ -11,24 +12,6 @@ import { test, expect, loadModel, alSection, designPlace } from './fixtures';
  *    where the 2018 table gives 3, 5, 8 and 13, and R built up from a ductility μ
  *    instead of read off Tabla 5.1.
  */
-/**
- * Bind the seismic role first, THEN open the dialog.
- *
- * The dialog is modal and covers the ribbon, so the role cannot be bound from inside it
- * — which is the same reason `pending-review-in-loads` exists as the way back.
- */
-async function openWithSeismic(page: import('@playwright/test').Page) {
-  await loadModel(page, 'rc-design-qa-8');
-  /* The roles live in the project regulations, beside the design data (Prepare › Design data). */
-  await designPlace(page, 'designData');
-  await expect(page.getByTestId('project-regulations')).toBeVisible();
-  await page.getByTestId('role-select-seismic').selectOption('inpres103-2018');
-  await page.getByTestId('pending-review-in-loads').click();
-  await page.getByRole('button', { name: /Auto-generate from code/i }).click();
-  await alSection(page, 'seismic');
-  await page.getByTestId('al-enable-seismic').check();
-}
-
 async function openDialog(page: import('@playwright/test').Page) {
   await loadModel(page, 'rc-design-qa-8');
   await page.getByTestId('pr-stage-model').click();
@@ -92,8 +75,12 @@ test.describe('@smoke the permanent load comes from CIRSOC 101 Tabla 3.1', () =>
 });
 
 test.describe('@smoke seismic comes from INPRES-CIRSOC 103 (2018)', () => {
+  test.beforeEach(async ({ pro: page }) => {
+    await loadModel(page, 'rc-design-qa-8');
+  });
+
   test('the controls are the 2018 ones, and the spectrum is shown', async ({ pro: page }) => {
-    await openWithSeismic(page);
+    await openSeismicLoadGenerator(page);
 
     /* A SITE class, not a soil: the 2018 spectrum is chosen by spectral type, and SF
        is a class with no row to read at all. */
@@ -109,7 +96,7 @@ test.describe('@smoke seismic comes from INPRES-CIRSOC 103 (2018)', () => {
   });
 
   test('zone 0 and site SF are refused with the clause that refuses them', async ({ pro: page }) => {
-    await openWithSeismic(page);
+    await openSeismicLoadGenerator(page);
 
     await page.getByTestId('al-site').selectOption('SF');
     await expect(page.getByTestId('al-spectrum-blocked')).toContainText(/2\.3\.2/);
@@ -118,7 +105,7 @@ test.describe('@smoke seismic comes from INPRES-CIRSOC 103 (2018)', () => {
   });
 
   test('the row Tabla 5.1 prints as a formula gives no R, and says so', async ({ pro: page }) => {
-    await openWithSeismic(page);
+    await openSeismicLoadGenerator(page);
 
     /* Row 1 is R = (3 + A/5)·z bounded by 5z ≤ R ≤ 7 — a calculation on the wall
        layout. Substituting either bound would invent the reader's coupling ratio. */
@@ -183,11 +170,14 @@ test.describe('@smoke wind builds the load cases of CIRSOC 102 Fig. 2.4-8', () =
       await expect(edition.locator('option[value="cirsoc102-2005"]')).toHaveAttribute('disabled', /.*/);
       await expect(edition.locator('option[value="cirsoc102-2005"]')).toContainText(/text not supplied/);
 
-      // The openings classify the enclosure: 10 m² of openings on a 100 m² wall, none elsewhere.
       await page.getByTestId('al-wind-openings').locator('summary').click();
-      await page.getByTestId('al-wind-a0').fill('10');
-      await page.getByTestId('al-wind-ag').fill('100');
-      await page.getByTestId('al-wind-agi').fill('300');
+      await expect(page.getByTestId('al-wind-classification-refused')).toBeVisible();
+      await page.getByTestId('al-wind-wall-0-openings').fill('10');
+      for (const wall of [0, 1, 2, 3]) await page.getByTestId(`al-wind-wall-${wall}-gross`).fill('100');
+      await expect(page.getByTestId('al-wind-classification-refused')).toBeVisible();
+      await page.getByTestId('al-wind-roof-gross').fill('100');
+      await page.getByTestId('al-wind-roof-gross').press('Tab');
+      await expect(page.getByTestId('al-wind-classification-refused')).toHaveCount(0);
       await expect(page.getByTestId('al-wind-classified')).toContainText(/partially enclosed/i);
       await page.getByTestId('al-wind-use-classified').click();
       await expect(page.getByTestId('al-wind-enclosure')).toHaveValue('partiallyEnclosed');
@@ -208,6 +198,7 @@ test.describe('@smoke wind builds the load cases of CIRSOC 102 Fig. 2.4-8', () =
       // Service wind Wa at 10 years from a 40 m/s 50-year speed.
       await page.getByTestId('al-wind-service').check();
       await page.getByTestId('al-wind-service-v50').fill('40');
+      await dwellingFloorLoads(page);
       await page.getByTestId('al-preview-btn').click();
       await page.getByTestId('al-apply').click();
       await expect(page.getByTestId('al-apply')).toHaveCount(0, { timeout: 45_000 });
@@ -222,21 +213,31 @@ test.describe('@smoke wind builds the load cases of CIRSOC 102 Fig. 2.4-8', () =
 
 test.describe('@smoke story drift is checked on the seismic cases', () => {
   test('the generated seismic cases reach the drift table, against Tabla 6.4', async ({ pro: page }) => {
-    await openWithSeismic(page);
+    await loadSeismicFloor(page);
+    await openSeismicLoadGenerator(page);
+    await dwellingFloorLoads(page);
     await page.getByTestId('al-preview-btn').click();
     await page.getByTestId('al-apply').click();
     await expect(page.getByTestId('al-apply')).toHaveCount(0, { timeout: 45_000 });
+    const names = await page.evaluate(() => window.__stabileo.loadCaseNames());
+    expect(names.filter(name => name.startsWith('Seismic ')).sort()).toEqual(['Seismic X', 'Seismic Y']);
+    await expectGeneratedSeismicStoryLoads(page);
     await page.evaluate(async () => { await window.__stabileoActions.solve(); });
     await page.getByTestId('pr-stage-analyse').click();
+    const checks = page.getByTestId('pro-panel').getByTestId('result-checks');
+    await expect(checks).toHaveAttribute('open', '');
     await page.getByTestId('res-tab-drift').click();
     const panel = page.getByTestId('drift-panel');
     await expect(panel).toBeVisible();
     await expect(panel.locator('[data-testid^="drift-table-"]').first()).toBeVisible();
     await expect(panel).toContainText(/Table 6\.4/);
+    await expect(panel).toContainText('Seismic X');
+    await expect(panel).toContainText('Seismic Y');
     // ND relaxes the limit: the basis line follows the choice.
     const before = await panel.innerText();
     await page.getByTestId('drift-cond-ND').click();
     await expect.poll(async () => panel.innerText()).not.toBe(before);
+    await expect(checks).toHaveAttribute('open', '');
   });
 });
 
@@ -287,6 +288,7 @@ test.describe('@smoke the project states its own combination rules', () => {
     const typed = await page.evaluate(() => window.__stabileo.modelCensus().combinations);
     await alSection(page, 'applying');
     await page.getByTestId('al-clear').check();
+    await dwellingFloorLoads(page);
     await page.getByTestId('al-preview-btn').click();
     await expect(page.getByTestId('al-after-combos')).toHaveText(String(typed + 1));
     await page.getByTestId('al-apply').click();
@@ -305,6 +307,7 @@ test.describe('@smoke snow from CIRSOC 104', () => {
     await page.getByTestId('al-enable-snow').check();
     await page.getByTestId('al-snow-province').selectOption({ label: 'Neuquén' });
     await expect(page.getByTestId('al-snow-preview')).toContainText(/pf = /);
+    await dwellingFloorLoads(page);
     await page.getByTestId('al-preview-btn').click();
     await page.getByTestId('al-apply').click();
     await expect(page.getByTestId('al-apply')).toHaveCount(0, { timeout: 45_000 });

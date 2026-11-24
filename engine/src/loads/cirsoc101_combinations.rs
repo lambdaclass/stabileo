@@ -2,7 +2,7 @@
 //! companions in the seismic one, F and H per §2.3.2, the "loads not acting" variants and
 //! §2.3.4 (T).
 //!
-//! Verified clause by clause in `docs/verification/LOADS.md` (the TypeScript generator that
+//! Verified clause by clause in `testing/docs/LOADS.md` (the TypeScript generator that
 //! preceded this one, `web/src/lib/codes/cirsoc101/combinations.ts`, is now an adapter, and its
 //! differential tests hold the two to each other on every subset of loads).
 //!
@@ -57,6 +57,14 @@ impl LoadSymbol {
 pub struct CombinationTerm {
     pub symbol: LoadSymbol,
     pub factor: f64,
+    #[serde(rename = "snowBasis", default, skip_serializing_if = "Option::is_none")]
+    pub snow_basis: Option<SnowBasis>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum SnowBasis {
+    FlatRoof,
 }
 
 /// A clause reference, as the app's `clause()` builds it.
@@ -186,8 +194,12 @@ struct Variant {
     notes: Vec<Note>,
 }
 
+fn companion_term(symbol: LoadSymbol, factor: f64) -> CombinationTerm {
+    CombinationTerm { symbol, factor, snow_basis: (symbol == LoadSymbol::S).then_some(SnowBasis::FlatRoof) }
+}
+
 fn term(symbol: LoadSymbol, factor: f64) -> CombinationTerm {
-    CombinationTerm { symbol, factor }
+    CombinationTerm { symbol, factor, snow_basis: None }
 }
 
 /// F with D's factor (not in 6), and H at 1,6 / 0,9 / 0 per its action (both when unknown).
@@ -248,11 +260,11 @@ fn apply_fluid_and_earth(basic: u8, terms: &[CombinationTerm], i: &CombinationIn
     }
 }
 
-fn term_key(terms: &[CombinationTerm]) -> Vec<(&'static str, i64)> {
+fn term_key(terms: &[CombinationTerm]) -> Vec<(&'static str, i64, Option<SnowBasis>)> {
     let mut k: Vec<_> = terms
         .iter()
         .filter(|t| t.factor != 0.0)
-        .map(|t| (t.symbol.name(), (t.factor * 1e4).round() as i64))
+        .map(|t| (t.symbol.name(), (t.factor * 1e4).round() as i64, t.snow_basis))
         .collect();
     k.sort();
     k
@@ -302,7 +314,7 @@ pub fn generate_combinations(i: &CombinationInputs) -> Vec<Combination> {
                 if p.l {
                     t.push(term(L, 1.6));
                 }
-                t.push(term(c, 0.5));
+                t.push(companion_term(c, 0.5));
                 let mut refs = vec![ref_basic()];
                 let mut notes = vec![];
                 if c == S {
@@ -337,7 +349,7 @@ pub fn generate_combinations(i: &CombinationInputs) -> Vec<Combination> {
         } else {
             for &c in &roof {
                 let mut t = base.clone();
-                t.push(term(c, 0.5));
+                t.push(companion_term(c, 0.5));
                 let mut refs = vec![ref_basic(), ref_exc1()];
                 let mut ns = notes.clone();
                 if c == S {
@@ -359,7 +371,7 @@ pub fn generate_combinations(i: &CombinationInputs) -> Vec<Combination> {
             t.push(term(L, l_e));
         }
         if p.s {
-            t.push(term(S, s_e));
+            t.push(companion_term(S, 0.2));
         }
         let mut refs = vec![ref_basic(), ref_exc1()];
         if p.s {
@@ -375,10 +387,22 @@ pub fn generate_combinations(i: &CombinationInputs) -> Vec<Combination> {
         if p.s {
             notes.push(snow_note());
         }
-        if raised {
-            notes.push(note_with("loads.cirsoc101.note.seismicCompanions", json!({ "l": l_e, "s": s_e })));
+        if p.l && l_e > l_comp {
+            notes.push(note_with("loads.cirsoc101.note.seismicCompanions", json!({ "l": l_e, "s": 0.2 })));
         }
-        push(&mut out, 5, String::new(), t, refs, notes);
+        push(&mut out, 5, String::new(), t.clone(), refs.clone(), notes.clone());
+        if sc.and_then(|s| s.f2).is_some() && p.s {
+            for t in &mut t {
+                if t.symbol == S {
+                    *t = term(S, s_e);
+                }
+            }
+            notes.retain(|n| n.key != "loads.cirsoc101.note.snowAsFlatRoof" && n.key != "loads.cirsoc101.note.seismicCompanions");
+            if raised {
+                notes.push(note_with("loads.cirsoc101.note.seismicCompanions", json!({ "l": l_e, "s": s_e })));
+            }
+            push(&mut out, 5, "-seismic".into(), t, refs, notes);
+        }
     }
 
     if p.w {
@@ -398,7 +422,7 @@ pub fn generate_combinations(i: &CombinationInputs) -> Vec<Combination> {
 
     // §2.3.2: the effects of one or more loads not acting.
     if i.not_acting.unwrap_or(true) {
-        let mut seen: HashSet<Vec<(&'static str, i64)>> = out.iter().map(|c| term_key(&c.terms)).collect();
+        let mut seen: HashSet<Vec<(&'static str, i64, Option<SnowBasis>)>> = out.iter().map(|c| term_key(&c.terms)).collect();
         let printed = out.len();
         for k in 0..printed {
             let c = out[k].clone();
@@ -456,4 +480,28 @@ pub fn generate_combinations(i: &CombinationInputs) -> Vec<Combination> {
         }
     }
     out
+}
+
+#[cfg(test)]
+mod audit_snow_tests {
+    use super::*;
+
+    #[test]
+    fn issue_2211_companion_terms_request_flat_roof_snow() {
+        let inputs: CombinationInputs = serde_json::from_value(json!({
+            "present": { "L": true, "Lr": false, "S": true, "R": false,
+                "W": true, "E": true, "F": false, "H": false },
+            "notActing": false
+        })).unwrap();
+        for c in generate_combinations(&inputs) {
+            for t in c.terms.iter().filter(|t| t.symbol == LoadSymbol::S) {
+                let wire = serde_json::to_value(t).unwrap();
+                if matches!(c.basic, Some(2 | 4 | 5)) {
+                    assert_eq!(wire.get("snowBasis"), Some(&json!("flatRoof")), "{}", c.id);
+                } else {
+                    assert!(wire.get("snowBasis").is_none(), "{}", c.id);
+                }
+            }
+        }
+    }
 }

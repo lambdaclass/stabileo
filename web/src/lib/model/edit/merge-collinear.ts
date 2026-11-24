@@ -121,7 +121,7 @@ function thermalKey(elementId: number): string {
 const hasTendon = (elementId: number) =>
   modelStore.loads.some((l) => l.type === 'prestress3d' && l.data.elementId === elementId);
 
-export function mergeCollinear(elementIds: Iterable<number>): MergeReport {
+export function mergeCollinear(elementIds: Iterable<number>, preserveNodes?: ReadonlySet<number>): MergeReport {
   const report: MergeReport = { merged: [], removedNodes: 0, refused: {}, reinforcementDropped: 0 };
   const refuse = (r: RefuseReason) => { report.refused[r] = (report.refused[r] ?? 0) + 1; };
   const pool = new Set([...elementIds].filter((id) => modelStore.elements.has(id)));
@@ -143,7 +143,7 @@ export function mergeCollinear(elementIds: Iterable<number>): MergeReport {
     const f = modelStore.elements.get(cand)!;
     // Not collinear: a corner, not a refusal.
     if (1 - dot(direction(e), direction(f)) > ANGLE_TOL) return null;
-    const why = whyNot(e, f) ?? (nodeIsBusy(e.nodeJ) ? 'nodeBusy' : null) ?? (thermalKey(e.id) !== thermalKey(f.id) ? 'thermal' : null)
+    const why = whyNot(e, f) ?? (preserveNodes?.has(e.nodeJ) || nodeIsBusy(e.nodeJ) ? 'nodeBusy' : null) ?? (thermalKey(e.id) !== thermalKey(f.id) ? 'thermal' : null)
       ?? (hasTendon(e.id) || hasTendon(f.id) ? 'prestress' : null);
     if (why) { refuse(why); return null; }
     return cand;
@@ -237,7 +237,7 @@ export function mergeCollinear(elementIds: Iterable<number>): MergeReport {
       if (segs.some((e) => e.reinforcement)) report.reinforcementDropped++;
       modelStore.updateElement(keep.id, patch);
       for (const n of interior) { modelStore.removeNode(n); report.removedNodes++; }
-      for (const l of moved) modelStore.addLoadEntry(l);
+      modelStore.addLoadEntries(moved);
       report.merged.push({ elementId: keep.id, absorbed: chain.length - 1 });
     }
   });

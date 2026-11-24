@@ -32,6 +32,8 @@ Current documents:
   Shell-family selection rules, defaults, and product guidance.
 - [beyond_roadmap_opportunities.md](beyond_roadmap_opportunities.md)
   Research-backed opportunities beyond the solver roadmap: code checking, ML surrogates, FEMA P-58, topology optimization, BIM-IFC, CLT, seismic automation, generative design, and a nuanced WebGPU assessment (GPU helps visualization/postprocessing/topology, but sparse direct stays on CPU).
+- [high_leverage_solver_and_product_plan.md](high_leverage_solver_and_product_plan.md)
+  Code-grounded reprioritization (2026-11-22) of high-leverage solver and product bets across Waves 0–4: Physical IR compiler, Executable Design-Code IR, constrained factorization reuse + adjoint/Woodbury inverse design, sparse SOCP core (limit analysis, Strut-and-Tie, DLO), CBFEM/CSFM, CUFSM/FE fire, Prager–Synge PDE bounds, browser `certcheck` proof-carrying Memorias, certified ETABS/OpenSees second-opinion audit, `stabileo-mcp`/Python SDK, clash-free 3D rebar → BVBS, PT/staged studio, parametric configurator apps, and the Structural Intuition Lab.
 - [webgpu_solver_renderer_analysis.md](webgpu_solver_renderer_analysis.md)
   WebGPU fit analysis for the renderer vs solver, with ROI and sequencing guidance.
 - [cholmod_nvidia_gpu_research.md](cholmod_nvidia_gpu_research.md)

@@ -1,25 +1,19 @@
 import {
   es as publicEs, en as publicEn, pt as publicPt,
-  de as publicDe, fr as publicFr, tr as publicTr, loaders as publicLoaders,
+  de as publicDe, fr as publicFr, tr as publicTr, hu as publicHu, zh as publicZh, loaders as publicLoaders,
 } from 'virtual:public-i18n';
 import type { Translations } from './types';
 import { OFFERED_LOCALES, PUBLIC_LOCALES, type Locale } from './offered';
 
 // A key a language lacks renders in English. The steel keys live only in `locales/steel/*`,
 // so a bundled dictionary registered without its steel half shows raw keys instead.
-const PUBLIC_DICTS: Record<Locale, Translations> = {
-  es: publicEs, en: publicEn, pt: publicPt, de: publicDe, fr: publicFr, tr: publicTr,
+const PUBLIC_DICTS: Partial<Record<Locale, Translations>> = {
+  es: publicEs, en: publicEn, pt: publicPt, de: publicDe, fr: publicFr, tr: publicTr, zh: publicZh,
+  ...(__PUBLIC_FEATURES__.research ? { hu: publicHu } : {}),
 };
 const dicts: Record<string, Translations> = Object.fromEntries(
   OFFERED_LOCALES.map((l) => [l, { ...PUBLIC_DICTS[l] }]),
 );
-
-const LAZY_LOCALES: Record<string, () => Promise<{ default: Translations }>> = {
-  de: () => import('./locales/browser/de'),
-  fr: () => import('./locales/browser/fr'),
-  tr: () => import('./locales/browser/tr'),
-};
-const pendingLoads = new Map<string, Promise<void>>();
 
 // Read by every lookup: a dictionary that arrives late re-renders what was drawn in English.
 let _revision = $state(0);
@@ -27,6 +21,8 @@ let _revision = $state(0);
 let appDictionaries = false;
 
 const publicPending = new Map<string, Promise<void>>();
+const pendingLoads = new Map<string, Promise<void>>();
+const localeRequests = new Map<string, Promise<void>>();
 
 /** Resolves once `loc`'s public entries are registered, at once when they are bundled; rejects when they fail to load, and the next call tries again. */
 export function ensurePublicLocale(loc: string): Promise<void> {
@@ -62,28 +58,19 @@ export function registerDictionaries(full: Record<'es' | 'en' | 'pt', Translatio
 }
 
 /** Resolves once `loc`'s whole dictionary, public entries included (`ensurePublicLocale`), is registered, or has failed to load and left English. */
+export function warnLocaleLoadFailure(loc: string, error: unknown): void {
+  console.warn(`i18n ${loc}: English fallback`, error);
+}
+
 export function ensureLocale(loc: string): Promise<void> {
-  const load = LAZY_LOCALES[loc];
-  if (!load || !isOfferedLocale(loc)) {
-    return ensurePublicLocale(loc).catch((err) => {
-      console.warn(`i18n: the ${loc} public entries did not load; showing English until they do`, err);
-    });
+  let request = localeRequests.get(loc);
+  if (!request) {
+    request = import('./browser-dictionaries').then(module => module.ensureBrowserLocale(loc, ensurePublicLocale, registerFeatureDictionaries, pendingLoads)).catch(err => {
+      warnLocaleLoadFailure(loc, err);
+    }).finally(() => localeRequests.delete(loc));
+    localeRequests.set(loc, request);
   }
-  let pending = pendingLoads.get(loc);
-  if (!pending) {
-    pending = Promise.all([load(), ensurePublicLocale(loc)]).then(
-      ([m]) => {
-        Object.assign(dicts[loc], m.default);
-        _revision++;
-      },
-      (err) => {
-        pendingLoads.delete(loc);
-        console.warn(`i18n: the ${loc} dictionary did not load; showing English until it does`, err);
-      },
-    );
-    pendingLoads.set(loc, pending);
-  }
-  return pending;
+  return request;
 }
 
 /** Safe localStorage check — vitest defines localStorage but without working methods. */
@@ -116,7 +103,7 @@ export function isOfferedLocale(code: string): code is OfferedLocale {
  * The browser's preference, narrowed to what is offered.
  *
  * Matched against what is OFFERED, not against what exists, and on the BARE code so that
- * `es-AR`, `pt-BR`, `de-AT`, `fr-CA` and `tr-TR` all land where they should. Anything else
+ * `es-AR`, `pt-BR`, `de-AT`, `fr-CA`, `tr-TR` and `zh-CN` (also `zh-TW` and `zh-Hant`, which read the Simplified Chinese rather than the English) all land where they should. Anything else
  * (`ja`, `it`) falls through to English.
  */
 function detectBrowserLocale(): OfferedLocale {

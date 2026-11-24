@@ -1,6 +1,6 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import * as wasmSolver from '../wasm-solver';
-import { extractBeamStationBuffer3D, extractBeamStationsGrouped3D } from '../wasm-solver';
+import { computeEnvelope3D, extractBeamStationBuffer3D, extractBeamStationsGrouped3D } from '../wasm-solver';
 import { decodeStationBuffer } from '../station-buffer';
 import { computeStationDemands, setCompactStationTransfer } from '../verification-service';
 import type { ElementForces3D, AnalysisResults3D } from '../types-3d';
@@ -57,8 +57,14 @@ it('preserves complete governing demands and station reports through the product
     model.nodes.set(m.elementId * 2, { id: m.elementId * 2, x: 0, y: 0, z: 0 });
     model.nodes.set(m.elementId * 2 + 1, { id: m.elementId * 2 + 1, x: m.length, y: 0, z: 0 });
   }
-  const perCombo = new Map(combinations.map(c => [c.comboId, c.results]));
-  const names = [{ id: 8, name: 'Compression', factors: [] }, { id: 15, name: '', factors: [] }];
+  const partial = new Map(combinations.map(c => [c.comboId, c.results]));
+  const names = combinations.map(c => ({ id: c.comboId, name: c.comboName ?? `Combo ${c.comboId}`, factors: [] }));
+  for (const compact of [false, true]) {
+    setCompactStationTransfer(compact);
+    expect(() => computeStationDemands(partial, names, model)).toThrow(/complete|combination/i);
+  }
+  const perCombo = new Map(combinations.map((c, i) => [c.comboId, results(members.map(m =>
+    c.results.elementForces.find(e => e.elementId === m.elementId) ?? force(m.elementId, i)))]));
   setCompactStationTransfer(false);
   const reference = computeStationDemands(perCombo, names, model);
   setCompactStationTransfer(true);
@@ -84,14 +90,64 @@ it('falls back only when the compact export is unavailable, and propagates real 
     nodes: new Map([[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: 6, y: 0, z: 0 }]]),
   } as AutoVerifyModelData;
   const perCombo = new Map([[8, results([force(1)])]]);
+  const active = [{ id: 8, name: 'Compression', factors: [] }];
   setCompactStationTransfer(false);
-  const reference = computeStationDemands(perCombo, [], model);
+  const reference = computeStationDemands(perCombo, active, model);
   setCompactStationTransfer(true);
   const compact = vi.spyOn(wasmSolver, 'extractBeamStationBuffer3D').mockReturnValue(null);
   const grouped = vi.spyOn(wasmSolver, 'extractBeamStationsGrouped3D');
-  expect(computeStationDemands(perCombo, [], model)).toEqual(reference);
+  expect(computeStationDemands(perCombo, active, model)).toEqual(reference);
   expect(grouped).toHaveBeenCalledTimes(1);
   compact.mockImplementation(() => { throw new Error('station extraction failed'); });
-  expect(() => computeStationDemands(perCombo, [], model)).toThrow('station extraction failed');
+  expect(() => computeStationDemands(perCombo, active, model)).toThrow('station extraction failed');
   expect(grouped).toHaveBeenCalledTimes(1);
+});
+
+it('#2250 both production design station transfers retain the concurrent tuple at the partial-load peak', () => {
+  const length = 100;
+  const ef = {
+    ...force(1, 0), length,
+    distributedLoadsX: [], distributedLoadsY: [],
+    distributedLoadsZ: [{ a: 1, b: 2, qI: 1, qJ: -1 }], pointLoadsY: [], pointLoadsZ: [],
+  };
+  const model = {
+    elements: new Map([[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, sectionId: 1, materialId: 1 }]]),
+    nodes: new Map([[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: length, y: 0, z: 0 }]]),
+  } as AutoVerifyModelData;
+  const combinations = [{ id: 1, name: 'U', factors: [] }];
+  for (const compact of [false, true]) {
+    setCompactStationTransfer(compact);
+    const { stations } = computeStationDemands(new Map([[1, results([ef])]]), combinations, model);
+    const values = stations.get(1)!.comboResults[0]!.stations;
+    const peak = values.reduce((a, b) => a.vz > b.vz ? a : b);
+    expect(peak.t).toBeCloseTo(1.5 / length, 12);
+    expect(peak.vz).toBeCloseTo(0.25, 12);
+    expect(peak.my).toBeCloseTo(1 / 12, 12);
+  }
+});
+
+it('refuses variable member envelopes whose shared piece IDs represent different cuts', () => {
+  const displacement = (nodeId: number) => ({ nodeId, ux: 0, uy: 0, uz: 0, rx: 0, ry: 0, rz: 0 });
+  const plain = { ...force(1, 0), length: 10, distributedLoadsX: [], distributedLoadsY: [], distributedLoadsZ: [],
+    pointLoadsY: [], pointLoadsZ: [] };
+  const split = (cut: number, shear: number): AnalysisResults3D => ({
+    ...results([{ ...plain, pieces: [
+      { x0: 0, x1: cut, sectionId: 1, dI: displacement(1), dJ: displacement(3), forces: {
+        ...plain, elementId: 2, length: cut, vzStart: shear, vzEnd: shear,
+      } },
+      { x0: cut, x1: plain.length, sectionId: 2, dI: displacement(3), dJ: displacement(2), forces: {
+        ...plain, elementId: 3, length: plain.length - cut,
+      } },
+    ] }]), displacements: [displacement(1), displacement(2)],
+  });
+  for (const layouts of [[split(4, 0), split(6, 40)], [split(6, 40), split(4, 0)]]) {
+    expect.soft(() => computeEnvelope3D(layouts)).toThrow(/extrema/i);
+  }
+  const first = split(4, 0), second = split(4, 40);
+  const incompatibleLength = split(4, 40);
+  incompatibleLength.elementForces[0]!.pieces![0]!.forces.length = 6;
+  expect.soft(() => computeEnvelope3D([first, incompatibleLength])).toThrow(/extrema/i);
+  expect.soft(() => computeEnvelope3D([first, results([plain])])).toThrow(/extrema/i);
+  const envelope = computeEnvelope3D([first, second])?.shearZ.elements.find(e => e.elementId === 1);
+  expect(envelope?.tPositions.filter((t, i) => t === 0.4 && envelope.posValues[i] === 40)).toHaveLength(1);
 });

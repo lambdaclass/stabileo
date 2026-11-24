@@ -8,7 +8,6 @@ import type { ElementForces3D, EnvelopeDiagramData3D } from '../engine/types-3d'
 import { computeLocalAxes3D } from '../engine/local-axes-3d';
 import {
   computeDiagram3D,
-  computeGlobalMax3D,
   getDiagramLocalDirection,
   formatDiagramValue3D,
   type Diagram3DKind,
@@ -17,6 +16,7 @@ import { createTextSprite } from './selection-helpers';
 import { structureNodes } from './node-scale';
 import type { UnitSystem } from '../utils/units';
 import { GLOBAL_Z } from '../geometry/coordinate-system';
+import { t } from '../i18n';
 
 // ─── Shared display-direction helper ────────────────────────────
 // Centralised so that createDiagramGroup3D and createEnvelopeDiagramGroup3D
@@ -112,7 +112,13 @@ export function createDiagramGroup3D(
   const group = new THREE.Group();
   group.userData = { type: 'diagram3d', kind };
 
-  const globalMax = computeGlobalMax3D(elementForces, kind);
+  const diagrams = new Map<number, ReturnType<typeof computeDiagram3D>>();
+  let globalMax = 0;
+  for (const ef of elementForces) {
+    const diagram = computeDiagram3D(ef, kind);
+    diagrams.set(ef.elementId, diagram);
+    globalMax = Math.max(globalMax, Math.abs(diagram.maxValue), Math.abs(diagram.minValue));
+  }
   if (globalMax < 1e-10) return group;
 
   // Compute model bounding box for scale reference
@@ -162,8 +168,7 @@ export function createDiagramGroup3D(
       continue; // zero-length element
     }
 
-    // Compute diagram values
-    const diagram = computeDiagram3D(ef, kind);
+    const diagram = diagrams.get(elemId)!;
 
     const { perpVec, sign } = computeDiagramDisplayDirection(axes, perpDir, towardLocalAxes);
 
@@ -287,6 +292,15 @@ export function createDiagramGroup3D(
           group.add(sprite);
         }
       };
+
+      if (diagram.extrema === 'bounded') {
+        const text = `${t('figures.diagramMagnitudeBound')} ${formatDiagramValue3D(Math.abs(diagram.maxAbsValue), kind, unitSystem).replace(/^[-−]/, '')}`;
+        const sprite = createTextSprite(text, colors.text, 28);
+        sprite.position.copy(baselinePoints[Math.floor(baselinePoints.length / 2)]!);
+        sprite.scale.set(spriteScale, spriteScale, 1);
+        group.add(sprite);
+        continue;
+      }
 
       // Always add max absolute value marker
       if (Math.abs(maxVal) >= Math.abs(minVal)) {

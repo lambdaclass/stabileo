@@ -1,0 +1,39 @@
+{
+  "id": "seismic-diaphragm-stories",
+  "date": "2026-11-18",
+  "prs": [
+    2316
+  ],
+  "area": "loads",
+  "when": {
+    "all": [
+      "generatedSeismicLoads",
+      "constraints"
+    ]
+  },
+  "requiresLoadRegeneration": true,
+  "title": {
+    "en": "Seismic mass retains diaphragm-defined stories",
+    "es": "La masa sísmica conserva los niveles definidos por diafragmas",
+    "pt": "A massa sísmica mantém os pavimentos definidos por diafragmas",
+    "de": "Die Erdbebenmasse berücksichtigt durch Deckenscheiben definierte Geschosse",
+    "fr": "La masse sismique tient compte des étages définis par des diaphragmes",
+    "tr": "Sismik kütle, diyaframlarla tanımlanan katları korur",
+    "zh": "地震质量计算保留由刚性楼板定义的楼层",
+    "hu": "A szeizmikus tömeg figyelembe veszi a merev tárcsával meghatározott szinteket"
+  },
+  "explanation": {
+    "en": "A rigid diaphragm defines a story even when its column joints are collinear and the floor has no beams or shells. Regenerate affected E cases before repeating analyses and design checks (#2316).",
+    "es": "Un diafragma rígido define un nivel aunque los nudos de la columna sean colineales y el piso carezca de vigas o láminas. Volvé a generar los casos E afectados antes de repetir los análisis y las verificaciones (#2316).",
+    "pt": "Um diafragma rígido define um pavimento mesmo quando os nós do pilar são colineares e o pavimento não tem vigas nem cascas. Gere novamente os casos E afetados antes de repetir as análises e verificações de projeto (#2316).",
+    "de": "Eine starre Deckenscheibe definiert auch dann ein Geschoss, wenn die Stützenknoten auf einer Geraden liegen und das Geschoss keine Träger oder Schalenelemente hat. Erzeugen Sie betroffene E-Lastfälle neu, bevor Sie die Analysen und Nachweise wiederholen (#2316).",
+    "fr": "Un diaphragme rigide définit un étage même si les nœuds du poteau sont alignés et que le plancher ne comporte ni poutres ni coques. Régénérez les cas E concernés avant de reprendre les analyses et les vérifications (#2316).",
+    "tr": "Rijit bir diyafram, kolon düğümleri aynı doğru üzerinde olsa ve katta kiriş veya kabuk bulunmasa bile katı tanımlar. Analizleri ve tasarım kontrollerini tekrarlamadan önce etkilenen E yük durumlarını yeniden oluşturun (#2316).",
+    "zh": "即使柱节点共线且楼层没有梁或壳单元，刚性楼板也能定义楼层。请先重新生成受影响的 E 工况，再重做分析和设计验算（#2316）。",
+    "hu": "A merev tárcsa akkor is szintet határoz meg, ha az oszlop csomópontjai egy egyenesbe esnek, és a szinten nincsenek gerendák vagy héjelemek. Az elemzések és ellenőrzések megismétlése előtt generálja újra az érintett E tehereseteket (#2316)."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-seismic-diaphragm-stories.md",
+    "heading": "Seismic mass retains diaphragm-defined stories"
+  }
+}

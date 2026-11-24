@@ -12,6 +12,8 @@
  * pass while all four drifted together.
  */
 import { describe, it, expect, beforeEach } from 'vitest';
+import { yieldToEventLoop } from '../../../__tests__/worker-yield';
+import { designFamiliesWithWorkerYields } from './design-families-fixture';
 import { modelStore } from '../../store/model.svelte';
 import { resultsStore } from '../../store/results.svelte';
 import { detailingStore } from '../../store/detailing.svelte';
@@ -42,7 +44,7 @@ async function compute(example: string): Promise<Built> {
   const solved = await modelStore.solveCombinations3DParallel(true, false, true);
   const r = solved as { perCase: Map<number, never>; perCombo: Map<number, never>; envelope: never };
   resultsStore.setCombinationResults3D(r.perCase as never, r.perCombo as never, r.envelope as never);
-  designRunStore.designFamilies(['column', 'beam', 'slab', 'wall', 'footing'],
+  await designFamiliesWithWorkerYields(['column', 'beam', 'slab', 'wall', 'footing'],
     { verifierId: 'cirsoc201.provided.v2.2025' });
   const doc = detailingStore.buildDocument({ author: 'r', at: '2026-08-09T00:00:00Z' })!;
   expect(doc).toBeTruthy();
@@ -73,12 +75,14 @@ for (const example of ['pro-edificio-7p', 'rc-qa-diagnostic']) {
     let b: Built;
     beforeEach(async () => { b = await build(example); }, 300_000);
 
-    it('every mark in the 3-D view is on a sheet AND on the schedule', () => {
+    it('every mark in the 3-D view is on a sheet AND on the schedule', async () => {
       const marks = new Set(b.scene.bars.map((x) => x.mark).filter(Boolean) as string[]);
       expect(marks.size).toBeGreaterThan(0);
       const svg = renderDrawings(b.doc, OPTS).sheets.map((s) => s.svg).join('\n');
+      await yieldToEventLoop();
       const sched = renderSchedule(b.doc, OPTS)
         .flatMap(({ aoa }) => aoa.map((row) => String(row[0] ?? '').trim()));
+      await yieldToEventLoop();
       for (const m of marks) {
         expect(svg, `${m} drawn`).toContain(m);
         expect(sched, `${m} billed`).toContain(m);
@@ -115,7 +119,7 @@ for (const example of ['pro-edificio-7p', 'rc-qa-diagnostic']) {
       }
     }, 300_000);
 
-    it('declares the sheet kinds it does not produce', () => {
+    it('declares the sheet kinds it does not produce', async () => {
       /**
        * The gap this exists to stop being silent. 128 sheets arrive, every mark reconciles,
        * and no sheet frames a whole storey or details one column. Without this the reviewer's
@@ -130,6 +134,7 @@ for (const example of ['pro-edificio-7p', 'rc-qa-diagnostic']) {
       expect(withoutScene.coverage.missingSheetKinds).toContain('columnDetail');
 
       // Given the scene, it produces them and declares nothing missing.
+      await yieldToEventLoop();
       const withScene = renderDrawings(b.doc, { ...OPTS, scene: b.scene });
       expect(withScene.coverage.missingSheetKinds).toEqual([...MISSING_SHEET_KINDS]);
       expect(withScene.coverage.missingSheetKinds).toEqual([]);

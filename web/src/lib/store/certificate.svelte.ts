@@ -1,5 +1,5 @@
 /**
- * The certificate of the linear static result on screen (docs/verification/CERTIFY.md): the base
+ * The certificate of the linear static result on screen (testing/docs/CERTIFY.md): the base
  * solve, a load case, a combination or the envelope.
  *
  * Not the design-code "verification" (`verification.svelte.ts`): this is a rigorous bound on how
@@ -18,7 +18,7 @@
 import { certifiableInputOf, certifiableMultiCaseOf, type CertifiableInput } from '../engine/solver-service';
 import { certifyInWorker, PoolUnavailableError } from '../engine/solver-pool';
 import {
-  certifyLinearWire, hasCertifyExport, type EndToEnd, type LinearCertificate, type LinearCertificateOnly,
+  certifyLinearWire, finiteWireJson, hasCertifyExport, type EndToEnd, type LinearCertificate, type LinearCertificateOnly,
   type ForceBound2D, type ForceBound3D, type ShellBound, type MultiCaseCertificate, type CombinationCertificate,
   type StationBound2D, type StationBound3D, type ReactionBound2D, type ReactionBound3D, type ShownBounds,
 } from '../engine/wasm-solver';
@@ -301,7 +301,7 @@ function createCertificateStore() {
     async exportBundle(is3D: boolean): Promise<string | null> {
       const input = linearInput;
       if (!input || !this.canExportBundle(is3D)) return null;
-      return runCertify(BUNDLE_EXPORT[input.dim], [JSON.stringify(input.wire())]);
+      return runCertify(BUNDLE_EXPORT[input.dim], [finiteWireJson(input.wire())]);
     },
   };
 }

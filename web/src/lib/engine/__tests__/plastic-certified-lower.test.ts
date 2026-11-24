@@ -9,7 +9,7 @@ import { setLocale } from '../../i18n';
 
 it.each(['issue-1760.bin', 'unconservative-cantilever.bin'])('reads the certified factor and raw mismatch warning for %s #1760', (file) => {
   setLocale('en');
-  const artifact = readFileSync(resolve(__dirname, '../../../../../engine/fuzz/corpus-regressions/plastic-lp-budget', file));
+  const artifact = readFileSync(resolve(__dirname, '../../../../../testing/fuzz/corpus-regressions/plastic-lp-budget', file));
   const output = JSON.parse(certify_plastic_3d(artifact.subarray(2).toString('utf8')));
   expect(output.results.collapseFactor).toBe(output.certificate.lambdaLower);
   expect(output.certificate.certified).toBe(true);

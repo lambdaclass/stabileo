@@ -1,3 +1,4 @@
+import { assertHistoryWithheld } from './staged-history-containment.mjs';
 import { assertZeroReactions } from './staged-round7-reactions.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -44,20 +45,39 @@ for (const dim of [2, 3]) for (const pads of [0, 22]) for (const connected of [f
     ];
     const solve = dim === 2 ? solve_staged_2d : solve_staged_3d;
     check(`${dim}D pads=${pads} connected=${connected} moment=${moment} removed=${removed} cancel=${cancel} residual=${residual}`, () => {
-      if (refused) assert.throws(() => solve(JSON.stringify(input)), /rotation/);
-      else {
+      if (removed && moment !== 0) {
+        assert.throws(() => solve(JSON.stringify(input)), /#1996/);
+        for (const load of input.loads) load.data.my = 0;
+      }
+      {
         const out = JSON.parse(solve(JSON.stringify(input)));
         if (removed) {
+          const unloadedControl = structuredClone(input);
+          for (const load of unloadedControl.loads) load.data.my = 0;
+          {
+          const out = JSON.parse(solve(JSON.stringify(unloadedControl)));
           const forceFields = dim === 2 ? ['nStart', 'nEnd', 'vStart', 'vEnd', 'mStart', 'mEnd'] : ['nStart', 'nEnd', 'vyStart', 'vyEnd', 'vzStart', 'vzEnd', 'mxStart', 'mxEnd', 'myStart', 'myEnd', 'mzStart', 'mzEnd'];
           const reactionFields = dim === 2 ? ['rx', 'rz', 'my'] : ['fx', 'fy', 'fz', 'mx', 'my', 'mz'];
           assert.deepEqual(out.finalResults.elementForces.map(e => e.elementId).sort((a, b) => a - b), Object.values(input.elements).filter(e => e.id !== 1).map(e => e.id).sort((a, b) => a - b));
-          assertZeroReactions(out.finalResults.reactions, Object.values(input.supports).map(s => s.nodeId), reactionFields);
+          if (Object.values(input.elements).every(e => e.id === 1)) {
+            assert.deepEqual(out.finalResults.reactions, []);
+            assert.ok((out.finalResults.structuredDiagnostics ?? []).some(d => d.code === 'result_quantity_unavailable' && d.phase === 'stageResults'));
+          } else {
+            assertZeroReactions(out.finalResults.reactions, Object.values(input.supports).map(s => s.nodeId), reactionFields);
+          }
           for (const [group, fields] of [['elementForces', forceFields]]) {
             for (const item of out.finalResults[group]) for (const field of fields) assert.ok(Number.isFinite(item[field]) && item[field] === 0, `${group} ${field}: ${item[field]}`);
+          }
           }
         } else {
           assert.deepEqual(out.finalResults.displacements, out.stages[0].results.displacements);
           assert.ok(Math.abs(out.finalResults.displacements.find(d => d.nodeId === 2).ry) > 0);
+          const activation = structuredClone(input);
+          activation.elements[3] = { ...activation.elements[1], id: 3 };
+          activation.stages[1].elementsAdded = [3];
+          const history = JSON.parse(solve(JSON.stringify(activation)));
+          assertHistoryWithheld(history.stages[1].results);
+          assertHistoryWithheld(history.finalResults);
         }
       }
     });

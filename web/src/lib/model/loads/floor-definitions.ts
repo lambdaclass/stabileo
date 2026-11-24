@@ -63,7 +63,7 @@ export interface Expansion {
   /** What the member path found: panels, skipped, totals. Null on a slab or a refused one. */
   result: FloorLoadResult | null;
   /** Why it wrote nothing, when it did not. */
-  problem?: 'noCase' | 'noZone' | 'nothingTargeted';
+  problem?: 'noCase' | 'noZone' | 'nothingTargeted' | 'eccentricZone';
   totalKN: number;
 }
 
@@ -187,6 +187,7 @@ export function expandDefinition(m: DefinitionModel, def: FloorLoadDef, own: Gro
     ...(zone ? { zone: { outer: zone.outer, holes: zone.holes } } : {}),
     ...(def.perPlanArea ? { perPlanArea: true } : {}),
   });
+  if (res.refusal) return { ...none(res.refusal), result: res };
   const loads: Load[] = [
     // The part along an inclined member's axis too (qX), or the load would not stay vertical.
     ...res.loads.map((l): Load => ({ type: 'distributed3d', data: { id: 0, elementId: l.elementId, ...(l.qXI || l.qXJ ? { qXI: l.qXI, qXJ: l.qXJ } : {}), qYI: l.qYI, qYJ: l.qYJ, qZI: l.qZI, qZJ: l.qZJ, ...(l.a !== undefined ? { a: l.a, b: l.b } : {}), ...mark } })),

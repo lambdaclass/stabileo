@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { verticalNameIn } from '../../../lib/axes/typed-frame';
   /**
    * Row filters, sorting, search and the DERIVED group pickers.
    *
@@ -74,7 +75,7 @@
     <!-- Elevation bands: derived from node Z, labelled "L3 +10.20 m". -->
     {#if elevation.available}
       <select class="picker" data-testid="group-picker-elevation"
-              aria-label={t('design.group.elevation')}
+              aria-label={verticalNameIn(t('design.group.elevation'))}
               onchange={(e) => {
                 const i = +e.currentTarget.value;
                 if (Number.isNaN(i) || i < 0) return;
@@ -82,7 +83,7 @@
                 onSelectIds([...band.beamIds, ...band.columnsRisingIds], band.label);
                 e.currentTarget.selectedIndex = 0;
               }}>
-        <option value="-1">{t('design.group.elevation')}</option>
+        <option value="-1">{verticalNameIn(t('design.group.elevation'))}</option>
         {#each elevation.bands as band, i (band.index)}
           <option value={i}>
             {band.label} — {band.beamIds.length} + {band.columnsRisingIds.length} {t('design.group.columnsRising')}
@@ -92,7 +93,7 @@
       </select>
     {:else}
       <span class="refused" data-testid="group-elevation-refused">
-        {t('design.group.elevation')}: {t(elevation.refusedKey ?? 'design.group.noNodes')}
+        {verticalNameIn(t('design.group.elevation'))}: {t(elevation.refusedKey ?? 'design.group.noNodes')}
       </span>
     {/if}
 

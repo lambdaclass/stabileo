@@ -2,13 +2,6 @@
 //! symmetrically, and (linear analyses) under an antisymmetric load
 //! antisymmetrically.
 //!
-//! Symmetric models are built from any model ("half"): 2D — mirror it about a
-//! vertical line through its right-most node and join the copies there; 3D —
-//! rotate it by 180° about a vertical axis through one of its nodes (C2
-//! symmetry) and join there. Loads are copied with the same transform (or
-//! negated, for the antisymmetric case). The response must then equal its own
-//! image under the symmetry, with nodes and members exchanged pairwise.
-
 use crate::ana2::{Ana2, Law};
 use crate::ana3::Ana3;
 use crate::case::{Case2, Case3};
@@ -18,6 +11,11 @@ use dedaliano_engine::metamorphic::conditioning;
 use dedaliano_engine::metamorphic::relabel::Relabel;
 use dedaliano_engine::metamorphic::transform::{transform_2d, transform_3d, Iso2, Iso3};
 use dedaliano_engine::types::*;
+
+fn centered_coordinate(value: f64, pivot: f64) -> Option<f64> {
+    let centered = value - pivot;
+    (value.is_finite() && pivot.is_finite() && centered.is_finite()).then_some(centered)
+}
 
 pub struct Sym2 {
     pub case: Case2,
@@ -72,9 +70,15 @@ pub fn symmetrize_2d(name: &str, half: &SolverInput, anti: bool) -> Option<Sym2>
         return None;
     }
     let xmax = half.nodes.values().map(|n| n.x).fold(f64::NEG_INFINITY, f64::max);
-    let iso = Iso2 { q: [[-1.0, 0.0], [0.0, 1.0]], t: [2.0 * xmax, 0.0] };
+    let mut centered = half.clone();
+    for n in centered.nodes.values_mut() {
+        n.x = centered_coordinate(n.x, xmax)?;
+        if !n.z.is_finite() { return None; }
+    }
+    let half = &centered;
+    let iso = Iso2 { q: [[-1.0, 0.0], [0.0, 1.0]], t: [0.0; 2] };
     let img = transform_2d(half, &iso).ok()?;
-    let axis: Vec<usize> = half.nodes.values().filter(|n| (n.x - xmax).abs() <= 1e-12 * xmax.abs().max(1.0)).map(|n| n.id).collect();
+    let axis: Vec<usize> = half.nodes.values().filter(|n| n.x == 0.0).map(|n| n.id).collect();
     let nmax = half.nodes.values().map(|n| n.id).max()?;
     let emax = half.elements.values().map(|e| e.id).max()?;
     let smax = half.supports.values().map(|s| s.id).max().unwrap_or(0);
@@ -229,10 +233,16 @@ pub fn symmetrize_3d(name: &str, half: &SolverInput3D, anti: bool) -> Option<Sym
     // Axis through the node with the largest x (ties: smallest id).
     let pivot = half.nodes.values().max_by(|a, b| a.x.total_cmp(&b.x).then(b.id.cmp(&a.id)))?;
     let (px, py) = (pivot.x, pivot.y);
-    // p' = Rz(π)(p − c) + c = (2cx − x, 2cy − y, z).
-    let iso = Iso3 { r: [[-1.0, 0.0, 0.0], [0.0, -1.0, 0.0], [0.0, 0.0, 1.0]], t: [2.0 * px, 2.0 * py, 0.0] };
+    let mut centered = half.clone();
+    for n in centered.nodes.values_mut() {
+        n.x = centered_coordinate(n.x, px)?;
+        n.y = centered_coordinate(n.y, py)?;
+        if !n.z.is_finite() { return None; }
+    }
+    let half = &centered;
+    let iso = Iso3 { r: [[-1.0, 0.0, 0.0], [0.0, -1.0, 0.0], [0.0, 0.0, 1.0]], t: [0.0; 3] };
     let img = transform_3d(half, &iso).ok()?;
-    let on_axis = |n: &SolverNode3D| (n.x - px).abs() <= 1e-12 * px.abs().max(1.0) && (n.y - py).abs() <= 1e-12 * py.abs().max(1.0);
+    let on_axis = |n: &SolverNode3D| n.x == 0.0 && n.y == 0.0;
     let axis: Vec<usize> = half.nodes.values().filter(|n| on_axis(n)).map(|n| n.id).collect();
     let nmax = half.nodes.values().map(|n| n.id).max()?;
     let emax = half.elements.values().map(|e| e.id).max()?;

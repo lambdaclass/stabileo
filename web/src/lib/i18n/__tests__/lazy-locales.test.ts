@@ -1,3 +1,4 @@
+import { PUBLIC_LOCALES } from '../offered';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 type Store = typeof import('../store.svelte');
@@ -59,10 +60,10 @@ describe('a lazily loaded language', () => {
     await expect(store.ensureLocale('xx')).resolves.toBeUndefined();
   });
 
-  it.each(['de', 'fr', 'tr'] as const)('in a build, where the public %s entries are a lazy chunk, shows both its public and its app strings', async (loc) => {
+  it.each(PUBLIC_LOCALES.filter(locale => ['de', 'fr', 'tr', 'hu', 'zh'].includes(locale)))('in a build, where the public %s entries are a lazy chunk, shows both its public and its app strings', async (loc) => {
     vi.resetModules();
     vi.doMock('virtual:public-i18n', () => ({
-      en: {}, es: {}, pt: {}, de: {}, fr: {}, tr: {},
+      en: {}, es: {}, pt: {}, de: {}, fr: {}, tr: {}, hu: {}, zh: {},
       loaders: { [loc]: async () => ({ default: { 'landing.probe': `public ${loc}` } }) },
     }));
     vi.doMock(`../locales/browser/${loc}`, () => ({ default: { 'app.probe': `app ${loc}` } }));

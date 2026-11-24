@@ -1,9 +1,10 @@
 <script lang="ts">
   import { tPublic as t } from '../../lib/i18n/store.svelte';
+  import { tools } from '../../lib/features';
   import { enterApp } from './landing-utils';
   import PublicLink from './PublicLink.svelte';
   import Eyebrow from './Eyebrow.svelte';
-  import TrussFigure from './TrussFigure.svelte';
+  import HeroFigures from './HeroFigures.svelte';
 
   type Props = { prefersReducedMotion?: boolean };
   let { prefersReducedMotion = false }: Props = $props();
@@ -11,14 +12,21 @@
 
 <section class="sec sec--ink hero" data-section="hero" id="top" aria-labelledby="hero-title">
   <div class="wrap hero-grid">
-    <div class="hero-copy">
+    <div class="hero-heading">
       <Eyebrow n="01" label={t('landing.ebHero')} />
       <h1 id="hero-title">{t('landing.heroH')}</h1>
+    </div>
+
+    <div class="hero-figure">
+      <HeroFigures {prefersReducedMotion} />
+    </div>
+
+    <div class="hero-copy">
       <p class="lead">{t('landing.heroP')}</p>
 
       <div class="hero-ctas">
         <button class="btn btn-primary btn-lg" onclick={() => enterApp()}>{t('landing.heroCtaPrimary')}</button>
-        <PublicLink to="/examples" class="btn btn-ghost btn-lg">{t('landing.navExamples')} →</PublicLink>
+        <PublicLink to={tools() ? '/tools' : '/examples'} class="btn btn-ghost btn-lg">{t(tools() ? 'landing.navTools' : 'landing.navExamples')} →</PublicLink>
       </div>
 
       <!--
@@ -51,8 +59,5 @@
       </dl>
     </div>
 
-    <div class="hero-figure">
-      <TrussFigure mode="animate" {prefersReducedMotion} />
-    </div>
   </div>
 </section>

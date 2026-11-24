@@ -1,0 +1,634 @@
+[
+  {
+    "dim": "2d",
+    "input": {
+      "solver": {
+        "nodes": {
+          "1": {
+            "id": 1,
+            "x": 0,
+            "y": 0
+          },
+          "2": {
+            "id": 2,
+            "x": 4,
+            "y": 0
+          }
+        },
+        "materials": {
+          "1": {
+            "id": 1,
+            "e": 200000,
+            "nu": 0.3
+          }
+        },
+        "sections": {
+          "1": {
+            "id": 1,
+            "a": 0.01,
+            "iz": 0.0001
+          }
+        },
+        "elements": {
+          "1": {
+            "id": 1,
+            "type": "frame",
+            "nodeI": 1,
+            "nodeJ": 2,
+            "materialId": 1,
+            "sectionId": 1,
+            "hingeStart": false,
+            "hingeEnd": false
+          }
+        },
+        "supports": {
+          "1": {
+            "id": 1,
+            "nodeId": 1,
+            "type": "fixed"
+          }
+        },
+        "loads": [
+          {
+            "type": "nodal",
+            "data": {
+              "nodeId": 2,
+              "fx": 0,
+              "fy": -50,
+              "mz": 0
+            }
+          }
+        ]
+      },
+      "densities": {
+        "1": 1
+      }
+    },
+    "expected": {
+      "modes": [
+        {
+          "frequency": 1571.5412425872355,
+          "period": 0.0006363180124714356,
+          "omega": 9874.284845050868,
+          "displacements": [
+            {
+              "nodeId": 1,
+              "ux": 0,
+              "uz": 0,
+              "ry": 0
+            },
+            {
+              "nodeId": 2,
+              "ux": 0,
+              "uz": 1,
+              "ry": 0.3443752502002003
+            }
+          ],
+          "participationX": 0,
+          "participationY": 1.5710572688919688,
+          "effectiveMassX": 0,
+          "effectiveMassY": 0.000024207368843792508,
+          "massRatioX": 0,
+          "massRatioY": 0.6051842210948126
+        },
+        {
+          "frequency": 15483.901729467634,
+          "period": 0.00006458320502621672,
+          "omega": 97288.22384440362,
+          "displacements": [
+            {
+              "nodeId": 1,
+              "ux": 0,
+              "uz": 0,
+              "ry": 0
+            },
+            {
+              "nodeId": 2,
+              "ux": 0,
+              "uz": 0.5247622860193526,
+              "ry": 1
+            }
+          ],
+          "participationX": 0,
+          "participationY": -2.0410332400535167,
+          "effectiveMassX": 0,
+          "effectiveMassY": 0.0000057926311562075,
+          "massRatioX": 0,
+          "massRatioY": 0.1448157789051875
+        },
+        {
+          "frequency": 30820.222203074994,
+          "period": 0.00003244622940778889,
+          "omega": 193649.16731037086,
+          "displacements": [
+            {
+              "nodeId": 1,
+              "ux": 0,
+              "uz": 0,
+              "ry": 0
+            },
+            {
+              "nodeId": 2,
+              "ux": 1,
+              "uz": 0,
+              "ry": 0
+            }
+          ],
+          "participationX": 1.5,
+          "participationY": 0,
+          "effectiveMassX": 0.00003,
+          "effectiveMassY": 0,
+          "massRatioX": 0.75,
+          "massRatioY": 0
+        }
+      ],
+      "finiteSpectrumDiagnostic": "Requested 6 modes; returned all 3 finite modes certified by the Sturm count. Massless directions have no finite frequency.",
+      "nDof": 3,
+      "totalMass": 0.00004,
+      "cumulativeMassRatioX": 0.75,
+      "cumulativeMassRatioY": 0.7500000000000001,
+      "rayleigh": {
+        "a0": 939.5217198700493,
+        "a1": 4.913438669644543e-7,
+        "omega1": 9874.284845050868,
+        "omega2": 193649.16731037086,
+        "dampingRatios": [
+          0.05,
+          0.028729534069935447,
+          0.05000000000000001
+        ]
+      },
+      "structuredDiagnostics": [
+        {
+          "code": "known_issue",
+          "severity": "warning",
+          "message": "Material nonlinear analysis may continue after an unconverged increment. Beam dynamic models omit bending rotary inertia. Independently verify convergence and deep-member dynamic response (known issue #370, NL-DYNAMIC-GAPS)",
+          "phase": "NL-DYNAMIC-GAPS",
+          "value": 370
+        },
+        {
+          "code": "residual_ok",
+          "severity": "info",
+          "message": "PASS: self-check modal_residual:1: 0.000e0 (warning at 1.000e-6, refusal at 1.000e-3)",
+          "phase": "self_check:modal_residual:1",
+          "value": 0,
+          "threshold": 0.000001
+        },
+        {
+          "code": "residual_ok",
+          "severity": "info",
+          "message": "PASS: self-check modal_orthogonality:1: 0.000e0 (warning at 1.000e-10, refusal at 2.000e-10)",
+          "phase": "self_check:modal_orthogonality:1",
+          "value": 0,
+          "threshold": 1.0000353709793735e-10
+        },
+        {
+          "code": "residual_ok",
+          "severity": "info",
+          "message": "PASS: self-check modal_residual:2: 0.000e0 (warning at 1.000e-6, refusal at 1.000e-3)",
+          "phase": "self_check:modal_residual:2",
+          "value": 0,
+          "threshold": 0.000001
+        },
+        {
+          "code": "residual_ok",
+          "severity": "info",
+          "message": "PASS: self-check modal_orthogonality:2: 1.963e-16 (warning at 2.000e-10, refusal at 4.000e-10)",
+          "phase": "self_check:modal_orthogonality:2",
+          "value": 1.962615573354719e-16,
+          "threshold": 2.0001610276634942e-10
+        },
+        {
+          "code": "residual_ok",
+          "severity": "info",
+          "message": "PASS: self-check modal_residual:3: 0.000e0 (warning at 1.000e-6, refusal at 1.000e-3)",
+          "phase": "self_check:modal_residual:3",
+          "value": 0,
+          "threshold": 0.000001
+        },
+        {
+          "code": "residual_ok",
+          "severity": "info",
+          "message": "PASS: self-check modal_orthogonality:3: 2.963e-16 (warning at 3.000e-10, refusal at 6.000e-10)",
+          "phase": "self_check:modal_orthogonality:3",
+          "value": 2.9634845277824204e-16,
+          "threshold": 3.0001136453512797e-10
+        }
+      ]
+    }
+  },
+  {
+    "dim": "3d",
+    "input": {
+      "solver": {
+        "nodes": {
+          "1": {
+            "id": 1,
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "2": {
+            "id": 2,
+            "x": 6,
+            "y": 0,
+            "z": 0
+          }
+        },
+        "materials": {
+          "1": {
+            "id": 1,
+            "e": 200000,
+            "nu": 0.3
+          }
+        },
+        "sections": {
+          "1": {
+            "id": 1,
+            "a": 0.01,
+            "iy": 0.0001,
+            "iz": 0.0001,
+            "j": 0.0002
+          }
+        },
+        "elements": {
+          "1": {
+            "id": 1,
+            "type": "frame",
+            "nodeI": 1,
+            "nodeJ": 2,
+            "materialId": 1,
+            "sectionId": 1
+          }
+        },
+        "supports": {
+          "1": {
+            "nodeId": 1,
+            "rx": true,
+            "ry": true,
+            "rz": true,
+            "rrx": true,
+            "rry": true,
+            "rrz": true
+          }
+        },
+        "loads": [
+          {
+            "type": "nodal",
+            "data": {
+              "nodeId": 2,
+              "fx": 0,
+              "fy": -10,
+              "fz": -5,
+              "mx": 0,
+              "my": 0,
+              "mz": 0
+            }
+          }
+        ]
+      },
+      "densities": {
+        "1": 1
+      }
+    },
+    "expected": {
+      "modes": [
+        {
+          "frequency": 698.4627744832162,
+          "period": 0.0014317155280607293,
+          "omega": 4388.571042244833,
+          "displacements": [
+            {
+              "nodeId": 1,
+              "ux": 0,
+              "uy": 0,
+              "uz": 0,
+              "rx": 0,
+              "ry": 0,
+              "rz": 0
+            },
+            {
+              "nodeId": 2,
+              "ux": 0,
+              "uy": 1,
+              "uz": 0,
+              "rx": 0,
+              "ry": 0,
+              "rz": 0.22958350013346676
+            }
+          ],
+          "participationX": 0,
+          "participationY": 1.5710572688919693,
+          "participationZ": 0,
+          "effectiveMassX": 0,
+          "effectiveMassY": 0.00003631105326568879,
+          "effectiveMassZ": 0,
+          "massRatioX": 0,
+          "massRatioY": 0.6051842210948131,
+          "massRatioZ": 0
+        },
+        {
+          "frequency": 698.4627744832162,
+          "period": 0.0014317155280607293,
+          "omega": 4388.571042244833,
+          "displacements": [
+            {
+              "nodeId": 1,
+              "ux": 0,
+              "uy": 0,
+              "uz": 0,
+              "rx": 0,
+              "ry": 0,
+              "rz": 0
+            },
+            {
+              "nodeId": 2,
+              "ux": 0,
+              "uy": 0,
+              "uz": 1,
+              "rx": 0,
+              "ry": -0.22958350013346676,
+              "rz": 0
+            }
+          ],
+          "participationX": 0,
+          "participationY": 0,
+          "participationZ": 1.5710572688919693,
+          "effectiveMassX": 0,
+          "effectiveMassY": 0,
+          "effectiveMassZ": 0.00003631105326568879,
+          "massRatioX": 0,
+          "massRatioY": 0,
+          "massRatioZ": 0.6051842210948131
+        },
+        {
+          "frequency": 6881.734101985619,
+          "period": 0.00014531221130898754,
+          "omega": 43239.21059751275,
+          "displacements": [
+            {
+              "nodeId": 1,
+              "ux": 0,
+              "uy": 0,
+              "uz": 0,
+              "rx": 0,
+              "ry": 0,
+              "rz": 0
+            },
+            {
+              "nodeId": 2,
+              "ux": 0,
+              "uy": 0,
+              "uz": -0.787143429029029,
+              "rx": 0,
+              "ry": 1,
+              "rz": 0
+            }
+          ],
+          "participationX": 0,
+          "participationY": 0,
+          "participationZ": 1.360688826702345,
+          "effectiveMassX": 0,
+          "effectiveMassY": 0,
+          "effectiveMassZ": 0.000008688946734311251,
+          "massRatioX": 0,
+          "massRatioY": 0,
+          "massRatioZ": 0.1448157789051875
+        },
+        {
+          "frequency": 6881.734101985619,
+          "period": 0.00014531221130898754,
+          "omega": 43239.21059751275,
+          "displacements": [
+            {
+              "nodeId": 1,
+              "ux": 0,
+              "uy": 0,
+              "uz": 0,
+              "rx": 0,
+              "ry": 0,
+              "rz": 0
+            },
+            {
+              "nodeId": 2,
+              "ux": 0,
+              "uy": 0.787143429029029,
+              "uz": 0,
+              "rx": 0,
+              "ry": 0,
+              "rz": 1
+            }
+          ],
+          "participationX": 0,
+          "participationY": -1.360688826702345,
+          "participationZ": 0,
+          "effectiveMassX": 0,
+          "effectiveMassY": 0.000008688946734311251,
+          "effectiveMassZ": 0,
+          "massRatioX": 0,
+          "massRatioY": 0.1448157789051875,
+          "massRatioZ": 0
+        },
+        {
+          "frequency": 12742.593603129453,
+          "period": 0.00007847695933380548,
+          "omega": 80064.07690254356,
+          "displacements": [
+            {
+              "nodeId": 1,
+              "ux": 0,
+              "uy": 0,
+              "uz": 0,
+              "rx": 0,
+              "ry": 0,
+              "rz": 0
+            },
+            {
+              "nodeId": 2,
+              "ux": 0,
+              "uy": 0,
+              "uz": 0,
+              "rx": 1,
+              "ry": 0,
+              "rz": 0
+            }
+          ],
+          "participationX": 0,
+          "participationY": 0,
+          "participationZ": 0,
+          "effectiveMassX": 0,
+          "effectiveMassY": 0,
+          "effectiveMassZ": 0,
+          "massRatioX": 0,
+          "massRatioY": 0,
+          "massRatioZ": 0
+        },
+        {
+          "frequency": 20546.814802049994,
+          "period": 0.00004866934411168334,
+          "omega": 129099.44487358055,
+          "displacements": [
+            {
+              "nodeId": 1,
+              "ux": 0,
+              "uy": 0,
+              "uz": 0,
+              "rx": 0,
+              "ry": 0,
+              "rz": 0
+            },
+            {
+              "nodeId": 2,
+              "ux": 1,
+              "uy": 0,
+              "uz": 0,
+              "rx": 0,
+              "ry": 0,
+              "rz": 0
+            }
+          ],
+          "participationX": 1.5,
+          "participationY": 0,
+          "participationZ": 0,
+          "effectiveMassX": 0.00004500000000000001,
+          "effectiveMassY": 0,
+          "effectiveMassZ": 0,
+          "massRatioX": 0.7500000000000001,
+          "massRatioY": 0,
+          "massRatioZ": 0
+        }
+      ],
+      "nDof": 6,
+      "totalMass": 0.00006000000000000001,
+      "cumulativeMassRatioX": 0.7500000000000001,
+      "cumulativeMassRatioY": 0.7500000000000006,
+      "cumulativeMassRatioZ": 0.7500000000000006,
+      "rayleigh": {
+        "a0": 424.4291754994249,
+        "a1": 7.49130918711518e-7,
+        "omega1": 4388.571042244833,
+        "omega2": 129099.44487358055,
+        "dampingRatios": [
+          0.05,
+          0.05,
+          0.021103834809101017,
+          0.021103834809101017,
+          0.03263979709435183,
+          0.05
+        ]
+      },
+      "structuredDiagnostics": [
+        {
+          "code": "known_issue",
+          "severity": "warning",
+          "message": "Material nonlinear analysis may continue after an unconverged increment. Beam dynamic models omit bending rotary inertia. Independently verify convergence and deep-member dynamic response (known issue #370, NL-DYNAMIC-GAPS)",
+          "phase": "NL-DYNAMIC-GAPS",
+          "value": 370
+        },
+        {
+          "code": "known_issue",
+          "severity": "warning",
+          "message": "3D modal analysis can return non-orthogonal or duplicate modes. Effective masses, response-spectrum combinations and harmonic responses by modal superposition may be wrong, by large factors; independently verify the modal basis (known issue #759, MD-ORTHOGONALITY)",
+          "phase": "MD-ORTHOGONALITY",
+          "value": 759
+        },
+        {
+          "code": "residual_ok",
+          "severity": "info",
+          "message": "PASS: self-check modal_residual:1: 0.000e0 (warning at 1.000e-6, refusal at 1.000e-3)",
+          "phase": "self_check:modal_residual:1",
+          "value": 0,
+          "threshold": 0.000001
+        },
+        {
+          "code": "residual_ok",
+          "severity": "info",
+          "message": "PASS: self-check modal_orthogonality:1: 1.110e-16 (warning at 1.000e-10, refusal at 2.000e-10)",
+          "phase": "self_check:modal_orthogonality:1",
+          "value": 1.1102230246251565e-16,
+          "threshold": 1.0000474222596879e-10
+        },
+        {
+          "code": "residual_ok",
+          "severity": "info",
+          "message": "PASS: self-check modal_residual:2: 0.000e0 (warning at 1.000e-6, refusal at 1.000e-3)",
+          "phase": "self_check:modal_residual:2",
+          "value": 0,
+          "threshold": 0.000001
+        },
+        {
+          "code": "residual_ok",
+          "severity": "info",
+          "message": "PASS: self-check modal_orthogonality:2: 1.570e-16 (warning at 2.000e-10, refusal at 4.000e-10)",
+          "phase": "self_check:modal_orthogonality:2",
+          "value": 1.5700924586837752e-16,
+          "threshold": 2.0000474228718911e-10
+        },
+        {
+          "code": "residual_ok",
+          "severity": "info",
+          "message": "PASS: self-check modal_residual:3: 0.000e0 (warning at 1.000e-6, refusal at 1.000e-3)",
+          "phase": "self_check:modal_residual:3",
+          "value": 0,
+          "threshold": 0.000001
+        },
+        {
+          "code": "residual_ok",
+          "severity": "info",
+          "message": "PASS: self-check modal_orthogonality:3: 4.594e-16 (warning at 3.000e-10, refusal at 6.000e-10)",
+          "phase": "self_check:modal_orthogonality:3",
+          "value": 4.594365265244385e-16,
+          "threshold": 3.0001565399885906e-10
+        },
+        {
+          "code": "residual_ok",
+          "severity": "info",
+          "message": "PASS: self-check modal_residual:4: 0.000e0 (warning at 1.000e-6, refusal at 1.000e-3)",
+          "phase": "self_check:modal_residual:4",
+          "value": 0,
+          "threshold": 0.000001
+        },
+        {
+          "code": "residual_ok",
+          "severity": "info",
+          "message": "PASS: self-check modal_orthogonality:4: 6.305e-16 (warning at 4.000e-10, refusal at 8.000e-10)",
+          "phase": "self_check:modal_orthogonality:4",
+          "value": 6.304854800243424e-16,
+          "threshold": 4.0002110988466767e-10
+        },
+        {
+          "code": "residual_ok",
+          "severity": "info",
+          "message": "PASS: self-check modal_residual:5: 0.000e0 (warning at 1.000e-6, refusal at 1.000e-3)",
+          "phase": "self_check:modal_residual:5",
+          "value": 0,
+          "threshold": 0.000001
+        },
+        {
+          "code": "residual_ok",
+          "severity": "info",
+          "message": "PASS: self-check modal_orthogonality:5: 6.684e-16 (warning at 5.000e-10, refusal at 1.000e-9)",
+          "phase": "self_check:modal_orthogonality:5",
+          "value": 6.684427777288335e-16,
+          "threshold": 5.000173987687559e-10
+        },
+        {
+          "code": "residual_ok",
+          "severity": "info",
+          "message": "PASS: self-check modal_residual:6: 0.000e0 (warning at 1.000e-6, refusal at 1.000e-3)",
+          "phase": "self_check:modal_residual:6",
+          "value": 0,
+          "threshold": 0.000001
+        },
+        {
+          "code": "residual_ok",
+          "severity": "info",
+          "message": "PASS: self-check modal_orthogonality:6: 6.684e-16 (warning at 6.000e-10, refusal at 1.200e-9)",
+          "phase": "self_check:modal_orthogonality:6",
+          "value": 6.684427777288335e-16,
+          "threshold": 6.000149246406999e-10
+        }
+      ]
+    }
+  }
+]

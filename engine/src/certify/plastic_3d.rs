@@ -1,4 +1,4 @@
-//! Certified plastic collapse load factor for 3D frames (docs/verification/CERTIFY.md,
+//! Certified plastic collapse load factor for 3D frames (testing/docs/CERTIFY.md,
 //! "Plastic collapse load factor, 3D").
 //!
 //! The solver (`solver::plastic::solve_plastic_3d`) runs an event-to-event hinge
@@ -2166,7 +2166,7 @@ mod tests {
     }
 
     fn refinement_fixture(biaxial: bool) -> RefinementFixture {
-        let bytes = include_bytes!("../../fuzz/corpus-regressions/plastic-lp-budget/good-loaded-beam.bin");
+        let bytes = include_bytes!("../../../testing/fuzz/corpus-regressions/plastic-lp-budget/good-loaded-beam.bin");
         let mut input: serde_json::Value = serde_json::from_slice(&bytes[2..]).unwrap();
         if biaxial {
             input["solver"]["loads"][0]["data"]["qYI"] = 10.into();
@@ -2333,7 +2333,7 @@ mod tests {
 
     #[test]
     fn mechanism_resource_refusal_is_preserved() {
-        let bytes = include_bytes!("../../fuzz/corpus-regressions/plastic-lp-budget/good-loaded-beam.bin");
+        let bytes = include_bytes!("../../../testing/fuzz/corpus-regressions/plastic-lp-budget/good-loaded-beam.bin");
         let input = serde_json::from_slice(&bytes[2..]).unwrap();
         let mut model = build_model_3d(&input).unwrap();
         model.elems[0].d[0] = Q::from_integer(num_bigint::BigInt::one() << (super::super::plastic_budget::MAX_EXACT_BITS as usize + 1));
@@ -2348,7 +2348,7 @@ mod tests {
 
     #[test]
     fn lp_work_matches_initial_samples() {
-        let bytes = include_bytes!("../../fuzz/corpus-regressions/plastic-lp-budget/good-loaded-beam.bin");
+        let bytes = include_bytes!("../../../testing/fuzz/corpus-regressions/plastic-lp-budget/good-loaded-beam.bin");
         let input = serde_json::from_slice(&bytes[2..]).unwrap();
         let original = build_model_3d(&input).unwrap();
         for count in [1, 2, 7] {

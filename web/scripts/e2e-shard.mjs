@@ -44,7 +44,7 @@ function specFiles(dir = E2E) {
     if (name.startsWith('.') || name === 'node_modules') continue;
     const full = join(dir, name);
     if (statSync(full).isDirectory()) out.push(...specFiles(full));
-    else if (name.endsWith('.spec.ts')) out.push(relative(E2E, full));
+    else if (name.endsWith('.spec.ts') && !name.endsWith('.timing.spec.ts')) out.push(relative(E2E, full));
   }
   return out.sort();
 }
