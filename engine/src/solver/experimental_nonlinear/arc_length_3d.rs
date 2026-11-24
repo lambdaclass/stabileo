@@ -73,6 +73,12 @@ pub struct ArcLengthResult3D {
     pub total_iterations: usize,
 }
 
+enum TangentFactor {
+    Sparse(NumericCholesky),
+    Cholesky(Vec<f64>),
+    Lu { a: Vec<f64>, piv: Vec<usize> },
+}
+
 struct ArcLength3D<'a> {
     input: &'a SolverInput3D,
     dof_num: &'a DofNumbering,
@@ -87,6 +93,8 @@ struct ArcLength3D<'a> {
     u_converged: Vec<f64>,
     naturals: Vec<MemberDeformation3D>,
     sparse_sym_cache: Option<SparseSymbolicCache>,
+    factor: Option<TangentFactor>,
+    factorizations: usize,
     f_int: Vec<f64>,
     r_f: Vec<f64>,
     k_t: Vec<f64>,
@@ -94,7 +102,6 @@ struct ArcLength3D<'a> {
     trip_cols: Vec<usize>,
     trip_vals: Vec<f64>,
     steps: Vec<EquilibriumStep3D>,
-    left_branch: Option<String>,
 }
 
 impl ArcLength3D<'_> {
@@ -106,19 +113,17 @@ impl ArcLength3D<'_> {
         u_geom
     }
 
-    /// K⁻¹·rhs over the free DOFs, with the tangent of the last `linearize_at`. Past a limit
-    /// point that tangent is indefinite, which the solvers answer with their LU fallback: no
-    /// conditioning diagnostic is kept, as in the 2D arc-length solver.
-    fn solve(&mut self, rhs: &[f64]) -> Result<Vec<f64>, String> {
+    /// The tangent of the last `linearize_at`, factorized once for every right-hand side asked
+    /// of it. Past a limit point it is indefinite: Cholesky gives way to LU, and no conditioning
+    /// diagnostic is kept, as in the 2D arc-length solver.
+    fn factorize(&mut self) -> Result<(), String> {
+        if self.factor.is_some() {
+            return Ok(());
+        }
+        self.factorizations += 1;
         let (dof_num, cs) = (self.dof_num, self.cs);
         let (n, nf, ns) = (dof_num.n_total, dof_num.n_free, self.ns);
-        let r_s = if let Some(ref cs) = *cs {
-            cs.reduce_vector(rhs)
-        } else {
-            rhs.to_vec()
-        };
-        let mut unreported = None;
-        let solved = if ns >= SPARSE_THRESHOLD {
+        let dense = if ns >= SPARSE_THRESHOLD {
             let k_s_csc = tangent_free_sparse_triplets(
                 &self.trip_rows,
                 &self.trip_cols,
@@ -126,21 +131,61 @@ impl ArcLength3D<'_> {
                 nf,
                 cs,
             );
-            solve_tangent_sparse_diagnosed(
-                &k_s_csc,
-                &r_s,
-                &mut self.sparse_sym_cache,
-                &mut unreported,
-            )?
+            let sym = cached_symbolic(&mut self.sparse_sym_cache, &k_s_csc);
+            if let Some(num) = numeric_cholesky(sym, &k_s_csc) {
+                self.factor = Some(TangentFactor::Sparse(num));
+                return Ok(());
+            }
+            if ns > crate::solver::time_integration::MAX_DENSE_FALLBACK_DOFS {
+                return Err(format!(
+                    "Arc-length analysis: the tangent stiffness is not positive definite and \
+                     the model has {ns} unknowns, more than the {} the dense fallback takes",
+                    crate::solver::time_integration::MAX_DENSE_FALLBACK_DOFS
+                ));
+            }
+            k_s_csc.to_dense_symmetric()
         } else {
             let free_idx: Vec<usize> = (0..nf).collect();
             let k_ff = extract_submatrix(&self.k_t, n, &free_idx, &free_idx);
-            let k_s = if let Some(ref cs) = *cs {
+            if let Some(ref cs) = *cs {
                 cs.reduce_matrix(&k_ff)
             } else {
                 k_ff
-            };
-            solve_free_dofs(&k_s, &r_s, ns, &mut unreported)?
+            }
+        };
+        let mut l = dense.clone();
+        if cholesky_decompose(&mut l, ns) {
+            self.factor = Some(TangentFactor::Cholesky(l));
+            return Ok(());
+        }
+        let mut a = dense;
+        let piv = lu_factor(&mut a, ns).ok_or_else(|| {
+            "Singular tangent stiffness — structure may be a mechanism \
+             or load increment too large"
+                .to_string()
+        })?;
+        self.factor = Some(TangentFactor::Lu { a, piv });
+        Ok(())
+    }
+
+    /// K⁻¹·rhs over the free DOFs.
+    fn solve(&mut self, rhs: &[f64]) -> Result<Vec<f64>, String> {
+        self.factorize()?;
+        let (cs, ns) = (self.cs, self.ns);
+        let r_s = if let Some(ref cs) = *cs {
+            cs.reduce_vector(rhs)
+        } else {
+            rhs.to_vec()
+        };
+        let solved = match self.factor.as_ref() {
+            Some(TangentFactor::Sparse(num)) => sparse_cholesky_solve(num, &r_s),
+            Some(TangentFactor::Cholesky(l)) => solve_with_cholesky_factor(l, &r_s, ns),
+            Some(TangentFactor::Lu { a, piv }) => lu_apply(a, piv, &r_s, ns).ok_or_else(|| {
+                "Singular tangent stiffness — structure may be a mechanism \
+                 or load increment too large"
+                    .to_string()
+            })?,
+            None => return Err("Arc-length analysis: no tangent factorized".into()),
         };
         Ok(if let Some(ref cs) = *cs {
             cs.expand_solution(&solved, MasterMotion::Homogeneous)
@@ -205,6 +250,7 @@ impl PathProblem for ArcLength3D<'_> {
                 assembly::apply_inclined_transform(&mut k_t, &mut f_int, n, &it.dofs, &it.r);
             }
         }
+        self.factor = None;
         self.f_int = f_int;
         self.k_t = k_t;
         self.trip_rows = trip_rows;
@@ -241,19 +287,20 @@ impl PathProblem for ArcLength3D<'_> {
         self.u_full[index]
     }
 
-    fn record(&mut self, step: usize, lambda: f64, iterations: usize, converged: bool) {
-        match on_one_branch_3d(
+    fn record(
+        &mut self,
+        step: usize,
+        lambda: f64,
+        iterations: usize,
+        converged: bool,
+    ) -> Result<(), String> {
+        self.naturals = on_one_branch_3d(
             self.input,
             self.dof_num,
             (&self.u_converged, &self.naturals),
             &self.u_full,
             self.left_hand,
-        ) {
-            Ok(naturals) => self.naturals = naturals,
-            Err(refusal) => {
-                self.left_branch.get_or_insert(refusal);
-            }
-        }
+        )?;
         self.u_converged.clone_from(&self.u_full);
         self.steps.push(EquilibriumStep3D {
             step,
@@ -265,6 +312,7 @@ impl PathProblem for ArcLength3D<'_> {
                 &self.global(),
             ),
         });
+        Ok(())
     }
 }
 
@@ -281,6 +329,9 @@ fn positive(value: f64, what: &str) -> Result<(), String> {
 pub fn solve_arc_length_3d(input: &ArcLengthInput3D) -> Result<ArcLengthResult3D, String> {
     if input.max_iter == 0 {
         return Err("Max iterations must be at least 1".into());
+    }
+    if input.target_iter == 0 {
+        return Err("Target iterations must be at least 1".into());
     }
     positive(input.tolerance, "Convergence tolerance")?;
     positive(input.initial_ds, "Initial arc length")?;
@@ -326,6 +377,8 @@ pub fn solve_arc_length_3d(input: &ArcLengthInput3D) -> Result<ArcLengthResult3D
         u_converged: u_full.clone(),
         u_full,
         sparse_sym_cache: None,
+        factor: None,
+        factorizations: 0,
         f_int: Vec::new(),
         r_f: Vec::new(),
         k_t: Vec::new(),
@@ -333,7 +386,6 @@ pub fn solve_arc_length_3d(input: &ArcLengthInput3D) -> Result<ArcLengthResult3D
         trip_cols: Vec::new(),
         trip_vals: Vec::new(),
         steps: Vec::new(),
-        left_branch: None,
     };
     let outcome = solve_by_arc_length(
         &mut problem,
@@ -351,12 +403,13 @@ pub fn solve_arc_length_3d(input: &ArcLengthInput3D) -> Result<ArcLengthResult3D
         u_full,
         naturals,
         steps,
-        left_branch,
+        factorizations,
         ..
     } = problem;
-    if let Some(refusal) = left_branch {
-        return Err(refusal);
-    }
+    #[cfg(test)]
+    tests::FACTORIZATIONS.with(|count| count.set(factorizations));
+    #[cfg(not(test))]
+    let _ = factorizations;
 
     let at_state = scaled_loads_3d(solver, outcome.load_factor);
     let mut results = build_final_results_3d(
@@ -565,6 +618,7 @@ mod tests {
             solve_arc_length_3d(&input).unwrap_err()
         };
         assert_eq!(refusal(&|i| i.max_iter = 0), "Max iterations must be at least 1");
+        assert_eq!(refusal(&|i| i.target_iter = 0), "Target iterations must be at least 1");
         for bad in [0.0, -1.0, f64::NAN, f64::INFINITY] {
             assert_eq!(refusal(&|i| i.tolerance = bad), "Convergence tolerance must be finite and positive");
             assert_eq!(refusal(&|i| i.initial_ds = bad), "Initial arc length must be finite and positive");
@@ -590,6 +644,23 @@ mod tests {
             held
         };
         assert_eq!(solve_arc_length_3d(&asked(held, 10, 0.02)).unwrap_err(), "No free DOFs — all nodes are fully restrained");
+    }
+
+    thread_local! {
+        pub(super) static FACTORIZATIONS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+    }
+
+    #[test]
+    fn the_tangent_is_factorized_once_for_each_time_it_is_assembled() {
+        for (n, element) in [(2, "truss"), (8, "frame"), (30, "frame")] {
+            let (_, space) = planar(n, 0.3, element, (0.0, -1.0));
+            let followed = solve_arc_length_3d(&asked(space, 20, 0.02)).unwrap();
+            assert!(followed.converged);
+            let assembled = followed.total_iterations + followed.steps.len();
+            let factorized = FACTORIZATIONS.with(|count| count.get());
+            assert!(factorized <= assembled, "{element}, {n}: {factorized} factorizations for {assembled} assemblies");
+            assert!(factorized >= followed.steps.len());
+        }
     }
 
     #[test]

@@ -199,7 +199,13 @@ impl PathProblem for ArcLength2D<'_> {
         self.u_full[index]
     }
 
-    fn record(&mut self, step: usize, lambda: f64, iterations: usize, converged: bool) {
+    fn record(
+        &mut self,
+        step: usize,
+        lambda: f64,
+        iterations: usize,
+        converged: bool,
+    ) -> Result<(), String> {
         let (n, nf) = (self.dof_num.n_total, self.dof_num.n_free);
         set_supports(
             &mut self.u_full,
@@ -219,6 +225,7 @@ impl PathProblem for ArcLength2D<'_> {
                 &assembly::to_global(&self.u_full, n, self.its),
             ),
         });
+        Ok(())
     }
 }
 
@@ -482,7 +489,13 @@ impl PathProblem for DisplacementControl2D<'_> {
         self.u_full[index]
     }
 
-    fn record(&mut self, step: usize, lambda: f64, iterations: usize, converged: bool) {
+    fn record(
+        &mut self,
+        step: usize,
+        lambda: f64,
+        iterations: usize,
+        converged: bool,
+    ) -> Result<(), String> {
         let n = self.dof_num.n_total;
         self.steps.push(EquilibriumStep {
             step,
@@ -495,6 +508,7 @@ impl PathProblem for DisplacementControl2D<'_> {
                 &assembly::to_global(&self.u_full, n, self.its),
             ),
         });
+        Ok(())
     }
 }
 

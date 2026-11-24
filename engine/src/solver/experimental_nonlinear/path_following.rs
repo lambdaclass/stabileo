@@ -15,7 +15,13 @@ pub(crate) trait PathProblem {
     fn responses(&mut self) -> Result<(Vec<f64>, Vec<f64>), String>;
     fn advance(&mut self, step: &[f64]);
     fn unknown(&self, index: usize) -> f64;
-    fn record(&mut self, step: usize, load_factor: f64, iterations: usize, converged: bool);
+    fn record(
+        &mut self,
+        step: usize,
+        load_factor: f64,
+        iterations: usize,
+        converged: bool,
+    ) -> Result<(), String>;
 }
 
 pub(crate) struct ArcLengthControl {
@@ -135,7 +141,7 @@ pub(crate) fn solve_by_arc_length<P: PathProblem + ?Sized>(
         }
 
         step += 1;
-        problem.record(step, lambda, step_iters, true);
+        problem.record(step, lambda, step_iters, true)?;
 
         prev_delta_u = delta_u;
         prev_delta_lambda = delta_lambda;
@@ -209,7 +215,7 @@ pub(crate) fn solve_by_displacement_control<P: PathProblem + ?Sized>(
         }
 
         taken = step + 1;
-        problem.record(taken, lambda, step_iters, step_converged);
+        problem.record(taken, lambda, step_iters, step_converged)?;
 
         if !step_converged {
             overall_converged = false;
@@ -236,6 +242,7 @@ mod tests {
         path: Vec<(f64, f64)>,
         unconverged: usize,
         fail_at: Option<usize>,
+        refuse_step: Option<usize>,
         solves: usize,
     }
 
@@ -255,6 +262,7 @@ mod tests {
                 path: Vec::new(),
                 unconverged: 0,
                 fail_at: None,
+                refuse_step: None,
                 solves: 0,
             }
         }
@@ -298,12 +306,22 @@ mod tests {
             assert_eq!(index, 0);
             self.u
         }
-        fn record(&mut self, step: usize, load_factor: f64, _: usize, converged: bool) {
+        fn record(
+            &mut self,
+            step: usize,
+            load_factor: f64,
+            _: usize,
+            converged: bool,
+        ) -> Result<(), String> {
             assert_eq!(step, self.path.len() + 1);
             self.path.push((self.u, load_factor));
             if !converged {
                 self.unconverged += 1;
             }
+            if self.refuse_step == Some(step) {
+                return Err("the state left its branch".into());
+            }
+            Ok(())
         }
     }
 
@@ -477,6 +495,25 @@ mod tests {
     }
 
     #[test]
+    fn a_step_the_problem_refuses_ends_the_path_there() {
+        let mut snap = Snap::new();
+        snap.refuse_step = Some(4);
+        assert_eq!(
+            solve_by_arc_length(&mut snap, &control(20)).unwrap_err(),
+            "the state left its branch"
+        );
+        assert_eq!(snap.path.len(), 4);
+
+        let mut snap = Snap::new();
+        snap.refuse_step = Some(3);
+        assert_eq!(
+            solve_by_displacement_control(&mut snap, &driven(2.5, 50, 30)).unwrap_err(),
+            "the state left its branch"
+        );
+        assert_eq!(snap.path.len(), 3);
+    }
+
+    #[test]
     fn no_steps_do_nothing() {
         let mut snap = Snap::new();
         let outcome = solve_by_arc_length(&mut snap, &control(0)).unwrap();
@@ -581,7 +618,7 @@ mod tests {
                 load_factor: f64,
                 iterations: usize,
                 converged: bool,
-            ) {
+            ) -> Result<(), String> {
                 self.0.record(step, load_factor, iterations, converged)
             }
         }
