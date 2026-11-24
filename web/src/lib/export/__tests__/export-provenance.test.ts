@@ -29,13 +29,11 @@ import {
 beforeAll(async () => { await initSolver(); });
 beforeEach(() => { uiStore.analysisMode = 'pro'; uiStore.includeSelfWeight = true; modelStore.clear(); texts.length = 0; });
 
-async function frame(): Promise<void> {
+function frame(): void {
   const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(0, 0, 3), c = modelStore.addNode(4, 0, 3);
   modelStore.addElement(a, b, 'frame'); modelStore.addElement(b, c, 'frame');
   modelStore.addSupport(a, 'fixed3d');
   modelStore.addNodalLoad3D(c, 0, 0, -2, 0, 0, 0);
-  // As the PRO workspace does once the model changes: its physical elements read off it.
-  if (__PUBLIC_FEATURES__.proPlatesUnified) (await import('../../store/plates-from-shells')).ensurePhysicalModel();
 }
 function solve(): void {
   const r = modelStore.solve3D(true, false, true);
@@ -43,8 +41,8 @@ function solve(): void {
   resultsStore.setResults3D(r);
 }
 /** A project opened from a file saved before solve stamps: stale. */
-async function openStale(): Promise<void> {
-  await frame();
+function openStale(): void {
+  frame();
   const f = JSON.parse(serializeProject());
   delete f.snapshot.solvedWith;
   expect(deserializeProject(JSON.stringify(f))).toBe(true);
@@ -54,7 +52,7 @@ const STALE = /STALE/;
 
 describe("Basic's Excel export", () => {
   it('opens its summary with the status and adds a Provenance sheet (STALE when stale)', async () => {
-    await openStale();
+    openStale();
     const XLSX = (await loadXlsxModule())!;
     const wb = (await buildExcelWorkbook({ solveError: 'not solved' }))!;
     expect(wb.SheetNames).toContain('Provenance');
@@ -65,7 +63,7 @@ describe("Basic's Excel export", () => {
   });
 
   it('a solved project: the Provenance sheet carries the engine hashes and the status is current', async () => {
-    await frame();
+    frame();
     solve();
     const XLSX = (await loadXlsxModule())!;
     const wb = (await buildExcelWorkbook())!;
@@ -75,7 +73,7 @@ describe("Basic's Excel export", () => {
   });
 
   it('a table workbook (onlyExtras) carries it too; the project workbook opts out, its cover has it', async () => {
-    await frame();
+    frame();
     solve();
     const extras = (await buildExcelWorkbook({ onlyExtras: true, extraSheets: [{ name: 'T', rows: [['a']] }] }))!;
     expect(extras.SheetNames).toEqual(['Provenance', 'T']);
@@ -84,7 +82,7 @@ describe("Basic's Excel export", () => {
   });
 
   it('a model edited while it is prepared: not written', async () => {
-    await frame();
+    frame();
     solve();
     const pending = buildExcelWorkbook();
     modelStore.addNode(9, 9, 9);
@@ -94,7 +92,7 @@ describe("Basic's Excel export", () => {
 
 describe('result files downloaded as text', () => {
   it('a result CSV carries the record and the status; a model edited meanwhile writes nothing', async () => {
-    await openStale();
+    openStale();
     expect(await downloadResultText('a,b\n1,2', 'x.csv', 'text/csv')).toBe(true);
     expect(texts[0]!.content).toMatch(/^# .*STALE/);
     expect(texts[0]!.content.endsWith('a,b\n1,2')).toBe(true);
@@ -117,7 +115,7 @@ describe('independent moving-load exports', () => {
   }
 
   it('hashes the sweep and its inputs, without borrowing static results or certificates', async () => {
-    await frame();
+    frame();
     solve();
     const staticRecord = currentResultProvenance();
     const runs = engineHashRunCount();
@@ -153,7 +151,7 @@ describe('independent moving-load exports', () => {
   });
 
   it('retains the solved model/settings after edits during the sweep and marks the export stale', async () => {
-    await frame();
+    frame();
     const input = sweepInput(10);
     const originalModelHash = modelHash(modelStore.snapshot());
     const originalAxis = uiStore.axisConvention3D;
@@ -176,8 +174,8 @@ describe('independent moving-load exports', () => {
 });
 
 describe('each format embeds the record and the status', () => {
-  it('CSV, HTML, DXF, SVG, PNG and JPEG', async () => {
-    await openStale();
+  it('CSV, HTML, DXF, SVG, PNG and JPEG', () => {
+    openStale();
     const p = currentResultProvenance();
     expect(csvWithProvenance('h\n1', p).split('\n')[0]).toMatch(STALE);
     const html = htmlWithProvenance('<html><body><p>r</p></body></html>', p);

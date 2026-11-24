@@ -12,6 +12,7 @@
  * change that makes the same saved model give different numbers gets an entry here. The versions
  * in `numbered.json` are frozen; each later merge to main that adds entries takes the next one.
  */
+import { PRO_WORKSPACE_EVIDENCE } from './recheck-features';
 import { researchBuilt } from '../features';
 import metadata from 'virtual:result-change-metadata';
 import { conditionGroups } from '../../../scripts/results-snapshot/applicability.mjs';
@@ -116,6 +117,12 @@ export { conditionGroups } from '../../../scripts/results-snapshot/applicability
 
 const QUANTITY = /^(\*|solve\.ok|[A-Za-z][A-Za-z0-9]*(\.[A-Za-z][A-Za-z0-9]*)?)$/;
 
+const RETIRED_FEATURES_BY_CHANGE: ReadonlyMap<string, readonly string[]> = new Map([
+  ['perforated-plate-grid', ['unifiedPlateMeshes']],
+  ['plates-coarse-as-modelled-meshed', ['coarseShellsPro']],
+  ['plates-conforming-batch-mesh', ['coarseShellsPro', 'unifiedPlateMeshes']],
+]);
+
 /**
  * Refuse a malformed registry rather than read it partially: a change that silently fails to
  * load is a change nobody is told about. Returns the problems (empty: valid).
@@ -158,9 +165,12 @@ export function validateRegistry(r: ResultChangeRegistry, knownFeatures: Readonl
       if (c.examples !== undefined) problems.push(`${where}: examples are listed only with scope "examples"`);
     }
     const groups = conditionGroups(c.when ?? {});
+    const retiredFeatures = RETIRED_FEATURES_BY_CHANGE.get(c.id);
     for (const g of groups) {
       if (g.length === 0) problems.push(`${where}: empty condition group`);
-      for (const f of g) if (!knownFeatures.has(f)) problems.push(`${where}: unknown feature "${f}"`);
+      for (const f of g) {
+        if (!knownFeatures.has(f) && f !== PRO_WORKSPACE_EVIDENCE && !retiredFeatures?.includes(f)) problems.push(`${where}: unknown feature "${f}"`);
+      }
     }
   }
   if (!r.changes.some((c) => c.resultsVersion === r.currentResultsVersion)) {
