@@ -696,7 +696,7 @@ pub fn certify_load_cases_3d(
     model.loads.clear();
     let session = std::cell::OnceCell::new();
     certify_cases(cases, |loads| {
-        match session.get_or_init(|| LoadSession3D::from_input(model.clone())) {
+        match session.get_or_init(|| LoadSession3D::try_from(model.clone())) {
             Ok(session) => session.solve_loads(loads).map(drop),
             Err(_) => {
                 let mut loaded = model.clone();
@@ -995,6 +995,7 @@ fn certify_reduced_sparse(k_ff: &CscMatrix, k_full: &CscMatrix, nf: usize, f: &[
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::types::units::{ElasticInput2D, ElasticInput3D};
 
     /// K = [[2, -1], [-1, 2]] with DOF 1 restrained: nf = 1, n = 2.
     fn k2() -> Vec<f64> {
@@ -1024,7 +1025,7 @@ mod tests {
     }
 
     fn cantilever_2d() -> SolverInput {
-        serde_json::from_value(serde_json::json!({
+        serde_json::from_value::<ElasticInput2D>(serde_json::json!({
             "nodes": {"1": {"id": 1, "x": 0.0, "z": 0.0}, "2": {"id": 2, "x": 2.0, "z": 0.0}, "3": {"id": 3, "x": 4.0, "z": 0.0}},
             "materials": {"1": {"id": 1, "e": 200000.0, "nu": 0.3}},
             "sections": {"1": {"id": 1, "a": 0.01, "iz": 1e-4}},
@@ -1036,10 +1037,11 @@ mod tests {
             "loads": [{"type": "nodal", "data": {"nodeId": 3, "fx": 1.0, "fz": -10.0, "my": 0.0}}]
         }))
         .unwrap()
+        .into_legacy()
     }
 
     fn cantilever_3d() -> SolverInput3D {
-        serde_json::from_value(serde_json::json!({
+        serde_json::from_value::<ElasticInput3D>(serde_json::json!({
             "nodes": {"1": {"id": 1, "x": 0.0, "y": 0.0, "z": 0.0}, "2": {"id": 2, "x": 2.0, "y": 0.0, "z": 0.0}, "3": {"id": 3, "x": 4.0, "y": 0.0, "z": 0.0}},
             "materials": {"1": {"id": 1, "e": 200000.0, "nu": 0.3}},
             "sections": {"1": {"id": 1, "a": 0.01, "iy": 1e-4, "iz": 2e-4, "j": 5e-5}},
@@ -1051,6 +1053,7 @@ mod tests {
             "loads": [{"type": "nodal", "data": {"nodeId": 3, "fx": 1.0, "fy": 2.0, "fz": -10.0, "mx": 0.5, "my": 0.0, "mz": 0.0}}]
         }))
         .unwrap()
+        .into_legacy()
     }
 
     fn set_abs_bound(c: &mut Certificate, x: f64) {
