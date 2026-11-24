@@ -16,6 +16,11 @@ Basic 3D frame result with the quad omitted. A direct 2D payload with a
 nonempty quad map was accepted as the frame alone. The same drawn quad was
 already refused by PRO with the usual numeric node keys.
 
+The seven-storey building regression also reproduced the omission on main.
+Basic 3D passed the global reaction balance after discarding all 189 meshed
+slab quads. PRO included all 189, recovered their shell stresses, and
+returned different displacements.
+
 Re-run affected results with their full structural model. A flat quad within
 the existing acceptance band still uses MITC4. An explicit curved quad uses
 the curved formulation. The change adds coverage for the checks and leaves
