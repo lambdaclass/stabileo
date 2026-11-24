@@ -3078,6 +3078,7 @@
     "src/components/pro/rc-sheets/RcCombos.svelte": null,
     "src/components/pro/rc-sheets/RcCoversNotice.svelte": null,
     "src/components/pro/rc-sheets/RcExportLog.svelte": null,
+    "src/components/pro/rc-sheets/RcFixedPoint.svelte": null,
     "src/components/pro/rc-sheets/RcFootingDetail.svelte": null,
     "src/components/pro/rc-sheets/RcFootingGroupSvg.svelte": null,
     "src/components/pro/rc-sheets/RcFootingLayouts.svelte": null,
@@ -8501,6 +8502,7 @@
         ]
       ]
     },
+    "src/lib/ifc/ifc-grid.ts": null,
     "src/lib/ifc/ifc-physical.ts": {
       "source": "aeeff5072d8447e6084ed9679f6f0a7ecc24e033b0f8d5e9cdf88c29f8d6c53c",
       "original": "978774b96e827153a677d62d65542ca833136a8ed76627ca2b4adb3d53f50a3a",
@@ -9419,6 +9421,7 @@
     "src/lib/rc-sheets/ec2/slab-row.ts": null,
     "src/lib/rc-sheets/ec2/wall-row.ts": null,
     "src/lib/rc-sheets/elevation-layout.ts": null,
+    "src/lib/rc-sheets/fixed-points.ts": null,
     "src/lib/rc-sheets/footing-balance.ts": null,
     "src/lib/rc-sheets/footing-choice.ts": null,
     "src/lib/rc-sheets/footing-combined-row.ts": null,
