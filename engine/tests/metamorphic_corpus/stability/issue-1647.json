@@ -58,14 +58,7 @@
   "1": {
    "id": 1,
    "nodeId": 1,
-   "type": "fixed",
-   "kx": null,
-   "ky": null,
-   "kz": null,
-   "dx": null,
-   "dz": null,
-   "dry": null,
-   "angle": null
+   "type": "fixed"
   }
  },
  "loads": [
@@ -74,9 +67,7 @@
    "data": {
     "elementId": 1,
     "qI": 74.47594459998922,
-    "qJ": 46.45576976076046,
-    "a": null,
-    "b": null
+    "qJ": 46.45576976076046
    }
   }
  ],
