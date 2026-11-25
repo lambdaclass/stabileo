@@ -5,6 +5,7 @@ import hashlib
 import importlib.util
 import io
 import json
+import os
 from pathlib import Path
 import tempfile
 import unittest
@@ -690,14 +691,20 @@ class ReplayClosureReviewTest(unittest.TestCase):
         payload = base64.b64encode(gzip.compress(json.dumps([record]).encode())).decode()
         return f"<!-- nightly-reproducer:v1 {payload} -->"
 
-    def assert_report_actions(self, issues, partials, expected, scheduled=False):
+    def assert_report_actions(self, issues, partials, expected, scheduled=False, live_issue=None, live_comments=None):
         calls = []
 
         def fake_gh(*args, data=None):
             calls.append((args, data))
             if len(args) == 2 and args[0] == "api":
                 number = int(args[1].rsplit("/", 1)[-1])
-                return json.dumps({**next(issue for issue in issues if issue["number"] == number), "state": "open"})
+                issue = next(issue for issue in issues if issue["number"] == number)
+                return json.dumps({**issue, "state": "open", "comments": len(issue.get("sightings", [])), **(live_issue or {})})
+            if args[:3] == ("api", "--paginate", "--slurp"):
+                comments = live_comments if live_comments is not None else [
+                    {"user": {"login": "github-actions[bot]"}, "body": body} for body in issues[0].get("sightings", [])
+                ]
+                return json.dumps([comments])
             return ""
 
         with tempfile.TemporaryDirectory() as tmp, patch.object(rf, "gh", side_effect=fake_gh):
@@ -775,6 +782,80 @@ class ReplayClosureReviewTest(unittest.TestCase):
         partials[1] = {**partials[1], "status": "still-fails", "evidence": "retained input still fails"}
         report, calls = self.assert_report_actions([issue], partials, ["still-fails"])
         self.assertEqual(calls[0][0][:3], ("issue", "comment", "1"))
+
+
+    @unittest.skipUnless(os.environ.get("RUN_NIGHTLY_SECOND_REVIEW") == "1", "known wrong result: #2578")
+    def test_retained_first_overflow_can_close_only_after_all_batches_pass(self):
+        original = make_issue(1, model={"nodes": {}})
+        latest = self.record(12, {"nodes": {"latest": {}}})
+        sightings = [
+            self.record(run, {"nodes": {str(run): {}}}) + f"\n<!-- nightly-run:{run}:1 -->"
+            for run in range(1, 6)
+        ]
+        complete = "<!-- nightly-overflow-complete -->\n"
+        header = "<!-- nightly-sightings:2:41275933377:1 -->\n2 additional sightings after the detailed comment limit.\n"
+        issue = {**original, "body": header + complete + latest + "\n\n" + original["body"], "sightings": sightings}
+
+        def runner(cmd, env=None, cwd=None, timeout=None):
+            verdict = {"analysis": "linear", "invariant": "rotation", "pass": 1}
+            Path(env["NIGHTLY_RESULTS"]).write_text(json.dumps({"failures": [], "verdicts": [verdict]}))
+            return type("Process", (), {"returncode": 0, "stderr": ""})()
+
+        partials = rf.replay_issues([issue], metamorphic_bin="/bin/metamorphic", runner=runner)
+        self.assertEqual(len(partials), 7)
+        self.assertEqual([entry["status"] for entry in partials], ["passes-now"] * 7)
+        _, calls = self.assert_report_actions([issue], partials, ["passes-now"])
+        self.assertEqual([args[:3] for args, _ in calls if args[:2] == ("issue", "close")], [("issue", "close", "1")])
+
+        fingerprint = rf._replay_fingerprint(rf.parse_reproducers(issue))
+        state = json.dumps({"night": "2026-11-24", "fingerprint": fingerprint, "streak": 2})
+        issue["body"] = f"<!-- nightly-replay:v1 {state} -->\n{issue['body']}"
+        _, calls = self.assert_report_actions([issue], partials, ["passes-now"], scheduled=True)
+        self.assertEqual([json.loads(data)["state"] for args, data in calls if args[:3] == ("api", "--method", "PATCH")], ["closed"])
+
+        cases = [
+            (issue, partials[:-1]),
+            ({**issue, "body": issue["body"].replace(latest + "\n", "")},
+             [{**entry, "reproducer": index} for index, entry in enumerate([partials[0], *partials[2:]])]),
+            ({**issue, "body": issue["body"].replace(complete, "")}, partials),
+        ]
+        for incomplete, completed_replays in cases:
+            with self.subTest(body=incomplete["body"][:200], replays=len(completed_replays)):
+                _, calls = self.assert_report_actions([incomplete], completed_replays, ["not-replayable"])
+                self.assertFalse(any(args[:2] == ("issue", "close") for args, _ in calls))
+
+    @unittest.skipUnless(os.environ.get("RUN_NIGHTLY_SECOND_REVIEW") == "1", "known wrong result: #2578")
+    def test_manual_report_checks_live_body_and_trusted_sightings_before_close(self):
+        original = make_issue(1, model={"nodes": {}})
+        sighting = make_issue(1, seed="7", model={"nodes": {"known": {}}})["body"].replace(
+            "nightly-run:41275933376:", "nightly-run:2:")
+        new_sighting = make_issue(1, seed="8", model={"nodes": {"new": {}}})["body"].replace(
+            "nightly-run:41275933376:", "nightly-run:3:")
+        issue = {**original, "sightings": [sighting]}
+        partials = [
+            {"issue": 1, "source": "metamorphic", "status": "passes-now", "evidence": "input passed", "reproducer": index}
+            for index in range(2)
+        ]
+        cases = [
+            ("new bot sighting", issue["body"], "open", [new_sighting], False),
+            ("changed body", issue["body"] + "\nupdated", "open", [], False),
+            ("already closed", issue["body"], "closed", [], False),
+            ("snapshot matches", issue["body"], "open", [], True),
+        ]
+        for name, body, state, added, should_close in cases:
+            with self.subTest(name=name):
+                live_comments = [
+                    {"user": {"login": "github-actions[bot]"}, "body": entry} for entry in [sighting, *added]
+                ] + [{"user": {"login": "maintainer"}, "body": new_sighting}]
+                _, calls = self.assert_report_actions(
+                    [issue], partials, ["passes-now"],
+                    live_issue={"state": state, "body": body, "comments": len(live_comments)},
+                    live_comments=live_comments,
+                )
+                closes = [args for args, _ in calls if args[:2] == ("issue", "close")]
+                self.assertEqual(bool(closes), should_close)
+                if should_close:
+                    self.assertEqual([args[0] for args, _ in calls], ["api", "api", "issue"])
 
 
 if __name__ == "__main__":

@@ -519,6 +519,21 @@ class Artifacts(unittest.TestCase):
 
 
 class Workflow(unittest.TestCase):
+
+    @unittest.skipUnless(os.environ.get('RUN_NIGHTLY_SECOND_REVIEW') == '1', 'known wrong result: #2578')
+    def test_reporter_and_replay_writers_share_a_repository_wide_queue(self):
+        nightly = (ROOT / '.github/workflows/nightly.yml').read_text()
+        replay = (ROOT / '.github/workflows/replay-findings.yml').read_text()
+        findings_job = nightly.split('\n  findings:\n', 1)[1].split('\n  replay-open-findings:', 1)[0]
+        report_job = replay.split('\n  report:\n', 1)[1]
+        groups = []
+        for job in (findings_job, report_job):
+            self.assertIn('issues: write', job)
+            concurrency = re.search(r'^    concurrency:\n      group: ([\w-]+)\n      queue: max$', job, re.M)
+            self.assertIsNotNone(concurrency)
+            groups.append(concurrency[1])
+        self.assertEqual(groups[0], groups[1])
+
     def test_expensive_plastic_grid_stays_out_of_the_live_corpus(self):
         workflow = (ROOT / '.github/workflows/nightly.yml').read_text()
         step = workflow.split('- name: Plastic LP budgets and seeded resource watchdog', 1)[1].split('- name:', 1)[0]

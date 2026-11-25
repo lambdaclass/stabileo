@@ -646,3 +646,78 @@ test('a later run attempt updates overflow with its own exact reproducer', () =>
   await report(args);
   assert.match(issues[0].body, /<!-- nightly-sightings:3:123:2 -->/);
 }));
+
+const secondReviewRepro = {skip: process.env.RUN_NIGHTLY_SECOND_REVIEW !== '1' && 'known wrong result: #2578'};
+
+test('bare crash artifacts identify exact inputs even when names are reused', secondReviewRepro, () => fixture(async ({args, calls, save}) => {
+  const crash = (raw_hex, details, seed) => ({...finding, test: 'fuzz/json_plastic', seed, model: {raw_hex}, details});
+  const filename = 'crash-' + 'a'.repeat(40);
+  save('first', crash('01', filename, 1));
+  save('different-bytes', crash('02', filename + '.min', 2));
+  save('same-bytes', crash('01', 'crash-' + 'b'.repeat(40), 3));
+  await report(args);
+
+  const created = calls.filter(call => call.name === 'create');
+  assert.equal(created.length, 2);
+  const models = created.map(({args: {body}}) => JSON.parse(body.split('```json\n')[1].split('\n```')[0]).raw_hex);
+  assert.deepEqual(models.sort(), ['01', '02']);
+  assert.ok(created.some(({args: {body}}) => body.includes('**2 findings**')));
+}));
+
+test('stable fuzz diagnostics group variants without dropping distinct inputs', secondReviewRepro, () => fixture(async ({args, calls, save}) => {
+  const crash = (target, raw_hex, count, code = 'index_out_of_bounds') => ({...finding,
+    test: 'fuzz/' + target, model: {raw_hex},
+    details: {code, status: 'crash', message: 'pivot index out of bounds, length ' + count}});
+  save('one', crash('json_plastic', '01', 1));
+  save('two', crash('json_plastic', '02', 2));
+  save('duplicate', crash('json_plastic', '01', 3));
+  save('other-diagnostic', crash('json_plastic', '03', 3, 'invalid_pivot'));
+  save('other-target', crash('model_certify', '04', 4));
+  await report(args);
+
+  const created = calls.filter(call => call.name === 'create');
+  const batches = created.map(({args: {body}}) => {
+    const payload = body.match(/<!-- nightly-reproducer:v1 (\S+) -->/)[1];
+    return JSON.parse(gunzipSync(Buffer.from(payload, 'base64')))
+      .map(record => JSON.parse(record.artifact).model.raw_hex).sort();
+  });
+  assert.deepEqual(batches.sort(), [['01', '02'], ['03'], ['04']]);
+}));
+
+test('overflow stays complete until the reporter replaces a saved batch', secondReviewRepro, () => fixture(async ({args, calls, comments, issues, save}) => {
+  const writes = () => calls.filter(call => ['createComment', 'update'].includes(call.name));
+  const complete = '<!-- nightly-overflow-complete -->';
+  save('first');
+  await report(args);
+  issues.push({number: 44, state: 'open', body: calls.find(call => call.name === 'create').args.body});
+
+  for (let run = 1; run <= 5; run++) {
+    args.context.runId++;
+    calls.length = 0;
+    await report(args);
+    const [write] = writes();
+    assert.equal(write.name, 'createComment');
+    comments.push(botComment(write.args.body));
+    assert.doesNotMatch(issues[0].body, /nightly-sightings:/);
+  }
+  args.context.runId++;
+  calls.length = 0;
+  await report(args);
+  assert.equal(writes().length, 1);
+  assert.ok(issues[0].body.includes(complete));
+  assert.match(issues[0].body, /nightly-sightings:1:129:1/);
+
+  calls.length = 0;
+  await report(args);
+  assert.deepEqual(writes(), []);
+  assert.ok(issues[0].body.includes(complete));
+
+  for (let count = 2; count <= 3; count++) {
+    args.context.runId++;
+    calls.length = 0;
+    await report(args);
+    assert.equal(writes().length, 1);
+    assert.ok(!issues[0].body.includes(complete));
+    assert.ok(issues[0].body.includes('nightly-sightings:' + count + ':'));
+  }
+}));
