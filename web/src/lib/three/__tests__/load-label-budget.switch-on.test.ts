@@ -35,4 +35,18 @@ describe('the load labels', () => {
     expect(sprites).toBeLessThanOrEqual(LOAD_LABEL_BUDGET);
     expect(sprites).toBeGreaterThan(50);
   });
+
+  it('are hidden, with the arrows and fills, where the structure stands in front of them', () => {
+    const b = createLoadArrowsBatched();
+    b.addDistributedLoad({ x: 0, y: 0, z: 0 }, { x: 4, y: 0, z: 0 }, -5, -5, 10, 'Z', undefined, 0xff4444);
+    b.addSurfaceLoad([{ x: 0, y: 0, z: 0 }, { x: 4, y: 0, z: 0 }, { x: 4, y: 4, z: 0 }, { x: 0, y: 4, z: 0 }], -3, 3, 0x44ff44);
+    b.addNodalLoadArrow({ x: 0, y: 0, z: 0 }, 0, 0, -10, 0, 0, 5, 10, 'curved', 0x4444ff);
+    const mats: THREE.Material[] = [];
+    b.build().traverse((o) => { const m = (o as THREE.Mesh).material as THREE.Material | undefined; if (m) mats.push(m); });
+    expect(mats.length).toBeGreaterThan(4);
+    expect(mats.filter((m) => !m.depthTest)).toEqual([]);
+    expect(mats.some((m) => m instanceof THREE.SpriteMaterial)).toBe(true);
+    const fill = mats.find((m) => m.transparent && m.side === THREE.DoubleSide)!;
+    expect(fill.polygonOffset && fill.polygonOffsetFactor < 0).toBe(true);
+  });
 });
