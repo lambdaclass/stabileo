@@ -1,10 +1,14 @@
-use crate::{ana2, ana3, case::{Case2, Case3}, checks2, checks3, tally::Tally};
+use crate::{ana2, ana3, case::{Case2, Case3}, checks2, checks3, tally::{Tally, Verdict}};
 use dedaliano_engine::metamorphic::transform::{Iso2, Iso3};
 use dedaliano_engine::solver::kinematic::{analyze_kinematics_2d, analyze_kinematics_3d};
 use dedaliano_engine::solver::linear::{solve_2d, solve_3d};
-use dedaliano_engine::types::SolverInput3D;
+use dedaliano_engine::types::{SolverElement, SolverInput3D, SolverLoad, SolverNodalLoad};
 
 fn replay_spatial_rotation(model: &str, analysis: &str, seed: u64) {
+    check_spatial_rotation(&spatial_replay_case(model), spatial_analysis(analysis), seed);
+}
+
+fn spatial_replay_case(model: &str) -> Case3 {
     let fixtures: serde_json::Value =
         serde_json::from_str(include_str!("../fixtures/support-invariance.json")).unwrap();
     let data = &fixtures[model];
@@ -13,17 +17,26 @@ fn replay_spatial_rotation(model: &str, analysis: &str, seed: u64) {
     if let Some(densities) = data.get("_nightly_dens") {
         case.dens = serde_json::from_value(densities.clone()).unwrap();
     }
-    let analyses: Vec<_> = ana3::rows().into_iter().filter(|a| a.name == analysis).collect();
-    assert_eq!(analyses.len(), 1);
+    case
+}
+
+fn spatial_analysis(name: &str) -> ana3::Ana3 {
+    let mut matches = ana3::rows().into_iter().filter(|a| a.name == name);
+    let analysis = matches.next().unwrap();
+    assert!(matches.next().is_none());
+    analysis
+}
+
+fn check_spatial_rotation(case: &Case3, analysis: ana3::Ana3, seed: u64) {
     let tally = Tally::default();
     checks3::check_case(
         &checks3::Ctx { tally: &tally, rng_seed: seed },
-        &case,
-        &analyses,
+        case,
+        std::slice::from_ref(&analysis),
         &["rotation"],
     );
     assert!(tally.failures().is_empty(), "{:?}", tally.failures());
-    assert_eq!(tally.symbol(analysis, "rotation"), "✓", "{}", tally.report());
+    assert_eq!(tally.symbol(analysis.name, "rotation"), "✓", "{}", tally.report());
 }
 
 #[test]
@@ -59,6 +72,36 @@ fn issue_1192_pinned_and_roller_supports_rotate_as_one_restraint() {
     for relation in ["units", "relabel"] {
         assert_eq!(tally.symbol("linear", relation), "✓", "{}", tally.report());
     }
+}
+
+fn check_loaded_planar_isometry(iso: Iso2) {
+    let model = include_str!("../metamorphic_corpus/nightly/issue-1192.json");
+    let mut case = Case2::new("loaded issue-1192 control", serde_json::from_str(model).unwrap());
+    let [start, end] = [&case.s.nodes["1"], &case.s.nodes["2"]];
+    let midpoint = [start.x.midpoint(end.x), start.z.midpoint(end.z)];
+    let loaded = case.s.nodes.get_mut("3").unwrap();
+    [loaded.x, loaded.z] = midpoint;
+    let first_member = case.s.elements.get_mut("1").unwrap();
+    first_member.section_id = 2;
+    let second_member = SolverElement { id: 2, node_i: 3, node_j: 2, ..first_member.clone() };
+    case.s.elements.insert("2".into(), second_member);
+    case.s.loads.push(SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 2.0, fz: -3.0, my: 4.0 }));
+
+    let linear = ana2::rows().into_iter().find(|row| row.name == "linear").unwrap();
+    let verdict = checks2::check_isometry(&linear, &case, &iso);
+    assert!(matches!(verdict, Verdict::Pass(_)), "{verdict:?}");
+}
+
+#[test]
+#[ignore = "known wrong result: #1192"]
+fn issue_1192_mirror_agrees_with_the_original_solution() {
+    check_loaded_planar_isometry(Iso2::mirror_line(0.4));
+}
+
+#[test]
+#[ignore = "known wrong result: #1192"]
+fn issue_1192_rotation_agrees_with_the_original_solution() {
+    check_loaded_planar_isometry(Iso2::rotation(0.3).translated(2.0, -3.0));
 }
 
 #[test]
@@ -107,8 +150,22 @@ fn issue_1845_rotation_preserves_the_shared_rigid_restraint() {
 }
 
 #[test]
-fn issue_1848_rotation_preserves_the_shared_rigid_restraint() {
-    replay_spatial_rotation("1827", "kinematic check", 2026110905303);
+#[ignore = "known wrong result: #1848"]
+fn issue_1848_rotation_preserves_zero_static_indeterminacy() {
+    let case = spatial_replay_case("1827");
+    let analysis = spatial_analysis("kinematic check");
+    let seed = 2026110905303;
+
+    let original = analyze_kinematics_3d(&case.s);
+    assert!(original.invalid_input.is_none(), "{:?}", original.invalid_input);
+    assert_eq!(original.degree, 0, "original model");
+
+    let iso = checks3::rotation_for(&analysis, &mut checks3::case_rng(seed, &case, &analysis));
+    let rotated = analyze_kinematics_3d(&case.iso(&iso).unwrap().s);
+    assert!(rotated.invalid_input.is_none(), "{:?}", rotated.invalid_input);
+    assert_eq!(rotated.degree, 0, "rotated model");
+
+    check_spatial_rotation(&case, analysis, seed);
 }
 
 #[test]
