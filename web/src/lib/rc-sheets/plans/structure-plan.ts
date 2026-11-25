@@ -1,7 +1,8 @@
 /**
  * A level's beams, columns or walls in plan to scale, as the workspace draws them: the slab
- * outlines, the grid's axes, each element's outline, a tick across a beam where its bars are lapped,
- * and its label placed clear of the others.
+ * outlines, the grid's axes dimensioned axis to axis and overall along their ends, each element's
+ * outline, a tick across a beam where its bars are lapped, and its label placed clear of the others,
+ * its name without the level the plan is of (a wall's bars are in its detail, its label its thickness).
  * Model millimetres in the level's own coordinates.
  */
 import { fixedSymbol, type SettingOut } from '../fixed-points';
@@ -9,7 +10,7 @@ import type { DrawingInput } from '../../sheets/compose';
 import type { Primitive } from '../../sheets/primitives';
 import { bandOutline, type PlanItem, type Pt, type StructurePlan } from '../structure-plan';
 import { placeStructureLabels } from '../structure-plan-labels';
-import { EJES, HORM, arm, bubble, cm, framed, label, pt, rect, seg, type PlanCtx } from './draw';
+import { EJES, HORM, arm, bubble, cm, dim, framed, label, pt, rect, seg, type PlanCtx } from './draw';
 
 const K = 1000, TEXT_MM = 2.5, BUBBLE_MM = 2.6;
 
@@ -26,6 +27,7 @@ export function structurePlanPrimitives(plan: StructurePlan, c: PlanCtx): Primit
   const ends = plan.axes.flatMap((a) => [a.a, a.b].map((p) => ({ name: a.name, at: p })));
   for (const a of plan.axes) ps.push(seg(EJES, pt(a.a[0] * K, a.a[1] * K), pt(a.b[0] * K, a.b[1] * K)));
   for (const e of ends) ps.push(...bubble(pt(e.at[0] * K, e.at[1] * K), e.name, s));
+  ps.push(...axisChains(plan, c));
   for (const it of plan.items) {
     if (it.kind === 'beam') {
       for (const sp of it.spans) ps.push(poly(bandOutline(sp.a, sp.b, sp.width)));
@@ -37,7 +39,8 @@ export function structurePlanPrimitives(plan: StructurePlan, c: PlanCtx): Primit
       ps.push(sym.kind === 'circle' ? { kind: 'circle', layer: EJES, c: pt(sym.c[0] * K, sym.c[1] * K), r: sym.r * K } : { kind: 'arc', layer: EJES, c: pt(sym.c[0] * K, sym.c[1] * K), r: sym.r * K, start: sym.start, end: sym.end });
     }
   }
-  const text = (it: PlanItem) => (it.kind === 'wall' ? `${it.name} · e=${cm(c.fmt, it.thickness)} · ${it.bars}` : `${it.name} · ${it.bars}`);
+  const name = (n: string) => (plan.level ? n.replace(` · ${plan.level}`, '') : n);
+  const text = (it: PlanItem) => (it.kind === 'wall' ? `${name(it.name)} · e=${cm(c.fmt, it.thickness)}` : `${name(it.name)} · ${it.bars}`);
   const h = (TEXT_MM * s) / K, r = (BUBBLE_MM * s) / K;
   const places = placeStructureLabels(plan.items, text, { char: 0.6 * h, height: h, gap: (1.2 * s) / K }, {
     lines: plan.axes.map((a) => [a.a, a.b] as [Pt, Pt]),
@@ -50,6 +53,25 @@ export function structurePlanPrimitives(plan: StructurePlan, c: PlanCtx): Primit
     ps.push(label(pt(base[0] * K, base[1] * K), text(it), TEXT_MM, 'center', p.rot));
   }
   return ps;
+}
+
+/** The axes running each way dimensioned one to the next and end to end, beyond their bubbles at the low ends. */
+function axisChains(plan: StructurePlan, c: PlanCtx): Primitive[] {
+  const out: Primitive[] = [];
+  const along = (vertical: boolean) => {
+    const ax = plan.axes.filter((a) => (vertical ? Math.abs(a.a[0] - a.b[0]) < 1e-9 : Math.abs(a.a[1] - a.b[1]) < 1e-9))
+      .map((a) => ({ at: vertical ? a.a[0] : a.a[1], end: vertical ? Math.min(a.a[1], a.b[1]) : Math.min(a.a[0], a.b[0]) }))
+      .sort((p, q) => p.at - q.at).filter((a, i, all) => i === 0 || a.at - all[i - 1]!.at > 1e-6);
+    if (ax.length < 2) return;
+    const base = Math.min(...ax.map((a) => a.end)) * K;
+    const P = (v: number) => (vertical ? pt(v * K, base) : pt(base, v * K));
+    const near = vertical ? -(BUBBLE_MM + 5) : BUBBLE_MM + 5, far = vertical ? near - 7 : near + 7;
+    for (let i = 1; i < ax.length; i++) out.push(dim(P(ax[i - 1]!.at), P(ax[i]!.at), near, cm(c.fmt, ax[i]!.at - ax[i - 1]!.at)));
+    if (ax.length > 2) out.push(dim(P(ax[0]!.at), P(ax[ax.length - 1]!.at), far, cm(c.fmt, ax[ax.length - 1]!.at - ax[0]!.at)));
+  };
+  along(true);
+  along(false);
+  return out;
 }
 
 export function structurePlanDrawing(plan: StructurePlan, o: StructurePlanOptions): DrawingInput {

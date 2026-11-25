@@ -19,7 +19,7 @@ import { DESIGN_OPTION_FLAGS, readDeflectionSettings, type AlternativeOptions, t
 import { defaultLevelName, sortedLevels } from '../model/grid';
 import { computeJointPsiFromModel } from '../engine/codes/argentina/cirsoc201';
 import { computeBeamCriticalSections } from '../engine/station-design-forces';
-import { beamFlangeSides } from '../engine/design/beam-flange';
+import { beamFlangeSides, beamSlabsBeside } from '../engine/design/beam-flange';
 import { columnJointSection, frameJoints, jointChecks, type JointContext } from '../rc-sheets/joints';
 import { withLapFit } from '../rc-sheets/column-ties';
 import { columnLeastMn } from '../engine/design/seismic/frame-checks';
@@ -364,7 +364,7 @@ function demandInput(sets: DemandSet[], dead: AnalysisResults3D[], opts: { faces
     storeyOf: (id) => storeys.get(id),
     shells: { nodes: modelStore.nodes, quads: modelStore.quads, plates: modelStore.plates },
     groups, sets, dead, faces: opts.faces,
-    ...((f) => ({ slabSides: (id: number) => f.get(id)?.sides.length ?? 0, ...(opts.flange ? { flangeSides: (id: number) => f.get(id)?.sides } : {}) }))(beamFlangeSides({ nodes: modelStore.nodes, elements: modelStore.elements, sections: modelStore.sections, quads: concreteQuads() })),
+    ...((fm) => ((f, sb) => ({ slabSides: (id: number) => f.get(id)?.sides.length ?? 0, slabsBeside: (id: number) => sb.get(id), ...(opts.flange ? { flangeSides: (id: number) => f.get(id)?.sides } : {}) }))(beamFlangeSides(fm), beamSlabsBeside(fm)))({ nodes: modelStore.nodes, elements: modelStore.elements, sections: modelStore.sections, quads: concreteQuads() }),
     faceOffset: (id, end) => {
       const e = modelStore.elements.get(id);
       const sec = e ? modelStore.sections.get(e.sectionId) : undefined;

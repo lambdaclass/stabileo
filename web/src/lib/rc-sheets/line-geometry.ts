@@ -107,6 +107,8 @@ export interface LineSection {
   marks: { top: string[]; bottom: string[] };
   /** The cut's number, and where along the line it is cut, m. */
   label: string; at: number[];
+  /** The slabs beside the span cut, as the section shows them seen from the line's start (`BeamDemand.slabs`). */
+  slabs?: ReadonlyArray<{ side: 1 | -1; hf: number; top: number }>;
 }
 
 /** The sections of every span, the identical ones drawn once with every place they stand; with the marks shown, the same bars by other marks are another section. */
@@ -125,10 +127,11 @@ export function lineSections(line: LineLayout, spans: readonly BeamRow[], fmt: F
       const g = sa.at?.[sec] ?? { top: sa.top, bottom: sa.bottom };
       const notes = [`↑ ${groupsLabel(g.top)}`, `↓ ${groupsLabel(g.bottom)}`, stirrupsLabel(sa.stirrups)];
       const marks = { top: marksAt(line, 'top', cutAt), bottom: marksAt(line, 'bottom', cutAt) };
-      const key = `${sp.b}×${sp.h}|${notes.join('|')}|${sa.stirrups.legs}${withMarks ? `|${marks.top.join()}|${marks.bottom.join()}` : ''}`;
+      const slabs = d?.slabs;
+      const key = `${sp.b}×${sp.h}|${notes.join('|')}|${sa.stirrups.legs}${withMarks ? `|${marks.top.join()}|${marks.bottom.join()}` : ''}|${(slabs ?? []).map((x) => `${x.side}:${x.hf}:${x.top}`).join()}`;
       const same = out.find((q) => q.key === key);
       if (same) { same.tags.push(`${sp.name} · ${tag}`); same.at.push(cutAt); }
-      else out.push({ key, drawing: beamSection(sp.b, sp.h, line.cover, g.top, g.bottom, sa.stirrups), notes, tags: [`${sp.name} · ${tag}`], title: '', marks, label: String(out.length + 1), at: [cutAt] });
+      else out.push({ key, drawing: beamSection(sp.b, sp.h, line.cover, g.top, g.bottom, sa.stirrups), notes, tags: [`${sp.name} · ${tag}`], title: '', marks, label: String(out.length + 1), at: [cutAt], ...(slabs?.length ? { slabs } : {}) });
     }
   });
   for (const x of out) x.title = `${x.label}–${x.label} · ${x.tags.length <= 2 ? x.tags.join(', ') : `${x.tags[0]} … ${x.tags[x.tags.length - 1]} (${x.tags.length})`}`;

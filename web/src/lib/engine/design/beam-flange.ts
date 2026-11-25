@@ -176,3 +176,40 @@ export function beamsInSlabPlane(m: FlangeModel): Set<number> {
   }
   return out;
 }
+
+/** A slab beside a beam: on which side of its run (+1 to its left, from its node I towards J), its thickness and its top against the beam's top (negative below it), m. */
+export interface SlabBeside { side: 1 | -1; hf: number; top: number }
+
+/**
+ * The slabs along each horizontal beam, for its drawing: every horizontal shell sharing its two end
+ * nodes, the thinnest on each side, at the level the insertions put it (a slab and a beam both on the
+ * node line are taken cast with the beam's top, as `beamFlangeSides` takes them).
+ */
+export function beamSlabsBeside(m: FlangeModel): Map<number, SlabBeside[]> {
+  const out = new Map<number, SlabBeside[]>();
+  const byNode = new Map<number, number[]>();
+  for (const q of m.quads.values()) for (const n of q.nodes) (byNode.get(n) ?? byNode.set(n, []).get(n)!).push(q.id);
+  for (const e of m.elements.values()) {
+    const a = m.nodes.get(e.nodeI), b = m.nodes.get(e.nodeJ), h = m.sections.get(e.sectionId)?.h;
+    if (!a || !b || !h || Math.abs((a.z ?? 0) - (b.z ?? 0)) > 1e-3) continue;
+    const L = Math.hypot(b.x - a.x, b.y - a.y);
+    if (L < 1e-6) continue;
+    const ux = (b.x - a.x) / L, uy = (b.y - a.y) / L;
+    const line = memberReferenceLine(e, a, b, m.sections);
+    const beamTop = Math.max(line.i.z, line.j.z) + h / 2;
+    const sides = new Map<1 | -1, SlabBeside>();
+    for (const qid of (byNode.get(e.nodeI) ?? []).filter((q) => (byNode.get(e.nodeJ) ?? []).includes(q))) {
+      const q = m.quads.get(qid)!, pts = q.nodes.map((id) => m.nodes.get(id)!);
+      if (pts.some((p) => Math.abs((p.z ?? 0) - (a.z ?? 0)) > 1e-3)) continue;
+      const placed = hasShellOffset(q) || hasMemberOffset(e);
+      const so = hasShellOffset(q) ? resolveShellOffsetGlobal(q.offset!, pts.map((p) => ({ x: p.x, y: p.y, z: p.z ?? 0 }))) : { x: 0, y: 0, z: 0 };
+      const top = placed && so ? (a.z ?? 0) + so.z + q.thickness / 2 - beamTop : 0;
+      const cx = pts.reduce((t, p) => t + p.x, 0) / pts.length - a.x, cy = pts.reduce((t, p) => t + p.y, 0) / pts.length - a.y;
+      const side = ux * cy - uy * cx > 0 ? 1 : -1;
+      const prev = sides.get(side);
+      if (!prev || q.thickness < prev.hf) sides.set(side, { side, hf: q.thickness, top: Math.round(top * 1e6) / 1e6 });
+    }
+    if (sides.size) out.set(e.id, [...sides.values()].sort((x, y) => y.side - x.side));
+  }
+  return out;
+}

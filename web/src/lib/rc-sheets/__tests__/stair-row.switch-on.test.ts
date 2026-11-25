@@ -150,6 +150,18 @@ describe('a stair through the sheets\' outputs', () => {
     expect(drawings.length).toBeGreaterThanOrEqual(2);
   });
 
+  it('dimensions its section as a stair is set out: landings and treads along the bottom, risers up the side, the waist, each landing\'s level', async () => {
+    const { stairSectionPrimitives } = await import('../plans/stair-detail');
+    const placed = stairRow({ ...demand(), place: { x: 0, y: 0, z: 3, dir: { x: 1, y: 0 } } }, ctx, undefined, fmt, 'cirsoc201-2025');
+    const ps = stairSectionPrimitives(placed, { scale: 25, fmt, tr: (k: string) => k });
+    const dims = ps.filter((p): p is Extract<typeof p, { kind: 'dimension' }> => p.kind === 'dimension').map((p) => p.text);
+    const texts = ps.filter((p): p is Extract<typeof p, { kind: 'text' }> => p.kind === 'text').map((p) => p.text);
+    expect(dims).toEqual(expect.arrayContaining(['60', '28 × 9 = 252', '60', '372', '17.5 × 10 = 175', '18']));
+    expect(texts).toEqual(expect.arrayContaining(['e = 18', 'NPT +3.00', 'NPT +4.75']));
+    const along = ps.filter((p): p is Extract<typeof p, { kind: 'dimension' }> => p.kind === 'dimension' && p.a.y === p.b.y && p.offset === -6);
+    expect(along.reduce((t, p) => t + p.b.x - p.a.x, 0)).toBeCloseTo((0.6 + 2.52 + 0.6) * 1000, 6);
+  });
+
   it('has a sheet of its own in the workbook', async () => {
     const { rcSheetsWorkbook } = await import('../workbook');
     const book = rcSheetsWorkbook({ beam: [], column: [], slab: [], wall: [], stair: [r], code: 'CIRSOC 201-2025' }, (k) => k);

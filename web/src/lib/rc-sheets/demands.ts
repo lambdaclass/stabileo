@@ -3,6 +3,7 @@ import { buildCriticalStations, extractForcesAtStation, type StationForces } fro
 import { shellCentreRows, shellLocalAxes, type ShellCentreRow, type ShellModel } from '../engine/shell-results';
 import { woodArmer } from '../engine/wood-armer';
 import { effectiveFlange, type FlangeSide } from '../codes/cirsoc201/effective-flange';
+import type { SlabBeside } from '../engine/design/beam-flange';
 import { wallBaseResultants } from './wall-design';
 import type { AnalysisResults3D, ElementForces3D } from '../engine/types-3d';
 import type { BeamComboForces, BeamDemand, BeamEnd, SectionEnv, SupportPost } from './beam-row';
@@ -64,6 +65,8 @@ export interface DemandInput {
   flangeSides?: (elementId: number) => readonly FlangeSide[] | undefined;
   /** On how many sides a beam element has slab. */
   slabSides?: (elementId: number) => number;
+  /** The slabs beside a beam element, for its drawing (`beamSlabsBeside`). */
+  slabsBeside?: (elementId: number) => readonly SlabBeside[] | undefined;
   /** A member's local axes as the solve builds them; absent, they are built from its nodes and roll. */
   axesOf?: (elementId: number) => { ex: V3; ey: V3; ez: V3 } | null;
 }
@@ -353,11 +356,23 @@ export function beamDemands(m: DemandInput): BeamDemand[] {
         ...(m.slabSides ? { perimeter: span.some(({ e }) => m.slabSides!(e.id) < 2) } : {}),
         env,
         ...((fl) => (fl ? { flange: fl } : {}))(m.flangeSides && !turned ? flangeOf(m, span, sec.b, x1 - x0) : null),
+        ...((sl) => (sl ? { slabs: sl } : {}))(slabsAlong(m, span)),
         ...(missing.length ? { missing } : {}),
       });
     });
   }
   return out;
+}
+
+/** The slabs beside a span, sides read along the line: those of its middle element, else its first with any. */
+function slabsAlong(m: DemandInput, span: ReadonlyArray<{ e: El; forward: boolean }>): SlabBeside[] | null {
+  if (!m.slabsBeside) return null;
+  const order = [span[Math.floor(span.length / 2)]!, ...span];
+  for (const { e, forward } of order) {
+    const s = m.slabsBeside(e.id);
+    if (s?.length) return s.map((x) => ({ ...x, side: (forward ? x.side : -x.side) as 1 | -1 })).sort((x, y) => y.side - x.side);
+  }
+  return null;
 }
 
 /** Nodes a horizontal shell takes: a flat slab cuts a column into storeys as a beam does. */
