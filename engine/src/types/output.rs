@@ -222,6 +222,7 @@ pub enum DiagnosticCode {
     NoFreeDofs,
     NoCompressedElements,
     EigenDecompositionFailed,
+    ModalTranslationMechanism,
     /// Local mechanism detected (hinged node).
     LocalMechanism,
     /// Singular stiffness matrix.

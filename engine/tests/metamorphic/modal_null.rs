@@ -6,7 +6,8 @@ use dedaliano_engine::types::{SolverInput, SolverInput3D};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 
-const PHYSICAL_NULL: &str = "MODAL-MECHANISM: Modal analysis: the constrained physical stiffness";
+const PHYSICAL_NULL: &str = "Modal analysis: the constrained physical stiffness";
+const TRANSLATION_MECHANISM_CODE: &str = "modal_translation_mechanism";
 const FIXTURE: &str = include_str!("../fixtures/modal-null-21650.json");
 
 fn record_case(
@@ -31,6 +32,16 @@ fn record_case(
     writeln!(file, "{case}").unwrap();
 }
 
+fn translation_mechanism(error: &str) -> Value {
+    let payload: Value = serde_json::from_str(error.strip_prefix("MODAL-MECHANISM: ")
+        .unwrap_or_else(|| panic!("{error}"))).unwrap_or_else(|_| panic!("{error}"));
+    let diagnostic = &payload["structuredDiagnostics"][0];
+    assert_eq!(diagnostic["code"], TRANSLATION_MECHANISM_CODE, "{error}");
+    assert_eq!(diagnostic["severity"], "error", "{error}");
+    assert!(payload["message"].as_str().unwrap().starts_with(PHYSICAL_NULL), "{error}");
+    diagnostic.clone()
+}
+
 fn assert_null(result: Result<Value, String>, node: usize) {
     match result {
         Ok(value) => {
@@ -44,11 +55,11 @@ fn assert_null(result: Result<Value, String>, node: usize) {
                 fundamental["modes"][0]["omega"]
             );
         }
-        Err(error) => assert!(
-            error.starts_with(PHYSICAL_NULL)
-                && error.contains(&format!("has a mechanism at node {node} (dominant component: u")),
-            "{error}"
-        ),
+        Err(error) => {
+            let diagnostic = translation_mechanism(&error);
+            assert_eq!(diagnostic["nodeIds"], json!([node]), "{error}");
+            assert!(error.contains(&format!("has a mechanism at node {node} (dominant component: u")), "{error}");
+        }
     }
 }
 
@@ -98,7 +109,7 @@ fn issue_case(seed: u64, certified: bool, relabel: bool) {
             6,
             &case.s,
             &case.dens,
-            json!({"refusal":PHYSICAL_NULL,"node":node}),
+            json!({"refusal":PHYSICAL_NULL,"node":node,"code":TRANSLATION_MECHANISM_CODE}),
         );
         let result = if certified {
             certify_modal_3d(&case.s, &case.dens, 6).map(|r| serde_json::to_value(r).unwrap())
@@ -176,7 +187,7 @@ fn planar_dense_and_sparse_modal_refuse_a_massive_null() {
                 1,
                 &input,
                 &densities,
-                json!({"refusal":PHYSICAL_NULL,"node":2}),
+                json!({"refusal":PHYSICAL_NULL,"node":2,"code":TRANSLATION_MECHANISM_CODE}),
             );
         }
         assert_null(
@@ -338,7 +349,15 @@ fn check_3d_review_case(input: &SolverInput3D, expected: Value) {
 fn check_review_case(result: Result<Value, String>, expected: &Value) {
     if let Some(refusal) = expected["refusal"].as_str() {
         let error = result.unwrap_err();
-        assert!(error.starts_with(refusal), "{error}");
+        if expected["code"] == TRANSLATION_MECHANISM_CODE {
+            let diagnostic = translation_mechanism(&error);
+            if !expected["component"].is_null() {
+                assert_eq!(diagnostic["dofIndices"], json!([expected["component"]]), "{error}");
+                assert_eq!(diagnostic["nodeIds"], json!([2]), "{error}");
+            }
+        } else {
+            assert!(error.starts_with(refusal), "{error}");
+        }
         if let Some(detail) = expected["detail"].as_str() {
             assert!(error.contains(detail), "{error}");
         }
@@ -360,7 +379,7 @@ fn review_skewed_weak_spring_is_distinct_from_a_null_translation() {
             tip.z = 1.0;
             input.materials.get_mut("1").unwrap().e = 1e14 * 2.0_f64.sqrt() / 1000.0;
             let expected = match stiffness {
-                0.0 => json!({"refusal":PHYSICAL_NULL}),
+                0.0 => json!({"refusal":PHYSICAL_NULL,"code":TRANSLATION_MECHANISM_CODE}),
                 1.0 => json!({"refusal":"MODAL-MECHANISM: Modal analysis: the structure is a mechanism"}),
                 _ => json!({"modes":1,"nulls":0}),
             };
@@ -376,7 +395,7 @@ fn review_skewed_weak_spring_is_distinct_from_a_null_translation() {
 #[test]
 fn review_one_detected_mechanism_reports_its_dominant_component() {
     let expected =
-        json!({"refusal":PHYSICAL_NULL,"detail":"has a mechanism at node 2 (dominant component: ux)"});
+        json!({"refusal":PHYSICAL_NULL,"code":TRANSLATION_MECHANISM_CODE,"node":2,"component":0,"detail":"has a mechanism at node 2 (dominant component: ux)"});
     for padding in [0, 32] {
         for pin_ended in [false, true] {
             let mut input = planar(padding, 1.0, 0.0, true);

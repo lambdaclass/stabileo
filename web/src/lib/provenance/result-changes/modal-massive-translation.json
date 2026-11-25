@@ -6,7 +6,7 @@
   "when": {
     "allOf": [
       ["analysis:modal", "analysis:spectral", "seismic"],
-      ["members", "shells", "springs", "constraints", "connectors"]
+      ["members", "springs", "constraints", "connectors"]
     ]
   },
   "title": {

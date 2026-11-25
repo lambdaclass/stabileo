@@ -15,8 +15,9 @@ must be compatible with zero at the round-off scale of the active terms. The
 same bounded projection checks the candidate's local block and the other
 rows. Its constraint expansion must be translational and have a nonzero
 projection onto the physically assembled mass range resolved at round-off.
-A witness blocks the solve with MODAL-MECHANISM and identifies the node and
-the dominant global displacement component of one detected mechanism. Both
+A witness blocks the solve with MODAL-MECHANISM and carries a structured
+diagnostic with the node and dominant global displacement component of one
+detected mechanism. Both
 planar storage paths, the spatial path and their certified and WASM callers
 use this check before the eigensolve. The reported frequency of a candidate never enters the check.
 
@@ -38,5 +39,5 @@ positive finite mode.
 
 Re-check stored modal and dependent results for models with insufficient
 directional restraint. Registry entry `modal-massive-translation` covers modal,
-response spectrum and seismic results of projects with members, shells,
-springs, constraints or connectors. This includes pin-ended frames.
+response spectrum and seismic results of projects with members, springs,
+constraints or connectors. This includes pin-ended frames.

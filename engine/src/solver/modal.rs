@@ -148,7 +148,7 @@ pub fn solve_modal_2d(
             (k_ff, m_csc)
         };
         let ns = k_solve.n;
-        ModalStiffness::Sparse(&k_solve).reject_massive_null_translation(&mass_range, &dof_num, cs.as_ref(), &its, &["ux", "uz"])?;
+        ModalStiffness::Sparse(&k_solve).reject_massive_null_translation(&mass_range, &dof_num, cs.as_ref(), &its, &[0, 2])?;
         let (result, conditioning) = crate::known_issues::with_sparse_factor_conditioning(&k_solve, |observe| {
             mass_range.solve_sparse(&k_solve, &m_solve, num_modes, observe)
         });
@@ -183,7 +183,7 @@ pub fn solve_modal_2d(
         } else {
             (k_ff.clone(), m_ff.clone(), nf)
         };
-        ModalStiffness::Dense(&k_solve, ns).reject_massive_null_translation(&mass_range, &dof_num, cs.as_ref(), &its, &["ux", "uz"])?;
+        ModalStiffness::Dense(&k_solve, ns).reject_massive_null_translation(&mass_range, &dof_num, cs.as_ref(), &its, &[0, 2])?;
         let result = mass_range.solve_dense(&k_solve, &m_solve, num_modes)
             .ok_or_else(|| crate::linalg::lanczos::eigen_failure_message(ns))?;
         crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::dense_stiffness_conditioning(&k_solve, ns).into_iter().collect());
@@ -401,7 +401,7 @@ impl ModalStiffness<'_> {
         dof: &DofNumbering,
         constraints: Option<&FreeConstraintSystem>,
         inclined: &[impl InclinedFrame],
-        names: &[&str],
+        axes: &[usize],
     ) -> Result<(), String> {
         let size = match self {
             Self::Dense(_, n) => *n,
@@ -412,13 +412,13 @@ impl ModalStiffness<'_> {
         for reduced in 0..size {
             let physical = constraints.map_or(reduced, |c| c.independent_dofs()[reduced]);
             let ((node, local), _) = full[physical];
-            if local >= names.len() {
+            if local >= axes.len() {
                 continue;
             }
             if constraints.is_some_and(|c| {
                 let c = &c.c_ff;
                 (c.col_ptr[reduced]..c.col_ptr[reduced + 1])
-                    .any(|p| c.csc_vals[p] != 0.0 && (full[c.row_idx[p]].0).1 >= names.len())
+                    .any(|p| c.csc_vals[p] != 0.0 && (full[c.row_idx[p]].0).1 >= axes.len())
             }) {
                 continue;
             }
@@ -458,12 +458,16 @@ impl ModalStiffness<'_> {
                     None => displacement,
                 };
                 let global = to_global(&free, dof.n_total, inclined);
-                let dominant = names.iter().enumerate().filter_map(|(local, &name)| {
-                    dof.global_dof(node, local).map(|i| (name, global[i].abs()))
-                }).max_by(|a, b| a.1.total_cmp(&b.1)).unwrap().0;
-                return Err(format!(
-                    "{MODAL_MECHANISM}: Modal analysis: the constrained physical stiffness has a mechanism at node {node} (dominant component: {dominant}) with inertia and no resolvable restoring stiffness. No modes are returned."
-                ));
+                let (axis, _) = axes.iter().enumerate().filter_map(|(local, &axis)| {
+                    dof.global_dof(node, local).map(|i| (axis, global[i].abs()))
+                }).max_by(|a, b| a.1.total_cmp(&b.1)).unwrap();
+                let dominant = ["ux", "uy", "uz"][axis];
+                let diagnostic = StructuredDiagnostic::global(
+                    DiagnosticCode::ModalTranslationMechanism,
+                    Severity::Error,
+                    format!("Modal analysis: the constrained physical stiffness has a mechanism at node {node} (dominant component: {dominant}) with inertia and no resolvable restoring stiffness. No modes are returned."),
+                ).with_nodes(vec![node]).with_dofs(vec![axis]);
+                return Err(format!("{MODAL_MECHANISM}: {}", crate::refusal::from_diagnostic(diagnostic)));
             }
         }
         Ok(())
@@ -676,7 +680,7 @@ pub fn solve_modal_3d(
     } else {
         (&sasm.k_ff, &m_sparse_ff)
     };
-    ModalStiffness::Sparse(k_solve).reject_massive_null_translation(&mass_range, &dof_num, cs.as_ref(), its, &["ux", "uy", "uz"])?;
+    ModalStiffness::Sparse(k_solve).reject_massive_null_translation(&mass_range, &dof_num, cs.as_ref(), its, &[0, 1, 2])?;
     let mut structured_diagnostics = known_model;
     crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::for_3d(input, crate::known_issues::Analysis::Modal));
     crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::sparse_conditioning(&sasm.k_ff).into_iter().collect());

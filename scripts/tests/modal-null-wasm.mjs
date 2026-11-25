@@ -11,6 +11,15 @@ for (const [index, { api, count, input, expected }] of cases.entries()) {
     if (expected.refusal) {
       assert.throws(solve, error => {
         const diagnostic = String(error);
+        if (expected.code) {
+          const prefix = 'MODAL-MECHANISM: ';
+          assert.ok(diagnostic.startsWith(prefix));
+          const [witness] = JSON.parse(diagnostic.slice(prefix.length)).structuredDiagnostics;
+          assert.equal(witness.code, expected.code);
+          assert.equal(witness.severity, 'error');
+          if (expected.node !== undefined) assert.deepEqual(witness.nodeIds, [expected.node]);
+          if (expected.component !== undefined) assert.deepEqual(witness.dofIndices, [expected.component]);
+        }
         return diagnostic.includes(expected.refusal)
           && (expected.detail === undefined || diagnostic.includes(expected.detail))
           && (expected.node === undefined || diagnostic.includes(`has a mechanism at node ${expected.node} (dominant component: u`));
